@@ -1,0 +1,22 @@
+# Configuração local do clasp (contém IDs do projeto) e credenciais
+.clasp.json
+.clasprc.json
+.env
+*.pem
+credentials*.json
+token*.json
+
+# Dados — nunca versionar exportações da base (LGPD / sigilo)
+*.csv
+*.xlsx
+*.xls
+*.ods
+dados/
+backup/
+
+# Sistema / editores
+node_modules/
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
