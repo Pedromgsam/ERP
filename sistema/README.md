@@ -10,17 +10,23 @@ e as telas ficam hospedadas na **Vercel**. Não usa Google Sheets nem Apps Scrip
 | `app/` | As telas (HTML/CSS/JS). `config.js` guarda o endereço do Supabase |
 | `testes/` | Testes automáticos do banco e das telas (rodam sem internet) |
 
-## O que já faz (fase 1)
+## O que já faz
 
-- **Login** com e-mail e senha; usuário novo só entra depois que o administrador libera.
-- **Clientes**: cadastro com grupo, CPF/CNPJ, tipo, responsável e contato.
-- **Contratos**: ao criar, as parcelas entram sozinhas no Financeiro; lançamento de êxito avulso.
-- **Financeiro**: receitas e despesas por mês, baixa com um clique, despesas recorrentes,
-  filtros (em aberto, pagos, em atraso) e busca.
-- **Início**: recebido, a receber, a pagar, em atraso e saldo do mês; lista do que está atrasado
-  e do que vence nos próximos 15 dias.
-- **Usuários** (admin): libera, bloqueia e define quem é administrador.
-- **Histórico**: toda inclusão, alteração e exclusão fica registrada (quem, quando, o quê).
+Menu no mesmo formato do ERP antigo:
+
+- **Início**: resumo do mês das duas empresas (jurídico e contabilidade), atrasados e próximos 15 dias.
+- **Painel Executivo**: passivo tributário consolidado (PGFN, AGE/MG, RFB, SEFAZ/MG), passivo por grupo,
+  distribuição por órgão e a lista de empresas com CAPAG, situação cadastral e procuração.
+- **Honorários Jurídico** e **Honorários Contabilidade**: abas Análise, A Receber, Recebidos, Prejuízo,
+  A Pagar e Despesas pagas; baixa com um clique; situação de cobrança ("Cobrado", "Emitir guia"…);
+  despesas recorrentes; filtros por mês, grupo e pessoa.
+- **Contratos**: ao criar, as parcelas entram sozinhas em Honorários Jurídico.
+- **Clientes**: cadastro completo da Base de Dados (débitos, procuração, certificado, CAPAG…).
+- **Administração** (admin): Usuários · **Importar planilhas** (Base de Dados, Financeiro e Financeiro -
+  Contabilidade, baixadas do Google Sheets em .xlsx) · **Backup** (Excel e .json) · **Histórico**
+  (toda gravação, com autor, horário e o que mudou).
+
+A coluna **Senha** da Base de Dados não é importada.
 
 ## Quem pode o quê
 
@@ -69,6 +75,15 @@ Supabase e Vercel têm plano gratuito suficiente para começar. Para dados de cl
 diário, recomenda-se o plano **Pro do Supabase** (backup diário automático; projetos gratuitos
 pausam após 7 dias sem uso). Confira os preços atuais nos sites antes de assinar.
 
+## Atualizar o banco depois de uma versão nova
+Quando o sistema ganhar campos novos, cole de novo o `banco/estrutura.sql` inteiro no SQL Editor
+do Supabase e clique em Run. É seguro: o arquivo só cria o que falta e não apaga dados.
+
 ## Testes
-`testes/rodar-tudo.sh` recria um banco local que imita o Supabase e roda os testes de
-permissão (21) e das telas num navegador (25).
+`testes/rodar-tudo.sh` recria um banco local que imita o Supabase (PostgreSQL + PostgREST) e roda
+os testes de permissão do banco (21), do importador com planilhas fictícias (36) e das telas num
+navegador com os mesmos cabeçalhos de segurança da Vercel (40). Precisa de `NODE_PATH` com
+`playwright` e `exceljs`.
+
+Bibliotecas incluídas em `app/vendor/` (licença MIT): supabase-js 2.117.2 e ExcelJS 4.4.0
+(esta só é carregada nas telas de importação e backup).

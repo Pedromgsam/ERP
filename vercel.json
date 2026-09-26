@@ -27,12 +27,7 @@
         {
           "key": "X-Robots-Tag",
           "value": "noindex, nofollow"
-        }
-      ]
-    },
-    {
-      "source": "/(index.html|app.js|config.js|estilo.css)?",
-      "headers": [
+        },
         {
           "key": "Cache-Control",
           "value": "no-cache"

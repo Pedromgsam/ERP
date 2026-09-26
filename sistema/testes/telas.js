@@ -1,165 +1,219 @@
-// Teste das telas num navegador de verdade, contra o servidor-local.js.
+// Teste das telas num navegador de verdade, contra o servidor-local.js
+// (que imita o Supabase e aplica os mesmos cabeçalhos de segurança da Vercel).
 const { chromium } = require('playwright');
+const ExcelJS = require('exceljs');
+const fs = require('fs'), os = require('os'), path = require('path');
+const { execFileSync } = require('child_process');
+const fic = require('./planilhas-ficticias.js');
 const BASE = process.env.BASE || 'http://127.0.0.1:8090';
 const FOTOS = process.env.FOTOS || '';
+const sql = (q) => execFileSync('psql', ['-h', '127.0.0.1', '-p', process.env.PGPORT || '54329', '-U', 'postgres', '-d', 'erp', '-tAc', q]).toString().trim();
 const r = []; const ok = (n, c) => r.push([n, !!c]);
+
 (async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'telas-'));
+  const arqs = [dir + '/1 - Base de Dados.xlsx', dir + '/7 - Financeiro.xlsx', dir + '/12 - Financeiro - Contabilidade.xlsx'];
+  await fic.baseDeDados(arqs[0]); await fic.financeiro(arqs[1]); await fic.contabilidade(arqs[2]);
+
   const b = await chromium.launch();
-  const erros = [];
+  const erros = [], bloqueios = [];
   try {
-  async function pagina(largura) {
-    const p = await b.newPage({ viewport: { width: largura || 1366, height: 860 } });
-    p.on('pageerror', (e) => erros.push(e.message));
-    p.on('dialog', (d) => d.accept());
-    return p;
-  }
-  async function entrar(p, email) {
-    await p.goto(BASE); await p.waitForSelector('#login-email', { state: 'visible' }); await p.fill('#login-email', email); await p.fill('#login-senha', 'senha123');
-    await p.click('#login-btn');
-    // espera entrar (tela do sistema) ou aparecer mensagem no login
-    await p.waitForFunction(() => !document.getElementById('tela-app').classList.contains('escondido')
-      || document.getElementById('login-msg').textContent.trim(), null, { timeout: 10000 }).catch(() => {});
-    await p.waitForTimeout(400);
-    if (process.env.DEPURAR) console.log('[entrar ' + email + '] app visível:', await p.isVisible('#tela-app'), '| msg:', await p.textContent('#login-msg'), '| botão:', await p.textContent('#login-btn'), '| conteudo:', (await p.textContent('#conteudo')).slice(0, 80));
-  }
-  const foto = async (p, nome) => { if (FOTOS) await p.screenshot({ path: FOTOS + '/' + nome + '.png', fullPage: true }); };
-  const texto = (p) => p.textContent('#conteudo');
+    async function pagina(largura) {
+      const ctx = await b.newContext({ viewport: { width: largura || 1366, height: 860 }, acceptDownloads: true });
+      const p = await ctx.newPage();
+      p.on('pageerror', (e) => erros.push(e.message));
+      p.on('console', (m) => { if (/Content Security Policy|Refused to/i.test(m.text())) bloqueios.push(m.text()); });
+      p.on('dialog', (d) => d.accept());
+      return p;
+    }
+    async function entrar(p, email, senha) {
+      await p.goto(BASE); await p.waitForSelector('#login-email', { state: 'visible' });
+      await p.fill('#login-email', email); await p.fill('#login-senha', senha || 'senha123');
+      await p.click('#login-btn');
+      await p.waitForFunction(() => !document.getElementById('tela-app').classList.contains('escondido')
+        || document.getElementById('login-msg').textContent.trim(), null, { timeout: 10000 }).catch(() => {});
+      await p.waitForTimeout(500);
+    }
+    const esperar = (p, t) => p.waitForTimeout(t || 700);
+    const foto = async (p, nome) => { if (FOTOS) await p.screenshot({ path: FOTOS + '/' + nome + '.png', fullPage: true }); };
+    const texto = (p, sel) => p.textContent(sel || '#conteudo');
+    const menu = async (p, tela) => { await p.click('#menu [data-tela=' + tela + ']'); await esperar(p, 900); };
 
-  // ── admin ──
-  let p = await pagina();
-  await p.goto(BASE); await p.fill('#login-email', 'pedro@teste'); await p.fill('#login-senha', 'errada'); await p.click('#login-btn');
-  await p.waitForTimeout(600);
-  ok('senha errada mostra mensagem clara', /E-mail ou senha incorretos/.test(await p.textContent('#login-msg')));
-  await foto(p, '01-login');
-  await entrar(p, 'pedro@teste');
-  ok('admin entra e vê o Início', /Olá, Pedro/.test(await texto(p)));
-  ok('admin vê o menu Usuários', await p.isVisible('#menu [data-tela=usuarios]'));
+    // ── admin ──
+    let p = await pagina();
+    await entrar(p, 'pedro@teste', 'errada');
+    ok('senha errada mostra mensagem clara', /E-mail ou senha incorretos/.test(await texto(p, '#login-msg')));
+    await entrar(p, 'pedro@teste');
+    const ini = await texto(p);
+    ok('Início com as duas empresas', /Olá, Pedro/.test(ini) && /Honorários Jurídico/.test(ini) && /Contabilidade/.test(ini));
+    ok('menu com Painel, Honorários e Administração', await p.isVisible('#menu [data-tela=painel]') && await p.isVisible('#menu [data-tela=admin]'));
 
-  // cliente novo com grupo novo
-  await p.click('#menu [data-tela=clientes]'); await p.waitForTimeout(400);
-  await p.click('text=+ Novo cliente');
-  await p.fill('#f-cli [name=nome]', 'Empresa Alfa Ltda');
-  await p.fill('#f-cli [name=cpf_cnpj]', '11222333000144');
-  await p.fill('#f-cli [name=grupo]', 'Grupo Alfa');
-  await p.fill('#f-cli [name=responsavel]', 'Pedro');
-  await p.click('#btn-salvar-cli'); await p.waitForTimeout(800);
-  ok('cadastra cliente e cria o grupo', /Empresa Alfa Ltda[\s\S]*Grupo Alfa[\s\S]*11\.222\.333\/0001-44/.test(await texto(p)));
+    // cliente manual com passivo
+    await menu(p, 'clientes');
+    await p.click('text=+ Novo cliente');
+    await p.fill('#f-cli [name=nome]', 'Zeta Manual LTDA');
+    await p.fill('#f-cli [name=cpf_cnpj]', '55666777000199');
+    await p.fill('#f-cli [name=grupo]', 'Grupo Zeta');
+    await p.fill('#f-cli [name=responsavel]', 'Pedro');
+    await p.fill('#f-cli [name=pgfn]', '1.000,00');
+    await p.selectOption('#f-cli [name=procuracao]', 'sim');
+    await p.selectOption('#f-cli [name=capag]', 'Omisso');
+    await foto(p, '01-ficha-cliente');
+    await p.click('#btn-salvar-cli'); await esperar(p, 1000);
+    ok('cadastra cliente completo com grupo novo', /Zeta Manual LTDA[\s\S]*55\.666\.777\/0001-99/.test(await texto(p)) && sql("select pgfn||'|'||procuracao||'|'||capag from clientes where nome='Zeta Manual LTDA'") === '1000.00|true|Omisso');
 
-  // contrato com 3 parcelas
-  await p.click('#menu [data-tela=contratos]'); await p.waitForTimeout(400);
-  await p.click('text=+ Novo contrato');
-  await p.selectOption('#f-ctr [name=cliente_id]', { label: 'Empresa Alfa Ltda · Grupo Alfa' });
-  await p.fill('#f-ctr [name=descricao]', 'Consultoria tributária');
-  await p.fill('#f-ctr [name=valor_total]', '10.000,00');
-  await p.fill('#f-ctr [name=num_parcelas]', '3');
-  const hoje = new Date(); const iso = (d) => d.toISOString().slice(0, 10);
-  const venc1 = new Date(hoje.getFullYear(), hoje.getMonth(), Math.min(hoje.getDate(), 28));
-  await p.fill('#f-ctr [name=primeiro_vencimento]', iso(new Date(venc1.getTime() - 86400000 * 0)));
-  await p.waitForTimeout(200);
-  ok('prévia mostra as parcelas antes de salvar', /3 parcela\(s\)[\s\S]*3\.333,33[\s\S]*3\.333,34/.test(await p.textContent('#ctr-previa')));
-  await foto(p, '02-novo-contrato');
-  await p.click('#btn-salvar-ctr'); await p.waitForTimeout(900);
-  ok('contrato aparece na lista com 0/3 parcelas', /Consultoria tributária[\s\S]*R\$\s10\.000,00[\s\S]*0\/3/.test(await texto(p)));
+    // contrato gera parcelas com grupo e pessoa
+    await menu(p, 'contratos');
+    await p.click('text=+ Novo contrato');
+    await p.selectOption('#f-ctr [name=cliente_id]', { label: 'Zeta Manual LTDA · Grupo Zeta' });
+    await p.fill('#f-ctr [name=descricao]', 'Consultoria tributária');
+    await p.fill('#f-ctr [name=valor_total]', '9.000,00');
+    await p.fill('#f-ctr [name=num_parcelas]', '3');
+    await p.fill('#f-ctr [name=primeiro_vencimento]', new Date().toISOString().slice(0, 10));
+    await p.click('#btn-salvar-ctr'); await esperar(p, 1200);
+    ok('contrato cria 3 parcelas com grupo e pessoa do cliente', sql("select count(*) from lancamentos l join grupos g on g.id=l.grupo_id where g.nome='Grupo Zeta' and l.responsavel='Pedro' and l.contrato_id is not null") === '3');
 
-  // detalhe do contrato: dar baixa na 1ª parcela
-  await p.click('[data-ctr]'); await p.waitForTimeout(700);
-  await p.click('.janela [data-pagar] >> nth=0'); await p.waitForTimeout(900);
-  ok('baixa da parcela pelo contrato', /Recebido[\s\S]*3\.333,33[\s\S]*1 de 3/.test(await p.textContent('.janela')));
-  await foto(p, '03-detalhe-contrato');
-  await p.keyboard.press('Escape');
+    // Honorários Jurídico
+    await menu(p, 'juridico');
+    ok('Análise com gráfico mensal e KPIs', (await p.locator('#fin-corpo svg.grafico').count()) >= 1 && /Total em aberto/.test(await texto(p)));
+    await p.click('#fin-abas [data-aba=areceber]'); await esperar(p);
+    ok('A Receber lista as parcelas (todos os meses)', /Consultoria tributária — parcela 1\/3/.test(await texto(p)) && /Todos os meses/.test(await texto(p, '#fin-periodo')));
+    await p.click('#fin-corpo tr:has-text("parcela 1/3") [data-pagar]'); await esperar(p, 900);
+    await p.click('#fin-abas [data-aba=recebidos]'); await esperar(p);
+    ok('baixa aparece em Recebidos do mês', /parcela 1\/3/.test(await texto(p)) && /Recebido/.test(await texto(p)));
+    // busca não perde o foco nem recria a barra
+    await p.click('#fin-abas [data-aba=areceber]'); await esperar(p);
+    const barraAntes = await p.evaluate(() => { window.__barra = document.getElementById('fin-barra'); return true; });
+    await p.fill('#fin-busca', 'parcela 3'); await esperar(p, 700);
+    ok('busca filtra sem recriar a barra e sem tirar o foco', barraAntes && await p.evaluate(() => window.__barra === document.getElementById('fin-barra') && document.activeElement.id === 'fin-busca')
+      && /parcela 3\/3/.test(await texto(p, '#fin-corpo')) && !/parcela 2\/3/.test(await texto(p, '#fin-corpo')));
+    await p.fill('#fin-busca', ''); await esperar(p, 500);
+    // ordenar por valor clicando no cabeçalho
+    await p.click('#fin-corpo th:has-text("Valor")'); await esperar(p, 200);
+    ok('cabeçalho ordena a tabela', await p.getAttribute('#fin-corpo th:has-text("Valor")', 'aria-sort') === 'descending');
+    await foto(p, '02-honorarios-areceber');
 
-  // despesa recorrente de 3 meses
-  await p.click('#menu [data-tela=financeiro]'); await p.waitForTimeout(500);
-  await p.click('text=+ Despesa');
-  await p.fill('#f-lanc [name=descricao]', 'Aluguel');
-  await p.fill('#f-lanc [name=valor]', '2.500,00');
-  await p.fill('#f-lanc [name=categoria]', 'Aluguel');
-  await p.selectOption('#f-lanc [name=repetir]', '3');
-  await p.click('#btn-salvar-lanc'); await p.waitForTimeout(900);
-  const fin = await texto(p);
-  ok('despesa recorrente cria o lançamento do mês', /Aluguel \(1\/3\)/.test(fin));
-  ok('financeiro mostra receita paga e totais', /Pago[\s\S]*Receitas\s*R\$\s3\.333,33/.test(fin) || /Receitas/.test(fin));
-  await foto(p, '04-financeiro');
-  await p.click('[data-mes="1"]'); await p.waitForTimeout(500);
-  ok('mês seguinte tem a 2ª parcela e o aluguel 2/3', /Aluguel \(2\/3\)/.test(await texto(p)) && /parcela 2\/3/.test(await texto(p)));
-  await p.click('[data-sit="vencidos"]'); await p.waitForTimeout(500);
-  ok('filtro Em atraso funciona (vazio no início)', /Nenhum lançamento aqui|Todos os meses/.test(await texto(p)));
+    // Contabilidade: despesa recorrente
+    await menu(p, 'contabilidade');
+    await p.click('text=+ Despesa');
+    await p.fill('#f-lanc [name=descricao]', 'Sistema contábil');
+    await p.fill('#f-lanc [name=valor]', '616,00');
+    await p.fill('#f-lanc [name=favorecido]', 'Arquivei');
+    await p.selectOption('#f-lanc [name=repetir]', '3');
+    ok('nova despesa já vem com empresa Contabilidade', await p.inputValue('#f-lanc [name=empresa]') === 'contabilidade');
+    await p.click('#btn-salvar-lanc'); await esperar(p, 1000);
+    ok('despesa recorrente gravada na Contabilidade', sql("select count(*) from lancamentos where empresa='contabilidade' and favorecido='Arquivei'") === '3');
 
-  // editar lançamento e excluir
-  await p.click('[data-sit="todos"]'); await p.waitForTimeout(300);
-  await p.click('[data-mes="-1"]'); await p.waitForTimeout(500);
-  await p.click('tr:has-text("Aluguel (1/3)") [data-editar]'); await p.waitForTimeout(500);
-  await p.fill('#f-lanc [name=valor]', '2600');
-  await p.click('#btn-salvar-lanc'); await p.waitForTimeout(800);
-  ok('edição de valor salva', /2\.600,00/.test(await texto(p)));
-  await p.click('tr:has-text("Aluguel (1/3)") [data-editar]'); await p.waitForTimeout(500);
-  await p.click('#btn-excluir-lanc'); await p.waitForTimeout(800);
-  ok('exclusão de lançamento', !/Aluguel \(1\/3\)/.test(await texto(p)));
+    // ── importação ──
+    await menu(p, 'admin');
+    await p.click('#adm-abas [data-aba=importar]'); await esperar(p);
+    await p.setInputFiles('#imp-arquivos', arqs); await esperar(p, 2500);
+    const prev = await texto(p, '#imp-previa');
+    ok('prévia reconhece as 3 planilhas', /Base de Dados → Clientes/.test(prev) && /Honorários Jurídico/.test(prev) && /Contabilidade/.test(prev));
+    ok('prévia mostra avisos (repetido/sem nome) antes de gravar', /aviso/.test(prev) && sql("select count(*) from clientes where chave_importacao is not null") === '0');
+    await foto(p, '03-importar-previa');
+    await p.click('#imp-gravar');
+    await p.waitForFunction(() => /Importado/.test(document.getElementById('imp-previa').textContent), null, { timeout: 20000 }).catch(() => {});
+    ok('importação concluída', /Importado: 5 cliente/.test(await texto(p, '#imp-previa')));
+    const nCli = sql('select count(*) from clientes where chave_importacao is not null');
+    const nLanc = sql('select count(*) from lancamentos where chave_importacao is not null');
+    ok('gravou 5 clientes e 14 lançamentos importados (9 jurídico + 5 contabilidade)', nCli === '5' && nLanc === '14');
+    ok('senha da planilha não foi para o banco', !sql("select coalesce(string_agg(obs||historico_cadastral,''),'') from clientes").includes('SenhaSecreta'));
+    // reimportar não duplica
+    await p.click('#adm-abas [data-aba=importar]'); await esperar(p);
+    await p.setInputFiles('#imp-arquivos', arqs); await esperar(p, 2500);
+    await p.click('#imp-gravar');
+    await p.waitForFunction(() => /Importado/.test(document.getElementById('imp-previa').textContent), null, { timeout: 20000 }).catch(() => {});
+    ok('reimportar sem mudanças não polui o histórico', sql("select count(*) from historico where acao='UPDATE' and depois->>'chave_importacao' is not null") === '0');
+    ok('reimportar a mesma planilha não duplica', sql('select count(*) from clientes where chave_importacao is not null') === '5' && sql('select count(*) from lancamentos where chave_importacao is not null') === '14');
 
-  // validação amigável
-  await p.click('text=+ Receita');
-  await p.fill('#f-lanc [name=descricao]', 'Teste');
-  await p.fill('#f-lanc [name=valor]', 'abc');
-  await p.click('#btn-salvar-lanc'); await p.waitForTimeout(400);
-  ok('valor inválido mostra aviso, não grava', /valor maior que zero/.test(await p.textContent('#aviso')));
-  await p.keyboard.press('Escape');
+    // Painel Executivo
+    await menu(p, 'painel');
+    const esperado = 1500.5 + 250000 + 3222.56 + 1078344.59 + 20000000 + 5000 + 1000;   // ativos (sem o Inativo)
+    const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(esperado).replace(/\s/g, ' ');
+    const pn = (await texto(p)).replace(/\s/g, ' ');
+    ok('Painel: passivo total dos ativos confere (' + fmt + ')', pn.includes(fmt));
+    ok('Painel: gráfico por grupo e rosca por órgão', (await p.locator('#pn-corpo svg').count()) >= 2);
+    ok('Painel: CAPAG "Omisso" em destaque', (await p.locator('#pn-corpo .pill.omisso').count()) >= 1);
+    await p.click('#pn-tipo [data-v=Inativo]'); await esperar(p, 400);
+    ok('Painel: filtro Inativos mostra só o inativo', /Épsilon Pirotecnia/.test(await texto(p, '#pn-corpo')) && !/Alfa Comércio/.test(await texto(p, '#pn-corpo')));
+    await p.click('#pn-limpar'); await esperar(p, 400);
+    await foto(p, '04-painel');
 
-  // início com KPIs
-  await p.click('#menu [data-tela=inicio]'); await p.waitForTimeout(700);
-  const ini = await texto(p);
-  ok('Início mostra recebido no mês', /Recebido no mês\s*R\$\s3\.333,33/.test(ini));
-  await foto(p, '05-inicio');
+    // Honorários importados: COBRADO, previsão, prejuízo
+    await menu(p, 'juridico');
+    await p.click('#fin-abas [data-aba=areceber]'); await esperar(p);
+    const ar = await texto(p, '#fin-corpo');
+    ok('importados aparecem com "Cobrado" e "Previsão"', /Cobrado/.test(ar) && /Previsão: 30\/09\/2026/.test(ar));
+    await p.click('#fin-abas [data-aba=prejuizo]'); await esperar(p);
+    ok('aba Prejuízo com o crédito perdido', /910,80/.test(await texto(p, '#fin-corpo')));
 
-  // usuários: libera o novo
-  await p.click('#menu [data-tela=usuarios]'); await p.waitForTimeout(600);
-  await foto(p, '06-usuarios');
-  const selNovo = p.locator('tr:has-text("novo@teste") select');
-  await selNovo.selectOption('equipe'); await p.waitForTimeout(700);
-  ok('admin libera usuário novo', /Acesso atualizado/.test(await p.textContent('#aviso')));
-  await p.locator('tr:has-text("pedro@teste") select').selectOption('equipe'); await p.waitForTimeout(900);
-  ok('não deixa tirar o último admin', /pelo menos um administrador/.test(await p.textContent('#aviso')));
-  await p.click('#btn-sair'); await p.waitForTimeout(500);
-  ok('sair volta ao login', await p.isVisible('#tela-login'));
-  await p.close();
+    // Backup
+    await menu(p, 'admin');
+    await p.click('#adm-abas [data-aba=backup]'); await esperar(p);
+    const [down] = await Promise.all([p.waitForEvent('download', { timeout: 20000 }), p.click('#bk-excel')]);
+    const arqBk = dir + '/backup.xlsx'; await down.saveAs(arqBk);
+    const wb = new ExcelJS.Workbook(); await wb.xlsx.readFile(arqBk);
+    const nomes = wb.worksheets.map((w) => w.name);
+    const linhasLanc = wb.getWorksheet('lancamentos').rowCount - 1;
+    ok('backup em Excel com todas as tabelas', ['Leia-me', 'clientes', 'grupos', 'contratos', 'lancamentos', 'perfis', 'historico'].every((n) => nomes.includes(n)));
+    ok('backup tem todos os lançamentos do banco (' + linhasLanc + ')', String(linhasLanc) === sql('select count(*) from lancamentos'));
+    const [downJ] = await Promise.all([p.waitForEvent('download', { timeout: 20000 }), p.click('#bk-json')]);
+    const arqJ = dir + '/backup.json'; await downJ.saveAs(arqJ);
+    const js = JSON.parse(fs.readFileSync(arqJ, 'utf8'));
+    ok('backup .json completo para restaurar', js.dados && js.dados.clientes.length === Number(sql('select count(*) from clientes')));
 
-  // ── equipe ──
-  p = await pagina();
-  await entrar(p, 'equipe@teste');
-  ok('equipe entra', /Olá, Adriana/.test(await texto(p)));
-  ok('equipe não vê menu Usuários', !(await p.isVisible('#menu [data-tela=usuarios]')));
-  await p.click('#menu [data-tela=clientes]'); await p.waitForTimeout(400);
-  await p.click('[data-cli]'); await p.waitForTimeout(600);
-  ok('equipe não tem botão excluir cliente', (await p.locator('#btn-excluir-cli').count()) === 0);
-  ok('ficha do cliente mostra contratos e em aberto', /1<\/b> contrato\(s\)[\s\S]*6\.666,67/.test(await p.innerHTML('.janela')));
-  await p.close();
+    // Histórico
+    await p.click('#adm-abas [data-aba=historico]'); await esperar(p, 900);
+    const hist = await texto(p, '#adm-corpo');
+    ok('Histórico mostra quem fez e o que mudou', /Pedro Castro/.test(hist) && /Alterou/.test(hist) && /pago/.test(hist));
+    ok('Histórico mostra nome do grupo, não código interno', /grupo:\s*\(vazio\)\s*→\s*Grupo Zeta/.test(hist) && !/[0-9a-f]{8}-[0-9a-f]{4}-/.test(hist));
+    await foto(p, '05-historico');
 
-  // ── celular ──
-  p = await pagina(390);
-  await entrar(p, 'pedro@teste');
-  const larg = await p.evaluate(() => document.documentElement.scrollWidth);
-  ok('no celular não estoura a largura', larg <= 392);
-  await foto(p, '07-celular');
-  await p.close();
+    // Usuários
+    await p.click('#adm-abas [data-aba=usuarios]'); await esperar(p);
+    await p.locator('tr:has-text("novo@teste") select').selectOption('equipe'); await esperar(p);
+    ok('admin libera usuário novo', sql("select papel from perfis where email='novo@teste'") === 'equipe');
+    await p.locator('tr:has-text("pedro@teste") select').selectOption('equipe'); await esperar(p, 900);
+    ok('não deixa tirar o último admin', /pelo menos um administrador/.test(await texto(p, '#aviso')));
+    await p.click('#btn-sair'); await esperar(p, 500);
+    ok('sair volta ao login', await p.isVisible('#tela-login'));
+    await p.context().close();
 
-  // ── usuário recém-criado (inativo) ──
-  const { execFileSync } = require('child_process');
-  execFileSync('psql', ['-h', '127.0.0.1', '-p', '54329', '-U', 'postgres', '-d', 'erp', '-c',
-    "insert into auth.users(email,senha_teste) values ('outro@teste','senha123')"]);
-  p = await pagina();
-  await entrar(p, 'outro@teste');
-  await p.waitForFunction(() => /liberado/.test(document.getElementById('login-msg').textContent), null, { timeout: 8000 }).catch(() => {});
-  ok('usuário não liberado não entra e vê o motivo', /ainda não foi liberado/.test(await p.textContent('#login-msg')));
-  await p.close();
+    // ── equipe ──
+    p = await pagina();
+    await entrar(p, 'equipe@teste');
+    ok('equipe entra e não vê Administração', /Olá, Adriana/.test(await texto(p)) && !(await p.isVisible('#menu [data-tela=admin]')));
+    await menu(p, 'clientes');
+    await p.click('[data-cli]'); await esperar(p, 800);
+    ok('equipe não tem botão excluir cliente', (await p.locator('#btn-excluir-cli').count()) === 0);
+    await p.context().close();
 
+    // ── celular ──
+    p = await pagina(390);
+    await entrar(p, 'pedro@teste');
+    for (const t of ['painel', 'juridico']) {
+      await p.click('#menu [data-tela=' + t + ']'); await esperar(p, 900);
+      ok('no celular "' + t + '" não estoura a largura', await p.evaluate(() => document.documentElement.scrollWidth) <= 392);
+    }
+    await foto(p, '06-celular');
+    await p.context().close();
+
+    // ── usuário recém-criado (inativo) ──
+    sql("insert into auth.users(email,senha_teste) values ('outro@teste','senha123')");
+    p = await pagina();
+    await entrar(p, 'outro@teste');
+    await p.waitForFunction(() => /liberado/.test(document.getElementById('login-msg').textContent), null, { timeout: 8000 }).catch(() => {});
+    ok('usuário não liberado não entra e vê o motivo', /ainda não foi liberado/.test(await texto(p, '#login-msg')));
+    await p.context().close();
   } catch (e) {
     ok('teste interrompido: ' + e.message.split('\n')[0], false);
-    if (FOTOS) { for (const pg of b.contexts().flatMap((c) => c.pages())) {
-      await pg.screenshot({ path: FOTOS + '/falha.png', fullPage: true }).catch(() => {});
-      console.log('aviso na tela:', await pg.textContent('#aviso').catch(() => '?'));
-      console.log('conteudo:', (await pg.textContent('#conteudo').catch(() => '?')).slice(0, 300)); } }
+    if (FOTOS) for (const pg of b.contexts().flatMap((c) => c.pages())) await pg.screenshot({ path: FOTOS + '/falha.png', fullPage: true }).catch(() => {});
   }
-  ok('nenhum erro de JavaScript em nenhuma tela', erros.length === 0);
+  ok('nenhum erro de JavaScript', erros.length === 0);
+  ok('nada bloqueado pela política de segurança (CSP)', bloqueios.length === 0);
   if (erros.length) console.log(erros);
+  if (bloqueios.length) console.log(bloqueios.slice(0, 5));
   await b.close();
   r.forEach(([n, c]) => console.log((c ? 'PASSA ' : 'FALHA ') + n));
   console.log('\n' + r.filter((x) => x[1]).length + ' passaram, ' + r.filter((x) => !x[1]).length + ' falharam');

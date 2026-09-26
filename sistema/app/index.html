@@ -37,14 +37,17 @@
       <div><div class="marca-nome">Araújo &amp; Castro</div><div class="marca-sub">ERP</div></div></div>
     <nav id="menu">
       <button data-tela="inicio">Início</button>
-      <button data-tela="financeiro">Financeiro</button>
+      <button data-tela="painel">Painel Executivo</button>
+      <button data-tela="juridico">Honorários Jurídico</button>
+      <button data-tela="contabilidade">Honorários Contabilidade</button>
       <button data-tela="contratos">Contratos</button>
       <button data-tela="clientes">Clientes</button>
-      <button data-tela="usuarios" class="so-admin">Usuários</button>
+      <button data-tela="admin" class="so-admin">Administração</button>
     </nav>
     <div class="hd-usuario"><span id="hd-nome"></span><button id="btn-sair" type="button">Sair</button></div>
   </header>
   <main id="conteudo"></main>
+  <footer id="rodape-gravacao" class="rodape"></footer>
 </section>
 
 <div id="janelas"></div>
@@ -52,6 +55,12 @@
 
 <script src="vendor/supabase.js"></script>
 <script src="config.js"></script>
-<script src="app.js"></script>
+<script src="importador.js"></script>
+<script src="nucleo.js"></script>
+<script src="graficos.js"></script>
+<script src="telas-painel.js"></script>
+<script src="telas-financeiro.js"></script>
+<script src="telas-cadastros.js"></script>
+<script src="telas-admin.js"></script>
 </body>
 </html>

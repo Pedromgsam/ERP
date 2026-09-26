@@ -203,6 +203,10 @@ create table if not exists public.historico (
 create or replace function public.registrar_historico() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
+  -- alteração que não muda nada (ex.: reimportar a mesma planilha) não polui o histórico
+  if tg_op = 'UPDATE' and (to_jsonb(old) - 'atualizado_em') = (to_jsonb(new) - 'atualizado_em') then
+    return null;
+  end if;
   insert into public.historico (tabela, registro_id, acao, usuario, antes, depois)
   values (tg_table_name,
           coalesce((case when tg_op = 'DELETE' then old.id else new.id end), null),
@@ -277,3 +281,49 @@ create policy contratos_excluir on public.contratos for delete to authenticated 
 -- histórico: só admin lê.
 drop policy if exists historico_ver on public.historico;
 create policy historico_ver on public.historico for select to authenticated using (public.eh_admin());
+
+-- ═══════════════════════════════════════════════════════════════════
+-- v2 (2026-09-26) — campos do ERP antigo: cadastro completo dos clientes,
+-- financeiro do escritório e da contabilidade, e chave de importação
+-- (reimportar a mesma planilha atualiza em vez de duplicar).
+-- ═══════════════════════════════════════════════════════════════════
+alter table public.clientes add column if not exists socio_admin        text not null default '';
+alter table public.clientes add column if not exists rfb                numeric(16,2);
+alter table public.clientes add column if not exists rfb_negociada      numeric(16,2);
+alter table public.clientes add column if not exists pgfn               numeric(16,2);
+alter table public.clientes add column if not exists pgfn_negociada     numeric(16,2);
+alter table public.clientes add column if not exists sefaz_mg           numeric(16,2);
+alter table public.clientes add column if not exists age_mg             numeric(16,2);
+alter table public.clientes add column if not exists age_mg_negociada   numeric(16,2);
+alter table public.clientes add column if not exists ceat_trt3          int;
+alter table public.clientes add column if not exists em_operacao        boolean;
+alter table public.clientes add column if not exists procuracao         boolean;
+alter table public.clientes add column if not exists certificado        boolean;
+alter table public.clientes add column if not exists cadastro_regular   boolean;
+alter table public.clientes add column if not exists capag              text not null default '';
+alter table public.clientes add column if not exists regime_tributario  text not null default '';
+alter table public.clientes add column if not exists situacao_cadastral text not null default '';
+alter table public.clientes add column if not exists tipo_societario    text not null default '';
+alter table public.clientes add column if not exists historico_cadastral text not null default '';
+alter table public.clientes add column if not exists origem             text not null default '';
+alter table public.clientes add column if not exists data_migracao      date;
+alter table public.clientes add column if not exists chave_importacao   text;
+create unique index if not exists clientes_chave_importacao on public.clientes (chave_importacao);
+
+-- empresa: 'escritorio' (Honorários Jurídico) ou 'contabilidade'
+alter table public.lancamentos add column if not exists empresa      text not null default 'escritorio';
+alter table public.lancamentos drop constraint if exists lancamentos_empresa_check;
+alter table public.lancamentos add constraint lancamentos_empresa_check check (empresa in ('escritorio','contabilidade'));
+alter table public.lancamentos add column if not exists grupo_id     uuid references public.grupos(id) on delete set null;
+alter table public.lancamentos add column if not exists favorecido   text not null default '';  -- fornecedor, em despesas
+alter table public.lancamentos add column if not exists responsavel  text not null default '';  -- advogado/pessoa
+alter table public.lancamentos add column if not exists referencia   text not null default '';  -- ex.: 0,7 salário
+alter table public.lancamentos add column if not exists cobranca     text not null default '';  -- ex.: Cobrado, Emitir guia
+alter table public.lancamentos add column if not exists conta        text not null default '';  -- banco
+alter table public.lancamentos add column if not exists chave_pix    text not null default '';
+alter table public.lancamentos add column if not exists perda        boolean not null default false; -- prejuízo
+alter table public.lancamentos add column if not exists chave_importacao text;
+create unique index if not exists lancamentos_chave_importacao on public.lancamentos (chave_importacao);
+create index if not exists lanc_empresa on public.lancamentos (empresa, vencimento);
+create index if not exists lanc_pagamento on public.lancamentos (data_pagamento);
+create index if not exists lanc_grupo on public.lancamentos (grupo_id);
