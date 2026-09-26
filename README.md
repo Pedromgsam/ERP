@@ -1,5 +1,9 @@
 # Sistemas do Escritório — Araújo & Castro
 
+> **Sistema novo (sem planilha):** ver [`sistema/README.md`](sistema/README.md) — ERP online com
+> banco de dados (Supabase) e login. As pastas `#Sistemas/` abaixo são os HTMLs atuais, que
+> continuam funcionando durante a migração.
+
 Sistemas internos do escritório, compostos por três partes:
 
 | Camada | O que é | Onde fica |

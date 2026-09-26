@@ -1,0 +1,279 @@
+-- ═══════════════════════════════════════════════════════════════════
+-- ERP Araújo & Castro — estrutura do banco de dados (Supabase / PostgreSQL)
+-- ═══════════════════════════════════════════════════════════════════
+--
+-- Como usar: no painel do Supabase, abra "SQL Editor", cole este arquivo
+-- inteiro e clique em "Run". Pode rodar de novo sem perder dados: tudo
+-- aqui é "crie se não existir" ou "substitua a regra".
+--
+-- Quem pode o quê (fase 1 — uso interno do escritório):
+--   admin   → tudo, inclusive liberar usuários e excluir clientes/contratos
+--   equipe  → cadastra, edita e dá baixa; não exclui cliente nem contrato
+--   inativo → não vê nada (é o estado de todo usuário novo, até o admin liberar)
+-- O primeiro usuário criado no projeto vira admin automaticamente.
+--
+-- A regra de acesso fica NO BANCO (Row Level Security), não na tela: mesmo
+-- quem tiver a chave pública do projeto não lê nada sem login liberado.
+-- ═══════════════════════════════════════════════════════════════════
+
+-- ─────────────────────────── USUÁRIOS ───────────────────────────────
+create table if not exists public.perfis (
+  id        uuid primary key references auth.users(id) on delete cascade,
+  nome      text not null default '',
+  email     text not null default '',
+  papel     text not null default 'inativo' check (papel in ('admin','equipe','inativo')),
+  criado_em timestamptz not null default now()
+);
+
+-- Papel de quem está logado. security definer: lê perfis sem passar pela
+-- própria regra de perfis (senão a regra chamaria a si mesma).
+create or replace function public.papel_atual() returns text
+language sql stable security definer set search_path = public as $$
+  select coalesce((select papel from public.perfis where id = auth.uid()), 'inativo');
+$$;
+create or replace function public.eh_equipe() returns boolean
+language sql stable as $$ select public.papel_atual() in ('admin','equipe'); $$;
+create or replace function public.eh_admin() returns boolean
+language sql stable as $$ select public.papel_atual() = 'admin'; $$;
+
+-- Todo usuário criado em Authentication ganha um perfil. O primeiro vira
+-- admin; os demais entram inativos até o admin liberar na tela Usuários.
+create or replace function public.criar_perfil() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  insert into public.perfis (id, email, nome, papel)
+  values (new.id, coalesce(new.email,''),
+          coalesce(new.raw_user_meta_data->>'nome', split_part(coalesce(new.email,''),'@',1)),
+          case when exists (select 1 from public.perfis) then 'inativo' else 'admin' end)
+  on conflict (id) do nothing;
+  return new;
+end $$;
+drop trigger if exists ao_criar_usuario on auth.users;
+create trigger ao_criar_usuario after insert on auth.users
+  for each row execute function public.criar_perfil();
+
+-- Ninguém tira o último admin (evita o escritório ficar trancado para fora).
+create or replace function public.proteger_ultimo_admin() returns trigger
+language plpgsql as $$
+begin
+  if old.papel = 'admin' and new.papel <> 'admin'
+     and (select count(*) from public.perfis where papel = 'admin') <= 1 then
+    raise exception 'É preciso manter pelo menos um administrador.';
+  end if;
+  return new;
+end $$;
+drop trigger if exists proteger_admin on public.perfis;
+create trigger proteger_admin before update on public.perfis
+  for each row execute function public.proteger_ultimo_admin();
+
+-- ─────────────────────────── CADASTROS ──────────────────────────────
+-- Grupo = carteira do cliente (ex.: um grupo econômico com várias empresas).
+create table if not exists public.grupos (
+  id        uuid primary key default gen_random_uuid(),
+  nome      text not null check (btrim(nome) <> ''),
+  criado_em timestamptz not null default now()
+);
+create unique index if not exists grupos_nome_unico on public.grupos (lower(btrim(nome)));
+
+create table if not exists public.clientes (
+  id            uuid primary key default gen_random_uuid(),
+  grupo_id      uuid references public.grupos(id) on delete set null,
+  nome          text not null check (btrim(nome) <> ''),
+  cpf_cnpj      text not null default '',
+  tipo          text not null default 'Consultoria' check (tipo in ('Consultoria','Demanda','Inativo')),
+  responsavel   text not null default '',
+  email         text not null default '',
+  telefone      text not null default '',
+  endereco      text not null default '',
+  cidade        text not null default '',
+  estado        text not null default '',
+  obs           text not null default '',
+  criado_por    uuid default auth.uid(),
+  criado_em     timestamptz not null default now(),
+  atualizado_em timestamptz not null default now()
+);
+create index if not exists clientes_grupo on public.clientes (grupo_id);
+
+create table if not exists public.contratos (
+  id                  uuid primary key default gen_random_uuid(),
+  cliente_id          uuid not null references public.clientes(id) on delete restrict,
+  descricao           text not null check (btrim(descricao) <> ''),
+  data_contrato       date not null default current_date,
+  valor_total         numeric(14,2) not null default 0 check (valor_total >= 0),
+  num_parcelas        int not null default 1 check (num_parcelas between 1 and 120),
+  primeiro_vencimento date,
+  percentual_exito    numeric(5,2) check (percentual_exito between 0 and 100),
+  status              text not null default 'Ativo' check (status in ('Ativo','Encerrado','Cancelado')),
+  obs                 text not null default '',
+  criado_por          uuid default auth.uid(),
+  criado_em           timestamptz not null default now(),
+  atualizado_em       timestamptz not null default now()
+);
+create index if not exists contratos_cliente on public.contratos (cliente_id);
+
+-- ─────────────────────────── FINANCEIRO ─────────────────────────────
+create table if not exists public.lancamentos (
+  id              uuid primary key default gen_random_uuid(),
+  tipo            text not null check (tipo in ('receita','despesa')),
+  descricao       text not null check (btrim(descricao) <> ''),
+  categoria       text not null default '',
+  cliente_id      uuid references public.clientes(id) on delete set null,
+  contrato_id     uuid references public.contratos(id) on delete cascade,
+  parcela         int,
+  total_parcelas  int,
+  vencimento      date not null,
+  valor           numeric(14,2) not null check (valor > 0),
+  pago            boolean not null default false,
+  data_pagamento  date,
+  forma_pagamento text not null default '',
+  obs             text not null default '',
+  criado_por      uuid default auth.uid(),
+  criado_em       timestamptz not null default now(),
+  atualizado_em   timestamptz not null default now()
+);
+create index if not exists lanc_venc     on public.lancamentos (vencimento);
+create index if not exists lanc_cliente  on public.lancamentos (cliente_id);
+create index if not exists lanc_contrato on public.lancamentos (contrato_id);
+
+-- Pago sem data → hoje. Desmarcou pago → apaga a data. Sempre coerente.
+create or replace function public.ajustar_pagamento() returns trigger
+language plpgsql as $$
+begin
+  if new.pago and new.data_pagamento is null then new.data_pagamento := current_date; end if;
+  if not new.pago then new.data_pagamento := null; end if;
+  return new;
+end $$;
+drop trigger if exists ajustar_pagamento on public.lancamentos;
+create trigger ajustar_pagamento before insert or update on public.lancamentos
+  for each row execute function public.ajustar_pagamento();
+
+-- Contrato novo com valor e 1º vencimento → cria as parcelas a receber.
+-- Centavos que sobram da divisão vão para a última parcela.
+create or replace function public.gerar_parcelas_contrato() returns trigger
+language plpgsql as $$
+declare
+  i int; base numeric(14,2); v numeric(14,2);
+begin
+  if new.valor_total > 0 and new.primeiro_vencimento is not null then
+    base := trunc(new.valor_total / new.num_parcelas, 2);
+    for i in 1..new.num_parcelas loop
+      v := case when i = new.num_parcelas
+                then new.valor_total - base * (new.num_parcelas - 1) else base end;
+      insert into public.lancamentos
+        (tipo, descricao, categoria, cliente_id, contrato_id, parcela, total_parcelas, vencimento, valor)
+      values
+        ('receita', new.descricao || case when new.num_parcelas > 1
+                                          then ' — parcela ' || i || '/' || new.num_parcelas else '' end,
+         'Honorários', new.cliente_id, new.id, i, new.num_parcelas,
+         (new.primeiro_vencimento + make_interval(months => i - 1))::date, v);
+    end loop;
+  end if;
+  return new;
+end $$;
+drop trigger if exists gerar_parcelas on public.contratos;
+create trigger gerar_parcelas after insert on public.contratos
+  for each row execute function public.gerar_parcelas_contrato();
+
+-- ─────────────────────── DATA DE ALTERAÇÃO ──────────────────────────
+create or replace function public.marcar_atualizacao() returns trigger
+language plpgsql as $$ begin new.atualizado_em := now(); return new; end $$;
+drop trigger if exists atualizado_clientes on public.clientes;
+create trigger atualizado_clientes before update on public.clientes
+  for each row execute function public.marcar_atualizacao();
+drop trigger if exists atualizado_contratos on public.contratos;
+create trigger atualizado_contratos before update on public.contratos
+  for each row execute function public.marcar_atualizacao();
+drop trigger if exists atualizado_lancamentos on public.lancamentos;
+create trigger atualizado_lancamentos before update on public.lancamentos
+  for each row execute function public.marcar_atualizacao();
+
+-- ─────────────────────────── HISTÓRICO ──────────────────────────────
+-- Toda inclusão, alteração e exclusão fica registrada: quem, quando e o
+-- quê. Só o admin consulta; ninguém edita.
+create table if not exists public.historico (
+  id          bigserial primary key,
+  tabela      text not null,
+  registro_id uuid,
+  acao        text not null,
+  usuario     uuid,
+  quando      timestamptz not null default now(),
+  antes       jsonb,
+  depois      jsonb
+);
+create or replace function public.registrar_historico() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  insert into public.historico (tabela, registro_id, acao, usuario, antes, depois)
+  values (tg_table_name,
+          coalesce((case when tg_op = 'DELETE' then old.id else new.id end), null),
+          tg_op, auth.uid(),
+          case when tg_op <> 'INSERT' then to_jsonb(old) end,
+          case when tg_op <> 'DELETE' then to_jsonb(new) end);
+  return null;
+end $$;
+drop trigger if exists hist_clientes on public.clientes;
+create trigger hist_clientes after insert or update or delete on public.clientes
+  for each row execute function public.registrar_historico();
+drop trigger if exists hist_contratos on public.contratos;
+create trigger hist_contratos after insert or update or delete on public.contratos
+  for each row execute function public.registrar_historico();
+drop trigger if exists hist_lancamentos on public.lancamentos;
+create trigger hist_lancamentos after insert or update or delete on public.lancamentos
+  for each row execute function public.registrar_historico();
+drop trigger if exists hist_perfis on public.perfis;
+create trigger hist_perfis after update or delete on public.perfis
+  for each row execute function public.registrar_historico();
+
+-- ──────────────────────── REGRAS DE ACESSO ──────────────────────────
+alter table public.perfis      enable row level security;
+alter table public.grupos      enable row level security;
+alter table public.clientes    enable row level security;
+alter table public.contratos   enable row level security;
+alter table public.lancamentos enable row level security;
+alter table public.historico   enable row level security;
+
+-- Sem login: nada.
+revoke all on public.perfis, public.grupos, public.clientes, public.contratos,
+              public.lancamentos, public.historico from anon;
+grant select, insert, update, delete on public.grupos, public.clientes,
+              public.contratos, public.lancamentos to authenticated;
+grant select, update on public.perfis to authenticated;
+grant select on public.historico to authenticated;
+revoke insert, delete on public.perfis from authenticated;
+revoke insert, update, delete on public.historico from authenticated;
+
+-- perfis: cada um vê o próprio; admin vê e altera todos.
+drop policy if exists perfis_ver on public.perfis;
+create policy perfis_ver on public.perfis for select to authenticated
+  using (id = auth.uid() or public.eh_admin());
+drop policy if exists perfis_alterar on public.perfis;
+create policy perfis_alterar on public.perfis for update to authenticated
+  using (public.eh_admin()) with check (public.eh_admin());
+
+-- grupos, clientes, contratos, lançamentos: equipe lê e grava.
+do $$
+declare t text;
+begin
+  foreach t in array array['grupos','clientes','contratos','lancamentos'] loop
+    execute format('drop policy if exists %1$s_ver on public.%1$s', t);
+    execute format('create policy %1$s_ver on public.%1$s for select to authenticated using (public.eh_equipe())', t);
+    execute format('drop policy if exists %1$s_incluir on public.%1$s', t);
+    execute format('create policy %1$s_incluir on public.%1$s for insert to authenticated with check (public.eh_equipe())', t);
+    execute format('drop policy if exists %1$s_alterar on public.%1$s', t);
+    execute format('create policy %1$s_alterar on public.%1$s for update to authenticated using (public.eh_equipe()) with check (public.eh_equipe())', t);
+  end loop;
+end $$;
+
+-- Excluir: lançamento e grupo → equipe; cliente e contrato → só admin.
+drop policy if exists lancamentos_excluir on public.lancamentos;
+create policy lancamentos_excluir on public.lancamentos for delete to authenticated using (public.eh_equipe());
+drop policy if exists grupos_excluir on public.grupos;
+create policy grupos_excluir on public.grupos for delete to authenticated using (public.eh_equipe());
+drop policy if exists clientes_excluir on public.clientes;
+create policy clientes_excluir on public.clientes for delete to authenticated using (public.eh_admin());
+drop policy if exists contratos_excluir on public.contratos;
+create policy contratos_excluir on public.contratos for delete to authenticated using (public.eh_admin());
+
+-- histórico: só admin lê.
+drop policy if exists historico_ver on public.historico;
+create policy historico_ver on public.historico for select to authenticated using (public.eh_admin());
