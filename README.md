@@ -1,68 +1,52 @@
-# ERP — Escritório de Advocacia
+# Sistemas do Escritório — Araújo & Castro
 
-ERP interno do escritório, composto por três partes:
+Sistemas internos do escritório, compostos por três partes:
 
-| Camada | Tecnologia | Onde fica neste repositório |
+| Camada | O que é | Onde fica |
 |---|---|---|
-| Interface | HTML / CSS / JavaScript | `apps-script/*.html` |
-| Integração (back-end) | Google Apps Script (`.gs`) | `apps-script/*.gs` |
-| Base de dados | Google Sheets | **fora do repositório** (só o código é versionado) |
+| Telas | Arquivos `.html` abertos no computador (ERP, CRM, Tarefas, Portal, geradores de documentos etc.) | `#Sistemas/` |
+| Ponte | Scripts do Google Apps Script, publicados como app da web (`script.google.com/.../exec`) | Rodam no Google; cópia do código em `#Sistemas/**/SCRIPT - *.txt` |
+| Dados | Planilhas Google Sheets | No Google Drive — **fora do repositório** (os `.gsheet` aqui são só atalhos) |
 
-> ⚠️ **Este repositório deve ser PRIVADO.** Nunca faça commit de dados de clientes,
-> exportações da planilha (CSV/XLSX), senhas, tokens ou chaves de API (LGPD / sigilo profissional).
+> ⚠️ **Este repositório deve continuar PRIVADO.** Os HTMLs contêm o endereço dos scripts,
+> que dão acesso às planilhas. Nunca faça commit de exportações das planilhas (CSV/XLSX),
+> senhas, tokens ou documentos com dados de clientes (LGPD / sigilo profissional).
 
-## Estrutura
+## Pastas
 
-```
-ERP/
-├── apps-script/            # código do projeto Apps Script (sincronizado via clasp)
-│   ├── appsscript.json     # manifesto do projeto
-│   ├── *.gs                # funções de servidor (leitura/gravação na planilha)
-│   └── *.html              # telas do ERP
-├── docs/
-│   └── estrutura-planilha.md   # abas e colunas da base de dados
-├── .clasp.json.example     # modelo de configuração do clasp
-└── .gitignore
-```
+| Pasta | Conteúdo |
+|---|---|
+| `#Sistemas/##Planilhas` | Atalhos das planilhas e o script da Base de Dados |
+| `#Sistemas/1 - Portal do Escritório` | Portal de entrada |
+| `#Sistemas/2 - ERP` | `ERP.html` + script `SCRIPT - MENU - ERP` |
+| `#Sistemas/3 - CRM` / `4 - Tarefas` | CRM e Tarefas |
+| `#Sistemas/5` a `#Sistemas/15` | Planejamento tributário, holding, documentos, contratos, e-mails, societário, apresentações, manual, contabilidade, propostas |
 
-## Como sincronizar o Apps Script com o GitHub (clasp)
+## Como usar no dia a dia (GitHub Desktop)
 
-O [clasp](https://github.com/google/clasp) é a ferramenta oficial do Google para baixar
-e enviar o código do Apps Script pela linha de comando.
+**Receber alterações feitas pelo Claude:**
+1. Abra o GitHub Desktop.
+2. Clique em **Fetch origin** e depois em **Pull origin**.
+3. Os arquivos da pasta são atualizados; abra os HTMLs normalmente.
 
-1. Instale o Node.js e depois o clasp:
-   ```bash
-   npm install -g @google/clasp
-   ```
-2. Ative a API do Apps Script em <https://script.google.com/home/usersettings>.
-3. Faça login:
-   ```bash
-   clasp login
-   ```
-4. Copie o modelo de configuração e preencha o **Script ID**
-   (no editor do Apps Script: *Configurações do projeto → ID do script*):
-   ```bash
-   cp .clasp.json.example .clasp.json
-   ```
-5. Baixe o código atual do Google para a pasta `apps-script/`:
-   ```bash
-   clasp pull
-   ```
-6. Faça o commit:
-   ```bash
-   git add apps-script
-   git commit -m "Importa código atual do Apps Script"
-   git push
-   ```
+**Enviar alterações feitas por você:**
+1. No GitHub Desktop, confira a lista em **Changes** (desmarque o que não deve subir).
+2. Escreva um resumo em **Summary** e clique em **Commit**.
+3. Clique em **Push origin**.
 
-### Fluxo do dia a dia
+**Voltar uma versão:** aba **History** → clique com o botão direito no commit → *Revert changes in commit*.
 
-- **Editou no navegador (editor do Apps Script)?** → `clasp pull`, depois `git commit` e `git push`.
-- **Editou no computador / pelo GitHub?** → `git pull`, depois `clasp push` para publicar no Google.
-- Para atualizar o app web publicado: `clasp deploy` (ou *Implantar → Gerenciar implantações* no editor).
+## Scripts do Google (Apps Script)
 
-## Sem usar a linha de comando
+O código que roda de verdade fica no editor do Apps Script. Quando uma alteração
+envolver o script, o Claude entrega o código pronto; basta colar no editor e
+**Implantar → Gerenciar implantações → editar → Nova versão** (assim o endereço `/exec`
+continua o mesmo e os HTMLs não precisam mudar).
 
-Também é possível copiar e colar cada arquivo do editor do Apps Script para a pasta
-`apps-script/` direto pelo site do GitHub (*Add file → Create new file*). Use a extensão
-`.gs` para scripts e `.html` para telas.
+Depois de colar, atualize a cópia `.txt` correspondente neste repositório e faça commit,
+para o histórico continuar fiel ao que está no ar.
+
+## Backups
+
+O histórico do Git substitui os arquivos "backup 2026-…". Não é mais necessário salvar
+cópias com data no nome: toda versão enviada fica guardada e pode ser recuperada.
