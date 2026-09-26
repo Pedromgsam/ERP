@@ -797,9 +797,21 @@ async function chamar(qs){
 function codificar(o){ return encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(o))))); }
 
 // ── login ──
-async function sha256(t){
-  var b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(t));
-  return Array.from(new Uint8Array(b)).map(function(x){ return x.toString(16).padStart(2,'0'); }).join('');
+// v3: login e logout vão por POST (text/plain, sem preflight de CORS) para
+// a senha não aparecer na URL. Se o navegador bloquear o POST, cai no GET.
+async function chamarAuth(payload){
+  var url=getUrl(), problema=checarUrl(url);
+  if(problema) throw new Error(problema);
+  var corpo=JSON.stringify(Object.assign({_auth:1},payload)), res;
+  try{
+    res=await fetch(url,{method:'POST',cache:'no-store',body:corpo,
+                         headers:{'Content-Type':'text/plain;charset=utf-8'}});
+  }catch(e){
+    return chamar('?_auth=1&payload='+codificar(Object.assign({_auth:1},payload)));
+  }
+  var txt=await res.text();
+  try{ return JSON.parse(txt); }
+  catch(e){ throw new Error('O servidor respondeu HTTP '+res.status+' com uma página, não com dados.'); }
 }
 function lgMsg(t,ok){ var e=$('lgMsg'); e.className='lg-m'+(ok?' ok':(t?' err':'')); e.textContent=t||''; }
 function alternarSenha(){
@@ -828,20 +840,16 @@ async function entrar(){
   if(!u||!p){ lgMsg('Preencha login e senha.'); return; }
   var btn=$('lgBtn'); btn.disabled=true; btn.textContent='Verificando…';
   try{
-    // v2: eram DOIS erros meus aqui. A ação certa no script do ERP é
-    // 'autenticarCliente' (eu tinha copiado 'autenticar', que é do script
-    // do CRM — outro arquivo, outro roteador), e o campo é 'email'.
-    // Com a ação errada o servidor respondia "Ação auth desconhecida" e
-    // nenhuma senha entrava, por mais correta que fosse.
-    var j=await chamar('?_auth=1&payload='+codificar({acao:'autenticarCliente',email:u}));
-    if(!j.ok||!j.usuario){ lgMsg(j.erro||'Login ou senha incorretos.'); return; }
+    // v3: a senha é conferida no SERVIDOR, que devolve um token de sessão.
+    // Antes o servidor mandava o hash da senha e a comparação era feita aqui.
+    var j=await chamarAuth({acao:'login',login:u,senha:p});
+    if(!j.ok||!j.usuario||!j.token){ lgMsg(j.erro||'Login ou senha incorretos.'); $('lgPass').value=''; return; }
     // Tarefas é produção interna: cliente não entra.
-    var ehAdmin = j.usuario.isAdmin===true
-      || String(j.usuario.grupos||'').trim().toLowerCase()==='admin';
-    if(!ehAdmin){ lgMsg('Este sistema é de uso interno do escritório.'); return; }
-    var h=await sha256(p);
-    if(h!==j.usuario.senhaHash){ lgMsg('Login ou senha incorretos.'); $('lgPass').value=''; return; }
-    SESSAO={login:u,nome:j.usuario.nome||u};
+    if(j.usuario.isAdmin!==true){
+      chamarAuth({acao:'logout',token:j.token}).catch(function(){});
+      lgMsg('Este sistema é de uso interno do escritório.'); return;
+    }
+    SESSAO={login:j.usuario.login||u,nome:j.usuario.nome||u,token:j.token};
     try{ sessionStorage.setItem(SESS_KEY,JSON.stringify(SESSAO));
          if($('lgLembrar')&&$('lgLembrar').checked) localStorage.setItem(USER_KEY,u);
          else localStorage.removeItem(USER_KEY); }catch(e){}
@@ -852,6 +860,7 @@ async function entrar(){
   finally{ btn.disabled=false; btn.textContent='Entrar'; }
 }
 function sair(){
+  if(SESSAO&&SESSAO.token) chamarAuth({acao:'logout',token:SESSAO.token}).catch(function(){});
   try{ sessionStorage.removeItem(SESS_KEY); }catch(e){}
   SESSAO=null; DB=[];
   $('lg').classList.remove('off'); $('lgPass').value='';
@@ -862,7 +871,8 @@ async function carregar(){
   if(!SESSAO) return;
   status('load','Carregando…');
   try{
-    var j=await chamar('?login='+encodeURIComponent(SESSAO.login)+'&modulos=tarefas');
+    var j=await chamar('?token='+encodeURIComponent(SESSAO.token||'')+'&modulos=tarefas');
+    if(j._sessaoExpirada){ sair(); lgMsg('Sessão expirada. Entre novamente.'); return; }
     if(j._negado) throw new Error(j.erro||'Acesso negado.');
     if(j.erro) throw new Error(j.erro);
     DB=(j.tarefas||[]).filter(function(t){ return t && (t.titulo||t.tarefa); }).map(function(t){

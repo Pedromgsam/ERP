@@ -1,26 +1,14 @@
 // ══════════════════════════════════════════════════════════════════
-// BACKUP — SCRIPT DE MENU DO ERP  ·  v2  ·  2026-09-22
+// SCRIPT DE MENU DO ERP  ·  v4  ·  2026-09-26
 // ══════════════════════════════════════════════════════════════════
-// Este é o script NOVO, pronto para colar no editor do Apps Script
-// (vinculado à planilha "#Menu") no lugar do v1.
+// Vinculado à planilha "#Menu". Para aplicar: no editor do Apps Script,
+// selecionar tudo, colar este arquivo e publicar uma NOVA VERSÃO da
+// implantação existente (Implantar › Gerenciar implantações › editar ›
+// Versão: Nova versão). Assim a URL /exec não muda.
 //
-// O que tem a mais em relação ao v1 (backup ao lado):
-//   • IDS.financeiroContabilidade — ID da planilha "Financeiro -
-//     Contabilidade".
-//   • lerFinanceiroContabilidade() — lê A Receber/Receita/A Pagar/
-//     Despesa dessa planilha (sem Prejuízo, que não existe lá).
-//   • Módulo 'financeiroContab' registrado em _leitores(), 
-//     _CACHE_MODULOS e CAMPO_GRUPO, para o ERP.html buscar esses dados
-//     junto com Honorários Jurídico na 3ª etapa de carga.
-//
-// Alimenta o painel "Honorários Contabilidade" do ERP.html (já
-// aplicado no arquivo local — ver "ERP - backup 2026-09-22 21h30
-// (pre-Honorarios-Contabilidade).html" para o estado anterior a essa
-// tela).
-//
-// Para aplicar: selecionar tudo no editor do Apps Script e substituir
-// pelo conteúdo deste arquivo (já inclui a correção de Honorários
-// Jurídico do v1).
+// v4: login conferido no servidor + token de sessão. Exige ERP.html e
+// Tarefas.html atualizados junto — as versões antigas deixam de entrar.
+// O histórico das versões anteriores está no GitHub.
 // ══════════════════════════════════════════════════════════════════
 
 // ================================================================
@@ -45,20 +33,9 @@
 //   · Regra de ouro: o que não pode ser visto não é enviado. Falha fechada —
 //     na dúvida sobre a qual grupo um registro pertence, o cliente não recebe.
 //
-//  AÇÃO NECESSÁRIA NO ERP.html (1 linha):
-//   Em loadData(), linha ~5150, trocar
-//     const res = await fetch(url+'?_t='+Date.now(), ...)
-//   por
-//     const res = await fetch(url+'?_t='+Date.now()
-//                 +'&login='+encodeURIComponent((window.AC_SESSION&&window.AC_SESSION.login)||''), ...)
-//   Enquanto MODO_ESTRITO=false, o ERP funciona sem essa alteração (uma
-//   requisição sem login é tratada como admin, igual à v25). Depois de
-//   alterar o HTML e conferir que admin e cliente carregam, vire
-//   MODO_ESTRITO para true — aí uma requisição sem login passa a ser negada
-//   e o furo fecha de vez.
-//
-//  ✔ CONFIRMADO 22/09/2026: o ERP.html atual já manda &login= em loadData()
-//    (etapa 1) e em _carregarEtapa (etapas 2/3). Nenhuma ação pendente aqui.
+//  v4 (2026-09-26): o parâmetro `login` e o MODO_ESTRITO saíram. A leitura
+//  passou a exigir o token do login feito no servidor — ver "v4 — LOGIN NO
+//  SERVIDOR" mais abaixo.
 //
 // ── v26 · PERFORMANCE ───────────────────────────────────────────
 //
@@ -127,23 +104,41 @@ var _PCOL = { login:0, senhaHash:1, grupos:2, ativo:3, email:4, ultimoAcesso:5, 
 // Tudo que define o que o cliente enxerga está neste bloco.
 // ════════════════════════════════════════════════════════════
 
-// Enquanto false, requisição de leitura SEM login é tratada como admin
-// (compatível com o ERP.html atual). Vire para true depois de aplicar a
-// alteração de 1 linha no loadData() — aí requisição sem login é negada.
-var MODO_ESTRITO = false;
+// v4 — LOGIN NO SERVIDOR
+//
+// Até a v3 a senha era conferida no navegador: o script devolvia o hash da
+// senha e o HTML comparava. E a leitura confiava no parâmetro `login` — quem
+// soubesse um nome de usuário (ou mandasse nenhum, com MODO_ESTRITO=false)
+// recebia os dados sem senha nenhuma, direto pela URL do /exec.
+//
+// Agora:
+//   · a senha vai para o servidor (acao 'login'), que confere e devolve um
+//     token aleatório. O hash da senha nunca sai daqui;
+//   · toda leitura e toda gravação exigem esse token. Sem token válido →
+//     negado. Não existe mais modo "sem login = admin";
+//   · o token vive no CacheService por SESSAO_TTL_S e é renovado a cada uso.
+//     Fechar o navegador ou clicar em Sair o descarta;
+//   · a permissão (admin/cliente/grupos) continua sendo relida da aba
+//     "Portal do Cliente" a cada requisição — mudar o grupo ou desativar
+//     alguém vale na hora, mesmo com token ativo;
+//   · 5 senhas erradas seguidas bloqueiam aquele login por 15 minutos.
+var SESSAO_TTL_S       = 6 * 60 * 60;   // máximo que o CacheService permite
+var LOGIN_MAX_TENTATIVAS = 5;
+var LOGIN_BLOQUEIO_S   = 15 * 60;
 
 // v29 — COMPATIBILIDADE COM O SISTEMA JURÍDICO
 //
-// O 'Sistema Jurídico.html' consome o MESMO endpoint, mas chama
-// ?modulo=baseDados e ?modulo=clientes sem mandar login — ele não tem tela de
-// login. Com MODO_ESTRITO=true isso passaria a ser negado e as petições
-// parariam de encontrar os clientes.
-//
-// A saída é uma chave própria: o Sistema Jurídico manda &app=SJ&chave=...,
-// e recebe SÓ a Base de Dados, sem passar por sessão de usuário. Troque o
-// valor abaixo por algo só seu e replique no Sistema Jurídico.
-var SJ_CHAVE   = 'troque-esta-chave-antes-de-usar';
+// O 'Sistema Jurídico.html' não tem tela de login; ele manda
+// &app=SJ&chave=... e recebe SÓ a Base de Dados.
+// v4: a chave saiu do código (o valor padrão era público e dava acesso à Base
+// de Dados a qualquer um). Para ligar, no editor: Configurações do projeto ›
+// Propriedades do script › adicionar SJ_CHAVE com um valor longo e só seu.
+// Sem essa propriedade, o acesso do Sistema Jurídico fica DESLIGADO.
 var SJ_MODULOS = ['baseDados'];   // nada além disto, mesmo que peçam
+function _sjChave() {
+  try { return str(PropertiesService.getScriptProperties().getProperty('SJ_CHAVE')); }
+  catch(e) { return ''; }
+}
 
 // Módulos que o nível 'cliente' pode receber. Os demais não são sequer
 // calculados — economia de planilha aberta, não só de campo escondido.
@@ -227,8 +222,14 @@ function doGet(e) {
   } catch(err) { return jsonOk({ ok:false, erro:err.message }); }
 }
 
+// v4: o login chega por POST (corpo JSON com _auth:1) para a senha não
+// viajar na URL. Gravações continuam aceitas pelos dois caminhos.
 function doPost(e) {
-  try { return handleWB(JSON.parse(e.postData.contents)); }
+  try {
+    var pl = JSON.parse(e.postData.contents);
+    if (pl && pl._auth) return handleAuth(pl);
+    return handleWB(pl);
+  }
   catch(err) { return jsonOk({ ok:false, erro:err.message }); }
 }
 
@@ -236,20 +237,36 @@ function doPost(e) {
 // SESSÃO — resolve quem está pedindo e o que pode ver
 // ════════════════════════════════════════════════════════════
 //
+// v4: a porta de entrada é o TOKEN devolvido pelo login. O token só diz
+// QUEM é; O QUE pode ver continua vindo da planilha, a cada requisição.
+function _resolverSessao(token) {
+  token = str(token || '');
+  if (!token) {
+    return { nivel:'negado', grupos:[], login:'', expirada:true, motivo:'Faça login novamente.' };
+  }
+  var cache = CacheService.getScriptCache();
+  var login = cache.get('sess_' + token);
+  if (!login) {
+    return { nivel:'negado', grupos:[], login:'', expirada:true, motivo:'Sessão expirada. Faça login novamente.' };
+  }
+  cache.put('sess_' + token, login, SESSAO_TTL_S);   // renova a cada uso
+  return _resolverSessaoPorLogin(login);
+}
+
+function _criarToken(login) {
+  var token = Utilities.getUuid().replace(/-/g,'') + Utilities.getUuid().replace(/-/g,'');
+  CacheService.getScriptCache().put('sess_' + token, login, SESSAO_TTL_S);
+  return token;
+}
+
 // Devolve { nivel:'admin'|'cliente'|'negado', grupos:[...], login:'' }.
 // A fonte é a aba "Portal do Cliente"; coluna Grupos = 'admin' dá acesso
 // total, qualquer outro valor é lista de grupos separada por vírgula.
 // Usuário inativo ou sem grupos → negado (falha fechada).
-function _resolverSessao(login) {
+// v4: só é chamada com um login que já passou pela senha (via token).
+function _resolverSessaoPorLogin(login) {
   login = str(login || '').trim();
-
-  if (!login) {
-    // Sem identificação: em modo estrito, nega. Fora dele, mantém o
-    // comportamento da v25 para não quebrar o ERP antes do ajuste no HTML.
-    return MODO_ESTRITO
-      ? { nivel:'negado', grupos:[], login:'', motivo:'Login não informado.' }
-      : { nivel:'admin',  grupos:[], login:'', legado:true };
-  }
+  if (!login) return { nivel:'negado', grupos:[], login:'', motivo:'Login não informado.' };
 
   // v28: sem cache aqui também. A permissão é lida da planilha a cada
   // requisição — mudar o grupo de um usuário passa a valer no ato, e não
@@ -395,21 +412,27 @@ function _lerAbasEmLote(spreadsheetId, abas) {
 }
 
 function handleRead(p) {
-  if (p.acao === 'ping') return jsonOk({ ok:true, msg:'pong', versao:'v30', lote:_usandoLoteDeLeitura() });
-  if (p.diag === '1')   return jsonOk(diagnosticarCarga());
+  if (p.acao === 'ping') return jsonOk({ ok:true, msg:'pong', versao:'v31-login-servidor', lote:_usandoLoteDeLeitura() });
 
   // Sistema Jurídico: acesso próprio, restrito à Base de Dados
   if (p.app === 'SJ') {
-    if (str(p.chave) !== SJ_CHAVE) return jsonOk({ ok:false, erro:'Chave inválida.', _negado:true });
+    var chaveSJ = _sjChave();
+    if (!chaveSJ || str(p.chave) !== chaveSJ) return jsonOk({ ok:false, erro:'Chave inválida.', _negado:true });
     var mSJ = str(p.modulo || 'baseDados');
     if (mSJ === 'clientes') mSJ = 'baseDados';
     if (SJ_MODULOS.indexOf(mSJ) < 0) return jsonOk({ ok:false, erro:'Módulo indisponível.' });
     return jsonOk({ ok:true, dados: safe(function(){ return _leitores()[mSJ](); }) });
   }
 
-  var sessao = _resolverSessao(p.login);
+  var sessao = _resolverSessao(p.token);
   if (sessao.nivel === 'negado') {
-    return jsonOk({ ok:false, erro:'Acesso negado. ' + (sessao.motivo||''), _negado:true });
+    return jsonOk({ ok:false, erro:'Acesso negado. ' + (sessao.motivo||''), _negado:true,
+                    _sessaoExpirada: !!sessao.expirada });
+  }
+  // v4: o diagnóstico mostra volume de cada planilha — só para admin.
+  if (p.diag === '1') {
+    return jsonOk(sessao.nivel === 'admin' ? diagnosticarCarga()
+                                           : { ok:false, erro:'Acesso restrito ao administrador.' });
   }
   var ehCliente = (sessao.nivel === 'cliente');
   var t0Total = _agora();
@@ -552,6 +575,19 @@ var _ACOES_INVALIDAM_CACHE = [];
 
 function handleWB(pl) {
   var a = pl.acao || '', d = pl.dados || {};
+  // v4: toda gravação exige sessão de admin (token) — ou, só para as três
+  // do Sistema Jurídico, a chave SJ configurada nas Propriedades do script.
+  var chaveSJ = _sjChave();
+  var ehSJ = !!chaveSJ && str(pl.chave) === chaveSJ
+          && ['salvarCliente','salvarContrato','salvarPeticao'].indexOf(a) >= 0;
+  if (!ehSJ) {
+    var sessao = _resolverSessao(pl.token);
+    if (sessao.nivel === 'negado') {
+      return jsonOk({ ok:false, erro:'Acesso negado. ' + (sessao.motivo||''), _negado:true,
+                      _sessaoExpirada: !!sessao.expirada });
+    }
+    if (sessao.nivel !== 'admin') return jsonOk({ ok:false, erro:'Acesso somente leitura.' });
+  }
   // v29: sobraram só as três ações do Sistema Jurídico, que gravam em abas
   // próprias ('Clientes SJ', 'Contratos SJ', 'Petições SJ') e não são lidas
   // pelo ERP. Todas as ações de notificação foram removidas.
@@ -570,14 +606,77 @@ function handleWB(pl) {
 
 // ════════════════════════════════════════════════════════════
 // AUTENTICAÇÃO
-// (lógica de senha preservada conforme instrução — inalterada da v25)
+// v4: a senha é conferida AQUI. O formato da coluna "Senha" na planilha
+// não mudou: aceita o hash SHA-256 (64 caracteres hex) ou a senha pura.
 // ════════════════════════════════════════════════════════════
 function handleAuth(payload) {
   var acao = str(payload.acao || '');
-  if (acao === 'autenticarCliente')    return jsonOk(authAutenticar(payload));
+  if (acao === 'login')                return jsonOk(authLogin(payload));
+  if (acao === 'logout')               return jsonOk(authLogout(payload));
   if (acao === 'lerUsuariosPortal')    return jsonOk(authLerUsuarios(payload));
-  if (acao === 'logAcesso')            return jsonOk(authLogAcesso(payload));
+  // O log agora é gravado pelo próprio authLogin; a chamada antiga do
+  // navegador é aceita e ignorada, para não gravar linha forjada.
+  if (acao === 'logAcesso')            return jsonOk({ ok:true });
+  // v3 devolvia o hash da senha para o navegador comparar. Desativado.
+  if (acao === 'autenticarCliente')
+    return jsonOk({ ok:false, erro:'Este arquivo HTML está desatualizado. Use a versão mais recente do sistema.' });
   return jsonOk({ ok:false, erro:'Ação auth desconhecida: '+acao });
+}
+
+function authLogin(payload) {
+  var login = str(payload.login || payload.email || '').trim();
+  var senha = String(payload.senha || '');
+  if (!login || !senha) return { ok:false, erro:'Preencha login e senha.' };
+
+  var cache = CacheService.getScriptCache();
+  var chaveTent = 'tent_' + _norm(login);
+  var tent = +(cache.get(chaveTent) || 0);
+  if (tent >= LOGIN_MAX_TENTATIVAS) {
+    return { ok:false, erro:'Muitas tentativas. Aguarde ' + Math.round(LOGIN_BLOQUEIO_S/60) + ' minutos.', bloqueado:true };
+  }
+  var falhar = function(msg, motivo) {
+    cache.put(chaveTent, String(tent + 1), LOGIN_BLOQUEIO_S);
+    _registrarAcesso(login, '', false, motivo);
+    return { ok:false, erro:msg };
+  };
+
+  var aba = _getPortalSheet();
+  if (!aba) return { ok:false, erro:'Aba "Portal do Cliente" não encontrada.' };
+  var data = aba.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    // v60: _norm() tira acento, espaço duplicado e caixa — 'Eder'/'ÉDER'
+    // batem com a planilha sem depender da forma Unicode exata.
+    if (_norm(data[i][_PCOL.login]) !== _norm(login)) continue;
+
+    var raw = str(data[i][_PCOL.senhaHash]);
+    var hashGuardado = (raw.length===64 && /^[0-9a-f]+$/.test(raw)) ? raw : _sha256(raw);
+    if (!raw || _sha256(senha) !== hashGuardado) {
+      return falhar('Senha incorreta para o usuário "' + login + '".', 'senha');
+    }
+    var grupos = str(data[i][_PCOL.grupos]).trim();
+    var ativo  = str(data[i][_PCOL.ativo]).trim().toUpperCase();
+    if (ativo !== 'SIM') return falhar('Acesso inativo. Contate o escritório.', 'inativo');
+
+    var loginPlanilha = str(data[i][_PCOL.login]);
+    var isAdmin = grupos.toLowerCase() === 'admin';
+    cache.remove(chaveTent);
+    try {
+      aba.getRange(i+1, _PCOL.ultimoAcesso+1).setValue(
+        Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss'));
+    } catch(e2) {}
+    _registrarAcesso(loginPlanilha, isAdmin ? 'admin' : 'cliente', true, '');
+    return { ok:true, token:_criarToken(loginPlanilha), usuario:{
+      login:loginPlanilha, nome:loginPlanilha, grupos:grupos, ativo:ativo, isAdmin:isAdmin,
+      status: (!isAdmin && !grupos) ? 'pendente' : 'ativo' } };
+  }
+  return falhar('Usuário "' + login + '" não encontrado na planilha Portal do Cliente '
+              + '(confira se está escrito exatamente assim na coluna Login).', 'usuario');
+}
+
+function authLogout(payload) {
+  var token = str(payload.token);
+  if (token) CacheService.getScriptCache().remove('sess_' + token);
+  return { ok:true };
 }
 
 function _getPortalSheet() {
@@ -585,42 +684,6 @@ function _getPortalSheet() {
 }
 function _getLogSheet() {
   return SpreadsheetApp.openById(IDS.menu).getSheetByName('LogAcesso');
-}
-
-function authAutenticar(payload) {
-  var login = str(payload.email || payload.login || '').trim();
-  if (!login) return { ok:false, erro:'Login não informado.' };
-  var aba = _getPortalSheet();
-  if (!aba) return { ok:false, erro:'Aba "Portal do Cliente" não encontrada.' };
-  var data = aba.getDataRange().getValues();
-  for (var i = 1; i < data.length; i++) {
-    // v60: comparacao trocada de toLowerCase() cru pra _norm() -- a mesma
-    // funcao ja usada em _resolverSessao() pro mesmo campo Login. Motivo:
-    // toLowerCase() cru exige bater ate a forma Unicode exata do acento
-    // (e/E + acento combinado x 'E' pre-composto podem parecer identicos na
-    // tela e ainda assim serem strings diferentes); _norm() tira acento,
-    // espaco duplicado e caixa, entao 'Eder'/'eder'/'ÉDER' etc. sempre
-    // batem com o que esta na planilha, sem essa armadilha de encoding.
-    if (_norm(data[i][_PCOL.login]) !== _norm(login)) continue;
-    var grupos = str(data[i][_PCOL.grupos]).trim();
-    var ativo  = str(data[i][_PCOL.ativo]).trim().toUpperCase();
-    var isAdmin = grupos.toLowerCase() === 'admin';
-    var isPend  = !isAdmin && ativo === 'SIM' && !grupos;
-    try {
-      aba.getRange(i+1, _PCOL.ultimoAcesso+1).setValue(
-        Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss'));
-    } catch(e2) {}
-    if (isPend) {
-      var rawP = str(data[i][_PCOL.senhaHash]);
-      var hashP = (rawP.length===64 && /^[0-9a-f]+$/.test(rawP)) ? rawP : _sha256(rawP);
-      return { ok:true, usuario:{ login:login, senhaHash:hashP, grupos:'', ativo:ativo, status:'pendente' } };
-    }
-    var rawSenha = str(data[i][_PCOL.senhaHash]);
-    var senhaHash = (rawSenha.length===64 && /^[0-9a-f]+$/.test(rawSenha)) ? rawSenha : _sha256(rawSenha);
-    return { ok:true, usuario:{ login:login, senhaHash:senhaHash, grupos:grupos,
-      ativo:ativo, nome:login, isAdmin:isAdmin, status:'ativo' }};
-  }
-  return { ok:false, usuario:null };
 }
 
 function _sha256(text) {
@@ -631,8 +694,8 @@ function _sha256(text) {
 // v26: só o admin lista os usuários do portal. Na v25 qualquer requisição
 // _auth=1 devolvia login, e-mail, WhatsApp e grupos de todo mundo.
 function authLerUsuarios(payload) {
-  var sessao = _resolverSessao(payload && payload.login);
-  if (MODO_ESTRITO && sessao.nivel !== 'admin') {
+  var sessao = _resolverSessao(payload && payload.token);
+  if (sessao.nivel !== 'admin') {
     return { ok:false, erro:'Acesso restrito ao administrador.' };
   }
   var aba = _getPortalSheet();
@@ -655,15 +718,15 @@ function authLerUsuarios(payload) {
   return { ok:true, usuarios:usuarios };
 }
 
-function authLogAcesso(payload) {
+// v4: chamado só pelo servidor (authLogin). Antes o navegador gravava o
+// próprio log, o que permitia a qualquer um inventar linhas.
+function _registrarAcesso(login, nivel, sucesso, motivo) {
   try {
-    var aba = _getLogSheet(); if (!aba) return { ok:false };
+    var aba = _getLogSheet(); if (!aba) return;
     if (aba.getLastRow()===0) aba.appendRow(['Data e Hora','Login','Nível','Sucesso','Origem']);
     var ts = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd/MM/yyyy HH:mm:ss');
-    aba.appendRow([ts, str(payload.email||payload.login||''), str(payload.nivel||''),
-      payload.sucesso?'SIM':'NAO', 'browser']);
-    return { ok:true };
-  } catch(e) { return { ok:false, erro:e.message }; }
+    aba.appendRow([ts, str(login), str(nivel), sucesso?'SIM':'NAO', motivo ? ('falha: '+motivo) : 'servidor']);
+  } catch(e) {}
 }
 
 // ════════════════════════════════════════════════════════════
@@ -1366,7 +1429,7 @@ function _leitores() {
 function testarVisibilidade() {
   var LOGIN = 'cliente@exemplo.com';   // <<< troque aqui
 
-  var s = _resolverSessao(LOGIN);
+  var s = _resolverSessaoPorLogin(LOGIN);
   Logger.log('Login: %s | Nível: %s | Grupos: %s %s',
     LOGIN, s.nivel, JSON.stringify(s.grupos), s.motivo ? ('| ' + s.motivo) : '');
   if (s.nivel !== 'cliente') { Logger.log('Não é cliente — nada a recortar.'); return; }
