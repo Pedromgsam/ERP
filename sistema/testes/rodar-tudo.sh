@@ -1,5 +1,6 @@
 #!/bin/sh
-# Roda todos os testes do sistema novo. Precisa: PostgreSQL 16 na porta 54329,
+# Roda todos os testes do sistema novo. Precisa de NODE_PATH com playwright e exceljs.
+# Precisa: PostgreSQL 16 na porta 54329,
 # PostgREST na 3001 (config em testes/postgrest.conf) e node servidor-local.js.
 set -e
 DIR=$(cd "$(dirname "$0")" && pwd)
@@ -12,4 +13,5 @@ psql -h 127.0.0.1 -p ${PGPORT:-54329} -U postgres -q -d erp_perm -f "$DIR/permis
 for i in 1 2 3 4 5 6 7 8 9 10; do
   curl -s http://127.0.0.1:3001/perfis | grep -q 42501 && break; sleep 1
 done
+node "$DIR/importador.test.js"
 node "$DIR/telas.js"

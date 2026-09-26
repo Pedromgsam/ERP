@@ -6,6 +6,7 @@ const SEGREDO = 'segredo-de-teste-com-mais-de-32-caracteres!!';
 const PORTA = +(process.env.PORTA || 8090), PGRST = 'http://127.0.0.1:3001';
 const PSQL = ['-h', '127.0.0.1', '-p', process.env.PGPORT || '54329', '-U', 'postgres', '-d', 'erp', '-tAc'];
 const APP = path.join(__dirname, '..', 'app');
+const CABECALHOS = JSON.parse(fs.readFileSync(path.join(APP, 'vercel.json'), 'utf8')).headers[0].headers;
 const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
 function jwt(claims) {
   const h = b64({ alg: 'HS256', typ: 'JWT' }), p = b64(claims);
@@ -62,7 +63,10 @@ http.createServer((req, res) => {
       return res.end("window.ERP_CONFIG={url:location.origin,chave:'" + ANON + "'};");
     }
     const tipos = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css' };
-    res.writeHead(200, { 'content-type': tipos[path.extname(f)] || 'application/octet-stream' });
+    // mesmos cabeçalhos de segurança da Vercel (CSP etc.), lidos do vercel.json
+    const cab = { 'content-type': tipos[path.extname(f)] || 'application/octet-stream' };
+    CABECALHOS.forEach((h) => { cab[h.key] = h.value; });
+    res.writeHead(200, cab);
     fs.createReadStream(f).pipe(res);
   });
 }).listen(PORTA, () => console.log('servidor de teste em http://127.0.0.1:' + PORTA));
