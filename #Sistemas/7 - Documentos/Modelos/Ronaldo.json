@@ -1,0 +1,166 @@
+{
+  "versao": 1,
+  "tipo": "lista-documentos-ac",
+  "nomeModelo": "Ronaldo",
+  "area": "Societário / Patrimonial",
+  "cliente": "Ronaldo",
+  "assunto": "Implantação de Grupo Empresarial",
+  "responsavel": "pedro",
+  "docCliente": "02.125.871/0001-81",
+  "emailCliente": "ronaldo@gm",
+  "telCliente": "",
+  "cartaTexto": "",
+  "notaRodape": "Araújo & Castro Advocacia e Consultoria. Dúvidas? Fale com Pedro Castro — (37) 99868-4323 · advocaciapedrocastro@gmail.com",
+  "comoEnviarLigado": true,
+  "envEmail": true,
+  "envTelefone": true,
+  "envDrive": false,
+  "driveLink": "",
+  "categorias": [
+    {
+      "nome": "Empresas do grupo — atos constitutivos (para cada empresa)",
+      "itens": [
+        {
+          "documento": "Contrato social inicial",
+          "obs": "Solicitar na contabilidade",
+          "situacao": "entregue"
+        },
+        {
+          "documento": "Todas as alterações contratuais registradas na JUCEMG",
+          "obs": "Pedir ao contador",
+          "situacao": "entregue"
+        }
+      ]
+    },
+    {
+      "nome": "Empresas do grupo — ativo imobilizado e patrimônio",
+      "itens": [
+        {
+          "documento": "CRLV / documento do veículo",
+          "obs": "DETRAN",
+          "situacao": "entregue"
+        },
+        {
+          "documento": "Informação sobre financiamento ou alienação de veículo",
+          "obs": "Se houver",
+          "situacao": "entregue"
+        },
+        {
+          "documento": "Matrícula atualizada de imóvel",
+          "obs": "",
+          "situacao": "pendente"
+        },
+        {
+          "documento": "Escritura ou contrato de aquisição de imóvel",
+          "obs": "",
+          "situacao": "pendente"
+        },
+        {
+          "documento": "Informação sobre ônus ou garantias sobre imóvel",
+          "obs": "Se houver",
+          "situacao": "pendente"
+        }
+      ]
+    },
+    {
+      "nome": "Empresas do grupo — contabilidade e fiscal",
+      "itens": [
+        {
+          "documento": "Contatos da contabilidade responsável",
+          "obs": "",
+          "situacao": "pendente"
+        },
+        {
+          "documento": "Balancetes e demonstrações disponíveis",
+          "obs": "",
+          "situacao": "pendente"
+        },
+        {
+          "documento": "Obrigações acessórias",
+          "obs": "DEFIS, ECF, DCTFWeb etc.",
+          "situacao": "pendente"
+        },
+        {
+          "documento": "Relatórios fiscais relevantes",
+          "obs": "",
+          "situacao": "pendente"
+        }
+      ]
+    },
+    {
+      "nome": "Sócios e administradores — documentos pessoais (para cada sócio)",
+      "itens": [
+        {
+          "documento": "RG e CPF (ou CNH)",
+          "obs": "",
+          "situacao": "entregue"
+        },
+        {
+          "documento": "Estado civil e profissão",
+          "obs": "",
+          "situacao": "entregue"
+        },
+        {
+          "documento": "Comprovante de residência atualizado",
+          "obs": "",
+          "situacao": "pendente"
+        },
+        {
+          "documento": "Última Declaração de Imposto de Renda Pessoa Física",
+          "obs": "",
+          "situacao": "pendente"
+        }
+      ]
+    },
+    {
+      "nome": "Sócios e administradores — patrimônio pessoal",
+      "itens": [
+        {
+          "documento": "CRLV do veículo",
+          "obs": "",
+          "situacao": "pendente"
+        },
+        {
+          "documento": "Informação sobre financiamento de veículo",
+          "obs": "Se houver",
+          "situacao": "pendente"
+        },
+        {
+          "documento": "Matrícula ou escritura de imóvel",
+          "obs": "Se houver",
+          "situacao": "pendente"
+        },
+        {
+          "documento": "Informação sobre ônus sobre imóvel",
+          "obs": "Se houver",
+          "situacao": "pendente"
+        },
+        {
+          "documento": "Participação em outras empresas",
+          "obs": "Razão social e CNPJ das demais empresas, se houver",
+          "situacao": "pendente"
+        }
+      ]
+    },
+    {
+      "nome": "Certificados e procurações do grupo",
+      "itens": [
+        {
+          "documento": "Certificados digitais e-CNPJ e senhas",
+          "obs": "Das empresas",
+          "situacao": "pendente"
+        },
+        {
+          "documento": "Certificados digitais e-CPF e senhas",
+          "obs": "Dos sócios, se houver",
+          "situacao": "pendente"
+        },
+        {
+          "documento": "Procurações eletrônicas",
+          "obs": "RFB / PGFN / e-CAC / Regularize",
+          "situacao": "pendente"
+        }
+      ]
+    }
+  ]
+}

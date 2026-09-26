@@ -1,0 +1,322 @@
+{
+  "perfis": {
+    "atual": {
+      "nomeCliente": "Metalúrgica Vega Industrial Ltda",
+      "cnpjPrincipal": "12.345.678/0001-90",
+      "regimeAtual": "real",
+      "atividade": "industria",
+      "modoFat": "medio",
+      "modoDespesa": "detalhado",
+      "fatMensal": "R$ 2.400.000,00",
+      "rbt12": "R$ 28.800.000,00",
+      "capitalSocial": "R$ 3.500.000,00",
+      "margem": "18",
+      "usarMargem": false,
+      "despesasMensal": "",
+      "despesasAnual": "",
+      "genCredIcmsPct": "0",
+      "genCredPcPct": "0",
+      "genCredIpiPct": "0",
+      "credGlobalPct": false,
+      "issExportIsento": false,
+      "holdBensEramDaOperacional": true,
+      "folha12": "R$ 3.720.000,00",
+      "folhaMensal": "R$ 310.000,00",
+      "grauRisco": "3",
+      "fapFator": "1",
+      "terceirosPct": "5.8",
+      "lucroDisp": "",
+      "lucroADistribuir": "",
+      "numSocios": "2",
+      "prolaboreMensal": "R$ 22.000,00",
+      "holdingLocacao": "",
+      "jcpPL": "R$ 4.200.000,00",
+      "jcpTaxa": "10.5",
+      "jcpLucroAnual": "R$ 7.200.000,00",
+      "jcpReservas": "R$ 2.800.000,00",
+      "numFuncionarios": "60",
+      "tercPct": "",
+      "tercMarkupPct": "",
+      "resumoRegimeSugTouched": "",
+      "jcpPLManual": true,
+      "jcpLucroAnualManual": true,
+      "ativHolding": true,
+      "ativJcp": true,
+      "ativSeg": false,
+      "ativTerc": false,
+      "icmsRet": false,
+      "estadoEmpresa": "MG",
+      "modoBens": "itens",
+      "splitN": "",
+      "vm-interna": "25",
+      "vm-interncontrib": "0",
+      "vm-internaocontrib": "0",
+      "vm-ufdestino": "",
+      "vm-exportacao": "15",
+      "compraPctInterestadual": "50",
+      "compraPctFornSimples": "10",
+      "compraPctComIpi": "70",
+      "UF_ORIG": [
+        {
+          "id": 1,
+          "uf": "SP",
+          "pct": 30,
+          "importado": false
+        },
+        {
+          "id": 2,
+          "uf": "BA",
+          "pct": 20,
+          "importado": false
+        },
+        {
+          "id": 3,
+          "uf": "SC",
+          "pct": 10,
+          "importado": true
+        }
+      ],
+      "comprasDetalhado": true,
+      "considerarMultaFgts": true,
+      "MESES_FAT": [],
+      "difalPctVendas": "25",
+      "difalAliqOrigem": "12",
+      "difalAliqDestino": "19",
+      "CNAES": [
+        {
+          "id": 1,
+          "v": "2451-2/00",
+          "principal": true,
+          "info": null,
+          "descricaoOficial": "Fundição de ferro e aço"
+        },
+        {
+          "id": 2,
+          "v": "2539-0/01",
+          "principal": false,
+          "info": null,
+          "descricaoOficial": "Serviços de usinagem, tornearia e solda"
+        }
+      ],
+      "SOCIOS": [
+        {
+          "id": 1,
+          "nome": "Pedro Vega",
+          "pct": "70",
+          "admin": true,
+          "cargo": "Sócio-Administrador"
+        },
+        {
+          "id": 2,
+          "nome": "Marina Vega",
+          "pct": "30",
+          "admin": true,
+          "cargo": "Sócio-Administrador"
+        }
+      ],
+      "INSUMOS": [
+        {
+          "id": 1,
+          "nome": "",
+          "tipo": "insumo",
+          "valor": 380000,
+          "credICMS": true,
+          "credPC": true,
+          "credIPI": true
+        },
+        {
+          "id": 2,
+          "nome": "",
+          "tipo": "energia",
+          "valor": 55000,
+          "credICMS": true,
+          "credPC": true,
+          "credIPI": false
+        },
+        {
+          "id": 3,
+          "nome": "",
+          "tipo": "revenda",
+          "valor": 60000,
+          "credICMS": true,
+          "credPC": true,
+          "credIPI": false
+        },
+        {
+          "id": 4,
+          "nome": "",
+          "tipo": "frete",
+          "valor": 28000,
+          "credICMS": false,
+          "credPC": true,
+          "credIPI": false
+        },
+        {
+          "id": 5,
+          "nome": "",
+          "tipo": "manutencao",
+          "valor": 20000,
+          "credICMS": false,
+          "credPC": true,
+          "credIPI": false
+        },
+        {
+          "id": 6,
+          "nome": "",
+          "tipo": "depreciacao",
+          "valor": 18000,
+          "credICMS": false,
+          "credPC": true,
+          "credIPI": false
+        },
+        {
+          "id": 7,
+          "nome": "",
+          "tipo": "aluguel",
+          "valor": 12000,
+          "credICMS": false,
+          "credPC": true,
+          "credIPI": false
+        },
+        {
+          "id": 8,
+          "nome": "",
+          "tipo": "outro",
+          "valor": 45000,
+          "credICMS": false,
+          "credPC": false,
+          "credIPI": false
+        }
+      ],
+      "SEG": [],
+      "BENS": [
+        {
+          "id": 1,
+          "nome": "Galpão industrial — matriz",
+          "tipo": "imovel",
+          "matricula": "12.345 — 2º Ofício",
+          "valorMercado": 6200000,
+          "valorLocacao": 52000
+        },
+        {
+          "id": 2,
+          "nome": "Centro de usinagem CNC",
+          "tipo": "maquinario",
+          "valorMercado": 1400000,
+          "valorLocacao": 14000
+        },
+        {
+          "id": 3,
+          "nome": "Frota de entrega (4 veículos)",
+          "tipo": "veiculo",
+          "matricula": "ABC-1D23 e outros",
+          "valorMercado": 680000,
+          "valorLocacao": 6800
+        }
+      ],
+      "UF_DEST": [
+        {
+          "id": 1,
+          "uf": "SP",
+          "pctContrib": 20,
+          "pctNaoContrib": 5,
+          "importado": false
+        },
+        {
+          "id": 2,
+          "uf": "PE",
+          "pctContrib": 10,
+          "pctNaoContrib": 10,
+          "importado": false
+        },
+        {
+          "id": 3,
+          "uf": "PR",
+          "pctContrib": 10,
+          "pctNaoContrib": 5,
+          "importado": false
+        }
+      ],
+      "difalDetalhado": true,
+      "MI_ITENS": [
+        {
+          "id": 1,
+          "descricao": "Peças fundidas sob encomenda",
+          "pct": 15,
+          "aliq": 18
+        },
+        {
+          "id": 2,
+          "descricao": "Linha padrão de conexões",
+          "pct": 10,
+          "aliq": 18
+        }
+      ],
+      "mercadoInternoDetalhado": true,
+      "cfgVals": {
+        "vm-interna": "20",
+        "vm-interncontrib": "25",
+        "vm-internaocontrib": "25",
+        "vm-exportacao": "30",
+        "genCredIcmsPct": "0",
+        "genCredPcPct": "0",
+        "genCredIpiPct": "0",
+        "compraPctFornSimples": "30",
+        "compraPctComIpi": "0",
+        "terceirosPct": "5.8",
+        "tercPct": "8",
+        "tercMarkupPct": "18",
+        "cfg-limiteSimples": "4800000",
+        "cfg-sublimite": "3600000",
+        "cfg-fatorRMin": "28",
+        "cfg-icms": "18",
+        "cfg-iss": "3",
+        "cfg-ipi": "5",
+        "cfg-retInterna": "6",
+        "cfg-retInter": "1.3",
+        "cfg-aliqIRPJ": "15",
+        "cfg-adicIRPJ": "10",
+        "cfg-limAdic": "20000",
+        "cfg-aliqCSLL": "9",
+        "cfg-presIRPJcom": "8",
+        "cfg-presIRPJserv": "32",
+        "cfg-presCSLLcom": "12",
+        "cfg-presCSLLserv": "32",
+        "cfg-pisCum": "0.65",
+        "cfg-cofinsCum": "3",
+        "cfg-pisNcum": "1.65",
+        "cfg-cofinsNcum": "7.6",
+        "cfg-inssPatronal": "20",
+        "cfg-fgts": "8",
+        "cfg-multaFgts": "40",
+        "cfg-ferias": "11.11",
+        "cfg-decimoTerceiro": "8.33",
+        "cfg-inssTeto": "8475.55",
+        "cfg-inssAliqSocio": "11",
+        "cfg-limDividendo": "50000",
+        "cfg-irpfLim1": "2428.80",
+        "cfg-irpfLim2": "2826.65",
+        "cfg-irpfAliq2": "7.5",
+        "cfg-irpfDed2": "182.16",
+        "cfg-irpfLim3": "3751.05",
+        "cfg-irpfAliq3": "15",
+        "cfg-irpfDed3": "394.16",
+        "cfg-irpfLim4": "4664.68",
+        "cfg-irpfAliq4": "22.5",
+        "cfg-irpfDed4": "675.49",
+        "cfg-irpfAliq5": "27.5",
+        "cfg-irpfDed5": "908.73",
+        "cfg-irpfRedIsento": "5000",
+        "cfg-irpfRedTeto": "7350",
+        "cfg-irpfRedA": "978.62",
+        "cfg-irpfRedB": "0.133145",
+        "cfg-credIcms": "18",
+        "cfg-credIpiEntrada": "5",
+        "cfg-credSimples": "3",
+        "cfg-difalOrigemPad": "12"
+      }
+    },
+    "proposta": null
+  },
+  "perfilAtivo": "atual"
+}

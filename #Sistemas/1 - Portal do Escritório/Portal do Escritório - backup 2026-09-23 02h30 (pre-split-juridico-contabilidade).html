@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Portal — Araújo &amp; Castro</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300..700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ══════════ TOKENS, TIPOGRAFIA E FUNDO ══════════ */
+:root{
+  --bg:#EEF1F7;--navy:#1F3864;--navy2:#28437a;--navy3:#2E5395;
+  /* Paleta institucional Araújo & Castro (confirmada na skill de padrão gráfico): azul-marinho #1F3864 para
+     títulos/cabeçalhos, azul médio #2E5395 para destaque/foco, dourado #B8860B para realce pontual único —
+     nunca em massa. --accent2/--accent2-d fazem o papel de "azul de destaque" (foco, indicador de aba) em todo
+     o sistema; qualquer componente que referencia var(--accent2) herda esta cor automaticamente. */
+  --accent:#B8860B;--accent2:#2E5395;--accent2-d:#1F3864;
+  --glow2:0 0 0 3px rgba(46,83,149,.14);--glow2-strong:0 0 14px rgba(46,83,149,.28);
+  --border:rgba(15,23,42,.08);--border-strong:rgba(15,23,42,.15);
+  /* Sombra única e discreta por nível de elevação — sem camadas duplas nem glow difuso, para reduzir peso visual. */
+  --shadow-sm:0 1px 3px rgba(15,23,42,.08);
+  --shadow-md:0 3px 10px rgba(15,23,42,.10);
+  --shadow-lg:0 8px 22px rgba(15,23,42,.14);
+  --shadow-navy:0 3px 12px rgba(15,35,64,.22);
+  --card-r:16px;--radius-sm:10px;--radius-xs:7px;
+  --text:#0f1521;--text2:#4b5563;--text3:#8b93a3;
+  --green:#16a34a;--green-d:#15803d;--green-lt:#dcfce7;
+  --blue:#2e5395;--blue-d:#1f3864;--blue-lt:#dbeafe;
+  --violet:#7c3aed;--violet-d:#6d28d9;--violet-lt:#ede9fe;
+  --amber:#b45309;--amber-lt:#fef3c7;--amber-border:rgba(180,83,9,.25);
+  --red:#dc2626;--red-lt:#fee2e2;
+  --font-d:'DM Sans',sans-serif;--font-h:'Space Grotesk','DM Sans',sans-serif;--font-m:'JetBrains Mono',monospace;
+  --hh:52px;--th:44px;--ph:38px;
+  /* Curva de easing única para toda a interface — "ease-out" pronunciado no início, assentamento suave no fim;
+     é a mesma família de easing usada por painéis financeiros premium (Stripe/Linear) em vez do ease-in-out padrão. */
+  --ease:cubic-bezier(.16,1,.3,1);
+;
+  /* Larguras máximas por tipo de módulo — ver comentário abaixo. */
+  --w-wide:1560px;--w-mid:1360px;--w-narrow:1180px}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+/* Paleta institucional — sempre azul, dourado e branco; sem terceira cor decorativa no fundo. */
+body{font-family:var(--font-d);background:
+    radial-gradient(1200px 560px at 8% -12%,rgba(46,83,149,.08),transparent 58%),
+    radial-gradient(900px 480px at 102% -6%,rgba(184,134,11,.09),transparent 55%),
+    var(--bg);
+  background-attachment:fixed;
+  color:var(--text);min-height:100vh;font-size:14px;-webkit-font-smoothing:antialiased}
+input,select,button,textarea{font-family:var(--font-d)}
+/* Alinhamento numérico — colunas de R$/% em tabelas, KPIs e cards de resultado usam algarismos tabulares para
+   que os dígitos ocupem sempre a mesma largura; sem isso, números com dígitos diferentes (1 vs 8, por exemplo)
+   "andam" de leve entre linhas e a coluna parece torta mesmo com o texto corretamente alinhado à direita. */
+.mono,.fi.mono,.cfg-param-in,.kpi-v,.apres-kpi-v,.apres-highlight-v,.data-tbl .mono{
+  font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1,"lnum" 1;
+}
+
+/* ══════════ CABEÇALHO FIXO ══════════ */
+/* HEADER */
+#hd{position:fixed;top:0;left:0;right:0;z-index:300;height:var(--hh);
+  background:linear-gradient(115deg,var(--navy) 0%,var(--navy2) 55%,#0d1730 100%);
+  color:#fff;padding:0 22px;display:flex;align-items:center;justify-content:space-between;
+  box-shadow:var(--shadow-navy);border-bottom:1px solid rgba(46,83,149,.18);position:fixed;overflow:hidden}
+#hd::after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(46,83,149,.6) 20%,rgba(184,134,11,.6) 55%,transparent 85%)}
+.hd-brand{display:flex;align-items:center;gap:11px;position:relative;z-index:1}
+.hd-mark{width:32px;height:32px;border-radius:10px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-h);font-size:12.5px;font-weight:700;letter-spacing:.02em;background:linear-gradient(135deg,rgba(46,83,149,.22),rgba(184,134,11,.22));
+  border:1px solid rgba(46,83,149,.4);box-shadow:0 0 18px rgba(46,83,149,.3),inset 0 0 12px rgba(184,134,11,.15);color:var(--accent)}
+.hd-name{font-family:var(--font-h);font-size:14.5px;font-weight:700;color:#fff;letter-spacing:.01em;line-height:1.2}
+.hd-sub{font-size:9px;color:rgba(255,255,255,.42);letter-spacing:.14em;text-transform:uppercase;margin-top:2px;
+  background:linear-gradient(90deg,rgba(255,255,255,.75),rgba(255,255,255,.35));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.hd-r{font-size:12px;color:rgba(255,255,255,.5);display:flex;align-items:center;gap:8px;position:relative;z-index:1;
+  background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.08);padding:5px;border-radius:11px;backdrop-filter:blur(6px)}
+.hd-dot{width:7px;height:7px;border-radius:50%;background:var(--accent2);display:inline-block;animation:pulse 2s infinite;box-shadow:0 0 8px rgba(46,83,149,.8)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+.hd-btn{background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.14);color:#fff;padding:6px 13px;border-radius:7px;font-size:11.5px;font-weight:600;cursor:pointer;transition:background .18s var(--ease),border-color .18s var(--ease),box-shadow .18s var(--ease),transform .18s var(--ease);display:flex;align-items:center;gap:6px}
+.hd-btn:hover{background:rgba(46,83,149,.16);border-color:rgba(46,83,149,.5);box-shadow:0 0 14px rgba(46,83,149,.25);transform:translateY(-1px)}
+.hd-btn:active{transform:translateY(0)}
+.hd-r>span{padding:0 10px 0 4px;white-space:nowrap}
+
+/* ══════════ NAVEGAÇÃO POR ABAS (opcional) ══════════ */
+/* TABS */
+#tabnav{position:fixed;top:calc(var(--hh) + var(--ph));left:0;right:0;z-index:200;background:#fff;border-bottom:1.5px solid var(--border);display:flex;align-items:center;padding:0 10px;box-shadow:0 2px 10px rgba(0,0,0,.05);height:var(--th);overflow-x:auto;gap:2px}
+.tab{position:relative;padding:0 14px;height:100%;font-size:12.5px;font-weight:500;cursor:pointer;border:none;background:transparent;color:var(--text2);border-bottom:2.5px solid transparent;margin-bottom:-1.5px;display:flex;align-items:center;gap:6px;transition:color .18s var(--ease);white-space:nowrap;flex-shrink:0}
+.tab:hover{color:var(--navy)}
+.tab.active{color:var(--navy);font-weight:700}
+/* Indicador estático (fallback sempre visível, mesmo sem JS) — o indicador deslizante de #tab-indicator, se
+   conseguir se posicionar via JS, fica visualmente por cima e substitui a percepção deste; ele nunca desaparece,
+   então uma falha de JS nunca deixa a aba ativa sem nenhum sinal. */
+.tab.active::after{content:'';position:absolute;left:10px;right:10px;bottom:-1.5px;height:2.5px;border-radius:2px;
+  background:linear-gradient(90deg,var(--accent2),var(--accent));box-shadow:0 0 10px rgba(46,83,149,.5)}
+/* Barra deslizante — posicionada via JS (ver final do bloco de script) sobre a aba ativa de #tabnav; transform+width
+   animados com --ease dão a sensação de "trilho" contínuo entre abas, em vez de o sublinhado só trocar de lugar. */
+#tab-indicator{position:absolute;bottom:-1.5px;height:2.5px;border-radius:2px;background:linear-gradient(90deg,var(--accent2),var(--accent));
+  box-shadow:0 0 12px rgba(46,83,149,.55);transition:transform .32s var(--ease),width .32s var(--ease),opacity .18s;
+  opacity:0;pointer-events:none}
+.risk-dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0;box-shadow:0 0 0 1.5px rgba(255,255,255,.55)}
+.risk-dot.red{background:var(--red)}
+.risk-dot.amber{background:#f59e0b}
+
+/* ══════════ LAYOUT ══════════ */
+#main{margin-top:calc(var(--hh) + 16px);padding:18px 22px 60px}
+/* Com barra de abas fixa abaixo do cabeçalho, o corpo precisa descer mais: <body class="com-abas">. */
+body.com-abas #main{margin-top:calc(var(--hh) + var(--th))}
+body.sem-cabecalho #main{margin-top:0}
+.panel{display:none}
+.panel.active{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;align-items:flex-start;
+  flex-direction:column;max-width:var(--w-mid);margin:0 auto;animation:riseIn .3s var(--ease) both}
+.doc{max-width:var(--w-mid);margin:0 auto;display:flex;flex-direction:column;gap:14px}
+.doc-wide{max-width:var(--w-wide)}
+.doc-narrow{max-width:var(--w-narrow)}
+
+/* ══════════ CARDS ══════════ */
+.card-row{display:flex;gap:14px;flex-wrap:wrap;width:100%;align-items:flex-start}
+.card-row>.card{flex:1 1 340px;min-width:0}
+
+.card-row>.card-col{flex:1 1 340px;min-width:0;display:flex;flex-direction:column;gap:14px;align-self:flex-start}
+
+.card{background:#fff;border-radius:var(--card-r);border:1px solid var(--border);box-shadow:var(--shadow-sm);transition:box-shadow .22s var(--ease),border-color .22s var(--ease),transform .22s var(--ease)}
+.card:hover{box-shadow:var(--shadow-md);border-color:var(--border-strong)}
+.card-hd{position:relative;background:var(--navy);color:rgba(255,255,255,.94);padding:11px 18px;display:flex;align-items:center;gap:8px;font-size:11px;font-weight:600;letter-spacing:.045em;text-transform:uppercase;justify-content:space-between;border-top-left-radius:var(--card-r);border-top-right-radius:var(--card-r);border-bottom:1px solid rgba(46,83,149,.35);font-family:var(--font-h);overflow:hidden}
+.card-hd-r{display:flex;align-items:center;gap:8px;text-transform:none;font-weight:500;letter-spacing:0;position:relative;z-index:1}
+.card-body{padding:19px}
+/* Entrada suave dos cards ao trocar de aba/painel — dispara só quando .panel ganha .active (evento pouco
+   frequente, disparado por clique, nunca por tecla digitada), então não custa nada em performance de digitação
+   e ainda dá a sensação de painel "vivo" ao navegar. */
+@keyframes riseIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.panel.active>.card,.panel.active>.left-col>.card,.panel.active>.right-col>.card{animation:riseIn .42s var(--ease) both}
+.panel.active>.left-col>.card:nth-child(2),.panel.active>.right-col>.card:nth-child(2){animation-delay:.03s}
+.panel.active>.left-col>.card:nth-child(3),.panel.active>.right-col>.card:nth-child(3){animation-delay:.06s}
+
+/* ══════════ FORMULÁRIO ══════════ */
+.fg{display:flex;flex-direction:column;gap:4px;margin-bottom:14px}
+.fg>.fi.mono,.fg>.fi-num,.fg>.inp-sfx,.fg>.inp-pfx{max-width:280px}
+/* Dentro de grid a célula já limita a largura — aí o campo volta a preencher a coluna inteira. */
+.g2>.fg>.fi.mono,.g2>.fg>.fi-num,.g2>.fg>.inp-sfx,.g2>.fg>.inp-pfx,
+.g3>.fg>.fi.mono,.g3>.fg>.fi-num,.g3>.fg>.inp-sfx,.g3>.fg>.inp-pfx,
+.g4>.fg>.fi.mono,.g4>.fg>.fi-num,.g4>.fg>.inp-sfx,.g4>.fg>.inp-pfx,
+.cfg-params .fg>.inp-sfx,.cfg-params .fg>.inp-pfx{max-width:none}
+.fg:last-child{margin-bottom:0}
+label.lbl{font-size:11px;font-weight:600;color:var(--navy);text-transform:uppercase;letter-spacing:.04em;display:flex;align-items:center;gap:6px}
+.hint{font-size:11px;color:var(--text3);line-height:1.4}
+.fi{padding:8px 12px;border:1.5px solid var(--border-strong);border-radius:var(--radius-sm);font-size:13.5px;color:var(--text);background:#fff;width:100%;outline:none;transition:border-color .18s var(--ease),box-shadow .18s var(--ease)}
+.fi:hover{border-color:#c3cad8}
+.fi:focus{border-color:var(--accent2-d);box-shadow:var(--glow2)}
+.fi.mono{font-family:var(--font-m);font-size:13px}
+.fi:disabled{background:var(--bg);color:var(--text3);cursor:not-allowed}
+.fi-blocked{padding:8px 12px;border:1.5px solid var(--border-strong);border-radius:var(--radius-sm);font-size:12.5px;color:var(--text3);background:var(--bg);width:100%;cursor:not-allowed;box-sizing:border-box;display:flex;align-items:center;line-height:1.3}
+.fi-blocked-sm{padding:5px 9px;border:1.5px solid var(--border-strong);border-radius:var(--radius-xs);font-size:11px;color:var(--text3);background:var(--bg);width:100%;cursor:not-allowed;box-sizing:border-box;display:flex;align-items:center;line-height:1.3}
+/* Grids de 2 a 4 colunas sujeitos a labels de tamanhos diferentes quebrando linha de forma desigual —
+
+.g2>.fg>.inp-sfx:last-child,.g2>.fg>.inp-pfx:last-child,.g2>.fg>.fi:last-child,.g2>.fg>.fi-num:last-child{margin-top:auto}
+/* Campo somente-leitura dentro de uma grade fica com a MESMA caixa do campo editável ao lado (mesma altura,
+   mesmo padding, base alinhada) — senão a linha parece ter colunas de tamanhos diferentes. */
+.g2>.fg>.fi-blocked-sm,.g3>.fg>.fi-blocked-sm{min-height:34px;padding:8px 12px;font-size:12px}
+/* O alinhamento à base não pode depender de :last-child — o campo somente-leitura costuma ter, logo abaixo,
+   um input hidden ou um comentário que o tira dessa posição, e aí ele subia enquanto o campo editável ao lado
+   descia (era o caso de "% das compras no mesmo estado" × "% das compras de fornecedor do Simples"). */
+.g2>.fg>.fi-blocked-sm,.g3>.fg>.fi-blocked-sm{margin-top:auto}
+/* Campo que existe, mas cujo valor é derivado de outro (ex.: % mercado interno = 100% − exportação). */
+.cfg-param-in[readonly],input.fi[readonly],input.fi-num[readonly]{background:var(--bg);color:var(--text3);cursor:not-allowed}
+.fi-num{padding:8px 12px;border:1.5px solid var(--border-strong);border-radius:var(--radius-sm);font-size:13.5px;color:var(--text);background:#fff;width:100%;outline:none;transition:border-color .18s var(--ease),box-shadow .18s var(--ease)}
+.fi-num:hover{border-color:#c3cad8}
+.fi-num:focus{border-color:var(--accent2-d);box-shadow:var(--glow2)}
+.chk-row{display:flex;align-items:flex-start;gap:8px;cursor:pointer}
+.chk-row input[type=checkbox]{width:15px;height:15px;margin-top:2px;accent-color:var(--navy);flex-shrink:0;cursor:pointer}
+.chk-row span{font-size:12.5px;color:var(--text2);line-height:1.45}
+
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.g4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px}
+@media(max-width:640px){.g2,.g3,.g4{grid-template-columns:1fr}}
+@media(max-width:900px){.g4{grid-template-columns:1fr 1fr}}
+
+/* PAINÉIS PARALELOS (Operacional × Holding / Operacional × Prestadora) */
+
+/* ══════════ SEÇÕES, SUBSEÇÕES RECOLHÍVEIS E OBSERVAÇÃO "!" ══════════ */
+.sec-div{display:flex;align-items:center;gap:10px;margin:16px 0 12px}
+.sec-div-line{flex:1;height:1px;background:var(--border)}
+.sec-div-lbl{font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.07em;text-transform:uppercase;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
+/* Sub-módulo visualmente delimitado (bloco com fundo/borda leve) — usado quando várias seções convivem dentro
+   de um mesmo card e precisam se destacar mais que um simples divisor de texto (ex.: Composição das Vendas). */
+.subsec{background:rgba(15,23,58,.025);border:1px solid rgba(15,23,58,.09);border-radius:12px;padding:16px 18px;margin-bottom:16px}
+.subsec:last-child{margin-bottom:0}
+.subsec-hd{display:flex;align-items:center;gap:9px;margin-bottom:14px}
+.subsec-num{flex-shrink:0;width:22px;height:22px;border-radius:7px;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-family:var(--font-h);font-size:11px;font-weight:700}
+.subsec-hd-txt{font-size:12.5px;font-weight:700;color:var(--navy);letter-spacing:.02em}
+/* ── Recolher/expandir seções (subseções de Composição das Vendas, card de Receita Aberta, pró-labore) ──
+   Um único mecanismo para toda a ferramenta: o cabeçalho vira clicável e ganha um chevron à direita. */
+.subsec-hd.is-toggle{cursor:pointer;user-select:none;margin-bottom:14px}
+/* Observação — texto explicativo abaixo de um bloco de números. Ganha um "!" à esquerda para se distinguir
+   de uma linha do próprio demonstrativo: dentro do DRE, legenda nenhuma deve parecer parte da conta. */
+.hint.obs{position:relative;padding-left:19px}
+.hint.obs:before{content:"!";position:absolute;left:0;top:1px;width:13px;height:13px;border-radius:50%;
+  background:rgba(184,134,11,.16);color:#8a6508;font-weight:800;font-size:9px;line-height:13px;text-align:center}
+
+/* ══════════ MODO ENXUTO ══════════ */
+/* ── MODO ENXUTO ──
+   Um clique deixa a tela pronta para projetar: somem as notas explicativas, os alertas informativos e as
+   legendas de rodapé; ficam os números, as tabelas e os selos (i), que continuam disponíveis no hover.
+   Nada é apagado — é só visibilidade, e o PDF ignora este modo por completo. */
+body.modo-enxuto .obs,
+body.modo-enxuto .alrt-blue,
+body.modo-enxuto .legenda-box,
+body.modo-enxuto .nota-aux{display:none!important}
+body.modo-enxuto .card-body>.hint:first-child{display:none}
+body.modo-enxuto #btnModoEnxuto{background:var(--accent);color:#1a1a19;border-color:var(--accent)}
+@media print{body.modo-enxuto .obs,body.modo-enxuto .alrt-blue,body.modo-enxuto .legenda-box{display:block!important}}
+
+.subsec-hd.is-toggle:hover .subsec-hd-txt{color:var(--accent2)}
+.sec-ico{margin-left:auto;flex-shrink:0;font-size:10px;color:var(--text3);transition:color .15s var(--ease)}
+.subsec-hd.is-toggle:hover .sec-ico{color:var(--accent2)}
+.subsec-hd.is-recolhido{margin-bottom:0}
+
+/* ══════════ ESCOLHA ENTRE MODOS (radio em cartão) ══════════ */
+.modo-toggle{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.modo-opt{flex:1;min-width:220px;display:flex;align-items:flex-start;gap:8px;padding:10px 12px;border:1.5px solid var(--border);border-radius:9px;background:#fff;cursor:pointer;transition:border-color .15s var(--ease),background .15s var(--ease)}
+.modo-opt:hover{border-color:rgba(46,83,149,.4)}
+.modo-opt.is-active{border-color:var(--accent2);background:rgba(46,83,149,.06)}
+.modo-opt input{margin-top:2px;accent-color:var(--accent2);flex-shrink:0;cursor:pointer}
+.modo-opt span{font-size:12px;color:var(--text2);line-height:1.4}
+.modo-opt b{color:var(--navy)}
+
+/* ══════════ ESTADO VAZIO E ALERTAS ══════════ */
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:200px;color:var(--text3);gap:12px;padding:32px}
+.empty-state svg{opacity:.2}
+.empty-state p{font-size:13px;text-align:center;max-width:280px;line-height:1.55}
+
+/* ALERTS */
+.alrt{border-radius:var(--radius-xs);padding:10px 14px 10px 12px;font-size:12.5px;line-height:1.5;margin-bottom:6px;border-left-width:3px;border-left-style:solid}
+.alrt-amber{background:var(--amber-lt);border:1px solid var(--amber-border);border-left-color:var(--amber);color:var(--amber)}
+.alrt-blue{background:var(--blue-lt);border:1px solid rgba(46,83,149,.22);border-left-color:var(--blue-d);color:var(--blue-d)}
+.alrt-red{background:var(--red-lt);border:1px solid rgba(220,38,38,.22);border-left-color:var(--red);color:var(--red)}
+.alrt-green{background:var(--green-lt);border:1px solid rgba(22,163,74,.22);border-left-color:var(--green-d);color:var(--green-d)}
+.alrt b{font-weight:700}
+/* Barra de progresso opcional dentro de um .alrt — usada nos resumos de soma de percentuais (Composição das
+   Vendas / DIFAL detalhado); a mesma cor semântica do alerta pai (verde=100%, âmbar=fora de 100%) se propaga
+   via currentColor, então não exige nenhuma classe de cor extra nem lógica nova. */
+.alrt-bar{height:5px;border-radius:20px;background:rgba(0,0,0,.08);overflow:hidden;margin-top:8px}
+.alrt-bar-fill{height:100%;border-radius:20px;background:currentColor;transition:width .5s var(--ease)}
+
+/* ══════════ KPIs E TABELAS ══════════ */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;margin-bottom:16px}
+.kpi-box{position:relative;background:#fff;border:1px solid var(--border);border-top:2px solid rgba(46,83,149,.4);border-radius:var(--radius-sm);padding:13px 14px;transition:border-color .2s var(--ease)}
+.kpi-box:hover{border-color:var(--border-strong)}
+.kpi-v{font-family:var(--font-m);font-size:19px;font-weight:700;color:var(--navy);margin-bottom:2px;position:relative}
+.kpi-l{font-size:10.5px;color:var(--text3);line-height:1.4;text-transform:uppercase;letter-spacing:.04em;font-weight:600;position:relative}
+
+/* TABLES */
+/* Tabelas largas (ex.: DIFAL detalhado por UF, com 7 colunas) rolam dentro do próprio card em vez de estourar
+   a largura da aba. */
+.tbl-wrap{width:100%;overflow-x:auto}
+.tbl-wrap>.data-tbl{min-width:640px}
+/* Tabela dentro de card estreito (coluna lateral): dispensa o mínimo de 640px e compacta a célula, para
+   caber inteira na largura do card em vez de exigir rolagem lateral. */
+.tbl-wrap.tbl-narrow>.data-tbl{min-width:0}
+.tbl-wrap.tbl-narrow .data-tbl th,.tbl-wrap.tbl-narrow .data-tbl td{padding:7px 8px}
+.tbl-wrap.tbl-narrow .data-tbl th{font-size:9.5px;letter-spacing:.03em}
+.data-tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.data-tbl th{background:rgba(27,42,74,.05);color:var(--navy);padding:9px 12px;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;text-align:left;border-bottom:1.5px solid rgba(27,42,74,.16)}
+.data-tbl td{padding:8px 12px;border-bottom:1px solid var(--border);vertical-align:middle;color:var(--text2);transition:background .12s var(--ease)}
+.data-tbl tr:last-child td{border-bottom:none}
+.data-tbl tbody tr:hover td{background:rgba(46,83,149,.045)}
+/* Valor de célula em peso normal: o negrito passa a marcar só o que é total/subtotal (regra .total-row abaixo)
+   ou o que vier explicitamente em <strong>. Antes toda coluna numérica vinha semibold e nada se destacava. */
+.data-tbl .mono{font-family:var(--font-m);font-size:12px;font-weight:400;color:var(--text)}
+.data-tbl .r{text-align:right}
+.data-tbl .pos{color:var(--green-d)}
+.data-tbl .neg{color:var(--red)}
+.data-tbl tr.total-row td{font-weight:700;background:rgba(27,42,74,.045);color:var(--text);border-top:1.5px solid rgba(27,42,74,.14)}
+.data-tbl tr.total-row td.pos{color:var(--green-d)}
+.data-tbl tr.total-row td.neg{color:var(--red)}
+/* Sublinha de detalhamento (ex.: ICMS aberto por destino da venda) — recuada, menor e sem borda inferior forte,
+   para ler como desdobramento da linha imediatamente acima, e não como um tributo novo. */
+.data-tbl tr.sub-row td{padding-top:5px;padding-bottom:5px;border-bottom:1px dotted rgba(15,23,42,.07);font-size:11.5px;color:var(--text3);background:rgba(15,23,58,.012)}
+.data-tbl tr.sub-row td:first-child{padding-left:26px;position:relative}
+.data-tbl tr.sub-row td:first-child::before{content:'↳';position:absolute;left:12px;color:var(--text3);opacity:.55}
+.data-tbl tr.sub-row .mono{font-size:11.5px;font-weight:400}
+.data-tbl tr.head-row td{font-weight:700;color:var(--navy);border-bottom:none;padding-top:16px;padding-bottom:4px}
+/* Barra de resumo que recolhe uma lista inteira (cadastro de bens). */
+.grp-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 13px;margin-bottom:10px;border-radius:var(--radius-sm);background:var(--bg);box-shadow:inset 0 0 0 1px var(--border);cursor:pointer;font-size:12.5px;color:var(--text2);transition:box-shadow .15s var(--ease)}
+.grp-bar:hover{box-shadow:inset 0 0 0 1px var(--border-strong)}
+.grp-bar-v{margin-left:auto;font-size:12px;color:var(--text3)}
+.data-tbl tr.grp-head{cursor:pointer}
+.data-tbl tr.grp-head:hover td{background:rgba(46,83,149,.06)}
+.data-tbl tr.grp-head td{font-weight:600}
+.grp-ico{display:inline-block;width:11px;color:var(--text3);font-size:10px}
+.data-tbl tr.total-row:hover td{background:rgba(27,42,74,.06)}
+
+/* CONFIGURAR */
+.cfg-title{font-size:20px;font-weight:700;color:var(--navy)}
+.cfg-sub{font-size:12.5px;color:var(--text3);margin-top:3px;margin-bottom:6px}
+.cfg-sec{font-size:13px;font-weight:700;color:var(--navy);margin:16px 0 8px;display:flex;align-items:center;gap:8px}
+.cfg-sec-note{font-size:11px;color:var(--text3);font-weight:400}
+
+/* ══════════ SELO (i) E CAIXA DE LEGENDA ══════════ */
+.lg{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:var(--text3);color:#fff;font-size:9px;font-weight:700;cursor:help;position:relative;flex-shrink:0;text-transform:none;letter-spacing:0;transition:background .15s var(--ease)}
+.lg:hover{background:var(--accent2-d)}
+.lg .lg-tip{display:none;position:absolute;bottom:130%;left:50%;transform:translateX(-50%);background:linear-gradient(150deg,var(--navy),var(--navy2));color:#fff;font-size:11px;font-weight:400;line-height:1.45;padding:9px 11px;border-radius:8px;width:230px;z-index:350;box-shadow:var(--shadow-lg);text-transform:none;letter-spacing:normal;border:1px solid rgba(46,83,149,.2)}
+.lg:hover .lg-tip{display:block;animation:tipIn .15s var(--ease) both}
+.lg .lg-tip.lg-wide{width:330px}
+@keyframes tipIn{from{opacity:0;transform:translateX(-50%) translateY(3px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+/* Campos no topo do card (ex.: linha de KPIs do Sócio) não têm espaço acima para o tooltip abrir para cima
+   sem ficar cortado/atrás do cabeçalho fixo — nesses casos, abrir para baixo. */
+.g4 .lg .lg-tip{bottom:auto;top:130%}
+.legenda-box{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px;font-size:11.5px;color:var(--text2);line-height:1.7}
+.legenda-box div{margin-bottom:3px}
+.legenda-box b{color:var(--navy)}
+
+/* ══════════ PILLS, CARTÃO DINÂMICO E BOTÕES ══════════ */
+.pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.03em}
+.pill-green{background:var(--green-lt);color:var(--green-d)}
+.pill-red{background:var(--red-lt);color:var(--red)}
+.pill-amber{background:var(--amber-lt);color:var(--amber)}
+.pill-blue{background:var(--blue-lt);color:var(--blue-d)}
+.pill-grey{background:#e5e7eb;color:var(--text2)}
+
+/* MEMBER / DYNAMIC CARDS */
+.member-card{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 15px;position:relative;margin-bottom:10px;transition:border-color .18s var(--ease),box-shadow .18s var(--ease)}
+.member-card:hover{border-color:var(--border-strong);box-shadow:var(--shadow-sm)}
+.member-rm{position:absolute;top:9px;right:10px;background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px;line-height:1;padding:2px;transition:color .15s var(--ease),transform .15s var(--ease)}
+.member-rm:hover{color:var(--red);transform:scale(1.15)}
+.add-btn{background:transparent;border:1.5px dashed var(--border-strong);border-radius:var(--radius-sm);padding:11px;width:100%;font-size:12.5px;font-weight:600;color:var(--text2);cursor:pointer;transition:.18s var(--ease)}
+.add-btn:hover{border-color:var(--accent2-d);color:var(--navy);box-shadow:var(--glow2);background:rgba(46,83,149,.04)}
+
+/* BUTTONS */
+.btn-g{background:linear-gradient(120deg,var(--navy),var(--navy2));color:#fff;border:none;border-radius:var(--radius-sm);padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;transition:box-shadow .18s var(--ease),transform .18s var(--ease),background .18s var(--ease);box-shadow:0 2px 8px rgba(10,15,31,.18)}
+.btn-g:hover{background:linear-gradient(120deg,var(--navy2),var(--navy3));box-shadow:0 4px 16px rgba(10,15,31,.28);transform:translateY(-1px)}
+.btn-g:active{transform:translateY(0)}
+.btn-o{background:#fff;color:var(--navy);border:1.5px solid var(--border-strong);border-radius:var(--radius-sm);padding:7.5px 15px;font-size:12.5px;font-weight:600;cursor:pointer;transition:border-color .18s var(--ease),box-shadow .18s var(--ease),transform .18s var(--ease)}
+.btn-o:hover{border-color:var(--accent2-d);box-shadow:var(--glow2);transform:translateY(-1px)}
+.btn-o:active{transform:translateY(0)}
+
+/* SCROLLBAR — fina e discreta, no tom da paleta, em vez da barra do sistema operacional padrão */
+::-webkit-scrollbar{width:9px;height:9px}
+
+/* ══════════ BARRA DE ROLAGEM ══════════ */
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(15,23,42,.16);border-radius:20px;border:2px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-thumb:hover{background:rgba(15,23,42,.28);background-clip:padding-box}
+#tabnav::-webkit-scrollbar,#perfilnav::-webkit-scrollbar,.subtabs::-webkit-scrollbar,.resultado-subtabs::-webkit-scrollbar{height:0}
+* {scrollbar-width:thin;scrollbar-color:rgba(15,23,42,.18) transparent}
+
+/* FOCO ACESSÍVEL — anel consistente para navegação por teclado em qualquer elemento interativo que não tenha
+
+/* ══════════ IMPRESSÃO / PDF ══════════ */
+@page{size:A4 portrait;margin:14mm 12mm 16mm}
+@media print{
+
+  /* Cores dos cabeçalhos e destaques precisam sobreviver à impressão — sem isto o PDF sai em branco e preto. */
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+  #hd,#tabnav,.no-print{display:none!important}
+  #main{margin-top:0;padding:0}
+  body{background:#fff;font-size:10.5px}
+  .panel{display:none!important}
+  /* display:block, e não flex: o Chromium não fragmenta container flex entre páginas — com flex, o painel
+     inteiro vira um bloco indivisível e o PDF sai com páginas em branco antes de cada seção. */
+  .panel.print-active{display:block!important;max-width:none!important;width:100%!important}
+  /* box-shadow inset em vez de border: o Chromium arredonda a posição da linha de 1px pra grade de
+     pixel de forma diferente à esquerda e à direita ao rasterizar o PDF, deixando a borda direita
+     visivelmente mais apagada que a esquerda — acontece mesmo com cor 100% opaca, não é sobre
+     transparência. box-shadow inset preenche o traço por dentro e sai idêntico dos dois lados
+     (ver "As armadilhas do PDF" em references/pdf-e-apresentacao.md). */
+  .card{box-shadow:inset 0 0 0 1px #d4d9e4!important;border:none!important;break-inside:avoid;margin-bottom:10px;width:100%!important;max-width:none!important}
+  /* Mesmo problema, mesma solução, na borda de cada categoria/subseção — .subsec usa cor
+     translúcida na tela (bom pro fundo se sobrepor a outros elementos), mas o print força cor
+     sólida porque alfa some ainda mais rápido no lado direito. */
+  .subsec{background:#fbfbfd!important;border:none!important;box-shadow:inset 0 0 0 1px #d9dde6!important}
+  /* Depois de clonar (ver gerarPDF() no esqueleto), só a cópia dentro de #print-root deve imprimir —
+     sem isto, o bloco original (que nunca sai mais da tela) e a cópia aparecem duplicados no papel. */
+  [data-pdf]{display:none!important}
+  .card-row{display:block!important;max-width:none!important}
+  .card-row>.card,.card-row>.card-col{width:100%!important;max-width:none!important}
+  .rc-grid{grid-template-columns:1fr 1fr}
+  #print-cover{display:flex!important;flex-direction:column;align-items:center;justify-content:center;min-height:96vh;text-align:center;page-break-after:always}
+  .apres-overlay{display:none!important}
+
+  /* Controles de tela não fazem sentido no papel. */
+  .add-btn,.member-rm,.btn-o,.hd-btn,.periodo-toggle,.modo-toggle,.subtabs,.resultado-subtabs,
+  .nota-aux,
+  input[type=file]{display:none!important}
+  .lg{display:none!important}
+  details{display:block!important}
+  details>summary{display:none!important}
+
+  /* Campos viram texto: caixa branca com borda fina, sem sombra nem estado de foco. */
+  .fi,.fi-num,.cfg-param-in,.inp-sfx,.inp-pfx,select.fi{box-shadow:none!important;border-color:#d4d9e4!important;background:#fff!important}
+
+  /* Tabela larga não pode ficar cortada por um container de rolagem. */
+  .tbl-wrap{overflow:visible!important}
+  .tbl-wrap>.data-tbl{min-width:0!important}
+  .data-tbl{font-size:9.5px}
+  .data-tbl th,.data-tbl td{padding:4px 7px}
+  table,tr,thead,tbody{break-inside:avoid}
+  .card-hd{padding:7px 12px;font-size:10px}
+  .kpi-v{font-size:15px}
+  .rc-total{font-size:20px}
+  .duo-grid{grid-template-columns:1fr 1fr!important}
+
+  /* Grupos recolhíveis abrem no papel: um PDF com "▸ Folha bruta e verbas" e nenhum detalhe não serve de nada. */
+  tr[data-grp]{display:table-row!important}
+  .grp-ico{display:none!important}
+
+  /* Identificação no alto de cada seção, dentro do fluxo do texto.
+     NÃO use position:fixed com deslocamento negativo para simular cabeçalho/rodapé de página: o Chromium
+     recorta o conteúdo na caixa de texto e nunca pinta nada dentro da margem do @page — o que sobra vaza
+     para a página vizinha, e o rodapé acaba sobre o conteúdo, no alto da página seguinte. */
+  #print-runhead,#print-runfoot{display:none!important}
+  #print-root{position:static!important;left:auto!important;top:auto!important;width:auto!important}
+  .print-sec-hd{font-family:var(--font-h);font-size:15px;font-weight:700;color:var(--navy);
+    border-bottom:1.5px solid var(--navy);padding-bottom:5px;margin:0 0 9px;page-break-after:avoid}
+  .print-sec-meta{display:block!important;font-size:8.5px;color:#555;letter-spacing:.02em;margin-bottom:3px;
+    page-break-before:always;page-break-after:avoid}
+  #print-root>.print-sec-meta:first-child{page-break-before:avoid}
+  .panel.print-active{page-break-after:auto}
+}
+#print-runhead,#print-runfoot{display:none}
+/* O container do PDF fica fora da tela em vez de display:none: um subárvore que nunca foi renderizada não
+   ganha camada de pintura, e o Chromium exporta a página em branco na hora de gerar o PDF. */
+#print-root{position:absolute;left:-99999px;top:0;width:1100px}
+
+/* MODO APRESENTAÇÃO */
+
+/* ══════════ MODO APRESENTAÇÃO ══════════ */
+.apres-overlay{display:none;position:fixed;inset:0;background:
+    radial-gradient(1100px 500px at 12% -10%,rgba(46,83,149,.1),transparent 55%),
+    radial-gradient(900px 460px at 100% 105%,rgba(184,134,11,.09),transparent 55%),
+    linear-gradient(160deg,var(--navy),#060910 85%);
+  z-index:900;flex-direction:column}
+.apres-overlay.active{display:flex}
+.apres-hd{display:flex;align-items:center;justify-content:space-between;padding:16px 26px;flex-shrink:0}
+.apres-hd-title{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);display:flex;align-items:center;gap:8px}
+.apres-hd-title::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--accent2);box-shadow:0 0 8px rgba(46,83,149,.8);animation:pulse 2s infinite}
+.apres-close{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.22);color:#fff;padding:6px 14px;border-radius:7px;cursor:pointer;font-size:12.5px;font-weight:600;transition:background .18s var(--ease),transform .18s var(--ease)}
+.apres-close:hover{background:rgba(255,255,255,.2);transform:translateY(-1px)}
+.apres-body{flex:1;overflow-y:auto;padding:10px 60px 40px;display:flex}
+.apres-slide-wrap{background:#fff;border-radius:20px;max-width:980px;width:100%;padding:38px 44px;box-shadow:0 20px 70px rgba(0,0,0,.5),0 2px 0 rgba(255,255,255,.06) inset;margin:auto;animation:riseIn .38s var(--ease) both}
+.apres-slide-title{font-family:var(--font-h);font-size:22px;font-weight:700;color:var(--navy);margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid transparent;border-image:linear-gradient(90deg,var(--accent2),var(--accent)) 1}
+.apres-ft{display:flex;align-items:center;justify-content:center;gap:18px;padding:16px;flex-shrink:0}
+.apres-nav-btn{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);color:#fff;width:38px;height:38px;border-radius:50%;cursor:pointer;font-size:16px;line-height:1;transition:background .18s var(--ease),transform .18s var(--ease)}
+.apres-nav-btn:hover:not(:disabled){background:rgba(46,83,149,.22);border-color:rgba(46,83,149,.5);transform:translateY(-1px)}
+.apres-nav-btn:disabled{opacity:.3;cursor:not-allowed}
+.apres-contador{font-size:12.5px;color:rgba(255,255,255,.72);font-family:var(--font-m);min-width:56px;text-align:center;font-variant-numeric:tabular-nums}
+.apres-cover{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:60px 20px}
+.apres-cover-ico{font-family:var(--font-h);font-weight:700;font-size:26px;letter-spacing:.02em;color:var(--accent);border:1.5px solid var(--accent);border-radius:16px;width:74px;height:74px;display:flex;align-items:center;justify-content:center;margin:0 auto 18px}
+.apres-cover-title{font-family:var(--font-h);font-size:27px;font-weight:700;color:var(--navy);margin-bottom:10px}
+.apres-cover-cliente{font-size:16px;color:var(--text2);margin-bottom:6px}
+.apres-cover-data{font-size:12px;color:var(--text3)}
+.apres-kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-bottom:22px}
+.apres-kpi{position:relative;background:#fff;border:1px solid var(--border);border-top:2px solid rgba(46,83,149,.4);border-radius:13px;padding:17px 19px}
+.apres-kpi-l{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:6px}
+.apres-kpi-v{font-family:var(--font-m);font-size:25px;font-weight:700;color:var(--navy);line-height:1.2}
+.apres-kpi-sub{font-size:11px;color:var(--text3);margin-top:4px}
+.apres-highlight{position:relative;background:rgba(46,160,90,.06);border:1px solid rgba(46,160,90,.28);border-radius:13px;padding:19px 23px;overflow:hidden;box-shadow:var(--shadow-sm)}
+.apres-highlight-l{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--green-d);margin-bottom:6px}
+.apres-highlight-v{font-family:var(--font-m);font-size:31px;font-weight:700;color:var(--green-d)}
+.apres-highlight-v span{font-size:14px;font-weight:500;color:var(--text2);font-family:var(--font-d);margin-left:8px}
+/* Leitura em uma frase abaixo de cada tabela de slide */
+.apres-leitura{margin-top:18px;font-size:13.5px;line-height:1.65;color:var(--text2)}
+.apres-leitura b{color:var(--navy)}
+/* Tabela comparativa dos slides: hoje | proposta | diferença */
+.apres-cmp th{font-size:10px}
+.apres-cmp td{font-size:13px;padding-top:9px;padding-bottom:9px}
+.apres-cmp-sub{font-size:10.5px;color:var(--text3);font-weight:400;margin-top:2px;line-height:1.35}
+.apres-dots{display:flex;gap:8px;align-items:center}
+.apres-dot{width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.3);cursor:pointer;transition:.18s var(--ease);border:none;padding:0}
+.apres-dot:hover{background:rgba(255,255,255,.55)}
+.apres-dot.active{background:var(--accent);width:22px;border-radius:5px;box-shadow:0 0 10px rgba(184,134,11,.5)}
+.apres-slide-wrap .kpi-v{font-size:19px}
+.apres-slide-wrap .data-tbl{font-size:13.5px}
+#print-cover{display:none}
+/* ══ PORTAL — complementos ══════════════════════════════════════ */
+.busca-central-wrap{display:flex;justify-content:center;margin:22px 0 4px}
+.busca-central{width:100%;max-width:480px;padding:13px 22px;border-radius:30px;
+  border:1.5px solid var(--border-strong);background:#fff;color:var(--text);
+  font-size:14.5px;font-family:var(--font-d);outline:none;box-shadow:var(--shadow-sm);
+  transition:all .18s var(--ease)}
+.busca-central::placeholder{color:var(--text3)}
+.busca-central:hover{border-color:#c3cad8}
+.busca-central:focus{border-color:var(--accent2-d);box-shadow:var(--glow2-strong)}
+
+.capa{text-align:center;padding:38px 20px 30px}
+.capa-logo{width:128px;height:128px;border-radius:24px;margin:0 auto 16px;overflow:hidden}
+.capa-logo img{width:100%;height:100%;object-fit:cover;display:block}
+.capa-t{font-family:var(--font-h);font-size:27px;font-weight:700;color:var(--navy);letter-spacing:-.02em}
+.capa-s{font-size:13px;color:var(--text2);margin-top:7px;max-width:560px;margin-left:auto;margin-right:auto;line-height:1.6}
+
+.sec{margin-bottom:28px}
+.sec-t{display:flex;align-items:center;gap:11px;margin-bottom:13px}
+.sec-t-txt{font-family:var(--font-h);font-size:11px;font-weight:700;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--navy);white-space:nowrap}
+.sec-t-linha{flex:1;height:1px;background:var(--border)}
+.sec-t-n{font-size:10px;color:var(--text3);font-family:var(--font-m)}
+
+/* v2: a coluna era de 1360px e a grade usava auto-fill com 1fr — num
+   monitor largo os cartões esticavam de ponta a ponta e a página lia
+   como "encostada à esquerda", não centrada. Agora a coluna é menor e
+   a grade centra as fileiras, inclusive a última quando fica incompleta. */
+#main > .doc{max-width:1020px}
+/* Número de colunas fixo por faixa, em vez de auto-fit: assim os cartões
+   preenchem exatamente a largura da coluna e o filete do título de seção
+   termina onde o último cartão termina. Com auto-fit a linha do título
+   passava dos cartões e a página parecia desalinhada. */
+.grade{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+@media(max-width:920px){.grade{grid-template-columns:repeat(2,1fr)}}
+.bt{display:flex;flex-direction:column;gap:0;background:#fff;border:1px solid var(--border);
+  border-radius:var(--card-r);padding:19px 19px 16px;text-decoration:none;color:inherit;
+  position:relative;overflow:hidden;transition:transform .18s var(--ease),
+  box-shadow .18s var(--ease),border-color .18s var(--ease);cursor:pointer;text-align:left;
+  font-family:var(--font-d);min-height:150px}
+.bt:before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;
+  background:var(--cor,var(--accent2));opacity:.85}
+.bt:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg);border-color:var(--border-strong)}
+.bt:focus-visible{outline:2px solid var(--accent2);outline-offset:2px}
+.bt-ic{font-size:26px;line-height:1;margin-bottom:11px}
+.bt-t{font-family:var(--font-h);font-size:15px;font-weight:700;color:var(--navy);
+  letter-spacing:-.01em;line-height:1.25}
+.bt-d{font-size:12px;color:var(--text2);line-height:1.5;margin-top:6px;flex:1}
+.bt-r{display:flex;align-items:center;gap:6px;margin-top:12px;flex-wrap:wrap}
+.tag{display:inline-block;font-size:9.5px;font-weight:700;letter-spacing:.05em;
+  text-transform:uppercase;padding:3px 9px;border-radius:20px}
+.tag-ok{background:#DCFCE7;color:#15803D}
+.tag-em{background:#FEF3C7;color:#B45309}
+.tag-prev{background:#EEF1F7;color:#6B7280}
+.bt-seta{margin-left:auto;font-size:14px;color:var(--text3);transition:transform .18s var(--ease)}
+.bt:hover .bt-seta{transform:translateX(3px);color:var(--accent2)}
+.bt.indisp{opacity:.62;cursor:default}
+.bt.indisp:hover{transform:none;box-shadow:none;border-color:var(--border)}
+.bt.indisp .bt-seta{display:none}
+
+/* Favoritar (estrela) e seção de acesso rápido — favoritos + mais usados */
+.bt-fav{position:absolute;top:10px;right:10px;width:25px;height:25px;border-radius:50%;
+  border:1.5px solid var(--border-strong);background:#fff;color:var(--text3);
+  font-size:12px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:all .15s var(--ease);z-index:2;padding:0}
+.bt-fav:hover{border-color:var(--accent);color:var(--accent)}
+.bt-fav.ativo{background:var(--accent);border-color:var(--accent);color:#fff}
+.sec-prioridade{background:rgba(31,56,100,.04);border:1px solid rgba(31,56,100,.12);
+  border-radius:var(--card-r);padding:18px 20px 22px;margin-bottom:48px}
+.sec-prioridade .sec-t{margin-bottom:14px}
+.sec-prioridade .sec-t-txt{color:var(--accent2-d)}
+.sec-prioridade .sec-t-linha{background:rgba(31,56,100,.16)}
+
+.vazio-busca{text-align:center;padding:40px 20px;color:var(--text3);font-size:13px}
+.rodape{text-align:center;font-size:11px;color:var(--text3);line-height:1.8;
+  padding:26px 20px 34px;border-top:1px solid var(--border);margin-top:10px}
+.aviso{background:#FEF3C7;border-left:4px solid #B45309;border-radius:var(--radius-sm);
+  padding:11px 15px;font-size:12.5px;color:#92400E;line-height:1.55;margin-bottom:20px}
+@media(max-width:640px){
+  .grade{grid-template-columns:minmax(0,1fr)!important}
+  .busca-central{max-width:100%}
+  .capa-t{font-size:22px}
+}
+
+</style>
+</head>
+<body>
+
+<div id="hd">
+  <div class="hd-brand">
+    <div>
+      <div class="hd-name">Portal</div>
+      <div class="hd-sub">Araújo &amp; Castro — Advocacia e Consultoria</div>
+    </div>
+  </div>
+</div>
+
+<div id="main">
+  <div class="doc">
+
+    <div class="capa">
+      <div class="capa-logo"><img src="data:image/png;base64,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" alt="Araújo &amp; Castro Advocacia"></div>
+      <div class="capa-t">Sistemas do escritório</div>
+      <div class="capa-s">Tudo que usamos no dia a dia, em um lugar só.
+        Clique num botão para abrir.</div>
+
+      <div class="busca-central-wrap no-print">
+        <input class="busca-central" id="busca" type="search" placeholder="Buscar sistema…  ( / )" autocomplete="off">
+      </div>
+    </div>
+
+    <div id="grade"></div>
+
+    <div class="rodape">
+      Araújo &amp; Castro Advocacia e Consultoria · uso interno<br>
+      Atualizado em <span id="data">—</span>
+    </div>
+
+  </div>
+</div>
+
+<script>
+
+'use strict';
+// ════════════════════════════════════════════════════════════════
+// PORTAL · Araújo & Castro — página inicial dos sistemas
+//
+// Tudo que o escritório usa mora aqui, em botões. É peça única: abre
+// por duplo clique, sem servidor, sem internet (salvo a fonte).
+//
+// ── COMO ACRESCENTAR UM SISTEMA NOVO ────────────────────────────
+// Some uma linha ao vetor ITENS abaixo. Nada mais precisa mudar:
+// a busca, a contagem por seção e o teclado se ajustam sozinhos.
+//   secao   — em qual bloco aparece (veja SECOES)
+//   arq     — caminho relativo a ESTE arquivo. Deixe '' se ainda não existe.
+//   estado  — 'ok' (pronto) · 'em' (em construção) · 'prev' (previsto)
+//   cor     — filete lateral do botão
+//   busca   — palavras extras que devem encontrar o item
+// ════════════════════════════════════════════════════════════════
+
+var SECOES=[
+  {id:'sistemas', t:'Sistemas'},
+  {id:'ferramentas', t:'Ferramentas de trabalho'},
+  {id:'documentos', t:'Documentos e modelos'},
+  {id:'manual', t:'Manual e procedimentos'}
+];
+
+var ITENS=[
+  { secao:'sistemas', ic:'◈', t:'ERP',
+    d:'Passivo tributário, processos, parcelamentos, acordos e honorários — a situação de cada cliente.',
+    arq:'../2 - ERP/ERP.html', estado:'ok', cor:'#1F3864',
+    busca:'erp dashboard passivo tributario processo parcelamento acordo honorario cliente grupo' },
+
+  { secao:'sistemas', ic:'◷', t:'CRM',
+    d:'Funil de prospecção, reuniões e histórico de contato.',
+    arq:'../3 - CRM/CRM.html', estado:'ok', cor:'#2E5395',
+    busca:'crm lead prospeccao funil reuniao contato comercial proposta' },
+
+  { secao:'sistemas', ic:'✅', t:'Tarefas',
+    d:'Produção do escritório: o que está em aberto, atrasado e por responsável.',
+    arq:'../4 - Tarefas/Tarefas.html', estado:'ok', cor:'#15803D',
+    busca:'tarefa prazo responsavel producao pendente atrasada' },
+
+  { secao:'ferramentas', ic:'📈', t:'Minhas Planilhas',
+    d:'Atalho para as planilhas de trabalho do escritório no Google Sheets.',
+    arq:'https://docs.google.com/spreadsheets/d/1edRppknizNZOkGzYTQrXZkQMrG1Zs3041glSyz0ImzE/edit?gid=0#gid=0', estado:'ok', cor:'#0F9D58',
+    busca:'planilha google sheets tabela dados' },
+
+  { secao:'ferramentas', ic:'📊', t:'Planejamento Tributário',
+    d:'Comparação de regimes, composição de vendas, folha e carga tributária projetada.',
+    arq:'../5 - Planejamento Tributário/Planejamento Tributário.html', estado:'ok', cor:'#B8860B',
+    busca:'planejamento tributario regime simples presumido real icms difal carga' },
+
+  { secao:'ferramentas', ic:'🏛', t:'Holding',
+    d:'Estudo de estrutura societária e patrimonial, com os cenários de custo lado a lado.',
+    arq:'../6 - Holding/Holding.html', estado:'ok', cor:'#7C3AED',
+    busca:'holding societaria patrimonial itbi integralizacao sucessao' },
+
+  { secao:'ferramentas', ic:'🏭', t:'Esteira de Produtos',
+    d:'Fluxo dos produtos e serviços do escritório, etapa por etapa.',
+    arq:'../9 - Esteira de Produtos/Esteira de Produtos.html', estado:'ok', cor:'#0D9488',
+    busca:'esteira produto servico fluxo etapa pipeline' },
+
+  { secao:'ferramentas', ic:'🗺', t:'Mapa Societário',
+    d:'Mapa interativo da estrutura societária do grupo — sócios, participações e holdings.',
+    arq:'../11 - Societário/Mapa Societário Interativo.html', estado:'ok', cor:'#9333EA',
+    busca:'mapa societario estrutura holding participacao socio organograma' },
+
+  { secao:'documentos', ic:'📋', t:'Documentos',
+    d:'Lista do que pedir ao cliente novo, por tipo de serviço.',
+    arq:'../7 - Documentos/Solicitação de Documentos.html', estado:'ok', cor:'#2E5395',
+    busca:'solicitacao documento checklist cliente novo onboarding' },
+
+  { secao:'documentos', ic:'📄', t:'Gerador de Contrato e Procuração',
+    d:'Contrato de honorários e procuração ad judicia, prontos para assinatura.',
+    arq:'../8 - Gerador de Contrato e Procuração/Gerador de Contrato e Procuração.html', estado:'ok', cor:'#1F3864',
+    busca:'contrato procuracao honorario substabelecimento assinatura documento' },
+
+  { secao:'manual', ic:'📘', t:'Manual do Escritório',
+    d:'Procedimentos, checklists e POPs por setor — jurídico, operações, financeiro e mais.',
+    arq:'../#Manual do Escritório/Manual do Escritório.html', estado:'ok', cor:'#15803D',
+    busca:'manual pop procedimento checklist setor rotina boas vindas' }
+];
+
+function $(id){ return document.getElementById(id); }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){
+  return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function norm(v){ return String(v||'').toLowerCase()
+  .normalize('NFD').replace(/[̀-ͯ]/g,''); }
+
+var ROTULO={ok:['tag-ok','Disponível'], em:['tag-em','Em construção'], prev:['tag-prev','Previsto']};
+
+// ── Favoritos e mais usados ──────────────────────────────────
+// Guardados no localStorage deste navegador (arquivo local, sem servidor).
+// Cada máquina/perfil tem sua própria lista — não sincroniza entre pessoas.
+var LS_FAV='ac_portal_favoritos', LS_USO='ac_portal_uso';
+
+function getFavoritos(){
+  try{ return JSON.parse(localStorage.getItem(LS_FAV)||'[]'); }catch(e){ return []; }
+}
+function toggleFavorito(arq){
+  try{
+    var favs=getFavoritos(), i=favs.indexOf(arq);
+    if(i>=0) favs.splice(i,1); else favs.unshift(arq);
+    localStorage.setItem(LS_FAV, JSON.stringify(favs));
+  }catch(e){}
+}
+function getUso(){
+  try{ return JSON.parse(localStorage.getItem(LS_USO)||'{}'); }catch(e){ return {}; }
+}
+function registrarUso(arq){
+  try{
+    var uso=getUso();
+    uso[arq]=(uso[arq]||0)+1;
+    localStorage.setItem(LS_USO, JSON.stringify(uso));
+  }catch(e){}
+}
+// Favoritos primeiro (na ordem em que foram marcados), depois os mais clicados
+// que ainda não são favoritos — até 6 no total.
+function itensPrioridade(){
+  var favs=getFavoritos(), uso=getUso(), porArq={}, vistos={}, lista=[];
+  ITENS.forEach(function(it){ if(it.estado==='ok' && it.arq) porArq[it.arq]=it; });
+  favs.forEach(function(arq){
+    var it=porArq[arq];
+    if(it && !vistos[arq]){ lista.push(it); vistos[arq]=true; }
+  });
+  Object.keys(uso).filter(function(arq){ return porArq[arq] && !vistos[arq]; })
+    .sort(function(a,b){ return uso[b]-uso[a]; })
+    .forEach(function(arq){
+      if(lista.length<3){ lista.push(porArq[arq]); vistos[arq]=true; }
+    });
+  return lista.slice(0,3);
+}
+
+// As pastas do escritório começam com "#" — e "#" numa URL abre âncora,
+// não caminho. Sem escapar, "#CRM/CRM.html" viraria um salto para dentro
+// desta própria página e nenhum link funcionaria. encodeURI não toca no
+// "#", então é preciso trocá-lo à mão. Mesma coisa para "?".
+function caminho(arq){
+  return encodeURI(String(arq||'')).replace(/#/g,'%23').replace(/\?/g,'%3F');
+}
+
+function render(){
+  var q=norm(($('busca')||{}).value||'').trim();
+  var achou=0, html='';
+  SECOES.forEach(function(sec){
+    var itens=ITENS.filter(function(it){
+      if(it.secao!==sec.id) return false;
+      if(!q) return true;
+      return norm(it.t+' '+it.d+' '+(it.busca||'')).indexOf(q)>=0;
+    });
+    if(!itens.length) return;
+    achou+=itens.length;
+    html+='<div class="sec"><div class="sec-t">'
+      +'<span class="sec-t-txt">'+esc(sec.t)+'</span>'
+      +'<span class="sec-t-linha"></span>'
+      +'<span class="sec-t-n">'+itens.length+'</span></div><div class="grade">'
+      + itens.map(botao).join('') + '</div></div>';
+  });
+  var prioHtml='';
+  if(!q){
+    var prio=itensPrioridade();
+    if(prio.length){
+      prioHtml='<div class="sec sec-prioridade"><div class="sec-t">'
+        +'<span class="sec-t-txt">Acesso rápido</span>'
+        +'<span class="sec-t-linha"></span>'
+        +'<span class="sec-t-n">'+prio.length+'</span></div><div class="grade">'
+        + prio.map(botao).join('') + '</div></div>';
+    }
+  }
+  $('grade').innerHTML = achou ? (prioHtml+html)
+    : '<div class="vazio-busca">Nada encontrado para “'+esc(($('busca')||{}).value||'')+'”.</div>';
+}
+
+function botao(it){
+  var r=ROTULO[it.estado]||ROTULO.prev;
+  var disp = it.estado==='ok' && it.arq;
+  var interno='<span class="bt-ic">'+it.ic+'</span>'
+    +'<div class="bt-t">'+esc(it.t)+'</div>'
+    +'<div class="bt-d">'+esc(it.d)+'</div>'
+    +'<div class="bt-r"><span class="tag '+r[0]+'">'+r[1]+'</span>'
+    +'<span class="bt-seta">→</span></div>';
+  if(!disp) return '<div class="bt indisp" style="--cor:'+it.cor+'">'+interno+'</div>';
+  var link = /^https?:\/\//i.test(it.arq) ? it.arq : caminho(it.arq);
+  var favo = getFavoritos().indexOf(it.arq)>=0;
+  var estrela = '<button type="button" class="bt-fav'+(favo?' ativo':'')+'" data-arq="'+esc(it.arq)+'" title="'
+    +(favo?'Remover dos favoritos':'Adicionar aos favoritos')+'">\u2605</button>';
+  return '<a class="bt" style="--cor:'+it.cor+'" href="'+esc(link)+'" data-arq="'+esc(it.arq)+'">'
+    +estrela+interno+'</a>';
+}
+
+(function(){
+  $('data').textContent=new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'});
+  render();
+  $('grade').addEventListener('click', function(e){
+    var favBtn = e.target.closest('.bt-fav');
+    if(favBtn){
+      e.preventDefault(); e.stopPropagation();
+      toggleFavorito(favBtn.getAttribute('data-arq'));
+      render();
+      return;
+    }
+    var card = e.target.closest('a.bt[data-arq]');
+    if(card) registrarUso(card.getAttribute('data-arq'));
+  });
+  var b=$('busca');
+  b.addEventListener('input',render);
+  // "/" foca a busca; Esc limpa. Atalho de teclado ajuda quando a lista cresce.
+  document.addEventListener('keydown',function(e){
+    if(e.key==='/' && document.activeElement!==b){ e.preventDefault(); b.focus(); b.select(); }
+    if(e.key==='Escape' && document.activeElement===b){ b.value=''; render(); b.blur(); }
+  });
+})();
+
+</script>
+</body>
+</html>

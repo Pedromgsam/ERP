@@ -1,0 +1,75 @@
+{
+  "versao": 1,
+  "tipo": "lista-documentos-ac",
+  "nomeModelo": "Tributário — Estudo Empresarial e Tributário",
+  "area": "Tributário",
+  "cliente": "",
+  "assunto": "Estudo Empresarial e Tributário",
+  "responsavel": "pedro",
+  "comoEnviarLigado": true,
+  "envEmail": true,
+  "envTelefone": true,
+  "envDrive": false,
+  "driveLink": "",
+  "categorias": [
+    {
+      "nome": "Documentos das empresas",
+      "itens": [
+        {
+          "documento": "Contrato social ou última alteração contratual consolidada",
+          "obs": ""
+        },
+        {
+          "documento": "Certificado digital",
+          "obs": ""
+        },
+        {
+          "documento": "Balanço patrimonial e DRE do último exercício",
+          "obs": ""
+        },
+        {
+          "documento": "Relação dos débitos trabalhistas em aberto",
+          "obs": "Se houver"
+        }
+      ]
+    },
+    {
+      "nome": "Documentos dos sócios",
+      "itens": [
+        {
+          "documento": "Cópia da última Declaração de Imposto de Renda Pessoa Física (IRPF)",
+          "obs": "De todos os sócios"
+        },
+        {
+          "documento": "RG e CPF de cada sócio",
+          "obs": ""
+        },
+        {
+          "documento": "Profissão e regime de casamento",
+          "obs": "Com pacto antenupcial, se houver"
+        }
+      ]
+    },
+    {
+      "nome": "Outras informações relevantes",
+      "itens": [
+        {
+          "documento": "Matrícula atualizada dos imóveis",
+          "obs": "Das empresas ou dos sócios, a considerar no estudo"
+        },
+        {
+          "documento": "Carnê do IPTU dos imóveis mencionados",
+          "obs": ""
+        },
+        {
+          "documento": "CRLV dos veículos",
+          "obs": "Registrados em nome das empresas ou dos sócios"
+        },
+        {
+          "documento": "Relatório de vínculos empregatícios ativos",
+          "obs": "eSocial"
+        }
+      ]
+    }
+  ]
+}

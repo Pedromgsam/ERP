@@ -1,0 +1,485 @@
+// ══════════════════════════════════════════════════════════════════
+// ARAÚJO & CASTRO — Base de Dados v2 + indicador visual de migração
+// ══════════════════════════════════════════════════════════════════
+
+var ABAS_ALVO        = ['Consultoria', 'Demanda', 'Inativo'];
+var ABA_MESTRA       = 'Consultoria';
+// v3 (26/09/2026): o gatilho saiu de 15/15 min para 2x por semana (ver
+// configurarGatilho() mais abaixo) -- a Receita só atualiza esses dados uma
+// vez por mês, e rodar a cada 15 min só consumia a cota diária de execução
+// da CONTA (90 min/dia numa conta @gmail.com, somada entre TODOS os scripts
+// dela -- inclusive o do #Menu/ERP). Para compensar rodando bem menos vezes,
+// o LOTE subiu de 3 para 25 por execução, o que ainda cabe com folga no
+// limite de 6 min por execução (25 × ~8,5s de consulta+pausa ≈ 3,5 min).
+// Se tiver muito mais que ~200 CNPJs nas 3 abas somadas e quiser cobrir tudo
+// mais rápido, pode subir esse número; se for pouca coisa, pode até baixar.
+var LOTE             = 25;
+var SLEEP_MS         = 8000;
+var ATRASO_MIGRACAO  = 30000;
+
+var COR_PENDENTE = '#FFF9C4'; // amarelo claro durante os 30s
+
+// ══════════════════════════════════════════════════════════════════
+// MÓDULO 2 — MIGRAÇÃO AUTOMÁTICA POR LISTA SUSPENSA
+// ══════════════════════════════════════════════════════════════════
+
+// v3 (26/09/2026): não rode esta função de novo à toa -- ela reinstala o
+// gatilho automático que removerGatilhoMigracao() (mais abaixo) desligou.
+// Só a execute se um dia quiser voltar a ter a migração automática.
+function instalarOnEdit() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  ScriptApp.getProjectTriggers().forEach(function(t) {
+    if (t.getHandlerFunction() === 'onEditInstalavel') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('onEditInstalavel').forSpreadsheet(ss).onEdit().create();
+  Logger.log('Gatilho onEdit instalado.');
+}
+
+function onEditInstalavel(e) {
+  try {
+    var range   = e.range;
+    var aba     = range.getSheet();
+    var nomeAba = aba.getName();
+
+    if (ABAS_ALVO.indexOf(nomeAba) === -1) return;
+
+    var col     = mapearColunas(aba);
+    var colTipo = col['tipo de cliente'];
+    if (colTipo === undefined) return;
+    if (range.getColumn() !== colTipo + 1) return;
+
+    var linha    = range.getRow();
+    if (linha <= 1) return;
+
+    var novoTipo     = String(range.getValue()).trim();
+    var tiposValidos = ['Consultoria', 'Demanda', 'Inativo'];
+
+    // Se voltou para o valor da aba atual ou valor inválido → remove cor e sai
+    if (tiposValidos.indexOf(novoTipo) === -1 || novoTipo === nomeAba) {
+      aba.getRange(linha, 1, 1, aba.getLastColumn()).setBackground(null);
+      return;
+    }
+
+    // Pinta a linha de amarelo claro para sinalizar migração pendente
+    aba.getRange(linha, 1, 1, aba.getLastColumn()).setBackground(COR_PENDENTE);
+
+    var props = PropertiesService.getScriptProperties();
+    var chave = 'migrar_' + Date.now();
+    props.setProperty(chave, JSON.stringify({
+      nomeAba:  nomeAba,
+      linha:    linha,
+      destino:  novoTipo
+    }));
+
+    ScriptApp.newTrigger('executarMigracaoPendente')
+      .timeBased().after(1).create();
+
+    Logger.log('Migração agendada: ' + nomeAba + ' L' + linha + ' → ' + novoTipo);
+
+  } catch (err) {
+    Logger.log('onEditInstalavel erro: ' + err.message);
+  }
+}
+
+function executarMigracaoPendente() {
+  ScriptApp.getProjectTriggers().forEach(function(t) {
+    if (t.getHandlerFunction() === 'executarMigracaoPendente') ScriptApp.deleteTrigger(t);
+  });
+
+  var props = PropertiesService.getScriptProperties();
+  var todas = props.getProperties();
+  var ss    = SpreadsheetApp.getActiveSpreadsheet();
+
+  Object.keys(todas).forEach(function(chave) {
+    if (chave.indexOf('migrar_') !== 0) return;
+
+    var dados;
+    try { dados = JSON.parse(todas[chave]); } catch(e) { return; }
+    props.deleteProperty(chave);
+
+    var aba = ss.getSheetByName(dados.nomeAba);
+    if (!aba) { Logger.log('Aba não encontrada: ' + dados.nomeAba); return; }
+
+    var col     = mapearColunas(aba);
+    var colTipo = col['tipo de cliente'];
+    if (colTipo === undefined) return;
+
+    if (dados.linha > aba.getLastRow()) {
+      Logger.log('Linha inexistente: ' + dados.linha); return;
+    }
+
+    var valorAtual = function() {
+      return String(aba.getRange(dados.linha, colTipo + 1).getValue()).trim();
+    };
+
+    // Cancelado antes dos 30s — remove cor e sai
+    if (valorAtual() !== dados.destino) {
+      aba.getRange(dados.linha, 1, 1, aba.getLastColumn()).setBackground(null);
+      Logger.log('Migração cancelada (desfeita): L' + dados.linha);
+      return;
+    }
+
+    Utilities.sleep(ATRASO_MIGRACAO);
+
+    // Cancelado durante o sleep — remove cor e sai
+    if (valorAtual() !== dados.destino) {
+      aba.getRange(dados.linha, 1, 1, aba.getLastColumn()).setBackground(null);
+      Logger.log('Migração cancelada após sleep: L' + dados.linha);
+      return;
+    }
+
+    // Migra — a cor some junto com a linha (deleteRow remove tudo)
+    migrarLinha(aba, dados.linha, dados.destino);
+  });
+}
+
+function migrarLinha(abaOrigem, linha, abaDestinoNome) {
+  var ss         = SpreadsheetApp.getActiveSpreadsheet();
+  var abaDestino = ss.getSheetByName(abaDestinoNome);
+  if (!abaDestino) { Logger.log('Aba destino não encontrada: ' + abaDestinoNome); return; }
+
+  var nCols    = abaOrigem.getLastColumn();
+  var rangeOri = abaOrigem.getRange(linha, 1, 1, nCols);
+  var valores  = rangeOri.getValues()[0];
+  var formatos = rangeOri.getNumberFormats()[0];
+
+  var colOrig    = mapearColunas(abaOrigem);
+  var nomeOrigem = abaOrigem.getName();
+  var hoje       = formatarDataHoje();
+
+  var cDataMig = colOrig['data de migracao'];
+  var cOrigem  = colOrig['origem'];
+  var cTipo    = colOrig['tipo de cliente'];
+
+  if (cDataMig !== undefined) { valores[cDataMig] = hoje; formatos[cDataMig] = '@STRING@'; }
+  if (cOrigem  !== undefined) valores[cOrigem]  = nomeOrigem;
+  if (cTipo    !== undefined) valores[cTipo]    = abaDestinoNome;
+
+  var ultimaLinha = Math.max(abaDestino.getLastRow(), 1);
+  var rangeDest   = abaDestino.getRange(ultimaLinha + 1, 1, 1, valores.length);
+  rangeDest.setNumberFormats([formatos]);
+  rangeDest.setValues([valores]);
+
+  // Remove a cor na destino (a linha chega sem amarelo)
+  rangeDest.setBackground(null);
+
+  abaOrigem.deleteRow(linha);
+  Logger.log('Migrado: L' + linha + ' "' + nomeOrigem + '" → "' + abaDestinoNome + '" em ' + hoje);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// MÓDULO 1 — ATUALIZAÇÃO AUTOMÁTICA DE CNPJ
+// ══════════════════════════════════════════════════════════════════
+
+function atualizarCNPJs() {
+  var ss          = SpreadsheetApp.getActiveSpreadsheet();
+  var props       = PropertiesService.getScriptProperties();
+  var processados = 0;
+
+  for (var ai = 0; ai < ABAS_ALVO.length && processados < LOTE; ai++) {
+    var nomeAba = ABAS_ALVO[ai];
+    var aba     = ss.getSheetByName(nomeAba);
+    if (!aba) { Logger.log('[' + nomeAba + '] Não encontrada.'); continue; }
+
+    var col     = mapearColunas(aba);
+    var colCnpj = col['cpf/cnpj'];
+    if (colCnpj === undefined) { Logger.log('[' + nomeAba + '] CPF/CNPJ ausente.'); continue; }
+
+    var chaveProp   = 'linha_' + nomeAba;
+    var linhaAtual  = parseInt(props.getProperty(chaveProp) || '2');
+    var totalLinhas = aba.getLastRow();
+
+    if (linhaAtual > totalLinhas) {
+      linhaAtual = 2;
+      props.setProperty(chaveProp, '2');
+      Logger.log('[' + nomeAba + '] Ciclo completo. Reiniciando.');
+    }
+
+    for (var i = linhaAtual; i <= totalLinhas && processados < LOTE; i++) {
+      props.setProperty(chaveProp, String(i + 1));
+
+      var doc = String(aba.getRange(i, colCnpj + 1).getValue()).replace(/\D/g, '');
+      if (doc.length === 11) { Logger.log('[' + nomeAba + '] L' + i + ': CPF — ignorado.'); continue; }
+      if (doc.length !== 14) { Logger.log('[' + nomeAba + '] L' + i + ': inválido — ignorado.'); continue; }
+
+      Logger.log('[' + nomeAba + '] L' + i + ': consultando ' + doc + '...');
+      var dados = consultarCNPJ(doc);
+
+      if (!dados) {
+        Logger.log('[' + nomeAba + '] L' + i + ': falha — pulando.');
+        processados++;
+        if (processados < LOTE) Utilities.sleep(SLEEP_MS);
+        continue;
+      }
+
+      preencherLinha(aba, i, col, dados);
+      Logger.log('[' + nomeAba + '] L' + i + ': atualizado.');
+      processados++;
+      if (processados < LOTE) Utilities.sleep(SLEEP_MS);
+    }
+  }
+
+  Logger.log('Execução encerrada. Processados: ' + processados);
+}
+
+function consultarCNPJ(cnpj) {
+  var url = 'https://brasilapi.com.br/api/cnpj/v1/' + cnpj;
+  try {
+    var resp = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+    var code = resp.getResponseCode();
+    if (code === 429) {
+      Logger.log('Rate limit — aguardando 30s...');
+      Utilities.sleep(30000);
+      resp = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+      code = resp.getResponseCode();
+    }
+    if (code !== 200) { Logger.log('HTTP ' + code + ' — CNPJ ' + cnpj); return null; }
+    return JSON.parse(resp.getContentText());
+  } catch (err) {
+    Logger.log('Erro na consulta: ' + err.message);
+    return null;
+  }
+}
+
+function preencherLinha(aba, linha, col, d) {
+
+  escrever(aba, linha, col['nome'], String(d.razao_social || '').toUpperCase());
+
+  var tipoSoc = detectarTipoSoc(String(d.natureza_juridica || ''));
+  if (tipoSoc) escrever(aba, linha, col['tipo societario'], tipoSoc);
+
+  var socios = montarSocios(d, tipoSoc, String(d.razao_social || ''));
+  if (socios) {
+    var colSoc = col['socioadministrador'];
+    if (colSoc !== undefined) {
+      aba.getRange(linha, colSoc + 1).setWrap(true);
+      escrever(aba, linha, colSoc, socios);
+    }
+  }
+
+  var tipoLogrRaw = String(d.tipo_logradouro || '').trim().toUpperCase();
+  var logrRaw     = String(d.logradouro      || '').trim().toUpperCase();
+  var num         = String(d.numero          || 'S/N');
+  var compl       = toTitleCase(String(d.complemento || ''));
+  var bairro      = toTitleCase(String(d.bairro      || ''));
+  var cep         = formatarCEP(String(d.cep         || ''));
+  var cidade      = toTitleCase(String(d.municipio   || ''));
+  var uf          = String(d.uf || '').toUpperCase();
+
+  var logrFmt;
+  if (tipoLogrRaw && logrRaw.indexOf(tipoLogrRaw) === 0) {
+    logrFmt = toTitleCase(logrRaw);
+  } else if (tipoLogrRaw) {
+    logrFmt = toTitleCase(tipoLogrRaw) + ' ' + toTitleCase(logrRaw);
+  } else {
+    logrFmt = toTitleCase(logrRaw);
+  }
+
+  var partesEnd = [logrFmt + ', n. ' + num];
+  if (compl)  partesEnd.push(compl);
+  if (bairro) partesEnd.push('Bairro ' + bairro);
+  if (cep)    partesEnd.push('CEP ' + cep);
+
+  escrever(aba, linha, col['endereco'], partesEnd.join(' — '));
+  if (cidade) escrever(aba, linha, col['cidade'], cidade);
+  if (uf)     escrever(aba, linha, col['estado'], uf);
+
+  var sn = String(d.opcao_pelo_simples || '').toUpperCase();
+  if (sn === 'SIM' || sn === 'S') escrever(aba, linha, col['regime tributario'], 'SN');
+
+  var sit = String(d.descricao_situacao_cadastral || '').toUpperCase();
+  if (sit) escrever(aba, linha, col['situacao cadastral'], sit);
+
+  var dataSit = formatarData(String(d.data_situacao_cadastral || ''));
+  var colHist = col['historico de consulta'];
+  if (colHist !== undefined && dataSit) {
+    var hoje         = formatarDataHoje();
+    var novoRegistro = 'Situação em: ' + dataSit + ' · Consultado em: ' + hoje;
+    var histAtual    = String(aba.getRange(linha, colHist + 1).getValue() || '');
+    var padrao       = /Situação em: [\d\/]+ · Consultado em: [\d\/]+/;
+    var novoHist     = padrao.test(histAtual)
+      ? histAtual.replace(padrao, novoRegistro)
+      : (histAtual ? histAtual + '\n' + novoRegistro : novoRegistro);
+    aba.getRange(linha, colHist + 1).setNumberFormat('@STRING@').setValue(novoHist);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// UTILITÁRIOS
+// ══════════════════════════════════════════════════════════════════
+
+function mapearColunas(aba) {
+  var cab = aba.getRange(1, 1, 1, aba.getLastColumn()).getValues()[0];
+  var col = {};
+  cab.forEach(function(nome, i) {
+    var chave = normalizar(String(nome));
+    if (col[chave] === undefined) col[chave] = i;
+  });
+  return col;
+}
+
+function normalizar(s) {
+  return s.toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[²³°\-]/g, '')
+    .replace(/\s+/g, ' ').trim();
+}
+
+function detectarTipoSoc(natJur) {
+  var n = natJur.toLowerCase();
+  if (n.indexOf('limitada') !== -1)                                      return 'LTDA';
+  if (n.indexOf('anônima') !== -1 || n.indexOf('anonima') !== -1)       return 'S.A';
+  if (n.indexOf('microempreendedor') !== -1 || n.indexOf('mei') !== -1) return 'MEI';
+  if (n.indexOf('individual de responsabilidade') !== -1 ||
+      n.indexOf('eireli') !== -1)                                        return 'EI';
+  if (n.indexOf('empresário individual') !== -1 ||
+      n === 'empresário (individual)')                                   return 'EI';
+  return '';
+}
+
+function montarSocios(d, tipoSoc, razaoRaw) {
+  if (tipoSoc === 'EI' || tipoSoc === 'MEI') {
+    var nomeEI = toTitleCase(razaoRaw)
+      .replace(/\s*[-–]\s*(ME|MEI|EI|EIRELI)$/i, '').trim();
+    var label  = tipoSoc === 'MEI' ? 'Microempreendedor Individual' : 'Empresária Individual';
+    return nomeEI + ' (' + label + ')';
+  }
+  var qsa = (d.qsa && Array.isArray(d.qsa)) ? d.qsa : [];
+  if (!qsa.length) return '';
+  return qsa.map(function(s) {
+    var nome = toTitleCase(String(s.nome_socio || s.nome || ''));
+    var qual = String(s.qualificacao_socio || '').toLowerCase();
+    var adm  = qual.indexOf('administrador') !== -1 ||
+               qual.indexOf('diretor')       !== -1 ||
+               qual.indexOf('presidente')    !== -1 ||
+               qual.indexOf('gestor')        !== -1;
+    return adm ? nome + ' (Sócio-Administrador)' : nome;
+  }).join('\n');
+}
+
+function escrever(aba, linha, colIndex, valor) {
+  if (colIndex === undefined || colIndex === null) return;
+  aba.getRange(linha, colIndex + 1).setValue(valor);
+}
+
+function toTitleCase(str) {
+  if (!str) return str;
+  var minimas = ['de','da','do','das','dos','e','em','no','na','nos','nas',
+                 'a','o','as','os','com','por','para','ao','num','numa',
+                 'pelo','pela','pelos','pelas','sob','entre','até'];
+  var siglas  = ['ltda','s/a','sa','me','mei','eireli','mg','sp','rj',
+                 'pr','sc','rs','go','mt','ms','ba','es','df','sn'];
+  return str.replace(/\s+/g, ' ').trim().split(' ').map(function(w, i) {
+    if (!w) return w;
+    var lower = w.toLowerCase();
+    var clean = lower.replace(/[^a-záéíóúàâêôãõç]/g, '');
+    if (siglas.indexOf(clean) !== -1)            return w.toUpperCase();
+    if (/^[0-9.,;\-\/]+$/.test(w))              return w;
+    if (i > 0 && minimas.indexOf(lower) !== -1) return lower;
+    return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+  }).join(' ');
+}
+
+function formatarCEP(cep) {
+  var c = cep.replace(/\D/g, '');
+  return c.length === 8 ? c.slice(0, 5) + '-' + c.slice(5) : cep;
+}
+
+function formatarData(data) {
+  var s = String(data).slice(0, 10).replace(/\D/g, '');
+  return s.length === 8
+    ? s.slice(6, 8) + '/' + s.slice(4, 6) + '/' + s.slice(0, 4) : data;
+}
+
+function formatarDataHoje() {
+  var d = new Date();
+  return String(d.getDate()).padStart(2, '0') + '/' +
+         String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear();
+}
+
+// ══════════════════════════════════════════════════════════════════
+// MANUTENÇÃO
+// ══════════════════════════════════════════════════════════════════
+
+function sincronizarEstrutura() {
+  var ss     = SpreadsheetApp.getActiveSpreadsheet();
+  var mestra = ss.getSheetByName(ABA_MESTRA);
+  if (!mestra) { Logger.log('Aba mestra não encontrada.'); return; }
+
+  var cabMestra = mestra.getRange(1, 1, 1, mestra.getLastColumn()).getValues()[0];
+
+  ABAS_ALVO.filter(function(n) { return n !== ABA_MESTRA; }).forEach(function(nomeAba) {
+    var aba = ss.getSheetByName(nomeAba);
+    if (!aba) { Logger.log('[' + nomeAba + '] Não encontrada.'); return; }
+
+    var cabAtual = aba.getRange(1, 1, 1, aba.getLastColumn()).getValues()[0]
+                     .map(function(v) { return normalizar(String(v)); });
+
+    cabMestra.forEach(function(nomeCab, i) {
+      if (cabAtual.indexOf(normalizar(String(nomeCab))) !== -1) return;
+      var colAlvo = i + 1;
+      if (aba.getLastColumn() < colAlvo)
+        aba.insertColumnsAfter(aba.getLastColumn(), colAlvo - aba.getLastColumn());
+      aba.getRange(1, colAlvo).setValue(nomeCab);
+      Logger.log('[' + nomeAba + '] Adicionada: ' + nomeCab);
+    });
+  });
+  Logger.log('Sincronização concluída.');
+}
+
+function diagnosticar() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  ABAS_ALVO.forEach(function(nomeAba) {
+    var aba = ss.getSheetByName(nomeAba);
+    if (!aba) { Logger.log('[' + nomeAba + '] Não encontrada.'); return; }
+    Logger.log('[' + nomeAba + '] ' + JSON.stringify(mapearColunas(aba)));
+  });
+}
+
+function testarAPI() {
+  var dados = consultarCNPJ('09382770000110');
+  Logger.log(dados ? JSON.stringify(dados).slice(0, 600) : 'Falha.');
+}
+
+function configurarGatilho() {
+  ScriptApp.getProjectTriggers().forEach(function(t) {
+    if (t.getHandlerFunction() === 'atualizarCNPJs') ScriptApp.deleteTrigger(t);
+  });
+  // v3 (26/09/2026): 2x por semana (domingo e quarta), de madrugada, em vez
+  // de a cada 15 minutos -- ver o comentário de LOTE acima para o motivo.
+  // Um único trigger não cobre dois dias da semana, por isso são dois.
+  ScriptApp.newTrigger('atualizarCNPJs').timeBased()
+    .onWeekDay(ScriptApp.WeekDay.SUNDAY).atHour(6).nearMinute(0).create();
+  ScriptApp.newTrigger('atualizarCNPJs').timeBased()
+    .onWeekDay(ScriptApp.WeekDay.WEDNESDAY).atHour(6).nearMinute(0).create();
+  Logger.log('Gatilhos criados: atualizarCNPJs aos domingos e quartas, por volta das 6h.');
+}
+
+// v3 (26/09/2026): roda uma vez, manualmente, para remover o gatilho que
+// migrava linhas sozinho quando o menu suspenso "Tipo de Cliente" mudava
+// (Consultoria → Demanda/Inativo etc.). As funções onEditInstalavel(),
+// executarMigracaoPendente() e migrarLinha() continuam no script -- só o
+// gatilho que as chamava automaticamente é removido. Selecione esta função
+// no menu do editor e clique em Executar (▶) uma vez.
+function removerGatilhoMigracao() {
+  var removidos = 0;
+  ScriptApp.getProjectTriggers().forEach(function(t) {
+    if (t.getHandlerFunction() === 'onEditInstalavel') {
+      ScriptApp.deleteTrigger(t);
+      removidos++;
+    }
+  });
+  Logger.log(removidos
+    ? 'Gatilho onEditInstalavel removido. A migração por menu suspenso agora é só manual.'
+    : 'Nenhum gatilho onEditInstalavel encontrado -- já estava removido.');
+}
+
+function resetarProgresso(nomeAba) {
+  var props = PropertiesService.getScriptProperties();
+  if (nomeAba) {
+    props.setProperty('linha_' + nomeAba, '2');
+  } else {
+    ABAS_ALVO.forEach(function(a) { props.setProperty('linha_' + a, '2'); });
+  }
+  Logger.log('Resetado: ' + (nomeAba || 'todas as abas'));
+}

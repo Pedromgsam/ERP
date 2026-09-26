@@ -1,0 +1,986 @@
+function _faF(v){
+  v=Number(v)||0;
+  var neg=v<0, a=Math.abs(v), t;
+  if(a>=1e6) t='R$ '+(a/1e6).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+' mi';
+  else       t='R$ '+a.toLocaleString('pt-BR',{maximumFractionDigits:0});
+  return (neg?'−':'')+t;
+}
+function _faFT(v){ return '<span title="'+fF(v)+'" style="cursor:help">'+_faF(v)+'</span>'; }
+
+var _FA = { quem:[], preset:'ano', de:'', ate:'', tipo:'', grupo:'', ord:'data', asc:false };
+
+function _faData(f){
+  var d = pDate(f.dataPagamento);
+  return d || pDate(f.vencimento);
+}
+function _faPorPagamento(f){ return !!pDate(f.dataPagamento); }
+// Quem fez: receita usa Advogado, despesa usa Responsável.
+function _faQuem(f){ return (f.advogado || f.responsavel || '—').trim() || '—'; }
+function _faVal(f){ return Number(f.valor)||0; }
+function _faMesKey(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
+var _FA_MES=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+function _faMesLbl(k){ var p=k.split('-'); return _FA_MES[+p[1]-1]+'/'+p[0].slice(2); }
+
+// Janela do período escolhido → [inicio, fim] ou null para "tudo".
+function _faJanela(){
+  if(_FA.de || _FA.ate){
+    var a=_FA.de?new Date(_FA.de+'T00:00:00'):new Date(1900,0,1);
+    var b=_FA.ate?new Date(_FA.ate+'T00:00:00'):new Date(2999,11,31);
+    return [a,b];
+  }
+  var h=new Date(); h.setHours(0,0,0,0);
+  switch(_FA.preset){
+    case 'mes':    return [new Date(h.getFullYear(),h.getMonth(),1), new Date(h.getFullYear(),h.getMonth()+1,0)];
+    case 'mesant': return [new Date(h.getFullYear(),h.getMonth()-1,1), new Date(h.getFullYear(),h.getMonth(),0)];
+    case 'ano':    return [new Date(h.getFullYear(),0,1), new Date(h.getFullYear(),11,31)];
+    case 'anoant': return [new Date(h.getFullYear()-1,0,1), new Date(h.getFullYear()-1,11,31)];
+    case '12m':    return [new Date(h.getFullYear(),h.getMonth()-11,1), new Date(h.getFullYear(),h.getMonth()+1,0)];
+    default:       return null;
+  }
+}
+
+function _faFiltrar(abas){
+  var jan=_faJanela();
+  var fg=FILTROS.grupo||'';
+  return _finDados().filter(function(f){
+    if(abas.indexOf(f.aba)<0) return false;
+    if(_FA.quem.length && _FA.quem.indexOf(_faQuem(f))<0) return false;
+    if(_FA.tipo && f.tipo!==_FA.tipo) return false;
+    var g=_FA.grupo||fg;
+    if(g && f.grupo!==g) return false;
+    if(jan){ var d=_faData(f); if(!d||d<jan[0]||d>jan[1]) return false; }
+    return true;
+  });
+}
+var _faSoma=function(a){ return a.reduce(function(s,f){ return s+_faVal(f); },0); };
+
+// ── controles ──
+function faQuem(nome,btn){
+  var i=_FA.quem.indexOf(nome);
+  if(i<0)_FA.quem.push(nome); else _FA.quem.splice(i,1);
+  _faAtualizar();
+}
+function faQuemTodos(){ _FA.quem=[]; _faAtualizar(); }
+function faPreset(p,btn){
+  _FA.preset=p; _FA.de=''; _FA.ate='';
+  var m=$('faMesIn'); if(m) m.value='';
+  _faAtualizar();
+}
+// v39: o <input type=date> dispara 'change' assim que o navegador
+// considera o valor válido. Digitando 01/11/2025 dígito a dígito, ele
+// dispara no ano "0002" e a tela redesenhava com um período absurdo
+// antes de a data ficar pronta. Agora: espera 700 ms de silêncio, e só
+// aceita ano de quatro dígitos a partir de 1900. Sair do campo ou
+// apertar Enter aplica na hora, sem esperar.
+// ── Período por intervalo ────────────────────────────────────────
+// v40: três problemas resolvidos de uma vez, trocando o <input type=date>
+// por campo de texto com calendário opcional:
+//  1. só filtra com as DUAS datas preenchidas;
+//  2. girar o calendário não dispara mais nada — o calendário só preenche
+//     o campo; quem filtra é o botão Aplicar (ou Enter);
+//  3. dia acima do fim do mês vira o último dia: 31/11/2025 → 30/11/2025,
+//     30/02/2026 → 28/02/2026 (e 29 em ano bissexto).
+var _FA_ULTIMO_DIA=[31,28,31,30,31,30,31,31,30,31,30,31];
+function _faFimDoMes(ano,mes){          // mes 1-12
+  if(mes===2 && ((ano%4===0 && ano%100!==0) || ano%400===0)) return 29;
+  return _FA_ULTIMO_DIA[mes-1];
+}
+// 'dd/mm/aaaa' → 'aaaa-mm-dd' com o dia corrigido. Devolve '' se não der.
+function _faParse(txt){
+  var m=String(txt||'').trim().match(/^(\d{1,2})\D(\d{1,2})\D(\d{4})$/);
+  if(!m) return '';
+  var d=+m[1], mes=+m[2], ano=+m[3];
+  if(mes<1||mes>12||d<1||ano<1900||ano>2999) return '';
+  var lim=_faFimDoMes(ano,mes);
+  if(d>lim) d=lim;                      // 31/11 → 30/11 · 30/02 → 28/02
+  return ano+'-'+String(mes).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+}
+function _faParaBR(iso){
+  var m=String(iso||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m? m[3]+'/'+m[2]+'/'+m[1] : '';
+}
+// Barras automáticas enquanto digita, sem atrapalhar o apagar.
+function faMascara(el){
+  var v=el.value.replace(/\D/g,'').slice(0,8), out=v;
+  if(v.length>4) out=v.slice(0,2)+'/'+v.slice(2,4)+'/'+v.slice(4);
+  else if(v.length>2) out=v.slice(0,2)+'/'+v.slice(2);
+  el.value=out;
+  var msg=$('faMsg'); if(msg) msg.textContent='';
+}
+// O calendário nativo fica num input escondido: ele só ESCREVE no campo
+// de texto. Nenhum filtro roda enquanto você gira os meses.
+function faCalendario(qual){
+  var oculto=$('faCal'+qual);
+  if(!oculto) return;
+  oculto.value=_faParse($('fa'+qual).value)||'';
+  if(oculto.showPicker){ try{ oculto.showPicker(); return; }catch(e){} }
+  oculto.click();
+}
+function faCalendarioEscolheu(qual){
+  var oculto=$('faCal'+qual), campo=$('fa'+qual);
+  if(!oculto||!campo) return;
+  campo.value=_faParaBR(oculto.value);
+  var msg=$('faMsg'); if(msg) msg.textContent='';
+  campo.focus();
+}
+// v41: escolher um mês inteiro sem digitar duas datas. 05/2026 vira
+// 01/05/2026 a 31/05/2026 — o último dia sai de _faFimDoMes, então
+// fevereiro bissexto sai certo.
+// v42: era lista suspensa; agora digita-se mm/aaaa. 05/2026 vira
+// 01/05/2026 a 31/05/2026, com o último dia saindo de _faFimDoMes —
+// então fevereiro bissexto sai certo.
+function faMascaraMes(el){
+  var v=el.value.replace(/\D/g,'').slice(0,6);
+  el.value = v.length>2 ? v.slice(0,2)+'/'+v.slice(2) : v;
+  var msg=$('faMsg'); if(msg) msg.textContent='';
+}
+// devolve mm/aaaa quando o intervalo atual é exatamente um mês inteiro
+function _faMesAtual(){
+  if(!_FA.de||!_FA.ate) return '';
+  var a=_FA.de.match(/^(\d{4})-(\d{2})-01$/); if(!a) return '';
+  var fim=_faFimDoMes(+a[1],+a[2]);
+  if(_FA.ate!==a[1]+'-'+a[2]+'-'+String(fim).padStart(2,'0')) return '';
+  return a[2]+'/'+a[1];
+}
+// v44: o botão "Mês" saiu. O campo mm/aaaa entra no mesmo "Aplicar" das
+// datas — devolve true quando conseguiu aplicar um mês inteiro.
+function _faAplicarMes(){
+  var el=$('faMesIn'), msg=$('faMsg');
+  var t=el?el.value.trim():'';
+  if(!t) return false;
+  var m=t.match(/^(\d{1,2})\D(\d{4})$/);
+  if(!m || +m[1]<1 || +m[1]>12){
+    if(msg) msg.textContent='Informe o mês como mm/aaaa — ex.: 05/2026.';
+    return 'erro';
+  }
+  var mes=+m[1], ano=+m[2];
+  if(ano<1900||ano>2999){ if(msg) msg.textContent='Ano fora do intervalo.'; return 'erro'; }
+  var mm=String(mes).padStart(2,'0');
+  _FA.de = ano+'-'+mm+'-01';
+  _FA.ate= ano+'-'+mm+'-'+String(_faFimDoMes(ano,mes)).padStart(2,'0');
+  _FA.preset='';
+  if(msg) msg.textContent='';
+  if($('faDe'))$('faDe').value=''; if($('faAte'))$('faAte').value='';
+  return true;
+}
+
+function faAplicarIntervalo(){
+  var eDe=$('faDe'), eAte=$('faAte'), msg=$('faMsg');
+  var tDe=eDe?eDe.value.trim():'', tAte=eAte?eAte.value.trim():'';
+  var aviso=function(t){ if(msg) msg.textContent=t||''; };
+
+  // mm/aaaa preenchido tem prioridade — é o atalho para o mês inteiro
+  var r=_faAplicarMes();
+  if(r==='erro') return;
+  if(r===true){ _faAtualizar(); return; }
+
+  if(!tDe && !tAte){                       // os dois vazios = tirar o intervalo
+    if(!_FA.de && !_FA.ate){ aviso(''); return; }
+    _FA.de=''; _FA.ate=''; _FA.preset='ano'; aviso(''); _faAtualizar(); return;
+  }
+  var de=_faParse(tDe), ate=_faParse(tAte);
+  if(!de || !ate){ aviso('Preencha as duas datas, no formato dd/mm/aaaa.'); return; }
+  if(de>ate){ var t=de; de=ate; ate=t; }   // invertidas: troca em vez de reclamar
+  // devolve a data já corrigida para o campo, para você VER o ajuste
+  eDe.value=_faParaBR(de); eAte.value=_faParaBR(ate);
+  var corrigiu = (_faParaBR(de)!==tDe) || (_faParaBR(ate)!==tAte);
+  aviso(corrigiu?'Data ajustada para o último dia do mês.':'');
+  if(de===_FA.de && ate===_FA.ate) return;
+  _FA.de=de; _FA.ate=ate; _FA.preset='';
+  _faAtualizar();
+}
+function faLimparIntervalo(){
+  if($('faDe'))$('faDe').value=''; if($('faAte'))$('faAte').value='';
+  if($('faMesIn'))$('faMesIn').value='';
+  var msg=$('faMsg'); if(msg) msg.textContent='';
+  if(_FA.de||_FA.ate){ _FA.de=''; _FA.ate=''; _FA.preset='ano'; }
+  _faAtualizar();
+}
+function faCampo(k,v){ _FA[k]=v; _faAtualizar(); }
+function faOrd(col){
+  if(_FA.ord===col)_FA.asc=!_FA.asc; else {_FA.ord=col;_FA.asc=false;}
+  _faPintarLanc();   // ordenar mexe só na lista, não nos gráficos
+}
+function faCSV(){
+  var rows=_faDetalhe();
+  var head=['Data','Base da data','Situação','Origem','Quem','Grupo','Tipo','Referência','Valor'];
+  var linhas=rows.map(function(f){
+    var d=_faData(f);
+    return [d?d.toLocaleDateString('pt-BR'):'', _faPorPagamento(f)?'pagamento':'vencimento',
+      _faSitTxt(f),f.aba,_faQuem(f),f.grupo||'',f.tipo||'',(f.referencia||'').replace(/;/g,','),
+      String(_faVal(f)).replace('.',',')];
+  });
+  v16ExportCSV(linhas, head, 'financeiro-analise.csv');
+}
+function _faDetalhe(){
+  var r=_faFiltrar(_acCliente()?['Receita','A Receber']:['Receita','A Receber','Prejuízo']);
+  var k=_FA.ord, sinal=_FA.asc?1:-1;
+  return r.slice().sort(function(a,b){
+    if(k==='valor') return sinal*(_faVal(a)-_faVal(b));
+    if(k==='quem')  return sinal*_faQuem(a).localeCompare(_faQuem(b));
+    if(k==='grupo') return sinal*String(a.grupo||'').localeCompare(String(b.grupo||''));
+    var da=_faData(a),db=_faData(b);
+    return sinal*((da?da.getTime():0)-(db?db.getTime():0));
+  });
+}
+
+function _finAnalise(fin){
+  var el=$('finContent'); if(!el) return;
+  // v44: a tela inteira era reconstruída a cada clique — inclusive a barra
+  // de filtros. Era isso que dava a sensação de "a página fica atualizando"
+  // e o que fazia o cursor sair do campo de data. Agora a barra é montada
+  // uma vez; o filtro só repinta os resultados.
+  var sig=_faAssinatura();
+  if(!document.getElementById('faBar') || el.getAttribute('data-fa-sig')!==sig){
+    el.innerHTML=_faEsqueleto();
+    el.setAttribute('data-fa-sig',sig);
+  }
+  _faSyncBar();
+  _faPintarCorpo();
+  _faPintarLanc();
+}
+function _faAssinatura(){
+  var d=_finDados();
+  var u=function(f){ return [...new Set(d.map(f).filter(Boolean))].sort().join('|'); };
+  return u(_faQuem)+'§'+u(function(f){return f.tipo;})+'§'+u(function(f){return f.grupo;});
+}
+function _faPessoas(){ return [...new Set(_finDados().map(_faQuem).filter(function(x){return x&&x!=='—';}))].sort(); }
+
+var _FA_PRESETS=[['mes','Este mês'],['mesant','Mês passado'],['ano','Este ano'],
+                 ['anoant','Ano passado'],['12m','12 meses'],['todos','Tudo']];
+
+function _faEsqueleto(){
+  var pessoas=_faPessoas();
+  var tipos =[...new Set(_finDados().map(function(f){return f.tipo;}).filter(Boolean))].sort();
+  var grupos=[...new Set(_finDados().map(function(f){return f.grupo;}).filter(Boolean))].sort();
+  return ''
+  + '<div class="cc" id="faBar" style="margin-bottom:14px">'
+  + '<div class="fa-lin"><span class="fa-lbl">Quem fez</span>'
+  +   '<button class="fa-chip" id="faQuemTodos" onclick="faQuemTodos()">Todos</button>'
+  +   pessoas.map(function(p){
+        var c=_faCor(p);
+        return '<button class="fa-chip fa-chip-p" data-quem="'+esc(p)+'" onclick="faQuem(\''+esc(p).replace(/'/g,"\\'")+'\')">'+esc(p)+'</button>';
+      }).join('')
+  +   '<span class="fa-dica">clique em mais de um para somar</span>'
+  + '</div>'
+  + '<div class="fa-lin"><span class="fa-lbl">Período</span>'
+  +   _FA_PRESETS.map(function(p){
+        return '<button class="fa-chip" data-preset="'+p[0]+'" onclick="faPreset(\''+p[0]+'\')">'+p[1]+'</button>';
+      }).join('')
+  +   '<span class="fa-sep"></span>'
+  +   '<span class="fa-dtwrap"><input type="text" class="fsel fa-mes" id="faMesIn" placeholder="mm/aaaa"'
+  +     ' maxlength="7" inputmode="numeric" autocomplete="off"'
+  +     ' oninput="faMascaraMes(this)" onkeydown="if(event.key===\'Enter\')faAplicarIntervalo()"'
+  +     ' title="Mês inteiro — digite mm/aaaa e clique em Aplicar"></span>'
+  +   '<span class="fa-sep"></span>'
+  +   '<span class="fa-dtwrap"><input type="text" class="fsel fa-dt" id="faDe" placeholder="dd/mm/aaaa"'
+  +     ' maxlength="10" inputmode="numeric" autocomplete="off"'
+  +     ' oninput="faMascara(this)" onkeydown="if(event.key===\'Enter\')faAplicarIntervalo()">'
+  +     '<button class="fa-cal" onclick="faCalendario(\'De\')" title="Abrir calendário">📅</button>'
+  +     '<input type="date" id="faCalDe" class="fa-oculto" onchange="faCalendarioEscolheu(\'De\')"></span>'
+  +   '<span class="fa-ate">até</span>'
+  +   '<span class="fa-dtwrap"><input type="text" class="fsel fa-dt" id="faAte" placeholder="dd/mm/aaaa"'
+  +     ' maxlength="10" inputmode="numeric" autocomplete="off"'
+  +     ' oninput="faMascara(this)" onkeydown="if(event.key===\'Enter\')faAplicarIntervalo()">'
+  +     '<button class="fa-cal" onclick="faCalendario(\'Ate\')" title="Abrir calendário">📅</button>'
+  +     '<input type="date" id="faCalAte" class="fa-oculto" onchange="faCalendarioEscolheu(\'Ate\')"></span>'
+  +   '<button class="fa-chip fa-aplicar" onclick="faAplicarIntervalo()" title="Aplica o mês (mm/aaaa) ou o intervalo de datas">Aplicar</button>'
+  +   '<span class="fa-ativo" id="faSelInfo" style="display:none"></span>'
+  +   '<button class="fa-chip" id="faLimparInt" onclick="faLimparIntervalo()" style="display:none" title="Tirar o período">✕</button>'
+  +   '<span class="fa-msg" id="faMsg"></span>'
+  + '</div>'
+  + '<div class="fa-lin"><span class="fa-lbl">Recorte</span>'
+  +   '<select class="fsel" id="faTipoSel" onchange="faCampo(\'tipo\',this.value)"><option value="">Todos os tipos</option>'
+  +     tipos.map(function(t){return '<option value="'+esc(t)+'">'+esc(t)+'</option>';}).join('')+'</select>'
+  +   '<select class="fsel" id="faGrupoSel" onchange="faCampo(\'grupo\',this.value)"><option value="">Todos os grupos</option>'
+  +     grupos.map(function(g){return '<option value="'+esc(g)+'">'+esc(g)+'</option>';}).join('')+'</select>'
+  +   '<span class="fa-sep"></span>'
+  +   '<button class="fa-chip" onclick="faCSV()">⤓ CSV</button>'
+  + '</div>'
+  + '<div class="fa-resumo" id="faResumo"></div>'
+  + '</div>'
+  + '<div id="faCorpo"></div>'
+  + '<div class="cc"><div class="cc-hd" style="align-items:center"><div><div class="cc-t">Lançamentos</div>'
+  +   '<div class="cc-d">os filtros do topo já valem para esta lista · clique no cabeçalho para ordenar</div></div>'
+  +   '<span class="fa-dica" id="faLqCount"></span></div>'
+  +   '<div id="faLancTbl"></div></div>';
+}
+
+function _faSyncBar(){
+  var q=document.getElementById('faQuemTodos');
+  if(q) q.classList.toggle('on', _FA.quem.length===0);
+  document.querySelectorAll('#faBar [data-quem]').forEach(function(b){
+    var p=b.getAttribute('data-quem'), on=_FA.quem.indexOf(p)>=0, c=_faCor(p);
+    b.classList.toggle('on',on);
+    b.style.cssText = on
+      ? 'background:'+c.marca+';border-color:'+c.marca+';color:#fff'
+      : 'background:'+c.fundo+';border-color:'+c.marca+'55;color:'+c.texto;
+  });
+  var semIntervalo = !_FA.de && !_FA.ate;
+  document.querySelectorAll('#faBar [data-preset]').forEach(function(b){
+    b.classList.toggle('on', semIntervalo && _FA.preset===b.getAttribute('data-preset'));
+  });
+  var de=$('faDe'), ate=$('faAte'), mes=$('faMesIn');
+  if(de && document.activeElement!==de)  de.value=_faParaBR(_FA.de);
+  if(ate&& document.activeElement!==ate) ate.value=_faParaBR(_FA.ate);
+  if(mes&& document.activeElement!==mes) mes.value=_faMesAtual();
+  var lx=$('faLimparInt'); if(lx) lx.style.display=(_FA.de||_FA.ate)?'':'none';
+  // v45: sinal visual de qual período está valendo — mês ou intervalo
+  var info=$('faSelInfo');
+  if(info){
+    if(_FA.de||_FA.ate){
+      var mm=_faMesAtual();
+      info.innerHTML = mm
+        ? '🗓 Mês <strong>'+esc(mm)+'</strong>'
+        : '🗓 <strong>'+esc(_faParaBR(_FA.de)||'início')+'</strong> → <strong>'+esc(_faParaBR(_FA.ate)||'hoje')+'</strong>';
+      info.style.display='';
+    } else info.style.display='none';
+  }
+  [['faMesIn',!!_faMesAtual()],['faDe',!!_FA.de&&!_faMesAtual()],['faAte',!!_FA.ate&&!_faMesAtual()]]
+    .forEach(function(par){ var e=$(par[0]); if(e) e.classList.toggle('fa-preenchido',par[1]); });
+  var ts=$('faTipoSel');  if(ts) ts.value=_FA.tipo||'';
+  var gs=$('faGrupoSel'); if(gs) gs.value=_FA.grupo||'';
+  var jan=_faJanela();
+  var res=$('faResumo');
+  if(res) res.innerHTML='Mostrando <strong>'+esc(_FA.quem.length?_FA.quem.join(' + '):'todos')+'</strong> · <strong>'
+    + esc(jan? jan[0].toLocaleDateString('pt-BR')+' a '+jan[1].toLocaleDateString('pt-BR') : 'todo o histórico')+'</strong>'
+    + ' · data considerada: <strong>pagamento</strong>, ou vencimento quando não houver pagamento';
+}
+function _faAtualizar(){ _faSyncBar(); _faPintarCorpo(); _faPintarLanc(); }
+
+function _faPintarCorpo(){
+  var el=$('faCorpo'); if(!el) return;
+  var hoje=new Date(); hoje.setHours(0,0,0,0);
+  var receita = _faFiltrar(['Receita']);
+  var aReceber= _faFiltrar(['A Receber']);
+  var prejuizo= _faFiltrar(['Prejuízo']);
+  var vRec=_faSoma(receita), vAR=_faSoma(aReceber), vPrej=_faSoma(prejuizo);
+  var vencidos=aReceber.filter(function(f){ var d=_faData(f); return d&&d<hoje; });
+  var vVenc=_faSoma(vencidos);
+  var ticket=receita.length? vRec/receita.length : 0;
+  var cliente=_acCliente();
+
+  el.innerHTML =
+    '<div class="kpi-grid" style="margin-bottom:14px">'
+  +   kC('Recebido',_faFT(vRec),receita.length+' lançamento(s)','cg','dg')
+  +   kC('A receber',_faFT(vAR),aReceber.length+' em aberto','cb','db')
+  +   kC('Vencido',_faFT(vVenc),vencidos.length+' lançamento(s)','cr',vVenc>0?'dr':'')
+  +   (cliente?'':kC('Prejuízo',_faFT(vPrej),prejuizo.length+' baixa(s)','cx',vPrej>0?'dr':''))
+  +   kC('Ticket médio',_faFT(ticket),'por lançamento recebido','cv','dv')
+  + '</div>'
+  + '<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t">Recebido mês a mês</div>'
+  +   '<div class="cc-d">empilhado por pessoa · passe o mouse na coluna para ver o total do mês</div></div></div>'
+  +   '<div class="cb" style="height:280px"><canvas id="cFaMes"></canvas></div></div>'
+  + '<div class="crow c2" style="margin-bottom:14px">'
+  +   '<div class="cc"><div class="cc-hd"><div><div class="cc-t">Recebido por tipo de serviço</div>'
+  +     '<div class="cc-d">consultoria, fixo, êxito…</div></div></div>'
+  +     '<div class="cb" style="height:240px"><canvas id="cFaTipo"></canvas></div></div>'
+  +   '<div class="cc"><div class="cc-hd"><div><div class="cc-t">Maiores grupos</div>'
+  +     '<div class="cc-d">10 primeiros por valor recebido</div></div></div>'
+  +     '<div class="cb" style="height:240px"><canvas id="cFaGrupo"></canvas></div></div>'
+  + '</div>'
+  + '<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t">Comparativo por pessoa</div>'
+  +   '<div class="cc-d">mesmo período e mesmos recortes acima</div></div></div>'
+  +   _faTabelaPessoas(_faPessoas()) + '</div>';
+
+  _faGraficos(receita);
+}
+
+// v45: a lista tinha filtros próprios — desnecessários, porque os filtros
+// do topo (quem, período, tipo, grupo) já recortam estes mesmos lançamentos.
+// A ordem natural continua sendo a data, do mais recente para o mais antigo.
+function _faPintarLanc(){
+  var el=$('faLancTbl'); if(!el) return;
+  var rows=_faDetalhe();
+  var c=$('faLqCount');
+  if(c) c.textContent=rows.length+' lançamento(s)';
+  el.innerHTML=_faTabelaDetalhe(rows);
+}
+
+// ── Situação: PAGO / OK / VENCIDA, com a cor de cada uma ──────────
+function _faSitTxt(f){
+  var t=String(f.situacao||'').trim();
+  if(t) return t;
+  if(f.aba==='Receita' || String(f.pagamento||'').toUpperCase()==='SIM') return 'Pago';
+  var d=pDate(f.vencimento), h=new Date(); h.setHours(0,0,0,0);
+  if(d && d<h) return 'Vencida';
+  return 'OK';
+}
+function _faSitTag(f){
+  var t=_faSitTxt(f), l=t.toLowerCase(), cls='tn';
+  if(l.indexOf('pag')===0||l==='quitado'||l==='recebido'||l==='quitada') cls='tg';
+  else if(l.indexOf('venc')>=0||l.indexOf('atras')>=0) cls='tr';
+  else if(l==='ok'||l.indexOf('em dia')>=0) cls='tb2';
+  else if(l.indexOf('guia')>=0||l.indexOf('aberto')>=0||l.indexOf('parcial')>=0) cls='ta';
+  else if(l.indexOf('prejuí')>=0||l.indexOf('prejui')>=0||l.indexOf('baixa')>=0) cls='tx';
+  return '<span class="tag '+cls+'">'+esc(t.toUpperCase())+'</span>';
+}
+
+function _faTabelaPessoas(pessoas){
+  var cliente=_acCliente();
+  var linhas=pessoas.map(function(p){
+    var salvo=_FA.quem; _FA.quem=[p];
+    var rec=_faFiltrar(['Receita']), ar=_faFiltrar(['A Receber']), pj=_faFiltrar(['Prejuízo']);
+    _FA.quem=salvo;
+    return {p:p, rec:_faSoma(rec), n:rec.length, ar:_faSoma(ar), pj:_faSoma(pj),
+            tk:rec.length?_faSoma(rec)/rec.length:0};
+  });
+  var tot=linhas.reduce(function(s,l){return s+l.rec;},0)||1;
+  linhas.sort(function(a,b){return b.rec-a.rec;});
+  var nCols=cliente?6:7;
+  return '<div class="tw"><table><thead><tr>'
+   +'<th>Pessoa</th><th style="text-align:right">Recebido</th><th style="text-align:right">%</th>'
+   +'<th style="text-align:right">Lanç.</th><th style="text-align:right">Ticket médio</th>'
+   +'<th style="text-align:right">A receber</th>'
+   +(cliente?'':'<th style="text-align:right">Prejuízo</th>')
+   +'</tr></thead><tbody>'
+   + (linhas.length? linhas.map(function(l){
+       var c=_faCor(l.p);
+       return '<tr style="background:'+c.fundo+'55"><td>'+_faSelo(l.p)+'</td>'
+        +'<td class="mono" style="text-align:right;color:var(--green-d);font-weight:600">'+_faFT(l.rec)+'</td>'
+        +'<td class="mono" style="text-align:right">'+(l.rec/tot*100).toFixed(1)+'%</td>'
+        +'<td class="mono" style="text-align:right">'+l.n+'</td>'
+        +'<td class="mono" style="text-align:right">'+_faFT(l.tk)+'</td>'
+        +'<td class="mono" style="text-align:right">'+(l.ar?_faFT(l.ar):'—')+'</td>'
+        +(cliente?'':'<td class="mono" style="text-align:right'+(l.pj?';color:var(--red-d)':'')+'">'+(l.pj?_faFT(l.pj):'—')+'</td>')
+        +'</tr>';
+     }).join('') : '<tr><td colspan="'+nCols+'" class="vazio">Nada no período.</td></tr>')
+   + '</tbody></table></div>';
+}
+
+function _faTabelaDetalhe(rows){
+  var seta=function(c){ return _FA.ord===c?(_FA.asc?' ↑':' ↓'):''; };
+  var corAba={'Receita':'var(--green-d)','A Receber':'var(--blue-d)','Prejuízo':'var(--red-d)'};
+  return '<div class="tw scr"><table><thead><tr>'
+   +'<th class="s" onclick="faOrd(\'data\')">Data'+seta('data')+'</th>'
+   +'<th>Situação</th><th>Origem</th>'
+   +'<th class="s" onclick="faOrd(\'quem\')">Quem'+seta('quem')+'</th>'
+   +'<th class="s" onclick="faOrd(\'grupo\')">Grupo'+seta('grupo')+'</th>'
+   +'<th>Tipo</th><th>Referência</th>'
+   +'<th class="s" style="text-align:right" onclick="faOrd(\'valor\')">Valor'+seta('valor')+'</th>'
+   +'</tr></thead><tbody>'
+   + (rows.length? rows.slice(0,400).map(function(f){
+       var d=_faData(f), pg=_faPorPagamento(f);
+       return '<tr><td class="mono" title="'+(pg?'data de pagamento':'data de vencimento')+'">'
+        +(d?d.toLocaleDateString('pt-BR'):'—')+(pg?'':' <span style="color:var(--text4)">·v</span>')+'</td>'
+        +'<td>'+_faSitTag(f)+'</td>'
+        +'<td style="color:'+(corAba[f.aba]||'var(--text3)')+';font-weight:600;font-size:11.5px">'+esc(f.aba)+'</td>'
+        +'<td>'+_faSelo(_faQuem(f))+'</td><td>'+esc(f.grupo||'—')+'</td>'
+        +'<td>'+esc(f.tipo||'—')+'</td>'
+        +'<td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(f.referencia||'')+'">'+esc(f.referencia||'—')+'</td>'
+        +'<td class="mono" style="text-align:right;font-weight:600">'+_faFT(_faVal(f))+'</td></tr>';
+     }).join('') : '<tr><td colspan="8" class="vazio">Nenhum lançamento com esses recortes.</td></tr>')
+   + '</tbody></table></div>'
+   + (rows.length>400?'<div style="font-size:11px;color:var(--text3);padding:8px 2px">mostrando 400 de '+rows.length+' — use o CSV para a lista inteira</div>':'');
+}
+
+// ── Cor por pessoa ───────────────────────────────────────────────
+// v41: as cores vieram da planilha — verde para o Pedro, rosa para a
+// Emanuelle. Elas funcionam muito bem como FUNDO (é para isso que
+// servem no Sheets), mas como traço de gráfico sobre branco ficam quase
+// invisíveis: #D4EDBC tem contraste ~1,2:1. Então cada pessoa tem duas
+// cores da mesma família: a clara para preencher (selo, tinta da linha)
+// e uma fechada para a barra do gráfico e o texto.
+var _FA_PESSOA={
+  'Pedro':     {fundo:'#D4EDBC', marca:'#4E9A2F', texto:'#2F6B1A'},
+  'Emanuelle': {fundo:'#FFCFC9', marca:'#D2544A', texto:'#9B2C22'},
+  'Escritório':{fundo:'#FBE9A8', marca:'#C9A84C', texto:'#8A6D14'},
+  'Adriana':   {fundo:'#DBEAFE', marca:'#2563EB', texto:'#1D4ED8'}
+};
+var _FA_NEUTRAS=['#1B2A4A','#7C3AED','#0D9488','#DC2626','#0EA5E9','#6B7280'];
+function _faCor(nome){
+  var c=_FA_PESSOA[String(nome||'').trim()];
+  if(c) return c;
+  var h=0, t=String(nome||'');
+  for(var i=0;i<t.length;i++) h=(h*31+t.charCodeAt(i))|0;
+  var m=_FA_NEUTRAS[Math.abs(h)%_FA_NEUTRAS.length];
+  return {fundo:m+'22', marca:m, texto:m};
+}
+// v45: no gráfico empilhado, as quatro cores "fechadas" das pessoas
+// (verde-mato, tijolo, dourado e azul-forte) brigavam entre si. Agora a
+// barra usa um tom intermediário entre o pastel da planilha e a cor
+// fechada — sálvia, rosé, ouro-velho e azul-lavanda —, com um filete da
+// cor fechada para separar as faixas. Mesma identidade, sem estridência.
+function _faMistura(a,b,t){
+  var h=function(x){ return [parseInt(x.slice(1,3),16),parseInt(x.slice(3,5),16),parseInt(x.slice(5,7),16)]; };
+  var A=h(a), B=h(b), o='#';
+  for(var i=0;i<3;i++) o+=('0'+Math.round(A[i]+(B[i]-A[i])*t).toString(16)).slice(-2);
+  return o;
+}
+function _faCorBarra(nome){
+  var c=_faCor(nome);
+  if(!c._barra) c._barra=_faMistura(c.fundo,c.marca,.45);
+  return c._barra;
+}
+function _faSelo(nome){
+  var c=_faCor(nome);
+  return '<span class="fa-pessoa" style="background:'+c.fundo+';color:'+c.texto+'">'+esc(nome)+'</span>';
+}
+// v44: os gráficos de ranking usavam oito cores diferentes — azul, dourado,
+// verde, roxo, vermelho — sem que a cor quisesse dizer nada. Agora é uma
+// única família azul-marinho do escritório, do mais escuro (maior valor)
+// ao mais claro. A cor passa a carregar a ordem de grandeza.
+
+function _faGraficos(receita){
+  if(typeof Chart==='undefined')return;
+  var pessoas=[...new Set(receita.map(_faQuem))].sort();
+  // v44: sem animação. Cada repintura reanimava as barras do zero e dava a
+  // impressão de que a tela estava recarregando sozinha.
+  var SEM_ANIM={duration:0};
+
+  // ── recebido mês a mês, empilhado por pessoa ──
+  var meses=[...new Set(receita.map(function(f){var d=_faData(f);return d?_faMesKey(d):null;}).filter(Boolean))].sort();
+  if($('cFaMes')){
+    var ds=pessoas.map(function(p){
+      return { label:p, backgroundColor:_faCorBarra(p), borderColor:'#ffffff',
+        borderWidth:1.5, borderRadius:5, borderSkipped:false,
+        hoverBackgroundColor:_faCor(p).marca,
+        data:meses.map(function(m){
+          return receita.filter(function(f){var d=_faData(f);return d&&_faMesKey(d)===m&&_faQuem(f)===p;})
+                        .reduce(function(s,f){return s+_faVal(f);},0);
+        })};
+    });
+    var totMes=meses.map(function(m){
+      return receita.filter(function(f){var d=_faData(f);return d&&_faMesKey(d)===m;})
+                    .reduce(function(s,f){return s+_faVal(f);},0);
+    });
+    mCh('cFaMes',{type:'bar',data:{labels:meses.map(_faMesLbl),datasets:ds},
+      options:{responsive:true,maintainAspectRatio:false,animation:SEM_ANIM,
+        interaction:{mode:'index',intersect:false},
+        plugins:{legend:{display:pessoas.length>1,position:'bottom',
+          labels:{color:'#4B5563',font:{size:10.5},boxWidth:11,usePointStyle:true,pointStyle:'circle',padding:10}},
+          tooltip:{mode:'index',intersect:false,
+            callbacks:{
+              label:function(c){ return c.raw? ' '+c.dataset.label+': '+fF(c.raw) : null; },
+              footer:function(items){
+                if(!items||!items.length) return '';
+                return 'Total do mês: '+fF(totMes[items[0].dataIndex]||0);
+              }}}},
+        scales:{x:{stacked:true,ticks:{color:'#9CA3AF',font:{size:10}},grid:{display:false}},
+                y:{stacked:true,ticks:{color:'#9CA3AF',font:{size:10},callback:function(v){return fS(v);}},
+                   grid:{color:'rgba(0,0,0,.04)'}}}}});
+  }
+
+  // ── por tipo de serviço ──
+  if($('cFaTipo')){
+    var tp=[...new Set(receita.map(function(f){return f.tipo||'—';}))];
+    var tv=tp.map(function(t){return receita.filter(function(f){return (f.tipo||'—')===t;}).reduce(function(s,f){return s+_faVal(f);},0);});
+    var it=tv.map(function(_,i){return i;}).sort(function(a,b){return tv[b]-tv[a];}).slice(0,10);
+    var cfgT=bCfg(it.map(function(i){return tp[i];}),it.map(function(i){return tv[i];}),null);
+    cfgT.options.animation=SEM_ANIM;
+    mCh('cFaTipo',cfgT);
+  }
+
+  // ── maiores grupos ──
+  if($('cFaGrupo')){
+    var gp=[...new Set(receita.map(function(f){return f.grupo||'—';}))];
+    var gv=gp.map(function(g){return receita.filter(function(f){return (f.grupo||'—')===g;}).reduce(function(s,f){return s+_faVal(f);},0);});
+    var ig=gv.map(function(_,i){return i;}).sort(function(a,b){return gv[b]-gv[a];}).slice(0,10);
+    var cfgG=bCfg(ig.map(function(i){return gp[i];}),ig.map(function(i){return gv[i];}),null,true);
+    cfgG.options.animation=SEM_ANIM;
+    mCh('cFaGrupo',cfgG);
+  }
+}
+
+function setFinPeriod(p,btn){
+  window._finPeriod=p;
+  document.querySelectorAll('#finPeriodBar .fin-tab').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  renderFinTbl();
+  _finCharts();
+}
+
+function setFinTab(tab,btn){
+  _finTab=tab;
+  document.querySelectorAll('#finTabBar .fin-tab').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  renderFinanceiro();
+}
+function _finPopGrupos(){
+  const sel=$('finModGrupo');if(!sel)return; // select removido v76
+  const grupos=[...new Set((_finDados()||[]).filter(f=>f.aba==='A Receber').map(f=>f.grupo).filter(Boolean))].sort();
+  const cur=FILTROS.grupo||'';
+  sel.innerHTML=''+grupos.map(g=>`<option value="${g}"${g===cur?' selected':''}>${g}</option>`).join('');
+}
+
+function renderFinanceiro(){
+  _finPopGrupos();
+  var fin=_finDados(),el=$('finContent');
+  if(!fin||fin.length===0){
+    el.innerHTML='<div class="cc"><div class="emp"><div class="emp-ic">◎</div><div class="emp-t">Módulo de Honorários Jurídico não configurado</div><div class="emp-s">Verifique o Apps Script — abas: A Receber, Receita, Prejuízo.</div></div></div>';
+    return;
+  }
+  _finAplicarAbasCliente();
+  if(!_finAbaPermitida(_finTab)) _finTab='receber';
+  if(_finTab==='analise'){_finAnalise(fin);return;}
+  if(_finTab==='recebidos'){_finRecebidos(fin);return;}
+  if(_finTab==='prejuizo'){_finPrejuizo(fin);return;}
+
+  var fGlobal=FILTROS.grupo||'';
+  var aRec=fin.filter(f=>f.aba==='A Receber'&&(!fGlobal||f.grupo===fGlobal));
+  var desp=fin.filter(f=>f.aba==='Despesa');
+  var prej=fin.filter(f=>f.aba==='Prejuízo'&&(!fGlobal||f.grupo===fGlobal));
+  var recebido=aRec.filter(f=>f.pagamento==='SIM').reduce((s,f)=>s+(Number(f.valor)||0),0);
+  var vencNP=aRec.filter(f=>f.pagamento!=='SIM'&&f.situacao==='Vencido').reduce((s,f)=>s+(Number(f.valor)||0),0);
+  var okAP=aRec.filter(f=>f.pagamento!=='SIM'&&f.situacao!=='Vencido').reduce((s,f)=>s+(Number(f.valor)||0),0);
+  var prejTot=prej.reduce((s,f)=>s+(Number(f.valor)||0),0);
+  var despTot=desp.reduce((s,f)=>s+(Number(f.valor)||0),0);
+  var maiorAtraso=0;
+  aRec.filter(f=>f.pagamento!=='SIM'&&(f.diasRestantes||0)<0).forEach(f=>{var d=Math.abs(Number(f.diasRestantes)||0);if(d>maiorAtraso)maiorAtraso=d;});
+  var grupos=[...new Set(aRec.map(f=>f.grupo).filter(Boolean))].sort();
+  var advs=[...new Set(aRec.map(f=>f.advogado).filter(Boolean))].sort();
+  var tipos=[...new Set(aRec.map(f=>f.tipo).filter(Boolean))].sort();
+
+  var qtdVenc=aRec.filter(f=>f.pagamento!=='SIM'&&f.situacao==='Vencido').length;
+  var alFin=$('alertFin');
+  if(alFin){
+    var _finAlHtml='';
+    if(qtdVenc>0) _finAlHtml+=`<span class="tag tr tpls" style="font-size:11px;padding:5px 12px;border-left:3px solid var(--red);font-weight:700">🔴 ${qtdVenc} honorário(s) vencido(s) · ${fF(vencNP)}</span>`;
+    // v39: prejuízo é conta do escritório — o cliente não vê que o
+    // escritório deu baixa no honorário dele.
+    if(prejTot>0 && !_acCliente()) _finAlHtml+=`<span class="tag tr" style="font-size:11px;padding:5px 12px;border-left:3px solid var(--red-d);font-weight:700">📉 Prejuízo: ${fF(prejTot)}</span>`;
+    alFin.innerHTML=_finAlHtml;
+  }
+  var ah='';
+  var grpOpts=mkOpts(grupos,'Todos grupos');
+  var advFOpts=mkOpts(advs,'Todos advogados');
+  var tipOpts=mkOpts(tipos,'Todos tipos');
+  var sitOpts='<option value="">Todas situações</option><option value="adimplente">Adimplente</option><option value="inadimplente">Inadimplente</option><option value="pago">Pago</option>';
+  var advCOpts=mkOpts(advs,'Todos advogados');
+
+  var h='';
+  h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px" id="finPeriodBar">';
+  h+='<button class="fin-tab '+(window._finPeriod==='todos'?'active':'')+'" data-fp="todos" onclick="setFinPeriod(\'todos\',this)" style="font-size:12px;padding:6px 14px">Todos</button>';
+  h+='<button class="fin-tab fin-tab-vencidos '+(window._finPeriod==='vencidos'?'active':'')+'" data-fp="vencidos" onclick="setFinPeriod(\'vencidos\',this)" style="font-size:12px;padding:6px 14px">⚠ Vencidos</button>';
+  h+='<button class="fin-tab '+(window._finPeriod==='7'?'active':'')+'" data-fp="7" onclick="setFinPeriod(\'7\',this)" style="font-size:12px;padding:6px 14px">🔴 7 dias</button>';
+  h+='<button class="fin-tab '+(window._finPeriod==='15'?'active':'')+'" data-fp="15" onclick="setFinPeriod(\'15\',this)" style="font-size:12px;padding:6px 14px">🟠 15 dias</button>';
+  h+='<button class="fin-tab '+(window._finPeriod==='30'?'active':'')+'" data-fp="30" onclick="setFinPeriod(\'30\',this)" style="font-size:12px;padding:6px 14px">🟡 30 dias</button>';
+  h+='<button class="fin-tab '+(window._finPeriod==='60'?'active':'')+'" data-fp="60" onclick="setFinPeriod(\'60\',this)" style="font-size:12px;padding:6px 14px">🔵 60 dias</button>';
+  h+='<select class="fsel" id="fFinMesAno" onchange="renderFinTbl()" style="min-width:140px;font-size:12px" title="Filtrar por mês/ano exato"><option value="">— Mês/Ano —</option></select>';
+  h+='</div>';
+  h+='<div class="ex-bn" style="margin-bottom:16px;position:relative;background:none;border:1.5px solid var(--border);box-shadow:var(--shadow-md);padding:22px 26px">';
+  h+='<div style="font-family:var(--font-d);font-size:14px;font-weight:700;color:var(--ac-gold);margin-bottom:12px;letter-spacing:.01em">💼 Financeiro — Visão Geral</div>';
+  h+='<div class="kpi-grid">';
+  h+=kC('Total a Receber',fS(okAP+vencNP),fF(okAP+vencNP),'cr','dr');
+  h+=kC('Inadimplente',fS(vencNP),fF(vencNP),'cr','dr');
+  h+=kC('A Vencer',fS(okAP),fF(okAP),'ca','');
+  h+=kC('Já Recebido',fS(recebido),fF(recebido),'cg','dg');
+  h+=kC('Prejuízo / Créditos',fS(prejTot),fF(prejTot),'cv','dv');
+  h+=kC('Despesas',fS(despTot),fF(despTot),'ct','dt');
+  h+='</div></div>';
+
+  h+='<div class="cc">';
+  h+='<div class="cc-hd" style="flex-wrap:wrap;gap:8px">';
+  h+='<div><div class="cc-t">Lançamentos — A Receber <span style="font-size:10.5px;color:var(--text3);font-weight:400" id="finCnt"></span></div></div>';
+  h+='<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">';
+  h+='<select class="fsel" id="fFinGrupo" onchange="renderFinTbl()">'+grpOpts+'</select>';
+  h+='<select class="fsel" id="fFinAdv"   onchange="renderFinTbl()">'+advFOpts+'</select>';
+  h+='<select class="fsel" id="fFinTipo"  onchange="renderFinTbl()">'+tipOpts+'</select>';
+  h+='<select class="fsel" id="fFinSit"   onchange="renderFinTbl()">'+sitOpts+'</select>';
+  h+='<input type="date" class="fsel" id="fFinDe"  onchange="renderFinTbl()" style="max-width:130px" title="De (vencimento)">';
+  h+='<input type="date" class="fsel" id="fFinAte" onchange="renderFinTbl()" style="max-width:130px" title="Até (vencimento)">';
+  h+='<input type="text" class="fsel" id="fFinRef" oninput="renderFinTbl()" style="max-width:130px" placeholder="Referência...">';
+  h+='</div></div>';
+  h+='<div class="tw scr"><table style="width:100%;table-layout:fixed"><thead><tr>';
+  h+='<th style="width:12%">Grupo</th><th style="width:10%">Advogado</th><th style="width:8%">Tipo</th><th style="width:19%">Referência</th>';
+  h+='<th class="s" style="width:10%" onclick="sortFin(\'venc\')">Vencimento</th>';
+  h+='<th class="s" style="width:11%" onclick="sortFin(\'val\')">Valor</th>';
+  h+='<th style="width:9%">Dias</th><th style="width:11%">Situação</th>';
+  h+='</tr></thead><tbody id="tblFinBody"></tbody>';
+  h+='<tfoot><tr id="tblFinFoot"></tr></tfoot></table></div>';
+  h+='<div class="pgn" id="pagFin"></div></div>';
+
+  h+='<div class="cc">';
+  h+='<div class="cc-hd" style="flex-wrap:wrap;gap:8px">';
+  h+='<div><div class="cc-t">Análise visual</div>';
+  h+='<div class="cc-d">Filtro único · impacta todos os gráficos abaixo</div></div>';
+  h+='<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">';
+  h+='<select class="fsel" id="fFinChAdv" onchange="_finCharts()" style="max-width:150px">'+advCOpts+'</select>';
+  h+='<select class="fsel" id="fFinChMesAno" onchange="_finCharts()" style="min-width:140px;font-size:12px" title="Filtrar gráficos por mês/ano"><option value="">— Mês/Ano —</option></select>';
+  h+='</div></div>';
+  h+='<div class="crow c2" style="margin-top:10px">';
+  h+='<div class="cb" style="height:210px"><canvas id="cFinGrupo"></canvas>';
+  h+='<div style="text-align:center;font-size:10.5px;color:var(--text3);margin-top:3px">A receber por grupo</div></div>';
+  h+='<div class="cb" style="height:210px"><canvas id="cFinSit"></canvas>';
+  h+='<div style="text-align:center;font-size:10.5px;color:var(--text3);margin-top:3px">Adimplente × Inadimplente</div></div>';
+  h+='</div>';
+  h+='<div class="crow c2" style="margin-top:14px">';
+  h+='<div class="cb" style="height:210px"><canvas id="cFinAdv"></canvas>';
+  h+='<div style="text-align:center;font-size:10.5px;color:var(--text3);margin-top:3px">Por advogado</div></div>';
+  h+='<div class="cb" style="height:210px"><canvas id="cFinMes"></canvas>';
+  h+='<div style="text-align:center;font-size:10.5px;color:var(--text3);margin-top:3px">Vencimentos mensais</div></div>';
+  h+='</div>';
+  h+='</div>';
+
+  el.innerHTML=h;
+  renderFinTbl();
+  _finCharts();
+}
+
+function _finCharts(){
+  if(!_finDados()||!_finDados().length)return;
+  var fGlobal=FILTROS.grupo||'';
+  var fAdv=document.getElementById('fFinChAdv')?.value||'';
+  var fChMesAno=document.getElementById('fFinChMesAno')?.value||'';
+  var fp  =window._finPeriod||'todos';
+  var hoje=new Date();hoje.setHours(0,0,0,0);
+
+  (function(){
+    var sel=document.getElementById('fFinChMesAno');if(!sel)return;
+    var cur=sel.value;
+    var meses=[...new Set(_finDados().filter(f=>f.aba==='A Receber').map(f=>{var d=pDate(f.vencimento);return d?d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'):null;}).filter(Boolean))].sort().reverse();
+    var lbls={'01':'Jan','02':'Fev','03':'Mar','04':'Abr','05':'Mai','06':'Jun','07':'Jul','08':'Ago','09':'Set','10':'Out','11':'Nov','12':'Dez'};
+    sel.innerHTML='<option value="">— Mês/Ano —</option>'+meses.map(m=>{var p=m.split('-');return`<option value="${m}"${m===cur?' selected':''}>${lbls[p[1]]||p[1]}/${p[0]}</option>`;}).join('');
+    if(cur)sel.value=cur;
+  })();
+
+  var base=_finDados().filter(f=>{
+    if(f.aba!=='A Receber')return false;
+    if(fGlobal&&f.grupo!==fGlobal)return false;
+    if(f.pagamento==='SIM')return false;
+    if(fAdv&&f.advogado!==fAdv)return false;
+    if(fChMesAno){var _d2=pDate(f.vencimento);if(!_d2)return false;var _my2=_d2.getFullYear()+'-'+String(_d2.getMonth()+1).padStart(2,'0');if(_my2!==fChMesAno)return false;}
+    var d=pDate(f.vencimento);
+    if(fp!=='todos'){
+      if(fp==='vencidos'){if(!d||d>=hoje)return false;}
+      else{var lim=new Date(hoje);lim.setDate(lim.getDate()+Number(fp));if(!d||d<hoje||d>lim)return false;}
+    }
+    return true;
+  });
+
+  if(document.getElementById('cFinGrupo')){
+    var gAll=[...new Set(base.map(f=>f.grupo).filter(Boolean))].sort();
+    var gV=gAll.map(g=>base.filter(f=>f.grupo===g).reduce((s,f)=>s+(Number(f.valor)||0),0));
+    var iGv=gV.map((_,i)=>i).sort((a,b)=>gV[b]-gV[a]);
+    mCh('cFinGrupo',bCfg(iGv.map(i=>gAll[i]),iGv.map(i=>gV[i]),null));
+  }
+
+  if(document.getElementById('cFinSit')){
+    var venc=base.filter(f=>f.situacao==='Vencido').reduce((s,f)=>s+(Number(f.valor)||0),0);
+    var ok  =base.filter(f=>f.situacao!=='Vencido').reduce((s,f)=>s+(Number(f.valor)||0),0);
+    mCh('cFinSit',dCfg(['Adimplente','Inadimplente'],[ok,venc],['#15803D','#DC2626']));
+  }
+
+  if(document.getElementById('cFinAdv')){
+    var advs=[...new Set(base.map(f=>f.advogado).filter(Boolean))].sort();
+    var aV=advs.map(a=>base.filter(f=>f.advogado===a).reduce((s,f)=>s+(Number(f.valor)||0),0));
+    var iAv=aV.map((_,i)=>i).sort((a,b)=>aV[b]-aV[a]);
+    mCh('cFinAdv',bCfg(iAv.map(i=>advs[i]),iAv.map(i=>aV[i]),null,true));
+  }
+
+  if(document.getElementById('cFinMes')){
+    var agora=new Date();var meses=[];
+    for(var i=-3;i<=6;i++) meses.push(new Date(agora.getFullYear(),agora.getMonth()+i,1));
+    var mLab=meses.map(m=>m.toLocaleDateString('pt-BR',{month:'short',year:'2-digit'}));
+    var baseAll=_finDados().filter(f=>{
+      if(f.aba!=='A Receber')return false;
+      if(fGlobal&&f.grupo!==fGlobal)return false;
+      if(fAdv&&f.advogado!==fAdv)return false;
+      return true;
+    });
+    var mV=meses.map(m=>{
+      var y=m.getFullYear(),mo=m.getMonth();
+      return baseAll.filter(f=>{
+        var d=pDate(f.vencimento);if(!d)return false;
+        return d.getFullYear()===y&&d.getMonth()===mo;
+      }).reduce((s,f)=>s+(Number(f.valor)||0),0);
+    });
+    var nowI=meses.findIndex(m=>m.getFullYear()===agora.getFullYear()&&m.getMonth()===agora.getMonth());
+    mCh('cFinMes',{type:'bar',data:{labels:mLab,datasets:[{data:mV,
+      backgroundColor:mV.map((_,i)=>i<nowI?'#8CAADEe6':i===nowI?'#16294Be6':'#C6D1EFe6'),
+      borderColor:mV.map((_,i)=>i<nowI?'#8CAADE':i===nowI?'#16294B':'#C6D1EF'),
+      borderWidth:0,borderRadius:5}]},
+      options:{responsive:true,maintainAspectRatio:false,animation:{duration:0},
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' '+fF(ctx.raw)}}},
+        scales:{x:{ticks:{color:'#9CA3AF',font:{size:10}}},
+                y:{ticks:{color:'#9CA3AF',font:{size:10},callback:v=>fS(v)}}}}});
+  }
+}
+
+
+function _popMesAnoSel(selId, rows, dateField, curVal) {
+  var sel = document.getElementById(selId);
+  if (!sel) return;
+  var lb = {'01':'Jan','02':'Fev','03':'Mar','04':'Abr','05':'Mai','06':'Jun',
+            '07':'Jul','08':'Ago','09':'Set','10':'Out','11':'Nov','12':'Dez'};
+  var meses = [];
+  var seen = {};
+  rows.forEach(function(f){
+    var d = pDate(f[dateField] || f.vencimento || f.dataPagamento);
+    if (!d) return;
+    var key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+    if (!seen[key]) { seen[key] = true; meses.push(key); }
+  });
+  meses.sort().reverse();
+  sel.innerHTML = '<option value="">— Mês/Ano —</option>' +
+    meses.map(function(m){
+      var p = m.split('-');
+      return '<option value="' + m + '"' + (m === curVal ? ' selected' : '') + '>' +
+             (lb[p[1]] || p[1]) + '/' + p[0] + '</option>';
+    }).join('');
+  if (curVal) sel.value = curVal;
+}
+function _finRecebidos(fin){
+  var fG=FILTROS.grupo||'';
+  var _ppRec=window._recPeriod||'todos';
+  var _hojeRec=new Date();_hojeRec.setHours(0,0,0,0);
+  var rows=fin.filter(f=>{
+    if(f.aba!=='Receita')return false;
+    if(fG&&f.grupo!==fG)return false;
+    if(window._recMesAno){var _d2=pDate(f.dataPagamento||f.vencimento);if(!_d2)return false;var _my2=_d2.getFullYear()+'-'+String(_d2.getMonth()+1).padStart(2,'0');if(_my2!==window._recMesAno)return false;}
+    else if(_ppRec!=='todos'){
+      var _d=pDate(f.dataPagamento);if(!_d)return false;
+      var _from=new Date(_hojeRec);_from.setDate(_from.getDate()-Number(_ppRec));
+      if(_d<_from||_d>_hojeRec)return false;
+    }
+    return true;
+  });
+  rows.sort((a,b)=>{var da=pDate(a.dataPagamento)||new Date(0),db=pDate(b.dataPagamento)||new Date(0);return db-da;});
+  var tot=rows.reduce((s,f)=>s+(Number(f.valor)||0),0);
+  var advs=[...new Set(rows.map(f=>f.advogado).filter(Boolean))].sort();
+  var grupos=[...new Set(rows.map(f=>f.grupo).filter(Boolean))].sort();
+  var advOpts=mkOpts(advs,'Todos advogados');
+  var grpOpts=mkOpts(grupos,'Todos grupos');
+  var advCOpts=mkOpts(advs,'Todos advogados');
+
+  var h='';
+  var _recPeriod=window._recPeriod||'todos';
+  h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px" id="recPeriodBar">';
+  h+='<button class="fin-tab '+(window._recPeriod==='todos'?'active':'' )+'" onclick="setRecPeriod(\'todos\',this)" style="font-size:12px;padding:6px 14px">Todos</button>';
+  h+='<button class="fin-tab '+(window._recPeriod==='7'?'active':'')+'" onclick="setRecPeriod(\'7\',this)" style="font-size:12px;padding:6px 14px">🔴 7 dias</button>';
+  h+='<button class="fin-tab '+(window._recPeriod==='15'?'active':'')+'" onclick="setRecPeriod(\'15\',this)" style="font-size:12px;padding:6px 14px">🟠 15 dias</button>';
+  h+='<button class="fin-tab '+(window._recPeriod==='30'?'active':'')+'" onclick="setRecPeriod(\'30\',this)" style="font-size:12px;padding:6px 14px">🟡 30 dias</button>';
+  h+='<button class="fin-tab '+(window._recPeriod==='60'?'active':'')+'" onclick="setRecPeriod(\'60\',this)" style="font-size:12px;padding:6px 14px">🔵 60 dias</button>';
+  h+='<select class="fsel" id="fRecMesAno" onchange="setRecMesAno(this.value)" style="min-width:130px;font-size:12px" title="Filtrar por mês"><option value="">— Mês/Ano —</option></select>';
+  h+='</div>';
+  h+='<div class="kpi-grid">';
+  h+=kC('Total Recebido',fS(tot),fF(tot),'cg','dg');
+  h+=kC('Pagamentos',fI(rows.length),'confirmados','cb','db');
+  h+='</div>';
+
+  h+='<div class="cc">';
+  h+='<div class="cc-hd" style="flex-wrap:wrap;gap:8px">';
+  h+='<div><div class="cc-t">Honorários Recebidos <span style="font-size:10.5px;color:var(--text3);font-weight:400" id="finRecCnt">· '+rows.length+' registro(s)</span></div></div>';
+  h+='<div style="display:flex;gap:5px;flex-wrap:wrap">';
+  h+='<select class="fsel" id="fRecGrupo" onchange="filterRecebidos()">'+grpOpts+'</select>';
+  h+='<select class="fsel" id="fRecAdv"   onchange="filterRecebidos()">'+advOpts+'</select>';
+  h+='<input type="text" class="fsel" id="fRecBusca" placeholder="Buscar referência..." oninput="filterRecebidos()" style="max-width:160px">';
+  h+='<input type="date" class="fsel" id="fRecDe"  onchange="filterRecebidos()" style="max-width:130px">';
+  h+='<input type="date" class="fsel" id="fRecAte" onchange="filterRecebidos()" style="max-width:130px">';
+  h+='</div></div>';
+  h+='<div class="tw scr"><table><thead><tr>';
+  h+='<th>Grupo</th><th>Advogado</th><th>Tipo</th><th>Referência</th>';
+  h+='<th>Vencimento</th><th>Valor</th><th>Data Pgto</th><th>PIX/Banco</th>';
+  h+='</tr></thead><tbody id="tblRecBody">';
+  h+=rows.map(f=>'<tr><td><span class="tag tn">'+(f.grupo||'—')+'</span></td>'
+    +'<td>'+advBadge(f.advogado)+'</td><td>'+(f.tipo||'—')+'</td>'
+    +'<td style="font-size:10.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:0">'+(f.referencia||'—')+(f.obs?'<br><span style="font-size:10px;color:var(--text3)">'+f.obs+'</span>':'')+'</td>'
+    +'<td class="mono">'+(f.vencimento||'—')+'</td>'
+    +'<td class="mono"><strong>'+fF(f.valor||0)+'</strong></td>'
+    +'<td class="mono">'+(f.dataPagamento||'—')+'</td>'
+    +'<td class="mono" style="font-size:10.5px">'+(f.pix||f.banco||'—')+'</td></tr>').join('');
+  h+='</tbody></table></div></div>';
+
+  h+='<div class="crow c2">';
+  h+='<div class="cc"><div class="cc-hd"><div><div class="cc-t">Recebido por grupo</div></div></div>';
+  h+='<div class="cb" style="height:220px"><canvas id="cRecGrupo"></canvas></div></div>';
+  h+='<div class="cc"><div class="cc-hd"><div><div class="cc-t">Recebido por advogado</div></div></div>';
+  h+='<div class="cb" style="height:220px"><canvas id="cRecAdv"></canvas></div></div>';
+  h+='</div>';
+
+  h+='<div class="crow c2">';
+  h+='<div class="cc">';
+  h+='<div class="cc-hd" style="flex-wrap:wrap;gap:8px">';
+  h+='<div><div class="cc-t">Por advogado</div><div class="cc-d">filtrado por período</div></div>';
+  h+='<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">';
+  h+='<select class="fsel" id="fRecAdvGrf" onchange="_recCharts()" style="max-width:150px">'+advCOpts+'</select>';
+  h+='<input type="date" class="fsel" id="fRecAdvDe"  onchange="_recCharts()" style="max-width:130px">';
+  h+='<input type="date" class="fsel" id="fRecAdvAte" onchange="_recCharts()" style="max-width:130px">';
+  h+='</div></div>';
+  h+='<div class="cb" style="height:210px"><canvas id="cRecAdvFilt"></canvas></div></div>';
+
+  h+='<div class="cc">';
+  h+='<div class="cc-hd" style="flex-wrap:wrap;gap:8px">';
+  h+='<div><div class="cc-t">Recebimentos mensais</div><div class="cc-d">-3 a +6 meses · filtrado por advogado e período</div></div>';
+  h+='<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">';
+  h+='<select class="fsel" id="fRecMesAdv" onchange="_recCharts()" style="max-width:150px">'+advCOpts+'</select>';
+  h+='<input type="date" class="fsel" id="fRecMesDe"  onchange="_recCharts()" style="max-width:130px">';
+  h+='<input type="date" class="fsel" id="fRecMesAte" onchange="_recCharts()" style="max-width:130px">';
+  h+='</div></div>';
+  h+='<div class="cb" style="height:210px"><canvas id="cRecMes"></canvas></div></div>';
+  h+='</div>';
+
+  $('finContent').innerHTML=h;
+  _popMesAnoSel('fRecMesAno', fin.filter(function(f){return f.aba==='Receita';}), 'dataPagamento', window._recMesAno||'');
+  window._recRows=rows;
+  setTimeout(()=>{if(window._recPeriod&&window._recPeriod!=='todos')filterRecebidos();},0);
+
+  var gV=grupos.map(g=>rows.filter(f=>f.grupo===g).reduce((s,f)=>s+(Number(f.valor)||0),0));
+  var iGv=gV.map((_,i)=>i).sort((a,b)=>gV[b]-gV[a]);
+  mCh('cRecGrupo',bCfg(iGv.map(i=>grupos[i]),iGv.map(i=>gV[i]),null));
+  var aV=advs.map(a=>rows.filter(f=>f.advogado===a).reduce((s,f)=>s+(Number(f.valor)||0),0));
+  var iAv=aV.map((_,i)=>i).sort((a,b)=>aV[b]-aV[a]);
+  mCh('cRecAdv',bCfg(iAv.map(i=>advs[i]),iAv.map(i=>aV[i]),null,true));
+
+  _recCharts();
+}
+
+function _recCharts(){
+  var rows=(window._recRows||[]).filter(f=>{
+    var pp=window._recPeriod||'todos';
+    if(pp==='todos')return true;
+    var d=pDate(f.dataPagamento);
+    if(!d)return false;
+    var hoje=new Date();hoje.setHours(0,0,0,0);
+    var from=new Date(hoje);from.setDate(from.getDate()-Number(pp));
+    return d>=from&&d<=hoje;
+  });
+  var fAdvGrf=document.getElementById('fRecAdvGrf')?.value||'';
+  var fAdvDe =document.getElementById('fRecAdvDe')?.value||'';
+  var fAdvAte=document.getElementById('fRecAdvAte')?.value||'';
+  var fMesAdv=document.getElementById('fRecMesAdv')?.value||'';
+  var fMesDe =document.getElementById('fRecMesDe')?.value||'';
+  var fMesAte=document.getElementById('fRecMesAte')?.value||'';
+
+  if(document.getElementById('cRecAdvFilt')){
+    var baseAdv=rows.filter(f=>{
+      if(fAdvGrf&&f.advogado!==fAdvGrf)return false;
+      var d=pDate(f.dataPagamento);if(!d)return true;
+      if(fAdvDe&&d<new Date(fAdvDe))return false;
+      if(fAdvAte&&d>new Date(fAdvAte+'T23:59:59'))return false;
+      return true;
+    });
+    var advs2=[...new Set(baseAdv.map(f=>f.advogado).filter(Boolean))].sort();
+    var aV2=advs2.map(a=>baseAdv.filter(f=>f.advogado===a).reduce((s,f)=>s+(Number(f.valor)||0),0));
+    var iAv2=aV2.map((_,i)=>i).sort((a,b)=>aV2[b]-aV2[a]);
+    mCh('cRecAdvFilt',bCfg(iAv2.map(i=>advs2[i]),iAv2.map(i=>aV2[i]),null,true));
+  }
+
+  if(document.getElementById('cRecMes')){
+    var agora=new Date();var meses=[];
+    for(var i=-3;i<=6;i++) meses.push(new Date(agora.getFullYear(),agora.getMonth()+i,1));
+    var mLab=meses.map(m=>m.toLocaleDateString('pt-BR',{month:'short',year:'2-digit'}));
+    var mV=meses.map(m=>{
+      var y=m.getFullYear(),mo=m.getMonth();
+      return rows.filter(f=>{
+        if(fMesAdv&&f.advogado!==fMesAdv)return false;
+        var d=pDate(f.dataPagamento);if(!d)return false;
+        if(d.getFullYear()!==y||d.getMonth()!==mo)return false;
+        if(fMesDe&&d<new Date(fMesDe))return false;
+        if(fMesAte&&d>new Date(fMesAte+'T23:59:59'))return false;
+        return true;
+      }).reduce((s,f)=>s+(Number(f.valor)||0),0);
+    });
+    var nowI=meses.findIndex(m=>m.getFullYear()===agora.getFullYear()&&m.getMonth()===agora.getMonth());
+    mCh('cRecMes',{type:'bar',data:{labels:mLab,datasets:[{data:mV,
+      backgroundColor:mV.map((_,i)=>i<nowI?'#8CAADEe6':i===nowI?'#16294Be6':'#C6D1EFe6'),
+      borderColor:mV.map((_,i)=>i<nowI?'#8CAADE':i===nowI?'#16294B':'#C6D1EF'),
+      borderWidth:0,borderRadius:5}]},
+      options:{responsive:true,maintainAspectRatio:false,animation:{duration:0},
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>' '+fF(ctx.raw)}}},
+        scales:{x:{ticks:{color:'#9CA3AF',font:{size:10}}},
+                y:{ticks:{color:'#9CA3AF',font:{size:10},callback:v=>fS(v)}}}}});
+  }
+}
+
+

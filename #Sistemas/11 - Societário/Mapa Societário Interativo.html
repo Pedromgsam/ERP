@@ -1,0 +1,3274 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Mapa Societário Interativo — Araújo &amp; Castro</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300..700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ══════════ TOKENS, TIPOGRAFIA E FUNDO ══════════ */
+:root{
+  --bg:#EEF1F7;--navy:#1F3864;--navy2:#28437a;--navy3:#2E5395;
+  /* Paleta institucional Araújo & Castro (confirmada na skill de padrão gráfico): azul-marinho #1F3864 para
+     títulos/cabeçalhos, azul médio #2E5395 para destaque/foco, dourado #B8860B para realce pontual único —
+     nunca em massa. --accent2/--accent2-d fazem o papel de "azul de destaque" (foco, indicador de aba) em todo
+     o sistema; qualquer componente que referencia var(--accent2) herda esta cor automaticamente. */
+  --accent:#B8860B;--accent2:#2E5395;--accent2-d:#1F3864;
+  --glow2:0 0 0 3px rgba(46,83,149,.14);--glow2-strong:0 0 14px rgba(46,83,149,.28);
+  --border:rgba(15,23,42,.08);--border-strong:rgba(15,23,42,.15);
+  /* Sombra única e discreta por nível de elevação — sem camadas duplas nem glow difuso, para reduzir peso visual. */
+  --shadow-sm:0 1px 3px rgba(15,23,42,.08);
+  --shadow-md:0 3px 10px rgba(15,23,42,.10);
+  --shadow-lg:0 8px 22px rgba(15,23,42,.14);
+  --shadow-navy:0 3px 12px rgba(15,35,64,.22);
+  --card-r:16px;--radius-sm:10px;--radius-xs:7px;
+  --text:#0f1521;--text2:#4b5563;--text3:#8b93a3;
+  --green:#16a34a;--green-d:#15803d;--green-lt:#dcfce7;
+  --blue:#2e5395;--blue-d:#1f3864;--blue-lt:#dbeafe;
+  --violet:#7c3aed;--violet-d:#6d28d9;--violet-lt:#ede9fe;
+  --amber:#b45309;--amber-lt:#fef3c7;--amber-border:rgba(180,83,9,.25);
+  --red:#dc2626;--red-lt:#fee2e2;
+  --font-d:'DM Sans',sans-serif;--font-h:'Space Grotesk','DM Sans',sans-serif;--font-m:'JetBrains Mono',monospace;
+  --hh:52px;--th:44px;--ph:38px;
+  /* Curva de easing única para toda a interface — "ease-out" pronunciado no início, assentamento suave no fim;
+     é a mesma família de easing usada por painéis financeiros premium (Stripe/Linear) em vez do ease-in-out padrão. */
+  --ease:cubic-bezier(.16,1,.3,1);
+;
+  /* Larguras máximas por tipo de módulo — ver comentário abaixo. */
+  --w-wide:1560px;--w-mid:1360px;--w-narrow:1180px}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+/* Paleta institucional — sempre azul, dourado e branco; sem terceira cor decorativa no fundo. */
+body{font-family:var(--font-d);background:
+    radial-gradient(1200px 560px at 8% -12%,rgba(46,83,149,.08),transparent 58%),
+    radial-gradient(900px 480px at 102% -6%,rgba(184,134,11,.09),transparent 55%),
+    var(--bg);
+  background-attachment:fixed;
+  color:var(--text);min-height:100vh;font-size:14px;-webkit-font-smoothing:antialiased}
+input,select,button,textarea{font-family:var(--font-d)}
+/* Alinhamento numérico — colunas de R$/% em tabelas, KPIs e cards de resultado usam algarismos tabulares para
+   que os dígitos ocupem sempre a mesma largura; sem isso, números com dígitos diferentes (1 vs 8, por exemplo)
+   "andam" de leve entre linhas e a coluna parece torta mesmo com o texto corretamente alinhado à direita. */
+.mono,.fi.mono,.cfg-param-in,.kpi-v,.apres-kpi-v,.apres-highlight-v,.data-tbl .mono{
+  font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1,"lnum" 1;
+}
+
+/* ══════════ CABEÇALHO FIXO ══════════ */
+/* HEADER */
+#hd{position:fixed;top:0;left:0;right:0;z-index:300;height:var(--hh);
+  background:linear-gradient(115deg,var(--navy) 0%,var(--navy2) 55%,#0d1730 100%);
+  color:#fff;padding:0 22px;display:flex;align-items:center;justify-content:space-between;
+  box-shadow:var(--shadow-navy);border-bottom:1px solid rgba(46,83,149,.18);position:fixed;overflow:hidden}
+#hd::after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(46,83,149,.6) 20%,rgba(184,134,11,.6) 55%,transparent 85%)}
+.hd-brand{display:flex;align-items:center;gap:11px;position:relative;z-index:1}
+.hd-mark{width:32px;height:32px;border-radius:10px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-h);font-size:12.5px;font-weight:700;letter-spacing:.02em;background:linear-gradient(135deg,rgba(46,83,149,.22),rgba(184,134,11,.22));
+  border:1px solid rgba(46,83,149,.4);box-shadow:0 0 18px rgba(46,83,149,.3),inset 0 0 12px rgba(184,134,11,.15);color:var(--accent)}
+.hd-name{font-family:var(--font-h);font-size:14.5px;font-weight:700;color:#fff;letter-spacing:.01em;line-height:1.2}
+.hd-sub{font-size:9px;color:rgba(255,255,255,.42);letter-spacing:.14em;text-transform:uppercase;margin-top:2px;
+  background:linear-gradient(90deg,rgba(255,255,255,.75),rgba(255,255,255,.35));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.hd-r{font-size:12px;color:rgba(255,255,255,.5);display:flex;align-items:center;gap:8px;position:relative;z-index:1;
+  background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.08);padding:5px;border-radius:11px;backdrop-filter:blur(6px)}
+.hd-dot{width:7px;height:7px;border-radius:50%;background:var(--accent2);display:inline-block;animation:pulse 2s infinite;box-shadow:0 0 8px rgba(46,83,149,.8)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+.hd-btn{background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.14);color:#fff;padding:6px 13px;border-radius:7px;font-size:11.5px;font-weight:600;cursor:pointer;transition:background .18s var(--ease),border-color .18s var(--ease),box-shadow .18s var(--ease),transform .18s var(--ease);display:flex;align-items:center;gap:6px}
+.hd-btn:hover{background:rgba(46,83,149,.16);border-color:rgba(46,83,149,.5);box-shadow:0 0 14px rgba(46,83,149,.25);transform:translateY(-1px)}
+.hd-btn:active{transform:translateY(0)}
+.hd-r>span{padding:0 10px 0 4px;white-space:nowrap}
+
+/* ══════════ NAVEGAÇÃO POR ABAS (opcional) ══════════ */
+/* TABS */
+#tabnav{position:fixed;top:calc(var(--hh) + var(--ph));left:0;right:0;z-index:200;background:#fff;border-bottom:1.5px solid var(--border);display:flex;align-items:center;padding:0 10px;box-shadow:0 2px 10px rgba(0,0,0,.05);height:var(--th);overflow-x:auto;gap:2px}
+.tab{position:relative;padding:0 14px;height:100%;font-size:12.5px;font-weight:500;cursor:pointer;border:none;background:transparent;color:var(--text2);border-bottom:2.5px solid transparent;margin-bottom:-1.5px;display:flex;align-items:center;gap:6px;transition:color .18s var(--ease);white-space:nowrap;flex-shrink:0}
+.tab:hover{color:var(--navy)}
+.tab.active{color:var(--navy);font-weight:700}
+/* Indicador estático (fallback sempre visível, mesmo sem JS) — o indicador deslizante de #tab-indicator, se
+   conseguir se posicionar via JS, fica visualmente por cima e substitui a percepção deste; ele nunca desaparece,
+   então uma falha de JS nunca deixa a aba ativa sem nenhum sinal. */
+.tab.active::after{content:'';position:absolute;left:10px;right:10px;bottom:-1.5px;height:2.5px;border-radius:2px;
+  background:linear-gradient(90deg,var(--accent2),var(--accent));box-shadow:0 0 10px rgba(46,83,149,.5)}
+/* Barra deslizante — posicionada via JS (ver final do <script>) sobre a aba ativa de #tabnav; transform+width
+   animados com --ease dão a sensação de "trilho" contínuo entre abas, em vez de o sublinhado só trocar de lugar. */
+#tab-indicator{position:absolute;bottom:-1.5px;height:2.5px;border-radius:2px;background:linear-gradient(90deg,var(--accent2),var(--accent));
+  box-shadow:0 0 12px rgba(46,83,149,.55);transition:transform .32s var(--ease),width .32s var(--ease),opacity .18s;
+  opacity:0;pointer-events:none}
+.risk-dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0;box-shadow:0 0 0 1.5px rgba(255,255,255,.55)}
+.risk-dot.red{background:var(--red)}
+.risk-dot.amber{background:#f59e0b}
+
+/* ══════════ LAYOUT ══════════ */
+#main{margin-top:calc(var(--hh) + 16px);padding:18px 22px 60px}
+/* Com barra de abas fixa abaixo do cabeçalho, o corpo precisa descer mais: <body class="com-abas">. */
+body.com-abas #main{margin-top:calc(var(--hh) + var(--th))}
+body.sem-cabecalho #main{margin-top:0}
+.panel{display:none}
+.panel.active{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;align-items:flex-start;
+  flex-direction:column;max-width:var(--w-mid);margin:0 auto;animation:riseIn .3s var(--ease) both}
+.doc{max-width:var(--w-mid);margin:0 auto;display:flex;flex-direction:column;gap:14px}
+.doc-wide{max-width:var(--w-wide)}
+.doc-narrow{max-width:var(--w-narrow)}
+
+/* ══════════ CARDS ══════════ */
+.card-row{display:flex;gap:14px;flex-wrap:wrap;width:100%;align-items:flex-start}
+.card-row>.card{flex:1 1 340px;min-width:0}
+
+.card-row>.card-col{flex:1 1 340px;min-width:0;display:flex;flex-direction:column;gap:14px;align-self:flex-start}
+
+.card{background:#fff;border-radius:var(--card-r);border:1px solid var(--border);box-shadow:var(--shadow-sm);transition:box-shadow .22s var(--ease),border-color .22s var(--ease),transform .22s var(--ease)}
+.card:hover{box-shadow:var(--shadow-md);border-color:var(--border-strong)}
+.card-hd{position:relative;background:var(--navy);color:rgba(255,255,255,.94);padding:11px 18px;display:flex;align-items:center;gap:8px;font-size:11px;font-weight:600;letter-spacing:.045em;text-transform:uppercase;justify-content:space-between;border-top-left-radius:var(--card-r);border-top-right-radius:var(--card-r);border-bottom:1px solid rgba(46,83,149,.35);font-family:var(--font-h);overflow:hidden}
+.card-hd-r{display:flex;align-items:center;gap:8px;text-transform:none;font-weight:500;letter-spacing:0;position:relative;z-index:1}
+.card-body{padding:19px}
+/* Entrada suave dos cards ao trocar de aba/painel — dispara só quando .panel ganha .active (evento pouco
+   frequente, disparado por clique, nunca por tecla digitada), então não custa nada em performance de digitação
+   e ainda dá a sensação de painel "vivo" ao navegar. */
+@keyframes riseIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.panel.active>.card,.panel.active>.left-col>.card,.panel.active>.right-col>.card{animation:riseIn .42s var(--ease) both}
+.panel.active>.left-col>.card:nth-child(2),.panel.active>.right-col>.card:nth-child(2){animation-delay:.03s}
+.panel.active>.left-col>.card:nth-child(3),.panel.active>.right-col>.card:nth-child(3){animation-delay:.06s}
+
+/* ══════════ FORMULÁRIO ══════════ */
+.fg{display:flex;flex-direction:column;gap:4px;margin-bottom:14px}
+.fg>.fi.mono,.fg>.fi-num,.fg>.inp-sfx,.fg>.inp-pfx{max-width:280px}
+/* Dentro de grid a célula já limita a largura — aí o campo volta a preencher a coluna inteira. */
+.g2>.fg>.fi.mono,.g2>.fg>.fi-num,.g2>.fg>.inp-sfx,.g2>.fg>.inp-pfx,
+.g3>.fg>.fi.mono,.g3>.fg>.fi-num,.g3>.fg>.inp-sfx,.g3>.fg>.inp-pfx,
+.g4>.fg>.fi.mono,.g4>.fg>.fi-num,.g4>.fg>.inp-sfx,.g4>.fg>.inp-pfx,
+.cfg-params .fg>.inp-sfx,.cfg-params .fg>.inp-pfx{max-width:none}
+.fg:last-child{margin-bottom:0}
+label.lbl{font-size:11px;font-weight:600;color:var(--navy);text-transform:uppercase;letter-spacing:.04em;display:flex;align-items:center;gap:6px}
+.hint{font-size:11px;color:var(--text3);line-height:1.4}
+.fi{padding:8px 12px;border:1.5px solid var(--border-strong);border-radius:var(--radius-sm);font-size:13.5px;color:var(--text);background:#fff;width:100%;outline:none;transition:border-color .18s var(--ease),box-shadow .18s var(--ease)}
+.fi:hover{border-color:#c3cad8}
+.fi:focus{border-color:var(--accent2-d);box-shadow:var(--glow2)}
+.fi.mono{font-family:var(--font-m);font-size:13px}
+.fi:disabled{background:var(--bg);color:var(--text3);cursor:not-allowed}
+.fi-blocked{padding:8px 12px;border:1.5px solid var(--border-strong);border-radius:var(--radius-sm);font-size:12.5px;color:var(--text3);background:var(--bg);width:100%;cursor:not-allowed;box-sizing:border-box;display:flex;align-items:center;line-height:1.3}
+.fi-blocked-sm{padding:5px 9px;border:1.5px solid var(--border-strong);border-radius:var(--radius-xs);font-size:11px;color:var(--text3);background:var(--bg);width:100%;cursor:not-allowed;box-sizing:border-box;display:flex;align-items:center;line-height:1.3}
+/* Grids de 2 a 4 colunas sujeitos a labels de tamanhos diferentes quebrando linha de forma desigual —
+
+.g2>.fg>.inp-sfx:last-child,.g2>.fg>.inp-pfx:last-child,.g2>.fg>.fi:last-child,.g2>.fg>.fi-num:last-child{margin-top:auto}
+/* Campo somente-leitura dentro de uma grade fica com a MESMA caixa do campo editável ao lado (mesma altura,
+   mesmo padding, base alinhada) — senão a linha parece ter colunas de tamanhos diferentes. */
+.g2>.fg>.fi-blocked-sm,.g3>.fg>.fi-blocked-sm{min-height:34px;padding:8px 12px;font-size:12px}
+/* O alinhamento à base não pode depender de :last-child — o campo somente-leitura costuma ter, logo abaixo,
+   um input hidden ou um comentário que o tira dessa posição, e aí ele subia enquanto o campo editável ao lado
+   descia (era o caso de "% das compras no mesmo estado" × "% das compras de fornecedor do Simples"). */
+.g2>.fg>.fi-blocked-sm,.g3>.fg>.fi-blocked-sm{margin-top:auto}
+/* Campo que existe, mas cujo valor é derivado de outro (ex.: % mercado interno = 100% − exportação). */
+.cfg-param-in[readonly],input.fi[readonly],input.fi-num[readonly]{background:var(--bg);color:var(--text3);cursor:not-allowed}
+.fi-num{padding:8px 12px;border:1.5px solid var(--border-strong);border-radius:var(--radius-sm);font-size:13.5px;color:var(--text);background:#fff;width:100%;outline:none;transition:border-color .18s var(--ease),box-shadow .18s var(--ease)}
+.fi-num:hover{border-color:#c3cad8}
+.fi-num:focus{border-color:var(--accent2-d);box-shadow:var(--glow2)}
+.chk-row{display:flex;align-items:flex-start;gap:8px;cursor:pointer}
+.chk-row input[type=checkbox]{width:15px;height:15px;margin-top:2px;accent-color:var(--navy);flex-shrink:0;cursor:pointer}
+.chk-row span{font-size:12.5px;color:var(--text2);line-height:1.45}
+
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.g4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px}
+@media(max-width:640px){.g2,.g3,.g4{grid-template-columns:1fr}}
+@media(max-width:900px){.g4{grid-template-columns:1fr 1fr}}
+
+/* PAINÉIS PARALELOS (Operacional × Holding / Operacional × Prestadora) */
+
+/* ══════════ SEÇÕES, SUBSEÇÕES RECOLHÍVEIS E OBSERVAÇÃO "!" ══════════ */
+.sec-div{display:flex;align-items:center;gap:10px;margin:16px 0 12px}
+.sec-div-line{flex:1;height:1px;background:var(--border)}
+.sec-div-lbl{font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.07em;text-transform:uppercase;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
+/* Sub-módulo visualmente delimitado (bloco com fundo/borda leve) — usado quando várias seções convivem dentro
+   de um mesmo card e precisam se destacar mais que um simples divisor de texto (ex.: Composição das Vendas). */
+.subsec{background:rgba(15,23,58,.025);border:1px solid rgba(15,23,58,.09);border-radius:12px;padding:16px 18px;margin-bottom:16px}
+.subsec:last-child{margin-bottom:0}
+.subsec-hd{display:flex;align-items:center;gap:9px;margin-bottom:14px}
+.subsec-num{flex-shrink:0;width:22px;height:22px;border-radius:7px;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-family:var(--font-h);font-size:11px;font-weight:700}
+.subsec-hd-txt{font-size:12.5px;font-weight:700;color:var(--navy);letter-spacing:.02em}
+/* ── Recolher/expandir seções (subseções de Composição das Vendas, card de Receita Aberta, pró-labore) ──
+   Um único mecanismo para toda a ferramenta: o cabeçalho vira clicável e ganha um chevron à direita. */
+.subsec-hd.is-toggle{cursor:pointer;user-select:none;margin-bottom:14px}
+/* Observação — texto explicativo abaixo de um bloco de números. Ganha um "!" à esquerda para se distinguir
+   de uma linha do próprio demonstrativo: dentro do DRE, legenda nenhuma deve parecer parte da conta. */
+.hint.obs{position:relative;padding-left:19px}
+.hint.obs:before{content:"!";position:absolute;left:0;top:1px;width:13px;height:13px;border-radius:50%;
+  background:rgba(184,134,11,.16);color:#8a6508;font-weight:800;font-size:9px;line-height:13px;text-align:center}
+
+/* ══════════ MODO ENXUTO ══════════ */
+/* ── MODO ENXUTO ──
+   Um clique deixa a tela pronta para projetar: somem as notas explicativas, os alertas informativos e as
+   legendas de rodapé; ficam os números, as tabelas e os selos (i), que continuam disponíveis no hover.
+   Nada é apagado — é só visibilidade, e o PDF ignora este modo por completo. */
+body.modo-enxuto .obs,
+body.modo-enxuto .alrt-blue,
+body.modo-enxuto .legenda-box,
+body.modo-enxuto .nota-aux{display:none!important}
+body.modo-enxuto .card-body>.hint:first-child{display:none}
+body.modo-enxuto #btnModoEnxuto{background:var(--accent);color:#1a1a19;border-color:var(--accent)}
+@media print{body.modo-enxuto .obs,body.modo-enxuto .alrt-blue,body.modo-enxuto .legenda-box{display:block!important}}
+
+.subsec-hd.is-toggle:hover .subsec-hd-txt{color:var(--accent2)}
+.sec-ico{margin-left:auto;flex-shrink:0;font-size:10px;color:var(--text3);transition:color .15s var(--ease)}
+.subsec-hd.is-toggle:hover .sec-ico{color:var(--accent2)}
+.subsec-hd.is-recolhido{margin-bottom:0}
+
+/* ══════════ ESCOLHA ENTRE MODOS (radio em cartão) ══════════ */
+.modo-toggle{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.modo-opt{flex:1;min-width:220px;display:flex;align-items:flex-start;gap:8px;padding:10px 12px;border:1.5px solid var(--border);border-radius:9px;background:#fff;cursor:pointer;transition:border-color .15s var(--ease),background .15s var(--ease)}
+.modo-opt:hover{border-color:rgba(46,83,149,.4)}
+.modo-opt.is-active{border-color:var(--accent2);background:rgba(46,83,149,.06)}
+.modo-opt input{margin-top:2px;accent-color:var(--accent2);flex-shrink:0;cursor:pointer}
+.modo-opt span{font-size:12px;color:var(--text2);line-height:1.4}
+.modo-opt b{color:var(--navy)}
+
+/* ══════════ ESTADO VAZIO E ALERTAS ══════════ */
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:200px;color:var(--text3);gap:12px;padding:32px}
+.empty-state svg{opacity:.2}
+.empty-state p{font-size:13px;text-align:center;max-width:280px;line-height:1.55}
+
+/* ALERTS */
+.alrt{border-radius:var(--radius-xs);padding:10px 14px 10px 12px;font-size:12.5px;line-height:1.5;margin-bottom:6px;border-left-width:3px;border-left-style:solid}
+.alrt-amber{background:var(--amber-lt);border:1px solid var(--amber-border);border-left-color:var(--amber);color:var(--amber)}
+.alrt-blue{background:var(--blue-lt);border:1px solid rgba(46,83,149,.22);border-left-color:var(--blue-d);color:var(--blue-d)}
+.alrt-red{background:var(--red-lt);border:1px solid rgba(220,38,38,.22);border-left-color:var(--red);color:var(--red)}
+.alrt-green{background:var(--green-lt);border:1px solid rgba(22,163,74,.22);border-left-color:var(--green-d);color:var(--green-d)}
+.alrt b{font-weight:700}
+/* Barra de progresso opcional dentro de um .alrt — usada nos resumos de soma de percentuais (Composição das
+   Vendas / DIFAL detalhado); a mesma cor semântica do alerta pai (verde=100%, âmbar=fora de 100%) se propaga
+   via currentColor, então não exige nenhuma classe de cor extra nem lógica nova. */
+.alrt-bar{height:5px;border-radius:20px;background:rgba(0,0,0,.08);overflow:hidden;margin-top:8px}
+.alrt-bar-fill{height:100%;border-radius:20px;background:currentColor;transition:width .5s var(--ease)}
+
+/* ══════════ KPIs E TABELAS ══════════ */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;margin-bottom:16px}
+.kpi-box{position:relative;background:#fff;border:1px solid var(--border);border-top:2px solid rgba(46,83,149,.4);border-radius:var(--radius-sm);padding:13px 14px;transition:border-color .2s var(--ease)}
+.kpi-box:hover{border-color:var(--border-strong)}
+.kpi-v{font-family:var(--font-m);font-size:19px;font-weight:700;color:var(--navy);margin-bottom:2px;position:relative}
+.kpi-l{font-size:10.5px;color:var(--text3);line-height:1.4;text-transform:uppercase;letter-spacing:.04em;font-weight:600;position:relative}
+
+/* TABLES */
+/* Tabelas largas (ex.: DIFAL detalhado por UF, com 7 colunas) rolam dentro do próprio card em vez de estourar
+   a largura da aba. */
+.tbl-wrap{width:100%;overflow-x:auto}
+.tbl-wrap>.data-tbl{min-width:640px}
+/* Tabela dentro de card estreito (coluna lateral): dispensa o mínimo de 640px e compacta a célula, para
+   caber inteira na largura do card em vez de exigir rolagem lateral. */
+.tbl-wrap.tbl-narrow>.data-tbl{min-width:0}
+.tbl-wrap.tbl-narrow .data-tbl th,.tbl-wrap.tbl-narrow .data-tbl td{padding:7px 8px}
+.tbl-wrap.tbl-narrow .data-tbl th{font-size:9.5px;letter-spacing:.03em}
+.data-tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.data-tbl th{background:rgba(27,42,74,.05);color:var(--navy);padding:9px 12px;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;text-align:left;border-bottom:1.5px solid rgba(27,42,74,.16)}
+.data-tbl td{padding:8px 12px;border-bottom:1px solid var(--border);vertical-align:middle;color:var(--text2);transition:background .12s var(--ease)}
+.data-tbl tr:last-child td{border-bottom:none}
+.data-tbl tbody tr:hover td{background:rgba(46,83,149,.045)}
+/* Valor de célula em peso normal: o negrito passa a marcar só o que é total/subtotal (regra .total-row abaixo)
+   ou o que vier explicitamente em <strong>. Antes toda coluna numérica vinha semibold e nada se destacava. */
+.data-tbl .mono{font-family:var(--font-m);font-size:12px;font-weight:400;color:var(--text)}
+.data-tbl .r{text-align:right}
+.data-tbl .pos{color:var(--green-d)}
+.data-tbl .neg{color:var(--red)}
+.data-tbl tr.total-row td{font-weight:700;background:rgba(27,42,74,.045);color:var(--text);border-top:1.5px solid rgba(27,42,74,.14)}
+.data-tbl tr.total-row td.pos{color:var(--green-d)}
+.data-tbl tr.total-row td.neg{color:var(--red)}
+/* Sublinha de detalhamento (ex.: ICMS aberto por destino da venda) — recuada, menor e sem borda inferior forte,
+   para ler como desdobramento da linha imediatamente acima, e não como um tributo novo. */
+.data-tbl tr.sub-row td{padding-top:5px;padding-bottom:5px;border-bottom:1px dotted rgba(15,23,42,.07);font-size:11.5px;color:var(--text3);background:rgba(15,23,58,.012)}
+.data-tbl tr.sub-row td:first-child{padding-left:26px;position:relative}
+.data-tbl tr.sub-row td:first-child::before{content:'↳';position:absolute;left:12px;color:var(--text3);opacity:.55}
+.data-tbl tr.sub-row .mono{font-size:11.5px;font-weight:400}
+.data-tbl tr.head-row td{font-weight:700;color:var(--navy);border-bottom:none;padding-top:16px;padding-bottom:4px}
+/* Barra de resumo que recolhe uma lista inteira (cadastro de bens). */
+.grp-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 13px;margin-bottom:10px;border-radius:var(--radius-sm);background:var(--bg);box-shadow:inset 0 0 0 1px var(--border);cursor:pointer;font-size:12.5px;color:var(--text2);transition:box-shadow .15s var(--ease)}
+.grp-bar:hover{box-shadow:inset 0 0 0 1px var(--border-strong)}
+.grp-bar-v{margin-left:auto;font-size:12px;color:var(--text3)}
+.data-tbl tr.grp-head{cursor:pointer}
+.data-tbl tr.grp-head:hover td{background:rgba(46,83,149,.06)}
+.data-tbl tr.grp-head td{font-weight:600}
+.grp-ico{display:inline-block;width:11px;color:var(--text3);font-size:10px}
+.data-tbl tr.total-row:hover td{background:rgba(27,42,74,.06)}
+
+/* CONFIGURAR */
+.cfg-title{font-size:20px;font-weight:700;color:var(--navy)}
+.cfg-sub{font-size:12.5px;color:var(--text3);margin-top:3px;margin-bottom:6px}
+.cfg-sec{font-size:13px;font-weight:700;color:var(--navy);margin:16px 0 8px;display:flex;align-items:center;gap:8px}
+.cfg-sec-note{font-size:11px;color:var(--text3);font-weight:400}
+
+/* ══════════ SELO (i) E CAIXA DE LEGENDA ══════════ */
+.lg{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:var(--text3);color:#fff;font-size:9px;font-weight:700;cursor:help;position:relative;flex-shrink:0;text-transform:none;letter-spacing:0;transition:background .15s var(--ease)}
+.lg:hover{background:var(--accent2-d)}
+.lg .lg-tip{display:none;position:absolute;bottom:130%;left:50%;transform:translateX(-50%);background:linear-gradient(150deg,var(--navy),var(--navy2));color:#fff;font-size:11px;font-weight:400;line-height:1.45;padding:9px 11px;border-radius:8px;width:230px;z-index:350;box-shadow:var(--shadow-lg);text-transform:none;letter-spacing:normal;border:1px solid rgba(46,83,149,.2)}
+.lg:hover .lg-tip{display:block;animation:tipIn .15s var(--ease) both}
+.lg .lg-tip.lg-wide{width:330px}
+@keyframes tipIn{from{opacity:0;transform:translateX(-50%) translateY(3px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+/* Campos no topo do card (ex.: linha de KPIs do Sócio) não têm espaço acima para o tooltip abrir para cima
+   sem ficar cortado/atrás do cabeçalho fixo — nesses casos, abrir para baixo. */
+.g4 .lg .lg-tip{bottom:auto;top:130%}
+.legenda-box{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px;font-size:11.5px;color:var(--text2);line-height:1.7}
+.legenda-box div{margin-bottom:3px}
+.legenda-box b{color:var(--navy)}
+
+/* ══════════ PILLS, CARTÃO DINÂMICO E BOTÕES ══════════ */
+.pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.03em}
+.pill-green{background:var(--green-lt);color:var(--green-d)}
+.pill-red{background:var(--red-lt);color:var(--red)}
+.pill-amber{background:var(--amber-lt);color:var(--amber)}
+.pill-blue{background:var(--blue-lt);color:var(--blue-d)}
+.pill-grey{background:#e5e7eb;color:var(--text2)}
+
+/* MEMBER / DYNAMIC CARDS */
+.member-card{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 15px;position:relative;margin-bottom:10px;transition:border-color .18s var(--ease),box-shadow .18s var(--ease)}
+.member-card:hover{border-color:var(--border-strong);box-shadow:var(--shadow-sm)}
+.member-rm{position:absolute;top:9px;right:10px;background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px;line-height:1;padding:2px;transition:color .15s var(--ease),transform .15s var(--ease)}
+.member-rm:hover{color:var(--red);transform:scale(1.15)}
+.add-btn{background:transparent;border:1.5px dashed var(--border-strong);border-radius:var(--radius-sm);padding:11px;width:100%;font-size:12.5px;font-weight:600;color:var(--text2);cursor:pointer;transition:.18s var(--ease)}
+.add-btn:hover{border-color:var(--accent2-d);color:var(--navy);box-shadow:var(--glow2);background:rgba(46,83,149,.04)}
+
+/* BUTTONS */
+.btn-g{background:linear-gradient(120deg,var(--navy),var(--navy2));color:#fff;border:none;border-radius:var(--radius-sm);padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;transition:box-shadow .18s var(--ease),transform .18s var(--ease),background .18s var(--ease);box-shadow:0 2px 8px rgba(10,15,31,.18)}
+.btn-g:hover{background:linear-gradient(120deg,var(--navy2),var(--navy3));box-shadow:0 4px 16px rgba(10,15,31,.28);transform:translateY(-1px)}
+.btn-g:active{transform:translateY(0)}
+.btn-o{background:#fff;color:var(--navy);border:1.5px solid var(--border-strong);border-radius:var(--radius-sm);padding:7.5px 15px;font-size:12.5px;font-weight:600;cursor:pointer;transition:border-color .18s var(--ease),box-shadow .18s var(--ease),transform .18s var(--ease)}
+.btn-o:hover{border-color:var(--accent2-d);box-shadow:var(--glow2);transform:translateY(-1px)}
+.btn-o:active{transform:translateY(0)}
+
+/* SCROLLBAR — fina e discreta, no tom da paleta, em vez da barra do sistema operacional padrão */
+::-webkit-scrollbar{width:9px;height:9px}
+
+/* ══════════ BARRA DE ROLAGEM ══════════ */
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(15,23,42,.16);border-radius:20px;border:2px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-thumb:hover{background:rgba(15,23,42,.28);background-clip:padding-box}
+#tabnav::-webkit-scrollbar,#perfilnav::-webkit-scrollbar,.subtabs::-webkit-scrollbar,.resultado-subtabs::-webkit-scrollbar{height:0}
+* {scrollbar-width:thin;scrollbar-color:rgba(15,23,42,.18) transparent}
+
+/* FOCO ACESSÍVEL — anel consistente para navegação por teclado em qualquer elemento interativo que não tenha
+
+/* ══════════ IMPRESSÃO / PDF ══════════ */
+@page{size:A4 portrait;margin:14mm 12mm 16mm}
+@media print{
+
+  /* Cores dos cabeçalhos e destaques precisam sobreviver à impressão — sem isto o PDF sai em branco e preto. */
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+  #hd,#tabnav,.no-print{display:none!important}
+  #main{margin-top:0;padding:0}
+  body{background:#fff;font-size:10.5px}
+  .panel{display:none!important}
+  /* display:block, e não flex: o Chromium não fragmenta container flex entre páginas — com flex, o painel
+     inteiro vira um bloco indivisível e o PDF sai com páginas em branco antes de cada seção. */
+  .panel.print-active{display:block!important;max-width:none!important;width:100%!important}
+  /* box-shadow inset em vez de border: o Chromium arredonda a posição da linha de 1px pra grade de
+     pixel de forma diferente à esquerda e à direita ao rasterizar o PDF, deixando a borda direita
+     visivelmente mais apagada que a esquerda — acontece mesmo com cor 100% opaca, não é sobre
+     transparência. box-shadow inset preenche o traço por dentro e sai idêntico dos dois lados
+     (ver "As armadilhas do PDF" em references/pdf-e-apresentacao.md). */
+  .card{box-shadow:inset 0 0 0 1px #d4d9e4!important;border:none!important;break-inside:avoid;margin-bottom:10px;width:100%!important;max-width:none!important}
+  /* Mesmo problema, mesma solução, na borda de cada categoria/subseção — .subsec usa cor
+     translúcida na tela (bom pro fundo se sobrepor a outros elementos), mas o print força cor
+     sólida porque alfa some ainda mais rápido no lado direito. */
+  .subsec{background:#fbfbfd!important;border:none!important;box-shadow:inset 0 0 0 1px #d9dde6!important}
+  /* Depois de clonar (ver gerarPDF() no esqueleto), só a cópia dentro de #print-root deve imprimir —
+     sem isto, o bloco original (que nunca sai mais da tela) e a cópia aparecem duplicados no papel. */
+  [data-pdf]{display:none!important}
+  .card-row{display:block!important;max-width:none!important}
+  .card-row>.card,.card-row>.card-col{width:100%!important;max-width:none!important}
+  .rc-grid{grid-template-columns:1fr 1fr}
+  #print-cover{display:flex!important;flex-direction:column;align-items:center;justify-content:center;min-height:96vh;text-align:center;page-break-after:always}
+  .apres-overlay{display:none!important}
+
+  /* Controles de tela não fazem sentido no papel. */
+  .add-btn,.member-rm,.btn-o,.hd-btn,.periodo-toggle,.modo-toggle,.subtabs,.resultado-subtabs,
+  .nota-aux,
+  input[type=file]{display:none!important}
+  .lg{display:none!important}
+  details{display:block!important}
+  details>summary{display:none!important}
+
+  /* Campos viram texto: caixa branca com borda fina, sem sombra nem estado de foco. */
+  .fi,.fi-num,.cfg-param-in,.inp-sfx,.inp-pfx,select.fi{box-shadow:none!important;border-color:#d4d9e4!important;background:#fff!important}
+
+  /* Tabela larga não pode ficar cortada por um container de rolagem. */
+  .tbl-wrap{overflow:visible!important}
+  .tbl-wrap>.data-tbl{min-width:0!important}
+  .data-tbl{font-size:9.5px}
+  .data-tbl th,.data-tbl td{padding:4px 7px}
+  table,tr,thead,tbody{break-inside:avoid}
+  .card-hd{padding:7px 12px;font-size:10px}
+  .kpi-v{font-size:15px}
+  .rc-total{font-size:20px}
+  .duo-grid{grid-template-columns:1fr 1fr!important}
+
+  /* Grupos recolhíveis abrem no papel: um PDF com "▸ Folha bruta e verbas" e nenhum detalhe não serve de nada. */
+  tr[data-grp]{display:table-row!important}
+  .grp-ico{display:none!important}
+
+  /* Identificação no alto de cada seção, dentro do fluxo do texto.
+     NÃO use position:fixed com deslocamento negativo para simular cabeçalho/rodapé de página: o Chromium
+     recorta o conteúdo na caixa de texto e nunca pinta nada dentro da margem do @page — o que sobra vaza
+     para a página vizinha, e o rodapé acaba sobre o conteúdo, no alto da página seguinte. */
+  #print-runhead,#print-runfoot{display:none!important}
+  #print-root{position:static!important;left:auto!important;top:auto!important;width:auto!important}
+  .print-sec-hd{font-family:var(--font-h);font-size:15px;font-weight:700;color:var(--navy);
+    border-bottom:1.5px solid var(--navy);padding-bottom:5px;margin:0 0 9px;page-break-after:avoid}
+  .print-sec-meta{display:block!important;font-size:8.5px;color:#555;letter-spacing:.02em;margin-bottom:3px;
+    page-break-before:always;page-break-after:avoid}
+  #print-root>.print-sec-meta:first-child{page-break-before:avoid}
+  .panel.print-active{page-break-after:auto}
+}
+#print-runhead,#print-runfoot{display:none}
+/* O container do PDF fica fora da tela em vez de display:none: um subárvore que nunca foi renderizada não
+   ganha camada de pintura, e o Chromium exporta a página em branco na hora de gerar o PDF. */
+#print-root{position:absolute;left:-99999px;top:0;width:1100px}
+
+/* MODO APRESENTAÇÃO */
+
+/* ══════════ MODO APRESENTAÇÃO ══════════ */
+.apres-overlay{display:none;position:fixed;inset:0;background:
+    radial-gradient(1100px 500px at 12% -10%,rgba(46,83,149,.1),transparent 55%),
+    radial-gradient(900px 460px at 100% 105%,rgba(184,134,11,.09),transparent 55%),
+    linear-gradient(160deg,var(--navy),#060910 85%);
+  z-index:900;flex-direction:column}
+.apres-overlay.active{display:flex}
+.apres-hd{display:flex;align-items:center;justify-content:space-between;padding:16px 26px;flex-shrink:0}
+.apres-hd-title{font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);display:flex;align-items:center;gap:8px}
+.apres-hd-title::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--accent2);box-shadow:0 0 8px rgba(46,83,149,.8);animation:pulse 2s infinite}
+.apres-close{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.22);color:#fff;padding:6px 14px;border-radius:7px;cursor:pointer;font-size:12.5px;font-weight:600;transition:background .18s var(--ease),transform .18s var(--ease)}
+.apres-close:hover{background:rgba(255,255,255,.2);transform:translateY(-1px)}
+.apres-body{flex:1;overflow-y:auto;padding:10px 60px 40px;display:flex}
+.apres-slide-wrap{background:#fff;border-radius:20px;max-width:980px;width:100%;padding:38px 44px;box-shadow:0 20px 70px rgba(0,0,0,.5),0 2px 0 rgba(255,255,255,.06) inset;margin:auto;animation:riseIn .38s var(--ease) both}
+.apres-slide-title{font-family:var(--font-h);font-size:22px;font-weight:700;color:var(--navy);margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid transparent;border-image:linear-gradient(90deg,var(--accent2),var(--accent)) 1}
+.apres-ft{display:flex;align-items:center;justify-content:center;gap:18px;padding:16px;flex-shrink:0}
+.apres-nav-btn{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.25);color:#fff;width:38px;height:38px;border-radius:50%;cursor:pointer;font-size:16px;line-height:1;transition:background .18s var(--ease),transform .18s var(--ease)}
+.apres-nav-btn:hover:not(:disabled){background:rgba(46,83,149,.22);border-color:rgba(46,83,149,.5);transform:translateY(-1px)}
+.apres-nav-btn:disabled{opacity:.3;cursor:not-allowed}
+.apres-contador{font-size:12.5px;color:rgba(255,255,255,.72);font-family:var(--font-m);min-width:56px;text-align:center;font-variant-numeric:tabular-nums}
+.apres-cover{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:60px 20px}
+.apres-cover-ico{font-family:var(--font-h);font-weight:700;font-size:26px;letter-spacing:.02em;color:var(--accent);border:1.5px solid var(--accent);border-radius:16px;width:74px;height:74px;display:flex;align-items:center;justify-content:center;margin:0 auto 18px}
+.apres-cover-title{font-family:var(--font-h);font-size:27px;font-weight:700;color:var(--navy);margin-bottom:10px}
+.apres-cover-cliente{font-size:16px;color:var(--text2);margin-bottom:6px}
+.apres-cover-data{font-size:12px;color:var(--text3)}
+.apres-kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-bottom:22px}
+.apres-kpi{position:relative;background:#fff;border:1px solid var(--border);border-top:2px solid rgba(46,83,149,.4);border-radius:13px;padding:17px 19px}
+.apres-kpi-l{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:6px}
+.apres-kpi-v{font-family:var(--font-m);font-size:25px;font-weight:700;color:var(--navy);line-height:1.2}
+.apres-kpi-sub{font-size:11px;color:var(--text3);margin-top:4px}
+.apres-highlight{position:relative;background:rgba(46,160,90,.06);border:1px solid rgba(46,160,90,.28);border-radius:13px;padding:19px 23px;overflow:hidden;box-shadow:var(--shadow-sm)}
+.apres-highlight-l{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--green-d);margin-bottom:6px}
+.apres-highlight-v{font-family:var(--font-m);font-size:31px;font-weight:700;color:var(--green-d)}
+.apres-highlight-v span{font-size:14px;font-weight:500;color:var(--text2);font-family:var(--font-d);margin-left:8px}
+/* Leitura em uma frase abaixo de cada tabela de slide */
+.apres-leitura{margin-top:18px;font-size:13.5px;line-height:1.65;color:var(--text2)}
+.apres-leitura b{color:var(--navy)}
+/* Tabela comparativa dos slides: hoje | proposta | diferença */
+.apres-cmp th{font-size:10px}
+.apres-cmp td{font-size:13px;padding-top:9px;padding-bottom:9px}
+.apres-cmp-sub{font-size:10.5px;color:var(--text3);font-weight:400;margin-top:2px;line-height:1.35}
+.apres-dots{display:flex;gap:8px;align-items:center}
+.apres-dot{width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.3);cursor:pointer;transition:.18s var(--ease);border:none;padding:0}
+.apres-dot:hover{background:rgba(255,255,255,.55)}
+.apres-dot.active{background:var(--accent);width:22px;border-radius:5px;box-shadow:0 0 10px rgba(184,134,11,.5)}
+.apres-slide-wrap .kpi-v{font-size:19px}
+.apres-slide-wrap .data-tbl{font-size:13.5px}
+#print-cover{display:none}
+/* ══════════════════════════════════════════════════════════════
+   MAPA SOCIETÁRIO — estilos específicos desta ferramenta
+   (o bloco acima é o padrao-web-ac.css oficial, colado na íntegra)
+   ══════════════════════════════════════════════════════════════ */
+:root{
+  /* Paleta hierárquica dos tipos de nó — a empresa (o item principal do mapa) usa a própria
+     identidade do escritório (azul-marinho + friso dourado); sócio, operação e fornecedor viram
+     “etiquetas” claras e discretas (fundo pastel + contorno/texto na cor), em vez de caixas cheias
+     e saturadas competindo com a empresa pela atenção. Nota permanece neutra (branca), como já era. */
+  --map-empresa:#1F3864;--map-empresa-d:#16294A;
+  --map-socio:#DCE4F0;--map-socio-d:#1F3864;
+  --map-operacao:#F0E6C8;--map-operacao-d:#8A6407;
+  --map-fornecedor:#D8ECEA;--map-fornecedor-d:#2B6E77;
+  --map-nota:#eef1f7;--map-nota-bd:#c7cedb;
+  --map-edge:#5b6577;--map-edge-cyan:#38b6d8;
+}
+
+/* ── Correção do tabnav: o padrao-web-ac.css posiciona #tabnav supondo também uma barra
+   --ph (period-toggle) entre o cabeçalho e as abas; esta ferramenta não tem essa barra, então
+   sem este ajuste as abas ficam pousadas sobre o topo do primeiro card. ── */
+#tabnav{top:var(--hh)!important}
+
+/* ── Toolbar ── */
+.map-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:14px 19px}
+.map-toolbar .sep{width:1px;align-self:stretch;background:var(--border);margin:0 2px}
+.map-toolbar .grow{flex:1 1 180px;min-width:160px}
+.map-toolbar input.fi{padding:7px 11px;font-size:12.5px}
+.map-hint-txt{font-size:11px;color:var(--text3);width:100%;padding:0 19px 12px;margin-top:-6px}
+
+/* ── Barra de modo-ligação ── */
+.map-linkbar{display:none;align-items:center;gap:10px;padding:9px 16px;background:rgba(46,83,149,.08);
+  border-bottom:1px solid rgba(46,83,149,.18);font-size:12.5px;color:var(--navy);font-weight:600}
+.map-linkbar.active{display:flex}
+.map-linkbar button{margin-left:auto}
+
+/* ── Canvas ── */
+/* Altura responsiva: bem maior que antes (era 640px fixo), mas limitada por vh para continuar
+   cabendo por inteiro (sem precisar rolar a página) em telas de notebook comuns. */
+.map-canvas-wrap{position:relative;width:100%;height:min(78vh,820px);min-height:560px;background:
+    linear-gradient(rgba(15,23,42,.035) 1px,transparent 1px) 0 0/22px 22px,
+    linear-gradient(90deg,rgba(15,23,42,.035) 1px,transparent 1px) 0 0/22px 22px,#fbfbfd;
+  overflow:hidden;touch-action:none;border-top:1px solid var(--border)}
+.map-canvas-wrap svg{width:100%;height:100%;display:block;cursor:grab;user-select:none}
+.map-canvas-wrap svg.is-panning{cursor:grabbing}
+.map-canvas-wrap svg.is-linking{cursor:crosshair}
+/* ── Retângulo de seleção múltipla (Ctrl + clicar em espaço vazio e arrastar) ── */
+.rubber-band-rect{fill:rgba(37,99,235,.12);stroke:#2563eb;stroke-width:1.3;stroke-dasharray:4,3;pointer-events:none}
+.map-zoombar{position:absolute;right:14px;bottom:14px;display:flex;flex-direction:column;gap:6px;z-index:5}
+.map-zoombar button{width:30px;height:30px;border-radius:9px;border:1px solid var(--border-strong);background:#fff;
+  color:var(--navy);font-size:15px;font-weight:700;cursor:pointer;box-shadow:var(--shadow-sm);line-height:1}
+.map-zoombar button:hover{border-color:var(--accent2-d);box-shadow:var(--glow2)}
+.map-empty{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;
+  gap:12px;color:var(--text3);text-align:center;padding:30px}
+.map-empty.show{display:flex}
+.map-empty p{max-width:320px;font-size:13px;line-height:1.55}
+
+/* ── Guias de alinhamento (arrastar nó — estilo Canva) ── */
+.align-guide{stroke:#ff2f7e;stroke-width:1.4;stroke-dasharray:6,4;pointer-events:none}
+
+/* ── Seletor de paletas ── */
+.paleta-sw{display:inline-flex;gap:3px;padding:5px;border-radius:9px;border:1.5px solid var(--border-strong);
+  background:#fff;cursor:pointer;transition:.16s var(--ease)}
+.paleta-sw span{width:14px;height:14px;border-radius:4px;display:block;box-shadow:inset 0 0 0 1px rgba(15,23,42,.18)}
+.paleta-sw:hover{border-color:var(--accent2-d)}
+.paleta-sw.active{border-color:var(--navy);box-shadow:0 0 0 2px rgba(31,56,100,.18)}
+
+/* ── Nós ── */
+.node{cursor:pointer}
+.node rect.node-box{stroke-width:1.7;filter:drop-shadow(0 1px 3px rgba(15,23,42,.2))}
+.node:hover rect.node-box{stroke-width:2.7}
+.node.is-hit rect.node-box{stroke:var(--accent)!important;stroke-width:3.5;
+  filter:drop-shadow(0 0 6px rgba(184,134,11,.65))}
+.node.is-selected rect.node-box{stroke:#2563eb!important;stroke-width:3;stroke-dasharray:5,3;
+  filter:drop-shadow(0 0 5px rgba(37,99,235,.55))}
+.node text{font-family:var(--font-h);font-weight:600;pointer-events:none}
+.node .node-lbl{font-size:9px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;pointer-events:none}
+
+/* ── Ligações ── */
+.edge-line{fill:none;stroke:var(--map-edge);stroke-width:1.8;cursor:pointer}
+.edge-line:hover{stroke:var(--accent2-d);stroke-width:2.6}
+.edge-hit{fill:none;stroke:transparent;stroke-width:14;cursor:pointer}
+.edge-lbl-bg{fill:#fff;stroke:var(--border-strong);stroke-width:1}
+.edge-lbl-txt{font-family:var(--font-d);font-size:10px;font-weight:600;fill:var(--navy);pointer-events:none}
+
+/* ── Legenda do mapa ── */
+.map-legend{display:flex;flex-wrap:wrap;gap:14px 22px;align-items:center}
+.map-legend-it{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--text2)}
+.map-legend-sw{width:16px;height:12px;border-radius:4px;flex-shrink:0;box-shadow:inset 0 0 0 1px rgba(15,23,42,.18)}
+.map-legend-sw.mline{width:22px;height:0;border-top:2px dashed var(--map-edge)}
+.map-legend-sw.mline.solid{border-top-style:solid}
+.map-legend-badge-ex{display:inline-flex;align-items:center;justify-content:center;padding:1px 7px;border-radius:8px;
+  border:1.3px solid var(--navy);color:var(--navy);font-family:var(--font-h);font-size:9px;font-weight:700;flex-shrink:0}
+.map-legend-dot-ex{width:11px;height:11px;border-radius:50%;flex-shrink:0;background:conic-gradient(var(--amber) 0 50%,var(--red) 50% 100%);
+  box-shadow:0 0 0 1.5px #fff,0 0 0 2.5px rgba(15,23,42,.14)}
+
+/* ── Abas de versão ── */
+.map-vertabs-row{display:flex;align-items:center;gap:10px;padding:10px 19px;flex-wrap:wrap;
+  border-bottom:1px solid var(--border);background:rgba(15,23,58,.015)}
+.map-vertabs{display:flex;gap:4px;flex-wrap:wrap}
+.map-vertab{padding:6px 13px;border-radius:20px;font-size:12px;font-weight:600;color:var(--text2);
+  background:#fff;border:1.5px solid var(--border-strong);cursor:pointer;transition:.16s var(--ease)}
+.map-vertab:hover{border-color:var(--accent2-d)}
+.map-vertab.active{background:var(--navy);border-color:var(--navy);color:#fff}
+.map-vertabs-actions{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap}
+
+/* ── Modal ── */
+.modalbg{display:none;position:fixed;inset:0;background:rgba(10,15,31,.55);z-index:600;
+  align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(2px)}
+.modalbg.active{display:flex;animation:riseIn .18s var(--ease) both}
+.modal-panel{background:#fff;border-radius:var(--card-r);width:min(600px,100%);max-height:90vh;
+  overflow-y:auto;box-shadow:var(--shadow-lg)}
+.modal-ft{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:14px 19px;
+  border-top:1px solid var(--border);background:#fbfbfd;border-bottom-left-radius:var(--card-r);border-bottom-right-radius:var(--card-r)}
+.modal-ft .r{display:flex;gap:8px}
+.btn-danger{background:#fff;color:var(--red);border:1.5px solid rgba(220,38,38,.35);border-radius:var(--radius-sm);
+  padding:7.5px 15px;font-size:12.5px;font-weight:600;cursor:pointer;transition:.18s var(--ease)}
+.btn-danger:hover{background:var(--red-lt);border-color:var(--red)}
+.modal-close{background:none;border:none;color:rgba(255,255,255,.75);font-size:18px;cursor:pointer;line-height:1;padding:2px 4px}
+.modal-close:hover{color:#fff}
+
+/* ── Cor de destaque no rótulo do tipo de nó, dentro do modal ── */
+.tipo-tag{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.04em;padding:3px 10px;border-radius:20px}
+.tipo-tag.t-empresa{background:rgba(31,56,100,.13);color:var(--map-empresa)}
+.tipo-tag.t-socio{background:var(--map-socio);color:var(--map-socio-d)}
+.tipo-tag.t-operacao{background:var(--map-operacao);color:var(--map-operacao-d)}
+.tipo-tag.t-fornecedor{background:var(--map-fornecedor);color:var(--map-fornecedor-d)}
+.tipo-tag.t-nota{background:rgba(100,116,139,.14);color:#475569}
+.tipo-tag.t-ligacao{background:rgba(46,83,149,.13);color:var(--blue-d)}
+
+/* ── Preenche lacuna do padrao-web-ac.css: .inp-pfx/.inp-sfx são citados em componentes.md
+   (prefixo "R$", sufixo "%") mas o arquivo oficial só define max-width — sem isto, prefixo/sufixo
+   e campo apareciam soltos, sem moldura comum. */
+.inp-pfx,.inp-sfx{display:flex;align-items:stretch;border:1.5px solid var(--border-strong);
+  border-radius:var(--radius-sm);background:#fff;overflow:hidden;transition:border-color .18s var(--ease),box-shadow .18s var(--ease)}
+.inp-pfx:focus-within,.inp-sfx:focus-within{border-color:var(--accent2-d);box-shadow:var(--glow2)}
+.inp-pfx span,.inp-sfx span{display:flex;align-items:center;padding:0 10px;font-size:12.5px;color:var(--text3);background:var(--bg);flex-shrink:0}
+.inp-pfx input,.inp-sfx input{border:none!important;border-radius:0!important;box-shadow:none!important;flex:1;min-width:0;width:100%}
+.inp-pfx input:focus,.inp-sfx input:focus{box-shadow:none!important}
+
+@media(max-width:900px){.map-canvas-wrap{height:480px}}
+@media print{.map-canvas-wrap{height:auto;min-height:420px}.map-zoombar,.map-linkbar,.map-vertabs-actions{display:none!important}}
+
+/* ── Card de apoio ao PDF (clone do mapa entra aqui só na hora de exportar) — nunca aparece na tela. ── */
+#secMapaPdf{display:none}
+
+/* ══════════════════════════════ MODO APRESENTAÇÃO ══════════════════════════════
+   Não é o overlay de slides do esqueleto padrão (não usado nesta ferramenta) — é a MESMA tela,
+   só que sem os controles de edição e com o mapa ocupando o espaço todo. Pensado para abrir na
+   frente do cliente: nada de botão "+Empresa" ou formulário editável à vista. */
+body.modo-apresentacao .no-apres,
+body.modo-apresentacao .map-toolbar,
+body.modo-apresentacao .map-hint-txt,
+body.modo-apresentacao .map-linkbar,
+body.modo-apresentacao .map-vertabs-actions,
+body.modo-apresentacao .apres-oculta,
+body.modo-apresentacao #hd .hd-r>.hd-btn:not(#btnApresentar),
+body.modo-apresentacao .zoombar-hint{display:none!important}
+body.modo-apresentacao .card-body{padding-top:0}
+body.modo-apresentacao #clienteFieldWrap{max-width:none;padding:14px 19px 4px}
+body.modo-apresentacao #clienteFieldLbl{display:none}
+body.modo-apresentacao #inputCliente{border:none;background:transparent;box-shadow:none;padding:0;
+  font-family:var(--font-h);font-size:19px;font-weight:700;color:var(--navy);pointer-events:none}
+body.modo-apresentacao #inputCliente::placeholder{color:transparent}
+body.modo-apresentacao .map-canvas-wrap{height:calc(100vh - 210px);border-top:none}
+body.modo-apresentacao #btnApresentar{background:var(--accent)!important;color:#1a1a19!important;border-color:var(--accent)!important}
+body.modo-apresentacao .doc-wide{max-width:none;padding:0 6px}
+body.modo-apresentacao .card{box-shadow:none}
+@media(max-width:900px){body.modo-apresentacao .map-canvas-wrap{height:calc(100vh - 260px)}}
+
+/* ══════════════════════════════ TABELA DE EMPRESAS — largura das colunas ══════════════════════════════
+   Sem isto o navegador dimensiona cada coluna só pelo conteúdo da 1ª linha, o que deixava colunas
+   como "Situação" ou "Regime tributário" espremidas e "Observações" ora larga demais, ora estreita
+   demais — table-layout:fixed + uma largura fixa por coluna resolve, com o texto quebrando dentro
+   da célula em vez de forçar a coluna a crescer. */
+#tblEmpresas{table-layout:fixed}
+#tblEmpresas th,#tblEmpresas td{overflow-wrap:break-word}
+#tblEmpresas th:nth-child(1),#tblEmpresas td:nth-child(1){width:15%}
+#tblEmpresas th:nth-child(2),#tblEmpresas td:nth-child(2){width:11%}
+#tblEmpresas th:nth-child(3),#tblEmpresas td:nth-child(3){width:10%}
+#tblEmpresas th:nth-child(4),#tblEmpresas td:nth-child(4){width:9%}
+#tblEmpresas th:nth-child(5),#tblEmpresas td:nth-child(5){width:10%}
+#tblEmpresas th:nth-child(6),#tblEmpresas td:nth-child(6){width:10%}
+#tblEmpresas th:nth-child(7),#tblEmpresas td:nth-child(7){width:17%}
+#tblEmpresas th:nth-child(8),#tblEmpresas td:nth-child(8){width:18%}
+
+/* ══════════════════════════════ MARCA D'ÁGUA "CONFIDENCIAL" (opcional, só no PDF) ══════════════════════════════
+   Ativada pelo checkbox #chkMarcaDagua no cabeçalho — gerarPDF() liga a classe pdf-marca-dagua no
+   <body> só durante a exportação e desliga logo depois (nunca aparece na tela). Repetição via
+   background-image (SVG em data URI, background-repeat) em vez de um elemento position:fixed: o
+   Chromium não repete elemento fixo em cada página impressa (ver "As armadilhas do PDF" no padrão
+   A&C), mas uma imagem de fundo com repetição É pintada em todas as páginas, porque ela cobre a
+   altura inteira do documento antes de ele ser fatiado em páginas na hora de imprimir. */
+@media print{
+  body.pdf-marca-dagua #print-root,
+  body.pdf-marca-dagua #print-cover{
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='360' height='260'><text x='180' y='140' transform='rotate(-30 180 140)' text-anchor='middle' font-family='Arial, sans-serif' font-size='30' font-weight='700' fill='rgba(150,20,20,0.16)'>CONFIDENCIAL</text></svg>");
+    background-repeat:repeat;
+  }
+}
+</style>
+</head>
+<body class="com-abas">
+
+<!-- ══ CABEÇALHO FIXO ══ -->
+<div id="hd">
+  <div class="hd-brand">
+    <div>
+      <div class="hd-name" id="hdTitulo">Mapa Societário Interativo</div>
+      <div class="hd-sub">Araújo &amp; Castro — Advocacia e Consultoria</div>
+    </div>
+  </div>
+  <div class="hd-r no-print">
+    <label style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:#cfd6e6;cursor:pointer;user-select:none" title="Marca-se apenas no PDF exportado, não na tela">
+      <input type="checkbox" id="chkMarcaDagua" style="margin:0">Marca d'água "CONFIDENCIAL" no PDF
+    </label>
+    <button class="hd-btn" id="btnApresentar" onclick="toggleApresentacao()" style="background:rgba(184,134,11,.22);border-color:rgba(184,134,11,.5)">🖥 Apresentar</button>
+    <button class="hd-btn" onclick="abrirBiblioteca()">📁 Meus mapas</button>
+    <button class="hd-btn" onclick="exportarJSON()">⇩ Exportar JSON</button>
+    <button class="hd-btn" onclick="document.getElementById('inputImportarJSON').click()">⇧ Importar JSON</button>
+    <button class="hd-btn" onclick="gerarPDFMapa()">↓ Exportar PDF</button>
+  </div>
+</div>
+<input type="file" id="inputImportarJSON" accept="application/json" class="no-print" style="display:none" onchange="importarJSON(event)">
+
+<!-- ══ CAPA DO PDF ══ -->
+<div id="print-cover">
+  <div style="font-size:30px;font-weight:700;color:var(--navy);margin-bottom:8px" id="pc-titulo">Mapa Societário Interativo</div>
+  <div id="pc-cliente" style="font-size:17px;color:var(--text2);margin-bottom:26px">Cliente</div>
+  <div style="font-size:12px;color:var(--text3)" id="pc-data">Data</div>
+  <div id="pc-resumo" style="margin-top:30px;width:100%"></div>
+  <div style="font-size:10.5px;color:var(--text3);margin-top:26px;max-width:420px;line-height:1.6">
+    Documento sigiloso, destinado exclusivamente ao cliente indicado.
+  </div>
+</div>
+<div id="print-root"></div>
+
+<!-- ══ ABAS DE VERSÃO ══ -->
+<div id="tabnav" class="no-print">
+  <div id="verTabs" style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;width:100%"></div>
+  <div id="tab-indicator" style="display:none"></div>
+</div>
+
+<div id="main">
+  <div class="doc doc-wide">
+
+    <!-- ══ TOOLBAR + LEGENDA + AÇÕES DE VERSÃO ══ -->
+    <section class="card no-print">
+      <div class="card-hd">🏛 Mapa societário
+        <div class="card-hd-r">
+          <span class="lg">i<span class="lg-tip lg-wide">Clique numa empresa, sócio, fornecedor, nota ou seta para ver e editar os dados. Arraste os nós para reorganizar (arrastar uma empresa leva os sócios dela junto). Clique num espaço vazio e arraste para mover a tela. Segure Ctrl e arraste no vazio para selecionar vários itens de uma vez (mover ou excluir em bloco, Ctrl+C/Ctrl+V para copiar e colar) — Shift soma à seleção, Esc cancela. Use os botões abaixo para criar novos itens e ligações.</span></span>
+        </div>
+      </div>
+      <div class="card-body" style="padding:0">
+        <div class="map-toolbar">
+          <button class="btn-g" onclick="abrirNovoNo('empresa')">+ Empresa</button>
+          <button class="btn-o" onclick="abrirNovoNo('socio')" style="background:var(--map-socio);border-color:var(--map-socio-d);color:var(--map-socio-d)">+ Sócio</button>
+          <button class="btn-o" onclick="abrirNovoNo('operacao')">+ Operação (rótulo)</button>
+          <button class="btn-o" onclick="abrirNovoNo('nota')">+ Nota</button>
+          <button class="btn-o" onclick="iniciarModoLigacao()">↗ Ligar dois nós</button>
+          <div class="sep"></div>
+          <button class="btn-o" onclick="desfazer()" title="Desfazer (Ctrl+Z)">↶ Desfazer</button>
+          <button class="btn-o" onclick="refazer()" title="Refazer (Ctrl+Shift+Z)">↷ Refazer</button>
+          <div class="sep"></div>
+          <button class="btn-o" id="btnToggleSocios" onclick="toggleTodosSocios()">👥 Ocultar sócios</button>
+          <div class="grow"></div>
+          <button class="btn-o" onclick="novoMapaEmBranco()">Novo mapa em branco</button>
+        </div>
+        <div class="map-toolbar" style="padding-top:0">
+          <span class="hint" style="align-self:center">Paleta de cores:</span>
+          <div id="paletaSeletor" style="display:flex;gap:6px"></div>
+        </div>
+        <div class="map-hint-txt" id="docStatusTxt">Documento não salvo — abra “📁 Meus mapas” para guardá-lo na lista deste navegador. O rascunho atual já é salvo automaticamente e recuperado se você recarregar a página.</div>
+        <div class="no-print" id="clienteFieldWrap" style="padding:0 19px 16px;max-width:340px">
+          <div class="fg" style="margin-bottom:0">
+            <label class="lbl" id="clienteFieldLbl">Cliente <span class="lg">i<span class="lg-tip">Aparece na capa do PDF e no modo apresentação. Não altera os dados do mapa.</span></span></label>
+            <input class="fi" type="text" id="inputCliente" placeholder="Nome do cliente" oninput="onClienteInput(this.value)">
+          </div>
+        </div>
+
+        <div class="map-linkbar no-print" id="mapLinkbar">
+          <span id="mapLinkbarTxt">Clique no nó de ORIGEM da ligação…</span>
+          <button class="btn-o" onclick="cancelarModoLigacao()">Cancelar</button>
+        </div>
+
+        <div class="map-linkbar no-print" id="mapSelecaoBar">
+          <span id="mapSelecaoTxt">0 selecionados</span>
+          <button class="btn-danger" onclick="excluirSelecionados()">🗑 Excluir selecionados</button>
+          <button class="btn-o" onclick="limparSelecao();renderMapa()">Cancelar seleção</button>
+        </div>
+
+        <div class="map-canvas-wrap" id="mapCanvasWrap">
+          <svg id="mapaSvg" viewBox="0 0 1400 640" preserveAspectRatio="xMidYMid meet">
+            <defs>
+              <marker id="seta" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+                <path d="M0,0 L10,5 L0,10 z" fill="#5b6577"></path>
+              </marker>
+              <marker id="setaAux" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+                <path d="M0,0 L10,5 L0,10 z" fill="#38b6d8"></path>
+              </marker>
+            </defs>
+            <g id="gEdges"></g>
+            <g id="gNodes"></g>
+            <g id="gGuides"></g>
+            <g id="gRubberBand"></g>
+          </svg>
+          <div class="map-empty" id="mapEmpty">
+            <p><strong>Este mapa ainda está vazio.</strong><br>Clique em “+ Empresa” para começar, ou em “⇧ Importar JSON” para abrir um dos modelos prontos de estrutura (holding, imobiliária, marca, prestação de serviços…).</p>
+          </div>
+          <div class="map-zoombar no-print">
+            <button onclick="zoomMapa(1.2)" title="Aproximar">+</button>
+            <button onclick="zoomMapa(1/1.2)" title="Afastar">−</button>
+            <button onclick="ajustarZoomParaCaber()" title="Ajustar à tela">⤢</button>
+          </div>
+        </div>
+
+        <div class="card-body" style="padding-top:14px">
+          <div class="legenda-box map-legend">
+            <div class="map-legend-it"><span class="map-legend-sw" style="background:var(--map-empresa)"></span>Pessoa jurídica (empresa)</div>
+            <div class="map-legend-it"><span class="map-legend-sw" style="background:var(--map-socio)"></span>Sócio — um card por pessoa/empresa sócia, ligado por linha até a empresa; arrasta junto com ela</div>
+            <div class="map-legend-it"><span class="map-legend-badge-ex">PJ</span>Selo "PJ" no sócio quando ele é uma pessoa jurídica (ex.: holding), em vez de pessoa física</div>
+            <div class="map-legend-it"><span class="map-legend-sw" style="background:var(--map-operacao)"></span>Operação / classificação (regime, atividade)</div>
+            <div class="map-legend-it"><span class="map-legend-sw" style="background:var(--map-fornecedor)"></span>Fornecedor externo</div>
+            <div class="map-legend-it"><span class="map-legend-sw" style="background:#fff;border:1px solid var(--map-nota-bd)"></span>Nota (balão) — solta ou com seta apontando para outro card, à sua escolha</div>
+            <div class="map-legend-it"><span class="map-legend-sw" style="background:#fef3c7;border:1px solid #b45309"></span>Nota em estilo Alerta — mesmo balão, em destaque âmbar</div>
+            <div class="map-legend-it"><span class="map-legend-badge-ex">Holding</span>"Holding" também é uma opção no campo Atividade da empresa</div>
+            <div class="map-legend-it"><span class="map-legend-sw mline solid"></span>Linha sólida — relação/operação direta</div>
+            <div class="map-legend-it"><span class="map-legend-sw mline"></span>Linha tracejada — participação/relação indireta</div>
+            <div class="map-legend-it"><span class="map-legend-sw mline" style="border-top-color:#38b6d8"></span>Linha tracejada azul — fornecimento / auxiliar</div>
+            <div class="map-legend-it"><span class="map-legend-badge-ex">SN</span>Regime tributário no canto superior da empresa (SN · LP · LR · Isento)</div>
+            <div class="map-legend-it"><span class="map-legend-badge-ex">Comércio</span>Categoria da atividade no canto inferior da empresa (Comércio · Serviço · Indústria)</div>
+            <div class="map-legend-it"><span class="map-legend-dot-ex"></span>Contorno + bolinha — situação cadastral quando não “Ativa” (âmbar = atenção; vermelho = Baixada/Inapta, passe o mouse para ver qual)</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══ MAPA (SEÇÃO PARA O PDF) ══ -->
+    <section class="card" data-pdf="Mapa societário" id="secMapaPdf">
+      <div class="card-hd">🏛 <span id="tituloMapaPdf">Mapa societário</span></div>
+      <div class="card-body" id="mapaPdfBody">
+        <!-- preenchido em tempo de exportação com um clone do SVG -->
+      </div>
+    </section>
+
+    <!-- ══ TABELA DE EMPRESAS ══ -->
+    <section class="card apres-oculta" data-pdf="Empresas">
+      <div class="card-hd">📄 Empresas</div>
+      <div class="card-body">
+        <div class="tbl-wrap"><table class="data-tbl" id="tblEmpresas">
+          <thead><tr><th>Empresa</th><th>CNPJ</th><th>Regime tributário</th><th>Situação</th><th class="r">Capital social</th><th class="r">Faturamento (mensal)</th><th>Sócios</th><th>Observações</th></tr></thead>
+          <tbody></tbody>
+        </table></div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<!-- ══ MODAL GENÉRICO (nó ou ligação) ══ -->
+<div class="modalbg no-print" id="modalBg" onmousedown="if(event.target===this)fecharModal()">
+  <div class="modal-panel" id="modalPanel">
+    <div class="card-hd" id="modalHd">
+      <span id="modalTitulo">Detalhes</span>
+      <div class="card-hd-r"><button class="modal-close" onclick="fecharModal()">✕</button></div>
+    </div>
+    <div class="card-body" id="modalBody"></div>
+    <div class="modal-ft no-print">
+      <button class="btn-danger" id="modalBtnExcluir" onclick="excluirDoModal()">Excluir</button>
+      <div class="r">
+        <button class="btn-o" onclick="fecharModal()">Fechar</button>
+        <button class="btn-g" id="modalBtnSalvar" onclick="salvarModal()">Salvar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL — VISÃO COMPLETA DA EMPRESA (estilo drill-down de ERP) ══ -->
+<div class="modalbg no-print" id="modalCompletoBg" onmousedown="if(event.target===this)fecharVisaoCompleta()">
+  <div class="modal-panel" id="modalCompletoPanel" style="width:min(860px,100%)">
+    <div class="card-hd">
+      <span>🏛 Visão completa da empresa</span>
+      <div class="card-hd-r"><button class="modal-close" onclick="fecharVisaoCompleta()">✕</button></div>
+    </div>
+    <div class="card-body" id="modalCompletoBody"></div>
+    <div class="modal-ft no-print">
+      <button class="btn-o" id="modalCompletoBtnEditar" onclick="editarDaVisaoCompleta()">✎ Editar esta empresa</button>
+      <div class="r"><button class="btn-o" onclick="fecharVisaoCompleta()">Fechar</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL — MEUS MAPAS (biblioteca em cache no navegador) ══ -->
+<div class="modalbg no-print" id="modalBibBg" onmousedown="if(event.target===this)fecharBiblioteca()">
+  <div class="modal-panel" id="modalBibPanel" style="width:min(680px,100%)">
+    <div class="card-hd">
+      <span>📁 Meus mapas — salvos neste navegador</span>
+      <div class="card-hd-r"><button class="modal-close" onclick="fecharBiblioteca()">✕</button></div>
+    </div>
+    <div class="card-body">
+      <p class="hint" style="margin-bottom:14px">Cada mapa fica salvo separadamente no cache deste navegador (não em servidor) — útil para manter um mapa por cliente. Para levar um mapa para outro computador ou enviar por e-mail, use “Exportar JSON”.</p>
+      <div id="bibAcoesAtual" style="display:none;margin-bottom:8px">
+        <button class="btn-g" type="button" onclick="salvarDocumentoAtual()" style="width:100%">💾 Salvar alterações em "<span id="bibNomeAtual"></span>"</button>
+      </div>
+      <button class="add-btn" type="button" onclick="salvarComoNovoDocumento()" style="margin-bottom:14px">+ Salvar o mapa atual como um novo item desta lista</button>
+      <input class="fi" type="text" id="bibBusca" placeholder="🔎 Buscar pelo nome do cliente/mapa…" oninput="renderBiblioteca()" style="margin-bottom:14px">
+      <div id="bibLista"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL — COMPARAR VERSÕES (lado a lado, somente leitura) ══ -->
+<div class="modalbg no-print" id="modalCompararBg" onmousedown="if(event.target===this)fecharComparacao()">
+  <div class="modal-panel" id="modalCompararPanel" style="width:min(1400px,96vw)">
+    <div class="card-hd">
+      <span>⚖ Comparar versões</span>
+      <div class="card-hd-r"><button class="modal-close" onclick="fecharComparacao()">✕</button></div>
+    </div>
+    <div class="card-body">
+      <div class="g2" style="margin-bottom:14px">
+        <div class="fg"><label class="lbl">Versão A</label><select class="fi" id="compA" onchange="renderComparacao()"></select></div>
+        <div class="fg"><label class="lbl">Versão B</label><select class="fi" id="compB" onchange="renderComparacao()"></select></div>
+      </div>
+      <div style="display:flex;gap:14px;flex-wrap:wrap">
+        <div style="flex:1 1 420px;min-width:320px">
+          <div class="hint" style="margin-bottom:6px" id="compATitulo"></div>
+          <div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;height:min(58vh,540px);background:#fbfbfd">
+            <svg id="compSvgA" viewBox="0 0 1400 640" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%;display:block">
+              <defs>
+                <marker id="compSetaA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#5b6577"></path></marker>
+                <marker id="compSetaAuxA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#38b6d8"></path></marker>
+              </defs>
+              <g id="compEdgesA"></g><g id="compNodesA"></g>
+            </svg>
+          </div>
+        </div>
+        <div style="flex:1 1 420px;min-width:320px">
+          <div class="hint" style="margin-bottom:6px" id="compBTitulo"></div>
+          <div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;height:min(58vh,540px);background:#fbfbfd">
+            <svg id="compSvgB" viewBox="0 0 1400 640" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%;display:block">
+              <defs>
+                <marker id="compSetaB" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#5b6577"></path></marker>
+                <marker id="compSetaAuxB" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#38b6d8"></path></marker>
+              </defs>
+              <g id="compEdgesB"></g><g id="compNodesB"></g>
+            </svg>
+          </div>
+        </div>
+      </div>
+      <p class="hint" style="margin-top:10px">Visualização somente leitura, lado a lado — para editar, feche esta janela e use as abas de versão normalmente.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════════
+   MAPA SOCIETÁRIO INTERATIVO — Araújo & Castro
+   Toda a lógica é JavaScript puro, sem dependências externas.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── básicos ── */
+function $(id){return document.getElementById(id);}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){
+  return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function hoje(){return new Date().toLocaleDateString('pt-BR');}
+function uid(p){return p+'_'+Math.random().toString(36).slice(2,8)+Date.now().toString(36).slice(-4);}
+/* Campo de texto que cresce em ALTURA conforme o que se digita (em vez de rolar o texto para o
+   lado, como um <input> de uma linha só faz) — usado em toda observação/anotação do formulário. */
+function autoGrow(el){
+  if(!el)return;
+  el.style.height='auto';
+  el.style.height=(el.scrollHeight+2)+'px';
+}
+function initAutoGrowTextareas(scopeEl){
+  (scopeEl||document).querySelectorAll('textarea[data-autogrow]').forEach(function(el){autoGrow(el);});
+}
+function svgEl(tag,attrs){
+  var el=document.createElementNS('http://www.w3.org/2000/svg',tag);
+  if(attrs)for(var k in attrs)if(attrs[k]!==undefined&&attrs[k]!==null)el.setAttribute(k,attrs[k]);
+  return el;
+}
+function fmtMoeda(v){
+  if(v===null||v===undefined||v===''||isNaN(v))return '—';
+  return Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+}
+function fmtPct(v){
+  if(v===null||v===undefined||v==='')return '';
+  return Number(v).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:2})+'%';
+}
+/* Apelido = nome curto exibido no card do mapa; o nome completo/razão social nunca é alterado,
+   fica só mais legível no desenho. Sugestão automática: 1ª palavra para empresa/sócio-PJ (assim
+   como o "nome fantasia" costuma ser a 1ª palavra da razão social), 1ª+2ª palavra para sócio
+   pessoa física. Sempre editável manualmente no formulário — isto aqui é só o padrão sugerido. */
+function autoApelido(nome,tipo,tipoSocio){
+  var palavras=String(nome||'').trim().split(/\s+/).filter(Boolean);
+  if(!palavras.length)return '';
+  if(tipo==='socio')return tipoSocio==='PJ'?palavras[0]:palavras.slice(0,2).join(' ');
+  return palavras[0];
+}
+function textoExibicaoNode(n){
+  if(n.tipo==='empresa'||n.tipo==='socio'){
+    var ap=String(n.apelido||'').trim();
+    return ap||autoApelido(n.nome,n.tipo,n.tipoSocio)||'(sem nome)';
+  }
+  return n.nome||'(sem nome)';
+}
+function fmtDataBR(v){
+  if(!v)return '—';
+  var p=v.split('-');if(p.length!==3)return esc(v);
+  return p[2]+'/'+p[1]+'/'+p[0];
+}
+/* Máscara de CNPJ (00.000.000/0000-00) — aplicada tanto ao digitar quanto em qualquer lugar que
+   mostre o CNPJ (tabela, visão completa, cartão de leitura), para nunca deixar os dois últimos
+   dígitos "escondidos" nem o número aparecer sem pontuação. */
+function formatarCNPJ(v){
+  v=String(v||'').replace(/\D/g,'').slice(0,14);
+  if(!v)return '';
+  var out=v.slice(0,2);
+  if(v.length>2)out+='.'+v.slice(2,5);
+  if(v.length>5)out+='.'+v.slice(5,8);
+  if(v.length>8)out+='/'+v.slice(8,12);
+  if(v.length>12)out+='-'+v.slice(12,14);
+  return out;
+}
+/* Formatação "Título" (1ª letra maiúscula, demais minúsculas em cada palavra) para nomes vindos da
+   Receita Federal (API) — que costumam vir em CAIXA ALTA. Duas listas de exceção, sempre em
+   minúsculas: (a) preposições/conectivos comuns em nomes e razões sociais em português — regra
+   geral: uma palavra curta de ligação fica minúscula, exceto se for a 1ª palavra do texto; (b)
+   siglas e formas societárias que devem permanecer em maiúsculas (LTDA, S.A. etc.) — regra geral:
+   abreviações/siglas conhecidas de tipo societário ficam maiúsculas onde quer que apareçam. */
+var _NOME_PROPRIO_MINUSCULAS=['de','da','do','das','dos','e','di','du','del','la','le','van','von','dos','e/ou'];
+var _NOME_PROPRIO_MAIUSCULAS=['ltda','me','epp','eireli','mei','sa','s/a','s.a','s.a.','cia','cnpj','cpf','ei'];
+function formatarNomeProprio(texto){
+  var t=String(texto||'').trim();
+  if(!t)return '';
+  return t.toLowerCase().split(/(\s+)/).map(function(tok,i,arr){
+    if(/^\s+$/.test(tok))return tok;
+    /* preserva pontuação junto à palavra (ex.: "s.a." ou "kascher,") ao comparar a forma "pelada" */
+    var pelada=tok.replace(/[.,;:()]/g,'');
+    if(_NOME_PROPRIO_MAIUSCULAS.indexOf(pelada)>-1)return tok.toUpperCase();
+    /* conectivos ficam minúsculos, exceto quando são a 1ª palavra "de verdade" do texto */
+    var ehPrimeira=arr.slice(0,i).every(function(a){return /^\s+$/.test(a);});
+    if(!ehPrimeira&&_NOME_PROPRIO_MINUSCULAS.indexOf(pelada)>-1)return tok;
+    return tok.charAt(0).toUpperCase()+tok.slice(1);
+  }).join('');
+}
+/* Máscara de dinheiro (R$ 50.000,00) — os 2 últimos dígitos digitados sempre são os centavos,
+   como em qualquer campo de valor em real; formatarMoedaMascara formata ao vivo enquanto a pessoa
+   digita, numeroParaMascaraMoeda converte um número guardado (ex.: vindo da API) para essa mesma
+   máscara, e moedaMascaraParaNumero faz o caminho inverso na hora de salvar. */
+function formatarMoedaMascara(v){
+  var digitos=String(v||'').replace(/\D/g,'').replace(/^0+(?=\d)/,'');
+  if(!digitos)return '';
+  while(digitos.length<3)digitos='0'+digitos;
+  var centavos=digitos.slice(-2);
+  var inteiro=digitos.slice(0,-2).replace(/^0+(?=\d)/,'')||'0';
+  inteiro=inteiro.replace(/\B(?=(\d{3})+(?!\d))/g,'.');
+  return inteiro+','+centavos;
+}
+function numeroParaMascaraMoeda(v){
+  if(v===null||v===undefined||v==='')return '';
+  var n=Number(v);
+  if(isNaN(n))return '';
+  var centavos=Math.round(Math.abs(n)*100);
+  return (n<0?'-':'')+formatarMoedaMascara(String(centavos));
+}
+function moedaMascaraParaNumero(v){
+  v=String(v||'').trim();
+  if(!v)return null;
+  var neg=v.charAt(0)==='-';
+  var limpo=v.replace(/[^\d,]/g,'').replace(',','.');
+  if(!limpo)return null;
+  var n=Number(limpo);
+  if(isNaN(n))return null;
+  return neg?-n:n;
+}
+
+var REGIMES=['','Simples Nacional','Lucro Presumido','Lucro Real','Isento/Outro'];
+var REGIME_ABREV={'Simples Nacional':'SN','Lucro Presumido':'LP','Lucro Real':'LR','Isento/Outro':'ISENTO'};
+var SITUACOES=['','Ativa','Suspensa','Baixada','Inapta'];
+/* Baixada e Inapta são tratadas como alerta grave (vermelho) — qualquer pessoa olhando o mapa
+   precisa perceber de cara que a empresa tem algo errado. Suspensa fica em âmbar (atenção, não grave). */
+var SITUACAO_COR={'Suspensa':'var(--amber)','Baixada':'var(--red)','Inapta':'var(--red)'};
+var SITUACAO_PILL={'Ativa':'pill-green','Suspensa':'pill-amber','Baixada':'pill-red','Inapta':'pill-red'};
+var TIPOS_OPERACAO=['','Venda com NF','Venda sem NF','Prestação de serviço','Terceirização',
+  'Transferência patrimonial','Integralização de capital','Redução de capital','Doação','Compra de insumo','Outra'];
+/* Paleta: a empresa (o item principal do mapa) usa a própria identidade do escritório — azul-marinho
+   com friso dourado — e os tipos de apoio (sócio, operação, fornecedor) viram “etiquetas” claras e
+   discretas, cada uma com sua cor de contorno/texto, em vez de caixas cheias e saturadas competindo
+   com a empresa. Isso resolve tanto a leitura (o que é mais importante salta aos olhos) quanto o
+   pedido de deixar o sócio mais discreto. Nota permanece neutra (branca), como já era.
+   Os valores de fill/stroke/texto abaixo são o ponto de partida (paleta “marinho”) — são trocados
+   em tempo real por aplicarPaleta() (ver seletor de paletas, main4.js) mantendo o mesmo objeto. */
+var TIPO_INFO={
+  empresa:{fill:'#1F3864',stroke:'#B8860B',texto:'#fff',rotulo:'Empresa'},
+  socio:{fill:'#DCE4F0',stroke:'#1F3864',texto:'#1F3864',rotulo:'Sócio / acionista'},
+  operacao:{fill:'#F0E6C8',stroke:'#8A6407',texto:'#5C4004',rotulo:'Operação / classificação'},
+  fornecedor:{fill:'#D8ECEA',stroke:'#2B6E77',texto:'#1B444B',rotulo:'Fornecedor'},
+  nota:{fill:'#ffffff',stroke:'#c7cedb',texto:'#233047',rotulo:'Nota / observação'}
+};
+/* Paleta de cores escolhível para o balão de nota (observação/alerta) — o padrão automático
+   continua sendo o branco neutro (observação) ou âmbar (alerta), mas a pessoa pode escolher
+   qualquer uma destas para dar mais ou menos destaque a um balão específico. */
+var NOTA_CORES={
+  ambar:{fill:'#fef3c7',stroke:'#b45309',texto:'#78350f',rotulo:'Âmbar (alerta padrão)'},
+  vermelho:{fill:'#fee2e2',stroke:'#b91c1c',texto:'#7f1d1d',rotulo:'Vermelho'},
+  verde:{fill:'#dcfce7',stroke:'#15803d',texto:'#14532d',rotulo:'Verde'},
+  azul:{fill:'#dbeafe',stroke:'#1d4ed8',texto:'#1e3a5f',rotulo:'Azul'},
+  roxo:{fill:'#ede9fe',stroke:'#6d28d9',texto:'#4c1d95',rotulo:'Roxo'},
+  cinza:{fill:'#ffffff',stroke:'#c7cedb',texto:'#233047',rotulo:'Cinza (observação padrão)'}
+};
+/* Tamanho do balão de nota — escala aplicada em cima do dimensionamento automático por texto
+   (calcDims). "Médio" é o tamanho de sempre; Pequeno/Grande encolhem/ampliam o balão todo
+   (caixa e fonte) mantendo a mesma lógica de quebra de linha. */
+var NOTA_TAMANHOS={P:{escala:0.8,rotulo:'Pequeno'},M:{escala:1,rotulo:'Médio (padrão)'},G:{escala:1.3,rotulo:'Grande'}};
+/* Categoria da atividade — agora é um campo da própria EMPRESA (não mais de um nó separado de
+   “operação”), preenchido em “Atividade principal” no card da empresa. O selo no mapa mostra a
+   palavra inteira (Comércio / Serviço / Indústria), não mais abreviada. */
+var CATEGORIA_ATIVIDADE=['','Comércio','Serviço','Indústria','Holding'];
+var LOCAL_KEY='ac_mapa_societario_v1';
+
+/* ══════════════════════════════ ESTADO ══════════════════════════════ */
+var state=null;
+
+function novaVersao(nome){return{id:uid('v'),nome:nome,nodes:[],edges:[]};}
+function estadoVazio(){var v=novaVersao('Estrutura atual');return{versoes:[v],versaoAtualId:v.id,clienteNome:''};}
+function normalizarState(){
+  if(!state)return;
+  if(typeof state.clienteNome!=='string')state.clienteNome='';
+  /* Migração: empresas antigas guardavam "observações" como texto único; agora é uma lista
+     (permite adicionar várias observações separadas, clicando em "+"). Dado antigo vira o
+     primeiro item da lista, sem perder nada. */
+  state.versoes.forEach(function(v){
+    v.nodes.forEach(function(n){
+      if(n.tipo==='empresa'&&!Array.isArray(n.observacoesLista)){
+        n.observacoesLista=n.observacoes?[String(n.observacoes)]:[];
+      }
+      /* Migração: notas antigas não tinham "estilo" (observação neutra x alerta em destaque) —
+         mapas salvos antes desta funcionalidade viram "observação" (o visual de sempre). */
+      if(n.tipo==='nota'&&!n.estilo){n.estilo='observacao';}
+      /* Migração: cor/tamanho escolhíveis do balão são novos — mapas salvos antes viram "auto"
+         (cor conforme o estilo, tamanho médio), idêntico ao visual de sempre. */
+      if(n.tipo==='nota'&&typeof n.cor!=='string')n.cor='';
+      if(n.tipo==='nota'&&!n.tamanho)n.tamanho='M';
+    });
+  });
+  if(!versaoAtual())state.versaoAtualId=state.versoes[0].id;
+}
+function versaoAtual(){return state.versoes.find(function(v){return v.id===state.versaoAtualId;});}
+function nodeByIdV(v,id){return v.nodes.find(function(n){return n.id===id;});}
+
+function novoNodeBase(tipo,x,y){
+  var n={id:uid('n'),tipo:tipo,x:x,y:y,nome:'',observacoes:''};
+  if(tipo==='empresa'){n.cnpj='';n.capitalSocial=null;n.regimeTributario='';n.atividade='';
+    n.faturamento=null;n.situacaoCadastral='';n.uf='';n.ocultarSocios=false;n.observacoesLista=[];n.apelido='';}
+  if(tipo==='socio'){n.cpf='';n.participacao=null;n.administrador=false;n.distribuicaoLucros=null;
+    n.apelido='';n.tipoSocio='PF';}
+  if(tipo==='operacao'){n.subtipo='';}
+  if(tipo==='nota'){n.valor=null;n.estilo='observacao';n.cor='';n.tamanho='M';}
+  if(tipo==='fornecedor'){}
+  return n;
+}
+function novoEdgeBase(origemId,destinoId){
+  return{id:uid('l'),origemId:origemId,destinoId:destinoId,estilo:'tracejada',corTipo:'padrao',
+    tipoOperacao:'',rotulo:'',valor:null,observacoes:'',decorativo:false};
+}
+
+/* ── ligações auxiliares de leitura ── */
+function ligadoA(v,nodeId){
+  var e=v.edges.find(function(x){return x.destinoId===nodeId&&x.decorativo;});
+  return e?e.origemId:null;
+}
+function sociosDe(v,empresaId){
+  return v.nodes.filter(function(s){return s.tipo==='socio'&&ligadoA(v,s.id)===empresaId;});
+}
+/* Botão global "Ocultar/mostrar todos os sócios" da toolbar — some com todo mundo de uma vez,
+   sem precisar marcar o checkbox "Ocultar sócios no mapa" empresa por empresa. É só uma
+   preferência de visualização (não é salva no mapa, começa sempre mostrando ao reabrir). */
+var _todosSociosOcultos=false;
+function calcularSociosOcultosIds(v){
+  var ids={};
+  if(_todosSociosOcultos){
+    v.nodes.forEach(function(s){if(s.tipo==='socio')ids[s.id]=true;});
+    return ids;
+  }
+  v.nodes.forEach(function(emp){
+    if(emp.tipo==='empresa'&&emp.ocultarSocios){
+      v.nodes.forEach(function(s){if(s.tipo==='socio'&&ligadoA(v,s.id)===emp.id)ids[s.id]=true;});
+    }
+  });
+  return ids;
+}
+function toggleTodosSocios(){
+  _todosSociosOcultos=!_todosSociosOcultos;
+  var btn=$('btnToggleSocios');
+  if(btn)btn.textContent=_todosSociosOcultos?'👥 Mostrar sócios':'👥 Ocultar sócios';
+  renderMapa();
+}
+function conexoesDe(v,nodeId){
+  var nomes=[];
+  v.edges.forEach(function(e){
+    if(e.origemId===nodeId){var b=nodeByIdV(v,e.destinoId);if(b)nomes.push(b.nome);}
+    else if(e.destinoId===nodeId){var a=nodeByIdV(v,e.origemId);if(a)nomes.push(a.nome);}
+  });
+  return nomes;
+}
+
+/* ══════════════════════════════ PERSISTÊNCIA ══════════════════════════════ */
+function salvarLocal(){
+  try{localStorage.setItem(LOCAL_KEY,JSON.stringify(state));}catch(e){/* melhor-esforço */}
+}
+function carregarLocal(){
+  try{
+    var raw=localStorage.getItem(LOCAL_KEY);
+    if(!raw)return false;
+    var obj=JSON.parse(raw);
+    if(!obj||!obj.versoes||!obj.versoes.length)return false;
+    state=obj;
+    normalizarState();
+    return true;
+  }catch(e){return false;}
+}
+/* ══════════════════════════════ DESFAZER / REFAZER (Ctrl+Z) ══════════════════════════════
+   Histórico simples por “fotografias” do estado inteiro (todas as versões). A cada mudança real
+   guardamos como o estado estava ANTES dela; Ctrl+Z volta um passo, Ctrl+Shift+Z (ou Ctrl+Y) refaz.
+   O histórico é reiniciado ao trocar de documento (novo mapa, importar, abrir outro salvo, exemplo). */
+var _undoStack=[],_redoStack=[],_estadoAnteriorSnapshot=null;
+var HIST_MAX=60;
+function resetarHistorico(){
+  _undoStack=[];_redoStack=[];
+  _estadoAnteriorSnapshot=state?JSON.stringify(state):null;
+}
+function _sincronizarCamposGlobais(){
+  var campo=$('inputCliente');
+  if(campo&&document.activeElement!==campo)campo.value=state.clienteNome||'';
+  window.NOME_CLIENTE=state.clienteNome||'';
+  atualizarTituloHeader();
+}
+/* Título na barra superior — "Mapa Societário Interativo" enquanto não há cliente definido; assim
+   que o campo "Cliente" é preenchido, passa a mostrar "Mapa Societário - NOME DO CLIENTE" (também
+   usado como título da capa do PDF, que lê este mesmo elemento). */
+function atualizarTituloHeader(){
+  var nome=((state&&state.clienteNome)||'').trim();
+  var titulo=nome?('Mapa Societário - '+nome):'Mapa Societário Interativo';
+  if($('hdTitulo'))$('hdTitulo').textContent=titulo;
+}
+function onMudouEstado(){
+  normalizarState();
+  if(_estadoAnteriorSnapshot!==null){
+    var atualStr=JSON.stringify(state);
+    if(atualStr!==_estadoAnteriorSnapshot){
+      _undoStack.push(_estadoAnteriorSnapshot);
+      if(_undoStack.length>HIST_MAX)_undoStack.shift();
+      _redoStack=[];
+    }
+  }
+  salvarLocal();
+  renderTudo();
+  _sincronizarCamposGlobais();
+  _estadoAnteriorSnapshot=JSON.stringify(state);
+}
+function desfazer(){
+  if(!_undoStack.length)return;
+  if($('modalBg')&&$('modalBg').classList.contains('active'))fecharModal();
+  var atual=JSON.stringify(state);
+  var anterior=_undoStack.pop();
+  _redoStack.push(atual);
+  state=JSON.parse(anterior);
+  normalizarState();
+  cancelarModoLigacao();
+  salvarLocal();
+  renderTudo();
+  _sincronizarCamposGlobais();
+  _estadoAnteriorSnapshot=JSON.stringify(state);
+}
+function refazer(){
+  if(!_redoStack.length)return;
+  if($('modalBg')&&$('modalBg').classList.contains('active'))fecharModal();
+  var atual=JSON.stringify(state);
+  var proximo=_redoStack.pop();
+  _undoStack.push(atual);
+  state=JSON.parse(proximo);
+  normalizarState();
+  cancelarModoLigacao();
+  salvarLocal();
+  renderTudo();
+  _sincronizarCamposGlobais();
+  _estadoAnteriorSnapshot=JSON.stringify(state);
+}
+function novoMapaEmBranco(){
+  if(algumNodeExiste()&&!confirm('Isso substitui o mapa atual (todas as versões) por um mapa em branco. As alterações não salvas como documento serão perdidas. Continuar?'))return;
+  state=estadoVazio();
+  limparDocAtual();
+  resetarHistorico();
+  onMudouEstado();
+}
+function algumNodeExiste(){
+  return state.versoes.some(function(v){return v.nodes.length>0;});
+}
+
+/* Nome de arquivo/documento padrão usado ao exportar JSON, gerar PDF ou sugerir nome ao salvar em
+   "Meus mapas" — sempre "<nome do cliente> - <data>", igual em todo lugar. Sem nome de cliente
+   preenchido, cai para "Mapa societário - <data>". */
+function sanitizarNomeArquivo(s){
+  return String(s||'').replace(/[\\/:*?"<>|]/g,'').trim();
+}
+function nomeArquivoBase(){
+  var cliente=sanitizarNomeArquivo((state&&state.clienteNome)||'');
+  var dataArq=hoje().replace(/\//g,'-');
+  return(cliente||'Mapa societário')+' - '+dataArq;
+}
+/* ══════════════════════════════ EXPORTAR / IMPORTAR JSON ══════════════════════════════ */
+function exportarJSON(){
+  var payload={_ferramenta:'Mapa Societário Interativo — Araújo & Castro',_exportadoEm:new Date().toISOString(),estado:state};
+  var blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  var nomeArq=nomeArquivoBase()+'.json';
+  a.href=url;a.download=nomeArq;document.body.appendChild(a);a.click();
+  setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url);},400);
+}
+function importarJSON(ev){
+  var file=ev.target.files&&ev.target.files[0];
+  if(!file)return;
+  var reader=new FileReader();
+  reader.onload=function(){
+    try{
+      var obj=JSON.parse(reader.result);
+      var novoEstado=obj&&obj.estado?obj.estado:obj;
+      if(!novoEstado||!novoEstado.versoes||!novoEstado.versoes.length)throw new Error('formato inválido');
+      if(algumNodeExiste()&&!confirm('Importar vai substituir o mapa atual por completo. Continuar?')){ev.target.value='';return;}
+      state=novoEstado;
+      normalizarState();
+      limparDocAtual();
+      resetarHistorico();
+      onMudouEstado();
+      ajustarZoomParaCaber();
+    }catch(err){
+      alert('Não foi possível ler este arquivo como um mapa societário válido (JSON exportado por esta ferramenta).');
+    }
+    ev.target.value='';
+  };
+  reader.readAsText(file,'UTF-8');
+}
+
+/* ══════════════════════════════ VERSÕES (ABAS) ══════════════════════════════ */
+function renderAbasVersao(){
+  var wrap=$('verTabs');
+  var abas='<div class="map-vertabs">'+state.versoes.map(function(v){
+    return '<button type="button" class="map-vertab'+(v.id===state.versaoAtualId?' active':'')+'" onclick="trocarVersao(\''+v.id+'\')">'+esc(v.nome)+'</button>';
+  }).join('')+'</div>';
+  var acoes='<div class="map-vertabs-actions">'+
+    '<button type="button" class="map-vertab" style="border-style:dashed" onclick="criarVersaoEmBranco()">+ Nova versão</button>'+
+    '<button type="button" class="map-vertab" style="border-style:dashed" onclick="duplicarVersao()">⧉ Duplicar versão atual</button>'+
+    '<button type="button" class="map-vertab" style="border-style:dashed" onclick="renomearVersao()">✎ Renomear</button>'+
+    (state.versoes.length>1?'<button type="button" class="map-vertab" style="border-style:dashed" onclick="abrirComparacao()">⚖ Comparar versões</button>':'')+
+    (state.versoes.length>1?'<button type="button" class="map-vertab" style="border-style:dashed;color:var(--red)" onclick="excluirVersao()">🗑 Excluir versão</button>':'')+
+  '</div>';
+  wrap.innerHTML=abas+acoes;
+}
+function trocarVersao(id){
+  if(id===state.versaoAtualId)return;
+  state.versaoAtualId=id;
+  cancelarModoLigacao();
+  onMudouEstado();
+  ajustarZoomParaCaber();
+}
+function criarVersaoEmBranco(){
+  var v=novaVersao('Nova versão');
+  state.versoes.push(v);
+  state.versaoAtualId=v.id;
+  onMudouEstado();
+}
+function duplicarVersao(){
+  var atual=versaoAtual();
+  var copia=JSON.parse(JSON.stringify(atual));
+  copia.id=uid('v');
+  copia.nome=atual.nome+' (cópia)';
+  state.versoes.push(copia);
+  state.versaoAtualId=copia.id;
+  onMudouEstado();
+}
+function renomearVersao(){
+  var atual=versaoAtual();
+  var novo=prompt('Novo nome desta versão:',atual.nome);
+  if(novo===null)return;
+  novo=novo.trim();
+  if(!novo)return;
+  atual.nome=novo;
+  onMudouEstado();
+}
+function excluirVersao(){
+  if(state.versoes.length<=1)return;
+  var atual=versaoAtual();
+  if(!confirm('Excluir a versão "'+atual.nome+'"? Essa ação não pode ser desfeita (exceto reimportando um JSON salvo).'))return;
+  state.versoes=state.versoes.filter(function(v){return v.id!==atual.id;});
+  state.versaoAtualId=state.versoes[0].id;
+  onMudouEstado();
+  ajustarZoomParaCaber();
+}
+
+/* ══════════════════════════════ GEOMETRIA / RENDER DO MAPA ══════════════════════════════ */
+function wrapLinhas(texto,maxChars){
+  texto=String(texto||'');
+  if(texto.length<=maxChars)return[texto];
+  var palavras=texto.split(' ');
+  var linhas=[],atual='';
+  palavras.forEach(function(p){
+    /* palavra sozinha maior que a largura da linha (sem espaços) — quebra na marra em pedaços,
+       em vez de deixar uma linha só transbordando o quadrinho. */
+    while(p.length>maxChars){
+      if(atual){linhas.push(atual);atual='';}
+      linhas.push(p.slice(0,maxChars));
+      p=p.slice(maxChars);
+    }
+    var tentativa=atual?atual+' '+p:p;
+    if(tentativa.length>maxChars&&atual){linhas.push(atual);atual=p;}
+    else atual=tentativa;
+  });
+  if(atual)linhas.push(atual);
+  if(linhas.length>3){linhas=linhas.slice(0,3);linhas[2]=linhas[2].replace(/.{0,3}$/,'…');}
+  return linhas;
+}
+function calcDims(n){
+  var isEmpresa=n.tipo==='empresa';
+  var isNota=n.tipo==='nota';
+  /* Tamanho do balão de nota (P/M/G) escala tudo: caixa, quebra de linha e fonte — mantendo a
+     mesma lógica de dimensionamento automático por texto, só que maior ou menor de ponta a ponta. */
+  var escala=isNota?((NOTA_TAMANHOS[n.tamanho]||NOTA_TAMANHOS.M).escala):1;
+  var maxChars=isNota?Math.round(26*escala):(isEmpresa?22:20);
+  /* O mapa mostra o APELIDO (nome curto) da empresa/sócio, não a razão social/nome completo — o
+     nome completo continua guardado e aparece no formulário, na tabela e no PDF. Sócio também
+     ganha a participação embutida no texto ("Nome: 40%"), como já acontecia no cartão combinado. */
+  var textoBase=textoExibicaoNode(n);
+  if(n.tipo==='socio'){
+    var pct=(n.participacao||n.participacao===0)?fmtPct(n.participacao):'';
+    if(pct)textoBase+=': '+pct;
+  }
+  var linhas=wrapLinhas(textoBase,maxChars);
+  if(isNota&&(n.valor||n.valor===0)){linhas=linhas.concat(wrapLinhas(fmtMoeda(n.valor),Math.round(26*escala)));}
+  var maiorLinha=linhas.reduce(function(a,b){return b.length>a.length?b:a;},'');
+  var w,h,lineH,fontSize;
+  if(isEmpresa){
+    /* Card da empresa é o item principal do mapa — maior que os demais, com folga extra para o
+       texto (nome por extenso) e para os selos de canto (regime/atividade, agora com a palavra
+       inteira em vez de abreviada). A altura cresce em função do NÚMERO DE LINHAS já quebradas
+       (linhas.length*lineH) mais uma folga fixa (42px) que garante espaço acima/abaixo do bloco de
+       texto mesmo com 3 linhas — nomes muito grandes (ex.: razão social por extenso) não vazam
+       mais para fora do quadrinho, pois o texto é sempre centralizado dentro dessa folga. */
+    lineH=17;fontSize=13;
+    w=Math.max(158,Math.min(300,maiorLinha.length*8.4+58));
+    h=Math.max(58,linhas.length*lineH+42);
+  }else{
+    lineH=15*escala;fontSize=12*escala;
+    w=Math.max(96,Math.min(240,maiorLinha.length*7.4+30)*escala);
+    h=Math.max(40,linhas.length*lineH+30*escala);
+  }
+  return{w:w,h:h,linhas:linhas,lineH:lineH,fontSize:fontSize};
+}
+function clipLine(ax,ay,aw,ah,bx,by,bw,bh){
+  var dx=bx-ax,dy=by-ay;
+  if(dx===0&&dy===0)return null;
+  function clip(dx,dy,w,h){
+    var hw=w/2,hh=h/2;
+    var tx=dx!==0?hw/Math.abs(dx):Infinity;
+    var ty=dy!==0?hh/Math.abs(dy):Infinity;
+    var t=Math.min(tx,ty);
+    return{x:dx*t,y:dy*t};
+  }
+  var pA=clip(dx,dy,aw,ah);
+  var pB=clip(-dx,-dy,bw,bh);
+  return{x1:ax+pA.x,y1:ay+pA.y,x2:bx+pB.x,y2:by+pB.y};
+}
+
+/* Selo pequeno e discreto (branco, contorno/letra em navy) num dos quatro cantos do quadrinho da
+   empresa — usado tanto para o regime tributário (canto superior direito) quanto para a categoria
+   da atividade (canto inferior direito). */
+function desenharSeloCanto(g,d,texto,tooltip,posicao){
+  var bw=Math.max(30,texto.length*7.2+16),bh=17.5;
+  var bx=d.w/2-bw*0.62;
+  var by=(posicao==='dir-baixo')?(d.h/2-bh*0.38):(-d.h/2-bh*0.62);
+  var selo=svgEl('g',{'class':'node-selo-canto'});
+  selo.appendChild(svgEl('rect',{x:bx,y:by,width:bw,height:bh,rx:8.5,ry:8.5,
+    style:'fill:#fff;stroke:var(--navy);stroke-width:1.3'}));
+  var txt=svgEl('text',{x:bx+bw/2,y:by+bh/2+3.4,'text-anchor':'middle',
+    style:'font-family:var(--font-h);font-size:9.2px;font-weight:700;fill:var(--navy);letter-spacing:.01em'});
+  txt.textContent=texto;
+  selo.appendChild(txt);
+  var title=svgEl('title',{});title.textContent=tooltip;
+  selo.appendChild(title);
+  g.appendChild(selo);
+}
+/* Selo de alerta no canto inferior esquerdo da empresa — some das participações dos sócios
+   cadastrados (com % preenchido) diferente de 100%. Só aparece quando há pelo menos um sócio com
+   percentual informado; empresa sem nenhum % preenchido não é sinalizada (não dá pra saber se
+   está errado ou só incompleto). */
+function desenharAlertaParticipacao(g,d,soma){
+  var texto='Σ '+fmtPct(soma);
+  var bw=Math.max(44,texto.length*7.2+16),bh=17.5;
+  var bx=-d.w/2-bw*0.38,by=d.h/2-bh*0.38;
+  var selo=svgEl('g',{'class':'node-selo-alerta-part'});
+  selo.appendChild(svgEl('rect',{x:bx,y:by,width:bw,height:bh,rx:8.5,ry:8.5,
+    style:'fill:#fef3c7;stroke:#b45309;stroke-width:1.3'}));
+  var txt=svgEl('text',{x:bx+bw/2,y:by+bh/2+3.4,'text-anchor':'middle',
+    style:'font-family:var(--font-h);font-size:9.2px;font-weight:700;fill:#78350f;letter-spacing:.01em'});
+  txt.textContent=texto;
+  selo.appendChild(txt);
+  var title=svgEl('title',{});
+  title.textContent='Soma das participações dos sócios cadastrados: '+fmtPct(soma)+' (o esperado é 100%). Confira os percentuais.';
+  selo.appendChild(title);
+  g.appendChild(selo);
+}
+
+function renderMapa(){
+  var v=versaoAtual();
+  var gNodes=$('gNodes'),gEdges=$('gEdges');
+  gNodes.innerHTML='';gEdges.innerHTML='';
+  $('mapEmpty').classList.toggle('show',v.nodes.length===0);
+  $('tituloMapaPdf').textContent='Mapa societário — '+v.nome;
+  /* limpa da seleção qualquer id de nó que não exista mais (ex.: excluído pelo modal individual) */
+  var idsValidos={};v.nodes.forEach(function(n){idsValidos[n.id]=true;});
+  var mudouSel=false;
+  Object.keys(_selecao).forEach(function(id){if(!idsValidos[id]){delete _selecao[id];mudouSel=true;}});
+  if(mudouSel)atualizarBarraSelecao();
+
+  var dims={};
+  v.nodes.forEach(function(n){dims[n.id]=calcDims(n);});
+
+  /* Sócios de uma empresa que marcou "ocultar sócios no mapa" somem do desenho (nó e ligação),
+     mas os dados continuam intactos — mesmo comportamento de antes, só que por nó em vez de cartão.
+     O botão global "Ocultar/mostrar todos os sócios" da toolbar faz a mesma coisa de uma vez só,
+     para todo mundo, sem precisar marcar empresa por empresa. */
+  var sociosOcultosIds=calcularSociosOcultosIds(v);
+
+  v.edges.forEach(function(e){
+    var a=nodeByIdV(v,e.origemId),b=nodeByIdV(v,e.destinoId);
+    if(!a||!b)return;
+    if(sociosOcultosIds[a.id]||sociosOcultosIds[b.id])return;
+    var da=dims[a.id],db=dims[b.id];
+    var pts=clipLine(a.x,a.y,da.w,da.h,b.x,b.y,db.w,db.h);
+    if(!pts)return;
+    var cor=e.corTipo==='auxiliar'?'#38b6d8':'#5b6577';
+    var marker=e.corTipo==='auxiliar'?'url(#setaAux)':'url(#seta)';
+    var g=svgEl('g',{'class':'edge','data-id':e.id});
+    var hit=svgEl('path',{'class':'edge-hit',d:'M'+pts.x1+','+pts.y1+' L'+pts.x2+','+pts.y2});
+    var linha=svgEl('path',{'class':'edge-line',d:'M'+pts.x1+','+pts.y1+' L'+pts.x2+','+pts.y2,
+      style:'stroke:'+cor,'stroke-dasharray':e.estilo==='tracejada'?'7,5':null,'marker-end':marker});
+    g.appendChild(hit);g.appendChild(linha);
+    /* O rótulo automático (a partir do tipo de operação) só é escondido quando ele REPETE
+       literalmente o texto que a nota de destino/origem já mostra no próprio quadrinho — não
+       sempre que existir uma nota envolvida (isso apagava rótulos legítimos e diferentes). */
+    var candidato=e.tipoOperacao&&!e.decorativo?e.tipoOperacao:'';
+    var duplicaTextoDaNota=candidato&&((a.tipo==='nota'&&(a.nome||'').trim().toLowerCase()===candidato.trim().toLowerCase())||
+      (b.tipo==='nota'&&(b.nome||'').trim().toLowerCase()===candidato.trim().toLowerCase()));
+    var rotulo=e.rotulo||(duplicaTextoDaNota?'':candidato);
+    if(rotulo){
+      var mx=(pts.x1+pts.x2)/2,my=(pts.y1+pts.y2)/2;
+      var lw=Math.max(30,rotulo.length*6.1+12);
+      var bg=svgEl('rect',{'class':'edge-lbl-bg',x:mx-lw/2,y:my-9,width:lw,height:18,rx:4});
+      var txt=svgEl('text',{'class':'edge-lbl-txt',x:mx,y:my+4,'text-anchor':'middle'});
+      txt.textContent=rotulo;
+      g.appendChild(bg);g.appendChild(txt);
+    }
+    g.addEventListener('click',function(){abrirModalEdge(e.id,false);});
+    gEdges.appendChild(g);
+  });
+
+  v.nodes.forEach(function(n){
+    if(n.tipo==='socio'&&sociosOcultosIds[n.id])return;
+    var d=dims[n.id];
+    var info=TIPO_INFO[n.tipo];
+    /* Nota em estilo "Alerta" ganha cores de destaque (âmbar) em vez do branco neutro padrão —
+       mesmo mecanismo do card de observação, só que pensado para chamar atenção (pendência,
+       cuidado, algo a resolver), sem precisar de um tipo de nó totalmente novo. A pessoa pode
+       ainda escolher uma cor específica (n.cor) para qualquer balão, sobrepondo esse padrão. */
+    if(n.tipo==='nota'&&n.estilo==='alerta'){
+      info=NOTA_CORES[n.cor]||NOTA_CORES.ambar;
+    }else if(n.tipo==='nota'&&n.cor&&NOTA_CORES[n.cor]){
+      info=NOTA_CORES[n.cor];
+    }
+    var isEmpresa=n.tipo==='empresa';
+    var isNota=n.tipo==='nota';
+    var g=svgEl('g',{'class':'node'+(_selecao[n.id]?' is-selected':''),'data-id':n.id,transform:'translate('+n.x+','+n.y+')'});
+    /* Notas ganham cantos bem mais arredondados que os demais cards — lê como um "balão" de
+       observação/alerta em vez de um quadrinho de estrutura societária. */
+    var rect=svgEl('rect',{'class':'node-box',x:-d.w/2,y:-d.h/2,width:d.w,height:d.h,rx:isNota?(d.h/2):9,ry:isNota?(d.h/2):9,
+      style:'fill:'+info.fill+';stroke:'+info.stroke});
+    g.appendChild(rect);
+    /* Bloco de texto sempre centralizado no meio vertical do quadrinho (independente de quantas
+       linhas tiver) — a folga extra já embutida em calcDims() garante espaço de sobra para o
+       texto não encostar nem vazar pelas bordas de cima/baixo, mesmo com 3 linhas. */
+    var lineH=d.lineH,nudge=isEmpresa?4.5:4;
+    var startY=-((d.linhas.length-1)*lineH)/2+nudge;
+    d.linhas.forEach(function(linha,i){
+      var t=svgEl('text',{x:0,y:startY+i*lineH,'text-anchor':'middle',
+        style:'fill:'+info.texto+';font-size:'+d.fontSize+'px'+(isEmpresa?';font-weight:700':'')});
+      t.textContent=linha;
+      g.appendChild(t);
+    });
+    if(n.tipo==='empresa'){
+      /* selo branco no canto superior direito — regime tributário */
+      var abrev=REGIME_ABREV[n.regimeTributario||''];
+      if(abrev){
+        desenharSeloCanto(g,d,abrev,'Regime tributário: '+n.regimeTributario,'dir-cima');
+      }
+      /* selo branco no canto inferior direito — categoria da atividade, com a palavra inteira
+         (Comércio / Serviço / Indústria) em vez de abreviada. */
+      if(n.atividade){
+        desenharSeloCanto(g,d,n.atividade,'Atividade: '+n.atividade,'dir-baixo');
+      }
+      /* canto inferior esquerdo — soma das participações dos sócios ≠ 100% */
+      var sociosComPct=sociosDe(v,n.id).filter(function(s){return s.participacao||s.participacao===0;});
+      if(sociosComPct.length){
+        var somaPart=sociosComPct.reduce(function(a,s){return a+Number(s.participacao||0);},0);
+        if(Math.abs(somaPart-100)>0.5)desenharAlertaParticipacao(g,d,somaPart);
+      }
+      /* canto superior esquerdo — alerta de situação cadastral (só quando ≠ Ativa) */
+      var corSit=SITUACAO_COR[n.situacaoCadastral||''];
+      if(corSit){
+        var grave=(n.situacaoCadastral==='Baixada'||n.situacaoCadastral==='Inapta');
+        /* contorno ao redor de todo o quadrinho — deixa a situação fora do padrão visível mesmo
+           olhando o mapa de relance; nos casos graves (Baixada/Inapta) o traço fica mais grosso e
+           sólido, para que ninguém deixe de notar que há algo errado. */
+        g.appendChild(svgEl('rect',{x:-d.w/2-3,y:-d.h/2-3,width:d.w+6,height:d.h+6,rx:11,ry:11,
+          style:'fill:none;stroke:'+corSit+';stroke-width:'+(grave?2.4:1.6)+';stroke-dasharray:'+(grave?'none':'4,3')}));
+        var dotG=svgEl('g',{'class':'node-situacao-dot'});
+        var raio=grave?9:6.5;
+        dotG.appendChild(svgEl('circle',{cx:-d.w/2+3,cy:-d.h/2+3,r:raio,style:'fill:'+corSit+';stroke:#fff;stroke-width:2'}));
+        if(grave){
+          var excl=svgEl('text',{x:-d.w/2+3,y:-d.h/2+7,'text-anchor':'middle',
+            style:'font-family:var(--font-h);font-size:12.5px;font-weight:800;fill:#fff'});
+          excl.textContent='!';
+          dotG.appendChild(excl);
+        }
+        var dotTitle=svgEl('title',{});dotTitle.textContent='Situação cadastral: '+n.situacaoCadastral;
+        dotG.appendChild(dotTitle);
+        g.appendChild(dotG);
+      }
+    }
+    /* sócio pessoa jurídica (ex.: holding) ganha o mesmo selo de canto usado na empresa — indica de
+       relance que aquele "sócio" é, na verdade, outra empresa dona de participação, não uma pessoa. */
+    if(n.tipo==='socio'&&n.tipoSocio==='PJ'){
+      desenharSeloCanto(g,d,'PJ',(n.nome||'Sócio')+' é pessoa jurídica (ex.: holding)','dir-cima');
+    }
+    g.addEventListener('pointerdown',function(ev){onNodePointerDown(ev,n.id);});
+    gNodes.appendChild(g);
+  });
+}
+function renderTudo(){
+  renderAbasVersao();
+  renderMapa();
+  renderTabelas();
+}
+
+/* ══════════════════════════════ PAN / ZOOM ══════════════════════════════ */
+var vb={x:0,y:0,w:1400,h:640};
+function aplicarVb(){$('mapaSvg').setAttribute('viewBox',vb.x+' '+vb.y+' '+vb.w+' '+vb.h);}
+function svgPonto(clientX,clientY){
+  var svg=$('mapaSvg'),r=svg.getBoundingClientRect();
+  var px=(clientX-r.left)/r.width,py=(clientY-r.top)/r.height;
+  return{x:vb.x+px*vb.w,y:vb.y+py*vb.h,escalaX:vb.w/r.width,escalaY:vb.h/r.height};
+}
+function zoomMapa(fator){
+  var novaW=Math.max(300,Math.min(6000,vb.w/fator));
+  var novaH=vb.h*(novaW/vb.w);
+  vb.x+=(vb.w-novaW)/2;vb.y+=(vb.h-novaH)/2;
+  vb.w=novaW;vb.h=novaH;
+  aplicarVb();
+}
+function ajustarZoomParaCaber(){
+  var v=versaoAtual();
+  if(!v.nodes.length){vb={x:0,y:0,w:1400,h:640};aplicarVb();return;}
+  var minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+  var sociosOcultosIds=calcularSociosOcultosIds(v);
+  v.nodes.forEach(function(n){
+    if(n.tipo==='socio'&&sociosOcultosIds[n.id])return;
+    var d=calcDims(n);
+    minX=Math.min(minX,n.x-d.w/2);maxX=Math.max(maxX,n.x+d.w/2);
+    minY=Math.min(minY,n.y-d.h/2);maxY=Math.max(maxY,n.y+d.h/2);
+  });
+  var pad=60;
+  minX-=pad;minY-=pad;maxX+=pad;maxY+=pad;
+  var w=Math.max(200,maxX-minX),h=Math.max(150,maxY-minY);
+  var wrapEl=$('mapCanvasWrap'),ratioAlvo=wrapEl.clientWidth/wrapEl.clientHeight||2.1;
+  if(w/h<ratioAlvo){var novaW=h*ratioAlvo;minX-=(novaW-w)/2;w=novaW;}
+  else{var novaH=w/ratioAlvo;minY-=(novaH-h)/2;h=novaH;}
+  vb={x:minX,y:minY,w:w,h:h};
+  aplicarVb();
+}
+
+/* ══════════════════════════════ COMPARAR VERSÕES (lado a lado) ══════════════════════════════
+   Visão somente leitura, sem pan/zoom/edição — o objetivo é só olhar duas versões (ex.: "Estrutura
+   atual" x "Reorganização societária") uma do lado da outra para comparar visualmente o antes e o
+   depois, sem precisar alternar de aba toda hora. Reaproveita calcDims/TIPO_INFO/NOTA_CORES etc.,
+   os mesmos usados no mapa principal, só que desenhando em dois <svg> próprios e sem handlers de
+   interação (arrastar, clicar para editar, seleção). */
+function abrirComparacao(){
+  var opts=state.versoes.map(function(v){return '<option value="'+v.id+'">'+esc(v.nome)+'</option>';}).join('');
+  var selA=$('compA'),selB=$('compB');
+  selA.innerHTML=opts;selB.innerHTML=opts;
+  selA.value=state.versaoAtualId;
+  var outra=state.versoes.find(function(v){return v.id!==state.versaoAtualId;});
+  selB.value=outra?outra.id:state.versaoAtualId;
+  renderComparacao();
+  $('modalCompararBg').classList.add('active');
+}
+function fecharComparacao(){
+  $('modalCompararBg').classList.remove('active');
+}
+function renderComparacao(){
+  var vA=state.versoes.find(function(v){return v.id===$('compA').value;});
+  var vB=state.versoes.find(function(v){return v.id===$('compB').value;});
+  if(vA){$('compATitulo').textContent=vA.nome;renderVersaoEstatica(vA,'compEdgesA','compNodesA','compSvgA','A');}
+  if(vB){$('compBTitulo').textContent=vB.nome;renderVersaoEstatica(vB,'compEdgesB','compNodesB','compSvgB','B');}
+}
+function renderVersaoEstatica(v,edgesId,nodesId,svgId,sufixo){
+  var gE=$(edgesId),gN=$(nodesId);
+  gE.innerHTML='';gN.innerHTML='';
+  var dims={};
+  v.nodes.forEach(function(n){dims[n.id]=calcDims(n);});
+  var sociosOcultosIds=calcularSociosOcultosIds(v);
+  v.edges.forEach(function(e){
+    var a=nodeByIdV(v,e.origemId),b=nodeByIdV(v,e.destinoId);
+    if(!a||!b)return;
+    if(sociosOcultosIds[a.id]||sociosOcultosIds[b.id])return;
+    var da=dims[a.id],db=dims[b.id];
+    var pts=clipLine(a.x,a.y,da.w,da.h,b.x,b.y,db.w,db.h);
+    if(!pts)return;
+    var cor=e.corTipo==='auxiliar'?'#38b6d8':'#5b6577';
+    var marker='url(#compSeta'+(e.corTipo==='auxiliar'?'Aux':'')+sufixo+')';
+    var g=svgEl('g',{'class':'edge'});
+    var linha=svgEl('path',{'class':'edge-line',d:'M'+pts.x1+','+pts.y1+' L'+pts.x2+','+pts.y2,
+      style:'stroke:'+cor,'stroke-dasharray':e.estilo==='tracejada'?'7,5':null,'marker-end':marker});
+    g.appendChild(linha);
+    var candidato=e.tipoOperacao&&!e.decorativo?e.tipoOperacao:'';
+    var rotulo=e.rotulo||candidato;
+    if(rotulo){
+      var mx=(pts.x1+pts.x2)/2,my=(pts.y1+pts.y2)/2;
+      var lw=Math.max(30,rotulo.length*6.1+12);
+      var bg=svgEl('rect',{'class':'edge-lbl-bg',x:mx-lw/2,y:my-9,width:lw,height:18,rx:4});
+      var txt=svgEl('text',{'class':'edge-lbl-txt',x:mx,y:my+4,'text-anchor':'middle'});
+      txt.textContent=rotulo;
+      g.appendChild(bg);g.appendChild(txt);
+    }
+    gE.appendChild(g);
+  });
+  v.nodes.forEach(function(n){
+    if(n.tipo==='socio'&&sociosOcultosIds[n.id])return;
+    var d=dims[n.id];
+    var info=TIPO_INFO[n.tipo];
+    if(n.tipo==='nota'&&n.estilo==='alerta'){info=NOTA_CORES[n.cor]||NOTA_CORES.ambar;}
+    else if(n.tipo==='nota'&&n.cor&&NOTA_CORES[n.cor]){info=NOTA_CORES[n.cor];}
+    var isEmpresa=n.tipo==='empresa',isNota=n.tipo==='nota';
+    var g=svgEl('g',{'class':'node',transform:'translate('+n.x+','+n.y+')'});
+    var rect=svgEl('rect',{x:-d.w/2,y:-d.h/2,width:d.w,height:d.h,rx:isNota?(d.h/2):9,ry:isNota?(d.h/2):9,
+      style:'fill:'+info.fill+';stroke:'+info.stroke});
+    g.appendChild(rect);
+    var lineH=d.lineH,nudge=isEmpresa?4.5:4;
+    var startY=-((d.linhas.length-1)*lineH)/2+nudge;
+    d.linhas.forEach(function(linha,i){
+      var t=svgEl('text',{x:0,y:startY+i*lineH,'text-anchor':'middle',
+        style:'fill:'+info.texto+';font-size:'+d.fontSize+'px'+(isEmpresa?';font-weight:700':'')});
+      t.textContent=linha;
+      g.appendChild(t);
+    });
+    if(n.tipo==='socio'&&n.tipoSocio==='PJ'){
+      var b=svgEl('g',{});
+      var bw=22,bh=15,bx=d.w/2-bw*0.62,by=-d.h/2-bh*0.62;
+      b.appendChild(svgEl('rect',{x:bx,y:by,width:bw,height:bh,rx:7,ry:7,style:'fill:#fff;stroke:var(--navy);stroke-width:1.2'}));
+      var bt=svgEl('text',{x:bx+bw/2,y:by+bh/2+3,'text-anchor':'middle',style:'font-family:var(--font-h);font-size:8px;font-weight:700;fill:var(--navy)'});
+      bt.textContent='PJ';b.appendChild(bt);
+      g.appendChild(b);
+    }
+    gN.appendChild(g);
+  });
+  var minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+  v.nodes.forEach(function(n){
+    if(n.tipo==='socio'&&sociosOcultosIds[n.id])return;
+    var d=dims[n.id];
+    minX=Math.min(minX,n.x-d.w/2);maxX=Math.max(maxX,n.x+d.w/2);
+    minY=Math.min(minY,n.y-d.h/2);maxY=Math.max(maxY,n.y+d.h/2);
+  });
+  if(!isFinite(minX)){$(svgId).setAttribute('viewBox','0 0 1400 640');return;}
+  var pad=50;minX-=pad;minY-=pad;maxX+=pad;maxY+=pad;
+  $(svgId).setAttribute('viewBox',minX+' '+minY+' '+Math.max(200,maxX-minX)+' '+Math.max(150,maxY-minY));
+}
+var _pan=null;
+/* ══════════════════════════════ SELEÇÃO MÚLTIPLA (Ctrl + clicar em espaço vazio e arrastar) ══════════════════════════════
+   Segurar Ctrl, clicar num espaço vazio do mapa e arrastar desenha um retângulo de seleção (como em
+   Figma/Canva/Miro): tudo que ficar dentro/tocando o retângulo fica selecionado, e daí dá para arrastar
+   o grupo inteiro junto (clicando e arrastando qualquer um dos itens selecionados) ou excluir todos de
+   uma vez (Delete/Backspace ou o botão "Excluir selecionados"). Shift soma à seleção atual; Esc cancela.
+   Sem Ctrl, clicar e arrastar no vazio continua sendo o pan de sempre (mover a tela). */
+var _selecao={};
+var _rubberBand=null;
+var _rubberBandBase={};
+function limparSelecao(){_selecao={};atualizarBarraSelecao();}
+function tamanhoSelecao(){return Object.keys(_selecao).length;}
+function atualizarBarraSelecao(){
+  var n=tamanhoSelecao();
+  var barra=$('mapSelecaoBar');
+  if(!barra)return;
+  barra.classList.toggle('active',n>0);
+  var txt=$('mapSelecaoTxt');
+  if(txt)txt.textContent=n+(n===1?' item selecionado':' itens selecionados')+' — arraste um deles para mover o grupo, ou exclua/cancele abaixo.';
+}
+function retangulosSeIntersectam(ax1,ay1,ax2,ay2,bx1,by1,bx2,by2){
+  return ax1<bx2&&ax2>bx1&&ay1<by2&&ay2>by1;
+}
+function desenharRubberBand(){
+  var g=$('gRubberBand');
+  if(!g||!_rubberBand)return;
+  var rx1=Math.min(_rubberBand.x1,_rubberBand.x2),rx2=Math.max(_rubberBand.x1,_rubberBand.x2);
+  var ry1=Math.min(_rubberBand.y1,_rubberBand.y2),ry2=Math.max(_rubberBand.y1,_rubberBand.y2);
+  g.innerHTML='';
+  g.appendChild(svgEl('rect',{x:rx1,y:ry1,width:rx2-rx1,height:ry2-ry1,'class':'rubber-band-rect'}));
+}
+function limparRubberBandVisual(){var g=$('gRubberBand');if(g)g.innerHTML='';}
+function atualizarSelecaoPorRubberBand(){
+  var v=versaoAtual();
+  var rx1=Math.min(_rubberBand.x1,_rubberBand.x2),rx2=Math.max(_rubberBand.x1,_rubberBand.x2);
+  var ry1=Math.min(_rubberBand.y1,_rubberBand.y2),ry2=Math.max(_rubberBand.y1,_rubberBand.y2);
+  var nova={};
+  v.nodes.forEach(function(n){
+    var d=calcDims(n);
+    var nx1=n.x-d.w/2,nx2=n.x+d.w/2,ny1=n.y-d.h/2,ny2=n.y+d.h/2;
+    if(retangulosSeIntersectam(rx1,ry1,rx2,ry2,nx1,ny1,nx2,ny2))nova[n.id]=true;
+  });
+  for(var k in _rubberBandBase)nova[k]=true;
+  _selecao=nova;
+  renderMapa();
+  atualizarBarraSelecao();
+}
+function excluirSelecionados(){
+  var n=tamanhoSelecao();
+  if(!n)return;
+  if(!confirm('Excluir '+n+(n===1?' item selecionado':' itens selecionados')+'? Os sócios e ligações desses itens também são removidos. Esta ação pode ser desfeita com Ctrl+Z.'))return;
+  var v=versaoAtual();
+  var ids=Object.keys(_selecao);
+  /* junto com cada nó selecionado, remove também os sócios ligados a ele (se for uma empresa) */
+  var idsRemover={};
+  ids.forEach(function(id){idsRemover[id]=true;});
+  v.nodes.forEach(function(n2){
+    if(n2.tipo==='socio'){
+      var donoId=ligadoA(v,n2.id);
+      if(donoId&&idsRemover[donoId])idsRemover[n2.id]=true;
+    }
+  });
+  v.nodes=v.nodes.filter(function(n2){return!idsRemover[n2.id];});
+  v.edges=v.edges.filter(function(e){return!idsRemover[e.origemId]&&!idsRemover[e.destinoId];});
+  limparSelecao();
+  onMudouEstado();
+}
+function onSvgPointerDown(ev){
+  if(ev.target.id!=='mapaSvg')return;
+  if(_linking)return;
+  /* Arrastar no vazio do mapa move a TELA (pan) — como sempre foi. Segurar Ctrl e arrastar é que
+     desenha o retângulo de seleção múltipla (Shift soma à seleção que já existia). */
+  if(ev.ctrlKey||ev.metaKey){
+    var p=svgPonto(ev.clientX,ev.clientY);
+    _rubberBandBase=ev.shiftKey?Object.assign({},_selecao):{};
+    if(!ev.shiftKey&&tamanhoSelecao()){limparSelecao();renderMapa();}
+    _rubberBand={x1:p.x,y1:p.y,x2:p.x,y2:p.y};
+    $('mapaSvg').setPointerCapture(ev.pointerId);
+    return;
+  }
+  if(tamanhoSelecao()){limparSelecao();renderMapa();}
+  _pan={startClientX:ev.clientX,startClientY:ev.clientY,startVb:{x:vb.x,y:vb.y,w:vb.w,h:vb.h}};
+  $('mapaSvg').classList.add('is-panning');
+  $('mapaSvg').setPointerCapture(ev.pointerId);
+}
+function onWheel(ev){
+  ev.preventDefault();
+  var fator=ev.deltaY<0?1.12:1/1.12;
+  var antes=svgPonto(ev.clientX,ev.clientY);
+  zoomMapa(fator);
+  var depois=svgPonto(ev.clientX,ev.clientY);
+  vb.x+=(antes.x-depois.x);vb.y+=(antes.y-depois.y);
+  aplicarVb();
+}
+
+/* ══════════════════════════════ ARRASTAR NÓS / CLIQUE ══════════════════════════════ */
+var _drag=null;
+var _linking=false,_ligOrigem=null;
+
+function onNodePointerDown(ev,id){
+  ev.stopPropagation();
+  if(_linking){
+    selecionarNoParaLigacao(id);
+    return;
+  }
+  var v=versaoAtual(),n=nodeByIdV(v,id);
+  /* Shift+clique (sem arrastar) soma/tira este nó da seleção múltipla, sem abrir o modal. */
+  if(ev.shiftKey&&!_rubberBand){
+    if(_selecao[id])delete _selecao[id];else _selecao[id]=true;
+    renderMapa();atualizarBarraSelecao();
+    return;
+  }
+  /* Se este nó já faz parte de uma seleção múltipla ativa, arrastar qualquer um deles move o
+     grupo inteiro junto (posições iniciais de cada um guardadas para calcular o deslocamento).
+     Uma empresa dentro do grupo leva seus sócios junto mesmo que eles não estejam selecionados —
+     afinal, sócio e empresa são "a mesma coisa" na estrutura, então sempre andam juntos. */
+  if(_selecao[id]&&tamanhoSelecao()>1){
+    var grupo={};
+    Object.keys(_selecao).forEach(function(sid){
+      var sn=nodeByIdV(v,sid);
+      if(sn)grupo[sid]={x:sn.x,y:sn.y};
+      if(sn&&sn.tipo==='empresa'){
+        sociosDe(v,sid).forEach(function(s){if(!grupo[s.id])grupo[s.id]={x:s.x,y:s.y};});
+      }
+    });
+    _drag={isGrupo:true,grupo:grupo,anchorId:id,startClientX:ev.clientX,startClientY:ev.clientY,moved:false};
+    window.setPointerCapture&&ev.target.setPointerCapture&&ev.target.setPointerCapture(ev.pointerId);
+    return;
+  }
+  if(tamanhoSelecao()){limparSelecao();renderMapa();}
+  /* Arrastar uma empresa sozinha também leva seus sócios junto, pelo mesmo deslocamento final
+     (depois do snap de alinhamento) — guardamos a posição inicial de cada sócio ligado a ela. */
+  var sociosLigados=null;
+  if(n.tipo==='empresa'){
+    sociosLigados={};
+    sociosDe(v,id).forEach(function(s){sociosLigados[s.id]={x:s.x,y:s.y};});
+  }
+  _drag={id:id,startClientX:ev.clientX,startClientY:ev.clientY,startX:n.x,startY:n.y,moved:false,sociosLigados:sociosLigados};
+  window.setPointerCapture&&ev.target.setPointerCapture&&ev.target.setPointerCapture(ev.pointerId);
+}
+/* ── Guias de alinhamento (estilo Canva) ── enquanto arrasta um nó, compara sua borda/centro com
+   os demais nós visíveis; se ficar perto o bastante, "gruda" (snap) e desenha uma linha-guia
+   tracejada rosa atravessando a tela, exatamente como o alinhamento automático de ferramentas de
+   design. Ajuda a montar organogramas com tudo alinhado geometricamente sem precisar de régua. */
+var ALIGN_TOL_PX=7;
+function calcularSnapAlinhamento(v,n,d){
+  var svg=$('mapaSvg'),r=svg.getBoundingClientRect();
+  var tolX=ALIGN_TOL_PX*(vb.w/r.width),tolY=ALIGN_TOL_PX*(vb.h/r.height);
+  var candX=[],candY=[];
+  v.nodes.forEach(function(o){
+    if(o.id===n.id)return;
+    var od=calcDims(o);
+    candX.push(o.x-od.w/2,o.x,o.x+od.w/2);
+    candY.push(o.y-od.h/2,o.y,o.y+od.h/2);
+  });
+  var meusX=[{v:n.x-d.w/2,off:-d.w/2},{v:n.x,off:0},{v:n.x+d.w/2,off:d.w/2}];
+  var meusY=[{v:n.y-d.h/2,off:-d.h/2},{v:n.y,off:0},{v:n.y+d.h/2,off:d.h/2}];
+  var melhorX=null,melhorY=null;
+  meusX.forEach(function(m){
+    candX.forEach(function(c){
+      var dist=Math.abs(m.v-c);
+      if(dist<=tolX&&(!melhorX||dist<melhorX.dist))melhorX={dist:dist,pos:c,off:m.off};
+    });
+  });
+  meusY.forEach(function(m){
+    candY.forEach(function(c){
+      var dist=Math.abs(m.v-c);
+      if(dist<=tolY&&(!melhorY||dist<melhorY.dist))melhorY={dist:dist,pos:c,off:m.off};
+    });
+  });
+  var x=n.x,y=n.y,linhas=[];
+  if(melhorX){x=melhorX.pos-melhorX.off;linhas.push({tipo:'v',pos:melhorX.pos});}
+  if(melhorY){y=melhorY.pos-melhorY.off;linhas.push({tipo:'h',pos:melhorY.pos});}
+  return{x:x,y:y,linhas:linhas};
+}
+function desenharGuiasAlinhamento(linhas){
+  var g=$('gGuides');
+  if(!g)return;
+  g.innerHTML='';
+  linhas.forEach(function(l){
+    if(l.tipo==='v')g.appendChild(svgEl('line',{class:'align-guide',x1:l.pos,y1:vb.y-60,x2:l.pos,y2:vb.y+vb.h+60}));
+    else g.appendChild(svgEl('line',{class:'align-guide',x1:vb.x-60,y1:l.pos,x2:vb.x+vb.w+60,y2:l.pos}));
+  });
+}
+function limparGuiasAlinhamento(){
+  var g=$('gGuides');
+  if(g)g.innerHTML='';
+}
+
+window.addEventListener('pointermove',function(ev){
+  if(_drag){
+    var svg=$('mapaSvg'),r=svg.getBoundingClientRect();
+    var escX=vb.w/r.width,escY=vb.h/r.height;
+    var dx=(ev.clientX-_drag.startClientX)*escX,dy=(ev.clientY-_drag.startClientY)*escY;
+    if(!_drag.moved&&Math.hypot(ev.clientX-_drag.startClientX,ev.clientY-_drag.startClientY)>4)_drag.moved=true;
+    if(_drag.moved){
+      var v=versaoAtual();
+      if(_drag.isGrupo){
+        /* Grupo inteiro anda junto pelo mesmo deslocamento — sem guias de alinhamento (ficaria
+           confuso comparar vários nós ao mesmo tempo), cada um mantém a distância dos demais. */
+        Object.keys(_drag.grupo).forEach(function(sid){
+          var sn=nodeByIdV(v,sid);
+          if(sn){sn.x=_drag.grupo[sid].x+dx;sn.y=_drag.grupo[sid].y+dy;}
+        });
+        renderMapa();
+      }else{
+        var n=nodeByIdV(v,_drag.id);
+        n.x=_drag.startX+dx;n.y=_drag.startY+dy;
+        var d=calcDims(n);
+        var snap2=calcularSnapAlinhamento(v,n,d);
+        n.x=snap2.x;n.y=snap2.y;
+        /* sócios ligados à empresa arrastada seguem pelo deslocamento final (já com snap aplicado) */
+        if(_drag.sociosLigados){
+          var dxFinal=n.x-_drag.startX,dyFinal=n.y-_drag.startY;
+          Object.keys(_drag.sociosLigados).forEach(function(sid){
+            var sn=nodeByIdV(v,sid);
+            if(sn){sn.x=_drag.sociosLigados[sid].x+dxFinal;sn.y=_drag.sociosLigados[sid].y+dyFinal;}
+          });
+        }
+        renderMapa();
+        desenharGuiasAlinhamento(snap2.linhas);
+      }
+    }
+  }else if(_rubberBand){
+    var p=svgPonto(ev.clientX,ev.clientY);
+    _rubberBand.x2=p.x;_rubberBand.y2=p.y;
+    desenharRubberBand();
+    atualizarSelecaoPorRubberBand();
+  }else if(_pan){
+    var svg2=$('mapaSvg'),r2=svg2.getBoundingClientRect();
+    var escX2=_pan.startVb.w/r2.width,escY2=_pan.startVb.h/r2.height;
+    vb.x=_pan.startVb.x-(ev.clientX-_pan.startClientX)*escX2;
+    vb.y=_pan.startVb.y-(ev.clientY-_pan.startClientY)*escY2;
+    aplicarVb();
+  }
+});
+window.addEventListener('pointerup',function(ev){
+  if(_drag){
+    if(!_drag.moved)abrirModalNode(_drag.isGrupo?_drag.anchorId:_drag.id);
+    else onMudouEstado(); /* arrastar também entra no histórico — Ctrl+Z desfaz reposicionamentos */
+    _drag=null;
+    limparGuiasAlinhamento();
+  }
+  if(_rubberBand){
+    limparRubberBandVisual();
+    _rubberBand=null;
+    _rubberBandBase={};
+  }
+  if(_pan){
+    $('mapaSvg').classList.remove('is-panning');
+    _pan=null;
+  }
+});
+/* Ctrl+C / Ctrl+V — copiar e colar os itens selecionados (seleção múltipla com Ctrl+arraste).
+   Clipboard só em memória (não é a área de transferência do sistema operacional) — funciona
+   dentro da própria ferramenta, de uma versão para outra inclusive. Só age quando o foco não está
+   num campo de formulário e nenhum modal está aberto, para não atrapalhar o Ctrl+C/V normal de
+   copiar texto. */
+var _clipboardNodes=null;
+function copiarSelecionados(){
+  var v=versaoAtual();
+  var idsSet=_selecao;
+  var ids=Object.keys(idsSet);
+  if(!ids.length)return;
+  var nodes=v.nodes.filter(function(n){return idsSet[n.id];}).map(function(n){return JSON.parse(JSON.stringify(n));});
+  var edges=v.edges.filter(function(e){return idsSet[e.origemId]&&idsSet[e.destinoId];}).map(function(e){return JSON.parse(JSON.stringify(e));});
+  _clipboardNodes={nodes:nodes,edges:edges};
+}
+function colarClipboard(){
+  if(!_clipboardNodes||!_clipboardNodes.nodes.length)return;
+  var v=versaoAtual();
+  var mapaIds={},novosIds={},offset=48;
+  _clipboardNodes.nodes.forEach(function(n){
+    var novo=JSON.parse(JSON.stringify(n));
+    var novoId=uid(novo.tipo);
+    mapaIds[n.id]=novoId;
+    novo.id=novoId;
+    novo.x=(novo.x||0)+offset;novo.y=(novo.y||0)+offset;
+    v.nodes.push(novo);
+    novosIds[novoId]=true;
+  });
+  _clipboardNodes.edges.forEach(function(e){
+    var novo=JSON.parse(JSON.stringify(e));
+    novo.id=uid('l');
+    novo.origemId=mapaIds[e.origemId]||e.origemId;
+    novo.destinoId=mapaIds[e.destinoId]||e.destinoId;
+    v.edges.push(novo);
+  });
+  _selecao=novosIds;
+  onMudouEstado();
+  atualizarBarraSelecao();
+}
+window.addEventListener('keydown',function(ev){
+  var emCampo=/INPUT|TEXTAREA|SELECT/.test((document.activeElement||{}).tagName||'');
+  var modalAberto=!!document.querySelector('.modalbg.active');
+  if(!emCampo&&(ev.key==='Delete'||ev.key==='Backspace')&&tamanhoSelecao()){
+    ev.preventDefault();
+    excluirSelecionados();
+  }
+  if(!emCampo&&ev.key==='Escape'&&tamanhoSelecao()){
+    limparSelecao();renderMapa();
+  }
+  if(!emCampo&&!modalAberto&&(ev.ctrlKey||ev.metaKey)&&(ev.key==='c'||ev.key==='C')&&tamanhoSelecao()){
+    ev.preventDefault();
+    copiarSelecionados();
+  }
+  if(!emCampo&&!modalAberto&&(ev.ctrlKey||ev.metaKey)&&(ev.key==='v'||ev.key==='V')&&_clipboardNodes&&_clipboardNodes.nodes.length){
+    ev.preventDefault();
+    colarClipboard();
+  }
+});
+
+/* ══════════════════════════════ MODO LIGAÇÃO (2 cliques) ══════════════════════════════ */
+function iniciarModoLigacao(){
+  _linking=true;_ligOrigem=null;
+  $('mapLinkbar').classList.add('active');
+  $('mapLinkbarTxt').textContent='Clique no nó de ORIGEM da ligação…';
+  $('mapaSvg').classList.add('is-linking');
+}
+function cancelarModoLigacao(){
+  _linking=false;_ligOrigem=null;
+  $('mapLinkbar').classList.remove('active');
+  $('mapaSvg').classList.remove('is-linking');
+  renderMapa();
+}
+function selecionarNoParaLigacao(id){
+  if(!_ligOrigem){
+    _ligOrigem=id;
+    $('mapLinkbarTxt').textContent='Origem selecionada. Agora clique no nó de DESTINO…';
+    renderMapa();
+    var g=document.querySelector('.node[data-id="'+id+'"]');
+    if(g)g.classList.add('is-hit');
+  }else if(id!==_ligOrigem){
+    var v=versaoAtual();
+    var e=novoEdgeBase(_ligOrigem,id);
+    v.edges.push(e);
+    cancelarModoLigacao();
+    onMudouEstado();
+    abrirModalEdge(e.id,true);
+  }
+}
+
+/* ══════════════════════════════ PALETAS DE CORES ══════════════════════════════
+   Três paletas pré-definidas seguindo a mesma fórmula (empresa = âncora forte; sócio/operação/
+   fornecedor = "etiquetas" pastel na mesma família de cor). Trocar é imediato: atualiza tanto o
+   TIPO_INFO usado no desenho SVG quanto as variáveis CSS usadas na legenda/tags dos modais. A
+   escolha é uma preferência do navegador (não faz parte do mapa salvo), guardada à parte. */
+var PALETAS={
+  marinho:{nome:'Azul-marinho & dourado (atual)',
+    empresa:{fill:'#1F3864',stroke:'#B8860B',texto:'#fff'},
+    socio:{fill:'#DCE4F0',stroke:'#1F3864',texto:'#1F3864'},
+    operacao:{fill:'#F0E6C8',stroke:'#8A6407',texto:'#5C4004'},
+    fornecedor:{fill:'#D8ECEA',stroke:'#2B6E77',texto:'#1B444B'},
+    edge:'#5b6577',edgeAux:'#38b6d8'},
+  verde:{nome:'Verde institucional',
+    empresa:{fill:'#1F4A3C',stroke:'#B8860B',texto:'#fff'},
+    socio:{fill:'#DCEDE2',stroke:'#1F4A3C',texto:'#1F4A3C'},
+    operacao:{fill:'#F0E6C8',stroke:'#8A6407',texto:'#5C4004'},
+    fornecedor:{fill:'#E3E6D4',stroke:'#5C6B2E',texto:'#3A4420'},
+    edge:'#5b6f66',edgeAux:'#3fae86'},
+  vermelho:{nome:'Vinho institucional',
+    empresa:{fill:'#5C1A1F',stroke:'#B8860B',texto:'#fff'},
+    socio:{fill:'#F0DEDF',stroke:'#5C1A1F',texto:'#5C1A1F'},
+    operacao:{fill:'#F0E6C8',stroke:'#8A6407',texto:'#5C4004'},
+    fornecedor:{fill:'#EADCD2',stroke:'#8A4B2B',texto:'#5C3018'},
+    edge:'#6a5757',edgeAux:'#d8618c'}
+};
+var PALETA_KEY='ac_mapa_societario_paleta_v1';
+var _paletaAtual='marinho';
+function aplicarPaleta(nomePaleta,semSalvar){
+  var p=PALETAS[nomePaleta];
+  if(!p)return;
+  _paletaAtual=nomePaleta;
+  ['empresa','socio','operacao','fornecedor'].forEach(function(tipo){
+    TIPO_INFO[tipo].fill=p[tipo].fill;TIPO_INFO[tipo].stroke=p[tipo].stroke;TIPO_INFO[tipo].texto=p[tipo].texto;
+  });
+  var raiz=document.documentElement.style;
+  raiz.setProperty('--map-empresa',p.empresa.fill);raiz.setProperty('--map-empresa-d',p.empresa.stroke);
+  raiz.setProperty('--map-socio',p.socio.fill);raiz.setProperty('--map-socio-d',p.socio.stroke);
+  raiz.setProperty('--map-operacao',p.operacao.fill);raiz.setProperty('--map-operacao-d',p.operacao.stroke);
+  raiz.setProperty('--map-fornecedor',p.fornecedor.fill);raiz.setProperty('--map-fornecedor-d',p.fornecedor.stroke);
+  raiz.setProperty('--map-edge',p.edge);raiz.setProperty('--map-edge-cyan',p.edgeAux);
+  if(!semSalvar){try{localStorage.setItem(PALETA_KEY,nomePaleta);}catch(e){/* melhor-esforço */}}
+  renderSeletorPaleta();
+  if(state)renderMapa();
+}
+function carregarPaletaSalva(){
+  var salvo=null;
+  try{salvo=localStorage.getItem(PALETA_KEY);}catch(e){/* melhor-esforço */}
+  aplicarPaleta((salvo&&PALETAS[salvo])?salvo:'marinho',true);
+}
+function renderSeletorPaleta(){
+  var wrap=$('paletaSeletor');
+  if(!wrap)return;
+  wrap.innerHTML=Object.keys(PALETAS).map(function(k){
+    var p=PALETAS[k];
+    return '<button type="button" class="paleta-sw'+(k===_paletaAtual?' active':'')+'" title="'+esc(p.nome)+'" onclick="aplicarPaleta(\''+k+'\')">'+
+      '<span style="background:'+p.empresa.fill+'"></span><span style="background:'+p.socio.fill+'"></span><span style="background:'+p.fornecedor.fill+'"></span></button>';
+  }).join('');
+}
+
+/* ══════════════════════════════ CAMPOS DE FORMULÁRIO (helpers de HTML) ══════════════════════════════ */
+function campoTexto(id,label,valor,dica){
+  return '<div class="fg"><label class="lbl">'+label+(dica?' <span class="lg">i<span class="lg-tip">'+dica+'</span></span>':'')+
+    '</label><input class="fi" type="text" id="'+id+'" value="'+esc(valor||'')+'"></div>';
+}
+function campoTextoMono(id,label,valor){
+  return '<div class="fg"><label class="lbl">'+label+'</label><input class="fi mono" type="text" id="'+id+'" value="'+esc(valor||'')+'"></div>';
+}
+function campoData(id,label,valor){
+  return '<div class="fg"><label class="lbl">'+label+'</label><input class="fi" type="date" id="'+id+'" value="'+esc(valor||'')+'"></div>';
+}
+function campoNum(id,label,valor,prefixo){
+  var inner='<input class="fi-num" type="number" step="0.01" id="'+id+'" value="'+(valor===null||valor===undefined?'':valor)+'">';
+  return '<div class="fg"><label class="lbl">'+label+'</label>'+(prefixo?'<div class="inp-pfx"><span>'+prefixo+'</span>'+inner+'</div>':inner)+'</div>';
+}
+/* Campo de dinheiro com máscara ao vivo (R$ 50.000,00) — digita-se os números e o campo formata
+   sozinho como um valor em reais, do jeito que qualquer campo de "valor" costuma aparecer em
+   sistema financeiro/jurídico brasileiro. lerMoeda() (main2.js) e moedaMascaraParaNumero() (main.js)
+   convertem de volta para número na hora de salvar. */
+function campoMoeda(id,label,valor){
+  var inner='<input class="fi-num" type="text" inputmode="decimal" id="'+id+'" value="'+esc(numeroParaMascaraMoeda(valor))+'" placeholder="0,00" oninput="this.value=formatarMoedaMascara(this.value)">';
+  return '<div class="fg"><label class="lbl">'+label+'</label><div class="inp-pfx"><span>R$</span>'+inner+'</div></div>';
+}
+function lerMoeda(id){
+  var el=$(id);
+  if(!el)return null;
+  return moedaMascaraParaNumero(el.value);
+}
+function campoSelect(id,label,valor,opcoes){
+  var opts=opcoes.map(function(o){
+    var v=typeof o==='string'?o:o.v,t=typeof o==='string'?(o||'—'):o.t;
+    return '<option value="'+esc(v)+'"'+(v===valor?' selected':'')+'>'+esc(t)+'</option>';
+  }).join('');
+  return '<div class="fg"><label class="lbl">'+label+'</label><select class="fi" id="'+id+'">'+opts+'</select></div>';
+}
+function campoTextarea(id,label,valor){
+  return '<div class="fg"><label class="lbl">'+label+'</label><textarea class="fi" id="'+id+'" data-autogrow rows="3" style="resize:vertical;overflow:auto;font-family:var(--font-d)" oninput="autoGrow(this)">'+esc(valor||'')+'</textarea></div>';
+}
+function campoCheck(id,label,marcado){
+  return '<label class="chk-row" style="margin-bottom:14px"><input type="checkbox" id="'+id+'"'+(marcado?' checked':'')+'><span>'+label+'</span></label>';
+}
+function campoBloqueado(label,texto){
+  return '<div class="fg"><label class="lbl">'+label+'</label><div class="fi-blocked-sm">'+esc(texto||'—')+'</div></div>';
+}
+/* CNPJ da empresa + botão de busca automática (item 1 — preenche sócios/atividade/capital social
+   a partir da Receita Federal, via BrasilAPI, um serviço público e gratuito). */
+function campoCnpjComBusca(id,label,valor){
+  /* Layout em duas linhas (campo cheio + botão logo abaixo) para o CNPJ mascarado (00.000.000/0000-00,
+     18 caracteres) nunca ficar espremido ao lado do botão — era isso que escondia os 2 últimos
+     dígitos quando os dois ficavam lado a lado num campo estreito. O botão fica bem colado no campo
+     (gap pequeno, 6px) e a margem grande (24px) vai DEPOIS do botão, separando claramente este bloco
+     do próximo grupo de campos (capital social/faturamento/atividade) — antes os dois pareciam colados. */
+  return '<div class="fg" style="gap:6px;margin-bottom:24px"><label class="lbl">'+label+' <span class="lg">i<span class="lg-tip">Digite o CNPJ e clique em "Buscar dados" para preencher automaticamente razão social, capital social, atividade, UF e o quadro de sócios a partir da Receita Federal.</span></span></label>'+
+    '<input class="fi mono" type="text" id="'+id+'" value="'+esc(formatarCNPJ(valor))+'" placeholder="00.000.000/0000-00" maxlength="18" oninput="this.value=formatarCNPJ(this.value)">'+
+    '<button type="button" class="btn-o" id="btnBuscarCnpj" onclick="buscarCNPJ()">🔎 Buscar dados na Receita Federal</button></div>';
+}
+
+/* ══════════════════════════════ MODAL — CONTROLE GERAL ══════════════════════════════ */
+var _modalCtx=null; /* {kind:'node'|'edge', tipo, id, isNovo, vinculoId} */
+
+function fecharModal(){
+  $('modalBg').classList.remove('active');
+  _modalCtx=null;
+}
+function tituloTipo(tipo){return(TIPO_INFO[tipo]||{}).rotulo||tipo;}
+
+function abrirModalGenerico(titulo,tagHtml,corpoHtml,ctx,btnExcluirTexto){
+  $('modalTitulo').innerHTML=esc(titulo);
+  $('modalBody').innerHTML=tagHtml+corpoHtml;
+  $('modalBtnExcluir').textContent=btnExcluirTexto||'Excluir';
+  var somenteLeitura=!!(ctx&&ctx.leitura);
+  $('modalBtnExcluir').style.display=somenteLeitura?'none':'';
+  $('modalBtnSalvar').style.display=somenteLeitura?'none':'';
+  _modalCtx=ctx;
+  $('modalBg').classList.add('active');
+  initAutoGrowTextareas($('modalBody'));
+}
+
+/* ── abrir nó existente ── */
+function abrirModalNode(id){
+  var v=versaoAtual(),n=nodeByIdV(v,id);
+  if(!n)return;
+  var tag='<span class="tipo-tag t-'+n.tipo+'">'+tituloTipo(n.tipo)+'</span>';
+  if(n.tipo==='empresa')tag+='<button type="button" class="btn-o" style="float:right;margin-top:-4px" onclick="abrirVisaoCompleta(\''+n.id+'\')">🔍 Visão completa</button>';
+  tag+='<div style="height:14px;clear:both"></div>';
+  if(_apresentando){
+    abrirModalGenerico(n.nome||tituloTipo(n.tipo),tag,formularioLeituraPorTipo(n.tipo,n,v),
+      {kind:'node',tipo:n.tipo,id:n.id,isNovo:false,leitura:true});
+    return;
+  }
+  abrirModalGenerico(n.nome||tituloTipo(n.tipo),tag,formularioPorTipo(n.tipo,n,v,false),
+    {kind:'node',tipo:n.tipo,id:n.id,isNovo:false},'Excluir');
+  renderSociosInline();
+  if(n.tipo==='empresa')renderObsInline();
+}
+
+/* ── criar nó novo (a partir da toolbar) ── */
+var _novoNoTmp=null;
+function abrirNovoNo(tipo){
+  if(_apresentando)return;
+  var vb2=vb;
+  var x=vb2.x+vb2.w/2+(Math.random()*80-40),y=vb2.y+vb2.h/2+(Math.random()*80-40);
+  _novoNoTmp=novoNodeBase(tipo,x,y);
+  var v=versaoAtual();
+  var tag='<span class="tipo-tag t-'+tipo+'">Novo · '+tituloTipo(tipo)+'</span><div style="height:14px"></div>';
+  abrirModalGenerico('Nova '+tituloTipo(tipo).toLowerCase(),tag,formularioPorTipo(tipo,_novoNoTmp,v,true),
+    {kind:'node',tipo:tipo,id:null,isNovo:true},'Descartar');
+  renderSociosInline();
+  if(tipo==='empresa')renderObsInline();
+}
+
+/* ── ligação (edge) — nova ou existente ── */
+function abrirModalEdge(id,recemCriada){
+  var v=versaoAtual(),e=v.edges.find(function(x){return x.id===id;});
+  if(!e)return;
+  var a=nodeByIdV(v,e.origemId),b=nodeByIdV(v,e.destinoId);
+  var tag='<span class="tipo-tag t-ligacao">Ligação / operação</span><div style="height:14px"></div>';
+  if(_apresentando){
+    abrirModalGenerico((a?a.nome:'?')+'  →  '+(b?b.nome:'?'),tag,formularioLeituraLigacao(e,a,b),
+      {kind:'edge',id:e.id,isNovo:false,leitura:true});
+    return;
+  }
+  abrirModalGenerico((a?a.nome:'?')+'  →  '+(b?b.nome:'?'),tag,formularioLigacao(e,a,b),
+    {kind:'edge',id:e.id,isNovo:!!recemCriada},'Excluir ligação');
+}
+
+/* ══════════════════════════════ FORMULÁRIOS POR TIPO ══════════════════════════════ */
+function empresasDaVersao(v){return v.nodes.filter(function(n){return n.tipo==='empresa';});}
+function selecaoNos(nodes,valorAtual,vazioTxt){
+  var opts=[{v:'',t:vazioTxt||'— nenhum —'}].concat(nodes.map(function(n){return{v:n.id,t:n.nome||'(sem nome)'};}));
+  return opts;
+}
+
+function formularioPorTipo(tipo,n,v,isNovo){
+  var html='';
+  if(tipo==='empresa'){
+    html+='<div class="g2">'+campoTexto('f_nome','Razão social / nome completo',n.nome)+campoCnpjComBusca('f_cnpj','CNPJ',n.cnpj)+'</div>';
+    html+=campoTexto('f_apelido','Apelido (nome curto que aparece no mapa)',n.apelido||autoApelido(n.nome,'empresa'),'Sugestão automática: a 1ª palavra da razão social. Edite à vontade — o nome completo acima não muda, só o que aparece no desenho do mapa.');
+    html+='<div class="g3">'+campoMoeda('f_capitalSocial','Capital social',n.capitalSocial)+campoMoeda('f_faturamento','Faturamento (mensal)',n.faturamento)+campoSelect('f_atividade','Atividade principal',n.atividade,CATEGORIA_ATIVIDADE)+'</div>';
+    html+='<div class="g3">'+campoSelect('f_regime','Regime tributário',n.regimeTributario,REGIMES)+campoSelect('f_situacao','Situação cadastral',n.situacaoCadastral,SITUACOES)+campoTexto('f_uf','UF',n.uf)+'</div>';
+    html+=campoCheck('f_ocultarSocios','Ocultar sócios no mapa (mantém os dados; só não desenha o cartão no desenho)',n.ocultarSocios);
+    iniciarSociosInline(v,isNovo?null:n.id);
+    html+='<div class="fg" style="margin-top:6px"><label class="lbl">Sócios desta empresa <span class="lg">i<span class="lg-tip">Gerencie aqui os sócios ligados a esta empresa — cada um vira seu próprio card no mapa, ligado por uma linha até esta empresa, e anda junto quando você arrasta a empresa.</span></span></label><div id="sociosInlineWrap"></div></div>';
+    iniciarObsInline(n);
+    html+='<div class="fg" style="margin-top:6px"><label class="lbl">Observações <span class="lg">i<span class="lg-tip">Cada observação fica separada — clique em "+" para adicionar uma nova sem apagar as anteriores.</span></span></label><div id="obsInlineWrap"></div></div>';
+  }else if(tipo==='socio'){
+    var empresaAtualId=isNovo?'':ligadoA(v,n.id);
+    html+='<div class="g2">'+campoTexto('f_nome','Nome completo',n.nome)+campoTextoMono('f_cpf','CPF (ou CNPJ, se for sócio PJ)',n.cpf)+'</div>';
+    html+='<div class="g2">'+campoSelect('f_tipoSocio','Tipo de sócio',n.tipoSocio||'PF',[{v:'PF',t:'Pessoa física'},{v:'PJ',t:'Pessoa jurídica (ex.: holding)'}])+
+      campoTexto('f_apelido','Apelido (nome curto no mapa)',n.apelido||autoApelido(n.nome,'socio',n.tipoSocio),'Sugestão automática: nome e sobrenome (pessoa física) ou 1ª palavra (pessoa jurídica). Edite à vontade.')+'</div>';
+    html+=campoSelect('f_vinculo','Empresa (sócio de)',empresaAtualId,selecaoNos(empresasDaVersao(v),empresaAtualId,'— selecione a empresa —'));
+    html+='<div class="g2"><div class="fg"><label class="lbl">Participação societária</label><div class="inp-sfx"><input class="fi-num" type="number" step="0.01" id="f_participacao" value="'+(n.participacao===null||n.participacao===undefined?'':n.participacao)+'"><span>%</span></div></div>'+campoMoeda('f_distribuicaoLucros','Distribuição de lucros',n.distribuicaoLucros)+'</div>';
+    html+=campoCheck('f_administrador','É administrador(a) da empresa',n.administrador);
+    html+=campoTextarea('f_observacoes','Observações',n.observacoes);
+  }else if(tipo==='operacao'){
+    var vinculoAtualOp=isNovo?'':ligadoA(v,n.id);
+    html+=campoTexto('f_nome','Rótulo curto (ex.: "Indústria (LR)")',n.nome,'Aparece no próprio quadrinho laranja do mapa.');
+    html+=campoSelect('f_vinculo','Vinculado à empresa',vinculoAtualOp,selecaoNos(empresasDaVersao(v),vinculoAtualOp,'— selecione a empresa —'));
+    html+=campoTexto('f_subtipo','Detalhe (atividade / regime por extenso)',n.subtipo);
+    html+=campoTextarea('f_observacoes','Observações',n.observacoes);
+  }else if(tipo==='fornecedor'){
+    html+=campoTexto('f_nome','Nome do fornecedor',n.nome);
+    html+=campoTextarea('f_observacoes','Observações (o que fornece, condições etc.)',n.observacoes);
+  }else if(tipo==='nota'){
+    var vinculoAtualNota=isNovo?'':ligadoA(v,n.id);
+    html+=campoTexto('f_nome','Texto da nota',n.nome,'Ex.: "Baixada", "Sem movimento", "Venda com NF".');
+    html+=campoSelect('f_estiloNota','Estilo do card',n.estilo||'observacao',[
+      {v:'observacao',t:'Observação (balão neutro, branco)'},{v:'alerta',t:'Alerta (destaque âmbar, chama atenção)'}]);
+    html+='<div class="g2">'+
+      campoSelect('f_corNota','Cor do balão',n.cor||'',[{v:'',t:'Automática (conforme o estilo acima)'}].concat(Object.keys(NOTA_CORES).map(function(k){return{v:k,t:NOTA_CORES[k].rotulo};})))+
+      campoSelect('f_tamanhoNota','Tamanho do balão',n.tamanho||'M',Object.keys(NOTA_TAMANHOS).map(function(k){return{v:k,t:NOTA_TAMANHOS[k].rotulo};}))+
+      '</div>';
+    html+=campoSelect('f_vinculo','Aponta para (seta) — opcional',vinculoAtualNota,
+      selecaoNos(v.nodes.filter(function(x){return x.id!==n.id&&x.tipo!=='socio';}),vinculoAtualNota,'— nenhuma: balão solto, sem seta —'));
+    html+='<p class="hint" style="margin:-6px 0 12px">Escolha um card aqui para desenhar uma seta ligando esta nota até ele — deixe em "— nenhuma —" para a nota ficar solta em qualquer lugar do mapa, sem linha nenhuma. Você decide isso a cada nota.</p>';
+    html+=campoMoeda('f_valor','Valor (se houver)',n.valor);
+    html+=campoTextarea('f_observacoes','Observações',n.observacoes);
+  }
+  return html;
+}
+
+function formularioLigacao(e,a,b){
+  var html='<div class="g2">'+campoBloqueado('Origem',a?a.nome:'?')+campoBloqueado('Destino',b?b.nome:'?')+'</div>';
+  html+=campoSelect('f_tipoOperacao','Tipo de operação',e.tipoOperacao,TIPOS_OPERACAO);
+  html+='<div class="g2">'+campoTexto('f_rotulo','Rótulo curto na linha (opcional)',e.rotulo)+campoMoeda('f_valor','Valor (se houver)',e.valor)+'</div>';
+  html+=campoSelect('f_estilo3','Aparência da linha',(e.corTipo==='auxiliar'?'aux':e.estilo),[
+    {v:'solida',t:'Sólida — relação direta'},{v:'tracejada',t:'Tracejada — participação/relação indireta'},
+    {v:'aux',t:'Tracejada azul — fornecimento / relação auxiliar'}]);
+  html+=campoTextarea('f_observacoes','Observações',e.observacoes);
+  return html;
+}
+
+/* ══════════════════════════════ SÓCIOS — cartão dinâmico dentro do modal da empresa ══════════════════════════════
+   Permite adicionar/editar/remover sócios sem sair do modal da empresa (em vez de exigir o fluxo separado
+   “+ Sócio” da barra de ferramentas). Os sócios continuam sendo nós normais no mapa, ligados por uma
+   ligação decorativa — este cartão só é uma forma mais rápida de editá-los. */
+var _sociosInlineTmp=[];
+function iniciarSociosInline(v,empresaId){
+  _sociosInlineTmp=empresaId?v.nodes.filter(function(n){return n.tipo==='socio'&&ligadoA(v,n.id)===empresaId;}).map(function(s){
+    return{_key:s.id,id:s.id,nome:s.nome,cpf:s.cpf,participacao:s.participacao,administrador:s.administrador,distribuicaoLucros:s.distribuicaoLucros,tipoSocio:s.tipoSocio||'PF',apelido:s.apelido||''};
+  }):[];
+}
+function sincronizarSociosInlineDoDOM(){
+  _sociosInlineTmp.forEach(function(row){
+    var elNome=$('si_nome_'+row._key);
+    if(!elNome)return;
+    row.nome=elNome.value;
+    row.cpf=$('si_cpf_'+row._key).value;
+    var p=$('si_part_'+row._key).value;
+    row.participacao=p===''?null:Number(p);
+    row.administrador=$('si_adm_'+row._key).checked;
+    row.distribuicaoLucros=moedaMascaraParaNumero($('si_lucro_'+row._key).value);
+    row.tipoSocio=$('si_pj_'+row._key).checked?'PJ':'PF';
+    row.apelido=$('si_apelido_'+row._key)?$('si_apelido_'+row._key).value:'';
+  });
+}
+function renderSociosInline(){
+  var wrap=$('sociosInlineWrap');
+  if(!wrap)return;
+  wrap.innerHTML=_sociosInlineTmp.map(function(row){
+    var k=row._key;
+    return '<div class="member-card">'+
+      '<div class="g2">'+
+        '<div class="fg"><label class="lbl">Nome completo</label><input class="fi" type="text" id="si_nome_'+k+'" value="'+esc(row.nome||'')+'"></div>'+
+        '<div class="fg"><label class="lbl">CPF/CNPJ</label><input class="fi mono" type="text" id="si_cpf_'+k+'" value="'+esc(row.cpf||'')+'"></div>'+
+      '</div>'+
+      '<div class="g2">'+
+        '<div class="fg"><label class="lbl">Apelido (nome curto no mapa)</label><input class="fi" type="text" id="si_apelido_'+k+'" value="'+esc(row.apelido||'')+'" placeholder="'+esc(autoApelido(row.nome,'socio',row.tipoSocio||'PF'))+'"></div>'+
+        '<label class="chk-row" style="align-self:end;margin-bottom:14px"><input type="checkbox" id="si_pj_'+k+'"'+(row.tipoSocio==='PJ'?' checked':'')+'><span>É pessoa jurídica (ex.: holding)</span></label>'+
+      '</div>'+
+      '<div class="g3" style="margin-top:10px;align-items:end">'+
+        '<div class="fg" style="margin-bottom:0"><label class="lbl">Participação</label><div class="inp-sfx"><input class="fi-num" type="number" step="0.01" id="si_part_'+k+'" value="'+(row.participacao===null||row.participacao===undefined?'':row.participacao)+'"><span>%</span></div></div>'+
+        '<div class="fg" style="margin-bottom:0"><label class="lbl">Distrib. de lucros</label><div class="inp-pfx"><span>R$</span><input class="fi-num" type="text" inputmode="decimal" id="si_lucro_'+k+'" value="'+esc(numeroParaMascaraMoeda(row.distribuicaoLucros))+'" placeholder="0,00" oninput="this.value=formatarMoedaMascara(this.value)"></div></div>'+
+        '<label class="chk-row" style="margin-bottom:0"><input type="checkbox" id="si_adm_'+k+'"'+(row.administrador?' checked':'')+'><span>Administrador(a)</span></label>'+
+      '</div>'+
+      '<button type="button" class="btn-danger" style="margin-top:10px" onclick="removerSocioInline(\''+k+'\')">Remover sócio</button>'+
+    '</div>';
+  }).join('')+'<button type="button" class="add-btn" onclick="adicionarSocioInline()">+ Adicionar sócio</button>';
+}
+function adicionarSocioInline(){
+  sincronizarSociosInlineDoDOM();
+  _sociosInlineTmp.push({_key:uid('tmp'),id:null,nome:'',cpf:'',participacao:null,administrador:false,tipoSocio:'PF',apelido:''});
+  renderSociosInline();
+  var campos=document.querySelectorAll('#sociosInlineWrap input[id^="si_nome_"]');
+  if(campos.length)campos[campos.length-1].focus();
+}
+function removerSocioInline(key){
+  sincronizarSociosInlineDoDOM();
+  _sociosInlineTmp=_sociosInlineTmp.filter(function(r){return r._key!==key;});
+  renderSociosInline();
+}
+function aplicarSociosInline(v,empresaId){
+  var empresaNode=nodeByIdV(v,empresaId);
+  var manterIds={},novosCriados=0;
+  _sociosInlineTmp.forEach(function(row){
+    var nome=(row.nome||'').trim();
+    if(!nome)return;
+    var s=row.id?nodeByIdV(v,row.id):null;
+    if(!s){
+      var ex=novosCriados++;
+      var x=(empresaNode?empresaNode.x:0)-80+ex*170,y=(empresaNode?empresaNode.y:0)+130;
+      s=novoNodeBase('socio',x,y);
+      v.nodes.push(s);
+      var edge=novoEdgeBase(empresaId,s.id);
+      edge.decorativo=true;edge.estilo='tracejada';
+      v.edges.push(edge);
+    }
+    s.nome=nome;s.cpf=row.cpf||'';
+    s.tipoSocio=row.tipoSocio||'PF';s.apelido=(row.apelido||'').trim();
+    s.participacao=(row.participacao===undefined||row.participacao===null||row.participacao==='')?null:row.participacao;
+    s.administrador=!!row.administrador;
+    s.distribuicaoLucros=(row.distribuicaoLucros===undefined||row.distribuicaoLucros===null||row.distribuicaoLucros==='')?null:row.distribuicaoLucros;
+    manterIds[s.id]=true;
+  });
+  var antigos=v.nodes.filter(function(x){return x.tipo==='socio'&&ligadoA(v,x.id)===empresaId;});
+  antigos.forEach(function(s){
+    if(!manterIds[s.id]){
+      v.nodes=v.nodes.filter(function(x){return x.id!==s.id;});
+      v.edges=v.edges.filter(function(e){return e.origemId!==s.id&&e.destinoId!==s.id;});
+    }
+  });
+}
+
+/* ══════════════════════════════ OBSERVAÇÕES — lista dinâmica dentro do modal da empresa ══════════════════════════════
+   Em vez de um único campo de texto corrido, cada observação é um item separado — clicar em "+"
+   adiciona uma nova sem apagar as anteriores (mesmo padrão do cartão dinâmico dos sócios). */
+var _obsInlineTmp=[];
+function iniciarObsInline(n){
+  _obsInlineTmp=(n.observacoesLista||[]).map(function(texto){return{_key:uid('obs'),texto:texto};});
+}
+function sincronizarObsInlineDoDOM(){
+  _obsInlineTmp.forEach(function(row){
+    var el=$('oi_txt_'+row._key);
+    if(el)row.texto=el.value;
+  });
+}
+function renderObsInline(){
+  var wrap=$('obsInlineWrap');
+  if(!wrap)return;
+  wrap.innerHTML=_obsInlineTmp.map(function(row){
+    var k=row._key;
+    return '<div style="display:flex;gap:6px;margin-bottom:8px;align-items:flex-start">'+
+      '<textarea class="fi" data-autogrow id="oi_txt_'+k+'" rows="1" style="flex:1;min-width:0;resize:vertical;overflow:auto" oninput="autoGrow(this)">'+esc(row.texto||'')+'</textarea>'+
+      '<button type="button" class="btn-danger" onclick="removerObsInline(\''+k+'\')">Remover</button>'+
+    '</div>';
+  }).join('')+'<button type="button" class="add-btn" onclick="adicionarObsInline()">+ Adicionar observação</button>';
+  initAutoGrowTextareas(wrap);
+}
+function adicionarObsInline(){
+  sincronizarObsInlineDoDOM();
+  _obsInlineTmp.push({_key:uid('obs'),texto:''});
+  renderObsInline();
+  var campos=document.querySelectorAll('#obsInlineWrap input[id^="oi_txt_"]');
+  if(campos.length)campos[campos.length-1].focus();
+}
+function removerObsInline(key){
+  sincronizarObsInlineDoDOM();
+  _obsInlineTmp=_obsInlineTmp.filter(function(r){return r._key!==key;});
+  renderObsInline();
+}
+function aplicarObsInline(n){
+  sincronizarObsInlineDoDOM();
+  n.observacoesLista=_obsInlineTmp.map(function(r){return(r.texto||'').trim();}).filter(Boolean);
+}
+
+/* ══════════════════════════════ BUSCA DE CNPJ (BrasilAPI — Receita Federal) ══════════════════════════════
+   Serviço público, gratuito e sem necessidade de chave de acesso. Preenche (sempre sobrescrevendo)
+   razão social/nome, capital social (formatado em R$), situação cadastral, UF, uma estimativa de
+   categoria da atividade (a partir do texto do CNAE) e o quadro de sócios (nome completo) — participação
+   e demais dados continuam a cargo de quem está editando, pois a Receita não informa o percentual de
+   participação. */
+function categoriaPorCnae(desc){
+  desc=(desc||'').toLowerCase();
+  if(/holding|participa[cç][oõ]es/.test(desc))return 'Holding';
+  if(/com[eé]rcio|varej|atacad|revend/.test(desc))return 'Comércio';
+  if(/ind[uú]stria|fabrica[cç][aã]o|manufat|produ[cç][aã]o de/.test(desc))return 'Indústria';
+  if(/servi[cç]o|presta[cç][aã]o|consultoria|assessori|transporte|constru[cç][aã]o|atividades de|agência/.test(desc))return 'Serviço';
+  return '';
+}
+function situacaoPorApi(desc){
+  desc=(desc||'').toLowerCase();
+  if(/ativa/.test(desc))return 'Ativa';
+  if(/suspens/.test(desc))return 'Suspensa';
+  if(/baixad/.test(desc))return 'Baixada';
+  if(/inapt/.test(desc))return 'Inapta';
+  if(/nul[ao]/.test(desc))return 'Baixada';
+  return '';
+}
+function buscarCNPJ(){
+  var elCnpj=$('f_cnpj');
+  if(!elCnpj)return;
+  elCnpj.value=formatarCNPJ(elCnpj.value);
+  var cnpjLimpo=(elCnpj.value||'').replace(/\D/g,'');
+  if(cnpjLimpo.length!==14){alert('Digite um CNPJ válido (14 dígitos) para buscar.');return;}
+  var btn=$('btnBuscarCnpj');
+  var btnTextoOriginal=btn?btn.textContent:'';
+  if(btn){btn.disabled=true;btn.textContent='Buscando…';}
+  fetch('https://brasilapi.com.br/api/cnpj/v1/'+cnpjLimpo).then(function(r){
+    if(!r.ok)throw new Error('CNPJ não encontrado ou serviço indisponível no momento.');
+    return r.json();
+  }).then(function(d){
+    var nomeEmpresa=formatarNomeProprio(d.razao_social||d.nome_fantasia||'');
+    if($('f_nome')&&nomeEmpresa)$('f_nome').value=nomeEmpresa;
+    if($('f_apelido')&&nomeEmpresa&&!($('f_apelido').value||'').trim())$('f_apelido').value=autoApelido(nomeEmpresa,'empresa');
+    if($('f_capitalSocial')&&(d.capital_social||d.capital_social===0))$('f_capitalSocial').value=numeroParaMascaraMoeda(d.capital_social);
+    if($('f_uf')&&d.uf)$('f_uf').value=d.uf;
+    var cat=categoriaPorCnae(d.cnae_fiscal_descricao);
+    if($('f_atividade')&&cat)$('f_atividade').value=cat;
+    var sit=situacaoPorApi(d.descricao_situacao_cadastral);
+    if($('f_situacao')&&sit)$('f_situacao').value=sit;
+    if(Array.isArray(d.qsa)&&d.qsa.length){
+      sincronizarSociosInlineDoDOM();
+      d.qsa.forEach(function(s){
+        var nomeSocio=formatarNomeProprio((s.nome_socio||'').trim());
+        if(!nomeSocio)return;
+        var jaExiste=_sociosInlineTmp.some(function(r){return(r.nome||'').trim().toLowerCase()===nomeSocio.toLowerCase();});
+        if(!jaExiste)_sociosInlineTmp.push({_key:uid('tmp'),id:null,nome:nomeSocio,cpf:'',participacao:null,administrador:false,tipoSocio:'PF',apelido:autoApelido(nomeSocio,'socio','PF')});
+      });
+      renderSociosInline();
+    }
+    alert('Dados preenchidos a partir da Receita Federal (via BrasilAPI). Confira e complete o que faltar — por exemplo, o percentual de participação de cada sócio — antes de salvar.');
+  }).catch(function(err){
+    alert('Não foi possível buscar este CNPJ agora: '+(err&&err.message?err.message:'erro desconhecido')+'. Verifique o número ou preencha manualmente.');
+  }).finally(function(){
+    if(btn){btn.disabled=false;btn.textContent=btnTextoOriginal||'🔎 Buscar dados na Receita Federal';}
+  });
+}
+
+/* ══════════════════════════════ FORMULÁRIOS DE LEITURA (modo apresentação) ══════════════════════════════
+   Mesmos dados, sem input/select/textarea — cartão limpo para mostrar na frente do cliente. */
+function campoLeitura(label,valor){
+  if(valor===undefined||valor===null||valor==='')return '';
+  return '<div class="fg"><label class="lbl">'+label+'</label><div class="fi-blocked">'+esc(valor)+'</div></div>';
+}
+function formularioLeituraPorTipo(tipo,n,v){
+  var html='';
+  if(tipo==='empresa'){
+    html+='<div class="g2">'+campoLeitura('CNPJ',formatarCNPJ(n.cnpj))+campoLeitura('UF',n.uf)+'</div>';
+    html+='<div class="g3">'+campoLeitura('Capital social',fmtMoeda(n.capitalSocial))+campoLeitura('Faturamento (mensal)',fmtMoeda(n.faturamento))+campoLeitura('Atividade principal',n.atividade)+'</div>';
+    html+='<div class="g2">'+campoLeitura('Regime tributário',n.regimeTributario)+campoLeitura('Situação cadastral',n.situacaoCadastral)+'</div>';
+    var socios=v.nodes.filter(function(x){return x.tipo==='socio'&&ligadoA(v,x.id)===n.id;});
+    if(socios.length){
+      html+='<div class="fg"><label class="lbl">Sócios</label>'+socios.map(function(s){
+        return '<div class="fi-blocked" style="margin-bottom:6px">'+esc(textoExibicaoNode(s))+(s.tipoSocio==='PJ'?' (PJ)':'')+(s.participacao||s.participacao===0?' — '+fmtPct(s.participacao):'')+(s.administrador?' · administrador(a)':'')+(s.distribuicaoLucros||s.distribuicaoLucros===0?' · distrib. de lucros: '+fmtMoeda(s.distribuicaoLucros):'')+'</div>';
+      }).join('')+'</div>';
+    }
+    if(n.observacoesLista&&n.observacoesLista.length){
+      html+='<div class="fg"><label class="lbl">Observações</label>'+n.observacoesLista.map(function(o){
+        return '<div class="fi-blocked" style="margin-bottom:6px">'+esc(o)+'</div>';
+      }).join('')+'</div>';
+    }
+  }else if(tipo==='socio'){
+    var empId=ligadoA(v,n.id),emp=empId?nodeByIdV(v,empId):null;
+    html+='<div class="g2">'+campoLeitura('Tipo',n.tipoSocio==='PJ'?'Pessoa jurídica (holding)':'Pessoa física')+campoLeitura('Empresa',emp?emp.nome:'')+'</div>';
+    html+='<div class="g2">'+campoLeitura('CPF/CNPJ',n.cpf)+campoLeitura('Apelido no mapa',n.apelido||autoApelido(n.nome,'socio',n.tipoSocio))+'</div>';
+    html+='<div class="g2">'+campoLeitura('Participação',fmtPct(n.participacao))+campoLeitura('Administrador(a)',n.administrador?'Sim':'Não')+'</div>';
+    html+=campoLeitura('Distribuição de lucros',n.distribuicaoLucros||n.distribuicaoLucros===0?fmtMoeda(n.distribuicaoLucros):'');
+    html+=campoLeitura('Observações',n.observacoes);
+  }else if(tipo==='operacao'){
+    var vincId=ligadoA(v,n.id),vinc=vincId?nodeByIdV(v,vincId):null;
+    html+='<div class="g2">'+campoLeitura('Vinculado à empresa',vinc?vinc.nome:'')+campoLeitura('Detalhe',n.subtipo)+'</div>';
+    html+=campoLeitura('Observações',n.observacoes);
+  }else if(tipo==='fornecedor'){
+    html+=campoLeitura('Observações',n.observacoes);
+  }else if(tipo==='nota'){
+    var vincNotaId=ligadoA(v,n.id),vincNota=vincNotaId?nodeByIdV(v,vincNotaId):null;
+    html+='<div class="g2">'+campoLeitura('Estilo',n.estilo==='alerta'?'Alerta':'Observação')+campoLeitura('Aponta para',vincNota?vincNota.nome:'Balão solto (sem seta)')+'</div>';
+    html+='<div class="g2">'+campoLeitura('Cor',n.cor&&NOTA_CORES[n.cor]?NOTA_CORES[n.cor].rotulo:'Automática')+campoLeitura('Tamanho',(NOTA_TAMANHOS[n.tamanho]||NOTA_TAMANHOS.M).rotulo)+'</div>';
+    html+=campoLeitura('Valor',n.valor||n.valor===0?fmtMoeda(n.valor):'');
+    html+=campoLeitura('Observações',n.observacoes);
+  }
+  return html||'<p class="hint">Sem informações adicionais cadastradas.</p>';
+}
+function formularioLeituraLigacao(e,a,b){
+  var html='<div class="g2">'+campoLeitura('Origem',a?a.nome:'?')+campoLeitura('Destino',b?b.nome:'?')+'</div>';
+  html+=campoLeitura('Tipo de operação',e.tipoOperacao||(e.decorativo?'Vínculo estrutural':''));
+  html+='<div class="g2">'+campoLeitura('Valor',e.valor||e.valor===0?fmtMoeda(e.valor):'')+campoLeitura('Observações',e.observacoes)+'</div>';
+  return html;
+}
+
+/* ══════════════════════════════ VISÃO COMPLETA DA EMPRESA (estilo “drill-down” de ERP) ══════════════════════════════
+   Painel único, consolidado, com tudo o que existe sobre a empresa no mapa: KPIs, quadro societário,
+   classificação/atividade, empresas do grupo ligadas, fornecedores, notas e observações. Aberto a partir
+   de um botão dentro do card da empresa — não substitui o card de edição, só dá o “raio-X” completo. */
+var _visaoCompletaEmpresaId=null;
+function abrirVisaoCompleta(empresaId){
+  var v=versaoAtual(),emp=nodeByIdV(v,empresaId);
+  if(!emp)return;
+  _visaoCompletaEmpresaId=empresaId;
+  var socios=v.nodes.filter(function(n){return n.tipo==='socio'&&ligadoA(v,n.id)===empresaId;});
+  var vinculos=v.edges.filter(function(e){return e.origemId===empresaId||e.destinoId===empresaId;});
+  var operacoes=[],fornecedores=[],notas=[],outrasEmpresas=[];
+  vinculos.forEach(function(e){
+    var outroId=e.origemId===empresaId?e.destinoId:e.origemId;
+    var outro=nodeByIdV(v,outroId);
+    if(!outro)return;
+    if(outro.tipo==='operacao')operacoes.push(outro);
+    else if(outro.tipo==='fornecedor')fornecedores.push({no:outro,edge:e});
+    else if(outro.tipo==='nota')notas.push({no:outro,edge:e});
+    else if(outro.tipo==='empresa')outrasEmpresas.push({no:outro,edge:e,sentido:e.origemId===empresaId?'→ saída':'← entrada'});
+  });
+
+  var html='';
+  html+='<div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:5px">';
+  html+='<span style="font-family:var(--font-h);font-size:19px;font-weight:700;color:var(--navy)">'+esc(emp.nome)+'</span>';
+  if(emp.situacaoCadastral)html+='<span class="pill '+(SITUACAO_PILL[emp.situacaoCadastral]||'pill-grey')+'">'+esc(emp.situacaoCadastral)+'</span>';
+  if(emp.regimeTributario)html+='<span class="pill pill-blue">'+esc(REGIME_ABREV[emp.regimeTributario]||'')+' · '+esc(emp.regimeTributario)+'</span>';
+  if(emp.atividade)html+='<span class="pill pill-grey">'+esc(emp.atividade)+'</span>';
+  html+='</div>';
+  html+='<div class="hint" style="margin-bottom:16px">'+(formatarCNPJ(emp.cnpj)||'CNPJ não informado')+(emp.uf?' · '+esc(emp.uf):'')+(emp.atividade?' · '+esc(emp.atividade):'')+'</div>';
+
+  html+='<div class="kpi-grid">'+
+    '<div class="kpi-box"><div class="kpi-v">'+fmtMoeda(emp.capitalSocial)+'</div><div class="kpi-l">Capital social</div></div>'+
+    '<div class="kpi-box"><div class="kpi-v">'+fmtMoeda(emp.faturamento)+'</div><div class="kpi-l">Faturamento mensal</div></div>'+
+    '<div class="kpi-box"><div class="kpi-v">'+socios.length+'</div><div class="kpi-l">Sócio(s)</div></div>'+
+    '<div class="kpi-box"><div class="kpi-v">'+vinculos.length+'</div><div class="kpi-l">Vínculo(s) no mapa</div></div>'+
+  '</div>';
+
+  if(emp.situacaoCadastral&&emp.situacaoCadastral!=='Ativa'){
+    var obsResumo=(emp.observacoesLista&&emp.observacoesLista.length)?esc(emp.observacoesLista.join(' · ')):'';
+    html+='<div class="alrt '+(emp.situacaoCadastral==='Suspensa'?'alrt-amber':'alrt-red')+'">⚠ Situação cadastral: <b>'+esc(emp.situacaoCadastral)+'</b>'+(obsResumo?' — '+obsResumo:'')+'</div>';
+  }
+
+  var secN=0;
+  function secHd(titulo){secN++;return '<div class="subsec-hd"><div class="subsec-num">'+secN+'</div><div class="subsec-hd-txt">'+esc(titulo)+'</div></div>';}
+
+  html+='<div class="subsec">'+secHd('Quadro societário');
+  html+=socios.length?('<div class="tbl-wrap"><table class="data-tbl"><thead><tr><th>Sócio</th><th class="mono">CPF</th><th class="r">Participação</th><th>Administrador</th><th class="r">Distrib. de lucros</th></tr></thead><tbody>'+
+    socios.map(function(s){
+      return '<tr><td><strong>'+esc(s.nome)+'</strong></td><td class="mono">'+esc(s.cpf||'—')+'</td><td class="r mono">'+(fmtPct(s.participacao)||'—')+
+        '</td><td>'+(s.administrador?'<span class="pill pill-blue">Administrador</span>':'<span class="pill pill-grey">Não</span>')+'</td><td class="r mono">'+fmtMoeda(s.distribuicaoLucros)+'</td></tr>';
+    }).join('')+'</tbody></table></div>'):'<p class="hint">Nenhum sócio cadastrado.</p>';
+  html+='</div>';
+
+  if(operacoes.length){
+    html+='<div class="subsec">'+secHd('Classificação / atividade');
+    html+=operacoes.map(function(o){return '<div class="fi-blocked" style="margin-bottom:6px">'+esc(o.nome)+(o.subtipo?' — '+esc(o.subtipo):'')+'</div>';}).join('');
+    html+='</div>';
+  }
+  if(outrasEmpresas.length){
+    html+='<div class="subsec">'+secHd('Empresas do grupo ligadas');
+    html+='<div class="tbl-wrap"><table class="data-tbl"><thead><tr><th>Empresa</th><th>Sentido</th><th>Tipo de operação</th><th class="r">Valor</th></tr></thead><tbody>'+
+      outrasEmpresas.map(function(x){
+        return '<tr><td><strong>'+esc(x.no.nome)+'</strong></td><td>'+x.sentido+'</td><td>'+esc(x.edge.tipoOperacao||(x.edge.decorativo?'Vínculo estrutural':'—'))+'</td><td class="r mono">'+fmtMoeda(x.edge.valor)+'</td></tr>';
+      }).join('')+'</tbody></table></div></div>';
+  }
+  if(fornecedores.length){
+    html+='<div class="subsec">'+secHd('Fornecedores');
+    html+=fornecedores.map(function(x){return '<div class="fi-blocked" style="margin-bottom:6px">'+esc(x.no.nome)+(x.edge.tipoOperacao?' — '+esc(x.edge.tipoOperacao):'')+'</div>';}).join('');
+    html+='</div>';
+  }
+  if(notas.length){
+    html+='<div class="subsec">'+secHd('Notas / observações ligadas');
+    html+=notas.map(function(x){return '<div class="fi-blocked" style="margin-bottom:6px">'+esc(x.no.nome)+(x.no.valor||x.no.valor===0?' — '+fmtMoeda(x.no.valor):'')+'</div>';}).join('');
+    html+='</div>';
+  }
+  if(emp.observacoesLista&&emp.observacoesLista.length){
+    html+='<div class="subsec">'+secHd('Observações')+emp.observacoesLista.map(function(o){
+      return '<p style="font-size:12.5px;color:var(--text2);line-height:1.55;margin:0 0 8px">'+esc(o)+'</p>';
+    }).join('')+'</div>';
+  }
+
+  $('modalCompletoBody').innerHTML=html;
+  $('modalCompletoBtnEditar').style.display=_apresentando?'none':'';
+  $('modalCompletoBg').classList.add('active');
+}
+function fecharVisaoCompleta(){
+  $('modalCompletoBg').classList.remove('active');
+  _visaoCompletaEmpresaId=null;
+}
+function editarDaVisaoCompleta(){
+  var id=_visaoCompletaEmpresaId;
+  fecharVisaoCompleta();
+  if(id)abrirModalNode(id);
+}
+
+/* ══════════════════════════════ SALVAR / EXCLUIR DO MODAL ══════════════════════════════ */
+function lerNum(id){
+  var el=$(id);if(!el)return null;
+  var v=el.value;
+  return v===''?null:Number(v);
+}
+function salvarModal(){
+  if(!_modalCtx)return;
+  var v=versaoAtual();
+  if(_modalCtx.kind==='node'){
+    var nome=($('f_nome')&&$('f_nome').value||'').trim();
+    if(!nome){alert('Preencha o nome antes de salvar.');return;}
+    var n=_modalCtx.isNovo?_novoNoTmp:nodeByIdV(v,_modalCtx.id);
+    n.nome=nome;
+    if(n.tipo!=='empresa')n.observacoes=$('f_observacoes')?$('f_observacoes').value:'';
+    var vinculoSelecionado=null;
+    if(n.tipo==='empresa'){
+      n.cnpj=$('f_cnpj').value;
+      n.apelido=($('f_apelido')&&$('f_apelido').value||'').trim();
+      n.capitalSocial=lerMoeda('f_capitalSocial');n.regimeTributario=$('f_regime').value;n.atividade=$('f_atividade').value;
+      n.faturamento=lerMoeda('f_faturamento');n.situacaoCadastral=$('f_situacao').value;n.uf=$('f_uf').value;
+      n.ocultarSocios=$('f_ocultarSocios')?$('f_ocultarSocios').checked:false;
+    }else if(n.tipo==='socio'){
+      n.cpf=$('f_cpf').value;n.participacao=lerNum('f_participacao');n.administrador=$('f_administrador').checked;
+      n.distribuicaoLucros=lerMoeda('f_distribuicaoLucros');
+      n.tipoSocio=$('f_tipoSocio')?$('f_tipoSocio').value:'PF';
+      n.apelido=($('f_apelido')&&$('f_apelido').value||'').trim();
+      vinculoSelecionado=$('f_vinculo').value||null;
+    }else if(n.tipo==='operacao'){
+      n.subtipo=$('f_subtipo').value;
+      vinculoSelecionado=$('f_vinculo').value||null;
+    }else if(n.tipo==='nota'){
+      n.valor=lerMoeda('f_valor');
+      n.estilo=$('f_estiloNota')?$('f_estiloNota').value:'observacao';
+      n.cor=$('f_corNota')?$('f_corNota').value:'';
+      n.tamanho=$('f_tamanhoNota')?$('f_tamanhoNota').value:'M';
+      vinculoSelecionado=$('f_vinculo').value||null;
+    }
+    if(_modalCtx.isNovo){
+      v.nodes.push(n);
+      if(vinculoSelecionado){
+        var edge=novoEdgeBase(vinculoSelecionado,n.id);
+        edge.decorativo=true;edge.estilo='tracejada';
+        v.edges.push(edge);
+      }
+    }else if(vinculoSelecionado!==null){
+      /* atualizar/():recriar vínculo decorativo se o usuário trocou a empresa vinculada */
+      v.edges=v.edges.filter(function(x){return!(x.destinoId===n.id&&x.decorativo);});
+      if(vinculoSelecionado){
+        var edge2=novoEdgeBase(vinculoSelecionado,n.id);
+        edge2.decorativo=true;edge2.estilo='tracejada';
+        v.edges.push(edge2);
+      }
+    }else if(vinculoSelecionado===''){
+      v.edges=v.edges.filter(function(x){return!(x.destinoId===n.id&&x.decorativo);});
+    }
+    if(n.tipo==='empresa'){
+      sincronizarSociosInlineDoDOM();
+      aplicarSociosInline(v,n.id);
+      aplicarObsInline(n);
+    }
+  }else if(_modalCtx.kind==='edge'){
+    var e=v.edges.find(function(x){return x.id===_modalCtx.id;});
+    if(!e)return;
+    e.tipoOperacao=$('f_tipoOperacao').value;
+    e.rotulo=$('f_rotulo').value;
+    e.valor=lerMoeda('f_valor');
+    e.observacoes=$('f_observacoes').value;
+    var estiloSel=$('f_estilo3').value;
+    if(estiloSel==='aux'){e.corTipo='auxiliar';e.estilo='tracejada';}
+    else{e.corTipo='padrao';e.estilo=estiloSel;}
+  }
+  fecharModal();
+  onMudouEstado();
+}
+function excluirDoModal(){
+  if(!_modalCtx)return;
+  var v=versaoAtual();
+  if(_modalCtx.kind==='node'){
+    if(_modalCtx.isNovo){fecharModal();return;}
+    if(!confirm('Excluir este item e todas as ligações a ele? Essa ação não pode ser desfeita (exceto reimportando um JSON salvo).'))return;
+    var id=_modalCtx.id;
+    /* excluir uma empresa também remove os sócios ligados a ela — não faz sentido um sócio "órfão" */
+    var idsRemover={};idsRemover[id]=true;
+    v.nodes.forEach(function(n2){if(n2.tipo==='socio'&&ligadoA(v,n2.id)===id)idsRemover[n2.id]=true;});
+    v.nodes=v.nodes.filter(function(n){return!idsRemover[n.id];});
+    v.edges=v.edges.filter(function(e){return!idsRemover[e.origemId]&&!idsRemover[e.destinoId];});
+  }else if(_modalCtx.kind==='edge'){
+    if(!_modalCtx.isNovo&&!confirm('Excluir esta ligação?'))return;
+    var eid=_modalCtx.id;
+    v.edges=v.edges.filter(function(e){return e.id!==eid;});
+  }
+  fecharModal();
+  onMudouEstado();
+}
+
+/* ══════════════════════════════ TABELAS ══════════════════════════════ */
+function renderTabelas(){
+  var v=versaoAtual();
+  var tbE=$('tblEmpresas').querySelector('tbody');
+  var empresas=v.nodes.filter(function(n){return n.tipo==='empresa';});
+  tbE.innerHTML=empresas.length?empresas.map(function(e){
+    var socios=v.nodes.filter(function(n){return n.tipo==='socio'&&ligadoA(v,n.id)===e.id;});
+    var resumo=socios.map(function(s){return esc(textoExibicaoNode(s))+(s.tipoSocio==='PJ'?' (PJ)':'')+(s.participacao||s.participacao===0?' ('+fmtPct(s.participacao)+')':'')+(s.administrador?' — adm.':'');}).join('<br>')||'—';
+    var sitTxt=e.situacaoCadastral?'<span class="pill '+(SITUACAO_PILL[e.situacaoCadastral]||'pill-grey')+'">'+esc(e.situacaoCadastral)+'</span>':'—';
+    var obsTxt=(e.observacoesLista&&e.observacoesLista.length)?esc(e.observacoesLista.join(' · ')):'—';
+    return '<tr><td><strong>'+esc(e.nome)+'</strong>'+(e.uf?' <span style="color:var(--text3);font-size:11px">('+esc(e.uf)+')</span>':'')+'</td><td class="mono">'+(formatarCNPJ(e.cnpj)||'—')+'</td><td>'+esc(e.regimeTributario||'—')+
+      '</td><td>'+sitTxt+'</td><td class="r mono">'+fmtMoeda(e.capitalSocial)+'</td><td class="r mono">'+fmtMoeda(e.faturamento)+'</td><td>'+resumo+'</td><td>'+obsTxt+'</td></tr>';
+  }).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:18px">Nenhuma empresa cadastrada nesta versão.</td></tr>';
+}
+
+/* ══════════════════════════════ CLIENTE (capa do PDF / apresentação) ══════════════════════════════ */
+function onClienteInput(v){
+  state.clienteNome=v;
+  window.NOME_CLIENTE=v;
+  atualizarTituloHeader();
+  salvarLocal();
+}
+
+/* ══════════════════════════════ MODO APRESENTAÇÃO ══════════════════════════════
+   Mesma tela, só que sem os controles de edição e com o mapa ocupando o espaço todo — pensado
+   para abrir na frente do cliente. Clicar num nó/ligação mostra um cartão de leitura, não o
+   formulário de edição (ver abrirModalNode/abrirModalEdge em main2.js). */
+var _apresentando=false;
+function toggleApresentacao(){
+  if(_apresentando)sairApresentacao();
+  else entrarApresentacao();
+}
+function entrarApresentacao(){
+  _apresentando=true;
+  cancelarModoLigacao();
+  document.body.classList.add('modo-apresentacao');
+  $('btnApresentar').innerHTML='✕ Sair da apresentação';
+  $('clienteFieldWrap').style.display=(state.clienteNome||'').trim()?'':'none';
+  ajustarZoomParaCaber();
+}
+function sairApresentacao(){
+  _apresentando=false;
+  document.body.classList.remove('modo-apresentacao');
+  $('btnApresentar').innerHTML='🖥 Apresentar';
+  $('clienteFieldWrap').style.display='';
+  ajustarZoomParaCaber();
+}
+
+/* ══════════════════════════════ RESUMO EXECUTIVO (capa do PDF) ══════════════════════════════
+   Um retrato rápido do grupo, calculado a partir da versão atualmente aberta — pensado para quem
+   abre o PDF direto na capa e quer o essencial antes de entrar nas seções. */
+function montarResumoExecutivoHTML(){
+  var v=versaoAtual();
+  if(!v)return '';
+  var empresas=v.nodes.filter(function(n){return n.tipo==='empresa';});
+  var socios=v.nodes.filter(function(n){return n.tipo==='socio';});
+  if(!empresas.length&&!socios.length)return '';
+  var nomesSocios={};
+  socios.forEach(function(s){
+    var chave=textoExibicaoNode(s).trim().toLowerCase();
+    if(chave)nomesSocios[chave]=true;
+  });
+  var qtdSociosDistintos=Object.keys(nomesSocios).length;
+  var somaCapital=0,temCapital=false;
+  empresas.forEach(function(e){if(e.capitalSocial!==null&&e.capitalSocial!==undefined&&e.capitalSocial!==''&&!isNaN(e.capitalSocial)){somaCapital+=Number(e.capitalSocial);temCapital=true;}});
+  var somaFaturamento=0,temFaturamento=false;
+  empresas.forEach(function(e){if(e.faturamento!==null&&e.faturamento!==undefined&&e.faturamento!==''&&!isNaN(e.faturamento)){somaFaturamento+=Number(e.faturamento);temFaturamento=true;}});
+  var ativas=empresas.filter(function(e){return (e.situacaoCadastral||'')==='Ativa';}).length;
+  var boxes=[];
+  boxes.push({v:String(empresas.length),l:empresas.length===1?'Empresa no grupo':'Empresas no grupo'});
+  if(empresas.length)boxes.push({v:String(ativas)+' de '+String(empresas.length),l:'Empresas ativas'});
+  if(qtdSociosDistintos)boxes.push({v:String(qtdSociosDistintos),l:qtdSociosDistintos===1?'Sócio no grupo':'Sócios distintos no grupo'});
+  if(temCapital)boxes.push({v:fmtMoeda(somaCapital),l:'Capital social somado'});
+  if(temFaturamento)boxes.push({v:fmtMoeda(somaFaturamento),l:'Faturamento somado (mensal)'});
+  if(!boxes.length)return '';
+  return '<div class="kpi-grid" style="margin:0 auto;max-width:560px;text-align:left">'+
+    boxes.map(function(b){return '<div class="kpi-box"><div class="kpi-v">'+esc(b.v)+'</div><div class="kpi-l">'+esc(b.l)+'</div></div>';}).join('')+
+    '</div>';
+}
+
+/* ══════════════════════════════ EXPORTAR PDF (motor padrão A&C) ══════════════════════════════ */
+function _clonarSemIds(el){
+  var clone=el.cloneNode(true);
+  clone.removeAttribute('id');
+  clone.querySelectorAll('[id]').forEach(function(node){node.removeAttribute('id');});
+  clone.removeAttribute('data-pdf');
+  clone.querySelectorAll('[data-pdf]').forEach(function(node){node.removeAttribute('data-pdf');});
+  return clone;
+}
+function _prepararCloneParaImpressao(clone){
+  clone.querySelectorAll('details').forEach(function(d){d.open=true;});
+  clone.querySelectorAll('.subsec-hd.is-toggle').forEach(function(hd){
+    var corpo=hd.nextElementSibling;
+    if(corpo)corpo.style.display='';
+  });
+}
+function gerarPDF(){
+  var titulo=($('hdTitulo')||{}).textContent||document.title;
+  var cliente=(window.NOME_CLIENTE||'').trim();
+  if($('pc-titulo'))$('pc-titulo').textContent=titulo;
+  if($('pc-cliente'))$('pc-cliente').textContent=cliente||'';
+  if($('pc-data'))$('pc-data').textContent='Data: '+hoje();
+  if($('pc-resumo'))$('pc-resumo').innerHTML=montarResumoExecutivoHTML();
+  document.body.classList.toggle('pdf-marca-dagua',!!($('chkMarcaDagua')&&$('chkMarcaDagua').checked));
+  var metaTxt=(cliente?cliente+' · ':'')+titulo+' · '+hoje();
+  var capa=$('print-cover');if(capa)capa.style.display='flex';
+  var root=$('print-root');
+  root.innerHTML='';
+  document.querySelectorAll('[data-pdf]').forEach(function(sec){
+    var clone=_clonarSemIds(sec);
+    clone.classList.add('print-active');
+    _prepararCloneParaImpressao(clone);
+    var meta=document.createElement('div');
+    meta.className='print-sec-meta';meta.textContent=metaTxt;
+    root.appendChild(meta);
+    var h=document.createElement('div');
+    h.className='print-sec-hd';h.textContent=sec.getAttribute('data-pdf');
+    root.appendChild(h);
+    root.appendChild(clone);
+  });
+  /* O nome sugerido pelo diálogo "Salvar como PDF" do navegador vem do <title> da página no
+     momento do print() — trocamos para "<cliente> - <data>" e devolvemos ao normal depois. */
+  var tituloOriginal=document.title;
+  document.title=nomeArquivoBase();
+  window.print();
+  setTimeout(function(){
+    if(capa)capa.style.display='none';
+    root.innerHTML='';
+    document.title=tituloOriginal;
+    document.body.classList.remove('pdf-marca-dagua');
+  },800);
+}
+function gerarPDFMapa(){
+  ajustarZoomParaCaber();
+  var svgOriginal=$('mapaSvg');
+  var clone=svgOriginal.cloneNode(true);
+  clone.removeAttribute('id');
+  clone.style.width='100%';
+  clone.style.height='auto';
+  clone.style.maxHeight='620px';
+  clone.style.border='1px solid #d4d9e4';
+  clone.style.borderRadius='10px';
+  var body=$('mapaPdfBody');
+  body.innerHTML='';
+  body.appendChild(clone);
+  var legenda=document.querySelector('.map-legend').cloneNode(true);
+  legenda.classList.add('legenda-box');
+  legenda.style.marginTop='14px';
+  body.appendChild(legenda);
+  setTimeout(gerarPDF,30);
+}
+
+/* ══════════════════════════════ EXEMPLO ══════════════════════════════
+   Não há mais botão na tela para carregar isto — o botão "Carregar exemplo" foi removido a
+   pedido. A função continua existindo só porque extrair-exemplo.js a usa para gerar o arquivo
+   "Modelo - Mapa Societário (exemplo).json" entregue à parte, fora da ferramenta em si. */
+function montarEstadoExemplo(){
+  function E(id,nome,x,y,extra){return Object.assign({id:id,tipo:'empresa',nome:nome,x:x,y:y,cnpj:'',capitalSocial:null,regimeTributario:'',atividade:'',observacoesLista:[],faturamento:null,situacaoCadastral:'',uf:'MG'},extra||{});}
+  function S(id,nome,x,y,extra){return Object.assign({id:id,tipo:'socio',nome:nome,x:x,y:y,cpf:'',participacao:null,administrador:false,observacoes:'',distribuicaoLucros:null},extra||{});}
+  function O(id,nome,x,y,extra){return Object.assign({id:id,tipo:'operacao',nome:nome,x:x,y:y,subtipo:'',observacoes:''},extra||{});}
+  function F(id,nome,x,y,extra){return Object.assign({id:id,tipo:'fornecedor',nome:nome,x:x,y:y,observacoes:''},extra||{});}
+  function N(id,nome,x,y,extra){return Object.assign({id:id,tipo:'nota',nome:nome,x:x,y:y,valor:null,observacoes:''},extra||{});}
+  function L(origem,destino,extra){return Object.assign({id:uid('l'),origemId:origem,destinoId:destino,estilo:'tracejada',corTipo:'padrao',tipoOperacao:'',rotulo:'',valor:null,observacoes:'',decorativo:false},extra||{});}
+
+  /* ── Versão 1: estrutura atual ── */
+  var v1nodes=[
+    E('e_ceocom','Ceocom',160,90,{regimeTributario:'Simples Nacional',atividade:'Serviço',situacaoCadastral:'Ativa',faturamento:150000}),
+    E('e_proativa','Proativa',160,280,{regimeTributario:'Lucro Real',atividade:'Indústria',situacaoCadastral:'Ativa',faturamento:750000}),
+    E('e_distribuidora','Distribuidora',480,280,{regimeTributario:'Lucro Presumido',atividade:'Comércio',situacaoCadastral:'Ativa',faturamento:450000}),
+    E('e_ecosmeticos','Ecosméticos',480,470,{regimeTributario:'Simples Nacional',atividade:'Comércio',situacaoCadastral:'Ativa',faturamento:260000}),
+    E('e_kascher','Kascher',980,90,{observacoesLista:['Sem movimento há mais de 12 meses.'],situacaoCadastral:'Suspensa'}),
+    E('e_maxxima','Maxxima',980,230,{observacoesLista:['Empresa baixada.'],situacaoCadastral:'Baixada'}),
+    E('e_divicom','Divicom',980,370,{situacaoCadastral:'Ativa'}),
+    S('s_bernadete_ceocom','Bernadete',60,180,{participacao:100,administrador:true,distribuicaoLucros:180000}),
+    S('s_ana_proativa','Ana',60,380,{participacao:100,administrador:true,distribuicaoLucros:920000}),
+    S('s_ana_distribuidora','Ana',400,380,{participacao:100,administrador:true}),
+    S('s_zemaria_eco','Zé Maria',400,570,{participacao:100,administrador:true}),
+    S('s_bernadete_divicom','Bernadete',980,470,{participacao:100,administrador:true}),
+    O('o_ceocom','Terceirizadora (SN)',330,50),
+    O('o_proativa','Indústria (LR)',330,240),
+    O('o_distribuidora','Comércio (LP)',650,240),
+    O('o_eco','Comércio ou Indústria (SN)',650,430),
+    F('f_insumos','Fornecedor (insumo/cosmético)',160,470),
+    N('n_vendacomnf','Venda com NF',830,280),
+    N('n_vendasemnf','Venda sem NF',830,470),
+    N('n_kascher','Sem movimento — Prefeitura + impostos',1260,90,{valor:63000}),
+    N('n_maxxima','Baixada',1260,230),
+    N('n_divicom','Impostos apurados — Federal e Estadual',1260,370,{valor:370000}),
+    N('n_transacao','Transação',1260,470),
+    N('n_defis','Omissão de DEFIS',1260,570)
+  ];
+  var v1edges=[
+    L('e_ceocom','e_proativa'),
+    L('e_ceocom','o_ceocom',{decorativo:true}),
+    L('e_proativa','o_proativa',{decorativo:true}),
+    L('e_proativa','e_distribuidora',{estilo:'tracejada'}),
+    L('e_distribuidora','o_distribuidora',{decorativo:true}),
+    L('e_proativa','e_ecosmeticos',{corTipo:'auxiliar',estilo:'tracejada'}),
+    L('e_ecosmeticos','o_eco',{decorativo:true}),
+    L('f_insumos','e_proativa',{corTipo:'auxiliar',estilo:'tracejada',tipoOperacao:'Compra de insumo'}),
+    L('f_insumos','e_ecosmeticos',{corTipo:'auxiliar',estilo:'tracejada',tipoOperacao:'Compra de insumo'}),
+    L('e_ceocom','s_bernadete_ceocom',{decorativo:true}),
+    L('e_proativa','s_ana_proativa',{decorativo:true}),
+    L('e_distribuidora','s_ana_distribuidora',{decorativo:true}),
+    L('e_ecosmeticos','s_zemaria_eco',{decorativo:true}),
+    L('e_divicom','s_bernadete_divicom',{decorativo:true}),
+    L('e_distribuidora','n_vendacomnf',{estilo:'solida',tipoOperacao:'Venda com NF'}),
+    L('e_ecosmeticos','n_vendasemnf',{estilo:'solida',tipoOperacao:'Venda sem NF'}),
+    L('e_kascher','n_kascher',{estilo:'solida'}),
+    L('e_maxxima','n_maxxima',{estilo:'solida'}),
+    L('e_divicom','n_divicom',{estilo:'solida'}),
+    L('n_divicom','n_transacao',{estilo:'solida'}),
+    L('n_transacao','n_defis',{estilo:'solida'})
+  ];
+
+  /* ── Versão 2: reorganização societária ── */
+  var v2nodes=[
+    E('e2_ceocom','Ceocom',140,80,{regimeTributario:'Simples Nacional',atividade:'Serviço',situacaoCadastral:'Ativa',faturamento:150000}),
+    E('e2_proativa','Proativa',140,280,{regimeTributario:'Lucro Real',atividade:'Indústria',situacaoCadastral:'Ativa',faturamento:750000}),
+    E('e2_divicom','Divicom',-180,280,{situacaoCadastral:'Ativa'}),
+    E('e2_exito','Êxito',480,280,{regimeTributario:'Lucro Presumido',atividade:'Comércio',situacaoCadastral:'Ativa',faturamento:450000}),
+    E('e2_novaholding','Nova Holding',860,460,{regimeTributario:'Lucro Presumido',situacaoCadastral:'Ativa'}),
+    E('e2_ecosmeticos','Ecosméticos',480,560,{regimeTributario:'Simples Nacional',atividade:'Comércio',situacaoCadastral:'Ativa',faturamento:260000}),
+    S('s2_ana_ceocom','Ana',40,170,{participacao:100,administrador:true}),
+    S('s2_bernadete_proativa','Bernadete',40,380,{participacao:100,administrador:true}),
+    S('s2_ana_divicom','Ana',-180,380,{participacao:100,administrador:true}),
+    S('s2_ana_exito','Ana',400,380,{participacao:70,administrador:true}),
+    S('s2_ana_holding','Ana',780,560,{participacao:100,administrador:true}),
+    S('s2_zemaria_eco','Zé Maria',400,660,{participacao:100,administrador:true}),
+    O('o2_ceocom','Terceirizadora (SN)',310,40),
+    O('o2_proativa','Indústria (LR)',310,240),
+    O('o2_exito','Comércio (LP)',650,240),
+    O('o2_eco','Comércio ou Indústria (SN)',650,520),
+    N('n2_divicom','Venda sem NF',-460,280),
+    N('n2_exito','Venda com NF',830,280),
+    N('n2_eco','Venda sem NF',940,600),
+    N('n2_doacao','Doação — c/ NF',480,780,{valor:80000})
+  ];
+  var v2edges=[
+    L('e2_ceocom','e2_proativa'),
+    L('e2_ceocom','o2_ceocom',{decorativo:true}),
+    L('e2_proativa','o2_proativa',{decorativo:true}),
+    L('e2_proativa','e2_divicom',{corTipo:'auxiliar',estilo:'tracejada'}),
+    L('e2_proativa','e2_exito',{estilo:'tracejada'}),
+    L('e2_exito','o2_exito',{decorativo:true}),
+    L('e2_exito','e2_novaholding',{estilo:'solida',decorativo:true}),
+    L('e2_proativa','e2_ecosmeticos',{estilo:'solida'}),
+    L('e2_ecosmeticos','o2_eco',{decorativo:true}),
+    L('e2_ceocom','s2_ana_ceocom',{decorativo:true}),
+    L('e2_proativa','s2_bernadete_proativa',{decorativo:true}),
+    L('e2_divicom','s2_ana_divicom',{decorativo:true}),
+    L('e2_exito','s2_ana_exito',{decorativo:true}),
+    L('e2_novaholding','s2_ana_holding',{decorativo:true}),
+    L('e2_ecosmeticos','s2_zemaria_eco',{decorativo:true}),
+    L('e2_divicom','n2_divicom',{estilo:'solida',tipoOperacao:'Venda sem NF'}),
+    L('e2_exito','n2_exito',{estilo:'solida',tipoOperacao:'Venda com NF'}),
+    L('e2_ecosmeticos','n2_eco',{estilo:'solida',tipoOperacao:'Venda sem NF'}),
+    L('n2_doacao','e2_ecosmeticos',{estilo:'solida',tipoOperacao:'Doação',valor:80000})
+  ];
+
+  var versao1={id:uid('v'),nome:'Estrutura atual',nodes:v1nodes,edges:v1edges};
+  var versao2={id:uid('v'),nome:'Reorganização societária',nodes:v2nodes,edges:v2edges};
+  return{versoes:[versao1,versao2],versaoAtualId:versao1.id};
+}
+
+/* ══════════════════════════════ INICIALIZAÇÃO ══════════════════════════════ */
+function iniciar(){
+  if(!carregarLocal()){
+    state=estadoVazio();
+  }
+  normalizarState();
+  restaurarDocAtualRef();
+  atualizarStatusDocumento();
+  if($('inputCliente'))$('inputCliente').value=state.clienteNome||'';
+  window.NOME_CLIENTE=state.clienteNome||'';
+  atualizarTituloHeader();
+  resetarHistorico();
+  carregarPaletaSalva();
+  aplicarVb();
+  renderTudo();
+  ajustarZoomParaCaber();
+  $('mapaSvg').addEventListener('pointerdown',onSvgPointerDown);
+  $('mapaSvg').addEventListener('wheel',onWheel,{passive:false});
+  window.addEventListener('resize',function(){ajustarZoomParaCaber();});
+  window.addEventListener('keydown',function(ev){
+    if(ev.key==='Escape'){
+      if($('modalCompletoBg').classList.contains('active'))fecharVisaoCompleta();
+      else if($('modalBg').classList.contains('active'))fecharModal();
+      else if($('modalBibBg').classList.contains('active'))fecharBiblioteca();
+      else if(_apresentando)sairApresentacao();
+      return;
+    }
+    var alvoEhCampo=ev.target&&/^(INPUT|TEXTAREA|SELECT)$/.test(ev.target.tagName);
+    if(alvoEhCampo)return; /* dentro de um campo de texto, deixa o desfazer nativo do navegador agir */
+    var teclaZ=ev.key==='z'||ev.key==='Z';
+    var teclaY=ev.key==='y'||ev.key==='Y';
+    if((ev.ctrlKey||ev.metaKey)&&teclaZ&&!ev.shiftKey){ev.preventDefault();desfazer();}
+    else if((ev.ctrlKey||ev.metaKey)&&((teclaZ&&ev.shiftKey)||teclaY)){ev.preventDefault();refazer();}
+  });
+}
+document.addEventListener('DOMContentLoaded',iniciar);
+
+/* ══════════════════════════════ MEUS MAPAS — biblioteca de documentos em cache ══════════════════════════════
+   Além do rascunho automático (salvarLocal/carregarLocal, uma única “gaveta” sempre com o último estado
+   editado), esta seção guarda VÁRIOS mapas nomeados no navegador — como uma lista de documentos — para
+   manter, por exemplo, um mapa por cliente. Cada item é independente e sobrevive a fechar a aba/o arquivo. */
+var DOC_LIB_KEY='ac_mapa_societario_docs_v1';
+var DOC_ATUAL_KEY='ac_mapa_societario_doc_atual_v1';
+var _docAtualId=null,_docAtualNome=null;
+
+function listarDocumentos(){
+  try{
+    var raw=localStorage.getItem(DOC_LIB_KEY);
+    var lista=raw?JSON.parse(raw):[];
+    return Array.isArray(lista)?lista:[];
+  }catch(e){return [];}
+}
+function salvarListaDocumentos(lista){
+  try{localStorage.setItem(DOC_LIB_KEY,JSON.stringify(lista));}catch(e){/* melhor-esforço */}
+}
+function persistirDocAtualRef(){
+  try{
+    if(_docAtualId)localStorage.setItem(DOC_ATUAL_KEY,JSON.stringify({id:_docAtualId,nome:_docAtualNome}));
+    else localStorage.removeItem(DOC_ATUAL_KEY);
+  }catch(e){/* melhor-esforço */}
+}
+function restaurarDocAtualRef(){
+  try{
+    var raw=localStorage.getItem(DOC_ATUAL_KEY);
+    if(!raw)return;
+    var ref=JSON.parse(raw);
+    if(!ref||!ref.id)return;
+    var doc=listarDocumentos().find(function(d){return d.id===ref.id;});
+    if(doc){_docAtualId=doc.id;_docAtualNome=doc.nome;}
+  }catch(e){/* melhor-esforço */}
+}
+function limparDocAtual(){
+  _docAtualId=null;_docAtualNome=null;
+  persistirDocAtualRef();
+  atualizarStatusDocumento();
+}
+function atualizarStatusDocumento(){
+  var el=$('docStatusTxt');
+  if(!el)return;
+  if(_docAtualId){
+    el.innerHTML='Documento salvo: <strong>'+esc(_docAtualNome)+'</strong>. Alterações ficam só no rascunho automático até você salvar de novo em “📁 Meus mapas”.';
+  }else{
+    el.innerHTML='Documento não salvo — abra “📁 Meus mapas” para guardá-lo na lista deste navegador. O rascunho atual já é salvo automaticamente e recuperado se você recarregar a página.';
+  }
+}
+
+function snapshotEstadoAtual(){return JSON.parse(JSON.stringify(state));}
+
+function salvarComoNovoDocumento(){
+  var sugestao=nomeArquivoBase();
+  var nome=prompt('Nome deste documento:',sugestao);
+  if(nome===null)return;
+  nome=nome.trim();
+  if(!nome)return;
+  var lista=listarDocumentos();
+  var doc={id:uid('doc'),nome:nome,atualizadoEm:new Date().toISOString(),estado:snapshotEstadoAtual()};
+  lista.push(doc);
+  salvarListaDocumentos(lista);
+  _docAtualId=doc.id;_docAtualNome=doc.nome;
+  persistirDocAtualRef();
+  atualizarStatusDocumento();
+  if($('modalBibBg').classList.contains('active')){renderBiblioteca();atualizarBibAcoesAtual();}
+}
+function salvarDocumentoAtual(){
+  if(!_docAtualId){salvarComoNovoDocumento();return;}
+  var lista=listarDocumentos();
+  var doc=lista.find(function(d){return d.id===_docAtualId;});
+  if(!doc){salvarComoNovoDocumento();return;}
+  doc.estado=snapshotEstadoAtual();
+  doc.atualizadoEm=new Date().toISOString();
+  salvarListaDocumentos(lista);
+  atualizarStatusDocumento();
+  if($('modalBibBg').classList.contains('active')){renderBiblioteca();atualizarBibAcoesAtual();}
+}
+function abrirDocumento(id){
+  var doc=listarDocumentos().find(function(d){return d.id===id;});
+  if(!doc)return;
+  if(algumNodeExiste()&&!confirm('Abrir "'+doc.nome+'" substitui o mapa atualmente na tela (o rascunho atual não salvo como documento será perdido). Continuar?'))return;
+  state=JSON.parse(JSON.stringify(doc.estado));
+  if(!versaoAtual())state.versaoAtualId=state.versoes[0].id;
+  _docAtualId=doc.id;_docAtualNome=doc.nome;
+  persistirDocAtualRef();
+  resetarHistorico();
+  onMudouEstado();
+  ajustarZoomParaCaber();
+  atualizarStatusDocumento();
+  fecharBiblioteca();
+}
+function renomearDocumento(id){
+  var lista=listarDocumentos();
+  var doc=lista.find(function(d){return d.id===id;});
+  if(!doc)return;
+  var novo=prompt('Novo nome:',doc.nome);
+  if(novo===null)return;
+  novo=novo.trim();
+  if(!novo)return;
+  doc.nome=novo;
+  salvarListaDocumentos(lista);
+  if(_docAtualId===id){_docAtualNome=novo;persistirDocAtualRef();atualizarStatusDocumento();}
+  renderBiblioteca();
+}
+function duplicarDocumento(id){
+  var lista=listarDocumentos();
+  var doc=lista.find(function(d){return d.id===id;});
+  if(!doc)return;
+  var copia={id:uid('doc'),nome:doc.nome+' (cópia)',atualizadoEm:new Date().toISOString(),estado:JSON.parse(JSON.stringify(doc.estado))};
+  lista.push(copia);
+  salvarListaDocumentos(lista);
+  renderBiblioteca();
+}
+function excluirDocumento(id){
+  var lista=listarDocumentos();
+  var doc=lista.find(function(d){return d.id===id;});
+  if(!doc)return;
+  if(!confirm('Excluir definitivamente "'+doc.nome+'" da lista de mapas salvos neste navegador? Essa ação não pode ser desfeita (exceto se você tiver um JSON exportado).'))return;
+  lista=lista.filter(function(d){return d.id!==id;});
+  salvarListaDocumentos(lista);
+  if(_docAtualId===id)limparDocAtual();
+  renderBiblioteca();
+}
+function contarEmpresas(estadoDoc){
+  var total=0;
+  (estadoDoc.versoes||[]).forEach(function(v){total+=v.nodes.filter(function(n){return n.tipo==='empresa';}).length;});
+  return total;
+}
+function renderBiblioteca(){
+  var lista=listarDocumentos().slice().sort(function(a,b){return(b.atualizadoEm||'').localeCompare(a.atualizadoEm||'');});
+  var el=$('bibLista');
+  if(!lista.length){
+    el.innerHTML='<div class="empty-state"><p>Nenhum mapa salvo ainda neste navegador. Monte um mapa e clique em “Salvar o mapa atual como um novo item desta lista”.</p></div>';
+    return;
+  }
+  var filtro=(($('bibBusca')&&$('bibBusca').value)||'').trim().toLowerCase();
+  var listaFiltrada=filtro?lista.filter(function(d){return(d.nome||'').toLowerCase().indexOf(filtro)>-1;}):lista;
+  if(!listaFiltrada.length){
+    el.innerHTML='<div class="empty-state"><p>Nenhum mapa salvo com esse nome.</p></div>';
+    return;
+  }
+  el.innerHTML=listaFiltrada.map(function(d){
+    var dt=new Date(d.atualizadoEm);
+    var dtTxt=isNaN(dt)?'':dt.toLocaleDateString('pt-BR')+' às '+dt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    var nEmp=contarEmpresas(d.estado);
+    var nVer=(d.estado.versoes||[]).length;
+    var ehAtual=d.id===_docAtualId;
+    return '<div class="member-card">'+
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px">'+
+        '<div><strong>'+esc(d.nome)+'</strong>'+(ehAtual?' <span class="pill pill-blue">Aberto agora</span>':'')+
+        '<div class="hint" style="margin-top:3px">'+nVer+' versão(ões) · '+nEmp+' empresa(s) ao todo · atualizado em '+dtTxt+'</div></div>'+
+      '</div>'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
+        '<button class="btn-g" onclick="abrirDocumento(\''+d.id+'\')">Abrir</button>'+
+        '<button class="btn-o" onclick="renomearDocumento(\''+d.id+'\')">Renomear</button>'+
+        '<button class="btn-o" onclick="duplicarDocumento(\''+d.id+'\')">Duplicar</button>'+
+        '<button class="btn-danger" onclick="excluirDocumento(\''+d.id+'\')">Excluir</button>'+
+      '</div></div>';
+  }).join('');
+}
+function atualizarBibAcoesAtual(){
+  var wrap=$('bibAcoesAtual');
+  if(!wrap)return;
+  if(_docAtualId){
+    wrap.style.display='';
+    if($('bibNomeAtual'))$('bibNomeAtual').textContent=_docAtualNome||'';
+  }else{
+    wrap.style.display='none';
+  }
+}
+function abrirBiblioteca(){
+  if($('bibBusca'))$('bibBusca').value='';
+  renderBiblioteca();
+  atualizarBibAcoesAtual();
+  $('modalBibBg').classList.add('active');
+}
+function fecharBiblioteca(){
+  $('modalBibBg').classList.remove('active');
+}
+
+</script>
+</body>
+</html>

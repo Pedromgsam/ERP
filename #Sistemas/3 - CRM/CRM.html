@@ -1,0 +1,1153 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CRM · Araújo &amp; Castro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+/* ══════════════════════════════════════════════════════════════
+   Tema Araújo & Castro — os mesmos tokens do ERP, para que as
+   duas telas pareçam o mesmo sistema. Se um dia mudar a cor lá,
+   mude aqui também: são dois arquivos, um padrão só.
+   ══════════════════════════════════════════════════════════════ */
+:root{
+  --ac-navy:#1B2A4A;--ac-navy2:#243659;
+  --ac-gold:#C9A84C;--ac-gold2:#D4A84B;--ac-gold-lt:#F5EDD6;
+  --navy:var(--ac-navy); --navy2:var(--ac-navy2);
+  --gold:var(--ac-gold); --gold2:var(--ac-gold2); --gold-lt:var(--ac-gold-lt);
+
+  --blue:#2563EB;--blue-d:#1D4ED8;--blue-lt:#DBEAFE;
+  --violet:#7C3AED;--violet-lt:#EDE9FE;
+  --teal:#0D9488;--teal-lt:#CCFBF1;
+  --red:#DC2626;--red-d:#B91C1C;--red-lt:#FEE2E2;
+  --amber:#D97706;--amber-lt:#FEF3C7;
+  --green:#16A34A;--green-d:#15803D;--green-lt:#DCFCE7;
+  --gray:#6B7280;--gray-lt:#EEF0F5;--gray-mid:#E4E7EF;
+
+  --border:rgba(0,0,0,.09);--border-strong:rgba(0,0,0,.16);
+  --text:#1B2A4A;--text2:#374151;--text3:#6B7280;--text4:#9CA3AF;
+  --bg:#F0F2F7;--white:#FFFFFF;
+
+  --card-r:14px;--card-r-sm:10px;
+  --shadow-xs:0 1px 2px rgba(0,0,0,.05);
+  --shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.05);
+  --shadow-md:0 4px 12px rgba(0,0,0,.10);
+  --shadow-lg:0 10px 30px rgba(0,0,0,.12);
+
+  --font-d:'Playfair Display',Georgia,serif;
+  --font-b:'DM Sans','Inter',system-ui,sans-serif;
+  --font-m:'JetBrains Mono','Courier New',monospace;
+  --ease:cubic-bezier(.4,0,.2,1);
+  --hh:58px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:14px}
+body{font-family:var(--font-b);background:var(--bg);color:var(--text);line-height:1.5}
+button{font-family:var(--font-b);cursor:pointer;border:none;background:none}
+select,input,textarea{font-family:var(--font-b);font-size:inherit;color:inherit}
+img{display:block}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:4px}
+
+/* ══ CABEÇALHO — mesma barra do ERP ══ */
+#hd{position:sticky;top:0;z-index:300;height:var(--hh);
+  background:var(--ac-navy);display:flex;align-items:center;gap:12px;
+  padding:0 18px;
+  box-shadow:0 1px 0 rgba(201,168,76,.25),0 4px 24px rgba(0,0,0,.35)}
+.hd-logo{width:38px;height:38px;border-radius:10px;flex-shrink:0;
+  background:linear-gradient(145deg,var(--ac-gold),var(--ac-gold2));
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-d);color:var(--ac-navy);font-size:13px;font-weight:800;
+  letter-spacing:-.5px;box-shadow:0 3px 14px rgba(201,168,76,.55)}
+.hd-brand{display:flex;flex-direction:column;justify-content:center;gap:1px}
+.hd-nm{font-family:var(--font-d);color:#fff;font-size:13px;font-weight:700;line-height:1.2}
+.hd-sub{font-size:8.5px;color:var(--ac-gold2);letter-spacing:.07em;text-transform:uppercase;opacity:.9}
+.hd-sp{flex:1}
+.hd-b{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);color:#fff;
+  padding:7px 13px;border-radius:8px;font-size:12.5px;font-weight:500;transition:background .14s}
+.hd-b:hover{background:rgba(255,255,255,.2)}
+.hd-u{font-size:12px;color:rgba(255,255,255,.72);white-space:nowrap}
+.st{font-size:10.5px;padding:3px 10px;border-radius:99px;background:rgba(255,255,255,.12);
+  color:rgba(255,255,255,.85);font-family:var(--font-m);white-space:nowrap}
+.st.ok{background:rgba(22,163,74,.3)} .st.err{background:rgba(220,38,38,.34)}
+.st.load{background:rgba(217,119,6,.32)}
+
+.wrap{max-width:1560px;margin:0 auto;padding:20px}
+
+/* ══ ABAS ══ */
+.tabs{display:flex;gap:2px;margin-bottom:18px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.tab{padding:8px 17px;border-radius:8px 8px 0 0;font-size:12.5px;font-weight:600;
+  color:var(--text4);border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .12s}
+.tab:hover{background:var(--gray-lt)}
+.tab.on{color:var(--navy);border-bottom-color:var(--ac-gold);background:var(--white)}
+.pane{display:none} .pane.on{display:block}
+
+/* ══ KPIs — cartão do ERP ══ */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:12px;margin-bottom:18px}
+.kpi{background:var(--white);border:1px solid var(--border);border-radius:var(--card-r-sm);
+  padding:13px 16px;box-shadow:var(--shadow);border-left:3px solid var(--ac-gold)}
+.kpi-l{font-size:9.5px;color:var(--text4);text-transform:uppercase;letter-spacing:.07em;font-weight:700}
+.kpi-v{font-family:var(--font-m);font-size:22px;font-weight:700;margin-top:4px;letter-spacing:-.02em}
+.kpi-s{font-size:11px;color:var(--text3);margin-top:2px}
+.kpi.alerta{border-left-color:var(--red)} .kpi.alerta .kpi-v{color:var(--red-d)}
+
+/* ══ FUNIL — kanban igual ao do ERP ══ */
+.crm-funnel{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(232px,1fr);
+  gap:12px;overflow-x:auto;padding-bottom:10px}
+.crm-col{background:var(--gray-lt);border-radius:var(--card-r-sm);padding:10px;
+  border:1.5px dashed var(--border-strong);min-height:110px}
+.crm-col-hd{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;
+  color:var(--text4);margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.crm-col-dot{width:8px;height:8px;border-radius:50%;flex:none}
+.crm-col-nm{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.crm-col-cnt{font-size:10px;background:var(--white);border:1px solid var(--border);
+  border-radius:20px;padding:1px 7px;color:var(--text3)}
+.crm-col-val{font-family:var(--font-m);font-size:10px;color:var(--green-d);
+  font-weight:700;margin-bottom:7px;padding-left:2px}
+.crm-lead{background:var(--white);border:1px solid var(--border);border-radius:var(--card-r-sm);
+  padding:11px 13px;margin-bottom:8px;font-size:12px;transition:all .16s var(--ease);
+  position:relative;border-left:3px solid transparent}
+.crm-lead:hover{box-shadow:0 3px 12px rgba(0,0,0,.1);border-color:rgba(27,42,74,.2);transform:translateY(-1px)}
+.crm-lead.atrasado{border-left-color:var(--red)}
+.crm-lead.hoje{border-left-color:var(--amber)}
+.crm-lead-nm{font-weight:700;color:var(--navy);font-size:13px;line-height:1.25;
+  cursor:pointer;padding-right:52px}
+.crm-lead-nm:hover{color:var(--gold)}
+.crm-lead-sub{font-size:10.5px;color:var(--text3);margin-top:3px}
+.crm-lead-val{font-family:var(--font-m);font-size:11px;color:var(--green-d);font-weight:700;margin-top:4px}
+.crm-lead-dt{font-size:10px;color:var(--text3);margin-top:2px}
+.crm-lead-dt.atrasado{color:var(--red-d);font-weight:700}
+.crm-lead-dt.hoje{color:var(--amber);font-weight:700}
+.crm-card-btns{position:absolute;right:8px;top:8px;display:flex;gap:3px}
+.crm-card-btn{font-size:11px;line-height:1;padding:3px 5px;border-radius:5px;
+  color:var(--text4);transition:all .12s}
+.crm-card-btn:hover{background:var(--navy);color:var(--ac-gold)}
+.crm-acts{display:flex;gap:5px;margin-top:8px;flex-wrap:wrap}
+.mini{font-size:10px;padding:3px 8px;border-radius:6px;border:1px solid var(--border);
+  background:var(--white);color:var(--text2);font-weight:600;transition:all .12s}
+.mini:hover{background:var(--navy);color:#fff;border-color:var(--navy)}
+.crm-vazio{font-size:11px;color:var(--text4);padding:8px 2px;text-align:center}
+
+/* ══ TABELAS ══ */
+.tw{background:var(--white);border:1px solid var(--border);border-radius:var(--card-r-sm);
+  overflow:auto;box-shadow:var(--shadow);max-height:66vh}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{background:var(--gray-mid);color:var(--text4);text-align:left;padding:9px 11px;
+  font-size:9.5px;text-transform:uppercase;letter-spacing:.07em;font-weight:700;
+  position:sticky;top:0;z-index:2;border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:9px 11px;border-bottom:1px solid var(--border);vertical-align:top}
+tbody tr:hover{background:var(--gray-lt)}
+.num{text-align:right;font-family:var(--font-m);white-space:nowrap}
+.tag{display:inline-block;font-size:10px;font-weight:700;padding:2px 9px;border-radius:99px;white-space:nowrap}
+.vazio{text-align:center;padding:40px 20px;color:var(--text3);font-size:13px}
+
+/* ══ FORMULÁRIOS ══ */
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.in{padding:7px 11px;border:1px solid var(--border);border-radius:8px;background:var(--white);
+  font-size:12.5px;min-width:0;outline:none;transition:border-color .14s,box-shadow .14s}
+.in:focus{border-color:var(--ac-gold);box-shadow:0 0 0 3px rgba(201,168,76,.15)}
+.btn{background:var(--navy);color:#fff;padding:8px 16px;border-radius:8px;
+  font-size:12.5px;font-weight:600;transition:background .14s}
+.btn:hover{background:var(--navy2)}
+.btn.g{background:var(--green-d)} .btn.g:hover{background:#12833b}
+.btn.o{background:var(--white);color:var(--text2);border:1px solid var(--border)}
+.btn.o:hover{background:var(--gray-lt)}
+.btn:disabled{opacity:.55;cursor:not-allowed}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(212px,1fr));gap:12px}
+.fg{display:flex;flex-direction:column;gap:4px}
+.fg label{font-size:9px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.07em}
+.fg .in{width:100%}
+.req::after{content:' *';color:var(--red)}
+
+/* ══ MODAIS ══ */
+.ov{position:fixed;inset:0;background:rgba(10,18,35,.65);display:none;align-items:flex-start;
+  justify-content:center;z-index:9000;padding:24px 16px;overflow-y:auto;
+  backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
+.ov.on{display:flex}
+.box{background:var(--white);border-radius:16px;width:100%;max-width:660px;
+  box-shadow:0 20px 60px rgba(0,0,0,.3);border:1px solid var(--border);margin:auto}
+.box-hd{display:flex;align-items:center;padding:16px 22px 13px;border-bottom:2px solid var(--gold-lt);gap:10px}
+.box-t{font-family:var(--font-d);font-size:16px;font-weight:700;color:var(--navy);flex:1}
+.box-x{width:28px;height:28px;border-radius:50%;background:var(--gray-lt);color:var(--text3);
+  font-size:14px;display:flex;align-items:center;justify-content:center;transition:all .14s}
+.box-x:hover{background:var(--red-lt);color:var(--red-d)}
+.box-b{padding:18px 22px}
+.box-f{padding:13px 22px;border-top:1px solid var(--border);display:flex;gap:8px;
+  justify-content:flex-end;flex-wrap:wrap}
+
+/* ══ AVISOS ══ */
+.msg{border-radius:var(--card-r-sm);padding:10px 14px;font-size:12px;line-height:1.45;
+  margin-bottom:12px;display:flex;gap:8px;border-left:4px solid transparent}
+.msg.e{background:var(--red-lt);border-left-color:var(--red);color:#991B1B}
+.msg.o{background:var(--green-lt);border-left-color:var(--green);color:#166534}
+.msg.a{background:var(--amber-lt);border-left-color:var(--amber);color:#92400E}
+#toast{position:fixed;bottom:20px;right:20px;z-index:9999;background:var(--navy);color:#fff;
+  padding:11px 16px;border-radius:10px;font-size:12.5px;max-width:340px;line-height:1.4;
+  box-shadow:var(--shadow-lg);transform:translateY(12px) scale(.97);opacity:0;
+  transition:all .22s var(--ease);pointer-events:none}
+#toast.show{transform:none;opacity:1}
+
+/* linha do tempo da ficha */
+.tl{border-left:2px solid var(--border);margin-left:7px;padding-left:16px;margin-top:4px}
+.tl-i{position:relative;padding-bottom:14px}
+.tl-i::before{content:'';position:absolute;left:-22px;top:4px;width:9px;height:9px;
+  border-radius:50%;background:var(--ac-gold);border:2px solid var(--white)}
+.tl-d{font-size:10.5px;color:var(--text4)}
+.tl-r{font-size:12.5px;margin-top:2px;color:var(--text2);line-height:1.45}
+
+/* ══ LOGIN — cópia da tela do ERP ══ */
+#ac-login-overlay{display:none;position:fixed;inset:0;z-index:99999;background:var(--bg);
+  align-items:center;justify-content:center;font-family:var(--font-b);overflow-y:auto;padding:20px}
+#ac-login-overlay.open{display:flex}
+.ac-login-wrap{width:100%;max-width:420px;margin:auto}
+.ac-login-logo{width:140px;height:140px;border-radius:20px;margin:0 auto 12px;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden}
+.ac-login-brand{text-align:center;margin-bottom:28px}
+.ac-login-brand-nm{font-family:var(--font-d);font-size:19px;font-weight:700;
+  color:var(--navy);letter-spacing:-.01em;margin-top:2px}
+.ac-login-brand-sub{font-size:10.5px;color:var(--text4);margin-top:4px;
+  letter-spacing:.06em;text-transform:uppercase}
+.ac-login-card{background:var(--white);border-radius:16px;padding:28px 28px 24px;
+  border:1px solid var(--border);box-shadow:var(--shadow-md)}
+.ac-login-field{margin-bottom:14px}
+.ac-login-label{display:block;font-size:9px;font-weight:700;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--text3);margin-bottom:5px}
+.ac-login-input{width:100%;background:var(--gray-lt);border:1.5px solid var(--border);
+  color:var(--text);border-radius:8px;padding:9px 12px;font-size:13px;outline:none;
+  transition:border-color .14s,box-shadow .14s;font-family:var(--font-b)}
+.ac-login-input:focus{border-color:var(--ac-gold);background:var(--white);
+  box-shadow:0 0 0 3px rgba(201,168,76,.15)}
+.ac-login-pass-wrap{position:relative}
+.ac-login-pass-wrap .ac-login-input{padding-right:40px}
+.ac-login-pass-toggle{position:absolute;right:10px;top:50%;transform:translateY(-50%);
+  color:var(--text4);font-size:14px;padding:3px;line-height:1;transition:color .12s}
+.ac-login-pass-toggle:hover{color:var(--navy)}
+.ac-login-url-wrap{margin-top:16px;padding-top:14px;border-top:1px solid var(--border)}
+.ac-login-url-toggle{font-size:10px;color:var(--text3);cursor:pointer;letter-spacing:.04em;
+  text-transform:uppercase;user-select:none;display:flex;align-items:center;
+  justify-content:center;gap:4px}
+.ac-login-url-toggle:hover{color:var(--navy)}
+.ac-login-url-field{display:none;margin-top:8px}
+.ac-login-url-field.open{display:block}
+.ac-login-url-in{width:100%;border:1px solid var(--border);border-radius:6px;padding:7px 10px;
+  font-size:11px;font-family:var(--font-m);color:var(--text);background:var(--white);
+  outline:none;transition:border .15s}
+.ac-login-url-in:focus{border-color:var(--navy)}
+.ac-login-url-save{width:100%;margin-top:6px;padding:6px;background:var(--gray-lt);
+  border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--text3);
+  font-family:var(--font-b);transition:all .15s}
+.ac-login-url-save:hover{background:var(--navy);color:#fff;border-color:var(--navy)}
+.ac-login-msg{margin-bottom:12px}
+.ac-login-msg-inner{background:#FEF2F2;border:1px solid rgba(185,28,28,.2);
+  border-left:3px solid var(--red);border-radius:var(--card-r-sm);padding:9px 12px;
+  font-size:12px;color:#B91C1C;line-height:1.5}
+.ac-login-msg-ok{background:#F0FDF4;border:1px solid rgba(21,128,61,.2);
+  border-left:3px solid var(--green);border-radius:var(--card-r-sm);padding:9px 12px;
+  font-size:12px;color:#166534;line-height:1.5}
+.ac-login-btn{width:100%;background:var(--navy);color:#fff;border-radius:var(--card-r-sm);
+  padding:12px;font-size:14px;font-weight:600;transition:background .16s,box-shadow .16s;
+  letter-spacing:.01em;display:flex;align-items:center;justify-content:center;gap:8px}
+.ac-login-btn:hover:not(:disabled){background:#243659;box-shadow:0 4px 18px rgba(27,42,74,.38)}
+.ac-login-btn:disabled{opacity:.6;cursor:not-allowed}
+.ac-login-btn2{width:100%;margin-top:8px;background:var(--gray-lt);border:1px solid var(--border);
+  color:var(--text3);padding:8px;border-radius:var(--card-r-sm);font-size:11.5px;transition:all .15s}
+.ac-login-btn2:hover{background:var(--navy);color:#fff;border-color:var(--navy)}
+.ac-login-footer{text-align:center;margin-top:18px;font-size:10.5px;color:var(--text4);line-height:1.7}
+.ac-login-spin{width:14px;height:14px;border:2px solid rgba(255,255,255,.3);
+  border-top-color:#fff;border-radius:50%;animation:ac-spin .7s linear infinite;display:inline-block}
+@keyframes ac-spin{to{transform:rotate(360deg)}}
+
+@media(max-width:700px){.wrap{padding:13px}#hd{padding:0 12px}.hd-u,.hd-brand{display:none}}
+</style>
+</head>
+<body>
+
+<!-- ══════════ TELA DE LOGIN ══════════ -->
+<div id="ac-login-overlay">
+  <div class="ac-login-wrap">
+
+    <div class="ac-login-brand">
+      <div class="ac-login-logo">
+        <img src="data:image/png;base64,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" alt="Araújo &amp; Castro Advocacia"
+          style="width:100%;height:100%;object-fit:cover;border-radius:20px;display:block">
+      </div>
+      <div class="ac-login-brand-nm">Araújo &amp; Castro Advocacia</div>
+      <div class="ac-login-brand-sub">CRM · Prospecção comercial</div>
+    </div>
+
+    <div class="ac-login-card">
+      <div class="ac-login-field">
+        <label class="ac-login-label">Login</label>
+        <input class="ac-login-input" id="ac-login-email" type="text"
+          autocomplete="username" placeholder="seu login de acesso"
+          onkeydown="if(event.key==='Enter')document.getElementById('ac-login-senha').focus()">
+      </div>
+
+      <div class="ac-login-field">
+        <label class="ac-login-label">Senha</label>
+        <div class="ac-login-pass-wrap">
+          <input class="ac-login-input" id="ac-login-senha" type="password"
+            autocomplete="current-password" placeholder="••••••••"
+            onkeydown="if(event.key==='Enter')entrar()">
+          <button class="ac-login-pass-toggle" type="button"
+            onclick="alternarSenha()" title="Mostrar/ocultar senha">👁</button>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;margin-bottom:16px">
+        <label style="display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;font-size:12px;color:var(--text3)">
+          <input type="checkbox" id="ac-lembrar"
+            style="width:14px;height:14px;accent-color:var(--navy);cursor:pointer">
+          Lembrar meu login
+        </label>
+      </div>
+
+      <div class="ac-login-msg" id="ac-login-msg"></div>
+
+      <button class="ac-login-btn" id="ac-login-btn" onclick="entrar()">Entrar</button>
+      <button class="ac-login-btn2" type="button" onclick="testarConexao()">Testar conexão com o servidor</button>
+
+      <div class="ac-login-url-wrap">
+        <div class="ac-login-url-toggle" onclick="alternarUrl()">
+          <span>⚙</span><span id="ac-url-txt">Configurar conexão</span>
+        </div>
+        <div class="ac-login-url-field" id="ac-login-url-field">
+          <input class="ac-login-url-in" id="ac-login-url-in" type="url"
+            placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off"
+            onkeydown="if(event.key==='Enter')salvarUrlLogin()">
+          <button class="ac-login-url-save" onclick="salvarUrlLogin()">✓ Salvar URL</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="ac-login-footer">
+      Araújo &amp; Castro Advocacia · Acesso restrito · LGPD compliant
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ CABEÇALHO ══════════ -->
+<div id="hd">
+  <div class="hd-logo">A&amp;C</div>
+  <div class="hd-brand">
+    <div class="hd-nm">Araújo &amp; Castro</div>
+    <div class="hd-sub">CRM · Prospecção</div>
+  </div>
+  <span class="st" id="stat">—</span>
+  <div class="hd-sp"></div>
+  <span class="hd-u" id="hdUser"></span>
+  <button class="hd-b" onclick="carregar()">↻ Atualizar</button>
+  <button class="hd-b" onclick="sair()">Sair</button>
+</div>
+
+<div class="wrap">
+  <div id="alertas"></div>
+  <div class="kpis" id="kpis"></div>
+
+  <div class="tabs">
+    <button class="tab on" onclick="aba('funil',this)">Funil</button>
+    <button class="tab"    onclick="aba('lista',this)">Todos os leads</button>
+    <button class="tab"    onclick="aba('agenda',this)">Agenda</button>
+  </div>
+
+  <!-- FUNIL -->
+  <div class="pane on" id="pane-funil">
+    <div class="bar">
+      <button class="btn g" onclick="novoLead()">+ Novo lead</button>
+      <select class="in" id="fResp" onchange="render()"><option value="">Responsável: todos</option></select>
+      <select class="in" id="fNat"  onchange="render()"><option value="">Natureza: todas</option></select>
+      <input  class="in" id="fBusca" type="search" placeholder="Buscar nome…" oninput="render()" style="flex:1;min-width:170px">
+    </div>
+    <div class="crm-funnel" id="kb"></div>
+  </div>
+
+  <!-- LISTA -->
+  <div class="pane" id="pane-lista">
+    <div class="bar">
+      <select class="in" id="lEst" onchange="renderLista()"><option value="">Estágio: todos</option></select>
+      <input  class="in" id="lBusca" type="search" placeholder="Buscar…" oninput="renderLista()" style="flex:1;min-width:170px">
+      <span id="lInfo" style="font-size:12px;color:var(--text3)"></span>
+    </div>
+    <div class="tw"><table id="tblLista"></table></div>
+  </div>
+
+  <!-- AGENDA -->
+  <div class="pane" id="pane-agenda">
+    <div class="bar">
+      <button class="btn g" onclick="abrirReuniao('')">+ Agendar reunião</button>
+      <span id="calInfo" style="font-size:11.5px;color:var(--text3)"></span>
+    </div>
+    <div class="tw"><table id="tblReu"></table></div>
+  </div>
+</div>
+
+<!-- ══════════ MODAIS ══════════ -->
+<div class="ov" id="ovLead"><div class="box"><div class="box-hd">
+  <div class="box-t" id="leadT">Novo lead</div><button class="box-x" onclick="fechar('ovLead')">✕</button></div>
+  <div class="box-b"><div id="leadMsg"></div><div class="grid2">
+    <div class="fg" style="grid-column:1/-1"><label class="req">Nome / Razão Social</label><input class="in" id="f_nome"></div>
+    <div class="fg"><label>CPF / CNPJ</label><input class="in" id="f_doc"></div>
+    <div class="fg"><label>Telefone</label><input class="in" id="f_telefone"></div>
+    <div class="fg"><label>E-mail</label><input class="in" id="f_email" type="email"></div>
+    <div class="fg"><label>Natureza</label><select class="in" id="f_natureza"></select></div>
+    <div class="fg"><label>Responsável</label><select class="in" id="f_responsavel"></select></div>
+    <div class="fg"><label>Valor estimado (R$)</label><input class="in" id="f_valor" type="number" step="100" min="0"></div>
+    <div class="fg"><label>Origem</label><select class="in" id="f_origem"></select></div>
+    <div class="fg"><label>Indicado por</label><input class="in" id="f_indicadoPor"></div>
+    <div class="fg"><label>Canal preferido</label><select class="in" id="f_canal"></select></div>
+    <div class="fg"><label>Próximo contato</label><input class="in" id="f_proximo" type="date"></div>
+    <div class="fg"><label>Estágio</label><select class="in" id="f_estagio"></select></div>
+    <div class="fg" style="grid-column:1/-1"><label>Observação</label>
+      <textarea class="in" id="f_obs" rows="3"></textarea></div>
+  </div></div>
+  <div class="box-f">
+    <button class="btn o" onclick="fechar('ovLead')">Cancelar</button>
+    <button class="btn g" id="leadSalvar" onclick="salvarLead()">Salvar</button>
+  </div></div></div>
+
+<div class="ov" id="ovMover"><div class="box" style="max-width:480px"><div class="box-hd">
+  <div class="box-t">Mover estágio</div><button class="box-x" onclick="fechar('ovMover')">✕</button></div>
+  <div class="box-b"><div id="movMsg"></div>
+    <p style="font-size:13px;margin-bottom:14px" id="movLead"></p>
+    <div class="fg" style="margin-bottom:12px"><label class="req">Novo estágio</label>
+      <select class="in" id="m_estagio" onchange="movMotivo()"></select></div>
+    <div class="fg" id="movMotivoBox" style="display:none;margin-bottom:12px">
+      <label class="req">Motivo da perda</label>
+      <select class="in" id="m_motivo">
+        <option>Preço</option><option>Prazo</option><option>Foi com outro escritório</option>
+        <option>Sem retorno do cliente</option><option>Fora do perfil / não é nossa área</option>
+        <option>Cliente desistiu do caso</option><option>Sem condições de pagar</option>
+        <option>Outro</option></select></div>
+    <div class="fg" style="margin-bottom:12px"><label>Próximo contato</label><input class="in" id="m_proximo" type="date"></div>
+    <div class="fg"><label>Anotação (vai para o histórico)</label><input class="in" id="m_resumo"></div>
+  </div>
+  <div class="box-f"><button class="btn o" onclick="fechar('ovMover')">Cancelar</button>
+    <button class="btn g" id="movSalvar" onclick="salvarMover()">Mover</button></div></div></div>
+
+<div class="ov" id="ovInt"><div class="box" style="max-width:480px"><div class="box-hd">
+  <div class="box-t">Registrar contato</div><button class="box-x" onclick="fechar('ovInt')">✕</button></div>
+  <div class="box-b"><div id="intMsg"></div>
+    <p style="font-size:13px;margin-bottom:14px" id="intLead"></p>
+    <div class="fg" style="margin-bottom:12px"><label>Tipo</label>
+      <select class="in" id="i_tipo">
+        <option>Telefone</option><option>WhatsApp</option><option>E-mail</option>
+        <option>Presencial</option><option>Reunião</option><option>Outro</option></select></div>
+    <div class="fg" style="margin-bottom:12px"><label class="req">O que aconteceu</label>
+      <textarea class="in" id="i_resumo" rows="3"></textarea></div>
+    <div class="fg" style="margin-bottom:12px"><label>Próxima ação</label><input class="in" id="i_prox"></div>
+    <div class="fg"><label>Próximo contato</label><input class="in" id="i_proximo" type="date"></div>
+  </div>
+  <div class="box-f"><button class="btn o" onclick="fechar('ovInt')">Cancelar</button>
+    <button class="btn g" id="intSalvar" onclick="salvarInt()">Registrar</button></div></div></div>
+
+<div class="ov" id="ovReu"><div class="box" style="max-width:520px"><div class="box-hd">
+  <div class="box-t">Agendar reunião</div><button class="box-x" onclick="fechar('ovReu')">✕</button></div>
+  <div class="box-b"><div id="reuMsg"></div><div class="grid2">
+    <div class="fg" style="grid-column:1/-1"><label class="req">Lead</label><select class="in" id="r_lead"></select></div>
+    <div class="fg"><label class="req">Data</label><input class="in" id="r_data" type="date"></div>
+    <div class="fg"><label>Hora</label><input class="in" id="r_hora" type="time"></div>
+    <div class="fg"><label>Duração</label>
+      <select class="in" id="r_dur"><option value="30">30 min</option><option value="60" selected>1 hora</option>
+        <option value="90">1h30</option><option value="120">2 horas</option></select></div>
+    <div class="fg"><label>Modalidade</label>
+      <select class="in" id="r_modalidade"><option>Presencial</option><option>Online</option><option>Telefone</option></select></div>
+    <div class="fg"><label>Advogado</label><select class="in" id="r_advogado"></select></div>
+    <div class="fg"><label>E-mail do cliente (convite)</label><input class="in" id="r_email" type="email"></div>
+    <div class="fg" style="grid-column:1/-1"><label>Link / local</label><input class="in" id="r_link"></div>
+    <div class="fg" style="grid-column:1/-1"><label>Observações</label><input class="in" id="r_obs"></div>
+    <div class="fg" style="grid-column:1/-1">
+      <label style="display:flex;align-items:center;gap:7px;text-transform:none;font-size:12px;font-weight:500;color:var(--text2);cursor:pointer">
+        <input type="checkbox" id="r_gcal" checked style="width:14px;height:14px;accent-color:var(--navy)">
+        Criar também no Google Agenda (com lembrete e Meet, se for online)
+      </label></div>
+  </div></div>
+  <div class="box-f"><button class="btn o" onclick="fechar('ovReu')">Cancelar</button>
+    <button class="btn g" id="reuSalvar" onclick="salvarReuniao()">Agendar</button></div></div></div>
+
+<div class="ov" id="ovFicha"><div class="box"><div class="box-hd">
+  <div class="box-t" id="fichaT">Lead</div><button class="box-x" onclick="fechar('ovFicha')">✕</button></div>
+  <div class="box-b" id="fichaB"></div>
+  <div class="box-f" id="fichaF"></div></div></div>
+
+<div id="toast"></div>
+
+<script>
+'use strict';
+// ════════════════════════════════════════════════════════════
+// CRM Araújo & Castro — front-end
+//
+// Um arquivo, uma planilha. Diferente do ERP, este sistema ESCREVE:
+// tudo que você faz aqui grava direto na "10 - CRM Leads".
+// Nenhuma outra planilha do escritório é tocada — Financeiro,
+// Processos e Parcelamentos continuam sendo lançados à mão.
+//
+// v2 — o que mudou:
+//  · tela de login e cabeçalho iguais aos do ERP (mesmo tema)
+//  · funil voltou ao formato do kanban do ERP (coluna por estágio,
+//    com soma de valor no topo e botões de ação no cartão)
+//  · aba Histórico removida — a linha do tempo continua na ficha,
+//    que é onde ela é de fato usada
+//  · ESCRITA OTIMISTA: a tela muda na hora e a planilha é atualizada
+//    em segundo plano. Se o servidor recusar, a tela volta atrás e
+//    avisa. Ver aplicarLocal() / gravar().
+//  · reunião pode ir para o Google Agenda
+// ════════════════════════════════════════════════════════════
+
+var URL_KEY  = 'ac_crm_url';
+var SESS_KEY = 'ac_crm_sess';
+var USER_KEY = 'ac_crm_user';
+var URL_PADRAO = 'https://script.google.com/macros/s/AKfycbwtZDjqY6HZY53KCdFcAhi8K0T9j-HBa3GnYP07o1M8Mo8PErYOcaVdyUyoPMggrAqXsw/exec';
+// ^ implantacao do script da planilha 10 - CRM Leads. Se um dia voce
+//   reimplantar e a URL mudar, troque aqui ou use "Configurar conexao".
+
+var DB = { leads:[], reunioes:[], interacoes:[], listas:{}, estagios:[] };
+var SESSAO = null;
+var PENDENTES = 0;   // gravações ainda em voo
+
+// Mesmos estágios e mesmas cores do kanban antigo do ERP.
+var ESTAGIOS_PADRAO = ['Prospecção','Primeiro Contato','Reunião Agendada','Solicitar Docs',
+                       'Proposta','Contrato Gerado','Contrato Assinado','Perdido'];
+var CORES = {
+  'Prospecção':'#2563EB','Primeiro Contato':'#0891B2','Reunião Agendada':'#7C3AED',
+  'Solicitar Docs':'#0E7490','Proposta':'#D97706','Contrato Gerado':'#92400E',
+  'Contrato Assinado':'#15803D','Perdido':'#4B5563'
+};
+// O ERP não punha "Contrato Assinado" nem "Perdido" no kanban: quem já
+// decidiu não é mais funil. Eles continuam na aba "Todos os leads".
+var FORA_DO_KANBAN = ['Contrato Assinado','Perdido'];
+var ABERTOS = ESTAGIOS_PADRAO.filter(function(e){ return FORA_DO_KANBAN.indexOf(e)<0; });
+
+// ── utilidades ──
+function $(id){ return document.getElementById(id); }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){
+  return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function fBRL(n){ return (Number(n)||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0}); }
+function estagios(){ return (DB.estagios&&DB.estagios.length)?DB.estagios:ESTAGIOS_PADRAO; }
+
+// A URL do Apps Script tem formas parecidas e só uma funciona.
+// Implantar como "Biblioteca" gera /macros/library/d/<id>/<versao>, que não
+// atende requisição HTTP — devolve HTML e a leitura do JSON quebra.
+function checarUrl(u){
+  u = String(u||'').trim();
+  if(!u) return 'Nenhuma URL configurada.';
+  if(u.indexOf('script.google.com') < 0) return 'A URL precisa ser do script.google.com.';
+  if(/\/macros\/library\/d\//.test(u))
+    return 'Essa é a URL de BIBLIOTECA, não de aplicativo da web. Em Implantar › Nova implantação, '
+         + 'clique na engrenagem "Selecionar tipo" e escolha "App da Web". A URL certa começa com '
+         + 'https://script.google.com/macros/s/ e termina em /exec.';
+  if(/\/macros\/d\//.test(u))
+    return 'Essa é a URL do EDITOR do script, não da implantação. Vá em Implantar › Gerenciar '
+         + 'implantações e copie a URL do aplicativo da web (termina em /exec).';
+  if(u.indexOf('/macros/s/') < 0)
+    return 'URL fora do padrão. A correta é https://script.google.com/macros/s/.../exec';
+  if(!/\/(exec|dev)$/.test(u))
+    return 'Falta o /exec no fim da URL. Copie-a inteira em Implantar › Gerenciar implantações.';
+  return '';
+}
+function getUrl(){ return localStorage.getItem(URL_KEY) || URL_PADRAO; }
+
+function toast(m){ var t=$('toast'); t.textContent=m; t.classList.add('show');
+  clearTimeout(t._x); t._x=setTimeout(function(){ t.classList.remove('show'); },3600); }
+function status(cls,txt){ var s=$('stat'); s.className='st '+cls; s.textContent=txt; }
+function fechar(id){ $(id).classList.remove('on'); }
+function abrir(id){ $(id).classList.add('on'); }
+
+// Data: dd/MM/yyyy ⇄ yyyy-MM-dd (o <input type=date> só fala ISO)
+function paraISO(br){ var m=String(br||'').match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  return m ? m[3]+'-'+m[2]+'-'+m[1] : ''; }
+function paraBR(iso){ var m=String(iso||'').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? m[3]+'/'+m[2]+'/'+m[1] : String(iso||''); }
+function paraData(br){ var m=String(br||'').match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  return m ? new Date(+m[3],+m[2]-1,+m[1]) : null; }
+function hoje0(){ var d=new Date(); d.setHours(0,0,0,0); return d; }
+function hojeBR(){ var d=new Date(), z=function(n){return (n<10?'0':'')+n;};
+  return z(d.getDate())+'/'+z(d.getMonth()+1)+'/'+d.getFullYear(); }
+function horaAgora(){ var d=new Date(), z=function(n){return (n<10?'0':'')+n;};
+  return z(d.getHours())+':'+z(d.getMinutes()); }
+function diasAte(br){ var d=paraData(br); if(!d) return null;
+  return Math.round((d-hoje0())/86400000); }
+
+// ── comunicação ──
+async function chamar(qs){
+  var url=getUrl();
+  var problema=checarUrl(url);
+  if(problema) throw new Error(problema);
+  var res=await fetch(url+qs+(qs.indexOf('?')<0?'?':'&')+'_t='+Date.now(),{cache:'no-store'});
+  var txt=await res.text();
+  try { return JSON.parse(txt); }
+  catch(e){
+    console.error('[CRM] resposta não-JSON:',res.status,txt.slice(0,600));
+    if(/accounts\.google\.com|Sign in|Faça login/i.test(txt))
+      throw new Error('A implantação está restrita. Em Implantar › Gerenciar implantações, use "Qualquer pessoa".');
+    if(/autoriza|authoriz|permission/i.test(txt))
+      throw new Error('O script precisa ser autorizado. Abra o editor, rode diagnosticarCRM() e aceite.');
+    throw new Error('O servidor respondeu HTTP '+res.status+' com uma página, não com dados.');
+  }
+}
+function codificar(o){ return encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(o))))); }
+
+// ════════════════════════════════════════════════════════════
+// ESCRITA OTIMISTA
+//
+// O jeito antigo era: gravar → esperar → recarregar a planilha inteira.
+// Dava 3 a 6 segundos de tela parada por clique. Agora:
+//   1. aplicarLocal() muda o DB da memória e redesenha — instantâneo;
+//   2. a requisição sai em segundo plano;
+//   3. se o servidor recusar (ou a rede cair), desfaz e avisa.
+//
+// A trava contra erro continua sendo do servidor: _conferirLinha()
+// confere o nome antes de escrever. Aqui só antecipamos o desenho.
+// ════════════════════════════════════════════════════════════
+function _clonar(o){ return JSON.parse(JSON.stringify(o)); }
+
+function gravarOtimista(acao, dados, mudanca, msgOk){
+  if(!SESSAO){ toast('Sessão expirada.'); return; }
+  var antes = { leads:_clonar(DB.leads), reunioes:_clonar(DB.reunioes), interacoes:_clonar(DB.interacoes) };
+  try{ mudanca(); }catch(e){ console.error(e); }
+  renderTudo();
+  if(msgOk) toast(msgOk);
+
+  PENDENTES++; status('load','salvando…');
+  chamar('?_wb=1&payload='+codificar({acao:acao,login:SESSAO.login,dados:dados}))
+    .then(function(j){
+      if(j && j._negado){ throw new Error('Sem permissão para gravar.'); }
+      if(!j || !j.ok){ throw new Error((j&&j.erro)||'A planilha recusou a alteração.'); }
+      // O servidor devolve a linha real de um lead novo. Sem isso, o
+      // cartão recém-criado ficaria sem endereço na planilha e o
+      // próximo "Mover" iria para a linha errada.
+      if(j.linha) _corrigirLinha(dados, j.linha);
+      _fim(true);
+    })
+    .catch(function(e){
+      DB.leads=antes.leads; DB.reunioes=antes.reunioes; DB.interacoes=antes.interacoes;
+      renderTudo();
+      toast('✗ Desfeito: '+e.message);
+      _fim(false);
+    });
+}
+function _fim(ok){
+  PENDENTES--;
+  if(PENDENTES<=0){ PENDENTES=0; status(ok?'ok':'err', ok?'salvo':'erro ao salvar'); }
+}
+function _corrigirLinha(dados, linha){
+  var alvo = DB.leads.filter(function(l){ return l.linha<0 && l.nome===dados.nome; })[0];
+  if(alvo){ alvo.linha = linha; renderTudo(); }
+}
+function acharLead(linha){ return DB.leads.filter(function(l){ return l.linha===linha; })[0]; }
+
+function renderTudo(){
+  preencherListas(); render(); renderLista(); renderReu(); renderKPIs(); renderAlertas();
+}
+
+// ── login ──
+async function sha256(t){
+  var b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(t));
+  return Array.from(new Uint8Array(b)).map(function(x){ return x.toString(16).padStart(2,'0'); }).join('');
+}
+function lgMsg(t,cls){
+  var e=$('ac-login-msg');
+  if(!t){ e.innerHTML=''; return; }
+  e.innerHTML='<div class="'+(cls==='o'?'ac-login-msg-ok':'ac-login-msg-inner')+'">'+esc(t)+'</div>';
+}
+function alternarSenha(){
+  var i=$('ac-login-senha'); i.type = i.type==='password' ? 'text' : 'password'; i.focus();
+}
+function alternarUrl(){
+  var f=$('ac-login-url-field'), aberto=f.classList.contains('open');
+  f.classList.toggle('open');
+  $('ac-url-txt').textContent = aberto ? 'Configurar conexão' : 'Fechar configuração';
+  if(!aberto){ $('ac-login-url-in').value=getUrl(); $('ac-login-url-in').focus(); }
+}
+function salvarUrlLogin(){
+  var v=$('ac-login-url-in').value.trim();
+  var problema=checarUrl(v);
+  if(problema){ lgMsg(problema,'e'); return; }
+  localStorage.setItem(URL_KEY,v);
+  lgMsg('URL salva. Testando…','o');
+  alternarUrl(); testarConexao();
+}
+async function testarConexao(){
+  lgMsg('Testando…','o');
+  try{
+    var j=await chamar('?acao=ping');
+    lgMsg('Conexão OK — '+(j.versao||'?')+' · leitura em lote: '+(j.lote?'ativa':'DESATIVADA')
+      +(j.calendario?' · Google Agenda: ligado':''),'o');
+  }catch(e){ lgMsg(e.message,'e'); }
+}
+
+async function entrar(){
+  var u=$('ac-login-email').value.trim(), p=$('ac-login-senha').value;
+  if(!u||!p){ lgMsg('Preencha login e senha.','e'); return; }
+  var btn=$('ac-login-btn');
+  btn.disabled=true; btn.innerHTML='<span class="ac-login-spin"></span> Verificando…';
+  try{
+    var j=await chamar('?_auth=1&payload='+codificar({acao:'autenticar',login:u}));
+    if(!j.ok){ lgMsg(j.erro||'Login ou senha incorretos.','e'); return; }
+    var h=await sha256(p);
+    if(h!==j.usuario.senhaHash){ lgMsg('Login ou senha incorretos.','e'); $('ac-login-senha').value=''; return; }
+    SESSAO={ login:u, nome:j.usuario.nome||u, ts:Date.now() };
+    sessionStorage.setItem(SESS_KEY,JSON.stringify(SESSAO));
+    if($('ac-lembrar').checked) localStorage.setItem(USER_KEY,u);
+    else localStorage.removeItem(USER_KEY);
+    lgMsg('');
+    $('ac-login-overlay').classList.remove('open');
+    $('hdUser').textContent='👤 '+SESSAO.nome;
+    carregar();
+  }catch(e){ lgMsg(e.message,'e'); }
+  finally{ btn.disabled=false; btn.textContent='Entrar'; }
+}
+
+function sair(){
+  sessionStorage.removeItem(SESS_KEY); SESSAO=null;
+  DB={ leads:[], reunioes:[], interacoes:[], listas:{}, estagios:[] };
+  $('ac-login-overlay').classList.add('open');
+  $('ac-login-senha').value=''; lgMsg('');
+}
+
+// ── carga ──
+async function carregar(){
+  if(!SESSAO) return;
+  status('load','Carregando…');
+  try{
+    var j=await chamar('?login='+encodeURIComponent(SESSAO.login));
+    if(j._negado){ toast('✗ '+(j.erro||'Acesso negado.')); sair(); return; }
+    if(!j.ok) throw new Error(j.erro||'Falha ao carregar.');
+    DB=j;
+    status('ok',(j._diag?j._diag.ms+'ms':'ok'));
+    $('calInfo').textContent = j.calendario
+      ? 'Google Agenda ligado — reuniões novas viram evento com lembrete.'
+      : 'Google Agenda desligado no script (veja CAL_ATIVO em CRM_SCRIPT.gs).';
+    renderTudo();
+  }catch(e){ status('err','Erro'); toast('✗ '+e.message); }
+}
+
+function opcoes(sel, arr, vazio){
+  var e=$(sel); if(!e) return;
+  var atual=e.value;
+  e.innerHTML=(vazio!==undefined?'<option value="">'+esc(vazio)+'</option>':'')
+    + (arr||[]).map(function(v){ return '<option value="'+esc(v)+'">'+esc(v)+'</option>'; }).join('');
+  if(atual) e.value=atual;
+}
+function preencherListas(){
+  var L=DB.listas||{};
+  var resps=Array.from(new Set(((L.responsavel||[]).concat(DB.leads.map(function(l){return l.responsavel;}))).filter(Boolean)));
+  var nats =Array.from(new Set(((L.natureza||[]).concat(DB.leads.map(function(l){return l.natureza;}))).filter(Boolean)));
+
+  opcoes('fResp',resps,'Responsável: todos');
+  opcoes('fNat',nats,'Natureza: todas');
+  opcoes('lEst',estagios(),'Estágio: todos');
+  opcoes('f_natureza',nats,'—'); opcoes('f_responsavel',resps,'—');
+  opcoes('f_origem',L.origem||[],'—'); opcoes('f_canal',L.canal||[],'—');
+  opcoes('f_estagio',estagios());
+  opcoes('m_estagio',estagios());
+  opcoes('r_advogado',resps,'—');
+  opcoes('r_lead',DB.leads.filter(function(l){ return l.estagio!=='Perdido'; })
+    .map(function(l){ return l.nome; }),'—');
+}
+
+// ── filtros ──
+function filtrados(){
+  var r=($('fResp')||{}).value||'', n=($('fNat')||{}).value||'',
+      b=(($('fBusca')||{}).value||'').toLowerCase().trim();
+  return DB.leads.filter(function(l){
+    if(r && l.responsavel!==r) return false;
+    if(n && l.natureza!==n) return false;
+    if(b && String(l.nome||'').toLowerCase().indexOf(b)<0 && String(l.doc||'').indexOf(b)<0) return false;
+    return true;
+  });
+}
+
+// ── KPIs ──
+function renderKPIs(){
+  var L=DB.leads;
+  var abertos=L.filter(function(l){ return ABERTOS.indexOf(l.estagio)>=0; });
+  var pipe=abertos.reduce(function(s,l){ return s+(Number(l.valor)||0); },0);
+  var assinados=L.filter(function(l){ return l.estagio==='Contrato Assinado'; });
+  var perdidos=L.filter(function(l){ return l.estagio==='Perdido'; });
+  var decididos=assinados.length+perdidos.length;
+  var conv=decididos? Math.round(assinados.length/decididos*100) : 0;
+  var atrasados=abertos.filter(function(l){ var d=diasAte(l.proximo); return d!==null && d<0; });
+  var semData=abertos.filter(function(l){ return !l.proximo; });
+
+  $('kpis').innerHTML=
+     kpi('Leads abertos',abertos.length,'de '+L.length+' no total')
+   + kpi('Valor no funil',fBRL(pipe),'soma dos abertos')
+   + kpi('Conversão',conv+'%',assinados.length+' ganhos · '+perdidos.length+' perdidos')
+   + kpi('Contato atrasado',atrasados.length,'passou da data combinada',atrasados.length?'alerta':'')
+   + kpi('Sem próximo contato',semData.length,'nenhuma data marcada',semData.length?'alerta':'');
+}
+function kpi(l,v,s,cls){
+  return '<div class="kpi '+(cls||'')+'"><div class="kpi-l">'+esc(l)+'</div>'
+       + '<div class="kpi-v">'+esc(v)+'</div><div class="kpi-s">'+esc(s||'')+'</div></div>';
+}
+
+// Alertas: o CRM só é útil se disser o que fazer hoje.
+function renderAlertas(){
+  var abertos=DB.leads.filter(function(l){ return ABERTOS.indexOf(l.estagio)>=0; });
+  var atr=abertos.filter(function(l){ var d=diasAte(l.proximo); return d!==null && d<0; });
+  var hj =abertos.filter(function(l){ return diasAte(l.proximo)===0; });
+  var h='';
+  if(hj.length)  h+='<div class="msg a"><span>📅</span><div><b>'+hj.length+'</b> contato(s) marcado(s) para hoje: '
+    + hj.slice(0,4).map(function(l){ return esc(l.nome); }).join(', ')+(hj.length>4?' e mais…':'')+'</div></div>';
+  if(atr.length) h+='<div class="msg e"><span>⚠</span><div><b>'+atr.length+'</b> lead(s) com contato atrasado: '
+    + atr.slice(0,4).map(function(l){ return esc(l.nome)+' ('+Math.abs(diasAte(l.proximo))+'d)'; }).join(', ')
+    + (atr.length>4?' e mais…':'')+'</div></div>';
+  $('alertas').innerHTML=h;
+}
+
+// ── FUNIL (kanban do ERP) ──
+function render(){
+  var L=filtrados();
+  var cols=estagios().filter(function(e){ return FORA_DO_KANBAN.indexOf(e)<0; });
+  $('kb').innerHTML=cols.map(function(est){
+    var itens=L.filter(function(l){ return l.estagio===est; });
+    var soma=itens.reduce(function(s,l){ return s+(Number(l.valor)||0); },0);
+    return '<div class="crm-col">'
+      + '<div class="crm-col-hd">'
+      +   '<span class="crm-col-dot" style="background:'+(CORES[est]||'#999')+'"></span>'
+      +   '<span class="crm-col-nm">'+esc(est)+'</span>'
+      +   '<span class="crm-col-cnt">'+itens.length+'</span></div>'
+      + (soma>0 ? '<div class="crm-col-val">'+fBRL(soma)+'</div>' : '')
+      + (itens.length ? itens.map(cardHtml).join('') : '<div class="crm-vazio">—</div>')
+      + '</div>';
+  }).join('');
+}
+function cardHtml(l){
+  var d=diasAte(l.proximo);
+  var cls = (d!==null && d<0) ? ' atrasado' : (d===0 ? ' hoje' : '');
+  var quando = l.proximo ? (d<0 ? '⚠ atrasado '+Math.abs(d)+'d' : d===0 ? '📅 hoje' : '📅 em '+d+'d') : 'sem data';
+  return '<div class="crm-lead'+cls+'">'
+    + '<div class="crm-card-btns">'
+    +   (l.telefone ? '<button class="crm-card-btn" onclick="zap('+l.linha+')" title="WhatsApp">💬</button>' : '')
+    +   (l.email ? '<button class="crm-card-btn" onclick="mail('+l.linha+')" title="E-mail">📧</button>' : '')
+    +   '<button class="crm-card-btn" onclick="ficha('+l.linha+')" title="Histórico">📋</button>'
+    + '</div>'
+    + '<div class="crm-lead-nm" onclick="ficha('+l.linha+')">'+esc(l.nome)+'</div>'
+    + '<div class="crm-lead-sub">'+esc(l.natureza||'—')+' · '+esc(l.responsavel||'—')+'</div>'
+    + (l.valor ? '<div class="crm-lead-val">'+fBRL(l.valor)+'</div>' : '')
+    + '<div class="crm-lead-dt'+cls+'">'+esc(quando)+'</div>'
+    + '<div class="crm-acts">'
+    +   '<button class="mini" onclick="abrirMover('+l.linha+')">Mover</button>'
+    +   '<button class="mini" onclick="abrirInt('+l.linha+')">Contato</button>'
+    +   '<button class="mini" onclick="editarLead('+l.linha+')">Editar</button>'
+    + '</div></div>';
+}
+
+// ── LISTA ──
+function renderLista(){
+  var est=($('lEst')||{}).value||'', b=(($('lBusca')||{}).value||'').toLowerCase().trim();
+  var L=DB.leads.filter(function(l){
+    if(est && l.estagio!==est) return false;
+    if(b && (l.nome+' '+l.responsavel+' '+l.natureza+' '+l.doc).toLowerCase().indexOf(b)<0) return false;
+    return true;
+  });
+  $('lInfo').textContent=L.length+' de '+DB.leads.length;
+  $('tblLista').innerHTML='<thead><tr><th>Lead</th><th>Estágio</th><th>Natureza</th>'
+    + '<th>Responsável</th><th class="num">Valor</th><th>Próximo</th><th>Origem</th><th></th></tr></thead><tbody>'
+    + (L.length ? L.map(function(l){
+        var d=diasAte(l.proximo);
+        return '<tr><td><b style="cursor:pointer" onclick="ficha('+l.linha+')">'+esc(l.nome)+'</b>'
+          + (l.doc?'<div style="font-size:11px;color:var(--text3);font-family:var(--font-m)">'+esc(l.doc)+'</div>':'')+'</td>'
+          + '<td><span class="tag" style="background:'+(CORES[l.estagio]||'#999')+'22;color:'+(CORES[l.estagio]||'#555')+'">'+esc(l.estagio)+'</span></td>'
+          + '<td>'+esc(l.natureza||'—')+'</td><td>'+esc(l.responsavel||'—')+'</td>'
+          + '<td class="num">'+(l.valor?fBRL(l.valor):'—')+'</td>'
+          + '<td'+(d!==null&&d<0?' style="color:var(--red-d);font-weight:700"':'')+'>'+esc(l.proximo||'—')+'</td>'
+          + '<td>'+esc(l.origem||'—')+'</td>'
+          + '<td><button class="mini" onclick="editarLead('+l.linha+')">Editar</button></td></tr>';
+      }).join('') : '<tr><td colspan="8" class="vazio">Nenhum lead encontrado.</td></tr>')
+    + '</tbody>';
+}
+
+function renderReu(){
+  var R=(DB.reunioes||[]).slice().sort(function(a,b){
+    var x=paraData(a.data), y=paraData(b.data); return (y?y:0)-(x?x:0); });
+  $('tblReu').innerHTML='<thead><tr><th>Data</th><th>Hora</th><th>Lead</th><th>Advogado</th>'
+    + '<th>Modalidade</th><th>Status</th><th>Resultado</th></tr></thead><tbody>'
+    + (R.length ? R.map(function(r){
+        var d=diasAte(r.data);
+        var cor = (d!==null&&d===0) ? 'color:var(--amber);font-weight:700'
+                : (d!==null&&d>0&&r.status==='Agendada') ? 'color:var(--blue-d);font-weight:600' : '';
+        return '<tr><td style="'+cor+'">'+esc(r.data||'—')+'</td><td>'+esc(r.hora||'—')+'</td>'
+          + '<td><b>'+esc(r.lead)+'</b></td><td>'+esc(r.advogado||'—')+'</td>'
+          + '<td>'+esc(r.modalidade||'—')+'</td><td>'+esc(r.status||'—')+'</td>'
+          + '<td>'+esc(r.resultado||'—')+'</td></tr>';
+      }).join('') : '<tr><td colspan="7" class="vazio">Nenhuma reunião registrada.</td></tr>')
+    + '</tbody>';
+}
+
+function aba(id,btn){
+  document.querySelectorAll('.pane').forEach(function(p){ p.classList.remove('on'); });
+  document.querySelectorAll('.tab').forEach(function(b){ b.classList.remove('on'); });
+  $('pane-'+id).classList.add('on'); if(btn) btn.classList.add('on');
+}
+
+// ── ficha do lead, com linha do tempo ──
+function ficha(linha){
+  var l=acharLead(linha); if(!l) return;
+  var hist=(DB.interacoes||[]).filter(function(x){ return x.lead===l.nome; }).slice().reverse();
+  var reus=(DB.reunioes||[]).filter(function(x){ return x.lead===l.nome; });
+  $('fichaT').textContent=l.nome;
+  $('fichaB').innerHTML=
+      '<div style="margin-bottom:14px"><span class="tag" style="background:'+(CORES[l.estagio]||'#999')+'22;color:'+(CORES[l.estagio]||'#555')+'">'+esc(l.estagio)+'</span></div>'
+    + '<div class="grid2" style="margin-bottom:16px">'
+    +   linhaInfo('CPF / CNPJ',l.doc) + linhaInfo('Telefone',l.telefone)
+    +   linhaInfo('E-mail',l.email) + linhaInfo('Natureza',l.natureza)
+    +   linhaInfo('Responsável',l.responsavel) + linhaInfo('Valor estimado',l.valor?fBRL(l.valor):'')
+    +   linhaInfo('Origem',l.origem) + linhaInfo('Indicado por',l.indicadoPor)
+    +   linhaInfo('Entrada',l.entrada) + linhaInfo('Próximo contato',l.proximo)
+    +   (l.motivoPerda?linhaInfo('Motivo da perda',l.motivoPerda):'')
+    + '</div>'
+    + (l.obs?'<div class="msg a" style="background:var(--gray-lt);border-left-color:var(--ac-gold);color:var(--text2)"><div>'+esc(l.obs)+'</div></div>':'')
+    + (reus.length?'<div style="font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);margin:16px 0 8px">Reuniões</div>'
+        + reus.map(function(r){ return '<div style="font-size:12.5px;margin-bottom:5px">'
+          + esc(r.data)+' '+esc(r.hora||'')+' — '+esc(r.modalidade||'')+' · '+esc(r.status||'')+'</div>'; }).join(''):'')
+    + '<div style="font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);margin:16px 0 8px">Linha do tempo</div>'
+    + (hist.length ? '<div class="tl">'+hist.map(function(x){
+          return '<div class="tl-i"><div class="tl-d">'+esc(x.data)+' '+esc(x.hora||'')+' · '+esc(x.tipo||'')+' · '+esc(x.responsavel||'')+'</div>'
+            + '<div class="tl-r">'+esc(x.resumo||'')+'</div>'
+            + (x.proximaAcao?'<div class="tl-d">→ '+esc(x.proximaAcao)+'</div>':'')+'</div>'; }).join('')+'</div>'
+        : '<div style="font-size:12.5px;color:var(--text3)">Nenhum contato registrado ainda.</div>');
+  $('fichaF').innerHTML=
+      '<button class="btn o" onclick="fechar(\'ovFicha\')">Fechar</button>'
+    + '<button class="btn o" onclick="fechar(\'ovFicha\');editarLead('+l.linha+')">Editar</button>'
+    + '<button class="btn o" onclick="fechar(\'ovFicha\');abrirReuniao(\''+encodeURIComponent(l.nome)+'\')">Reunião</button>'
+    + '<button class="btn" onclick="fechar(\'ovFicha\');abrirInt('+l.linha+')">Registrar contato</button>'
+    + '<button class="btn g" onclick="fechar(\'ovFicha\');abrirMover('+l.linha+')">Mover estágio</button>';
+  abrir('ovFicha');
+}
+function linhaInfo(r,v){
+  return '<div><div style="font-size:9px;color:var(--text4);text-transform:uppercase;letter-spacing:.07em;font-weight:700">'
+    + esc(r)+'</div><div style="font-size:13px">'+esc(v||'—')+'</div></div>';
+}
+
+// ── novo / editar ──
+var EDITANDO=null;
+var CAMPOS=['nome','doc','telefone','email','natureza','responsavel','valor','origem',
+            'indicadoPor','canal','proximo','estagio','obs'];
+var _linhaTemp=-1;   // ids negativos para leads ainda sem linha na planilha
+
+function novoLead(){
+  EDITANDO=null;
+  $('leadT').textContent='Novo lead'; $('leadMsg').innerHTML='';
+  CAMPOS.forEach(function(c){ var e=$('f_'+c); if(e) e.value=''; });
+  $('f_estagio').value='Prospecção';
+  $('f_estagio').disabled=false;
+  abrir('ovLead'); setTimeout(function(){ $('f_nome').focus(); },80);
+}
+function editarLead(linha){
+  var l=acharLead(linha); if(!l) return;
+  EDITANDO=l;
+  $('leadT').textContent='Editar — '+l.nome; $('leadMsg').innerHTML='';
+  CAMPOS.forEach(function(c){
+    var e=$('f_'+c); if(!e) return;
+    e.value = (c==='proximo') ? paraISO(l.proximo) : (l[c]==null?'':l[c]);
+  });
+  // Estágio só muda pelo fluxo próprio, que grava histórico e datas.
+  $('f_estagio').value=l.estagio;
+  $('f_estagio').disabled=true;
+  abrir('ovLead'); setTimeout(function(){ $('f_nome').focus(); },80);
+}
+
+function salvarLead(){
+  var d={};
+  CAMPOS.forEach(function(c){ var e=$('f_'+c); if(e) d[c]=e.value; });
+  if(!String(d.nome||'').trim()){ $('leadMsg').innerHTML='<div class="msg e"><div>Informe o nome.</div></div>'; return; }
+  fechar('ovLead');
+
+  if(EDITANDO){
+    var alvo=EDITANDO;
+    d.linha=alvo.linha; d.nomeEsperado=alvo.nome; delete d.estagio;
+    gravarOtimista('atualizarLead', d, function(){
+      var l=acharLead(alvo.linha); if(!l) return;
+      CAMPOS.forEach(function(c){ if(c==='estagio') return;
+        l[c] = (c==='valor') ? (Number(d[c])||0) : (c==='proximo' ? paraBR(d[c]) : d[c]); });
+    }, '✓ Lead atualizado.');
+  } else {
+    var novo = {
+      linha:_linhaTemp--, nome:d.nome, doc:d.doc, telefone:d.telefone, email:d.email,
+      natureza:d.natureza, responsavel:d.responsavel || SESSAO.nome, valor:Number(d.valor)||0,
+      origem:d.origem, indicadoPor:d.indicadoPor, canal:d.canal,
+      proximo:paraBR(d.proximo), estagio:d.estagio||'Prospecção',
+      obs:d.obs, entrada:hojeBR(), motivoPerda:''
+    };
+    gravarOtimista('criarLead', d, function(){
+      DB.leads.push(novo);
+      DB.interacoes.push({ linha:0, lead:novo.nome, data:hojeBR(), hora:horaAgora(),
+        tipo:'Sistema', responsavel:SESSAO.nome, estagio:novo.estagio,
+        resumo:'Lead cadastrado', proximaAcao:'' });
+    }, '✓ Lead criado.');
+  }
+  EDITANDO=null;
+}
+
+// ── mover estágio ──
+var MOVENDO=null;
+function abrirMover(linha){
+  var l=acharLead(linha); if(!l) return;
+  MOVENDO=l;
+  $('movMsg').innerHTML='';
+  $('movLead').innerHTML='<b>'+esc(l.nome)+'</b> · hoje em <b>'+esc(l.estagio)+'</b>';
+  $('m_estagio').value=proximoEstagio(l.estagio);
+  $('m_resumo').value=''; $('m_proximo').value='';
+  movMotivo(); abrir('ovMover');
+}
+function proximoEstagio(atual){
+  var E=estagios(), i=E.indexOf(atual);
+  return (i>=0 && i<E.length-2) ? E[i+1] : atual;
+}
+function movMotivo(){
+  $('movMotivoBox').style.display = ($('m_estagio').value==='Perdido') ? '' : 'none';
+}
+function salvarMover(){
+  if(!MOVENDO) return;
+  var alvo=MOVENDO, novoEst=$('m_estagio').value;
+  var motivo=(novoEst==='Perdido') ? $('m_motivo').value : '';
+  var prox=$('m_proximo').value, resumo=$('m_resumo').value;
+  fechar('ovMover');
+  gravarOtimista('moverEstagio', {
+    linha:alvo.linha, nomeEsperado:alvo.nome, estagio:novoEst,
+    motivoPerda:motivo, proximo:prox, resumo:resumo, responsavel:SESSAO.nome
+  }, function(){
+    var l=acharLead(alvo.linha); if(!l) return;
+    var de=l.estagio;
+    l.estagio=novoEst;
+    if(motivo) l.motivoPerda=motivo;
+    if(prox) l.proximo=paraBR(prox);
+    DB.interacoes.push({ linha:0, lead:l.nome, data:hojeBR(), hora:horaAgora(),
+      tipo:'Sistema', responsavel:SESSAO.nome, estagio:novoEst,
+      resumo:(resumo||('Estágio: '+de+' → '+novoEst)), proximaAcao:'' });
+  }, '✓ '+alvo.nome+' → '+novoEst);
+  MOVENDO=null;
+}
+
+// ── registrar contato ──
+var INTERAGINDO=null;
+function abrirInt(linha){
+  var l=acharLead(linha); if(!l) return;
+  INTERAGINDO=l;
+  $('intMsg').innerHTML='';
+  $('intLead').innerHTML='<b>'+esc(l.nome)+'</b> · '+esc(l.estagio);
+  $('i_resumo').value=''; $('i_prox').value=''; $('i_proximo').value='';
+  abrir('ovInt'); setTimeout(function(){ $('i_resumo').focus(); },80);
+}
+function salvarInt(){
+  if(!INTERAGINDO) return;
+  if(!$('i_resumo').value.trim()){
+    $('intMsg').innerHTML='<div class="msg e"><div>Escreva o que aconteceu.</div></div>'; return; }
+  var alvo=INTERAGINDO;
+  var d={ lead:alvo.nome, linha:alvo.linha, estagio:alvo.estagio,
+    tipo:$('i_tipo').value, resumo:$('i_resumo').value,
+    proximaAcao:$('i_prox').value, proximo:$('i_proximo').value, responsavel:SESSAO.nome };
+  fechar('ovInt');
+  gravarOtimista('registrarInteracao', d, function(){
+    DB.interacoes.push({ linha:0, lead:d.lead, data:hojeBR(), hora:horaAgora(),
+      tipo:d.tipo, responsavel:d.responsavel, estagio:d.estagio,
+      resumo:d.resumo, proximaAcao:d.proximaAcao });
+    var l=acharLead(alvo.linha);
+    if(l && d.proximo) l.proximo=paraBR(d.proximo);
+  }, '✓ Contato registrado.');
+  INTERAGINDO=null;
+}
+
+// ── reunião ──
+function abrirReuniao(nomeEnc){
+  $('reuMsg').innerHTML='';
+  $('r_data').value=''; $('r_hora').value=''; $('r_link').value='';
+  $('r_obs').value=''; $('r_email').value='';
+  if(nomeEnc){
+    var n=decodeURIComponent(nomeEnc);
+    $('r_lead').value=n;
+    var l=DB.leads.filter(function(x){ return x.nome===n; })[0];
+    if(l && l.email) $('r_email').value=l.email;
+  }
+  abrir('ovReu');
+}
+function salvarReuniao(){
+  var lead=$('r_lead').value, data=$('r_data').value;
+  if(!lead || !data){
+    $('reuMsg').innerHTML='<div class="msg e"><div>Escolha o lead e a data.</div></div>'; return; }
+  var l=DB.leads.filter(function(x){ return x.nome===lead; })[0];
+  var d={ lead:lead, linha:l?l.linha:'', data:data, hora:$('r_hora').value,
+    duracao:Number($('r_dur').value)||60,
+    modalidade:$('r_modalidade').value, advogado:$('r_advogado').value||SESSAO.nome,
+    link:$('r_link').value, obs:$('r_obs').value, natureza:l?l.natureza:'',
+    email:$('r_email').value, googleAgenda:$('r_gcal').checked };
+  fechar('ovReu');
+  gravarOtimista('agendarReuniao', d, function(){
+    DB.reunioes.push({ linha:0, lead:d.lead, natureza:d.natureza, advogado:d.advogado,
+      data:paraBR(d.data), hora:d.hora, modalidade:d.modalidade, link:d.link,
+      status:'Agendada', resultado:'', obs:d.obs });
+    var alvo=acharLead(d.linha);
+    if(alvo){
+      alvo.estagio='Reunião Agendada';
+      alvo.proximo=paraBR(d.data);
+      DB.interacoes.push({ linha:0, lead:alvo.nome, data:hojeBR(), hora:horaAgora(),
+        tipo:'Reunião', responsavel:d.advogado, estagio:'Reunião Agendada',
+        resumo:'Reunião marcada para '+paraBR(d.data)+(d.hora?' às '+d.hora:''),
+        proximaAcao:'Realizar reunião' });
+    }
+  }, '✓ Reunião agendada.');
+}
+
+// WhatsApp já com a mensagem pronta — o contato ainda precisa ser
+// registrado depois, para a linha do tempo não ficar com buraco.
+function zap(linha){
+  var l=acharLead(linha); if(!l||!l.telefone) return;
+  var num=String(l.telefone).replace(/\D/g,'');
+  if(num.length<=11) num='55'+num;
+  var txt='Olá, '+String(l.nome).split(' ')[0]+'! Aqui é do escritório Araújo & Castro. ';
+  window.open('https://wa.me/'+num+'?text='+encodeURIComponent(txt),'_blank');
+  abrirInt(linha);
+  $('i_tipo').value='WhatsApp';
+}
+function mail(linha){
+  var l=acharLead(linha); if(!l||!l.email) return;
+  window.open('mailto:'+encodeURIComponent(l.email)
+    +'?subject='+encodeURIComponent('Araújo & Castro Advocacia'),'_blank');
+  abrirInt(linha);
+  $('i_tipo').value='E-mail';
+}
+
+// ── início ──
+(function(){
+  var logado=false;
+  try{
+    var s=sessionStorage.getItem(SESS_KEY);
+    if(s){
+      SESSAO=JSON.parse(s);
+      $('hdUser').textContent='👤 '+SESSAO.nome;
+      logado=true;
+      carregar();
+    }
+  }catch(e){}
+  if(!logado){
+    $('ac-login-overlay').classList.add('open');
+    var u=localStorage.getItem(USER_KEY);
+    if(u){ $('ac-login-email').value=u; $('ac-lembrar').checked=true;
+      setTimeout(function(){ $('ac-login-senha').focus(); },120); }
+    else setTimeout(function(){ $('ac-login-email').focus(); },120);
+    // Sem URL valida, nao adianta pedir senha: abre a configuracao de cara.
+    if(checarUrl(getUrl())){
+      alternarUrl();
+      lgMsg('Configure a URL do Apps Script para começar.','e');
+    }
+  }
+  document.querySelectorAll('.ov').forEach(function(o){
+    o.addEventListener('click',function(e){ if(e.target===o) o.classList.remove('on'); });
+  });
+  // Fechar modal no Esc, como no ERP.
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Escape') document.querySelectorAll('.ov.on').forEach(function(o){ o.classList.remove('on'); });
+  });
+  // Aviso se sair com gravação em voo.
+  window.addEventListener('beforeunload',function(e){
+    if(PENDENTES>0){ e.preventDefault(); e.returnValue=''; }
+  });
+})();
+</script>
+</body>
+</html>

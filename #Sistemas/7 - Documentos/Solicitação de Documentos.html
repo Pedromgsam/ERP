@@ -1,0 +1,2037 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Solicitação de Documentos — Araujo &amp; Castro</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300..700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ══════════ TOKENS, TIPOGRAFIA E FUNDO ══════════ */
+:root{
+  --bg:#EEF1F7;--navy:#1F3864;--navy2:#28437a;--navy3:#2E5395;
+  /* Paleta institucional Araújo & Castro (confirmada na skill de padrão gráfico): azul-marinho #1F3864 para
+     títulos/cabeçalhos, azul médio #2E5395 para destaque/foco, dourado #B8860B para realce pontual único —
+     nunca em massa. --accent2/--accent2-d fazem o papel de "azul de destaque" (foco, indicador de aba) em todo
+     o sistema; qualquer componente que referencia var(--accent2) herda esta cor automaticamente. */
+  --accent:#B8860B;--accent2:#2E5395;--accent2-d:#1F3864;
+  --glow2:0 0 0 3px rgba(46,83,149,.14);--glow2-strong:0 0 14px rgba(46,83,149,.28);
+  --border:rgba(15,23,42,.08);--border-strong:rgba(15,23,42,.15);
+  --shadow-sm:0 1px 3px rgba(15,23,42,.08);
+  --shadow-md:0 3px 10px rgba(15,23,42,.10);
+  --shadow-lg:0 8px 22px rgba(15,23,42,.14);
+  --shadow-navy:0 3px 12px rgba(15,35,64,.22);
+  --card-r:16px;--radius-sm:10px;--radius-xs:7px;
+  --text:#0f1521;--text2:#4b5563;--text3:#8b93a3;
+  --green:#16a34a;--green-d:#15803d;--green-lt:#dcfce7;
+  --blue:#2e5395;--blue-d:#1f3864;--blue-lt:#dbeafe;
+  --violet:#7c3aed;--violet-d:#6d28d9;--violet-lt:#ede9fe;
+  --amber:#b45309;--amber-lt:#fef3c7;--amber-border:rgba(180,83,9,.25);
+  --red:#dc2626;--red-lt:#fee2e2;
+  --font-d:'DM Sans',sans-serif;--font-h:'Space Grotesk','DM Sans',sans-serif;--font-m:'JetBrains Mono',monospace;
+  --hh:52px;--th:44px;--ph:38px;
+  --ease:cubic-bezier(.16,1,.3,1);
+;
+  --w-wide:1560px;--w-mid:1360px;--w-narrow:1180px}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:var(--font-d);background:
+    radial-gradient(1200px 560px at 8% -12%,rgba(46,83,149,.08),transparent 58%),
+    radial-gradient(900px 480px at 102% -6%,rgba(184,134,11,.09),transparent 55%),
+    var(--bg);
+  background-attachment:fixed;
+  color:var(--text);min-height:100vh;font-size:14px;-webkit-font-smoothing:antialiased}
+input,select,button,textarea{font-family:var(--font-d)}
+.mono,.fi.mono,.cfg-param-in,.kpi-v,.data-tbl .mono{
+  font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1,"lnum" 1;
+}
+
+/* ══════════ CABEÇALHO FIXO ══════════ */
+#hd{position:fixed;top:0;left:0;right:0;z-index:300;height:var(--hh);
+  background:linear-gradient(115deg,var(--navy) 0%,var(--navy2) 55%,#0d1730 100%);
+  color:#fff;padding:0 22px;display:flex;align-items:center;justify-content:space-between;
+  box-shadow:var(--shadow-navy);border-bottom:1px solid rgba(46,83,149,.18);position:fixed;overflow:hidden}
+#hd::after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(46,83,149,.6) 20%,rgba(184,134,11,.6) 55%,transparent 85%)}
+.hd-brand{display:flex;align-items:center;gap:11px;position:relative;z-index:1}
+.hd-name{font-family:var(--font-h);font-size:14.5px;font-weight:700;color:#fff;letter-spacing:.01em;line-height:1.2}
+.hd-sub{font-size:9px;color:rgba(255,255,255,.42);letter-spacing:.14em;text-transform:uppercase;margin-top:2px;
+  background:linear-gradient(90deg,rgba(255,255,255,.75),rgba(255,255,255,.35));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.hd-r{font-size:12px;color:rgba(255,255,255,.5);display:flex;align-items:center;gap:8px;position:relative;z-index:1;
+  background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.08);padding:5px;border-radius:11px;backdrop-filter:blur(6px)}
+.hd-dot{width:7px;height:7px;border-radius:50%;background:var(--accent2);display:inline-block;animation:pulse 2s infinite;box-shadow:0 0 8px rgba(46,83,149,.8)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+.hd-btn{background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.14);color:#fff;padding:6px 13px;border-radius:7px;font-size:11.5px;font-weight:600;cursor:pointer;transition:background .18s var(--ease),border-color .18s var(--ease),box-shadow .18s var(--ease),transform .18s var(--ease);display:flex;align-items:center;gap:6px}
+.hd-btn:hover{background:rgba(46,83,149,.16);border-color:rgba(46,83,149,.5);box-shadow:0 0 14px rgba(46,83,149,.25);transform:translateY(-1px)}
+.hd-btn:active{transform:translateY(0)}
+.hd-r>span{padding:0 10px 0 4px;white-space:nowrap}
+
+/* ══════════ NAVEGAÇÃO POR ABAS (opcional) ══════════ */
+#tabnav{position:fixed;top:calc(var(--hh) + var(--ph));left:0;right:0;z-index:200;background:#fff;border-bottom:1.5px solid var(--border);display:flex;align-items:center;padding:0 10px;box-shadow:0 2px 10px rgba(0,0,0,.05);height:var(--th);overflow-x:auto;gap:2px}
+.tab{position:relative;padding:0 14px;height:100%;font-size:12.5px;font-weight:500;cursor:pointer;border:none;background:transparent;color:var(--text2);border-bottom:2.5px solid transparent;margin-bottom:-1.5px;display:flex;align-items:center;gap:6px;transition:color .18s var(--ease);white-space:nowrap;flex-shrink:0}
+.tab:hover{color:var(--navy)}
+.tab.active{color:var(--navy);font-weight:700}
+.tab.active::after{content:'';position:absolute;left:10px;right:10px;bottom:-1.5px;height:2.5px;border-radius:2px;
+  background:linear-gradient(90deg,var(--accent2),var(--accent));box-shadow:0 0 10px rgba(46,83,149,.5)}
+#tab-indicator{position:absolute;bottom:-1.5px;height:2.5px;border-radius:2px;background:linear-gradient(90deg,var(--accent2),var(--accent));
+  box-shadow:0 0 12px rgba(46,83,149,.55);transition:transform .32s var(--ease),width .32s var(--ease),opacity .18s;
+  opacity:0;pointer-events:none}
+.risk-dot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0;box-shadow:0 0 0 1.5px rgba(255,255,255,.55)}
+.risk-dot.red{background:var(--red)}
+.risk-dot.amber{background:#f59e0b}
+
+/* ══════════ LAYOUT ══════════ */
+#main{margin-top:calc(var(--hh) + 16px);padding:18px 22px 60px}
+body.com-abas #main{margin-top:calc(var(--hh) + var(--th))}
+body.sem-cabecalho #main{margin-top:0}
+.panel{display:none}
+.panel.active{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;align-items:flex-start;
+  flex-direction:column;max-width:var(--w-mid);margin:0 auto;animation:riseIn .3s var(--ease) both}
+.doc{max-width:var(--w-mid);margin:0 auto;display:flex;flex-direction:column;gap:14px}
+.doc-wide{max-width:var(--w-wide)}
+.doc-narrow{max-width:var(--w-narrow)}
+
+/* ══════════ TELA DIVIDIDA (edição à esquerda / pré-visualização do PDF à direita) ══════════
+   Mesmo padrão já usado no Gerador de Contrato e Procuração: duas colunas lado a lado, cada uma
+   com rolagem própria (a página em si não rola). Abaixo de 1100px empilha (preview vem depois do
+   formulário), porque não sobra largura confortável para as duas colunas ao mesmo tempo. */
+/* Bordas mais próximas da tela (menos sobra nas laterais) e menos espaço entre as duas colunas —
+   pedido explícito: aproveitar melhor a largura pra visualização integral. */
+#main.tela-dividida{max-width:1760px;margin-left:auto;margin-right:auto;padding-left:10px;padding-right:10px}
+.split-wrap{display:flex;align-items:flex-start;gap:12px}
+.split-form{display:flex;flex-direction:column;gap:14px;flex:1 1 0;min-width:0;max-width:var(--w-narrow);
+  overflow-y:auto;height:calc(100vh - var(--hh) - 32px);padding:2px 6px 40px 2px}
+.split-preview{display:flex;flex-direction:column;flex:1 1 0;min-width:0;
+  overflow-y:auto;height:calc(100vh - var(--hh) - 32px);padding-bottom:40px}
+@media(max-width:1100px){
+  .split-wrap{flex-direction:column}
+  .split-form,.split-preview{overflow:visible;height:auto;max-width:none;width:100%}
+}
+.preview-topbar{position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;
+  padding:10px 16px;background:#fff;border:1px solid var(--border);border-bottom:none;
+  border-top-left-radius:var(--card-r);border-top-right-radius:var(--card-r)}
+.preview-topbar-l{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3)}
+.papel-wrap{border:1px solid var(--border);border-top:none;border-bottom-left-radius:var(--card-r);border-bottom-right-radius:var(--card-r);
+  box-shadow:var(--shadow-sm);background:var(--bg);padding:34px 26px;flex:1}
+/* Antes o "papel" era um cartão fino (pouco padding, sombra leve) perdido no meio do fundo cinza —
+   aqui ele ganha as proporções de uma folha de verdade: mais respiro interno, sombra mais presente
+   (como se estivesse sobre uma mesa) e uma borda muito sutil no lugar da sombra rasa anterior. */
+.papel{background:#fff;border-radius:12px;box-shadow:0 16px 36px rgba(15,23,42,.16),0 2px 10px rgba(15,23,42,.06);
+  border:1px solid rgba(15,23,42,.05);padding:46px 52px;max-width:780px;min-height:320px;margin:0 auto}
+/* Dentro da pré-visualização (assim como no PDF): nada de alças de arrastar, botões de excluir,
+   pílulas de Pendente/Entregue ou coluna de situação — a pré-visualização é só leitura. */
+.papel .no-print{display:none!important}
+.papel [contenteditable]{cursor:default}
+.papel [contenteditable]:empty:before{content:none!important}
+.papel .print-sec-meta{display:block;font-size:11px;font-weight:600;color:#8b93a3;letter-spacing:.02em;margin-bottom:6px}
+.papel .print-sec-hd{display:block;font-family:var(--font-h);font-size:19px;font-weight:700;color:var(--navy);
+  border-bottom:1.5px solid var(--navy);padding-bottom:8px;margin:0 0 18px}
+/* Mesma tabela/categoria da tela, só que com um pouco mais de respiro — a pré-visualização deve
+   parecer um documento pronto, não a grade compacta de edição. */
+.papel .subsec{padding:18px 20px 20px;margin-bottom:20px}
+.papel .data-tbl th,.papel .data-tbl td{padding:10px 13px}
+.papel .data-tbl{font-size:13px}
+.papel-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:200px;color:var(--text3);gap:8px;padding:32px;text-align:center;font-size:12.5px}
+
+/* ══════════ CARDS ══════════ */
+.card-row{display:flex;gap:14px;flex-wrap:wrap;width:100%;align-items:flex-start}
+.card-row>.card{flex:1 1 340px;min-width:0}
+
+.card-row>.card-col{flex:1 1 340px;min-width:0;display:flex;flex-direction:column;gap:14px;align-self:flex-start}
+
+.card{background:#fff;border-radius:var(--card-r);border:1px solid var(--border);box-shadow:var(--shadow-sm);transition:box-shadow .22s var(--ease),border-color .22s var(--ease),transform .22s var(--ease)}
+.card:hover{box-shadow:var(--shadow-md);border-color:var(--border-strong)}
+.card-hd{position:relative;background:var(--navy);color:rgba(255,255,255,.94);padding:11px 18px;display:flex;align-items:center;gap:8px;font-size:11px;font-weight:600;letter-spacing:.045em;text-transform:uppercase;justify-content:space-between;border-top-left-radius:var(--card-r);border-top-right-radius:var(--card-r);border-bottom:1px solid rgba(46,83,149,.35);font-family:var(--font-h);overflow:hidden}
+.card-hd-r{display:flex;align-items:center;gap:8px;text-transform:none;font-weight:500;letter-spacing:0;position:relative;z-index:1}
+.card-body{padding:19px}
+@keyframes riseIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.panel.active>.card,.panel.active>.left-col>.card,.panel.active>.right-col>.card{animation:riseIn .42s var(--ease) both}
+.panel.active>.left-col>.card:nth-child(2),.panel.active>.right-col>.card:nth-child(2){animation-delay:.03s}
+.panel.active>.left-col>.card:nth-child(3),.panel.active>.right-col>.card:nth-child(3){animation-delay:.06s}
+
+/* ══════════ FORMULÁRIO ══════════ */
+.fg{display:flex;flex-direction:column;gap:4px;margin-bottom:14px}
+.fg>.fi.mono,.fg>.fi-num,.fg>.inp-sfx,.fg>.inp-pfx{max-width:280px}
+.g2>.fg>.fi.mono,.g2>.fg>.fi-num,.g2>.fg>.inp-sfx,.g2>.fg>.inp-pfx,
+.g3>.fg>.fi.mono,.g3>.fg>.fi-num,.g3>.fg>.inp-sfx,.g3>.fg>.inp-pfx,
+.g4>.fg>.fi.mono,.g4>.fg>.fi-num,.g4>.fg>.inp-sfx,.g4>.fg>.inp-pfx,
+.cfg-params .fg>.inp-sfx,.cfg-params .fg>.inp-pfx{max-width:none}
+.fg:last-child{margin-bottom:0}
+label.lbl{font-size:11px;font-weight:600;color:var(--navy);text-transform:uppercase;letter-spacing:.04em;display:flex;align-items:center;gap:6px}
+.hint{font-size:11px;color:var(--text3);line-height:1.4}
+.fi{padding:8px 12px;border:1.5px solid var(--border-strong);border-radius:var(--radius-sm);font-size:13.5px;color:var(--text);background:#fff;width:100%;outline:none;transition:border-color .18s var(--ease),box-shadow .18s var(--ease)}
+.fi:hover{border-color:#c3cad8}
+.fi:focus{border-color:var(--accent2-d);box-shadow:var(--glow2)}
+.fi.mono{font-family:var(--font-m);font-size:13px}
+.fi:disabled{background:var(--bg);color:var(--text3);cursor:not-allowed}
+.fi-blocked{padding:8px 12px;border:1.5px solid var(--border-strong);border-radius:var(--radius-sm);font-size:12.5px;color:var(--text3);background:var(--bg);width:100%;cursor:not-allowed;box-sizing:border-box;display:flex;align-items:center;line-height:1.3}
+.fi-blocked-sm{padding:5px 9px;border:1.5px solid var(--border-strong);border-radius:var(--radius-xs);font-size:11px;color:var(--text3);background:var(--bg);width:100%;cursor:not-allowed;box-sizing:border-box;display:flex;align-items:center;line-height:1.3}
+.g2>.fg>.inp-sfx:last-child,.g2>.fg>.inp-pfx:last-child,.g2>.fg>.fi:last-child,.g2>.fg>.fi-num:last-child{margin-top:auto}
+.g2>.fg>.fi-blocked-sm,.g3>.fg>.fi-blocked-sm{min-height:34px;padding:8px 12px;font-size:12px}
+.g2>.fg>.fi-blocked-sm,.g3>.fg>.fi-blocked-sm{margin-top:auto}
+.cfg-param-in[readonly],input.fi[readonly],input.fi-num[readonly]{background:var(--bg);color:var(--text3);cursor:not-allowed}
+.fi-num{padding:8px 12px;border:1.5px solid var(--border-strong);border-radius:var(--radius-sm);font-size:13.5px;color:var(--text);background:#fff;width:100%;outline:none;transition:border-color .18s var(--ease),box-shadow .18s var(--ease)}
+.fi-num:hover{border-color:#c3cad8}
+.fi-num:focus{border-color:var(--accent2-d);box-shadow:var(--glow2)}
+.chk-row{display:flex;align-items:flex-start;gap:8px;cursor:pointer}
+.chk-row input[type=checkbox]{width:15px;height:15px;margin-top:2px;accent-color:var(--navy);flex-shrink:0;cursor:pointer}
+.chk-row span{font-size:12.5px;color:var(--text2);line-height:1.45}
+
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.g4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px}
+@media(max-width:640px){.g2,.g3,.g4{grid-template-columns:1fr}}
+@media(max-width:900px){.g4{grid-template-columns:1fr 1fr}}
+
+/* ══════════ SEÇÕES, SUBSEÇÕES RECOLHÍVEIS E OBSERVAÇÃO "!" ══════════ */
+.sec-div{display:flex;align-items:center;gap:10px;margin:16px 0 12px}
+.sec-div-line{flex:1;height:1px;background:var(--border)}
+.sec-div-lbl{font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.07em;text-transform:uppercase;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
+.subsec{background:rgba(15,23,58,.025);border:1px solid rgba(15,23,58,.09);border-radius:12px;padding:16px 18px;margin-bottom:16px}
+.subsec:last-child{margin-bottom:0}
+.subsec-hd{display:flex;align-items:center;gap:9px;margin-bottom:14px}
+.subsec-num{flex-shrink:0;width:22px;height:22px;border-radius:7px;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-family:var(--font-h);font-size:11px;font-weight:700}
+.subsec-hd-txt{font-size:12.5px;font-weight:700;color:var(--navy);letter-spacing:.02em}
+.subsec-hd.is-toggle{cursor:pointer;user-select:none;margin-bottom:14px}
+.hint.obs{position:relative;padding-left:19px}
+.hint.obs:before{content:"!";position:absolute;left:0;top:1px;width:13px;height:13px;border-radius:50%;
+  background:rgba(184,134,11,.16);color:#8a6508;font-weight:800;font-size:9px;line-height:13px;text-align:center}
+
+
+.subsec-hd.is-toggle:hover .subsec-hd-txt{color:var(--accent2)}
+.sec-ico{margin-left:auto;flex-shrink:0;font-size:10px;color:var(--text3);transition:color .15s var(--ease)}
+.subsec-hd.is-toggle:hover .sec-ico{color:var(--accent2)}
+.subsec-hd.is-recolhido{margin-bottom:0}
+
+/* ══════════ ESCOLHA ENTRE MODOS (radio em cartão) ══════════ */
+.modo-toggle{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.modo-opt{flex:1;min-width:220px;display:flex;align-items:flex-start;gap:8px;padding:10px 12px;border:1.5px solid var(--border);border-radius:9px;background:#fff;cursor:pointer;transition:border-color .15s var(--ease),background .15s var(--ease)}
+.modo-opt:hover{border-color:rgba(46,83,149,.4)}
+.modo-opt.is-active{border-color:var(--accent2);background:rgba(46,83,149,.06)}
+.modo-opt input{margin-top:2px;accent-color:var(--accent2);flex-shrink:0;cursor:pointer}
+.modo-opt span{font-size:12px;color:var(--text2);line-height:1.4}
+.modo-opt b{color:var(--navy)}
+
+/* ══════════ ESTADO VAZIO E ALERTAS ══════════ */
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:200px;color:var(--text3);gap:12px;padding:32px}
+.empty-state svg{opacity:.2}
+.empty-state p{font-size:13px;text-align:center;max-width:280px;line-height:1.55}
+
+/* ALERTS */
+.alrt{border-radius:var(--radius-xs);padding:10px 14px 10px 12px;font-size:12.5px;line-height:1.5;margin-bottom:6px;border-left-width:3px;border-left-style:solid}
+.alrt-amber{background:var(--amber-lt);border:1px solid var(--amber-border);border-left-color:var(--amber);color:var(--amber)}
+.alrt-blue{background:var(--blue-lt);border:1px solid rgba(46,83,149,.22);border-left-color:var(--blue-d);color:var(--blue-d)}
+.alrt-red{background:var(--red-lt);border:1px solid rgba(220,38,38,.22);border-left-color:var(--red);color:var(--red)}
+.alrt-green{background:var(--green-lt);border:1px solid rgba(22,163,74,.22);border-left-color:var(--green-d);color:var(--green-d)}
+.alrt b{font-weight:700}
+.alrt-bar{height:5px;border-radius:20px;background:rgba(0,0,0,.08);overflow:hidden;margin-top:8px}
+.alrt-bar-fill{height:100%;border-radius:20px;background:currentColor;transition:width .5s var(--ease)}
+
+/* ══════════ KPIs E TABELAS ══════════ */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;margin-bottom:16px}
+.kpi-box{position:relative;background:#fff;border:1px solid var(--border);border-top:2px solid rgba(46,83,149,.4);border-radius:var(--radius-sm);padding:13px 14px;transition:border-color .2s var(--ease)}
+.kpi-box:hover{border-color:var(--border-strong)}
+.kpi-v{font-family:var(--font-m);font-size:19px;font-weight:700;color:var(--navy);margin-bottom:2px;position:relative}
+.kpi-l{font-size:10.5px;color:var(--text3);line-height:1.4;text-transform:uppercase;letter-spacing:.04em;font-weight:600;position:relative}
+
+/* TABLES */
+.tbl-wrap{width:100%;overflow-x:auto}
+.tbl-wrap>.data-tbl{min-width:640px}
+.tbl-wrap.tbl-narrow>.data-tbl{min-width:0}
+.tbl-wrap.tbl-narrow .data-tbl th,.tbl-wrap.tbl-narrow .data-tbl td{padding:7px 8px}
+.tbl-wrap.tbl-narrow .data-tbl th{font-size:9.5px;letter-spacing:.03em}
+.data-tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.data-tbl th{background:rgba(27,42,74,.05);color:var(--navy);padding:9px 12px;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;text-align:left;border-bottom:1.5px solid rgba(27,42,74,.16)}
+.data-tbl td{padding:8px 12px;border-bottom:1px solid var(--border);vertical-align:middle;color:var(--text2);transition:background .12s var(--ease)}
+.data-tbl tr:last-child td{border-bottom:none}
+.data-tbl tbody tr:hover td{background:rgba(46,83,149,.045)}
+.data-tbl .mono{font-family:var(--font-m);font-size:12px;font-weight:400;color:var(--text)}
+.data-tbl .r{text-align:right}
+.data-tbl .pos{color:var(--green-d)}
+.data-tbl .neg{color:var(--red)}
+.data-tbl tr.total-row td{font-weight:700;background:rgba(27,42,74,.045);color:var(--text);border-top:1.5px solid rgba(27,42,74,.14)}
+.data-tbl tr.total-row td.pos{color:var(--green-d)}
+.data-tbl tr.total-row td.neg{color:var(--red)}
+.data-tbl tr.sub-row td{padding-top:5px;padding-bottom:5px;border-bottom:1px dotted rgba(15,23,42,.07);font-size:11.5px;color:var(--text3);background:rgba(15,23,58,.012)}
+.data-tbl tr.sub-row td:first-child{padding-left:26px;position:relative}
+.data-tbl tr.sub-row td:first-child::before{content:'↳';position:absolute;left:12px;color:var(--text3);opacity:.55}
+.data-tbl tr.sub-row .mono{font-size:11.5px;font-weight:400}
+.data-tbl tr.head-row td{font-weight:700;color:var(--navy);border-bottom:none;padding-top:16px;padding-bottom:4px}
+.grp-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 13px;margin-bottom:10px;border-radius:var(--radius-sm);background:var(--bg);box-shadow:inset 0 0 0 1px var(--border);cursor:pointer;font-size:12.5px;color:var(--text2);transition:box-shadow .15s var(--ease)}
+.grp-bar:hover{box-shadow:inset 0 0 0 1px var(--border-strong)}
+.grp-bar-v{margin-left:auto;font-size:12px;color:var(--text3)}
+.data-tbl tr.grp-head{cursor:pointer}
+.data-tbl tr.grp-head:hover td{background:rgba(46,83,149,.06)}
+.data-tbl tr.grp-head td{font-weight:600}
+.grp-ico{display:inline-block;width:11px;color:var(--text3);font-size:10px}
+.data-tbl tr.total-row:hover td{background:rgba(27,42,74,.06)}
+
+/* CONFIGURAR */
+.cfg-title{font-size:20px;font-weight:700;color:var(--navy)}
+.cfg-sub{font-size:12.5px;color:var(--text3);margin-top:3px;margin-bottom:6px}
+.cfg-sec{font-size:13px;font-weight:700;color:var(--navy);margin:16px 0 8px;display:flex;align-items:center;gap:8px}
+.cfg-sec-note{font-size:11px;color:var(--text3);font-weight:400}
+
+/* ══════════ SELO (i) E CAIXA DE LEGENDA ══════════ */
+.lg{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:var(--text3);color:#fff;font-size:9px;font-weight:700;cursor:help;position:relative;flex-shrink:0;text-transform:none;letter-spacing:0;transition:background .15s var(--ease)}
+.lg:hover{background:var(--accent2-d)}
+.lg .lg-tip{display:none;position:absolute;bottom:130%;left:50%;transform:translateX(-50%);background:linear-gradient(150deg,var(--navy),var(--navy2));color:#fff;font-size:11px;font-weight:400;line-height:1.45;padding:9px 11px;border-radius:8px;width:230px;z-index:350;box-shadow:var(--shadow-lg);text-transform:none;letter-spacing:normal;border:1px solid rgba(46,83,149,.2)}
+.lg:hover .lg-tip{display:block;animation:tipIn .15s var(--ease) both}
+.lg .lg-tip.lg-wide{width:330px}
+@keyframes tipIn{from{opacity:0;transform:translateX(-50%) translateY(3px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+.g4 .lg .lg-tip{bottom:auto;top:130%}
+.legenda-box{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px;font-size:11.5px;color:var(--text2);line-height:1.7}
+.legenda-box div{margin-bottom:3px}
+.legenda-box b{color:var(--navy)}
+
+/* ══════════ PILLS, CARTÃO DINÂMICO E BOTÕES ══════════ */
+.pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.03em}
+.pill-green{background:var(--green-lt);color:var(--green-d)}
+.pill-red{background:var(--red-lt);color:var(--red)}
+.pill-amber{background:var(--amber-lt);color:var(--amber)}
+.pill-blue{background:var(--blue-lt);color:var(--blue-d)}
+.pill-grey{background:#e5e7eb;color:var(--text2)}
+
+/* MEMBER / DYNAMIC CARDS */
+.member-card{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 15px;position:relative;margin-bottom:10px;transition:border-color .18s var(--ease),box-shadow .18s var(--ease)}
+.member-card:hover{border-color:var(--border-strong);box-shadow:var(--shadow-sm)}
+.member-rm{position:absolute;top:9px;right:10px;background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px;line-height:1;padding:2px;transition:color .15s var(--ease),transform .15s var(--ease)}
+.member-rm:hover{color:var(--red);transform:scale(1.15)}
+.add-btn{background:transparent;border:1.5px dashed var(--border-strong);border-radius:var(--radius-sm);padding:11px;width:100%;font-size:12.5px;font-weight:600;color:var(--text2);cursor:pointer;transition:.18s var(--ease)}
+.add-btn:hover{border-color:var(--accent2-d);color:var(--navy);box-shadow:var(--glow2);background:rgba(46,83,149,.04)}
+
+/* BUTTONS */
+.btn-g{background:linear-gradient(120deg,var(--navy),var(--navy2));color:#fff;border:none;border-radius:var(--radius-sm);padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;transition:box-shadow .18s var(--ease),transform .18s var(--ease),background .18s var(--ease);box-shadow:0 2px 8px rgba(10,15,31,.18)}
+.btn-g:hover{background:linear-gradient(120deg,var(--navy2),var(--navy3));box-shadow:0 4px 16px rgba(10,15,31,.28);transform:translateY(-1px)}
+.btn-g:active{transform:translateY(0)}
+.btn-o{background:#fff;color:var(--navy);border:1.5px solid var(--border-strong);border-radius:var(--radius-sm);padding:7.5px 15px;font-size:12.5px;font-weight:600;cursor:pointer;transition:border-color .18s var(--ease),box-shadow .18s var(--ease),transform .18s var(--ease)}
+.btn-o:hover{border-color:var(--accent2-d);box-shadow:var(--glow2);transform:translateY(-1px)}
+.btn-o:active{transform:translateY(0)}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(15,23,42,.16);border-radius:20px;border:2px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-thumb:hover{background:rgba(15,23,42,.28);background-clip:padding-box}
+#tabnav::-webkit-scrollbar,#perfilnav::-webkit-scrollbar,.subtabs::-webkit-scrollbar,.resultado-subtabs::-webkit-scrollbar{height:0}
+* {scrollbar-width:thin;scrollbar-color:rgba(15,23,42,.18) transparent}
+
+/* ══════════ IMPRESSÃO / PDF ══════════ */
+/* Regra-base (mesmas margens sempre usadas). O TAMANHO real da página é sobrescrito na hora de
+   gerar o PDF por uma segunda regra @page, calculada a partir da altura do conteúdo — ver
+   _prepararPaginaContinua() mais abaixo — pra sair um PDF corrido, de uma página só, sem cortes. */
+@page{size:A4 portrait;margin:14mm 12mm 16mm}
+@media print{
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+  #hd,#tabnav,.no-print{display:none!important}
+  #main{margin-top:0;padding:0}
+  body{background:#fff;font-size:10.5px}
+  .panel{display:none!important}
+  .panel.print-active{display:block!important;max-width:none!important;width:100%!important}
+  /* A borda do card usava "border" — mas o Chromium, ao rasterizar o PDF, arredonda a posição da
+     linha de 1px pra grade de pixel de forma diferente à esquerda e à direita (efeito de sub-pixel,
+     não relacionado a transparência), deixando a borda direita bem mais apagada que a esquerda.
+     Trocar por box-shadow inset renderiza um traço preenchido por dentro, sem esse desalinhamento —
+     confirmado visualmente: as duas bordas saem idênticas. */
+  .card{box-shadow:inset 0 0 0 1px #d4d9e4!important;border:none!important;break-inside:avoid;margin-bottom:10px;width:100%!important;max-width:none!important}
+  .card-row{display:block!important;max-width:none!important}
+  .card-row>.card,.card-row>.card-col{width:100%!important;max-width:none!important}
+  .rc-grid{grid-template-columns:1fr 1fr}
+  .add-btn,.member-rm,.btn-o,.hd-btn,.periodo-toggle,.modo-toggle,.subtabs,.resultado-subtabs,
+  .nota-aux,
+  input[type=file]{display:none!important}
+  .lg{display:none!important}
+  details{display:block!important}
+  details>summary{display:none!important}
+  .fi,.fi-num,.cfg-param-in,.inp-sfx,.inp-pfx,select.fi{box-shadow:none!important;border-color:#d4d9e4!important;background:#fff!important}
+  .tbl-wrap{overflow:visible!important}
+  .tbl-wrap>.data-tbl{min-width:0!important}
+  .data-tbl{font-size:9.5px}
+  .data-tbl th,.data-tbl td{padding:4px 7px}
+  table,tr,thead,tbody{break-inside:avoid}
+  /* .doc-tbl tem 3 colunas escondidas na impressão (arrastar, situação, remover). Com elas
+     escondidas, table-layout:fixed não respeita mais os px/% originais (pensados pra 6 colunas) —
+     na prática ele ignorava a largura em px da coluna "#" e sobrava espaço à esquerda do texto,
+     empurrando "Documento"/"Onde obter" mais para a direita do que antes. Redefinindo as 3
+     colunas que sobram em % (somando 100%) elimina essa distribuição imprevisível. */
+  .doc-tbl th:nth-child(2),.doc-tbl td:nth-child(2){width:6%!important}
+  .doc-tbl th:nth-child(3),.doc-tbl td:nth-child(3){width:56%!important}
+  .doc-tbl th:nth-child(4),.doc-tbl td:nth-child(4){width:38%!important}
+  /* Mesmo desalinhamento de sub-pixel do .card acima, na borda de cada categoria — box-shadow
+     inset em vez de border resolve aqui também. */
+  .subsec{background:#fbfbfd!important;border:none!important;box-shadow:inset 0 0 0 1px #d9dde6!important}
+  .card-hd{padding:7px 12px;font-size:10px}
+  .kpi-v{font-size:15px}
+  .rc-total{font-size:20px}
+  .duo-grid{grid-template-columns:1fr 1fr!important}
+  tr[data-grp]{display:table-row!important}
+  .grp-ico{display:none!important}
+  #print-runhead,#print-runfoot{display:none!important}
+  #print-root{position:static!important;left:auto!important;top:auto!important;width:auto!important}
+  /* Texto de exemplo (placeholder) de campo em branco nunca pode ir para o papel — sem isso, uma categoria
+     ou documento deixado vazio imprimiria "Nome da categoria" / "Nome do documento" como se fosse conteúdo real. */
+  [contenteditable]:empty:before{content:none!important}
+  .print-sec-hd{font-family:var(--font-h);font-size:15px;font-weight:700;color:var(--navy);
+    border-bottom:1.5px solid var(--navy);padding-bottom:5px;margin:0 0 9px;page-break-after:avoid}
+  .print-sec-meta{display:block!important;font-size:10px;font-weight:600;color:#555;letter-spacing:.02em;margin-bottom:3px;
+    page-break-before:always;page-break-after:avoid}
+  #print-root>.print-sec-meta:first-of-type{page-break-before:avoid}
+  /* O card da lista cresce com o número de categorias e pode passar de uma página — diferente do cartão
+     típico do padrão (pequeno, cabe inteiro), então ele não pode herdar break-inside:avoid genérico: isso
+     forçava o Chromium a empurrar uma categoria inteira para a página seguinte, deixando um vão em branco
+     no fim da anterior. Quem evita quebra no meio é cada categoria (.subsec), não a lista inteira. */
+  .doc-lista-card{break-inside:auto!important}
+  .subsec{break-inside:avoid}
+  .panel.print-active{page-break-after:auto}
+  /* [data-pdf] só existe agora no card ORIGINAL (a cópia dentro de #print-root teve o atributo
+     removido em _clonarSemIds) — escondê-lo aqui evita que ele apareça duplicado ao lado da cópia
+     filtrada/renumerada que de fato deve ir para o PDF. */
+  [data-pdf]{display:none!important}
+  /* A coluna de pré-visualização (papel à direita) já tem no-print no HTML; aqui só resta achatar
+     o wrapper da tela dividida para não sobrar um vão em branco no lugar das duas colunas. */
+  .split-wrap,.split-form{display:block!important;height:auto!important;overflow:visible!important;max-width:none!important}
+}
+/* ══ MEDIÇÃO FIEL PARA O PDF CONTÍNUO ══
+   O bloco @media print acima só entra em vigor quando o navegador está de fato imprimindo — mas
+   _prepararPaginaContinua() (mais abaixo) precisa medir a altura do conteúdo ANTES disso, com a
+   tela ainda em modo normal, pra calcular o tamanho da página. Sem repetir aqui as mesmas regras
+   que encolhem fonte/colunas na impressão (e escondem o que é só de uso interno), a medição saía
+   bem maior que o PDF real e sobrava um vão em branco enorme no fim da página. Como #print-root
+   nunca aparece na tela fora da impressão, aplicar essas mesmas regras sem depender de @media print
+   não muda nada visualmente — só faz a altura medida bater com o resultado impresso de verdade. */
+#print-root .no-print{display:none!important}
+#print-root .tbl-wrap>.data-tbl{min-width:0!important}
+#print-root .data-tbl{font-size:9.5px}
+#print-root .data-tbl th,#print-root .data-tbl td{padding:4px 7px}
+#print-root .doc-tbl th:nth-child(2),#print-root .doc-tbl td:nth-child(2){width:6%!important}
+#print-root .doc-tbl th:nth-child(3),#print-root .doc-tbl td:nth-child(3){width:56%!important}
+#print-root .doc-tbl th:nth-child(4),#print-root .doc-tbl td:nth-child(4){width:38%!important}
+#print-root .card-hd{padding:7px 12px;font-size:10px}
+#print-root [contenteditable]:empty:before{content:none!important}
+#print-root .carta-texto:empty{display:none!important;margin:0!important}
+#print-root .nota-rodape:empty{display:none!important;border:none!important;padding:0!important;margin:0!important}
+#print-root .print-confidencialidade{display:block!important;font-size:8px;color:#8a93a3;line-height:1.5;margin-top:16px;padding-top:8px;border-top:1px solid #e2e6ee}
+#print-runhead,#print-runfoot{display:none}
+#print-root{position:absolute;left:-99999px;top:0;width:1100px}
+
+/* ══════════ ESTILOS PRÓPRIOS DESTA FERRAMENTA (checklist editável) ══════════ */
+[contenteditable]:empty:before{content:attr(data-placeholder);color:var(--text3);pointer-events:none}
+.cat-nome{outline:none;cursor:text;border-radius:5px;padding:2px 5px;margin:-2px -5px}
+.doc-nome,.doc-obs{outline:none;cursor:text;border-radius:4px}
+/* Coluna "Onde obter / observação" (e nome do documento): texto de exemplo (placeholder) mais claro
+   e em itálico — pra não ser confundido com conteúdo já preenchido — e um fundo bem sutil enquanto
+   a célula está vazia, que desaparece assim que algo é digitado. Só na tela: o placeholder já não
+   vai para o PDF (ver @media print acima). */
+.doc-nome:empty,.doc-obs:empty{background:rgba(15,23,58,.028)}
+.doc-nome:empty:before,.doc-obs:empty:before{color:#aab0bd;font-style:italic}
+.cat-nome:focus,.doc-nome:focus,.doc-obs:focus{background:rgba(46,83,149,.07);box-shadow:0 0 0 1.5px rgba(46,83,149,.25)}
+.row-rm,.cat-rm{background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;padding:3px 7px;border-radius:6px;transition:.15s var(--ease);line-height:1}
+.row-rm:hover,.cat-rm:hover{color:var(--red);background:rgba(220,38,38,.08)}
+.cat-dup:hover{color:var(--accent2-d);background:rgba(46,83,149,.08)}
+.doc-num{color:var(--text3);width:40px;white-space:nowrap}
+.card-hd-mini-btn{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.22);color:#fff;padding:4px 10px;border-radius:6px;font-size:10.5px;font-weight:600;cursor:pointer;transition:background .15s var(--ease)}
+.card-hd-mini-btn:hover{background:rgba(255,255,255,.2)}
+#confirmBox,#avisoBox{display:none;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px}
+
+/* ── Quadro de informações: cliente + escritório, lado a lado e sempre alinhados
+   (mesma grade de 2 colunas nos dois blocos, então nunca ficam "puxados" um mais que o outro) ── */
+.info-quadro{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px 24px;margin-bottom:10px}
+.info-quadro:not(:has(.info-quadro-col:not(.is-empty))){display:none}
+.info-quadro-col:empty,.info-quadro-col.is-empty{display:none}
+.info-quadro-lbl{font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text3);margin-bottom:2px}
+.print-meta-extra{font-size:11px;color:var(--text2);line-height:1.6}
+@media(max-width:640px){.info-quadro{grid-template-columns:1fr}}
+
+/* ── Legenda de entrega parcial: só aparece no PDF quando há itens Entregue ocultos ── */
+.legenda-parcial{display:none;font-size:11.5px;color:var(--accent2-d);background:var(--blue-lt);
+  border-radius:8px;padding:8px 14px;margin-bottom:12px;line-height:1.5}
+.legenda-parcial.on{display:block}
+
+/* ── Carta de abertura/fechamento (opcional) ── */
+.carta-texto{font-size:13px;line-height:1.7;color:var(--text);white-space:pre-wrap;margin:14px 0;padding:2px 0;outline:none;cursor:text;border-radius:5px}
+.carta-texto:focus{background:rgba(46,83,149,.05);box-shadow:0 0 0 1.5px rgba(46,83,149,.2)}
+@media print{.carta-texto:empty{display:none!important;margin:0!important}}
+
+/* ── Como enviar ── */
+.como-enviar-box{margin-top:16px}
+#comoEnviarTexto{outline:none;cursor:text}
+
+/* ── Nota de rodapé ── */
+.nota-rodape{font-size:11.5px;color:var(--text3);line-height:1.5;margin-top:12px;padding-top:10px;border-top:1px dashed var(--border);outline:none;cursor:text;white-space:pre-wrap}
+.nota-rodape:focus{background:rgba(46,83,149,.05)}
+@media print{.nota-rodape:empty{display:none!important;border:none!important;padding:0!important;margin:0!important}}
+
+/* ── Confidencialidade (discreta, só aparece no PDF) ── */
+.print-confidencialidade{display:none}
+@media print{.print-confidencialidade{display:block!important;font-size:8px;color:#8a93a3;line-height:1.5;margin-top:16px;padding-top:8px;border-top:1px solid #e2e6ee}}
+
+/* ── A tabela usa table-layout:fixed com larguras iguais em toda categoria — cada categoria é
+   um <table> independente, então sem isso cada uma calculava a largura da coluna sozinha e as
+   colunas saíam desalinhadas de uma categoria para outra. ── */
+.doc-tbl{table-layout:fixed}
+
+/* ── Categoria marcada "sem-obs" (só existe em clones, ver _prepararCloneParaImpressao): esconde
+   a coluna "Onde obter / observação" inteira no PDF/pré-visualização e devolve o espaço para a
+   coluna "Documento". Os nth-child contam TODAS as colunas (inclusive as no-print, escondidas por
+   fora) — por isso a numeração pula direto de 3 (Documento) para 4 (Onde obter), igual às regras
+   de impressão logo abaixo. ── */
+.subsec.sem-obs .doc-tbl th:nth-child(4),.subsec.sem-obs .doc-tbl td:nth-child(4){display:none!important}
+.subsec.sem-obs .doc-tbl th:nth-child(3),.subsec.sem-obs .doc-tbl td:nth-child(3){width:94%!important}
+/* Mesma redistribuição de largura que a impressão já faz (ver @media print acima) — mas para a
+   pré-visualização em tela, que também esconde as colunas de uso interno (.papel .no-print). */
+.papel .doc-tbl th:nth-child(2),.papel .doc-tbl td:nth-child(2){width:6%!important}
+.papel .doc-tbl th:nth-child(3),.papel .doc-tbl td:nth-child(3){width:56%!important}
+.papel .doc-tbl th:nth-child(4),.papel .doc-tbl td:nth-child(4){width:38%!important}
+/* Sem isso, a mesma largura mínima pensada pra tabela EDITÁVEL (que precisa de espaço pra alça de
+   arrastar, situação e excluir) vazava pra dentro do "papel" — que é bem mais estreito — e
+   estourava a borda direita da folha. A pré-visualização precisa poder encolher livremente, do
+   mesmo jeito que a impressão real já faz (ver @media print acima). */
+.papel .tbl-wrap>.data-tbl{min-width:0}
+
+/* ── Subgrupo condicional dentro de uma categoria (ex.: "▸ Se houver herdeiro menor") ── */
+.doc-subgrupo-row td{background:rgba(184,134,11,.06);padding:6px 12px!important;border-bottom:1px solid rgba(184,134,11,.18)}
+.doc-subgrupo-txt{font-weight:700;font-size:11.5px;color:var(--accent);outline:none;cursor:text}
+.doc-subgrupo-row .row-rm{float:right}
+
+/* ── Acompanhamento: Pendente / Entregue. Uso interno do escritório — a coluna de situação e o
+   filtro (Todos/Pendentes/Entregues) nunca aparecem no PDF nem na pré-visualização; o que sai no PDF
+   é decidido por outra lógica (gerarPDF() exclui os itens "Entregue" automaticamente). ── */
+.track-cell{display:table-cell}
+@media print{.track-cell{display:none!important}}
+.track-pill{display:inline-flex;align-items:center;justify-content:center;padding:2px 9px;border-radius:20px;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;cursor:pointer;border:none;font-family:var(--font-d)}
+.track-pill.pendente{background:#e5e7eb;color:var(--text2)}
+.track-pill.entregue{background:var(--green-lt);color:var(--green-d)}
+
+/* ── Filtro Todos/Pendentes/Entregues no card de documentos (uso interno, nunca imprime) ── */
+#filtroAcompanhamento{display:flex;gap:4px;align-items:center;flex-wrap:wrap;row-gap:6px;justify-content:flex-end}
+.busca-input{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.22);color:#fff;
+  padding:4px 24px 4px 9px;border-radius:6px;font-size:11px;width:112px;outline:none;
+  transition:background .15s var(--ease),border-color .15s var(--ease),width .15s var(--ease)}
+.busca-input:focus{width:150px}
+.busca-input::placeholder{color:rgba(255,255,255,.55)}
+.busca-input:focus{background:rgba(255,255,255,.18);border-color:rgba(255,255,255,.5)}
+#btnLimparBusca{position:absolute;right:5px;top:50%;transform:translateY(-50%);background:none;border:none;
+  color:rgba(255,255,255,.65);cursor:pointer;font-size:11px;line-height:1;padding:2px}
+#btnLimparBusca:hover{color:#fff}
+.filtro-btn{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.22);color:#fff;padding:4px 10px;border-radius:6px;font-size:10.5px;font-weight:600;cursor:pointer;transition:background .15s var(--ease),border-color .15s var(--ease)}
+.filtro-btn:hover{background:rgba(255,255,255,.18)}
+.filtro-btn.active{background:rgba(255,255,255,.32);border-color:rgba(255,255,255,.55)}
+tr.filtro-oculto,.subsec.filtro-oculto{display:none!important}
+
+/* ── Arrastar e soltar para reordenar categorias/documentos ── */
+.drag-handle{cursor:grab;color:var(--text3);font-size:12px;padding:0 4px;user-select:none;flex-shrink:0}
+.drag-handle:active{cursor:grabbing}
+.subsec.is-dragging,tr.is-dragging{opacity:.35}
+.subsec.drag-over-top{box-shadow:inset 0 3px 0 var(--accent2)}
+.subsec.drag-over-bottom{box-shadow:inset 0 -3px 0 var(--accent2)}
+tr.drag-over-top td{box-shadow:inset 0 2px 0 var(--accent2)}
+tr.drag-over-bottom td{box-shadow:inset 0 -2px 0 var(--accent2)}
+.subsec-hd .drag-handle{margin-right:-2px}
+
+/* ── Toast de "desfazer exclusão" ── */
+#undoToast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:var(--navy);color:#fff;padding:10px 18px;border-radius:10px;font-size:12.5px;box-shadow:var(--shadow-lg);z-index:950;opacity:0;pointer-events:none;transition:opacity .22s var(--ease),transform .22s var(--ease);display:flex;align-items:center;gap:12px}
+#undoToast.show{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto}
+#undoToast button{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.3);color:#fff;padding:4px 10px;border-radius:6px;font-size:11.5px;font-weight:600;cursor:pointer}
+</style>
+</head>
+<body>
+
+<!-- ══ CABEÇALHO FIXO ══ -->
+<div id="hd">
+  <div class="hd-brand">
+    <div>
+      <div class="hd-name" id="hdTitulo">Solicitação de documentos</div>
+      <div class="hd-sub">Araujo &amp; Castro — Advocacia e Consultoria</div>
+    </div>
+  </div>
+  <div class="hd-r no-print">
+    <span id="ultimoSalvamentoCache" style="font-family:var(--font-m);font-size:11px;color:rgba(255,255,255,.6);padding:0 6px" title="Quando esta lista foi salva pela última vez no cache deste navegador — não é o mesmo que Salvar JSON ou Exportar PDF"></span>
+    <span id="contadorEntrega" style="font-family:var(--font-m);font-size:11px;color:rgba(255,255,255,.72);padding:0 6px" title="Acompanhamento interno: quantos documentos já foram marcados como Entregue"></span>
+    <button class="hd-btn" onclick="gerarPDF()">↓ Exportar PDF</button>
+    <button class="hd-btn" onclick="baixarModelo()" title="Salva a lista atual em um arquivo .json (para reabrir depois ou editar em outro computador — não é o documento para o cliente, esse é o Exportar PDF). Se foi aberta de um arquivo/lista salva, sugere o mesmo nome; senão, sugere Assunto + Cliente + Data, igual ao PDF.">💾 Salvar JSON</button>
+    <button class="hd-btn" onclick="salvarNoCache()" title="Salva a lista atual no cache deste navegador — não gera nenhum arquivo, é só para continuar depois neste mesmo computador e navegador">🗃 Salvar cache</button>
+    <button class="hd-btn" onclick="abrirHistoricoModal()" title="Abre uma lista salva no cache deste navegador">🗂 Abrir cache</button>
+  </div>
+</div>
+
+<!-- HISTÓRICO LOCAL (cache no navegador) -->
+<div id="historicoOverlay" class="no-print" style="display:none;position:fixed;inset:0;background:rgba(17,24,39,.45);z-index:500;align-items:center;justify-content:center" onclick="if(event.target===this)fecharHistoricoModal()">
+  <div style="background:#fff;border-radius:var(--card-r);width:min(560px,92vw);max-height:80vh;display:flex;flex-direction:column;box-shadow:var(--shadow-md)">
+    <div class="card-hd">🗂 Listas salvas neste navegador<button class="hd-btn" style="padding:3px 10px" onclick="fecharHistoricoModal()">✕</button></div>
+    <div id="historicoLista" style="padding:16px;overflow-y:auto"></div>
+  </div>
+</div>
+
+<!-- Sem capa separada: o PDF vai direto ao conteúdo (logo + identificação no alto da 1ª página — ver gerarPDF()),
+     para não gastar uma página inteira só com título/cliente/data. -->
+<div id="print-root"></div>
+
+<!-- ══ CONTEÚDO ══ -->
+<div id="main" class="tela-dividida">
+  <div class="split-wrap">
+  <div class="split-form">
+
+    <!-- CARD DE CONFIGURAÇÃO — não entra no PDF nem na pré-visualização -->
+    <section class="card no-print" id="cardConfig">
+      <div class="card-hd">📋 Solicitação de documentos ao cliente</div>
+      <div class="card-body">
+        <div class="alrt alrt-blue">ℹ Preencha cliente e assunto, escolha um modelo pronto (ou monte a lista do zero) e ajuste os documentos conforme o caso concreto — os modelos abaixo são ponto de partida, não uma lista exaustiva.</div>
+
+        <div class="g3" style="margin-top:14px">
+          <div class="fg">
+            <label class="lbl">Cliente</label>
+            <input class="fi" id="inNomeCliente" type="text" placeholder="Nome do cliente" oninput="atualizarCliente()">
+          </div>
+          <div class="fg">
+            <label class="lbl">Assunto</label>
+            <input class="fi" id="inAssunto" type="text" placeholder="Ex.: Holding patrimonial" oninput="atualizarTitulo()">
+          </div>
+          <div class="fg">
+            <label class="lbl">Advogado responsável <span class="lg">i<span class="lg-tip">OAB, telefone e e-mail são preenchidos automaticamente a partir do cadastro do escritório.</span></span></label>
+            <select class="fi" id="inResponsavel" onchange="atualizarAssinatura();atualizarComoEnviar()">
+              <option value="">— selecione —</option>
+              <option value="pedro">Pedro Castro</option>
+              <option value="emanuelle">Emanuelle Araujo</option>
+              <option value="adriana">Adriana Fátima Araujo Borges</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="g3" style="margin-top:14px">
+          <div class="fg">
+            <label class="lbl">CNPJ ou CPF do cliente <span class="lg">i<span class="lg-tip">Opcional. Aparece no quadro "Cliente" do PDF/pré-visualização só se for preenchido.</span></span></label>
+            <input class="fi mono" id="inDocCliente" type="text" placeholder="Opcional" oninput="atualizarInfoCliente()" onblur="formatarDocCliente()">
+          </div>
+          <div class="fg">
+            <label class="lbl">E-mail do cliente</label>
+            <input class="fi" id="inEmailCliente" type="text" placeholder="Opcional" oninput="atualizarInfoCliente()">
+          </div>
+          <div class="fg">
+            <label class="lbl">Telefone do cliente</label>
+            <input class="fi" id="inTelCliente" type="text" placeholder="Opcional" oninput="atualizarInfoCliente()" onblur="formatarTelCliente()">
+          </div>
+        </div>
+
+        <!-- "Salvar"/"Abrir" (cache local) ficam na barra superior. Aqui fica o começo da lista:
+             modelo pronto do escritório ou importar um .json seu — discreto, uma linha só. -->
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px dashed var(--border)">
+          <label class="lbl" style="margin:0;white-space:nowrap">Começar de um modelo pronto</label>
+          <select class="fi" id="selModelo" style="max-width:280px" onchange="aplicarModeloSelecionado()">
+            <option value="">— escolha um modelo —</option>
+            <optgroup label="Geral">
+              <option value="padrao">Modelo padrão (documentos pessoais + a preencher)</option>
+            </optgroup>
+            <optgroup label="Implantação">
+              <option value="implantacao">Implantação — pessoa física e empresa</option>
+            </optgroup>
+            <optgroup label="Imobiliário">
+              <option value="retificacao">Retificação de área de imóvel</option>
+              <option value="usucapiao">Usucapião</option>
+            </optgroup>
+            <optgroup label="Societário / Patrimonial">
+              <option value="holding">Holding patrimonial</option>
+            </optgroup>
+            <optgroup label="Sucessório">
+              <option value="sucessorio">Planejamento sucessório</option>
+            </optgroup>
+            <optgroup label="Outros">
+              <option value="vazio">Lista em branco</option>
+            </optgroup>
+          </select>
+          <button class="btn-o" type="button" style="white-space:nowrap" onclick="importarArquivo()" title="Importar um arquivo .json salvo anteriormente (por este ou outro computador)">📂 Importar arquivo</button>
+          <input type="file" id="inpArquivo" accept="application/json,.json" onchange="carregarArquivo(this.files[0])" style="display:none">
+          <button class="btn-o" type="button" style="white-space:nowrap;margin-left:auto;padding:5px 10px;font-size:11px;color:var(--text3);border-color:var(--border)" onclick="limparTudo()" title="Apaga todas as categorias e documentos da tela">🗑 Limpar tudo</button>
+        </div>
+
+        <div class="alrt alrt-amber" id="confirmBox">
+          <span id="confirmMsg" style="flex:1"></span>
+          <button class="btn-g" type="button" onclick="confirmarSim()">Sim, substituir</button>
+          <button class="btn-o" type="button" onclick="cancelarConfirmacao()">Cancelar</button>
+        </div>
+        <div class="alrt alrt-red" id="avisoBox">
+          <span id="avisoMsg" style="flex:1"></span>
+          <button class="btn-o" type="button" onclick="fecharAviso()">Ok</button>
+        </div>
+
+        <div class="sec-div"><div class="sec-div-line"></div><div class="sec-div-lbl">Carta, rodapé e como enviar (opcionais)</div><div class="sec-div-line"></div></div>
+        <div class="hint" style="margin-bottom:10px">O texto de carta e a nota de rodapé são editados diretamente dentro do card "Documentos a enviar" abaixo (ficam em branco por padrão e só aparecem no PDF/pré-visualização se você preencher).</div>
+        <label class="chk-row">
+          <input type="checkbox" id="chkComoEnviar" checked onchange="atualizarComoEnviar()">
+          <span>Incluir instrução fixa de "Como enviar os documentos" no PDF/pré-visualização</span>
+        </label>
+        <div id="comoEnviarOpcoes" style="margin:8px 0 0 26px;display:flex;flex-direction:column;gap:7px">
+          <label class="chk-row">
+            <input type="checkbox" id="chkEnvEmail" checked onchange="atualizarComoEnviar()">
+            <span>Aceitar por e-mail (do advogado responsável selecionado acima)</span>
+          </label>
+          <label class="chk-row">
+            <input type="checkbox" id="chkEnvTelefone" checked onchange="atualizarComoEnviar()">
+            <span>Aceitar por telefone / WhatsApp (do advogado responsável selecionado acima)</span>
+          </label>
+          <label class="chk-row" style="align-items:flex-start">
+            <input type="checkbox" id="chkEnvDrive" onchange="atualizarComoEnviar()" style="margin-top:3px">
+            <span style="flex:1">Aceitar por pasta compartilhada (Drive)
+              <input class="fi" id="inDriveLink" type="text" placeholder="Cole aqui o link da pasta, se quiser indicar (opcional)" style="margin-top:5px" oninput="atualizarComoEnviar()">
+            </span>
+          </label>
+        </div>
+      </div>
+    </section>
+
+    <!-- CARD DA LISTA — este é o que vai para o PDF e para a pré-visualização ao vivo -->
+    <section class="card doc-lista-card" data-pdf="Documentos a enviar" id="cardLista">
+      <div class="card-hd">📋 Documentos a enviar
+        <div class="card-hd-r no-print" id="filtroAcompanhamento" title="Uso interno do escritório: filtra quais documentos aparecem na tela (não afeta o PDF — o PDF exportado já exclui sozinho os documentos 'Entregue', ver acima)">
+          <span style="position:relative;display:inline-flex;align-items:center">
+            <input type="text" id="inBuscaDoc" class="busca-input" placeholder="🔎 Buscar documento" oninput="aplicarBusca(this.value)" title="Localiza documentos pelo nome, observação ou categoria — não afeta o PDF nem a pré-visualização">
+            <button type="button" id="btnLimparBusca" onclick="limparBusca()" title="Limpar busca" style="display:none">✕</button>
+          </span>
+          <button type="button" class="filtro-btn active" data-filtro="todos" onclick="aplicarFiltroAcompanhamento('todos')">Todos</button>
+          <button type="button" class="filtro-btn" data-filtro="pendente" onclick="aplicarFiltroAcompanhamento('pendente')">Pendentes</button>
+          <button type="button" class="filtro-btn" data-filtro="entregue" onclick="aplicarFiltroAcompanhamento('entregue')">Entregues</button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div id="infoQuadro" class="info-quadro">
+          <div class="info-quadro-col" id="clienteInfoCol">
+            <div class="info-quadro-lbl">🏢 Cliente</div>
+            <div id="clienteInfoPrint" class="print-meta-extra"></div>
+          </div>
+          <div class="info-quadro-col" id="respInfoCol">
+            <div class="info-quadro-lbl">⚖ Advogado responsável</div>
+            <div id="respPrint" class="print-meta-extra"></div>
+          </div>
+        </div>
+        <div id="cartaTexto" class="carta-texto" contenteditable="true" data-placeholder="Texto de abertura/fechamento da carta (opcional) — ex.: &quot;Prezados(as), para viabilizar o andamento do trabalho, seguem os documentos necessários. Atenciosamente, ...&quot;. Deixe em branco para não incluir."></div>
+
+        <!-- "Como enviar" sempre aparece no início. O reforço no final (para quem só bate o olho na
+             lista e desce direto ao rodapé) só é mostrado em listas longas o bastante para valer a
+             pena repetir — ver _listaEhLonga() em atualizarComoEnviar(), que também decide isso. Os
+             dois usam o MESMO texto, escrito nos dois <span> ao mesmo tempo. -->
+        <div class="alrt alrt-blue como-enviar-box" id="comoEnviarBox">
+          <span id="comoEnviarTexto"></span>
+        </div>
+
+        <div id="legendaParcial" class="legenda-parcial">Você já nos enviou parte dos documentos solicitados. Seguem abaixo apenas os que ainda estão pendentes.</div>
+
+        <div id="listaDocs"></div>
+        <div class="empty-state no-print" id="estadoVazio" style="display:none">
+          <p>Nenhuma categoria ainda. Escolha um modelo acima, carregue um arquivo .json, ou clique em "+ Adicionar categoria".</p>
+        </div>
+
+        <div class="alrt alrt-blue como-enviar-box" id="comoEnviarBoxFim">
+          <span id="comoEnviarTextoFim"></span>
+        </div>
+
+        <div id="notaRodape" class="nota-rodape" contenteditable="true" oninput="notaRodapeEditadaManualmente()" data-placeholder="Nota de rodapé (opcional) — ex.: contato para dúvidas."></div>
+
+        <div class="print-confidencialidade">Este documento é de uso exclusivo do(s) destinatário(s) indicado(s) e pode conter informações protegidas por sigilo profissional. Caso o tenha recebido por engano, favor descartá-lo e comunicar o remetente.</div>
+      </div>
+    </section>
+    <button class="add-btn" type="button" onclick="adicionarCategoriaNova()">+ Adicionar categoria</button>
+
+  </div><!-- /split-form -->
+
+  <div class="split-preview no-print">
+    <div class="preview-topbar">
+      <div class="preview-topbar-l">👁 Pré-visualização do PDF</div>
+      <button class="btn-g" type="button" style="padding:5px 12px;font-size:11.5px" onclick="gerarPDF()">↓ PDF</button>
+    </div>
+    <div class="papel-wrap"><div class="papel" id="papelPreview"></div></div>
+  </div><!-- /split-preview -->
+
+  </div><!-- /split-wrap -->
+</div>
+
+<div id="undoToast" class="no-print"><span></span><button type="button" id="undoToastBtn" onclick="desfazerUltimaExclusao()">Desfazer</button></div>
+
+<script>
+function $(id){return document.getElementById(id);}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){
+  return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function hoje(){return new Date().toLocaleDateString('pt-BR');}
+
+
+/* ══ OBSERVAÇÃO "!" ══ */
+function obsBox(html){return '<p class="hint obs" style="margin-top:8px">'+html+'</p>';}
+
+/* ══ EXPORTAR PDF ══
+   Constrói uma CÓPIA (clone) do card "Documentos a enviar" dentro de #print-root, em vez de
+   mover o elemento original pra lá. Antes, mover o card de verdade fazia ele sumir da tela
+   enquanto a caixa de impressão do navegador ficava aberta, só voltando depois de fechá-la — a
+   versão editável agora nunca sai do lugar; só a cópia (sem nenhum id, pra não colidir com os
+   originais) sofre a ocultação de itens "Entregue"/linhas em branco e vai pra impressão. */
+function _clonarSemIds(el){
+  var clone=el.cloneNode(true);
+  clone.removeAttribute('id');
+  clone.querySelectorAll('[id]').forEach(function(node){node.removeAttribute('id');});
+  /* Remove também o data-pdf: assim [data-pdf] passa a identificar só o card ORIGINAL (que fica
+     escondido na impressão via CSS abaixo), e a cópia dentro de #print-root não é escondida junto
+     — sem isso os dois (original + cópia) apareciam duplicados no PDF exportado. */
+  clone.removeAttribute('data-pdf');
+  clone.querySelectorAll('[data-pdf]').forEach(function(node){node.removeAttribute('data-pdf');});
+  /* O filtro Todos/Pendentes/Entregues e a busca (uso interno, só pra localizar na tela) marcam
+     linhas/categorias escondidas com a classe "filtro-oculto". Sem removê-la aqui, um PDF gerado
+     (ou a pré-visualização) com o filtro "Entregue" ativo saía errado — escondendo documentos
+     Pendentes que deveriam aparecer normalmente. O PDF/pré-visualização nunca deve depender do que
+     está filtrado na tela no momento, só da situação real de cada documento. */
+  clone.querySelectorAll('.filtro-oculto').forEach(function(node){node.classList.remove('filtro-oculto');});
+  return clone;
+}
+/* Aplica, só dentro do clone, as mesmas três regras de sempre: (1) documento marcado "Entregue"
+   sai do PDF do cliente, mantendo a numeração original dos que restam; (2) linha/categoria
+   totalmente em branco some, com renumeração em sequência — só quando NÃO há nenhum "Entregue"
+   oculto, senão a numeração original precisa ser preservada; (3) legenda de entrega parcial. */
+function _prepararCloneParaImpressao(clone){
+  var temEntregueOculto=false;
+  clone.querySelectorAll('.subsec').forEach(function(subsec){
+    var totalComConteudo=0,entreguesComConteudo=0;
+    subsec.querySelectorAll('.doc-row').forEach(function(row){
+      var doc=row.querySelector('.doc-nome').textContent.trim();
+      var obs=row.querySelector('.doc-obs').textContent.trim();
+      var temConteudo=!!(doc||obs);
+      if(temConteudo)totalComConteudo++;
+      if(row.dataset.situacao==='entregue'){
+        if(temConteudo)entreguesComConteudo++;
+        row.classList.add('entregue-oculto');
+        row.style.display='none';
+        temEntregueOculto=true;
+      }
+    });
+    if(totalComConteudo>0&&entreguesComConteudo===totalComConteudo){
+      subsec.classList.add('entregue-oculto');
+      subsec.style.display='none';
+    }
+  });
+  var catIndex=0;
+  clone.querySelectorAll('.subsec').forEach(function(subsec){
+    if(subsec.classList.contains('entregue-oculto'))return;
+    var linhasVisiveis=[];
+    subsec.querySelectorAll('.doc-subgrupo-row').forEach(function(row){
+      var nomeSub=row.querySelector('.doc-subgrupo-txt').textContent.trim();
+      if(!nomeSub)row.style.display='none';
+    });
+    subsec.querySelectorAll('.doc-row').forEach(function(row){
+      if(row.classList.contains('entregue-oculto'))return;
+      var doc=row.querySelector('.doc-nome').textContent.trim();
+      var obs=row.querySelector('.doc-obs').textContent.trim();
+      if(!doc&&!obs)row.style.display='none';
+      else linhasVisiveis.push(row);
+    });
+    if(!linhasVisiveis.length){subsec.style.display='none';return;}
+    /* Coluna "Onde obter / observação" some da categoria inteira no PDF/pré-visualização quando
+       nenhum documento visível dela tem essa observação preenchida — evita uma coluna vazia
+       ocupando espaço à toa numa lista simples (ex.: "RG e CPF" sem nenhuma nota ao lado). Cada
+       categoria é uma <table> independente, então isso é decidido categoria por categoria, não
+       para o documento inteiro. */
+    var temObsNaCategoria=linhasVisiveis.some(function(row){return row.querySelector('.doc-obs').textContent.trim()!=='';});
+    if(!temObsNaCategoria)subsec.classList.add('sem-obs');
+    catIndex++;
+    if(temEntregueOculto)return;
+    var numEl=subsec.querySelector('.subsec-num');
+    numEl.textContent=catIndex;
+    linhasVisiveis.forEach(function(row,ri){
+      row.querySelector('.doc-num').textContent=catIndex+'.'+(ri+1);
+    });
+  });
+  var legenda=clone.querySelector('.legenda-parcial');
+  if(legenda){
+    var temEntregue=false,temPendente=false;
+    clone.querySelectorAll('.doc-row').forEach(function(row){
+      var doc=row.querySelector('.doc-nome').textContent.trim();
+      if(!doc)return;
+      if(row.dataset.situacao==='entregue')temEntregue=true;else temPendente=true;
+    });
+    legenda.classList.toggle('on',temEntregue&&temPendente);
+  }
+}
+/* ══ PDF CONTÍNUO, SEM PÁGINAS ══
+   Por padrão, o @page acima ("IMPRESSÃO / PDF") descreve uma folha A4 comum — o Chromium quebra o
+   conteúdo em quantas páginas forem precisas quando ele não cabe numa só, o que é certo pra imprimir
+   em papel, mas não é o formato que o escritório quer aqui: um PDF corrido, sem cortes de página
+   (mesmo padrão usado no Holding). A solução é medir, momentos antes de chamar window.print(), a
+   altura real que o conteúdo vai ocupar (com a MESMA largura que ele terá impresso) e então
+   sobrescrever o tamanho da página com uma segunda regra @page — inserida DEPOIS da original, no
+   <head>, então ela "vence" no que tiver em comum (tamanho/margem) — alta o suficiente pra tudo
+   caber numa página só. Na prática, isso gera um PDF de uma página só, do tamanho do próprio
+   conteúdo, sem nenhuma quebra no meio do documento. */
+var PDF_LARGURA_MM=210,PDF_MARGEM_TOPO_MM=14,PDF_MARGEM_LATERAL_MM=12,PDF_MARGEM_BASE_MM=16;
+var PDF_PX_POR_MM=96/25.4;
+function _prepararPaginaContinua(root){
+  var larguraUtilPx=(PDF_LARGURA_MM-2*PDF_MARGEM_LATERAL_MM)*PDF_PX_POR_MM;
+  root.style.width=larguraUtilPx+'px';
+  var alturaConteudoPx=root.scrollHeight||(297*PDF_PX_POR_MM);
+  var alturaConteudoMm=alturaConteudoPx/PDF_PX_POR_MM;
+  /* Folga de segurança: a altura medida aqui, com a tela em modo normal, nunca bate 100% com o
+     resultado exato da impressão (pequenos arredondamentos de sub-pixel do navegador, acumulados
+     linha a linha, testados na prática) — sem essa margem, o Chromium podia empurrar uma última
+     linha para uma segunda página, inteiramente em branco. 1% da altura do conteúdo (cresce junto
+     com listas bem longas) + 20mm fixos (cobre o caso de listas curtas) é suficiente com folga. */
+  var alturaPaginaMm=Math.ceil(PDF_MARGEM_TOPO_MM+alturaConteudoMm*1.01+PDF_MARGEM_BASE_MM+20);
+  var estilo=$('estiloPaginaContinua');
+  if(!estilo){
+    estilo=document.createElement('style');
+    estilo.id='estiloPaginaContinua';
+    document.head.appendChild(estilo);
+  }
+  estilo.textContent='@page{size:'+PDF_LARGURA_MM+'mm '+alturaPaginaMm+'mm;margin:'+
+    PDF_MARGEM_TOPO_MM+'mm '+PDF_MARGEM_LATERAL_MM+'mm '+PDF_MARGEM_BASE_MM+'mm}';
+}
+function _limparPaginaContinua(root){
+  var estilo=$('estiloPaginaContinua');
+  if(estilo)estilo.textContent='';
+  root.style.width='';
+}
+/* ══ PRÉ-VISUALIZAÇÃO AO VIVO (tela dividida) ══
+   Mesma lógica de gerarPDF() — clona o card "Documentos a enviar" e aplica as mesmas regras de
+   ocultação/renumeração (_clonarSemIds + _prepararCloneParaImpressao) — só que em vez de mandar
+   para a caixa de impressão do navegador, escreve direto no painel da direita. Atualizada a cada
+   edição, ver agendarAtualizarPreview logo abaixo. */
+function atualizarPreview(){
+  var alvo=$('papelPreview');
+  if(!alvo)return;
+  var sec=document.querySelector('[data-pdf]');
+  if(!sec||!listaDocsEl().querySelector('.subsec')){
+    alvo.innerHTML='<div class="papel-empty">A pré-visualização do PDF aparece aqui assim que você adicionar ao menos uma categoria e um documento.</div>';
+    return;
+  }
+  var cliente=(window.NOME_CLIENTE||'').trim();
+  /* Mesmo texto de metadado usado no PDF (gerarPDF) — cliente + data, sem repetir o assunto que
+     já aparece uma vez, em azul, no título logo abaixo. */
+  var metaTxt=[cliente,hoje()].filter(Boolean).join(' · ');
+  var clone=_clonarSemIds(sec);
+  _prepararCloneParaImpressao(clone);
+  /* A pré-visualização é só leitura — tira o contenteditable do clone para não passar a falsa
+     impressão de que dá para editar o documento por ali (a edição de verdade é sempre à esquerda). */
+  clone.querySelectorAll('[contenteditable]').forEach(function(el){el.removeAttribute('contenteditable');});
+  var meta=document.createElement('div');
+  meta.className='print-sec-meta';meta.textContent=metaTxt;
+  var h=document.createElement('div');
+  h.className='print-sec-hd';h.textContent=sec.getAttribute('data-pdf');
+  alvo.innerHTML='';
+  alvo.appendChild(meta);
+  alvo.appendChild(h);
+  alvo.appendChild(clone);
+}
+var _tPreview=null;
+function agendarAtualizarPreview(){clearTimeout(_tPreview);_tPreview=setTimeout(atualizarPreview,180);}
+/* Um único listener central, em modo "capture" no documento inteiro, em vez de espalhar chamadas
+   manuais em cada função que muda a lista: cobre digitação (contenteditable e campos), marcação de
+   checkbox/seleção do advogado, e cliques em qualquer botão que altera a lista (adicionar, remover,
+   duplicar, marcar Entregue) e o arrastar-e-soltar — a pré-visualização sempre acompanha, sem
+   depender de lembrar de atualizar cada função nova que mexer na lista no futuro. */
+document.addEventListener('input',agendarAtualizarPreview,true);
+document.addEventListener('change',agendarAtualizarPreview,true);
+document.addEventListener('click',agendarAtualizarPreview,true);
+document.addEventListener('drop',agendarAtualizarPreview,true);
+
+function nomeArquivoPDF(){
+  var assunto=($('inAssunto').value||'').trim();
+  var cliente=(window.NOME_CLIENTE||'').trim();
+  var data=hoje().replace(/\//g,'-');
+  var partes=[assunto,cliente,data].filter(Boolean);
+  var nome=partes.join(' - ')||'Documentos';
+  return nome.replace(/[\\\/:*?"<>|]/g,'-');
+}
+function gerarPDF(){
+  var cliente=(window.NOME_CLIENTE||'').trim();
+  /* Só cliente e data aqui — o título/assunto já aparece uma vez, em azul, no .print-sec-hd
+     logo abaixo; repeti-lo nesta linha cinza seria duplicação. */
+  var metaTxt=[cliente,hoje()].filter(Boolean).join(' · ');
+  var root=$('print-root');
+  root.innerHTML='';
+  /* Sem capa separada (pedido: PDF objetivo, sem gastar a primeira pagina so com titulo/data). */
+  document.querySelectorAll('[data-pdf]').forEach(function(sec){
+    var clone=_clonarSemIds(sec);
+    clone.classList.add('print-active');
+    _prepararCloneParaImpressao(clone);
+    var meta=document.createElement('div');
+    meta.className='print-sec-meta';meta.textContent=metaTxt;
+    root.appendChild(meta);
+    var h=document.createElement('div');
+    h.className='print-sec-hd';h.textContent=sec.getAttribute('data-pdf');
+    root.appendChild(h);
+    root.appendChild(clone);
+  });
+  /* PDF corrido, sem páginas — ver comentário da função acima. */
+  _prepararPaginaContinua(root);
+  /* Nome sugerido do arquivo ao salvar o PDF: o MESMO nome usado em "Salvar JSON"/"Salvar cache"
+     (nomeArquivoJSON — Assunto + Cliente + data, ou o nome do arquivo/cache já carregado) — o
+     Chrome usa document.title como nome padrão da caixa "Salvar como" da impressão.
+     Trocar document.title e chamar window.print() no MESMO instante nem sempre é suficiente: o
+     diálogo de impressão roda num processo separado do Chrome, e se ele for aberto antes de o
+     navegador terminar de processar a troca de título, pega o nome antigo (ou nenhum) — foi o que
+     o usuário via como "PDF sem nome" mesmo já usando a função certa. Por isso aqui: (1) o título é
+     escrito tanto em document.title quanto na tag <title> diretamente, por segurança, e (2)
+     window.print() só é chamado depois de um quadro de animação MAIS um pequeno atraso — dando
+     tempo de sobra para o novo título propagar antes do diálogo abrir. */
+  var tituloOriginal=document.title;
+  var tituloTag=document.querySelector('title');
+  var nomeSugerido=nomeArquivoJSON();
+  document.title=nomeSugerido;
+  if(tituloTag)tituloTag.textContent=nomeSugerido;
+  requestAnimationFrame(function(){
+    setTimeout(function(){
+      window.print();
+      setTimeout(function(){
+        document.title=tituloOriginal;
+        if(tituloTag)tituloTag.textContent=tituloOriginal;
+        _limparPaginaContinua(root);
+        root.innerHTML='';
+      },800);
+    },60);
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   LISTA DE DOCUMENTOS — estado vive no próprio DOM (contenteditable);
+   exportar/importar/pré-visualizar leem e escrevem direto nas categorias.
+   ═══════════════════════════════════════════════════════════ */
+function listaDocsEl(){return document.getElementById('listaDocs');}
+
+/* Situação do acompanhamento cicla em 2 estados: pendente → entregue → pendente. Uso interno do
+   escritório — nunca aparece no PDF/pré-visualização (esses excluem sozinhos os itens "Entregue").
+   dataset.situacao guarda o nome do estado; criarLinha() ainda aceita o campo antigo it.entregue
+   (true/false) e o estado extinto "escritorio" (tratado como pendente) para não perder o estado
+   de arquivos .json salvos em versões anteriores. */
+var SITUACOES=['pendente','entregue'];
+var SITUACAO_LABEL={pendente:'Pendente',entregue:'Entregue'};
+function criarLinha(it){
+  it=it||{};
+  var tr=document.createElement('tr');
+  tr.className='doc-row';
+  tr.dataset.situacao=SITUACOES.indexOf(it.situacao)>=0?it.situacao:(it.entregue?'entregue':'pendente');
+  tr.innerHTML=
+    '<td class="no-print drag-handle" draggable="true" title="Arrastar para reordenar">⠿</td>'+
+    '<td class="mono r doc-num"></td>'+
+    '<td contenteditable="true" class="doc-nome" data-placeholder="Nome do documento"></td>'+
+    '<td contenteditable="true" class="doc-obs" data-placeholder="Onde obter / observação"></td>'+
+    '<td class="track-cell no-print"><button type="button" class="track-pill" onclick="toggleEntrega(this)" title="Clique para alternar entre Pendente e Entregue (uso interno — não aparece no PDF)"></button></td>'+
+    '<td class="no-print"><button class="row-rm" type="button" onclick="removerLinha(this)" title="Remover documento">✕</button></td>';
+  tr.querySelector('.doc-nome').textContent=it.documento||it.doc||'';
+  tr.querySelector('.doc-obs').textContent=it.obs||it.observacao||'';
+  _aplicarTagsELinha(tr);
+  return tr;
+}
+function _aplicarTagsELinha(tr){
+  var pill=tr.querySelector('.track-pill');
+  var sit=tr.dataset.situacao||'pendente';
+  pill.className='track-pill '+sit;
+  pill.textContent=SITUACAO_LABEL[sit];
+}
+function toggleEntrega(btn){
+  var tr=btn.closest('tr');
+  var i=SITUACOES.indexOf(tr.dataset.situacao||'pendente');
+  tr.dataset.situacao=SITUACOES[(i+1)%SITUACOES.length];
+  _aplicarTagsELinha(tr);
+  atualizarContadorEntrega();
+  aplicarFiltroAcompanhamento(_filtroAtual);
+  _marcarSujo();
+}
+function criarSubgrupoRow(nome){
+  var tr=document.createElement('tr');
+  tr.className='doc-subgrupo-row';
+  tr.innerHTML=
+    '<td class="no-print drag-handle" draggable="true" title="Arrastar para reordenar">⠿</td>'+
+    '<td colspan="5">'+
+      '<span class="doc-subgrupo-txt" contenteditable="true" data-placeholder="▸ Nome do subgrupo condicional (ex.: Se houver herdeiro menor)"></span>'+
+      '<button class="row-rm no-print" type="button" onclick="removerLinha(this)" title="Remover subgrupo">✕</button>'+
+    '</td>';
+  tr.querySelector('.doc-subgrupo-txt').textContent=nome||'';
+  return tr;
+}
+/* Item pedido pelo usuário: escolher ONDE o subgrupo entra, em vez de sempre ir para o final.
+   Mecanismo: clique dentro de um documento antes de clicar no botão — guardamos qual foi a
+   última linha com foco dentro de cada categoria (listener de 'focusin' em habilitarArrasteLinhas
+   não serve pra isso, então usamos um listener dedicado em listaDocsEl), e o subgrupo entra
+   logo ABAIXO dessa linha. Sem clique prévio, cai no final, como antes. */
+function adicionarSubgrupoNova(btn){
+  var subsec=btn.closest('.subsec');
+  var tbody=subsec.querySelector('tbody');
+  var tr=criarSubgrupoRow('');
+  var refRow=subsec._ultimaLinhaFocada;
+  if(refRow&&refRow.parentNode===tbody)tbody.insertBefore(tr,refRow.nextSibling);
+  else tbody.appendChild(tr);
+  renumerar();
+  _marcarSujo();
+  tr.querySelector('.doc-subgrupo-txt').focus();
+}
+function criarCategoria(nome){
+  var subsec=document.createElement('div');
+  subsec.className='subsec';
+  subsec.innerHTML=
+    '<div class="subsec-hd">'+
+      '<span class="no-print drag-handle" draggable="true" title="Arrastar para reordenar">⠿</span>'+
+      '<span class="subsec-num"></span>'+
+      '<span class="subsec-hd-txt cat-nome" contenteditable="true" data-placeholder="Nome da categoria"></span>'+
+      '<button class="cat-rm cat-dup no-print" type="button" onclick="duplicarCategoria(this)" title="Duplicar esta categoria inteira, com todos os documentos — útil numa implantação com várias empresas: duplique e troque só o nome e os detalhes de cada uma">⧉</button>'+
+      '<button class="cat-rm no-print" type="button" onclick="removerCategoria(this)" title="Remover categoria">✕</button>'+
+    '</div>'+
+    '<div class="tbl-wrap"><table class="data-tbl doc-tbl"><thead><tr>'+
+      '<th class="no-print" style="width:22px"></th><th style="width:32px">#</th><th style="width:48%">Documento</th><th style="width:34%">Onde obter / observação</th><th class="track-cell no-print" style="width:130px">Situação</th><th class="no-print" style="width:24px"></th>'+
+    '</tr></thead><tbody></tbody></table></div>'+
+    '<div class="no-print" style="display:flex;gap:8px">'+
+      '<button class="add-btn" type="button" style="flex:1" onclick="adicionarLinha(this)">+ Adicionar documento</button>'+
+      '<button class="add-btn" type="button" style="flex:1" onclick="adicionarSubgrupoNova(this)" title="Clique dentro de um documento antes de usar este botão, para o subgrupo entrar logo acima dele. Sem isso, ele entra no final da categoria.">▸ Subgrupo condicional</button>'+
+    '</div>';
+  subsec.querySelector('.cat-nome').textContent=nome||'';
+  subsec.addEventListener('focusin',function(e){
+    var row=e.target.closest('.doc-row');
+    if(row)subsec._ultimaLinhaFocada=row;
+  });
+  return subsec;
+}
+function adicionarCategoria(nome,itens){
+  var subsec=criarCategoria(nome||'Nova categoria');
+  listaDocsEl().appendChild(subsec);
+  var tbody=subsec.querySelector('tbody');
+  if(itens&&itens.length){
+    itens.forEach(function(it){
+      if(it.tipo==='subgrupo'){tbody.appendChild(criarSubgrupoRow(it.nome||''));}
+      else{tbody.appendChild(criarLinha(it));}
+    });
+  }else{
+    tbody.appendChild(criarLinha({}));
+  }
+  renumerar();
+  atualizarEstadoVazio();
+  atualizarContadorEntrega();
+  habilitarArrasteLinhas(tbody);
+  return subsec;
+}
+function adicionarCategoriaNova(){
+  var subsec=adicionarCategoria('Nova categoria',[]);
+  _marcarSujo();
+  var campo=subsec.querySelector('.cat-nome');
+  campo.focus();
+  document.execCommand&&window.getSelection&&(function(){
+    var range=document.createRange();range.selectNodeContents(campo);
+    var sel=window.getSelection();sel.removeAllRanges();sel.addRange(range);
+  })();
+}
+/* ══ DUPLICAR CATEGORIA ══
+   Pensado para implantação com várias empresas: em vez de recriar do zero a mesma lista de
+   documentos (ativo imobilizado, contabilidade, maquinário...) para a Empresa 2, a Empresa 3
+   etc., duplica a categoria inteira — com todos os documentos, subgrupos e o status
+   Pendente/Entregue de cada linha — e deixa o nome pronto para edição imediata. cloneNode(true)
+   copia a estrutura e o conteúdo, mas NUNCA os listeners de JavaScript; por isso o clone precisa
+   reconectar manualmente: (1) o listener de foco usado para inserir subgrupo condicional na
+   posição certa, e (2) o arrastar-e-soltar de linhas, que é registrado por categoria (diferente do
+   de categorias, que é único e delegado no container — esse continua funcionando sozinho). */
+function duplicarCategoria(btn){
+  var subsec=btn.closest('.subsec');
+  var clone=subsec.cloneNode(true);
+  clone.classList.remove('is-dragging','drag-over-top','drag-over-bottom','filtro-oculto');
+  clone.addEventListener('focusin',function(e){
+    var row=e.target.closest('.doc-row');
+    if(row)clone._ultimaLinhaFocada=row;
+  });
+  subsec.parentNode.insertBefore(clone,subsec.nextSibling);
+  habilitarArrasteLinhas(clone.querySelector('tbody'));
+  renumerar();
+  atualizarContadorEntrega();
+  _marcarSujo();
+  var campo=clone.querySelector('.cat-nome');
+  campo.focus();
+  document.execCommand&&window.getSelection&&(function(){
+    var range=document.createRange();range.selectNodeContents(campo);
+    var sel=window.getSelection();sel.removeAllRanges();sel.addRange(range);
+  })();
+}
+function adicionarLinha(btn){
+  var subsec=btn.closest('.subsec');
+  var tbody=subsec.querySelector('tbody');
+  var tr=criarLinha({});
+  tbody.appendChild(tr);
+  renumerar();
+  _marcarSujo();
+  tr.querySelector('.doc-nome').focus();
+}
+function removerLinha(btn){
+  var tr=btn.closest('tr');
+  var pai=tr.parentNode,proximo=tr.nextSibling;
+  tr.remove();
+  var rotulo=tr.classList.contains('doc-subgrupo-row')?'Subgrupo removido':'Documento removido';
+  _registrarUndo(tr,pai,proximo,rotulo);
+  renumerar();
+  atualizarContadorEntrega();
+  _marcarSujo();
+}
+function removerCategoria(btn){
+  var subsec=btn.closest('.subsec');
+  var pai=subsec.parentNode,proximo=subsec.nextSibling;
+  subsec.remove();
+  _registrarUndo(subsec,pai,proximo,'Categoria removida');
+  renumerar();
+  atualizarEstadoVazio();
+  atualizarContadorEntrega();
+  _marcarSujo();
+}
+function renumerar(){
+  var cats=listaDocsEl().querySelectorAll('.subsec');
+  cats.forEach(function(cat,ci){
+    var numEl=cat.querySelector('.subsec-num');if(numEl)numEl.textContent=(ci+1);
+    var di=0;
+    cat.querySelectorAll('.doc-row,.doc-subgrupo-row').forEach(function(row){
+      if(!row.classList.contains('doc-row'))return;
+      di++;
+      var numCell=row.querySelector('.doc-num');
+      if(numCell)numCell.textContent=(ci+1)+'.'+di;
+    });
+  });
+  atualizarContadorEntrega();
+  aplicarFiltroAcompanhamento(_filtroAtual);
+  atualizarComoEnviar();
+}
+function atualizarEstadoVazio(){
+  var vazio=!listaDocsEl().querySelector('.subsec');
+  $('estadoVazio').style.display=vazio?'flex':'none';
+}
+function lerCategoriasDoDOM(){
+  var cats=[];
+  listaDocsEl().querySelectorAll('.subsec').forEach(function(subsec){
+    var nome=subsec.querySelector('.cat-nome').textContent.trim();
+    var itens=[];
+    subsec.querySelectorAll('.doc-row,.doc-subgrupo-row').forEach(function(row){
+      if(row.classList.contains('doc-subgrupo-row')){
+        var nomeSub=row.querySelector('.doc-subgrupo-txt').textContent.trim();
+        if(nomeSub)itens.push({tipo:'subgrupo',nome:nomeSub});
+        return;
+      }
+      var documento=row.querySelector('.doc-nome').textContent.trim();
+      var obs=row.querySelector('.doc-obs').textContent.trim();
+      if(documento||obs)itens.push({
+        documento:documento,obs:obs,
+        situacao:row.dataset.situacao||'pendente'
+      });
+    });
+    if(nome||itens.length)cats.push({nome:nome,itens:itens});
+  });
+  return cats;
+}
+/* Chaves antigas de responsável eram a string completa ("Pedro Castro — OAB/MG 228.471"),
+   de antes de existir o cadastro ADVOGADOS. Ao carregar um .json salvo naquele formato,
+   convertemos pelo nome para a chave nova ('pedro'), senão o campo ficaria em branco. */
+function _chaveAdvogado(valor){
+  valor=(valor||'').trim();
+  if(!valor)return'';
+  if(ADVOGADOS[valor])return valor;
+  var baixo=valor.toLowerCase();
+  for(var k in ADVOGADOS){if(baixo.indexOf(ADVOGADOS[k].nome.split(' ')[0].toLowerCase())===0)return k;}
+  return'';
+}
+var _areaAtual='';
+function popularEstado(data){
+  listaDocsEl().innerHTML='';
+  (data.categorias||[]).forEach(function(cat){adicionarCategoria(cat.nome,cat.itens);});
+  if(data.area!==undefined)_areaAtual=data.area||'';
+  if(data.assunto){$('inAssunto').value=data.assunto;atualizarTitulo();}
+  if(data.cliente&&!$('inNomeCliente').value.trim()){$('inNomeCliente').value=data.cliente;atualizarCliente();}
+  if(data.responsavel&&!$('inResponsavel').value.trim()){$('inResponsavel').value=_chaveAdvogado(data.responsavel);}
+  if(data.docCliente!==undefined)$('inDocCliente').value=data.docCliente||'';
+  if(data.emailCliente!==undefined)$('inEmailCliente').value=data.emailCliente||'';
+  if(data.telCliente!==undefined)$('inTelCliente').value=data.telCliente||'';
+  if(data.cartaTexto!==undefined)$('cartaTexto').textContent=data.cartaTexto||'';
+  if((data.notaRodape||'').trim()){$('notaRodape').textContent=data.notaRodape;_notaRodapeManual=true;}
+  else{$('notaRodape').textContent='';_notaRodapeManual=false;}
+  if(data.comoEnviarLigado!==undefined)$('chkComoEnviar').checked=!!data.comoEnviarLigado;
+  if(data.envEmail!==undefined)$('chkEnvEmail').checked=!!data.envEmail;
+  if(data.envTelefone!==undefined)$('chkEnvTelefone').checked=!!data.envTelefone;
+  if(data.envDrive!==undefined)$('chkEnvDrive').checked=!!data.envDrive;
+  if(data.driveLink!==undefined)$('inDriveLink').value=data.driveLink||'';
+  atualizarInfoCliente();
+  atualizarAssinatura();
+  atualizarComoEnviar();
+  renumerar();
+  atualizarEstadoVazio();
+}
+
+/* ══ CONFIRMAÇÃO ANTES DE SUBSTITUIR (sem alert/confirm nativos) ══ */
+var _acaoPendente=null;
+function confirmarSubstituicao(execFn,mensagem){
+  if(!listaDocsEl().querySelector('.subsec')){execFn();return;}
+  _acaoPendente=execFn;
+  $('confirmMsg').textContent=mensagem;
+  $('confirmBox').style.display='flex';
+}
+function confirmarSim(){if(_acaoPendente){var f=_acaoPendente;cancelarConfirmacao();f();}}
+function cancelarConfirmacao(){
+  _acaoPendente=null;$('confirmBox').style.display='none';
+  var inp=$('inpArquivo');if(inp)inp.value='';
+}
+function mostrarAviso(msg){$('avisoMsg').textContent=msg;$('avisoBox').style.display='flex';}
+function fecharAviso(){$('avisoBox').style.display='none';}
+
+/* ══ CADASTRO DE ADVOGADOS (fonte: skill padrao-grafico-ac + e-mails individuais informados
+   pelo usuário) ══ */
+var ADVOGADOS={
+  pedro:{nome:'Pedro Castro',oab:'OAB/MG 228.471',telefone:'(37) 99868-4323',email:'advocaciapedrocastro@gmail.com'},
+  emanuelle:{nome:'Emanuelle Araujo',oab:'OAB/MG 240.369',telefone:'(37) 99856-4020',email:'emanuellearaujoadvocacia@gmail.com'},
+  adriana:{nome:'Adriana Fátima Araujo Borges',oab:'OAB/MG 123.438',telefone:'(37) 99828-9996',email:'adriana_f_araujo@hotmail.com'}
+};
+
+/* ══ MÁSCARAS — CPF/CNPJ e telefone do cliente. Formata ao SAIR do campo (onblur), pelo número de
+   dígitos digitados, sem atrapalhar quem ainda está digitando. Se não bater 11 nem 14 dígitos
+   (documento incompleto/inválido), deixa como o usuário digitou. ══ */
+function formatarDocCliente(){
+  var el=$('inDocCliente');
+  var d=(el.value||'').replace(/\D/g,'');
+  if(d.length===11)el.value=d.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/,'$1.$2.$3-$4');
+  else if(d.length===14)el.value=d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/,'$1.$2.$3/$4-$5');
+  atualizarInfoCliente();
+}
+/* Telefone sempre no padrão celular (xx) x xxxx-xxxx (11 dígitos). Se vier com 10 dígitos
+   (fixo, sem o 9º dígito), formata como (xx) xxxx-xxxx em vez de forçar um "9" que não existe. */
+function formatarTelCliente(){
+  var el=$('inTelCliente');
+  var d=(el.value||'').replace(/\D/g,'');
+  if(d.length===11)el.value=d.replace(/(\d{2})(\d{1})(\d{4})(\d{4})/,'($1) $2 $3-$4');
+  else if(d.length===10)el.value=d.replace(/(\d{2})(\d{4})(\d{4})/,'($1) $2-$3');
+  atualizarInfoCliente();
+}
+
+/* ══ DADOS DO CLIENTE / ADVOGADO / CARTA — sincronizados para a área impressa.
+   Cada bloco (.info-quadro-col) some inteiro quando não há nada a mostrar, para as duas
+   colunas nunca ficarem com alturas diferentes por causa de uma etiqueta vazia. ══ */
+function montarInfoClienteHtml(){
+  var nome=(window.NOME_CLIENTE||'').trim();
+  var cnpj=($('inDocCliente').value||'').trim();
+  var email=($('inEmailCliente').value||'').trim();
+  var tel=($('inTelCliente').value||'').trim();
+  var linhas=[];
+  if(nome)linhas.push('<strong>'+esc(nome)+'</strong>');
+  if(cnpj)linhas.push('CNPJ/CPF: '+esc(cnpj));
+  var contato=[];
+  if(email)contato.push('E-mail: '+esc(email));
+  if(tel)contato.push('Telefone: '+esc(tel));
+  if(contato.length)linhas.push(contato.join(' &nbsp;·&nbsp; '));
+  return linhas.join('<br>');
+}
+function _syncInfoQuadro(){
+  var vazio=$('clienteInfoCol').classList.contains('is-empty')&&$('respInfoCol').classList.contains('is-empty');
+  $('infoQuadro').style.display=vazio?'none':'';
+}
+function atualizarInfoCliente(){
+  var html=montarInfoClienteHtml();
+  $('clienteInfoPrint').innerHTML=html;
+  $('clienteInfoCol').classList.toggle('is-empty',!html);
+  _syncInfoQuadro();
+}
+function atualizarAssinatura(){
+  var adv=ADVOGADOS[$('inResponsavel').value];
+  var linhas=[];
+  if(adv){
+    linhas.push('<strong>'+esc(adv.nome)+'</strong>, '+esc(adv.oab));
+    linhas.push('E-mail: '+esc(adv.email)+' &nbsp;·&nbsp; Telefone: '+esc(adv.telefone));
+  }
+  $('respPrint').innerHTML=linhas.join('<br>');
+  $('respInfoCol').classList.toggle('is-empty',!adv);
+  _syncInfoQuadro();
+  _atualizarNotaRodapeAuto();
+}
+/* ══ NOTA DE RODAPÉ — texto sugerido automaticamente a partir do advogado responsável selecionado
+   acima ("Araújo & Castro... Fale com Fulano — telefone · e-mail"), mas continua editável/apagável
+   por documento: assim que o usuário mexe no campo (inclusive apagando tudo), _notaRodapeManual vira
+   true e o preenchimento automático para de sobrescrever — só volta a acompanhar a troca de advogado
+   se o campo for zerado de novo por um "Limpar tudo"/carregamento sem nota salva. */
+var _notaRodapeManual=false;
+function _textoNotaRodapePadrao(){
+  var adv=ADVOGADOS[($('inResponsavel')||{}).value];
+  if(!adv)return'';
+  return 'Araújo & Castro Advocacia e Consultoria. Dúvidas? Fale com '+adv.nome+' — '+adv.telefone+' · '+adv.email;
+}
+function _atualizarNotaRodapeAuto(){
+  if(_notaRodapeManual)return;
+  var sugerido=_textoNotaRodapePadrao();
+  if(sugerido)$('notaRodape').textContent=sugerido;
+}
+function notaRodapeEditadaManualmente(){_notaRodapeManual=true;}
+function juntarComOu(arr){
+  if(!arr.length)return'';
+  if(arr.length===1)return arr[0];
+  return arr.slice(0,-1).join(', ')+' ou '+arr[arr.length-1];
+}
+/* A lista que vai para o cliente é mais limpa quando o aviso "Como enviar" não se repete à toa: o
+   reforço no final (pensado para quem só bate o olho na lista e desce direto ao rodapé) só compensa
+   numa lista longa o bastante para o início já ter saído da vista — mais de uma categoria, ou mais
+   de 6 documentos. Numa lista curta, um único aviso (no início) já é visto por inteiro. */
+function _listaEhLonga(){
+  var categorias=listaDocsEl().querySelectorAll('.subsec').length;
+  var docsPreenchidos=Array.prototype.filter.call(listaDocsEl().querySelectorAll('.doc-nome'),function(el){
+    return el.textContent.trim()!=='';
+  }).length;
+  return categorias>1||docsPreenchidos>6;
+}
+function atualizarComoEnviar(){
+  var ligado=$('chkComoEnviar').checked;
+  $('comoEnviarOpcoes').style.opacity=ligado?'1':'.45';
+  var adv=ADVOGADOS[$('inResponsavel').value];
+  var partes=[];
+  if($('chkEnvEmail').checked&&adv)partes.push('por e-mail ('+adv.email+')');
+  if($('chkEnvTelefone').checked&&adv)partes.push('por telefone/WhatsApp ('+adv.telefone+')');
+  if($('chkEnvDrive').checked){
+    var link=($('inDriveLink').value||'').trim();
+    partes.push(link?('pela pasta compartilhada ('+link+')'):'pela pasta compartilhada indicada');
+  }
+  var frase='📎 Como enviar: envie os documentos em PDF ou foto nítida'+(partes.length?(', '+juntarComOu(partes)):'')+'.';
+  $('comoEnviarTexto').textContent=frase;
+  $('comoEnviarBox').style.display=ligado?'':'none';
+  $('comoEnviarTextoFim').textContent=frase;
+  $('comoEnviarBoxFim').style.display=(ligado&&_listaEhLonga())?'':'none';
+}
+
+/* ══ ACOMPANHAMENTO (Pendente/Entregue) — uso interno do escritório. O contador só aparece na
+   barra superior (nunca no PDF/pré-visualização); o filtro Todos/Pendentes/Entregues só afeta o que
+   se vê NA TELA, para o escritório localizar rápido o que falta cobrar de um cliente com muitos
+   documentos — não tem nenhum efeito sobre o PDF exportado, que exclui os "Entregue" sozinho. ══ */
+function atualizarContadorEntrega(){
+  var linhas=Array.prototype.filter.call(listaDocsEl().querySelectorAll('.doc-row'),function(row){
+    return row.querySelector('.doc-nome').textContent.trim()!=='';
+  });
+  var resolvidos=linhas.filter(function(row){return row.dataset.situacao==='entregue';}).length;
+  $('contadorEntrega').textContent=resolvidos+' de '+linhas.length+' documentos entregues';
+}
+var _filtroAtual='todos';
+var _buscaAtual='';
+function aplicarFiltroAcompanhamento(filtro){
+  _filtroAtual=filtro;
+  document.querySelectorAll('.filtro-btn').forEach(function(b){b.classList.toggle('active',b.dataset.filtro===filtro);});
+  _revalidarVisibilidadeLista();
+}
+/* ══ BUSCA (uso interno) — localiza documentos por nome, observação ou nome da categoria. Reaproveita
+   a mesma classe "filtro-oculto" do filtro Todos/Pendentes/Entregues (_revalidarVisibilidadeLista
+   decide escondendo por qualquer um dos dois motivos), então não afeta o PDF nem a pré-visualização
+   pelo mesmo motivo que o filtro de situação não afeta: _clonarSemIds() sempre remove "filtro-oculto"
+   do clone antes de gerar o PDF/pré-visualização. */
+function aplicarBusca(valor){
+  _buscaAtual=(valor||'').trim().toLowerCase();
+  $('btnLimparBusca').style.display=_buscaAtual?'':'none';
+  _revalidarVisibilidadeLista();
+}
+function limparBusca(){
+  $('inBuscaDoc').value='';
+  aplicarBusca('');
+  $('inBuscaDoc').focus();
+}
+function _revalidarVisibilidadeLista(){
+  listaDocsEl().querySelectorAll('.subsec').forEach(function(subsec){
+    var nomeCatBaixo=subsec.querySelector('.cat-nome').textContent.trim().toLowerCase();
+    var catNomeBate=!_buscaAtual||nomeCatBaixo.indexOf(_buscaAtual)>=0;
+    var algumVisivel=false;
+    subsec.querySelectorAll('.doc-row').forEach(function(row){
+      var doc=row.querySelector('.doc-nome').textContent.trim();
+      var obs=row.querySelector('.doc-obs').textContent.trim();
+      var sit=row.dataset.situacao||'pendente';
+      var ocultoPorFiltro=!!(doc&&_filtroAtual!=='todos'&&sit!==_filtroAtual);
+      var bateBusca=!_buscaAtual||catNomeBate||doc.toLowerCase().indexOf(_buscaAtual)>=0||obs.toLowerCase().indexOf(_buscaAtual)>=0;
+      var oculto=ocultoPorFiltro||!bateBusca;
+      row.classList.toggle('filtro-oculto',oculto);
+      if(!oculto)algumVisivel=true;
+    });
+    if(_filtroAtual==='todos'&&!_buscaAtual)algumVisivel=true; // sem filtro nem busca ativos, categoria nunca some
+    subsec.classList.toggle('filtro-oculto',!algumVisivel);
+  });
+}
+
+/* ══ DESFAZER EXCLUSÃO (Ctrl+Z) ══
+   Versão anterior só desfazia quando o foco NÃO estava num campo de texto — na prática isso
+   fazia o atalho "só funcionar em lugares específicos", porque a tela é quase toda campo
+   editável (nome do documento, observação, categoria...) e o foco quase sempre está em algum
+   deles, mesmo depois de clicar no ✕. Agora comparamos QUANDO foi a última exclusão contra
+   QUANDO foi a última tecla digitada num campo: se a exclusão foi depois, Ctrl+Z desfaz a
+   exclusão não importa onde o foco esteja; só cede para o "desfazer" nativo do navegador
+   quando o usuário estava mesmo digitando algo mais recente que isso. */
+var _UNDO_STACK=[];
+var _ultimaDigitacaoEm=0,_ultimaExclusaoEm=0;
+document.addEventListener('input',function(e){
+  if(e.target&&e.target.isContentEditable)_ultimaDigitacaoEm=Date.now();
+},true);
+function _registrarUndo(el,pai,proximo,rotulo){
+  _UNDO_STACK.push({el:el,pai:pai,proximo:proximo,rotulo:rotulo});
+  if(_UNDO_STACK.length>20)_UNDO_STACK.shift();
+  _ultimaExclusaoEm=Date.now();
+  _mostrarUndoToast(rotulo);
+}
+function desfazerUltimaExclusao(){
+  var u=_UNDO_STACK.pop();
+  if(!u)return;
+  if(u.proximo&&u.proximo.parentNode===u.pai)u.pai.insertBefore(u.el,u.proximo);
+  else u.pai.appendChild(u.el);
+  renumerar();atualizarEstadoVazio();atualizarContadorEntrega();
+  _marcarSujo();
+  _esconderUndoToast();
+}
+/* Toast genérico (mesma caixinha usada para "Desfazer exclusão"): serve tanto para o aviso de
+   exclusão (com o botão "Desfazer" visível) quanto para uma confirmação simples de que uma ação
+   deu certo — "Salvo no cache", "Salvo como ...json" — sem o botão, e some sozinho mais rápido. */
+var _toastTimer=null;
+function mostrarToast(msg,comDesfazer){
+  var t=$('undoToast');
+  if(!t)return;
+  t.querySelector('span').textContent=msg;
+  var btn=$('undoToastBtn');
+  if(btn)btn.style.display=comDesfazer?'':'none';
+  t.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer=setTimeout(_esconderUndoToast,comDesfazer?5000:2600);
+}
+function _mostrarUndoToast(rotulo){mostrarToast(rotulo+' — Ctrl+Z para desfazer',true);}
+function _esconderUndoToast(){var t=$('undoToast');if(t)t.classList.remove('show');}
+document.addEventListener('keydown',function(e){
+  /* Ctrl+S (ou Cmd+S) salva no cache deste navegador, no mesmo padrão do botão "Salvar cache" —
+     preventDefault sempre, pra não abrir a caixa nativa de "Salvar página" do navegador. */
+  if((e.ctrlKey||e.metaKey)&&(e.key==='s'||e.key==='S')&&!e.shiftKey){
+    e.preventDefault();
+    salvarNoCache();
+    return;
+  }
+  var z=(e.key==='z'||e.key==='Z');
+  if((e.ctrlKey||e.metaKey)&&z&&!e.shiftKey){
+    if(!_UNDO_STACK.length)return;
+    if(_ultimaExclusaoEm>=_ultimaDigitacaoEm){e.preventDefault();desfazerUltimaExclusao();return;}
+    var ae=document.activeElement;
+    var editavel=ae&&(ae.isContentEditable||ae.tagName==='INPUT'||ae.tagName==='TEXTAREA'||ae.tagName==='SELECT');
+    if(!editavel){e.preventDefault();desfazerUltimaExclusao();}
+  }
+});
+
+/* ══ ARRASTAR E SOLTAR PARA REORDENAR ══ */
+var _dragEl=null;
+function habilitarArrasteCategorias(container){
+  container.addEventListener('dragstart',function(e){
+    var handle=e.target.closest('.drag-handle');
+    var subsec=e.target.closest('.subsec');
+    if(!handle||!subsec||!container.contains(subsec))return;
+    if(handle.closest('.doc-tbl'))return; // é alça de linha, não de categoria
+    _dragEl=subsec;subsec.classList.add('is-dragging');
+    e.dataTransfer.effectAllowed='move';
+  });
+  container.addEventListener('dragover',function(e){
+    if(!_dragEl||!_dragEl.classList.contains('subsec'))return;
+    var alvo=e.target.closest('.subsec');
+    if(!alvo||alvo===_dragEl)return;
+    e.preventDefault();
+    var rect=alvo.getBoundingClientRect();
+    var antes=(e.clientY-rect.top)<rect.height/2;
+    alvo.classList.toggle('drag-over-top',antes);
+    alvo.classList.toggle('drag-over-bottom',!antes);
+  });
+  container.addEventListener('dragleave',function(e){
+    var alvo=e.target.closest('.subsec');
+    if(alvo){alvo.classList.remove('drag-over-top','drag-over-bottom');}
+  });
+  container.addEventListener('drop',function(e){
+    if(!_dragEl||!_dragEl.classList.contains('subsec'))return;
+    var alvo=e.target.closest('.subsec');
+    if(alvo&&alvo!==_dragEl){
+      e.preventDefault();
+      var antes=alvo.classList.contains('drag-over-top');
+      alvo.parentNode.insertBefore(_dragEl,antes?alvo:alvo.nextSibling);
+    }
+    container.querySelectorAll('.drag-over-top,.drag-over-bottom').forEach(function(el){el.classList.remove('drag-over-top','drag-over-bottom');});
+  });
+  container.addEventListener('dragend',function(){
+    if(_dragEl)_dragEl.classList.remove('is-dragging');
+    _dragEl=null;
+    renumerar();
+    _marcarSujo();
+  });
+}
+function habilitarArrasteLinhas(tbody){
+  tbody.addEventListener('dragstart',function(e){
+    var handle=e.target.closest('.drag-handle');
+    var row=e.target.closest('tr');
+    if(!handle||!row)return;
+    _dragEl=row;row.classList.add('is-dragging');
+    e.dataTransfer.effectAllowed='move';
+    e.stopPropagation();
+  });
+  tbody.addEventListener('dragover',function(e){
+    if(!_dragEl||_dragEl.tagName!=='TR')return;
+    var alvo=e.target.closest('tr');
+    if(!alvo||alvo===_dragEl||alvo.parentNode!==tbody)return;
+    e.preventDefault();e.stopPropagation();
+    var rect=alvo.getBoundingClientRect();
+    var antes=(e.clientY-rect.top)<rect.height/2;
+    alvo.classList.toggle('drag-over-top',antes);
+    alvo.classList.toggle('drag-over-bottom',!antes);
+  });
+  tbody.addEventListener('dragleave',function(e){
+    var alvo=e.target.closest('tr');
+    if(alvo){alvo.classList.remove('drag-over-top','drag-over-bottom');}
+  });
+  tbody.addEventListener('drop',function(e){
+    if(!_dragEl||_dragEl.tagName!=='TR')return;
+    var alvo=e.target.closest('tr');
+    if(alvo&&alvo!==_dragEl&&alvo.parentNode===tbody){
+      e.preventDefault();e.stopPropagation();
+      var antes=alvo.classList.contains('drag-over-top');
+      tbody.insertBefore(_dragEl,antes?alvo:alvo.nextSibling);
+    }
+    tbody.querySelectorAll('.drag-over-top,.drag-over-bottom').forEach(function(el){el.classList.remove('drag-over-top','drag-over-bottom');});
+  });
+  tbody.addEventListener('dragend',function(e){
+    if(_dragEl){_dragEl.classList.remove('is-dragging');}
+    _dragEl=null;
+    renumerar();
+    _marcarSujo();
+    e.stopPropagation();
+  });
+}
+
+function limparTudo(){
+  confirmarSubstituicao(function(){
+    listaDocsEl().innerHTML='';
+    atualizarEstadoVazio();
+    _ARQUIVO_CARREGADO_NOME='';
+    _ULTIMO_SALVAMENTO_CACHE=null;
+    _limparSujo();
+    _atualizarIndicadorCache();
+  },'Isso apaga todas as categorias e documentos da tela. Confirma?');
+}
+
+/* ══ MODELOS PRONTOS ══ */
+/* Biblioteca de modelos, organizada por Área + Submódulo (mesma lógica do "imobiliário - retificação de
+   área" pedido): cada chave é um submódulo; "area" agrupa no <select> (optgroup) e no nome sugerido ao
+   salvar. Para acrescentar um novo submódulo (ex.: "usucapião" dentro de Imobiliário), basta copiar um
+   bloco destes com o novo conteúdo e adicionar a <option> correspondente no <optgroup> certo do HTML. */
+var MODELOS={
+  holding:{area:'Societário / Patrimonial',nome:'Holding patrimonial',assunto:'Holding patrimonial',categorias:[
+    {nome:'Documentos dos sócios / instituidores',itens:[
+      {documento:'RG e CPF (ou CNH) de cada sócio',obs:'Cópia legível, frente e verso'},
+      {documento:'Comprovante de residência atualizado',obs:'Últimos 90 dias'},
+      {documento:'Certidão de casamento ou nascimento atualizada',obs:'Emitida há até 90 dias'},
+      {documento:'Pacto antenupcial registrado',obs:'Se houver'}
+    ]},
+    {nome:'Documentos societários existentes',itens:[
+      {documento:'Contrato social consolidado e alterações',obs:'Empresa operacional a reorganizar, se houver'},
+      {documento:'Última alteração contratual averbada',obs:'Junta Comercial'},
+      {documento:'Cartão CNPJ atualizado',obs:'Emissão recente'},
+      {documento:'Balanço patrimonial e DRE do último exercício',obs:'Contador da empresa'}
+    ]},
+    {nome:'Bens a integralizar',itens:[
+      {documento:'Matrícula atualizada de cada imóvel',obs:'Até 30 dias'},
+      {documento:'Carnê de IPTU ou ITR do exercício corrente',obs:''},
+      {documento:'Comprovante de quitação de ônus/financiamento',obs:'Se houver'},
+      {documento:'Documentos de participações societárias a integralizar',obs:'Se houver'},
+      {documento:'CRLV de veículos',obs:'Se aplicável'}
+    ]},
+    {nome:'Certidões negativas',itens:[
+      {documento:'Certidão negativa de débitos federais',obs:'Receita Federal / PGFN'},
+      {documento:'Certidão negativa de débitos estaduais',obs:''},
+      {documento:'Certidão negativa de débitos municipais',obs:''},
+      {documento:'Certidão de distribuição de ações cíveis e trabalhistas',obs:'De cada sócio'}
+    ]}
+  ]},
+  sucessorio:{area:'Sucessório',nome:'Planejamento sucessório',assunto:'Planejamento sucessório',categorias:[
+    {nome:'Documentos pessoais e familiares',itens:[
+      {documento:'RG e CPF do titular e do cônjuge/companheiro',obs:''},
+      {documento:'Certidão de casamento ou união estável',obs:'Com pacto antenupcial, se houver'},
+      {documento:'Certidão de nascimento de todos os herdeiros',obs:''},
+      {documento:'Certidão de óbito de herdeiro pré-morto',obs:'Se houver'}
+    ]},
+    {nome:'Levantamento patrimonial',itens:[
+      {documento:'Relação de imóveis com matrícula atualizada',obs:''},
+      {documento:'Relação de bens móveis relevantes',obs:'Veículos, embarcações, aeronaves'},
+      {documento:'Extratos de contas, aplicações e participações societárias',obs:''},
+      {documento:'Apólices de seguro de vida vigentes',obs:''},
+      {documento:'Declaração de Imposto de Renda dos últimos 2 exercícios',obs:''}
+    ]},
+    {nome:'Documentos societários da empresa familiar',itens:[
+      {documento:'Contrato ou estatuto social consolidado',obs:'Se houver empresa familiar'},
+      {documento:'Acordo de sócios ou de acionistas vigente',obs:'Se houver'}
+    ]},
+    {nome:'Instrumentos já existentes',itens:[
+      {documento:'Cópia de testamento já lavrado',obs:'Se houver'},
+      {documento:'Escrituras de doação anteriores',obs:'Se houver'}
+    ]}
+  ]},
+  retificacao:{area:'Imobiliário',nome:'Retificação de área de imóvel',assunto:'Retificação de área de imóvel',categorias:[
+    {nome:'Documentos do imóvel',itens:[
+      {documento:'Matrícula atualizada do imóvel',obs:'Até 30 dias'},
+      {documento:'Certidão de ônus reais',obs:''},
+      {documento:'Carnê de IPTU ou ITR do exercício corrente',obs:''},
+      {documento:'Escritura ou título aquisitivo anterior',obs:''}
+    ]},
+    {nome:'Documentos técnicos',itens:[
+      {documento:'Planta e memorial descritivo assinados por profissional habilitado',obs:''},
+      {documento:'ART (CREA) ou RRT (CAU) do responsável técnico',obs:''},
+      {documento:'Georreferenciamento certificado pelo INCRA',obs:'Obrigatório para imóvel rural — Lei 10.267/2001'}
+    ]},
+    {nome:'Anuências',itens:[
+      {documento:'Anuência dos confrontantes',obs:'Assinatura com firma reconhecida'},
+      {documento:'Anuência do cônjuge',obs:'Se casado(a)'},
+      {documento:'Anuência do credor hipotecário',obs:'Se houver ônus sobre o imóvel'}
+    ]},
+    {nome:'Documentos pessoais',itens:[
+      {documento:'RG e CPF do(s) proprietário(s)',obs:''},
+      {documento:'Comprovante de estado civil atualizado',obs:''}
+    ]}
+  ]},
+  vazio:{area:'',nome:'Lista em branco',assunto:'',categorias:[{nome:'Documentos',itens:[]}]},
+  padrao:{area:'',nome:'Modelo padrão',assunto:'',categorias:[
+    {nome:'Documentos pessoais',itens:[
+      {documento:'RG e CPF (ou CNH)',obs:'Cópia legível, frente e verso'},
+      {documento:'Comprovante de residência atualizado',obs:'Últimos 90 dias'},
+      {documento:'Comprovante de estado civil atualizado',obs:'Certidão de casamento, união estável ou nascimento'},
+      {documento:'Procuração assinada',obs:'Modelo enviado pelo escritório'}
+    ]},
+    {nome:'Documentos específicos do caso',itens:[]}
+  ]},
+  /* Pensada para ser duplicada (botão ⧉ em cada categoria): a categoria "Empresa 1 — documentos"
+     é o "módulo" — quando a implantação envolve mais de uma empresa, duplique-a e ajuste o nome
+     e os detalhes de cada uma, em vez de recriar a lista do zero a cada empresa. */
+  implantacao:{area:'Implantação',nome:'Implantação — pessoa física e empresa',assunto:'Implantação',categorias:[
+    {nome:'Pessoa física — sócios/instituidores',itens:[
+      {documento:'Documento pessoal (RG ou CNH)',obs:'Cópia legível, frente e verso'},
+      {documento:'Endereço atualizado',obs:'Basta informar por escrito, sem necessidade de comprovante'},
+      {documento:'E-mail',obs:'Para contato e envio de documentos'},
+      {documento:'WhatsApp / telefone',obs:'Para contato'},
+      {documento:'Certificado digital (e-CPF)',obs:'Se já possuir — informar a validade'},
+      {documento:'Última declaração de Imposto de Renda entregue',obs:''},
+      {tipo:'subgrupo',nome:'▸ Veículos, se houver'},
+      {documento:'Relação de veículos',obs:'Marca, modelo, ano e placa'},
+      {documento:'CRLV de cada veículo',obs:'Obtido no SENATRAN ou no DETRAN'},
+      {tipo:'subgrupo',nome:'▸ Imóveis, se houver'},
+      {documento:'Relação de imóveis',obs:''},
+      {documento:'Matrícula atualizada de cada imóvel',obs:'Obtida no CRI — Cartório de Registro de Imóveis, até 30 dias'}
+    ]},
+    {nome:'Empresa 1 — documentos',itens:[
+      {tipo:'subgrupo',nome:'▸ Documentos societários'},
+      {documento:'Contrato social consolidado e alterações',obs:''},
+      {documento:'Cartão CNPJ atualizado',obs:'Emissão recente'},
+      {documento:'Certificado digital (e-CNPJ)',obs:'Informar a validade'},
+      {tipo:'subgrupo',nome:'▸ Ativo imobilizado e maquinário'},
+      {documento:'Relação de bens do ativo imobilizado',obs:''},
+      {documento:'Relação de maquinário e equipamentos',obs:'Com respectivos valores, se disponível'},
+      {documento:'Notas fiscais de aquisição relevantes',obs:'Dos itens de maior valor'},
+      {tipo:'subgrupo',nome:'▸ Contabilidade e fiscal'},
+      {documento:'Balanço patrimonial',obs:'Últimos 2 exercícios'},
+      {documento:'DRE — Demonstração do Resultado do Exercício',obs:'Últimos 2 exercícios'},
+      {documento:'Relatório de folha de pagamento',obs:'Valor de folha atual'},
+      {tipo:'subgrupo',nome:'▸ Veículos e imóveis da empresa, se houver'},
+      {documento:'Relação de veículos e CRLV de cada um',obs:'Obtido no SENATRAN ou no DETRAN'},
+      {documento:'Relação de imóveis e matrícula atualizada de cada um',obs:'Obtida no CRI'},
+      {tipo:'subgrupo',nome:'▸ Contato'},
+      {documento:'E-mail e telefone da empresa/responsável',obs:''},
+      {documento:'Contador responsável',obs:'Nome, e-mail e telefone'}
+    ]}
+  ]},
+  usucapiao:{area:'Imobiliário',nome:'Usucapião',assunto:'Usucapião',categorias:[
+    {nome:'Documentos pessoais do requerente',itens:[
+      {documento:'RG e CPF (ou CNH)',obs:''},
+      {documento:'Comprovante de estado civil atualizado',obs:'Certidão de casamento, união estável ou nascimento'},
+      {documento:'Comprovante de residência atual',obs:'Pode ser diferente do endereço do imóvel usucapiendo'}
+    ]},
+    {nome:'Documentos do imóvel',itens:[
+      {documento:'Certidão de matrícula atualizada (ou de inteiro teor)',obs:'Ou certidão de que o imóvel não possui registro'},
+      {documento:'Planta e memorial descritivo assinados por profissional habilitado',obs:''},
+      {documento:'ART (CREA) ou RRT (CAU) do responsável técnico',obs:''},
+      {documento:'Carnê de IPTU ou ITR dos últimos 5 anos',obs:'Ajuda a comprovar tempo de posse e pagamento de tributos'},
+      {documento:'Certidão de ônus e de ações reais/pessoais reipersecutórias',obs:''}
+    ]},
+    {nome:'Prova de posse',itens:[
+      {documento:'Contas de consumo (água, luz) em nome do requerente no endereço',obs:'Quanto mais antigas, melhor'},
+      {documento:'Contrato particular de compra e venda ou cessão',obs:'Se houver'},
+      {documento:'Fotos atuais do imóvel',obs:''},
+      {documento:'Qualificação completa de ao menos 2 testemunhas da posse',obs:'Nome, CPF, endereço e telefone'}
+    ]},
+    {nome:'Confrontantes e terceiros',itens:[
+      {documento:'Nome e endereço dos confrontantes',obs:'Para citação'},
+      {documento:'Nome e endereço do(s) titular(es) registral(is)',obs:'Se conhecido(s)'}
+    ]}
+  ]}
+};
+function aplicarModeloSelecionado(){
+  var chave=$('selModelo').value;
+  if(!chave)return;
+  var modelo=MODELOS[chave];
+  if(!modelo)return;
+  confirmarSubstituicao(function(){
+    popularEstado({area:modelo.area,assunto:modelo.assunto,categorias:modelo.categorias});
+    _ARQUIVO_CARREGADO_NOME='';
+    _ULTIMO_SALVAMENTO_CACHE=null;
+    _limparSujo();
+    _atualizarIndicadorCache();
+  },'Carregar o modelo "'+(modelo.area?modelo.area+' — ':'')+modelo.nome+'" substitui a lista atual na tela. Confirma?');
+}
+
+/* ══ SALVAR / ABRIR / IMPORTAR ══
+   O nome sugerido para salvar segue duas regras: se a lista foi aberta de um arquivo .json ou de uma
+   lista do histórico local, sugere o MESMO nome (pra facilitar sobrescrever); senão, sugere o mesmo
+   nome do PDF — Assunto + Cliente + Data — pra ficar tudo consistente entre PDF e .json. */
+var _ARQUIVO_CARREGADO_NOME='';
+function nomeArquivoJSON(){
+  if(_ARQUIVO_CARREGADO_NOME)return _ARQUIVO_CARREGADO_NOME.replace(/[\\\/:*?"<>|]/g,'-');
+  return nomeArquivoPDF();
+}
+function _coletarDados(nomeModelo){
+  return{
+    versao:1,tipo:'lista-documentos-ac',
+    nomeModelo:nomeModelo,
+    area:_areaAtual,
+    cliente:($('inNomeCliente').value||'').trim(),
+    assunto:($('inAssunto').value||'').trim(),
+    responsavel:($('inResponsavel').value||'').trim(),
+    docCliente:($('inDocCliente').value||'').trim(),
+    emailCliente:($('inEmailCliente').value||'').trim(),
+    telCliente:($('inTelCliente').value||'').trim(),
+    cartaTexto:($('cartaTexto').innerText||'').trim(),
+    notaRodape:($('notaRodape').innerText||'').trim(),
+    comoEnviarLigado:$('chkComoEnviar').checked,
+    envEmail:$('chkEnvEmail').checked,
+    envTelefone:$('chkEnvTelefone').checked,
+    envDrive:$('chkEnvDrive').checked,
+    driveLink:($('inDriveLink').value||'').trim(),
+    categorias:lerCategoriasDoDOM()
+  };
+}
+async function baixarModelo(){
+  var nomeModelo=nomeArquivoJSON();
+  var dados=_coletarDados(nomeModelo);
+  var texto=JSON.stringify(dados,null,2);
+  /* Com a File System Access API (Chrome/Edge), o navegador abre a caixa de diálogo de "Salvar
+     como" de verdade: se o usuário escolher o mesmo arquivo de antes (ex.: "Ronaldo.json"), o
+     próprio Windows pergunta "já existe, deseja substituir?" — sem isso, o navegador baixava
+     sempre para a pasta de Downloads e criava "Ronaldo (1).json" ao invés de sobrepor. Se o
+     navegador não suportar (ex.: Firefox) ou o diálogo falhar por outro motivo, cai no download
+     tradicional de sempre. */
+  if(window.showSaveFilePicker){
+    try{
+      var handle=await window.showSaveFilePicker({
+        suggestedName:nomeModelo+'.json',
+        types:[{description:'Lista de documentos (JSON)',accept:{'application/json':['.json']}}],
+        startIn:_HANDLE_ARQUIVO_ATUAL||'desktop'
+      });
+      var writable=await handle.createWritable();
+      await writable.write(texto);
+      await writable.close();
+      _HANDLE_ARQUIVO_ATUAL=handle;
+      _ARQUIVO_CARREGADO_NOME=nomeModelo;
+      mostrarToast('Salvo como "'+nomeModelo+'.json" ✓',false);
+      return;
+    }catch(err){
+      if(err&&err.name==='AbortError')return; // usuário cancelou o diálogo — não faz nada
+      // qualquer outro erro: segue para o download tradicional abaixo
+    }
+  }
+  var blob=new Blob([texto],{type:'application/json'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url;a.download=nomeModelo+'.json';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  setTimeout(function(){URL.revokeObjectURL(url);},1000);
+  _ARQUIVO_CARREGADO_NOME=nomeModelo;
+  mostrarToast('Salvo como "'+nomeModelo+'.json" ✓',false);
+}
+
+/* ══ SALVAR NO CACHE (localStorage deste navegador) ══
+   Ação própria, separada de "Salvar JSON" e "Exportar PDF" — nenhuma das duas grava mais no cache
+   sozinha; só este botão grava. _ULTIMO_SALVAMENTO_CACHE guarda quando a lista ABERTA NA TELA foi
+   salva no cache pela última vez, para mostrar no topo — é zerada sempre que a tela é preenchida a
+   partir de algo que não veio do cache (modelo pronto, arquivo importado, "Limpar tudo") e
+   recebe a data de novo ao salvar no cache ou ao abrir uma lista do cache. */
+var _ULTIMO_SALVAMENTO_CACHE=null;
+function _fmtDataHoraCache(iso){
+  var dt=new Date(iso);
+  if(isNaN(dt))return'';
+  return dt.toLocaleDateString('pt-BR')+' às '+dt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+}
+/* ══ "ALTERAÇÕES NÃO SALVAS" ══
+   _CACHE_SUJO fica true assim que algo muda na lista DEPOIS do último salvamento no cache (ou
+   quando nunca houve salvamento e já existe alguma edição) — daí o indicador no topo passa a
+   avisar isso, em vez de só mostrar a data do último "Salvar cache". Ele é zerado nos mesmos
+   lugares que já zeravam _ULTIMO_SALVAMENTO_CACHE (carregar modelo/arquivo, limpar tudo, abrir do
+   cache) e sempre que um "Salvar cache" é concluído — ou seja, sempre que a tela passa a
+   corresponder a um estado conhecido (salvo ou recém-carregado), não há mais "não salvo" a avisar.
+   Ligar o sinal é feito de duas formas: um listener delegado de input/change (cobre toda digitação
+   em campo de texto/contenteditable, checkbox e select) e chamadas explícitas de _marcarSujo() nas
+   ações estruturais que não disparam esses eventos (adicionar/remover linha ou categoria,
+   subgrupo, alternar Entregue/Pendente, arrastar para reordenar, desfazer exclusão). */
+var _CACHE_SUJO=false;
+function _atualizarIndicadorCache(){
+  var el=$('ultimoSalvamentoCache');
+  if(!el)return;
+  if(_CACHE_SUJO){
+    el.textContent=_ULTIMO_SALVAMENTO_CACHE?('Cache salvo em '+_fmtDataHoraCache(_ULTIMO_SALVAMENTO_CACHE)+' · alterações não salvas'):'Alterações não salvas no cache';
+    el.style.color='rgba(245,190,110,.92)';
+  }else{
+    el.textContent=_ULTIMO_SALVAMENTO_CACHE?('Cache salvo em '+_fmtDataHoraCache(_ULTIMO_SALVAMENTO_CACHE)):'';
+    el.style.color='rgba(255,255,255,.6)';
+  }
+}
+function _marcarSujo(){
+  if(_CACHE_SUJO)return; // já marcado — evita recalcular o indicador a cada tecla digitada
+  _CACHE_SUJO=true;
+  _atualizarIndicadorCache();
+}
+function _limparSujo(){_CACHE_SUJO=false;}
+function _talvezMarcarSujo(el){
+  if(!el)return;
+  // selModelo/inpArquivo não alteram a lista sozinhos (só depois de confirmados) — não conta como edição.
+  if(el.id==='selModelo'||el.id==='inpArquivo')return;
+  var main=$('main');
+  if(!main||!main.contains(el))return;
+  _marcarSujo();
+}
+document.addEventListener('input',function(e){_talvezMarcarSujo(e.target);},true);
+document.addEventListener('change',function(e){_talvezMarcarSujo(e.target);},true);
+function salvarNoCache(){
+  var nomeModelo=nomeArquivoJSON();
+  var dados=_coletarDados(nomeModelo);
+  var entry=salvarNoHistoricoLocal(dados);
+  if(!entry){mostrarAviso('Não consegui salvar no cache deste navegador (aba anônima ou armazenamento cheio). Use "Salvar JSON" para não perder o trabalho.');return;}
+  _ARQUIVO_CARREGADO_NOME=nomeModelo;
+  _ULTIMO_SALVAMENTO_CACHE=entry.data;
+  _limparSujo();
+  _atualizarIndicadorCache();
+  mostrarToast('Salvo no cache ✓',false);
+}
+/* Pasta sugerida ao "Salvar JSON": a mesma de onde veio o último arquivo importado/salvo nesta
+   sessão do navegador (a File System Access API aceita um handle de arquivo em "startIn" e abre
+   a caixa de diálogo já na pasta dele). Sem nenhum arquivo ainda, cai na Área de Trabalho — não na
+   pasta "Documentos" que o Chrome usa por padrão. */
+var _HANDLE_ARQUIVO_ATUAL=null;
+async function importarArquivo(){
+  if(window.showOpenFilePicker){
+    try{
+      var handles=await window.showOpenFilePicker({
+        types:[{description:'Lista de documentos (JSON)',accept:{'application/json':['.json']}}],
+        multiple:false
+      });
+      _HANDLE_ARQUIVO_ATUAL=handles[0];
+      carregarArquivo(await handles[0].getFile());
+    }catch(err){
+      if(err&&err.name==='AbortError')return; // usuário cancelou o diálogo
+      $('inpArquivo').click(); // algo deu errado com a API — cai no <input type=file> de sempre
+    }
+    return;
+  }
+  $('inpArquivo').click();
+}
+function carregarArquivo(file){
+  if(!file)return;
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var data;
+    try{data=JSON.parse(e.target.result);}
+    catch(err){mostrarAviso('Arquivo inválido: não é um .json de lista de documentos.');var inp=$('inpArquivo');if(inp)inp.value='';return;}
+    if(!data||!Array.isArray(data.categorias)){mostrarAviso('Arquivo inválido: não encontrei categorias de documentos nele.');var inp2=$('inpArquivo');if(inp2)inp2.value='';return;}
+    confirmarSubstituicao(function(){
+      popularEstado(data);
+      /* O nome sugerido no próximo "Salvar" segue o nome do ARQUIVO carregado (ex.: "Ronaldo.json"
+         → sugere "Ronaldo"), não o nomeModelo gravado dentro do .json — que pode estar desatualizado
+         se o arquivo foi renomeado depois de salvo. */
+      _ARQUIVO_CARREGADO_NOME=file.name.replace(/\.json$/i,'');
+      _ULTIMO_SALVAMENTO_CACHE=null;
+      _limparSujo();
+      _atualizarIndicadorCache();
+    },'Carregar "'+esc(data.nomeModelo||file.name)+'" substitui a lista atual na tela. Confirma?');
+  };
+  reader.onerror=function(){mostrarAviso('Não consegui ler o arquivo.');};
+  reader.readAsText(file);
+}
+
+/* ══ HISTÓRICO LOCAL (localStorage) — "Abrir" na barra superior. Mesma lógica do Planejamento
+   Tributário: cada "Salvar cache" também guarda uma cópia no navegador. A identidade de cada
+   entrada (chave) usa a MESMA dupla Assunto + Cliente que já forma o nome sugerido do PDF/JSON —
+   uniformizando os três. Antes a chave usava só o nome do cliente: dois assuntos diferentes do
+   mesmo cliente (ex.: "Holding" e, meses depois, "Divórcio") caíam na mesma chave e o segundo
+   "Salvar cache" sobrescrevia o primeiro sem aviso. Sem data na chave (diferente do nome do
+   PDF/JSON) de propósito: um "Salvar cache" no dia seguinte, do mesmo assunto+cliente, deve
+   atualizar a MESMA entrada, não criar uma nova a cada dia. ══ */
+var HIST_KEY_DOCS='acSolicitacaoDocsHistorico';
+function getHistoricoLocal(){
+  try{return JSON.parse(localStorage.getItem(HIST_KEY_DOCS)||'[]');}catch(e){return[];}
+}
+function salvarHistoricoLocalRaw(list){
+  try{localStorage.setItem(HIST_KEY_DOCS,JSON.stringify(list));return true;}catch(e){return false;}
+}
+function _chaveHistorico(dados){
+  var assunto=(dados.assunto||'').trim();
+  var cliente=(dados.cliente||'').trim();
+  var partes=[assunto,cliente].filter(Boolean);
+  return partes.join(' — ')||dados.nomeModelo;
+}
+/* Chave da lista ABERTA na tela agora mesmo, calculada do mesmo jeito, pra saber se ela já
+   corresponde a alguma entrada salva (usado para destacar "Atual" no modal "Abrir cache"). */
+function _chaveAtual(){
+  return _chaveHistorico({assunto:$('inAssunto').value,cliente:$('inNomeCliente').value,nomeModelo:nomeArquivoJSON()});
+}
+/* Devolve a própria entrada salva (com a data) em caso de sucesso, ou null se o navegador recusou
+   gravar no localStorage (aba anônima, cache cheio) — quem chama decide o que fazer com isso. */
+function salvarNoHistoricoLocal(dados){
+  var list=getHistoricoLocal();
+  var chave=_chaveHistorico(dados);
+  /* "nome" continua sendo o nome do arquivo (pegajoso — usado depois para sugerir o mesmo nome
+     no "Salvar JSON"); "rotulo" é o texto mostrado na lista de "Abrir cache", e sempre acompanha
+     o assunto+cliente atuais — sem isso, trocar o assunto e salvar de novo criava uma entrada
+     nova (chave certa) mas com o MESMO título em tela da entrada anterior, parecendo duplicada. */
+  var entry={nome:dados.nomeModelo,rotulo:chave,cliente:dados.cliente||'',chave:chave,data:new Date().toISOString(),estado:dados};
+  var idx=list.findIndex(function(x){return x.chave===chave;});
+  if(idx>=0)list[idx]=entry;else list.unshift(entry);
+  if(list.length>50)list=list.slice(0,50);
+  return salvarHistoricoLocalRaw(list)?entry:null;
+}
+function abrirHistoricoModal(){
+  var list=getHistoricoLocal();
+  var chaveAtual=_chaveAtual();
+  var wrap=$('historicoLista');
+  wrap.innerHTML=list.length?list.map(function(item,i){
+    var dt=new Date(item.data);
+    var dtStr=isNaN(dt)?'':dt.toLocaleDateString('pt-BR')+' '+dt.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    var atual=item.chave===chaveAtual;
+    return '<div class="member-card" style="display:flex;align-items:center;justify-content:space-between;gap:10px'+(atual?';border-color:var(--accent2);box-shadow:0 0 0 1.5px rgba(46,83,149,.22)':'')+'">'+
+      '<div><div style="font-weight:700;color:var(--navy);font-size:13px;display:flex;align-items:center;gap:7px">'+esc(item.rotulo||item.nome)+(atual?' <span class="pill pill-blue">Atual</span>':'')+'</div>'+
+      '<div class="hint">'+(item.cliente?esc(item.cliente)+' · ':'')+'salvo em '+dtStr+'</div></div>'+
+      '<div style="display:flex;gap:6px;flex-shrink:0">'+
+      '<button class="btn-o" style="padding:6px 12px;font-size:12px" onclick="abrirDoHistorico('+i+')">Abrir</button>'+
+      '<button class="member-rm" style="position:static" onclick="excluirDoHistorico('+i+')">✕</button>'+
+      '</div></div>';
+  }).join(''):'<p class="hint">Nenhuma lista salva neste navegador ainda. Use o botão "Salvar cache" para adicionar aqui.</p>';
+  $('historicoOverlay').style.display='flex';
+}
+function fecharHistoricoModal(){$('historicoOverlay').style.display='none';}
+function abrirDoHistorico(i){
+  var list=getHistoricoLocal();
+  var item=list[i];if(!item)return;
+  popularEstado(item.estado);
+  _ARQUIVO_CARREGADO_NOME=item.nome||'';
+  _ULTIMO_SALVAMENTO_CACHE=item.data||null;
+  _limparSujo();
+  _atualizarIndicadorCache();
+  fecharHistoricoModal();
+}
+function excluirDoHistorico(i){
+  var list=getHistoricoLocal();
+  list.splice(i,1);
+  salvarHistoricoLocalRaw(list);
+  abrirHistoricoModal();
+}
+
+/* ══ TÍTULO / CLIENTE ══ */
+function atualizarTitulo(){
+  var assunto=($('inAssunto').value||'').trim();
+  var titulo=assunto?('Solicitação de documentos — '+assunto):'Solicitação de documentos';
+  $('hdTitulo').textContent=titulo;
+  document.title=titulo+' — Araujo & Castro';
+  var card=$('cardLista');
+  if(card)card.setAttribute('data-pdf',assunto?('Solicitação de documentos — '+assunto):'Solicitação de documentos');
+}
+function atualizarCliente(){
+  window.NOME_CLIENTE=($('inNomeCliente').value||'').trim();
+  atualizarInfoCliente();
+}
+
+/* ══ INICIALIZAÇÃO ══ */
+atualizarTitulo();
+atualizarCliente();
+adicionarCategoria('Documentos',[]);
+atualizarInfoCliente();
+atualizarAssinatura();
+atualizarComoEnviar();
+_atualizarIndicadorCache();
+habilitarArrasteCategorias(listaDocsEl());
+atualizarPreview();
+</script>
+</body>
+</html>

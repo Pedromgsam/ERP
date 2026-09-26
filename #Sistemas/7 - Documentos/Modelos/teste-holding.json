@@ -1,0 +1,98 @@
+{
+  "versao": 1,
+  "tipo": "lista-documentos-ac",
+  "nomeModelo": "Teste - Holding",
+  "cliente": "",
+  "assunto": "Holding patrimonial",
+  "responsavel": "",
+  "categorias": [
+    {
+      "nome": "Documentos dos sócios / instituidores",
+      "itens": [
+        {
+          "documento": "RG e CPF (ou CNH) de cada sócio",
+          "obs": "Cópia legível, frente e verso"
+        },
+        {
+          "documento": "Comprovante de residência atualizado",
+          "obs": "Últimos 90 dias"
+        },
+        {
+          "documento": "Certidão de casamento ou nascimento atualizada",
+          "obs": "Emitida há até 90 dias"
+        },
+        {
+          "documento": "Pacto antenupcial registrado",
+          "obs": "Se houver"
+        }
+      ]
+    },
+    {
+      "nome": "Documentos societários existentes",
+      "itens": [
+        {
+          "documento": "Contrato social consolidado e alterações",
+          "obs": "Empresa operacional a reorganizar, se houver"
+        },
+        {
+          "documento": "Última alteração contratual averbada",
+          "obs": "Junta Comercial"
+        },
+        {
+          "documento": "Cartão CNPJ atualizado",
+          "obs": "Emissão recente"
+        },
+        {
+          "documento": "Balanço patrimonial e DRE do último exercício",
+          "obs": "Contador da empresa"
+        }
+      ]
+    },
+    {
+      "nome": "Bens a integralizar",
+      "itens": [
+        {
+          "documento": "Matrícula atualizada de cada imóvel",
+          "obs": "Até 30 dias"
+        },
+        {
+          "documento": "Carnê de IPTU ou ITR do exercício corrente",
+          "obs": ""
+        },
+        {
+          "documento": "Comprovante de quitação de ônus/financiamento",
+          "obs": "Se houver"
+        },
+        {
+          "documento": "Documentos de participações societárias a integralizar",
+          "obs": "Se houver"
+        },
+        {
+          "documento": "CRLV de veículos",
+          "obs": "Se aplicável"
+        }
+      ]
+    },
+    {
+      "nome": "Certidões negativas",
+      "itens": [
+        {
+          "documento": "Certidão negativa de débitos federais",
+          "obs": "Receita Federal / PGFN"
+        },
+        {
+          "documento": "Certidão negativa de débitos estaduais",
+          "obs": ""
+        },
+        {
+          "documento": "Certidão negativa de débitos municipais",
+          "obs": ""
+        },
+        {
+          "documento": "Certidão de distribuição de ações cíveis e trabalhistas",
+          "obs": "De cada sócio"
+        }
+      ]
+    }
+  ]
+}

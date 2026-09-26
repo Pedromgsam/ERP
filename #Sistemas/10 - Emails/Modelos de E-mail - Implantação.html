@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Modelos de E-mail — Araujo &amp; Castro</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300..700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ══════════ TOKENS, TIPOGRAFIA E FUNDO ══════════ */
+:root{
+  --bg:#EEF1F7;--navy:#1F3864;--navy2:#28437a;--navy3:#2E5395;
+  --accent:#B8860B;--accent2:#2E5395;--accent2-d:#1F3864;
+  --glow2:0 0 0 3px rgba(46,83,149,.14);
+  --border:rgba(15,23,42,.08);--border-strong:rgba(15,23,42,.15);
+  --shadow-sm:0 1px 3px rgba(15,23,42,.08);
+  --shadow-md:0 3px 10px rgba(15,23,42,.10);
+  --shadow-lg:0 8px 22px rgba(15,23,42,.14);
+  --shadow-navy:0 3px 12px rgba(15,35,64,.22);
+  --card-r:16px;--radius-sm:10px;--radius-xs:7px;
+  --text:#0f1521;--text2:#4b5563;--text3:#8b93a3;
+  --blue-lt:#dbeafe;--blue-d:#1f3864;
+  --font-d:'DM Sans',sans-serif;--font-h:'Space Grotesk','DM Sans',sans-serif;--font-m:'JetBrains Mono',monospace;
+  --hh:52px;
+  --ease:cubic-bezier(.16,1,.3,1);
+  --w-mid:1360px}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:var(--font-d);background:
+    radial-gradient(1200px 560px at 8% -12%,rgba(46,83,149,.08),transparent 58%),
+    radial-gradient(900px 480px at 102% -6%,rgba(184,134,11,.09),transparent 55%),
+    var(--bg);
+  background-attachment:fixed;
+  color:var(--text);min-height:100vh;font-size:14px;-webkit-font-smoothing:antialiased}
+input,select,button,textarea{font-family:var(--font-d)}
+
+/* ══════════ CABEÇALHO FIXO ══════════ */
+#hd{position:fixed;top:0;left:0;right:0;z-index:300;height:var(--hh);
+  background:linear-gradient(115deg,var(--navy) 0%,var(--navy2) 55%,#0d1730 100%);
+  color:#fff;padding:0 22px;display:flex;align-items:center;justify-content:space-between;
+  box-shadow:var(--shadow-navy);border-bottom:1px solid rgba(46,83,149,.18);overflow:hidden}
+#hd::after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(46,83,149,.6) 20%,rgba(184,134,11,.6) 55%,transparent 85%)}
+.hd-brand{display:flex;align-items:center;gap:11px;position:relative;z-index:1}
+.hd-name{font-family:var(--font-h);font-size:14.5px;font-weight:700;color:#fff;letter-spacing:.01em;line-height:1.2}
+.hd-sub{font-size:9px;color:rgba(255,255,255,.42);letter-spacing:.14em;text-transform:uppercase;margin-top:2px;
+  background:linear-gradient(90deg,rgba(255,255,255,.75),rgba(255,255,255,.35));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+
+/* ══════════ LAYOUT ══════════ */
+#main{margin-top:calc(var(--hh) + 16px);padding:18px 22px 60px}
+.doc{max-width:var(--w-mid);margin:0 auto;display:flex;flex-direction:column;gap:14px}
+
+/* ══════════ CARDS ══════════ */
+.card{background:#fff;border-radius:var(--card-r);border:1px solid var(--border);box-shadow:var(--shadow-sm);transition:box-shadow .22s var(--ease),border-color .22s var(--ease)}
+.card:hover{box-shadow:var(--shadow-md);border-color:var(--border-strong)}
+.card-hd{position:relative;background:var(--navy);color:rgba(255,255,255,.94);padding:11px 18px;display:flex;align-items:center;gap:8px;font-size:11px;font-weight:600;letter-spacing:.045em;text-transform:uppercase;justify-content:space-between;border-top-left-radius:var(--card-r);border-top-right-radius:var(--card-r);border-bottom:1px solid rgba(46,83,149,.35);font-family:var(--font-h)}
+.card-hd-r{display:flex;align-items:center;gap:8px;text-transform:none;font-weight:500;letter-spacing:0}
+.card-body{padding:19px}
+.card-hd-mini-btn{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.22);color:#fff;padding:4px 10px;border-radius:6px;font-size:10.5px;font-weight:600;cursor:pointer;transition:background .15s var(--ease)}
+.card-hd-mini-btn:hover{background:rgba(255,255,255,.2)}
+
+/* ══════════ FORMULÁRIO ══════════ */
+.fg{display:flex;flex-direction:column;gap:4px;margin-bottom:14px}
+.fg:last-child{margin-bottom:0}
+label.lbl{font-size:11px;font-weight:600;color:var(--navy);text-transform:uppercase;letter-spacing:.04em;display:flex;align-items:center;gap:6px}
+.hint{font-size:11px;color:var(--text3);line-height:1.4}
+.fi{padding:8px 12px;border:1.5px solid var(--border-strong);border-radius:var(--radius-sm);font-size:13.5px;color:var(--text);background:#fff;width:100%;outline:none;transition:border-color .18s var(--ease),box-shadow .18s var(--ease);font-family:var(--font-d)}
+.fi:hover{border-color:#c3cad8}
+.fi:focus{border-color:var(--accent2-d);box-shadow:var(--glow2)}
+textarea.fi{resize:vertical;line-height:1.5}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:640px){.g2{grid-template-columns:1fr}}
+
+/* ══════════ SEÇÕES ══════════ */
+.sec-div{display:flex;align-items:center;gap:10px;margin:16px 0 12px}
+.sec-div-line{flex:1;height:1px;background:var(--border)}
+.sec-div-lbl{font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.07em;text-transform:uppercase;white-space:nowrap}
+.subsec-num{flex-shrink:0;width:20px;height:20px;border-radius:6px;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-family:var(--font-h);font-size:10.5px;font-weight:700}
+
+/* ══════════ ALERTAS ══════════ */
+.alrt{border-radius:var(--radius-xs);padding:10px 14px 10px 12px;font-size:12.5px;line-height:1.5;margin-bottom:6px;border-left-width:3px;border-left-style:solid}
+.alrt-blue{background:var(--blue-lt);border:1px solid rgba(46,83,149,.22);border-left-color:var(--blue-d);color:var(--blue-d)}
+
+/* ══════════ SELO (i) ══════════ */
+.lg{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:var(--text3);color:#fff;font-size:9px;font-weight:700;cursor:help;position:relative;flex-shrink:0;transition:background .15s var(--ease)}
+.lg:hover{background:var(--accent2-d)}
+.lg .lg-tip{display:none;position:absolute;bottom:130%;left:50%;transform:translateX(-50%);background:linear-gradient(150deg,var(--navy),var(--navy2));color:#fff;font-size:11px;font-weight:400;line-height:1.45;padding:9px 11px;border-radius:8px;width:230px;z-index:350;box-shadow:var(--shadow-lg);border:1px solid rgba(46,83,149,.2)}
+.lg:hover .lg-tip{display:block}
+
+/* ══════════ CARTÃO DINÂMICO ══════════ */
+.member-card{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 34px 12px 12px;position:relative;margin-bottom:8px}
+.member-card:last-child{margin-bottom:0}
+.member-rm{position:absolute;top:9px;right:10px;background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px;line-height:1;padding:2px;transition:color .15s var(--ease)}
+.member-rm:hover{color:#dc2626}
+.add-btn{background:transparent;border:1.5px dashed var(--border-strong);border-radius:var(--radius-sm);padding:10px;width:100%;font-size:12.5px;font-weight:600;color:var(--text2);cursor:pointer;transition:.18s var(--ease)}
+.add-btn:hover{border-color:var(--accent2-d);color:var(--navy);background:rgba(46,83,149,.04)}
+
+/* ══════════ ESCOLHA DE MODO (rádio em cartão) ══════════ */
+.modo-toggle{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.modo-opt{flex:1;min-width:220px;display:flex;align-items:flex-start;gap:8px;padding:10px 12px;border:1.5px solid var(--border);border-radius:9px;background:#fff;cursor:pointer;transition:border-color .15s var(--ease),background .15s var(--ease)}
+.modo-opt:hover{border-color:rgba(46,83,149,.4)}
+.modo-opt.is-active{border-color:var(--accent2);background:rgba(46,83,149,.06)}
+.modo-opt input{margin-top:2px;accent-color:var(--accent2);flex-shrink:0;cursor:pointer}
+.modo-opt span{font-size:12px;color:var(--text2);line-height:1.4}
+.modo-opt b{color:var(--navy)}
+
+/* ══════════ ABAS DE MODELO ══════════ */
+.tpl-btn{display:flex;align-items:center;gap:8px;padding:9px 14px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:#fff;cursor:pointer;font-size:12.5px;color:var(--text2);transition:.15s var(--ease);text-align:left}
+.tpl-btn:hover{border-color:rgba(46,83,149,.4)}
+.tpl-btn.is-active{border-color:var(--accent2);background:rgba(46,83,149,.06);color:var(--navy);font-weight:700}
+
+/* ══════════ BOTÕES ══════════ */
+.btn-o{background:#fff;color:var(--navy);border:1.5px solid var(--border-strong);border-radius:var(--radius-sm);padding:7.5px 15px;font-size:12.5px;font-weight:600;cursor:pointer;transition:border-color .18s var(--ease),box-shadow .18s var(--ease)}
+.btn-o:hover{border-color:var(--accent2-d);box-shadow:var(--glow2)}
+
+/* ══════════ PRÉVIA ══════════ */
+.preview-corpo{white-space:pre-wrap;font-size:13px;line-height:1.65;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 16px;color:var(--text)}
+.preview-assunto{padding:8px 12px;border:1.5px solid var(--border-strong);border-radius:var(--radius-sm);font-size:13.5px;color:var(--text);background:var(--bg)}
+
+/* ══════════ SCROLLBAR ══════════ */
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(15,23,42,.16);border-radius:20px;border:2px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-thumb:hover{background:rgba(15,23,42,.28);background-clip:padding-box}
+
+/* ══════════ TOAST ══════════ */
+#toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:var(--navy);color:#fff;padding:10px 18px;border-radius:10px;font-size:12.5px;box-shadow:var(--shadow-lg);z-index:950;opacity:0;pointer-events:none;transition:opacity .22s var(--ease),transform .22s var(--ease)}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto}
+</style>
+</head>
+<body>
+
+<div id="hd">
+  <div class="hd-brand">
+    <div>
+      <div class="hd-name">Modelos de E-mail — Implantação</div>
+      <div class="hd-sub">Araujo &amp; Castro — Advocacia e Consultoria</div>
+    </div>
+  </div>
+</div>
+
+<div id="main">
+  <div class="doc">
+
+    <section class="card">
+      <div class="card-hd">📋 Dados gerais</div>
+      <div class="card-body">
+        <div class="alrt alrt-blue">ℹ Preencha aqui uma vez — esses dados entram automaticamente em qualquer modelo escolhido abaixo. Nenhum dado sai desta página nem é enviado a lugar nenhum: tudo fica só no seu navegador, até você copiar ou abrir no seu programa de e-mail.</div>
+        <div class="g2" style="margin-top:14px;grid-template-columns:1fr 1fr 1fr">
+          <div class="fg">
+            <label class="lbl">Grupo / Cliente</label>
+            <input class="fi" id="inGrupo" type="text" placeholder="Nome do grupo empresarial ou cliente">
+          </div>
+          <div class="fg">
+            <label class="lbl">Advogado responsável</label>
+            <select class="fi" id="selAdvogado">
+              <option value="">— selecione —</option>
+              <option value="pedro">Pedro Castro</option>
+              <option value="emanuelle">Emanuelle Araujo</option>
+              <option value="adriana">Adriana Fátima Araujo Borges</option>
+            </select>
+          </div>
+          <div class="fg">
+            <label class="lbl">Link da pasta do Drive <span class="lg">i<span class="lg-tip">Usado no modelo de início da implantação. Deixe em branco se ainda não tiver o link.</span></span></label>
+            <input class="fi" id="inLinkDrive" type="text" placeholder="https://drive.google.com/...">
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-hd">✉ Escolha o modelo</div>
+      <div class="card-body">
+        <div id="tplTabs" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-hd" id="camposCardHd">📝 Campos deste modelo</div>
+      <div class="card-body" id="camposContainer">
+
+        <div class="campos-tpl" data-tpl="inicio">
+          <div class="fg">
+            <label class="lbl">Prazo para envio (dias úteis)</label>
+            <input class="fi" id="inicio_prazo" type="text" value="10" style="max-width:160px">
+          </div>
+          <div class="hint">Este modelo menciona o "Checklist de Documentos" em anexo — lembre-se de anexá-lo manualmente ao enviar (o link do mailto não anexa arquivos).</div>
+        </div>
+
+        <div class="campos-tpl" data-tpl="pendencia" style="display:none">
+          <div class="fg">
+            <label class="lbl">Documentos pendentes</label>
+            <div id="pendenciaLista"></div>
+            <button class="add-btn" type="button" onclick="adicionarItemLista('pendenciaLista','Documento pendente')" style="margin-top:6px">+ Adicionar documento pendente</button>
+          </div>
+          <div class="fg" style="margin-top:14px">
+            <label class="lbl">Prazo para envio (dias úteis)</label>
+            <input class="fi" id="pendencia_prazo" type="text" value="5" style="max-width:160px">
+          </div>
+        </div>
+
+        <div class="campos-tpl" data-tpl="confirmacao" style="display:none">
+          <div class="hint">Este modelo usa só o Grupo/Cliente e o advogado responsável, já preenchidos em "Dados gerais" — nenhum campo adicional aqui.</div>
+        </div>
+
+        <div class="campos-tpl" data-tpl="diagnostico" style="display:none">
+          <div class="g2">
+            <div class="fg"><label class="lbl">Empresa(s) com maior exposição fiscal</label><textarea class="fi" id="diag_exposicao" rows="2"></textarea></div>
+            <div class="fg"><label class="lbl">Parcelamentos ativos em andamento</label><textarea class="fi" id="diag_parcelamentos" rows="2"></textarea></div>
+          </div>
+          <div class="g2" style="margin-top:10px">
+            <div class="fg"><label class="lbl">Riscos imediatos que demandam atuação prioritária</label><textarea class="fi" id="diag_riscos" rows="2"></textarea></div>
+            <div class="fg"><label class="lbl">Oportunidades de regularização/recuperação</label><textarea class="fi" id="diag_oportunidades" rows="2"></textarea></div>
+          </div>
+          <div class="fg" style="margin-top:10px">
+            <label class="lbl">Disponibilidade para a próxima reunião</label>
+            <input class="fi" id="diag_disponibilidade" type="text" placeholder="Ex.: terças e quintas, à tarde">
+          </div>
+          <div class="hint" style="margin-top:10px">Este modelo menciona o "Relatório de Diagnóstico Inicial" em anexo — lembre-se de anexá-lo manualmente.</div>
+        </div>
+
+        <div class="campos-tpl" data-tpl="reuniao" style="display:none">
+          <div class="fg">
+            <label class="lbl">Data e horário sugeridos</label>
+            <input class="fi" id="reuniao_data" type="text" placeholder="Ex.: 15/09/2026, às 14h">
+          </div>
+          <div class="modo-toggle" style="margin-top:10px">
+            <label class="modo-opt is-active"><input type="radio" name="reuniaoModo" value="video" checked onclick="atualizarModoToggle(this)"><span><b>Videoconferência</b> (ou presencial, se preferirem)</span></label>
+            <label class="modo-opt"><input type="radio" name="reuniaoModo" value="presencial" onclick="atualizarModoToggle(this)"><span><b>Presencial</b>, no escritório</span></label>
+          </div>
+        </div>
+
+        <div class="campos-tpl" data-tpl="posreuniao" style="display:none">
+          <div class="g2">
+            <div class="fg"><label class="lbl">Data da reunião</label><input class="fi" id="pos_data" type="text" placeholder="Ex.: 10/09/2026"></div>
+            <div class="fg"><label class="lbl">Prioridade principal alinhada</label><input class="fi" id="pos_prioridade" type="text"></div>
+          </div>
+          <div class="sec-div"><div class="sec-div-line"></div><div class="sec-div-lbl">Principais pontos discutidos</div><div class="sec-div-line"></div></div>
+          <div class="g2">
+            <div class="fg"><label class="lbl">Panorama tributário geral</label><textarea class="fi" id="pos_panorama" rows="2"></textarea></div>
+            <div class="fg"><label class="lbl">Empresas com maior criticidade</label><textarea class="fi" id="pos_criticas" rows="2"></textarea></div>
+          </div>
+          <div class="g2" style="margin-top:10px">
+            <div class="fg"><label class="lbl">Riscos imediatos identificados</label><textarea class="fi" id="pos_riscos" rows="2"></textarea></div>
+            <div class="fg"><label class="lbl">Pendências relevantes</label><textarea class="fi" id="pos_pendencias" rows="2"></textarea></div>
+          </div>
+          <div class="sec-div"><div class="sec-div-line"></div><div class="sec-div-lbl">Estratégia final acordada</div><div class="sec-div-line"></div></div>
+          <div class="fg"><label class="lbl">(a) Regularização / Passivo Tributário</label><textarea class="fi" id="pos_regularizacao" rows="2"></textarea></div>
+          <div class="fg" style="margin-top:10px"><label class="lbl">(b) Contencioso e Execuções Fiscais</label><textarea class="fi" id="pos_contencioso" rows="2"></textarea></div>
+          <div class="fg" style="margin-top:10px"><label class="lbl">(c) Patrimônio e Estrutura Preventiva</label><textarea class="fi" id="pos_patrimonio" rows="2"></textarea></div>
+          <div class="sec-div"><div class="sec-div-line"></div><div class="sec-div-lbl">Próximos passos operacionais</div><div class="sec-div-line"></div></div>
+          <div id="posPassos"></div>
+          <button class="add-btn" type="button" onclick="adicionarPasso('posPassos')" style="margin-top:6px">+ Adicionar próximo passo</button>
+        </div>
+
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-hd">👁 Pré-visualização
+        <div class="card-hd-r">
+          <button class="card-hd-mini-btn" type="button" onclick="copiarAssunto()">Copiar assunto</button>
+          <button class="card-hd-mini-btn" type="button" onclick="copiarCorpo()">Copiar corpo</button>
+          <button class="card-hd-mini-btn" type="button" onclick="abrirEmail()">✉ Abrir no e-mail</button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="fg">
+          <label class="lbl">Assunto</label>
+          <div class="preview-assunto" id="previewAssunto"></div>
+        </div>
+        <div class="fg" style="margin-top:14px">
+          <label class="lbl">Corpo</label>
+          <div class="preview-corpo" id="previewCorpo"></div>
+        </div>
+        <div class="hint" style="margin-top:10px">"Abrir no e-mail" usa o seu programa de e-mail padrão (Gmail, Outlook etc.) já com assunto e corpo preenchidos — em textos muito longos, alguns programas cortam o corpo; se isso acontecer, use "Copiar corpo" e cole manualmente. Anexos (checklist, relatório) precisam ser adicionados à mão, não são enviados automaticamente.</div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+function $(id){return document.getElementById(id);}
+
+/* ══ CADASTRO DE ADVOGADOS — mesma fonte da ferramenta "Solicitação de Documentos" ══ */
+var ADVOGADOS={
+  pedro:{nome:'Pedro Castro',oab:'OAB/MG 228.471',telefone:'(37) 99868-4323',email:'advocaciapedrocastro@gmail.com'},
+  emanuelle:{nome:'Emanuelle Araujo',oab:'OAB/MG 240.369',telefone:'(37) 99856-4020',email:'emanuellearaujoadvocacia@gmail.com'},
+  adriana:{nome:'Adriana Fátima Araujo Borges',oab:'OAB/MG 123.438',telefone:'(37) 99828-9996',email:'adriana_f_araujo@hotmail.com'}
+};
+
+function _grupo(){return ($('inGrupo').value||'').trim()||'[Grupo/Cliente]';}
+function _assinatura(){
+  var adv=ADVOGADOS[$('selAdvogado').value];
+  if(!adv)return'[Selecione o advogado responsável em "Dados gerais"]';
+  return adv.nome+'\nAdvogado(a) — '+adv.oab+'\n📞 '+adv.telefone+' · ✉️ '+adv.email;
+}
+
+/* ══ LISTAS DINÂMICAS (documentos pendentes / próximos passos) ══ */
+function adicionarItemLista(containerId,placeholder){
+  var c=$(containerId);
+  var row=document.createElement('div');
+  row.className='member-card';
+  row.innerHTML='<button class="member-rm" type="button" onclick="this.closest(\'.member-card\').remove();atualizarPreview()" title="Remover">✕</button>'+
+    '<input class="fi" type="text" placeholder="'+(placeholder||'')+'">';
+  c.appendChild(row);
+  atualizarPreview();
+  return row;
+}
+function _linhasDe(containerId){
+  return Array.prototype.map.call(document.querySelectorAll('#'+containerId+' input'),function(i){return i.value.trim();}).filter(Boolean);
+}
+function adicionarPasso(containerId){
+  var c=$(containerId);
+  var row=document.createElement('div');
+  row.className='member-card';
+  row.innerHTML='<button class="member-rm" type="button" onclick="this.closest(\'.member-card\').remove();atualizarPreview()" title="Remover">✕</button>'+
+    '<div class="g2"><div class="fg" style="margin-bottom:0"><label class="lbl">Ação</label><input class="fi passo-acao" type="text" placeholder="Ex.: Protocolar impugnação"></div>'+
+    '<div class="fg" style="margin-bottom:0"><label class="lbl">Prazo</label><input class="fi passo-prazo" type="text" placeholder="Ex.: 30/09/2026"></div></div>';
+  c.appendChild(row);
+  atualizarPreview();
+  return row;
+}
+function _passosDe(containerId){
+  var out=[];
+  document.querySelectorAll('#'+containerId+' .member-card').forEach(function(card){
+    var acao=(card.querySelector('.passo-acao').value||'').trim();
+    var prazo=(card.querySelector('.passo-prazo').value||'').trim();
+    if(acao)out.push({acao:acao,prazo:prazo});
+  });
+  return out;
+}
+function atualizarModoToggle(radio){
+  var group=radio.closest('.modo-toggle');
+  group.querySelectorAll('.modo-opt').forEach(function(o){o.classList.remove('is-active');});
+  radio.closest('.modo-opt').classList.add('is-active');
+  atualizarPreview();
+}
+
+/* ══ GERADORES DE ASSUNTO + CORPO — um por modelo, baseados nos e-mails-padrão do escritório ══ */
+function gerar_inicio(){
+  var grupo=_grupo();
+  var prazo=($('inicio_prazo').value||'').trim()||'X';
+  var link=($('inLinkDrive').value||'').trim()||'[inserir link do Drive]';
+  var assunto='Implantação do Grupo '+grupo+' — Envio de Documentos';
+  var corpo=
+'Prezados(as),\n\n'+
+'Daremos início à etapa de implantação e estruturação jurídica e tributária do Grupo '+grupo+' em nosso escritório.\n\n'+
+'Para que possamos conduzir o processo com organização, segurança e agilidade, solicitamos o envio da documentação inicial conforme orientações abaixo.\n\n'+
+'📎 Checklist de Documentos (Anexo)\n'+
+'Encaminhamos em anexo o Checklist de Documentos Necessários, que servirá como guia para a coleta e conferência das informações do grupo.\n\n'+
+'📁 Pasta Compartilhada no Google Drive\n'+
+'A pasta oficial para envio dos arquivos já está disponível no link abaixo:\n'+
+'🔗 '+link+'\n\n'+
+'📌 Pedimos, por gentileza, que todos os documentos sejam enviados exclusivamente nessa pasta. Nossa equipe realizará toda a triagem e organização interna dos arquivos.\n\n'+
+'📅 Prazo\n'+
+'Para que possamos iniciar o diagnóstico completo do grupo, solicitamos o envio da documentação no prazo de até '+prazo+' dias úteis.\n\n'+
+'📞 Suporte\n'+
+'Caso haja qualquer dúvida ou dificuldade no upload dos arquivos, nossa equipe permanece inteiramente à disposição para auxiliar.\n\n'+
+'Atenciosamente,\n'+_assinatura();
+  return{assunto:assunto,corpo:corpo};
+}
+function gerar_pendencia(){
+  var grupo=_grupo();
+  var prazo=($('pendencia_prazo').value||'').trim()||'X';
+  var itens=_linhasDe('pendenciaLista');
+  var listaTxt=itens.length?itens.map(function(i){return '• '+i;}).join('\n'):'• [inserir documento pendente]';
+  var assunto='Documentação Complementar — Grupo Empresarial '+grupo;
+  var corpo=
+'Prezados(as),\n\nEsperamos que estejam bem.\n\n'+
+'Agradecemos o envio inicial da documentação referente à implantação do Grupo Empresarial '+grupo+'.\n\n'+
+'Após conferência interna, identificamos a necessidade de complementação com os seguintes documentos/informações:\n\n'+
+'📌 Documentos pendentes:\n'+listaTxt+'\n\n'+
+'Solicitamos, por gentileza, que os arquivos sejam enviados diretamente na pasta compartilhada indicada anteriormente.\n\n'+
+'📅 Para seguirmos com o diagnóstico e estruturação do grupo, solicitamos o envio no prazo de até '+prazo+' dias úteis.\n\n'+
+'Permanecemos à disposição para qualquer suporte necessário.\n\nAtenciosamente,\n'+_assinatura();
+  return{assunto:assunto,corpo:corpo};
+}
+function gerar_confirmacao(){
+  var grupo=_grupo();
+  var assunto='Confirmação de Recebimento — Grupo Empresarial '+grupo;
+  var corpo=
+'Prezados(as),\n\nEsperamos que estejam bem.\n\n'+
+'Confirmamos o recebimento da documentação encaminhada para a implantação e organização do Grupo Empresarial '+grupo+'.\n\n'+
+'No momento, os arquivos necessários para esta etapa inicial encontram-se completos e devidamente organizados em nosso sistema.\n\n'+
+'📌 Com isso, daremos início à fase de diagnóstico e planejamento estratégico do grupo.\n\n'+
+'Caso seja necessária qualquer informação complementar ao longo da análise, entraremos em contato.\n\n'+
+'Agradecemos pela colaboração e permanecemos à disposição.\n\nAtenciosamente,\n'+_assinatura();
+  return{assunto:assunto,corpo:corpo};
+}
+function gerar_diagnostico(){
+  var grupo=_grupo();
+  var exposicao=($('diag_exposicao').value||'').trim()||'[inserir]';
+  var parcelamentos=($('diag_parcelamentos').value||'').trim()||'[inserir]';
+  var riscos=($('diag_riscos').value||'').trim()||'[inserir]';
+  var oportunidades=($('diag_oportunidades').value||'').trim()||'[inserir]';
+  var disponibilidade=($('diag_disponibilidade').value||'').trim()||'[inserir datas/horários]';
+  var assunto='Diagnóstico Inicial — Grupo Empresarial '+grupo;
+  var corpo=
+'Prezados(as),\n\nEsperamos que estejam bem.\n\n'+
+'Concluímos a etapa inicial de implantação e análise do Grupo Empresarial '+grupo+', com base na documentação encaminhada e no levantamento fiscal, patrimonial e estratégico realizado pelo escritório.\n\n'+
+'📎 Encaminhamos em anexo o Relatório de Diagnóstico Inicial, contendo:\n'+
+'• panorama geral do grupo empresarial\n• situação fiscal e tributária por empresa\n• parcelamentos ativos e passivos identificados\n• principais riscos e pontos de atenção\n• oportunidades de regularização e planejamento\n• recomendações estratégicas iniciais\n\n'+
+'📌 Pontos relevantes identificados\n'+
+'Empresa(s) com maior exposição fiscal: '+exposicao+'\n'+
+'Parcelamentos ativos em andamento: '+parcelamentos+'\n'+
+'Riscos imediatos que demandam atuação prioritária: '+riscos+'\n'+
+'Oportunidades de regularização/recuperação tributária: '+oportunidades+'\n\n'+
+'📅 Próximos passos sugeridos\n'+
+'Propomos o agendamento de uma reunião estratégica para alinharmos prioridades do plano de ação, medidas urgentes e o cronograma de regularização do grupo.\n'+
+'📌 Disponibilidade: '+disponibilidade+'\n\n'+
+'Permanecemos à disposição.\n\nAtenciosamente,\n'+_assinatura();
+  return{assunto:assunto,corpo:corpo};
+}
+function gerar_reuniao(){
+  var grupo=_grupo();
+  var data=($('reuniao_data').value||'').trim()||'[inserir data/horário]';
+  var modalidade=document.querySelector('input[name=reuniaoModo]:checked');
+  var modalidadeTxt=(modalidade&&modalidade.value==='presencial')?'📍 Reunião presencial, em nosso escritório.':'📍 Reunião por videoconferência (ou presencial, se preferirem).';
+  var assunto='Reunião Estratégica — Alinhamento do Plano de Ação do Grupo '+grupo;
+  var corpo=
+'Prezados(as),\n\nEsperamos que estejam bem.\n\n'+
+'Após a conclusão do Diagnóstico Inicial do Grupo Empresarial '+grupo+', sugerimos o agendamento de uma Reunião Estratégica, com o objetivo de:\n'+
+'• apresentar os principais pontos identificados\n• alinhar prioridades e riscos imediatos\n• definir o plano de ação tributário e patrimonial do grupo\n• estruturar os próximos passos de regularização e governança fiscal\n\n'+
+'📅 Sugestão de data e horário:\n'+data+'\n\n'+
+modalidadeTxt+'\n\n'+
+'Caso desejem, poderão participar também o contador ou responsável financeiro do grupo.\n\n'+
+'Pedimos, por gentileza, a confirmação da melhor data e horário.\n\nAtenciosamente,\n'+_assinatura();
+  return{assunto:assunto,corpo:corpo};
+}
+function gerar_posreuniao(){
+  var grupo=_grupo();
+  var data=($('pos_data').value||'').trim()||'[inserir data]';
+  var panorama=($('pos_panorama').value||'').trim()||'[inserir]';
+  var criticas=($('pos_criticas').value||'').trim()||'[inserir]';
+  var riscos=($('pos_riscos').value||'').trim()||'[inserir]';
+  var pendencias=($('pos_pendencias').value||'').trim()||'[inserir]';
+  var prioridade=($('pos_prioridade').value||'').trim()||'[inserir]';
+  var regularizacao=($('pos_regularizacao').value||'').trim()||'[inserir]';
+  var contencioso=($('pos_contencioso').value||'').trim()||'[inserir]';
+  var patrimonio=($('pos_patrimonio').value||'').trim()||'[inserir]';
+  var passos=_passosDe('posPassos');
+  var passosTxt=passos.length?passos.map(function(p,i){return (i+1)+') '+p.acao+' — prazo: '+(p.prazo||'[inserir data]');}).join('\n'):'1) [inserir ação] — prazo: [inserir data]';
+  var assunto='Consolidação da Reunião Estratégica — Grupo '+grupo;
+  var corpo=
+'Prezados(as),\n\n'+
+'Conforme nossa reunião realizada em '+data+', encaminhamos abaixo a consolidação dos principais pontos tratados e da estratégia definida para o Grupo Empresarial '+grupo+'.\n\n'+
+'✅ 1. Principais pontos discutidos\n'+
+'Panorama tributário geral: '+panorama+'\n'+
+'Empresas com maior criticidade: '+criticas+'\n'+
+'Riscos imediatos identificados: '+riscos+'\n'+
+'Pendências relevantes: '+pendencias+'\n\n'+
+'✅ 2. Prioridade alinhada com o grupo\n'+
+'📌 '+prioridade+'\n\n'+
+'✅ 3. Estratégia final acordada\n'+
+'(a) Regularização / Passivo Tributário\n'+regularizacao+'\n\n'+
+'(b) Contencioso e Execuções Fiscais\n'+contencioso+'\n\n'+
+'(c) Patrimônio e Estrutura Preventiva\n'+patrimonio+'\n\n'+
+'✅ 4. Próximos passos operacionais\n'+passosTxt+'\n\n'+
+'📌 Caso haja necessidade de documentos adicionais, entraremos em contato de forma objetiva.\n\n'+
+'✅ 5. Suporte e acompanhamento\n'+
+'Nos colocamos à disposição para qualquer dúvida e, a partir deste alinhamento, iniciaremos a execução do plano estratégico definido.\n\n'+
+'Atenciosamente,\n'+_assinatura();
+  return{assunto:assunto,corpo:corpo};
+}
+
+/* ══ SELEÇÃO DE MODELO E PRÉ-VISUALIZAÇÃO ══ */
+var TEMPLATES=[
+  {id:'inicio',rotulo:'Início — solicitação de documentos'},
+  {id:'pendencia',rotulo:'Pendência — documento faltante'},
+  {id:'confirmacao',rotulo:'Confirmação — documentação completa'},
+  {id:'diagnostico',rotulo:'Diagnóstico — entrega ao cliente'},
+  {id:'reuniao',rotulo:'Reunião — agendamento'},
+  {id:'posreuniao',rotulo:'Pós-reunião — consolidação da estratégia'}
+];
+var GERADORES={inicio:gerar_inicio,pendencia:gerar_pendencia,confirmacao:gerar_confirmacao,diagnostico:gerar_diagnostico,reuniao:gerar_reuniao,posreuniao:gerar_posreuniao};
+var _TPL_ATUAL='inicio';
+
+function montarTabs(){
+  $('tplTabs').innerHTML=TEMPLATES.map(function(t,i){
+    return '<button type="button" class="tpl-btn'+(t.id===_TPL_ATUAL?' is-active':'')+'" data-tpl="'+t.id+'" onclick="selecionarTemplate(\''+t.id+'\')">'+
+      '<span class="subsec-num">'+(i+1)+'</span>'+t.rotulo+'</button>';
+  }).join('');
+}
+function selecionarTemplate(id){
+  _TPL_ATUAL=id;
+  document.querySelectorAll('.tpl-btn').forEach(function(b){b.classList.toggle('is-active',b.dataset.tpl===id);});
+  document.querySelectorAll('.campos-tpl').forEach(function(el){el.style.display=(el.dataset.tpl===id)?'':'none';});
+  atualizarPreview();
+}
+function atualizarPreview(){
+  var fn=GERADORES[_TPL_ATUAL];
+  if(!fn)return;
+  var r=fn();
+  $('previewAssunto').textContent=r.assunto;
+  $('previewCorpo').textContent=r.corpo;
+}
+
+/* ══ TOAST, COPIAR E ABRIR NO E-MAIL ══ */
+var _toastTimer=null;
+function _toast(msg){
+  var t=$('toast');
+  t.textContent=msg;
+  t.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer=setTimeout(function(){t.classList.remove('show');},2600);
+}
+async function copiarTexto(txt,msg){
+  try{
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      await navigator.clipboard.writeText(txt);
+    }else{
+      var ta=document.createElement('textarea');
+      ta.value=txt;ta.style.position='fixed';ta.style.left='-9999px';
+      document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);
+    }
+    _toast(msg);
+  }catch(e){
+    _toast('Não consegui copiar — selecione o texto e copie manualmente.');
+  }
+}
+function copiarAssunto(){copiarTexto($('previewAssunto').textContent,'Assunto copiado ✓');}
+function copiarCorpo(){copiarTexto($('previewCorpo').textContent,'Corpo copiado ✓');}
+function abrirEmail(){
+  var assunto=encodeURIComponent($('previewAssunto').textContent);
+  var corpo=encodeURIComponent($('previewCorpo').textContent);
+  window.location.href='mailto:?subject='+assunto+'&body='+corpo;
+}
+
+/* ══ INICIALIZAÇÃO ══ */
+document.getElementById('main').addEventListener('input',atualizarPreview);
+document.getElementById('main').addEventListener('change',atualizarPreview);
+adicionarItemLista('pendenciaLista','Documento pendente');
+adicionarPasso('posPassos');
+montarTabs();
+selecionarTemplate('inicio');
+</script>
+</body>
+</html>

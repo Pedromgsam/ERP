@@ -1,0 +1,101 @@
+function renderFinTbl(){
+  if(!_finDados()||!_finDados().length)return;
+  var fG=document.getElementById('fFinGrupo')?.value||'';
+  var fA=document.getElementById('fFinAdv')?.value||'';
+  var fT=document.getElementById('fFinTipo')?.value||'';
+  var fSt=document.getElementById('fFinSit')?.value||'';
+  var fDe=document.getElementById('fFinDe')?.value||'';
+  var fAte=document.getElementById('fFinAte')?.value||'';
+  var fRef=(document.getElementById('fFinRef')?.value||'').toLowerCase();
+  var fMesAno=document.getElementById('fFinMesAno')?.value||'';
+  var fGlobal=FILTROS.grupo||'';
+  var rows=_finDados().filter(f=>{
+    if(f.aba!=='A Receber')return false;
+    if(fGlobal&&f.grupo!==fGlobal)return false;
+    if(fMesAno){/* period filter skipped when MesAno active */}
+    else if(window._finPeriod&&window._finPeriod!=='todos'){
+      var vd=pDate(f.vencimento);var hoje2=new Date();hoje2.setHours(0,0,0,0);
+      if(window._finPeriod==='vencidos'){if(!vd||vd>=hoje2||f.pagamento==='SIM')return false;}
+      else{var lim2=new Date(hoje2);lim2.setDate(lim2.getDate()+Number(window._finPeriod));
+        if(!vd||vd<hoje2||vd>lim2)return false;}
+    }
+    if(fG&&f.grupo!==fG)return false;
+    if(fA&&f.advogado!==fA)return false;
+    if(fT&&f.tipo!==fT)return false;
+    if(fRef&&!String(f.referencia||'').toLowerCase().includes(fRef)&&!String(f.descricao||'').toLowerCase().includes(fRef))return false;
+    if(fMesAno){var _d=pDate(f.vencimento);if(!_d)return false;var _my=_d.getFullYear()+'-'+String(_d.getMonth()+1).padStart(2,'0');if(_my!==fMesAno)return false;}
+    if(fSt==='adimplente'&&!(f.pagamento!=='SIM'&&f.situacao!=='Vencido'))return false;
+    if(fSt==='inadimplente'&&!(f.pagamento!=='SIM'&&f.situacao==='Vencido'))return false;
+    if(fSt==='pago'&&f.pagamento!=='SIM')return false;
+    if(fDe||fAte){var d=pDate(f.vencimento);
+      if(fDe&&(!d||d<new Date(fDe)))return false;
+      if(fAte&&(!d||d>new Date(fAte+'T23:59:59')))return false;}
+    return true;
+  });
+  _updateFinKpis(rows);
+  rows=rows.sort((a,b)=>{var v=_finSort.asc?1:-1;
+    if(_finSort.col==='venc'){var da=pDate(a.vencimento)||new Date(0),db=pDate(b.vencimento)||new Date(0);return v*(da-db);}
+    if(_finSort.col==='val')return v*((Number(a.valor)||0)-(Number(b.valor)||0));
+    return 0;
+  });
+  _finPopMesAno(_finDados().filter(f=>f.aba==='A Receber'));
+  var cnt=document.getElementById('finCnt');
+  if(cnt)cnt.textContent='· '+fI(rows.length)+' lançamento(s)';
+  var tot=rows.reduce((s,f)=>s+(Number(f.valor)||0),0);
+  var foot=document.getElementById('tblFinFoot');
+  if(foot)foot.innerHTML='<td colspan="5">Total</td><td class="mono"><strong>'+fF(tot)+'</strong></td><td colspan="2"></td>';
+  paginate('pagFin',rows.length,_finPg,p=>{_finPg=p;renderFinTbl();});
+  var pg=rows.slice((_finPg-1)*PG,_finPg*PG);
+  var sitCls=f=>f.pagamento==='SIM'?'tt':f.situacao==='Vencido'?'tr':'ta';
+  var sitLbl=f=>f.pagamento==='SIM'?'Pago':f.situacao==='Vencido'?'Inadimplente':'A Vencer';
+  var body=document.getElementById('tblFinBody');
+  if(!body)return;
+  body.innerHTML=pg.length?pg.map(f=>{
+    var d=Number(f.diasRestantes)||0,dCl=d<0?'dr':d<=7?'da':'dg';
+    return '<tr><td><span class="tag tn">'+(f.grupo||'—')+'</span></td>'
+      +'<td>'+advBadge(f.advogado)+'</td><td>'+(f.tipo||'—')+'</td>'
+      +'<td style="font-size:10.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:0">'+(f.referencia||'—')+(f.obs?'<br><span style="font-size:10px;color:var(--text3)">'+f.obs+'</span>':'')+'</td>'
+      +'<td class="mono">'+(f.vencimento||'—')+'</td>'
+      +'<td class="mono"><strong>'+fF(f.valor||0)+'</strong></td>'
+      +'<td class="mono" style="font-size:11px;font-weight:500;color:'+(d<0?'var(--red-d)':d<=7?'var(--amber)':'var(--text3)')+'">'+(f.pagamento==='SIM'?'—':d<0?Math.abs(d)+'d atraso':d+'d')+'</td>'
+      +'<td><span class="tag '+sitCls(f)+' '+(sitCls(f)==='tr'?'tpls':'')+'">'+sitLbl(f)+'</span></td></tr>';
+  }).join(''):'<tr><td colspan="8">'+emp()+'</td></tr>';
+}
+function sortFin(col){if(_finSort.col===col)_finSort.asc=!_finSort.asc;else _finSort={col:col,asc:true};_finPg=1;renderFinTbl();}
+
+function _updateFinKpis(rows){
+  var vnc=rows.filter(f=>f.pagamento!=='SIM'&&f.situacao==='Vencido').reduce((s,f)=>s+(Number(f.valor)||0),0);
+  var ok =rows.filter(f=>f.pagamento!=='SIM'&&f.situacao!=='Vencido').reduce((s,f)=>s+(Number(f.valor)||0),0);
+  var grid=document.querySelector('#finContent .kpi-grid');
+  if(!grid)return;
+  grid.innerHTML=
+    kC('Total a Receber',fS(ok+vnc),'honorários em aberto','cr','dr')
+   +kC('Inadimplente',fS(vnc),'vencido sem pagamento','cr','dr')
+   +kC('A Vencer',fS(ok),'dentro do prazo','ca','');
+}
+
+const TRF_KEY = 'erpTarefasV1';
+let _trfCache = null;
+
+
+
+
+
+
+
+let _trfSortCol='prazo', _trfSortAsc=true;
+
+
+
+
+const _chipColors={
+  pendente:  {active:'#991B1B',bg:'var(--red-lt)'},
+  andamento: {active:'var(--blue-d)',bg:'var(--blue-lt)'},
+  aguardando:{active:'#92400E',bg:'var(--amber-lt)'},
+  concluida: {active:'#166534',bg:'var(--green-lt)'},
+  Ativo:     {active:'#166534',bg:'var(--green-lt)'},
+  Arquivado: {active:'var(--text2)',bg:'#F3F4F6'},
+  Parcelamento:{active:'var(--amber)',bg:'var(--amber-lt)'},
+  Acordo:    {active:'var(--violet)',bg:'#F5F3FF'},
+  Honorário: {active:'var(--blue-d)',bg:'var(--blue-lt)'}
+};
