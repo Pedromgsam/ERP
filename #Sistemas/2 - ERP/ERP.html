@@ -2965,7 +2965,7 @@ async function _wb(btn, acao, dados, successMsg, optimistic) {
   }
 
   try {
-    const payload = { acao, dados };
+    const payload = { acao, dados, token: _acToken() };
     const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
     const getUrl = url + '?_wb=1&payload=' + encodeURIComponent(encoded) + '&_t=' + Date.now();
     const res = await fetch(getUrl, { method: 'GET', cache: 'no-store' });
@@ -3141,11 +3141,12 @@ function _carregarEtapa(url,who,sess,i,tent){
   setStatus('loading',_ETAPAS_ROTULO[i]+(tent?' (tentativa '+(tent+1)+'/3)':'')+'…');
   const _ctrl2=new AbortController();
   const _tmo2=setTimeout(()=>_ctrl2.abort(),60000);
-  fetch(url+'?_t='+Date.now()+'&login='+who+'&modulos='+_ETAPAS_CARGA[i],{cache:'no-store',signal:_ctrl2.signal})
+  fetch(url+'?_t='+Date.now()+'&token='+who+'&modulos='+_ETAPAS_CARGA[i],{cache:'no-store',signal:_ctrl2.signal})
     .then(r=>{ clearTimeout(_tmo2); return r.text(); })
     .then(txt=>{
       let j; try{ j=JSON.parse(txt); }
       catch(e){ throw new Error('o servidor respondeu uma pagina na etapa '+(i+1)); }
+      if(_acSessaoExpirada(j)) return;
       if(!j || j.erro || j._negado) throw new Error((j&&j.erro)||'falha na etapa '+(i+1));
       _aplicarEtapa2(j);
       if(j._diag) console.log('[ERP] etapa '+(i+1)+' ('+_ETAPAS_CARGA[i]+'): '+j._diag.msTotal+'ms',j._diag.msPorModulo||{});
@@ -3180,7 +3181,7 @@ function _aplicarEtapa2(json){
 async function _apiPost(acao, dados) {
   const url = localStorage.getItem(LS_KEY) || DEFAULT_URL;
   try {
-    const encoded = btoa(unescape(encodeURIComponent(JSON.stringify({ acao, dados: dados || {} }))));
+    const encoded = btoa(unescape(encodeURIComponent(JSON.stringify({ acao, dados: dados || {}, token: _acToken() }))));
     const res = await fetch(url + '?_wb=1&payload=' + encodeURIComponent(encoded) + '&_t=' + Date.now(),
                             { cache:'no-store' });
     return await res.json();
@@ -3274,7 +3275,8 @@ async function loadData(forceRefresh){
     // devolver SOMENTE os grupos deste usuario. Sem ele, em MODO_ESTRITO,
     // a requisicao e negada. Campo e 'email' -- AC_SESSION nao tem 'login'.
     const _sess=window.AC_SESSION||{};
-    const _who=encodeURIComponent(_sess.email||_sess.login||'');
+    // v4: o servidor identifica pelo token, nao mais pelo login
+    const _who=encodeURIComponent(_sess.token||'');
     // v28: carga em DUAS ETAPAS. A 1a traz so o que o painel precisa para
     // desenhar (4 modulos); a 2a busca o resto em segundo plano, com a tela ja
     // aberta. Nao ha cache -- as duas etapas leem a planilha na hora. O que
@@ -3290,7 +3292,7 @@ async function loadData(forceRefresh){
     // v51: etapa 1 agora tenta ate 3x (60s cada) antes de desistir -- ver
     // _buscarEtapa1 acima.
     const _ETAPA1='baseDados,processos';
-    const _bruto=await _buscarEtapa1(url+'?_t='+Date.now()+'&login='+_who+'&modulos='+_ETAPA1);
+    const _bruto=await _buscarEtapa1(url+'?_t='+Date.now()+'&token='+_who+'&modulos='+_ETAPA1);
     let json;
     try{ json=JSON.parse(_bruto); }
     catch(e){
@@ -3298,6 +3300,7 @@ async function loadData(forceRefresh){
       throw new Error('o Apps Script respondeu uma pagina em vez de dados. Implantacao desatualizada, sem autorizacao ou com acesso restrito — veja o Console (F12).');
     }
     // v26: servidor recusou o acesso -- zera o DB em vez de seguir com dado velho
+    if(_acSessaoExpirada(json)){ const ovx=$('loadOverlay'); if(ovx) ovx.classList.remove('on'); return; }
     if(json._negado){
       ['baseDados','processos','parcelamentos','acordos','financeiro','financeiroContabilidade','tarefas']
         .forEach(k=>{DB[k]=[];});
@@ -8853,7 +8856,7 @@ function _acRateReset(email) {
 
 window.AC_SESSION = null;
 
-function acCreateSession(email, nivel, grupos, nome) {
+function acCreateSession(email, nivel, grupos, nome, token) {
   // v27: limpa o cache local SO quando troca de usuario. A v26 limpava em
   // todo login, o que obrigava cada entrada a refazer a carga inteira pela
   // rede -- era metade da lentidao percebida. O risco real era outro: em
@@ -8863,7 +8866,8 @@ function acCreateSession(email, nivel, grupos, nome) {
   // v28: nao ha mais cache local; so garante que nada antigo tenha ficado
   try { _dbCacheClear(); localStorage.removeItem('ac_db_cache_dono'); } catch(e) {}
   // v26: 'login' espelha 'email' para quem ler a sessao por esse nome
-  const s = { email, login: email, nivel, grupos: grupos || '', nome,
+  // v4: token = passe devolvido pelo servidor no login; vai em toda requisicao
+  const s = { email, login: email, nivel, grupos: grupos || '', nome, token: token || '',
               criado: Date.now(), expira: Date.now() + AC_SESSION_TTL };
   sessionStorage.setItem(AC_SESSION_KEY, JSON.stringify(s));
   window.AC_SESSION = s;
@@ -9012,10 +9016,10 @@ async function _acLoginUnificado(login, senha) {
   const _pu = checarUrlGAS(url);
   if (_pu) { _acMostrarMsg(_pu, 'erro'); return; }
   try {
-    const payload = { acao: 'autenticarCliente', email: login };
-    const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
-    const res  = await fetch(url + '?_auth=1&payload=' + encodeURIComponent(encoded) + '&_t=' + Date.now(),
-      { method: 'GET', cache: 'no-store' });
+    // v4: a senha e conferida no SERVIDOR, que devolve um token de sessao.
+    // Antes o servidor mandava o hash da senha e a comparacao era feita aqui
+    // -- qualquer um podia pular a tela e ler os dados direto da URL.
+    const res = await _acAuthPost(url, { acao: 'login', login, senha });
     // v29: o Apps Script devolve HTML (nao JSON) quando a implantacao esta
     // desatualizada, sem autorizacao para os escopos novos, ou com acesso
     // restrito. Antes isso caia no catch como "Erro de conexao" generico e
@@ -9037,27 +9041,12 @@ async function _acLoginUnificado(login, senha) {
       _acMostrarMsg('Falha ao falar com o servidor: ' + motivo, 'erro');
       return;
     }
-    // v60: as duas falhas (usuario nao encontrado x senha errada) mostravam
-    // o MESMO texto generico -- depois de varias rodadas sem conseguir
-    // apontar a causa a distancia, virou mensagem especifica pra cada uma.
-    // Se ainda falhar, o proprio texto na tela ja diz qual das duas foi.
-    if (!json.ok || !json.usuario) {
+    // v60: mensagens especificas (usuario nao encontrado x senha errada x
+    // inativo) -- agora vem prontas do servidor, que e quem sabe o motivo.
+    if (!json.ok || !json.usuario || !json.token) {
       _acRateInc(login);
-      _acMostrarMsg('Usu\u00e1rio "' + login + '" n\u00e3o encontrado na planilha Portal do Cliente (confira se est\u00e1 escrito exatamente assim na coluna Login).', 'erro');
+      _acMostrarMsg(json.erro || 'Login ou senha incorretos.', 'erro');
       document.getElementById('ac-login-senha').value = '';
-      _acLogAcesso(login, '?', false);
-      return;
-    }
-    const hash = await acAuthHash(senha);
-    if (hash !== json.usuario.senhaHash) {
-      _acRateInc(login);
-      _acMostrarMsg('Senha incorreta para o usu\u00e1rio "' + login + '".', 'erro');
-      document.getElementById('ac-login-senha').value = '';
-      _acLogAcesso(login, '?', false);
-      return;
-    }
-    if (json.usuario.ativo !== 'SIM') {
-      _acMostrarMsg('Acesso inativo. Contate o escrit\u00f3rio.', 'erro');
       return;
     }
     const gruposRaw = json.usuario.grupos || '';
@@ -9066,17 +9055,14 @@ async function _acLoginUnificado(login, senha) {
     const nome      = json.usuario.nome || login;
     const grupos    = isAdmin ? '' : gruposRaw;
     _acRateReset(login);
-    if (document.getElementById('ac-lembrar')?.checked) {
-      localStorage.setItem('ac_saved_login', login);
-      localStorage.setItem('ac_saved_senha', senha); // armazenado localmente (dispositivo do usuário)
-    } else {
-      localStorage.removeItem('ac_saved_login');
-      localStorage.removeItem('ac_saved_senha');
-    }
-    acCreateSession(login, nivel, grupos, nome);
+    // v4: "Lembrar" guarda so o LOGIN. A senha nao fica mais gravada no
+    // navegador (antes ia em texto puro para o localStorage).
+    localStorage.removeItem('ac_saved_senha');
+    if (document.getElementById('ac-lembrar')?.checked) localStorage.setItem('ac_saved_login', login);
+    else localStorage.removeItem('ac_saved_login');
+    acCreateSession(json.usuario.login || login, nivel, grupos, nome, json.token);
     acHideLogin();
     toast('\u2713 Bem-vindo, ' + nome + '!');
-    _acLogAcesso(login, nivel, true);
     loadData();
     if (nivel === 'cliente') acAplicarModoCliente(nome);
     else acAplicarModoAdmin(nome);
@@ -9087,6 +9073,11 @@ async function _acLoginUnificado(login, senha) {
 
 function acLogout() {
   const eraModoEspecial = window.AC_SESSION?.nivel === 'cliente';
+  const _tok = _acToken();
+  if (_tok) {
+    const _u = localStorage.getItem(LS_KEY) || DEFAULT_URL;
+    _acAuthPost(_u, { acao: 'logout', token: _tok }).catch(() => {});
+  }
   _acLimparSessao();
   if (eraModoEspecial) { window.location.reload(); return; }
   acShowLogin();
@@ -9182,15 +9173,32 @@ function acAplicarModoCliente(nome) {
   };
 })();
 
-function _acLogAcesso(email, nivel, sucesso) {
-  const url = localStorage.getItem(LS_KEY) || DEFAULT_URL;
-  if (!url) return;
-  const payload = { acao: 'logAcesso', email, nivel, sucesso, dataHora: new Date().toISOString() };
+// v4: o log de acesso passou a ser gravado pelo servidor no proprio login.
+function _acLogAcesso() {}
+
+// v4: login e logout vao por POST (text/plain, sem preflight de CORS) para a
+// senha nao aparecer na URL. Se o navegador bloquear o POST, cai no GET.
+async function _acAuthPost(url, payload) {
+  const corpo = JSON.stringify(Object.assign({ _auth: 1 }, payload));
   try {
-    const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
-    fetch(url + '?_auth=1&payload=' + encodeURIComponent(encoded) + '&_t=' + Date.now(),
-      { cache: 'no-store' }).catch(() => {});
-  } catch {}
+    return await fetch(url, { method: 'POST', cache: 'no-store', body: corpo,
+                              headers: { 'Content-Type': 'text/plain;charset=utf-8' } });
+  } catch (e) {
+    const encoded = btoa(unescape(encodeURIComponent(corpo)));
+    return fetch(url + '?_auth=1&payload=' + encodeURIComponent(encoded) + '&_t=' + Date.now(),
+                 { method: 'GET', cache: 'no-store' });
+  }
+}
+
+// v4: token da sessao atual ('' se nao ha sessao)
+function _acToken() { return (window.AC_SESSION && window.AC_SESSION.token) || ''; }
+
+// v4: servidor disse que o token expirou -- volta para a tela de login
+function _acSessaoExpirada(json) {
+  if (!json || !json._sessaoExpirada) return false;
+  toast('\u23f0 Sess\u00e3o expirada. Entre novamente.');
+  acLogout();
+  return true;
 }
 
 let _acEditandoUsuario = null;
@@ -9242,13 +9250,12 @@ function acLoginUrlSalvar() {
 }
 
 function acLembrarToggle() {
-  if (!document.getElementById('ac-lembrar')?.checked) {
-    localStorage.removeItem('ac_saved_login');
-    localStorage.removeItem('ac_saved_senha');
-  }
+  if (!document.getElementById('ac-lembrar')?.checked) localStorage.removeItem('ac_saved_login');
 }
 
 window.addEventListener('DOMContentLoaded', () => {
+  // v4: apaga a senha que versoes antigas deixavam gravada no navegador
+  try { localStorage.removeItem('ac_saved_senha'); } catch(e) {}
   const s = acGetSession();
   if (!s) {
     acShowLogin();
@@ -9260,16 +9267,12 @@ window.addEventListener('DOMContentLoaded', () => {
       if (toggleTxt) toggleTxt.style.color = 'var(--green,#16a34a)';
     }
     const savedLogin = localStorage.getItem('ac_saved_login');
-    const savedSenha = localStorage.getItem('ac_saved_senha');
     if (savedLogin) {
       const inp = document.getElementById('ac-login-email');
       if (inp) inp.value = savedLogin;
-      const si = document.getElementById('ac-login-senha');
-      if (si && savedSenha) si.value = savedSenha;
       const cb = document.getElementById('ac-lembrar');
       if (cb) cb.checked = true;
-      if (savedSenha) setTimeout(() => document.getElementById('ac-login-btn')?.focus(), 80);
-      else setTimeout(() => document.getElementById('ac-login-senha')?.focus(), 80);
+      setTimeout(() => document.getElementById('ac-login-senha')?.focus(), 80);
     }
   } else {
     window.AC_SESSION = s;
