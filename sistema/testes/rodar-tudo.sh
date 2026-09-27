@@ -14,5 +14,7 @@ for i in 1 2 3 4 5 6 7 8 9 10; do
   curl -s http://127.0.0.1:3001/perfis | grep -q 42501 && break; sleep 1
 done
 node "$DIR/importador.test.js"
+node "$DIR/emails.test.js"
 node "$DIR/telas.js"
 node "$DIR/erp.js"
+node "$DIR/visual.js"

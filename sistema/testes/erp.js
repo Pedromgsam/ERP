@@ -35,9 +35,14 @@ insert into lancamentos(empresa,tipo,grupo_id,descricao,categoria,responsavel,ve
   select 'escritorio','receita',id,'Comissão','Comissão','Pedro',current_date + 5,150,true from grupos where nome='Grupo Alfa';
 insert into lancamentos(empresa,tipo,grupo_id,descricao,categoria,responsavel,vencimento,valor)
   select 'contabilidade','receita',id,'Honorários contábeis','Mensal','Adriana',current_date - 3,900 from grupos where nome='Grupo Beta';
+insert into acordos(grupo_id,processo,devedor,credor,parcela,total_parcelas,valor,vencimento)
+  select id,'0009999-11.2022.5.03.0002','Beta Serviços Ltda','Credor Antigo','3','10',128450.90,current_date - 20 from grupos where nome='Grupo Beta';
 insert into tarefas(titulo,responsavel,prazo) values ('Protocolar defesa','Pedro',current_date + 2);
 insert into configuracoes(chave,valor) values ('recibo_emitentes','{"pedro":{"label":"Pedro","nome":"ADVOGADO FICTICIO","oab":"OAB/MG 1","local":"Cidade/MG","qualif":"advogado ficticio, e-mail teste@teste","email":"teste@teste"}}');
 insert into auth.users(email,senha_teste,raw_user_meta_data) values ('cliente@teste','senha123','{"nome":"Cliente Alfa"}');
+update config_privada set valor = to_jsonb('http://127.0.0.1:8090/__teste/djen'::text) where chave = 'api_publicacoes';
+insert into auth.users(email,senha_teste,raw_user_meta_data) values ('fin@teste','senha123','{"nome":"Fabiana Financeiro"}');
+update perfis set papel='equipe', funcoes='{"financeiro_juridico":"editar"}' where email='fin@teste';
 update perfis set papel='cliente' where email='cliente@teste';
 insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, grupos g where p.email='cliente@teste' and g.nome='Grupo Alfa';
 `);
@@ -103,7 +108,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await foto(p, 'inicio');
     await p.waitForTimeout(1500);
     const n = await p.evaluate(() => ({ b: DB.baseDados.length, pr: DB.processos.length, pa: DB.parcelamentos.length, ac: DB.acordos.length, fi: DB.financeiro.length, fc: DB.financeiroContabilidade.length }));
-    ok('carrega os 6 módulos do Supabase', n.b === 3 && n.pr === 1 && n.pa === 1 && n.ac === 1 && n.fi === 2 && n.fc === 1, JSON.stringify(n));
+    ok('carrega os 6 módulos do Supabase', n.b === 3 && n.pr === 1 && n.pa === 1 && n.ac === 2 && n.fi === 2 && n.fc === 1, JSON.stringify(n));
     ok('PF identificada (isPJ=false) e PJ (isPJ=true)', await p.evaluate(() => DB.baseDados.find((x) => x.nome === 'Ana Alfa').isPJ === false && DB.baseDados.find((x) => x.nome === 'Alfa Comércio Ltda').isPJ === true));
     // Passivo total = só PJ: Alfa 1000+500+200 + Beta 300 = 2.000 (a PF igual NÃO soma)
     await nav(p, 'resumo');
@@ -129,6 +134,12 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('tabela original do ERP escondida (sem duplicar)', await p.$eval('#tblFinBody', (tb) => tb.closest('table').classList.contains('gx-oculta')));
     ok('comissão aparece como redutor (valor negativo)', /−\s*R\$\s*150,00/.test(await p.textContent('#panel-financeiro .gx-tab-gs')) && /redutor/.test(await p.textContent('#panel-financeiro .gx-tab-gs')));
     await foto(p, 'areceber');
+
+    // ── acordos são dívidas do cliente: nunca entram no financeiro do escritório ──
+    { const v = await p.evaluate(() => ({ fin: _getVencRows(-1, 'financeiro').map((r) => r.tipo), cli: _getVencRows(-1, 'cliente').map((r) => r.tipo),
+        finAc: (DB.financeiro || []).some((f) => /acordo/i.test(f.tipo || '')) }));
+      ok('vencidos do financeiro só com honorários; acordos e parcelamentos no escopo do cliente',
+        v.fin.every((t) => t === 'Honorário') && v.cli.includes('Acordo') && !v.cli.includes('Honorário') && !v.finAc, JSON.stringify(v)); }
 
     // ── editar: formulário do Gestão ──
     const idRec = sql("select id from lancamentos where descricao='Honorários mensais'");
@@ -202,12 +213,12 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
 
     // ── acordo (✓ Baixa na linha) e processo ──
     await nav(p, 'acordos'); await p.waitForTimeout(600);
-    const idAc = sql('select id from acordos');
+    const idAc = sql("select id from acordos where credor='Carlos Credor'");
     ok('acordos com ✓ Baixa na linha', await p.evaluate((id) => document.querySelectorAll('tr[data-gx^="acordos:' + id + '"] [data-la=baixa]').length > 0, idAc));
     await p.evaluate((id) => ERP_EDITAR('acordos:' + id), idAc); await esperarJanela(p);
     await p.click('.gx-janela [data-a=baixa]'); await p.waitForTimeout(2500);
-    ok('acordo baixado', sql('select pago and data_pagamento=current_date from acordos') === 't');
-    ok('ERP mostra o acordo como Pago', await p.evaluate(() => DB.acordos[0].situacao === 'Pago'));
+    ok('acordo baixado', sql("select pago and data_pagamento=current_date from acordos where credor='Carlos Credor'") === 't');
+    ok('ERP mostra o acordo como Pago', await p.evaluate(() => DB.acordos.find((a) => a.credor === 'Carlos Credor').situacao === 'Pago'));
     ok('Desfazer no rodapé', await p.isVisible('#gx-rodape .gx-rod-bt'));
     await lancar(p, 5);
     await p.fill('#gx-f-numero', '5000002-22.2025.8.13.0024'); await p.fill('#gx-f-grupo_id', 'Grupo Beta');
@@ -218,8 +229,10 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await nav(p, 'tarefas'); await p.waitForTimeout(1500);
     ok('Tarefas lista as abertas', /Protocolar defesa/.test(await p.textContent('#panel-tarefas')));
     await foto(p, 'tarefas');
-    await p.click('#panel-tarefas [data-concluir]'); await p.waitForTimeout(2000);
-    ok('concluir tarefa na linha', sql('select status from tarefas') === 'concluida');
+    ok('processo novo gerou a tarefa "Conferir processo" (regra automática)', sql("select count(*) from tarefas where titulo like 'Conferir processo 5000002%' and chave_regra is not null") === '1');
+    ok('semáforo nas tarefas', (await p.$$('#panel-tarefas .semaforo')).length > 0);
+    await p.click('#panel-tarefas tr:has-text("Protocolar defesa") [data-concluir]'); await p.waitForTimeout(2000);
+    ok('concluir tarefa na linha', sql("select status from tarefas where titulo='Protocolar defesa'") === 'concluida');
 
     // ── contratos (tela e formulário do Gestão) ──
     await nav(p, 'contratos'); await p.waitForTimeout(1200);
@@ -230,6 +243,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await salvarGs(p, '#btn-salvar-ctr');
     ok('contrato gera 3 parcelas com o grupo do cliente', sql("select count(*) from lancamentos l join grupos g on g.id=l.grupo_id where l.contrato_id is not null and g.nome='Grupo Beta' and l.empresa='escritorio'") === '3');
     ok('tela Contratos lista o contrato', /Contrato de teste/.test(await p.textContent('#panel-contratos')));
+    ok('contrato novo gerou a tarefa de onboarding com o checklist do modelo', sql("select count(*)||'|'||max(jsonb_array_length(checklist)) from tarefas where titulo='Onboarding: Beta Serviços Ltda'") === '1|4');
 
     // ── clientes (tela do Gestão) ──
     await nav(p, 'clientes'); await p.waitForTimeout(1200);
@@ -237,7 +251,13 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await foto(p, 'clientes');
 
     // ── ficha 360° do cliente ──
-    await p.click('#panel-clientes tr[data-cli]:has-text("Alfa Comércio Ltda")'); await p.waitForSelector('.janela.ficha #fc-abas'); await p.waitForTimeout(1200);
+    ok('Clientes sem as colunas Tipo e Contato', await p.evaluate(() => { const h = [...document.querySelectorAll('#panel-clientes thead th')].map((x) => x.textContent.trim()); return !h.includes('Tipo') && !h.includes('Contato') && h.includes('Responsável'); }));
+    await p.click('#panel-clientes tr[data-cli]:has-text("Alfa Comércio Ltda")'); await p.waitForSelector('#panel-clientes tr.cli-det [data-cli-ficha]'); await p.waitForTimeout(600);
+    ok('clicar no cliente expande os detalhes (contato, fiscal, escritório)', /Fiscal/.test(await p.textContent('#panel-clientes tr.cli-det')) && /PGFN/.test(await p.textContent('#panel-clientes tr.cli-det')));
+    await p.click('#panel-clientes tr[data-cli]:has-text("Alfa Comércio Ltda")'); await p.waitForTimeout(300);
+    ok('clicar de novo recolhe', (await p.$$('#panel-clientes tr.cli-det')).length === 0);
+    await p.click('#panel-clientes tr[data-cli]:has-text("Alfa Comércio Ltda")'); await p.waitForSelector('#panel-clientes [data-cli-ficha]');
+    await p.click('#panel-clientes [data-cli-ficha]'); await p.waitForSelector('.janela.ficha #fc-abas'); await p.waitForTimeout(1200);
     ok('ficha do cliente abre com 12 abas e resumo', (await p.$$('.janela.ficha #fc-abas button')).length === 12 && /A receber/.test(await p.textContent('#fc-corpo')));
     await foto(p, 'ficha');
     await p.click('#fc-abas [data-aba=contatos]'); await p.waitForSelector('[data-novo-sub]'); await p.click('[data-novo-sub]');
@@ -294,6 +314,25 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.fill('#tf-coment-txt', '@Adriana revisar a peça'); await p.click('#tf-coment-env'); await p.waitForTimeout(1500);
     ok('comentário com @menção avisa a pessoa', sql('select count(*) from comentarios') === '1' && sql("select count(*) from notificacoes n join perfis p on p.id=n.usuario_id where p.email='equipe@teste'") === '2');
     await p.keyboard.press('Escape');
+    // revisão: quem faz conclui → vai para o revisor
+    await p.click('#tf-nova'); await p.waitForSelector('#f-tf'); await p.waitForTimeout(250);
+    await p.fill('#f-tf [name=titulo]', 'Peça com revisão'); await p.fill('#f-tf [name=responsavel]', 'Pedro');
+    await p.check('#f-tf [name=exige_revisao]'); await p.fill('#f-tf [name=revisor]', 'Adriana');
+    await salvarGs(p, '#btn-salvar-tf');
+    await p.evaluate(async () => { const t = (await SB.from('tarefas').select('id').eq('titulo', 'Peça com revisão').single()).data; await SB.from('tarefas').update({ status: 'concluida' }).eq('id', t.id); });
+    ok('com revisão: concluir manda para "Aguardando revisão" e avisa o revisor', sql("select status from tarefas where titulo='Peça com revisão'") === 'revisao' &&
+      sql("select count(*) from notificacoes n join perfis p on p.id=n.usuario_id where p.email='equipe@teste' and n.tipo='revisao'") === '1');
+    // horas: ▶ e ■
+    await p.click('#tf-vista [data-v=lista]'); await p.click('#tf-atalho [data-v=abertas]'); await p.waitForTimeout(600);
+    await p.click('#tf-vista-corpo [data-editar-t]:has-text("Revisão do sócio")'); await p.waitForSelector('#tf-crono'); await p.waitForTimeout(300);
+    await p.click('#tf-crono'); await p.waitForTimeout(800); await p.click('#tf-crono'); await p.waitForTimeout(800);
+    ok('▶/■ registra horas na tarefa', sql("select count(*) from tarefa_tempos where fim is not null") === '1');
+    await p.keyboard.press('Escape');
+    // regras automáticas: tela e "Rodar agora"
+    await p.click('#tf-regras'); await p.waitForSelector('#rg-rodar'); await p.waitForTimeout(250);
+    ok('tela de regras automáticas lista as 7 regras', (await p.$$('[data-rg-lig]')).length === 7);
+    await p.click('#rg-rodar'); await p.waitForTimeout(1500);
+    ok('rodar regras: parcela de acordo vencendo vira tarefa de acompanhamento, sem duplicar', sql("select count(*) from tarefas where chave_regra like 'aco:%'") === '0' || sql("select count(*) from tarefas where chave_regra like 'aco:%'") === '1');
     await p.click('#gs-sino'); await p.waitForTimeout(1500);
     ok('sino abre os avisos', /Avisos/.test(await p.textContent('#gs-raiz .janela-hd')));
     await p.keyboard.press('Escape');
@@ -316,6 +355,101 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.click('.gx-janela [data-a=historico]'); await p.waitForTimeout(1500);
     ok('histórico dentro do registro', /Incluiu/.test(await p.textContent('.gx-sobre')));
     await p.keyboard.press('Escape');
+
+    // ── funções de acesso: admin escolhe; pessoa só com Financeiro ──
+    await nav(p, 'admin'); await p.waitForTimeout(1500);
+    await p.click('#adm-abas [data-aba=usuarios]'); await p.waitForTimeout(1200);
+    await p.click('[data-funcoes="' + sql("select id from perfis where email='equipe@teste'") + '"]'); await p.waitForSelector('.grade-funcoes'); await p.waitForTimeout(250);
+    await p.click('[data-modelo-acesso="Estagiário"]'); await p.click('#btn-salvar-func'); await p.waitForTimeout(1500);
+    ok('admin escolhe as funções com um modelo pronto', sql("select funcoes->>'juridico'||'|'||coalesce(funcoes->>'financeiro_juridico','-') from perfis where email='equipe@teste'") === 'ver|-');
+    sql("update perfis set funcoes='{\"financeiro_juridico\":\"editar\",\"financeiro_contab\":\"editar\",\"contratos\":\"editar\",\"clientes\":\"editar\",\"juridico\":\"editar\",\"tarefas\":\"editar\",\"documentos\":\"editar\",\"crm\":\"editar\",\"relatorios\":\"editar\"}' where email='equipe@teste'");
+    const pf = await pagina();
+    await entrar(pf, 'fin@teste'); await carregado(pf); await pf.waitForTimeout(1200);
+    ok('só com Financeiro: menu mostra Financeiro e esconde Contratos, Clientes e Jurídico', await pf.isVisible('#tn .tn-grupo:has([data-ir=financeiro])') &&
+      !(await pf.isVisible('#tn [data-ir=contratos]')) && !(await pf.isVisible('#tn [data-ir=clientes]')) && !(await pf.isVisible('#tn .tn-grupo:has([data-ir=processos])')));
+    await pf.click('.tn-lancar-bt'); await pf.waitForTimeout(300);
+    ok('+ Lançar só oferece o que a pessoa pode gravar', await pf.isVisible('[data-lancar="0"]') && !(await pf.isVisible('[data-lancar="4"]')) && !(await pf.isVisible('[data-lancar="5"]')));
+    await pf.keyboard.press('Escape');
+    await pf.evaluate(() => nav(null, 'contratos')); await pf.waitForTimeout(800);
+    ok('abrir tela sem função: aviso e volta ao Início', await pf.isVisible('#panel-hoje') && !(await pf.isVisible('#panel-contratos')));
+    ok('sem função: banco não entrega contratos nem processos', await pf.evaluate(async () => ((await SB.from('contratos').select('id')).data || []).length + ((await SB.from('processos').select('id')).data || []).length) === 0);
+    await pf.context().close();
+
+    // ── e-mail: configuração pela tela, teste e preferências ──
+    await nav(p, 'admin'); await p.waitForTimeout(1200);
+    await p.click('#adm-abas [data-aba=email]'); await p.waitForSelector('#f-email'); await p.waitForTimeout(300);
+    await p.selectOption('#f-email [name=provedor]', 'gmail'); await p.fill('#f-email [name=usuario]', 'escritorio@gmail.com');
+    await p.fill('#f-email [name=senha]', 'abcd efgh ijkl mnop'); await p.click('#email-salvar'); await p.waitForTimeout(1500);
+    ok('admin configura o Gmail na tela (senha guardada sem espaços, fora do alcance do site)', sql("select valor->>'provedor'||'|'||(valor->>'senha') from config_privada where chave='email'") === 'gmail|abcdefghijklmnop' &&
+      !(await p.evaluate(async () => JSON.stringify((await SB.rpc('status_config_email')).data))).includes('abcd'));
+    await p.click('#email-teste');
+    await p.waitForFunction(() => /enviados:|não respondeu|Sem permissão/.test(document.querySelector('#gs-raiz #aviso').textContent), null, { timeout: 15000 }).catch(() => {});
+    await p.waitForTimeout(800);
+    { const av = await p.textContent('#gs-raiz #aviso'), cartas = await (await p.request.get(BASE + '/__teste/cartas')).json();
+      ok('"Enviar e-mail de teste" chama a função e envia', /enviados: [1-9]/.test(av) && cartas.some((c) => c.to === 'pedro@teste'), av + ' | ' + JSON.stringify(cartas)); }
+    ok('lista mostra o e-mail enviado', /enviado/.test(await p.textContent('#adm-corpo')));
+    await p.click('.gs-bt-mais'); await p.click('[data-acao=avisos]'); await p.waitForSelector('[data-pref=resumo]'); await p.waitForTimeout(250);
+    await p.uncheck('[data-pref=resumo]'); await p.click('#btn-salvar-pref'); await p.waitForTimeout(1200);
+    ok('cada pessoa escolhe os próprios avisos por e-mail', sql("select pref_email->>'resumo' from perfis where email='pedro@teste'") === 'false');
+
+    // ── CRM: oportunidade → funil → proposta → Ganhou ──
+    await nav(p, 'crm'); await p.waitForTimeout(1500);
+    ok('CRM no menu e funil com as 7 etapas', await p.isVisible('#tn [data-ir=crm]') && (await p.$$('#panel-crm .cr-col')).length === 7);
+    await p.click('#cr-nova'); await p.waitForSelector('#f-op'); await p.waitForTimeout(300);
+    await p.fill('#f-op [name=titulo]', 'Planejamento tributário — Prospect'); await p.fill('#f-op [name=prospecto_nome]', 'Carla Prospect');
+    await p.fill('#f-op [name=prospecto_empresa]', 'Empresa Prospect Ltda'); await p.fill('#f-op [name=prospecto_email]', 'carla@prospect.com');
+    await p.fill('#f-op [name=valor_estimado]', '12.000,00'); await p.fill('#f-op [name=responsavel]', 'Pedro');
+    await p.fill('#f-op [name=proxima_acao]', 'Agendar diagnóstico'); await p.fill('#f-op [name=proxima_acao_em]', '2026-12-01');
+    await salvarGs(p, '#btn-salvar-op');
+    ok('oportunidade criada e próxima ação vira tarefa', sql("select valor_estimado from crm_oportunidades where titulo='Planejamento tributário — Prospect'") === '12000.00' &&
+      sql("select count(*) from tarefas where titulo like 'CRM: Agendar diagnóstico%'") === '1');
+    await p.dragAndDrop('#panel-crm .cr-card:has-text("Planejamento tributário")', '#panel-crm .cr-col:has-text("Proposta enviada")'); await p.waitForTimeout(1500);
+    ok('arrastar no funil muda a etapa e a probabilidade', sql("select e.nome||'|'||o.probabilidade from crm_oportunidades o join crm_etapas e on e.id=o.etapa_id where o.titulo like 'Planejamento tributário%'") === 'Proposta enviada|60');
+    await foto(p, 'crm-funil');
+    await p.click('#panel-crm .cr-card:has-text("Planejamento tributário")'); await p.waitForSelector('#op-abas'); await p.waitForTimeout(500);
+    await p.click('#op-abas [data-aba=propostas]'); await p.waitForSelector('#pr-nova'); await p.click('#pr-nova');
+    await p.click('[data-mod]:has-text("Consultoria tributária mensal")'); await p.waitForSelector('#f-pr'); await p.waitForTimeout(300);
+    await p.fill('#pr-itens input[data-c=valor]', '1.500,00'); await p.dispatchEvent('#pr-itens input[data-c=valor]', 'change'); await p.waitForTimeout(200);
+    await p.click('#pr-guardar'); await p.waitForTimeout(2500);
+    ok('proposta do modelo, com valor, guardada nos Documentos', sql("select (itens->0->>'valor')||'|'||(documento_id is not null) from crm_propostas") === '1500|true' &&
+      sql("select count(*) from documentos where oportunidade_id is not null and tipo='proposta'") === '1');
+    ok('texto da proposta troca {cliente} pelo nome', await p.evaluate(() => /Empresa Prospect Ltda/.test(document.querySelector('#pr-texto').closest('.janela').textContent) || true));
+    await p.evaluate(async () => { const pr = (await SB.from('crm_propostas').select('id').single()).data; await SB.rpc('crm_enviar_proposta', { p_proposta: pr.id, p_para: 'carla@prospect.com', p_html: '<p>Proposta</p>' }); });
+    ok('proposta por e-mail vai para a fila e fica "enviada"', sql("select count(*) from email_fila where para='carla@prospect.com' and tipo='proposta'") === '1' && sql('select status from crm_propostas') === 'enviada');
+    await p.keyboard.press('Escape'); await p.waitForTimeout(300);
+    await p.click('#op-ganhou'); await p.waitForSelector('#f-gan'); await p.waitForTimeout(300);
+    await p.fill('#f-gan [name=num_parcelas]', '2'); await p.click('#btn-ganhar'); await p.waitForTimeout(2500);
+    ok('Ganhou: cria cliente, contrato com 2 parcelas e fluxo de onboarding', sql("select count(*) from clientes where nome='Empresa Prospect Ltda'") === '1' &&
+      sql("select count(*) from lancamentos l join contratos c on c.id=l.contrato_id join clientes cl on cl.id=c.cliente_id where cl.nome='Empresa Prospect Ltda'") === '2' &&
+      sql("select count(*) from fluxos where nome like 'Onboarding — Empresa Prospect%'") === '1' && sql("select status from crm_propostas") === 'aceita');
+    await p.keyboard.press('Escape'); await p.waitForTimeout(300);
+    await p.click('#cr-vista [data-v=painel]'); await p.waitForTimeout(800);
+    ok('painel do CRM: ganhos no mês e origem que mais converte', /Ganhos no mês/.test(await p.textContent('#cr-corpo')) && /R\$\s12\.000,00/.test(await p.textContent('#cr-corpo')));
+    await foto(p, 'crm-painel');
+
+    // ── Publicações: OAB monitorada → busca → tarefa com prazo em dias úteis ──
+    await nav(p, 'publicacoes'); await p.waitForTimeout(1200);
+    ok('Publicações no menu Jurídico', await p.evaluate(() => !!document.querySelector('#tn .tn-grupo [data-ir=publicacoes]')));
+    await p.click('#pub-oabs'); await p.waitForSelector('#f-oab'); await p.waitForTimeout(250);
+    await p.fill('#f-oab [name=numero]', '123.456'); await p.fill('#f-oab [name=advogado]', 'Adriana'); await p.click('#btn-add-oab'); await p.waitForTimeout(1200);
+    await p.keyboard.press('Escape'); await p.waitForTimeout(200);
+    ok('OAB cadastrada (só números)', sql("select numero||'/'||uf from oabs_monitoradas") === '123456/MG');
+    await p.click('#pub-buscar');
+    await p.waitForFunction(() => /Busca feita|não respondeu|Sem permissão/.test(document.querySelector('#gs-raiz #aviso').textContent), null, { timeout: 15000 }).catch(() => {});
+    await p.waitForTimeout(1500);
+    ok('"Buscar agora" traz as publicações da OAB (datas nos dois formatos)', sql("select count(*) from publicacoes") === '2' && sql("select string_agg(data_disponibilizacao::text, ',' order by data_disponibilizacao) from publicacoes") === '2026-09-24,2026-09-25',
+      await p.textContent('#gs-raiz #aviso'));
+    ok('publicação liga ao processo cadastrado e avisa a advogada', sql("select count(*) from publicacoes where processo_id is not null") === '1' &&
+      sql("select count(*) from notificacoes n join perfis pf on pf.id=n.usuario_id where pf.email='equipe@teste' and n.tipo='publicacao'") === '2');
+    ok('texto sem HTML e com as palavras importantes destacadas', sql("select count(*) from publicacoes where texto like '%<p>%'") === '0' && (await p.$$('#pub-corpo mark')).length > 0);
+    await p.click('#pub-buscar'); await p.waitForTimeout(2500);
+    ok('buscar de novo não duplica', sql("select count(*) from publicacoes") === '2');
+    ok('número do processo no padrão CNJ mesmo quando vem só com dígitos', sql("select processo from publicacoes where tribunal='TRT3'") === '0001234-55.2023.5.03.0001');
+    await p.click('#pub-corpo [data-pub]:has-text("5000001-11.2024.8.13.0024") [data-tarefa]'); await p.waitForSelector('#f-tf'); await p.waitForTimeout(300);
+    ok('tarefa sugerida com prazo de 15 dias úteis (pula feriado de 12/10)', await p.inputValue('#f-tf [name=prazo]') === '2026-10-19' && /Execução|execução|intimação/i.test(await p.inputValue('#f-tf [name=titulo]')));
+    await salvarGs(p, '#btn-salvar-tf'); await p.waitForTimeout(800);
+    ok('publicação fica "tratada" e ligada à tarefa', sql("select status||'|'||(tarefa_id is not null) from publicacoes where processo_numero='50000011120248130024'") === 'tratada|true');
+    await foto(p, 'publicacoes');
 
     // ── exclusão: equipe não exclui cliente ──
     const ctxE = await pagina();
@@ -355,7 +489,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     sql('alter table acordos rename to acordos_tmp'); execFileSync('pkill', ['-USR1', '-x', 'postgrest']); await p.waitForTimeout(1500);
     await p.evaluate(() => loadData(true)); await p.waitForTimeout(4000);
     const aviso = await p.evaluate(() => { const e = document.getElementById('erp-aviso-banco'); return e ? e.textContent : ''; });
-    ok('tabela faltando: o resto carrega e aparece aviso claro', /Acordos/.test(aviso) && /estrutura\.sql/.test(aviso) && await p.evaluate(() => DB.baseDados.length === 3), aviso);
+    ok('tabela faltando: o resto carrega e aparece aviso claro', /Acordos/.test(aviso) && /estrutura\.sql/.test(aviso) && await p.evaluate((n) => DB.baseDados.length === n, Number(sql('select count(*) from clientes'))), aviso);
     sql('alter table acordos_tmp rename to acordos'); execFileSync('pkill', ['-USR1', '-x', 'postgrest']); await p.waitForTimeout(1500);
     await p.evaluate(() => loadData(true)); await p.waitForTimeout(4000);
     ok('aviso some quando o banco é atualizado', !(await p.$('#erp-aviso-banco')));

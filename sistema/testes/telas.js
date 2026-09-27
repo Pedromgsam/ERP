@@ -51,7 +51,7 @@ const r = []; const ok = (n, c) => r.push([n, !!c]);
     // cliente manual com passivo
     await menu(p, 'clientes');
     await p.waitForSelector('text=+ Novo cliente'); await p.click('text=+ Novo cliente');
-    await p.waitForSelector('#f-cli [name=procuracao]');
+    await p.waitForSelector('#f-cli [name=procuracao]'); await p.waitForTimeout(300);
     await p.fill('#f-cli [name=nome]', 'Zeta Manual LTDA');
     await p.fill('#f-cli [name=cpf_cnpj]', '55666777000199');
     await p.fill('#f-cli [name=grupo]', 'Grupo Zeta');
@@ -131,7 +131,7 @@ const r = []; const ok = (n, c) => r.push([n, !!c]);
     // módulos novos: processos, parcelamentos (com parcelas), acordos, tarefas
     const arqs2 = [dir + '/2 - Processos.xlsx', dir + '/3 - Parcelamentos.xlsx', dir + '/4 - Acordos.xlsx', dir + '/15 - Tarefas.xlsx'];
     await fic.processos(arqs2[0]); await fic.parcelamentos(arqs2[1]); await fic.acordos(arqs2[2]); await fic.tarefas(arqs2[3]);
-    const contagem = () => ['processos', 'parcelamentos', 'parcelas', 'acordos', 'tarefas'].map((t) => sql('select count(*) from ' + t)).join(',');
+    const contagem = () => ['processos', 'parcelamentos', 'parcelas', 'acordos', 'tarefas where chave_regra is null'].map((t) => sql('select count(*) from ' + t)).join(',');
     for (let vez = 0; vez < 2; vez++) {
       await p.click('#adm-abas [data-aba=importar]'); await esperar(p);
       await p.setInputFiles('#imp-arquivos', arqs2); await esperar(p, 2500);
@@ -200,7 +200,9 @@ const r = []; const ok = (n, c) => r.push([n, !!c]);
     await entrar(p, 'equipe@teste');
     ok('equipe entra e não vê Administração', /Olá, Adriana/.test(await texto(p)) && !(await p.isVisible('#menu [data-tela=admin]')));
     await menu(p, 'clientes');
-    await p.click('[data-cli]'); await esperar(p, 800);
+    await p.click('[data-cli]'); await esperar(p, 1000);
+    ok('clicar no cliente expande o resumo logo abaixo', (await p.locator('tr.cli-det [data-cli-ficha]').count()) === 1);
+    await p.click('[data-cli-ficha]'); await esperar(p, 800);
     ok('clicar no cliente abre a ficha 360°', (await p.locator('.janela.ficha #fc-abas button').count()) === 12);
     await p.click('#fc-editar'); await esperar(p, 800);
     ok('equipe não tem botão excluir cliente', (await p.locator('#btn-excluir-cli').count()) === 0);

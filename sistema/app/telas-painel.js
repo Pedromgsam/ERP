@@ -34,11 +34,13 @@ TELAS.inicio = async function () {
     '<div class="acoes"><button class="btn btn-p" data-novo="receita">+ Receita</button>' +
     '<button class="btn btn-o" data-novo="despesa">+ Despesa</button>' +
     '<button class="btn btn-o" data-novo="contrato">+ Contrato</button></div></div>' +
-    linha('escritorio', '💼 Honorários Jurídico') + linha('contabilidade', '🧮 Contabilidade') +
-    '<div class="duas-col">' +
+    '<div id="ini-fila"></div>' +
+    (pode('financeiro_juridico') ? linha('escritorio', '💼 Honorários Jurídico') : '') + (pode('financeiro_contab') ? linha('contabilidade', '🧮 Contabilidade') : '') +
+    (pode('financeiro_juridico') || pode('financeiro_contab') ? '<div class="duas-col">' +
     cardLista('⚠ Em atraso', atrasados, 'Nada em atraso. 👏') +
     cardLista('🗓 Próximos 15 dias', proximos, 'Nenhum vencimento nos próximos 15 dias.') +
-    '</div>';
+    '</div>' : '');
+  if (typeof cardMinhaFila === 'function') cardMinhaFila().then((c) => { const el = $('ini-fila'); if (el) { el.innerHTML = c.html; c.ligar(el); } }).catch((e) => console.error(e));
   ligarAcoesLancamentos($('conteudo'));
   ligarBotoesNovo($('conteudo'));
 };
@@ -48,7 +50,7 @@ function cardLista(titulo, lista, vazio) {
     const quem = (l.grupos && l.grupos.nome) || l.favorecido || (l.clientes && l.clientes.nome) || '';
     return '<tr><td class="mono" data-ord="' + l.vencimento + '">' + dataBR(l.vencimento) + '</td><td><b>' + esc(quem || l.descricao) + '</b>' +
       '<div class="sub">' + (l.empresa === 'contabilidade' ? 'Contabilidade · ' : 'Jurídico · ') + esc(l.descricao) + '</div></td>' +
-      '<td class="num mono ' + (l.tipo === 'receita' && !l.redutor ? 'valor-rec' : 'valor-desp') + '" data-ord="' + (l.tipo === 'despesa' ? -l.valor : vl(l)) + '">' + (l.tipo === 'despesa' || l.redutor ? '− ' : '') + brl(l.valor) + (l.redutor ? '<div class="sub">redutor</div>' : '') + '</td>' +
+      '<td class="num mono ' + (l.tipo === 'receita' && !l.redutor ? 'valor-rec' : 'valor-desp') + '" data-ord="' + (l.tipo === 'despesa' ? -l.valor : vl(l)) + '">' + (l.tipo === 'despesa' || l.redutor ? '−\u00A0' : '') + brl(l.valor) + (l.redutor ? '<div class="sub">redutor</div>' : '') + '</td>' +
       '<td class="acoes-l"><button class="btn btn-v btn-mini" data-pagar="' + l.id + '">✓ ' + (l.tipo === 'receita' ? 'Recebido' : 'Pago') + '</button></td></tr>';
   }).join('');
   return '<div class="card"><div class="card-hd">' + titulo + '<span class="pill neutro">' + lista.length + '</span></div>' +

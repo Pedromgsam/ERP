@@ -125,7 +125,7 @@ function renderInicio(){
 
   const ac=$('execAlertContainer')||$('homeAlertContainerTop')||$('homeAlertContainer');
   if(!ac)return;
-  const vRows=_getVencRows(7);
+  const vRows=_getVencRows(7,'cliente');
   const urgent=vRows.filter(r=>r.dias<=3).length;
   const prox=vRows.filter(r=>r.dias>3&&r.dias<=7).length;
 
@@ -1331,40 +1331,6 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
 .task-form-grid{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;align-items:end}
 @media(max-width:800px){.task-form-grid{grid-template-columns:1fr 1fr}}
 
-.crm-funnel{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-.crm-funnel .crm-col{min-height:80px}
-th[onclick]{transition:background .12s}
-th[onclick]:hover{background:rgba(255,255,255,.08)}
-@media(max-width:900px){.crm-funnel{grid-template-columns:repeat(2,1fr)}}
-.crm-col{background:var(--gray-lt);border-radius:var(--card-r-sm);padding:10px;
-  border:1.5px dashed var(--border-strong);min-height:80px}
-.crm-col-hd{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;
-  color:var(--text4);margin-bottom:8px;display:flex;align-items:center;justify-content:space-between}
-.crm-col-cnt{font-size:10px;background:var(--border);border-radius:20px;padding:1px 7px;color:var(--text3)}
-.crm-lead{background:var(--bg);border:1px solid var(--border);border-radius:var(--card-r-sm);
-  padding:11px 13px;margin-bottom:8px;font-size:12px;cursor:default;transition:all .16s;
-  position:relative;overflow:hidden}
-.crm-lead:hover{box-shadow:0 3px 12px rgba(0,0,0,.1);border-color:rgba(27,42,74,.2);transform:translateY(-1px)}
-.crm-lead-nm{font-weight:700;color:var(--navy);font-size:13px;letter-spacing:-.01em;line-height:1.2}
-.crm-lead-val{font-family:var(--font-m);font-size:11px;color:var(--green-d);font-weight:700;margin-top:3px}
-.crm-lead-dt{font-size:10px;color:var(--text3);margin-top:2px}
-.crm-lead-del{float:right;cursor:pointer;color:var(--text3);font-size:11px;padding:1px 5px;border-radius:3px}
-.crm-lead-del:hover{color:var(--red);background:var(--red-lt)}
-/* CRM Timeline */
-.crm-tl-wrap{position:relative;padding-left:20px;margin-top:4px}
-.crm-tl-wrap::before{content:'';position:absolute;left:7px;top:4px;bottom:0;width:2px;background:var(--border)}
-.crm-tl-item{position:relative;margin-bottom:10px;font-size:11.5px}
-.crm-tl-dot{position:absolute;left:-16px;top:3px;width:10px;height:10px;border-radius:50%;
-  background:var(--white);border:2px solid var(--border);flex-shrink:0}
-.crm-tl-dot.estagio{border-color:var(--blue);background:var(--blue-lt)}
-.crm-tl-dot.nota{border-color:var(--amber);background:var(--amber-lt)}
-.crm-tl-dot.criado{border-color:var(--green);background:var(--green-lt)}
-.crm-tl-ts{font-size:10px;color:var(--text4);margin-bottom:1px}
-.crm-tl-txt{color:var(--text2);line-height:1.4}
-.crm-tl-nota-input{width:100%;box-sizing:border-box;font-size:12px;padding:6px 9px;
-  border:1px solid var(--border);border-radius:var(--radius-xs);background:var(--gray-lt);
-  color:var(--text);resize:none;font-family:var(--font-b);margin-top:6px}
-.crm-tl-nota-input:focus{border-color:var(--gold);outline:none;background:var(--white)}
 /* ── Template WYSIWYG editor ── */
 .tpl-editor-wrap{position:relative;border:1px solid var(--border);border-radius:var(--radius-xs);overflow:hidden;background:var(--white)}
 .tpl-editor-wrap:focus-within{border-color:var(--gold)}
@@ -1462,29 +1428,6 @@ th[onclick]:hover{background:rgba(255,255,255,.08)}
   border-top-color:#fff;border-radius:50%;animation:mspin .7s linear infinite;display:inline-block}
 
 
-/* ── CRM v2 ──────────────────────────────────────────────────── */
-.crm-col-hd{display:flex;justify-content:space-between;align-items:center;padding:6px 10px;border-radius:var(--radius-xs) 6px 0 0;font-weight:700;font-size:9px}
-.crm-card-btn{background:var(--white);border:1.5px solid var(--border);border-radius:var(--radius-xs);padding:4px 8px;font-size:12px;cursor:pointer;color:var(--text3);transition:.13s;line-height:1.4;box-shadow:var(--shadow-xs)}
-.crm-card-btn:hover{background:var(--gray-lt);border-color:var(--border-strong);color:var(--text1);box-shadow:0 2px 5px rgba(0,0,0,.08)}
-.crm-card-btn.edit{color:var(--blue);border-color:rgba(37,99,235,.25)}
-.crm-card-btn.edit:hover{background:var(--blue-lt);border-color:var(--blue)}
-.crm-card-btn:hover{background:var(--gray-lt);color:var(--navy)}
-.crm-card-btn.edit:hover{color:var(--blue)}
-.crm-stage-sel{font-size:11px;padding:5px 8px;border:1.5px solid var(--border);border-radius:var(--radius-xs);width:100%;color:var(--text1);background:var(--white);cursor:pointer;font-weight:500;outline:none;transition:border-color .15s,box-shadow .15s;}
-.crm-stage-sel:hover{border-color:var(--navy);}
-.crm-stage-sel:focus{border-color:var(--blue);box-shadow:0 0 0 2px rgba(37,99,235,.15);}
-.crm-expand-btn{font-size:10.5px;color:var(--navy);cursor:pointer;padding:6px 4px;text-align:center;border-top:1px solid var(--gray-mid);margin-top:6px;font-weight:600;letter-spacing:.02em;opacity:.7;transition:.13s}
-.crm-expand-btn:hover{opacity:1;color:var(--blue)}
-/* CRM tabs — mesmo padrão azul dos demais módulos */
-.crm-tb{border-radius:var(--card-r-sm) 8px 0 0;border-bottom:2px solid transparent;margin-bottom:-2px;padding:8px 14px}
-/* Tipo/modo buttons */
-.crm-tipo-btn,.crm-modo-btn{padding:5px 12px;border:1px solid var(--border);border-radius:var(--radius-xs);font-size:11.5px;font-weight:600;cursor:pointer;background:var(--bg);color:var(--text3);transition:.12s}
-.crm-tipo-btn.active,.crm-modo-btn.active{background:var(--navy);color:var(--ac-gold);border-color:var(--navy)}
-/* Base search dropdown */
-.crm-base-result{position:absolute;z-index:200;background:#fff;border:1px solid var(--border);border-radius:var(--radius-xs);box-shadow:0 4px 16px rgba(0,0,0,.12);max-height:200px;overflow-y:auto;width:100%;display:none}
-.crm-base-item{padding:7px 12px;font-size:12px;cursor:pointer;border-bottom:1px solid var(--border)}
-.crm-base-item:hover{background:#EFF6FF;color:var(--navy)}
-.crm-base-item:last-child{border-bottom:none}
 
 /* ══════════════════════════════════════════════════════
    SISTEMA DE LOGIN — Araújo & Castro v1.0
@@ -1833,27 +1776,6 @@ th[onclick]:hover{background:rgba(255,255,255,.08)}
 
 
 
-<!-- ══════════════════════════════════════════════════════
-     MODAL — TIMELINE / HISTÓRICO DO LEAD
-     ══════════════════════════════════════════════════════ -->
-<div class="m-overlay" id="mo-crm-timeline">
-  <div class="m-box" style="max-width:500px">
-    <div class="m-hd">
-      <div>
-        <div class="m-title">📋 Histórico do Lead</div>
-        <div id="crmTlLeadNome" style="font-size:11.5px;color:var(--text3);margin-top:1px"></div>
-      </div>
-      <button class="m-close" onclick="mClose('crm-timeline')">✕</button>
-    </div>
-    <div class="m-body" style="max-height:70vh;overflow-y:auto">
-      <!-- Timeline -->
-      <div id="crmTlContent" class="crm-tl-wrap"></div>
-      <div class="m-row" style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">
-        <button class="btn btn-ghost btn-sm" onclick="mClose('crm-timeline')">Fechar</button>
-      </div>
-    </div>
-  </div>
-</div>
 
 
 
@@ -2044,7 +1966,7 @@ th[onclick]:hover{background:rgba(255,255,255,.08)}
   </div>
   <div id="procAnalise"></div>
   <div class="ex-bn" style="margin-bottom:16px;position:relative;background:none;border:1.5px solid var(--border);box-shadow:var(--shadow-md);padding:22px 26px">
-    <div style="font-family:var(--font-d);font-size:14px;font-weight:700;color:var(--ac-gold);margin-bottom:12px;letter-spacing:.01em">⚖ Processos — Visão Geral</div>
+    <div class="gx-sec-tit">⚖ Processos — Visão Geral</div>
     <div class="kpi-grid" id="kpiProc"></div>
   </div>
   <div class="crow c2">
@@ -2112,7 +2034,7 @@ th[onclick]:hover{background:rgba(255,255,255,.08)}
   </div>
   <div id="parcAnalise"></div>
   <div class="ex-bn" style="margin-bottom:16px;position:relative;background:none;border:1.5px solid var(--border);box-shadow:var(--shadow-md);padding:22px 26px">
-    <div style="font-family:var(--font-d);font-size:14px;font-weight:700;color:var(--ac-gold);margin-bottom:12px;letter-spacing:.01em">◷ Parcelamentos — Visão Geral</div>
+    <div class="gx-sec-tit">◷ Parcelamentos — Visão Geral</div>
     <div class="kpi-grid" id="kpiParc"></div>
   </div>
   <div class="crow c2">
@@ -2228,7 +2150,7 @@ th[onclick]:hover{background:rgba(255,255,255,.08)}
   </div>
 
   <div class="ex-bn" style="margin-bottom:16px;position:relative;background:none;border:1.5px solid var(--border);box-shadow:var(--shadow-md);padding:22px 26px">
-    <div style="font-family:var(--font-d);font-size:14px;font-weight:700;color:var(--ac-gold);margin-bottom:12px;letter-spacing:.01em">✦ Acordos — Visão Geral</div>
+    <div class="gx-sec-tit">✦ Acordos — Visão Geral</div>
     <div class="kpi-grid" id="kpiAcordos"></div>
   </div>
   <div class="crow c2">
@@ -2814,8 +2736,13 @@ function corCategoria(nome,i){
 }
 
 const $  = id => document.getElementById(id);
-const fS = v => { v=Number(v)||0; if(v>=1e6)return'R$'+(v/1e6).toFixed(1).replace('.',',')+'M'; if(v>=1e3)return'R$'+(v/1e3).toFixed(0)+'k'; return'R$'+v.toFixed(0); };
-const fF = v => 'R$ '+(Number(v)||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fS = v => _moedaCurta(v);
+function _moedaCurta(v){ v=Number(v)||0; var neg=v<0, a=Math.abs(v), t;
+  if(a>=1e6) t=(a/1e6).toLocaleString('pt-BR',{maximumFractionDigits:2})+'\u00A0mi';
+  else if(a>=1e4) t=Math.round(a/1e3).toLocaleString('pt-BR')+'\u00A0mil';
+  else t=a.toLocaleString('pt-BR',{maximumFractionDigits:0});
+  return (neg?'−':'')+'R$\u00A0'+t; }
+const fF = v => 'R$\u00A0'+(Number(v)||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const fI = v => (Number(v)||0).toLocaleString('pt-BR');
 const ADV_COLORS = {
   'emanuelle':{bg:'#FFF0F5',color:'#9D174D',border:'#FBCFE8'},
@@ -2857,7 +2784,7 @@ const BO={responsive:true,maintainAspectRatio:false,
     title:items=>items[0]?.label||''
   }}},
   scales:{x:{ticks:{color:'#9CA3AF',font:{size:10.5}},grid:{display:false}},
-          y:{ticks:{color:'#9CA3AF',font:{size:10.5},callback:v=>{const n=Number(v)||0;if(n>=1e6)return'R$'+(n/1e6).toFixed(1)+'M';if(n>=1e3)return'R$'+(n/1e3).toFixed(0)+'k';return'R$'+n.toFixed(0);}},grid:{color:'rgba(0,0,0,.045)',drawBorder:false}}}};
+          y:{ticks:{color:'#9CA3AF',font:{size:10.5},callback:v=>_moedaCurta(v)},grid:{color:'rgba(0,0,0,.045)',drawBorder:false}}}};
 
 // v47: a cor da barra deixou de ser escolha de cada gráfico. Barra é
 // comparação de tamanho — a família azul-marinho, do escuro (maior) ao claro,
@@ -3493,7 +3420,7 @@ function _recalcBadgesNow(g, e){
   const bFinC2=$('badgeFinanceiroContab');
   if(bFinC2){if(finCVenc2>0){bFinC2.textContent=finCVenc2;bFinC2.style.display='';bFinC2.className='sb-badge-num red';}else bFinC2.style.display='none';}
 
-  const vRows=_getVencRows(7).filter(r=>{
+  const vRows=_getVencRows(7,'cliente').filter(r=>{
     if(grpEff&&r.grupo!==grpEff)return false;
     if(e&&r.empresa!==e)return false;
     return true;
@@ -4233,7 +4160,7 @@ function renderResumo(){
 
   if($('kpiSecNeg'))$('kpiSecNeg').innerHTML=
     kC('Saldo Parc. Tributário',fS(_parcelResidual),fF(_parcelResidual)+' · '+fI(parcRel.length)+' ativos','ca','')+
-    kC('Acordos c/ Terceiros a Pagar',fS(_acAPagar),fF(_acAPagar),'cr','dr');
+    kC('Acordos dos clientes c/ terceiros',fS(_acAPagar),fF(_acAPagar),'cr','dr');
 
   const _fGrpR=FILTROS.grupo||'';
   const _fEmpR=FILTROS.empresa||'';
@@ -5126,9 +5053,7 @@ function _finAplicarAbasCliente(){
 function _faF(v){
   v=Number(v)||0;
   var neg=v<0, a=Math.abs(v), t;
-  if(a>=1e6) t='R$ '+(a/1e6).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+' mi';
-  else       t='R$ '+a.toLocaleString('pt-BR',{maximumFractionDigits:0});
-  return (neg?'−':'')+t;
+  return _moedaCurta(neg?-a:a);
 }
 function _faFT(v){ return '<span title="'+fF(v)+'" style="cursor:help">'+_faF(v)+'</span>'; }
 
@@ -5785,7 +5710,7 @@ function renderFinanceiro(){
   h+='<select class="fsel" id="fFinMesAno" onchange="renderFinTbl()" style="min-width:140px;font-size:12px" title="Filtrar por mês/ano exato"><option value="">— Mês/Ano —</option></select>';
   h+='</div>';
   h+='<div class="ex-bn" style="margin-bottom:16px;position:relative;background:none;border:1.5px solid var(--border);box-shadow:var(--shadow-md);padding:22px 26px">';
-  h+='<div style="font-family:var(--font-d);font-size:14px;font-weight:700;color:var(--ac-gold);margin-bottom:12px;letter-spacing:.01em">💼 Financeiro — Visão Geral</div>';
+  h+='<div class="gx-sec-tit">💼 Financeiro — Visão Geral</div>';
   h+='<div class="kpi-grid">';
   h+=kC('Total a Receber',fS(okAP+vencNP),fF(okAP+vencNP),'cr','dr');
   h+=kC('Inadimplente',fS(vencNP),fF(vencNP),'cr','dr');
@@ -6902,7 +6827,7 @@ function _renderFinCAbaAberta(ladoKey){
   h+='<select class="fsel" id="fcAbaMesAno" onchange="renderFinCAbaTbl()" style="min-width:140px;font-size:12px" title="Filtrar por mês/ano exato"><option value="">— Mês/Ano —</option></select>';
   h+='</div>';
   h+='<div class="ex-bn" style="margin-bottom:16px;position:relative;background:none;border:1.5px solid var(--border);box-shadow:var(--shadow-md);padding:22px 26px">';
-  h+='<div style="font-family:var(--font-d);font-size:14px;font-weight:700;color:var(--ac-gold);margin-bottom:12px;letter-spacing:.01em">'+L.bannerAberto+' '+esc(L.abaAberto)+' — Visão Geral</div>';
+  h+='<div class="gx-sec-tit">'+L.bannerAberto+' '+esc(L.abaAberto)+' — Visão Geral</div>';
   h+='<div class="kpi-grid">';
   h+=kC('Total '+esc(L.abaAberto),fS(okAP+vencNP),fF(okAP+vencNP),'cr','dr');
   h+=kC('Vencido',fS(vencNP),fF(vencNP),'cr','dr');
@@ -8171,7 +8096,12 @@ let _vencHorizonte=7, _vencPg=1, _vencSort={col:'dias',asc:true};
 
 
 var _vencCache={};
-function _getVencRows(dias){
+function _getVencRows(dias,escopo){
+  var _r=_getVencRowsTodos(dias);
+  if(!escopo) return _r;
+  return _r.filter(function(r){ return escopo==='financeiro' ? r.tipo==='Honorário' : r.tipo!=='Honorário'; });
+}
+function _getVencRowsTodos(dias){
   if(dias===-1){
     // v40: o ramo dos atrasados não usava o cache — e agora ele roda a
     // cada mudança de filtro, por causa da faixa "o que vence agora".
@@ -8392,7 +8322,7 @@ function gerarPDFGrupo(){
   const acG=DB.acordos.filter(a=>a.grupo===g&&a.situacao!=='Pago');
   const prG=dedupProcessos(DB.processos.filter(p=>p.grupo===g));
   const hoje=new Date();
-  const venc30=_getVencRows(30).filter(r=>r.grupo===g);
+  const venc30=_getVencRows(30,'cliente').filter(r=>r.grupo===g);
 
   const _pdfNome='Relatorio '+String(g).replace(/[\\/:*?"<>|]/g,'-')+' '+_pdfDataArq(hoje);
   let html='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>'+_pdfNome+'</title>';
@@ -8595,7 +8525,7 @@ function gerarPDFEmpresa(){
   const parcE=DB.parcelamentos.filter(p=>p.empresa===nome||DB.baseDados.some(b=>b.nome===p.empresa&&b.cpfCnpj===row.cpfCnpj));
   const acE=DB.acordos.filter(a=>(a.devedor===nome||a.credor===nome)&&a.situacao!=='Pago');
   const prE=dedupProcessos(DB.processos.filter(p=>{return String(p.reu||'').toLowerCase().includes(nome.toLowerCase())||String(p.autor||'').toLowerCase().includes(nome.toLowerCase());}));
-  const venc30E=_getVencRows(30).filter(r=>r.empresa===nome||r.empresa===(row.cpfCnpj||'__'));
+  const venc30E=_getVencRows(30,'cliente').filter(r=>r.empresa===nome||r.empresa===(row.cpfCnpj||'__'));
   const hoje=new Date();
 
   const _capagCor={A:'background:#D1FAE5;color:#065F46',B:'background:var(--green-lt);color:#166534',C:'background:var(--amber-lt);color:#92400E',D:'background:var(--red-lt);color:#991B1B',O:'background:var(--red-lt);color:#991B1B'};
@@ -9545,9 +9475,9 @@ function epGerar(modo){
 function _epTextoAtual(cardId){
   var e=document.getElementById('edit_'+cardId),v=document.getElementById('view_'+cardId);
   if(e&&getComputedStyle(e).display!=='none'){
-    return e.value.replace(/\[VALOR(?::([^\]]*))?\]/g,function(_,vv){return 'R$ '+((vv&&vv.trim())?vv.trim():'_____');});
+    return e.value.replace(/\[VALOR(?::([^\]]*))?\]/g,function(_,vv){return 'R$\u00A0'+((vv&&vv.trim())?vv.trim():'_____');});
   }
-  if(v){var c=v.cloneNode(true);c.querySelectorAll('.ep-val-wrap').forEach(function(wrap){var inp=wrap.querySelector('input.ep-val');var val=inp?inp.value.trim():'';wrap.replaceWith(document.createTextNode('R$ '+(val||'_____')));});return c.innerText||c.textContent||'';}
+  if(v){var c=v.cloneNode(true);c.querySelectorAll('.ep-val-wrap').forEach(function(wrap){var inp=wrap.querySelector('input.ep-val');var val=inp?inp.value.trim():'';wrap.replaceWith(document.createTextNode('R$\u00A0'+(val||'_____')));});return c.innerText||c.textContent||'';}
   return '';
 }
 

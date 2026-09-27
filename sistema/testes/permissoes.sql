@@ -4,7 +4,7 @@ insert into auth.users (id,email) values
  ('00000000-0000-0000-0000-00000000000a','admin@teste'),
  ('00000000-0000-0000-0000-00000000000b','equipe@teste'),
  ('00000000-0000-0000-0000-00000000000c','novo@teste');
-update public.perfis set papel='equipe' where email='equipe@teste';
+update public.perfis set papel='equipe', funcoes='{"financeiro_juridico":"editar","financeiro_contab":"editar","contratos":"editar","clientes":"editar","juridico":"editar","tarefas":"editar","documentos":"editar","crm":"editar","relatorios":"editar"}' where email='equipe@teste';
 
 create or replace function pg_temp.como(u text) returns void language plpgsql as $$
 begin perform set_config('request.jwt.claim.sub', u, true); end $$;
@@ -121,9 +121,9 @@ commit;
 -- configurações (dados dos advogados para recibos): só equipe lê, só admin grava
 insert into configuracoes(chave, valor) values ('recibo_emitentes', '{"x":{"nome":"FICTICIO"}}');
 begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-00000000000b');
-select pg_temp.ok((select count(*) from configuracoes)=1,'equipe lê as configurações dos recibos');
+select pg_temp.ok((select count(*) from configuracoes where chave='recibo_emitentes')=1,'equipe lê as configurações dos recibos');
 update configuracoes set valor='{}';
-select pg_temp.ok((select valor from configuracoes)<>'{}'::jsonb,'equipe não altera configurações');
+select pg_temp.ok((select valor from configuracoes where chave='recibo_emitentes')<>'{}'::jsonb,'equipe não altera configurações');
 commit;
 begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-00000000000d');
 select pg_temp.ok((select count(*) from configuracoes)=0,'cliente não lê dados dos advogados');
@@ -164,7 +164,108 @@ begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-000
 select pg_temp.ok((select count(*) from contatos)+(select count(*) from documentos)+(select count(*) from equipe_nomes())=0,'cliente não vê contatos, documentos nem a equipe');
 commit;
 begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-00000000000a');
-select pg_temp.ok((select count(*) from notificacoes)=1,'admin vê a notificação dele');
+select pg_temp.ok((select count(*) from notificacoes where titulo='Menção')=1,'admin vê a notificação dele');
 delete from documentos;
 select pg_temp.ok((select count(*) from documentos)=0,'admin exclui documento');
+commit;
+
+-- v7: funções de acesso — pessoa só com Financeiro (Jurídico) e uma tarefa própria
+insert into auth.users (id,email,raw_user_meta_data) values ('00000000-0000-0000-0000-0000000000f1','fin@teste','{"nome":"Fabiana Financeiro"}');
+update perfis set papel='equipe', funcoes='{"financeiro_juridico":"editar"}' where email='fin@teste';
+insert into lancamentos(empresa,tipo,descricao,vencimento,valor) values ('contabilidade','receita','Honorário contábil teste','2026-10-10',100),('escritorio','receita','Honorário jurídico teste','2026-10-10',200);
+insert into tarefas(titulo,responsavel) values ('Tarefa da Fabiana','Fabiana'),('Tarefa de outra pessoa','Pedro');
+begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-0000000000f1');
+select pg_temp.ok((select count(*) from lancamentos where empresa='escritorio')>0 and (select count(*) from lancamentos where empresa='contabilidade')=0,'função Financeiro Jurídico vê só os lançamentos do escritório');
+select pg_temp.ok((select count(*) from contratos)=0 and (select count(*) from processos)=0 and (select count(*) from contatos)=0,'sem função: não vê contratos, processos nem contatos');
+select pg_temp.ok((select count(*) from clientes)>0,'nomes de clientes continuam visíveis para os formulários');
+do $$ begin
+  insert into contratos(cliente_id,descricao,valor_total) select id,'Contrato proibido',10 from clientes limit 1;
+  raise exception 'FALHOU: gravou contrato sem a função';
+exception when insufficient_privilege then raise notice 'PASSA: sem a função Contratos não grava contrato';
+end $$;
+update clientes set nome='Alterado' where true;
+select pg_temp.ok((select count(*) from clientes where nome='Alterado')=0,'sem a função Clientes não altera cliente');
+select pg_temp.ok((select string_agg(titulo, ',') from tarefas)='Tarefa da Fabiana','sem a função Tarefas vê só as próprias tarefas');
+update tarefas set status='andamento' where titulo='Tarefa da Fabiana';
+select pg_temp.ok((select status from tarefas where titulo='Tarefa da Fabiana')='andamento','altera a própria tarefa');
+commit;
+update perfis set funcoes='{"financeiro_juridico":"ver"}' where email='fin@teste';
+begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-0000000000f1');
+update lancamentos set valor=1 where empresa='escritorio';
+select pg_temp.ok((select count(*) from lancamentos where valor=1)=0,'nível Ver não grava');
+commit;
+begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-0000000000f1');
+do $$ begin
+  update perfis set funcoes='{"contratos":"editar"}' where id=auth.uid();
+  if (select funcoes->>'contratos' from perfis where id=auth.uid()) is not null then raise exception 'FALHOU: pessoa deu função a si mesma'; end if;
+  raise notice 'PASSA: ninguém dá função a si mesmo (só o admin)';
+end $$;
+commit;
+
+-- v8: lógica interna das tarefas
+select pg_temp.ok(public.somar_uteis('2026-10-09', 1) = '2026-10-13','dias úteis pulam fim de semana e feriado (12/10)');
+select pg_temp.ok(public.usuario_por_nome('Fabiana') = '00000000-0000-0000-0000-0000000000f1' and public.usuario_por_nome('Ninguém') is null,'acha a pessoa pelo primeiro nome');
+insert into processos(numero, advogado) values ('9999999-99.2026.8.13.0001','Pedro');
+select pg_temp.ok((select count(*) from tarefas where chave_regra like 'proc:%' and titulo like '%9999999%')=1,'processo novo gera tarefa de conferência');
+insert into acordos(processo, devedor, credor, parcela, valor, vencimento, responsavel) values ('1','Cliente X','Credor Y','1',100,current_date+3,'Pedro');
+select public.rodar_regras_tarefas(); select public.rodar_regras_tarefas();
+select pg_temp.ok((select count(*) from tarefas where chave_regra like 'aco:%')=1,'regra roda duas vezes e não duplica');
+select pg_temp.ok((select count(*) from lancamentos where descricao ilike '%acordo%')=0,'acordo não gera lançamento financeiro');
+insert into tarefas(titulo,responsavel,exige_anexo) values ('Protocolar com anexo','Pedro',true);
+do $$ begin
+  update tarefas set status='concluida' where titulo='Protocolar com anexo';
+  raise exception 'FALHOU: concluiu sem anexo';
+exception when raise_exception then
+  if sqlerrm like 'FALHOU%' then raise; end if;
+  raise notice 'PASSA: tarefa que exige anexo não conclui sem documento';
+end $$;
+insert into documentos(tarefa_id,nome,caminho) select id,'protocolo.pdf','x/p.pdf' from tarefas where titulo='Protocolar com anexo';
+update tarefas set status='concluida' where titulo='Protocolar com anexo';
+select pg_temp.ok((select status from tarefas where titulo='Protocolar com anexo')='concluida','com o documento anexado, conclui');
+insert into tarefas(titulo,responsavel,exige_revisao,revisor) values ('Minuta revisada','Fabiana',true,'Pedro');
+begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-0000000000f1');
+update tarefas set status='concluida' where titulo='Minuta revisada';
+select pg_temp.ok((select status from tarefas where titulo='Minuta revisada')='revisao','com revisão: vai para "Aguardando revisão"');
+do $$ begin
+  update tarefas set status='concluida' where titulo='Minuta revisada';
+  raise exception 'FALHOU: quem fez aprovou a própria revisão';
+exception when raise_exception then
+  if sqlerrm like 'FALHOU%' then raise; end if;
+  raise notice 'PASSA: só o revisor conclui a tarefa em revisão';
+end $$;
+commit;
+
+-- v10: CRM
+insert into crm_oportunidades(titulo, prospecto_nome, prospecto_empresa, prospecto_email, valor_estimado, responsavel, etapa_id)
+  select 'Holding Família Teste', 'Maria Teste', 'Holding Teste Ltda', 'maria@teste', 30000, 'Pedro', id from crm_etapas where ordem = 1;
+begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-0000000000f1');
+select pg_temp.ok((select count(*) from crm_oportunidades)=0,'sem a função CRM não vê oportunidades');
+commit;
+update perfis set funcoes = funcoes || '{"crm":"editar"}' where email='fin@teste';
+begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-0000000000f1');
+select pg_temp.ok((select count(*) from crm_oportunidades)=1,'com a função CRM vê as oportunidades');
+select public.crm_ganhar((select id from crm_oportunidades where titulo='Holding Família Teste'),
+  '{"cliente_nome":"Holding Teste Ltda","cpf_cnpj":"11222333000181","grupo":"Grupo Holding","descricao":"Holding familiar","valor_total":30000,"num_parcelas":3,"primeiro_vencimento":"2026-11-10","responsavel":"Pedro","criar_fluxo":true}');
+commit;
+select pg_temp.ok((select count(*) from clientes where nome='Holding Teste Ltda' and origem='CRM')=1,'Ganhou: cria o cliente (mesmo sem a função Clientes)');
+select pg_temp.ok((select count(*) from lancamentos l join contratos c on c.id=l.contrato_id where c.descricao='Holding familiar')=3,'Ganhou: contrato com 3 parcelas');
+select pg_temp.ok((select count(*) from tarefas t join fluxos f on f.id=t.fluxo_id where f.nome like 'Onboarding — Holding Teste%')=7,'Ganhou: fluxo de onboarding com etapas e subtarefas');
+select pg_temp.ok((select count(*) from tarefas where titulo like 'Onboarding: Holding Teste%')=0,'Ganhou: regra de onboarding não duplica o fluxo');
+select pg_temp.ok((select e.final from crm_oportunidades o join crm_etapas e on e.id=o.etapa_id where o.titulo='Holding Família Teste')='ganho','oportunidade vai para Ganhou');
+insert into crm_oportunidades(titulo, prospecto_nome, etapa_id) select 'Consulta perdida', 'Fulano', id from crm_etapas where ordem = 2;
+do $$ begin
+  perform public.crm_perder((select id from crm_oportunidades where titulo='Consulta perdida'), '', false);
+  raise exception 'FALHOU: perdeu sem motivo';
+exception when raise_exception then
+  if sqlerrm like 'FALHOU%' then raise; end if;
+  raise notice 'PASSA: perder exige o motivo';
+end $$;
+
+-- v11: publicações
+insert into processos(numero) values ('5000009-99.2026.8.13.0024');
+insert into publicacoes(id_origem, processo, processo_numero, tribunal, advogado, texto) values ('t:1','5000009-99.2026.8.13.0024','50000099920268130024','TJMG','Fabiana','Intimação');
+select pg_temp.ok((select processo_id is not null from publicacoes where id_origem='t:1'),'publicação liga ao processo pelo número');
+select pg_temp.ok((select count(*) from notificacoes where tipo='publicacao')=1,'publicação nova avisa o advogado');
+begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-0000000000f1');
+select pg_temp.ok((select count(*) from publicacoes)=0,'sem a função Jurídico não vê publicações');
 commit;

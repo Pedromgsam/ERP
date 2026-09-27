@@ -9,7 +9,8 @@ const ABAS_ADMIN = [
   { id: 'usuarios', rot: '👤 Usuários' },
   { id: 'importar', rot: '📥 Importar planilhas' },
   { id: 'backup',   rot: '💾 Backup' },
-  { id: 'historico', rot: '🕘 Histórico' }
+  { id: 'historico', rot: '🕘 Histórico' },
+  { id: 'email', rot: '✉ E-mail' }
 ];
 
 TELAS.admin = async function () {
@@ -26,7 +27,7 @@ async function pintarAdmin() {
   document.querySelectorAll('#adm-abas button').forEach((b) => b.classList.toggle('ativo', b.dataset.aba === E.adm.aba));
   const corpo = $('adm-corpo');
   corpo.innerHTML = '<div class="carregando">Carregando…</div>';
-  try { await ({ usuarios: admUsuarios, importar: admImportar, backup: admBackup, historico: admHistorico })[E.adm.aba](corpo); }
+  try { await ({ usuarios: admUsuarios, importar: admImportar, backup: admBackup, historico: admHistorico, email: admEmail })[E.adm.aba](corpo); }
   catch (e) { console.error(e); corpo.innerHTML = '<div class="card"><div class="card-bd msg-erro">' + esc(erroAmigavel(e)) + '</div></div>'; }
 }
 
@@ -40,18 +41,20 @@ async function admUsuarios(corpo) {
   const gruposDe = (id) => vinculos.filter((v) => v.perfil_id === id).map((v) => nomeGrupo(v.grupo_id)).filter(Boolean);
   corpo.innerHTML =
     '<div class="titulo-pag" style="margin-bottom:10px"><div></div><div class="acoes"><button class="btn btn-p" id="us-novo">+ Novo usuário</button></div></div>' +
-    '<div class="card"><div class="tabela-wrap"><table class="ordenavel"><thead><tr><th>Nome</th><th>E-mail</th><th>Acesso</th><th>Grupos no Portal</th><th data-tipo="data">Desde</th><th class="sem-ordem"></th></tr></thead><tbody>' +
+    '<div class="card"><div class="tabela-wrap"><table class="ordenavel"><thead><tr><th>Nome</th><th>E-mail</th><th>Acesso</th><th>Funções / Grupos no Portal</th><th data-tipo="data">Desde</th><th class="sem-ordem"></th></tr></thead><tbody>' +
     lista.map((p) => '<tr><td><input class="busca" style="min-width:160px" data-nome="' + p.id + '" value="' + esc(p.nome) + '"></td>' +
       '<td>' + esc(p.email) + '</td><td><select class="busca" style="min-width:150px" data-papel="' + p.id + '">' +
       PAPEIS.map(([v, r]) => '<option value="' + v + '"' + (p.papel === v ? ' selected' : '') + '>' + r + '</option>').join('') +
-      '</select></td><td>' + (p.papel === 'cliente'
+      '</select></td><td>' + (p.papel === 'equipe'
+        ? '<span class="sub">' + esc(resumoFuncoes(p)) + '</span> <button class="btn btn-o btn-mini" data-funcoes="' + p.id + '">Funções</button>'
+        : p.papel === 'cliente'
         ? (gruposDe(p.id).map((g) => '<span class="pill neutro">' + esc(g) + '</span>').join(' ') || '<span class="pill vencido">nenhum</span>') +
           ' <button class="btn btn-o btn-mini" data-grupos="' + p.id + '">Escolher</button>'
         : '<span class="sub">—</span>') + '</td>' +
       '<td class="mono" data-ord="' + p.criado_em + '">' + dataBR(p.criado_em) + '</td>' +
       '<td class="acoes-l"><button class="btn btn-o btn-mini" data-senha="' + esc(p.email) + '" title="Envia por e-mail um link para a pessoa criar uma senha nova">🔑 Link de senha</button></td></tr>').join('') +
     '</tbody></table></div></div>' +
-    '<div class="dica"><b>Administrador</b>: tudo, inclusive excluir, importar e liberar usuários. <b>Equipe</b>: cadastra, edita e dá baixa, mas não exclui. ' +
+    '<div class="dica"><b>Administrador</b>: tudo, inclusive excluir, importar e liberar usuários. <b>Equipe</b>: só as <b>funções</b> marcadas (Financeiro, Contratos, Jurídico…), em Ver ou Editar; não exclui. ' +
     '<b>Cliente</b>: só consulta, no Portal, os grupos escolhidos. <b>Inativo</b>: não entra.</div>';
   corpo.querySelectorAll('[data-papel]').forEach((s) => s.onchange = () => comBotao(s, async () => {
     try {
@@ -73,7 +76,19 @@ async function admUsuarios(corpo) {
   }));
   corpo.querySelectorAll('[data-grupos]').forEach((b) => b.onclick = () =>
     formGruposPortal(lista.find((p) => p.id === b.dataset.grupos), vinculos.filter((v) => v.perfil_id === b.dataset.grupos).map((v) => v.grupo_id)));
+  corpo.querySelectorAll('[data-funcoes]').forEach((b) => b.onclick = () => formFuncoes(lista.find((p) => p.id === b.dataset.funcoes)));
   $('us-novo').onclick = () => formNovoUsuario();
+}
+function formFuncoes(p) {
+  const j = abrirJanela({ titulo: 'Funções de ' + (p.nome || p.email), larga: true,
+    corpo: '<p class="sub" style="margin-bottom:10px">Marque o que esta pessoa pode <b>ver</b> ou <b>editar</b>. Use um modelo pronto e ajuste. As próprias tarefas ela sempre vê.</p>' + gradeFuncoes(p.funcoes),
+    rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="btn-salvar-func">Salvar</button></div>' });
+  ligarGradeFuncoes(j);
+  j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
+  j.querySelector('#btn-salvar-func').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    await q(sb.from('perfis').update({ funcoes: lerGradeFuncoes(j) }).eq('id', p.id));
+    aviso('✓ Funções de ' + (p.nome || p.email).split(' ')[0] + ' atualizadas.'); fecharJanela(j); await pintarAdmin();
+  });
 }
 
 function listaGruposMarcar(marcados) {
@@ -107,13 +122,15 @@ function formNovoUsuario() {
       campo('E-mail <span class="obrig">*</span>', '<input name="email" type="email" autocomplete="off">') +
       campo('Senha provisória <span class="obrig">*</span>', '<input name="senha" autocomplete="new-password" placeholder="mínimo 8 caracteres">') +
       campo('Acesso', '<select name="papel">' + PAPEIS.filter((x) => x[0] !== 'inativo').map(([v, r]) => '<option value="' + v + '"' + (v === 'equipe' ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>') +
+      '<div class="inteiro" id="us-funcoes"><div class="secao" style="margin-bottom:6px">Funções (o que a pessoa pode usar)</div>' + gradeFuncoes(MODELOS_ACESSO['Sócio (tudo)']) + '</div>' +
       '<div class="inteiro escondido" id="us-grupos"><div class="sub" style="margin-bottom:6px">Grupos que o cliente vê no Portal</div>' + listaGruposMarcar([]) + '</div>' +
       '<div class="dica inteiro">Passe o e-mail e a senha provisória para a pessoa. Se o Supabase estiver com <b>confirmação de e-mail</b> ligada, ela recebe um e-mail e precisa clicar no link antes do primeiro acesso.</div>' +
       '</form>',
     rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="btn-criar-us">Criar usuário</button></div>' });
   const f = j.querySelector('#f-us');
   ligarFiltroGrupos(j);
-  f.papel.onchange = () => j.querySelector('#us-grupos').classList.toggle('escondido', f.papel.value !== 'cliente');
+  ligarGradeFuncoes(j);
+  f.papel.onchange = () => { j.querySelector('#us-grupos').classList.toggle('escondido', f.papel.value !== 'cliente'); j.querySelector('#us-funcoes').classList.toggle('escondido', f.papel.value !== 'equipe'); };
   j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
   f.onsubmit = (ev) => { ev.preventDefault(); j.querySelector('#btn-criar-us').click(); };
   j.querySelector('#btn-criar-us').onclick = (ev) => comBotao(ev.currentTarget, async () => {
@@ -138,7 +155,7 @@ function formNovoUsuario() {
       if (!perfil) await new Promise((ok) => setTimeout(ok, 500));
     }
     if (!perfil) throw new Error('Usuário criado, mas o perfil ainda não apareceu. Abra Usuários de novo em alguns segundos e ajuste o acesso.');
-    await q(sb.from('perfis').update({ papel, nome }).eq('id', perfil.id));
+    await q(sb.from('perfis').update({ papel, nome, funcoes: papel === 'equipe' ? lerGradeFuncoes(j) : {} }).eq('id', perfil.id));
     if (papel === 'cliente') await salvarGruposPortal(perfil.id, ids);
     aviso('✓ Usuário criado. Passe o e-mail e a senha provisória para ' + nome.split(' ')[0] + '.');
     fecharJanela(j); await pintarAdmin();
@@ -228,7 +245,7 @@ function amostraImportacao(r) {
   }
   return '<div class="tabela-wrap"><table><thead><tr><th>Vencimento</th><th>Grupo / Fornecedor</th><th>Descrição</th><th class="num">Valor</th><th>Situação</th></tr></thead><tbody>' +
     r.lancamentos.slice(0, 8).map((l) => '<tr><td class="mono">' + dataBR(l.vencimento) + '</td><td>' + esc(l._grupo || l.favorecido) + '</td><td>' + esc(l.descricao) +
-      '</td><td class="num mono ' + (l.tipo === 'receita' ? 'valor-rec' : 'valor-desp') + '">' + (l.tipo === 'despesa' ? '− ' : '') + brl(l.valor) + '</td><td>' + pillSit(l) + '</td></tr>').join('') +
+      '</td><td class="num mono ' + (l.tipo === 'receita' ? 'valor-rec' : 'valor-desp') + '">' + (l.tipo === 'despesa' ? '−\u00A0' : '') + brl(l.valor) + '</td><td>' + pillSit(l) + '</td></tr>').join('') +
     '</tbody></table></div>';
 }
 
@@ -411,8 +428,9 @@ async function admHistorico(corpo) {
     '<select class="busca sel" id="hist-acao"><option value="">Todas as ações</option>' + Object.entries(NOME_ACAO).map(([k, v]) => '<option value="' + k + '"' + (F.acao === k ? ' selected' : '') + '>' + v[0] + '</option>').join('') + '</select>' +
     '<select class="busca sel" id="hist-quem"><option value="">Todas as pessoas</option>' + perfis.map((p) => '<option value="' + p.id + '"' + (F.quem === p.id ? ' selected' : '') + '>' + esc(p.nome || p.email) + '</option>').join('') +
     '<option value="sistema"' + (F.quem === 'sistema' ? ' selected' : '') + '>Sistema / importação</option></select>' +
-    '<input class="busca" type="date" id="hist-de" value="' + esc(F.de) + '" title="De" style="min-width:0;max-width:160px">' +
-    '<input class="busca" type="date" id="hist-ate" value="' + esc(F.ate) + '" title="Até" style="min-width:0;max-width:160px">' +
+    '<input class="busca data-texto" id="hist-de" inputmode="numeric" placeholder="de dd/mm/aaaa" value="' + esc(F.de ? dataBR(F.de) : '') + '" autocomplete="off">' +
+    '<input class="busca data-texto" id="hist-ate" inputmode="numeric" placeholder="até dd/mm/aaaa" value="' + esc(F.ate ? dataBR(F.ate) : '') + '" autocomplete="off">' +
+    '<button class="btn btn-o btn-mini" id="hist-aplicar">Aplicar</button>' +
     '<input class="busca" id="hist-busca" placeholder="Buscar registro, grupo, pessoa, valor…" value="' + esc(F.busca) + '">' +
     '<button class="btn btn-o btn-mini" id="hist-csv">⬇ CSV</button></div>' +
     '<div class="kpis">' + kpi('Alterações no recorte', String(lista.length), '', reg.length >= 500 ? 'mostrando as 500 mais recentes' : 'mais recente primeiro') +
@@ -424,7 +442,18 @@ async function admHistorico(corpo) {
       '</tbody></table></div>' : '<div class="vazio">Nenhuma alteração com esses filtros.</div>') + '</div>';
   const muda = (k) => (ev) => { F[k] = ev.target.value; if (k === 'tabela') E.adm.tabela = F.tabela; pintarAdmin(); };
   $('hist-tabela').onchange = muda('tabela'); $('hist-acao').onchange = muda('acao'); $('hist-quem').onchange = muda('quem');
-  $('hist-de').onchange = muda('de'); $('hist-ate').onchange = muda('ate');
+  mascaraData($('hist-de')); mascaraData($('hist-ate'));
+  const aplicarDatas = () => {
+    const de = lerDataBR($('hist-de').value), ate = lerDataBR($('hist-ate').value);
+    if (($('hist-de').value && !de) || ($('hist-ate').value && !ate)) return aviso('Data incompleta: use dd/mm/aaaa.', true);
+    let a = de ? de.iso : '', b = ate ? ate.iso : '';
+    if (a && b && a > b) [a, b] = [b, a];               // datas invertidas: troca em silêncio
+    F.de = a; F.ate = b;
+    if ((de && de.corrigida) || (ate && ate.corrigida)) aviso('Dia ajustado para o último dia do mês.');
+    pintarAdmin();
+  };
+  $('hist-aplicar').onclick = aplicarDatas;
+  ['hist-de', 'hist-ate'].forEach((id) => { $(id).onkeydown = (ev) => { if (ev.key === 'Enter') aplicarDatas(); }; });
   let t; $('hist-busca').oninput = (ev) => { clearTimeout(t); t = setTimeout(() => { F.busca = ev.target.value; pintarAdmin().then(() => { const i = $('hist-busca'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }); }, 400); };
   $('hist-csv').onclick = () => {
     const linhas = [['Quando', 'Quem', 'Ação', 'Tela', 'Registro', 'Detalhes']].concat(lista.map((h) => {
@@ -446,4 +475,94 @@ function fmtHist(v, campo) {
   if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) return dataBR(v);
   if (typeof v === 'number') return v.toLocaleString('pt-BR');
   return String(v).length > 60 ? String(v).slice(0, 57) + '…' : String(v);
+}
+
+// ─────────────────────────── E-MAIL ──────────────────────────────
+// Configuração dos avisos por e-mail: o serviço (Gmail do escritório, outro SMTP ou Resend),
+// o teste e a fila. A senha vai direto para o banco (config_privada) e nunca volta para a tela.
+async function admEmail(corpo) {
+  const [st, fila] = await Promise.all([
+    q(sb.rpc('status_config_email')).catch(() => ({})),
+    q(sb.from('email_fila').select('para, assunto, status, erro, criado_em, enviado_em, tipo').order('criado_em', { ascending: false }).limit(30)).catch(() => [])
+  ]);
+  const prov = st.provedor || 'gmail';
+  corpo.innerHTML =
+    '<div class="duas-col"><div class="card"><div class="card-hd">Serviço de envio ' + (st.tem_senha ? '<span class="pill pago">configurado</span>' : '<span class="pill hoje">não configurado</span>') + '</div><div class="card-bd">' +
+    '<form id="f-email" class="grade">' +
+    campo('Serviço', '<select name="provedor"><option value="gmail">Gmail do escritório (sem custo)</option><option value="smtp">Outro e-mail (SMTP: Hostinger, Locaweb, Outlook…)</option><option value="resend">Resend (plano grátis com limite)</option></select>', 'inteiro') +
+    campo('E-mail que envia', '<input name="usuario" type="email" value="' + esc(st.usuario || '') + '" placeholder="escritorio@gmail.com">') +
+    campo('<span id="rot-senha">Senha de app do Google</span>', '<input name="senha" type="password" autocomplete="new-password" placeholder="' + (st.tem_senha ? '•••••••• (deixe vazio para manter)' : '16 letras, sem espaços') + '">') +
+    '<div class="grade inteiro" id="email-smtp">' + campo('Servidor SMTP', '<input name="host" value="' + esc(st.host || '') + '" placeholder="smtp.hostinger.com">') +
+    campo('Porta', '<input name="porta" inputmode="numeric" value="' + esc(String(st.porta || 465)) + '">') + '</div>' +
+    campo('Nome do remetente', '<input name="remetente" value="' + esc(st.remetente || 'ERP Araújo & Castro') + '">') +
+    campo('Responder para (opcional)', '<input name="responder" type="email" value="' + esc(st.responder || '') + '">') +
+    campo('Endereço do sistema (botão "Abrir no ERP")', '<input name="url" value="' + esc(location.origin) + '">', 'inteiro') +
+    '</form>' +
+    '<div class="acoes" style="margin-top:12px"><button class="btn btn-p" id="email-salvar">Salvar</button><button class="btn btn-o" id="email-teste">Enviar e-mail de teste</button>' +
+    '<button class="btn btn-o" id="email-agora">Enviar fila agora</button><button class="btn btn-o" id="email-resumo">Mandar resumo do dia agora</button></div>' +
+    (st.configurado_em ? '<p class="sub" style="margin-top:8px">Configurado em ' + dataHoraBR(st.configurado_em) + '.</p>' : '') +
+    '</div></div>' +
+    '<div class="card"><div class="card-hd">Como configurar (uma vez)</div><div class="card-bd" id="email-ajuda"></div></div></div>' +
+    '<div class="kpis">' + kpi('Na fila', String(st.pendentes || 0), '', 'saem a cada 5 minutos') + kpi('Enviados em 7 dias', String(st.enviados_7d || 0), 'verde', '') +
+    kpi('Com erro', String(st.erros || 0), st.erros ? 'vermelho' : '', 'veja o motivo abaixo') + '</div>' +
+    '<div class="card"><div class="card-hd">Últimos e-mails</div>' + (fila.length ? '<div class="tabela-wrap"><table><thead><tr><th>Quando</th><th>Para</th><th>Assunto</th><th>Situação</th></tr></thead><tbody>' +
+      fila.map((m) => '<tr><td class="mono">' + dataHoraBR(m.criado_em) + '</td><td>' + esc(m.para) + '</td><td>' + esc(m.assunto) + '</td><td>' +
+        '<span class="pill ' + ({ enviado: 'pago', pendente: 'aberto', erro: 'vencido', cancelado: 'neutro' }[m.status] || 'neutro') + '">' + esc(m.status) + '</span>' +
+        (m.erro ? '<div class="sub">' + esc(m.erro) + '</div>' : '') + '</td></tr>').join('') + '</tbody></table></div>' : '<div class="vazio">Nenhum e-mail ainda.</div>') + '</div>';
+  const f = $('f-email');
+  f.provedor.value = prov;
+  const AJUDA = {
+    gmail: '<ol class="passos"><li>No Gmail do escritório: <b>Conta Google → Segurança → Verificação em duas etapas</b> (ligar, se estiver desligada).</li>' +
+      '<li>Ainda em Segurança, abra <b>Senhas de app</b>, crie uma com o nome "ERP" e copie as 16 letras.</li>' +
+      '<li>Aqui: escolha <b>Gmail</b>, informe o e-mail e cole a senha de app. Clique em <b>Salvar</b> e depois em <b>Enviar e-mail de teste</b>.</li></ol>',
+    smtp: '<ol class="passos"><li>No painel do seu provedor de e-mail, pegue o <b>servidor SMTP</b> e a <b>porta SSL (465)</b>.</li><li>Informe o e-mail, a senha da caixa, o servidor e a porta.</li><li>Salve e envie o teste.</li></ol>',
+    resend: '<ol class="passos"><li>Crie a conta em resend.com e confirme o domínio do escritório (ex.: araujoecastro.adv.br).</li><li>Crie uma <b>API key</b> e cole no campo de senha; em "E-mail que envia", use um endereço do domínio confirmado.</li><li>Salve e envie o teste. O plano grátis tem limite diário de envios; acima disso é pago.</li></ol>'
+  };
+  const trocar = () => {
+    $('email-smtp').classList.toggle('escondido', f.provedor.value !== 'smtp');
+    $('rot-senha').textContent = { gmail: 'Senha de app do Google', smtp: 'Senha do e-mail', resend: 'Chave da API (Resend)' }[f.provedor.value];
+    $('email-ajuda').innerHTML = AJUDA[f.provedor.value] + '<p class="sub"><b>Uma vez só, no Supabase:</b> Edge Functions → Deploy a new function → Via Editor → nome <b>erp-emails</b> → cole o arquivo ' +
+      '<code>supabase/functions/erp-emails/index.ts</code> do GitHub → Deploy → desligue <b>Verify JWT</b>. O passo a passo completo está no COMO-ATUALIZAR.</p>';
+  };
+  f.provedor.onchange = trocar; trocar();
+  $('email-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.usuario.value.trim())) throw new Error('Informe o e-mail que envia.');
+    if (f.provedor.value === 'smtp' && !f.host.value.trim()) throw new Error('Informe o servidor SMTP.');
+    await q(sb.rpc('salvar_config_email', { p: { provedor: f.provedor.value, usuario: f.usuario.value.trim(), senha: f.senha.value.replace(/\s+/g, f.provedor.value === 'gmail' ? '' : ' ').trim(),
+      host: f.host.value.trim(), porta: Number(f.porta.value) || 465, remetente: f.remetente.value.trim(), responder: f.responder.value.trim() } }));
+    await q(sb.rpc('salvar_url_sistema', { p: f.url.value.trim() }));
+    aviso('✓ Configuração de e-mail salva.'); await pintarAdmin();
+  });
+  const chamar = async (acao, msgOk) => {
+    const { data, error } = await sb.functions.invoke('erp-emails', { body: { acao } });
+    if (error) {
+      let det = ''; try { det = (await error.context.json()).erro || ''; } catch (e) { /* sem corpo */ }
+      throw new Error(det || 'A função "erp-emails" não respondeu. Confira se ela foi publicada no Supabase (Edge Functions) e se "Verify JWT" está desligado.');
+    }
+    if (data && data.erro) throw new Error(data.erro);
+    if (data && data.aviso) throw new Error(data.aviso);
+    aviso('✓ ' + msgOk + ' — enviados: ' + ((data && data.enviados) || 0) + (data && data.erros ? ', com erro: ' + data.erros + ' (' + data.ultimoErro + ')' : '') + '.');
+    await pintarAdmin();
+  };
+  $('email-teste').onclick = (ev) => comBotao(ev.currentTarget, () => chamar('teste', 'Teste enviado para o seu e-mail'));
+  $('email-agora').onclick = (ev) => comBotao(ev.currentTarget, () => chamar('enviar', 'Fila enviada'));
+  $('email-resumo').onclick = (ev) => comBotao(ev.currentTarget, () => chamar('resumo', 'Resumo do dia montado'));
+}
+
+// Cada pessoa escolhe o que quer receber por e-mail (⋯ → Meus avisos por e-mail)
+const PREFS_EMAIL = [['resumo', 'Resumo do dia (dias úteis, 7h45)'], ['tarefa', 'Tarefa atribuída a mim, revisão e aviso de atraso'], ['mencao', 'Quando alguém me menciona (@Nome)'],
+  ['fatal', 'Prazos fatais nos próximos dias (no resumo)'], ['vencimentos', 'Documentos e certidões vencendo (no resumo)'], ['publicacao', 'Publicação nova no Diário de Justiça']];
+async function janelaMeusAvisos() {
+  const eu = await q(sb.from('perfis').select('pref_email, email').eq('id', (E.perfil || window.ERP_EU).id).single());
+  const pf = eu.pref_email || {};
+  const j = abrirJanela({ titulo: 'Meus avisos por e-mail',
+    corpo: '<p class="sub" style="margin-bottom:10px">Os e-mails vão para <b>' + esc(eu.email) + '</b>.</p>' +
+      PREFS_EMAIL.map(([k, r]) => '<label class="check" style="margin-bottom:8px"><input type="checkbox" data-pref="' + k + '"' + (pf[k] !== false ? ' checked' : '') + '> ' + r + '</label>').join(''),
+    rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="btn-salvar-pref">Salvar</button></div>' });
+  j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
+  j.querySelector('#btn-salvar-pref').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    const p = {}; j.querySelectorAll('[data-pref]').forEach((c) => { p[c.dataset.pref] = c.checked; });
+    await q(sb.rpc('salvar_minhas_preferencias', { p }));
+    aviso('✓ Preferências salvas.'); fecharJanela(j);
+  });
 }

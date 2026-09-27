@@ -72,6 +72,76 @@ function mascaraDoc(s) {
   if (d.length === 14) return d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
   return s || '';
 }
+// ─────────────── funções de acesso (Administração → Usuários) ───────────────
+const FUNCOES = [
+  ['financeiro_juridico', 'Financeiro — Jurídico', 'Honorários do escritório, lançamentos e recibos'],
+  ['financeiro_contab', 'Financeiro — Contabilidade', 'Honorários da contabilidade'],
+  ['contratos', 'Contratos', 'Contratos e as parcelas geradas por eles'],
+  ['clientes', 'Clientes', 'Cadastro, ficha do cliente, contatos e contas'],
+  ['juridico', 'Jurídico', 'Processos, acordos, parcelamentos e publicações'],
+  ['tarefas', 'Tarefas', 'Tarefas de todos, fluxos e modelos (as próprias tarefas todos vêem)'],
+  ['documentos', 'Documentos', 'Enviar e abrir documentos'],
+  ['crm', 'CRM', 'Oportunidades, propostas e funil'],
+  ['relatorios', 'Relatórios', 'Painel Executivo e relatórios em PDF']
+];
+const MODELOS_ACESSO = {
+  'Sócio (tudo)': Object.fromEntries(FUNCOES.map((f) => [f[0], 'editar'])),
+  'Financeiro': { financeiro_juridico: 'editar', financeiro_contab: 'editar', contratos: 'editar', clientes: 'ver', documentos: 'editar', relatorios: 'ver' },
+  'Jurídico': { juridico: 'editar', clientes: 'editar', tarefas: 'editar', documentos: 'editar', contratos: 'ver' },
+  'Atendimento / Comercial': { crm: 'editar', clientes: 'editar', contratos: 'ver', documentos: 'editar', tarefas: 'ver' },
+  'Estagiário': { juridico: 'ver', tarefas: 'ver', clientes: 'ver', documentos: 'ver' }
+};
+// pode('contratos') → pode ver; pode('contratos','editar') → pode gravar. Admin pode tudo.
+function pode(f, nivel, perfil) {
+  const p = perfil || E.perfil || window.ERP_EU || {};
+  if (p.papel === 'admin') return true;
+  if (p.papel !== 'equipe') return false;
+  const v = (p.funcoes || {})[f];
+  return v === 'editar' || (v === 'ver' && (nivel || 'ver') === 'ver');
+}
+function resumoFuncoes(p) {
+  if (p.papel === 'admin') return 'tudo';
+  const f = p.funcoes || {}, ks = FUNCOES.filter((x) => f[x[0]]);
+  if (ks.length === FUNCOES.length && ks.every((x) => f[x[0]] === 'editar')) return 'tudo';
+  return ks.map((x) => x[1].replace('Financeiro — ', 'Fin. ') + (f[x[0]] === 'ver' ? ' (ver)' : '')).join(' · ') || 'nenhuma';
+}
+// grade de funções (Nenhum / Ver / Editar) com os modelos prontos
+function gradeFuncoes(funcoes) {
+  funcoes = funcoes || {};
+  return '<div class="modelos-acesso">' + Object.keys(MODELOS_ACESSO).map((m) => '<button type="button" class="btn btn-o btn-mini" data-modelo-acesso="' + esc(m) + '">' + esc(m) + '</button>').join('') + '</div>' +
+    '<div class="grade-funcoes">' + FUNCOES.map(([k, rot, desc]) => '<div class="gf-lin"><div><b>' + rot + '</b><div class="sub">' + desc + '</div></div><div class="segmento gf-niveis" data-funcao="' + k + '">' +
+      [['', 'Nenhum'], ['ver', 'Ver'], ['editar', 'Editar']].map(([v, r]) => '<button type="button" data-v="' + v + '" class="' + ((funcoes[k] || '') === v ? 'ativo' : '') + '">' + r + '</button>').join('') + '</div></div>').join('') + '</div>';
+}
+function ligarGradeFuncoes(raiz) {
+  raiz.querySelectorAll('.gf-niveis').forEach((g) => g.onclick = (ev) => { const b = ev.target.closest('button'); if (!b) return; g.querySelectorAll('button').forEach((x) => x.classList.toggle('ativo', x === b)); });
+  raiz.querySelectorAll('[data-modelo-acesso]').forEach((b) => b.onclick = () => {
+    const m = MODELOS_ACESSO[b.dataset.modeloAcesso];
+    raiz.querySelectorAll('.gf-niveis').forEach((g) => { const v = m[g.dataset.funcao] || ''; g.querySelectorAll('button').forEach((x) => x.classList.toggle('ativo', x.dataset.v === v)); });
+  });
+}
+function lerGradeFuncoes(raiz) {
+  const o = {};
+  raiz.querySelectorAll('.gf-niveis').forEach((g) => { const b = g.querySelector('button.ativo'); if (b && b.dataset.v) o[g.dataset.funcao] = b.dataset.v; });
+  return o;
+}
+
+// Data digitada (filtros): máscara dd/mm/aaaa; nada roda enquanto se digita.
+function mascaraData(inp) {
+  if (!inp) return;
+  inp.addEventListener('input', () => {
+    const d = soDigitos(inp.value).slice(0, 8);
+    inp.value = d.length > 4 ? d.slice(0, 2) + '/' + d.slice(2, 4) + '/' + d.slice(4) : d.length > 2 ? d.slice(0, 2) + '/' + d.slice(2) : d;
+  });
+}
+// "31/11/2025" → { iso: '2025-11-30', corrigida: true }; incompleta → null
+function lerDataBR(txt) {
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(txt || '').trim());
+  if (!m) return null;
+  const dia = +m[1], mes = +m[2], ano = +m[3];
+  if (mes < 1 || mes > 12 || dia < 1 || ano < 1900) return null;
+  const ult = new Date(ano, mes, 0).getDate(), d = Math.min(dia, ult);
+  return { iso: ano + '-' + String(mes).padStart(2, '0') + '-' + String(d).padStart(2, '0'), corrigida: d !== dia };
+}
 function normalizar(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
 // Valor com sinal: comissão/desconto (redutor) diminui a receita.
 function vl(l) { return l.redutor ? -(Number(l.valor) || 0) : (Number(l.valor) || 0); }

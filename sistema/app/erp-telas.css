@@ -126,3 +126,48 @@ body.gx-barra-topo .tw td>.tag.tn,body.gx-barra-topo .tw td .er-grupo{display:bl
 #gs-sino-n{position:absolute;top:-5px;right:-6px;background:#C9A84C;color:#1B2A4A;border-radius:99px;font:700 10px 'DM Sans',sans-serif;padding:1px 5px;min-width:16px}
 #gs-sino-n.alto{background:#DC2626;color:#fff}
 #gs-sino-n[hidden]{display:none}
+
+/* ═══════ Design unificado (etapa 2) ═══════ */
+/* fontes: uma família só — títulos em DM Sans (sai a serifa) */
+body.gx-barra-topo{--font-d:'DM Sans','Inter',system-ui,sans-serif}
+body.gx-barra-topo .mod-banner-t{font-family:'Space Grotesk','DM Sans',system-ui,sans-serif;font-size:19px;letter-spacing:-.01em}
+.gx-sec-tit,body.gx-barra-topo .ex-t{font-family:'DM Sans',system-ui,sans-serif!important;font-size:11px!important;font-weight:700!important;letter-spacing:.09em!important;
+  text-transform:uppercase;color:#1B2A4A!important;margin-bottom:12px}
+body.gx-barra-topo .cc-t,body.gx-barra-topo .sec-t{font-family:'DM Sans',system-ui,sans-serif;font-size:14px;font-weight:700}
+/* dinheiro nunca quebra: número inteiro numa linha */
+body.gx-barra-topo td.mono,body.gx-barra-topo span.mono,body.gx-barra-topo .kv,body.gx-barra-topo td.num{white-space:nowrap}
+body.gx-barra-topo .kv{font-size:clamp(15px,1.5vw,20px)!important}
+/* campos nunca saem do card */
+body.gx-barra-topo input,body.gx-barra-topo select,body.gx-barra-topo textarea{max-width:100%;box-sizing:border-box}
+body.gx-barra-topo .crow>*,body.gx-barra-topo .kpi-grid>*,body.gx-barra-topo .cc{min-width:0}
+/* filtro flutuante do ERP não cobre o título da tela */
+body.gx-barra-topo:not(.gx-tela-nova) #main{padding-top:calc(var(--hh) + 62px)}
+/* Processos: o total já aparece na análise da carteira (bloco repetido) */
+#kpiProc>:first-child{display:none}
+/* nome da tela na barra quando o menu vira o menu inferior */
+#gs-tela-nome{display:none;color:#fff;font:700 15px 'Space Grotesk','DM Sans',sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:1100px){#gs-tela-nome{display:block;flex:1;min-width:0}}
+/* gráfico sem dados */
+canvas.gx-sem-dados{opacity:1}
+/* celular: tabelas do Gestão viram cartões (rótulo à esquerda, valor à direita) */
+@media (max-width:600px){
+  .gs table.gx-cartoes thead{display:none}
+  .gs table.gx-cartoes,.gs table.gx-cartoes tbody{display:block;width:100%}
+  .gs table.gx-cartoes tr{display:block;border:1px solid var(--border,#E5E7EB);border-radius:12px;margin:0 0 10px;padding:6px 10px;background:#fff}
+  .gs table.gx-cartoes td{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:6px 0!important;border:0!important;text-align:right}
+  .gs table.gx-cartoes td::before{content:attr(data-rotulo);font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6B7280;text-align:left;flex-shrink:0}
+  .gs table.gx-cartoes td[data-rotulo=""]::before{content:none}
+  .gs table.gx-cartoes td[colspan]{display:block;text-align:left}
+  .gs table.gx-cartoes td.acoes-l{justify-content:flex-end}
+}
+/* acessibilidade: foco visível */
+body.gx-barra-topo :focus-visible{outline:2px solid #2E5EAA;outline-offset:2px}
+/* resumos em 3 colunas (Grupo / Tribunal / Natureza) viram 2 e depois 1 para o valor caber inteiro */
+@media (max-width:1300px){body.gx-barra-topo .crow.c3{grid-template-columns:1fr 1fr}}
+@media (max-width:860px){body.gx-barra-topo .crow.c3,body.gx-barra-topo .crow.c2{grid-template-columns:1fr}}
+
+/* funções de acesso: o que a pessoa não pode usar some do menu */
+.gx-sem-funcao{display:none!important}
+
+/* contadores compactos quando o menu precisa do espaço */
+@media (max-width:1700px){#gs-hd .gs-cont-pal{display:none}}

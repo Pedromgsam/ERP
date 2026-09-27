@@ -23,6 +23,9 @@ TELAS.clientes = async function () {
   let t;
   $('cli-busca').oninput = (ev) => { clearTimeout(t); t = setTimeout(() => { C.busca = ev.target.value; pintarClientes(); }, 250); };
   ligarBotoesNovo($('conteudo'));
+  // ao ordenar pelo cabeçalho, fecha o detalhe aberto (senão ele fica solto no meio da tabela)
+  $('cli-corpo').addEventListener('click', (ev) => { if (ev.target.closest('th')) { document.querySelectorAll('#cli-corpo .cli-det').forEach((x) => x.remove());
+    document.querySelectorAll('#cli-corpo tr[data-cli]').forEach((x) => { x.setAttribute('aria-expanded', 'false'); x.classList.remove('cli-aberta'); x.querySelector('.cli-seta').textContent = '▸'; }); } });
   pintarClientes();
 };
 
@@ -39,19 +42,71 @@ function pintarClientes() {
                (bd && soDigitos(c.cpf_cnpj).includes(bd)))) return false;
     return true;
   });
-  $('cli-conta').textContent = lista.length + ' de ' + E.clientes.length + ' cadastro(s)';
+  $('cli-conta').textContent = lista.length + ' de ' + E.clientes.length + ' cadastro(s) · clique na linha para ver os detalhes';
   $('cli-corpo').innerHTML = '<div class="card">' + (lista.length ?
-    '<div class="tabela-wrap"><table class="ordenavel"><thead><tr><th>Grupo</th><th>Nome</th><th>CPF/CNPJ</th><th>Tipo</th><th>Responsável</th>' +
-    '<th>Procuração</th><th>Certificado</th><th>Situação</th><th>Contato</th></tr></thead><tbody>' +
-    lista.map((c) => '<tr class="clicavel" data-cli="' + c.id + '"><td title="' + esc(c.grupos ? c.grupos.nome : '') + '">' + esc(c.grupos ? c.grupos.nome : '—') + '</td>' +
+    '<div class="tabela-wrap"><table class="ordenavel cli-tabela"><thead><tr><th class="sem-ordem" style="width:28px"></th><th>Grupo</th><th>Nome</th><th>CPF/CNPJ</th><th>Responsável</th>' +
+    '<th>Procuração</th><th>Certificado</th><th>Situação</th></tr></thead><tbody>' +
+    lista.map((c) => '<tr class="clicavel cli-linha" tabindex="0" aria-expanded="false" data-cli="' + c.id + '"><td class="cli-seta">▸</td>' +
+      '<td class="cli-grupo" title="' + esc(c.grupos ? c.grupos.nome : '') + '">' + esc(c.grupos ? c.grupos.nome : '—') + '</td>' +
       '<td><b>' + esc(c.nome) + '</b>' + (c.socio_admin ? '<div class="sub">' + esc(c.socio_admin) + '</div>' : '') + '</td>' +
       '<td class="mono">' + esc(mascaraDoc(c.cpf_cnpj) || '—') + '</td>' +
-      '<td><span class="pill ' + (c.tipo === 'Inativo' ? 'neutro' : c.tipo === 'Demanda' ? 'hoje' : 'aberto') + '">' + esc(c.tipo) + '</span></td>' +
       '<td>' + pillPessoa(c.responsavel) + '</td><td>' + pillSimNao(c.procuracao) + '</td><td>' + pillSimNao(c.certificado) + '</td>' +
-      '<td>' + pillSitCad(c.situacao_cadastral) + '</td><td>' + esc(c.telefone || c.email || '—') + '</td></tr>').join('') +
+      '<td>' + pillSitCad(c.situacao_cadastral) + '</td></tr>').join('') +
     '</tbody></table></div>'
     : '<div class="vazio">' + (E.clientes.length ? 'Nenhum cliente neste recorte.' : 'Nenhum cliente ainda. Clique em "+ Novo cliente" ou importe a Base de Dados em Administração.') + '</div>') + '</div>';
-  $('cli-corpo').querySelectorAll('[data-cli]').forEach((tr) => tr.onclick = () => abrirFicha(tr.dataset.cli));
+  $('cli-corpo').querySelectorAll('tr[data-cli]').forEach((tr) => {
+    tr.onclick = () => expandirCliente(tr);
+    tr.onkeydown = (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); expandirCliente(tr); } };
+  });
+}
+
+// Linha que expande logo abaixo com o resumo do cliente (uma aberta por vez)
+async function expandirCliente(tr) {
+  const aberta = tr.getAttribute('aria-expanded') === 'true';
+  document.querySelectorAll('#cli-corpo .cli-det').forEach((x) => x.remove());
+  document.querySelectorAll('#cli-corpo tr[data-cli]').forEach((x) => { x.setAttribute('aria-expanded', 'false'); x.classList.remove('cli-aberta'); x.querySelector('.cli-seta').textContent = '▸'; });
+  if (aberta) return;
+  const c = E.clientes.find((x) => x.id === tr.dataset.cli);
+  tr.setAttribute('aria-expanded', 'true'); tr.classList.add('cli-aberta'); tr.querySelector('.cli-seta').textContent = '▾';
+  const det = document.createElement('tr');
+  det.className = 'cli-det';
+  det.innerHTML = '<td colspan="8"><div class="cli-det-corpo"><div class="carregando" style="padding:14px">Carregando…</div></div></td>';
+  tr.after(det);
+  const alvo = det.querySelector('.cli-det-corpo');
+  const nada = () => [];
+  const [contatos, ctrs, lanc, tfs, docs] = await Promise.all([
+    q(sb.from('contatos').select('nome, finalidade, email, telefone').eq('cliente_id', c.id).order('criado_em')).catch(nada),
+    q(sb.from('contratos').select('descricao, valor_total, status').eq('cliente_id', c.id).eq('status', 'Ativo')).catch(nada),
+    q(sb.from('lancamentos').select('valor, redutor, vencimento').eq('cliente_id', c.id).eq('tipo', 'receita').eq('pago', false).eq('perda', false)).catch(nada),
+    q(sb.from('tarefas').select('titulo, prazo').eq('cliente_id', c.id).not('status', 'in', '(concluida,cancelada)').order('prazo', { nullsFirst: false }).limit(3)).catch(nada),
+    q(sb.from('documentos').select('nome, criado_em').eq('cliente_id', c.id).eq('arquivado', false).order('criado_em', { ascending: false }).limit(3)).catch(nada)
+  ]);
+  if (!det.isConnected) return;
+  const h = hojeISO(), atraso = lanc.filter((l) => l.vencimento < h);
+  const lin = (rot, v) => v ? '<div class="dado"><span>' + rot + '</span><b>' + v + '</b></div>' : '';
+  const fin = contatos.find((x) => x.finalidade === 'financeiro'), jur = contatos.find((x) => x.finalidade === 'juridico');
+  const deb = [['RFB', c.rfb], ['PGFN', c.pgfn], ['SEFAZ/MG', c.sefaz_mg], ['AGE/MG', c.age_mg]].filter((d) => Number(d[1]));
+  const zap = soDigitos(c.telefone);
+  alvo.innerHTML =
+    '<div class="cli-det-grade">' +
+    '<div class="dados"><div class="cli-det-tit">Contato</div>' +
+      lin('Telefone', esc(c.telefone)) + lin('E-mail', c.email ? '<a href="mailto:' + esc(c.email) + '">' + esc(c.email) + '</a>' : '') +
+      lin('Financeiro', fin ? esc(fin.nome) + (fin.email ? ' · ' + esc(fin.email) : '') : '') + lin('Jurídico', jur ? esc(jur.nome) + (jur.email ? ' · ' + esc(jur.email) : '') : '') +
+      lin('Endereço', esc([c.endereco, c.cidade && c.estado ? c.cidade + '/' + c.estado : c.cidade].filter(Boolean).join(' · '))) +
+      lin('Tipo', esc(c.tipo)) + (!c.telefone && !c.email && !contatos.length ? '<div class="sub">Sem contato cadastrado.</div>' : '') + '</div>' +
+    '<div class="dados"><div class="cli-det-tit">Fiscal</div>' +
+      lin('Regime', esc(c.regime_tributario)) + lin('CAPAG', c.capag ? pillCapag(c.capag) : '') +
+      deb.map((d) => lin(d[0], brl(d[1]))).join('') + (!c.regime_tributario && !c.capag && !deb.length ? '<div class="sub">Sem dados fiscais.</div>' : '') + '</div>' +
+    '<div class="dados"><div class="cli-det-tit">Escritório</div>' +
+      lin('Contratos ativos', String(ctrs.length)) + lin('A receber', brl(soma(lanc, vl)) + (atraso.length ? ' <span class="pill vencido">' + atraso.length + ' em atraso</span>' : '')) +
+      lin('Tarefas abertas', tfs.length ? tfs.map((t) => esc(t.titulo) + (t.prazo ? ' <span class="sub">' + dataBR(t.prazo) + '</span>' : '')).join('<br>') : '—') +
+      lin('Últimos documentos', docs.length ? docs.map((d) => esc(d.nome)).join('<br>') : '—') + '</div>' +
+    '</div><div class="cli-det-acoes">' +
+      '<button class="btn btn-p btn-mini" data-cli-ficha>Abrir ficha completa</button><button class="btn btn-o btn-mini" data-cli-editar>Editar</button>' +
+      (zap ? '<a class="btn btn-o btn-mini" target="_blank" rel="noopener" href="https://wa.me/' + (zap.length <= 11 ? '55' : '') + zap + '">WhatsApp</a>' : '') +
+      (c.email ? '<a class="btn btn-o btn-mini" href="mailto:' + esc(c.email) + '">E-mail</a>' : '') + '</div>';
+  alvo.querySelector('[data-cli-ficha]').onclick = () => abrirFicha(c.id);
+  alvo.querySelector('[data-cli-editar]').onclick = () => formCliente(c, pintarClientes);
 }
 
 function selectSimNao(nome, v) {
