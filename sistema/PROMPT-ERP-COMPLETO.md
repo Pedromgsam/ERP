@@ -239,6 +239,11 @@ vínculos), `assinaturas` (provedor, status, webhook); `fluxos`, `modelos_fluxo`
 | 8 | Jurídico avançado: andamentos/publicações → prazos; audiências na agenda | Publicação vira prazo sugerido |
 | 9 | Relatórios por perfil, backups automáticos, homologação, limpeza (excluir Gestão com ordem do dono) | Relatório mensal automático; restauração testada |
 
+### Andamento
+- **Fases 1, 2 e 3: entregues** (Backup 07). Ficha 360° com 12 abas; Documentos em Storage privado (link de 5 min) no cliente, contrato, lançamento e tarefa; Tarefas com lista em árvore, quadro, calendário, fluxos (dias úteis e feriados), relatório, checklist, recorrência, dependência, comentários com @menção e sino de avisos.
+- Pendente nessas fases: liberar documentos no Portal do cliente (vai na fase 6).
+- **Fases 4, 5, 7 e 8** usam serviços pagos de terceiros: aguardam a escolha do escritório (custos informados na entrega).
+
 ## 10. Como entregar cada fase
 
 1. Explicar em 5 linhas o que muda para o usuário (sem termos técnicos).

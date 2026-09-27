@@ -236,6 +236,68 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('tela Clientes do Gestão', /Alfa Comércio Ltda/.test(await p.textContent('#panel-clientes')) && await p.isVisible('#panel-clientes button:has-text("Novo cliente")'));
     await foto(p, 'clientes');
 
+    // ── ficha 360° do cliente ──
+    await p.click('#panel-clientes tr[data-cli]:has-text("Alfa Comércio Ltda")'); await p.waitForSelector('.janela.ficha #fc-abas'); await p.waitForTimeout(1200);
+    ok('ficha do cliente abre com 12 abas e resumo', (await p.$$('.janela.ficha #fc-abas button')).length === 12 && /A receber/.test(await p.textContent('#fc-corpo')));
+    await foto(p, 'ficha');
+    await p.click('#fc-abas [data-aba=contatos]'); await p.waitForSelector('[data-novo-sub]'); await p.click('[data-novo-sub]');
+    await p.waitForSelector('#f-sub'); await p.waitForTimeout(250);
+    await p.fill('#f-sub [name=nome]', 'Fernanda Financeiro'); await p.selectOption('#f-sub [name=finalidade]', 'financeiro');
+    await p.fill('#f-sub [name=email]', 'fin@teste.com'); await p.check('#f-sub [name=recebe_boletos]');
+    await p.click('#btn-salvar-sub'); await p.waitForTimeout(1500);
+    ok('ficha: cadastra contato financeiro que recebe boletos', sql("select finalidade||'|'||recebe_boletos from contatos") === 'financeiro|true' && /Fernanda Financeiro/.test(await p.textContent('#fc-corpo')));
+    for (const aba of ['enderecos', 'contas', 'socios', 'processos', 'contratos', 'financeiro', 'tarefas', 'fiscal']) {
+      await p.click('#fc-abas [data-aba=' + aba + ']'); await p.waitForTimeout(700);
+    }
+    ok('ficha: processos, financeiro e dados fiscais do cliente', /Certidões/.test(await p.textContent('#fc-corpo')) && /Receita Federal/.test(await p.textContent('#fc-corpo')));
+    await p.click('#fc-int'); await p.waitForSelector('#f-int'); await p.waitForTimeout(250);
+    await p.fill('#f-int [name=resumo]', 'Reunião sobre parcelamento'); await p.click('#btn-salvar-int'); await p.waitForTimeout(1500);
+    ok('ficha: interação aparece na linha do tempo', sql('select count(*) from interacoes') === '1' && /Reunião sobre parcelamento/.test(await p.textContent('#fc-corpo')));
+    // documentos: envio, abrir por link temporário
+    await p.click('#fc-abas [data-aba=documentos]'); await p.waitForSelector('[data-enviar-doc]'); await p.click('[data-enviar-doc]');
+    await p.waitForSelector('#doc-arq', { state: 'attached' });
+    await p.setInputFiles('#doc-arq', { name: 'contrato-social.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 ficticio') });
+    await p.selectOption('#f-doc [name=tipo]', 'societario'); await p.click('#btn-enviar-doc'); await p.waitForTimeout(2000);
+    ok('documento vai para o armazenamento privado e fica ligado ao cliente', sql("select d.nome||'|'||d.tipo||'|'||c.nome from documentos d join clientes c on c.id=d.cliente_id") === 'contrato-social.pdf|societario|Alfa Comércio Ltda' &&
+      (await (await p.request.get(BASE + '/__teste/arquivos')).json()).includes('documentos/' + sql('select caminho from documentos')));
+    const [pedido] = await Promise.all([p.context().waitForEvent('request', (q) => /\/storage\/v1\/object\/sign\/.*token=/.test(q.url())), p.click('#fc-corpo [data-abrir-doc]')]);
+    ok('abrir documento usa link temporário', !!pedido); await p.waitForTimeout(800);
+    for (const pg of p.context().pages()) if (pg !== p) await pg.close();
+    await p.keyboard.press('Escape'); await p.waitForTimeout(300);
+    await nav(p, 'documentos'); await p.waitForTimeout(1500);
+    ok('menu Documentos lista os arquivos', /contrato-social\.pdf/.test(await p.textContent('#panel-documentos')));
+
+    // ── tarefas completas: checklist, fluxo com dias úteis, vistas, menção ──
+    await nav(p, 'tarefas'); await p.waitForTimeout(1500);
+    await p.click('#tf-nova'); await p.waitForSelector('#f-tf'); await p.waitForTimeout(250);
+    await p.fill('#f-tf [name=titulo]', 'Tarefa com checklist'); await p.fill('#tf-check-novo', 'Conferir guia'); await p.press('#tf-check-novo', 'Enter');
+    await p.selectOption('#f-tf [name=status]', 'concluida'); await p.click('#btn-salvar-tf'); await p.waitForTimeout(1500);
+    ok('não conclui tarefa com checklist pendente', sql("select count(*) from tarefas where titulo='Tarefa com checklist'") === '0' && /checklist/i.test(await p.textContent('#gs-raiz #aviso')));
+    await p.check('#f-tf [data-ck="0"]'); await salvarGs(p, '#btn-salvar-tf');
+    ok('com o checklist feito, conclui e registra quando', sql("select status||'|'||(concluida_em is not null) from tarefas where titulo='Tarefa com checklist'") === 'concluida|true');
+    await p.click('#tf-fluxo'); await p.waitForSelector('#f-fl'); await p.waitForTimeout(250);
+    await p.selectOption('#f-fl [name=modelo]', { label: 'Defesa em execução fiscal' });
+    await p.selectOption('#f-fl [name=cliente_id]', { label: 'Alfa Comércio Ltda · Grupo Alfa' });
+    await p.fill('#f-fl [name=responsavel]', 'Adriana'); await p.fill('#f-fl [name=prazo_fatal]', '2026-10-16');
+    await p.dispatchEvent('#f-fl [name=prazo_fatal]', 'change'); await p.waitForTimeout(300);
+    await salvarGs(p, '#btn-criar-fl');
+    ok('fluxo cria etapas e subtarefas', sql("select count(*) from tarefas where fluxo_id is not null") === '7' && sql("select count(*) from tarefas where tarefa_pai_id is not null") === '2');
+    ok('prazos em dias úteis pulam fim de semana e feriado (12/10)', sql("select prazo from tarefas where titulo='Minuta da defesa'") === '2026-10-09' && sql("select prazo_fatal from tarefas where titulo='Protocolo'") === '2026-10-16');
+    ok('responsável do fluxo recebe aviso', sql("select count(*) from notificacoes n join perfis p on p.id=n.usuario_id where p.email='equipe@teste'") === '1');
+    for (const v of ['kanban', 'calendario', 'fluxos', 'relatorio']) { await p.click('#tf-vista [data-v=' + v + ']'); await p.waitForTimeout(500); }
+    ok('vistas Quadro, Calendário, Fluxos e Relatório', await p.isVisible('#tf-csv') && /Adriana/.test(await p.textContent('#tf-vista-corpo')));
+    await p.click('#tf-vista [data-v=fluxos]'); await p.waitForTimeout(500);
+    ok('fluxo com linha do tempo', (await p.$$('#tf-vista-corpo .gantt-lin')).length === 7);
+    await foto(p, 'fluxos');
+    await p.click('#tf-vista [data-v=lista]'); await p.click('#tf-atalho [data-v=abertas]'); await p.waitForTimeout(500);
+    await p.click('#tf-vista-corpo [data-editar-t]:has-text("Protocolo")'); await p.waitForSelector('#tf-coment-txt'); await p.waitForTimeout(800);
+    await p.fill('#tf-coment-txt', '@Adriana revisar a peça'); await p.click('#tf-coment-env'); await p.waitForTimeout(1500);
+    ok('comentário com @menção avisa a pessoa', sql('select count(*) from comentarios') === '1' && sql("select count(*) from notificacoes n join perfis p on p.id=n.usuario_id where p.email='equipe@teste'") === '2');
+    await p.keyboard.press('Escape');
+    await p.click('#gs-sino'); await p.waitForTimeout(1500);
+    ok('sino abre os avisos', /Avisos/.test(await p.textContent('#gs-raiz .janela-hd')));
+    await p.keyboard.press('Escape');
+
     // ── administração (tela do Gestão): criar usuário, link de senha, histórico ──
     ok('Administração no menu do admin', await p.isVisible('#tn [data-ir=admin]'));
     await nav(p, 'admin'); await p.waitForTimeout(1500);
@@ -258,6 +320,8 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     // ── exclusão: equipe não exclui cliente ──
     const ctxE = await pagina();
     await entrar(ctxE, 'equipe@teste'); await carregado(ctxE);
+    await ctxE.waitForTimeout(2500);
+    ok('sino da equipe mostra as notificações', Number(await ctxE.textContent('#gs-sino-n')) >= 2);
     ok('equipe não vê Administração', !(await ctxE.isVisible('#tn [data-ir=admin]')) && await ctxE.isVisible('.tn-lancar-bt'));
     await ctxE.evaluate((id) => ERP_EDITAR('clientes:' + id), idBeta); await ctxE.waitForSelector('#gs-raiz .janela');
     ok('equipe não vê "Excluir" no cliente', !(await ctxE.$('#btn-excluir-cli')));
