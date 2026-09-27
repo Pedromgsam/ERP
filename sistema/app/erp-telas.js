@@ -19,14 +19,14 @@
   // ═════════════════════════ MENU ═════════════════════════
   const MENU = [
     { id: 'hoje', rot: 'Início', equipe: true },
-    { id: 'resumo', rot: 'Painel Executivo' },
-    { rot: 'Jurídico', itens: [['processos', 'Processos'], ['acordos', 'Acordos'], ['parcelamentos', 'Parcelamentos']] },
-    { rot: 'Financeiro', equipe: true, itens: [['financeiro', 'Jurídico'], ['financeiroContab', 'Contabilidade']] },
-    { id: 'contratos', rot: 'Contratos', equipe: true },
-    { id: 'clientes', rot: 'Clientes', equipe: true },
-    { id: 'documentos', rot: 'Documentos', equipe: true },
+    { id: 'resumo', rot: 'Painel Executivo', func: 'relatorios' },
+    { rot: 'Jurídico', itens: [['processos', 'Processos', 'juridico'], ['acordos', 'Acordos', 'juridico'], ['parcelamentos', 'Parcelamentos', 'juridico']] },
+    { rot: 'Financeiro', equipe: true, itens: [['financeiro', 'Jurídico', 'financeiro_juridico'], ['financeiroContab', 'Contabilidade', 'financeiro_contab']] },
+    { id: 'contratos', rot: 'Contratos', equipe: true, func: 'contratos' },
+    { id: 'clientes', rot: 'Clientes', equipe: true, func: 'clientes' },
+    { id: 'documentos', rot: 'Documentos', equipe: true, func: 'documentos' },
     { id: 'tarefas', rot: 'Tarefas', equipe: true },
-    { id: 'notificacoes', rot: 'Notificações', equipe: true },
+    { id: 'notificacoes', rot: 'Notificações', equipe: true, func: 'clientes' },
     { id: 'admin', rot: 'Administração', admin: true }
   ];
   // painéis novos → tela do Gestão que desenha nele
@@ -37,16 +37,35 @@
   const depois = () => ED.recarregar();
   async function comCadastros(fn) { await GS().carregarCadastros(); return fn(); }
   const LANCAR = [
-    ['Receita (honorário)', () => comCadastros(() => GS().formLancamento({ tipo: 'receita', empresa: empresaAtual() }, depois))],
-    ['Despesa', () => comCadastros(() => GS().formLancamento({ tipo: 'despesa', empresa: empresaAtual() }, depois))],
-    ['Comissão / desconto (redutor de receita)', () => comCadastros(() => GS().formLancamento({ tipo: 'receita', redutor: true, empresa: empresaAtual(), categoria: 'Comissão' }, depois))],
-    ['Cliente', () => comCadastros(() => GS().formCliente(undefined, depois))],
-    ['Contrato', () => comCadastros(() => GS().formContrato({}))],
-    ['Processo', () => ED.abrirFormulario('processos', null, { carteira: 'Ativo', status: 'Em andamento' })],
-    ['Acordo (parcela)', () => ED.abrirFormulario('acordos', null, {})],
-    ['Parcelamento', () => ED.abrirParcelamento(null)],
+    ['Receita (honorário)', () => comCadastros(() => GS().formLancamento({ tipo: 'receita', empresa: empresaAtual() }, depois)), '*fin'],
+    ['Despesa', () => comCadastros(() => GS().formLancamento({ tipo: 'despesa', empresa: empresaAtual() }, depois)), '*fin'],
+    ['Comissão / desconto (redutor de receita)', () => comCadastros(() => GS().formLancamento({ tipo: 'receita', redutor: true, empresa: empresaAtual(), categoria: 'Comissão' }, depois)), '*fin'],
+    ['Cliente', () => comCadastros(() => GS().formCliente(undefined, depois)), 'clientes'],
+    ['Contrato', () => comCadastros(() => GS().formContrato({})), 'contratos'],
+    ['Processo', () => ED.abrirFormulario('processos', null, { carteira: 'Ativo', status: 'Em andamento' }), 'juridico'],
+    ['Acordo (parcela)', () => ED.abrirFormulario('acordos', null, {}), 'juridico'],
+    ['Parcelamento', () => ED.abrirParcelamento(null), 'juridico'],
     ['Tarefa', () => comCadastros(() => GS().formTarefa({}, depois))]
   ];
+
+  // ═════════════════ FUNÇÕES DE ACESSO (Administração → Usuários) ═════════════════
+  const FUNC_TELA = {};
+  MENU.forEach((m) => { if (m.id && m.func) FUNC_TELA[m.id] = m.func; (m.itens || []).forEach((x) => { if (x[2]) FUNC_TELA[x[0]] = x[2]; }); });
+  function permitido(func, nivel) {
+    if (!func) return true;
+    const eu = window.ERP_EU || {};
+    if (!GS() || !GS().pode) return true;
+    if (func === '*fin') return GS().pode('financeiro_juridico', nivel, eu) || GS().pode('financeiro_contab', nivel, eu);
+    return GS().pode(func, nivel, eu);
+  }
+  function aplicarFuncoes() {
+    if (ehCliente()) return;
+    document.querySelectorAll('#gs-hd [data-ir], #tn-baixo [data-baixo]').forEach((b) => { const id = b.dataset.ir || b.dataset.baixo; b.classList.toggle('gx-sem-funcao', !permitido(FUNC_TELA[id])); });
+    document.querySelectorAll('#gs-hd [data-lancar]').forEach((b) => b.classList.toggle('gx-sem-funcao', !permitido(LANCAR[+b.dataset.lancar][2], 'editar')));
+    document.querySelectorAll('#tn .tn-grupo').forEach((g) => { const its = g.querySelectorAll('.tn-menu [data-ir]'); if (its.length) g.classList.toggle('gx-sem-funcao', [...its].every((x) => x.classList.contains('gx-sem-funcao'))); });
+    const lc = document.querySelector('#gs-hd .tn-lancar'); if (lc) lc.classList.toggle('gx-sem-funcao', [...document.querySelectorAll('#gs-hd [data-lancar]')].every((x) => x.classList.contains('gx-sem-funcao')));
+  }
+  document.addEventListener('erp:perfil', () => setTimeout(aplicarFuncoes, 0));
 
   // ═════════════════════ BARRA SUPERIOR ═════════════════════
   function montarBarra() {
@@ -127,6 +146,8 @@
         : '<div class="tn-mais-tit' + (m.equipe ? ' gx-so-equipe' : '') + '">' + esc(m.rot) + '</div>' + m.itens.map((x) => '<button type="button"' + cls(m) + ' data-ir="' + x[0] + '">' + esc(x[1]) + '</button>').join('')).join('')
         + '<button type="button" data-acao="atualizar">↻ Atualizar dados</button><button type="button" data-acao="gestao">↗ Abrir o Gestão (versão anterior)</button><button type="button" class="gs-sair">Sair</button>';
     f.innerHTML = '<div class="tn-mais-caixa">' + itens + '<button type="button" class="tn-mais-fechar" data-fechar>Fechar</button></div>';
+    f.querySelectorAll('[data-ir]').forEach((b) => { if (!permitido(FUNC_TELA[b.dataset.ir])) b.remove(); });
+    f.querySelectorAll('[data-lancar]').forEach((b) => { if (!permitido(LANCAR[+b.dataset.lancar][2], 'editar')) b.remove(); });
     document.body.appendChild(f);
     f.addEventListener('click', (e) => { if (e.target === f || e.target.closest('[data-fechar]')) fecharMais(); });
   }
@@ -166,6 +187,7 @@
     const navOrig = window.nav;
     window.nav = function (btn, pid) {
       const id = pid || (btn && btn.dataset && btn.dataset.panel);
+      if (id && !ehCliente() && !permitido(FUNC_TELA[id])) { aviso('Sem acesso a esta área. Peça ao administrador para liberar a função.', true); if (id !== 'hoje') return window.nav(null, 'hoje'); }
       // como no Gestão: cada tela abre sem o filtro da tela anterior
       if (id && _painel && id !== _painel && typeof window.resetarFiltros === 'function') {
         try { window.resetarFiltros(); if (typeof window.applyFilters === 'function') window.applyFilters(); } catch (e) { console.warn('[ERP] limpar filtros:', e); }

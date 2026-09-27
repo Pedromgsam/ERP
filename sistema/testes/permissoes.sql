@@ -4,7 +4,7 @@ insert into auth.users (id,email) values
  ('00000000-0000-0000-0000-00000000000a','admin@teste'),
  ('00000000-0000-0000-0000-00000000000b','equipe@teste'),
  ('00000000-0000-0000-0000-00000000000c','novo@teste');
-update public.perfis set papel='equipe' where email='equipe@teste';
+update public.perfis set papel='equipe', funcoes='{"financeiro_juridico":"editar","financeiro_contab":"editar","contratos":"editar","clientes":"editar","juridico":"editar","tarefas":"editar","documentos":"editar","crm":"editar","relatorios":"editar"}' where email='equipe@teste';
 
 create or replace function pg_temp.como(u text) returns void language plpgsql as $$
 begin perform set_config('request.jwt.claim.sub', u, true); end $$;
@@ -121,9 +121,9 @@ commit;
 -- configurações (dados dos advogados para recibos): só equipe lê, só admin grava
 insert into configuracoes(chave, valor) values ('recibo_emitentes', '{"x":{"nome":"FICTICIO"}}');
 begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-00000000000b');
-select pg_temp.ok((select count(*) from configuracoes)=1,'equipe lê as configurações dos recibos');
+select pg_temp.ok((select count(*) from configuracoes where chave='recibo_emitentes')=1,'equipe lê as configurações dos recibos');
 update configuracoes set valor='{}';
-select pg_temp.ok((select valor from configuracoes)<>'{}'::jsonb,'equipe não altera configurações');
+select pg_temp.ok((select valor from configuracoes where chave='recibo_emitentes')<>'{}'::jsonb,'equipe não altera configurações');
 commit;
 begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-00000000000d');
 select pg_temp.ok((select count(*) from configuracoes)=0,'cliente não lê dados dos advogados');
@@ -167,4 +167,37 @@ begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-000
 select pg_temp.ok((select count(*) from notificacoes)=1,'admin vê a notificação dele');
 delete from documentos;
 select pg_temp.ok((select count(*) from documentos)=0,'admin exclui documento');
+commit;
+
+-- v7: funções de acesso — pessoa só com Financeiro (Jurídico) e uma tarefa própria
+insert into auth.users (id,email,raw_user_meta_data) values ('00000000-0000-0000-0000-0000000000f1','fin@teste','{"nome":"Fabiana Financeiro"}');
+update perfis set papel='equipe', funcoes='{"financeiro_juridico":"editar"}' where email='fin@teste';
+insert into lancamentos(empresa,tipo,descricao,vencimento,valor) values ('contabilidade','receita','Honorário contábil teste','2026-10-10',100),('escritorio','receita','Honorário jurídico teste','2026-10-10',200);
+insert into tarefas(titulo,responsavel) values ('Tarefa da Fabiana','Fabiana'),('Tarefa de outra pessoa','Pedro');
+begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-0000000000f1');
+select pg_temp.ok((select count(*) from lancamentos where empresa='escritorio')>0 and (select count(*) from lancamentos where empresa='contabilidade')=0,'função Financeiro Jurídico vê só os lançamentos do escritório');
+select pg_temp.ok((select count(*) from contratos)=0 and (select count(*) from processos)=0 and (select count(*) from contatos)=0,'sem função: não vê contratos, processos nem contatos');
+select pg_temp.ok((select count(*) from clientes)>0,'nomes de clientes continuam visíveis para os formulários');
+do $$ begin
+  insert into contratos(cliente_id,descricao,valor_total) select id,'Contrato proibido',10 from clientes limit 1;
+  raise exception 'FALHOU: gravou contrato sem a função';
+exception when insufficient_privilege then raise notice 'PASSA: sem a função Contratos não grava contrato';
+end $$;
+update clientes set nome='Alterado' where true;
+select pg_temp.ok((select count(*) from clientes where nome='Alterado')=0,'sem a função Clientes não altera cliente');
+select pg_temp.ok((select string_agg(titulo, ',') from tarefas)='Tarefa da Fabiana','sem a função Tarefas vê só as próprias tarefas');
+update tarefas set status='andamento' where titulo='Tarefa da Fabiana';
+select pg_temp.ok((select status from tarefas where titulo='Tarefa da Fabiana')='andamento','altera a própria tarefa');
+commit;
+update perfis set funcoes='{"financeiro_juridico":"ver"}' where email='fin@teste';
+begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-0000000000f1');
+update lancamentos set valor=1 where empresa='escritorio';
+select pg_temp.ok((select count(*) from lancamentos where valor=1)=0,'nível Ver não grava');
+commit;
+begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-0000000000f1');
+do $$ begin
+  update perfis set funcoes='{"contratos":"editar"}' where id=auth.uid();
+  if (select funcoes->>'contratos' from perfis where id=auth.uid()) is not null then raise exception 'FALHOU: pessoa deu função a si mesma'; end if;
+  raise notice 'PASSA: ninguém dá função a si mesmo (só o admin)';
+end $$;
 commit;

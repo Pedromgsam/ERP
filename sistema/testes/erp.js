@@ -40,6 +40,8 @@ insert into acordos(grupo_id,processo,devedor,credor,parcela,total_parcelas,valo
 insert into tarefas(titulo,responsavel,prazo) values ('Protocolar defesa','Pedro',current_date + 2);
 insert into configuracoes(chave,valor) values ('recibo_emitentes','{"pedro":{"label":"Pedro","nome":"ADVOGADO FICTICIO","oab":"OAB/MG 1","local":"Cidade/MG","qualif":"advogado ficticio, e-mail teste@teste","email":"teste@teste"}}');
 insert into auth.users(email,senha_teste,raw_user_meta_data) values ('cliente@teste','senha123','{"nome":"Cliente Alfa"}');
+insert into auth.users(email,senha_teste,raw_user_meta_data) values ('fin@teste','senha123','{"nome":"Fabiana Financeiro"}');
+update perfis set papel='equipe', funcoes='{"financeiro_juridico":"editar"}' where email='fin@teste';
 update perfis set papel='cliente' where email='cliente@teste';
 insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, grupos g where p.email='cliente@teste' and g.nome='Grupo Alfa';
 `);
@@ -330,6 +332,25 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.click('.gx-janela [data-a=historico]'); await p.waitForTimeout(1500);
     ok('histórico dentro do registro', /Incluiu/.test(await p.textContent('.gx-sobre')));
     await p.keyboard.press('Escape');
+
+    // ── funções de acesso: admin escolhe; pessoa só com Financeiro ──
+    await nav(p, 'admin'); await p.waitForTimeout(1500);
+    await p.click('#adm-abas [data-aba=usuarios]'); await p.waitForTimeout(1200);
+    await p.click('[data-funcoes="' + sql("select id from perfis where email='equipe@teste'") + '"]'); await p.waitForSelector('.grade-funcoes'); await p.waitForTimeout(250);
+    await p.click('[data-modelo-acesso="Estagiário"]'); await p.click('#btn-salvar-func'); await p.waitForTimeout(1500);
+    ok('admin escolhe as funções com um modelo pronto', sql("select funcoes->>'juridico'||'|'||coalesce(funcoes->>'financeiro_juridico','-') from perfis where email='equipe@teste'") === 'ver|-');
+    sql("update perfis set funcoes='{\"financeiro_juridico\":\"editar\",\"financeiro_contab\":\"editar\",\"contratos\":\"editar\",\"clientes\":\"editar\",\"juridico\":\"editar\",\"tarefas\":\"editar\",\"documentos\":\"editar\",\"crm\":\"editar\",\"relatorios\":\"editar\"}' where email='equipe@teste'");
+    const pf = await pagina();
+    await entrar(pf, 'fin@teste'); await carregado(pf); await pf.waitForTimeout(1200);
+    ok('só com Financeiro: menu mostra Financeiro e esconde Contratos, Clientes e Jurídico', await pf.isVisible('#tn .tn-grupo:has([data-ir=financeiro])') &&
+      !(await pf.isVisible('#tn [data-ir=contratos]')) && !(await pf.isVisible('#tn [data-ir=clientes]')) && !(await pf.isVisible('#tn .tn-grupo:has([data-ir=processos])')));
+    await pf.click('.tn-lancar-bt'); await pf.waitForTimeout(300);
+    ok('+ Lançar só oferece o que a pessoa pode gravar', await pf.isVisible('[data-lancar="0"]') && !(await pf.isVisible('[data-lancar="4"]')) && !(await pf.isVisible('[data-lancar="5"]')));
+    await pf.keyboard.press('Escape');
+    await pf.evaluate(() => nav(null, 'contratos')); await pf.waitForTimeout(800);
+    ok('abrir tela sem função: aviso e volta ao Início', await pf.isVisible('#panel-hoje') && !(await pf.isVisible('#panel-contratos')));
+    ok('sem função: banco não entrega contratos nem processos', await pf.evaluate(async () => ((await SB.from('contratos').select('id')).data || []).length + ((await SB.from('processos').select('id')).data || []).length) === 0);
+    await pf.context().close();
 
     // ── exclusão: equipe não exclui cliente ──
     const ctxE = await pagina();

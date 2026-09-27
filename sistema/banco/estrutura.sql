@@ -861,3 +861,114 @@ begin
 exception when insufficient_privilege then
   raise notice 'Sem permissão para criar a pasta de arquivos: crie o bucket privado "documentos" em Storage.';
 end $$;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- v7 (2026-09-27) — FUNÇÕES DE ACESSO POR PESSOA
+-- Além do papel (admin, equipe, cliente, inativo), cada pessoa da equipe
+-- tem funções: {"financeiro_juridico":"editar","contratos":"ver",...}.
+-- O admin tem tudo. A proteção vale no banco (RLS), não só na tela.
+-- ═══════════════════════════════════════════════════════════════════
+alter table public.perfis add column if not exists funcoes jsonb not null default '{}'::jsonb;
+
+-- migração (uma vez só): quem já é equipe recebe todas as funções, para ninguém perder acesso
+do $$
+begin
+  if not exists (select 1 from public.configuracoes where chave = 'migracao_v7_funcoes') then
+    update public.perfis set funcoes = '{"financeiro_juridico":"editar","financeiro_contab":"editar","contratos":"editar","clientes":"editar",
+      "juridico":"editar","tarefas":"editar","documentos":"editar","crm":"editar","relatorios":"editar"}'::jsonb
+     where papel = 'equipe' and funcoes = '{}'::jsonb;
+    insert into public.configuracoes (chave, valor) values ('migracao_v7_funcoes', '{"feito":true}');
+  end if;
+end $$;
+
+-- pode('financeiro_juridico') = pode ver; pode('contratos','editar') = pode gravar
+create or replace function public.pode(f text, nivel text default 'ver') returns boolean
+language sql stable security definer set search_path = public as $$
+  select coalesce((
+    select case when p.papel = 'admin' then true
+                when p.papel <> 'equipe' then false
+                when coalesce(p.funcoes->>f, '') = 'editar' then true
+                when coalesce(p.funcoes->>f, '') = 'ver' then nivel = 'ver'
+                else false end
+      from public.perfis p where p.id = auth.uid()), false);
+$$;
+revoke all on function public.pode(text, text) from anon;
+grant execute on function public.pode(text, text) to authenticated;
+
+-- a tarefa é minha? (responsável ou participante, pelo primeiro nome do perfil)
+create or replace function public.primeiro_nome(t text) returns text
+language sql immutable as $$
+  select lower(translate(split_part(btrim(coalesce(t, '')), ' ', 1), 'ÁÀÂÃÉÊÍÓÔÕÚÇáàâãéêíóôõúç', 'AAAAEEIOOOUCaaaaeeiooouc'));
+$$;
+create or replace function public.tarefa_minha(resp text, part text) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.perfis p
+    where p.id = auth.uid() and p.papel in ('admin','equipe') and public.primeiro_nome(p.nome) <> ''
+      and (public.primeiro_nome(p.nome) = public.primeiro_nome(resp)
+           or public.primeiro_nome(p.nome) in (select public.primeiro_nome(x) from unnest(string_to_array(coalesce(part, ''), ',')) x)));
+$$;
+revoke all on function public.tarefa_minha(text, text) from anon;
+grant execute on function public.tarefa_minha(text, text) to authenticated;
+
+-- contrato gera as parcelas mesmo para quem não tem a função Financeiro
+alter function public.gerar_parcelas_contrato() security definer;
+alter function public.gerar_parcelas_contrato() set search_path = public;
+
+-- regras por tabela: ver / gravar (incluir e alterar) / excluir
+do $$
+declare
+  r record;
+begin
+  for r in select * from (values
+    -- tabela,               ver,                                  gravar,                                   excluir
+    ('grupos',               'public.eh_equipe()',                 'public.eh_equipe()',                     'public.pode(''clientes'',''editar'')'),
+    ('clientes',             'public.eh_equipe()',                 'public.pode(''clientes'',''editar'')',   'public.eh_admin()'),
+    ('contratos',            'public.pode(''contratos'')',         'public.pode(''contratos'',''editar'')',  'public.eh_admin()'),
+    ('lancamentos',          'public.pode(case when empresa = ''contabilidade'' then ''financeiro_contab'' else ''financeiro_juridico'' end)',
+                             'public.pode(case when empresa = ''contabilidade'' then ''financeiro_contab'' else ''financeiro_juridico'' end, ''editar'')',
+                             'public.pode(case when empresa = ''contabilidade'' then ''financeiro_contab'' else ''financeiro_juridico'' end, ''editar'')'),
+    ('processos',            'public.pode(''juridico'')',          'public.pode(''juridico'',''editar'')',   'public.eh_admin()'),
+    ('parcelamentos',        'public.pode(''juridico'')',          'public.pode(''juridico'',''editar'')',   'public.eh_admin()'),
+    ('parcelas',             'public.pode(''juridico'')',          'public.pode(''juridico'',''editar'')',   'public.pode(''juridico'',''editar'')'),
+    ('acordos',              'public.pode(''juridico'')',          'public.pode(''juridico'',''editar'')',   'public.eh_admin()'),
+    ('tarefas',              'public.pode(''tarefas'') or public.tarefa_minha(responsavel, participantes)',
+                             'public.pode(''tarefas'',''editar'') or public.tarefa_minha(responsavel, participantes)',
+                             'public.pode(''tarefas'',''editar'')'),
+    ('contatos',             'public.pode(''clientes'')',          'public.pode(''clientes'',''editar'')',   'public.pode(''clientes'',''editar'')'),
+    ('enderecos',            'public.pode(''clientes'')',          'public.pode(''clientes'',''editar'')',   'public.pode(''clientes'',''editar'')'),
+    ('contas_bancarias',     'public.pode(''clientes'')',          'public.pode(''clientes'',''editar'')',   'public.pode(''clientes'',''editar'')'),
+    ('vinculos_societarios', 'public.pode(''clientes'')',          'public.pode(''clientes'',''editar'')',   'public.pode(''clientes'',''editar'')'),
+    ('interacoes',           'public.pode(''clientes'')',          'public.pode(''clientes'',''editar'')',   'public.pode(''clientes'',''editar'')'),
+    ('certidoes',            'public.pode(''clientes'')',          'public.pode(''clientes'',''editar'')',   'public.pode(''clientes'',''editar'')'),
+    ('cliente_etiquetas',    'public.eh_equipe()',                 'public.pode(''clientes'',''editar'')',   'public.pode(''clientes'',''editar'')'),
+    ('documentos',           'public.pode(''documentos'') and (lancamento_id is null or public.pode(''financeiro_juridico'') or public.pode(''financeiro_contab''))',
+                             'public.pode(''documentos'',''editar'')', 'public.eh_admin()'),
+    ('fluxos',               'public.eh_equipe()',                 'public.pode(''tarefas'',''editar'')',    'public.eh_admin()'),
+    ('modelos_fluxo',        'public.eh_equipe()',                 'public.pode(''tarefas'',''editar'')',    'public.eh_admin()'),
+    ('feriados',             'public.eh_equipe()',                 'public.pode(''tarefas'',''editar'')',    'public.eh_admin()')
+  ) as t(tabela, ver, gravar, excluir) loop
+    execute format('drop policy if exists %1$s_ver on public.%1$s', r.tabela);
+    execute format('create policy %1$s_ver on public.%1$s for select to authenticated using (%2$s)', r.tabela, r.ver);
+    execute format('drop policy if exists %1$s_incluir on public.%1$s', r.tabela);
+    execute format('create policy %1$s_incluir on public.%1$s for insert to authenticated with check (%2$s)', r.tabela, r.gravar);
+    execute format('drop policy if exists %1$s_alterar on public.%1$s', r.tabela);
+    execute format('create policy %1$s_alterar on public.%1$s for update to authenticated using (%2$s) with check (%2$s)', r.tabela, r.gravar);
+    execute format('drop policy if exists %1$s_excluir on public.%1$s', r.tabela);
+    execute format('create policy %1$s_excluir on public.%1$s for delete to authenticated using (%2$s)', r.tabela, r.excluir);
+  end loop;
+end $$;
+
+-- arquivos: mesma regra da função Documentos
+do $$
+begin
+  if exists (select 1 from information_schema.schemata where schema_name = 'storage') then
+    execute 'drop policy if exists documentos_ver on storage.objects';
+    execute 'create policy documentos_ver on storage.objects for select to authenticated using (bucket_id = ''documentos'' and public.pode(''documentos''))';
+    execute 'drop policy if exists documentos_enviar on storage.objects';
+    execute 'create policy documentos_enviar on storage.objects for insert to authenticated with check (bucket_id = ''documentos'' and public.pode(''documentos'',''editar''))';
+    execute 'drop policy if exists documentos_alterar on storage.objects';
+    execute 'create policy documentos_alterar on storage.objects for update to authenticated using (bucket_id = ''documentos'' and public.pode(''documentos'',''editar''))';
+  end if;
+exception when insufficient_privilege then
+  raise notice 'Sem permissão em storage.objects: as regras dos arquivos continuam as da v6.';
+end $$;

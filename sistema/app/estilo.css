@@ -292,3 +292,10 @@ input,select,textarea{max-width:100%;box-sizing:border-box}
 .grade>*,.duas-col>*,.card,.kpi,.kpis>*{min-width:0}
 @media (max-width:560px){.grade,.grade.g3{grid-template-columns:1fr}.grade .dois{grid-column:auto}.busca,.busca.sel{max-width:none;min-width:0;flex:1 1 160px}}
 .data-texto{max-width:130px!important;min-width:0!important}
+/* funções de acesso */
+.modelos-acesso{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.grade-funcoes{display:flex;flex-direction:column;border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.gf-lin{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:9px 12px;border-bottom:1px solid var(--border)}
+.gf-lin:last-child{border-bottom:0}
+.gf-niveis{flex-shrink:0}
+@media (max-width:560px){.gf-lin{flex-direction:column;align-items:flex-start}}

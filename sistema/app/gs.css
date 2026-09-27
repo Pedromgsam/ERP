@@ -274,6 +274,13 @@
 .gs .busca,.gs .busca.sel{max-width:none;min-width:0;flex:1 1 160px}
 }
 .gs .data-texto{max-width:130px!important;min-width:0!important}
+.gs .modelos-acesso{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.gs .grade-funcoes{display:flex;flex-direction:column;border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.gs .gf-lin{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:9px 12px;border-bottom:1px solid var(--border)}
+.gs .gf-lin:last-child{border-bottom:0}
+.gs .gf-niveis{flex-shrink:0}
+@media (max-width:560px){.gs .gf-lin{flex-direction:column;align-items:flex-start}
+}
 /* cores do ERP, tamanhos do Gestão */
 .gs{--navy:#1B2A4A;--navy2:#243659;--navy3:#2E5EAA;--accent:#C9A84C;--bg:#F0F2F7;background:none!important;min-height:0!important}
 .gs .duas-col>*,.gs .card{min-width:0}

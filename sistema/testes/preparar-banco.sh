@@ -10,5 +10,5 @@ $P -d erp -c "insert into auth.users(email,senha_teste,raw_user_meta_data) value
   ('pedro@teste','senha123','{\"nome\":\"Pedro Castro\"}'),
   ('equipe@teste','senha123','{\"nome\":\"Adriana\"}'),
   ('novo@teste','senha123','{\"nome\":\"Novo\"}');
-  update perfis set papel='equipe' where email='equipe@teste';" >/dev/null
+  update perfis set papel='equipe', funcoes='{\"financeiro_juridico\":\"editar\",\"financeiro_contab\":\"editar\",\"contratos\":\"editar\",\"clientes\":\"editar\",\"juridico\":\"editar\",\"tarefas\":\"editar\",\"documentos\":\"editar\",\"crm\":\"editar\",\"relatorios\":\"editar\"}' where email='equipe@teste';" >/dev/null
 pkill -USR1 -x postgrest 2>/dev/null || true   # PostgREST relê a estrutura

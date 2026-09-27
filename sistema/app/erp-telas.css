@@ -165,3 +165,6 @@ body.gx-barra-topo :focus-visible{outline:2px solid #2E5EAA;outline-offset:2px}
 /* resumos em 3 colunas (Grupo / Tribunal / Natureza) viram 2 e depois 1 para o valor caber inteiro */
 @media (max-width:1300px){body.gx-barra-topo .crow.c3{grid-template-columns:1fr 1fr}}
 @media (max-width:860px){body.gx-barra-topo .crow.c3,body.gx-barra-topo .crow.c2{grid-template-columns:1fr}}
+
+/* funções de acesso: o que a pessoa não pode usar some do menu */
+.gx-sem-funcao{display:none!important}
