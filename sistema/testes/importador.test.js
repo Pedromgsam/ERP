@@ -65,6 +65,32 @@ async function ler(arq) { const wb = new ExcelJS.Workbook(); await wb.xlsx.readF
   ok('despesa paga com forma de pagamento', c.lancamentos.find((l) => l.favorecido === 'Fernando').pago && c.lancamentos.find((l) => l.favorecido === 'Fernando').forma_pagamento === 'PIX');
   ok('comissão negativa vira despesa na contabilidade', c.lancamentos.find((l) => l.valor === 2336.75).tipo === 'despesa');
 
+  // processos, parcelamentos, acordos, tarefas
+  await fic.processos(dir + '/p.xlsx'); await fic.parcelamentos(dir + '/pa.xlsx'); await fic.acordos(dir + '/a.xlsx'); await fic.tarefas(dir + '/t.xlsx');
+  const pr = IMP.importar(await ler(dir + '/p.xlsx'));
+  ok('reconhece Processos', pr.tipo === 'processos');
+  ok('4 processos (1 sem número ignorado)', pr.processos.length === 4 && pr.avisos.some((a) => /sem número/.test(a)));
+  const p1 = pr.processos.find((x) => x.valor === 57901.25);
+  ok('processo: autor sem tabulação, procuração SIM', p1.autor === 'Fazenda Pública do Estado' && p1.procuracao === true && p1.atualizacao === '2026-01-22');
+  const p2 = pr.processos.find((x) => x.valor === 2812642.54);
+  ok('processo: atualização em número de série do Excel vira data', p2.atualizacao === '2023-11-29' && p2.data_arq_provisorio === '2025-03-01');
+  const p3 = pr.processos.find((x) => x.obs === 'polo ativo');
+  ok('processo: data d/m/aaaa e valor lixo em Atualização ignorado', p3.data_distribuicao === '2022-10-03' && p3.atualizacao === null);
+  ok('processo repetido (polo ativo/passivo) ganha chave própria', p2.chave_importacao !== p3.chave_importacao);
+  ok('prospecção marcada', pr.processos.find((x) => x.carteira === 'Prospecção').competencia === 'TRT-3');
+  const pa = IMP.importar(await ler(dir + '/pa.xlsx'));
+  ok('reconhece Parcelamentos (blocos de 5 colunas)', pa.tipo === 'parcelamentos' && pa.parcelamentos.length === 2);
+  const pAlfa = pa.parcelamentos.find((x) => x.empresa === 'Alfa Comércio LTDA');
+  ok('parcelamento: dados do bloco', pAlfa.cnpj === '11222333000181' && pAlfa.local === 'eCAC' && pAlfa.natureza === 'Simples Nacional' && pAlfa.total_parcelas === 60 && pAlfa.valor_residual === 25000);
+  ok('parcelamento: parcelas com pago/vencimento', pAlfa._parcelas.length === 3 && pAlfa._parcelas.filter((x) => x.pago).length === 2 && pAlfa._parcelas[2].vencimento === '2026-10-10');
+  ok('parcelamento: grupo = nome da aba', pAlfa._grupo === 'Grupo Alfa');
+  const ac = IMP.importar(await ler(dir + '/a.xlsx'));
+  ok('reconhece Acordos (aba Config ignorada)', ac.tipo === 'acordos' && ac.acordos.length === 2);
+  ok('acordo da aba "Pago" = pago com data', ac.acordos.find((x) => x.parcela === '1').pago && ac.acordos.find((x) => x.parcela === '1').data_pagamento === '2026-08-09');
+  ok('acordo em aberto guarda PIX/banco', ac.acordos.find((x) => x.parcela === '3').pix === 'chave@pix' && !ac.acordos.find((x) => x.parcela === '3').pago);
+  const tf = IMP.importar(await ler(dir + '/t.xlsx'));
+  ok('reconhece Tarefas', tf.tipo === 'tarefas' && tf.tarefas.length === 2 && tf.tarefas.find((x) => x.titulo === 'Emitir guia').status === 'concluida');
+
   // planilha desconhecida
   ok('planilha desconhecida é recusada com mensagem', IMP.importar({ abas: { Planilha1: [['x']] } }).tipo === null);
 

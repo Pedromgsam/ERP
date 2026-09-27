@@ -6,34 +6,48 @@ e as telas ficam hospedadas na **Vercel**. Não usa Google Sheets nem Apps Scrip
 
 | Pasta | O que é |
 |---|---|
-| `banco/estrutura.sql` | Tabelas, regras automáticas (parcelas do contrato, histórico) e regras de acesso |
-| `app/` | As telas (HTML/CSS/JS). `config.js` guarda o endereço do Supabase |
+| `banco/estrutura.sql` | Tabelas, regras automáticas (histórico, baixa) e regras de acesso |
+| `app/index.html` | **O ERP** — o mesmo HTML do ERP antigo, gerado por `ferramentas/montar-erp.js` |
+| `app/erp-dados.js` | Ponte ERP ↔ Supabase: entrega os dados no formato que o ERP sempre usou |
+| `app/editor.js` | Lançar e editar dentro do ERP (botão ✎ nas linhas e menu **Lançar**) |
+| `app/gestao.html` | Gestão: importar planilhas, backup, histórico, usuários, contratos |
 | `testes/` | Testes automáticos do banco e das telas (rodam sem internet) |
 
-## O que já faz
+## Como funciona
 
-Menu no mesmo formato do ERP antigo:
+**O ERP é o mesmo.** Telas, filtros, gráficos, PDF, Portal do Cliente e todas as regras de cálculo
+continuam as do `ERP.html` — por exemplo, a dívida de pessoa física (CPF sem sócio) **não** é somada
+no total do grupo, a dívida negociada entra no total, e processos repetidos (polo ativo/passivo) são
+contados uma vez. Só a origem dos dados mudou: em vez do Apps Script, o `erp-dados.js` lê do Supabase.
 
-- **Início**: resumo do mês das duas empresas (jurídico e contabilidade), atrasados e próximos 15 dias.
-- **Painel Executivo**: passivo tributário consolidado (PGFN, AGE/MG, RFB, SEFAZ/MG), passivo por grupo,
-  distribuição por órgão e a lista de empresas com CAPAG, situação cadastral e procuração.
-- **Honorários Jurídico** e **Honorários Contabilidade**: abas Análise, A Receber, Recebidos, Prejuízo,
-  A Pagar e Despesas pagas; baixa com um clique; situação de cobrança ("Cobrado", "Emitir guia"…);
-  despesas recorrentes; filtros por mês, grupo e pessoa.
-- **Contratos**: ao criar, as parcelas entram sozinhas em Honorários Jurídico.
-- **Clientes**: cadastro completo da Base de Dados (débitos, procuração, certificado, CAPAG…).
-- **Administração** (admin): Usuários · **Importar planilhas** (Base de Dados, Financeiro e Financeiro -
-  Contabilidade, baixadas do Google Sheets em .xlsx) · **Backup** (Excel e .json) · **Histórico**
-  (toda gravação, com autor, horário e o que mudou).
+**Lançar e editar** (tudo grava direto no banco e o ERP se atualiza sozinho):
 
-A coluna **Senha** da Base de Dados não é importada.
+- Passe o mouse numa linha (Painel, Processos, Parcelamentos, Acordos, Honorários) → **✎ Editar**.
+  No celular, toque na linha. Dois cliques também abrem.
+- Menu lateral **Lançar**: honorário/despesa, cliente, processo, acordo, parcelamento, **Tarefas**.
+- **✓ Dar baixa** marca como pago com a data de hoje. Parcelamento: marque as parcelas pagas ou gere
+  parcelas mensais.
+- Excluir: só o administrador (a equipe recebe um aviso).
+- **Gestão** (no fim do menu): importar planilhas, backup, histórico e usuários.
+
+**Módulos**: Base de Dados (clientes), Processos, Parcelamentos (com parcelas), Acordos,
+Honorários Jurídico, Honorários Contabilidade e Tarefas.
+
+**Importar** (Gestão → Administração → Importar): aceita as planilhas baixadas em .xlsx —
+1 Base de Dados, 2 Processos, 3 Parcelamentos Tributários, 4 Acordos, 7 Financeiro,
+12 Financeiro - Contabilidade e 15 Tarefas. Pode importar de novo: o que já veio é atualizado,
+não duplicado. A coluna **Senha** da Base de Dados não é importada.
+
+**Portal do Cliente**: usuário com papel `cliente` vê só os grupos liberados para ele
+(tabela `perfil_grupos`), sem financeiro, observações internas nem dados bancários.
 
 ## Quem pode o quê
 
 | Papel | Pode |
 |---|---|
 | Administrador | Tudo, inclusive excluir clientes/contratos e liberar usuários |
-| Equipe | Cadastra, edita e dá baixa; não exclui cliente nem contrato |
+| Equipe | Cadastra, edita e dá baixa; não exclui cliente, processo, acordo nem parcelamento |
+| Cliente | Só consulta os próprios grupos no Portal do Cliente |
 | Inativo | Não entra (todo usuário novo começa assim) |
 
 A regra fica **no banco** (Row Level Security): mesmo quem descobrir a chave pública do
@@ -79,11 +93,19 @@ pausam após 7 dias sem uso). Confira os preços atuais nos sites antes de assin
 Quando o sistema ganhar campos novos, cole de novo o `banco/estrutura.sql` inteiro no SQL Editor
 do Supabase e clique em Run. É seguro: o arquivo só cria o que falta e não apaga dados.
 
+Depois, cole também o `banco/dados-recibos.sql` (dados dos advogados usados nos recibos: nome,
+OAB, CPF, endereço). Eles ficam no banco, e não no HTML do site, porque o HTML é público; no banco
+só a equipe logada consegue ler.
+
 ## Testes
 `testes/rodar-tudo.sh` recria um banco local que imita o Supabase (PostgreSQL + PostgREST) e roda
-os testes de permissão do banco (21), do importador com planilhas fictícias (36) e das telas num
-navegador com os mesmos cabeçalhos de segurança da Vercel (40). Precisa de `NODE_PATH` com
+os testes de permissão do banco (36), do importador com planilhas fictícias (51), da Gestão (44) e do
+ERP (44, inclusive a regra PF × PJ) num navegador com os mesmos cabeçalhos de segurança da Vercel. Precisa de `NODE_PATH` com
 `playwright` e `exceljs`.
 
-Bibliotecas incluídas em `app/vendor/` (licença MIT): supabase-js 2.117.2 e ExcelJS 4.4.0
+Bibliotecas incluídas em `app/vendor/` (licença MIT): supabase-js 2.117.2, Chart.js 4.4.1 e ExcelJS 4.4.0
 (esta só é carregada nas telas de importação e backup).
+
+## Mudar o visual do ERP
+Edite `#Sistemas/2 - ERP/ERP.html` e rode `node sistema/ferramentas/montar-erp.js` para gerar de novo o
+`app/index.html`. Se um trecho que o montador procura mudou, ele avisa e não gera nada pela metade.

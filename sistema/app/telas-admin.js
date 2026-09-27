@@ -94,17 +94,18 @@ async function lerArquivosImportacao(arquivos) {
       '. Confira se é o .xlsx baixado do Google Sheets.</div></div>';
     return;
   }
-  const NOME = { base: '👥 Base de Dados → Clientes', financeiro: '💼 Financeiro → Honorários Jurídico', contabilidade: '🧮 Financeiro → Contabilidade' };
+  const NOME = { base: '👥 Base de Dados → Clientes', financeiro: '💼 Financeiro → Honorários Jurídico', contabilidade: '🧮 Financeiro → Contabilidade',
+    processos: '⚖ Processos', parcelamentos: '◷ Parcelamentos Tributários', acordos: '✦ Acordos', tarefas: '☑ Tarefas' };
   const validos = _importacoes.filter((r) => r.tipo);
-  const totalReg = soma(validos, (r) => (r.clientes || r.lancamentos).length);
+  const totalReg = soma(validos, (r) => registrosImp(r).length);
   previa.innerHTML = _importacoes.map((r, i) => {
-    const regs = r.clientes || r.lancamentos || [];
+    const regs = registrosImp(r);
     return '<div class="card"><div class="card-hd">' + (r.tipo ? NOME[r.tipo] : '⚠ Não reconhecida') +
       '<span class="sub">' + esc(r.arquivo) + '</span></div><div class="card-bd">' +
       (r.tipo ? '<div class="tabela-wrap"><table><thead><tr><th>Aba</th><th class="num">Linhas lidas</th><th class="num">A importar</th><th class="num">Ignoradas</th>' +
-        (r.clientes ? '' : '<th class="num">Soma dos valores</th>') + '</tr></thead><tbody>' +
+        (r.clientes || r.processos || r.tarefas ? '' : '<th class="num">Soma dos valores</th>') + '</tr></thead><tbody>' +
         Object.entries(r.resumo).map(([aba, x]) => '<tr><td>' + esc(aba) + '</td><td class="num mono">' + x.lidas + '</td><td class="num mono"><b>' + x.importadas +
-          '</b></td><td class="num mono">' + x.ignoradas + '</td>' + (r.clientes ? '' : '<td class="num mono">' + brl(x.total) + '</td>') + '</tr>').join('') +
+          '</b></td><td class="num mono">' + x.ignoradas + '</td>' + (r.clientes || r.processos || r.tarefas ? '' : '<td class="num mono">' + brl(x.total) + '</td>') + '</tr>').join('') +
         '</tbody></table></div>' +
         (r.grupos.length ? '<p class="sub" style="margin-top:8px">' + r.grupos.length + ' grupo(s) encontrados.</p>' : '') : '') +
       (r.avisos.length ? '<details style="margin-top:8px"' + (r.tipo ? '' : ' open') + '><summary>' + r.avisos.length + ' aviso(s)</summary><ul class="avisos">' +
@@ -122,7 +123,18 @@ async function lerArquivosImportacao(arquivos) {
   if (b) b.onclick = () => comBotao(b, gravarImportacao);
 }
 
+// Cada planilha vira uma tabela do banco.
+const TABELA_IMP = { base: 'clientes', financeiro: 'lancamentos', contabilidade: 'lancamentos', processos: 'processos',
+  parcelamentos: 'parcelamentos', acordos: 'acordos', tarefas: 'tarefas' };
+function registrosImp(r) { return r.clientes || r.lancamentos || r.processos || r.parcelamentos || r.acordos || r.tarefas || []; }
+
 function amostraImportacao(r) {
+  const tabelaSimples = (cab, linha) => '<div class="tabela-wrap"><table><thead><tr>' + cab.map((c) => '<th>' + c + '</th>').join('') + '</tr></thead><tbody>' +
+    registrosImp(r).slice(0, 8).map((x) => '<tr>' + linha(x).map((v) => '<td>' + esc(v == null ? '' : v) + '</td>').join('') + '</tr>').join('') + '</tbody></table></div>';
+  if (r.processos) return tabelaSimples(['Grupo', 'Nº', 'Natureza', 'Autor', 'Réu', 'Status'], (p) => [p._grupo, p.numero, p.natureza, p.autor, p.reu, p.status]);
+  if (r.parcelamentos) return tabelaSimples(['Aba', 'Empresa', 'Natureza', 'Local', 'Parcelas', 'Pagas'], (p) => [p._grupo, p.empresa, p.natureza, p.local, p._parcelas.length, p._parcelas.filter((x) => x.pago).length]);
+  if (r.acordos) return tabelaSimples(['Grupo', 'Processo', 'Parcela', 'Vencimento', 'Valor', 'Pago'], (a) => [a._grupo, a.processo, a.parcela + '/' + a.total_parcelas, dataBR(a.vencimento), brl(a.valor), a.pago ? 'SIM' : '']);
+  if (r.tarefas) return tabelaSimples(['Tarefa', 'Grupo', 'Responsável', 'Prazo', 'Status'], (t) => [t.titulo, t._grupo, t.responsavel, dataBR(t.prazo), t.status]);
   if (r.clientes) {
     return '<div class="tabela-wrap"><table><thead><tr><th>Grupo</th><th>Nome</th><th>CPF/CNPJ</th><th>Tipo</th><th class="num">Passivo</th></tr></thead><tbody>' +
       r.clientes.slice(0, 8).map((c) => '<tr><td>' + esc(c._grupo) + '</td><td>' + esc(c.nome) + '</td><td class="mono">' + esc(mascaraDoc(c.cpf_cnpj)) +
@@ -147,16 +159,43 @@ async function gravarImportacao() {
   const idGrupo = (n) => { const g = n && E.grupos.find((x) => normalizar(x.nome) === normalizar(n)); return g ? g.id : null; };
   // 2. registros, em lotes
   const resultado = [];
-  for (const r of validos) {
-    const tabela = r.clientes ? 'clientes' : 'lancamentos';
-    const linhas = (r.clientes || r.lancamentos).map((x) => {
-      const y = Object.assign({}, x); y.grupo_id = idGrupo(x._grupo); delete y._grupo; return y;
-    });
+  // parcelamentos: o grupo vem do cliente (mesmo CNPJ ou nome), como no ERP antigo; senão, o nome da aba
+  const grupoDoCliente = (x) => {
+    const doc = soDigitos(x.cnpj);
+    const c = E.clientes.find((k) => (doc && soDigitos(k.cpf_cnpj) === doc) || normalizar(k.nome) === normalizar(x.empresa));
+    return c && c.grupo_id;
+  };
+  const upsert = async (tabela, linhas) => {
     for (let i = 0; i < linhas.length; i += 200) {
       prog.textContent = 'Gravando ' + tabela + ': ' + Math.min(i + 200, linhas.length) + ' de ' + linhas.length + '…';
       await q(sb.from(tabela).upsert(linhas.slice(i, i + 200), { onConflict: 'chave_importacao', ignoreDuplicates: modo === 'novos' }));
     }
-    resultado.push(linhas.length + ' ' + (tabela === 'clientes' ? 'cliente(s)' : 'lançamento(s) de ' + (r.tipo === 'contabilidade' ? 'Contabilidade' : 'Honorários Jurídico')));
+  };
+  const ROTULO = { clientes: 'cliente(s)', processos: 'processo(s)', parcelamentos: 'parcelamento(s)', acordos: 'parcela(s) de acordo', tarefas: 'tarefa(s)' };
+  // clientes primeiro: os parcelamentos usam o grupo deles
+  validos.sort((a, b) => (a.tipo === 'base' ? -1 : 0) - (b.tipo === 'base' ? -1 : 0));
+  for (const r of validos) {
+    const tabela = TABELA_IMP[r.tipo];
+    if (r.tipo === 'parcelamentos') await carregarCadastros();
+    const filhos = [];
+    const linhas = registrosImp(r).map((x) => {
+      const y = Object.assign({}, x);
+      y.grupo_id = (r.tipo === 'parcelamentos' && grupoDoCliente(x)) || idGrupo(x._grupo);
+      delete y._grupo;
+      if (y._parcelas) { filhos.push(...y._parcelas.map((p) => Object.assign({ _pai: y.chave_importacao }, p))); delete y._parcelas; }
+      return y;
+    });
+    await upsert(tabela, linhas);
+    if (r.tipo === 'parcelamentos' && filhos.length) {
+      const ids = {};
+      (await buscarTodos(() => sb.from('parcelamentos').select('id,chave_importacao').not('chave_importacao', 'is', null)))
+        .forEach((p) => { ids[p.chave_importacao] = p.id; });
+      await upsert('parcelas', filhos.filter((p) => ids[p._pai]).map((p) => {
+        const y = Object.assign({ parcelamento_id: ids[p._pai] }, p); delete y._pai; return y;
+      }));
+      resultado.push(filhos.length + ' parcela(s) de parcelamento');
+    }
+    resultado.push(linhas.length + ' ' + (ROTULO[tabela] || 'lançamento(s) de ' + (r.tipo === 'contabilidade' ? 'Contabilidade' : 'Honorários Jurídico')));
   }
   await carregarCadastros();
   prog.textContent = '';
@@ -166,11 +205,11 @@ async function gravarImportacao() {
 }
 
 // ─────────────────────────── BACKUP ────────────────────────────────
-const TABELAS_BACKUP = ['clientes', 'grupos', 'contratos', 'lancamentos', 'perfis', 'historico'];
+const TABELAS_BACKUP = ['clientes', 'grupos', 'contratos', 'lancamentos', 'processos', 'parcelamentos', 'parcelas', 'acordos', 'tarefas', 'perfis', 'perfil_grupos', 'historico'];
 async function admBackup(corpo) {
   corpo.innerHTML =
     '<div class="card"><div class="card-hd">💾 Backup de todos os dados</div><div class="card-bd">' +
-    '<p>Baixa uma cópia completa de tudo que está no sistema: clientes, grupos, contratos, lançamentos, usuários e histórico.</p>' +
+    '<p>Baixa uma cópia completa de tudo que está no sistema: clientes, grupos, lançamentos, processos, parcelamentos, acordos, tarefas, usuários e histórico.</p>' +
     '<div class="acoes" style="margin:14px 0">' +
     '<button class="btn btn-p" id="bk-excel">⬇ Baixar backup em Excel</button>' +
     '<button class="btn btn-o" id="bk-json">⬇ Baixar backup completo (.json, para restaurar)</button>' +
@@ -188,7 +227,7 @@ async function fazerBackup(formato) {
   const prog = $('bk-prog'), dados = {};
   for (const t of TABELAS_BACKUP) {
     prog.textContent = 'Lendo ' + t + '…';
-    dados[t] = await buscarTodos(() => sb.from(t).select('*').order(t === 'historico' ? 'id' : 'criado_em'));
+    dados[t] = await buscarTodos(() => sb.from(t).select('*').order(t === 'historico' ? 'id' : t === 'perfil_grupos' ? 'perfil_id' : 'criado_em'));
   }
   const carimbo = new Date().toISOString().slice(0, 16).replace('T', ' ').replace(':', 'h');
   const nome = 'Backup ERP Araujo e Castro ' + carimbo;
@@ -221,7 +260,8 @@ async function fazerBackup(formato) {
 }
 
 // ─────────────────────────── HISTÓRICO ─────────────────────────────
-const NOME_TABELA = { clientes: 'Cliente', contratos: 'Contrato', lancamentos: 'Lançamento', perfis: 'Usuário' };
+const NOME_TABELA = { clientes: 'Cliente', contratos: 'Contrato', lancamentos: 'Lançamento', processos: 'Processo', parcelamentos: 'Parcelamento',
+  parcelas: 'Parcela', acordos: 'Acordo', tarefas: 'Tarefa', perfis: 'Usuário' };
 const NOME_ACAO = { INSERT: ['Incluiu', 'pago'], UPDATE: ['Alterou', 'aberto'], DELETE: ['Excluiu', 'vencido'] };
 const CAMPOS_IGNORADOS = ['atualizado_em', 'criado_em', 'criado_por', 'id'];
 async function admHistorico(corpo) {
@@ -230,7 +270,8 @@ async function admHistorico(corpo) {
     (() => { let c = sb.from('historico').select('*').order('quando', { ascending: false }).limit(300); if (E.adm.tabela) c = c.eq('tabela', E.adm.tabela); return q(c); })()
   ]);
   const quem = {}; perfis.forEach((p) => { quem[p.id] = p.nome || p.email; });
-  const rotulo = (d) => d ? (d.nome || ((d.descricao || '') + (d.grupo_id ? ' · ' + nomeGrupo(d.grupo_id) : '')) || d.email || '') : '';
+  const rotulo = (d) => d ? (d.nome || d.titulo || (d.numero && d.natureza !== undefined && !d.empresa ? 'Nº ' + d.numero : '') || (d.empresa ? d.empresa + (d.natureza ? ' · ' + d.natureza : '') : '') ||
+    (d.processo ? d.processo + (d.parcela ? ' · parc. ' + d.parcela : '') : '') || (d.parcelamento_id ? 'parcela ' + (d.numero || '') + ' · venc. ' + dataBR(d.vencimento) : '') || ((d.descricao || '') + (d.grupo_id ? ' · ' + nomeGrupo(d.grupo_id) : '')) || d.email || '') : '';
   const mudancas = (h) => {
     if (h.acao !== 'UPDATE' || !h.antes || !h.depois) return '';
     return Object.keys(h.depois).filter((k) => !CAMPOS_IGNORADOS.includes(k) && JSON.stringify(h.antes[k]) !== JSON.stringify(h.depois[k]))

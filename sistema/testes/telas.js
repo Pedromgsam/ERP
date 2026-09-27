@@ -5,7 +5,7 @@ const ExcelJS = require('exceljs');
 const fs = require('fs'), os = require('os'), path = require('path');
 const { execFileSync } = require('child_process');
 const fic = require('./planilhas-ficticias.js');
-const BASE = process.env.BASE || 'http://127.0.0.1:8090';
+const BASE = (process.env.BASE || 'http://127.0.0.1:8090') + '/gestao.html';
 const FOTOS = process.env.FOTOS || '';
 const sql = (q) => execFileSync('psql', ['-h', '127.0.0.1', '-p', process.env.PGPORT || '54329', '-U', 'postgres', '-d', 'erp', '-tAc', q]).toString().trim();
 const r = []; const ok = (n, c) => r.push([n, !!c]);
@@ -50,7 +50,8 @@ const r = []; const ok = (n, c) => r.push([n, !!c]);
 
     // cliente manual com passivo
     await menu(p, 'clientes');
-    await p.click('text=+ Novo cliente');
+    await p.waitForSelector('text=+ Novo cliente'); await p.click('text=+ Novo cliente');
+    await p.waitForSelector('#f-cli [name=procuracao]');
     await p.fill('#f-cli [name=nome]', 'Zeta Manual LTDA');
     await p.fill('#f-cli [name=cpf_cnpj]', '55666777000199');
     await p.fill('#f-cli [name=grupo]', 'Grupo Zeta');
@@ -126,6 +127,20 @@ const r = []; const ok = (n, c) => r.push([n, !!c]);
     await p.waitForFunction(() => /Importado/.test(document.getElementById('imp-previa').textContent), null, { timeout: 20000 }).catch(() => {});
     ok('reimportar sem mudanças não polui o histórico', sql("select count(*) from historico where acao='UPDATE' and depois->>'chave_importacao' is not null") === '0');
     ok('reimportar a mesma planilha não duplica', sql('select count(*) from clientes where chave_importacao is not null') === '5' && sql('select count(*) from lancamentos where chave_importacao is not null') === '14');
+
+    // módulos novos: processos, parcelamentos (com parcelas), acordos, tarefas
+    const arqs2 = [dir + '/2 - Processos.xlsx', dir + '/3 - Parcelamentos.xlsx', dir + '/4 - Acordos.xlsx', dir + '/15 - Tarefas.xlsx'];
+    await fic.processos(arqs2[0]); await fic.parcelamentos(arqs2[1]); await fic.acordos(arqs2[2]); await fic.tarefas(arqs2[3]);
+    const contagem = () => ['processos', 'parcelamentos', 'parcelas', 'acordos', 'tarefas'].map((t) => sql('select count(*) from ' + t)).join(',');
+    for (let vez = 0; vez < 2; vez++) {
+      await p.click('#adm-abas [data-aba=importar]'); await esperar(p);
+      await p.setInputFiles('#imp-arquivos', arqs2); await esperar(p, 2500);
+      if (!vez) ok('prévia reconhece Processos, Parcelamentos, Acordos e Tarefas', /Processos/.test(await texto(p, '#imp-previa')) && /Parcelamentos/.test(await texto(p, '#imp-previa')) && /Acordos/.test(await texto(p, '#imp-previa')) && /Tarefas/.test(await texto(p, '#imp-previa')));
+      await p.click('#imp-gravar');
+      await p.waitForFunction(() => /Importado/.test(document.getElementById('imp-previa').textContent), null, { timeout: 20000 }).catch(() => {});
+      ok(vez ? 'reimportar módulos não duplica' : 'grava 4 processos, 2 parcelamentos, 5 parcelas, 2 acordos, 2 tarefas', contagem() === '4,2,5,2,2');
+    }
+    ok('parcelas ligadas ao parcelamento e grupo resolvido', sql("select count(*) from parcelas x join parcelamentos p on p.id=x.parcelamento_id join grupos g on g.id=p.grupo_id where g.nome='Grupo Alfa'") === '5');
 
     // Painel Executivo
     await menu(p, 'painel');

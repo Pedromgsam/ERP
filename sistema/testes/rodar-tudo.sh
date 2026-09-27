@@ -15,3 +15,4 @@ for i in 1 2 3 4 5 6 7 8 9 10; do
 done
 node "$DIR/importador.test.js"
 node "$DIR/telas.js"
+node "$DIR/erp.js"

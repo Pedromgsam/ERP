@@ -105,12 +105,26 @@
     return k ? { nome: k, linhas: planilha.abas[k] } : null;
   }
 
+  function cabecalhoDe(linhas) { return (linhas && linhas[0] || []).map((c) => norm(texto(c))); }
+  function ehBlocoParcelamento(linhas) {
+    const L = linhas || [];
+    if (L.length < 12) return false;
+    for (let col = 0; col < (L[0] || []).length; col += 5) {
+      if (norm(texto(L[0][col])) === 'nome' && L.slice(1, 11).some((ln) => ln && norm(texto(ln[col])) === 'cpf/cnpj')) return true;
+    }
+    return false;
+  }
   function detectar(planilha) {
     const nomes = Object.keys(planilha.abas).map(norm);
     const tem = (n) => nomes.includes(norm(n));
+    const abas = Object.values(planilha.abas);
     if (tem('Consultoria') && (tem('Demanda') || tem('Inativo'))) return 'base';
+    if (tem('Ativos') && abas.some((L) => cabecalhoDe(L).some((c) => c.startsWith('n° do processo') || c.startsWith('no do processo') || c.startsWith('nº do processo')))) return 'processos';
+    if (tem('Tarefas') && cabecalhoDe(planilha.abas[Object.keys(planilha.abas).find((k) => norm(k) === 'tarefas')]).includes('tarefa')) return 'tarefas';
+    if (abas.some((L) => { const c = cabecalhoDe(L); return c.includes('devedor') && c.includes('credor'); })) return 'acordos';
     if (tem('A Pagar') || tem('Despesa')) return 'contabilidade';
     if (tem('A Receber') || tem('Receita')) return 'financeiro';
+    if (abas.some(ehBlocoParcelamento)) return 'parcelamentos';
     return null;
   }
 
@@ -272,12 +286,169 @@
     return { tipo: empresa === 'contabilidade' ? 'contabilidade' : 'financeiro', lancamentos, grupos: [...grupos], avisos, resumo };
   }
 
+  function ocorrencia(mapa, base) { mapa[base] = (mapa[base] || 0) + 1; return base + '#' + mapa[base]; }
+
+  // ─────────────────────────── PROCESSOS ───────────────────────────────
+  function importarProcessos(planilha) {
+    const processos = [], grupos = new Set(), avisos = [], resumo = {}, occ = {};
+    [['Ativos', 'Ativo'], ['Prospecção', 'Prospecção']].forEach(([nomeAba, carteira]) => {
+      const aba = acharAba(planilha, nomeAba);
+      if (!aba) return;
+      const r = resumo[aba.nome] = { lidas: 0, importadas: 0, ignoradas: 0, total: 0 };
+      const L = aba.linhas; if (!L || L.length < 2) return;
+      const col = mapa(L[0]);
+      const C = { grupo: col('Grupo'), adv: col('Advogado'), num: col(['N° do Processo', 'Nº do Processo', 'No do Processo']),
+        comp: col('Competência'), nat: col('Natureza'), autor: col('Autor'), reu: col(['Réus', 'Réu']),
+        dist: col('Data de Distribuição'), valor: col('Valor'), atu: col('Atualização'), proc: col('Procuração'),
+        outro: col('Outro Advogado'), status: col('Status'), arq: col('Data Arquivamento Provisório'),
+        presc: col('Prescrição'), obs: col('Observação') };
+      for (let i = 1; i < L.length; i++) {
+        const ln = L[i]; if (linhaVazia(ln)) continue;
+        r.lidas++;
+        const numero = texto(celula(ln, C.num)).replace(/\s+/g, ' ');
+        if (!numero) { r.ignoradas++; avisos.push(aba.nome + ', linha ' + (i + 1) + ': sem número do processo — ignorada.'); continue; }
+        const grupo = texto(celula(ln, C.grupo)); if (grupo) grupos.add(grupo);
+        const valor = numero_(celula(ln, C.valor));
+        processos.push({
+          chave_importacao: ocorrencia(occ, 'proc:' + norm(numero) + '|' + norm(grupo)), _grupo: grupo, carteira,
+          advogado: texto(celula(ln, C.adv)), numero, competencia: texto(celula(ln, C.comp)), natureza: texto(celula(ln, C.nat)),
+          autor: texto(celula(ln, C.autor)), reu: texto(celula(ln, C.reu)),
+          data_distribuicao: dataISO(celula(ln, C.dist)), valor, atualizacao: dataISO(celula(ln, C.atu)),
+          procuracao: simNao(celula(ln, C.proc)), outro_advogado: simNao(celula(ln, C.outro)),
+          status: texto(celula(ln, C.status)), data_arq_provisorio: dataISO(celula(ln, C.arq)),
+          prescricao: texto(celula(ln, C.presc)), obs: texto(celula(ln, C.obs))
+        });
+        r.importadas++; r.total = Math.round((r.total + (valor || 0)) * 100) / 100;
+      }
+    });
+    return { tipo: 'processos', processos, grupos: [...grupos], avisos, resumo };
+  }
+  const numero_ = numero;
+
+  // ─────────────────────────── PARCELAMENTOS ───────────────────────────
+  // Mesmo layout lido pelo script antigo: cada empresa é um bloco de 5
+  // colunas; linha 1 "Nome", linhas 2-11 os dados, parcelas da linha 13 em diante.
+  const ABAS_IGNORAR_PARC = ['auxiliar', 'config', 'menu', 'legenda', 'aux'];
+  function importarParcelamentos(planilha) {
+    const parcelamentos = [], grupos = new Set(), avisos = [], resumo = {}, occ = {};
+    Object.keys(planilha.abas).forEach((nomeAba) => {
+      if (ABAS_IGNORAR_PARC.some((x) => norm(nomeAba).startsWith(x))) return;
+      const d = planilha.abas[nomeAba];
+      if (!d || d.length < 12) return;
+      const r = resumo[nomeAba] = { lidas: 0, importadas: 0, ignoradas: 0, total: 0 };
+      const largura = Math.max(...d.map((ln) => (ln || []).length));
+      for (let col = 0; col < largura - 2; col += 5) {
+        if (texto(celula(d[0], col)) !== 'Nome') continue;
+        const empresa = texto(celula(d[0], col + 2));
+        if (!empresa || norm(empresa) === 'nome' || empresa === '?') continue;
+        r.lidas++;
+        const dados = {};
+        for (let rl = 1; rl <= 10; rl++) {
+          const rot = norm(texto(celula(d[rl], col)));
+          const val = celula(d[rl], col + 2);
+          if (rot === 'cpf/cnpj') dados.cnpj = soDigitos(texto(val));
+          if (rot === 'local') dados.local = texto(val);
+          if (rot === 'natureza') dados.natureza = texto(val);
+          if (rot === 'nº' || rot === 'no' || rot === 'n°' || rot === 'numero do parcelamento') dados.numero = texto(val);
+          if (rot === 'total de parcelas') dados.total_parcelas = Math.round(numero(val) || 0) || null;
+          if (rot === 'valor ultima parcela') dados.valor_ultima_parcela = numero(val);
+          if (rot === 'valor residual') dados.valor_residual = numero(val);
+        }
+        const chave = ocorrencia(occ, 'parc:' + norm(nomeAba) + '|' + norm(empresa) + '|' + norm(dados.numero) + '|' + norm(dados.natureza));
+        const parcelas = [], occP = {};
+        for (let row = 12; row < d.length; row++) {
+          const ln = d[row]; if (!ln) break;
+          const num = texto(celula(ln, col));
+          if (!num) break;
+          parcelas.push({ chave_importacao: ocorrencia(occP, chave + ':' + num), numero: num,
+            vencimento: dataISO(celula(ln, col + 1)), emissao: texto(celula(ln, col + 2)),
+            pago: norm(texto(celula(ln, col + 3))) === 'sim' });
+        }
+        grupos.add(nomeAba);
+        parcelamentos.push(Object.assign({ chave_importacao: chave, _grupo: nomeAba, aba: nomeAba, empresa,
+          cnpj: '', local: '', natureza: '', numero: '', total_parcelas: null, valor_ultima_parcela: null, valor_residual: null }, dados, { _parcelas: parcelas }));
+        r.importadas++; r.total = Math.round((r.total + (dados.valor_residual || 0)) * 100) / 100;
+      }
+    });
+    return { tipo: 'parcelamentos', parcelamentos, grupos: [...grupos], avisos, resumo };
+  }
+
+  // ─────────────────────────── ACORDOS ─────────────────────────────────
+  function importarAcordos(planilha) {
+    const acordos = [], grupos = new Set(), avisos = [], resumo = {}, occ = {};
+    Object.keys(planilha.abas).forEach((nomeAba) => {
+      if (/^(aux|config|menu|legen)/i.test(norm(nomeAba))) return;
+      const L = planilha.abas[nomeAba];
+      if (!L || L.length < 2) return;
+      const cab = cabecalhoDe(L);
+      if (!cab.includes('processo')) return;
+      const r = resumo[nomeAba] = { lidas: 0, importadas: 0, ignoradas: 0, total: 0 };
+      const col = mapa(L[0]);
+      const C = { grupo: col('Grupo'), resp: col('Responsável'), processo: col('Processo'), devedor: col('Devedor'),
+        credor: col('Credor'), parcela: col('Nº de Parcela'), total: col('Total de Parcelas'), valor: col('Valor'),
+        venc: col('Vencimento'), sit: col(['Status', 'Situação']), emissao: col('Emissão'), pag: col('Pagamento'),
+        dataPag: col('Data de Pagamento'), pix: col('PIX'), banco: col('Banco'), obs: col('Observação') };
+      const abaPago = norm(nomeAba) === 'pago';
+      for (let i = 1; i < L.length; i++) {
+        const ln = L[i]; if (linhaVazia(ln)) continue;
+        r.lidas++;
+        const processo = texto(celula(ln, C.processo));
+        if (!processo) { r.ignoradas++; continue; }
+        const grupo = texto(celula(ln, C.grupo)); if (grupo) grupos.add(grupo);
+        const venc = dataISO(celula(ln, C.venc)), valor = numero(celula(ln, C.valor));
+        const parcela = texto(celula(ln, C.parcela));
+        const pago = abaPago || norm(texto(celula(ln, C.pag))) === 'sim';
+        acordos.push({
+          chave_importacao: ocorrencia(occ, 'acd:' + norm(processo) + '|' + norm(parcela) + '|' + (venc || '') + '|' + (valor == null ? '' : valor.toFixed(2))),
+          _grupo: grupo, aba: nomeAba, responsavel: texto(celula(ln, C.resp)), processo,
+          devedor: texto(celula(ln, C.devedor)), credor: texto(celula(ln, C.credor)), parcela,
+          total_parcelas: texto(celula(ln, C.total)), valor, vencimento: venc,
+          situacao: abaPago ? 'Pago' : texto(celula(ln, C.sit)), emissao: texto(celula(ln, C.emissao)),
+          pago, data_pagamento: pago ? (dataISO(celula(ln, C.dataPag)) || venc) : null,
+          pix: texto(celula(ln, C.pix)), banco: texto(celula(ln, C.banco)), obs: texto(celula(ln, C.obs))
+        });
+        r.importadas++; r.total = Math.round((r.total + (valor || 0)) * 100) / 100;
+      }
+    });
+    return { tipo: 'acordos', acordos, grupos: [...grupos], avisos, resumo };
+  }
+
+  // ─────────────────────────── TAREFAS ─────────────────────────────────
+  function importarTarefas(planilha) {
+    const tarefas = [], grupos = new Set(), avisos = [], resumo = {}, occ = {};
+    [['Tarefas', 'pendente'], ['Concluídas', 'concluida']].forEach(([nomeAba, padrao]) => {
+      const aba = acharAba(planilha, nomeAba);
+      if (!aba || !aba.linhas || aba.linhas.length < 2) return;
+      const r = resumo[aba.nome] = { lidas: 0, importadas: 0, ignoradas: 0, total: 0 };
+      const L = aba.linhas, col = mapa(L[0]);
+      const C = { grupo: col('Grupo'), titulo: col('Tarefa'), proc: col('Processos Vinculados'), pri: col('Prioridade'),
+        resp: col('Responsável'), status: col('Status'), ini: col('Data de Início'), prazo: col('Fim do Prazo'), obs: col('Observação') };
+      for (let i = 1; i < L.length; i++) {
+        const ln = L[i]; if (linhaVazia(ln)) continue;
+        r.lidas++;
+        const titulo = texto(celula(ln, C.titulo)), grupo = texto(celula(ln, C.grupo));
+        if (!titulo) { r.ignoradas++; continue; }
+        if (grupo) grupos.add(grupo);
+        tarefas.push({ chave_importacao: ocorrencia(occ, 'trf:' + norm(titulo) + '|' + norm(grupo)), _grupo: grupo, titulo,
+          processos_vinculados: texto(celula(ln, C.proc)), prioridade: texto(celula(ln, C.pri)) || 'media',
+          responsavel: texto(celula(ln, C.resp)), status: texto(celula(ln, C.status)) || padrao,
+          inicio: dataISO(celula(ln, C.ini)), prazo: dataISO(celula(ln, C.prazo)), obs: texto(celula(ln, C.obs)) });
+        r.importadas++;
+      }
+    });
+    return { tipo: 'tarefas', tarefas, grupos: [...grupos], avisos, resumo };
+  }
+
   function importar(planilha) {
     const t = detectar(planilha);
     if (t === 'base') return importarBase(planilha);
     if (t === 'financeiro') return importarFinanceiro(planilha, 'escritorio');
     if (t === 'contabilidade') return importarFinanceiro(planilha, 'contabilidade');
-    return { tipo: null, avisos: ['Não reconheci esta planilha. Envie a "1 - Base de Dados", a "7 - Financeiro" ou a "12 - Financeiro - Contabilidade".'], resumo: {} };
+    if (t === 'processos') return importarProcessos(planilha);
+    if (t === 'parcelamentos') return importarParcelamentos(planilha);
+    if (t === 'acordos') return importarAcordos(planilha);
+    if (t === 'tarefas') return importarTarefas(planilha);
+    return { tipo: null, avisos: ['Não reconheci esta planilha. Envie uma destas: 1 - Base de Dados, 2 - Processos, 3 - Parcelamentos Tributários, 4 - Acordos, 7 - Financeiro, 12 - Financeiro - Contabilidade ou 15 - Tarefas.'], resumo: {} };
   }
 
   // Workbook do ExcelJS → { abas: { nome: [[valor]] } }
@@ -296,7 +467,7 @@
     return { abas };
   }
 
-  const API = { importar, importarBase, importarFinanceiro, detectar, lerWorkbook, numero, dataISO, simNao, texto };
+  const API = { importar, importarBase, importarFinanceiro, importarProcessos, importarParcelamentos, importarAcordos, importarTarefas, detectar, lerWorkbook, numero, dataISO, simNao, texto };
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
   else raiz.IMPORTADOR = API;
 })(typeof window !== 'undefined' ? window : globalThis);
