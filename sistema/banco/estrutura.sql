@@ -569,3 +569,12 @@ begin
   end if;
   return new;
 end $$;
+
+-- ─────────────────── v5: comissão é redutor de receita ───────────────────
+-- Comissão/desconto não é despesa: é um ajuste que diminui a receita
+-- (em vez de receber 5.000, o escritório recebe 3.500). Fica como receita
+-- com "redutor" marcado e entra nas somas com sinal negativo.
+alter table public.lancamentos add column if not exists redutor boolean not null default false;
+-- deduções que vieram das abas de receita (valor negativo na planilha) viraram "despesa com grupo e sem fornecedor"
+update public.lancamentos set tipo = 'receita', redutor = true
+ where tipo = 'despesa' and redutor = false and grupo_id is not null and favorecido = '';

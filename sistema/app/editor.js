@@ -514,9 +514,24 @@
   }
 
   // ─────────────────── abrir edição a partir de uma linha ───────────────────
+  // lançamentos, clientes, contratos e tarefas abrem o formulário do Gestão
+  async function formularioGestao(t, id) {
+    const GS = window.GS;
+    if (!GS) return false;
+    const { data, error } = await sb.from(t).select('*').eq('id', id).maybeSingle();
+    if (error || !data) { aviso('⚠ Não encontrei o registro (talvez tenha sido excluído). Clique ↻ Atualizar.'); return true; }
+    await GS.carregarCadastros();
+    const depois = () => recarregar();
+    if (t === 'lancamentos') GS.formLancamento(data, depois);
+    else if (t === 'clientes') GS.formCliente(GS.E.clientes.find((c) => c.id === id) || data, depois);
+    else if (t === 'contratos') GS.formContrato(data);
+    else if (t === 'tarefas') GS.formTarefa(data, depois);
+    return true;
+  }
   function editarPorMarca(marca) {
     const [t, id, pai] = String(marca || '').split(':');
     if (!t || !id) return;
+    if (['lancamentos', 'clientes', 'contratos', 'tarefas'].includes(t) && window.GS) return formularioGestao(t, id);
     if (t === 'parcelas') return abrirParcelamento(pai, id);
     if (t === 'parcelamentos') return abrirParcelamento(id);
     return abrirFormulario(t, id);

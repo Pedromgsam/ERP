@@ -134,8 +134,8 @@ async function pintarLista(empresa, buscar) {
     const b = normalizar(F.busca);
     lista = lista.filter((l) => normalizar([l.descricao, l.grupos && l.grupos.nome, l.clientes && l.clientes.nome, l.favorecido, l.categoria, l.obs].join(' ')).includes(b));
   }
-  const total = soma(lista, (l) => l.valor);
-  const atrasado = soma(lista.filter((l) => situacao(l) === 'vencido'), (l) => l.valor);
+  const total = soma(lista, vl);
+  const atrasado = soma(lista.filter((l) => situacao(l) === 'vencido'), vl);
   const rotAba = ABAS_FIN.find((a) => a.id === F.aba).rot.replace(/^\S+\s/, '');
   $('fin-corpo').innerHTML =
     '<div class="kpis">' +
@@ -163,14 +163,14 @@ function tabelaLancamentos(lista, opc) {
         (compacta ? '' : '<td title="' + esc(quem) + '"><b>' + esc(quem || '—') + '</b>' + (l.clientes && l.grupos ? '<div class="sub">' + esc(l.clientes.nome) + '</div>' : '') + '</td>') +
         '<td>' + esc(l.descricao) + (l.categoria && !compacta ? '<div class="sub">' + esc(l.categoria) + (l.forma_pagamento ? ' · ' + esc(l.forma_pagamento) : '') + '</div>' : '') + '</td>' +
         (compacta ? '' : '<td>' + pillPessoa(l.responsavel) + '</td>') +
-        '<td class="num mono ' + (l.tipo === 'receita' ? 'valor-rec' : 'valor-desp') + '" data-ord="' + l.valor + '">' + (l.tipo === 'despesa' ? '− ' : '') + brl(l.valor) + '</td>' +
+        '<td class="num mono ' + (l.tipo === 'receita' && !l.redutor ? 'valor-rec' : 'valor-desp') + '" data-ord="' + (l.tipo === 'despesa' ? -l.valor : vl(l)) + '">' + (l.tipo === 'despesa' || l.redutor ? '− ' : '') + brl(l.valor) + (l.redutor ? '<div class="sub">redutor</div>' : '') + '</td>' +
         '<td>' + pillSit(l) + '</td><td class="acoes-l">' +
         (l.pago ? '<button class="btn btn-o btn-mini" data-desfazer="' + l.id + '" title="Voltar para em aberto">↺</button> '
                 : l.perda ? '' : '<button class="btn btn-v btn-mini" data-pagar="' + l.id + '">✓ ' + (l.tipo === 'receita' ? 'Recebido' : 'Pago') + '</button> ') +
         '<button class="btn btn-o btn-mini" data-editar="' + l.id + '">Editar</button></td></tr>';
     }).join('') +
     '</tbody><tfoot><tr><td colspan="' + (compacta ? 2 : 4) + '">Total (' + lista.length + ')</td><td class="num mono">' +
-    brl(soma(lista, (l) => l.tipo === 'despesa' ? -l.valor : l.valor)) + '</td><td colspan="2"></td></tr></tfoot></table></div>';
+    brl(soma(lista, (l) => l.tipo === 'despesa' ? -l.valor : vl(l))) + '</td><td colspan="2"></td></tr></tfoot></table></div>';
 }
 
 function ligarAcoesLancamentos(raiz, depois) {
@@ -202,8 +202,8 @@ async function pintarAnalise(empresa) {
   ]);
   const rec = (l) => l.tipo === 'receita', desp = (l) => l.tipo === 'despesa';
   const noMes = (l) => l.data_pagamento >= iniRef && l.data_pagamento <= fimRef;
-  const recebidoMes = soma(pagos.filter((l) => rec(l) && noMes(l)), (l) => l.valor);
-  const pagoMes = soma(pagos.filter((l) => desp(l) && noMes(l)), (l) => l.valor);
+  const recebidoMes = soma(pagos.filter((l) => rec(l) && noMes(l)), vl);
+  const pagoMes = soma(pagos.filter((l) => desp(l) && noMes(l)), vl);
   const aReceber = abertos.filter(rec), aPagar = abertos.filter(desp);
   const atraso = aReceber.filter((l) => l.vencimento < h);
   const aReceberMes = aReceber.filter((l) => l.vencimento >= iniRef && l.vencimento <= fimRef);
@@ -215,28 +215,28 @@ async function pintarAnalise(empresa) {
     const d = new Date(F.mes.getFullYear(), F.mes.getMonth() + i, 1), chave = iso(d).slice(0, 7);
     const futuro = chave > mesAtual;
     const valor = futuro
-      ? soma(aReceber.filter((l) => l.vencimento.slice(0, 7) === chave), (l) => l.valor)
-      : soma(pagos.filter((l) => rec(l) && l.data_pagamento.slice(0, 7) === chave), (l) => l.valor);
+      ? soma(aReceber.filter((l) => l.vencimento.slice(0, 7) === chave), vl)
+      : soma(pagos.filter((l) => rec(l) && l.data_pagamento.slice(0, 7) === chave), vl);
     if (i > 0 && !futuro) continue;              // mês de referência no passado: não mostra "futuro" já ocorrido
     serie.push({ rotulo: mesCurto(d), valor, estado: futuro ? 'futuro' : chave === mesAtual ? 'atual' : 'passado',
                  dica: nomeMes(d) + ': ' + brl(valor) + (futuro ? ' a receber (previsto)' : ' recebido') });
   }
   // em aberto por grupo (top 10)
   const porGrupo = {};
-  aReceber.forEach((l) => { const n = (l.grupos && l.grupos.nome) || l.favorecido || 'Sem grupo'; porGrupo[n] = (porGrupo[n] || 0) + Number(l.valor); });
+  aReceber.forEach((l) => { const n = (l.grupos && l.grupos.nome) || l.favorecido || 'Sem grupo'; porGrupo[n] = (porGrupo[n] || 0) + vl(l); });
   const topGrupos = Object.entries(porGrupo).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([rotulo, valor]) => ({ rotulo, valor }));
   // recebido no mês por pessoa
   const porPessoa = {};
-  pagos.filter((l) => rec(l) && noMes(l)).forEach((l) => { const p = l.responsavel || 'Sem pessoa'; porPessoa[p] = (porPessoa[p] || 0) + Number(l.valor); });
+  pagos.filter((l) => rec(l) && noMes(l)).forEach((l) => { const p = l.responsavel || 'Sem pessoa'; porPessoa[p] = (porPessoa[p] || 0) + vl(l); });
 
   $('fin-corpo').innerHTML =
     '<div class="kpis">' +
     kpi('Recebido em ' + nomeMes(F.mes).split(' ')[0].toLowerCase(), brl(recebidoMes), 'verde', pagos.filter((l) => rec(l) && noMes(l)).length + ' recebimento(s)') +
-    kpi('A receber no mês', brl(soma(aReceberMes, (l) => l.valor)), '', aReceberMes.length + ' em aberto') +
-    kpi('Total em aberto', brl(soma(aReceber, (l) => l.valor)), '', aReceber.length + ' lançamento(s), todos os meses') +
-    kpi('Em atraso', brl(soma(atraso, (l) => l.valor)), 'vermelho', atraso.length + ' vencido(s)') +
-    (aPagar.length || pagoMes ? kpi('A pagar (aberto)', brl(soma(aPagar, (l) => l.valor)), 'ambar', 'pago no mês: ' + brl(pagoMes)) : '') +
-    kpi('Prejuízo', brl(soma(perdas, (l) => l.valor)), 'ambar', perdas.length + ' crédito(s) perdido(s)') +
+    kpi('A receber no mês', brl(soma(aReceberMes, vl)), '', aReceberMes.length + ' em aberto') +
+    kpi('Total em aberto', brl(soma(aReceber, vl)), '', aReceber.length + ' lançamento(s), todos os meses') +
+    kpi('Em atraso', brl(soma(atraso, vl)), 'vermelho', atraso.length + ' vencido(s)') +
+    (aPagar.length || pagoMes ? kpi('A pagar (aberto)', brl(soma(aPagar, vl)), 'ambar', 'pago no mês: ' + brl(pagoMes)) : '') +
+    kpi('Prejuízo', brl(soma(perdas, vl)), 'ambar', perdas.length + ' crédito(s) perdido(s)') +
     '</div>' +
     blocoRecolhivel('fin-g-mensal-' + empresa, '📊 Recebido por mês e previsão', '<div class="card-bd">' + graficoMensal(serie, { titulo: 'Recebido por mês' }) + '</div>') +
     '<div class="duas-col">' +
@@ -271,7 +271,7 @@ function formLancamento(l, depois) {
   const tipo = l.tipo || 'receita';
   const empresa = l.empresa || 'escritorio';
   const j = abrirJanela({
-    titulo: (novo ? 'Nova ' : 'Editar ') + (tipo === 'receita' ? 'receita' : 'despesa'), larga: true,
+    titulo: (novo ? 'Nov' + (l.redutor ? 'o ' : 'a ') : 'Editar ') + (l.redutor ? 'redutor de receita (comissão/desconto)' : tipo === 'receita' ? 'receita' : 'despesa'), larga: true,
     corpo:
       '<form id="f-lanc" class="grade">' +
       campo('Descrição <span class="obrig">*</span>', '<input name="descricao" required maxlength="200" value="' + esc(l.descricao || '') + '">', 'inteiro') +
@@ -298,6 +298,7 @@ function formLancamento(l, depois) {
       campo('Chave PIX', '<input name="chave_pix" value="' + esc(l.chave_pix || '') + '">') +
       (novo ? campo('Repetir todo mês por', '<select name="repetir">' + [1, 2, 3, 6, 12, 24].map((n) =>
         '<option value="' + n + '">' + (n === 1 ? 'Não repetir' : n + ' meses') + '</option>').join('') + '</select>') : '') +
+      (tipo === 'receita' ? '<label class="check inteiro"><input type="checkbox" name="redutor"' + (l.redutor ? ' checked' : '') + '> É redutor da receita (comissão, desconto) — diminui o valor recebido, não é despesa</label>' : '') +
       (tipo === 'receita' ? '<label class="check inteiro"><input type="checkbox" name="perda"' + (l.perda ? ' checked' : '') + '> Dar como prejuízo (crédito perdido)</label>' : '') +
       (l.contrato_id && l.parcela ? '<div class="dica inteiro">Parcela ' + esc(l.parcela) + '/' + esc(l.total_parcelas) + ' de um contrato.</div>' : '') +
       campo('Observação', '<textarea name="obs" maxlength="2000">' + esc(l.obs || '') + '</textarea>', 'inteiro') +
@@ -330,6 +331,7 @@ function formLancamento(l, depois) {
       forma_pagamento: f.pago.checked ? f.forma_pagamento.value.trim() : '',
       conta: f.pago.checked ? f.conta.value.trim() : (l.conta || ''),
       perda: f.perda ? f.perda.checked && !f.pago.checked : false,
+      redutor: f.redutor ? f.redutor.checked : false,
       obs: f.obs.value.trim()
     };
     if (novo) {
@@ -356,7 +358,7 @@ function formLancamento(l, depois) {
   const bx = j.querySelector('#btn-excluir-lanc');
   if (bx) bx.onclick = () => comBotao(bx, async () => {
     if (!confirm('Excluir este lançamento? Esta ação não pode ser desfeita.')) return;
-    await q(sb.from('lancamentos').delete().eq('id', l.id));
+    await excluir('lancamentos', l.id);
     aviso('Lançamento excluído.'); fecharJanela(j); await apos();
   });
 }

@@ -44,7 +44,7 @@ async function ler(arq) { const wb = new ExcelJS.Workbook(); await wb.xlsx.readF
   const prev = f.lancamentos.find((l) => l.valor === 3000);
   ok('data futura sem pagamento vira previsão; cheque vira forma', prev.cobranca === 'Previsão: 30/09/2026' && prev.forma_pagamento === 'Cheque' && !prev.pago);
   const com = f.lancamentos.find((l) => l.valor === 1500);
-  ok('valor negativo vira despesa (comissão)', com.tipo === 'despesa' && com.descricao === 'Comissão Marcelo');
+  ok('valor negativo vira redutor de receita (comissão)', com.tipo === 'receita' && com.redutor === true && com.descricao === 'Comissão Marcelo');
   ok('"Emitir Guia" preservado', f.lancamentos.find((l) => l.valor === 486.3).cobranca === 'Emitir guia');
   const dup = f.lancamentos.filter((l) => l.valor === 486.3);
   ok('linhas idênticas viram 2 lançamentos com chaves diferentes', dup.length === 2 && dup[0].chave_importacao !== dup[1].chave_importacao);
@@ -63,7 +63,7 @@ async function ler(arq) { const wb = new ExcelJS.Workbook(); await wb.xlsx.readF
   ok('reconhece a Contabilidade', c.tipo === 'contabilidade' && c.lancamentos.every((l) => l.empresa === 'contabilidade'));
   ok('A Pagar e Despesa com fornecedor', c.lancamentos.filter((l) => l.tipo === 'despesa' && l.favorecido).length === 2);
   ok('despesa paga com forma de pagamento', c.lancamentos.find((l) => l.favorecido === 'Fernando').pago && c.lancamentos.find((l) => l.favorecido === 'Fernando').forma_pagamento === 'PIX');
-  ok('comissão negativa vira despesa na contabilidade', c.lancamentos.find((l) => l.valor === 2336.75).tipo === 'despesa');
+  ok('comissão negativa vira redutor na contabilidade', c.lancamentos.find((l) => l.valor === 2336.75).tipo === 'receita' && c.lancamentos.find((l) => l.valor === 2336.75).redutor);
 
   // processos, parcelamentos, acordos, tarefas
   await fic.processos(dir + '/p.xlsx'); await fic.parcelamentos(dir + '/pa.xlsx'); await fic.acordos(dir + '/a.xlsx'); await fic.tarefas(dir + '/t.xlsx');

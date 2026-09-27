@@ -76,3 +76,21 @@ tr[data-gx]:not([data-gx=""]):hover>td{background:rgba(201,168,76,.07)}
   background:#FEF3C7;border:1px solid #F59E0B;border-left:5px solid #D97706;color:#78350F;border-radius:12px;padding:12px 16px;
   font:13px/1.55 'DM Sans',sans-serif;box-shadow:0 10px 30px rgba(15,23,42,.18)}
 #erp-aviso-banco button{margin-left:8px;border:1px solid #D97706;background:#fff;color:#92400E;border-radius:6px;padding:2px 10px;cursor:pointer;font:600 12px 'DM Sans',sans-serif}
+
+/* ── mesmo visual das janelas do Gestão (tamanhos e formas), com as cores do ERP ── */
+.gx-fundo{background:rgba(10,15,31,.45);padding:40px 16px}
+.gx-janela{border-radius:16px;box-shadow:0 8px 22px rgba(15,23,42,.14);font-family:'DM Sans',system-ui,sans-serif;color:#0f1521}
+.gx-topo{background:#fff;border-bottom:1px solid rgba(15,23,42,.08);border-radius:16px 16px 0 0;padding:16px 20px}
+.gx-topo h3{font-family:'Space Grotesk','DM Sans',sans-serif;font-size:17px;color:#1B2A4A;font-weight:700}
+.gx-x{color:#8b93a3;font-size:20px}
+.gx-corpo{padding:18px 20px}
+.gx-grade{grid-template-columns:1fr 1fr;gap:12px 14px}
+.gx-campo label{font-size:12px;font-weight:700;color:#4b5563}
+.gx-campo input,.gx-campo select,.gx-campo textarea{padding:9px 11px;border:1.5px solid rgba(15,23,42,.15);border-radius:9px;font-size:14px}
+.gx-campo input:focus,.gx-campo select:focus,.gx-campo textarea:focus{border-color:#2E5EAA;box-shadow:0 0 0 3px rgba(46,94,170,.14)}
+.gx-acoes{border-top:1px solid rgba(15,23,42,.08);margin:14px -20px -18px;padding:14px 20px;background:#fafbfd;border-radius:0 0 16px 16px}
+.gx-bt{border-radius:9px;padding:9px 16px;font-weight:700;font-size:13px}
+.gx-prim{background:linear-gradient(120deg,#1B2A4A,#243659);border:0}
+.gx-ok{background:#15803d;border-color:#15803d}
+.gx-perigo{color:#b91c1c;border:1.5px solid rgba(185,28,28,.3)}
+@media (max-width:600px){.gx-grade{grid-template-columns:1fr}}

@@ -2,28 +2,27 @@
 
 Toda mudança chega como uma **pull request** no GitHub. Siga sempre esta ordem.
 
-## 1. Banco de dados (só quando a mudança pedir)
-A descrição da pull request diz se há SQL para rodar. Se houver:
+## 1. Publicar as telas
+1. No GitHub, abra a pull request → botão verde **Merge pull request** → **Confirm merge**.
+2. Espere uns 2 minutos (a Vercel publica sozinha).
 
+Faça o Merge **antes** do SQL: só depois do Merge o arquivo do banco fica completo na página principal do GitHub.
+
+## 2. Banco de dados (só quando a pull request pedir)
 1. Abra o **Supabase** → seu projeto → **SQL Editor** (ícone `>_` no menu da esquerda) → **New query**.
-2. No GitHub, abra o arquivo indicado (ex.: `sistema/banco/estrutura.sql`) e clique no botão **Raw**
-   (acima do código, à direita). Abre uma página só com o texto.
+2. No GitHub, na página principal do repositório, abra o arquivo indicado (ex.: `sistema/banco/estrutura.sql`)
+   e clique no botão **Raw** (acima do código, à direita). Abre uma página só com o texto.
 3. Nessa página: **Ctrl+A** (seleciona tudo) e **Ctrl+C** (copia).
    Não selecione com o mouse: o GitHub não mostra o arquivo inteiro na tela e o final fica de fora.
 4. Volte ao Supabase, clique na área de texto, **Ctrl+A** (apaga o que houver) e **Ctrl+V**.
-5. **Confira o fim**: role até o final do editor do Supabase. O número da última linha tem que ser
-   igual ao que a pull request informa (ex.: "o arquivo tem 571 linhas"). Se for menor, faltou texto: repita o passo 2.
-6. Clique em **Run**. Se aparecer um aviso sobre "destructive operations", clique em **Run this query**
-   (o arquivo só recria regras de acesso; não apaga dados).
+5. **Confira o fim**: role até o final do editor. O número da última linha tem que ser igual ao que a
+   pull request informa. Se for menor, faltou texto: repita o passo 2.
+6. Clique em **Run**. Se aparecer um aviso sobre "destructive operations", clique em **Run this query**.
 7. O certo é aparecer **"Success. No rows returned"** embaixo.
-8. Se houver um segundo arquivo (ex.: `sistema/banco/dados-recibos.sql`), repita os passos 2 a 7.
 
 Os arquivos podem ser rodados quantas vezes quiser: não apagam nada.
 Se aparecer **ERROR** em vermelho: tire um print e mande antes de continuar.
-
-## 2. Publicar as telas
-1. No GitHub, abra a pull request → botão verde **Merge pull request** → **Confirm merge**.
-2. Espere uns 2 minutos (a Vercel publica sozinha).
+Enquanto o SQL não for rodado, o ERP mostra um aviso amarelo dizendo o que falta — o resto funciona.
 
 ## 3. Conferir
 1. Abra o ERP e aperte **Ctrl+Shift+R** (recarrega sem cache).

@@ -73,6 +73,8 @@ function mascaraDoc(s) {
   return s || '';
 }
 function normalizar(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
+// Valor com sinal: comissão/desconto (redutor) diminui a receita.
+function vl(l) { return l.redutor ? -(Number(l.valor) || 0) : (Number(l.valor) || 0); }
 function soma(lista, f) { return lista.reduce((s, x) => s + (Number(f ? f(x) : x) || 0), 0); }
 
 // ─────────────────────────── selos ─────────────────────────────────
@@ -156,6 +158,11 @@ function erroAmigavel(e) {
   return m || 'Erro inesperado.';
 }
 
+// Excluir e conferir: sem permissão, o banco não dá erro — só não apaga nada.
+async function excluir(tabela, id) {
+  const apagados = await q(sb.from(tabela).delete().eq('id', id).select('id'));
+  if (!apagados || !apagados.length) throw new Error('Só o administrador pode excluir este registro.');
+}
 async function q(consulta) {
   const { data, error } = await consulta;
   if (error) throw error;
