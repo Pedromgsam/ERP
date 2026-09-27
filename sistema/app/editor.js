@@ -234,13 +234,23 @@
     else {
       const lista = listaSugestoes(c.lista);
       const lid = lista.length ? 'gx-l-' + c.k : '';
-      inp = '<input id="' + id + '" type="' + (c.tipo === 'data' ? 'date' : c.tipo === 'num' ? 'number' : 'text') + '"'
-        + (c.tipo === 'num' ? ' step="0.01" inputmode="decimal"' : '') + (lid ? ' list="' + lid + '"' : '')
-        + ' value="' + esc(v == null ? '' : (c.tipo === 'data' ? String(v).slice(0, 10) : v)) + '">'
+      inp = '<input id="' + id + '" type="' + (c.tipo === 'data' ? 'date' : 'text') + '"'
+        + (c.tipo === 'num' ? ' inputmode="decimal" placeholder="0,00"' : '') + (lid ? ' list="' + lid + '"' : '')
+        + ' value="' + esc(v == null ? '' : (c.tipo === 'data' ? String(v).slice(0, 10) : c.tipo === 'num' ? numeroBR(v) : v)) + '">'
         + (lid ? '<datalist id="' + lid + '">' + lista.map((x) => '<option value="' + esc(x) + '">').join('') + '</datalist>' : '');
     }
     return '<div class="gx-campo">' + rot + inp + dica + '</div>';
   }
+  // números no formato brasileiro: "1.234,56", "1234,56", "1234.56", "R$ 1.500"
+  function lerNumeroBR(t) {
+    let x = String(t || '').replace(/[R$\s]/g, '');
+    if (!x) return null;
+    if (x.includes(',')) x = x.replace(/\./g, '').replace(',', '.');
+    else if (/^-?\d{1,3}(\.\d{3})+$/.test(x)) x = x.replace(/\./g, '');
+    const n = Number(x);
+    return isFinite(n) ? Math.round(n * 100) / 100 : NaN;
+  }
+  function numeroBR(v) { const n = Number(v); return isFinite(n) ? n.toLocaleString('pt-BR', { maximumFractionDigits: 2 }) : ''; }
   async function lerCampos(janela, def) {
     const d = {};
     for (const c of def.campos) {
@@ -248,7 +258,10 @@
       if (!el) continue;
       if (c.tipo === 'bool') d[c.k] = el.checked;
       else if (c.tipo === 'sn') d[c.k] = el.value === '' ? null : el.value === '1';
-      else if (c.tipo === 'num') d[c.k] = el.value === '' ? null : Number(el.value);
+      else if (c.tipo === 'num') {
+        if (el.value.trim() === '') d[c.k] = null;
+        else { const n = lerNumeroBR(el.value); if (Number.isNaN(n)) throw new Error('Valor inválido em "' + c.rot + '": use o formato 1.234,56.'); d[c.k] = n; }
+      }
       else if (c.tipo === 'data') d[c.k] = el.value || null;
       else if (c.tipo === 'grupo') d[c.k] = await idDoGrupo(el.value);
       else if (c.tipo === 'cliente') {
@@ -544,8 +557,11 @@
     if (ehCliente()) return;
     document.querySelectorAll('tr[data-gx]:not([data-gx=""]):not([data-gx-ok])').forEach((tr) => {
       tr.setAttribute('data-gx-ok', '1');
-      const ultima = tr.lastElementChild;
-      if (!ultima) return;
+      if (!tr.lastElementChild) return;
+      // coluna própria para as ações (a caneta não fica mais junto da Situação)
+      const tabela = tr.closest('table'), cab = tabela && tabela.querySelector('thead tr:last-child');
+      if (cab && !cab.querySelector('.gx-th-acoes')) { const th = document.createElement('th'); th.className = 'gx-th-acoes'; th.setAttribute('aria-label', 'Ações'); cab.appendChild(th); }
+      const ultima = document.createElement('td'); ultima.className = 'gx-td-acoes'; tr.appendChild(ultima);
       const [t, , , sit] = tr.dataset.gx.split(':');
       const span = document.createElement('span');
       span.className = 'gx-la';
@@ -568,6 +584,13 @@
     if (b.dataset.la === 'editar') editarPorMarca(b.closest('tr').dataset.gx);
     else { b.disabled = true; b.textContent = '…'; baixaRapida(t, id); }
   }, true);
+  // clicar numa parcela de acordo abre o detalhe (o que é, todas as parcelas, ações)
+  document.addEventListener('click', (e) => {
+    const tr = e.target.closest && e.target.closest('tr[data-gx^="acordos:"]');
+    if (!tr || ehCliente() || e.target.closest('button, a, input, select, .gx-la')) return;
+    const id = tr.dataset.gx.split(':')[1];
+    if (window.GS && window.GS.detalheAcordo) Promise.resolve(window.GS.carregarCadastros()).then(() => window.GS.detalheAcordo(id)).catch((er) => console.error(er));
+  });
   document.addEventListener('dblclick', (e) => {
     const tr = e.target.closest && e.target.closest('tr[data-gx]');
     if (tr && tr.dataset.gx && !ehCliente()) { window.getSelection && window.getSelection().removeAllRanges(); editarPorMarca(tr.dataset.gx); }

@@ -319,6 +319,19 @@
 .gs .pub-texto.curto{max-height:6.2em;overflow:hidden;-webkit-mask-image:linear-gradient(#000 60%,transparent)}
 .gs .pub-texto mark{background:#FEF3C7;color:inherit;padding:0 2px;border-radius:3px}
 .gs .btn-link{background:none;border:0;color:var(--navy3);cursor:pointer;font-weight:600;padding:4px 0}
+.gs tr.linha-atual td{background:#FBF3DC!important;font-weight:700}
+.gs .segmento.seg-grande button{padding:9px 14px;font-size:13px}
+.gs .segmento button:disabled{opacity:.55;cursor:not-allowed}
+.gs .al-grade{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;margin-bottom:16px}
+.gs .al-card{display:block;text-align:left;background:#fff;border:1px solid var(--linha,#e3e7ee);border-left:5px solid #16a34a;border-radius:10px;padding:12px 14px;cursor:pointer;font:inherit;color:inherit;transition:box-shadow .15s,transform .15s}
+.gs .al-card:hover{box-shadow:0 4px 14px rgba(27,42,74,.12);transform:translateY(-1px)}
+.gs .al-card.al-atencao{border-left-color:#d97706}
+.gs .al-card.al-critico{border-left-color:#dc2626;background:#fff7f7}
+.gs .al-card.al-info{border-left-color:#64748b}
+.gs .al-rot{font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.03em}
+.gs .al-val{font-size:19px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:700;color:#1B2A4A;margin:4px 0 2px;font-variant-numeric:tabular-nums}
+.gs .al-critico .al-val{color:#b91c1c}
+.gs .al-det{font-size:12px;color:#64748b;line-height:1.35}
 /* cores do ERP, tamanhos do Gestão */
 .gs{--navy:#1B2A4A;--navy2:#243659;--navy3:#2E5EAA;--accent:#C9A84C;--bg:#F0F2F7;background:none!important;min-height:0!important}
 .gs .duas-col>*,.gs .card{min-width:0}

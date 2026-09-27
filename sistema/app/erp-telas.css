@@ -57,7 +57,8 @@ body.gx-barra-topo th{padding:10px 12px;font-size:10.5px;letter-spacing:.08em;te
 body.gx-barra-topo td{padding:10px 12px;font-size:13.5px}
 body.gx-barra-topo .cc{padding:18px 20px 16px}
 /* grupos com a mesma largura em toda a coluna (antes cada selo tinha um tamanho) */
-body.gx-barra-topo .tw td>.tag.tn,body.gx-barra-topo .tw td .er-grupo{display:block;width:100%;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left;box-sizing:border-box}
+/* selo do grupo: do tamanho do nome (até 150px); nome grande quebra em mais linhas em vez de esticar ou cortar */
+body.gx-barra-topo .tw td>.tag.tn,body.gx-barra-topo .tw td .er-grupo{display:inline-block!important;width:auto!important;max-width:150px!important;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;overflow-wrap:anywhere;line-height:1.3;text-align:left;box-sizing:border-box;padding:3px 9px}
 /* tabela no formato do Gestão dentro dos Honorários */
 .gx-tab-gs{background:#fff}
 .gx-tab-gs .tabela-wrap{max-height:none}
@@ -66,7 +67,7 @@ body.gx-barra-topo .tw td>.tag.tn,body.gx-barra-topo .tw td .er-grupo{display:bl
 #tn-baixo{display:none}
 @media (max-width:1560px){#gs-hd .gs-marca-sub{display:none}}
 @media (max-width:1520px){#gs-nome{display:none}}
-@media (max-width:1400px){.gs-contadores{display:none!important}}
+@media (max-width:1400px){#gs-hd .gs-contadores{display:none!important}}
 
 @media (max-width:1100px){
   #gs-hd nav,#gs-hd .tn-lancar,#gs-hd .tn-mais-acoes{display:none!important}
@@ -171,3 +172,31 @@ body.gx-barra-topo :focus-visible{outline:2px solid #2E5EAA;outline-offset:2px}
 
 /* contadores compactos quando o menu precisa do espaço */
 @media (max-width:1700px){#gs-hd .gs-cont-pal{display:none}}
+
+/* barra superior: títulos dos módulos centralizados */
+#gs-hd nav#tn{justify-content:center}
+/* menu ⋯: o estilo dos botões da área do usuário (texto branco) não vale para os itens do menu */
+#gs-hd .hd-usuario .tn-menu button{background:none!important;border:0!important;color:#1B2A4A!important;padding:9px 12px;font-weight:500;font-size:13.5px;border-radius:8px}
+#gs-hd .hd-usuario .tn-menu button:hover{background:#F5EDD6!important}
+/* entidades e grupos à direita do card Painel Executivo */
+#panel-resumo .mod-banner{display:flex;align-items:center;gap:12px}
+#panel-resumo .mod-banner .gs-contadores{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+#panel-resumo .gs-cont{border-radius:20px;padding:4px 12px;font-size:12px;font-weight:700;white-space:nowrap}
+#panel-resumo .gs-cont-ent{background:#FBF3DC;border:1px solid rgba(201,168,76,.45);color:#8A6D14}
+#panel-resumo .gs-cont-grp{background:#EAF0FB;border:1px solid rgba(46,94,170,.3);color:#1D4ED8}
+#panel-resumo .mod-banner .gs-contadores[hidden]{display:none}
+
+/* Painel Executivo: números do passivo na cor do Gestão (não azul) */
+#execKpis .kv,#execKpis .kv *{color:#1B2A4A!important}
+/* CAPAG Omisso: selo vermelho cheio (é o que mais importa ver) */
+.capag.capag-O{background:#DC2626!important;color:#fff!important;border:1px solid #B91C1C!important}
+/* coluna própria para ✎ e ✓ Baixa (não fica mais dentro da última coluna) */
+.gx-td-acoes{white-space:nowrap;text-align:right;width:1%}
+.gx-td-acoes .gx-la{margin-left:0}
+.gx-th-acoes{width:1%}
+/* linhas de acordo abrem o detalhe ao clicar */
+#panel-acordos tr[data-gx^="acordos:"]{cursor:pointer}
+#panel-acordos tr[data-gx^="acordos:"]:hover td{background:#f4f7fc}
+/* menu mais compacto em telas médias (o menu tem 12 itens) */
+@media (max-width:1460px){#gs-hd nav button.tn-it{padding:8px 5px;font-size:12.5px}}
+@media (max-width:1320px){#gs-hd nav button.tn-it{padding:7px 4px;font-size:12px}#gs-hd .tn-seta{display:none}}

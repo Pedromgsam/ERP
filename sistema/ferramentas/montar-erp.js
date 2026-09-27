@@ -159,6 +159,29 @@ removerBloco('/* ── CRM v2', '.crm-base-item:last-child{border-bottom:none}\
   if (k < 0 || i < 0 || j < 0) throw new Error('Janela do CRM antigo não encontrada');
   s = s.slice(0, i) + s.slice(j + '</div>\n</div>\n'.length); trocas++; }
 
+// 10. CAPAG "Omisso" com selo vermelho (antes caía em texto cinza)
+trocar("    if(m[v])return`<span class=\"capag ${m[v]}\">${v}</span>`;\n    return`<span style=\"font-size:10px;color:var(--text3)\">${v}</span>`;",
+  "    if(m[v])return`<span class=\"capag ${m[v]}\">${v}</span>`;\n    if(/omisso/i.test(v))return`<span class=\"capag capag-O\">Omisso</span>`;\n    return`<span style=\"font-size:10px;color:var(--text3)\">${v}</span>`;", 1);
+trocar("    [/omisso|—|^$/,'#F3F4F6','var(--gray)','#E5E7EB']", "    [/omisso/i,'#DC2626','#FFFFFF','#B91C1C'],\n    [/—|^$/,'#F3F4F6','var(--gray)','#E5E7EB']", 1);
+
+// 11. Painel Executivo: passivo por grupo em barras horizontais com o valor na frente (como no Gestão)
+//     e a legenda da rosca à direita, com % e valor.
+trocar("  mCh('cResGrupos',bCfg(labGr,valGr,null,isHoriz));",
+  "  { const _n=Math.min(labGr.length,15), _cfg=bCfg(labGr.slice(0,_n),valGr.slice(0,_n),null,true);\n" +
+  "    _cfg.options.gxValores=true; _cfg.options.layout={padding:{right:84}};\n" +
+  "    _cfg.options.scales.x.display=false; _cfg.options.scales.y.grid={display:false}; _cfg.options.scales.y.ticks=Object.assign({},_cfg.options.scales.y.ticks,{autoSkip:false,callback:function(v){var t=String(this.getLabelForValue(v)||'');return t.length>30?t.slice(0,29)+'…':t;}});\n" +
+  "    const _box=$('cResGrupos').parentElement; if(_box) _box.style.height=Math.max(150,_n*30+30)+'px';\n" +
+  "    const _d=$('resGrupoTitle').nextElementSibling; if(_d) _d.textContent='Soma de todos os órgãos tributários'+(labGr.length>15?' · 15 maiores de '+labGr.length:'');\n" +
+  "    mCh('cResGrupos',_cfg); }", 1);
+trocar("      plugins:{legend:{display:true,position:'bottom',labels:{color:'#4B5563',font:{size:11},padding:14,boxWidth:10,usePointStyle:true,pointStyle:'circle'}},",
+  "      plugins:{legend:{display:true,position:window.innerWidth>760?'right':'bottom',labels:{color:'#1F2937',font:{size:12},padding:12,boxWidth:10,usePointStyle:true,pointStyle:'circle',\n" +
+  "        generateLabels:function(ch){var tot=data.reduce(function(a,b){return a+(Number(b)||0);},0)||1;\n" +
+  "          return Chart.overrides.doughnut.plugins.legend.labels.generateLabels(ch).map(function(it){var v=Number(data[it.index])||0;\n" +
+  "            it.text=it.text+'  '+(v/tot*100).toLocaleString('pt-BR',{maximumFractionDigits:1})+'%  ·  '+fS(v);return it;});}}},", 1);
+
+// 12. "Demanda" passa a se chamar "Serviço pontual" na tela (o valor gravado continua o mesmo)
+trocar('<option value="Demanda">Demanda</option>', '<option value="Demanda">Serviço pontual</option>', 1);
+
 s = s.replace(/<title>[^<]*<\/title>/, '<title>ERP — Araújo &amp; Castro</title>');
 fs.writeFileSync(destino, s);
 
@@ -202,10 +225,10 @@ let graf = ler('graficos.js').replace("document.addEventListener('DOMContentLoad
 const bundle = "'use strict';\n// GERADO por sistema/ferramentas/montar-erp.js — não edite; edite os arquivos do Gestão.\n(function () {\n" +
   "const _raiz = document.createElement('div'); _raiz.id = 'gs-raiz'; _raiz.className = 'gs';\n" +
   "_raiz.innerHTML = '<div id=\"janelas\"></div><div id=\"aviso\"></div>'; document.body.appendChild(_raiz);\n" +
-  [nuc, graf, ler('telas-painel.js'), ler('telas-financeiro.js'), ler('telas-cadastros.js'), ler('telas-admin.js'), ler('telas-tarefas.js'), ler('telas-documentos.js'), ler('telas-cliente360.js'), ler('telas-crm.js'), ler('telas-publicacoes.js')].join('\n') +
+  [nuc, graf, ler('telas-painel.js'), ler('telas-financeiro.js'), ler('telas-cadastros.js'), ler('telas-admin.js'), ler('telas-tarefas.js'), ler('telas-documentos.js'), ler('telas-cliente360.js'), ler('telas-crm.js'), ler('telas-publicacoes.js'), ler('telas-acordos.js'), ler('telas-alertas.js')].join('\n') +
   "\n// toda gravação confirmada aparece também no rodapé do ERP\nconst _avisoOrig = aviso;\n" +
   "aviso = function (msg, erro) { _avisoOrig(msg, erro); if (!erro && window.ERP_EDITOR && /^✓/.test(msg)) window.ERP_EDITOR.gravou(String(msg).replace(/^✓\\s*/, '')); };\n" +
-  "window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade };\n})();\n";
+  "window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo };\n})();\n";
 fs.writeFileSync(path.join(APP, 'gestao-embutida.js'), bundle);
 
 // CSS do Gestão só dentro de .gs (as telas do Gestão) e #gs-hd (barra superior)

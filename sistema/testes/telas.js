@@ -68,6 +68,7 @@ const r = []; const ok = (n, c) => r.push([n, !!c]);
     await p.click('text=+ Novo contrato');
     await p.selectOption('#f-ctr [name=cliente_id]', { label: 'Zeta Manual LTDA · Grupo Zeta' });
     await p.fill('#f-ctr [name=descricao]', 'Consultoria tributária');
+    await p.click('#ctr-mod [data-v=pontual]');
     await p.fill('#f-ctr [name=valor_total]', '9.000,00');
     await p.fill('#f-ctr [name=num_parcelas]', '3');
     await p.fill('#f-ctr [name=primeiro_vencimento]', new Date().toISOString().slice(0, 10));
