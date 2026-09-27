@@ -1806,7 +1806,7 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
         <select class="fsel" id="fTipoCliente" onchange="applyFilters();_fbHasVal(this)" autocomplete="off">
           <option value="">Todos os tipos</option>
           <option value="Consultoria">Consultoria</option>
-          <option value="Demanda">Demanda</option>
+          <option value="Demanda">Serviço pontual</option>
           <option value="Inativo">Inativo</option>
         </select></label>
       <label class="fbp-f"><span>Responsável</span>
@@ -2812,7 +2812,10 @@ function bCfg(labels,data,colors,horiz=false){
 function dCfg(labels,data,colors){
   return{type:'doughnut',data:{labels,datasets:[{data,backgroundColor:colors.map(c=>c+'e6'),borderColor:'#fff',borderWidth:2,hoverOffset:4}]},
     options:{responsive:true,maintainAspectRatio:false,cutout:'68%',
-      plugins:{legend:{display:true,position:'bottom',labels:{color:'#4B5563',font:{size:11},padding:14,boxWidth:10,usePointStyle:true,pointStyle:'circle'}},
+      plugins:{legend:{display:true,position:window.innerWidth>760?'right':'bottom',labels:{color:'#1F2937',font:{size:12},padding:12,boxWidth:10,usePointStyle:true,pointStyle:'circle',
+        generateLabels:function(ch){var tot=data.reduce(function(a,b){return a+(Number(b)||0);},0)||1;
+          return Chart.overrides.doughnut.plugins.legend.labels.generateLabels(ch).map(function(it){var v=Number(data[it.index])||0;
+            it.text=it.text+'  '+(v/tot*100).toLocaleString('pt-BR',{maximumFractionDigits:1})+'%  ·  '+fS(v);return it;});}}},
         tooltip:{callbacks:{label:c=>' '+fF(c.raw)+' ('+((c.raw/(data.reduce((a,b)=>a+b,0)||1))*100).toFixed(1)+'%)'}}}}};}
 
 const fT = v => { const n=Number(v)||0; const abbr=fS(n); const full=fF(n); return abbr===full?abbr:`<span title="${full}" style="cursor:help;border-bottom:1px dotted var(--text4)">${abbr}</span>`; };
@@ -3857,6 +3860,7 @@ function renderExecRanking(){
     const m={A:'capag-A',B:'capag-B',C:'capag-C',D:'capag-D'};
     if(!v||v==='-'||v==='—')return`<span style="color:var(--text4);font-size:11px">—</span>`;
     if(m[v])return`<span class="capag ${m[v]}">${v}</span>`;
+    if(/omisso/i.test(v))return`<span class="capag capag-O">Omisso</span>`;
     return`<span style="font-size:10px;color:var(--text3)">${v}</span>`;
   };
   const el=$('tblExecRanking');if(!el)return;
@@ -4226,7 +4230,12 @@ function renderResumo(){
     $('resGrupoTitle').textContent='Passivo total por grupo';
   }
 
-  mCh('cResGrupos',bCfg(labGr,valGr,null,isHoriz));
+  { const _n=Math.min(labGr.length,15), _cfg=bCfg(labGr.slice(0,_n),valGr.slice(0,_n),null,true);
+    _cfg.options.gxValores=true; _cfg.options.layout={padding:{right:84}};
+    _cfg.options.scales.x.display=false; _cfg.options.scales.y.grid={display:false}; _cfg.options.scales.y.ticks=Object.assign({},_cfg.options.scales.y.ticks,{autoSkip:false,callback:function(v){var t=String(this.getLabelForValue(v)||'');return t.length>30?t.slice(0,29)+'…':t;}});
+    const _box=$('cResGrupos').parentElement; if(_box) _box.style.height=Math.max(150,_n*30+30)+'px';
+    const _d=$('resGrupoTitle').nextElementSibling; if(_d) _d.textContent='Soma de todos os órgãos tributários'+(labGr.length>15?' · 15 maiores de '+labGr.length:'');
+    mCh('cResGrupos',_cfg); }
   if(empF){
     const rowEmp=data.find(r=>r.nome===empF);
     mCh('cResDonut',dCfg(ORGAOS_TRIB.map(k=>ORGAO_NOME[k]),ORGAOS_TRIB.map(k=>Number(rowEmp?rowEmp[k]:0)||0),ORGAO_CORES));
@@ -5349,11 +5358,7 @@ function _faEsqueleto(){
   + '</div>'
   + '<div class="fa-resumo" id="faResumo"></div>'
   + '</div>'
-  + '<div id="faCorpo"></div>'
-  + '<div class="cc"><div class="cc-hd" style="align-items:center"><div><div class="cc-t">Lançamentos</div>'
-  +   '<div class="cc-d">os filtros do topo já valem para esta lista · clique no cabeçalho para ordenar</div></div>'
-  +   '<span class="fa-dica" id="faLqCount"></span></div>'
-  +   '<div id="faLancTbl"></div></div>';
+  + '<div id="faCorpo"></div>';
 }
 
 function _faSyncBar(){
@@ -5418,7 +5423,6 @@ function _faPintarCorpo(){
   +   (cliente?'':kC('Prejuízo',_faFT(vPrej),prejuizo.length+' baixa(s)','cx',vPrej>0?'dr':''))
   +   kC('Ticket médio',_faFT(ticket),'por lançamento recebido','cv','dv')
   + '</div>'
-  + (vencidos.length?'<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t">⚠ Em atraso</div><div class="cc-d">todos os meses · mesmos recortes de pessoa, tipo e grupo</div></div></div>'+_faTabelaDetalhe(vencidos.slice().sort(function(a,b){return (pDate(a.vencimento)||0)-(pDate(b.vencimento)||0);}))+'</div>':'')
   + '<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t">Recebido mês a mês</div>'
   +   '<div class="cc-d">empilhado por pessoa · passe o mouse na coluna para ver o total do mês</div></div></div>'
   +   '<div class="cb" style="height:280px"><canvas id="cFaMes"></canvas></div></div>'
@@ -5432,7 +5436,8 @@ function _faPintarCorpo(){
   + '</div>'
   + '<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t">Comparativo por pessoa</div>'
   +   '<div class="cc-d">mesmo período e mesmos recortes acima</div></div></div>'
-  +   _faTabelaPessoas(_faPessoas()) + '</div>';
+  +   _faTabelaPessoas(_faPessoas()) + '</div>'
+  + (vencidos.length?'<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t">⚠ Em atraso</div><div class="cc-d">todos os meses · mesmos recortes de pessoa, tipo e grupo</div></div></div>'+_faTabelaDetalhe(vencidos.slice().sort(function(a,b){return (pDate(a.vencimento)||0)-(pDate(b.vencimento)||0);}))+'</div>':'');
 
   _faGraficos(receita);
 }
@@ -7963,7 +7968,8 @@ function renderExecEmpresa(nome){
     [/^A$/i,'var(--green-lt)','#166534','#BBF7D0'],
     [/^[BC]$/i,'var(--amber-lt)','#92400E','#FDE68A'],
     [/^D$/i,'var(--red-lt)','#991B1B','#FECACA'],
-    [/omisso|—|^$/,'#F3F4F6','var(--gray)','#E5E7EB']
+    [/omisso/i,'#DC2626','#FFFFFF','#B91C1C'],
+    [/—|^$/,'#F3F4F6','var(--gray)','#E5E7EB']
   ]);
   const sitCadBadge=v=>badge(v,[
     [/ativa/i,       'var(--green-lt)','#166534','#BBF7D0'],

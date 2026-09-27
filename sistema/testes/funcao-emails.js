@@ -26,4 +26,8 @@ function carregarPublicacoes(base) {
   const { ctx, servico } = carregarFuncao(base, 'erp-publicacoes');
   return { tratar: (req) => ctx.tratar(req, servico, fetch), ctx };
 }
-module.exports = { carregar, carregarPublicacoes, jwt };
+function carregarCnpj(base) {
+  const { ctx, servico } = carregarFuncao(base, 'erp-cnpj');
+  return { tratar: (req) => ctx.tratar(req, servico, fetch, async () => {}), ctx };
+}
+module.exports = { carregar, carregarPublicacoes, carregarCnpj, jwt };

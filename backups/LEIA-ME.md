@@ -14,6 +14,7 @@ versão foi ao ar**. O número cresce a cada entrega.
 | 06 | Correção dos menus — histórico detalhado — prompt do ERP |
 | 07 | Ficha 360° do cliente, Documentos e Tarefas completas |
 | 08 | Design, acessos por função, e-mail, CRM, publicações e lógica das tarefas |
+| 09 | Alertas, Acordos autônomo, contratos de consultoria (salário mínimo), cartão CNPJ diário |
 
 ## Como baixar um backup
 No GitHub, abra a pasta `backups`, clique no arquivo e depois em **Download** (ícone de seta, à direita).

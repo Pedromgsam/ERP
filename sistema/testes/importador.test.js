@@ -86,6 +86,12 @@ async function ler(arq) { const wb = new ExcelJS.Workbook(); await wb.xlsx.readF
   ok('parcelamento: grupo = nome da aba', pAlfa._grupo === 'Grupo Alfa');
   const ac = IMP.importar(await ler(dir + '/a.xlsx'));
   ok('reconhece Acordos (aba Config ignorada)', ac.tipo === 'acordos' && ac.acordos.length === 2);
+  await fic.acordosComTitulo(dir + '/b.xlsx');
+  const ac2 = IMP.importar(await ler(dir + '/b.xlsx'), 'Planilha qualquer.xlsx');
+  ok('Acordos com título acima do cabeçalho e aba "A Pagar" não viram Contabilidade', ac2.tipo === 'acordos' && ac2.acordos.length === 2 && !ac2.lancamentos);
+  const ac3 = IMP.importar(await ler(dir + '/b.xlsx'), '4 - Acordos.xlsx');
+  ok('reconhece pelo nome do arquivo "4 - Acordos"', ac3.tipo === 'acordos');
+  ok('acordo pago sem data de pagamento fica com o vencimento', ac2.acordos.find((x) => x.pago).data_pagamento === '2026-09-10');
   ok('acordo da aba "Pago" = pago com data', ac.acordos.find((x) => x.parcela === '1').pago && ac.acordos.find((x) => x.parcela === '1').data_pagamento === '2026-08-09');
   ok('acordo em aberto guarda PIX/banco', ac.acordos.find((x) => x.parcela === '3').pix === 'chave@pix' && !ac.acordos.find((x) => x.parcela === '3').pago);
   const tf = IMP.importar(await ler(dir + '/t.xlsx'));

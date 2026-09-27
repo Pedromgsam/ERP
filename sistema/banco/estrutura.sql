@@ -1804,3 +1804,236 @@ begin
 exception when others then
   raise notice 'Agendador indisponível: use o botão "Buscar agora" em Jurídico → Publicações.';
 end $$;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- v12 (2026-09-28) — reimportar substituindo, contratos recorrentes,
+-- alertas, atualização diária do CNPJ
+-- ═══════════════════════════════════════════════════════════════════
+-- apaga o que veio de planilha (chave_importacao) de um tipo, para importar de novo do zero
+create or replace function public.limpar_importados(p_tipo text) returns int
+language plpgsql security definer set search_path = public as $$
+declare n int := 0;
+begin
+  if not public.eh_admin() then raise exception 'Só o administrador substitui importações.'; end if;
+  if p_tipo = 'financeiro' then delete from public.lancamentos where empresa = 'escritorio' and chave_importacao is not null;
+  elsif p_tipo = 'contabilidade' then delete from public.lancamentos where empresa = 'contabilidade' and chave_importacao is not null;
+  elsif p_tipo = 'acordos' then delete from public.acordos where chave_importacao is not null;
+  elsif p_tipo = 'processos' then delete from public.processos where chave_importacao is not null;
+  elsif p_tipo = 'parcelamentos' then delete from public.parcelamentos where chave_importacao is not null;   -- as parcelas vão junto
+  elsif p_tipo = 'tarefas' then delete from public.tarefas where chave_importacao is not null;
+  elsif p_tipo = 'base' then raise exception 'Clientes não são apagados na substituição (têm contratos e documentos ligados): use Atualizar.';
+  else raise exception 'Tipo de planilha desconhecido: %', p_tipo;
+  end if;
+  get diagnostics n = row_count;
+  return n;
+end $$;
+revoke all on function public.limpar_importados(text) from anon;
+grant execute on function public.limpar_importados(text) to authenticated;
+
+-- ─────────── contratos: consultoria recorrente (valor fixo ou em salários mínimos) ───────────
+-- Consultoria: 1 lançamento por mês de COMPETÊNCIA, pago no mês seguinte (dia escolhido), até a
+-- rescisão. Em salários mínimos, cada competência usa o salário mínimo do ANO da competência;
+-- ao cadastrar o salário mínimo novo, as mensalidades em aberto daquele ano são reajustadas sozinhas.
+-- Serviço pontual: como antes (valor total dividido em parcelas).
+alter table public.contratos add column if not exists modalidade text not null default 'pontual';
+alter table public.contratos add column if not exists forma_valor text not null default 'fixo';
+alter table public.contratos add column if not exists valor_mensal numeric(14,2);
+alter table public.contratos add column if not exists qtd_salarios numeric(7,3);
+alter table public.contratos add column if not exists dia_vencimento int not null default 10;
+alter table public.contratos add column if not exists inicio_competencia date;
+alter table public.contratos add column if not exists rescindido_em date;
+alter table public.contratos drop constraint if exists contratos_modalidade_check;
+alter table public.contratos add constraint contratos_modalidade_check check (modalidade in ('pontual','consultoria'));
+alter table public.contratos drop constraint if exists contratos_forma_valor_check;
+alter table public.contratos add constraint contratos_forma_valor_check check (forma_valor in ('fixo','salario_minimo'));
+alter table public.contratos drop constraint if exists contratos_dia_vencimento_check;
+alter table public.contratos add constraint contratos_dia_vencimento_check check (dia_vencimento between 1 and 28);
+alter table public.lancamentos add column if not exists competencia date;
+alter table public.lancamentos add column if not exists chave_recorrencia text;
+create unique index if not exists lancamentos_chave_recorrencia on public.lancamentos (chave_recorrencia) where chave_recorrencia is not null;
+
+create table if not exists public.salarios_minimos (
+  ano int primary key check (ano between 2000 and 2100), valor numeric(10,2) not null check (valor > 0),
+  atualizado_em timestamptz not null default now()
+);
+insert into public.salarios_minimos (ano, valor) values (2025, 1518.00), (2026, 1621.00) on conflict (ano) do nothing;
+alter table public.salarios_minimos enable row level security;
+revoke all on public.salarios_minimos from anon;
+grant select, insert, update, delete on public.salarios_minimos to authenticated;
+drop policy if exists salarios_minimos_ver on public.salarios_minimos;
+create policy salarios_minimos_ver on public.salarios_minimos for select to authenticated using (public.eh_equipe());
+drop policy if exists salarios_minimos_admin on public.salarios_minimos;
+create policy salarios_minimos_admin on public.salarios_minimos for all to authenticated using (public.eh_admin()) with check (public.eh_admin());
+
+-- salário mínimo do ano (se o ano ainda não foi cadastrado, o último conhecido)
+create or replace function public.salario_minimo(p_ano int) returns numeric
+language sql stable set search_path = public as $$
+  select valor from public.salarios_minimos where ano <= p_ano order by ano desc limit 1;
+$$;
+create or replace function public.valor_competencia(c public.contratos, comp date) returns numeric
+language sql stable set search_path = public as $$
+  select case when c.forma_valor = 'salario_minimo'
+              then round(coalesce(c.qtd_salarios, 0) * coalesce(public.salario_minimo(extract(year from comp)::int), 0), 2)
+              else coalesce(c.valor_mensal, 0) end;
+$$;
+
+-- gera as mensalidades que faltam (até 2 meses à frente), reajusta as em aberto e aplica a rescisão
+drop function if exists public.gerar_mensalidades(uuid);
+create or replace function public.gerar_mensalidades(p_contrato uuid default null, p_ate date default null) returns int
+language plpgsql security definer set search_path = public as $$
+declare c public.contratos; comp date; fim date; venc date; g uuid; resp text; n int := 0; k int; sm_falta boolean;
+begin
+  for c in select * from public.contratos where modalidade = 'consultoria' and (p_contrato is null or id = p_contrato) loop
+    select grupo_id, responsavel into g, resp from public.clientes where id = c.cliente_id;
+    -- rescisão: nada a partir da competência do mês da rescisão (rescindido em set → cobra até a competência de ago)
+    if c.rescindido_em is not null then
+      delete from public.lancamentos where contrato_id = c.id and chave_recorrencia is not null and not pago
+         and competencia >= date_trunc('month', c.rescindido_em)::date;
+    end if;
+    if c.status in ('Cancelado') then continue; end if;
+    comp := date_trunc('month', coalesce(c.inicio_competencia, c.data_contrato))::date;
+    fim := date_trunc('month', coalesce(p_ate, (current_date + interval '2 months')::date))::date;
+    if c.rescindido_em is not null then fim := least(fim, (date_trunc('month', c.rescindido_em) - interval '1 month')::date); end if;
+    while comp <= fim loop
+      venc := make_date(extract(year from comp + interval '1 month')::int, extract(month from comp + interval '1 month')::int, c.dia_vencimento);
+      sm_falta := c.forma_valor = 'salario_minimo' and not exists (select 1 from public.salarios_minimos where ano = extract(year from comp)::int);
+      insert into public.lancamentos (empresa, tipo, descricao, categoria, cliente_id, contrato_id, grupo_id, responsavel, referencia,
+                                      competencia, vencimento, valor, chave_recorrencia, obs)
+      values ('escritorio', 'receita', c.descricao || ' — competência ' || to_char(comp, 'MM/YYYY'), 'Consultoria mensal', c.cliente_id, c.id, g,
+              coalesce(nullif(c.responsavel, ''), resp, ''), to_char(comp, 'MM/YYYY'), comp, venc, greatest(public.valor_competencia(c, comp), 0.01),
+              'rec:' || c.id || ':' || to_char(comp, 'YYYY-MM'),
+              case when sm_falta then 'Salário mínimo de ' || extract(year from comp)::int || ' ainda não cadastrado: valor provisório, reajusta sozinho.' else '' end)
+      on conflict (chave_recorrencia) where chave_recorrencia is not null do nothing;
+      get diagnostics k = row_count; n := n + k;
+      comp := (comp + interval '1 month')::date;
+    end loop;
+    -- reajuste das mensalidades em aberto (valor do contrato mudou ou saiu o salário mínimo do ano)
+    update public.lancamentos l set valor = greatest(public.valor_competencia(c, l.competencia), 0.01),
+           obs = case when c.forma_valor = 'salario_minimo' and not exists (select 1 from public.salarios_minimos where ano = extract(year from l.competencia)::int)
+                      then l.obs else regexp_replace(l.obs, 'Salário mínimo de \d{4} ainda não cadastrado: valor provisório, reajusta sozinho\.', '') end
+     where l.contrato_id = c.id and l.chave_recorrencia is not null and not l.pago
+       and l.valor is distinct from greatest(public.valor_competencia(c, l.competencia), 0.01);
+  end loop;
+  return n;
+end $$;
+revoke all on function public.gerar_mensalidades(uuid, date) from anon;
+grant execute on function public.gerar_mensalidades(uuid, date) to authenticated;
+
+create or replace function public.contrato_recorrente() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if new.modalidade = 'consultoria' then perform public.gerar_mensalidades(new.id); end if;
+  return null;
+end $$;
+drop trigger if exists contrato_recorrente on public.contratos;
+create trigger contrato_recorrente after insert or update on public.contratos for each row execute function public.contrato_recorrente();
+
+create or replace function public.salario_minimo_mudou() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  perform public.gerar_mensalidades(id) from public.contratos where modalidade = 'consultoria' and forma_valor = 'salario_minimo';
+  return null;
+end $$;
+drop trigger if exists salario_minimo_mudou on public.salarios_minimos;
+create trigger salario_minimo_mudou after insert or update or delete on public.salarios_minimos for each statement execute function public.salario_minimo_mudou();
+
+-- contrato de consultoria não usa a divisão em parcelas do serviço pontual
+create or replace function public.gerar_parcelas_contrato() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare
+  i int; base numeric(14,2); v numeric(14,2); g uuid;
+begin
+  if new.modalidade = 'consultoria' then return new; end if;
+  if new.valor_total > 0 and new.primeiro_vencimento is not null then
+    select grupo_id into g from public.clientes where id = new.cliente_id;
+    base := trunc(new.valor_total / new.num_parcelas, 2);
+    for i in 1..new.num_parcelas loop
+      v := case when i = new.num_parcelas
+                then new.valor_total - base * (new.num_parcelas - 1) else base end;
+      insert into public.lancamentos
+        (empresa, tipo, descricao, categoria, cliente_id, contrato_id, grupo_id, responsavel, referencia,
+         parcela, total_parcelas, vencimento, valor)
+      values
+        ('escritorio', 'receita', new.descricao || case when new.num_parcelas > 1
+                                          then ' — parcela ' || i || '/' || new.num_parcelas else '' end,
+         'Honorários', new.cliente_id, new.id, g, new.responsavel,
+         case when new.num_parcelas > 1 then i || '/' || new.num_parcelas else '' end,
+         i, new.num_parcelas, (new.primeiro_vencimento + make_interval(months => i - 1))::date, v);
+    end loop;
+  end if;
+  return new;
+end $$;
+
+-- rotina diária: cria a mensalidade do próximo mês de cada consultoria ativa
+do $$
+begin
+  perform cron.unschedule(jobid) from cron.job where jobname = 'erp_mensalidades';
+  perform cron.schedule('erp_mensalidades', '30 9 * * *', 'select public.gerar_mensalidades()');
+exception when others then
+  raise notice 'Agendador indisponível: as mensalidades são geradas ao salvar o contrato e ao abrir Contratos.';
+end $$;
+
+-- ─────────── cartão CNPJ: atualização diária (6h) com relatório ───────────
+alter table public.clientes add column if not exists razao_social text not null default '';
+alter table public.clientes add column if not exists nome_fantasia text not null default '';
+alter table public.clientes add column if not exists cnae_principal text not null default '';
+alter table public.clientes add column if not exists porte text not null default '';
+alter table public.clientes add column if not exists data_abertura date;
+alter table public.clientes add column if not exists data_situacao date;
+alter table public.clientes add column if not exists cep text not null default '';
+alter table public.clientes add column if not exists cnpj_atualizado_em timestamptz;
+alter table public.clientes add column if not exists cnpj_dados jsonb;
+
+create table if not exists public.cnpj_execucoes (
+  id uuid primary key default gen_random_uuid(),
+  inicio timestamptz not null default now(), fim timestamptz,
+  status text not null default 'rodando' check (status in ('rodando','ok','parcial','erro')),
+  origem text not null default 'rotina', provedor text not null default '',
+  total int not null default 0, consultados int not null default 0, alterados int not null default 0, erros int not null default 0,
+  relatorio jsonb not null default '[]',        -- [{cliente_id, nome, cnpj, mudancas:[{campo, antes, depois}], erro}]
+  mensagem text not null default ''
+);
+alter table public.cnpj_execucoes enable row level security;
+revoke all on public.cnpj_execucoes from anon;
+grant select on public.cnpj_execucoes to authenticated;
+drop policy if exists cnpj_execucoes_ver on public.cnpj_execucoes;
+create policy cnpj_execucoes_ver on public.cnpj_execucoes for select to authenticated using (public.eh_equipe());
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname = 'service_role') then
+    execute 'grant select, insert, update on public.cnpj_execucoes, public.clientes to service_role';
+  end if;
+end $$;
+insert into public.config_privada (chave, valor) values ('api_cnpj', '{"provedor":"brasilapi","token":""}') on conflict (chave) do nothing;
+
+-- escolher a API do cartão CNPJ (só admin; o token, se houver, não volta para a tela)
+create or replace function public.salvar_config_cnpj(p jsonb) returns void
+language plpgsql security definer set search_path = public as $$
+declare atual jsonb;
+begin
+  if not public.eh_admin() then raise exception 'Só o administrador.'; end if;
+  select valor into atual from public.config_privada where chave = 'api_cnpj';
+  if coalesce(p->>'token', '') = '' then p := p || jsonb_build_object('token', coalesce(atual->>'token', '')); end if;
+  insert into public.config_privada (chave, valor) values ('api_cnpj', p) on conflict (chave) do update set valor = excluded.valor, atualizado_em = now();
+end $$;
+create or replace function public.status_config_cnpj() returns jsonb
+language sql security definer set search_path = public as $$
+  select case when public.eh_equipe() then coalesce((select (valor - 'token') || jsonb_build_object('tem_token', coalesce(valor->>'token', '') <> '') from public.config_privada where chave = 'api_cnpj'), '{}') end;
+$$;
+revoke all on function public.salvar_config_cnpj(jsonb) from anon;
+revoke all on function public.status_config_cnpj() from anon;
+grant execute on function public.salvar_config_cnpj(jsonb), public.status_config_cnpj() to authenticated;
+
+-- todo dia às 6h (Brasília = 9h UTC)
+do $$
+begin
+  perform cron.unschedule(jobid) from cron.job where jobname = 'erp_cnpj';
+  perform cron.schedule('erp_cnpj', '0 9 * * *', $cron$
+    select net.http_post(
+      url := (select valor #>> '{}' from public.config_privada where chave = 'url_projeto') || '/functions/v1/erp-cnpj',
+      headers := jsonb_build_object('Content-Type', 'application/json', 'x-erp-segredo', (select valor #>> '{}' from public.config_privada where chave = 'segredo_funcoes')),
+      body := '{"acao":"rodar"}'::jsonb)
+  $cron$);
+exception when others then
+  raise notice 'Agendador indisponível: use o botão "Atualizar agora" em Alertas → Cartão CNPJ.';
+end $$;

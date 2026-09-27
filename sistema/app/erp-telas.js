@@ -20,18 +20,20 @@
   const MENU = [
     { id: 'hoje', rot: 'Início', equipe: true },
     { id: 'resumo', rot: 'Painel Executivo', func: 'relatorios' },
-    { rot: 'Jurídico', itens: [['processos', 'Processos', 'juridico'], ['acordos', 'Acordos', 'juridico'], ['parcelamentos', 'Parcelamentos', 'juridico'], ['publicacoes', 'Publicações', 'juridico']] },
+    { rot: 'Jurídico', itens: [['processos', 'Processos', 'juridico'], ['parcelamentos', 'Parcelamentos', 'juridico'], ['publicacoes', 'Publicações', 'juridico']] },
+    { id: 'acordos', rot: 'Acordos', func: 'juridico' },
     { rot: 'Financeiro', equipe: true, itens: [['financeiro', 'Jurídico', 'financeiro_juridico'], ['financeiroContab', 'Contabilidade', 'financeiro_contab']] },
     { id: 'contratos', rot: 'Contratos', equipe: true, func: 'contratos' },
     { id: 'clientes', rot: 'Clientes', equipe: true, func: 'clientes' },
     { id: 'crm', rot: 'CRM', equipe: true, func: 'crm' },
     { id: 'documentos', rot: 'Documentos', equipe: true, func: 'documentos' },
     { id: 'tarefas', rot: 'Tarefas', equipe: true },
+    { id: 'alertas', rot: 'Alertas', equipe: true },
     { id: 'notificacoes', rot: 'Notificações', equipe: true, func: 'clientes' },
     { id: 'admin', rot: 'Administração', admin: true }
   ];
   // painéis novos → tela do Gestão que desenha nele
-  const TELAS_GS = { hoje: 'inicio', contratos: 'contratos', clientes: 'clientes', crm: 'crm', publicacoes: 'publicacoes', documentos: 'documentos', tarefas: 'tarefas', admin: 'admin' };
+  const TELAS_GS = { hoje: 'inicio', contratos: 'contratos', clientes: 'clientes', crm: 'crm', publicacoes: 'publicacoes', documentos: 'documentos', tarefas: 'tarefas', alertas: 'alertas', admin: 'admin' };
 
   // "+ Lançar": formulários do Gestão onde existem; os demais, do editor do ERP
   const empresaAtual = () => (_painel === 'financeiroContab' ? 'contabilidade' : 'escritorio');
@@ -82,7 +84,7 @@
         : '<div class="tn-grupo' + itemCls(m) + '"><button type="button" class="tn-it tn-abre" data-grupo="' + i + '" aria-haspopup="true" aria-expanded="false">' + esc(m.rot) + ' <span class="tn-seta">▾</span></button>' +
           '<div class="tn-menu" role="menu">' + m.itens.map((x) => '<button type="button" role="menuitem" data-ir="' + x[0] + '">' + esc(x[1]) + '</button>').join('') + '</div></div>').join('') +
       '</nav>' +
-      '<div class="gs-contadores gx-so-equipe" id="gs-contadores" hidden><span class="gs-cont gs-cont-ent" title="Entidades (empresas e pessoas)">▣ <b id="gs-n-ent">0</b><span class="gs-cont-pal"> entidades</span></span><span class="gs-cont gs-cont-grp" title="Grupos">◉ <b id="gs-n-grp">0</b><span class="gs-cont-pal"> grupos</span></span></div>' +
+      
       '<div class="tn-lancar gx-so-equipe"><button type="button" class="tn-lancar-bt" aria-haspopup="true" aria-expanded="false">+ Lançar</button>' +
       '<div class="tn-menu tn-menu-dir" role="menu">' + LANCAR.map((x, i) => '<button type="button" role="menuitem" data-lancar="' + i + '">' + esc(x[0]) + '</button>').join('') + '</div></div>' +
       '<div class="hd-usuario"><button type="button" id="gs-sino" class="gx-so-equipe" title="Avisos: prazos, menções e vencimentos" aria-label="Avisos">🔔<span id="gs-sino-n" hidden></span></button><span id="gs-nome"></span>' +
@@ -126,7 +128,14 @@
     });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { document.querySelectorAll('.tn-grupo.on,.tn-lancar.on').forEach(fecharMenu); fecharMais(); } });
 
-    // entidades e grupos: os mesmos números que o ERP calcula no cabeçalho dele
+    // entidades e grupos: saem da barra e ficam à direita do card "Painel Executivo"
+    const ban = document.querySelector('#panel-resumo .mod-banner');
+    if (ban && !document.getElementById('gs-contadores')) {
+      const c = document.createElement('div');
+      c.className = 'gs-contadores gx-so-equipe'; c.id = 'gs-contadores'; c.hidden = true;
+      c.innerHTML = '<span class="gs-cont gs-cont-ent" title="Entidades (empresas e pessoas)">▣ <b id="gs-n-ent">0</b> entidades</span><span class="gs-cont gs-cont-grp" title="Grupos">◉ <b id="gs-n-grp">0</b> grupos</span>';
+      ban.appendChild(c);
+    }
     const copiar = () => {
       const ent = document.getElementById('hdEntidades'), c = document.getElementById('gs-contadores');
       if (!ent || !c) return;
@@ -224,6 +233,17 @@
     if (!window.Chart || window.Chart._gx) return;
     window.Chart._gx = true;
     Chart.defaults.locale = 'pt-BR';
+    // valor escrito na frente de cada barra (gráficos marcados com options.gxValores)
+    Chart.register({ id: 'gxValores', afterDatasetsDraw(ch) {
+      if (!ch.config.options || !ch.config.options.gxValores) return;
+      const meta = ch.getDatasetMeta(0), dados = ch.data.datasets[0].data, ctx = ch.ctx, horiz = ch.config.options.indexAxis === 'y';
+      ctx.save(); ctx.fillStyle = '#1F2937'; ctx.font = '600 11.5px "JetBrains Mono", ui-monospace, monospace'; ctx.textBaseline = 'middle';
+      meta.data.forEach((bar, i) => {
+        const t = typeof window._moedaCurta === 'function' ? window._moedaCurta(dados[i]) : String(dados[i]);
+        if (horiz) { ctx.textAlign = 'left'; ctx.fillText(t, bar.x + 6, bar.y); } else { ctx.textAlign = 'center'; ctx.fillText(t, bar.x, bar.y - 9); }
+      });
+      ctx.restore();
+    } });
     Chart.register({ id: 'gxSemDados', beforeDraw(ch) {
       const temDado = (ch.data.datasets || []).some((d) => (d.data || []).some((v) => Number(v && typeof v === 'object' ? v.y : v)));
       if (temDado) return;

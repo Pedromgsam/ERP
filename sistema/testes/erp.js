@@ -41,6 +41,9 @@ insert into tarefas(titulo,responsavel,prazo) values ('Protocolar defesa','Pedro
 insert into configuracoes(chave,valor) values ('recibo_emitentes','{"pedro":{"label":"Pedro","nome":"ADVOGADO FICTICIO","oab":"OAB/MG 1","local":"Cidade/MG","qualif":"advogado ficticio, e-mail teste@teste","email":"teste@teste"}}');
 insert into auth.users(email,senha_teste,raw_user_meta_data) values ('cliente@teste','senha123','{"nome":"Cliente Alfa"}');
 update config_privada set valor = to_jsonb('http://127.0.0.1:8090/__teste/djen'::text) where chave = 'api_publicacoes';
+insert into config_privada(chave,valor) values ('api_cnpj','{"provedor":"brasilapi","token":"","bases":{"brasilapi":"http://127.0.0.1:8090/__teste/brasilapi/"}}')
+  on conflict (chave) do update set valor = excluded.valor;
+update clientes set procuracao = true where nome = 'Alfa Comércio Ltda';
 insert into auth.users(email,senha_teste,raw_user_meta_data) values ('fin@teste','senha123','{"nome":"Fabiana Financeiro"}');
 update perfis set papel='equipe', funcoes='{"financeiro_juridico":"editar"}' where email='fin@teste';
 update perfis set papel='cliente' where email='cliente@teste';
@@ -238,11 +241,22 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await nav(p, 'contratos'); await p.waitForTimeout(1200);
     await p.click('#panel-contratos button:has-text("Novo contrato")'); await p.waitForSelector('#gs-raiz [name=descricao]'); await p.waitForTimeout(250);
     await p.selectOption('#gs-raiz [name=cliente_id]', { label: 'Beta Serviços Ltda · Grupo Beta' });
+    await p.click('#ctr-mod [data-v=pontual]');
     await p.fill('#gs-raiz [name=descricao]', 'Contrato de teste'); await p.fill('#gs-raiz [name=valor_total]', '3.000,00');
     await p.fill('#gs-raiz [name=num_parcelas]', '3'); await p.fill('#gs-raiz [name=primeiro_vencimento]', '2026-11-10');
     await salvarGs(p, '#btn-salvar-ctr');
     ok('contrato gera 3 parcelas com o grupo do cliente', sql("select count(*) from lancamentos l join grupos g on g.id=l.grupo_id where l.contrato_id is not null and g.nome='Grupo Beta' and l.empresa='escritorio'") === '3');
     ok('tela Contratos lista o contrato', /Contrato de teste/.test(await p.textContent('#panel-contratos')));
+    // consultoria em salários mínimos: mensalidade todo mês até a rescisão
+    await p.click('#panel-contratos button:has-text("Novo contrato")'); await p.waitForSelector('#gs-raiz #ctr-mod'); await p.waitForTimeout(250);
+    await p.selectOption('#gs-raiz [name=cliente_id]', { label: 'Alfa Comércio Ltda · Grupo Alfa' });
+    await p.fill('#gs-raiz [name=descricao]', 'Consultoria mensal Alfa'); await p.click('#ctr-forma [data-v=salario_minimo]');
+    await p.fill('#gs-raiz [name=qtd_salarios]', '1'); await p.fill('#gs-raiz [name=inicio_competencia]', '2026-08');
+    ok('prévia mostra o valor do salário mínimo do ano', /1\.621,00/.test(await p.textContent('#ctr-previa-rec')));
+    await salvarGs(p, '#btn-salvar-ctr');
+    ok('consultoria em salário mínimo lança uma mensalidade por competência (paga no mês seguinte)',
+      sql("select string_agg(referencia||'>'||to_char(vencimento,'MM/YYYY')||'='||valor, ',' order by competencia) from lancamentos l join contratos c on c.id=l.contrato_id where c.descricao='Consultoria mensal Alfa' and l.competencia <= '2026-09-01'") === '08/2026>09/2026=1621.00,09/2026>10/2026=1621.00');
+    ok('lista de contratos mostra tipo, valor mensal e falta de anexo', /Consultoria/.test(await p.textContent('#panel-contratos')) && /salário\(s\) mínimo\(s\) \/ mês/.test(await p.textContent('#panel-contratos')) && /sem anexo/.test(await p.textContent('#panel-contratos')));
     ok('contrato novo gerou a tarefa de onboarding com o checklist do modelo', sql("select count(*)||'|'||max(jsonb_array_length(checklist)) from tarefas where titulo='Onboarding: Beta Serviços Ltda'") === '1|4');
 
     // ── clientes (tela do Gestão) ──
@@ -450,6 +464,33 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await salvarGs(p, '#btn-salvar-tf'); await p.waitForTimeout(800);
     ok('publicação fica "tratada" e ligada à tarefa', sql("select status||'|'||(tarefa_id is not null) from publicacoes where processo_numero='50000011120248130024'") === 'tratada|true');
     await foto(p, 'publicacoes');
+
+    // ── Alertas: cartões por setor + cartão CNPJ (rotina das 6h) ──
+    await nav(p, 'alertas'); await p.waitForSelector('#panel-alertas .al-card'); await p.waitForTimeout(500);
+    { const t = await p.textContent('#panel-alertas');
+      ok('Alertas no menu, com procurações "x de N" e setores', await p.isVisible('#tn [data-ir=alertas]') && /Procurações\s*1 de \d+/.test(t) && /Jurídico/.test(t) && /Rotinas/.test(t), t.slice(0, 300)); }
+    await p.click('#panel-alertas .al-card:has-text("Procurações")'); await p.waitForTimeout(500);
+    ok('clicar no cartão abre o relatório (entidades sem procuração)', /Entidades sem procuração/.test(await p.textContent('.janela')) && /Beta Serviços/.test(await p.textContent('.janela')));
+    await p.keyboard.press('Escape'); await p.waitForTimeout(250);
+    await p.click('#panel-alertas .al-card:has-text("Cartão CNPJ")'); await p.waitForSelector('#cnpj-agora'); await p.waitForTimeout(300);
+    ok('cartão CNPJ ainda não rodou: explica o que fazer', /Ainda não rodou/.test(await p.textContent('.janela')));
+    await p.click('#cnpj-agora');
+    await p.waitForFunction(() => /Cartão CNPJ:|não respondeu|não foi encontrada|falhou/.test(document.querySelector('#gs-raiz #aviso').textContent), null, { timeout: 15000 }).catch(() => {});
+    await p.waitForTimeout(1500);
+    ok('"Atualizar agora" consulta a Receita e grava a execução', sql("select status||'|'||consultados||'|'||origem from cnpj_execucoes order by inicio desc limit 1") === 'ok|2|manual', await p.textContent('#gs-raiz #aviso'));
+    ok('dados do cartão CNPJ gravados no cliente', sql("select situacao_cadastral||'|'||razao_social||'|'||cep from clientes where cpf_cnpj='22333444000172'") === 'INAPTA|BETA SERVICOS LTDA|30110000' &&
+      sql("select endereco from clientes where cpf_cnpj='11222333000181'") === 'RUA DAS FLORES, 100 - SALA 2 - CENTRO');
+    await p.waitForSelector('#panel-alertas .al-card:has-text("Situação cadastral irregular")'); await p.waitForTimeout(400);
+    await foto(p, 'alertas');
+    ok('Alertas mostra a empresa INAPTA e a rotina de hoje', /Situação cadastral irregular\s*1/.test(await p.textContent('#panel-alertas')) && /✓ hoje/.test(await p.textContent('#panel-alertas')));
+    sql("update clientes set situacao_cadastral='ATIVA', endereco='Rua Velha' where cpf_cnpj='22333444000172'");
+    await p.click('#panel-alertas .al-card:has-text("Cartão CNPJ")'); await p.waitForSelector('#cnpj-agora'); await p.click('#cnpj-agora');
+    await p.waitForTimeout(3000);
+    await p.click('#panel-alertas .al-card:has-text("Cartão CNPJ")'); await p.waitForSelector('#cnpj-agora'); await p.waitForTimeout(300);
+    { const t = await p.textContent('.janela');
+      ok('relatório de alterações: campo, antes e agora', /Alterações encontradas \(1\)/.test(t) && /Situação cadastral\s*ATIVA\s*INAPTA/.test(t) && /Rua Velha/.test(t), t.slice(0, 400)); }
+    await foto(p, 'alertas-cnpj');
+    await p.keyboard.press('Escape'); await p.waitForTimeout(250);
 
     // ── exclusão: equipe não exclui cliente ──
     const ctxE = await pagina();

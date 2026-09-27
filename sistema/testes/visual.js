@@ -51,7 +51,7 @@ const PAINEIS = ['hoje', 'resumo', 'processos', 'acordos', 'parcelamentos', 'fin
       }
       { const sobra = await p.evaluate(() => { const its = [...document.querySelectorAll('#tn > *')].filter((e) => e.offsetParent); if (!its.length) return 99;
           const fim = Math.max(...its.map((e) => e.getBoundingClientRect().right));
-          const prox = ['#gs-contadores', '.tn-lancar', '.hd-usuario'].map((q) => document.querySelector(q)).filter((e) => e && e.offsetParent).map((e) => e.getBoundingClientRect().left);
+          const prox = ['#gs-hd .tn-lancar', '#gs-hd .hd-usuario'].map((q) => document.querySelector(q)).filter((e) => e && e.offsetParent).map((e) => e.getBoundingClientRect().left);
           return Math.min(...prox) - fim; });
         if (sobra < 4) falhas.rolagem.push(w + ' barra superior: menu encosta nos contadores (' + Math.round(sobra) + 'px)'); }
       if (w === 1440) {

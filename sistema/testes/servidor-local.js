@@ -30,7 +30,7 @@ function sessao(u) {
   return { access_token: jwt({ sub: u.id, email: u.email, role: 'authenticated', aud: 'authenticated', exp }),
            token_type: 'bearer', expires_in: 3600, expires_at: exp, refresh_token: 'r-' + u.email, user: u };
 }
-const RECUPERACOES = [], ARQUIVOS = {}, PEDIDOS_DJEN = []; let FUNCAO = null, FUNCAO_PUB = null;
+const RECUPERACOES = [], ARQUIVOS = {}, PEDIDOS_DJEN = []; let FUNCAO = null, FUNCAO_PUB = null, FUNCAO_CNPJ = null;
 function json(res, cod, obj) { res.writeHead(cod, { 'content-type': 'application/json', 'access-control-allow-origin': '*' }); res.end(JSON.stringify(obj)); }
 http.createServer((req, res) => {
   let corpo = []; req.on('data', (c) => corpo.push(c)); req.on('end', () => {
@@ -108,6 +108,23 @@ http.createServer((req, res) => {
         { id: 900002, datadisponibilizacao: '24/09/2026', siglaTribunal: 'TRT3', tipoComunicacao: 'Edital', nomeOrgao: 'Vara do Trabalho', texto: 'Audiência designada.',
           numeroProcesso: '00012345520235030001', destinatarios: [], destinatarioadvogados: [] }
       ] : [] });
+    }
+    if (u.pathname === '/functions/v1/erp-cnpj') {
+      try { FUNCAO_CNPJ = FUNCAO_CNPJ || require('./funcao-emails.js').carregarCnpj('http://127.0.0.1:' + PORTA); } catch (e) { console.error(e); return json(res, 500, { erro: 'Função não carregou: ' + e.message }); }
+      const h = new Headers(); Object.entries(req.headers).forEach(([k, v]) => h.set(k, v));
+      return FUNCAO_CNPJ.tratar(new Request('http://x' + u.pathname, { method: req.method, headers: h, body: req.method === 'POST' ? corpo : undefined }))
+        .then(async (r2) => { const cab = { 'access-control-allow-origin': '*' }; r2.headers.forEach((v, k) => { cab[k] = v; }); res.writeHead(r2.status, cab); res.end(await r2.text()); })
+        .catch((e) => json(res, 500, { erro: e.message }));
+    }
+    // imitação da BrasilAPI (dados fictícios): 11222333000181 mudou de endereço; 22333444000172 está INAPTA; o resto não existe
+    if (u.pathname.startsWith('/__teste/brasilapi/')) {
+      const cnpj = u.pathname.split('/').pop();
+      const base = { razao_social: 'ALFA COMERCIO LTDA', nome_fantasia: 'ALFA', descricao_situacao_cadastral: 'ATIVA', data_situacao_cadastral: '2005-11-03',
+        cnae_fiscal_descricao: 'Comércio varejista', porte: 'MICRO EMPRESA', data_inicio_atividade: '2005-11-03', descricao_tipo_de_logradouro: 'RUA',
+        logradouro: 'DAS FLORES', numero: '100', complemento: 'SALA 2', bairro: 'CENTRO', municipio: 'BELO HORIZONTE', uf: 'MG', cep: '30110000' };
+      if (cnpj === '11222333000181') return json(res, 200, base);
+      if (cnpj === '22333444000172') return json(res, 200, Object.assign({}, base, { razao_social: 'BETA SERVICOS LTDA', descricao_situacao_cadastral: 'INAPTA', logradouro: 'SEM NOME' }));
+      return json(res, 404, { message: 'CNPJ não encontrado' });
     }
     if (u.pathname === '/__teste/djen-pedidos') return json(res, 200, PEDIDOS_DJEN);
     if (u.pathname === '/__teste/cartas') return json(res, 200, FUNCAO ? FUNCAO.cartas.map((c) => ({ to: c.to, subject: c.subject })) : []);

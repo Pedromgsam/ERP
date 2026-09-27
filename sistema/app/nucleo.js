@@ -125,6 +125,35 @@ function lerGradeFuncoes(raiz) {
   return o;
 }
 
+// Chama uma função do Supabase (Edge Function) e explica claramente o que deu errado.
+async function chamarFuncao(nome, corpo) {
+  const sessao = (await sb.auth.getSession()).data.session;
+  let r;
+  try {
+    r = await fetch(String(CFG.url).replace(/\/$/, '') + '/functions/v1/' + nome, { method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: CFG.chave, Authorization: 'Bearer ' + (sessao ? sessao.access_token : CFG.chave) },
+      body: JSON.stringify(corpo || {}) });
+  } catch (e) { throw new Error('Não consegui falar com a função "' + nome + '" (sem internet ou bloqueio do navegador).'); }
+  const txt = await r.text(); let js = null;
+  try { js = JSON.parse(txt); } catch (e) { /* resposta sem JSON */ }
+  if (r.ok) return js || {};
+  const det = (js && (js.erro || js.message || js.msg || js.error)) || txt.slice(0, 200);
+  if (r.status === 404) throw new Error('A função "' + nome + '" não foi encontrada no Supabase. Em Edge Functions, o nome tem que ser exatamente "' + nome + '" (tudo minúsculo). Se ela foi criada com outro nome, crie de novo com o nome certo.');
+  if ((r.status === 401 || r.status === 403) && !(js && js.erro)) throw new Error('O Supabase recusou a chamada da função "' + nome + '": abra a função no Supabase → Details e desligue "Verify JWT" (Enforce JWT verification). Detalhe: ' + det);
+  if (js && js.erro) throw new Error(js.erro);
+  if (r.status >= 500) throw new Error('A função "' + nome + '" existe, mas deu erro ao rodar (' + r.status + '): ' + det + '. Confira se o arquivo foi colado inteiro e publique de novo.');
+  throw new Error('A função "' + nome + '" respondeu ' + r.status + ': ' + det);
+}
+// Diagnóstico: as funções estão publicadas e respondendo?
+async function verificarFuncoes() {
+  const out = [];
+  for (const nome of ['erp-emails', 'erp-publicacoes', 'erp-cnpj']) {
+    try { const r = await chamarFuncao(nome, { acao: 'ping' }); out.push([nome, true, r.versao ? 'publicada (versão ' + r.versao + ')' : 'publicada (versão antiga: publique de novo o arquivo do GitHub)']); }
+    catch (e) { out.push([nome, false, e.message]); }
+  }
+  return out;
+}
+
 // Data digitada (filtros): máscara dd/mm/aaaa; nada roda enquanto se digita.
 function mascaraData(inp) {
   if (!inp) return;

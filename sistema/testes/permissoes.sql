@@ -269,3 +269,33 @@ select pg_temp.ok((select count(*) from notificacoes where tipo='publicacao')=1,
 begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-0000000000f1');
 select pg_temp.ok((select count(*) from publicacoes)=0,'sem a função Jurídico não vê publicações');
 commit;
+
+-- v12: substituir importação
+insert into lancamentos(empresa,tipo,descricao,vencimento,valor,chave_importacao) values ('contabilidade','receita','Importado errado','2026-10-10',100,'fin:contabilidade:teste'),('contabilidade','receita','Lançado à mão','2026-10-10',50,null);
+begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-00000000000b');
+do $$ begin
+  perform public.limpar_importados('contabilidade');
+  raise exception 'FALHOU: equipe substituiu importação';
+exception when raise_exception then
+  if sqlerrm like 'FALHOU%' then raise; end if;
+  raise notice 'PASSA: só o admin substitui importação';
+end $$;
+commit;
+begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-00000000000a');
+select public.limpar_importados('contabilidade');
+commit;
+select pg_temp.ok((select count(*) from lancamentos where descricao='Importado errado')=0 and (select count(*) from lancamentos where descricao='Lançado à mão')=1,'substituir apaga só o que veio da planilha');
+
+-- v12: consultoria em salários mínimos (exemplo do escritório)
+insert into clientes(nome) values ('João Consultoria');
+insert into contratos(cliente_id, descricao, modalidade, forma_valor, qtd_salarios, dia_vencimento, inicio_competencia)
+  select id, 'Consultoria João', 'consultoria', 'salario_minimo', 1, 10, '2026-11-01' from clientes where nome='João Consultoria';
+select public.gerar_mensalidades((select id from contratos where descricao='Consultoria João'), '2027-12-01');
+select pg_temp.ok((select valor from lancamentos where descricao like 'Consultoria João — competência 12/2026')=1621.00
+  and (select vencimento from lancamentos where descricao like 'Consultoria João — competência 12/2026')='2027-01-10','competência de dez/2026 paga em jan/2027 com o salário mínimo de 2026');
+insert into salarios_minimos values (2027, 1700.00) on conflict (ano) do update set valor = excluded.valor;
+select pg_temp.ok((select valor from lancamentos where descricao like 'Consultoria João — competência 01/2027')=1700.00,'salário mínimo novo reajusta sozinho a partir da competência de jan/2027');
+update lancamentos set pago = true where descricao like 'Consultoria João — competência 11/2026';
+update contratos set rescindido_em='2027-09-10' where descricao='Consultoria João';
+select pg_temp.ok((select max(competencia) from lancamentos where descricao like 'Consultoria João%')='2027-08-01','rescindido em set/2027: cobra até a competência de ago/2027');
+select pg_temp.ok((select count(*) from lancamentos where descricao like 'Consultoria João — competência 11/2026' and pago)=1,'mensalidade já paga não some na rescisão');

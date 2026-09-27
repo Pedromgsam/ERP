@@ -7,6 +7,7 @@
 // Corpo opcional: {"de":"2026-09-01","ate":"2026-09-27"} (padrão: desde a última busca, no máximo 30 dias).
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
+const VERSAO = '2026-09-28';
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-erp-segredo',
@@ -67,6 +68,7 @@ export async function tratar(req, db, buscar) {
   try {
     if (!(await autorizado(req, db))) return resposta({ erro: 'Sem permissão.' }, 401);
     const corpo = await req.json().catch(() => ({}));
+    if (corpo.acao === 'ping') return resposta({ ok: true, versao: VERSAO });
     const { data: cfgApi } = await db.from('config_privada').select('valor').eq('chave', 'api_publicacoes').maybeSingle();
     const API = (cfgApi && cfgApi.valor) || 'https://comunicaapi.pje.jus.br/api/v1';
     const { data: ult } = await db.from('configuracoes').select('valor').eq('chave', 'publicacoes_ultima').maybeSingle();

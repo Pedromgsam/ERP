@@ -114,6 +114,26 @@
     }
     return false;
   }
+  // planilha de acordos: alguma aba com "devedor" ou "credor" e "processo" nas primeiras linhas
+  function temCabecalhoAcordo(planilha) {
+    return Object.values(planilha.abas).some((L) => (L || []).slice(0, 5).some((ln) => {
+      const c = (ln || []).map((x) => norm(texto(x)));
+      return c.some((x) => /^(devedor|credor)/.test(x)) && c.some((x) => /^processo/.test(x));
+    }));
+  }
+  // pelo nome do arquivo ("4 - Acordos.xlsx", "12 - Financeiro - Contabilidade.xlsx"…)
+  function detectarPeloNome(nome) {
+    const n = norm(nome || '');
+    if (!n) return null;
+    if (/acordo/.test(n)) return 'acordos';
+    if (/contab/.test(n)) return 'contabilidade';
+    if (/parcelament/.test(n)) return 'parcelamentos';
+    if (/processo/.test(n)) return 'processos';
+    if (/tarefa/.test(n)) return 'tarefas';
+    if (/base de dados/.test(n)) return 'base';
+    if (/financeiro/.test(n)) return 'financeiro';
+    return null;
+  }
   function detectar(planilha) {
     const nomes = Object.keys(planilha.abas).map(norm);
     const tem = (n) => nomes.includes(norm(n));
@@ -121,7 +141,7 @@
     if (tem('Consultoria') && (tem('Demanda') || tem('Inativo'))) return 'base';
     if (tem('Ativos') && abas.some((L) => cabecalhoDe(L).some((c) => c.startsWith('n° do processo') || c.startsWith('no do processo') || c.startsWith('nº do processo')))) return 'processos';
     if (tem('Tarefas') && cabecalhoDe(planilha.abas[Object.keys(planilha.abas).find((k) => norm(k) === 'tarefas')]).includes('tarefa')) return 'tarefas';
-    if (abas.some((L) => { const c = cabecalhoDe(L); return c.includes('devedor') && c.includes('credor'); })) return 'acordos';
+    if (temCabecalhoAcordo(planilha)) return 'acordos';
     if (tem('A Pagar') || tem('Despesa')) return 'contabilidade';
     if (tem('A Receber') || tem('Receita')) return 'financeiro';
     if (abas.some(ehBlocoParcelamento)) return 'parcelamentos';
@@ -380,10 +400,12 @@
     const acordos = [], grupos = new Set(), avisos = [], resumo = {}, occ = {};
     Object.keys(planilha.abas).forEach((nomeAba) => {
       if (/^(aux|config|menu|legen)/i.test(norm(nomeAba))) return;
-      const L = planilha.abas[nomeAba];
-      if (!L || L.length < 2) return;
-      const cab = cabecalhoDe(L);
-      if (!cab.includes('processo')) return;
+      const bruto = planilha.abas[nomeAba];
+      if (!bruto || bruto.length < 2) return;
+      // o cabeçalho pode estar abaixo de uma linha de título: procura nas 5 primeiras
+      const h = bruto.slice(0, 5).findIndex((ln) => (ln || []).some((c) => /^processo/.test(norm(texto(c)))));
+      if (h < 0) return;
+      const L = bruto.slice(h);
       const r = resumo[nomeAba] = { lidas: 0, importadas: 0, ignoradas: 0, total: 0 };
       const col = mapa(L[0]);
       const C = { grupo: col('Grupo'), resp: col('Responsável'), processo: col('Processo'), devedor: col('Devedor'),
@@ -397,7 +419,7 @@
         const processo = texto(celula(ln, C.processo));
         if (!processo) { r.ignoradas++; continue; }
         const grupo = texto(celula(ln, C.grupo)); if (grupo) grupos.add(grupo);
-        const venc = dataISO(celula(ln, C.venc)), valor = numero(celula(ln, C.valor));
+        const venc = dataISO(celula(ln, C.venc)), vb = numero(celula(ln, C.valor)), valor = vb == null ? null : Math.abs(vb);   // acordo é valor devido: sem sinal
         const parcela = texto(celula(ln, C.parcela));
         const pago = abaPago || norm(texto(celula(ln, C.pag))) === 'sim';
         acordos.push({
@@ -441,8 +463,13 @@
     return { tipo: 'tarefas', tarefas, grupos: [...grupos], avisos, resumo };
   }
 
-  function importar(planilha) {
-    const t = detectar(planilha);
+  function importar(planilha, nomeArquivo) {
+    const pelaPlanilha = detectar(planilha), peloNome = detectarPeloNome(nomeArquivo);
+    // o conteúdo manda; o nome do arquivo desempata e impede ler Acordos como Financeiro
+    let t = pelaPlanilha;
+    if (peloNome === 'acordos' || temCabecalhoAcordo(planilha)) t = 'acordos';
+    else if (!t && peloNome) t = peloNome;
+    else if ((t === 'financeiro' || t === 'contabilidade') && (peloNome === 'financeiro' || peloNome === 'contabilidade')) t = peloNome;
     if (t === 'base') return importarBase(planilha);
     if (t === 'financeiro') return importarFinanceiro(planilha, 'escritorio');
     if (t === 'contabilidade') return importarFinanceiro(planilha, 'contabilidade');

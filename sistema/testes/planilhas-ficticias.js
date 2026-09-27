@@ -118,7 +118,18 @@ async function tarefas(arquivo) {
   await wb.xlsx.writeFile(arquivo);
 }
 
-module.exports = { baseDeDados, financeiro, contabilidade, processos, parcelamentos, acordos, tarefas };
+// Acordos como no Google Sheets real: linha de título antes do cabeçalho, "Devedor(a)" e uma aba "A Pagar"
+// (antes era confundida com a planilha da Contabilidade)
+async function acordosComTitulo(arquivo) {
+  const wb = new ExcelJS.Workbook();
+  const cab = ['Grupo','Responsável','Processo','Devedor(a)','Credor(a)','Nº de Parcela','Total de Parcelas','Valor','Vencimento','Status','Pagamento','Data de Pagamento'];
+  const a = wb.addWorksheet('A Pagar'); a.addRow(['ACORDOS COM TERCEIROS — CONTROLE']); a.addRow(cab);
+  a.addRow(['Grupo Beta','Pedro','5000135-86.2021.8.13.0604','Beta Fogos LTDA','Fulano','4','10',-1500,D(10,11,2026),'A vencer','','']);
+  const pg = wb.addWorksheet('Pago'); pg.addRow(['ACORDOS PAGOS']); pg.addRow(cab);
+  pg.addRow(['Grupo Beta','Pedro','5000135-86.2021.8.13.0604','Beta Fogos LTDA','Fulano','2','10',1500,D(10,9,2026),'','SIM','']);
+  await wb.xlsx.writeFile(arquivo);
+}
+module.exports = { baseDeDados, financeiro, contabilidade, processos, parcelamentos, acordos, tarefas, acordosComTitulo };
 if (require.main === module) {
   const dir = process.argv[2] || '.';
   Promise.all([
