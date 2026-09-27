@@ -30,6 +30,7 @@ function sessao(u) {
   return { access_token: jwt({ sub: u.id, email: u.email, role: 'authenticated', aud: 'authenticated', exp }),
            token_type: 'bearer', expires_in: 3600, expires_at: exp, refresh_token: 'r-' + u.email, user: u };
 }
+const RECUPERACOES = [];
 function json(res, cod, obj) { res.writeHead(cod, { 'content-type': 'application/json', 'access-control-allow-origin': '*' }); res.end(JSON.stringify(obj)); }
 http.createServer((req, res) => {
   let corpo = []; req.on('data', (c) => corpo.push(c)); req.on('end', () => {
@@ -48,6 +49,16 @@ http.createServer((req, res) => {
       const c = lerJwt(String(req.headers.authorization || '').replace('Bearer ', ''));
       return c && c.sub ? json(res, 200, { id: c.sub, email: c.email, aud: 'authenticated', role: 'authenticated' }) : json(res, 401, { msg: 'invalid JWT' });
     }
+    // cadastro (tela Administração → Novo usuário) e link de nova senha
+    if (u.pathname === '/auth/v1/signup') {
+      const b = JSON.parse(corpo.toString() || '{}');
+      if (usuario(b.email)) return json(res, 200, { id: crypto.randomUUID(), email: b.email, identities: [] });
+      sql('insert into auth.users(email,senha_teste,raw_user_meta_data) values (' + lit(b.email) + ',' + lit(b.password) + ',' + lit(JSON.stringify(b.data || {})) + ')');
+      const us = usuario(b.email);
+      return json(res, 200, Object.assign({}, us, { identities: [{ id: us.id }], confirmation_sent_at: new Date().toISOString() }));
+    }
+    if (u.pathname === '/auth/v1/recover') { RECUPERACOES.push(JSON.parse(corpo.toString() || '{}').email); return json(res, 200, {}); }
+    if (u.pathname === '/__teste/recuperacoes') return json(res, 200, RECUPERACOES);
     if (u.pathname === '/auth/v1/logout') { res.writeHead(204, { 'access-control-allow-origin': '*' }); return res.end(); }
     if (u.pathname.startsWith('/rest/v1/')) {
       const alvo = PGRST + u.pathname.replace('/rest/v1', '') + u.search;

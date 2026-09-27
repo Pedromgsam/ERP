@@ -32,7 +32,8 @@ function depoisDe(ancora, alvo, novo) {
 trocar('<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js" defer></script>',
   '<script src="vendor/chart.umd.js" defer></script>\n' +
   '<script src="vendor/supabase.js"></script>\n<script src="config.js"></script>\n<script src="erp-dados.js"></script>\n' +
-  '<link rel="stylesheet" href="editor.css">\n<script src="editor.js" defer></script>', 1);
+  '<link rel="stylesheet" href="editor.css">\n<link rel="stylesheet" href="erp-telas.css">\n' +
+  '<script src="editor.js" defer></script>\n<script src="erp-telas.js" defer></script>', 1);
 
 // 2. URL "do script": fica só como marcador; nenhuma chamada sai para o Google.
 s = s.replace(/const DEFAULT_URL = 'https:\/\/script\.google\.com\/macros\/s\/[^']+\/exec';/,
@@ -66,6 +67,12 @@ s = s.replace(/return '<tr><td><span class="tag tn">'\+\(f\.grupo/g, () => { tro
 // análise de honorários (jurídico e contabilidade) e sócios da contabilidade
 s = s.replace(/return '<tr><td class="mono" title="'\+\(pg\?/g, () => { trocas++; return "return '<tr data-gx=\"'+_gx(f)+'\"><td class=\"mono\" title=\"'+(pg?"; });
 s = s.replace(/var pago=f\.pagamento==='SIM';\n(\s*)return '<tr><td class="mono">'/g, (m, e) => { trocas++; return "var pago=f.pagamento==='SIM';\n" + e + "return '<tr data-gx=\"'+_gx(f)+'\"><td class=\"mono\">'"; });
+
+// 4b. E-mail: o rascunho no Gmail (Apps Script) virou "abrir e-mail já preenchido".
+s = s.split("Rascunho criado no Gmail").join('E-mail aberto no seu programa de e-mail');
+s = s.split('✉ Salvar rascunho (Gmail)').join('✉ Abrir e-mail');
+s = s.split("'⏳ Salvando rascunho…'").join("'⏳ Abrindo e-mail…'");
+s = s.split("'\\u23f3 Salvando rascunho\\u2026'").join("'\\u23f3 Abrindo e-mail\\u2026'");
 
 // 5. Dados pessoais dos advogados (CPF, endereço) saem do HTML público e vão para o banco
 //    (tabela configuracoes, só a equipe lê). O SQL para colar no Supabase é gerado em

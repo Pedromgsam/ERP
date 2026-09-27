@@ -66,6 +66,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     const carregado = (p) => p.waitForFunction(() => /Completo|Conectado/.test(document.getElementById('dotTxt').textContent), null, { timeout: 15000 }).catch(() => {});
     const nav = async (p, painel) => { await p.evaluate((x) => nav(null, x), painel); await p.waitForTimeout(700); };
     const esperarJanela = (p) => p.waitForSelector('.gx-janela', { timeout: 8000 });
+    const lancar = async (p, i) => { await p.click('.tn-lancar-bt'); await p.click('.tn-lancar [data-lancar="' + i + '"]'); await esperarJanela(p); };
     const salvar = async (p) => { await p.click('.gx-janela button[type=submit]'); await p.waitForSelector('.gx-fundo', { state: 'detached', timeout: 8000 }).catch(() => {}); await p.waitForTimeout(2500); };
 
     // ── login ──
@@ -75,12 +76,16 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await entrar(p, 'pedro@teste');
     await carregado(p);
     ok('entra com e-mail e senha do Supabase', await p.evaluate(() => window.AC_SESSION && window.AC_SESSION.nivel === 'admin'));
-    ok('visual do ERP original (menu lateral e Painel Executivo)', await p.isVisible('#sb') && await p.isVisible('#panel-resumo'));
+    await p.waitForTimeout(1200);
+    ok('menu na barra superior (sem menu lateral)', await p.isVisible('#tn') && !(await p.isVisible('#sb')) && await p.isVisible('.tn-lancar-bt'));
+    ok('equipe entra no Início (resumo do mês)', await p.isVisible('#panel-hoje') && /Olá, Pedro/.test(await p.textContent('#panel-hoje')) && /Honorários Contabilidade/.test(await p.textContent('#panel-hoje')));
+    await foto(p, 'inicio');
     await p.waitForTimeout(1500);
     const n = await p.evaluate(() => ({ b: DB.baseDados.length, pr: DB.processos.length, pa: DB.parcelamentos.length, ac: DB.acordos.length, fi: DB.financeiro.length, fc: DB.financeiroContabilidade.length }));
     ok('carrega os 6 módulos do Supabase', n.b === 3 && n.pr === 1 && n.pa === 1 && n.ac === 1 && n.fi === 2 && n.fc === 1, JSON.stringify(n));
     ok('PF identificada (isPJ=false) e PJ (isPJ=true)', await p.evaluate(() => DB.baseDados.find((x) => x.nome === 'Ana Alfa').isPJ === false && DB.baseDados.find((x) => x.nome === 'Alfa Comércio Ltda').isPJ === true));
     // Passivo total = só PJ: Alfa 1000+500+200 + Beta 300 = 2.000 (a PF igual NÃO soma)
+    await nav(p, 'resumo');
     const kpi = await p.evaluate(() => document.getElementById('execKpis').innerHTML);
     ok('dívida idêntica de PF e PJ não é somada (total R$ 2.000,00)', /2\.000,00/.test(kpi) && !/3\.700,00/.test(kpi), kpi.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 200));
     ok('dívida negociada entra no total (como no ERP)', await p.evaluate(() => trib(DB.baseDados.find((x) => x.nome === 'Alfa Comércio Ltda')) === 1700));
@@ -99,9 +104,8 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     const linha = await p.$('#panel-financeiro tr[data-gx^="lancamentos:"]');
     ok('linhas de honorários marcadas para edição', !!linha);
     if (linha) {
-      await linha.hover(); await p.waitForTimeout(200);
-      ok('botão ✎ Editar aparece ao passar o mouse', await p.isVisible('#gx-editar'));
-      await p.click('#gx-editar'); await esperarJanela(p);
+      ok('ações fixas na linha: ✎ e ✓ Baixa', await linha.$('[data-la=editar]') && await linha.$('[data-la=baixa]'));
+      await (await linha.$('[data-la=editar]')).click(); await esperarJanela(p);
       const tit = await p.textContent('.gx-janela h3');
       ok('abre o formulário de edição', /Editar — Honorário/.test(tit), tit);
       await foto(p, 'editar');
@@ -119,14 +123,23 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('dar baixa: pago com data de hoje', sql("select pago and data_pagamento=current_date from lancamentos where id='" + idRec + "'") === 't');
     ok('após a baixa o ERP mostra na aba Receita', await p.evaluate(() => DB.financeiro.some((f) => f.aba === 'Receita' && f.pagamento === 'SIM')));
 
-    // ── novo lançamento pelo menu Lançar ──
-    await p.click('#gx-menu [data-gxi="0"]'); await esperarJanela(p);
+    // ── ✓ Baixa direto na linha (Início), com Desfazer no rodapé ──
+    const idCont = sql("select id from lancamentos where empresa='contabilidade'");
+    await nav(p, 'hoje'); await p.waitForTimeout(600);
+    await p.click('#panel-hoje tr[data-gx^="lancamentos:' + idCont + '"] [data-la=baixa]'); await p.waitForTimeout(2500);
+    ok('✓ Baixa na linha grava sem abrir formulário', sql("select pago from lancamentos where id='" + idCont + "'") === 't');
+    ok('rodapé mostra a última gravação', /Última gravação/.test(await p.textContent('#gx-rodape')) && await p.isVisible('#gx-rodape'));
+    await p.click('#gx-rodape .gx-rod-bt'); await p.waitForTimeout(2000);
+    ok('Desfazer volta a baixa', sql("select pago from lancamentos where id='" + idCont + "'") === 'f');
+
+    // ── novo lançamento pelo botão + Lançar ──
+    await lancar(p, 0);
     await p.fill('#gx-f-grupo_id', 'Grupo Beta');
     await p.fill('#gx-f-categoria', 'Êxito');
     await p.fill('#gx-f-valor', '2500');
     await salvar(p);
     ok('novo honorário gravado (descrição automática)', sql("select count(*) from lancamentos where categoria='Êxito' and valor=2500 and descricao like 'Êxito%'") === '1');
-    await p.click('#gx-menu [data-gxi="0"]'); await esperarJanela(p);
+    await lancar(p, 0);
     await p.fill('#gx-f-valor', '');
     await p.click('.gx-janela button[type=submit]'); await p.waitForTimeout(600);
     ok('campo obrigatório vazio: avisa e não grava', /Preencha|valor/.test(await p.textContent('.gx-msg')));
@@ -161,23 +174,57 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.click('.gx-janela [data-a=baixa]'); await p.waitForTimeout(2500);
     ok('acordo baixado', sql('select pago and data_pagamento=current_date from acordos') === 't');
     ok('ERP mostra o acordo como Pago', await p.evaluate(() => DB.acordos[0].situacao === 'Pago'));
-    await p.click('#gx-menu [data-gxi="2"]'); await esperarJanela(p);
+    await lancar(p, 3);
     await p.fill('#gx-f-numero', '5000002-22.2025.8.13.0024'); await p.fill('#gx-f-grupo_id', 'Grupo Beta');
     await salvar(p);
     ok('novo processo aparece no ERP', await p.evaluate(() => DB.processos.length === 2 && DB.processos.some((x) => x.grupo === 'Grupo Beta')));
 
     // ── tarefas ──
-    await p.click('#gx-menu [data-gxi="5"]'); await esperarJanela(p);
-    ok('tela de tarefas lista as abertas', /Protocolar defesa/.test(await p.textContent('.gx-janela')));
+    await nav(p, 'tarefas'); await p.waitForTimeout(1200);
+    ok('tela de Tarefas lista as abertas', /Protocolar defesa/.test(await p.textContent('#panel-tarefas')));
     await foto(p, 'tarefas');
-    await p.click('.gx-janela [data-concluir]'); await p.waitForTimeout(1500);
-    ok('concluir tarefa', sql("select status from tarefas") === 'concluida');
+    await p.click('#panel-tarefas [data-concluir]'); await p.waitForTimeout(2000);
+    ok('concluir tarefa na linha', sql("select status from tarefas") === 'concluida');
+
+    // ── contratos: parcelas entram sozinhas em Honorários Jurídico ──
+    await lancar(p, 6);
+    await p.fill('#gx-f-cliente_id', 'Beta Serviços Ltda'); await p.fill('#gx-f-descricao', 'Contrato de teste');
+    await p.fill('#gx-f-responsavel', 'Pedro'); await p.fill('#gx-f-valor_total', '3000'); await p.fill('#gx-f-num_parcelas', '3');
+    await p.fill('#gx-f-primeiro_vencimento', '2026-11-10');
+    await salvar(p);
+    ok('contrato gera 3 parcelas com grupo e responsável', sql("select count(*) from lancamentos l join grupos g on g.id=l.grupo_id where l.contrato_id is not null and g.nome='Grupo Beta' and l.responsavel='Pedro' and l.empresa='escritorio'") === '3');
+    await nav(p, 'contratos'); await p.waitForTimeout(1500);
+    ok('tela Contratos lista o contrato', /Contrato de teste/.test(await p.textContent('#panel-contratos')) && /0 \/ 3/.test(await p.textContent('#panel-contratos')));
+    ok('parcelas do contrato aparecem em Honorários', await p.evaluate(() => DB.financeiro.filter((f) => f.grupo === 'Grupo Beta' && f.referencia === '1/3' && f.advogado === 'Pedro').length === 1));
+
+    // ── clientes ──
+    await nav(p, 'clientes'); await p.waitForTimeout(800);
+    await p.fill('#panel-clientes [data-filtro=busca]', '12345678909'); await p.waitForTimeout(300);
+    ok('tela Clientes com busca e selo PF', await p.$$eval('#gx-cli-corpo tbody tr', (l) => l.length) === 1 && /PF/.test(await p.textContent('#gx-cli-corpo')));
+    await foto(p, 'clientes');
+
+    // ── administração: criar usuário, link de senha, histórico ──
+    ok('Administração no menu do admin', await p.isVisible('#tn [data-ir=admin]'));
+    await nav(p, 'admin'); await p.waitForTimeout(1500);
+    await p.click('#gx-us-novo');
+    await p.fill('.gx-janela [name=nome]', 'Nova Pessoa'); await p.fill('.gx-janela [name=email]', 'nova@teste.com');
+    await p.fill('.gx-janela [name=senha]', 'provisoria1'); await p.selectOption('.gx-janela [name=papel]', 'equipe');
+    await p.click('.gx-janela [type=submit]'); await p.waitForTimeout(3000);
+    ok('admin cria usuário pelo sistema (papel Equipe)', sql("select papel||'|'||nome from perfis where email='nova@teste.com'") === 'equipe|Nova Pessoa');
+    ok('admin continua logado depois de criar usuário', await p.evaluate(async () => (await SB.auth.getSession()).data.session.user.email) === 'pedro@teste');
+    await p.click('[data-senha="novo@teste"]'); await p.waitForTimeout(1200);
+    ok('envia link de nova senha', (await (await p.request.get(BASE + '/__teste/recuperacoes')).json()).includes('novo@teste'));
+    await p.click('.gx-abas [data-aba=historico]'); await p.waitForTimeout(1500);
+    ok('histórico geral na Administração', /Alterou/.test(await p.textContent('#gx-adm-corpo')));
+    await p.evaluate((id) => ERP_EDITAR('clientes:' + id), idBeta); await esperarJanela(p);
+    await p.click('.gx-janela [data-a=historico]'); await p.waitForTimeout(1500);
+    ok('histórico dentro do registro (quem mudou o quê)', /age mg/.test(await p.textContent('.gx-sobre')) && /1\.300/.test(await p.textContent('.gx-sobre')));
     await p.keyboard.press('Escape');
 
     // ── exclusão: equipe não exclui cliente ──
-    ok('gestão acessível pelo menu', await p.isVisible('#gx-menu [data-gxi="6"]'));
     const ctxE = await pagina();
     await entrar(ctxE, 'equipe@teste'); await carregado(ctxE);
+    ok('equipe não vê Administração', !(await ctxE.isVisible('#tn [data-ir=admin]')) && await ctxE.isVisible('.tn-lancar-bt'));
     await ctxE.evaluate((id) => ERP_EDITAR('clientes:' + id), idBeta); await esperarJanela(ctxE);
     await ctxE.click('.gx-janela [data-a=excluir]'); await ctxE.waitForTimeout(1200);
     ok('equipe não consegue excluir cliente (aviso claro)', /administrador/.test(await ctxE.textContent('.gx-msg')) && sql("select count(*) from clientes where id='" + idBeta + "'") === '1');
@@ -187,7 +234,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await entrar(pc, 'cliente@teste'); await carregado(pc); await pc.waitForTimeout(1500);
     const vis = await pc.evaluate(() => ({ nivel: AC_SESSION.nivel, grupos: [...new Set(DB.baseDados.map((x) => x.grupo))].join(','), fin: DB.financeiro.length, obs: DB.baseDados.some((x) => x.obs) }));
     ok('cliente vê só o próprio grupo e nada de financeiro', vis.nivel === 'cliente' && vis.grupos === 'Grupo Alfa' && vis.fin === 0, JSON.stringify(vis));
-    ok('cliente não vê menu Lançar nem ✎', !(await pc.isVisible('#gx-menu')));
+    ok('cliente não vê Lançar, ✎ nem telas da equipe', !(await pc.isVisible('.tn-lancar-bt')) && !(await pc.$('.gx-la')) && !(await pc.isVisible('#tn [data-ir=clientes]')) && await pc.isVisible('#tn [data-ir=resumo]'));
     ok('cliente não recebe dados dos advogados', await pc.evaluate(() => Object.keys(RECIBO_EMITENTES).length === 0));
     const tentativa = await pc.evaluate(async () => { const r = await SB.from('clientes').update({ nome: 'X' }).neq('id', '00000000-0000-0000-0000-000000000000').select(); return (r.data || []).length; });
     ok('cliente não consegue alterar dados pela API', tentativa === 0 && sql("select count(*) from clientes where nome='X'") === '0');
@@ -196,6 +243,11 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     const pm = await pagina(390);
     await entrar(pm, 'pedro@teste'); await carregado(pm);
     ok('celular sem rolagem lateral', await pm.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1));
+    ok('celular: menu inferior com Início, Painel, Honorários, Lançar e Mais', await pm.isVisible('#tn-baixo') && (await pm.$$('#tn-baixo button')).length === 5);
+    await pm.click('#tn-baixo [data-baixo=mais]'); await pm.waitForTimeout(300);
+    ok('celular: "Mais" abre todas as telas', await pm.isVisible('#tn-mais [data-ir=contratos]'));
+    await pm.click('#tn-mais [data-ir=contratos]'); await pm.waitForTimeout(1200);
+    ok('celular: navega pelo Mais', await pm.isVisible('#panel-contratos'));
     await pm.evaluate((id) => ERP_EDITAR('clientes:' + id), idBeta); await esperarJanela(pm);
     ok('formulário cabe no celular', await pm.evaluate(() => document.querySelector('.gx-janela').getBoundingClientRect().width <= window.innerWidth));
     await foto(pm, 'celular');

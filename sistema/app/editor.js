@@ -137,6 +137,28 @@
         { k: 'obs', rot: 'Observação', tipo: 'area' }
       ]
     },
+    contratos: {
+      nome: 'Contrato',
+      campos: [
+        { k: 'cliente_id', rot: 'Cliente', tipo: 'cliente', req: true },
+        { k: 'descricao', rot: 'Descrição', tipo: 'texto', req: true, dica: 'ex.: Honorários contratuais — execução fiscal' },
+        { k: 'responsavel', rot: 'Responsável', tipo: 'texto', lista: PESSOAS },
+        { k: 'data_contrato', rot: 'Data do contrato', tipo: 'data', req: true },
+        { k: 'valor_total', rot: 'Valor total (R$)', tipo: 'num', dica: 'as parcelas entram sozinhas em Honorários Jurídico' },
+        { k: 'num_parcelas', rot: 'Nº de parcelas', tipo: 'num' },
+        { k: 'primeiro_vencimento', rot: '1º vencimento', tipo: 'data' },
+        { k: 'percentual_exito', rot: '% de êxito', tipo: 'num' },
+        { k: 'status', rot: 'Status', tipo: 'sel', ops: [['Ativo', 'Ativo'], ['Encerrado', 'Encerrado'], ['Cancelado', 'Cancelado']] },
+        { k: 'obs', rot: 'Observação', tipo: 'area' }
+      ],
+      antesDeGravar(d, reg) {
+        d.num_parcelas = Math.max(1, Math.round(Number(d.num_parcelas) || 1));
+        if (d.valor_total == null) d.valor_total = 0;
+        if (d.num_parcelas > 120) throw new Error('No máximo 120 parcelas.');
+        if (reg && reg.id && (Number(reg.valor_total) !== Number(d.valor_total) || reg.num_parcelas !== d.num_parcelas || reg.primeiro_vencimento !== d.primeiro_vencimento))
+          throw new Error('Valor, parcelas e 1º vencimento não mudam depois de criado (as parcelas já estão em Honorários). Edite as parcelas lá, ou exclua e crie o contrato de novo.');
+      }
+    },
     tarefas: {
       nome: 'Tarefa',
       campos: [
@@ -168,7 +190,12 @@
   function fecharJanela() { document.querySelectorAll('.gx-fundo').forEach((f) => f.remove()); }
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') fecharJanela(); });
 
-  let _grupos = [];
+  let _grupos = [], _clientes = [];
+  async function carregarClientes() {
+    const { data } = await sb.from('clientes').select('id,nome,cpf_cnpj').order('nome');
+    _clientes = data || [];
+  }
+  const nomeCliente = (id) => (_clientes.find((c) => c.id === id) || {}).nome || '';
   async function carregarGrupos() {
     const { data } = await sb.from('grupos').select('id,nome').order('nome');
     _grupos = data || [];
@@ -186,7 +213,7 @@
     return data.id;
   }
   function listaSugestoes(lista) {
-    const DB = window.DB || {};
+    const DB = (typeof window.ERP_DADOS === 'function' ? window.ERP_DADOS() : {});
     if (lista === 'categorias') return [...new Set([...(DB.financeiro || []), ...(DB.financeiroContabilidade || [])].map((f) => f.tipo).filter(Boolean))].sort();
     if (lista === 'empresas') return [...new Set((DB.baseDados || []).map((b) => b.nome))].sort();
     return lista || [];
@@ -202,6 +229,8 @@
     else if (c.tipo === 'bool') return '<div class="gx-campo gx-bool"><label><input type="checkbox" id="' + id + '"' + (v ? ' checked' : '') + '> ' + esc(c.rot) + '</label></div>';
     else if (c.tipo === 'area') return '<div class="gx-campo gx-largo">' + rot + '<textarea id="' + id + '" rows="2">' + esc(v) + '</textarea></div>';
     else if (c.tipo === 'grupo') inp = '<input id="' + id + '" list="gx-l-grupos" autocomplete="off" value="' + esc(nomeGrupo(v)) + '" placeholder="digite para buscar">';
+    else if (c.tipo === 'cliente') inp = '<input id="' + id + '" list="gx-l-clientes" autocomplete="off" value="' + esc(nomeCliente(v)) + '" placeholder="digite o nome do cliente">'
+      + '<datalist id="gx-l-clientes">' + _clientes.map((k) => '<option value="' + esc(k.nome) + '">').join('') + '</datalist>';
     else {
       const lista = listaSugestoes(c.lista);
       const lid = lista.length ? 'gx-l-' + c.k : '';
@@ -222,6 +251,11 @@
       else if (c.tipo === 'num') d[c.k] = el.value === '' ? null : Number(el.value);
       else if (c.tipo === 'data') d[c.k] = el.value || null;
       else if (c.tipo === 'grupo') d[c.k] = await idDoGrupo(el.value);
+      else if (c.tipo === 'cliente') {
+        const k = _clientes.find((x) => x.nome.trim().toLowerCase() === el.value.trim().toLowerCase());
+        if (el.value.trim() && !k) throw new Error('Cliente "' + el.value.trim() + '" não encontrado. Cadastre-o antes em Clientes.');
+        d[c.k] = k ? k.id : null;
+      }
       else d[c.k] = el.value.trim();
       if (c.req && (d[c.k] === null || d[c.k] === '')) throw new Error('Preencha: ' + c.rot);
     }
@@ -234,6 +268,7 @@
     if (ehCliente()) return aviso('🔒 Acesso é somente leitura.');
     const def = F[tabela];
     await carregarGrupos();
+    if (def.campos.some((c) => c.tipo === 'cliente')) await carregarClientes();
     let reg = Object.assign({}, padrao || {});
     if (id) {
       const { data, error } = await sb.from(tabela).select('*').eq('id', id).maybeSingle();
@@ -247,6 +282,7 @@
       + '<div class="gx-msg" role="alert"></div>'
       + '<div class="gx-acoes">'
       + (id ? '<button type="button" class="gx-bt gx-perigo" data-a="excluir">Excluir</button>' : '')
+      + (id && ehAdmin() ? '<button type="button" class="gx-bt" data-a="historico">🕘 Ver alterações</button>' : '')
       + '<span style="flex:1"></span>'
       + (id && def.baixa && !reg.pago ? '<button type="button" class="gx-bt gx-ok" data-a="baixa">✓ Dar baixa (pago hoje)</button>' : '')
       + '<button type="button" class="gx-bt" data-a="cancelar">Cancelar</button>'
@@ -275,6 +311,8 @@
         if (extra && extra.depoisDeGravar) await extra.depoisDeGravar(salvo, jan);
         fecharJanela();
         aviso('✓ Gravado no banco de dados.');
+        gravou((id ? 'Alterou ' : 'Incluiu ') + def.nome.toLowerCase() + ' — ' + rotuloReg(salvo),
+          id && ajuste && ajuste.pago ? () => desfazerBaixa(tabela, id) : null);
         recarregar();
       } catch (e) {
         msg.textContent = '⚠ ' + erroAmigavel(e) + ' Nada foi perdido: corrija e tente de novo.';
@@ -291,8 +329,10 @@
       const { data, error } = await sb.from(tabela).delete().eq('id', id).select('id');
       if (error) { msg.textContent = '⚠ ' + erroAmigavel(error); return; }
       if (!data || !data.length) { msg.textContent = '⚠ Só o administrador pode excluir este tipo de registro.'; return; }
-      fecharJanela(); aviso('✓ Excluído.'); recarregar();
+      fecharJanela(); aviso('✓ Excluído.'); gravou('Excluiu ' + def.nome.toLowerCase() + ' — ' + rotuloReg(reg)); recarregar();
     });
+    const hi = jan.querySelector('[data-a=historico]');
+    if (hi) hi.addEventListener('click', () => verAlteracoes(tabela, id, def.nome + ' — ' + rotuloReg(reg)));
     return jan;
   }
 
@@ -353,6 +393,86 @@
   }
 
   function recarregar() { if (typeof window.ERP_RECARREGAR === 'function') window.ERP_RECARREGAR(); }
+  const ehAdmin = () => window.ERP_PAPEL === 'admin';
+
+  // nome legível de um registro (para o rodapé e o histórico)
+  function rotuloReg(r) {
+    if (!r) return '';
+    const partes = [r.nome || r.titulo || r.descricao || (r.numero && !r.empresa ? 'Nº ' + r.numero : '') || r.empresa || r.processo || '',
+      r.grupo_id ? nomeGrupo(r.grupo_id) : '', r.valor != null ? brValor(r.valor) : ''];
+    return partes.filter(Boolean).join(' · ');
+  }
+
+  // ─────────── rodapé "✓ Última gravação" (com Desfazer na baixa) ───────────
+  function gravou(texto, desfazer) {
+    let el = document.getElementById('gx-rodape');
+    if (!el) { el = document.createElement('div'); el.id = 'gx-rodape'; el.setAttribute('role', 'status'); document.body.appendChild(el); }
+    const hora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    el.innerHTML = '<span class="gx-rod-ok">✓</span> Última gravação: <b>' + hora + '</b> — ' + esc(texto)
+      + (desfazer ? ' <button type="button" class="gx-rod-bt">Desfazer</button>' : '') + ' <button type="button" class="gx-rod-x" aria-label="Fechar">✕</button>';
+    el.classList.add('on');
+    const b = el.querySelector('.gx-rod-bt');
+    if (b) b.onclick = async () => { b.disabled = true; await desfazer(); };
+    el.querySelector('.gx-rod-x').onclick = () => el.classList.remove('on');
+  }
+  async function desfazerBaixa(tabela, id) {
+    const d = tabela === 'parcelas' ? { pago: false } : { pago: false, data_pagamento: null };
+    const { error } = await sb.from(tabela).update(d).eq('id', id);
+    if (error) return aviso('⚠ ' + erroAmigavel(error));
+    gravou('Baixa desfeita'); recarregar();
+  }
+  // baixa direto na linha, sem abrir formulário
+  async function baixaRapida(tabela, id) {
+    const d = tabela === 'parcelas' ? { pago: true } : { pago: true, data_pagamento: hojeISO() };
+    if (tabela === 'lancamentos') d.perda = false;
+    const { data, error } = await sb.from(tabela).update(d).eq('id', id).select().single();
+    if (error) return aviso('⚠ ' + erroAmigavel(error));
+    await carregarGrupos();
+    aviso('✓ Baixa gravada.');
+    gravou('Baixa — ' + ({ lancamentos: 'honorário', acordos: 'acordo', parcelas: 'parcela ' + (data.numero || '') }[tabela]) + (tabela !== 'parcelas' ? ' — ' + rotuloReg(data) : ''),
+      () => desfazerBaixa(tabela, id));
+    recarregar();
+  }
+
+  // ─────────────── histórico de um registro (só admin) ───────────────
+  const CAMPOS_FORA = ['atualizado_em', 'criado_em', 'criado_por', 'id', 'chave_importacao'];
+  function fmtValorHist(v, k) {
+    if (v == null || v === '') return '(vazio)';
+    if (k === 'grupo_id') return nomeGrupo(v) || 'grupo';
+    if (k === 'cliente_id') return nomeCliente(v) || 'cliente';
+    if (v === true) return 'sim'; if (v === false) return 'não';
+    if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) return brData(v);
+    if (typeof v === 'number') return v.toLocaleString('pt-BR');
+    return String(v).length > 70 ? String(v).slice(0, 67) + '…' : String(v);
+  }
+  async function verAlteracoes(tabela, id, titulo) {
+    const [{ data, error }, perfis] = await Promise.all([
+      sb.from('historico').select('*').eq('tabela', tabela).eq('registro_id', id).order('quando', { ascending: false }).limit(100),
+      sb.from('perfis').select('id,nome,email')]);
+    if (error) return aviso('⚠ ' + erroAmigavel(error));
+    const quem = {}; (perfis.data || []).forEach((p) => { quem[p.id] = p.nome || p.email; });
+    const ACAO = { INSERT: 'Incluiu', UPDATE: 'Alterou', DELETE: 'Excluiu' };
+    const linhas = (data || []).map((h) => {
+      let mud = '';
+      if (h.acao === 'UPDATE' && h.antes && h.depois) {
+        mud = Object.keys(h.depois).filter((k) => !CAMPOS_FORA.includes(k) && JSON.stringify(h.antes[k]) !== JSON.stringify(h.depois[k]))
+          .map((k) => '<div><small>' + esc(k.replace(/_id$/, '').replace(/_/g, ' ')) + ':</small> ' + esc(fmtValorHist(h.antes[k], k)) + ' → <b>' + esc(fmtValorHist(h.depois[k], k)) + '</b></div>').join('');
+      }
+      return '<tr><td class="gx-mono">' + new Date(h.quando).toLocaleString('pt-BR') + '</td><td>' + esc(quem[h.usuario] || (h.usuario ? '?' : 'importação/sistema'))
+        + '</td><td>' + (ACAO[h.acao] || h.acao) + '</td><td>' + mud + '</td></tr>';
+    }).join('');
+    const antes = document.querySelector('.gx-fundo');
+    const cx = document.createElement('div');
+    cx.className = 'gx-fundo gx-sobre';
+    cx.innerHTML = '<div class="gx-janela" style="max-width:860px"><div class="gx-topo"><h3>Alterações — ' + esc(titulo) + '</h3><button type="button" class="gx-x">✕</button></div><div class="gx-corpo">'
+      + (linhas ? '<div class="gx-rolagem"><table class="gx-tab"><thead><tr><th>Quando</th><th>Quem</th><th>O quê</th><th>O que mudou</th></tr></thead><tbody>' + linhas + '</tbody></table></div>'
+        : '<p class="gx-nada">Nenhuma alteração registrada.</p>') + '</div></div>';
+    document.body.appendChild(cx);
+    const fechar = () => cx.remove();
+    cx.querySelector('.gx-x').onclick = fechar;
+    cx.addEventListener('mousedown', (e) => { if (e.target === cx) fechar(); });
+    void antes;
+  }
 
   // ─────────────────────────── tarefas ────────────────────────────
   async function abrirTarefas(filtro) {
@@ -403,67 +523,53 @@
   }
   window.ERP_EDITAR = editarPorMarca;
 
-  // botão flutuante "✎ Editar" que acompanha a linha sob o mouse
-  const botao = document.createElement('button');
-  botao.type = 'button'; botao.id = 'gx-editar'; botao.textContent = '✎ Editar'; botao.hidden = true;
-  document.body.appendChild(botao);
-  let linhaAtual = null;
-  function mostrarBotao(tr) {
+  // ─────────── ações fixas no fim de cada linha: ✎ editar e ✓ baixa ───────────
+  // As linhas das tabelas do ERP chegam marcadas com data-gx="tabela:id:pai:(p|a)".
+  function marcarLinhas() {
     if (ehCliente()) return;
-    linhaAtual = tr;
-    const r = tr.getBoundingClientRect();
-    botao.hidden = false;
-    botao.style.top = Math.max(4, r.top + r.height / 2 - 14) + 'px';
-    botao.style.left = Math.min(window.innerWidth - 92, Math.max(4, r.right - 88)) + 'px';
+    document.querySelectorAll('tr[data-gx]:not([data-gx=""]):not([data-gx-ok])').forEach((tr) => {
+      tr.setAttribute('data-gx-ok', '1');
+      const ultima = tr.lastElementChild;
+      if (!ultima) return;
+      const [t, , , sit] = tr.dataset.gx.split(':');
+      const span = document.createElement('span');
+      span.className = 'gx-la';
+      span.innerHTML = (sit === 'a' ? '<button type="button" class="gx-la-bx" data-la="baixa" title="Dar baixa (pago hoje)">✓ Baixa</button>' : '')
+        + '<button type="button" class="gx-la-ed" data-la="editar" title="Editar" aria-label="Editar">✎</button>';
+      void t;
+      ultima.appendChild(span);
+    });
   }
-  document.addEventListener('mouseover', (e) => {
-    if (e.target === botao) return;
-    const tr = e.target.closest && e.target.closest('tr[data-gx]');
-    if (tr && tr.dataset.gx) mostrarBotao(tr); else if (!e.target.closest('#gx-editar')) botao.hidden = true;
-  });
-  document.addEventListener('pointerdown', (e) => {
-    if (e.pointerType !== 'touch' || e.target === botao) return;
-    const tr = e.target.closest && e.target.closest('tr[data-gx]');
-    if (tr && tr.dataset.gx) mostrarBotao(tr);
-  });
-  // rolou a página: o botão acompanha a linha (some se ela saiu da tela)
-  window.addEventListener('scroll', () => {
-    if (botao.hidden || !linhaAtual) return;
-    const r = linhaAtual.getBoundingClientRect();
-    if (!linhaAtual.isConnected || r.bottom < 0 || r.top > window.innerHeight) botao.hidden = true; else mostrarBotao(linhaAtual);
+  let _agendado = false;
+  new MutationObserver(() => {
+    if (_agendado) return; _agendado = true;
+    requestAnimationFrame(() => { _agendado = false; marcarLinhas(); });
+  }).observe(document.documentElement, { childList: true, subtree: true });
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest && e.target.closest('[data-la]');
+    if (!b) return;
+    e.stopPropagation(); e.preventDefault();
+    const [t, id] = b.closest('tr').dataset.gx.split(':');
+    if (b.dataset.la === 'editar') editarPorMarca(b.closest('tr').dataset.gx);
+    else { b.disabled = true; b.textContent = '…'; baixaRapida(t, id); }
   }, true);
-  botao.addEventListener('click', () => { botao.hidden = true; if (linhaAtual) editarPorMarca(linhaAtual.dataset.gx); });
   document.addEventListener('dblclick', (e) => {
     const tr = e.target.closest && e.target.closest('tr[data-gx]');
     if (tr && tr.dataset.gx && !ehCliente()) { window.getSelection && window.getSelection().removeAllRanges(); editarPorMarca(tr.dataset.gx); }
   });
 
-  // ─────────────────────── menu lateral "Lançar" ───────────────────────
+  // Itens do botão "+ Lançar" (montado na barra superior por erp-telas.js)
   function painelAtual() { const a = document.querySelector('.panel.active'); return a ? a.id.replace('panel-', '') : ''; }
-  const ITENS = [
-    ['＋', 'Honorário / despesa', () => abrirFormulario('lancamentos', null, { empresa: painelAtual() === 'financeiroContab' ? 'contabilidade' : 'escritorio', tipo: 'receita', vencimento: hojeISO() })],
-    ['＋', 'Cliente / empresa', () => abrirFormulario('clientes', null, { tipo: 'Consultoria' })],
-    ['＋', 'Processo', () => abrirFormulario('processos', null, { carteira: 'Ativo', status: 'Em andamento' })],
-    ['＋', 'Acordo (parcela)', () => abrirFormulario('acordos', null, {})],
-    ['＋', 'Parcelamento', () => abrirParcelamento(null)],
-    ['☑', 'Tarefas', () => abrirTarefas()],
-    ['⚙', 'Gestão', () => { location.href = 'gestao.html'; }]
+  const LANCAR = [
+    ['Honorário (a receber)', () => abrirFormulario('lancamentos', null, { empresa: painelAtual() === 'financeiroContab' ? 'contabilidade' : 'escritorio', tipo: 'receita', vencimento: hojeISO() })],
+    ['Despesa', () => abrirFormulario('lancamentos', null, { empresa: painelAtual() === 'financeiroContab' ? 'contabilidade' : 'escritorio', tipo: 'despesa', vencimento: hojeISO() })],
+    ['Cliente / empresa', () => abrirFormulario('clientes', null, { tipo: 'Consultoria' })],
+    ['Processo', () => abrirFormulario('processos', null, { carteira: 'Ativo', status: 'Em andamento' })],
+    ['Acordo (parcela)', () => abrirFormulario('acordos', null, {})],
+    ['Parcelamento', () => abrirParcelamento(null)],
+    ['Contrato', () => abrirFormulario('contratos', null, { data_contrato: hojeISO(), num_parcelas: 1, status: 'Ativo' })],
+    ['Tarefa', () => abrirFormulario('tarefas', null, { status: 'pendente', prioridade: 'media', inicio: hojeISO() })]
   ];
-  function montarMenu() {
-    const sbEl = document.getElementById('sb');
-    if (!sbEl || document.getElementById('gx-menu')) return;
-    const sec = document.createElement('div');
-    sec.id = 'gx-menu'; sec.className = 'gx-so-equipe';
-    sec.innerHTML = '<div class="gx-menu-tit">Lançar</div>' + ITENS.map((it, i) =>
-      '<button type="button" class="sb-btn" data-gxi="' + i + '" data-label="' + esc(it[1]) + '" title="' + esc(it[1] === 'Gestão' ? 'Importar planilhas, backup, histórico e usuários' : it[1]) + '"><span class="sb-ic">' + it[0] + '</span><span class="sb-lbl">' + esc(it[1]) + '</span></button>').join('');
-    sbEl.appendChild(sec);
-    sec.addEventListener('click', (e) => {
-      const b = e.target.closest('[data-gxi]'); if (!b) return;
-      if (typeof window.closeSidebar === 'function') try { window.closeSidebar(); } catch (x) { /* menu já fechado */ }
-      ITENS[+b.dataset.gxi][2]();
-    });
-  }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', montarMenu); else montarMenu();
 
-  window.ERP_EDITOR = { abrirFormulario, abrirParcelamento, abrirTarefas };
+  window.ERP_EDITOR = { abrirFormulario, abrirParcelamento, abrirTarefas, editarPorMarca, gravou, baixaRapida, verAlteracoes, rotuloReg, LANCAR, erroAmigavel, esc, hojeISO, brData, brValor, aviso, recarregar };
 })();

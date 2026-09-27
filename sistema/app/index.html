@@ -47,7 +47,9 @@
 <script src="config.js"></script>
 <script src="erp-dados.js"></script>
 <link rel="stylesheet" href="editor.css">
+<link rel="stylesheet" href="erp-telas.css">
 <script src="editor.js" defer></script>
+<script src="erp-telas.js" defer></script>
 <script>
 
 
@@ -2598,7 +2600,7 @@ th[onclick]:hover{background:rgba(255,255,255,.08)}
           <textarea id="rec-preview-txt" style="display:none;width:100%;min-height:420px;font-size:13px;line-height:1.9;font-family:inherit;border:1px solid var(--border);border-radius:var(--radius-xs);background:#F8FAFC;padding:14px;resize:vertical;outline:none;color:var(--navy);box-sizing:border-box"></textarea>
           <div id="rec-preview-acts" style="display:none;gap:8px;margin-top:12px;flex-wrap:wrap">
             <button class="ep-act ep-a-copy" onclick="reciboCopiar()">📋 Copiar texto</button>
-            <button class="ep-act ep-a-mail" onclick="reciboEmail()">✉ Salvar rascunho (Gmail)</button>
+            <button class="ep-act ep-a-mail" onclick="reciboEmail()">✉ Abrir e-mail</button>
             <button class="ep-act" onclick="reciboPDF()" style="background:#1B3A6B;color:#fff;border-color:#1B3A6B">📄 Gerar PDF</button>
           </div>
         </div>
@@ -9559,12 +9561,12 @@ async function epEnviarEmail(cardId){
   if(!c)return;
   var destino=c.dataset.epara||'',assunto=c.dataset.titulo,corpo=_epTextoAtual(cardId);
   var btn=document.querySelector('#'+cardId+' .ep-a-mail');
-  if(btn){btn.disabled=true;btn.dataset.lbl=btn.innerHTML;btn.innerHTML='\u23f3 Salvando rascunho\u2026';}
+  if(btn){btn.disabled=true;btn.dataset.lbl=btn.innerHTML;btn.innerHTML='\u23f3 Abrindo e-mail\u2026';}
   var json=null;
   try{ json=await _apiPost('criarRascunhoEmail',{to:destino,assunto:assunto,corpo:corpo}); }catch(e){}
   if(btn){btn.disabled=false;btn.innerHTML=btn.dataset.lbl||'\u2709 Enviar e-mail';}
   if(json&&json.ok){
-    toast('\u2713 Rascunho criado no Gmail'+(destino?' para '+destino:' (sem destinat\u00e1rio cadastrado)')+'.');
+    toast('\u2713 E-mail aberto no seu programa de e-mail'+(destino?' para '+destino:' (sem destinat\u00e1rio cadastrado)')+'.');
     return;
   }
   toast('\u2717 N\u00e3o foi poss\u00edvel salvar o rascunho agora. Tente novamente em alguns segundos.');
@@ -9933,12 +9935,12 @@ async function reciboEmail() {
   var dest = (bd&&bd.email)||'';
   var assunto = 'Recibo — '+nome;
   var btn = document.querySelector('#rec-preview-acts .ep-a-mail');
-  if (btn){btn.disabled=true;btn.dataset.lbl=btn.innerHTML;btn.innerHTML='⏳ Salvando rascunho…';}
+  if (btn){btn.disabled=true;btn.dataset.lbl=btn.innerHTML;btn.innerHTML='⏳ Abrindo e-mail…';}
   var json=null;
   try{json=await _apiPost('criarRascunhoEmail',{to:dest,assunto:assunto,corpo:txt});}catch(e){}
-  if (btn){btn.disabled=false;btn.innerHTML=btn.dataset.lbl||'✉ Salvar rascunho (Gmail)';}
+  if (btn){btn.disabled=false;btn.innerHTML=btn.dataset.lbl||'✉ Abrir e-mail';}
   if (json&&json.ok){
-    toast('✓ Rascunho criado no Gmail'+(dest?' para '+dest:'')+'.');
+    toast('✓ E-mail aberto no seu programa de e-mail'+(dest?' para '+dest:'')+'.');
   } else {
     toast('✗ Não foi possível salvar o rascunho. Tente novamente.');
   }
