@@ -346,16 +346,41 @@ async function fazerBackup(formato) {
 }
 
 // ─────────────────────────── HISTÓRICO ─────────────────────────────
+// Toda gravação fica aqui: quem, quando, em qual tela, em qual registro e o que mudou
+// (campo a campo). Inclusões e exclusões mostram os dados principais do registro.
 const NOME_TABELA = { clientes: 'Cliente', contratos: 'Contrato', lancamentos: 'Lançamento', processos: 'Processo', parcelamentos: 'Parcelamento',
   parcelas: 'Parcela', acordos: 'Acordo', tarefas: 'Tarefa', perfis: 'Usuário' };
 const NOME_ACAO = { INSERT: ['Incluiu', 'pago'], UPDATE: ['Alterou', 'aberto'], DELETE: ['Excluiu', 'vencido'] };
-const CAMPOS_IGNORADOS = ['atualizado_em', 'criado_em', 'criado_por', 'id'];
+const CAMPOS_IGNORADOS = ['atualizado_em', 'criado_em', 'criado_por', 'id', 'chave_importacao'];
+const ROTULO_CAMPO = {
+  grupo_id: 'Grupo', cliente_id: 'Cliente', contrato_id: 'Contrato', parcelamento_id: 'Parcelamento', descricao: 'Descrição', categoria: 'Categoria',
+  valor: 'Valor', vencimento: 'Vencimento', pago: 'Pago', data_pagamento: 'Data do pagamento', forma_pagamento: 'Forma de pagamento',
+  responsavel: 'Responsável', referencia: 'Referência', cobranca: 'Cobrança', perda: 'Prejuízo', redutor: 'Redutor de receita', empresa: 'Empresa',
+  favorecido: 'Fornecedor', conta: 'Banco/conta', chave_pix: 'Chave PIX', obs: 'Observação', nome: 'Nome', cpf_cnpj: 'CPF/CNPJ', papel: 'Acesso',
+  numero: 'Número', status: 'Status', titulo: 'Tarefa', prazo: 'Prazo', prioridade: 'Prioridade', processo: 'Processo', parcela: 'Parcela',
+  total_parcelas: 'Total de parcelas', valor_total: 'Valor total', num_parcelas: 'Nº de parcelas', primeiro_vencimento: '1º vencimento',
+  socio_admin: 'Sócio-administrador', pgfn: 'PGFN', rfb: 'RFB', age_mg: 'AGE/MG', sefaz_mg: 'SEFAZ/MG', capag: 'CAPAG', tipo: 'Tipo'
+};
+// campos que resumem um registro quando ele é incluído ou excluído
+const RESUMO = {
+  lancamentos: ['empresa', 'tipo', 'redutor', 'grupo_id', 'descricao', 'valor', 'vencimento', 'pago', 'responsavel'],
+  clientes: ['grupo_id', 'nome', 'cpf_cnpj', 'tipo', 'responsavel'], contratos: ['cliente_id', 'descricao', 'valor_total', 'num_parcelas', 'primeiro_vencimento'],
+  processos: ['grupo_id', 'numero', 'natureza', 'status'], parcelamentos: ['grupo_id', 'empresa', 'natureza', 'numero'], parcelas: ['numero', 'vencimento', 'pago'],
+  acordos: ['grupo_id', 'processo', 'parcela', 'valor', 'vencimento', 'pago'], tarefas: ['titulo', 'grupo_id', 'responsavel', 'prazo', 'status'], perfis: ['nome', 'email', 'papel']
+};
+const rotCampo = (k) => ROTULO_CAMPO[k] || k.replace(/_id$/, '').replace(/_/g, ' ');
 async function admHistorico(corpo) {
-  const [perfis, reg] = await Promise.all([
-    q(sb.from('perfis').select('id, nome, email')),
-    (() => { let c = sb.from('historico').select('*').order('quando', { ascending: false }).limit(300); if (E.adm.tabela) c = c.eq('tabela', E.adm.tabela); return q(c); })()
-  ]);
+  const F = E.adm.hist = E.adm.hist || { tabela: E.adm.tabela || '', acao: '', quem: '', de: '', ate: '', busca: '' };
+  const perfis = await q(sb.from('perfis').select('id, nome, email'));
+  let c = sb.from('historico').select('*').order('quando', { ascending: false }).limit(500);
+  if (F.tabela) c = c.eq('tabela', F.tabela);
+  if (F.acao) c = c.eq('acao', F.acao);
+  if (F.quem === 'sistema') c = c.is('usuario', null); else if (F.quem) c = c.eq('usuario', F.quem);
+  if (F.de) c = c.gte('quando', F.de + 'T00:00:00');
+  if (F.ate) c = c.lte('quando', F.ate + 'T23:59:59');
+  const reg = await q(c);
   const quem = {}; perfis.forEach((p) => { quem[p.id] = p.nome || p.email; });
+  const autor = (h) => quem[h.usuario] || (h.usuario ? 'usuário removido' : 'sistema / importação');
   const rotulo = (d, t) => {
     if (!d) return '';
     const g = d.grupo_id ? ' · ' + nomeGrupo(d.grupo_id) : '';
@@ -366,21 +391,48 @@ async function admHistorico(corpo) {
     if (t === 'tarefas') return d.titulo + g;
     return d.nome || ((d.descricao || '') + g) || d.email || '';
   };
-  const mudancas = (h) => {
-    if (h.acao !== 'UPDATE' || !h.antes || !h.depois) return '';
-    return Object.keys(h.depois).filter((k) => !CAMPOS_IGNORADOS.includes(k) && JSON.stringify(h.antes[k]) !== JSON.stringify(h.depois[k]))
-      .map((k) => '<div><span class="sub">' + esc(k.replace(/_id$/, '').replace(/_/g, ' ')) + ':</span> ' + esc(fmtHist(h.antes[k], k)) + ' → <b>' + esc(fmtHist(h.depois[k], k)) + '</b></div>').join('');
+  const detalhe = (h) => {
+    if (h.acao === 'UPDATE' && h.antes && h.depois) {
+      const campos = Object.keys(h.depois).filter((k) => !CAMPOS_IGNORADOS.includes(k) && JSON.stringify(h.antes[k]) !== JSON.stringify(h.depois[k]));
+      return campos.map((k) => '<div><span class="sub">' + esc(rotCampo(k)) + ':</span> ' + esc(fmtHist(h.antes[k], k)) + ' → <b>' + esc(fmtHist(h.depois[k], k)) + '</b></div>').join('')
+        || '<span class="sub">sem mudança de conteúdo</span>';
+    }
+    const d = h.depois || h.antes || {};
+    const campos = (RESUMO[h.tabela] || Object.keys(d)).filter((k) => d[k] != null && d[k] !== '' && !CAMPOS_IGNORADOS.includes(k));
+    return (h.acao === 'DELETE' ? '<div class="sub" style="color:var(--red);font-weight:700">registro apagado — dados que ele tinha:</div>' : '') +
+      campos.map((k) => '<div><span class="sub">' + esc(rotCampo(k)) + ':</span> ' + esc(fmtHist(d[k], k)) + '</div>').join('');
   };
+  const b = normalizar(F.busca);
+  const lista = !b ? reg : reg.filter((h) => normalizar(autor(h) + ' ' + rotulo(h.depois || h.antes, h.tabela) + ' ' + JSON.stringify(h.depois || h.antes || {})).includes(b));
+  const conta = (a) => lista.filter((h) => h.acao === a).length;
   corpo.innerHTML =
-    '<div class="filtros"><select class="busca sel" id="hist-tabela"><option value="">Tudo</option>' +
-    Object.entries(NOME_TABELA).map(([k, v]) => '<option value="' + k + '"' + (E.adm.tabela === k ? ' selected' : '') + '>' + v + 's</option>').join('') +
-    '</select><span class="sub">Últimas 300 alterações gravadas no servidor, da mais recente para a mais antiga.</span></div>' +
-    '<div class="card">' + (reg.length ? '<div class="tabela-wrap"><table class="ordenavel"><thead><tr><th data-tipo="data">Quando</th><th>Quem</th><th>O quê</th><th>Registro</th><th>O que mudou</th></tr></thead><tbody>' +
-      reg.map((h) => '<tr><td class="mono" data-ord="' + h.quando + '">' + dataHoraBR(h.quando) + '</td><td>' + esc(quem[h.usuario] || (h.usuario ? '?' : 'sistema')) + '</td>' +
+    '<div class="filtros">' +
+    '<select class="busca sel" id="hist-tabela"><option value="">Todas as telas</option>' + Object.entries(NOME_TABELA).map(([k, v]) => '<option value="' + k + '"' + (F.tabela === k ? ' selected' : '') + '>' + v + 's</option>').join('') + '</select>' +
+    '<select class="busca sel" id="hist-acao"><option value="">Todas as ações</option>' + Object.entries(NOME_ACAO).map(([k, v]) => '<option value="' + k + '"' + (F.acao === k ? ' selected' : '') + '>' + v[0] + '</option>').join('') + '</select>' +
+    '<select class="busca sel" id="hist-quem"><option value="">Todas as pessoas</option>' + perfis.map((p) => '<option value="' + p.id + '"' + (F.quem === p.id ? ' selected' : '') + '>' + esc(p.nome || p.email) + '</option>').join('') +
+    '<option value="sistema"' + (F.quem === 'sistema' ? ' selected' : '') + '>Sistema / importação</option></select>' +
+    '<input class="busca" type="date" id="hist-de" value="' + esc(F.de) + '" title="De" style="min-width:0;max-width:160px">' +
+    '<input class="busca" type="date" id="hist-ate" value="' + esc(F.ate) + '" title="Até" style="min-width:0;max-width:160px">' +
+    '<input class="busca" id="hist-busca" placeholder="Buscar registro, grupo, pessoa, valor…" value="' + esc(F.busca) + '">' +
+    '<button class="btn btn-o btn-mini" id="hist-csv">⬇ CSV</button></div>' +
+    '<div class="kpis">' + kpi('Alterações no recorte', String(lista.length), '', reg.length >= 500 ? 'mostrando as 500 mais recentes' : 'mais recente primeiro') +
+    kpi('Inclusões', String(conta('INSERT')), 'verde', '') + kpi('Alterações', String(conta('UPDATE')), '', '') + kpi('Exclusões', String(conta('DELETE')), 'vermelho', '') + '</div>' +
+    '<div class="card">' + (lista.length ? '<div class="tabela-wrap"><table class="ordenavel"><thead><tr><th data-tipo="data">Quando</th><th>Quem</th><th>O quê</th><th>Registro</th><th class="sem-ordem">Detalhes</th></tr></thead><tbody>' +
+      lista.map((h) => '<tr><td class="mono" data-ord="' + h.quando + '">' + dataHoraBR(h.quando) + '</td><td>' + esc(autor(h)) + '</td>' +
         '<td><span class="pill ' + NOME_ACAO[h.acao][1] + '">' + NOME_ACAO[h.acao][0] + '</span> <span class="sub">' + esc(NOME_TABELA[h.tabela] || h.tabela) + '</span></td>' +
-        '<td>' + esc(rotulo(h.depois || h.antes, h.tabela)) + '</td><td class="hist-mud">' + mudancas(h) + '</td></tr>').join('') +
-      '</tbody></table></div>' : '<div class="vazio">Nenhuma alteração registrada ainda.</div>') + '</div>';
-  $('hist-tabela').onchange = (ev) => { E.adm.tabela = ev.target.value; pintarAdmin(); };
+        '<td><b>' + esc(rotulo(h.depois || h.antes, h.tabela)) + '</b></td><td class="hist-mud">' + detalhe(h) + '</td></tr>').join('') +
+      '</tbody></table></div>' : '<div class="vazio">Nenhuma alteração com esses filtros.</div>') + '</div>';
+  const muda = (k) => (ev) => { F[k] = ev.target.value; if (k === 'tabela') E.adm.tabela = F.tabela; pintarAdmin(); };
+  $('hist-tabela').onchange = muda('tabela'); $('hist-acao').onchange = muda('acao'); $('hist-quem').onchange = muda('quem');
+  $('hist-de').onchange = muda('de'); $('hist-ate').onchange = muda('ate');
+  let t; $('hist-busca').oninput = (ev) => { clearTimeout(t); t = setTimeout(() => { F.busca = ev.target.value; pintarAdmin().then(() => { const i = $('hist-busca'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }); }, 400); };
+  $('hist-csv').onclick = () => {
+    const linhas = [['Quando', 'Quem', 'Ação', 'Tela', 'Registro', 'Detalhes']].concat(lista.map((h) => {
+      const tmp = document.createElement('div'); tmp.innerHTML = detalhe(h).replace(/<\/div>/g, ' | ');
+      return [dataHoraBR(h.quando), autor(h), NOME_ACAO[h.acao][0], NOME_TABELA[h.tabela] || h.tabela, rotulo(h.depois || h.antes, h.tabela), tmp.textContent.trim()];
+    }));
+    baixarArquivo('Historico ERP ' + hojeISO() + '.csv', '﻿' + linhas.map((l) => l.map((v) => '"' + String(v).replace(/"/g, '""') + '"').join(';')).join('\n'), 'text/csv');
+  };
 }
 function fmtHist(v, campo) {
   if (v == null || v === '') return '(vazio)';
@@ -388,6 +440,8 @@ function fmtHist(v, campo) {
   if (campo === 'grupo_id') return nomeGrupo(v) || 'grupo excluído';
   if (campo === 'cliente_id') { const c = E.clientes.find((x) => x.id === v); return c ? c.nome : 'cliente excluído'; }
   if (campo === 'contrato_id') return 'contrato';
+  if (campo === 'empresa') return v === 'contabilidade' ? 'Contabilidade' : v === 'escritorio' ? 'Jurídico' : v;
+  if (campo === 'valor' || campo === 'valor_total') return brl(v);
   if (v === true) return 'sim'; if (v === false) return 'não';
   if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) return dataBR(v);
   if (typeof v === 'number') return v.toLocaleString('pt-BR');
