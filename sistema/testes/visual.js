@@ -49,6 +49,11 @@ const PAINEIS = ['hoje', 'resumo', 'processos', 'acordos', 'parcelamentos', 'fin
         m.campo.forEach((x) => falhas.campo.push(w + ' ' + id + ': ' + x));
         if (m.rolagem > 1) falhas.rolagem.push(w + ' ' + id + ': ' + m.rolagem + 'px');
       }
+      { const sobra = await p.evaluate(() => { const its = [...document.querySelectorAll('#tn > *')].filter((e) => e.offsetParent); if (!its.length) return 99;
+          const fim = Math.max(...its.map((e) => e.getBoundingClientRect().right));
+          const prox = ['#gs-contadores', '.tn-lancar', '.hd-usuario'].map((q) => document.querySelector(q)).filter((e) => e && e.offsetParent).map((e) => e.getBoundingClientRect().left);
+          return Math.min(...prox) - fim; });
+        if (sobra < 4) falhas.rolagem.push(w + ' barra superior: menu encosta nos contadores (' + Math.round(sobra) + 'px)'); }
       if (w === 1440) {
         ok('nenhum item de menu leva a tela inexistente', (await p.evaluate(() => [...document.querySelectorAll('[data-ir]')].map((e) => e.dataset.ir).filter((x) => !document.getElementById('panel-' + x)))).length === 0);
         await p.evaluate(() => nav(null, 'acordos')); await p.waitForTimeout(1200);

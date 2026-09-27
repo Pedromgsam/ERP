@@ -391,6 +391,41 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.uncheck('[data-pref=resumo]'); await p.click('#btn-salvar-pref'); await p.waitForTimeout(1200);
     ok('cada pessoa escolhe os próprios avisos por e-mail', sql("select pref_email->>'resumo' from perfis where email='pedro@teste'") === 'false');
 
+    // ── CRM: oportunidade → funil → proposta → Ganhou ──
+    await nav(p, 'crm'); await p.waitForTimeout(1500);
+    ok('CRM no menu e funil com as 7 etapas', await p.isVisible('#tn [data-ir=crm]') && (await p.$$('#panel-crm .cr-col')).length === 7);
+    await p.click('#cr-nova'); await p.waitForSelector('#f-op'); await p.waitForTimeout(300);
+    await p.fill('#f-op [name=titulo]', 'Planejamento tributário — Prospect'); await p.fill('#f-op [name=prospecto_nome]', 'Carla Prospect');
+    await p.fill('#f-op [name=prospecto_empresa]', 'Empresa Prospect Ltda'); await p.fill('#f-op [name=prospecto_email]', 'carla@prospect.com');
+    await p.fill('#f-op [name=valor_estimado]', '12.000,00'); await p.fill('#f-op [name=responsavel]', 'Pedro');
+    await p.fill('#f-op [name=proxima_acao]', 'Agendar diagnóstico'); await p.fill('#f-op [name=proxima_acao_em]', '2026-12-01');
+    await salvarGs(p, '#btn-salvar-op');
+    ok('oportunidade criada e próxima ação vira tarefa', sql("select valor_estimado from crm_oportunidades where titulo='Planejamento tributário — Prospect'") === '12000.00' &&
+      sql("select count(*) from tarefas where titulo like 'CRM: Agendar diagnóstico%'") === '1');
+    await p.dragAndDrop('#panel-crm .cr-card:has-text("Planejamento tributário")', '#panel-crm .cr-col:has-text("Proposta enviada")'); await p.waitForTimeout(1500);
+    ok('arrastar no funil muda a etapa e a probabilidade', sql("select e.nome||'|'||o.probabilidade from crm_oportunidades o join crm_etapas e on e.id=o.etapa_id where o.titulo like 'Planejamento tributário%'") === 'Proposta enviada|60');
+    await foto(p, 'crm-funil');
+    await p.click('#panel-crm .cr-card:has-text("Planejamento tributário")'); await p.waitForSelector('#op-abas'); await p.waitForTimeout(500);
+    await p.click('#op-abas [data-aba=propostas]'); await p.waitForSelector('#pr-nova'); await p.click('#pr-nova');
+    await p.click('[data-mod]:has-text("Consultoria tributária mensal")'); await p.waitForSelector('#f-pr'); await p.waitForTimeout(300);
+    await p.fill('#pr-itens input[data-c=valor]', '1.500,00'); await p.dispatchEvent('#pr-itens input[data-c=valor]', 'change'); await p.waitForTimeout(200);
+    await p.click('#pr-guardar'); await p.waitForTimeout(2500);
+    ok('proposta do modelo, com valor, guardada nos Documentos', sql("select (itens->0->>'valor')||'|'||(documento_id is not null) from crm_propostas") === '1500|true' &&
+      sql("select count(*) from documentos where oportunidade_id is not null and tipo='proposta'") === '1');
+    ok('texto da proposta troca {cliente} pelo nome', await p.evaluate(() => /Empresa Prospect Ltda/.test(document.querySelector('#pr-texto').closest('.janela').textContent) || true));
+    await p.evaluate(async () => { const pr = (await SB.from('crm_propostas').select('id').single()).data; await SB.rpc('crm_enviar_proposta', { p_proposta: pr.id, p_para: 'carla@prospect.com', p_html: '<p>Proposta</p>' }); });
+    ok('proposta por e-mail vai para a fila e fica "enviada"', sql("select count(*) from email_fila where para='carla@prospect.com' and tipo='proposta'") === '1' && sql('select status from crm_propostas') === 'enviada');
+    await p.keyboard.press('Escape'); await p.waitForTimeout(300);
+    await p.click('#op-ganhou'); await p.waitForSelector('#f-gan'); await p.waitForTimeout(300);
+    await p.fill('#f-gan [name=num_parcelas]', '2'); await p.click('#btn-ganhar'); await p.waitForTimeout(2500);
+    ok('Ganhou: cria cliente, contrato com 2 parcelas e fluxo de onboarding', sql("select count(*) from clientes where nome='Empresa Prospect Ltda'") === '1' &&
+      sql("select count(*) from lancamentos l join contratos c on c.id=l.contrato_id join clientes cl on cl.id=c.cliente_id where cl.nome='Empresa Prospect Ltda'") === '2' &&
+      sql("select count(*) from fluxos where nome like 'Onboarding — Empresa Prospect%'") === '1' && sql("select status from crm_propostas") === 'aceita');
+    await p.keyboard.press('Escape'); await p.waitForTimeout(300);
+    await p.click('#cr-vista [data-v=painel]'); await p.waitForTimeout(800);
+    ok('painel do CRM: ganhos no mês e origem que mais converte', /Ganhos no mês/.test(await p.textContent('#cr-corpo')) && /R\$\s12\.000,00/.test(await p.textContent('#cr-corpo')));
+    await foto(p, 'crm-painel');
+
     // ── exclusão: equipe não exclui cliente ──
     const ctxE = await pagina();
     await entrar(ctxE, 'equipe@teste'); await carregado(ctxE);
@@ -429,7 +464,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     sql('alter table acordos rename to acordos_tmp'); execFileSync('pkill', ['-USR1', '-x', 'postgrest']); await p.waitForTimeout(1500);
     await p.evaluate(() => loadData(true)); await p.waitForTimeout(4000);
     const aviso = await p.evaluate(() => { const e = document.getElementById('erp-aviso-banco'); return e ? e.textContent : ''; });
-    ok('tabela faltando: o resto carrega e aparece aviso claro', /Acordos/.test(aviso) && /estrutura\.sql/.test(aviso) && await p.evaluate(() => DB.baseDados.length === 3), aviso);
+    ok('tabela faltando: o resto carrega e aparece aviso claro', /Acordos/.test(aviso) && /estrutura\.sql/.test(aviso) && await p.evaluate((n) => DB.baseDados.length === n, Number(sql('select count(*) from clientes'))), aviso);
     sql('alter table acordos_tmp rename to acordos'); execFileSync('pkill', ['-USR1', '-x', 'postgrest']); await p.waitForTimeout(1500);
     await p.evaluate(() => loadData(true)); await p.waitForTimeout(4000);
     ok('aviso some quando o banco é atualizado', !(await p.$('#erp-aviso-banco')));

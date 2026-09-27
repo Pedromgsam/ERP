@@ -48,12 +48,12 @@ function graficoRanking(itens, opc) {
   itens.forEach((it, i) => {
     const y = i * alt + 4, w = Math.max(2, it.valor / max * util);
     const nome = it.rotulo.length > 24 ? it.rotulo.slice(0, 23) + '…' : it.rotulo;
-    const dica = it.rotulo + ': ' + brl(it.valor) + (it.extra ? ' · ' + it.extra : '');
+    const dica = it.rotulo + ': ' + (opc.fmt ? opc.fmt(it.valor) : brl(it.valor)) + (it.extra ? ' · ' + it.extra : '');
     s += '<g data-dica="' + esc(dica) + '"' + (it.acao ? ' class="clicavel" data-acao="' + esc(it.acao) + '"' : '') + '>' +
       '<rect x="0" y="' + (y - 2) + '" width="' + larg + '" height="' + alt + '" fill="transparent"/>' +
       '<text x="' + (esq - 10) + '" y="' + (y + 16) + '" text-anchor="end" class="g-rot">' + esc(nome) + '</text>' +
       '<path d="M' + esq + ',' + (y + 4) + ' h' + (w - 4) + ' a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-' + (w - 4) + ' z" fill="' + cor[i] + '"/>' +
-      '<text x="' + (esq + w + 8) + '" y="' + (y + 16) + '" class="g-val">' + esc(brlCurto(it.valor)) + '</text></g>';
+      '<text x="' + (esq + w + 8) + '" y="' + (y + 16) + '" class="g-val">' + esc((opc.fmt || brlCurto)(it.valor)) + '</text></g>';
   });
   return s + '</svg>';
 }

@@ -1473,3 +1473,248 @@ begin
 exception when others then
   raise notice 'Agendador indisponível: use o botão "Enviar agora" em Administração → E-mail.';
 end $$;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- v10 (2026-09-27) — CRM DO ZERO (dentro do sistema, sem serviço pago)
+-- Oportunidade → atividades → proposta (modelo do escritório) → "Ganhou"
+-- cria cliente, contrato, parcelas e o fluxo de onboarding numa vez só.
+-- ═══════════════════════════════════════════════════════════════════
+create table if not exists public.crm_etapas (
+  id uuid primary key default gen_random_uuid(),
+  nome text not null check (btrim(nome) <> ''), ordem int not null default 0,
+  probabilidade int not null default 0 check (probabilidade between 0 and 100),
+  cor text not null default '#2E5EAA', final text not null default '' check (final in ('', 'ganho', 'perdido')),
+  criado_em timestamptz not null default now(), atualizado_em timestamptz not null default now()
+);
+insert into public.crm_etapas (nome, ordem, probabilidade, final)
+select * from (values ('Novo contato', 1, 10, ''), ('Diagnóstico agendado', 2, 25, ''), ('Diagnóstico feito', 3, 40, ''),
+                      ('Proposta enviada', 4, 60, ''), ('Negociação', 5, 80, ''), ('Ganhou', 6, 100, 'ganho'), ('Perdeu', 7, 0, 'perdido')) v(n, o, p, f)
+where not exists (select 1 from public.crm_etapas);
+
+create table if not exists public.crm_oportunidades (
+  id uuid primary key default gen_random_uuid(),
+  titulo text not null check (btrim(titulo) <> ''),
+  cliente_id uuid references public.clientes(id) on delete set null,
+  prospecto_nome text not null default '', prospecto_doc text not null default '', prospecto_email text not null default '',
+  prospecto_telefone text not null default '', prospecto_empresa text not null default '',
+  origem text not null default '', indicado_por text not null default '',
+  etapa_id uuid references public.crm_etapas(id) on delete set null, etapa_desde timestamptz not null default now(),
+  valor_estimado numeric(14,2) not null default 0, honorario_tipo text not null default '',
+  probabilidade int not null default 10 check (probabilidade between 0 and 100),
+  previsao_fechamento date, responsavel text not null default '',
+  proxima_acao text not null default '', proxima_acao_em date,
+  motivo_perda text not null default '', ganho_em timestamptz, perdido_em timestamptz, contrato_id uuid references public.contratos(id) on delete set null,
+  obs text not null default '',
+  criado_por uuid default auth.uid(), criado_em timestamptz not null default now(), atualizado_em timestamptz not null default now()
+);
+create table if not exists public.crm_atividades (
+  id uuid primary key default gen_random_uuid(),
+  oportunidade_id uuid not null references public.crm_oportunidades(id) on delete cascade,
+  tipo text not null default 'anotacao', quando timestamptz not null default now(),
+  resumo text not null check (btrim(resumo) <> ''), feita boolean not null default true,
+  criado_por uuid default auth.uid(), criado_em timestamptz not null default now(), atualizado_em timestamptz not null default now()
+);
+create table if not exists public.crm_modelos_proposta (
+  id uuid primary key default gen_random_uuid(),
+  nome text not null check (btrim(nome) <> ''), texto text not null default '', itens jsonb not null default '[]',
+  criado_em timestamptz not null default now(), atualizado_em timestamptz not null default now()
+);
+create table if not exists public.crm_propostas (
+  id uuid primary key default gen_random_uuid(),
+  oportunidade_id uuid not null references public.crm_oportunidades(id) on delete cascade,
+  versao int not null default 1, titulo text not null default '', texto text not null default '',
+  itens jsonb not null default '[]',       -- [{servico, valor, forma}]
+  validade date, status text not null default 'rascunho' check (status in ('rascunho','enviada','aceita','recusada')),
+  enviada_em timestamptz, documento_id uuid references public.documentos(id) on delete set null,
+  criado_por uuid default auth.uid(), criado_em timestamptz not null default now(), atualizado_em timestamptz not null default now()
+);
+alter table public.documentos add column if not exists oportunidade_id uuid references public.crm_oportunidades(id) on delete set null;
+
+insert into public.crm_modelos_proposta (nome, texto, itens)
+select n, t, i::jsonb from (values
+  ('Consultoria tributária mensal',
+   '<p>Prezado(a) {cliente},</p><p>Conforme conversamos, apresentamos proposta de <b>consultoria tributária mensal</b>, com acompanhamento das obrigações e do passivo fiscal, atendimento às dúvidas da empresa e relatório periódico da situação fiscal.</p><p>Os valores e a forma de pagamento estão na tabela abaixo. Esta proposta vale até {validade}.</p>',
+   '[{"servico":"Consultoria tributária mensal","valor":0,"forma":"mensal, por boleto ou PIX"}]'),
+  ('Defesa em execução fiscal',
+   '<p>Prezado(a) {cliente},</p><p>Apresentamos proposta para a <b>defesa na execução fiscal</b>: análise da CDA e do processo, estratégia com o cliente, elaboração e protocolo da defesa e acompanhamento até a decisão de primeira instância.</p><p>Esta proposta vale até {validade}.</p>',
+   '[{"servico":"Honorários iniciais","valor":0,"forma":"à vista ou em até 3 parcelas"},{"servico":"Êxito sobre o valor reduzido","valor":0,"forma":"percentual no êxito"}]'),
+  ('Parcelamento / transação tributária',
+   '<p>Prezado(a) {cliente},</p><p>Apresentamos proposta para o <b>levantamento dos débitos, simulação das modalidades e adesão ao parcelamento/transação</b> mais vantajoso, com emissão das primeiras guias.</p><p>Esta proposta vale até {validade}.</p>',
+   '[{"servico":"Levantamento, simulação e adesão","valor":0,"forma":"à vista"}]'),
+  ('Holding e planejamento patrimonial',
+   '<p>Prezado(a) {cliente},</p><p>Apresentamos proposta para o <b>estudo, constituição e integralização da holding</b>, com o planejamento tributário e sucessório da estrutura.</p><p>Esta proposta vale até {validade}.</p>',
+   '[{"servico":"Estudo e planejamento","valor":0,"forma":"na assinatura"},{"servico":"Constituição e integralização","valor":0,"forma":"na conclusão"}]')
+) v(n, t, i)
+where not exists (select 1 from public.crm_modelos_proposta);
+
+-- muda de etapa → reinicia o relógio "dias parado"
+create or replace function public.crm_ao_mudar_etapa() returns trigger
+language plpgsql as $$
+begin
+  if tg_op = 'UPDATE' and new.etapa_id is distinct from old.etapa_id then new.etapa_desde := now(); end if;
+  return new;
+end $$;
+drop trigger if exists crm_ao_mudar_etapa on public.crm_oportunidades;
+create trigger crm_ao_mudar_etapa before update on public.crm_oportunidades for each row execute function public.crm_ao_mudar_etapa();
+
+do $$
+declare t text;
+begin
+  foreach t in array array['crm_etapas','crm_oportunidades','crm_atividades','crm_modelos_proposta','crm_propostas'] loop
+    execute format('alter table public.%1$s enable row level security', t);
+    execute format('revoke all on public.%1$s from anon', t);
+    execute format('grant select, insert, update, delete on public.%1$s to authenticated', t);
+    execute format('drop trigger if exists atualizado_%1$s on public.%1$s', t);
+    execute format('create trigger atualizado_%1$s before update on public.%1$s for each row execute function public.marcar_atualizacao()', t);
+    execute format('drop trigger if exists hist_%1$s on public.%1$s', t);
+    execute format('create trigger hist_%1$s after insert or update or delete on public.%1$s for each row execute function public.registrar_historico()', t);
+    execute format('drop policy if exists %1$s_ver on public.%1$s', t);
+    execute format('create policy %1$s_ver on public.%1$s for select to authenticated using (public.pode(''crm''))', t);
+    execute format('drop policy if exists %1$s_incluir on public.%1$s', t);
+    execute format('create policy %1$s_incluir on public.%1$s for insert to authenticated with check (public.pode(''crm'',''editar''))', t);
+    execute format('drop policy if exists %1$s_alterar on public.%1$s', t);
+    execute format('create policy %1$s_alterar on public.%1$s for update to authenticated using (public.pode(''crm'',''editar'')) with check (public.pode(''crm'',''editar''))', t);
+    execute format('drop policy if exists %1$s_excluir on public.%1$s', t);
+    execute format('create policy %1$s_excluir on public.%1$s for delete to authenticated using (%2$s)', t,
+                   case when t in ('crm_atividades') then 'public.pode(''crm'',''editar'')' else 'public.eh_admin()' end);
+  end loop;
+end $$;
+-- documentos da oportunidade: também quem tem a função CRM
+drop policy if exists documentos_ver on public.documentos;
+create policy documentos_ver on public.documentos for select to authenticated using (
+  (public.pode('documentos') or (oportunidade_id is not null and public.pode('crm')))
+  and (lancamento_id is null or public.pode('financeiro_juridico') or public.pode('financeiro_contab')));
+drop policy if exists documentos_incluir on public.documentos;
+create policy documentos_incluir on public.documentos for insert to authenticated with check (public.pode('documentos','editar') or (oportunidade_id is not null and public.pode('crm','editar')));
+drop policy if exists documentos_alterar on public.documentos;
+create policy documentos_alterar on public.documentos for update to authenticated using (public.pode('documentos','editar') or (oportunidade_id is not null and public.pode('crm','editar')))
+  with check (public.pode('documentos','editar') or (oportunidade_id is not null and public.pode('crm','editar')));
+do $$
+begin
+  if exists (select 1 from information_schema.schemata where schema_name = 'storage') then
+    execute 'drop policy if exists documentos_ver on storage.objects';
+    execute 'create policy documentos_ver on storage.objects for select to authenticated using (bucket_id = ''documentos'' and (public.pode(''documentos'') or public.pode(''crm'')))';
+    execute 'drop policy if exists documentos_enviar on storage.objects';
+    execute 'create policy documentos_enviar on storage.objects for insert to authenticated with check (bucket_id = ''documentos'' and (public.pode(''documentos'',''editar'') or public.pode(''crm'',''editar'')))';
+  end if;
+exception when insufficient_privilege then null;
+end $$;
+
+-- fluxo a partir de um modelo (prazos em dias úteis antes do prazo final), usado pelo "Ganhou"
+create or replace function public.criar_fluxo_modelo(p_modelo text, p_fatal date, p_cliente uuid, p_grupo uuid, p_resp text, p_nome text)
+returns uuid language plpgsql security definer set search_path = public as $$
+declare m record; it jsonb; st jsonb; f uuid; pai uuid;
+begin
+  select * into m from public.modelos_fluxo where nome = p_modelo limit 1;
+  if not found then return null; end if;
+  insert into public.fluxos (nome, cliente_id, grupo_id, modelo_id, responsavel, inicio, prazo_fatal)
+  values (coalesce(p_nome, m.nome), p_cliente, p_grupo, m.id, coalesce(p_resp, ''), current_date, p_fatal) returning id into f;
+  for it in select * from jsonb_array_elements(m.itens) loop
+    insert into public.tarefas (fluxo_id, cliente_id, grupo_id, titulo, responsavel, status, prioridade, inicio, prazo, prazo_fatal, checklist)
+    values (f, p_cliente, p_grupo, it->>'titulo', coalesce(nullif(it->>'responsavel', ''), p_resp, ''), 'pendente', 'media', current_date,
+            public.somar_uteis(p_fatal, -coalesce((it->>'dias')::int, 0)),
+            case when coalesce((it->>'dias')::int, 0) = 0 then p_fatal end,
+            coalesce((select jsonb_agg(jsonb_build_object('texto', c, 'feito', false)) from jsonb_array_elements_text(coalesce(it->'checklist', '[]')) c), '[]'))
+    returning id into pai;
+    for st in select * from jsonb_array_elements(coalesce(it->'subtarefas', '[]')) loop
+      insert into public.tarefas (fluxo_id, tarefa_pai_id, cliente_id, grupo_id, titulo, responsavel, status, prioridade, inicio, prazo)
+      values (f, pai, p_cliente, p_grupo, st->>'titulo', coalesce(p_resp, ''), 'pendente', 'media', current_date, public.somar_uteis(p_fatal, -coalesce((st->>'dias')::int, 0)));
+    end loop;
+  end loop;
+  return f;
+end $$;
+revoke all on function public.criar_fluxo_modelo(text, date, uuid, uuid, text, text) from anon, authenticated;
+
+-- "Ganhou": cliente (se novo), contrato + parcelas, fluxo de onboarding, linha do tempo, proposta aceita
+create or replace function public.crm_ganhar(p_op uuid, p jsonb) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare o record; cli uuid; grp uuid; ctr uuid; flx uuid; resp text; etp uuid;
+begin
+  if not public.pode('crm', 'editar') then raise exception 'Sem a função CRM (editar).'; end if;
+  select * into o from public.crm_oportunidades where id = p_op;
+  if not found then raise exception 'Oportunidade não encontrada.'; end if;
+  resp := coalesce(nullif(p->>'responsavel', ''), o.responsavel);
+  cli := coalesce(nullif(p->>'cliente_id', '')::uuid, o.cliente_id);
+  if cli is null then
+    if coalesce(p->>'cliente_nome', '') = '' then raise exception 'Informe o nome do cliente.'; end if;
+    if coalesce(p->>'grupo', '') <> '' then
+      select id into grp from public.grupos where lower(nome) = lower(p->>'grupo') limit 1;
+      if grp is null then insert into public.grupos (nome) values (p->>'grupo') returning id into grp; end if;
+    end if;
+    insert into public.clientes (nome, cpf_cnpj, email, telefone, grupo_id, responsavel, tipo, origem)
+    values (p->>'cliente_nome', coalesce(p->>'cpf_cnpj', ''), coalesce(p->>'email', ''), coalesce(p->>'telefone', ''), grp, coalesce(resp, ''), 'Consultoria', 'CRM')
+    returning id into cli;
+  else
+    select grupo_id into grp from public.clientes where id = cli;
+  end if;
+  if coalesce((p->>'valor_total')::numeric, 0) > 0 or coalesce(p->>'descricao', '') <> '' then
+    perform set_config('erp.sem_regra_onboarding', case when coalesce((p->>'criar_fluxo')::boolean, true) then '1' else '' end, true);
+    insert into public.contratos (cliente_id, descricao, valor_total, num_parcelas, primeiro_vencimento, percentual_exito, responsavel)
+    values (cli, coalesce(nullif(p->>'descricao', ''), o.titulo), coalesce((p->>'valor_total')::numeric, 0), greatest(1, coalesce((p->>'num_parcelas')::int, 1)),
+            nullif(p->>'primeiro_vencimento', '')::date, nullif(p->>'percentual_exito', '')::numeric, coalesce(resp, ''))
+    returning id into ctr;
+    perform set_config('erp.sem_regra_onboarding', '', true);
+  end if;
+  if coalesce((p->>'criar_fluxo')::boolean, true) then
+    flx := public.criar_fluxo_modelo('Onboarding de cliente', public.somar_uteis(current_date, 15), cli, grp, resp,
+                                     'Onboarding — ' || coalesce(p->>'cliente_nome', (select nome from public.clientes where id = cli)));
+  end if;
+  insert into public.interacoes (cliente_id, tipo, resumo) values (cli, 'anotacao', 'Contrato fechado pelo CRM: ' || o.titulo);
+  update public.crm_propostas set status = 'aceita' where id = (select id from public.crm_propostas where oportunidade_id = p_op order by versao desc limit 1);
+  update public.documentos set cliente_id = cli, grupo_id = grp, contrato_id = coalesce(ctr, contrato_id) where oportunidade_id = p_op;
+  select id into etp from public.crm_etapas where final = 'ganho' order by ordem limit 1;
+  update public.crm_oportunidades set etapa_id = etp, probabilidade = 100, ganho_em = now(), perdido_em = null, cliente_id = cli, contrato_id = ctr where id = p_op;
+  return jsonb_build_object('cliente_id', cli, 'contrato_id', ctr, 'fluxo_id', flx);
+end $$;
+revoke all on function public.crm_ganhar(uuid, jsonb) from anon;
+grant execute on function public.crm_ganhar(uuid, jsonb) to authenticated;
+
+create or replace function public.crm_perder(p_op uuid, p_motivo text, p_reativar boolean) returns void
+language plpgsql security definer set search_path = public as $$
+declare o record; etp uuid;
+begin
+  if not public.pode('crm', 'editar') then raise exception 'Sem a função CRM (editar).'; end if;
+  if coalesce(btrim(p_motivo), '') = '' then raise exception 'Informe o motivo da perda.'; end if;
+  select * into o from public.crm_oportunidades where id = p_op;
+  select id into etp from public.crm_etapas where final = 'perdido' order by ordem limit 1;
+  update public.crm_oportunidades set etapa_id = etp, probabilidade = 0, perdido_em = now(), ganho_em = null, motivo_perda = p_motivo where id = p_op;
+  if p_reativar then
+    perform public.tarefa_da_regra('crm-reativar:' || p_op, 'Reativar contato: ' || o.titulo, o.responsavel, current_date + 180, o.cliente_id);
+  end if;
+end $$;
+revoke all on function public.crm_perder(uuid, text, boolean) from anon;
+grant execute on function public.crm_perder(uuid, text, boolean) to authenticated;
+
+-- proposta por e-mail (vai pela mesma fila dos avisos)
+create or replace function public.crm_enviar_proposta(p_proposta uuid, p_para text, p_html text) returns void
+language plpgsql security definer set search_path = public as $$
+declare pr record;
+begin
+  if not public.pode('crm', 'editar') then raise exception 'Sem a função CRM (editar).'; end if;
+  if p_para !~ '^[^@\s]+@[^@\s]+\.[^@\s]+$' then raise exception 'E-mail do destinatário inválido.'; end if;
+  select * into pr from public.crm_propostas where id = p_proposta;
+  insert into public.email_fila (usuario_id, para, assunto, html, tipo, referencia)
+  values (auth.uid(), p_para, coalesce(nullif(pr.titulo, ''), 'Proposta de honorários'), p_html, 'proposta', 'proposta:' || p_proposta || ':' || pr.versao || ':' || md5(p_para))
+  on conflict (usuario_id, referencia) where referencia <> '' do nothing;
+  update public.crm_propostas set status = case when status = 'rascunho' then 'enviada' else status end, enviada_em = now() where id = p_proposta;
+end $$;
+revoke all on function public.crm_enviar_proposta(uuid, text, text) from anon;
+grant execute on function public.crm_enviar_proposta(uuid, text, text) to authenticated;
+
+-- o "Ganhou" já cria o fluxo completo: a regra de onboarding não duplica
+create or replace function public.regra_contrato_novo() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare rg record; cl record; ck jsonb;
+begin
+  if current_setting('erp.sem_regra_onboarding', true) = '1' then return null; end if;
+  select * into rg from public.regras_tarefas where chave = 'contrato_onboarding' and ligada;
+  if not found then return null; end if;
+  select * into cl from public.clientes where id = new.cliente_id;
+  select coalesce(jsonb_agg(jsonb_build_object('texto', i->>'titulo', 'feito', false)), '[]') into ck
+    from public.modelos_fluxo m, jsonb_array_elements(m.itens) i where m.nome = 'Onboarding de cliente';
+  perform public.tarefa_da_regra('onb:' || new.id, 'Onboarding: ' || coalesce(cl.nome, new.descricao),
+    coalesce(nullif(rg.responsavel, ''), nullif(new.responsavel, ''), cl.responsavel),
+    public.somar_uteis(coalesce(new.data_contrato, current_date), rg.dias), new.cliente_id, cl.grupo_id, new.id, ck,
+    'Contrato: ' || new.descricao);
+  return null;
+end $$;

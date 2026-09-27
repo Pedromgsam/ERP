@@ -292,7 +292,26 @@
 .gs .rg-resp{width:150px}
 .gs .item-ficha .rg-num,.gs .item-ficha .rg-resp{margin-left:8px}
 .gs ol.passos{padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:13px;margin-bottom:10px}
-.gs .escondido{display:none!important}
+.gs .texto-vermelho{color:var(--red)!important;font-weight:700}
+.gs .cr-funil{display:grid;grid-template-columns:repeat(7,minmax(190px,1fr));gap:10px;overflow-x:auto;padding-bottom:6px}
+.gs .cr-col{background:#eef1f7;border-radius:12px;padding:8px;min-height:220px;display:flex;flex-direction:column;gap:8px}
+.gs .cr-col.sobre{background:#dfe7f5;outline:2px dashed var(--navy3)}
+.gs .cr-col.cr-final-ganho{background:#e8f6ec}
+.gs .cr-col.cr-final-perdido{background:#f3f4f6}
+.gs .cr-col-tit{display:flex;justify-content:space-between;gap:6px;font:700 12.5px var(--font-h);color:var(--navy);padding:2px 4px}
+.gs .cr-card{background:#fff;border-radius:10px;padding:9px 10px;box-shadow:var(--shadow-sm);cursor:grab;font-size:12.5px;border-left:3px solid var(--navy3)}
+.gs .cr-card.cr-atrasada{border-left-color:var(--red)}
+.gs .cr-card.arrastando{opacity:.5}
+.gs .cr-card-rod{display:flex;justify-content:space-between;gap:6px;margin-top:4px;white-space:nowrap;flex-wrap:wrap}
+.gs .cr-prox{font-size:11.5px;color:var(--text2);margin-top:3px}
+.gs .cr-prox.atrasada{color:var(--red);font-weight:700}
+.gs .pr-texto{border:1.5px solid var(--border-strong);border-radius:10px;padding:12px 14px;min-height:140px;background:#fff;font-size:13.5px;line-height:1.55}
+.gs .pr-texto:focus{outline:none;border-color:var(--navy3);box-shadow:var(--glow)}
+.gs .pr-item{display:grid;grid-template-columns:2fr 2fr 1fr auto;gap:6px;margin-bottom:6px}
+.gs .pr-item input{padding:7px 10px;border:1.5px solid var(--border-strong);border-radius:8px;min-width:0}
+@media (max-width:560px){.gs .pr-item{grid-template-columns:1fr 1fr}
+.gs .cr-funil{grid-template-columns:repeat(7,78vw)}
+}
 /* cores do ERP, tamanhos do Gestão */
 .gs{--navy:#1B2A4A;--navy2:#243659;--navy3:#2E5EAA;--accent:#C9A84C;--bg:#F0F2F7;background:none!important;min-height:0!important}
 .gs .duas-col>*,.gs .card{min-width:0}

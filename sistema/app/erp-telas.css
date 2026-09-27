@@ -168,3 +168,6 @@ body.gx-barra-topo :focus-visible{outline:2px solid #2E5EAA;outline-offset:2px}
 
 /* funções de acesso: o que a pessoa não pode usar some do menu */
 .gx-sem-funcao{display:none!important}
+
+/* contadores compactos quando o menu precisa do espaço */
+@media (max-width:1700px){#gs-hd .gs-cont-pal{display:none}}

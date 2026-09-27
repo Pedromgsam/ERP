@@ -24,13 +24,14 @@
     { rot: 'Financeiro', equipe: true, itens: [['financeiro', 'Jurídico', 'financeiro_juridico'], ['financeiroContab', 'Contabilidade', 'financeiro_contab']] },
     { id: 'contratos', rot: 'Contratos', equipe: true, func: 'contratos' },
     { id: 'clientes', rot: 'Clientes', equipe: true, func: 'clientes' },
+    { id: 'crm', rot: 'CRM', equipe: true, func: 'crm' },
     { id: 'documentos', rot: 'Documentos', equipe: true, func: 'documentos' },
     { id: 'tarefas', rot: 'Tarefas', equipe: true },
     { id: 'notificacoes', rot: 'Notificações', equipe: true, func: 'clientes' },
     { id: 'admin', rot: 'Administração', admin: true }
   ];
   // painéis novos → tela do Gestão que desenha nele
-  const TELAS_GS = { hoje: 'inicio', contratos: 'contratos', clientes: 'clientes', documentos: 'documentos', tarefas: 'tarefas', admin: 'admin' };
+  const TELAS_GS = { hoje: 'inicio', contratos: 'contratos', clientes: 'clientes', crm: 'crm', documentos: 'documentos', tarefas: 'tarefas', admin: 'admin' };
 
   // "+ Lançar": formulários do Gestão onde existem; os demais, do editor do ERP
   const empresaAtual = () => (_painel === 'financeiroContab' ? 'contabilidade' : 'escritorio');
@@ -45,7 +46,8 @@
     ['Processo', () => ED.abrirFormulario('processos', null, { carteira: 'Ativo', status: 'Em andamento' }), 'juridico'],
     ['Acordo (parcela)', () => ED.abrirFormulario('acordos', null, {}), 'juridico'],
     ['Parcelamento', () => ED.abrirParcelamento(null), 'juridico'],
-    ['Tarefa', () => comCadastros(() => GS().formTarefa({}, depois))]
+    ['Tarefa', () => comCadastros(() => GS().formTarefa({}, depois))],
+    ['Oportunidade (CRM)', () => comCadastros(() => GS().formOportunidade({}, depois)), 'crm']
   ];
 
   // ═════════════════ FUNÇÕES DE ACESSO (Administração → Usuários) ═════════════════
@@ -80,7 +82,7 @@
         : '<div class="tn-grupo' + itemCls(m) + '"><button type="button" class="tn-it tn-abre" data-grupo="' + i + '" aria-haspopup="true" aria-expanded="false">' + esc(m.rot) + ' <span class="tn-seta">▾</span></button>' +
           '<div class="tn-menu" role="menu">' + m.itens.map((x) => '<button type="button" role="menuitem" data-ir="' + x[0] + '">' + esc(x[1]) + '</button>').join('') + '</div></div>').join('') +
       '</nav>' +
-      '<div class="gs-contadores gx-so-equipe" id="gs-contadores" hidden><span class="gs-cont gs-cont-ent">▣ <b id="gs-n-ent">0</b> entidades</span><span class="gs-cont gs-cont-grp">◉ <b id="gs-n-grp">0</b> grupos</span></div>' +
+      '<div class="gs-contadores gx-so-equipe" id="gs-contadores" hidden><span class="gs-cont gs-cont-ent" title="Entidades (empresas e pessoas)">▣ <b id="gs-n-ent">0</b><span class="gs-cont-pal"> entidades</span></span><span class="gs-cont gs-cont-grp" title="Grupos">◉ <b id="gs-n-grp">0</b><span class="gs-cont-pal"> grupos</span></span></div>' +
       '<div class="tn-lancar gx-so-equipe"><button type="button" class="tn-lancar-bt" aria-haspopup="true" aria-expanded="false">+ Lançar</button>' +
       '<div class="tn-menu tn-menu-dir" role="menu">' + LANCAR.map((x, i) => '<button type="button" role="menuitem" data-lancar="' + i + '">' + esc(x[0]) + '</button>').join('') + '</div></div>' +
       '<div class="hd-usuario"><button type="button" id="gs-sino" class="gx-so-equipe" title="Avisos: prazos, menções e vencimentos" aria-label="Avisos">🔔<span id="gs-sino-n" hidden></span></button><span id="gs-nome"></span>' +

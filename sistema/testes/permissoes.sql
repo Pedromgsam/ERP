@@ -234,3 +234,29 @@ exception when raise_exception then
   raise notice 'PASSA: só o revisor conclui a tarefa em revisão';
 end $$;
 commit;
+
+-- v10: CRM
+insert into crm_oportunidades(titulo, prospecto_nome, prospecto_empresa, prospecto_email, valor_estimado, responsavel, etapa_id)
+  select 'Holding Família Teste', 'Maria Teste', 'Holding Teste Ltda', 'maria@teste', 30000, 'Pedro', id from crm_etapas where ordem = 1;
+begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-0000000000f1');
+select pg_temp.ok((select count(*) from crm_oportunidades)=0,'sem a função CRM não vê oportunidades');
+commit;
+update perfis set funcoes = funcoes || '{"crm":"editar"}' where email='fin@teste';
+begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-0000000000f1');
+select pg_temp.ok((select count(*) from crm_oportunidades)=1,'com a função CRM vê as oportunidades');
+select public.crm_ganhar((select id from crm_oportunidades where titulo='Holding Família Teste'),
+  '{"cliente_nome":"Holding Teste Ltda","cpf_cnpj":"11222333000181","grupo":"Grupo Holding","descricao":"Holding familiar","valor_total":30000,"num_parcelas":3,"primeiro_vencimento":"2026-11-10","responsavel":"Pedro","criar_fluxo":true}');
+commit;
+select pg_temp.ok((select count(*) from clientes where nome='Holding Teste Ltda' and origem='CRM')=1,'Ganhou: cria o cliente (mesmo sem a função Clientes)');
+select pg_temp.ok((select count(*) from lancamentos l join contratos c on c.id=l.contrato_id where c.descricao='Holding familiar')=3,'Ganhou: contrato com 3 parcelas');
+select pg_temp.ok((select count(*) from tarefas t join fluxos f on f.id=t.fluxo_id where f.nome like 'Onboarding — Holding Teste%')=7,'Ganhou: fluxo de onboarding com etapas e subtarefas');
+select pg_temp.ok((select count(*) from tarefas where titulo like 'Onboarding: Holding Teste%')=0,'Ganhou: regra de onboarding não duplica o fluxo');
+select pg_temp.ok((select e.final from crm_oportunidades o join crm_etapas e on e.id=o.etapa_id where o.titulo='Holding Família Teste')='ganho','oportunidade vai para Ganhou');
+insert into crm_oportunidades(titulo, prospecto_nome, etapa_id) select 'Consulta perdida', 'Fulano', id from crm_etapas where ordem = 2;
+do $$ begin
+  perform public.crm_perder((select id from crm_oportunidades where titulo='Consulta perdida'), '', false);
+  raise exception 'FALHOU: perdeu sem motivo';
+exception when raise_exception then
+  if sqlerrm like 'FALHOU%' then raise; end if;
+  raise notice 'PASSA: perder exige o motivo';
+end $$;

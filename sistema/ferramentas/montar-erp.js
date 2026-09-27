@@ -141,6 +141,20 @@ trocar("callback:v=>{const n=Number(v)||0;if(n>=1e6)return'R$'+(n/1e6).toFixed(1
 s = s.replace(/'R\$ ?'\+/g, () => { trocas++; return "'R$\\u00A0'+"; });
 trocar('style="font-family:var(--font-d);font-size:14px;font-weight:700;color:var(--ac-gold);margin-bottom:12px;letter-spacing:.01em"', 'class="gx-sec-tit"', 5);
 
+// 9. CRM antigo (da planilha, sem tela desde a v41): saem os estilos e a janela de histórico do lead.
+//    O CRM novo é outro módulo (telas-crm.js), com classes próprias "cr-".
+function removerBloco(inicio, fim) {
+  const i = s.indexOf(inicio); if (i < 0 || s.indexOf(inicio, i + 1) >= 0) throw new Error('Bloco ausente ou repetido: ' + inicio);
+  const j = s.indexOf(fim, i); if (j < 0) throw new Error('Fim do bloco ausente: ' + fim);
+  s = s.slice(0, i) + s.slice(j + fim.length); trocas++;
+}
+removerBloco('.crm-funnel{display:grid', '.crm-tl-nota-input:focus{border-color:var(--gold);outline:none;background:var(--white)}\n');
+removerBloco('/* ── CRM v2', '.crm-base-item:last-child{border-bottom:none}\n');
+{ const k = s.indexOf('MODAL — TIMELINE / HISTÓRICO DO LEAD'); const i = s.lastIndexOf('<!--', k);
+  const j = s.indexOf('</div>\n</div>\n', s.indexOf('<div class="m-overlay" id="mo-crm-timeline">'));
+  if (k < 0 || i < 0 || j < 0) throw new Error('Janela do CRM antigo não encontrada');
+  s = s.slice(0, i) + s.slice(j + '</div>\n</div>\n'.length); trocas++; }
+
 s = s.replace(/<title>[^<]*<\/title>/, '<title>ERP — Araújo &amp; Castro</title>');
 fs.writeFileSync(destino, s);
 
@@ -184,10 +198,10 @@ let graf = ler('graficos.js').replace("document.addEventListener('DOMContentLoad
 const bundle = "'use strict';\n// GERADO por sistema/ferramentas/montar-erp.js — não edite; edite os arquivos do Gestão.\n(function () {\n" +
   "const _raiz = document.createElement('div'); _raiz.id = 'gs-raiz'; _raiz.className = 'gs';\n" +
   "_raiz.innerHTML = '<div id=\"janelas\"></div><div id=\"aviso\"></div>'; document.body.appendChild(_raiz);\n" +
-  [nuc, graf, ler('telas-painel.js'), ler('telas-financeiro.js'), ler('telas-cadastros.js'), ler('telas-admin.js'), ler('telas-tarefas.js'), ler('telas-documentos.js'), ler('telas-cliente360.js')].join('\n') +
+  [nuc, graf, ler('telas-painel.js'), ler('telas-financeiro.js'), ler('telas-cadastros.js'), ler('telas-admin.js'), ler('telas-tarefas.js'), ler('telas-documentos.js'), ler('telas-cliente360.js'), ler('telas-crm.js')].join('\n') +
   "\n// toda gravação confirmada aparece também no rodapé do ERP\nconst _avisoOrig = aviso;\n" +
   "aviso = function (msg, erro) { _avisoOrig(msg, erro); if (!erro && window.ERP_EDITOR && /^✓/.test(msg)) window.ERP_EDITOR.gravou(String(msg).replace(/^✓\\s*/, '')); };\n" +
-  "window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos };\n})();\n";
+  "window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade };\n})();\n";
 fs.writeFileSync(path.join(APP, 'gestao-embutida.js'), bundle);
 
 // CSS do Gestão só dentro de .gs (as telas do Gestão) e #gs-hd (barra superior)

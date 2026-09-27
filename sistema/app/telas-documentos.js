@@ -131,7 +131,7 @@ async function blocoDocumentos(alvo, vinculo, opc) {
   opc = opc || {};
   let c = sb.from('documentos').select('*').eq('arquivado', false).order('criado_em', { ascending: false });
   // filtra pelo vínculo mais específico (o contrato, o lançamento… ou o cliente)
-  const chave = ['contrato_id', 'lancamento_id', 'tarefa_id', 'processo_id', 'cliente_id', 'grupo_id'].find((k) => vinculo[k]);
+  const chave = ['oportunidade_id', 'contrato_id', 'lancamento_id', 'tarefa_id', 'processo_id', 'cliente_id', 'grupo_id'].find((k) => vinculo[k]);
   if (!chave) throw new Error('Documento sem vínculo.');
   c = c.eq(chave, vinculo[chave]);
   const docs = await q(c);
