@@ -225,7 +225,7 @@
 .gs .riscado{text-decoration:line-through;color:var(--text3)}
 .gs .coment{padding:8px 10px;background:#f7f8fb;border-radius:8px;margin-bottom:6px;font-size:13px}
 .gs .mencao{color:var(--navy3)}
-.gs .kanban{display:grid;grid-template-columns:repeat(4,minmax(220px,1fr));gap:12px;overflow-x:auto}
+.gs .kanban{display:grid;grid-template-columns:repeat(5,minmax(200px,1fr));gap:12px;overflow-x:auto}
 .gs .kb-col{background:#eef1f7;border-radius:12px;padding:10px;min-height:200px;display:flex;flex-direction:column;gap:8px}
 .gs .kb-col.sobre{background:#dfe7f5;outline:2px dashed var(--navy3)}
 .gs .kb-tit{font-family:var(--font-h);font-weight:700;color:var(--navy);font-size:13px}
@@ -249,7 +249,7 @@
 .gs .gantt-barra{position:absolute;top:0;bottom:0;background:var(--navy3);border-radius:99px}
 .gs .gantt-barra.feita{background:var(--green)}
 .gs .gantt-barra.atrasada{background:var(--red)}
-@media (max-width:700px){.gs .kanban{grid-template-columns:repeat(4,80vw)}
+@media (max-width:700px){.gs .kanban{grid-template-columns:repeat(5,80vw)}
 .gs .cal-dia{min-height:60px}
 .gs .cal-tf{font-size:10px}
 .gs .gantt-lin{grid-template-columns:40% 1fr}
@@ -291,6 +291,8 @@
 .gs .rg-num input{width:60px}
 .gs .rg-resp{width:150px}
 .gs .item-ficha .rg-num,.gs .item-ficha .rg-resp{margin-left:8px}
+.gs ol.passos{padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:13px;margin-bottom:10px}
+.gs .escondido{display:none!important}
 /* cores do ERP, tamanhos do Gestão */
 .gs{--navy:#1B2A4A;--navy2:#243659;--navy3:#2E5EAA;--accent:#C9A84C;--bg:#F0F2F7;background:none!important;min-height:0!important}
 .gs .duas-col>*,.gs .card{min-width:0}

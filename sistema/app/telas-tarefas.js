@@ -27,10 +27,10 @@ async function usuarioPorNome(nome) {
   const u = (await equipe()).find((x) => primeiroNome(x.nome) === n || primeiroNome(String(x.email).split('@')[0]) === n);
   return u ? u.id : null;
 }
-async function notificar(nome, titulo, detalhe, link) {
+async function notificar(nome, titulo, detalhe, link, tipo) {
   const id = await usuarioPorNome(nome);
   if (!id || (E.perfil && id === E.perfil.id)) return;
-  await sb.from('notificacoes').insert({ usuario_id: id, tipo: 'tarefa', titulo, detalhe: detalhe || '', link: link || '' });
+  await sb.from('notificacoes').insert({ usuario_id: id, tipo: tipo || 'tarefa', titulo, detalhe: detalhe || '', link: link || '' });
 }
 async function feriados() {
   if (!E._feriados) {
@@ -485,7 +485,7 @@ async function pintarComentarios(j, t) {
     if (!txt) return;
     await q(sb.from('comentarios').insert({ tarefa_id: t.id, texto: txt }));
     const mencoes = [...new Set((txt.match(/@([^\s,.;:!?]+)/g) || []).map((m) => m.slice(1)))];
-    for (const m of mencoes) await notificar(m, (meuNome() || 'Alguém') + ' mencionou você em: ' + t.titulo, txt.slice(0, 200), 'tarefas').catch(() => {});
+    for (const m of mencoes) await notificar(m, (meuNome() || 'Alguém') + ' mencionou você em: ' + t.titulo, txt.slice(0, 200), 'tarefas', 'mencao').catch(() => {});
     await pintarComentarios(j, t);
   });
   alvo.querySelector('#tf-coment-env').onclick = enviar;

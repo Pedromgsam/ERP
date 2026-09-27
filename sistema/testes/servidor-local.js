@@ -30,7 +30,7 @@ function sessao(u) {
   return { access_token: jwt({ sub: u.id, email: u.email, role: 'authenticated', aud: 'authenticated', exp }),
            token_type: 'bearer', expires_in: 3600, expires_at: exp, refresh_token: 'r-' + u.email, user: u };
 }
-const RECUPERACOES = [], ARQUIVOS = {};
+const RECUPERACOES = [], ARQUIVOS = {}; let FUNCAO = null;
 function json(res, cod, obj) { res.writeHead(cod, { 'content-type': 'application/json', 'access-control-allow-origin': '*' }); res.end(JSON.stringify(obj)); }
 http.createServer((req, res) => {
   let corpo = []; req.on('data', (c) => corpo.push(c)); req.on('end', () => {
@@ -81,6 +81,15 @@ http.createServer((req, res) => {
       }
     }
     if (u.pathname === '/__teste/arquivos') return json(res, 200, Object.keys(ARQUIVOS));
+    // Edge Function "erp-emails": roda o código real, com carteiro falso (as cartas ficam em /__teste/cartas)
+    if (u.pathname === '/functions/v1/erp-emails') {
+      FUNCAO = FUNCAO || require('./funcao-emails.js').carregar('http://127.0.0.1:' + PORTA);
+      const h = new Headers(); Object.entries(req.headers).forEach(([k, v]) => h.set(k, v));
+      return FUNCAO.tratar(new Request('http://x' + u.pathname, { method: req.method, headers: h, body: req.method === 'POST' ? corpo : undefined }))
+        .then(async (r2) => { const cab = { 'access-control-allow-origin': '*' }; r2.headers.forEach((v, k) => { cab[k] = v; }); res.writeHead(r2.status, cab); res.end(await r2.text()); })
+        .catch((e) => json(res, 500, { erro: e.message }));
+    }
+    if (u.pathname === '/__teste/cartas') return json(res, 200, FUNCAO ? FUNCAO.cartas.map((c) => ({ to: c.to, subject: c.subject })) : []);
     if (u.pathname.startsWith('/rest/v1/')) {
       const alvo = PGRST + u.pathname.replace('/rest/v1', '') + u.search;
       const h = Object.assign({}, req.headers); delete h.host; delete h['content-length'];

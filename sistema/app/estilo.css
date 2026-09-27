@@ -306,3 +306,4 @@ input,select,textarea{max-width:100%;box-sizing:border-box}
 .item-ficha.clicavel{cursor:pointer}.item-ficha.clicavel:hover{background:#f4f7fc}
 .rg-num input{width:60px}.rg-resp{width:150px}
 .item-ficha .rg-num,.item-ficha .rg-resp{margin-left:8px}
+ol.passos{padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:13px;margin-bottom:10px}

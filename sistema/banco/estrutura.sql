@@ -1257,3 +1257,219 @@ drop policy if exists tarefas_alterar on public.tarefas;
 create policy tarefas_alterar on public.tarefas for update to authenticated
   using (public.pode('tarefas','editar') or public.tarefa_minha(responsavel, participantes) or public.tarefa_minha(revisor, ''))
   with check (public.pode('tarefas','editar') or public.tarefa_minha(responsavel, participantes) or public.tarefa_minha(revisor, ''));
+
+-- ═══════════════════════════════════════════════════════════════════
+-- v9 (2026-09-27) — AVISOS POR E-MAIL (configurados na tela Administração → E-mail)
+-- A tela e os gatilhos só põem e-mails na FILA; a função "erp-emails"
+-- (Supabase → Edge Functions) envia pelo Gmail do escritório, outro SMTP ou Resend.
+-- A senha do serviço fica em config_privada, que o site não consegue ler.
+-- ═══════════════════════════════════════════════════════════════════
+create table if not exists public.config_privada (
+  chave text primary key, valor jsonb not null, atualizado_em timestamptz not null default now()
+);
+alter table public.config_privada enable row level security;       -- sem nenhuma regra: ninguém lê pelo site
+revoke all on public.config_privada from anon, authenticated;
+insert into public.config_privada (chave, valor) values ('segredo_funcoes', to_jsonb(gen_random_uuid()::text)) on conflict (chave) do nothing;
+insert into public.config_privada (chave, valor) values ('url_projeto', to_jsonb('https://kukpiyqwtaeuvkvfrjjm.supabase.co'::text)) on conflict (chave) do nothing;
+
+create table if not exists public.email_fila (
+  id uuid primary key default gen_random_uuid(),
+  usuario_id uuid references public.perfis(id) on delete set null,
+  para text not null, assunto text not null, html text not null,
+  tipo text not null default '', referencia text not null default '',
+  status text not null default 'pendente' check (status in ('pendente','enviado','erro','cancelado')),
+  tentativas int not null default 0, erro text not null default '',
+  criado_em timestamptz not null default now(), enviado_em timestamptz
+);
+create unique index if not exists email_fila_ref on public.email_fila (usuario_id, referencia) where referencia <> '';
+alter table public.email_fila enable row level security;
+revoke all on public.email_fila from anon;
+revoke insert, update, delete on public.email_fila from authenticated;
+grant select on public.email_fila to authenticated;
+drop policy if exists email_fila_ver on public.email_fila;
+create policy email_fila_ver on public.email_fila for select to authenticated using (public.eh_admin() or usuario_id = auth.uid());
+
+-- a função de envio (chave de serviço) precisa ler a configuração e a fila
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname = 'service_role') then
+    execute 'grant select, insert, update on public.config_privada, public.email_fila to service_role';
+  end if;
+end $$;
+
+-- o que cada pessoa quer receber
+alter table public.perfis add column if not exists pref_email jsonb not null
+  default '{"resumo":true,"tarefa":true,"mencao":true,"fatal":true,"vencimentos":true,"publicacao":true}'::jsonb;
+create or replace function public.salvar_minhas_preferencias(p jsonb) returns void
+language sql security definer set search_path = public as $$
+  update public.perfis set pref_email = coalesce(p, '{}'::jsonb) where id = auth.uid();
+$$;
+revoke all on function public.salvar_minhas_preferencias(jsonb) from anon;
+grant execute on function public.salvar_minhas_preferencias(jsonb) to authenticated;
+
+-- configurar (só admin) e consultar sem expor a senha
+create or replace function public.salvar_config_email(p jsonb) returns void
+language plpgsql security definer set search_path = public as $$
+declare atual jsonb;
+begin
+  if not public.eh_admin() then raise exception 'Só o administrador configura o e-mail.'; end if;
+  select valor into atual from public.config_privada where chave = 'email';
+  if coalesce(p->>'senha', '') = '' then p := p || jsonb_build_object('senha', coalesce(atual->>'senha', '')); end if;
+  insert into public.config_privada (chave, valor)
+  values ('email', p || jsonb_build_object('configurado_em', now(), 'configurado_por', auth.uid()))
+  on conflict (chave) do update set valor = excluded.valor, atualizado_em = now();
+end $$;
+create or replace function public.status_config_email() returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare c jsonb;
+begin
+  if not public.eh_admin() then raise exception 'Só o administrador vê a configuração do e-mail.'; end if;
+  select valor into c from public.config_privada where chave = 'email';
+  return coalesce(c - 'senha', '{}'::jsonb) || jsonb_build_object('tem_senha', coalesce(c->>'senha', '') <> '',
+    'pendentes', (select count(*) from public.email_fila where status = 'pendente'),
+    'erros', (select count(*) from public.email_fila where status = 'erro'),
+    'enviados_7d', (select count(*) from public.email_fila where status = 'enviado' and enviado_em > now() - interval '7 days'));
+end $$;
+revoke all on function public.salvar_config_email(jsonb) from anon;
+revoke all on function public.status_config_email() from anon;
+grant execute on function public.salvar_config_email(jsonb), public.status_config_email() to authenticated;
+
+-- modelo visual do e-mail (paleta do escritório)
+create or replace function public.email_modelo(titulo text, corpo text) returns text
+language sql immutable as $$
+  select '<div style="font-family:Arial,Helvetica,sans-serif;background:#F0F2F7;padding:24px">'
+    || '<div style="max-width:620px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;border:1px solid #E5E7EB">'
+    || '<div style="background:#1B2A4A;color:#fff;padding:16px 22px"><div style="color:#C9A84C;font-size:11px;letter-spacing:.12em;text-transform:uppercase;font-weight:bold">Araújo &amp; Castro · ERP</div>'
+    || '<div style="font-size:18px;font-weight:bold;margin-top:4px">' || replace(replace(titulo, '<', '&lt;'), '>', '&gt;') || '</div></div>'
+    || '<div style="padding:18px 22px;color:#1F2937;font-size:14px;line-height:1.55">' || corpo || '</div>'
+    || '<div style="padding:12px 22px;border-top:1px solid #E5E7EB;color:#6B7280;font-size:11.5px">Você recebe este aviso pelo ERP do escritório. '
+    || 'Para mudar, abra o ERP → ⋯ → Meus avisos por e-mail.</div></div></div>';
+$$;
+create or replace function public.esc_html(t text) returns text language sql immutable as $$
+  select replace(replace(replace(coalesce(t, ''), '&', '&amp;'), '<', '&lt;'), '>', '&gt;');
+$$;
+
+-- põe na fila um e-mail para uma pessoa da equipe, respeitando a preferência
+create or replace function public.enfileirar_email(p_usuario uuid, p_pref text, p_assunto text, p_corpo text, p_tipo text, p_ref text default '')
+returns boolean language plpgsql security definer set search_path = public as $$
+declare pf record; n int;
+begin
+  select * into pf from public.perfis where id = p_usuario and papel in ('admin','equipe');
+  if not found or coalesce(pf.email, '') = '' then return false; end if;
+  if p_pref <> '' and coalesce((pf.pref_email->>p_pref)::boolean, true) = false then return false; end if;
+  insert into public.email_fila (usuario_id, para, assunto, html, tipo, referencia)
+  values (p_usuario, pf.email, p_assunto, public.email_modelo(p_assunto, p_corpo), p_tipo, coalesce(p_ref, ''))
+  on conflict (usuario_id, referencia) where referencia <> '' do nothing;
+  get diagnostics n = row_count;
+  return n > 0;
+end $$;
+revoke all on function public.enfileirar_email(uuid, text, text, text, text, text) from anon, authenticated;
+
+-- toda notificação (tarefa atribuída, menção, revisão, atraso, publicação) pode virar e-mail na hora
+create or replace function public.email_da_notificacao() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare pref text;
+begin
+  pref := case new.tipo when 'mencao' then 'mencao' when 'publicacao' then 'publicacao' when 'atraso' then 'fatal' else 'tarefa' end;
+  perform public.enfileirar_email(new.usuario_id, pref, new.titulo,
+    '<p>' || public.esc_html(new.titulo) || '</p>' || case when new.detalhe <> '' then '<p style="color:#4B5563">' || public.esc_html(new.detalhe) || '</p>' else '' end
+    || coalesce('<p><a href="' || (select valor #>> '{}' from public.config_privada where chave = 'url_sistema') || '" style="background:#1B2A4A;color:#fff;padding:9px 16px;border-radius:8px;text-decoration:none;display:inline-block">Abrir no ERP</a></p>', ''),
+    new.tipo, 'notif:' || new.id);
+  return null;
+end $$;
+drop trigger if exists email_da_notificacao on public.notificacoes;
+create trigger email_da_notificacao after insert on public.notificacoes for each row execute function public.email_da_notificacao();
+
+-- resumo diário de cada pessoa (dias úteis, de manhã)
+create or replace function public.montar_resumos_diarios() returns int
+language plpgsql security definer set search_path = public as $$
+declare pf record; x record; corpo text; bloco text; n int := 0; hoje date := current_date;
+begin
+  if auth.uid() is not null and not public.eh_admin() then raise exception 'Só o administrador dispara o resumo.'; end if;
+  for pf in select * from public.perfis where papel in ('admin','equipe') and coalesce(email, '') <> ''
+                and coalesce((pref_email->>'resumo')::boolean, true) loop
+    corpo := '';
+    -- minhas tarefas de hoje e atrasadas
+    bloco := '';
+    for x in select titulo, prazo, prazo_fatal from public.tarefas
+              where status not in ('concluida','cancelada') and prazo is not null and prazo <= hoje
+                and (public.primeiro_nome(responsavel) = public.primeiro_nome(pf.nome)) order by prazo limit 20 loop
+      bloco := bloco || '<li>' || public.esc_html(x.titulo) || ' — ' || case when x.prazo < hoje then '<b style="color:#B91C1C">atrasada desde ' || to_char(x.prazo, 'DD/MM') || '</b>' else 'hoje' end || '</li>';
+    end loop;
+    if bloco <> '' then corpo := corpo || '<h3 style="font-size:14px;color:#1B2A4A">Seus prazos de hoje e atrasados</h3><ul>' || bloco || '</ul>'; end if;
+    -- prazos fatais nos próximos 5 dias
+    bloco := '';
+    for x in select titulo, prazo_fatal from public.tarefas
+              where status not in ('concluida','cancelada') and prazo_fatal between hoje and hoje + 5
+                and public.primeiro_nome(responsavel) = public.primeiro_nome(pf.nome) and coalesce((pf.pref_email->>'fatal')::boolean, true)
+              order by prazo_fatal limit 20 loop
+      bloco := bloco || '<li><b>⚑ ' || to_char(x.prazo_fatal, 'DD/MM') || '</b> — ' || public.esc_html(x.titulo) || '</li>';
+    end loop;
+    if bloco <> '' then corpo := corpo || '<h3 style="font-size:14px;color:#1B2A4A">Prazos fatais em 5 dias</h3><ul>' || bloco || '</ul>'; end if;
+    -- menções e revisões não lidas
+    bloco := '';
+    for x in select titulo from public.notificacoes where usuario_id = pf.id and not lida and tipo in ('mencao','revisao') order by criado_em desc limit 10 loop
+      bloco := bloco || '<li>' || public.esc_html(x.titulo) || '</li>';
+    end loop;
+    if bloco <> '' then corpo := corpo || '<h3 style="font-size:14px;color:#1B2A4A">Menções e revisões</h3><ul>' || bloco || '</ul>'; end if;
+    -- documentos e certidões vencendo (15 dias)
+    if coalesce((pf.pref_email->>'vencimentos')::boolean, true) then
+      bloco := '';
+      for x in select 'Certidão ' || c.orgao || ' — ' || cl.nome t, c.validade v from public.certidoes c join public.clientes cl on cl.id = c.cliente_id
+                where c.validade <= hoje + 15 and (pf.papel = 'admin' or public.primeiro_nome(cl.responsavel) = public.primeiro_nome(pf.nome))
+               union all
+               select 'Documento ' || d.nome, d.validade from public.documentos d left join public.clientes cl on cl.id = d.cliente_id
+                where not d.arquivado and d.validade <= hoje + 15 and (pf.papel = 'admin' or public.primeiro_nome(cl.responsavel) = public.primeiro_nome(pf.nome))
+               order by 2 limit 15 loop
+        bloco := bloco || '<li>' || public.esc_html(x.t) || ' — ' || case when x.v < hoje then '<b style="color:#B91C1C">vencido em ' else 'vence em ' end || to_char(x.v, 'DD/MM/YYYY') || case when x.v < hoje then '</b>' else '' end || '</li>';
+      end loop;
+      if bloco <> '' then corpo := corpo || '<h3 style="font-size:14px;color:#1B2A4A">Documentos e certidões vencendo</h3><ul>' || bloco || '</ul>'; end if;
+    end if;
+    -- administrador: atrasos da equipe acima de 3 dias úteis
+    if pf.papel = 'admin' then
+      bloco := '';
+      for x in select titulo, responsavel, prazo from public.tarefas
+                where status not in ('concluida','cancelada') and prazo < hoje and public.uteis_entre(prazo, hoje) > 3 order by prazo limit 15 loop
+        bloco := bloco || '<li>' || public.esc_html(x.titulo) || ' — ' || public.esc_html(coalesce(nullif(x.responsavel, ''), 'sem responsável')) || ', desde ' || to_char(x.prazo, 'DD/MM') || '</li>';
+      end loop;
+      if bloco <> '' then corpo := corpo || '<h3 style="font-size:14px;color:#1B2A4A">Equipe: atrasos acima de 3 dias úteis</h3><ul>' || bloco || '</ul>'; end if;
+    end if;
+    if corpo <> '' then
+      if public.enfileirar_email(pf.id, 'resumo', 'Resumo do dia — ' || to_char(hoje, 'DD/MM/YYYY'),
+           '<p>Bom dia, ' || public.esc_html(split_part(pf.nome, ' ', 1)) || '. Este é o seu resumo de hoje.</p>' || corpo, 'resumo', 'resumo:' || hoje) then
+        n := n + 1;
+      end if;
+    end if;
+  end loop;
+  return n;
+end $$;
+revoke all on function public.montar_resumos_diarios() from anon;
+grant execute on function public.montar_resumos_diarios() to authenticated;
+
+-- endereço do sistema (para o botão "Abrir no ERP" dos e-mails); o admin grava pela tela
+create or replace function public.salvar_url_sistema(p text) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.eh_admin() then raise exception 'Só o administrador.'; end if;
+  insert into public.config_privada (chave, valor) values ('url_sistema', to_jsonb(p)) on conflict (chave) do update set valor = excluded.valor, atualizado_em = now();
+end $$;
+revoke all on function public.salvar_url_sistema(text) from anon;
+grant execute on function public.salvar_url_sistema(text) to authenticated;
+
+-- agendamentos: resumo às 7h45 (dias úteis) e envio da fila a cada 5 minutos
+do $$
+begin
+  create extension if not exists pg_cron;
+  perform cron.unschedule(jobid) from cron.job where jobname in ('erp_resumo_diario', 'erp_enviar_emails');
+  perform cron.schedule('erp_resumo_diario', '45 10 * * 1-5', 'select public.montar_resumos_diarios()');
+  create extension if not exists pg_net;
+  perform cron.schedule('erp_enviar_emails', '*/5 * * * *', $cron$
+    select net.http_post(
+      url := (select valor #>> '{}' from public.config_privada where chave = 'url_projeto') || '/functions/v1/erp-emails',
+      headers := jsonb_build_object('Content-Type', 'application/json', 'x-erp-segredo', (select valor #>> '{}' from public.config_privada where chave = 'segredo_funcoes')),
+      body := '{"acao":"enviar"}'::jsonb)
+    where exists (select 1 from public.email_fila where status = 'pendente')
+  $cron$);
+exception when others then
+  raise notice 'Agendador indisponível: use o botão "Enviar agora" em Administração → E-mail.';
+end $$;

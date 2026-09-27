@@ -374,6 +374,23 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('sem função: banco não entrega contratos nem processos', await pf.evaluate(async () => ((await SB.from('contratos').select('id')).data || []).length + ((await SB.from('processos').select('id')).data || []).length) === 0);
     await pf.context().close();
 
+    // ── e-mail: configuração pela tela, teste e preferências ──
+    await nav(p, 'admin'); await p.waitForTimeout(1200);
+    await p.click('#adm-abas [data-aba=email]'); await p.waitForSelector('#f-email'); await p.waitForTimeout(300);
+    await p.selectOption('#f-email [name=provedor]', 'gmail'); await p.fill('#f-email [name=usuario]', 'escritorio@gmail.com');
+    await p.fill('#f-email [name=senha]', 'abcd efgh ijkl mnop'); await p.click('#email-salvar'); await p.waitForTimeout(1500);
+    ok('admin configura o Gmail na tela (senha guardada sem espaços, fora do alcance do site)', sql("select valor->>'provedor'||'|'||(valor->>'senha') from config_privada where chave='email'") === 'gmail|abcdefghijklmnop' &&
+      !(await p.evaluate(async () => JSON.stringify((await SB.rpc('status_config_email')).data))).includes('abcd'));
+    await p.click('#email-teste');
+    await p.waitForFunction(() => /enviados:|não respondeu|Sem permissão/.test(document.querySelector('#gs-raiz #aviso').textContent), null, { timeout: 15000 }).catch(() => {});
+    await p.waitForTimeout(800);
+    { const av = await p.textContent('#gs-raiz #aviso'), cartas = await (await p.request.get(BASE + '/__teste/cartas')).json();
+      ok('"Enviar e-mail de teste" chama a função e envia', /enviados: [1-9]/.test(av) && cartas.some((c) => c.to === 'pedro@teste'), av + ' | ' + JSON.stringify(cartas)); }
+    ok('lista mostra o e-mail enviado', /enviado/.test(await p.textContent('#adm-corpo')));
+    await p.click('.gs-bt-mais'); await p.click('[data-acao=avisos]'); await p.waitForSelector('[data-pref=resumo]'); await p.waitForTimeout(250);
+    await p.uncheck('[data-pref=resumo]'); await p.click('#btn-salvar-pref'); await p.waitForTimeout(1200);
+    ok('cada pessoa escolhe os próprios avisos por e-mail', sql("select pref_email->>'resumo' from perfis where email='pedro@teste'") === 'false');
+
     // ── exclusão: equipe não exclui cliente ──
     const ctxE = await pagina();
     await entrar(ctxE, 'equipe@teste'); await carregado(ctxE);
