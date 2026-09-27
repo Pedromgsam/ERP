@@ -1804,3 +1804,28 @@ begin
 exception when others then
   raise notice 'Agendador indisponível: use o botão "Buscar agora" em Jurídico → Publicações.';
 end $$;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- v12 (2026-09-28) — reimportar substituindo, contratos recorrentes,
+-- alertas, atualização diária do CNPJ
+-- ═══════════════════════════════════════════════════════════════════
+-- apaga o que veio de planilha (chave_importacao) de um tipo, para importar de novo do zero
+create or replace function public.limpar_importados(p_tipo text) returns int
+language plpgsql security definer set search_path = public as $$
+declare n int := 0;
+begin
+  if not public.eh_admin() then raise exception 'Só o administrador substitui importações.'; end if;
+  if p_tipo = 'financeiro' then delete from public.lancamentos where empresa = 'escritorio' and chave_importacao is not null;
+  elsif p_tipo = 'contabilidade' then delete from public.lancamentos where empresa = 'contabilidade' and chave_importacao is not null;
+  elsif p_tipo = 'acordos' then delete from public.acordos where chave_importacao is not null;
+  elsif p_tipo = 'processos' then delete from public.processos where chave_importacao is not null;
+  elsif p_tipo = 'parcelamentos' then delete from public.parcelamentos where chave_importacao is not null;   -- as parcelas vão junto
+  elsif p_tipo = 'tarefas' then delete from public.tarefas where chave_importacao is not null;
+  elsif p_tipo = 'base' then raise exception 'Clientes não são apagados na substituição (têm contratos e documentos ligados): use Atualizar.';
+  else raise exception 'Tipo de planilha desconhecido: %', p_tipo;
+  end if;
+  get diagnostics n = row_count;
+  return n;
+end $$;
+revoke all on function public.limpar_importados(text) from anon;
+grant execute on function public.limpar_importados(text) to authenticated;

@@ -41,12 +41,7 @@ TELAS.publicacoes = async function () {
     '<input class="busca" id="pub-busca" placeholder="Buscar no texto, processo ou parte" autocomplete="off"></div><div id="pub-corpo"><div class="carregando">Carregando…</div></div>';
   $('pub-oabs').onclick = () => janelaOabs();
   $('pub-buscar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
-    const { data, error } = await sb.functions.invoke('erp-publicacoes', { body: {} });
-    if (error) {
-      let det = ''; try { det = (await error.context.json()).erro || ''; } catch (e) { /* sem corpo */ }
-      throw new Error(det || 'A função "erp-publicacoes" não respondeu. Confira se ela foi publicada no Supabase (Edge Functions) e se "Verify JWT" está desligado.');
-    }
-    if (data && data.erro) throw new Error(data.erro);
+    const data = await chamarFuncao('erp-publicacoes', {});
     if (!data.oabs) throw new Error('Cadastre pelo menos uma OAB em "OABs monitoradas".');
     aviso('✓ Busca feita: ' + data.lidas + ' publicação(ões) lida(s), ' + data.novas + ' nova(s).' + (data.erros && data.erros.length ? ' Atenção: ' + data.erros[0] : ''));
     await TELAS.publicacoes();

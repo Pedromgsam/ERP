@@ -269,3 +269,19 @@ select pg_temp.ok((select count(*) from notificacoes where tipo='publicacao')=1,
 begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-0000000000f1');
 select pg_temp.ok((select count(*) from publicacoes)=0,'sem a função Jurídico não vê publicações');
 commit;
+
+-- v12: substituir importação
+insert into lancamentos(empresa,tipo,descricao,vencimento,valor,chave_importacao) values ('contabilidade','receita','Importado errado','2026-10-10',100,'fin:contabilidade:teste'),('contabilidade','receita','Lançado à mão','2026-10-10',50,null);
+begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-00000000000b');
+do $$ begin
+  perform public.limpar_importados('contabilidade');
+  raise exception 'FALHOU: equipe substituiu importação';
+exception when raise_exception then
+  if sqlerrm like 'FALHOU%' then raise; end if;
+  raise notice 'PASSA: só o admin substitui importação';
+end $$;
+commit;
+begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-00000000000a');
+select public.limpar_importados('contabilidade');
+commit;
+select pg_temp.ok((select count(*) from lancamentos where descricao='Importado errado')=0 and (select count(*) from lancamentos where descricao='Lançado à mão')=1,'substituir apaga só o que veio da planilha');

@@ -172,6 +172,8 @@ async function admImportar(corpo) {
     '<li>Escolha os arquivos abaixo (pode escolher vários de uma vez). Nada é gravado antes de você conferir e clicar em <b>Importar</b>.</li></ol>' +
     '<div class="dica" style="margin:10px 0">A coluna <b>Senha</b> da Base de Dados <b>não é importada</b>. As planilhas não são alteradas. ' +
     'Importar de novo a mesma planilha <b>atualiza</b> os registros que vieram dela, sem duplicar.</div>' +
+    '<div class="dica" style="margin:0 0 10px">Dados errados (ex.: acordos que apareceram na Contabilidade)? Faça um <b>Backup</b>, envie de novo <b>12 - Financeiro - Contabilidade</b> e <b>4 - Acordos</b> ' +
+    'e escolha <b>Substituir</b> antes de importar.</div>' +
     '<label class="btn btn-p" style="cursor:pointer">Escolher arquivos .xlsx<input type="file" id="imp-arquivos" accept=".xlsx" multiple hidden></label>' +
     '</div></div><div id="imp-previa"></div>';
   $('imp-arquivos').onchange = (ev) => lerArquivosImportacao(Array.from(ev.target.files));
@@ -187,7 +189,7 @@ async function lerArquivosImportacao(arquivos) {
     for (const arq of arquivos) {
       const wb = new window.ExcelJS.Workbook();
       await wb.xlsx.load(await arq.arrayBuffer());
-      const res = window.IMPORTADOR.importar(window.IMPORTADOR.lerWorkbook(wb));
+      const res = window.IMPORTADOR.importar(window.IMPORTADOR.lerWorkbook(wb), arq.name);
       res.arquivo = arq.name;
       _importacoes.push(res);
     }
@@ -219,7 +221,9 @@ async function lerArquivosImportacao(arquivos) {
   (validos.length ? '<div class="card"><div class="card-bd">' +
     '<label class="check"><input type="radio" name="imp-modo" value="atualizar" checked> Incluir novos <b>e atualizar</b> os que já vieram destas planilhas</label>' +
     '<label class="check" style="margin-top:6px"><input type="radio" name="imp-modo" value="novos"> Só incluir novos (não mexe no que já foi importado)</label>' +
-    '<div class="dica" style="margin:10px 0">Atualizar sobrescreve, nesses registros, alterações que alguém tenha feito no sistema novo depois da última importação.</div>' +
+    '<label class="check" style="margin-top:6px"><input type="radio" name="imp-modo" value="substituir"> <b>Substituir</b>: apagar tudo o que veio antes <b>deste tipo de planilha</b> e gravar de novo (corrige importações erradas)</label>' +
+    '<div class="dica" style="margin:10px 0">Atualizar sobrescreve, nesses registros, alterações que alguém tenha feito no sistema novo depois da última importação. ' +
+    '<b>Substituir</b> apaga só o que veio de planilha (lançamentos criados à mão e parcelas de contratos ficam); faça um <b>Backup</b> antes.</div>' +
     '<button class="btn btn-p" id="imp-gravar">Importar ' + totalReg + ' registro(s)</button> <span id="imp-progresso" class="sub"></span>' +
     '</div></div>' : '');
   const b = $('imp-gravar');
@@ -253,6 +257,16 @@ async function gravarImportacao() {
   const modo = (document.querySelector('input[name=imp-modo]:checked') || {}).value || 'atualizar';
   const prog = $('imp-progresso');
   const validos = _importacoes.filter((r) => r.tipo);
+  if (modo === 'substituir') {
+    const tipos = [...new Set(validos.map((r) => r.tipo))];
+    if (!confirm('Substituir: vou apagar o que foi importado antes de ' + tipos.map((t) => ({ base: 'Base de Dados', financeiro: 'Honorários Jurídico', contabilidade: 'Contabilidade',
+      processos: 'Processos', parcelamentos: 'Parcelamentos', acordos: 'Acordos', tarefas: 'Tarefas' }[t])).join(', ') + ' e gravar de novo a partir destas planilhas. Continuar?')) return;
+    for (const t of tipos.filter((x) => x !== 'base')) {   // clientes não são apagados: a Base de Dados sempre atualiza
+      prog.textContent = 'Apagando o que foi importado antes…';
+      const n = await q(sb.rpc('limpar_importados', { p_tipo: t }));
+      console.info('[importação] apagados de ' + t + ':', n);
+    }
+  }
   // 1. grupos que ainda não existem
   prog.textContent = 'Criando grupos…';
   await carregarCadastros();
@@ -499,7 +513,7 @@ async function admEmail(corpo) {
     campo('Endereço do sistema (botão "Abrir no ERP")', '<input name="url" value="' + esc(location.origin) + '">', 'inteiro') +
     '</form>' +
     '<div class="acoes" style="margin-top:12px"><button class="btn btn-p" id="email-salvar">Salvar</button><button class="btn btn-o" id="email-teste">Enviar e-mail de teste</button>' +
-    '<button class="btn btn-o" id="email-agora">Enviar fila agora</button><button class="btn btn-o" id="email-resumo">Mandar resumo do dia agora</button></div>' +
+    '<button class="btn btn-o" id="email-diag">🩺 Verificar funções</button><button class="btn btn-o" id="email-agora">Enviar fila agora</button><button class="btn btn-o" id="email-resumo">Mandar resumo do dia agora</button></div>' +
     (st.configurado_em ? '<p class="sub" style="margin-top:8px">Configurado em ' + dataHoraBR(st.configurado_em) + '.</p>' : '') +
     '</div></div>' +
     '<div class="card"><div class="card-hd">Como configurar (uma vez)</div><div class="card-bd" id="email-ajuda"></div></div></div>' +
@@ -534,16 +548,17 @@ async function admEmail(corpo) {
     aviso('✓ Configuração de e-mail salva.'); await pintarAdmin();
   });
   const chamar = async (acao, msgOk) => {
-    const { data, error } = await sb.functions.invoke('erp-emails', { body: { acao } });
-    if (error) {
-      let det = ''; try { det = (await error.context.json()).erro || ''; } catch (e) { /* sem corpo */ }
-      throw new Error(det || 'A função "erp-emails" não respondeu. Confira se ela foi publicada no Supabase (Edge Functions) e se "Verify JWT" está desligado.');
-    }
-    if (data && data.erro) throw new Error(data.erro);
+    const data = await chamarFuncao('erp-emails', { acao });
     if (data && data.aviso) throw new Error(data.aviso);
     aviso('✓ ' + msgOk + ' — enviados: ' + ((data && data.enviados) || 0) + (data && data.erros ? ', com erro: ' + data.erros + ' (' + data.ultimoErro + ')' : '') + '.');
     await pintarAdmin();
   };
+  $('email-diag').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    const r = await verificarFuncoes();
+    const j = abrirJanela({ titulo: 'Funções do Supabase', corpo: '<div class="lista-ficha">' + r.map(([n, ok, m]) => '<div class="item-ficha"><div><b>' + (ok ? '✅ ' : '❌ ') + n + '</b><div class="sub">' + esc(m) + '</div></div></div>').join('') + '</div>' +
+      '<p class="sub" style="margin-top:10px">Para publicar: Supabase → Edge Functions → Deploy a new function → Via Editor → nome exatamente como acima → cole o arquivo de <code>supabase/functions/NOME/index.ts</code> (botão Raw no GitHub) → Deploy → desligue "Verify JWT".</p>' });
+    return j;
+  });
   $('email-teste').onclick = (ev) => comBotao(ev.currentTarget, () => chamar('teste', 'Teste enviado para o seu e-mail'));
   $('email-agora').onclick = (ev) => comBotao(ev.currentTarget, () => chamar('enviar', 'Fila enviada'));
   $('email-resumo').onclick = (ev) => comBotao(ev.currentTarget, () => chamar('resumo', 'Resumo do dia montado'));

@@ -11,6 +11,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import nodemailer from 'npm:nodemailer@6.9.14';
 
+const VERSAO = '2026-09-28';
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-erp-segredo',
@@ -81,6 +82,7 @@ export async function tratar(req, db, mailer) {
     const quem = await autorizado(req, db);
     if (!quem) return resposta({ erro: 'Sem permissão.' }, 401);
     const corpo = await req.json().catch(() => ({}));
+    if (corpo.acao === 'ping') return resposta({ ok: true, versao: VERSAO });
     const acao = corpo.acao || 'enviar';
     if (acao === 'teste') {
       if (!quem.admin) return resposta({ erro: 'Só o administrador envia o teste.' }, 403);

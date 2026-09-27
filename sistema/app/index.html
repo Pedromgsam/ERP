@@ -5349,11 +5349,7 @@ function _faEsqueleto(){
   + '</div>'
   + '<div class="fa-resumo" id="faResumo"></div>'
   + '</div>'
-  + '<div id="faCorpo"></div>'
-  + '<div class="cc"><div class="cc-hd" style="align-items:center"><div><div class="cc-t">Lançamentos</div>'
-  +   '<div class="cc-d">os filtros do topo já valem para esta lista · clique no cabeçalho para ordenar</div></div>'
-  +   '<span class="fa-dica" id="faLqCount"></span></div>'
-  +   '<div id="faLancTbl"></div></div>';
+  + '<div id="faCorpo"></div>';
 }
 
 function _faSyncBar(){
@@ -5418,7 +5414,6 @@ function _faPintarCorpo(){
   +   (cliente?'':kC('Prejuízo',_faFT(vPrej),prejuizo.length+' baixa(s)','cx',vPrej>0?'dr':''))
   +   kC('Ticket médio',_faFT(ticket),'por lançamento recebido','cv','dv')
   + '</div>'
-  + (vencidos.length?'<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t">⚠ Em atraso</div><div class="cc-d">todos os meses · mesmos recortes de pessoa, tipo e grupo</div></div></div>'+_faTabelaDetalhe(vencidos.slice().sort(function(a,b){return (pDate(a.vencimento)||0)-(pDate(b.vencimento)||0);}))+'</div>':'')
   + '<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t">Recebido mês a mês</div>'
   +   '<div class="cc-d">empilhado por pessoa · passe o mouse na coluna para ver o total do mês</div></div></div>'
   +   '<div class="cb" style="height:280px"><canvas id="cFaMes"></canvas></div></div>'
@@ -5432,7 +5427,8 @@ function _faPintarCorpo(){
   + '</div>'
   + '<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t">Comparativo por pessoa</div>'
   +   '<div class="cc-d">mesmo período e mesmos recortes acima</div></div></div>'
-  +   _faTabelaPessoas(_faPessoas()) + '</div>';
+  +   _faTabelaPessoas(_faPessoas()) + '</div>'
+  + (vencidos.length?'<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t">⚠ Em atraso</div><div class="cc-d">todos os meses · mesmos recortes de pessoa, tipo e grupo</div></div></div>'+_faTabelaDetalhe(vencidos.slice().sort(function(a,b){return (pDate(a.vencimento)||0)-(pDate(b.vencimento)||0);}))+'</div>':'');
 
   _faGraficos(receita);
 }

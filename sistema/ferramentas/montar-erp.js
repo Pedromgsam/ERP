@@ -109,9 +109,13 @@ trocar("var vencidos=aberto.filter(function(f){ var d=_fcData(f); return d&&d<ho
   "var vencidos=" + semPeriodo('_FC', '_fcFiltrar', '[L.abaAberto]') + ".filter(function(f){ var d=pDate(f.vencimento); return d&&d<hoje; });", 1);
 trocar("  +   kC('Vencido',_faFT(vVenc),vencidos.length+' lançamento(s)','cr',vVenc>0?'dr':'')",
   "  +   kC('Em atraso',_faFT(vVenc),vencidos.length+' vencido(s) · todos os meses','cr',vVenc>0?'dr':'')", 2);
-trocar("  + '<div class=\"cc\" style=\"margin-bottom:14px\"><div class=\"cc-hd\"><div><div class=\"cc-t\">Recebido mês a mês</div>'",
-  "  + (vencidos.length?'<div class=\"cc\" style=\"margin-bottom:14px\"><div class=\"cc-hd\"><div><div class=\"cc-t\">⚠ Em atraso</div><div class=\"cc-d\">todos os meses · mesmos recortes de pessoa, tipo e grupo</div></div></div>'+_faTabelaDetalhe(vencidos.slice().sort(function(a,b){return (pDate(a.vencimento)||0)-(pDate(b.vencimento)||0);}))+'</div>':'')\n"
-  + "  + '<div class=\"cc\" style=\"margin-bottom:14px\"><div class=\"cc-hd\"><div><div class=\"cc-t\">Recebido mês a mês</div>'", 1);
+// Análise (Jurídico): ordem Recebido mês a mês → tipo de serviço e maiores grupos → comparativo por pessoa → Em atraso
+trocar("  +   _faTabelaPessoas(_faPessoas()) + '</div>';",
+  "  +   _faTabelaPessoas(_faPessoas()) + '</div>'\n" +
+  "  + (vencidos.length?'<div class=\"cc\" style=\"margin-bottom:14px\"><div class=\"cc-hd\"><div><div class=\"cc-t\">⚠ Em atraso</div><div class=\"cc-d\">todos os meses · mesmos recortes de pessoa, tipo e grupo</div></div></div>'+_faTabelaDetalhe(vencidos.slice().sort(function(a,b){return (pDate(a.vencimento)||0)-(pDate(b.vencimento)||0);}))+'</div>':'');", 1);
+// Análise (Jurídico): sem a lista de lançamentos (os lançamentos já estão em A Receber / Recebidos)
+trocar("  + '<div id=\"faCorpo\"></div>'\n  + '<div class=\"cc\"><div class=\"cc-hd\" style=\"align-items:center\"><div><div class=\"cc-t\">Lançamentos</div>'\n  +   '<div class=\"cc-d\">os filtros do topo já valem para esta lista · clique no cabeçalho para ordenar</div></div>'\n  +   '<span class=\"fa-dica\" id=\"faLqCount\"></span></div>'\n  +   '<div id=\"faLancTbl\"></div></div>';",
+  "  + '<div id=\"faCorpo\"></div>';", 1);
 trocar("  + '<div class=\"cc\" style=\"margin-bottom:14px\"><div class=\"cc-hd\"><div><div class=\"cc-t\">'+(L.lado==='pagar'?'Pago':'Recebido')+' mês a mês</div>'",
   "  + (vencidos.length?'<div class=\"cc\" style=\"margin-bottom:14px\"><div class=\"cc-hd\"><div><div class=\"cc-t\">⚠ Em atraso</div><div class=\"cc-d\">todos os meses · mesmos recortes</div></div></div>'+_fcTabelaDetalhe(vencidos)+'</div>':'')\n"
   + "  + '<div class=\"cc\" style=\"margin-bottom:14px\"><div class=\"cc-hd\"><div><div class=\"cc-t\">'+(L.lado==='pagar'?'Pago':'Recebido')+' mês a mês</div>'", 1);
