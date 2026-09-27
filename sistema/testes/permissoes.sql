@@ -260,3 +260,12 @@ exception when raise_exception then
   if sqlerrm like 'FALHOU%' then raise; end if;
   raise notice 'PASSA: perder exige o motivo';
 end $$;
+
+-- v11: publicações
+insert into processos(numero) values ('5000009-99.2026.8.13.0024');
+insert into publicacoes(id_origem, processo, processo_numero, tribunal, advogado, texto) values ('t:1','5000009-99.2026.8.13.0024','50000099920268130024','TJMG','Fabiana','Intimação');
+select pg_temp.ok((select processo_id is not null from publicacoes where id_origem='t:1'),'publicação liga ao processo pelo número');
+select pg_temp.ok((select count(*) from notificacoes where tipo='publicacao')=1,'publicação nova avisa o advogado');
+begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-0000000000f1');
+select pg_temp.ok((select count(*) from publicacoes)=0,'sem a função Jurídico não vê publicações');
+commit;

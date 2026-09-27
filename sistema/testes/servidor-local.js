@@ -30,7 +30,7 @@ function sessao(u) {
   return { access_token: jwt({ sub: u.id, email: u.email, role: 'authenticated', aud: 'authenticated', exp }),
            token_type: 'bearer', expires_in: 3600, expires_at: exp, refresh_token: 'r-' + u.email, user: u };
 }
-const RECUPERACOES = [], ARQUIVOS = {}; let FUNCAO = null;
+const RECUPERACOES = [], ARQUIVOS = {}, PEDIDOS_DJEN = []; let FUNCAO = null, FUNCAO_PUB = null;
 function json(res, cod, obj) { res.writeHead(cod, { 'content-type': 'application/json', 'access-control-allow-origin': '*' }); res.end(JSON.stringify(obj)); }
 http.createServer((req, res) => {
   let corpo = []; req.on('data', (c) => corpo.push(c)); req.on('end', () => {
@@ -83,12 +83,33 @@ http.createServer((req, res) => {
     if (u.pathname === '/__teste/arquivos') return json(res, 200, Object.keys(ARQUIVOS));
     // Edge Function "erp-emails": roda o código real, com carteiro falso (as cartas ficam em /__teste/cartas)
     if (u.pathname === '/functions/v1/erp-emails') {
-      FUNCAO = FUNCAO || require('./funcao-emails.js').carregar('http://127.0.0.1:' + PORTA);
+      try { FUNCAO = FUNCAO || require('./funcao-emails.js').carregar('http://127.0.0.1:' + PORTA); } catch (e) { console.error(e); return json(res, 500, { erro: 'Função não carregou: ' + e.message }); }
       const h = new Headers(); Object.entries(req.headers).forEach(([k, v]) => h.set(k, v));
       return FUNCAO.tratar(new Request('http://x' + u.pathname, { method: req.method, headers: h, body: req.method === 'POST' ? corpo : undefined }))
         .then(async (r2) => { const cab = { 'access-control-allow-origin': '*' }; r2.headers.forEach((v, k) => { cab[k] = v; }); res.writeHead(r2.status, cab); res.end(await r2.text()); })
         .catch((e) => json(res, 500, { erro: e.message }));
     }
+    if (u.pathname === '/functions/v1/erp-publicacoes') {
+      try { FUNCAO_PUB = FUNCAO_PUB || require('./funcao-emails.js').carregarPublicacoes('http://127.0.0.1:' + PORTA); } catch (e) { console.error(e); return json(res, 500, { erro: 'Função não carregou: ' + e.message }); }
+      const h = new Headers(); Object.entries(req.headers).forEach(([k, v]) => h.set(k, v));
+      return FUNCAO_PUB.tratar(new Request('http://x' + u.pathname, { method: req.method, headers: h, body: req.method === 'POST' ? corpo : undefined }))
+        .then(async (r2) => { const cab = { 'access-control-allow-origin': '*' }; r2.headers.forEach((v, k) => { cab[k] = v; }); res.writeHead(r2.status, cab); res.end(await r2.text()); })
+        .catch((e) => json(res, 500, { erro: e.message }));
+    }
+    // imitação da API pública do CNJ (Comunica PJe): 2 publicações para a OAB 123456/MG (dados fictícios)
+    if (u.pathname === '/__teste/djen/comunicacao') {
+      PEDIDOS_DJEN.push(u.search);
+      const ok = u.searchParams.get('numeroOab') === '123456' && u.searchParams.get('ufOab') === 'MG' && u.searchParams.get('pagina') === '1';
+      return json(res, 200, { status: 'success', count: ok ? 2 : 0, items: ok ? [
+        { id: 900001, data_disponibilizacao: '2026-09-25', siglaTribunal: 'TJMG', tipoComunicacao: 'Intimação', nomeOrgao: '2ª Vara de Feitos Tributários',
+          texto: '<p>Fica a parte executada INTIMADA para, no prazo de 15 dias, manifestar-se sobre a exceção de pré-executividade.</p>', numero_processo: '50000011120248130024',
+          numeroprocessocommascara: '5000001-11.2024.8.13.0024', nomeClasse: 'Execução Fiscal', link: 'https://exemplo.invalido/1',
+          destinatarios: [{ nome: 'ALFA COMERCIO LTDA', polo: 'P' }], destinatarioadvogados: [{ advogado: { nome: 'ADVOGADO FICTICIO', numero_oab: '123456', uf_oab: 'MG' } }] },
+        { id: 900002, datadisponibilizacao: '24/09/2026', siglaTribunal: 'TRT3', tipoComunicacao: 'Edital', nomeOrgao: 'Vara do Trabalho', texto: 'Audiência designada.',
+          numeroProcesso: '00012345520235030001', destinatarios: [], destinatarioadvogados: [] }
+      ] : [] });
+    }
+    if (u.pathname === '/__teste/djen-pedidos') return json(res, 200, PEDIDOS_DJEN);
     if (u.pathname === '/__teste/cartas') return json(res, 200, FUNCAO ? FUNCAO.cartas.map((c) => ({ to: c.to, subject: c.subject })) : []);
     if (u.pathname.startsWith('/rest/v1/')) {
       const alvo = PGRST + u.pathname.replace('/rest/v1', '') + u.search;

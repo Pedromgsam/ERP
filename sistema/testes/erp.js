@@ -40,6 +40,7 @@ insert into acordos(grupo_id,processo,devedor,credor,parcela,total_parcelas,valo
 insert into tarefas(titulo,responsavel,prazo) values ('Protocolar defesa','Pedro',current_date + 2);
 insert into configuracoes(chave,valor) values ('recibo_emitentes','{"pedro":{"label":"Pedro","nome":"ADVOGADO FICTICIO","oab":"OAB/MG 1","local":"Cidade/MG","qualif":"advogado ficticio, e-mail teste@teste","email":"teste@teste"}}');
 insert into auth.users(email,senha_teste,raw_user_meta_data) values ('cliente@teste','senha123','{"nome":"Cliente Alfa"}');
+update config_privada set valor = to_jsonb('http://127.0.0.1:8090/__teste/djen'::text) where chave = 'api_publicacoes';
 insert into auth.users(email,senha_teste,raw_user_meta_data) values ('fin@teste','senha123','{"nome":"Fabiana Financeiro"}');
 update perfis set papel='equipe', funcoes='{"financeiro_juridico":"editar"}' where email='fin@teste';
 update perfis set papel='cliente' where email='cliente@teste';
@@ -425,6 +426,29 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.click('#cr-vista [data-v=painel]'); await p.waitForTimeout(800);
     ok('painel do CRM: ganhos no mês e origem que mais converte', /Ganhos no mês/.test(await p.textContent('#cr-corpo')) && /R\$\s12\.000,00/.test(await p.textContent('#cr-corpo')));
     await foto(p, 'crm-painel');
+
+    // ── Publicações: OAB monitorada → busca → tarefa com prazo em dias úteis ──
+    await nav(p, 'publicacoes'); await p.waitForTimeout(1200);
+    ok('Publicações no menu Jurídico', await p.evaluate(() => !!document.querySelector('#tn .tn-grupo [data-ir=publicacoes]')));
+    await p.click('#pub-oabs'); await p.waitForSelector('#f-oab'); await p.waitForTimeout(250);
+    await p.fill('#f-oab [name=numero]', '123.456'); await p.fill('#f-oab [name=advogado]', 'Adriana'); await p.click('#btn-add-oab'); await p.waitForTimeout(1200);
+    await p.keyboard.press('Escape'); await p.waitForTimeout(200);
+    ok('OAB cadastrada (só números)', sql("select numero||'/'||uf from oabs_monitoradas") === '123456/MG');
+    await p.click('#pub-buscar');
+    await p.waitForFunction(() => /Busca feita|não respondeu|Sem permissão/.test(document.querySelector('#gs-raiz #aviso').textContent), null, { timeout: 15000 }).catch(() => {});
+    await p.waitForTimeout(1500);
+    ok('"Buscar agora" traz as publicações da OAB (datas nos dois formatos)', sql("select count(*) from publicacoes") === '2' && sql("select string_agg(data_disponibilizacao::text, ',' order by data_disponibilizacao) from publicacoes") === '2026-09-24,2026-09-25',
+      await p.textContent('#gs-raiz #aviso'));
+    ok('publicação liga ao processo cadastrado e avisa a advogada', sql("select count(*) from publicacoes where processo_id is not null") === '1' &&
+      sql("select count(*) from notificacoes n join perfis pf on pf.id=n.usuario_id where pf.email='equipe@teste' and n.tipo='publicacao'") === '2');
+    ok('texto sem HTML e com as palavras importantes destacadas', sql("select count(*) from publicacoes where texto like '%<p>%'") === '0' && (await p.$$('#pub-corpo mark')).length > 0);
+    await p.click('#pub-buscar'); await p.waitForTimeout(2500);
+    ok('buscar de novo não duplica', sql("select count(*) from publicacoes") === '2');
+    await p.click('#pub-corpo [data-pub]:has-text("5000001-11.2024.8.13.0024") [data-tarefa]'); await p.waitForSelector('#f-tf'); await p.waitForTimeout(300);
+    ok('tarefa sugerida com prazo de 15 dias úteis (pula feriado de 12/10)', await p.inputValue('#f-tf [name=prazo]') === '2026-10-19' && /Execução|execução|intimação/i.test(await p.inputValue('#f-tf [name=titulo]')));
+    await salvarGs(p, '#btn-salvar-tf'); await p.waitForTimeout(800);
+    ok('publicação fica "tratada" e ligada à tarefa', sql("select status||'|'||(tarefa_id is not null) from publicacoes where processo_numero='50000011120248130024'") === 'tratada|true');
+    await foto(p, 'publicacoes');
 
     // ── exclusão: equipe não exclui cliente ──
     const ctxE = await pagina();

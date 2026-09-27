@@ -1718,3 +1718,89 @@ begin
     'Contrato: ' || new.descricao);
   return null;
 end $$;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- v11 (2026-09-27) — BUSCADOR DE PUBLICAÇÕES (Diário de Justiça Eletrônico Nacional)
+-- A função "erp-publicacoes" consulta a API pública e gratuita do CNJ
+-- (Comunica PJe) pelas OABs cadastradas e guarda aqui, sem duplicar.
+-- ═══════════════════════════════════════════════════════════════════
+create table if not exists public.oabs_monitoradas (
+  id uuid primary key default gen_random_uuid(),
+  numero text not null check (btrim(numero) <> ''), uf text not null default 'MG', advogado text not null default '',
+  ativo boolean not null default true,
+  criado_em timestamptz not null default now(), atualizado_em timestamptz not null default now(),
+  unique (numero, uf)
+);
+create table if not exists public.publicacoes (
+  id uuid primary key default gen_random_uuid(),
+  id_origem text not null unique,
+  data_disponibilizacao date, tribunal text not null default '', orgao text not null default '', tipo text not null default '',
+  processo text not null default '', processo_numero text not null default '', classe text not null default '',
+  texto text not null default '', link text not null default '', destinatarios text not null default '', advogados text not null default '',
+  oab_numero text not null default '', oab_uf text not null default '', advogado text not null default '',
+  processo_id uuid references public.processos(id) on delete set null,
+  status text not null default 'nova' check (status in ('nova','lida','tratada','descartada')),
+  tarefa_id uuid references public.tarefas(id) on delete set null,
+  bruto jsonb,
+  criado_em timestamptz not null default now(), atualizado_em timestamptz not null default now()
+);
+create index if not exists publicacoes_data on public.publicacoes (data_disponibilizacao desc);
+
+-- nova publicação: liga ao processo cadastrado e avisa o advogado (sino e e-mail)
+create or replace function public.publicacao_nova() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare quem uuid;
+begin
+  if new.processo_id is null and new.processo_numero <> '' then
+    update public.publicacoes set processo_id = (select id from public.processos where regexp_replace(numero, '\D', '', 'g') = new.processo_numero limit 1)
+     where id = new.id;
+  end if;
+  quem := public.usuario_por_nome(new.advogado);
+  if quem is not null then
+    insert into public.notificacoes (usuario_id, tipo, titulo, detalhe, link)
+    values (quem, 'publicacao', 'Publicação nova: ' || coalesce(nullif(new.tipo, ''), 'comunicação') || ' — ' || coalesce(nullif(new.processo, ''), new.tribunal),
+            new.tribunal || coalesce(' · ' || to_char(new.data_disponibilizacao, 'DD/MM/YYYY'), ''), 'publicacoes');
+  end if;
+  return null;
+end $$;
+drop trigger if exists publicacao_nova on public.publicacoes;
+create trigger publicacao_nova after insert on public.publicacoes for each row execute function public.publicacao_nova();
+
+do $$
+declare t text;
+begin
+  foreach t in array array['oabs_monitoradas','publicacoes'] loop
+    execute format('alter table public.%1$s enable row level security', t);
+    execute format('revoke all on public.%1$s from anon', t);
+    execute format('grant select, insert, update, delete on public.%1$s to authenticated', t);
+    execute format('drop trigger if exists atualizado_%1$s on public.%1$s', t);
+    execute format('create trigger atualizado_%1$s before update on public.%1$s for each row execute function public.marcar_atualizacao()', t);
+    execute format('drop policy if exists %1$s_ver on public.%1$s', t);
+    execute format('create policy %1$s_ver on public.%1$s for select to authenticated using (public.pode(''juridico''))', t);
+    execute format('drop policy if exists %1$s_incluir on public.%1$s', t);
+    execute format('create policy %1$s_incluir on public.%1$s for insert to authenticated with check (public.pode(''juridico'',''editar''))', t);
+    execute format('drop policy if exists %1$s_alterar on public.%1$s', t);
+    execute format('create policy %1$s_alterar on public.%1$s for update to authenticated using (public.pode(''juridico'',''editar'')) with check (public.pode(''juridico'',''editar''))', t);
+    execute format('drop policy if exists %1$s_excluir on public.%1$s', t);
+    execute format('create policy %1$s_excluir on public.%1$s for delete to authenticated using (public.eh_admin())', t);
+  end loop;
+  if exists (select 1 from pg_roles where rolname = 'service_role') then
+    execute 'grant select, insert, update on public.oabs_monitoradas, public.publicacoes, public.configuracoes to service_role';
+  end if;
+end $$;
+insert into public.config_privada (chave, valor) values ('api_publicacoes', to_jsonb('https://comunicaapi.pje.jus.br/api/v1'::text)) on conflict (chave) do nothing;
+
+-- busca automática: dias úteis às 7h e às 13h (Brasília)
+do $$
+begin
+  perform cron.unschedule(jobid) from cron.job where jobname = 'erp_publicacoes';
+  perform cron.schedule('erp_publicacoes', '0 10,16 * * 1-5', $cron$
+    select net.http_post(
+      url := (select valor #>> '{}' from public.config_privada where chave = 'url_projeto') || '/functions/v1/erp-publicacoes',
+      headers := jsonb_build_object('Content-Type', 'application/json', 'x-erp-segredo', (select valor #>> '{}' from public.config_privada where chave = 'segredo_funcoes')),
+      body := '{}'::jsonb)
+    where exists (select 1 from public.oabs_monitoradas where ativo)
+  $cron$);
+exception when others then
+  raise notice 'Agendador indisponível: use o botão "Buscar agora" em Jurídico → Publicações.';
+end $$;

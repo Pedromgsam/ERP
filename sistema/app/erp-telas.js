@@ -20,7 +20,7 @@
   const MENU = [
     { id: 'hoje', rot: 'Início', equipe: true },
     { id: 'resumo', rot: 'Painel Executivo', func: 'relatorios' },
-    { rot: 'Jurídico', itens: [['processos', 'Processos', 'juridico'], ['acordos', 'Acordos', 'juridico'], ['parcelamentos', 'Parcelamentos', 'juridico']] },
+    { rot: 'Jurídico', itens: [['processos', 'Processos', 'juridico'], ['acordos', 'Acordos', 'juridico'], ['parcelamentos', 'Parcelamentos', 'juridico'], ['publicacoes', 'Publicações', 'juridico']] },
     { rot: 'Financeiro', equipe: true, itens: [['financeiro', 'Jurídico', 'financeiro_juridico'], ['financeiroContab', 'Contabilidade', 'financeiro_contab']] },
     { id: 'contratos', rot: 'Contratos', equipe: true, func: 'contratos' },
     { id: 'clientes', rot: 'Clientes', equipe: true, func: 'clientes' },
@@ -31,7 +31,7 @@
     { id: 'admin', rot: 'Administração', admin: true }
   ];
   // painéis novos → tela do Gestão que desenha nele
-  const TELAS_GS = { hoje: 'inicio', contratos: 'contratos', clientes: 'clientes', crm: 'crm', documentos: 'documentos', tarefas: 'tarefas', admin: 'admin' };
+  const TELAS_GS = { hoje: 'inicio', contratos: 'contratos', clientes: 'clientes', crm: 'crm', publicacoes: 'publicacoes', documentos: 'documentos', tarefas: 'tarefas', admin: 'admin' };
 
   // "+ Lançar": formulários do Gestão onde existem; os demais, do editor do ERP
   const empresaAtual = () => (_painel === 'financeiroContab' ? 'contabilidade' : 'escritorio');
