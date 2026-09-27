@@ -10,7 +10,9 @@ e as telas ficam hospedadas na **Vercel**. Não usa Google Sheets nem Apps Scrip
 | `app/index.html` | **O ERP** — o mesmo HTML do ERP antigo, gerado por `ferramentas/montar-erp.js` |
 | `app/erp-dados.js` | Ponte ERP ↔ Supabase: entrega os dados no formato que o ERP sempre usou |
 | `app/editor.js` | Formulários: lançar, editar, dar baixa (✎ e ✓ em cada linha, botão **+ Lançar**) |
-| `app/erp-telas.js` | Barra superior e as telas Início, Clientes, Contratos, Tarefas e Administração |
+| `app/erp-telas.js` | Barra superior (padrão Gestão), menu, e as tabelas de Honorários no formato do Gestão |
+| `app/gestao-embutida.js`, `app/gs.css` | GERADOS por `ferramentas/montar-erp.js`: as telas do Gestão (Início, Contratos, Clientes, Tarefas, Administração e formulários) rodando dentro do ERP |
+| `app/telas-tarefas.js` | Tela de Tarefas no padrão do Gestão |
 | `app/gestao.html` | Gestão antigo (mantido por segurança; usa os mesmos dados) |
 | `testes/` | Testes automáticos do banco e das telas (rodam sem internet) |
 
@@ -21,22 +23,19 @@ continuam as do `ERP.html` — por exemplo, a dívida de pessoa física (CPF sem
 no total do grupo, a dívida negociada entra no total, e processos repetidos (polo ativo/passivo) são
 contados uma vez. Só a origem dos dados mudou: em vez do Apps Script, o `erp-dados.js` lê do Supabase.
 
-**Menu** (barra superior): Início · Painel Executivo · Jurídico (Processos, Acordos, Parcelamentos) ·
-Financeiro (Honorários Jurídico, Honorários Contabilidade, Contratos, Notificações e recibos) · Clientes ·
-Tarefas · Administração (só admin). No celular: menu inferior (Início, Painel, Honorários, Lançar, Mais).
+**Menu** (barra superior, no padrão do Gestão): Início · Painel Executivo · Jurídico (Processos, Acordos,
+Parcelamentos) · Financeiro (Jurídico, Contabilidade) · Contratos · Clientes · Tarefas · Notificações ·
+Administração (só admin). À direita: entidades e grupos, **+ Lançar**, ⋯ (atualizar dados, relatório PDF) e Sair.
+No celular e em telas estreitas: menu inferior (Início, Painel, Financeiro, Lançar, Mais).
 
-**Lançar e editar** (tudo grava direto no banco e o ERP se atualiza sozinho):
-
-- Botão **+ Lançar** (canto superior direito): honorário, despesa, cliente, processo, acordo,
-  parcelamento, contrato, tarefa.
-- Em cada linha das tabelas: **✎** edita e **✓ Baixa** marca como pago hoje (nas contas em aberto).
-- Depois de gravar, o rodapé mostra "✓ Última gravação: hora — o quê" (na baixa, com **Desfazer**).
-- No formulário, o admin vê **🕘 Ver alterações**: quem mudou o quê naquele registro.
-- Contratos: ao cadastrar, as parcelas entram sozinhas em Honorários Jurídico, com grupo e responsável.
-- Administração: **Usuários** (criar, trocar papel, grupos do Portal, link de nova senha),
-  **Importar planilhas**, **Backup** e **Histórico**.
-- Excluir: só o administrador.
-- "Salvar rascunho no Gmail" virou **Abrir e-mail** já preenchido no seu programa de e-mail.
+**O que vem do Gestão e o que vem do ERP**
+- Do Gestão: barra superior, Início, Contratos, Clientes, Tarefas, Administração, todos os formulários de
+  lançamento (receita, despesa, comissão, cliente, contrato, tarefa), as tabelas de lançamentos dos
+  Honorários (menos colunas) e os tamanhos.
+- Do ERP: Painel Executivo, Processos, Acordos, Parcelamentos, Notificações/recibos, a Análise dos
+  Honorários (filtros e gráficos) e as cores.
+- "Em atraso" segue a regra do Gestão: tudo que venceu e não foi pago, de qualquer mês.
+- Comissão/desconto é **redutor de receita** (não despesa): entra negativo nas receitas.
 
 Passo a passo para atualizar e para voltar a uma versão anterior: `COMO-ATUALIZAR.md`.
 
@@ -112,7 +111,7 @@ só a equipe logada consegue ler.
 ## Testes
 `testes/rodar-tudo.sh` recria um banco local que imita o Supabase (PostgreSQL + PostgREST) e roda
 os testes de permissão do banco (36), do importador com planilhas fictícias (51), da Gestão (44) e do
-ERP (63, inclusive a regra PF × PJ) num navegador com os mesmos cabeçalhos de segurança da Vercel. Precisa de `NODE_PATH` com
+ERP (71, inclusive a regra PF × PJ) num navegador com os mesmos cabeçalhos de segurança da Vercel. Precisa de `NODE_PATH` com
 `playwright` e `exceljs`.
 
 Bibliotecas incluídas em `app/vendor/` (licença MIT): supabase-js 2.117.2, Chart.js 4.4.1 e ExcelJS 4.4.0
@@ -121,3 +120,6 @@ Bibliotecas incluídas em `app/vendor/` (licença MIT): supabase-js 2.117.2, Cha
 ## Mudar o visual do ERP
 Edite `#Sistemas/2 - ERP/ERP.html` e rode `node sistema/ferramentas/montar-erp.js` para gerar de novo o
 `app/index.html`. Se um trecho que o montador procura mudou, ele avisa e não gera nada pela metade.
+
+O `montar-erp.js` também gera `app/gestao-embutida.js` e `app/gs.css` a partir dos arquivos do Gestão
+(`nucleo.js`, `telas-*.js`, `graficos.js`, `estilo.css`). Mudou uma tela do Gestão? Rode o montador de novo.

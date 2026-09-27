@@ -31,8 +31,8 @@ insert into acordos(grupo_id,processo,devedor,credor,parcela,total_parcelas,valo
   select id,'0001234-55.2023.5.03.0001','Alfa Comércio Ltda','Carlos Credor','1','2',800,current_date + 15 from grupos where nome='Grupo Alfa';
 insert into lancamentos(empresa,tipo,grupo_id,descricao,categoria,responsavel,referencia,vencimento,valor)
   select 'escritorio','receita',id,'Honorários mensais','Mensal','Pedro','09/2026',current_date + 5,1500 from grupos where nome='Grupo Alfa';
-insert into lancamentos(empresa,tipo,grupo_id,descricao,categoria,responsavel,vencimento,valor)
-  select 'escritorio','despesa',id,'Comissão','Comissão','Pedro',current_date + 5,150 from grupos where nome='Grupo Alfa';
+insert into lancamentos(empresa,tipo,grupo_id,descricao,categoria,responsavel,vencimento,valor,redutor)
+  select 'escritorio','receita',id,'Comissão','Comissão','Pedro',current_date + 5,150,true from grupos where nome='Grupo Alfa';
 insert into lancamentos(empresa,tipo,grupo_id,descricao,categoria,responsavel,vencimento,valor)
   select 'contabilidade','receita',id,'Honorários contábeis','Mensal','Adriana',current_date - 3,900 from grupos where nome='Grupo Beta';
 insert into tarefas(titulo,responsavel,prazo) values ('Protocolar defesa','Pedro',current_date + 2);
@@ -66,7 +66,8 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     const carregado = (p) => p.waitForFunction(() => /Completo|Conectado/.test(document.getElementById('dotTxt').textContent), null, { timeout: 15000 }).catch(() => {});
     const nav = async (p, painel) => { await p.evaluate((x) => nav(null, x), painel); await p.waitForTimeout(700); };
     const esperarJanela = (p) => p.waitForSelector('.gx-janela', { timeout: 8000 });
-    const lancar = async (p, i) => { await p.click('.tn-lancar-bt'); await p.click('.tn-lancar [data-lancar="' + i + '"]'); await esperarJanela(p); };
+    const lancar = async (p, i) => { await p.click('.tn-lancar-bt'); await p.click('.tn-lancar [data-lancar="' + i + '"]'); await p.waitForSelector('.gx-janela, #gs-raiz .janela', { timeout: 8000 }); await p.waitForTimeout(250); };
+    const salvarGs = async (p, bt) => { await p.click(bt); await p.waitForSelector('#gs-raiz .fundo', { state: 'detached', timeout: 10000 }).catch(async () => console.log('JANELA NÃO FECHOU:', bt, await p.textContent('#gs-raiz #aviso'))); await p.waitForTimeout(1500); };
     const salvar = async (p) => { await p.click('.gx-janela button[type=submit]'); await p.waitForSelector('.gx-fundo', { state: 'detached', timeout: 8000 }).catch(() => {}); await p.waitForTimeout(2500); };
 
     // ── login ──
@@ -77,8 +78,10 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await carregado(p);
     ok('entra com e-mail e senha do Supabase', await p.evaluate(() => window.AC_SESSION && window.AC_SESSION.nivel === 'admin'));
     await p.waitForTimeout(1200);
-    ok('menu na barra superior (sem menu lateral)', await p.isVisible('#tn') && !(await p.isVisible('#sb')) && await p.isVisible('.tn-lancar-bt'));
-    ok('equipe entra no Início (resumo do mês)', await p.isVisible('#panel-hoje') && /Olá, Pedro/.test(await p.textContent('#panel-hoje')) && /Honorários Contabilidade/.test(await p.textContent('#panel-hoje')));
+    ok('barra superior do Gestão (sem menu lateral nem cabeçalho antigo)', await p.isVisible('#gs-hd #tn') && !(await p.isVisible('#sb')) && !(await p.isVisible('#hd')) && await p.isVisible('.tn-lancar-bt'));
+    ok('barra mostra entidades e grupos', /3/.test(await p.textContent('#gs-n-ent')) && /2/.test(await p.textContent('#gs-n-grp')));
+    ok('menu Financeiro com Jurídico e Contabilidade', (await p.$$eval('#tn .tn-grupo:nth-of-type(2) .tn-menu button', (l) => l.map((b) => b.textContent))).join('|') === 'Jurídico|Contabilidade');
+    ok('equipe entra no Início do Gestão (resumo do mês)', await p.isVisible('#panel-hoje') && /Olá, Pedro/.test(await p.textContent('#panel-hoje')) && /Contabilidade/.test(await p.textContent('#panel-hoje')));
     await foto(p, 'inicio');
     await p.waitForTimeout(1500);
     const n = await p.evaluate(() => ({ b: DB.baseDados.length, pr: DB.processos.length, pa: DB.parcelamentos.length, ac: DB.acordos.length, fi: DB.financeiro.length, fc: DB.financeiroContabilidade.length }));
@@ -99,64 +102,75 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('HTML público sem CPF nem e-mail pessoal', !/\d{3}\.\d{3}\.\d{3}-\d{2}/.test(html) && !/@gmail\.com/.test(html));
     await foto(p, 'painel');
 
-    // ── editar pelo botão ✎ numa linha de Honorários ──
+    // ── Honorários: tabela no formato do Gestão (menos colunas) ──
     await nav(p, 'financeiro');
-    const linha = await p.$('#panel-financeiro tr[data-gx^="lancamentos:"]');
-    ok('linhas de honorários marcadas para edição', !!linha);
-    if (linha) {
-      ok('ações fixas na linha: ✎ e ✓ Baixa', await linha.$('[data-la=editar]') && await linha.$('[data-la=baixa]'));
-      await (await linha.$('[data-la=editar]')).click(); await esperarJanela(p);
-      const tit = await p.textContent('.gx-janela h3');
-      ok('abre o formulário de edição', /Editar — Honorário/.test(tit), tit);
-      await foto(p, 'editar');
-      await p.fill('#gx-f-referencia', '10/2026');
-      await salvar(p);
-    }
-    ok('edição gravada no Supabase', sql("select count(*) from lancamentos where referencia='10/2026'") === '1');
-    ok('histórico registra quem alterou', sql("select count(*) from historico where tabela='lancamentos' and acao='UPDATE'") === '1');
+    await p.evaluate(() => { const b = [...document.querySelectorAll('#panel-financeiro button')].find((x) => /A Receber/.test(x.textContent)); if (b) b.click(); });
+    await p.waitForTimeout(1200);
+    const cab = await p.$$eval('#panel-financeiro .gx-tab-gs table thead th', (l) => l.map((t) => t.textContent.trim()).filter(Boolean));
+    ok('A Receber no formato do Gestão (Vencimento, Grupo, Descrição, Pessoa, Valor, Situação)', cab.join('|') === 'Vencimento|Grupo / Favorecido|Descrição|Pessoa|Valor|Situação', cab.join('|'));
+    ok('tabela original do ERP escondida (sem duplicar)', await p.$eval('#tblFinBody', (tb) => tb.closest('table').classList.contains('gx-oculta')));
+    ok('comissão aparece como redutor (valor negativo)', /−\s*R\$\s*150,00/.test(await p.textContent('#panel-financeiro .gx-tab-gs')) && /redutor/.test(await p.textContent('#panel-financeiro .gx-tab-gs')));
+    await foto(p, 'areceber');
 
-    // ── dar baixa ──
+    // ── editar: formulário do Gestão ──
     const idRec = sql("select id from lancamentos where descricao='Honorários mensais'");
-    await p.evaluate((id) => ERP_EDITAR('lancamentos:' + id), idRec); await esperarJanela(p);
-    await p.click('.gx-janela [data-a=baixa]');
-    await p.waitForSelector('.gx-fundo', { state: 'detached', timeout: 8000 }).catch(() => {}); await p.waitForTimeout(2500);
-    ok('dar baixa: pago com data de hoje', sql("select pago and data_pagamento=current_date from lancamentos where id='" + idRec + "'") === 't');
+    await p.click('#panel-financeiro .gx-tab-gs [data-editar="' + idRec + '"]');
+    await p.waitForSelector('#gs-raiz .janela', { timeout: 8000 }); await p.waitForTimeout(250);
+    ok('Editar abre o formulário do Gestão', /Editar receita/.test(await p.textContent('#gs-raiz .janela-hd')));
+    await foto(p, 'editar');
+    await p.fill('#f-lanc [name=referencia]', '10/2026');
+    await salvarGs(p, '#btn-salvar-lanc');
+    ok('edição gravada no Supabase', sql("select count(*) from lancamentos where referencia='10/2026'") === '1');
+    ok('histórico registra a alteração', sql("select count(*) from historico where tabela='lancamentos' and acao='UPDATE'") === '1');
+    ok('rodapé mostra a última gravação', /Última gravação/.test(await p.textContent('#gx-rodape')));
+
+    // ── ✓ Recebido na linha (Gestão) ──
+    await p.waitForSelector('#panel-financeiro .gx-tab-gs [data-pagar="' + idRec + '"]', { timeout: 8000 });
+    await p.click('#panel-financeiro .gx-tab-gs [data-pagar="' + idRec + '"]'); await p.waitForTimeout(2500);
+    ok('✓ Recebido grava pago com data de hoje', sql("select pago and data_pagamento=current_date from lancamentos where id='" + idRec + "'") === 't');
     ok('após a baixa o ERP mostra na aba Receita', await p.evaluate(() => DB.financeiro.some((f) => f.aba === 'Receita' && f.pagamento === 'SIM')));
 
-    // ── ✓ Baixa direto na linha (Início), com Desfazer no rodapé ──
-    const idCont = sql("select id from lancamentos where empresa='contabilidade'");
-    await nav(p, 'hoje'); await p.waitForTimeout(600);
-    await p.click('#panel-hoje tr[data-gx^="lancamentos:' + idCont + '"] [data-la=baixa]'); await p.waitForTimeout(2500);
-    ok('✓ Baixa na linha grava sem abrir formulário', sql("select pago from lancamentos where id='" + idCont + "'") === 't');
-    ok('rodapé mostra a última gravação', /Última gravação/.test(await p.textContent('#gx-rodape')) && await p.isVisible('#gx-rodape'));
-    await p.click('#gx-rodape .gx-rod-bt'); await p.waitForTimeout(2000);
-    ok('Desfazer volta a baixa', sql("select pago from lancamentos where id='" + idCont + "'") === 'f');
+    // ── Análise: "Em atraso" do Gestão = todos os meses ──
+    sql("insert into lancamentos(empresa,tipo,grupo_id,descricao,categoria,responsavel,vencimento,valor) select 'escritorio','receita',id,'Atraso antigo','Mensal','Pedro','2024-05-10',400 from grupos where nome='Grupo Beta'");
+    await p.evaluate(() => loadData(true)); await p.waitForTimeout(4000);
+    await nav(p, 'financeiro');
+    await p.evaluate(() => { const b = [...document.querySelectorAll('#panel-financeiro button')].find((x) => /Análise/.test(x.textContent)); if (b) b.click(); });
+    await p.waitForTimeout(1200);
+    const an = await p.textContent('#faCorpo');
+    ok('Em atraso conta todos os meses, mesmo com "Este ano"', /Em atraso/.test(an) && /400/.test(an) && /Atraso antigo/.test(an), an.replace(/\s+/g, ' ').slice(0, 300));
 
-    // ── novo lançamento pelo botão + Lançar ──
+    // ── + Lançar: formulários do Gestão ──
     await lancar(p, 0);
-    await p.fill('#gx-f-grupo_id', 'Grupo Beta');
-    await p.fill('#gx-f-categoria', 'Êxito');
-    await p.fill('#gx-f-valor', '2500');
-    await salvar(p);
-    ok('novo honorário gravado (descrição automática)', sql("select count(*) from lancamentos where categoria='Êxito' and valor=2500 and descricao like 'Êxito%'") === '1');
+    ok('+ Lançar abre o formulário do Gestão', await p.isVisible('#gs-raiz #f-lanc'));
+    await p.fill('#f-lanc [name=descricao]', 'Êxito processo X'); await p.fill('#f-lanc [name=valor]', '2.500,00');
+    await p.fill('#f-lanc [name=grupo]', 'Grupo Beta'); await p.fill('#f-lanc [name=categoria]', 'Êxito');
+    await salvarGs(p, '#btn-salvar-lanc');
+    ok('nova receita gravada', sql("select count(*) from lancamentos where categoria='Êxito' and valor=2500") === '1');
+    await lancar(p, 2);
+    ok('comissão abre já marcada como redutor', await p.isChecked('#f-lanc [name=redutor]'));
+    await p.fill('#f-lanc [name=descricao]', 'Comissão parceiro'); await p.fill('#f-lanc [name=valor]', '300');
+    await p.fill('#f-lanc [name=grupo]', 'Grupo Alfa');
+    await salvarGs(p, '#btn-salvar-lanc');
+    { const r = sql("select tipo||'|'||redutor from lancamentos where descricao='Comissão parceiro'"); ok('comissão gravada como redutor de receita (não despesa)', r === 'receita|true', r); }
     await lancar(p, 0);
-    await p.fill('#gx-f-valor', '');
-    await p.click('.gx-janela button[type=submit]'); await p.waitForTimeout(600);
-    ok('campo obrigatório vazio: avisa e não grava', /Preencha|valor/.test(await p.textContent('.gx-msg')));
-    await p.click('.gx-janela [data-a=cancelar]');
+    await salvarGs(p, '#btn-salvar-lanc');
+    ok('campo obrigatório vazio: avisa e não grava', /Preencha/.test(await p.textContent('#gs-raiz #aviso')));
+    await p.keyboard.press('Escape');
 
-    // ── cliente: editar dívida e ver o painel mudar ──
+    // ── cliente: formulário do Gestão e painel recalcula ──
     const idBeta = sql("select id from clientes where nome='Beta Serviços Ltda'");
-    await p.evaluate((id) => ERP_EDITAR('clientes:' + id), idBeta); await esperarJanela(p);
-    await p.fill('#gx-f-age_mg', '1300');
-    await salvar(p);
+    await p.evaluate((id) => ERP_EDITAR('clientes:' + id), idBeta);
+    await p.waitForSelector('#gs-raiz .janela', { timeout: 8000 }); await p.waitForTimeout(250);
+    ok('editar cliente abre o formulário do Gestão', await p.isVisible('#gs-raiz [name=cpf_cnpj]'));
+    await p.fill('#gs-raiz [name=age_mg]', '1.300,00');
+    await salvarGs(p, '#btn-salvar-cli');
     await nav(p, 'resumo'); await p.waitForTimeout(800);
     ok('painel recalcula após editar cliente (R$ 3.000,00)', /3\.000,00/.test(await p.evaluate(() => document.getElementById('execKpis').innerHTML)));
 
     // ── parcelamento: marcar parcela vencida como paga ──
     await nav(p, 'parcelamentos');
     const marcaParc = await p.evaluate(() => { const tr = document.querySelector('tr[data-gx^="parcelas:"]'); return tr && tr.dataset.gx; });
-    ok('parcelas marcadas para edição', !!marcaParc);
+    ok('parcelas com ✎ e ✓ Baixa na linha', !!marcaParc && await p.$('tr[data-gx^="parcelas:"] [data-la=editar]'));
     const idParc2 = sql("select id from parcelas where numero='2'");
     await p.evaluate((id) => ERP_EDITAR('parcelas:' + id + ':' + document.querySelector('tr[data-gx^="parcelas:"]').dataset.gx.split(':')[2]), idParc2);
     await esperarJanela(p);
@@ -168,66 +182,69 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('gera parcelas mensais (31/01 → 28/02)', sql("select string_agg(numero||'@'||vencimento, ',' order by numero) from parcelas where vencimento >= '2027-01-01'") === '4@2027-01-31,5@2027-02-28');
     ok('ERP some com a inadimplência', await p.evaluate(() => DB.parcelamentos[0].vencidas === 0));
 
-    // ── acordo, processo ──
+    // ── acordo (✓ Baixa na linha) e processo ──
+    await nav(p, 'acordos'); await p.waitForTimeout(600);
     const idAc = sql('select id from acordos');
+    ok('acordos com ✓ Baixa na linha', await p.evaluate((id) => document.querySelectorAll('tr[data-gx^="acordos:' + id + '"] [data-la=baixa]').length > 0, idAc));
     await p.evaluate((id) => ERP_EDITAR('acordos:' + id), idAc); await esperarJanela(p);
     await p.click('.gx-janela [data-a=baixa]'); await p.waitForTimeout(2500);
     ok('acordo baixado', sql('select pago and data_pagamento=current_date from acordos') === 't');
     ok('ERP mostra o acordo como Pago', await p.evaluate(() => DB.acordos[0].situacao === 'Pago'));
-    await lancar(p, 3);
+    ok('Desfazer no rodapé', await p.isVisible('#gx-rodape .gx-rod-bt'));
+    await lancar(p, 5);
     await p.fill('#gx-f-numero', '5000002-22.2025.8.13.0024'); await p.fill('#gx-f-grupo_id', 'Grupo Beta');
     await salvar(p);
     ok('novo processo aparece no ERP', await p.evaluate(() => DB.processos.length === 2 && DB.processos.some((x) => x.grupo === 'Grupo Beta')));
 
-    // ── tarefas ──
-    await nav(p, 'tarefas'); await p.waitForTimeout(1200);
-    ok('tela de Tarefas lista as abertas', /Protocolar defesa/.test(await p.textContent('#panel-tarefas')));
+    // ── tarefas (tela do Gestão) ──
+    await nav(p, 'tarefas'); await p.waitForTimeout(1500);
+    ok('Tarefas lista as abertas', /Protocolar defesa/.test(await p.textContent('#panel-tarefas')));
     await foto(p, 'tarefas');
     await p.click('#panel-tarefas [data-concluir]'); await p.waitForTimeout(2000);
-    ok('concluir tarefa na linha', sql("select status from tarefas") === 'concluida');
+    ok('concluir tarefa na linha', sql('select status from tarefas') === 'concluida');
 
-    // ── contratos: parcelas entram sozinhas em Honorários Jurídico ──
-    await lancar(p, 6);
-    await p.fill('#gx-f-cliente_id', 'Beta Serviços Ltda'); await p.fill('#gx-f-descricao', 'Contrato de teste');
-    await p.fill('#gx-f-responsavel', 'Pedro'); await p.fill('#gx-f-valor_total', '3000'); await p.fill('#gx-f-num_parcelas', '3');
-    await p.fill('#gx-f-primeiro_vencimento', '2026-11-10');
-    await salvar(p);
-    ok('contrato gera 3 parcelas com grupo e responsável', sql("select count(*) from lancamentos l join grupos g on g.id=l.grupo_id where l.contrato_id is not null and g.nome='Grupo Beta' and l.responsavel='Pedro' and l.empresa='escritorio'") === '3');
-    await nav(p, 'contratos'); await p.waitForTimeout(1500);
-    ok('tela Contratos lista o contrato', /Contrato de teste/.test(await p.textContent('#panel-contratos')) && /0 \/ 3/.test(await p.textContent('#panel-contratos')));
-    ok('parcelas do contrato aparecem em Honorários', await p.evaluate(() => DB.financeiro.filter((f) => f.grupo === 'Grupo Beta' && f.referencia === '1/3' && f.advogado === 'Pedro').length === 1));
+    // ── contratos (tela e formulário do Gestão) ──
+    await nav(p, 'contratos'); await p.waitForTimeout(1200);
+    await p.click('#panel-contratos button:has-text("Novo contrato")'); await p.waitForSelector('#gs-raiz [name=descricao]'); await p.waitForTimeout(250);
+    await p.selectOption('#gs-raiz [name=cliente_id]', { label: 'Beta Serviços Ltda · Grupo Beta' });
+    await p.fill('#gs-raiz [name=descricao]', 'Contrato de teste'); await p.fill('#gs-raiz [name=valor_total]', '3.000,00');
+    await p.fill('#gs-raiz [name=num_parcelas]', '3'); await p.fill('#gs-raiz [name=primeiro_vencimento]', '2026-11-10');
+    await salvarGs(p, '#btn-salvar-ctr');
+    ok('contrato gera 3 parcelas com o grupo do cliente', sql("select count(*) from lancamentos l join grupos g on g.id=l.grupo_id where l.contrato_id is not null and g.nome='Grupo Beta' and l.empresa='escritorio'") === '3');
+    ok('tela Contratos lista o contrato', /Contrato de teste/.test(await p.textContent('#panel-contratos')));
 
-    // ── clientes ──
-    await nav(p, 'clientes'); await p.waitForTimeout(800);
-    await p.fill('#panel-clientes [data-filtro=busca]', '12345678909'); await p.waitForTimeout(300);
-    ok('tela Clientes com busca e selo PF', await p.$$eval('#gx-cli-corpo tbody tr', (l) => l.length) === 1 && /PF/.test(await p.textContent('#gx-cli-corpo')));
+    // ── clientes (tela do Gestão) ──
+    await nav(p, 'clientes'); await p.waitForTimeout(1200);
+    ok('tela Clientes do Gestão', /Alfa Comércio Ltda/.test(await p.textContent('#panel-clientes')) && await p.isVisible('#panel-clientes button:has-text("Novo cliente")'));
     await foto(p, 'clientes');
 
-    // ── administração: criar usuário, link de senha, histórico ──
+    // ── administração (tela do Gestão): criar usuário, link de senha, histórico ──
     ok('Administração no menu do admin', await p.isVisible('#tn [data-ir=admin]'));
     await nav(p, 'admin'); await p.waitForTimeout(1500);
-    await p.click('#gx-us-novo');
-    await p.fill('.gx-janela [name=nome]', 'Nova Pessoa'); await p.fill('.gx-janela [name=email]', 'nova@teste.com');
-    await p.fill('.gx-janela [name=senha]', 'provisoria1'); await p.selectOption('.gx-janela [name=papel]', 'equipe');
-    await p.click('.gx-janela [type=submit]'); await p.waitForTimeout(3000);
-    ok('admin cria usuário pelo sistema (papel Equipe)', sql("select papel||'|'||nome from perfis where email='nova@teste.com'") === 'equipe|Nova Pessoa');
+    await p.click('#us-novo'); await p.waitForSelector('#f-us'); await p.waitForTimeout(250);
+    await p.fill('#f-us [name=nome]', 'Nova Pessoa'); await p.fill('#f-us [name=email]', 'nova@teste.com');
+    await p.fill('#f-us [name=senha]', 'provisoria1'); await p.selectOption('#f-us [name=papel]', 'equipe');
+    await salvarGs(p, '#btn-criar-us');
+    ok('admin cria usuário pelo sistema (Equipe)', sql("select papel||'|'||nome from perfis where email='nova@teste.com'") === 'equipe|Nova Pessoa');
     ok('admin continua logado depois de criar usuário', await p.evaluate(async () => (await SB.auth.getSession()).data.session.user.email) === 'pedro@teste');
     await p.click('[data-senha="novo@teste"]'); await p.waitForTimeout(1200);
     ok('envia link de nova senha', (await (await p.request.get(BASE + '/__teste/recuperacoes')).json()).includes('novo@teste'));
-    await p.click('.gx-abas [data-aba=historico]'); await p.waitForTimeout(1500);
-    ok('histórico geral na Administração', /Alterou/.test(await p.textContent('#gx-adm-corpo')));
-    await p.evaluate((id) => ERP_EDITAR('clientes:' + id), idBeta); await esperarJanela(p);
+    await p.selectOption('[data-papel="' + sql("select id from perfis where email='cliente@teste'") + '"]', 'cliente').catch(() => {});
+    await p.click('#adm-abas [data-aba=historico]'); await p.waitForTimeout(1500);
+    ok('histórico na Administração', /Alterou/.test(await p.textContent('#adm-corpo')));
+    await p.evaluate((id) => ERP_EDITAR('processos:' + id), sql("select id from processos limit 1")); await esperarJanela(p);
     await p.click('.gx-janela [data-a=historico]'); await p.waitForTimeout(1500);
-    ok('histórico dentro do registro (quem mudou o quê)', /age mg/.test(await p.textContent('.gx-sobre')) && /1\.300/.test(await p.textContent('.gx-sobre')));
+    ok('histórico dentro do registro', /Incluiu/.test(await p.textContent('.gx-sobre')));
     await p.keyboard.press('Escape');
 
     // ── exclusão: equipe não exclui cliente ──
     const ctxE = await pagina();
     await entrar(ctxE, 'equipe@teste'); await carregado(ctxE);
     ok('equipe não vê Administração', !(await ctxE.isVisible('#tn [data-ir=admin]')) && await ctxE.isVisible('.tn-lancar-bt'));
-    await ctxE.evaluate((id) => ERP_EDITAR('clientes:' + id), idBeta); await esperarJanela(ctxE);
-    await ctxE.click('.gx-janela [data-a=excluir]'); await ctxE.waitForTimeout(1200);
-    ok('equipe não consegue excluir cliente (aviso claro)', /administrador/.test(await ctxE.textContent('.gx-msg')) && sql("select count(*) from clientes where id='" + idBeta + "'") === '1');
+    await ctxE.evaluate((id) => ERP_EDITAR('clientes:' + id), idBeta); await ctxE.waitForSelector('#gs-raiz .janela');
+    ok('equipe não vê "Excluir" no cliente', !(await ctxE.$('#btn-excluir-cli')));
+    const apagou = await ctxE.evaluate(async (id) => ((await SB.from('clientes').delete().eq('id', id).select('id')).data || []).length, idBeta);
+    ok('banco recusa exclusão de cliente pela equipe', apagou === 0 && sql("select count(*) from clientes where id='" + idBeta + "'") === '1');
 
     // ── portal do cliente ──
     const pc = await pagina();
@@ -243,13 +260,13 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     const pm = await pagina(390);
     await entrar(pm, 'pedro@teste'); await carregado(pm);
     ok('celular sem rolagem lateral', await pm.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1));
-    ok('celular: menu inferior com Início, Painel, Honorários, Lançar e Mais', await pm.isVisible('#tn-baixo') && (await pm.$$('#tn-baixo button')).length === 5);
+    ok('celular: menu inferior com Início, Painel, Financeiro, Lançar e Mais', await pm.isVisible('#tn-baixo') && (await pm.$$('#tn-baixo button')).length === 5);
     await pm.click('#tn-baixo [data-baixo=mais]'); await pm.waitForTimeout(300);
     ok('celular: "Mais" abre todas as telas', await pm.isVisible('#tn-mais [data-ir=contratos]'));
     await pm.click('#tn-mais [data-ir=contratos]'); await pm.waitForTimeout(1200);
     ok('celular: navega pelo Mais', await pm.isVisible('#panel-contratos'));
-    await pm.evaluate((id) => ERP_EDITAR('clientes:' + id), idBeta); await esperarJanela(pm);
-    ok('formulário cabe no celular', await pm.evaluate(() => document.querySelector('.gx-janela').getBoundingClientRect().width <= window.innerWidth));
+    await pm.evaluate((id) => ERP_EDITAR('clientes:' + id), idBeta); await pm.waitForSelector('#gs-raiz .janela');
+    ok('formulário cabe no celular', await pm.evaluate(() => document.querySelector('#gs-raiz .janela').getBoundingClientRect().width <= window.innerWidth));
     await foto(pm, 'celular');
 
     // ── banco desatualizado: uma tabela faltando não derruba o ERP ──

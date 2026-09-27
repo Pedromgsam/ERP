@@ -107,13 +107,15 @@
   // receitas (dedução/comissão: tem grupo e não tem fornecedor) volta como
   // valor negativo na mesma aba, exatamente como estava na planilha.
   function financeiro(l, gNome) {
-    const deducao = l.tipo === 'despesa' && !l.favorecido && !!l.grupo_id;
-    const estorno = l.tipo === 'receita' && !!l.favorecido && !l.grupo_id;   // negativo numa aba de despesa
+    // redutor de receita (comissão/desconto): aparece negativo nas abas de receita
+    const deducao = !!l.redutor || (l.tipo === 'despesa' && !l.favorecido && !!l.grupo_id);
+    const estorno = l.tipo === 'receita' && !l.redutor && !!l.favorecido && !l.grupo_id;   // negativo numa aba de despesa
     const receitaLike = (l.tipo === 'receita' && !estorno) || deducao;
     const aba = receitaLike ? (l.perda ? 'Prejuízo' : l.pago ? 'Receita' : 'A Receber') : (l.pago ? 'Despesa' : 'A Pagar');
     const cob = l.cobranca || '';
-    const situacao = l.pago ? 'PAGO' : l.perda ? 'Vencido' : /^emitir guia$/i.test(cob) ? 'Emitir Guia'
-      : (l.vencimento < hojeISO() ? 'Vencido' : 'OK');
+    // mesma regra do Gestão: passou do vencimento sem pagar = em atraso, mesmo com "emitir guia"
+    const situacao = l.pago ? 'PAGO' : l.perda ? 'Prejuízo' : l.vencimento < hojeISO() ? 'Vencido'
+      : /^emitir guia$/i.test(cob) ? 'Emitir Guia' : 'OK';
     const dataPag = l.pago ? br(l.data_pagamento) : /^cobrado$/i.test(cob) ? 'COBRADO'
       : /^previs[aã]o:\s*/i.test(cob) ? cob.replace(/^previs[aã]o:\s*/i, '') : '';
     return {
@@ -136,6 +138,9 @@
     }
     return _gruposCache;
   }
+  // Lançamentos como vieram do banco (as tabelas no estilo Gestão usam o registro original)
+  window.ERP_LANC = window.ERP_LANC || {};
+  function guardarLanc(l, G) { window.ERP_LANC[l.id] = Object.assign({}, l, { grupos: l.grupo_id ? { nome: G[l.grupo_id] || '' } : null }); }
   const LEITORES = {
     async baseDados() { const G = await grupos(); return (await todos(() => sb.from('clientes').select('*').order('nome'))).map((c) => baseDados(c, G[c.grupo_id])); },
     async processos() { const G = await grupos(); return (await todos(() => sb.from('processos').select('*').order('criado_em'))).map((p) => processo(p, G[p.grupo_id])); },
@@ -146,8 +151,8 @@
       return pas.map((pa) => parcelamento(pa, porParc[pa.id] || []));
     },
     async acordos() { const G = await grupos(); return (await todos(() => sb.from('acordos').select('*').order('vencimento'))).map((a) => acordo(a, G[a.grupo_id])); },
-    async financeiro() { const G = await grupos(); return (await todos(() => sb.from('lancamentos').select('*').eq('empresa', 'escritorio').order('vencimento'))).map((l) => financeiro(l, G[l.grupo_id])); },
-    async financeiroContab() { const G = await grupos(); return (await todos(() => sb.from('lancamentos').select('*').eq('empresa', 'contabilidade').order('vencimento'))).map((l) => financeiro(l, G[l.grupo_id])); },
+    async financeiro() { const G = await grupos(); return (await todos(() => sb.from('lancamentos').select('*').eq('empresa', 'escritorio').order('vencimento'))).map((l) => { guardarLanc(l, G); return financeiro(l, G[l.grupo_id]); }); },
+    async financeiroContab() { const G = await grupos(); return (await todos(() => sb.from('lancamentos').select('*').eq('empresa', 'contabilidade').order('vencimento'))).map((l) => { guardarLanc(l, G); return financeiro(l, G[l.grupo_id]); }); },
     async tarefas() {
       const G = await grupos();
       return (await todos(() => sb.from('tarefas').select('*').order('prazo'))).map((t) => ({
@@ -320,6 +325,12 @@
     if (!o || !o._id) return '';
     const pago = o.pagamento === 'SIM' || o.situacao === 'Pago' || o.status === 'Pago';
     return o._t + ':' + o._id + ':' + (o._pai || '') + ':' + (['lancamentos', 'acordos', 'parcelas'].includes(o._t) ? (pago ? 'p' : 'a') : '');
+  };
+  // "Em atraso" do Gestão: roda um filtro do ERP ignorando o período (de/até/preset), mantendo os demais recortes
+  window._semPeriodo = function (st, fn) {
+    const s = { de: st.de, ate: st.ate, preset: st.preset };
+    st.de = ''; st.ate = ''; st.preset = 'tudo';
+    try { return fn(); } finally { st.de = s.de; st.ate = s.ate; st.preset = s.preset; }
   };
   window.ERP_CONVERSORES = { baseDados, processo, parcelamento, acordo, financeiro };
 })();

@@ -31,32 +31,118 @@ async function pintarAdmin() {
 }
 
 // ─────────────────────────── USUÁRIOS ──────────────────────────────
+const PAPEIS = [['admin', 'Administrador'], ['equipe', 'Equipe'], ['cliente', 'Cliente (Portal)'], ['inativo', 'Inativo (sem acesso)']];
 async function admUsuarios(corpo) {
-  const lista = await q(sb.from('perfis').select('*').order('criado_em'));
+  const [lista, vinculos] = await Promise.all([
+    q(sb.from('perfis').select('*').order('criado_em')),
+    q(sb.from('perfil_grupos').select('*')).catch(() => [])
+  ]);
+  const gruposDe = (id) => vinculos.filter((v) => v.perfil_id === id).map((v) => nomeGrupo(v.grupo_id)).filter(Boolean);
   corpo.innerHTML =
-    '<div class="card"><div class="card-bd dica" style="border-radius:var(--r) var(--r) 0 0">' +
-    '<b>Para cadastrar alguém novo:</b> no site do Supabase, abra o projeto → <b>Authentication</b> → <b>Users</b> → ' +
-    '<b>Add user</b> → <b>Create new user</b>, informe e-mail e senha e marque <b>Auto Confirm User</b>. ' +
-    'A pessoa aparece aqui como <b>Inativo</b>; troque para <b>Equipe</b> para liberar.</div>' +
-    '<div class="tabela-wrap"><table class="ordenavel"><thead><tr><th>Nome</th><th>E-mail</th><th>Acesso</th><th data-tipo="data">Desde</th></tr></thead><tbody>' +
+    '<div class="titulo-pag" style="margin-bottom:10px"><div></div><div class="acoes"><button class="btn btn-p" id="us-novo">+ Novo usuário</button></div></div>' +
+    '<div class="card"><div class="tabela-wrap"><table class="ordenavel"><thead><tr><th>Nome</th><th>E-mail</th><th>Acesso</th><th>Grupos no Portal</th><th data-tipo="data">Desde</th><th class="sem-ordem"></th></tr></thead><tbody>' +
     lista.map((p) => '<tr><td><input class="busca" style="min-width:160px" data-nome="' + p.id + '" value="' + esc(p.nome) + '"></td>' +
       '<td>' + esc(p.email) + '</td><td><select class="busca" style="min-width:150px" data-papel="' + p.id + '">' +
-      [['admin', 'Administrador'], ['equipe', 'Equipe'], ['inativo', 'Inativo (sem acesso)']].map(([v, r]) =>
-        '<option value="' + v + '"' + (p.papel === v ? ' selected' : '') + '>' + r + '</option>').join('') +
-      '</select></td><td class="mono" data-ord="' + p.criado_em + '">' + dataBR(p.criado_em) + '</td></tr>').join('') +
+      PAPEIS.map(([v, r]) => '<option value="' + v + '"' + (p.papel === v ? ' selected' : '') + '>' + r + '</option>').join('') +
+      '</select></td><td>' + (p.papel === 'cliente'
+        ? (gruposDe(p.id).map((g) => '<span class="pill neutro">' + esc(g) + '</span>').join(' ') || '<span class="pill vencido">nenhum</span>') +
+          ' <button class="btn btn-o btn-mini" data-grupos="' + p.id + '">Escolher</button>'
+        : '<span class="sub">—</span>') + '</td>' +
+      '<td class="mono" data-ord="' + p.criado_em + '">' + dataBR(p.criado_em) + '</td>' +
+      '<td class="acoes-l"><button class="btn btn-o btn-mini" data-senha="' + esc(p.email) + '" title="Envia por e-mail um link para a pessoa criar uma senha nova">🔑 Link de senha</button></td></tr>').join('') +
     '</tbody></table></div></div>' +
-    '<div class="dica"><b>Administrador</b>: tudo, inclusive excluir, importar e liberar usuários. <b>Equipe</b>: cadastra, edita e dá baixa, mas não exclui clientes nem contratos. <b>Inativo</b>: não entra.</div>';
+    '<div class="dica"><b>Administrador</b>: tudo, inclusive excluir, importar e liberar usuários. <b>Equipe</b>: cadastra, edita e dá baixa, mas não exclui. ' +
+    '<b>Cliente</b>: só consulta, no Portal, os grupos escolhidos. <b>Inativo</b>: não entra.</div>';
   corpo.querySelectorAll('[data-papel]').forEach((s) => s.onchange = () => comBotao(s, async () => {
     try {
       await q(sb.from('perfis').update({ papel: s.value }).eq('id', s.dataset.papel));
       aviso('✓ Acesso atualizado.');
+      await pintarAdmin();
     } catch (e) { await pintarAdmin(); throw e; }
   }));
   corpo.querySelectorAll('[data-nome]').forEach((i) => i.onchange = () => comBotao(i, async () => {
     await q(sb.from('perfis').update({ nome: i.value.trim() }).eq('id', i.dataset.nome));
-    if (i.dataset.nome === E.perfil.id) { E.perfil.nome = i.value.trim(); $('hd-nome').textContent = E.perfil.nome; }
+    if (E.perfil && i.dataset.nome === E.perfil.id) { E.perfil.nome = i.value.trim(); if ($('hd-nome')) $('hd-nome').textContent = E.perfil.nome; }
     aviso('✓ Nome atualizado.');
   }));
+  corpo.querySelectorAll('[data-senha]').forEach((b) => b.onclick = () => comBotao(b, async () => {
+    if (!confirm('Enviar para ' + b.dataset.senha + ' um e-mail com link para criar uma senha nova?')) return;
+    const { error } = await sb.auth.resetPasswordForEmail(b.dataset.senha, { redirectTo: location.origin + '/' });
+    if (error) throw error;
+    aviso('✓ Link enviado para ' + b.dataset.senha + '.');
+  }));
+  corpo.querySelectorAll('[data-grupos]').forEach((b) => b.onclick = () =>
+    formGruposPortal(lista.find((p) => p.id === b.dataset.grupos), vinculos.filter((v) => v.perfil_id === b.dataset.grupos).map((v) => v.grupo_id)));
+  $('us-novo').onclick = () => formNovoUsuario();
+}
+
+function listaGruposMarcar(marcados) {
+  return '<input class="busca" data-filtra-grupos placeholder="Filtrar grupos…" style="max-width:none;width:100%;margin-bottom:8px">' +
+    '<div class="lista-grupos" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:4px 12px;max-height:280px;overflow-y:auto;border:1.5px solid var(--border-strong);border-radius:var(--r-sm);padding:10px">' +
+    E.grupos.map((g) => '<label class="check" style="font-weight:500"><input type="checkbox" value="' + g.id + '"' + (marcados.includes(g.id) ? ' checked' : '') + '> ' + esc(g.nome) + '</label>').join('') + '</div>';
+}
+function ligarFiltroGrupos(j) {
+  const f = j.querySelector('[data-filtra-grupos]');
+  if (f) f.oninput = () => { const b = normalizar(f.value); j.querySelectorAll('.lista-grupos label').forEach((l) => { l.style.display = normalizar(l.textContent).includes(b) ? '' : 'none'; }); };
+}
+async function salvarGruposPortal(perfilId, ids) {
+  await q(sb.from('perfil_grupos').delete().eq('perfil_id', perfilId));
+  if (ids.length) await q(sb.from('perfil_grupos').insert(ids.map((g) => ({ perfil_id: perfilId, grupo_id: g }))));
+}
+function formGruposPortal(p, marcados) {
+  const j = abrirJanela({ titulo: 'Grupos que ' + (p.nome || p.email) + ' vê no Portal',
+    corpo: listaGruposMarcar(marcados),
+    rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="btn-salvar-gp">Salvar</button></div>' });
+  ligarFiltroGrupos(j);
+  j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
+  j.querySelector('#btn-salvar-gp').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    await salvarGruposPortal(p.id, [...j.querySelectorAll('.lista-grupos input:checked')].map((i) => i.value));
+    aviso('✓ Grupos do Portal atualizados.'); fecharJanela(j); await pintarAdmin();
+  });
+}
+function formNovoUsuario() {
+  const j = abrirJanela({ titulo: 'Novo usuário', larga: true,
+    corpo: '<form id="f-us" class="grade">' +
+      campo('Nome <span class="obrig">*</span>', '<input name="nome" autocomplete="off">') +
+      campo('E-mail <span class="obrig">*</span>', '<input name="email" type="email" autocomplete="off">') +
+      campo('Senha provisória <span class="obrig">*</span>', '<input name="senha" autocomplete="new-password" placeholder="mínimo 8 caracteres">') +
+      campo('Acesso', '<select name="papel">' + PAPEIS.filter((x) => x[0] !== 'inativo').map(([v, r]) => '<option value="' + v + '"' + (v === 'equipe' ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>') +
+      '<div class="inteiro escondido" id="us-grupos"><div class="sub" style="margin-bottom:6px">Grupos que o cliente vê no Portal</div>' + listaGruposMarcar([]) + '</div>' +
+      '<div class="dica inteiro">Passe o e-mail e a senha provisória para a pessoa. Se o Supabase estiver com <b>confirmação de e-mail</b> ligada, ela recebe um e-mail e precisa clicar no link antes do primeiro acesso.</div>' +
+      '</form>',
+    rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="btn-criar-us">Criar usuário</button></div>' });
+  const f = j.querySelector('#f-us');
+  ligarFiltroGrupos(j);
+  f.papel.onchange = () => j.querySelector('#us-grupos').classList.toggle('escondido', f.papel.value !== 'cliente');
+  j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
+  f.onsubmit = (ev) => { ev.preventDefault(); j.querySelector('#btn-criar-us').click(); };
+  j.querySelector('#btn-criar-us').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    const nome = f.nome.value.trim(), email = f.email.value.trim().toLowerCase(), senha = f.senha.value, papel = f.papel.value;
+    const ids = [...j.querySelectorAll('.lista-grupos input:checked')].map((i) => i.value);
+    if (!nome || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new Error('Preencha o nome e um e-mail válido.');
+    if (senha.length < 8) throw new Error('A senha provisória precisa ter pelo menos 8 caracteres.');
+    if (papel === 'cliente' && !ids.length) throw new Error('Escolha pelo menos um grupo para o cliente.');
+    // cliente temporário do Supabase: cria a conta sem trocar a sessão de quem está logado
+    const tmp = window.supabase.createClient(CFG.url, CFG.chave, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: 'erp-novo-usuario' } });
+    const { data, error } = await tmp.auth.signUp({ email, password: senha, options: { data: { nome }, emailRedirectTo: location.origin + '/' } });
+    if (error) {
+      if (/not allowed|disabled|signups/i.test(error.message)) throw new Error('O cadastro de usuários está desligado no Supabase: ligue em Authentication → Sign In / Providers → "Allow new users to sign up".');
+      if (/registered|exists/i.test(error.message)) throw new Error('Já existe um usuário com esse e-mail.');
+      if (/password/i.test(error.message)) throw new Error('Senha fraca: use pelo menos 8 caracteres, com letras e números.');
+      throw error;
+    }
+    if (data.user && Array.isArray(data.user.identities) && !data.user.identities.length) throw new Error('Já existe um usuário com esse e-mail.');
+    let perfil = null;
+    for (let i = 0; i < 6 && !perfil; i++) {
+      perfil = (await q(sb.from('perfis').select('*').eq('email', email)))[0];
+      if (!perfil) await new Promise((ok) => setTimeout(ok, 500));
+    }
+    if (!perfil) throw new Error('Usuário criado, mas o perfil ainda não apareceu. Abra Usuários de novo em alguns segundos e ajuste o acesso.');
+    await q(sb.from('perfis').update({ papel, nome }).eq('id', perfil.id));
+    if (papel === 'cliente') await salvarGruposPortal(perfil.id, ids);
+    aviso('✓ Usuário criado. Passe o e-mail e a senha provisória para ' + nome.split(' ')[0] + '.');
+    fecharJanela(j); await pintarAdmin();
+  });
 }
 
 // ─────────────────────────── IMPORTAR ──────────────────────────────
@@ -65,8 +151,8 @@ async function admImportar(corpo) {
   corpo.innerHTML =
     '<div class="card"><div class="card-hd">📥 Importar as planilhas do sistema atual</div><div class="card-bd">' +
     '<ol class="passos"><li>No Google Sheets, abra a planilha e clique em <b>Arquivo → Fazer download → Microsoft Excel (.xlsx)</b>.</li>' +
-    '<li>Faça isso com a <b>1 - Base de Dados</b>, a <b>7 - Financeiro</b> e a <b>12 - Financeiro - Contabilidade</b>.</li>' +
-    '<li>Escolha os arquivos abaixo (pode ser os três de uma vez). Nada é gravado antes de você conferir e clicar em <b>Importar</b>.</li></ol>' +
+    '<li>Pode enviar: <b>1 - Base de Dados</b>, <b>2 - Processos</b>, <b>3 - Parcelamentos Tributários</b>, <b>4 - Acordos</b>, <b>7 - Financeiro</b>, <b>12 - Financeiro - Contabilidade</b> e <b>15 - Tarefas</b>.</li>' +
+    '<li>Escolha os arquivos abaixo (pode escolher vários de uma vez). Nada é gravado antes de você conferir e clicar em <b>Importar</b>.</li></ol>' +
     '<div class="dica" style="margin:10px 0">A coluna <b>Senha</b> da Base de Dados <b>não é importada</b>. As planilhas não são alteradas. ' +
     'Importar de novo a mesma planilha <b>atualiza</b> os registros que vieram dela, sem duplicar.</div>' +
     '<label class="btn btn-p" style="cursor:pointer">Escolher arquivos .xlsx<input type="file" id="imp-arquivos" accept=".xlsx" multiple hidden></label>' +
@@ -205,7 +291,7 @@ async function gravarImportacao() {
 }
 
 // ─────────────────────────── BACKUP ────────────────────────────────
-const TABELAS_BACKUP = ['clientes', 'grupos', 'contratos', 'lancamentos', 'processos', 'parcelamentos', 'parcelas', 'acordos', 'tarefas', 'perfis', 'perfil_grupos', 'historico'];
+const TABELAS_BACKUP = ['clientes', 'grupos', 'contratos', 'lancamentos', 'processos', 'parcelamentos', 'parcelas', 'acordos', 'tarefas', 'perfis', 'perfil_grupos', 'configuracoes', 'historico'];
 async function admBackup(corpo) {
   corpo.innerHTML =
     '<div class="card"><div class="card-hd">💾 Backup de todos os dados</div><div class="card-bd">' +
@@ -227,7 +313,7 @@ async function fazerBackup(formato) {
   const prog = $('bk-prog'), dados = {};
   for (const t of TABELAS_BACKUP) {
     prog.textContent = 'Lendo ' + t + '…';
-    dados[t] = await buscarTodos(() => sb.from(t).select('*').order(t === 'historico' ? 'id' : t === 'perfil_grupos' ? 'perfil_id' : 'criado_em'));
+    dados[t] = await buscarTodos(() => sb.from(t).select('*').order(t === 'historico' ? 'id' : t === 'perfil_grupos' ? 'perfil_id' : t === 'configuracoes' ? 'chave' : 'criado_em'));
   }
   const carimbo = new Date().toISOString().slice(0, 16).replace('T', ' ').replace(':', 'h');
   const nome = 'Backup ERP Araujo e Castro ' + carimbo;

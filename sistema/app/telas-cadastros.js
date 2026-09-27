@@ -77,8 +77,8 @@ async function formCliente(cl, depois) {
       q(sb.from('lancamentos').select('valor, vencimento').or('cliente_id.eq.' + cl.id + (cl.grupo_id ? ',grupo_id.eq.' + cl.grupo_id : ''))
         .eq('tipo', 'receita').eq('pago', false).eq('perda', false))
     ]);
-    const emAberto = soma(abertos, (l) => l.valor);
-    const atraso = soma(abertos.filter((l) => l.vencimento < hojeISO()), (l) => l.valor);
+    const emAberto = soma(abertos, vl);
+    const atraso = soma(abertos.filter((l) => l.vencimento < hojeISO()), vl);
     resumo = '<div class="dica inteiro"><b>' + ctrs.length + '</b> contrato(s) · honorários em aberto ' + (cl.grupo_id ? 'do grupo ' : '') +
       '<b class="mono">' + brl(emAberto) + '</b>' + (atraso ? ' · <span style="color:var(--red)">em atraso <b class="mono">' + brl(atraso) + '</b></span>' : '') +
       ' · passivo tributário <b class="mono">' + brl(passivo(cl)) + '</b></div>';
@@ -160,7 +160,7 @@ async function formCliente(cl, depois) {
   const bx = j.querySelector('#btn-excluir-cli');
   if (bx) bx.onclick = () => comBotao(bx, async () => {
     if (!confirm('Excluir o cliente "' + cl.nome + '"? Esta ação não pode ser desfeita.')) return;
-    await q(sb.from('clientes').delete().eq('id', cl.id));
+    await excluir('clientes', cl.id);
     aviso('Cliente excluído.'); fecharJanela(j);
     await apos();
   });
@@ -321,7 +321,7 @@ async function detalheContrato(id) {
   const bx = j.querySelector('#btn-excluir-ctr');
   if (bx) bx.onclick = () => comBotao(bx, async () => {
     if (!confirm('Excluir o contrato e TODAS as parcelas dele? Esta ação não pode ser desfeita.')) return;
-    await q(sb.from('contratos').delete().eq('id', id));
+    await excluir('contratos', id);
     aviso('Contrato excluído.'); fecharJanela(j); await recarregar();
   });
 }

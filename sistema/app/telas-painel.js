@@ -22,10 +22,10 @@ TELAS.inicio = async function () {
   const de = (lista, emp, tipo) => lista.filter((l) => l.empresa === emp && l.tipo === tipo);
   const linha = (emp, titulo) =>
     '<div class="kpis-titulo">' + titulo + '</div><div class="kpis">' +
-    kpi('Recebido no mês', brl(soma(de(pagosNoMes, emp, 'receita'), (l) => l.valor)), 'verde', de(pagosNoMes, emp, 'receita').length + ' recebimento(s)') +
-    kpi('A receber no mês', brl(soma(de(doMes, emp, 'receita'), (l) => l.valor)), '', de(doMes, emp, 'receita').length + ' em aberto') +
-    kpi('Em atraso', brl(soma(de(atrasados, emp, 'receita'), (l) => l.valor)), 'vermelho', de(atrasados, emp, 'receita').length + ' vencido(s)') +
-    kpi('A pagar no mês', brl(soma(de(doMes, emp, 'despesa'), (l) => l.valor)), 'ambar', de(doMes, emp, 'despesa').length + ' conta(s)') +
+    kpi('Recebido no mês', brl(soma(de(pagosNoMes, emp, 'receita'), vl)), 'verde', de(pagosNoMes, emp, 'receita').length + ' recebimento(s)') +
+    kpi('A receber no mês', brl(soma(de(doMes, emp, 'receita'), vl)), '', de(doMes, emp, 'receita').length + ' em aberto') +
+    kpi('Em atraso', brl(soma(de(atrasados, emp, 'receita'), vl)), 'vermelho', de(atrasados, emp, 'receita').length + ' vencido(s)') +
+    kpi('A pagar no mês', brl(soma(de(doMes, emp, 'despesa'), vl)), 'ambar', de(doMes, emp, 'despesa').length + ' conta(s)') +
     '</div>';
 
   $('conteudo').innerHTML =
@@ -48,7 +48,7 @@ function cardLista(titulo, lista, vazio) {
     const quem = (l.grupos && l.grupos.nome) || l.favorecido || (l.clientes && l.clientes.nome) || '';
     return '<tr><td class="mono" data-ord="' + l.vencimento + '">' + dataBR(l.vencimento) + '</td><td><b>' + esc(quem || l.descricao) + '</b>' +
       '<div class="sub">' + (l.empresa === 'contabilidade' ? 'Contabilidade · ' : 'Jurídico · ') + esc(l.descricao) + '</div></td>' +
-      '<td class="num mono ' + (l.tipo === 'receita' ? 'valor-rec' : 'valor-desp') + '" data-ord="' + l.valor + '">' + (l.tipo === 'despesa' ? '− ' : '') + brl(l.valor) + '</td>' +
+      '<td class="num mono ' + (l.tipo === 'receita' && !l.redutor ? 'valor-rec' : 'valor-desp') + '" data-ord="' + (l.tipo === 'despesa' ? -l.valor : vl(l)) + '">' + (l.tipo === 'despesa' || l.redutor ? '− ' : '') + brl(l.valor) + (l.redutor ? '<div class="sub">redutor</div>' : '') + '</td>' +
       '<td class="acoes-l"><button class="btn btn-v btn-mini" data-pagar="' + l.id + '">✓ ' + (l.tipo === 'receita' ? 'Recebido' : 'Pago') + '</button></td></tr>';
   }).join('');
   return '<div class="card"><div class="card-hd">' + titulo + '<span class="pill neutro">' + lista.length + '</span></div>' +

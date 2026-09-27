@@ -50,6 +50,9 @@
 <link rel="stylesheet" href="erp-telas.css">
 <script src="editor.js" defer></script>
 <script src="erp-telas.js" defer></script>
+<link rel="stylesheet" href="gs.css">
+<script src="importador.js" defer></script>
+<script src="gestao-embutida.js" defer></script>
 <script>
 
 
@@ -5477,7 +5480,7 @@ function _faPintarCorpo(){
   var aReceber= _faFiltrar(['A Receber']);
   var prejuizo= _faFiltrar(['Prejuízo']);
   var vRec=_faSoma(receita), vAR=_faSoma(aReceber), vPrej=_faSoma(prejuizo);
-  var vencidos=aReceber.filter(function(f){ var d=_faData(f); return d&&d<hoje; });
+  var vencidos=window._semPeriodo(_FA,function(){return _faFiltrar(['A Receber']);}).filter(function(f){ var d=pDate(f.vencimento); return d&&d<hoje; });
   var vVenc=_faSoma(vencidos);
   var ticket=receita.length? vRec/receita.length : 0;
   var cliente=_acCliente();
@@ -5486,10 +5489,11 @@ function _faPintarCorpo(){
     '<div class="kpi-grid" style="margin-bottom:14px">'
   +   kC('Recebido',_faFT(vRec),receita.length+' lançamento(s)','cg','dg')
   +   kC('A receber',_faFT(vAR),aReceber.length+' em aberto','cb','db')
-  +   kC('Vencido',_faFT(vVenc),vencidos.length+' lançamento(s)','cr',vVenc>0?'dr':'')
+  +   kC('Em atraso',_faFT(vVenc),vencidos.length+' vencido(s) · todos os meses','cr',vVenc>0?'dr':'')
   +   (cliente?'':kC('Prejuízo',_faFT(vPrej),prejuizo.length+' baixa(s)','cx',vPrej>0?'dr':''))
   +   kC('Ticket médio',_faFT(ticket),'por lançamento recebido','cv','dv')
   + '</div>'
+  + (vencidos.length?'<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t">⚠ Em atraso</div><div class="cc-d">todos os meses · mesmos recortes de pessoa, tipo e grupo</div></div></div>'+_faTabelaDetalhe(vencidos.slice().sort(function(a,b){return (pDate(a.vencimento)||0)-(pDate(b.vencimento)||0);}))+'</div>':'')
   + '<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t">Recebido mês a mês</div>'
   +   '<div class="cc-d">empilhado por pessoa · passe o mouse na coluna para ver o total do mês</div></div></div>'
   +   '<div class="cb" style="height:280px"><canvas id="cFaMes"></canvas></div></div>'
@@ -6666,7 +6670,7 @@ function _fcPintarCorpo(){
   var fechado = _fcFiltrar([L.abaFechado]);
   var aberto  = _fcFiltrar([L.abaAberto]);
   var vFech=_fcSoma(fechado), vAb=_fcSoma(aberto);
-  var vencidos=aberto.filter(function(f){ var d=_fcData(f); return d&&d<hoje; });
+  var vencidos=window._semPeriodo(_FC,function(){return _fcFiltrar([L.abaAberto]);}).filter(function(f){ var d=pDate(f.vencimento); return d&&d<hoje; });
   var vVenc=_fcSoma(vencidos);
   var ticket=fechado.length? vFech/fechado.length : 0;
 
@@ -6674,9 +6678,10 @@ function _fcPintarCorpo(){
     '<div class="kpi-grid" style="margin-bottom:14px">'
   +   kC(L.lado==='pagar'?'Pago':'Recebido',_faFT(vFech),fechado.length+' lançamento(s)','cg','dg')
   +   kC(L.tituloRecorte==='Categoria'?'A Pagar':'A receber',_faFT(vAb),aberto.length+' em aberto','cb','db')
-  +   kC('Vencido',_faFT(vVenc),vencidos.length+' lançamento(s)','cr',vVenc>0?'dr':'')
+  +   kC('Em atraso',_faFT(vVenc),vencidos.length+' vencido(s) · todos os meses','cr',vVenc>0?'dr':'')
   +   kC('Ticket médio',_faFT(ticket),'por lançamento','cv','dv')
   + '</div>'
+  + (vencidos.length?'<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t">⚠ Em atraso</div><div class="cc-d">todos os meses · mesmos recortes</div></div></div>'+_fcTabelaDetalhe(vencidos)+'</div>':'')
   + '<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t">'+(L.lado==='pagar'?'Pago':'Recebido')+' mês a mês</div>'
   +   '<div class="cc-d">empilhado por '+esc(L.tituloQuem.toLowerCase())+' · passe o mouse na coluna para ver o total do mês</div></div></div>'
   +   '<div class="cb" style="height:280px"><canvas id="cFcMes"></canvas></div></div>'

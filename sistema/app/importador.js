@@ -237,9 +237,11 @@
         const categoria = texto(celula(ln, C.categoria)) || tipoCol;
         const ref = texto(celula(ln, C.ref));
         const obs = texto(celula(ln, C.obs));
-        // valor negativo numa aba de receita = dedução (ex.: comissão) → despesa
-        let tipo = def.tipo;
-        if (valorBruto < 0) tipo = tipo === 'receita' ? 'despesa' : 'receita';
+        // valor negativo numa aba de receita = comissão/desconto: REDUTOR da receita (não é despesa).
+        // tipoChave mantém a chave de importação antiga, para reimportar sem duplicar.
+        let tipo = def.tipo, redutor = false, tipoChave = tipo;
+        if (valorBruto < 0 && def.tipo === 'receita') { redutor = true; tipoChave = 'despesa'; }
+        else if (valorBruto < 0) { tipo = 'receita'; tipoChave = 'receita'; }
         const valor = Math.abs(valorBruto);
 
         const marcaPag = norm(texto(celula(ln, C.pagamento)));
@@ -266,7 +268,7 @@
         }
 
         const quem = grupo || fornecedor;
-        const base = ['fin', empresa, tipo, norm(quem), venc, valor.toFixed(2), norm(categoria)].join(':');
+        const base = ['fin', empresa, tipoChave, norm(quem), venc, valor.toFixed(2), norm(categoria)].join(':');
         ocorrencias[base] = (ocorrencias[base] || 0) + 1;
         if (grupo) grupos.add(grupo);
 
@@ -277,7 +279,7 @@
           vencimento: venc, valor, pago,
           data_pagamento: pago ? (dataPag || venc) : null,
           forma_pagamento: forma, conta: texto(celula(ln, C.banco)), chave_pix: chavePix,
-          cobranca, perda: !!def.perda, obs
+          cobranca, perda: !!def.perda, redutor, obs
         });
         r.importadas++;
         r.total = Math.round((r.total + valorBruto) * 100) / 100;

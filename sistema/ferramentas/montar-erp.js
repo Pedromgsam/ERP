@@ -33,7 +33,8 @@ trocar('<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart
   '<script src="vendor/chart.umd.js" defer></script>\n' +
   '<script src="vendor/supabase.js"></script>\n<script src="config.js"></script>\n<script src="erp-dados.js"></script>\n' +
   '<link rel="stylesheet" href="editor.css">\n<link rel="stylesheet" href="erp-telas.css">\n' +
-  '<script src="editor.js" defer></script>\n<script src="erp-telas.js" defer></script>', 1);
+  '<script src="editor.js" defer></script>\n<script src="erp-telas.js" defer></script>\n' +
+  '<link rel="stylesheet" href="gs.css">\n<script src="importador.js" defer></script>\n<script src="gestao-embutida.js" defer></script>', 1);
 
 // 2. URL "do script": fica só como marcador; nenhuma chamada sai para o Google.
 s = s.replace(/const DEFAULT_URL = 'https:\/\/script\.google\.com\/macros\/s\/[^']+\/exec';/,
@@ -97,6 +98,98 @@ fs.writeFileSync(path.join(raiz, 'sistema', 'banco', 'dados-recibos.sql'),
   "insert into public.configuracoes (chave, valor) values ('recibo_emitentes', '" + json + "'::jsonb)\n" +
   'on conflict (chave) do update set valor = excluded.valor, atualizado_em = now();\n');
 
+// 6. Em atraso com a regra do Gestão: todos os meses (não só o período escolhido),
+//    mantendo os recortes de pessoa, tipo e grupo; e a lista "⚠ Em atraso" logo abaixo.
+function semPeriodo(estado, filtrar, abas) {
+  return 'window._semPeriodo(' + estado + ',function(){return ' + filtrar + '(' + abas + ');})';
+}
+trocar("var vencidos=aReceber.filter(function(f){ var d=_faData(f); return d&&d<hoje; });",
+  "var vencidos=" + semPeriodo('_FA', '_faFiltrar', "['A Receber']") + ".filter(function(f){ var d=pDate(f.vencimento); return d&&d<hoje; });", 1);
+trocar("var vencidos=aberto.filter(function(f){ var d=_fcData(f); return d&&d<hoje; });",
+  "var vencidos=" + semPeriodo('_FC', '_fcFiltrar', '[L.abaAberto]') + ".filter(function(f){ var d=pDate(f.vencimento); return d&&d<hoje; });", 1);
+trocar("  +   kC('Vencido',_faFT(vVenc),vencidos.length+' lançamento(s)','cr',vVenc>0?'dr':'')",
+  "  +   kC('Em atraso',_faFT(vVenc),vencidos.length+' vencido(s) · todos os meses','cr',vVenc>0?'dr':'')", 2);
+trocar("  + '<div class=\"cc\" style=\"margin-bottom:14px\"><div class=\"cc-hd\"><div><div class=\"cc-t\">Recebido mês a mês</div>'",
+  "  + (vencidos.length?'<div class=\"cc\" style=\"margin-bottom:14px\"><div class=\"cc-hd\"><div><div class=\"cc-t\">⚠ Em atraso</div><div class=\"cc-d\">todos os meses · mesmos recortes de pessoa, tipo e grupo</div></div></div>'+_faTabelaDetalhe(vencidos.slice().sort(function(a,b){return (pDate(a.vencimento)||0)-(pDate(b.vencimento)||0);}))+'</div>':'')\n"
+  + "  + '<div class=\"cc\" style=\"margin-bottom:14px\"><div class=\"cc-hd\"><div><div class=\"cc-t\">Recebido mês a mês</div>'", 1);
+trocar("  + '<div class=\"cc\" style=\"margin-bottom:14px\"><div class=\"cc-hd\"><div><div class=\"cc-t\">'+(L.lado==='pagar'?'Pago':'Recebido')+' mês a mês</div>'",
+  "  + (vencidos.length?'<div class=\"cc\" style=\"margin-bottom:14px\"><div class=\"cc-hd\"><div><div class=\"cc-t\">⚠ Em atraso</div><div class=\"cc-d\">todos os meses · mesmos recortes</div></div></div>'+_fcTabelaDetalhe(vencidos)+'</div>':'')\n"
+  + "  + '<div class=\"cc\" style=\"margin-bottom:14px\"><div class=\"cc-hd\"><div><div class=\"cc-t\">'+(L.lado==='pagar'?'Pago':'Recebido')+' mês a mês</div>'", 1);
+
 s = s.replace(/<title>[^<]*<\/title>/, '<title>ERP — Araújo &amp; Castro</title>');
 fs.writeFileSync(destino, s);
+
+// ═══════ Gestão embutido: as telas do Gestão rodando dentro do ERP ═══════
+// Junta o código do Gestão num bloco isolado (nada vaza para o ERP e vice-versa)
+// e gera o CSS do Gestão restrito à classe .gs.
+const APP = path.join(raiz, 'sistema', 'app');
+const ler = (f) => fs.readFileSync(path.join(APP, f), 'utf8');
+function cortar(txt, de, ate, novo) {
+  const i = txt.indexOf(de), j = ate ? txt.indexOf(ate, i) : txt.length;
+  if (i < 0 || j < 0) throw new Error('Trecho do Gestão não encontrado: ' + de);
+  return txt.slice(0, i) + (novo || '') + txt.slice(j);
+}
+let nuc = ler('nucleo.js');
+nuc = nuc.replace(/const sb = CONFIGURADO \? [^\n]+/, 'const sb = window.SB;');
+nuc = cortar(nuc, '// ─────────────────────────── login', 'async function carregarCadastros');
+nuc = cortar(nuc, '// ─────────────────────────── navegação', null, `// ── navegação dentro do ERP: cada tela desenha no painel que o ERP mostrou ──
+const TELAS = {};
+async function irPara(tela, alvo) {
+  E.perfil = window.ERP_EU || E.perfil;
+  E.tela = tela;
+  if (alvo) { const ant = document.getElementById('conteudo'); if (ant && ant !== alvo) ant.removeAttribute('id'); alvo.id = 'conteudo'; }
+  if (!$('conteudo')) return;
+  $('conteudo').innerHTML = '<div class="carregando">Carregando…</div>';
+  try { await carregarCadastros(); await TELAS[tela](); }
+  catch (e) {
+    console.error(e);
+    $('conteudo').innerHTML = '<div class="card"><div class="card-bd msg-erro">' + esc(erroAmigavel(e)) + '</div></div>';
+  }
+}
+function recarregar() { if (window.ERP_RECARREGAR) return window.ERP_RECARREGAR(); return irPara(E.tela); }
+`);
+let graf = ler('graficos.js').replace("document.addEventListener('DOMContentLoaded', () => document.body.appendChild(dica));",
+  "(document.getElementById('gs-raiz') || document.body).appendChild(dica);");
+const bundle = "'use strict';\n// GERADO por sistema/ferramentas/montar-erp.js — não edite; edite os arquivos do Gestão.\n(function () {\n" +
+  "const _raiz = document.createElement('div'); _raiz.id = 'gs-raiz'; _raiz.className = 'gs';\n" +
+  "_raiz.innerHTML = '<div id=\"janelas\"></div><div id=\"aviso\"></div>'; document.body.appendChild(_raiz);\n" +
+  [nuc, graf, ler('telas-painel.js'), ler('telas-financeiro.js'), ler('telas-cadastros.js'), ler('telas-admin.js'), ler('telas-tarefas.js')].join('\n') +
+  "\n// toda gravação confirmada aparece também no rodapé do ERP\nconst _avisoOrig = aviso;\n" +
+  "aviso = function (msg, erro) { _avisoOrig(msg, erro); if (!erro && window.ERP_EDITOR && /^✓/.test(msg)) window.ERP_EDITOR.gravou(String(msg).replace(/^✓\\s*/, '')); };\n" +
+  "window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela };\n})();\n";
+fs.writeFileSync(path.join(APP, 'gestao-embutida.js'), bundle);
+
+// CSS do Gestão só dentro de .gs (as telas do Gestão) e #gs-hd (barra superior)
+function escopo(sel) {
+  sel = sel.trim();
+  if (sel === ':root' || sel === 'body') return '.gs';
+  if (sel === '*') return '.gs *';
+  if (/^#hd\b/.test(sel)) return sel.replace(/^#hd/, '#gs-hd');
+  if (/^(nav|\.marca|\.hd-usuario)\b/.test(sel)) return '#gs-hd ' + sel;
+  return '.gs ' + sel;
+}
+function escoparCss(css) {
+  let out = '', i = 0;
+  while (i < css.length) {
+    const ab = css.indexOf('{', i);
+    if (ab < 0) break;
+    const cab = css.slice(i, ab).replace(/\/\*[\s\S]*?\*\//g, '').trim();
+    // acha o fechamento correspondente
+    let n = 1, j = ab + 1;
+    while (n && j < css.length) { if (css[j] === '{') n++; else if (css[j] === '}') n--; j++; }
+    const corpo = css.slice(ab + 1, j - 1);
+    if (/^@media/.test(cab)) out += cab + '{' + escoparCss(corpo) + '}\n';
+    else if (/^@/.test(cab)) out += cab + '{' + corpo + '}\n';
+    else out += cab.split(',').map(escopo).join(',') + '{' + corpo + '}\n';
+    i = j;
+  }
+  return out;
+}
+const gsCss = '/* GERADO por sistema/ferramentas/montar-erp.js a partir de estilo.css (Gestão) — não edite. */\n' +
+  escoparCss(ler('estilo.css')) +
+  '/* cores do ERP, tamanhos do Gestão */\n' +
+  '.gs{--navy:#1B2A4A;--navy2:#243659;--navy3:#2E5EAA;--accent:#C9A84C;--bg:#F0F2F7;background:none!important;min-height:0!important}\n' +
+  '.gs .duas-col>*,.gs .card{min-width:0}\n';
+fs.writeFileSync(path.join(APP, 'gs.css'), gsCss);
+console.log('gestao-embutida.js e gs.css gerados');
 console.log('index.html gerado: ' + trocas + ' ajustes, ' + Math.round(s.length / 1024) + ' KB');
