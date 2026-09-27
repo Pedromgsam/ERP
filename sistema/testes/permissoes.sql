@@ -75,3 +75,63 @@ select pg_temp.ok((select count(*) from lancamentos where contrato_id is not nul
 delete from clientes;
 select pg_temp.ok((select count(*) from clientes)=0,'admin exclui cliente');
 commit;
+
+-- 6. módulos novos e portal do cliente
+insert into auth.users (id,email) values ('00000000-0000-0000-0000-00000000000d','cliente@teste');
+begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-00000000000a');
+insert into grupos(nome) values ('Grupo Portal'), ('Grupo Outro');
+insert into processos(numero, grupo_id, obs) select '0001', id, 'estratégia interna' from grupos where nome='Grupo Portal';
+insert into processos(numero, grupo_id) select '0002', id from grupos where nome='Grupo Outro';
+insert into parcelamentos(empresa, grupo_id, obs) select 'Empresa Portal', id, 'nota interna' from grupos where nome='Grupo Portal';
+insert into parcelas(parcelamento_id, numero, vencimento) select id, '1', '2026-10-10' from parcelamentos;
+insert into acordos(processo, grupo_id, pix, banco) select 'A-1', id, 'chave-secreta', 'Banco X' from grupos where nome='Grupo Portal';
+update perfis set papel='cliente' where email='cliente@teste';
+insert into perfil_grupos select '00000000-0000-0000-0000-00000000000d', id from grupos where nome='Grupo Portal';
+select pg_temp.ok((select count(*) from processos)=2,'admin vê processos de todos os grupos');
+commit;
+
+begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-00000000000d');
+select pg_temp.ok((select count(*) from processos)=0 and (select count(*) from lancamentos)=0,'cliente não lê as tabelas diretamente');
+select pg_temp.ok(jsonb_array_length(portal_dados()->'processos')=1,'portal: cliente vê só o processo do grupo dele');
+select pg_temp.ok(not (portal_dados()->'processos'->0 ? 'obs'),'portal: observação interna do processo não sai');
+select pg_temp.ok(not (portal_dados()->'acordos'->0 ? 'pix') and not (portal_dados()->'acordos'->0 ? 'banco'),'portal: PIX e banco dos acordos não saem');
+select pg_temp.ok(jsonb_array_length(portal_dados()->'parcelamentos'->0->'parcelas')=1,'portal: parcelamento vem com as parcelas');
+select pg_temp.ok((select count(*) from grupos)=1,'cliente só enxerga o nome do próprio grupo');
+do $$ begin
+  insert into processos(numero) values ('invasao');
+  raise exception 'FALHOU: cliente gravou processo';
+exception when insufficient_privilege then raise notice 'PASSA: cliente não grava';
+end $$;
+commit;
+
+begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-00000000000b');
+do $$ begin
+  perform portal_dados();
+  raise exception 'FALHOU: equipe usou o portal';
+exception when raise_exception then
+  if sqlerrm like 'FALHOU%' then raise; end if;
+  raise notice 'PASSA: portal_dados só para cliente';
+end $$;
+update parcelas set pago=true;
+select pg_temp.ok((select count(*) from parcelas where pago)=1,'equipe dá baixa em parcela');
+delete from processos;
+select pg_temp.ok((select count(*) from processos)=2,'equipe não exclui processo');
+commit;
+
+-- configurações (dados dos advogados para recibos): só equipe lê, só admin grava
+insert into configuracoes(chave, valor) values ('recibo_emitentes', '{"x":{"nome":"FICTICIO"}}');
+begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-00000000000b');
+select pg_temp.ok((select count(*) from configuracoes)=1,'equipe lê as configurações dos recibos');
+update configuracoes set valor='{}';
+select pg_temp.ok((select valor from configuracoes)<>'{}'::jsonb,'equipe não altera configurações');
+commit;
+begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-00000000000d');
+select pg_temp.ok((select count(*) from configuracoes)=0,'cliente não lê dados dos advogados');
+commit;
+begin; set local role anon;
+do $$ begin
+  perform * from configuracoes;
+  raise exception 'FALHOU: anônimo leu configurações';
+exception when insufficient_privilege then raise notice 'PASSA: anônimo não lê configurações';
+end $$;
+commit;
