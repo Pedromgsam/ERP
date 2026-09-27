@@ -444,6 +444,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('texto sem HTML e com as palavras importantes destacadas', sql("select count(*) from publicacoes where texto like '%<p>%'") === '0' && (await p.$$('#pub-corpo mark')).length > 0);
     await p.click('#pub-buscar'); await p.waitForTimeout(2500);
     ok('buscar de novo não duplica', sql("select count(*) from publicacoes") === '2');
+    ok('número do processo no padrão CNJ mesmo quando vem só com dígitos', sql("select processo from publicacoes where tribunal='TRT3'") === '0001234-55.2023.5.03.0001');
     await p.click('#pub-corpo [data-pub]:has-text("5000001-11.2024.8.13.0024") [data-tarefa]'); await p.waitForSelector('#f-tf'); await p.waitForTimeout(300);
     ok('tarefa sugerida com prazo de 15 dias úteis (pula feriado de 12/10)', await p.inputValue('#f-tf [name=prazo]') === '2026-10-19' && /Execução|execução|intimação/i.test(await p.inputValue('#f-tf [name=titulo]')));
     await salvarGs(p, '#btn-salvar-tf'); await p.waitForTimeout(800);

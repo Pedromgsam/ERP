@@ -25,7 +25,8 @@ function dataISO(v) {
 }
 export function normalizar(it, oab) {
   const numero = String(primeiro(it, ['numero_processo', 'numeroProcesso', 'numeroprocesso'])).replace(/\D/g, '');
-  const mascara = String(primeiro(it, ['numeroprocessocommascara', 'numeroProcessoComMascara', 'numero_processo_com_mascara']) || numero);
+  const cnj = numero.length === 20 ? numero.replace(/^(\d{7})(\d{2})(\d{4})(\d)(\d{2})(\d{4})$/, '$1-$2.$3.$4.$5.$6') : numero;   // padrão CNJ
+  const mascara = String(primeiro(it, ['numeroprocessocommascara', 'numeroProcessoComMascara', 'numero_processo_com_mascara']) || cnj);
   const dest = (primeiro(it, ['destinatarios']) || []);
   const advs = (primeiro(it, ['destinatarioadvogados', 'destinatarioAdvogados', 'advogados']) || []);
   const texto = String(primeiro(it, ['texto', 'conteudo', 'teor']));

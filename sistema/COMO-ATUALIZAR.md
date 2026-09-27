@@ -24,6 +24,31 @@ Os arquivos podem ser rodados quantas vezes quiser: não apagam nada.
 Se aparecer **ERROR** em vermelho: tire um print e mande antes de continuar.
 Enquanto o SQL não for rodado, o ERP mostra um aviso amarelo dizendo o que falta — o resto funciona.
 
+## 2b. Funções do Supabase — e-mails e publicações (uma vez só)
+Os avisos por e-mail e a busca de publicações rodam em duas "funções" dentro do Supabase.
+Isso é feito **uma vez**; depois só muda se uma pull request pedir.
+
+**Ligar o agendador (para rodar sozinho de manhã):**
+1. Supabase → **Database** → **Extensions**.
+2. Procure **pg_cron** e ligue (Enable). Procure **pg_net** e ligue.
+3. Rode de novo o `sistema/banco/estrutura.sql` (passo 2). Ele cria os horários automáticos.
+
+**Publicar as duas funções:**
+1. Supabase → **Edge Functions** → **Deploy a new function** → **Via Editor**.
+2. Nome: **erp-emails**. Apague o exemplo que aparece.
+3. No GitHub, abra `supabase/functions/erp-emails/index.ts` → **Raw** → **Ctrl+A**, **Ctrl+C**.
+4. Volte ao Supabase, **Ctrl+V** no editor e clique em **Deploy function**.
+5. Na página da função, abra **Details** (ou **Settings**) e **desligue "Verify JWT"** (Enforce JWT verification) → salve.
+   A função confere sozinha quem chamou.
+6. Repita os passos 1 a 5 com o nome **erp-publicacoes** e o arquivo `supabase/functions/erp-publicacoes/index.ts`.
+
+**Configurar dentro do ERP:**
+- **E-mail:** Administração → **✉ E-mail** → escolha "Gmail do escritório", informe o e-mail e a **senha de app**
+  (a própria tela mostra onde gerar) → **Salvar** → **Enviar e-mail de teste**.
+- **Publicações:** Jurídico → **Publicações** → **OABs monitoradas** → inclua cada OAB (número e UF) e o nome do
+  advogado → **Buscar agora**.
+- **Funções de cada pessoa:** Administração → Usuários → botão **Funções** ao lado de cada pessoa da equipe.
+
 ## 3. Conferir
 1. Abra o ERP e aperte **Ctrl+Shift+R** (recarrega sem cache).
 2. Entre com seu e-mail e senha.
@@ -55,5 +80,5 @@ Quando quiser seguir em frente, faça o mesmo na publicação mais nova (⋯ →
   importações grandes. Para restaurar a partir de um backup, me chame: eu preparo a restauração com você.
 
 ### O Gestão antigo continua lá
-Em **Administração → "Abrir o Gestão (versão anterior)"**, ou no endereço do site com `/gestao.html` no fim.
+No menu **⋯** (ao lado de Sair) → **"Abrir o Gestão (versão anterior)"**, ou no endereço do site com `/gestao.html` no fim.
 Ele usa os mesmos dados; nada se perde usando um ou outro.

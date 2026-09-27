@@ -434,3 +434,13 @@ Assinatura eletrônica (ZapSign, Clicksign) fica fora desta etapa. Quando o dono
 3. **Funções:** confirmar os modelos de acesso ("Sócio", "Financeiro", "Jurídico", "Atendimento", "Estagiário") e quem fica em cada um.
 4. **CRM:** as etapas do funil e os modelos de proposta (serviços e valores de referência).
 5. **Planilha "11 - Financeiro - Adriana":** importar ou não.
+
+---
+
+## Andamento (27/09/2026) — executado (Backup 08)
+- Etapas 1 a 8 entregues: acordos fora do Financeiro; Clientes resumido com detalhe; design unificado com teste visual;
+  funções de acesso (banco + tela); lógica das tarefas (regras automáticas, semáforo, fila, revisão, anexo, horas);
+  e-mail (Gmail/SMTP/Resend) com resumo diário; CRM do zero; buscador de publicações (API pública do CNJ).
+- SQL: v7 a v11 no `estrutura.sql`. Funções: `supabase/functions/erp-emails` e `supabase/functions/erp-publicacoes`.
+- A busca de publicações foi testada contra uma imitação da API; a primeira busca real deve ser conferida
+  (a resposta bruta de cada publicação fica guardada no campo `bruto` para ajuste, se o CNJ mudar algum nome de campo).
