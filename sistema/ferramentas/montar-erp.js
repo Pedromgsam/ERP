@@ -77,7 +77,16 @@ s = s.replace(mEmit[0], 'var RECIBO_EMITENTES = {}; // preenchido após o login 
 const json = JSON.stringify(emitentes).replace(/'/g, "''");
 fs.writeFileSync(path.join(raiz, 'sistema', 'banco', 'dados-recibos.sql'),
   '-- Dados dos advogados usados nos recibos (gerado por ferramentas/montar-erp.js).\n' +
-  '-- Cole no SQL Editor do Supabase DEPOIS do estrutura.sql. Pode rodar de novo sem problema.\n' +
+  '-- Cole no SQL Editor do Supabase e clique em Run. Pode rodar de novo sem problema.\n' +
+  '-- Cria a tabela (se ainda não existir) com as regras de acesso: só a equipe lê, só o admin altera.\n' +
+  'create table if not exists public.configuracoes (\n  chave text primary key,\n  valor jsonb not null,\n  atualizado_em timestamptz not null default now()\n);\n' +
+  'alter table public.configuracoes enable row level security;\n' +
+  'revoke all on public.configuracoes from anon;\n' +
+  'grant select, insert, update, delete on public.configuracoes to authenticated;\n' +
+  'drop policy if exists configuracoes_ver on public.configuracoes;\n' +
+  'create policy configuracoes_ver on public.configuracoes for select to authenticated using (public.eh_equipe());\n' +
+  'drop policy if exists configuracoes_admin on public.configuracoes;\n' +
+  'create policy configuracoes_admin on public.configuracoes for all to authenticated\n  using (public.eh_admin()) with check (public.eh_admin());\n\n' +
   "insert into public.configuracoes (chave, valor) values ('recibo_emitentes', '" + json + "'::jsonb)\n" +
   'on conflict (chave) do update set valor = excluded.valor, atualizado_em = now();\n');
 

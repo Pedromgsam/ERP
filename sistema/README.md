@@ -90,6 +90,8 @@ diário, recomenda-se o plano **Pro do Supabase** (backup diário automático; p
 pausam após 7 dias sem uso). Confira os preços atuais nos sites antes de assinar.
 
 ## Atualizar o banco depois de uma versão nova
+Passo a passo detalhado: `sistema/COMO-ATUALIZAR.md`.
+
 Quando o sistema ganhar campos novos, cole de novo o `banco/estrutura.sql` inteiro no SQL Editor
 do Supabase e clique em Run. É seguro: o arquivo só cria o que falta e não apaga dados.
 
