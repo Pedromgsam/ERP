@@ -56,7 +56,7 @@
     hd.id = 'gs-hd'; hd.className = 'gs';
     const itemCls = (m) => (m.equipe ? ' gx-so-equipe' : '') + (m.admin ? ' gx-so-admin' : '');
     hd.innerHTML =
-      '<nav id="tn" aria-label="Menu principal">' + MENU.map((m, i) => !m.itens
+      '<span id="gs-tela-nome"></span><nav id="tn" aria-label="Menu principal">' + MENU.map((m, i) => !m.itens
         ? '<button type="button" class="tn-it' + itemCls(m) + '" data-ir="' + m.id + '">' + esc(m.rot) + '</button>'
         : '<div class="tn-grupo' + itemCls(m) + '"><button type="button" class="tn-it tn-abre" data-grupo="' + i + '" aria-haspopup="true" aria-expanded="false">' + esc(m.rot) + ' <span class="tn-seta">▾</span></button>' +
           '<div class="tn-menu" role="menu">' + m.itens.map((x) => '<button type="button" role="menuitem" data-ir="' + x[0] + '">' + esc(x[1]) + '</button>').join('') + '</div></div>').join('') +
@@ -153,7 +153,12 @@
   }
 
   let _painel = '';
+  function nomeTela(id) {
+    for (const m of MENU) { if (m.id === id) return m.rot; const x = (m.itens || []).find((i) => i[0] === id); if (x) return m.rot + ' · ' + x[1]; }
+    return '';
+  }
   function destacar(id) {
+    const tn = document.getElementById('gs-tela-nome'); if (tn) tn.textContent = nomeTela(id);
     document.querySelectorAll('#tn [data-ir], #tn-baixo [data-baixo]').forEach((b) => b.classList.toggle('ativo', b.dataset.ir === id || b.dataset.baixo === id));
     document.querySelectorAll('#tn .tn-grupo').forEach((g) => g.classList.toggle('ativo', !!g.querySelector('[data-ir="' + id + '"]')));
   }
@@ -188,6 +193,37 @@
     if (n) n.textContent = eu.nome || s.nome || eu.email || '';
   }
   document.addEventListener('erp:perfil', mostrarNome);
+
+  // ═════ gráficos: números em pt-BR e aviso quando não há dados ═════
+  function ajustarGraficos() {
+    if (!window.Chart || window.Chart._gx) return;
+    window.Chart._gx = true;
+    Chart.defaults.locale = 'pt-BR';
+    Chart.register({ id: 'gxSemDados', beforeDraw(ch) {
+      const temDado = (ch.data.datasets || []).some((d) => (d.data || []).some((v) => Number(v && typeof v === 'object' ? v.y : v)));
+      if (temDado) return;
+      const { ctx, width, height } = ch;
+      ctx.save(); ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = '#6B7280'; ctx.font = '500 13px "DM Sans", system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('Nada para mostrar neste recorte', width / 2, height / 2); ctx.restore();
+      return false;
+    } });
+  }
+  // celular: as tabelas do Gestão viram cartões — cada célula ganha o nome da coluna
+  function rotularTabelas(raiz) {
+    (raiz || document).querySelectorAll('.gs table').forEach((t) => {
+      const ths = [...t.querySelectorAll('thead th')].map((th) => th.textContent.trim());
+      if (!ths.length) return;
+      t.classList.add('gx-cartoes');
+      t.querySelectorAll('tbody tr').forEach((tr) => {
+        if (tr.dataset.rotulado) return; tr.dataset.rotulado = '1';
+        [...tr.children].forEach((td, i) => { if (!td.hasAttribute('colspan')) td.setAttribute('data-rotulo', ths[i] || ''); });
+      });
+    });
+  }
+  let _rotT;
+  new MutationObserver(() => { clearTimeout(_rotT); _rotT = setTimeout(() => rotularTabelas(), 120); }).observe(document.documentElement, { childList: true, subtree: true });
+  document.addEventListener('DOMContentLoaded', ajustarGraficos); window.addEventListener('load', ajustarGraficos); ajustarGraficos();
 
   // sino: número de avisos (notificações + prazos calculados), atualizado a cada 5 minutos
   let _sinoT;

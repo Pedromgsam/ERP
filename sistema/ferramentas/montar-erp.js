@@ -125,6 +125,22 @@ trocar('function _getVencRows(dias){',
 trocar('_getVencRows(7)', "_getVencRows(7,'cliente')", 2);
 trocar('_getVencRows(30)', "_getVencRows(30,'cliente')", 2);
 trocar("kC('Acordos c/ Terceiros a Pagar',", "kC('Acordos dos clientes c/ terceiros',", 1);
+// 8. Design: um só jeito de escrever dinheiro (R$ colado ao número por espaço que não quebra),
+//    formato curto único "R$ 1,85 mi" / "R$ 691 mil", títulos de seção padronizados.
+trocar("const fS = v => { v=Number(v)||0; if(v>=1e6)return'R$'+(v/1e6).toFixed(1).replace('.',',')+'M'; if(v>=1e3)return'R$'+(v/1e3).toFixed(0)+'k'; return'R$'+v.toFixed(0); };",
+  "const fS = v => _moedaCurta(v);\n" +
+  "function _moedaCurta(v){ v=Number(v)||0; var neg=v<0, a=Math.abs(v), t;\n" +
+  "  if(a>=1e6) t=(a/1e6).toLocaleString('pt-BR',{maximumFractionDigits:2})+'\\u00A0mi';\n" +
+  "  else if(a>=1e4) t=Math.round(a/1e3).toLocaleString('pt-BR')+'\\u00A0mil';\n" +
+  "  else t=a.toLocaleString('pt-BR',{maximumFractionDigits:0});\n" +
+  "  return (neg?'−':'')+'R$\\u00A0'+t; }", 1);
+trocar("const fF = v => 'R$ '+(Number(v)||0)", "const fF = v => 'R$\\u00A0'+(Number(v)||0)", 1);
+trocar("  if(a>=1e6) t='R$ '+(a/1e6).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+' mi';\n  else       t='R$ '+a.toLocaleString('pt-BR',{maximumFractionDigits:0});\n  return (neg?'−':'')+t;",
+  "  return _moedaCurta(neg?-a:a);", 1);
+trocar("callback:v=>{const n=Number(v)||0;if(n>=1e6)return'R$'+(n/1e6).toFixed(1)+'M';if(n>=1e3)return'R$'+(n/1e3).toFixed(0)+'k';return'R$'+n.toFixed(0);}", "callback:v=>_moedaCurta(v)", 1);
+s = s.replace(/'R\$ ?'\+/g, () => { trocas++; return "'R$\\u00A0'+"; });
+trocar('style="font-family:var(--font-d);font-size:14px;font-weight:700;color:var(--ac-gold);margin-bottom:12px;letter-spacing:.01em"', 'class="gx-sec-tit"', 5);
+
 s = s.replace(/<title>[^<]*<\/title>/, '<title>ERP — Araújo &amp; Castro</title>');
 fs.writeFileSync(destino, s);
 

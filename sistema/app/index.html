@@ -2044,7 +2044,7 @@ th[onclick]:hover{background:rgba(255,255,255,.08)}
   </div>
   <div id="procAnalise"></div>
   <div class="ex-bn" style="margin-bottom:16px;position:relative;background:none;border:1.5px solid var(--border);box-shadow:var(--shadow-md);padding:22px 26px">
-    <div style="font-family:var(--font-d);font-size:14px;font-weight:700;color:var(--ac-gold);margin-bottom:12px;letter-spacing:.01em">⚖ Processos — Visão Geral</div>
+    <div class="gx-sec-tit">⚖ Processos — Visão Geral</div>
     <div class="kpi-grid" id="kpiProc"></div>
   </div>
   <div class="crow c2">
@@ -2112,7 +2112,7 @@ th[onclick]:hover{background:rgba(255,255,255,.08)}
   </div>
   <div id="parcAnalise"></div>
   <div class="ex-bn" style="margin-bottom:16px;position:relative;background:none;border:1.5px solid var(--border);box-shadow:var(--shadow-md);padding:22px 26px">
-    <div style="font-family:var(--font-d);font-size:14px;font-weight:700;color:var(--ac-gold);margin-bottom:12px;letter-spacing:.01em">◷ Parcelamentos — Visão Geral</div>
+    <div class="gx-sec-tit">◷ Parcelamentos — Visão Geral</div>
     <div class="kpi-grid" id="kpiParc"></div>
   </div>
   <div class="crow c2">
@@ -2228,7 +2228,7 @@ th[onclick]:hover{background:rgba(255,255,255,.08)}
   </div>
 
   <div class="ex-bn" style="margin-bottom:16px;position:relative;background:none;border:1.5px solid var(--border);box-shadow:var(--shadow-md);padding:22px 26px">
-    <div style="font-family:var(--font-d);font-size:14px;font-weight:700;color:var(--ac-gold);margin-bottom:12px;letter-spacing:.01em">✦ Acordos — Visão Geral</div>
+    <div class="gx-sec-tit">✦ Acordos — Visão Geral</div>
     <div class="kpi-grid" id="kpiAcordos"></div>
   </div>
   <div class="crow c2">
@@ -2814,8 +2814,13 @@ function corCategoria(nome,i){
 }
 
 const $  = id => document.getElementById(id);
-const fS = v => { v=Number(v)||0; if(v>=1e6)return'R$'+(v/1e6).toFixed(1).replace('.',',')+'M'; if(v>=1e3)return'R$'+(v/1e3).toFixed(0)+'k'; return'R$'+v.toFixed(0); };
-const fF = v => 'R$ '+(Number(v)||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fS = v => _moedaCurta(v);
+function _moedaCurta(v){ v=Number(v)||0; var neg=v<0, a=Math.abs(v), t;
+  if(a>=1e6) t=(a/1e6).toLocaleString('pt-BR',{maximumFractionDigits:2})+'\u00A0mi';
+  else if(a>=1e4) t=Math.round(a/1e3).toLocaleString('pt-BR')+'\u00A0mil';
+  else t=a.toLocaleString('pt-BR',{maximumFractionDigits:0});
+  return (neg?'−':'')+'R$\u00A0'+t; }
+const fF = v => 'R$\u00A0'+(Number(v)||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const fI = v => (Number(v)||0).toLocaleString('pt-BR');
 const ADV_COLORS = {
   'emanuelle':{bg:'#FFF0F5',color:'#9D174D',border:'#FBCFE8'},
@@ -2857,7 +2862,7 @@ const BO={responsive:true,maintainAspectRatio:false,
     title:items=>items[0]?.label||''
   }}},
   scales:{x:{ticks:{color:'#9CA3AF',font:{size:10.5}},grid:{display:false}},
-          y:{ticks:{color:'#9CA3AF',font:{size:10.5},callback:v=>{const n=Number(v)||0;if(n>=1e6)return'R$'+(n/1e6).toFixed(1)+'M';if(n>=1e3)return'R$'+(n/1e3).toFixed(0)+'k';return'R$'+n.toFixed(0);}},grid:{color:'rgba(0,0,0,.045)',drawBorder:false}}}};
+          y:{ticks:{color:'#9CA3AF',font:{size:10.5},callback:v=>_moedaCurta(v)},grid:{color:'rgba(0,0,0,.045)',drawBorder:false}}}};
 
 // v47: a cor da barra deixou de ser escolha de cada gráfico. Barra é
 // comparação de tamanho — a família azul-marinho, do escuro (maior) ao claro,
@@ -5126,9 +5131,7 @@ function _finAplicarAbasCliente(){
 function _faF(v){
   v=Number(v)||0;
   var neg=v<0, a=Math.abs(v), t;
-  if(a>=1e6) t='R$ '+(a/1e6).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+' mi';
-  else       t='R$ '+a.toLocaleString('pt-BR',{maximumFractionDigits:0});
-  return (neg?'−':'')+t;
+  return _moedaCurta(neg?-a:a);
 }
 function _faFT(v){ return '<span title="'+fF(v)+'" style="cursor:help">'+_faF(v)+'</span>'; }
 
@@ -5785,7 +5788,7 @@ function renderFinanceiro(){
   h+='<select class="fsel" id="fFinMesAno" onchange="renderFinTbl()" style="min-width:140px;font-size:12px" title="Filtrar por mês/ano exato"><option value="">— Mês/Ano —</option></select>';
   h+='</div>';
   h+='<div class="ex-bn" style="margin-bottom:16px;position:relative;background:none;border:1.5px solid var(--border);box-shadow:var(--shadow-md);padding:22px 26px">';
-  h+='<div style="font-family:var(--font-d);font-size:14px;font-weight:700;color:var(--ac-gold);margin-bottom:12px;letter-spacing:.01em">💼 Financeiro — Visão Geral</div>';
+  h+='<div class="gx-sec-tit">💼 Financeiro — Visão Geral</div>';
   h+='<div class="kpi-grid">';
   h+=kC('Total a Receber',fS(okAP+vencNP),fF(okAP+vencNP),'cr','dr');
   h+=kC('Inadimplente',fS(vencNP),fF(vencNP),'cr','dr');
@@ -6902,7 +6905,7 @@ function _renderFinCAbaAberta(ladoKey){
   h+='<select class="fsel" id="fcAbaMesAno" onchange="renderFinCAbaTbl()" style="min-width:140px;font-size:12px" title="Filtrar por mês/ano exato"><option value="">— Mês/Ano —</option></select>';
   h+='</div>';
   h+='<div class="ex-bn" style="margin-bottom:16px;position:relative;background:none;border:1.5px solid var(--border);box-shadow:var(--shadow-md);padding:22px 26px">';
-  h+='<div style="font-family:var(--font-d);font-size:14px;font-weight:700;color:var(--ac-gold);margin-bottom:12px;letter-spacing:.01em">'+L.bannerAberto+' '+esc(L.abaAberto)+' — Visão Geral</div>';
+  h+='<div class="gx-sec-tit">'+L.bannerAberto+' '+esc(L.abaAberto)+' — Visão Geral</div>';
   h+='<div class="kpi-grid">';
   h+=kC('Total '+esc(L.abaAberto),fS(okAP+vencNP),fF(okAP+vencNP),'cr','dr');
   h+=kC('Vencido',fS(vencNP),fF(vencNP),'cr','dr');
@@ -9550,9 +9553,9 @@ function epGerar(modo){
 function _epTextoAtual(cardId){
   var e=document.getElementById('edit_'+cardId),v=document.getElementById('view_'+cardId);
   if(e&&getComputedStyle(e).display!=='none'){
-    return e.value.replace(/\[VALOR(?::([^\]]*))?\]/g,function(_,vv){return 'R$ '+((vv&&vv.trim())?vv.trim():'_____');});
+    return e.value.replace(/\[VALOR(?::([^\]]*))?\]/g,function(_,vv){return 'R$\u00A0'+((vv&&vv.trim())?vv.trim():'_____');});
   }
-  if(v){var c=v.cloneNode(true);c.querySelectorAll('.ep-val-wrap').forEach(function(wrap){var inp=wrap.querySelector('input.ep-val');var val=inp?inp.value.trim():'';wrap.replaceWith(document.createTextNode('R$ '+(val||'_____')));});return c.innerText||c.textContent||'';}
+  if(v){var c=v.cloneNode(true);c.querySelectorAll('.ep-val-wrap').forEach(function(wrap){var inp=wrap.querySelector('input.ep-val');var val=inp?inp.value.trim():'';wrap.replaceWith(document.createTextNode('R$\u00A0'+(val||'_____')));});return c.innerText||c.textContent||'';}
   return '';
 }
 

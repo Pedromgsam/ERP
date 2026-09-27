@@ -285,3 +285,10 @@ tr.cli-det>td{background:#f8fafd;padding:0!important;border-bottom:2px solid var
 .cli-det-tit{font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;font-weight:700;color:var(--text3);margin-bottom:4px}
 .cli-det-acoes{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
 .cli-det-acoes a.btn{text-decoration:none}
+/* ── design unificado: valores e campos ── */
+.kpi-v{white-space:nowrap;font-size:clamp(16px,1.6vw,21px)}
+td.num,td.mono,.num{white-space:nowrap}
+input,select,textarea{max-width:100%;box-sizing:border-box}
+.grade>*,.duas-col>*,.card,.kpi,.kpis>*{min-width:0}
+@media (max-width:560px){.grade,.grade.g3{grid-template-columns:1fr}.grade .dois{grid-column:auto}.busca,.busca.sel{max-width:none;min-width:0;flex:1 1 160px}}
+.data-texto{max-width:130px!important;min-width:0!important}

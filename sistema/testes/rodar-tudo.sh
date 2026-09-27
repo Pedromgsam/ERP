@@ -16,3 +16,4 @@ done
 node "$DIR/importador.test.js"
 node "$DIR/telas.js"
 node "$DIR/erp.js"
+node "$DIR/visual.js"

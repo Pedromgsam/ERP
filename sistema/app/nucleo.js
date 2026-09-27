@@ -72,6 +72,23 @@ function mascaraDoc(s) {
   if (d.length === 14) return d.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})/, '$1.$2.$3/$4-$5');
   return s || '';
 }
+// Data digitada (filtros): máscara dd/mm/aaaa; nada roda enquanto se digita.
+function mascaraData(inp) {
+  if (!inp) return;
+  inp.addEventListener('input', () => {
+    const d = soDigitos(inp.value).slice(0, 8);
+    inp.value = d.length > 4 ? d.slice(0, 2) + '/' + d.slice(2, 4) + '/' + d.slice(4) : d.length > 2 ? d.slice(0, 2) + '/' + d.slice(2) : d;
+  });
+}
+// "31/11/2025" → { iso: '2025-11-30', corrigida: true }; incompleta → null
+function lerDataBR(txt) {
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(txt || '').trim());
+  if (!m) return null;
+  const dia = +m[1], mes = +m[2], ano = +m[3];
+  if (mes < 1 || mes > 12 || dia < 1 || ano < 1900) return null;
+  const ult = new Date(ano, mes, 0).getDate(), d = Math.min(dia, ult);
+  return { iso: ano + '-' + String(mes).padStart(2, '0') + '-' + String(d).padStart(2, '0'), corrigida: d !== dia };
+}
 function normalizar(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
 // Valor com sinal: comissão/desconto (redutor) diminui a receita.
 function vl(l) { return l.redutor ? -(Number(l.valor) || 0) : (Number(l.valor) || 0); }
