@@ -180,6 +180,32 @@
     if (data && data.valor && window.RECIBO_EMITENTES) { Object.assign(window.RECIBO_EMITENTES, data.valor); _configOk = true; }
   }
 
+  // ─────────────── aviso de módulo que não carregou ───────────────
+  const NOME_MOD = { baseDados: 'Clientes', processos: 'Processos', parcelamentos: 'Parcelamentos', acordos: 'Acordos',
+    financeiro: 'Honorários Jurídico', financeiroContab: 'Honorários Contabilidade', tarefas: 'Tarefas', portal: 'Portal do Cliente' };
+  const _falhas = {};
+  function registrarFalha(m, e) {
+    console.error('[ERP/Supabase] ' + m + ':', e);
+    const msg = (e && (e.message || e.code)) || String(e);
+    const faltaTabela = /42P01|PGRST20[45]|does not exist|Could not find the table|schema cache/i.test(msg + ' ' + (e && e.code));
+    _falhas[m] = faltaTabela ? 'banco desatualizado' : msg;
+    mostrarFalhas();
+  }
+  function mostrarFalhas() {
+    const lista = Object.keys(_falhas);
+    let el = document.getElementById('erp-aviso-banco');
+    if (!lista.length) { if (el) el.remove(); return; }
+    if (!document.body) return;
+    if (!el) { el = document.createElement('div'); el.id = 'erp-aviso-banco'; document.body.appendChild(el); }
+    const desatualizado = lista.some((m) => _falhas[m] === 'banco desatualizado');
+    el.innerHTML = '<b>⚠ Alguns dados não carregaram:</b> ' + lista.map((m) => NOME_MOD[m] || m).join(', ') + '.<br>' +
+      (desatualizado
+        ? 'O banco de dados ainda não recebeu a atualização. No Supabase, abra o <b>SQL Editor</b>, cole o arquivo <b>sistema/banco/estrutura.sql</b> inteiro e clique em <b>Run</b>; depois faça o mesmo com <b>sistema/banco/dados-recibos.sql</b>. Em seguida clique em ↻ Atualizar.'
+        : 'Detalhe: ' + lista.map((m) => (NOME_MOD[m] || m) + ' — ' + _falhas[m]).join('; ').replace(/</g, '&lt;')) +
+      ' <button type="button">fechar</button>';
+    el.querySelector('button').onclick = () => el.remove();
+  }
+
   async function perfilAtual() {
     const { data: { session } } = await sb.auth.getSession();
     if (!session) return null;
@@ -195,12 +221,23 @@
     let pedidos = params.get('modulos') ? params.get('modulos').split(',') : params.get('modulo') ? [params.get('modulo')] : MODULOS;
     pedidos = pedidos.filter((m) => MODULOS.includes(m));
     const t0 = performance.now();
-    if (perfil.papel === 'cliente') return lerPortal(pedidos.filter((m) => ['baseDados', 'processos', 'parcelamentos', 'acordos'].includes(m)));
+    if (perfil.papel === 'cliente') {
+      try { return await lerPortal(pedidos.filter((m) => ['baseDados', 'processos', 'parcelamentos', 'acordos'].includes(m))); }
+      catch (e) { registrarFalha('portal', e); return { _nivel: 'cliente', baseDados: [], processos: [], parcelamentos: [], acordos: [] }; }
+    }
     const dados = {};
-    carregarConfiguracoes();
+    if (pedidos.includes('baseDados')) { Object.keys(_falhas).forEach((k) => delete _falhas[k]); mostrarFalhas(); }
+    carregarConfiguracoes().catch(() => {});
     if (pedidos.includes('baseDados') && !pedidos.includes('tarefas')) pedidos.push('tarefas');
     const tempos = {};
-    await Promise.all(pedidos.map(async (m) => { const t = performance.now(); dados[m] = await LEITORES[m](); tempos[m] = Math.round(performance.now() - t); }));
+    // Cada módulo carrega sozinho: se um falhar (ex.: tabela ainda não criada), os outros aparecem
+    // normalmente e um aviso claro diz o que falta.
+    await Promise.all(pedidos.map(async (m) => {
+      const t = performance.now();
+      try { dados[m] = await LEITORES[m](); }
+      catch (e) { dados[m] = []; registrarFalha(m, e); }
+      tempos[m] = Math.round(performance.now() - t);
+    }));
     dados._nivel = 'admin';
     dados.geradoEm = new Date().toISOString();
     dados._diag = { msTotal: Math.round(performance.now() - t0), msPorModulo: tempos, modulos: pedidos, origem: 'supabase' };

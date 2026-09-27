@@ -200,6 +200,15 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('formulário cabe no celular', await pm.evaluate(() => document.querySelector('.gx-janela').getBoundingClientRect().width <= window.innerWidth));
     await foto(pm, 'celular');
 
+    // ── banco desatualizado: uma tabela faltando não derruba o ERP ──
+    sql('alter table acordos rename to acordos_tmp'); execFileSync('pkill', ['-USR1', '-x', 'postgrest']); await p.waitForTimeout(1500);
+    await p.evaluate(() => loadData(true)); await p.waitForTimeout(4000);
+    const aviso = await p.evaluate(() => { const e = document.getElementById('erp-aviso-banco'); return e ? e.textContent : ''; });
+    ok('tabela faltando: o resto carrega e aparece aviso claro', /Acordos/.test(aviso) && /estrutura\.sql/.test(aviso) && await p.evaluate(() => DB.baseDados.length === 3), aviso);
+    sql('alter table acordos_tmp rename to acordos'); execFileSync('pkill', ['-USR1', '-x', 'postgrest']); await p.waitForTimeout(1500);
+    await p.evaluate(() => loadData(true)); await p.waitForTimeout(4000);
+    ok('aviso some quando o banco é atualizado', !(await p.$('#erp-aviso-banco')));
+
     // ── sair ──
     await p.evaluate(() => acLogout()); await p.waitForTimeout(800);
     ok('sair encerra a sessão do Supabase', await p.evaluate(async () => !(await SB.auth.getSession()).data.session));
