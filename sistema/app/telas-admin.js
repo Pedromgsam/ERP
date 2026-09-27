@@ -270,8 +270,16 @@ async function admHistorico(corpo) {
     (() => { let c = sb.from('historico').select('*').order('quando', { ascending: false }).limit(300); if (E.adm.tabela) c = c.eq('tabela', E.adm.tabela); return q(c); })()
   ]);
   const quem = {}; perfis.forEach((p) => { quem[p.id] = p.nome || p.email; });
-  const rotulo = (d) => d ? (d.nome || d.titulo || (d.numero && d.natureza !== undefined && !d.empresa ? 'Nº ' + d.numero : '') || (d.empresa ? d.empresa + (d.natureza ? ' · ' + d.natureza : '') : '') ||
-    (d.processo ? d.processo + (d.parcela ? ' · parc. ' + d.parcela : '') : '') || (d.parcelamento_id ? 'parcela ' + (d.numero || '') + ' · venc. ' + dataBR(d.vencimento) : '') || ((d.descricao || '') + (d.grupo_id ? ' · ' + nomeGrupo(d.grupo_id) : '')) || d.email || '') : '';
+  const rotulo = (d, t) => {
+    if (!d) return '';
+    const g = d.grupo_id ? ' · ' + nomeGrupo(d.grupo_id) : '';
+    if (t === 'parcelamentos') return d.empresa + (d.natureza ? ' · ' + d.natureza : '');
+    if (t === 'parcelas') return 'parcela ' + (d.numero || '') + ' · venc. ' + dataBR(d.vencimento);
+    if (t === 'processos') return 'Nº ' + d.numero + g;
+    if (t === 'acordos') return d.processo + (d.parcela ? ' · parc. ' + d.parcela : '') + g;
+    if (t === 'tarefas') return d.titulo + g;
+    return d.nome || ((d.descricao || '') + g) || d.email || '';
+  };
   const mudancas = (h) => {
     if (h.acao !== 'UPDATE' || !h.antes || !h.depois) return '';
     return Object.keys(h.depois).filter((k) => !CAMPOS_IGNORADOS.includes(k) && JSON.stringify(h.antes[k]) !== JSON.stringify(h.depois[k]))
@@ -284,7 +292,7 @@ async function admHistorico(corpo) {
     '<div class="card">' + (reg.length ? '<div class="tabela-wrap"><table class="ordenavel"><thead><tr><th data-tipo="data">Quando</th><th>Quem</th><th>O quê</th><th>Registro</th><th>O que mudou</th></tr></thead><tbody>' +
       reg.map((h) => '<tr><td class="mono" data-ord="' + h.quando + '">' + dataHoraBR(h.quando) + '</td><td>' + esc(quem[h.usuario] || (h.usuario ? '?' : 'sistema')) + '</td>' +
         '<td><span class="pill ' + NOME_ACAO[h.acao][1] + '">' + NOME_ACAO[h.acao][0] + '</span> <span class="sub">' + esc(NOME_TABELA[h.tabela] || h.tabela) + '</span></td>' +
-        '<td>' + esc(rotulo(h.depois || h.antes)) + '</td><td class="hist-mud">' + mudancas(h) + '</td></tr>').join('') +
+        '<td>' + esc(rotulo(h.depois || h.antes, h.tabela)) + '</td><td class="hist-mud">' + mudancas(h) + '</td></tr>').join('') +
       '</tbody></table></div>' : '<div class="vazio">Nenhuma alteração registrada ainda.</div>') + '</div>';
   $('hist-tabela').onchange = (ev) => { E.adm.tabela = ev.target.value; pintarAdmin(); };
 }

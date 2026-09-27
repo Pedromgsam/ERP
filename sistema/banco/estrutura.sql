@@ -540,3 +540,32 @@ create policy configuracoes_ver on public.configuracoes for select to authentica
 drop policy if exists configuracoes_admin on public.configuracoes;
 create policy configuracoes_admin on public.configuracoes for all to authenticated
   using (public.eh_admin()) with check (public.eh_admin());
+
+-- ─────────────────────────── v4: contratos no ERP ───────────────────────────
+-- Parcelas geradas pelo contrato já nascem com o grupo do cliente e o
+-- responsável, para aparecerem certinhas em Honorários Jurídico.
+alter table public.contratos add column if not exists responsavel text not null default '';
+create or replace function public.gerar_parcelas_contrato() returns trigger
+language plpgsql as $$
+declare
+  i int; base numeric(14,2); v numeric(14,2); g uuid;
+begin
+  if new.valor_total > 0 and new.primeiro_vencimento is not null then
+    select grupo_id into g from public.clientes where id = new.cliente_id;
+    base := trunc(new.valor_total / new.num_parcelas, 2);
+    for i in 1..new.num_parcelas loop
+      v := case when i = new.num_parcelas
+                then new.valor_total - base * (new.num_parcelas - 1) else base end;
+      insert into public.lancamentos
+        (empresa, tipo, descricao, categoria, cliente_id, contrato_id, grupo_id, responsavel, referencia,
+         parcela, total_parcelas, vencimento, valor)
+      values
+        ('escritorio', 'receita', new.descricao || case when new.num_parcelas > 1
+                                          then ' — parcela ' || i || '/' || new.num_parcelas else '' end,
+         'Honorários', new.cliente_id, new.id, g, new.responsavel,
+         case when new.num_parcelas > 1 then i || '/' || new.num_parcelas else '' end,
+         i, new.num_parcelas, (new.primeiro_vencimento + make_interval(months => i - 1))::date, v);
+    end loop;
+  end if;
+  return new;
+end $$;

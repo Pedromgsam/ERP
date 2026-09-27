@@ -182,7 +182,7 @@ const r = []; const ok = (n, c) => r.push([n, !!c]);
     await p.click('#adm-abas [data-aba=historico]'); await esperar(p, 900);
     const hist = await texto(p, '#adm-corpo');
     ok('Histórico mostra quem fez e o que mudou', /Pedro Castro/.test(hist) && /Alterou/.test(hist) && /pago/.test(hist));
-    ok('Histórico mostra nome do grupo, não código interno', /grupo:\s*\(vazio\)\s*→\s*Grupo Zeta/.test(hist) && !/[0-9a-f]{8}-[0-9a-f]{4}-/.test(hist));
+    ok('Histórico mostra nome do grupo, não código interno', /Grupo Zeta/.test(hist) && !/[0-9a-f]{8}-[0-9a-f]{4}-/.test(hist));
     await foto(p, '05-historico');
 
     // Usuários

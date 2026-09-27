@@ -12,7 +12,12 @@
 // ═══════════════════════════════════════════════════════════════════
 (function () {
   const CFG = window.ERP_CONFIG || {};
+  // link "criar nova senha" enviado por e-mail: o Supabase volta para cá com type=recovery
+  window.ERP_RECUPERACAO = /type=recovery/.test(location.hash);
   const sb = window.supabase.createClient(CFG.url, CFG.chave);
+  sb.auth.onAuthStateChange((ev) => {
+    if (ev === 'PASSWORD_RECOVERY' && !window.ERP_RECUPERACAO) { window.ERP_RECUPERACAO = true; document.dispatchEvent(new CustomEvent('erp:recuperacao')); }
+  });
   window.SB = sb;                       // usado pelo editor (editor.js)
   const fetchOriginal = window.fetch.bind(window);
   const ehScriptGoogle = (u) => /script\.google\.com\/macros\//.test(String(u || ''));
@@ -218,6 +223,7 @@
     const perfil = await perfilAtual();
     if (!perfil) return { ok: false, erro: 'Acesso negado. Sessão expirada. Faça login novamente.', _negado: true, _sessaoExpirada: true };
     if (perfil.papel === 'inativo') return { ok: false, erro: 'Acesso negado. Usuário inativo.', _negado: true };
+    window.ERP_PAPEL = perfil.papel; window.ERP_EU = perfil; document.dispatchEvent(new CustomEvent('erp:perfil'));
     let pedidos = params.get('modulos') ? params.get('modulos').split(',') : params.get('modulo') ? [params.get('modulo')] : MODULOS;
     pedidos = pedidos.filter((m) => MODULOS.includes(m));
     const t0 = performance.now();
@@ -254,6 +260,7 @@
     if (error) return { ok: false, erro: /Invalid login/i.test(error.message) ? 'E-mail ou senha incorretos.' : error.message };
     const { data: perfil } = await sb.from('perfis').select('*').eq('id', data.user.id).maybeSingle();
     if (!perfil || perfil.papel === 'inativo') { await sb.auth.signOut(); return { ok: false, erro: 'Seu acesso ainda não foi liberado. Peça ao administrador.' }; }
+    window.ERP_PAPEL = perfil.papel; window.ERP_EU = perfil; document.dispatchEvent(new CustomEvent('erp:perfil'));
     let gruposTxt = 'admin';
     if (perfil.papel === 'cliente') {
       const { data: pg } = await sb.from('perfil_grupos').select('grupos(nome)').eq('perfil_id', perfil.id);
@@ -284,6 +291,15 @@
       }
       return { ok: false, erro: 'Ação não disponível no sistema novo: ' + pl.acao };
     }
+    if (pl && pl.acao === 'criarRascunhoEmail') {
+      // Antes criava rascunho no Gmail pelo Apps Script; agora abre o e-mail já preenchido
+      // no programa de e-mail do computador/celular.
+      const d = pl.dados || {};
+      const a = document.createElement('a');
+      a.href = 'mailto:' + encodeURIComponent(d.to || '') + '?subject=' + encodeURIComponent(d.assunto || '') + '&body=' + encodeURIComponent(d.corpo || '');
+      document.body.appendChild(a); a.click(); a.remove();
+      return { ok: true };
+    }
     if (pl && (pl.acao || u.searchParams.get('_wb') === '1')) {
       return { ok: false, erro: 'Esta ação ainda não foi migrada para o sistema novo (' + (pl.acao || '?') + ').' };
     }
@@ -300,6 +316,10 @@
   // Recarrega os dados do ERP depois de uma gravação (usado pelo editor).
   window.ERP_RECARREGAR = function () { _gruposCache = null; _portal = null; if (typeof window.loadData === 'function') return window.loadData(true); };
   // Marca cada linha das tabelas do ERP com tabela:id (usado pelo botão ✎ Editar).
-  window._gx = (o) => (o && o._id ? o._t + ':' + o._id + (o._pai ? ':' + o._pai : '') : '');
+  window._gx = (o) => {
+    if (!o || !o._id) return '';
+    const pago = o.pagamento === 'SIM' || o.situacao === 'Pago' || o.status === 'Pago';
+    return o._t + ':' + o._id + ':' + (o._pai || '') + ':' + (['lancamentos', 'acordos', 'parcelas'].includes(o._t) ? (pago ? 'p' : 'a') : '');
+  };
   window.ERP_CONVERSORES = { baseDados, processo, parcelamento, acordo, financeiro };
 })();
