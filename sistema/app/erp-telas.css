@@ -113,3 +113,10 @@ body.gx-barra-topo .tw td>.tag.tn,body.gx-barra-topo .tw td .er-grupo{display:bl
 .gx-tab-gs.gs table.ordenavel thead th[aria-sort=ascending]::after{content:' ▲'!important;font-size:9px}
 .gx-tab-gs.gs table.ordenavel thead th[aria-sort=descending]::after{content:' ▼'!important;font-size:9px}
 .gx-tab-gs.gs thead{position:static;box-shadow:none}
+/* menus suspensos (Jurídico, Financeiro, + Lançar, ⋯) visíveis: a barra não pode rolar nem cortar */
+#gs-hd nav,#gs-hd #tn{overflow:visible!important}
+/* Honorários: sem blocos repetidos nas abas A Receber/Recebidos (a Análise já tem números e gráficos) */
+#finContent>.ex-bn,#finContent>.cc:has(canvas),#finCContent>.ex-bn,#finCContent>.cc:has(canvas){display:none!important}
+/* Processos: Atualização e Procuração saem da lista (continuam no Editar) */
+#panel-processos .tw th:nth-child(8),#panel-processos .tw td:nth-child(8),
+#panel-processos .tw th:nth-child(9),#panel-processos .tw td:nth-child(9){display:none}

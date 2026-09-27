@@ -80,7 +80,25 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.waitForTimeout(1200);
     ok('barra superior do Gestão (sem menu lateral nem cabeçalho antigo)', await p.isVisible('#gs-hd #tn') && !(await p.isVisible('#sb')) && !(await p.isVisible('#hd')) && await p.isVisible('.tn-lancar-bt'));
     ok('barra mostra entidades e grupos', /3/.test(await p.textContent('#gs-n-ent')) && /2/.test(await p.textContent('#gs-n-grp')));
+    // menus suspensos: clicar como uma pessoa e conferir que o item aparece de verdade (não escondido atrás da tela)
+    for (const g of ['Jurídico', 'Financeiro']) {
+      await p.click('#tn .tn-abre:has-text("' + g + '")'); await p.waitForTimeout(250);
+      const visivel = await p.evaluate(() => { const it = document.querySelector('#tn .tn-grupo.on .tn-menu button'); if (!it) return false; const r = it.getBoundingClientRect(); return document.elementFromPoint(r.left + 15, r.top + r.height / 2) === it; });
+      ok('menu ' + g + ' abre e mostra os itens na tela', visivel);
+      await p.mouse.click(700, 600); await p.waitForTimeout(150);
+    }
+    await p.click('#tn .tn-abre:has-text("Financeiro")'); await p.waitForTimeout(250);
+    await p.mouse.click(...await p.evaluate(() => { const r = document.querySelector('#tn .tn-grupo.on .tn-menu button').getBoundingClientRect(); return [r.left + 15, r.top + r.height / 2]; }));
+    await p.waitForTimeout(800);
+    ok('clicar em Financeiro › Jurídico abre os Honorários', await p.isVisible('#panel-financeiro'));
+    ok('barra sem o texto "Araujo & Castro"', !/Araujo/.test(await p.textContent('#gs-hd')));
+    await p.click('.gs-bt-mais'); await p.waitForTimeout(200);
+    ok('⋯ tem o link para o Gestão', await p.isVisible('#gs-hd [data-acao=gestao]'));
+    await p.mouse.click(700, 600); await p.waitForTimeout(150);
+    const g2 = await p.request.get(BASE + '/gestao.html');
+    ok('Gestão (versão anterior) continua no ar', g2.ok() && /Gestão/.test(await g2.text()));
     ok('menu Financeiro com Jurídico e Contabilidade', (await p.$$eval('#tn .tn-grupo:nth-of-type(2) .tn-menu button', (l) => l.map((b) => b.textContent))).join('|') === 'Jurídico|Contabilidade');
+    await nav(p, 'hoje'); await p.waitForTimeout(1500);
     ok('equipe entra no Início do Gestão (resumo do mês)', await p.isVisible('#panel-hoje') && /Olá, Pedro/.test(await p.textContent('#panel-hoje')) && /Contabilidade/.test(await p.textContent('#panel-hoje')));
     await foto(p, 'inicio');
     await p.waitForTimeout(1500);
@@ -231,7 +249,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('envia link de nova senha', (await (await p.request.get(BASE + '/__teste/recuperacoes')).json()).includes('novo@teste'));
     await p.selectOption('[data-papel="' + sql("select id from perfis where email='cliente@teste'") + '"]', 'cliente').catch(() => {});
     await p.click('#adm-abas [data-aba=historico]'); await p.waitForTimeout(1500);
-    ok('histórico na Administração', /Alterou/.test(await p.textContent('#adm-corpo')));
+    ok('histórico na Administração com filtros e detalhes', /Alterou/.test(await p.textContent('#adm-corpo')) && await p.isVisible('#hist-quem') && await p.isVisible('#hist-csv') && /Referência:/.test(await p.textContent('#adm-corpo')));
     await p.evaluate((id) => ERP_EDITAR('processos:' + id), sql("select id from processos limit 1")); await esperarJanela(p);
     await p.click('.gx-janela [data-a=historico]'); await p.waitForTimeout(1500);
     ok('histórico dentro do registro', /Incluiu/.test(await p.textContent('.gx-sobre')));

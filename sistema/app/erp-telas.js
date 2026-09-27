@@ -55,7 +55,6 @@
     hd.id = 'gs-hd'; hd.className = 'gs';
     const itemCls = (m) => (m.equipe ? ' gx-so-equipe' : '') + (m.admin ? ' gx-so-admin' : '');
     hd.innerHTML =
-      '<div class="gs-marca"><div class="gs-marca-nome">ERP</div><div class="gs-marca-sub">Araujo &amp; Castro — Advocacia e Consultoria</div></div>' +
       '<nav id="tn" aria-label="Menu principal">' + MENU.map((m, i) => !m.itens
         ? '<button type="button" class="tn-it' + itemCls(m) + '" data-ir="' + m.id + '">' + esc(m.rot) + '</button>'
         : '<div class="tn-grupo' + itemCls(m) + '"><button type="button" class="tn-it tn-abre" data-grupo="' + i + '" aria-haspopup="true" aria-expanded="false">' + esc(m.rot) + ' <span class="tn-seta">▾</span></button>' +
@@ -66,7 +65,7 @@
       '<div class="tn-menu tn-menu-dir" role="menu">' + LANCAR.map((x, i) => '<button type="button" role="menuitem" data-lancar="' + i + '">' + esc(x[0]) + '</button>').join('') + '</div></div>' +
       '<div class="hd-usuario"><span id="gs-nome"></span>' +
       '<div class="tn-grupo tn-mais-acoes"><button type="button" class="tn-abre gs-bt-mais" data-grupo="acoes" title="Atualizar dados e relatório em PDF" aria-haspopup="true" aria-expanded="false">⋯</button>' +
-      '<div class="tn-menu tn-menu-dir" role="menu"><button type="button" data-acao="atualizar">↻ Atualizar dados</button><button type="button" data-acao="pdf" class="gx-so-equipe">📄 Relatório em PDF</button></div></div>' +
+      '<div class="tn-menu tn-menu-dir" role="menu"><button type="button" data-acao="atualizar">↻ Atualizar dados</button><button type="button" data-acao="pdf" class="gx-so-equipe">📄 Relatório em PDF</button><button type="button" data-acao="gestao" class="gx-so-equipe">↗ Abrir o Gestão (versão anterior)</button></div></div>' +
       '<button type="button" id="gs-sair">Sair</button></div>';
     document.body.insertBefore(hd, document.body.firstChild);
 
@@ -91,6 +90,7 @@
       if (alvo.id === 'gs-sair' || alvo.classList.contains('gs-sair')) { if (typeof window.acLogout === 'function') window.acLogout(); }
       else if (alvo.dataset.acao === 'atualizar') { if (typeof window._dbCacheClear === 'function') window._dbCacheClear(); ED.recarregar(); }
       else if (alvo.dataset.acao === 'pdf') ir('relatorio');
+      else if (alvo.dataset.acao === 'gestao') window.open('gestao.html', '_blank', 'noopener');
       else if (alvo.dataset.ir) ir(alvo.dataset.ir);
       else if (alvo.dataset.lancar !== undefined) LANCAR[+alvo.dataset.lancar][1]();
       else if (alvo.dataset.baixo === 'mais') abrirMais();
@@ -120,7 +120,7 @@
     const itens = soLancar ? '<div class="tn-mais-tit">Lançar</div>' + LANCAR.map((x, i) => '<button type="button" data-lancar="' + i + '">+ ' + esc(x[0]) + '</button>').join('')
       : MENU.map((m) => !m.itens ? '<button type="button"' + cls(m) + ' data-ir="' + m.id + '">' + esc(m.rot) + '</button>'
         : '<div class="tn-mais-tit' + (m.equipe ? ' gx-so-equipe' : '') + '">' + esc(m.rot) + '</div>' + m.itens.map((x) => '<button type="button"' + cls(m) + ' data-ir="' + x[0] + '">' + esc(x[1]) + '</button>').join('')).join('')
-        + '<button type="button" data-acao="atualizar">↻ Atualizar dados</button><button type="button" class="gs-sair">Sair</button>';
+        + '<button type="button" data-acao="atualizar">↻ Atualizar dados</button><button type="button" data-acao="gestao">↗ Abrir o Gestão (versão anterior)</button><button type="button" class="gs-sair">Sair</button>';
     f.innerHTML = '<div class="tn-mais-caixa">' + itens + '<button type="button" class="tn-mais-fechar" data-fechar>Fechar</button></div>';
     document.body.appendChild(f);
     f.addEventListener('click', (e) => { if (e.target === f || e.target.closest('[data-fechar]')) fecharMais(); });
@@ -156,6 +156,10 @@
     const navOrig = window.nav;
     window.nav = function (btn, pid) {
       const id = pid || (btn && btn.dataset && btn.dataset.panel);
+      // como no Gestão: cada tela abre sem o filtro da tela anterior
+      if (id && _painel && id !== _painel && typeof window.resetarFiltros === 'function') {
+        try { window.resetarFiltros(); if (typeof window.applyFilters === 'function') window.applyFilters(); } catch (e) { console.warn('[ERP] limpar filtros:', e); }
+      }
       navOrig.apply(this, arguments);
       _painel = id; destacar(id);
       document.body.classList.toggle('gx-tela-nova', !!TELAS_GS[id]);
