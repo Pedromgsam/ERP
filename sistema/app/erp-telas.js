@@ -24,12 +24,13 @@
     { rot: 'Financeiro', equipe: true, itens: [['financeiro', 'Jurídico'], ['financeiroContab', 'Contabilidade']] },
     { id: 'contratos', rot: 'Contratos', equipe: true },
     { id: 'clientes', rot: 'Clientes', equipe: true },
+    { id: 'documentos', rot: 'Documentos', equipe: true },
     { id: 'tarefas', rot: 'Tarefas', equipe: true },
     { id: 'notificacoes', rot: 'Notificações', equipe: true },
     { id: 'admin', rot: 'Administração', admin: true }
   ];
   // painéis novos → tela do Gestão que desenha nele
-  const TELAS_GS = { hoje: 'inicio', contratos: 'contratos', clientes: 'clientes', tarefas: 'tarefas', admin: 'admin' };
+  const TELAS_GS = { hoje: 'inicio', contratos: 'contratos', clientes: 'clientes', documentos: 'documentos', tarefas: 'tarefas', admin: 'admin' };
 
   // "+ Lançar": formulários do Gestão onde existem; os demais, do editor do ERP
   const empresaAtual = () => (_painel === 'financeiroContab' ? 'contabilidade' : 'escritorio');
@@ -63,11 +64,15 @@
       '<div class="gs-contadores gx-so-equipe" id="gs-contadores" hidden><span class="gs-cont gs-cont-ent">▣ <b id="gs-n-ent">0</b> entidades</span><span class="gs-cont gs-cont-grp">◉ <b id="gs-n-grp">0</b> grupos</span></div>' +
       '<div class="tn-lancar gx-so-equipe"><button type="button" class="tn-lancar-bt" aria-haspopup="true" aria-expanded="false">+ Lançar</button>' +
       '<div class="tn-menu tn-menu-dir" role="menu">' + LANCAR.map((x, i) => '<button type="button" role="menuitem" data-lancar="' + i + '">' + esc(x[0]) + '</button>').join('') + '</div></div>' +
-      '<div class="hd-usuario"><span id="gs-nome"></span>' +
+      '<div class="hd-usuario"><button type="button" id="gs-sino" class="gx-so-equipe" title="Avisos: prazos, menções e vencimentos" aria-label="Avisos">🔔<span id="gs-sino-n" hidden></span></button><span id="gs-nome"></span>' +
       '<div class="tn-grupo tn-mais-acoes"><button type="button" class="tn-abre gs-bt-mais" data-grupo="acoes" title="Atualizar dados e relatório em PDF" aria-haspopup="true" aria-expanded="false">⋯</button>' +
       '<div class="tn-menu tn-menu-dir" role="menu"><button type="button" data-acao="atualizar">↻ Atualizar dados</button><button type="button" data-acao="pdf" class="gx-so-equipe">📄 Relatório em PDF</button><button type="button" data-acao="gestao" class="gx-so-equipe">↗ Abrir o Gestão (versão anterior)</button></div></div>' +
       '<button type="button" id="gs-sair">Sair</button></div>';
     document.body.insertBefore(hd, document.body.firstChild);
+    document.getElementById('gs-sino').onclick = async () => {
+      if (!GS()) return;
+      try { await GS().carregarCadastros(); await GS().abrirAlertas(null, atualizarSino); } catch (e) { aviso(erroAmigavel(e), true); }
+    };
 
     // celular: menu inferior + "Mais"
     const bn = document.createElement('nav');
@@ -183,6 +188,20 @@
     if (n) n.textContent = eu.nome || s.nome || eu.email || '';
   }
   document.addEventListener('erp:perfil', mostrarNome);
+
+  // sino: número de avisos (notificações + prazos calculados), atualizado a cada 5 minutos
+  let _sinoT;
+  async function atualizarSino() {
+    const n = document.getElementById('gs-sino-n');
+    if (!n || !GS() || ehCliente()) return;
+    try {
+      GS().E.perfil = window.ERP_EU || GS().E.perfil;
+      const c = await GS().contarAlertas();
+      n.hidden = !c.total; n.textContent = c.total > 99 ? '99+' : String(c.total);
+      n.classList.toggle('alto', c.altos > 0);
+    } catch (e) { console.warn('[ERP] avisos:', e); }
+  }
+  document.addEventListener('erp:perfil', () => { clearInterval(_sinoT); setTimeout(atualizarSino, 1500); _sinoT = setInterval(atualizarSino, 5 * 60 * 1000); });
 
   // ═══════ Honorários: tabelas de lançamentos no formato do Gestão ═══════
   // O ERP continua filtrando, ordenando e paginando; a tabela dele fica escondida

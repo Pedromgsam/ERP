@@ -578,3 +578,286 @@ alter table public.lancamentos add column if not exists redutor boolean not null
 -- deduções que vieram das abas de receita (valor negativo na planilha) viraram "despesa com grupo e sem fornecedor"
 update public.lancamentos set tipo = 'receita', redutor = true
  where tipo = 'despesa' and redutor = false and grupo_id is not null and favorecido = '';
+
+-- ═══════════════════════════════════════════════════════════════════
+-- v6 (2026-09-27) — Fase 1: ficha 360° do cliente · Fase 2: documentos ·
+-- Fase 3: tarefas completas (fluxos, subtarefas, prazos, modelos, feriados).
+-- ═══════════════════════════════════════════════════════════════════
+
+-- ── Fase 1: ficha 360° ──
+create table if not exists public.contatos (
+  id uuid primary key default gen_random_uuid(),
+  cliente_id uuid not null references public.clientes(id) on delete cascade,
+  nome text not null default '', cargo text not null default '',
+  finalidade text not null default 'geral',      -- geral, financeiro, marketing, juridico, socio, contador, cobranca
+  email text not null default '', telefone text not null default '', whatsapp boolean not null default false,
+  recebe_boletos boolean not null default false, recebe_notificacoes boolean not null default false,
+  preferencia text not null default '', obs text not null default '',
+  criado_por uuid default auth.uid(), criado_em timestamptz not null default now(), atualizado_em timestamptz not null default now()
+);
+create index if not exists contatos_cliente on public.contatos (cliente_id);
+create table if not exists public.enderecos (
+  id uuid primary key default gen_random_uuid(),
+  cliente_id uuid not null references public.clientes(id) on delete cascade,
+  tipo text not null default 'sede',              -- sede, correspondencia, cobranca, filial, residencial
+  logradouro text not null default '', numero text not null default '', complemento text not null default '',
+  bairro text not null default '', cidade text not null default '', uf text not null default '', cep text not null default '',
+  principal boolean not null default false, obs text not null default '',
+  criado_por uuid default auth.uid(), criado_em timestamptz not null default now(), atualizado_em timestamptz not null default now()
+);
+create index if not exists enderecos_cliente on public.enderecos (cliente_id);
+create table if not exists public.contas_bancarias (
+  id uuid primary key default gen_random_uuid(),
+  cliente_id uuid not null references public.clientes(id) on delete cascade,
+  banco text not null default '', agencia text not null default '', conta text not null default '', tipo_conta text not null default '',
+  pix text not null default '', titular text not null default '', documento_titular text not null default '',
+  uso text not null default '',                   -- recebimento, pagamento, restituicao
+  principal boolean not null default false, obs text not null default '',
+  criado_por uuid default auth.uid(), criado_em timestamptz not null default now(), atualizado_em timestamptz not null default now()
+);
+create index if not exists contas_bancarias_cliente on public.contas_bancarias (cliente_id);
+create table if not exists public.vinculos_societarios (
+  id uuid primary key default gen_random_uuid(),
+  cliente_id uuid not null references public.clientes(id) on delete cascade,
+  nome text not null default '', cpf_cnpj text not null default '', qualificacao text not null default '',
+  participacao numeric(7,4), email text not null default '', telefone text not null default '', obs text not null default '',
+  criado_por uuid default auth.uid(), criado_em timestamptz not null default now(), atualizado_em timestamptz not null default now()
+);
+create index if not exists vinculos_cliente on public.vinculos_societarios (cliente_id);
+create table if not exists public.etiquetas (
+  id uuid primary key default gen_random_uuid(),
+  nome text not null check (btrim(nome) <> ''), cor text not null default '#2E5EAA',
+  criado_em timestamptz not null default now(), atualizado_em timestamptz not null default now()
+);
+create unique index if not exists etiquetas_nome on public.etiquetas (lower(btrim(nome)));
+create table if not exists public.cliente_etiquetas (
+  cliente_id uuid not null references public.clientes(id) on delete cascade,
+  etiqueta_id uuid not null references public.etiquetas(id) on delete cascade,
+  primary key (cliente_id, etiqueta_id)
+);
+-- linha do tempo: ligações, e-mails, reuniões, WhatsApp, anotações (também usada pelo CRM)
+create table if not exists public.interacoes (
+  id uuid primary key default gen_random_uuid(),
+  cliente_id uuid references public.clientes(id) on delete cascade,
+  tipo text not null default 'anotacao',          -- ligacao, email, reuniao, whatsapp, anotacao
+  quando timestamptz not null default now(), resumo text not null check (btrim(resumo) <> ''),
+  criado_por uuid default auth.uid(), criado_em timestamptz not null default now(), atualizado_em timestamptz not null default now()
+);
+create index if not exists interacoes_cliente on public.interacoes (cliente_id, quando desc);
+create table if not exists public.certidoes (
+  id uuid primary key default gen_random_uuid(),
+  cliente_id uuid not null references public.clientes(id) on delete cascade,
+  orgao text not null default '',                 -- RFB/PGFN, Estadual MG, Municipal, Trabalhista, FGTS
+  situacao text not null default '',              -- negativa, positiva com efeito de negativa, positiva
+  emissao date, validade date, obs text not null default '',
+  criado_por uuid default auth.uid(), criado_em timestamptz not null default now(), atualizado_em timestamptz not null default now()
+);
+create index if not exists certidoes_cliente on public.certidoes (cliente_id, validade);
+
+-- ── Fase 2: documentos (arquivo no Storage privado "documentos") ──
+create table if not exists public.documentos (
+  id uuid primary key default gen_random_uuid(),
+  cliente_id uuid references public.clientes(id) on delete set null,
+  grupo_id uuid references public.grupos(id) on delete set null,
+  contrato_id uuid references public.contratos(id) on delete set null,
+  lancamento_id uuid references public.lancamentos(id) on delete set null,
+  processo_id uuid references public.processos(id) on delete set null,
+  tarefa_id uuid references public.tarefas(id) on delete set null,
+  tipo text not null default 'outro',             -- contrato, procuracao, pessoal, certidao, guia, comprovante, peticao, proposta, outro
+  nome text not null check (btrim(nome) <> ''),
+  caminho text not null,                          -- caminho do arquivo no bucket
+  tamanho bigint, mime text not null default '',
+  versao int not null default 1, documento_pai_id uuid references public.documentos(id) on delete set null,
+  validade date, etiquetas text not null default '', obs text not null default '',
+  liberado_cliente boolean not null default false, arquivado boolean not null default false,
+  criado_por uuid default auth.uid(), criado_em timestamptz not null default now(), atualizado_em timestamptz not null default now()
+);
+create index if not exists documentos_cliente on public.documentos (cliente_id);
+create index if not exists documentos_contrato on public.documentos (contrato_id);
+create index if not exists documentos_lancamento on public.documentos (lancamento_id);
+
+-- ── Fase 3: tarefas completas ──
+create table if not exists public.modelos_fluxo (
+  id uuid primary key default gen_random_uuid(),
+  nome text not null check (btrim(nome) <> ''), descricao text not null default '',
+  itens jsonb not null default '[]',              -- [{titulo, dias (antes do fatal, úteis), responsavel, checklist:[...], subtarefas:[...]}]
+  criado_por uuid default auth.uid(), criado_em timestamptz not null default now(), atualizado_em timestamptz not null default now()
+);
+create table if not exists public.fluxos (
+  id uuid primary key default gen_random_uuid(),
+  nome text not null check (btrim(nome) <> ''),
+  cliente_id uuid references public.clientes(id) on delete set null,
+  grupo_id uuid references public.grupos(id) on delete set null,
+  modelo_id uuid references public.modelos_fluxo(id) on delete set null,
+  responsavel text not null default '', status text not null default 'ativo',   -- ativo, concluido, cancelado
+  inicio date, prazo_fatal date, obs text not null default '',
+  criado_por uuid default auth.uid(), criado_em timestamptz not null default now(), atualizado_em timestamptz not null default now()
+);
+alter table public.tarefas add column if not exists tarefa_pai_id uuid references public.tarefas(id) on delete cascade;
+alter table public.tarefas add column if not exists fluxo_id uuid references public.fluxos(id) on delete cascade;
+alter table public.tarefas add column if not exists cliente_id uuid references public.clientes(id) on delete set null;
+alter table public.tarefas add column if not exists contrato_id uuid references public.contratos(id) on delete set null;
+alter table public.tarefas add column if not exists descricao text not null default '';
+alter table public.tarefas add column if not exists participantes text not null default '';
+alter table public.tarefas add column if not exists etiquetas text not null default '';
+alter table public.tarefas add column if not exists prazo_fatal date;
+alter table public.tarefas add column if not exists estimativa_horas numeric(6,1);
+alter table public.tarefas add column if not exists checklist jsonb not null default '[]';
+alter table public.tarefas add column if not exists depende_de uuid references public.tarefas(id) on delete set null;
+alter table public.tarefas add column if not exists recorrencia text not null default '';   -- '', semanal, mensal, anual
+alter table public.tarefas add column if not exists ordem int not null default 0;
+alter table public.tarefas add column if not exists concluida_em timestamptz;
+alter table public.tarefas add column if not exists concluida_por uuid;
+create index if not exists tarefas_pai on public.tarefas (tarefa_pai_id);
+create index if not exists tarefas_fluxo on public.tarefas (fluxo_id);
+create index if not exists tarefas_prazo on public.tarefas (prazo);
+create table if not exists public.comentarios (
+  id uuid primary key default gen_random_uuid(),
+  tarefa_id uuid not null references public.tarefas(id) on delete cascade,
+  texto text not null check (btrim(texto) <> ''),
+  criado_por uuid default auth.uid(), criado_em timestamptz not null default now(), atualizado_em timestamptz not null default now()
+);
+create index if not exists comentarios_tarefa on public.comentarios (tarefa_id, criado_em);
+create table if not exists public.feriados (
+  data date not null, nome text not null default '', abrangencia text not null default 'nacional',   -- nacional, estadual, municipal, tribunal
+  local text not null default '', primary key (data, abrangencia, local)
+);
+-- notificações dentro do sistema (sino): tarefa atribuída, menção etc.
+create table if not exists public.notificacoes (
+  id uuid primary key default gen_random_uuid(),
+  usuario_id uuid not null references public.perfis(id) on delete cascade,
+  tipo text not null default '', titulo text not null default '', detalhe text not null default '',
+  link text not null default '', lida boolean not null default false, criado_em timestamptz not null default now()
+);
+create index if not exists notificacoes_usuario on public.notificacoes (usuario_id, lida, criado_em desc);
+
+-- conclusão: carimba quem/quando; não conclui com checklist pendente; recria tarefas recorrentes
+create or replace function public.tarefa_ao_concluir() returns trigger
+language plpgsql as $$
+begin
+  if new.status = 'concluida' and (tg_op = 'INSERT' or old.status is distinct from 'concluida') then
+    if exists (select 1 from jsonb_array_elements(coalesce(new.checklist, '[]')) e where coalesce((e->>'feito')::boolean, false) = false) then
+      raise exception 'Conclua todos os itens do checklist antes de concluir a tarefa.';
+    end if;
+    new.concluida_em := now(); new.concluida_por := auth.uid();
+    if tg_op = 'UPDATE' and new.recorrencia in ('semanal','mensal','anual') and new.prazo is not null then
+      insert into public.tarefas (titulo, grupo_id, cliente_id, contrato_id, processos_vinculados, prioridade, responsavel, status,
+        inicio, prazo, prazo_fatal, descricao, participantes, etiquetas, checklist, recorrencia, fluxo_id, tarefa_pai_id)
+      values (new.titulo, new.grupo_id, new.cliente_id, new.contrato_id, new.processos_vinculados, new.prioridade, new.responsavel, 'pendente',
+        new.prazo, (new.prazo + case new.recorrencia when 'semanal' then interval '7 days' when 'mensal' then interval '1 month' else interval '1 year' end)::date,
+        case when new.prazo_fatal is null then null else (new.prazo_fatal + case new.recorrencia when 'semanal' then interval '7 days' when 'mensal' then interval '1 month' else interval '1 year' end)::date end,
+        new.descricao, new.participantes, new.etiquetas,
+        (select coalesce(jsonb_agg(jsonb_set(e, '{feito}', 'false')), '[]') from jsonb_array_elements(coalesce(new.checklist, '[]')) e),
+        new.recorrencia, new.fluxo_id, new.tarefa_pai_id);
+    end if;
+  elsif new.status <> 'concluida' then
+    new.concluida_em := null; new.concluida_por := null;
+  end if;
+  return new;
+end $$;
+drop trigger if exists tarefa_ao_concluir on public.tarefas;
+create trigger tarefa_ao_concluir before insert or update on public.tarefas
+  for each row execute function public.tarefa_ao_concluir();
+
+-- datas de alteração, histórico e regras de acesso das tabelas novas
+do $$
+declare t text;
+begin
+  foreach t in array array['contatos','enderecos','contas_bancarias','vinculos_societarios','etiquetas','interacoes','certidoes',
+                           'documentos','modelos_fluxo','fluxos','comentarios'] loop
+    execute format('drop trigger if exists atualizado_%1$s on public.%1$s', t);
+    execute format('create trigger atualizado_%1$s before update on public.%1$s for each row execute function public.marcar_atualizacao()', t);
+    execute format('drop trigger if exists hist_%1$s on public.%1$s', t);
+    execute format('create trigger hist_%1$s after insert or update or delete on public.%1$s for each row execute function public.registrar_historico()', t);
+  end loop;
+  foreach t in array array['contatos','enderecos','contas_bancarias','vinculos_societarios','etiquetas','cliente_etiquetas','interacoes',
+                           'certidoes','documentos','modelos_fluxo','fluxos','comentarios','feriados','notificacoes'] loop
+    execute format('alter table public.%1$s enable row level security', t);
+    execute format('revoke all on public.%1$s from anon', t);
+    execute format('grant select, insert, update, delete on public.%1$s to authenticated', t);
+  end loop;
+  -- equipe lê e grava; exclusão: equipe nos detalhes do cliente e nas tarefas; admin em documentos e fluxos
+  foreach t in array array['contatos','enderecos','contas_bancarias','vinculos_societarios','etiquetas','cliente_etiquetas','interacoes',
+                           'certidoes','documentos','modelos_fluxo','fluxos','comentarios','feriados'] loop
+    execute format('drop policy if exists %1$s_ver on public.%1$s', t);
+    execute format('create policy %1$s_ver on public.%1$s for select to authenticated using (public.eh_equipe())', t);
+    execute format('drop policy if exists %1$s_incluir on public.%1$s', t);
+    execute format('create policy %1$s_incluir on public.%1$s for insert to authenticated with check (public.eh_equipe())', t);
+    execute format('drop policy if exists %1$s_alterar on public.%1$s', t);
+    execute format('create policy %1$s_alterar on public.%1$s for update to authenticated using (public.eh_equipe()) with check (public.eh_equipe())', t);
+    execute format('drop policy if exists %1$s_excluir on public.%1$s', t);
+    execute format('create policy %1$s_excluir on public.%1$s for delete to authenticated using (%2$s)', t,
+                   case when t in ('documentos','fluxos','modelos_fluxo','feriados') then 'public.eh_admin()' else 'public.eh_equipe()' end);
+  end loop;
+end $$;
+-- notificações: cada um vê e marca as suas; a equipe pode criar para colegas (ex.: tarefa atribuída, menção)
+drop policy if exists notificacoes_ver on public.notificacoes;
+create policy notificacoes_ver on public.notificacoes for select to authenticated using (usuario_id = auth.uid());
+drop policy if exists notificacoes_incluir on public.notificacoes;
+create policy notificacoes_incluir on public.notificacoes for insert to authenticated with check (public.eh_equipe());
+drop policy if exists notificacoes_alterar on public.notificacoes;
+create policy notificacoes_alterar on public.notificacoes for update to authenticated using (usuario_id = auth.uid()) with check (usuario_id = auth.uid());
+drop policy if exists notificacoes_excluir on public.notificacoes;
+create policy notificacoes_excluir on public.notificacoes for delete to authenticated using (usuario_id = auth.uid());
+-- a equipe precisa ver os nomes dos colegas para atribuir tarefas e mencionar
+create or replace function public.equipe_nomes() returns table (id uuid, nome text, email text)
+language sql stable security definer set search_path = public as $$
+  select p.id, p.nome, p.email from public.perfis p where public.eh_equipe() and p.papel in ('admin','equipe') order by p.nome;
+$$;
+revoke all on function public.equipe_nomes() from anon;
+grant execute on function public.equipe_nomes() to authenticated;
+
+-- feriados nacionais fixos (anos 2026 e 2027) e móveis principais; o admin pode acrescentar os de MG, municipais e de tribunal
+insert into public.feriados (data, nome, abrangencia) values
+  ('2026-01-01','Confraternização Universal','nacional'),('2026-02-16','Carnaval','nacional'),('2026-02-17','Carnaval','nacional'),
+  ('2026-04-03','Sexta-feira Santa','nacional'),('2026-04-21','Tiradentes','nacional'),('2026-05-01','Dia do Trabalho','nacional'),
+  ('2026-06-04','Corpus Christi','nacional'),('2026-09-07','Independência','nacional'),('2026-10-12','Nossa Senhora Aparecida','nacional'),
+  ('2026-11-02','Finados','nacional'),('2026-11-15','Proclamação da República','nacional'),('2026-11-20','Consciência Negra','nacional'),
+  ('2026-12-25','Natal','nacional'),
+  ('2027-01-01','Confraternização Universal','nacional'),('2027-02-08','Carnaval','nacional'),('2027-02-09','Carnaval','nacional'),
+  ('2027-03-26','Sexta-feira Santa','nacional'),('2027-04-21','Tiradentes','nacional'),('2027-05-01','Dia do Trabalho','nacional'),
+  ('2027-05-27','Corpus Christi','nacional'),('2027-09-07','Independência','nacional'),('2027-10-12','Nossa Senhora Aparecida','nacional'),
+  ('2027-11-02','Finados','nacional'),('2027-11-15','Proclamação da República','nacional'),('2027-11-20','Consciência Negra','nacional'),
+  ('2027-12-25','Natal','nacional')
+on conflict do nothing;
+
+-- modelos de fluxo iniciais (o escritório pode editar na tela Tarefas → Modelos)
+insert into public.modelos_fluxo (nome, descricao, itens)
+select 'Onboarding de cliente', 'Do contrato assinado ao cliente com tudo em dia',
+  '[{"titulo":"Boas-vindas e alinhamento","dias":10,"checklist":["Enviar mensagem de boas-vindas","Agendar reunião de alinhamento"]},
+    {"titulo":"Solicitar documentos","dias":8,"subtarefas":[{"titulo":"Contrato social e alterações","dias":8},{"titulo":"Procuração assinada","dias":8},{"titulo":"Certificado digital / acesso e-CAC","dias":6}]},
+    {"titulo":"Diagnóstico fiscal (e-CAC, PGFN, SEFAZ)","dias":4},
+    {"titulo":"Relatório inicial ao cliente","dias":0}]'::jsonb
+where not exists (select 1 from public.modelos_fluxo where nome = 'Onboarding de cliente');
+insert into public.modelos_fluxo (nome, descricao, itens)
+select 'Defesa em execução fiscal', 'Prazos contados para trás a partir do prazo fatal',
+  '[{"titulo":"Analisar CDA e processo","dias":10,"checklist":["Baixar autos","Conferir prescrição e decadência","Levantar garantias"]},
+    {"titulo":"Reunião de estratégia com o cliente","dias":7},
+    {"titulo":"Minuta da defesa","dias":4,"subtarefas":[{"titulo":"Pesquisa de jurisprudência","dias":5},{"titulo":"Cálculos","dias":5}]},
+    {"titulo":"Revisão do sócio","dias":2},
+    {"titulo":"Protocolo","dias":0}]'::jsonb
+where not exists (select 1 from public.modelos_fluxo where nome = 'Defesa em execução fiscal');
+insert into public.modelos_fluxo (nome, descricao, itens)
+select 'Parcelamento tributário', 'Adesão e acompanhamento',
+  '[{"titulo":"Levantar débitos e modalidades","dias":6},{"titulo":"Simulação e aprovação do cliente","dias":4},
+    {"titulo":"Adesão no portal","dias":1,"checklist":["Emitir 1ª guia","Enviar guia ao cliente"]},{"titulo":"Confirmar pagamento da 1ª parcela","dias":0}]'::jsonb
+where not exists (select 1 from public.modelos_fluxo where nome = 'Parcelamento tributário');
+
+-- Storage: bucket privado "documentos" (só existe no Supabase; o teste local ignora)
+do $$
+begin
+  if exists (select 1 from information_schema.schemata where schema_name = 'storage') then
+    insert into storage.buckets (id, name, public, file_size_limit)
+    values ('documentos', 'documentos', false, 52428800) on conflict (id) do nothing;
+    execute 'drop policy if exists documentos_ver on storage.objects';
+    execute 'create policy documentos_ver on storage.objects for select to authenticated using (bucket_id = ''documentos'' and public.eh_equipe())';
+    execute 'drop policy if exists documentos_enviar on storage.objects';
+    execute 'create policy documentos_enviar on storage.objects for insert to authenticated with check (bucket_id = ''documentos'' and public.eh_equipe())';
+    execute 'drop policy if exists documentos_alterar on storage.objects';
+    execute 'create policy documentos_alterar on storage.objects for update to authenticated using (bucket_id = ''documentos'' and public.eh_equipe())';
+    execute 'drop policy if exists documentos_apagar on storage.objects';
+    execute 'create policy documentos_apagar on storage.objects for delete to authenticated using (bucket_id = ''documentos'' and public.eh_admin())';
+  end if;
+exception when insufficient_privilege then
+  raise notice 'Sem permissão para criar a pasta de arquivos: crie o bucket privado "documentos" em Storage.';
+end $$;

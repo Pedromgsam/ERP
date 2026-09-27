@@ -201,6 +201,8 @@ const r = []; const ok = (n, c) => r.push([n, !!c]);
     ok('equipe entra e não vê Administração', /Olá, Adriana/.test(await texto(p)) && !(await p.isVisible('#menu [data-tela=admin]')));
     await menu(p, 'clientes');
     await p.click('[data-cli]'); await esperar(p, 800);
+    ok('clicar no cliente abre a ficha 360°', (await p.locator('.janela.ficha #fc-abas button').count()) === 12);
+    await p.click('#fc-editar'); await esperar(p, 800);
     ok('equipe não tem botão excluir cliente', (await p.locator('#btn-excluir-cli').count()) === 0);
     await p.context().close();
 

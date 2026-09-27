@@ -309,6 +309,12 @@ function formLancamento(l, depois) {
       '<button class="btn btn-p" id="btn-salvar-lanc" type="button">Salvar</button></div>'
   });
   const f = j.querySelector('#f-lanc');
+  if (!novo && typeof blocoDocumentos === 'function') {
+    const d = document.createElement('div'); d.className = 'secao-docs';
+    j.querySelector('.janela-bd').appendChild(d);
+    blocoDocumentos(d, { lancamento_id: l.id, cliente_id: l.cliente_id, grupo_id: l.grupo_id, tipo: l.pago ? 'comprovante' : 'guia' },
+      { titulo: 'Comprovantes e guias', vazio: 'Nenhum arquivo. Envie o comprovante de pagamento ou a guia.' }).catch((e) => console.error(e));
+  }
   f.pago.onchange = () => j.querySelector('#bloco-pag').classList.toggle('escondido', !f.pago.checked);
   j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
   f.onsubmit = (ev) => { ev.preventDefault(); j.querySelector('#btn-salvar-lanc').click(); };

@@ -137,7 +137,13 @@ const TELAS = {};
 async function irPara(tela, alvo) {
   E.perfil = window.ERP_EU || E.perfil;
   E.tela = tela;
-  if (alvo) { const ant = document.getElementById('conteudo'); if (ant && ant !== alvo) ant.removeAttribute('id'); alvo.id = 'conteudo'; }
+  // cada painel tem a sua área; só a do painel aberto se chama "conteudo" (o painel mantém o próprio id)
+  if (alvo) {
+    let area = alvo.querySelector(':scope > .gs-area');
+    if (!area) { area = document.createElement('div'); area.className = 'gs-area'; alvo.appendChild(area); }
+    const ant = document.getElementById('conteudo'); if (ant && ant !== area) ant.removeAttribute('id');
+    area.id = 'conteudo';
+  }
   if (!$('conteudo')) return;
   $('conteudo').innerHTML = '<div class="carregando">Carregando…</div>';
   try { await carregarCadastros(); await TELAS[tela](); }
@@ -153,10 +159,10 @@ let graf = ler('graficos.js').replace("document.addEventListener('DOMContentLoad
 const bundle = "'use strict';\n// GERADO por sistema/ferramentas/montar-erp.js — não edite; edite os arquivos do Gestão.\n(function () {\n" +
   "const _raiz = document.createElement('div'); _raiz.id = 'gs-raiz'; _raiz.className = 'gs';\n" +
   "_raiz.innerHTML = '<div id=\"janelas\"></div><div id=\"aviso\"></div>'; document.body.appendChild(_raiz);\n" +
-  [nuc, graf, ler('telas-painel.js'), ler('telas-financeiro.js'), ler('telas-cadastros.js'), ler('telas-admin.js'), ler('telas-tarefas.js')].join('\n') +
+  [nuc, graf, ler('telas-painel.js'), ler('telas-financeiro.js'), ler('telas-cadastros.js'), ler('telas-admin.js'), ler('telas-tarefas.js'), ler('telas-documentos.js'), ler('telas-cliente360.js')].join('\n') +
   "\n// toda gravação confirmada aparece também no rodapé do ERP\nconst _avisoOrig = aviso;\n" +
   "aviso = function (msg, erro) { _avisoOrig(msg, erro); if (!erro && window.ERP_EDITOR && /^✓/.test(msg)) window.ERP_EDITOR.gravou(String(msg).replace(/^✓\\s*/, '')); };\n" +
-  "window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela };\n})();\n";
+  "window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, blocoDocumentos, abrirAlertas, contarAlertas };\n})();\n";
 fs.writeFileSync(path.join(APP, 'gestao-embutida.js'), bundle);
 
 // CSS do Gestão só dentro de .gs (as telas do Gestão) e #gs-hd (barra superior)

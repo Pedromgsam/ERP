@@ -30,7 +30,7 @@ function sessao(u) {
   return { access_token: jwt({ sub: u.id, email: u.email, role: 'authenticated', aud: 'authenticated', exp }),
            token_type: 'bearer', expires_in: 3600, expires_at: exp, refresh_token: 'r-' + u.email, user: u };
 }
-const RECUPERACOES = [];
+const RECUPERACOES = [], ARQUIVOS = {};
 function json(res, cod, obj) { res.writeHead(cod, { 'content-type': 'application/json', 'access-control-allow-origin': '*' }); res.end(JSON.stringify(obj)); }
 http.createServer((req, res) => {
   let corpo = []; req.on('data', (c) => corpo.push(c)); req.on('end', () => {
@@ -60,6 +60,27 @@ http.createServer((req, res) => {
     if (u.pathname === '/auth/v1/recover') { RECUPERACOES.push(JSON.parse(corpo.toString() || '{}').email); return json(res, 200, {}); }
     if (u.pathname === '/__teste/recuperacoes') return json(res, 200, RECUPERACOES);
     if (u.pathname === '/auth/v1/logout') { res.writeHead(204, { 'access-control-allow-origin': '*' }); return res.end(); }
+    // Storage (arquivos): guarda em memória; só aceita usuário logado
+    if (u.pathname.startsWith('/storage/v1/object/')) {
+      const resto = decodeURIComponent(u.pathname.replace('/storage/v1/object/', ''));
+      if (resto.startsWith('sign/') && req.method === 'GET') {
+        const k = resto.slice(5), arq = ARQUIVOS[k];
+        if (!arq || u.searchParams.get('token') !== 'tk') { res.writeHead(404); return res.end('nao achado'); }
+        res.writeHead(200, { 'content-type': 'application/octet-stream' }); return res.end(arq);
+      }
+      const c = lerJwt(String(req.headers.authorization || '').replace('Bearer ', ''));
+      if (!c || !c.sub) return json(res, 403, { statusCode: '403', error: 'Unauthorized', message: 'new row violates row-level security policy' });
+      if (resto.startsWith('sign/')) {
+        const k = resto.slice(5);
+        if (!ARQUIVOS[k]) return json(res, 400, { statusCode: '404', error: 'not_found', message: 'Object not found' });
+        return json(res, 200, { signedURL: '/object/sign/' + k.split('/').map(encodeURIComponent).join('/') + '?token=tk' });
+      }
+      if (req.method === 'POST' || req.method === 'PUT') {
+        if (ARQUIVOS[resto] && req.method === 'POST') return json(res, 400, { statusCode: '409', error: 'Duplicate', message: 'The resource already exists' });
+        ARQUIVOS[resto] = corpo; return json(res, 200, { Key: resto, Id: crypto.randomUUID() });
+      }
+    }
+    if (u.pathname === '/__teste/arquivos') return json(res, 200, Object.keys(ARQUIVOS));
     if (u.pathname.startsWith('/rest/v1/')) {
       const alvo = PGRST + u.pathname.replace('/rest/v1', '') + u.search;
       const h = Object.assign({}, req.headers); delete h.host; delete h['content-length'];

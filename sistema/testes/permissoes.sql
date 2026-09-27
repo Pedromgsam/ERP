@@ -135,3 +135,36 @@ do $$ begin
 exception when insufficient_privilege then raise notice 'PASSA: anônimo não lê configurações';
 end $$;
 commit;
+
+-- v6: ficha do cliente, documentos, tarefas completas
+begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-00000000000b');
+insert into clientes(nome) values ('Cliente Ficha Teste');
+insert into contatos(cliente_id,nome,finalidade,email) select id,'Contato Financeiro','financeiro','fin@teste' from clientes where nome='Cliente Ficha Teste';
+select pg_temp.ok((select count(*) from contatos)=1,'equipe cadastra contato do cliente');
+insert into documentos(cliente_id,nome,caminho) select id,'Contrato social.pdf','x/1.pdf' from clientes where nome='Cliente Ficha Teste';
+delete from documentos;
+select pg_temp.ok((select count(*) from documentos)=1,'equipe não exclui documento (só arquiva)');
+insert into tarefas(titulo,prazo,recorrencia,checklist) values ('Apurar tributos','2026-10-20','mensal','[{"texto":"Conferir notas","feito":false}]');
+do $$ begin
+  update tarefas set status='concluida' where titulo='Apurar tributos';
+  raise exception 'FALHOU: concluiu com checklist pendente';
+exception when raise_exception then
+  if sqlerrm like 'FALHOU%' then raise; end if;
+  raise notice 'PASSA: checklist pendente impede concluir';
+end $$;
+update tarefas set checklist='[{"texto":"Conferir notas","feito":true}]', status='concluida' where titulo='Apurar tributos';
+select pg_temp.ok((select concluida_por from tarefas where titulo='Apurar tributos' and status='concluida')='00000000-0000-0000-0000-00000000000b','registra quem concluiu');
+select pg_temp.ok((select prazo from tarefas where titulo='Apurar tributos' and status='pendente')='2026-11-20','tarefa mensal recria a próxima com checklist zerado');
+select pg_temp.ok((select checklist->0->>'feito' from tarefas where titulo='Apurar tributos' and status='pendente')='false','checklist da próxima volta desmarcado');
+insert into notificacoes(usuario_id,titulo) values ('00000000-0000-0000-0000-00000000000a','Menção');
+select pg_temp.ok((select count(*) from notificacoes)=0,'cada um só vê as próprias notificações');
+select pg_temp.ok((select count(*) from equipe_nomes() where id in ('00000000-0000-0000-0000-00000000000a','00000000-0000-0000-0000-00000000000b'))=2 and not exists (select 1 from equipe_nomes() where email='cliente@teste'),'equipe vê os nomes dos colegas para atribuir tarefas');
+commit;
+begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-00000000000d');
+select pg_temp.ok((select count(*) from contatos)+(select count(*) from documentos)+(select count(*) from equipe_nomes())=0,'cliente não vê contatos, documentos nem a equipe');
+commit;
+begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-00000000000a');
+select pg_temp.ok((select count(*) from notificacoes)=1,'admin vê a notificação dele');
+delete from documentos;
+select pg_temp.ok((select count(*) from documentos)=0,'admin exclui documento');
+commit;

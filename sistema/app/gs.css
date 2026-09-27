@@ -193,6 +193,68 @@
 }
 .gs .kpis{grid-template-columns:repeat(auto-fit,minmax(235px,1fr))}
 .gs .kpi-v{font-size:clamp(15px,1.4vw,20px);white-space:nowrap}
+.gs .janela.ficha{max-width:1180px}
+.gs .ficha-topo{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+.gs .ficha-sub{color:var(--text2);font-size:13px}
+.gs .ficha-selos{margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.gs .ficha-atalhos{display:flex;gap:6px;flex-wrap:wrap;align-items:flex-start}
+.gs .ficha-atalhos a.btn{text-decoration:none}
+.gs .ficha-abas{flex-wrap:wrap}
+.gs .ficha-abas button{white-space:nowrap;padding:8px 11px}
+.gs .ficha-corpo{min-height:260px}
+.gs .btn-etq{background:none;border:1px dashed var(--border-strong);border-radius:99px;padding:2px 9px;font-size:11.5px;color:var(--text2);cursor:pointer}
+.gs .lista-ficha{display:flex;flex-direction:column;gap:6px}
+.gs .item-ficha{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--border);border-radius:10px;background:#fff}
+.gs .item-ficha.feita{opacity:.6}
+.gs .item-ficha.alerta-alto{border-left:4px solid var(--red)}
+.gs .item-ficha.alerta-medio{border-left:4px solid var(--amber)}
+.gs .item-ficha.alerta-info{border-left:4px solid var(--navy3)}
+.gs .dados .dado{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid #f1f3f8;font-size:13px}
+.gs .dados .dado span{color:var(--text3)}
+.gs .dados .dado b{text-align:right;font-weight:600;overflow-wrap:anywhere}
+.gs .linha-tempo{display:flex;flex-direction:column;border-left:2px solid var(--border-strong);margin-left:10px;padding-left:14px;gap:12px}
+.gs .lt-item{display:flex;gap:10px;position:relative}
+.gs .lt-ic{position:absolute;left:-27px;background:#fff;width:24px;text-align:center}
+.gs .solta-arq{border:2px dashed var(--border-strong);border-radius:12px;padding:22px;text-align:center;background:#fafbfd}
+.gs .solta-arq.sobre{border-color:var(--navy3);background:#eef3fb}
+.gs .secao-docs{margin-top:16px;padding-top:12px;border-top:1px solid var(--border)}
+.gs .tf-prog{display:inline-block;width:60px;height:6px;background:#eef1f7;border-radius:99px;overflow:hidden;vertical-align:middle;margin-left:6px}
+.gs .tf-prog i{display:block;height:100%;background:var(--green)}
+.gs tr.tf-feita td{opacity:.6}
+.gs .ck-item{display:flex;justify-content:space-between;align-items:center;padding:3px 0}
+.gs .riscado{text-decoration:line-through;color:var(--text3)}
+.gs .coment{padding:8px 10px;background:#f7f8fb;border-radius:8px;margin-bottom:6px;font-size:13px}
+.gs .mencao{color:var(--navy3)}
+.gs .kanban{display:grid;grid-template-columns:repeat(4,minmax(220px,1fr));gap:12px;overflow-x:auto}
+.gs .kb-col{background:#eef1f7;border-radius:12px;padding:10px;min-height:200px;display:flex;flex-direction:column;gap:8px}
+.gs .kb-col.sobre{background:#dfe7f5;outline:2px dashed var(--navy3)}
+.gs .kb-tit{font-family:var(--font-h);font-weight:700;color:var(--navy);font-size:13px}
+.gs .kb-card{background:#fff;border-radius:10px;padding:10px;box-shadow:var(--shadow-sm);cursor:grab;font-size:13px}
+.gs .kb-card.arrastando{opacity:.5}
+.gs .kb-rod{margin-top:6px;display:flex;gap:4px;flex-wrap:wrap;align-items:center}
+.gs .calendario{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:1px;background:var(--border);padding:1px}
+.gs .cal-sem{background:#fafbfd;padding:6px;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;text-align:center}
+.gs .cal-dia{background:#fff;min-height:92px;padding:4px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.gs .cal-dia.cal-folga{background:#f7f8fb}
+.gs .cal-dia.cal-hoje{box-shadow:inset 0 0 0 2px var(--navy3)}
+.gs .cal-num{font-size:11.5px;font-weight:700;color:var(--text2)}
+.gs .cal-tf{border:0;border-radius:6px;padding:2px 5px;font-size:11px;text-align:left;background:var(--blue-lt);color:var(--blue);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gs .cal-tf.fatal{background:var(--red);color:#fff}
+.gs .cal-tf.atrasada{background:var(--red-lt);color:var(--red)}
+.gs .cal-tf.feita{background:var(--green-lt);color:var(--green);text-decoration:line-through}
+.gs .gantt{position:relative;display:flex;flex-direction:column;gap:4px}
+.gs .gantt-lin{display:grid;grid-template-columns:minmax(140px,34%) 1fr 80px;gap:8px;align-items:center;font-size:12.5px}
+.gs .gantt-rot{background:none;border:0;text-align:left;cursor:pointer;color:var(--navy);font:inherit;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gs .gantt-trilho{position:relative;height:14px;background:#f1f3f8;border-radius:99px}
+.gs .gantt-barra{position:absolute;top:0;bottom:0;background:var(--navy3);border-radius:99px}
+.gs .gantt-barra.feita{background:var(--green)}
+.gs .gantt-barra.atrasada{background:var(--red)}
+@media (max-width:700px){.gs .kanban{grid-template-columns:repeat(4,80vw)}
+.gs .cal-dia{min-height:60px}
+.gs .cal-tf{font-size:10px}
+.gs .gantt-lin{grid-template-columns:40% 1fr}
+.gs .gantt-lin>.sub{display:none}
+}
 /* cores do ERP, tamanhos do Gestão */
 .gs{--navy:#1B2A4A;--navy2:#243659;--navy3:#2E5EAA;--accent:#C9A84C;--bg:#F0F2F7;background:none!important;min-height:0!important}
 .gs .duas-col>*,.gs .card{min-width:0}
