@@ -254,6 +254,12 @@
     if (!n || !GS() || ehCliente()) return;
     try {
       GS().E.perfil = window.ERP_EU || GS().E.perfil;
+      // regras automáticas de tarefas: no máximo a cada 6 horas por navegador (o agendador do banco também roda de manhã)
+      let ult = 0; try { ult = +localStorage.getItem('erp-regras-ultima') || 0; } catch (e) { /* sem armazenamento */ }
+      if (Date.now() - ult > 6 * 3600 * 1000) {
+        try { localStorage.setItem('erp-regras-ultima', String(Date.now())); } catch (e) { /* sem armazenamento */ }
+        await window.SB.rpc('rodar_regras_tarefas').then(() => {}, () => {});
+      }
       const c = await GS().contarAlertas();
       n.hidden = !c.total; n.textContent = c.total > 99 ? '99+' : String(c.total);
       n.classList.toggle('alto', c.altos > 0);

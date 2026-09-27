@@ -567,11 +567,13 @@ TELAS.inicio = async function () {
     '<div class="acoes"><button class="btn btn-p" data-novo="receita">+ Receita</button>' +
     '<button class="btn btn-o" data-novo="despesa">+ Despesa</button>' +
     '<button class="btn btn-o" data-novo="contrato">+ Contrato</button></div></div>' +
-    linha('escritorio', '💼 Honorários Jurídico') + linha('contabilidade', '🧮 Contabilidade') +
-    '<div class="duas-col">' +
+    '<div id="ini-fila"></div>' +
+    (pode('financeiro_juridico') ? linha('escritorio', '💼 Honorários Jurídico') : '') + (pode('financeiro_contab') ? linha('contabilidade', '🧮 Contabilidade') : '') +
+    (pode('financeiro_juridico') || pode('financeiro_contab') ? '<div class="duas-col">' +
     cardLista('⚠ Em atraso', atrasados, 'Nada em atraso. 👏') +
     cardLista('🗓 Próximos 15 dias', proximos, 'Nenhum vencimento nos próximos 15 dias.') +
-    '</div>';
+    '</div>' : '');
+  if (typeof cardMinhaFila === 'function') cardMinhaFila().then((c) => { const el = $('ini-fila'); if (el) { el.innerHTML = c.html; c.ligar(el); } }).catch((e) => console.error(e));
   ligarAcoesLancamentos($('conteudo'));
   ligarBotoesNovo($('conteudo'));
 };
@@ -1938,8 +1940,8 @@ function fmtHist(v, campo) {
 // recorrência e alertas (sino da barra superior).
 // ═══════════════════════════════════════════════════════════════════
 const PRIORIDADE = { alta: ['Alta', 'vencido'], media: ['Média', 'hoje'], baixa: ['Baixa', 'pago'] };
-const STATUS_TAREFA = { pendente: 'Pendente', andamento: 'Em andamento', aguardando: 'Aguardando', concluida: 'Concluída', cancelada: 'Cancelada' };
-const COLUNAS_KANBAN = ['pendente', 'andamento', 'aguardando', 'concluida'];
+const STATUS_TAREFA = { pendente: 'Pendente', andamento: 'Em andamento', aguardando: 'Aguardando', revisao: 'Aguardando revisão', concluida: 'Concluída', cancelada: 'Cancelada' };
+const COLUNAS_KANBAN = ['pendente', 'andamento', 'aguardando', 'revisao', 'concluida'];
 const tarefaFechada = (t) => t.status === 'concluida' || t.status === 'cancelada';
 
 // ─────────────── pessoas, feriados e dias úteis ───────────────
@@ -1983,6 +1985,42 @@ function subtrairUteis(isoStr, n, fer) {
   for (let i = 0; i < n; i++) { d = somarDias(d, -1); while (!diaUtil(d, fer)) d = somarDias(d, -1); }
   return d;
 }
+function uteisAte(isoStr, fer) {   // dias úteis de hoje até a data (negativo se já passou)
+  const h = hojeISO(); let n = 0, d = h;
+  if (isoStr === h) return 0;
+  const passo = isoStr > h ? 1 : -1;
+  for (let i = 0; i < 400 && d !== isoStr; i++) { d = somarDias(d, passo); if (diaUtil(d, fer)) n += passo; }
+  return n;
+}
+// Semáforo (calculado, nunca digitado): ⚫ fatal em risco · 🔴 atrasada · 🟡 até 2 dias úteis · 🟢 no prazo
+function semaforo(t, fer) {
+  if (tarefaFechada(t)) return null;
+  const h = hojeISO(); fer = fer || E._feriados || new Set();
+  if (t.prazo && t.prazo < h && t.prazo_fatal && uteisAte(t.prazo_fatal, fer) <= 3) return ['preto', 'Prazo fatal em risco'];
+  if (t.prazo && t.prazo < h) return ['vermelho', 'Atrasada'];
+  const ref = [t.prazo, t.prazo_fatal].filter(Boolean).sort()[0];
+  if (ref && uteisAte(ref, fer) <= 2) return ['amarelo', 'Vence em até 2 dias úteis'];
+  return ['verde', 'No prazo'];
+}
+function bolinha(t) { const s = semaforo(t); return s ? '<span class="semaforo ' + s[0] + '" title="' + s[1] + '"></span>' : ''; }
+// Fila de trabalho: fatal em risco → atrasadas → fatal mais próximo → prioridade → prazo interno
+const PESO_PRI = { alta: 0, media: 1, baixa: 2 };
+function ordenarFila(lista) {
+  const peso = (t) => { const s = semaforo(t); return s ? { preto: 0, vermelho: 1, amarelo: 2, verde: 3 }[s[0]] : 4; };
+  return lista.slice().sort((a, b) => peso(a) - peso(b) || String(a.prazo_fatal || '9999').localeCompare(String(b.prazo_fatal || '9999'))
+    || (PESO_PRI[a.prioridade] ?? 1) - (PESO_PRI[b.prioridade] ?? 1) || String(a.prazo || '9999').localeCompare(String(b.prazo || '9999')));
+}
+async function cardMinhaFila() {
+  await feriados();
+  const ts = await q(sb.from('tarefas').select('*').not('status', 'in', '(concluida,cancelada)')).catch(() => []);
+  const minhas = ordenarFila(ts.filter(ehMinha)).slice(0, 8);
+  const html = '<div class="card"><div class="card-hd">📋 Minha fila de trabalho <span class="sub">' + ts.filter(ehMinha).length + ' aberta(s)</span></div><div class="card-bd">' +
+    (minhas.length ? '<div class="lista-ficha">' + minhas.map((t) => '<div class="item-ficha clicavel" data-fila="' + t.id + '"><div>' + bolinha(t) + ' <b>' + esc(t.titulo) + '</b>' +
+      '<div class="sub">' + (t.prazo ? 'prazo ' + dataBR(t.prazo) : 'sem prazo') + (t.prazo_fatal ? ' · ⚑ fatal ' + dataBR(t.prazo_fatal) : '') + (t.status === 'revisao' ? ' · aguardando revisão' : '') + '</div></div>' +
+      '<span class="pill ' + (PRIORIDADE[t.prioridade] || ['', 'neutro'])[1] + '">' + esc((PRIORIDADE[t.prioridade] || [t.prioridade])[0]) + '</span></div>').join('') + '</div>'
+      : '<div class="sub">Nenhuma tarefa com você. 🎉</div>') + '</div></div>';
+  return { html, ligar: (raiz) => raiz.querySelectorAll('[data-fila]').forEach((d) => d.onclick = () => formTarefa(ts.find((t) => t.id === d.dataset.fila), () => irPara(E.tela))) };
+}
 function diasAte(isoStr) { return Math.round((new Date(isoStr + 'T12:00:00') - new Date(hojeISO() + 'T12:00:00')) / 86400000); }
 function progresso(t, filhas) {
   const ck = Array.isArray(t.checklist) ? t.checklist : [];
@@ -2013,7 +2051,7 @@ TELAS.tarefas = async function () {
   const F = E.tf;
   $('conteudo').innerHTML =
     '<div class="titulo-pag"><div><h1>Tarefas</h1><p>Prazos, fluxos e acompanhamento do escritório</p></div>' +
-    '<div class="acoes"><button class="btn btn-o" id="tf-modelos">Modelos de fluxo</button><button class="btn btn-o" id="tf-feriados">Feriados</button>' +
+    '<div class="acoes"><button class="btn btn-o" id="tf-regras">⚙ Regras automáticas</button><button class="btn btn-o" id="tf-modelos">Modelos de fluxo</button><button class="btn btn-o" id="tf-feriados">Feriados</button>' +
     '<button class="btn btn-o" id="tf-fluxo">+ Novo fluxo</button><button class="btn btn-p" id="tf-nova">+ Nova tarefa</button></div></div>' +
     '<div class="filtros">' +
     '<div class="segmento" id="tf-vista">' + [['lista', 'Lista'], ['kanban', 'Quadro'], ['calendario', 'Calendário'], ['fluxos', 'Fluxos'], ['relatorio', 'Relatório']]
@@ -2027,6 +2065,7 @@ TELAS.tarefas = async function () {
   $('tf-nova').onclick = () => formTarefa({}, () => TELAS.tarefas());
   $('tf-fluxo').onclick = () => formNovoFluxo(() => TELAS.tarefas());
   $('tf-modelos').onclick = () => janelaModelos();
+  $('tf-regras').onclick = () => janelaRegras();
   $('tf-feriados').onclick = () => janelaFeriados();
   $('tf-vista').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.vista = b.dataset.v; pintarTarefas(); } };
   $('tf-atalho').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.atalho = b.dataset.v; pintarTarefas(); } };
@@ -2038,6 +2077,7 @@ TELAS.tarefas = async function () {
     q(sb.from('fluxos').select('*').order('prazo_fatal', { nullsFirst: false })).catch(() => [])
   ]);
   E._tarefas = ts; E._fluxos = fl;
+  await feriados();
   pintarTarefas();
 };
 
@@ -2093,13 +2133,14 @@ function ligarLinhasTarefa(raiz) {
 function vistaLista(alvo) {
   const lista = filtrarTarefas(), ids = new Set(lista.map((t) => t.id));
   const filhasDe = (id) => (E._tarefas || []).filter((x) => x.tarefa_pai_id === id);
-  const raizes = lista.filter((t) => !t.tarefa_pai_id || !ids.has(t.tarefa_pai_id));
+  let raizes = lista.filter((t) => !t.tarefa_pai_id || !ids.has(t.tarefa_pai_id));
+  if (E.tf.atalho === 'minhas') raizes = ordenarFila(raizes);
   const linha = (t, nivel) => {
     const pr = PRIORIDADE[t.prioridade] || [t.prioridade || '—', 'neutro'];
     const filhas = filhasDe(t.id), pai = t.tarefa_pai_id && !ids.has(t.tarefa_pai_id) ? (E._tarefas.find((x) => x.id === t.tarefa_pai_id) || {}).titulo : '';
     const onde = [nomeCliente(t.cliente_id) || nomeGrupo(t.grupo_id), t.processos_vinculados].filter(Boolean).join(' · ');
     return '<tr class="clicavel' + (tarefaFechada(t) ? ' tf-feita' : '') + '" data-editar-t="' + t.id + '"><td class="mono" data-ord="' + esc(t.prazo || '9999') + '">' + dataBR(t.prazo) + seloPrazo(t) + '</td>' +
-      '<td style="padding-left:' + (12 + nivel * 22) + 'px">' + (nivel ? '<span class="sub">↳ </span>' : '') + '<b>' + esc(t.titulo) + '</b>' + seloFatal(t) +
+      '<td style="padding-left:' + (12 + nivel * 22) + 'px">' + bolinha(t) + ' ' + (nivel ? '<span class="sub">↳ </span>' : '') + '<b>' + esc(t.titulo) + '</b>' + seloFatal(t) +
       (t.recorrencia ? ' <span class="pill neutro" title="Repete">↻ ' + esc(t.recorrencia) + '</span>' : '') + ' ' + barraProgresso(progresso(t, filhas)) +
       '<div class="sub">' + esc([pai ? 'parte de: ' + pai : '', onde, t.etiquetas].filter(Boolean).join(' · ')) + '</div></td>' +
       '<td>' + pillPessoa(t.responsavel) + '</td><td><span class="pill ' + pr[1] + '">' + esc(pr[0]) + '</span></td><td>' + esc(STATUS_TAREFA[t.status] || t.status) + '</td>' +
@@ -2118,7 +2159,7 @@ function vistaKanban(alvo) {
   alvo.innerHTML = '<div class="kanban">' + COLUNAS_KANBAN.map((s) => {
     const cs = lista.filter((t) => t.status === s);
     return '<div class="kb-col" data-status="' + s + '"><div class="kb-tit">' + STATUS_TAREFA[s] + ' <span class="sub">' + cs.length + '</span></div>' +
-      cs.map((t) => '<div class="kb-card" draggable="true" data-id="' + t.id + '"><b>' + esc(t.titulo) + '</b>' +
+      cs.map((t) => '<div class="kb-card" draggable="true" data-id="' + t.id + '">' + bolinha(t) + ' <b>' + esc(t.titulo) + '</b>' +
         '<div class="sub">' + esc(nomeCliente(t.cliente_id) || nomeGrupo(t.grupo_id) || '') + '</div>' +
         '<div class="kb-rod">' + pillPessoa(t.responsavel) + (t.prazo ? ' <span class="sub mono">' + dataBR(t.prazo) + '</span>' : '') + seloPrazo(t) + seloFatal(t) + '</div>' +
         barraProgresso(progresso(t, (E._tarefas || []).filter((x) => x.tarefa_pai_id === t.id))) + '</div>').join('') +
@@ -2198,6 +2239,14 @@ function vistaFluxos(alvo) {
     aviso('✓ Fluxo atualizado.'); await recarregarTarefas();
   }));
 }
+async function horasGastasPorPessoa(alvo) {
+  const ini = hojeISO().slice(0, 8) + '01';
+  const [tempos, eq] = await Promise.all([q(sb.from('tarefa_tempos').select('usuario, inicio, fim').gte('inicio', ini)), equipe()]);
+  const por = {};
+  tempos.forEach((x) => { const u = eq.find((e) => e.id === x.usuario); const n = u ? primeiroNome(u.nome) : '?';
+    por[n] = (por[n] || 0) + ((x.fim ? new Date(x.fim) : new Date()) - new Date(x.inicio)) / 3600000; });
+  alvo.querySelectorAll('[data-gasto]').forEach((td) => { const v = por[primeiroNome(td.dataset.gasto)]; if (v) td.textContent = String(Math.round(v * 10) / 10).replace('.', ',') + ' h'; });
+}
 function diasEntre(a, b) { return Math.round((new Date(b + 'T12:00:00') - new Date(a + 'T12:00:00')) / 86400000); }
 
 // ── Relatório: por pessoa, prazos fatais, exportação ──
@@ -2211,18 +2260,24 @@ function vistaRelatorio(alvo) {
     return { p, abertas: ab.length, atrasadas: ab.filter((t) => t.prazo && t.prazo < h).length, concl: concl.length,
       noPrazo: concl.length ? Math.round(noPrazo / concl.length * 100) : null, horas: soma(ab, (t) => t.estimativa_horas) };
   }).filter((l) => l.abertas || l.concl);
+  const concl = ts.filter((t) => t.status === 'concluida' && t.concluida_em);
+  const medio = concl.length ? soma(concl, (t) => (new Date(t.concluida_em) - new Date(t.criado_em)) / 86400000) / concl.length : null;
+  const fatConcl = concl.filter((t) => t.prazo_fatal), fatOk = fatConcl.filter((t) => String(t.concluida_em).slice(0, 10) <= t.prazo_fatal).length;
   const fatais = ts.filter((t) => !tarefaFechada(t) && t.prazo_fatal && t.prazo_fatal <= somarDias(h, 30)).sort((a, b) => a.prazo_fatal.localeCompare(b.prazo_fatal));
-  alvo.innerHTML = '<div class="card"><div class="card-hd">Por pessoa <button class="btn btn-o btn-mini" id="tf-csv">Baixar planilha (CSV)</button></div>' +
-    '<div class="tabela-wrap"><table class="ordenavel"><thead><tr><th>Pessoa</th><th data-tipo="num">Abertas</th><th data-tipo="num">Atrasadas</th><th data-tipo="num">Concluídas no mês</th><th data-tipo="num">% no prazo</th><th data-tipo="num">Horas estimadas (abertas)</th></tr></thead><tbody>' +
+  alvo.innerHTML = '<div class="kpis">' + kpi('Tempo médio de conclusão', medio == null ? '—' : String(Math.round(medio * 10) / 10).replace('.', ',') + ' dia(s)', '', concl.length + ' concluída(s)') +
+    kpi('Prazos fatais cumpridos', fatConcl.length ? Math.round(fatOk / fatConcl.length * 100) + '%' : '—', fatConcl.length && fatOk < fatConcl.length ? 'vermelho' : 'verde', fatOk + ' de ' + fatConcl.length + ' · meta 100%') + '</div>' +
+    '<div class="card"><div class="card-hd">Por pessoa <button class="btn btn-o btn-mini" id="tf-csv">Baixar planilha (CSV)</button></div>' +
+    '<div class="tabela-wrap"><table class="ordenavel"><thead><tr><th>Pessoa</th><th data-tipo="num">Abertas</th><th data-tipo="num">Atrasadas</th><th data-tipo="num">Concluídas no mês</th><th data-tipo="num">% no prazo</th><th data-tipo="num">Horas estimadas (abertas)</th><th data-tipo="num">Horas gastas no mês</th></tr></thead><tbody>' +
     (linhas.map((l) => '<tr><td>' + pillPessoa(l.p) + '</td><td class="mono">' + l.abertas + '</td><td class="mono">' + (l.atrasadas ? '<b style="color:var(--red)">' + l.atrasadas + '</b>' : '0') + '</td>' +
-      '<td class="mono">' + l.concl + '</td><td class="mono">' + (l.noPrazo == null ? '—' : l.noPrazo + '%') + '</td><td class="mono">' + (l.horas ? String(l.horas).replace('.', ',') : '—') + '</td></tr>').join('') ||
-      '<tr><td colspan="6" class="sub">Nenhuma tarefa.</td></tr>') + '</tbody></table></div></div>' +
+      '<td class="mono">' + l.concl + '</td><td class="mono">' + (l.noPrazo == null ? '—' : l.noPrazo + '%') + '</td><td class="mono">' + (l.horas ? String(l.horas).replace('.', ',') : '—') + '</td><td class="mono" data-gasto="' + esc(l.p) + '">—</td></tr>').join('') ||
+      '<tr><td colspan="7" class="sub">Nenhuma tarefa.</td></tr>') + '</tbody></table></div></div>' +
     '<div class="card"><div class="card-hd">Prazos fatais nos próximos 30 dias (e vencidos)</div>' +
     (fatais.length ? '<div class="tabela-wrap"><table><thead><tr><th>Prazo fatal</th><th>Tarefa</th><th>Cliente / grupo</th><th>Pessoa</th><th>Status</th></tr></thead><tbody>' +
       fatais.map((t) => '<tr class="clicavel" data-editar-t="' + t.id + '"><td class="mono">' + dataBR(t.prazo_fatal) + (t.prazo_fatal < h ? ' <span class="pill vencido">vencido</span>' : '') + '</td><td><b>' + esc(t.titulo) + '</b></td>' +
         '<td>' + esc(nomeCliente(t.cliente_id) || nomeGrupo(t.grupo_id) || '—') + '</td><td>' + pillPessoa(t.responsavel) + '</td><td>' + esc(STATUS_TAREFA[t.status] || t.status) + '</td></tr>').join('') +
       '</tbody></table></div>' : '<div class="vazio">Nenhum prazo fatal nos próximos 30 dias.</div>') + '</div>';
   ligarLinhasTarefa(alvo);
+  horasGastasPorPessoa(alvo).catch(() => {});
   $('tf-csv').onclick = () => {
     const cab = ['Tarefa', 'Status', 'Pessoa', 'Prazo', 'Prazo fatal', 'Cliente', 'Grupo', 'Prioridade', 'Etiquetas', 'Concluída em'];
     const lin = filtrarTarefas().map((t) => [t.titulo, STATUS_TAREFA[t.status] || t.status, t.responsavel, dataBR(t.prazo), t.prazo_fatal ? dataBR(t.prazo_fatal) : '',
@@ -2261,6 +2316,10 @@ function formTarefa(t, depois) {
       campo('Repetir', selectPares('recorrencia', [['', 'Não repete'], ['semanal', 'Toda semana'], ['mensal', 'Todo mês'], ['anual', 'Todo ano']], t.recorrencia || '')) +
       campo('Estimativa (horas)', '<input name="estimativa_horas" inputmode="decimal" value="' + (t.estimativa_horas != null ? esc(String(t.estimativa_horas).replace('.', ',')) : '') + '">') +
       campo('Etiquetas', '<input name="etiquetas" value="' + esc(t.etiquetas || '') + '" placeholder="Ex.: urgente, PGFN">') +
+      '<label class="check"><input type="checkbox" name="exige_anexo"' + (t.exige_anexo ? ' checked' : '') + '> Exige documento anexado para concluir (ex.: protocolo)</label>' +
+      '<label class="check"><input type="checkbox" name="exige_revisao"' + (t.exige_revisao ? ' checked' : '') + '> Exige revisão antes de concluir</label>' +
+      campo('Revisor', '<input name="revisor" list="tf-pessoas-rev" value="' + esc(t.revisor || '') + '" placeholder="quem revisa">' + datalistPessoas('tf-pessoas-rev')) +
+      '<div id="tf-carga" class="sub" style="align-self:end"></div>' +
       campo('Só começa depois de', '<select name="depende_de"><option value="">— nenhuma —</option>' + outras.map((x) => '<option value="' + x.id + '"' + (x.id === t.depende_de ? ' selected' : '') + '>' + esc(x.titulo) + '</option>').join('') + '</select>', 'inteiro') +
       campo('Processos vinculados', '<input name="processos_vinculados" value="' + esc(t.processos_vinculados || '') + '">', 'inteiro') +
       campo('Descrição', '<textarea name="descricao" maxlength="4000">' + esc(t.descricao || '') + '</textarea>', 'inteiro') +
@@ -2268,6 +2327,7 @@ function formTarefa(t, depois) {
       '<div class="inteiro secao">Checklist</div><div class="inteiro" id="tf-check"></div>' +
       '<div class="inteiro filtros" style="margin:0"><input class="busca" id="tf-check-novo" placeholder="Novo item do checklist e Enter"><button class="btn btn-o btn-mini" type="button" id="tf-check-add">+ Item</button></div>' +
       (novo ? '' : '<div class="inteiro secao">Subtarefas</div><div class="inteiro" id="tf-subs"></div>' +
+        '<div class="inteiro secao">Horas gastas</div><div class="inteiro" id="tf-tempo"></div>' +
         '<div class="inteiro secao">Documentos</div><div class="inteiro" id="tf-docs"></div>' +
         '<div class="inteiro secao">Comentários <span class="sub">— escreva @Nome para avisar alguém</span></div><div class="inteiro" id="tf-coment"></div>') +
       '</form>',
@@ -2284,6 +2344,16 @@ function formTarefa(t, depois) {
   j.querySelector('#tf-check-add').onclick = addCheck;
   j.querySelector('#tf-check-novo').onkeydown = (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); addCheck(); } };
   pintarCheck();
+  // carga da semana da pessoa responsável (aviso acima de 40 h)
+  const mostrarCarga = async () => {
+    const quem = f.responsavel.value.trim(), el = j.querySelector('#tf-carga');
+    if (!quem) { el.textContent = ''; return; }
+    const fimSemana = somarDias(hojeISO(), 7 - new Date().getDay());
+    const abertas = await q(sb.from('tarefas').select('id, estimativa_horas, prazo').eq('responsavel', quem).not('status', 'in', '(concluida,cancelada)').lte('prazo', fimSemana)).catch(() => []);
+    const horas = soma(abertas.filter((x) => x.id !== t.id), (x) => x.estimativa_horas) + (lerValor(f.estimativa_horas.value) || 0);
+    el.innerHTML = 'Carga de ' + esc(quem) + ' até domingo: <b>' + String(Math.round(horas * 10) / 10).replace('.', ',') + ' h</b>' + (horas > 40 ? ' <span class="pill vencido">acima de 40 h</span>' : '');
+  };
+  f.responsavel.onchange = mostrarCarga; f.estimativa_horas.onchange = mostrarCarga; mostrarCarga();
   if (f.cliente_id) f.cliente_id.onchange = () => { const c = E.clientes.find((x) => x.id === f.cliente_id.value); if (c && c.grupo_id && !f.grupo.value) f.grupo.value = nomeGrupo(c.grupo_id); };
   j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
   f.onsubmit = (ev) => { ev.preventDefault(); j.querySelector('#btn-salvar-tf').click(); };
@@ -2296,15 +2366,19 @@ function formTarefa(t, depois) {
     const dados = { titulo: f.titulo.value.trim(), cliente_id: f.cliente_id.value || null, grupo_id: await grupoPorNome(f.grupo.value), responsavel: f.responsavel.value.trim(),
       participantes: f.participantes.value.trim(), prazo: f.prazo.value || null, prazo_fatal: f.prazo_fatal.value || null, inicio: f.inicio.value || null,
       prioridade: f.prioridade.value, status: f.status.value, recorrencia: f.recorrencia.value, estimativa_horas: est, etiquetas: f.etiquetas.value.trim(),
-      depende_de: f.depende_de.value || null, processos_vinculados: f.processos_vinculados.value.trim(), descricao: f.descricao.value.trim(), obs: f.obs.value.trim(), checklist };
+      depende_de: f.depende_de.value || null, exige_anexo: f.exige_anexo.checked, exige_revisao: f.exige_revisao.checked, revisor: f.revisor.value.trim(),
+      processos_vinculados: f.processos_vinculados.value.trim(), descricao: f.descricao.value.trim(), obs: f.obs.value.trim(), checklist };
     if (!dados.grupo_id && dados.cliente_id) { const c = E.clientes.find((x) => x.id === dados.cliente_id); if (c) dados.grupo_id = c.grupo_id; }
     ['tarefa_pai_id', 'fluxo_id', 'contrato_id'].forEach((k) => { if (novo && t[k]) dados[k] = t[k]; });
+    if (dados.exige_revisao && !dados.revisor) throw new Error('Informe quem revisa (ou desmarque "Exige revisão").');
     if (dados.status !== (t.status || 'pendente')) await validarDependencia(dados, dados.status);
     if (novo) await q(sb.from('tarefas').insert(dados)); else await q(sb.from('tarefas').update(dados).eq('id', t.id));
     if (dados.responsavel && (novo || dados.responsavel !== t.responsavel)) {
       await notificar(dados.responsavel, 'Nova tarefa para você: ' + dados.titulo, dados.prazo ? 'Prazo ' + dataBR(dados.prazo) : '', 'tarefas').catch(() => {});
     }
-    aviso(novo ? '✓ Tarefa criada.' : dados.status === 'concluida' && t.status !== 'concluida' ? '✓ Tarefa concluída.' : '✓ Tarefa atualizada.');
+    let msg = novo ? '✓ Tarefa criada.' : dados.status === 'concluida' && t.status !== 'concluida' ? '✓ Tarefa concluída.' : '✓ Tarefa atualizada.';
+    if (!novo && dados.status === 'concluida' && dados.exige_revisao && t.status !== 'revisao') msg = '✓ Tarefa enviada para revisão de ' + dados.revisor + '.';
+    aviso(msg);
     fecharJanela(j); await aposSalvar();
   });
   const bx = j.querySelector('#btn-excluir-tf');
@@ -2317,6 +2391,7 @@ function formTarefa(t, depois) {
     pintarSubtarefas(j, t, depois).catch((e) => console.error(e));
     blocoDocumentos(j.querySelector('#tf-docs'), { tarefa_id: t.id, cliente_id: t.cliente_id, grupo_id: t.grupo_id }, { titulo: 'Arquivos da tarefa', vazio: 'Nenhum arquivo.' }).catch((e) => console.error(e));
     pintarComentarios(j, t).catch((e) => console.error(e));
+    pintarTempo(j, t).catch((e) => console.error(e));
   }
   return j;
 }
@@ -2351,6 +2426,54 @@ async function pintarComentarios(j, t) {
   alvo.querySelector('#tf-coment-env').onclick = enviar;
   alvo.querySelector('#tf-coment-txt').onkeydown = (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); alvo.querySelector('#tf-coment-env').click(); } };
 }
+
+// ▶/■ horas gastas na tarefa
+async function pintarTempo(j, t) {
+  const alvo = j.querySelector('#tf-tempo'); if (!alvo) return;
+  const ts = await q(sb.from('tarefa_tempos').select('*').eq('tarefa_id', t.id).order('inicio')).catch(() => []);
+  const eu = E.perfil && E.perfil.id, aberto = ts.find((x) => !x.fim && x.usuario === eu);
+  const min = soma(ts, (x) => ((x.fim ? new Date(x.fim) : new Date()) - new Date(x.inicio)) / 60000);
+  const hh = (m) => Math.floor(m / 60) + 'h' + String(Math.round(m % 60)).padStart(2, '0');
+  alvo.innerHTML = '<div class="filtros" style="margin:0"><button type="button" class="btn ' + (aberto ? 'btn-x' : 'btn-v') + ' btn-mini" id="tf-crono">' + (aberto ? '■ Parar' : '▶ Iniciar') + '</button>' +
+    '<span>Total: <b>' + hh(min) + '</b>' + (t.estimativa_horas ? ' de ' + String(t.estimativa_horas).replace('.', ',') + ' h estimadas' : '') + '</span>' +
+    (aberto ? ' <span class="pill hoje">contando desde ' + new Date(aberto.inicio).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) + '</span>' : '') + '</div>';
+  alvo.querySelector('#tf-crono').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    if (aberto) await q(sb.from('tarefa_tempos').update({ fim: new Date().toISOString() }).eq('id', aberto.id));
+    else await q(sb.from('tarefa_tempos').insert({ tarefa_id: t.id }));
+    await pintarTempo(j, t);
+  });
+}
+// Tarefas → Regras automáticas (o admin liga, desliga e ajusta)
+async function janelaRegras() {
+  const [rs, ult] = await Promise.all([q(sb.from('regras_tarefas').select('*').order('nome')),
+    q(sb.from('configuracoes').select('valor').eq('chave', 'regras_tarefas_ultima').maybeSingle()).catch(() => null)]);
+  const admin = E.perfil && E.perfil.papel === 'admin';
+  const j = abrirJanela({ titulo: 'Regras automáticas de tarefas', larga: true,
+    corpo: '<p class="sub" style="margin-bottom:10px">O sistema cria estas tarefas sozinho, sem duplicar. Roda todo dia útil de manhã e ao abrir o sistema.' +
+      (ult && ult.valor ? ' Última execução: <b>' + quandoRodou(ult.valor.quando) + '</b> (' + ult.valor.criadas + ' criada[s]).' : '') + '</p>' +
+      '<div class="lista-ficha">' + rs.map((r) => '<div class="item-ficha"><div style="flex:1"><label class="check"><input type="checkbox" data-rg-lig="' + r.chave + '"' + (r.ligada ? ' checked' : '') + (admin ? '' : ' disabled') + '> <b>' + esc(r.nome) + '</b></label>' +
+        '<div class="sub">' + esc(r.descricao) + '</div></div>' +
+        '<label class="rg-num">N = <input type="number" min="0" max="90" data-rg-dias="' + r.chave + '" value="' + r.dias + '"' + (admin ? '' : ' disabled') + '></label>' +
+        '<input class="rg-resp" list="rg-pessoas" data-rg-resp="' + r.chave + '" value="' + esc(r.responsavel) + '" placeholder="responsável padrão"' + (admin ? '' : ' disabled') + '></div>').join('') + '</div>' + datalistPessoas('rg-pessoas') +
+      (admin ? '' : '<p class="sub" style="margin-top:8px">Só o administrador altera as regras.</p>'),
+    rodape: '<button class="btn btn-o" type="button" id="rg-rodar">↻ Rodar agora</button><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Fechar</button>' +
+      (admin ? '<button class="btn btn-p" type="button" id="rg-salvar">Salvar</button>' : '') + '</div>' });
+  j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
+  j.querySelector('#rg-rodar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    const n = await q(sb.rpc('rodar_regras_tarefas'));
+    aviso('✓ Regras rodadas: ' + n + ' tarefa(s) ou aviso(s) novo(s).'); fecharJanela(j); if (E.tela === 'tarefas') await TELAS.tarefas();
+  });
+  const sv = j.querySelector('#rg-salvar');
+  if (sv) sv.onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    for (const r of rs) {
+      await q(sb.from('regras_tarefas').update({ ligada: j.querySelector('[data-rg-lig="' + r.chave + '"]').checked,
+        dias: Math.max(0, parseInt(j.querySelector('[data-rg-dias="' + r.chave + '"]').value, 10) || 0),
+        responsavel: j.querySelector('[data-rg-resp="' + r.chave + '"]').value.trim() }).eq('chave', r.chave));
+    }
+    aviso('✓ Regras salvas.'); fecharJanela(j);
+  });
+}
+function quandoRodou(v) { const d = new Date(v); return isNaN(d) ? '—' : d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); }
 
 // ─────────────────────────── fluxos e modelos ───────────────────────────
 async function formNovoFluxo(depois) {

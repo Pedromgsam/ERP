@@ -972,3 +972,288 @@ begin
 exception when insufficient_privilege then
   raise notice 'Sem permissão em storage.objects: as regras dos arquivos continuam as da v6.';
 end $$;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- v8 (2026-09-27) — LÓGICA INTERNA DAS TAREFAS
+-- Regras automáticas (sem duplicar), revisão antes de concluir, anexo
+-- obrigatório, controle de horas, dias úteis e escalonamento de atrasos.
+-- ═══════════════════════════════════════════════════════════════════
+alter table public.tarefas add column if not exists chave_regra text;
+alter table public.tarefas add column if not exists exige_anexo boolean not null default false;
+alter table public.tarefas add column if not exists exige_revisao boolean not null default false;
+alter table public.tarefas add column if not exists revisor text not null default '';
+alter table public.tarefas add column if not exists escalada_em date;
+create unique index if not exists tarefas_chave_regra on public.tarefas (chave_regra) where chave_regra is not null;
+
+-- dias úteis (sábado, domingo e feriados cadastrados não contam)
+create or replace function public.dia_util(d date) returns boolean
+language sql stable set search_path = public as $$
+  select extract(isodow from d) < 6 and not exists (select 1 from public.feriados f where f.data = d);
+$$;
+create or replace function public.somar_uteis(d date, n int) returns date
+language plpgsql stable set search_path = public as $$
+declare r date := d; passo int := case when n < 0 then -1 else 1 end; k int := abs(n);
+begin
+  while k > 0 loop
+    r := r + passo;
+    if public.dia_util(r) then k := k - 1; end if;
+  end loop;
+  return r;
+end $$;
+create or replace function public.uteis_entre(a date, b date) returns int
+language sql stable set search_path = public as $$
+  select count(*)::int from generate_series(least(a, b) + 1, greatest(a, b), interval '1 day') g where public.dia_util(g::date);
+$$;
+
+-- id do usuário pelo primeiro nome (responsável é texto: "Pedro", "Adriana")
+create or replace function public.usuario_por_nome(nome text) returns uuid
+language sql stable security definer set search_path = public as $$
+  select p.id from public.perfis p
+   where p.papel in ('admin','equipe') and public.primeiro_nome($1) <> ''   -- $1: o nome procurado (não a coluna perfis.nome)
+     and (public.primeiro_nome(p.nome) = public.primeiro_nome($1) or public.primeiro_nome(split_part(p.email, '@', 1)) = public.primeiro_nome($1))
+   order by p.criado_em limit 1;
+$$;
+
+-- concluir: checklist completo, anexo quando exigido, revisão quando exigida
+create or replace function public.tarefa_ao_concluir() returns trigger
+language plpgsql as $$
+declare quem uuid;
+begin
+  if new.status = 'concluida' and (tg_op = 'INSERT' or old.status is distinct from 'concluida') then
+    if exists (select 1 from jsonb_array_elements(coalesce(new.checklist, '[]')) e where coalesce((e->>'feito')::boolean, false) = false) then
+      raise exception 'Conclua todos os itens do checklist antes de concluir a tarefa.';
+    end if;
+    if new.exige_anexo and tg_op = 'UPDATE' and not exists (select 1 from public.documentos d where d.tarefa_id = new.id and not d.arquivado) then
+      raise exception 'Esta tarefa exige um documento anexado (ex.: protocolo) antes de ser concluída.';
+    end if;
+    -- em revisão: só o revisor (ou o administrador) conclui
+    if new.exige_revisao and tg_op = 'UPDATE' and old.status = 'revisao' and auth.uid() is not null
+       and not public.eh_admin() and public.usuario_por_nome(new.revisor) is distinct from auth.uid() then
+      raise exception 'Esta tarefa está em revisão: só o revisor (%) pode concluir.', new.revisor;
+    end if;
+    -- com revisão: quem fez manda para o revisor; só sai de "revisão" para "concluída"
+    if new.exige_revisao and tg_op = 'UPDATE' and old.status is distinct from 'revisao' then
+      new.status := 'revisao';
+      quem := public.usuario_por_nome(new.revisor);
+      if quem is not null and quem is distinct from auth.uid() then
+        insert into public.notificacoes (usuario_id, tipo, titulo, detalhe, link)
+        values (quem, 'revisao', 'Revisar: ' || new.titulo, 'Enviada para sua revisão', 'tarefas');
+      end if;
+      return new;
+    end if;
+    new.concluida_em := now(); new.concluida_por := auth.uid();
+    if tg_op = 'UPDATE' and new.recorrencia in ('semanal','mensal','anual') and new.prazo is not null then
+      insert into public.tarefas (titulo, grupo_id, cliente_id, contrato_id, processos_vinculados, prioridade, responsavel, status,
+        inicio, prazo, prazo_fatal, descricao, participantes, etiquetas, checklist, recorrencia, fluxo_id, tarefa_pai_id,
+        exige_anexo, exige_revisao, revisor, estimativa_horas)
+      values (new.titulo, new.grupo_id, new.cliente_id, new.contrato_id, new.processos_vinculados, new.prioridade, new.responsavel, 'pendente',
+        new.prazo, (new.prazo + case new.recorrencia when 'semanal' then interval '7 days' when 'mensal' then interval '1 month' else interval '1 year' end)::date,
+        case when new.prazo_fatal is null then null else (new.prazo_fatal + case new.recorrencia when 'semanal' then interval '7 days' when 'mensal' then interval '1 month' else interval '1 year' end)::date end,
+        new.descricao, new.participantes, new.etiquetas,
+        (select coalesce(jsonb_agg(jsonb_set(e, '{feito}', 'false')), '[]') from jsonb_array_elements(coalesce(new.checklist, '[]')) e),
+        new.recorrencia, new.fluxo_id, new.tarefa_pai_id, new.exige_anexo, new.exige_revisao, new.revisor, new.estimativa_horas);
+    end if;
+  elsif new.status <> 'concluida' then
+    new.concluida_em := null; new.concluida_por := null;
+  end if;
+  return new;
+end $$;
+
+-- horas gastas (botão ▶/■ na tarefa)
+create table if not exists public.tarefa_tempos (
+  id uuid primary key default gen_random_uuid(),
+  tarefa_id uuid not null references public.tarefas(id) on delete cascade,
+  usuario uuid default auth.uid(),
+  inicio timestamptz not null default now(), fim timestamptz,
+  criado_em timestamptz not null default now(), atualizado_em timestamptz not null default now()
+);
+-- regras automáticas (Tarefas → Regras)
+create table if not exists public.regras_tarefas (
+  chave text primary key, nome text not null, descricao text not null default '',
+  ligada boolean not null default true, dias int not null default 5, responsavel text not null default '',
+  atualizado_em timestamptz not null default now()
+);
+insert into public.regras_tarefas (chave, nome, descricao, ligada, dias) values
+  ('contrato_onboarding', 'Contrato novo → onboarding do cliente', 'Cria a tarefa de boas-vindas com o checklist do modelo "Onboarding de cliente"; prazo em N dias úteis', true, 10),
+  ('processo_novo', 'Processo cadastrado → conferir processo e prazos', 'Para o advogado do processo; prazo em N dias úteis', true, 2),
+  ('certidao_vencendo', 'Certidão ou documento vencendo → renovar', 'N dias antes da validade, para o responsável do cliente', true, 15),
+  ('parcela_parcelamento', 'Parcela de parcelamento do cliente → emitir guia', 'N dias antes do vencimento, para o responsável do cliente', true, 5),
+  ('parcela_acordo', 'Parcela de acordo do cliente → lembrar o cliente', 'N dias antes do vencimento (acompanhamento; não entra no financeiro)', true, 5),
+  ('cobrar_honorario', 'Honorário vencido → cobrar', 'N dias depois do vencimento sem pagamento', false, 3),
+  ('escalar_atraso', 'Tarefa atrasada → avisar o administrador', 'Depois de N dias úteis de atraso; com mais 2 dias a prioridade vira Alta', true, 3)
+on conflict (chave) do nothing;
+
+do $$
+declare t text;
+begin
+  foreach t in array array['tarefa_tempos','regras_tarefas'] loop
+    execute format('alter table public.%1$s enable row level security', t);
+    execute format('revoke all on public.%1$s from anon', t);
+    execute format('grant select, insert, update, delete on public.%1$s to authenticated', t);
+    execute format('drop trigger if exists atualizado_%1$s on public.%1$s', t);
+    execute format('create trigger atualizado_%1$s before update on public.%1$s for each row execute function public.marcar_atualizacao()', t);
+  end loop;
+end $$;
+drop policy if exists tarefa_tempos_ver on public.tarefa_tempos;
+create policy tarefa_tempos_ver on public.tarefa_tempos for select to authenticated using (public.eh_equipe());
+drop policy if exists tarefa_tempos_gravar on public.tarefa_tempos;
+create policy tarefa_tempos_gravar on public.tarefa_tempos for insert to authenticated with check (public.eh_equipe() and usuario = auth.uid());
+drop policy if exists tarefa_tempos_alterar on public.tarefa_tempos;
+create policy tarefa_tempos_alterar on public.tarefa_tempos for update to authenticated using (usuario = auth.uid()) with check (usuario = auth.uid());
+drop policy if exists tarefa_tempos_excluir on public.tarefa_tempos;
+create policy tarefa_tempos_excluir on public.tarefa_tempos for delete to authenticated using (usuario = auth.uid() or public.eh_admin());
+drop policy if exists regras_tarefas_ver on public.regras_tarefas;
+create policy regras_tarefas_ver on public.regras_tarefas for select to authenticated using (public.eh_equipe());
+drop policy if exists regras_tarefas_admin on public.regras_tarefas;
+create policy regras_tarefas_admin on public.regras_tarefas for update to authenticated using (public.eh_admin()) with check (public.eh_admin());
+
+-- cria uma tarefa da regra (a chave impede duplicar)
+create or replace function public.tarefa_da_regra(p_chave text, p_titulo text, p_resp text, p_prazo date,
+  p_cliente uuid default null, p_grupo uuid default null, p_contrato uuid default null, p_checklist jsonb default '[]',
+  p_descricao text default '', p_processo text default '', p_prioridade text default 'media') returns boolean
+language plpgsql security definer set search_path = public as $$
+declare n int; quem uuid;
+begin
+  insert into public.tarefas (chave_regra, titulo, responsavel, prazo, inicio, cliente_id, grupo_id, contrato_id, checklist, descricao,
+                              processos_vinculados, prioridade, status)
+  values (p_chave, p_titulo, coalesce(p_resp, ''), p_prazo, current_date, p_cliente, p_grupo, p_contrato, coalesce(p_checklist, '[]'),
+          coalesce(p_descricao, ''), coalesce(p_processo, ''), p_prioridade, 'pendente')
+  on conflict (chave_regra) where chave_regra is not null do nothing;
+  get diagnostics n = row_count;
+  if n > 0 then
+    quem := public.usuario_por_nome(p_resp);
+    if quem is not null then
+      insert into public.notificacoes (usuario_id, tipo, titulo, detalhe, link)
+      values (quem, 'tarefa', 'Nova tarefa automática: ' || p_titulo, coalesce('Prazo ' || to_char(p_prazo, 'DD/MM/YYYY'), ''), 'tarefas');
+    end if;
+  end if;
+  return n > 0;
+end $$;
+revoke all on function public.tarefa_da_regra(text, text, text, date, uuid, uuid, uuid, jsonb, text, text, text) from anon, authenticated;
+
+-- gatilhos na hora: contrato novo e processo novo
+create or replace function public.regra_contrato_novo() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare rg record; cl record; ck jsonb;
+begin
+  select * into rg from public.regras_tarefas where chave = 'contrato_onboarding' and ligada;
+  if not found then return null; end if;
+  select * into cl from public.clientes where id = new.cliente_id;
+  select coalesce(jsonb_agg(jsonb_build_object('texto', i->>'titulo', 'feito', false)), '[]') into ck
+    from public.modelos_fluxo m, jsonb_array_elements(m.itens) i where m.nome = 'Onboarding de cliente';
+  perform public.tarefa_da_regra('onb:' || new.id, 'Onboarding: ' || coalesce(cl.nome, new.descricao),
+    coalesce(nullif(rg.responsavel, ''), nullif(new.responsavel, ''), cl.responsavel),
+    public.somar_uteis(coalesce(new.data_contrato, current_date), rg.dias), new.cliente_id, cl.grupo_id, new.id, ck,
+    'Contrato: ' || new.descricao);
+  return null;
+end $$;
+drop trigger if exists regra_contrato_novo on public.contratos;
+create trigger regra_contrato_novo after insert on public.contratos for each row execute function public.regra_contrato_novo();
+
+create or replace function public.regra_processo_novo() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare rg record;
+begin
+  select * into rg from public.regras_tarefas where chave = 'processo_novo' and ligada;
+  if not found or new.chave_importacao is not null then return null; end if;   -- importação em massa não gera tarefa
+  perform public.tarefa_da_regra('proc:' || new.id, 'Conferir processo ' || new.numero || ' e prazos',
+    coalesce(nullif(rg.responsavel, ''), new.advogado), public.somar_uteis(current_date, rg.dias),
+    null, new.grupo_id, null, '[{"texto":"Conferir partes e valor da causa","feito":false},{"texto":"Lançar prazos em aberto","feito":false}]',
+    '', new.numero);
+  return null;
+end $$;
+drop trigger if exists regra_processo_novo on public.processos;
+create trigger regra_processo_novo after insert on public.processos for each row execute function public.regra_processo_novo();
+
+-- rotina diária (e botão "Rodar agora"): vencimentos, cobranças e atrasos
+create or replace function public.rodar_regras_tarefas() returns int
+language plpgsql security definer set search_path = public as $$
+declare rg record; x record; n int := 0; adm record;
+begin
+  if auth.uid() is not null and not public.eh_equipe() then raise exception 'Só a equipe roda as regras.'; end if;
+  -- certidões e documentos com validade chegando
+  select * into rg from public.regras_tarefas where chave = 'certidao_vencendo' and ligada;
+  if found then
+    for x in select c.id, c.orgao, c.validade, cl.id cli, cl.nome, cl.grupo_id, cl.responsavel from public.certidoes c join public.clientes cl on cl.id = c.cliente_id
+              where c.validade is not null and c.validade <= current_date + rg.dias loop
+      if public.tarefa_da_regra('cert:' || x.id || ':' || x.validade, 'Renovar certidão ' || x.orgao || ' — ' || x.nome,
+           coalesce(nullif(rg.responsavel, ''), x.responsavel), least(x.validade, public.somar_uteis(current_date, 2)), x.cli, x.grupo_id) then n := n + 1; end if;
+    end loop;
+    for x in select d.id, d.nome doc, d.validade, cl.id cli, cl.nome, cl.grupo_id, cl.responsavel from public.documentos d left join public.clientes cl on cl.id = d.cliente_id
+              where not d.arquivado and d.validade is not null and d.validade <= current_date + rg.dias loop
+      if public.tarefa_da_regra('doc:' || x.id || ':' || x.validade, 'Renovar documento ' || x.doc || coalesce(' — ' || x.nome, ''),
+           coalesce(nullif(rg.responsavel, ''), x.responsavel), least(x.validade, public.somar_uteis(current_date, 2)), x.cli, x.grupo_id) then n := n + 1; end if;
+    end loop;
+  end if;
+  -- parcelas de parcelamentos do cliente
+  select * into rg from public.regras_tarefas where chave = 'parcela_parcelamento' and ligada;
+  if found then
+    for x in select pa.id, pa.numero, pa.vencimento, p.empresa, p.natureza, p.grupo_id,
+                    (select cl.responsavel from public.clientes cl where cl.grupo_id = p.grupo_id and cl.responsavel <> '' limit 1) resp
+               from public.parcelas pa join public.parcelamentos p on p.id = pa.parcelamento_id
+              where not pa.pago and pa.vencimento between current_date and current_date + rg.dias loop
+      if public.tarefa_da_regra('parc:' || x.id, 'Emitir guia e enviar ao cliente — ' || x.empresa || ' (' || coalesce(nullif(x.natureza, ''), 'parcelamento') || ', parc. ' || coalesce(x.numero, '') || ')',
+           coalesce(nullif(rg.responsavel, ''), x.resp), public.somar_uteis(x.vencimento, -1), null, x.grupo_id) then n := n + 1; end if;
+    end loop;
+  end if;
+  -- parcelas de acordos do cliente (acompanhamento; nada no financeiro)
+  select * into rg from public.regras_tarefas where chave = 'parcela_acordo' and ligada;
+  if found then
+    for x in select a.id, a.credor, a.devedor, a.parcela, a.vencimento, a.grupo_id, a.responsavel from public.acordos a
+              where not a.pago and a.vencimento between current_date and current_date + rg.dias loop
+      if public.tarefa_da_regra('aco:' || x.id, 'Lembrar ' || coalesce(nullif(x.devedor, ''), 'o cliente') || ' do acordo com ' || coalesce(nullif(x.credor, ''), 'o credor') || ' (parc. ' || coalesce(x.parcela, '') || ')',
+           coalesce(nullif(rg.responsavel, ''), x.responsavel), public.somar_uteis(x.vencimento, -1), null, x.grupo_id) then n := n + 1; end if;
+    end loop;
+  end if;
+  -- honorários vencidos sem pagamento
+  select * into rg from public.regras_tarefas where chave = 'cobrar_honorario' and ligada;
+  if found then
+    for x in select l.id, l.descricao, l.referencia, l.vencimento, l.cliente_id, l.grupo_id, l.responsavel, g.nome gnome from public.lancamentos l
+              left join public.grupos g on g.id = l.grupo_id
+              where l.tipo = 'receita' and not l.redutor and not l.pago and not coalesce(l.perda, false) and l.vencimento <= current_date - rg.dias loop
+      if public.tarefa_da_regra('cob:' || x.id, 'Cobrar honorário — ' || coalesce(x.gnome, x.descricao) || coalesce(' ' || nullif(x.referencia, ''), ''),
+           coalesce(nullif(rg.responsavel, ''), x.responsavel), public.somar_uteis(current_date, 1), x.cliente_id, x.grupo_id) then n := n + 1; end if;
+    end loop;
+  end if;
+  -- atrasos: avisa os administradores; mais 2 dias úteis, prioridade Alta
+  select * into rg from public.regras_tarefas where chave = 'escalar_atraso' and ligada;
+  if found then
+    for x in select t.id, t.titulo, t.responsavel, t.prazo from public.tarefas t
+              where t.status not in ('concluida','cancelada') and t.prazo is not null and t.prazo < current_date
+                and public.uteis_entre(t.prazo, current_date) > rg.dias and t.escalada_em is null loop
+      for adm in select id from public.perfis where papel = 'admin' loop
+        insert into public.notificacoes (usuario_id, tipo, titulo, detalhe, link)
+        values (adm.id, 'atraso', 'Atrasada: ' || x.titulo, coalesce(nullif(x.responsavel, ''), 'sem responsável') || ' · prazo ' || to_char(x.prazo, 'DD/MM/YYYY'), 'tarefas');
+      end loop;
+      update public.tarefas set escalada_em = current_date where id = x.id;
+      n := n + 1;
+    end loop;
+    update public.tarefas set prioridade = 'alta'
+     where status not in ('concluida','cancelada') and prazo is not null and prazo < current_date
+       and public.uteis_entre(prazo, current_date) > rg.dias + 2 and prioridade <> 'alta';
+  end if;
+  insert into public.configuracoes (chave, valor) values ('regras_tarefas_ultima', jsonb_build_object('quando', now(), 'criadas', n))
+  on conflict (chave) do update set valor = excluded.valor, atualizado_em = now();
+  return n;
+end $$;
+revoke all on function public.rodar_regras_tarefas() from anon;
+grant execute on function public.rodar_regras_tarefas() to authenticated;
+
+-- rotina automática todo dia útil às 7h (Brasília = 10h UTC), se o agendador existir no Supabase
+do $$
+begin
+  create extension if not exists pg_cron;
+  perform cron.unschedule(jobid) from cron.job where jobname = 'erp_regras_tarefas';
+  perform cron.schedule('erp_regras_tarefas', '0 10 * * 1-5', 'select public.rodar_regras_tarefas()');
+exception when others then
+  raise notice 'Agendador (pg_cron) indisponível: as regras rodam ao abrir o sistema e pelo botão "Rodar agora".';
+end $$;
+
+-- o revisor também enxerga e grava a tarefa que está com ele
+drop policy if exists tarefas_ver on public.tarefas;
+create policy tarefas_ver on public.tarefas for select to authenticated
+  using (public.pode('tarefas') or public.tarefa_minha(responsavel, participantes) or public.tarefa_minha(revisor, ''));
+drop policy if exists tarefas_alterar on public.tarefas;
+create policy tarefas_alterar on public.tarefas for update to authenticated
+  using (public.pode('tarefas','editar') or public.tarefa_minha(responsavel, participantes) or public.tarefa_minha(revisor, ''))
+  with check (public.pode('tarefas','editar') or public.tarefa_minha(responsavel, participantes) or public.tarefa_minha(revisor, ''));

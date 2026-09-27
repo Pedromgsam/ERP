@@ -131,7 +131,7 @@ const r = []; const ok = (n, c) => r.push([n, !!c]);
     // módulos novos: processos, parcelamentos (com parcelas), acordos, tarefas
     const arqs2 = [dir + '/2 - Processos.xlsx', dir + '/3 - Parcelamentos.xlsx', dir + '/4 - Acordos.xlsx', dir + '/15 - Tarefas.xlsx'];
     await fic.processos(arqs2[0]); await fic.parcelamentos(arqs2[1]); await fic.acordos(arqs2[2]); await fic.tarefas(arqs2[3]);
-    const contagem = () => ['processos', 'parcelamentos', 'parcelas', 'acordos', 'tarefas'].map((t) => sql('select count(*) from ' + t)).join(',');
+    const contagem = () => ['processos', 'parcelamentos', 'parcelas', 'acordos', 'tarefas where chave_regra is null'].map((t) => sql('select count(*) from ' + t)).join(',');
     for (let vez = 0; vez < 2; vez++) {
       await p.click('#adm-abas [data-aba=importar]'); await esperar(p);
       await p.setInputFiles('#imp-arquivos', arqs2); await esperar(p, 2500);

@@ -281,6 +281,16 @@
 .gs .gf-niveis{flex-shrink:0}
 @media (max-width:560px){.gs .gf-lin{flex-direction:column;align-items:flex-start}
 }
+.gs .semaforo{display:inline-block;width:10px;height:10px;border-radius:50%;vertical-align:middle;flex-shrink:0}
+.gs .semaforo.verde{background:#16A34A}
+.gs .semaforo.amarelo{background:#F59E0B}
+.gs .semaforo.vermelho{background:#DC2626}
+.gs .semaforo.preto{background:#111827;box-shadow:0 0 0 2px #DC2626}
+.gs .item-ficha.clicavel{cursor:pointer}
+.gs .item-ficha.clicavel:hover{background:#f4f7fc}
+.gs .rg-num input{width:60px}
+.gs .rg-resp{width:150px}
+.gs .item-ficha .rg-num,.gs .item-ficha .rg-resp{margin-left:8px}
 /* cores do ERP, tamanhos do Gestão */
 .gs{--navy:#1B2A4A;--navy2:#243659;--navy3:#2E5EAA;--accent:#C9A84C;--bg:#F0F2F7;background:none!important;min-height:0!important}
 .gs .duas-col>*,.gs .card{min-width:0}

@@ -164,7 +164,7 @@ begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-000
 select pg_temp.ok((select count(*) from contatos)+(select count(*) from documentos)+(select count(*) from equipe_nomes())=0,'cliente não vê contatos, documentos nem a equipe');
 commit;
 begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-00000000000a');
-select pg_temp.ok((select count(*) from notificacoes)=1,'admin vê a notificação dele');
+select pg_temp.ok((select count(*) from notificacoes where titulo='Menção')=1,'admin vê a notificação dele');
 delete from documentos;
 select pg_temp.ok((select count(*) from documentos)=0,'admin exclui documento');
 commit;
@@ -199,5 +199,38 @@ do $$ begin
   update perfis set funcoes='{"contratos":"editar"}' where id=auth.uid();
   if (select funcoes->>'contratos' from perfis where id=auth.uid()) is not null then raise exception 'FALHOU: pessoa deu função a si mesma'; end if;
   raise notice 'PASSA: ninguém dá função a si mesmo (só o admin)';
+end $$;
+commit;
+
+-- v8: lógica interna das tarefas
+select pg_temp.ok(public.somar_uteis('2026-10-09', 1) = '2026-10-13','dias úteis pulam fim de semana e feriado (12/10)');
+select pg_temp.ok(public.usuario_por_nome('Fabiana') = '00000000-0000-0000-0000-0000000000f1' and public.usuario_por_nome('Ninguém') is null,'acha a pessoa pelo primeiro nome');
+insert into processos(numero, advogado) values ('9999999-99.2026.8.13.0001','Pedro');
+select pg_temp.ok((select count(*) from tarefas where chave_regra like 'proc:%' and titulo like '%9999999%')=1,'processo novo gera tarefa de conferência');
+insert into acordos(processo, devedor, credor, parcela, valor, vencimento, responsavel) values ('1','Cliente X','Credor Y','1',100,current_date+3,'Pedro');
+select public.rodar_regras_tarefas(); select public.rodar_regras_tarefas();
+select pg_temp.ok((select count(*) from tarefas where chave_regra like 'aco:%')=1,'regra roda duas vezes e não duplica');
+select pg_temp.ok((select count(*) from lancamentos where descricao ilike '%acordo%')=0,'acordo não gera lançamento financeiro');
+insert into tarefas(titulo,responsavel,exige_anexo) values ('Protocolar com anexo','Pedro',true);
+do $$ begin
+  update tarefas set status='concluida' where titulo='Protocolar com anexo';
+  raise exception 'FALHOU: concluiu sem anexo';
+exception when raise_exception then
+  if sqlerrm like 'FALHOU%' then raise; end if;
+  raise notice 'PASSA: tarefa que exige anexo não conclui sem documento';
+end $$;
+insert into documentos(tarefa_id,nome,caminho) select id,'protocolo.pdf','x/p.pdf' from tarefas where titulo='Protocolar com anexo';
+update tarefas set status='concluida' where titulo='Protocolar com anexo';
+select pg_temp.ok((select status from tarefas where titulo='Protocolar com anexo')='concluida','com o documento anexado, conclui');
+insert into tarefas(titulo,responsavel,exige_revisao,revisor) values ('Minuta revisada','Fabiana',true,'Pedro');
+begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-0000000000f1');
+update tarefas set status='concluida' where titulo='Minuta revisada';
+select pg_temp.ok((select status from tarefas where titulo='Minuta revisada')='revisao','com revisão: vai para "Aguardando revisão"');
+do $$ begin
+  update tarefas set status='concluida' where titulo='Minuta revisada';
+  raise exception 'FALHOU: quem fez aprovou a própria revisão';
+exception when raise_exception then
+  if sqlerrm like 'FALHOU%' then raise; end if;
+  raise notice 'PASSA: só o revisor conclui a tarefa em revisão';
 end $$;
 commit;

@@ -34,11 +34,13 @@ TELAS.inicio = async function () {
     '<div class="acoes"><button class="btn btn-p" data-novo="receita">+ Receita</button>' +
     '<button class="btn btn-o" data-novo="despesa">+ Despesa</button>' +
     '<button class="btn btn-o" data-novo="contrato">+ Contrato</button></div></div>' +
-    linha('escritorio', '💼 Honorários Jurídico') + linha('contabilidade', '🧮 Contabilidade') +
-    '<div class="duas-col">' +
+    '<div id="ini-fila"></div>' +
+    (pode('financeiro_juridico') ? linha('escritorio', '💼 Honorários Jurídico') : '') + (pode('financeiro_contab') ? linha('contabilidade', '🧮 Contabilidade') : '') +
+    (pode('financeiro_juridico') || pode('financeiro_contab') ? '<div class="duas-col">' +
     cardLista('⚠ Em atraso', atrasados, 'Nada em atraso. 👏') +
     cardLista('🗓 Próximos 15 dias', proximos, 'Nenhum vencimento nos próximos 15 dias.') +
-    '</div>';
+    '</div>' : '');
+  if (typeof cardMinhaFila === 'function') cardMinhaFila().then((c) => { const el = $('ini-fila'); if (el) { el.innerHTML = c.html; c.ligar(el); } }).catch((e) => console.error(e));
   ligarAcoesLancamentos($('conteudo'));
   ligarBotoesNovo($('conteudo'));
 };

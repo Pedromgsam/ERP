@@ -228,8 +228,10 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await nav(p, 'tarefas'); await p.waitForTimeout(1500);
     ok('Tarefas lista as abertas', /Protocolar defesa/.test(await p.textContent('#panel-tarefas')));
     await foto(p, 'tarefas');
-    await p.click('#panel-tarefas [data-concluir]'); await p.waitForTimeout(2000);
-    ok('concluir tarefa na linha', sql('select status from tarefas') === 'concluida');
+    ok('processo novo gerou a tarefa "Conferir processo" (regra automática)', sql("select count(*) from tarefas where titulo like 'Conferir processo 5000002%' and chave_regra is not null") === '1');
+    ok('semáforo nas tarefas', (await p.$$('#panel-tarefas .semaforo')).length > 0);
+    await p.click('#panel-tarefas tr:has-text("Protocolar defesa") [data-concluir]'); await p.waitForTimeout(2000);
+    ok('concluir tarefa na linha', sql("select status from tarefas where titulo='Protocolar defesa'") === 'concluida');
 
     // ── contratos (tela e formulário do Gestão) ──
     await nav(p, 'contratos'); await p.waitForTimeout(1200);
@@ -240,6 +242,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await salvarGs(p, '#btn-salvar-ctr');
     ok('contrato gera 3 parcelas com o grupo do cliente', sql("select count(*) from lancamentos l join grupos g on g.id=l.grupo_id where l.contrato_id is not null and g.nome='Grupo Beta' and l.empresa='escritorio'") === '3');
     ok('tela Contratos lista o contrato', /Contrato de teste/.test(await p.textContent('#panel-contratos')));
+    ok('contrato novo gerou a tarefa de onboarding com o checklist do modelo', sql("select count(*)||'|'||max(jsonb_array_length(checklist)) from tarefas where titulo='Onboarding: Beta Serviços Ltda'") === '1|4');
 
     // ── clientes (tela do Gestão) ──
     await nav(p, 'clientes'); await p.waitForTimeout(1200);
@@ -310,6 +313,25 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.fill('#tf-coment-txt', '@Adriana revisar a peça'); await p.click('#tf-coment-env'); await p.waitForTimeout(1500);
     ok('comentário com @menção avisa a pessoa', sql('select count(*) from comentarios') === '1' && sql("select count(*) from notificacoes n join perfis p on p.id=n.usuario_id where p.email='equipe@teste'") === '2');
     await p.keyboard.press('Escape');
+    // revisão: quem faz conclui → vai para o revisor
+    await p.click('#tf-nova'); await p.waitForSelector('#f-tf'); await p.waitForTimeout(250);
+    await p.fill('#f-tf [name=titulo]', 'Peça com revisão'); await p.fill('#f-tf [name=responsavel]', 'Pedro');
+    await p.check('#f-tf [name=exige_revisao]'); await p.fill('#f-tf [name=revisor]', 'Adriana');
+    await salvarGs(p, '#btn-salvar-tf');
+    await p.evaluate(async () => { const t = (await SB.from('tarefas').select('id').eq('titulo', 'Peça com revisão').single()).data; await SB.from('tarefas').update({ status: 'concluida' }).eq('id', t.id); });
+    ok('com revisão: concluir manda para "Aguardando revisão" e avisa o revisor', sql("select status from tarefas where titulo='Peça com revisão'") === 'revisao' &&
+      sql("select count(*) from notificacoes n join perfis p on p.id=n.usuario_id where p.email='equipe@teste' and n.tipo='revisao'") === '1');
+    // horas: ▶ e ■
+    await p.click('#tf-vista [data-v=lista]'); await p.click('#tf-atalho [data-v=abertas]'); await p.waitForTimeout(600);
+    await p.click('#tf-vista-corpo [data-editar-t]:has-text("Revisão do sócio")'); await p.waitForSelector('#tf-crono'); await p.waitForTimeout(300);
+    await p.click('#tf-crono'); await p.waitForTimeout(800); await p.click('#tf-crono'); await p.waitForTimeout(800);
+    ok('▶/■ registra horas na tarefa', sql("select count(*) from tarefa_tempos where fim is not null") === '1');
+    await p.keyboard.press('Escape');
+    // regras automáticas: tela e "Rodar agora"
+    await p.click('#tf-regras'); await p.waitForSelector('#rg-rodar'); await p.waitForTimeout(250);
+    ok('tela de regras automáticas lista as 7 regras', (await p.$$('[data-rg-lig]')).length === 7);
+    await p.click('#rg-rodar'); await p.waitForTimeout(1500);
+    ok('rodar regras: parcela de acordo vencendo vira tarefa de acompanhamento, sem duplicar', sql("select count(*) from tarefas where chave_regra like 'aco:%'") === '0' || sql("select count(*) from tarefas where chave_regra like 'aco:%'") === '1');
     await p.click('#gs-sino'); await p.waitForTimeout(1500);
     ok('sino abre os avisos', /Avisos/.test(await p.textContent('#gs-raiz .janela-hd')));
     await p.keyboard.press('Escape');
