@@ -100,7 +100,7 @@ só a equipe logada consegue ler.
 ## Testes
 `testes/rodar-tudo.sh` recria um banco local que imita o Supabase (PostgreSQL + PostgREST) e roda
 os testes de permissão do banco (36), do importador com planilhas fictícias (51), da Gestão (44) e do
-ERP (44, inclusive a regra PF × PJ) num navegador com os mesmos cabeçalhos de segurança da Vercel. Precisa de `NODE_PATH` com
+ERP (46, inclusive a regra PF × PJ) num navegador com os mesmos cabeçalhos de segurança da Vercel. Precisa de `NODE_PATH` com
 `playwright` e `exceljs`.
 
 Bibliotecas incluídas em `app/vendor/` (licença MIT): supabase-js 2.117.2, Chart.js 4.4.1 e ExcelJS 4.4.0
