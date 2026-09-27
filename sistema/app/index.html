@@ -125,7 +125,7 @@ function renderInicio(){
 
   const ac=$('execAlertContainer')||$('homeAlertContainerTop')||$('homeAlertContainer');
   if(!ac)return;
-  const vRows=_getVencRows(7);
+  const vRows=_getVencRows(7,'cliente');
   const urgent=vRows.filter(r=>r.dias<=3).length;
   const prox=vRows.filter(r=>r.dias>3&&r.dias<=7).length;
 
@@ -3493,7 +3493,7 @@ function _recalcBadgesNow(g, e){
   const bFinC2=$('badgeFinanceiroContab');
   if(bFinC2){if(finCVenc2>0){bFinC2.textContent=finCVenc2;bFinC2.style.display='';bFinC2.className='sb-badge-num red';}else bFinC2.style.display='none';}
 
-  const vRows=_getVencRows(7).filter(r=>{
+  const vRows=_getVencRows(7,'cliente').filter(r=>{
     if(grpEff&&r.grupo!==grpEff)return false;
     if(e&&r.empresa!==e)return false;
     return true;
@@ -4233,7 +4233,7 @@ function renderResumo(){
 
   if($('kpiSecNeg'))$('kpiSecNeg').innerHTML=
     kC('Saldo Parc. Tributário',fS(_parcelResidual),fF(_parcelResidual)+' · '+fI(parcRel.length)+' ativos','ca','')+
-    kC('Acordos c/ Terceiros a Pagar',fS(_acAPagar),fF(_acAPagar),'cr','dr');
+    kC('Acordos dos clientes c/ terceiros',fS(_acAPagar),fF(_acAPagar),'cr','dr');
 
   const _fGrpR=FILTROS.grupo||'';
   const _fEmpR=FILTROS.empresa||'';
@@ -8171,7 +8171,12 @@ let _vencHorizonte=7, _vencPg=1, _vencSort={col:'dias',asc:true};
 
 
 var _vencCache={};
-function _getVencRows(dias){
+function _getVencRows(dias,escopo){
+  var _r=_getVencRowsTodos(dias);
+  if(!escopo) return _r;
+  return _r.filter(function(r){ return escopo==='financeiro' ? r.tipo==='Honorário' : r.tipo!=='Honorário'; });
+}
+function _getVencRowsTodos(dias){
   if(dias===-1){
     // v40: o ramo dos atrasados não usava o cache — e agora ele roda a
     // cada mudança de filtro, por causa da faixa "o que vence agora".
@@ -8392,7 +8397,7 @@ function gerarPDFGrupo(){
   const acG=DB.acordos.filter(a=>a.grupo===g&&a.situacao!=='Pago');
   const prG=dedupProcessos(DB.processos.filter(p=>p.grupo===g));
   const hoje=new Date();
-  const venc30=_getVencRows(30).filter(r=>r.grupo===g);
+  const venc30=_getVencRows(30,'cliente').filter(r=>r.grupo===g);
 
   const _pdfNome='Relatorio '+String(g).replace(/[\\/:*?"<>|]/g,'-')+' '+_pdfDataArq(hoje);
   let html='<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>'+_pdfNome+'</title>';
@@ -8595,7 +8600,7 @@ function gerarPDFEmpresa(){
   const parcE=DB.parcelamentos.filter(p=>p.empresa===nome||DB.baseDados.some(b=>b.nome===p.empresa&&b.cpfCnpj===row.cpfCnpj));
   const acE=DB.acordos.filter(a=>(a.devedor===nome||a.credor===nome)&&a.situacao!=='Pago');
   const prE=dedupProcessos(DB.processos.filter(p=>{return String(p.reu||'').toLowerCase().includes(nome.toLowerCase())||String(p.autor||'').toLowerCase().includes(nome.toLowerCase());}));
-  const venc30E=_getVencRows(30).filter(r=>r.empresa===nome||r.empresa===(row.cpfCnpj||'__'));
+  const venc30E=_getVencRows(30,'cliente').filter(r=>r.empresa===nome||r.empresa===(row.cpfCnpj||'__'));
   const hoje=new Date();
 
   const _capagCor={A:'background:#D1FAE5;color:#065F46',B:'background:var(--green-lt);color:#166534',C:'background:var(--amber-lt);color:#92400E',D:'background:var(--red-lt);color:#991B1B',O:'background:var(--red-lt);color:#991B1B'};

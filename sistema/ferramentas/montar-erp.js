@@ -116,6 +116,15 @@ trocar("  + '<div class=\"cc\" style=\"margin-bottom:14px\"><div class=\"cc-hd\"
   "  + (vencidos.length?'<div class=\"cc\" style=\"margin-bottom:14px\"><div class=\"cc-hd\"><div><div class=\"cc-t\">⚠ Em atraso</div><div class=\"cc-d\">todos os meses · mesmos recortes</div></div></div>'+_fcTabelaDetalhe(vencidos)+'</div>':'')\n"
   + "  + '<div class=\"cc\" style=\"margin-bottom:14px\"><div class=\"cc-hd\"><div><div class=\"cc-t\">'+(L.lado==='pagar'?'Pago':'Recebido')+' mês a mês</div>'", 1);
 
+// 7. Acordos e parcelamentos são dívidas do CLIENTE com terceiros; honorários são o financeiro
+//    do ESCRITÓRIO. Nunca na mesma lista: _getVencRows ganha o escopo ('financeiro' | 'cliente').
+trocar('function _getVencRows(dias){',
+  "function _getVencRows(dias,escopo){\n  var _r=_getVencRowsTodos(dias);\n  if(!escopo) return _r;\n" +
+  "  return _r.filter(function(r){ return escopo==='financeiro' ? r.tipo==='Honorário' : r.tipo!=='Honorário'; });\n}\n" +
+  'function _getVencRowsTodos(dias){', 1);
+trocar('_getVencRows(7)', "_getVencRows(7,'cliente')", 2);
+trocar('_getVencRows(30)', "_getVencRows(30,'cliente')", 2);
+trocar("kC('Acordos c/ Terceiros a Pagar',", "kC('Acordos dos clientes c/ terceiros',", 1);
 s = s.replace(/<title>[^<]*<\/title>/, '<title>ERP — Araújo &amp; Castro</title>');
 fs.writeFileSync(destino, s);
 

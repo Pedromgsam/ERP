@@ -35,6 +35,8 @@ insert into lancamentos(empresa,tipo,grupo_id,descricao,categoria,responsavel,ve
   select 'escritorio','receita',id,'Comissão','Comissão','Pedro',current_date + 5,150,true from grupos where nome='Grupo Alfa';
 insert into lancamentos(empresa,tipo,grupo_id,descricao,categoria,responsavel,vencimento,valor)
   select 'contabilidade','receita',id,'Honorários contábeis','Mensal','Adriana',current_date - 3,900 from grupos where nome='Grupo Beta';
+insert into acordos(grupo_id,processo,devedor,credor,parcela,total_parcelas,valor,vencimento)
+  select id,'0009999-11.2022.5.03.0002','Beta Serviços Ltda','Credor Antigo','3','10',128450.90,current_date - 20 from grupos where nome='Grupo Beta';
 insert into tarefas(titulo,responsavel,prazo) values ('Protocolar defesa','Pedro',current_date + 2);
 insert into configuracoes(chave,valor) values ('recibo_emitentes','{"pedro":{"label":"Pedro","nome":"ADVOGADO FICTICIO","oab":"OAB/MG 1","local":"Cidade/MG","qualif":"advogado ficticio, e-mail teste@teste","email":"teste@teste"}}');
 insert into auth.users(email,senha_teste,raw_user_meta_data) values ('cliente@teste','senha123','{"nome":"Cliente Alfa"}');
@@ -103,7 +105,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await foto(p, 'inicio');
     await p.waitForTimeout(1500);
     const n = await p.evaluate(() => ({ b: DB.baseDados.length, pr: DB.processos.length, pa: DB.parcelamentos.length, ac: DB.acordos.length, fi: DB.financeiro.length, fc: DB.financeiroContabilidade.length }));
-    ok('carrega os 6 módulos do Supabase', n.b === 3 && n.pr === 1 && n.pa === 1 && n.ac === 1 && n.fi === 2 && n.fc === 1, JSON.stringify(n));
+    ok('carrega os 6 módulos do Supabase', n.b === 3 && n.pr === 1 && n.pa === 1 && n.ac === 2 && n.fi === 2 && n.fc === 1, JSON.stringify(n));
     ok('PF identificada (isPJ=false) e PJ (isPJ=true)', await p.evaluate(() => DB.baseDados.find((x) => x.nome === 'Ana Alfa').isPJ === false && DB.baseDados.find((x) => x.nome === 'Alfa Comércio Ltda').isPJ === true));
     // Passivo total = só PJ: Alfa 1000+500+200 + Beta 300 = 2.000 (a PF igual NÃO soma)
     await nav(p, 'resumo');
@@ -129,6 +131,12 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('tabela original do ERP escondida (sem duplicar)', await p.$eval('#tblFinBody', (tb) => tb.closest('table').classList.contains('gx-oculta')));
     ok('comissão aparece como redutor (valor negativo)', /−\s*R\$\s*150,00/.test(await p.textContent('#panel-financeiro .gx-tab-gs')) && /redutor/.test(await p.textContent('#panel-financeiro .gx-tab-gs')));
     await foto(p, 'areceber');
+
+    // ── acordos são dívidas do cliente: nunca entram no financeiro do escritório ──
+    { const v = await p.evaluate(() => ({ fin: _getVencRows(-1, 'financeiro').map((r) => r.tipo), cli: _getVencRows(-1, 'cliente').map((r) => r.tipo),
+        finAc: (DB.financeiro || []).some((f) => /acordo/i.test(f.tipo || '')) }));
+      ok('vencidos do financeiro só com honorários; acordos e parcelamentos no escopo do cliente',
+        v.fin.every((t) => t === 'Honorário') && v.cli.includes('Acordo') && !v.cli.includes('Honorário') && !v.finAc, JSON.stringify(v)); }
 
     // ── editar: formulário do Gestão ──
     const idRec = sql("select id from lancamentos where descricao='Honorários mensais'");
@@ -202,12 +210,12 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
 
     // ── acordo (✓ Baixa na linha) e processo ──
     await nav(p, 'acordos'); await p.waitForTimeout(600);
-    const idAc = sql('select id from acordos');
+    const idAc = sql("select id from acordos where credor='Carlos Credor'");
     ok('acordos com ✓ Baixa na linha', await p.evaluate((id) => document.querySelectorAll('tr[data-gx^="acordos:' + id + '"] [data-la=baixa]').length > 0, idAc));
     await p.evaluate((id) => ERP_EDITAR('acordos:' + id), idAc); await esperarJanela(p);
     await p.click('.gx-janela [data-a=baixa]'); await p.waitForTimeout(2500);
-    ok('acordo baixado', sql('select pago and data_pagamento=current_date from acordos') === 't');
-    ok('ERP mostra o acordo como Pago', await p.evaluate(() => DB.acordos[0].situacao === 'Pago'));
+    ok('acordo baixado', sql("select pago and data_pagamento=current_date from acordos where credor='Carlos Credor'") === 't');
+    ok('ERP mostra o acordo como Pago', await p.evaluate(() => DB.acordos.find((a) => a.credor === 'Carlos Credor').situacao === 'Pago'));
     ok('Desfazer no rodapé', await p.isVisible('#gx-rodape .gx-rod-bt'));
     await lancar(p, 5);
     await p.fill('#gx-f-numero', '5000002-22.2025.8.13.0024'); await p.fill('#gx-f-grupo_id', 'Grupo Beta');
@@ -237,7 +245,13 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await foto(p, 'clientes');
 
     // ── ficha 360° do cliente ──
-    await p.click('#panel-clientes tr[data-cli]:has-text("Alfa Comércio Ltda")'); await p.waitForSelector('.janela.ficha #fc-abas'); await p.waitForTimeout(1200);
+    ok('Clientes sem as colunas Tipo e Contato', await p.evaluate(() => { const h = [...document.querySelectorAll('#panel-clientes thead th')].map((x) => x.textContent.trim()); return !h.includes('Tipo') && !h.includes('Contato') && h.includes('Responsável'); }));
+    await p.click('#panel-clientes tr[data-cli]:has-text("Alfa Comércio Ltda")'); await p.waitForSelector('#panel-clientes tr.cli-det [data-cli-ficha]'); await p.waitForTimeout(600);
+    ok('clicar no cliente expande os detalhes (contato, fiscal, escritório)', /Fiscal/.test(await p.textContent('#panel-clientes tr.cli-det')) && /PGFN/.test(await p.textContent('#panel-clientes tr.cli-det')));
+    await p.click('#panel-clientes tr[data-cli]:has-text("Alfa Comércio Ltda")'); await p.waitForTimeout(300);
+    ok('clicar de novo recolhe', (await p.$$('#panel-clientes tr.cli-det')).length === 0);
+    await p.click('#panel-clientes tr[data-cli]:has-text("Alfa Comércio Ltda")'); await p.waitForSelector('#panel-clientes [data-cli-ficha]');
+    await p.click('#panel-clientes [data-cli-ficha]'); await p.waitForSelector('.janela.ficha #fc-abas'); await p.waitForTimeout(1200);
     ok('ficha do cliente abre com 12 abas e resumo', (await p.$$('.janela.ficha #fc-abas button')).length === 12 && /A receber/.test(await p.textContent('#fc-corpo')));
     await foto(p, 'ficha');
     await p.click('#fc-abas [data-aba=contatos]'); await p.waitForSelector('[data-novo-sub]'); await p.click('[data-novo-sub]');
