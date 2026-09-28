@@ -152,7 +152,7 @@ async function chamarFuncao(nome, corpo) {
 // Diagnóstico: as funções estão publicadas e respondendo?
 async function verificarFuncoes() {
   const out = [];
-  for (const nome of ['erp-emails', 'erp-publicacoes', 'erp-cnpj']) {
+  for (const nome of ['erp-emails', 'erp-publicacoes', 'erp-cnpj', 'erp-agenda']) {
     try { const r = await chamarFuncao(nome, { acao: 'ping' }); out.push([nome, true, r.versao ? 'publicada (versão ' + r.versao + ')' : 'publicada (versão antiga: publique de novo o arquivo do GitHub)']); }
     catch (e) { out.push([nome, false, e.message]); }
   }
@@ -239,7 +239,7 @@ function aviso(msg, erro) {
   a.className = 'mostrar' + (erro ? ' erro' : '');
   clearTimeout(_avisoT);
   _avisoT = setTimeout(() => { a.className = ''; }, erro ? 6000 : 3000);
-  if (!erro) marcarGravacao();
+  if (!erro) { marcarGravacao(); invalidarCadastros(); }
 }
 // Rodapé "gravado no servidor às HH:MM": toda mensagem de sucesso só aparece
 // depois que o banco confirmou a gravação.
@@ -330,6 +330,78 @@ function fecharJanela(el) {
 }
 document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') fecharJanela(); });
 
+// Relatório padrão (Alertas, Clientes…): tabela ordenável + CSV; linha com id abre a ficha do cliente.
+// r = { titulo, colunas: [...], linhas: [[...]], ids?: [id do cliente por linha], acao?: { rotulo, fn } }
+function relatorioTabela(r) {
+  const j = abrirJanela({ titulo: r.titulo + ' (' + r.linhas.length + ')', larga: true,
+    corpo: r.linhas.length ? '<div class="tabela-wrap" style="max-height:60vh;overflow:auto"><table class="ordenavel"><thead><tr>' + r.colunas.map((c) => '<th>' + esc(c) + '</th>').join('') + '</tr></thead><tbody>' +
+      r.linhas.map((l, i) => '<tr' + (r.ids && r.ids[i] ? ' class="clicavel" data-cli="' + r.ids[i] + '"' : '') + '>' + l.map((v) => '<td>' + esc(v == null ? '' : v) + '</td>').join('') + '</tr>').join('') + '</tbody></table></div>' : vazio('Nada aqui. 🎉'),
+    rodape: '<button class="btn btn-o" type="button" data-rel-csv>⬇ CSV</button><div class="acoes">' + (r.acao ? '<button class="btn btn-p" type="button" data-rel-acao>' + esc(r.acao.rotulo) + '</button>' : '') + '</div>' });
+  j.querySelectorAll('[data-cli]').forEach((tr) => tr.onclick = () => abrirFicha(tr.dataset.cli));
+  j.querySelector('[data-rel-csv]').onclick = () => baixarArquivo(r.titulo.replace(/[\\/:*?"<>|]/g, '-') + ' ' + hojeISO() + '.csv',
+    '\ufeff' + [r.colunas].concat(r.linhas).map((l) => l.map((v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(';')).join('\r\n'), 'text/csv;charset=utf-8');
+  const ac = j.querySelector('[data-rel-acao]'); if (ac) ac.onclick = () => { fecharJanela(j); r.acao.fn(); };
+  return j;
+}
+
+// Estado vazio padrão: uma frase + um botão que aciona o botão de criar da própria tela
+// (seletor procurado primeiro na mesma janela/tela, depois na página toda).
+function vazio(frase, rotulo, seletor) {
+  return '<div class="vazio"><div class="vazio-frase">' + esc(frase) + '</div>' +
+    (rotulo && seletor ? '<button type="button" class="btn btn-p btn-mini vazio-bt" data-vazio-clica="' + esc(seletor) + '">' + esc(rotulo) + '</button>' : '') + '</div>';
+}
+document.addEventListener('click', (ev) => {
+  const b = ev.target.closest && ev.target.closest('[data-vazio-clica]'); if (!b) return;
+  const sel = b.dataset.vazioClica, perto = b.closest('.janela, .gs-area, #conteudo');
+  const alvo = (perto && perto.querySelector(sel)) || document.querySelector(sel);
+  if (alvo && alvo !== b) alvo.click();
+});
+
+// Tabelas longas (todas as telas): mostra 100 linhas por vez com "Mostrar mais", e nas tabelas das
+// telas novas com mais de 25 linhas a rolagem fica dentro do quadro, com o cabeçalho fixo.
+// Reaplica sozinho quando a tabela é redesenhada (filtro) ou reordenada (clique no cabeçalho).
+const PAGINA_TABELA = 100;
+function paginarTabelas() {
+  document.querySelectorAll('.tw table, .tabela-wrap table').forEach((t) => {
+    const corpo = t.tBodies[0]; if (!corpo) return;
+    const linhas = [...corpo.rows].filter((r) => !r.classList.contains('linha-total'));
+    const wrap = t.closest('.tabela-wrap');
+    if (wrap) wrap.classList.toggle('tabela-longa', linhas.length > 25 && !wrap.closest('.janela'));
+    let rod = t.parentElement.nextElementSibling;
+    if (!(rod && rod.classList.contains('pag-rodape'))) rod = null;
+    if (linhas.length <= PAGINA_TABELA) { linhas.forEach((r) => r.classList.remove('pag-oculta')); if (rod) rod.remove(); return; }
+    const lim = Math.max(PAGINA_TABELA, +(t.dataset.pagLim || 0));
+    linhas.forEach((r, i) => r.classList.toggle('pag-oculta', i >= lim));
+    const vis = Math.min(lim, linhas.length);
+    if (!rod) { rod = document.createElement('div'); rod.className = 'pag-rodape no-print'; t.parentElement.after(rod); }
+    const txt = 'Mostrando ' + vis + ' de ' + linhas.length;
+    if (rod.dataset.txt === txt) return;
+    rod.dataset.txt = txt;
+    rod.innerHTML = '<span>' + txt + '</span>' + (vis < linhas.length ? '<button type="button" data-pag="mais">Mostrar mais ' + Math.min(PAGINA_TABELA, linhas.length - vis) +
+      '</button><button type="button" data-pag="todas">Mostrar todas</button>' : '');
+    rod.onclick = (ev) => { const b = ev.target.closest('[data-pag]'); if (!b) return;
+      t.dataset.pagLim = b.dataset.pag === 'todas' ? 1e9 : lim + PAGINA_TABELA; paginarTabelas(); };
+  });
+}
+// acessibilidade: botão que só tem ícone ganha nome para leitor de tela (do title ou do ícone)
+const NOME_ICONE = { '✎': 'Editar', '⋯': 'Mais ações', '✕': 'Fechar', '×': 'Fechar', '🔔': 'Avisos', '⚙': 'Configurações', '◐': 'Alternar modo escuro',
+  '✓': 'Concluir', '▸': 'Abrir detalhes', '▾': 'Fechar detalhes', '🗑': 'Excluir', '📎': 'Anexo', '↻': 'Atualizar', '⬇': 'Baixar', '👁': 'Mostrar senha' };
+function nomearBotoesIcone() {
+  document.querySelectorAll('button:not([aria-label]), a.btn:not([aria-label]), [role=button]:not([aria-label])').forEach((b) => {
+    const t = (b.textContent || '').trim();
+    if (!t || /[0-9A-Za-zÀ-ú]/.test(t)) return;
+    const nome = b.getAttribute('title') || NOME_ICONE[t] || NOME_ICONE[[...t][0]];
+    if (nome) b.setAttribute('aria-label', nome);
+  });
+}
+(() => {
+  let agendado = false;
+  const agendar = () => { if (agendado) return; agendado = true; requestAnimationFrame(() => { agendado = false; paginarTabelas(); nomearBotoesIcone(); }); };
+  const ligar = () => new MutationObserver((ms) => { if (ms.some((m) => m.target.closest && m.target.closest('table, .tw, .tabela-wrap, main, .gs-area, #conteudo'))) agendar(); })
+    .observe(document.body, { childList: true, subtree: true });
+  if (document.body) ligar(); else document.addEventListener('DOMContentLoaded', ligar);
+})();
+
 function campo(rotulo, html, classe) {
   return '<label class="campo' + (classe ? ' ' + classe : '') + '"><span>' + rotulo + '</span>' + html + '</label>';
 }
@@ -408,13 +480,22 @@ document.addEventListener('click', (ev) => {
   b.setAttribute('aria-expanded', _recolhido[b.dataset.recolhe] ? 'false' : 'true');
 });
 
-async function carregarCadastros() {
-  const [clientes, grupos] = await Promise.all([
-    buscarTodos(() => sb.from('clientes').select('*, grupos(nome)').order('nome')),
-    buscarTodos(() => sb.from('grupos').select('*').order('nome'))
-  ]);
-  E.clientes = clientes; E.grupos = grupos;
+async function carregarCadastros(forcar) {
+  if (!forcar && _cadQuando && Date.now() - _cadQuando < 60000) return;
+  if (_cadBusca) return _cadBusca;
+  _cadBusca = (async () => {
+    const [clientes, grupos] = await Promise.all([
+      buscarTodos(() => sb.from('clientes').select((window.ERP_COLS_CLIENTE || '*') + ', grupos(nome)').order('nome')),
+      buscarTodos(() => sb.from('grupos').select('*').order('nome'))
+    ]);
+    E.clientes = clientes; E.grupos = grupos; _cadQuando = Date.now();
+  })();
+  try { await _cadBusca; } finally { _cadBusca = null; }
 }
+// (carregarCadastros) Clientes e grupos: uma busca serve por 60 s (trocar de tela não busca de novo);
+// qualquer gravação (aviso "✓") ou recarga descarta a cópia e a próxima tela busca de novo.
+let _cadQuando = 0, _cadBusca = null;
+function invalidarCadastros() { _cadQuando = 0; }
 
 // ── navegação dentro do ERP: cada tela desenha no painel que o ERP mostrou ──
 const TELAS = {};
@@ -436,7 +517,7 @@ async function irPara(tela, alvo) {
     $('conteudo').innerHTML = '<div class="card"><div class="card-bd msg-erro">' + esc(erroAmigavel(e)) + '</div></div>';
   }
 }
-function recarregar() { if (window.ERP_RECARREGAR) return window.ERP_RECARREGAR(); return irPara(E.tela); }
+function recarregar() { invalidarCadastros(); if (window.ERP_RECARREGAR) return window.ERP_RECARREGAR(); return irPara(E.tela); }
 
 'use strict';
 // ═══════════════════════════════════════════════════════════════════
@@ -571,24 +652,39 @@ function kpi(rotulo, valor, cor, sub) {
     '</div><div class="kpi-s">' + esc(sub || '') + '</div></div>';
 }
 
+// Mesmo cálculo do resumo_financeiro do banco — usado só enquanto o SQL novo não foi rodado.
+async function resumoFinanceiroNoNavegador(ini, fim, h) {
+  const [abertos, pagos, atr] = await Promise.all([
+    buscarTodos(() => sb.from('lancamentos').select('empresa, tipo, valor, redutor').gte('vencimento', ini).lte('vencimento', fim).eq('pago', false).eq('perda', false)),
+    buscarTodos(() => sb.from('lancamentos').select('empresa, tipo, valor, redutor').gte('data_pagamento', ini).lte('data_pagamento', fim).eq('pago', true)),
+    buscarTodos(() => sb.from('lancamentos').select('empresa, tipo, valor, redutor').lt('vencimento', h).eq('pago', false).eq('perda', false))
+  ]);
+  const out = {};
+  ['escritorio', 'contabilidade'].forEach((emp) => {
+    const de = (lista, tipo) => lista.filter((l) => l.empresa === emp && l.tipo === tipo);
+    out[emp] = { recebido: soma(de(pagos, 'receita'), vl), n_recebido: de(pagos, 'receita').length, a_receber: soma(de(abertos, 'receita'), vl), n_a_receber: de(abertos, 'receita').length,
+      em_atraso: soma(de(atr, 'receita'), vl), n_em_atraso: de(atr, 'receita').length, a_pagar: soma(de(abertos, 'despesa'), vl), n_a_pagar: de(abertos, 'despesa').length };
+  });
+  return out;
+}
+
 // ─────────────────────────── INÍCIO ────────────────────────────────
 TELAS.inicio = async function () {
   const h = hojeISO(), ini = iso(primeiroDiaDoMes(new Date())), fim = iso(fimDoMes(new Date()));
   const sel = '*, grupos(nome), clientes(nome)';
-  const [doMes, pagosNoMes, atrasados, proximos] = await Promise.all([
-    buscarTodos(() => sb.from('lancamentos').select(sel).gte('vencimento', ini).lte('vencimento', fim).eq('pago', false).eq('perda', false)),
-    buscarTodos(() => sb.from('lancamentos').select('empresa, tipo, valor').gte('data_pagamento', ini).lte('data_pagamento', fim).eq('pago', true)),
+  // totais prontos no banco (resumo_financeiro); só as listas vêm linha a linha
+  const [totais, atrasados, proximos] = await Promise.all([
+    q(sb.rpc('resumo_financeiro', { p_de: ini, p_ate: fim })).catch(() => resumoFinanceiroNoNavegador(ini, fim, h)),
     buscarTodos(() => sb.from('lancamentos').select(sel).lt('vencimento', h).eq('pago', false).eq('perda', false).order('vencimento')),
     buscarTodos(() => sb.from('lancamentos').select(sel).gte('vencimento', h).lte('vencimento', somarDias(h, 15)).eq('pago', false).eq('perda', false).order('vencimento'))
   ]);
-  const de = (lista, emp, tipo) => lista.filter((l) => l.empresa === emp && l.tipo === tipo);
-  const linha = (emp, titulo) =>
-    '<div class="kpis-titulo">' + titulo + '</div><div class="kpis">' +
-    kpi('Recebido no mês', brl(soma(de(pagosNoMes, emp, 'receita'), vl)), 'verde', de(pagosNoMes, emp, 'receita').length + ' recebimento(s)') +
-    kpi('A receber no mês', brl(soma(de(doMes, emp, 'receita'), vl)), '', de(doMes, emp, 'receita').length + ' em aberto') +
-    kpi('Em atraso', brl(soma(de(atrasados, emp, 'receita'), vl)), 'vermelho', de(atrasados, emp, 'receita').length + ' vencido(s)') +
-    kpi('A pagar no mês', brl(soma(de(doMes, emp, 'despesa'), vl)), 'ambar', de(doMes, emp, 'despesa').length + ' conta(s)') +
-    '</div>';
+  const linha = (emp, titulo) => { const t = totais[emp] || {};
+    return '<div class="kpis-titulo">' + titulo + '</div><div class="kpis">' +
+    kpi('Recebido no mês', brl(t.recebido || 0), 'verde', (t.n_recebido || 0) + ' recebimento(s)') +
+    kpi('A receber no mês', brl(t.a_receber || 0), '', (t.n_a_receber || 0) + ' em aberto') +
+    kpi('Em atraso', brl(t.em_atraso || 0), 'vermelho', (t.n_em_atraso || 0) + ' vencido(s)') +
+    kpi('A pagar no mês', brl(t.a_pagar || 0), 'ambar', (t.n_a_pagar || 0) + ' conta(s)') +
+    '</div>'; };
 
   $('conteudo').innerHTML =
     '<div class="titulo-pag"><div><h1>Olá, ' + esc((E.perfil.nome || '').split(' ')[0]) + '</h1>' +
@@ -1117,11 +1213,17 @@ TELAS.clientes = async function () {
     '<select class="busca sel" id="cli-grupo" autocomplete="off"><option value="">Todos os grupos</option>' +
     E.grupos.map((g) => '<option value="' + g.id + '">' + esc(g.nome) + '</option>').join('') + '</select>' +
     '<input class="busca" id="cli-busca" placeholder="Buscar nome, grupo, responsável ou CPF/CNPJ" autocomplete="off">' +
+    '<button class="btn btn-o" type="button" id="cli-relatorio" title="Lista filtrada com todos os campos, em tabela e CSV">⬇ Relatório</button>' +
     '</div><div id="cli-corpo"></div>';
   $('cli-tipo').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { C.tipo = b.dataset.v; pintarClientes(); } };
   $('cli-grupo').onchange = (ev) => { C.grupo = ev.target.value; pintarClientes(); };
   let t;
   $('cli-busca').oninput = (ev) => { clearTimeout(t); t = setTimeout(() => { C.busca = ev.target.value; pintarClientes(); }, 250); };
+  $('cli-relatorio').onclick = () => { const l = E.cli.ultima || [];
+    relatorioTabela({ titulo: 'Clientes', ids: l.map((c) => c.id),
+      colunas: ['Grupo', 'Nome', 'CPF/CNPJ', 'Tipo', 'Responsável', 'E-mail', 'Telefone', 'Cidade/UF', 'Procuração', 'Certificado', 'CAPAG', 'Situação cadastral'],
+      linhas: l.map((c) => [c.grupos ? c.grupos.nome : '', c.nome, mascaraDoc(c.cpf_cnpj), c.tipo === 'Demanda' ? 'Serviço pontual' : c.tipo, c.responsavel, c.email, c.telefone,
+        [c.cidade, c.estado].filter(Boolean).join('/'), c.procuracao === true ? 'Sim' : c.procuracao === false ? 'Não' : '', c.certificado === true ? 'Sim' : c.certificado === false ? 'Não' : '', c.capag, c.situacao_cadastral]) }); };
   ligarBotoesNovo($('conteudo'));
   // ao ordenar pelo cabeçalho, fecha o detalhe aberto (senão ele fica solto no meio da tabela)
   $('cli-corpo').addEventListener('click', (ev) => { if (ev.target.closest('th')) { document.querySelectorAll('#cli-corpo .cli-det').forEach((x) => x.remove());
@@ -1142,6 +1244,7 @@ function pintarClientes() {
                (bd && soDigitos(c.cpf_cnpj).includes(bd)))) return false;
     return true;
   });
+  C.ultima = lista;
   $('cli-conta').textContent = lista.length + ' de ' + E.clientes.length + ' cadastro(s) · clique na linha para ver os detalhes';
   $('cli-corpo').innerHTML = '<div class="card">' + (lista.length ?
     '<div class="tabela-wrap"><table class="ordenavel cli-tabela"><thead><tr><th class="sem-ordem" style="width:28px"></th><th>Grupo</th><th>Nome</th><th>CPF/CNPJ</th><th>Responsável</th>' +
@@ -1153,7 +1256,7 @@ function pintarClientes() {
       '<td>' + pillPessoa(c.responsavel) + '</td><td>' + pillSimNao(c.procuracao) + '</td><td>' + pillSimNao(c.certificado) + '</td>' +
       '<td>' + pillSitCad(c.situacao_cadastral) + '</td></tr>').join('') +
     '</tbody></table></div>'
-    : '<div class="vazio">' + (E.clientes.length ? 'Nenhum cliente neste recorte.' : 'Nenhum cliente ainda. Clique em "+ Novo cliente" ou importe a Base de Dados em Administração.') + '</div>') + '</div>';
+    : (E.clientes.length ? vazio('Nenhum cliente neste recorte — mude o filtro ou a busca.') : vazio('Nenhum cliente ainda. Cadastre o primeiro ou importe a Base de Dados em Administração.', '+ Novo cliente', '[data-novo=cliente]'))) + '</div>';
   $('cli-corpo').querySelectorAll('tr[data-cli]').forEach((tr) => {
     tr.onclick = () => expandirCliente(tr);
     tr.onkeydown = (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); expandirCliente(tr); } };
@@ -1284,7 +1387,7 @@ async function formCliente(cl, depois) {
   const f = j.querySelector('#f-cli');
   f.cpf_cnpj.onblur = () => { f.cpf_cnpj.value = mascaraDoc(f.cpf_cnpj.value); };
   j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
-  const apos = async () => { await carregarCadastros(); if (depois) depois(); else await recarregar(); };
+  const apos = async () => { await carregarCadastros(true); if (depois) depois(); else await recarregar(); };
   const bc = j.querySelector('#btn-ctr-cli');
   if (bc) bc.onclick = () => { fecharJanela(j); formContrato({ cliente_id: cl.id }); };
 
@@ -1374,7 +1477,7 @@ async function pintarContratos(buscar) {
         '<td>' + ((c.documentos || []).length ? '<span class="pill pago" title="Contrato anexado">📎 ' + c.documentos.length + '</span>' : '<span class="pill hoje" title="Anexe o contrato assinado no detalhe">sem anexo</span>') + '</td>' +
         '<td>' + (atraso ? '<span class="pill vencido">Parcela em atraso</span>' : '<span class="pill ' + (c.status === 'Ativo' ? 'aberto' : 'neutro') + '">' + esc(c.status) + '</span>') + '</td></tr>';
     }).join('') + '</tbody></table></div>'
-    : '<div class="vazio">Nenhum contrato' + (F.status !== 'todos' ? ' com essa situação' : '') + '.</div>') + '</div>';
+    : vazio('Nenhum contrato' + (F.status !== 'todos' ? ' com essa situação' : '') + ' — cadastre um contrato e o sistema gera os lançamentos.', '+ Novo contrato', '[data-novo=contrato]')) + '</div>';
   $('ctr-corpo').querySelectorAll('[data-ctr]').forEach((tr) => tr.onclick = () => detalheContrato(tr.dataset.ctr));
 }
 
@@ -1598,6 +1701,7 @@ const ABAS_ADMIN = [
   { id: 'importar', rot: '📥 Importar planilhas' },
   { id: 'backup',   rot: '💾 Backup' },
   { id: 'historico', rot: '🕘 Histórico' },
+  { id: 'acessos', rot: '🔐 Acessos' },
   { id: 'email', rot: '✉ E-mail' }
 ];
 
@@ -1615,7 +1719,7 @@ async function pintarAdmin() {
   document.querySelectorAll('#adm-abas button').forEach((b) => b.classList.toggle('ativo', b.dataset.aba === E.adm.aba));
   const corpo = $('adm-corpo');
   corpo.innerHTML = '<div class="carregando">Carregando…</div>';
-  try { await ({ usuarios: admUsuarios, importar: admImportar, backup: admBackup, historico: admHistorico, email: admEmail })[E.adm.aba](corpo); }
+  try { await ({ usuarios: admUsuarios, importar: admImportar, backup: admBackup, historico: admHistorico, acessos: admAcessos, email: admEmail })[E.adm.aba](corpo); }
   catch (e) { console.error(e); corpo.innerHTML = '<div class="card"><div class="card-bd msg-erro">' + esc(erroAmigavel(e)) + '</div></div>'; }
 }
 
@@ -1857,10 +1961,10 @@ async function gravarImportacao() {
   }
   // 1. grupos que ainda não existem
   prog.textContent = 'Criando grupos…';
-  await carregarCadastros();
+  await carregarCadastros(true);
   const faltam = [...new Set(validos.flatMap((r) => r.grupos))].filter((g) => !E.grupos.some((x) => normalizar(x.nome) === normalizar(g)));
   for (let i = 0; i < faltam.length; i += 200) await q(sb.from('grupos').insert(faltam.slice(i, i + 200).map((nome) => ({ nome }))));
-  await carregarCadastros();
+  await carregarCadastros(true);
   const idGrupo = (n) => { const g = n && E.grupos.find((x) => normalizar(x.nome) === normalizar(n)); return g ? g.id : null; };
   // 2. registros, em lotes
   const resultado = [];
@@ -1881,7 +1985,7 @@ async function gravarImportacao() {
   validos.sort((a, b) => (a.tipo === 'base' ? -1 : 0) - (b.tipo === 'base' ? -1 : 0));
   for (const r of validos) {
     const tabela = TABELA_IMP[r.tipo];
-    if (r.tipo === 'parcelamentos') await carregarCadastros();
+    if (r.tipo === 'parcelamentos') await carregarCadastros(true);
     const filhos = [];
     const linhas = registrosImp(r).map((x) => {
       const y = Object.assign({}, x);
@@ -1902,7 +2006,7 @@ async function gravarImportacao() {
     }
     resultado.push(linhas.length + ' ' + (ROTULO[tabela] || 'lançamento(s) de ' + (r.tipo === 'contabilidade' ? 'Contabilidade' : 'Honorários Jurídico')));
   }
-  await carregarCadastros();
+  await carregarCadastros(true);
   prog.textContent = '';
   aviso('✓ Importação concluída.');
   $('imp-previa').innerHTML = '<div class="card"><div class="card-bd msg-ok">✓ Importado: ' + esc(resultado.join(' · ')) +
@@ -1923,16 +2027,56 @@ async function admBackup(corpo) {
     '1. Faça o backup toda semana (e antes de qualquer importação grande).<br>' +
     '2. Guarde numa pasta do seu Google Drive que só você acessa — não mande por e-mail nem WhatsApp.<br>' +
     '3. Mantenha a verificação em duas etapas ligada na sua conta Google.<br>' +
-    '4. O arquivo tem dados de clientes: trate como documento sigiloso (LGPD).</div></div></div>';
+    '4. O arquivo tem dados de clientes: trate como documento sigiloso (LGPD).</div></div></div>' +
+    '<div class="card"><div class="card-hd">🗓 Backups automáticos (todo domingo, 3h) <span class="sub" style="margin-left:auto">ficam as 8 últimas cópias, no armazenamento privado do sistema</span></div><div class="card-bd" id="bk-auto"><div class="carregando">Carregando…</div></div></div>';
   $('bk-excel').onclick = (ev) => comBotao(ev.currentTarget, () => fazerBackup('xlsx'));
   $('bk-json').onclick = (ev) => comBotao(ev.currentTarget, () => fazerBackup('json'));
+  await pintarBackupsAuto();
+}
+
+async function pintarBackupsAuto() {
+  const alvo = $('bk-auto'); if (!alvo) return;
+  const lista = await q(sb.from('backups_auto').select('*').order('criado_em', { ascending: false })).catch(() => null);
+  if (lista === null) { alvo.innerHTML = '<div class="dica">Rode o <b>estrutura.sql</b> novo e publique a função <b>erp-backup</b> para ligar o backup semanal.</div>'; return; }
+  alvo.innerHTML = '<div class="acoes" style="margin-bottom:10px"><button class="btn btn-o" id="bk-agora">↻ Fazer backup agora</button></div>' +
+    (lista.length ? '<div class="tabela-wrap"><table><thead><tr><th>Quando</th><th>Origem</th><th class="num">Tamanho</th><th>Registros</th><th></th></tr></thead><tbody>' +
+      lista.map((b) => '<tr><td class="mono">' + quandoRodou(b.criado_em) + '</td><td>' + (b.origem === 'rotina' ? 'semanal' : 'manual') + '</td>' +
+        '<td class="num mono">' + (b.tamanho > 1048576 ? (b.tamanho / 1048576).toFixed(1).replace('.', ',') + ' MB' : Math.max(1, Math.round(b.tamanho / 1024)) + ' KB') + '</td>' +
+        '<td class="sub">' + Object.values(b.resumo || {}).reduce((a, n) => a + n, 0) + ' em ' + Object.keys(b.resumo || {}).length + ' tabelas</td>' +
+        '<td class="acoes-l"><button class="btn btn-o btn-mini" data-bk="' + esc(b.caminho) + '">⬇ Baixar</button></td></tr>').join('') + '</tbody></table></div>'
+      : vazio('Nenhum backup automático ainda. O primeiro sai no próximo domingo, ou clique em "Fazer backup agora".'));
+  $('bk-agora').onclick = (ev) => comBotao(ev.currentTarget, async () => { const r = await chamarFuncao('erp-backup', { acao: 'rodar' }); aviso('✓ ' + (r.mensagem || 'Backup feito.')); await pintarBackupsAuto(); });
+  alvo.querySelectorAll('[data-bk]').forEach((b) => b.onclick = () => comBotao(b, async () => {
+    const { data, error } = await sb.storage.from('backups').createSignedUrl(b.dataset.bk, 60, { download: true });
+    if (error) throw error;
+    const a = document.createElement('a'); a.href = /^https?:/.test(data.signedUrl) ? data.signedUrl : String(CFG.url || location.origin).replace(/\/$/, '') + '/storage/v1' + data.signedUrl; a.download = b.dataset.bk; a.rel = 'noopener'; a.click();
+  }));
+}
+
+// ─────────────────────────── ACESSOS ───────────────────────────────
+async function admAcessos(corpo) {
+  const [lista, pessoas] = await Promise.all([
+    q(sb.from('acessos').select('*').order('quando', { ascending: false }).limit(300)).catch(() => null),
+    q(sb.from('perfis').select('id, nome, email'))
+  ]);
+  if (lista === null) { corpo.innerHTML = '<div class="card"><div class="card-bd dica">Rode o <b>estrutura.sql</b> novo para ligar o registro de acessos.</div></div>'; return; }
+  const nome = (id) => { const p = pessoas.find((x) => x.id === id); return p ? (p.nome || p.email) : '—'; };
+  corpo.innerHTML = '<div class="card"><div class="card-hd">🔐 Últimos acessos <span class="sub" style="margin-left:auto">guardados por 180 dias · aparelho novo avisa a própria pessoa por e-mail</span></div>' +
+    (lista.length ? '<div class="tabela-wrap"><table class="ordenavel"><thead><tr><th data-tipo="data">Quando</th><th>Pessoa</th><th>Aparelho / navegador</th><th></th></tr></thead><tbody>' +
+      lista.map((a) => '<tr><td class="mono" data-ord="' + a.quando + '">' + quandoRodou(a.quando) + '</td><td>' + esc(nome(a.usuario_id)) + '</td><td class="sub">' + esc(a.navegador || '—') + '</td>' +
+        '<td>' + (a.novo ? '<span class="pill hoje">aparelho novo</span>' : '') + '</td></tr>').join('') + '</tbody></table></div>' : vazio('Nenhum acesso registrado ainda.')) + '</div>';
 }
 
 async function fazerBackup(formato) {
   const prog = $('bk-prog'), dados = {};
+  // todas as tabelas do sistema (mesma lista do backup automático); banco antigo: a lista fixa
+  const tabelas = await q(sb.rpc('listar_tabelas_backup')).catch(() => null) || TABELAS_BACKUP;
+  TABELAS_BACKUP.length = 0; tabelas.forEach((t) => TABELAS_BACKUP.push(t));
+  const ORD = { historico: 'id', perfil_grupos: 'perfil_id', configuracoes: 'chave', cliente_etiquetas: 'cliente_id', salarios_minimos: 'ano' };
   for (const t of TABELAS_BACKUP) {
     prog.textContent = 'Lendo ' + t + '…';
-    dados[t] = await buscarTodos(() => sb.from(t).select('*').order(t === 'historico' ? 'id' : t === 'perfil_grupos' ? 'perfil_id' : t === 'configuracoes' ? 'chave' : 'criado_em'));
+    dados[t] = await buscarTodos(() => sb.from(t).select('*').order(ORD[t] || 'id'))
+      .catch(() => buscarTodos(() => sb.from(t).select('*')));
   }
   const carimbo = new Date().toISOString().slice(0, 16).replace('T', ' ').replace(':', 'h');
   const nome = 'Backup ERP Araujo e Castro ' + carimbo;
@@ -2288,7 +2432,7 @@ TELAS.tarefas = async function () {
   const F = E.tf;
   $('conteudo').innerHTML =
     '<div class="titulo-pag"><div><h1>Tarefas</h1><p>Prazos, fluxos e acompanhamento do escritório</p></div>' +
-    '<div class="acoes"><button class="btn btn-o" id="tf-regras">⚙ Regras automáticas</button><button class="btn btn-o" id="tf-modelos">Modelos de fluxo</button><button class="btn btn-o" id="tf-feriados">Feriados</button>' +
+    '<div class="acoes"><button class="btn btn-o" id="tf-regras">⚙ Regras automáticas</button><button class="btn btn-o" id="tf-modelos">Modelos de fluxo</button><button class="btn btn-o" id="tf-feriados">Feriados</button><button class="btn btn-o" id="tf-agenda" title="Prazos fatais e audiências no seu Google Agenda">📅 Google Agenda</button>' +
     '<button class="btn btn-o" id="tf-fluxo">+ Novo fluxo</button><button class="btn btn-p" id="tf-nova">+ Nova tarefa</button></div></div>' +
     '<div class="filtros">' +
     '<div class="segmento" id="tf-vista">' + [['lista', 'Lista'], ['kanban', 'Quadro'], ['calendario', 'Calendário'], ['fluxos', 'Fluxos'], ['relatorio', 'Relatório']]
@@ -2304,6 +2448,7 @@ TELAS.tarefas = async function () {
   $('tf-modelos').onclick = () => janelaModelos();
   $('tf-regras').onclick = () => janelaRegras();
   $('tf-feriados').onclick = () => janelaFeriados();
+  $('tf-agenda').onclick = () => janelaAgenda();
   $('tf-vista').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.vista = b.dataset.v; pintarTarefas(); } };
   $('tf-atalho').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.atalho = b.dataset.v; pintarTarefas(); } };
   [['tf-resp', 'resp'], ['tf-pri', 'pri']].forEach(([id, k]) => { $(id).value = F[k]; $(id).onchange = (ev) => { F[k] = ev.target.value; pintarTarefas(); }; });
@@ -2386,7 +2531,7 @@ function vistaLista(alvo) {
       filhas.filter((f) => ids.has(f.id)).map((f) => linha(f, nivel + 1)).join('');
   };
   alvo.innerHTML = '<div class="card">' + (raizes.length ? '<div class="tabela-wrap"><table><thead><tr><th>Prazo</th><th>Tarefa</th><th>Pessoa</th><th>Prioridade</th><th>Status</th><th></th></tr></thead><tbody>' +
-    raizes.map((t) => linha(t, 0)).join('') + '</tbody></table></div>' : '<div class="vazio">Nenhuma tarefa com esses filtros.</div>') + '</div>';
+    raizes.map((t) => linha(t, 0)).join('') + '</tbody></table></div>' : vazio('Nenhuma tarefa com esses filtros.', '+ Nova tarefa', '#tf-nova')) + '</div>';
   ligarLinhasTarefa(alvo);
 }
 
@@ -2450,7 +2595,7 @@ async function vistaCalendario(alvo) {
 // ── Fluxos: andamento e linha do tempo (Gantt simples) ──
 function vistaFluxos(alvo) {
   const fl = E._fluxos || [], h = hojeISO();
-  if (!fl.length) { alvo.innerHTML = '<div class="card"><div class="vazio">Nenhum fluxo ainda. Clique em "+ Novo fluxo" e escolha um modelo (ex.: Defesa em execução fiscal).</div></div>'; return; }
+  if (!fl.length) { alvo.innerHTML = '<div class="card">' + vazio('Nenhum fluxo ainda — um fluxo cria várias tarefas de uma vez a partir de um modelo (ex.: Defesa em execução fiscal).', '+ Novo fluxo', '#tf-fluxo') + '</div>'; return; }
   alvo.innerHTML = fl.map((f) => {
     const ts = (E._tarefas || []).filter((t) => t.fluxo_id === f.id).sort((x, y) => String(x.prazo).localeCompare(String(y.prazo)));
     const feitas = ts.filter(tarefaFechada).length;
@@ -2897,6 +3042,24 @@ async function contarAlertas() {
   return { total: al.length, altos: al.filter((a) => a.nivel === 'alto').length };
 }
 
+// Google Agenda: link secreto da pessoa (função erp-agenda) — o Google assina e atualiza sozinho
+async function janelaAgenda(novo) {
+  const token = await q(sb.rpc('meu_link_agenda', { p_novo: !!novo }));
+  const link = String(CFG.url || location.origin).replace(/\/$/, '') + '/functions/v1/erp-agenda?t=' + token;
+  const j = abrirJanela({ titulo: '📅 Seus prazos no Google Agenda', larga: true,
+    corpo: '<p style="margin-bottom:10px">Este link mostra no seu Google Agenda os <b>prazos fatais</b> e as <b>audiências</b> das tarefas em que você é responsável, com lembrete 1 dia antes. Não tem custo.</p>' +
+      campo('Seu link (pessoal — não compartilhe)', '<input id="ag-link" readonly value="' + esc(link) + '" onclick="this.select()">', 'inteiro') +
+      '<ol class="passos" style="margin:12px 0 0 18px;line-height:1.7">' +
+      '<li>Clique em <b>Copiar link</b>.</li>' +
+      '<li>Abra o <b>Google Agenda</b> no computador → à esquerda, em <b>Outras agendas</b>, clique no <b>+</b> → <b>Do URL</b>.</li>' +
+      '<li>Cole o link e clique em <b>Adicionar agenda</b>. Pronto: aparece a agenda "ERP · prazos".</li></ol>' +
+      '<div class="dica" style="margin-top:10px">O Google atualiza a agenda sozinho, algumas vezes por dia (pode levar até 24 h para uma mudança aparecer). ' +
+      'Se o link vazar, clique em <b>Trocar link</b>: o antigo para de funcionar na hora.</div>',
+    rodape: '<button class="btn btn-o" type="button" id="ag-trocar">Trocar link</button><div class="acoes"><button class="btn btn-p" type="button" id="ag-copiar">Copiar link</button></div>' });
+  j.querySelector('#ag-copiar').onclick = async () => { try { await navigator.clipboard.writeText(link); aviso('Link copiado. Agora cole no Google Agenda → Do URL.'); } catch (e) { j.querySelector('#ag-link').select(); aviso('Selecionei o link: aperte Ctrl+C para copiar.'); } };
+  j.querySelector('#ag-trocar').onclick = () => { if (confirm('Trocar o link? O link antigo para de funcionar e você precisará adicionar o novo no Google Agenda.')) { fecharJanela(j); janelaAgenda(true); } };
+}
+
 'use strict';
 // ═══════════════════════════════════════════════════════════════════
 // Documentos — arquivos guardados no Storage privado do Supabase
@@ -3002,7 +3165,7 @@ function janelaNovaVersao(doc, depois) {
 // Tabela de documentos (usada na tela, na ficha, no contrato e no lançamento)
 function tabelaDocumentos(docs, opc) {
   opc = opc || {};
-  if (!docs.length) return '<div class="vazio">' + (opc.vazio || 'Nenhum documento aqui.') + '</div>';
+  if (!docs.length) return vazio(opc.vazio || 'Nenhum documento aqui — guarde contratos, procurações e certidões com acesso restrito.', '+ Enviar documento', '[data-enviar-doc], #doc-novo');
   return '<div class="tabela-wrap"><table class="ordenavel"><thead><tr><th>Documento</th><th>Tipo</th>' + (opc.semCliente ? '' : '<th>Cliente</th>') +
     '<th data-tipo="data">Enviado</th><th>Validade</th><th class="sem-ordem"></th></tr></thead><tbody>' +
     docs.map((d) => {
@@ -3085,7 +3248,7 @@ async function pintarDocumentos(buscar) {
 // ═══════════════════════════════════════════════════════════════════
 const ABAS_FICHA = [['resumo', 'Resumo'], ['contatos', 'Contatos'], ['enderecos', 'Endereços'], ['contas', 'Contas bancárias'],
   ['socios', 'Sócios e vínculos'], ['processos', 'Processos'], ['contratos', 'Contratos'], ['financeiro', 'Financeiro'],
-  ['tarefas', 'Tarefas'], ['documentos', 'Documentos'], ['linha', 'Linha do tempo'], ['fiscal', 'Dados fiscais']];
+  ['tarefas', 'Tarefas'], ['documentos', 'Documentos'], ['linha', 'Linha do tempo'], ['fiscal', 'Dados fiscais'], ['receita', 'Cartão CNPJ']];
 
 // Sub-cadastros editáveis da ficha (mesmo formulário para todos)
 const FINALIDADES = [['geral', 'Geral'], ['financeiro', 'Financeiro'], ['juridico', 'Jurídico'], ['socio', 'Sócio / decisor'], ['contador', 'Contador'],
@@ -3218,7 +3381,7 @@ async function abrirFicha(id, aba) {
     catch (e) { console.error(e); corpo.innerHTML = '<div class="vazio">' + esc(erroAmigavel(e)) + '</div>'; }
   };
   j.querySelector('#fc-abas').onclick = (ev) => { const b = ev.target.closest('button'); if (b) mostrar(b.dataset.aba); };
-  const reabrir = async () => { await carregarCadastros(); fecharJanela(j); await abrirFicha(id, atual); };
+  const reabrir = async () => { await carregarCadastros(true); fecharJanela(j); await abrirFicha(id, atual); };
   j.querySelector('#fc-editar').onclick = () => formCliente(cl, reabrir);
   j.querySelector('#fc-tarefa').onclick = () => formTarefa({ cliente_id: cl.id, grupo_id: cl.grupo_id, responsavel: cl.responsavel }, () => mostrar('tarefas'));
   j.querySelector('#fc-lanc').onclick = () => formLancamento({ tipo: 'receita', empresa: 'escritorio', cliente_id: cl.id, grupo_id: cl.grupo_id, responsavel: cl.responsavel }, () => mostrar('financeiro'));
@@ -3327,7 +3490,7 @@ const ABA_FICHA = {
         cs.map((c) => '<tr class="clicavel" data-ctr-f="' + c.id + '"><td><b>' + esc(c.descricao) + '</b></td><td class="mono">' + dataBR(c.data_contrato) + '</td><td class="mono">' + brl(c.valor_total) +
           (c.percentual_exito ? '<div class="sub">+ ' + String(c.percentual_exito).replace('.', ',') + '% êxito</div>' : '') + '</td><td>' + c.num_parcelas + '</td>' +
           '<td><span class="pill ' + (c.status === 'Ativo' ? 'aberto' : 'neutro') + '">' + esc(c.status) + '</span></td></tr>').join('') + '</tbody></table></div>'
-        : '<div class="vazio">Nenhum contrato deste cliente.</div>');
+        : vazio('Nenhum contrato deste cliente.', '+ Novo contrato', '#fc-novo-ctr'));
     alvo.querySelector('#fc-novo-ctr').onclick = () => formContrato({ cliente_id: cl.id });
     alvo.querySelectorAll('[data-ctr-f]').forEach((tr) => tr.onclick = () => detalheContrato(tr.dataset.ctrF));
   },
@@ -3346,7 +3509,7 @@ const ABA_FICHA = {
         (t.prazo && t.prazo < h && !tarefaFechada(t) ? '<span class="pill vencido">atrasada</span>' : '') +
         '<div class="sub">' + (t.prazo ? 'até ' + dataBR(t.prazo) : 'sem prazo') + (t.prazo_fatal ? ' · fatal ' + dataBR(t.prazo_fatal) : '') + ' · ' + esc(t.responsavel || '—') + ' · ' + esc(STATUS_TAREFA[t.status] || t.status) + '</div></div>' +
         '<button class="btn btn-o btn-mini" data-editar-tf="' + t.id + '">Abrir</button></div>').join('') + '</div>'
-        : '<div class="vazio">Nenhuma tarefa deste cliente.</div>');
+        : vazio('Nenhuma tarefa deste cliente.', '+ Nova tarefa', '#fc-nova-tf'));
     alvo.querySelector('#fc-nova-tf').onclick = () => formTarefa({ cliente_id: cl.id, grupo_id: cl.grupo_id, responsavel: cl.responsavel }, repinta);
     alvo.querySelectorAll('[data-editar-tf]').forEach((b) => b.onclick = () => formTarefa(ts.find((t) => t.id === b.dataset.editarTf), repinta));
   },
@@ -3393,6 +3556,35 @@ const ABA_FICHA = {
       linhaDado('CEAT/TRT3', cl.ceat_trt3 != null ? String(cl.ceat_trt3) : '') + '</div></div></div>' +
       '<div class="card"><div class="card-bd" id="fc-certidoes"></div></div>';
     await pintarSublista(alvo.querySelector('#fc-certidoes'), 'certidoes', cl);
+  },
+  // Cartão CNPJ: o que a Receita diz hoje (atualização diária às 6h) e o histórico do que mudou
+  async receita(alvo, cl, repinta) {
+    if (soDigitos(cl.cpf_cnpj).length !== 14) { alvo.innerHTML = vazio('O cartão CNPJ vale só para empresas (CNPJ com 14 dígitos).'); return; }
+    const [c, execs] = await Promise.all([
+      q(sb.from('clientes').select('razao_social, nome_fantasia, situacao_cadastral, data_situacao, cnae_principal, porte, data_abertura, endereco, cidade, estado, cep, cnpj_atualizado_em').eq('id', cl.id).single()),
+      q(sb.from('cnpj_execucoes').select('inicio, relatorio').filter('relatorio', 'cs', JSON.stringify([{ cliente_id: cl.id }])).order('inicio', { ascending: false }).limit(30)).catch(() => [])
+    ]);
+    const hist = [];
+    execs.forEach((x) => (x.relatorio || []).forEach((r) => { if (r.cliente_id === cl.id && (r.erro || (r.mudancas && !r.primeira))) hist.push(Object.assign({ quando: x.inicio }, r)); }));
+    const admin = E.perfil && E.perfil.papel === 'admin';
+    alvo.innerHTML = '<div class="titulo-pag" style="margin-bottom:8px"><div><b>Cartão CNPJ</b> <span class="sub">' +
+      (c.cnpj_atualizado_em ? 'consultado na Receita em ' + quandoBR(c.cnpj_atualizado_em) : 'ainda não consultado — a atualização roda todo dia às 6h') + '</span></div>' +
+      (admin ? '<div class="acoes"><button class="btn btn-o btn-mini" id="fc-cnpj-agora">↻ Consultar agora</button></div>' : '') + '</div>' +
+      '<div class="duas-col"><div class="card"><div class="card-hd">Dados da Receita</div><div class="card-bd dados">' +
+      linhaDado('Razão social', esc(c.razao_social)) + linhaDado('Nome fantasia', esc(c.nome_fantasia)) +
+      linhaDado('Situação', (c.situacao_cadastral ? pillSitCad(c.situacao_cadastral) : '') + (c.data_situacao ? ' <span class="sub">desde ' + dataBR(c.data_situacao) + '</span>' : '')) +
+      linhaDado('Atividade principal (CNAE)', esc(c.cnae_principal)) + linhaDado('Porte', esc(c.porte)) + linhaDado('Abertura', c.data_abertura ? dataBR(c.data_abertura) : '') +
+      linhaDado('Endereço', esc(c.endereco)) + linhaDado('Cidade/UF', esc([c.cidade, c.estado].filter(Boolean).join('/'))) + linhaDado('CEP', esc(c.cep ? String(c.cep).replace(/^(\d{5})(\d{3})$/, '$1-$2') : '')) +
+      '</div></div><div class="card"><div class="card-hd">Histórico de alterações</div><div class="card-bd">' +
+      (hist.length ? '<div class="lista-ficha">' + hist.map((h) => '<div class="item-ficha"><div><b>' + quandoBR(h.quando) + '</b>' +
+        (h.erro ? '<div class="sub" style="color:var(--red-d)">Erro na consulta: ' + esc(h.erro) + '</div>' :
+          h.mudancas.map((m) => '<div class="sub">' + esc(m.campo) + ': <s>' + esc(m.antes || '—') + '</s> → <b>' + esc(m.depois) + '</b></div>').join('')) + '</div></div>').join('') + '</div>'
+        : vazio('Nenhuma alteração desde a primeira consulta.')) + '</div></div></div>';
+    const bt = alvo.querySelector('#fc-cnpj-agora');
+    if (bt) bt.onclick = () => comBotao(bt, async () => {
+      const r = await chamarFuncao('erp-cnpj', { acao: 'rodar', cliente_id: cl.id });
+      aviso('✓ Cartão CNPJ: ' + (r.mensagem || 'consultado') + '.'); repinta();
+    });
   }
 };
 function rotuloInteracao(t) { return { ligacao: 'Ligação', reuniao: 'Reunião', whatsapp: 'WhatsApp', email: 'E-mail', anotacao: 'Anotação' }[t] || t; }
@@ -3506,7 +3698,7 @@ function crmLista(alvo) {
         '<td class="num mono" data-ord="' + pond(o) + '">' + brl(pond(o)) + '</td><td>' + pillPessoa(o.responsavel) + '</td>' +
         '<td data-ord="' + esc(o.proxima_acao_em || '') + '">' + esc(o.proxima_acao || '—') + (o.proxima_acao_em ? '<div class="sub' + (o.proxima_acao_em < h && opAberta(o) ? ' texto-vermelho' : '') + '">' + dataBR(o.proxima_acao_em) + '</div>' : '') + '</td>' +
         '<td class="mono" data-ord="' + esc(o.previsao_fechamento || '') + '">' + (o.previsao_fechamento ? dataBR(o.previsao_fechamento) : '—') + '</td><td>' + esc(o.origem || '—') + '</td></tr>').join('') +
-      '</tbody></table></div>' : '<div class="vazio">Nenhuma oportunidade ainda. Clique em "+ Nova oportunidade".</div>') + '</div>';
+      '</tbody></table></div>' : vazio('Nenhuma oportunidade ainda — registre o primeiro contato de um cliente em potencial.', '+ Nova oportunidade', '#cr-nova')) + '</div>';
   alvo.querySelectorAll('[data-op]').forEach((tr) => tr.onclick = () => fichaOportunidade(tr.dataset.op));
 }
 
@@ -3667,7 +3859,7 @@ async function opPropostas(alvo, o, repinta) {
     (ps.length ? '<div class="lista-ficha">' + ps.map((p) => '<div class="item-ficha"><div><b>v' + p.versao + ' — ' + esc(p.titulo || 'Proposta') + '</b> <span class="pill ' +
       ({ rascunho: 'neutro', enviada: 'aberto', aceita: 'pago', recusada: 'vencido' }[p.status]) + '">' + p.status + '</span><div class="sub">' + brl(total(p)) +
       (p.validade ? ' · válida até ' + dataBR(p.validade) : '') + (p.enviada_em ? ' · enviada em ' + dataBR(p.enviada_em) : '') + '</div></div>' +
-      '<button class="btn btn-o btn-mini" data-pr="' + p.id + '">Abrir</button></div>').join('') + '</div>' : '<div class="vazio">Nenhuma proposta. Clique em "+ Nova proposta" e escolha um modelo.</div>');
+      '<button class="btn btn-o btn-mini" data-pr="' + p.id + '">Abrir</button></div>').join('') + '</div>' : vazio('Nenhuma proposta ainda — comece por um modelo pronto.', '+ Nova proposta', '#pr-nova'));
   alvo.querySelector('#pr-nova').onclick = () => novaProposta(o, ps, repinta);
   alvo.querySelectorAll('[data-pr]').forEach((b) => b.onclick = () => editorProposta(o, ps.find((p) => p.id === b.dataset.pr), repinta));
 }
@@ -3805,7 +3997,7 @@ function janelaGanhar(o, depois) {
     const r = await q(sb.rpc('crm_ganhar', { p_op: o.id, p }));
     aviso('✓ Contrato fechado! Cliente, contrato' + (valor ? ', parcelas' : '') + (p.criar_fluxo ? ' e onboarding' : '') + ' criados.');
     fecharJanela(j); if (depois) depois(r);
-    await carregarCadastros(); await recarregarCrm();
+    await carregarCadastros(true); await recarregarCrm();
   });
 }
 function janelaPerder(o, depois) {
@@ -3939,7 +4131,7 @@ function pintarPublicacoes() {
       (p.status !== 'tratada' ? '<button class="btn btn-o btn-mini" data-st="tratada">Tratada</button>' : '') +
       (p.status !== 'descartada' ? '<button class="btn btn-o btn-mini" data-st="descartada">Descartar</button>' : '<button class="btn btn-o btn-mini" data-st="nova">Voltar para novas</button>') +
       (p.link && /^https?:/.test(p.link) ? '<a class="btn btn-o btn-mini" href="' + esc(p.link) + '" target="_blank" rel="noopener">Abrir no Diário</a>' : '') + '</div></div></div>').join('')
-      : '<div class="card"><div class="vazio">' + (todas.length ? 'Nenhuma publicação neste recorte.' : 'Nenhuma publicação ainda. Cadastre as OABs em "OABs monitoradas" e clique em "Buscar agora".') + '</div></div>');
+      : '<div class="card">' + (todas.length ? vazio('Nenhuma publicação neste recorte — mude o filtro.') : vazio('Nenhuma publicação ainda. Cadastre as OABs do escritório e o sistema busca no Diário todo dia.', 'OABs monitoradas', '#pub-oabs')) + '</div>');
   $('pub-corpo').querySelectorAll('[data-ver]').forEach((b2) => b2.onclick = () => { b2.previousElementSibling.classList.remove('curto'); b2.remove(); });
   $('pub-corpo').querySelectorAll('[data-st]').forEach((b2) => b2.onclick = () => comBotao(b2, async () => {
     const id = b2.closest('[data-pub]').dataset.pub;
@@ -4155,6 +4347,19 @@ TELAS.alertas = async function () {
     !ultPub || !ultPub.valor ? 'atencao' : (ultPub.valor.erros || []).length ? 'critico' : 'ok', { tela: 'publicacoes' });
   add('Rotinas', 'Regras de tarefas', ultReg && ultReg.valor ? quandoCurto(ultReg.valor.quando) : 'nunca rodou', ultReg && ultReg.valor ? ultReg.valor.criadas + ' criada(s) na última execução' : '',
     ultReg && ultReg.valor ? 'ok' : 'info', { tela: 'tarefas' });
+  // saúde do sistema e backup semanal (só o administrador)
+  if (E.perfil && E.perfil.papel === 'admin') {
+    const s = await q(sb.rpc('saude_sistema')).catch(() => null);
+    if (s) {
+      const pct = (a, b) => Math.round(100 * (a || 0) / b), mb = (x) => (x / 1048576).toFixed(x < 10485760 ? 1 : 0).replace('.', ',') + ' MB';
+      const pb = pct(s.banco_bytes, s.banco_limite), pa = pct(s.arquivos_bytes, s.arquivos_limite), maior = Math.max(pb, pa);
+      add('Rotinas', 'Saúde do sistema', 'Banco ' + pb + '% · Arquivos ' + pa + '%', mb(s.banco_bytes) + ' de 500 MB · ' + mb(s.arquivos_bytes) + ' de 1 GB (plano grátis)',
+        maior >= 90 ? 'critico' : maior >= 70 ? 'atencao' : 'ok', { saude: s });
+      const dias = s.ultimo_backup ? Math.floor((Date.now() - new Date(s.ultimo_backup)) / 86400000) : null;
+      add('Rotinas', 'Backup semanal', s.ultimo_backup ? quandoCurto(s.ultimo_backup) : 'nunca rodou', s.ultimo_backup ? 'há ' + dias + ' dia(s) · 8 cópias guardadas' : 'publique a função erp-backup',
+        dias === null ? 'atencao' : dias > 8 ? 'critico' : 'ok', { backup: true });
+    }
+  }
 
   const setores = [...new Set(A.map((a) => a.setor))];
   const criticos = A.filter((a) => a.nivel === 'critico').length, atencao = A.filter((a) => a.nivel === 'atencao').length;
@@ -4162,7 +4367,7 @@ TELAS.alertas = async function () {
     kpi('Tudo certo', String(A.filter((a) => a.nivel === 'ok').length), 'verde', 'de ' + A.length + ' verificações') + '</div>' +
     setores.map((st) => '<div class="kpis-titulo">' + esc(st) + '</div><div class="al-grade">' + A.map((a, i) => a.setor !== st ? '' :
       '<button type="button" class="al-card al-' + a.nivel + '" data-al="' + i + '"><div class="al-rot">' + esc(a.rot) + '</div><div class="al-val">' + esc(a.valor) + '</div><div class="al-det">' + esc(a.det) + '</div></button>').join('') + '</div>').join('');
-  $('al-corpo').querySelectorAll('[data-al]').forEach((b) => b.onclick = () => { const a = A[+b.dataset.al]; if (a.rel.cnpj) janelaCnpj(cnpj); else relatorioAlerta(a); });
+  $('al-corpo').querySelectorAll('[data-al]').forEach((b) => b.onclick = () => { const a = A[+b.dataset.al]; if (a.rel.cnpj) janelaCnpj(cnpj); else if (a.rel.saude) janelaSaude(a.rel.saude); else if (a.rel.backup) irTelaAlerta('admin', 'backup'); else relatorioAlerta(a); });
 };
 
 function quandoCurto(v) {
@@ -4170,19 +4375,21 @@ function quandoCurto(v) {
   const hora = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   return (d.toDateString() === new Date().toDateString() ? 'hoje ' : d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' ') + hora;
 }
-function irTelaAlerta(t) { if (typeof window.nav === 'function') window.nav(null, t); else irPara(t); }
+function janelaSaude(s) {
+  const mb = (x) => (x / 1048576).toFixed(1).replace('.', ',') + ' MB';
+  const barra = (usado, lim) => { const p = Math.min(100, Math.round(100 * usado / lim)); return '<div style="height:10px;border-radius:6px;background:var(--surface3);overflow:hidden;margin:4px 0 10px"><div style="width:' + p + '%;height:100%;background:' + (p >= 90 ? 'var(--red)' : p >= 70 ? 'var(--amber)' : 'var(--green)') + '"></div></div>'; };
+  abrirJanela({ titulo: 'Saúde do sistema', corpo:
+    '<p><b>Banco de dados:</b> ' + mb(s.banco_bytes) + ' de 500 MB</p>' + barra(s.banco_bytes, s.banco_limite) +
+    '<p><b>Arquivos (documentos e backups):</b> ' + mb(s.arquivos_bytes) + ' de 1 GB · ' + s.arquivos_qtd + ' arquivo(s)</p>' + barra(s.arquivos_bytes, s.arquivos_limite) +
+    '<div class="secao">Maiores tabelas</div><div class="tabela-wrap"><table><tbody>' + (s.maiores || []).map((m) => '<tr><td>' + esc(m.tabela) + '</td><td class="num mono">' + mb(m.bytes) + '</td></tr>').join('') + '</tbody></table></div>' +
+    '<div class="dica" style="margin-top:10px">Limites do plano grátis do Supabase. Passando de 70%, vale limpar arquivos antigos ou avaliar o plano Pro (US$ 25/mês: 8 GB de banco e 100 GB de arquivos).</div>' });
+}
+function irTelaAlerta(t, aba) { if (aba && t === 'admin') { E.adm = Object.assign(E.adm || {}, { aba }); } if (typeof window.nav === 'function') window.nav(null, t); else irPara(t); }
 
 function relatorioAlerta(a) {
   const r = a.rel;
   if (!r.colunas) { if (r.tela) irTelaAlerta(r.tela); return; }
-  const j = abrirJanela({ titulo: r.titulo + ' (' + r.linhas.length + ')', larga: true,
-    corpo: r.linhas.length ? '<div class="tabela-wrap" style="max-height:60vh;overflow:auto"><table class="ordenavel"><thead><tr>' + r.colunas.map((c) => '<th>' + esc(c) + '</th>').join('') + '</tr></thead><tbody>' +
-      r.linhas.map((l, i) => '<tr' + (r.ids ? ' class="clicavel" data-cli="' + r.ids[i] + '"' : '') + '>' + l.map((v) => '<td>' + esc(v == null ? '' : v) + '</td>').join('') + '</tr>').join('') + '</tbody></table></div>' : '<div class="vazio">Nada aqui. 🎉</div>',
-    rodape: '<button class="btn btn-o" type="button" id="al-csv">⬇ CSV</button><div class="acoes">' + (r.tela ? '<button class="btn btn-p" type="button" id="al-ir">Abrir a tela</button>' : '') + '</div>' });
-  j.querySelectorAll('[data-cli]').forEach((tr) => tr.onclick = () => abrirFicha(tr.dataset.cli));
-  j.querySelector('#al-csv').onclick = () => baixarArquivo(r.titulo.replace(/[\\/:*?"<>|]/g, '-') + ' ' + hojeISO() + '.csv',
-    '﻿' + [r.colunas].concat(r.linhas).map((l) => l.map((v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(';')).join('\r\n'), 'text/csv;charset=utf-8');
-  const ir = j.querySelector('#al-ir'); if (ir) ir.onclick = () => { fecharJanela(j); irTelaAlerta(r.tela); };
+  relatorioTabela(Object.assign({}, r, r.tela ? { acao: { rotulo: 'Abrir a tela', fn: () => irTelaAlerta(r.tela) } } : {}));
 }
 
 // Cartão CNPJ: última execução, o que mudou, erros, histórico e a API usada
@@ -4221,5 +4428,5 @@ async function janelaCnpj(execs) {
 // toda gravação confirmada aparece também no rodapé do ERP
 const _avisoOrig = aviso;
 aviso = function (msg, erro) { _avisoOrig(msg, erro); if (!erro && window.ERP_EDITOR && /^✓/.test(msg)) window.ERP_EDITOR.gravou(String(msg).replace(/^✓\s*/, '')); };
-window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo };
+window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, invalidarCadastros, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo };
 })();

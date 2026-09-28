@@ -2037,3 +2037,222 @@ begin
 exception when others then
   raise notice 'Agendador indisponível: use o botão "Atualizar agora" em Alertas → Cartão CNPJ.';
 end $$;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- v13 — Desempenho: índices dos filtros mais usados e totais prontos no banco
+-- ═══════════════════════════════════════════════════════════════════
+create index if not exists lanc_emp_pago_venc on public.lancamentos (empresa, pago, vencimento);
+create index if not exists acordos_pago_venc on public.acordos (pago, vencimento);
+create index if not exists tarefas_status_prazo on public.tarefas (status, prazo);
+create index if not exists publicacoes_status on public.publicacoes (status);
+
+-- Totais do mês por empresa (escritorio / contabilidade), já com a comissão como redutor.
+-- Roda com as permissões de quem chama (RLS): cada pessoa soma só o que pode ver.
+-- Resultado: {"escritorio": {"recebido":…, "n_recebido":…, "a_receber":…, "n_a_receber":…,
+--             "em_atraso":…, "n_em_atraso":…, "a_pagar":…, "n_a_pagar":…}, "contabilidade": {…}}
+create or replace function public.resumo_financeiro(p_empresa text default null, p_de date default null, p_ate date default null)
+returns jsonb language sql stable security invoker set search_path = public as $$
+  with per as (
+    select coalesce(p_de, date_trunc('month', current_date)::date) as de,
+           coalesce(p_ate, (date_trunc('month', current_date) + interval '1 month - 1 day')::date) as ate
+  ), l as (
+    select l.empresa, l.tipo, l.pago, l.perda, l.vencimento, l.data_pagamento,
+           case when l.redutor then -l.valor else l.valor end as v
+      from public.lancamentos l
+     where p_empresa is null or l.empresa = p_empresa
+  ), t as (
+    select e.empresa,
+      coalesce(sum(l.v) filter (where l.tipo = 'receita' and l.pago and l.data_pagamento between per.de and per.ate), 0) as recebido,
+      count(*)          filter (where l.tipo = 'receita' and l.pago and l.data_pagamento between per.de and per.ate) as n_recebido,
+      coalesce(sum(l.v) filter (where l.tipo = 'receita' and not l.pago and not l.perda and l.vencimento between per.de and per.ate), 0) as a_receber,
+      count(*)          filter (where l.tipo = 'receita' and not l.pago and not l.perda and l.vencimento between per.de and per.ate) as n_a_receber,
+      coalesce(sum(l.v) filter (where l.tipo = 'receita' and not l.pago and not l.perda and l.vencimento < current_date), 0) as em_atraso,
+      count(*)          filter (where l.tipo = 'receita' and not l.pago and not l.perda and l.vencimento < current_date) as n_em_atraso,
+      coalesce(sum(l.v) filter (where l.tipo = 'despesa' and not l.pago and not l.perda and l.vencimento between per.de and per.ate), 0) as a_pagar,
+      count(*)          filter (where l.tipo = 'despesa' and not l.pago and not l.perda and l.vencimento between per.de and per.ate) as n_a_pagar
+    from (select unnest(array['escritorio','contabilidade']) as empresa) e
+    cross join per
+    left join l on l.empresa = e.empresa
+    where p_empresa is null or e.empresa = p_empresa
+    group by e.empresa
+  )
+  select coalesce(jsonb_object_agg(empresa, to_jsonb(t) - 'empresa'), '{}'::jsonb) from t;
+$$;
+revoke all on function public.resumo_financeiro(text, date, date) from public, anon;
+grant execute on function public.resumo_financeiro(text, date, date) to authenticated;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- v14 — Cartão CNPJ: empresa que fica INAPTA/SUSPENSA/BAIXADA/NULA vira tarefa + aviso (e-mail)
+-- Vale para a atualização diária (erp-cnpj) e para edição manual. Não dispara no primeiro
+-- preenchimento (situação anterior vazia) nem quando volta a ATIVA.
+-- ═══════════════════════════════════════════════════════════════════
+create or replace function public.cnpj_situacao_mudou() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare quem uuid; titulo text; det text;
+begin
+  if coalesce(old.situacao_cadastral, '') = '' or upper(new.situacao_cadastral) = upper(old.situacao_cadastral)
+     or upper(coalesce(new.situacao_cadastral, '')) not in ('INAPTA','SUSPENSA','BAIXADA','NULA') then
+    return null;
+  end if;
+  titulo := new.nome || ' ficou ' || upper(new.situacao_cadastral) || ' na Receita Federal';
+  det := 'Antes: ' || old.situacao_cadastral || coalesce(' · desde ' || to_char(new.data_situacao, 'DD/MM/YYYY'), '') || ' · CNPJ ' || new.cpf_cnpj;
+  insert into public.tarefas (chave_regra, titulo, responsavel, prazo, inicio, cliente_id, grupo_id, prioridade, descricao)
+  values ('cnpj:' || new.id || ':' || upper(new.situacao_cadastral) || ':' || current_date, 'Verificar: ' || titulo,
+          coalesce(nullif(new.responsavel, ''), ''), current_date + 2, current_date, new.id, new.grupo_id, 'alta',
+          det || '. Confira no cartão CNPJ (Alertas → Cartão CNPJ) e fale com o cliente.')
+  on conflict do nothing;
+  for quem in
+    select distinct u from (
+      select public.usuario_por_nome(new.responsavel) as u
+      union all select id from public.perfis where papel = 'admin'
+    ) x where u is not null
+  loop
+    insert into public.notificacoes (usuario_id, tipo, titulo, detalhe, link) values (quem, 'cnpj', titulo, det, 'alertas');
+  end loop;
+  return null;
+end $$;
+drop trigger if exists cnpj_situacao_mudou on public.clientes;
+create trigger cnpj_situacao_mudou after update of situacao_cadastral on public.clientes
+  for each row execute function public.cnpj_situacao_mudou();
+
+-- ═══════════════════════════════════════════════════════════════════
+-- v15 — Google Agenda: um link secreto por pessoa (função erp-agenda devolve os prazos em .ics)
+-- ═══════════════════════════════════════════════════════════════════
+create table if not exists public.agenda_links (
+  token text primary key,
+  usuario_id uuid not null unique references public.perfis(id) on delete cascade,
+  criado_em timestamptz not null default now()
+);
+alter table public.agenda_links enable row level security;   -- sem policy: só a função (service role) lê
+revoke all on public.agenda_links from anon, authenticated;
+
+create or replace function public.meu_link_agenda(p_novo boolean default false) returns text
+language plpgsql security definer set search_path = public as $$
+declare t text;
+begin
+  if not public.eh_equipe() then raise exception 'Só a equipe do escritório tem agenda.'; end if;
+  if p_novo then delete from public.agenda_links where usuario_id = auth.uid(); end if;
+  select token into t from public.agenda_links where usuario_id = auth.uid();
+  if t is null then
+    t := replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', '');
+    insert into public.agenda_links (token, usuario_id) values (t, auth.uid());
+  end if;
+  return t;
+end $$;
+revoke all on function public.meu_link_agenda(boolean) from public, anon;
+grant execute on function public.meu_link_agenda(boolean) to authenticated;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- v16 — Segurança e rotina: backup semanal automático, saúde do sistema e registro de acessos
+-- ═══════════════════════════════════════════════════════════════════
+-- tabelas que entram no backup (manual e automático): todas do sistema, menos segredos e filas técnicas
+create or replace function public.listar_tabelas_backup() returns text[]
+language sql stable security definer set search_path = public as $$
+  select coalesce(array_agg(table_name::text order by table_name), '{}')
+    from information_schema.tables
+   where table_schema = 'public' and table_type = 'BASE TABLE'
+     and table_name not in ('config_privada', 'agenda_links', 'email_fila', 'acessos', 'backups_auto');
+$$;
+revoke all on function public.listar_tabelas_backup() from public, anon;
+grant execute on function public.listar_tabelas_backup() to authenticated;
+
+create table if not exists public.backups_auto (
+  id uuid primary key default gen_random_uuid(),
+  criado_em timestamptz not null default now(),
+  origem text not null default 'rotina',          -- rotina (semanal) | manual
+  caminho text not null,                          -- arquivo no bucket privado "backups"
+  tamanho bigint not null default 0,
+  resumo jsonb not null default '{}'::jsonb       -- registros por tabela
+);
+alter table public.backups_auto enable row level security;
+revoke all on public.backups_auto from anon;
+grant select on public.backups_auto to authenticated;
+drop policy if exists backups_auto_ver on public.backups_auto;
+create policy backups_auto_ver on public.backups_auto for select to authenticated using (public.eh_admin());
+
+do $$
+begin
+  if exists (select 1 from information_schema.schemata where schema_name = 'storage') then
+    insert into storage.buckets (id, name, public, file_size_limit)
+    values ('backups', 'backups', false, 209715200) on conflict (id) do nothing;
+    execute 'drop policy if exists backups_ver on storage.objects';
+    execute 'create policy backups_ver on storage.objects for select to authenticated using (bucket_id = ''backups'' and public.eh_admin())';
+  end if;
+exception when others then raise notice 'Storage indisponível aqui (normal no teste local).';
+end $$;
+
+-- toda semana, domingo às 3h de Brasília (6h UTC)
+do $$
+begin
+  perform cron.unschedule(jobid) from cron.job where jobname = 'erp_backup';
+  perform cron.schedule('erp_backup', '0 6 * * 0', $cron$
+    select net.http_post(
+      url := (select valor #>> '{}' from public.config_privada where chave = 'url_projeto') || '/functions/v1/erp-backup',
+      headers := jsonb_build_object('Content-Type', 'application/json', 'x-erp-segredo', (select valor #>> '{}' from public.config_privada where chave = 'segredo_funcoes')),
+      body := '{"acao":"rodar"}'::jsonb)
+  $cron$);
+exception when others then
+  raise notice 'Agendador indisponível: use "Fazer backup agora" em Administração → Backup.';
+end $$;
+
+-- saúde do sistema (admin): tamanho do banco e dos arquivos x limites do plano grátis do Supabase
+create or replace function public.saude_sistema() returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+declare arq bigint := 0; nobj int := 0;
+begin
+  if not public.eh_admin() then raise exception 'Só o administrador vê a saúde do sistema.'; end if;
+  begin
+    execute 'select coalesce(sum((metadata->>''size'')::bigint), 0), count(*) from storage.objects' into arq, nobj;
+  exception when others then arq := 0; nobj := 0;
+  end;
+  return jsonb_build_object(
+    'banco_bytes', pg_database_size(current_database()), 'banco_limite', 500 * 1024 * 1024,
+    'arquivos_bytes', arq, 'arquivos_qtd', nobj, 'arquivos_limite', 1024 * 1024 * 1024,
+    'ultimo_backup', (select max(criado_em) from public.backups_auto),
+    'maiores', (select coalesce(jsonb_agg(x), '[]') from (
+        select relname as tabela, pg_total_relation_size(c.oid) as bytes
+          from pg_class c join pg_namespace n on n.oid = c.relnamespace
+         where n.nspname = 'public' and c.relkind = 'r' order by 2 desc limit 6) x));
+end $$;
+revoke all on function public.saude_sistema() from public, anon;
+grant execute on function public.saude_sistema() to authenticated;
+
+-- registro de acessos: quem entrou, quando e de qual aparelho; aparelho novo avisa a própria pessoa
+create table if not exists public.acessos (
+  id bigint generated always as identity primary key,
+  usuario_id uuid not null references public.perfis(id) on delete cascade,
+  quando timestamptz not null default now(),
+  dispositivo text not null default '',          -- identificador aleatório guardado no navegador
+  navegador text not null default '',
+  novo boolean not null default false
+);
+create index if not exists acessos_usuario on public.acessos (usuario_id, quando desc);
+alter table public.acessos enable row level security;
+revoke all on public.acessos from anon;
+grant select on public.acessos to authenticated;
+drop policy if exists acessos_ver on public.acessos;
+create policy acessos_ver on public.acessos for select to authenticated using (public.eh_admin() or usuario_id = auth.uid());
+
+create or replace function public.registrar_acesso(p_dispositivo text, p_navegador text) returns boolean
+language plpgsql security definer set search_path = public as $$
+declare ja_viu boolean; tem_antes boolean; nav text := left(coalesce(p_navegador, ''), 120);
+begin
+  if auth.uid() is null then return false; end if;
+  perform pg_advisory_xact_lock(hashtext('acesso:' || auth.uid()::text));   -- duas abas ao mesmo tempo: uma espera a outra
+  -- no máximo um registro por pessoa/aparelho a cada 30 min (recarregar a página não conta)
+  if exists (select 1 from public.acessos where usuario_id = auth.uid() and dispositivo = coalesce(p_dispositivo, '') and quando > now() - interval '30 minutes') then
+    return false;
+  end if;
+  select exists (select 1 from public.acessos where usuario_id = auth.uid() and dispositivo = coalesce(p_dispositivo, '')) into ja_viu;
+  select exists (select 1 from public.acessos where usuario_id = auth.uid()) into tem_antes;
+  insert into public.acessos (usuario_id, dispositivo, navegador, novo) values (auth.uid(), coalesce(p_dispositivo, ''), nav, tem_antes and not ja_viu);
+  if tem_antes and not ja_viu then
+    insert into public.notificacoes (usuario_id, tipo, titulo, detalhe, link)
+    values (auth.uid(), 'acesso', 'Novo acesso ao ERP de um aparelho novo', nav || ' · ' || to_char(now() at time zone 'America/Sao_Paulo', 'DD/MM/YYYY HH24:MI') ||
+            '. Se não foi você, troque sua senha e avise o administrador.', 'hoje');
+  end if;
+  delete from public.acessos where quando < now() - interval '180 days';
+  return tem_antes and not ja_viu;
+end $$;
+revoke all on function public.registrar_acesso(text, text) from public, anon;
+grant execute on function public.registrar_acesso(text, text) to authenticated;

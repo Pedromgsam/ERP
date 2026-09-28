@@ -52,6 +52,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
 
 (async () => {
   const b = await chromium.launch();
+  const paginasCob = []; // COBERTURA=arquivo.json: quais funções do ERP rodaram durante o teste (inventário de código morto)
   const erros = [], bloqueios = [], externos = [];
   try {
     async function pagina(largura) {
@@ -61,6 +62,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       p.on('console', (m) => { if (/Content Security Policy|Refused to/i.test(m.text())) bloqueios.push(m.text()); });
       p.on('request', (q) => { if (/script\.google|cdnjs/.test(q.url())) externos.push(q.url()); });
       p.on('dialog', (d) => d.accept());
+      if (process.env.COBERTURA) { await p.coverage.startJSCoverage({ resetOnNavigation: false }); paginasCob.push(p); }
       return p;
     }
     const foto = async (p, nome) => { if (FOTOS) await p.screenshot({ path: FOTOS + '/erp-' + nome + '.png' }); };
@@ -272,7 +274,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('clicar de novo recolhe', (await p.$$('#panel-clientes tr.cli-det')).length === 0);
     await p.click('#panel-clientes tr[data-cli]:has-text("Alfa Comércio Ltda")'); await p.waitForSelector('#panel-clientes [data-cli-ficha]');
     await p.click('#panel-clientes [data-cli-ficha]'); await p.waitForSelector('.janela.ficha #fc-abas'); await p.waitForTimeout(1200);
-    ok('ficha do cliente abre com 12 abas e resumo', (await p.$$('.janela.ficha #fc-abas button')).length === 12 && /A receber/.test(await p.textContent('#fc-corpo')));
+    ok('ficha do cliente abre com 13 abas e resumo', (await p.$$('.janela.ficha #fc-abas button')).length === 13 && /A receber/.test(await p.textContent('#fc-corpo')));
     await foto(p, 'ficha');
     await p.click('#fc-abas [data-aba=contatos]'); await p.waitForSelector('[data-novo-sub]'); await p.click('[data-novo-sub]');
     await p.waitForSelector('#f-sub'); await p.waitForTimeout(250);
@@ -489,7 +491,19 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.click('#panel-alertas .al-card:has-text("Cartão CNPJ")'); await p.waitForSelector('#cnpj-agora'); await p.waitForTimeout(300);
     { const t = await p.textContent('.janela');
       ok('relatório de alterações: campo, antes e agora', /Alterações encontradas \(1\)/.test(t) && /Situação cadastral\s*ATIVA\s*INAPTA/.test(t) && /Rua Velha/.test(t), t.slice(0, 400)); }
+    ok('empresa que ficou INAPTA vira tarefa para o responsável e aviso (e-mail) para o admin',
+      sql("select count(*) from tarefas where chave_regra like 'cnpj:%' and titulo like 'Verificar: Beta Serviços Ltda ficou INAPTA%'") === '1' &&
+      Number(sql("select count(*) from notificacoes n join perfis p on p.id=n.usuario_id where n.tipo='cnpj' and p.papel='admin'")) >= 1 &&
+      Number(sql("select count(*) from email_fila where tipo='cnpj'")) >= 1);
     await foto(p, 'alertas-cnpj');
+    await p.keyboard.press('Escape'); await p.waitForTimeout(250);
+    { const idB = sql("select id from clientes where cpf_cnpj='22333444000172'");
+      await p.evaluate((id) => GS.abrirFicha(id, 'receita'), idB); await p.waitForSelector('#fc-corpo .dados'); await p.waitForTimeout(600);
+      const t = await p.textContent('#fc-corpo');
+      ok('ficha do cliente: aba Cartão CNPJ com dados da Receita e histórico', /BETA SERVICOS LTDA/.test(t) && /inapta/i.test(t) && /Situação cadastral/.test(t) && /Rua Velha/.test(t), t.slice(0, 300));
+      const n0 = Number(sql('select count(*) from cnpj_execucoes'));
+      await p.click('#fc-cnpj-agora'); await p.waitForTimeout(2500);
+      ok('"Consultar agora" na ficha consulta só aquela empresa', Number(sql('select count(*) from cnpj_execucoes')) === n0 + 1 && sql('select total from cnpj_execucoes order by inicio desc limit 1') === '1'); }
     await p.keyboard.press('Escape'); await p.waitForTimeout(250);
 
     // ── exclusão: equipe não exclui cliente ──
@@ -535,12 +549,94 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.evaluate(() => loadData(true)); await p.waitForTimeout(4000);
     ok('aviso some quando o banco é atualizado', !(await p.$('#erp-aviso-banco')));
 
+    // ── desempenho: colunas de clientes e totais prontos no banco ──
+    { const noBanco = sql("select string_agg(column_name, ',' order by ordinal_position) from information_schema.columns where table_schema='public' and table_name='clientes' and column_name not in ('cnpj_dados','chave_importacao')");
+      ok('lista de colunas de clientes (sem cnpj_dados) igual à do banco', await p.evaluate(() => window.ERP_COLS_CLIENTE) === noBanco, 'incluir em erp-dados.js: ' + noBanco); }
+    { const t = JSON.parse(sql("select public.resumo_financeiro()"));
+      await nav(p, 'hoje'); await p.waitForTimeout(1500);
+      const txt = await p.textContent('#panel-hoje');
+      const rs = (v) => 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      ok('Início usa os totais do banco (resumo_financeiro)', [t.escritorio.recebido, t.escritorio.a_receber, t.escritorio.em_atraso].every((v) => txt.replace(/\u00a0/g, ' ').includes(rs(v))), JSON.stringify(t.escritorio)); }
+
+    // ── simplificação: relatório padrão também em Clientes ──
+    await nav(p, 'clientes'); await p.waitForTimeout(1200);
+    await p.click('#cli-relatorio'); await p.waitForSelector('#gs-raiz .janela [data-rel-csv]'); await p.waitForTimeout(300);
+    ok('Clientes: relatório da lista filtrada com CSV', /Clientes \(\d+\)/.test(await p.textContent('#gs-raiz .janela h2')) && (await p.$$('#gs-raiz .janela tbody tr')).length === Number(sql("select count(*) from clientes where tipo <> 'Inativo'")));
+    await p.keyboard.press('Escape'); await p.waitForTimeout(200);
+
+    // ── Google Agenda: link .ics por pessoa ──
+    sql("insert into tarefas(titulo,responsavel,prazo) values ('Audiência de instrução — Alfa','Pedro',current_date+9), ('Audiência de outra pessoa','Adriana',current_date+9)");
+    sql("insert into tarefas(titulo,responsavel,prazo,prazo_fatal) values ('Contestação Beta','Pedro',current_date+3,current_date+5)");
+    await nav(p, 'tarefas'); await p.waitForTimeout(1200);
+    await p.click('#tf-agenda'); await p.waitForSelector('#ag-link'); await p.waitForTimeout(300);
+    { const link = await p.inputValue('#ag-link'); const r = await p.request.get(link.replace(/^https?:\/\/[^/]+/, BASE)); const ics = await r.text();
+      ok('Google Agenda: link pessoal devolve a agenda (.ics) com prazo fatal e audiência', r.status() === 200 && /BEGIN:VCALENDAR/.test(ics) && /Prazo fatal: Contestação Beta/.test(ics) && /⚖ Audiência de instrução/.test(ics), ics.slice(0, 300));
+      ok('agenda mostra só as tarefas da própria pessoa', !/Audiência de outra pessoa/.test(ics));
+      await p.click('#ag-trocar'); await p.waitForSelector('#ag-link'); await p.waitForTimeout(500);
+      const r2 = await p.request.get(link.replace(/^https?:\/\/[^/]+/, BASE));
+      ok('"Trocar link" desativa o link antigo na hora', r2.status() === 404 && (await p.inputValue('#ag-link')) !== link); }
+    await p.keyboard.press('Escape'); await p.waitForTimeout(200);
+    sql("delete from tarefas where titulo in ('Audiência de instrução — Alfa','Audiência de outra pessoa','Contestação Beta')");
+
+    // ── segurança e rotina: acessos, backup semanal e saúde do sistema ──
+    ok('login fica registrado em Acessos', Number(sql("select count(*) from acessos a join perfis p on p.id=a.usuario_id where p.email='pedro@teste'")) >= 1);
+    { const n0 = Number(sql("select count(*) from notificacoes n join perfis p on p.id=n.usuario_id where p.email='pedro@teste' and n.tipo='acesso'"));
+      const pn = await pagina(); await entrar(pn, 'pedro@teste'); await pn.waitForTimeout(4000); await pn.context().close();
+      ok('entrar de um aparelho novo avisa a própria pessoa (notificação/e-mail)', Number(sql("select count(*) from notificacoes n join perfis p on p.id=n.usuario_id where p.email='pedro@teste' and n.tipo='acesso'")) === n0 + 1); }
+    await nav(p, 'admin'); await p.waitForTimeout(1000);
+    await p.click('#adm-abas [data-aba=acessos]'); await p.waitForTimeout(1200);
+    ok('Administração → Acessos lista quem entrou e marca aparelho novo', /Pedro/.test(await p.textContent('#adm-corpo')) && /aparelho novo/.test(await p.textContent('#adm-corpo')));
+    sql("insert into backups_auto(criado_em,origem,caminho,tamanho) select now() - (g||' days')::interval,'rotina','antigo-'||g||'.json',10 from generate_series(8,15) g");
+    await p.click('#adm-abas [data-aba=backup]'); await p.waitForSelector('#bk-agora'); await p.waitForTimeout(300);
+    await p.click('#bk-agora');
+    await p.waitForFunction(() => /Backup feito|não respondeu|falhou|não foi encontrada/.test(document.querySelector('#gs-raiz #aviso').textContent), null, { timeout: 20000 }).catch(() => {});
+    await p.waitForTimeout(1500);
+    { const arqs = await (await p.request.get(BASE + '/__teste/arquivos')).json();
+      ok('"Fazer backup agora" grava a cópia no armazenamento privado', arqs.some((k) => /^backups\/backup-/.test(k)) && sql("select count(*) from backups_auto where origem='manual'") === '1', await p.textContent('#gs-raiz #aviso'));
+      ok('backup automático guarda só as 8 cópias mais recentes', sql('select count(*) from backups_auto') === '8' && sql("select count(*) from backups_auto where caminho='antigo-15.json'") === '0'); }
+    { const [dl] = await Promise.all([p.waitForEvent('download', { timeout: 10000 }).catch(() => null), p.click('#bk-auto [data-bk^="backup-"]')]);
+      let ok2 = false; if (dl) { const j = JSON.parse(require('fs').readFileSync(await dl.path(), 'utf8')); ok2 = j.versao === 2 && Array.isArray(j.dados.clientes) && j.dados.clientes.length > 0 && !('config_privada' in j.dados); }
+      ok('backup baixa o .json com todos os dados (sem os segredos)', ok2); }
+    await nav(p, 'alertas'); await p.waitForSelector('#panel-alertas .al-card:has-text("Saúde do sistema")'); await p.waitForTimeout(300);
+    ok('Alertas mostra saúde do sistema e o backup semanal', /Banco \d+%/.test(await p.textContent('#panel-alertas')) && /Backup semanal/.test(await p.textContent('#panel-alertas')));
+    await p.click('#panel-alertas .al-card:has-text("Saúde do sistema")'); await p.waitForTimeout(400);
+    ok('saúde do sistema: banco e arquivos x limite do plano', /500 MB/.test(await p.textContent('#gs-raiz .janela')) && /Maiores tabelas/.test(await p.textContent('#gs-raiz .janela')));
+    await p.keyboard.press('Escape'); await p.waitForTimeout(200);
+
+    // ── design: modo escuro, estado vazio e tabelas longas ──
+    await nav(p, 'hoje'); await p.waitForTimeout(800);
+    await p.click('#gs-tema'); await p.waitForTimeout(300);
+    ok('botão ◐ liga o modo escuro e lembra neste aparelho', await p.evaluate(() => document.documentElement.dataset.tema === 'escuro' && localStorage.getItem('erp_tema') === 'escuro' &&
+      getComputedStyle(document.body).backgroundColor !== 'rgb(240, 242, 247)'));
+    await p.reload(); await p.waitForTimeout(4500);
+    ok('modo escuro continua depois de recarregar', await p.evaluate(() => document.documentElement.dataset.tema === 'escuro'));
+    await p.click('#gs-tema'); await p.waitForTimeout(300);
+    ok('◐ volta ao modo claro', await p.evaluate(() => !document.documentElement.dataset.tema && localStorage.getItem('erp_tema') === 'claro'));
+    ok('botões só com ícone têm nome para leitor de tela', await p.evaluate(() => ['#gs-tema', '#gs-sino', '.gs-bt-mais'].every((q) => (document.querySelector(q) || {}).getAttribute && document.querySelector(q).getAttribute('aria-label'))));
+    sql("insert into tarefas(titulo,responsavel,prazo) select 'Tarefa em massa '||g,'Pedro',current_date+30+g from generate_series(1,130) g");
+    await nav(p, 'tarefas'); await p.waitForTimeout(1800);
+    { const rod = await p.textContent('#panel-tarefas .pag-rodape').catch(() => '');
+      ok('tabela longa mostra 100 linhas por vez', /Mostrando 100 de 1[3-9]\d/.test(rod) && await p.evaluate(() => [...document.querySelectorAll('#panel-tarefas tbody tr')].filter((r) => r.offsetParent).length === 100), rod); }
+    await p.click('#panel-tarefas .pag-rodape [data-pag=todas]'); await p.waitForTimeout(400);
+    ok('"Mostrar todas" exibe o restante', await p.evaluate(() => !document.querySelector('#panel-tarefas .pag-oculta')));
+    ok('tabela longa: cabeçalho fixo dentro do quadro', await p.evaluate(() => { const w = document.querySelector('#panel-tarefas .tabela-wrap.tabela-longa'); return !!w && getComputedStyle(w.querySelector('thead th')).position === 'sticky'; }));
+    sql("delete from tarefas where titulo like 'Tarefa em massa %'");
+    await p.fill('#panel-tarefas #tf-busca', 'nada-com-este-nome-xyz').catch(() => {}); await p.waitForTimeout(700);
+    { const v = await p.$('#panel-tarefas .vazio [data-vazio-clica]');
+      ok('lista vazia mostra frase e botão de criar', !!v);
+      if (v) { await v.click(); await p.waitForTimeout(500); ok('botão do estado vazio abre o formulário', await p.isVisible('#f-tf')); await p.keyboard.press('Escape'); } }
+
     // ── sair ──
     await p.evaluate(() => acLogout()); await p.waitForTimeout(800);
     ok('sair encerra a sessão do Supabase', await p.evaluate(async () => !(await SB.auth.getSession()).data.session));
   } catch (e) {
     console.error(e); ok('sem exceção no teste', false);
   } finally {
+    if (process.env.COBERTURA) {
+      const tudo = [];
+      for (const pg of paginasCob) { try { tudo.push(...await pg.coverage.stopJSCoverage()); } catch (e) { /* página já fechada */ } }
+      require('fs').writeFileSync(process.env.COBERTURA, JSON.stringify(tudo.filter((x) => /\/(index\.html)?(\?|$)|gestao-embutida|editor\.js|erp-telas\.js|erp-dados\.js/.test(x.url))));
+    }
     await b.close();
   }
   ok('sem erros de JavaScript', erros.length === 0, erros.slice(0, 5).join(' | '));

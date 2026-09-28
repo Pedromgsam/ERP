@@ -116,7 +116,7 @@ TELAS.tarefas = async function () {
   const F = E.tf;
   $('conteudo').innerHTML =
     '<div class="titulo-pag"><div><h1>Tarefas</h1><p>Prazos, fluxos e acompanhamento do escritório</p></div>' +
-    '<div class="acoes"><button class="btn btn-o" id="tf-regras">⚙ Regras automáticas</button><button class="btn btn-o" id="tf-modelos">Modelos de fluxo</button><button class="btn btn-o" id="tf-feriados">Feriados</button>' +
+    '<div class="acoes"><button class="btn btn-o" id="tf-regras">⚙ Regras automáticas</button><button class="btn btn-o" id="tf-modelos">Modelos de fluxo</button><button class="btn btn-o" id="tf-feriados">Feriados</button><button class="btn btn-o" id="tf-agenda" title="Prazos fatais e audiências no seu Google Agenda">📅 Google Agenda</button>' +
     '<button class="btn btn-o" id="tf-fluxo">+ Novo fluxo</button><button class="btn btn-p" id="tf-nova">+ Nova tarefa</button></div></div>' +
     '<div class="filtros">' +
     '<div class="segmento" id="tf-vista">' + [['lista', 'Lista'], ['kanban', 'Quadro'], ['calendario', 'Calendário'], ['fluxos', 'Fluxos'], ['relatorio', 'Relatório']]
@@ -132,6 +132,7 @@ TELAS.tarefas = async function () {
   $('tf-modelos').onclick = () => janelaModelos();
   $('tf-regras').onclick = () => janelaRegras();
   $('tf-feriados').onclick = () => janelaFeriados();
+  $('tf-agenda').onclick = () => janelaAgenda();
   $('tf-vista').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.vista = b.dataset.v; pintarTarefas(); } };
   $('tf-atalho').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.atalho = b.dataset.v; pintarTarefas(); } };
   [['tf-resp', 'resp'], ['tf-pri', 'pri']].forEach(([id, k]) => { $(id).value = F[k]; $(id).onchange = (ev) => { F[k] = ev.target.value; pintarTarefas(); }; });
@@ -214,7 +215,7 @@ function vistaLista(alvo) {
       filhas.filter((f) => ids.has(f.id)).map((f) => linha(f, nivel + 1)).join('');
   };
   alvo.innerHTML = '<div class="card">' + (raizes.length ? '<div class="tabela-wrap"><table><thead><tr><th>Prazo</th><th>Tarefa</th><th>Pessoa</th><th>Prioridade</th><th>Status</th><th></th></tr></thead><tbody>' +
-    raizes.map((t) => linha(t, 0)).join('') + '</tbody></table></div>' : '<div class="vazio">Nenhuma tarefa com esses filtros.</div>') + '</div>';
+    raizes.map((t) => linha(t, 0)).join('') + '</tbody></table></div>' : vazio('Nenhuma tarefa com esses filtros.', '+ Nova tarefa', '#tf-nova')) + '</div>';
   ligarLinhasTarefa(alvo);
 }
 
@@ -278,7 +279,7 @@ async function vistaCalendario(alvo) {
 // ── Fluxos: andamento e linha do tempo (Gantt simples) ──
 function vistaFluxos(alvo) {
   const fl = E._fluxos || [], h = hojeISO();
-  if (!fl.length) { alvo.innerHTML = '<div class="card"><div class="vazio">Nenhum fluxo ainda. Clique em "+ Novo fluxo" e escolha um modelo (ex.: Defesa em execução fiscal).</div></div>'; return; }
+  if (!fl.length) { alvo.innerHTML = '<div class="card">' + vazio('Nenhum fluxo ainda — um fluxo cria várias tarefas de uma vez a partir de um modelo (ex.: Defesa em execução fiscal).', '+ Novo fluxo', '#tf-fluxo') + '</div>'; return; }
   alvo.innerHTML = fl.map((f) => {
     const ts = (E._tarefas || []).filter((t) => t.fluxo_id === f.id).sort((x, y) => String(x.prazo).localeCompare(String(y.prazo)));
     const feitas = ts.filter(tarefaFechada).length;
@@ -723,4 +724,22 @@ async function abrirAlertas(ancora, aoMudar) {
 async function contarAlertas() {
   const al = await coletarAlertas();
   return { total: al.length, altos: al.filter((a) => a.nivel === 'alto').length };
+}
+
+// Google Agenda: link secreto da pessoa (função erp-agenda) — o Google assina e atualiza sozinho
+async function janelaAgenda(novo) {
+  const token = await q(sb.rpc('meu_link_agenda', { p_novo: !!novo }));
+  const link = String(CFG.url || location.origin).replace(/\/$/, '') + '/functions/v1/erp-agenda?t=' + token;
+  const j = abrirJanela({ titulo: '📅 Seus prazos no Google Agenda', larga: true,
+    corpo: '<p style="margin-bottom:10px">Este link mostra no seu Google Agenda os <b>prazos fatais</b> e as <b>audiências</b> das tarefas em que você é responsável, com lembrete 1 dia antes. Não tem custo.</p>' +
+      campo('Seu link (pessoal — não compartilhe)', '<input id="ag-link" readonly value="' + esc(link) + '" onclick="this.select()">', 'inteiro') +
+      '<ol class="passos" style="margin:12px 0 0 18px;line-height:1.7">' +
+      '<li>Clique em <b>Copiar link</b>.</li>' +
+      '<li>Abra o <b>Google Agenda</b> no computador → à esquerda, em <b>Outras agendas</b>, clique no <b>+</b> → <b>Do URL</b>.</li>' +
+      '<li>Cole o link e clique em <b>Adicionar agenda</b>. Pronto: aparece a agenda "ERP · prazos".</li></ol>' +
+      '<div class="dica" style="margin-top:10px">O Google atualiza a agenda sozinho, algumas vezes por dia (pode levar até 24 h para uma mudança aparecer). ' +
+      'Se o link vazar, clique em <b>Trocar link</b>: o antigo para de funcionar na hora.</div>',
+    rodape: '<button class="btn btn-o" type="button" id="ag-trocar">Trocar link</button><div class="acoes"><button class="btn btn-p" type="button" id="ag-copiar">Copiar link</button></div>' });
+  j.querySelector('#ag-copiar').onclick = async () => { try { await navigator.clipboard.writeText(link); aviso('Link copiado. Agora cole no Google Agenda → Do URL.'); } catch (e) { j.querySelector('#ag-link').select(); aviso('Selecionei o link: aperte Ctrl+C para copiar.'); } };
+  j.querySelector('#ag-trocar').onclick = () => { if (confirm('Trocar o link? O link antigo para de funcionar e você precisará adicionar o novo no Google Agenda.')) { fecharJanela(j); janelaAgenda(true); } };
 }

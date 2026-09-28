@@ -87,11 +87,21 @@
       
       '<div class="tn-lancar gx-so-equipe"><button type="button" class="tn-lancar-bt" aria-haspopup="true" aria-expanded="false">+ Lançar</button>' +
       '<div class="tn-menu tn-menu-dir" role="menu">' + LANCAR.map((x, i) => '<button type="button" role="menuitem" data-lancar="' + i + '">' + esc(x[0]) + '</button>').join('') + '</div></div>' +
-      '<div class="hd-usuario"><button type="button" id="gs-sino" class="gx-so-equipe" title="Avisos: prazos, menções e vencimentos" aria-label="Avisos">🔔<span id="gs-sino-n" hidden></span></button><span id="gs-nome"></span>' +
-      '<div class="tn-grupo tn-mais-acoes"><button type="button" class="tn-abre gs-bt-mais" data-grupo="acoes" title="Atualizar dados e relatório em PDF" aria-haspopup="true" aria-expanded="false">⋯</button>' +
+      '<div class="hd-usuario"><button type="button" id="gs-tema" title="Modo escuro / claro" aria-label="Alternar modo escuro" aria-pressed="false">◐</button><button type="button" id="gs-sino" class="gx-so-equipe" title="Avisos: prazos, menções e vencimentos" aria-label="Avisos">🔔<span id="gs-sino-n" hidden></span></button><span id="gs-nome"></span>' +
+      '<div class="tn-grupo tn-mais-acoes"><button type="button" class="tn-abre gs-bt-mais" data-grupo="acoes" title="Atualizar dados e relatório em PDF" aria-label="Mais ações" aria-haspopup="true" aria-expanded="false">⋯</button>' +
       '<div class="tn-menu tn-menu-dir" role="menu"><button type="button" data-acao="atualizar">↻ Atualizar dados</button><button type="button" data-acao="pdf" class="gx-so-equipe">📄 Relatório em PDF</button><button type="button" data-acao="avisos" class="gx-so-equipe">✉ Meus avisos por e-mail</button><button type="button" data-acao="gestao" class="gx-so-equipe">↗ Abrir o Gestão (versão anterior)</button></div></div>' +
       '<button type="button" id="gs-sair">Sair</button></div>';
     document.body.insertBefore(hd, document.body.firstChild);
+    const btTema = document.getElementById('gs-tema');
+    const marcarTema = () => btTema.setAttribute('aria-pressed', temaEscuro() ? 'true' : 'false');
+    marcarTema();
+    btTema.onclick = () => {
+      const escuro = !temaEscuro();
+      if (escuro) document.documentElement.setAttribute('data-tema', 'escuro'); else document.documentElement.removeAttribute('data-tema');
+      try { localStorage.setItem('erp_tema', escuro ? 'escuro' : 'claro'); } catch (e) { /* aba anônima: vale só agora */ }
+      marcarTema();
+      if (window.Chart && Chart.instances) Object.values(Chart.instances).forEach((c) => { try { c.update('none'); } catch (e) { /* gráfico já desmontado */ } });
+    };
     document.getElementById('gs-sino').onclick = async () => {
       if (!GS()) return;
       try { await GS().carregarCadastros(); await GS().abrirAlertas(null, atualizarSino); } catch (e) { aviso(erroAmigavel(e), true); }
@@ -215,6 +225,7 @@
     // depois de gravar: recarrega o ERP e redesenha a tela do Gestão que estiver aberta
     const recOrig = window.ERP_RECARREGAR;
     window.ERP_RECARREGAR = function () {
+      if (GS() && GS().invalidarCadastros) GS().invalidarCadastros();
       const r = recOrig && recOrig.apply(this, arguments);
       if (TELAS_GS[_painel]) setTimeout(() => desenharGS(_painel), 200);
       return r;
@@ -227,17 +238,76 @@
     if (n) n.textContent = eu.nome || s.nome || eu.email || '';
   }
   document.addEventListener('erp:perfil', mostrarNome);
+  // registro de acesso (Administração → Acessos); aparelho novo avisa a própria pessoa
+  function nomeAparelho() {
+    const ua = navigator.userAgent;
+    const nav = /Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera' : /Chrome\//.test(ua) ? 'Chrome' : /Firefox\//.test(ua) ? 'Firefox' : /Safari\//.test(ua) ? 'Safari' : 'Navegador';
+    const so = /Windows/.test(ua) ? 'Windows' : /Android/.test(ua) ? 'Android' : /iPhone|iPad/.test(ua) ? 'iPhone/iPad' : /Mac OS/.test(ua) ? 'Mac' : /Linux/.test(ua) ? 'Linux' : '';
+    return nav + (so ? ' · ' + so : '') + (/Mobi/.test(ua) ? ' (celular)' : '');
+  }
+  document.addEventListener('erp:perfil', () => {
+    if (!['admin', 'equipe'].includes(window.ERP_PAPEL) || !window.SB || window._gxAcessoOk) return;
+    window._gxAcessoOk = true;
+    let id = '';
+    try { id = localStorage.getItem('erp_dispositivo') || ''; if (!id) { id = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2)).replace(/-/g, ''); localStorage.setItem('erp_dispositivo', id); } }
+    catch (e) { id = 'sem-armazenamento'; }
+    window.SB.rpc('registrar_acesso', { p_dispositivo: id, p_navegador: nomeAparelho() }).then(() => {}, () => {});
+  });
+
+  // ═════ modo escuro nos gráficos: texto escuro vira claro, grade preta vira branca (e volta) ═════
+  function temaEscuro() { return document.documentElement.getAttribute('data-tema') === 'escuro'; }
+  window.ERP_TEMA_ESCURO = temaEscuro;
+  function lum(c) {
+    const m = String(c || '').match(/^#([0-9a-f]{6})$/i) || null;
+    if (m) { const n = parseInt(m[1], 16); return ((n >> 16) * 0.299 + ((n >> 8) & 255) * 0.587 + (n & 255) * 0.114) / 255; }
+    const r = String(c || '').match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/); return r ? (r[1] * 0.299 + r[2] * 0.587 + r[3] * 0.114) / 255 : 1;
+  }
+  function misturar(a, b, t) {
+    const x = parseInt(a.slice(1), 16), y = parseInt(b.slice(1), 16);
+    const c = (sh) => Math.round(((x >> sh) & 255) * (1 - t) + ((y >> sh) & 255) * t);
+    return '#' + [16, 8, 0].map((sh) => c(sh).toString(16).padStart(2, '0')).join('');
+  }
+  function corTema(c, grade) {
+    if (typeof c !== 'string') return c;
+    if (grade) return /rgba\(0,\s*0,\s*0,/.test(c) ? c.replace(/rgba\(0,\s*0,\s*0,\s*([\d.]+)\)/, (x, a) => 'rgba(255,255,255,' + Math.min(0.14, +a * 2) + ')') : c;
+    return lum(c) < 0.5 ? '#C3CCDB' : c;
+  }
+  const CAMINHOS = (o) => {
+    const out = [];
+    Object.values((o && o.scales) || {}).forEach((sc) => { if (sc.ticks) out.push([sc.ticks, 'color', false]); if (sc.grid) out.push([sc.grid, 'color', true]); if (sc.title) out.push([sc.title, 'color', false]); });
+    const lg = o && o.plugins && o.plugins.legend && o.plugins.legend.labels; if (lg) out.push([lg, 'color', false]);
+    return out;
+  };
+  const pluginTema = { id: 'gxTema', beforeUpdate(ch) {
+    const o = ch.config.options; if (!o) return;
+    if (!ch.$gxOrig) ch.$gxOrig = CAMINHOS(o).map(([obj, k]) => [obj, k, obj[k]]);
+    ch.$gxOrig.forEach(([obj, k, v], i) => { const grade = CAMINHOS(o)[i] && CAMINHOS(o)[i][2]; obj[k] = temaEscuro() ? corTema(v, grade) : v; });
+    // barras muito escuras (rampa azul) clareiam; borda branca de rosca vira a cor do cartão
+    const clarear = (c) => (typeof c === 'string' && /^#[0-9a-f]{6}([0-9a-f]{2})?$/i.test(c) && lum(c.slice(0, 7)) < 0.3 ? misturar(c.slice(0, 7), '#ffffff', 0.42) + c.slice(7) : c);
+    const clarearTodos = (v) => (Array.isArray(v) ? v.map(clarear) : clarear(v));
+    (ch.data.datasets || []).forEach((ds) => {
+      if (!('$gxBg' in ds)) { ds.$gxBg = ds.backgroundColor; ds.$gxBd = ds.borderColor; ds.$gxHv = ds.hoverBackgroundColor; }
+      const esc = temaEscuro();
+      ds.backgroundColor = esc ? clarearTodos(ds.$gxBg) : ds.$gxBg;
+      if (ds.$gxHv !== undefined) ds.hoverBackgroundColor = esc ? clarearTodos(ds.$gxHv) : ds.$gxHv;
+      const bd = ds.$gxBd, branco = (x) => typeof x === 'string' && /^(#fff|#ffffff|white)$/i.test(x);
+      ds.borderColor = esc && (branco(bd) || (Array.isArray(bd) && bd.every(branco))) ? '#161D2B' : esc ? clarearTodos(bd) : bd;
+    });
+    Chart.defaults.color = temaEscuro() ? '#C3CCDB' : '#666';
+    Chart.defaults.borderColor = temaEscuro() ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,0.1)';
+  } };
 
   // ═════ gráficos: números em pt-BR e aviso quando não há dados ═════
   function ajustarGraficos() {
     if (!window.Chart || window.Chart._gx) return;
     window.Chart._gx = true;
     Chart.defaults.locale = 'pt-BR';
+    Chart.register(pluginTema);
     // valor escrito na frente de cada barra (gráficos marcados com options.gxValores)
     Chart.register({ id: 'gxValores', afterDatasetsDraw(ch) {
       if (!ch.config.options || !ch.config.options.gxValores) return;
       const meta = ch.getDatasetMeta(0), dados = ch.data.datasets[0].data, ctx = ch.ctx, horiz = ch.config.options.indexAxis === 'y';
-      ctx.save(); ctx.fillStyle = '#1F2937'; ctx.font = '600 11.5px "JetBrains Mono", ui-monospace, monospace'; ctx.textBaseline = 'middle';
+      ctx.save(); ctx.fillStyle = temaEscuro() ? '#E6ECF7' : '#1F2937'; ctx.font = '600 11.5px "JetBrains Mono", ui-monospace, monospace'; ctx.textBaseline = 'middle';
       meta.data.forEach((bar, i) => {
         const t = typeof window._moedaCurta === 'function' ? window._moedaCurta(dados[i]) : String(dados[i]);
         if (horiz) { ctx.textAlign = 'left'; ctx.fillText(t, bar.x + 6, bar.y); } else { ctx.textAlign = 'center'; ctx.fillText(t, bar.x, bar.y - 9); }
@@ -256,12 +326,13 @@
   }
   // celular: as tabelas do Gestão viram cartões — cada célula ganha o nome da coluna
   function rotularTabelas(raiz) {
-    (raiz || document).querySelectorAll('.gs table').forEach((t) => {
-      const ths = [...t.querySelectorAll('thead th')].map((th) => th.textContent.trim());
+    (raiz || document).querySelectorAll('.gs table, main .panel .tw table').forEach((t) => {
+      if (t.closest('.no-cartoes')) return;
+      const ths = [...t.querySelectorAll('thead tr:last-child th')].map((th) => th.textContent.replace(/[▲▼↕⇅]/g, '').trim());
       if (!ths.length) return;
       t.classList.add('gx-cartoes');
       t.querySelectorAll('tbody tr').forEach((tr) => {
-        if (tr.dataset.rotulado) return; tr.dataset.rotulado = '1';
+        if (tr.dataset.rotulado === String(ths.length)) return; tr.dataset.rotulado = String(ths.length);
         [...tr.children].forEach((td, i) => { if (!td.hasAttribute('colspan')) td.setAttribute('data-rotulo', ths[i] || ''); });
       });
     });

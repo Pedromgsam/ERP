@@ -103,7 +103,7 @@ function janelaNovaVersao(doc, depois) {
 // Tabela de documentos (usada na tela, na ficha, no contrato e no lançamento)
 function tabelaDocumentos(docs, opc) {
   opc = opc || {};
-  if (!docs.length) return '<div class="vazio">' + (opc.vazio || 'Nenhum documento aqui.') + '</div>';
+  if (!docs.length) return vazio(opc.vazio || 'Nenhum documento aqui — guarde contratos, procurações e certidões com acesso restrito.', '+ Enviar documento', '[data-enviar-doc], #doc-novo');
   return '<div class="tabela-wrap"><table class="ordenavel"><thead><tr><th>Documento</th><th>Tipo</th>' + (opc.semCliente ? '' : '<th>Cliente</th>') +
     '<th data-tipo="data">Enviado</th><th>Validade</th><th class="sem-ordem"></th></tr></thead><tbody>' +
     docs.map((d) => {

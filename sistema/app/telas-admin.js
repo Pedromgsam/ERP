@@ -10,6 +10,7 @@ const ABAS_ADMIN = [
   { id: 'importar', rot: '📥 Importar planilhas' },
   { id: 'backup',   rot: '💾 Backup' },
   { id: 'historico', rot: '🕘 Histórico' },
+  { id: 'acessos', rot: '🔐 Acessos' },
   { id: 'email', rot: '✉ E-mail' }
 ];
 
@@ -27,7 +28,7 @@ async function pintarAdmin() {
   document.querySelectorAll('#adm-abas button').forEach((b) => b.classList.toggle('ativo', b.dataset.aba === E.adm.aba));
   const corpo = $('adm-corpo');
   corpo.innerHTML = '<div class="carregando">Carregando…</div>';
-  try { await ({ usuarios: admUsuarios, importar: admImportar, backup: admBackup, historico: admHistorico, email: admEmail })[E.adm.aba](corpo); }
+  try { await ({ usuarios: admUsuarios, importar: admImportar, backup: admBackup, historico: admHistorico, acessos: admAcessos, email: admEmail })[E.adm.aba](corpo); }
   catch (e) { console.error(e); corpo.innerHTML = '<div class="card"><div class="card-bd msg-erro">' + esc(erroAmigavel(e)) + '</div></div>'; }
 }
 
@@ -269,10 +270,10 @@ async function gravarImportacao() {
   }
   // 1. grupos que ainda não existem
   prog.textContent = 'Criando grupos…';
-  await carregarCadastros();
+  await carregarCadastros(true);
   const faltam = [...new Set(validos.flatMap((r) => r.grupos))].filter((g) => !E.grupos.some((x) => normalizar(x.nome) === normalizar(g)));
   for (let i = 0; i < faltam.length; i += 200) await q(sb.from('grupos').insert(faltam.slice(i, i + 200).map((nome) => ({ nome }))));
-  await carregarCadastros();
+  await carregarCadastros(true);
   const idGrupo = (n) => { const g = n && E.grupos.find((x) => normalizar(x.nome) === normalizar(n)); return g ? g.id : null; };
   // 2. registros, em lotes
   const resultado = [];
@@ -293,7 +294,7 @@ async function gravarImportacao() {
   validos.sort((a, b) => (a.tipo === 'base' ? -1 : 0) - (b.tipo === 'base' ? -1 : 0));
   for (const r of validos) {
     const tabela = TABELA_IMP[r.tipo];
-    if (r.tipo === 'parcelamentos') await carregarCadastros();
+    if (r.tipo === 'parcelamentos') await carregarCadastros(true);
     const filhos = [];
     const linhas = registrosImp(r).map((x) => {
       const y = Object.assign({}, x);
@@ -314,7 +315,7 @@ async function gravarImportacao() {
     }
     resultado.push(linhas.length + ' ' + (ROTULO[tabela] || 'lançamento(s) de ' + (r.tipo === 'contabilidade' ? 'Contabilidade' : 'Honorários Jurídico')));
   }
-  await carregarCadastros();
+  await carregarCadastros(true);
   prog.textContent = '';
   aviso('✓ Importação concluída.');
   $('imp-previa').innerHTML = '<div class="card"><div class="card-bd msg-ok">✓ Importado: ' + esc(resultado.join(' · ')) +
@@ -335,16 +336,56 @@ async function admBackup(corpo) {
     '1. Faça o backup toda semana (e antes de qualquer importação grande).<br>' +
     '2. Guarde numa pasta do seu Google Drive que só você acessa — não mande por e-mail nem WhatsApp.<br>' +
     '3. Mantenha a verificação em duas etapas ligada na sua conta Google.<br>' +
-    '4. O arquivo tem dados de clientes: trate como documento sigiloso (LGPD).</div></div></div>';
+    '4. O arquivo tem dados de clientes: trate como documento sigiloso (LGPD).</div></div></div>' +
+    '<div class="card"><div class="card-hd">🗓 Backups automáticos (todo domingo, 3h) <span class="sub" style="margin-left:auto">ficam as 8 últimas cópias, no armazenamento privado do sistema</span></div><div class="card-bd" id="bk-auto"><div class="carregando">Carregando…</div></div></div>';
   $('bk-excel').onclick = (ev) => comBotao(ev.currentTarget, () => fazerBackup('xlsx'));
   $('bk-json').onclick = (ev) => comBotao(ev.currentTarget, () => fazerBackup('json'));
+  await pintarBackupsAuto();
+}
+
+async function pintarBackupsAuto() {
+  const alvo = $('bk-auto'); if (!alvo) return;
+  const lista = await q(sb.from('backups_auto').select('*').order('criado_em', { ascending: false })).catch(() => null);
+  if (lista === null) { alvo.innerHTML = '<div class="dica">Rode o <b>estrutura.sql</b> novo e publique a função <b>erp-backup</b> para ligar o backup semanal.</div>'; return; }
+  alvo.innerHTML = '<div class="acoes" style="margin-bottom:10px"><button class="btn btn-o" id="bk-agora">↻ Fazer backup agora</button></div>' +
+    (lista.length ? '<div class="tabela-wrap"><table><thead><tr><th>Quando</th><th>Origem</th><th class="num">Tamanho</th><th>Registros</th><th></th></tr></thead><tbody>' +
+      lista.map((b) => '<tr><td class="mono">' + quandoRodou(b.criado_em) + '</td><td>' + (b.origem === 'rotina' ? 'semanal' : 'manual') + '</td>' +
+        '<td class="num mono">' + (b.tamanho > 1048576 ? (b.tamanho / 1048576).toFixed(1).replace('.', ',') + ' MB' : Math.max(1, Math.round(b.tamanho / 1024)) + ' KB') + '</td>' +
+        '<td class="sub">' + Object.values(b.resumo || {}).reduce((a, n) => a + n, 0) + ' em ' + Object.keys(b.resumo || {}).length + ' tabelas</td>' +
+        '<td class="acoes-l"><button class="btn btn-o btn-mini" data-bk="' + esc(b.caminho) + '">⬇ Baixar</button></td></tr>').join('') + '</tbody></table></div>'
+      : vazio('Nenhum backup automático ainda. O primeiro sai no próximo domingo, ou clique em "Fazer backup agora".'));
+  $('bk-agora').onclick = (ev) => comBotao(ev.currentTarget, async () => { const r = await chamarFuncao('erp-backup', { acao: 'rodar' }); aviso('✓ ' + (r.mensagem || 'Backup feito.')); await pintarBackupsAuto(); });
+  alvo.querySelectorAll('[data-bk]').forEach((b) => b.onclick = () => comBotao(b, async () => {
+    const { data, error } = await sb.storage.from('backups').createSignedUrl(b.dataset.bk, 60, { download: true });
+    if (error) throw error;
+    const a = document.createElement('a'); a.href = /^https?:/.test(data.signedUrl) ? data.signedUrl : String(CFG.url || location.origin).replace(/\/$/, '') + '/storage/v1' + data.signedUrl; a.download = b.dataset.bk; a.rel = 'noopener'; a.click();
+  }));
+}
+
+// ─────────────────────────── ACESSOS ───────────────────────────────
+async function admAcessos(corpo) {
+  const [lista, pessoas] = await Promise.all([
+    q(sb.from('acessos').select('*').order('quando', { ascending: false }).limit(300)).catch(() => null),
+    q(sb.from('perfis').select('id, nome, email'))
+  ]);
+  if (lista === null) { corpo.innerHTML = '<div class="card"><div class="card-bd dica">Rode o <b>estrutura.sql</b> novo para ligar o registro de acessos.</div></div>'; return; }
+  const nome = (id) => { const p = pessoas.find((x) => x.id === id); return p ? (p.nome || p.email) : '—'; };
+  corpo.innerHTML = '<div class="card"><div class="card-hd">🔐 Últimos acessos <span class="sub" style="margin-left:auto">guardados por 180 dias · aparelho novo avisa a própria pessoa por e-mail</span></div>' +
+    (lista.length ? '<div class="tabela-wrap"><table class="ordenavel"><thead><tr><th data-tipo="data">Quando</th><th>Pessoa</th><th>Aparelho / navegador</th><th></th></tr></thead><tbody>' +
+      lista.map((a) => '<tr><td class="mono" data-ord="' + a.quando + '">' + quandoRodou(a.quando) + '</td><td>' + esc(nome(a.usuario_id)) + '</td><td class="sub">' + esc(a.navegador || '—') + '</td>' +
+        '<td>' + (a.novo ? '<span class="pill hoje">aparelho novo</span>' : '') + '</td></tr>').join('') + '</tbody></table></div>' : vazio('Nenhum acesso registrado ainda.')) + '</div>';
 }
 
 async function fazerBackup(formato) {
   const prog = $('bk-prog'), dados = {};
+  // todas as tabelas do sistema (mesma lista do backup automático); banco antigo: a lista fixa
+  const tabelas = await q(sb.rpc('listar_tabelas_backup')).catch(() => null) || TABELAS_BACKUP;
+  TABELAS_BACKUP.length = 0; tabelas.forEach((t) => TABELAS_BACKUP.push(t));
+  const ORD = { historico: 'id', perfil_grupos: 'perfil_id', configuracoes: 'chave', cliente_etiquetas: 'cliente_id', salarios_minimos: 'ano' };
   for (const t of TABELAS_BACKUP) {
     prog.textContent = 'Lendo ' + t + '…';
-    dados[t] = await buscarTodos(() => sb.from(t).select('*').order(t === 'historico' ? 'id' : t === 'perfil_grupos' ? 'perfil_id' : t === 'configuracoes' ? 'chave' : 'criado_em'));
+    dados[t] = await buscarTodos(() => sb.from(t).select('*').order(ORD[t] || 'id'))
+      .catch(() => buscarTodos(() => sb.from(t).select('*')));
   }
   const carimbo = new Date().toISOString().slice(0, 16).replace('T', ' ').replace(':', 'h');
   const nome = 'Backup ERP Araujo e Castro ' + carimbo;

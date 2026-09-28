@@ -147,7 +147,7 @@ async function chamarFuncao(nome, corpo) {
 // Diagnóstico: as funções estão publicadas e respondendo?
 async function verificarFuncoes() {
   const out = [];
-  for (const nome of ['erp-emails', 'erp-publicacoes', 'erp-cnpj']) {
+  for (const nome of ['erp-emails', 'erp-publicacoes', 'erp-cnpj', 'erp-agenda']) {
     try { const r = await chamarFuncao(nome, { acao: 'ping' }); out.push([nome, true, r.versao ? 'publicada (versão ' + r.versao + ')' : 'publicada (versão antiga: publique de novo o arquivo do GitHub)']); }
     catch (e) { out.push([nome, false, e.message]); }
   }
@@ -234,7 +234,7 @@ function aviso(msg, erro) {
   a.className = 'mostrar' + (erro ? ' erro' : '');
   clearTimeout(_avisoT);
   _avisoT = setTimeout(() => { a.className = ''; }, erro ? 6000 : 3000);
-  if (!erro) marcarGravacao();
+  if (!erro) { marcarGravacao(); invalidarCadastros(); }
 }
 // Rodapé "gravado no servidor às HH:MM": toda mensagem de sucesso só aparece
 // depois que o banco confirmou a gravação.
@@ -324,6 +324,78 @@ function fecharJanela(el) {
   if (alvo) alvo.remove();
 }
 document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') fecharJanela(); });
+
+// Relatório padrão (Alertas, Clientes…): tabela ordenável + CSV; linha com id abre a ficha do cliente.
+// r = { titulo, colunas: [...], linhas: [[...]], ids?: [id do cliente por linha], acao?: { rotulo, fn } }
+function relatorioTabela(r) {
+  const j = abrirJanela({ titulo: r.titulo + ' (' + r.linhas.length + ')', larga: true,
+    corpo: r.linhas.length ? '<div class="tabela-wrap" style="max-height:60vh;overflow:auto"><table class="ordenavel"><thead><tr>' + r.colunas.map((c) => '<th>' + esc(c) + '</th>').join('') + '</tr></thead><tbody>' +
+      r.linhas.map((l, i) => '<tr' + (r.ids && r.ids[i] ? ' class="clicavel" data-cli="' + r.ids[i] + '"' : '') + '>' + l.map((v) => '<td>' + esc(v == null ? '' : v) + '</td>').join('') + '</tr>').join('') + '</tbody></table></div>' : vazio('Nada aqui. 🎉'),
+    rodape: '<button class="btn btn-o" type="button" data-rel-csv>⬇ CSV</button><div class="acoes">' + (r.acao ? '<button class="btn btn-p" type="button" data-rel-acao>' + esc(r.acao.rotulo) + '</button>' : '') + '</div>' });
+  j.querySelectorAll('[data-cli]').forEach((tr) => tr.onclick = () => abrirFicha(tr.dataset.cli));
+  j.querySelector('[data-rel-csv]').onclick = () => baixarArquivo(r.titulo.replace(/[\\/:*?"<>|]/g, '-') + ' ' + hojeISO() + '.csv',
+    '\ufeff' + [r.colunas].concat(r.linhas).map((l) => l.map((v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(';')).join('\r\n'), 'text/csv;charset=utf-8');
+  const ac = j.querySelector('[data-rel-acao]'); if (ac) ac.onclick = () => { fecharJanela(j); r.acao.fn(); };
+  return j;
+}
+
+// Estado vazio padrão: uma frase + um botão que aciona o botão de criar da própria tela
+// (seletor procurado primeiro na mesma janela/tela, depois na página toda).
+function vazio(frase, rotulo, seletor) {
+  return '<div class="vazio"><div class="vazio-frase">' + esc(frase) + '</div>' +
+    (rotulo && seletor ? '<button type="button" class="btn btn-p btn-mini vazio-bt" data-vazio-clica="' + esc(seletor) + '">' + esc(rotulo) + '</button>' : '') + '</div>';
+}
+document.addEventListener('click', (ev) => {
+  const b = ev.target.closest && ev.target.closest('[data-vazio-clica]'); if (!b) return;
+  const sel = b.dataset.vazioClica, perto = b.closest('.janela, .gs-area, #conteudo');
+  const alvo = (perto && perto.querySelector(sel)) || document.querySelector(sel);
+  if (alvo && alvo !== b) alvo.click();
+});
+
+// Tabelas longas (todas as telas): mostra 100 linhas por vez com "Mostrar mais", e nas tabelas das
+// telas novas com mais de 25 linhas a rolagem fica dentro do quadro, com o cabeçalho fixo.
+// Reaplica sozinho quando a tabela é redesenhada (filtro) ou reordenada (clique no cabeçalho).
+const PAGINA_TABELA = 100;
+function paginarTabelas() {
+  document.querySelectorAll('.tw table, .tabela-wrap table').forEach((t) => {
+    const corpo = t.tBodies[0]; if (!corpo) return;
+    const linhas = [...corpo.rows].filter((r) => !r.classList.contains('linha-total'));
+    const wrap = t.closest('.tabela-wrap');
+    if (wrap) wrap.classList.toggle('tabela-longa', linhas.length > 25 && !wrap.closest('.janela'));
+    let rod = t.parentElement.nextElementSibling;
+    if (!(rod && rod.classList.contains('pag-rodape'))) rod = null;
+    if (linhas.length <= PAGINA_TABELA) { linhas.forEach((r) => r.classList.remove('pag-oculta')); if (rod) rod.remove(); return; }
+    const lim = Math.max(PAGINA_TABELA, +(t.dataset.pagLim || 0));
+    linhas.forEach((r, i) => r.classList.toggle('pag-oculta', i >= lim));
+    const vis = Math.min(lim, linhas.length);
+    if (!rod) { rod = document.createElement('div'); rod.className = 'pag-rodape no-print'; t.parentElement.after(rod); }
+    const txt = 'Mostrando ' + vis + ' de ' + linhas.length;
+    if (rod.dataset.txt === txt) return;
+    rod.dataset.txt = txt;
+    rod.innerHTML = '<span>' + txt + '</span>' + (vis < linhas.length ? '<button type="button" data-pag="mais">Mostrar mais ' + Math.min(PAGINA_TABELA, linhas.length - vis) +
+      '</button><button type="button" data-pag="todas">Mostrar todas</button>' : '');
+    rod.onclick = (ev) => { const b = ev.target.closest('[data-pag]'); if (!b) return;
+      t.dataset.pagLim = b.dataset.pag === 'todas' ? 1e9 : lim + PAGINA_TABELA; paginarTabelas(); };
+  });
+}
+// acessibilidade: botão que só tem ícone ganha nome para leitor de tela (do title ou do ícone)
+const NOME_ICONE = { '✎': 'Editar', '⋯': 'Mais ações', '✕': 'Fechar', '×': 'Fechar', '🔔': 'Avisos', '⚙': 'Configurações', '◐': 'Alternar modo escuro',
+  '✓': 'Concluir', '▸': 'Abrir detalhes', '▾': 'Fechar detalhes', '🗑': 'Excluir', '📎': 'Anexo', '↻': 'Atualizar', '⬇': 'Baixar', '👁': 'Mostrar senha' };
+function nomearBotoesIcone() {
+  document.querySelectorAll('button:not([aria-label]), a.btn:not([aria-label]), [role=button]:not([aria-label])').forEach((b) => {
+    const t = (b.textContent || '').trim();
+    if (!t || /[0-9A-Za-zÀ-ú]/.test(t)) return;
+    const nome = b.getAttribute('title') || NOME_ICONE[t] || NOME_ICONE[[...t][0]];
+    if (nome) b.setAttribute('aria-label', nome);
+  });
+}
+(() => {
+  let agendado = false;
+  const agendar = () => { if (agendado) return; agendado = true; requestAnimationFrame(() => { agendado = false; paginarTabelas(); nomearBotoesIcone(); }); };
+  const ligar = () => new MutationObserver((ms) => { if (ms.some((m) => m.target.closest && m.target.closest('table, .tw, .tabela-wrap, main, .gs-area, #conteudo'))) agendar(); })
+    .observe(document.body, { childList: true, subtree: true });
+  if (document.body) ligar(); else document.addEventListener('DOMContentLoaded', ligar);
+})();
 
 function campo(rotulo, html, classe) {
   return '<label class="campo' + (classe ? ' ' + classe : '') + '"><span>' + rotulo + '</span>' + html + '</label>';
@@ -454,13 +526,22 @@ async function entrarNoSistema(user) {
   irPara(E.tela);
 }
 
-async function carregarCadastros() {
-  const [clientes, grupos] = await Promise.all([
-    buscarTodos(() => sb.from('clientes').select('*, grupos(nome)').order('nome')),
-    buscarTodos(() => sb.from('grupos').select('*').order('nome'))
-  ]);
-  E.clientes = clientes; E.grupos = grupos;
+async function carregarCadastros(forcar) {
+  if (!forcar && _cadQuando && Date.now() - _cadQuando < 60000) return;
+  if (_cadBusca) return _cadBusca;
+  _cadBusca = (async () => {
+    const [clientes, grupos] = await Promise.all([
+      buscarTodos(() => sb.from('clientes').select((window.ERP_COLS_CLIENTE || '*') + ', grupos(nome)').order('nome')),
+      buscarTodos(() => sb.from('grupos').select('*').order('nome'))
+    ]);
+    E.clientes = clientes; E.grupos = grupos; _cadQuando = Date.now();
+  })();
+  try { await _cadBusca; } finally { _cadBusca = null; }
 }
+// (carregarCadastros) Clientes e grupos: uma busca serve por 60 s (trocar de tela não busca de novo);
+// qualquer gravação (aviso "✓") ou recarga descarta a cópia e a próxima tela busca de novo.
+let _cadQuando = 0, _cadBusca = null;
+function invalidarCadastros() { _cadQuando = 0; }
 
 // ─────────────────────────── navegação ─────────────────────────────
 // Cada tela: TELAS.x = async function () {...}. Monta a própria barra de
@@ -481,7 +562,7 @@ async function irPara(tela) {
     $('conteudo').innerHTML = '<div class="card"><div class="card-bd msg-erro">' + esc(erroAmigavel(e)) + '</div></div>';
   }
 }
-function recarregar() { return irPara(E.tela); }
+function recarregar() { invalidarCadastros(); return irPara(E.tela); }
 
 // ─────────────────────────── início ────────────────────────────────
 window.addEventListener('DOMContentLoaded', async function iniciar() {

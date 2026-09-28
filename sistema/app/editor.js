@@ -507,7 +507,7 @@
         + '<td>' + esc(t.responsavel || '—') + '</td><td><span class="gx-pri gx-pri-' + esc(t.prioridade) + '">' + esc(PRI[t.prioridade] || t.prioridade) + '</span></td>'
         + '<td>' + esc(ST[t.status] || t.status) + '</td><td class="gx-nowrap">'
         + (/conclu|cancel/.test(t.status) ? '' : '<button type="button" class="gx-mini gx-ok" data-concluir="' + t.id + '" title="Concluir">✓</button> ')
-        + '<button type="button" class="gx-mini" data-editar="' + t.id + '" title="Editar">✎</button></td></tr>';
+        + '<button type="button" class="gx-mini" data-editar="' + t.id + '" title="Editar" aria-label="Editar">✎</button></td></tr>';
     }).join('');
     const corpo = '<div class="gx-barra"><div class="gx-seg">'
       + [['abertas', 'Abertas'], ['concluidas', 'Concluídas'], ['todas', 'Todas']].map((o) => '<button type="button" data-f="' + o[0] + '"' + (o[0] === filtro ? ' class="on"' : '') + '>' + o[1] + '</button>').join('')
