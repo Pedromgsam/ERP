@@ -1,70 +1,134 @@
-# Prompt de melhorias — design, integração e desempenho
+# Próximas melhorias — um prompt por conversa
 
-> Cole este texto numa conversa nova com o Claude quando quiser fazer a próxima rodada.
-> Foi montado depois de uma revisão do código em 27/09/2026 (Backup 09).
+Cada bloco abaixo é **uma conversa nova**. Copie o texto que está dentro da caixa cinza e cole como primeira mensagem.
+
+**Regras para não dar conflito:**
+1. **Uma conversa por vez.** Só abra a próxima depois de fazer o Merge da PR da anterior.
+2. Siga a ordem numérica. As conversas 1 a 3 mexem em muitos arquivos. As de integração (4 a 10) são independentes
+   e podem ir em qualquer ordem, depois da 3.
+3. Ao final de cada conversa, confira se ela atualizou o `CLAUDE.md` (o prompt já pede).
+
+Todos os prompts começam com "Leia o CLAUDE.md". É ali que estão as suas regras e o funcionamento do sistema.
 
 ---
 
-Trabalhe no repositório `pedromgsam/erp` (ERP do escritório Araújo & Castro, Supabase + Vercel).
-Mantenha as regras de sempre: a chave secreta nunca vai para o site nem para o repositório; os testes usam só
-dados fictícios; o SQL é idempotente; cada entrega traz um backup nomeado, um PR e instruções simples.
-Execute por fases. Cada fase termina com todos os testes passando (`sistema/testes/rodar-tudo.sh`).
+## 1. Desempenho (o sistema abrir mais rápido)
 
-## Fase A — Desempenho (maior ganho, sem perder nada)
+```
+Leia o CLAUDE.md e siga as regras e o jeito de entregar que estão lá.
+Antes de mudar qualquer coisa, prepare o ambiente de testes descrito no CLAUDE.md e rode todos os testes para ver que passam.
 
-1. **Cache dos arquivos fixos.** Hoje o `vercel.json` manda `Cache-Control: no-cache` para tudo. Assim, a cada acesso
-   o navegador pergunta de novo pelos ~2,5 MB do sistema (supabase.js 218 KB, chart.js 205 KB, exceljs 948 KB).
-   Troque para `public, max-age=31536000, immutable` em `/vendor/*` e mantenha `no-cache` só nos `.html`.
-   Para os `.js`/`.css` próprios, gere um nome com versão (`gestao-embutida.3f9a.js`) no `montar-erp.js`.
-2. **ExcelJS só quando for importar ou exportar.** Carregue `vendor/exceljs.min.js` sob demanda (`import()`
-   ou `<script>` criado na hora). O login e o Painel ficam ~1 MB mais leves.
-3. **Imagens embutidas no `index.html`.** Há 3 imagens em base64 no HTML (o arquivo tem 632 KB). Passe-as para
-   arquivos `.png/.webp` em `app/img/` com cache longo.
-4. **Buscar só as colunas usadas.** `erp-dados.js` e as telas usam `select('*')` em clientes, processos,
-   lançamentos e tarefas (mais de 60 ocorrências). Liste as colunas: isso evita trazer `cnpj_dados`
-   (JSON do cartão CNPJ) e textos longos em toda tela.
-5. **Carregar uma vez só.** Hoje `carregarCadastros()` (clientes + grupos) roda a cada troca de tela.
-   Guarde o resultado em memória por 60 s e invalide depois de gravar.
-6. **Índices no banco** para os filtros mais usados: `lancamentos(empresa, pago, vencimento)`,
-   `acordos(pago, vencimento)`, `tarefas(status, prazo)`, `publicacoes(status)`.
-7. **Somas no banco.** Os KPIs do Painel e do Financeiro somam milhares de linhas no navegador. Crie views/RPCs
-   (`resumo_financeiro(p_empresa, p_de, p_ate)`) que devolvem os totais prontos.
+Tarefa: deixar o ERP mais rápido sem perder nenhuma função.
+1. Cache: no sistema/app/vercel.json, cache longo (public, max-age=31536000, immutable) para /vendor/* e no-cache só nos .html.
+   Para os .js/.css próprios, gere nomes com versão no montar-erp.js (ex.: gestao-embutida.3f9a.js).
+2. Carregar vendor/exceljs.min.js só quando for importar ou exportar Excel (não no login).
+3. Tirar as imagens em base64 de dentro do index.html e passar para arquivos em sistema/app/img/.
+4. Trocar select('*') por colunas explícitas onde a tela não usa tudo (principalmente clientes, que tem cnpj_dados).
+5. carregarCadastros(): guardar em memória por 60 s e invalidar depois de gravar.
+6. Índices no banco: lancamentos(empresa, pago, vencimento), acordos(pago, vencimento), tarefas(status, prazo), publicacoes(status).
+Meça antes e depois (tamanho baixado e tempo até o Painel aparecer) e me mostre a comparação em linguagem simples.
+```
 
-## Fase B — Simplificação do código
+## 2. Simplificação do código
 
-1. **Uma tela, um código.** Hoje as telas existem duas vezes: `app/telas-*.js` (Gestão) e o pacote gerado
-   `gestao-embutida.js` (360 KB), além do `ERP.html` antigo (10 mil linhas) remendado por 63 `trocar()` no
-   `montar-erp.js`. Migre cada tela do ERP.html para um arquivo `telas-*.js`, uma por vez, apagando os
-   remendos correspondentes. Meta: `montar-erp.js` sem remendos e o ERP.html só como casca.
-2. **Um único jeito de abrir janela, tabela e formulário** (`abrirJanela`, `tabela()`, `campo()`), apagando as
-   versões paralelas do editor.js e do ERP.html.
-3. **Uma função genérica de relatório** (colunas + linhas + CSV + clique na ficha), usada por Alertas,
-   Painel, Financeiro e Clientes. Ela já existe em `telas-alertas.js` (`relatorioAlerta`).
-4. **Apagar o `gestao.html`** quando você confirmar que não usa mais. Isso só será feito com a sua ordem.
+```
+Leia o CLAUDE.md e siga as regras e o jeito de entregar que estão lá.
+Antes de mudar qualquer coisa, prepare o ambiente de testes descrito no CLAUDE.md e rode todos os testes para ver que passam.
 
-## Fase C — Design
+Tarefa: simplificar o código sem mudar o que eu vejo nem perder função.
+Hoje as telas existem duas vezes: no ERP antigo (#Sistemas/2 - ERP/ERP.html, ~10 mil linhas, remendado por dezenas de
+trocar() no sistema/ferramentas/montar-erp.js) e nas telas novas (sistema/app/telas-*.js).
+1. Faça um inventário: quais telas do ERP.html ainda são usadas, quais remendos existem e o que pode ser apagado já.
+   Me mostre a lista antes de começar.
+2. Migre UMA tela por vez do ERP.html para um arquivo telas-*.js, apagando os remendos correspondentes.
+   Comece pela mais simples. Uma PR por tela (ou por grupo pequeno), com todos os testes passando em cada uma.
+3. Unifique janela, tabela e relatório (abrirJanela, campo(), relatorioAlerta de telas-alertas.js) e remova as versões paralelas.
+Não apague o gestao.html sem eu mandar.
+```
 
-1. Um só conjunto de cores/tamanhos (tokens em `:root`) para `estilo.css`, `erp-telas.css` e `editor.css`,
-   com os tons de vermelho, âmbar e verde dos cartões iguais em todas as telas.
-2. Modo escuro opcional (os tokens tornam isso fácil).
-3. Estados vazios com uma frase e um botão ("Nenhum contrato — + Novo contrato").
-4. Tabelas longas: cabeçalho fixo ao rolar e paginação de 100 em 100.
-5. Celular: revisar Painel Executivo e Financeiro a 390 px (tabelas viram cartões).
-6. Acessibilidade: foco visível no teclado, `aria-label` nos botões só com ícone (✎, ⋯, 🔔).
+## 3. Design
 
-## Fase D — Integrações
+```
+Leia o CLAUDE.md e siga as regras e o jeito de entregar que estão lá.
+Use as skills telas-com-dados-ac e padrao-web-ac como referência visual.
+Antes de mudar qualquer coisa, prepare o ambiente de testes descrito no CLAUDE.md e rode todos os testes para ver que passam.
 
-1. **Cartão CNPJ**: mostrar na ficha do cliente os dados da Receita (razão social, CNAE, porte, abertura) e o
-   histórico das alterações; alerta por e-mail quando alguma empresa ficar INAPTA/BAIXADA.
-2. **Certidões automáticas** (CND federal/estadual/FGTS) com validade → Alertas. Antes, informe os custos das APIs.
-3. **Boletos/PIX** para honorários (Asaas, Inter ou Sicoob) com baixa automática. Informe o custo por boleto antes.
-4. **Google Agenda**: prazos fatais e audiências viram eventos na agenda de quem é responsável.
-5. **WhatsApp** (API oficial): lembrete de parcelas de acordo e de honorários. Informe o custo por mensagem antes.
-6. **Assinatura eletrônica** de contratos (ZapSign/Clicksign), com o PDF assinado anexado ao contrato.
+Tarefa: revisão de design do ERP inteiro.
+1. Um só conjunto de cores e tamanhos (variáveis em :root) para estilo.css, erp-telas.css e editor.css.
+   Os tons de vermelho, âmbar e verde devem ser iguais em todas as telas.
+2. Estados vazios com uma frase e um botão (ex.: "Nenhum contrato — + Novo contrato").
+3. Tabelas longas: cabeçalho fixo ao rolar e paginação de 100 em 100.
+4. Celular (390 px): Painel Executivo e Financeiro legíveis (tabelas viram cartões).
+5. Acessibilidade: foco visível no teclado e aria-label nos botões que só têm ícone (✎, ⋯, 🔔).
+Tire prints antes e depois (FOTOS=... node erp.js) e me mostre as principais diferenças.
+```
 
-## Fase E — Segurança e rotina
+## 4. Cartão CNPJ na ficha do cliente
 
-1. Painel "Saúde do sistema" em Alertas, com a última execução de cada rotina (já existe) e o tamanho do banco e do Storage
-   (limites do plano grátis).
-2. Backup semanal automático do banco (export) no Storage privado, guardando as últimas 8 cópias.
-3. Registro de acesso (quem entrou, quando) e aviso de login de um aparelho novo.
+```
+Leia o CLAUDE.md e siga as regras e o jeito de entregar que estão lá.
+A API de CNPJ que eu uso no Google Sheets é: [ESCREVA AQUI O NOME, ex.: ReceitaWS, CNPJá, BrasilAPI].
+Tarefa:
+1. Na ficha 360° do cliente, mostrar os dados da Receita (razão social, nome fantasia, CNAE, porte, abertura, situação,
+   endereço) e o histórico de alterações vindo de cnpj_execucoes.
+2. Quando alguma empresa ficar INAPTA, SUSPENSA ou BAIXADA, mandar um e-mail para o responsável e criar uma tarefa.
+3. Se a API que eu uso ainda não for suportada pela função erp-cnpj, adicionar.
+```
+
+## 5. Certidões automáticas
+
+```
+Leia o CLAUDE.md e siga as regras e o jeito de entregar que estão lá.
+Tarefa: emitir/consultar certidões (CND federal/PGFN, estadual MG, FGTS, trabalhista) dos clientes de forma automática,
+guardando o PDF em Documentos e a validade em certidoes, com aviso em Alertas antes de vencer.
+ANTES de programar: pesquise as opções (gratuitas e pagas), me mostre uma tabela com custo por consulta, limites e o que
+cada uma cobre, e espere eu escolher.
+```
+
+## 6. Boletos e PIX dos honorários
+
+```
+Leia o CLAUDE.md e siga as regras e o jeito de entregar que estão lá.
+Tarefa: gerar boleto/PIX para os honorários (lançamentos de receita) e dar baixa automática quando o cliente pagar.
+ANTES de programar: compare Asaas, Banco Inter, Sicoob e outras opções (custo por boleto/PIX, mensalidade, facilidade de
+integração) numa tabela e espere eu escolher. A chave da API fica só nos secrets do Supabase, nunca no site.
+```
+
+## 7. Google Agenda
+
+```
+Leia o CLAUDE.md e siga as regras e o jeito de entregar que estão lá.
+Tarefa: prazos fatais, audiências e tarefas com prazo viram eventos no Google Agenda da pessoa responsável, e mudam
+ou somem quando a tarefa muda ou é concluída. Explique antes como cada pessoa vai autorizar o acesso e se há custo.
+```
+
+## 8. WhatsApp
+
+```
+Leia o CLAUDE.md e siga as regras e o jeito de entregar que estão lá.
+Tarefa: lembretes automáticos por WhatsApp (parcelas de acordo e honorários perto do vencimento), com modelo de
+mensagem editável e registro do que foi enviado.
+ANTES de programar: compare a API oficial do WhatsApp (Meta) e provedores (Z-API, Twilio etc.) com custo por mensagem
+e riscos de bloqueio, e espere eu escolher.
+```
+
+## 9. Assinatura eletrônica de contratos
+
+```
+Leia o CLAUDE.md e siga as regras e o jeito de entregar que estão lá.
+Tarefa: enviar o contrato para assinatura eletrônica a partir da tela de Contratos e, quando todos assinarem, guardar o PDF
+assinado como anexo do contrato automaticamente.
+ANTES de programar: compare ZapSign, Clicksign, D4Sign e outras (custo por documento, plano mensal, validade jurídica)
+e espere eu escolher.
+```
+
+## 10. Segurança e rotina
+
+```
+Leia o CLAUDE.md e siga as regras e o jeito de entregar que estão lá.
+Tarefa:
+1. Em Alertas, cartão "Saúde do sistema": tamanho do banco e do Storage comparado com os limites do plano do Supabase.
+2. Backup semanal automático dos dados no Storage privado, guardando as últimas 8 cópias, com botão para baixar.
+3. Registro de acessos (quem entrou e quando) em Administração, e aviso quando alguém entrar de um aparelho novo.
+Faça também uma revisão de segurança (skill security-review) e me explique em linguagem simples o que encontrou.
+```

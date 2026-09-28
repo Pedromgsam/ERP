@@ -68,4 +68,5 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
   contratos de consultoria, cartão CNPJ diário, ajustes do Painel/Financeiro/barra). `estrutura.sql` = 2039 linhas.
 - Aguardando o usuário: dizer **qual API de CNPJ** usa no Google Sheets (hoje: BrasilAPI por padrão; ReceitaWS e
   CNPJá suportadas, token em Alertas → Cartão CNPJ).
-- Próxima rodada sugerida: `sistema/PROMPT-MELHORIAS.md` (desempenho, simplificação, design, integrações).
+- Próximas rodadas: `sistema/PROMPT-MELHORIAS.md` tem um prompt por conversa (1 desempenho, 2 simplificação,
+  3 design, 4–10 integrações). Uma conversa por vez, na ordem, com Merge entre elas.
