@@ -163,8 +163,10 @@ http.createServer((req, res) => {
       });
       r2.on('error', (e) => json(res, 502, { message: e.message })); r2.end(corpo); return;
     }
-    let f = path.join(APP, decodeURIComponent(u.pathname === '/' ? '/index.html' : u.pathname));
-    if (!f.startsWith(APP) || !fs.existsSync(f)) { res.writeHead(404); return res.end('404'); }
+    // o Gestão antigo saiu do site (Backup 13); fica só aqui, para os testes das telas (telas.js)
+    let f = u.pathname === '/gestao-teste.html' ? path.join(__dirname, 'gestao-teste.html')
+      : path.join(APP, decodeURIComponent(u.pathname === '/' ? '/index.html' : u.pathname));
+    if ((!f.startsWith(APP) && !f.endsWith('gestao-teste.html')) || !fs.existsSync(f)) { res.writeHead(404); return res.end('404'); }
     if (f.endsWith('config.js')) {
       res.writeHead(200, { 'content-type': 'text/javascript' });
       return res.end("window.ERP_CONFIG={url:location.origin,chave:'" + ANON + "'};");

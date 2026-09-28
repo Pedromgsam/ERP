@@ -2797,3 +2797,445 @@ end $$;
 revoke all on function public.registrar_exito(uuid, numeric, date, date, text) from public, anon;
 grant execute on function public.registrar_exito(uuid, numeric, date, date, text) to authenticated;
 -- fim da v18
+
+
+-- ═══════════════════════════════════════════════════════════════════
+-- v19 — Início sem números sobrepostos, caixa de avisos, e-mails por finalidade
+-- ═══════════════════════════════════════════════════════════════════
+
+-- "A receber" e "A pagar" do mês = de hoje até o fim do período (o que já venceu fica só em "Em atraso")
+create or replace function public.resumo_financeiro(p_empresa text default null, p_de date default null, p_ate date default null)
+returns jsonb language sql stable security invoker set search_path = public as $$
+  with per as (
+    select coalesce(p_de, date_trunc('month', current_date)::date) as de,
+           coalesce(p_ate, (date_trunc('month', current_date) + interval '1 month - 1 day')::date) as ate
+  ), l as (
+    select l.empresa, l.tipo, l.pago, l.perda, l.vencimento, l.data_pagamento,
+           case when l.redutor then -l.valor else l.valor end as v
+      from public.lancamentos l
+     where p_empresa is null or l.empresa = p_empresa
+  ), t as (
+    select e.empresa,
+      coalesce(sum(l.v) filter (where l.tipo = 'receita' and l.pago and l.data_pagamento between per.de and per.ate), 0) as recebido,
+      count(*)          filter (where l.tipo = 'receita' and l.pago and l.data_pagamento between per.de and per.ate) as n_recebido,
+      coalesce(sum(l.v) filter (where l.tipo = 'receita' and not l.pago and not l.perda and l.vencimento between greatest(per.de, current_date) and per.ate), 0) as a_receber,
+      count(*)          filter (where l.tipo = 'receita' and not l.pago and not l.perda and l.vencimento between greatest(per.de, current_date) and per.ate) as n_a_receber,
+      coalesce(sum(l.v) filter (where l.tipo = 'receita' and not l.pago and not l.perda and l.vencimento < current_date), 0) as em_atraso,
+      count(*)          filter (where l.tipo = 'receita' and not l.pago and not l.perda and l.vencimento < current_date) as n_em_atraso,
+      coalesce(sum(l.v) filter (where l.tipo = 'despesa' and not l.pago and not l.perda and l.vencimento between greatest(per.de, current_date) and per.ate), 0) as a_pagar,
+      count(*)          filter (where l.tipo = 'despesa' and not l.pago and not l.perda and l.vencimento between greatest(per.de, current_date) and per.ate) as n_a_pagar
+    from (select unnest(array['escritorio','contabilidade']) as empresa) e
+    cross join per
+    left join l on l.empresa = e.empresa
+    where p_empresa is null or e.empresa = p_empresa
+    group by e.empresa
+  )
+  select coalesce(jsonb_object_agg(empresa, to_jsonb(t) - 'empresa'), '{}'::jsonb) from t;
+$$;
+
+-- cada pessoa escolhe como quer ser chamada (barra superior e "Olá, …")
+create or replace function public.salvar_meu_nome(p text) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null or btrim(coalesce(p, '')) = '' then raise exception 'Informe o nome.'; end if;
+  update public.perfis set nome = left(btrim(p), 80) where id = auth.uid();
+end $$;
+revoke all on function public.salvar_meu_nome(text) from public, anon;
+grant execute on function public.salvar_meu_nome(text) to authenticated;
+
+-- caixa de avisos: o que cada pessoa já leu (por assunto + leva). Se o assunto continuar sem solução,
+-- a próxima leva (amanhã para os urgentes, semana que vem para os demais) aparece de novo como não lida.
+create table if not exists public.avisos_lidos (
+  usuario_id uuid not null default auth.uid() references public.perfis(id) on delete cascade,
+  chave      text not null,
+  lido_em    timestamptz not null default now(),
+  primary key (usuario_id, chave)
+);
+alter table public.avisos_lidos enable row level security;
+revoke all on public.avisos_lidos from anon;
+grant select, insert, delete on public.avisos_lidos to authenticated;
+drop policy if exists avisos_lidos_meus on public.avisos_lidos;
+create policy avisos_lidos_meus on public.avisos_lidos for all to authenticated
+  using (usuario_id = auth.uid()) with check (usuario_id = auth.uid());
+-- limpeza: leituras com mais de 60 dias e notificações lidas com mais de 90 dias
+delete from public.avisos_lidos where lido_em < now() - interval '60 days';
+delete from public.notificacoes where lida and criado_em < now() - interval '90 days';
+
+-- ─────────── dados de DEMONSTRAÇÃO (fictícios, marcados "DEMO ·") ───────────
+-- Administração → Importar → "🧪 Demonstração": carregar (apaga a anterior e cria de novo) ou apagar.
+-- E-mails usam domínios example.com (reservados: não chegam a ninguém). CNPJs começam com 99 (fictícios).
+create or replace function public.limpar_demonstracao() returns int
+language plpgsql security definer set search_path = public as $$
+declare n int := 0; k int; gs uuid[]; cs uuid[];
+begin
+  if not public.eh_admin() then raise exception 'permission denied: só o administrador.'; end if;
+  select coalesce(array_agg(id), '{}') into gs from public.grupos where nome like 'DEMO · %';
+  select coalesce(array_agg(id), '{}') into cs from public.clientes where grupo_id = any(gs) or chave_importacao like 'demo:%';
+  delete from public.rascunhos where resumo like '%(demonstração)%';
+  delete from public.crm_oportunidades where cliente_id = any(cs) or prospecto_empresa like 'DEMO · %';
+  delete from public.tarefas where cliente_id = any(cs) or grupo_id = any(gs) or chave_importacao like 'demo:%';
+  delete from public.documentos where cliente_id = any(cs) or grupo_id = any(gs);
+  delete from public.exitos where cliente_id = any(cs);
+  delete from public.lancamentos where cliente_id = any(cs) or grupo_id = any(gs) or chave_importacao like 'demo:%';
+  delete from public.contratos where cliente_id = any(cs);
+  delete from public.acordos where grupo_id = any(gs) or chave_importacao like 'demo:%';
+  delete from public.parcelamentos where grupo_id = any(gs) or chave_importacao like 'demo:%';
+  delete from public.processos where grupo_id = any(gs) or chave_importacao like 'demo:%';
+  delete from public.clientes where id = any(cs);
+  get diagnostics k = row_count; n := n + k;
+  delete from public.grupos where id = any(gs);
+  return n;
+end $$;
+revoke all on function public.limpar_demonstracao() from public, anon;
+grant execute on function public.limpar_demonstracao() to authenticated;
+
+create or replace function public.carregar_demonstracao() returns int
+language plpgsql security definer set search_path = public as $$
+declare
+  h date := current_date; m0 date := date_trunc('month', current_date)::date;
+  gh uuid; gs uuid; gm uuid; ct uuid; cl uuid; sa uuid; sc uuid; cm uuid; mp uuid;
+  k1 uuid; k2 uuid; k3 uuid; k4 uuid; pa uuid; e1 uuid; e2 uuid; e4 uuid; i int;
+begin
+  if not public.eh_admin() then raise exception 'permission denied: só o administrador.'; end if;
+  perform public.limpar_demonstracao();
+  insert into public.grupos (nome) values ('DEMO · Grupo Horizonte') returning id into gh;
+  insert into public.grupos (nome) values ('DEMO · Grupo Serra Verde') returning id into gs;
+  insert into public.grupos (nome) values ('DEMO · Família Moreira') returning id into gm;
+  -- clientes (áreas diferentes para testar as permissões)
+  insert into public.clientes (grupo_id, nome, cpf_cnpj, tipo, area, responsavel, email, telefone, cidade, estado, socio_admin, rfb, pgfn, pgfn_negociada, age_mg, age_mg_negociada,
+      em_operacao, procuracao, certificado, cadastro_regular, capag, regime_tributario, situacao_cadastral, tipo_societario, chave_importacao)
+    values (gh, 'Horizonte Transportes Ltda', '99111222000133', 'Consultoria', 'ambos', 'Pedro', 'contato@horizonte.example.com', '(31) 99999-0001', 'Belo Horizonte', 'MG', 'Ricardo Horizonte',
+      180000, 420000, 150000, 90000, 30000, true, true, true, true, 'B', 'LP', 'ATIVA', 'LTDA', 'demo:c1') returning id into ct;
+  insert into public.clientes (grupo_id, nome, cpf_cnpj, tipo, area, responsavel, email, pgfn, capag, regime_tributario, situacao_cadastral, tipo_societario, em_operacao, procuracao, chave_importacao)
+    values (gh, 'Horizonte Logística Eireli', '99111222000214', 'Demanda', 'juridico', 'Emanuelle', 'adm@horizontelog.example.com', 60000, 'C', 'SN', 'INAPTA', 'EI', false, false, 'demo:c2') returning id into cl;
+  insert into public.clientes (grupo_id, nome, cpf_cnpj, tipo, area, responsavel, email, telefone, cidade, estado, sefaz_mg, capag, regime_tributario, situacao_cadastral, tipo_societario, em_operacao, procuracao, certificado, chave_importacao)
+    values (gs, 'Serra Verde Alimentos S.A.', '99333444000155', 'Consultoria', 'contabil', 'Adriana', 'financeiro@serraverde.example.com', '(31) 98888-0002', 'Contagem', 'MG', 35000, 'A', 'LR', 'ATIVA', 'S.A', true, true, true, 'demo:c3') returning id into sa;
+  insert into public.clientes (grupo_id, nome, cpf_cnpj, tipo, area, responsavel, rfb, capag, regime_tributario, situacao_cadastral, tipo_societario, chave_importacao)
+    values (gs, 'Serra Verde Comércio Ltda', '99333444000236', 'Consultoria', 'ambos', 'Adriana', 25000, 'Omisso', 'SN', 'ATIVA', 'LTDA', 'demo:c4') returning id into sc;
+  insert into public.clientes (grupo_id, nome, cpf_cnpj, tipo, area, responsavel, email, pgfn, tipo_societario, procuracao, chave_importacao)
+    values (gm, 'Carlos Moreira (DEMO)', '99988877766', 'Demanda', 'juridico', 'Pedro', 'carlos@moreira.example.com', 80000, 'PF', true, 'demo:c5') returning id into cm;
+  insert into public.clientes (grupo_id, nome, cpf_cnpj, tipo, area, responsavel, regime_tributario, situacao_cadastral, tipo_societario, chave_importacao)
+    values (gm, 'Moreira Participações Ltda', '99555666000177', 'Consultoria', 'ambos', 'Pedro', 'LP', 'ATIVA', 'LTDA', 'demo:c6') returning id into mp;
+  -- contatos por finalidade (e-mail do financeiro diferente do contato geral)
+  insert into public.contatos (cliente_id, nome, cargo, finalidade, email, telefone, whatsapp, recebe_boletos, recebe_notificacoes) values
+    (ct, 'Marta (financeiro)', 'Gerente financeira', 'financeiro', 'financeiro@horizonte.example.com', '(31) 99999-1001', true, true, false),
+    (ct, 'Ricardo Horizonte', 'Sócio', 'juridico', 'ricardo@horizonte.example.com', '(31) 99999-1002', true, false, true),
+    (sa, 'Paula (contas a pagar)', 'Analista', 'financeiro', 'pagar@serraverde.example.com', '(31) 98888-1003', false, true, false),
+    (mp, 'Carlos Moreira', 'Sócio', 'geral', 'carlos@moreira.example.com', '(31) 97777-1004', true, true, true);
+  insert into public.interacoes (cliente_id, tipo, quando, resumo) values
+    (ct, 'reuniao', now() - interval '6 days', 'Reunião mensal: revisão do parcelamento da PGFN e plano para a AGE/MG.'),
+    (sa, 'email', now() - interval '2 days', 'Enviado o fechamento contábil do mês e a guia do DAS.');
+  insert into public.certidoes (cliente_id, orgao, situacao, emissao, validade) values
+    (ct, 'CND Federal', 'Positiva com efeitos de negativa', h - 170, h + 10),
+    (sa, 'CND Estadual (MG)', 'Negativa', h - 200, h - 3);
+  -- contratos (as mensalidades e parcelas saem sozinhas)
+  insert into public.contratos (cliente_id, descricao, modalidade, forma_valor, valor_mensal, dia_vencimento, inicio_competencia, data_contrato, responsavel, valor_total, num_parcelas)
+    values (ct, 'DEMO · Consultoria tributária mensal', 'consultoria', 'fixo', 4500, 10, (m0 - interval '3 months')::date, (m0 - interval '3 months')::date, 'Pedro', 0, 1) returning id into k1;
+  insert into public.contratos (cliente_id, descricao, modalidade, forma_valor, qtd_salarios, dia_vencimento, inicio_competencia, data_contrato, responsavel, valor_total, num_parcelas)
+    values (sc, 'DEMO · Assessoria em salários mínimos', 'consultoria', 'salario_minimo', 1.5, 5, (m0 - interval '2 months')::date, (m0 - interval '2 months')::date, 'Adriana', 0, 1) returning id into k2;
+  insert into public.contratos (cliente_id, descricao, modalidade, valor_total, num_parcelas, primeiro_vencimento, data_contrato, responsavel)
+    values (cl, 'DEMO · Defesa em execução fiscal', 'pontual', 12000, 4, (m0 - interval '1 month' + interval '14 days')::date, (m0 - interval '1 month')::date, 'Emanuelle') returning id into k3;
+  insert into public.contratos (cliente_id, descricao, modalidade, valor_total, num_parcelas, percentual_exito, exito_base, exito_regra, data_contrato, responsavel)
+    values (mp, 'DEMO · Transação tributária PGFN (êxito)', 'pontual', 0, 1, 20, 'economia', '20% do valor que a dívida reduzir, pago em até 10 dias', (m0 - interval '2 months')::date, 'Pedro') returning id into k4;
+  perform public.gerar_mensalidades(k1); perform public.gerar_mensalidades(k2);
+  update public.lancamentos set grupo_id = (select grupo_id from public.clientes where id = cliente_id) where contrato_id in (k1, k2, k3, k4) and grupo_id is null;
+  -- o que já passou foi pago, menos uma mensalidade (fica em atraso) e a parcela de hoje
+  update public.lancamentos set pago = true, data_pagamento = vencimento + 1, forma_pagamento = 'PIX'
+   where contrato_id in (k1, k2, k3) and vencimento < h - 20;
+  update public.lancamentos set vencimento = h where id = (select id from public.lancamentos where contrato_id = k3 and not pago order by vencimento limit 1);
+  -- contabilidade: honorários mensais da Serra Verde (um em atraso, um vence hoje) e uma despesa
+  for i in 0..3 loop
+    insert into public.lancamentos (empresa, tipo, descricao, categoria, cliente_id, grupo_id, responsavel, referencia, vencimento, valor, pago, data_pagamento, chave_importacao)
+    values ('contabilidade', 'receita', 'Honorários contábeis ' || to_char(m0 - (i || ' months')::interval, 'MM/YYYY'), 'Honorários contábeis', sa, gs, 'Adriana',
+            to_char(m0 - (i || ' months')::interval, 'MM/YYYY'), case when i = 0 then h else (m0 - (i || ' months')::interval + interval '9 days')::date end, 1800,
+            i >= 2, case when i >= 2 then (m0 - (i || ' months')::interval + interval '10 days')::date end, 'demo:lc' || i);
+  end loop;
+  insert into public.lancamentos (empresa, tipo, descricao, categoria, favorecido, vencimento, valor, chave_importacao)
+    values ('contabilidade', 'despesa', 'DEMO · Sistema contábil (licença)', 'Software', 'Fornecedor Exemplo', h + 5, 390, 'demo:ld1');
+  insert into public.lancamentos (empresa, tipo, descricao, categoria, cliente_id, grupo_id, responsavel, vencimento, valor, redutor, pago, data_pagamento, chave_importacao)
+    values ('escritorio', 'receita', 'DEMO · Comissão de indicação', 'Comissão', ct, gh, 'Pedro', h - 15, 450, true, true, h - 15, 'demo:lr1');
+  -- jurídico: processos, parcelamento com parcelas e acordo
+  insert into public.processos (grupo_id, carteira, advogado, numero, competencia, natureza, autor, reu, data_distribuicao, valor, procuracao, status, chave_importacao) values
+    (gh, 'Ativo', 'Pedro', '9000001-11.2025.4.01.3800', 'JF - BH', 'Execução fiscal', 'União (PGFN)', 'Horizonte Transportes Ltda', h - 400, 420000, true, 'Em andamento', 'demo:p1'),
+    (gh, 'Ativo', 'Emanuelle', '9000002-22.2025.8.13.0024', 'TJMG - BH', 'Anulatória de débito', 'Horizonte Logística Eireli', 'Estado de Minas Gerais', h - 120, 60000, false, 'Aguardando Decisão', 'demo:p2'),
+    (gm, 'Ativo', 'Pedro', '9000003-33.2024.5.03.0001', 'TRT3', 'Trabalhista', 'Ex-empregado (fictício)', 'Moreira Participações Ltda', h - 700, 35000, true, 'Arq. Provisoriamente', 'demo:p3'),
+    (gs, 'Prospecção', 'Adriana', '9000004-44.2026.4.01.3800', 'JF - BH', 'Mandado de segurança', 'Serra Verde Alimentos S.A.', 'Delegado da Receita Federal', null, 150000, false, 'Em prospecção', 'demo:p4');
+  insert into public.parcelamentos (grupo_id, aba, empresa, cnpj, local, natureza, numero, total_parcelas, valor_ultima_parcela, valor_residual, chave_importacao)
+    values (gh, 'PGFN', 'Horizonte Transportes Ltda', '99111222000133', 'PGFN', 'Transação tributária', 'DEMO-2025-001', 60, 2500, 135000, 'demo:pa1') returning id into pa;
+  for i in 1..12 loop
+    insert into public.parcelas (parcelamento_id, numero, vencimento, pago, chave_importacao)
+    values (pa, i::text, (m0 - interval '8 months' + (i || ' months')::interval + interval '19 days')::date, (m0 - interval '8 months' + (i || ' months')::interval + interval '19 days')::date < h - 35, 'demo:pp' || i);
+  end loop;
+  insert into public.parcelamentos (grupo_id, aba, empresa, cnpj, local, natureza, numero, total_parcelas, valor_ultima_parcela, valor_residual, chave_importacao)
+    values (gs, 'SEFAZ', 'Serra Verde Alimentos S.A.', '99333444000155', 'SEFAZ/MG', 'ICMS', 'DEMO-MG-77', 24, 1450, 18000, 'demo:pa2');
+  for i in 1..6 loop
+    insert into public.acordos (grupo_id, responsavel, processo, devedor, credor, parcela, total_parcelas, valor, vencimento, pago, data_pagamento, comprovante_processo, comprovante_id, chave_importacao)
+    values (gs, 'Adriana', '9000005-55.2025.8.13.0079', 'Serra Verde Comércio Ltda', 'Fornecedor Exemplo S.A.', i::text, '6', 3200,
+            case i when 3 then h - 6 when 4 then h else (m0 + ((i - 3) || ' months')::interval + interval '14 days')::date end,
+            i <= 2, case when i <= 2 then (m0 + ((i - 3) || ' months')::interval + interval '14 days')::date end,
+            case when i = 1 then true when i = 2 then false end, case when i = 1 then '123456789' else '' end, 'demo:ac' || i);
+  end loop;
+  -- tarefas ligadas (cliente, contrato, processo)
+  insert into public.tarefas (titulo, cliente_id, grupo_id, contrato_id, processos_vinculados, responsavel, prioridade, status, inicio, prazo, prazo_fatal, descricao, checklist, chave_importacao) values
+    ('DEMO · Protocolar embargos à execução', cl, gh, k3, '9000001-11.2025.4.01.3800', 'Emanuelle', 'Alta', 'andamento', h - 5, h + 2, h + 4, 'Prazo de 30 dias da intimação.',
+      '[{"texto":"Reunir documentos","feito":true},{"texto":"Minutar peça","feito":false},{"texto":"Revisão do Pedro","feito":false}]', 'demo:t1'),
+    ('DEMO · Conferir parcela da transação PGFN', ct, gh, k1, '', 'Pedro', 'Média', 'pendente', h - 2, h, null, 'Confirmar o pagamento da parcela do mês no Regularize.', '[]', 'demo:t2'),
+    ('DEMO · Cobrar mensalidade em atraso', ct, gh, k1, '', 'Adriana', 'Alta', 'pendente', h - 10, h - 3, null, 'Mandar lembrete ao financeiro (Marta).', '[]', 'demo:t3'),
+    ('DEMO · Fechamento contábil do mês', sa, gs, null, '', 'Adriana', 'Média', 'pendente', h, (m0 + interval '1 month + 4 days')::date, null, '', '[{"texto":"Conciliação bancária","feito":false},{"texto":"Folha","feito":false}]', 'demo:t4'),
+    ('DEMO · Levantar redução da dívida (êxito)', mp, gm, k4, '', 'Pedro', 'Média', 'pendente', h, h + 12, null, 'Quando a transação for homologada, registrar o êxito no contrato.', '[]', 'demo:t5');
+  -- CRM
+  select id into e1 from public.crm_etapas order by ordem limit 1;
+  select id into e2 from public.crm_etapas where ordem = 4 limit 1;
+  select id into e4 from public.crm_etapas where ordem = 5 limit 1;
+  insert into public.crm_oportunidades (titulo, cliente_id, prospecto_empresa, prospecto_nome, prospecto_email, origem, etapa_id, valor_estimado, honorario_tipo, probabilidade, previsao_fechamento, responsavel, proxima_acao, proxima_acao_em) values
+    ('DEMO · Holding familiar Moreira', mp, '', '', '', 'Cliente atual', e2, 25000, 'fixo', 60, h + 20, 'Pedro', 'Ligar para fechar a proposta', h + 2),
+    ('DEMO · Recuperação de créditos de PIS/COFINS', null, 'DEMO · Mercado Bom Preço', 'João Exemplo', 'joao@bompreco.example.com', 'Indicação', e1, 40000, 'exito', 20, h + 45, 'Emanuelle', 'Agendar diagnóstico', h + 1),
+    ('DEMO · Contabilidade completa', null, 'DEMO · Clínica Vida', 'Ana Exemplo', 'ana@clinicavida.example.com', 'Site', e4, 2200, 'mensal', 70, h + 10, 'Adriana', 'Enviar contrato', h);
+  -- documentos (só o registro, sem arquivo: servem para ver os vencimentos)
+  insert into public.documentos (cliente_id, grupo_id, contrato_id, tipo, nome, caminho, validade, obs) values
+    (ct, gh, k1, 'contrato', 'DEMO · Contrato de consultoria (exemplo).pdf', 'demo/contrato-horizonte.pdf', null, 'Exemplo sem arquivo'),
+    (sa, gs, null, 'certidao', 'DEMO · Alvará de funcionamento (exemplo).pdf', 'demo/alvara-serraverde.pdf', h + 7, 'Exemplo sem arquivo');
+  -- rascunho de estagiário esperando aprovação (para ver a tela Aprovações)
+  insert into public.rascunhos (tabela, operacao, filtros, dados, antes, resumo, funcao, autor_nome)
+    values ('clientes', 'alterar', jsonb_build_object('id', ct), '{"telefone":"(31) 3333-0000","email":"novo@horizonte.example.com"}',
+            (select to_jsonb(c) from public.clientes c where id = ct), 'Alterar cliente: Horizonte Transportes Ltda (demonstração)', 'clientes', 'Estagiário (demonstração)');
+  -- tarefas automáticas antigas dos contratos de exemplo ficam concluídas (senão a demonstração nasce "atrasada")
+  update public.tarefas set status = 'concluida', checklist = (select coalesce(jsonb_agg(it || '{"feito":true}'::jsonb), '[]'::jsonb) from jsonb_array_elements(checklist) it)
+   where chave_regra is not null and prazo < h - 7 and status not in ('concluida','cancelada') and (cliente_id in (ct, cl, sa, sc, cm, mp) or contrato_id in (k1, k2, k3, k4));
+  return (select count(*) from public.clientes where grupo_id in (gh, gs, gm));
+end $$;
+revoke all on function public.carregar_demonstracao() from public, anon;
+grant execute on function public.carregar_demonstracao() to authenticated;
+
+-- ─────────── e-mails ao cliente: modelo novo (marca, itens, total, como pagar) ───────────
+-- dados que aparecem no quadro "Como pagar" (Administração → E-mail → Dados para pagamento)
+insert into public.configuracoes (chave, valor) values ('dados_pagamento', '{"pix":"","banco":"","titular":"Araújo & Castro","whatsapp":"","assinatura":"Equipe Araújo & Castro"}')
+on conflict (chave) do nothing;
+
+-- e-mail certo para cada assunto: contato com a FINALIDADE pedida (financeiro, juridico…), depois quem recebe boletos/avisos, depois o do cadastro
+create or replace function public.contato_do_cliente(p_cliente uuid, p_grupo uuid, p_finalidade text default 'financeiro')
+returns table (email text, nome text)
+language sql stable security definer set search_path = public as $$
+  -- 1) finalidade certa + marcado para receber (boletos no financeiro; avisos nos demais)  2) marcado para receber
+  -- 3) finalidade certa  4) contato "geral"  5) e-mail do cadastro  6/7) o mesmo no grupo, quando não há cliente
+  select x.email, x.nome from (
+    select c.email, nullif(split_part(btrim(c.nome), ' ', 1), '') nome,
+           case when c.finalidade = p_finalidade and marca then 1 when marca then 2 when c.finalidade = p_finalidade then 3 else 4 end ord
+      from public.contatos c
+      cross join lateral (select case when p_finalidade in ('financeiro','cobranca') then c.recebe_boletos else c.recebe_notificacoes end marca) m
+     where c.cliente_id = p_cliente and c.email <> '' and (c.finalidade in (p_finalidade, 'geral') or m.marca)
+    union all
+    select cl.email, null, 5 from public.clientes cl where cl.id = p_cliente and cl.email <> ''
+    union all
+    select c.email, nullif(split_part(btrim(c.nome), ' ', 1), ''), 6 from public.contatos c join public.clientes cl on cl.id = c.cliente_id
+     where p_cliente is null and cl.grupo_id = p_grupo and c.email <> '' and (c.finalidade = p_finalidade or c.recebe_boletos)
+    union all
+    select cl.email, null, 7 from public.clientes cl where p_cliente is null and cl.grupo_id = p_grupo and cl.email <> '' and cl.tipo <> 'Inativo'
+  ) x order by x.ord limit 1;
+$$;
+revoke all on function public.contato_do_cliente(uuid, uuid, text) from public, anon, authenticated;
+create or replace function public.email_do_cliente(p_cliente uuid, p_grupo uuid) returns text
+language sql stable security definer set search_path = public as $$
+  select email from public.contato_do_cliente(p_cliente, p_grupo, 'financeiro');
+$$;
+revoke all on function public.email_do_cliente(uuid, uuid) from public, anon, authenticated;
+
+-- modelo do e-mail ao cliente: cabeçalho da marca, saudação, texto, tabela de itens com total, "como pagar" e assinatura
+create or replace function public.email_cliente_html(p_titulo text, p_nome text, p_texto text, p_itens jsonb default '[]', p_pagar boolean default false, p_fecho text default '')
+returns text language plpgsql stable security definer set search_path = public as $$
+declare d jsonb; itens text := ''; tot numeric := 0; i jsonb; pag text := '';
+begin
+  select valor into d from public.configuracoes where chave = 'dados_pagamento';
+  d := coalesce(d, '{}');
+  for i in select * from jsonb_array_elements(coalesce(p_itens, '[]')) loop
+    itens := itens || '<tr><td style="padding:10px 12px;border-bottom:1px solid #EEF0F5">' || public.esc_html(i->>'descricao') || '</td>'
+      || '<td style="padding:10px 12px;border-bottom:1px solid #EEF0F5;white-space:nowrap">' || coalesce(to_char((i->>'vencimento')::date, 'DD/MM/YYYY'), '') || '</td>'
+      || '<td style="padding:10px 12px;border-bottom:1px solid #EEF0F5;text-align:right;white-space:nowrap;font-weight:bold">' || public.brl_texto((i->>'valor')::numeric) || '</td></tr>';
+    tot := tot + coalesce((i->>'valor')::numeric, 0);
+  end loop;
+  if itens <> '' then
+    itens := '<table role="presentation" style="width:100%;border-collapse:collapse;margin:14px 0;font-size:14px;border:1px solid #E5E7EB;border-radius:10px">'
+      || '<tr style="background:#F7F8FB;color:#5B6472;font-size:11px;text-transform:uppercase;letter-spacing:.06em"><td style="padding:9px 12px">Descrição</td><td style="padding:9px 12px">Vencimento</td><td style="padding:9px 12px;text-align:right">Valor</td></tr>'
+      || itens || case when jsonb_array_length(p_itens) > 1 then '<tr><td colspan="2" style="padding:10px 12px;font-weight:bold">Total</td><td style="padding:10px 12px;text-align:right;font-weight:bold;color:#1B2A4A">' || public.brl_texto(tot) || '</td></tr>' else '' end
+      || '</table>';
+  end if;
+  if p_pagar and (coalesce(d->>'pix', '') <> '' or coalesce(d->>'banco', '') <> '') then
+    pag := '<div style="background:#F5EDD6;border-left:4px solid #C9A84C;border-radius:10px;padding:12px 14px;margin:14px 0;font-size:13.5px"><b style="color:#1B2A4A">Como pagar</b><br>'
+      || case when coalesce(d->>'pix', '') <> '' then 'PIX: <b>' || public.esc_html(d->>'pix') || '</b>' || coalesce(' · ' || nullif(public.esc_html(d->>'titular'), ''), '') || '<br>' else '' end
+      || case when coalesce(d->>'banco', '') <> '' then public.esc_html(d->>'banco') || '<br>' else '' end
+      || 'Depois de pagar, responda este e-mail com o comprovante.</div>';
+  end if;
+  return '<div style="font-family:Arial,Helvetica,sans-serif;background:#F0F2F7;padding:24px 12px">'
+    || '<div style="max-width:620px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;border:1px solid #E5E7EB">'
+    || '<div style="background:#1B2A4A;padding:20px 24px;border-bottom:3px solid #C9A84C">'
+    ||   '<div style="color:#C9A84C;font-family:Georgia,serif;font-size:20px;font-weight:bold">Araújo &amp; Castro</div>'
+    ||   '<div style="color:#CBD5E1;font-size:11px;letter-spacing:.14em;text-transform:uppercase;margin-top:2px">Advocacia · Contabilidade · Consultoria</div></div>'
+    || '<div style="padding:22px 24px;color:#1F2937;font-size:14.5px;line-height:1.6">'
+    ||   '<div style="font-size:18px;font-weight:bold;color:#1B2A4A;margin-bottom:10px">' || public.esc_html(p_titulo) || '</div>'
+    ||   case when p_nome = '-' then '' else '<p style="margin:0 0 10px">Olá' || coalesce(', ' || public.esc_html(nullif(p_nome, '')), '') || '!</p>' end
+    ||   p_texto || itens || pag
+    ||   case when p_fecho = '-' then '' else
+           coalesce(nullif(p_fecho, ''), '<p style="margin:14px 0 0">Qualquer dúvida, é só responder este e-mail' || case when coalesce(d->>'whatsapp', '') <> '' then ' ou chamar no WhatsApp ' || public.esc_html(d->>'whatsapp') else '' end || '.</p>')
+           || '<p style="margin:16px 0 0">Atenciosamente,<br><b>' || public.esc_html(coalesce(nullif(d->>'assinatura', ''), 'Equipe Araújo & Castro')) || '</b></p>' end || '</div>'
+    || '<div style="padding:12px 24px;background:#F7F8FB;border-top:1px solid #E5E7EB;color:#6B7280;font-size:11.5px">Mensagem automática do sistema do escritório. Se já resolveu, por favor desconsidere.</div>'
+    || '</div></div>';
+end $$;
+revoke all on function public.email_cliente_html(text, text, text, jsonb, boolean, text) from public, anon, authenticated;
+
+-- manda ao contato da finalidade certa, com o modelo novo, uma vez só por "ref"
+create or replace function public.email_cliente_enviar(p_regra text, p_ref text, p_cliente uuid, p_grupo uuid, p_finalidade text,
+  p_assunto text, p_texto text, p_itens jsonb default '[]', p_pagar boolean default false) returns boolean
+language plpgsql security definer set search_path = public as $$
+declare c record;
+begin
+  if exists (select 1 from public.automacoes_log where ref = p_ref) then return false; end if;
+  select * into c from public.contato_do_cliente(p_cliente, p_grupo, p_finalidade);
+  if c.email is null or c.email = '' then return false; end if;
+  insert into public.email_fila (usuario_id, para, assunto, html, tipo, referencia)
+  values (null, c.email, p_assunto, public.email_cliente_html(p_assunto, c.nome, p_texto, p_itens, p_pagar), 'cliente', p_ref);
+  insert into public.automacoes_log (chave, ref, descricao, cliente_id) values (p_regra, p_ref, p_assunto || ' → ' || c.email, p_cliente);
+  return true;
+end $$;
+revoke all on function public.email_cliente_enviar(text, text, uuid, uuid, text, text, text, jsonb, boolean) from public, anon, authenticated;
+-- compatibilidade: chamadas antigas usam o modelo novo
+create or replace function public.email_ao_cliente(p_regra text, p_ref text, p_cliente uuid, p_grupo uuid, p_assunto text, p_corpo text) returns boolean
+language sql security definer set search_path = public as $$
+  select public.email_cliente_enviar(p_regra, p_ref, p_cliente, p_grupo, 'financeiro', p_assunto, regexp_replace(p_corpo, '<p>Olá!</p>|<p>Araújo &amp; Castro Advocacia</p>', '', 'g'));
+$$;
+revoke all on function public.email_ao_cliente(text, text, uuid, uuid, text, text) from public, anon, authenticated;
+
+-- nova automação: lembrete da parcela de parcelamento (guia) ao contato financeiro
+insert into public.regras_tarefas (chave, nome, descricao, ligada, dias, grupo) values
+  ('email_lembrete_parcelamento', 'E-mail ao cliente: lembrete da parcela do parcelamento', 'N dias antes do vencimento da guia (PGFN, Receita, SEFAZ…), para o contato financeiro', true, 3, 'cliente_email')
+on conflict (chave) do nothing;
+-- migração (uma vez só): e-mails ao cliente LIGADOS — só saem para quem tem e-mail cadastrado
+do $$
+begin
+  if not exists (select 1 from public.configuracoes where chave = 'migracao_v19_emails') then
+    update public.regras_tarefas set ligada = true where grupo = 'cliente_email';
+    insert into public.configuracoes (chave, valor) values ('migracao_v19_emails', '{"feito":true}');
+  end if;
+end $$;
+
+create or replace function public.rodar_emails_cliente() returns int
+language plpgsql security definer set search_path = public as $$
+declare rg record; x record; n int := 0;
+begin
+  -- honorários: um e-mail por cliente com TODOS os que vencem no dia do lembrete
+  select * into rg from public.regras_tarefas where chave = 'email_lembrete_honorario' and ligada;
+  if found then
+    for x in select l.cliente_id, l.grupo_id, min(l.vencimento) venc, string_agg(l.id::text, ',' order by l.id) ids,
+                    jsonb_agg(jsonb_build_object('descricao', l.descricao || coalesce(' (' || nullif(l.referencia, '') || ')', ''), 'vencimento', l.vencimento, 'valor', case when l.redutor then -l.valor else l.valor end)) itens
+               from public.lancamentos l where l.tipo = 'receita' and not l.pago and not coalesce(l.perda, false) and l.vencimento = current_date + rg.dias
+              group by l.cliente_id, l.grupo_id loop
+      if public.email_cliente_enviar('email_lh', 'email_lh:' || md5(x.ids), x.cliente_id, x.grupo_id, 'financeiro',
+           'Lembrete de honorários — vencimento em ' || to_char(x.venc, 'DD/MM/YYYY'),
+           '<p style="margin:0">Passando para lembrar dos honorários abaixo, com vencimento em <b>' || to_char(x.venc, 'DD/MM/YYYY') || '</b>.</p>', x.itens, true) then n := n + 1; end if;
+    end loop;
+  end if;
+  -- cobrança: todos os honorários em aberto do cliente, uma vez por lançamento que completou N dias de atraso
+  select * into rg from public.regras_tarefas where chave = 'email_cobranca_honorario' and ligada;
+  if found then
+    for x in select l.id, l.cliente_id, l.grupo_id, l.vencimento,
+                    (select jsonb_agg(jsonb_build_object('descricao', o.descricao || coalesce(' (' || nullif(o.referencia, '') || ')', ''), 'vencimento', o.vencimento, 'valor', case when o.redutor then -o.valor else o.valor end) order by o.vencimento)
+                       from public.lancamentos o where o.tipo = 'receita' and not o.pago and not coalesce(o.perda, false) and o.vencimento < current_date
+                        and ((l.cliente_id is not null and o.cliente_id = l.cliente_id) or (l.cliente_id is null and o.grupo_id = l.grupo_id))) itens
+               from public.lancamentos l where l.tipo = 'receita' and not l.redutor and not l.pago and not coalesce(l.perda, false) and l.vencimento = current_date - rg.dias loop
+      if public.email_cliente_enviar('email_ch', 'email_ch:' || x.id, x.cliente_id, x.grupo_id, 'financeiro',
+           'Honorários em aberto',
+           '<p style="margin:0">Não identificamos o pagamento dos honorários abaixo. Se já pagou, por favor responda com o comprovante para darmos baixa — obrigado!</p>', x.itens, true) then n := n + 1; end if;
+    end loop;
+  end if;
+  -- acordo (dívida do cliente com terceiros): ao contato jurídico
+  select * into rg from public.regras_tarefas where chave = 'email_lembrete_acordo' and ligada;
+  if found then
+    for x in select a.id, a.valor, a.vencimento, a.credor, a.parcela, a.total_parcelas, a.processo, a.grupo_id, a.pix, a.banco,
+                    (select cl.id from public.clientes cl where cl.grupo_id = a.grupo_id and public.primeiro_nome(cl.nome) = public.primeiro_nome(a.devedor) limit 1) cli
+               from public.acordos a where not a.pago and a.vencimento = current_date + rg.dias loop
+      if public.email_cliente_enviar('email_la', 'email_la:' || x.id, x.cli, x.grupo_id, 'juridico',
+           'Lembrete: parcela do acordo vence em ' || to_char(x.vencimento, 'DD/MM/YYYY'),
+           '<p style="margin:0">A parcela do acordo com <b>' || public.esc_html(coalesce(x.credor, '')) || '</b> (processo ' || public.esc_html(coalesce(x.processo, '')) || ') vence em <b>' ||
+           to_char(x.vencimento, 'DD/MM/YYYY') || '</b>. O pagamento é feito direto ao credor' ||
+           case when coalesce(x.pix, '') <> '' then ' — PIX do credor: <b>' || public.esc_html(x.pix) || '</b>' else '' end ||
+           case when coalesce(x.banco, '') <> '' then ' — ' || public.esc_html(x.banco) else '' end ||
+           '.</p><p style="margin:10px 0 0">Depois de pagar, <b>responda este e-mail com o comprovante</b>: nós juntamos ao processo.</p>',
+           jsonb_build_array(jsonb_build_object('descricao', 'Parcela ' || coalesce(x.parcela, '') || coalesce('/' || nullif(x.total_parcelas, ''), ''), 'vencimento', x.vencimento, 'valor', x.valor))) then n := n + 1; end if;
+    end loop;
+  end if;
+  -- parcelamento (PGFN, Receita, SEFAZ…): guia do mês
+  select * into rg from public.regras_tarefas where chave = 'email_lembrete_parcelamento' and ligada;
+  if found then
+    for x in select pa.id, pa.numero, pa.vencimento, p.empresa, p.natureza, p.local, p.numero parc_num, p.valor_ultima_parcela, p.grupo_id, p.total_parcelas,
+                    (select cl.id from public.clientes cl where (soDig.d <> '' and regexp_replace(cl.cpf_cnpj, '\D', '', 'g') = soDig.d) or cl.nome = p.empresa limit 1) cli
+               from public.parcelas pa join public.parcelamentos p on p.id = pa.parcelamento_id
+               cross join lateral (select regexp_replace(coalesce(p.cnpj, ''), '\D', '', 'g') d) soDig
+              where not pa.pago and pa.vencimento = current_date + rg.dias loop
+      if public.email_cliente_enviar('email_lp', 'email_lp:' || x.id, x.cli, x.grupo_id, 'financeiro',
+           'Lembrete: parcela do parcelamento vence em ' || to_char(x.vencimento, 'DD/MM/YYYY'),
+           '<p style="margin:0">A parcela <b>' || coalesce(x.numero, '') || coalesce('/' || x.total_parcelas, '') || '</b> do parcelamento <b>' || public.esc_html(coalesce(x.natureza, '')) ||
+           coalesce(' · ' || nullif(public.esc_html(x.local), ''), '') || '</b>' || coalesce(' (nº ' || nullif(public.esc_html(x.parc_num), '') || ')', '') || ' de <b>' || public.esc_html(coalesce(x.empresa, '')) ||
+           '</b> vence em <b>' || to_char(x.vencimento, 'DD/MM/YYYY') || '</b>. Se ainda não recebeu a guia, responda este e-mail que enviamos.</p>' ||
+           '<p style="margin:10px 0 0">Atenção: três parcelas em atraso podem cancelar o parcelamento.</p>',
+           case when coalesce(x.valor_ultima_parcela, 0) > 0 then jsonb_build_array(jsonb_build_object('descricao', 'Parcela ' || coalesce(x.numero, ''), 'vencimento', x.vencimento, 'valor', x.valor_ultima_parcela)) else '[]'::jsonb end) then n := n + 1; end if;
+    end loop;
+  end if;
+  return n;
+end $$;
+revoke all on function public.rodar_emails_cliente() from public, anon, authenticated;
+
+create or replace function public.pagamento_automacoes() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare n int;
+begin
+  if not new.pago or old.pago or new.tipo <> 'receita' or new.redutor then return null; end if;
+  if exists (select 1 from public.regras_tarefas where chave = 'pagamento_conclui' and ligada) then
+    update public.tarefas set status = 'concluida', checklist = (select coalesce(jsonb_agg(i || '{"feito":true}'::jsonb), '[]'::jsonb) from jsonb_array_elements(checklist) i) where chave_regra = 'cob:' || new.id and status not in ('concluida','cancelada');
+    get diagnostics n = row_count;
+    if n > 0 then insert into public.automacoes_log (chave, ref, descricao, cliente_id) values ('pagamento_conclui', 'pago:' || new.id, 'Honorário recebido: cobrança concluída sozinha — ' || new.descricao, new.cliente_id); end if;
+  end if;
+  if exists (select 1 from public.regras_tarefas where chave = 'email_pagamento_recebido' and ligada) then
+    perform public.email_cliente_enviar('email_pr', 'email_pr:' || new.id, new.cliente_id, new.grupo_id, 'financeiro', 'Recebemos o seu pagamento — obrigado!',
+      '<p style="margin:0">Confirmamos o recebimento abaixo' || coalesce(', em <b>' || to_char(new.data_pagamento, 'DD/MM/YYYY') || '</b>', '') || '. Se precisar do recibo, é só responder este e-mail.</p>',
+      jsonb_build_array(jsonb_build_object('descricao', new.descricao || coalesce(' (' || nullif(new.referencia, '') || ')', ''), 'vencimento', new.vencimento, 'valor', new.valor)));
+  end if;
+  return null;
+end $$;
+
+-- envio manual (Cobranças, avisos e recibos): o texto montado na tela sai pelo e-mail do escritório, no modelo da marca
+create or replace function public.enviar_email_manual(p_para text, p_assunto text, p_texto text) returns void
+language plpgsql security definer set search_path = public as $$
+declare corpo text;
+begin
+  if not (public.pode('clientes', 'editar') or public.pode('financeiro_juridico', 'editar') or public.pode('financeiro_contab', 'editar') or public.pode('juridico', 'editar')) then
+    raise exception 'permission denied: sem acesso para enviar e-mail a clientes.';
+  end if;
+  if coalesce(p_para, '') !~ '^[^@\s,;]+@[^@\s,;]+\.[^@\s,;]+$' then raise exception 'Informe um e-mail válido (um só).'; end if;
+  if btrim(coalesce(p_texto, '')) = '' then raise exception 'A mensagem está vazia.'; end if;
+  corpo := '<p style="margin:0 0 10px">' || replace(replace(public.esc_html(btrim(p_texto)), E'\n\n', '</p><p style="margin:0 0 10px">'), E'\n', '<br>') || '</p>';
+  insert into public.email_fila (usuario_id, para, assunto, html, tipo, referencia)
+  values (null, p_para, left(coalesce(nullif(btrim(p_assunto), ''), 'Mensagem do escritório'), 200), public.email_cliente_html(coalesce(nullif(btrim(p_assunto), ''), 'Mensagem do escritório'), '-', corpo, '[]', false, '-'), 'cliente', '');
+  insert into public.automacoes_log (chave, ref, descricao) values ('email_manual', 'manual:' || gen_random_uuid(), 'E-mail enviado pela tela: ' || left(p_assunto, 120) || ' → ' || p_para);
+end $$;
+revoke all on function public.enviar_email_manual(text, text, text) from public, anon;
+grant execute on function public.enviar_email_manual(text, text, text) to authenticated;
+
+-- prévia dos modelos (Administração → E-mail): exemplo fictício de cada e-mail ao cliente
+create or replace function public.previa_email_cliente(p_tipo text) returns text
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not public.eh_admin() then raise exception 'permission denied'; end if;
+  return case p_tipo
+    when 'lembrete' then public.email_cliente_html('Lembrete de honorários — vencimento em 10/10/2026', 'Marta', '<p style="margin:0">Passando para lembrar dos honorários abaixo, com vencimento em <b>10/10/2026</b>.</p>',
+      '[{"descricao":"Consultoria tributária mensal (09/2026)","vencimento":"2026-10-10","valor":4500}]', true)
+    when 'cobranca' then public.email_cliente_html('Honorários em aberto', 'Marta', '<p style="margin:0">Não identificamos o pagamento dos honorários abaixo. Se já pagou, por favor responda com o comprovante para darmos baixa — obrigado!</p>',
+      '[{"descricao":"Consultoria tributária mensal (08/2026)","vencimento":"2026-09-10","valor":4500},{"descricao":"Defesa em execução fiscal — parcela 2/4","vencimento":"2026-09-20","valor":3000}]', true)
+    when 'acordo' then public.email_cliente_html('Lembrete: parcela do acordo vence em 12/10/2026', 'Ricardo', '<p style="margin:0">A parcela do acordo com <b>Fornecedor Exemplo S.A.</b> (processo 0000000-00.2025.8.13.0000) vence em <b>12/10/2026</b>. O pagamento é feito direto ao credor.</p><p style="margin:10px 0 0">Depois de pagar, <b>responda este e-mail com o comprovante</b>: nós juntamos ao processo.</p>',
+      '[{"descricao":"Parcela 4/6","vencimento":"2026-10-12","valor":3200}]')
+    when 'parcelamento' then public.email_cliente_html('Lembrete: parcela do parcelamento vence em 20/10/2026', 'Marta', '<p style="margin:0">A parcela <b>9/60</b> do parcelamento <b>Transação tributária · PGFN</b> vence em <b>20/10/2026</b>. Se ainda não recebeu a guia, responda este e-mail que enviamos.</p><p style="margin:10px 0 0">Atenção: três parcelas em atraso podem cancelar o parcelamento.</p>',
+      '[{"descricao":"Parcela 9","vencimento":"2026-10-20","valor":2500}]')
+    else public.email_cliente_html('Recebemos o seu pagamento — obrigado!', 'Marta', '<p style="margin:0">Confirmamos o recebimento abaixo, em <b>28/09/2026</b>. Se precisar do recibo, é só responder este e-mail.</p>',
+      '[{"descricao":"Consultoria tributária mensal (08/2026)","vencimento":"2026-09-10","valor":4500}]')
+  end;
+end $$;
+revoke all on function public.previa_email_cliente(text) from public, anon;
+grant execute on function public.previa_email_cliente(text) to authenticated;

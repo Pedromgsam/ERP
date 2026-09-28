@@ -5,7 +5,7 @@ const ExcelJS = require('exceljs');
 const fs = require('fs'), os = require('os'), path = require('path');
 const { execFileSync } = require('child_process');
 const fic = require('./planilhas-ficticias.js');
-const BASE = (process.env.BASE || 'http://127.0.0.1:8090') + '/gestao.html';
+const BASE = (process.env.BASE || 'http://127.0.0.1:8090') + '/gestao-teste.html';
 const FOTOS = process.env.FOTOS || '';
 const sql = (q) => execFileSync('psql', ['-h', '127.0.0.1', '-p', process.env.PGPORT || '54329', '-U', 'postgres', '-d', 'erp', '-tAc', q]).toString().trim();
 const r = []; const ok = (n, c) => r.push([n, !!c]);

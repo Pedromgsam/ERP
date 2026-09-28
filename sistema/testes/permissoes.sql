@@ -426,3 +426,31 @@ exception when raise_exception then
   if sqlerrm like 'FALHOU%' then raise; end if; raise notice 'PASSA: só quem edita Contratos registra êxito';
 end $$;
 commit;
+
+-- v19: demonstração só admin; avisos lidos de cada um; e-mail manual precisa editar; nome próprio
+begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-00000000000b');
+do $$ begin
+  perform public.carregar_demonstracao();
+  raise exception 'FALHOU: equipe carregou demonstração';
+exception when raise_exception then
+  if sqlerrm like 'FALHOU%' then raise; end if; raise notice 'PASSA: só o admin carrega a demonstração';
+end $$;
+insert into avisos_lidos(chave) values ('teste@hoje');
+select public.salvar_meu_nome('Equipe Teste');
+commit;
+select pg_temp.ok((select nome from perfis where email='equipe@teste')='Equipe Teste','cada pessoa escolhe o próprio nome');
+begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-0000000000d2');
+select pg_temp.ok((select count(*) from avisos_lidos)=0,'cada pessoa só vê os próprios avisos lidos');
+do $$ begin
+  perform public.enviar_email_manual('x@exemplo.test','a','b');
+  raise exception 'FALHOU: estagiário mandou e-mail';
+exception when raise_exception then
+  if sqlerrm like 'FALHOU%' then raise; end if; raise notice 'PASSA: e-mail ao cliente pela tela só com permissão de editar';
+end $$;
+commit;
+begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-00000000000a');
+select pg_temp.ok(public.carregar_demonstracao()=6,'admin carrega a demonstração (6 clientes fictícios)');
+select pg_temp.ok((select count(*) from lancamentos l join clientes c on c.id=l.cliente_id where c.chave_importacao like 'demo:%')>0,'demonstração vem com honorários ligados aos clientes');
+select pg_temp.ok(public.limpar_demonstracao()=6 and (select count(*) from grupos where nome like 'DEMO%')=0,'apagar a demonstração não deixa rastro');
+commit;
+select pg_temp.ok((select email from public.contato_do_cliente((select id from clientes where nome='Só Jurídico Ltda'),null,'financeiro')) is null,'sem e-mail cadastrado, nenhum e-mail ao cliente');

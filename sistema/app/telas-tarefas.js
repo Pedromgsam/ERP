@@ -648,54 +648,97 @@ async function janelaFeriados() {
   }));
 }
 
-// ─────────────────────────── alertas (sino) ───────────────────────────
-// Junta as notificações gravadas (tarefa atribuída, menção) com os alertas
-// calculados na hora: prazos D-5, D-2, D-1, hoje e atrasados; documentos e
-// certidões vencendo; e, para o administrador, tarefas atrasadas há mais de 3 dias.
+// ─────────────────────────── caixa de avisos (sino) ───────────────────────────
+// Funciona como caixa de mensagens: cada aviso tem um ASSUNTO (chave) e uma LEVA.
+//  • Ler = some da caixa (tabela avisos_lidos, por pessoa).
+//  • Se o assunto não for resolvido, a próxima leva volta como não lida:
+//    urgentes (vermelho) todo dia; os demais uma vez por semana.
+//  • Notificações gravadas (tarefa atribuída, menção, rascunho…) são lidas uma vez só.
+function levaDoAviso(nivel) {
+  const h = hojeISO();
+  if (nivel === 'alto') return h;
+  const d = new Date(h + 'T12:00:00'); d.setDate(d.getDate() - ((d.getDay() + 6) % 7));   // segunda-feira da semana
+  return 's' + iso(d);
+}
 async function coletarAlertas() {
   const h = hojeISO(), lim = somarDias(h, 5), admin = E.perfil && E.perfil.papel === 'admin';
-  const [nots, ts, docs, certs] = await Promise.all([
+  const fin = pode('financeiro_juridico') || pode('financeiro_contab'), jur = pode('juridico');
+  const [nots, ts, docs, certs, lidos, lanc, acs] = await Promise.all([
     q(sb.from('notificacoes').select('*').eq('lida', false).order('criado_em', { ascending: false }).limit(50)).catch(() => []),
     q(sb.from('tarefas').select('id, titulo, prazo, prazo_fatal, responsavel, participantes, status').not('status', 'in', '(concluida,cancelada)').or('prazo.lte.' + lim + ',prazo_fatal.lte.' + lim)).catch(() => []),
     q(sb.from('documentos').select('id, nome, validade, cliente_id').eq('arquivado', false).not('validade', 'is', null).lte('validade', somarDias(h, 15))).catch(() => []),
-    q(sb.from('certidoes').select('id, orgao, validade, cliente_id').not('validade', 'is', null).lte('validade', somarDias(h, 15))).catch(() => [])
+    q(sb.from('certidoes').select('id, orgao, validade, cliente_id').not('validade', 'is', null).lte('validade', somarDias(h, 15))).catch(() => []),
+    q(sb.from('avisos_lidos').select('chave').gte('lido_em', new Date(Date.now() - 21 * 864e5).toISOString())).catch(() => []),
+    fin ? q(sb.from('lancamentos').select('empresa, valor, redutor, vencimento').eq('tipo', 'receita').eq('pago', false).eq('perda', false).lte('vencimento', h)).catch(() => []) : [],
+    jur ? q(sb.from('acordos').select('id, valor, vencimento').eq('pago', false).lte('vencimento', h)).catch(() => []) : []
   ]);
-  const al = nots.map((n) => ({ nivel: 'info', titulo: n.titulo, detalhe: n.detalhe, notif: n.id, link: n.link }));
+  const al = nots.map((n) => ({ nivel: n.tipo === 'rascunho' ? 'medio' : 'info', tipo: n.tipo || 'aviso', titulo: n.titulo, detalhe: n.detalhe, notif: n.id, link: n.link, quando: n.criado_em }));
+  const add = (a) => { a.chave = a.assunto + '@' + levaDoAviso(a.nivel); al.push(a); };
   ts.forEach((t) => {
     const minha = ehMinha(t);
     const ref = t.prazo_fatal && (!t.prazo || t.prazo_fatal <= t.prazo) ? t.prazo_fatal : t.prazo, fatal = ref === t.prazo_fatal;
     if (!ref) return;
     const d = diasAte(ref);
-    if (minha && [5, 2, 1, 0].includes(d)) al.push({ nivel: d <= 1 ? 'alto' : 'medio', titulo: (fatal ? '⚑ Prazo fatal ' : 'Prazo ') + (d === 0 ? 'HOJE' : 'em ' + d + ' dia(s)') + ': ' + t.titulo, detalhe: dataBR(ref), tarefa: t.id });
-    else if (minha && d < 0) al.push({ nivel: 'alto', titulo: 'Atrasada há ' + (-d) + ' dia(s): ' + t.titulo, detalhe: (fatal ? 'prazo fatal ' : 'prazo ') + dataBR(ref), tarefa: t.id });
-    else if (admin && !minha && d < -3) al.push({ nivel: 'medio', titulo: 'Equipe: ' + t.titulo + ' atrasada há ' + (-d) + ' dias', detalhe: t.responsavel || 'sem responsável', tarefa: t.id });
+    if (minha && [5, 2, 1, 0].includes(d)) add({ nivel: d <= 1 ? 'alto' : 'medio', tipo: 'prazo', assunto: 'prazo:' + t.id + ':' + d, titulo: (fatal ? '⚑ Prazo fatal ' : 'Prazo ') + (d === 0 ? 'HOJE' : 'em ' + d + ' dia(s)') + ': ' + t.titulo, detalhe: dataBR(ref), tarefa: t.id });
+    else if (minha && d < 0) add({ nivel: 'alto', tipo: 'prazo', assunto: 'atrasada:' + t.id, titulo: 'Atrasada há ' + (-d) + ' dia(s): ' + t.titulo, detalhe: (fatal ? 'prazo fatal ' : 'prazo ') + dataBR(ref), tarefa: t.id });
+    else if (admin && !minha && d < -3) add({ nivel: 'medio', tipo: 'equipe', assunto: 'equipe:' + t.id, titulo: 'Equipe: ' + t.titulo + ' atrasada há ' + (-d) + ' dias', detalhe: t.responsavel || 'sem responsável', tarefa: t.id });
   });
-  docs.forEach((x) => al.push({ nivel: x.validade < h ? 'alto' : 'medio', titulo: 'Documento ' + (x.validade < h ? 'vencido' : 'vencendo') + ': ' + x.nome, detalhe: dataBR(x.validade) + ' · ' + nomeCliente(x.cliente_id), cliente: x.cliente_id }));
-  certs.forEach((x) => al.push({ nivel: x.validade < h ? 'alto' : 'medio', titulo: 'Certidão ' + x.orgao + ' ' + (x.validade < h ? 'vencida' : 'vencendo'), detalhe: dataBR(x.validade) + ' · ' + nomeCliente(x.cliente_id), cliente: x.cliente_id }));
+  docs.forEach((x) => add({ nivel: x.validade < h ? 'alto' : 'medio', tipo: 'documento', assunto: 'doc:' + x.id, titulo: 'Documento ' + (x.validade < h ? 'vencido' : 'vencendo') + ': ' + x.nome, detalhe: dataBR(x.validade) + ' · ' + nomeCliente(x.cliente_id), cliente: x.cliente_id }));
+  certs.forEach((x) => add({ nivel: x.validade < h ? 'alto' : 'medio', tipo: 'certidao', assunto: 'cert:' + x.id, titulo: 'Certidão ' + x.orgao + ' ' + (x.validade < h ? 'vencida' : 'vencendo'), detalhe: dataBR(x.validade) + ' · ' + nomeCliente(x.cliente_id), cliente: x.cliente_id }));
+  // financeiro e acordos: um aviso por assunto (não um por lançamento), com o total
+  [['escritorio', 'Jurídico', 'financeiro_juridico'], ['contabilidade', 'Contabilidade', 'financeiro_contab']].forEach(([emp, rot, f]) => {
+    if (!pode(f)) return;
+    const hoje = lanc.filter((l) => l.empresa === emp && l.vencimento === h), atr = lanc.filter((l) => l.empresa === emp && l.vencimento < h);
+    if (hoje.length) add({ nivel: 'alto', tipo: 'financeiro', assunto: 'vencehoje:' + emp, titulo: hoje.length + ' honorário(s) ' + rot + ' vencem hoje', detalhe: brl(soma(hoje, vl)) + ' · confira se entrou e dê baixa', tela: 'hoje' });
+    if (atr.length) add({ nivel: 'medio', tipo: 'financeiro', assunto: 'atraso:' + emp, titulo: atr.length + ' honorário(s) ' + rot + ' em atraso', detalhe: brl(soma(atr, vl)) + ' · cobrar ou dar baixa', tela: 'hoje' });
+  });
+  const acH = acs.filter((a) => a.vencimento === h), acA = acs.filter((a) => a.vencimento < h);
+  if (acH.length) add({ nivel: 'alto', tipo: 'acordo', assunto: 'acordohoje', titulo: acH.length + ' parcela(s) de acordo vencem hoje', detalhe: brl(soma(acH, (a) => a.valor)) + ' · lembrar o cliente', tela: 'acordos' });
+  if (acA.length) add({ nivel: 'medio', tipo: 'acordo', assunto: 'acordoatraso', titulo: acA.length + ' parcela(s) de acordo vencidas', detalhe: brl(soma(acA, (a) => a.valor)) + ' · confirmar pagamento com o cliente', tela: 'acordos' });
+  const lidas = new Set(lidos.map((x) => x.chave));
+  al.forEach((a) => { a.lido = !!(a.chave && lidas.has(a.chave)); });
   const ordem = { alto: 0, medio: 1, info: 2 };
-  return al.sort((a, b) => ordem[a.nivel] - ordem[b.nivel]);
+  return al.sort((a, b) => (a.lido - b.lido) || (ordem[a.nivel] - ordem[b.nivel]));
+}
+const ICONE_AVISO = { prazo: '⏰', equipe: '👥', documento: '📄', certidao: '📜', financeiro: '💰', acordo: '🤝', rascunho: '📝', publicacao: '⚖', mencao: '💬', revisao: '🔎', acesso: '🔐', tarefa: '✅', cnpj: '🏢' };
+async function marcarAvisosLidos(lista) {
+  const nots = lista.filter((a) => a.notif).map((a) => a.notif), chaves = lista.filter((a) => a.chave).map((a) => ({ chave: a.chave }));
+  if (nots.length) await q(sb.from('notificacoes').update({ lida: true }).in('id', nots));
+  if (chaves.length) await q(sb.from('avisos_lidos').upsert(chaves, { onConflict: 'usuario_id,chave', ignoreDuplicates: true }));
 }
 async function abrirAlertas(ancora, aoMudar) {
   if (!E.clientes.length) await carregarCadastros();
-  const al = await coletarAlertas();
-  const j = abrirJanela({ titulo: 'Avisos', larga: false,
-    corpo: al.length ? '<div class="lista-ficha">' + al.map((a, i) => '<div class="item-ficha alerta-' + a.nivel + '"><div><b>' + esc(a.titulo) + '</b><div class="sub">' + esc(a.detalhe || '') + '</div></div>' +
-      '<span>' + (a.tarefa || a.cliente ? '<button class="btn btn-o btn-mini" data-al-abrir="' + i + '">Abrir</button> ' : '') +
-      (a.notif ? '<button class="btn btn-o btn-mini" data-al-lida="' + i + '">Lida</button>' : '') + '</span></div>').join('') + '</div>' : '<div class="vazio">Nenhum aviso agora. 🎉</div>',
-    rodape: al.some((a) => a.notif) ? '<span></span><button class="btn btn-o" type="button" id="al-todas">Marcar todas como lidas</button>' : '' });
-  const lida = async (ids) => { if (ids.length) await q(sb.from('notificacoes').update({ lida: true }).in('id', ids)); if (aoMudar) aoMudar(); };
-  j.querySelectorAll('[data-al-lida]').forEach((b) => b.onclick = () => comBotao(b, async () => { await lida([al[+b.dataset.alLida].notif]); b.closest('.item-ficha').remove(); }));
-  j.querySelectorAll('[data-al-abrir]').forEach((b) => b.onclick = () => comBotao(b, async () => {
-    const a = al[+b.dataset.alAbrir];
-    if (a.tarefa) { const t = await q(sb.from('tarefas').select('*').eq('id', a.tarefa).single()); formTarefa(t, async () => { if (aoMudar) aoMudar(); }); }
-    else if (a.cliente) abrirFicha(a.cliente, 'documentos');
-  }));
-  const todas = j.querySelector('#al-todas');
-  if (todas) todas.onclick = () => comBotao(todas, async () => { await lida(al.filter((a) => a.notif).map((a) => a.notif)); fecharJanela(j); });
+  const todos = await coletarAlertas();
+  let aba = 'novos';
+  const j = abrirJanela({ titulo: '🔔 Avisos', larga: true, corpo: '<div id="cx-avisos"></div>',
+    rodape: '<span class="sub">Lido some da caixa. Se o assunto não for resolvido, volta na próxima leva (urgentes: amanhã; demais: semana que vem).</span><button class="btn btn-o" type="button" id="al-todas">✓ Marcar todos como lidos</button>' });
+  j.querySelector('.janela').classList.add('cx-janela');
+  const pintar = () => {
+    const novos = todos.filter((a) => !a.lido), lidos = todos.filter((a) => a.lido), lista = aba === 'novos' ? novos : lidos;
+    j.querySelector('#cx-avisos').innerHTML =
+      '<div class="segmento cx-abas"><button data-cx="novos" class="' + (aba === 'novos' ? 'ativo' : '') + '">Não lidos (' + novos.length + ')</button><button data-cx="lidos" class="' + (aba === 'lidos' ? 'ativo' : '') + '">Lidos nesta leva (' + lidos.length + ')</button></div>' +
+      (lista.length ? '<div class="cx-lista">' + lista.map((a) => { const i = todos.indexOf(a); return '<div class="cx-item nivel-' + a.nivel + (a.lido ? ' lido' : '') + '">' +
+        '<span class="cx-ic" aria-hidden="true">' + (ICONE_AVISO[a.tipo] || '🔔') + '</span><div class="cx-txt"><b>' + esc(a.titulo) + '</b><div class="sub">' + esc(a.detalhe || '') + (a.quando ? ' · ' + quandoRodou(a.quando) : '') + '</div></div>' +
+        '<div class="cx-acoes">' + (a.tarefa || a.cliente || a.tela || a.link ? '<button class="btn btn-o btn-mini" data-al-abrir="' + i + '">Abrir</button>' : '') +
+        (a.lido ? '' : '<button class="btn btn-mini btn-o" data-al-lida="' + i + '" title="Marcar como lido">✓ Lido</button>') + '</div></div>'; }).join('') + '</div>'
+        : '<div class="vazio">' + (aba === 'novos' ? 'Tudo lido. 🎉 Os avisos voltam se o assunto continuar pendente.' : 'Nada lido nesta leva.') + '</div>');
+    j.querySelector('#al-todas').hidden = !novos.length;
+    j.querySelectorAll('[data-cx]').forEach((b) => b.onclick = () => { aba = b.dataset.cx; pintar(); });
+    j.querySelectorAll('[data-al-lida]').forEach((b) => b.onclick = () => comBotao(b, async () => { const a = todos[+b.dataset.alLida]; await marcarAvisosLidos([a]); a.lido = true; pintar(); if (aoMudar) aoMudar(); }));
+    j.querySelectorAll('[data-al-abrir]').forEach((b) => b.onclick = () => comBotao(b, async () => {
+      const a = todos[+b.dataset.alAbrir];
+      if (!a.lido) { await marcarAvisosLidos([a]); a.lido = true; if (aoMudar) aoMudar(); }
+      if (a.tarefa) { const t = await q(sb.from('tarefas').select('*').eq('id', a.tarefa).single()); formTarefa(t, async () => { if (aoMudar) aoMudar(); }); }
+      else if (a.cliente) abrirFicha(a.cliente, 'documentos');
+      else { fecharJanela(j); irParaTela(a.tela || a.link); }
+    }));
+  };
+  pintar();
+  j.querySelector('#al-todas').onclick = (ev) => comBotao(ev.currentTarget, async () => { const n = todos.filter((a) => !a.lido); await marcarAvisosLidos(n); n.forEach((a) => { a.lido = true; }); pintar(); if (aoMudar) aoMudar(); });
 }
 async function contarAlertas() {
-  const al = await coletarAlertas();
-  return { total: al.length, altos: al.filter((a) => a.nivel === 'alto').length };
+  const al = (await coletarAlertas()).filter((a) => !a.lido);
+  return { total: al.length, altos: al.filter((a) => a.nivel === 'alto').length, lista: al };
 }
 
 // Google Agenda: link secreto da pessoa (função erp-agenda) — o Google assina e atualiza sozinho

@@ -390,6 +390,75 @@
 .gs .ap-tab{width:auto;min-width:50%}
 .gs .ap-tab th,.gs .ap-tab td{text-transform:none;letter-spacing:0;background:none;border:0;font-size:12.5px;white-space:normal}
 .gs .ap-tab tr{border-bottom:1px dashed var(--border)}
+.gs tr.linha-hoje>td{background:var(--amber-lt)}
+.gs .ini-atraso .card{margin-bottom:16px}
+.gs .cx-janela{max-width:760px}
+.gs .cx-abas{margin-bottom:12px}
+.gs .cx-lista{display:flex;flex-direction:column;gap:8px}
+.gs .cx-item{display:flex;align-items:center;gap:12px;padding:11px 12px;border:1px solid var(--border);border-left:4px solid var(--blue);border-radius:12px;background:var(--surface)}
+.gs .cx-item.nivel-alto{border-left-color:var(--red)}
+.gs .cx-item.nivel-medio{border-left-color:var(--amber)}
+.gs .cx-item.lido{opacity:.62}
+.gs .cx-ic{font-size:20px;width:28px;text-align:center;flex-shrink:0}
+.gs .cx-txt{flex:1;min-width:0}
+.gs .cx-acoes{display:flex;gap:6px;flex-shrink:0}
+@media (max-width:600px){.gs .cx-item{flex-wrap:wrap}
+.gs .cx-acoes{width:100%;justify-content:flex-end}
+}
+.gs .al-radar{display:flex;align-items:center;gap:22px;padding:18px 22px;margin-bottom:16px;border-radius:18px;border:1px solid var(--border);background:var(--surface);box-shadow:var(--shadow-sm)}
+.gs .al-radar.al-critico{background:linear-gradient(120deg,var(--red-lt),var(--surface) 60%)}
+.gs .al-radar.al-atencao{background:linear-gradient(120deg,var(--amber-lt),var(--surface) 60%)}
+.gs .al-radar.al-ok{background:linear-gradient(120deg,var(--green-lt),var(--surface) 60%)}
+.gs .al-anel{--c:var(--green);width:104px;height:104px;flex-shrink:0;border-radius:50%;display:grid;place-content:center;text-align:center;position:relative;
+  background:conic-gradient(var(--c) calc(var(--p)*1%),var(--gray-mid) 0);animation:al-gira .9s ease-out}
+.gs .al-critico .al-anel{--c:var(--red)}
+.gs .al-atencao .al-anel{--c:var(--amber)}
+.gs .al-anel::before{content:'';position:absolute;inset:10px;border-radius:50%;background:var(--surface)}
+.gs .al-anel b,.gs .al-anel span{position:relative}
+.gs .al-anel b{font-size:28px;line-height:1;color:var(--ink);font-variant-numeric:tabular-nums}
+.gs .al-anel span{font-size:11px;color:var(--text3)}
+@keyframes al-gira{from{transform:rotate(-90deg) scale(.85);opacity:0}to{transform:none;opacity:1}}
+.gs .al-radar-txt{flex:1;min-width:0}
+.gs .al-radar-txt h2{font-size:20px;color:var(--ink);letter-spacing:-.02em}
+.gs .al-radar-txt p{color:var(--text2);font-size:13px;margin-top:2px}
+.gs .al-contas{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.gs .al-conta{font:650 12px var(--font-ui,inherit);padding:3px 10px;border-radius:99px}
+.gs .al-conta.critico{background:var(--red-lt);color:var(--red-d)}
+.gs .al-conta.atencao{background:var(--amber-lt);color:var(--amber-d)}
+.gs .al-conta.ok{background:var(--green-lt);color:var(--green-d)}
+.gs .al-filtros{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px}
+.gs .al-filtros button{border:1px solid var(--border-strong);background:var(--surface);border-radius:99px;padding:4px 11px;font:600 12px inherit;color:var(--text2);cursor:pointer}
+.gs .al-filtros button.ativo{background:var(--ac-navy);border-color:var(--ac-navy);color:#fff}
+.gs .al-feed{display:flex;flex-direction:column;gap:8px;margin-bottom:18px}
+.gs .al-card.al-linha{display:flex;align-items:center;gap:14px;border-left-width:5px;border-radius:14px;padding:12px 16px;animation:al-entra .35s ease-out both;animation-delay:calc(var(--k)*45ms)}
+@keyframes al-entra{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.gs .al-linha .al-ic{font-size:22px;width:36px;height:36px;display:grid;place-items:center;border-radius:10px;background:var(--surface2);flex-shrink:0}
+.gs .al-linha .al-meio{flex:1;min-width:0;display:flex;flex-direction:column}
+.gs .al-linha .al-rot{text-transform:none;letter-spacing:0;font-size:14px;color:var(--ink);font-weight:650}
+.gs .al-linha .al-val{margin:0;font-size:18px}
+.gs .al-linha .al-ir{font:650 12px inherit;color:var(--blue-d);white-space:nowrap}
+.gs .al-linha.al-critico .al-ic{background:var(--red-lt)}
+.gs .al-linha.al-atencao .al-ic{background:var(--amber-lt)}
+.gs .al-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:18px}
+.gs .al-card.al-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid rgba(21,128,61,.25);border-left:1px solid rgba(21,128,61,.25);border-radius:99px;padding:5px 12px;background:var(--green-lt)}
+.gs .al-chip .al-rot{text-transform:none;letter-spacing:0;font-size:12.5px;color:var(--green-d)}
+.gs .al-chip .al-val{font-size:12.5px;margin:0;color:var(--green-d)}
+.gs .al-chip.al-info{background:var(--surface2);border-color:var(--border-strong)}
+.gs .al-chip.al-info .al-rot,.gs .al-chip.al-info .al-val{color:var(--text2)}
+.gs .al-rotinas{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px;margin-bottom:18px}
+.gs .al-card.al-rotina{display:grid;grid-template-columns:auto 1fr auto;grid-template-areas:'pt rot val' 'pt det det';column-gap:10px;align-items:center;border-left-width:1px;border-radius:12px;padding:10px 12px}
+.gs .al-rotina .al-pt{grid-area:pt;width:10px;height:10px;border-radius:50%;background:var(--green);box-shadow:0 0 0 4px var(--green-lt)}
+.gs .al-rotina.al-critico .al-pt{background:var(--red);box-shadow:0 0 0 4px var(--red-lt);animation:al-pulsa 1.6s infinite}
+.gs .al-rotina.al-atencao .al-pt{background:var(--amber);box-shadow:0 0 0 4px var(--amber-lt)}
+@keyframes al-pulsa{50%{box-shadow:0 0 0 7px var(--red-lt)}}
+.gs .al-rotina .al-rot{grid-area:rot;text-transform:none;letter-spacing:0;font-size:13px;color:var(--ink)}
+.gs .al-rotina .al-val{grid-area:val;font-size:12.5px;margin:0}
+.gs .al-rotina .al-det{grid-area:det;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:600px){.gs .al-radar{flex-direction:column;text-align:center}
+.gs .al-contas,.gs .al-filtros{justify-content:center}
+.gs .al-linha .al-ir{display:none}
+}
+.gs .previa-email{width:100%;height:70vh;border:1px solid var(--border);border-radius:12px;background:#F0F2F7}
 /* cores do ERP, tamanhos do Gestão */
 .gs{background:none!important;min-height:0!important}
 .gs .duas-col>*,.gs .card{min-width:0}

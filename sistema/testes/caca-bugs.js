@@ -134,6 +134,8 @@ function medir(painel) {
   for (const tema of TEMAS) for (const w of LARGURAS) {
     const ctx = await b.newContext({ viewport: { width: w, height: 900 } });
     await ctx.addInitScript((t) => { try { localStorage.setItem('erp_tema', t); } catch (e) { /* sem armazenamento */ } }, tema === 'escuro' ? 'escuro' : 'claro');
+    // o cartão "avisos novos" (canto da tela, some sozinho) não faz parte das telas medidas
+    await ctx.addInitScript(() => { document.addEventListener('DOMContentLoaded', () => { const st = document.createElement('style'); st.textContent = '#gx-pop-avisos{display:none!important}'; document.head.appendChild(st); }); });
     const p = await ctx.newPage(); p.on('dialog', (d) => d.dismiss());
     await p.goto(BASE + '/'); await p.waitForSelector('#ac-login-email', { state: 'visible' });
     await p.fill('#ac-login-email', 'pedro@teste'); await p.fill('#ac-login-senha', 'senha123'); await p.click('#ac-login-btn');
