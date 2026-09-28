@@ -52,6 +52,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
 
 (async () => {
   const b = await chromium.launch();
+  const paginasCob = []; // COBERTURA=arquivo.json: quais funções do ERP rodaram durante o teste (inventário de código morto)
   const erros = [], bloqueios = [], externos = [];
   try {
     async function pagina(largura) {
@@ -61,6 +62,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       p.on('console', (m) => { if (/Content Security Policy|Refused to/i.test(m.text())) bloqueios.push(m.text()); });
       p.on('request', (q) => { if (/script\.google|cdnjs/.test(q.url())) externos.push(q.url()); });
       p.on('dialog', (d) => d.accept());
+      if (process.env.COBERTURA) { await p.coverage.startJSCoverage({ resetOnNavigation: false }); paginasCob.push(p); }
       return p;
     }
     const foto = async (p, nome) => { if (FOTOS) await p.screenshot({ path: FOTOS + '/erp-' + nome + '.png' }); };
@@ -544,6 +546,12 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       const rs = (v) => 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       ok('Início usa os totais do banco (resumo_financeiro)', [t.escritorio.recebido, t.escritorio.a_receber, t.escritorio.em_atraso].every((v) => txt.replace(/\u00a0/g, ' ').includes(rs(v))), JSON.stringify(t.escritorio)); }
 
+    // ── simplificação: relatório padrão também em Clientes ──
+    await nav(p, 'clientes'); await p.waitForTimeout(1200);
+    await p.click('#cli-relatorio'); await p.waitForSelector('#gs-raiz .janela [data-rel-csv]'); await p.waitForTimeout(300);
+    ok('Clientes: relatório da lista filtrada com CSV', /Clientes \(\d+\)/.test(await p.textContent('#gs-raiz .janela h2')) && (await p.$$('#gs-raiz .janela tbody tr')).length === Number(sql("select count(*) from clientes where tipo <> 'Inativo'")));
+    await p.keyboard.press('Escape'); await p.waitForTimeout(200);
+
     // ── design: modo escuro, estado vazio e tabelas longas ──
     await nav(p, 'hoje'); await p.waitForTimeout(800);
     await p.click('#gs-tema'); await p.waitForTimeout(300);
@@ -573,6 +581,11 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
   } catch (e) {
     console.error(e); ok('sem exceção no teste', false);
   } finally {
+    if (process.env.COBERTURA) {
+      const tudo = [];
+      for (const pg of paginasCob) { try { tudo.push(...await pg.coverage.stopJSCoverage()); } catch (e) { /* página já fechada */ } }
+      require('fs').writeFileSync(process.env.COBERTURA, JSON.stringify(tudo.filter((x) => /\/(index\.html)?(\?|$)|gestao-embutida|editor\.js|erp-telas\.js|erp-dados\.js/.test(x.url))));
+    }
     await b.close();
   }
   ok('sem erros de JavaScript', erros.length === 0, erros.slice(0, 5).join(' | '));

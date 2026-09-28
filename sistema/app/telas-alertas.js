@@ -131,14 +131,7 @@ function irTelaAlerta(t) { if (typeof window.nav === 'function') window.nav(null
 function relatorioAlerta(a) {
   const r = a.rel;
   if (!r.colunas) { if (r.tela) irTelaAlerta(r.tela); return; }
-  const j = abrirJanela({ titulo: r.titulo + ' (' + r.linhas.length + ')', larga: true,
-    corpo: r.linhas.length ? '<div class="tabela-wrap" style="max-height:60vh;overflow:auto"><table class="ordenavel"><thead><tr>' + r.colunas.map((c) => '<th>' + esc(c) + '</th>').join('') + '</tr></thead><tbody>' +
-      r.linhas.map((l, i) => '<tr' + (r.ids ? ' class="clicavel" data-cli="' + r.ids[i] + '"' : '') + '>' + l.map((v) => '<td>' + esc(v == null ? '' : v) + '</td>').join('') + '</tr>').join('') + '</tbody></table></div>' : '<div class="vazio">Nada aqui. 🎉</div>',
-    rodape: '<button class="btn btn-o" type="button" id="al-csv">⬇ CSV</button><div class="acoes">' + (r.tela ? '<button class="btn btn-p" type="button" id="al-ir">Abrir a tela</button>' : '') + '</div>' });
-  j.querySelectorAll('[data-cli]').forEach((tr) => tr.onclick = () => abrirFicha(tr.dataset.cli));
-  j.querySelector('#al-csv').onclick = () => baixarArquivo(r.titulo.replace(/[\\/:*?"<>|]/g, '-') + ' ' + hojeISO() + '.csv',
-    '﻿' + [r.colunas].concat(r.linhas).map((l) => l.map((v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(';')).join('\r\n'), 'text/csv;charset=utf-8');
-  const ir = j.querySelector('#al-ir'); if (ir) ir.onclick = () => { fecharJanela(j); irTelaAlerta(r.tela); };
+  relatorioTabela(Object.assign({}, r, r.tela ? { acao: { rotulo: 'Abrir a tela', fn: () => irTelaAlerta(r.tela) } } : {}));
 }
 
 // Cartão CNPJ: última execução, o que mudou, erros, histórico e a API usada
