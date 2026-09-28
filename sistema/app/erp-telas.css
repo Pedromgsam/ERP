@@ -363,3 +363,8 @@ html[data-tema="escuro"] #panel-notificacoes .btn-p{background:#2E5EAA!important
 /* números das tabelas: o mesmo desenho do "Resumo mensal" (Inter, algarismos alinhados) em todas as telas */
 body.gx-barra-topo .gs table td.num,body.gx-barra-topo .gs table td.mono,body.gx-barra-topo .gs table tfoot td{font-family:var(--font-ui)!important;font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1,"lnum" 1}
 body.gx-barra-topo .gs table td.num{font-size:13px}
+/* celular: cartões de progresso (parcela e saldo) quebram em linhas em vez de sair da tela */
+@media (max-width:600px){
+  .pc-item > div:first-child{flex-wrap:wrap;gap:6px}
+  .pc-item > div:first-child > div:last-child{flex-wrap:wrap;gap:4px 10px}
+}

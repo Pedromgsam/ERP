@@ -6,7 +6,7 @@ function jwt(c) { const h = b64({ alg: 'HS256', typ: 'JWT' }), p = b64(c); retur
 function carregarFuncao(base, nome) {
   const fonte = fs.readFileSync(path.join(__dirname, '..', '..', 'supabase', 'functions', nome, 'index.ts'), 'utf8')
     .replace(/^import .*$/mg, '').replace(/^export\s+/mg, '').replace(/Deno\.serve\([\s\S]*$/, '') + '\nthis.tratar = tratar;';
-  const ctx = { fetch: (...a) => ctx._fetch(...a), _fetch: fetch, Response, Headers, JSON, String, Number, Date, Error, console, URL, Blob, TextEncoder };
+  const ctx = { fetch: (...a) => ctx._fetch(...a), _fetch: fetch, Response, Headers, JSON, String, Number, Date, Error, console, URL, Blob, TextEncoder, btoa };
   vm.createContext(ctx); vm.runInContext(fonte, ctx);
   const sbCtx = { fetch, Headers, Request, Response, URL, URLSearchParams, AbortController, setTimeout, clearTimeout, console, TextEncoder, TextDecoder,
     crypto: globalThis.crypto, atob, btoa, Blob, FormData, WebSocket, setInterval, clearInterval, queueMicrotask, structuredClone };
@@ -30,6 +30,10 @@ function carregarCnpj(base) {
   const { ctx, servico } = carregarFuncao(base, 'erp-cnpj');
   return { tratar: (req) => ctx.tratar(req, servico, fetch, async () => {}), ctx };
 }
+function carregarPgfn(base) {
+  const { ctx, servico } = carregarFuncao(base, 'erp-pgfn');
+  return { tratar: (req) => ctx.tratar(req, servico, fetch, async () => {}), ctx };
+}
 function carregarAgenda(base) {
   const { ctx, servico } = carregarFuncao(base, 'erp-agenda');
   return { tratar: (req) => ctx.tratar(req, servico), ctx };
@@ -38,4 +42,4 @@ function carregarBackup(base) {
   const { ctx, servico } = carregarFuncao(base, 'erp-backup');
   return { tratar: (req) => ctx.tratar(req, servico), ctx };
 }
-module.exports = { carregar, carregarPublicacoes, carregarCnpj, carregarAgenda, carregarBackup, jwt };
+module.exports = { carregar, carregarPublicacoes, carregarCnpj, carregarPgfn, carregarAgenda, carregarBackup, jwt };

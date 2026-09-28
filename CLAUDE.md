@@ -30,11 +30,11 @@ Lido automaticamente no início de cada conversa. Mantenha atualizado a cada ent
 ## Infraestrutura
 - Supabase: `https://kukpiyqwtaeuvkvfrjjm.supabase.co` (Postgres, Auth, Storage privado "documentos", pg_cron, pg_net).
 - Vercel publica `sistema/app/` (headers em `sistema/app/vercel.json`).
-- Edge Functions (`supabase/functions/`), nomes exatos: **erp-emails**, **erp-publicacoes**, **erp-cnpj**.
+- Edge Functions (`supabase/functions/`), nomes exatos: **erp-emails**, **erp-publicacoes**, **erp-cnpj**, **erp-agenda**, **erp-backup**, **erp-pgfn**.
   Todas aceitam `{acao:'ping'}` e têm `const VERSAO`. Autenticação: header `x-erp-segredo`
   (`config_privada.segredo_funcoes`, usado pelo cron) ou JWT de admin.
 - Rotinas (pg_cron, UTC): e-mails, publicações, regras de tarefas, `erp_mensalidades` (09:30),
-  `erp_cnpj` (09:00 = 6h de Brasília).
+  `erp_cnpj` (09:00 = 6h de Brasília), `erp_pgfn` (09:15), `erp_fotos_mensais` (dia 1, 10:00).
 
 ## Arquitetura do front (`sistema/app/`)
 - `index.html` = ERP. **Gerado** a partir de `#Sistemas/2 - ERP/ERP.html` + remendos em
@@ -80,16 +80,21 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
-- Última entrega: **Backup 13** — Início (A receber = hoje→fim do mês; Em atraso Jurídico|Contabilidade inteiro, "vence hoje");
-  caixa de avisos (`avisos_lidos`, chave = assunto@leva; `levaDoAviso`; cartão `#gx-pop-avisos` ao abrir); nome do usuário
-  (`salvar_meu_nome`, ⋯ → Meu nome); telas do ERP antigo via `montar-erp.js` (Painel: `_donutComLegenda`; Processos sem Visão Geral,
-  chips múltiplos `_procChips`; Parcelamentos `_parcOrdenados` + tabela; Acordos `_acordosAnalise`; Financeiro abas coloridas,
-  `_barrasComValor`, `data-aba` no conteúdo); Alertas em radar/feed; Notificações → "Cobranças, avisos e recibos" (fora do MENU, botões
-  `.gx-cobrar`); e-mails ao cliente com `email_cliente_html`/`email_cliente_enviar`/`contato_do_cliente` (finalidade), `enviar_email_manual`,
-  `previa_email_cliente`, `configuracoes.dados_pagamento`, regra `email_lembrete_parcelamento`, e-mails ligados; recibo com valor por extenso;
-  demonstração `carregar_demonstracao`/`limpar_demonstracao`; gestao.html fora do site. `estrutura.sql` = 3241 linhas.
-- Documentos: `sistema/PROXIMOS-PASSOS.md`, `sistema/VIABILIDADE-INTEGRACOES.md` (RFB/SERPRO, PGFN dados abertos, SIARE, Sicoob OFX/API).
-- Funções do Supabase: erp-emails, erp-publicacoes, erp-cnpj, erp-agenda, erp-backup (nenhuma mudou no Backup 13).
-- Aguardando o usuário: preencher Administração → E-mail → Dados para pagamento; decidir tabela × gráfico (Parcelamentos) e gráficos
-  dos Acordos; se quer a conciliação por OFX do Sicoob e a importação grátis da PGFN (dados abertos).
-- Próxima rodada sugerida: conciliação OFX (Sicoob), PGFN dados abertos, migração das telas antigas (`INVENTARIO-SIMPLIFICACAO.md`).
+- Última entrega: **Backup 14** — consertos da revisão (janela de e-mail `_aoFechar` no `fecharJanela`; redutor fora dos e-mails;
+  finalidade cobrança = financeiro; lembretes em faixa com marcadores `_item` em `automacoes_log`; example.com nunca recebe);
+  Alertas (filtro com `[hidden]`), botão voltar (`pushState #tela` + `popstate` no `window.nav`), rodapé some sozinho.
+  Início: fila 8 + "Ver todas"/"Minimizar" (`FILA`), ficha de leitura da tarefa `abrirTarefa` (Concluir/Encaminhar/Subtarefa/Editar),
+  pessoas por lista (`pessoasEscritorio`, `selectPessoa`, participantes marcáveis), cartões → `relatorioHonorarios`, "Atrasados"
+  com selos vencidos/vence hoje, "Registrar pagamento" (clicar na linha abre a baixa). Telas antigas (montar-erp.js): valores inteiros,
+  números pretos, `_chipQuitados`/`_verQuitados`, tabelas no lugar de gráficos, `mCh` põe valor em toda barra deitada, `encolherSelos`.
+  Processos em tela nova (`telas-processos.js`, painel `processosNovo`; ⋯ → tela antiga via `localStorage erp_proc_antiga`).
+  Banco v20: `perfil_email`/`emails_tipos` + `pode_email`/`salvar_perfil_email` (Administração → E-mails aos clientes);
+  `usuarios_previstos` (aplicado em `criar_perfil`); `fotos_mensais` + `foto_do_grupo`/`tirar_fotos_mensais` (cron dia 1; ficha → Evolução);
+  `extrato_itens` (OFX, `telas-ofx.js`); `pgfn_inscricoes`/`pgfn_execucoes` + `api_pgfn` em config_privada (função erp-pgfn, cron 06h15,
+  frequência diaria|semanal|mensal); `processos.status_em`. Clientes: "Por grupo" e "Editar em tabela". `estrutura.sql` = 3597 linhas.
+- Documentos: `sistema/PROXIMOS-PASSOS.md`, `sistema/VIABILIDADE-INTEGRACOES.md` (RFB/SERPRO, PGFN pela API, SIARE, Sicoob OFX/API).
+- Funções do Supabase: erp-emails, erp-publicacoes, erp-cnpj, erp-agenda, erp-backup, **erp-pgfn** (nova no Backup 14).
+- Aguardando o usuário: criar as 4 contas (Administração → Usuários → Acessos combinados); contratar a API "Consulta Dívida Ativa"
+  do SERPRO e salvar a chave em Alertas → PGFN; Integra Contador depois; boletos: não por enquanto; Financeiro: 9 sugestões aguardando
+  escolha (não executar sem autorização).
+- Próxima rodada sugerida: migrar Parcelamentos, Acordos e Financeiro (`INVENTARIO-SIMPLIFICACAO.md`), Integra Contador quando contratado.

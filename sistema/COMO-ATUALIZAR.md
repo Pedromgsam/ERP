@@ -24,11 +24,11 @@ Os arquivos podem ser rodados quantas vezes quiser: não apagam nada.
 Se aparecer **ERROR** em vermelho: tire um print e mande antes de continuar.
 Enquanto o SQL não for rodado, o ERP mostra um aviso amarelo dizendo o que falta — o resto funciona.
 
-## 2b. Funções do Supabase — e-mails, publicações, cartão CNPJ, agenda e backup
-Os avisos por e-mail, a busca de publicações, o cartão CNPJ, a agenda do Google e o backup semanal rodam em cinco
-"funções" dentro do Supabase.
+## 2b. Funções do Supabase — e-mails, publicações, cartão CNPJ, agenda, backup e PGFN
+Os avisos por e-mail, a busca de publicações, o cartão CNPJ, a agenda do Google, o backup semanal e a consulta da PGFN
+rodam em seis "funções" dentro do Supabase.
 
-**Atenção ao nome:** tem que ser exatamente `erp-emails`, `erp-publicacoes`, `erp-cnpj`, `erp-agenda` e `erp-backup`,
+**Atenção ao nome:** tem que ser exatamente `erp-emails`, `erp-publicacoes`, `erp-cnpj`, `erp-agenda`, `erp-backup` e `erp-pgfn`,
 tudo em minúsculas e com hífen.
 Se o nome for outro (ex.: "ERP-email"), o ERP não encontra a função. Para conferir, vá em Administração → ✉ E-mail →
 **🩺 Verificar funções**. A tela mostra ✅ ou ❌ para cada uma e diz o que corrigir.
@@ -50,6 +50,8 @@ Isso é feito **uma vez**; depois só muda se uma pull request pedir.
 7. Repita os passos 1 a 5 com o nome **erp-cnpj** e o arquivo `supabase/functions/erp-cnpj/index.ts`.
 8. Repita os passos 1 a 5 com o nome **erp-agenda** e o arquivo `supabase/functions/erp-agenda/index.ts`.
 9. Repita os passos 1 a 5 com o nome **erp-backup** e o arquivo `supabase/functions/erp-backup/index.ts`.
+10. Repita os passos 1 a 5 com o nome **erp-pgfn** e o arquivo `supabase/functions/erp-pgfn/index.ts`
+    (Backup 14). Ela **não gasta nada** enquanto a chave do SERPRO não for salva (veja a seção PGFN abaixo).
 
 **Configurar dentro do ERP:**
 - **E-mail:** Administração → **✉ E-mail** → escolha "Gmail do escritório", informe o e-mail e a **senha de app**
@@ -131,3 +133,27 @@ Quando quiser seguir em frente, faça o mesmo na publicação mais nova (⋯ →
 ### O Gestão antigo saiu do site (Backup 13)
 O `gestao.html` foi apagado do site, com sua autorização. Todas as telas dele já estão dentro do ERP.
 Se precisar dele de volta, basta voltar a publicação na Vercel (passo A acima) ou pedir.
+
+
+## Backup 14 — o que mudou e onde clicar
+- **Usuários novos:** Administração → **👤 Usuários** → cartão **Acessos combinados** → **Criar conta** em cada pessoa
+  (Emanuelle, Adriana, João Vitor, Éder). Escolha uma senha provisória e passe para a pessoa. A função já vem certa
+  (Éder = Adm. da Contabilidade, só clientes da contabilidade; João Vitor = estagiário em rascunho, Jurídico e Contabilidade).
+- **E-mails por cliente:** Administração → **📨 E-mails aos clientes**. Cada cliente tem um perfil:
+  *Padrão* · *Só no vencimento* · *Não enviar financeiro* · *Personalizado*. Muda na própria linha, ou marque vários e use
+  "Aplicar aos marcados". Também aparece no cadastro do cliente ("E-mails de cobrança").
+- **Conciliar extrato (OFX):** Financeiro → Jurídico (ou Contabilidade) → botão **🏦 Conciliar extrato** no topo → escolha o
+  arquivo .ofx exportado do Sicoob → confira os três grupos (identificados, em dúvida, não identificados) → **Registrar pagamentos marcados**.
+- **Evolução do cliente:** ficha do cliente → aba **📈 Evolução** (passivo, CAPAG e processos: "devia X, hoje deve Y").
+  A primeira foto é tirada ao rodar o SQL; o comparativo aparece a partir do mês seguinte.
+- **Editar em tabela:** Clientes → **✎ Editar em tabela** (passivo, CEAT e CAPAG de vários clientes; aceita colar do Excel).
+  Estagiário: cada linha vira uma proposta em Aprovações.
+- **Processos (tela nova):** Jurídico → Processos já abre na tela nova. Para voltar à antiga neste computador:
+  **⋯** (canto de cima) → **⚖ Processos: tela antiga** (clique de novo para voltar à nova).
+
+## PGFN — dívida ativa pela API do SERPRO (paga)
+1. Contrate na Loja SERPRO a API **Consulta Dívida Ativa** (cobrança por consulta; confira a tabela antes).
+2. Na área do cliente SERPRO copie a **Consumer Key** e a **Consumer Secret**.
+3. No ERP: **Alertas** → cartão **PGFN — dívida ativa** → cole as duas chaves → escolha a frequência
+   (todo dia, toda segunda ou todo dia 1º) → marque **Rotina ligada** → **Salvar** → **↻ Consultar agora**.
+4. O resultado atualiza os campos PGFN (em cobrança) e PGFN negociada (parcelada) e aparece na ficha do cliente → aba **PGFN**.

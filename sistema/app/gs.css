@@ -492,6 +492,43 @@
 .gs .ini-atraso-area.area-jur{background:var(--blue-lt);color:var(--blue-d)}
 .gs .ini-atraso-area.area-cont{background:#EDE7FB;color:#5B2E9E}
 .gs .ini-atraso-selos{margin-left:auto;display:inline-flex;gap:6px;flex-wrap:wrap}
+.gs .cli-tabela tr.cli-grp td{background:#f3f5fa;color:var(--navy);font-weight:700;font-size:13px;padding:9px 12px;border-top:1px solid var(--border)}
+.gs .cli-tabela tr.cli-grp td .sub{font-weight:500;margin-left:6px}
+.gs .cem-perfis{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}
+.gs .cem-perfil{border:1px solid var(--border);border-radius:12px;padding:10px 12px;background:#fafbfd;display:flex;flex-direction:column;gap:3px}
+.gs .cem-perfil b{color:var(--ink);font-size:14px}
+.gs .cem-perfil span{font-size:12.5px;color:var(--text2);line-height:1.4}
+.gs .cem-perfil-sel{min-width:190px}
+.gs .ev-frase{font-size:14.5px;line-height:1.6;color:var(--ink);background:#f7f8fb;border:1px solid var(--border);border-left:4px solid var(--navy3);border-radius:12px;padding:12px 16px;margin-bottom:14px}
+.gs .ev-pior{color:var(--red-d);font-weight:700;white-space:nowrap}
+.gs .ev-melhor{color:var(--green-d);font-weight:700;white-space:nowrap}
+.gs .janela.janela-massa{max-width:min(1280px,96vw)}
+.gs .massa-wrap{max-height:62vh;overflow:auto}
+.gs table.massa td{padding:3px 4px}
+.gs table.massa input,.gs table.massa select{width:100%;min-width:84px;border:1px solid transparent;border-radius:6px;padding:6px 7px;font:inherit;font-size:13px;background:transparent;color:var(--ink)}
+.gs table.massa input[data-k="nome"]{min-width:200px}
+.gs table.massa input.num{text-align:right;font-variant-numeric:tabular-nums}
+.gs table.massa input:focus,.gs table.massa select:focus{outline:none;border-color:var(--navy3);background:#fff;box-shadow:var(--glow)}
+.gs table.massa td.mudou{background:#FFF4D6}
+.gs table.massa td.mudou input,.gs table.massa td.mudou select{font-weight:700}
+.gs .tres-col{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:12px}
+@media (max-width:1000px){.gs .tres-col{grid-template-columns:1fr}
+}
+.gs .pill.pill-grupo{background:#EEF2FA;color:var(--navy);border:1px solid #D5DDEE;white-space:normal;word-break:normal;overflow-wrap:normal;max-width:150px;display:inline-block;line-height:1.3;text-align:left}
+.gs .janela.janela-ofx{max-width:min(1100px,96vw)}
+.gs .ofx-it{display:grid;grid-template-columns:auto minmax(200px,1fr) auto minmax(260px,1.4fr);align-items:center;gap:10px}
+.gs label.ofx-it{cursor:pointer}
+.gs .item-ficha.ofx-it:not(label){grid-template-columns:minmax(200px,1fr) auto minmax(260px,1.4fr)}
+.gs .ofx-t b{font-size:14.5px;color:var(--ink)}
+.gs .ofx-seta{color:var(--text3);font-weight:700}
+.gs .ofx-l{font-size:13px;color:var(--text)}
+.gs .ofx-sel{width:100%;max-width:none}
+@media (max-width:760px){.gs .ofx-it,.gs .item-ficha.ofx-it:not(label){grid-template-columns:1fr}
+.gs .ofx-seta{display:none}
+}
+@media (max-width:600px){.gs .item-ficha{flex-wrap:wrap}
+.gs .item-ficha > span:last-child{flex-wrap:wrap}
+}
 /* cores do ERP, tamanhos do Gestão */
 .gs{background:none!important;min-height:0!important}
 .gs .duas-col>*,.gs .card{min-width:0}

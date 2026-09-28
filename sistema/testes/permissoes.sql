@@ -455,3 +455,80 @@ select pg_temp.ok(public.limpar_demonstracao()=6,'apagar a demonstração remove
 select pg_temp.ok((select count(*) from grupos where nome like 'DEMO%')=0,'apagar a demonstração não deixa rastro');
 commit;
 select pg_temp.ok((select email from public.contato_do_cliente((select id from clientes where nome='Só Jurídico Ltda'),null,'financeiro')) is null,'sem e-mail cadastrado, nenhum e-mail ao cliente');
+
+-- v20 (Backup 14): perfil de e-mail por cliente, consertos dos e-mails, usuários previstos, extrato, fotos, PGFN
+insert into clientes(nome,email,perfil_email) values ('Perfil Nunca Ltda','nunca@cliente.test','nunca'),('Perfil Venc Ltda','venc@cliente.test','vencimento'),('Perfil Padrao Ltda','padrao@cliente.test','padrao');
+select pg_temp.ok(not public.pode_email((select id from clientes where nome='Perfil Nunca Ltda'),null,'lembrete') and not public.pode_email((select id from clientes where nome='Perfil Nunca Ltda'),null,'recibo')
+  and public.pode_email((select id from clientes where nome='Perfil Nunca Ltda'),null,'parcelamento'),'perfil "Não enviar financeiro": sem lembrete/recibo; guia de parcelamento continua');
+select pg_temp.ok(public.pode_email((select id from clientes where nome='Perfil Venc Ltda'),null,'vencimento') and not public.pode_email((select id from clientes where nome='Perfil Venc Ltda'),null,'cobranca')
+  and not public.pode_email((select id from clientes where nome='Perfil Venc Ltda'),null,'lembrete'),'perfil "Só no vencimento": aviso no dia, sem lembrete antes nem cobrança');
+select pg_temp.ok(not public.pode_email((select id from clientes where nome='Perfil Padrao Ltda'),null,'vencimento') and public.pode_email((select id from clientes where nome='Perfil Padrao Ltda'),null,'cobranca'),'perfil Padrão: lembrete e cobrança, sem aviso no dia');
+update regras_tarefas set ligada=true, dias=3 where chave in ('email_lembrete_honorario','email_lembrete_parcelamento');
+insert into lancamentos(empresa,tipo,descricao,cliente_id,vencimento,valor) select 'escritorio','receita','Honorário perfil',id,current_date+2,1000 from clientes where nome in ('Perfil Nunca Ltda','Perfil Padrao Ltda','Perfil Venc Ltda');
+insert into lancamentos(empresa,tipo,descricao,cliente_id,vencimento,valor,redutor) select 'escritorio','receita','Comissão do indicador',id,current_date+2,100,true from clientes where nome='Perfil Padrao Ltda';
+insert into lancamentos(empresa,tipo,descricao,cliente_id,vencimento,valor) select 'escritorio','receita','Vence hoje perfil',id,current_date,500 from clientes where nome='Perfil Venc Ltda';
+select public.rodar_emails_cliente();
+select pg_temp.ok((select count(*) from email_fila where para='padrao@cliente.test')=1 and (select html from email_fila where para='padrao@cliente.test') not like '%Comissão do indicador%','lembrete vai ao perfil Padrão e não inclui a comissão (redutor)');
+select pg_temp.ok((select count(*) from email_fila where para='nunca@cliente.test')=0 and exists (select 1 from automacoes_log where descricao like 'Não enviado (perfil%'),'perfil "Não enviar financeiro": nenhum e-mail, fica registrado que foi pulado');
+select pg_temp.ok((select count(*) from email_fila where para='venc@cliente.test')=1 and (select assunto from email_fila where para='venc@cliente.test') like '%vencimento hoje%','perfil "Só no vencimento": só o aviso do dia');
+select public.rodar_emails_cliente();
+select pg_temp.ok((select count(*) from email_fila where para in ('padrao@cliente.test','venc@cliente.test'))=2,'rodar de novo no mesmo dia não repete o e-mail');
+select pg_temp.ok((select count(*) from automacoes_log where chave='_item')>0 and not ((select public.resumo_automacoes()) ? '_item'),'marcadores por lançamento não entram na contagem das automações');
+-- contato com finalidade "cobrança" vale como financeiro
+insert into contatos(cliente_id,nome,finalidade,email) select id,'Geral','geral','geral@cliente.test' from clientes where nome='Perfil Padrao Ltda';
+insert into contatos(cliente_id,nome,finalidade,email) select id,'Cobrança','cobranca','cobra@cliente.test' from clientes where nome='Perfil Padrao Ltda';
+select pg_temp.ok((select email from public.contato_do_cliente((select id from clientes where nome='Perfil Padrao Ltda'),null,'financeiro'))='cobra@cliente.test','contato com finalidade Cobrança recebe os e-mails financeiros');
+-- parcelamento: vencimento dentro da faixa (fim de semana não escapa)
+insert into parcelamentos(empresa,cnpj,natureza,numero,total_parcelas,valor_ultima_parcela) values ('Perfil Padrao Ltda','','Simples','PP-1','10',300);
+update clientes set cpf_cnpj='' where nome='Perfil Padrao Ltda';
+insert into parcelas(parcelamento_id,numero,vencimento) select id,'1',current_date+1 from parcelamentos where numero='PP-1';
+select public.rodar_emails_cliente();
+select pg_temp.ok(exists (select 1 from automacoes_log where chave='email_lp'),'guia de parcelamento: vencimento antes do dia N também recebe o lembrete');
+-- demonstração não manda e-mail (example.com)
+begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-00000000000a');
+select public.carregar_demonstracao();
+commit;
+select pg_temp.ok((select count(*) from email_fila where para like '%example.com')=0,'dados de demonstração nunca geram e-mail');
+begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-00000000000a');
+select public.limpar_demonstracao();
+commit;
+-- perfil em lote: só quem edita Clientes
+begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-0000000000d2');
+do $$ begin
+  perform public.salvar_perfil_email(array[(select id from clientes where nome='Só Jurídico Ltda')],'nunca',null);
+  raise exception 'FALHOU: estagiário mudou o perfil de e-mail';
+exception when raise_exception then
+  if sqlerrm like 'FALHOU%' then raise; end if; raise notice 'PASSA: perfil de e-mail só quem edita Clientes';
+end $$;
+commit;
+begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-00000000000b');
+select pg_temp.ok(public.salvar_perfil_email(array[(select id from clientes where nome='Perfil Venc Ltda')],'padrao',null)=1,'equipe muda o perfil de e-mail');
+select pg_temp.ok((select count(*) from usuarios_previstos)=0,'equipe não vê os acessos combinados');
+do $$ begin
+  perform public.tirar_fotos_mensais();
+  raise exception 'FALHOU: equipe tirou foto mensal';
+exception when raise_exception then
+  if sqlerrm like 'FALHOU%' then raise; end if; raise notice 'PASSA: foto mensal manual só o administrador';
+end $$;
+select pg_temp.ok((select count(*) from public.pgfn_execucoes) >= 0 and (public.status_config_pgfn() ? 'consumer_key') = false,'a chave do SERPRO nunca volta para a tela');
+commit;
+begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-00000000000a');
+select pg_temp.ok((select count(*) from usuarios_previstos)=4,'admin vê os 4 acessos combinados (Emanuelle, Adriana, João Vitor, Éder)');
+commit;
+-- criar a conta com o e-mail combinado já dá o acesso certo
+insert into auth.users (id,email) values ('00000000-0000-0000-0000-0000000000e1','ederpsique@gmail.com');
+select pg_temp.ok((select papel||'|'||areas||'|'||(funcoes->>'financeiro_contab') from perfis where email='ederpsique@gmail.com')='equipe|contabil|editar' and not exists (select 1 from usuarios_previstos where email='ederpsique@gmail.com'),
+  'Éder nasce como Adm. da Contabilidade (só clientes da contabilidade)');
+delete from auth.users where email='ederpsique@gmail.com';
+-- extrato (OFX): só quem edita o financeiro daquela empresa
+begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-0000000000d1');
+do $$ begin
+  insert into extrato_itens(fitid,empresa,data,valor) values ('X1','escritorio',current_date,10);
+  raise exception 'FALHOU: sem financeiro gravou extrato';
+exception when others then
+  if sqlerrm like 'FALHOU%' then raise; end if; raise notice 'PASSA: extrato só quem edita o financeiro';
+end $$;
+commit;
+insert into grupos(nome) values ('Grupo Foto Teste') on conflict do nothing;
+select public.tirar_fotos_mensais();
+select pg_temp.ok((select count(*) from fotos_mensais where mes=date_trunc('month',current_date)::date) >= 1,'foto mensal do passivo por grupo');

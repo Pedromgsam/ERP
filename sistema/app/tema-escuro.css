@@ -202,6 +202,12 @@ html[data-tema="escuro"] .gs .au-trilho::after{background:var(--surface)}
 html[data-tema="escuro"] .gs .al-card.al-chip{border:1px solid rgba(255,255,255,0.22);border-left:1px solid rgba(255,255,255,0.22)}
 html[data-tema="escuro"] .gs .previa-email{background:#222428}
 html[data-tema="escuro"] .gs .ini-atraso-area.area-cont{background:#211a33;color:#baa5d9}
+html[data-tema="escuro"] .gs .cli-tabela tr.cli-grp td{background:#1d202a;color:var(--ink)}
+html[data-tema="escuro"] .gs .cem-perfil{background:var(--surface)}
+html[data-tema="escuro"] .gs .ev-frase{background:var(--surface2)}
+html[data-tema="escuro"] .gs table.massa input:focus,html[data-tema="escuro"] .gs table.massa select:focus{background:var(--surface)}
+html[data-tema="escuro"] .gs table.massa td.mudou{background:#3d3317}
+html[data-tema="escuro"] .gs .pill.pill-grupo{background:#1c222e;color:var(--ink);border:1px solid #262c38}
 html[data-tema="escuro"] #gs-hd .gs-marca-nome{color:#cdbb89}
 html[data-tema="escuro"] #gs-hd .tn-menu{background:var(--surface);border:1px solid rgba(255,255,255,0.066)}
 html[data-tema="escuro"] #gs-hd .tn-menu button{color:#d3d9e4}

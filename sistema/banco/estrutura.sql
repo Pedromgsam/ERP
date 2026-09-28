@@ -3440,25 +3440,39 @@ create policy fotos_mensais_ver on public.fotos_mensais for select to authentica
 create or replace function public.processo_encerrado(st text) returns boolean
 language sql immutable as $$ select coalesce(st, '') ~* '(arquiv|extint|baixad|encerrad|transitad)'; $$;
 
+-- a "foto" de um grupo (a mesma usada no comparativo "agora × mês X"). security invoker: cada pessoa vê o que pode ver
+create or replace function public.passivo_do_cliente(c public.clientes) returns numeric
+language sql immutable as $$
+  select coalesce(c.rfb,0) + coalesce(c.rfb_negociada,0) + coalesce(c.pgfn,0) + coalesce(c.pgfn_negociada,0) + coalesce(c.sefaz_mg,0) + coalesce(c.age_mg,0) + coalesce(c.age_mg_negociada,0);
+$$;
+create or replace function public.foto_do_grupo(p_grupo uuid) returns jsonb
+language sql stable set search_path = public as $$
+  select jsonb_build_object(
+      'passivo', jsonb_build_object(
+         -- dívida inteira do órgão (em aberto + negociada)
+         'rfb', coalesce(sum(coalesce(c.rfb,0) + coalesce(c.rfb_negociada,0)), 0), 'pgfn', coalesce(sum(coalesce(c.pgfn,0) + coalesce(c.pgfn_negociada,0)), 0),
+         'sefaz_mg', coalesce(sum(c.sefaz_mg), 0), 'age_mg', coalesce(sum(coalesce(c.age_mg,0) + coalesce(c.age_mg_negociada,0)), 0),
+         'total', coalesce(sum(public.passivo_do_cliente(c)), 0)),
+      'empresas', coalesce(jsonb_agg(jsonb_build_object('id', c.id, 'nome', c.nome, 'capag', c.capag,
+         'total', public.passivo_do_cliente(c)) order by c.nome) filter (where c.id is not null), '[]'),
+      'processos_ativos', (select coalesce(jsonb_agg(p.numero order by p.numero), '[]') from public.processos p where p.grupo_id = p_grupo and not public.processo_encerrado(p.status)),
+      'processos_encerrados', (select coalesce(jsonb_agg(p.numero order by p.numero), '[]') from public.processos p where p.grupo_id = p_grupo and public.processo_encerrado(p.status)),
+      'parcelamentos', (select count(*) from public.parcelamentos p where p.grupo_id = p_grupo),
+      'acordos_abertos', (select count(*) from public.acordos a where a.grupo_id = p_grupo and not a.pago),
+      'acordos_saldo', (select coalesce(sum(a.valor), 0) from public.acordos a where a.grupo_id = p_grupo and not a.pago))
+    from public.grupos g left join public.clientes c on c.grupo_id = g.id and c.tipo <> 'Inativo'
+   where g.id = p_grupo;
+$$;
+revoke all on function public.foto_do_grupo(uuid) from public, anon;
+grant execute on function public.foto_do_grupo(uuid) to authenticated;
+
 create or replace function public.tirar_fotos_mensais(p_mes date default null) returns int
 language plpgsql security definer set search_path = public as $$
 declare m date := date_trunc('month', coalesce(p_mes, current_date))::date; n int;
 begin
   if auth.uid() is not null and not public.eh_admin() then raise exception 'permission denied: só o administrador.'; end if;
   insert into public.fotos_mensais (grupo_id, mes, dados, tirada_em)
-  select g.id, m, jsonb_build_object(
-      'passivo', jsonb_build_object(
-         'rfb', coalesce(sum(c.rfb), 0), 'pgfn', coalesce(sum(c.pgfn), 0), 'sefaz_mg', coalesce(sum(c.sefaz_mg), 0), 'age_mg', coalesce(sum(c.age_mg), 0),
-         'total', coalesce(sum(coalesce(c.rfb,0) + coalesce(c.pgfn,0) + coalesce(c.sefaz_mg,0) + coalesce(c.age_mg,0)), 0)),
-      'empresas', coalesce(jsonb_agg(jsonb_build_object('id', c.id, 'nome', c.nome, 'capag', c.capag,
-         'total', coalesce(c.rfb,0) + coalesce(c.pgfn,0) + coalesce(c.sefaz_mg,0) + coalesce(c.age_mg,0)) order by c.nome) filter (where c.id is not null), '[]'),
-      'processos_ativos', (select coalesce(jsonb_agg(p.numero order by p.numero), '[]') from public.processos p where p.grupo_id = g.id and not public.processo_encerrado(p.status)),
-      'processos_encerrados', (select coalesce(jsonb_agg(p.numero order by p.numero), '[]') from public.processos p where p.grupo_id = g.id and public.processo_encerrado(p.status)),
-      'parcelamentos', (select count(*) from public.parcelamentos p where p.grupo_id = g.id),
-      'acordos_abertos', (select count(*) from public.acordos a where a.grupo_id = g.id and not a.pago),
-      'acordos_saldo', (select coalesce(sum(a.valor), 0) from public.acordos a where a.grupo_id = g.id and not a.pago)), now()
-    from public.grupos g left join public.clientes c on c.grupo_id = g.id and c.tipo <> 'Inativo'
-   group by g.id
+  select g.id, m, public.foto_do_grupo(g.id), now() from public.grupos g
   on conflict (grupo_id, mes) do update set dados = excluded.dados, tirada_em = now();
   get diagnostics n = row_count;
   return n;
