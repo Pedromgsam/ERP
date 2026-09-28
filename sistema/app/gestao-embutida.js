@@ -1701,6 +1701,7 @@ const ABAS_ADMIN = [
   { id: 'importar', rot: '📥 Importar planilhas' },
   { id: 'backup',   rot: '💾 Backup' },
   { id: 'historico', rot: '🕘 Histórico' },
+  { id: 'acessos', rot: '🔐 Acessos' },
   { id: 'email', rot: '✉ E-mail' }
 ];
 
@@ -1718,7 +1719,7 @@ async function pintarAdmin() {
   document.querySelectorAll('#adm-abas button').forEach((b) => b.classList.toggle('ativo', b.dataset.aba === E.adm.aba));
   const corpo = $('adm-corpo');
   corpo.innerHTML = '<div class="carregando">Carregando…</div>';
-  try { await ({ usuarios: admUsuarios, importar: admImportar, backup: admBackup, historico: admHistorico, email: admEmail })[E.adm.aba](corpo); }
+  try { await ({ usuarios: admUsuarios, importar: admImportar, backup: admBackup, historico: admHistorico, acessos: admAcessos, email: admEmail })[E.adm.aba](corpo); }
   catch (e) { console.error(e); corpo.innerHTML = '<div class="card"><div class="card-bd msg-erro">' + esc(erroAmigavel(e)) + '</div></div>'; }
 }
 
@@ -2026,16 +2027,56 @@ async function admBackup(corpo) {
     '1. Faça o backup toda semana (e antes de qualquer importação grande).<br>' +
     '2. Guarde numa pasta do seu Google Drive que só você acessa — não mande por e-mail nem WhatsApp.<br>' +
     '3. Mantenha a verificação em duas etapas ligada na sua conta Google.<br>' +
-    '4. O arquivo tem dados de clientes: trate como documento sigiloso (LGPD).</div></div></div>';
+    '4. O arquivo tem dados de clientes: trate como documento sigiloso (LGPD).</div></div></div>' +
+    '<div class="card"><div class="card-hd">🗓 Backups automáticos (todo domingo, 3h) <span class="sub" style="margin-left:auto">ficam as 8 últimas cópias, no armazenamento privado do sistema</span></div><div class="card-bd" id="bk-auto"><div class="carregando">Carregando…</div></div></div>';
   $('bk-excel').onclick = (ev) => comBotao(ev.currentTarget, () => fazerBackup('xlsx'));
   $('bk-json').onclick = (ev) => comBotao(ev.currentTarget, () => fazerBackup('json'));
+  await pintarBackupsAuto();
+}
+
+async function pintarBackupsAuto() {
+  const alvo = $('bk-auto'); if (!alvo) return;
+  const lista = await q(sb.from('backups_auto').select('*').order('criado_em', { ascending: false })).catch(() => null);
+  if (lista === null) { alvo.innerHTML = '<div class="dica">Rode o <b>estrutura.sql</b> novo e publique a função <b>erp-backup</b> para ligar o backup semanal.</div>'; return; }
+  alvo.innerHTML = '<div class="acoes" style="margin-bottom:10px"><button class="btn btn-o" id="bk-agora">↻ Fazer backup agora</button></div>' +
+    (lista.length ? '<div class="tabela-wrap"><table><thead><tr><th>Quando</th><th>Origem</th><th class="num">Tamanho</th><th>Registros</th><th></th></tr></thead><tbody>' +
+      lista.map((b) => '<tr><td class="mono">' + quandoRodou(b.criado_em) + '</td><td>' + (b.origem === 'rotina' ? 'semanal' : 'manual') + '</td>' +
+        '<td class="num mono">' + (b.tamanho > 1048576 ? (b.tamanho / 1048576).toFixed(1).replace('.', ',') + ' MB' : Math.max(1, Math.round(b.tamanho / 1024)) + ' KB') + '</td>' +
+        '<td class="sub">' + Object.values(b.resumo || {}).reduce((a, n) => a + n, 0) + ' em ' + Object.keys(b.resumo || {}).length + ' tabelas</td>' +
+        '<td class="acoes-l"><button class="btn btn-o btn-mini" data-bk="' + esc(b.caminho) + '">⬇ Baixar</button></td></tr>').join('') + '</tbody></table></div>'
+      : vazio('Nenhum backup automático ainda. O primeiro sai no próximo domingo, ou clique em "Fazer backup agora".'));
+  $('bk-agora').onclick = (ev) => comBotao(ev.currentTarget, async () => { const r = await chamarFuncao('erp-backup', { acao: 'rodar' }); aviso('✓ ' + (r.mensagem || 'Backup feito.')); await pintarBackupsAuto(); });
+  alvo.querySelectorAll('[data-bk]').forEach((b) => b.onclick = () => comBotao(b, async () => {
+    const { data, error } = await sb.storage.from('backups').createSignedUrl(b.dataset.bk, 60, { download: true });
+    if (error) throw error;
+    const a = document.createElement('a'); a.href = /^https?:/.test(data.signedUrl) ? data.signedUrl : String(CFG.url || location.origin).replace(/\/$/, '') + '/storage/v1' + data.signedUrl; a.download = b.dataset.bk; a.rel = 'noopener'; a.click();
+  }));
+}
+
+// ─────────────────────────── ACESSOS ───────────────────────────────
+async function admAcessos(corpo) {
+  const [lista, pessoas] = await Promise.all([
+    q(sb.from('acessos').select('*').order('quando', { ascending: false }).limit(300)).catch(() => null),
+    q(sb.from('perfis').select('id, nome, email'))
+  ]);
+  if (lista === null) { corpo.innerHTML = '<div class="card"><div class="card-bd dica">Rode o <b>estrutura.sql</b> novo para ligar o registro de acessos.</div></div>'; return; }
+  const nome = (id) => { const p = pessoas.find((x) => x.id === id); return p ? (p.nome || p.email) : '—'; };
+  corpo.innerHTML = '<div class="card"><div class="card-hd">🔐 Últimos acessos <span class="sub" style="margin-left:auto">guardados por 180 dias · aparelho novo avisa a própria pessoa por e-mail</span></div>' +
+    (lista.length ? '<div class="tabela-wrap"><table class="ordenavel"><thead><tr><th data-tipo="data">Quando</th><th>Pessoa</th><th>Aparelho / navegador</th><th></th></tr></thead><tbody>' +
+      lista.map((a) => '<tr><td class="mono" data-ord="' + a.quando + '">' + quandoRodou(a.quando) + '</td><td>' + esc(nome(a.usuario_id)) + '</td><td class="sub">' + esc(a.navegador || '—') + '</td>' +
+        '<td>' + (a.novo ? '<span class="pill hoje">aparelho novo</span>' : '') + '</td></tr>').join('') + '</tbody></table></div>' : vazio('Nenhum acesso registrado ainda.')) + '</div>';
 }
 
 async function fazerBackup(formato) {
   const prog = $('bk-prog'), dados = {};
+  // todas as tabelas do sistema (mesma lista do backup automático); banco antigo: a lista fixa
+  const tabelas = await q(sb.rpc('listar_tabelas_backup')).catch(() => null) || TABELAS_BACKUP;
+  TABELAS_BACKUP.length = 0; tabelas.forEach((t) => TABELAS_BACKUP.push(t));
+  const ORD = { historico: 'id', perfil_grupos: 'perfil_id', configuracoes: 'chave', cliente_etiquetas: 'cliente_id', salarios_minimos: 'ano' };
   for (const t of TABELAS_BACKUP) {
     prog.textContent = 'Lendo ' + t + '…';
-    dados[t] = await buscarTodos(() => sb.from(t).select('*').order(t === 'historico' ? 'id' : t === 'perfil_grupos' ? 'perfil_id' : t === 'configuracoes' ? 'chave' : 'criado_em'));
+    dados[t] = await buscarTodos(() => sb.from(t).select('*').order(ORD[t] || 'id'))
+      .catch(() => buscarTodos(() => sb.from(t).select('*')));
   }
   const carimbo = new Date().toISOString().slice(0, 16).replace('T', ' ').replace(':', 'h');
   const nome = 'Backup ERP Araujo e Castro ' + carimbo;
@@ -4306,6 +4347,19 @@ TELAS.alertas = async function () {
     !ultPub || !ultPub.valor ? 'atencao' : (ultPub.valor.erros || []).length ? 'critico' : 'ok', { tela: 'publicacoes' });
   add('Rotinas', 'Regras de tarefas', ultReg && ultReg.valor ? quandoCurto(ultReg.valor.quando) : 'nunca rodou', ultReg && ultReg.valor ? ultReg.valor.criadas + ' criada(s) na última execução' : '',
     ultReg && ultReg.valor ? 'ok' : 'info', { tela: 'tarefas' });
+  // saúde do sistema e backup semanal (só o administrador)
+  if (E.perfil && E.perfil.papel === 'admin') {
+    const s = await q(sb.rpc('saude_sistema')).catch(() => null);
+    if (s) {
+      const pct = (a, b) => Math.round(100 * (a || 0) / b), mb = (x) => (x / 1048576).toFixed(x < 10485760 ? 1 : 0).replace('.', ',') + ' MB';
+      const pb = pct(s.banco_bytes, s.banco_limite), pa = pct(s.arquivos_bytes, s.arquivos_limite), maior = Math.max(pb, pa);
+      add('Rotinas', 'Saúde do sistema', 'Banco ' + pb + '% · Arquivos ' + pa + '%', mb(s.banco_bytes) + ' de 500 MB · ' + mb(s.arquivos_bytes) + ' de 1 GB (plano grátis)',
+        maior >= 90 ? 'critico' : maior >= 70 ? 'atencao' : 'ok', { saude: s });
+      const dias = s.ultimo_backup ? Math.floor((Date.now() - new Date(s.ultimo_backup)) / 86400000) : null;
+      add('Rotinas', 'Backup semanal', s.ultimo_backup ? quandoCurto(s.ultimo_backup) : 'nunca rodou', s.ultimo_backup ? 'há ' + dias + ' dia(s) · 8 cópias guardadas' : 'publique a função erp-backup',
+        dias === null ? 'atencao' : dias > 8 ? 'critico' : 'ok', { backup: true });
+    }
+  }
 
   const setores = [...new Set(A.map((a) => a.setor))];
   const criticos = A.filter((a) => a.nivel === 'critico').length, atencao = A.filter((a) => a.nivel === 'atencao').length;
@@ -4313,7 +4367,7 @@ TELAS.alertas = async function () {
     kpi('Tudo certo', String(A.filter((a) => a.nivel === 'ok').length), 'verde', 'de ' + A.length + ' verificações') + '</div>' +
     setores.map((st) => '<div class="kpis-titulo">' + esc(st) + '</div><div class="al-grade">' + A.map((a, i) => a.setor !== st ? '' :
       '<button type="button" class="al-card al-' + a.nivel + '" data-al="' + i + '"><div class="al-rot">' + esc(a.rot) + '</div><div class="al-val">' + esc(a.valor) + '</div><div class="al-det">' + esc(a.det) + '</div></button>').join('') + '</div>').join('');
-  $('al-corpo').querySelectorAll('[data-al]').forEach((b) => b.onclick = () => { const a = A[+b.dataset.al]; if (a.rel.cnpj) janelaCnpj(cnpj); else relatorioAlerta(a); });
+  $('al-corpo').querySelectorAll('[data-al]').forEach((b) => b.onclick = () => { const a = A[+b.dataset.al]; if (a.rel.cnpj) janelaCnpj(cnpj); else if (a.rel.saude) janelaSaude(a.rel.saude); else if (a.rel.backup) irTelaAlerta('admin', 'backup'); else relatorioAlerta(a); });
 };
 
 function quandoCurto(v) {
@@ -4321,7 +4375,16 @@ function quandoCurto(v) {
   const hora = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   return (d.toDateString() === new Date().toDateString() ? 'hoje ' : d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + ' ') + hora;
 }
-function irTelaAlerta(t) { if (typeof window.nav === 'function') window.nav(null, t); else irPara(t); }
+function janelaSaude(s) {
+  const mb = (x) => (x / 1048576).toFixed(1).replace('.', ',') + ' MB';
+  const barra = (usado, lim) => { const p = Math.min(100, Math.round(100 * usado / lim)); return '<div style="height:10px;border-radius:6px;background:var(--surface3);overflow:hidden;margin:4px 0 10px"><div style="width:' + p + '%;height:100%;background:' + (p >= 90 ? 'var(--red)' : p >= 70 ? 'var(--amber)' : 'var(--green)') + '"></div></div>'; };
+  abrirJanela({ titulo: 'Saúde do sistema', corpo:
+    '<p><b>Banco de dados:</b> ' + mb(s.banco_bytes) + ' de 500 MB</p>' + barra(s.banco_bytes, s.banco_limite) +
+    '<p><b>Arquivos (documentos e backups):</b> ' + mb(s.arquivos_bytes) + ' de 1 GB · ' + s.arquivos_qtd + ' arquivo(s)</p>' + barra(s.arquivos_bytes, s.arquivos_limite) +
+    '<div class="secao">Maiores tabelas</div><div class="tabela-wrap"><table><tbody>' + (s.maiores || []).map((m) => '<tr><td>' + esc(m.tabela) + '</td><td class="num mono">' + mb(m.bytes) + '</td></tr>').join('') + '</tbody></table></div>' +
+    '<div class="dica" style="margin-top:10px">Limites do plano grátis do Supabase. Passando de 70%, vale limpar arquivos antigos ou avaliar o plano Pro (US$ 25/mês: 8 GB de banco e 100 GB de arquivos).</div>' });
+}
+function irTelaAlerta(t, aba) { if (aba && t === 'admin') { E.adm = Object.assign(E.adm || {}, { aba }); } if (typeof window.nav === 'function') window.nav(null, t); else irPara(t); }
 
 function relatorioAlerta(a) {
   const r = a.rel;

@@ -2141,3 +2141,118 @@ begin
 end $$;
 revoke all on function public.meu_link_agenda(boolean) from public, anon;
 grant execute on function public.meu_link_agenda(boolean) to authenticated;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- v16 — Segurança e rotina: backup semanal automático, saúde do sistema e registro de acessos
+-- ═══════════════════════════════════════════════════════════════════
+-- tabelas que entram no backup (manual e automático): todas do sistema, menos segredos e filas técnicas
+create or replace function public.listar_tabelas_backup() returns text[]
+language sql stable security definer set search_path = public as $$
+  select coalesce(array_agg(table_name::text order by table_name), '{}')
+    from information_schema.tables
+   where table_schema = 'public' and table_type = 'BASE TABLE'
+     and table_name not in ('config_privada', 'agenda_links', 'email_fila', 'acessos', 'backups_auto');
+$$;
+revoke all on function public.listar_tabelas_backup() from public, anon;
+grant execute on function public.listar_tabelas_backup() to authenticated;
+
+create table if not exists public.backups_auto (
+  id uuid primary key default gen_random_uuid(),
+  criado_em timestamptz not null default now(),
+  origem text not null default 'rotina',          -- rotina (semanal) | manual
+  caminho text not null,                          -- arquivo no bucket privado "backups"
+  tamanho bigint not null default 0,
+  resumo jsonb not null default '{}'::jsonb       -- registros por tabela
+);
+alter table public.backups_auto enable row level security;
+revoke all on public.backups_auto from anon;
+grant select on public.backups_auto to authenticated;
+drop policy if exists backups_auto_ver on public.backups_auto;
+create policy backups_auto_ver on public.backups_auto for select to authenticated using (public.eh_admin());
+
+do $$
+begin
+  if exists (select 1 from information_schema.schemata where schema_name = 'storage') then
+    insert into storage.buckets (id, name, public, file_size_limit)
+    values ('backups', 'backups', false, 209715200) on conflict (id) do nothing;
+    execute 'drop policy if exists backups_ver on storage.objects';
+    execute 'create policy backups_ver on storage.objects for select to authenticated using (bucket_id = ''backups'' and public.eh_admin())';
+  end if;
+exception when others then raise notice 'Storage indisponível aqui (normal no teste local).';
+end $$;
+
+-- toda semana, domingo às 3h de Brasília (6h UTC)
+do $$
+begin
+  perform cron.unschedule(jobid) from cron.job where jobname = 'erp_backup';
+  perform cron.schedule('erp_backup', '0 6 * * 0', $cron$
+    select net.http_post(
+      url := (select valor #>> '{}' from public.config_privada where chave = 'url_projeto') || '/functions/v1/erp-backup',
+      headers := jsonb_build_object('Content-Type', 'application/json', 'x-erp-segredo', (select valor #>> '{}' from public.config_privada where chave = 'segredo_funcoes')),
+      body := '{"acao":"rodar"}'::jsonb)
+  $cron$);
+exception when others then
+  raise notice 'Agendador indisponível: use "Fazer backup agora" em Administração → Backup.';
+end $$;
+
+-- saúde do sistema (admin): tamanho do banco e dos arquivos x limites do plano grátis do Supabase
+create or replace function public.saude_sistema() returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+declare arq bigint := 0; nobj int := 0;
+begin
+  if not public.eh_admin() then raise exception 'Só o administrador vê a saúde do sistema.'; end if;
+  begin
+    execute 'select coalesce(sum((metadata->>''size'')::bigint), 0), count(*) from storage.objects' into arq, nobj;
+  exception when others then arq := 0; nobj := 0;
+  end;
+  return jsonb_build_object(
+    'banco_bytes', pg_database_size(current_database()), 'banco_limite', 500 * 1024 * 1024,
+    'arquivos_bytes', arq, 'arquivos_qtd', nobj, 'arquivos_limite', 1024 * 1024 * 1024,
+    'ultimo_backup', (select max(criado_em) from public.backups_auto),
+    'maiores', (select coalesce(jsonb_agg(x), '[]') from (
+        select relname as tabela, pg_total_relation_size(c.oid) as bytes
+          from pg_class c join pg_namespace n on n.oid = c.relnamespace
+         where n.nspname = 'public' and c.relkind = 'r' order by 2 desc limit 6) x));
+end $$;
+revoke all on function public.saude_sistema() from public, anon;
+grant execute on function public.saude_sistema() to authenticated;
+
+-- registro de acessos: quem entrou, quando e de qual aparelho; aparelho novo avisa a própria pessoa
+create table if not exists public.acessos (
+  id bigint generated always as identity primary key,
+  usuario_id uuid not null references public.perfis(id) on delete cascade,
+  quando timestamptz not null default now(),
+  dispositivo text not null default '',          -- identificador aleatório guardado no navegador
+  navegador text not null default '',
+  novo boolean not null default false
+);
+create index if not exists acessos_usuario on public.acessos (usuario_id, quando desc);
+alter table public.acessos enable row level security;
+revoke all on public.acessos from anon;
+grant select on public.acessos to authenticated;
+drop policy if exists acessos_ver on public.acessos;
+create policy acessos_ver on public.acessos for select to authenticated using (public.eh_admin() or usuario_id = auth.uid());
+
+create or replace function public.registrar_acesso(p_dispositivo text, p_navegador text) returns boolean
+language plpgsql security definer set search_path = public as $$
+declare ja_viu boolean; tem_antes boolean; nav text := left(coalesce(p_navegador, ''), 120);
+begin
+  if auth.uid() is null then return false; end if;
+  perform pg_advisory_xact_lock(hashtext('acesso:' || auth.uid()::text));   -- duas abas ao mesmo tempo: uma espera a outra
+  -- no máximo um registro por pessoa/aparelho a cada 30 min (recarregar a página não conta)
+  if exists (select 1 from public.acessos where usuario_id = auth.uid() and dispositivo = coalesce(p_dispositivo, '') and quando > now() - interval '30 minutes') then
+    return false;
+  end if;
+  select exists (select 1 from public.acessos where usuario_id = auth.uid() and dispositivo = coalesce(p_dispositivo, '')) into ja_viu;
+  select exists (select 1 from public.acessos where usuario_id = auth.uid()) into tem_antes;
+  insert into public.acessos (usuario_id, dispositivo, navegador, novo) values (auth.uid(), coalesce(p_dispositivo, ''), nav, tem_antes and not ja_viu);
+  if tem_antes and not ja_viu then
+    insert into public.notificacoes (usuario_id, tipo, titulo, detalhe, link)
+    values (auth.uid(), 'acesso', 'Novo acesso ao ERP de um aparelho novo', nav || ' · ' || to_char(now() at time zone 'America/Sao_Paulo', 'DD/MM/YYYY HH24:MI') ||
+            '. Se não foi você, troque sua senha e avise o administrador.', 'hoje');
+  end if;
+  delete from public.acessos where quando < now() - interval '180 days';
+  return tem_antes and not ja_viu;
+end $$;
+revoke all on function public.registrar_acesso(text, text) from public, anon;
+grant execute on function public.registrar_acesso(text, text) to authenticated;

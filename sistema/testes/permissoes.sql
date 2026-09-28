@@ -299,3 +299,35 @@ update lancamentos set pago = true where descricao like 'Consultoria João — c
 update contratos set rescindido_em='2027-09-10' where descricao='Consultoria João';
 select pg_temp.ok((select max(competencia) from lancamentos where descricao like 'Consultoria João%')='2027-08-01','rescindido em set/2027: cobra até a competência de ago/2027');
 select pg_temp.ok((select count(*) from lancamentos where descricao like 'Consultoria João — competência 11/2026' and pago)=1,'mensalidade já paga não some na rescisão');
+
+-- v13–v16: desempenho, CNPJ, agenda, backup e acessos
+select pg_temp.ok((select (public.resumo_financeiro('contabilidade','2026-01-01','2026-12-31') -> 'contabilidade') is not null),'resumo_financeiro devolve os totais por empresa');
+insert into clientes(nome, cpf_cnpj, situacao_cadastral, responsavel) values ('Empresa Receita Teste','99888777000166','ATIVA','Ana');
+update clientes set situacao_cadastral='BAIXADA' where nome='Empresa Receita Teste';
+select pg_temp.ok((select count(*) from tarefas where chave_regra like 'cnpj:%' and titulo like '%Empresa Receita Teste ficou BAIXADA%')=1,'empresa BAIXADA na Receita vira tarefa');
+update clientes set situacao_cadastral='ATIVA' where nome='Empresa Receita Teste';
+select pg_temp.ok((select count(*) from tarefas where chave_regra like 'cnpj:%' and titulo like '%Empresa Receita Teste%')=1,'voltar a ATIVA não cria tarefa');
+insert into backups_auto(caminho) values ('teste.json');
+begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-00000000000b');
+select pg_temp.ok((select count(*) from backups_auto)=0,'equipe não vê a lista de backups');
+select pg_temp.ok(length(public.meu_link_agenda())>=32,'equipe gera o próprio link de agenda');
+select pg_temp.ok(public.registrar_acesso('aparelho-1','Chrome · Windows') = false,'primeiro acesso não é "aparelho novo"');
+select pg_temp.ok((select count(*) from acessos)=1,'cada pessoa vê os próprios acessos');
+do $$ begin
+  perform public.saude_sistema();
+  raise exception 'FALHOU: equipe viu a saúde do sistema';
+exception when raise_exception then
+  if sqlerrm like 'FALHOU%' then raise; end if;
+  raise notice 'PASSA: só o admin vê a saúde do sistema';
+end $$;
+commit;
+begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-00000000000b');
+do $$ begin
+  perform count(*) from public.agenda_links;
+  raise exception 'FALHOU: site leu os links de agenda';
+exception when insufficient_privilege then raise notice 'PASSA: links de agenda ficam fora do alcance do site';
+end $$;
+commit;
+begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-00000000000a');
+select pg_temp.ok((select count(*) from backups_auto)=1 and (public.saude_sistema() ->> 'banco_bytes')::bigint > 0,'admin vê backups e a saúde do sistema');
+commit;

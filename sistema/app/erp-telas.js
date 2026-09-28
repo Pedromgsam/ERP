@@ -238,6 +238,21 @@
     if (n) n.textContent = eu.nome || s.nome || eu.email || '';
   }
   document.addEventListener('erp:perfil', mostrarNome);
+  // registro de acesso (Administração → Acessos); aparelho novo avisa a própria pessoa
+  function nomeAparelho() {
+    const ua = navigator.userAgent;
+    const nav = /Edg\//.test(ua) ? 'Edge' : /OPR\//.test(ua) ? 'Opera' : /Chrome\//.test(ua) ? 'Chrome' : /Firefox\//.test(ua) ? 'Firefox' : /Safari\//.test(ua) ? 'Safari' : 'Navegador';
+    const so = /Windows/.test(ua) ? 'Windows' : /Android/.test(ua) ? 'Android' : /iPhone|iPad/.test(ua) ? 'iPhone/iPad' : /Mac OS/.test(ua) ? 'Mac' : /Linux/.test(ua) ? 'Linux' : '';
+    return nav + (so ? ' · ' + so : '') + (/Mobi/.test(ua) ? ' (celular)' : '');
+  }
+  document.addEventListener('erp:perfil', () => {
+    if (!['admin', 'equipe'].includes(window.ERP_PAPEL) || !window.SB || window._gxAcessoOk) return;
+    window._gxAcessoOk = true;
+    let id = '';
+    try { id = localStorage.getItem('erp_dispositivo') || ''; if (!id) { id = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2)).replace(/-/g, ''); localStorage.setItem('erp_dispositivo', id); } }
+    catch (e) { id = 'sem-armazenamento'; }
+    window.SB.rpc('registrar_acesso', { p_dispositivo: id, p_navegador: nomeAparelho() }).then(() => {}, () => {});
+  });
 
   // ═════ modo escuro nos gráficos: texto escuro vira claro, grade preta vira branca (e volta) ═════
   function temaEscuro() { return document.documentElement.getAttribute('data-tema') === 'escuro'; }

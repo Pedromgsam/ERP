@@ -578,6 +578,31 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.keyboard.press('Escape'); await p.waitForTimeout(200);
     sql("delete from tarefas where titulo in ('Audiência de instrução — Alfa','Audiência de outra pessoa','Contestação Beta')");
 
+    // ── segurança e rotina: acessos, backup semanal e saúde do sistema ──
+    ok('login fica registrado em Acessos', Number(sql("select count(*) from acessos a join perfis p on p.id=a.usuario_id where p.email='pedro@teste'")) >= 1);
+    { const n0 = Number(sql("select count(*) from notificacoes n join perfis p on p.id=n.usuario_id where p.email='pedro@teste' and n.tipo='acesso'"));
+      const pn = await pagina(); await entrar(pn, 'pedro@teste'); await pn.waitForTimeout(4000); await pn.context().close();
+      ok('entrar de um aparelho novo avisa a própria pessoa (notificação/e-mail)', Number(sql("select count(*) from notificacoes n join perfis p on p.id=n.usuario_id where p.email='pedro@teste' and n.tipo='acesso'")) === n0 + 1); }
+    await nav(p, 'admin'); await p.waitForTimeout(1000);
+    await p.click('#adm-abas [data-aba=acessos]'); await p.waitForTimeout(1200);
+    ok('Administração → Acessos lista quem entrou e marca aparelho novo', /Pedro/.test(await p.textContent('#adm-corpo')) && /aparelho novo/.test(await p.textContent('#adm-corpo')));
+    sql("insert into backups_auto(criado_em,origem,caminho,tamanho) select now() - (g||' days')::interval,'rotina','antigo-'||g||'.json',10 from generate_series(8,15) g");
+    await p.click('#adm-abas [data-aba=backup]'); await p.waitForSelector('#bk-agora'); await p.waitForTimeout(300);
+    await p.click('#bk-agora');
+    await p.waitForFunction(() => /Backup feito|não respondeu|falhou|não foi encontrada/.test(document.querySelector('#gs-raiz #aviso').textContent), null, { timeout: 20000 }).catch(() => {});
+    await p.waitForTimeout(1500);
+    { const arqs = await (await p.request.get(BASE + '/__teste/arquivos')).json();
+      ok('"Fazer backup agora" grava a cópia no armazenamento privado', arqs.some((k) => /^backups\/backup-/.test(k)) && sql("select count(*) from backups_auto where origem='manual'") === '1', await p.textContent('#gs-raiz #aviso'));
+      ok('backup automático guarda só as 8 cópias mais recentes', sql('select count(*) from backups_auto') === '8' && sql("select count(*) from backups_auto where caminho='antigo-15.json'") === '0'); }
+    { const [dl] = await Promise.all([p.waitForEvent('download', { timeout: 10000 }).catch(() => null), p.click('#bk-auto [data-bk^="backup-"]')]);
+      let ok2 = false; if (dl) { const j = JSON.parse(require('fs').readFileSync(await dl.path(), 'utf8')); ok2 = j.versao === 2 && Array.isArray(j.dados.clientes) && j.dados.clientes.length > 0 && !('config_privada' in j.dados); }
+      ok('backup baixa o .json com todos os dados (sem os segredos)', ok2); }
+    await nav(p, 'alertas'); await p.waitForSelector('#panel-alertas .al-card:has-text("Saúde do sistema")'); await p.waitForTimeout(300);
+    ok('Alertas mostra saúde do sistema e o backup semanal', /Banco \d+%/.test(await p.textContent('#panel-alertas')) && /Backup semanal/.test(await p.textContent('#panel-alertas')));
+    await p.click('#panel-alertas .al-card:has-text("Saúde do sistema")'); await p.waitForTimeout(400);
+    ok('saúde do sistema: banco e arquivos x limite do plano', /500 MB/.test(await p.textContent('#gs-raiz .janela')) && /Maiores tabelas/.test(await p.textContent('#gs-raiz .janela')));
+    await p.keyboard.press('Escape'); await p.waitForTimeout(200);
+
     // ── design: modo escuro, estado vazio e tabelas longas ──
     await nav(p, 'hoje'); await p.waitForTimeout(800);
     await p.click('#gs-tema'); await p.waitForTimeout(300);

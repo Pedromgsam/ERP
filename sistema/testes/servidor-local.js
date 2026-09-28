@@ -30,7 +30,7 @@ function sessao(u) {
   return { access_token: jwt({ sub: u.id, email: u.email, role: 'authenticated', aud: 'authenticated', exp }),
            token_type: 'bearer', expires_in: 3600, expires_at: exp, refresh_token: 'r-' + u.email, user: u };
 }
-const RECUPERACOES = [], ARQUIVOS = {}, PEDIDOS_DJEN = []; let FUNCAO = null, FUNCAO_PUB = null, FUNCAO_CNPJ = null, FUNCAO_AGENDA = null;
+const RECUPERACOES = [], ARQUIVOS = {}, PEDIDOS_DJEN = []; let FUNCAO = null, FUNCAO_PUB = null, FUNCAO_CNPJ = null, FUNCAO_AGENDA = null, FUNCAO_BACKUP = null;
 function json(res, cod, obj) { res.writeHead(cod, { 'content-type': 'application/json', 'access-control-allow-origin': '*' }); res.end(JSON.stringify(obj)); }
 http.createServer((req, res) => {
   let corpo = []; req.on('data', (c) => corpo.push(c)); req.on('end', () => {
@@ -69,14 +69,19 @@ http.createServer((req, res) => {
         res.writeHead(200, { 'content-type': 'application/octet-stream' }); return res.end(arq);
       }
       const c = lerJwt(String(req.headers.authorization || '').replace('Bearer ', ''));
-      if (!c || !c.sub) return json(res, 403, { statusCode: '403', error: 'Unauthorized', message: 'new row violates row-level security policy' });
+      if (!c || !(c.sub || c.role === 'service_role')) return json(res, 403, { statusCode: '403', error: 'Unauthorized', message: 'new row violates row-level security policy' });
       if (resto.startsWith('sign/')) {
         const k = resto.slice(5);
         if (!ARQUIVOS[k]) return json(res, 400, { statusCode: '404', error: 'not_found', message: 'Object not found' });
         return json(res, 200, { signedURL: '/object/sign/' + k.split('/').map(encodeURIComponent).join('/') + '?token=tk' });
       }
+      if (req.method === 'DELETE') {                                 // remove([...]) do supabase-js
+        const pref = (JSON.parse(corpo.toString() || '{}').prefixes || []);
+        pref.forEach((k) => { delete ARQUIVOS[resto.replace(/\/$/, '') + '/' + k]; });
+        return json(res, 200, pref.map((k) => ({ name: k })));
+      }
       if (req.method === 'POST' || req.method === 'PUT') {
-        if (ARQUIVOS[resto] && req.method === 'POST') return json(res, 400, { statusCode: '409', error: 'Duplicate', message: 'The resource already exists' });
+        if (ARQUIVOS[resto] && req.method === 'POST' && req.headers['x-upsert'] !== 'true') return json(res, 400, { statusCode: '409', error: 'Duplicate', message: 'The resource already exists' });
         ARQUIVOS[resto] = corpo; return json(res, 200, { Key: resto, Id: crypto.randomUUID() });
       }
     }
@@ -108,6 +113,13 @@ http.createServer((req, res) => {
         { id: 900002, datadisponibilizacao: '24/09/2026', siglaTribunal: 'TRT3', tipoComunicacao: 'Edital', nomeOrgao: 'Vara do Trabalho', texto: 'Audiência designada.',
           numeroProcesso: '00012345520235030001', destinatarios: [], destinatarioadvogados: [] }
       ] : [] });
+    }
+    if (u.pathname === '/functions/v1/erp-backup') {
+      try { FUNCAO_BACKUP = FUNCAO_BACKUP || require('./funcao-emails.js').carregarBackup('http://127.0.0.1:' + PORTA); } catch (e) { console.error(e); return json(res, 500, { erro: 'Função não carregou: ' + e.message }); }
+      const h = new Headers(); Object.entries(req.headers).forEach(([k, v]) => h.set(k, v));
+      return FUNCAO_BACKUP.tratar(new Request('http://x' + u.pathname, { method: req.method, headers: h, body: req.method === 'POST' ? corpo : undefined }))
+        .then(async (r2) => { const cab = { 'access-control-allow-origin': '*' }; r2.headers.forEach((v, k) => { cab[k] = v; }); res.writeHead(r2.status, cab); res.end(await r2.text()); })
+        .catch((e) => json(res, 500, { erro: e.message }));
     }
     if (u.pathname === '/functions/v1/erp-agenda') {
       try { FUNCAO_AGENDA = FUNCAO_AGENDA || require('./funcao-emails.js').carregarAgenda('http://127.0.0.1:' + PORTA); } catch (e) { console.error(e); return json(res, 500, { erro: 'Função não carregou: ' + e.message }); }
