@@ -4,6 +4,16 @@
 // ═══════════════════════════════════════════════════════════════════
 
 // ─────────────────────────── CLIENTES ──────────────────────────────
+async function consultarCnpjNovo(id, nome) {
+  try {
+    const r = await chamarFuncao('erp-cnpj', { acao: 'rodar', cliente_id: id, auto: true });
+    if (r.desligada) return;
+    aviso(/aguardando/.test(r.mensagem || '') ? '⏳ ' + nome + ': CNPJ novo, ainda não está na base pública da Receita — o sistema tenta de novo todo dia.'
+      : '✓ Dados da Receita preenchidos para ' + nome + '.');
+    await carregarCadastros(true);
+  } catch (e) { console.warn('[ERP] consulta do CNPJ na hora não rodou (fica para a rotina das 6h):', e.message); }
+}
+
 TELAS.clientes = async function () {
   E.cli = E.cli || { tipo: 'ativos', grupo: '', busca: '' };
   await carregarCadastros();
@@ -213,11 +223,14 @@ async function formCliente(cl, depois) {
       obs: f.obs.value.trim()
     };
     if (f.historico_cadastral) dados.historico_cadastral = f.historico_cadastral.value.trim();
-    if (novo) await q(sb.from('clientes').insert(dados));
+    let id = cl.id;
+    if (novo) id = (await q(sb.from('clientes').insert(dados).select('id').single())).id;
     else await q(sb.from('clientes').update(dados).eq('id', cl.id));
     aviso(novo ? '✓ Cliente cadastrado.' : '✓ Cadastro atualizado.');
     fecharJanela(j);
     await apos();
+    // automação: empresa nova (ou CNPJ trocado) → consulta a Receita na hora e preenche razão social, endereço, situação…
+    if (dados.cpf_cnpj.length === 14 && (novo || soDigitos(cl.cpf_cnpj) !== dados.cpf_cnpj)) consultarCnpjNovo(id, dados.nome);
   });
   const bx = j.querySelector('#btn-excluir-cli');
   if (bx) bx.onclick = () => comBotao(bx, async () => {

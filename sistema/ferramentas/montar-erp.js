@@ -183,6 +183,10 @@ trocar("      plugins:{legend:{display:true,position:'bottom',labels:{color:'#4B
 trocar('<option value="Demanda">Demanda</option>', '<option value="Demanda">Serviço pontual</option>', 1);
 
 s = s.replace(/<title>[^<]*<\/title>/, '<title>ERP — Araújo &amp; Castro</title>');
+// 16. Contraste AA (caca-bugs.js): cores de pessoa/grupo sem cor própria ficam legíveis sobre o fundo claro
+trocar("var _FA_NEUTRAS=['#1B2A4A','#7C3AED','#0D9488','#DC2626','#0EA5E9','#6B7280'];",
+  "var _FA_NEUTRAS=['#1B2A4A','#6D28D9','#0F766E','#B91C1C','#0369A1','#4B5563'];", 1);
+
 // 14. Imagens: saem do HTML (eram base64) e viram arquivos em img/, guardados pelo navegador.
 {
   const IMG = path.join(raiz, 'sistema', 'app', 'img'); fs.mkdirSync(IMG, { recursive: true });
@@ -243,7 +247,7 @@ let graf = ler('graficos.js').replace("document.addEventListener('DOMContentLoad
 const bundle = "'use strict';\n// GERADO por sistema/ferramentas/montar-erp.js — não edite; edite os arquivos do Gestão.\n(function () {\n" +
   "const _raiz = document.createElement('div'); _raiz.id = 'gs-raiz'; _raiz.className = 'gs';\n" +
   "_raiz.innerHTML = '<div id=\"janelas\"></div><div id=\"aviso\"></div>'; document.body.appendChild(_raiz);\n" +
-  [nuc, graf, ler('telas-painel.js'), ler('telas-financeiro.js'), ler('telas-cadastros.js'), ler('telas-admin.js'), ler('telas-tarefas.js'), ler('telas-documentos.js'), ler('telas-cliente360.js'), ler('telas-crm.js'), ler('telas-publicacoes.js'), ler('telas-acordos.js'), ler('telas-alertas.js')].join('\n') +
+  [nuc, graf, ler('telas-painel.js'), ler('telas-financeiro.js'), ler('telas-cadastros.js'), ler('telas-admin.js'), ler('telas-tarefas.js'), ler('telas-documentos.js'), ler('telas-cliente360.js'), ler('telas-crm.js'), ler('telas-publicacoes.js'), ler('telas-acordos.js'), ler('telas-alertas.js'), ler('telas-automacoes.js')].join('\n') +
   "\n// toda gravação confirmada aparece também no rodapé do ERP\nconst _avisoOrig = aviso;\n" +
   "aviso = function (msg, erro) { _avisoOrig(msg, erro); if (!erro && window.ERP_EDITOR && /^✓/.test(msg)) window.ERP_EDITOR.gravou(String(msg).replace(/^✓\\s*/, '')); };\n" +
   "window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, invalidarCadastros, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo };\n})();\n";

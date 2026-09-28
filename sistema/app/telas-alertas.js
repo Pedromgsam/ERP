@@ -161,7 +161,7 @@ async function janelaCnpj(execs) {
   const cfg = await q(sb.rpc('status_config_cnpj')).catch(() => ({})) || {};
   const admin = E.perfil && E.perfil.papel === 'admin', ult = execs[0];
   const rel = (ult && ult.relatorio) || [];
-  const alt = rel.filter((x) => x.mudancas && !x.primeira), err = rel.filter((x) => x.erro);
+  const alt = rel.filter((x) => x.mudancas && !x.primeira), err = rel.filter((x) => x.erro), agu = rel.filter((x) => x.aguardando);
   const j = abrirJanela({ titulo: 'Cartão CNPJ — atualização diária (6h)', larga: true,
     corpo: (ult ? '<div class="dica" style="margin-bottom:10px"><b>Última execução:</b> ' + quandoRodou(ult.inicio) + ' · ' + ({ ok: '✅ sem erro', parcial: '⚠ com alguns erros', erro: '❌ com erro', rodando: '⏳ rodando' }[ult.status] || ult.status) +
         ' · ' + esc(ult.mensagem) + ' · API: ' + esc(ult.provedor) + '</div>' : '<div class="dica" style="margin-bottom:10px">Ainda não rodou. Publique a função <b>erp-cnpj</b> no Supabase e clique em "Atualizar agora".</div>') +
@@ -169,6 +169,9 @@ async function janelaCnpj(execs) {
       (alt.length ? '<div class="tabela-wrap"><table><thead><tr><th>Entidade</th><th>Campo</th><th>Antes</th><th>Agora</th></tr></thead><tbody>' +
         alt.flatMap((x) => x.mudancas.map((m, k) => '<tr>' + (k === 0 ? '<td rowspan="' + x.mudancas.length + '"><b>' + esc(x.nome) + '</b><div class="sub mono">' + esc(mascaraDoc(x.cnpj)) + '</div></td>' : '') +
           '<td>' + esc(m.campo) + '</td><td class="sub">' + esc(m.antes || '—') + '</td><td><b>' + esc(m.depois) + '</b></td></tr>')).join('') + '</tbody></table></div>' : '<div class="sub" style="margin-bottom:8px">Nenhuma alteração.</div>') +
+      (agu.length ? '<div class="secao">Aguardando a Receita (' + agu.length + ')</div><div class="dica" style="margin-bottom:8px">Empresa recém-aberta ainda não aparece na base pública da Receita (ela é publicada uma vez por mês). ' +
+        'O sistema já tentou as fontes reserva e tenta de novo todo dia; enquanto isso, preencha o cadastro à mão se precisar.</div><div class="lista-ficha">' +
+        agu.map((x) => '<div class="item-ficha"><div><b>' + esc(x.nome) + '</b> <span class="sub mono">' + esc(mascaraDoc(x.cnpj)) + '</span></div></div>').join('') + '</div>' : '') +
       '<div class="secao">Erros (' + err.length + ')</div>' +
       (err.length ? '<div class="lista-ficha">' + err.map((x) => '<div class="item-ficha"><div><b>' + esc(x.nome) + '</b> <span class="sub mono">' + esc(mascaraDoc(x.cnpj)) + '</span><div class="sub">' + esc(x.erro) + '</div></div></div>').join('') + '</div>' : '<div class="sub" style="margin-bottom:8px">Nenhum erro.</div>') +
       '<div class="secao">Últimas execuções</div><div class="tabela-wrap"><table><thead><tr><th>Quando</th><th>Origem</th><th>Situação</th><th>Resultado</th></tr></thead><tbody>' +

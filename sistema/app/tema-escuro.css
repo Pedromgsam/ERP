@@ -195,6 +195,7 @@ html[data-tema="escuro"] .gs .cr-card{background:var(--surface)}
 html[data-tema="escuro"] .gs .pr-texto{background:var(--surface)}
 html[data-tema="escuro"] .gs .pub-texto mark{background:#423a1a}
 html[data-tema="escuro"] .gs tr.linha-atual td{background:#38301b!important}
+html[data-tema="escuro"] .gs .au-trilho::after{background:var(--surface)}
 html[data-tema="escuro"] #gs-hd .gs-marca-nome{color:#cdbb89}
 html[data-tema="escuro"] #gs-hd .tn-menu{background:var(--surface);border:1px solid rgba(255,255,255,0.066)}
 html[data-tema="escuro"] #gs-hd .tn-menu button{color:#d3d9e4}

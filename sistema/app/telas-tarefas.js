@@ -116,7 +116,7 @@ TELAS.tarefas = async function () {
   const F = E.tf;
   $('conteudo').innerHTML =
     '<div class="titulo-pag"><div><h1>Tarefas</h1><p>Prazos, fluxos e acompanhamento do escritório</p></div>' +
-    '<div class="acoes"><button class="btn btn-o" id="tf-regras">⚙ Regras automáticas</button><button class="btn btn-o" id="tf-modelos">Modelos de fluxo</button><button class="btn btn-o" id="tf-feriados">Feriados</button><button class="btn btn-o" id="tf-agenda" title="Prazos fatais e audiências no seu Google Agenda">📅 Google Agenda</button>' +
+    '<div class="acoes"><button class="btn btn-o" id="tf-regras">⚡ Automações</button><button class="btn btn-o" id="tf-modelos">Modelos de fluxo</button><button class="btn btn-o" id="tf-feriados">Feriados</button><button class="btn btn-o" id="tf-agenda" title="Prazos fatais e audiências no seu Google Agenda">📅 Google Agenda</button>' +
     '<button class="btn btn-o" id="tf-fluxo">+ Novo fluxo</button><button class="btn btn-p" id="tf-nova">+ Nova tarefa</button></div></div>' +
     '<div class="filtros">' +
     '<div class="segmento" id="tf-vista">' + [['lista', 'Lista'], ['kanban', 'Quadro'], ['calendario', 'Calendário'], ['fluxos', 'Fluxos'], ['relatorio', 'Relatório']]
@@ -130,7 +130,7 @@ TELAS.tarefas = async function () {
   $('tf-nova').onclick = () => formTarefa({}, () => TELAS.tarefas());
   $('tf-fluxo').onclick = () => formNovoFluxo(() => TELAS.tarefas());
   $('tf-modelos').onclick = () => janelaModelos();
-  $('tf-regras').onclick = () => janelaRegras();
+  $('tf-regras').onclick = () => irParaTela('automacoes');
   $('tf-feriados').onclick = () => janelaFeriados();
   $('tf-agenda').onclick = () => janelaAgenda();
   $('tf-vista').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.vista = b.dataset.v; pintarTarefas(); } };
@@ -510,35 +510,7 @@ async function pintarTempo(j, t) {
   });
 }
 // Tarefas → Regras automáticas (o admin liga, desliga e ajusta)
-async function janelaRegras() {
-  const [rs, ult] = await Promise.all([q(sb.from('regras_tarefas').select('*').order('nome')),
-    q(sb.from('configuracoes').select('valor').eq('chave', 'regras_tarefas_ultima').maybeSingle()).catch(() => null)]);
-  const admin = E.perfil && E.perfil.papel === 'admin';
-  const j = abrirJanela({ titulo: 'Regras automáticas de tarefas', larga: true,
-    corpo: '<p class="sub" style="margin-bottom:10px">O sistema cria estas tarefas sozinho, sem duplicar. Roda todo dia útil de manhã e ao abrir o sistema.' +
-      (ult && ult.valor ? ' Última execução: <b>' + quandoRodou(ult.valor.quando) + '</b> (' + ult.valor.criadas + ' criada[s]).' : '') + '</p>' +
-      '<div class="lista-ficha">' + rs.map((r) => '<div class="item-ficha"><div style="flex:1"><label class="check"><input type="checkbox" data-rg-lig="' + r.chave + '"' + (r.ligada ? ' checked' : '') + (admin ? '' : ' disabled') + '> <b>' + esc(r.nome) + '</b></label>' +
-        '<div class="sub">' + esc(r.descricao) + '</div></div>' +
-        '<label class="rg-num">N = <input type="number" min="0" max="90" data-rg-dias="' + r.chave + '" value="' + r.dias + '"' + (admin ? '' : ' disabled') + '></label>' +
-        '<input class="rg-resp" list="rg-pessoas" data-rg-resp="' + r.chave + '" value="' + esc(r.responsavel) + '" placeholder="responsável padrão"' + (admin ? '' : ' disabled') + '></div>').join('') + '</div>' + datalistPessoas('rg-pessoas') +
-      (admin ? '' : '<p class="sub" style="margin-top:8px">Só o administrador altera as regras.</p>'),
-    rodape: '<button class="btn btn-o" type="button" id="rg-rodar">↻ Rodar agora</button><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Fechar</button>' +
-      (admin ? '<button class="btn btn-p" type="button" id="rg-salvar">Salvar</button>' : '') + '</div>' });
-  j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
-  j.querySelector('#rg-rodar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
-    const n = await q(sb.rpc('rodar_regras_tarefas'));
-    aviso('✓ Regras rodadas: ' + n + ' tarefa(s) ou aviso(s) novo(s).'); fecharJanela(j); if (E.tela === 'tarefas') await TELAS.tarefas();
-  });
-  const sv = j.querySelector('#rg-salvar');
-  if (sv) sv.onclick = (ev) => comBotao(ev.currentTarget, async () => {
-    for (const r of rs) {
-      await q(sb.from('regras_tarefas').update({ ligada: j.querySelector('[data-rg-lig="' + r.chave + '"]').checked,
-        dias: Math.max(0, parseInt(j.querySelector('[data-rg-dias="' + r.chave + '"]').value, 10) || 0),
-        responsavel: j.querySelector('[data-rg-resp="' + r.chave + '"]').value.trim() }).eq('chave', r.chave));
-    }
-    aviso('✓ Regras salvas.'); fecharJanela(j);
-  });
-}
+// (a antiga janela de regras virou a tela Automações — telas-automacoes.js)
 function quandoRodou(v) { const d = new Date(v); return isNaN(d) ? '—' : d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); }
 
 // ─────────────────────────── fluxos e modelos ───────────────────────────

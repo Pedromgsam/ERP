@@ -330,6 +330,8 @@ function fecharJanela(el) {
 }
 document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') fecharJanela(); });
 
+function irParaTela(t) { if (typeof window.nav === 'function') window.nav(null, t); else irPara(t); }
+
 // Relatório padrão (Alertas, Clientes…): tabela ordenável + CSV; linha com id abre a ficha do cliente.
 // r = { titulo, colunas: [...], linhas: [[...]], ids?: [id do cliente por linha], acao?: { rotulo, fn } }
 function relatorioTabela(r) {
@@ -672,6 +674,7 @@ async function resumoFinanceiroNoNavegador(ini, fim, h) {
 TELAS.inicio = async function () {
   const h = hojeISO(), ini = iso(primeiroDiaDoMes(new Date())), fim = iso(fimDoMes(new Date()));
   const sel = '*, grupos(nome), clientes(nome)';
+  cardLista._n = 0;
   // totais prontos no banco (resumo_financeiro); só as listas vêm linha a linha
   const [totais, atrasados, proximos] = await Promise.all([
     q(sb.rpc('resumo_financeiro', { p_de: ini, p_ate: fim })).catch(() => resumoFinanceiroNoNavegador(ini, fim, h)),
@@ -703,18 +706,32 @@ TELAS.inicio = async function () {
   ligarBotoesNovo($('conteudo'));
 };
 
-function cardLista(titulo, lista, vazio) {
-  const linhas = lista.map((l) => {
-    const quem = (l.grupos && l.grupos.nome) || l.favorecido || (l.clientes && l.clientes.nome) || '';
+// Listas do Início: mostra as 8 primeiras (nunca corta linha no meio); "Ver todos" abre o relatório completo com CSV
+const LIMITE_LISTA_INICIO = 8;
+function cardLista(titulo, lista, vazioTxt) {
+  const quemDe = (l) => (l.grupos && l.grupos.nome) || l.favorecido || (l.clientes && l.clientes.nome) || '';
+  const linhas = lista.slice(0, LIMITE_LISTA_INICIO).map((l) => {
+    const quem = quemDe(l);
     return '<tr><td class="mono" data-ord="' + l.vencimento + '">' + dataBR(l.vencimento) + '</td><td><b>' + esc(quem || l.descricao) + '</b>' +
       '<div class="sub">' + (l.empresa === 'contabilidade' ? 'Contabilidade · ' : 'Jurídico · ') + esc(l.descricao) + '</div></td>' +
       '<td class="num mono ' + (l.tipo === 'receita' && !l.redutor ? 'valor-rec' : 'valor-desp') + '" data-ord="' + (l.tipo === 'despesa' ? -l.valor : vl(l)) + '">' + (l.tipo === 'despesa' || l.redutor ? '−\u00A0' : '') + brl(l.valor) + (l.redutor ? '<div class="sub">redutor</div>' : '') + '</td>' +
       '<td class="acoes-l"><button class="btn btn-v btn-mini" data-pagar="' + l.id + '">✓ ' + (l.tipo === 'receita' ? 'Recebido' : 'Pago') + '</button></td></tr>';
   }).join('');
-  return '<div class="card"><div class="card-hd">' + titulo + '<span class="pill neutro">' + lista.length + '</span></div>' +
-    (lista.length ? '<div class="tabela-wrap lista-curta"><table class="ordenavel"><thead><tr><th data-tipo="data">Data</th><th>Quem</th><th class="num">Valor</th><th class="sem-ordem"></th></tr></thead><tbody>' +
-      linhas + '</tbody></table></div>' : '<div class="vazio">' + vazio + '</div>') + '</div>';
+  const mais = lista.length > LIMITE_LISTA_INICIO;
+  const chave = 'lista' + (cardLista._n = (cardLista._n || 0) + 1);
+  cardLista[chave] = { titulo: titulo.replace(/^\S+\s/, ''), linhas: lista.map((l) => [dataBR(l.vencimento), quemDe(l), l.empresa === 'contabilidade' ? 'Contabilidade' : 'Jurídico', l.descricao,
+    (l.tipo === 'despesa' || l.redutor ? '-' : '') + brl(l.valor)]), ids: lista.map((l) => l.cliente_id || '') };
+  return '<div class="card card-lista"><div class="card-hd">' + titulo + '<span class="pill neutro">' + lista.length + '</span></div>' +
+    (lista.length ? '<div class="tabela-wrap"><table class="ordenavel"><thead><tr><th data-tipo="data">Data</th><th>Quem</th><th class="num">Valor</th><th class="sem-ordem"></th></tr></thead><tbody>' +
+      linhas + '</tbody></table></div>' +
+      (mais ? '<div class="card-lista-rp"><span class="sub">Mostrando ' + LIMITE_LISTA_INICIO + ' de ' + lista.length + '</span><button type="button" class="btn btn-o btn-mini" data-ver-todos="' + chave + '">Ver todos (' + lista.length + ')</button></div>' : '')
+      : vazio(vazioTxt)) + '</div>';
 }
+document.addEventListener('click', (ev) => {
+  const b = ev.target.closest && ev.target.closest('[data-ver-todos]'); if (!b) return;
+  const r = cardLista[b.dataset.verTodos]; if (!r) return;
+  relatorioTabela({ titulo: r.titulo, colunas: ['Data', 'Quem', 'Empresa', 'Descrição', 'Valor'], linhas: r.linhas, ids: r.ids });
+});
 
 function ligarBotoesNovo(raiz) {
   raiz.querySelectorAll('[data-novo]').forEach((b) => {
@@ -1200,6 +1217,16 @@ function formLancamento(l, depois) {
 // ═══════════════════════════════════════════════════════════════════
 
 // ─────────────────────────── CLIENTES ──────────────────────────────
+async function consultarCnpjNovo(id, nome) {
+  try {
+    const r = await chamarFuncao('erp-cnpj', { acao: 'rodar', cliente_id: id, auto: true });
+    if (r.desligada) return;
+    aviso(/aguardando/.test(r.mensagem || '') ? '⏳ ' + nome + ': CNPJ novo, ainda não está na base pública da Receita — o sistema tenta de novo todo dia.'
+      : '✓ Dados da Receita preenchidos para ' + nome + '.');
+    await carregarCadastros(true);
+  } catch (e) { console.warn('[ERP] consulta do CNPJ na hora não rodou (fica para a rotina das 6h):', e.message); }
+}
+
 TELAS.clientes = async function () {
   E.cli = E.cli || { tipo: 'ativos', grupo: '', busca: '' };
   await carregarCadastros();
@@ -1409,11 +1436,14 @@ async function formCliente(cl, depois) {
       obs: f.obs.value.trim()
     };
     if (f.historico_cadastral) dados.historico_cadastral = f.historico_cadastral.value.trim();
-    if (novo) await q(sb.from('clientes').insert(dados));
+    let id = cl.id;
+    if (novo) id = (await q(sb.from('clientes').insert(dados).select('id').single())).id;
     else await q(sb.from('clientes').update(dados).eq('id', cl.id));
     aviso(novo ? '✓ Cliente cadastrado.' : '✓ Cadastro atualizado.');
     fecharJanela(j);
     await apos();
+    // automação: empresa nova (ou CNPJ trocado) → consulta a Receita na hora e preenche razão social, endereço, situação…
+    if (dados.cpf_cnpj.length === 14 && (novo || soDigitos(cl.cpf_cnpj) !== dados.cpf_cnpj)) consultarCnpjNovo(id, dados.nome);
   });
   const bx = j.querySelector('#btn-excluir-cli');
   if (bx) bx.onclick = () => comBotao(bx, async () => {
@@ -1702,6 +1732,7 @@ const ABAS_ADMIN = [
   { id: 'backup',   rot: '💾 Backup' },
   { id: 'historico', rot: '🕘 Histórico' },
   { id: 'acessos', rot: '🔐 Acessos' },
+  { id: 'automacoes', rot: '⚡ Automações' },
   { id: 'email', rot: '✉ E-mail' }
 ];
 
@@ -1719,7 +1750,7 @@ async function pintarAdmin() {
   document.querySelectorAll('#adm-abas button').forEach((b) => b.classList.toggle('ativo', b.dataset.aba === E.adm.aba));
   const corpo = $('adm-corpo');
   corpo.innerHTML = '<div class="carregando">Carregando…</div>';
-  try { await ({ usuarios: admUsuarios, importar: admImportar, backup: admBackup, historico: admHistorico, acessos: admAcessos, email: admEmail })[E.adm.aba](corpo); }
+  try { await ({ usuarios: admUsuarios, importar: admImportar, backup: admBackup, historico: admHistorico, acessos: admAcessos, automacoes: () => { E.adm.aba = 'usuarios'; irParaTela('automacoes'); }, email: admEmail })[E.adm.aba](corpo); }
   catch (e) { console.error(e); corpo.innerHTML = '<div class="card"><div class="card-bd msg-erro">' + esc(erroAmigavel(e)) + '</div></div>'; }
 }
 
@@ -2432,7 +2463,7 @@ TELAS.tarefas = async function () {
   const F = E.tf;
   $('conteudo').innerHTML =
     '<div class="titulo-pag"><div><h1>Tarefas</h1><p>Prazos, fluxos e acompanhamento do escritório</p></div>' +
-    '<div class="acoes"><button class="btn btn-o" id="tf-regras">⚙ Regras automáticas</button><button class="btn btn-o" id="tf-modelos">Modelos de fluxo</button><button class="btn btn-o" id="tf-feriados">Feriados</button><button class="btn btn-o" id="tf-agenda" title="Prazos fatais e audiências no seu Google Agenda">📅 Google Agenda</button>' +
+    '<div class="acoes"><button class="btn btn-o" id="tf-regras">⚡ Automações</button><button class="btn btn-o" id="tf-modelos">Modelos de fluxo</button><button class="btn btn-o" id="tf-feriados">Feriados</button><button class="btn btn-o" id="tf-agenda" title="Prazos fatais e audiências no seu Google Agenda">📅 Google Agenda</button>' +
     '<button class="btn btn-o" id="tf-fluxo">+ Novo fluxo</button><button class="btn btn-p" id="tf-nova">+ Nova tarefa</button></div></div>' +
     '<div class="filtros">' +
     '<div class="segmento" id="tf-vista">' + [['lista', 'Lista'], ['kanban', 'Quadro'], ['calendario', 'Calendário'], ['fluxos', 'Fluxos'], ['relatorio', 'Relatório']]
@@ -2446,7 +2477,7 @@ TELAS.tarefas = async function () {
   $('tf-nova').onclick = () => formTarefa({}, () => TELAS.tarefas());
   $('tf-fluxo').onclick = () => formNovoFluxo(() => TELAS.tarefas());
   $('tf-modelos').onclick = () => janelaModelos();
-  $('tf-regras').onclick = () => janelaRegras();
+  $('tf-regras').onclick = () => irParaTela('automacoes');
   $('tf-feriados').onclick = () => janelaFeriados();
   $('tf-agenda').onclick = () => janelaAgenda();
   $('tf-vista').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.vista = b.dataset.v; pintarTarefas(); } };
@@ -2826,35 +2857,7 @@ async function pintarTempo(j, t) {
   });
 }
 // Tarefas → Regras automáticas (o admin liga, desliga e ajusta)
-async function janelaRegras() {
-  const [rs, ult] = await Promise.all([q(sb.from('regras_tarefas').select('*').order('nome')),
-    q(sb.from('configuracoes').select('valor').eq('chave', 'regras_tarefas_ultima').maybeSingle()).catch(() => null)]);
-  const admin = E.perfil && E.perfil.papel === 'admin';
-  const j = abrirJanela({ titulo: 'Regras automáticas de tarefas', larga: true,
-    corpo: '<p class="sub" style="margin-bottom:10px">O sistema cria estas tarefas sozinho, sem duplicar. Roda todo dia útil de manhã e ao abrir o sistema.' +
-      (ult && ult.valor ? ' Última execução: <b>' + quandoRodou(ult.valor.quando) + '</b> (' + ult.valor.criadas + ' criada[s]).' : '') + '</p>' +
-      '<div class="lista-ficha">' + rs.map((r) => '<div class="item-ficha"><div style="flex:1"><label class="check"><input type="checkbox" data-rg-lig="' + r.chave + '"' + (r.ligada ? ' checked' : '') + (admin ? '' : ' disabled') + '> <b>' + esc(r.nome) + '</b></label>' +
-        '<div class="sub">' + esc(r.descricao) + '</div></div>' +
-        '<label class="rg-num">N = <input type="number" min="0" max="90" data-rg-dias="' + r.chave + '" value="' + r.dias + '"' + (admin ? '' : ' disabled') + '></label>' +
-        '<input class="rg-resp" list="rg-pessoas" data-rg-resp="' + r.chave + '" value="' + esc(r.responsavel) + '" placeholder="responsável padrão"' + (admin ? '' : ' disabled') + '></div>').join('') + '</div>' + datalistPessoas('rg-pessoas') +
-      (admin ? '' : '<p class="sub" style="margin-top:8px">Só o administrador altera as regras.</p>'),
-    rodape: '<button class="btn btn-o" type="button" id="rg-rodar">↻ Rodar agora</button><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Fechar</button>' +
-      (admin ? '<button class="btn btn-p" type="button" id="rg-salvar">Salvar</button>' : '') + '</div>' });
-  j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
-  j.querySelector('#rg-rodar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
-    const n = await q(sb.rpc('rodar_regras_tarefas'));
-    aviso('✓ Regras rodadas: ' + n + ' tarefa(s) ou aviso(s) novo(s).'); fecharJanela(j); if (E.tela === 'tarefas') await TELAS.tarefas();
-  });
-  const sv = j.querySelector('#rg-salvar');
-  if (sv) sv.onclick = (ev) => comBotao(ev.currentTarget, async () => {
-    for (const r of rs) {
-      await q(sb.from('regras_tarefas').update({ ligada: j.querySelector('[data-rg-lig="' + r.chave + '"]').checked,
-        dias: Math.max(0, parseInt(j.querySelector('[data-rg-dias="' + r.chave + '"]').value, 10) || 0),
-        responsavel: j.querySelector('[data-rg-resp="' + r.chave + '"]').value.trim() }).eq('chave', r.chave));
-    }
-    aviso('✓ Regras salvas.'); fecharJanela(j);
-  });
-}
+// (a antiga janela de regras virou a tela Automações — telas-automacoes.js)
 function quandoRodou(v) { const d = new Date(v); return isNaN(d) ? '—' : d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); }
 
 // ─────────────────────────── fluxos e modelos ───────────────────────────
@@ -3565,7 +3568,7 @@ const ABA_FICHA = {
       q(sb.from('cnpj_execucoes').select('inicio, relatorio').filter('relatorio', 'cs', JSON.stringify([{ cliente_id: cl.id }])).order('inicio', { ascending: false }).limit(30)).catch(() => [])
     ]);
     const hist = [];
-    execs.forEach((x) => (x.relatorio || []).forEach((r) => { if (r.cliente_id === cl.id && (r.erro || (r.mudancas && !r.primeira))) hist.push(Object.assign({ quando: x.inicio }, r)); }));
+    execs.forEach((x) => (x.relatorio || []).forEach((r) => { if (r.cliente_id === cl.id && (r.erro || r.aguardando || (r.mudancas && !r.primeira))) hist.push(Object.assign({ quando: x.inicio }, r)); }));
     const admin = E.perfil && E.perfil.papel === 'admin';
     alvo.innerHTML = '<div class="titulo-pag" style="margin-bottom:8px"><div><b>Cartão CNPJ</b> <span class="sub">' +
       (c.cnpj_atualizado_em ? 'consultado na Receita em ' + quandoBR(c.cnpj_atualizado_em) : 'ainda não consultado — a atualização roda todo dia às 6h') + '</span></div>' +
@@ -3577,7 +3580,7 @@ const ABA_FICHA = {
       linhaDado('Endereço', esc(c.endereco)) + linhaDado('Cidade/UF', esc([c.cidade, c.estado].filter(Boolean).join('/'))) + linhaDado('CEP', esc(c.cep ? String(c.cep).replace(/^(\d{5})(\d{3})$/, '$1-$2') : '')) +
       '</div></div><div class="card"><div class="card-hd">Histórico de alterações</div><div class="card-bd">' +
       (hist.length ? '<div class="lista-ficha">' + hist.map((h) => '<div class="item-ficha"><div><b>' + quandoBR(h.quando) + '</b>' +
-        (h.erro ? '<div class="sub" style="color:var(--red-d)">Erro na consulta: ' + esc(h.erro) + '</div>' :
+        (h.aguardando ? '<div class="sub">⏳ ' + esc(h.aviso) + '</div>' : h.erro ? '<div class="sub" style="color:var(--red-d)">Erro na consulta: ' + esc(h.erro) + '</div>' :
           h.mudancas.map((m) => '<div class="sub">' + esc(m.campo) + ': <s>' + esc(m.antes || '—') + '</s> → <b>' + esc(m.depois) + '</b></div>').join('')) + '</div></div>').join('') + '</div>'
         : vazio('Nenhuma alteração desde a primeira consulta.')) + '</div></div></div>';
     const bt = alvo.querySelector('#fc-cnpj-agora');
@@ -4397,7 +4400,7 @@ async function janelaCnpj(execs) {
   const cfg = await q(sb.rpc('status_config_cnpj')).catch(() => ({})) || {};
   const admin = E.perfil && E.perfil.papel === 'admin', ult = execs[0];
   const rel = (ult && ult.relatorio) || [];
-  const alt = rel.filter((x) => x.mudancas && !x.primeira), err = rel.filter((x) => x.erro);
+  const alt = rel.filter((x) => x.mudancas && !x.primeira), err = rel.filter((x) => x.erro), agu = rel.filter((x) => x.aguardando);
   const j = abrirJanela({ titulo: 'Cartão CNPJ — atualização diária (6h)', larga: true,
     corpo: (ult ? '<div class="dica" style="margin-bottom:10px"><b>Última execução:</b> ' + quandoRodou(ult.inicio) + ' · ' + ({ ok: '✅ sem erro', parcial: '⚠ com alguns erros', erro: '❌ com erro', rodando: '⏳ rodando' }[ult.status] || ult.status) +
         ' · ' + esc(ult.mensagem) + ' · API: ' + esc(ult.provedor) + '</div>' : '<div class="dica" style="margin-bottom:10px">Ainda não rodou. Publique a função <b>erp-cnpj</b> no Supabase e clique em "Atualizar agora".</div>') +
@@ -4405,6 +4408,9 @@ async function janelaCnpj(execs) {
       (alt.length ? '<div class="tabela-wrap"><table><thead><tr><th>Entidade</th><th>Campo</th><th>Antes</th><th>Agora</th></tr></thead><tbody>' +
         alt.flatMap((x) => x.mudancas.map((m, k) => '<tr>' + (k === 0 ? '<td rowspan="' + x.mudancas.length + '"><b>' + esc(x.nome) + '</b><div class="sub mono">' + esc(mascaraDoc(x.cnpj)) + '</div></td>' : '') +
           '<td>' + esc(m.campo) + '</td><td class="sub">' + esc(m.antes || '—') + '</td><td><b>' + esc(m.depois) + '</b></td></tr>')).join('') + '</tbody></table></div>' : '<div class="sub" style="margin-bottom:8px">Nenhuma alteração.</div>') +
+      (agu.length ? '<div class="secao">Aguardando a Receita (' + agu.length + ')</div><div class="dica" style="margin-bottom:8px">Empresa recém-aberta ainda não aparece na base pública da Receita (ela é publicada uma vez por mês). ' +
+        'O sistema já tentou as fontes reserva e tenta de novo todo dia; enquanto isso, preencha o cadastro à mão se precisar.</div><div class="lista-ficha">' +
+        agu.map((x) => '<div class="item-ficha"><div><b>' + esc(x.nome) + '</b> <span class="sub mono">' + esc(mascaraDoc(x.cnpj)) + '</span></div></div>').join('') + '</div>' : '') +
       '<div class="secao">Erros (' + err.length + ')</div>' +
       (err.length ? '<div class="lista-ficha">' + err.map((x) => '<div class="item-ficha"><div><b>' + esc(x.nome) + '</b> <span class="sub mono">' + esc(mascaraDoc(x.cnpj)) + '</span><div class="sub">' + esc(x.erro) + '</div></div></div>').join('') + '</div>' : '<div class="sub" style="margin-bottom:8px">Nenhum erro.</div>') +
       '<div class="secao">Últimas execuções</div><div class="tabela-wrap"><table><thead><tr><th>Quando</th><th>Origem</th><th>Situação</th><th>Resultado</th></tr></thead><tbody>' +
@@ -4424,6 +4430,94 @@ async function janelaCnpj(execs) {
     aviso('✓ Cartão CNPJ: ' + (r.mensagem || 'feito') + '.'); fecharJanela(j); await TELAS.alertas();
   });
 }
+
+'use strict';
+// ═══════════════════════════════════════════════════════════════════
+// Central de automações — tudo o que o sistema faz sozinho, num lugar só:
+// tarefas automáticas, e-mails ao cliente, integrações e rotinas agendadas.
+// Liga/desliga salva na hora (só o administrador altera); cada automação mostra
+// quantas vezes agiu nos últimos 30 dias (tabela automacoes_log) e as últimas ações.
+// ═══════════════════════════════════════════════════════════════════
+const GRUPOS_AUTOMACAO = [
+  ['tarefas', '🗂 Tarefas automáticas', 'Um lançamento cria (e conclui) tarefas sozinho, sem duplicar.'],
+  ['cliente_email', '✉ E-mails ao cliente', 'Vão pelo Gmail do escritório, para o contato financeiro. Começam desligados; nunca repetem a mesma cobrança.'],
+  ['integracao', '🔗 Integrações', 'Consultas automáticas a serviços externos gratuitos.']
+];
+// prefixo gravado no registro → automação
+const PREFIXO_AUTOMACAO = { onb: 'contrato_onboarding', proc: 'processo_novo', cert: 'certidao_vencendo', doc: 'certidao_vencendo', parc: 'parcela_parcelamento',
+  aco: 'parcela_acordo', cob: 'cobrar_honorario', anexo: 'contrato_anexo', procur: 'processo_procuracao', pagamento_conclui: 'pagamento_conclui', pub: 'publicacao_tarefa',
+  cliente_novo_cnpj: 'cliente_novo_cnpj', email_lh: 'email_lembrete_honorario', email_ch: 'email_cobranca_honorario', email_la: 'email_lembrete_acordo', email_pr: 'email_pagamento_recebido' };
+// automações que não usam "N dias"
+const SEM_DIAS = ['pagamento_conclui', 'cliente_novo_cnpj', 'email_pagamento_recebido'];
+// automações de tarefa que não criam tarefa nova (não têm responsável)
+const SEM_RESP = ['pagamento_conclui', 'escalar_atraso'];
+
+TELAS.automacoes = async function () {
+  const admin = E.perfil && E.perfil.papel === 'admin';
+  const [regras, cont, log, ultReg, ultPub, cnpj, backup, emails] = await Promise.all([
+    q(sb.from('regras_tarefas').select('*').order('nome')),
+    q(sb.rpc('resumo_automacoes')).catch(() => ({})),
+    q(sb.from('automacoes_log').select('*').order('quando', { ascending: false }).limit(25)).catch(() => []),
+    q(sb.from('configuracoes').select('valor').eq('chave', 'regras_tarefas_ultima').maybeSingle()).catch(() => null),
+    q(sb.from('configuracoes').select('valor').eq('chave', 'publicacoes_ultima').maybeSingle()).catch(() => null),
+    q(sb.from('cnpj_execucoes').select('inicio, status, mensagem').order('inicio', { ascending: false }).limit(1)).catch(() => []),
+    admin ? q(sb.from('backups_auto').select('criado_em, tamanho').order('criado_em', { ascending: false }).limit(1)).catch(() => []) : [],
+    admin ? q(sb.from('email_fila').select('status, criado_em').gte('criado_em', new Date(Date.now() - 7 * 864e5).toISOString())).catch(() => []) : []
+  ]);
+  const porRegra = {};
+  Object.entries(cont || {}).forEach(([pref, n]) => { const k = PREFIXO_AUTOMACAO[pref] || pref; porRegra[k] = (porRegra[k] || 0) + n; });
+  const ligadas = regras.filter((r) => r.ligada).length, acoes = Object.values(porRegra).reduce((a, n) => a + n, 0);
+  const envCli = ['email_lh', 'email_ch', 'email_la', 'email_pr'].reduce((a, k) => a + ((cont || {})[k] || 0), 0);
+  const linha = (r) => '<div class="au-item' + (r.ligada ? ' ligada' : '') + '" data-au="' + r.chave + '">' +
+    '<label class="au-chave" title="' + (admin ? 'Ligar / desligar' : 'Só o administrador altera') + '"><input type="checkbox" role="switch" data-au-lig="' + r.chave + '"' + (r.ligada ? ' checked' : '') + (admin ? '' : ' disabled') +
+      ' aria-label="' + esc(r.nome) + '"><span class="au-trilho" aria-hidden="true"></span></label>' +
+    '<div class="au-txt"><b>' + esc(r.nome) + '</b><div class="sub">' + esc(r.descricao) + '</div></div>' +
+    '<div class="au-cfg">' +
+      (SEM_DIAS.includes(r.chave) ? '' : '<label class="au-dias">N = <input type="number" min="0" max="90" data-au-dias="' + r.chave + '" value="' + r.dias + '"' + (admin ? '' : ' disabled') + '> dia(s)</label>') +
+      (r.grupo === 'tarefas' && !SEM_RESP.includes(r.chave) ? '<input class="au-resp" list="au-pessoas" data-au-resp="' + r.chave + '" value="' + esc(r.responsavel) + '" placeholder="responsável padrão"' + (admin ? '' : ' disabled') + '>' : '') +
+      '<span class="pill ' + (porRegra[r.chave] ? 'aberto' : 'neutro') + '" title="Vezes que agiu nos últimos 30 dias">' + (porRegra[r.chave] || 0) + '× em 30 dias</span>' +
+    '</div></div>';
+  const rotina = (nome, quando, det, nivel, botao) => '<div class="au-item au-rotina"><span class="au-pt ' + nivel + '" aria-hidden="true"></span>' +
+    '<div class="au-txt"><b>' + esc(nome) + '</b><div class="sub">' + det + '</div></div><div class="au-cfg"><span class="sub mono">' + (quando === false ? 'automática' : quando ? quandoRodou(quando) : 'nunca rodou') + '</span>' + (botao || '') + '</div></div>';
+  const ult = (x) => x && x.valor ? x.valor : null;
+  const erroEmail = emails.filter((m) => m.status === 'erro').length;
+  $('conteudo').innerHTML =
+    '<div class="titulo-pag"><div><h1>Automações</h1><p>Tudo o que o sistema faz sozinho: com poucos lançamentos, várias ações encadeadas</p></div>' +
+    '<div class="acoes"><button class="btn btn-o" id="au-rodar">↻ Rodar regras agora</button></div></div>' +
+    '<div class="kpis">' + kpi('Ligadas', ligadas + ' de ' + regras.length, 'verde', 'automações ativas') + kpi('Ações em 30 dias', String(acoes), '', 'tarefas criadas/concluídas e e-mails') +
+      kpi('E-mails ao cliente', String(envCli), envCli ? '' : 'ambar', 'enviados nos últimos 30 dias') +
+      kpi('Última execução', ult(ultReg) ? quandoCurto(ult(ultReg).quando) : '—', '', ult(ultReg) ? ult(ultReg).criadas + ' novidade(s)' : 'as regras rodam todo dia útil de manhã') + '</div>' +
+    GRUPOS_AUTOMACAO.map(([g, tit, desc]) => { const rs = regras.filter((r) => (r.grupo || 'tarefas') === g); return rs.length ?
+      '<div class="card"><div class="card-hd">' + tit + '<span class="sub" style="margin-left:auto;font-weight:400">' + esc(desc) + '</span></div><div class="au-lista">' + rs.map(linha).join('') + '</div></div>' : ''; }).join('') +
+    '<div class="card"><div class="card-hd">⏱ Rotinas agendadas<span class="sub" style="margin-left:auto;font-weight:400">rodam sozinhas no Supabase; aqui dá para conferir e rodar agora</span></div><div class="au-lista">' +
+      rotina('Regras e e-mails ao cliente', ult(ultReg) && ult(ultReg).quando, 'Dias úteis, 7h', ult(ultReg) ? 'ok' : 'atencao') +
+      rotina('Busca de publicações (DJEN)', ult(ultPub) && ult(ultPub).quando, 'Dias úteis, 7h e 13h' + (ult(ultPub) ? ' · ' + ult(ultPub).novas + ' nova(s) na última' : ''), ult(ultPub) ? ((ult(ultPub).erros || []).length ? 'critico' : 'ok') : 'atencao',
+        admin ? '<button class="btn btn-o btn-mini" data-au-fn="erp-publicacoes">Rodar agora</button>' : '') +
+      rotina('Cartão CNPJ', cnpj[0] && cnpj[0].inicio, 'Todo dia, 6h' + (cnpj[0] ? ' · ' + esc(cnpj[0].mensagem || cnpj[0].status) : ''), !cnpj[0] ? 'atencao' : cnpj[0].status === 'erro' ? 'critico' : cnpj[0].status === 'parcial' ? 'atencao' : 'ok',
+        admin ? '<button class="btn btn-o btn-mini" data-au-fn="erp-cnpj">Rodar agora</button>' : '') +
+      rotina('Mensalidades de consultoria', false, 'Todo dia, 6h30 · gera a competência do mês e reajusta pelo salário mínimo', 'ok') +
+      (admin ? rotina('Envio de e-mails', emails.length ? emails.map((m) => m.criado_em).sort().pop() : null, 'A cada 10 minutos · últimos 7 dias: ' + emails.filter((m) => m.status === 'enviado').length + ' enviado(s)' + (erroEmail ? ', ' + erroEmail + ' com erro' : ''), erroEmail ? 'critico' : 'ok') +
+        rotina('Backup semanal', backup[0] && backup[0].criado_em, 'Domingo, 3h · guarda as 8 últimas cópias', !backup[0] ? 'atencao' : Date.now() - new Date(backup[0].criado_em) > 8 * 864e5 ? 'critico' : 'ok',
+          '<button class="btn btn-o btn-mini" data-au-fn="erp-backup">Rodar agora</button>') : '') +
+    '</div></div>' +
+    '<div class="card"><div class="card-hd">🧾 Últimas ações automáticas</div>' +
+      (log.length ? '<div class="tabela-wrap"><table><thead><tr><th>Quando</th><th>O que aconteceu</th></tr></thead><tbody>' +
+        log.map((l) => '<tr' + (l.cliente_id ? ' class="clicavel" data-cli="' + l.cliente_id + '"' : '') + '><td class="mono">' + quandoRodou(l.quando) + '</td><td>' + esc(l.descricao) + '</td></tr>').join('') + '</tbody></table></div>'
+        : vazio('Nenhuma ação automática ainda. Elas aparecem aqui assim que acontecerem.')) + '</div>' +
+    datalistPessoas('au-pessoas');
+  const salvar = async (chave, campos, msg) => { await q(sb.from('regras_tarefas').update(campos).eq('chave', chave)); aviso('✓ ' + msg); };
+  $('conteudo').querySelectorAll('[data-au-lig]').forEach((c) => c.onchange = async () => {
+    try { await salvar(c.dataset.auLig, { ligada: c.checked }, (c.checked ? 'Ligada: ' : 'Desligada: ') + c.closest('.au-item').querySelector('b').textContent);
+      c.closest('.au-item').classList.toggle('ligada', c.checked); } catch (e) { c.checked = !c.checked; aviso(erroAmigavel(e), true); }
+  });
+  $('conteudo').querySelectorAll('[data-au-dias]').forEach((c) => c.onchange = () => salvar(c.dataset.auDias, { dias: Math.max(0, parseInt(c.value, 10) || 0) }, 'Prazo atualizado.').catch((e) => aviso(erroAmigavel(e), true)));
+  $('conteudo').querySelectorAll('[data-au-resp]').forEach((c) => c.onchange = () => salvar(c.dataset.auResp, { responsavel: c.value.trim() }, 'Responsável atualizado.').catch((e) => aviso(erroAmigavel(e), true)));
+  $('conteudo').querySelectorAll('[data-cli]').forEach((tr) => tr.onclick = () => abrirFicha(tr.dataset.cli));
+  $('au-rodar').onclick = (ev) => comBotao(ev.currentTarget, async () => { const n = await q(sb.rpc('rodar_regras_tarefas')); aviso('✓ Regras rodadas: ' + n + ' novidade(s).'); await TELAS.automacoes(); });
+  $('conteudo').querySelectorAll('[data-au-fn]').forEach((b) => b.onclick = () => comBotao(b, async () => {
+    const r = await chamarFuncao(b.dataset.auFn, { acao: 'rodar' }); aviso('✓ ' + (r.mensagem || 'Feito.')); await TELAS.automacoes();
+  }));
+};
 
 // toda gravação confirmada aparece também no rodapé do ERP
 const _avisoOrig = aviso;

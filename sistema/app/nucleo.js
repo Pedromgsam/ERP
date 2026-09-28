@@ -325,6 +325,8 @@ function fecharJanela(el) {
 }
 document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') fecharJanela(); });
 
+function irParaTela(t) { if (typeof window.nav === 'function') window.nav(null, t); else irPara(t); }
+
 // Relatório padrão (Alertas, Clientes…): tabela ordenável + CSV; linha com id abre a ficha do cliente.
 // r = { titulo, colunas: [...], linhas: [[...]], ids?: [id do cliente por linha], acao?: { rotulo, fn } }
 function relatorioTabela(r) {

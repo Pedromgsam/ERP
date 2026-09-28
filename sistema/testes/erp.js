@@ -41,7 +41,7 @@ insert into tarefas(titulo,responsavel,prazo) values ('Protocolar defesa','Pedro
 insert into configuracoes(chave,valor) values ('recibo_emitentes','{"pedro":{"label":"Pedro","nome":"ADVOGADO FICTICIO","oab":"OAB/MG 1","local":"Cidade/MG","qualif":"advogado ficticio, e-mail teste@teste","email":"teste@teste"}}');
 insert into auth.users(email,senha_teste,raw_user_meta_data) values ('cliente@teste','senha123','{"nome":"Cliente Alfa"}');
 update config_privada set valor = to_jsonb('http://127.0.0.1:8090/__teste/djen'::text) where chave = 'api_publicacoes';
-insert into config_privada(chave,valor) values ('api_cnpj','{"provedor":"brasilapi","token":"","bases":{"brasilapi":"http://127.0.0.1:8090/__teste/brasilapi/"}}')
+insert into config_privada(chave,valor) values ('api_cnpj','{"provedor":"brasilapi","token":"","bases":{"brasilapi":"http://127.0.0.1:8090/__teste/brasilapi/","receitaws":"http://127.0.0.1:8090/__teste/receitaws/","cnpja":"http://127.0.0.1:8090/__teste/cnpja/"}}')
   on conflict (chave) do update set valor = excluded.valor;
 update clientes set procuracao = true where nome = 'Alfa Comércio Ltda';
 insert into auth.users(email,senha_teste,raw_user_meta_data) values ('fin@teste','senha123','{"nome":"Fabiana Financeiro"}');
@@ -345,9 +345,10 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('▶/■ registra horas na tarefa', sql("select count(*) from tarefa_tempos where fim is not null") === '1');
     await p.keyboard.press('Escape');
     // regras automáticas: tela e "Rodar agora"
-    await p.click('#tf-regras'); await p.waitForSelector('#rg-rodar'); await p.waitForTimeout(250);
-    ok('tela de regras automáticas lista as 7 regras', (await p.$$('[data-rg-lig]')).length === 7);
-    await p.click('#rg-rodar'); await p.waitForTimeout(1500);
+    await p.click('#tf-regras'); await p.waitForSelector('#panel-automacoes #au-rodar'); await p.waitForTimeout(500);
+    ok('botão ⚡ Automações abre a Central com todas as automações (16) e as rotinas', (await p.$$('#panel-automacoes [data-au-lig]')).length === 16 && /Rotinas agendadas/.test(await p.textContent('#panel-automacoes')));
+    await p.click('#panel-automacoes #au-rodar'); await p.waitForTimeout(1500);
+    await nav(p, 'tarefas'); await p.waitForTimeout(800);
     ok('rodar regras: parcela de acordo vencendo vira tarefa de acompanhamento, sem duplicar', sql("select count(*) from tarefas where chave_regra like 'aco:%'") === '0' || sql("select count(*) from tarefas where chave_regra like 'aco:%'") === '1');
     await p.click('#gs-sino'); await p.waitForTimeout(1500);
     ok('sino abre os avisos', /Avisos/.test(await p.textContent('#gs-raiz .janela-hd')));
@@ -602,6 +603,56 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.click('#panel-alertas .al-card:has-text("Saúde do sistema")'); await p.waitForTimeout(400);
     ok('saúde do sistema: banco e arquivos x limite do plano', /500 MB/.test(await p.textContent('#gs-raiz .janela')) && /Maiores tabelas/.test(await p.textContent('#gs-raiz .janela')));
     await p.keyboard.press('Escape'); await p.waitForTimeout(200);
+
+    // ── automações encadeadas (Central de automações) ──
+    await nav(p, 'automacoes'); await p.waitForSelector('#panel-automacoes [data-au-lig]'); await p.waitForTimeout(400);
+    await p.click('#panel-automacoes [data-au="email_lembrete_honorario"] .au-chave'); await p.waitForTimeout(900);
+    ok('Central: liga um e-mail ao cliente com um clique (salva na hora)', sql("select ligada from regras_tarefas where chave='email_lembrete_honorario'") === 't');
+    sql("insert into contatos(cliente_id,nome,finalidade,email) select id,'Financeiro Alfa','financeiro','financeiro@alfa.teste' from clientes where nome='Alfa Comércio Ltda'");
+    sql("insert into lancamentos(empresa,tipo,cliente_id,grupo_id,descricao,vencimento,valor) select 'escritorio','receita',id,grupo_id,'Honorário lembrete',current_date+3,700 from clientes where nome='Alfa Comércio Ltda'");
+    await p.click('#panel-automacoes #au-rodar'); await p.waitForTimeout(1800);
+    const refLh = "(select 'email_lh:'||id from lancamentos where descricao='Honorário lembrete')";
+    ok('lembrete de honorário vai por e-mail ao contato financeiro do cliente (quem recebe boletos primeiro)', sql("select para from email_fila where tipo='cliente' and referencia=" + refLh) === 'fin@teste.com');
+    await p.click('#panel-automacoes #au-rodar'); await p.waitForTimeout(1500);
+    ok('rodar de novo não repete o e-mail', sql("select count(*) from email_fila where tipo='cliente' and referencia=" + refLh) === '1');
+    // contrato novo → anexar; documento do contrato conclui sozinho
+    sql("insert into contratos(cliente_id,descricao,valor_total,num_parcelas,data_contrato,modalidade) select id,'Contrato Automação',1000,1,current_date,'pontual' from clientes where nome='Beta Serviços Ltda'");
+    ok('contrato novo cria a tarefa "anexar o contrato assinado"', sql("select count(*) from tarefas where chave_regra like 'anexo:%' and titulo like '%Contrato Automação%' and status='pendente'") === '1');
+    sql("insert into documentos(cliente_id,contrato_id,tipo,nome,caminho) select cliente_id,id,'contrato','Contrato Automação.pdf','teste/x.pdf' from contratos where descricao='Contrato Automação'");
+    ok('anexar o contrato conclui a tarefa sozinho', sql("select status from tarefas where chave_regra like 'anexo:%' and titulo like '%Contrato Automação%'") === 'concluida');
+    // processo de grupo sem procuração → tarefa; marcar procuração conclui
+    sql("update clientes set procuracao=null where grupo_id=(select id from grupos where nome='Grupo Beta')");
+    sql("insert into processos(grupo_id,numero,advogado) select id,'7777777-77.2026.8.13.0024','Pedro' from grupos where nome='Grupo Beta'");
+    ok('processo novo sem procuração cria "providenciar procuração"', sql("select count(*) from tarefas where chave_regra like 'procur:%' and status='pendente'") === '1');
+    { const idB = sql("select id from clientes where nome='Beta Serviços Ltda'");
+      await p.evaluate((id) => ERP_EDITAR('clientes:' + id), idB); await p.waitForSelector('#gs-raiz [name=procuracao]'); await p.waitForTimeout(250);
+      await p.selectOption('#gs-raiz [name=procuracao]', { index: 1 }).catch(() => {});
+      const opt = await p.$eval('#gs-raiz [name=procuracao]', (s) => [...s.options].map((o) => o.value + '=' + o.text).join('|'));
+      await p.selectOption('#gs-raiz [name=procuracao]', { label: 'Sim' }).catch(() => {});
+      await salvarGs(p, '#btn-salvar-cli');
+      ok('marcar "Procuração: Sim" no cadastro conclui a tarefa sozinho', sql("select status from tarefas where chave_regra like 'procur:%'") === 'concluida', opt); }
+    // honorário recebido → conclui a cobrança
+    sql("update regras_tarefas set ligada=true, dias=1 where chave='cobrar_honorario'");
+    await nav(p, 'automacoes'); await p.waitForSelector('#au-rodar'); await p.click('#au-rodar'); await p.waitForTimeout(1800);
+    { const idL = sql("select id from lancamentos where descricao='Atraso antigo' limit 1");
+      ok('regra de cobrança cria a tarefa "cobrar honorário"', sql("select count(*) from tarefas where chave_regra='cob:" + idL + "'") === '1');
+      sql("update lancamentos set pago=true where id='" + idL + "'");
+      ok('honorário recebido conclui a tarefa de cobrança sozinho', sql("select status from tarefas where chave_regra='cob:" + idL + "'") === 'concluida'); }
+    await nav(p, 'automacoes'); await p.waitForSelector('#au-rodar'); await p.waitForTimeout(500);
+    ok('Central mostra quantas vezes cada automação agiu e as últimas ações', /[1-9]× em 30 dias/.test(await p.textContent('#panel-automacoes [data-au="contrato_anexo"]')) &&
+      /tarefa concluída sozinha/.test(await p.textContent('#panel-automacoes')));
+    // cliente novo com CNPJ → consulta na hora (fonte reserva para empresa recém-aberta) / aguardando
+    await nav(p, 'clientes'); await p.waitForTimeout(900);
+    for (const [nome, doc] of [['Empresa Nova (teste)', '33.444.555/0001-06'], ['Empresa Novíssima (teste)', '44.555.666/0001-77']]) {
+      await p.click('#panel-clientes [data-novo=cliente]'); await p.waitForSelector('#gs-raiz [name=cpf_cnpj]'); await p.waitForTimeout(250);
+      await p.fill('#gs-raiz [name=nome]', nome); await p.fill('#gs-raiz [name=cpf_cnpj]', doc);
+      await salvarGs(p, '#btn-salvar-cli'); await p.waitForTimeout(2500);
+    }
+    ok('cliente novo com CNPJ: busca na Receita na hora (fonte reserva acha empresa recém-aberta)', sql("select razao_social||'|'||cidade from clientes where cpf_cnpj='33444555000106'") === 'EMPRESA NOVA LTDA|CONTAGEM' &&
+      sql("select count(*) from automacoes_log where chave='cliente_novo_cnpj'") === '2');
+    ok('CNPJ que nenhuma base conhece fica "aguardando a Receita" (não é erro) e volta amanhã', sql("select coalesce(razao_social,'')||'|'||(cnpj_atualizado_em is null) from clientes where cpf_cnpj='44555666000177'") === '|true' &&
+      sql("select status from cnpj_execucoes order by inicio desc limit 1") === 'ok' && /aguardando/.test(sql("select mensagem from cnpj_execucoes order by inicio desc limit 1")));
+    sql("delete from clientes where cpf_cnpj in ('33444555000106','44555666000177')");
 
     // ── design: modo escuro, estado vazio e tabelas longas ──
     await nav(p, 'hoje'); await p.waitForTimeout(800);

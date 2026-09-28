@@ -16,9 +16,12 @@
 
   /* situação — os MESMOS tons em cartões, selos, barras e alertas de todas as telas.
      base = faixa do cartão / ícone · -d = texto sobre fundo claro · -lt = fundo do selo */
-  --green:#16A34A;--green-d:#15803D;--green-lt:#DCFCE7;
-  --amber:#D97706;--amber-d:#B45309;--amber-lt:#FEF3C7;--amber-border:rgba(217,119,6,.25);
-  --red:#DC2626;--red-d:#B91C1C;--red-lt:#FEE2E2;
+  /* tons ajustados para contraste AA (4,5:1) também sobre o fundo cinza — medido pelo caca-bugs.js */
+  --green:#15803D;--green-d:#166534;--green-lt:#DCFCE7;
+  --amber:#A84E08;--amber-d:#92400E;--amber-lt:#FEF3C7;--amber-border:rgba(180,83,9,.28);
+  --red:#C81E1E;--red-d:#991B1B;--red-lt:#FEE2E2;
+  --teal:#0F766E;--teal-lt:#CCFBF1;
+  --btn-verde:#15803D;          /* fundo de botão verde com texto branco (5:1 nos dois modos) */
   --blue:#2563EB;--blue-d:#1D4ED8;--blue-lt:#DBEAFE;
   --violet:#7C3AED;--violet-d:#6D28D9;--violet-lt:#EDE9FE;
   --gray:#6B7280;--gray-lt:#EEF0F5;--gray-mid:#E4E7EF;
@@ -26,7 +29,7 @@
   /* superfícies e texto */
   --bg:#F0F2F7;--surface:#FFFFFF;--surface2:#F7F8FB;--surface3:#EEF1F7;--white:#FFFFFF;
   --ink:#1B2A4A;                 /* títulos e números (navy como texto) */
-  --text:#1B2A4A;--text2:#374151;--text3:#6B7280;--text4:#9CA3AF;
+  --text:#1B2A4A;--text2:#374151;--text3:#5B6472;--text4:#5F6876;
   --border:rgba(15,23,42,.09);--border-strong:rgba(15,23,42,.16);--line:#E5E7EB;
   --foco:0 0 0 3px rgba(46,94,170,.35);
 
@@ -38,15 +41,16 @@
 
 /* ── modo escuro (botão ◐ na barra superior; lembrado neste aparelho) ── */
 html[data-tema="escuro"]{
-  --green:#22C55E;--green-d:#4ADE80;--green-lt:rgba(34,197,94,.16);
-  --amber:#F59E0B;--amber-d:#FBBF24;--amber-lt:rgba(245,158,11,.16);--amber-border:rgba(245,158,11,.35);
-  --red:#EF4444;--red-d:#F87171;--red-lt:rgba(239,68,68,.16);
+  --green:#34D173;--green-d:#6EE7A0;--green-lt:rgba(34,197,94,.16);
+  --amber:#F5A524;--amber-d:#FBBF24;--amber-lt:rgba(245,158,11,.16);--amber-border:rgba(245,158,11,.35);
+  --red:#F26666;--red-d:#FCA5A5;--red-lt:rgba(239,68,68,.16);
+  --teal:#2DD4BF;--teal-lt:rgba(45,212,191,.16);
   --blue:#60A5FA;--blue-d:#93C5FD;--blue-lt:rgba(96,165,250,.16);
   --violet:#A78BFA;--violet-d:#C4B5FD;--violet-lt:rgba(167,139,250,.16);
   --gray:#9CA3AF;--gray-lt:#1E2636;--gray-mid:#2A3446;
   --bg:#0E1420;--surface:#161D2B;--surface2:#1B2334;--surface3:#212B3E;--white:#161D2B;
   --ink:#E6ECF7;
-  --text:#E6ECF7;--text2:#C3CCDB;--text3:#8E99AD;--text4:#6B778C;
+  --text:#E6ECF7;--text2:#C3CCDB;--text3:#A3AEC2;--text4:#97A2B6;
   --border:rgba(255,255,255,.09);--border-strong:rgba(255,255,255,.18);--line:#2A3446;
   --ac-gold-lt:rgba(201,168,76,.16);
   --shadow-sm:0 1px 3px rgba(0,0,0,.4);--shadow-md:0 3px 10px rgba(0,0,0,.45);--shadow-lg:0 8px 22px rgba(0,0,0,.5);
@@ -66,3 +70,13 @@ button:focus:not(:focus-visible),a:focus:not(:focus-visible){outline:none}
 .pag-rodape{display:flex;align-items:center;gap:8px;justify-content:flex-end;padding:10px 4px 2px;font-size:12px;color:var(--text3)}
 .pag-rodape button{font:600 12px 'DM Sans',system-ui,sans-serif;padding:5px 11px;border-radius:8px;border:1px solid var(--border-strong);background:var(--surface);color:var(--ink);cursor:pointer}
 .pag-rodape button:hover{border-color:var(--ac-navy3)}
+
+/* ── contraste: correções pontuais achadas pelo caca-bugs.js ── */
+.btn-v, .gs .btn-v, .gx-la-bx{background:var(--btn-verde)!important;border-color:var(--btn-verde)!important;color:#fff!important}
+#panel-resumo .gs-cont-ent{color:#6E5510}
+html[data-tema="escuro"] #panel-resumo .gs-cont-ent{color:#E9CF86;background:rgba(201,168,76,.16)}
+/* modo escuro: selos e linhas pintados com a cor da pessoa (vêm prontos do JS do ERP antigo) */
+html[data-tema="escuro"] .fa-pessoa{color:#1B2A4A!important}
+html[data-tema="escuro"] .fa-pessoa[style*="26;"]{background:#DCE3EF!important}
+html[data-tema="escuro"] .fa-chip-p:not(.on){color:var(--ink)!important;background:rgba(255,255,255,.06)!important}
+html[data-tema="escuro"] tbody tr[style*="background"]{background:rgba(255,255,255,.035)!important}
