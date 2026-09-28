@@ -70,6 +70,15 @@ Isso é feito **uma vez**; depois só muda se uma pull request pedir.
   configurado em Administração → E-mail e vão para o contato financeiro do cliente).
 - **Modo escuro:** botão **◐** na barra de cima (fica lembrado em cada computador).
 - **Funções de cada pessoa:** Administração → Usuários → botão **Funções** ao lado de cada pessoa da equipe.
+  Ali também se escolhe **"Clientes que vê"** (Só Jurídico / Só Contabilidade / Os dois) e o nível **Rascunho**
+  (a pessoa preenche, mas só vale depois de aprovado — modelo pronto "Estagiário (rascunho)").
+- **Área de cada cliente:** no cadastro do cliente, campo **Área do cliente** (Jurídico / Contabilidade / os dois).
+  Na primeira vez que o SQL do Backup 12 roda, o sistema sugere a área sozinho; confira em Clientes → filtro de áreas.
+- **Aprovações (rascunhos):** faixa no Início ou menu **⋯ → 📝 Aprovações**. Mostra *antes → depois*; **✓ Aprovar** ou **Recusar**.
+- **Recebimentos:** todo botão de baixa pergunta a **data** (já vem com hoje). Nos acordos, pergunta também se o
+  **comprovante foi anexado ao processo** e, se sim, o **ID** do documento.
+- **Êxito:** no contrato, informe o % e *como foi combinado*. Quando o êxito acontecer, abra o contrato →
+  **🏆 Registrar êxito** → informe o valor X (ex.: quanto a dívida reduziu). O sistema lança % × X em Honorários Jurídico.
 
 ## 2c. Ler de novo uma planilha (substituir o que foi importado)
 Use quando uma planilha foi lida errado (ex.: Contabilidade ou Acordos).

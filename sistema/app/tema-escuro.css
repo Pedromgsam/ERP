@@ -228,6 +228,9 @@ html[data-tema="escuro"] #panel-resumo .gs-cont-grp{background:#1a2231;border:1p
 html[data-tema="escuro"] #execKpis .kv,html[data-tema="escuro"] #execKpis .kv *{color:#d3d9e4!important}
 html[data-tema="escuro"] .capag.capag-O{background:#844343!important}
 html[data-tema="escuro"] #panel-acordos tr[data-gx^="acordos:"]:hover td{background:#1a202b}
+html[data-tema="escuro"] #gs-hd{background:linear-gradient(115deg,rgba(255,255,255,0.22),rgba(255,255,255,0.22) 55%,rgba(255,255,255,0.22))!important}
+html[data-tema="escuro"] #gs-hd::after{background:linear-gradient(90deg,transparent,rgba(255,255,255,0.03) 30%,rgba(255,255,255,0.03) 70%,transparent)}
+html[data-tema="escuro"] #gs-hd .tn-lancar-bt{background-color:#766948}
 html[data-tema="escuro"] #gx-editar{border:1px solid var(--ac-gold,#766948)}
 html[data-tema="escuro"] .gx-fundo{background:rgba(255,255,255,0.22)}
 html[data-tema="escuro"] .gx-janela{background:var(--surface);color:#dadee4}

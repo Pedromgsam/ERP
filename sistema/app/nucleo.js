@@ -89,30 +89,54 @@ const MODELOS_ACESSO = {
   'Financeiro': { financeiro_juridico: 'editar', financeiro_contab: 'editar', contratos: 'editar', clientes: 'ver', documentos: 'editar', relatorios: 'ver' },
   'Jurídico': { juridico: 'editar', clientes: 'editar', tarefas: 'editar', documentos: 'editar', contratos: 'ver' },
   'Atendimento / Comercial': { crm: 'editar', clientes: 'editar', contratos: 'ver', documentos: 'editar', tarefas: 'ver' },
-  'Estagiário': { juridico: 'ver', tarefas: 'ver', clientes: 'ver', documentos: 'ver' }
+  'Estagiário (rascunho)': { juridico: 'propor', clientes: 'propor', tarefas: 'ver', documentos: 'ver', contratos: 'ver' }
 };
+// Nível "Propor" (rascunho): a pessoa preenche normalmente, mas nada vale até alguém que edita aprovar.
+const FUNCOES_PROPOR = ['financeiro_juridico', 'financeiro_contab', 'contratos', 'clientes', 'juridico'];
+// Área do cliente e áreas que cada usuário vê
+const AREAS = [['juridico', 'Jurídico'], ['contabil', 'Contabilidade'], ['ambos', 'Jurídico + Contabilidade']];
+function rotArea(a) { return (AREAS.find((x) => x[0] === (a || 'ambos')) || AREAS[2])[1]; }
+function pillArea(a) {
+  a = a || 'ambos';
+  return '<span class="pill area-' + a + '" title="Área: ' + rotArea(a) + '">' + (a === 'juridico' ? 'Jurídico' : a === 'contabil' ? 'Contábil' : 'Jur + Cont') + '</span>';
+}
+function minhasAreas(perfil) { const p = perfil || E.perfil || window.ERP_EU || {}; return p.papel === 'admin' ? 'ambos' : (p.areas || 'ambos'); }
 // pode('contratos') → pode ver; pode('contratos','editar') → pode gravar. Admin pode tudo.
 function pode(f, nivel, perfil) {
   const p = perfil || E.perfil || window.ERP_EU || {};
   if (p.papel === 'admin') return true;
   if (p.papel !== 'equipe') return false;
-  const v = (p.funcoes || {})[f];
-  return v === 'editar' || (v === 'ver' && (nivel || 'ver') === 'ver');
+  const v = (p.funcoes || {})[f], n = nivel || 'ver';
+  if (v === 'propor') return n !== 'aprovar';          // vê e preenche; a gravação vira rascunho
+  return v === 'editar' || (v === 'ver' && n === 'ver');
+}
+// esta pessoa trabalha em modo rascunho nesta função?
+function emRascunho(f, perfil) {
+  const p = perfil || E.perfil || window.ERP_EU || {};
+  return p.papel === 'equipe' && (p.funcoes || {})[f] === 'propor';
 }
 function resumoFuncoes(p) {
   if (p.papel === 'admin') return 'tudo';
   const f = p.funcoes || {}, ks = FUNCOES.filter((x) => f[x[0]]);
   if (ks.length === FUNCOES.length && ks.every((x) => f[x[0]] === 'editar')) return 'tudo';
-  return ks.map((x) => x[1].replace('Financeiro — ', 'Fin. ') + (f[x[0]] === 'ver' ? ' (ver)' : '')).join(' · ') || 'nenhuma';
+  return ks.map((x) => x[1].replace('Financeiro — ', 'Fin. ') + (f[x[0]] === 'ver' ? ' (ver)' : f[x[0]] === 'propor' ? ' (rascunho)' : '')).join(' · ') + (p.areas && p.areas !== 'ambos' ? ' · só ' + rotArea(p.areas) : '') || 'nenhuma';
 }
 // grade de funções (Nenhum / Ver / Editar) com os modelos prontos
 function gradeFuncoes(funcoes) {
   funcoes = funcoes || {};
   return '<div class="modelos-acesso">' + Object.keys(MODELOS_ACESSO).map((m) => '<button type="button" class="btn btn-o btn-mini" data-modelo-acesso="' + esc(m) + '">' + esc(m) + '</button>').join('') + '</div>' +
     '<div class="grade-funcoes">' + FUNCOES.map(([k, rot, desc]) => '<div class="gf-lin"><div><b>' + rot + '</b><div class="sub">' + desc + '</div></div><div class="segmento gf-niveis" data-funcao="' + k + '">' +
-      [['', 'Nenhum'], ['ver', 'Ver'], ['editar', 'Editar']].map(([v, r]) => '<button type="button" data-v="' + v + '" class="' + ((funcoes[k] || '') === v ? 'ativo' : '') + '">' + r + '</button>').join('') + '</div></div>').join('') + '</div>';
+      [['', 'Nenhum'], ['ver', 'Ver']].concat(FUNCOES_PROPOR.includes(k) ? [['propor', 'Rascunho']] : [], [['editar', 'Editar']]).map(([v, r]) => '<button type="button" data-v="' + v + '" class="' + ((funcoes[k] || '') === v ? 'ativo' : '') + '">' + r + '</button>').join('') + '</div></div>').join('') + '</div>';
 }
+// quais clientes a pessoa vê: só do Jurídico, só da Contabilidade ou os dois (clientes "Jurídico + Contabilidade" todos veem)
+function gradeAreas(areas) {
+  return '<div class="gf-lin gf-lin-area"><div><b>Clientes que vê</b><div class="sub">Vale para a lista de clientes, contatos, contratos e documentos</div></div>' +
+    '<div class="segmento gf-areas">' + [['juridico', 'Só Jurídico'], ['contabil', 'Só Contabilidade'], ['ambos', 'Os dois']].map(([v, r]) =>
+      '<button type="button" data-v="' + v + '" class="' + ((areas || 'ambos') === v ? 'ativo' : '') + '">' + r + '</button>').join('') + '</div></div>';
+}
+function lerAreas(raiz) { const b = raiz.querySelector('.gf-areas button.ativo'); return b ? b.dataset.v : 'ambos'; }
 function ligarGradeFuncoes(raiz) {
+  raiz.querySelectorAll('.gf-areas').forEach((g) => g.onclick = (ev) => { const b = ev.target.closest('button'); if (!b) return; g.querySelectorAll('button').forEach((x) => x.classList.toggle('ativo', x === b)); });
   raiz.querySelectorAll('.gf-niveis').forEach((g) => g.onclick = (ev) => { const b = ev.target.closest('button'); if (!b) return; g.querySelectorAll('button').forEach((x) => x.classList.toggle('ativo', x === b)); });
   raiz.querySelectorAll('[data-modelo-acesso]').forEach((b) => b.onclick = () => {
     const m = MODELOS_ACESSO[b.dataset.modeloAcesso];
@@ -229,6 +253,7 @@ function pillPessoa(n) {
 // ─────────────────────────── avisos e erros ────────────────────────
 let _avisoT;
 function aviso(msg, erro) {
+  if (/^📝/.test(String(msg))) erro = false;              // rascunho enviado: não é erro
   const a = $('aviso');
   a.textContent = msg;
   a.className = 'mostrar' + (erro ? ' erro' : '');
@@ -245,6 +270,7 @@ function marcarGravacao() {
 }
 
 function erroAmigavel(e) {
+  if (e && e.rascunho) return e.message;
   const m = String((e && (e.message || e.error_description)) || e || '');
   if (/Invalid login credentials/i.test(m)) return 'E-mail ou senha incorretos.';
   if (/Email not confirmed/i.test(m)) return 'E-mail ainda não confirmado. Peça ao administrador para confirmar o usuário.';
@@ -280,9 +306,92 @@ async function buscarTodos(montar, porPagina) {
 async function comBotao(btn, fn) {
   if (btn) btn.disabled = true;
   try { await fn(); }
-  catch (e) { console.error(e); aviso(erroAmigavel(e), true); }
+  catch (e) {
+    if (e && e.rascunho) { const j = btn && btn.closest && btn.closest('.fundo'); if (j) fecharJanela(j); aviso(e.message); return; }
+    console.error(e); aviso(erroAmigavel(e), true);
+  }
   finally { if (btn) btn.disabled = false; }
 }
+
+// ═════════════ RASCUNHO (nível "Propor" das funções de acesso) ═════════════
+// Quem tem "Rascunho" numa função usa as telas normalmente; na hora de gravar, em vez de
+// alterar o banco, a alteração vai para public.rascunhos (RPC propor_alteracao) e só vale
+// depois que alguém que edita aquela área aprovar (tela Aprovações). O banco garante a regra:
+// sem "Editar", a gravação direta é recusada pela RLS.
+const TABELAS_RASCUNHO = { clientes: 'clientes', contatos: 'clientes', enderecos: 'clientes', contas_bancarias: 'clientes', vinculos_societarios: 'clientes',
+  interacoes: 'clientes', certidoes: 'clientes', cliente_etiquetas: 'clientes', contratos: 'contratos',
+  processos: 'juridico', parcelamentos: 'juridico', parcelas: 'juridico', acordos: 'juridico', lancamentos: '*fin' };
+const NOME_TAB_RASC = { clientes: 'cliente', contatos: 'contato', enderecos: 'endereço', contas_bancarias: 'conta bancária', vinculos_societarios: 'vínculo societário',
+  interacoes: 'interação', certidoes: 'certidão', cliente_etiquetas: 'etiqueta', contratos: 'contrato', processos: 'processo', parcelamentos: 'parcelamento',
+  parcelas: 'parcela', acordos: 'acordo', lancamentos: 'lançamento' };
+function funcaoDaGravacao(t, dados, filtros) {
+  const f = TABELAS_RASCUNHO[t];
+  if (f !== '*fin') return f;
+  const um = Array.isArray(dados) ? dados[0] : dados;
+  const emp = (um && um.empresa) || (filtros.id && window.ERP_LANC && window.ERP_LANC[filtros.id] && window.ERP_LANC[filtros.id].empresa) || '';
+  if (emp) return emp === 'contabilidade' ? 'financeiro_contab' : 'financeiro_juridico';
+  return emRascunho('financeiro_juridico') ? 'financeiro_juridico' : 'financeiro_contab';
+}
+function resumoRascunho(t, op, dados, filtros) {
+  const um = (Array.isArray(dados) ? dados[0] : dados) || {};
+  const nome = um.nome || um.descricao || um.titulo || um.numero || um.processo || '';
+  const campos = op === 'alterar' ? Object.keys(um).filter((k) => !/^(id|atualizado_em)$/.test(k)).length : 0;
+  return ({ incluir: 'Incluir ', alterar: 'Alterar ', excluir: 'Excluir ' }[op]) + (NOME_TAB_RASC[t] || t) + (nome ? ': ' + nome : '') +
+    (op === 'alterar' && !nome ? ' (' + campos + ' campo(s))' : '') + (Array.isArray(dados) && dados.length > 1 ? ' (+' + (dados.length - 1) + ')' : '');
+}
+function envolverRascunho(cli) {
+  if (!cli || cli._rascunho) return cli;
+  cli._rascunho = true;
+  const fromOriginal = cli.from.bind(cli);
+  cli.from = (t) => {
+    const real = fromOriginal(t);
+    if (!TABELAS_RASCUNHO[t]) return real;
+    return new Proxy(real, { get(alvo, k) {
+      if (!['insert', 'update', 'upsert', 'delete'].includes(k)) { const v = alvo[k]; return typeof v === 'function' ? v.bind(alvo) : v; }
+      return (dados, opcoes) => construtorGravacao(real, t, k, dados, opcoes);
+    } });
+  };
+  return cli;
+}
+// grava o encadeamento (.eq, .select, .single…) e decide no fim: grava direto ou vira rascunho
+function construtorGravacao(real, t, metodo, dados, opcoes) {
+  const cadeia = [], filtros = {};
+  const eu = {
+    then(ok, falha) { return executar().then(ok, falha); },
+    catch(falha) { return executar().catch(falha); }
+  };
+  ['eq', 'in', 'match', 'select', 'single', 'maybeSingle', 'order', 'limit', 'neq', 'is', 'not', 'gte', 'lte', 'lt', 'gt', 'filter', 'contains', 'range', 'throwOnError'].forEach((m) => {
+    eu[m] = (...a) => { cadeia.push([m, a]);
+      if (m === 'eq') filtros[a[0]] = a[1]; else if (m === 'in') filtros[a[0]] = a[1]; else if (m === 'match') Object.assign(filtros, a[0]);
+      else if (!['select', 'single', 'maybeSingle', 'order', 'limit', 'throwOnError'].includes(m)) filtros._outro = true;
+      return eu; };
+  });
+  let _p = null;
+  function executar() {
+    if (_p) return _p;
+    const d = metodo === 'delete' ? null : dados;
+    if (metodo === 'upsert' && d && !Array.isArray(d) && d.id) filtros.id = d.id;
+    const f = funcaoDaGravacao(t, d, filtros);
+    if (!emRascunho(f) || filtros._outro) {
+      let b = metodo === 'delete' ? real.delete(opcoes) : real[metodo](dados, opcoes);
+      cadeia.forEach(([m, a]) => { b = b[m](...a); });
+      return (_p = Promise.resolve(b));
+    }
+    const op = metodo === 'insert' || (metodo === 'upsert' && !filtros.id) ? 'incluir' : metodo === 'delete' ? 'excluir' : 'alterar';
+    const semId = Object.assign({}, filtros);
+    return (_p = sb.rpc('propor_alteracao', { p_tabela: t, p_operacao: op, p_filtros: op === 'incluir' ? {} : semId, p_dados: d || {}, p_resumo: resumoRascunho(t, op, d, filtros) })
+      .then(({ error }) => {
+        if (error) return { data: null, error };
+        const e = new Error('📝 Enviado para aprovação: só vale depois que alguém que edita esta área aprovar (veja em Aprovações).');
+        e.rascunho = true;
+        document.dispatchEvent(new CustomEvent('erp:rascunho'));
+        return { data: null, error: e };
+      }));
+  }
+  return eu;
+}
+envolverRascunho(sb);
+if (window.SB && window.SB !== sb) envolverRascunho(window.SB);
 
 // Carrega um script sob demanda (ex.: a biblioteca de Excel, só quando usada).
 const _scripts = {};
@@ -324,6 +433,42 @@ function fecharJanela(el) {
   if (alvo) alvo.remove();
 }
 document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') fecharJanela(); });
+
+// Baixa (recebimento/pagamento): pergunta a data — vem com hoje, mas dá para trocar quando o
+// lançamento é feito depois. Acordo: pergunta também se o comprovante foi juntado ao processo (e o ID).
+// Devolve os campos a gravar, ou null se a pessoa cancelou.
+function perguntarBaixa({ titulo, descricao, valor, acordo, despesa }) {
+  return new Promise((ok) => {
+    let feito = false;
+    const j = abrirJanela({ titulo: titulo || (despesa ? 'Confirmar pagamento' : 'Confirmar recebimento'),
+      corpo: (descricao ? '<div class="dica" style="margin-bottom:12px"><b>' + esc(descricao) + '</b>' + (valor != null ? ' · ' + brl(valor) : '') + '</div>' : '') +
+        campo(despesa || acordo ? 'Data do pagamento' : 'Data do recebimento', '<input type="date" name="bx-data" required value="' + hojeISO() + '">') +
+        '<div class="sub" style="margin:4px 0 10px">Já vem com a data de hoje. Se o dinheiro entrou em outro dia, troque aqui.</div>' +
+        (acordo ? '<fieldset class="bx-comp"><legend>O comprovante foi anexado ao processo?</legend>' +
+          '<label><input type="radio" name="bx-comp" value="sim"> Sim</label> <label><input type="radio" name="bx-comp" value="nao" checked> Não</label>' +
+          '<div class="bx-id" hidden>' + campo('ID do documento no processo', '<input name="bx-id" placeholder="ex.: 123456789 (ID do PJe)">') + '</div></fieldset>' : ''),
+      rodape: '<button type="button" class="btn btn-o" data-bx-cancelar>Cancelar</button><button type="button" class="btn btn-v" data-bx-ok>✓ Confirmar</button>' });
+    j.classList.add('janela-baixa');
+    const data = j.querySelector('[name=bx-data]');
+    const radios = j.querySelectorAll('[name=bx-comp]'), caixaId = j.querySelector('.bx-id');
+    radios.forEach((r) => r.onchange = () => { caixaId.hidden = r.value !== 'sim' || !r.checked; if (!caixaId.hidden) caixaId.querySelector('input').focus(); });
+    const fim = (v) => { if (feito) return; feito = true; fecharJanela(j); ok(v); };
+    j.querySelector('[data-bx-cancelar]').onclick = () => fim(null);
+    j.querySelector('[data-fechar]').onclick = () => fim(null);
+    j.addEventListener('mousedown', (ev) => { if (ev.target === j) fim(null); });
+    j.querySelector('[data-bx-ok]').onclick = () => {
+      if (!data.value) { data.focus(); return aviso('Informe a data.', true); }
+      const r = { pago: true, data_pagamento: data.value };
+      if (acordo) {
+        const sim = j.querySelector('[name=bx-comp]:checked').value === 'sim', idDoc = j.querySelector('[name=bx-id]').value.trim();
+        if (sim && !idDoc) { j.querySelector('[name=bx-id]').focus(); return aviso('Informe o ID do comprovante no processo (ou marque "Não").', true); }
+        r.comprovante_processo = sim; r.comprovante_id = sim ? idDoc : '';
+      }
+      fim(r);
+    };
+    new MutationObserver((_, o) => { if (!j.isConnected) { o.disconnect(); fim(null); } }).observe(j.parentNode, { childList: true });
+  });
+}
 
 function irParaTela(t) { if (typeof window.nav === 'function') window.nav(null, t); else irPara(t); }
 
@@ -583,3 +728,4 @@ window.addEventListener('DOMContentLoaded', async function iniciar() {
     mostrarLogin(erroAmigavel(e));
   }
 });
+

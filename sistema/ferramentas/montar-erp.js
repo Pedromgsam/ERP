@@ -113,6 +113,24 @@ trocar("  +   kC('Vencido',_faFT(vVenc),vencidos.length+' lançamento(s)','cr',v
 trocar("  +   _faTabelaPessoas(_faPessoas()) + '</div>';",
   "  +   _faTabelaPessoas(_faPessoas()) + '</div>'\n" +
   "  + (vencidos.length?'<div class=\"cc\" style=\"margin-bottom:14px\"><div class=\"cc-hd\"><div><div class=\"cc-t\">⚠ Em atraso</div><div class=\"cc-d\">todos os meses · mesmos recortes de pessoa, tipo e grupo</div></div></div>'+_faTabelaDetalhe(vencidos.slice().sort(function(a,b){return (pDate(a.vencimento)||0)-(pDate(b.vencimento)||0);}))+'</div>':'');", 1);
+// Visual moderno (Backup 12): fonte Inter (Google Fonts, gratuita) para o sistema todo
+trocar("family=Playfair+Display:wght@500;600;700;800&family=DM+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap",
+  "family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap", 1);
+// Análise (Jurídico): "Comparativo por pessoa" vem ANTES de "Recebido por tipo de serviço" e "Maiores grupos"
+(function () {
+  const graf = "  + '<div class=\"crow c2\" style=\"margin-bottom:14px\">'\n" +
+    "  +   '<div class=\"cc\"><div class=\"cc-hd\"><div><div class=\"cc-t\">Recebido por tipo de serviço</div>'\n" +
+    "  +     '<div class=\"cc-d\">consultoria, fixo, êxito…</div></div></div>'\n" +
+    "  +     '<div class=\"cb\" style=\"height:240px\"><canvas id=\"cFaTipo\"></canvas></div></div>'\n" +
+    "  +   '<div class=\"cc\"><div class=\"cc-hd\"><div><div class=\"cc-t\">Maiores grupos</div>'\n" +
+    "  +     '<div class=\"cc-d\">10 primeiros por valor recebido</div></div></div>'\n" +
+    "  +     '<div class=\"cb\" style=\"height:240px\"><canvas id=\"cFaGrupo\"></canvas></div></div>'\n" +
+    "  + '</div>'\n";
+  const pessoas = "  + '<div class=\"cc\" style=\"margin-bottom:14px\"><div class=\"cc-hd\"><div><div class=\"cc-t\">Comparativo por pessoa</div>'\n" +
+    "  +   '<div class=\"cc-d\">mesmo período e mesmos recortes acima</div></div></div>'\n" +
+    "  +   _faTabelaPessoas(_faPessoas()) + '</div>'\n";
+  trocar(graf + pessoas, pessoas + graf, 1);
+})();
 // Análise (Jurídico): sem a lista de lançamentos (os lançamentos já estão em A Receber / Recebidos)
 trocar("  + '<div id=\"faCorpo\"></div>'\n  + '<div class=\"cc\"><div class=\"cc-hd\" style=\"align-items:center\"><div><div class=\"cc-t\">Lançamentos</div>'\n  +   '<div class=\"cc-d\">os filtros do topo já valem para esta lista · clique no cabeçalho para ordenar</div></div>'\n  +   '<span class=\"fa-dica\" id=\"faLqCount\"></span></div>'\n  +   '<div id=\"faLancTbl\"></div></div>';",
   "  + '<div id=\"faCorpo\"></div>';", 1);
@@ -247,10 +265,10 @@ let graf = ler('graficos.js').replace("document.addEventListener('DOMContentLoad
 const bundle = "'use strict';\n// GERADO por sistema/ferramentas/montar-erp.js — não edite; edite os arquivos do Gestão.\n(function () {\n" +
   "const _raiz = document.createElement('div'); _raiz.id = 'gs-raiz'; _raiz.className = 'gs';\n" +
   "_raiz.innerHTML = '<div id=\"janelas\"></div><div id=\"aviso\"></div>'; document.body.appendChild(_raiz);\n" +
-  [nuc, graf, ler('telas-painel.js'), ler('telas-financeiro.js'), ler('telas-cadastros.js'), ler('telas-admin.js'), ler('telas-tarefas.js'), ler('telas-documentos.js'), ler('telas-cliente360.js'), ler('telas-crm.js'), ler('telas-publicacoes.js'), ler('telas-acordos.js'), ler('telas-alertas.js'), ler('telas-automacoes.js')].join('\n') +
+  [nuc, graf, ler('telas-painel.js'), ler('telas-financeiro.js'), ler('telas-cadastros.js'), ler('telas-admin.js'), ler('telas-tarefas.js'), ler('telas-documentos.js'), ler('telas-cliente360.js'), ler('telas-crm.js'), ler('telas-publicacoes.js'), ler('telas-acordos.js'), ler('telas-alertas.js'), ler('telas-automacoes.js'), ler('telas-aprovacoes.js')].join('\n') +
   "\n// toda gravação confirmada aparece também no rodapé do ERP\nconst _avisoOrig = aviso;\n" +
   "aviso = function (msg, erro) { _avisoOrig(msg, erro); if (!erro && window.ERP_EDITOR && /^✓/.test(msg)) window.ERP_EDITOR.gravou(String(msg).replace(/^✓\\s*/, '')); };\n" +
-  "window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, invalidarCadastros, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo };\n})();\n";
+  "window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, invalidarCadastros, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo, perguntarBaixa, detalheContrato };\n})();\n";
 fs.writeFileSync(path.join(APP, 'gestao-embutida.js'), bundle);
 
 // CSS do Gestão só dentro de .gs (as telas do Gestão) e #gs-hd (barra superior)

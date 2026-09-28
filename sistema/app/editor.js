@@ -16,6 +16,7 @@
   const aviso = (m) => { if (typeof window.toast === 'function') window.toast(m); else alert(m); };
   const ehCliente = () => !window.AC_SESSION || window.AC_SESSION.nivel === 'cliente';
   function erroAmigavel(e) {
+    if (e && e.rascunho) return e.message;
     const m = (e && (e.message || e.details)) || String(e);
     if (/row-level security|permission denied|42501/i.test(m)) return 'Seu usuário não tem permissão para isso.';
     if (/duplicate key|23505/i.test(m)) return 'Já existe um registro igual.';
@@ -64,6 +65,7 @@
         { k: 'cpf_cnpj', rot: 'CPF / CNPJ', tipo: 'texto' },
         { k: 'socio_admin', rot: 'Sócio administrador', tipo: 'texto' },
         { k: 'tipo', rot: 'Tipo de cliente', tipo: 'sel', ops: [['Consultoria', 'Consultoria'], ['Demanda', 'Demanda'], ['Inativo', 'Inativo']] },
+        { k: 'area', rot: 'Área do cliente', tipo: 'sel', ops: [['ambos', 'Jurídico + Contabilidade'], ['juridico', 'Jurídico'], ['contabil', 'Contabilidade']] },
         { k: 'responsavel', rot: 'Responsável', tipo: 'texto', lista: PESSOAS },
         { k: 'rfb', rot: 'RFB (R$)', tipo: 'num' }, { k: 'rfb_negociada', rot: 'RFB negociada (R$)', tipo: 'num' },
         { k: 'pgfn', rot: 'PGFN (R$)', tipo: 'num' }, { k: 'pgfn_negociada', rot: 'PGFN negociada (R$)', tipo: 'num' },
@@ -116,11 +118,17 @@
         { k: 'situacao', rot: 'Aviso', tipo: 'sel', ops: [['', '—'], ['Emitir Guia', 'Emitir guia']] },
         { k: 'pago', rot: 'Pago', tipo: 'bool' },
         { k: 'data_pagamento', rot: 'Data do pagamento', tipo: 'data' },
+        { k: 'comprovante_processo', rot: 'Comprovante anexado ao processo', tipo: 'bool' },
+        { k: 'comprovante_id', rot: 'ID do comprovante no processo', tipo: 'texto', dica: 'ex.: ID do documento no PJe' },
         { k: 'pix', rot: 'PIX', tipo: 'texto' }, { k: 'banco', rot: 'Banco', tipo: 'texto' },
         { k: 'obs', rot: 'Observação', tipo: 'area' }
       ],
       baixa: true,
-      antesDeGravar(d) { if (d.pago && !d.data_pagamento) d.data_pagamento = hojeISO(); if (!d.pago) d.data_pagamento = null; }
+      antesDeGravar(d) {
+        if (d.pago && !d.data_pagamento) d.data_pagamento = hojeISO(); if (!d.pago) d.data_pagamento = null;
+        if (!d.comprovante_processo) d.comprovante_id = '';
+        else if (!String(d.comprovante_id || '').trim()) throw new Error('Informe o ID do comprovante no processo (ou desmarque a opção).');
+      }
     },
     parcelamentos: {
       nome: 'Parcelamento',
@@ -297,7 +305,7 @@
       + (id ? '<button type="button" class="gx-bt gx-perigo" data-a="excluir">Excluir</button>' : '')
       + (id && ehAdmin() ? '<button type="button" class="gx-bt" data-a="historico">🕘 Ver alterações</button>' : '')
       + '<span style="flex:1"></span>'
-      + (id && def.baixa && !reg.pago ? '<button type="button" class="gx-bt gx-ok" data-a="baixa">✓ Dar baixa (pago hoje)</button>' : '')
+      + (id && def.baixa && !reg.pago ? '<button type="button" class="gx-bt gx-ok" data-a="baixa">✓ Dar baixa</button>' : '')
       + '<button type="button" class="gx-bt" data-a="cancelar">Cancelar</button>'
       + '<button type="submit" class="gx-bt gx-prim">' + (id ? 'Salvar alterações' : 'Salvar') + '</button>'
       + '</div></form>';
@@ -328,6 +336,7 @@
           id && ajuste && ajuste.pago ? () => desfazerBaixa(tabela, id) : null);
         recarregar();
       } catch (e) {
+        if (e && e.rascunho) { fecharJanela(); aviso(e.message); gravou('Rascunho enviado para aprovação — ' + def.nome.toLowerCase()); return; }
         msg.textContent = '⚠ ' + erroAmigavel(e) + ' Nada foi perdido: corrija e tente de novo.';
         botoes.forEach((b) => { b.disabled = false; });
       }
@@ -335,11 +344,15 @@
     form.addEventListener('submit', (e) => { e.preventDefault(); gravar(); });
     jan.querySelector('[data-a=cancelar]').addEventListener('click', fecharJanela);
     const bx = jan.querySelector('[data-a=baixa]');
-    if (bx) bx.addEventListener('click', () => gravar({ pago: true, data_pagamento: hojeISO(), perda: tabela === 'lancamentos' ? false : undefined }));
+    if (bx) bx.addEventListener('click', async () => {
+      const r = await perguntar(tabela, reg); if (!r) return;
+      gravar(Object.assign(r, tabela === 'lancamentos' ? { perda: false } : {}));
+    });
     const ex = jan.querySelector('[data-a=excluir]');
     if (ex) ex.addEventListener('click', async () => {
       if (!confirm('Excluir este registro? Essa ação fica registrada no Histórico.')) return;
       const { data, error } = await sb.from(tabela).delete().eq('id', id).select('id');
+      if (error && error.rascunho) { fecharJanela(); aviso(error.message); return; }
       if (error) { msg.textContent = '⚠ ' + erroAmigavel(error); return; }
       if (!data || !data.length) { msg.textContent = '⚠ Só o administrador pode excluir este tipo de registro.'; return; }
       fecharJanela(); aviso('✓ Excluído.'); gravou('Excluiu ' + def.nome.toLowerCase() + ' — ' + rotuloReg(reg)); recarregar();
@@ -435,13 +448,23 @@
     gravou('Baixa desfeita'); recarregar();
   }
   // baixa direto na linha, sem abrir formulário
+  // data do recebimento (hoje, editável) e, no acordo, o comprovante juntado ao processo
+  async function perguntar(tabela, reg) {
+    if (tabela === 'parcelas') return { pago: true };
+    const GS = window.GS;
+    if (!GS || !GS.perguntarBaixa) return { pago: true, data_pagamento: hojeISO() };
+    return GS.perguntarBaixa({ acordo: tabela === 'acordos', valor: reg && reg.valor, despesa: tabela === 'lancamentos' && reg && reg.tipo === 'despesa' && !reg.redutor,
+      descricao: reg ? (tabela === 'acordos' ? 'Parcela ' + (reg.parcela || '') + (reg.total_parcelas ? '/' + reg.total_parcelas : '') + ' — ' + (reg.credor || reg.processo || '') : reg.descricao) : '' });
+  }
   async function baixaRapida(tabela, id) {
-    const d = tabela === 'parcelas' ? { pago: true } : { pago: true, data_pagamento: hojeISO() };
+    let reg = null;
+    if (tabela !== 'parcelas') { const r = await sb.from(tabela).select('*').eq('id', id).single(); if (r.error) return aviso('⚠ ' + erroAmigavel(r.error)); reg = r.data; }
+    const d = await perguntar(tabela, reg); if (!d) return;
     if (tabela === 'lancamentos') d.perda = false;
     const { data, error } = await sb.from(tabela).update(d).eq('id', id).select().single();
-    if (error) return aviso('⚠ ' + erroAmigavel(error));
+    if (error) return aviso((error.rascunho ? '' : '⚠ ') + erroAmigavel(error));
     await carregarGrupos();
-    aviso('✓ Baixa gravada.');
+    aviso('✓ Baixa gravada (' + brData(d.data_pagamento || hojeISO()) + ').');
     gravou('Baixa — ' + ({ lancamentos: 'honorário', acordos: 'acordo', parcelas: 'parcela ' + (data.numero || '') }[tabela]) + (tabela !== 'parcelas' ? ' — ' + rotuloReg(data) : ''),
       () => desfazerBaixa(tabela, id));
     recarregar();
@@ -582,7 +605,7 @@
     e.stopPropagation(); e.preventDefault();
     const [t, id] = b.closest('tr').dataset.gx.split(':');
     if (b.dataset.la === 'editar') editarPorMarca(b.closest('tr').dataset.gx);
-    else { b.disabled = true; b.textContent = '…'; baixaRapida(t, id); }
+    else { const txt = b.textContent; b.disabled = true; b.textContent = '…'; baixaRapida(t, id).finally(() => { if (b.isConnected) { b.disabled = false; b.textContent = txt; } }); }
   }, true);
   // clicar numa parcela de acordo abre o detalhe (o que é, todas as parcelas, ações)
   document.addEventListener('click', (e) => {

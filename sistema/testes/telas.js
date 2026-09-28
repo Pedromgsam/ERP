@@ -80,7 +80,8 @@ const r = []; const ok = (n, c) => r.push([n, !!c]);
     ok('Análise com gráfico mensal e KPIs', (await p.locator('#fin-corpo svg.grafico').count()) >= 1 && /Total em aberto/.test(await texto(p)));
     await p.click('#fin-abas [data-aba=areceber]'); await esperar(p);
     ok('A Receber lista as parcelas (todos os meses)', /Consultoria tributária — parcela 1\/3/.test(await texto(p)) && /Todos os meses/.test(await texto(p, '#fin-periodo')));
-    await p.click('#fin-corpo tr:has-text("parcela 1/3") [data-pagar]'); await esperar(p, 900);
+    await p.click('#fin-corpo tr:has-text("parcela 1/3") [data-pagar]');
+    await p.waitForSelector('.janela-baixa [data-bx-ok]'); await p.click('.janela-baixa [data-bx-ok]'); await esperar(p, 900);
     await p.click('#fin-abas [data-aba=recebidos]'); await esperar(p);
     ok('baixa aparece em Recebidos do mês', /parcela 1\/3/.test(await texto(p)) && /Recebido/.test(await texto(p)));
     // busca não perde o foco nem recria a barra

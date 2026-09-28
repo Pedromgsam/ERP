@@ -160,8 +160,12 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
 
     // ── ✓ Recebido na linha (Gestão) ──
     await p.waitForSelector('#panel-financeiro .gx-tab-gs [data-pagar="' + idRec + '"]', { timeout: 8000 });
-    await p.click('#panel-financeiro .gx-tab-gs [data-pagar="' + idRec + '"]'); await p.waitForTimeout(2500);
-    ok('✓ Recebido grava pago com data de hoje', sql("select pago and data_pagamento=current_date from lancamentos where id='" + idRec + "'") === 't');
+    await p.click('#panel-financeiro .gx-tab-gs [data-pagar="' + idRec + '"]');
+    await p.waitForSelector('.janela-baixa [name=bx-data]', { timeout: 8000 });
+    ok('✓ Recebido pergunta a data (já vem com hoje)', await p.inputValue('.janela-baixa [name=bx-data]') === sql('select current_date'));
+    await p.fill('.janela-baixa [name=bx-data]', sql("select (current_date - 3)::text"));
+    await p.click('.janela-baixa [data-bx-ok]'); await p.waitForTimeout(2500);
+    ok('✓ Recebido grava pago com a data informada (lançado depois)', sql("select pago and data_pagamento=current_date-3 from lancamentos where id='" + idRec + "'") === 't');
     ok('após a baixa o ERP mostra na aba Receita', await p.evaluate(() => DB.financeiro.some((f) => f.aba === 'Receita' && f.pagamento === 'SIM')));
 
     // ── Análise: "Em atraso" do Gestão = todos os meses ──
@@ -221,8 +225,16 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     const idAc = sql("select id from acordos where credor='Carlos Credor'");
     ok('acordos com ✓ Baixa na linha', await p.evaluate((id) => document.querySelectorAll('tr[data-gx^="acordos:' + id + '"] [data-la=baixa]').length > 0, idAc));
     await p.evaluate((id) => ERP_EDITAR('acordos:' + id), idAc); await esperarJanela(p);
-    await p.click('.gx-janela [data-a=baixa]'); await p.waitForTimeout(2500);
+    await p.click('.gx-janela [data-a=baixa]');
+    await p.waitForSelector('.janela-baixa [name=bx-comp][value=sim]', { timeout: 8000 });
+    ok('baixa do acordo pergunta se o comprovante foi anexado ao processo', await p.isVisible('.janela-baixa .bx-comp'));
+    await p.check('.janela-baixa [name=bx-comp][value=sim]');
+    await p.click('.janela-baixa [data-bx-ok]'); await p.waitForTimeout(300);
+    ok('"Sim" sem o ID não deixa confirmar', await p.isVisible('.janela-baixa'));
+    await p.fill('.janela-baixa [name=bx-id]', '123456789');
+    await p.click('.janela-baixa [data-bx-ok]'); await p.waitForTimeout(2500);
     ok('acordo baixado', sql("select pago and data_pagamento=current_date from acordos where credor='Carlos Credor'") === 't');
+    ok('comprovante no processo gravado com o ID', sql("select comprovante_processo::text||'|'||comprovante_id from acordos where credor='Carlos Credor'") === 'true|123456789');
     ok('ERP mostra o acordo como Pago', await p.evaluate(() => DB.acordos.find((a) => a.credor === 'Carlos Credor').situacao === 'Pago'));
     ok('Desfazer no rodapé', await p.isVisible('#gx-rodape .gx-rod-bt'));
     await lancar(p, 5);
@@ -260,6 +272,26 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       sql("select string_agg(referencia||'>'||to_char(vencimento,'MM/YYYY')||'='||valor, ',' order by competencia) from lancamentos l join contratos c on c.id=l.contrato_id where c.descricao='Consultoria mensal Alfa' and l.competencia <= '2026-09-01'") === '08/2026>09/2026=1621.00,09/2026>10/2026=1621.00');
     ok('lista de contratos mostra tipo, valor mensal e falta de anexo', /Consultoria/.test(await p.textContent('#panel-contratos')) && /salário\(s\) mínimo\(s\) \/ mês/.test(await p.textContent('#panel-contratos')) && /sem anexo/.test(await p.textContent('#panel-contratos')));
     ok('contrato novo gerou a tarefa de onboarding com o checklist do modelo', sql("select count(*)||'|'||max(jsonb_array_length(checklist)) from tarefas where titulo='Onboarding: Beta Serviços Ltda'") === '1|4');
+    // êxito: a regra fica no contrato; só vira lançamento quando acontece (% × X informado)
+    await p.click('#panel-contratos button:has-text("Novo contrato")'); await p.waitForSelector('#gs-raiz #ctr-mod'); await p.waitForTimeout(250);
+    await p.selectOption('#gs-raiz [name=cliente_id]', { label: 'Beta Serviços Ltda · Grupo Beta' });
+    await p.click('#ctr-mod [data-v=pontual]');
+    ok('regra do êxito só aparece com % preenchido', !(await p.isVisible('#ctr-exito')));
+    await p.fill('#gs-raiz [name=descricao]', 'Redução da dívida PGFN'); await p.fill('#gs-raiz [name=percentual_exito]', '20');
+    await p.selectOption('#gs-raiz [name=exito_base]', 'economia'); await p.fill('#gs-raiz [name=exito_regra]', '20% do que a dívida reduzir');
+    await salvarGs(p, '#btn-salvar-ctr');
+    const idEx = sql("select id from contratos where descricao='Redução da dívida PGFN'");
+    ok('êxito futuro: contrato salvo sem lançamento no financeiro', sql("select exito_base||'|'||exito_regra||'|'||(select count(*) from lancamentos where contrato_id=c.id) from contratos c where id='" + idEx + "'") === 'economia|20% do que a dívida reduzir|0');
+    ok('lista mostra "aguardando o êxito"', /aguardando o êxito/.test(await p.textContent('#panel-contratos')));
+    await p.evaluate((id) => GS.detalheContrato(id), idEx); await p.waitForSelector('#ctr-exito-reg');
+    await p.click('#ctr-exito-reg'); await p.waitForSelector('#f-exito');
+    await p.fill('#f-exito [name=base]', '150.000,00'); await p.fill('#f-exito [name=descricao]', 'Transação reduziu 150 mil');
+    ok('prévia mostra 20% × X', /30\.000,00/.test(await p.textContent('#exito-previa')));
+    await foto(p, 'exito');
+    await p.click('#btn-exito'); await p.waitForTimeout(2000);
+    ok('êxito registrado: 20% de 150 mil lançado em Honorários Jurídico', sql("select valor||'|'||categoria||'|'||empresa from lancamentos where contrato_id='" + idEx + "'") === '30000.00|Êxito|escritorio' &&
+      sql("select count(*) from exitos where contrato_id='" + idEx + "'") === '1');
+    await p.keyboard.press('Escape'); await p.keyboard.press('Escape');
 
     // ── clientes (tela do Gestão) ──
     await nav(p, 'clientes'); await p.waitForTimeout(1200);
@@ -377,8 +409,30 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await nav(p, 'admin'); await p.waitForTimeout(1500);
     await p.click('#adm-abas [data-aba=usuarios]'); await p.waitForTimeout(1200);
     await p.click('[data-funcoes="' + sql("select id from perfis where email='equipe@teste'") + '"]'); await p.waitForSelector('.grade-funcoes'); await p.waitForTimeout(250);
-    await p.click('[data-modelo-acesso="Estagiário"]'); await p.click('#btn-salvar-func'); await p.waitForTimeout(1500);
-    ok('admin escolhe as funções com um modelo pronto', sql("select funcoes->>'juridico'||'|'||coalesce(funcoes->>'financeiro_juridico','-') from perfis where email='equipe@teste'") === 'ver|-');
+    await p.click('[data-modelo-acesso="Estagiário (rascunho)"]'); await p.click('.gf-areas [data-v=juridico]'); await p.click('#btn-salvar-func'); await p.waitForTimeout(1500);
+    ok('admin escolhe as funções com um modelo pronto (estagiário em rascunho)', sql("select funcoes->>'juridico'||'|'||coalesce(funcoes->>'financeiro_juridico','-') from perfis where email='equipe@teste'") === 'propor|-');
+    ok('admin escolhe quais clientes a pessoa vê (só Jurídico)', sql("select areas from perfis where email='equipe@teste'") === 'juridico');
+    // ── estagiário: altera como rascunho; outra pessoa aprova ──
+    sql("update clientes set area='contabil' where nome=(select nome from clientes order by nome desc limit 1)");
+    const cliR = sql("select id from clientes where area<>'contabil' order by nome limit 1"), telAntes = sql("select telefone from clientes where id='" + cliR + "'");
+    const pe = await pagina();
+    await entrar(pe, 'equipe@teste'); await carregado(pe); await pe.waitForTimeout(1500);
+    ok('só Jurídico: não recebe cliente só da Contabilidade', await pe.evaluate(async () => { await GS.carregarCadastros(true); return GS.E.clientes.every((c) => c.area !== 'contabil') && GS.E.clientes.length > 0; }));
+    ok('modo rascunho avisado no Início', /modo rascunho/.test(await pe.textContent('#panel-hoje')));
+    await pe.evaluate((id) => GS.formCliente(GS.E.clientes.find((c) => c.id === id)), cliR); await pe.waitForSelector('#f-cli');
+    await pe.fill('#f-cli [name=telefone]', '31 3333-0000'); await pe.click('#btn-salvar-cli'); await pe.waitForTimeout(1500);
+    const avR = await pe.textContent('#gs-raiz #aviso');
+    ok('estagiário salva: vai para aprovação (não grava direto)', /aprovação/.test(avR) && sql("select telefone from clientes where id='" + cliR + "'") === telAntes &&
+      sql("select count(*) from rascunhos where status='pendente' and tabela='clientes'") === '1', avR + ' | ' + sql("select count(*) from rascunhos"));
+    await pe.close();
+    await nav(p, 'hoje'); await p.waitForTimeout(1500);
+    ok('Início avisa quem aprova', /aguardando sua aprovação/.test(await p.textContent('#panel-hoje')));
+    await p.click('#panel-hoje [data-ir-aprovacoes]'); await p.waitForSelector('#panel-aprovacoes [data-aprovar]', { timeout: 8000 });
+    ok('Aprovações mostra antes → depois', /31 3333-0000/.test(await p.textContent('#panel-aprovacoes .ap-item')));
+    await foto(p, 'aprovacoes');
+    await p.click('#panel-aprovacoes [data-aprovar]'); await p.waitForTimeout(2000);
+    ok('aprovado: a alteração passa a valer', sql("select telefone from clientes where id='" + cliR + "'") === '31 3333-0000' && sql("select status from rascunhos limit 1") === 'aprovado');
+    sql("update perfis set areas='ambos' where email='equipe@teste'"); sql("update clientes set area='ambos'");
     sql("update perfis set funcoes='{\"financeiro_juridico\":\"editar\",\"financeiro_contab\":\"editar\",\"contratos\":\"editar\",\"clientes\":\"editar\",\"juridico\":\"editar\",\"tarefas\":\"editar\",\"documentos\":\"editar\",\"crm\":\"editar\",\"relatorios\":\"editar\"}' where email='equipe@teste'");
     const pf = await pagina();
     await entrar(pf, 'fin@teste'); await carregado(pf); await pf.waitForTimeout(1200);
