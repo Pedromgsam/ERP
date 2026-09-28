@@ -214,7 +214,7 @@ function vistaLista(alvo) {
       filhas.filter((f) => ids.has(f.id)).map((f) => linha(f, nivel + 1)).join('');
   };
   alvo.innerHTML = '<div class="card">' + (raizes.length ? '<div class="tabela-wrap"><table><thead><tr><th>Prazo</th><th>Tarefa</th><th>Pessoa</th><th>Prioridade</th><th>Status</th><th></th></tr></thead><tbody>' +
-    raizes.map((t) => linha(t, 0)).join('') + '</tbody></table></div>' : '<div class="vazio">Nenhuma tarefa com esses filtros.</div>') + '</div>';
+    raizes.map((t) => linha(t, 0)).join('') + '</tbody></table></div>' : vazio('Nenhuma tarefa com esses filtros.', '+ Nova tarefa', '#tf-nova')) + '</div>';
   ligarLinhasTarefa(alvo);
 }
 
@@ -278,7 +278,7 @@ async function vistaCalendario(alvo) {
 // ── Fluxos: andamento e linha do tempo (Gantt simples) ──
 function vistaFluxos(alvo) {
   const fl = E._fluxos || [], h = hojeISO();
-  if (!fl.length) { alvo.innerHTML = '<div class="card"><div class="vazio">Nenhum fluxo ainda. Clique em "+ Novo fluxo" e escolha um modelo (ex.: Defesa em execução fiscal).</div></div>'; return; }
+  if (!fl.length) { alvo.innerHTML = '<div class="card">' + vazio('Nenhum fluxo ainda — um fluxo cria várias tarefas de uma vez a partir de um modelo (ex.: Defesa em execução fiscal).', '+ Novo fluxo', '#tf-fluxo') + '</div>'; return; }
   alvo.innerHTML = fl.map((f) => {
     const ts = (E._tarefas || []).filter((t) => t.fluxo_id === f.id).sort((x, y) => String(x.prazo).localeCompare(String(y.prazo)));
     const feitas = ts.filter(tarefaFechada).length;

@@ -535,6 +535,29 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.evaluate(() => loadData(true)); await p.waitForTimeout(4000);
     ok('aviso some quando o banco é atualizado', !(await p.$('#erp-aviso-banco')));
 
+    // ── design: modo escuro, estado vazio e tabelas longas ──
+    await nav(p, 'hoje'); await p.waitForTimeout(800);
+    await p.click('#gs-tema'); await p.waitForTimeout(300);
+    ok('botão ◐ liga o modo escuro e lembra neste aparelho', await p.evaluate(() => document.documentElement.dataset.tema === 'escuro' && localStorage.getItem('erp_tema') === 'escuro' &&
+      getComputedStyle(document.body).backgroundColor !== 'rgb(240, 242, 247)'));
+    await p.reload(); await p.waitForTimeout(4500);
+    ok('modo escuro continua depois de recarregar', await p.evaluate(() => document.documentElement.dataset.tema === 'escuro'));
+    await p.click('#gs-tema'); await p.waitForTimeout(300);
+    ok('◐ volta ao modo claro', await p.evaluate(() => !document.documentElement.dataset.tema && localStorage.getItem('erp_tema') === 'claro'));
+    ok('botões só com ícone têm nome para leitor de tela', await p.evaluate(() => ['#gs-tema', '#gs-sino', '.gs-bt-mais'].every((q) => (document.querySelector(q) || {}).getAttribute && document.querySelector(q).getAttribute('aria-label'))));
+    sql("insert into tarefas(titulo,responsavel,prazo) select 'Tarefa em massa '||g,'Pedro',current_date+30+g from generate_series(1,130) g");
+    await nav(p, 'tarefas'); await p.waitForTimeout(1800);
+    { const rod = await p.textContent('#panel-tarefas .pag-rodape').catch(() => '');
+      ok('tabela longa mostra 100 linhas por vez', /Mostrando 100 de 1[3-9]\d/.test(rod) && await p.evaluate(() => [...document.querySelectorAll('#panel-tarefas tbody tr')].filter((r) => r.offsetParent).length === 100), rod); }
+    await p.click('#panel-tarefas .pag-rodape [data-pag=todas]'); await p.waitForTimeout(400);
+    ok('"Mostrar todas" exibe o restante', await p.evaluate(() => !document.querySelector('#panel-tarefas .pag-oculta')));
+    ok('tabela longa: cabeçalho fixo dentro do quadro', await p.evaluate(() => { const w = document.querySelector('#panel-tarefas .tabela-wrap.tabela-longa'); return !!w && getComputedStyle(w.querySelector('thead th')).position === 'sticky'; }));
+    sql("delete from tarefas where titulo like 'Tarefa em massa %'");
+    await p.fill('#panel-tarefas #tf-busca', 'nada-com-este-nome-xyz').catch(() => {}); await p.waitForTimeout(700);
+    { const v = await p.$('#panel-tarefas .vazio [data-vazio-clica]');
+      ok('lista vazia mostra frase e botão de criar', !!v);
+      if (v) { await v.click(); await p.waitForTimeout(500); ok('botão do estado vazio abre o formulário', await p.isVisible('#f-tf')); await p.keyboard.press('Escape'); } }
+
     // ── sair ──
     await p.evaluate(() => acLogout()); await p.waitForTimeout(800);
     ok('sair encerra a sessão do Supabase', await p.evaluate(async () => !(await SB.auth.getSession()).data.session));

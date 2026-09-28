@@ -183,6 +183,9 @@ trocar("      plugins:{legend:{display:true,position:'bottom',labels:{color:'#4B
 trocar('<option value="Demanda">Demanda</option>', '<option value="Demanda">Serviço pontual</option>', 1);
 
 s = s.replace(/<title>[^<]*<\/title>/, '<title>ERP — Araújo &amp; Castro</title>');
+// 13. Cores de tokens.css (fonte única) depois do CSS do ERP; modo escuro lembrado neste aparelho.
+trocar('\n</head>\n', '\n<link rel="stylesheet" href="tokens.css">\n<link rel="stylesheet" href="tema-escuro.css">\n' +
+  '<script>try{if(localStorage.getItem("erp_tema")==="escuro")document.documentElement.setAttribute("data-tema","escuro")}catch(e){}</script>\n</head>\n', 1);
 fs.writeFileSync(destino, s);
 
 // ═══════ Gestão embutido: as telas do Gestão rodando dentro do ERP ═══════
@@ -260,8 +263,16 @@ function escoparCss(css) {
 const gsCss = '/* GERADO por sistema/ferramentas/montar-erp.js a partir de estilo.css (Gestão) — não edite. */\n' +
   escoparCss(ler('estilo.css')) +
   '/* cores do ERP, tamanhos do Gestão */\n' +
-  '.gs{--navy:#1B2A4A;--navy2:#243659;--navy3:#2E5EAA;--accent:#C9A84C;--bg:#F0F2F7;background:none!important;min-height:0!important}\n' +
+  '.gs{background:none!important;min-height:0!important}\n' +
   '.gs .duas-col>*,.gs .card{min-width:0}\n';
 fs.writeFileSync(path.join(APP, 'gs.css'), gsCss);
+// modo escuro: gerado do CSS que existe (o claro não muda)
+{
+  const estilosErp = (s.match(/<style[^>]*>[\s\S]*?<\/style>/g) || []).filter((x) => !/_pdfCss|<\/head>/.test(x)).map((x) => x.replace(/<\/?style[^>]*>/g, ''));
+  const escuro = require('./tema-escuro.js').gerar(estilosErp.concat([gsCss, ler('erp-telas.css'), ler('editor.css')]),
+    [s, bundle, ler('editor.js'), ler('erp-telas.js')]);
+  fs.writeFileSync(path.join(APP, 'tema-escuro.css'), escuro);
+  console.log('tema-escuro.css gerado: ' + Math.round(escuro.length / 1024) + ' KB');
+}
 console.log('gestao-embutida.js e gs.css gerados');
 console.log('index.html gerado: ' + trocas + ' ajustes, ' + Math.round(s.length / 1024) + ' KB');

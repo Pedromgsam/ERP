@@ -122,6 +122,9 @@ body.gx-barra-topo .tw td>.tag.tn,body.gx-barra-topo .tw td .er-grupo{display:in
 #panel-processos .tw th:nth-child(8),#panel-processos .tw td:nth-child(8),
 #panel-processos .tw th:nth-child(9),#panel-processos .tw td:nth-child(9){display:none}
 /* sino de avisos */
+#gs-hd #gs-tema{background:rgba(255,255,255,.1);border:0;border-radius:8px;padding:5px 8px;cursor:pointer;font-size:15px;line-height:1;margin-right:2px;color:#fff}
+#gs-hd #gs-tema:hover{background:rgba(255,255,255,.2)}
+#gs-hd #gs-tema[aria-pressed=true]{background:rgba(201,168,76,.28);color:#F5EDD6}
 #gs-hd #gs-sino{background:rgba(255,255,255,.1);border:0;border-radius:8px;padding:5px 9px;cursor:pointer;font-size:15px;position:relative;line-height:1;margin-right:2px}
 #gs-hd #gs-sino:hover{background:rgba(255,255,255,.2)}
 #gs-sino-n{position:absolute;top:-5px;right:-6px;background:#C9A84C;color:#1B2A4A;border-radius:99px;font:700 10px 'DM Sans',sans-serif;padding:1px 5px;min-width:16px}
@@ -150,16 +153,27 @@ body.gx-barra-topo:not(.gx-tela-nova) #main{padding-top:calc(var(--hh) + 62px)}
 @media (max-width:1100px){#gs-tela-nome{display:block;flex:1;min-width:0}}
 /* gráfico sem dados */
 canvas.gx-sem-dados{opacity:1}
-/* celular: tabelas do Gestão viram cartões (rótulo à esquerda, valor à direita) */
+/* celular: tabelas (Gestão e ERP) viram cartões — rótulo à esquerda, valor à direita */
 @media (max-width:600px){
-  .gs table.gx-cartoes thead{display:none}
-  .gs table.gx-cartoes,.gs table.gx-cartoes tbody{display:block;width:100%}
-  .gs table.gx-cartoes tr{display:block;border:1px solid var(--border,#E5E7EB);border-radius:12px;margin:0 0 10px;padding:6px 10px;background:#fff}
-  .gs table.gx-cartoes td{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:6px 0!important;border:0!important;text-align:right}
-  .gs table.gx-cartoes td::before{content:attr(data-rotulo);font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6B7280;text-align:left;flex-shrink:0}
-  .gs table.gx-cartoes td[data-rotulo=""]::before{content:none}
-  .gs table.gx-cartoes td[colspan]{display:block;text-align:left}
-  .gs table.gx-cartoes td.acoes-l{justify-content:flex-end}
+  table.gx-cartoes thead{display:none}
+  table.gx-cartoes,table.gx-cartoes tbody{display:block;width:100%}
+  table.gx-cartoes tr{display:block;border:1px solid var(--border);border-radius:12px;margin:0 0 10px;padding:6px 10px;background:var(--surface)}
+  table.gx-cartoes td{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:6px 0!important;border:0!important;text-align:right;white-space:normal}
+  table.gx-cartoes td::before{content:attr(data-rotulo);font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);text-align:left;flex-shrink:0}
+  table.gx-cartoes td[data-rotulo=""]::before{content:none}
+  table.gx-cartoes td[colspan]{display:block;text-align:left}
+  table.gx-cartoes td.acoes-l,table.gx-cartoes td.gx-td-acoes{justify-content:flex-end}
+  table.gx-cartoes tfoot{display:block}
+  .tw:has(table.gx-cartoes){border:0;box-shadow:none;background:none;overflow:visible;max-height:none!important}
+  /* barra de filtros do ERP: rola para o lado em vez de cortar */
+  #fb{max-width:calc(100vw - 16px);overflow-x:auto;scrollbar-width:none}
+  #fb::-webkit-scrollbar{display:none}
+  /* Painel: título em cima, contadores embaixo; seções uma abaixo da outra */
+  #panel-resumo .mod-banner{flex-wrap:wrap;gap:10px}
+  #panel-resumo .mod-banner .gs-contadores{width:100%;justify-content:flex-start}
+  #execKpiSection{padding:16px 12px!important}
+  #execKpiSection > div[style*="align-items:stretch"]{flex-direction:column;gap:14px!important}
+  #execKpiSection > div[style*="align-items:stretch"] > div[style*="width:1px"]{display:none}
 }
 /* acessibilidade: foco visível */
 body.gx-barra-topo :focus-visible{outline:2px solid #2E5EAA;outline-offset:2px}
@@ -200,3 +214,12 @@ body.gx-barra-topo :focus-visible{outline:2px solid #2E5EAA;outline-offset:2px}
 /* menu mais compacto em telas médias (o menu tem 12 itens) */
 @media (max-width:1460px){#gs-hd nav button.tn-it{padding:8px 5px;font-size:12.5px}}
 @media (max-width:1320px){#gs-hd nav button.tn-it{padding:7px 4px;font-size:12px}#gs-hd .tn-seta{display:none}}
+/* ── consistência: telas novas com o mesmo cabeçalho em cartão e as mesmas margens das telas do ERP ── */
+body.gx-barra-topo .gs main.gs-main{max-width:none;padding:26px 24px 40px}
+@media (max-width:600px){body.gx-barra-topo .gs main.gs-main{padding:16px 12px 40px}}
+body.gx-barra-topo .gs-area > .titulo-pag:first-child{position:relative;background:var(--bg);border:1.5px solid var(--border);border-radius:16px;padding:12px 16px 12px 32px;margin-bottom:18px;align-items:center}
+body.gx-barra-topo .gs-area > .titulo-pag:first-child::before{content:'';position:absolute;left:16px;top:12px;bottom:12px;width:4px;border-radius:3px;background:linear-gradient(180deg,var(--navy),var(--ac-gold))}
+html[data-tema="escuro"] body.gx-barra-topo .gs-area > .titulo-pag:first-child::before{background:linear-gradient(180deg,var(--ac-navy3),var(--ac-gold))}
+body.gx-barra-topo .gs-area > .titulo-pag:first-child h1{font-family:'Space Grotesk','DM Sans',system-ui,sans-serif;font-size:19px;font-weight:800;letter-spacing:-.01em;color:var(--ink)}
+body.gx-barra-topo .gs-area > .titulo-pag:first-child p{font-size:11.5px;color:var(--text3);margin-top:2px}
+@media (max-width:600px){body.gx-barra-topo .gs-area > .titulo-pag:first-child{padding:10px 12px 10px 26px}body.gx-barra-topo .gs-area > .titulo-pag:first-child::before{left:12px}}

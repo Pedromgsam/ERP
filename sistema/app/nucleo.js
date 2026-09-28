@@ -325,6 +325,64 @@ function fecharJanela(el) {
 }
 document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') fecharJanela(); });
 
+// Estado vazio padrão: uma frase + um botão que aciona o botão de criar da própria tela
+// (seletor procurado primeiro na mesma janela/tela, depois na página toda).
+function vazio(frase, rotulo, seletor) {
+  return '<div class="vazio"><div class="vazio-frase">' + esc(frase) + '</div>' +
+    (rotulo && seletor ? '<button type="button" class="btn btn-p btn-mini vazio-bt" data-vazio-clica="' + esc(seletor) + '">' + esc(rotulo) + '</button>' : '') + '</div>';
+}
+document.addEventListener('click', (ev) => {
+  const b = ev.target.closest && ev.target.closest('[data-vazio-clica]'); if (!b) return;
+  const sel = b.dataset.vazioClica, perto = b.closest('.janela, .gs-area, #conteudo');
+  const alvo = (perto && perto.querySelector(sel)) || document.querySelector(sel);
+  if (alvo && alvo !== b) alvo.click();
+});
+
+// Tabelas longas (todas as telas): mostra 100 linhas por vez com "Mostrar mais", e nas tabelas das
+// telas novas com mais de 25 linhas a rolagem fica dentro do quadro, com o cabeçalho fixo.
+// Reaplica sozinho quando a tabela é redesenhada (filtro) ou reordenada (clique no cabeçalho).
+const PAGINA_TABELA = 100;
+function paginarTabelas() {
+  document.querySelectorAll('.tw table, .tabela-wrap table').forEach((t) => {
+    const corpo = t.tBodies[0]; if (!corpo) return;
+    const linhas = [...corpo.rows].filter((r) => !r.classList.contains('linha-total'));
+    const wrap = t.closest('.tabela-wrap');
+    if (wrap) wrap.classList.toggle('tabela-longa', linhas.length > 25 && !wrap.closest('.janela'));
+    let rod = t.parentElement.nextElementSibling;
+    if (!(rod && rod.classList.contains('pag-rodape'))) rod = null;
+    if (linhas.length <= PAGINA_TABELA) { linhas.forEach((r) => r.classList.remove('pag-oculta')); if (rod) rod.remove(); return; }
+    const lim = Math.max(PAGINA_TABELA, +(t.dataset.pagLim || 0));
+    linhas.forEach((r, i) => r.classList.toggle('pag-oculta', i >= lim));
+    const vis = Math.min(lim, linhas.length);
+    if (!rod) { rod = document.createElement('div'); rod.className = 'pag-rodape no-print'; t.parentElement.after(rod); }
+    const txt = 'Mostrando ' + vis + ' de ' + linhas.length;
+    if (rod.dataset.txt === txt) return;
+    rod.dataset.txt = txt;
+    rod.innerHTML = '<span>' + txt + '</span>' + (vis < linhas.length ? '<button type="button" data-pag="mais">Mostrar mais ' + Math.min(PAGINA_TABELA, linhas.length - vis) +
+      '</button><button type="button" data-pag="todas">Mostrar todas</button>' : '');
+    rod.onclick = (ev) => { const b = ev.target.closest('[data-pag]'); if (!b) return;
+      t.dataset.pagLim = b.dataset.pag === 'todas' ? 1e9 : lim + PAGINA_TABELA; paginarTabelas(); };
+  });
+}
+// acessibilidade: botão que só tem ícone ganha nome para leitor de tela (do title ou do ícone)
+const NOME_ICONE = { '✎': 'Editar', '⋯': 'Mais ações', '✕': 'Fechar', '×': 'Fechar', '🔔': 'Avisos', '⚙': 'Configurações', '◐': 'Alternar modo escuro',
+  '✓': 'Concluir', '▸': 'Abrir detalhes', '▾': 'Fechar detalhes', '🗑': 'Excluir', '📎': 'Anexo', '↻': 'Atualizar', '⬇': 'Baixar', '👁': 'Mostrar senha' };
+function nomearBotoesIcone() {
+  document.querySelectorAll('button:not([aria-label]), a.btn:not([aria-label]), [role=button]:not([aria-label])').forEach((b) => {
+    const t = (b.textContent || '').trim();
+    if (!t || /[0-9A-Za-zÀ-ú]/.test(t)) return;
+    const nome = b.getAttribute('title') || NOME_ICONE[t] || NOME_ICONE[[...t][0]];
+    if (nome) b.setAttribute('aria-label', nome);
+  });
+}
+(() => {
+  let agendado = false;
+  const agendar = () => { if (agendado) return; agendado = true; requestAnimationFrame(() => { agendado = false; paginarTabelas(); nomearBotoesIcone(); }); };
+  const ligar = () => new MutationObserver((ms) => { if (ms.some((m) => m.target.closest && m.target.closest('table, .tw, .tabela-wrap, main, .gs-area, #conteudo'))) agendar(); })
+    .observe(document.body, { childList: true, subtree: true });
+  if (document.body) ligar(); else document.addEventListener('DOMContentLoaded', ligar);
+})();
+
 function campo(rotulo, html, classe) {
   return '<label class="campo' + (classe ? ' ' + classe : '') + '"><span>' + rotulo + '</span>' + html + '</label>';
 }
