@@ -135,6 +135,15 @@ http.createServer((req, res) => {
         .catch((e) => json(res, 500, { erro: e.message }));
     }
     // imitação da BrasilAPI (dados fictícios): 11222333000181 mudou de endereço; 22333444000172 está INAPTA; o resto não existe
+    // imitação das fontes reserva: 33444555000106 (empresa nova) só existe na ReceitaWS; o resto não existe
+    if (u.pathname.startsWith('/__teste/receitaws/')) {
+      const cnpj = u.pathname.split('/')[3];
+      if (cnpj === '33444555000106') return json(res, 200, { status: 'OK', nome: 'EMPRESA NOVA LTDA', fantasia: 'NOVA', situacao: 'ATIVA', data_situacao: '20/09/2026',
+        atividade_principal: [{ text: 'Consultoria' }], porte: 'MICRO EMPRESA', abertura: '20/09/2026', logradouro: 'RUA NOVA', numero: '10', complemento: '', bairro: 'CENTRO',
+        municipio: 'CONTAGEM', uf: 'MG', cep: '32.000-000' });
+      return json(res, 200, { status: 'ERROR', message: 'CNPJ rejeitado pela Receita Federal' });
+    }
+    if (u.pathname.startsWith('/__teste/cnpja/')) return json(res, 404, { message: 'not found' });
     if (u.pathname.startsWith('/__teste/brasilapi/')) {
       const cnpj = u.pathname.split('/').pop();
       const base = { razao_social: 'ALFA COMERCIO LTDA', nome_fantasia: 'ALFA', descricao_situacao_cadastral: 'ATIVA', data_situacao_cadastral: '2005-11-03',

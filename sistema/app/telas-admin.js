@@ -11,6 +11,7 @@ const ABAS_ADMIN = [
   { id: 'backup',   rot: '💾 Backup' },
   { id: 'historico', rot: '🕘 Histórico' },
   { id: 'acessos', rot: '🔐 Acessos' },
+  { id: 'automacoes', rot: '⚡ Automações' },
   { id: 'email', rot: '✉ E-mail' }
 ];
 
@@ -28,7 +29,7 @@ async function pintarAdmin() {
   document.querySelectorAll('#adm-abas button').forEach((b) => b.classList.toggle('ativo', b.dataset.aba === E.adm.aba));
   const corpo = $('adm-corpo');
   corpo.innerHTML = '<div class="carregando">Carregando…</div>';
-  try { await ({ usuarios: admUsuarios, importar: admImportar, backup: admBackup, historico: admHistorico, acessos: admAcessos, email: admEmail })[E.adm.aba](corpo); }
+  try { await ({ usuarios: admUsuarios, importar: admImportar, backup: admBackup, historico: admHistorico, acessos: admAcessos, automacoes: () => { E.adm.aba = 'usuarios'; irParaTela('automacoes'); }, email: admEmail })[E.adm.aba](corpo); }
   catch (e) { console.error(e); corpo.innerHTML = '<div class="card"><div class="card-bd msg-erro">' + esc(erroAmigavel(e)) + '</div></div>'; }
 }
 

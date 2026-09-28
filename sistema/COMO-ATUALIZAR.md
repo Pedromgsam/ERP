@@ -65,6 +65,9 @@ Isso é feito **uma vez**; depois só muda se uma pull request pedir.
   em **Outras agendas** → **+** → **Do URL** → cole → **Adicionar agenda**. Aparecem os prazos fatais e as audiências.
 - **Backup semanal:** Administração → **Backup** → **↻ Fazer backup agora** (confere que funciona). Depois ele roda
   sozinho todo domingo às 3h e guarda as 8 últimas cópias.
+- **Automações:** Tarefas → **⚡ Automações** (ou Administração → ⚡ Automações). Cada automação tem uma chave de
+  liga/desliga que salva na hora. Os **e-mails ao cliente** começam desligados: ligue os que quiser (usam o Gmail
+  configurado em Administração → E-mail e vão para o contato financeiro do cliente).
 - **Modo escuro:** botão **◐** na barra de cima (fica lembrado em cada computador).
 - **Funções de cada pessoa:** Administração → Usuários → botão **Funções** ao lado de cada pessoa da equipe.
 

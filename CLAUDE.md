@@ -71,12 +71,17 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Clientes nas listas usam `window.ERP_COLS_CLIENTE` (sem `cnpj_dados`); coluna nova em `clientes` → incluir lá (o teste avisa).
 - `carregarCadastros()` guarda 60 s; depois de gravar use `carregarCadastros(true)`.
 - Arquivos em `vendor/`, `.js` e `.css` recebem `?v=hash` no build e ficam em cache por 1 ano (`vercel.json`, os dois).
+- **Defeito visual:** rode `node sistema/testes/caca-bugs.js` (entra no `rodar-tudo.sh`; tem que dar "nenhuma ocorrência").
+- **Automação nova:** linha em `regras_tarefas` (chave, nome, descrição, `grupo` tarefas|cliente_email|integracao, `ligada`, `dias`) +
+  gatilho/trecho em `rodar_regras_tarefas`; tarefas via `tarefa_da_regra` (registra em `automacoes_log` pelo prefixo da chave),
+  e-mail ao cliente via `email_ao_cliente` (nunca repete o mesmo `ref`). Mapear o prefixo em `PREFIXO_AUTOMACAO` (telas-automacoes.js).
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
-- Última entrega: **Backup 10** — PR da branch `claude/bold-meitner-acdaxs` (design, desempenho, simplificação,
-  Cartão CNPJ na ficha, Google Agenda, backup semanal, saúde do sistema, acessos). `estrutura.sql` = 2258 linhas.
-- Funções do Supabase: erp-emails, erp-publicacoes, erp-cnpj (atualizada), **erp-agenda** e **erp-backup** (novas).
-- Aguardando o usuário: (1) qual **API de CNPJ** usa no Google Sheets; (2) escolher as integrações pagas em
-  `INTEGRACOES-CUSTOS.md` (boleto/PIX, certidões, WhatsApp, assinatura); (3) se pode **apagar o gestao.html**.
+- Última entrega: **Backup 11** — Central de automações (tela `automacoes`), cadeias (anexar contrato, procuração, cobrança
+  concluída no pagamento, publicação→tarefa desligada), e-mails ao cliente (desligados), cartão CNPJ com fontes reserva
+  (ReceitaWS/CNPJá) e "aguardando a Receita", consulta na hora ao cadastrar, caça-bugs visual. `estrutura.sql` = 2484 linhas.
+- Funções do Supabase: erp-emails, erp-publicacoes, **erp-cnpj (atualizada)**, erp-agenda, erp-backup.
+- Aguardando o usuário: (1) qual **API de CNPJ** usa no Google Sheets; (2) integrações pagas (`INTEGRACOES-CUSTOS.md`);
+  (3) se pode **apagar o gestao.html**; (4) quais e-mails ao cliente ligar.
 - Próxima rodada sugerida: migração das telas antigas (ordem em `INVENTARIO-SIMPLIFICACAO.md`, começando por testes).

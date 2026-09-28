@@ -331,3 +331,19 @@ commit;
 begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-00000000000a');
 select pg_temp.ok((select count(*) from backups_auto)=1 and (public.saude_sistema() ->> 'banco_bytes')::bigint > 0,'admin vê backups e a saúde do sistema');
 commit;
+
+-- v17: automações encadeadas e e-mails ao cliente
+insert into grupos(nome) values ('Grupo Perm Aut');
+insert into clientes(grupo_id,nome,email) select id,'Perm Aut Ltda','perm@aut.teste' from grupos where nome='Grupo Perm Aut';
+insert into contratos(cliente_id,descricao,valor_total,num_parcelas,data_contrato,modalidade) select id,'Contrato Perm Aut',100,1,current_date,'pontual' from clientes where nome='Perm Aut Ltda';
+select pg_temp.ok((select count(*) from tarefas where chave_regra like 'anexo:%' and titulo like '%Contrato Perm Aut%')=1,'contrato novo cria tarefa de anexar o contrato');
+select pg_temp.ok((select count(*) from automacoes_log where chave='anexo')>=1,'automação fica registrada');
+begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-00000000000b');
+do $$ begin
+  perform public.email_ao_cliente('x','x:1',null,null,'a','b');
+  raise exception 'FALHOU: site mandou e-mail direto ao cliente';
+exception when insufficient_privilege then raise notice 'PASSA: e-mail ao cliente só sai pelas regras (não pelo site)';
+end $$;
+select pg_temp.ok((public.resumo_automacoes() ? 'anexo'),'equipe vê o resumo das automações');
+select pg_temp.ok((select count(*) from automacoes_log)>=1,'equipe vê o registro das automações');
+commit;
