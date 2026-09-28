@@ -12,7 +12,7 @@ Lido automaticamente no início de cada conversa. Mantenha atualizado a cada ent
   O site usa só a publishable key (`sistema/app/config.js`). Operações privilegiadas ficam em Edge Functions
   ou RPC `security definer`; segredos ficam em `config_privada` (RLS sem policy) ou nos secrets do Supabase.
 - **LGPD:** repositório privado; testes só com dados fictícios; nunca importar a coluna "Senha" da planilha.
-- Não mexer no Google Apps Script. Manter `sistema/app/gestao.html` até ele mandar apagar.
+- Não mexer no Google Apps Script. O `gestao.html` saiu do site (Backup 13); cópia só para testes em `sistema/testes/gestao-teste.html`.
 - **SQL idempotente** (`sistema/banco/estrutura.sql`, arquivo único, pode rodar várias vezes).
 - Custos: avisar o preço antes de sugerir qualquer serviço pago.
 - Não incluir identificação de modelo em commits/PRs/código.
@@ -43,7 +43,7 @@ Lido automaticamente no início de cada conversa. Mantenha atualizado a cada ent
   MENU, `TELAS_GS` (painéis do ERP que são desenhados pelas telas do Gestão), `+ Lançar`.
 - Telas "do Gestão" (`nucleo.js`, `graficos.js`, `telas-*.js`) viram o pacote `gestao-embutida.js` (lista de
   arquivos em `montar-erp.js`) e expõem `window.GS`. Tela nova: criar `telas-x.js` com `TELAS.x`, incluir na lista
-  do bundle, no `gestao.html` (script + botão) e em `MENU`/`TELAS_GS` do `erp-telas.js`.
+  do bundle, no `testes/gestao-teste.html` (script) e em `TELAS_GS` do `erp-telas.js` (menu de cima está no limite: prefira ⋯ ou botão na tela).
 - Permissões: `pode(função, nível)` no front; no banco `pode()`, `eh_equipe()`, `eh_admin()` + RLS.
 - CSS: `estilo.css` (Gestão, escopado para `gs.css`), `erp-telas.css`, `editor.css`.
 
@@ -80,15 +80,16 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
-- Última entrega: **Backup 12** — área do cliente (`clientes.area` juridico|contabil|ambos) + `perfis.areas` com políticas
-  RESTRITIVAS (`ve_area`/`ve_cliente`) em clientes, contatos, contratos, documentos…; nível **Rascunho** (`funcoes.x = 'propor'`):
-  o front (`envolverRascunho` no nucleo.js) troca a gravação por `propor_alteracao`, aprovação em `aprovar_rascunho`/`recusar_rascunho`
-  (tela `aprovacoes`, faixa no Início, ⋯); `perguntarBaixa` (data do recebimento, comprovante do acordo `comprovante_processo`/`comprovante_id`);
-  êxito (`contratos.exito_base/exito_regra`, tabela `exitos`, RPC `registrar_exito`); Análise Jurídico com "Comparativo por pessoa" antes;
-  visual moderno (fonte Inter, `--shadow-card`, `--grad-marca` no tokens.css; bloco final do erp-telas.css). `estrutura.sql` = 2799 linhas.
-- Análise e próximos passos: `sistema/PROXIMOS-PASSOS.md` (menu no limite: nada de item novo na barra).
-- Funções do Supabase: erp-emails, erp-publicacoes, erp-cnpj, erp-agenda, erp-backup (nenhuma mudou no Backup 12).
-- Aguardando o usuário: (1) qual **API de CNPJ** usa no Google Sheets; (2) integrações pagas (`INTEGRACOES-CUSTOS.md`);
-  (3) se pode **apagar o gestao.html**; (4) quais e-mails ao cliente ligar; (5) conferir a área sugerida dos clientes.
-- Próxima rodada sugerida: seção 4 e 5 do `PROXIMOS-PASSOS.md` (baixa em lote, automações de êxito/comprovante/rascunho parados)
-  e migração das telas antigas (`INVENTARIO-SIMPLIFICACAO.md`).
+- Última entrega: **Backup 13** — Início (A receber = hoje→fim do mês; Em atraso Jurídico|Contabilidade inteiro, "vence hoje");
+  caixa de avisos (`avisos_lidos`, chave = assunto@leva; `levaDoAviso`; cartão `#gx-pop-avisos` ao abrir); nome do usuário
+  (`salvar_meu_nome`, ⋯ → Meu nome); telas do ERP antigo via `montar-erp.js` (Painel: `_donutComLegenda`; Processos sem Visão Geral,
+  chips múltiplos `_procChips`; Parcelamentos `_parcOrdenados` + tabela; Acordos `_acordosAnalise`; Financeiro abas coloridas,
+  `_barrasComValor`, `data-aba` no conteúdo); Alertas em radar/feed; Notificações → "Cobranças, avisos e recibos" (fora do MENU, botões
+  `.gx-cobrar`); e-mails ao cliente com `email_cliente_html`/`email_cliente_enviar`/`contato_do_cliente` (finalidade), `enviar_email_manual`,
+  `previa_email_cliente`, `configuracoes.dados_pagamento`, regra `email_lembrete_parcelamento`, e-mails ligados; recibo com valor por extenso;
+  demonstração `carregar_demonstracao`/`limpar_demonstracao`; gestao.html fora do site. `estrutura.sql` = 3241 linhas.
+- Documentos: `sistema/PROXIMOS-PASSOS.md`, `sistema/VIABILIDADE-INTEGRACOES.md` (RFB/SERPRO, PGFN dados abertos, SIARE, Sicoob OFX/API).
+- Funções do Supabase: erp-emails, erp-publicacoes, erp-cnpj, erp-agenda, erp-backup (nenhuma mudou no Backup 13).
+- Aguardando o usuário: preencher Administração → E-mail → Dados para pagamento; decidir tabela × gráfico (Parcelamentos) e gráficos
+  dos Acordos; se quer a conciliação por OFX do Sicoob e a importação grátis da PGFN (dados abertos).
+- Próxima rodada sugerida: conciliação OFX (Sicoob), PGFN dados abertos, migração das telas antigas (`INVENTARIO-SIMPLIFICACAO.md`).

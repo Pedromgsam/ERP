@@ -13,7 +13,7 @@ e as telas ficam hospedadas na **Vercel**. Não usa Google Sheets nem Apps Scrip
 | `app/erp-telas.js` | Barra superior (padrão Gestão), menu, e as tabelas de Honorários no formato do Gestão |
 | `app/gestao-embutida.js`, `app/gs.css` | GERADOS por `ferramentas/montar-erp.js`: as telas do Gestão (Início, Contratos, Clientes, Tarefas, Administração e formulários) rodando dentro do ERP |
 | `app/telas-tarefas.js` | Tela de Tarefas no padrão do Gestão |
-| `app/gestao.html` | Gestão antigo (mantido por segurança; usa os mesmos dados) |
+| `testes/gestao-teste.html` | Gestão antigo — saiu do site no Backup 13; fica só para os testes das telas (`telas.js`) |
 | `testes/` | Testes automáticos do banco e das telas (rodam sem internet) |
 
 ## Como funciona

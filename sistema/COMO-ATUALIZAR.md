@@ -77,6 +77,16 @@ Isso é feito **uma vez**; depois só muda se uma pull request pedir.
 - **Aprovações (rascunhos):** faixa no Início ou menu **⋯ → 📝 Aprovações**. Mostra *antes → depois*; **✓ Aprovar** ou **Recusar**.
 - **Recebimentos:** todo botão de baixa pergunta a **data** (já vem com hoje). Nos acordos, pergunta também se o
   **comprovante foi anexado ao processo** e, se sim, o **ID** do documento.
+- **Seu nome na barra:** ⋯ → **👤 Meu nome** (o login continua pelo e-mail). O administrador também muda em Administração → Usuários.
+- **Avisos (🔔):** funcionam como caixa de mensagens. **✓ Lido** tira da lista. Se o assunto não for resolvido, ele volta na próxima leva:
+  urgentes no dia seguinte, os demais na semana seguinte. Ao abrir o sistema, um cartão no canto mostra os avisos novos.
+- **Cobranças, avisos e recibos** (antiga "Notificações"): botão **✉** no alto de Financeiro, Parcelamentos e Acordos, ou ⋯ → Cobranças.
+  **✉ Enviar e-mail** pergunta se vai **pelo e-mail do escritório** (com a marca) ou pelo seu programa de e-mail.
+- **E-mails automáticos ao cliente:** agora vêm **ligados** e só saem para quem tem e-mail cadastrado. Cobranças vão ao contato
+  **financeiro** (quem recebe boletos primeiro); acordos, ao contato **jurídico**. Preencha a chave PIX e a assinatura em
+  Administração → E-mail → **Dados para pagamento** e confira os modelos no botão **Ver modelo**.
+- **Demonstração:** Administração → Importar → **🧪 Carregar demonstração** cria clientes e lançamentos fictícios ("DEMO ·"),
+  ligados entre si, inclusive um rascunho de estagiário para aprovar. **Apagar demonstração** remove tudo, sem tocar no que é seu.
 - **Êxito:** no contrato, informe o % e *como foi combinado*. Quando o êxito acontecer, abra o contrato →
   **🏆 Registrar êxito** → informe o valor X (ex.: quanto a dívida reduziu). O sistema lança % × X em Honorários Jurídico.
 
@@ -118,6 +128,6 @@ Quando quiser seguir em frente, faça o mesmo na publicação mais nova (⋯ →
 - Muitos registros: use o arquivo de **Backup** (Administração → Backup). Faça backup **antes** de
   importações grandes. Para restaurar a partir de um backup, me chame: eu preparo a restauração com você.
 
-### O Gestão antigo continua lá
-No menu **⋯** (ao lado de Sair) → **"Abrir o Gestão (versão anterior)"**, ou no endereço do site com `/gestao.html` no fim.
-Ele usa os mesmos dados; nada se perde usando um ou outro.
+### O Gestão antigo saiu do site (Backup 13)
+O `gestao.html` foi apagado do site, com sua autorização. Todas as telas dele já estão dentro do ERP.
+Se precisar dele de volta, basta voltar a publicação na Vercel (passo A acima) ou pedir.

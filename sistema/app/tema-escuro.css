@@ -196,6 +196,8 @@ html[data-tema="escuro"] .gs .pr-texto{background:var(--surface)}
 html[data-tema="escuro"] .gs .pub-texto mark{background:#423a1a}
 html[data-tema="escuro"] .gs tr.linha-atual td{background:#38301b!important}
 html[data-tema="escuro"] .gs .au-trilho::after{background:var(--surface)}
+html[data-tema="escuro"] .gs .al-card.al-chip{border:1px solid rgba(255,255,255,0.22);border-left:1px solid rgba(255,255,255,0.22)}
+html[data-tema="escuro"] .gs .previa-email{background:#222428}
 html[data-tema="escuro"] #gs-hd .gs-marca-nome{color:#cdbb89}
 html[data-tema="escuro"] #gs-hd .tn-menu{background:var(--surface);border:1px solid rgba(255,255,255,0.066)}
 html[data-tema="escuro"] #gs-hd .tn-menu button{color:#d3d9e4}
@@ -231,6 +233,14 @@ html[data-tema="escuro"] #panel-acordos tr[data-gx^="acordos:"]:hover td{backgro
 html[data-tema="escuro"] #gs-hd{background:linear-gradient(115deg,rgba(255,255,255,0.22),rgba(255,255,255,0.22) 55%,rgba(255,255,255,0.22))!important}
 html[data-tema="escuro"] #gs-hd::after{background:linear-gradient(90deg,transparent,rgba(255,255,255,0.03) 30%,rgba(255,255,255,0.03) 70%,transparent)}
 html[data-tema="escuro"] #gs-hd .tn-lancar-bt{background-color:#766948}
+html[data-tema="escuro"] body.gx-barra-topo .fin-tab.active{border-color:rgba(255,255,255,0.03)!important}
+html[data-tema="escuro"] body.gx-barra-topo .fin-tab.active[data-tab=analise]{border-color:rgba(255,255,255,0.03)!important}
+html[data-tema="escuro"] body.gx-barra-topo .fin-tab.active:is([data-tab=recebidos],html[data-tema="escuro"] [data-tab=receita]){border-color:rgba(255,255,255,0.22)!important}
+html[data-tema="escuro"] body.gx-barra-topo .fin-tab.active[data-tab=prejuizo]{border-color:rgba(255,255,255,0.03)!important}
+html[data-tema="escuro"] body.gx-barra-topo .fin-tab.active:is([data-tab=apagar],html[data-tema="escuro"] [data-tab=pagar]){background:#3d2d17!important;color:#e9b8a7!important;border-color:rgba(255,255,255,0.03)!important}
+html[data-tema="escuro"] body.gx-barra-topo .fin-tab.active[data-tab=caixa]{border-color:rgba(255,255,255,0.22)!important}
+html[data-tema="escuro"] body.gx-barra-topo .fin-tab.active[data-tab=socios]{border-color:rgba(255,255,255,0.03)!important}
+html[data-tema="escuro"] body.gx-barra-topo .fin-tab-vencidos.active{border-color:rgba(255,255,255,0.03)!important}
 html[data-tema="escuro"] #gx-editar{border:1px solid var(--ac-gold,#766948)}
 html[data-tema="escuro"] .gx-fundo{background:rgba(255,255,255,0.22)}
 html[data-tema="escuro"] .gx-janela{background:var(--surface);color:#dadee4}

@@ -66,7 +66,7 @@ body.gx-barra-topo .tw td>.tag.tn,body.gx-barra-topo .tw td .er-grupo{display:in
 /* ── celular ── */
 #tn-baixo{display:none}
 @media (max-width:1560px){#gs-hd .gs-marca-sub{display:none}}
-@media (max-width:1520px){#gs-nome{display:none}}
+@media (max-width:1280px){#gs-nome{display:none}}
 @media (max-width:1400px){#gs-hd .gs-contadores{display:none!important}}
 
 @media (max-width:1100px){
@@ -117,7 +117,8 @@ body.gx-barra-topo .tw td>.tag.tn,body.gx-barra-topo .tw td .er-grupo{display:in
 /* menus suspensos (Jurídico, Financeiro, + Lançar, ⋯) visíveis: a barra não pode rolar nem cortar */
 #gs-hd nav,#gs-hd #tn{overflow:visible!important}
 /* Honorários: sem blocos repetidos nas abas A Receber/Recebidos (a Análise já tem números e gráficos) */
-#finContent>.ex-bn,#finContent>.cc:has(canvas),#finCContent>.ex-bn,#finCContent>.cc:has(canvas){display:none!important}
+/* (só nas abas de LISTA: Composição de Caixa, Distribuição e Análise mantêm os gráficos) */
+:is(#finContent,#finCContent):is([data-aba=receber],[data-aba=recebidos],[data-aba=prejuizo],[data-aba=receita],[data-aba=apagar],[data-aba=despesa])>:is(.ex-bn,.cc:has(canvas)){display:none!important}
 /* Processos: Atualização e Procuração saem da lista (continuam no Editar) */
 #panel-processos .tw th:nth-child(8),#panel-processos .tw td:nth-child(8),
 #panel-processos .tw th:nth-child(9),#panel-processos .tw td:nth-child(9){display:none}
@@ -273,3 +274,82 @@ body.gx-barra-topo .gs tbody tr:hover>td{background:var(--surface2)}
 body.gx-barra-topo .gs .pill{font-weight:650;letter-spacing:.01em}
 /* janelas: cantos e sombra no mesmo padrão */
 body.gx-barra-topo .gs .janela{border-radius:18px;box-shadow:0 30px 80px -20px rgba(15,23,42,.45)}
+/* nome da pessoa na barra (primeiro nome) */
+#gs-hd #gs-nome{font-weight:650;font-size:13px;color:#fff;padding:4px 10px;border-radius:99px;background:rgba(255,255,255,.08);max-width:140px}
+#gs-hd #gs-nome:empty{display:none}
+/* cartão de avisos novos (canto inferior direito, some sozinho) */
+#gx-pop-avisos{position:fixed;right:18px;bottom:18px;z-index:9400;width:min(380px,calc(100vw - 32px));background:var(--surface);color:var(--text);border:1px solid var(--border-strong);
+  border-radius:16px;box-shadow:0 24px 60px -18px rgba(15,23,42,.45);padding:12px 14px;font:13px var(--font-ui);transform:translateY(20px);opacity:0;transition:transform .3s,opacity .3s}
+#gx-pop-avisos.on{transform:none;opacity:1}
+#gx-pop-avisos .gx-pop-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;color:var(--ink)}
+#gx-pop-avisos .gx-pop-x{background:none;border:0;cursor:pointer;color:var(--text3);font-size:14px}
+#gx-pop-avisos .gx-pop-it{display:flex;gap:10px;padding:7px 8px;border-radius:10px;margin-top:4px;border-left:3px solid var(--blue);background:var(--surface2)}
+#gx-pop-avisos .gx-pop-it.nivel-alto{border-left-color:var(--red)}
+#gx-pop-avisos .gx-pop-it.nivel-medio{border-left-color:var(--amber)}
+#gx-pop-avisos .gx-pop-it div div{color:var(--text3);font-size:12px}
+#gx-pop-avisos .gx-pop-mais{color:var(--text3);font-size:12px;margin:6px 2px 0}
+#gx-pop-avisos .gx-pop-abrir{margin-top:10px;width:100%;border:0;border-radius:10px;padding:8px;font:650 13px var(--font-ui);color:#fff;background-color:#243659;background-image:var(--grad-marca);cursor:pointer}
+@media (max-width:1100px){#gx-pop-avisos{bottom:84px}}
+
+/* ═══════ Backup 13 — telas do ERP antigo ═══════ */
+/* rosca + legenda em tabela ao lado (Painel: Distribuição por órgão; Parcelamentos; Acordos) */
+.gx-donut{display:grid;grid-template-columns:minmax(220px,1fr) minmax(220px,1fr);align-items:center;gap:22px;padding:6px 4px 4px}
+.gx-donut .gx-donut-g{height:300px!important;min-width:0}
+.gx-leg{width:100%;border-collapse:collapse;font:13px var(--font-ui)}
+.gx-leg td{padding:9px 6px!important;border-bottom:1px solid var(--border);color:var(--text);font-size:13.5px!important;text-transform:none!important;letter-spacing:0!important;background:none!important}
+.gx-leg td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.gx-leg .gx-leg-p{color:var(--text3);width:64px}
+.gx-leg tfoot td{font-weight:700;border-bottom:0;color:var(--ink)}
+.gx-leg-c{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:9px;vertical-align:-1px}
+@media (max-width:1300px){.gx-donut{grid-template-columns:1fr}.gx-donut .gx-donut-g{height:240px!important}}
+/* selo do grupo: largura PADRÃO (150px) e cresce para baixo; palavra nunca é quebrada no meio */
+body.gx-barra-topo .tw td>.tag.tn,body.gx-barra-topo .tw td .er-grupo{display:inline-block!important;width:150px!important;max-width:150px!important;white-space:normal!important;
+  overflow:visible!important;text-overflow:clip!important;overflow-wrap:break-word!important;word-break:normal!important;hyphens:none;line-height:1.3;text-align:left;box-sizing:border-box;padding:4px 9px}
+body.gx-barra-topo .tw td:has(>.tag.tn),body.gx-barra-topo .tw td:has(.er-grupo){min-width:162px}
+/* Empresas do Grupo: uma letra só, mesmos tamanhos, selos no mesmo desenho */
+#tblExecRanking td,#tblExecRanking td.mono,#tblExecRanking .er-nome,#tblExecRanking strong{font-family:var(--font-ui)!important;font-variant-numeric:tabular-nums}
+#tblExecRanking td{font-size:13px!important;color:var(--text)!important}
+#tblExecRanking td.mono{font-size:13px!important;color:var(--text2)!important}
+#tblExecRanking .er-nome{font-size:13.5px!important;font-weight:650!important}
+#tblExecRanking span[title]{border-bottom:0!important}
+#tblExecRanking .capag,#tblExecRanking .tag.tg,#tblExecRanking .tag.tr,#tblExecRanking .tag.tx{display:inline-block;min-width:34px;text-align:center;padding:3px 10px!important;border-radius:99px!important;
+  font:650 11.5px var(--font-ui)!important;letter-spacing:.02em;text-transform:none}
+#tblExecRanking .capag.capag-O{background:var(--red-lt)!important;color:var(--red-d)!important;border:1px solid rgba(200,30,30,.28)!important}
+#tblExecRanking .tag.tv{font:600 10.5px var(--font-ui)!important;border-radius:99px}
+/* Processos: tabela com uma letra e um tamanho só */
+#tblProcBody td,#tblProcBody td.mono{font-family:var(--font-ui)!important;font-size:13px!important;font-variant-numeric:tabular-nums;color:var(--text)}
+#tblProcBody td:nth-child(2){white-space:nowrap}
+/* gráfico + tabela lado a lado (Parcelamentos: saldo residual por empresa) */
+.gx-graf-tab{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(260px,1fr);gap:22px;align-items:center}
+.gx-leg thead tr,.gx-leg thead td{background:none!important}
+.gx-leg thead td{font-size:10.5px!important;font-weight:700;letter-spacing:.07em!important;text-transform:uppercase!important;color:var(--text3)!important}
+@media (max-width:900px){.gx-graf-tab{grid-template-columns:1fr}}
+/* ordenar clicando no título (Progresso por parcelamento) */
+.gx-ord{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.gx-ord button{border:1px solid var(--border-strong);background:var(--surface);color:var(--text2);border-radius:99px;padding:4px 11px;font:600 12px var(--font-ui);cursor:pointer}
+.gx-ord button.ativo{background:var(--ac-navy);border-color:var(--ac-navy);color:#fff}
+.gx-ord button[data-dir]:not([data-dir=""])::after{content:' ' attr(data-dir);font-size:9px}
+.gx-ord .gx-ord-so{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--text2);margin-left:6px;cursor:pointer}
+html[data-tema="escuro"] .gx-ord button.ativo{background:var(--ac-navy3);border-color:var(--ac-navy3)}
+
+/* abas do Financeiro: a aba escolhida fica levemente marcada, cada uma com a sua cor
+   Análise = azul · A receber = amarelo · Recebido/Receita = verde · Prejuízo = roxo · A pagar = laranja · Despesa = cinza */
+body.gx-barra-topo .fin-tab.active{background:var(--blue-lt)!important;color:var(--blue-d)!important;border-color:rgba(37,99,235,.45)!important;box-shadow:inset 0 -2px 0 currentColor;font-weight:700}
+body.gx-barra-topo .fin-tab.active[data-tab=analise]{background:var(--blue-lt)!important;color:var(--blue-d)!important;border-color:rgba(37,99,235,.45)!important}
+body.gx-barra-topo .fin-tab.active[data-tab=receber]{background:var(--amber-lt)!important;color:var(--amber-d)!important;border-color:var(--amber-border)!important}
+body.gx-barra-topo .fin-tab.active:is([data-tab=recebidos],[data-tab=receita]){background:var(--green-lt)!important;color:var(--green-d)!important;border-color:rgba(21,128,61,.4)!important}
+body.gx-barra-topo .fin-tab.active[data-tab=prejuizo]{background:var(--violet-lt)!important;color:var(--violet-d)!important;border-color:rgba(124,58,237,.4)!important}
+body.gx-barra-topo .fin-tab.active:is([data-tab=apagar],[data-tab=pagar]){background:#FFEDD5!important;color:#9A3412!important;border-color:rgba(194,65,12,.4)!important}
+body.gx-barra-topo .fin-tab.active[data-tab=despesa]{background:var(--gray-lt)!important;color:var(--text)!important;border-color:var(--border-strong)!important}
+body.gx-barra-topo .fin-tab.active[data-tab=caixa]{background:var(--teal-lt)!important;color:var(--teal)!important;border-color:rgba(15,118,110,.4)!important}
+body.gx-barra-topo .fin-tab.active[data-tab=socios]{background:var(--violet-lt)!important;color:var(--violet-d)!important;border-color:rgba(124,58,237,.4)!important}
+/* "Vencidos" só destaca quando está escolhido (antes ficava vermelho sempre) */
+body.gx-barra-topo .fin-tab-vencidos:not(.active){background:var(--surface)!important;color:var(--red-d)!important;border-color:var(--border-strong)!important;font-weight:600}
+body.gx-barra-topo .fin-tab-vencidos.active{background:var(--red-lt)!important;color:var(--red-d)!important;border-color:rgba(200,30,30,.4)!important}
+/* botões ✉ Cobrar / 🧾 Recibo no cabeçalho de Financeiro, Parcelamentos e Acordos */
+.mod-banner .gx-cobrar{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+.mod-banner .gx-cobrar button{border:1px solid var(--border-strong);background:var(--surface);color:var(--ink);border-radius:10px;padding:7px 12px;font:650 12.5px var(--font-ui);cursor:pointer}
+.mod-banner .gx-cobrar button:hover{border-color:var(--ac-navy3);box-shadow:var(--anel)}
+/* Cobranças (módulo antigo): botão principal com contraste nos dois modos */
+#panel-notificacoes .btn-p{background:var(--ac-navy)!important;border-color:var(--ac-navy)!important;color:#fff!important}
+html[data-tema="escuro"] #panel-notificacoes .btn-p{background:#2E5EAA!important;border-color:#2E5EAA!important}

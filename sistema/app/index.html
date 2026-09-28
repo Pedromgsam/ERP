@@ -45,14 +45,14 @@
 <script src="vendor/chart.umd.js?v=3402f6de" defer></script>
 <script src="vendor/supabase.js?v=16aeff36"></script>
 <script src="config.js"></script>
-<script src="erp-dados.js?v=3453feaf"></script>
+<script src="erp-dados.js?v=a4145c74"></script>
 <link rel="stylesheet" href="editor.css?v=b8509b3b">
-<link rel="stylesheet" href="erp-telas.css?v=e1d8b84e">
+<link rel="stylesheet" href="erp-telas.css?v=9f83fc79">
 <script src="editor.js?v=49074ffd" defer></script>
-<script src="erp-telas.js?v=0d50f4de" defer></script>
-<link rel="stylesheet" href="gs.css?v=38df2a6b">
+<script src="erp-telas.js?v=944f3c25" defer></script>
+<link rel="stylesheet" href="gs.css?v=b74e6d7c">
 <script src="importador.js?v=4fb0d655" defer></script>
-<script src="gestao-embutida.js?v=6b89d4ff" defer></script>
+<script src="gestao-embutida.js?v=89b128f7" defer></script>
 <script>
 
 
@@ -1616,7 +1616,7 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
 .ep-val::placeholder{color:var(--text4);font-weight:400}
 </style>
 <link rel="stylesheet" href="tokens.css?v=61c9c820">
-<link rel="stylesheet" href="tema-escuro.css?v=6b4c20f4">
+<link rel="stylesheet" href="tema-escuro.css?v=ea339271">
 <script>try{if(localStorage.getItem("erp_tema")==="escuro")document.documentElement.setAttribute("data-tema","escuro")}catch(e){}</script>
 </head>
 <body>
@@ -1865,7 +1865,7 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
     </div>
     <div class="cc">
       <div class="cc-hd"><div><div class="cc-t">Distribuição por órgão</div><div class="cc-d">% do passivo total (excl. CEAT)</div></div></div>
-      <div class="cb" style="height:280px"><canvas id="cResDonut"></canvas></div>
+      <div class="gx-donut"><div class="cb gx-donut-g"><canvas id="cResDonut"></canvas></div><div class="gx-donut-leg" id="cResDonutLeg"></div></div>
     </div>
   </div>
   <div id="execRankWrap" class="cc">
@@ -1968,30 +1968,7 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
     </div>
   </div>
   <div id="procAnalise"></div>
-  <div class="ex-bn" style="margin-bottom:16px;position:relative;background:none;border:1.5px solid var(--border);box-shadow:var(--shadow-md);padding:22px 26px">
-    <div class="gx-sec-tit">⚖ Processos — Visão Geral</div>
-    <div class="kpi-grid" id="kpiProc"></div>
-  </div>
-  <div class="crow c2">
-    <div class="cc">
-      <div class="cc-hd"><div><div class="cc-t">Processos por grupo</div></div></div>
-      <div class="cb" style="height:230px"><canvas id="cProcGrupos"></canvas></div>
-    </div>
-    <div class="cc">
-      <div class="cc-hd"><div><div class="cc-t">Por competência</div></div></div>
-      <div class="cb" style="height:230px"><canvas id="cProcComp"></canvas></div>
-    </div>
-  </div>
-  <div class="crow c2">
-    <div class="cc">
-      <div class="cc-hd"><div><div class="cc-t">Valor em disputa por grupo</div></div></div>
-      <div class="cb" style="height:210px"><canvas id="cProcValor"></canvas></div>
-    </div>
-    <div class="cc">
-      <div class="cc-hd"><div><div class="cc-t">Por natureza</div></div></div>
-      <div class="cb" style="height:210px"><canvas id="cProcNatureza"></canvas></div>
-    </div>
-  </div>
+  <div hidden aria-hidden="true"><div id="kpiProc"></div><canvas id="cProcGrupos"></canvas><canvas id="cProcComp"></canvas><canvas id="cProcValor"></canvas><canvas id="cProcNatureza"></canvas></div>
   <div class="cc">
     <div class="cc-hd" style="flex-wrap:wrap;gap:7px">
       <div><div class="cc-t">Processos <span style="font-size:10.5px;color:var(--text3);font-weight:400" id="procCount"></span></div></div>
@@ -2002,11 +1979,7 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
         <div style="width:1px;height:20px;background:var(--border);margin:0 2px"></div>
         <select class="fsel" id="fProcComp"   onchange="renderProcTbl()"><option value="">Todas competências</option></select>
         <select class="fsel" id="fProcNat"    onchange="renderProcTbl()"><option value="">Todas naturezas</option></select>
-        <select class="fsel" id="fProcStatus" onchange="renderProcTbl()">
-          <option value="">Todos status</option><option value="Ativo">Ativo</option>
-          <option value="Arquivado">Arq. Provisoriamente</option><option value="Extinto">Extinto</option><option value="Prescrito">Prescrito</option>
-        </select>
-        <input type="text" class="fsel" id="busProc" placeholder="Nº ou réu..." oninput="renderProcTbl()" style="max-width:150px">
+        <input type="text" class="fsel" id="busProc" placeholder="Buscar nº do processo, autor ou réu…" oninput="renderProcTbl()" style="min-width:260px;flex:1 1 260px">
         <button class="btn-clear" id="btnProcClear" onclick="procClearFilters()" style="display:none">✕ Limpar</button>
       </div>
     </div>
@@ -2036,19 +2009,10 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
     <div id="alertParc" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"></div>
   </div>
   <div id="parcAnalise"></div>
-  <div class="ex-bn" style="margin-bottom:16px;position:relative;background:none;border:1.5px solid var(--border);box-shadow:var(--shadow-md);padding:22px 26px">
-    <div class="gx-sec-tit">◷ Parcelamentos — Visão Geral</div>
-    <div class="kpi-grid" id="kpiParc"></div>
-  </div>
-  <div class="crow c2">
-    <div class="cc">
-      <div class="cc-hd"><div><div class="cc-t">Saldo residual por empresa</div><div class="cc-d">Top 10</div></div></div>
-      <div class="cb" style="height:250px"><canvas id="cParcResidual"></canvas></div>
-    </div>
-    <div class="cc">
-      <div class="cc-hd"><div><div class="cc-t">Por natureza tributária</div></div></div>
-      <div class="cb" style="height:250px"><canvas id="cParcNatureza"></canvas></div>
-    </div>
+  <div hidden aria-hidden="true"><div id="kpiParc"></div><canvas id="cParcNatureza"></canvas></div>
+  <div class="cc">
+    <div class="cc-hd"><div><div class="cc-t">Saldo residual por empresa</div><div class="cc-d">gráfico e tabela lado a lado · 10 maiores</div></div></div>
+    <div class="gx-graf-tab"><div class="cb" style="height:260px"><canvas id="cParcResidual"></canvas></div><div id="cParcResidualTab"></div></div>
   </div>
   <div class="cc">
     <!-- Tab bar com filtros inline à direita -->
@@ -2134,7 +2098,7 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
     </div>
   </div>
   <div class="cc">
-    <div class="cc-hd"><div><div class="cc-t">Progresso por parcelamento</div><div class="cc-d">Parcelas pagas / total</div></div></div>
+    <div class="cc-hd" style="flex-wrap:wrap;gap:8px"><div><div class="cc-t">Progresso por parcelamento</div><div class="cc-d">Parcelas pagas / total · clique num título para ordenar</div></div><div class="gx-ord" id="parcOrd"><button type="button" data-o="inad" onclick="parcOrdenar('inad')">Inadimplência</button><button type="button" data-o="parcela" onclick="parcOrdenar('parcela')">Valor da parcela</button><button type="button" data-o="residual" onclick="parcOrdenar('residual')">Saldo residual</button><button type="button" data-o="pct" onclick="parcOrdenar('pct')">% pago</button><button type="button" data-o="empresa" onclick="parcOrdenar('empresa')">Empresa</button><label class="gx-ord-so"><input type="checkbox" id="parcSoInad" onchange="renderParcelamentos()"> só inadimplentes</label></div></div>
     <div id="parcProgressList" style="display:flex;flex-direction:column;gap:10px"></div>
   </div>
 </section>
@@ -2152,10 +2116,7 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
     <div id="alertAcordos" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"></div>
   </div>
 
-  <div class="ex-bn" style="margin-bottom:16px;position:relative;background:none;border:1.5px solid var(--border);box-shadow:var(--shadow-md);padding:22px 26px">
-    <div class="gx-sec-tit">✦ Acordos — Visão Geral</div>
-    <div class="kpi-grid" id="kpiAcordos"></div>
-  </div>
+  <div id="acAnalise"></div><div hidden aria-hidden="true"><div class="kpi-grid" id="kpiAcordos"></div></div>
   <div class="crow c2">
     <div class="cc">
       <div class="cc-hd"><div><div class="cc-t">Valor por devedor</div><div class="cc-d">parcelas em aberto</div></div></div>
@@ -2304,18 +2265,18 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
   <div class="mod-banner">
     <div class="mod-banner-bar" style="background:linear-gradient(180deg,var(--navy),var(--gold))"></div>
     <div>
-      <div class="mod-banner-t">🔔 Central de Notificações</div>
-      <div class="mod-banner-d">Gerencie quem recebe cada alerta, por qual canal e quando — regras individuais por cliente</div>
+      <div class="mod-banner-t">✉ Cobranças, avisos e recibos</div>
+      <div class="mod-banner-d">Monte a mensagem ao cliente (e-mail ou WhatsApp) com os itens escolhidos, ou gere o recibo · também abre pelo botão ✉ em Financeiro, Parcelamentos e Acordos</div>
     </div>
   </div>
 
   <!-- Abas internas -->
   <div style="display:flex;gap:4px;margin-bottom:18px;flex-wrap:wrap" id="notif-tab-bar">
-    <button class="fin-tab active" onclick="notifAba('resumo',this)">📖 Resumo</button>
-    <button class="fin-tab" onclick="notifAba('parc',this)">📋 Parcelamento</button>
-    <button class="fin-tab" onclick="notifAba('hon',this)">💰 Honorários</button>
-    <button class="fin-tab" onclick="notifAba('acord',this)">🤝 Acordos</button>
-    <button class="fin-tab" onclick="notifAba('rec',this)">🧾 Recibos</button>
+    <button class="fin-tab" hidden onclick="notifAba('resumo',this)">📖 Resumo</button>
+    <button class="fin-tab" data-tab="receber" data-nt="hon" onclick="notifAba('hon',this)">💰 Honorários</button>
+    <button class="fin-tab" data-nt="parc" onclick="notifAba('parc',this)">📋 Parcelamento</button>
+    <button class="fin-tab" data-nt="acord" onclick="notifAba('acord',this)">🤝 Acordos</button>
+    <button class="fin-tab" data-tab="recebidos" data-nt="rec" onclick="notifAba('rec',this)">🧾 Recibos</button>
   </div>
 
   <!-- ══ RESUMO ══ -->
@@ -2804,6 +2765,9 @@ function rampaPorValor(data){
   ordem.forEach(function(orig,posto){ cores[orig]=tomAzul(posto,n); });
   return cores;
 }
+// barras horizontais com o valor escrito no fim de cada barra (sem eixo de números)
+function _barrasComValor(cfg){ cfg.options.gxValores=true; cfg.options.layout={padding:{right:96}}; cfg.options.scales.x.display=false; cfg.options.scales.y.grid={display:false};
+  cfg.options.scales.y.ticks=Object.assign({},cfg.options.scales.y.ticks,{autoSkip:false,callback:function(v){var t=String(this.getLabelForValue(v)||'');return t.length>28?t.slice(0,27)+'…':t;}}); return cfg; }
 function bCfg(labels,data,colors,horiz=false){
   const cfg=JSON.parse(JSON.stringify(BO));cfg.indexAxis=horiz?'y':'x';
   cfg.animation={duration:0};
@@ -2813,6 +2777,21 @@ function bCfg(labels,data,colors,horiz=false){
     borderWidth:0,borderRadius:7,borderSkipped:false,maxBarThickness:38,hoverBackgroundColor:cor}]},options:cfg};
 }
 function dCfg(labels,data,colors){
+  return _dCfgBase(labels,data,colors);
+}
+// rosca + legenda em tabela ao lado (cor · nome · valor · %) — usada no Painel e em Parcelamentos/Acordos
+function _donutComLegenda(id,cfgOuArgs,extra){
+  var a=Array.isArray(cfgOuArgs)?cfgOuArgs:null;
+  var cfg=a?_dCfgBase(a[0],a[1],a[2]):cfgOuArgs; var labels=cfg.data.labels, data=cfg.data.datasets[0].data, cores=cfg.data.datasets[0].backgroundColor;
+  cfg.options.plugins.legend.display=false; cfg.options.cutout='62%';
+  mCh(id,cfg);
+  var el=document.getElementById(id+'Leg'); if(!el) return;
+  var tot=data.reduce(function(s,v){return s+(Number(v)||0);},0)||1;
+  el.innerHTML='<table class="gx-leg"><tbody>'+labels.map(function(l,i){var v=Number(data[i])||0;
+    return '<tr><td><span class="gx-leg-c" style="background:'+String(cores[i]).slice(0,7)+'"></span>'+l+'</td><td class="num">'+fF(v)+'</td><td class="num gx-leg-p">'+(v/tot*100).toFixed(1).replace('.',',')+'%</td></tr>';}).join('')+
+    '</tbody><tfoot><tr><td>Total</td><td class="num">'+fF(tot===1&&!data.some(Number)?0:tot)+'</td><td class="num">100%</td></tr></tfoot></table>';
+}
+function _dCfgBase(labels,data,colors){
   return{type:'doughnut',data:{labels,datasets:[{data,backgroundColor:colors.map(c=>c+'e6'),borderColor:'#fff',borderWidth:2,hoverOffset:4}]},
     options:{responsive:true,maintainAspectRatio:false,cutout:'68%',
       plugins:{legend:{display:true,position:window.innerWidth>760?'right':'bottom',labels:{color:'#1F2937',font:{size:12},padding:12,boxWidth:10,usePointStyle:true,pointStyle:'circle',
@@ -4058,7 +4037,12 @@ function renderProcAnalise(){
   el.innerHTML=exBloco('exProcAn','Análise da carteira judicial',
     '<div class="kpi-grid" style="margin-bottom:14px">'
    +  kC('Processos',lista.length,ativos+' em andamento','cb','db')
+   +  kC('Arquivados / extintos',lista.length-ativos,'encerrados, prescritos e extintos','cx','')
    +  kC('Valor em disputa',_faFT(totalV),comValor.length+' com valor informado','cv','dv')
+   +  (function(){ var nomes=(FIL.length?FIL:DB.baseDados).map(function(r){return String(r.nome||'').toLowerCase();}).filter(function(n){return n.length>2;});
+        var tem=function(t){ t=String(t||'').toLowerCase(); return nomes.some(function(n){return t.indexOf(n)>=0;}); };
+        var vP=lista.filter(function(p){return tem(p.reu);}).reduce(function(s,p){return s+val(p);},0), vA=lista.filter(function(p){return tem(p.autor);}).reduce(function(s,p){return s+val(p);},0);
+        return kC('Passivo em disputas',_faFT(vP),'cliente como réu','cr','')+kC('Ativo em disputas',_faFT(vA),'cliente como autor','cg',''); })()
    +  kC('Ticket médio',_faFT(comValor.length?totalV/comValor.length:0),'por processo com valor','cx','')
    +  kC('Sem valor',lista.length-comValor.length,'processos sem valor da causa',
         (lista.length-comValor.length)?'ca':'cg',(lista.length-comValor.length)?'da':'')
@@ -4167,7 +4151,7 @@ function renderResumo(){
 
   if($('kpiSecNeg'))$('kpiSecNeg').innerHTML=
     kC('Saldo Parc. Tributário',fS(_parcelResidual),fF(_parcelResidual)+' · '+fI(parcRel.length)+' ativos','ca','')+
-    kC('Acordos dos clientes c/ terceiros',fS(_acAPagar),fF(_acAPagar),'cr','dr');
+    kC('Acordos dos clientes c/ terceiros',fS(_acAPagar),fF(_acAPagar),'cr','');
 
   const _fGrpR=FILTROS.grupo||'';
   const _fEmpR=FILTROS.empresa||'';
@@ -4241,10 +4225,10 @@ function renderResumo(){
     mCh('cResGrupos',_cfg); }
   if(empF){
     const rowEmp=data.find(r=>r.nome===empF);
-    mCh('cResDonut',dCfg(ORGAOS_TRIB.map(k=>ORGAO_NOME[k]),ORGAOS_TRIB.map(k=>Number(rowEmp?rowEmp[k]:0)||0),ORGAO_CORES));
+    _donutComLegenda('cResDonut',dCfg(ORGAOS_TRIB.map(k=>ORGAO_NOME[k]),ORGAOS_TRIB.map(k=>Number(rowEmp?rowEmp[k]:0)||0),ORGAO_CORES));
   } else {
     const sumPJk=k=>data.filter(r=>r.isPJ!==false).reduce((s,r)=>s+(Number(r[k])||0),0);
-    mCh('cResDonut',dCfg(ORGAOS_TRIB.map(k=>ORGAO_NOME[k]),ORGAOS_TRIB.map(k=>sumPJk(k)),ORGAO_CORES));
+    _donutComLegenda('cResDonut',dCfg(ORGAOS_TRIB.map(k=>ORGAO_NOME[k]),ORGAOS_TRIB.map(k=>sumPJk(k)),ORGAO_CORES));
   }
   setTimeout(renderExecRanking,0);
 }
@@ -4344,7 +4328,7 @@ function renderProcTbl(){
   let rows=dedupProcessos(procsBase).filter(p=>{
     if(fC&&p.competencia!==fC)return false;
     if(fN&&p.natureza!==fN)return false;
-    if(fS2){const _a=String(p.arquivamento||'').trim();const st=(_a.toLowerCase().startsWith('arq')||_a==='Arquivado')?'Arquivado':(_a==='Extinto'||_a.toLowerCase()==='extinto')?'Extinto':p.prescricao==='Prescrito'?'Prescrito':'Ativo';if(st!==fS2)return false;}
+    if(_procChips.size){const _a=String(p.arquivamento||'').trim();const st=(_a.toLowerCase().startsWith('arq')||_a==='Arquivado')?'Arquivado':(_a==='Extinto'||_a.toLowerCase()==='extinto'||p.prescricao==='Prescrito')?'Extinto':'Ativo';if(!_procChips.has(st))return false;}
     if(busca&&![p.numero,p.reu,p.autor,p.grupo].some(x=>String(x||'').toLowerCase().includes(busca)))return false;
     return true;
   });
@@ -4360,6 +4344,7 @@ function renderProcTbl(){
     if(_procSort.col===10)return v*String(a.statusOriginal||'').localeCompare(String(b.statusOriginal||''),'pt-BR');
     return 0;
   });
+  _procPintarChips();
   $('procCount').textContent='· '+fI(rows.length)+' processo(s)';
   const _ppEl=$('pagProc');if(_ppEl)_ppEl.innerHTML=rows.length>0?`<span style="font-size:11px;color:var(--text3)">${fI(rows.length)} processo(s) encontrado(s)</span>`:'';
   const pg=rows; // tabela infinita — todos os processos
@@ -4425,7 +4410,17 @@ function setParcTab(tab, btn){
 
 function setParcPeriod(p,btn){_setPeriod('_parcPeriod','parcPeriodBar',renderParcTbl,p,btn);}
 
+var _parcOrd={col:'inad',asc:false};
+function parcOrdenar(c){ if(_parcOrd.col===c) _parcOrd.asc=!_parcOrd.asc; else _parcOrd={col:c,asc:c==='empresa'}; renderParcelamentos(); }
+function _parcOrdenados(parc,allP){
+  var inad=function(p){ return allP.filter(function(a){return a.empresa===p.empresa&&a.numParc===p.numero&&a.status==='Inadimplente';}).length; };
+  var pct=function(p){ return p.totalParcelas>0?p.parcelasPagas/p.totalParcelas:0; };
+  var so=document.getElementById('parcSoInad'); var l=parc.filter(function(p){ return !(so&&so.checked)||inad(p)>0; });
+  var f={inad:inad,parcela:function(p){return Number(p.valorUltimaParcela)||0;},residual:function(p){return Number(p.residual)||0;},pct:pct};
+  return l.slice().sort(function(a,b){ var r=_parcOrd.col==='empresa'?String(a.empresa||'').localeCompare(String(b.empresa||''),'pt-BR'):(f[_parcOrd.col](a)-f[_parcOrd.col](b)); return _parcOrd.asc?r:-r; });
+}
 function renderParcelamentos(){
+  document.querySelectorAll('#parcOrd [data-o]').forEach(function(b){ b.classList.toggle('ativo',b.dataset.o===_parcOrd.col); b.dataset.dir=b.dataset.o===_parcOrd.col?(_parcOrd.asc?'▲':'▼'):''; });
   const parc=filtrarParc();
   const hoje=new Date();
   const allP=[];
@@ -4453,12 +4448,15 @@ function renderParcelamentos(){
   const eR=emps.map(e=>parc.filter(p=>p.empresa===e).reduce((s,p)=>s+(Number(p.residual)||0),0));
   const iR=eR.map((_,i)=>i).sort((a,b)=>eR[b]-eR[a]).slice(0,10);
   mCh('cParcResidual',bCfg(iR.map(i=>emps[i].length>18?emps[i].slice(0,18)+'…':emps[i]),iR.map(i=>eR[i]),null,true));
+  { const _tR=eR.reduce((s,v)=>s+v,0)||1, _t=$('cParcResidualTab');
+    if(_t) _t.innerHTML='<table class="gx-leg"><thead><tr><td>Empresa</td><td class="num">Saldo residual</td><td class="num">%</td></tr></thead><tbody>'+iR.map(i=>'<tr><td>'+emps[i]+'</td><td class="num">'+fF(eR[i])+'</td><td class="num gx-leg-p">'+(eR[i]/_tR*100).toFixed(1).replace('.',',')+'%</td></tr>').join('')+
+      '</tbody><tfoot><tr><td>Total</td><td class="num">'+fF(eR.reduce((s,v)=>s+v,0))+'</td><td class="num">100%</td></tr></tfoot></table>'; }
 
   const nats=[...new Set(parc.map(p=>p.natureza))].filter(Boolean);
   mCh('cParcNatureza',dCfg(nats,nats.map(n=>parc.filter(p=>p.natureza===n).reduce((s,p)=>s+(Number(p.residual)||0),0)),nats.map(function(n,k){return corCategoria(n,k);})));
 
   const prog=$('parcProgressList');
-  prog.innerHTML=parc.map(p=>{
+  prog.innerHTML=_parcOrdenados(parc,allP).map(p=>{
     const pct2=p.totalParcelas>0?Math.round(p.parcelasPagas/p.totalParcelas*100):0;
     const cor=pct2>=80?'var(--green-d)':pct2>=50?'var(--amber)':'var(--red)';
     const pP=allP.filter(a=>a.empresa===p.empresa&&a.numParc===p.numero);
@@ -4674,6 +4672,37 @@ function setAcordPeriod(p,btn){_setPeriod('_acordPeriod','acordPeriodBar',render
 
 let _acordPgPg=1; // página da tabela de pagos
 
+function _acordosAnalise(ac){
+  var el=$('acAnalise'); if(!el) return; if(!ac.length){ el.innerHTML=''; return; }
+  var hj=new Date(); hj.setHours(0,0,0,0); var fimMes=new Date(hj.getFullYear(),hj.getMonth()+1,0);
+  var v=function(a){return Number(a.valor)||0;}, pago=function(a){return a.situacao==='Pago';};
+  var atrasada=function(a){ if(pago(a)) return false; var d=pDate(a.vencimento); return a.situacao==='Vencido'||(d&&d<hj); };
+  var noMes=function(a){ if(pago(a)) return false; var d=pDate(a.vencimento); return d&&d>=hj&&d<=fimMes; };
+  var soma=function(l){return l.reduce(function(s,a){return s+v(a);},0);};
+  var porCred={}; ac.forEach(function(a){ var k=a.credor||'—'; if(!porCred[k]) porCred[k]={pago:0,falta:0,n:new Set(),atr:0}; var c=porCred[k];
+    if(pago(a)) c.pago+=v(a); else c.falta+=v(a); c.n.add(a.processo); if(atrasada(a)) c.atr++; });
+  var ordem=Object.keys(porCred).sort(function(a,b){return porCred[b].falta-porCred[a].falta;});
+  var porAc={}; ac.filter(atrasada).forEach(function(a){ var k=a.processo+'|'+(a.devedor||''); if(!porAc[k]) porAc[k]={a:a,n:0,v:0}; porAc[k].n++; porAc[k].v+=v(a); });
+  var risco=Object.keys(porAc).map(function(k){return porAc[k];}).sort(function(x,y){return y.n-x.n||y.v-x.v;});
+  var barra=function(p,f){ var t=p+f; if(t<=0) return ''; var pc=Math.round(p/t*100); return '<div class="pa-bar"><div class="pa-bar-in" style="width:'+pc+'%"></div></div><div class="pa-pc">'+pc+'% pago</div>'; };
+  var sem=ac.filter(function(a){return pago(a)&&a.comprovante===false;}).length;
+  el.innerHTML=exBloco('exAcSit','Situação dos acordos',
+    '<div class="kpi-grid" style="margin-bottom:14px">'
+   + kC('Já pago',_faFT(soma(ac.filter(pago))),ac.filter(pago).length+' parcela(s)','cg','dg')
+   + kC('Falta pagar',_faFT(soma(ac.filter(function(a){return !pago(a);}))),new Set(ac.filter(function(a){return !pago(a);}).map(function(a){return a.processo;})).size+' acordo(s) em aberto','ca','')
+   + kC('Vence este mês',_faFT(soma(ac.filter(noMes))),ac.filter(noMes).length+' parcela(s) até '+fimMes.toLocaleDateString('pt-BR').slice(0,5),'cb','')
+   + kC('Em atraso',_faFT(soma(ac.filter(atrasada))),ac.filter(atrasada).length+' parcela(s) vencida(s)','cr',ac.some(atrasada)?'dr':'')
+   + '</div><div class="crow c2">'
+   + '<div><div class="pa-sub">Por credor</div><div class="tw"><table><thead><tr><th>Credor</th><th style="text-align:right">Pago</th><th style="text-align:right">Falta</th><th style="width:130px">Andamento</th></tr></thead><tbody>'
+   + ordem.map(function(k){ var c=porCred[k]; return '<tr><td><strong>'+esc(k)+'</strong><div style="font-size:11px;color:var(--text3)">'+c.n.size+' acordo(s)'+(c.atr?' · <span style="color:var(--red-d)">'+c.atr+' em atraso</span>':'')+'</div></td>'
+       +'<td class="mono" style="text-align:right;color:var(--green-d)">'+_faFT(c.pago)+'</td><td class="mono" style="text-align:right">'+_faFT(c.falta)+'</td><td>'+barra(c.pago,c.falta)+'</td></tr>'; }).join('')
+   + '</tbody></table></div></div>'
+   + '<div><div class="pa-sub">Risco <span style="font-weight:400;text-transform:none;letter-spacing:0">— acordos com parcela vencida (o credor pode executar)</span></div>'
+   + (risco.length?'<div class="tw"><table><thead><tr><th>Devedor</th><th>Processo</th><th style="text-align:right">Em atraso</th></tr></thead><tbody>'
+     + risco.map(function(r){ return '<tr><td><strong>'+esc(r.a.devedor||'—')+'</strong><div style="font-size:11px;color:var(--text3)">'+esc(r.a.credor||'')+'</div></td><td class="mono">'+esc(r.a.processo||'')+'</td><td style="text-align:right"><span class="tag tr">'+r.n+' parcela(s)</span><div class="mono" style="font-size:11.5px">'+_faFT(r.v)+'</div></td></tr>'; }).join('')
+     + '</tbody></table></div>':'<div class="pa-ok">Nenhum acordo com parcela vencida. 👏</div>')
+   + '</div></div>');
+}
 function renderAcordos(){
   const ac=filtrarAcordos();
   const acAP=ac.filter(a=>a.situacao!=='Pago'); // A pagar
@@ -4685,6 +4714,7 @@ function renderAcordos(){
   const ok=acAP.filter(a=>a.situacao==='OK').length;
   const al=$('alertAcordos');al.innerHTML='';
   if(venc>0)al.innerHTML=`<span class="tag tr tpls" style="font-size:11px;padding:5px 12px;border-left:3px solid var(--red);font-weight:700">🔴 ${venc} parcela(s) VENCIDA(S) — ação imediata</span>`;
+  _acordosAnalise(ac);
   $('kpiAcordos').innerHTML=
     kC('Valor A Pagar',fS(tot),fF(tot),'cr','dr')+
     kC('Acordos',fI(new Set(acAP.map(a=>a.processo).filter(Boolean)).size),'acordos ativos distintos','cb','db')+
@@ -5625,8 +5655,8 @@ function _faGraficos(receita){
     var tp=[...new Set(receita.map(function(f){return f.tipo||'—';}))];
     var tv=tp.map(function(t){return receita.filter(function(f){return (f.tipo||'—')===t;}).reduce(function(s,f){return s+_faVal(f);},0);});
     var it=tv.map(function(_,i){return i;}).sort(function(a,b){return tv[b]-tv[a];}).slice(0,10);
-    var cfgT=bCfg(it.map(function(i){return tp[i];}),it.map(function(i){return tv[i];}),null);
-    cfgT.options.animation=SEM_ANIM;
+    var cfgT=bCfg(it.map(function(i){return tp[i];}),it.map(function(i){return tv[i];}),null,true);
+    cfgT.options.animation=SEM_ANIM; _barrasComValor(cfgT);
     mCh('cFaTipo',cfgT);
   }
 
@@ -5636,7 +5666,7 @@ function _faGraficos(receita){
     var gv=gp.map(function(g){return receita.filter(function(f){return (f.grupo||'—')===g;}).reduce(function(s,f){return s+_faVal(f);},0);});
     var ig=gv.map(function(_,i){return i;}).sort(function(a,b){return gv[b]-gv[a];}).slice(0,10);
     var cfgG=bCfg(ig.map(function(i){return gp[i];}),ig.map(function(i){return gv[i];}),null,true);
-    cfgG.options.animation=SEM_ANIM;
+    cfgG.options.animation=SEM_ANIM; _barrasComValor(cfgG);
     mCh('cFaGrupo',cfgG);
   }
 }
@@ -6550,11 +6580,7 @@ function _fcEsqueleto(){
   + '</div>'
   + '<div class="fa-resumo" id="fcResumo"></div>'
   + '</div>'
-  + '<div id="fcCorpo"></div>'
-  + '<div class="cc"><div class="cc-hd" style="align-items:center"><div><div class="cc-t">Lançamentos</div>'
-  +   '<div class="cc-d">os filtros do topo já valem para esta lista · clique no cabeçalho para ordenar</div></div>'
-  +   '<span class="fa-dica" id="fcLqCount"></span></div>'
-  +   '<div id="fcLancTbl"></div></div>';
+  + '<div id="fcCorpo"></div>';
 }
 function _fcSyncBar(){
   var q=document.getElementById('fcQuemTodos');
@@ -6614,16 +6640,14 @@ function _fcPintarCorpo(){
   +   kC('Em atraso',_faFT(vVenc),vencidos.length+' vencido(s) · todos os meses','cr',vVenc>0?'dr':'')
   +   kC('Ticket médio',_faFT(ticket),'por lançamento','cv','dv')
   + '</div>'
-  + (vencidos.length?'<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t">⚠ Em atraso</div><div class="cc-d">todos os meses · mesmos recortes</div></div></div>'+_fcTabelaDetalhe(vencidos)+'</div>':'')
   + '<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t">'+(L.lado==='pagar'?'Pago':'Recebido')+' mês a mês</div>'
   +   '<div class="cc-d">empilhado por '+esc(L.tituloQuem.toLowerCase())+' · passe o mouse na coluna para ver o total do mês</div></div></div>'
   +   '<div class="cb" style="height:280px"><canvas id="cFcMes"></canvas></div></div>'
-  + '<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t">Maiores '+esc(L.tituloQuem.toLowerCase())+'s</div>'
-  +   '<div class="cc-d">10 primeiros por valor</div></div></div>'
-  +   '<div class="cb" style="height:240px"><canvas id="cFcQuem"></canvas></div></div>'
+  + '<div hidden aria-hidden="true"><canvas id="cFcQuem"></canvas></div>'
   + '<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t">Comparativo por '+esc(L.tituloQuem.toLowerCase())+'</div>'
   +   '<div class="cc-d">mesmo período e mesmos recortes acima</div></div></div>'
-  +   _fcTabelaPessoas(_fcPessoas()) + '</div>';
+  +   _fcTabelaPessoas(_fcPessoas()) + '</div>'
+  + (vencidos.length?'<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t">⚠ Em atraso</div><div class="cc-d">todos os meses · mesmos recortes</div></div></div>'+_fcTabelaDetalhe(vencidos)+'</div>':'');
 
   _fcGraficos(fechado);
 }
@@ -7734,17 +7758,20 @@ function _applyChip(elId,val,active){
 }
 
 let _procChipStatus='';
+var _procChips=new Set(['Ativo']);
+function _procPintarChips(){
+  _applyChip('chipProcAtivo','Ativo',_procChips.has('Ativo'));
+  _applyChip('chipProcArquivado','Arquivado',_procChips.has('Arquivado'));
+  _applyChip('chipProcExtinto','Extinto',_procChips.has('Extinto'));
+}
 function procToggleChip(val){
-  _procChipStatus=_procChipStatus===val?'':val;
-  _applyChip('chipProcAtivo','Ativo',_procChipStatus==='Ativo');
-  _applyChip('chipProcArquivado','Arquivado',_procChipStatus==='Arquivado');
-  _applyChip('chipProcExtinto','Extinto',_procChipStatus==='Extinto');
-  const sel=$('fProcStatus');if(sel)sel.value=_procChipStatus;
-  const btn=$('btnProcClear');if(btn)btn.style.display=_procChipStatus?'':'none';
+  if(_procChips.has(val)) _procChips.delete(val); else _procChips.add(val);
+  _procPintarChips();
+  const btn=$('btnProcClear');if(btn)btn.style.display='';
   renderProcTbl();
 }
 function procClearFilters(){
-  _procChipStatus='';
+  _procChipStatus=''; _procChips=new Set(['Ativo']); setTimeout(_procPintarChips,0);
   _applyChip('chipProcAtivo','Ativo',false);
   _applyChip('chipProcArquivado','Arquivado',false);
   _applyChip('chipProcExtinto','Extinto',false);
@@ -9510,10 +9537,10 @@ async function epEnviarEmail(cardId){
   try{ json=await _apiPost('criarRascunhoEmail',{to:destino,assunto:assunto,corpo:corpo}); }catch(e){}
   if(btn){btn.disabled=false;btn.innerHTML=btn.dataset.lbl||'\u2709 Enviar e-mail';}
   if(json&&json.ok){
-    toast('\u2713 E-mail aberto no seu programa de e-mail'+(destino?' para '+destino:' (sem destinat\u00e1rio cadastrado)')+'.');
+    toast('\u2713 '+(json.msg||'E-mail pronto'));
     return;
   }
-  toast('\u2717 N\u00e3o foi poss\u00edvel salvar o rascunho agora. Tente novamente em alguns segundos.');
+  if(!(json&&json.cancelado)) toast('\u2717 N\u00e3o foi poss\u00edvel enviar agora. Tente novamente em alguns segundos.');
 }
 
 function epAbrirWhatsApp(cardId){
@@ -9884,7 +9911,7 @@ async function reciboEmail() {
   try{json=await _apiPost('criarRascunhoEmail',{to:dest,assunto:assunto,corpo:txt});}catch(e){}
   if (btn){btn.disabled=false;btn.innerHTML=btn.dataset.lbl||'✉ Abrir e-mail';}
   if (json&&json.ok){
-    toast('✓ E-mail aberto no seu programa de e-mail'+(dest?' para '+dest:'')+'.');
+    toast('✓ '+(json.msg||'E-mail pronto'));
   } else {
     toast('✗ Não foi possível salvar o rascunho. Tente novamente.');
   }
@@ -9931,7 +9958,8 @@ function _reciboHtml() {
     qualifCliHtml = nomeClHtml + (bd&&bd.cpfCnpj ? ', inscrita(o) sob o documento n. '+_he(bd.cpfCnpj) : '');
   }
   var nrHtml = nr ? '<p style="text-align:center;font-weight:700;margin-bottom:14pt">RECIBO Nº '+_he(nr)+'</p>' : '';
-  var valorHtml = '<strong><u>R$ '+_he(valor)+'</u></strong>';
+  var _ext = _valorPorExtenso(valor);
+  var valorHtml = '<strong><u>R$ '+_he(valor)+'</u></strong>'+(_ext?' ('+_he(_ext)+')':'');
   var emiteHtml = '<strong>'+_he(emit.nome)+'</strong>';
   var emailHtml = '<em>'+_he(emit.email)+'</em>';
   var corpo;
@@ -9956,6 +9984,21 @@ function _reciboHtml() {
   return { nrHtml: nrHtml, corpo: corpo, emit: emit, dataHtml: dataHtml };
 }
 
+// R$ 4.500,00 → "quatro mil e quinhentos reais" (até bilhões; centavos incluídos)
+function _valorPorExtenso(txt){
+  var s=String(txt||'').replace(/[^\d,.]/g,''); if(!s) return '';
+  var n=s.indexOf(',')>=0?Number(s.replace(/\./g,'').replace(',','.')):/^\d{1,3}(\.\d{3})+$/.test(s)?Number(s.replace(/\./g,'')):Number(s); if(!isFinite(n)||n<=0) return '';
+  var U=['','um','dois','três','quatro','cinco','seis','sete','oito','nove','dez','onze','doze','treze','quatorze','quinze','dezesseis','dezessete','dezoito','dezenove'];
+  var D=['','','vinte','trinta','quarenta','cinquenta','sessenta','setenta','oitenta','noventa'];
+  var C=['','cento','duzentos','trezentos','quatrocentos','quinhentos','seiscentos','setecentos','oitocentos','novecentos'];
+  var ate999=function(x){ if(x===100) return 'cem'; var p=[]; if(x>=100){p.push(C[Math.floor(x/100)]);x%=100;} if(x>=20){p.push(D[Math.floor(x/10)]);x%=10;} if(x>0)p.push(U[x]); return p.join(' e '); };
+  var inteiro=Math.floor(n), cent=Math.round((n-inteiro)*100), partes=[], esc=[['',''],['mil','mil'],['milhão','milhões'],['bilhão','bilhões']], k=0, i=inteiro;
+  while(i>0){ var g=i%1000; if(g){ var t=k===1&&g===1?'mil':ate999(g)+(k?' '+(g===1?esc[k][0]:esc[k][1]):''); partes.unshift({t:t,g:g,k:k}); } i=Math.floor(i/1000); k++; }
+  var r=''; partes.forEach(function(p,ix){ if(ix===0) r=p.t; else r+=(p.g<100||p.g%100===0?' e ':', ')+p.t; });
+  if(inteiro) r+=(inteiro>=1e6&&inteiro%1e6===0?' de':'')+(inteiro===1?' real':' reais');
+  if(cent) r+=(inteiro?' e ':'')+ate999(cent)+(cent===1?' centavo':' centavos');
+  return r;
+}
 function reciboPDF() {
   var data = _reciboHtml();
   var footerLabel = _reciboFooterLabel();
@@ -9970,10 +10013,10 @@ function reciboPDF() {
     '.rp{font-size:12pt;line-height:1.85;text-align:justify;margin-bottom:32pt}',
     '.ra{margin-top:72pt;text-align:center}',
     '.rd{text-align:center;margin-top:20pt;font-size:11pt;color:#333}',
-    '.rpb{display:block;margin:24px auto 0;padding:10px 28px;background:#1B3A6B;color:#fff;border:none;border-radius:var(--radius-xs);font-size:13px;cursor:pointer;letter-spacing:.02em;font-family:sans-serif}',
+    '.rpb{display:block;margin:24px auto 0;padding:10px 28px;background:#1B3A6B;color:#fff;border:none;border-radius:8px;font-size:13px;cursor:pointer;letter-spacing:.02em;font-family:sans-serif}',
     '.ral{border-bottom:1px solid #444;width:220px;margin:0 auto 8pt}',
     '.ran{font-weight:700;font-size:11pt}',
-    '.rf{position:fixed;bottom:12mm;left:30mm;right:30mm;border-top:1.5pt solid var(--gold);padding-top:4pt;display:flex;justify-content:space-between;font-size:8pt}',
+    '.rf{position:fixed;bottom:12mm;left:30mm;right:30mm;border-top:1.5pt solid #C9A84C;padding-top:4pt;display:flex;justify-content:space-between;font-size:8pt}',
     '.rfe{color:#555555}',
     '.rfd{color:#1B3A6B;font-weight:700}',
     '@media print{html,body{width:210mm;height:297mm}.rf{position:fixed;bottom:12mm}.rpb{display:none}}'

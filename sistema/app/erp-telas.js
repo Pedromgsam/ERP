@@ -29,9 +29,10 @@
     { id: 'documentos', rot: 'Documentos', equipe: true, func: 'documentos' },
     { id: 'tarefas', rot: 'Tarefas', equipe: true },
     { id: 'alertas', rot: 'Alertas', equipe: true },
-    { id: 'notificacoes', rot: 'Notificações', equipe: true, func: 'clientes' },
     { id: 'admin', rot: 'Administração', admin: true }
   ];
+  // Cobranças, avisos e recibos (antiga "Notificações"): fora da barra; abre pelo botão ✉ de cada tela e pelo ⋯
+  const FUNC_EXTRA = { notificacoes: 'clientes' };
   // painéis novos → tela do Gestão que desenha nele
   const TELAS_GS = { hoje: 'inicio', contratos: 'contratos', clientes: 'clientes', crm: 'crm', publicacoes: 'publicacoes', documentos: 'documentos', tarefas: 'tarefas', alertas: 'alertas', automacoes: 'automacoes', aprovacoes: 'aprovacoes', admin: 'admin' };
 
@@ -54,6 +55,7 @@
 
   // ═════════════════ FUNÇÕES DE ACESSO (Administração → Usuários) ═════════════════
   const FUNC_TELA = {};
+  Object.assign(FUNC_TELA, FUNC_EXTRA);
   MENU.forEach((m) => { if (m.id && m.func) FUNC_TELA[m.id] = m.func; (m.itens || []).forEach((x) => { if (x[2]) FUNC_TELA[x[0]] = x[2]; }); });
   function permitido(func, nivel) {
     if (!func) return true;
@@ -89,7 +91,7 @@
       '<div class="tn-menu tn-menu-dir" role="menu">' + LANCAR.map((x, i) => '<button type="button" role="menuitem" data-lancar="' + i + '">' + esc(x[0]) + '</button>').join('') + '</div></div>' +
       '<div class="hd-usuario"><button type="button" id="gs-tema" title="Modo escuro / claro" aria-label="Alternar modo escuro" aria-pressed="false">◐</button><button type="button" id="gs-sino" class="gx-so-equipe" title="Avisos: prazos, menções e vencimentos" aria-label="Avisos">🔔<span id="gs-sino-n" hidden></span></button><span id="gs-nome"></span>' +
       '<div class="tn-grupo tn-mais-acoes"><button type="button" class="tn-abre gs-bt-mais" data-grupo="acoes" title="Atualizar dados e relatório em PDF" aria-label="Mais ações" aria-haspopup="true" aria-expanded="false">⋯</button>' +
-      '<div class="tn-menu tn-menu-dir" role="menu"><button type="button" data-acao="atualizar">↻ Atualizar dados</button><button type="button" data-acao="pdf" class="gx-so-equipe">📄 Relatório em PDF</button><button type="button" data-acao="aprovacoes" class="gx-so-equipe">📝 Aprovações (rascunhos)</button><button type="button" data-acao="avisos" class="gx-so-equipe">✉ Meus avisos por e-mail</button><button type="button" data-acao="gestao" class="gx-so-equipe">↗ Abrir o Gestão (versão anterior)</button></div></div>' +
+      '<div class="tn-menu tn-menu-dir" role="menu"><button type="button" data-acao="atualizar">↻ Atualizar dados</button><button type="button" data-acao="pdf" class="gx-so-equipe">📄 Relatório em PDF</button><button type="button" data-acao="cobrancas" class="gx-so-equipe">✉ Cobranças, avisos e recibos</button><button type="button" data-acao="meunome">👤 Meu nome</button><button type="button" data-acao="aprovacoes" class="gx-so-equipe">📝 Aprovações (rascunhos)</button><button type="button" data-acao="avisos" class="gx-so-equipe">✉ Meus avisos por e-mail</button></div></div>' +
       '<button type="button" id="gs-sair">Sair</button></div>';
     document.body.insertBefore(hd, document.body.firstChild);
     const btTema = document.getElementById('gs-tema');
@@ -129,7 +131,8 @@
       else if (alvo.dataset.acao === 'atualizar') { if (typeof window._dbCacheClear === 'function') window._dbCacheClear(); ED.recarregar(); }
       else if (alvo.dataset.acao === 'pdf') ir('relatorio');
       else if (alvo.dataset.acao === 'aprovacoes') ir('aprovacoes');
-      else if (alvo.dataset.acao === 'gestao') window.open('gestao.html', '_blank', 'noopener');
+      else if (alvo.dataset.acao === 'meunome') pedirMeuNome(false);
+      else if (alvo.dataset.acao === 'cobrancas') abrirCobrancas('hon');
       else if (alvo.dataset.acao === 'avisos') { if (GS()) GS().janelaMeusAvisos().catch((er) => aviso(erroAmigavel(er), true)); }
       else if (alvo.dataset.ir) ir(alvo.dataset.ir);
       else if (alvo.dataset.lancar !== undefined) LANCAR[+alvo.dataset.lancar][1]();
@@ -167,7 +170,7 @@
     const itens = soLancar ? '<div class="tn-mais-tit">Lançar</div>' + LANCAR.map((x, i) => '<button type="button" data-lancar="' + i + '">+ ' + esc(x[0]) + '</button>').join('')
       : MENU.map((m) => !m.itens ? '<button type="button"' + cls(m) + ' data-ir="' + m.id + '">' + esc(m.rot) + '</button>'
         : '<div class="tn-mais-tit' + (m.equipe ? ' gx-so-equipe' : '') + '">' + esc(m.rot) + '</div>' + m.itens.map((x) => '<button type="button"' + cls(m) + ' data-ir="' + x[0] + '">' + esc(x[1]) + '</button>').join('')).join('')
-        + '<button type="button" data-acao="atualizar">↻ Atualizar dados</button><button type="button" data-acao="gestao">↗ Abrir o Gestão (versão anterior)</button><button type="button" class="gs-sair">Sair</button>';
+        + '<button type="button" data-acao="atualizar">↻ Atualizar dados</button><button type="button" data-acao="cobrancas">✉ Cobranças, avisos e recibos</button><button type="button" class="gs-sair">Sair</button>';
     f.innerHTML = '<div class="tn-mais-caixa">' + itens + '<button type="button" class="tn-mais-fechar" data-fechar>Fechar</button></div>';
     f.querySelectorAll('[data-ir]').forEach((b) => { if (!permitido(FUNC_TELA[b.dataset.ir])) b.remove(); });
     f.querySelectorAll('[data-lancar]').forEach((b) => { if (!permitido(LANCAR[+b.dataset.lancar][2], 'editar')) b.remove(); });
@@ -199,14 +202,39 @@
   let _painel = '';
   function nomeTela(id) {
     for (const m of MENU) { if (m.id === id) return m.rot; const x = (m.itens || []).find((i) => i[0] === id); if (x) return m.rot + ' · ' + x[1]; }
-    return { automacoes: 'Automações', aprovacoes: 'Aprovações' }[id] || '';
+    return { automacoes: 'Automações', aprovacoes: 'Aprovações', notificacoes: 'Cobranças e recibos' }[id] || '';
   }
   function destacar(id) {
     const tn = document.getElementById('gs-tela-nome'); if (tn) tn.textContent = nomeTela(id);
     document.querySelectorAll('#tn [data-ir], #tn-baixo [data-baixo]').forEach((b) => b.classList.toggle('ativo', b.dataset.ir === id || b.dataset.baixo === id));
     document.querySelectorAll('#tn .tn-grupo').forEach((g) => g.classList.toggle('ativo', !!g.querySelector('[data-ir="' + id + '"]')));
   }
+  // ✉ dentro de cada tela: abre "Cobranças, avisos e recibos" já na aba certa
+  let _abaCobranca = 'hon';
+  function abrirCobrancas(aba) {
+    _abaCobranca = aba || 'hon';
+    if (_painel !== 'notificacoes') { ir('notificacoes'); return; }
+    const b = document.querySelector('#notif-tab-bar [data-nt="' + _abaCobranca + '"]');
+    if (typeof window.notifAba === 'function') window.notifAba(_abaCobranca, b);
+  }
+  function botoesCobranca() {
+    [['panel-financeiro', 'hon', '✉ Cobrar clientes', true], ['panel-financeiroContab', 'hon', '✉ Cobrar clientes', true], ['panel-parcelamentos', 'parc', '✉ Avisar clientes', false], ['panel-acordos', 'acord', '✉ Avisar clientes', false]]
+      .forEach(([pid, aba, rot, recibo]) => {
+        const ban = document.querySelector('#' + pid + ' .mod-banner'); if (!ban || ban.querySelector('.gx-cobrar')) return;
+        const d = document.createElement('div'); d.className = 'gx-cobrar gx-so-equipe';
+        d.innerHTML = '<button type="button" data-cob="' + aba + '">' + rot + '</button>' + (recibo ? '<button type="button" data-cob="rec">🧾 Recibo</button>' : '');
+        d.querySelectorAll('[data-cob]').forEach((b) => b.onclick = () => abrirCobrancas(b.dataset.cob));
+        ban.appendChild(d);
+      });
+  }
   function instalarGanchos() {
+    botoesCobranca();
+    // aba do Financeiro marcada no próprio conteúdo (o CSS esconde gráficos repetidos só nas abas de lista)
+    ['setFinTab', 'setFinCTab'].forEach((nome) => {
+      const orig = window[nome]; if (typeof orig !== 'function') return;
+      const alvo = nome === 'setFinTab' ? 'finContent' : 'finCContent';
+      window[nome] = function (tab) { const el = document.getElementById(alvo); if (el) el.dataset.aba = tab; return orig.apply(this, arguments); };
+    });
     const navOrig = window.nav;
     window.nav = function (btn, pid) {
       const id = pid || (btn && btn.dataset && btn.dataset.panel);
@@ -219,6 +247,7 @@
       _painel = id; destacar(id);
       document.body.classList.toggle('gx-tela-nova', !!TELAS_GS[id]);
       if (TELAS_GS[id]) desenharGS(id);
+      if (id === 'notificacoes') setTimeout(() => abrirCobrancas(_abaCobranca), 0);
     };
     // equipe entra no Início
     const admOrig = window.acAplicarModoAdmin;
@@ -232,11 +261,33 @@
       return r;
     };
   }
+  // nome na barra: o primeiro nome da pessoa (Administração → Usuários ou ⋯ → Meu nome), nunca o início do e-mail
+  const nomeProvisorio = (eu) => !eu.nome || (eu.email && eu.nome === eu.email.split('@')[0]);
   function mostrarNome() {
     document.body.classList.toggle('gx-admin', ehAdmin());
     const n = document.getElementById('gs-nome');
     const eu = window.ERP_EU || {}, s = window.AC_SESSION || {};
-    if (n) n.textContent = eu.nome || s.nome || eu.email || '';
+    const nome = nomeProvisorio(eu) ? (s.nome && !/@|^[a-z0-9._-]+$/.test(s.nome) ? s.nome : '') : eu.nome;
+    if (n) { n.textContent = (nome || '').split(/\s+/)[0]; n.title = nome || eu.email || ''; }
+    if (eu.id && nomeProvisorio(eu) && !mostrarNome._pediu) { mostrarNome._pediu = true; setTimeout(() => pedirMeuNome(true), 1500); }
+  }
+  // janela "Como você quer ser chamado?" (primeiro acesso ou ⋯ → Meu nome)
+  function pedirMeuNome(primeiro) {
+    if (!GS() || !GS().abrirJanela || document.getElementById('meu-nome')) return;
+    const eu = window.ERP_EU || {};
+    const j = GS().abrirJanela({ titulo: primeiro ? 'Bem-vindo! Como você quer ser chamado?' : 'Meu nome',
+      corpo: '<label class="campo"><span>Nome que aparece na barra e no "Olá"</span><input id="meu-nome" maxlength="80" placeholder="Ex.: Pedro Castro" value="' + esc(nomeProvisorio(eu) ? '' : eu.nome || '') + '"></label>' +
+        '<div class="sub" style="margin-top:8px">O acesso continua pelo e-mail <b>' + esc(eu.email || '') + '</b>.</div>',
+      rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-fechar-nome>Depois</button><button class="btn btn-p" type="button" id="meu-nome-ok">Salvar</button></div>' });
+    j.querySelector('[data-fechar-nome]').onclick = () => GS().fecharJanela(j);
+    j.querySelector('#meu-nome-ok').onclick = async () => {
+      const v = j.querySelector('#meu-nome').value.trim(); if (!v) return j.querySelector('#meu-nome').focus();
+      const { error } = await window.SB.rpc('salvar_meu_nome', { p: v });
+      if (error) return aviso(erroAmigavel(error), true);
+      eu.nome = v; if (GS().E && GS().E.perfil) GS().E.perfil.nome = v;
+      GS().fecharJanela(j); mostrarNome(); aviso('✓ Pronto, ' + v.split(' ')[0] + '!');
+      if (_painel === 'hoje') desenharGS('hoje');
+    };
   }
   document.addEventListener('erp:perfil', mostrarNome);
   // registro de acesso (Administração → Acessos); aparelho novo avisa a própria pessoa
@@ -358,7 +409,26 @@
       const c = await GS().contarAlertas();
       n.hidden = !c.total; n.textContent = c.total > 99 ? '99+' : String(c.total);
       n.classList.toggle('alto', c.altos > 0);
+      mostrarAvisosNovos(c.lista || []);
     } catch (e) { console.warn('[ERP] avisos:', e); }
+  }
+  // ao abrir o sistema (e quando chega assunto novo): cartão no canto com os avisos não lidos mais importantes
+  const _vistos = new Set();
+  function mostrarAvisosNovos(lista) {
+    const novos = lista.filter((a) => !_vistos.has(a.chave || a.notif)); lista.forEach((a) => _vistos.add(a.chave || a.notif));
+    if (!novos.length || document.getElementById('gx-pop-avisos')) return;
+    const ICO = (GS() && GS().ICONE_AVISO) || {};
+    const d = document.createElement('div'); d.id = 'gx-pop-avisos'; d.setAttribute('role', 'status');
+    d.innerHTML = '<div class="gx-pop-hd"><b>🔔 ' + novos.length + ' aviso(s) novo(s)</b><button type="button" class="gx-pop-x" aria-label="Fechar">✕</button></div>' +
+      novos.slice(0, 4).map((a) => '<div class="gx-pop-it nivel-' + a.nivel + '"><span>' + (ICO[a.tipo] || '•') + '</span><div><b>' + esc(a.titulo) + '</b><div>' + esc(a.detalhe || '') + '</div></div></div>').join('') +
+      (novos.length > 4 ? '<div class="gx-pop-mais">+ ' + (novos.length - 4) + ' outro(s)</div>' : '') +
+      '<button type="button" class="gx-pop-abrir">Abrir a caixa de avisos</button>';
+    document.body.appendChild(d);
+    requestAnimationFrame(() => d.classList.add('on'));
+    const fechar = () => { d.classList.remove('on'); setTimeout(() => d.remove(), 300); };
+    d.querySelector('.gx-pop-x').onclick = fechar;
+    d.querySelector('.gx-pop-abrir').onclick = () => { fechar(); document.getElementById('gs-sino').click(); };
+    setTimeout(fechar, 14000);
   }
   document.addEventListener('erp:perfil', () => { clearInterval(_sinoT); setTimeout(atualizarSino, 1500); _sinoT = setInterval(atualizarSino, 5 * 60 * 1000); });
 
