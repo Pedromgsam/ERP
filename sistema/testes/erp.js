@@ -274,7 +274,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('clicar de novo recolhe', (await p.$$('#panel-clientes tr.cli-det')).length === 0);
     await p.click('#panel-clientes tr[data-cli]:has-text("Alfa Comércio Ltda")'); await p.waitForSelector('#panel-clientes [data-cli-ficha]');
     await p.click('#panel-clientes [data-cli-ficha]'); await p.waitForSelector('.janela.ficha #fc-abas'); await p.waitForTimeout(1200);
-    ok('ficha do cliente abre com 12 abas e resumo', (await p.$$('.janela.ficha #fc-abas button')).length === 12 && /A receber/.test(await p.textContent('#fc-corpo')));
+    ok('ficha do cliente abre com 13 abas e resumo', (await p.$$('.janela.ficha #fc-abas button')).length === 13 && /A receber/.test(await p.textContent('#fc-corpo')));
     await foto(p, 'ficha');
     await p.click('#fc-abas [data-aba=contatos]'); await p.waitForSelector('[data-novo-sub]'); await p.click('[data-novo-sub]');
     await p.waitForSelector('#f-sub'); await p.waitForTimeout(250);
@@ -491,7 +491,19 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.click('#panel-alertas .al-card:has-text("Cartão CNPJ")'); await p.waitForSelector('#cnpj-agora'); await p.waitForTimeout(300);
     { const t = await p.textContent('.janela');
       ok('relatório de alterações: campo, antes e agora', /Alterações encontradas \(1\)/.test(t) && /Situação cadastral\s*ATIVA\s*INAPTA/.test(t) && /Rua Velha/.test(t), t.slice(0, 400)); }
+    ok('empresa que ficou INAPTA vira tarefa para o responsável e aviso (e-mail) para o admin',
+      sql("select count(*) from tarefas where chave_regra like 'cnpj:%' and titulo like 'Verificar: Beta Serviços Ltda ficou INAPTA%'") === '1' &&
+      Number(sql("select count(*) from notificacoes n join perfis p on p.id=n.usuario_id where n.tipo='cnpj' and p.papel='admin'")) >= 1 &&
+      Number(sql("select count(*) from email_fila where tipo='cnpj'")) >= 1);
     await foto(p, 'alertas-cnpj');
+    await p.keyboard.press('Escape'); await p.waitForTimeout(250);
+    { const idB = sql("select id from clientes where cpf_cnpj='22333444000172'");
+      await p.evaluate((id) => GS.abrirFicha(id, 'receita'), idB); await p.waitForSelector('#fc-corpo .dados'); await p.waitForTimeout(600);
+      const t = await p.textContent('#fc-corpo');
+      ok('ficha do cliente: aba Cartão CNPJ com dados da Receita e histórico', /BETA SERVICOS LTDA/.test(t) && /inapta/i.test(t) && /Situação cadastral/.test(t) && /Rua Velha/.test(t), t.slice(0, 300));
+      const n0 = Number(sql('select count(*) from cnpj_execucoes'));
+      await p.click('#fc-cnpj-agora'); await p.waitForTimeout(2500);
+      ok('"Consultar agora" na ficha consulta só aquela empresa', Number(sql('select count(*) from cnpj_execucoes')) === n0 + 1 && sql('select total from cnpj_execucoes order by inicio desc limit 1') === '1'); }
     await p.keyboard.press('Escape'); await p.waitForTimeout(250);
 
     // ── exclusão: equipe não exclui cliente ──
@@ -551,6 +563,20 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.click('#cli-relatorio'); await p.waitForSelector('#gs-raiz .janela [data-rel-csv]'); await p.waitForTimeout(300);
     ok('Clientes: relatório da lista filtrada com CSV', /Clientes \(\d+\)/.test(await p.textContent('#gs-raiz .janela h2')) && (await p.$$('#gs-raiz .janela tbody tr')).length === Number(sql("select count(*) from clientes where tipo <> 'Inativo'")));
     await p.keyboard.press('Escape'); await p.waitForTimeout(200);
+
+    // ── Google Agenda: link .ics por pessoa ──
+    sql("insert into tarefas(titulo,responsavel,prazo) values ('Audiência de instrução — Alfa','Pedro',current_date+9), ('Audiência de outra pessoa','Adriana',current_date+9)");
+    sql("insert into tarefas(titulo,responsavel,prazo,prazo_fatal) values ('Contestação Beta','Pedro',current_date+3,current_date+5)");
+    await nav(p, 'tarefas'); await p.waitForTimeout(1200);
+    await p.click('#tf-agenda'); await p.waitForSelector('#ag-link'); await p.waitForTimeout(300);
+    { const link = await p.inputValue('#ag-link'); const r = await p.request.get(link.replace(/^https?:\/\/[^/]+/, BASE)); const ics = await r.text();
+      ok('Google Agenda: link pessoal devolve a agenda (.ics) com prazo fatal e audiência', r.status() === 200 && /BEGIN:VCALENDAR/.test(ics) && /Prazo fatal: Contestação Beta/.test(ics) && /⚖ Audiência de instrução/.test(ics), ics.slice(0, 300));
+      ok('agenda mostra só as tarefas da própria pessoa', !/Audiência de outra pessoa/.test(ics));
+      await p.click('#ag-trocar'); await p.waitForSelector('#ag-link'); await p.waitForTimeout(500);
+      const r2 = await p.request.get(link.replace(/^https?:\/\/[^/]+/, BASE));
+      ok('"Trocar link" desativa o link antigo na hora', r2.status() === 404 && (await p.inputValue('#ag-link')) !== link); }
+    await p.keyboard.press('Escape'); await p.waitForTimeout(200);
+    sql("delete from tarefas where titulo in ('Audiência de instrução — Alfa','Audiência de outra pessoa','Contestação Beta')");
 
     // ── design: modo escuro, estado vazio e tabelas longas ──
     await nav(p, 'hoje'); await p.waitForTimeout(800);

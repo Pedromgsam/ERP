@@ -8,7 +8,7 @@
 // limite de 3 consultas por minuto; com token, sem limite) e CNPJá (open.cnpja.com, grátis com limite).
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const VERSAO = '2026-09-28';
+const VERSAO = '2026-09-29';
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-erp-segredo',
@@ -77,9 +77,11 @@ export async function tratar(req, db, buscar, esperar) {
     const { data: cfgRow } = await db.from('config_privada').select('valor').eq('chave', 'api_cnpj').maybeSingle();
     const cfg = (cfgRow && cfgRow.valor) || { provedor: 'brasilapi' };
     const provedor = cfg.provedor || 'brasilapi', bases = cfg.bases || {};
-    const { data: clientes, error } = await db.from('clientes')
-      .select('id, nome, cpf_cnpj, razao_social, nome_fantasia, situacao_cadastral, data_situacao, cnae_principal, porte, data_abertura, endereco, cidade, estado, cep, cnpj_atualizado_em')
-      .order('cnpj_atualizado_em', { ascending: true, nullsFirst: true });
+    // {cliente_id}: consulta só aquela empresa (botão "Consultar agora" da ficha do cliente)
+    let consulta = db.from('clientes')
+      .select('id, nome, cpf_cnpj, razao_social, nome_fantasia, situacao_cadastral, data_situacao, cnae_principal, porte, data_abertura, endereco, cidade, estado, cep, cnpj_atualizado_em');
+    if (corpo.cliente_id) consulta = consulta.eq('id', corpo.cliente_id);
+    const { data: clientes, error } = await consulta.order('cnpj_atualizado_em', { ascending: true, nullsFirst: true });
     if (error) throw error;
     // quantas por execução: a função tem ~150 s para rodar; APIs com limite por minuto fazem poucas por dia
     const semLimite = provedor === 'brasilapi' || (provedor === 'receitaws' && cfg.token);

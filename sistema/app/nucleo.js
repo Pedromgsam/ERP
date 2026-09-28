@@ -147,7 +147,7 @@ async function chamarFuncao(nome, corpo) {
 // Diagnóstico: as funções estão publicadas e respondendo?
 async function verificarFuncoes() {
   const out = [];
-  for (const nome of ['erp-emails', 'erp-publicacoes', 'erp-cnpj']) {
+  for (const nome of ['erp-emails', 'erp-publicacoes', 'erp-cnpj', 'erp-agenda']) {
     try { const r = await chamarFuncao(nome, { acao: 'ping' }); out.push([nome, true, r.versao ? 'publicada (versão ' + r.versao + ')' : 'publicada (versão antiga: publique de novo o arquivo do GitHub)']); }
     catch (e) { out.push([nome, false, e.message]); }
   }

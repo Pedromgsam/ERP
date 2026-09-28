@@ -2080,3 +2080,64 @@ returns jsonb language sql stable security invoker set search_path = public as $
 $$;
 revoke all on function public.resumo_financeiro(text, date, date) from public, anon;
 grant execute on function public.resumo_financeiro(text, date, date) to authenticated;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- v14 — Cartão CNPJ: empresa que fica INAPTA/SUSPENSA/BAIXADA/NULA vira tarefa + aviso (e-mail)
+-- Vale para a atualização diária (erp-cnpj) e para edição manual. Não dispara no primeiro
+-- preenchimento (situação anterior vazia) nem quando volta a ATIVA.
+-- ═══════════════════════════════════════════════════════════════════
+create or replace function public.cnpj_situacao_mudou() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare quem uuid; titulo text; det text;
+begin
+  if coalesce(old.situacao_cadastral, '') = '' or upper(new.situacao_cadastral) = upper(old.situacao_cadastral)
+     or upper(coalesce(new.situacao_cadastral, '')) not in ('INAPTA','SUSPENSA','BAIXADA','NULA') then
+    return null;
+  end if;
+  titulo := new.nome || ' ficou ' || upper(new.situacao_cadastral) || ' na Receita Federal';
+  det := 'Antes: ' || old.situacao_cadastral || coalesce(' · desde ' || to_char(new.data_situacao, 'DD/MM/YYYY'), '') || ' · CNPJ ' || new.cpf_cnpj;
+  insert into public.tarefas (chave_regra, titulo, responsavel, prazo, inicio, cliente_id, grupo_id, prioridade, descricao)
+  values ('cnpj:' || new.id || ':' || upper(new.situacao_cadastral) || ':' || current_date, 'Verificar: ' || titulo,
+          coalesce(nullif(new.responsavel, ''), ''), current_date + 2, current_date, new.id, new.grupo_id, 'alta',
+          det || '. Confira no cartão CNPJ (Alertas → Cartão CNPJ) e fale com o cliente.')
+  on conflict do nothing;
+  for quem in
+    select distinct u from (
+      select public.usuario_por_nome(new.responsavel) as u
+      union all select id from public.perfis where papel = 'admin'
+    ) x where u is not null
+  loop
+    insert into public.notificacoes (usuario_id, tipo, titulo, detalhe, link) values (quem, 'cnpj', titulo, det, 'alertas');
+  end loop;
+  return null;
+end $$;
+drop trigger if exists cnpj_situacao_mudou on public.clientes;
+create trigger cnpj_situacao_mudou after update of situacao_cadastral on public.clientes
+  for each row execute function public.cnpj_situacao_mudou();
+
+-- ═══════════════════════════════════════════════════════════════════
+-- v15 — Google Agenda: um link secreto por pessoa (função erp-agenda devolve os prazos em .ics)
+-- ═══════════════════════════════════════════════════════════════════
+create table if not exists public.agenda_links (
+  token text primary key,
+  usuario_id uuid not null unique references public.perfis(id) on delete cascade,
+  criado_em timestamptz not null default now()
+);
+alter table public.agenda_links enable row level security;   -- sem policy: só a função (service role) lê
+revoke all on public.agenda_links from anon, authenticated;
+
+create or replace function public.meu_link_agenda(p_novo boolean default false) returns text
+language plpgsql security definer set search_path = public as $$
+declare t text;
+begin
+  if not public.eh_equipe() then raise exception 'Só a equipe do escritório tem agenda.'; end if;
+  if p_novo then delete from public.agenda_links where usuario_id = auth.uid(); end if;
+  select token into t from public.agenda_links where usuario_id = auth.uid();
+  if t is null then
+    t := replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', '');
+    insert into public.agenda_links (token, usuario_id) values (t, auth.uid());
+  end if;
+  return t;
+end $$;
+revoke all on function public.meu_link_agenda(boolean) from public, anon;
+grant execute on function public.meu_link_agenda(boolean) to authenticated;
