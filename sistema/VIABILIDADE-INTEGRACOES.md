@@ -9,7 +9,7 @@
 | Integração | Dá para fazer? | Custo | Recomendação |
 |---|---|---|---|
 | **Receita Federal (e-CAC)** — situação fiscal, DCTFWeb, parcelamentos, caixa postal | **Sim, pelo caminho oficial**: API *Integra Contador* do SERPRO, com procuração eletrônica dos clientes | Pago **por consulta** (tabela na loja do SERPRO) + certificado digital A1 do escritório | Vale a pena quando a carteira crescer. Comece por "situação fiscal" 1 vez por mês por cliente |
-| **PGFN — dívida ativa** | **Sim, grátis**: a PGFN publica a lista de devedores em *dados abertos* (atualizada a cada trimestre) | Grátis | **Fazer já**: o sistema pode importar e preencher o campo PGFN de cada CNPJ sozinho |
+| **PGFN — dívida ativa** | Dados abertos são **trimestrais** (descartado). **Feito no Backup 14:** API *Consulta Dívida Ativa* do SERPRO (função `erp-pgfn`) | Pago por consulta (tabela da Loja SERPRO; fontes citam de R$ 0,13 a R$ 0,63 por consulta, conforme o volume) | Pronto; liga quando o escritório contratar e salvar a chave em Alertas → PGFN |
 | **SIARE / SEF-MG** | **Não há API.** Só com "robô" que entra no site com o certificado e resolve captcha | Robô: servidor ligado + manutenção a cada mudança do site | **Não recomendado**: frágil, pode bloquear o acesso e expõe o certificado. Manter a consulta manual |
 | **CND federal/estadual (certidões)** | Os sites usam captcha. Existem serviços pagos que emitem por API | Pago por certidão (conferir o fornecedor) | Só se o volume justificar. Hoje: o sistema já avisa a validade (Alertas) |
 | **Sicoob — conciliação bancária** | **Sim.** Caminho 1: arquivo **OFX** do extrato (grátis, já). Caminho 2: **API oficial do Sicoob** (extrato, PIX, boletos) | OFX: grátis. API: contrato com a cooperativa + certificado A1; tarifas de PIX/boleto negociadas com o Sicoob | **Começar pelo OFX** (próxima rodada). Depois, se quiser automático, a API |
@@ -25,7 +25,12 @@
   - **Antes de decidir**, conte quantos clientes × quantas consultas por mês. Ex.: 100 clientes × 1 consulta de situação fiscal por mês.
 - **O que não fazer:** entrar no e-CAC com robô, raspando a tela. Isso é contra as regras do portal e quebra a cada mudança do site.
 
-## 2. PGFN (grátis — sugerido para a próxima rodada)
+## 2. PGFN
+
+**Backup 14:** implementado pela API paga *Consulta Dívida Ativa* do SERPRO (a lista grátis é trimestral). Frequência escolhida na tela (diária, semanal ou mensal).
+A API cobre as dívidas **não previdenciárias**; FGTS e previdenciárias aparecem só se a API devolver.
+
+Texto original (Backup 13):
 
 - A PGFN publica a relação de inscritos em dívida ativa, com CNPJ e valores, no portal de dados abertos. A lista é atualizada a cada trimestre.
 - O sistema pode baixar o arquivo, cruzar pelo CNPJ dos clientes e atualizar sozinho o campo **PGFN** do Painel Executivo. Quem mudou de valor viraria alerta.

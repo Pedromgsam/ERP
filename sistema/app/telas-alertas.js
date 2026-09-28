@@ -104,6 +104,15 @@ TELAS.alertas = async function () {
   const cnpjNivel = !ult ? 'atencao' : ult.status === 'erro' ? 'critico' : !rodouHoje && new Date() > hoje6 ? 'critico' : ult.status === 'parcial' ? 'atencao' : 'ok';
   add('Rotinas', 'Cartão CNPJ (6h)', !ult ? 'nunca rodou' : rodouHoje ? '✓ hoje ' + new Date(ult.inicio).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '⚠ ' + new Date(ult.inicio).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
     ult ? ult.mensagem || ult.status : 'publique a função erp-cnpj e ligue o agendador', cnpjNivel, { cnpj: true });
+  // PGFN (dívida ativa, API paga do SERPRO): só aparece depois de configurada, ou para o admin configurar
+  const pgfnCfg = await q(sb.rpc('status_config_pgfn')).catch(() => null) || {};
+  const pgfnEx = pgfnCfg.tem_chave || (E.perfil && E.perfil.papel === 'admin') ? await q(sb.from('pgfn_execucoes').select('*').order('inicio', { ascending: false }).limit(10)).catch(nada) : [];
+  if (pgfnCfg.tem_chave || (E.perfil && E.perfil.papel === 'admin')) {
+    const u = pgfnEx[0];
+    add('Rotinas', 'PGFN — dívida ativa', !pgfnCfg.tem_chave ? 'não contratada' : !pgfnCfg.ligada ? 'desligada' : u ? quandoCurto(u.inicio) : 'nunca rodou',
+      !pgfnCfg.tem_chave ? 'API paga do SERPRO: clique para ver como ligar' : u ? u.mensagem || u.status : 'frequência: ' + (pgfnCfg.frequencia || 'diaria'),
+      !pgfnCfg.tem_chave ? 'info' : u && u.status === 'erro' ? 'critico' : u && u.status === 'parcial' ? 'atencao' : 'ok', { pgfn: true });
+  }
   if (emails.length || (E.perfil && E.perfil.papel === 'admin')) add('Rotinas', 'E-mails com erro', String(emails.length), 'não saíram depois de 3 tentativas', emails.length ? 'critico' : 'ok',
     { titulo: 'E-mails com erro', colunas: ['Quando', 'Para', 'Assunto', 'Erro'], linhas: emails.map((m) => [quandoRodou(m.criado_em), m.para, m.assunto, m.erro]) });
   if (podeJur) add('Rotinas', 'Busca de publicações', ultPub && ultPub.valor ? quandoCurto(ultPub.valor.quando) : 'nunca rodou',
@@ -139,20 +148,20 @@ TELAS.alertas = async function () {
   $('al-corpo').innerHTML =
     '<div class="al-radar al-' + humor[0] + '"><div class="al-anel" style="--p:' + nota + '"><div class="al-anel-in"><b>' + nota + '</b><span>em dia</span></div></div>' +
       '<div class="al-radar-txt"><h2>' + esc(humor[1]) + '</h2><p>' + esc(humor[2]) + '</p>' +
-      '<div class="al-contas"><span class="al-conta critico">' + criticos + ' crítico(s)</span><span class="al-conta atencao">' + atencao + ' atenção</span><span class="al-conta ok">' +
-        A.filter((a) => a.nivel === 'ok').length + ' em dia</span></div>' +
+      '<div class="al-contas"><span class="al-conta critico">' + criticos + ' crítico(s)</span><span class="al-conta atencao">' + atencao + ' atenção</span><span class="al-conta ok" title="Verificações que o sistema fez e não encontraram nada a fazer (ex.: certidões válidas, nenhum honorário vencido)">' +
+        A.filter((a) => a.nivel === 'ok').length + ' verificações sem pendência</span></div>' +
       (setores.length > 1 ? '<div class="al-filtros"><button type="button" class="ativo" data-al-setor="">Todos</button>' + setores.map((st) => '<button type="button" data-al-setor="' + esc(st) + '">' + (ICONE_SETOR[st] || '') + ' ' + esc(st) + '</button>').join('') + '</div>' : '') +
     '</div></div>' +
     (acao.length ? '<div class="al-feed">' + acao.map((a, k) => '<button type="button" class="al-card al-linha al-' + a.nivel + '" data-al="' + a.i + '" data-setor="' + esc(a.setor) + '" style="--k:' + k + '">' +
         '<span class="al-ic" aria-hidden="true">' + (ICONE_SETOR[a.setor] || '•') + '</span><span class="al-meio"><span class="al-rot">' + esc(a.rot) + '</span> <span class="al-det">' + esc(a.setor) + ' · ' + esc(a.det) + '</span></span>' +
         '<span class="al-val">' + esc(a.valor) + '</span><span class="al-ir">Ver →</span></button>').join('') + '</div>' : '') +
-    (emDia.length ? '<div class="kpis-titulo">✓ Em dia</div><div class="al-chips">' + emDia.map((a) => '<button type="button" class="al-card al-chip al-' + a.nivel + '" data-al="' + a.i + '" title="' + esc(a.det) + '"><span class="al-rot">' + esc(a.rot) + '</span> <span class="al-val">' + esc(a.valor) + '</span></button>').join('') + '</div>' : '') +
+    (emDia.length ? '<div class="kpis-titulo">✓ Em dia</div><div class="al-chips">' + emDia.map((a) => '<button type="button" class="al-card al-chip al-' + a.nivel + '" data-al="' + a.i + '" data-setor="' + esc(a.setor) + '" title="' + esc(a.det) + '"><span class="al-rot">' + esc(a.rot) + '</span> <span class="al-val">' + esc(a.valor) + '</span></button>').join('') + '</div>' : '') +
     (rotinas.length ? '<div class="kpis-titulo">⚙ Rotinas automáticas</div><div class="al-rotinas">' + rotinas.map((a) => '<button type="button" class="al-card al-rotina al-' + a.nivel + '" data-al="' + a.i + '"><span class="al-pt" aria-hidden="true"></span><span class="al-rot">' + esc(a.rot) + '</span> <span class="al-val">' + esc(a.valor) + '</span><span class="al-det">' + esc(a.det) + '</span></button>').join('') + '</div>' : '');
   $('al-corpo').querySelectorAll('[data-al-setor]').forEach((b) => b.onclick = () => {
     $('al-corpo').querySelectorAll('[data-al-setor]').forEach((x) => x.classList.toggle('ativo', x === b));
-    $('al-corpo').querySelectorAll('.al-linha').forEach((l) => { l.hidden = !!b.dataset.alSetor && l.dataset.setor !== b.dataset.alSetor; });
+    $('al-corpo').querySelectorAll('.al-linha,.al-chip').forEach((l) => { l.hidden = !!b.dataset.alSetor && l.dataset.setor !== b.dataset.alSetor; });
   });
-  $('al-corpo').querySelectorAll('[data-al]').forEach((b) => b.onclick = () => { const a = A[+b.dataset.al]; if (a.rel.cnpj) janelaCnpj(cnpj); else if (a.rel.saude) janelaSaude(a.rel.saude); else if (a.rel.backup) irTelaAlerta('admin', 'backup'); else relatorioAlerta(a); });
+  $('al-corpo').querySelectorAll('[data-al]').forEach((b) => b.onclick = () => { const a = A[+b.dataset.al]; if (a.rel.cnpj) janelaCnpj(cnpj); else if (a.rel.pgfn) janelaPgfn(pgfnEx); else if (a.rel.saude) janelaSaude(a.rel.saude); else if (a.rel.backup) irTelaAlerta('admin', 'backup'); else relatorioAlerta(a); });
 };
 
 function quandoCurto(v) {
@@ -175,6 +184,38 @@ function relatorioAlerta(a) {
   const r = a.rel;
   if (!r.colunas) { if (r.tela) irTelaAlerta(r.tela); return; }
   relatorioTabela(Object.assign({}, r, r.tela ? { acao: { rotulo: 'Abrir a tela', fn: () => irTelaAlerta(r.tela) } } : {}));
+}
+
+// PGFN: chave do SERPRO (só admin), frequência, ligar/desligar, consultar agora e o que mudou
+async function janelaPgfn(execs) {
+  const cfg = await q(sb.rpc('status_config_pgfn')).catch(() => ({})) || {};
+  const admin = E.perfil && E.perfil.papel === 'admin', ult = execs[0], mud = ((ult && ult.relatorio) || []).filter((x) => x.antes), err = ((ult && ult.relatorio) || []).filter((x) => x.erro);
+  const j = abrirJanela({ titulo: 'PGFN — dívida ativa (API do SERPRO)', larga: true,
+    corpo: '<div class="dica" style="margin-bottom:10px">Consulta cada CNPJ na <b>API "Consulta Dívida Ativa" do SERPRO</b> e atualiza sozinho os campos <b>PGFN</b> (em cobrança) e <b>PGFN negociada</b> (parcelada). ' +
+        'Na ficha do cliente, a aba <b>PGFN</b> mostra cada inscrição (CDA), a origem (tributária, previdenciária, FGTS, Simples) e se está parcelada. ' +
+        '<b>É pago por consulta</b> (tabela na Loja SERPRO): consulta diária de 100 CNPJs são cerca de 2.200 consultas/mês. Semanal ou mensal custa bem menos.</div>' +
+      (ult ? '<div class="dica" style="margin-bottom:10px"><b>Última execução:</b> ' + quandoRodou(ult.inicio) + ' · ' + esc(ult.mensagem || ult.status) + '</div>' : '') +
+      (mud.length ? '<div class="secao">Mudanças na última consulta (' + mud.length + ')</div><div class="tabela-wrap"><table><thead><tr><th>Empresa</th><th class="num">PGFN antes</th><th class="num">agora</th><th class="num">Negociada antes</th><th class="num">agora</th></tr></thead><tbody>' +
+        mud.map((x) => '<tr><td><b>' + esc(x.nome) + '</b></td><td class="num mono">' + brl(x.antes[0]) + '</td><td class="num mono"><b>' + brl(x.depois[0]) + '</b></td><td class="num mono">' + brl(x.antes[1]) + '</td><td class="num mono"><b>' + brl(x.depois[1]) + '</b></td></tr>').join('') + '</tbody></table></div>' : '') +
+      (err.length ? '<div class="secao">Erros (' + err.length + ')</div><div class="lista-ficha">' + err.map((x) => '<div class="item-ficha"><div><b>' + esc(x.nome) + '</b><div class="sub">' + esc(x.erro) + '</div></div></div>').join('') + '</div>' : '') +
+      (admin ? '<div class="secao">Configuração</div><form class="grade" id="f-pgfn">' +
+        campo('Consumer key (área do cliente SERPRO)', '<input name="ck" autocomplete="off" placeholder="' + (cfg.tem_chave ? '•••• (deixe vazio para manter)' : 'cole aqui') + '">') +
+        campo('Consumer secret', '<input name="cs" type="password" autocomplete="new-password" placeholder="' + (cfg.tem_chave ? '•••• (deixe vazio para manter)' : 'cole aqui') + '">') +
+        campo('Frequência', selectPares('frequencia', [['diaria', 'Todo dia (6h15)'], ['semanal', 'Toda segunda-feira'], ['mensal', 'Todo dia 1º']], cfg.frequencia || 'diaria')) +
+        '<label class="check" style="align-self:end"><input type="checkbox" name="ligada"' + (cfg.ligada ? ' checked' : '') + '> Rotina ligada</label></form>' : ''),
+    rodape: '<span></span><div class="acoes">' + (admin ? '<button class="btn btn-o" type="button" id="pgfn-salvar">Salvar</button><button class="btn btn-p" type="button" id="pgfn-agora"' + (cfg.tem_chave ? '' : ' disabled') + '>↻ Consultar agora</button>' : '') + '</div>' });
+  const sv = j.querySelector('#pgfn-salvar');
+  if (sv) sv.onclick = () => comBotao(sv, async () => {
+    const f = j.querySelector('#f-pgfn');
+    await q(sb.rpc('salvar_config_pgfn', { p: { consumer_key: f.ck.value.trim(), consumer_secret: f.cs.value.trim(), frequencia: f.frequencia.value, ligada: f.ligada.checked } }));
+    aviso('✓ PGFN: configuração salva.'); fecharJanela(j); await TELAS.alertas();
+  });
+  const ag = j.querySelector('#pgfn-agora');
+  if (ag) ag.onclick = () => comBotao(ag, async () => {
+    const r = await chamarFuncao('erp-pgfn', { acao: 'rodar' });
+    if (r && r.erro) throw new Error(r.erro);
+    aviso('✓ PGFN: ' + ((r && r.mensagem) || 'feito') + '.'); fecharJanela(j); await carregarCadastros(true); await TELAS.alertas();
+  });
 }
 
 // Cartão CNPJ: última execução, o que mudou, erros, histórico e a API usada

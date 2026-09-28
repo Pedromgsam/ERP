@@ -13,7 +13,7 @@
 // Colunas dos clientes que as telas usam: fica de fora a resposta completa da Receita (cnpj_dados,
 // vários KB por cliente, só na ficha) e a chave técnica de importação. Coluna nova no banco → incluir aqui
 // (o teste erp.js avisa quando a lista fica desatualizada).
-window.ERP_COLS_CLIENTE = 'id,grupo_id,nome,cpf_cnpj,tipo,responsavel,email,telefone,endereco,cidade,estado,obs,criado_por,criado_em,atualizado_em,socio_admin,rfb,rfb_negociada,pgfn,pgfn_negociada,sefaz_mg,age_mg,age_mg_negociada,ceat_trt3,em_operacao,procuracao,certificado,cadastro_regular,capag,regime_tributario,situacao_cadastral,tipo_societario,historico_cadastral,origem,data_migracao,razao_social,nome_fantasia,cnae_principal,porte,data_abertura,data_situacao,cep,cnpj_atualizado_em,area';
+window.ERP_COLS_CLIENTE = 'id,grupo_id,nome,cpf_cnpj,tipo,responsavel,email,telefone,endereco,cidade,estado,obs,criado_por,criado_em,atualizado_em,socio_admin,rfb,rfb_negociada,pgfn,pgfn_negociada,sefaz_mg,age_mg,age_mg_negociada,ceat_trt3,em_operacao,procuracao,certificado,cadastro_regular,capag,regime_tributario,situacao_cadastral,tipo_societario,historico_cadastral,origem,data_migracao,razao_social,nome_fantasia,cnae_principal,porte,data_abertura,data_situacao,cep,cnpj_atualizado_em,area,perfil_email,emails_tipos';
 (function () {
   const CFG = window.ERP_CONFIG || {};
   // link "criar nova senha" enviado por e-mail: o Supabase volta para cá com type=recovery
@@ -315,6 +315,7 @@ window.ERP_COLS_CLIENTE = 'id,grupo_id,nome,cpf_cnpj,tipo,responsavel,email,tele
               '<b>No meu e-mail</b>: abre o programa de e-mail deste computador com o texto pronto.</div></div>',
             rodape: '<button class="btn btn-o" type="button" id="em-meu">Abrir no meu e-mail</button><div class="acoes"><button class="btn btn-o" type="button" id="em-cancelar">Cancelar</button><button class="btn btn-p" type="button" id="em-enviar">✉ Enviar pelo e-mail do escritório</button></div>' });
           let feito = false; const fim = (v) => { if (feito) return; feito = true; G.fecharJanela(j); ok(v); };
+          j._aoFechar = () => fim({ ok: false, cancelado: true });
           j.querySelector('#em-cancelar').onclick = () => fim({ ok: false, cancelado: true });
           j.querySelector('#em-meu').onclick = () => {
             const a = document.createElement('a');
@@ -322,9 +323,10 @@ window.ERP_COLS_CLIENTE = 'id,grupo_id,nome,cpf_cnpj,tipo,responsavel,email,tele
             document.body.appendChild(a); a.click(); a.remove(); fim({ ok: true, msg: 'E-mail aberto no seu programa de e-mail' });
           };
           j.querySelector('#em-enviar').onclick = async (ev) => {
-            ev.currentTarget.disabled = true;
+            const bt = ev.currentTarget; // depois do await o currentTarget vira null
+            bt.disabled = true;
             const { error } = await sb.rpc('enviar_email_manual', { p_para: j.querySelector('#em-para').value.trim(), p_assunto: j.querySelector('#em-assunto').value, p_texto: j.querySelector('#em-texto').value });
-            ev.currentTarget.disabled = false;
+            bt.disabled = false;
             if (error) { if (window.toast) window.toast('⚠ ' + (error.message || 'não foi possível enviar')); return; }
             fim({ ok: true, msg: 'E-mail na fila de envio do escritório (sai em até 5 minutos)' });
           };

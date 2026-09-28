@@ -94,8 +94,18 @@ const MODELOS_ACESSO = {
   'Financeiro': { financeiro_juridico: 'editar', financeiro_contab: 'editar', contratos: 'editar', clientes: 'ver', documentos: 'editar', relatorios: 'ver' },
   'Jurídico': { juridico: 'editar', clientes: 'editar', tarefas: 'editar', documentos: 'editar', contratos: 'ver' },
   'Atendimento / Comercial': { crm: 'editar', clientes: 'editar', contratos: 'ver', documentos: 'editar', tarefas: 'ver' },
-  'Estagiário (rascunho)': { juridico: 'propor', clientes: 'propor', tarefas: 'ver', documentos: 'ver', contratos: 'ver' }
+  'Estagiário (rascunho)': { juridico: 'propor', clientes: 'propor', tarefas: 'ver', documentos: 'ver', contratos: 'ver' },
+  'Adm. da Contabilidade': { financeiro_contab: 'editar', clientes: 'editar', contratos: 'editar', documentos: 'editar', tarefas: 'editar', relatorios: 'ver' }
 };
+// Perfil de e-mail ao cliente (Administração → E-mails aos clientes e ficha do cliente)
+const PERFIS_EMAIL = [['padrao', 'Padrão', 'lembrete antes do vencimento, cobrança depois do atraso e recibo'],
+  ['vencimento', 'Só no vencimento', 'um aviso no dia do vencimento e o recibo; sem lembrete antes nem cobrança'],
+  ['nunca', 'Não enviar financeiro', 'nenhum e-mail de honorários (clientes importantes); guias de parcelamento e acordos continuam'],
+  ['personalizado', 'Personalizado', 'você marca cada tipo de e-mail']];
+const TIPOS_EMAIL = [['lembrete', 'Lembrete antes do vencimento'], ['vencimento', 'Aviso no dia do vencimento'], ['cobranca', 'Cobrança de atraso'],
+  ['recibo', 'Recibo / pagamento recebido'], ['parcelamento', 'Guia de parcelamento'], ['acordo', 'Parcela de acordo']];
+// modelo que já escolhe "Clientes que vê"
+const MODELOS_AREA = { 'Adm. da Contabilidade': 'contabil' };
 // Nível "Propor" (rascunho): a pessoa preenche normalmente, mas nada vale até alguém que edita aprovar.
 const FUNCOES_PROPOR = ['financeiro_juridico', 'financeiro_contab', 'contratos', 'clientes', 'juridico'];
 // Área do cliente e áreas que cada usuário vê
@@ -144,7 +154,8 @@ function ligarGradeFuncoes(raiz) {
   raiz.querySelectorAll('.gf-areas').forEach((g) => g.onclick = (ev) => { const b = ev.target.closest('button'); if (!b) return; g.querySelectorAll('button').forEach((x) => x.classList.toggle('ativo', x === b)); });
   raiz.querySelectorAll('.gf-niveis').forEach((g) => g.onclick = (ev) => { const b = ev.target.closest('button'); if (!b) return; g.querySelectorAll('button').forEach((x) => x.classList.toggle('ativo', x === b)); });
   raiz.querySelectorAll('[data-modelo-acesso]').forEach((b) => b.onclick = () => {
-    const m = MODELOS_ACESSO[b.dataset.modeloAcesso];
+    const m = MODELOS_ACESSO[b.dataset.modeloAcesso], area = MODELOS_AREA[b.dataset.modeloAcesso];
+    if (area) raiz.querySelectorAll('.gf-areas button').forEach((x) => x.classList.toggle('ativo', x.dataset.v === area));
     raiz.querySelectorAll('.gf-niveis').forEach((g) => { const v = m[g.dataset.funcao] || ''; g.querySelectorAll('button').forEach((x) => x.classList.toggle('ativo', x.dataset.v === v)); });
   });
 }
@@ -246,7 +257,9 @@ const PESSOA = {
   'Pedro':      { fundo: '#D4EDBC', marca: '#4E9A2F', texto: '#2F6B1A' },
   'Emanuelle':  { fundo: '#FFCFC9', marca: '#D2544A', texto: '#9B2C22' },
   'Escritório': { fundo: '#FBE9A8', marca: '#C9A84C', texto: '#8A6D14' },
-  'Adriana':    { fundo: '#DBEAFE', marca: '#3B6FD4', texto: '#1D4ED8' }
+  'Adriana':    { fundo: '#DBEAFE', marca: '#3B6FD4', texto: '#1D4ED8' },
+  'João Vitor': { fundo: '#E9DDFB', marca: '#7C4DCC', texto: '#5B2E9E' },
+  'Éder':       { fundo: '#D5F0EC', marca: '#2D8C7E', texto: '#1F6B60' }
 };
 function corPessoa(n) { return PESSOA[String(n || '').trim()] || { fundo: '#EEF1F7', marca: '#6B7280', texto: '#4B5563' }; }
 function pillPessoa(n) {
@@ -435,7 +448,10 @@ function abrirJanela({ titulo, corpo, rodape, larga }) {
 }
 function fecharJanela(el) {
   const alvo = el || $('janelas').lastElementChild;
-  if (alvo) alvo.remove();
+  if (!alvo) return;
+  alvo.remove();
+  // quem abriu a janela pode saber que ela fechou (×, Esc, clique fora ou voltar do navegador)
+  if (typeof alvo._aoFechar === 'function') { const f = alvo._aoFechar; alvo._aoFechar = null; try { f(); } catch (e) { /* nada */ } }
 }
 document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') fecharJanela(); });
 
@@ -445,7 +461,7 @@ document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') fecharJa
 function perguntarBaixa({ titulo, descricao, valor, acordo, despesa }) {
   return new Promise((ok) => {
     let feito = false;
-    const j = abrirJanela({ titulo: titulo || (despesa ? 'Confirmar pagamento' : 'Confirmar recebimento'),
+    const j = abrirJanela({ titulo: titulo || (despesa ? 'Registrar pagamento (conta paga)' : 'Registrar pagamento'),
       corpo: (descricao ? '<div class="dica" style="margin-bottom:12px"><b>' + esc(descricao) + '</b>' + (valor != null ? ' · ' + brl(valor) : '') + '</div>' : '') +
         campo(despesa || acordo ? 'Data do pagamento' : 'Data do recebimento', '<input type="date" name="bx-data" required value="' + hojeISO() + '">') +
         '<div class="sub" style="margin:4px 0 10px">Já vem com a data de hoje. Se o dinheiro entrou em outro dia, troque aqui.</div>' +
@@ -826,12 +842,14 @@ TELAS.inicio = async function () {
     buscarTodos(() => sb.from('lancamentos').select(sel).lte('vencimento', h).eq('pago', false).eq('perda', false).order('vencimento'))
   ]);
   const ateFim = 'de hoje até ' + dataBR(fim).slice(0, 5);
+  // cada cartão abre o relatório completo (tabela com as mesmas ações do Financeiro + CSV)
+  const clic = (emp, k, html) => html.replace('<div class="kpi ', '<div role="button" tabindex="0" title="Clique para ver a lista completa" data-ini-rel="' + emp + '|' + k + '" class="kpi kpi-clica ');
   const linha = (emp, titulo) => { const t = totais[emp] || {};
     return '<div class="kpis-titulo">' + titulo + '</div><div class="kpis">' +
-    kpi('Recebido no mês', brl(t.recebido || 0), 'verde', (t.n_recebido || 0) + ' recebimento(s)') +
-    kpi('A receber', brl(t.a_receber || 0), '', (t.n_a_receber || 0) + ' em aberto · ' + ateFim) +
-    kpi('Em atraso', brl(t.em_atraso || 0), 'vermelho', (t.n_em_atraso || 0) + ' vencido(s) · todos os meses') +
-    kpi('A pagar', brl(t.a_pagar || 0), 'ambar', (t.n_a_pagar || 0) + ' conta(s) · ' + ateFim) +
+    clic(emp, 'recebido', kpi('Recebido no mês', brl(t.recebido || 0), 'verde', (t.n_recebido || 0) + ' recebimento(s)')) +
+    clic(emp, 'a_receber', kpi('A receber', brl(t.a_receber || 0), '', (t.n_a_receber || 0) + ' em aberto · ' + ateFim)) +
+    clic(emp, 'em_atraso', kpi('Em atraso', brl(t.em_atraso || 0), 'vermelho', (t.n_em_atraso || 0) + ' vencido(s) · todos os meses')) +
+    clic(emp, 'a_pagar', kpi('A pagar', brl(t.a_pagar || 0), 'ambar', (t.n_a_pagar || 0) + ' conta(s) · ' + ateFim)) +
     '</div>'; };
   const verJur = pode('financeiro_juridico'), verCont = pode('financeiro_contab');
   const de = (emp) => atrasados.filter((l) => l.empresa === emp);
@@ -844,28 +862,64 @@ TELAS.inicio = async function () {
     '<div id="ini-aprov"></div><div id="ini-fila"></div>' +
     (verJur ? linha('escritorio', '💼 Honorários Jurídico') : '') + (verCont ? linha('contabilidade', '🧮 Contabilidade') : '') +
     (verJur || verCont ? '<div class="' + (verJur && verCont ? 'duas-col' : '') + ' ini-atraso">' +
-      (verJur ? cardAtraso('⚠ Em atraso — Jurídico', de('escritorio')) : '') +
-      (verCont ? cardAtraso('⚠ Em atraso — Contabilidade', de('contabilidade')) : '') + '</div>' : '');
+      (verJur ? cardAtraso('Atrasados', 'Jurídico', de('escritorio')) : '') +
+      (verCont ? cardAtraso('Atrasados', 'Contabilidade', de('contabilidade')) : '') + '</div>' : '');
   if (typeof cardAprovacoes === 'function') cardAprovacoes().then((x) => { const el = $('ini-aprov'); if (el) el.innerHTML = x; }).catch((e) => console.error(e));
   if (typeof cardMinhaFila === 'function') cardMinhaFila().then((c) => { const el = $('ini-fila'); if (el) { el.innerHTML = c.html; c.ligar(el); } }).catch((e) => console.error(e));
   ligarAcoesLancamentos($('conteudo'));
   ligarBotoesNovo($('conteudo'));
+  // clicar na linha do atraso = registrar o pagamento (mesma janela do botão)
+  $('conteudo').querySelectorAll('.ini-atraso tr[data-linha-pagar]').forEach((tr) => tr.onclick = (ev) => {
+    if (ev.target.closest('button,a')) return;
+    const b = tr.querySelector('[data-pagar]'); if (b) b.click();
+  });
+  $('conteudo').querySelectorAll('[data-ini-rel]').forEach((k) => {
+    k.onclick = () => { const [emp, tipo] = k.dataset.iniRel.split('|'); relatorioHonorarios(emp, tipo, ini, fim); };
+    k.onkeydown = (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); k.click(); } };
+  });
 };
 
-// Tabela inteira (sem "ver todos"): dá para dar baixa em qualquer linha ali mesmo
-function cardAtraso(titulo, lista) {
+// Relatório expandido de um cartão do Início (Recebido no mês, A receber, Em atraso, A pagar)
+async function relatorioHonorarios(emp, tipo, ini, fim) {
+  const h = hojeISO(), sel = '*, grupos(nome), clientes(nome)';
+  const base = () => sb.from('lancamentos').select(sel).eq('empresa', emp);
+  const Q = {
+    recebido: [() => base().eq('tipo', 'receita').eq('pago', true).gte('data_pagamento', ini).lte('data_pagamento', fim).order('data_pagamento'), 'Recebido no mês', 'recebidos'],
+    a_receber: [() => base().eq('tipo', 'receita').eq('pago', false).eq('perda', false).gte('vencimento', h).lte('vencimento', fim).order('vencimento'), 'A receber até ' + dataBR(fim)],
+    em_atraso: [() => base().eq('tipo', 'receita').eq('pago', false).eq('perda', false).lt('vencimento', h).order('vencimento'), 'Em atraso (todos os meses)'],
+    a_pagar: [() => base().eq('tipo', 'despesa').eq('pago', false).gte('vencimento', h).lte('vencimento', fim).order('vencimento'), 'A pagar até ' + dataBR(fim), 'despesas']
+  }[tipo];
+  const lista = await buscarTodos(Q[0]);
+  const total = soma(lista, (l) => l.redutor ? -l.valor : l.valor);
+  const nomeEmp = emp === 'contabilidade' ? 'Contabilidade' : 'Jurídico';
+  const j = abrirJanela({ titulo: Q[1] + ' — ' + nomeEmp, larga: true,
+    corpo: '<div class="kpis" style="margin-bottom:12px">' + kpi('Total', brl(total), tipo === 'em_atraso' ? 'vermelho' : tipo === 'recebido' ? 'verde' : '', lista.length + ' lançamento(s)') + '</div>' +
+      '<div class="card" style="margin:0">' + tabelaLancamentos(lista, { aba: Q[2] }) + '</div>',
+    rodape: '<button class="btn btn-o" type="button" data-rel-csv>⬇ CSV</button><span></span>' });
+  ligarAcoesLancamentos(j, async () => { fecharJanela(j); await relatorioHonorarios(emp, tipo, ini, fim); await recarregar(); });
+  j.querySelector('[data-rel-csv]').onclick = () => baixarArquivo(Q[1] + ' ' + nomeEmp + ' ' + h + '.csv',
+    '\ufeff' + [['Vencimento', 'Pago em', 'Quem', 'Descrição', 'Valor', 'Situação']].concat(lista.map((l) => [dataBR(l.vencimento), dataBR(l.data_pagamento),
+      (l.grupos && l.grupos.nome) || l.favorecido || (l.clientes && l.clientes.nome) || '', l.descricao, String(l.redutor ? -l.valor : l.valor).replace('.', ','), l.pago ? 'Pago' : 'Em aberto']))
+      .map((r) => r.map((v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(';')).join('\r\n'), 'text/csv;charset=utf-8');
+}
+
+// Tabela inteira (sem "ver todos"): dá para registrar o pagamento em qualquer linha ali mesmo
+// (clicar na linha abre a mesma janela). Selos separados: vencidos (vermelho) e vence hoje (âmbar).
+function cardAtraso(titulo, area, lista) {
   const h = hojeISO();
   const quemDe = (l) => (l.grupos && l.grupos.nome) || l.favorecido || (l.clientes && l.clientes.nome) || '';
-  const hoje = lista.filter((l) => l.vencimento === h), total = soma(lista, (l) => l.tipo === 'despesa' ? -l.valor : vl(l));
-  return '<div class="card card-lista"><div class="card-hd">' + titulo + '<span class="pill ' + (lista.length ? 'vencido' : 'neutro') + '">' + lista.length +
-      (hoje.length ? ' · ' + hoje.length + ' hoje' : '') + '</span></div>' +
+  const hoje = lista.filter((l) => l.vencimento === h), vencidos = lista.length - hoje.length, total = soma(lista, (l) => l.tipo === 'despesa' ? -l.valor : vl(l));
+  return '<div class="card card-lista ini-atraso-card"><div class="card-hd"><span class="ini-atraso-tit">' + esc(titulo) + ' <span class="ini-atraso-area area-' + (area === 'Jurídico' ? 'jur' : 'cont') + '">' + esc(area) + '</span></span>' +
+      '<span class="ini-atraso-selos">' + (vencidos ? '<span class="pill vencido">' + vencidos + ' vencido' + (vencidos > 1 ? 's' : '') + '</span>' : '') +
+      (hoje.length ? '<span class="pill hoje">' + hoje.length + ' vence' + (hoje.length > 1 ? 'm' : '') + ' hoje</span>' : '') +
+      (!lista.length ? '<span class="pill pago">em dia</span>' : '') + '</span></div>' +
     (lista.length ? '<div class="tabela-wrap"><table class="ordenavel"><thead><tr><th data-tipo="data">Vencimento</th><th>Quem</th><th class="num">Valor</th><th class="sem-ordem"></th></tr></thead><tbody>' +
-      lista.map((l) => '<tr' + (l.vencimento === h ? ' class="linha-hoje"' : '') + '><td class="mono" data-ord="' + l.vencimento + '">' +
+      lista.map((l) => '<tr class="clicavel' + (l.vencimento === h ? ' linha-hoje' : '') + '" data-linha-pagar title="Clique para registrar o pagamento"><td class="mono" data-ord="' + l.vencimento + '">' +
         (l.vencimento === h ? '<span class="pill hoje">Vence hoje</span>' : dataBR(l.vencimento) + '<div class="sub">' + diasAtraso(l.vencimento) + '</div>') + '</td>' +
         '<td><b>' + esc(quemDe(l) || l.descricao) + '</b><div class="sub">' + esc(l.descricao) + '</div></td>' +
         '<td class="num mono ' + (l.tipo === 'receita' && !l.redutor ? 'valor-rec' : 'valor-desp') + '" data-ord="' + (l.tipo === 'despesa' ? -l.valor : vl(l)) + '">' +
-          (l.tipo === 'despesa' || l.redutor ? '− ' : '') + brl(l.valor) + (l.redutor ? '<div class="sub">redutor</div>' : l.tipo === 'despesa' ? '<div class="sub">a pagar</div>' : '') + '</td>' +
-        '<td class="acoes-l"><button class="btn btn-v btn-mini" data-pagar="' + l.id + '">✓ ' + (l.tipo === 'receita' ? 'Recebido' : 'Pago') + '</button></td></tr>').join('') +
+          (l.tipo === 'despesa' || l.redutor ? '− ' : '') + brl(l.valor) + (l.redutor ? '<div class="sub">redutor</div>' : l.tipo === 'despesa' ? '<div class="sub">a pagar</div>' : '') + '</td>' +
+        '<td class="acoes-l"><button class="btn btn-v btn-mini" data-pagar="' + l.id + '">✓ Registrar pagamento</button></td></tr>').join('') +
       '</tbody><tfoot><tr><td colspan="2">Total</td><td class="num mono">' + brl(total) + '</td><td></td></tr></tfoot></table></div>'
       : vazio('Nada em atraso. 👏')) + '</div>';
 }
@@ -1150,7 +1204,7 @@ function tabelaLancamentos(lista, opc) {
         '<td class="num mono ' + (l.tipo === 'receita' && !l.redutor ? 'valor-rec' : 'valor-desp') + '" data-ord="' + (l.tipo === 'despesa' ? -l.valor : vl(l)) + '">' + (l.tipo === 'despesa' || l.redutor ? '−\u00A0' : '') + brl(l.valor) + (l.redutor ? '<div class="sub">redutor</div>' : '') + '</td>' +
         '<td>' + pillSit(l) + '</td><td class="acoes-l">' +
         (l.pago ? '<button class="btn btn-o btn-mini" data-desfazer="' + l.id + '" title="Voltar para em aberto">↺</button> '
-                : l.perda ? '' : '<button class="btn btn-v btn-mini" data-pagar="' + l.id + '">✓ ' + (l.tipo === 'receita' ? 'Recebido' : 'Pago') + '</button> ') +
+                : l.perda ? '' : '<button class="btn btn-v btn-mini" data-pagar="' + l.id + '" title="Registrar pagamento (pergunta a data)">✓ Registrar pagamento</button> ') +
         '<button class="btn btn-o btn-mini" data-editar="' + l.id + '">Editar</button></td></tr>';
     }).join('') +
     '</tbody><tfoot><tr><td colspan="' + (compacta ? 2 : 4) + '">Total (' + lista.length + ')</td><td class="num mono">' +
@@ -1373,13 +1427,14 @@ async function consultarCnpjNovo(id, nome) {
 }
 
 TELAS.clientes = async function () {
-  E.cli = E.cli || { tipo: 'ativos', grupo: '', busca: '', area: '' };
+  E.cli = E.cli || { tipo: 'ativos', grupo: '', busca: '', area: '', visao: 'grupo' };
   await carregarCadastros();
   const C = E.cli;
   $('conteudo').innerHTML =
     '<div class="titulo-pag"><div><h1>Clientes</h1><p id="cli-conta"></p></div>' +
     '<div class="acoes"><button class="btn btn-p" data-novo="cliente">+ Novo cliente</button></div></div>' +
     '<div class="filtros">' +
+    '<div class="segmento" id="cli-visao" title="Como mostrar a lista">' + [['grupo', 'Por grupo'], ['lista', 'Lista']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<div class="segmento" id="cli-tipo">' + [['ativos', 'Ativos'], ['Consultoria', 'Consultoria'], ['Demanda', 'Serviço pontual'], ['Inativo', 'Inativos'], ['todos', 'Todos']]
       .map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     (minhasAreas() === 'ambos' ? '<select class="busca sel" id="cli-area" aria-label="Área" style="max-width:190px"><option value="">Todas as áreas</option><option value="juridico">Jurídico</option><option value="contabil">Contabilidade</option></select>' : '') +
@@ -1387,8 +1442,10 @@ TELAS.clientes = async function () {
     E.grupos.map((g) => '<option value="' + g.id + '">' + esc(g.nome) + '</option>').join('') + '</select>' +
     '<input class="busca" id="cli-busca" placeholder="Buscar nome, grupo, responsável ou CPF/CNPJ" autocomplete="off">' +
     '<button class="btn btn-o" type="button" id="cli-relatorio" title="Lista filtrada com todos os campos, em tabela e CSV">⬇ Relatório</button>' +
+    '<button class="btn btn-o" type="button" id="cli-massa" title="Editar passivo, CEAT e CAPAG de vários clientes numa tabela (aceita colar do Excel)">✎ Editar em tabela</button>' +
     '</div><div id="cli-corpo"></div>';
   $('cli-tipo').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { C.tipo = b.dataset.v; pintarClientes(); } };
+  $('cli-visao').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { C.visao = b.dataset.v; pintarClientes(); } };
   $('cli-grupo').onchange = (ev) => { C.grupo = ev.target.value; pintarClientes(); };
   if ($('cli-area')) { $('cli-area').value = C.area || ''; $('cli-area').onchange = (ev) => { C.area = ev.target.value; pintarClientes(); }; }
   let t;
@@ -1398,6 +1455,7 @@ TELAS.clientes = async function () {
       colunas: ['Grupo', 'Nome', 'CPF/CNPJ', 'Área', 'Tipo', 'Responsável', 'E-mail', 'Telefone', 'Cidade/UF', 'Procuração', 'Certificado', 'CAPAG', 'Situação cadastral'],
       linhas: l.map((c) => [c.grupos ? c.grupos.nome : '', c.nome, mascaraDoc(c.cpf_cnpj), rotArea(c.area), c.tipo === 'Demanda' ? 'Serviço pontual' : c.tipo, c.responsavel, c.email, c.telefone,
         [c.cidade, c.estado].filter(Boolean).join('/'), c.procuracao === true ? 'Sim' : c.procuracao === false ? 'Não' : '', c.certificado === true ? 'Sim' : c.certificado === false ? 'Não' : '', c.capag, c.situacao_cadastral]) }); };
+  $('cli-massa').onclick = () => edicaoEmMassa(E.cli.ultima || []);
   ligarBotoesNovo($('conteudo'));
   // ao ordenar pelo cabeçalho, fecha o detalhe aberto (senão ele fica solto no meio da tabela)
   $('cli-corpo').addEventListener('click', (ev) => { if (ev.target.closest('th')) { document.querySelectorAll('#cli-corpo .cli-det').forEach((x) => x.remove());
@@ -1408,6 +1466,7 @@ TELAS.clientes = async function () {
 function pintarClientes() {
   const C = E.cli, b = normalizar(C.busca), bd = soDigitos(C.busca);
   document.querySelectorAll('#cli-tipo button').forEach((x) => x.classList.toggle('ativo', x.dataset.v === C.tipo));
+  document.querySelectorAll('#cli-visao button').forEach((x) => x.classList.toggle('ativo', x.dataset.v === (C.visao || 'grupo')));
   if (document.activeElement !== $('cli-grupo')) $('cli-grupo').value = C.grupo;
   if (document.activeElement !== $('cli-busca')) $('cli-busca').value = C.busca;
   const lista = E.clientes.filter((c) => {
@@ -1419,12 +1478,17 @@ function pintarClientes() {
                (bd && soDigitos(c.cpf_cnpj).includes(bd)))) return false;
     return true;
   });
+  // "Por grupo" (padrão): ordem grupo → nome, com uma linha de título por grupo
+  const porGrupo = (C.visao || 'grupo') === 'grupo';
+  const gn = (c) => (c.grupos ? c.grupos.nome : '') || '';
+  if (porGrupo) lista.sort((a, x) => (gn(a) || '\uffff').localeCompare(gn(x) || '\uffff', 'pt-BR') || String(a.nome).localeCompare(String(x.nome), 'pt-BR'));
   C.ultima = lista;
   $('cli-conta').textContent = lista.length + ' de ' + E.clientes.length + ' cadastro(s) · clique na linha para ver os detalhes';
   $('cli-corpo').innerHTML = '<div class="card">' + (lista.length ?
-    '<div class="tabela-wrap"><table class="ordenavel cli-tabela"><thead><tr><th class="sem-ordem" style="width:28px"></th><th>Grupo</th><th>Nome</th><th>CPF/CNPJ</th><th>Responsável</th>' +
+    '<div class="tabela-wrap"><table class="' + (porGrupo ? '' : 'ordenavel ') + 'cli-tabela"><thead><tr><th class="sem-ordem" style="width:28px"></th><th>Grupo</th><th>Nome</th><th>CPF/CNPJ</th><th>Responsável</th>' +
     '<th>Procuração</th><th>Certificado</th><th>Situação</th></tr></thead><tbody>' +
-    lista.map((c) => '<tr class="clicavel cli-linha" tabindex="0" aria-expanded="false" data-cli="' + c.id + '"><td class="cli-seta">▸</td>' +
+    lista.map((c, i) => (porGrupo && (i === 0 || gn(lista[i - 1]) !== gn(c)) ? '<tr class="cli-grp"><td colspan="8">' + esc(gn(c) || 'Sem grupo') +
+        ' <span class="sub">' + lista.filter((x) => gn(x) === gn(c)).length + ' cadastro(s)</span></td></tr>' : '') + '<tr class="clicavel cli-linha" tabindex="0" aria-expanded="false" data-cli="' + c.id + '"><td class="cli-seta">▸</td>' +
       '<td class="cli-grupo" title="' + esc(c.grupos ? c.grupos.nome : '') + '">' + esc(c.grupos ? c.grupos.nome : '—') + '</td>' +
       '<td><b>' + esc(c.nome) + '</b> ' + pillArea(c.area) + (c.socio_admin ? '<div class="sub">' + esc(c.socio_admin) + '</div>' : '') + '</td>' +
       '<td class="mono">' + esc(mascaraDoc(c.cpf_cnpj) || '—') + '</td>' +
@@ -1548,6 +1612,8 @@ async function formCliente(cl, depois) {
       secao('📞 Contato') +
       campo('E-mail', '<input name="email" type="email" value="' + esc(cl.email || '') + '">') +
       campo('Telefone / WhatsApp', '<input name="telefone" inputmode="tel" value="' + esc(cl.telefone || '') + '">') +
+      campo('E-mails de cobrança', '<select name="perfil_email" title="Quais e-mails automáticos de honorários este cliente recebe">' + PERFIS_EMAIL.map(([v, r]) =>
+        '<option value="' + v + '"' + ((cl.perfil_email || 'padrao') === v ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>') +
       campo('Endereço', '<input name="endereco" value="' + esc(cl.endereco || '') + '">') +
       campo('Cidade', '<input name="cidade" value="' + esc(cl.cidade || '') + '">') +
       campo('UF', '<input name="estado" maxlength="2" style="text-transform:uppercase" value="' + esc(cl.estado || '') + '">') +
@@ -1581,7 +1647,7 @@ async function formCliente(cl, depois) {
       rfb: num('rfb'), rfb_negociada: num('rfb_negociada'), pgfn: num('pgfn'), pgfn_negociada: num('pgfn_negociada'),
       age_mg: num('age_mg'), age_mg_negociada: num('age_mg_negociada'), sefaz_mg: num('sefaz_mg'),
       ceat_trt3: f.ceat_trt3.value === '' ? null : Number(f.ceat_trt3.value),
-      email: f.email.value.trim(), telefone: f.telefone.value.trim(), endereco: f.endereco.value.trim(),
+      email: f.email.value.trim(), telefone: f.telefone.value.trim(), endereco: f.endereco.value.trim(), perfil_email: f.perfil_email.value,
       cidade: f.cidade.value.trim(), estado: f.estado.value.trim().toUpperCase(), origem: f.origem.value.trim(),
       obs: f.obs.value.trim()
     };
@@ -1839,8 +1905,17 @@ async function janelaSalarioMinimo() {
   });
 }
 
+// abre o contrato; se algo falhar, diz o porquê (antes o clique não fazia nada)
 async function detalheContrato(id) {
-  const ct = await q(sb.from('contratos').select('*, clientes(nome, grupo_id, responsavel)').eq('id', id).single());
+  try { await _detalheContrato(id); }
+  catch (e) {
+    console.error('[contrato]', e);
+    aviso('Não foi possível abrir o contrato: ' + erroAmigavel(e) + '. Se continuar, confira se o SQL mais recente foi rodado no Supabase.', true);
+  }
+}
+async function _detalheContrato(id) {
+  const ct = (await q(sb.from('contratos').select('*, clientes(nome, grupo_id, responsavel)').eq('id', id)))[0];
+  if (!ct) throw new Error('contrato não encontrado ou de um cliente que você não vê (área)');
   const [parc, exitos] = await Promise.all([q(sb.from('lancamentos').select('*').eq('contrato_id', id).order('vencimento')),
     ct.percentual_exito ? q(sb.from('exitos').select('*').eq('contrato_id', id).order('data')).catch(() => []) : []]);
   const recebido = soma(parc.filter((p) => p.pago), (p) => p.valor);
@@ -1924,6 +1999,71 @@ function formExito(ct, depois) {
   });
 }
 
+
+// ─────────── Editar em tabela (vários clientes de uma vez) ───────────
+// Tab/Enter andam entre as células; colar do Excel preenche a partir da célula; o que mudou fica destacado.
+// Salvar grava só as linhas alteradas. Quem está em modo rascunho gera uma proposta por linha (Aprovações).
+const COLS_MASSA = [['nome', 'Nome', 'texto'], ['rfb', 'RFB', 'valor'], ['rfb_negociada', 'RFB neg.', 'valor'], ['pgfn', 'PGFN', 'valor'], ['pgfn_negociada', 'PGFN neg.', 'valor'],
+  ['age_mg', 'AGE/MG', 'valor'], ['age_mg_negociada', 'AGE neg.', 'valor'], ['sefaz_mg', 'SEFAZ/MG', 'valor'], ['ceat_trt3', 'CEAT', 'int'], ['capag', 'CAPAG', 'capag']];
+const CAPAGS = ['', 'A', 'B', 'C', 'D', 'Omisso'];
+function edicaoEmMassa(lista) {
+  if (!lista.length) return aviso('Nenhum cliente na lista: mude o filtro.', true);
+  if (lista.length > 300) return aviso('São ' + lista.length + ' clientes: filtre por grupo ou tipo (até 300 por vez).', true);
+  const txt = (c, k, t) => c[k] == null || c[k] === '' ? '' : t === 'valor' ? String(Number(c[k]).toFixed(2)).replace('.', ',') : String(c[k]);
+  const j = abrirJanela({ titulo: 'Editar em tabela — ' + lista.length + ' cliente(s)', larga: true,
+    corpo: '<div class="dica" style="margin-bottom:10px">Clique numa célula e digite. <b>Tab</b> vai para a direita, <b>Enter</b> para baixo. Pode <b>colar do Excel</b> (várias linhas e colunas) a partir da célula escolhida. ' +
+      'Valores em reais (ex.: 12500,00). Só as linhas alteradas são gravadas.</div>' +
+      '<div class="tabela-wrap massa-wrap"><table class="massa"><thead><tr><th>Grupo</th>' + COLS_MASSA.map(([, r, t]) => '<th' + (t === 'valor' || t === 'int' ? ' class="num"' : '') + '>' + r + '</th>').join('') + '</tr></thead><tbody>' +
+      lista.map((c, i) => '<tr data-i="' + i + '"><td class="sub">' + esc(c.grupos ? c.grupos.nome : '') + '</td>' + COLS_MASSA.map(([k, , t], jx) =>
+        '<td>' + (t === 'capag' ? '<select data-k="' + k + '" data-c="' + jx + '">' + CAPAGS.map((v) => '<option' + ((c[k] || '') === v ? ' selected' : '') + '>' + v + '</option>').join('') + '</select>'
+          : '<input data-k="' + k + '" data-c="' + jx + '" value="' + esc(txt(c, k, t)) + '"' + (t !== 'texto' ? ' inputmode="decimal" class="num"' : '') + ' aria-label="' + esc(c.nome) + ' — ' + k + '">') + '</td>').join('') + '</tr>').join('') +
+      '</tbody></table></div>',
+    rodape: '<span class="sub" id="massa-conta">Nenhuma alteração</span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="massa-salvar">Salvar alterações</button></div>' });
+  j.querySelector('.janela').classList.add('janela-massa');
+  const cel = (i, c) => j.querySelector('tr[data-i="' + i + '"] [data-c="' + c + '"]');
+  const marcar = (el) => { const c = lista[+el.closest('tr').dataset.i], [k, , t] = COLS_MASSA[+el.dataset.c];
+    el.closest('td').classList.toggle('mudou', el.value.trim() !== txt(c, k, t));
+    const n = new Set([...j.querySelectorAll('td.mudou')].map((td) => td.parentElement.dataset.i)).size;
+    j.querySelector('#massa-conta').textContent = n ? n + ' linha(s) alterada(s)' : 'Nenhuma alteração'; };
+  j.querySelectorAll('[data-k]').forEach((el) => {
+    el.oninput = el.onchange = () => marcar(el);
+    el.onkeydown = (ev) => {
+      if (ev.key !== 'Enter' || el.tagName === 'SELECT') return;
+      ev.preventDefault(); const p = cel(+el.closest('tr').dataset.i + 1, +el.dataset.c); if (p) p.focus();
+    };
+    el.onpaste = (ev) => {
+      const dado = (ev.clipboardData || window.clipboardData).getData('text');
+      if (!/[\t\n]/.test(dado)) return;
+      ev.preventDefault();
+      const i0 = +el.closest('tr').dataset.i, c0 = +el.dataset.c;
+      dado.replace(/\r/g, '').replace(/\n$/, '').split('\n').forEach((lin, di) => lin.split('\t').forEach((v, dc) => {
+        const alvo = cel(i0 + di, c0 + dc); if (!alvo) return;
+        alvo.value = alvo.tagName === 'SELECT' ? (CAPAGS.find((x) => x.toLowerCase() === v.trim().toLowerCase()) || alvo.value) : v.trim().replace(/^R\$\s*/, ''); marcar(alvo);
+      }));
+    };
+  });
+  j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
+  j.querySelector('#massa-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    const linhas = [...new Set([...j.querySelectorAll('td.mudou')].map((td) => +td.parentElement.dataset.i))];
+    if (!linhas.length) throw new Error('Nada foi alterado.');
+    const pacotes = linhas.map((i) => { const c = lista[i], d = {};
+      j.querySelectorAll('tr[data-i="' + i + '"] td.mudou [data-k]').forEach((el) => { const [k, r, t] = COLS_MASSA[+el.dataset.c], v = el.value.trim();
+        if (t === 'texto') { if (!v) throw new Error('O nome não pode ficar vazio (' + c.nome + ').'); d[k] = v; }
+        else if (t === 'capag') d[k] = v;
+        else if (t === 'int') { if (v && !/^\d+$/.test(v)) throw new Error(r + ' de ' + c.nome + ': use só números.'); d[k] = v ? Number(v) : null; }
+        else { const n = v ? lerValor(v) : null; if (v && isNaN(n)) throw new Error(r + ' de ' + c.nome + ': valor inválido ("' + v + '").'); d[k] = n; } });
+      return [c, d]; });
+    let ok = 0, rasc = 0;
+    for (const [c, d] of pacotes) {
+      const { error } = await sb.from('clientes').update(d).eq('id', c.id);
+      if (error && error.rascunho) rasc++; else if (error) throw new Error(c.nome + ': ' + erroAmigavel(error)); else ok++;
+    }
+    await carregarCadastros(true); fecharJanela(j);
+    aviso(rasc ? '📝 ' + rasc + ' alteração(ões) enviada(s) para aprovação' + (ok ? ' e ' + ok + ' gravada(s)' : '') + '.' : '✓ ' + ok + ' cliente(s) atualizado(s).');
+    if (E.tela === 'clientes') pintarClientes(); else await recarregar();
+  });
+}
+
 'use strict';
 // ═══════════════════════════════════════════════════════════════════
 // Administração (só admin): Usuários · Importar planilhas · Backup ·
@@ -1938,7 +2078,8 @@ const ABAS_ADMIN = [
   { id: 'historico', rot: '🕘 Histórico' },
   { id: 'acessos', rot: '🔐 Acessos' },
   { id: 'automacoes', rot: '⚡ Automações' },
-  { id: 'email', rot: '✉ E-mail' }
+  { id: 'clientes_email', rot: '📨 E-mails aos clientes' },
+  { id: 'email', rot: '✉ Envio de e-mail' }
 ];
 
 TELAS.admin = async function () {
@@ -1955,20 +2096,27 @@ async function pintarAdmin() {
   document.querySelectorAll('#adm-abas button').forEach((b) => b.classList.toggle('ativo', b.dataset.aba === E.adm.aba));
   const corpo = $('adm-corpo');
   corpo.innerHTML = '<div class="carregando">Carregando…</div>';
-  try { await ({ usuarios: admUsuarios, importar: admImportar, backup: admBackup, historico: admHistorico, acessos: admAcessos, automacoes: () => { E.adm.aba = 'usuarios'; irParaTela('automacoes'); }, email: admEmail })[E.adm.aba](corpo); }
+  try { await ({ usuarios: admUsuarios, importar: admImportar, backup: admBackup, historico: admHistorico, acessos: admAcessos, clientes_email: admClientesEmail, automacoes: () => { E.adm.aba = 'usuarios'; irParaTela('automacoes'); }, email: admEmail })[E.adm.aba](corpo); }
   catch (e) { console.error(e); corpo.innerHTML = '<div class="card"><div class="card-bd msg-erro">' + esc(erroAmigavel(e)) + '</div></div>'; }
 }
 
 // ─────────────────────────── USUÁRIOS ──────────────────────────────
 const PAPEIS = [['admin', 'Administrador'], ['equipe', 'Equipe'], ['cliente', 'Cliente (Portal)'], ['inativo', 'Inativo (sem acesso)']];
 async function admUsuarios(corpo) {
-  const [lista, vinculos] = await Promise.all([
+  const [lista, vinculos, previstos] = await Promise.all([
     q(sb.from('perfis').select('*').order('criado_em')),
-    q(sb.from('perfil_grupos').select('*')).catch(() => [])
+    q(sb.from('perfil_grupos').select('*')).catch(() => []),
+    q(sb.from('usuarios_previstos').select('*').order('criado_em')).catch(() => [])
   ]);
   const gruposDe = (id) => vinculos.filter((v) => v.perfil_id === id).map((v) => nomeGrupo(v.grupo_id)).filter(Boolean);
   corpo.innerHTML =
     '<div class="titulo-pag" style="margin-bottom:10px"><div></div><div class="acoes"><button class="btn btn-p" id="us-novo">+ Novo usuário</button></div></div>' +
+    // acessos já combinados (SQL do Backup 14): falta só criar a conta — a pessoa já nasce com a função certa
+    (previstos.length ? '<div class="card"><div class="card-hd">👥 Acessos combinados — falta criar a conta <span class="sub">' + previstos.length + '</span></div><div class="card-bd"><div class="lista-ficha">' +
+      previstos.map((v) => '<div class="item-ficha"><div><b>' + esc(v.nome) + '</b> <span class="pill neutro">' + esc(v.modelo || (v.papel === 'admin' ? 'Administrador' : 'Equipe')) + '</span>' +
+        ' <span class="pill area-' + esc(v.areas) + '">' + esc(rotArea(v.areas)) + '</span><div class="sub">' + esc(v.email) + '</div></div>' +
+        '<span><button class="btn btn-p btn-mini" data-prev="' + esc(v.email) + '">Criar conta</button> <button class="btn btn-o btn-mini" data-prev-x="' + esc(v.email) + '" title="Não criar">✕</button></span></div>').join('') +
+      '</div><div class="sub" style="margin-top:8px">Clique em <b>Criar conta</b>, escolha uma senha provisória e passe para a pessoa (ou use depois o 🔑 Link de senha).</div></div></div>' : '') +
     '<div class="card"><div class="tabela-wrap"><table class="ordenavel"><thead><tr><th>Nome</th><th>E-mail</th><th>Acesso</th><th>Funções / Grupos no Portal</th><th data-tipo="data">Desde</th><th class="sem-ordem"></th></tr></thead><tbody>' +
     lista.map((p) => '<tr><td><input class="busca" style="min-width:160px" data-nome="' + p.id + '" value="' + esc(p.nome) + '"></td>' +
       '<td>' + esc(p.email) + '</td><td><select class="busca" style="min-width:150px" data-papel="' + p.id + '">' +
@@ -2007,6 +2155,11 @@ async function admUsuarios(corpo) {
     formGruposPortal(lista.find((p) => p.id === b.dataset.grupos), vinculos.filter((v) => v.perfil_id === b.dataset.grupos).map((v) => v.grupo_id)));
   corpo.querySelectorAll('[data-funcoes]').forEach((b) => b.onclick = () => formFuncoes(lista.find((p) => p.id === b.dataset.funcoes)));
   $('us-novo').onclick = () => formNovoUsuario();
+  corpo.querySelectorAll('[data-prev]').forEach((b) => b.onclick = () => formNovoUsuario(previstos.find((v) => v.email === b.dataset.prev)));
+  corpo.querySelectorAll('[data-prev-x]').forEach((b) => b.onclick = () => comBotao(b, async () => {
+    if (!confirm('Tirar ' + b.dataset.prevX + ' da lista de acessos combinados?')) return;
+    await q(sb.from('usuarios_previstos').delete().eq('email', b.dataset.prevX)); await pintarAdmin();
+  }));
 }
 function formFuncoes(p) {
   const j = abrirJanela({ titulo: 'Funções de ' + (p.nome || p.email), larga: true,
@@ -2044,14 +2197,16 @@ function formGruposPortal(p, marcados) {
     aviso('✓ Grupos do Portal atualizados.'); fecharJanela(j); await pintarAdmin();
   });
 }
-function formNovoUsuario() {
-  const j = abrirJanela({ titulo: 'Novo usuário', larga: true,
+function formNovoUsuario(pre) {
+  pre = pre || null;
+  const j = abrirJanela({ titulo: pre ? 'Criar conta — ' + pre.nome : 'Novo usuário', larga: true,
     corpo: '<form id="f-us" class="grade">' +
-      campo('Nome <span class="obrig">*</span>', '<input name="nome" autocomplete="off">') +
-      campo('E-mail <span class="obrig">*</span>', '<input name="email" type="email" autocomplete="off">') +
+      campo('Nome <span class="obrig">*</span>', '<input name="nome" autocomplete="off" value="' + esc(pre ? pre.nome : '') + '">') +
+      campo('E-mail <span class="obrig">*</span>', '<input name="email" type="email" autocomplete="off" value="' + esc(pre ? pre.email : '') + '">') +
       campo('Senha provisória <span class="obrig">*</span>', '<input name="senha" autocomplete="new-password" placeholder="mínimo 8 caracteres">') +
-      campo('Acesso', '<select name="papel">' + PAPEIS.filter((x) => x[0] !== 'inativo').map(([v, r]) => '<option value="' + v + '"' + (v === 'equipe' ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>') +
-      '<div class="inteiro" id="us-funcoes"><div class="secao" style="margin-bottom:6px">Funções (o que a pessoa pode usar)</div>' + gradeAreas('ambos') + gradeFuncoes(MODELOS_ACESSO['Sócio (tudo)']) + '</div>' +
+      campo('Acesso', '<select name="papel">' + PAPEIS.filter((x) => x[0] !== 'inativo').map(([v, r]) => '<option value="' + v + '"' + (v === (pre ? pre.papel : 'equipe') ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>') +
+      '<div class="inteiro' + (pre && pre.papel !== 'equipe' ? ' escondido' : '') + '" id="us-funcoes"><div class="secao" style="margin-bottom:6px">Funções (o que a pessoa pode usar)</div>' +
+        gradeAreas(pre ? pre.areas : 'ambos') + gradeFuncoes(pre && pre.papel === 'equipe' ? pre.funcoes : MODELOS_ACESSO['Sócio (tudo)']) + '</div>' +
       '<div class="inteiro escondido" id="us-grupos"><div class="sub" style="margin-bottom:6px">Grupos que o cliente vê no Portal</div>' + listaGruposMarcar([]) + '</div>' +
       '<div class="dica inteiro">Passe o e-mail e a senha provisória para a pessoa. Se o Supabase estiver com <b>confirmação de e-mail</b> ligada, ela recebe um e-mail e precisa clicar no link antes do primeiro acesso.</div>' +
       '</form>',
@@ -2588,6 +2743,72 @@ async function janelaMeusAvisos() {
   });
 }
 
+// ─────────────────────── E-MAILS AOS CLIENTES (perfil por cliente) ───────────────────────
+// Um lugar só para decidir quem recebe o quê: cada cliente tem um perfil; dá para mudar vários de uma vez.
+async function admClientesEmail(corpo) {
+  await carregarCadastros(true);
+  const ult = await q(sb.rpc('ultimos_emails_clientes')).catch(() => []);
+  const ultimo = {}; ult.forEach((u) => { ultimo[u.cliente_id] = u; });
+  const F = E.adm.cem = E.adm.cem || { busca: '', perfil: '' };
+  const rot = (v) => (PERFIS_EMAIL.find((p) => p[0] === (v || 'padrao')) || PERFIS_EMAIL[0])[1];
+  corpo.innerHTML =
+    '<div class="card"><div class="card-hd">📨 Quem recebe e-mail automático de honorários</div><div class="card-bd">' +
+      '<div class="cem-perfis">' + PERFIS_EMAIL.map(([v, r, d]) => '<div class="cem-perfil"><b>' + r + '</b><span>' + d + '</span></div>').join('') + '</div>' +
+      '<p class="sub" style="margin-top:10px">Cliente novo entra como <b>Padrão</b>. Os e-mails vão para o contato financeiro do cliente (ficha → Contatos) e só saem se a automação estiver ligada em ⚡ Automações. ' +
+      'Nome, chave PIX e modelos ficam em <b>✉ Envio de e-mail</b>.</p></div></div>' +
+    '<div class="filtros"><input class="busca" id="cem-busca" placeholder="Buscar cliente ou grupo" autocomplete="off" value="' + esc(F.busca) + '">' +
+      '<select class="busca sel" id="cem-filtro"><option value="">Todos os perfis</option>' + PERFIS_EMAIL.map(([v, r]) => '<option value="' + v + '"' + (F.perfil === v ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>' +
+      '<span class="sub" id="cem-sel" style="align-self:center"></span>' +
+      '<select class="busca sel" id="cem-lote"><option value="">Aplicar aos marcados…</option>' + PERFIS_EMAIL.filter((p) => p[0] !== 'personalizado').map(([v, r]) => '<option value="' + v + '">' + r + '</option>').join('') + '</select></div>' +
+    '<div class="card"><div id="cem-tab"></div></div>';
+  const pintar = () => {
+    const b = normalizar(F.busca);
+    const lista = E.clientes.filter((c) => c.tipo !== 'Inativo' && (!F.perfil || (c.perfil_email || 'padrao') === F.perfil) &&
+      (!b || normalizar(c.nome + ' ' + (c.grupos ? c.grupos.nome : '')).includes(b)))
+      .sort((a, x) => String(a.grupos ? a.grupos.nome : '').localeCompare(String(x.grupos ? x.grupos.nome : ''), 'pt-BR') || String(a.nome).localeCompare(String(x.nome), 'pt-BR'));
+    $('cem-tab').innerHTML = lista.length ? '<div class="tabela-wrap"><table class="ordenavel"><thead><tr><th class="sem-ordem"><input type="checkbox" id="cem-todos" aria-label="Marcar todos"></th><th>Grupo</th><th>Cliente</th><th>E-mails de cobrança</th><th>Último e-mail enviado</th></tr></thead><tbody>' +
+      lista.map((c) => { const u = ultimo[c.id]; return '<tr><td><input type="checkbox" data-cem-x="' + c.id + '" aria-label="Marcar ' + esc(c.nome) + '"></td><td>' + esc(c.grupos ? c.grupos.nome : '—') + '</td><td><b>' + esc(c.nome) + '</b></td>' +
+        '<td><select class="busca sel cem-perfil-sel" data-cem="' + c.id + '" aria-label="Perfil de ' + esc(c.nome) + '">' + PERFIS_EMAIL.map(([v, r]) => '<option value="' + v + '"' + ((c.perfil_email || 'padrao') === v ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>' +
+        ((c.perfil_email || 'padrao') === 'personalizado' ? ' <button type="button" class="btn btn-o btn-mini" data-cem-tipos="' + c.id + '">Tipos</button>' : '') + '</td>' +
+        '<td data-ord="' + (u ? u.quando : '') + '">' + (u ? '<span class="sub">' + dataHoraBR(u.quando) + '</span><div class="sub" title="' + esc(u.descricao) + '">' + esc(String(u.descricao).slice(0, 70)) + '</div>' : '<span class="sub">—</span>') + '</td></tr>'; }).join('') +
+      '</tbody></table></div>' : vazio('Nenhum cliente neste filtro.');
+    const marcados = () => [...document.querySelectorAll('[data-cem-x]:checked')].map((x) => x.dataset.cemX);
+    const conta = () => { const n = marcados().length; $('cem-sel').textContent = n ? n + ' marcado(s)' : ''; };
+    const todos = $('cem-todos'); if (todos) todos.onchange = () => { document.querySelectorAll('[data-cem-x]').forEach((x) => { x.checked = todos.checked; }); conta(); };
+    document.querySelectorAll('[data-cem-x]').forEach((x) => x.onchange = conta);
+    document.querySelectorAll('[data-cem]').forEach((sel) => sel.onchange = () => comBotao(sel, async () => {
+      if (sel.value === 'personalizado') { await janelaTiposEmail([sel.dataset.cem]); return; }
+      await q(sb.rpc('salvar_perfil_email', { p_ids: [sel.dataset.cem], p_perfil: sel.value, p_tipos: null }));
+      aviso('✓ ' + rot(sel.value) + ' — ' + (E.clientes.find((c) => c.id === sel.dataset.cem) || {}).nome); await carregarCadastros(true); pintar();
+    }));
+    document.querySelectorAll('[data-cem-tipos]').forEach((b) => b.onclick = () => janelaTiposEmail([b.dataset.cemTipos]));
+    $('cem-lote').onchange = (ev) => comBotao(ev.target, async () => {
+      const v = ev.target.value, ids = marcados(); ev.target.value = '';
+      if (!v) return; if (!ids.length) throw new Error('Marque os clientes na primeira coluna.');
+      const n = await q(sb.rpc('salvar_perfil_email', { p_ids: ids, p_perfil: v, p_tipos: null }));
+      aviso('✓ ' + n + ' cliente(s) agora em "' + rot(v) + '".'); await carregarCadastros(true); pintar();
+    });
+  };
+  // Personalizado: caixinhas por tipo de e-mail
+  const janelaTiposEmail = (ids) => new Promise((ok) => {
+    const c = E.clientes.find((x) => x.id === ids[0]) || {}, t = c.emails_tipos || {};
+    const padrao = (k) => k !== 'vencimento';
+    const j = abrirJanela({ titulo: 'E-mails de ' + (c.nome || 'cliente'), corpo: '<div class="lista-ficha">' + TIPOS_EMAIL.map(([k, r]) =>
+        '<label class="check"><input type="checkbox" data-tipo="' + k + '"' + ((t[k] != null ? t[k] : padrao(k)) ? ' checked' : '') + '> ' + r + '</label>').join('') + '</div>',
+      rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="cem-tipos-ok">Salvar</button></div>' });
+    j._aoFechar = () => { ok(); pintar(); };
+    j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
+    j.querySelector('#cem-tipos-ok').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+      const tipos = {}; j.querySelectorAll('[data-tipo]').forEach((x) => { tipos[x.dataset.tipo] = x.checked; });
+      await q(sb.rpc('salvar_perfil_email', { p_ids: ids, p_perfil: 'personalizado', p_tipos: tipos }));
+      await carregarCadastros(true); aviso('✓ E-mails de ' + (c.nome || 'cliente') + ' atualizados.'); fecharJanela(j);
+    });
+  });
+  let tb; $('cem-busca').oninput = (ev) => { clearTimeout(tb); tb = setTimeout(() => { F.busca = ev.target.value; pintar(); }, 250); };
+  $('cem-filtro').onchange = (ev) => { F.perfil = ev.target.value; pintar(); };
+  pintar();
+}
+
 'use strict';
 // ═══════════════════════════════════════════════════════════════════
 // Tarefas — lista em árvore (subtarefas), quadro (kanban), calendário,
@@ -2617,6 +2838,28 @@ async function usuarioPorNome(nome) {
   const u = (await equipe()).find((x) => primeiroNome(x.nome) === n || primeiroNome(String(x.email).split('@')[0]) === n);
   return u ? u.id : null;
 }
+// Pessoas do escritório para as listas (Responsável, Revisor, Participantes): as de sempre + quem tem acesso ao sistema
+const EQUIPE_BASE = ['Pedro', 'Emanuelle', 'Adriana', 'João Vitor', 'Éder'];
+function pessoasEscritorio(incluir) {
+  const lista = EQUIPE_BASE.slice();
+  (E._equipe || []).forEach((u) => { const n = String(u.nome || '').trim(); if (n && !lista.some((b) => primeiroNome(b) === primeiroNome(n))) lista.push(n); });
+  String(incluir || '').split(',').map((x) => x.trim()).filter(Boolean).forEach((n) => { if (!lista.some((b) => primeiroNome(b) === primeiroNome(n))) lista.push(n); });
+  return lista;
+}
+function selectPessoa(nome, valor, rotVazio) {
+  const v = String(valor || '').trim(), lista = pessoasEscritorio(v);
+  const marcada = lista.find((p) => primeiroNome(p) === primeiroNome(v)) || '';
+  return '<select name="' + nome + '" class="sel-pessoa"><option value="">' + esc(rotVazio || '— ninguém —') + '</option>' +
+    lista.map((p) => '<option value="' + esc(p) + '"' + (p === marcada ? ' selected' : '') + '>' + esc(p) + '</option>').join('') + '</select>';
+}
+// participantes: marcar as pessoas (sem digitar)
+function campoParticipantes(valor) {
+  const marcados = String(valor || '').split(',').map((x) => primeiroNome(x)).filter(Boolean);
+  return '<div class="tf-part" role="group" aria-label="Participantes">' + pessoasEscritorio(valor).map((p) =>
+    '<label class="tf-part-it"><input type="checkbox" value="' + esc(p) + '"' + (marcados.includes(primeiroNome(p)) ? ' checked' : '') + '><span>' + esc(p) + '</span></label>').join('') + '</div>';
+}
+const lerParticipantes = (raiz) => [...raiz.querySelectorAll('.tf-part input:checked')].map((i) => i.value).join(', ');
+
 async function notificar(nome, titulo, detalhe, link, tipo) {
   const id = await usuarioPorNome(nome);
   if (!id || (E.perfil && id === E.perfil.id)) return;
@@ -2665,16 +2908,28 @@ function ordenarFila(lista) {
   return lista.slice().sort((a, b) => peso(a) - peso(b) || String(a.prazo_fatal || '9999').localeCompare(String(b.prazo_fatal || '9999'))
     || (PESO_PRI[a.prioridade] ?? 1) - (PESO_PRI[b.prioridade] ?? 1) || String(a.prazo || '9999').localeCompare(String(b.prazo || '9999')));
 }
+// Fila do Início: 8 primeiras; "Ver todas" abre o resto ali mesmo; "Minimizar" recolhe (vale enquanto a página estiver aberta)
+const FILA = { toda: false, min: false };
 async function cardMinhaFila() {
   await feriados();
+  await equipe().catch(() => []);
   const ts = await q(sb.from('tarefas').select('*').not('status', 'in', '(concluida,cancelada)')).catch(() => []);
-  const minhas = ordenarFila(ts.filter(ehMinha)).slice(0, 8);
-  const html = '<div class="card"><div class="card-hd">📋 Minha fila de trabalho <span class="sub">' + ts.filter(ehMinha).length + ' aberta(s)</span></div><div class="card-bd">' +
-    (minhas.length ? '<div class="lista-ficha">' + minhas.map((t) => '<div class="item-ficha clicavel" data-fila="' + t.id + '"><div>' + bolinha(t) + ' <b>' + esc(t.titulo) + '</b>' +
-      '<div class="sub">' + (t.prazo ? 'prazo ' + dataBR(t.prazo) : 'sem prazo') + (t.prazo_fatal ? ' · ⚑ fatal ' + dataBR(t.prazo_fatal) : '') + (t.status === 'revisao' ? ' · aguardando revisão' : '') + '</div></div>' +
-      '<span class="pill ' + (PRIORIDADE[t.prioridade] || ['', 'neutro'])[1] + '">' + esc((PRIORIDADE[t.prioridade] || [t.prioridade])[0]) + '</span></div>').join('') + '</div>'
-      : '<div class="sub">Nenhuma tarefa com você. 🎉</div>') + '</div></div>';
-  return { html, ligar: (raiz) => raiz.querySelectorAll('[data-fila]').forEach((d) => d.onclick = () => formTarefa(ts.find((t) => t.id === d.dataset.fila), () => irPara(E.tela))) };
+  const todas = ordenarFila(ts.filter(ehMinha)), minhas = FILA.toda ? todas : todas.slice(0, 8);
+  const html = '<div class="card ini-fila' + (FILA.min ? ' minimizada' : '') + '"><div class="card-hd">📋 Minha fila de trabalho <span class="sub">' + todas.length + ' aberta(s)</span>' +
+      '<button type="button" class="btn btn-o btn-mini ini-fila-min" data-fila-min aria-expanded="' + !FILA.min + '">' + (FILA.min ? '▸ Mostrar' : '▾ Minimizar') + '</button></div>' +
+    (FILA.min ? '' : '<div class="card-bd">' +
+    (minhas.length ? '<div class="lista-ficha">' + minhas.map((t) => '<div class="item-ficha clicavel" data-fila="' + t.id + '"><div>' + bolinha(t) + ' <b>' + esc(t.titulo) + '</b>' + seloPrazo(t) +
+      '<div class="sub">' + (t.prazo ? 'prazo ' + dataBR(t.prazo) : 'sem prazo') + (t.prazo_fatal ? ' · ⚑ fatal ' + dataBR(t.prazo_fatal) : '') + (t.status === 'revisao' ? ' · aguardando revisão' : '') +
+      (nomeCliente(t.cliente_id) || nomeGrupo(t.grupo_id) ? ' · ' + esc(nomeCliente(t.cliente_id) || nomeGrupo(t.grupo_id)) : '') + '</div></div>' +
+      '<span class="pill ' + (PRIORIDADE[t.prioridade] || ['', 'neutro'])[1] + '">' + esc((PRIORIDADE[t.prioridade] || [t.prioridade])[0]) + '</span></div>').join('') + '</div>' +
+      (todas.length > 8 ? '<div class="ini-fila-mais"><button type="button" class="btn btn-o btn-mini" data-fila-toda>' + (FILA.toda ? '▴ Mostrar só as 8 primeiras' : '▾ Ver todas (' + todas.length + ')') + '</button></div>' : '')
+      : '<div class="sub">Nenhuma tarefa com você. 🎉</div>') + '</div>') + '</div>';
+  const repinta = async (raiz) => { const c = await cardMinhaFila(); raiz.innerHTML = c.html; c.ligar(raiz); };
+  return { html, ligar: (raiz) => {
+    raiz.querySelectorAll('[data-fila]').forEach((d) => d.onclick = () => abrirTarefa(ts.find((t) => t.id === d.dataset.fila), () => irPara(E.tela)));
+    const bm = raiz.querySelector('[data-fila-min]'); if (bm) bm.onclick = () => { FILA.min = !FILA.min; repinta(raiz); };
+    const bt = raiz.querySelector('[data-fila-toda]'); if (bt) bt.onclick = () => { FILA.toda = !FILA.toda; repinta(raiz); };
+  } };
 }
 function diasAte(isoStr) { return Math.round((new Date(isoStr + 'T12:00:00') - new Date(hojeISO() + 'T12:00:00')) / 86400000); }
 function progresso(t, filhas) {
@@ -2783,6 +3038,7 @@ function ligarLinhasTarefa(raiz) {
   }); });
   raiz.querySelectorAll('[data-editar-t]').forEach((bt) => bt.onclick = (ev) => { ev.stopPropagation();
     formTarefa(E._tarefas.find((t) => t.id === bt.dataset.editarT), recarregarTarefas); });
+  raiz.querySelectorAll('[data-abrir-t]').forEach((tr) => tr.onclick = () => abrirTarefa(E._tarefas.find((t) => t.id === tr.dataset.abrirT), recarregarTarefas));
 }
 
 // ── Lista em árvore ──
@@ -2795,7 +3051,7 @@ function vistaLista(alvo) {
     const pr = PRIORIDADE[t.prioridade] || [t.prioridade || '—', 'neutro'];
     const filhas = filhasDe(t.id), pai = t.tarefa_pai_id && !ids.has(t.tarefa_pai_id) ? (E._tarefas.find((x) => x.id === t.tarefa_pai_id) || {}).titulo : '';
     const onde = [nomeCliente(t.cliente_id) || nomeGrupo(t.grupo_id), t.processos_vinculados].filter(Boolean).join(' · ');
-    return '<tr class="clicavel' + (tarefaFechada(t) ? ' tf-feita' : '') + '" data-editar-t="' + t.id + '"><td class="mono" data-ord="' + esc(t.prazo || '9999') + '">' + dataBR(t.prazo) + seloPrazo(t) + '</td>' +
+    return '<tr class="clicavel' + (tarefaFechada(t) ? ' tf-feita' : '') + '" data-abrir-t="' + t.id + '"><td class="mono" data-ord="' + esc(t.prazo || '9999') + '">' + dataBR(t.prazo) + seloPrazo(t) + '</td>' +
       '<td style="padding-left:' + (12 + nivel * 22) + 'px">' + bolinha(t) + ' ' + (nivel ? '<span class="sub">↳ </span>' : '') + '<b>' + esc(t.titulo) + '</b>' + seloFatal(t) +
       (t.recorrencia ? ' <span class="pill neutro" title="Repete">↻ ' + esc(t.recorrencia) + '</span>' : '') + ' ' + barraProgresso(progresso(t, filhas)) +
       '<div class="sub">' + esc([pai ? 'parte de: ' + pai : '', onde, t.etiquetas].filter(Boolean).join(' · ')) + '</div></td>' +
@@ -2825,7 +3081,7 @@ function vistaKanban(alvo) {
   alvo.querySelectorAll('.kb-card').forEach((c) => {
     c.addEventListener('dragstart', (ev) => { arrastando = c.dataset.id; ev.dataTransfer.setData('text/plain', c.dataset.id); c.classList.add('arrastando'); });
     c.addEventListener('dragend', () => c.classList.remove('arrastando'));
-    c.onclick = () => formTarefa(E._tarefas.find((t) => t.id === c.dataset.id), recarregarTarefas);
+    c.onclick = () => abrirTarefa(E._tarefas.find((t) => t.id === c.dataset.id), recarregarTarefas);
   });
   alvo.querySelectorAll('.kb-col').forEach((col) => {
     col.addEventListener('dragover', (ev) => { ev.preventDefault(); col.classList.add('sobre'); });
@@ -2952,6 +3208,77 @@ async function validarDependencia(t, novoStatus) {
   const dep = await q(sb.from('tarefas').select('titulo, status').eq('id', t.depende_de).maybeSingle());
   if (dep && !tarefaFechada(dep)) throw new Error('Esta tarefa depende de "' + dep.titulo + '", que ainda não foi concluída.');
 }
+// Abrir tarefa = ficha de leitura (o que é, prazos, quem, origem). As ações ficam no rodapé:
+// Concluir · Encaminhar · + Subtarefa · Editar (o formulário completo).
+const ORIGEM_REGRA = { onb: 'Automação: contrato novo (onboarding)', proc: 'Automação: processo novo', cert: 'Automação: certidão vencendo', doc: 'Automação: documento vencendo',
+  parc: 'Automação: parcela de parcelamento', aco: 'Automação: parcela de acordo', cob: 'Automação: cobrança de honorário', anexo: 'Automação: contrato sem anexo',
+  procur: 'Automação: processo sem procuração', pub: 'Automação: publicação', esc: 'Automação: escalada de atraso' };
+async function abrirTarefa(t, depois) {
+  if (!t) return;
+  if (typeof t === 'string') t = (await q(sb.from('tarefas').select('*').eq('id', t)))[0];
+  if (!t) return aviso('Tarefa não encontrada (pode ter sido excluída).', true);
+  await equipe().catch(() => []);
+  const [subs] = await Promise.all([q(sb.from('tarefas').select('*').eq('tarefa_pai_id', t.id).order('prazo', { nullsFirst: false })).catch(() => [])]);
+  const pr = PRIORIDADE[t.prioridade] || [t.prioridade || '—', 'neutro'];
+  const ck = Array.isArray(t.checklist) ? t.checklist : [];
+  const origem = t.chave_regra ? (ORIGEM_REGRA[String(t.chave_regra).split(':')[0]] || 'Automação') : t.fluxo_id ? 'Fluxo de trabalho' : 'Criada à mão';
+  const linha = (rot, val) => val ? '<div class="tf-lin"><span>' + rot + '</span><div>' + val + '</div></div>' : '';
+  const fechada = tarefaFechada(t);
+  const j = abrirJanela({ titulo: 'Tarefa', larga: true,
+    corpo: '<div class="tf-ficha">' +
+      '<div class="tf-ficha-hd"><h3>' + bolinha(t) + ' ' + esc(t.titulo) + '</h3><div class="tf-selos"><span class="pill ' + (fechada ? 'pago' : t.status === 'revisao' ? 'hoje' : 'neutro') + '">' +
+        esc(STATUS_TAREFA[t.status] || t.status) + '</span> <span class="pill ' + pr[1] + '">' + esc(pr[0]) + '</span>' + seloPrazo(t) + seloFatal(t) + '</div></div>' +
+      '<div class="tf-grade">' +
+        linha('Prazo', t.prazo ? dataBR(t.prazo) : '<span class="sub">sem prazo</span>') +
+        linha('Prazo fatal', t.prazo_fatal ? '<b>' + dataBR(t.prazo_fatal) + '</b>' : '') +
+        linha('Cliente', esc(nomeCliente(t.cliente_id) || nomeGrupo(t.grupo_id) || '')) +
+        linha('Responsável', pillPessoa(t.responsavel)) +
+        linha('Participantes', String(t.participantes || '').split(',').map((x) => x.trim()).filter(Boolean).map(pillPessoa).join(' ')) +
+        linha('Revisor', t.exige_revisao || t.revisor ? pillPessoa(t.revisor) : '') +
+        linha('Processos', esc(t.processos_vinculados || '')) +
+        linha('Origem', esc(origem)) +
+        linha('Repete', t.recorrencia ? esc(t.recorrencia) : '') +
+      '</div>' +
+      (t.descricao ? '<div class="tf-bloco"><div class="secao">O que fazer</div><div class="tf-texto">' + esc(t.descricao).replace(/\n/g, '<br>') + '</div></div>' : '') +
+      (t.obs ? '<div class="tf-bloco"><div class="secao">Observação</div><div class="tf-texto">' + esc(t.obs).replace(/\n/g, '<br>') + '</div></div>' : '') +
+      (ck.length ? '<div class="tf-bloco"><div class="secao">Checklist · ' + ck.filter((c) => c.feito).length + '/' + ck.length + '</div>' +
+        ck.map((c) => '<div class="tf-ck' + (c.feito ? ' feito' : '') + '">' + (c.feito ? '☑' : '☐') + ' ' + esc(c.texto) + '</div>').join('') + '</div>' : '') +
+      (subs.length ? '<div class="tf-bloco"><div class="secao">Subtarefas</div><div class="lista-ficha">' + subs.map((x) => '<div class="item-ficha clicavel' + (tarefaFechada(x) ? ' feita' : '') + '" data-ficha-sub="' + x.id + '"><div><b>' + esc(x.titulo) + '</b> ' + seloPrazo(x) +
+        '<div class="sub">' + (x.prazo ? 'até ' + dataBR(x.prazo) : 'sem prazo') + ' · ' + esc(x.responsavel || '—') + ' · ' + esc(STATUS_TAREFA[x.status]) + '</div></div></div>').join('') + '</div></div>' : '') +
+      '</div>',
+    rodape: '<button class="btn btn-o" type="button" id="tf-f-editar">✎ Editar</button><div class="acoes">' +
+      (fechada ? '' : '<button class="btn btn-o" type="button" id="tf-f-sub">+ Subtarefa</button><button class="btn btn-o" type="button" id="tf-f-enc">↪ Encaminhar</button>' +
+        '<button class="btn btn-v" type="button" id="tf-f-ok">✓ Concluir</button>') + '</div>' });
+  const depois2 = async () => { await (depois || recarregar)(); };
+  j.querySelector('#tf-f-editar').onclick = () => { fecharJanela(j); formTarefa(t, depois); };
+  j.querySelectorAll('[data-ficha-sub]').forEach((d) => d.onclick = () => { fecharJanela(j); abrirTarefa(subs.find((x) => x.id === d.dataset.fichaSub), depois); });
+  const bs = j.querySelector('#tf-f-sub');
+  if (bs) bs.onclick = () => { fecharJanela(j); formTarefa({ tarefa_pai_id: t.id, fluxo_id: t.fluxo_id, cliente_id: t.cliente_id, grupo_id: t.grupo_id, responsavel: t.responsavel, prazo: t.prazo }, depois); };
+  const bo = j.querySelector('#tf-f-ok');
+  if (bo) bo.onclick = () => comBotao(bo, async () => {
+    if (ck.some((c) => !c.feito)) { fecharJanela(j); formTarefa(t, depois); return aviso('Marque os itens do checklist para concluir.', true); }
+    if (t.exige_revisao && t.status !== 'revisao') { await q(sb.from('tarefas').update({ status: 'revisao' }).eq('id', t.id)); aviso('✓ Enviada para revisão de ' + (t.revisor || 'quem revisa') + '.'); }
+    else { await validarDependencia(t, 'concluida'); await concluirTarefa(t.id); aviso('✓ Tarefa concluída.'); }
+    fecharJanela(j); await depois2();
+  });
+  const be = j.querySelector('#tf-f-enc');
+  if (be) be.onclick = () => {
+    const k = abrirJanela({ titulo: 'Encaminhar tarefa', corpo: '<div class="grade">' + campo('Para quem', selectPessoa('para', '', '— escolha —'), 'inteiro') +
+        campo('Recado (opcional, vai como comentário)', '<textarea name="recado" maxlength="1000" placeholder="Ex.: falta só protocolar"></textarea>', 'inteiro') + '</div>',
+      rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Voltar</button><button class="btn btn-p" type="button" id="tf-enc-ok">Encaminhar</button></div>' });
+    k.querySelector('[data-cancelar]').onclick = () => fecharJanela(k);
+    k.querySelector('#tf-enc-ok').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+      const para = k.querySelector('[name=para]').value, recado = k.querySelector('[name=recado]').value.trim();
+      if (!para) throw new Error('Escolha para quem encaminhar.');
+      await q(sb.from('tarefas').update({ responsavel: para }).eq('id', t.id));
+      if (recado) await sb.from('comentarios').insert({ tarefa_id: t.id, texto: '↪ Encaminhada para ' + para + ': ' + recado }).then(() => {}, () => {});
+      await notificar(para, 'Tarefa encaminhada para você: ' + t.titulo, recado || (t.prazo ? 'Prazo ' + dataBR(t.prazo) : ''), 'tarefas').catch(() => {});
+      aviso('✓ Tarefa encaminhada para ' + para + '.'); fecharJanela(k); fecharJanela(j); await depois2();
+    });
+  };
+  return j;
+}
+
 function formTarefa(t, depois) {
   t = t || {};
   const novo = !t.id;
@@ -2962,8 +3289,8 @@ function formTarefa(t, depois) {
       campo('Tarefa <span class="obrig">*</span>', '<input name="titulo" maxlength="300" value="' + esc(t.titulo || '') + '">', 'inteiro') +
       campo('Cliente', '<select name="cliente_id">' + opcoesClientes(t.cliente_id || '') + '</select>') +
       campo('Grupo', '<input name="grupo" list="tf-grupos" value="' + esc(nomeGrupo(t.grupo_id)) + '">' + datalistGrupos('tf-grupos')) +
-      campo('Pessoa responsável', '<input name="responsavel" list="tf-pessoas" value="' + esc(t.responsavel || '') + '">' + datalistPessoas('tf-pessoas')) +
-      campo('Participantes (separe por vírgula)', '<input name="participantes" value="' + esc(t.participantes || '') + '" placeholder="Ex.: Emanuelle, Adriana">') +
+      campo('Pessoa responsável', selectPessoa('responsavel', t.responsavel, '— escolha —')) +
+      '<div class="campo inteiro"><span>Participantes</span>' + campoParticipantes(t.participantes) + '</div>' +
       campo('Prazo interno', '<input name="prazo" type="date" value="' + esc(t.prazo || '') + '">') +
       campo('Prazo fatal (legal / judicial)', '<input name="prazo_fatal" type="date" value="' + esc(t.prazo_fatal || '') + '">') +
       campo('Início', '<input name="inicio" type="date" value="' + esc(t.inicio || (novo ? hojeISO() : '')) + '">') +
@@ -2974,7 +3301,7 @@ function formTarefa(t, depois) {
       campo('Etiquetas', '<input name="etiquetas" value="' + esc(t.etiquetas || '') + '" placeholder="Ex.: urgente, PGFN">') +
       '<label class="check"><input type="checkbox" name="exige_anexo"' + (t.exige_anexo ? ' checked' : '') + '> Exige documento anexado para concluir (ex.: protocolo)</label>' +
       '<label class="check"><input type="checkbox" name="exige_revisao"' + (t.exige_revisao ? ' checked' : '') + '> Exige revisão antes de concluir</label>' +
-      campo('Revisor', '<input name="revisor" list="tf-pessoas-rev" value="' + esc(t.revisor || '') + '" placeholder="quem revisa">' + datalistPessoas('tf-pessoas-rev')) +
+      campo('Revisor (quem revisa)', selectPessoa('revisor', t.revisor, '— sem revisor —')) +
       '<div id="tf-carga" class="sub" style="align-self:end"></div>' +
       campo('Só começa depois de', '<select name="depende_de"><option value="">— nenhuma —</option>' + outras.map((x) => '<option value="' + x.id + '"' + (x.id === t.depende_de ? ' selected' : '') + '>' + esc(x.titulo) + '</option>').join('') + '</select>', 'inteiro') +
       campo('Processos vinculados', '<input name="processos_vinculados" value="' + esc(t.processos_vinculados || '') + '">', 'inteiro') +
@@ -3020,7 +3347,7 @@ function formTarefa(t, depois) {
     if (Number.isNaN(est)) throw new Error('Estimativa de horas inválida.');
     if (f.prazo.value && f.prazo_fatal.value && f.prazo.value > f.prazo_fatal.value) throw new Error('O prazo interno está depois do prazo fatal.');
     const dados = { titulo: f.titulo.value.trim(), cliente_id: f.cliente_id.value || null, grupo_id: await grupoPorNome(f.grupo.value), responsavel: f.responsavel.value.trim(),
-      participantes: f.participantes.value.trim(), prazo: f.prazo.value || null, prazo_fatal: f.prazo_fatal.value || null, inicio: f.inicio.value || null,
+      participantes: lerParticipantes(j), prazo: f.prazo.value || null, prazo_fatal: f.prazo_fatal.value || null, inicio: f.inicio.value || null,
       prioridade: f.prioridade.value, status: f.status.value, recorrencia: f.recorrencia.value, estimativa_horas: est, etiquetas: f.etiquetas.value.trim(),
       depende_de: f.depende_de.value || null, exige_anexo: f.exige_anexo.checked, exige_revisao: f.exige_revisao.checked, revisor: f.revisor.value.trim(),
       processos_vinculados: f.processos_vinculados.value.trim(), descricao: f.descricao.value.trim(), obs: f.obs.value.trim(), checklist };
@@ -3061,7 +3388,7 @@ async function pintarSubtarefas(j, t, depois) {
     '<button type="button" class="btn btn-o btn-mini" id="tf-sub-nova" style="margin-top:6px">+ Subtarefa</button>';
   const repinta = async () => { await pintarSubtarefas(j, t, depois); if (E._tarefas) E._tarefas = await buscarTodos(() => sb.from('tarefas').select('*').order('prazo', { nullsFirst: false })); };
   alvo.querySelector('#tf-sub-nova').onclick = () => formTarefa({ tarefa_pai_id: t.id, fluxo_id: t.fluxo_id, cliente_id: t.cliente_id, grupo_id: t.grupo_id, responsavel: t.responsavel, prazo: t.prazo }, repinta);
-  alvo.querySelectorAll('[data-sub-ed]').forEach((b) => b.onclick = () => formTarefa(subs.find((s) => s.id === b.dataset.subEd), repinta));
+  alvo.querySelectorAll('[data-sub-ed]').forEach((b) => b.onclick = () => abrirTarefa(subs.find((s) => s.id === b.dataset.subEd), repinta));
   alvo.querySelectorAll('[data-sub-ok]').forEach((b) => b.onclick = () => comBotao(b, async () => { await concluirTarefa(b.dataset.subOk); aviso('✓ Subtarefa concluída.'); await repinta(); }));
 }
 async function pintarComentarios(j, t) {
@@ -3112,7 +3439,7 @@ async function formNovoFluxo(depois) {
       campo('Modelo <span class="obrig">*</span>', '<select name="modelo">' + modelos.map((m) => '<option value="' + m.id + '">' + esc(m.nome) + '</option>').join('') + '</select>', 'inteiro') +
       campo('Nome do fluxo', '<input name="nome" placeholder="Ex.: Defesa — Execução 5001234-56">', 'inteiro') +
       campo('Cliente', '<select name="cliente_id">' + opcoesClientes('') + '</select>') +
-      campo('Pessoa responsável', '<input name="responsavel" list="fl-pessoas">' + datalistPessoas('fl-pessoas')) +
+      campo('Pessoa responsável', selectPessoa('responsavel', '', '— escolha —')) +
       campo('Prazo fatal <span class="obrig">*</span>', '<input name="prazo_fatal" type="date">') +
       campo('Processo', '<input name="processo" placeholder="Número do processo (opcional)">') +
       '<div class="inteiro dica">Os prazos de cada etapa são contados em <b>dias úteis antes do prazo fatal</b>, pulando fins de semana e feriados cadastrados.</div>' +
@@ -3318,7 +3645,7 @@ async function abrirAlertas(ancora, aoMudar) {
     j.querySelectorAll('[data-al-abrir]').forEach((b) => b.onclick = () => comBotao(b, async () => {
       const a = todos[+b.dataset.alAbrir];
       if (!a.lido) { await marcarAvisosLidos([a]); a.lido = true; if (aoMudar) aoMudar(); }
-      if (a.tarefa) { const t = await q(sb.from('tarefas').select('*').eq('id', a.tarefa).single()); formTarefa(t, async () => { if (aoMudar) aoMudar(); }); }
+      if (a.tarefa) await abrirTarefa(a.tarefa, async () => { if (aoMudar) aoMudar(); });
       else if (a.cliente) abrirFicha(a.cliente, 'documentos');
       else { fecharJanela(j); irParaTela(a.tela || a.link); }
     }));
@@ -3537,7 +3864,7 @@ async function pintarDocumentos(buscar) {
 // ═══════════════════════════════════════════════════════════════════
 const ABAS_FICHA = [['resumo', 'Resumo'], ['contatos', 'Contatos'], ['enderecos', 'Endereços'], ['contas', 'Contas bancárias'],
   ['socios', 'Sócios e vínculos'], ['processos', 'Processos'], ['contratos', 'Contratos'], ['financeiro', 'Financeiro'],
-  ['tarefas', 'Tarefas'], ['documentos', 'Documentos'], ['linha', 'Linha do tempo'], ['fiscal', 'Dados fiscais'], ['receita', 'Cartão CNPJ']];
+  ['tarefas', 'Tarefas'], ['documentos', 'Documentos'], ['linha', 'Linha do tempo'], ['fiscal', 'Dados fiscais'], ['receita', 'Cartão CNPJ'], ['pgfn', 'PGFN'], ['evolucao', '📈 Evolução']];
 
 // Sub-cadastros editáveis da ficha (mesmo formulário para todos)
 const FINALIDADES = [['geral', 'Geral'], ['financeiro', 'Financeiro'], ['juridico', 'Jurídico'], ['socio', 'Sócio / decisor'], ['contador', 'Contador'],
@@ -3883,6 +4210,96 @@ function quandoBR(v) {
   if (isNaN(d)) return dataBR(v);
   return d.toLocaleDateString('pt-BR') + (/T12:00:00$/.test(v) ? '' : ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
 }
+
+
+// ─────────── 📈 Evolução: "devia X, hoje deve Y" — foto mensal do grupo × agora ───────────
+const ORG_FOTO = [['rfb', 'Receita Federal'], ['pgfn', 'PGFN'], ['age_mg', 'AGE/MG'], ['sefaz_mg', 'SEFAZ/MG']];
+function mesBR(iso) { return String(iso || '').slice(5, 7) + '/' + String(iso || '').slice(0, 4); }
+function variacao(antes, depois) {
+  const d = (Number(depois) || 0) - (Number(antes) || 0);
+  if (!d) return '<span class="sub">igual</span>';
+  const pc = Number(antes) ? ' (' + (d > 0 ? '+' : '') + (d / Number(antes) * 100).toFixed(1).replace('.', ',') + '%)' : '';
+  return '<span class="' + (d > 0 ? 'ev-pior' : 'ev-melhor') + '">' + (d > 0 ? '▲ +' : '▼ −') + brl(Math.abs(d)).replace('R$ ', 'R$ ') + pc + '</span>';
+}
+ABA_FICHA.evolucao = async function (alvo, cl) {
+  if (!cl.grupo_id) { alvo.innerHTML = vazio('Este cliente não está em um grupo: o histórico é guardado por grupo.'); return; }
+  const [fotos, agora] = await Promise.all([
+    q(sb.from('fotos_mensais').select('mes, dados, tirada_em').eq('grupo_id', cl.grupo_id).order('mes', { ascending: false })).catch(() => []),
+    q(sb.rpc('foto_do_grupo', { p_grupo: cl.grupo_id }))
+  ]);
+  const mesAtual = hojeISO().slice(0, 7);
+  const antigas = fotos.filter((f) => f.mes.slice(0, 7) < mesAtual);
+  const admin = E.perfil && E.perfil.papel === 'admin';
+  if (!antigas.length) {
+    alvo.innerHTML = '<div class="dica" style="margin-bottom:12px">O histórico deste grupo começou em <b>' + (fotos.length ? mesBR(fotos[fotos.length - 1].mes) : mesBR(hojeISO())) + '</b>. ' +
+      'Todo dia 1º o sistema guarda uma "foto" (passivo, CAPAG, processos, parcelamentos e acordos). O comparativo aparece a partir do mês que vem.</div>' + fotoResumo(agora, 'Hoje');
+    return;
+  }
+  const E2 = E.ev = E.ev || {};
+  const escolhido = antigas.find((f) => f.mes === E2.mes) || antigas.find((f) => f.mes.slice(0, 7) <= somarDias(hojeISO(), -30).slice(0, 7)) || antigas[0];
+  const a = escolhido.dados || {}, h = agora || {};
+  const pa = (a.passivo || {}), ph = (h.passivo || {});
+  const nomeG = nomeGrupo(cl.grupo_id);
+  // processos: novos = ativos hoje que não existiam; encerrados = estavam ativos e hoje estão encerrados (ou sumiram)
+  const atA = new Set(a.processos_ativos || []), atH = new Set(h.processos_ativos || []), encH = new Set(h.processos_encerrados || []);
+  const todosA = new Set([...(a.processos_ativos || []), ...(a.processos_encerrados || [])]);
+  const novos = [...atH].filter((n) => !todosA.has(n)), encerrados = [...atA].filter((n) => !atH.has(n));
+  const empA = {}; (a.empresas || []).forEach((e) => { empA[e.id] = e; });
+  const capagMudou = (h.empresas || []).filter((e) => empA[e.id] && (empA[e.id].capag || '') !== (e.capag || ''));
+  const frase = 'Em ' + mesBR(escolhido.mes) + ' o grupo ' + esc(nomeG) + ' devia <b>' + brl(pa.total) + '</b>; hoje deve <b>' + brl(ph.total) + '</b> ' + variacao(pa.total, ph.total) + '. ' +
+    'Tinha <b>' + atA.size + '</b> processo(s) em andamento: <b>' + encerrados.length + '</b> encerrado(s) desde então e <b>' + novos.length + '</b> novo(s)' +
+    (capagMudou.length ? '. CAPAG mudou em ' + capagMudou.map((e) => esc(e.nome) + ' (' + esc(empA[e.id].capag || '—') + ' → ' + esc(e.capag || '—') + ')').join(', ') : '') + '.';
+  alvo.innerHTML =
+    '<div class="filtros" style="margin-bottom:10px"><label class="sub" for="ev-mes" style="align-self:center">Comparar hoje com</label><select class="busca sel" id="ev-mes">' +
+      antigas.map((f) => '<option value="' + f.mes + '"' + (f.mes === escolhido.mes ? ' selected' : '') + '>' + mesBR(f.mes) + '</option>').join('') + '</select>' +
+      (admin ? '<button class="btn btn-o btn-mini" id="ev-foto" title="Grava a foto deste mês de todos os grupos (a rotina faz isso sozinha todo dia 1º)">📸 Atualizar foto do mês</button>' : '') + '</div>' +
+    '<div class="ev-frase">' + frase + '</div>' +
+    '<div class="duas-col"><div class="card"><div class="card-hd">Passivo por órgão</div><div class="tabela-wrap"><table><thead><tr><th>Órgão</th><th class="num">' + mesBR(escolhido.mes) + '</th><th class="num">Hoje</th><th class="num">Diferença</th></tr></thead><tbody>' +
+      ORG_FOTO.map(([k, r]) => '<tr><td>' + r + '</td><td class="num mono">' + brl(pa[k]) + '</td><td class="num mono">' + brl(ph[k]) + '</td><td class="num">' + variacao(pa[k], ph[k]) + '</td></tr>').join('') +
+      '</tbody><tfoot><tr><td>Total</td><td class="num mono">' + brl(pa.total) + '</td><td class="num mono">' + brl(ph.total) + '</td><td class="num">' + variacao(pa.total, ph.total) + '</td></tr></tfoot></table></div></div>' +
+    '<div class="card"><div class="card-hd">Empresas do grupo</div><div class="tabela-wrap"><table><thead><tr><th>Empresa</th><th>CAPAG</th><th class="num">' + mesBR(escolhido.mes) + '</th><th class="num">Hoje</th></tr></thead><tbody>' +
+      (h.empresas || []).map((e) => { const x = empA[e.id]; return '<tr><td><b>' + esc(e.nome) + '</b>' + (x ? '' : ' <span class="pill aberto">nova</span>') + '</td><td>' +
+        (x && (x.capag || '') !== (e.capag || '') ? pillCapag(x.capag || '—') + ' → ' + pillCapag(e.capag || '—') : e.capag ? pillCapag(e.capag) : '<span class="sub">—</span>') + '</td>' +
+        '<td class="num mono">' + (x ? brl(x.total) : '—') + '</td><td class="num mono">' + brl(e.total) + '</td></tr>'; }).join('') +
+      '</tbody></table></div></div></div>' +
+    '<div class="duas-col"><div class="card"><div class="card-hd">Processos novos <span class="pill aberto">' + novos.length + '</span></div><div class="card-bd">' +
+      (novos.length ? novos.map((n) => '<div class="mono">' + esc(n) + '</div>').join('') : '<span class="sub">Nenhum.</span>') + '</div></div>' +
+    '<div class="card"><div class="card-hd">Processos encerrados <span class="pill pago">' + encerrados.length + '</span></div><div class="card-bd">' +
+      (encerrados.length ? encerrados.map((n) => '<div class="mono">' + esc(n) + (encH.has(n) ? '' : ' <span class="sub">(saiu do cadastro)</span>') + '</div>').join('') : '<span class="sub">Nenhum.</span>') + '</div></div></div>' +
+    '<div class="sub">Parcelamentos: ' + (a.parcelamentos || 0) + ' → ' + (h.parcelamentos || 0) + ' · Acordos em aberto: ' + (a.acordos_abertos || 0) + ' → ' + (h.acordos_abertos || 0) +
+      ' (' + brl(a.acordos_saldo) + ' → ' + brl(h.acordos_saldo) + ')</div>';
+  $('ev-mes').onchange = (ev) => { E2.mes = ev.target.value; ABA_FICHA.evolucao(alvo, cl); };
+  const bf = $('ev-foto'); if (bf) bf.onclick = () => comBotao(bf, async () => { const n = await q(sb.rpc('tirar_fotos_mensais')); aviso('✓ Foto do mês atualizada (' + n + ' grupo(s)).'); });
+};
+function fotoResumo(f, rot) {
+  const p = (f && f.passivo) || {};
+  return '<div class="kpis">' + kpi('Passivo — ' + rot, brl(p.total), 'ambar', ORG_FOTO.filter(([k]) => Number(p[k])).map(([k, r]) => r + ' ' + brl(p[k])).join(' · ') || 'sem débitos') +
+    kpi('Processos em andamento', String((f && f.processos_ativos || []).length), '', (f && f.processos_encerrados || []).length + ' encerrado(s)') +
+    kpi('Parcelamentos', String((f && f.parcelamentos) || 0), '', '') + kpi('Acordos em aberto', String((f && f.acordos_abertos) || 0), '', brl(f && f.acordos_saldo)) + '</div>';
+}
+
+// ─────────── PGFN: inscrições em dívida ativa (API SERPRO, rotina erp-pgfn) ───────────
+ABA_FICHA.pgfn = async function (alvo, cl) {
+  const [ins, st] = await Promise.all([
+    q(sb.from('pgfn_inscricoes').select('*').eq('cliente_id', cl.id).order('valor', { ascending: false })).catch(() => []),
+    q(sb.rpc('status_config_pgfn')).catch(() => ({}))
+  ]);
+  if (!ins.length) {
+    alvo.innerHTML = vazio(st && st.ligada && st.tem_chave ? 'Nenhuma inscrição em dívida ativa encontrada para este CNPJ na última consulta.' :
+      'A consulta automática da PGFN ainda não está ligada. Depois de contratar a API "Consulta Dívida Ativa" do SERPRO, salve a chave em Alertas → PGFN.');
+    return;
+  }
+  const porNat = {}; ins.forEach((x) => { const k = x.natureza || 'Outras'; porNat[k] = porNat[k] || { n: 0, v: 0, parc: 0 }; porNat[k].n++; porNat[k].v += Number(x.valor) || 0; if (x.parcelada) porNat[k].parc += Number(x.valor) || 0; });
+  const tot = soma(ins, (x) => x.valor), parc = soma(ins.filter((x) => x.parcelada), (x) => x.valor);
+  alvo.innerHTML = '<div class="kpis">' + kpi('Dívida ativa (PGFN)', brl(tot), 'ambar', ins.length + ' inscrição(ões)') + kpi('Parcelada / negociada', brl(parc), 'verde', ins.filter((x) => x.parcelada).length + ' inscrição(ões)') +
+    kpi('Em cobrança', brl(tot - parc), tot - parc ? 'vermelho' : '', 'sem parcelamento') + '</div>' +
+    '<div class="card"><div class="card-hd">Por origem</div><div class="tabela-wrap"><table><thead><tr><th>Origem</th><th class="num">Inscrições</th><th class="num">Parcelado</th><th class="num">Total</th></tr></thead><tbody>' +
+      Object.keys(porNat).sort((a, b) => porNat[b].v - porNat[a].v).map((k) => '<tr><td><b>' + esc(k) + '</b></td><td class="num">' + porNat[k].n + '</td><td class="num mono">' + brl(porNat[k].parc) + '</td><td class="num mono">' + brl(porNat[k].v) + '</td></tr>').join('') + '</tbody></table></div></div>' +
+    '<div class="card"><div class="card-hd">Inscrições (CDAs)</div><div class="tabela-wrap"><table class="ordenavel"><thead><tr><th>Nº da inscrição</th><th>Origem</th><th>Receita</th><th>Situação</th><th data-tipo="data">Inscrita em</th><th class="num">Valor</th></tr></thead><tbody>' +
+      ins.map((x) => '<tr><td class="mono">' + esc(x.inscricao) + '</td><td>' + esc(x.natureza) + '</td><td>' + esc(x.receita) + '</td><td>' + (x.parcelada ? '<span class="pill pago">' : '<span class="pill hoje">') + esc(x.situacao || (x.parcelada ? 'Parcelada' : 'Em cobrança')) + '</span></td>' +
+        '<td class="mono" data-ord="' + esc(x.data_inscricao || '') + '">' + dataBR(x.data_inscricao) + '</td><td class="num mono" data-ord="' + x.valor + '">' + brl(x.valor) + '</td></tr>').join('') + '</tbody></table></div>' +
+      '<div class="sub" style="padding:8px 12px">Atualizado em ' + dataHoraBR(ins[0].atualizado_em) + ' pela consulta automática.</div></div>';
+};
 
 'use strict';
 // ═══════════════════════════════════════════════════════════════════
@@ -4632,6 +5049,15 @@ TELAS.alertas = async function () {
   const cnpjNivel = !ult ? 'atencao' : ult.status === 'erro' ? 'critico' : !rodouHoje && new Date() > hoje6 ? 'critico' : ult.status === 'parcial' ? 'atencao' : 'ok';
   add('Rotinas', 'Cartão CNPJ (6h)', !ult ? 'nunca rodou' : rodouHoje ? '✓ hoje ' + new Date(ult.inicio).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '⚠ ' + new Date(ult.inicio).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
     ult ? ult.mensagem || ult.status : 'publique a função erp-cnpj e ligue o agendador', cnpjNivel, { cnpj: true });
+  // PGFN (dívida ativa, API paga do SERPRO): só aparece depois de configurada, ou para o admin configurar
+  const pgfnCfg = await q(sb.rpc('status_config_pgfn')).catch(() => null) || {};
+  const pgfnEx = pgfnCfg.tem_chave || (E.perfil && E.perfil.papel === 'admin') ? await q(sb.from('pgfn_execucoes').select('*').order('inicio', { ascending: false }).limit(10)).catch(nada) : [];
+  if (pgfnCfg.tem_chave || (E.perfil && E.perfil.papel === 'admin')) {
+    const u = pgfnEx[0];
+    add('Rotinas', 'PGFN — dívida ativa', !pgfnCfg.tem_chave ? 'não contratada' : !pgfnCfg.ligada ? 'desligada' : u ? quandoCurto(u.inicio) : 'nunca rodou',
+      !pgfnCfg.tem_chave ? 'API paga do SERPRO: clique para ver como ligar' : u ? u.mensagem || u.status : 'frequência: ' + (pgfnCfg.frequencia || 'diaria'),
+      !pgfnCfg.tem_chave ? 'info' : u && u.status === 'erro' ? 'critico' : u && u.status === 'parcial' ? 'atencao' : 'ok', { pgfn: true });
+  }
   if (emails.length || (E.perfil && E.perfil.papel === 'admin')) add('Rotinas', 'E-mails com erro', String(emails.length), 'não saíram depois de 3 tentativas', emails.length ? 'critico' : 'ok',
     { titulo: 'E-mails com erro', colunas: ['Quando', 'Para', 'Assunto', 'Erro'], linhas: emails.map((m) => [quandoRodou(m.criado_em), m.para, m.assunto, m.erro]) });
   if (podeJur) add('Rotinas', 'Busca de publicações', ultPub && ultPub.valor ? quandoCurto(ultPub.valor.quando) : 'nunca rodou',
@@ -4667,20 +5093,20 @@ TELAS.alertas = async function () {
   $('al-corpo').innerHTML =
     '<div class="al-radar al-' + humor[0] + '"><div class="al-anel" style="--p:' + nota + '"><div class="al-anel-in"><b>' + nota + '</b><span>em dia</span></div></div>' +
       '<div class="al-radar-txt"><h2>' + esc(humor[1]) + '</h2><p>' + esc(humor[2]) + '</p>' +
-      '<div class="al-contas"><span class="al-conta critico">' + criticos + ' crítico(s)</span><span class="al-conta atencao">' + atencao + ' atenção</span><span class="al-conta ok">' +
-        A.filter((a) => a.nivel === 'ok').length + ' em dia</span></div>' +
+      '<div class="al-contas"><span class="al-conta critico">' + criticos + ' crítico(s)</span><span class="al-conta atencao">' + atencao + ' atenção</span><span class="al-conta ok" title="Verificações que o sistema fez e não encontraram nada a fazer (ex.: certidões válidas, nenhum honorário vencido)">' +
+        A.filter((a) => a.nivel === 'ok').length + ' verificações sem pendência</span></div>' +
       (setores.length > 1 ? '<div class="al-filtros"><button type="button" class="ativo" data-al-setor="">Todos</button>' + setores.map((st) => '<button type="button" data-al-setor="' + esc(st) + '">' + (ICONE_SETOR[st] || '') + ' ' + esc(st) + '</button>').join('') + '</div>' : '') +
     '</div></div>' +
     (acao.length ? '<div class="al-feed">' + acao.map((a, k) => '<button type="button" class="al-card al-linha al-' + a.nivel + '" data-al="' + a.i + '" data-setor="' + esc(a.setor) + '" style="--k:' + k + '">' +
         '<span class="al-ic" aria-hidden="true">' + (ICONE_SETOR[a.setor] || '•') + '</span><span class="al-meio"><span class="al-rot">' + esc(a.rot) + '</span> <span class="al-det">' + esc(a.setor) + ' · ' + esc(a.det) + '</span></span>' +
         '<span class="al-val">' + esc(a.valor) + '</span><span class="al-ir">Ver →</span></button>').join('') + '</div>' : '') +
-    (emDia.length ? '<div class="kpis-titulo">✓ Em dia</div><div class="al-chips">' + emDia.map((a) => '<button type="button" class="al-card al-chip al-' + a.nivel + '" data-al="' + a.i + '" title="' + esc(a.det) + '"><span class="al-rot">' + esc(a.rot) + '</span> <span class="al-val">' + esc(a.valor) + '</span></button>').join('') + '</div>' : '') +
+    (emDia.length ? '<div class="kpis-titulo">✓ Em dia</div><div class="al-chips">' + emDia.map((a) => '<button type="button" class="al-card al-chip al-' + a.nivel + '" data-al="' + a.i + '" data-setor="' + esc(a.setor) + '" title="' + esc(a.det) + '"><span class="al-rot">' + esc(a.rot) + '</span> <span class="al-val">' + esc(a.valor) + '</span></button>').join('') + '</div>' : '') +
     (rotinas.length ? '<div class="kpis-titulo">⚙ Rotinas automáticas</div><div class="al-rotinas">' + rotinas.map((a) => '<button type="button" class="al-card al-rotina al-' + a.nivel + '" data-al="' + a.i + '"><span class="al-pt" aria-hidden="true"></span><span class="al-rot">' + esc(a.rot) + '</span> <span class="al-val">' + esc(a.valor) + '</span><span class="al-det">' + esc(a.det) + '</span></button>').join('') + '</div>' : '');
   $('al-corpo').querySelectorAll('[data-al-setor]').forEach((b) => b.onclick = () => {
     $('al-corpo').querySelectorAll('[data-al-setor]').forEach((x) => x.classList.toggle('ativo', x === b));
-    $('al-corpo').querySelectorAll('.al-linha').forEach((l) => { l.hidden = !!b.dataset.alSetor && l.dataset.setor !== b.dataset.alSetor; });
+    $('al-corpo').querySelectorAll('.al-linha,.al-chip').forEach((l) => { l.hidden = !!b.dataset.alSetor && l.dataset.setor !== b.dataset.alSetor; });
   });
-  $('al-corpo').querySelectorAll('[data-al]').forEach((b) => b.onclick = () => { const a = A[+b.dataset.al]; if (a.rel.cnpj) janelaCnpj(cnpj); else if (a.rel.saude) janelaSaude(a.rel.saude); else if (a.rel.backup) irTelaAlerta('admin', 'backup'); else relatorioAlerta(a); });
+  $('al-corpo').querySelectorAll('[data-al]').forEach((b) => b.onclick = () => { const a = A[+b.dataset.al]; if (a.rel.cnpj) janelaCnpj(cnpj); else if (a.rel.pgfn) janelaPgfn(pgfnEx); else if (a.rel.saude) janelaSaude(a.rel.saude); else if (a.rel.backup) irTelaAlerta('admin', 'backup'); else relatorioAlerta(a); });
 };
 
 function quandoCurto(v) {
@@ -4703,6 +5129,38 @@ function relatorioAlerta(a) {
   const r = a.rel;
   if (!r.colunas) { if (r.tela) irTelaAlerta(r.tela); return; }
   relatorioTabela(Object.assign({}, r, r.tela ? { acao: { rotulo: 'Abrir a tela', fn: () => irTelaAlerta(r.tela) } } : {}));
+}
+
+// PGFN: chave do SERPRO (só admin), frequência, ligar/desligar, consultar agora e o que mudou
+async function janelaPgfn(execs) {
+  const cfg = await q(sb.rpc('status_config_pgfn')).catch(() => ({})) || {};
+  const admin = E.perfil && E.perfil.papel === 'admin', ult = execs[0], mud = ((ult && ult.relatorio) || []).filter((x) => x.antes), err = ((ult && ult.relatorio) || []).filter((x) => x.erro);
+  const j = abrirJanela({ titulo: 'PGFN — dívida ativa (API do SERPRO)', larga: true,
+    corpo: '<div class="dica" style="margin-bottom:10px">Consulta cada CNPJ na <b>API "Consulta Dívida Ativa" do SERPRO</b> e atualiza sozinho os campos <b>PGFN</b> (em cobrança) e <b>PGFN negociada</b> (parcelada). ' +
+        'Na ficha do cliente, a aba <b>PGFN</b> mostra cada inscrição (CDA), a origem (tributária, previdenciária, FGTS, Simples) e se está parcelada. ' +
+        '<b>É pago por consulta</b> (tabela na Loja SERPRO): consulta diária de 100 CNPJs são cerca de 2.200 consultas/mês. Semanal ou mensal custa bem menos.</div>' +
+      (ult ? '<div class="dica" style="margin-bottom:10px"><b>Última execução:</b> ' + quandoRodou(ult.inicio) + ' · ' + esc(ult.mensagem || ult.status) + '</div>' : '') +
+      (mud.length ? '<div class="secao">Mudanças na última consulta (' + mud.length + ')</div><div class="tabela-wrap"><table><thead><tr><th>Empresa</th><th class="num">PGFN antes</th><th class="num">agora</th><th class="num">Negociada antes</th><th class="num">agora</th></tr></thead><tbody>' +
+        mud.map((x) => '<tr><td><b>' + esc(x.nome) + '</b></td><td class="num mono">' + brl(x.antes[0]) + '</td><td class="num mono"><b>' + brl(x.depois[0]) + '</b></td><td class="num mono">' + brl(x.antes[1]) + '</td><td class="num mono"><b>' + brl(x.depois[1]) + '</b></td></tr>').join('') + '</tbody></table></div>' : '') +
+      (err.length ? '<div class="secao">Erros (' + err.length + ')</div><div class="lista-ficha">' + err.map((x) => '<div class="item-ficha"><div><b>' + esc(x.nome) + '</b><div class="sub">' + esc(x.erro) + '</div></div></div>').join('') + '</div>' : '') +
+      (admin ? '<div class="secao">Configuração</div><form class="grade" id="f-pgfn">' +
+        campo('Consumer key (área do cliente SERPRO)', '<input name="ck" autocomplete="off" placeholder="' + (cfg.tem_chave ? '•••• (deixe vazio para manter)' : 'cole aqui') + '">') +
+        campo('Consumer secret', '<input name="cs" type="password" autocomplete="new-password" placeholder="' + (cfg.tem_chave ? '•••• (deixe vazio para manter)' : 'cole aqui') + '">') +
+        campo('Frequência', selectPares('frequencia', [['diaria', 'Todo dia (6h15)'], ['semanal', 'Toda segunda-feira'], ['mensal', 'Todo dia 1º']], cfg.frequencia || 'diaria')) +
+        '<label class="check" style="align-self:end"><input type="checkbox" name="ligada"' + (cfg.ligada ? ' checked' : '') + '> Rotina ligada</label></form>' : ''),
+    rodape: '<span></span><div class="acoes">' + (admin ? '<button class="btn btn-o" type="button" id="pgfn-salvar">Salvar</button><button class="btn btn-p" type="button" id="pgfn-agora"' + (cfg.tem_chave ? '' : ' disabled') + '>↻ Consultar agora</button>' : '') + '</div>' });
+  const sv = j.querySelector('#pgfn-salvar');
+  if (sv) sv.onclick = () => comBotao(sv, async () => {
+    const f = j.querySelector('#f-pgfn');
+    await q(sb.rpc('salvar_config_pgfn', { p: { consumer_key: f.ck.value.trim(), consumer_secret: f.cs.value.trim(), frequencia: f.frequencia.value, ligada: f.ligada.checked } }));
+    aviso('✓ PGFN: configuração salva.'); fecharJanela(j); await TELAS.alertas();
+  });
+  const ag = j.querySelector('#pgfn-agora');
+  if (ag) ag.onclick = () => comBotao(ag, async () => {
+    const r = await chamarFuncao('erp-pgfn', { acao: 'rodar' });
+    if (r && r.erro) throw new Error(r.erro);
+    aviso('✓ PGFN: ' + ((r && r.mensagem) || 'feito') + '.'); fecharJanela(j); await carregarCadastros(true); await TELAS.alertas();
+  });
 }
 
 // Cartão CNPJ: última execução, o que mudou, erros, histórico e a API usada
@@ -4756,7 +5214,7 @@ const GRUPOS_AUTOMACAO = [
 // prefixo gravado no registro → automação
 const PREFIXO_AUTOMACAO = { onb: 'contrato_onboarding', proc: 'processo_novo', cert: 'certidao_vencendo', doc: 'certidao_vencendo', parc: 'parcela_parcelamento',
   aco: 'parcela_acordo', cob: 'cobrar_honorario', anexo: 'contrato_anexo', procur: 'processo_procuracao', pagamento_conclui: 'pagamento_conclui', pub: 'publicacao_tarefa',
-  cliente_novo_cnpj: 'cliente_novo_cnpj', email_lp: 'email_lembrete_parcelamento', email_lh: 'email_lembrete_honorario', email_ch: 'email_cobranca_honorario', email_la: 'email_lembrete_acordo', email_pr: 'email_pagamento_recebido' };
+  cliente_novo_cnpj: 'cliente_novo_cnpj', email_lp: 'email_lembrete_parcelamento', email_lh: 'email_lembrete_honorario', email_ch: 'email_cobranca_honorario', email_la: 'email_lembrete_acordo', email_pr: 'email_pagamento_recebido', email_vh: 'email_lembrete_honorario' };
 // automações que não usam "N dias"
 const SEM_DIAS = ['pagamento_conclui', 'cliente_novo_cnpj', 'email_pagamento_recebido'];
 // automações de tarefa que não criam tarefa nova (não têm responsável)
@@ -4767,7 +5225,7 @@ TELAS.automacoes = async function () {
   const [regras, cont, log, ultReg, ultPub, cnpj, backup, emails] = await Promise.all([
     q(sb.from('regras_tarefas').select('*').order('nome')),
     q(sb.rpc('resumo_automacoes')).catch(() => ({})),
-    q(sb.from('automacoes_log').select('*').order('quando', { ascending: false }).limit(25)).catch(() => []),
+    q(sb.from('automacoes_log').select('*').neq('chave', '_item').order('quando', { ascending: false }).limit(25)).catch(() => []),
     q(sb.from('configuracoes').select('valor').eq('chave', 'regras_tarefas_ultima').maybeSingle()).catch(() => null),
     q(sb.from('configuracoes').select('valor').eq('chave', 'publicacoes_ultima').maybeSingle()).catch(() => null),
     q(sb.from('cnpj_execucoes').select('inicio, status, mensagem').order('inicio', { ascending: false }).limit(1)).catch(() => []),
@@ -4916,8 +5374,226 @@ async function cardAprovacoes() {
 }
 document.addEventListener('click', (ev) => { if (ev.target.closest && ev.target.closest('[data-ir-aprovacoes]')) irParaTela('aprovacoes'); });
 
+'use strict';
+// ═══════════════════════════════════════════════════════════════════
+// Conciliar extrato (OFX do Sicoob ou de qualquer banco): lê o arquivo no
+// navegador, pega só as ENTRADAS e procura o honorário em aberto de mesmo
+// valor. Três grupos: identificados (marcados para baixa), em dúvida (escolher
+// entre os candidatos) e não identificados (o escritório escolhe à mão ou ignora).
+// A data do recebimento é a do banco. O FITID do banco evita tratar duas vezes.
+// ═══════════════════════════════════════════════════════════════════
+
+// OFX 1.x (SGML, tags sem fechamento) e 2.x (XML): uma entrada por <STMTTRN>
+function lerOfx(texto) {
+  const tag = (bloco, t) => { const m = new RegExp('<' + t + '>\\s*([^<\\r\\n]*)', 'i').exec(bloco); return m ? m[1].trim() : ''; };
+  return String(texto || '').split(/<STMTTRN>/i).slice(1).map((b) => {
+    const bloco = b.split(/<\/STMTTRN>/i)[0], d = tag(bloco, 'DTPOSTED');
+    return { fitid: tag(bloco, 'FITID'), tipo: tag(bloco, 'TRNTYPE').toUpperCase(), valor: Number(tag(bloco, 'TRNAMT').replace(',', '.')) || 0,
+      data: d.length >= 8 ? d.slice(0, 4) + '-' + d.slice(4, 6) + '-' + d.slice(6, 8) : '', nome: tag(bloco, 'NAME'), memo: tag(bloco, 'MEMO') };
+  }).filter((t) => t.valor > 0 && t.data && t.fitid);
+}
+// palavras "de verdade" do nome (tira LTDA, ME, PIX, TED…)
+const PALAVRAS_VAZIAS = /^(ltda|me|epp|eireli|sa|s\/a|pix|ted|doc|transf|transferencia|recebido|recebida|credito|cred|de|da|do|dos|das|e|pagamento|pag|ref|grupo|familia|holding|participacoes|comercio|servicos|industria|demo)$/;
+function palavras(s) { return normalizar(s).replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter((w) => w.length > 2 && !PALAVRAS_VAZIAS.test(w)); }
+function nomeBate(t, l) {
+  const doExtrato = new Set(palavras(t.nome + ' ' + t.memo)), dig = soDigitos(t.nome + ' ' + t.memo);
+  const cl = l.cliente_id ? E.clientes.find((c) => c.id === l.cliente_id) : null;
+  const doc = cl ? soDigitos(cl.cpf_cnpj) : '';
+  if (doc && doc.length >= 11 && dig.includes(doc)) return true;
+  const alvo = palavras([(l.clientes && l.clientes.nome) || '', (l.grupos && l.grupos.nome) || '', l.favorecido || '', cl ? cl.nome : ''].join(' '));
+  return alvo.some((w) => doExtrato.has(w));
+}
+function casar(entradas, abertos) {
+  const usados = new Set();
+  return entradas.map((t) => {
+    const mesmoValor = abertos.filter((l) => Math.abs(Number(l.valor) - t.valor) < 0.01);
+    const perto = mesmoValor.filter((l) => Math.abs(new Date(l.vencimento) - new Date(t.data)) <= 45 * 864e5);
+    const porNome = perto.filter((l) => nomeBate(t, l));
+    let certo = null, cands = [];
+    const dist = (l) => Math.abs(new Date(l.vencimento) - new Date(t.data)) / 864e5;
+    if (porNome.length === 1) certo = porNome[0];
+    else if (porNome.length > 1) {
+      // mesmo cliente com vários honorários iguais (mensalidade): fica o de vencimento mais perto, se for claramente o mais perto
+      const o = porNome.slice().sort((a, b) => dist(a) - dist(b));
+      if (dist(o[0]) <= 20 && dist(o[1]) - dist(o[0]) >= 7) certo = o[0]; else cands = o;
+    }
+    else if (perto.length === 1 && Math.abs(new Date(perto[0].vencimento) - new Date(t.data)) <= 10 * 864e5) cands = perto;
+    else cands = perto.length ? perto : mesmoValor;
+    if (certo && usados.has(certo.id)) { cands = [certo]; certo = null; }
+    if (certo) usados.add(certo.id);
+    return { t, certo, cands: cands.slice(0, 5) };
+  });
+}
+
+async function conciliarOfx(empresa) {
+  if (!pode(empresa === 'contabilidade' ? 'financeiro_contab' : 'financeiro_juridico', 'propor')) return aviso('Sem acesso ao financeiro desta área.', true);
+  await carregarCadastros();
+  const nomeEmp = empresa === 'contabilidade' ? 'Contabilidade' : 'Jurídico';
+  const j = abrirJanela({ titulo: '🏦 Conciliar extrato — ' + nomeEmp, larga: true,
+    corpo: '<div id="ofx-corpo"><ol class="passos"><li>No app ou internet banking do Sicoob: <b>Extrato → escolha o período → Exportar / Salvar em OFX</b>.</li>' +
+      '<li>Escolha o arquivo abaixo. Nada é gravado antes de você conferir.</li></ol>' +
+      '<label class="btn btn-p" style="cursor:pointer;margin-top:8px">Escolher arquivo .ofx<input type="file" id="ofx-arq" accept=".ofx,.OFX,.txt" hidden></label>' +
+      '<p class="sub" style="margin-top:8px">O arquivo é lido aqui no seu computador; só as entradas (créditos) são usadas.</p></div>',
+    rodape: '<span class="sub" id="ofx-resumo"></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Fechar</button><button class="btn btn-p" type="button" id="ofx-gravar" hidden>✓ Registrar pagamentos marcados</button></div>' });
+  j.querySelector('.janela').classList.add('janela-ofx');
+  j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
+  j.querySelector('#ofx-arq').onchange = async (ev) => {
+    const f = ev.target.files[0]; if (!f) return;
+    const buf = await f.arrayBuffer();
+    let txt = new TextDecoder('utf-8').decode(buf); if (/�/.test(txt)) txt = new TextDecoder('windows-1252').decode(buf);
+    const todas = lerOfx(txt);
+    if (!todas.length) return aviso('Nenhuma entrada encontrada no arquivo. Confira se é um extrato OFX.', true);
+    const [tratados, abertos] = await Promise.all([
+      q(sb.from('extrato_itens').select('fitid').in('fitid', todas.map((t) => t.fitid))).catch(() => []),
+      buscarTodos(() => sb.from('lancamentos').select('*, grupos(nome), clientes(nome)').eq('empresa', empresa).eq('tipo', 'receita').eq('pago', false).eq('perda', false).eq('redutor', false))
+    ]);
+    const ja = new Set(tratados.map((x) => x.fitid)), entradas = todas.filter((t) => !ja.has(t.fitid));
+    pintar(casar(entradas, abertos), abertos, todas.length - entradas.length);
+  };
+  const quem = (l) => (l.grupos && l.grupos.nome) || (l.clientes && l.clientes.nome) || l.favorecido || '';
+  const rotLanc = (l) => dataBR(l.vencimento) + ' · ' + quem(l) + ' · ' + l.descricao + ' · ' + brl(l.valor);
+  let itens = [];
+  function pintar(lista, abertos, repetidos) {
+    itens = lista;
+    const ok = lista.filter((x) => x.certo), duv = lista.filter((x) => !x.certo && x.cands.length), nao = lista.filter((x) => !x.certo && !x.cands.length);
+    const linhaT = (x) => '<div class="ofx-t"><b>' + brl(x.t.valor) + '</b> em ' + dataBR(x.t.data) + '<div class="sub">' + esc(x.t.nome || '—') + (x.t.memo ? ' · ' + esc(x.t.memo) : '') + '</div></div>';
+    const opcoes = (lst, marcado) => lst.map((l) => '<option value="' + l.id + '"' + (l.id === marcado ? ' selected' : '') + '>' + esc(rotLanc(l)) + '</option>').join('');
+    // não identificados: todos os abertos, os de valor mais parecido primeiro
+    const todosOrdenados = (v) => abertos.slice().sort((a, b) => Math.abs(a.valor - v) - Math.abs(b.valor - v)).slice(0, 60);
+    j.querySelector('#ofx-corpo').innerHTML =
+      (repetidos ? '<div class="dica" style="margin-bottom:10px">' + repetidos + ' entrada(s) deste arquivo já foram tratadas antes e ficaram de fora.</div>' : '') +
+      '<div class="secao">✓ Identificados (' + ok.length + ')</div>' + (ok.length ? '<div class="lista-ficha">' + ok.map((x) => { const i = lista.indexOf(x);
+        return '<label class="item-ficha ofx-it"><input type="checkbox" data-ofx-ok="' + i + '" checked>' + linhaT(x) + '<span class="ofx-seta">→</span><div class="ofx-l">' + esc(rotLanc(x.certo)) + '</div></label>'; }).join('') + '</div>'
+        : '<div class="sub" style="margin-bottom:8px">Nenhum com valor e nome batendo.</div>') +
+      '<div class="secao">? Em dúvida (' + duv.length + ') <span class="sub">— mesmo valor, mas o nome não bate ou há mais de um</span></div>' + (duv.length ? '<div class="lista-ficha">' + duv.map((x) => { const i = lista.indexOf(x);
+        return '<div class="item-ficha ofx-it">' + linhaT(x) + '<span class="ofx-seta">→</span><select class="busca sel ofx-sel" data-ofx-esc="' + i + '"><option value="">— deixar para depois —</option><option value="ignorar">Ignorar (não é honorário)</option>' + opcoes(x.cands) + '</select></div>'; }).join('') + '</div>'
+        : '<div class="sub" style="margin-bottom:8px">Nenhuma.</div>') +
+      '<div class="secao">✗ Não identificados (' + nao.length + ') <span class="sub">— escolha o honorário à mão, ignore ou deixe para depois</span></div>' + (nao.length ? '<div class="lista-ficha">' + nao.map((x) => { const i = lista.indexOf(x);
+        return '<div class="item-ficha ofx-it">' + linhaT(x) + '<span class="ofx-seta">→</span><select class="busca sel ofx-sel" data-ofx-esc="' + i + '"><option value="">— deixar para depois —</option><option value="ignorar">Ignorar (não é honorário)</option>' + opcoes(todosOrdenados(x.t.valor)) + '</select></div>'; }).join('') + '</div>'
+        : '<div class="sub">Nenhum.</div>');
+    j.querySelector('#ofx-gravar').hidden = !lista.length;
+    const conta = () => { const n = j.querySelectorAll('[data-ofx-ok]:checked').length + [...j.querySelectorAll('[data-ofx-esc]')].filter((s) => s.value && s.value !== 'ignorar').length;
+      j.querySelector('#ofx-resumo').textContent = lista.length + ' entrada(s) · ' + n + ' pagamento(s) para registrar'; };
+    j.querySelectorAll('[data-ofx-ok],[data-ofx-esc]').forEach((el) => { el.onchange = conta; });
+    conta();
+  }
+  j.querySelector('#ofx-gravar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    const escolhas = [];
+    j.querySelectorAll('[data-ofx-ok]:checked').forEach((c) => { const x = itens[+c.dataset.ofxOk]; escolhas.push([x.t, x.certo.id]); });
+    j.querySelectorAll('[data-ofx-esc]').forEach((s) => { if (s.value) escolhas.push([itens[+s.dataset.ofxEsc].t, s.value]); });
+    const lancs = escolhas.filter(([, id]) => id !== 'ignorar').map(([, id]) => id);
+    if (new Set(lancs).size !== lancs.length) throw new Error('O mesmo honorário foi escolhido para duas entradas do extrato. Corrija antes de gravar.');
+    if (!escolhas.length) throw new Error('Marque ou escolha pelo menos uma entrada.');
+    let baixas = 0, ign = 0, rasc = 0;
+    for (const [t, id] of escolhas) {
+      const reg = { fitid: t.fitid, empresa, data: t.data, valor: t.valor, nome: t.nome.slice(0, 200), memo: t.memo.slice(0, 300) };
+      if (id === 'ignorar') { await q(sb.from('extrato_itens').insert(Object.assign(reg, { situacao: 'ignorado' }))); ign++; continue; }
+      const { error } = await sb.from('lancamentos').update({ pago: true, data_pagamento: t.data, cobranca: '', perda: false }).eq('id', id);
+      if (error && error.rascunho) { rasc++; continue; }
+      if (error) throw new Error(erroAmigavel(error));
+      await q(sb.from('extrato_itens').insert(Object.assign(reg, { situacao: 'baixado', lancamento_id: id })));
+      baixas++;
+    }
+    fecharJanela(j);
+    aviso(rasc ? '📝 ' + rasc + ' pagamento(s) enviado(s) para aprovação' + (baixas ? '; ' + baixas + ' registrado(s)' : '') + '.'
+      : '✓ ' + baixas + ' pagamento(s) registrado(s) com a data do banco' + (ign ? ' · ' + ign + ' entrada(s) ignorada(s)' : '') + '.');
+    if (window.ERP_RECARREGAR) window.ERP_RECARREGAR(); else await recarregar();
+  });
+}
+
+'use strict';
+// ═══════════════════════════════════════════════════════════════════
+// Processos (tela nova — migração do ERP antigo, Backup 14).
+// Mesmas informações da tela antiga: análise da carteira (processos, valor em
+// disputa, passivo/ativo em disputas, por grupo/tribunal/natureza), filtros de
+// situação (vários ao mesmo tempo, começa em "Ativos"), competência, natureza,
+// grupo e busca; ações na própria linha. A tela antiga continua no sistema:
+// ⋯ → "Processos: tela antiga" volta para ela neste computador.
+// ═══════════════════════════════════════════════════════════════════
+const SIT_PROC = [['ativo', 'Ativos', 'pago'], ['arquivado', 'Arq. provisoriamente', 'neutro'], ['extinto', 'Extintos / prescritos', 'vencido']];
+function situacaoProcesso(p) {
+  const st = String(p.status || '');
+  return /arq/i.test(st) ? 'arquivado' : /extint|prescri|baixad|encerrad|transitad/i.test(st) || /prescrit/i.test(p.prescricao || '') ? 'extinto' : 'ativo';
+}
+
+TELAS.processos = async function () {
+  E.proc = E.proc || { sit: ['ativo'], grupo: '', comp: '', nat: '', busca: '' };
+  await carregarCadastros();
+  const lista = await buscarTodos(() => sb.from('processos').select('*').order('criado_em'));
+  E._procs = lista;
+  const F = E.proc, uniq = (k) => [...new Set(lista.map((p) => p[k]).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  const podeEditar = pode('juridico', 'propor');
+  $('conteudo').innerHTML =
+    '<div class="titulo-pag"><div><h1>⚖ Processos</h1><p id="pr-conta"></p></div><div class="acoes">' +
+      (podeEditar ? '<button class="btn btn-p" id="pr-novo">+ Processo</button>' : '') + '</div></div>' +
+    '<div id="pr-analise"></div>' +
+    '<div class="filtros" id="pr-barra">' +
+      '<div class="segmento pr-sit" id="pr-sit" title="Pode marcar mais de uma">' + SIT_PROC.map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
+      '<select class="busca sel" id="pr-grupo" autocomplete="off"><option value="">Todos os grupos</option>' + E.grupos.map((g) => '<option value="' + g.id + '">' + esc(g.nome) + '</option>').join('') + '</select>' +
+      '<select class="busca sel" id="pr-comp" autocomplete="off"><option value="">Todas as competências</option>' + uniq('competencia').map((v) => '<option>' + esc(v) + '</option>').join('') + '</select>' +
+      '<select class="busca sel" id="pr-nat" autocomplete="off"><option value="">Todas as naturezas</option>' + uniq('natureza').map((v) => '<option>' + esc(v) + '</option>').join('') + '</select>' +
+      '<input class="busca" id="pr-busca" placeholder="Buscar nº do processo, autor ou réu…" autocomplete="off" style="min-width:240px;flex:1 1 240px">' +
+      '<button class="btn btn-o" type="button" id="pr-limpar">Limpar</button></div>' +
+    '<div id="pr-lista"></div>';
+  const nb = $('pr-novo'); if (nb) nb.onclick = () => window.ERP_EDITOR && window.ERP_EDITOR.abrirFormulario('processos', null, { carteira: 'Ativo', status: 'Em andamento' });
+  $('pr-sit').onclick = (ev) => { const b = ev.target.closest('button'); if (!b) return; const i = F.sit.indexOf(b.dataset.v); if (i >= 0) F.sit.splice(i, 1); else F.sit.push(b.dataset.v); pintarProcessos(); };
+  [['pr-grupo', 'grupo'], ['pr-comp', 'comp'], ['pr-nat', 'nat']].forEach(([id, k]) => { $(id).onchange = (ev) => { F[k] = ev.target.value; pintarProcessos(); }; });
+  let t; $('pr-busca').oninput = (ev) => { clearTimeout(t); t = setTimeout(() => { F.busca = ev.target.value; pintarProcessos(); }, 250); };
+  $('pr-limpar').onclick = () => { E.proc = { sit: ['ativo'], grupo: '', comp: '', nat: '', busca: '' }; TELAS.processos(); };
+  pintarProcessos();
+};
+
+function filtrarProcessos(semSituacao) {
+  const F = E.proc, b = normalizar(F.busca);
+  return (E._procs || []).filter((p) => {
+    if (!semSituacao && F.sit.length && !F.sit.includes(situacaoProcesso(p))) return false;
+    if (F.grupo && p.grupo_id !== F.grupo) return false;
+    if (F.comp && p.competencia !== F.comp) return false;
+    if (F.nat && p.natureza !== F.nat) return false;
+    if (b && !normalizar([p.numero, p.autor, p.reu, p.obs].join(' ')).includes(b) && !(soDigitos(F.busca) && soDigitos(p.numero).includes(soDigitos(F.busca)))) return false;
+    return true;
+  });
+}
+
+function pintarProcessos() {
+  const F = E.proc;
+  document.querySelectorAll('#pr-sit button').forEach((x) => x.classList.toggle('ativo', F.sit.includes(x.dataset.v)));
+  [['pr-grupo', 'grupo'], ['pr-comp', 'comp'], ['pr-nat', 'nat'], ['pr-busca', 'busca']].forEach(([id, k]) => { if ($(id) && document.activeElement !== $(id)) $(id).value = F[k]; });
+  const todos = filtrarProcessos(true), lista = filtrarProcessos(false);
+  $('pr-conta').textContent = lista.length + ' processo(s) na lista · ' + (E._procs || []).length + ' cadastrado(s)';
+  // análise: vale para os filtros de grupo/competência/natureza/busca (todas as situações)
+  const val = (p) => Number(p.valor) || 0, comValor = todos.filter((p) => val(p) > 0), ativos = todos.filter((p) => situacaoProcesso(p) === 'ativo');
+  const nomes = E.clientes.filter((c) => !F.grupo || c.grupo_id === F.grupo).map((c) => normalizar(c.nome)).filter((n) => n.length > 2);
+  const tem = (x) => { x = normalizar(x); return nomes.some((n) => x.includes(n)); };
+  const vP = soma(todos.filter((p) => tem(p.reu)), val), vA = soma(todos.filter((p) => tem(p.autor)), val);
+  const agrupa = (rot, chave) => { const m = {};
+    todos.forEach((p) => { const k = chave(p) || '—'; m[k] = m[k] || { n: 0, v: 0 }; m[k].n++; m[k].v += val(p); });
+    return '<div><div class="secao">' + rot + '</div><div class="tabela-wrap"><table class="ordenavel"><thead><tr><th>' + rot + '</th><th class="num">Processos</th><th class="num">Valor</th></tr></thead><tbody>' +
+      Object.keys(m).sort((a, b) => m[b].v - m[a].v || m[b].n - m[a].n).slice(0, 10).map((k) => '<tr><td><b>' + esc(k) + '</b></td><td class="num">' + m[k].n + '</td><td class="num mono" data-ord="' + m[k].v + '">' + (m[k].v ? brl(m[k].v) : '—') + '</td></tr>').join('') +
+      '</tbody></table></div></div>'; };
+  $('pr-analise').innerHTML = todos.length ? blocoRecolhivel('pr-an', 'Análise da carteira judicial',
+    '<div class="kpis">' + kpi('Processos', String(todos.length), '', '(' + ativos.length + ' em andamento · ' + (todos.length - ativos.length) + ' arquivados/extintos)') +
+      kpi('Valor em disputa', brl(soma(comValor, val)), '', '(' + (todos.length - comValor.length) + ' sem valor)') +
+      kpi('Passivo em disputas', brl(vP), '', 'cliente como réu') + kpi('Ativo em disputas', brl(vA), '', 'cliente como autor') + '</div>' +
+    '<div class="tres-col">' + agrupa('Grupo', (p) => nomeGrupo(p.grupo_id)) + agrupa('Tribunal', (p) => p.competencia) + agrupa('Natureza', (p) => p.natureza) + '</div>') : '';
+  const podeEditar = pode('juridico', 'propor');
+  $('pr-lista').innerHTML = '<div class="card">' + (lista.length ? '<div class="tabela-wrap"><table class="ordenavel pr-tab"><thead><tr><th>Grupo</th><th>Nº do processo</th><th>Competência</th><th>Natureza</th><th>Autor</th><th>Réu</th><th class="num">Valor</th><th>Situação</th><th class="sem-ordem"></th></tr></thead><tbody>' +
+    lista.map((p) => { const s = SIT_PROC.find((x) => x[0] === situacaoProcesso(p));
+      return '<tr><td><span class="pill pill-grupo" title="' + esc(nomeGrupo(p.grupo_id)) + '">' + esc(nomeGrupo(p.grupo_id) || '—') + '</span></td><td class="mono">' + esc(p.numero) + '</td>' +
+        '<td>' + esc(p.competencia || '—') + '</td><td>' + esc(p.natureza || '—') + '</td><td>' + esc(p.autor || '—') + '</td><td>' + esc(p.reu || '—') + '</td>' +
+        '<td class="num mono" data-ord="' + val(p) + '">' + (val(p) ? brl(val(p)) : '<span class="sub">—</span>') + '</td>' +
+        '<td><span class="pill ' + s[2] + '" title="' + esc(p.status || '') + '">' + (s[0] === 'ativo' ? 'Ativo' : s[0] === 'arquivado' ? 'Arquivado' : 'Extinto') + '</span></td>' +
+        '<td class="acoes-l">' + (podeEditar ? '<button class="btn btn-o btn-mini" data-pr-ed="' + p.id + '" title="Editar">✎</button> ' : '') +
+          '<button class="btn btn-o btn-mini" data-pr-tf="' + p.id + '" title="Criar tarefa para este processo">+ Tarefa</button></td></tr>'; }).join('') +
+    '</tbody></table></div>' : vazio('Nenhum processo com esses filtros.', (E._procs || []).length ? '' : '+ Processo', '#pr-novo')) + '</div>';
+  if (window.GX_ENCOLHER_SELOS) requestAnimationFrame(() => window.GX_ENCOLHER_SELOS($('pr-lista')));
+  document.querySelectorAll('[data-pr-ed]').forEach((b) => b.onclick = () => window.ERP_EDITOR && window.ERP_EDITOR.abrirFormulario('processos', b.dataset.prEd));
+  document.querySelectorAll('[data-pr-tf]').forEach((b) => b.onclick = () => { const p = E._procs.find((x) => x.id === b.dataset.prTf);
+    formTarefa({ titulo: 'Processo ' + p.numero + ' — ', grupo_id: p.grupo_id, processos_vinculados: p.numero, responsavel: p.advogado || '' }, () => TELAS.processos()); });
+}
+
 // toda gravação confirmada aparece também no rodapé do ERP
 const _avisoOrig = aviso;
 aviso = function (msg, erro) { _avisoOrig(msg, erro); if (!erro && window.ERP_EDITOR && /^✓/.test(msg)) window.ERP_EDITOR.gravou(String(msg).replace(/^✓\s*/, '')); };
-window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, invalidarCadastros, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo, perguntarBaixa, detalheContrato, ICONE_AVISO };
+window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, invalidarCadastros, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo, perguntarBaixa, detalheContrato, ICONE_AVISO, conciliarOfx, abrirTarefa };
 })();

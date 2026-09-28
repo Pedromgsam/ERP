@@ -30,7 +30,7 @@ function sessao(u) {
   return { access_token: jwt({ sub: u.id, email: u.email, role: 'authenticated', aud: 'authenticated', exp }),
            token_type: 'bearer', expires_in: 3600, expires_at: exp, refresh_token: 'r-' + u.email, user: u };
 }
-const RECUPERACOES = [], ARQUIVOS = {}, PEDIDOS_DJEN = []; let FUNCAO = null, FUNCAO_PUB = null, FUNCAO_CNPJ = null, FUNCAO_AGENDA = null, FUNCAO_BACKUP = null;
+const RECUPERACOES = [], ARQUIVOS = {}, PEDIDOS_DJEN = []; let FUNCAO = null, FUNCAO_PUB = null, FUNCAO_CNPJ = null, FUNCAO_AGENDA = null, FUNCAO_BACKUP = null, FUNCAO_PGFN = null;
 function json(res, cod, obj) { res.writeHead(cod, { 'content-type': 'application/json', 'access-control-allow-origin': '*' }); res.end(JSON.stringify(obj)); }
 http.createServer((req, res) => {
   let corpo = []; req.on('data', (c) => corpo.push(c)); req.on('end', () => {
@@ -133,6 +133,26 @@ http.createServer((req, res) => {
       return FUNCAO_CNPJ.tratar(new Request('http://x' + u.pathname, { method: req.method, headers: h, body: req.method === 'POST' ? corpo : undefined }))
         .then(async (r2) => { const cab = { 'access-control-allow-origin': '*' }; r2.headers.forEach((v, k) => { cab[k] = v; }); res.writeHead(r2.status, cab); res.end(await r2.text()); })
         .catch((e) => json(res, 500, { erro: e.message }));
+    }
+    if (u.pathname === '/functions/v1/erp-pgfn') {
+      try { FUNCAO_PGFN = FUNCAO_PGFN || require('./funcao-emails.js').carregarPgfn('http://127.0.0.1:' + PORTA); } catch (e) { console.error(e); return json(res, 500, { erro: 'Função não carregou: ' + e.message }); }
+      const h = new Headers(); Object.entries(req.headers).forEach(([k, v]) => h.set(k, v));
+      return FUNCAO_PGFN.tratar(new Request('http://x' + u.pathname, { method: req.method, headers: h, body: req.method === 'POST' ? corpo : undefined }))
+        .then(async (r2) => { const cab = { 'access-control-allow-origin': '*' }; r2.headers.forEach((v, k) => { cab[k] = v; }); res.writeHead(r2.status, cab); res.end(await r2.text()); })
+        .catch((e) => json(res, 500, { erro: e.message }));
+    }
+    // imitação do SERPRO (Consulta Dívida Ativa), dados fictícios: 99111222000133 tem 3 inscrições (1 parcelada, 1 FGTS); o resto não tem nada
+    if (u.pathname === '/__teste/serpro/token') {
+      return String(req.headers.authorization || '') === 'Basic ' + Buffer.from('chave-teste:segredo-teste').toString('base64')
+        ? json(res, 200, { access_token: 'tk-serpro', token_type: 'Bearer', expires_in: 3600 }) : json(res, 401, { error: 'invalid_client' });
+    }
+    if (u.pathname.startsWith('/__teste/serpro/devedor/')) {
+      if (req.headers.authorization !== 'Bearer tk-serpro') return json(res, 401, {});
+      if (u.pathname.split('/').pop() !== '99111222000133') { res.writeHead(404); return res.end(); }
+      return json(res, 200, [
+        { numeroInscricao: '10 5 26 000001-01', situacaoDescricao: 'ATIVA EM COBRANÇA', tipoDevedor: 'PRINCIPAL', valorTotalConsolidadoMoeda: '100.000,00', receitaPrincipal: 'IRPJ', dataInscricao: '10/03/2025' },
+        { numeroInscricao: '10 6 26 000002-02', situacaoDescricao: 'ATIVA - PARCELAMENTO NEGOCIADO', tipoDevedor: 'PRINCIPAL', valorTotalConsolidadoMoeda: '250.000,50', receitaPrincipal: 'SIMPLES NACIONAL', dataInscricao: '01/06/2024' },
+        { numeroInscricao: 'FGTS 2025 0003', situacaoDescricao: 'ATIVA EM COBRANÇA', tipoDevedor: 'FGTS', valorTotalConsolidadoMoeda: '12.345,67', receitaPrincipal: 'FGTS' }]);
     }
     // imitação da BrasilAPI (dados fictícios): 11222333000181 mudou de endereço; 22333444000172 está INAPTA; o resto não existe
     // imitação das fontes reserva: 33444555000106 (empresa nova) só existe na ReceitaWS; o resto não existe

@@ -89,8 +89,18 @@ const MODELOS_ACESSO = {
   'Financeiro': { financeiro_juridico: 'editar', financeiro_contab: 'editar', contratos: 'editar', clientes: 'ver', documentos: 'editar', relatorios: 'ver' },
   'Jurídico': { juridico: 'editar', clientes: 'editar', tarefas: 'editar', documentos: 'editar', contratos: 'ver' },
   'Atendimento / Comercial': { crm: 'editar', clientes: 'editar', contratos: 'ver', documentos: 'editar', tarefas: 'ver' },
-  'Estagiário (rascunho)': { juridico: 'propor', clientes: 'propor', tarefas: 'ver', documentos: 'ver', contratos: 'ver' }
+  'Estagiário (rascunho)': { juridico: 'propor', clientes: 'propor', tarefas: 'ver', documentos: 'ver', contratos: 'ver' },
+  'Adm. da Contabilidade': { financeiro_contab: 'editar', clientes: 'editar', contratos: 'editar', documentos: 'editar', tarefas: 'editar', relatorios: 'ver' }
 };
+// Perfil de e-mail ao cliente (Administração → E-mails aos clientes e ficha do cliente)
+const PERFIS_EMAIL = [['padrao', 'Padrão', 'lembrete antes do vencimento, cobrança depois do atraso e recibo'],
+  ['vencimento', 'Só no vencimento', 'um aviso no dia do vencimento e o recibo; sem lembrete antes nem cobrança'],
+  ['nunca', 'Não enviar financeiro', 'nenhum e-mail de honorários (clientes importantes); guias de parcelamento e acordos continuam'],
+  ['personalizado', 'Personalizado', 'você marca cada tipo de e-mail']];
+const TIPOS_EMAIL = [['lembrete', 'Lembrete antes do vencimento'], ['vencimento', 'Aviso no dia do vencimento'], ['cobranca', 'Cobrança de atraso'],
+  ['recibo', 'Recibo / pagamento recebido'], ['parcelamento', 'Guia de parcelamento'], ['acordo', 'Parcela de acordo']];
+// modelo que já escolhe "Clientes que vê"
+const MODELOS_AREA = { 'Adm. da Contabilidade': 'contabil' };
 // Nível "Propor" (rascunho): a pessoa preenche normalmente, mas nada vale até alguém que edita aprovar.
 const FUNCOES_PROPOR = ['financeiro_juridico', 'financeiro_contab', 'contratos', 'clientes', 'juridico'];
 // Área do cliente e áreas que cada usuário vê
@@ -139,7 +149,8 @@ function ligarGradeFuncoes(raiz) {
   raiz.querySelectorAll('.gf-areas').forEach((g) => g.onclick = (ev) => { const b = ev.target.closest('button'); if (!b) return; g.querySelectorAll('button').forEach((x) => x.classList.toggle('ativo', x === b)); });
   raiz.querySelectorAll('.gf-niveis').forEach((g) => g.onclick = (ev) => { const b = ev.target.closest('button'); if (!b) return; g.querySelectorAll('button').forEach((x) => x.classList.toggle('ativo', x === b)); });
   raiz.querySelectorAll('[data-modelo-acesso]').forEach((b) => b.onclick = () => {
-    const m = MODELOS_ACESSO[b.dataset.modeloAcesso];
+    const m = MODELOS_ACESSO[b.dataset.modeloAcesso], area = MODELOS_AREA[b.dataset.modeloAcesso];
+    if (area) raiz.querySelectorAll('.gf-areas button').forEach((x) => x.classList.toggle('ativo', x.dataset.v === area));
     raiz.querySelectorAll('.gf-niveis').forEach((g) => { const v = m[g.dataset.funcao] || ''; g.querySelectorAll('button').forEach((x) => x.classList.toggle('ativo', x.dataset.v === v)); });
   });
 }
@@ -241,7 +252,9 @@ const PESSOA = {
   'Pedro':      { fundo: '#D4EDBC', marca: '#4E9A2F', texto: '#2F6B1A' },
   'Emanuelle':  { fundo: '#FFCFC9', marca: '#D2544A', texto: '#9B2C22' },
   'Escritório': { fundo: '#FBE9A8', marca: '#C9A84C', texto: '#8A6D14' },
-  'Adriana':    { fundo: '#DBEAFE', marca: '#3B6FD4', texto: '#1D4ED8' }
+  'Adriana':    { fundo: '#DBEAFE', marca: '#3B6FD4', texto: '#1D4ED8' },
+  'João Vitor': { fundo: '#E9DDFB', marca: '#7C4DCC', texto: '#5B2E9E' },
+  'Éder':       { fundo: '#D5F0EC', marca: '#2D8C7E', texto: '#1F6B60' }
 };
 function corPessoa(n) { return PESSOA[String(n || '').trim()] || { fundo: '#EEF1F7', marca: '#6B7280', texto: '#4B5563' }; }
 function pillPessoa(n) {
@@ -430,7 +443,10 @@ function abrirJanela({ titulo, corpo, rodape, larga }) {
 }
 function fecharJanela(el) {
   const alvo = el || $('janelas').lastElementChild;
-  if (alvo) alvo.remove();
+  if (!alvo) return;
+  alvo.remove();
+  // quem abriu a janela pode saber que ela fechou (×, Esc, clique fora ou voltar do navegador)
+  if (typeof alvo._aoFechar === 'function') { const f = alvo._aoFechar; alvo._aoFechar = null; try { f(); } catch (e) { /* nada */ } }
 }
 document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') fecharJanela(); });
 
@@ -440,7 +456,7 @@ document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') fecharJa
 function perguntarBaixa({ titulo, descricao, valor, acordo, despesa }) {
   return new Promise((ok) => {
     let feito = false;
-    const j = abrirJanela({ titulo: titulo || (despesa ? 'Confirmar pagamento' : 'Confirmar recebimento'),
+    const j = abrirJanela({ titulo: titulo || (despesa ? 'Registrar pagamento (conta paga)' : 'Registrar pagamento'),
       corpo: (descricao ? '<div class="dica" style="margin-bottom:12px"><b>' + esc(descricao) + '</b>' + (valor != null ? ' · ' + brl(valor) : '') + '</div>' : '') +
         campo(despesa || acordo ? 'Data do pagamento' : 'Data do recebimento', '<input type="date" name="bx-data" required value="' + hojeISO() + '">') +
         '<div class="sub" style="margin:4px 0 10px">Já vem com a data de hoje. Se o dinheiro entrou em outro dia, troque aqui.</div>' +

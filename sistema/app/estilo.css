@@ -116,10 +116,38 @@ tfoot td{font-weight:700;border-top:1.5px solid var(--border-strong);border-bott
 .grade{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px}
 .grade .inteiro{grid-column:1/-1}
 @media (max-width:600px){.grade{grid-template-columns:1fr}}
-label.campo{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:700;color:var(--text2)}
+label.campo,div.campo{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:700;color:var(--text2)}
 label.campo input,label.campo select,label.campo textarea{padding:9px 11px;border:1.5px solid var(--border-strong);border-radius:var(--r-sm);font-weight:400;color:var(--text);background:#fff;font-size:14px}
 label.campo input:focus,label.campo select:focus,label.campo textarea:focus{outline:none;border-color:var(--navy3);box-shadow:var(--glow)}
 label.campo textarea{min-height:70px;resize:vertical}
+/* listas de escolha: altura igual aos campos, valor escuro e seta visível (Revisor, Responsável…) */
+label.campo select{appearance:none;-webkit-appearance:none;min-height:40px;padding-right:34px;color:var(--ink);font-weight:500;text-overflow:ellipsis;cursor:pointer;
+  background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%231B2A4A' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 12px center}
+label.campo select:invalid,label.campo select option[value=""]{color:var(--text3)}
+/* participantes: pessoas para marcar */
+.tf-part{display:flex;flex-wrap:wrap;gap:6px}
+.tf-part-it{display:inline-flex;align-items:center;cursor:pointer}
+.tf-part-it input{position:absolute;opacity:0;width:1px;height:1px}
+.tf-part-it span{padding:6px 12px;border:1.5px solid var(--border-strong);border-radius:999px;font-size:13px;font-weight:600;color:var(--text2);background:#fff}
+.tf-part-it input:checked+span{background:var(--navy);border-color:var(--navy);color:#fff}
+.tf-part-it input:checked+span::before{content:'✓ '}
+.tf-part-it input:focus-visible+span{box-shadow:var(--glow)}
+/* ficha de leitura da tarefa */
+.tf-ficha-hd{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
+.tf-ficha-hd h3{font-size:18px;color:var(--ink);margin:0;line-height:1.35}
+.tf-selos{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.tf-grade{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px 16px;padding:12px 14px;background:#f7f8fb;border:1px solid var(--border);border-radius:12px}
+.tf-lin span{display:block;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text3);margin-bottom:3px}
+.tf-lin div{font-size:14px;color:var(--ink)}
+.tf-bloco{margin-top:14px}
+.tf-texto{font-size:14px;line-height:1.55;color:var(--text);white-space:normal}
+.tf-ck{font-size:14px;padding:3px 0;color:var(--text)}
+.tf-ck.feito{color:var(--text3);text-decoration:line-through}
+/* fila do Início */
+.ini-fila .card-hd{display:flex;align-items:center;gap:8px}
+.ini-fila .ini-fila-min{margin-left:auto}
+.ini-fila.minimizada .card-hd{border-bottom:0}
+.ini-fila-mais{display:flex;justify-content:center;margin-top:10px}
 label.check{display:flex;align-items:center;gap:8px;font-weight:600;color:var(--text);cursor:pointer}
 .dica{font-size:12px;color:var(--text2);background:#f4f6fb;border-radius:8px;padding:9px 12px;border-left:3px solid var(--navy3)}
 .obrig{color:var(--red-d)}
@@ -441,6 +469,7 @@ tr.linha-hoje>td{background:var(--amber-lt)}
 .al-filtros button{border:1px solid var(--border-strong);background:var(--surface);border-radius:99px;padding:4px 11px;font:600 12px inherit;color:var(--text2);cursor:pointer}
 .al-filtros button.ativo{background:var(--ac-navy);border-color:var(--ac-navy);color:#fff}
 .al-feed{display:flex;flex-direction:column;gap:8px;margin-bottom:18px}
+.al-linha[hidden],.al-chip[hidden]{display:none!important}
 .al-card.al-linha{display:flex;align-items:center;gap:14px;border-left-width:5px;border-radius:14px;padding:12px 16px;animation:al-entra .35s ease-out both;animation-delay:calc(var(--k)*45ms)}
 @keyframes al-entra{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 .al-linha .al-ic{font-size:22px;width:36px;height:36px;display:grid;place-items:center;border-radius:10px;background:var(--surface2);flex-shrink:0}
@@ -465,3 +494,51 @@ tr.linha-hoje>td{background:var(--amber-lt)}
 .al-rotina .al-det{grid-area:det;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 @media (max-width:600px){.al-radar{flex-direction:column;text-align:center}.al-contas,.al-filtros{justify-content:center}.al-linha .al-ir{display:none}}
 .previa-email{width:100%;height:70vh;border:1px solid var(--border);border-radius:12px;background:#F0F2F7}
+/* Início: cartões clicáveis e "Atrasados" com selos separados */
+.kpi.kpi-clica{cursor:pointer;transition:transform .12s var(--ease),box-shadow .12s var(--ease)}
+.kpi.kpi-clica:hover{transform:translateY(-1px);box-shadow:var(--shadow-sm)}
+.kpi.kpi-clica:focus-visible{outline:none;box-shadow:var(--glow)}
+.ini-atraso-card .card-hd{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.ini-atraso-tit{display:inline-flex;align-items:center;gap:8px;font-weight:700;color:var(--ink)}
+.ini-atraso-area{font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px}
+.ini-atraso-area.area-jur{background:var(--blue-lt);color:var(--blue-d)}
+.ini-atraso-area.area-cont{background:#EDE7FB;color:#5B2E9E}
+.ini-atraso-selos{margin-left:auto;display:inline-flex;gap:6px;flex-wrap:wrap}
+/* Clientes "Por grupo": linha de título de cada grupo */
+.cli-tabela tr.cli-grp td{background:#f3f5fa;color:var(--navy);font-weight:700;font-size:13px;padding:9px 12px;border-top:1px solid var(--border)}
+.cli-tabela tr.cli-grp td .sub{font-weight:500;margin-left:6px}
+/* E-mails aos clientes: os 4 perfis explicados */
+.cem-perfis{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}
+.cem-perfil{border:1px solid var(--border);border-radius:12px;padding:10px 12px;background:#fafbfd;display:flex;flex-direction:column;gap:3px}
+.cem-perfil b{color:var(--ink);font-size:14px}
+.cem-perfil span{font-size:12.5px;color:var(--text2);line-height:1.4}
+.cem-perfil-sel{min-width:190px}
+/* Evolução (ficha do cliente) */
+.ev-frase{font-size:14.5px;line-height:1.6;color:var(--ink);background:#f7f8fb;border:1px solid var(--border);border-left:4px solid var(--navy3);border-radius:12px;padding:12px 16px;margin-bottom:14px}
+.ev-pior{color:var(--red-d);font-weight:700;white-space:nowrap}
+.ev-melhor{color:var(--green-d);font-weight:700;white-space:nowrap}
+/* Editar em tabela */
+.janela.janela-massa{max-width:min(1280px,96vw)}
+.massa-wrap{max-height:62vh;overflow:auto}
+table.massa td{padding:3px 4px}
+table.massa input,table.massa select{width:100%;min-width:84px;border:1px solid transparent;border-radius:6px;padding:6px 7px;font:inherit;font-size:13px;background:transparent;color:var(--ink)}
+table.massa input[data-k="nome"]{min-width:200px}
+table.massa input.num{text-align:right;font-variant-numeric:tabular-nums}
+table.massa input:focus,table.massa select:focus{outline:none;border-color:var(--navy3);background:#fff;box-shadow:var(--glow)}
+table.massa td.mudou{background:#FFF4D6}
+table.massa td.mudou input,table.massa td.mudou select{font-weight:700}
+/* Processos (tela nova) */
+.tres-col{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:12px}
+@media (max-width:1000px){.tres-col{grid-template-columns:1fr}}
+.pill.pill-grupo{background:#EEF2FA;color:var(--navy);border:1px solid #D5DDEE;white-space:normal;word-break:normal;overflow-wrap:normal;max-width:150px;display:inline-block;line-height:1.3;text-align:left}
+/* Conciliar extrato (OFX) */
+.janela.janela-ofx{max-width:min(1100px,96vw)}
+.ofx-it{display:grid;grid-template-columns:auto minmax(200px,1fr) auto minmax(260px,1.4fr);align-items:center;gap:10px}
+label.ofx-it{cursor:pointer}
+.item-ficha.ofx-it:not(label){grid-template-columns:minmax(200px,1fr) auto minmax(260px,1.4fr)}
+.ofx-t b{font-size:14.5px;color:var(--ink)}
+.ofx-seta{color:var(--text3);font-weight:700}
+.ofx-l{font-size:13px;color:var(--text)}
+.ofx-sel{width:100%;max-width:none}
+@media (max-width:760px){.ofx-it,.item-ficha.ofx-it:not(label){grid-template-columns:1fr}.ofx-seta{display:none}}
+@media (max-width:600px){.item-ficha{flex-wrap:wrap}.item-ficha > span:last-child{flex-wrap:wrap}}

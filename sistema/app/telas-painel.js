@@ -36,12 +36,14 @@ TELAS.inicio = async function () {
     buscarTodos(() => sb.from('lancamentos').select(sel).lte('vencimento', h).eq('pago', false).eq('perda', false).order('vencimento'))
   ]);
   const ateFim = 'de hoje até ' + dataBR(fim).slice(0, 5);
+  // cada cartão abre o relatório completo (tabela com as mesmas ações do Financeiro + CSV)
+  const clic = (emp, k, html) => html.replace('<div class="kpi ', '<div role="button" tabindex="0" title="Clique para ver a lista completa" data-ini-rel="' + emp + '|' + k + '" class="kpi kpi-clica ');
   const linha = (emp, titulo) => { const t = totais[emp] || {};
     return '<div class="kpis-titulo">' + titulo + '</div><div class="kpis">' +
-    kpi('Recebido no mês', brl(t.recebido || 0), 'verde', (t.n_recebido || 0) + ' recebimento(s)') +
-    kpi('A receber', brl(t.a_receber || 0), '', (t.n_a_receber || 0) + ' em aberto · ' + ateFim) +
-    kpi('Em atraso', brl(t.em_atraso || 0), 'vermelho', (t.n_em_atraso || 0) + ' vencido(s) · todos os meses') +
-    kpi('A pagar', brl(t.a_pagar || 0), 'ambar', (t.n_a_pagar || 0) + ' conta(s) · ' + ateFim) +
+    clic(emp, 'recebido', kpi('Recebido no mês', brl(t.recebido || 0), 'verde', (t.n_recebido || 0) + ' recebimento(s)')) +
+    clic(emp, 'a_receber', kpi('A receber', brl(t.a_receber || 0), '', (t.n_a_receber || 0) + ' em aberto · ' + ateFim)) +
+    clic(emp, 'em_atraso', kpi('Em atraso', brl(t.em_atraso || 0), 'vermelho', (t.n_em_atraso || 0) + ' vencido(s) · todos os meses')) +
+    clic(emp, 'a_pagar', kpi('A pagar', brl(t.a_pagar || 0), 'ambar', (t.n_a_pagar || 0) + ' conta(s) · ' + ateFim)) +
     '</div>'; };
   const verJur = pode('financeiro_juridico'), verCont = pode('financeiro_contab');
   const de = (emp) => atrasados.filter((l) => l.empresa === emp);
@@ -54,28 +56,64 @@ TELAS.inicio = async function () {
     '<div id="ini-aprov"></div><div id="ini-fila"></div>' +
     (verJur ? linha('escritorio', '💼 Honorários Jurídico') : '') + (verCont ? linha('contabilidade', '🧮 Contabilidade') : '') +
     (verJur || verCont ? '<div class="' + (verJur && verCont ? 'duas-col' : '') + ' ini-atraso">' +
-      (verJur ? cardAtraso('⚠ Em atraso — Jurídico', de('escritorio')) : '') +
-      (verCont ? cardAtraso('⚠ Em atraso — Contabilidade', de('contabilidade')) : '') + '</div>' : '');
+      (verJur ? cardAtraso('Atrasados', 'Jurídico', de('escritorio')) : '') +
+      (verCont ? cardAtraso('Atrasados', 'Contabilidade', de('contabilidade')) : '') + '</div>' : '');
   if (typeof cardAprovacoes === 'function') cardAprovacoes().then((x) => { const el = $('ini-aprov'); if (el) el.innerHTML = x; }).catch((e) => console.error(e));
   if (typeof cardMinhaFila === 'function') cardMinhaFila().then((c) => { const el = $('ini-fila'); if (el) { el.innerHTML = c.html; c.ligar(el); } }).catch((e) => console.error(e));
   ligarAcoesLancamentos($('conteudo'));
   ligarBotoesNovo($('conteudo'));
+  // clicar na linha do atraso = registrar o pagamento (mesma janela do botão)
+  $('conteudo').querySelectorAll('.ini-atraso tr[data-linha-pagar]').forEach((tr) => tr.onclick = (ev) => {
+    if (ev.target.closest('button,a')) return;
+    const b = tr.querySelector('[data-pagar]'); if (b) b.click();
+  });
+  $('conteudo').querySelectorAll('[data-ini-rel]').forEach((k) => {
+    k.onclick = () => { const [emp, tipo] = k.dataset.iniRel.split('|'); relatorioHonorarios(emp, tipo, ini, fim); };
+    k.onkeydown = (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); k.click(); } };
+  });
 };
 
-// Tabela inteira (sem "ver todos"): dá para dar baixa em qualquer linha ali mesmo
-function cardAtraso(titulo, lista) {
+// Relatório expandido de um cartão do Início (Recebido no mês, A receber, Em atraso, A pagar)
+async function relatorioHonorarios(emp, tipo, ini, fim) {
+  const h = hojeISO(), sel = '*, grupos(nome), clientes(nome)';
+  const base = () => sb.from('lancamentos').select(sel).eq('empresa', emp);
+  const Q = {
+    recebido: [() => base().eq('tipo', 'receita').eq('pago', true).gte('data_pagamento', ini).lte('data_pagamento', fim).order('data_pagamento'), 'Recebido no mês', 'recebidos'],
+    a_receber: [() => base().eq('tipo', 'receita').eq('pago', false).eq('perda', false).gte('vencimento', h).lte('vencimento', fim).order('vencimento'), 'A receber até ' + dataBR(fim)],
+    em_atraso: [() => base().eq('tipo', 'receita').eq('pago', false).eq('perda', false).lt('vencimento', h).order('vencimento'), 'Em atraso (todos os meses)'],
+    a_pagar: [() => base().eq('tipo', 'despesa').eq('pago', false).gte('vencimento', h).lte('vencimento', fim).order('vencimento'), 'A pagar até ' + dataBR(fim), 'despesas']
+  }[tipo];
+  const lista = await buscarTodos(Q[0]);
+  const total = soma(lista, (l) => l.redutor ? -l.valor : l.valor);
+  const nomeEmp = emp === 'contabilidade' ? 'Contabilidade' : 'Jurídico';
+  const j = abrirJanela({ titulo: Q[1] + ' — ' + nomeEmp, larga: true,
+    corpo: '<div class="kpis" style="margin-bottom:12px">' + kpi('Total', brl(total), tipo === 'em_atraso' ? 'vermelho' : tipo === 'recebido' ? 'verde' : '', lista.length + ' lançamento(s)') + '</div>' +
+      '<div class="card" style="margin:0">' + tabelaLancamentos(lista, { aba: Q[2] }) + '</div>',
+    rodape: '<button class="btn btn-o" type="button" data-rel-csv>⬇ CSV</button><span></span>' });
+  ligarAcoesLancamentos(j, async () => { fecharJanela(j); await relatorioHonorarios(emp, tipo, ini, fim); await recarregar(); });
+  j.querySelector('[data-rel-csv]').onclick = () => baixarArquivo(Q[1] + ' ' + nomeEmp + ' ' + h + '.csv',
+    '\ufeff' + [['Vencimento', 'Pago em', 'Quem', 'Descrição', 'Valor', 'Situação']].concat(lista.map((l) => [dataBR(l.vencimento), dataBR(l.data_pagamento),
+      (l.grupos && l.grupos.nome) || l.favorecido || (l.clientes && l.clientes.nome) || '', l.descricao, String(l.redutor ? -l.valor : l.valor).replace('.', ','), l.pago ? 'Pago' : 'Em aberto']))
+      .map((r) => r.map((v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(';')).join('\r\n'), 'text/csv;charset=utf-8');
+}
+
+// Tabela inteira (sem "ver todos"): dá para registrar o pagamento em qualquer linha ali mesmo
+// (clicar na linha abre a mesma janela). Selos separados: vencidos (vermelho) e vence hoje (âmbar).
+function cardAtraso(titulo, area, lista) {
   const h = hojeISO();
   const quemDe = (l) => (l.grupos && l.grupos.nome) || l.favorecido || (l.clientes && l.clientes.nome) || '';
-  const hoje = lista.filter((l) => l.vencimento === h), total = soma(lista, (l) => l.tipo === 'despesa' ? -l.valor : vl(l));
-  return '<div class="card card-lista"><div class="card-hd">' + titulo + '<span class="pill ' + (lista.length ? 'vencido' : 'neutro') + '">' + lista.length +
-      (hoje.length ? ' · ' + hoje.length + ' hoje' : '') + '</span></div>' +
+  const hoje = lista.filter((l) => l.vencimento === h), vencidos = lista.length - hoje.length, total = soma(lista, (l) => l.tipo === 'despesa' ? -l.valor : vl(l));
+  return '<div class="card card-lista ini-atraso-card"><div class="card-hd"><span class="ini-atraso-tit">' + esc(titulo) + ' <span class="ini-atraso-area area-' + (area === 'Jurídico' ? 'jur' : 'cont') + '">' + esc(area) + '</span></span>' +
+      '<span class="ini-atraso-selos">' + (vencidos ? '<span class="pill vencido">' + vencidos + ' vencido' + (vencidos > 1 ? 's' : '') + '</span>' : '') +
+      (hoje.length ? '<span class="pill hoje">' + hoje.length + ' vence' + (hoje.length > 1 ? 'm' : '') + ' hoje</span>' : '') +
+      (!lista.length ? '<span class="pill pago">em dia</span>' : '') + '</span></div>' +
     (lista.length ? '<div class="tabela-wrap"><table class="ordenavel"><thead><tr><th data-tipo="data">Vencimento</th><th>Quem</th><th class="num">Valor</th><th class="sem-ordem"></th></tr></thead><tbody>' +
-      lista.map((l) => '<tr' + (l.vencimento === h ? ' class="linha-hoje"' : '') + '><td class="mono" data-ord="' + l.vencimento + '">' +
+      lista.map((l) => '<tr class="clicavel' + (l.vencimento === h ? ' linha-hoje' : '') + '" data-linha-pagar title="Clique para registrar o pagamento"><td class="mono" data-ord="' + l.vencimento + '">' +
         (l.vencimento === h ? '<span class="pill hoje">Vence hoje</span>' : dataBR(l.vencimento) + '<div class="sub">' + diasAtraso(l.vencimento) + '</div>') + '</td>' +
         '<td><b>' + esc(quemDe(l) || l.descricao) + '</b><div class="sub">' + esc(l.descricao) + '</div></td>' +
         '<td class="num mono ' + (l.tipo === 'receita' && !l.redutor ? 'valor-rec' : 'valor-desp') + '" data-ord="' + (l.tipo === 'despesa' ? -l.valor : vl(l)) + '">' +
-          (l.tipo === 'despesa' || l.redutor ? '− ' : '') + brl(l.valor) + (l.redutor ? '<div class="sub">redutor</div>' : l.tipo === 'despesa' ? '<div class="sub">a pagar</div>' : '') + '</td>' +
-        '<td class="acoes-l"><button class="btn btn-v btn-mini" data-pagar="' + l.id + '">✓ ' + (l.tipo === 'receita' ? 'Recebido' : 'Pago') + '</button></td></tr>').join('') +
+          (l.tipo === 'despesa' || l.redutor ? '− ' : '') + brl(l.valor) + (l.redutor ? '<div class="sub">redutor</div>' : l.tipo === 'despesa' ? '<div class="sub">a pagar</div>' : '') + '</td>' +
+        '<td class="acoes-l"><button class="btn btn-v btn-mini" data-pagar="' + l.id + '">✓ Registrar pagamento</button></td></tr>').join('') +
       '</tbody><tfoot><tr><td colspan="2">Total</td><td class="num mono">' + brl(total) + '</td><td></td></tr></tfoot></table></div>'
       : vazio('Nada em atraso. 👏')) + '</div>';
 }

@@ -13,7 +13,7 @@ const GRUPOS_AUTOMACAO = [
 // prefixo gravado no registro → automação
 const PREFIXO_AUTOMACAO = { onb: 'contrato_onboarding', proc: 'processo_novo', cert: 'certidao_vencendo', doc: 'certidao_vencendo', parc: 'parcela_parcelamento',
   aco: 'parcela_acordo', cob: 'cobrar_honorario', anexo: 'contrato_anexo', procur: 'processo_procuracao', pagamento_conclui: 'pagamento_conclui', pub: 'publicacao_tarefa',
-  cliente_novo_cnpj: 'cliente_novo_cnpj', email_lp: 'email_lembrete_parcelamento', email_lh: 'email_lembrete_honorario', email_ch: 'email_cobranca_honorario', email_la: 'email_lembrete_acordo', email_pr: 'email_pagamento_recebido' };
+  cliente_novo_cnpj: 'cliente_novo_cnpj', email_lp: 'email_lembrete_parcelamento', email_lh: 'email_lembrete_honorario', email_ch: 'email_cobranca_honorario', email_la: 'email_lembrete_acordo', email_pr: 'email_pagamento_recebido', email_vh: 'email_lembrete_honorario' };
 // automações que não usam "N dias"
 const SEM_DIAS = ['pagamento_conclui', 'cliente_novo_cnpj', 'email_pagamento_recebido'];
 // automações de tarefa que não criam tarefa nova (não têm responsável)
@@ -24,7 +24,7 @@ TELAS.automacoes = async function () {
   const [regras, cont, log, ultReg, ultPub, cnpj, backup, emails] = await Promise.all([
     q(sb.from('regras_tarefas').select('*').order('nome')),
     q(sb.rpc('resumo_automacoes')).catch(() => ({})),
-    q(sb.from('automacoes_log').select('*').order('quando', { ascending: false }).limit(25)).catch(() => []),
+    q(sb.from('automacoes_log').select('*').neq('chave', '_item').order('quando', { ascending: false }).limit(25)).catch(() => []),
     q(sb.from('configuracoes').select('valor').eq('chave', 'regras_tarefas_ultima').maybeSingle()).catch(() => null),
     q(sb.from('configuracoes').select('valor').eq('chave', 'publicacoes_ultima').maybeSingle()).catch(() => null),
     q(sb.from('cnpj_execucoes').select('inicio, status, mensagem').order('inicio', { ascending: false }).limit(1)).catch(() => []),

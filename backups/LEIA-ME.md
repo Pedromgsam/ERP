@@ -19,6 +19,7 @@ versão foi ao ar**. O número cresce a cada entrega.
 | 11 | Central de automações (cadeias e e-mails ao cliente), CNPJ novo com fontes reserva, caça-bugs visual |
 | 12 | Área do cliente e acesso por área, rascunho com aprovação, data do recebimento, comprovante do acordo, êxito nos contratos, visual moderno |
 | 13 | Início e avisos novos, telas do ERP ajustadas, Alertas dinâmico, Cobranças e e-mails com a marca, recibo por extenso, demonstração, Gestão fora do site |
+| 14 | Consertos, Início (fila, ficha da tarefa, relatórios), telas antigas enxutas, Processos em tela nova, e-mails por cliente, OFX, PGFN (API SERPRO), evolução do cliente, edição em tabela, usuários novos |
 
 ## Como baixar um backup
 No GitHub, abra a pasta `backups`, clique no arquivo e depois em **Download** (ícone de seta, à direita).

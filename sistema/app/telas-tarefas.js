@@ -27,6 +27,28 @@ async function usuarioPorNome(nome) {
   const u = (await equipe()).find((x) => primeiroNome(x.nome) === n || primeiroNome(String(x.email).split('@')[0]) === n);
   return u ? u.id : null;
 }
+// Pessoas do escritório para as listas (Responsável, Revisor, Participantes): as de sempre + quem tem acesso ao sistema
+const EQUIPE_BASE = ['Pedro', 'Emanuelle', 'Adriana', 'João Vitor', 'Éder'];
+function pessoasEscritorio(incluir) {
+  const lista = EQUIPE_BASE.slice();
+  (E._equipe || []).forEach((u) => { const n = String(u.nome || '').trim(); if (n && !lista.some((b) => primeiroNome(b) === primeiroNome(n))) lista.push(n); });
+  String(incluir || '').split(',').map((x) => x.trim()).filter(Boolean).forEach((n) => { if (!lista.some((b) => primeiroNome(b) === primeiroNome(n))) lista.push(n); });
+  return lista;
+}
+function selectPessoa(nome, valor, rotVazio) {
+  const v = String(valor || '').trim(), lista = pessoasEscritorio(v);
+  const marcada = lista.find((p) => primeiroNome(p) === primeiroNome(v)) || '';
+  return '<select name="' + nome + '" class="sel-pessoa"><option value="">' + esc(rotVazio || '— ninguém —') + '</option>' +
+    lista.map((p) => '<option value="' + esc(p) + '"' + (p === marcada ? ' selected' : '') + '>' + esc(p) + '</option>').join('') + '</select>';
+}
+// participantes: marcar as pessoas (sem digitar)
+function campoParticipantes(valor) {
+  const marcados = String(valor || '').split(',').map((x) => primeiroNome(x)).filter(Boolean);
+  return '<div class="tf-part" role="group" aria-label="Participantes">' + pessoasEscritorio(valor).map((p) =>
+    '<label class="tf-part-it"><input type="checkbox" value="' + esc(p) + '"' + (marcados.includes(primeiroNome(p)) ? ' checked' : '') + '><span>' + esc(p) + '</span></label>').join('') + '</div>';
+}
+const lerParticipantes = (raiz) => [...raiz.querySelectorAll('.tf-part input:checked')].map((i) => i.value).join(', ');
+
 async function notificar(nome, titulo, detalhe, link, tipo) {
   const id = await usuarioPorNome(nome);
   if (!id || (E.perfil && id === E.perfil.id)) return;
@@ -75,16 +97,28 @@ function ordenarFila(lista) {
   return lista.slice().sort((a, b) => peso(a) - peso(b) || String(a.prazo_fatal || '9999').localeCompare(String(b.prazo_fatal || '9999'))
     || (PESO_PRI[a.prioridade] ?? 1) - (PESO_PRI[b.prioridade] ?? 1) || String(a.prazo || '9999').localeCompare(String(b.prazo || '9999')));
 }
+// Fila do Início: 8 primeiras; "Ver todas" abre o resto ali mesmo; "Minimizar" recolhe (vale enquanto a página estiver aberta)
+const FILA = { toda: false, min: false };
 async function cardMinhaFila() {
   await feriados();
+  await equipe().catch(() => []);
   const ts = await q(sb.from('tarefas').select('*').not('status', 'in', '(concluida,cancelada)')).catch(() => []);
-  const minhas = ordenarFila(ts.filter(ehMinha)).slice(0, 8);
-  const html = '<div class="card"><div class="card-hd">📋 Minha fila de trabalho <span class="sub">' + ts.filter(ehMinha).length + ' aberta(s)</span></div><div class="card-bd">' +
-    (minhas.length ? '<div class="lista-ficha">' + minhas.map((t) => '<div class="item-ficha clicavel" data-fila="' + t.id + '"><div>' + bolinha(t) + ' <b>' + esc(t.titulo) + '</b>' +
-      '<div class="sub">' + (t.prazo ? 'prazo ' + dataBR(t.prazo) : 'sem prazo') + (t.prazo_fatal ? ' · ⚑ fatal ' + dataBR(t.prazo_fatal) : '') + (t.status === 'revisao' ? ' · aguardando revisão' : '') + '</div></div>' +
-      '<span class="pill ' + (PRIORIDADE[t.prioridade] || ['', 'neutro'])[1] + '">' + esc((PRIORIDADE[t.prioridade] || [t.prioridade])[0]) + '</span></div>').join('') + '</div>'
-      : '<div class="sub">Nenhuma tarefa com você. 🎉</div>') + '</div></div>';
-  return { html, ligar: (raiz) => raiz.querySelectorAll('[data-fila]').forEach((d) => d.onclick = () => formTarefa(ts.find((t) => t.id === d.dataset.fila), () => irPara(E.tela))) };
+  const todas = ordenarFila(ts.filter(ehMinha)), minhas = FILA.toda ? todas : todas.slice(0, 8);
+  const html = '<div class="card ini-fila' + (FILA.min ? ' minimizada' : '') + '"><div class="card-hd">📋 Minha fila de trabalho <span class="sub">' + todas.length + ' aberta(s)</span>' +
+      '<button type="button" class="btn btn-o btn-mini ini-fila-min" data-fila-min aria-expanded="' + !FILA.min + '">' + (FILA.min ? '▸ Mostrar' : '▾ Minimizar') + '</button></div>' +
+    (FILA.min ? '' : '<div class="card-bd">' +
+    (minhas.length ? '<div class="lista-ficha">' + minhas.map((t) => '<div class="item-ficha clicavel" data-fila="' + t.id + '"><div>' + bolinha(t) + ' <b>' + esc(t.titulo) + '</b>' + seloPrazo(t) +
+      '<div class="sub">' + (t.prazo ? 'prazo ' + dataBR(t.prazo) : 'sem prazo') + (t.prazo_fatal ? ' · ⚑ fatal ' + dataBR(t.prazo_fatal) : '') + (t.status === 'revisao' ? ' · aguardando revisão' : '') +
+      (nomeCliente(t.cliente_id) || nomeGrupo(t.grupo_id) ? ' · ' + esc(nomeCliente(t.cliente_id) || nomeGrupo(t.grupo_id)) : '') + '</div></div>' +
+      '<span class="pill ' + (PRIORIDADE[t.prioridade] || ['', 'neutro'])[1] + '">' + esc((PRIORIDADE[t.prioridade] || [t.prioridade])[0]) + '</span></div>').join('') + '</div>' +
+      (todas.length > 8 ? '<div class="ini-fila-mais"><button type="button" class="btn btn-o btn-mini" data-fila-toda>' + (FILA.toda ? '▴ Mostrar só as 8 primeiras' : '▾ Ver todas (' + todas.length + ')') + '</button></div>' : '')
+      : '<div class="sub">Nenhuma tarefa com você. 🎉</div>') + '</div>') + '</div>';
+  const repinta = async (raiz) => { const c = await cardMinhaFila(); raiz.innerHTML = c.html; c.ligar(raiz); };
+  return { html, ligar: (raiz) => {
+    raiz.querySelectorAll('[data-fila]').forEach((d) => d.onclick = () => abrirTarefa(ts.find((t) => t.id === d.dataset.fila), () => irPara(E.tela)));
+    const bm = raiz.querySelector('[data-fila-min]'); if (bm) bm.onclick = () => { FILA.min = !FILA.min; repinta(raiz); };
+    const bt = raiz.querySelector('[data-fila-toda]'); if (bt) bt.onclick = () => { FILA.toda = !FILA.toda; repinta(raiz); };
+  } };
 }
 function diasAte(isoStr) { return Math.round((new Date(isoStr + 'T12:00:00') - new Date(hojeISO() + 'T12:00:00')) / 86400000); }
 function progresso(t, filhas) {
@@ -193,6 +227,7 @@ function ligarLinhasTarefa(raiz) {
   }); });
   raiz.querySelectorAll('[data-editar-t]').forEach((bt) => bt.onclick = (ev) => { ev.stopPropagation();
     formTarefa(E._tarefas.find((t) => t.id === bt.dataset.editarT), recarregarTarefas); });
+  raiz.querySelectorAll('[data-abrir-t]').forEach((tr) => tr.onclick = () => abrirTarefa(E._tarefas.find((t) => t.id === tr.dataset.abrirT), recarregarTarefas));
 }
 
 // ── Lista em árvore ──
@@ -205,7 +240,7 @@ function vistaLista(alvo) {
     const pr = PRIORIDADE[t.prioridade] || [t.prioridade || '—', 'neutro'];
     const filhas = filhasDe(t.id), pai = t.tarefa_pai_id && !ids.has(t.tarefa_pai_id) ? (E._tarefas.find((x) => x.id === t.tarefa_pai_id) || {}).titulo : '';
     const onde = [nomeCliente(t.cliente_id) || nomeGrupo(t.grupo_id), t.processos_vinculados].filter(Boolean).join(' · ');
-    return '<tr class="clicavel' + (tarefaFechada(t) ? ' tf-feita' : '') + '" data-editar-t="' + t.id + '"><td class="mono" data-ord="' + esc(t.prazo || '9999') + '">' + dataBR(t.prazo) + seloPrazo(t) + '</td>' +
+    return '<tr class="clicavel' + (tarefaFechada(t) ? ' tf-feita' : '') + '" data-abrir-t="' + t.id + '"><td class="mono" data-ord="' + esc(t.prazo || '9999') + '">' + dataBR(t.prazo) + seloPrazo(t) + '</td>' +
       '<td style="padding-left:' + (12 + nivel * 22) + 'px">' + bolinha(t) + ' ' + (nivel ? '<span class="sub">↳ </span>' : '') + '<b>' + esc(t.titulo) + '</b>' + seloFatal(t) +
       (t.recorrencia ? ' <span class="pill neutro" title="Repete">↻ ' + esc(t.recorrencia) + '</span>' : '') + ' ' + barraProgresso(progresso(t, filhas)) +
       '<div class="sub">' + esc([pai ? 'parte de: ' + pai : '', onde, t.etiquetas].filter(Boolean).join(' · ')) + '</div></td>' +
@@ -235,7 +270,7 @@ function vistaKanban(alvo) {
   alvo.querySelectorAll('.kb-card').forEach((c) => {
     c.addEventListener('dragstart', (ev) => { arrastando = c.dataset.id; ev.dataTransfer.setData('text/plain', c.dataset.id); c.classList.add('arrastando'); });
     c.addEventListener('dragend', () => c.classList.remove('arrastando'));
-    c.onclick = () => formTarefa(E._tarefas.find((t) => t.id === c.dataset.id), recarregarTarefas);
+    c.onclick = () => abrirTarefa(E._tarefas.find((t) => t.id === c.dataset.id), recarregarTarefas);
   });
   alvo.querySelectorAll('.kb-col').forEach((col) => {
     col.addEventListener('dragover', (ev) => { ev.preventDefault(); col.classList.add('sobre'); });
@@ -362,6 +397,77 @@ async function validarDependencia(t, novoStatus) {
   const dep = await q(sb.from('tarefas').select('titulo, status').eq('id', t.depende_de).maybeSingle());
   if (dep && !tarefaFechada(dep)) throw new Error('Esta tarefa depende de "' + dep.titulo + '", que ainda não foi concluída.');
 }
+// Abrir tarefa = ficha de leitura (o que é, prazos, quem, origem). As ações ficam no rodapé:
+// Concluir · Encaminhar · + Subtarefa · Editar (o formulário completo).
+const ORIGEM_REGRA = { onb: 'Automação: contrato novo (onboarding)', proc: 'Automação: processo novo', cert: 'Automação: certidão vencendo', doc: 'Automação: documento vencendo',
+  parc: 'Automação: parcela de parcelamento', aco: 'Automação: parcela de acordo', cob: 'Automação: cobrança de honorário', anexo: 'Automação: contrato sem anexo',
+  procur: 'Automação: processo sem procuração', pub: 'Automação: publicação', esc: 'Automação: escalada de atraso' };
+async function abrirTarefa(t, depois) {
+  if (!t) return;
+  if (typeof t === 'string') t = (await q(sb.from('tarefas').select('*').eq('id', t)))[0];
+  if (!t) return aviso('Tarefa não encontrada (pode ter sido excluída).', true);
+  await equipe().catch(() => []);
+  const [subs] = await Promise.all([q(sb.from('tarefas').select('*').eq('tarefa_pai_id', t.id).order('prazo', { nullsFirst: false })).catch(() => [])]);
+  const pr = PRIORIDADE[t.prioridade] || [t.prioridade || '—', 'neutro'];
+  const ck = Array.isArray(t.checklist) ? t.checklist : [];
+  const origem = t.chave_regra ? (ORIGEM_REGRA[String(t.chave_regra).split(':')[0]] || 'Automação') : t.fluxo_id ? 'Fluxo de trabalho' : 'Criada à mão';
+  const linha = (rot, val) => val ? '<div class="tf-lin"><span>' + rot + '</span><div>' + val + '</div></div>' : '';
+  const fechada = tarefaFechada(t);
+  const j = abrirJanela({ titulo: 'Tarefa', larga: true,
+    corpo: '<div class="tf-ficha">' +
+      '<div class="tf-ficha-hd"><h3>' + bolinha(t) + ' ' + esc(t.titulo) + '</h3><div class="tf-selos"><span class="pill ' + (fechada ? 'pago' : t.status === 'revisao' ? 'hoje' : 'neutro') + '">' +
+        esc(STATUS_TAREFA[t.status] || t.status) + '</span> <span class="pill ' + pr[1] + '">' + esc(pr[0]) + '</span>' + seloPrazo(t) + seloFatal(t) + '</div></div>' +
+      '<div class="tf-grade">' +
+        linha('Prazo', t.prazo ? dataBR(t.prazo) : '<span class="sub">sem prazo</span>') +
+        linha('Prazo fatal', t.prazo_fatal ? '<b>' + dataBR(t.prazo_fatal) + '</b>' : '') +
+        linha('Cliente', esc(nomeCliente(t.cliente_id) || nomeGrupo(t.grupo_id) || '')) +
+        linha('Responsável', pillPessoa(t.responsavel)) +
+        linha('Participantes', String(t.participantes || '').split(',').map((x) => x.trim()).filter(Boolean).map(pillPessoa).join(' ')) +
+        linha('Revisor', t.exige_revisao || t.revisor ? pillPessoa(t.revisor) : '') +
+        linha('Processos', esc(t.processos_vinculados || '')) +
+        linha('Origem', esc(origem)) +
+        linha('Repete', t.recorrencia ? esc(t.recorrencia) : '') +
+      '</div>' +
+      (t.descricao ? '<div class="tf-bloco"><div class="secao">O que fazer</div><div class="tf-texto">' + esc(t.descricao).replace(/\n/g, '<br>') + '</div></div>' : '') +
+      (t.obs ? '<div class="tf-bloco"><div class="secao">Observação</div><div class="tf-texto">' + esc(t.obs).replace(/\n/g, '<br>') + '</div></div>' : '') +
+      (ck.length ? '<div class="tf-bloco"><div class="secao">Checklist · ' + ck.filter((c) => c.feito).length + '/' + ck.length + '</div>' +
+        ck.map((c) => '<div class="tf-ck' + (c.feito ? ' feito' : '') + '">' + (c.feito ? '☑' : '☐') + ' ' + esc(c.texto) + '</div>').join('') + '</div>' : '') +
+      (subs.length ? '<div class="tf-bloco"><div class="secao">Subtarefas</div><div class="lista-ficha">' + subs.map((x) => '<div class="item-ficha clicavel' + (tarefaFechada(x) ? ' feita' : '') + '" data-ficha-sub="' + x.id + '"><div><b>' + esc(x.titulo) + '</b> ' + seloPrazo(x) +
+        '<div class="sub">' + (x.prazo ? 'até ' + dataBR(x.prazo) : 'sem prazo') + ' · ' + esc(x.responsavel || '—') + ' · ' + esc(STATUS_TAREFA[x.status]) + '</div></div></div>').join('') + '</div></div>' : '') +
+      '</div>',
+    rodape: '<button class="btn btn-o" type="button" id="tf-f-editar">✎ Editar</button><div class="acoes">' +
+      (fechada ? '' : '<button class="btn btn-o" type="button" id="tf-f-sub">+ Subtarefa</button><button class="btn btn-o" type="button" id="tf-f-enc">↪ Encaminhar</button>' +
+        '<button class="btn btn-v" type="button" id="tf-f-ok">✓ Concluir</button>') + '</div>' });
+  const depois2 = async () => { await (depois || recarregar)(); };
+  j.querySelector('#tf-f-editar').onclick = () => { fecharJanela(j); formTarefa(t, depois); };
+  j.querySelectorAll('[data-ficha-sub]').forEach((d) => d.onclick = () => { fecharJanela(j); abrirTarefa(subs.find((x) => x.id === d.dataset.fichaSub), depois); });
+  const bs = j.querySelector('#tf-f-sub');
+  if (bs) bs.onclick = () => { fecharJanela(j); formTarefa({ tarefa_pai_id: t.id, fluxo_id: t.fluxo_id, cliente_id: t.cliente_id, grupo_id: t.grupo_id, responsavel: t.responsavel, prazo: t.prazo }, depois); };
+  const bo = j.querySelector('#tf-f-ok');
+  if (bo) bo.onclick = () => comBotao(bo, async () => {
+    if (ck.some((c) => !c.feito)) { fecharJanela(j); formTarefa(t, depois); return aviso('Marque os itens do checklist para concluir.', true); }
+    if (t.exige_revisao && t.status !== 'revisao') { await q(sb.from('tarefas').update({ status: 'revisao' }).eq('id', t.id)); aviso('✓ Enviada para revisão de ' + (t.revisor || 'quem revisa') + '.'); }
+    else { await validarDependencia(t, 'concluida'); await concluirTarefa(t.id); aviso('✓ Tarefa concluída.'); }
+    fecharJanela(j); await depois2();
+  });
+  const be = j.querySelector('#tf-f-enc');
+  if (be) be.onclick = () => {
+    const k = abrirJanela({ titulo: 'Encaminhar tarefa', corpo: '<div class="grade">' + campo('Para quem', selectPessoa('para', '', '— escolha —'), 'inteiro') +
+        campo('Recado (opcional, vai como comentário)', '<textarea name="recado" maxlength="1000" placeholder="Ex.: falta só protocolar"></textarea>', 'inteiro') + '</div>',
+      rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Voltar</button><button class="btn btn-p" type="button" id="tf-enc-ok">Encaminhar</button></div>' });
+    k.querySelector('[data-cancelar]').onclick = () => fecharJanela(k);
+    k.querySelector('#tf-enc-ok').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+      const para = k.querySelector('[name=para]').value, recado = k.querySelector('[name=recado]').value.trim();
+      if (!para) throw new Error('Escolha para quem encaminhar.');
+      await q(sb.from('tarefas').update({ responsavel: para }).eq('id', t.id));
+      if (recado) await sb.from('comentarios').insert({ tarefa_id: t.id, texto: '↪ Encaminhada para ' + para + ': ' + recado }).then(() => {}, () => {});
+      await notificar(para, 'Tarefa encaminhada para você: ' + t.titulo, recado || (t.prazo ? 'Prazo ' + dataBR(t.prazo) : ''), 'tarefas').catch(() => {});
+      aviso('✓ Tarefa encaminhada para ' + para + '.'); fecharJanela(k); fecharJanela(j); await depois2();
+    });
+  };
+  return j;
+}
+
 function formTarefa(t, depois) {
   t = t || {};
   const novo = !t.id;
@@ -372,8 +478,8 @@ function formTarefa(t, depois) {
       campo('Tarefa <span class="obrig">*</span>', '<input name="titulo" maxlength="300" value="' + esc(t.titulo || '') + '">', 'inteiro') +
       campo('Cliente', '<select name="cliente_id">' + opcoesClientes(t.cliente_id || '') + '</select>') +
       campo('Grupo', '<input name="grupo" list="tf-grupos" value="' + esc(nomeGrupo(t.grupo_id)) + '">' + datalistGrupos('tf-grupos')) +
-      campo('Pessoa responsável', '<input name="responsavel" list="tf-pessoas" value="' + esc(t.responsavel || '') + '">' + datalistPessoas('tf-pessoas')) +
-      campo('Participantes (separe por vírgula)', '<input name="participantes" value="' + esc(t.participantes || '') + '" placeholder="Ex.: Emanuelle, Adriana">') +
+      campo('Pessoa responsável', selectPessoa('responsavel', t.responsavel, '— escolha —')) +
+      '<div class="campo inteiro"><span>Participantes</span>' + campoParticipantes(t.participantes) + '</div>' +
       campo('Prazo interno', '<input name="prazo" type="date" value="' + esc(t.prazo || '') + '">') +
       campo('Prazo fatal (legal / judicial)', '<input name="prazo_fatal" type="date" value="' + esc(t.prazo_fatal || '') + '">') +
       campo('Início', '<input name="inicio" type="date" value="' + esc(t.inicio || (novo ? hojeISO() : '')) + '">') +
@@ -384,7 +490,7 @@ function formTarefa(t, depois) {
       campo('Etiquetas', '<input name="etiquetas" value="' + esc(t.etiquetas || '') + '" placeholder="Ex.: urgente, PGFN">') +
       '<label class="check"><input type="checkbox" name="exige_anexo"' + (t.exige_anexo ? ' checked' : '') + '> Exige documento anexado para concluir (ex.: protocolo)</label>' +
       '<label class="check"><input type="checkbox" name="exige_revisao"' + (t.exige_revisao ? ' checked' : '') + '> Exige revisão antes de concluir</label>' +
-      campo('Revisor', '<input name="revisor" list="tf-pessoas-rev" value="' + esc(t.revisor || '') + '" placeholder="quem revisa">' + datalistPessoas('tf-pessoas-rev')) +
+      campo('Revisor (quem revisa)', selectPessoa('revisor', t.revisor, '— sem revisor —')) +
       '<div id="tf-carga" class="sub" style="align-self:end"></div>' +
       campo('Só começa depois de', '<select name="depende_de"><option value="">— nenhuma —</option>' + outras.map((x) => '<option value="' + x.id + '"' + (x.id === t.depende_de ? ' selected' : '') + '>' + esc(x.titulo) + '</option>').join('') + '</select>', 'inteiro') +
       campo('Processos vinculados', '<input name="processos_vinculados" value="' + esc(t.processos_vinculados || '') + '">', 'inteiro') +
@@ -430,7 +536,7 @@ function formTarefa(t, depois) {
     if (Number.isNaN(est)) throw new Error('Estimativa de horas inválida.');
     if (f.prazo.value && f.prazo_fatal.value && f.prazo.value > f.prazo_fatal.value) throw new Error('O prazo interno está depois do prazo fatal.');
     const dados = { titulo: f.titulo.value.trim(), cliente_id: f.cliente_id.value || null, grupo_id: await grupoPorNome(f.grupo.value), responsavel: f.responsavel.value.trim(),
-      participantes: f.participantes.value.trim(), prazo: f.prazo.value || null, prazo_fatal: f.prazo_fatal.value || null, inicio: f.inicio.value || null,
+      participantes: lerParticipantes(j), prazo: f.prazo.value || null, prazo_fatal: f.prazo_fatal.value || null, inicio: f.inicio.value || null,
       prioridade: f.prioridade.value, status: f.status.value, recorrencia: f.recorrencia.value, estimativa_horas: est, etiquetas: f.etiquetas.value.trim(),
       depende_de: f.depende_de.value || null, exige_anexo: f.exige_anexo.checked, exige_revisao: f.exige_revisao.checked, revisor: f.revisor.value.trim(),
       processos_vinculados: f.processos_vinculados.value.trim(), descricao: f.descricao.value.trim(), obs: f.obs.value.trim(), checklist };
@@ -471,7 +577,7 @@ async function pintarSubtarefas(j, t, depois) {
     '<button type="button" class="btn btn-o btn-mini" id="tf-sub-nova" style="margin-top:6px">+ Subtarefa</button>';
   const repinta = async () => { await pintarSubtarefas(j, t, depois); if (E._tarefas) E._tarefas = await buscarTodos(() => sb.from('tarefas').select('*').order('prazo', { nullsFirst: false })); };
   alvo.querySelector('#tf-sub-nova').onclick = () => formTarefa({ tarefa_pai_id: t.id, fluxo_id: t.fluxo_id, cliente_id: t.cliente_id, grupo_id: t.grupo_id, responsavel: t.responsavel, prazo: t.prazo }, repinta);
-  alvo.querySelectorAll('[data-sub-ed]').forEach((b) => b.onclick = () => formTarefa(subs.find((s) => s.id === b.dataset.subEd), repinta));
+  alvo.querySelectorAll('[data-sub-ed]').forEach((b) => b.onclick = () => abrirTarefa(subs.find((s) => s.id === b.dataset.subEd), repinta));
   alvo.querySelectorAll('[data-sub-ok]').forEach((b) => b.onclick = () => comBotao(b, async () => { await concluirTarefa(b.dataset.subOk); aviso('✓ Subtarefa concluída.'); await repinta(); }));
 }
 async function pintarComentarios(j, t) {
@@ -522,7 +628,7 @@ async function formNovoFluxo(depois) {
       campo('Modelo <span class="obrig">*</span>', '<select name="modelo">' + modelos.map((m) => '<option value="' + m.id + '">' + esc(m.nome) + '</option>').join('') + '</select>', 'inteiro') +
       campo('Nome do fluxo', '<input name="nome" placeholder="Ex.: Defesa — Execução 5001234-56">', 'inteiro') +
       campo('Cliente', '<select name="cliente_id">' + opcoesClientes('') + '</select>') +
-      campo('Pessoa responsável', '<input name="responsavel" list="fl-pessoas">' + datalistPessoas('fl-pessoas')) +
+      campo('Pessoa responsável', selectPessoa('responsavel', '', '— escolha —')) +
       campo('Prazo fatal <span class="obrig">*</span>', '<input name="prazo_fatal" type="date">') +
       campo('Processo', '<input name="processo" placeholder="Número do processo (opcional)">') +
       '<div class="inteiro dica">Os prazos de cada etapa são contados em <b>dias úteis antes do prazo fatal</b>, pulando fins de semana e feriados cadastrados.</div>' +
@@ -728,7 +834,7 @@ async function abrirAlertas(ancora, aoMudar) {
     j.querySelectorAll('[data-al-abrir]').forEach((b) => b.onclick = () => comBotao(b, async () => {
       const a = todos[+b.dataset.alAbrir];
       if (!a.lido) { await marcarAvisosLidos([a]); a.lido = true; if (aoMudar) aoMudar(); }
-      if (a.tarefa) { const t = await q(sb.from('tarefas').select('*').eq('id', a.tarefa).single()); formTarefa(t, async () => { if (aoMudar) aoMudar(); }); }
+      if (a.tarefa) await abrirTarefa(a.tarefa, async () => { if (aoMudar) aoMudar(); });
       else if (a.cliente) abrirFicha(a.cliente, 'documentos');
       else { fecharJanela(j); irParaTela(a.tela || a.link); }
     }));
