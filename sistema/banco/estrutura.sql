@@ -2477,7 +2477,7 @@ create trigger publicacao_tarefa after update of processo_id on public.publicaco
 create or replace function public.resumo_automacoes() returns jsonb
 language sql stable security definer set search_path = public as $$
   select coalesce(jsonb_object_agg(chave, n), '{}') from (
-    select chave, count(*) n from public.automacoes_log where quando > now() - interval '30 days' group by chave) x
+    select chave, count(*) n from public.automacoes_log where quando > now() - interval '30 days' and chave <> '_item' group by chave) x
   where public.eh_equipe();
 $$;
 revoke all on function public.resumo_automacoes() from public, anon;
@@ -2872,6 +2872,9 @@ begin
   select coalesce(array_agg(id), '{}') into gs from public.grupos where nome like 'DEMO · %';
   select coalesce(array_agg(id), '{}') into cs from public.clientes where grupo_id = any(gs) or chave_importacao like 'demo:%';
   delete from public.rascunhos where resumo like '%(demonstração)%';
+  -- e-mails e registros de automação dos exemplos (example.com nunca recebe nada)
+  delete from public.automacoes_log where cliente_id = any(cs) or descricao like '%example.com%';
+  delete from public.email_fila where para like '%example.com';
   delete from public.crm_oportunidades where cliente_id = any(cs) or prospecto_empresa like 'DEMO · %';
   delete from public.tarefas where cliente_id = any(cs) or grupo_id = any(gs) or chave_importacao like 'demo:%';
   delete from public.documentos where cliente_id = any(cs) or grupo_id = any(gs);
@@ -3020,15 +3023,18 @@ language sql stable security definer set search_path = public as $$
   -- 3) finalidade certa  4) contato "geral"  5) e-mail do cadastro  6/7) o mesmo no grupo, quando não há cliente
   select x.email, x.nome from (
     select c.email, nullif(split_part(btrim(c.nome), ' ', 1), '') nome,
-           case when c.finalidade = p_finalidade and marca then 1 when marca then 2 when c.finalidade = p_finalidade then 3 else 4 end ord
+           case when f.certa and marca then 1 when marca then 2 when f.certa then 3 else 4 end ord
       from public.contatos c
-      cross join lateral (select case when p_finalidade in ('financeiro','cobranca') then c.recebe_boletos else c.recebe_notificacoes end marca) m
-     where c.cliente_id = p_cliente and c.email <> '' and (c.finalidade in (p_finalidade, 'geral') or m.marca)
+      cross join lateral (select case when p_finalidade in ('financeiro','cobranca') then c.recebe_boletos else c.recebe_notificacoes end marca,
+                                 -- "cobrança" e "financeiro" valem como a mesma finalidade
+                                 (c.finalidade = p_finalidade or (p_finalidade in ('financeiro','cobranca') and c.finalidade in ('financeiro','cobranca'))) certa) f
+     where c.cliente_id = p_cliente and c.email <> '' and (f.certa or c.finalidade = 'geral' or f.marca)
     union all
     select cl.email, null, 5 from public.clientes cl where cl.id = p_cliente and cl.email <> ''
     union all
     select c.email, nullif(split_part(btrim(c.nome), ' ', 1), ''), 6 from public.contatos c join public.clientes cl on cl.id = c.cliente_id
-     where p_cliente is null and cl.grupo_id = p_grupo and c.email <> '' and (c.finalidade = p_finalidade or c.recebe_boletos)
+     where p_cliente is null and cl.grupo_id = p_grupo and c.email <> '' and (c.finalidade = p_finalidade or c.recebe_boletos
+           or (p_finalidade in ('financeiro','cobranca') and c.finalidade in ('financeiro','cobranca')))
     union all
     select cl.email, null, 7 from public.clientes cl where p_cliente is null and cl.grupo_id = p_grupo and cl.email <> '' and cl.tipo <> 'Inativo'
   ) x order by x.ord limit 1;
@@ -3121,24 +3127,44 @@ create or replace function public.rodar_emails_cliente() returns int
 language plpgsql security definer set search_path = public as $$
 declare rg record; x record; n int := 0;
 begin
-  -- honorários: um e-mail por cliente com TODOS os que vencem no dia do lembrete
+  -- honorários: um e-mail por cliente com TODOS os que vencem até N dias (faixa: a rotina só roda em dia útil,
+  -- então o vencimento de sábado/domingo entra no lembrete de sexta). Cada lançamento só é lembrado uma vez.
   select * into rg from public.regras_tarefas where chave = 'email_lembrete_honorario' and ligada;
   if found then
     for x in select l.cliente_id, l.grupo_id, min(l.vencimento) venc, string_agg(l.id::text, ',' order by l.id) ids,
-                    jsonb_agg(jsonb_build_object('descricao', l.descricao || coalesce(' (' || nullif(l.referencia, '') || ')', ''), 'vencimento', l.vencimento, 'valor', case when l.redutor then -l.valor else l.valor end)) itens
-               from public.lancamentos l where l.tipo = 'receita' and not l.pago and not coalesce(l.perda, false) and l.vencimento = current_date + rg.dias
+                    jsonb_agg(jsonb_build_object('descricao', l.descricao || coalesce(' (' || nullif(l.referencia, '') || ')', ''), 'vencimento', l.vencimento, 'valor', l.valor) order by l.vencimento) itens
+               from public.lancamentos l where l.tipo = 'receita' and not l.redutor and not l.pago and not coalesce(l.perda, false)
+                and l.vencimento > current_date and l.vencimento <= current_date + rg.dias
+                and not exists (select 1 from public.automacoes_log g where g.ref = 'email_lhi:' || l.id)
               group by l.cliente_id, l.grupo_id loop
       if public.email_cliente_enviar('email_lh', 'email_lh:' || md5(x.ids), x.cliente_id, x.grupo_id, 'financeiro',
            'Lembrete de honorários — vencimento em ' || to_char(x.venc, 'DD/MM/YYYY'),
-           '<p style="margin:0">Passando para lembrar dos honorários abaixo, com vencimento em <b>' || to_char(x.venc, 'DD/MM/YYYY') || '</b>.</p>', x.itens, true) then n := n + 1; end if;
+           '<p style="margin:0">Passando para lembrar dos honorários abaixo, com vencimento a partir de <b>' || to_char(x.venc, 'DD/MM/YYYY') || '</b>.</p>', x.itens, true) then n := n + 1; end if;
+      -- marca cada lançamento como lembrado (mesmo quando o perfil do cliente pulou o envio)
+      insert into public.automacoes_log (chave, ref, descricao, cliente_id)
+        select '_item', 'email_lhi:' || v, 'lembrete (item)', x.cliente_id from unnest(string_to_array(x.ids, ',')) v;
     end loop;
   end if;
+  -- "vence hoje": só para clientes com o perfil "Só no vencimento" (ou personalizado com esse tipo)
+  for x in select l.cliente_id, l.grupo_id, string_agg(l.id::text, ',' order by l.id) ids,
+                  jsonb_agg(jsonb_build_object('descricao', l.descricao || coalesce(' (' || nullif(l.referencia, '') || ')', ''), 'vencimento', l.vencimento, 'valor', l.valor)) itens
+             from public.lancamentos l where l.tipo = 'receita' and not l.redutor and not l.pago and not coalesce(l.perda, false)
+              and l.vencimento between current_date - 2 and current_date   -- segunda-feira alcança o fim de semana
+              and not exists (select 1 from public.automacoes_log g where g.ref = 'email_vhi:' || l.id)
+              and public.pode_email(l.cliente_id, l.grupo_id, 'vencimento') and public.perfil_email_de(l.cliente_id, l.grupo_id) <> 'padrao'
+            group by l.cliente_id, l.grupo_id loop
+    if public.email_cliente_enviar('email_vh', 'email_vh:' || md5(x.ids), x.cliente_id, x.grupo_id, 'financeiro',
+         'Honorários com vencimento hoje',
+         '<p style="margin:0">Os honorários abaixo vencem hoje.</p>', x.itens, true) then n := n + 1; end if;
+    insert into public.automacoes_log (chave, ref, descricao, cliente_id)
+      select '_item', 'email_vhi:' || v, 'vencimento (item)', x.cliente_id from unnest(string_to_array(x.ids, ',')) v;
+  end loop;
   -- cobrança: todos os honorários em aberto do cliente, uma vez por lançamento que completou N dias de atraso
   select * into rg from public.regras_tarefas where chave = 'email_cobranca_honorario' and ligada;
   if found then
     for x in select l.id, l.cliente_id, l.grupo_id, l.vencimento,
-                    (select jsonb_agg(jsonb_build_object('descricao', o.descricao || coalesce(' (' || nullif(o.referencia, '') || ')', ''), 'vencimento', o.vencimento, 'valor', case when o.redutor then -o.valor else o.valor end) order by o.vencimento)
-                       from public.lancamentos o where o.tipo = 'receita' and not o.pago and not coalesce(o.perda, false) and o.vencimento < current_date
+                    (select jsonb_agg(jsonb_build_object('descricao', o.descricao || coalesce(' (' || nullif(o.referencia, '') || ')', ''), 'vencimento', o.vencimento, 'valor', o.valor) order by o.vencimento)
+                       from public.lancamentos o where o.tipo = 'receita' and not o.redutor and not o.pago and not coalesce(o.perda, false) and o.vencimento < current_date
                         and ((l.cliente_id is not null and o.cliente_id = l.cliente_id) or (l.cliente_id is null and o.grupo_id = l.grupo_id))) itens
                from public.lancamentos l where l.tipo = 'receita' and not l.redutor and not l.pago and not coalesce(l.perda, false) and l.vencimento = current_date - rg.dias loop
       if public.email_cliente_enviar('email_ch', 'email_ch:' || x.id, x.cliente_id, x.grupo_id, 'financeiro',
@@ -3169,7 +3195,7 @@ begin
                     (select cl.id from public.clientes cl where (soDig.d <> '' and regexp_replace(cl.cpf_cnpj, '\D', '', 'g') = soDig.d) or cl.nome = p.empresa limit 1) cli
                from public.parcelas pa join public.parcelamentos p on p.id = pa.parcelamento_id
                cross join lateral (select regexp_replace(coalesce(p.cnpj, ''), '\D', '', 'g') d) soDig
-              where not pa.pago and pa.vencimento = current_date + rg.dias loop
+              where not pa.pago and pa.vencimento between current_date and current_date + rg.dias loop
       if public.email_cliente_enviar('email_lp', 'email_lp:' || x.id, x.cli, x.grupo_id, 'financeiro',
            'Lembrete: parcela do parcelamento vence em ' || to_char(x.vencimento, 'DD/MM/YYYY'),
            '<p style="margin:0">A parcela <b>' || coalesce(x.numero, '') || coalesce('/' || x.total_parcelas, '') || '</b> do parcelamento <b>' || public.esc_html(coalesce(x.natureza, '')) ||
@@ -3239,3 +3265,319 @@ begin
 end $$;
 revoke all on function public.previa_email_cliente(text) from public, anon;
 grant execute on function public.previa_email_cliente(text) to authenticated;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- v20 (Backup 14) — perfil de e-mail por cliente, usuários previstos, histórico mensal,
+-- extrato OFX, PGFN (API SERPRO), processos com data da mudança de situação
+-- ═══════════════════════════════════════════════════════════════════
+
+-- ─────────── e-mails ao cliente: perfil por cliente ───────────
+-- padrao: lembrete antes + cobrança depois do atraso + recibo · nunca: nada financeiro (clientes importantes)
+-- vencimento: só "vence hoje" + recibo · personalizado: caixinhas por tipo (emails_tipos)
+-- parcelamento e acordo (guias e parcelas do próprio cliente) não são cobrança do escritório: seguem ligados, salvo no personalizado
+alter table public.clientes add column if not exists perfil_email text not null default 'padrao';
+alter table public.clientes add column if not exists emails_tipos jsonb not null default '{}';
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'clientes_perfil_email_ck') then
+    alter table public.clientes add constraint clientes_perfil_email_ck check (perfil_email in ('padrao','nunca','vencimento','personalizado'));
+  end if;
+end $$;
+
+create or replace function public.perfil_email_de(p_cliente uuid, p_grupo uuid) returns text
+language sql stable security definer set search_path = public as $$
+  select coalesce((select perfil_email from public.clientes where id = p_cliente),
+                  -- sem cliente (lançamento só do grupo): vale o perfil mais restritivo do grupo
+                  (select perfil_email from public.clientes where grupo_id = p_grupo and perfil_email <> 'padrao'
+                    order by case perfil_email when 'nunca' then 1 when 'vencimento' then 2 else 3 end limit 1), 'padrao');
+$$;
+revoke all on function public.perfil_email_de(uuid, uuid) from public, anon, authenticated;
+
+create or replace function public.pode_email(p_cliente uuid, p_grupo uuid, p_tipo text) returns boolean
+language plpgsql stable security definer set search_path = public as $$
+declare pf text := public.perfil_email_de(p_cliente, p_grupo); t jsonb;
+begin
+  if pf = 'nunca' then return p_tipo not in ('lembrete','vencimento','cobranca','recibo'); end if;
+  if pf = 'vencimento' then return p_tipo not in ('lembrete','cobranca'); end if;
+  if pf = 'personalizado' then
+    select emails_tipos into t from public.clientes where id = p_cliente;
+    if t is null then
+      select emails_tipos into t from public.clientes where grupo_id = p_grupo and perfil_email = 'personalizado' limit 1;
+    end if;
+    return coalesce((t->>p_tipo)::boolean, p_tipo <> 'vencimento');
+  end if;
+  return p_tipo <> 'vencimento';
+end $$;
+revoke all on function public.pode_email(uuid, uuid, text) from public, anon, authenticated;
+
+-- envio (redefinido): respeita o perfil do cliente e nunca manda para example.com (demonstração)
+create or replace function public.email_cliente_enviar(p_regra text, p_ref text, p_cliente uuid, p_grupo uuid, p_finalidade text,
+  p_assunto text, p_texto text, p_itens jsonb default '[]', p_pagar boolean default false) returns boolean
+language plpgsql security definer set search_path = public as $$
+declare c record; tipo text;
+begin
+  if exists (select 1 from public.automacoes_log where ref = p_ref) then return false; end if;
+  tipo := case p_regra when 'email_lh' then 'lembrete' when 'email_vh' then 'vencimento' when 'email_ch' then 'cobranca'
+                       when 'email_pr' then 'recibo' when 'email_lp' then 'parcelamento' when 'email_la' then 'acordo' end;
+  if tipo is not null and not public.pode_email(p_cliente, p_grupo, tipo) then
+    insert into public.automacoes_log (chave, ref, descricao, cliente_id)
+    values (p_regra, p_ref, 'Não enviado (perfil de e-mail do cliente): ' || p_assunto, p_cliente);
+    return false;
+  end if;
+  select * into c from public.contato_do_cliente(p_cliente, p_grupo, p_finalidade);
+  if c.email is null or c.email = '' then return false; end if;
+  if c.email ~* '(@|\.)example\.com$' then
+    insert into public.automacoes_log (chave, ref, descricao, cliente_id) values (p_regra, p_ref, 'Demonstração (não enviado): ' || p_assunto, p_cliente);
+    return false;
+  end if;
+  insert into public.email_fila (usuario_id, para, assunto, html, tipo, referencia)
+  values (null, c.email, p_assunto, public.email_cliente_html(p_assunto, c.nome, p_texto, p_itens, p_pagar), 'cliente', p_ref);
+  insert into public.automacoes_log (chave, ref, descricao, cliente_id) values (p_regra, p_ref, p_assunto || ' → ' || c.email, p_cliente);
+  return true;
+end $$;
+revoke all on function public.email_cliente_enviar(text, text, uuid, uuid, text, text, text, jsonb, boolean) from public, anon, authenticated;
+
+-- tela "E-mails aos clientes": perfil em lote (quem edita Clientes)
+create or replace function public.salvar_perfil_email(p_ids uuid[], p_perfil text, p_tipos jsonb default null) returns int
+language plpgsql security definer set search_path = public as $$
+declare n int;
+begin
+  if not public.pode('clientes', 'editar') then raise exception 'permission denied: só quem edita Clientes muda o perfil de e-mail.'; end if;
+  if p_perfil not in ('padrao','nunca','vencimento','personalizado') then raise exception 'Perfil inválido.'; end if;
+  update public.clientes set perfil_email = p_perfil, emails_tipos = coalesce(p_tipos, emails_tipos)
+   where id = any(p_ids) and public.ve_cliente(id);
+  get diagnostics n = row_count;
+  return n;
+end $$;
+revoke all on function public.salvar_perfil_email(uuid[], text, jsonb) from public, anon;
+grant execute on function public.salvar_perfil_email(uuid[], text, jsonb) to authenticated;
+
+-- último e-mail enviado a cada cliente (para a tabela da tela)
+create or replace function public.ultimos_emails_clientes() returns table (cliente_id uuid, quando timestamptz, descricao text)
+language sql stable security definer set search_path = public as $$
+  select distinct on (l.cliente_id) l.cliente_id, l.quando, l.descricao
+    from public.automacoes_log l
+   where l.cliente_id is not null and l.chave like 'email%' and public.eh_equipe() and public.ve_cliente(l.cliente_id)
+   order by l.cliente_id, l.quando desc;
+$$;
+revoke all on function public.ultimos_emails_clientes() from public, anon;
+grant execute on function public.ultimos_emails_clientes() to authenticated;
+
+-- ─────────── usuários previstos: quem o escritório já decidiu cadastrar ───────────
+-- Ao criar a conta com esse e-mail (Administração → Usuários), a pessoa já nasce com o acesso certo.
+create table if not exists public.usuarios_previstos (
+  email   text primary key,
+  nome    text not null default '',
+  papel   text not null default 'equipe' check (papel in ('admin','equipe')),
+  funcoes jsonb not null default '{}',
+  areas   text not null default 'ambos',
+  modelo  text not null default '',
+  criado_em timestamptz not null default now()
+);
+alter table public.usuarios_previstos enable row level security;
+revoke all on public.usuarios_previstos from anon;
+grant select, delete on public.usuarios_previstos to authenticated;
+drop policy if exists usuarios_previstos_admin on public.usuarios_previstos;
+create policy usuarios_previstos_admin on public.usuarios_previstos for all to authenticated using (public.eh_admin()) with check (public.eh_admin());
+insert into public.usuarios_previstos (email, nome, papel, funcoes, areas, modelo) values
+  ('emanuellearaujoadvocacia@gmail.com', 'Emanuelle', 'admin', '{}', 'ambos', 'Administrador'),
+  ('adriana_f_araujo@hotmail.com', 'Adriana', 'admin', '{}', 'ambos', 'Administrador'),
+  ('joaovitordeoliveiramarques2007@gmail.com', 'João Vitor', 'equipe',
+   '{"juridico":"propor","clientes":"propor","financeiro_contab":"propor","tarefas":"ver","documentos":"ver","contratos":"ver"}', 'ambos', 'Estagiário (rascunho)'),
+  ('ederpsique@gmail.com', 'Éder', 'equipe',
+   '{"financeiro_contab":"editar","clientes":"editar","contratos":"editar","documentos":"editar","tarefas":"editar","relatorios":"ver"}', 'contabil', 'Administrador da Contabilidade')
+on conflict (email) do nothing;
+-- quem já tem conta: se ainda está inativo, recebe o acesso previsto; e não fica como "previsto"
+-- (rodar o SQL de novo não recria o convite)
+update public.perfis p set papel = v.papel, funcoes = v.funcoes, areas = v.areas, nome = coalesce(nullif(p.nome, ''), v.nome)
+  from public.usuarios_previstos v where lower(p.email) = lower(v.email) and p.papel = 'inativo';
+delete from public.usuarios_previstos v where exists (select 1 from public.perfis p where lower(p.email) = lower(v.email));
+
+create or replace function public.criar_perfil() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare pv record;
+begin
+  select * into pv from public.usuarios_previstos where lower(email) = lower(coalesce(new.email, ''));
+  insert into public.perfis (id, email, nome, papel)
+  values (new.id, coalesce(new.email,''),
+          coalesce(nullif(new.raw_user_meta_data->>'nome', ''), pv.nome, split_part(coalesce(new.email,''),'@',1)),
+          case when not exists (select 1 from public.perfis) then 'admin' when pv.email is not null then pv.papel else 'inativo' end)
+  on conflict (id) do nothing;
+  if pv.email is not null then
+    update public.perfis set funcoes = pv.funcoes, areas = pv.areas where id = new.id;
+    delete from public.usuarios_previstos where email = pv.email;
+  end if;
+  return new;
+end $$;
+
+-- ─────────── processos: data em que mudou de situação (para "extintos no período") ───────────
+alter table public.processos add column if not exists status_em date;
+create or replace function public.processo_status_em() returns trigger
+language plpgsql as $$
+begin
+  if tg_op = 'INSERT' or new.status is distinct from old.status then new.status_em := current_date; end if;
+  return new;
+end $$;
+drop trigger if exists processo_status_em on public.processos;
+create trigger processo_status_em before insert or update of status on public.processos for each row execute function public.processo_status_em();
+
+-- ─────────── histórico: uma "foto" por grupo e por mês ───────────
+-- passivo (RFB, PGFN, SEFAZ, AGE), CAPAG de cada empresa, processos ativos/encerrados, parcelamentos e acordos.
+-- Tirada no dia 1 pela rotina e ao rodar este SQL (mês corrente). O comparativo aparece a partir da 2ª foto.
+create table if not exists public.fotos_mensais (
+  grupo_id uuid not null references public.grupos(id) on delete cascade,
+  mes      date not null,                      -- 1º dia do mês
+  dados    jsonb not null default '{}',
+  tirada_em timestamptz not null default now(),
+  primary key (grupo_id, mes)
+);
+alter table public.fotos_mensais enable row level security;
+revoke all on public.fotos_mensais from anon;
+grant select on public.fotos_mensais to authenticated;
+drop policy if exists fotos_mensais_ver on public.fotos_mensais;
+create policy fotos_mensais_ver on public.fotos_mensais for select to authenticated using (public.pode('relatorios') or public.pode('juridico') or public.pode('clientes'));
+
+create or replace function public.processo_encerrado(st text) returns boolean
+language sql immutable as $$ select coalesce(st, '') ~* '(arquiv|extint|baixad|encerrad|transitad)'; $$;
+
+create or replace function public.tirar_fotos_mensais(p_mes date default null) returns int
+language plpgsql security definer set search_path = public as $$
+declare m date := date_trunc('month', coalesce(p_mes, current_date))::date; n int;
+begin
+  if auth.uid() is not null and not public.eh_admin() then raise exception 'permission denied: só o administrador.'; end if;
+  insert into public.fotos_mensais (grupo_id, mes, dados, tirada_em)
+  select g.id, m, jsonb_build_object(
+      'passivo', jsonb_build_object(
+         'rfb', coalesce(sum(c.rfb), 0), 'pgfn', coalesce(sum(c.pgfn), 0), 'sefaz_mg', coalesce(sum(c.sefaz_mg), 0), 'age_mg', coalesce(sum(c.age_mg), 0),
+         'total', coalesce(sum(coalesce(c.rfb,0) + coalesce(c.pgfn,0) + coalesce(c.sefaz_mg,0) + coalesce(c.age_mg,0)), 0)),
+      'empresas', coalesce(jsonb_agg(jsonb_build_object('id', c.id, 'nome', c.nome, 'capag', c.capag,
+         'total', coalesce(c.rfb,0) + coalesce(c.pgfn,0) + coalesce(c.sefaz_mg,0) + coalesce(c.age_mg,0)) order by c.nome) filter (where c.id is not null), '[]'),
+      'processos_ativos', (select coalesce(jsonb_agg(p.numero order by p.numero), '[]') from public.processos p where p.grupo_id = g.id and not public.processo_encerrado(p.status)),
+      'processos_encerrados', (select coalesce(jsonb_agg(p.numero order by p.numero), '[]') from public.processos p where p.grupo_id = g.id and public.processo_encerrado(p.status)),
+      'parcelamentos', (select count(*) from public.parcelamentos p where p.grupo_id = g.id),
+      'acordos_abertos', (select count(*) from public.acordos a where a.grupo_id = g.id and not a.pago),
+      'acordos_saldo', (select coalesce(sum(a.valor), 0) from public.acordos a where a.grupo_id = g.id and not a.pago)), now()
+    from public.grupos g left join public.clientes c on c.grupo_id = g.id and c.tipo <> 'Inativo'
+   group by g.id
+  on conflict (grupo_id, mes) do update set dados = excluded.dados, tirada_em = now();
+  get diagnostics n = row_count;
+  return n;
+end $$;
+revoke all on function public.tirar_fotos_mensais(date) from public, anon;
+grant execute on function public.tirar_fotos_mensais(date) to authenticated;
+-- a primeira foto (mês corrente) sai agora; depois, dia 1 às 7h (Brasília)
+do $$
+begin
+  if not exists (select 1 from public.fotos_mensais where mes = date_trunc('month', current_date)::date) then
+    perform public.tirar_fotos_mensais();
+  end if;
+end $$;
+do $$
+begin
+  perform cron.unschedule(jobid) from cron.job where jobname = 'erp_fotos_mensais';
+  perform cron.schedule('erp_fotos_mensais', '0 10 1 * *', $cron$ select public.tirar_fotos_mensais() $cron$);
+exception when others then
+  raise notice 'Agendador indisponível: a foto mensal pode ser tirada pelo botão na ficha do cliente.';
+end $$;
+
+-- ─────────── extrato bancário (OFX do Sicoob): créditos já tratados ───────────
+create table if not exists public.extrato_itens (
+  fitid        text primary key,                -- identificador do banco (não importa duas vezes)
+  empresa      text not null default 'escritorio' check (empresa in ('escritorio','contabilidade')),
+  data         date not null,
+  valor        numeric(14,2) not null,
+  nome         text not null default '',
+  memo         text not null default '',
+  situacao     text not null default 'baixado' check (situacao in ('baixado','ignorado')),
+  lancamento_id uuid references public.lancamentos(id) on delete set null,
+  tratado_por  uuid default auth.uid(),
+  tratado_em   timestamptz not null default now()
+);
+alter table public.extrato_itens enable row level security;
+revoke all on public.extrato_itens from anon;
+grant select, insert, update on public.extrato_itens to authenticated;
+drop policy if exists extrato_ver on public.extrato_itens;
+create policy extrato_ver on public.extrato_itens for select to authenticated
+  using (public.pode(case when empresa = 'contabilidade' then 'financeiro_contab' else 'financeiro_juridico' end));
+drop policy if exists extrato_gravar on public.extrato_itens;
+create policy extrato_gravar on public.extrato_itens for insert to authenticated
+  with check (public.pode(case when empresa = 'contabilidade' then 'financeiro_contab' else 'financeiro_juridico' end, 'editar'));
+drop policy if exists extrato_mudar on public.extrato_itens;
+create policy extrato_mudar on public.extrato_itens for update to authenticated
+  using (public.pode(case when empresa = 'contabilidade' then 'financeiro_contab' else 'financeiro_juridico' end, 'editar'));
+
+-- ─────────── PGFN: inscrições em dívida ativa (API "Consulta Dívida Ativa" do SERPRO) ───────────
+-- Função "erp-pgfn" consulta cada CNPJ e grava aqui; o ERP mostra o total (campo PGFN / PGFN negociada)
+-- e a ficha do cliente abre por origem e por CDA. Só roda depois que o escritório contratar e salvar a chave.
+create table if not exists public.pgfn_inscricoes (
+  cliente_id  uuid not null references public.clientes(id) on delete cascade,
+  inscricao   text not null,
+  natureza    text not null default '',          -- Tributária, Previdenciária, FGTS, Simples Nacional, Multa…
+  receita     text not null default '',
+  situacao    text not null default '',
+  parcelada   boolean not null default false,
+  valor       numeric(16,2) not null default 0,
+  data_inscricao date,
+  atualizado_em timestamptz not null default now(),
+  primary key (cliente_id, inscricao)
+);
+alter table public.pgfn_inscricoes enable row level security;
+revoke all on public.pgfn_inscricoes from anon;
+grant select on public.pgfn_inscricoes to authenticated;
+drop policy if exists pgfn_ver on public.pgfn_inscricoes;
+create policy pgfn_ver on public.pgfn_inscricoes for select to authenticated using (public.pode('clientes') and public.ve_cliente(cliente_id));
+create table if not exists public.pgfn_execucoes (
+  id uuid primary key default gen_random_uuid(),
+  inicio timestamptz not null default now(), fim timestamptz,
+  status text not null default 'rodando' check (status in ('rodando','ok','parcial','erro','pulado')),
+  origem text not null default 'rotina',
+  total int not null default 0, consultados int not null default 0, alterados int not null default 0, erros int not null default 0,
+  relatorio jsonb not null default '[]', mensagem text not null default ''
+);
+alter table public.pgfn_execucoes enable row level security;
+revoke all on public.pgfn_execucoes from anon;
+grant select on public.pgfn_execucoes to authenticated;
+drop policy if exists pgfn_exec_ver on public.pgfn_execucoes;
+create policy pgfn_exec_ver on public.pgfn_execucoes for select to authenticated using (public.eh_equipe());
+do $$
+begin
+  if exists (select 1 from pg_roles where rolname = 'service_role') then
+    execute 'grant select, insert, update, delete on public.pgfn_inscricoes, public.pgfn_execucoes to service_role';
+  end if;
+end $$;
+-- chave do SERPRO (consumer key/secret): só no banco privado; frequência: diaria | semanal | mensal
+insert into public.config_privada (chave, valor) values ('api_pgfn', '{"ligada":false,"frequencia":"diaria","consumer_key":"","consumer_secret":""}') on conflict (chave) do nothing;
+create or replace function public.salvar_config_pgfn(p jsonb) returns void
+language plpgsql security definer set search_path = public as $$
+declare atual jsonb;
+begin
+  if not public.eh_admin() then raise exception 'Só o administrador.'; end if;
+  select valor into atual from public.config_privada where chave = 'api_pgfn';
+  atual := coalesce(atual, '{}');
+  if coalesce(p->>'consumer_key', '') = '' then p := p || jsonb_build_object('consumer_key', coalesce(atual->>'consumer_key', '')); end if;
+  if coalesce(p->>'consumer_secret', '') = '' then p := p || jsonb_build_object('consumer_secret', coalesce(atual->>'consumer_secret', '')); end if;
+  if coalesce(p->>'frequencia', '') not in ('diaria','semanal','mensal') then p := p || '{"frequencia":"diaria"}'; end if;
+  insert into public.config_privada (chave, valor) values ('api_pgfn', atual || p) on conflict (chave) do update set valor = excluded.valor, atualizado_em = now();
+end $$;
+create or replace function public.status_config_pgfn() returns jsonb
+language sql security definer set search_path = public as $$
+  select case when public.eh_equipe() then coalesce((select (valor - 'consumer_key' - 'consumer_secret')
+     || jsonb_build_object('tem_chave', coalesce(valor->>'consumer_key', '') <> '' and coalesce(valor->>'consumer_secret', '') <> '')
+     from public.config_privada where chave = 'api_pgfn'), '{}') end;
+$$;
+revoke all on function public.salvar_config_pgfn(jsonb) from public, anon;
+revoke all on function public.status_config_pgfn() from public, anon;
+grant execute on function public.salvar_config_pgfn(jsonb), public.status_config_pgfn() to authenticated;
+-- todo dia às 6h15 (Brasília); a própria função pula quando a frequência escolhida não é hoje
+do $$
+begin
+  perform cron.unschedule(jobid) from cron.job where jobname = 'erp_pgfn';
+  perform cron.schedule('erp_pgfn', '15 9 * * *', $cron$
+    select net.http_post(
+      url := (select valor #>> '{}' from public.config_privada where chave = 'url_projeto') || '/functions/v1/erp-pgfn',
+      headers := jsonb_build_object('Content-Type', 'application/json', 'x-erp-segredo', (select valor #>> '{}' from public.config_privada where chave = 'segredo_funcoes')),
+      body := '{"acao":"rodar"}'::jsonb)
+  $cron$);
+exception when others then
+  raise notice 'Agendador indisponível: use o botão "Consultar agora" em Alertas → PGFN.';
+end $$;

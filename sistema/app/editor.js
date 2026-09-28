@@ -440,6 +440,12 @@
     const b = el.querySelector('.gx-rod-bt');
     if (b) b.onclick = async () => { b.disabled = true; await desfazer(); };
     el.querySelector('.gx-rod-x').onclick = () => el.classList.remove('on');
+    // some sozinho (8 s; 15 s quando dá para desfazer); parado enquanto o mouse está em cima
+    const prazo = desfazer ? 15000 : 8000;
+    const agendar = () => { clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('on'), prazo); };
+    el.onmouseenter = () => clearTimeout(el._t);
+    el.onmouseleave = agendar;
+    agendar();
   }
   async function desfazerBaixa(tabela, id) {
     const d = tabela === 'parcelas' ? { pago: false } : { pago: false, data_pagamento: null };

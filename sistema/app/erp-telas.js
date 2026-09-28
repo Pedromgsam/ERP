@@ -199,7 +199,7 @@
     return GS().irPara(TELAS_GS[id], document.getElementById('gs-main-' + id));
   }
 
-  let _painel = '';
+  let _painel = '', _voltando = false;
   function nomeTela(id) {
     for (const m of MENU) { if (m.id === id) return m.rot; const x = (m.itens || []).find((i) => i[0] === id); if (x) return m.rot + ' · ' + x[1]; }
     return { automacoes: 'Automações', aprovacoes: 'Aprovações', notificacoes: 'Cobranças e recibos' }[id] || '';
@@ -218,7 +218,7 @@
     if (typeof window.notifAba === 'function') window.notifAba(_abaCobranca, b);
   }
   function botoesCobranca() {
-    [['panel-financeiro', 'hon', '✉ Cobrar clientes', true], ['panel-financeiroContab', 'hon', '✉ Cobrar clientes', true], ['panel-parcelamentos', 'parc', '✉ Avisar clientes', false], ['panel-acordos', 'acord', '✉ Avisar clientes', false]]
+    [['panel-financeiro', 'hon', '✉ Cobrar clientes', true], ['panel-financeiroContab', 'hon', '✉ Cobrar clientes', true], ['panel-parcelamentos', 'parc', '✉ Notificar clientes', false], ['panel-acordos', 'acord', '✉ Notificar clientes', false]]
       .forEach(([pid, aba, rot, recibo]) => {
         const ban = document.querySelector('#' + pid + ' .mod-banner'); if (!ban || ban.querySelector('.gx-cobrar')) return;
         const d = document.createElement('div'); d.className = 'gx-cobrar gx-so-equipe';
@@ -227,7 +227,28 @@
         ban.appendChild(d);
       });
   }
+  // selo do grupo: a largura acompanha a linha mais comprida (o texto quebra só entre palavras)
+  function encolherSelos(raiz) {
+    (raiz || document).querySelectorAll('.tw td .er-grupo, .tw td>.tag.tn').forEach((el) => {
+      if (!el.offsetParent) return;
+      el.style.removeProperty('width');
+      const r = document.createRange(); r.selectNodeContents(el);
+      let ini = Infinity, fim = 0;
+      Array.from(r.getClientRects()).forEach((q) => { if (q.width) { ini = Math.min(ini, q.left); fim = Math.max(fim, q.right); } });
+      if (fim <= ini) return;
+      const cs = getComputedStyle(el);
+      const extra = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) + parseFloat(cs.borderLeftWidth) + parseFloat(cs.borderRightWidth);
+      el.style.setProperty('width', Math.ceil(fim - ini + extra + 2) + 'px', 'important');
+    });
+  }
+  function vigiarSelos() {
+    let t = null;
+    const mo = new MutationObserver(() => { clearTimeout(t); t = setTimeout(() => encolherSelos(), 60); });
+    ['tblExecRanking', 'tblProcBody'].forEach((id) => { const el = document.getElementById(id); if (el) mo.observe(el, { childList: true, subtree: true }); });
+    window.addEventListener('resize', () => { clearTimeout(t); t = setTimeout(() => encolherSelos(), 150); });
+  }
   function instalarGanchos() {
+    vigiarSelos();
     botoesCobranca();
     // aba do Financeiro marcada no próprio conteúdo (o CSS esconde gráficos repetidos só nas abas de lista)
     ['setFinTab', 'setFinCTab'].forEach((nome) => {
@@ -244,14 +265,38 @@
         try { window.resetarFiltros(); if (typeof window.applyFilters === 'function') window.applyFilters(); } catch (e) { console.warn('[ERP] limpar filtros:', e); }
       }
       navOrig.apply(this, arguments);
+      // botão "voltar" do navegador: cada tela vira um passo do histórico (#tela)
+      if (id && !_voltando) {
+        const est = { tela: id };
+        if (!history.state || !history.state.tela) history.replaceState(est, '', '#' + id);
+        else if (history.state.tela !== id) history.pushState(est, '', '#' + id);
+      }
       _painel = id; destacar(id);
+      setTimeout(() => encolherSelos(), 80);
       document.body.classList.toggle('gx-tela-nova', !!TELAS_GS[id]);
       if (TELAS_GS[id]) desenharGS(id);
       if (id === 'notificacoes') setTimeout(() => abrirCobrancas(_abaCobranca), 0);
     };
     // equipe entra no Início
     const admOrig = window.acAplicarModoAdmin;
-    if (typeof admOrig === 'function') window.acAplicarModoAdmin = function () { const r = admOrig.apply(this, arguments); setTimeout(() => ir('hoje'), 0); return r; };
+    // (ou na tela do endereço, ex.: .../#processos, quando a pessoa recarrega a página)
+    if (typeof admOrig === 'function') window.acAplicarModoAdmin = function () {
+      const r = admOrig.apply(this, arguments);
+      const h = decodeURIComponent(location.hash.slice(1));
+      setTimeout(() => ir(h && (TELAS_GS[h] || document.getElementById('panel-' + h)) ? h : 'hoje'), 0);
+      return r;
+    };
+    window.addEventListener('popstate', (ev) => {
+      // janela aberta: o "voltar" fecha a janela e fica na mesma tela
+      const jan = document.getElementById('janelas');
+      if (jan && jan.lastElementChild && GS() && GS().fecharJanela) {
+        GS().fecharJanela(); history.pushState({ tela: _painel }, '', '#' + _painel); return;
+      }
+      const t = (ev.state && ev.state.tela) || decodeURIComponent(location.hash.slice(1));
+      if (!t || t === _painel) return;
+      _voltando = true;
+      try { ir(t); } finally { _voltando = false; }
+    });
     // depois de gravar: recarrega o ERP e redesenha a tela do Gestão que estiver aberta
     const recOrig = window.ERP_RECARREGAR;
     window.ERP_RECARREGAR = function () {
@@ -359,9 +404,11 @@
     Chart.register({ id: 'gxValores', afterDatasetsDraw(ch) {
       if (!ch.config.options || !ch.config.options.gxValores) return;
       const meta = ch.getDatasetMeta(0), dados = ch.data.datasets[0].data, ctx = ch.ctx, horiz = ch.config.options.indexAxis === 'y';
-      ctx.save(); ctx.fillStyle = temaEscuro() ? '#E6ECF7' : '#1F2937'; ctx.font = '600 11.5px "JetBrains Mono", ui-monospace, monospace'; ctx.textBaseline = 'middle';
+      ctx.save(); ctx.fillStyle = temaEscuro() ? '#E6ECF7' : '#1F2937'; ctx.font = '600 12px Inter, "DM Sans", system-ui, sans-serif'; ctx.textBaseline = 'middle';
+      // valor inteiro (R$ 1.234.567), sem abreviar — nas barras deitadas; nas em pé continua curto por falta de espaço
+      const inteiro = (v) => 'R$ ' + (Number(v) || 0).toLocaleString('pt-BR', { maximumFractionDigits: 0 });
       meta.data.forEach((bar, i) => {
-        const t = typeof window._moedaCurta === 'function' ? window._moedaCurta(dados[i]) : String(dados[i]);
+        const t = horiz ? inteiro(dados[i]) : typeof window._moedaCurta === 'function' ? window._moedaCurta(dados[i]) : String(dados[i]);
         if (horiz) { ctx.textAlign = 'left'; ctx.fillText(t, bar.x + 6, bar.y); } else { ctx.textAlign = 'center'; ctx.fillText(t, bar.x, bar.y - 9); }
       });
       ctx.restore();

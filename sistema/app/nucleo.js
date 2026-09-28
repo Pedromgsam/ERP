@@ -241,7 +241,9 @@ const PESSOA = {
   'Pedro':      { fundo: '#D4EDBC', marca: '#4E9A2F', texto: '#2F6B1A' },
   'Emanuelle':  { fundo: '#FFCFC9', marca: '#D2544A', texto: '#9B2C22' },
   'Escritório': { fundo: '#FBE9A8', marca: '#C9A84C', texto: '#8A6D14' },
-  'Adriana':    { fundo: '#DBEAFE', marca: '#3B6FD4', texto: '#1D4ED8' }
+  'Adriana':    { fundo: '#DBEAFE', marca: '#3B6FD4', texto: '#1D4ED8' },
+  'João Vitor': { fundo: '#E9DDFB', marca: '#7C4DCC', texto: '#5B2E9E' },
+  'Éder':       { fundo: '#D5F0EC', marca: '#2D8C7E', texto: '#1F6B60' }
 };
 function corPessoa(n) { return PESSOA[String(n || '').trim()] || { fundo: '#EEF1F7', marca: '#6B7280', texto: '#4B5563' }; }
 function pillPessoa(n) {
@@ -430,7 +432,10 @@ function abrirJanela({ titulo, corpo, rodape, larga }) {
 }
 function fecharJanela(el) {
   const alvo = el || $('janelas').lastElementChild;
-  if (alvo) alvo.remove();
+  if (!alvo) return;
+  alvo.remove();
+  // quem abriu a janela pode saber que ela fechou (×, Esc, clique fora ou voltar do navegador)
+  if (typeof alvo._aoFechar === 'function') { const f = alvo._aoFechar; alvo._aoFechar = null; try { f(); } catch (e) { /* nada */ } }
 }
 document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') fecharJanela(); });
 
@@ -440,7 +445,7 @@ document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') fecharJa
 function perguntarBaixa({ titulo, descricao, valor, acordo, despesa }) {
   return new Promise((ok) => {
     let feito = false;
-    const j = abrirJanela({ titulo: titulo || (despesa ? 'Confirmar pagamento' : 'Confirmar recebimento'),
+    const j = abrirJanela({ titulo: titulo || (despesa ? 'Registrar pagamento (conta paga)' : 'Registrar pagamento'),
       corpo: (descricao ? '<div class="dica" style="margin-bottom:12px"><b>' + esc(descricao) + '</b>' + (valor != null ? ' · ' + brl(valor) : '') + '</div>' : '') +
         campo(despesa || acordo ? 'Data do pagamento' : 'Data do recebimento', '<input type="date" name="bx-data" required value="' + hojeISO() + '">') +
         '<div class="sub" style="margin:4px 0 10px">Já vem com a data de hoje. Se o dinheiro entrou em outro dia, troque aqui.</div>' +

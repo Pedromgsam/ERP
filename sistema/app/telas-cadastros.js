@@ -481,8 +481,17 @@ async function janelaSalarioMinimo() {
   });
 }
 
+// abre o contrato; se algo falhar, diz o porquê (antes o clique não fazia nada)
 async function detalheContrato(id) {
-  const ct = await q(sb.from('contratos').select('*, clientes(nome, grupo_id, responsavel)').eq('id', id).single());
+  try { await _detalheContrato(id); }
+  catch (e) {
+    console.error('[contrato]', e);
+    aviso('Não foi possível abrir o contrato: ' + erroAmigavel(e) + '. Se continuar, confira se o SQL mais recente foi rodado no Supabase.', true);
+  }
+}
+async function _detalheContrato(id) {
+  const ct = (await q(sb.from('contratos').select('*, clientes(nome, grupo_id, responsavel)').eq('id', id)))[0];
+  if (!ct) throw new Error('contrato não encontrado ou de um cliente que você não vê (área)');
   const [parc, exitos] = await Promise.all([q(sb.from('lancamentos').select('*').eq('contrato_id', id).order('vencimento')),
     ct.percentual_exito ? q(sb.from('exitos').select('*').eq('contrato_id', id).order('data')).catch(() => []) : []]);
   const recebido = soma(parc.filter((p) => p.pago), (p) => p.valor);
