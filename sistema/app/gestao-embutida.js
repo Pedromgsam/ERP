@@ -239,7 +239,7 @@ function aviso(msg, erro) {
   a.className = 'mostrar' + (erro ? ' erro' : '');
   clearTimeout(_avisoT);
   _avisoT = setTimeout(() => { a.className = ''; }, erro ? 6000 : 3000);
-  if (!erro) marcarGravacao();
+  if (!erro) { marcarGravacao(); invalidarCadastros(); }
 }
 // Rodapé "gravado no servidor às HH:MM": toda mensagem de sucesso só aparece
 // depois que o banco confirmou a gravação.
@@ -466,13 +466,22 @@ document.addEventListener('click', (ev) => {
   b.setAttribute('aria-expanded', _recolhido[b.dataset.recolhe] ? 'false' : 'true');
 });
 
-async function carregarCadastros() {
-  const [clientes, grupos] = await Promise.all([
-    buscarTodos(() => sb.from('clientes').select('*, grupos(nome)').order('nome')),
-    buscarTodos(() => sb.from('grupos').select('*').order('nome'))
-  ]);
-  E.clientes = clientes; E.grupos = grupos;
+async function carregarCadastros(forcar) {
+  if (!forcar && _cadQuando && Date.now() - _cadQuando < 60000) return;
+  if (_cadBusca) return _cadBusca;
+  _cadBusca = (async () => {
+    const [clientes, grupos] = await Promise.all([
+      buscarTodos(() => sb.from('clientes').select((window.ERP_COLS_CLIENTE || '*') + ', grupos(nome)').order('nome')),
+      buscarTodos(() => sb.from('grupos').select('*').order('nome'))
+    ]);
+    E.clientes = clientes; E.grupos = grupos; _cadQuando = Date.now();
+  })();
+  try { await _cadBusca; } finally { _cadBusca = null; }
 }
+// (carregarCadastros) Clientes e grupos: uma busca serve por 60 s (trocar de tela não busca de novo);
+// qualquer gravação (aviso "✓") ou recarga descarta a cópia e a próxima tela busca de novo.
+let _cadQuando = 0, _cadBusca = null;
+function invalidarCadastros() { _cadQuando = 0; }
 
 // ── navegação dentro do ERP: cada tela desenha no painel que o ERP mostrou ──
 const TELAS = {};
@@ -494,7 +503,7 @@ async function irPara(tela, alvo) {
     $('conteudo').innerHTML = '<div class="card"><div class="card-bd msg-erro">' + esc(erroAmigavel(e)) + '</div></div>';
   }
 }
-function recarregar() { if (window.ERP_RECARREGAR) return window.ERP_RECARREGAR(); return irPara(E.tela); }
+function recarregar() { invalidarCadastros(); if (window.ERP_RECARREGAR) return window.ERP_RECARREGAR(); return irPara(E.tela); }
 
 'use strict';
 // ═══════════════════════════════════════════════════════════════════
@@ -629,24 +638,39 @@ function kpi(rotulo, valor, cor, sub) {
     '</div><div class="kpi-s">' + esc(sub || '') + '</div></div>';
 }
 
+// Mesmo cálculo do resumo_financeiro do banco — usado só enquanto o SQL novo não foi rodado.
+async function resumoFinanceiroNoNavegador(ini, fim, h) {
+  const [abertos, pagos, atr] = await Promise.all([
+    buscarTodos(() => sb.from('lancamentos').select('empresa, tipo, valor, redutor').gte('vencimento', ini).lte('vencimento', fim).eq('pago', false).eq('perda', false)),
+    buscarTodos(() => sb.from('lancamentos').select('empresa, tipo, valor, redutor').gte('data_pagamento', ini).lte('data_pagamento', fim).eq('pago', true)),
+    buscarTodos(() => sb.from('lancamentos').select('empresa, tipo, valor, redutor').lt('vencimento', h).eq('pago', false).eq('perda', false))
+  ]);
+  const out = {};
+  ['escritorio', 'contabilidade'].forEach((emp) => {
+    const de = (lista, tipo) => lista.filter((l) => l.empresa === emp && l.tipo === tipo);
+    out[emp] = { recebido: soma(de(pagos, 'receita'), vl), n_recebido: de(pagos, 'receita').length, a_receber: soma(de(abertos, 'receita'), vl), n_a_receber: de(abertos, 'receita').length,
+      em_atraso: soma(de(atr, 'receita'), vl), n_em_atraso: de(atr, 'receita').length, a_pagar: soma(de(abertos, 'despesa'), vl), n_a_pagar: de(abertos, 'despesa').length };
+  });
+  return out;
+}
+
 // ─────────────────────────── INÍCIO ────────────────────────────────
 TELAS.inicio = async function () {
   const h = hojeISO(), ini = iso(primeiroDiaDoMes(new Date())), fim = iso(fimDoMes(new Date()));
   const sel = '*, grupos(nome), clientes(nome)';
-  const [doMes, pagosNoMes, atrasados, proximos] = await Promise.all([
-    buscarTodos(() => sb.from('lancamentos').select(sel).gte('vencimento', ini).lte('vencimento', fim).eq('pago', false).eq('perda', false)),
-    buscarTodos(() => sb.from('lancamentos').select('empresa, tipo, valor').gte('data_pagamento', ini).lte('data_pagamento', fim).eq('pago', true)),
+  // totais prontos no banco (resumo_financeiro); só as listas vêm linha a linha
+  const [totais, atrasados, proximos] = await Promise.all([
+    q(sb.rpc('resumo_financeiro', { p_de: ini, p_ate: fim })).catch(() => resumoFinanceiroNoNavegador(ini, fim, h)),
     buscarTodos(() => sb.from('lancamentos').select(sel).lt('vencimento', h).eq('pago', false).eq('perda', false).order('vencimento')),
     buscarTodos(() => sb.from('lancamentos').select(sel).gte('vencimento', h).lte('vencimento', somarDias(h, 15)).eq('pago', false).eq('perda', false).order('vencimento'))
   ]);
-  const de = (lista, emp, tipo) => lista.filter((l) => l.empresa === emp && l.tipo === tipo);
-  const linha = (emp, titulo) =>
-    '<div class="kpis-titulo">' + titulo + '</div><div class="kpis">' +
-    kpi('Recebido no mês', brl(soma(de(pagosNoMes, emp, 'receita'), vl)), 'verde', de(pagosNoMes, emp, 'receita').length + ' recebimento(s)') +
-    kpi('A receber no mês', brl(soma(de(doMes, emp, 'receita'), vl)), '', de(doMes, emp, 'receita').length + ' em aberto') +
-    kpi('Em atraso', brl(soma(de(atrasados, emp, 'receita'), vl)), 'vermelho', de(atrasados, emp, 'receita').length + ' vencido(s)') +
-    kpi('A pagar no mês', brl(soma(de(doMes, emp, 'despesa'), vl)), 'ambar', de(doMes, emp, 'despesa').length + ' conta(s)') +
-    '</div>';
+  const linha = (emp, titulo) => { const t = totais[emp] || {};
+    return '<div class="kpis-titulo">' + titulo + '</div><div class="kpis">' +
+    kpi('Recebido no mês', brl(t.recebido || 0), 'verde', (t.n_recebido || 0) + ' recebimento(s)') +
+    kpi('A receber no mês', brl(t.a_receber || 0), '', (t.n_a_receber || 0) + ' em aberto') +
+    kpi('Em atraso', brl(t.em_atraso || 0), 'vermelho', (t.n_em_atraso || 0) + ' vencido(s)') +
+    kpi('A pagar no mês', brl(t.a_pagar || 0), 'ambar', (t.n_a_pagar || 0) + ' conta(s)') +
+    '</div>'; };
 
   $('conteudo').innerHTML =
     '<div class="titulo-pag"><div><h1>Olá, ' + esc((E.perfil.nome || '').split(' ')[0]) + '</h1>' +
@@ -1342,7 +1366,7 @@ async function formCliente(cl, depois) {
   const f = j.querySelector('#f-cli');
   f.cpf_cnpj.onblur = () => { f.cpf_cnpj.value = mascaraDoc(f.cpf_cnpj.value); };
   j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
-  const apos = async () => { await carregarCadastros(); if (depois) depois(); else await recarregar(); };
+  const apos = async () => { await carregarCadastros(true); if (depois) depois(); else await recarregar(); };
   const bc = j.querySelector('#btn-ctr-cli');
   if (bc) bc.onclick = () => { fecharJanela(j); formContrato({ cliente_id: cl.id }); };
 
@@ -1915,10 +1939,10 @@ async function gravarImportacao() {
   }
   // 1. grupos que ainda não existem
   prog.textContent = 'Criando grupos…';
-  await carregarCadastros();
+  await carregarCadastros(true);
   const faltam = [...new Set(validos.flatMap((r) => r.grupos))].filter((g) => !E.grupos.some((x) => normalizar(x.nome) === normalizar(g)));
   for (let i = 0; i < faltam.length; i += 200) await q(sb.from('grupos').insert(faltam.slice(i, i + 200).map((nome) => ({ nome }))));
-  await carregarCadastros();
+  await carregarCadastros(true);
   const idGrupo = (n) => { const g = n && E.grupos.find((x) => normalizar(x.nome) === normalizar(n)); return g ? g.id : null; };
   // 2. registros, em lotes
   const resultado = [];
@@ -1939,7 +1963,7 @@ async function gravarImportacao() {
   validos.sort((a, b) => (a.tipo === 'base' ? -1 : 0) - (b.tipo === 'base' ? -1 : 0));
   for (const r of validos) {
     const tabela = TABELA_IMP[r.tipo];
-    if (r.tipo === 'parcelamentos') await carregarCadastros();
+    if (r.tipo === 'parcelamentos') await carregarCadastros(true);
     const filhos = [];
     const linhas = registrosImp(r).map((x) => {
       const y = Object.assign({}, x);
@@ -1960,7 +1984,7 @@ async function gravarImportacao() {
     }
     resultado.push(linhas.length + ' ' + (ROTULO[tabela] || 'lançamento(s) de ' + (r.tipo === 'contabilidade' ? 'Contabilidade' : 'Honorários Jurídico')));
   }
-  await carregarCadastros();
+  await carregarCadastros(true);
   prog.textContent = '';
   aviso('✓ Importação concluída.');
   $('imp-previa').innerHTML = '<div class="card"><div class="card-bd msg-ok">✓ Importado: ' + esc(resultado.join(' · ')) +
@@ -3276,7 +3300,7 @@ async function abrirFicha(id, aba) {
     catch (e) { console.error(e); corpo.innerHTML = '<div class="vazio">' + esc(erroAmigavel(e)) + '</div>'; }
   };
   j.querySelector('#fc-abas').onclick = (ev) => { const b = ev.target.closest('button'); if (b) mostrar(b.dataset.aba); };
-  const reabrir = async () => { await carregarCadastros(); fecharJanela(j); await abrirFicha(id, atual); };
+  const reabrir = async () => { await carregarCadastros(true); fecharJanela(j); await abrirFicha(id, atual); };
   j.querySelector('#fc-editar').onclick = () => formCliente(cl, reabrir);
   j.querySelector('#fc-tarefa').onclick = () => formTarefa({ cliente_id: cl.id, grupo_id: cl.grupo_id, responsavel: cl.responsavel }, () => mostrar('tarefas'));
   j.querySelector('#fc-lanc').onclick = () => formLancamento({ tipo: 'receita', empresa: 'escritorio', cliente_id: cl.id, grupo_id: cl.grupo_id, responsavel: cl.responsavel }, () => mostrar('financeiro'));
@@ -3863,7 +3887,7 @@ function janelaGanhar(o, depois) {
     const r = await q(sb.rpc('crm_ganhar', { p_op: o.id, p }));
     aviso('✓ Contrato fechado! Cliente, contrato' + (valor ? ', parcelas' : '') + (p.criar_fluxo ? ' e onboarding' : '') + ' criados.');
     fecharJanela(j); if (depois) depois(r);
-    await carregarCadastros(); await recarregarCrm();
+    await carregarCadastros(true); await recarregarCrm();
   });
 }
 function janelaPerder(o, depois) {
@@ -4279,5 +4303,5 @@ async function janelaCnpj(execs) {
 // toda gravação confirmada aparece também no rodapé do ERP
 const _avisoOrig = aviso;
 aviso = function (msg, erro) { _avisoOrig(msg, erro); if (!erro && window.ERP_EDITOR && /^✓/.test(msg)) window.ERP_EDITOR.gravou(String(msg).replace(/^✓\s*/, '')); };
-window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo };
+window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, invalidarCadastros, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo };
 })();

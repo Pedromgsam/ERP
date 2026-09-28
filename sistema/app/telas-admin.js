@@ -269,10 +269,10 @@ async function gravarImportacao() {
   }
   // 1. grupos que ainda não existem
   prog.textContent = 'Criando grupos…';
-  await carregarCadastros();
+  await carregarCadastros(true);
   const faltam = [...new Set(validos.flatMap((r) => r.grupos))].filter((g) => !E.grupos.some((x) => normalizar(x.nome) === normalizar(g)));
   for (let i = 0; i < faltam.length; i += 200) await q(sb.from('grupos').insert(faltam.slice(i, i + 200).map((nome) => ({ nome }))));
-  await carregarCadastros();
+  await carregarCadastros(true);
   const idGrupo = (n) => { const g = n && E.grupos.find((x) => normalizar(x.nome) === normalizar(n)); return g ? g.id : null; };
   // 2. registros, em lotes
   const resultado = [];
@@ -293,7 +293,7 @@ async function gravarImportacao() {
   validos.sort((a, b) => (a.tipo === 'base' ? -1 : 0) - (b.tipo === 'base' ? -1 : 0));
   for (const r of validos) {
     const tabela = TABELA_IMP[r.tipo];
-    if (r.tipo === 'parcelamentos') await carregarCadastros();
+    if (r.tipo === 'parcelamentos') await carregarCadastros(true);
     const filhos = [];
     const linhas = registrosImp(r).map((x) => {
       const y = Object.assign({}, x);
@@ -314,7 +314,7 @@ async function gravarImportacao() {
     }
     resultado.push(linhas.length + ' ' + (ROTULO[tabela] || 'lançamento(s) de ' + (r.tipo === 'contabilidade' ? 'Contabilidade' : 'Honorários Jurídico')));
   }
-  await carregarCadastros();
+  await carregarCadastros(true);
   prog.textContent = '';
   aviso('✓ Importação concluída.');
   $('imp-previa').innerHTML = '<div class="card"><div class="card-bd msg-ok">✓ Importado: ' + esc(resultado.join(' · ')) +

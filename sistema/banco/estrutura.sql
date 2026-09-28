@@ -2037,3 +2037,46 @@ begin
 exception when others then
   raise notice 'Agendador indisponível: use o botão "Atualizar agora" em Alertas → Cartão CNPJ.';
 end $$;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- v13 — Desempenho: índices dos filtros mais usados e totais prontos no banco
+-- ═══════════════════════════════════════════════════════════════════
+create index if not exists lanc_emp_pago_venc on public.lancamentos (empresa, pago, vencimento);
+create index if not exists acordos_pago_venc on public.acordos (pago, vencimento);
+create index if not exists tarefas_status_prazo on public.tarefas (status, prazo);
+create index if not exists publicacoes_status on public.publicacoes (status);
+
+-- Totais do mês por empresa (escritorio / contabilidade), já com a comissão como redutor.
+-- Roda com as permissões de quem chama (RLS): cada pessoa soma só o que pode ver.
+-- Resultado: {"escritorio": {"recebido":…, "n_recebido":…, "a_receber":…, "n_a_receber":…,
+--             "em_atraso":…, "n_em_atraso":…, "a_pagar":…, "n_a_pagar":…}, "contabilidade": {…}}
+create or replace function public.resumo_financeiro(p_empresa text default null, p_de date default null, p_ate date default null)
+returns jsonb language sql stable security invoker set search_path = public as $$
+  with per as (
+    select coalesce(p_de, date_trunc('month', current_date)::date) as de,
+           coalesce(p_ate, (date_trunc('month', current_date) + interval '1 month - 1 day')::date) as ate
+  ), l as (
+    select l.empresa, l.tipo, l.pago, l.perda, l.vencimento, l.data_pagamento,
+           case when l.redutor then -l.valor else l.valor end as v
+      from public.lancamentos l
+     where p_empresa is null or l.empresa = p_empresa
+  ), t as (
+    select e.empresa,
+      coalesce(sum(l.v) filter (where l.tipo = 'receita' and l.pago and l.data_pagamento between per.de and per.ate), 0) as recebido,
+      count(*)          filter (where l.tipo = 'receita' and l.pago and l.data_pagamento between per.de and per.ate) as n_recebido,
+      coalesce(sum(l.v) filter (where l.tipo = 'receita' and not l.pago and not l.perda and l.vencimento between per.de and per.ate), 0) as a_receber,
+      count(*)          filter (where l.tipo = 'receita' and not l.pago and not l.perda and l.vencimento between per.de and per.ate) as n_a_receber,
+      coalesce(sum(l.v) filter (where l.tipo = 'receita' and not l.pago and not l.perda and l.vencimento < current_date), 0) as em_atraso,
+      count(*)          filter (where l.tipo = 'receita' and not l.pago and not l.perda and l.vencimento < current_date) as n_em_atraso,
+      coalesce(sum(l.v) filter (where l.tipo = 'despesa' and not l.pago and not l.perda and l.vencimento between per.de and per.ate), 0) as a_pagar,
+      count(*)          filter (where l.tipo = 'despesa' and not l.pago and not l.perda and l.vencimento between per.de and per.ate) as n_a_pagar
+    from (select unnest(array['escritorio','contabilidade']) as empresa) e
+    cross join per
+    left join l on l.empresa = e.empresa
+    where p_empresa is null or e.empresa = p_empresa
+    group by e.empresa
+  )
+  select coalesce(jsonb_object_agg(empresa, to_jsonb(t) - 'empresa'), '{}'::jsonb) from t;
+$$;
+revoke all on function public.resumo_financeiro(text, date, date) from public, anon;
+grant execute on function public.resumo_financeiro(text, date, date) to authenticated;

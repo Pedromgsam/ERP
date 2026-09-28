@@ -183,6 +183,21 @@ trocar("      plugins:{legend:{display:true,position:'bottom',labels:{color:'#4B
 trocar('<option value="Demanda">Demanda</option>', '<option value="Demanda">Serviço pontual</option>', 1);
 
 s = s.replace(/<title>[^<]*<\/title>/, '<title>ERP — Araújo &amp; Castro</title>');
+// 14. Imagens: saem do HTML (eram base64) e viram arquivos em img/, guardados pelo navegador.
+{
+  const IMG = path.join(raiz, 'sistema', 'app', 'img'); fs.mkdirSync(IMG, { recursive: true });
+  const salvar = (nome, b64) => { const buf = Buffer.from(b64, 'base64'); fs.writeFileSync(path.join(IMG, nome), buf);
+    return 'img/' + nome + '?v=' + require('crypto').createHash('sha1').update(buf).digest('hex').slice(0, 8); };
+  const logo = s.match(/(<div class="ac-login-logo"[^>]*>\s*<img src=")data:image\/png;base64,([A-Za-z0-9+/=]+)"/);
+  if (!logo) throw new Error('logo do login não encontrada');
+  s = s.replace(logo[0], logo[1] + salvar('logo-login.png', logo[2]) + '"'); trocas++;
+  const rec = s.match(/var RECIBO_HEADER_B64 = "([A-Za-z0-9+/=]+)";/);
+  if (!rec) throw new Error('cabeçalho do recibo não encontrado');
+  // o recibo abre em janela nova (about:blank): o endereço precisa ser completo
+  s = s.replace(rec[0], "var RECIBO_HEADER_URL = new URL('" + salvar('recibo-cabecalho.png', rec[1]) + "', location.href).href;"); trocas++;
+  trocar(`'<div class="rh"><img src="data:image/png;base64,'+RECIBO_HEADER_B64+'"></div>'`, `'<div class="rh"><img src="'+RECIBO_HEADER_URL+'"></div>'`, 1);
+}
+
 // 13. Cores de tokens.css (fonte única) depois do CSS do ERP; modo escuro lembrado neste aparelho.
 trocar('\n</head>\n', '\n<link rel="stylesheet" href="tokens.css">\n<link rel="stylesheet" href="tema-escuro.css">\n' +
   '<script>try{if(localStorage.getItem("erp_tema")==="escuro")document.documentElement.setAttribute("data-tema","escuro")}catch(e){}</script>\n</head>\n', 1);
@@ -221,7 +236,7 @@ async function irPara(tela, alvo) {
     $('conteudo').innerHTML = '<div class="card"><div class="card-bd msg-erro">' + esc(erroAmigavel(e)) + '</div></div>';
   }
 }
-function recarregar() { if (window.ERP_RECARREGAR) return window.ERP_RECARREGAR(); return irPara(E.tela); }
+function recarregar() { invalidarCadastros(); if (window.ERP_RECARREGAR) return window.ERP_RECARREGAR(); return irPara(E.tela); }
 `);
 let graf = ler('graficos.js').replace("document.addEventListener('DOMContentLoaded', () => document.body.appendChild(dica));",
   "(document.getElementById('gs-raiz') || document.body).appendChild(dica);");
@@ -231,7 +246,7 @@ const bundle = "'use strict';\n// GERADO por sistema/ferramentas/montar-erp.js �
   [nuc, graf, ler('telas-painel.js'), ler('telas-financeiro.js'), ler('telas-cadastros.js'), ler('telas-admin.js'), ler('telas-tarefas.js'), ler('telas-documentos.js'), ler('telas-cliente360.js'), ler('telas-crm.js'), ler('telas-publicacoes.js'), ler('telas-acordos.js'), ler('telas-alertas.js')].join('\n') +
   "\n// toda gravação confirmada aparece também no rodapé do ERP\nconst _avisoOrig = aviso;\n" +
   "aviso = function (msg, erro) { _avisoOrig(msg, erro); if (!erro && window.ERP_EDITOR && /^✓/.test(msg)) window.ERP_EDITOR.gravou(String(msg).replace(/^✓\\s*/, '')); };\n" +
-  "window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo };\n})();\n";
+  "window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, invalidarCadastros, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo };\n})();\n";
 fs.writeFileSync(path.join(APP, 'gestao-embutida.js'), bundle);
 
 // CSS do Gestão só dentro de .gs (as telas do Gestão) e #gs-hd (barra superior)
@@ -275,4 +290,18 @@ fs.writeFileSync(path.join(APP, 'gs.css'), gsCss);
   console.log('tema-escuro.css gerado: ' + Math.round(escuro.length / 1024) + ' KB');
 }
 console.log('gestao-embutida.js e gs.css gerados');
+
+// 15. Carimbo de versão (?v=) nos arquivos do sistema: o navegador guarda por 1 ano (vercel.json)
+// e baixa de novo sozinho quando o conteúdo muda. config.js fica sem carimbo (sempre confere).
+{
+  const crypto = require('crypto');
+  const versao = (f) => crypto.createHash('sha1').update(fs.readFileSync(path.join(APP, f))).digest('hex').slice(0, 8);
+  let n = 0;
+  s = s.replace(/(<(?:script|link)[^>]*?(?:src|href)=")((?:vendor\/)?[\w.-]+\.(?:js|css))(")/g, (m, a, f, z) => {
+    if (f === 'config.js' || !fs.existsSync(path.join(APP, f))) return m;
+    n++; return a + f + '?v=' + versao(f) + z;
+  });
+  fs.writeFileSync(destino, s);
+  console.log('carimbo de versão em ' + n + ' arquivos');
+}
 console.log('index.html gerado: ' + trocas + ' ajustes, ' + Math.round(s.length / 1024) + ' KB');

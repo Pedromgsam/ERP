@@ -535,6 +535,15 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.evaluate(() => loadData(true)); await p.waitForTimeout(4000);
     ok('aviso some quando o banco é atualizado', !(await p.$('#erp-aviso-banco')));
 
+    // ── desempenho: colunas de clientes e totais prontos no banco ──
+    { const noBanco = sql("select string_agg(column_name, ',' order by ordinal_position) from information_schema.columns where table_schema='public' and table_name='clientes' and column_name not in ('cnpj_dados','chave_importacao')");
+      ok('lista de colunas de clientes (sem cnpj_dados) igual à do banco', await p.evaluate(() => window.ERP_COLS_CLIENTE) === noBanco, 'incluir em erp-dados.js: ' + noBanco); }
+    { const t = JSON.parse(sql("select public.resumo_financeiro()"));
+      await nav(p, 'hoje'); await p.waitForTimeout(1500);
+      const txt = await p.textContent('#panel-hoje');
+      const rs = (v) => 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      ok('Início usa os totais do banco (resumo_financeiro)', [t.escritorio.recebido, t.escritorio.a_receber, t.escritorio.em_atraso].every((v) => txt.replace(/\u00a0/g, ' ').includes(rs(v))), JSON.stringify(t.escritorio)); }
+
     // ── design: modo escuro, estado vazio e tabelas longas ──
     await nav(p, 'hoje'); await p.waitForTimeout(800);
     await p.click('#gs-tema'); await p.waitForTimeout(300);

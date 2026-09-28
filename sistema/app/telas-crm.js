@@ -400,7 +400,7 @@ function janelaGanhar(o, depois) {
     const r = await q(sb.rpc('crm_ganhar', { p_op: o.id, p }));
     aviso('✓ Contrato fechado! Cliente, contrato' + (valor ? ', parcelas' : '') + (p.criar_fluxo ? ' e onboarding' : '') + ' criados.');
     fecharJanela(j); if (depois) depois(r);
-    await carregarCadastros(); await recarregarCrm();
+    await carregarCadastros(true); await recarregarCrm();
   });
 }
 function janelaPerder(o, depois) {

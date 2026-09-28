@@ -184,7 +184,7 @@ async function formCliente(cl, depois) {
   const f = j.querySelector('#f-cli');
   f.cpf_cnpj.onblur = () => { f.cpf_cnpj.value = mascaraDoc(f.cpf_cnpj.value); };
   j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
-  const apos = async () => { await carregarCadastros(); if (depois) depois(); else await recarregar(); };
+  const apos = async () => { await carregarCadastros(true); if (depois) depois(); else await recarregar(); };
   const bc = j.querySelector('#btn-ctr-cli');
   if (bc) bc.onclick = () => { fecharJanela(j); formContrato({ cliente_id: cl.id }); };
 

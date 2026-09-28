@@ -7,7 +7,7 @@ const PORTA = +(process.env.PORTA || 8090), PGRST = 'http://127.0.0.1:3001';
 const PSQL = ['-h', '127.0.0.1', '-p', process.env.PGPORT || '54329', '-U', 'postgres', '-d', 'erp', '-tAc'];
 const APP = path.join(__dirname, '..', 'app');
 const REGRAS = JSON.parse(fs.readFileSync(path.join(APP, 'vercel.json'), 'utf8')).headers
-  .map((r) => ({ re: new RegExp('^(?:' + r.source + ')$'), headers: r.headers }));
+  .map((r) => ({ re: new RegExp('^(?:' + r.source + ')$'), headers: r.headers, query: (r.has || []).filter((h) => h.type === 'query').map((h) => h.key) }));
 const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
 function jwt(claims) {
   const h = b64({ alg: 'HS256', typ: 'JWT' }), p = b64(claims);
@@ -142,11 +142,19 @@ http.createServer((req, res) => {
       res.writeHead(200, { 'content-type': 'text/javascript' });
       return res.end("window.ERP_CONFIG={url:location.origin,chave:'" + ANON + "'};");
     }
-    const tipos = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css' };
+    const tipos = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.webp': 'image/webp', '.svg': 'image/svg+xml' };
     // mesmos cabeçalhos de segurança da Vercel (CSP etc.), lidos do vercel.json
     const cab = { 'content-type': tipos[path.extname(f)] || 'application/octet-stream' };
     const caminho = '/' + path.relative(APP, f).split(path.sep).join('/');
-    REGRAS.forEach((r) => { if (r.re.test(caminho) || (caminho === '/index.html' && r.re.test('/'))) r.headers.forEach((h) => { cab[h.key] = h.value; }); });
+    REGRAS.forEach((r) => {
+      if (!(r.re.test(caminho) || (caminho === '/index.html' && r.re.test('/')))) return;
+      if (r.query.some((k) => !u.searchParams.has(k))) return;           // "has" da Vercel (ex.: só com ?v=)
+      r.headers.forEach((h) => { cab[h.key] = h.value; });
+    });
+    // como a Vercel: ETag + 304 quando o arquivo não mudou
+    const est = fs.statSync(f), etag = '"' + est.size.toString(16) + '-' + Math.floor(est.mtimeMs).toString(16) + '"';
+    cab.ETag = etag;
+    if (req.headers['if-none-match'] === etag) { res.writeHead(304, cab); return res.end(); }
     res.writeHead(200, cab);
     fs.createReadStream(f).pipe(res);
   });

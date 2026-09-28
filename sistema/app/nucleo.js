@@ -234,7 +234,7 @@ function aviso(msg, erro) {
   a.className = 'mostrar' + (erro ? ' erro' : '');
   clearTimeout(_avisoT);
   _avisoT = setTimeout(() => { a.className = ''; }, erro ? 6000 : 3000);
-  if (!erro) marcarGravacao();
+  if (!erro) { marcarGravacao(); invalidarCadastros(); }
 }
 // Rodapé "gravado no servidor às HH:MM": toda mensagem de sucesso só aparece
 // depois que o banco confirmou a gravação.
@@ -512,13 +512,22 @@ async function entrarNoSistema(user) {
   irPara(E.tela);
 }
 
-async function carregarCadastros() {
-  const [clientes, grupos] = await Promise.all([
-    buscarTodos(() => sb.from('clientes').select('*, grupos(nome)').order('nome')),
-    buscarTodos(() => sb.from('grupos').select('*').order('nome'))
-  ]);
-  E.clientes = clientes; E.grupos = grupos;
+async function carregarCadastros(forcar) {
+  if (!forcar && _cadQuando && Date.now() - _cadQuando < 60000) return;
+  if (_cadBusca) return _cadBusca;
+  _cadBusca = (async () => {
+    const [clientes, grupos] = await Promise.all([
+      buscarTodos(() => sb.from('clientes').select((window.ERP_COLS_CLIENTE || '*') + ', grupos(nome)').order('nome')),
+      buscarTodos(() => sb.from('grupos').select('*').order('nome'))
+    ]);
+    E.clientes = clientes; E.grupos = grupos; _cadQuando = Date.now();
+  })();
+  try { await _cadBusca; } finally { _cadBusca = null; }
 }
+// (carregarCadastros) Clientes e grupos: uma busca serve por 60 s (trocar de tela não busca de novo);
+// qualquer gravação (aviso "✓") ou recarga descarta a cópia e a próxima tela busca de novo.
+let _cadQuando = 0, _cadBusca = null;
+function invalidarCadastros() { _cadQuando = 0; }
 
 // ─────────────────────────── navegação ─────────────────────────────
 // Cada tela: TELAS.x = async function () {...}. Monta a própria barra de
@@ -539,7 +548,7 @@ async function irPara(tela) {
     $('conteudo').innerHTML = '<div class="card"><div class="card-bd msg-erro">' + esc(erroAmigavel(e)) + '</div></div>';
   }
 }
-function recarregar() { return irPara(E.tela); }
+function recarregar() { invalidarCadastros(); return irPara(E.tela); }
 
 // ─────────────────────────── início ────────────────────────────────
 window.addEventListener('DOMContentLoaded', async function iniciar() {

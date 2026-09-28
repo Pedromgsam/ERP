@@ -225,6 +225,7 @@
     // depois de gravar: recarrega o ERP e redesenha a tela do Gestão que estiver aberta
     const recOrig = window.ERP_RECARREGAR;
     window.ERP_RECARREGAR = function () {
+      if (GS() && GS().invalidarCadastros) GS().invalidarCadastros();
       const r = recOrig && recOrig.apply(this, arguments);
       if (TELAS_GS[_painel]) setTimeout(() => desenharGS(_painel), 200);
       return r;

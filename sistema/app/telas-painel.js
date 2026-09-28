@@ -9,24 +9,39 @@ function kpi(rotulo, valor, cor, sub) {
     '</div><div class="kpi-s">' + esc(sub || '') + '</div></div>';
 }
 
+// Mesmo cálculo do resumo_financeiro do banco — usado só enquanto o SQL novo não foi rodado.
+async function resumoFinanceiroNoNavegador(ini, fim, h) {
+  const [abertos, pagos, atr] = await Promise.all([
+    buscarTodos(() => sb.from('lancamentos').select('empresa, tipo, valor, redutor').gte('vencimento', ini).lte('vencimento', fim).eq('pago', false).eq('perda', false)),
+    buscarTodos(() => sb.from('lancamentos').select('empresa, tipo, valor, redutor').gte('data_pagamento', ini).lte('data_pagamento', fim).eq('pago', true)),
+    buscarTodos(() => sb.from('lancamentos').select('empresa, tipo, valor, redutor').lt('vencimento', h).eq('pago', false).eq('perda', false))
+  ]);
+  const out = {};
+  ['escritorio', 'contabilidade'].forEach((emp) => {
+    const de = (lista, tipo) => lista.filter((l) => l.empresa === emp && l.tipo === tipo);
+    out[emp] = { recebido: soma(de(pagos, 'receita'), vl), n_recebido: de(pagos, 'receita').length, a_receber: soma(de(abertos, 'receita'), vl), n_a_receber: de(abertos, 'receita').length,
+      em_atraso: soma(de(atr, 'receita'), vl), n_em_atraso: de(atr, 'receita').length, a_pagar: soma(de(abertos, 'despesa'), vl), n_a_pagar: de(abertos, 'despesa').length };
+  });
+  return out;
+}
+
 // ─────────────────────────── INÍCIO ────────────────────────────────
 TELAS.inicio = async function () {
   const h = hojeISO(), ini = iso(primeiroDiaDoMes(new Date())), fim = iso(fimDoMes(new Date()));
   const sel = '*, grupos(nome), clientes(nome)';
-  const [doMes, pagosNoMes, atrasados, proximos] = await Promise.all([
-    buscarTodos(() => sb.from('lancamentos').select(sel).gte('vencimento', ini).lte('vencimento', fim).eq('pago', false).eq('perda', false)),
-    buscarTodos(() => sb.from('lancamentos').select('empresa, tipo, valor').gte('data_pagamento', ini).lte('data_pagamento', fim).eq('pago', true)),
+  // totais prontos no banco (resumo_financeiro); só as listas vêm linha a linha
+  const [totais, atrasados, proximos] = await Promise.all([
+    q(sb.rpc('resumo_financeiro', { p_de: ini, p_ate: fim })).catch(() => resumoFinanceiroNoNavegador(ini, fim, h)),
     buscarTodos(() => sb.from('lancamentos').select(sel).lt('vencimento', h).eq('pago', false).eq('perda', false).order('vencimento')),
     buscarTodos(() => sb.from('lancamentos').select(sel).gte('vencimento', h).lte('vencimento', somarDias(h, 15)).eq('pago', false).eq('perda', false).order('vencimento'))
   ]);
-  const de = (lista, emp, tipo) => lista.filter((l) => l.empresa === emp && l.tipo === tipo);
-  const linha = (emp, titulo) =>
-    '<div class="kpis-titulo">' + titulo + '</div><div class="kpis">' +
-    kpi('Recebido no mês', brl(soma(de(pagosNoMes, emp, 'receita'), vl)), 'verde', de(pagosNoMes, emp, 'receita').length + ' recebimento(s)') +
-    kpi('A receber no mês', brl(soma(de(doMes, emp, 'receita'), vl)), '', de(doMes, emp, 'receita').length + ' em aberto') +
-    kpi('Em atraso', brl(soma(de(atrasados, emp, 'receita'), vl)), 'vermelho', de(atrasados, emp, 'receita').length + ' vencido(s)') +
-    kpi('A pagar no mês', brl(soma(de(doMes, emp, 'despesa'), vl)), 'ambar', de(doMes, emp, 'despesa').length + ' conta(s)') +
-    '</div>';
+  const linha = (emp, titulo) => { const t = totais[emp] || {};
+    return '<div class="kpis-titulo">' + titulo + '</div><div class="kpis">' +
+    kpi('Recebido no mês', brl(t.recebido || 0), 'verde', (t.n_recebido || 0) + ' recebimento(s)') +
+    kpi('A receber no mês', brl(t.a_receber || 0), '', (t.n_a_receber || 0) + ' em aberto') +
+    kpi('Em atraso', brl(t.em_atraso || 0), 'vermelho', (t.n_em_atraso || 0) + ' vencido(s)') +
+    kpi('A pagar no mês', brl(t.a_pagar || 0), 'ambar', (t.n_a_pagar || 0) + ' conta(s)') +
+    '</div>'; };
 
   $('conteudo').innerHTML =
     '<div class="titulo-pag"><div><h1>Olá, ' + esc((E.perfil.nome || '').split(' ')[0]) + '</h1>' +
