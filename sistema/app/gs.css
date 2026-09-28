@@ -413,8 +413,7 @@
   background:conic-gradient(var(--c) calc(var(--p)*1%),var(--gray-mid) 0);animation:al-gira .9s ease-out}
 .gs .al-critico .al-anel{--c:var(--red)}
 .gs .al-atencao .al-anel{--c:var(--amber)}
-.gs .al-anel::before{content:'';position:absolute;inset:10px;border-radius:50%;background:var(--surface)}
-.gs .al-anel b,.gs .al-anel span{position:relative}
+.gs .al-anel-in{width:84px;height:84px;border-radius:50%;background:var(--surface);display:grid;place-content:center;text-align:center}
 .gs .al-anel b{font-size:28px;line-height:1;color:var(--ink);font-variant-numeric:tabular-nums}
 .gs .al-anel span{font-size:11px;color:var(--text3)}
 @keyframes al-gira{from{transform:rotate(-90deg) scale(.85);opacity:0}to{transform:none;opacity:1}}

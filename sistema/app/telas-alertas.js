@@ -137,7 +137,7 @@ TELAS.alertas = async function () {
     : atencao ? ['atencao', 'Quase tudo em dia', atencao + ' ponto(s) para acompanhar nesta semana.'] : ['ok', 'Tudo em dia! 🎉', 'Nenhum alerta aberto. Bom trabalho.'];
   const setores = [...new Set(acao.map((a) => a.setor))];
   $('al-corpo').innerHTML =
-    '<div class="al-radar al-' + humor[0] + '"><div class="al-anel" style="--p:' + nota + '"><b>' + nota + '</b><span>em dia</span></div>' +
+    '<div class="al-radar al-' + humor[0] + '"><div class="al-anel" style="--p:' + nota + '"><div class="al-anel-in"><b>' + nota + '</b><span>em dia</span></div></div>' +
       '<div class="al-radar-txt"><h2>' + esc(humor[1]) + '</h2><p>' + esc(humor[2]) + '</p>' +
       '<div class="al-contas"><span class="al-conta critico">' + criticos + ' crítico(s)</span><span class="al-conta atencao">' + atencao + ' atenção</span><span class="al-conta ok">' +
         A.filter((a) => a.nivel === 'ok').length + ' em dia</span></div>' +

@@ -301,7 +301,7 @@ body.gx-barra-topo .gs .janela{border-radius:18px;box-shadow:0 30px 80px -20px r
 .gx-leg .gx-leg-p{color:var(--text3);width:64px}
 .gx-leg tfoot td{font-weight:700;border-bottom:0;color:var(--ink)}
 .gx-leg-c{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:9px;vertical-align:-1px}
-@media (max-width:900px){.gx-donut{grid-template-columns:1fr}.gx-donut .gx-donut-g{height:240px!important}}
+@media (max-width:1300px){.gx-donut{grid-template-columns:1fr}.gx-donut .gx-donut-g{height:240px!important}}
 /* selo do grupo: largura PADRÃO (150px) e cresce para baixo; palavra nunca é quebrada no meio */
 body.gx-barra-topo .tw td>.tag.tn,body.gx-barra-topo .tw td .er-grupo{display:inline-block!important;width:150px!important;max-width:150px!important;white-space:normal!important;
   overflow:visible!important;text-overflow:clip!important;overflow-wrap:break-word!important;word-break:normal!important;hyphens:none;line-height:1.3;text-align:left;box-sizing:border-box;padding:4px 9px}
@@ -321,6 +321,7 @@ body.gx-barra-topo .tw td:has(>.tag.tn),body.gx-barra-topo .tw td:has(.er-grupo)
 #tblProcBody td:nth-child(2){white-space:nowrap}
 /* gráfico + tabela lado a lado (Parcelamentos: saldo residual por empresa) */
 .gx-graf-tab{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(260px,1fr);gap:22px;align-items:center}
+.gx-leg thead tr,.gx-leg thead td{background:none!important}
 .gx-leg thead td{font-size:10.5px!important;font-weight:700;letter-spacing:.07em!important;text-transform:uppercase!important;color:var(--text3)!important}
 @media (max-width:900px){.gx-graf-tab{grid-template-columns:1fr}}
 /* ordenar clicando no título (Progresso por parcelamento) */
@@ -349,3 +350,6 @@ body.gx-barra-topo .fin-tab-vencidos.active{background:var(--red-lt)!important;c
 .mod-banner .gx-cobrar{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
 .mod-banner .gx-cobrar button{border:1px solid var(--border-strong);background:var(--surface);color:var(--ink);border-radius:10px;padding:7px 12px;font:650 12.5px var(--font-ui);cursor:pointer}
 .mod-banner .gx-cobrar button:hover{border-color:var(--ac-navy3);box-shadow:var(--anel)}
+/* Cobranças (módulo antigo): botão principal com contraste nos dois modos */
+#panel-notificacoes .btn-p{background:var(--ac-navy)!important;border-color:var(--ac-navy)!important;color:#fff!important}
+html[data-tema="escuro"] #panel-notificacoes .btn-p{background:#2E5EAA!important;border-color:#2E5EAA!important}

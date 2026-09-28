@@ -451,6 +451,7 @@ commit;
 begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-00000000000a');
 select pg_temp.ok(public.carregar_demonstracao()=6,'admin carrega a demonstração (6 clientes fictícios)');
 select pg_temp.ok((select count(*) from lancamentos l join clientes c on c.id=l.cliente_id where c.chave_importacao like 'demo:%')>0,'demonstração vem com honorários ligados aos clientes');
-select pg_temp.ok(public.limpar_demonstracao()=6 and (select count(*) from grupos where nome like 'DEMO%')=0,'apagar a demonstração não deixa rastro');
+select pg_temp.ok(public.limpar_demonstracao()=6,'apagar a demonstração remove os 6 clientes fictícios');
+select pg_temp.ok((select count(*) from grupos where nome like 'DEMO%')=0,'apagar a demonstração não deixa rastro');
 commit;
 select pg_temp.ok((select email from public.contato_do_cliente((select id from clientes where nome='Só Jurídico Ltda'),null,'financeiro')) is null,'sem e-mail cadastrado, nenhum e-mail ao cliente');
