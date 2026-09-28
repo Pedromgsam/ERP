@@ -1,5 +1,7 @@
 # Prompt de melhorias — design, integração e desempenho
 
+> **Executado no Backup 10 (28/09/2026).** O que ficou para depois está em `INVENTARIO-SIMPLIFICACAO.md` e `INTEGRACOES-CUSTOS.md`.
+
 > Cole **todo** o texto abaixo da linha numa conversa nova com o Claude (uma conversa só).
 > Foi montado depois de uma revisão do código em 27/09/2026 (Backup 09). **Foco principal: design.**
 

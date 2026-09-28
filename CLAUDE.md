@@ -63,10 +63,20 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - O `servidor-local.js` guarda as funções carregadas em memória: reinicie-o depois de mudar uma Edge Function.
 - `FOTOS=/pasta node erp.js` salva prints das telas para conferência visual.
 
+## Padrões de tela (desde o Backup 10)
+- Cores: só em `tokens.css` (fonte única). O modo escuro (`html[data-tema=escuro]`) é gerado por
+  `ferramentas/tema-escuro.js` a partir do CSS existente — não escreva regras escuras à mão, salvo exceções pontuais.
+- Lista vazia: `vazio(frase, rótulo, seletorDoBotão)`. Relatório com CSV: `relatorioTabela({titulo, colunas, linhas, ids})`.
+- Tabelas longas paginam sozinhas (100) — `paginarTabelas` no `nucleo.js`. No celular (≤600px) viram cartões (`rotularTabelas`).
+- Clientes nas listas usam `window.ERP_COLS_CLIENTE` (sem `cnpj_dados`); coluna nova em `clientes` → incluir lá (o teste avisa).
+- `carregarCadastros()` guarda 60 s; depois de gravar use `carregarCadastros(true)`.
+- Arquivos em `vendor/`, `.js` e `.css` recebem `?v=hash` no build e ficam em cache por 1 ano (`vercel.json`, os dois).
+- Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
+
 ## Estado atual (atualizar a cada entrega)
-- Última entrega: **Backup 09** — PR https://github.com/Pedromgsam/ERP/pull/11 (Alertas, Acordos autônomo,
-  contratos de consultoria, cartão CNPJ diário, ajustes do Painel/Financeiro/barra). `estrutura.sql` = 2039 linhas.
-- Aguardando o usuário: dizer **qual API de CNPJ** usa no Google Sheets (hoje: BrasilAPI por padrão; ReceitaWS e
-  CNPJá suportadas, token em Alertas → Cartão CNPJ).
-- Próxima rodada: `sistema/PROMPT-MELHORIAS.md` — prompt único, numa conversa só, fases A→E
-  (A design = foco principal, B desempenho, C simplificação, D integrações, E segurança).
+- Última entrega: **Backup 10** — PR da branch `claude/bold-meitner-acdaxs` (design, desempenho, simplificação,
+  Cartão CNPJ na ficha, Google Agenda, backup semanal, saúde do sistema, acessos). `estrutura.sql` = 2258 linhas.
+- Funções do Supabase: erp-emails, erp-publicacoes, erp-cnpj (atualizada), **erp-agenda** e **erp-backup** (novas).
+- Aguardando o usuário: (1) qual **API de CNPJ** usa no Google Sheets; (2) escolher as integrações pagas em
+  `INTEGRACOES-CUSTOS.md` (boleto/PIX, certidões, WhatsApp, assinatura); (3) se pode **apagar o gestao.html**.
+- Próxima rodada sugerida: migração das telas antigas (ordem em `INVENTARIO-SIMPLIFICACAO.md`, começando por testes).

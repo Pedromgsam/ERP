@@ -204,7 +204,7 @@ const r = []; const ok = (n, c) => r.push([n, !!c]);
     await p.click('[data-cli]'); await esperar(p, 1000);
     ok('clicar no cliente expande o resumo logo abaixo', (await p.locator('tr.cli-det [data-cli-ficha]').count()) === 1);
     await p.click('[data-cli-ficha]'); await esperar(p, 800);
-    ok('clicar no cliente abre a ficha 360°', (await p.locator('.janela.ficha #fc-abas button').count()) === 12);
+    ok('clicar no cliente abre a ficha 360°', (await p.locator('.janela.ficha #fc-abas button').count()) === 13);
     await p.click('#fc-editar'); await esperar(p, 800);
     ok('equipe não tem botão excluir cliente', (await p.locator('#btn-excluir-cli').count()) === 0);
     await p.context().close();

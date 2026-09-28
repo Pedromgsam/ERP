@@ -15,6 +15,7 @@ versão foi ao ar**. O número cresce a cada entrega.
 | 07 | Ficha 360° do cliente, Documentos e Tarefas completas |
 | 08 | Design, acessos por função, e-mail, CRM, publicações e lógica das tarefas |
 | 09 | Alertas, Acordos autônomo, contratos de consultoria (salário mínimo), cartão CNPJ diário |
+| 10 | Design (cores únicas, modo escuro, celular), desempenho, Google Agenda, backup semanal, acessos |
 
 ## Como baixar um backup
 No GitHub, abra a pasta `backups`, clique no arquivo e depois em **Download** (ícone de seta, à direita).
