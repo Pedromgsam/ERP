@@ -346,3 +346,7 @@ tr.linha-atual td{background:#FBF3DC!important;font-weight:700}
 /* tabelas longas: 100 linhas por vez; quadro com rolagem própria e cabeçalho fixo */
 .tabela-wrap.tabela-longa{max-height:70vh;overflow:auto}
 .tabela-wrap.tabela-longa thead th{position:sticky;top:0;z-index:2;background:var(--surface2);box-shadow:0 1px 0 var(--border)}
+/* Início: listas com altura natural, rodapé "Ver todos" encostado embaixo */
+.card-lista{display:flex;flex-direction:column}
+.card-lista .tabela-wrap{flex:1}
+.card-lista-rp{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 16px;border-top:1px solid var(--border)}

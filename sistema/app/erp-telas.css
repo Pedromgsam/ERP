@@ -162,7 +162,7 @@ canvas.gx-sem-dados{opacity:1}
   table.gx-cartoes td::before{content:attr(data-rotulo);font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);text-align:left;flex-shrink:0}
   table.gx-cartoes td[data-rotulo=""]::before{content:none}
   table.gx-cartoes td[colspan]{display:block;text-align:left}
-  table.gx-cartoes td.acoes-l,table.gx-cartoes td.gx-td-acoes{justify-content:flex-end}
+  table.gx-cartoes td.acoes-l,table.gx-cartoes td.gx-td-acoes{justify-content:flex-end;width:auto!important}
   table.gx-cartoes tfoot{display:block}
   .tw:has(table.gx-cartoes){border:0;box-shadow:none;background:none;overflow:visible;max-height:none!important}
   /* barra de filtros do ERP: rola para o lado em vez de cortar */
@@ -223,3 +223,5 @@ html[data-tema="escuro"] body.gx-barra-topo .gs-area > .titulo-pag:first-child::
 body.gx-barra-topo .gs-area > .titulo-pag:first-child h1{font-family:'Space Grotesk','DM Sans',system-ui,sans-serif;font-size:19px;font-weight:800;letter-spacing:-.01em;color:var(--ink)}
 body.gx-barra-topo .gs-area > .titulo-pag:first-child p{font-size:11.5px;color:var(--text3);margin-top:2px}
 @media (max-width:600px){body.gx-barra-topo .gs-area > .titulo-pag:first-child{padding:10px 12px 10px 26px}body.gx-barra-topo .gs-area > .titulo-pag:first-child::before{left:12px}}
+/* contraste (caca-bugs.js): selo cinza da tabela do Painel */
+#tblExecRanking .tag.tx{color:var(--text3)}

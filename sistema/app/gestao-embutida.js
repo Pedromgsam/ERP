@@ -672,6 +672,7 @@ async function resumoFinanceiroNoNavegador(ini, fim, h) {
 TELAS.inicio = async function () {
   const h = hojeISO(), ini = iso(primeiroDiaDoMes(new Date())), fim = iso(fimDoMes(new Date()));
   const sel = '*, grupos(nome), clientes(nome)';
+  cardLista._n = 0;
   // totais prontos no banco (resumo_financeiro); só as listas vêm linha a linha
   const [totais, atrasados, proximos] = await Promise.all([
     q(sb.rpc('resumo_financeiro', { p_de: ini, p_ate: fim })).catch(() => resumoFinanceiroNoNavegador(ini, fim, h)),
@@ -703,18 +704,32 @@ TELAS.inicio = async function () {
   ligarBotoesNovo($('conteudo'));
 };
 
-function cardLista(titulo, lista, vazio) {
-  const linhas = lista.map((l) => {
-    const quem = (l.grupos && l.grupos.nome) || l.favorecido || (l.clientes && l.clientes.nome) || '';
+// Listas do Início: mostra as 8 primeiras (nunca corta linha no meio); "Ver todos" abre o relatório completo com CSV
+const LIMITE_LISTA_INICIO = 8;
+function cardLista(titulo, lista, vazioTxt) {
+  const quemDe = (l) => (l.grupos && l.grupos.nome) || l.favorecido || (l.clientes && l.clientes.nome) || '';
+  const linhas = lista.slice(0, LIMITE_LISTA_INICIO).map((l) => {
+    const quem = quemDe(l);
     return '<tr><td class="mono" data-ord="' + l.vencimento + '">' + dataBR(l.vencimento) + '</td><td><b>' + esc(quem || l.descricao) + '</b>' +
       '<div class="sub">' + (l.empresa === 'contabilidade' ? 'Contabilidade · ' : 'Jurídico · ') + esc(l.descricao) + '</div></td>' +
       '<td class="num mono ' + (l.tipo === 'receita' && !l.redutor ? 'valor-rec' : 'valor-desp') + '" data-ord="' + (l.tipo === 'despesa' ? -l.valor : vl(l)) + '">' + (l.tipo === 'despesa' || l.redutor ? '−\u00A0' : '') + brl(l.valor) + (l.redutor ? '<div class="sub">redutor</div>' : '') + '</td>' +
       '<td class="acoes-l"><button class="btn btn-v btn-mini" data-pagar="' + l.id + '">✓ ' + (l.tipo === 'receita' ? 'Recebido' : 'Pago') + '</button></td></tr>';
   }).join('');
-  return '<div class="card"><div class="card-hd">' + titulo + '<span class="pill neutro">' + lista.length + '</span></div>' +
-    (lista.length ? '<div class="tabela-wrap lista-curta"><table class="ordenavel"><thead><tr><th data-tipo="data">Data</th><th>Quem</th><th class="num">Valor</th><th class="sem-ordem"></th></tr></thead><tbody>' +
-      linhas + '</tbody></table></div>' : '<div class="vazio">' + vazio + '</div>') + '</div>';
+  const mais = lista.length > LIMITE_LISTA_INICIO;
+  const chave = 'lista' + (cardLista._n = (cardLista._n || 0) + 1);
+  cardLista[chave] = { titulo: titulo.replace(/^\S+\s/, ''), linhas: lista.map((l) => [dataBR(l.vencimento), quemDe(l), l.empresa === 'contabilidade' ? 'Contabilidade' : 'Jurídico', l.descricao,
+    (l.tipo === 'despesa' || l.redutor ? '-' : '') + brl(l.valor)]), ids: lista.map((l) => l.cliente_id || '') };
+  return '<div class="card card-lista"><div class="card-hd">' + titulo + '<span class="pill neutro">' + lista.length + '</span></div>' +
+    (lista.length ? '<div class="tabela-wrap"><table class="ordenavel"><thead><tr><th data-tipo="data">Data</th><th>Quem</th><th class="num">Valor</th><th class="sem-ordem"></th></tr></thead><tbody>' +
+      linhas + '</tbody></table></div>' +
+      (mais ? '<div class="card-lista-rp"><span class="sub">Mostrando ' + LIMITE_LISTA_INICIO + ' de ' + lista.length + '</span><button type="button" class="btn btn-o btn-mini" data-ver-todos="' + chave + '">Ver todos (' + lista.length + ')</button></div>' : '')
+      : vazio(vazioTxt)) + '</div>';
 }
+document.addEventListener('click', (ev) => {
+  const b = ev.target.closest && ev.target.closest('[data-ver-todos]'); if (!b) return;
+  const r = cardLista[b.dataset.verTodos]; if (!r) return;
+  relatorioTabela({ titulo: r.titulo, colunas: ['Data', 'Quem', 'Empresa', 'Descrição', 'Valor'], linhas: r.linhas, ids: r.ids });
+});
 
 function ligarBotoesNovo(raiz) {
   raiz.querySelectorAll('[data-novo]').forEach((b) => {

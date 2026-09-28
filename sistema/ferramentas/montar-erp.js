@@ -183,6 +183,10 @@ trocar("      plugins:{legend:{display:true,position:'bottom',labels:{color:'#4B
 trocar('<option value="Demanda">Demanda</option>', '<option value="Demanda">Serviço pontual</option>', 1);
 
 s = s.replace(/<title>[^<]*<\/title>/, '<title>ERP — Araújo &amp; Castro</title>');
+// 16. Contraste AA (caca-bugs.js): cores de pessoa/grupo sem cor própria ficam legíveis sobre o fundo claro
+trocar("var _FA_NEUTRAS=['#1B2A4A','#7C3AED','#0D9488','#DC2626','#0EA5E9','#6B7280'];",
+  "var _FA_NEUTRAS=['#1B2A4A','#6D28D9','#0F766E','#B91C1C','#0369A1','#4B5563'];", 1);
+
 // 14. Imagens: saem do HTML (eram base64) e viram arquivos em img/, guardados pelo navegador.
 {
   const IMG = path.join(raiz, 'sistema', 'app', 'img'); fs.mkdirSync(IMG, { recursive: true });
