@@ -94,30 +94,54 @@ const MODELOS_ACESSO = {
   'Financeiro': { financeiro_juridico: 'editar', financeiro_contab: 'editar', contratos: 'editar', clientes: 'ver', documentos: 'editar', relatorios: 'ver' },
   'Jurídico': { juridico: 'editar', clientes: 'editar', tarefas: 'editar', documentos: 'editar', contratos: 'ver' },
   'Atendimento / Comercial': { crm: 'editar', clientes: 'editar', contratos: 'ver', documentos: 'editar', tarefas: 'ver' },
-  'Estagiário': { juridico: 'ver', tarefas: 'ver', clientes: 'ver', documentos: 'ver' }
+  'Estagiário (rascunho)': { juridico: 'propor', clientes: 'propor', tarefas: 'ver', documentos: 'ver', contratos: 'ver' }
 };
+// Nível "Propor" (rascunho): a pessoa preenche normalmente, mas nada vale até alguém que edita aprovar.
+const FUNCOES_PROPOR = ['financeiro_juridico', 'financeiro_contab', 'contratos', 'clientes', 'juridico'];
+// Área do cliente e áreas que cada usuário vê
+const AREAS = [['juridico', 'Jurídico'], ['contabil', 'Contabilidade'], ['ambos', 'Jurídico + Contabilidade']];
+function rotArea(a) { return (AREAS.find((x) => x[0] === (a || 'ambos')) || AREAS[2])[1]; }
+function pillArea(a) {
+  a = a || 'ambos';
+  return '<span class="pill area-' + a + '" title="Área: ' + rotArea(a) + '">' + (a === 'juridico' ? 'Jurídico' : a === 'contabil' ? 'Contábil' : 'Jur + Cont') + '</span>';
+}
+function minhasAreas(perfil) { const p = perfil || E.perfil || window.ERP_EU || {}; return p.papel === 'admin' ? 'ambos' : (p.areas || 'ambos'); }
 // pode('contratos') → pode ver; pode('contratos','editar') → pode gravar. Admin pode tudo.
 function pode(f, nivel, perfil) {
   const p = perfil || E.perfil || window.ERP_EU || {};
   if (p.papel === 'admin') return true;
   if (p.papel !== 'equipe') return false;
-  const v = (p.funcoes || {})[f];
-  return v === 'editar' || (v === 'ver' && (nivel || 'ver') === 'ver');
+  const v = (p.funcoes || {})[f], n = nivel || 'ver';
+  if (v === 'propor') return n !== 'aprovar';          // vê e preenche; a gravação vira rascunho
+  return v === 'editar' || (v === 'ver' && n === 'ver');
+}
+// esta pessoa trabalha em modo rascunho nesta função?
+function emRascunho(f, perfil) {
+  const p = perfil || E.perfil || window.ERP_EU || {};
+  return p.papel === 'equipe' && (p.funcoes || {})[f] === 'propor';
 }
 function resumoFuncoes(p) {
   if (p.papel === 'admin') return 'tudo';
   const f = p.funcoes || {}, ks = FUNCOES.filter((x) => f[x[0]]);
   if (ks.length === FUNCOES.length && ks.every((x) => f[x[0]] === 'editar')) return 'tudo';
-  return ks.map((x) => x[1].replace('Financeiro — ', 'Fin. ') + (f[x[0]] === 'ver' ? ' (ver)' : '')).join(' · ') || 'nenhuma';
+  return ks.map((x) => x[1].replace('Financeiro — ', 'Fin. ') + (f[x[0]] === 'ver' ? ' (ver)' : f[x[0]] === 'propor' ? ' (rascunho)' : '')).join(' · ') + (p.areas && p.areas !== 'ambos' ? ' · só ' + rotArea(p.areas) : '') || 'nenhuma';
 }
 // grade de funções (Nenhum / Ver / Editar) com os modelos prontos
 function gradeFuncoes(funcoes) {
   funcoes = funcoes || {};
   return '<div class="modelos-acesso">' + Object.keys(MODELOS_ACESSO).map((m) => '<button type="button" class="btn btn-o btn-mini" data-modelo-acesso="' + esc(m) + '">' + esc(m) + '</button>').join('') + '</div>' +
     '<div class="grade-funcoes">' + FUNCOES.map(([k, rot, desc]) => '<div class="gf-lin"><div><b>' + rot + '</b><div class="sub">' + desc + '</div></div><div class="segmento gf-niveis" data-funcao="' + k + '">' +
-      [['', 'Nenhum'], ['ver', 'Ver'], ['editar', 'Editar']].map(([v, r]) => '<button type="button" data-v="' + v + '" class="' + ((funcoes[k] || '') === v ? 'ativo' : '') + '">' + r + '</button>').join('') + '</div></div>').join('') + '</div>';
+      [['', 'Nenhum'], ['ver', 'Ver']].concat(FUNCOES_PROPOR.includes(k) ? [['propor', 'Rascunho']] : [], [['editar', 'Editar']]).map(([v, r]) => '<button type="button" data-v="' + v + '" class="' + ((funcoes[k] || '') === v ? 'ativo' : '') + '">' + r + '</button>').join('') + '</div></div>').join('') + '</div>';
 }
+// quais clientes a pessoa vê: só do Jurídico, só da Contabilidade ou os dois (clientes "Jurídico + Contabilidade" todos veem)
+function gradeAreas(areas) {
+  return '<div class="gf-lin gf-lin-area"><div><b>Clientes que vê</b><div class="sub">Vale para a lista de clientes, contatos, contratos e documentos</div></div>' +
+    '<div class="segmento gf-areas">' + [['juridico', 'Só Jurídico'], ['contabil', 'Só Contabilidade'], ['ambos', 'Os dois']].map(([v, r]) =>
+      '<button type="button" data-v="' + v + '" class="' + ((areas || 'ambos') === v ? 'ativo' : '') + '">' + r + '</button>').join('') + '</div></div>';
+}
+function lerAreas(raiz) { const b = raiz.querySelector('.gf-areas button.ativo'); return b ? b.dataset.v : 'ambos'; }
 function ligarGradeFuncoes(raiz) {
+  raiz.querySelectorAll('.gf-areas').forEach((g) => g.onclick = (ev) => { const b = ev.target.closest('button'); if (!b) return; g.querySelectorAll('button').forEach((x) => x.classList.toggle('ativo', x === b)); });
   raiz.querySelectorAll('.gf-niveis').forEach((g) => g.onclick = (ev) => { const b = ev.target.closest('button'); if (!b) return; g.querySelectorAll('button').forEach((x) => x.classList.toggle('ativo', x === b)); });
   raiz.querySelectorAll('[data-modelo-acesso]').forEach((b) => b.onclick = () => {
     const m = MODELOS_ACESSO[b.dataset.modeloAcesso];
@@ -234,6 +258,7 @@ function pillPessoa(n) {
 // ─────────────────────────── avisos e erros ────────────────────────
 let _avisoT;
 function aviso(msg, erro) {
+  if (/^📝/.test(String(msg))) erro = false;              // rascunho enviado: não é erro
   const a = $('aviso');
   a.textContent = msg;
   a.className = 'mostrar' + (erro ? ' erro' : '');
@@ -250,6 +275,7 @@ function marcarGravacao() {
 }
 
 function erroAmigavel(e) {
+  if (e && e.rascunho) return e.message;
   const m = String((e && (e.message || e.error_description)) || e || '');
   if (/Invalid login credentials/i.test(m)) return 'E-mail ou senha incorretos.';
   if (/Email not confirmed/i.test(m)) return 'E-mail ainda não confirmado. Peça ao administrador para confirmar o usuário.';
@@ -285,9 +311,92 @@ async function buscarTodos(montar, porPagina) {
 async function comBotao(btn, fn) {
   if (btn) btn.disabled = true;
   try { await fn(); }
-  catch (e) { console.error(e); aviso(erroAmigavel(e), true); }
+  catch (e) {
+    if (e && e.rascunho) { const j = btn && btn.closest && btn.closest('.fundo'); if (j) fecharJanela(j); aviso(e.message); return; }
+    console.error(e); aviso(erroAmigavel(e), true);
+  }
   finally { if (btn) btn.disabled = false; }
 }
+
+// ═════════════ RASCUNHO (nível "Propor" das funções de acesso) ═════════════
+// Quem tem "Rascunho" numa função usa as telas normalmente; na hora de gravar, em vez de
+// alterar o banco, a alteração vai para public.rascunhos (RPC propor_alteracao) e só vale
+// depois que alguém que edita aquela área aprovar (tela Aprovações). O banco garante a regra:
+// sem "Editar", a gravação direta é recusada pela RLS.
+const TABELAS_RASCUNHO = { clientes: 'clientes', contatos: 'clientes', enderecos: 'clientes', contas_bancarias: 'clientes', vinculos_societarios: 'clientes',
+  interacoes: 'clientes', certidoes: 'clientes', cliente_etiquetas: 'clientes', contratos: 'contratos',
+  processos: 'juridico', parcelamentos: 'juridico', parcelas: 'juridico', acordos: 'juridico', lancamentos: '*fin' };
+const NOME_TAB_RASC = { clientes: 'cliente', contatos: 'contato', enderecos: 'endereço', contas_bancarias: 'conta bancária', vinculos_societarios: 'vínculo societário',
+  interacoes: 'interação', certidoes: 'certidão', cliente_etiquetas: 'etiqueta', contratos: 'contrato', processos: 'processo', parcelamentos: 'parcelamento',
+  parcelas: 'parcela', acordos: 'acordo', lancamentos: 'lançamento' };
+function funcaoDaGravacao(t, dados, filtros) {
+  const f = TABELAS_RASCUNHO[t];
+  if (f !== '*fin') return f;
+  const um = Array.isArray(dados) ? dados[0] : dados;
+  const emp = (um && um.empresa) || (filtros.id && window.ERP_LANC && window.ERP_LANC[filtros.id] && window.ERP_LANC[filtros.id].empresa) || '';
+  if (emp) return emp === 'contabilidade' ? 'financeiro_contab' : 'financeiro_juridico';
+  return emRascunho('financeiro_juridico') ? 'financeiro_juridico' : 'financeiro_contab';
+}
+function resumoRascunho(t, op, dados, filtros) {
+  const um = (Array.isArray(dados) ? dados[0] : dados) || {};
+  const nome = um.nome || um.descricao || um.titulo || um.numero || um.processo || '';
+  const campos = op === 'alterar' ? Object.keys(um).filter((k) => !/^(id|atualizado_em)$/.test(k)).length : 0;
+  return ({ incluir: 'Incluir ', alterar: 'Alterar ', excluir: 'Excluir ' }[op]) + (NOME_TAB_RASC[t] || t) + (nome ? ': ' + nome : '') +
+    (op === 'alterar' && !nome ? ' (' + campos + ' campo(s))' : '') + (Array.isArray(dados) && dados.length > 1 ? ' (+' + (dados.length - 1) + ')' : '');
+}
+function envolverRascunho(cli) {
+  if (!cli || cli._rascunho) return cli;
+  cli._rascunho = true;
+  const fromOriginal = cli.from.bind(cli);
+  cli.from = (t) => {
+    const real = fromOriginal(t);
+    if (!TABELAS_RASCUNHO[t]) return real;
+    return new Proxy(real, { get(alvo, k) {
+      if (!['insert', 'update', 'upsert', 'delete'].includes(k)) { const v = alvo[k]; return typeof v === 'function' ? v.bind(alvo) : v; }
+      return (dados, opcoes) => construtorGravacao(real, t, k, dados, opcoes);
+    } });
+  };
+  return cli;
+}
+// grava o encadeamento (.eq, .select, .single…) e decide no fim: grava direto ou vira rascunho
+function construtorGravacao(real, t, metodo, dados, opcoes) {
+  const cadeia = [], filtros = {};
+  const eu = {
+    then(ok, falha) { return executar().then(ok, falha); },
+    catch(falha) { return executar().catch(falha); }
+  };
+  ['eq', 'in', 'match', 'select', 'single', 'maybeSingle', 'order', 'limit', 'neq', 'is', 'not', 'gte', 'lte', 'lt', 'gt', 'filter', 'contains', 'range', 'throwOnError'].forEach((m) => {
+    eu[m] = (...a) => { cadeia.push([m, a]);
+      if (m === 'eq') filtros[a[0]] = a[1]; else if (m === 'in') filtros[a[0]] = a[1]; else if (m === 'match') Object.assign(filtros, a[0]);
+      else if (!['select', 'single', 'maybeSingle', 'order', 'limit', 'throwOnError'].includes(m)) filtros._outro = true;
+      return eu; };
+  });
+  let _p = null;
+  function executar() {
+    if (_p) return _p;
+    const d = metodo === 'delete' ? null : dados;
+    if (metodo === 'upsert' && d && !Array.isArray(d) && d.id) filtros.id = d.id;
+    const f = funcaoDaGravacao(t, d, filtros);
+    if (!emRascunho(f) || filtros._outro) {
+      let b = metodo === 'delete' ? real.delete(opcoes) : real[metodo](dados, opcoes);
+      cadeia.forEach(([m, a]) => { b = b[m](...a); });
+      return (_p = Promise.resolve(b));
+    }
+    const op = metodo === 'insert' || (metodo === 'upsert' && !filtros.id) ? 'incluir' : metodo === 'delete' ? 'excluir' : 'alterar';
+    const semId = Object.assign({}, filtros);
+    return (_p = sb.rpc('propor_alteracao', { p_tabela: t, p_operacao: op, p_filtros: op === 'incluir' ? {} : semId, p_dados: d || {}, p_resumo: resumoRascunho(t, op, d, filtros) })
+      .then(({ error }) => {
+        if (error) return { data: null, error };
+        const e = new Error('📝 Enviado para aprovação: só vale depois que alguém que edita esta área aprovar (veja em Aprovações).');
+        e.rascunho = true;
+        document.dispatchEvent(new CustomEvent('erp:rascunho'));
+        return { data: null, error: e };
+      }));
+  }
+  return eu;
+}
+envolverRascunho(sb);
+if (window.SB && window.SB !== sb) envolverRascunho(window.SB);
 
 // Carrega um script sob demanda (ex.: a biblioteca de Excel, só quando usada).
 const _scripts = {};
@@ -329,6 +438,42 @@ function fecharJanela(el) {
   if (alvo) alvo.remove();
 }
 document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') fecharJanela(); });
+
+// Baixa (recebimento/pagamento): pergunta a data — vem com hoje, mas dá para trocar quando o
+// lançamento é feito depois. Acordo: pergunta também se o comprovante foi juntado ao processo (e o ID).
+// Devolve os campos a gravar, ou null se a pessoa cancelou.
+function perguntarBaixa({ titulo, descricao, valor, acordo, despesa }) {
+  return new Promise((ok) => {
+    let feito = false;
+    const j = abrirJanela({ titulo: titulo || (despesa ? 'Confirmar pagamento' : 'Confirmar recebimento'),
+      corpo: (descricao ? '<div class="dica" style="margin-bottom:12px"><b>' + esc(descricao) + '</b>' + (valor != null ? ' · ' + brl(valor) : '') + '</div>' : '') +
+        campo(despesa || acordo ? 'Data do pagamento' : 'Data do recebimento', '<input type="date" name="bx-data" required value="' + hojeISO() + '">') +
+        '<div class="sub" style="margin:4px 0 10px">Já vem com a data de hoje. Se o dinheiro entrou em outro dia, troque aqui.</div>' +
+        (acordo ? '<fieldset class="bx-comp"><legend>O comprovante foi anexado ao processo?</legend>' +
+          '<label><input type="radio" name="bx-comp" value="sim"> Sim</label> <label><input type="radio" name="bx-comp" value="nao" checked> Não</label>' +
+          '<div class="bx-id" hidden>' + campo('ID do documento no processo', '<input name="bx-id" placeholder="ex.: 123456789 (ID do PJe)">') + '</div></fieldset>' : ''),
+      rodape: '<button type="button" class="btn btn-o" data-bx-cancelar>Cancelar</button><button type="button" class="btn btn-v" data-bx-ok>✓ Confirmar</button>' });
+    j.classList.add('janela-baixa');
+    const data = j.querySelector('[name=bx-data]');
+    const radios = j.querySelectorAll('[name=bx-comp]'), caixaId = j.querySelector('.bx-id');
+    radios.forEach((r) => r.onchange = () => { caixaId.hidden = r.value !== 'sim' || !r.checked; if (!caixaId.hidden) caixaId.querySelector('input').focus(); });
+    const fim = (v) => { if (feito) return; feito = true; fecharJanela(j); ok(v); };
+    j.querySelector('[data-bx-cancelar]').onclick = () => fim(null);
+    j.querySelector('[data-fechar]').onclick = () => fim(null);
+    j.addEventListener('mousedown', (ev) => { if (ev.target === j) fim(null); });
+    j.querySelector('[data-bx-ok]').onclick = () => {
+      if (!data.value) { data.focus(); return aviso('Informe a data.', true); }
+      const r = { pago: true, data_pagamento: data.value };
+      if (acordo) {
+        const sim = j.querySelector('[name=bx-comp]:checked').value === 'sim', idDoc = j.querySelector('[name=bx-id]').value.trim();
+        if (sim && !idDoc) { j.querySelector('[name=bx-id]').focus(); return aviso('Informe o ID do comprovante no processo (ou marque "Não").', true); }
+        r.comprovante_processo = sim; r.comprovante_id = sim ? idDoc : '';
+      }
+      fim(r);
+    };
+    new MutationObserver((_, o) => { if (!j.isConnected) { o.disconnect(); fim(null); } }).observe(j.parentNode, { childList: true });
+  });
+}
 
 function irParaTela(t) { if (typeof window.nav === 'function') window.nav(null, t); else irPara(t); }
 
@@ -695,12 +840,13 @@ TELAS.inicio = async function () {
     '<div class="acoes"><button class="btn btn-p" data-novo="receita">+ Receita</button>' +
     '<button class="btn btn-o" data-novo="despesa">+ Despesa</button>' +
     '<button class="btn btn-o" data-novo="contrato">+ Contrato</button></div></div>' +
-    '<div id="ini-fila"></div>' +
+    '<div id="ini-aprov"></div><div id="ini-fila"></div>' +
     (pode('financeiro_juridico') ? linha('escritorio', '💼 Honorários Jurídico') : '') + (pode('financeiro_contab') ? linha('contabilidade', '🧮 Contabilidade') : '') +
     (pode('financeiro_juridico') || pode('financeiro_contab') ? '<div class="duas-col">' +
     cardLista('⚠ Em atraso', atrasados, 'Nada em atraso. 👏') +
     cardLista('🗓 Próximos 15 dias', proximos, 'Nenhum vencimento nos próximos 15 dias.') +
     '</div>' : '');
+  if (typeof cardAprovacoes === 'function') cardAprovacoes().then((h) => { const el = $('ini-aprov'); if (el) el.innerHTML = h; }).catch((e) => console.error(e));
   if (typeof cardMinhaFila === 'function') cardMinhaFila().then((c) => { const el = $('ini-fila'); if (el) { el.innerHTML = c.html; c.ligar(el); } }).catch((e) => console.error(e));
   ligarAcoesLancamentos($('conteudo'));
   ligarBotoesNovo($('conteudo'));
@@ -1018,8 +1164,11 @@ function tabelaLancamentos(lista, opc) {
 function ligarAcoesLancamentos(raiz, depois) {
   const apos = depois || recarregar;
   raiz.querySelectorAll('[data-pagar]').forEach((b) => b.onclick = () => comBotao(b, async () => {
-    await q(sb.from('lancamentos').update({ pago: true, cobranca: '' }).eq('id', b.dataset.pagar));
-    aviso('✓ Baixa registrada.'); await apos();
+    const l = await q(sb.from('lancamentos').select('descricao, valor, tipo, redutor').eq('id', b.dataset.pagar).single());
+    const bx = await perguntarBaixa({ descricao: l.descricao, valor: l.valor, despesa: l.tipo === 'despesa' && !l.redutor });
+    if (!bx) return;
+    await q(sb.from('lancamentos').update(Object.assign(bx, { cobranca: '', perda: false })).eq('id', b.dataset.pagar));
+    aviso('✓ Baixa registrada em ' + dataBR(bx.data_pagamento) + '.'); await apos();
   }));
   raiz.querySelectorAll('[data-desfazer]').forEach((b) => b.onclick = () => comBotao(b, async () => {
     await q(sb.from('lancamentos').update({ pago: false }).eq('id', b.dataset.desfazer));
@@ -1228,7 +1377,7 @@ async function consultarCnpjNovo(id, nome) {
 }
 
 TELAS.clientes = async function () {
-  E.cli = E.cli || { tipo: 'ativos', grupo: '', busca: '' };
+  E.cli = E.cli || { tipo: 'ativos', grupo: '', busca: '', area: '' };
   await carregarCadastros();
   const C = E.cli;
   $('conteudo').innerHTML =
@@ -1237,6 +1386,7 @@ TELAS.clientes = async function () {
     '<div class="filtros">' +
     '<div class="segmento" id="cli-tipo">' + [['ativos', 'Ativos'], ['Consultoria', 'Consultoria'], ['Demanda', 'Serviço pontual'], ['Inativo', 'Inativos'], ['todos', 'Todos']]
       .map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
+    (minhasAreas() === 'ambos' ? '<select class="busca sel" id="cli-area" aria-label="Área" style="max-width:190px"><option value="">Todas as áreas</option><option value="juridico">Jurídico</option><option value="contabil">Contabilidade</option></select>' : '') +
     '<select class="busca sel" id="cli-grupo" autocomplete="off"><option value="">Todos os grupos</option>' +
     E.grupos.map((g) => '<option value="' + g.id + '">' + esc(g.nome) + '</option>').join('') + '</select>' +
     '<input class="busca" id="cli-busca" placeholder="Buscar nome, grupo, responsável ou CPF/CNPJ" autocomplete="off">' +
@@ -1244,12 +1394,13 @@ TELAS.clientes = async function () {
     '</div><div id="cli-corpo"></div>';
   $('cli-tipo').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { C.tipo = b.dataset.v; pintarClientes(); } };
   $('cli-grupo').onchange = (ev) => { C.grupo = ev.target.value; pintarClientes(); };
+  if ($('cli-area')) { $('cli-area').value = C.area || ''; $('cli-area').onchange = (ev) => { C.area = ev.target.value; pintarClientes(); }; }
   let t;
   $('cli-busca').oninput = (ev) => { clearTimeout(t); t = setTimeout(() => { C.busca = ev.target.value; pintarClientes(); }, 250); };
   $('cli-relatorio').onclick = () => { const l = E.cli.ultima || [];
     relatorioTabela({ titulo: 'Clientes', ids: l.map((c) => c.id),
-      colunas: ['Grupo', 'Nome', 'CPF/CNPJ', 'Tipo', 'Responsável', 'E-mail', 'Telefone', 'Cidade/UF', 'Procuração', 'Certificado', 'CAPAG', 'Situação cadastral'],
-      linhas: l.map((c) => [c.grupos ? c.grupos.nome : '', c.nome, mascaraDoc(c.cpf_cnpj), c.tipo === 'Demanda' ? 'Serviço pontual' : c.tipo, c.responsavel, c.email, c.telefone,
+      colunas: ['Grupo', 'Nome', 'CPF/CNPJ', 'Área', 'Tipo', 'Responsável', 'E-mail', 'Telefone', 'Cidade/UF', 'Procuração', 'Certificado', 'CAPAG', 'Situação cadastral'],
+      linhas: l.map((c) => [c.grupos ? c.grupos.nome : '', c.nome, mascaraDoc(c.cpf_cnpj), rotArea(c.area), c.tipo === 'Demanda' ? 'Serviço pontual' : c.tipo, c.responsavel, c.email, c.telefone,
         [c.cidade, c.estado].filter(Boolean).join('/'), c.procuracao === true ? 'Sim' : c.procuracao === false ? 'Não' : '', c.certificado === true ? 'Sim' : c.certificado === false ? 'Não' : '', c.capag, c.situacao_cadastral]) }); };
   ligarBotoesNovo($('conteudo'));
   // ao ordenar pelo cabeçalho, fecha o detalhe aberto (senão ele fica solto no meio da tabela)
@@ -1267,6 +1418,7 @@ function pintarClientes() {
     if (C.tipo === 'ativos' && c.tipo === 'Inativo') return false;
     if (C.tipo !== 'ativos' && C.tipo !== 'todos' && c.tipo !== C.tipo) return false;
     if (C.grupo && c.grupo_id !== C.grupo) return false;
+    if (C.area && (c.area || 'ambos') !== C.area && (c.area || 'ambos') !== 'ambos') return false;
     if (b && !(normalizar(c.nome + ' ' + (c.grupos ? c.grupos.nome : '') + ' ' + c.responsavel + ' ' + c.socio_admin).includes(b) ||
                (bd && soDigitos(c.cpf_cnpj).includes(bd)))) return false;
     return true;
@@ -1278,7 +1430,7 @@ function pintarClientes() {
     '<th>Procuração</th><th>Certificado</th><th>Situação</th></tr></thead><tbody>' +
     lista.map((c) => '<tr class="clicavel cli-linha" tabindex="0" aria-expanded="false" data-cli="' + c.id + '"><td class="cli-seta">▸</td>' +
       '<td class="cli-grupo" title="' + esc(c.grupos ? c.grupos.nome : '') + '">' + esc(c.grupos ? c.grupos.nome : '—') + '</td>' +
-      '<td><b>' + esc(c.nome) + '</b>' + (c.socio_admin ? '<div class="sub">' + esc(c.socio_admin) + '</div>' : '') + '</td>' +
+      '<td><b>' + esc(c.nome) + '</b> ' + pillArea(c.area) + (c.socio_admin ? '<div class="sub">' + esc(c.socio_admin) + '</div>' : '') + '</td>' +
       '<td class="mono">' + esc(mascaraDoc(c.cpf_cnpj) || '—') + '</td>' +
       '<td>' + pillPessoa(c.responsavel) + '</td><td>' + pillSimNao(c.procuracao) + '</td><td>' + pillSimNao(c.certificado) + '</td>' +
       '<td>' + pillSitCad(c.situacao_cadastral) + '</td></tr>').join('') +
@@ -1378,6 +1530,8 @@ async function formCliente(cl, depois) {
       campo('CPF/CNPJ', '<input name="cpf_cnpj" inputmode="numeric" maxlength="18" value="' + esc(mascaraDoc(cl.cpf_cnpj)) + '">') +
       campo('Grupo', '<input name="grupo" list="cli-grupos" placeholder="Digite ou escolha" value="' + esc(cl.grupos ? cl.grupos.nome : nomeGrupo(cl.grupo_id)) + '">' + datalistGrupos('cli-grupos')) +
       campo('Tipo', '<select name="tipo">' + [['Consultoria', 'Consultoria'], ['Demanda', 'Serviço pontual'], ['Inativo', 'Inativo']].map(([t, r]) => '<option value="' + t + '"' + (cl.tipo === t ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>') +
+      campo('Área do cliente', '<select name="area">' + AREAS.filter(([v]) => minhasAreas() === 'ambos' || v === minhasAreas() || v === (cl.area || '')).map(([v, r]) =>
+        '<option value="' + v + '"' + ((cl.area || (novo ? minhasAreas() : 'ambos')) === v ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>') +
       campo('Responsável', '<input name="responsavel" list="cli-pessoas" value="' + esc(cl.responsavel || '') + '">' + datalistPessoas('cli-pessoas')) +
       campo('Sócio-administrador', '<input name="socio_admin" value="' + esc(cl.socio_admin || '') + '">', 'dois') +
       campo('Tipo societário', selectOpcoes('tipo_societario', ['LTDA', 'S.A', 'MEI', 'EI', 'PF'], cl.tipo_societario)) +
@@ -1423,7 +1577,7 @@ async function formCliente(cl, depois) {
     const num = (n) => { const t = f[n].value.trim(); if (!t) return null; const v = lerValor(t); if (isNaN(v)) throw new Error('Valor inválido em ' + n.toUpperCase().replace(/_/g, ' ') + '.'); return v; };
     const grupo_id = await grupoPorNome(f.grupo.value);
     const dados = {
-      nome: f.nome.value.trim(), cpf_cnpj: soDigitos(f.cpf_cnpj.value), grupo_id, tipo: f.tipo.value,
+      nome: f.nome.value.trim(), cpf_cnpj: soDigitos(f.cpf_cnpj.value), grupo_id, tipo: f.tipo.value, area: f.area.value,
       responsavel: f.responsavel.value.trim(), socio_admin: f.socio_admin.value.trim(), tipo_societario: f.tipo_societario.value,
       em_operacao: lerSimNao(f.em_operacao.value), procuracao: lerSimNao(f.procuracao.value),
       certificado: lerSimNao(f.certificado.value), cadastro_regular: lerSimNao(f.cadastro_regular.value),
@@ -1480,7 +1634,7 @@ async function pintarContratos(buscar) {
   document.querySelectorAll('#ctr-status button').forEach((x) => x.classList.toggle('ativo', x.dataset.v === F.status));
   if (document.activeElement !== $('ctr-busca')) $('ctr-busca').value = F.busca;
   if (buscar) {
-    let c = sb.from('contratos').select('*, clientes(nome, grupos(nome)), lancamentos(valor, pago, vencimento), documentos(id)').order('data_contrato', { ascending: false });
+    let c = sb.from('contratos').select('*, clientes(nome, grupos(nome)), lancamentos(valor, pago, vencimento), documentos(id), exitos(id)').order('data_contrato', { ascending: false });
     if (F.status !== 'todos') c = c.eq('status', F.status);
     _contratos = await q(c);
   }
@@ -1498,7 +1652,7 @@ async function pintarContratos(buscar) {
       const atraso = parc.some((p) => !p.pago && p.vencimento < h);
       return '<tr class="clicavel" data-ctr="' + c.id + '"><td>' + esc(c.clientes ? c.clientes.nome : '—') +
         (c.clientes && c.clientes.grupos ? '<div class="sub">' + esc(c.clientes.grupos.nome) + '</div>' : '') + '</td>' +
-        '<td>' + esc(c.descricao) + (c.percentual_exito ? '<div class="sub">+ ' + esc(String(c.percentual_exito).replace('.', ',')) + '% de êxito</div>' : '') + '</td>' +
+        '<td>' + esc(c.descricao) + (c.percentual_exito ? '<div class="sub">+ ' + esc(String(c.percentual_exito).replace('.', ',')) + '% de êxito ' + ((c.exitos || []).length ? '<span class="pill pago">🏆 ' + c.exitos.length + ' registrado(s)</span>' : '<span class="pill neutro">aguardando o êxito</span>') + '</div>' : '') + '</td>' +
         '<td><span class="pill ' + (c.modalidade === 'consultoria' ? 'aberto' : 'neutro') + '">' + (c.modalidade === 'consultoria' ? 'Consultoria' : 'Pontual') + '</span></td>' +
         '<td class="mono" data-ord="' + c.data_contrato + '">' + dataBR(c.data_contrato) + (c.rescindido_em ? '<div class="sub">rescindido ' + dataBR(c.rescindido_em) + '</div>' : '') + '</td>' +
         '<td class="num mono" data-ord="' + (c.modalidade === 'consultoria' ? (c.valor_mensal || 0) : c.valor_total) + '">' + valorContratoTexto(c) + '</td>' +
@@ -1511,6 +1665,10 @@ async function pintarContratos(buscar) {
   $('ctr-corpo').querySelectorAll('[data-ctr]').forEach((tr) => tr.onclick = () => detalheContrato(tr.dataset.ctr));
 }
 
+// Êxito: base de cálculo (o "X" que a pessoa informa quando o êxito acontece)
+const EXITO_BASES = [['economia', 'Economia obtida (redução da dívida)'], ['valor_recebido', 'Valor recebido pelo cliente'],
+  ['valor_causa', 'Valor da causa / condenação'], ['outro', 'Outro valor (descrever)']];
+const exitoBaseRot = (b) => (EXITO_BASES.find((x) => x[0] === b) || EXITO_BASES[3])[1];
 const SM_ROT = (c) => String(c.qtd_salarios).replace('.', ',') + ' salário(s) mínimo(s)';
 function valorContratoTexto(c) {
   if (c.modalidade !== 'consultoria') return brl(c.valor_total);
@@ -1534,6 +1692,11 @@ function formContrato(ct) {
       campo('Descrição do serviço <span class="obrig">*</span>', '<input name="descricao" required maxlength="200" placeholder="Ex.: Consultoria tributária mensal" value="' + esc(ct.descricao || '') + '">', 'inteiro') +
       campo('Data do contrato', '<input name="data_contrato" type="date" value="' + esc(ct.data_contrato || hojeISO()) + '">') +
       campo('% de êxito (se houver)', '<input name="percentual_exito" inputmode="decimal" placeholder="Ex.: 20" value="' + (ct.percentual_exito != null ? esc(String(ct.percentual_exito).replace('.', ',')) : '') + '">') +
+      // êxito: sobre o quê e como foi combinado; só vira dinheiro quando acontecer (botão "Registrar êxito" no detalhe)
+      '<div class="grade inteiro" id="ctr-exito">' +
+      campo('O êxito é calculado sobre', '<select name="exito_base">' + EXITO_BASES.map(([v, r]) => '<option value="' + v + '"' + ((ct.exito_base || 'economia') === v ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>') +
+      campo('Como foi combinado', '<input name="exito_regra" maxlength="300" placeholder="Ex.: 20% da redução da dívida na PGFN, pago em até 10 dias" value="' + esc(ct.exito_regra || '') + '">') +
+      '<div class="dica inteiro">O êxito <b>não entra no financeiro agora</b>. Quando acontecer, abra o contrato e clique em <b>🏆 Registrar êxito</b>: você informa o valor (ex.: quanto a dívida reduziu) e o sistema lança o % em Honorários Jurídico.</div></div>' +
       // consultoria
       '<div class="grade inteiro" id="ctr-rec">' +
       '<div class="inteiro"><div class="segmento" id="ctr-forma">' + [['fixo', 'Valor fixo'], ['salario_minimo', 'Em salários mínimos']]
@@ -1581,6 +1744,8 @@ function formContrato(ct) {
   j.querySelector('#ctr-mod').onclick = (ev) => { const b = ev.target.closest('button'); if (b && !b.disabled) { modalidade = b.dataset.v; mostrar(); } };
   j.querySelector('#ctr-forma').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { formaValor = b.dataset.v; mostrar(); } };
   ['input', 'change'].forEach((ev) => f.addEventListener(ev, previaRec));
+  const mostrarExito = () => j.querySelector('#ctr-exito').classList.toggle('escondido', !(lerValor(f.percentual_exito.value) > 0));
+  f.percentual_exito.addEventListener('input', mostrarExito); mostrarExito();
   mostrar();
   j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
   if (novo) {
@@ -1603,7 +1768,8 @@ function formContrato(ct) {
     if (exito != null && !(exito >= 0 && exito <= 100)) throw new Error('% de êxito deve ficar entre 0 e 100.');
     const cli = E.clientes.find((c) => c.id === f.cliente_id.value);
     const dados = { cliente_id: f.cliente_id.value, descricao: f.descricao.value.trim(), modalidade,
-      data_contrato: f.data_contrato.value || hojeISO(), percentual_exito: exito, obs: f.obs.value.trim(), responsavel: ct.responsavel || (cli && cli.responsavel) || '' };
+      data_contrato: f.data_contrato.value || hojeISO(), percentual_exito: exito, obs: f.obs.value.trim(),
+      exito_base: exito ? f.exito_base.value : null, exito_regra: exito ? f.exito_regra.value.trim() : '', responsavel: ct.responsavel || (cli && cli.responsavel) || '' };
     if (modalidade === 'consultoria') {
       const vm = formaValor === 'fixo' ? lerValor(f.valor_mensal.value) : null, qs = formaValor === 'salario_minimo' ? lerValor(f.qtd_salarios.value) : null;
       if (formaValor === 'fixo' && !(vm > 0)) throw new Error('Informe o valor mensal (ex.: 4.000,00).');
@@ -1679,7 +1845,8 @@ async function janelaSalarioMinimo() {
 
 async function detalheContrato(id) {
   const ct = await q(sb.from('contratos').select('*, clientes(nome, grupo_id, responsavel)').eq('id', id).single());
-  const parc = await q(sb.from('lancamentos').select('*').eq('contrato_id', id).order('vencimento'));
+  const [parc, exitos] = await Promise.all([q(sb.from('lancamentos').select('*').eq('contrato_id', id).order('vencimento')),
+    ct.percentual_exito ? q(sb.from('exitos').select('*').eq('contrato_id', id).order('data')).catch(() => []) : []]);
   const recebido = soma(parc.filter((p) => p.pago), (p) => p.valor);
   const total = soma(parc, (p) => p.valor);
   const j = abrirJanela({
@@ -1693,7 +1860,8 @@ async function detalheContrato(id) {
       '</div>' +
       (ct.obs ? '<div class="dica" style="margin-bottom:12px">' + esc(ct.obs) + '</div>' : '') +
       '<div class="card" style="margin:0">' + tabelaLancamentos(parc, { compacta: true }) + '</div>' +
-      '<div style="margin-top:10px"><button class="btn btn-o btn-mini" id="ctr-add-parc">+ Lançar valor avulso neste contrato (ex.: êxito)</button></div>' +
+      '<div style="margin-top:10px"><button class="btn btn-o btn-mini" id="ctr-add-parc">+ Lançar valor avulso neste contrato</button></div>' +
+      (ct.percentual_exito ? blocoExito(ct, exitos) : '') +
       '<div class="card" style="margin:14px 0 0"><div class="card-bd" id="ctr-docs"></div></div>',
     rodape:
       (E.perfil.papel === 'admin' ? '<button class="btn btn-x" id="btn-excluir-ctr" type="button">Excluir contrato</button>' : '<span></span>') +
@@ -1706,16 +1874,57 @@ async function detalheContrato(id) {
     { titulo: 'Documentos do contrato', vazio: 'Nenhum documento. Envie aqui o contrato assinado, a proposta e os aditivos.' }).catch((e) => console.error(e));
   j.querySelector('#btn-editar-ctr').onclick = () => formContrato(ct);
   const br = j.querySelector('#btn-rescindir-ctr'); if (br) br.onclick = () => formRescisao(ct, reabrir);
+  const be = j.querySelector('#ctr-exito-reg'); if (be) be.onclick = () => formExito(ct, reabrir);
   j.querySelector('#ctr-add-parc').onclick = () => {
     formLancamento({ tipo: 'receita', empresa: 'escritorio', cliente_id: ct.cliente_id, contrato_id: id,
                      grupo_id: ct.clientes && ct.clientes.grupo_id, responsavel: ct.clientes && ct.clientes.responsavel,
-                     categoria: 'Êxito', descricao: ct.descricao + ' — êxito' }, reabrir);
+                     descricao: ct.descricao + ' — avulso' }, reabrir);
   };
   const bx = j.querySelector('#btn-excluir-ctr');
   if (bx) bx.onclick = () => comBotao(bx, async () => {
     if (!confirm('Excluir o contrato e TODAS as parcelas dele? Esta ação não pode ser desfeita.')) return;
     await excluir('contratos', id);
     aviso('Contrato excluído.'); fecharJanela(j); await recarregar();
+  });
+}
+
+// ─────────── êxito: regra combinada + registros (só vira lançamento quando acontece) ───────────
+function blocoExito(ct, exitos) {
+  const pct = String(ct.percentual_exito).replace('.', ',');
+  return '<div class="card exito-card" style="margin:14px 0 0"><div class="card-hd">🏆 Êxito<span class="pill ' + (exitos.length ? 'pago' : 'neutro') + '">' +
+      (exitos.length ? exitos.length + ' registrado(s) · ' + brl(soma(exitos, (x) => x.valor)) : 'aguardando o êxito') + '</span>' +
+      (pode('contratos', 'editar') ? '<button class="btn btn-p btn-mini" id="ctr-exito-reg" style="margin-left:auto">🏆 Registrar êxito</button>' : '') + '</div>' +
+    '<div class="card-bd"><div class="dica"><b>' + pct + '%</b> sobre ' + esc(exitoBaseRot(ct.exito_base).toLowerCase()) + (ct.exito_regra ? ' — ' + esc(ct.exito_regra) : '') +
+      '. Só entra no financeiro quando o êxito acontecer.</div>' +
+    (exitos.length ? '<div class="tabela-wrap" style="margin-top:10px"><table><thead><tr><th>Data</th><th>O que aconteceu</th><th class="num">Base (X)</th><th class="num">Honorário</th></tr></thead><tbody>' +
+      exitos.map((x) => '<tr><td class="mono">' + dataBR(x.data) + '</td><td>' + esc(x.descricao) + '</td><td class="num mono">' + brl(x.base_valor) + '</td><td class="num mono valor-rec">' +
+        brl(x.valor) + '<div class="sub">' + String(x.percentual).replace('.', ',') + '% de X</div></td></tr>').join('') + '</tbody></table></div>' : '') + '</div></div>';
+}
+function formExito(ct, depois) {
+  const pct = Number(ct.percentual_exito) || 0;
+  const j = abrirJanela({ titulo: 'Registrar êxito — ' + ct.descricao,
+    corpo: '<form class="grade" id="f-exito">' +
+      '<div class="dica inteiro">Combinado: <b>' + String(pct).replace('.', ',') + '%</b> sobre ' + esc(exitoBaseRot(ct.exito_base).toLowerCase()) + (ct.exito_regra ? ' — ' + esc(ct.exito_regra) : '') + '</div>' +
+      campo('X = ' + esc(exitoBaseRot(ct.exito_base)) + ' (R$)', '<input name="base" inputmode="decimal" placeholder="Ex.: 150.000,00" required>', 'inteiro') +
+      campo('O que aconteceu', '<input name="descricao" maxlength="200" placeholder="Ex.: Transação na PGFN reduziu a dívida de 500 mil para 350 mil">', 'inteiro') +
+      campo('Data do êxito', '<input name="data" type="date" value="' + hojeISO() + '">') +
+      campo('Vencimento do honorário', '<input name="vencimento" type="date" value="' + somarDias(hojeISO(), 10) + '">') +
+      '<div class="exito-previa inteiro" id="exito-previa"></div></form>',
+    rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="btn-exito">Lançar no financeiro</button></div>' });
+  const f = j.querySelector('#f-exito');
+  const previa = () => {
+    const x = lerValor(f.base.value) || 0, v = Math.round(x * pct) / 100;
+    j.querySelector('#exito-previa').innerHTML = '<span>' + String(pct).replace('.', ',') + '% × ' + brl(x) + ' =</span><b class="mono">' + brl(v) + '</b><span class="sub">vai para Honorários Jurídico com vencimento em ' + dataBR(f.vencimento.value) + '</span>';
+  };
+  f.addEventListener('input', previa); previa();
+  j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
+  j.querySelector('#btn-exito').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    const x = lerValor(f.base.value);
+    if (!(x > 0)) throw new Error('Informe o valor X (ex.: quanto a dívida reduziu).');
+    if (!f.data.value || !f.vencimento.value) throw new Error('Informe as datas.');
+    await q(sb.rpc('registrar_exito', { p_contrato: ct.id, p_base: x, p_data: f.data.value, p_vencimento: f.vencimento.value, p_descricao: f.descricao.value.trim() }));
+    aviso('✓ Êxito registrado: ' + brl(Math.round(x * pct) / 100) + ' lançado em Honorários Jurídico.');
+    fecharJanela(j); if (depois) await depois();
   });
 }
 
@@ -1804,12 +2013,12 @@ async function admUsuarios(corpo) {
 }
 function formFuncoes(p) {
   const j = abrirJanela({ titulo: 'Funções de ' + (p.nome || p.email), larga: true,
-    corpo: '<p class="sub" style="margin-bottom:10px">Marque o que esta pessoa pode <b>ver</b> ou <b>editar</b>. Use um modelo pronto e ajuste. As próprias tarefas ela sempre vê.</p>' + gradeFuncoes(p.funcoes),
+    corpo: '<p class="sub" style="margin-bottom:10px">Marque o que esta pessoa pode <b>ver</b> ou <b>editar</b>. Use um modelo pronto e ajuste. As próprias tarefas ela sempre vê. <b>Rascunho</b>: a pessoa preenche, mas só vale depois que alguém que edita aprovar.</p>' + gradeAreas(p.areas) + gradeFuncoes(p.funcoes),
     rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="btn-salvar-func">Salvar</button></div>' });
   ligarGradeFuncoes(j);
   j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
   j.querySelector('#btn-salvar-func').onclick = (ev) => comBotao(ev.currentTarget, async () => {
-    await q(sb.from('perfis').update({ funcoes: lerGradeFuncoes(j) }).eq('id', p.id));
+    await q(sb.from('perfis').update({ funcoes: lerGradeFuncoes(j), areas: lerAreas(j) }).eq('id', p.id));
     aviso('✓ Funções de ' + (p.nome || p.email).split(' ')[0] + ' atualizadas.'); fecharJanela(j); await pintarAdmin();
   });
 }
@@ -1845,7 +2054,7 @@ function formNovoUsuario() {
       campo('E-mail <span class="obrig">*</span>', '<input name="email" type="email" autocomplete="off">') +
       campo('Senha provisória <span class="obrig">*</span>', '<input name="senha" autocomplete="new-password" placeholder="mínimo 8 caracteres">') +
       campo('Acesso', '<select name="papel">' + PAPEIS.filter((x) => x[0] !== 'inativo').map(([v, r]) => '<option value="' + v + '"' + (v === 'equipe' ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>') +
-      '<div class="inteiro" id="us-funcoes"><div class="secao" style="margin-bottom:6px">Funções (o que a pessoa pode usar)</div>' + gradeFuncoes(MODELOS_ACESSO['Sócio (tudo)']) + '</div>' +
+      '<div class="inteiro" id="us-funcoes"><div class="secao" style="margin-bottom:6px">Funções (o que a pessoa pode usar)</div>' + gradeAreas('ambos') + gradeFuncoes(MODELOS_ACESSO['Sócio (tudo)']) + '</div>' +
       '<div class="inteiro escondido" id="us-grupos"><div class="sub" style="margin-bottom:6px">Grupos que o cliente vê no Portal</div>' + listaGruposMarcar([]) + '</div>' +
       '<div class="dica inteiro">Passe o e-mail e a senha provisória para a pessoa. Se o Supabase estiver com <b>confirmação de e-mail</b> ligada, ela recebe um e-mail e precisa clicar no link antes do primeiro acesso.</div>' +
       '</form>',
@@ -1878,7 +2087,7 @@ function formNovoUsuario() {
       if (!perfil) await new Promise((ok) => setTimeout(ok, 500));
     }
     if (!perfil) throw new Error('Usuário criado, mas o perfil ainda não apareceu. Abra Usuários de novo em alguns segundos e ajuste o acesso.');
-    await q(sb.from('perfis').update({ papel, nome, funcoes: papel === 'equipe' ? lerGradeFuncoes(j) : {} }).eq('id', perfil.id));
+    await q(sb.from('perfis').update({ papel, nome, funcoes: papel === 'equipe' ? lerGradeFuncoes(j) : {}, areas: papel === 'equipe' ? lerAreas(j) : 'ambos' }).eq('id', perfil.id));
     if (papel === 'cliente') await salvarGruposPortal(perfil.id, ids);
     aviso('✓ Usuário criado. Passe o e-mail e a senha provisória para ' + nome.split(' ')[0] + '.');
     fecharJanela(j); await pintarAdmin();
@@ -4206,7 +4415,7 @@ async function detalheAcordo(id) {
     corpo:
       '<div class="ficha-topo"><div><div class="ficha-sub">Processo <b class="mono">' + esc(a.processo) + '</b>' + (a.grupo_id ? ' · ' + esc(nomeGrupo(a.grupo_id)) : '') + '</div>' +
       '<div class="ficha-selos"><span class="pill ' + s[0] + '">' + esc(s[1]) + '</span> <span class="mono"><b>' + brl(a.valor) + '</b></span> <span class="sub">vence ' + dataBR(a.vencimento) + '</span></div></div>' +
-      '<div class="ficha-atalhos">' + (a.pago ? '' : '<button class="btn btn-v btn-mini" id="ac-baixa">✓ Marcar paga hoje</button>') +
+      '<div class="ficha-atalhos">' + (a.pago ? '' : '<button class="btn btn-v btn-mini" id="ac-baixa">✓ Marcar paga</button>') +
       '<button class="btn btn-o btn-mini" id="ac-lembrar">+ Tarefa: lembrar o cliente</button>' +
       (tel ? '<a class="btn btn-o btn-mini" target="_blank" rel="noopener" href="https://wa.me/' + (tel.length <= 11 ? '55' : '') + tel + '?text=' +
         encodeURIComponent('Olá! Lembrete: a parcela ' + (a.parcela || '') + ' do acordo com ' + (a.credor || 'o credor') + ', de ' + brl(a.valor) + ', vence em ' + dataBR(a.vencimento) + '.') + '">WhatsApp</a>' : '') +
@@ -4214,7 +4423,8 @@ async function detalheAcordo(id) {
       '<div class="dica" style="margin-bottom:12px">Acordo é uma <b>dívida do cliente com terceiros</b> (não é honorário do escritório): não entra no Financeiro.</div>' +
       '<div class="duas-col"><div class="dados">' + lin('Devedor (cliente)', esc(a.devedor)) + lin('Credor', esc(a.credor)) + lin('Responsável', esc(a.responsavel)) +
         lin('Parcela', esc((a.parcela || '—') + (a.total_parcelas ? ' de ' + a.total_parcelas : ''))) + lin('Valor', brl(a.valor)) + lin('Vencimento', dataBR(a.vencimento)) +
-        lin('Aviso', esc(a.situacao && !/^(ok|pago|vencido)$/i.test(a.situacao) ? a.situacao : '')) + lin('PIX', esc(a.pix)) + lin('Banco', esc(a.banco)) + lin('Observação', esc(a.obs)) + '</div>' +
+        lin('Aviso', esc(a.situacao && !/^(ok|pago|vencido)$/i.test(a.situacao) ? a.situacao : '')) + lin('PIX', esc(a.pix)) + lin('Banco', esc(a.banco)) + lin('Observação', esc(a.obs)) +
+        (a.pago ? lin('Comprovante no processo', a.comprovante_processo ? 'Sim' + (a.comprovante_id ? ' · ID ' + esc(a.comprovante_id) : '') : a.comprovante_processo === false ? '<span class="pill atencao">Não anexado</span>' : '—') : '') + '</div>' +
       '<div class="dados">' + (proc ? lin('Processo cadastrado', esc(proc.natureza || 'processo')) + lin('Partes', esc([proc.autor, proc.reu].filter(Boolean).join(' × '))) +
         lin('Situação do processo', esc(proc.status)) + lin('Advogado', esc(proc.advogado)) + lin('Competência', esc(proc.competencia)) : '<div class="sub">Este processo não está cadastrado em Jurídico → Processos.</div>') +
         (devedor ? lin('Contato do cliente', esc([devedor.telefone, devedor.email].filter(Boolean).join(' · '))) : '') + '</div></div>' +
@@ -4228,8 +4438,10 @@ async function detalheAcordo(id) {
   j.querySelector('.janela').classList.add('ficha');
   const b = j.querySelector('#ac-baixa');
   if (b) b.onclick = () => comBotao(b, async () => {
-    await q(sb.from('acordos').update({ pago: true, data_pagamento: hojeISO() }).eq('id', id));
-    aviso('✓ Parcela do acordo marcada como paga.'); fecharJanela(j); await recarregar(); detalheAcordo(id);
+    const bx = await perguntarBaixa({ acordo: true, descricao: 'Parcela ' + (a.parcela || '') + (a.total_parcelas ? '/' + a.total_parcelas : '') + ' — ' + (a.credor || a.processo), valor: a.valor });
+    if (!bx) return;
+    await q(sb.from('acordos').update(bx).eq('id', id));
+    aviso('✓ Parcela do acordo marcada como paga em ' + dataBR(bx.data_pagamento) + '.'); fecharJanela(j); await recarregar(); detalheAcordo(id);
   });
   j.querySelector('#ac-editar').onclick = () => { fecharJanela(j); if (window.ERP_EDITAR) window.ERP_EDITAR('acordos:' + id); };
   j.querySelector('#ac-lembrar').onclick = () => formTarefa({ titulo: 'Lembrar ' + (a.devedor || 'o cliente') + ' da parcela ' + (a.parcela || '') + ' do acordo com ' + (a.credor || 'o credor'),
@@ -4519,8 +4731,95 @@ TELAS.automacoes = async function () {
   }));
 };
 
+'use strict';
+// ═══════════════════════════════════════════════════════════════════
+// Aprovações — alterações feitas em modo "Rascunho" (estagiários).
+// Quem edita a área vê o que mudou (antes → depois) e aprova ou recusa;
+// quem propôs acompanha as próprias. Nada vale antes da aprovação.
+// ═══════════════════════════════════════════════════════════════════
+const ROT_CAMPO = { nome: 'Nome', cpf_cnpj: 'CPF/CNPJ', area: 'Área', tipo: 'Tipo', responsavel: 'Responsável', email: 'E-mail', telefone: 'Telefone', obs: 'Observação',
+  descricao: 'Descrição', valor: 'Valor', vencimento: 'Vencimento', pago: 'Pago', data_pagamento: 'Data do pagamento', processo: 'Processo', numero: 'Número',
+  status: 'Situação', grupo_id: 'Grupo', cliente_id: 'Cliente', comprovante_processo: 'Comprovante no processo', comprovante_id: 'ID do comprovante' };
+function valorCampo(k, v) {
+  if (v == null || v === '') return '<span class="sub">—</span>';
+  if (typeof v === 'boolean') return v ? 'Sim' : 'Não';
+  if (k === 'grupo_id') return esc(nomeGrupo(v) || v);
+  if (k === 'cliente_id') { const c = E.clientes.find((x) => x.id === v); return esc(c ? c.nome : v); }
+  if (k === 'area') return esc(rotArea(v));
+  if (/^(valor|rfb|pgfn|sefaz_mg|age_mg)/.test(k) && !isNaN(Number(v))) return brl(v);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(String(v))) return dataBR(v);
+  return esc(typeof v === 'object' ? JSON.stringify(v) : v);
+}
+// antes → depois, só do que muda
+function diferencas(r) {
+  const d = Array.isArray(r.dados) ? r.dados[0] || {} : r.dados || {}, a = r.antes || {};
+  if (r.operacao === 'excluir') return '<div class="ap-dif"><span class="pill vencido">Excluir</span> ' + esc(a.nome || a.descricao || a.processo || a.numero || 'registro') + '</div>';
+  const ks = Object.keys(d).filter((k) => !/^(id|atualizado_em|criado_em|criado_por)$/.test(k) && (r.operacao === 'incluir' ? d[k] != null && d[k] !== '' : JSON.stringify(d[k]) !== JSON.stringify(a[k])));
+  if (!ks.length) return '<div class="sub">Sem mudança de conteúdo.</div>';
+  return '<table class="ap-tab"><tbody>' + ks.slice(0, 14).map((k) => '<tr><th>' + esc(ROT_CAMPO[k] || k.replace(/_/g, ' ')) + '</th>' +
+    (r.operacao === 'alterar' ? '<td class="ap-antes">' + valorCampo(k, a[k]) + '</td><td class="ap-seta">→</td>' : '') + '<td class="ap-depois">' + valorCampo(k, d[k]) + '</td></tr>').join('') +
+    (ks.length > 14 ? '<tr><td colspan="4" class="sub">+ ' + (ks.length - 14) + ' campo(s)</td></tr>' : '') + '</tbody></table>';
+}
+
+TELAS.aprovacoes = async function () {
+  await carregarCadastros();
+  const lista = await q(sb.from('rascunhos').select('*').order('criado_em', { ascending: false }).limit(200)).catch(() => []);
+  const eu = E.perfil.id, pend = lista.filter((r) => r.status === 'pendente');
+  const paraMim = pend.filter((r) => r.autor !== eu && pode(r.funcao, 'aprovar'));
+  const minhas = lista.filter((r) => r.autor === eu);
+  const outras = lista.filter((r) => r.status !== 'pendente' && r.autor !== eu).slice(0, 30);
+  const SIT = { pendente: ['hoje', 'Aguardando'], aprovado: ['pago', 'Aprovado'], recusado: ['vencido', 'Recusado'], cancelado: ['neutro', 'Cancelado'] };
+  const cartao = (r, acoes) => '<div class="ap-item" data-rasc="' + r.id + '"><div class="ap-hd"><div><b>' + esc(r.resumo || r.tabela) + '</b>' +
+      '<div class="sub">' + esc(r.autor_nome || 'alguém') + ' · ' + dataHoraBR(r.criado_em) + (r.revisor_nome ? ' · ' + (r.status === 'aprovado' ? 'aprovado' : 'decidido') + ' por ' + esc(r.revisor_nome) : '') + '</div></div>' +
+      '<span class="pill ' + SIT[r.status][0] + '">' + SIT[r.status][1] + '</span></div>' + diferencas(r) +
+      (r.motivo ? '<div class="dica" style="margin-top:8px">Motivo: ' + esc(r.motivo) + '</div>' : '') +
+      (acoes ? '<div class="ap-acoes">' + acoes + '</div>' : '') + '</div>';
+  $('conteudo').innerHTML =
+    '<div class="titulo-pag"><div><h1>Aprovações</h1><p>Alterações feitas em modo rascunho: só valem depois que alguém que edita a área aprovar</p></div></div>' +
+    '<div class="kpis">' + kpi('Para você aprovar', String(paraMim.length), paraMim.length ? 'ambar' : 'verde', paraMim.length ? 'aguardando decisão' : 'nada pendente') +
+      kpi('Suas propostas pendentes', String(minhas.filter((r) => r.status === 'pendente').length), '', 'enviadas por você') +
+      kpi('Aprovadas em 30 dias', String(lista.filter((r) => r.status === 'aprovado' && Date.now() - new Date(r.decidido_em) < 30 * 864e5).length), 'verde', 'já valendo no sistema') + '</div>' +
+    (paraMim.length || !minhas.length ? '<div class="card"><div class="card-hd">📝 Aguardando sua aprovação<span class="pill neutro">' + paraMim.length + '</span></div><div class="ap-lista">' +
+      (paraMim.length ? paraMim.map((r) => cartao(r, '<button class="btn btn-o btn-mini" data-recusar="' + r.id + '">Recusar</button><button class="btn btn-v btn-mini" data-aprovar="' + r.id + '">✓ Aprovar</button>')).join('')
+        : vazio('Nada aguardando aprovação. Quem tem o nível "Rascunho" nas Funções envia as alterações para cá.')) + '</div></div>' : '') +
+    (minhas.length ? '<div class="card"><div class="card-hd">🗂 Minhas propostas</div><div class="ap-lista">' +
+      minhas.slice(0, 40).map((r) => cartao(r, r.status === 'pendente' ? '<button class="btn btn-o btn-mini" data-cancelar-rasc="' + r.id + '">Desistir</button>' : '')).join('') + '</div></div>' : '') +
+    (outras.length ? blocoRecolhivel('ap-hist', '🧾 Decididas recentemente (' + outras.length + ')', '<div class="ap-lista">' + outras.map((r) => cartao(r)).join('') + '</div>') : '');
+  const depois = async (msg) => { aviso(msg); await carregarCadastros(true); if (window.ERP_RECARREGAR) window.ERP_RECARREGAR(); else await TELAS.aprovacoes(); };
+  $('conteudo').querySelectorAll('[data-aprovar]').forEach((b) => b.onclick = () => comBotao(b, async () => {
+    await q(sb.rpc('aprovar_rascunho', { p_id: b.dataset.aprovar })); await depois('✓ Aprovado: a alteração já vale no sistema.');
+  }));
+  $('conteudo').querySelectorAll('[data-recusar]').forEach((b) => b.onclick = () => {
+    const j = abrirJanela({ titulo: 'Recusar alteração', corpo: campo('Motivo (a pessoa recebe o aviso)', '<textarea name="motivo" maxlength="500" placeholder="Ex.: o CNPJ está errado; confira na procuração"></textarea>', 'inteiro'),
+      rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Voltar</button><button class="btn btn-x" type="button" id="ap-recusar">Recusar</button></div>' });
+    j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
+    j.querySelector('#ap-recusar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+      await q(sb.rpc('recusar_rascunho', { p_id: b.dataset.recusar, p_motivo: j.querySelector('[name=motivo]').value.trim() }));
+      fecharJanela(j); aviso('Alteração recusada. A pessoa foi avisada.'); await TELAS.aprovacoes();
+    });
+  });
+  $('conteudo').querySelectorAll('[data-cancelar-rasc]').forEach((b) => b.onclick = () => comBotao(b, async () => {
+    await q(sb.rpc('recusar_rascunho', { p_id: b.dataset.cancelarRasc, p_motivo: '' })); aviso('Proposta cancelada.'); await TELAS.aprovacoes();
+  }));
+};
+
+// Início: aviso de aprovações pendentes (quem aprova) e das próprias propostas (quem está em rascunho)
+async function cardAprovacoes() {
+  const temRascunho = FUNCOES_PROPOR.some((f) => emRascunho(f));
+  const podeAprovar = E.perfil.papel === 'admin' || FUNCOES_PROPOR.some((f) => pode(f, 'aprovar'));
+  if (!temRascunho && !podeAprovar) return '';
+  const pend = await q(sb.from('rascunhos').select('id, autor, funcao').eq('status', 'pendente')).catch(() => []);
+  const paraMim = pend.filter((r) => r.autor !== E.perfil.id && pode(r.funcao, 'aprovar')).length, minhas = pend.filter((r) => r.autor === E.perfil.id).length;
+  if (!paraMim && !temRascunho) return '';
+  return '<div class="faixa-aprov' + (paraMim ? ' tem' : '') + '"><span class="faixa-ic" aria-hidden="true">📝</span><div>' +
+    (paraMim ? '<b>' + paraMim + ' alteração(ões) aguardando sua aprovação</b><div class="sub">Feitas em modo rascunho: só valem depois que você aprovar.</div>'
+      : '<b>Você está em modo rascunho</b><div class="sub">O que você salvar vai para aprovação' + (minhas ? ' · ' + minhas + ' aguardando' : '') + '.</div>') +
+    '</div><button class="btn btn-o btn-mini" data-ir-aprovacoes>Abrir Aprovações</button></div>';
+}
+document.addEventListener('click', (ev) => { if (ev.target.closest && ev.target.closest('[data-ir-aprovacoes]')) irParaTela('aprovacoes'); });
+
 // toda gravação confirmada aparece também no rodapé do ERP
 const _avisoOrig = aviso;
 aviso = function (msg, erro) { _avisoOrig(msg, erro); if (!erro && window.ERP_EDITOR && /^✓/.test(msg)) window.ERP_EDITOR.gravou(String(msg).replace(/^✓\s*/, '')); };
-window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, invalidarCadastros, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo };
+window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, invalidarCadastros, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo, perguntarBaixa, detalheContrato };
 })();

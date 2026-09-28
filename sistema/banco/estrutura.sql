@@ -2482,3 +2482,318 @@ language sql stable security definer set search_path = public as $$
 $$;
 revoke all on function public.resumo_automacoes() from public, anon;
 grant execute on function public.resumo_automacoes() to authenticated;
+
+
+-- ═══════════════════════════════════════════════════════════════════
+-- v18 — Área do cliente (Jurídico / Contabilidade / Ambos) e quem vê cada área;
+--       rascunho de estagiário (nível "Propor": só vale depois de aprovado);
+--       êxito dos contratos (lança % × X quando acontece); comprovante do acordo.
+-- ═══════════════════════════════════════════════════════════════════
+
+-- ─────────── acordos: comprovante juntado ao processo ───────────
+alter table public.acordos add column if not exists comprovante_processo boolean;
+alter table public.acordos add column if not exists comprovante_id text not null default '';
+
+-- ─────────── área do cliente e áreas que cada usuário vê ───────────
+alter table public.clientes add column if not exists area text not null default 'ambos';
+alter table public.perfis add column if not exists areas text not null default 'ambos';
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'clientes_area_check') then
+    alter table public.clientes add constraint clientes_area_check check (area in ('juridico','contabil','ambos'));
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'perfis_areas_check') then
+    alter table public.perfis add constraint perfis_areas_check check (areas in ('juridico','contabil','ambos'));
+  end if;
+end $$;
+create index if not exists clientes_area on public.clientes (area);
+
+-- migração (uma vez só): sugere a área pelo que o cliente já tem no sistema
+--   só lançamentos da contabilidade → Contabilidade; só coisas do jurídico → Jurídico; os dois ou nada → Ambos
+do $$
+begin
+  if not exists (select 1 from public.configuracoes where chave = 'migracao_v18_area') then
+    update public.clientes c set area = case
+        when x.contab and not x.jur then 'contabil'
+        when x.jur and not x.contab then 'juridico'
+        else 'ambos' end
+      from (select c2.id,
+              exists (select 1 from public.lancamentos l where l.empresa = 'contabilidade' and (l.cliente_id = c2.id or (c2.grupo_id is not null and l.grupo_id = c2.grupo_id))) contab,
+              exists (select 1 from public.lancamentos l where l.empresa = 'escritorio' and (l.cliente_id = c2.id or (c2.grupo_id is not null and l.grupo_id = c2.grupo_id)))
+                or exists (select 1 from public.processos p where c2.grupo_id is not null and p.grupo_id = c2.grupo_id)
+                or exists (select 1 from public.contratos k where k.cliente_id = c2.id) jur
+            from public.clientes c2) x
+     where x.id = c.id;
+    insert into public.configuracoes (chave, valor) values ('migracao_v18_area', '{"feito":true}');
+  end if;
+end $$;
+
+-- a pessoa logada vê clientes desta área? (admin e "ambas" veem tudo; cliente "ambos" todos veem)
+create or replace function public.ve_area(a text) returns boolean
+language sql stable security definer set search_path = public as $$
+  select coalesce((select p.papel = 'admin' or p.areas = 'ambos' or coalesce(a, 'ambos') = 'ambos' or a = p.areas
+                     from public.perfis p where p.id = auth.uid()), false);
+$$;
+create or replace function public.ve_cliente(c uuid) returns boolean
+language sql stable security definer set search_path = public as $$
+  select c is null or coalesce((select public.ve_area(area) from public.clientes where id = c), true);
+$$;
+revoke all on function public.ve_area(text) from anon;
+revoke all on function public.ve_cliente(uuid) from anon;
+grant execute on function public.ve_area(text) to authenticated;
+grant execute on function public.ve_cliente(uuid) to authenticated;
+
+-- regra RESTRITIVA: soma-se às regras de função (não substitui). Quem só vê Jurídico não lê,
+-- nem grava, cliente só da Contabilidade — nem os contatos, contratos e documentos dele.
+drop policy if exists clientes_area on public.clientes;
+create policy clientes_area on public.clientes as restrictive for all to authenticated
+  using (public.ve_area(area)) with check (public.ve_area(area));
+do $$
+declare t text;
+begin
+  foreach t in array array['contatos','enderecos','contas_bancarias','vinculos_societarios','cliente_etiquetas','interacoes','certidoes','documentos','contratos'] loop
+    execute format('drop policy if exists %1$s_area on public.%1$s', t);
+    execute format('create policy %1$s_area on public.%1$s as restrictive for all to authenticated using (public.ve_cliente(cliente_id)) with check (public.ve_cliente(cliente_id))', t);
+  end loop;
+end $$;
+
+-- ─────────── nível "Propor" (estagiário): altera como rascunho, alguém valida ───────────
+-- pode(f,'propor') = pode sugerir; pode(f,'editar') = grava direto e aprova rascunhos.
+create or replace function public.pode(f text, nivel text default 'ver') returns boolean
+language sql stable security definer set search_path = public as $$
+  select coalesce((
+    select case when p.papel = 'admin' then true
+                when p.papel <> 'equipe' then false
+                when coalesce(p.funcoes->>f, '') = 'editar' then true
+                when coalesce(p.funcoes->>f, '') = 'propor' then nivel in ('ver','propor')
+                when coalesce(p.funcoes->>f, '') = 'ver' then nivel = 'ver'
+                else false end
+      from public.perfis p where p.id = auth.uid()), false);
+$$;
+
+create table if not exists public.rascunhos (
+  id           uuid primary key default gen_random_uuid(),
+  tabela       text not null,
+  operacao     text not null check (operacao in ('incluir','alterar','excluir')),
+  filtros      jsonb not null default '{}'::jsonb,     -- quais linhas (ex.: {"id": "..."})
+  dados        jsonb not null default '{}'::jsonb,     -- o que muda / o registro novo
+  antes        jsonb,                                  -- como estava (para mostrar a diferença)
+  resumo       text not null default '',
+  funcao       text not null,
+  autor        uuid default auth.uid() references public.perfis(id) on delete set null,
+  autor_nome   text not null default '',
+  criado_em    timestamptz not null default now(),
+  status       text not null default 'pendente' check (status in ('pendente','aprovado','recusado','cancelado')),
+  revisor      uuid references public.perfis(id) on delete set null,
+  revisor_nome text not null default '',
+  decidido_em  timestamptz,
+  motivo       text not null default ''
+);
+create index if not exists rascunhos_status on public.rascunhos (status, criado_em desc);
+alter table public.rascunhos enable row level security;
+revoke all on public.rascunhos from anon;
+grant select on public.rascunhos to authenticated;
+drop policy if exists rascunhos_ver on public.rascunhos;
+create policy rascunhos_ver on public.rascunhos for select to authenticated
+  using (autor = auth.uid() or public.pode(funcao, 'editar'));
+
+-- tabelas que aceitam rascunho → função de acesso que decide
+create or replace function public.funcao_da_tabela(p_tabela text, p_empresa text) returns text
+language sql immutable as $$
+  select case
+    when p_tabela in ('clientes','contatos','enderecos','contas_bancarias','vinculos_societarios','interacoes','certidoes','cliente_etiquetas') then 'clientes'
+    when p_tabela = 'contratos' then 'contratos'
+    when p_tabela in ('processos','parcelamentos','parcelas','acordos') then 'juridico'
+    when p_tabela = 'lancamentos' then case when p_empresa = 'contabilidade' then 'financeiro_contab' else 'financeiro_juridico' end
+    else null end;
+$$;
+
+-- "where" seguro a partir dos filtros {coluna: valor | [valores]}
+create or replace function public.rascunho_where(p_tabela text, p_filtros jsonb) returns text
+language plpgsql stable set search_path = public as $$
+declare k text; v jsonb; w text := '';
+begin
+  for k, v in select * from jsonb_each(coalesce(p_filtros, '{}')) loop
+    if not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = p_tabela and column_name = k) then
+      raise exception 'Campo desconhecido: %', k;
+    end if;
+    w := w || case when w = '' then '' else ' and ' end ||
+      case when jsonb_typeof(v) = 'array' then format('%I::text = any (%L::text[])', k, array(select jsonb_array_elements_text(v)))
+           else format('%I::text = %L', k, v #>> '{}') end;
+  end loop;
+  if w = '' then raise exception 'Rascunho sem indicação de qual registro alterar.'; end if;
+  return w;
+end $$;
+
+create or replace function public.avisar_aprovadores(p_funcao text, p_titulo text, p_detalhe text) returns void
+language sql security definer set search_path = public as $$
+  insert into public.notificacoes (usuario_id, tipo, titulo, detalhe, link)
+  select p.id, 'rascunho', p_titulo, p_detalhe, 'aprovacoes' from public.perfis p
+   where p.id <> coalesce(auth.uid(), '00000000-0000-0000-0000-000000000000'::uuid)
+     and (p.papel = 'admin' or (p.papel = 'equipe' and p.funcoes->>p_funcao = 'editar'));
+$$;
+revoke all on function public.avisar_aprovadores(text, text, text) from public, anon, authenticated;
+
+-- o rascunho mexe só em clientes da área de quem está logado?
+create or replace function public.rascunho_na_area(p_tabela text, p_antes jsonb, p_dados jsonb) returns boolean
+language plpgsql stable security definer set search_path = public as $$
+declare x jsonb;
+begin
+  foreach x in array array[coalesce(p_antes, '{}'::jsonb)] || array(select case when jsonb_typeof(p_dados) = 'array' then e else p_dados end
+      from jsonb_array_elements(case when jsonb_typeof(p_dados) = 'array' then p_dados else '[null]'::jsonb end) e) loop
+    if x is null then continue; end if;
+    if p_tabela = 'clientes' and x ? 'area' and not public.ve_area(x->>'area') then return false; end if;
+    if x ? 'cliente_id' and nullif(x->>'cliente_id', '') is not null and not public.ve_cliente((x->>'cliente_id')::uuid) then return false; end if;
+  end loop;
+  return true;
+end $$;
+revoke all on function public.rascunho_na_area(text, jsonb, jsonb) from public, anon;
+
+-- estagiário (nível Propor) envia a alteração; nada muda até alguém aprovar
+create or replace function public.propor_alteracao(p_tabela text, p_operacao text, p_filtros jsonb, p_dados jsonb, p_resumo text default '')
+returns uuid language plpgsql security definer set search_path = public as $$
+declare f text; emp text; ant jsonb; novo uuid; nome text;
+begin
+  emp := coalesce(p_dados->>'empresa', case when p_tabela = 'lancamentos' and p_filtros ? 'id'
+           then (select empresa from public.lancamentos where id::text = p_filtros->>'id') end);
+  f := public.funcao_da_tabela(p_tabela, emp);
+  if f is null then raise exception 'Este tipo de registro não aceita rascunho.'; end if;
+  if not public.pode(f, 'propor') then raise exception 'permission denied: sem acesso para propor alterações aqui.'; end if;
+  if p_operacao not in ('incluir','alterar','excluir') then raise exception 'Operação inválida.'; end if;
+  if p_operacao <> 'incluir' then
+    perform public.rascunho_where(p_tabela, p_filtros);          -- valida os filtros
+    if p_filtros ? 'id' then
+      execute format('select to_jsonb(t) from public.%I t where id::text = $1', p_tabela) into ant using p_filtros->>'id';
+    end if;
+  end if;
+  -- nada de outra área (nem o "antes" de um cliente que a pessoa não vê)
+  if not public.rascunho_na_area(p_tabela, ant, p_dados) then raise exception 'permission denied: cliente de outra área.'; end if;
+  select nullif(p.nome, '') into nome from public.perfis p where p.id = auth.uid();
+  insert into public.rascunhos (tabela, operacao, filtros, dados, antes, resumo, funcao, autor_nome)
+  values (p_tabela, p_operacao, coalesce(p_filtros, '{}'), coalesce(p_dados, '{}'), ant, left(coalesce(p_resumo, ''), 300), f, coalesce(nome, ''))
+  returning id into novo;
+  perform public.avisar_aprovadores(f, 'Alteração aguardando aprovação',
+    coalesce(nome, 'Alguém') || ' propôs: ' || coalesce(nullif(p_resumo, ''), p_operacao || ' em ' || p_tabela));
+  return novo;
+end $$;
+revoke all on function public.propor_alteracao(text, text, jsonb, jsonb, text) from public, anon;
+grant execute on function public.propor_alteracao(text, text, jsonb, jsonb, text) to authenticated;
+
+-- quem pode editar aquela função aprova: a alteração é aplicada exatamente como proposta
+create or replace function public.aprovar_rascunho(p_id uuid) returns void
+language plpgsql security definer set search_path = public as $$
+declare r public.rascunhos; cols text; w text; n int := 0; linha jsonb; k int;
+begin
+  select * into r from public.rascunhos where id = p_id for update;
+  if r.id is null or r.status <> 'pendente' then raise exception 'Este rascunho não está mais pendente.'; end if;
+  if not public.pode(r.funcao, 'editar') then raise exception 'permission denied: só quem edita esta área aprova.'; end if;
+  if r.autor = auth.uid() and not public.eh_admin() then raise exception 'Outra pessoa precisa aprovar a sua própria alteração.'; end if;
+  if r.operacao = 'excluir' and r.tabela in ('clientes','contratos','processos','parcelamentos','acordos') and not public.eh_admin() then
+    raise exception 'permission denied: só o administrador aprova exclusões deste tipo.';
+  end if;
+  if not public.rascunho_na_area(r.tabela, r.antes, r.dados) then
+    raise exception 'permission denied: cliente de outra área.';
+  end if;
+  -- lançamento que muda de empresa: quem aprova precisa editar as duas
+  if r.tabela = 'lancamentos' and jsonb_typeof(r.dados) = 'object' and r.dados ? 'empresa'
+     and not public.pode(public.funcao_da_tabela('lancamentos', r.dados->>'empresa'), 'editar') then
+    raise exception 'permission denied: sem acesso ao financeiro de destino.';
+  end if;
+  if r.operacao = 'incluir' then
+    for linha in select case when jsonb_typeof(r.dados) = 'array' then e else r.dados end
+                   from jsonb_array_elements(case when jsonb_typeof(r.dados) = 'array' then r.dados else '[null]'::jsonb end) e loop
+      select string_agg(quote_ident(c.column_name), ',') into cols from information_schema.columns c
+       where c.table_schema = 'public' and c.table_name = r.tabela and linha ? c.column_name and c.column_name not in ('criado_por','criado_em','atualizado_em');
+      if cols is null then raise exception 'Rascunho vazio.'; end if;
+      execute format('insert into public.%I (%s) select %s from jsonb_populate_record(null::public.%I, $1)', r.tabela, cols, cols, r.tabela) using linha;
+      n := n + 1;
+    end loop;
+  else
+    w := public.rascunho_where(r.tabela, r.filtros);
+    if r.operacao = 'alterar' then
+      select string_agg(quote_ident(c.column_name), ',') into cols from information_schema.columns c
+       where c.table_schema = 'public' and c.table_name = r.tabela and r.dados ? c.column_name and c.column_name not in ('id','criado_por','criado_em','atualizado_em');
+      if cols is null then raise exception 'Rascunho vazio.'; end if;
+      execute format('update public.%I set (%s) = (select %s from jsonb_populate_record(null::public.%I, $1)) where %s', r.tabela, cols, cols, r.tabela, w) using r.dados;
+    else
+      execute format('delete from public.%I where %s', r.tabela, w);
+    end if;
+    get diagnostics n = row_count;
+    if n = 0 then raise exception 'O registro não existe mais (foi apagado ou alterado por outra pessoa).'; end if;
+  end if;
+  update public.rascunhos set status = 'aprovado', revisor = auth.uid(), decidido_em = now(),
+         revisor_nome = coalesce((select nome from public.perfis where id = auth.uid()), '') where id = p_id;
+  if r.autor is not null then
+    insert into public.notificacoes (usuario_id, tipo, titulo, detalhe, link)
+    values (r.autor, 'rascunho', 'Sua alteração foi aprovada', coalesce(nullif(r.resumo, ''), r.tabela), 'aprovacoes');
+  end if;
+end $$;
+revoke all on function public.aprovar_rascunho(uuid) from public, anon;
+grant execute on function public.aprovar_rascunho(uuid) to authenticated;
+
+create or replace function public.recusar_rascunho(p_id uuid, p_motivo text default '') returns void
+language plpgsql security definer set search_path = public as $$
+declare r public.rascunhos;
+begin
+  select * into r from public.rascunhos where id = p_id for update;
+  if r.id is null or r.status <> 'pendente' then raise exception 'Este rascunho não está mais pendente.'; end if;
+  if r.autor = auth.uid() then   -- o próprio autor desiste
+    update public.rascunhos set status = 'cancelado', decidido_em = now() where id = p_id;
+    return;
+  end if;
+  if not public.pode(r.funcao, 'editar') then raise exception 'permission denied: só quem edita esta área recusa.'; end if;
+  update public.rascunhos set status = 'recusado', revisor = auth.uid(), decidido_em = now(), motivo = left(coalesce(p_motivo, ''), 500),
+         revisor_nome = coalesce((select nome from public.perfis where id = auth.uid()), '') where id = p_id;
+  if r.autor is not null then
+    insert into public.notificacoes (usuario_id, tipo, titulo, detalhe, link)
+    values (r.autor, 'rascunho', 'Sua alteração foi recusada', coalesce(nullif(r.resumo, ''), r.tabela) || case when coalesce(p_motivo, '') <> '' then ' — motivo: ' || p_motivo else '' end, 'aprovacoes');
+  end if;
+end $$;
+revoke all on function public.recusar_rascunho(uuid, text) from public, anon;
+grant execute on function public.recusar_rascunho(uuid, text) to authenticated;
+
+-- ─────────── êxito: como foi combinado + registros (vira lançamento só quando acontece) ───────────
+alter table public.contratos add column if not exists exito_base text;
+alter table public.contratos add column if not exists exito_regra text not null default '';
+create table if not exists public.exitos (
+  id            uuid primary key default gen_random_uuid(),
+  contrato_id   uuid not null references public.contratos(id) on delete cascade,
+  cliente_id    uuid references public.clientes(id) on delete set null,
+  data          date not null default current_date,
+  base_valor    numeric(16,2) not null check (base_valor > 0),     -- o X (ex.: a economia obtida)
+  percentual    numeric(5,2) not null,
+  valor         numeric(14,2) not null,                             -- percentual × X
+  descricao     text not null default '',
+  lancamento_id uuid references public.lancamentos(id) on delete set null,
+  criado_por    uuid default auth.uid(),
+  criado_em     timestamptz not null default now()
+);
+create index if not exists exitos_contrato on public.exitos (contrato_id, data);
+alter table public.exitos enable row level security;
+revoke all on public.exitos from anon;
+grant select on public.exitos to authenticated;
+drop policy if exists exitos_ver on public.exitos;
+create policy exitos_ver on public.exitos for select to authenticated using (public.pode('contratos') and public.ve_cliente(cliente_id));
+
+create or replace function public.registrar_exito(p_contrato uuid, p_base numeric, p_data date, p_vencimento date, p_descricao text default '')
+returns uuid language plpgsql security definer set search_path = public as $$
+declare c record; v numeric(14,2); lanc uuid;
+begin
+  if not public.pode('contratos', 'editar') then raise exception 'permission denied: só quem edita Contratos registra êxito.'; end if;
+  select k.*, cl.grupo_id, cl.responsavel resp_cliente into c from public.contratos k join public.clientes cl on cl.id = k.cliente_id where k.id = p_contrato;
+  if c.id is null or not public.ve_cliente(c.cliente_id) then raise exception 'Contrato não encontrado.'; end if;
+  if coalesce(c.percentual_exito, 0) <= 0 then raise exception 'Este contrato não tem %% de êxito.'; end if;
+  if coalesce(p_base, 0) <= 0 then raise exception 'Informe o valor-base (X) maior que zero.'; end if;
+  v := round(p_base * c.percentual_exito / 100, 2);
+  insert into public.lancamentos (empresa, tipo, descricao, categoria, cliente_id, contrato_id, grupo_id, responsavel, referencia, vencimento, valor, obs)
+  values ('escritorio', 'receita', c.descricao || ' — êxito', 'Êxito', c.cliente_id, c.id, c.grupo_id, coalesce(nullif(c.responsavel, ''), c.resp_cliente, ''),
+          replace(c.percentual_exito::text, '.', ',') || '% de ' || public.brl_texto(p_base), coalesce(p_vencimento, p_data, current_date), v,
+          coalesce(nullif(p_descricao, ''), 'Êxito registrado em ' || to_char(coalesce(p_data, current_date), 'DD/MM/YYYY')))
+  returning id into lanc;
+  insert into public.exitos (contrato_id, cliente_id, data, base_valor, percentual, valor, descricao, lancamento_id)
+  values (c.id, c.cliente_id, coalesce(p_data, current_date), p_base, c.percentual_exito, v, coalesce(p_descricao, ''), lanc);
+  return lanc;
+end $$;
+revoke all on function public.registrar_exito(uuid, numeric, date, date, text) from public, anon;
+grant execute on function public.registrar_exito(uuid, numeric, date, date, text) to authenticated;
+-- fim da v18

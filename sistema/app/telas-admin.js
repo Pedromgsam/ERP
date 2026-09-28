@@ -83,12 +83,12 @@ async function admUsuarios(corpo) {
 }
 function formFuncoes(p) {
   const j = abrirJanela({ titulo: 'Funções de ' + (p.nome || p.email), larga: true,
-    corpo: '<p class="sub" style="margin-bottom:10px">Marque o que esta pessoa pode <b>ver</b> ou <b>editar</b>. Use um modelo pronto e ajuste. As próprias tarefas ela sempre vê.</p>' + gradeFuncoes(p.funcoes),
+    corpo: '<p class="sub" style="margin-bottom:10px">Marque o que esta pessoa pode <b>ver</b> ou <b>editar</b>. Use um modelo pronto e ajuste. As próprias tarefas ela sempre vê. <b>Rascunho</b>: a pessoa preenche, mas só vale depois que alguém que edita aprovar.</p>' + gradeAreas(p.areas) + gradeFuncoes(p.funcoes),
     rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="btn-salvar-func">Salvar</button></div>' });
   ligarGradeFuncoes(j);
   j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
   j.querySelector('#btn-salvar-func').onclick = (ev) => comBotao(ev.currentTarget, async () => {
-    await q(sb.from('perfis').update({ funcoes: lerGradeFuncoes(j) }).eq('id', p.id));
+    await q(sb.from('perfis').update({ funcoes: lerGradeFuncoes(j), areas: lerAreas(j) }).eq('id', p.id));
     aviso('✓ Funções de ' + (p.nome || p.email).split(' ')[0] + ' atualizadas.'); fecharJanela(j); await pintarAdmin();
   });
 }
@@ -124,7 +124,7 @@ function formNovoUsuario() {
       campo('E-mail <span class="obrig">*</span>', '<input name="email" type="email" autocomplete="off">') +
       campo('Senha provisória <span class="obrig">*</span>', '<input name="senha" autocomplete="new-password" placeholder="mínimo 8 caracteres">') +
       campo('Acesso', '<select name="papel">' + PAPEIS.filter((x) => x[0] !== 'inativo').map(([v, r]) => '<option value="' + v + '"' + (v === 'equipe' ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>') +
-      '<div class="inteiro" id="us-funcoes"><div class="secao" style="margin-bottom:6px">Funções (o que a pessoa pode usar)</div>' + gradeFuncoes(MODELOS_ACESSO['Sócio (tudo)']) + '</div>' +
+      '<div class="inteiro" id="us-funcoes"><div class="secao" style="margin-bottom:6px">Funções (o que a pessoa pode usar)</div>' + gradeAreas('ambos') + gradeFuncoes(MODELOS_ACESSO['Sócio (tudo)']) + '</div>' +
       '<div class="inteiro escondido" id="us-grupos"><div class="sub" style="margin-bottom:6px">Grupos que o cliente vê no Portal</div>' + listaGruposMarcar([]) + '</div>' +
       '<div class="dica inteiro">Passe o e-mail e a senha provisória para a pessoa. Se o Supabase estiver com <b>confirmação de e-mail</b> ligada, ela recebe um e-mail e precisa clicar no link antes do primeiro acesso.</div>' +
       '</form>',
@@ -157,7 +157,7 @@ function formNovoUsuario() {
       if (!perfil) await new Promise((ok) => setTimeout(ok, 500));
     }
     if (!perfil) throw new Error('Usuário criado, mas o perfil ainda não apareceu. Abra Usuários de novo em alguns segundos e ajuste o acesso.');
-    await q(sb.from('perfis').update({ papel, nome, funcoes: papel === 'equipe' ? lerGradeFuncoes(j) : {} }).eq('id', perfil.id));
+    await q(sb.from('perfis').update({ papel, nome, funcoes: papel === 'equipe' ? lerGradeFuncoes(j) : {}, areas: papel === 'equipe' ? lerAreas(j) : 'ambos' }).eq('id', perfil.id));
     if (papel === 'cliente') await salvarGruposPortal(perfil.id, ids);
     aviso('✓ Usuário criado. Passe o e-mail e a senha provisória para ' + nome.split(' ')[0] + '.');
     fecharJanela(j); await pintarAdmin();

@@ -176,8 +176,11 @@ function tabelaLancamentos(lista, opc) {
 function ligarAcoesLancamentos(raiz, depois) {
   const apos = depois || recarregar;
   raiz.querySelectorAll('[data-pagar]').forEach((b) => b.onclick = () => comBotao(b, async () => {
-    await q(sb.from('lancamentos').update({ pago: true, cobranca: '' }).eq('id', b.dataset.pagar));
-    aviso('✓ Baixa registrada.'); await apos();
+    const l = await q(sb.from('lancamentos').select('descricao, valor, tipo, redutor').eq('id', b.dataset.pagar).single());
+    const bx = await perguntarBaixa({ descricao: l.descricao, valor: l.valor, despesa: l.tipo === 'despesa' && !l.redutor });
+    if (!bx) return;
+    await q(sb.from('lancamentos').update(Object.assign(bx, { cobranca: '', perda: false })).eq('id', b.dataset.pagar));
+    aviso('✓ Baixa registrada em ' + dataBR(bx.data_pagamento) + '.'); await apos();
   }));
   raiz.querySelectorAll('[data-desfazer]').forEach((b) => b.onclick = () => comBotao(b, async () => {
     await q(sb.from('lancamentos').update({ pago: false }).eq('id', b.dataset.desfazer));

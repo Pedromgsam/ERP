@@ -33,6 +33,14 @@
   --border:rgba(15,23,42,.09);--border-strong:rgba(15,23,42,.16);--line:#E5E7EB;
   --foco:0 0 0 3px rgba(46,94,170,.35);
 
+  /* visual moderno (Backup 12): uma fonte só, números alinhados, sombra suave em camadas */
+  --font-ui:'Inter','DM Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --grad-marca:linear-gradient(135deg,#1B2A4A 0%,#2E5EAA 100%);
+  --grad-ouro:linear-gradient(90deg,#C9A84C,#E4C979);
+  --shadow-card:0 1px 2px rgba(15,23,42,.05),0 8px 24px -12px rgba(15,23,42,.14);
+  --shadow-hover:0 2px 4px rgba(15,23,42,.06),0 14px 32px -12px rgba(15,23,42,.22);
+  --anel:0 0 0 3px rgba(46,94,170,.16);
+
   /* forma */
   --card-r:16px;--card-r-sm:10px;--radius-xs:7px;
   --shadow-sm:0 1px 3px rgba(15,23,42,.08);--shadow-md:0 3px 10px rgba(15,23,42,.10);--shadow-lg:0 8px 22px rgba(15,23,42,.14);
@@ -54,6 +62,8 @@ html[data-tema="escuro"]{
   --border:rgba(255,255,255,.09);--border-strong:rgba(255,255,255,.18);--line:#2A3446;
   --ac-gold-lt:rgba(201,168,76,.16);
   --shadow-sm:0 1px 3px rgba(0,0,0,.4);--shadow-md:0 3px 10px rgba(0,0,0,.45);--shadow-lg:0 8px 22px rgba(0,0,0,.5);
+  --shadow-card:0 1px 2px rgba(0,0,0,.35),0 8px 24px -12px rgba(0,0,0,.6);--shadow-hover:0 2px 4px rgba(0,0,0,.4),0 14px 32px -12px rgba(0,0,0,.7);
+  --anel:0 0 0 3px rgba(96,165,250,.25);
   color-scheme:dark;
 }
 html[data-tema="escuro"] body{background:var(--bg)!important;color:var(--text)}

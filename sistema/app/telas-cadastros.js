@@ -15,7 +15,7 @@ async function consultarCnpjNovo(id, nome) {
 }
 
 TELAS.clientes = async function () {
-  E.cli = E.cli || { tipo: 'ativos', grupo: '', busca: '' };
+  E.cli = E.cli || { tipo: 'ativos', grupo: '', busca: '', area: '' };
   await carregarCadastros();
   const C = E.cli;
   $('conteudo').innerHTML =
@@ -24,6 +24,7 @@ TELAS.clientes = async function () {
     '<div class="filtros">' +
     '<div class="segmento" id="cli-tipo">' + [['ativos', 'Ativos'], ['Consultoria', 'Consultoria'], ['Demanda', 'Serviço pontual'], ['Inativo', 'Inativos'], ['todos', 'Todos']]
       .map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
+    (minhasAreas() === 'ambos' ? '<select class="busca sel" id="cli-area" aria-label="Área" style="max-width:190px"><option value="">Todas as áreas</option><option value="juridico">Jurídico</option><option value="contabil">Contabilidade</option></select>' : '') +
     '<select class="busca sel" id="cli-grupo" autocomplete="off"><option value="">Todos os grupos</option>' +
     E.grupos.map((g) => '<option value="' + g.id + '">' + esc(g.nome) + '</option>').join('') + '</select>' +
     '<input class="busca" id="cli-busca" placeholder="Buscar nome, grupo, responsável ou CPF/CNPJ" autocomplete="off">' +
@@ -31,12 +32,13 @@ TELAS.clientes = async function () {
     '</div><div id="cli-corpo"></div>';
   $('cli-tipo').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { C.tipo = b.dataset.v; pintarClientes(); } };
   $('cli-grupo').onchange = (ev) => { C.grupo = ev.target.value; pintarClientes(); };
+  if ($('cli-area')) { $('cli-area').value = C.area || ''; $('cli-area').onchange = (ev) => { C.area = ev.target.value; pintarClientes(); }; }
   let t;
   $('cli-busca').oninput = (ev) => { clearTimeout(t); t = setTimeout(() => { C.busca = ev.target.value; pintarClientes(); }, 250); };
   $('cli-relatorio').onclick = () => { const l = E.cli.ultima || [];
     relatorioTabela({ titulo: 'Clientes', ids: l.map((c) => c.id),
-      colunas: ['Grupo', 'Nome', 'CPF/CNPJ', 'Tipo', 'Responsável', 'E-mail', 'Telefone', 'Cidade/UF', 'Procuração', 'Certificado', 'CAPAG', 'Situação cadastral'],
-      linhas: l.map((c) => [c.grupos ? c.grupos.nome : '', c.nome, mascaraDoc(c.cpf_cnpj), c.tipo === 'Demanda' ? 'Serviço pontual' : c.tipo, c.responsavel, c.email, c.telefone,
+      colunas: ['Grupo', 'Nome', 'CPF/CNPJ', 'Área', 'Tipo', 'Responsável', 'E-mail', 'Telefone', 'Cidade/UF', 'Procuração', 'Certificado', 'CAPAG', 'Situação cadastral'],
+      linhas: l.map((c) => [c.grupos ? c.grupos.nome : '', c.nome, mascaraDoc(c.cpf_cnpj), rotArea(c.area), c.tipo === 'Demanda' ? 'Serviço pontual' : c.tipo, c.responsavel, c.email, c.telefone,
         [c.cidade, c.estado].filter(Boolean).join('/'), c.procuracao === true ? 'Sim' : c.procuracao === false ? 'Não' : '', c.certificado === true ? 'Sim' : c.certificado === false ? 'Não' : '', c.capag, c.situacao_cadastral]) }); };
   ligarBotoesNovo($('conteudo'));
   // ao ordenar pelo cabeçalho, fecha o detalhe aberto (senão ele fica solto no meio da tabela)
@@ -54,6 +56,7 @@ function pintarClientes() {
     if (C.tipo === 'ativos' && c.tipo === 'Inativo') return false;
     if (C.tipo !== 'ativos' && C.tipo !== 'todos' && c.tipo !== C.tipo) return false;
     if (C.grupo && c.grupo_id !== C.grupo) return false;
+    if (C.area && (c.area || 'ambos') !== C.area && (c.area || 'ambos') !== 'ambos') return false;
     if (b && !(normalizar(c.nome + ' ' + (c.grupos ? c.grupos.nome : '') + ' ' + c.responsavel + ' ' + c.socio_admin).includes(b) ||
                (bd && soDigitos(c.cpf_cnpj).includes(bd)))) return false;
     return true;
@@ -65,7 +68,7 @@ function pintarClientes() {
     '<th>Procuração</th><th>Certificado</th><th>Situação</th></tr></thead><tbody>' +
     lista.map((c) => '<tr class="clicavel cli-linha" tabindex="0" aria-expanded="false" data-cli="' + c.id + '"><td class="cli-seta">▸</td>' +
       '<td class="cli-grupo" title="' + esc(c.grupos ? c.grupos.nome : '') + '">' + esc(c.grupos ? c.grupos.nome : '—') + '</td>' +
-      '<td><b>' + esc(c.nome) + '</b>' + (c.socio_admin ? '<div class="sub">' + esc(c.socio_admin) + '</div>' : '') + '</td>' +
+      '<td><b>' + esc(c.nome) + '</b> ' + pillArea(c.area) + (c.socio_admin ? '<div class="sub">' + esc(c.socio_admin) + '</div>' : '') + '</td>' +
       '<td class="mono">' + esc(mascaraDoc(c.cpf_cnpj) || '—') + '</td>' +
       '<td>' + pillPessoa(c.responsavel) + '</td><td>' + pillSimNao(c.procuracao) + '</td><td>' + pillSimNao(c.certificado) + '</td>' +
       '<td>' + pillSitCad(c.situacao_cadastral) + '</td></tr>').join('') +
@@ -165,6 +168,8 @@ async function formCliente(cl, depois) {
       campo('CPF/CNPJ', '<input name="cpf_cnpj" inputmode="numeric" maxlength="18" value="' + esc(mascaraDoc(cl.cpf_cnpj)) + '">') +
       campo('Grupo', '<input name="grupo" list="cli-grupos" placeholder="Digite ou escolha" value="' + esc(cl.grupos ? cl.grupos.nome : nomeGrupo(cl.grupo_id)) + '">' + datalistGrupos('cli-grupos')) +
       campo('Tipo', '<select name="tipo">' + [['Consultoria', 'Consultoria'], ['Demanda', 'Serviço pontual'], ['Inativo', 'Inativo']].map(([t, r]) => '<option value="' + t + '"' + (cl.tipo === t ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>') +
+      campo('Área do cliente', '<select name="area">' + AREAS.filter(([v]) => minhasAreas() === 'ambos' || v === minhasAreas() || v === (cl.area || '')).map(([v, r]) =>
+        '<option value="' + v + '"' + ((cl.area || (novo ? minhasAreas() : 'ambos')) === v ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>') +
       campo('Responsável', '<input name="responsavel" list="cli-pessoas" value="' + esc(cl.responsavel || '') + '">' + datalistPessoas('cli-pessoas')) +
       campo('Sócio-administrador', '<input name="socio_admin" value="' + esc(cl.socio_admin || '') + '">', 'dois') +
       campo('Tipo societário', selectOpcoes('tipo_societario', ['LTDA', 'S.A', 'MEI', 'EI', 'PF'], cl.tipo_societario)) +
@@ -210,7 +215,7 @@ async function formCliente(cl, depois) {
     const num = (n) => { const t = f[n].value.trim(); if (!t) return null; const v = lerValor(t); if (isNaN(v)) throw new Error('Valor inválido em ' + n.toUpperCase().replace(/_/g, ' ') + '.'); return v; };
     const grupo_id = await grupoPorNome(f.grupo.value);
     const dados = {
-      nome: f.nome.value.trim(), cpf_cnpj: soDigitos(f.cpf_cnpj.value), grupo_id, tipo: f.tipo.value,
+      nome: f.nome.value.trim(), cpf_cnpj: soDigitos(f.cpf_cnpj.value), grupo_id, tipo: f.tipo.value, area: f.area.value,
       responsavel: f.responsavel.value.trim(), socio_admin: f.socio_admin.value.trim(), tipo_societario: f.tipo_societario.value,
       em_operacao: lerSimNao(f.em_operacao.value), procuracao: lerSimNao(f.procuracao.value),
       certificado: lerSimNao(f.certificado.value), cadastro_regular: lerSimNao(f.cadastro_regular.value),
@@ -267,7 +272,7 @@ async function pintarContratos(buscar) {
   document.querySelectorAll('#ctr-status button').forEach((x) => x.classList.toggle('ativo', x.dataset.v === F.status));
   if (document.activeElement !== $('ctr-busca')) $('ctr-busca').value = F.busca;
   if (buscar) {
-    let c = sb.from('contratos').select('*, clientes(nome, grupos(nome)), lancamentos(valor, pago, vencimento), documentos(id)').order('data_contrato', { ascending: false });
+    let c = sb.from('contratos').select('*, clientes(nome, grupos(nome)), lancamentos(valor, pago, vencimento), documentos(id), exitos(id)').order('data_contrato', { ascending: false });
     if (F.status !== 'todos') c = c.eq('status', F.status);
     _contratos = await q(c);
   }
@@ -285,7 +290,7 @@ async function pintarContratos(buscar) {
       const atraso = parc.some((p) => !p.pago && p.vencimento < h);
       return '<tr class="clicavel" data-ctr="' + c.id + '"><td>' + esc(c.clientes ? c.clientes.nome : '—') +
         (c.clientes && c.clientes.grupos ? '<div class="sub">' + esc(c.clientes.grupos.nome) + '</div>' : '') + '</td>' +
-        '<td>' + esc(c.descricao) + (c.percentual_exito ? '<div class="sub">+ ' + esc(String(c.percentual_exito).replace('.', ',')) + '% de êxito</div>' : '') + '</td>' +
+        '<td>' + esc(c.descricao) + (c.percentual_exito ? '<div class="sub">+ ' + esc(String(c.percentual_exito).replace('.', ',')) + '% de êxito ' + ((c.exitos || []).length ? '<span class="pill pago">🏆 ' + c.exitos.length + ' registrado(s)</span>' : '<span class="pill neutro">aguardando o êxito</span>') + '</div>' : '') + '</td>' +
         '<td><span class="pill ' + (c.modalidade === 'consultoria' ? 'aberto' : 'neutro') + '">' + (c.modalidade === 'consultoria' ? 'Consultoria' : 'Pontual') + '</span></td>' +
         '<td class="mono" data-ord="' + c.data_contrato + '">' + dataBR(c.data_contrato) + (c.rescindido_em ? '<div class="sub">rescindido ' + dataBR(c.rescindido_em) + '</div>' : '') + '</td>' +
         '<td class="num mono" data-ord="' + (c.modalidade === 'consultoria' ? (c.valor_mensal || 0) : c.valor_total) + '">' + valorContratoTexto(c) + '</td>' +
@@ -298,6 +303,10 @@ async function pintarContratos(buscar) {
   $('ctr-corpo').querySelectorAll('[data-ctr]').forEach((tr) => tr.onclick = () => detalheContrato(tr.dataset.ctr));
 }
 
+// Êxito: base de cálculo (o "X" que a pessoa informa quando o êxito acontece)
+const EXITO_BASES = [['economia', 'Economia obtida (redução da dívida)'], ['valor_recebido', 'Valor recebido pelo cliente'],
+  ['valor_causa', 'Valor da causa / condenação'], ['outro', 'Outro valor (descrever)']];
+const exitoBaseRot = (b) => (EXITO_BASES.find((x) => x[0] === b) || EXITO_BASES[3])[1];
 const SM_ROT = (c) => String(c.qtd_salarios).replace('.', ',') + ' salário(s) mínimo(s)';
 function valorContratoTexto(c) {
   if (c.modalidade !== 'consultoria') return brl(c.valor_total);
@@ -321,6 +330,11 @@ function formContrato(ct) {
       campo('Descrição do serviço <span class="obrig">*</span>', '<input name="descricao" required maxlength="200" placeholder="Ex.: Consultoria tributária mensal" value="' + esc(ct.descricao || '') + '">', 'inteiro') +
       campo('Data do contrato', '<input name="data_contrato" type="date" value="' + esc(ct.data_contrato || hojeISO()) + '">') +
       campo('% de êxito (se houver)', '<input name="percentual_exito" inputmode="decimal" placeholder="Ex.: 20" value="' + (ct.percentual_exito != null ? esc(String(ct.percentual_exito).replace('.', ',')) : '') + '">') +
+      // êxito: sobre o quê e como foi combinado; só vira dinheiro quando acontecer (botão "Registrar êxito" no detalhe)
+      '<div class="grade inteiro" id="ctr-exito">' +
+      campo('O êxito é calculado sobre', '<select name="exito_base">' + EXITO_BASES.map(([v, r]) => '<option value="' + v + '"' + ((ct.exito_base || 'economia') === v ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>') +
+      campo('Como foi combinado', '<input name="exito_regra" maxlength="300" placeholder="Ex.: 20% da redução da dívida na PGFN, pago em até 10 dias" value="' + esc(ct.exito_regra || '') + '">') +
+      '<div class="dica inteiro">O êxito <b>não entra no financeiro agora</b>. Quando acontecer, abra o contrato e clique em <b>🏆 Registrar êxito</b>: você informa o valor (ex.: quanto a dívida reduziu) e o sistema lança o % em Honorários Jurídico.</div></div>' +
       // consultoria
       '<div class="grade inteiro" id="ctr-rec">' +
       '<div class="inteiro"><div class="segmento" id="ctr-forma">' + [['fixo', 'Valor fixo'], ['salario_minimo', 'Em salários mínimos']]
@@ -368,6 +382,8 @@ function formContrato(ct) {
   j.querySelector('#ctr-mod').onclick = (ev) => { const b = ev.target.closest('button'); if (b && !b.disabled) { modalidade = b.dataset.v; mostrar(); } };
   j.querySelector('#ctr-forma').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { formaValor = b.dataset.v; mostrar(); } };
   ['input', 'change'].forEach((ev) => f.addEventListener(ev, previaRec));
+  const mostrarExito = () => j.querySelector('#ctr-exito').classList.toggle('escondido', !(lerValor(f.percentual_exito.value) > 0));
+  f.percentual_exito.addEventListener('input', mostrarExito); mostrarExito();
   mostrar();
   j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
   if (novo) {
@@ -390,7 +406,8 @@ function formContrato(ct) {
     if (exito != null && !(exito >= 0 && exito <= 100)) throw new Error('% de êxito deve ficar entre 0 e 100.');
     const cli = E.clientes.find((c) => c.id === f.cliente_id.value);
     const dados = { cliente_id: f.cliente_id.value, descricao: f.descricao.value.trim(), modalidade,
-      data_contrato: f.data_contrato.value || hojeISO(), percentual_exito: exito, obs: f.obs.value.trim(), responsavel: ct.responsavel || (cli && cli.responsavel) || '' };
+      data_contrato: f.data_contrato.value || hojeISO(), percentual_exito: exito, obs: f.obs.value.trim(),
+      exito_base: exito ? f.exito_base.value : null, exito_regra: exito ? f.exito_regra.value.trim() : '', responsavel: ct.responsavel || (cli && cli.responsavel) || '' };
     if (modalidade === 'consultoria') {
       const vm = formaValor === 'fixo' ? lerValor(f.valor_mensal.value) : null, qs = formaValor === 'salario_minimo' ? lerValor(f.qtd_salarios.value) : null;
       if (formaValor === 'fixo' && !(vm > 0)) throw new Error('Informe o valor mensal (ex.: 4.000,00).');
@@ -466,7 +483,8 @@ async function janelaSalarioMinimo() {
 
 async function detalheContrato(id) {
   const ct = await q(sb.from('contratos').select('*, clientes(nome, grupo_id, responsavel)').eq('id', id).single());
-  const parc = await q(sb.from('lancamentos').select('*').eq('contrato_id', id).order('vencimento'));
+  const [parc, exitos] = await Promise.all([q(sb.from('lancamentos').select('*').eq('contrato_id', id).order('vencimento')),
+    ct.percentual_exito ? q(sb.from('exitos').select('*').eq('contrato_id', id).order('data')).catch(() => []) : []]);
   const recebido = soma(parc.filter((p) => p.pago), (p) => p.valor);
   const total = soma(parc, (p) => p.valor);
   const j = abrirJanela({
@@ -480,7 +498,8 @@ async function detalheContrato(id) {
       '</div>' +
       (ct.obs ? '<div class="dica" style="margin-bottom:12px">' + esc(ct.obs) + '</div>' : '') +
       '<div class="card" style="margin:0">' + tabelaLancamentos(parc, { compacta: true }) + '</div>' +
-      '<div style="margin-top:10px"><button class="btn btn-o btn-mini" id="ctr-add-parc">+ Lançar valor avulso neste contrato (ex.: êxito)</button></div>' +
+      '<div style="margin-top:10px"><button class="btn btn-o btn-mini" id="ctr-add-parc">+ Lançar valor avulso neste contrato</button></div>' +
+      (ct.percentual_exito ? blocoExito(ct, exitos) : '') +
       '<div class="card" style="margin:14px 0 0"><div class="card-bd" id="ctr-docs"></div></div>',
     rodape:
       (E.perfil.papel === 'admin' ? '<button class="btn btn-x" id="btn-excluir-ctr" type="button">Excluir contrato</button>' : '<span></span>') +
@@ -493,15 +512,56 @@ async function detalheContrato(id) {
     { titulo: 'Documentos do contrato', vazio: 'Nenhum documento. Envie aqui o contrato assinado, a proposta e os aditivos.' }).catch((e) => console.error(e));
   j.querySelector('#btn-editar-ctr').onclick = () => formContrato(ct);
   const br = j.querySelector('#btn-rescindir-ctr'); if (br) br.onclick = () => formRescisao(ct, reabrir);
+  const be = j.querySelector('#ctr-exito-reg'); if (be) be.onclick = () => formExito(ct, reabrir);
   j.querySelector('#ctr-add-parc').onclick = () => {
     formLancamento({ tipo: 'receita', empresa: 'escritorio', cliente_id: ct.cliente_id, contrato_id: id,
                      grupo_id: ct.clientes && ct.clientes.grupo_id, responsavel: ct.clientes && ct.clientes.responsavel,
-                     categoria: 'Êxito', descricao: ct.descricao + ' — êxito' }, reabrir);
+                     descricao: ct.descricao + ' — avulso' }, reabrir);
   };
   const bx = j.querySelector('#btn-excluir-ctr');
   if (bx) bx.onclick = () => comBotao(bx, async () => {
     if (!confirm('Excluir o contrato e TODAS as parcelas dele? Esta ação não pode ser desfeita.')) return;
     await excluir('contratos', id);
     aviso('Contrato excluído.'); fecharJanela(j); await recarregar();
+  });
+}
+
+// ─────────── êxito: regra combinada + registros (só vira lançamento quando acontece) ───────────
+function blocoExito(ct, exitos) {
+  const pct = String(ct.percentual_exito).replace('.', ',');
+  return '<div class="card exito-card" style="margin:14px 0 0"><div class="card-hd">🏆 Êxito<span class="pill ' + (exitos.length ? 'pago' : 'neutro') + '">' +
+      (exitos.length ? exitos.length + ' registrado(s) · ' + brl(soma(exitos, (x) => x.valor)) : 'aguardando o êxito') + '</span>' +
+      (pode('contratos', 'editar') ? '<button class="btn btn-p btn-mini" id="ctr-exito-reg" style="margin-left:auto">🏆 Registrar êxito</button>' : '') + '</div>' +
+    '<div class="card-bd"><div class="dica"><b>' + pct + '%</b> sobre ' + esc(exitoBaseRot(ct.exito_base).toLowerCase()) + (ct.exito_regra ? ' — ' + esc(ct.exito_regra) : '') +
+      '. Só entra no financeiro quando o êxito acontecer.</div>' +
+    (exitos.length ? '<div class="tabela-wrap" style="margin-top:10px"><table><thead><tr><th>Data</th><th>O que aconteceu</th><th class="num">Base (X)</th><th class="num">Honorário</th></tr></thead><tbody>' +
+      exitos.map((x) => '<tr><td class="mono">' + dataBR(x.data) + '</td><td>' + esc(x.descricao) + '</td><td class="num mono">' + brl(x.base_valor) + '</td><td class="num mono valor-rec">' +
+        brl(x.valor) + '<div class="sub">' + String(x.percentual).replace('.', ',') + '% de X</div></td></tr>').join('') + '</tbody></table></div>' : '') + '</div></div>';
+}
+function formExito(ct, depois) {
+  const pct = Number(ct.percentual_exito) || 0;
+  const j = abrirJanela({ titulo: 'Registrar êxito — ' + ct.descricao,
+    corpo: '<form class="grade" id="f-exito">' +
+      '<div class="dica inteiro">Combinado: <b>' + String(pct).replace('.', ',') + '%</b> sobre ' + esc(exitoBaseRot(ct.exito_base).toLowerCase()) + (ct.exito_regra ? ' — ' + esc(ct.exito_regra) : '') + '</div>' +
+      campo('X = ' + esc(exitoBaseRot(ct.exito_base)) + ' (R$)', '<input name="base" inputmode="decimal" placeholder="Ex.: 150.000,00" required>', 'inteiro') +
+      campo('O que aconteceu', '<input name="descricao" maxlength="200" placeholder="Ex.: Transação na PGFN reduziu a dívida de 500 mil para 350 mil">', 'inteiro') +
+      campo('Data do êxito', '<input name="data" type="date" value="' + hojeISO() + '">') +
+      campo('Vencimento do honorário', '<input name="vencimento" type="date" value="' + somarDias(hojeISO(), 10) + '">') +
+      '<div class="exito-previa inteiro" id="exito-previa"></div></form>',
+    rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="btn-exito">Lançar no financeiro</button></div>' });
+  const f = j.querySelector('#f-exito');
+  const previa = () => {
+    const x = lerValor(f.base.value) || 0, v = Math.round(x * pct) / 100;
+    j.querySelector('#exito-previa').innerHTML = '<span>' + String(pct).replace('.', ',') + '% × ' + brl(x) + ' =</span><b class="mono">' + brl(v) + '</b><span class="sub">vai para Honorários Jurídico com vencimento em ' + dataBR(f.vencimento.value) + '</span>';
+  };
+  f.addEventListener('input', previa); previa();
+  j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
+  j.querySelector('#btn-exito').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    const x = lerValor(f.base.value);
+    if (!(x > 0)) throw new Error('Informe o valor X (ex.: quanto a dívida reduziu).');
+    if (!f.data.value || !f.vencimento.value) throw new Error('Informe as datas.');
+    await q(sb.rpc('registrar_exito', { p_contrato: ct.id, p_base: x, p_data: f.data.value, p_vencimento: f.vencimento.value, p_descricao: f.descricao.value.trim() }));
+    aviso('✓ Êxito registrado: ' + brl(Math.round(x * pct) / 100) + ' lançado em Honorários Jurídico.');
+    fecharJanela(j); if (depois) await depois();
   });
 }
