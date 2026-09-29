@@ -219,6 +219,15 @@ html[data-tema="escuro"] .gs .cr-at:hover{background:#1b212b}
 }
 html[data-tema="escuro"] .gs .mural-dest.ambar{background:#362c15;color:#ebc4ab}
 html[data-tema="escuro"] .gs .em-previa{background:var(--surface)}
+html[data-tema="escuro"] .gs .tf-rapida input{background:var(--surface)}
+html[data-tema="escuro"] .gs .sm-col{background:#222429}
+html[data-tema="escuro"] .gs .sm-col.sobre{background:#202734}
+html[data-tema="escuro"] .gs .sm-col.sm-hoje{background:#192334}
+html[data-tema="escuro"] .gs .sm-col.sm-atr{background:#331717}
+html[data-tema="escuro"] .gs .sm-col.sm-sem{background:var(--surface2)}
+html[data-tema="escuro"] .gs .sm-tit{color:var(--ink)}
+html[data-tema="escuro"] .gs .sm-card{background:var(--surface)}
+html[data-tema="escuro"] .gs .carga-bar{background:#222429}
 html[data-tema="escuro"] #gs-hd .gs-marca-nome{color:#cdbb89}
 html[data-tema="escuro"] #gs-hd .tn-menu{background:var(--surface);border:1px solid rgba(255,255,255,0.066)}
 html[data-tema="escuro"] #gs-hd .tn-menu button{color:#d3d9e4}

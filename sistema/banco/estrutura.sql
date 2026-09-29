@@ -4343,3 +4343,26 @@ begin
 end $$;
 revoke all on function public.emails_do_cliente(uuid) from public, anon;
 grant execute on function public.emails_do_cliente(uuid) to authenticated;
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- v22 (Backup 16) — Tarefas: modelos por tipo de serviço, resumo diário às 8h, carga de trabalho
+-- ═══════════════════════════════════════════════════════════════════════
+alter table public.modelos_fluxo add column if not exists servico text not null default '';
+insert into public.modelos_fluxo (nome, descricao, itens, servico)
+select v.n, v.d, v.i::jsonb, v.s from (values
+  ('Abertura de empresa', 'Da escolha do tipo societário às licenças (prazos em dias úteis antes da data final)',
+   '[{"titulo":"Reunião inicial e lista de documentos","dias":15,"checklist":["Documentos dos sócios","Endereço e atividade (CNAE)","Capital social"]},{"titulo":"Contrato social e viabilidade","dias":10},{"titulo":"Registro na Junta e CNPJ","dias":6},{"titulo":"Inscrições estadual e municipal","dias":3},{"titulo":"Alvará e licenças; entrega ao cliente","dias":0}]', 'Empresarial'),
+  ('Inventário', 'Inventário judicial ou extrajudicial com partilha',
+   '[{"titulo":"Levantar bens, dívidas e herdeiros","dias":40,"checklist":["Certidão de óbito","Documentos dos herdeiros","Matrículas e extratos"]},{"titulo":"Cálculo e guias do ITCD","dias":25},{"titulo":"Minuta da partilha","dias":15},{"titulo":"Protocolo (cartório ou processo)","dias":8},{"titulo":"Registro e entrega aos herdeiros","dias":0}]', 'Sucessões'),
+  ('Defesa trabalhista', 'Da citação à audiência',
+   '[{"titulo":"Analisar a inicial e pedir documentos ao cliente","dias":10,"checklist":["Contrato de trabalho","Holerites e ponto","TRCT e guias"]},{"titulo":"Reunião de preparação com o cliente e testemunhas","dias":5},{"titulo":"Contestação e documentos","dias":2},{"titulo":"Audiência","dias":0}]', 'Trabalhista')
+) v(n, d, i, s)
+where not exists (select 1 from public.modelos_fluxo m where m.nome = v.n);
+
+-- resumo do dia de cada pessoa às 8h de Brasília (11h UTC); cada um liga/desliga em "Meus avisos por e-mail"
+do $$
+begin
+  perform cron.unschedule(jobid) from cron.job where jobname = 'erp_resumo_diario';
+  perform cron.schedule('erp_resumo_diario', '0 11 * * 1-5', 'select public.montar_resumos_diarios()');
+exception when others then null;
+end $$;

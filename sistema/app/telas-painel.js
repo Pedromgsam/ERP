@@ -377,10 +377,6 @@ async function cardLembretes() {
   }));
   $('lemb-novo').onclick = () => formLembrete();
 }
-function somarMeses(d, n) {
-  const x = new Date(d + 'T12:00:00'), dia = x.getDate(), y = new Date(x.getFullYear(), x.getMonth() + n, 1);
-  y.setDate(Math.min(dia, new Date(y.getFullYear(), y.getMonth() + 1, 0).getDate())); return iso(y);
-}
 function formLembrete() {
   const j = abrirJanela({ titulo: '🔔 Novo lembrete',
     corpo: '<div class="dica" style="margin-bottom:10px">Lembrete é um aviso rápido que <b>não vira tarefa</b> (ex.: "pagar o aluguel da sala", "renovar o certificado digital"). ' +

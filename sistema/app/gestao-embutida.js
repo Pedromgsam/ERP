@@ -1189,10 +1189,6 @@ async function cardLembretes() {
   }));
   $('lemb-novo').onclick = () => formLembrete();
 }
-function somarMeses(d, n) {
-  const x = new Date(d + 'T12:00:00'), dia = x.getDate(), y = new Date(x.getFullYear(), x.getMonth() + n, 1);
-  y.setDate(Math.min(dia, new Date(y.getFullYear(), y.getMonth() + 1, 0).getDate())); return iso(y);
-}
 function formLembrete() {
   const j = abrirJanela({ titulo: '🔔 Novo lembrete',
     corpo: '<div class="dica" style="margin-bottom:10px">Lembrete é um aviso rápido que <b>não vira tarefa</b> (ex.: "pagar o aluguel da sala", "renovar o certificado digital"). ' +
@@ -3363,8 +3359,9 @@ function seloPrazo(t) {
 }
 function seloFatal(t) {
   if (!t.prazo_fatal) return '';
-  const d = diasAte(t.prazo_fatal);
-  return ' <span class="pill ' + (tarefaFechada(t) ? 'neutro' : d <= 2 ? 'vencido' : 'cobranca') + '" title="Prazo fatal">⚑ ' + dataBR(t.prazo_fatal) + '</span>';
+  const d = diasAte(t.prazo_fatal), u = tarefaFechada(t) ? null : uteisAte(t.prazo_fatal, E._feriados || new Set());
+  const falta = u == null ? '' : u < 0 ? ' · vencido' : u === 0 ? ' · hoje!' : ' · faltam ' + u + ' dia(s) útil(eis)';
+  return ' <span class="pill ' + (tarefaFechada(t) ? 'neutro' : d <= 2 ? 'vencido' : 'cobranca') + '" title="Prazo fatal (contagem em dias úteis, com os feriados cadastrados)">⚑ ' + dataBR(t.prazo_fatal) + falta + '</span>';
 }
 function nomeCliente(id) { const c = E.clientes.find((x) => x.id === id); return c ? c.nome : ''; }
 
@@ -3378,10 +3375,12 @@ TELAS.tarefas = async function () {
     '<div class="titulo-pag"><div><h1>Tarefas</h1><p>Prazos, fluxos e acompanhamento do escritório</p></div>' +
     '<div class="acoes"><button class="btn btn-o" id="tf-regras">⚡ Automações</button><button class="btn btn-o" id="tf-modelos">Modelos de fluxo</button><button class="btn btn-o" id="tf-feriados">Feriados</button><button class="btn btn-o" id="tf-agenda" title="Prazos fatais e audiências no seu Google Agenda">📅 Google Agenda</button>' +
     '<button class="btn btn-o" id="tf-fluxo">+ Novo fluxo</button><button class="btn btn-p" id="tf-nova">+ Nova tarefa</button></div></div>' +
+    '<div class="tf-rapida"><input id="tf-rapida" autocomplete="off" placeholder="⚡ Criação rápida: “Protocolar defesa amanhã @Emanuelle !alta” e Enter" aria-label="Criação rápida de tarefa">' +
+      '<div id="tf-rapida-prev" class="tf-rapida-prev"></div></div>' +
     '<div class="abas" id="tf-abas">' + [['abertas', 'Em aberto'], ['concluidas', '✓ Concluídas'], ['excluidas', '🗑 Excluídas']]
       .map(([v, r]) => '<button data-aba="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<div class="filtros">' +
-    '<div class="segmento" id="tf-vista">' + [['lista', 'Lista'], ['kanban', 'Quadro'], ['calendario', 'Calendário'], ['fluxos', 'Fluxos'], ['relatorio', 'Relatório']]
+    '<div class="segmento" id="tf-vista">' + [['lista', 'Lista'], ['semana', 'Minha semana'], ['kanban', 'Quadro'], ['calendario', 'Calendário'], ['fluxos', 'Fluxos'], ['relatorio', 'Relatório']]
       .map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<div class="segmento" id="tf-atalho">' + [['', 'Todas'], ['minhas', 'Minhas'], ['hoje', 'Hoje'], ['atrasadas', 'Atrasadas'], ['7', '7 dias']]
       .map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
@@ -3390,6 +3389,7 @@ TELAS.tarefas = async function () {
     '<input class="busca" id="tf-busca" placeholder="Buscar tarefa, cliente, processo ou etiqueta" autocomplete="off">' +
     '</div><div id="tf-corpo"><div class="carregando">Carregando…</div></div>';
   $('tf-nova').onclick = () => formTarefa({}, () => TELAS.tarefas());
+  ligarCriacaoRapida();
   $('tf-fluxo').onclick = () => formNovoFluxo(() => TELAS.tarefas());
   $('tf-modelos').onclick = () => janelaModelos();
   $('tf-regras').onclick = () => irParaTela('automacoes');
@@ -3414,7 +3414,7 @@ function filtrarTarefas() {
   const F = E.tf, h = hojeISO(), b = normalizar(F.busca);
   return (E._tarefas || []).filter((t) => {
     if (F.aba === 'concluidas') { if (t.status !== 'concluida') return false; }
-    else if (F.aba === 'excluidas') { if (t.status !== 'cancelada') return false; }
+    else if (F.aba === 'excluidas') { if (t.status !== 'cancelada' || String(t.atualizado_em || '') < somarDias(hojeISO(), -90)) return false; }   // mais de 90 dias: só no histórico
     else if (tarefaFechada(t)) return false;
     const a = F.aba === 'abertas' ? F.atalho : '';
     if (a === 'minhas' && (tarefaFechada(t) || !ehMinha(t))) return false;
@@ -3443,7 +3443,7 @@ function pintarTarefas() {
     kpi('Atrasadas', String(atrasadas), atrasadas ? 'vermelho' : 'verde', 'todas as pessoas') +
     kpi('Prazos fatais em 7 dias', String(fatais), fatais ? 'ambar' : '', 'tarefas com prazo fatal marcado') +
     kpi('Concluídas no mês', String(todas.filter((t) => t.status === 'concluida' && String(t.concluida_em || '').slice(0, 7) === h.slice(0, 7)).length), 'verde', '') + '</div>';
-  const V = { lista: vistaLista, kanban: vistaKanban, calendario: vistaCalendario, fluxos: vistaFluxos, relatorio: vistaRelatorio };
+  const V = { lista: vistaLista, semana: vistaSemana, kanban: vistaKanban, calendario: vistaCalendario, fluxos: vistaFluxos, relatorio: vistaRelatorio };
   $('tf-corpo').innerHTML = kpis + '<div id="tf-vista-corpo"></div>';
   V[F.vista]($('tf-vista-corpo'));
 }
@@ -3592,7 +3592,7 @@ function diasEntre(a, b) { return Math.round((new Date(b + 'T12:00:00') - new Da
 
 // ── Relatório: por pessoa, prazos fatais, exportação ──
 function vistaRelatorio(alvo) {
-  const ts = E._tarefas || [], h = hojeISO(), mes = h.slice(0, 7);
+  const ts = E._tarefas || [], h = hojeISO(), mes = E.tf.mesRel || h.slice(0, 7);
   const pessoas = [...new Set(Object.keys(PESSOA).concat(ts.map((t) => t.responsavel).filter(Boolean)))];
   const linhas = pessoas.map((p) => {
     const d = ts.filter((t) => t.responsavel === p), ab = d.filter((t) => !tarefaFechada(t));
@@ -3605,13 +3605,35 @@ function vistaRelatorio(alvo) {
   const medio = concl.length ? soma(concl, (t) => (new Date(t.concluida_em) - new Date(t.criado_em)) / 86400000) / concl.length : null;
   const fatConcl = concl.filter((t) => t.prazo_fatal), fatOk = fatConcl.filter((t) => String(t.concluida_em).slice(0, 10) <= t.prazo_fatal).length;
   const fatais = ts.filter((t) => !tarefaFechada(t) && t.prazo_fatal && t.prazo_fatal <= somarDias(h, 30)).sort((a, b) => a.prazo_fatal.localeCompare(b.prazo_fatal));
-  alvo.innerHTML = '<div class="kpis">' + kpi('Tempo médio de conclusão', medio == null ? '—' : String(Math.round(medio * 10) / 10).replace('.', ',') + ' dia(s)', '', concl.length + ' concluída(s)') +
+  // por cliente no mês: concluídas no prazo × com atraso; e as abertas atrasadas
+  const porCli = {};
+  ts.forEach((t) => { const k = nomeCliente(t.cliente_id) || nomeGrupo(t.grupo_id); if (!k) return; const c = porCli[k] = porCli[k] || { concl: 0, noPrazo: 0, atrasoConcl: 0, abertasAtr: 0 };
+    if (t.status === 'concluida' && String(t.concluida_em || '').slice(0, 7) === mes) { c.concl++; if (!t.prazo || String(t.concluida_em).slice(0, 10) <= t.prazo) c.noPrazo++; else c.atrasoConcl++; }
+    if (!tarefaFechada(t) && t.prazo && t.prazo < h) c.abertasAtr++; });
+  const cliLinhas = Object.entries(porCli).filter(([, c]) => c.concl || c.abertasAtr).sort((a, b) => b[1].abertasAtr - a[1].abertasAtr || b[1].concl - a[1].concl);
+  // carga da semana: horas estimadas (abertas com prazo até sexta) × horas disponíveis de cada pessoa
+  const sexta = somarDias(h, (5 - new Date(h + 'T12:00:00').getDay() + 7) % 7), cap = E._cargaHoras || {};
+  const carga = pessoasEscritorio().map((p) => { const d = ts.filter((t) => !tarefaFechada(t) && primeiroNome(t.responsavel) === primeiroNome(p) && t.prazo && t.prazo <= sexta);
+    return { p, n: d.length, horas: soma(d, (t) => t.estimativa_horas), cap: Number(cap[primeiroNome(p)] || 40) }; }).filter((c) => c.n);
+  const meses = [...Array(12)].map((_, i) => { const d = new Date(h + 'T12:00:00'); d.setDate(1); d.setMonth(d.getMonth() - i); return iso(d).slice(0, 7); });
+  alvo.innerHTML = '<div class="filtros" style="margin-bottom:10px"><label class="sub">Mês do relatório <select class="busca sel" id="tf-mes-rel">' + meses.map((m) => '<option value="' + m + '"' + (m === mes ? ' selected' : '') + '>' + nomeMes(new Date(m + '-01T12:00:00')) + '</option>').join('') + '</select></label></div>' +
+    '<div class="kpis">' + kpi('Tempo médio de conclusão', medio == null ? '—' : String(Math.round(medio * 10) / 10).replace('.', ',') + ' dia(s)', '', concl.length + ' concluída(s)') +
     kpi('Prazos fatais cumpridos', fatConcl.length ? Math.round(fatOk / fatConcl.length * 100) + '%' : '—', fatConcl.length && fatOk < fatConcl.length ? 'vermelho' : 'verde', fatOk + ' de ' + fatConcl.length + ' · meta 100%') + '</div>' +
     '<div class="card"><div class="card-hd">Por pessoa <button class="btn btn-o btn-mini" id="tf-csv">Baixar planilha (CSV)</button></div>' +
     '<div class="tabela-wrap"><table class="ordenavel"><thead><tr><th>Pessoa</th><th data-tipo="num">Abertas</th><th data-tipo="num">Atrasadas</th><th data-tipo="num">Concluídas no mês</th><th data-tipo="num">% no prazo</th><th data-tipo="num">Horas estimadas (abertas)</th><th data-tipo="num">Horas gastas no mês</th></tr></thead><tbody>' +
     (linhas.map((l) => '<tr><td>' + pillPessoa(l.p) + '</td><td class="mono">' + l.abertas + '</td><td class="mono">' + (l.atrasadas ? '<b style="color:var(--red)">' + l.atrasadas + '</b>' : '0') + '</td>' +
       '<td class="mono">' + l.concl + '</td><td class="mono">' + (l.noPrazo == null ? '—' : l.noPrazo + '%') + '</td><td class="mono">' + (l.horas ? String(l.horas).replace('.', ',') : '—') + '</td><td class="mono" data-gasto="' + esc(l.p) + '">—</td></tr>').join('') ||
       '<tr><td colspan="7" class="sub">Nenhuma tarefa.</td></tr>') + '</tbody></table></div></div>' +
+    '<div class="card"><div class="card-hd">Por cliente — ' + esc(nomeMes(new Date(mes + '-01T12:00:00'))) + '</div>' + (cliLinhas.length ? '<div class="tabela-wrap"><table class="ordenavel"><thead><tr><th>Cliente / grupo</th>' +
+      '<th data-tipo="num">Concluídas</th><th data-tipo="num">No prazo</th><th data-tipo="num">Com atraso</th><th data-tipo="num">Abertas atrasadas hoje</th></tr></thead><tbody>' +
+      cliLinhas.map(([k, c]) => '<tr><td><b>' + esc(k) + '</b></td><td class="mono">' + c.concl + '</td><td class="mono">' + c.noPrazo + '</td><td class="mono">' + (c.atrasoConcl ? '<b style="color:var(--red)">' + c.atrasoConcl + '</b>' : '0') + '</td>' +
+        '<td class="mono">' + (c.abertasAtr ? '<b style="color:var(--red)">' + c.abertasAtr + '</b>' : '0') + '</td></tr>').join('') + '</tbody></table></div>' : '<div class="vazio">Nada no mês.</div>') + '</div>' +
+    '<div class="card"><div class="card-hd">⚖ Carga da semana (até ' + dataBR(sexta).slice(0, 5) + ')' + ((E.perfil || {}).papel === 'admin' ? ' <button class="btn btn-o btn-mini" id="tf-cap">Horas disponíveis</button>' : '') + '</div>' +
+      (carga.length ? '<div class="card-bd">' + carga.map((c) => { const pc = c.cap ? Math.min(100, Math.round(c.horas / c.cap * 100)) : 0;
+        return '<div class="carga-lin"><div class="carga-nome">' + pillPessoa(c.p) + '</div><div class="carga-bar"><div class="carga-in' + (c.horas > c.cap ? ' acima' : pc > 80 ? ' alta' : '') + '" style="width:' + pc + '%"></div></div>' +
+          '<div class="carga-num mono">' + String(c.horas).replace('.', ',') + ' / ' + c.cap + ' h · ' + c.n + ' tarefa(s)</div></div>'; }).join('') +
+        '<p class="sub">Horas estimadas das tarefas abertas com prazo até sexta × horas disponíveis na semana. Tarefa sem estimativa conta 0 h — preencha "Estimativa (h)" para a carga ficar fiel.</p></div>'
+        : '<div class="vazio">Ninguém com tarefa para esta semana.</div>') + '</div>' +
     '<div class="card"><div class="card-hd">Prazos fatais nos próximos 30 dias (e vencidos)</div>' +
     (fatais.length ? '<div class="tabela-wrap"><table><thead><tr><th>Prazo fatal</th><th>Tarefa</th><th>Cliente / grupo</th><th>Pessoa</th><th>Status</th></tr></thead><tbody>' +
       fatais.map((t) => '<tr class="clicavel" data-editar-t="' + t.id + '"><td class="mono">' + dataBR(t.prazo_fatal) + (t.prazo_fatal < h ? ' <span class="pill vencido">vencido</span>' : '') + '</td><td><b>' + esc(t.titulo) + '</b></td>' +
@@ -3619,6 +3641,18 @@ function vistaRelatorio(alvo) {
       '</tbody></table></div>' : '<div class="vazio">Nenhum prazo fatal nos próximos 30 dias.</div>') + '</div>';
   ligarLinhasTarefa(alvo);
   horasGastasPorPessoa(alvo).catch(() => {});
+  $('tf-mes-rel').onchange = (ev) => { E.tf.mesRel = ev.target.value; vistaRelatorio(alvo); };
+  if (!E._cargaHoras) q(sb.from('configuracoes').select('valor').eq('chave', 'carga_horas').maybeSingle()).then((r) => { E._cargaHoras = (r && r.valor) || {}; if (carga.length) vistaRelatorio(alvo); }).catch(() => { E._cargaHoras = {}; });
+  const bc = $('tf-cap'); if (bc) bc.onclick = () => {
+    const k = abrirJanela({ titulo: 'Horas disponíveis por semana',
+      corpo: '<div class="grade">' + pessoasEscritorio().map((p) => campo(esc(p), '<input type="number" min="0" max="80" data-cap="' + esc(primeiroNome(p)) + '" value="' + (cap[primeiroNome(p)] || 40) + '">')).join('') + '</div>' +
+        '<p class="sub">Ex.: estagiário de meio período = 20.</p>', rodape: '<span></span><button class="btn btn-p" type="button" id="cap-ok">Salvar</button>' });
+    k.querySelector('#cap-ok').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+      const v = {}; k.querySelectorAll('[data-cap]').forEach((i) => { v[i.dataset.cap] = Math.max(0, parseInt(i.value, 10) || 0); });
+      await q(sb.from('configuracoes').upsert({ chave: 'carga_horas', valor: v }, { onConflict: 'chave' })); E._cargaHoras = v;
+      aviso('✓ Horas salvas.'); fecharJanela(k); vistaRelatorio(alvo);
+    });
+  };
   $('tf-csv').onclick = () => {
     const cab = ['Tarefa', 'Status', 'Pessoa', 'Prazo', 'Prazo fatal', 'Cliente', 'Grupo', 'Prioridade', 'Etiquetas', 'Concluída em'];
     const lin = filtrarTarefas().map((t) => [t.titulo, STATUS_TAREFA[t.status] || t.status, t.responsavel, dataBR(t.prazo), t.prazo_fatal ? dataBR(t.prazo_fatal) : '',
@@ -3676,11 +3710,21 @@ async function abrirTarefa(t, depois) {
         '<div class="sub">' + (x.prazo ? 'até ' + dataBR(x.prazo) : 'sem prazo') + ' · ' + esc(x.responsavel || '—') + ' · ' + esc(STATUS_TAREFA[x.status]) + '</div></div></div>').join('') + '</div></div>' : '') +
       '</div>',
     rodape: '<button class="btn btn-o" type="button" id="tf-f-editar">✎ Editar</button><div class="acoes">' +
-      (fechada ? '' : '<button class="btn btn-o" type="button" id="tf-f-sub">+ Subtarefa</button><button class="btn btn-o" type="button" id="tf-f-enc">↪ Encaminhar</button>' +
+      (fechada ? '' : (t.recorrencia && t.prazo ? '<button class="btn btn-o" type="button" id="tf-f-pular" title="Esta vez não precisa: a tarefa passa para a próxima data">⏭ Pular esta vez</button>' : '') +
+        '<button class="btn btn-o" type="button" id="tf-f-sub">+ Subtarefa</button><button class="btn btn-o" type="button" id="tf-f-enc">↪ Encaminhar</button>' +
         '<button class="btn btn-v" type="button" id="tf-f-ok">✓ Concluir</button>') + '</div>' });
   const depois2 = async () => { await (depois || recarregar)(); };
   j.querySelector('#tf-f-editar').onclick = () => { fecharJanela(j); formTarefa(t, depois); };
   j.querySelectorAll('[data-ficha-sub]').forEach((d) => d.onclick = () => { fecharJanela(j); abrirTarefa(subs.find((x) => x.id === d.dataset.fichaSub), depois); });
+  const bp = j.querySelector('#tf-f-pular');
+  if (bp) bp.onclick = () => comBotao(bp, async () => {
+    const mais = (d) => { if (!d) return null; const x = new Date(d + 'T12:00:00');
+      if (t.recorrencia === 'semanal') x.setDate(x.getDate() + 7); else if (t.recorrencia === 'mensal') x.setMonth(x.getMonth() + 1); else x.setFullYear(x.getFullYear() + 1); return iso(x); };
+    const d = { prazo: mais(t.prazo), prazo_fatal: mais(t.prazo_fatal), checklist: (Array.isArray(t.checklist) ? t.checklist : []).map((c) => ({ texto: c.texto, feito: false })) };
+    await q(sb.from('tarefas').update(d).eq('id', t.id));
+    await sb.from('comentarios').insert({ tarefa_id: t.id, texto: '⏭ Pulada a ocorrência de ' + dataBR(t.prazo) }).then(() => {}, () => {});
+    aviso('⏭ Pulada. Próxima em ' + dataBR(d.prazo) + '.'); fecharJanela(j); await depois2();
+  });
   const bs = j.querySelector('#tf-f-sub');
   if (bs) bs.onclick = () => { fecharJanela(j); formTarefa({ tarefa_pai_id: t.id, fluxo_id: t.fluxo_id, cliente_id: t.cliente_id, grupo_id: t.grupo_id, responsavel: t.responsavel, prazo: t.prazo }, depois); };
   const bo = j.querySelector('#tf-f-ok');
@@ -4105,6 +4149,88 @@ async function janelaAgenda(novo) {
     rodape: '<button class="btn btn-o" type="button" id="ag-trocar">Trocar link</button><div class="acoes"><button class="btn btn-p" type="button" id="ag-copiar">Copiar link</button></div>' });
   j.querySelector('#ag-copiar').onclick = async () => { try { await navigator.clipboard.writeText(link); aviso('Link copiado. Agora cole no Google Agenda → Do URL.'); } catch (e) { j.querySelector('#ag-link').select(); aviso('Selecionei o link: aperte Ctrl+C para copiar.'); } };
   j.querySelector('#ag-trocar').onclick = () => { if (confirm('Trocar o link? O link antigo para de funcionar e você precisará adicionar o novo no Google Agenda.')) { fecharJanela(j); janelaAgenda(true); } };
+}
+
+// ─────────── Criação rápida (Backup 16): "Protocolar defesa amanhã @Emanuelle !alta #tributário" ───────────
+const DIAS_SEMANA_TF = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];
+function interpretarRapida(texto) {
+  let t = ' ' + String(texto || '') + ' ', prazo = null, resp = '', pri = 'media';
+  const h = hojeISO(), tira = (re) => { t = t.replace(re, ' '); };
+  const m1 = /\s@([\wÀ-ÿ]+(?:\s[A-ZÀ-Ý][\wÀ-ÿ]+)?)/.exec(t);
+  if (m1) { const alvo = primeiroNome(m1[1]), p = pessoasEscritorio().find((x) => primeiroNome(x) === alvo || normalizar(x) === normalizar(m1[1])); if (p) { resp = p; tira(m1[0]); } }
+  const m2 = /\s!(alta|media|média|baixa|urgente)\b/i.exec(t);
+  if (m2) { pri = /baixa/i.test(m2[1]) ? 'baixa' : /alta|urgente/i.test(m2[1]) ? 'alta' : 'media'; tira(m2[0]); }
+  const etq = []; t = t.replace(/\s#([\wÀ-ÿ-]+)/g, (_, e) => { etq.push(e); return ' '; });
+  const n = normalizar(t);
+  let m;
+  if ((m = /\s(depois de amanha)\s/.exec(n))) { prazo = somarDias(h, 2); t = t.slice(0, m.index) + ' ' + t.slice(m.index + m[0].length - 1); }
+  else if ((m = /\s(amanha)\s/.exec(n))) { prazo = somarDias(h, 1); t = t.slice(0, m.index) + ' ' + t.slice(m.index + m[0].length - 1); }
+  else if ((m = /\s(hoje)\s/.exec(n))) { prazo = h; t = t.slice(0, m.index) + ' ' + t.slice(m.index + m[0].length - 1); }
+  else if ((m = /\s(?:em|daqui a)\s(\d{1,3})\sdias?\s/.exec(n))) { prazo = somarDias(h, +m[1]); t = t.slice(0, m.index) + ' ' + t.slice(m.index + m[0].length - 1); }
+  else if ((m = /\s(?:ate |na |no )?(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\s/.exec(n))) {
+    const ano = m[3] ? (m[3].length === 2 ? '20' + m[3] : m[3]) : h.slice(0, 4);
+    let d = ano + '-' + m[2].padStart(2, '0') + '-' + m[1].padStart(2, '0'); if (!m[3] && d < h) d = (+ano + 1) + d.slice(4);
+    prazo = d; t = t.slice(0, m.index) + ' ' + t.slice(m.index + m[0].length - 1);
+  } else if ((m = /\s(?:na |no |ate |proxima |proximo )?(domingo|segunda|terca|quarta|quinta|sexta|sabado)(?:-feira)?\s/.exec(n))) {
+    const alvo = DIAS_SEMANA_TF.indexOf(m[1]), hoje = new Date(h + 'T12:00:00').getDay();
+    prazo = somarDias(h, ((alvo - hoje + 7) % 7) || 7); t = t.slice(0, m.index) + ' ' + t.slice(m.index + m[0].length - 1);
+  }
+  return { titulo: t.replace(/\s+/g, ' ').trim(), prazo, responsavel: resp, prioridade: pri, etiquetas: etq.join(', ') };
+}
+function ligarCriacaoRapida() {
+  const inp = $('tf-rapida'), prev = $('tf-rapida-prev'); if (!inp) return;
+  const mostra = () => { const r = interpretarRapida(inp.value);
+    prev.innerHTML = inp.value.trim() ? '<b>' + esc(r.titulo || '—') + '</b> · ' + (r.prazo ? 'prazo ' + dataBR(r.prazo) : 'sem prazo') + ' · ' + (r.responsavel ? pillPessoa(r.responsavel) : 'você') +
+      ' · <span class="pill ' + PRIORIDADE[r.prioridade][1] + '">' + PRIORIDADE[r.prioridade][0] + '</span>' + (r.etiquetas ? ' · #' + esc(r.etiquetas) : '') + ' <span class="sub">— Enter cria</span>' : ''; };
+  inp.oninput = mostra;
+  inp.onkeydown = (ev) => { if (ev.key !== 'Enter') return; ev.preventDefault();
+    const r = interpretarRapida(inp.value); if (!r.titulo) return aviso('Escreva o que precisa ser feito.', true);
+    comBotao(null, async () => {
+      const resp = r.responsavel || (E.perfil && (E.perfil.nome || '').split(' ')[0]) || '';
+      await q(sb.from('tarefas').insert({ titulo: r.titulo, prazo: r.prazo, responsavel: resp, prioridade: r.prioridade, etiquetas: r.etiquetas, status: 'pendente', inicio: hojeISO() }));
+      if (r.responsavel && primeiroNome(r.responsavel) !== primeiroNome(meuNome())) await notificar(r.responsavel, 'Nova tarefa para você: ' + r.titulo, r.prazo ? 'Prazo ' + dataBR(r.prazo) : '', 'tarefas').catch(() => {});
+      aviso('✓ Tarefa criada: ' + r.titulo + (r.prazo ? ' (prazo ' + dataBR(r.prazo) + ')' : '') + '.'); inp.value = ''; prev.innerHTML = ''; await recarregarTarefas();
+    });
+  };
+}
+
+// ─────────── Minha semana: segunda a sexta, arrastar para remarcar ───────────
+function vistaSemana(alvo) {
+  const F = E.tf, h = hojeISO();
+  const base = new Date((F.semana || h) + 'T12:00:00'); base.setDate(base.getDate() - ((base.getDay() + 6) % 7));
+  const seg = iso(base), dias = [0, 1, 2, 3, 4].map((i) => somarDias(seg, i)), sex = dias[4];
+  const quem = F.resp || '';
+  const doDono = (t) => !tarefaFechada(t) && (quem ? primeiroNome(t.responsavel) === primeiroNome(quem) : ehMinha(t));
+  const ts = (E._tarefas || []).filter(doDono);
+  const atrasadas = ts.filter((t) => t.prazo && t.prazo < seg && seg <= h), semData = ts.filter((t) => !t.prazo);
+  const cartao = (t) => '<div class="sm-card" draggable="true" data-sm="' + t.id + '"><b>' + esc(t.titulo) + '</b>' + seloFatal(t) +
+    '<div class="sub">' + esc(nomeCliente(t.cliente_id) || nomeGrupo(t.grupo_id) || '') + (t.estimativa_horas ? ' · ' + String(t.estimativa_horas).replace('.', ',') + ' h' : '') + '</div></div>';
+  const col = (rot, data, lista, cls) => '<div class="sm-col' + (cls ? ' ' + cls : '') + '" data-dia="' + (data || '') + '"><div class="sm-tit">' + rot + ' <span class="sub">' + lista.length + '</span></div>' + lista.map(cartao).join('') + '</div>';
+  alvo.innerHTML = '<div class="fila-cal-nav"><button type="button" class="btn btn-o btn-mini" data-sm-nav="-7">‹</button><b>Semana de ' + dataBR(seg).slice(0, 5) + ' a ' + dataBR(sex).slice(0, 5) +
+      (quem ? ' — ' + esc(quem) : ' — minhas tarefas') + '</b><button type="button" class="btn btn-o btn-mini" data-sm-nav="7">›</button><button type="button" class="btn btn-o btn-mini" data-sm-nav="0">Esta semana</button></div>' +
+    '<div class="sm-grade">' + (atrasadas.length ? col('⚠ Atrasadas', '', atrasadas, 'sm-atr') : '') +
+    dias.map((d, i) => col(['Seg', 'Ter', 'Qua', 'Qui', 'Sex'][i] + ' ' + dataBR(d).slice(0, 5), d, ts.filter((t) => t.prazo === d), d === h ? 'sm-hoje' : '')).join('') +
+    (semData.length ? col('Sem data', 'sem', semData, 'sm-sem') : '') + '</div>' +
+    '<p class="sub" style="margin-top:8px">Arraste a tarefa para outro dia para remarcar o prazo. Para ver a semana de outra pessoa, escolha a pessoa no filtro acima.</p>';
+  alvo.querySelectorAll('[data-sm-nav]').forEach((b) => b.onclick = () => { F.semana = +b.dataset.smNav ? somarDias(seg, +b.dataset.smNav) : null; vistaSemana(alvo); });
+  let arr = null;
+  alvo.querySelectorAll('.sm-card').forEach((c) => {
+    c.addEventListener('dragstart', (ev) => { arr = c.dataset.sm; ev.dataTransfer.setData('text/plain', arr); c.classList.add('arrastando'); });
+    c.addEventListener('dragend', () => c.classList.remove('arrastando'));
+    c.onclick = () => abrirTarefa(E._tarefas.find((t) => t.id === c.dataset.sm), recarregarTarefas);
+  });
+  alvo.querySelectorAll('.sm-col[data-dia]').forEach((cl) => {
+    if (!cl.dataset.dia || cl.dataset.dia === 'sem') return;
+    cl.addEventListener('dragover', (ev) => { ev.preventDefault(); cl.classList.add('sobre'); });
+    cl.addEventListener('dragleave', () => cl.classList.remove('sobre'));
+    cl.addEventListener('drop', (ev) => { ev.preventDefault(); cl.classList.remove('sobre');
+      const id = ev.dataTransfer.getData('text/plain') || arr, t = E._tarefas.find((x) => x.id === id); if (!t || t.prazo === cl.dataset.dia) return;
+      comBotao(null, async () => {
+        if (t.prazo_fatal && cl.dataset.dia > t.prazo_fatal && !confirm('A nova data passa do PRAZO FATAL (' + dataBR(t.prazo_fatal) + '). Remarcar mesmo assim?')) return;
+        await q(sb.from('tarefas').update({ prazo: cl.dataset.dia }).eq('id', id)); t.prazo = cl.dataset.dia;
+        aviso('✓ "' + t.titulo + '" remarcada para ' + dataBR(cl.dataset.dia) + '.'); vistaSemana(alvo);
+      }); });
+  });
 }
 
 'use strict';
@@ -6256,7 +6382,7 @@ async function conciliarOfx(empresa) {
 // vai mandar (com prévia); dá para enviar agora, pular ou enviar vários.
 // Modelos editáveis (Administração → E-mails) e o automático por tipo.
 // ═══════════════════════════════════════════════════════════════════
-const TIPOS_EMAIL = [['', 'Todos'], ['honorarios', 'Honorários'], ['parcelamentos', 'Parcelamentos'], ['acordos', 'Acordos'], ['recibos', 'Recibos']];
+const TIPOS_CENTRAL_EM = [['', 'Todos'], ['honorarios', 'Honorários'], ['parcelamentos', 'Parcelamentos'], ['acordos', 'Acordos'], ['recibos', 'Recibos']];
 const ROT_TIPO_EMAIL = { honorarios: 'Honorários', parcelamentos: 'Parcelamento', acordos: 'Acordo', recibos: 'Recibo', propostas: 'Proposta' };
 const SIT_EMAIL = [['hoje', 'A enviar hoje'], ['enviados', 'Enviados'], ['erro', 'Com erro']];
 
@@ -6268,7 +6394,7 @@ TELAS.emails = async function () {
     '<div class="titulo-pag"><div><h1>Central de e-mails ao cliente</h1><p>Honorários, parcelamentos, acordos e recibos — o que sai hoje, o que já foi e o que deu erro</p></div>' +
     '<div class="acoes">' + (admin ? '<button class="btn btn-o" id="em-auto">⚙ Automático e horário</button><button class="btn btn-o" id="em-modelos">✎ Modelos</button>' : '') + '</div></div>' +
     '<div class="abas" id="em-sit">' + SIT_EMAIL.map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
-    '<div class="filtros"><div class="segmento" id="em-tipo">' + TIPOS_EMAIL.map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
+    '<div class="filtros"><div class="segmento" id="em-tipo">' + TIPOS_CENTRAL_EM.map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<input class="busca" id="em-busca" placeholder="Buscar cliente, grupo ou assunto" autocomplete="off"></div>' +
     '<div id="em-corpo"><div class="carregando">Carregando…</div></div>';
   $('em-sit').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.sit = b.dataset.v; carregarEmails(); } };

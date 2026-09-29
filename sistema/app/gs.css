@@ -589,6 +589,26 @@
 .gs .mural-dest.ambar{background:#FFF7E6;border-color:rgba(180,83,9,.25);color:#92400E}
 .gs .em-previa{width:100%;height:62vh;border:1px solid var(--border);border-radius:10px;background:#fff}
 .gs .em-lig{display:block;margin:4px 0 8px}
+.gs .tf-rapida{margin:0 0 12px}
+.gs .tf-rapida input{width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:12px;font:inherit;font-size:14px;background:#fff}
+.gs .tf-rapida input:focus{border-color:var(--navy);outline:none}
+.gs .tf-rapida-prev{min-height:18px;margin-top:5px;font-size:12.5px;color:var(--text2)}
+.gs .sm-grade{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.gs .sm-col{background:#eef1f7;border-radius:12px;padding:8px;min-height:160px;display:flex;flex-direction:column;gap:6px}
+.gs .sm-col.sobre{outline:2px dashed var(--navy);background:#dfe7f5}
+.gs .sm-col.sm-hoje{background:#e6eefc}
+.gs .sm-col.sm-atr{background:#fdeaea}
+.gs .sm-col.sm-sem{background:#f3f4f6}
+.gs .sm-tit{font-weight:700;font-size:12.5px;color:var(--navy);padding:2px 4px}
+.gs .sm-card{background:#fff;border-radius:10px;padding:8px 10px;box-shadow:var(--shadow-sm);cursor:grab;font-size:12.5px}
+.gs .carga-lin{display:grid;grid-template-columns:150px 1fr 190px;gap:10px;align-items:center;margin-bottom:8px}
+.gs .carga-bar{height:10px;background:#eef1f7;border-radius:99px;overflow:hidden}
+.gs .carga-in{height:100%;background:var(--navy);border-radius:99px}
+.gs .carga-in.alta{background:var(--amber)}
+.gs .carga-in.acima{background:var(--red)}
+.gs .carga-num{font-size:12.5px;color:var(--text2)}
+@media (max-width:700px){.gs .carga-lin{grid-template-columns:1fr}
+}
 /* cores do ERP, tamanhos do Gestão */
 .gs{background:none!important;min-height:0!important}
 .gs .duas-col>*,.gs .card{min-width:0}
