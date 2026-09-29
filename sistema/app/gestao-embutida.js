@@ -42,20 +42,6 @@ function iso(d) {
 function hojeISO() { return iso(new Date()); }
 function primeiroDiaDoMes(d) { return new Date(d.getFullYear(), d.getMonth(), 1); }
 function fimDoMes(d) { return new Date(d.getFullYear(), d.getMonth() + 1, 0); }
-// PIX copia e cola (BR Code estático do Banco Central, com valor): chave, nome (até 25), cidade (até 15), valor, txid
-function pixCopiaECola({ chave, nome, cidade, valor, txid }) {
-  const semAcento = (t, n) => String(t || '').replace(/&/g, 'e').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9 .\-]/g, '').slice(0, n).trim();
-  let k = String(chave || '').trim();
-  if (!/@/.test(k)) { const dig = k.replace(/\D/g, ''); if (/^\+/.test(k)) k = '+' + dig; else if (dig.length === 11 || dig.length === 14) k = dig; }
-  const f = (id, v) => id + String(v.length).padStart(2, '0') + v;
-  const v = Number(valor) > 0 ? f('54', Number(valor).toFixed(2)) : '';
-  const t = String(txid || '***').replace(/[^A-Za-z0-9]/g, '').slice(0, 25) || '***';
-  const base = f('00', '01') + f('26', f('00', 'br.gov.bcb.pix') + f('01', k)) + f('52', '0000') + f('53', '986') + v + f('58', 'BR') +
-    f('59', semAcento(nome, 25) || 'RECEBEDOR') + f('60', semAcento(cidade, 15) || 'BRASIL') + f('62', f('05', t)) + '6304';
-  let crc = 0xFFFF;
-  for (const b of new TextEncoder().encode(base)) { crc ^= b << 8; for (let i = 0; i < 8; i++) crc = crc & 0x8000 ? ((crc << 1) ^ 0x1021) & 0xFFFF : (crc << 1) & 0xFFFF; }
-  return base + crc.toString(16).toUpperCase().padStart(4, '0');
-}
 // plural certo, sem "(s)": plural(1, 'aviso não lido', 'avisos não lidos') → "1 aviso não lido"
 function plural(n, um, varios) { return n + ' ' + (Number(n) === 1 ? um : varios); }
 function somarDias(isoStr, n) { const d = new Date(isoStr + 'T12:00:00'); d.setDate(d.getDate() + n); return iso(d); }
@@ -882,8 +868,8 @@ TELAS.inicio = async function () {
     '<p>Resumo de ' + esc(mes) + ' · para lançar receita, despesa ou contrato use <b>+ Lançar</b> na barra de cima</p></div></div>' +
     '<div id="ini-mural"></div><div id="ini-resumo"></div><div id="ini-aprov"></div><div id="ini-fila"></div>' +
     (verJur ? linha('escritorio', '💼 Honorários Jurídico') : '') + (verCont ? linha('contabilidade', '🧮 Honorários Contabilidade') : '') +
-    // Backup 21: um embaixo do outro, cada tabela com a largura inteira (lado a lado ficavam espremidas)
-    (verJur || verCont ? '<div class="ini-atraso ini-atraso-pilha">' +
+    // Backup 22: Jurídico e Contabilidade lado a lado (a pedido)
+    (verJur || verCont ? '<div class="' + (verJur && verCont ? 'duas-col' : '') + ' ini-atraso">' +
       (verJur ? cardAtraso('Atrasados', 'Jurídico', de('escritorio')) : '') +
       (verCont ? cardAtraso('Atrasados', 'Contabilidade', de('contabilidade')) : '') + '</div>' : '');
   cardMural().catch((e) => console.error(e));
@@ -892,7 +878,7 @@ TELAS.inicio = async function () {
   if (typeof cardAprovacoes === 'function') cardAprovacoes().then((x) => { const el = $('ini-aprov'); if (el) el.innerHTML = x; }).catch((e) => console.error(e));
   if (typeof cardMinhaFila === 'function') cardMinhaFila().then((c) => { const el = $('ini-fila'); if (el) { el.innerHTML = c.html; c.ligar(el); } }).catch((e) => console.error(e));
   ligarAcoesLancamentos($('conteudo'));
-  // Backup 21: clicar na dívida abre o detalhamento; o pagamento é só no botão "✓ Recebido"
+  // Backup 21: clicar na dívida abre o detalhamento; o pagamento é só no botão "✓ Baixa"
   $('conteudo').querySelectorAll('.ini-atraso tr[data-linha-det]').forEach((tr) => {
     tr.onclick = (ev) => { if (ev.target.closest('button,a,input,label,.td-lote')) return; detalheLancamento(tr.dataset.linhaDet); };
     tr.onkeydown = (ev) => { if ((ev.key === 'Enter' || ev.key === ' ') && ev.target === tr) { ev.preventDefault(); detalheLancamento(tr.dataset.linhaDet); } };
@@ -929,12 +915,12 @@ async function relatorioHonorarios(emp, tipo, ini, fim) {
       .map((r) => r.map((v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(';')).join('\r\n'), 'text/csv;charset=utf-8');
 }
 
-// Tabela inteira (sem "ver todos"): clicar na linha abre o detalhamento; "✓ Recebido" registra o pagamento. Selos separados: vencidos (vermelho) e vence hoje (âmbar).
+// Tabela inteira (sem "ver todos"): clicar na linha abre o detalhamento; "✓ Baixa" registra o pagamento. Selos separados: vencidos (vermelho) e vence hoje (âmbar).
 function cardAtraso(titulo, area, lista) {
   const h = hojeISO();
   const quemDe = (l) => (l.grupos && l.grupos.nome) || l.favorecido || (l.clientes && l.clientes.nome) || '';
   const hoje = lista.filter((l) => l.vencimento === h), vencidos = lista.length - hoje.length, total = soma(lista, (l) => l.tipo === 'despesa' ? -l.valor : vl(l));
-  return '<div class="card card-lista ini-atraso-card' + (lista.length ? ' tem-atraso' : '') + '"><div class="card-hd"><span class="ini-atraso-tit">' + (lista.length ? '<span class="ini-alerta" aria-hidden="true">▲</span>' : '') + esc(titulo) +
+  return '<div class="card card-lista ini-atraso-card' + (lista.length ? ' tem-atraso' : '') + '"><div class="card-hd"><span class="ini-atraso-tit">' + (lista.length ? '<span class="alerta-tri" aria-hidden="true"></span>' : '') + esc(titulo) +
       ' <span class="ini-atraso-area area-' + (area === 'Jurídico' ? 'jur' : 'cont') + '">' + esc(area) + '</span></span>' +
       '<span class="ini-atraso-selos">' + (vencidos ? '<span class="pill vencido">' + plural(vencidos, 'vencido', 'vencidos') + '</span>' : '') +
       (hoje.length ? '<span class="pill hoje">' + hoje.length + ' vence' + (hoje.length > 1 ? 'm' : '') + ' hoje</span>' : '') +
@@ -950,7 +936,7 @@ function cardAtraso(titulo, area, lista) {
           (l.tipo === 'despesa' || l.redutor ? '− ' : '') + brl(l.valor) + (l.redutor ? '<div class="sub">redutor</div>' : l.tipo === 'despesa' ? '<div class="sub">a pagar</div>' : '') + '</td>' +
         '<td class="mono' + (l.vencimento <= h ? ' venc-atraso' : '') + '" data-ord="' + l.vencimento + '">' + dataBR(l.vencimento) + '</td>' +
         '<td data-ord="' + diasAte(l.vencimento) + '">' + celulaAtraso(l.vencimento) + '</td>' +
-        '<td class="acoes-l"><button class="btn btn-v btn-mini" data-pagar="' + l.id + '">✓ Recebido</button></td></tr>').join('') +
+        '<td class="acoes-l"><button class="btn btn-v btn-mini" data-pagar="' + l.id + '" title="Dar baixa — recebido (pergunta a data)">✓ Baixa</button></td></tr>').join('') +
       '</tbody><tfoot><tr><td></td><td colspan="2">Total</td><td class="num mono">' + brl(total) + '</td><td colspan="3"></td></tr></tfoot></table></div></div>'
       : vazio('Nada em atraso. 👏')) + '</div>';
 }
@@ -1078,8 +1064,8 @@ const EXPLICA = {
   lembretes: 'Lembretes: recados com ou sem data que NÃO viram tarefa (ex.: pagar o aluguel, reunião sexta). Aparecem até 7 dias antes da data; sem prazo, ficam até você marcar "Feito".'
 };
 const DESTAQUES_LEMB = [['', 'Sem destaque'], ['vermelho', '🔴 Vermelho — urgente'], ['amarelo', '🟡 Amarelo — atenção'], ['verde', '🟢 Verde — tudo certo'], ['azul', '🔵 Azul — informação'], ['roxo', '🟣 Roxo — pessoal']];
-// Backup 21: "?" discreto com balão próprio (o ⓘ com a dica do navegador ficava feio e demorava a aparecer)
-function infoI(chave) { return '<span class="info-i" tabindex="0" role="note" data-dica="' + esc(EXPLICA[chave]) + '" aria-label="' + esc(EXPLICA[chave]) + '">?</span>'; }
+// ⓘ com balão próprio (Backup 22: volta o ⓘ; o balão do Backup 21 fica)
+function infoI(chave) { return '<span class="info-i" tabindex="0" role="note" data-dica="' + esc(EXPLICA[chave]) + '" aria-label="' + esc(EXPLICA[chave]) + '">ⓘ</span>'; }
 async function dadosLembretes() {
   const h = hojeISO(), jur = pode('juridico');
   const rg = await q(sb.from('regras_tarefas').select('ligada, dias').eq('chave', 'parcela_parcelamento').maybeSingle()).catch(() => null);
@@ -1188,17 +1174,14 @@ function htmlGuias(L) {
       '<div class="sub">vence ' + dataBR(g.vencimento) + (g.vencimento < h ? ' <span class="pill vencido">vencida</span>' : '') + '</div></div>' +
       '<button type="button" class="btn btn-v btn-mini" data-guia-ok="' + g.id + '">✓ Guia emitida</button></div>'; }).join('') + '</div>';
 }
-// Backup 21: cada lembrete é uma linha de "a fazer": ○ conclui, o texto em destaque e o prazo ao lado; ✎ 📌 × aparecem ao passar o mouse
+// Backup 22: de volta ao desenho do Backup 20 (fundo pela cor do destaque, "✓ Feito" à vista); clicar no texto edita
 function htmlLembretes(L) {
   const h = hojeISO();
-  const prazo = (l) => !l.dia ? '<span class="lemb-prazo">sem prazo</span>' : l.dia < h ? '<span class="lemb-prazo atrasado">desde ' + dataBR(l.dia) + '</span>'
-    : l.dia === h ? '<span class="lemb-prazo hoje">hoje</span>' : '<span class="lemb-prazo">' + dataBR(l.dia) + '</span>';
-  return L.vis.map((l) => '<div class="lemb-it' + (l.fixo ? ' fixo' : '') + (l.destaque ? ' dest-' + esc(l.destaque) : '') + '">' +
-      '<button type="button" class="lemb-ok" data-lemb-ok="' + l.id + '" title="Concluir (marcar como feito)" aria-label="Concluir: ' + esc(l.texto) + '"></button>' +
-      '<div class="lemb-txt"><span class="lemb-t">' + esc(l.texto) + '</span>' +
-        '<span class="lemb-meta">' + prazo(l) + (l.repete ? '<span>↻ ' + esc(l.repete) + '</span>' : '') + '<span>' + (l.pessoa ? esc(l.pessoa) : 'todos') + '</span>' +
-        (l.fixo ? '<span class="lemb-pino" title="Fixado no topo">📌 fixo</span>' : '') + '</span></div>' +
-    '<div class="lemb-acoes"><button type="button" class="btn-etq" data-lemb-ed="' + l.id + '" title="Editar lembrete" aria-label="Editar lembrete">✎</button>' +
+  return L.vis.map((l) => '<div class="lemb-it' + (l.fixo ? ' fixo' : '') + (l.destaque ? ' dest-' + esc(l.destaque) : '') + '" data-lemb-ed="' + l.id + '" title="Clique para editar">' +
+      '<div class="lemb-txt">' + (l.fixo ? '<span class="lemb-pino" title="Fixado no topo">📌</span> ' : '') + '<span>' + esc(l.texto) + '</span>' +
+      '<div class="sub">' + (!l.dia ? 'sem prazo' : l.dia < h ? '<span class="pill vencido">desde ' + dataBR(l.dia) + '</span>' : l.dia === h ? '<span class="pill hoje">hoje</span>' : dataBR(l.dia)) +
+        (l.repete ? ' · ↻ ' + esc(l.repete) : '') + (l.pessoa ? ' · ' + esc(l.pessoa) : ' · todos') + '</div></div>' +
+    '<div class="acoes-l"><button type="button" class="btn btn-v btn-mini" data-lemb-ok="' + l.id + '" title="Concluir (marcar como feito)">✓ Feito</button>' +
       '<button type="button" class="btn-etq" data-lemb-fixo="' + l.id + '" title="' + (l.fixo ? 'Tirar do topo' : 'Fixar no topo') + '" aria-label="' + (l.fixo ? 'Tirar do topo' : 'Fixar no topo') + '">📌</button>' +
       '<button type="button" class="btn-etq" data-lemb-x="' + l.id + '" title="Apagar lembrete" aria-label="Apagar lembrete">×</button></div></div>').join('');
 }
@@ -1222,7 +1205,7 @@ function ligarLembretes(el, L) {
     if (!confirm('Apagar este lembrete?')) return;
     await q(sb.from('lembretes').delete().eq('id', b.dataset.lembX)); await cardMural();
   }));
-  el.querySelectorAll('[data-lemb-ed]').forEach((b) => b.onclick = () => formLembrete(L.vis.find((x) => x.id === b.dataset.lembEd)));
+  el.querySelectorAll('[data-lemb-ed]').forEach((d) => d.onclick = (ev) => { if (ev.target.closest('button')) return; formLembrete(L.vis.find((x) => x.id === d.dataset.lembEd)); });
 }
 function formLembrete(l) {
   l = l || null;
@@ -1407,7 +1390,7 @@ function legendaLanc(l) {
 }
 // Backup 20 — TABELA PADRÃO de pagamento/recebimento (vale para o sistema todo; modelo: vencidos de Acordos):
 // [lote] · Quem (advogado que recebe/paga) · Grupo / favorecido (legenda: área do serviço — contrato) · Descrição · Valor ·
-// Vencimento (ou "Pago em") · Atraso (dias, vermelho) · ações (✓ Recebido, PIX, Editar). Marcar várias linhas = baixa em lote.
+// Vencimento (ou "Pago em") · Atraso (dias, vermelho) · ações (✓ Baixa, ✎). Marcar várias linhas = baixa em lote.
 function celulaAtraso(venc, l) {
   if (!venc) return '<span class="sub">—</span>';
   const n = diasAte(venc);
@@ -1446,25 +1429,11 @@ function tabelaLancamentos(lista, opc) {
         (comAtraso ? '<td data-ord="' + (l.pago || l.perda || !l.vencimento ? 99999 : diasAte(l.vencimento)) + '">' + (l.pago ? '<span class="pill pago">pago</span>' : l.perda ? pillSit(l) : celulaAtraso(l.vencimento, l)) + '</td>' : '') +
         '<td class="acoes-l">' +
         (l.pago ? '<button class="btn btn-o btn-mini" data-desfazer="' + l.id + '" title="Voltar para em aberto">↺</button> '
-                : l.perda ? '' : '<button class="btn btn-v btn-mini" data-pagar="' + l.id + '" title="' + (l.tipo === 'despesa' ? 'Pago' : 'Recebido') + ' (pergunta a data)">✓ ' + (l.tipo === 'despesa' && !l.redutor ? 'Pago' : 'Recebido') + '</button> ') +
-        (!l.pago && !l.perda && l.tipo === 'receita' && !l.redutor ? '<button class="btn btn-o btn-mini" data-pix="' + l.id + '" title="PIX copia e cola deste valor (para mandar ao cliente)">PIX</button> ' : '') +
-        '<button class="btn btn-o btn-mini" data-editar="' + l.id + '">Editar</button></td></tr>';
+                : l.perda ? '' : '<button class="btn btn-v btn-mini" data-pagar="' + l.id + '" title="Dar baixa — ' + (l.tipo === 'despesa' && !l.redutor ? 'pago' : 'recebido') + ' (pergunta a data)">✓ Baixa</button> ') +
+        '<button class="btn btn-o btn-mini btn-ed" data-editar="' + l.id + '" title="Editar" aria-label="Editar">✎</button></td></tr>';
     }).join('') +
     '</tbody><tfoot><tr><td colspan="' + ((lote ? 1 : 0) + (compacta ? 0 : 2) + (comDesc ? 1 : 0)) + '">Total (' + lista.length + ')</td><td class="num mono">' +
     brl(soma(lista, (l) => l.tipo === 'despesa' ? -l.valor : vl(l))) + '</td><td colspan="' + (nCols - (lote ? 1 : 0) - (compacta ? 0 : 2) - (comDesc ? 1 : 0) - 1) + '"></td></tr></tfoot></table></div></div>';
-}
-
-// PIX copia e cola (BR Code do Banco Central) com o valor do lançamento — dados em Central de e-mails → Configuração do envio
-async function janelaPix(valor, descricao) {
-  const d = await q(sb.from('configuracoes').select('valor').eq('chave', 'dados_pagamento').maybeSingle()).then((r) => (r && r.valor) || {}).catch(() => ({}));
-  if (!d.pix) return aviso('Cadastre a chave PIX do escritório em Central de e-mails → ⚙ Configuração do envio → "Dados para pagamento".', true);
-  const cod = pixCopiaECola({ chave: d.pix, nome: d.titular || 'Araujo e Castro', cidade: d.cidade || 'Belo Horizonte', valor });
-  const j = abrirJanela({ titulo: 'PIX copia e cola — ' + brl(valor),
-    corpo: '<div class="dica" style="margin-bottom:10px">' + esc(descricao || '') + ' · chave <b>' + esc(d.pix) + '</b> · ' + esc(d.titular || '') + '</div>' +
-      '<textarea id="pix-cod" readonly style="width:100%;min-height:96px;font:12.5px ui-monospace,monospace;padding:10px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface2);color:var(--ink)">' + esc(cod) + '</textarea>' +
-      '<p class="sub" style="margin-top:6px">Mande este código ao cliente (WhatsApp, e-mail). No app do banco: PIX → "Pix copia e cola" → colar. O valor já vem preenchido.</p>',
-    rodape: '<span></span><button class="btn btn-p" type="button" id="pix-copiar">Copiar código</button>' });
-  j.querySelector('#pix-copiar').onclick = async () => { const t = j.querySelector('#pix-cod'); try { await navigator.clipboard.writeText(cod); aviso('✓ Código PIX copiado.'); } catch (e) { t.select(); aviso('Selecionei o código: aperte Ctrl+C.'); } };
 }
 
 function ligarAcoesLancamentos(raiz, depois) {
@@ -1485,10 +1454,6 @@ function ligarAcoesLancamentos(raiz, depois) {
       aviso('✓ Baixa de ' + plural(ids.length, 'lançamento', 'lançamentos') + ' em ' + dataBR(bx.data_pagamento) + '.'); await apos();
     });
   });
-  raiz.querySelectorAll('[data-pix]').forEach((b) => b.onclick = () => comBotao(b, async () => {
-    const l = await q(sb.from('lancamentos').select('descricao, valor').eq('id', b.dataset.pix).single());
-    await janelaPix(Number(l.valor) || 0, l.descricao);
-  }));
   raiz.querySelectorAll('tr[data-lanc]').forEach((tr) => tr.addEventListener('click', (ev) => {
     if (ev.target.closest('button, a, input, select, label')) return;
     detalheLancamento(tr.dataset.lanc).catch((e) => aviso(erroAmigavel(e), true));
@@ -2148,7 +2113,7 @@ async function pintarContratos(buscar) {
   }
   const h = hojeISO();
   $('ctr-corpo').innerHTML = '<div class="card">' + (lista.length ?
-    '<div class="tabela-wrap"><table class="ordenavel"><thead><tr><th>Cliente</th><th>Contrato</th><th>Tipo</th><th data-tipo="data">Data</th><th class="num">Valor</th><th class="num">Recebido</th><th>Parcelas</th><th>Anexo</th><th>Situação</th></tr></thead><tbody>' +
+    '<div class="tabela-wrap"><table class="ordenavel ctr-tab"><thead><tr><th>Cliente</th><th>Contrato</th><th>Tipo</th><th data-tipo="data">Data</th><th class="num">Valor</th><th class="num">Recebido</th><th>Parcelas</th><th>Anexo</th><th>Situação</th></tr></thead><tbody>' +
     lista.map((c) => {
       const parc = c.lancamentos || [];
       const recebido = soma(parc.filter((p) => p.pago), (p) => p.valor);
@@ -2172,10 +2137,11 @@ async function pintarContratos(buscar) {
 const EXITO_BASES = [['economia', 'Economia obtida (redução da dívida)'], ['valor_recebido', 'Valor recebido pelo cliente'],
   ['valor_causa', 'Valor da causa / condenação'], ['outro', 'Outro valor (descrever)']];
 const exitoBaseRot = (b) => (EXITO_BASES.find((x) => x[0] === b) || EXITO_BASES[3])[1];
-const SM_ROT = (c) => String(c.qtd_salarios).replace('.', ',') + ' salário(s) mínimo(s)';
+// Backup 22: "1,5 salários/mês" (mais curto; a forma "em salários mínimos" já aparece no contrato)
+const SM_ROT = (c) => String(c.qtd_salarios).replace('.', ',') + (Number(c.qtd_salarios) === 1 ? ' salário' : ' salários');
 function valorContratoTexto(c) {
   if (c.modalidade !== 'consultoria') return brl(c.valor_total);
-  return (c.forma_valor === 'salario_minimo' ? SM_ROT(c) : brl(c.valor_mensal)) + ' / mês';
+  return (c.forma_valor === 'salario_minimo' ? SM_ROT(c) : brl(c.valor_mensal)) + '/mês';
 }
 function formContrato(ct) {
   ct = ct || {};
@@ -3190,7 +3156,7 @@ async function admEmail(corpo) {
     // e-mails ao cliente: dados do quadro "Como pagar" e prévia de cada modelo
     '<div class="card"><div class="card-hd">✉ E-mails ao cliente — dados para pagamento e modelos<span class="sub" style="margin-left:auto;font-weight:400">aparecem nas cobranças e lembretes</span></div><div class="card-bd">' +
       '<form id="f-pag" class="grade">' + campo('Chave PIX do escritório', '<input name="pix" placeholder="CNPJ, e-mail ou telefone">') + campo('Titular da conta', '<input name="titular">') +
-      campo('Banco / agência / conta (opcional)', '<input name="banco" placeholder="Ex.: Sicoob · ag 0000 · cc 00000-0">') + campo('WhatsApp para dúvidas (opcional)', '<input name="whatsapp" placeholder="(31) 90000-0000">') + campo('Cidade do recebedor (para o PIX copia e cola)', '<input name="cidade" placeholder="Belo Horizonte">') +
+      campo('Banco / agência / conta (opcional)', '<input name="banco" placeholder="Ex.: Sicoob · ag 0000 · cc 00000-0">') + campo('WhatsApp para dúvidas (opcional)', '<input name="whatsapp" placeholder="(31) 90000-0000">') +
       campo('Assinatura dos e-mails', '<input name="assinatura" placeholder="Equipe Araújo & Castro">', 'inteiro') + '</form>' +
       '<div class="acoes" style="margin-top:10px;flex-wrap:wrap"><button class="btn btn-p" id="pag-salvar">Salvar</button><span class="sub" style="align-self:center">Ver modelo:</span>' +
       [['lembrete', 'Lembrete'], ['cobranca', 'Cobrança'], ['acordo', 'Acordo'], ['parcelamento', 'Parcelamento'], ['recebido', 'Pagamento recebido']].map(([k, r]) => '<button class="btn btn-o btn-mini" data-previa="' + k + '">' + r + '</button>').join('') +
@@ -3204,9 +3170,9 @@ async function admEmail(corpo) {
   const f = $('f-email');
   f.provedor.value = prov;
   const fp = $('f-pag');
-  q(sb.from('configuracoes').select('valor').eq('chave', 'dados_pagamento').maybeSingle()).then((r) => { const v = (r && r.valor) || {}; ['pix', 'titular', 'banco', 'whatsapp', 'assinatura', 'cidade'].forEach((k) => { fp[k].value = v[k] || ''; }); }).catch(() => {});
+  q(sb.from('configuracoes').select('valor').eq('chave', 'dados_pagamento').maybeSingle()).then((r) => { const v = (r && r.valor) || {}; ['pix', 'titular', 'banco', 'whatsapp', 'assinatura'].forEach((k) => { fp[k].value = v[k] || ''; }); }).catch(() => {});
   $('pag-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
-    const v = {}; ['pix', 'titular', 'banco', 'whatsapp', 'assinatura', 'cidade'].forEach((k) => { v[k] = fp[k].value.trim(); });
+    const v = {}; ['pix', 'titular', 'banco', 'whatsapp', 'assinatura'].forEach((k) => { v[k] = fp[k].value.trim(); });
     await q(sb.from('configuracoes').upsert({ chave: 'dados_pagamento', valor: v }, { onConflict: 'chave' }));
     aviso('✓ Dados para pagamento salvos: já valem nos próximos e-mails.');
   });

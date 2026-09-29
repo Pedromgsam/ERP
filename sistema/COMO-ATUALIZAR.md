@@ -327,3 +327,22 @@ Ordem: **1) Merge  2) Ctrl+Shift+R**. O banco não mudou (se quiser rodar o SQL 
   amarelo, menos de 10 azul, 10 ou mais verde.
 - **Financeiro:** selo do "Quem" no pastel da pessoa (verde do Pedro), sem contorno; filtros de período sem as bolinhas coloridas e
   selects no desenho de Clientes.
+
+## Backup 22 — padronização (tem SQL)
+Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+Shift+R**. Nenhuma função do Supabase mudou.
+O SQL tira o PIX copia e cola do e-mail de cobrança e apaga as funções do PIX.
+- **Régua única nas tabelas (todas as telas):** texto 13; linha de baixo (sócio, descrição) cinza 12; **vencimento em negrito**
+  (vermelho quando vencido, o próprio dia conta); **valor em negrito, preto, à direita e completo** ("R$ 12.000,00", também no Painel);
+  nomes de cliente/empresa em CAIXA ALTA sem negrito; cabeçalho azul-marinho; botões da linha sempre **"✓ Baixa"** e **"✎"**.
+- **Selo da pessoa** (Pedro, Escritório, Emanuelle…): retângulo, negrito e **a mesma largura** em todo lugar.
+- **Triângulo de atraso:** um só, vermelho com "!", nos títulos (Início › Atrasados, Financeiro › Em atraso, abas "Vencidos").
+- **Início:** lembretes e fila como no Backup 20 (fundo pela cor, "✓ Feito" à vista, ⓘ com balão). Atrasados Jurídico e Contabilidade
+  lado a lado, com a tabela de bordas e cantos arredondados como em Clientes.
+- **Parcelamentos:** "Situação" virou **Parcelamentos em andamento** (igual Acordos): uma linha por parcelamento, separada por grupo
+  (ou "Lista"), atrasados primeiro, barra do que já foi pago, próxima parcela e situação ("N em atraso", "risco de rescisão" com 3 ou mais).
+  Clique abre as parcelas com **Lançar pagamento**. Saíram "Saldo residual por empresa" e o "Progresso por parcelamento" separado.
+- **Acordos:** letras maiores e Situação centralizada; **Saldo por devedor** na metade esquerda e **Vencimentos dos próximos 30 dias**
+  na direita; Vencidos / A pagar / Pago com altura mínima de 10 linhas.
+- **Financeiro:** botão **PIX** removido (e o código PIX saiu do e-mail).
+- **Contratos:** coluna Valor só do tamanho do número; "1,5 salários/mês".
+- Teste novo `testes/padrao.js`: abre as telas e falha se o mesmo tipo de informação tiver tamanho/negrito/cor diferente entre elas.

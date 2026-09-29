@@ -156,7 +156,7 @@ function legendaLanc(l) {
 }
 // Backup 20 — TABELA PADRÃO de pagamento/recebimento (vale para o sistema todo; modelo: vencidos de Acordos):
 // [lote] · Quem (advogado que recebe/paga) · Grupo / favorecido (legenda: área do serviço — contrato) · Descrição · Valor ·
-// Vencimento (ou "Pago em") · Atraso (dias, vermelho) · ações (✓ Recebido, PIX, Editar). Marcar várias linhas = baixa em lote.
+// Vencimento (ou "Pago em") · Atraso (dias, vermelho) · ações (✓ Baixa, ✎). Marcar várias linhas = baixa em lote.
 function celulaAtraso(venc, l) {
   if (!venc) return '<span class="sub">—</span>';
   const n = diasAte(venc);
@@ -195,25 +195,11 @@ function tabelaLancamentos(lista, opc) {
         (comAtraso ? '<td data-ord="' + (l.pago || l.perda || !l.vencimento ? 99999 : diasAte(l.vencimento)) + '">' + (l.pago ? '<span class="pill pago">pago</span>' : l.perda ? pillSit(l) : celulaAtraso(l.vencimento, l)) + '</td>' : '') +
         '<td class="acoes-l">' +
         (l.pago ? '<button class="btn btn-o btn-mini" data-desfazer="' + l.id + '" title="Voltar para em aberto">↺</button> '
-                : l.perda ? '' : '<button class="btn btn-v btn-mini" data-pagar="' + l.id + '" title="' + (l.tipo === 'despesa' ? 'Pago' : 'Recebido') + ' (pergunta a data)">✓ ' + (l.tipo === 'despesa' && !l.redutor ? 'Pago' : 'Recebido') + '</button> ') +
-        (!l.pago && !l.perda && l.tipo === 'receita' && !l.redutor ? '<button class="btn btn-o btn-mini" data-pix="' + l.id + '" title="PIX copia e cola deste valor (para mandar ao cliente)">PIX</button> ' : '') +
-        '<button class="btn btn-o btn-mini" data-editar="' + l.id + '">Editar</button></td></tr>';
+                : l.perda ? '' : '<button class="btn btn-v btn-mini" data-pagar="' + l.id + '" title="Dar baixa — ' + (l.tipo === 'despesa' && !l.redutor ? 'pago' : 'recebido') + ' (pergunta a data)">✓ Baixa</button> ') +
+        '<button class="btn btn-o btn-mini btn-ed" data-editar="' + l.id + '" title="Editar" aria-label="Editar">✎</button></td></tr>';
     }).join('') +
     '</tbody><tfoot><tr><td colspan="' + ((lote ? 1 : 0) + (compacta ? 0 : 2) + (comDesc ? 1 : 0)) + '">Total (' + lista.length + ')</td><td class="num mono">' +
     brl(soma(lista, (l) => l.tipo === 'despesa' ? -l.valor : vl(l))) + '</td><td colspan="' + (nCols - (lote ? 1 : 0) - (compacta ? 0 : 2) - (comDesc ? 1 : 0) - 1) + '"></td></tr></tfoot></table></div></div>';
-}
-
-// PIX copia e cola (BR Code do Banco Central) com o valor do lançamento — dados em Central de e-mails → Configuração do envio
-async function janelaPix(valor, descricao) {
-  const d = await q(sb.from('configuracoes').select('valor').eq('chave', 'dados_pagamento').maybeSingle()).then((r) => (r && r.valor) || {}).catch(() => ({}));
-  if (!d.pix) return aviso('Cadastre a chave PIX do escritório em Central de e-mails → ⚙ Configuração do envio → "Dados para pagamento".', true);
-  const cod = pixCopiaECola({ chave: d.pix, nome: d.titular || 'Araujo e Castro', cidade: d.cidade || 'Belo Horizonte', valor });
-  const j = abrirJanela({ titulo: 'PIX copia e cola — ' + brl(valor),
-    corpo: '<div class="dica" style="margin-bottom:10px">' + esc(descricao || '') + ' · chave <b>' + esc(d.pix) + '</b> · ' + esc(d.titular || '') + '</div>' +
-      '<textarea id="pix-cod" readonly style="width:100%;min-height:96px;font:12.5px ui-monospace,monospace;padding:10px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface2);color:var(--ink)">' + esc(cod) + '</textarea>' +
-      '<p class="sub" style="margin-top:6px">Mande este código ao cliente (WhatsApp, e-mail). No app do banco: PIX → "Pix copia e cola" → colar. O valor já vem preenchido.</p>',
-    rodape: '<span></span><button class="btn btn-p" type="button" id="pix-copiar">Copiar código</button>' });
-  j.querySelector('#pix-copiar').onclick = async () => { const t = j.querySelector('#pix-cod'); try { await navigator.clipboard.writeText(cod); aviso('✓ Código PIX copiado.'); } catch (e) { t.select(); aviso('Selecionei o código: aperte Ctrl+C.'); } };
 }
 
 function ligarAcoesLancamentos(raiz, depois) {
@@ -234,10 +220,6 @@ function ligarAcoesLancamentos(raiz, depois) {
       aviso('✓ Baixa de ' + plural(ids.length, 'lançamento', 'lançamentos') + ' em ' + dataBR(bx.data_pagamento) + '.'); await apos();
     });
   });
-  raiz.querySelectorAll('[data-pix]').forEach((b) => b.onclick = () => comBotao(b, async () => {
-    const l = await q(sb.from('lancamentos').select('descricao, valor').eq('id', b.dataset.pix).single());
-    await janelaPix(Number(l.valor) || 0, l.descricao);
-  }));
   raiz.querySelectorAll('tr[data-lanc]').forEach((tr) => tr.addEventListener('click', (ev) => {
     if (ev.target.closest('button, a, input, select, label')) return;
     detalheLancamento(tr.dataset.lanc).catch((e) => aviso(erroAmigavel(e), true));

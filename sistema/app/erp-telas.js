@@ -677,10 +677,38 @@
       GS().ligarAcoesLancamentos(caixa, () => ED.recarregar());
     });
   }
+  // ═══════ Backup 22: RÉGUA ÚNICA das tabelas ═══════
+  // Cada coluna é reconhecida pelo título do cabeçalho e ganha a classe da régua (design.css) — em todas as telas, do ERP antigo e do Gestão:
+  // col-venc (vencimento/pago em: negrito; vermelho se vencido) · col-valor (negrito, à direita) · col-dias (atraso/dias) · col-nome (CAIXA ALTA).
+  const REGUA = [
+    ['col-venc', /^(vencimento|venc\.?|pago em|data (de )?pagamento|data pag\.?)$/],
+    ['col-valor', /^(valor|valor da causa|valor parcela|total|saldo|saldo devedor)$/],
+    ['col-dias', /^(atraso|dias|dias de atraso)$/],
+    ['col-nome', /^(grupo|grupo \/ favorecido|devedor|credor|empresa|cliente|nome|entidade|entidade \/ socio)$/]];
+  const normTit = (t) => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[▲▼↑↓⇅]/g, '').trim().toLowerCase();
+  function marcarColunas() {
+    document.querySelectorAll('.tw table, .tabela-wrap table, .gx-tab-gs table').forEach((t) => {
+      if (t.classList.contains('gx-leg') || t.classList.contains('massa')) return;
+      const cab = t.querySelector('thead tr:last-child'); if (!cab) return;
+      const ths = [...cab.children], sig = ths.map((x) => x.textContent).join('|');
+      if (t._gxRegua !== sig) { t._gxRegua = sig; t._gxCols = ths.map((th) => { const n = normTit(th.textContent); const r = REGUA.find(([, re]) => re.test(n)); return r ? r[0] : ''; }); }
+      const cols = t._gxCols; if (!cols.some(Boolean)) return;
+      cols.forEach((c, i) => { if (c && ths[i]) ths[i].classList.add(c); });
+      t.querySelectorAll(':scope > tbody > tr').forEach((tr) => {
+        if (tr._gxRegua === sig || tr.classList.contains('gx-grp') || tr.classList.contains('gx-det')) return;
+        const tds = tr.children; if (!tds.length || [...tds].some((x) => x.colSpan > 1)) return;
+        cols.forEach((c, i) => { if (!c || !tds[i]) return; const td = tds[i]; td.classList.add(c);
+          // vencido no ERP antigo vinha só com a cor no style: vira a marca da régua
+          if (c === 'col-venc' && /red/.test(td.getAttribute('style') || '')) td.classList.add('venc-atraso'); });
+        tr._gxRegua = sig;
+      });
+    });
+  }
   let _agendado = false;
   new MutationObserver(() => {
     if (_agendado) return; _agendado = true;
-    requestAnimationFrame(() => { _agendado = false; try { converterTabelas(); } catch (e) { console.warn('[ERP] tabela Gestão:', e); } });
+    requestAnimationFrame(() => { _agendado = false; try { converterTabelas(); } catch (e) { console.warn('[ERP] tabela Gestão:', e); }
+      try { marcarColunas(); } catch (e) { console.warn('[ERP] régua das tabelas:', e); } });
   }).observe(document.documentElement, { childList: true, subtree: true });
 
   // ═════════════════ nova senha (link do e-mail) ═════════════════

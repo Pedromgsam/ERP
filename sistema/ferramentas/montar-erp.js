@@ -485,8 +485,24 @@ trocar('<button class="btn-clear" id="btnProcClear" onclick="procClearFilters()"
 trocar(`onclick="procToggleChip('Ativo')">⚖ Ativos</span>`, `onclick="procToggleChip('Ativo')">Ativos</span>`, 1);
 trocar(`onclick="procToggleChip('Arquivado')">📁 Arq. Provisoriamente</span>`, `onclick="procToggleChip('Arquivado')">Arquivados provisoriamente</span>`, 1);
 trocar(`onclick="procToggleChip('Extinto')">⚫ Extintos</span>`, `onclick="procToggleChip('Extinto')">Extintos</span>`, 1);
+// Backup 22: "Saldo por devedor" na metade esquerda; "Vencimentos dos próximos 30 dias" na direita
+trocar('  <div class="crow">\n    <div class="cc">\n      <div class="cc-hd"><div><div class="cc-t">Saldo por devedor</div>', '  <div class="crow c2 ac-saldo-linha">\n    <div class="cc">\n      <div class="cc-hd"><div><div class="cc-t">Saldo por devedor</div>', 1);
+trocar('<div id="acDevedorLista"></div><div hidden aria-hidden="true"><canvas id="cAcordDevedor"></canvas></div>\n    </div>\n  </div>',
+  '<div id="acDevedorLista"></div><div hidden aria-hidden="true"><canvas id="cAcordDevedor"></canvas></div>\n    </div>\n' +
+  '    <div class="cc">\n      <div class="cc-hd"><div><div class="cc-t">Vencimentos dos próximos 30 dias</div><div class="cc-d">parcelas em aberto, por data</div></div></div>\n      <div id="acProx30"></div>\n    </div>\n  </div>', 1);
+// Backup 22: Parcelamentos — sai o "Saldo residual por empresa" (gráfico + tabela) e o "Progresso por parcelamento"
+// (a nova lista "Parcelamentos em andamento", na Situação, mostra o progresso e as parcelas de cada um)
+trocar('  <div class="cc">\n    <div class="cc-hd"><div><div class="cc-t">Saldo residual por empresa</div><div class="cc-d">gráfico e tabela lado a lado · 10 maiores</div></div></div>\n    <div class="gx-graf-tab"><div class="cb" style="height:260px"><canvas id="cParcResidual"></canvas></div><div id="cParcResidualTab"></div></div>\n  </div>\n', '', 1);
+trocar('  <div class="cc">\n    <div class="cc-hd" style="flex-wrap:wrap;gap:8px"><div><div class="cc-t">Progresso por parcelamento</div>', '  <div class="cc" hidden aria-hidden="true">\n    <div class="cc-hd" style="flex-wrap:wrap;gap:8px"><div><div class="cc-t">Progresso por parcelamento</div>', 1);
+// Backup 22: Painel → Empresas do grupo com o valor completo ("R$ 12.000,00"), como em todas as tabelas (o "18k neg." continua curto)
+trocar("const cellRfb =rfbTot >0?`${fT(r.rfb||0)}", "const cellRfb =rfbTot >0?`${fF(r.rfb||0)}", 1);
+trocar("const cellPgfn=pgfnTot>0?`${fT(r.pgfn||0)}", "const cellPgfn=pgfnTot>0?`${fF(r.pgfn||0)}", 1);
+trocar("const cellAge =ageTot >0?`${fT(r.ageMG||0)}", "const cellAge =ageTot >0?`${fF(r.ageMG||0)}", 1);
+trocar("<td class=\"mono\">${totVal>0?`<strong>${fT(totVal)}</strong>`", "<td class=\"mono\">${totVal>0?`<strong>${fF(totVal)}</strong>`", 1);
 // Financeiro → Análise → Em atraso: linhas com ✓ Baixa e ✎ (viram a tabela padrão de pagamento) e triângulo vermelho no título
-trocar('<div class="cc-t">⚠ Em atraso</div>', '<div class="cc-t"><span class="ini-alerta">▲</span> Em atraso</div>', 2);
+trocar('<div class="cc-t">⚠ Em atraso</div>', '<div class="cc-t"><span class="alerta-tri" aria-hidden="true"></span> Em atraso</div>', 2);
+// Backup 22: o mesmo triângulo vermelho nas abas "Vencidos" de Acordos e Parcelamentos (no lugar da bolinha 🔴)
+trocar('>🔴 Vencidos — URGENTE</button>', '><span class="alerta-tri" aria-hidden="true"></span> Vencidos — URGENTE</button>', 2);
 // 13. Cores de tokens.css (fonte única) depois do CSS do ERP; modo escuro lembrado neste aparelho.
 trocar('\n</head>\n', '\n<link rel="stylesheet" href="tokens.css">\n<link rel="stylesheet" href="tema-escuro.css">\n<link rel="stylesheet" href="design.css">\n' +
   '<script>try{if(localStorage.getItem("erp_tema")==="escuro")document.documentElement.setAttribute("data-tema","escuro")}catch(e){}</script>\n</head>\n', 1);
