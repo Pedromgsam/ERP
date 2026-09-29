@@ -554,6 +554,22 @@
 .gs .ctr-cli{display:flex;gap:8px;align-items:center}
 .gs .ctr-cli select{flex:1;min-width:0}
 .gs .doc-chips{display:flex;flex-wrap:wrap;gap:6px;margin:-4px 0 12px}
+.gs .ini-resumo{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;margin-bottom:18px}
+.gs .ini-res{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;background:#fff;border:1px solid var(--border);border-left:4px solid var(--navy);border-radius:12px;padding:12px 14px;box-shadow:var(--shadow-sm);cursor:pointer;font:inherit;color:var(--ink);min-height:112px}
+.gs .ini-res:hover{box-shadow:var(--shadow-hover)}
+.gs .ini-res.vermelho{border-left-color:var(--red)}
+.gs .ini-res.ambar{border-left-color:var(--amber)}
+.gs .ini-res-ic{font-size:16px}
+.gs .ini-res-tit{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text)}
+.gs .ini-res-num{font-size:24px;line-height:1.15;font-variant-numeric:tabular-nums}
+.gs .ini-res-rot{font-size:12.5px;color:var(--text)}
+.gs .ini-res-sub{font-size:12px;color:var(--text);margin-top:auto}
+.gs .ini-res.vermelho .ini-res-sub{color:var(--red);font-weight:600}
+.gs .ini-lemb .card-hd{display:flex;align-items:center;gap:8px}
+.gs .lemb-it{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)}
+.gs .lemb-it:last-child{border-bottom:0}
+.gs .lemb-auto{display:block}
+.gs .lemb-tg{background:none;border:0;padding:0;font:inherit;color:var(--ink);cursor:pointer;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 /* cores do ERP, tamanhos do Gestão */
 .gs{background:none!important;min-height:0!important}
 .gs .duas-col>*,.gs .card{min-width:0}

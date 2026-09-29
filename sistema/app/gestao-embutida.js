@@ -865,12 +865,14 @@ TELAS.inicio = async function () {
     '<div class="acoes"><button class="btn btn-p" data-novo="receita">+ Receita</button>' +
     '<button class="btn btn-o" data-novo="despesa">+ Despesa</button>' +
     '<button class="btn btn-o" data-novo="contrato">+ Contrato</button></div></div>' +
-    '<div id="ini-mural"></div><div id="ini-aprov"></div><div id="ini-fila"></div>' +
+    '<div id="ini-mural"></div><div id="ini-resumo"></div><div id="ini-aprov"></div><div id="ini-fila"></div><div id="ini-lembretes"></div>' +
     (verJur ? linha('escritorio', '💼 Honorários Jurídico') : '') + (verCont ? linha('contabilidade', '🧮 Contabilidade') : '') +
     (verJur || verCont ? '<div class="' + (verJur && verCont ? 'duas-col' : '') + ' ini-atraso">' +
       (verJur ? cardAtraso('Atrasados', 'Jurídico', de('escritorio')) : '') +
       (verCont ? cardAtraso('Atrasados', 'Contabilidade', de('contabilidade')) : '') + '</div>' : '');
   cardMural().catch((e) => console.error(e));
+  cardResumoEscritorio().catch((e) => console.error(e));
+  cardLembretes().catch((e) => console.error(e));
   if (typeof cardAprovacoes === 'function') cardAprovacoes().then((x) => { const el = $('ini-aprov'); if (el) el.innerHTML = x; }).catch((e) => console.error(e));
   if (typeof cardMinhaFila === 'function') cardMinhaFila().then((c) => { const el = $('ini-fila'); if (el) { el.innerHTML = c.html; c.ligar(el); } }).catch((e) => console.error(e));
   ligarAcoesLancamentos($('conteudo'));
@@ -1059,7 +1061,7 @@ async function cardMural() {
     pode('juridico') ? q(sb.from('publicacoes').select('id').eq('status', 'nova')).catch(() => []) : []
   ]);
   const minhas = tarefas.filter(ehMinha);
-  const fatais = minhas.filter((t) => t.prazo_fatal && t.prazo_fatal <= somarDias(h, 7)).length, atrasadas = minhas.filter((t) => t.prazo && t.prazo < h && !/^cob:/.test(t.chave_regra || '')).length;
+  const fatais = minhas.filter((t) => t.prazo_fatal && t.prazo_fatal <= somarDias(h, 7)).length, atrasadas = minhas.filter((t) => t.prazo && t.prazo < h && !/^(cob|parc|aco):/.test(t.chave_regra || '')).length;
   const vivos = recados.filter((r) => !r.expira_em || r.expira_em >= h).slice(0, 6);
   const admin = E.perfil && E.perfil.papel === 'admin';
   const dest = [
@@ -1091,6 +1093,114 @@ async function cardMural() {
     const t = $('mural-txt').value.trim(); if (!t) throw new Error('Escreva o recado.');
     await q(sb.from('mural').insert({ texto: t, fixo: !!($('mural-fixo') && $('mural-fixo').checked) }));
     aviso('✓ Recado publicado no mural.'); await cardMural();
+  });
+}
+
+// ── Resumo do escritório (Início = "home"): um número por assunto, clicável ──
+async function cardResumoEscritorio() {
+  const el = $('ini-resumo'); if (!el) return;
+  const h = hojeISO(), lim15 = somarDias(h, 15), mes = h.slice(0, 7);
+  const conta = (qq) => qq.then((r) => (r.error ? 0 : r.count || 0)).catch(() => 0);
+  const cnt = (t) => sb.from(t).select('id', { count: 'exact', head: true });
+  const jur = pode('juridico'), crm = pode('crm'), docs = pode('documentos');
+  const [proc, procEnc, procMes, pubs, parcAtr, parcMes, acPend, acAtr, ops, tAb, tAtr, docV] = await Promise.all([
+    jur ? conta(cnt('processos')) : 0,
+    jur ? conta(cnt('processos').or('status.ilike.arq*,status.ilike.extint*,status.ilike.*prescri*')) : 0,
+    jur ? conta(cnt('processos').gte('criado_em', mes + '-01')) : 0,
+    jur ? conta(cnt('publicacoes').eq('status', 'nova')) : 0,
+    jur ? conta(cnt('parcelas').eq('pago', false).lt('vencimento', h)) : 0,
+    jur ? conta(cnt('parcelas').eq('pago', false).gte('vencimento', h).lte('vencimento', fimDoMesISO(h))) : 0,
+    jur ? conta(cnt('acordos').eq('pago', false)) : 0,
+    jur ? conta(cnt('acordos').eq('pago', false).lt('vencimento', h)) : 0,
+    crm ? q(sb.from('crm_oportunidades').select('valor_estimado, crm_etapas(final)')).catch(() => []) : [],
+    conta(cnt('tarefas').not('status', 'in', '(concluida,cancelada)')),
+    conta(cnt('tarefas').not('status', 'in', '(concluida,cancelada)').lt('prazo', h)),
+    docs ? conta(cnt('documentos').eq('arquivado', false).lte('validade', lim15)) : 0
+  ]);
+  const abertas = (ops || []).filter((o) => !(o.crm_etapas && o.crm_etapas.final));
+  const T = [
+    jur ? ['processos', '⚖', 'Processos', proc - procEnc, 'em andamento', (procEnc ? procEnc + ' arquivados/extintos' : '') + (procMes ? (procEnc ? ' · ' : '') + procMes + ' novo(s) no mês' : ''), ''] : null,
+    jur ? ['publicacoes', '📰', 'Publicações', pubs, 'nova(s) para ler', '', pubs ? 'ambar' : ''] : null,
+    jur ? ['parcelamentos', '🧾', 'Parcelamentos', parcMes, 'parcela(s) a vencer no mês', parcAtr ? parcAtr + ' em atraso' : 'nenhuma em atraso', parcAtr ? 'vermelho' : ''] : null,
+    jur ? ['acordos', '🤝', 'Acordos', acPend, 'parcela(s) pendente(s)', acAtr ? acAtr + ' em atraso' : 'nenhuma em atraso', acAtr ? 'vermelho' : ''] : null,
+    crm ? ['crm', '🎯', 'CRM', abertas.length, 'oportunidade(s) em andamento', brl(soma(abertas, (o) => o.valor_estimado)) + ' em negociação', ''] : null,
+    ['tarefas', '📋', 'Tarefas do escritório', tAb, 'em aberto', tAtr ? tAtr + ' atrasada(s)' : 'nenhuma atrasada', tAtr ? 'vermelho' : ''],
+    docs ? ['documentos', '📁', 'Documentos', docV, 'vencendo em 15 dias', '', docV ? 'ambar' : ''] : null
+  ].filter(Boolean);
+  el.innerHTML = '<div class="kpis-titulo">🏠 Resumo do escritório</div><div class="ini-resumo">' + T.map((t) =>
+    '<button type="button" class="ini-res ' + t[6] + '" data-ini-ir="' + t[0] + '"><span class="ini-res-ic" aria-hidden="true">' + t[1] + '</span>' +
+    '<span class="ini-res-tit">' + esc(t[2]) + '</span><b class="ini-res-num">' + t[3] + '</b><span class="ini-res-rot">' + esc(t[4]) + '</span>' +
+    (t[5] ? '<span class="ini-res-sub">' + esc(t[5]) + '</span>' : '') + '</button>').join('') + '</div>';
+  el.querySelectorAll('[data-ini-ir]').forEach((b) => b.onclick = () => {
+    const k = b.dataset.iniIr;
+    if (k === 'tarefas') E.tf = Object.assign(E.tf || {}, { aba: 'abertas', atalho: '' });
+    irParaTela(k);
+  });
+}
+function fimDoMesISO(d) { const x = new Date(d + 'T12:00:00'); return iso(new Date(x.getFullYear(), x.getMonth() + 1, 0)); }
+
+// ── Lembretes: o que NÃO é tarefa (ex.: emitir guias de parcelamentos; recados com data que se repetem) ──
+async function cardLembretes() {
+  const el = $('ini-lembretes'); if (!el) return;
+  const h = hojeISO(), jur = pode('juridico');
+  const rg = await q(sb.from('regras_tarefas').select('ligada, dias').eq('chave', 'parcela_parcelamento').maybeSingle()).catch(() => null);
+  const dias = rg && rg.dias != null ? rg.dias : 5, guiasLigado = !rg || rg.ligada;
+  const [guias, meus] = await Promise.all([
+    jur && guiasLigado ? q(sb.from('parcelas').select('id, numero, vencimento, emissao, parcelamentos(empresa, natureza, numero, total_parcelas, grupo_id)')
+      .eq('pago', false).lte('vencimento', somarDias(h, dias)).order('vencimento')).catch(() => []) : [],
+    q(sb.from('lembretes').select('*').is('feito_em', null).lte('dia', somarDias(h, 7)).order('dia')).catch(() => [])
+  ]);
+  const semGuia = guias.filter((g) => !/sim|emitid/i.test(g.emissao || ''));
+  const eu = primeiroNome((E.perfil && E.perfil.nome) || '');
+  const vis = meus.filter((l) => !l.pessoa || primeiroNome(l.pessoa) === eu || (E.perfil && E.perfil.papel === 'admin'));
+  const abertoG = !!cardLembretes.abertoG;
+  el.innerHTML = '<div class="card ini-lemb"><div class="card-hd">🔔 Lembretes <span class="sub">avisos que não são tarefas</span>' +
+      '<button type="button" class="btn btn-o btn-mini" id="lemb-novo" style="margin-left:auto">+ Lembrete</button></div><div class="card-bd">' +
+    (semGuia.length ? '<div class="lemb-it lemb-auto"><button type="button" class="lemb-tg" id="lemb-guias" aria-expanded="' + abertoG + '">' + (abertoG ? '▾' : '▸') +
+        ' <b>Emitir guias de parcelamentos</b> <span class="pill ' + (semGuia.some((g) => g.vencimento < h) ? 'vencido' : 'hoje') + '">' + semGuia.length + '</span>' +
+        '<span class="sub"> até ' + dataBR(somarDias(h, dias)) + '</span></button>' +
+      (abertoG ? '<div class="lista-ficha" style="margin-top:6px">' + semGuia.map((g) => { const p = g.parcelamentos || {};
+        return '<div class="item-ficha"><div><b>' + esc(p.empresa || '—') + '</b> <span class="sub">' + esc([p.natureza, p.numero ? 'nº ' + p.numero : '', 'parc. ' + (g.numero || '?') + (p.total_parcelas ? '/' + p.total_parcelas : '')].filter(Boolean).join(' · ')) + '</span>' +
+          '<div class="sub">vence ' + dataBR(g.vencimento) + (g.vencimento < h ? ' <span class="pill vencido">vencida</span>' : '') + '</div></div>' +
+          '<button type="button" class="btn btn-v btn-mini" data-guia-ok="' + g.id + '">✓ Guia emitida</button></div>'; }).join('') + '</div>' : '') + '</div>' : '') +
+    vis.map((l) => '<div class="lemb-it"><div><b>' + esc(l.texto) + '</b><div class="sub">' + (l.dia < h ? '<span class="pill vencido">desde ' + dataBR(l.dia) + '</span>' : l.dia === h ? '<span class="pill hoje">hoje</span>' : dataBR(l.dia)) +
+        (l.repete ? ' · ↻ ' + esc(l.repete) : '') + (l.pessoa ? ' · ' + esc(l.pessoa) : ' · todos') + '</div></div>' +
+      '<div class="acoes-l"><button type="button" class="btn btn-v btn-mini" data-lemb-ok="' + l.id + '">✓ Feito</button><button type="button" class="btn-etq" data-lemb-x="' + l.id + '" title="Apagar lembrete" aria-label="Apagar lembrete">×</button></div></div>').join('') +
+    (!semGuia.length && !vis.length ? '<div class="sub">Nenhum lembrete para os próximos 7 dias.</div>' : '') + '</div></div>';
+  const g = $('lemb-guias'); if (g) g.onclick = () => { cardLembretes.abertoG = !abertoG; cardLembretes(); };
+  el.querySelectorAll('[data-guia-ok]').forEach((b) => b.onclick = () => comBotao(b, async () => {
+    await q(sb.from('parcelas').update({ emissao: 'SIM' }).eq('id', b.dataset.guiaOk)); aviso('✓ Guia marcada como emitida.'); await cardLembretes();
+  }));
+  el.querySelectorAll('[data-lemb-ok]').forEach((b) => b.onclick = () => comBotao(b, async () => {
+    const l = vis.find((x) => x.id === b.dataset.lembOk);
+    const prox = { semanal: 7, mensal: 'm1', anual: 'm12' }[l.repete];
+    const dados = !l.repete ? { feito_em: h } : { dia: typeof prox === 'number' ? somarDias(l.dia, prox) : somarMeses(l.dia, +prox.slice(1)) };
+    await q(sb.from('lembretes').update(dados).eq('id', l.id));
+    aviso(l.repete ? '✓ Feito. Próximo em ' + dataBR(dados.dia) + '.' : '✓ Lembrete concluído.'); await cardLembretes();
+  }));
+  el.querySelectorAll('[data-lemb-x]').forEach((b) => b.onclick = () => comBotao(b, async () => {
+    if (!confirm('Apagar este lembrete?')) return;
+    await q(sb.from('lembretes').delete().eq('id', b.dataset.lembX)); await cardLembretes();
+  }));
+  $('lemb-novo').onclick = () => formLembrete();
+}
+function somarMeses(d, n) {
+  const x = new Date(d + 'T12:00:00'), dia = x.getDate(), y = new Date(x.getFullYear(), x.getMonth() + n, 1);
+  y.setDate(Math.min(dia, new Date(y.getFullYear(), y.getMonth() + 1, 0).getDate())); return iso(y);
+}
+function formLembrete() {
+  const j = abrirJanela({ titulo: '🔔 Novo lembrete',
+    corpo: '<div class="dica" style="margin-bottom:10px">Lembrete é um aviso rápido que <b>não vira tarefa</b> (ex.: "pagar o aluguel da sala", "renovar o certificado digital"). ' +
+      'Aparece no Início a partir de 7 dias antes da data.</div><form id="f-lemb" class="grade">' +
+      campo('Lembrete <span class="obrig">*</span>', '<input name="texto" maxlength="300">', 'inteiro') +
+      campo('Data', '<input name="dia" type="date" value="' + hojeISO() + '">') +
+      campo('Repete', '<select name="repete"><option value="">Não repete</option><option value="semanal">Toda semana</option><option value="mensal">Todo mês</option><option value="anual">Todo ano</option></select>') +
+      campo('Para quem', selectPessoa('pessoa', '', 'Todo o escritório')) + '</form>',
+    rodape: '<span></span><div class="acoes"><button class="btn btn-p" type="button" id="lemb-salvar">Salvar</button></div>' });
+  j.querySelector('#lemb-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    const f = j.querySelector('#f-lemb'), t = f.texto.value.trim(); if (!t) throw new Error('Escreva o lembrete.');
+    await q(sb.from('lembretes').insert({ texto: t, dia: f.dia.value || hojeISO(), repete: f.repete.value, pessoa: f.pessoa.value }));
+    aviso('✓ Lembrete criado.'); fecharJanela(j); await cardLembretes();
   });
 }
 
@@ -3059,7 +3169,7 @@ async function cardMinhaFila() {
   await feriados();
   await equipe().catch(() => []);
   const ts = await q(sb.from('tarefas').select('*').not('status', 'in', '(concluida,cancelada)')).catch(() => []);
-  const todas = ordenarFila(ts.filter((t) => ehMinha(t) && !/^cob:/.test(t.chave_regra || ''))), minhas = FILA.toda ? todas : todas.slice(0, 5);
+  const todas = ordenarFila(ts.filter((t) => ehMinha(t) && !/^(cob|parc|aco):/.test(t.chave_regra || ''))), minhas = FILA.toda ? todas : todas.slice(0, 5);
   const html = '<div class="card ini-fila' + (FILA.min ? ' minimizada' : '') + '"><div class="card-hd">📋 Minha fila de trabalho <span class="sub">' + todas.length + ' aberta(s)</span>' +
       '<div class="segmento ini-fila-vista" role="group" aria-label="Ver como">' + VISTAS_FILA.map(([v, r]) => '<button type="button" data-fila-vista="' + v + '"' + (FILA.vista === v ? ' class="ativo"' : '') + '>' + r + '</button>').join('') + '</div>' +
       '<button type="button" class="btn btn-o btn-mini ini-fila-min" data-fila-min aria-expanded="' + !FILA.min + '">' + (FILA.min ? '▸ Mostrar' : '▾ Minimizar') + '</button></div>' +
@@ -5339,7 +5449,7 @@ function relatorioAlerta(a) {
   const ac = j.querySelector('.janela-rp .acoes');
   if (r.linhas.length && ac) {
     const b = document.createElement('button'); b.type = 'button'; b.className = 'btn btn-o'; b.dataset.virarTarefa = '1'; b.textContent = '📋 Virar tarefa';
-    b.onclick = () => { fecharJanela(j); janelaVirarTarefa(a.titulo || r.titulo, r); };
+    b.onclick = () => { fecharJanela(j); janelaVirarTarefa(a.rot || a.titulo || r.titulo, r); };
     ac.prepend(b);
   }
 }

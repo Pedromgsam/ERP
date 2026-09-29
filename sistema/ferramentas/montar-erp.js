@@ -150,9 +150,15 @@ removerTrechoHtml('  <div class="ex-bn" style="margin-bottom:16px;position:relat
   '      <div class="cb" style="height:210px"><canvas id="cProcNatureza"></canvas></div>\n    </div>\n  </div>\n',
   '  <div hidden aria-hidden="true"><div id="kpiProc"></div><canvas id="cProcGrupos"></canvas><canvas id="cProcComp"></canvas><canvas id="cProcValor"></canvas><canvas id="cProcNatureza"></canvas></div>\n');
 // Análise da carteira ganha Arquivados/extintos, Passivo e Ativo em disputas
+// Backup 16: o mesmo processo (mesmo número) que aparece para o sócio e para a PJ conta uma vez só — no total,
+// no valor em disputa e no passivo/ativo; arquivados/extintos viram legenda do card Processos (sem card próprio).
+trocar("  var comValor=lista.filter(function(p){ return val(p)>0; });\n  var totalV=comValor.reduce(function(s,p){ return s+val(p); },0);\n  var ativos=lista.filter(function(p){ return !String(p.arquivamento||'').trim(); }).length;",
+  "  var _vistos={}; lista=lista.filter(function(p){ var k=String(p.numero||'').replace(/\\D/g,'')||String(p.numero||'')||('#'+Math.random()); if(_vistos[k]) return false; _vistos[k]=1; return true; });\n" +
+  "  var comValor=lista.filter(function(p){ return val(p)>0; });\n  var totalV=comValor.reduce(function(s,p){ return s+val(p); },0);\n  var ativos=lista.filter(function(p){ return !String(p.arquivamento||'').trim(); }).length;", 1);
+trocar("   +  kC('Processos',lista.length,ativos+' em andamento','cb','db')",
+  "   +  kC('Processos',lista.length,ativos+' em andamento · '+(lista.length-ativos)+' arquivados/extintos','cb','db')", 1);
 trocar("   +  kC('Valor em disputa',_faFT(totalV),comValor.length+' com valor informado','cv','dv')",
-  "   +  kC('Arquivados / extintos',lista.length-ativos,'encerrados, prescritos e extintos','cx','')\n" +
-  "   +  kC('Valor em disputa',_faFT(totalV),comValor.length+' com valor informado','cv','dv')\n" +
+  "   +  kC('Valor em disputa',_faFT(totalV),comValor.length+' com valor informado · '+(lista.length-comValor.length)+' sem valor informado','cv','dv')\n" +
   "   +  (function(){ var nomes=(FIL.length?FIL:DB.baseDados).map(function(r){return String(r.nome||'').toLowerCase();}).filter(function(n){return n.length>2;});\n" +
   "        var tem=function(t){ t=String(t||'').toLowerCase(); return nomes.some(function(n){return t.indexOf(n)>=0;}); };\n" +
   "        var vP=lista.filter(function(p){return tem(p.reu);}).reduce(function(s,p){return s+val(p);},0), vA=lista.filter(function(p){return tem(p.autor);}).reduce(function(s,p){return s+val(p);},0);\n" +

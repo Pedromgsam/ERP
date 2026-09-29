@@ -212,6 +212,7 @@ html[data-tema="escuro"] .gs .fila-sem-dia{background:var(--surface)}
 html[data-tema="escuro"] .gs .mural-it{background:var(--surface)}
 html[data-tema="escuro"] .gs .mural-it.fixo{background:#342e14}
 html[data-tema="escuro"] .gs .mural-dest{background:var(--surface2)}
+html[data-tema="escuro"] .gs .ini-res{background:var(--surface)}
 html[data-tema="escuro"] #gs-hd .gs-marca-nome{color:#cdbb89}
 html[data-tema="escuro"] #gs-hd .tn-menu{background:var(--surface);border:1px solid rgba(255,255,255,0.066)}
 html[data-tema="escuro"] #gs-hd .tn-menu button{color:#d3d9e4}
@@ -247,6 +248,7 @@ html[data-tema="escuro"] #panel-acordos tr[data-gx^="acordos:"]:hover td{backgro
 html[data-tema="escuro"] #gs-hd{background:linear-gradient(115deg,rgba(255,255,255,0.22),rgba(255,255,255,0.22) 55%,rgba(255,255,255,0.22))!important}
 html[data-tema="escuro"] #gs-hd::after{background:linear-gradient(90deg,transparent,rgba(255,255,255,0.03) 30%,rgba(255,255,255,0.03) 70%,transparent)}
 html[data-tema="escuro"] #gs-hd .tn-lancar-bt{background-color:#766948}
+html[data-tema="escuro"] #tblExecRanking td.mono strong{color:var(--ink)!important}
 html[data-tema="escuro"] body.gx-barra-topo .fin-tab.active{border-color:rgba(255,255,255,0.03)!important}
 html[data-tema="escuro"] body.gx-barra-topo .fin-tab.active[data-tab=analise]{border-color:rgba(255,255,255,0.03)!important}
 html[data-tema="escuro"] body.gx-barra-topo .fin-tab.active:is([data-tab=recebidos],html[data-tema="escuro"] [data-tab=receita]){border-color:rgba(255,255,255,0.22)!important}

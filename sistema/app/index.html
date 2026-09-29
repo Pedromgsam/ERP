@@ -47,12 +47,12 @@
 <script src="config.js"></script>
 <script src="erp-dados.js?v=c6fb5f63"></script>
 <link rel="stylesheet" href="editor.css?v=b8509b3b">
-<link rel="stylesheet" href="erp-telas.css?v=204502f1">
+<link rel="stylesheet" href="erp-telas.css?v=b19e93d9">
 <script src="editor.js?v=c78b852e" defer></script>
 <script src="erp-telas.js?v=81254c1e" defer></script>
-<link rel="stylesheet" href="gs.css?v=b35a4fee">
+<link rel="stylesheet" href="gs.css?v=1b4ccd7d">
 <script src="importador.js?v=4fb0d655" defer></script>
-<script src="gestao-embutida.js?v=8b3021ee" defer></script>
+<script src="gestao-embutida.js?v=f49c5789" defer></script>
 <script>
 
 
@@ -1616,7 +1616,7 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
 .ep-val::placeholder{color:var(--text4);font-weight:400}
 </style>
 <link rel="stylesheet" href="tokens.css?v=61c9c820">
-<link rel="stylesheet" href="tema-escuro.css?v=4ee8d78b">
+<link rel="stylesheet" href="tema-escuro.css?v=4d7fcf5b">
 <script>try{if(localStorage.getItem("erp_tema")==="escuro")document.documentElement.setAttribute("data-tema","escuro")}catch(e){}</script>
 </head>
 <body>
@@ -4026,15 +4026,15 @@ function renderProcAnalise(){
       + '</tbody></table></div></div>';
   };
 
+  var _vistos={}; lista=lista.filter(function(p){ var k=String(p.numero||'').replace(/\D/g,'')||String(p.numero||'')||('#'+Math.random()); if(_vistos[k]) return false; _vistos[k]=1; return true; });
   var comValor=lista.filter(function(p){ return val(p)>0; });
   var totalV=comValor.reduce(function(s,p){ return s+val(p); },0);
   var ativos=lista.filter(function(p){ return !String(p.arquivamento||'').trim(); }).length;
 
   el.innerHTML=exBloco('exProcAn','Análise da carteira judicial',
     '<div class="kpi-grid" style="margin-bottom:14px">'
-   +  kC('Processos',lista.length,ativos+' em andamento','cb','db')
-   +  kC('Arquivados / extintos',lista.length-ativos,'encerrados, prescritos e extintos','cx','')
-   +  kC('Valor em disputa',_faFT(totalV),comValor.length+' com valor informado','cv','dv')
+   +  kC('Processos',lista.length,ativos+' em andamento · '+(lista.length-ativos)+' arquivados/extintos','cb','db')
+   +  kC('Valor em disputa',_faFT(totalV),comValor.length+' com valor informado · '+(lista.length-comValor.length)+' sem valor informado','cv','dv')
    +  (function(){ var nomes=(FIL.length?FIL:DB.baseDados).map(function(r){return String(r.nome||'').toLowerCase();}).filter(function(n){return n.length>2;});
         var tem=function(t){ t=String(t||'').toLowerCase(); return nomes.some(function(n){return t.indexOf(n)>=0;}); };
         var vP=lista.filter(function(p){return tem(p.reu);}).reduce(function(s,p){return s+val(p);},0), vA=lista.filter(function(p){return tem(p.autor);}).reduce(function(s,p){return s+val(p);},0);

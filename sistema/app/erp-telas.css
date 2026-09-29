@@ -305,22 +305,29 @@ body.gx-barra-topo .gs .janela{border-radius:18px;box-shadow:0 30px 80px -20px r
 .gx-leg tfoot td{font-weight:700;border-bottom:0;color:var(--ink)}
 .gx-leg-c{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:9px;vertical-align:-1px}
 @media (max-width:1300px){.gx-donut{grid-template-columns:1fr}.gx-donut .gx-donut-g{height:240px!important}}
-/* selo do grupo: todos com a MESMA largura (150px) e crescem para baixo; palavra nunca é quebrada no meio;
-   mesma letra em todas as telas (Inter 11,5px, peso 650, sem caixa alta) */
-body.gx-barra-topo .tw td>.tag.tn,body.gx-barra-topo .tw td .er-grupo{display:inline-block!important;width:150px!important;max-width:150px!important;white-space:normal!important;
-  overflow:visible!important;text-overflow:clip!important;overflow-wrap:normal!important;word-break:normal!important;hyphens:none;line-height:1.3;text-align:left;box-sizing:border-box;padding:4px 9px;
-  font:650 11.5px/1.3 var(--font-ui)!important;text-transform:none!important;letter-spacing:0!important}
-body.gx-barra-topo .tw td:has(>.tag.tn),body.gx-barra-topo .tw td:has(.er-grupo){min-width:162px}
-/* Empresas do Grupo: uma letra só, mesmos tamanhos, selos no mesmo desenho */
-#tblExecRanking td,#tblExecRanking td.mono,#tblExecRanking .er-nome,#tblExecRanking strong{font-family:var(--font-ui)!important;font-variant-numeric:tabular-nums}
-#tblExecRanking td{font-size:13px!important;color:var(--text)!important}
-#tblExecRanking td.mono{font-size:13px!important;color:var(--text2)!important}
-#tblExecRanking .er-nome{font-size:13.5px!important;font-weight:650!important}
+/* selo do grupo (Backup 16): todos com a MESMA largura (124px), em CAIXA ALTA, e crescem para baixo quando o nome é grande;
+   palavra nunca é quebrada no meio; mesma letra em todas as telas */
+body.gx-barra-topo .tw td>.tag.tn,body.gx-barra-topo .tw td .er-grupo{display:inline-block!important;width:124px!important;max-width:124px!important;white-space:normal!important;
+  overflow:visible!important;text-overflow:clip!important;overflow-wrap:normal!important;word-break:normal!important;hyphens:none;line-height:1.3;text-align:center;box-sizing:border-box;padding:4px 8px;
+  font:650 10.5px/1.3 var(--font-ui)!important;text-transform:uppercase!important;letter-spacing:.03em!important}
+body.gx-barra-topo .tw td:has(>.tag.tn),body.gx-barra-topo .tw td:has(.er-grupo){min-width:134px;width:134px}
+/* Empresas do Grupo: uma letra só, mesmos tamanhos, grupo/entidade/sócio em caixa alta, selos no mesmo desenho */
+#tblExecRanking td,#tblExecRanking td.mono,#tblExecRanking .er-nome,#tblExecRanking .er-socio,#tblExecRanking strong{font-family:var(--font-ui)!important;font-variant-numeric:tabular-nums}
+#tblExecRanking td{font-size:13px!important;color:var(--text)!important;vertical-align:middle!important}
+#tblExecRanking td.mono{font-size:13px!important;color:var(--text)!important;font-weight:500}
+#tblExecRanking td.mono strong{font-size:13px!important;font-weight:700!important;color:var(--navy)!important}
+#tblExecRanking .er-nome{font-size:12.5px!important;font-weight:650!important;text-transform:uppercase;letter-spacing:.02em;border-left-width:3px}
+#tblExecRanking .er-socio{font-size:11px!important;text-transform:uppercase;letter-spacing:.02em;color:var(--text2)!important}
+#tblExecRanking .er-socio b{font-weight:600!important}
 #tblExecRanking span[title]{border-bottom:0!important}
-#tblExecRanking .capag,#tblExecRanking .tag.tg,#tblExecRanking .tag.tr,#tblExecRanking .tag.tx{display:inline-block;min-width:34px;text-align:center;padding:3px 10px!important;border-radius:99px!important;
-  font:650 11.5px var(--font-ui)!important;letter-spacing:.02em;text-transform:none}
-#tblExecRanking .capag.capag-O{background:var(--red-lt)!important;color:var(--red-d)!important;border:1px solid rgba(200,30,30,.28)!important}
-#tblExecRanking .tag.tv{font:600 10.5px var(--font-ui)!important;border-radius:99px}
+/* CAPAG: selo quadrado com a letra; Situação: pílula de largura fixa */
+#tblExecRanking .capag{display:inline-flex!important;align-items:center;justify-content:center;width:30px;height:26px;padding:0!important;border-radius:8px!important;
+  font:700 12.5px var(--font-ui)!important;letter-spacing:0;box-sizing:border-box}
+#tblExecRanking .capag.capag-O{width:auto;padding:0 9px!important;font-size:10.5px!important;text-transform:uppercase;background:var(--red-lt)!important;color:var(--red-d)!important;border:1px solid rgba(200,30,30,.28)!important}
+#tblExecRanking .tag.tg,#tblExecRanking .tag.tr,#tblExecRanking .tag.tx{display:inline-flex!important;align-items:center;justify-content:center;gap:5px;width:92px;height:26px;padding:0 8px!important;border-radius:99px!important;box-sizing:border-box;
+  font:650 10.5px var(--font-ui)!important;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#tblExecRanking .tag.tg::before,#tblExecRanking .tag.tr::before{content:'';width:7px;height:7px;border-radius:50%;background:currentColor;flex:none}
+#tblExecRanking .tag.tv{font:600 10.5px var(--font-ui)!important;border-radius:99px;text-transform:uppercase;letter-spacing:.02em}
 /* Processos: tabela com uma letra e um tamanho só */
 #tblProcBody td,#tblProcBody td.mono{font-family:var(--font-ui)!important;font-size:13px!important;font-variant-numeric:tabular-nums;color:var(--text)}
 #tblProcBody td:nth-child(2){white-space:nowrap}

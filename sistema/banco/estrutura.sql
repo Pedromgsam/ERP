@@ -1077,7 +1077,7 @@ insert into public.regras_tarefas (chave, nome, descricao, ligada, dias) values
   ('contrato_onboarding', 'Contrato novo → onboarding do cliente', 'Cria a tarefa de boas-vindas com o checklist do modelo "Onboarding de cliente"; prazo em N dias úteis', true, 10),
   ('processo_novo', 'Processo cadastrado → conferir processo e prazos', 'Para o advogado do processo; prazo em N dias úteis', true, 2),
   ('certidao_vencendo', 'Certidão ou documento vencendo → renovar', 'N dias antes da validade, para o responsável do cliente', true, 15),
-  ('parcela_parcelamento', 'Parcela de parcelamento do cliente → emitir guia', 'N dias antes do vencimento, para o responsável do cliente', true, 5),
+  ('parcela_parcelamento', 'Parcela de parcelamento do cliente → lembrete "Emitir guias"', 'N dias antes do vencimento aparece no card Lembretes do Início (não vira tarefa)', true, 5),
   ('parcela_acordo', 'Parcela de acordo do cliente → lembrar o cliente', 'N dias antes do vencimento (acompanhamento; não entra no financeiro)', true, 5),
   ('cobrar_honorario', 'Honorário vencido → cobrar', 'N dias depois do vencimento sem pagamento', false, 3),
   ('escalar_atraso', 'Tarefa atrasada → avisar o administrador', 'Depois de N dias úteis de atraso; com mais 2 dias a prioridade vira Alta', true, 3)
@@ -1189,17 +1189,8 @@ begin
            coalesce(nullif(rg.responsavel, ''), x.responsavel), least(x.validade, public.somar_uteis(current_date, 2)), x.cli, x.grupo_id) then n := n + 1; end if;
     end loop;
   end if;
-  -- parcelas de parcelamentos do cliente
-  select * into rg from public.regras_tarefas where chave = 'parcela_parcelamento' and ligada;
-  if found then
-    for x in select pa.id, pa.numero, pa.vencimento, p.empresa, p.natureza, p.grupo_id,
-                    (select cl.responsavel from public.clientes cl where cl.grupo_id = p.grupo_id and cl.responsavel <> '' limit 1) resp
-               from public.parcelas pa join public.parcelamentos p on p.id = pa.parcelamento_id
-              where not pa.pago and pa.vencimento between current_date and current_date + rg.dias loop
-      if public.tarefa_da_regra('parc:' || x.id, 'Emitir guia e enviar ao cliente — ' || x.empresa || ' (' || coalesce(nullif(x.natureza, ''), 'parcelamento') || ', parc. ' || coalesce(x.numero, '') || ')',
-           coalesce(nullif(rg.responsavel, ''), x.resp), public.somar_uteis(x.vencimento, -1), null, x.grupo_id) then n := n + 1; end if;
-    end loop;
-  end if;
+  -- parcelas de parcelamentos: desde o Backup 16 viram LEMBRETE no Início ("Emitir guias de parcelamentos"),
+  -- não tarefa. A regra continua guardando quantos dias antes o lembrete aparece.
   -- parcelas de acordos do cliente (acompanhamento; nada no financeiro)
   select * into rg from public.regras_tarefas where chave = 'parcela_acordo' and ligada;
   if found then
@@ -3670,3 +3661,28 @@ begin
 end $$;
 drop trigger if exists contrato_servico_propaga on public.contratos;
 create trigger contrato_servico_propaga after update of servico on public.contratos for each row execute function public.contrato_servico_propaga();
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- v22 (Backup 16) — Lembretes (não são tarefas), guias de parcelamento como lembrete
+-- ═══════════════════════════════════════════════════════════════════════
+update public.regras_tarefas set nome = 'Parcela de parcelamento do cliente → lembrete "Emitir guias"',
+  descricao = 'N dias antes do vencimento aparece no card Lembretes do Início (não vira tarefa)' where chave = 'parcela_parcelamento';
+-- tarefas antigas "Emitir guia…" saem da fila (vão para Excluídas; dá para restaurar)
+update public.tarefas set status = 'cancelada' where chave_regra like 'parc:%' and status not in ('concluida', 'cancelada');
+
+create table if not exists public.lembretes (
+  id uuid primary key default gen_random_uuid(),
+  texto text not null check (btrim(texto) <> '' and length(texto) <= 300),
+  dia date not null default current_date,
+  repete text not null default '' check (repete in ('', 'semanal', 'mensal', 'anual')),
+  pessoa text not null default '',              -- vazio = todo o escritório
+  feito_em date,
+  criado_por uuid default auth.uid(),
+  criado_em timestamptz not null default now()
+);
+alter table public.lembretes enable row level security;
+revoke all on public.lembretes from anon;
+grant select, insert, update, delete on public.lembretes to authenticated;
+drop policy if exists lembretes_equipe on public.lembretes;
+create policy lembretes_equipe on public.lembretes for all to authenticated using (public.eh_equipe()) with check (public.eh_equipe());
+create index if not exists lembretes_dia on public.lembretes (dia) where feito_em is null;
