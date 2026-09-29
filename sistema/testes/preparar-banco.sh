@@ -11,4 +11,6 @@ $P -d erp -c "insert into auth.users(email,senha_teste,raw_user_meta_data) value
   ('equipe@teste','senha123','{\"nome\":\"Adriana\"}'),
   ('novo@teste','senha123','{\"nome\":\"Novo\"}');
   update perfis set papel='equipe', funcoes='{\"financeiro_juridico\":\"editar\",\"financeiro_contab\":\"editar\",\"contratos\":\"editar\",\"clientes\":\"editar\",\"juridico\":\"editar\",\"tarefas\":\"editar\",\"documentos\":\"editar\",\"crm\":\"editar\",\"relatorios\":\"editar\"}' where email='equipe@teste';" >/dev/null
+# os testes enviam e-mails de mentira: a pausa do Backup 19 fica desligada aqui (tem teste próprio em emails.test.js)
+$P -d erp -c "update configuracoes set valor='false'::jsonb where chave='emails_pausados'" >/dev/null
 pkill -USR1 -x postgrest 2>/dev/null || true   # PostgREST relê a estrutura

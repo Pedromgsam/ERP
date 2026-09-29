@@ -12,8 +12,7 @@ const ABAS_ADMIN = [
   { id: 'historico', rot: '🕘 Histórico' },
   { id: 'acessos', rot: '🔐 Acessos' },
   { id: 'automacoes', rot: '⚡ Automações' },
-  { id: 'clientes_email', rot: '📨 E-mails aos clientes' },
-  { id: 'email', rot: '✉ Envio de e-mail' }
+  { id: 'email', rot: '✉ E-mails → Central' }
 ];
 
 TELAS.admin = async function () {
@@ -27,6 +26,9 @@ TELAS.admin = async function () {
 };
 
 async function pintarAdmin() {
+  // Backup 19: as telas de e-mail moraram para a Central de e-mails (abas) — lá o "atualizar" redesenha a aba aberta
+  if (!$('adm-corpo') && $('em-area-corpo')) return pintarAreaEmail();
+  if (E.adm.aba === 'email' || E.adm.aba === 'clientes_email') { E.em = Object.assign(E.em || {}, { area: E.adm.aba === 'email' ? 'config' : 'clientes' }); E.adm.aba = 'usuarios'; return irParaTela('emails'); }
   document.querySelectorAll('#adm-abas button').forEach((b) => b.classList.toggle('ativo', b.dataset.aba === E.adm.aba));
   const corpo = $('adm-corpo');
   corpo.innerHTML = '<div class="carregando">Carregando…</div>';
@@ -62,10 +64,15 @@ async function admUsuarios(corpo) {
           ' <button class="btn btn-o btn-mini" data-grupos="' + p.id + '">Escolher</button>'
         : '<span class="sub">—</span>') + '</td>' +
       '<td class="mono" data-ord="' + p.criado_em + '">' + dataBR(p.criado_em) + '</td>' +
-      '<td class="acoes-l"><button class="btn btn-o btn-mini" data-senha="' + esc(p.email) + '" title="Envia por e-mail um link para a pessoa criar uma senha nova">🔑 Link de senha</button></td></tr>').join('') +
+      '<td class="acoes-l"><button class="btn btn-o btn-mini" data-liberar="' + p.id + '" title="Confirma a conta sem depender do e-mail de confirmação: a pessoa entra com o e-mail e a senha provisória">✓ Liberar entrada</button> ' +
+        '<button class="btn btn-o btn-mini" data-senha="' + esc(p.email) + '" title="Envia por e-mail um link para a pessoa criar uma senha nova">🔑 Link de senha</button></td></tr>').join('') +
     '</tbody></table></div></div>' +
     '<div class="dica"><b>Administrador</b>: tudo, inclusive excluir, importar e liberar usuários. <b>Equipe</b>: só as <b>funções</b> marcadas (Financeiro, Contratos, Jurídico…), em Ver ou Editar; não exclui. ' +
     '<b>Cliente</b>: só consulta, no Portal, os grupos escolhidos. <b>Inativo</b>: não entra.</div>';
+  corpo.querySelectorAll('[data-liberar]').forEach((b) => b.onclick = () => comBotao(b, async () => {
+    const ok = await q(sb.rpc('confirmar_email_usuario', { p_perfil: b.dataset.liberar }));
+    aviso(ok ? '✓ Entrada liberada: a pessoa já entra com o e-mail e a senha provisória.' : 'Não foi possível confirmar por aqui: confirme em Supabase → Authentication → Users.', !ok);
+  }));
   corpo.querySelectorAll('[data-papel]').forEach((s) => s.onchange = () => comBotao(s, async () => {
     try {
       await q(sb.from('perfis').update({ papel: s.value }).eq('id', s.dataset.papel));
@@ -142,7 +149,8 @@ function formNovoUsuario(pre) {
       '<div class="inteiro' + (pre && pre.papel !== 'equipe' ? ' escondido' : '') + '" id="us-funcoes"><div class="secao" style="margin-bottom:6px">Funções (o que a pessoa pode usar)</div>' +
         gradeAreas(pre ? pre.areas : 'ambos') + gradeFuncoes(pre && pre.papel === 'equipe' ? pre.funcoes : MODELOS_ACESSO['Sócio (tudo)']) + '</div>' +
       '<div class="inteiro escondido" id="us-grupos"><div class="sub" style="margin-bottom:6px">Grupos que o cliente vê no Portal</div>' + listaGruposMarcar([]) + '</div>' +
-      '<div class="dica inteiro">Passe o e-mail e a senha provisória para a pessoa. Se o Supabase estiver com <b>confirmação de e-mail</b> ligada, ela recebe um e-mail e precisa clicar no link antes do primeiro acesso.</div>' +
+      '<div class="dica inteiro">Passe o e-mail e a senha provisória para a pessoa: a conta já nasce <b>liberada</b> (não precisa clicar em link de confirmação). ' +
+      'Se o Supabase ainda mandar o e-mail de confirmação, desligue em Authentication → Sign In / Providers → Email → "Confirm email".</div>' +
       '</form>',
     rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="btn-criar-us">Criar usuário</button></div>' });
   const f = j.querySelector('#f-us');
@@ -175,6 +183,7 @@ function formNovoUsuario(pre) {
     if (!perfil) throw new Error('Usuário criado, mas o perfil ainda não apareceu. Abra Usuários de novo em alguns segundos e ajuste o acesso.');
     await q(sb.from('perfis').update({ papel, nome, funcoes: papel === 'equipe' ? lerGradeFuncoes(j) : {}, areas: papel === 'equipe' ? lerAreas(j) : 'ambos' }).eq('id', perfil.id));
     if (papel === 'cliente') await salvarGruposPortal(perfil.id, ids);
+    await q(sb.rpc('confirmar_email_usuario', { p_perfil: perfil.id })).catch(() => false);   // entra direto, sem esperar o e-mail de confirmação
     aviso('✓ Usuário criado. Passe o e-mail e a senha provisória para ' + nome.split(' ')[0] + '.');
     fecharJanela(j); await pintarAdmin();
   });
@@ -686,13 +695,10 @@ async function admClientesEmail(corpo) {
   const F = E.adm.cem = E.adm.cem || { busca: '', perfil: '' };
   const rot = (v) => (PERFIS_EMAIL.find((p) => p[0] === (v || 'padrao')) || PERFIS_EMAIL[0])[1];
   corpo.innerHTML =
-    '<div class="card"><div class="card-hd">✉ Central de e-mails ao cliente</div><div class="card-bd"><p class="sub" style="margin-bottom:8px">Textos dos e-mails (honorários, parcelamentos, acordos, recibo), o automático de cada tipo e o horário do envio. ' +
-      'A lista do que sai hoje fica no ⋯ → "Central de e-mails ao cliente".</p><div class="acoes"><button class="btn btn-o" type="button" id="cem-modelos">✎ Modelos dos e-mails</button>' +
-      '<button class="btn btn-o" type="button" id="cem-auto">⚙ Automático e horário</button></div></div></div>' +
     '<div class="card"><div class="card-hd">📨 Quem recebe e-mail automático de honorários</div><div class="card-bd">' +
       '<div class="cem-perfis">' + PERFIS_EMAIL.map(([v, r, d]) => '<div class="cem-perfil"><b>' + r + '</b><span>' + d + '</span></div>').join('') + '</div>' +
       '<p class="sub" style="margin-top:10px">Cliente novo entra como <b>Padrão</b>. Os e-mails vão para o contato financeiro do cliente (ficha → Contatos) e só saem se a automação estiver ligada em ⚡ Automações. ' +
-      'Nome, chave PIX e modelos ficam em <b>✉ Envio de e-mail</b>.</p></div></div>' +
+      'Nome, chave PIX e modelos ficam na aba <b>⚙ Configuração do envio</b>.</p></div></div>' +
     '<div class="filtros"><input class="busca" id="cem-busca" placeholder="Buscar cliente ou grupo" autocomplete="off" value="' + esc(F.busca) + '">' +
       '<select class="busca sel" id="cem-filtro"><option value="">Todos os perfis</option>' + PERFIS_EMAIL.map(([v, r]) => '<option value="' + v + '"' + (F.perfil === v ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>' +
       '<span class="sub" id="cem-sel" style="align-self:center"></span>' +
@@ -743,7 +749,5 @@ async function admClientesEmail(corpo) {
   });
   let tb; $('cem-busca').oninput = (ev) => { clearTimeout(tb); tb = setTimeout(() => { F.busca = ev.target.value; pintar(); }, 250); };
   $('cem-filtro').onchange = (ev) => { F.perfil = ev.target.value; pintar(); };
-  $('cem-modelos').onclick = () => janelaModelosEmail();
-  $('cem-auto').onclick = () => janelaAutoEmails();
   pintar();
 }

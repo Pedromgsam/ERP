@@ -143,7 +143,7 @@ async function cardMinhaFila() {
   await equipe().catch(() => []);
   const ts = await q(sb.from('tarefas').select('*').not('status', 'in', '(concluida,cancelada)')).catch(() => []);
   const todas = ordenarFila(ts.filter((t) => ehMinha(t) && !/^(cob|parc|aco):/.test(t.chave_regra || ''))), minhas = FILA.toda ? todas : todas.slice(0, 5);
-  const html = '<div class="card ini-fila' + (FILA.min ? ' minimizada' : '') + '"><div class="card-hd">📋 Minha fila de trabalho <span class="sub">' + todas.length + ' aberta(s)</span>' +
+  const html = '<div class="card ini-fila' + (FILA.min ? ' minimizada' : '') + '"><div class="card-hd">📋 Minha fila de trabalho <span class="sub">' + plural(todas.length, 'aberta', 'abertas') + ' · suas</span>' +
       '<div class="segmento ini-fila-vista" role="group" aria-label="Ver como">' + VISTAS_FILA.map(([v, r]) => '<button type="button" data-fila-vista="' + v + '"' + (FILA.vista === v ? ' class="ativo"' : '') + '>' + r + '</button>').join('') + '</div>' +
       '<button type="button" class="btn btn-o btn-mini ini-fila-min" data-fila-min aria-expanded="' + !FILA.min + '">' + (FILA.min ? '▸ Mostrar' : '▾ Minimizar') + '</button></div>' +
     (FILA.min ? '' : '<div class="card-bd">' + (FILA.vista !== 'lista' ? calendarioFila(todas) :
@@ -880,16 +880,17 @@ function levaDoAviso(nivel) {
   return 's' + iso(d);
 }
 async function coletarAlertas() {
-  const h = hojeISO(), lim = somarDias(h, 5), admin = E.perfil && E.perfil.papel === 'admin';
+  const h = hojeISO(), lim = somarDias(h, 5);
   const fin = pode('financeiro_juridico') || pode('financeiro_contab'), jur = pode('juridico');
-  const [nots, ts, docs, certs, lidos, lanc, acs] = await Promise.all([
+  // Backup 19: aviso é só novidade (prazo chegando, o que vence HOJE, certidão, notificação). O que já tem lugar próprio no
+  // Início não repete aqui: tarefas atrasadas (suas e da equipe), honorários e acordos em atraso, documentos vencendo.
+  const [nots, ts, certs, lidos, lanc, acs] = await Promise.all([
     q(sb.from('notificacoes').select('*').eq('lida', false).order('criado_em', { ascending: false }).limit(50)).catch(() => []),
     q(sb.from('tarefas').select('id, titulo, prazo, prazo_fatal, responsavel, participantes, status').not('status', 'in', '(concluida,cancelada)').or('prazo.lte.' + lim + ',prazo_fatal.lte.' + lim)).catch(() => []),
-    q(sb.from('documentos').select('id, nome, validade, cliente_id').eq('arquivado', false).not('validade', 'is', null).lte('validade', somarDias(h, 15))).catch(() => []),
     q(sb.from('certidoes').select('id, orgao, validade, cliente_id').not('validade', 'is', null).lte('validade', somarDias(h, 15))).catch(() => []),
     q(sb.from('avisos_lidos').select('chave').gte('lido_em', new Date(Date.now() - 21 * 864e5).toISOString())).catch(() => []),
-    fin ? q(sb.from('lancamentos').select('empresa, valor, redutor, vencimento').eq('tipo', 'receita').eq('pago', false).eq('perda', false).lte('vencimento', h)).catch(() => []) : [],
-    jur ? q(sb.from('acordos').select('id, valor, vencimento').eq('pago', false).lte('vencimento', h)).catch(() => []) : []
+    fin ? q(sb.from('lancamentos').select('empresa, valor, redutor, vencimento').eq('tipo', 'receita').eq('pago', false).eq('perda', false).eq('vencimento', h)).catch(() => []) : [],
+    jur ? q(sb.from('acordos').select('id, valor, vencimento').eq('pago', false).eq('vencimento', h)).catch(() => []) : []
   ]);
   const al = nots.map((n) => ({ nivel: n.tipo === 'rascunho' ? 'medio' : 'info', tipo: n.tipo || 'aviso', titulo: n.titulo, detalhe: n.detalhe, notif: n.id, link: n.link, quando: n.criado_em }));
   const add = (a) => { a.chave = a.assunto + '@' + levaDoAviso(a.nivel); al.push(a); };
@@ -898,22 +899,17 @@ async function coletarAlertas() {
     const ref = t.prazo_fatal && (!t.prazo || t.prazo_fatal <= t.prazo) ? t.prazo_fatal : t.prazo, fatal = ref === t.prazo_fatal;
     if (!ref) return;
     const d = diasAte(ref);
-    if (minha && [5, 2, 1, 0].includes(d)) add({ nivel: d <= 1 ? 'alto' : 'medio', tipo: 'prazo', assunto: 'prazo:' + t.id + ':' + d, titulo: (fatal ? '⚑ Prazo fatal ' : 'Prazo ') + (d === 0 ? 'HOJE' : 'em ' + d + ' dia(s)') + ': ' + t.titulo, detalhe: dataBR(ref), tarefa: t.id });
-    else if (minha && d < 0) add({ nivel: 'alto', tipo: 'prazo', assunto: 'atrasada:' + t.id, titulo: 'Atrasada há ' + (-d) + ' dia(s): ' + t.titulo, detalhe: (fatal ? 'prazo fatal ' : 'prazo ') + dataBR(ref), tarefa: t.id });
-    else if (admin && !minha && d < -3) add({ nivel: 'medio', tipo: 'equipe', assunto: 'equipe:' + t.id, titulo: 'Equipe: ' + t.titulo + ' atrasada há ' + (-d) + ' dias', detalhe: t.responsavel || 'sem responsável', tarefa: t.id });
+    if (minha && [5, 2, 1, 0].includes(d)) add({ nivel: d <= 1 ? 'alto' : 'medio', tipo: 'prazo', assunto: 'prazo:' + t.id + ':' + d, titulo: (fatal ? '⚑ Prazo fatal ' : 'Prazo ') + (d === 0 ? 'HOJE' : 'em ' + plural(d, 'dia', 'dias')) + ': ' + t.titulo, detalhe: dataBR(ref), tarefa: t.id });
   });
-  docs.forEach((x) => add({ nivel: x.validade < h ? 'alto' : 'medio', tipo: 'documento', assunto: 'doc:' + x.id, titulo: 'Documento ' + (x.validade < h ? 'vencido' : 'vencendo') + ': ' + x.nome, detalhe: dataBR(x.validade) + ' · ' + nomeCliente(x.cliente_id), cliente: x.cliente_id }));
   certs.forEach((x) => add({ nivel: x.validade < h ? 'alto' : 'medio', tipo: 'certidao', assunto: 'cert:' + x.id, titulo: 'Certidão ' + x.orgao + ' ' + (x.validade < h ? 'vencida' : 'vencendo'), detalhe: dataBR(x.validade) + ' · ' + nomeCliente(x.cliente_id), cliente: x.cliente_id }));
   // financeiro e acordos: um aviso por assunto (não um por lançamento), com o total
   [['escritorio', 'Jurídico', 'financeiro_juridico'], ['contabilidade', 'Contabilidade', 'financeiro_contab']].forEach(([emp, rot, f]) => {
     if (!pode(f)) return;
-    const hoje = lanc.filter((l) => l.empresa === emp && l.vencimento === h), atr = lanc.filter((l) => l.empresa === emp && l.vencimento < h);
-    if (hoje.length) add({ nivel: 'alto', tipo: 'financeiro', assunto: 'vencehoje:' + emp, titulo: hoje.length + ' honorário(s) ' + rot + ' vencem hoje', detalhe: brl(soma(hoje, vl)) + ' · confira se entrou e dê baixa', tela: 'hoje' });
-    if (atr.length) add({ nivel: 'medio', tipo: 'financeiro', assunto: 'atraso:' + emp, titulo: atr.length + ' honorário(s) ' + rot + ' em atraso', detalhe: brl(soma(atr, vl)) + ' · cobrar ou dar baixa', tela: 'hoje' });
+    const hoje = lanc.filter((l) => l.empresa === emp);
+    if (hoje.length) add({ nivel: 'alto', tipo: 'financeiro', assunto: 'vencehoje:' + emp, titulo: plural(hoje.length, 'honorário ' + rot + ' vence hoje', 'honorários ' + rot + ' vencem hoje'), detalhe: brl(soma(hoje, vl)) + ' · confira se entrou e dê baixa', tela: 'hoje' });
   });
-  const acH = acs.filter((a) => a.vencimento === h), acA = acs.filter((a) => a.vencimento < h);
-  if (acH.length) add({ nivel: 'alto', tipo: 'acordo', assunto: 'acordohoje', titulo: acH.length + ' parcela(s) de acordo vencem hoje', detalhe: brl(soma(acH, (a) => a.valor)) + ' · lembrar o cliente', tela: 'acordos' });
-  if (acA.length) add({ nivel: 'medio', tipo: 'acordo', assunto: 'acordoatraso', titulo: acA.length + ' parcela(s) de acordo vencidas', detalhe: brl(soma(acA, (a) => a.valor)) + ' · confirmar pagamento com o cliente', tela: 'acordos' });
+  const acH = acs;
+  if (acH.length) add({ nivel: 'alto', tipo: 'acordo', assunto: 'acordohoje', titulo: plural(acH.length, 'parcela de acordo vence hoje', 'parcelas de acordo vencem hoje'), detalhe: brl(soma(acH, (a) => a.valor)) + ' · lembrar o cliente', tela: 'acordos' });
   const lidas = new Set(lidos.map((x) => x.chave));
   al.forEach((a) => { a.lido = !!(a.chave && lidas.has(a.chave)); });
   const ordem = { alto: 0, medio: 1, info: 2 };

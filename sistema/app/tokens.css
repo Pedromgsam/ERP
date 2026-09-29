@@ -44,6 +44,8 @@
   --bar-bg:#1B2A4A;--bar-borda:rgba(255,255,255,.06);
   --primario:#1B2A4A;--primario-hover:#243659;--on-primario:#FFFFFF;
   --selecao:#1B2A4A;--on-selecao:#FFFFFF;
+  /* cabeçalho das tabelas (Backup 19: volta ao azul-marinho, texto branco) */
+  --th-bg:#1B2A4A;--th-fg:#FFFFFF;--th-fg-2:rgba(255,255,255,.72);
 
   /* gráficos (o canvas não entende var(): o JS lê estes valores na hora de desenhar) */
   --chart-1:#2F5FAE;--chart-2:#2E8C6A;--chart-3:#C0873A;--chart-4:#8266C4;--chart-5:#B85C5C;--chart-6:#3E8FA8;--chart-7:#8A8F99;--chart-8:#B8A04E;
@@ -90,6 +92,7 @@ html[data-tema="escuro"]{
   --bar-bg:#0A0A0A;--bar-borda:rgba(255,255,255,.08);
   --primario:#2E5EAA;--primario-hover:#3A6BBA;--on-primario:#FFFFFF;
   --selecao:#2A2A2E;--on-selecao:#FFFFFF;
+  --th-bg:#17223A;--th-fg:#EEF1F6;--th-fg-2:rgba(238,241,246,.72);
   --chart-1:#6E97DB;--chart-2:#55B08F;--chart-3:#D6A25C;--chart-4:#A08AD9;--chart-5:#D98080;--chart-6:#62AFC6;--chart-7:#8E8E96;--chart-8:#CDB66A;
   --chart-rampa-1:#A9C1EC;--chart-rampa-2:#7CA3E0;--chart-rampa-3:#5A83C8;--chart-rampa-4:#3D62A2;--chart-rampa-5:#284574;
   --chart-texto:#A0A0A8;--chart-grade:rgba(255,255,255,.07);--chart-borda:#0F0F10;

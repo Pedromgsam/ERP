@@ -83,9 +83,17 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
-- Última entrega: **Backup 18 — Design** (só visual): tokens sóbrios + escuro preto, `design.css`, cores soltas dos CSS viraram tokens,
+- Última entrega: **Backup 19 — enxuto** (prompt em `sistema/PROMPT-BACKUP-19.md`). SQL: pausa de e-mails (`configuracoes.emails_pausados`,
+  trigger `email_fila_reter` → status `retido`; `pausar_emails`, `emails_retidos_acao(ids,'liberar'|'descartar')`, flag de sessão
+  `erp.liberar_email`), `confirmar_email_usuario(perfil)` (admin libera a entrada sem o e-mail de confirmação). Testes rodam com a pausa
+  desligada (`preparar-banco.sh`). Central de e-mails com abas (`AREAS_EMAIL`: fila/clientes/config/avisos/antiga; `pintarAreaEmail`,
+  `pintarAdmin` redesenha a aba da Central quando está lá). Início: `cardMural` junta lembretes/guias (`dadosLembretes`, `htmlLembretes`),
+  `coletarAlertas` sem o que o Início já mostra, `plural(n, um, varios)` no nucleo.js. Parcelamentos: remendo `remendos/parcelamentos-b19.js`
+  (`_parcTodos`, `filtrarParc` = `_filtrarParcBase` sem concluídos, `renderParcAnalise` por grupo → órgão, `_parcDias`, `_parcDetalhe`).
+  Acordos: `_acTodos`/`_acCaixaTodos` no remendo. Financeiro: `_faTabelaAtraso`, total no comparativo por pessoa, `cFaMes`/`cFcMes` com as
+  cores próprias (pluginTema pula). Jurídico: `subnavJuridico` (erp-telas.js). Tabelas: `--th-bg/--th-fg` (navy). `estrutura.sql` = 4626 linhas.
+- Backup 18 (base): design — tokens sóbrios + escuro preto, `design.css`, cores soltas dos CSS viraram tokens,
   gráficos com `--chart-*` e sem animação, `tema-escuro.js` sem tons azulados. Diagnóstico em `sistema/DIAGNOSTICO-DESIGN-B18.md`.
-  `estrutura.sql` sem mudança (4556 linhas).
 - Backup 17 (base): Início: `cardResumoEscritorio` sem Processos (atraso/hoje/5 dias no mesmo cartão), `buscaPubAutomatica`
   (DJEN pelo navegador 1×/dia, localStorage `erp_pub_auto`). Painel "Empresas do grupo" = visual de Processos (#tblExecRanking em erp-telas.css).
   Acordos: lista `.acx-*` no remendo `acordos-b16.js`. CRM: 8 etapas abertas (nova "Follow-up da proposta", ordem 5), finais viram faixa
