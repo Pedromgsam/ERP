@@ -188,7 +188,7 @@ function relatorioAlerta(a) {
   const ac = j.querySelector('.janela-rp .acoes');
   if (r.linhas.length && ac) {
     const b = document.createElement('button'); b.type = 'button'; b.className = 'btn btn-o'; b.dataset.virarTarefa = '1'; b.textContent = '📋 Virar tarefa';
-    b.onclick = () => { fecharJanela(j); janelaVirarTarefa(a.titulo || r.titulo, r); };
+    b.onclick = () => { fecharJanela(j); janelaVirarTarefa(a.rot || a.titulo || r.titulo, r); };
     ac.prepend(b);
   }
 }

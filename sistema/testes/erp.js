@@ -357,7 +357,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.click('#tf-vista [data-v=fluxos]'); await p.waitForTimeout(500);
     ok('fluxo com linha do tempo', (await p.$$('#tf-vista-corpo .gantt-lin')).length === 7);
     await foto(p, 'fluxos');
-    await p.click('#tf-vista [data-v=lista]'); await p.click('#tf-atalho [data-v=abertas]'); await p.waitForTimeout(500);
+    await p.click('#tf-vista [data-v=lista]'); await p.click('#tf-abas [data-aba=abertas]'); await p.click('#tf-atalho [data-v=""]'); await p.waitForTimeout(500);
     // abrir a tarefa = ficha de leitura; "Editar" abre o formulário completo
     await p.click('#tf-vista-corpo tr[data-abrir-t]:has-text("Protocolo")'); await p.waitForSelector('.tf-ficha'); await p.waitForTimeout(400);
     ok('abrir tarefa mostra a ficha com Concluir, Encaminhar, + Subtarefa e Editar', /Protocolo/.test(await p.textContent('.tf-ficha-hd')) &&
@@ -375,7 +375,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('com revisão: concluir manda para "Aguardando revisão" e avisa o revisor', sql("select status from tarefas where titulo='Peça com revisão'") === 'revisao' &&
       sql("select count(*) from notificacoes n join perfis p on p.id=n.usuario_id where p.email='equipe@teste' and n.tipo='revisao'") === '1');
     // horas: ▶ e ■
-    await p.click('#tf-vista [data-v=lista]'); await p.click('#tf-atalho [data-v=abertas]'); await p.waitForTimeout(600);
+    await p.click('#tf-vista [data-v=lista]'); await p.click('#tf-abas [data-aba=abertas]'); await p.click('#tf-atalho [data-v=""]'); await p.waitForTimeout(600);
     await p.click('#tf-vista-corpo tr[data-abrir-t]:has-text("Revisão do sócio") [data-editar-t]'); await p.waitForSelector('#tf-crono'); await p.waitForTimeout(300);
     await p.click('#tf-crono'); await p.waitForTimeout(800); await p.click('#tf-crono'); await p.waitForTimeout(800);
     ok('▶/■ registra horas na tarefa', sql("select count(*) from tarefa_tempos where fim is not null") === '1');
@@ -758,7 +758,6 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     // telas do ERP antigo
     await nav(p, 'resumo'); await p.waitForTimeout(1500);
     ok('Painel: rosca com a legenda em tabela ao lado', /Total/.test(await p.textContent('#cResDonutLeg').catch(() => '')));
-    await p.evaluate(() => localStorage.setItem('erp_proc_antiga', '1'));   // tela antiga (continua disponível pelo ⋯)
     await nav(p, 'processos'); await p.waitForTimeout(1200);
     ok('Processos: sem "Visão Geral" e sem "Todos status"; Análise com passivo e ativo em disputas', !(await p.isVisible('#kpiProc')) && !(await p.$('#fProcStatus')) &&
       /Passivo em disputas/.test(await p.textContent('#procAnalise')) && /Ativo em disputas/.test(await p.textContent('#procAnalise')));
@@ -766,7 +765,6 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       await p.click('#chipProcAtivo'); await p.waitForTimeout(400);
       const n2 = await p.evaluate(() => document.querySelectorAll('#tblProcBody tr').length);
       ok('Processos: começa só com Ativos; desmarcar mostra todos', n2 >= n1, n1 + '→' + n2); await p.click('#chipProcAtivo'); }
-    await p.evaluate(() => localStorage.removeItem('erp_proc_antiga'));
     await nav(p, 'parcelamentos'); await p.waitForTimeout(1200);
     ok('Parcelamentos: saldo residual com tabela ao lado e ordenar por título', !!(await p.$('#cParcResidualTab table')) && await p.isVisible('#parcOrd [data-o=residual]'));
     await p.click('#parcOrd [data-o=residual]'); await p.waitForTimeout(400);
@@ -816,34 +814,27 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.evaluate(() => { if (window.ERP_EDITOR) window.ERP_EDITOR.gravou('teste do rodapé'); }); await p.waitForTimeout(500);
     { const on0 = await p.evaluate(() => document.getElementById('gx-rodape').classList.contains('on')); await p.waitForTimeout(8600);
       ok('rodapé "Última gravação" some sozinho', on0 && !(await p.evaluate(() => document.getElementById('gx-rodape').classList.contains('on')))); }
-    // Início: selos separados, Registrar pagamento, cartão abre relatório
+    // Início: selos separados, Recebido, cartão abre relatório
     sql("insert into lancamentos(empresa,tipo,descricao,vencimento,valor) values ('escritorio','receita','Vence hoje B14',current_date,50),('escritorio','receita','Venceu B14',current_date-3,60)");
     await nav(p, 'hoje'); await p.waitForTimeout(1800); await p.evaluate(() => { const x = document.getElementById('gx-pop-avisos'); if (x) x.remove(); });
     { const t = await p.textContent('#panel-hoje .ini-atraso-selos');
       ok('Início: "vencidos" (vermelho) e "vence hoje" (âmbar) separados', /\d+ vencidos?/.test(t) && /vence(m)? hoje/.test(t) && !!(await p.$('#panel-hoje .ini-atraso-selos .pill.vencido')) && !!(await p.$('#panel-hoje .ini-atraso-selos .pill.hoje')), t);
-      ok('Início: botão "Registrar pagamento"', /Registrar pagamento/.test(await p.textContent('#panel-hoje .ini-atraso'))); }
+      ok('Início: botão "Recebido"', /✓ Recebido/.test(await p.textContent('#panel-hoje .ini-atraso')) && !/Registrar pagamento/.test(await p.textContent('#panel-hoje .ini-atraso'))); }
     await p.click('#panel-hoje [data-ini-rel="escritorio|em_atraso"]'); await p.waitForSelector('#gs-raiz .janela'); await p.waitForTimeout(500);
-    ok('Início: clicar no cartão abre o relatório completo', /Em atraso/.test(await p.textContent('#gs-raiz .janela-hd')) && /Venceu B14/.test(await p.textContent('#gs-raiz .janela-bd')));
+    ok('Início: clicar no cartão abre o relatório completo (largo e sem a coluna Descrição)', /Em atraso/.test(await p.textContent('#gs-raiz .janela-hd')) &&
+      (await p.$$('#gs-raiz .janela-bd tbody tr')).length >= 2 && !(await p.$$eval('#gs-raiz .janela-bd th', (l) => l.some((x) => /Descrição/.test(x.textContent)))) && !!(await p.$('#gs-raiz .janela.janela-rel')));
     await p.keyboard.press('Escape'); await p.waitForTimeout(200);
     await p.click('#panel-hoje .ini-atraso tr[data-linha-pagar]:has-text("Venceu B14") td:nth-child(2)'); await p.waitForTimeout(600);
-    ok('Início: clicar no honorário abre "Registrar pagamento"', /Registrar pagamento/.test(await p.textContent('#gs-raiz .janela-hd')));
+    ok('Início: clicar no honorário abre "Recebido — confirme a data"', /Recebido/.test(await p.textContent('#gs-raiz .janela-hd')));
     await p.keyboard.press('Escape'); await p.waitForTimeout(200);
     sql("delete from lancamentos where descricao in ('Vence hoje B14','Venceu B14')");
     // telas antigas
     await nav(p, 'resumo'); await p.waitForTimeout(1500);
     ok('Painel: valores inteiros (sem "mil"/"mi")', /R\$\s?[\d.]+,\d{2}/.test(await p.textContent('#execKpis')) && !/\d(k|M)\b/.test(await p.textContent('#kpiSecProc')));
     await nav(p, 'parcelamentos'); await p.waitForTimeout(1200);
-    ok('Parcelamentos: saldo residual só em tabela; botão "Notificar clientes"', !(await p.$('#cParcResidual')) && !!(await p.$('#cParcResidualTab table')) && /Notificar clientes/.test(await p.textContent('#panel-parcelamentos .mod-banner')));
-    await nav(p, 'acordos'); await p.waitForTimeout(1200);
-    ok('Acordos: "Valor por devedor" em tabela e sem o gráfico de atraso', !!(await p.$('#acordDevedorTab')) && !(await p.$('#cAcordAtraso')));
-    // processos: tela nova (e a antiga pelo ⋯)
-    await nav(p, 'processos'); await p.waitForTimeout(1500);
-    ok('Processos abre na tela nova, com análise e ações na linha', /#processosNovo$/.test(p.url()) && !!(await p.$('#panel-processosNovo .pr-tab')) && /Análise da carteira/.test(await p.textContent('#panel-processosNovo')));
-    { const a = await visiveis('#panel-processosNovo .pr-tab tbody tr'); await p.click('#pr-sit [data-v=extinto]'); await p.waitForTimeout(300);
-      ok('Processos (nova): situação marca mais de uma', await visiveis('#panel-processosNovo .pr-tab tbody tr') >= a); }
-    await p.click('#gs-hd .gs-bt-mais'); await p.click('#gs-proc-tela'); await p.waitForTimeout(1200);
-    ok('⋯ → volta para a tela antiga de Processos', await p.isVisible('#panel-processos') && !!(await p.$('#tblProcBody')));
-    await p.click('#gs-hd .gs-bt-mais'); await p.click('#gs-proc-tela'); await p.waitForTimeout(800);
+    ok('Parcelamentos: botão "Notificar clientes" (versão do Backup 13)', /Notificar clientes/.test(await p.textContent('#panel-parcelamentos .mod-banner')));
+    await nav(p, 'processos'); await p.waitForTimeout(1200);
+    ok('Processos: volta a abrir a tela do Backup 13 (sem a tela nova)', /#processos$/.test(p.url()) && await p.isVisible('#panel-processos') && !!(await p.$('#tblProcBody')) && !(await p.$('#panel-processosNovo')));
     // conciliação OFX
     { const g = sql("select id from grupos where nome='Grupo Alfa'");
       sql("insert into lancamentos(empresa,tipo,descricao,grupo_id,vencimento,valor) values ('escritorio','receita','OFX B14'," + "'" + g + "',current_date-2,1234.56)");
@@ -883,6 +874,69 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       ok('E-mails aos clientes: perfil muda na linha', sql("select perfil_email from clientes where id='" + id + "'") === 'nunca'); }
     await p.click('#adm-abas [data-aba=usuarios]'); await p.waitForTimeout(1200);
     ok('Usuários: os 4 acessos combinados aparecem com "Criar conta"', (await p.$$('[data-prev]')).length === 4);
+
+    // ── Backup 15 ──
+    // Início: fila em calendário, escolha guardada no perfil; mural
+    await nav(p, 'hoje'); await p.waitForTimeout(1500); await p.evaluate(() => { const x = document.getElementById('gx-pop-avisos'); if (x) x.remove(); });
+    await p.click('#panel-hoje [data-fila-vista=semana]'); await p.waitForTimeout(1200);
+    ok('Início: fila vira calendário semanal e a escolha fica guardada', !!(await p.$('#panel-hoje .fila-semana')) &&
+      sql("select preferencias->'fila'->>'vista' from perfis where email='pedro@teste'") === 'semana', sql("select preferencias::text from perfis where email='pedro@teste'"));
+    await p.click('#panel-hoje [data-fila-vista=lista]'); await p.waitForTimeout(800);
+    ok('Início: fila mostra no máximo 5 de cara', (await p.$$('#panel-hoje .ini-fila .fila-item, #panel-hoje .ini-fila tbody tr')).length <= 5);
+    await p.fill('#mural-txt', 'Reunião geral sexta às 14h (teste)'); await p.click('#mural-pub'); await p.waitForTimeout(1500);
+    ok('Início: mural publica recado para o escritório', sql("select count(*) from mural where texto like 'Reunião geral%'") === '1' && /Reunião geral sexta/.test(await p.textContent('#ini-mural')));
+    // Painel: sem faixa, "Atualizado" e entidades/grupos na linha do filtro
+    await nav(p, 'resumo'); await p.waitForTimeout(1500);
+    ok('Painel: sem a faixa "Painel Executivo" e com "Atualizado" na linha do filtro', !(await p.isVisible('#panel-resumo > .mod-banner')) && await p.isVisible('#gx-linha-painel'));
+    // Financeiro Jurídico: área do serviço, detalhe ao clicar na linha
+    { const cli = sql("select id from clientes where nome='Alfa Comércio Ltda'");
+      sql("insert into lancamentos(empresa,tipo,descricao,cliente_id,vencimento,valor,servico) values ('escritorio','receita','Serviço B15','" + cli + "',current_date+10,321,'Tributário')");
+      await p.evaluate(() => ERP_RECARREGAR()); await p.waitForTimeout(2500);
+      const id = sql("select id from lancamentos where descricao='Serviço B15'");
+      await p.evaluate((x) => GS.detalheLancamento(x), id); await p.waitForTimeout(1200);
+      ok('Financeiro: clicar na linha abre a visualização (área do serviço, Editar, Recebido)', /Tributário/.test(await p.textContent('#gs-raiz .janela')) && !!(await p.$('#gs-raiz .janela [data-editar]')));
+      await p.keyboard.press('Escape'); await p.waitForTimeout(200);
+      sql("delete from lancamentos where descricao='Serviço B15'"); }
+    // Contrato: cadastrar cliente novo sem sair do formulário
+    await p.evaluate(() => GS.formContrato({}, () => {})); await p.waitForSelector('#ctr-novo-cli');
+    await p.click('#ctr-novo-cli'); await p.waitForSelector('#f-cli'); await p.fill('#f-cli [name=nome]', 'Cliente Novo B15 Ltda');
+    await p.click('#btn-salvar-cli'); await p.waitForTimeout(3000);
+    ok('Contrato: "+ Novo cliente" cadastra e já escolhe o cliente', sql("select count(*) from clientes where nome='Cliente Novo B15 Ltda'") === '1' &&
+      await p.evaluate(() => { const s = document.querySelector('#f-ctr [name=cliente_id]'); return !!s && /Cliente Novo B15/.test(s.options[s.selectedIndex].text); }));
+    await p.keyboard.press('Escape'); await p.waitForTimeout(300);
+    // CRM: só as vigentes no funil; ganhas em aba própria; ficha abre em Resumo
+    await nav(p, 'crm'); await p.waitForTimeout(1500);
+    ok('CRM: funil só com oportunidades em andamento', !(await p.$('#panel-crm .cr-final-ganho .cr-card')) && !!(await p.$('#panel-crm .cr-solte')));
+    await p.click('#cr-abas [data-aba=ganho]'); await p.waitForTimeout(600);
+    ok('CRM: aba "Ganhos" lista as fechadas', /Planejamento tributário/.test(await p.textContent('#cr-corpo')));
+    await p.click('#cr-corpo tr[data-op]'); await p.waitForSelector('#op-abas'); await p.waitForTimeout(500);
+    ok('CRM: ficha abre em "Resumo" (visualização), com botão Editar', await p.evaluate(() => document.querySelector('#op-abas .ativo').dataset.aba === 'dados') && !!(await p.$('#op-editar')));
+    await p.keyboard.press('Escape'); await p.waitForTimeout(300); await p.click('#cr-abas [data-aba=andamento]');
+    // Tarefas: excluir manda para a aba Excluídas; restaurar volta
+    sql("insert into tarefas(titulo,responsavel,status) values ('Tarefa B15 excluir','Pedro','pendente')");
+    await p.evaluate(() => { GS.E.tf = null; }); await nav(p, 'tarefas'); await p.waitForTimeout(1500);
+    await p.click('#tf-vista [data-v=lista]'); await p.click('#tf-abas [data-aba=abertas]'); await p.fill('#tf-busca', 'Tarefa B15'); await p.waitForTimeout(800);
+    await p.click('#panel-tarefas [data-editar-t="' + sql("select id from tarefas where titulo='Tarefa B15 excluir'") + '"]'); await p.waitForSelector('#btn-excluir-tf');
+    await p.click('#btn-excluir-tf'); await p.waitForTimeout(1500);
+    ok('Tarefas: excluir vai para a aba "Excluídas" (não apaga)', sql("select status from tarefas where titulo='Tarefa B15 excluir'") === 'cancelada' && !/Tarefa B15 excluir/.test(await p.textContent('#tf-corpo')));
+    await p.click('#tf-abas [data-aba=excluidas]'); await p.waitForTimeout(500);
+    await p.click('#tf-corpo [data-restaurar-t]'); await p.waitForTimeout(1500);
+    ok('Tarefas: "Restaurar" volta para Em aberto', sql("select status from tarefas where titulo='Tarefa B15 excluir'") === 'pendente');
+    // Alertas: virar tarefa com subtarefas
+    await nav(p, 'alertas'); await p.waitForTimeout(2500);
+    { let bt = null;
+      for (const al of (await p.$$('#panel-alertas .al-linha')).slice(0, 10)) {
+        await al.click(); await p.waitForTimeout(700); bt = await p.$('[data-virar-tarefa]'); if (bt) break;
+        await p.keyboard.press('Escape'); await p.waitForTimeout(200); }
+      if (bt) { await bt.click(); await p.waitForSelector('#f-vt'); await p.selectOption('#f-vt [name=responsavel]', { index: 1 });
+        const n = (await p.$$('#f-vt [data-vt]')).length; await salvarGs(p, '#vt-salvar'); await p.waitForTimeout(1200);
+        ok('Alertas: "Virar tarefa" cria a tarefa com uma subtarefa por linha', sql("select count(*) from tarefas where descricao like 'Criada a partir do alerta%'") === '1' &&
+          Number(sql("select count(*) from tarefas where tarefa_pai_id=(select id from tarefas where descricao like 'Criada a partir do alerta%')")) === n, n); }
+      else ok('Alertas: "Virar tarefa" aparece no relatório do alerta', false); }
+    // Documentos: atalho por tipo; Clientes: "Jurídico + Contábil"
+    await nav(p, 'documentos'); await p.waitForTimeout(1500);
+    ok('Documentos: filtros por grupo e atalhos por tipo (Procuração)', !!(await p.$('#doc-grupo')) && /Procuração/.test(await p.textContent('#doc-chips')));
+    ok('"Jur + Cont" virou "Jurídico + Contábil"', await p.evaluate(() => !/Jur \+ Cont/.test(document.body.innerText)));
 
     // ── sair ──
     await p.evaluate(() => acLogout()); await p.waitForTimeout(800);

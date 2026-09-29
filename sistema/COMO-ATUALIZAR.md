@@ -148,12 +148,38 @@ Se precisar dele de volta, basta voltar a publicação na Vercel (passo A acima)
   A primeira foto é tirada ao rodar o SQL; o comparativo aparece a partir do mês seguinte.
 - **Editar em tabela:** Clientes → **✎ Editar em tabela** (passivo, CEAT e CAPAG de vários clientes; aceita colar do Excel).
   Estagiário: cada linha vira uma proposta em Aprovações.
-- **Processos (tela nova):** Jurídico → Processos já abre na tela nova. Para voltar à antiga neste computador:
-  **⋯** (canto de cima) → **⚖ Processos: tela antiga** (clique de novo para voltar à nova).
+- *(Processos em tela nova: desfeito no Backup 15 — voltou a tela do Backup 13.)*
+
+## Backup 15 — o que mudou e onde clicar
+- **Início:** a fila mostra 5 tarefas (▾ Ver todas para abrir o resto). Botões **Lista · Mês · Semana · Dia** trocam
+  para calendário; a escolha fica guardada e abre igual no próximo acesso. Honorário atrasado saiu da fila.
+  **Mural** (logo abaixo): destaques do dia (avisos, prazos fatais, tarefas atrasadas, publicações novas) e recados —
+  escreva e clique **Publicar**. Só o administrador marca 📌 fixo. O botão dos atrasados voltou a ser **✓ Recebido**.
+- **Pop-up dos honorários** (clicar nos cartões do Início): mais largo, sem Descrição, pílulas do mesmo tamanho,
+  sem "Recebido" no "Recebido no mês" e sem "emitir guia" no "A receber".
+- **Painel Executivo:** sem a faixa de título; "Atualizado" e **▣ entidades ◉ grupos** ficam na linha do filtro, à esquerda.
+  Cartões de grupo do mesmo tamanho e com as letras padronizadas.
+- **Processos, Parcelamentos e Acordos:** voltaram à versão do Backup 13.
+- **Financeiro → Jurídico:** novo campo **Área do serviço** (Tributário, Imobiliário, Empresarial, Sucessões, Família,
+  Criminal, Trabalhista, Contratual, Cobrança, Consultoria) no lançamento e no contrato; o gráfico "por tipo de serviço"
+  usa esse campo. A mensalidade de consultoria continua sendo gerada igual. Clicar numa linha abre a **visualização**
+  (✎ Editar e ✓ Recebido ficam lá dentro).
+- **Contrato:** botão **+ Novo cliente** ao lado do campo Cliente (cadastra sem sair do contrato).
+- **Clientes:** "Jur + Cont" virou **Jurídico + Contábil**.
+- **CRM:** abas **Em andamento · Ganhos (contrato assinado) · Perdidos (não fechou)** — o funil mostra só as vigentes.
+  Cartões maiores e do mesmo tamanho. Clicar abre o **Resumo** (só leitura); para mudar, **Editar**.
+  *Ganhou* = o cliente fechou (vira contrato). *Perdeu* = não fechou (registre o motivo).
+- **Documentos:** filtro por **grupo** e atalhos por tipo (Procuração, Contrato… com a quantidade).
+- **Tarefas:** abas **Em aberto · ✓ Concluídas · 🗑 Excluídas**. "Excluir" manda para Excluídas (dá para **↩ Restaurar**);
+  só o administrador usa **Excluir de vez**.
+- **Alertas:** dentro do relatório de um alerta, **📋 Virar tarefa** → escolha quem faz (você ou o estagiário), o prazo e se
+  cada linha vira subtarefa (com prazo) ou item do checklist. O cartão PGFN fica escondido até o SERPRO ser contratado.
+- **Prompts prontos** para as próximas rodadas (e-mails de honorários/parcelamentos/acordos/recibos, CRM, Tarefas):
+  `sistema/PROMPTS-BACKUP-15.md`.
 
 ## PGFN — dívida ativa pela API do SERPRO (paga)
 1. Contrate na Loja SERPRO a API **Consulta Dívida Ativa** (cobrança por consulta; confira a tabela antes).
 2. Na área do cliente SERPRO copie a **Consumer Key** e a **Consumer Secret**.
-3. No ERP: **Alertas** → cartão **PGFN — dívida ativa** → cole as duas chaves → escolha a frequência
+3. Peça ao Claude para reexibir o cartão PGFN em Alertas (escondido desde o Backup 15 a seu pedido). Depois: **Alertas** → cartão **PGFN — dívida ativa** → cole as duas chaves → escolha a frequência
    (todo dia, toda segunda ou todo dia 1º) → marque **Rotina ligada** → **Salvar** → **↻ Consultar agora**.
 4. O resultado atualiza os campos PGFN (em cobrança) e PGFN negociada (parcelada) e aparece na ficha do cliente → aba **PGFN**.

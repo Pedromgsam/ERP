@@ -80,21 +80,21 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
-- Última entrega: **Backup 14** — consertos da revisão (janela de e-mail `_aoFechar` no `fecharJanela`; redutor fora dos e-mails;
-  finalidade cobrança = financeiro; lembretes em faixa com marcadores `_item` em `automacoes_log`; example.com nunca recebe);
-  Alertas (filtro com `[hidden]`), botão voltar (`pushState #tela` + `popstate` no `window.nav`), rodapé some sozinho.
-  Início: fila 8 + "Ver todas"/"Minimizar" (`FILA`), ficha de leitura da tarefa `abrirTarefa` (Concluir/Encaminhar/Subtarefa/Editar),
-  pessoas por lista (`pessoasEscritorio`, `selectPessoa`, participantes marcáveis), cartões → `relatorioHonorarios`, "Atrasados"
-  com selos vencidos/vence hoje, "Registrar pagamento" (clicar na linha abre a baixa). Telas antigas (montar-erp.js): valores inteiros,
-  números pretos, `_chipQuitados`/`_verQuitados`, tabelas no lugar de gráficos, `mCh` põe valor em toda barra deitada, `encolherSelos`.
-  Processos em tela nova (`telas-processos.js`, painel `processosNovo`; ⋯ → tela antiga via `localStorage erp_proc_antiga`).
-  Banco v20: `perfil_email`/`emails_tipos` + `pode_email`/`salvar_perfil_email` (Administração → E-mails aos clientes);
-  `usuarios_previstos` (aplicado em `criar_perfil`); `fotos_mensais` + `foto_do_grupo`/`tirar_fotos_mensais` (cron dia 1; ficha → Evolução);
-  `extrato_itens` (OFX, `telas-ofx.js`); `pgfn_inscricoes`/`pgfn_execucoes` + `api_pgfn` em config_privada (função erp-pgfn, cron 06h15,
-  frequência diaria|semanal|mensal); `processos.status_em`. Clientes: "Por grupo" e "Editar em tabela". `estrutura.sql` = 3597 linhas.
+- Última entrega: **Backup 15** — Processos/Parcelamentos/Acordos de volta ao Backup 13 (tela nova de Processos removida;
+  o usuário não gostou). Início: fila de 5 (`FILA`, ▾ Ver todas) com vista lista/mês/semana/dia salva em `perfis.preferencias`
+  (`salvar_preferencia`), sem honorário (`cob:`), mural (`mural` + `cardMural`), botão "✓ Recebido"; relatório de honorários
+  largo (`janela-rel`, `semDescricao/semSituacao/semCobranca`). Painel: sem `.mod-banner`, `#gx-linha-painel` (Atualizado +
+  entidades/grupos), pílulas de grupo 150px iguais. Financeiro: `servico` (Área do serviço, `AREAS_SERVICO`/`selectServico`) em
+  lançamentos e contratos (gatilhos copiam do contrato), gráfico por área, `detalheLancamento` (linha clicável). Contrato: "+ Novo
+  cliente". CRM: abas andamento/ganho/perdido (`E.crm.aba`, `crmFinalizadas`), ficha abre em Resumo. Documentos: filtro de grupo e
+  atalhos por tipo. Tarefas: abas `E.tf.aba` (abertas/concluidas/excluidas; excluir = status `cancelada`, admin exclui de vez).
+  Alertas: "📋 Virar tarefa" (`janelaVirarTarefa`, subtarefas por linha); cartão PGFN só aparece com chave (sem SERPRO por ora).
+  Prompts das próximas rodadas: `sistema/PROMPTS-BACKUP-15.md`. `estrutura.sql` = 3672 linhas.
+- Backup 14 (base): perfil de e-mail por cliente, `usuarios_previstos`, fotos mensais/Evolução, OFX (`telas-ofx.js`), PGFN (`erp-pgfn`),
+  ficha da tarefa `abrirTarefa`, `pessoasEscritorio`/`selectPessoa`, Clientes "Por grupo" e "Editar em tabela".
 - Documentos: `sistema/PROXIMOS-PASSOS.md`, `sistema/VIABILIDADE-INTEGRACOES.md` (RFB/SERPRO, PGFN pela API, SIARE, Sicoob OFX/API).
 - Funções do Supabase: erp-emails, erp-publicacoes, erp-cnpj, erp-agenda, erp-backup, **erp-pgfn** (nova no Backup 14).
 - Aguardando o usuário: criar as 4 contas (Administração → Usuários → Acessos combinados); contratar a API "Consulta Dívida Ativa"
   do SERPRO e salvar a chave em Alertas → PGFN; Integra Contador depois; boletos: não por enquanto; Financeiro: 9 sugestões aguardando
   escolha (não executar sem autorização).
-- Próxima rodada sugerida: migrar Parcelamentos, Acordos e Financeiro (`INVENTARIO-SIMPLIFICACAO.md`), Integra Contador quando contratado.
+- Próxima rodada sugerida: Central de e-mails ao cliente, CRM e Tarefas (prompts em `PROMPTS-BACKUP-15.md`); Integra Contador quando contratado.
