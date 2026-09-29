@@ -587,6 +587,8 @@
 .gs .cr-avancar{display:inline-flex;font-weight:700;color:var(--navy)}
 }
 .gs .mural-dest.ambar{background:#FFF7E6;border-color:rgba(180,83,9,.25);color:#92400E}
+.gs .em-previa{width:100%;height:62vh;border:1px solid var(--border);border-radius:10px;background:#fff}
+.gs .em-lig{display:block;margin:4px 0 8px}
 /* cores do ERP, tamanhos do Gestão */
 .gs{background:none!important;min-height:0!important}
 .gs .duas-col>*,.gs .card{min-width:0}

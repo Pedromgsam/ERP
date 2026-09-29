@@ -3970,7 +3970,7 @@ begin
   for i in 1..coalesce(array_length(partes, 1), 0) loop
     if i = 1 then r := partes[i];
     elsif i = array_length(partes, 1) and (grupos[1] < 100 or grupos[1] % 100 = 0) then r := r || ' e ' || partes[i];
-    else r := r || ', ' || partes[i]; end if;
+    else r := r || ' ' || partes[i]; end if;
   end loop;
   if reais > 0 then r := r || case when reais = 1 then ' real' when reais % 1000000 = 0 then ' de reais' else ' reais' end; end if;
   if cent > 0 then

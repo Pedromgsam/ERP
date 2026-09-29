@@ -218,6 +218,7 @@ html[data-tema="escuro"] .gs .cr-at:hover{background:#1b212b}
 @media (max-width:900px){html[data-tema="escuro"] .gs .cr-avancar{color:var(--ink)}
 }
 html[data-tema="escuro"] .gs .mural-dest.ambar{background:#362c15;color:#ebc4ab}
+html[data-tema="escuro"] .gs .em-previa{background:var(--surface)}
 html[data-tema="escuro"] #gs-hd .gs-marca-nome{color:#cdbb89}
 html[data-tema="escuro"] #gs-hd .tn-menu{background:var(--surface);border:1px solid rgba(255,255,255,0.066)}
 html[data-tema="escuro"] #gs-hd .tn-menu button{color:#d3d9e4}

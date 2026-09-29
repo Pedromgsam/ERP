@@ -118,6 +118,12 @@ TELAS.alertas = async function () {
   if (podeJur) add('Rotinas', 'Busca de publicações', ultPub && ultPub.valor ? quandoCurto(ultPub.valor.quando) : 'nunca rodou',
     ultPub && ultPub.valor ? ultPub.valor.novas + ' nova(s) · ' + ((ultPub.valor.erros || []).length ? '⚠ ' + ultPub.valor.erros[0] : 'sem erro') : 'cadastre as OABs em Publicações',
     !ultPub || !ultPub.valor ? 'atencao' : (ultPub.valor.erros || []).length ? 'critico' : 'ok', { tela: 'publicacoes' });
+  // Central de e-mails: automático por tipo (clicar abre a configuração; admin)
+  const cfgEm = await q(sb.rpc('config_emails')).catch(() => null);
+  if (cfgEm && E.perfil && E.perfil.papel === 'admin') {
+    const ligados = ['honorarios', 'parcelamentos', 'acordos', 'recibos'].filter((k) => cfgEm[k]);
+    add('Rotinas', 'E-mails automáticos ao cliente', ligados.length + ' de 4 ligados', (cfgEm.hora ? 'envio às ' + cfgEm.hora : 'envio junto das regras (7h)') + ' · clique para configurar', ligados.length ? 'ok' : 'info', { emailsAuto: true });
+  }
   add('Rotinas', 'Regras de tarefas', ultReg && ultReg.valor ? quandoCurto(ultReg.valor.quando) : 'nunca rodou', ultReg && ultReg.valor ? ultReg.valor.criadas + ' criada(s) na última execução' : '',
     ultReg && ultReg.valor ? 'ok' : 'info', { tela: 'tarefas' });
   // saúde do sistema e backup semanal (só o administrador)
@@ -161,7 +167,7 @@ TELAS.alertas = async function () {
     $('al-corpo').querySelectorAll('[data-al-setor]').forEach((x) => x.classList.toggle('ativo', x === b));
     $('al-corpo').querySelectorAll('.al-linha,.al-chip').forEach((l) => { l.hidden = !!b.dataset.alSetor && l.dataset.setor !== b.dataset.alSetor; });
   });
-  $('al-corpo').querySelectorAll('[data-al]').forEach((b) => b.onclick = () => { const a = A[+b.dataset.al]; if (a.rel.cnpj) janelaCnpj(cnpj); else if (a.rel.pgfn) janelaPgfn(pgfnEx); else if (a.rel.saude) janelaSaude(a.rel.saude); else if (a.rel.backup) irTelaAlerta('admin', 'backup'); else relatorioAlerta(a); });
+  $('al-corpo').querySelectorAll('[data-al]').forEach((b) => b.onclick = () => { const a = A[+b.dataset.al]; if (a.rel.cnpj) janelaCnpj(cnpj); else if (a.rel.emailsAuto) janelaAutoEmails(); else if (a.rel.pgfn) janelaPgfn(pgfnEx); else if (a.rel.saude) janelaSaude(a.rel.saude); else if (a.rel.backup) irTelaAlerta('admin', 'backup'); else relatorioAlerta(a); });
 };
 
 function quandoCurto(v) {

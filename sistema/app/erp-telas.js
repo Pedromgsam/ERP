@@ -32,9 +32,9 @@
     { id: 'admin', rot: 'Administração', admin: true }
   ];
   // Cobranças, avisos e recibos (antiga "Notificações"): fora da barra; abre pelo botão ✉ de cada tela e pelo ⋯
-  const FUNC_EXTRA = { notificacoes: 'clientes' };
+  const FUNC_EXTRA = { notificacoes: 'clientes' };   // a Central de e-mails confere o acesso no banco
   // painéis novos → tela do Gestão que desenha nele
-  const TELAS_GS = { hoje: 'inicio', contratos: 'contratos', clientes: 'clientes', crm: 'crm', publicacoes: 'publicacoes', documentos: 'documentos', tarefas: 'tarefas', alertas: 'alertas', automacoes: 'automacoes', aprovacoes: 'aprovacoes', admin: 'admin' };
+  const TELAS_GS = { hoje: 'inicio', contratos: 'contratos', clientes: 'clientes', crm: 'crm', publicacoes: 'publicacoes', documentos: 'documentos', tarefas: 'tarefas', alertas: 'alertas', automacoes: 'automacoes', aprovacoes: 'aprovacoes', emails: 'emails', admin: 'admin' };
 
   // "+ Lançar": formulários do Gestão onde existem; os demais, do editor do ERP
   const empresaAtual = () => (_painel === 'financeiroContab' ? 'contabilidade' : 'escritorio');
@@ -91,7 +91,7 @@
       '<div class="tn-menu tn-menu-dir" role="menu">' + LANCAR.map((x, i) => '<button type="button" role="menuitem" data-lancar="' + i + '">' + esc(x[0]) + '</button>').join('') + '</div></div>' +
       '<div class="hd-usuario"><button type="button" id="gs-tema" title="Modo escuro / claro" aria-label="Alternar modo escuro" aria-pressed="false">◐</button><button type="button" id="gs-sino" class="gx-so-equipe" title="Avisos: prazos, menções e vencimentos" aria-label="Avisos">🔔<span id="gs-sino-n" hidden></span></button><span id="gs-nome"></span>' +
       '<div class="tn-grupo tn-mais-acoes"><button type="button" class="tn-abre gs-bt-mais" data-grupo="acoes" title="Atualizar dados e relatório em PDF" aria-label="Mais ações" aria-haspopup="true" aria-expanded="false">⋯</button>' +
-      '<div class="tn-menu tn-menu-dir" role="menu"><button type="button" data-acao="atualizar">↻ Atualizar dados</button><button type="button" data-acao="pdf" class="gx-so-equipe">📄 Relatório em PDF</button><button type="button" data-acao="cobrancas" class="gx-so-equipe">✉ Cobranças, avisos e recibos</button><button type="button" data-acao="meunome">👤 Meu nome</button><button type="button" data-acao="aprovacoes" class="gx-so-equipe">📝 Aprovações (rascunhos)</button><button type="button" data-acao="avisos" class="gx-so-equipe">✉ Meus avisos por e-mail</button></div></div>' +
+      '<div class="tn-menu tn-menu-dir" role="menu"><button type="button" data-acao="atualizar">↻ Atualizar dados</button><button type="button" data-acao="pdf" class="gx-so-equipe">📄 Relatório em PDF</button><button type="button" data-acao="cobrancas" class="gx-so-equipe">✉ Central de e-mails ao cliente</button><button type="button" data-acao="cobrancas_antiga" class="gx-so-equipe">✉ Tela antiga de cobranças</button><button type="button" data-acao="meunome">👤 Meu nome</button><button type="button" data-acao="aprovacoes" class="gx-so-equipe">📝 Aprovações (rascunhos)</button><button type="button" data-acao="avisos" class="gx-so-equipe">✉ Meus avisos por e-mail</button></div></div>' +
       '<button type="button" id="gs-sair">Sair</button></div>';
     document.body.insertBefore(hd, document.body.firstChild);
     const btTema = document.getElementById('gs-tema');
@@ -132,7 +132,8 @@
       else if (alvo.dataset.acao === 'pdf') ir('relatorio');
       else if (alvo.dataset.acao === 'aprovacoes') ir('aprovacoes');
       else if (alvo.dataset.acao === 'meunome') pedirMeuNome(false);
-      else if (alvo.dataset.acao === 'cobrancas') abrirCobrancas('hon');
+      else if (alvo.dataset.acao === 'cobrancas') abrirCentralEmails('');
+      else if (alvo.dataset.acao === 'cobrancas_antiga') abrirCobrancas('hon');
       else if (alvo.dataset.acao === 'avisos') { if (GS()) GS().janelaMeusAvisos().catch((er) => aviso(erroAmigavel(er), true)); }
       else if (alvo.dataset.ir) ir(alvo.dataset.ir);
       else if (alvo.dataset.lancar !== undefined) LANCAR[+alvo.dataset.lancar][1]();
@@ -174,7 +175,7 @@
     const itens = soLancar ? '<div class="tn-mais-tit">Lançar</div>' + LANCAR.map((x, i) => '<button type="button" data-lancar="' + i + '">+ ' + esc(x[0]) + '</button>').join('')
       : MENU.map((m) => !m.itens ? '<button type="button"' + cls(m) + ' data-ir="' + m.id + '">' + esc(m.rot) + '</button>'
         : '<div class="tn-mais-tit' + (m.equipe ? ' gx-so-equipe' : '') + '">' + esc(m.rot) + '</div>' + m.itens.map((x) => '<button type="button"' + cls(m) + ' data-ir="' + x[0] + '">' + esc(x[1]) + '</button>').join('')).join('')
-        + '<button type="button" data-acao="atualizar">↻ Atualizar dados</button><button type="button" data-acao="cobrancas">✉ Cobranças, avisos e recibos</button><button type="button" class="gs-sair">Sair</button>';
+        + '<button type="button" data-acao="atualizar">↻ Atualizar dados</button><button type="button" data-acao="cobrancas">✉ Central de e-mails</button><button type="button" data-acao="cobrancas_antiga">✉ Tela antiga de cobranças</button><button type="button" class="gs-sair">Sair</button>';
     f.innerHTML = '<div class="tn-mais-caixa">' + itens + '<button type="button" class="tn-mais-fechar" data-fechar>Fechar</button></div>';
     f.querySelectorAll('[data-ir]').forEach((b) => { if (!permitido(FUNC_TELA[b.dataset.ir])) b.remove(); });
     f.querySelectorAll('[data-lancar]').forEach((b) => { if (!permitido(LANCAR[+b.dataset.lancar][2], 'editar')) b.remove(); });
@@ -206,7 +207,7 @@
   let _painel = '', _voltando = false;
   function nomeTela(id) {
     for (const m of MENU) { if (m.id === id) return m.rot; const x = (m.itens || []).find((i) => i[0] === id); if (x) return m.rot + ' · ' + x[1]; }
-    return { automacoes: 'Automações', aprovacoes: 'Aprovações', notificacoes: 'Cobranças e recibos' }[id] || '';
+    return { automacoes: 'Automações', aprovacoes: 'Aprovações', notificacoes: 'Tela antiga de cobranças', emails: 'Central de e-mails' }[id] || '';
   }
   function destacar(id) {
     const tn = document.getElementById('gs-tela-nome'); if (tn) tn.textContent = nomeTela(id);
@@ -215,6 +216,11 @@
   }
   // ✉ dentro de cada tela: abre "Cobranças, avisos e recibos" já na aba certa
   let _abaCobranca = 'hon';
+  function abrirCentralEmails(tipo) {
+    if (GS()) GS().E.em = Object.assign(GS().E.em || {}, { sit: 'hoje', tipo: tipo || '' });
+    if (_painel === 'emails') { desenharGS('emails'); return; }
+    ir('emails');
+  }
   function abrirCobrancas(aba) {
     _abaCobranca = aba || 'hon';
     if (_painel !== 'notificacoes') { ir('notificacoes'); return; }
@@ -229,7 +235,8 @@
         d.innerHTML = '<button type="button" data-cob="' + aba + '">' + rot + '</button>' + (recibo ? '<button type="button" data-cob="rec">🧾 Recibo</button>' +
           '<button type="button" data-ofx="' + (pid === 'panel-financeiroContab' ? 'contabilidade' : 'escritorio') + '" title="Dar baixa pelos créditos do extrato do banco (arquivo OFX)">🏦 Conciliar extrato</button>' +
           '<button type="button" data-massa-lanc="' + (pid === 'panel-financeiroContab' ? 'contabilidade' : 'escritorio') + '" title="Completar vários lançamentos de uma vez (área do serviço, descrição…) na tela ou por planilha">✎ Editar em tabela</button>' : '');
-        d.querySelectorAll('[data-cob]').forEach((b) => b.onclick = () => abrirCobrancas(b.dataset.cob));
+        // ✉ Cobrar/Notificar → Central de e-mails já filtrada; 🧾 Recibo (manual) continua na tela antiga
+        d.querySelectorAll('[data-cob]').forEach((b) => b.onclick = () => (b.dataset.cob === 'rec' ? abrirCobrancas('rec') : abrirCentralEmails({ hon: 'honorarios', parc: 'parcelamentos', acord: 'acordos' }[b.dataset.cob] || '')));
         d.querySelectorAll('[data-ofx]').forEach((b) => b.onclick = () => { if (GS() && GS().conciliarOfx) GS().conciliarOfx(b.dataset.ofx); });
         d.querySelectorAll('[data-massa-lanc]').forEach((b) => b.onclick = () => { if (GS() && GS().edicaoLancamentos) GS().edicaoLancamentos(b.dataset.massaLanc); });
         ban.appendChild(d);

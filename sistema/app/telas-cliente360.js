@@ -5,7 +5,7 @@
 // ═══════════════════════════════════════════════════════════════════
 const ABAS_FICHA = [['resumo', 'Resumo'], ['contatos', 'Contatos'], ['enderecos', 'Endereços'], ['contas', 'Contas bancárias'],
   ['socios', 'Sócios e vínculos'], ['processos', 'Processos'], ['contratos', 'Contratos'], ['financeiro', 'Financeiro'],
-  ['tarefas', 'Tarefas'], ['documentos', 'Documentos'], ['linha', 'Linha do tempo'], ['fiscal', 'Dados fiscais'], ['receita', 'Cartão CNPJ'], ['pgfn', 'PGFN'], ['evolucao', '📈 Evolução']];
+  ['tarefas', 'Tarefas'], ['documentos', 'Documentos'], ['linha', 'Linha do tempo'], ['fiscal', 'Dados fiscais'], ['receita', 'Cartão CNPJ'], ['pgfn', 'PGFN'], ['emails', '✉ E-mails'], ['evolucao', '📈 Evolução']];
 
 // Sub-cadastros editáveis da ficha (mesmo formulário para todos)
 const FINALIDADES = [['geral', 'Geral'], ['financeiro', 'Financeiro'], ['juridico', 'Jurídico'], ['socio', 'Sócio / decisor'], ['contador', 'Contador'],
@@ -275,6 +275,7 @@ const ABA_FICHA = {
     alvo.querySelectorAll('[data-editar-tf]').forEach((b) => b.onclick = () => formTarefa(ts.find((t) => t.id === b.dataset.editarTf), repinta));
   },
   documentos: (alvo, cl) => blocoDocumentos(alvo, { cliente_id: cl.id, grupo_id: cl.grupo_id }, { vazio: 'Nenhum documento. Envie contrato social, procuração, documentos pessoais…' }),
+  emails: (alvo, cl) => abaEmailsCliente(alvo, cl),
   async linha(alvo, cl) {
     const [ints, ctrs, lanc, ts, docs, hist, crm] = await Promise.all([
       q(sb.from('interacoes').select('*').eq('cliente_id', cl.id)),

@@ -103,7 +103,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('clicar em Financeiro › Jurídico abre os Honorários', await p.isVisible('#panel-financeiro'));
     ok('barra sem o texto "Araujo & Castro"', !/Araujo/.test(await p.textContent('#gs-hd')));
     await p.click('.gs-bt-mais'); await p.waitForTimeout(200);
-    ok('⋯ sem o link do Gestão antigo e com Cobranças e Meu nome', !(await p.$('#gs-hd [data-acao=gestao]')) && await p.isVisible('#gs-hd [data-acao=cobrancas]') && await p.isVisible('#gs-hd [data-acao=meunome]'));
+    ok('⋯ sem o link do Gestão antigo e com a Central de e-mails e Meu nome', !(await p.$('#gs-hd [data-acao=gestao]')) && await p.isVisible('#gs-hd [data-acao=cobrancas]') && await p.isVisible('#gs-hd [data-acao=meunome]'));
     await p.mouse.click(700, 600); await p.waitForTimeout(150);
     const g2 = await p.request.get(BASE + '/gestao.html');
     ok('gestao.html saiu do site', g2.status() === 404);
@@ -810,8 +810,32 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('Composição de Caixa aparece (gráficos não somem)', await p.evaluate(() => { const c = document.querySelector('#cFcCaixaSaldo'); return !!c && c.offsetParent !== null; }));
     sql("delete from lancamentos where descricao='Caixa teste'");
     await nav(p, 'financeiro'); await p.waitForTimeout(1000);
-    await p.click('#panel-financeiro .gx-cobrar [data-cob=hon]'); await p.waitForTimeout(1200);
-    ok('✉ Cobrar clientes abre "Cobranças, avisos e recibos" na aba Honorários', await p.isVisible('#panel-notificacoes') && await p.isVisible('#notif-aba-hon'));
+    // Central de e-mails ao cliente (Backup 16)
+    sql("insert into clientes(nome,email) values ('Central Atraso Ltda','atraso@central.test'),('Central Lembrete Ltda','lembrete@central.test')");
+    sql("insert into lancamentos(empresa,tipo,descricao,cliente_id,vencimento,valor) select 'escritorio','receita','Hon central atraso',id,current_date-3,700 from clientes where nome='Central Atraso Ltda'");
+    sql("insert into lancamentos(empresa,tipo,descricao,cliente_id,vencimento,valor) select 'escritorio','receita','Hon central lembrete',id,current_date+2,800 from clientes where nome='Central Lembrete Ltda'");
+    await p.click('#panel-financeiro .gx-cobrar [data-cob=hon]'); await p.waitForTimeout(2500);
+    ok('✉ Cobrar clientes abre a Central de e-mails já em Honorários', await p.isVisible('#panel-emails') && await p.evaluate(() => document.querySelector('#em-tipo .ativo').dataset.v === 'honorarios'));
+    ok('Central: "A enviar hoje" lista o 1º aviso de atraso e o lembrete, com o destinatário certo', /atraso@central\.test/.test(await p.textContent('#em-corpo')) && /lembrete@central\.test/.test(await p.textContent('#em-corpo')) &&
+      /Honorários em aberto/.test(await p.textContent('#em-corpo')));
+    await p.click('#em-corpo tr:has-text("atraso@central.test") td:nth-child(3)'); await p.waitForSelector('#gs-raiz iframe.em-previa'); await p.waitForTimeout(400);
+    ok('Central: clicar na linha mostra a prévia do e-mail com a marca', /Hon central atraso/.test(await p.evaluate(() => document.querySelector('#gs-raiz iframe.em-previa').srcdoc)));
+    await p.keyboard.press('Escape'); await p.waitForTimeout(200);
+    await p.click('#em-corpo tr:has-text("atraso@central.test") [data-em-agora]'); await p.waitForTimeout(1500);
+    ok('Central: "Enviar agora" põe na fila e não repete', sql("select count(*) from email_fila where para='atraso@central.test'") === '1' && !/atraso@central\.test/.test(await p.textContent('#em-corpo')) &&
+      sql("select count(*) from automacoes_log where ref = 'email_ch:' || (select id from lancamentos where descricao='Hon central atraso')") === '1');
+    await p.click('#em-corpo tr:has-text("lembrete@central.test") [data-em-pular]'); await p.waitForTimeout(1500);
+    ok('Central: "Pular este" tira da lista sem enviar', sql("select count(*) from email_fila where para='lembrete@central.test'") === '0' && !/lembrete@central\.test/.test(await p.textContent('#em-corpo')));
+    sql("select public.rodar_emails_cliente()");
+    ok('Central: a rotina automática não manda o que foi pulado nem repete o enviado', sql("select count(*) from email_fila where para in ('atraso@central.test','lembrete@central.test')") === '1');
+    await p.click('#em-sit [data-v=enviados]'); await p.waitForTimeout(1200);
+    ok('Central: aba "Enviados" mostra o e-mail', /atraso@central\.test/.test(await p.textContent('#em-corpo')));
+    await p.click('#em-auto'); await p.waitForSelector('#f-emauto'); await p.fill('#f-emauto [name=hora]', '09:30'); await p.click('#emauto-salvar'); await p.waitForTimeout(1200);
+    ok('Central: horário e automático salvos', sql("select valor->>'hora' from configuracoes where chave='emails_central'") === '09:30');
+    sql("update configuracoes set valor = valor - 'hora' where chave='emails_central'");
+    await p.click('#gs-hd .gs-bt-mais'); await p.click('#gs-hd [data-acao=cobrancas_antiga]'); await p.waitForTimeout(1200);
+    ok('⋯ → "Tela antiga de cobranças" continua abrindo', await p.isVisible('#panel-notificacoes') && await p.isVisible('#notif-aba-hon'));
+    await p.keyboard.press('Escape');
     ok('Notificações saiu da barra de cima', !(await p.$('#tn [data-ir=notificacoes]')));
     // envio manual pelo e-mail do escritório (modelo da marca)
     { const r = await p.evaluate(async () => (await SB.rpc('enviar_email_manual', { p_para: 'cliente@exemplo.test', p_assunto: 'Teste manual', p_texto: 'Prezados,\n\nSegue a cobrança.' })).error);

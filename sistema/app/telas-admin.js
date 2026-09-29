@@ -686,6 +686,9 @@ async function admClientesEmail(corpo) {
   const F = E.adm.cem = E.adm.cem || { busca: '', perfil: '' };
   const rot = (v) => (PERFIS_EMAIL.find((p) => p[0] === (v || 'padrao')) || PERFIS_EMAIL[0])[1];
   corpo.innerHTML =
+    '<div class="card"><div class="card-hd">✉ Central de e-mails ao cliente</div><div class="card-bd"><p class="sub" style="margin-bottom:8px">Textos dos e-mails (honorários, parcelamentos, acordos, recibo), o automático de cada tipo e o horário do envio. ' +
+      'A lista do que sai hoje fica no ⋯ → "Central de e-mails ao cliente".</p><div class="acoes"><button class="btn btn-o" type="button" id="cem-modelos">✎ Modelos dos e-mails</button>' +
+      '<button class="btn btn-o" type="button" id="cem-auto">⚙ Automático e horário</button></div></div></div>' +
     '<div class="card"><div class="card-hd">📨 Quem recebe e-mail automático de honorários</div><div class="card-bd">' +
       '<div class="cem-perfis">' + PERFIS_EMAIL.map(([v, r, d]) => '<div class="cem-perfil"><b>' + r + '</b><span>' + d + '</span></div>').join('') + '</div>' +
       '<p class="sub" style="margin-top:10px">Cliente novo entra como <b>Padrão</b>. Os e-mails vão para o contato financeiro do cliente (ficha → Contatos) e só saem se a automação estiver ligada em ⚡ Automações. ' +
@@ -740,5 +743,7 @@ async function admClientesEmail(corpo) {
   });
   let tb; $('cem-busca').oninput = (ev) => { clearTimeout(tb); tb = setTimeout(() => { F.busca = ev.target.value; pintar(); }, 250); };
   $('cem-filtro').onchange = (ev) => { F.perfil = ev.target.value; pintar(); };
+  $('cem-modelos').onclick = () => janelaModelosEmail();
+  $('cem-auto').onclick = () => janelaAutoEmails();
   pintar();
 }
