@@ -15,12 +15,16 @@ function etapaDe(id) { return (E._crmEtapas || []).find((e) => e.id === id) || {
 function opAberta(o) { return !etapaDe(o.etapa_id).final; }
 
 TELAS.crm = async function () {
-  E.crm = E.crm || { vista: 'funil', resp: '', origem: '', busca: '' };
+  E.crm = E.crm || { vista: 'funil', resp: '', origem: '', busca: '', aba: 'andamento' };
+  E.crm.aba = E.crm.aba || 'andamento';
   const F = E.crm;
   await carregarCadastros();
   $('conteudo').innerHTML =
     '<div class="titulo-pag"><div><h1>CRM</h1><p>Oportunidades, propostas e o caminho até o contrato assinado</p></div>' +
     '<div class="acoes"><button class="btn btn-o" id="cr-modelos">Modelos de proposta</button><button class="btn btn-p" id="cr-nova">+ Nova oportunidade</button></div></div>' +
+    // abas: no painel ficam só as oportunidades em andamento; ganhas (contrato assinado) e perdidas (cancelado) têm aba própria
+    '<div class="abas" id="cr-abas">' + [['andamento', 'Em andamento'], ['ganho', '✓ Ganhos — contrato assinado'], ['perdido', '✗ Perdidos — não fechou']]
+      .map(([v, r]) => '<button data-aba="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<div class="filtros"><div class="segmento" id="cr-vista">' + [['funil', 'Funil'], ['lista', 'Lista'], ['painel', 'Painel']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<select class="busca sel" id="cr-resp"><option value="">Todos os responsáveis</option>' + Object.keys(PESSOA).map((p) => '<option>' + p + '</option>').join('') + '</select>' +
     '<select class="busca sel" id="cr-origem"><option value="">Todas as origens</option>' + ORIGENS_CRM.map((o) => '<option>' + esc(o) + '</option>').join('') + '</select>' +
@@ -29,6 +33,7 @@ TELAS.crm = async function () {
   $('cr-nova').onclick = () => formOportunidade({}, recarregarCrm);
   $('cr-modelos').onclick = () => janelaModelosProposta();
   $('cr-vista').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.vista = b.dataset.v; pintarCrm(); } };
+  $('cr-abas').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.aba = b.dataset.aba; pintarCrm(); } };
   [['cr-resp', 'resp'], ['cr-origem', 'origem']].forEach(([id, k]) => { $(id).value = F[k]; $(id).onchange = (ev) => { F[k] = ev.target.value; pintarCrm(); }; });
   $('cr-busca').value = F.busca;
   let t; $('cr-busca').oninput = (ev) => { clearTimeout(t); t = setTimeout(() => { F.busca = ev.target.value; pintarCrm(); }, 250); };
@@ -46,23 +51,43 @@ function filtrarOps() {
 }
 function pintarCrm() {
   if (!$('cr-corpo')) return;
-  document.querySelectorAll('#cr-vista button').forEach((b) => b.classList.toggle('ativo', b.dataset.v === E.crm.vista));
-  ({ funil: crmFunil, lista: crmLista, painel: crmPainel })[E.crm.vista]($('cr-corpo'));
+  const F = E.crm;
+  document.querySelectorAll('#cr-abas button').forEach((b) => b.classList.toggle('ativo', b.dataset.aba === F.aba));
+  document.querySelectorAll('#cr-vista button').forEach((b) => b.classList.toggle('ativo', b.dataset.v === F.vista));
+  if ($('cr-vista')) $('cr-vista').hidden = F.aba !== 'andamento';
+  if (F.aba !== 'andamento') return crmFinalizadas($('cr-corpo'), F.aba);
+  ({ funil: crmFunil, lista: crmLista, painel: crmPainel })[F.vista]($('cr-corpo'));
+}
+// Ganhos (contrato assinado) e Perdidos (não fechou): lista própria, fora do painel do dia a dia
+function crmFinalizadas(alvo, tipo) {
+  const ops = filtrarOps().filter((o) => etapaDe(o.etapa_id).final === tipo)
+    .sort((a, b) => String(b.ganho_em || b.perdido_em || b.atualizado_em).localeCompare(String(a.ganho_em || a.perdido_em || a.atualizado_em)));
+  alvo.innerHTML = '<div class="dica" style="margin-bottom:12px">' + (tipo === 'ganho'
+      ? '<b>Ganhou</b> = o cliente fechou: contrato assinado. A oportunidade vira contrato (e cliente, se ainda não era).'
+      : '<b>Perdeu</b> = não fechou (preço, desistência, foi para outro escritório, sem retorno…). O motivo ajuda a melhorar as próximas propostas.') + '</div>' +
+    '<div class="card">' + (ops.length ? '<div class="tabela-wrap"><table class="ordenavel"><thead><tr><th>Oportunidade</th><th data-tipo="num">Valor</th><th>Responsável</th><th data-tipo="data">' +
+      (tipo === 'ganho' ? 'Fechou em' : 'Perdida em') + '</th>' + (tipo === 'perdido' ? '<th>Motivo</th>' : '<th>Origem</th>') + '</tr></thead><tbody>' +
+      ops.map((o) => { const d = o.ganho_em || o.perdido_em || o.atualizado_em; return '<tr class="clicavel" data-op="' + o.id + '"><td><b>' + esc(o.titulo) + '</b><div class="sub">' + esc(nomeOp(o)) + '</div></td>' +
+        '<td class="num mono" data-ord="' + (o.valor_estimado || 0) + '">' + brl(o.valor_estimado) + '</td><td>' + pillPessoa(o.responsavel) + '</td>' +
+        '<td class="mono" data-ord="' + esc(d || '') + '">' + dataBR(d) + '</td><td>' + esc((tipo === 'perdido' ? o.motivo_perda : o.origem) || '—') + '</td></tr>'; }).join('') +
+      '</tbody></table></div>' : vazio(tipo === 'ganho' ? 'Nenhuma oportunidade ganha ainda.' : 'Nenhuma oportunidade perdida.')) + '</div>';
+  alvo.querySelectorAll('[data-op]').forEach((tr) => tr.onclick = () => fichaOportunidade(tr.dataset.op));
 }
 
 // ── Funil (kanban) ──
 function crmFunil(alvo) {
-  const ops = filtrarOps(), h = hojeISO(), limite = Date.now() - 30 * 86400000;
+  const ops = filtrarOps(), h = hojeISO();
   alvo.innerHTML = '<div class="cr-funil">' + (E._crmEtapas || []).map((e) => {
-    const cs = ops.filter((o) => o.etapa_id === e.id && (!e.final || new Date(o.ganho_em || o.perdido_em || o.atualizado_em) > limite));
+    const cs = e.final ? [] : ops.filter((o) => o.etapa_id === e.id);
     return '<div class="cr-col' + (e.final ? ' cr-final-' + e.final : '') + '" data-etapa="' + e.id + '"><div class="cr-col-tit"><span>' + esc(e.nome) + '</span><span class="sub">' + cs.length +
       (cs.length && !e.final ? ' · ' + esc(brlCurto(soma(cs, (o) => o.valor_estimado))) : '') + '</span></div>' +
+      (e.final ? '<div class="cr-solte">' + (e.final === 'ganho' ? 'Solte aqui quando o cliente <b>fechar</b> (contrato assinado)' : 'Solte aqui quando <b>não fechar</b>') + '</div>' : '') +
       cs.map((o) => { const atr = o.proxima_acao_em && o.proxima_acao_em < h && !e.final;
         return '<div class="cr-card' + (atr ? ' cr-atrasada' : '') + '" draggable="true" data-op="' + o.id + '"><b>' + esc(o.titulo) + '</b><div class="sub">' + esc(nomeOp(o)) + '</div>' +
           '<div class="cr-card-rod"><span class="mono">' + brl(o.valor_estimado) + '</span>' + (e.final ? '' : '<span class="sub" title="dias nesta etapa">' + diasParado(o) + 'd parado</span>') + '</div>' +
           (o.proxima_acao && !e.final ? '<div class="cr-prox' + (atr ? ' atrasada' : '') + '">→ ' + esc(o.proxima_acao) + (o.proxima_acao_em ? ' · ' + dataBR(o.proxima_acao_em) : '') + '</div>' : '') +
           (o.responsavel ? '<div style="margin-top:4px">' + pillPessoa(o.responsavel) + '</div>' : '') + '</div>'; }).join('') + '</div>';
-  }).join('') + '</div><p class="sub" style="margin-top:8px">Arraste o cartão para mudar a etapa. Vermelho = próxima ação atrasada. Ganhas e perdidas: últimos 30 dias.</p>';
+  }).join('') + '</div><p class="sub" style="margin-top:8px">Arraste o cartão para mudar a etapa. Vermelho = próxima ação atrasada. Ganhas e perdidas ficam nas abas acima.</p>';
   let arrastando = null;
   alvo.querySelectorAll('.cr-card').forEach((c) => {
     c.addEventListener('dragstart', (ev) => { arrastando = c.dataset.op; ev.dataTransfer.setData('text/plain', c.dataset.op); c.classList.add('arrastando'); });
@@ -88,9 +113,9 @@ async function moverOp(opId, etapaId) {
 
 // ── Lista ──
 function crmLista(alvo) {
-  const ops = filtrarOps(), abertas = ops.filter(opAberta), h = hojeISO();
+  const ops = filtrarOps().filter(opAberta), abertas = ops, h = hojeISO();
   const pond = (o) => (Number(o.valor_estimado) || 0) * (o.probabilidade || 0) / 100;
-  alvo.innerHTML = '<div class="kpis">' + kpi('Oportunidades abertas', String(abertas.length), '', ops.length + ' no total') +
+  alvo.innerHTML = '<div class="kpis">' + kpi('Oportunidades abertas', String(abertas.length), '', 'ganhas e perdidas nas abas acima') +
     kpi('Valor em aberto', brl(soma(abertas, (o) => o.valor_estimado)), '', 'soma dos valores estimados') +
     kpi('Total ponderado', brl(soma(abertas, pond)), 'verde', 'valor × probabilidade') + '</div>' +
     '<div class="card">' + (ops.length ? '<div class="tabela-wrap"><table class="ordenavel"><thead><tr><th>Oportunidade</th><th>Etapa</th><th data-tipo="num">Valor</th><th data-tipo="num">Prob.</th>' +
@@ -196,12 +221,12 @@ async function fichaOportunidade(id, aba) {
     corpo: '<div class="ficha-topo"><div><div class="ficha-sub">' + esc(nomeOp(o)) + (o.prospecto_email ? ' · ' + esc(o.prospecto_email) : '') + '</div>' +
       '<div class="ficha-selos"><span class="pill ' + (e.final === 'ganho' ? 'pago' : e.final === 'perdido' ? 'neutro' : 'aberto') + '">' + esc(e.nome || '—') + '</span> ' +
       '<span class="mono">' + brl(o.valor_estimado) + '</span> <span class="sub">' + o.probabilidade + '%</span> ' + pillPessoa(o.responsavel) + '</div></div>' +
-      '<div class="ficha-atalhos">' + (aberta ? '<button class="btn btn-v btn-mini" id="op-ganhou">✓ Ganhou</button><button class="btn btn-x btn-mini" id="op-perdeu">Perdeu</button>' : '') +
+      '<div class="ficha-atalhos">' + (aberta ? '<button class="btn btn-v btn-mini" id="op-ganhou" title="O cliente fechou: contrato assinado">✓ Ganhou</button><button class="btn btn-x btn-mini" id="op-perdeu" title="Não fechou (preço, desistência, outro escritório…)">Perdeu</button>' : '') +
       (tel ? '<a class="btn btn-o btn-mini" target="_blank" rel="noopener" href="https://wa.me/' + (tel.length <= 11 ? '55' : '') + tel + '">WhatsApp</a>' : '') +
       '<button class="btn btn-p btn-mini" id="op-editar">Editar</button></div></div>' +
       (e.final === 'perdido' && o.motivo_perda ? '<div class="dica" style="margin-bottom:10px">Perdida: ' + esc(o.motivo_perda) + '</div>' : '') +
       (o.contrato_id ? '<div class="dica" style="margin-bottom:10px">Contrato criado. <a href="#" id="op-ver-cli">Abrir a ficha do cliente</a></div>' : '') +
-      '<div class="abas" id="op-abas">' + [['atividades', 'Atividades'], ['propostas', 'Propostas'], ['documentos', 'Documentos'], ['dados', 'Dados']].map(([k, r]) => '<button data-aba="' + k + '">' + r + '</button>').join('') + '</div>' +
+      '<div class="abas" id="op-abas">' + [['dados', 'Resumo'], ['atividades', 'Atividades'], ['propostas', 'Propostas'], ['documentos', 'Documentos']].map(([k, r]) => '<button data-aba="' + k + '">' + r + '</button>').join('') + '</div>' +
       '<div id="op-corpo" class="ficha-corpo"></div>' });
   j.querySelector('.janela').classList.add('ficha');
   const corpo = j.querySelector('#op-corpo');
@@ -217,7 +242,7 @@ async function fichaOportunidade(id, aba) {
   const g = j.querySelector('#op-ganhou'); if (g) g.onclick = () => janelaGanhar(o, () => { fecharJanela(j); });
   const p = j.querySelector('#op-perdeu'); if (p) p.onclick = () => janelaPerder(o, () => { fecharJanela(j); });
   const vc = j.querySelector('#op-ver-cli'); if (vc) vc.onclick = (ev) => { ev.preventDefault(); abrirFicha(o.cliente_id); };
-  await mostrar(aba || 'atividades');
+  await mostrar(aba || 'dados');
   return j;
 }
 async function opAtividades(alvo, o, repinta) {

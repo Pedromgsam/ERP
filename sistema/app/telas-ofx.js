@@ -58,7 +58,7 @@ async function conciliarOfx(empresa) {
       '<li>Escolha o arquivo abaixo. Nada é gravado antes de você conferir.</li></ol>' +
       '<label class="btn btn-p" style="cursor:pointer;margin-top:8px">Escolher arquivo .ofx<input type="file" id="ofx-arq" accept=".ofx,.OFX,.txt" hidden></label>' +
       '<p class="sub" style="margin-top:8px">O arquivo é lido aqui no seu computador; só as entradas (créditos) são usadas.</p></div>',
-    rodape: '<span class="sub" id="ofx-resumo"></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Fechar</button><button class="btn btn-p" type="button" id="ofx-gravar" hidden>✓ Registrar pagamentos marcados</button></div>' });
+    rodape: '<span class="sub" id="ofx-resumo"></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Fechar</button><button class="btn btn-p" type="button" id="ofx-gravar" hidden>✓ Dar como recebidos os marcados</button></div>' });
   j.querySelector('.janela').classList.add('janela-ofx');
   j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
   j.querySelector('#ofx-arq').onchange = async (ev) => {

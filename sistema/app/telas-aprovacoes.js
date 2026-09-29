@@ -6,7 +6,7 @@
 // ═══════════════════════════════════════════════════════════════════
 const ROT_CAMPO = { nome: 'Nome', cpf_cnpj: 'CPF/CNPJ', area: 'Área', tipo: 'Tipo', responsavel: 'Responsável', email: 'E-mail', telefone: 'Telefone', obs: 'Observação',
   descricao: 'Descrição', valor: 'Valor', vencimento: 'Vencimento', pago: 'Pago', data_pagamento: 'Data do pagamento', processo: 'Processo', numero: 'Número',
-  status: 'Situação', grupo_id: 'Grupo', cliente_id: 'Cliente', comprovante_processo: 'Comprovante no processo', comprovante_id: 'ID do comprovante' };
+  status: 'Situação', grupo_id: 'Grupo', cliente_id: 'Cliente', comprovante_processo: 'Comprovante no processo', comprovante_id: 'ID do comprovante', servico: 'Área do serviço', perfil_email: 'E-mails de cobrança' };
 function valorCampo(k, v) {
   if (v == null || v === '') return '<span class="sub">—</span>';
   if (typeof v === 'boolean') return v ? 'Sim' : 'Não';

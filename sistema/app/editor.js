@@ -620,6 +620,13 @@
     const id = tr.dataset.gx.split(':')[1];
     if (window.GS && window.GS.detalheAcordo) Promise.resolve(window.GS.carregarCadastros()).then(() => window.GS.detalheAcordo(id)).catch((er) => console.error(er));
   });
+  // clicar num honorário (linhas do Financeiro) abre o detalhe: o que é, de quem, contrato, situação e ações
+  document.addEventListener('click', (e) => {
+    const tr = e.target.closest && e.target.closest('tr[data-gx^="lancamentos:"]');
+    if (!tr || ehCliente() || e.target.closest('button, a, input, select, label, .gx-la')) return;
+    const id = tr.dataset.gx.split(':')[1];
+    if (window.GS && window.GS.detalheLancamento) Promise.resolve(window.GS.carregarCadastros()).then(() => window.GS.detalheLancamento(id)).catch((er) => console.error(er));
+  });
   document.addEventListener('dblclick', (e) => {
     const tr = e.target.closest && e.target.closest('tr[data-gx]');
     if (tr && tr.dataset.gx && !ehCliente()) { window.getSelection && window.getSelection().removeAllRanges(); editarPorMarca(tr.dataset.gx); }

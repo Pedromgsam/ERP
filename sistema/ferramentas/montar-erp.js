@@ -150,15 +150,9 @@ removerTrechoHtml('  <div class="ex-bn" style="margin-bottom:16px;position:relat
   '      <div class="cb" style="height:210px"><canvas id="cProcNatureza"></canvas></div>\n    </div>\n  </div>\n',
   '  <div hidden aria-hidden="true"><div id="kpiProc"></div><canvas id="cProcGrupos"></canvas><canvas id="cProcComp"></canvas><canvas id="cProcValor"></canvas><canvas id="cProcNatureza"></canvas></div>\n');
 // Análise da carteira ganha Arquivados/extintos, Passivo e Ativo em disputas
-// Backup 14: números em preto; "Processos" já diz quantos em andamento e arquivados; "Valor em disputa" diz quantos sem valor;
-// saem os cartões Arquivados/extintos, Ticket médio e Sem valor
-trocar("   +  kC('Processos',lista.length,ativos+' em andamento','cb','db')\n" +
+trocar("   +  kC('Valor em disputa',_faFT(totalV),comValor.length+' com valor informado','cv','dv')",
+  "   +  kC('Arquivados / extintos',lista.length-ativos,'encerrados, prescritos e extintos','cx','')\n" +
   "   +  kC('Valor em disputa',_faFT(totalV),comValor.length+' com valor informado','cv','dv')\n" +
-  "   +  kC('Ticket médio',_faFT(comValor.length?totalV/comValor.length:0),'por processo com valor','cx','')\n" +
-  "   +  kC('Sem valor',lista.length-comValor.length,'processos sem valor da causa',\n" +
-  "        (lista.length-comValor.length)?'ca':'cg',(lista.length-comValor.length)?'da':'')",
-  "   +  kC('Processos',fI(lista.length),'('+fI(ativos)+' em andamento · '+fI(lista.length-ativos)+' arquivados/extintos)','cb','')\n" +
-  "   +  kC('Valor em disputa',_faFT(totalV),'('+fI(lista.length-comValor.length)+' sem valor)','cv','')\n" +
   "   +  (function(){ var nomes=(FIL.length?FIL:DB.baseDados).map(function(r){return String(r.nome||'').toLowerCase();}).filter(function(n){return n.length>2;});\n" +
   "        var tem=function(t){ t=String(t||'').toLowerCase(); return nomes.some(function(n){return t.indexOf(n)>=0;}); };\n" +
   "        var vP=lista.filter(function(p){return tem(p.reu);}).reduce(function(s,p){return s+val(p);},0), vA=lista.filter(function(p){return tem(p.autor);}).reduce(function(s,p){return s+val(p);},0);\n" +
@@ -185,24 +179,16 @@ trocar('placeholder="Nº ou réu..." oninput="renderProcTbl()" style="max-width:
 removerTrechoHtml('  <div class="ex-bn" style="margin-bottom:16px;position:relative;background:none;border:1.5px solid var(--border);box-shadow:var(--shadow-md);padding:22px 26px">\n    <div style="font-family:var(--font-d);font-size:14px;font-weight:700;color:var(--ac-gold);margin-bottom:12px;letter-spacing:.01em">◷ Parcelamentos — Visão Geral</div>',
   '      <div class="cb" style="height:250px"><canvas id="cParcNatureza"></canvas></div>\n    </div>\n  </div>\n',
   '  <div hidden aria-hidden="true"><div id="kpiParc"></div><canvas id="cParcNatureza"></canvas></div>\n' +
-  // Backup 14: só a tabela (sem o gráfico), todas as empresas, ordenável pelo cabeçalho, no desenho da "Análise da carteira"
-  '  <div class="cc">\n    <div class="cc-hd"><div><div class="cc-t">Saldo residual por empresa</div><div class="cc-d">clique no título da coluna para ordenar</div></div></div>\n' +
-  '    <div id="cParcResidualTab"></div>\n  </div>\n');
+  '  <div class="cc">\n    <div class="cc-hd"><div><div class="cc-t">Saldo residual por empresa</div><div class="cc-d">gráfico e tabela lado a lado · 10 maiores</div></div></div>\n' +
+  '    <div class="gx-graf-tab"><div class="cb" style="height:260px"><canvas id="cParcResidual"></canvas></div><div id="cParcResidualTab"></div></div>\n  </div>\n');
 trocar("  mCh('cParcResidual',bCfg(iR.map(i=>emps[i].length>18?emps[i].slice(0,18)+'…':emps[i]),iR.map(i=>eR[i]),null,true));",
-  "  { const _tR=eR.reduce((s,v)=>s+v,0)||1, _t=$('cParcResidualTab'), _ord=eR.map((_,i)=>i).filter(i=>eR[i]>0).sort((a,b)=>eR[b]-eR[a]);\n" +
-  "    const _nP=e=>parc.filter(p=>p.empresa===e).length, _mes=e=>parc.filter(p=>p.empresa===e&&(Number(p.parcelasPagas)||0)<(Number(p.totalParcelas)||0)).reduce((s,p)=>s+(Number(p.valorUltimaParcela)||0),0);\n" +
-  "    if(_t) _t.innerHTML=_ord.length?'<div class=\"tw\"><table><thead><tr><th>Empresa</th><th style=\"text-align:right\">Parcelamentos</th><th style=\"text-align:right\">Por mês</th><th style=\"text-align:right\">Saldo residual</th><th style=\"text-align:right\">%</th></tr></thead><tbody>'+\n" +
-  "      _ord.map(i=>'<tr><td><strong>'+esc(emps[i])+'</strong></td><td class=\"mono\" style=\"text-align:right\">'+_nP(emps[i])+'</td><td class=\"mono\" style=\"text-align:right\" data-ord=\"'+_mes(emps[i])+'\">'+_faFT(_mes(emps[i]))+'</td>'+\n" +
-  "        '<td class=\"mono\" style=\"text-align:right\" data-ord=\"'+eR[i]+'\">'+_faFT(eR[i])+'</td><td class=\"mono\" style=\"text-align:right;color:var(--text3)\" data-ord=\"'+eR[i]+'\">'+(eR[i]/_tR*100).toFixed(1).replace('.',',')+'%</td></tr>').join('')+\n" +
-  "      '</tbody><tfoot><tr><td>Total</td><td></td><td></td><td class=\"mono\" style=\"text-align:right\">'+_faFT(eR.reduce((s,v)=>s+v,0))+'</td><td class=\"mono\" style=\"text-align:right\">100%</td></tr></tfoot></table></div>'\n" +
-  "      :'<div class=\"pa-ok\">Nenhum saldo residual neste recorte.</div>'; }", 1);
+  "  mCh('cParcResidual',bCfg(iR.map(i=>emps[i].length>18?emps[i].slice(0,18)+'…':emps[i]),iR.map(i=>eR[i]),null,true));\n" +
+  "  { const _tR=eR.reduce((s,v)=>s+v,0)||1, _t=$('cParcResidualTab');\n" +
+  "    if(_t) _t.innerHTML='<table class=\"gx-leg\"><thead><tr><td>Empresa</td><td class=\"num\">Saldo residual</td><td class=\"num\">%</td></tr></thead><tbody>'+iR.map(i=>'<tr><td>'+emps[i]+'</td><td class=\"num\">'+fF(eR[i])+'</td><td class=\"num gx-leg-p\">'+(eR[i]/_tR*100).toFixed(1).replace('.',',')+'%</td></tr>').join('')+\n" +
+  "      '</tbody><tfoot><tr><td>Total</td><td class=\"num\">'+fF(eR.reduce((s,v)=>s+v,0))+'</td><td class=\"num\">100%</td></tr></tfoot></table>'; }", 1);
 // Situação dos parcelamentos: mesmo filtro do resto da tela (grupo + empresa juntos sumiam com o bloco)
 trocar("  var lista=(DB.parcelamentos||[]).filter(function(p){\n    if(e && p.empresa!==e) return false;\n    if(g && grupoDe(p)!==g) return false;\n    return true;\n  });\n  if(!lista.length){ el.innerHTML=''; return; }",
   "  var lista=filtrarParc();\n  if(!lista.length){ el.innerHTML=exBloco('exParcSit','Situação dos parcelamentos','<div class=\"pa-ok\">Nenhum parcelamento neste recorte (grupo / empresa escolhidos).</div>'); return; }", 1);
-// Progresso por parcelamento: valor da parcela no cartão
-trocar("\n          <span style=\"font-size:10.5px;color:var(--text4)\">Res: <strong style=\"color:var(--navy)\">${fS(p.residual||0)}</strong></span>",
-  "\n          <span style=\"font-size:10.5px;color:var(--text4)\">Parcela: <strong style=\"color:var(--navy)\">${fF(p.valorUltimaParcela||0)}</strong></span>\n" +
-  "          <span style=\"font-size:10.5px;color:var(--text4)\">Saldo: <strong style=\"color:var(--navy)\">${fF(p.residual||0)}</strong></span>", 1);
 // Progresso por parcelamento: ordenar clicando nos títulos (e só inadimplentes)
 trocar('    <div class="cc-hd"><div><div class="cc-t">Progresso por parcelamento</div><div class="cc-d">Parcelas pagas / total</div></div></div>',
   '    <div class="cc-hd" style="flex-wrap:wrap;gap:8px"><div><div class="cc-t">Progresso por parcelamento</div><div class="cc-d">Parcelas pagas / total · clique num título para ordenar</div></div>' +
@@ -227,10 +213,7 @@ removerTrechoHtml('  <div class="ex-bn" style="margin-bottom:16px;position:relat
   '    <div class="kpi-grid" id="kpiAcordos"></div>\n  </div>\n',
   '  <div id="acAnalise"></div><div hidden aria-hidden="true"><div class="kpi-grid" id="kpiAcordos"></div></div>\n');
 trocar("  $('kpiAcordos').innerHTML=\n", "  _acordosAnalise(ac);\n  $('kpiAcordos').innerHTML=\n", 1);
-trocar('function renderAcordos(){', "// tabelas de acompanhamento: os 100% pagos ficam escondidos; o chip mostra/esconde (Backup 14)\n" +
-  "var _verQuitados={};\n" +
-  "function _chipQuitados(k,n){ return n?'<label class=\"gx-quit\"><input type=\"checkbox\"'+(_verQuitados[k]?' checked':'')+' onchange=\"_verQuitados[\\''+k+'\\']=this.checked;'+(k.indexOf('parc')===0?'renderParcAnalise()':'renderAcordos()')+'\"> mostrar quitados ('+n+')</label>':''; }\n" +
-  "function _acordosAnalise(ac){\n" +
+trocar('function renderAcordos(){', "function _acordosAnalise(ac){\n" +
   "  var el=$('acAnalise'); if(!el) return; if(!ac.length){ el.innerHTML=''; return; }\n" +
   "  var hj=new Date(); hj.setHours(0,0,0,0); var fimMes=new Date(hj.getFullYear(),hj.getMonth()+1,0);\n" +
   "  var v=function(a){return Number(a.valor)||0;}, pago=function(a){return a.situacao==='Pago';};\n" +
@@ -239,8 +222,7 @@ trocar('function renderAcordos(){', "// tabelas de acompanhamento: os 100% pagos
   "  var soma=function(l){return l.reduce(function(s,a){return s+v(a);},0);};\n" +
   "  var porCred={}; ac.forEach(function(a){ var k=a.credor||'—'; if(!porCred[k]) porCred[k]={pago:0,falta:0,n:new Set(),atr:0}; var c=porCred[k];\n" +
   "    if(pago(a)) c.pago+=v(a); else c.falta+=v(a); c.n.add(a.processo); if(atrasada(a)) c.atr++; });\n" +
-  "  var ordemTudo=Object.keys(porCred).sort(function(a,b){return porCred[b].falta-porCred[a].falta;});\n" +
-  "  var nQuit=ordemTudo.filter(function(k){return porCred[k].falta<=0;}).length, ordem=ordemTudo.filter(function(k){return _verQuitados.acCred||porCred[k].falta>0;});\n" +
+  "  var ordem=Object.keys(porCred).sort(function(a,b){return porCred[b].falta-porCred[a].falta;});\n" +
   "  var porAc={}; ac.filter(atrasada).forEach(function(a){ var k=a.processo+'|'+(a.devedor||''); if(!porAc[k]) porAc[k]={a:a,n:0,v:0}; porAc[k].n++; porAc[k].v+=v(a); });\n" +
   "  var risco=Object.keys(porAc).map(function(k){return porAc[k];}).sort(function(x,y){return y.n-x.n||y.v-x.v;});\n" +
   "  var barra=function(p,f){ var t=p+f; if(t<=0) return ''; var pc=Math.round(p/t*100); return '<div class=\"pa-bar\"><div class=\"pa-bar-in\" style=\"width:'+pc+'%\"></div></div><div class=\"pa-pc\">'+pc+'% pago</div>'; };\n" +
@@ -252,7 +234,7 @@ trocar('function renderAcordos(){', "// tabelas de acompanhamento: os 100% pagos
   "   + kC('Vence este mês',_faFT(soma(ac.filter(noMes))),ac.filter(noMes).length+' parcela(s) até '+fimMes.toLocaleDateString('pt-BR').slice(0,5),'cb','')\n" +
   "   + kC('Em atraso',_faFT(soma(ac.filter(atrasada))),ac.filter(atrasada).length+' parcela(s) vencida(s)','cr',ac.some(atrasada)?'dr':'')\n" +
   "   + '</div><div class=\"crow c2\">'\n" +
-  "   + '<div><div class=\"pa-sub\">Por credor'+_chipQuitados('acCred',nQuit)+'</div><div class=\"tw\"><table><thead><tr><th>Credor</th><th style=\"text-align:right\">Pago</th><th style=\"text-align:right\">Falta</th><th style=\"width:130px\">Andamento</th></tr></thead><tbody>'\n" +
+  "   + '<div><div class=\"pa-sub\">Por credor</div><div class=\"tw\"><table><thead><tr><th>Credor</th><th style=\"text-align:right\">Pago</th><th style=\"text-align:right\">Falta</th><th style=\"width:130px\">Andamento</th></tr></thead><tbody>'\n" +
   "   + ordem.map(function(k){ var c=porCred[k]; return '<tr><td><strong>'+esc(k)+'</strong><div style=\"font-size:11px;color:var(--text3)\">'+c.n.size+' acordo(s)'+(c.atr?' · <span style=\"color:var(--red-d)\">'+c.atr+' em atraso</span>':'')+'</div></td>'\n" +
   "       +'<td class=\"mono\" style=\"text-align:right;color:var(--green-d)\">'+_faFT(c.pago)+'</td><td class=\"mono\" style=\"text-align:right\">'+_faFT(c.falta)+'</td><td>'+barra(c.pago,c.falta)+'</td></tr>'; }).join('')\n" +
   "   + '</tbody></table></div></div>'\n" +
@@ -270,8 +252,8 @@ trocar('function bCfg(labels,data,colors,horiz=false){', "// barras horizontais 
   "function _barrasComValor(cfg){ cfg.options.gxValores=true; cfg.options.layout={padding:{right:118}}; cfg.options.scales.x.display=false; cfg.options.scales.y.grid={display:false};\n" +
   "  cfg.options.scales.y.ticks=Object.assign({},cfg.options.scales.y.ticks,{autoSkip:false,callback:function(v){var t=String(this.getLabelForValue(v)||'');return t.length>28?t.slice(0,27)+'…':t;}}); return cfg; }\n" +
   "function bCfg(labels,data,colors,horiz=false){", 1);
-// Backup 14: TODO gráfico de barras deitadas (uma série) ganha o valor à direita da barra
-trocar("function mCh(id,cfg){dCh(id);", "function mCh(id,cfg){if(cfg&&cfg.type==='bar'&&cfg.options&&cfg.options.indexAxis==='y'&&!cfg.options.gxValores&&(cfg.data.datasets||[]).length===1&&typeof _barrasComValor==='function')_barrasComValor(cfg);dCh(id);", 1);
+// Backup 14: todo gráfico de barras deitadas (uma série) ganha o valor à direita da barra (Parcelamentos e Acordos ficam como no Backup 13)
+trocar("function mCh(id,cfg){dCh(id);", "function mCh(id,cfg){if(id!=='cParcResidual'&&id!=='cAcordAtraso'&&cfg&&cfg.type==='bar'&&cfg.options&&cfg.options.indexAxis==='y'&&!cfg.options.gxValores&&(cfg.data.datasets||[]).length===1&&typeof _barrasComValor==='function')_barrasComValor(cfg);dCh(id);", 1);
 // Resumo mensal (Contabilidade → Caixa): valores inteiros (o total aparecia como "R$ 1,2 mi")
 { const i = s.indexOf('function _fcTabelaCaixa(meses){'), j = s.indexOf('// v53: análise detalhada mês a mês', i);
   if (i < 0 || j < 0) throw new Error('_fcTabelaCaixa não encontrada');
@@ -327,6 +309,21 @@ trocar("family=Playfair+Display:wght@500;600;700;800&family=DM+Sans:wght@300;400
     "  +   _faTabelaPessoas(_faPessoas()) + '</div>'\n";
   trocar(graf + pessoas, pessoas + graf, 1);
 })();
+// Backup 15 — "Recebido por tipo de serviço" = ÁREA do serviço (tributário, imobiliário, empresarial, sucessões, família,
+// criminal, trabalhista, contratual, cobrança, consultoria). A consultoria mensal segue como regra de recorrência, fora do gráfico.
+trocar("    var tp=[...new Set(receita.map(function(f){return f.tipo||'—';}))];\n    var tv=tp.map(function(t){return receita.filter(function(f){return (f.tipo||'—')===t;}).reduce(function(s,f){return s+_faVal(f);},0);});",
+  "    var tp=[...new Set(receita.map(function(f){return f.servico||'Não informado';}))];\n    var tv=tp.map(function(t){return receita.filter(function(f){return (f.servico||'Não informado')===t;}).reduce(function(s,f){return s+_faVal(f);},0);});", 1);
+trocar("  +     '<div class=\"cc-d\">consultoria, fixo, êxito…</div></div></div>'", "  +     '<div class=\"cc-d\">área: tributário, imobiliário, empresarial, família…</div></div></div>'", 1);
+// "Em atraso" (Análise do Jurídico): sem a coluna Referência (o texto longo, ex.: "0,7 salário - consultoria"); fica o tipo
+{ const i = s.indexOf('function _faTabelaDetalhe(rows){'), j = s.indexOf('\n}\n', i);
+  if (i < 0 || j < 0) throw new Error('_faTabelaDetalhe não encontrada');
+  let f = s.slice(i, j);
+  const f0 = f;
+  f = f.replace("+'<th>Tipo</th><th>Referência</th>'", "+'<th>Tipo</th>'")
+       .replace("        +'<td style=\"max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap\" title=\"'+esc(f.referencia||'')+'\">'+esc(f.referencia||'—')+'</td>'\n", '')
+       .replace("colspan=\"8\"", "colspan=\"7\"");
+  if (f === f0 || /Referência/.test(f)) throw new Error('_faTabelaDetalhe: troca não aplicada');
+  s = s.slice(0, i) + f + s.slice(j); trocas++; }
 // Análise (Jurídico): sem a lista de lançamentos (os lançamentos já estão em A Receber / Recebidos)
 trocar("  + '<div id=\"faCorpo\"></div>'\n  + '<div class=\"cc\"><div class=\"cc-hd\" style=\"align-items:center\"><div><div class=\"cc-t\">Lançamentos</div>'\n  +   '<div class=\"cc-d\">os filtros do topo já valem para esta lista · clique no cabeçalho para ordenar</div></div>'\n  +   '<span class=\"fa-dica\" id=\"faLqCount\"></span></div>'\n  +   '<div id=\"faLancTbl\"></div></div>';",
   "  + '<div id=\"faCorpo\"></div>';", 1);
@@ -338,33 +335,6 @@ trocar("  + '<div class=\"cc\" style=\"margin-bottom:14px\"><div class=\"cc-hd\"
 trocar("  +   _fcTabelaPessoas(_fcPessoas()) + '</div>';",
   "  +   _fcTabelaPessoas(_fcPessoas()) + '</div>'\n" +
   "  + (vencidos.length?'<div class=\"cc\" style=\"margin-bottom:14px\"><div class=\"cc-hd\"><div><div class=\"cc-t\">⚠ Em atraso</div><div class=\"cc-d\">todos os meses · mesmos recortes</div></div></div>'+_fcTabelaDetalhe(vencidos)+'</div>':'');", 1);
-
-// ═══════ Backup 14 — Acordos: "Valor por devedor" vira tabela; sai "Valor em atraso por devedor" ═══════
-removerTrechoHtml('  <div class="crow c2">\n    <div class="cc">\n      <div class="cc-hd"><div><div class="cc-t">Valor por devedor</div>',
-  '<canvas id="cAcordAtraso"></canvas></div>\n    </div>\n  </div>\n',
-  '  <div class="cc">\n    <div class="cc-hd"><div><div class="cc-t">Valor por devedor</div><div class="cc-d">clique no título da coluna para ordenar</div></div><div id="acordDevedorChip"></div></div>\n' +
-  '    <div id="acordDevedorTab"></div>\n  </div>\n');
-trocar("  mCh('cAcordDevedor',bCfg(iD.map(i=>devs[i].length>20?devs[i].slice(0,20)+'…':devs[i]),iD.map(i=>dV[i]),null,false));",
-  "  { const _hj=new Date(); _hj.setHours(0,0,0,0); const _v=a=>Number(a.valor)||0;\n" +
-  "    const _todos=[...new Set(ac.map(a=>a.devedor))].filter(Boolean).map(d=>{ const l=ac.filter(a=>a.devedor===d), ab=l.filter(a=>a.situacao!=='Pago');\n" +
-  "      return {d:d,n:new Set(l.map(a=>a.processo||a.ref)).size,pago:l.filter(a=>a.situacao==='Pago').reduce((s,a)=>s+_v(a),0),aberto:ab.reduce((s,a)=>s+_v(a),0),\n" +
-  "        atraso:ab.filter(a=>{const dv=pDate(a.vencimento);return a.situacao==='Vencido'||(dv&&dv<_hj);}).reduce((s,a)=>s+_v(a),0)}; }).sort((x,y)=>y.aberto-x.aberto);\n" +
-  "    const _nq=_todos.filter(x=>x.aberto<=0).length, _l=_todos.filter(x=>_verQuitados.acDev||x.aberto>0), _t=$('acordDevedorTab');\n" +
-  "    const _c=$('acordDevedorChip'); if(_c) _c.innerHTML=_chipQuitados('acDev',_nq);\n" +
-  "    if(_t) _t.innerHTML=_l.length?'<div class=\"tw\"><table><thead><tr><th>Devedor</th><th style=\"text-align:right\">Acordos</th><th style=\"text-align:right\">Pago</th><th style=\"text-align:right\">Em aberto</th><th style=\"text-align:right\">Em atraso</th></tr></thead><tbody>'+\n" +
-  "      _l.map(x=>'<tr><td><strong>'+esc(x.d)+'</strong></td><td class=\"mono\" style=\"text-align:right\">'+x.n+'</td><td class=\"mono\" style=\"text-align:right;color:var(--green-d)\" data-ord=\"'+x.pago+'\">'+_faFT(x.pago)+'</td>'+\n" +
-  "        '<td class=\"mono\" style=\"text-align:right\" data-ord=\"'+x.aberto+'\">'+_faFT(x.aberto)+'</td><td class=\"mono\" style=\"text-align:right'+(x.atraso?';color:var(--red-d);font-weight:700':'')+'\" data-ord=\"'+x.atraso+'\">'+(x.atraso?_faFT(x.atraso):'—')+'</td></tr>').join('')+\n" +
-  "      '</tbody><tfoot><tr><td>Total</td><td></td><td class=\"mono\" style=\"text-align:right\">'+_faFT(_l.reduce((s,x)=>s+x.pago,0))+'</td><td class=\"mono\" style=\"text-align:right\">'+_faFT(_l.reduce((s,x)=>s+x.aberto,0))+'</td><td class=\"mono\" style=\"text-align:right\">'+_faFT(_l.reduce((s,x)=>s+x.atraso,0))+'</td></tr></tfoot></table></div>'\n" +
-  "      :'<div class=\"pa-ok\">Nenhum acordo em aberto neste recorte.</div>'; }", 1);
-// Progresso por acordo e por parcelamento: valor da parcela no cartão
-trocar("      grupos2[key].valor+=(Number(a.valor)||0);", "      grupos2[key].valor+=(Number(a.valor)||0); grupos2[key].parcela=Math.max(grupos2[key].parcela||0,Number(a.valor)||0);", 1);
-trocar("            <span style=\"font-size:10.5px;color:var(--text4)\">Res: <strong style=\"color:var(--navy)\">${fS(g.residual)}</strong></span>",
-  "            <span style=\"font-size:10.5px;color:var(--text4)\">Parcela: <strong style=\"color:var(--navy)\">${fF(g.parcela||0)}</strong></span>\n" +
-  "            <span style=\"font-size:10.5px;color:var(--text4)\">Saldo: <strong style=\"color:var(--navy)\">${fF(g.residual)}</strong></span>", 1);
-// Parcelamentos → Situação → Por órgão: órgão 100% quitado fica escondido (chip mostra)
-trocar("   +  '<div><div class=\"pa-sub\">Por órgão</div><div class=\"tw\"><table><thead><tr>'",
-  "   +  '<div><div class=\"pa-sub\">Por órgão'+_chipQuitados('parcOrg',ordem.filter(function(o){return orgaos[o].falta<=0;}).length)+'</div><div class=\"tw\"><table><thead><tr>'", 1);
-trocar("   +    ordem.map(function(o){ var d=orgaos[o];", "   +    ordem.filter(function(o){return _verQuitados.parcOrg||orgaos[o].falta>0;}).map(function(o){ var d=orgaos[o];", 1);
 
 // 7. Acordos e parcelamentos são dívidas do CLIENTE com terceiros; honorários são o financeiro
 //    do ESCRITÓRIO. Nunca na mesma lista: _getVencRows ganha o escopo ('financeiro' | 'cliente').
@@ -493,10 +463,10 @@ let graf = ler('graficos.js').replace("document.addEventListener('DOMContentLoad
 const bundle = "'use strict';\n// GERADO por sistema/ferramentas/montar-erp.js — não edite; edite os arquivos do Gestão.\n(function () {\n" +
   "const _raiz = document.createElement('div'); _raiz.id = 'gs-raiz'; _raiz.className = 'gs';\n" +
   "_raiz.innerHTML = '<div id=\"janelas\"></div><div id=\"aviso\"></div>'; document.body.appendChild(_raiz);\n" +
-  [nuc, graf, ler('telas-painel.js'), ler('telas-financeiro.js'), ler('telas-cadastros.js'), ler('telas-admin.js'), ler('telas-tarefas.js'), ler('telas-documentos.js'), ler('telas-cliente360.js'), ler('telas-crm.js'), ler('telas-publicacoes.js'), ler('telas-acordos.js'), ler('telas-alertas.js'), ler('telas-automacoes.js'), ler('telas-aprovacoes.js'), ler('telas-ofx.js'), ler('telas-processos.js')].join('\n') +
+  [nuc, graf, ler('telas-painel.js'), ler('telas-financeiro.js'), ler('telas-cadastros.js'), ler('telas-admin.js'), ler('telas-tarefas.js'), ler('telas-documentos.js'), ler('telas-cliente360.js'), ler('telas-crm.js'), ler('telas-publicacoes.js'), ler('telas-acordos.js'), ler('telas-alertas.js'), ler('telas-automacoes.js'), ler('telas-aprovacoes.js'), ler('telas-ofx.js')].join('\n') +
   "\n// toda gravação confirmada aparece também no rodapé do ERP\nconst _avisoOrig = aviso;\n" +
   "aviso = function (msg, erro) { _avisoOrig(msg, erro); if (!erro && window.ERP_EDITOR && /^✓/.test(msg)) window.ERP_EDITOR.gravou(String(msg).replace(/^✓\\s*/, '')); };\n" +
-  "window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, invalidarCadastros, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo, perguntarBaixa, detalheContrato, ICONE_AVISO, conciliarOfx, abrirTarefa };\n})();\n";
+  "window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, invalidarCadastros, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo, perguntarBaixa, detalheContrato, ICONE_AVISO, conciliarOfx, abrirTarefa, detalheLancamento };\n})();\n";
 fs.writeFileSync(path.join(APP, 'gestao-embutida.js'), bundle);
 
 // CSS do Gestão só dentro de .gs (as telas do Gestão) e #gs-hd (barra superior)

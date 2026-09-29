@@ -125,7 +125,7 @@ window.ERP_COLS_CLIENTE = 'id,grupo_id,nome,cpf_cnpj,tipo,responsavel,email,tele
     return {
       _id: l.id, _t: 'lancamentos', aba, categoria: l.tipo === 'despesa' ? l.categoria || '' : '', centCusto: '',
       responsavel: l.responsavel || '', descricao: l.descricao || '', grupo: gNome || l.favorecido || '',
-      advogado: l.responsavel || '', tipo: l.categoria || '', referencia: l.referencia || '',
+      advogado: l.responsavel || '', tipo: l.categoria || '', servico: l.servico || '', referencia: l.referencia || '',
       vencimento: br(l.vencimento), valor: (deducao || estorno) ? -num(l.valor) : num(l.valor), diasRestantes: l.pago ? 0 : dias(l.vencimento),
       situacao, pagamento: l.pago ? 'SIM' : '', dataPagamento: dataPag, formaPagamento: l.forma_pagamento || '',
       pix: /cheque/i.test(l.forma_pagamento || '') ? 'Cheque' : (l.chave_pix || ''), banco: l.conta || '', obs: l.obs || ''

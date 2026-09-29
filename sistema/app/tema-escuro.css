@@ -195,6 +195,7 @@ html[data-tema="escuro"] .gs .cr-col.cr-final-ganho{background:#202f24}
 html[data-tema="escuro"] .gs .cr-col.cr-final-perdido{background:var(--surface2)}
 html[data-tema="escuro"] .gs .cr-col-tit{color:var(--ink)}
 html[data-tema="escuro"] .gs .cr-card{background:var(--surface)}
+html[data-tema="escuro"] .gs .cr-solte{border:2px dashed rgba(255,255,255,0.132)}
 html[data-tema="escuro"] .gs .pr-texto{background:var(--surface)}
 html[data-tema="escuro"] .gs .pub-texto mark{background:#423a1a}
 html[data-tema="escuro"] .gs tr.linha-atual td{background:#38301b!important}
@@ -207,7 +208,10 @@ html[data-tema="escuro"] .gs .cem-perfil{background:var(--surface)}
 html[data-tema="escuro"] .gs .ev-frase{background:var(--surface2)}
 html[data-tema="escuro"] .gs table.massa input:focus,html[data-tema="escuro"] .gs table.massa select:focus{background:var(--surface)}
 html[data-tema="escuro"] .gs table.massa td.mudou{background:#3d3317}
-html[data-tema="escuro"] .gs .pill.pill-grupo{background:#1c222e;color:var(--ink);border:1px solid #262c38}
+html[data-tema="escuro"] .gs .fila-sem-dia{background:var(--surface)}
+html[data-tema="escuro"] .gs .mural-it{background:var(--surface)}
+html[data-tema="escuro"] .gs .mural-it.fixo{background:#342e14}
+html[data-tema="escuro"] .gs .mural-dest{background:var(--surface2)}
 html[data-tema="escuro"] #gs-hd .gs-marca-nome{color:#cdbb89}
 html[data-tema="escuro"] #gs-hd .tn-menu{background:var(--surface);border:1px solid rgba(255,255,255,0.066)}
 html[data-tema="escuro"] #gs-hd .tn-menu button{color:#d3d9e4}
@@ -235,8 +239,8 @@ html[data-tema="escuro"] #gs-sino-n.alto{background:#844343}
 html[data-tema="escuro"] .gx-sec-tit,html[data-tema="escuro"] body.gx-barra-topo .ex-t{color:#d3d9e4!important}
 html[data-tema="escuro"] #gs-hd .hd-usuario .tn-menu button{color:#d3d9e4!important}
 html[data-tema="escuro"] #gs-hd .hd-usuario .tn-menu button:hover{background:#393320!important}
-html[data-tema="escuro"] #panel-resumo .gs-cont-ent{background:#38301b;border:1px solid rgba(255,255,255,0.03);color:#e9daaf}
-html[data-tema="escuro"] #panel-resumo .gs-cont-grp{background:#1a2231;border:1px solid rgba(255,255,255,0.03);color:#89a0df}
+html[data-tema="escuro"] #gx-linha-painel .gs-cont-ent{background:#38301b;border:1px solid rgba(255,255,255,0.03);color:#e9daaf}
+html[data-tema="escuro"] #gx-linha-painel .gs-cont-grp{background:#1a2231;border:1px solid rgba(255,255,255,0.03);color:#89a0df}
 html[data-tema="escuro"] #execKpis .kv,html[data-tema="escuro"] #execKpis .kv *{color:#d3d9e4!important}
 html[data-tema="escuro"] .capag.capag-O{background:#844343!important}
 html[data-tema="escuro"] #panel-acordos tr[data-gx^="acordos:"]:hover td{background:#1a202b}

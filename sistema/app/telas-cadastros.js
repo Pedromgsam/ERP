@@ -336,10 +336,12 @@ function formContrato(ct) {
     titulo: novo ? 'Novo contrato' : 'Editar contrato', larga: true,
     corpo:
       '<form id="f-ctr" class="grade">' +
-      campo('Cliente <span class="obrig">*</span>', '<select name="cliente_id" required>' + opcoesClientes(ct.cliente_id).replace('— sem cliente —', 'Escolha o cliente') + '</select>', 'inteiro') +
+      campo('Cliente <span class="obrig">*</span>', '<div class="ctr-cli"><select name="cliente_id" required>' + opcoesClientes(ct.cliente_id).replace('— sem cliente —', 'Escolha o cliente') + '</select>' +
+        '<button type="button" class="btn btn-o btn-mini" id="ctr-novo-cli" title="Cadastrar o cliente sem sair do contrato">+ Novo cliente</button></div>', 'inteiro') +
       '<div class="inteiro"><div class="segmento seg-grande" id="ctr-mod">' + [['consultoria', 'Consultoria (mensal, recorrente)'], ['pontual', 'Serviço pontual (valor fechado)']]
         .map(([v, r]) => '<button type="button" data-v="' + v + '"' + (mod === v ? ' class="ativo"' : '') + (novo ? '' : ' disabled') + '>' + r + '</button>').join('') + '</div></div>' +
       campo('Descrição do serviço <span class="obrig">*</span>', '<input name="descricao" required maxlength="200" placeholder="Ex.: Consultoria tributária mensal" value="' + esc(ct.descricao || '') + '">', 'inteiro') +
+      campo('Área do serviço', selectServico(ct.servico || '')) +
       campo('Data do contrato', '<input name="data_contrato" type="date" value="' + esc(ct.data_contrato || hojeISO()) + '">') +
       campo('% de êxito (se houver)', '<input name="percentual_exito" inputmode="decimal" placeholder="Ex.: 20" value="' + (ct.percentual_exito != null ? esc(String(ct.percentual_exito).replace('.', ',')) : '') + '">') +
       // êxito: sobre o quê e como foi combinado; só vira dinheiro quando acontecer (botão "Registrar êxito" no detalhe)
@@ -372,6 +374,17 @@ function formContrato(ct) {
       '<button class="btn btn-p" id="btn-salvar-ctr" type="button">' + (novo ? 'Criar contrato' : 'Salvar') + '</button></div>'
   });
   const f = j.querySelector('#f-ctr');
+  // cliente ainda não cadastrado: cadastra aqui mesmo e já volta escolhido no contrato
+  j.querySelector('#ctr-novo-cli').onclick = () => {
+    const antes = new Set(E.clientes.map((c) => c.id));
+    formCliente(undefined, async () => {
+      await carregarCadastros(true);
+      const novoCli = E.clientes.find((c) => !antes.has(c.id));
+      const sel = j.querySelector('[name=cliente_id]');
+      sel.innerHTML = opcoesClientes(novoCli ? novoCli.id : sel.value).replace('— sem cliente —', 'Escolha o cliente');
+      if (novoCli) { sel.value = novoCli.id; sel.dispatchEvent(new Event('change')); aviso('✓ Cliente cadastrado e escolhido no contrato.'); }
+    });
+  };
   let modalidade = mod, formaValor = forma, sm = [];
   q(sb.from('salarios_minimos').select('*').order('ano', { ascending: false })).then((x) => { sm = x; previaRec(); }).catch(() => {});
   const previaRec = () => {
@@ -417,7 +430,7 @@ function formContrato(ct) {
     const exito = f.percentual_exito.value.trim() ? lerValor(f.percentual_exito.value) : null;
     if (exito != null && !(exito >= 0 && exito <= 100)) throw new Error('% de êxito deve ficar entre 0 e 100.');
     const cli = E.clientes.find((c) => c.id === f.cliente_id.value);
-    const dados = { cliente_id: f.cliente_id.value, descricao: f.descricao.value.trim(), modalidade,
+    const dados = { cliente_id: f.cliente_id.value, descricao: f.descricao.value.trim(), servico: f.servico.value, modalidade,
       data_contrato: f.data_contrato.value || hojeISO(), percentual_exito: exito, obs: f.obs.value.trim(),
       exito_base: exito ? f.exito_base.value : null, exito_regra: exito ? f.exito_regra.value.trim() : '', responsavel: ct.responsavel || (cli && cli.responsavel) || '' };
     if (modalidade === 'consultoria') {

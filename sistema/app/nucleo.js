@@ -92,6 +92,12 @@ const MODELOS_ACESSO = {
   'Estagiário (rascunho)': { juridico: 'propor', clientes: 'propor', tarefas: 'ver', documentos: 'ver', contratos: 'ver' },
   'Adm. da Contabilidade': { financeiro_contab: 'editar', clientes: 'editar', contratos: 'editar', documentos: 'editar', tarefas: 'editar', relatorios: 'ver' }
 };
+// Área do serviço (gráfico "Recebido por tipo de serviço"). A consultoria mensal continua sendo a regra de recorrência do contrato.
+const AREAS_SERVICO = ['Tributário', 'Imobiliário', 'Empresarial', 'Sucessões', 'Família', 'Criminal', 'Trabalhista', 'Contratual', 'Cobrança', 'Consultoria'];
+function selectServico(valor) {
+  return '<select name="servico"><option value="">— escolha —</option>' + AREAS_SERVICO.concat(valor && !AREAS_SERVICO.includes(valor) ? [valor] : [])
+    .map((a) => '<option' + (a === valor ? ' selected' : '') + '>' + esc(a) + '</option>').join('') + '</select>';
+}
 // Perfil de e-mail ao cliente (Administração → E-mails aos clientes e ficha do cliente)
 const PERFIS_EMAIL = [['padrao', 'Padrão', 'lembrete antes do vencimento, cobrança depois do atraso e recibo'],
   ['vencimento', 'Só no vencimento', 'um aviso no dia do vencimento e o recibo; sem lembrete antes nem cobrança'],
@@ -108,7 +114,7 @@ const AREAS = [['juridico', 'Jurídico'], ['contabil', 'Contabilidade'], ['ambos
 function rotArea(a) { return (AREAS.find((x) => x[0] === (a || 'ambos')) || AREAS[2])[1]; }
 function pillArea(a) {
   a = a || 'ambos';
-  return '<span class="pill area-' + a + '" title="Área: ' + rotArea(a) + '">' + (a === 'juridico' ? 'Jurídico' : a === 'contabil' ? 'Contábil' : 'Jur + Cont') + '</span>';
+  return '<span class="pill area-' + a + '" title="Área: ' + rotArea(a) + '">' + (a === 'juridico' ? 'Jurídico' : a === 'contabil' ? 'Contábil' : 'Jurídico + Contábil') + '</span>';
 }
 function minhasAreas(perfil) { const p = perfil || E.perfil || window.ERP_EU || {}; return p.papel === 'admin' ? 'ambos' : (p.areas || 'ambos'); }
 // pode('contratos') → pode ver; pode('contratos','editar') → pode gravar. Admin pode tudo.
@@ -260,7 +266,7 @@ function corPessoa(n) { return PESSOA[String(n || '').trim()] || { fundo: '#EEF1
 function pillPessoa(n) {
   if (!n) return '<span class="sub">—</span>';
   const c = corPessoa(n);
-  return '<span class="pill" style="background:' + c.fundo + ';color:' + c.texto + '">' + esc(n) + '</span>';
+  return '<span class="pill pill-pessoa" style="background:' + c.fundo + ';color:' + c.texto + '">' + esc(n) + '</span>';
 }
 
 // ─────────────────────────── avisos e erros ────────────────────────
@@ -456,7 +462,7 @@ document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') fecharJa
 function perguntarBaixa({ titulo, descricao, valor, acordo, despesa }) {
   return new Promise((ok) => {
     let feito = false;
-    const j = abrirJanela({ titulo: titulo || (despesa ? 'Registrar pagamento (conta paga)' : 'Registrar pagamento'),
+    const j = abrirJanela({ titulo: titulo || (despesa ? 'Pago — confirme a data' : 'Recebido — confirme a data'),
       corpo: (descricao ? '<div class="dica" style="margin-bottom:12px"><b>' + esc(descricao) + '</b>' + (valor != null ? ' · ' + brl(valor) : '') + '</div>' : '') +
         campo(despesa || acordo ? 'Data do pagamento' : 'Data do recebimento', '<input type="date" name="bx-data" required value="' + hojeISO() + '">') +
         '<div class="sub" style="margin:4px 0 10px">Já vem com a data de hoje. Se o dinheiro entrou em outro dia, troque aqui.</div>' +

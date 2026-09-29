@@ -32,11 +32,9 @@
     { id: 'admin', rot: 'Administração', admin: true }
   ];
   // Cobranças, avisos e recibos (antiga "Notificações"): fora da barra; abre pelo botão ✉ de cada tela e pelo ⋯
-  const FUNC_EXTRA = { notificacoes: 'clientes', processosNovo: 'juridico' };
-  // Processos: tela nova (Backup 14). A antiga continua no sistema: ⋯ → "Processos: tela antiga" volta para ela neste computador.
-  const procAntiga = () => { try { return localStorage.getItem('erp_proc_antiga') === '1'; } catch (e) { return false; } };
+  const FUNC_EXTRA = { notificacoes: 'clientes' };
   // painéis novos → tela do Gestão que desenha nele
-  const TELAS_GS = { processosNovo: 'processos', hoje: 'inicio', contratos: 'contratos', clientes: 'clientes', crm: 'crm', publicacoes: 'publicacoes', documentos: 'documentos', tarefas: 'tarefas', alertas: 'alertas', automacoes: 'automacoes', aprovacoes: 'aprovacoes', admin: 'admin' };
+  const TELAS_GS = { hoje: 'inicio', contratos: 'contratos', clientes: 'clientes', crm: 'crm', publicacoes: 'publicacoes', documentos: 'documentos', tarefas: 'tarefas', alertas: 'alertas', automacoes: 'automacoes', aprovacoes: 'aprovacoes', admin: 'admin' };
 
   // "+ Lançar": formulários do Gestão onde existem; os demais, do editor do ERP
   const empresaAtual = () => (_painel === 'financeiroContab' ? 'contabilidade' : 'escritorio');
@@ -93,7 +91,7 @@
       '<div class="tn-menu tn-menu-dir" role="menu">' + LANCAR.map((x, i) => '<button type="button" role="menuitem" data-lancar="' + i + '">' + esc(x[0]) + '</button>').join('') + '</div></div>' +
       '<div class="hd-usuario"><button type="button" id="gs-tema" title="Modo escuro / claro" aria-label="Alternar modo escuro" aria-pressed="false">◐</button><button type="button" id="gs-sino" class="gx-so-equipe" title="Avisos: prazos, menções e vencimentos" aria-label="Avisos">🔔<span id="gs-sino-n" hidden></span></button><span id="gs-nome"></span>' +
       '<div class="tn-grupo tn-mais-acoes"><button type="button" class="tn-abre gs-bt-mais" data-grupo="acoes" title="Atualizar dados e relatório em PDF" aria-label="Mais ações" aria-haspopup="true" aria-expanded="false">⋯</button>' +
-      '<div class="tn-menu tn-menu-dir" role="menu"><button type="button" data-acao="atualizar">↻ Atualizar dados</button><button type="button" data-acao="pdf" class="gx-so-equipe">📄 Relatório em PDF</button><button type="button" data-acao="cobrancas" class="gx-so-equipe">✉ Cobranças, avisos e recibos</button><button type="button" data-acao="meunome">👤 Meu nome</button><button type="button" data-acao="aprovacoes" class="gx-so-equipe">📝 Aprovações (rascunhos)</button><button type="button" data-acao="avisos" class="gx-so-equipe">✉ Meus avisos por e-mail</button><button type="button" data-acao="proc-tela" class="gx-so-equipe" id="gs-proc-tela">⚖ Processos: tela antiga</button></div></div>' +
+      '<div class="tn-menu tn-menu-dir" role="menu"><button type="button" data-acao="atualizar">↻ Atualizar dados</button><button type="button" data-acao="pdf" class="gx-so-equipe">📄 Relatório em PDF</button><button type="button" data-acao="cobrancas" class="gx-so-equipe">✉ Cobranças, avisos e recibos</button><button type="button" data-acao="meunome">👤 Meu nome</button><button type="button" data-acao="aprovacoes" class="gx-so-equipe">📝 Aprovações (rascunhos)</button><button type="button" data-acao="avisos" class="gx-so-equipe">✉ Meus avisos por e-mail</button></div></div>' +
       '<button type="button" id="gs-sair">Sair</button></div>';
     document.body.insertBefore(hd, document.body.firstChild);
     const btTema = document.getElementById('gs-tema');
@@ -135,14 +133,6 @@
       else if (alvo.dataset.acao === 'aprovacoes') ir('aprovacoes');
       else if (alvo.dataset.acao === 'meunome') pedirMeuNome(false);
       else if (alvo.dataset.acao === 'cobrancas') abrirCobrancas('hon');
-      else if (alvo.dataset.acao === 'proc-tela') {
-        const antiga = !procAntiga();
-        try { localStorage.setItem('erp_proc_antiga', antiga ? '1' : '0'); } catch (er) { /* aba anônima */ }
-        alvo.textContent = antiga ? '⚖ Processos: tela nova' : '⚖ Processos: tela antiga';
-        if (!antiga && _painel === 'processos') _painel = '';
-        aviso(antiga ? 'Processos volta a abrir na tela antiga (neste computador).' : 'Processos abre na tela nova.');
-        ir('processos');
-      }
       else if (alvo.dataset.acao === 'avisos') { if (GS()) GS().janelaMeusAvisos().catch((er) => aviso(erroAmigavel(er), true)); }
       else if (alvo.dataset.ir) ir(alvo.dataset.ir);
       else if (alvo.dataset.lancar !== undefined) LANCAR[+alvo.dataset.lancar][1]();
@@ -152,13 +142,17 @@
     });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { document.querySelectorAll('.tn-grupo.on,.tn-lancar.on').forEach(fecharMenu); fecharMais(); } });
 
-    // entidades e grupos: saem da barra e ficam à direita do card "Painel Executivo"
-    const ban = document.querySelector('#panel-resumo .mod-banner');
-    if (ban && !document.getElementById('gs-contadores')) {
-      const c = document.createElement('div');
-      c.className = 'gs-contadores gx-so-equipe'; c.id = 'gs-contadores'; c.hidden = true;
-      c.innerHTML = '<span class="gs-cont gs-cont-ent" title="Entidades (empresas e pessoas)">▣ <b id="gs-n-ent">0</b> entidades</span><span class="gs-cont gs-cont-grp" title="Grupos">◉ <b id="gs-n-grp">0</b> grupos</span>';
-      ban.appendChild(c);
+    // Painel Executivo (Backup 15): sem o cartão de título; entidades, grupos e "Atualizado" ficam na linha dos filtros, à esquerda
+    if (!document.getElementById('gx-linha-painel')) {
+      const l = document.createElement('div');
+      l.id = 'gx-linha-painel'; l.className = 'gx-so-equipe';
+      l.innerHTML = '<div class="gs-contadores" id="gs-contadores" hidden><span class="gs-cont gs-cont-ent" title="Entidades (empresas e pessoas)">▣ <b id="gs-n-ent">0</b> entidades</span>' +
+        '<span class="gs-cont gs-cont-grp" title="Grupos">◉ <b id="gs-n-grp">0</b> grupos</span></div><span id="gx-atualizado"></span>';
+      document.body.appendChild(l);
+      const sub = document.getElementById('pgResumoSub');
+      const copiarHora = () => { const m = /Atualizado\s+\d{1,2}:\d{2}/.exec(sub ? sub.textContent : ''); document.getElementById('gx-atualizado').textContent = m ? '↻ ' + m[0] : ''; };
+      if (sub) new MutationObserver(copiarHora).observe(sub, { childList: true, characterData: true, subtree: true });
+      copiarHora();
     }
     const copiar = () => {
       const ent = document.getElementById('hdEntidades'), c = document.getElementById('gs-contadores');
@@ -215,7 +209,6 @@
     return { automacoes: 'Automações', aprovacoes: 'Aprovações', notificacoes: 'Cobranças e recibos' }[id] || '';
   }
   function destacar(id) {
-    if (id === 'processosNovo') id = 'processos';
     const tn = document.getElementById('gs-tela-nome'); if (tn) tn.textContent = nomeTela(id);
     document.querySelectorAll('#tn [data-ir], #tn-baixo [data-baixo]').forEach((b) => b.classList.toggle('ativo', b.dataset.ir === id || b.dataset.baixo === id));
     document.querySelectorAll('#tn .tn-grupo').forEach((g) => g.classList.toggle('ativo', !!g.querySelector('[data-ir="' + id + '"]')));
@@ -240,29 +233,7 @@
         ban.appendChild(d);
       });
   }
-  // selo do grupo: a largura acompanha a linha mais comprida (o texto quebra só entre palavras)
-  function encolherSelos(raiz) {
-    (raiz || document).querySelectorAll('.tw td .er-grupo, .tw td>.tag.tn, td .pill-grupo').forEach((el) => {
-      if (!el.offsetParent) return;
-      el.style.removeProperty('width');
-      const r = document.createRange(); r.selectNodeContents(el);
-      let ini = Infinity, fim = 0;
-      Array.from(r.getClientRects()).forEach((q) => { if (q.width) { ini = Math.min(ini, q.left); fim = Math.max(fim, q.right); } });
-      if (fim <= ini) return;
-      const cs = getComputedStyle(el);
-      const extra = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) + parseFloat(cs.borderLeftWidth) + parseFloat(cs.borderRightWidth);
-      el.style.setProperty('width', Math.ceil(fim - ini + extra + 2) + 'px', 'important');
-    });
-  }
-  window.GX_ENCOLHER_SELOS = (r) => encolherSelos(r);
-  function vigiarSelos() {
-    let t = null;
-    const mo = new MutationObserver(() => { clearTimeout(t); t = setTimeout(() => encolherSelos(), 60); });
-    ['tblExecRanking', 'tblProcBody'].forEach((id) => { const el = document.getElementById(id); if (el) mo.observe(el, { childList: true, subtree: true }); });
-    window.addEventListener('resize', () => { clearTimeout(t); t = setTimeout(() => encolherSelos(), 150); });
-  }
   function instalarGanchos() {
-    vigiarSelos();
     botoesCobranca();
     // aba do Financeiro marcada no próprio conteúdo (o CSS esconde gráficos repetidos só nas abas de lista)
     ['setFinTab', 'setFinCTab'].forEach((nome) => {
@@ -273,7 +244,6 @@
     const navOrig = window.nav;
     window.nav = function (btn, pid) {
       const id = pid || (btn && btn.dataset && btn.dataset.panel);
-      if (id === 'processos' && !procAntiga() && !ehCliente()) return window.nav(null, 'processosNovo');
       if (id && !ehCliente() && !permitido(FUNC_TELA[id])) { aviso('Sem acesso a esta área. Peça ao administrador para liberar a função.', true); if (id !== 'hoje') return window.nav(null, 'hoje'); }
       // como no Gestão: cada tela abre sem o filtro da tela anterior
       if (id && _painel && id !== _painel && typeof window.resetarFiltros === 'function') {
@@ -287,7 +257,7 @@
         else if (history.state.tela !== id) history.pushState(est, '', '#' + id);
       }
       _painel = id; destacar(id);
-      setTimeout(() => encolherSelos(), 80);
+      if (id) document.body.dataset.painel = id;
       document.body.classList.toggle('gx-tela-nova', !!TELAS_GS[id]);
       if (TELAS_GS[id]) desenharGS(id);
       if (id === 'notificacoes') setTimeout(() => abrirCobrancas(_abaCobranca), 0);

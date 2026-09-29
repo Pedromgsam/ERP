@@ -170,8 +170,7 @@ canvas.gx-sem-dados{opacity:1}
   #fb{max-width:calc(100vw - 16px);overflow-x:auto;scrollbar-width:none}
   #fb::-webkit-scrollbar{display:none}
   /* Painel: título em cima, contadores embaixo; seções uma abaixo da outra */
-  #panel-resumo .mod-banner{flex-wrap:wrap;gap:10px}
-  #panel-resumo .mod-banner .gs-contadores{width:100%;justify-content:flex-start}
+
   #execKpiSection{padding:16px 12px!important}
   #execKpiSection > div[style*="align-items:stretch"]{flex-direction:column;gap:14px!important}
   #execKpiSection > div[style*="align-items:stretch"] > div[style*="width:1px"]{display:none}
@@ -193,13 +192,17 @@ body.gx-barra-topo :focus-visible{outline:2px solid #2E5EAA;outline-offset:2px}
 /* menu ⋯: o estilo dos botões da área do usuário (texto branco) não vale para os itens do menu */
 #gs-hd .hd-usuario .tn-menu button{background:none!important;border:0!important;color:#1B2A4A!important;padding:9px 12px;font-weight:500;font-size:13.5px;border-radius:8px}
 #gs-hd .hd-usuario .tn-menu button:hover{background:#F5EDD6!important}
-/* entidades e grupos à direita do card Painel Executivo */
-#panel-resumo .mod-banner{display:flex;align-items:center;gap:12px}
-#panel-resumo .mod-banner .gs-contadores{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
-#panel-resumo .gs-cont{border-radius:20px;padding:4px 12px;font-size:12px;font-weight:700;white-space:nowrap}
-#panel-resumo .gs-cont-ent{background:#FBF3DC;border:1px solid rgba(201,168,76,.45);color:#8A6D14}
-#panel-resumo .gs-cont-grp{background:#EAF0FB;border:1px solid rgba(46,94,170,.3);color:#1D4ED8}
-#panel-resumo .mod-banner .gs-contadores[hidden]{display:none}
+/* Painel Executivo (Backup 15): sem o cartão de título; entidades, grupos e "Atualizado" na linha dos filtros, à esquerda */
+#panel-resumo > .mod-banner{display:none!important}
+#gx-linha-painel{display:none;position:fixed;top:calc(var(--hh) + 12px);left:24px;z-index:249;align-items:center;gap:8px;font-family:var(--font-ui)}
+body.gx-barra-topo[data-painel="resumo"]:not(.gx-cliente) #gx-linha-painel{display:flex}
+#gx-linha-painel .gs-contadores{display:flex;gap:6px}
+#gx-linha-painel .gs-contadores[hidden]{display:none}
+#gx-linha-painel .gs-cont{border-radius:20px;padding:4px 12px;font-size:12px;font-weight:700;white-space:nowrap}
+#gx-linha-painel .gs-cont-ent{background:#FBF3DC;border:1px solid rgba(201,168,76,.45);color:#8A6D14}
+#gx-linha-painel .gs-cont-grp{background:#EAF0FB;border:1px solid rgba(46,94,170,.3);color:#1D4ED8}
+#gx-atualizado{font-size:12px;font-weight:600;color:var(--text2);white-space:nowrap}
+@media (max-width:1100px){#gx-linha-painel{display:none!important}}
 
 /* Painel Executivo: números do passivo na cor do Gestão (não azul) */
 #execKpis .kv,#execKpis .kv *{color:#1B2A4A!important}
@@ -302,13 +305,12 @@ body.gx-barra-topo .gs .janela{border-radius:18px;box-shadow:0 30px 80px -20px r
 .gx-leg tfoot td{font-weight:700;border-bottom:0;color:var(--ink)}
 .gx-leg-c{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:9px;vertical-align:-1px}
 @media (max-width:1300px){.gx-donut{grid-template-columns:1fr}.gx-donut .gx-donut-g{height:240px!important}}
-/* selo do grupo: no máximo 150px e cresce para baixo; palavra nunca é quebrada no meio.
-   A largura final é a da linha mais comprida (encolherSelos, em erp-telas.js) — sem sobra à direita. */
-body.gx-barra-topo .tw td>.tag.tn,body.gx-barra-topo .tw td .er-grupo{display:inline-block!important;width:auto!important;max-width:150px!important;white-space:normal!important;
-  overflow:visible!important;text-overflow:clip!important;overflow-wrap:normal!important;word-break:normal!important;hyphens:none;line-height:1.3;text-align:left;box-sizing:border-box;padding:4px 9px}
-/* Processos: selo do grupo um pouco menor */
-body.gx-barra-topo #tblProcBody td>.tag.tn{max-width:132px!important;font-size:10.5px!important;padding:3px 8px!important}
-body.gx-barra-topo .tw td:has(>.tag.tn),body.gx-barra-topo .tw td:has(.er-grupo){min-width:0}
+/* selo do grupo: todos com a MESMA largura (150px) e crescem para baixo; palavra nunca é quebrada no meio;
+   mesma letra em todas as telas (Inter 11,5px, peso 650, sem caixa alta) */
+body.gx-barra-topo .tw td>.tag.tn,body.gx-barra-topo .tw td .er-grupo{display:inline-block!important;width:150px!important;max-width:150px!important;white-space:normal!important;
+  overflow:visible!important;text-overflow:clip!important;overflow-wrap:normal!important;word-break:normal!important;hyphens:none;line-height:1.3;text-align:left;box-sizing:border-box;padding:4px 9px;
+  font:650 11.5px/1.3 var(--font-ui)!important;text-transform:none!important;letter-spacing:0!important}
+body.gx-barra-topo .tw td:has(>.tag.tn),body.gx-barra-topo .tw td:has(.er-grupo){min-width:162px}
 /* Empresas do Grupo: uma letra só, mesmos tamanhos, selos no mesmo desenho */
 #tblExecRanking td,#tblExecRanking td.mono,#tblExecRanking .er-nome,#tblExecRanking strong{font-family:var(--font-ui)!important;font-variant-numeric:tabular-nums}
 #tblExecRanking td{font-size:13px!important;color:var(--text)!important}
@@ -356,10 +358,6 @@ body.gx-barra-topo .fin-tab-vencidos.active{background:var(--red-lt)!important;c
 /* Cobranças (módulo antigo): botão principal com contraste nos dois modos */
 #panel-notificacoes .btn-p{background:var(--ac-navy)!important;border-color:var(--ac-navy)!important;color:#fff!important}
 html[data-tema="escuro"] #panel-notificacoes .btn-p{background:#2E5EAA!important;border-color:#2E5EAA!important}
-/* Backup 14 — chip "mostrar quitados" nas tabelas de acompanhamento */
-.gx-quit{display:inline-flex;align-items:center;gap:6px;margin-left:10px;font:600 11.5px var(--font-ui);text-transform:none;letter-spacing:0;color:var(--text2);cursor:pointer;
-  padding:3px 10px;border:1px solid var(--border);border-radius:999px;background:var(--surface)}
-.gx-quit input{margin:0;accent-color:var(--navy)}
 /* números das tabelas: o mesmo desenho do "Resumo mensal" (Inter, algarismos alinhados) em todas as telas */
 body.gx-barra-topo .gs table td.num,body.gx-barra-topo .gs table td.mono,body.gx-barra-topo .gs table tfoot td{font-family:var(--font-ui)!important;font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1,"lnum" 1}
 body.gx-barra-topo .gs table td.num{font-size:13px}
