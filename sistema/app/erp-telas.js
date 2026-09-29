@@ -91,7 +91,7 @@
       '<div class="tn-menu tn-menu-dir" role="menu">' + LANCAR.map((x, i) => '<button type="button" role="menuitem" data-lancar="' + i + '">' + esc(x[0]) + '</button>').join('') + '</div></div>' +
       '<div class="hd-usuario"><button type="button" id="gs-tema" title="Modo escuro / claro" aria-label="Alternar modo escuro" aria-pressed="false">◐</button><button type="button" id="gs-sino" class="gx-so-equipe" title="Avisos: prazos, menções e vencimentos" aria-label="Avisos">🔔<span id="gs-sino-n" hidden></span></button><span id="gs-nome"></span>' +
       '<div class="tn-grupo tn-mais-acoes"><button type="button" class="tn-abre gs-bt-mais" data-grupo="acoes" title="Atualizar dados e relatório em PDF" aria-label="Mais ações" aria-haspopup="true" aria-expanded="false">⋯</button>' +
-      '<div class="tn-menu tn-menu-dir" role="menu"><button type="button" data-acao="atualizar">↻ Atualizar dados</button><button type="button" data-acao="pdf" class="gx-so-equipe">📄 Relatório em PDF</button><button type="button" data-acao="cobrancas" class="gx-so-equipe">✉ Central de e-mails ao cliente</button><button type="button" data-acao="cobrancas_antiga" class="gx-so-equipe">✉ Tela antiga de cobranças</button><button type="button" data-acao="geradores" class="gx-so-equipe">📄 Geradores de documentos</button><button type="button" data-acao="meunome">👤 Meu nome</button><button type="button" data-acao="aprovacoes" class="gx-so-equipe">📝 Aprovações (rascunhos)</button><button type="button" data-acao="avisos" class="gx-so-equipe">✉ Meus avisos por e-mail</button></div></div>' +
+      '<div class="tn-menu tn-menu-dir" role="menu"><button type="button" data-acao="atualizar">↻ Atualizar dados</button><button type="button" data-acao="pdf" class="gx-so-equipe">📄 Relatório em PDF</button><button type="button" data-acao="cobrancas" class="gx-so-equipe">✉ Central de e-mails</button><button type="button" data-acao="geradores" class="gx-so-equipe">📄 Geradores de documentos</button><button type="button" data-acao="meunome">👤 Meu nome</button><button type="button" data-acao="aprovacoes" class="gx-so-equipe">📝 Aprovações (rascunhos)</button></div></div>' +
       '<button type="button" id="gs-sair">Sair</button></div>';
     document.body.insertBefore(hd, document.body.firstChild);
     const btTema = document.getElementById('gs-tema');
@@ -176,7 +176,7 @@
     const itens = soLancar ? '<div class="tn-mais-tit">Lançar</div>' + LANCAR.map((x, i) => '<button type="button" data-lancar="' + i + '">+ ' + esc(x[0]) + '</button>').join('')
       : MENU.map((m) => !m.itens ? '<button type="button"' + cls(m) + ' data-ir="' + m.id + '">' + esc(m.rot) + '</button>'
         : '<div class="tn-mais-tit' + (m.equipe ? ' gx-so-equipe' : '') + '">' + esc(m.rot) + '</div>' + m.itens.map((x) => '<button type="button"' + cls(m) + ' data-ir="' + x[0] + '">' + esc(x[1]) + '</button>').join('')).join('')
-        + '<button type="button" data-acao="atualizar">↻ Atualizar dados</button><button type="button" data-acao="cobrancas">✉ Central de e-mails</button><button type="button" data-acao="cobrancas_antiga">✉ Tela antiga de cobranças</button><button type="button" class="gs-sair">Sair</button>';
+        + '<button type="button" data-acao="atualizar">↻ Atualizar dados</button><button type="button" data-acao="cobrancas">✉ Central de e-mails</button><button type="button" class="gs-sair">Sair</button>';
     f.innerHTML = '<div class="tn-mais-caixa">' + itens + '<button type="button" class="tn-mais-fechar" data-fechar>Fechar</button></div>';
     f.querySelectorAll('[data-ir]').forEach((b) => { if (!permitido(FUNC_TELA[b.dataset.ir])) b.remove(); });
     f.querySelectorAll('[data-lancar]').forEach((b) => { if (!permitido(LANCAR[+b.dataset.lancar][2], 'editar')) b.remove(); });
@@ -218,7 +218,7 @@
   // ✉ dentro de cada tela: abre "Cobranças, avisos e recibos" já na aba certa
   let _abaCobranca = 'hon';
   function abrirCentralEmails(tipo) {
-    if (GS()) GS().E.em = Object.assign(GS().E.em || {}, { sit: 'hoje', tipo: tipo || '' });
+    if (GS()) GS().E.em = Object.assign(GS().E.em || {}, { sit: 'hoje', tipo: tipo || '', area: 'fila' });
     if (_painel === 'emails') { desenharGS('emails'); return; }
     ir('emails');
   }
@@ -243,6 +243,16 @@
         ban.appendChild(d);
       });
   }
+  // Backup 19: Jurídico segregado em Processos · Parcelamentos · Publicações — abas no topo das três telas
+  function subnavJuridico(id) {
+    const J = (MENU.find((m) => m.rot === 'Jurídico') || {}).itens || [];
+    if (!J.some((x) => x[0] === id)) return;
+    const painel = document.getElementById('panel-' + id); if (!painel) return;
+    let bar = painel.querySelector(':scope > .gx-subnav');
+    if (!bar) { bar = document.createElement('div'); bar.className = 'gx-subnav'; bar.setAttribute('role', 'tablist'); bar.setAttribute('aria-label', 'Jurídico'); painel.insertBefore(bar, painel.firstChild); }
+    bar.innerHTML = '<span class="gx-subnav-t">⚖ Jurídico</span>' + J.filter((x) => permitido(x[2])).map((x) => '<button type="button" role="tab" data-sub="' + x[0] + '" aria-selected="' + (x[0] === id) + '" class="' + (x[0] === id ? 'ativo' : '') + '">' + x[1] + '</button>').join('');
+    bar.querySelectorAll('[data-sub]').forEach((b) => b.onclick = () => { if (b.dataset.sub !== id) ir(b.dataset.sub); });
+  }
   function instalarGanchos() {
     botoesCobranca();
     // aba do Financeiro marcada no próprio conteúdo (o CSS esconde gráficos repetidos só nas abas de lista)
@@ -266,7 +276,7 @@
         if (!history.state || !history.state.tela) history.replaceState(est, '', '#' + id);
         else if (history.state.tela !== id) history.pushState(est, '', '#' + id);
       }
-      _painel = id; destacar(id);
+      _painel = id; destacar(id); subnavJuridico(id);
       if (id) document.body.dataset.painel = id;
       document.body.classList.toggle('gx-tela-nova', !!TELAS_GS[id]);
       if (TELAS_GS[id]) desenharGS(id);
@@ -397,7 +407,9 @@
     CAMINHOS(o).forEach(([obj, k, grade]) => { if (typeof obj[k] !== 'function') obj[k] = grade ? tok('chart-grade') : tok('chart-texto'); });
     Object.values(o.scales || {}).forEach((sc) => { if (sc.border) sc.border.color = tok('chart-grade'); });
     o.animation = false;
-    (ch.data.datasets || []).forEach((ds) => {
+    // Backup 19: "Recebido mês a mês" (cores de cada pessoa) volta às cores de antes — não troca pelos tokens
+    const corPropria = ch.canvas && /^(cFaMes|cFcMes)$/.test(ch.canvas.id);
+    if (!corPropria) (ch.data.datasets || []).forEach((ds) => {
       if (!('$gxBg' in ds)) { ds.$gxBg = ds.backgroundColor; ds.$gxBd = ds.borderColor; ds.$gxHv = ds.hoverBackgroundColor; }
       const cat = /doughnut|pie|polarArea/.test(ch.config.type), um = (c) => corDoToken(c, cat);
       const conv = (v) => (Array.isArray(v) ? v.map(um) : um(v));
@@ -563,5 +575,5 @@
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar); else iniciar();
   window.ERP_DADOS = dadosERP;
-  window.ERP_TELAS = { ir, desenharGS, LANCAR };
+  window.ERP_TELAS = { ir, desenharGS, LANCAR, cobrancas: abrirCobrancas };
 })();

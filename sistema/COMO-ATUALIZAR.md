@@ -262,3 +262,27 @@ Depois do Merge, aperte **Ctrl+Shift+R** no ERP para baixar o visual novo.
 Para quem mexe no código: as cores continuam **só** em `sistema/app/tokens.css` (paleta, `--chart-*` dos gráficos, escala de
 espaçamento `--sp-*` e de letras `--fs-*`, raios `--card-r`/`--r-ctl`/`--r-pill`). O desenho único fica em `sistema/app/design.css`
 (última camada, só `var(--…)`).
+
+## Backup 19 — mais enxuto (tem SQL novo)
+Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+Shift+R**. Nenhuma função do Supabase mudou.
+- **E-mails PAUSADOS:** depois do SQL, **nenhum e-mail sai do sistema** até você liberar. Os e-mails novos ficam em
+  **Central de e-mails → Retidos (pausa)** (dá para enviar um a um ou descartar). Para ligar de novo: Central de e-mails →
+  botão **▶ Liberar o envio** (só administrador). O e-mail de teste da Configuração sai sempre.
+- **Central de e-mails = tudo de e-mail num lugar:** abas **Enviar e acompanhar**, **Quem recebe (por cliente)**, **Configuração do envio**,
+  **Meus avisos por e-mail** e **Cobranças (tela antiga)**. Em Administração ficou só o atalho "✉ E-mails → Central".
+- **Início:** o **Mural** mostra só o que é **seu** (ex.: "8 tarefas suas atrasadas") e junta os **Lembretes** e as **guias de
+  parcelamento a emitir** (clique no destaque para abrir a lista; **+ Lembrete** fica no Mural). O **Resumo do escritório** mostra a
+  equipe toda e ocupa a linha inteira. Os **avisos** (sino) não repetem mais o que já está no Início (tarefas atrasadas, honorários e
+  acordos em atraso, documentos vencendo): ficam só as novidades (prazo chegando, vence hoje, menções, certidões). Textos sem "(s)".
+- **Painel Executivo → Empresas do grupo:** ordenada por grupo, grupo em texto simples, nomes em CAIXA ALTA sem negrito,
+  CAPAG A/B/C/D e "Omisso", situação "Ativa/Baixada".
+- **Jurídico:** abas **Processos · Parcelamentos · Publicações** no topo das três telas.
+- **Parcelamentos:** tabela **por grupo** (clique no grupo para ver por órgão), concluídos ocultos (**Mostrar concluídos** junto da
+  tabela), "Risco de rescisão" com a **Natureza**, clique no parcelamento em "Progresso" para ver as parcelas e dar **✓ Baixa**,
+  colunas **Atraso** (vencidos) e **Dias** (a vencer) no lugar de "Status".
+- **Acordos:** "Mostrar concluídos" junto da tabela; sai a coluna "Situação/Vencido" dos vencidos.
+- **Financeiro:** "Recebido mês a mês" com as cores de antes; "Comparativo por pessoa" com Total; "Em atraso" com vencimento e atraso em dias.
+- **Clientes:** nomes em CAIXA ALTA, sem negrito. **Alertas:** mais limpo (o que está em dia fica recolhido).
+- **Tabelas:** cabeçalho azul-marinho de novo; sem a bolinha antes do título dos cartões.
+- **Usuários:** a conta nova já nasce liberada (não precisa clicar no link de confirmação). Para quem já foi criado: Administração →
+  Usuários → **✓ Liberar entrada**.

@@ -37,6 +37,8 @@ function iso(d) {
 function hojeISO() { return iso(new Date()); }
 function primeiroDiaDoMes(d) { return new Date(d.getFullYear(), d.getMonth(), 1); }
 function fimDoMes(d) { return new Date(d.getFullYear(), d.getMonth() + 1, 0); }
+// plural certo, sem "(s)": plural(1, 'aviso não lido', 'avisos não lidos') → "1 aviso não lido"
+function plural(n, um, varios) { return n + ' ' + (Number(n) === 1 ? um : varios); }
 function somarDias(isoStr, n) { const d = new Date(isoStr + 'T12:00:00'); d.setDate(d.getDate() + n); return iso(d); }
 function somarMeses(isoStr, n) {
   const [a, m, dia] = isoStr.split('-').map(Number);

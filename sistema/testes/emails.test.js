@@ -35,6 +35,16 @@ const tokenDe = (email) => jwt({ sub: sql("select id from perfis where email='" 
     ok('preferência desligada: não enfileira', sql("select count(*) from email_fila where assunto='Outra menção'") === '0');
     x = await chamar({ acao: 'teste' }, { Authorization: 'Bearer ' + tokenDe('pedro@teste') });
     ok('admin envia e-mail de teste para si', x.json.enviados === 1 && cartas[cartas.length - 1].to === 'pedro@teste', JSON.stringify(x.json));
+    // Backup 19: com o envio pausado, nada sai; o admin libera um a um
+    sql("update configuracoes set valor='true'::jsonb where chave='emails_pausados'");
+    sql("insert into notificacoes(usuario_id,tipo,titulo) select id,'mencao','Menção na pausa' from perfis where email='pedro@teste'");
+    x = await chamar({}, segredo());
+    ok('envio pausado: o e-mail fica retido e não sai', sql("select status from email_fila where assunto='Menção na pausa'") === 'retido' && !cartas.some((c) => c.subject === 'Menção na pausa'));
+    const idRet = sql("select id from email_fila where assunto='Menção na pausa'");
+    sql("select set_config('request.jwt.claims', json_build_object('sub', (select id::text from perfis where email='pedro@teste'))::text, false); select public.emails_retidos_acao(array['" + idRet + "']::uuid[], 'liberar')");
+    x = await chamar({}, segredo());
+    ok('retido liberado pelo admin sai mesmo com a pausa', sql("select status from email_fila where id='" + idRet + "'") === 'enviado' && cartas.some((c) => c.subject === 'Menção na pausa'));
+    sql("update configuracoes set valor='false'::jsonb where chave='emails_pausados'");
     falharEm(true);
     sql("insert into notificacoes(usuario_id,tipo,titulo) select id,'tarefa','Tarefa nova X' from perfis where email='pedro@teste'");
     for (let i = 0; i < 3; i++) await chamar({}, segredo());

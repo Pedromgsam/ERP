@@ -411,8 +411,8 @@ body.gx-barra-topo .gs table td.num{font-size:13px}
 .acx-parc-r .acx-sub{color:var(--red-d)}
 .acx-parc-p .acx-sub{color:var(--green-d)}
 .acx-parc-bt{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
-.acx .ac-bt-pagar{background:var(--ac-navy)!important;color:var(--on-cor)!important;border:1px solid var(--ac-navy)!important;border-radius:8px!important;padding:5px 10px!important;font:600 12px var(--font-ui)!important;cursor:pointer}
-.acx .ac-bt-pagar:hover{filter:brightness(1.15)}
+.acx .ac-bt-pagar,.parc-det .ac-bt-pagar{background:var(--ac-navy)!important;color:var(--on-cor)!important;border:1px solid var(--ac-navy)!important;border-radius:8px!important;padding:5px 10px!important;font:600 12px var(--font-ui)!important;cursor:pointer}
+.acx .ac-bt-pagar:hover,.parc-det .ac-bt-pagar:hover{filter:brightness(1.15)}
 .acx-link{font:500 12px var(--font-ui)!important;cursor:pointer;background:none!important;border:0!important;color:var(--text2)!important;text-decoration:underline;padding:4px 2px!important}
 @media (max-width:900px){.acx-hd{display:none}.acx-row{grid-template-columns:1fr auto;gap:8px 12px}.acx-prog{grid-column:1/-1}.acx-prox{grid-column:1}.acx-sit{grid-column:2;grid-row:1}.acx-cv{display:none}}
 /* Financeiro (Backup 16): sem gráficos nas abas A receber / Recebidos / Prejuízo / Despesas (Jurídico e Contabilidade);

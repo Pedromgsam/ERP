@@ -4554,3 +4554,73 @@ begin
 end $$;
 revoke all on function public.registrar_aditivo(uuid, jsonb) from public, anon;
 grant execute on function public.registrar_aditivo(uuid, jsonb) to authenticated;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- Backup 19 (2026-09-29) — ENVIO DE E-MAILS PAUSADO até o escritório liberar
+-- Com a chave ligada, todo e-mail novo fica "retido" na fila (não sai); dá para ver,
+-- liberar um a um ou descartar na Central de e-mails. O e-mail de teste do admin sai sempre.
+-- E: confirmar o e-mail de um usuário criado pelo admin (entra sem o link de confirmação).
+-- ═══════════════════════════════════════════════════════════════════
+alter table public.email_fila drop constraint if exists email_fila_status_check;
+alter table public.email_fila add constraint email_fila_status_check check (status in ('pendente','enviado','erro','cancelado','retido'));
+do $$
+begin
+  if not exists (select 1 from public.configuracoes where chave = 'emails_pausados') then
+    insert into public.configuracoes (chave, valor) values ('emails_pausados', 'true'::jsonb);
+    update public.email_fila set status = 'retido' where status = 'pendente';
+  end if;
+end $$;
+create or replace function public.emails_pausados() returns boolean language sql stable security definer set search_path = public as $$
+  select coalesce((select valor = 'true'::jsonb from public.configuracoes where chave = 'emails_pausados'), false) $$;
+grant execute on function public.emails_pausados() to authenticated;
+create or replace function public.email_fila_reter() returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if new.status = 'pendente' and coalesce(new.tipo, '') <> 'teste' and coalesce(current_setting('erp.liberar_email', true), '') <> '1'
+     and (tg_op = 'INSERT' or old.status is distinct from 'pendente') and public.emails_pausados() then
+    new.status := 'retido';
+  end if;
+  return new;
+end $$;
+drop trigger if exists email_fila_reter on public.email_fila;
+create trigger email_fila_reter before insert or update of status on public.email_fila for each row execute function public.email_fila_reter();
+
+create or replace function public.pausar_emails(p_pausar boolean) returns boolean language plpgsql security definer set search_path = public as $$
+begin
+  if not public.eh_admin() then raise exception 'Só o administrador liga ou desliga o envio de e-mails.'; end if;
+  insert into public.configuracoes (chave, valor, atualizado_em) values ('emails_pausados', to_jsonb(coalesce(p_pausar, true)), now())
+    on conflict (chave) do update set valor = excluded.valor, atualizado_em = now();
+  if p_pausar then update public.email_fila set status = 'retido' where status = 'pendente' and tipo <> 'teste'; end if;
+  return coalesce(p_pausar, true);
+end $$;
+revoke all on function public.pausar_emails(boolean) from public, anon;
+grant execute on function public.pausar_emails(boolean) to authenticated;
+
+-- liberar (envia de verdade, mesmo com a pausa) ou descartar os retidos escolhidos
+create or replace function public.emails_retidos_acao(p_ids uuid[], p_acao text) returns int language plpgsql security definer set search_path = public as $$
+declare n int;
+begin
+  if not public.eh_admin() then raise exception 'Só o administrador libera ou descarta e-mails retidos.'; end if;
+  if p_acao = 'liberar' then
+    perform set_config('erp.liberar_email', '1', true);
+    update public.email_fila set status = 'pendente', tentativas = 0, erro = '' where id = any(p_ids) and status = 'retido';
+  elsif p_acao = 'descartar' then
+    update public.email_fila set status = 'cancelado' where id = any(p_ids) and status = 'retido';
+  else raise exception 'Ação inválida.'; end if;
+  get diagnostics n = row_count;
+  return n;
+end $$;
+revoke all on function public.emails_retidos_acao(uuid[], text) from public, anon;
+grant execute on function public.emails_retidos_acao(uuid[], text) to authenticated;
+
+-- usuário criado pelo admin entra direto (sem depender do e-mail de confirmação do Supabase)
+create or replace function public.confirmar_email_usuario(p_perfil uuid) returns boolean language plpgsql security definer set search_path = public, auth as $$
+begin
+  if not public.eh_admin() then raise exception 'Só o administrador confirma usuários.'; end if;
+  begin
+    execute 'update auth.users set email_confirmed_at = coalesce(email_confirmed_at, now()) where id = $1' using p_perfil;
+  exception when undefined_column then return false;
+  end;
+  return true;
+end $$;
+revoke all on function public.confirmar_email_usuario(uuid) from public, anon;
+grant execute on function public.confirmar_email_usuario(uuid) to authenticated;

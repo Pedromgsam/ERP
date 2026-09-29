@@ -465,8 +465,12 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await pf.context().close();
 
     // ── e-mail: configuração pela tela, teste e preferências ──
-    await nav(p, 'admin'); await p.waitForTimeout(1200);
-    await p.click('#adm-abas [data-aba=email]'); await p.waitForSelector('#f-email'); await p.waitForTimeout(300);
+    await nav(p, 'emails'); await p.waitForSelector('#em-area'); await p.waitForTimeout(800);
+    await p.click('#em-pausar'); await p.waitForTimeout(1500);
+    ok('Central de e-mails: botão pausa o envio (faixa "PAUSADO")', sql("select valor::text from configuracoes where chave='emails_pausados'") === 'true' && /PAUSADO/.test(await p.textContent('#em-pausa')));
+    await p.click('#em-pausar'); await p.waitForTimeout(1500);
+    ok('Central de e-mails: "Liberar o envio" religa', sql("select valor::text from configuracoes where chave='emails_pausados'") === 'false' && /ligado/.test(await p.textContent('#em-pausa')));
+    await p.click('#em-area [data-area=config]'); await p.waitForSelector('#f-email'); await p.waitForTimeout(300);
     await p.selectOption('#f-email [name=provedor]', 'gmail'); await p.fill('#f-email [name=usuario]', 'escritorio@gmail.com');
     await p.fill('#f-email [name=senha]', 'abcd efgh ijkl mnop'); await p.click('#email-salvar'); await p.waitForTimeout(1500);
     ok('admin configura o Gmail na tela (senha guardada sem espaços, fora do alcance do site)', sql("select valor->>'provedor'||'|'||(valor->>'senha') from config_privada where chave='email'") === 'gmail|abcdefghijklmnop' &&
@@ -476,8 +480,8 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.waitForTimeout(800);
     { const av = await p.textContent('#gs-raiz #aviso'), cartas = await (await p.request.get(BASE + '/__teste/cartas')).json();
       ok('"Enviar e-mail de teste" chama a função e envia', /enviados: [1-9]/.test(av) && cartas.some((c) => c.to === 'pedro@teste'), av + ' | ' + JSON.stringify(cartas)); }
-    ok('lista mostra o e-mail enviado', /enviado/.test(await p.textContent('#adm-corpo')));
-    await p.click('.gs-bt-mais'); await p.click('[data-acao=avisos]'); await p.waitForSelector('[data-pref=resumo]'); await p.waitForTimeout(250);
+    ok('lista mostra o e-mail enviado', /enviado/.test(await p.textContent('#em-area-corpo')));
+    await p.click('#em-area [data-area=avisos]'); await p.waitForSelector('#em-meus'); await p.click('#em-meus'); await p.waitForSelector('[data-pref=resumo]'); await p.waitForTimeout(250);
     await p.uncheck('[data-pref=resumo]'); await p.click('#btn-salvar-pref'); await p.waitForTimeout(1200);
     ok('cada pessoa escolhe os próprios avisos por e-mail', sql("select pref_email->>'resumo' from perfis where email='pedro@teste'") === 'false');
 
@@ -850,8 +854,8 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.click('#em-auto'); await p.waitForSelector('#f-emauto'); await p.fill('#f-emauto [name=hora]', '09:30'); await p.click('#emauto-salvar'); await p.waitForTimeout(1200);
     ok('Central: horário e automático salvos', sql("select valor->>'hora' from configuracoes where chave='emails_central'") === '09:30');
     sql("update configuracoes set valor = valor - 'hora' where chave='emails_central'");
-    await p.click('#gs-hd .gs-bt-mais'); await p.click('#gs-hd [data-acao=cobrancas_antiga]'); await p.waitForTimeout(1200);
-    ok('⋯ → "Tela antiga de cobranças" continua abrindo', await p.isVisible('#panel-notificacoes') && await p.isVisible('#notif-aba-hon'));
+    await p.click('#em-area [data-area=antiga]'); await p.click('#em-antiga'); await p.waitForTimeout(1200);
+    ok('Central → "Cobranças (tela antiga)" continua abrindo', await p.isVisible('#panel-notificacoes') && await p.isVisible('#notif-aba-hon'));
     await p.keyboard.press('Escape');
     ok('Notificações saiu da barra de cima', !(await p.$('#tn [data-ir=notificacoes]')));
     // envio manual pelo e-mail do escritório (modelo da marca)
@@ -939,11 +943,12 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       ok('ficha do cliente: Evolução compara com o mês passado ("devia X, hoje deve Y")', /devia R\$/.test(await p.textContent('.ev-frase')) && /\+R\$\s?1\.000,00/.test(await p.textContent('.ev-frase')));
       await p.keyboard.press('Escape'); await p.waitForTimeout(200); }
     // perfil de e-mail na tela
-    await nav(p, 'admin'); await p.waitForTimeout(1200);
-    await p.click('#adm-abas [data-aba=clientes_email]'); await p.waitForSelector('[data-cem]');
+    await nav(p, 'emails'); await p.waitForSelector('#em-area'); await p.waitForTimeout(600);
+    await p.click('#em-area [data-area=clientes]'); await p.waitForSelector('[data-cem]');
     { const id = await p.$eval('[data-cem]', (x) => x.dataset.cem);
       await p.selectOption('[data-cem="' + id + '"]', 'nunca'); await p.waitForTimeout(1500);
       ok('E-mails aos clientes: perfil muda na linha', sql("select perfil_email from clientes where id='" + id + "'") === 'nunca'); }
+    await nav(p, 'admin'); await p.waitForTimeout(1200);
     await p.click('#adm-abas [data-aba=usuarios]'); await p.waitForTimeout(1200);
     ok('Usuários: os 4 acessos combinados aparecem com "Criar conta"', (await p.$$('[data-prev]')).length === 4);
 

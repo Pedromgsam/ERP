@@ -224,8 +224,7 @@ trocar('function renderAcordos(){\n  const ac=filtrarAcordos();', 'function rend
 // sai o gráfico "Valor em atraso por devedor"; "Valor por devedor" ocupa a linha inteira
 removerTrechoHtml('    <div class="cc">\n      <div class="cc-hd"><div><div class="cc-t">Valor em atraso por devedor</div>', '      <div class="cb" id="acordAtrasoBox" style="height:280px"><canvas id="cAcordAtraso"></canvas></div>\n    </div>\n', '');
 trocar('  <div class="crow c2">\n    <div class="cc">\n      <div class="cc-hd"><div><div class="cc-t">Valor por devedor</div>', '  <div class="crow">\n    <div class="cc">\n      <div class="cc-hd"><div><div class="cc-t">Valor por devedor</div>', 1);
-// caixa "Mostrar concluídos" na faixa do topo de Acordos
-trocar('    <div id="alertAcordos" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"></div>', '    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><div id="alertAcordos" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"></div><label class="ac-todos"><input type="checkbox" id="acMostrarTodos" onchange="renderAcordos()"> Mostrar concluídos</label></div>', 1);
+// (Backup 19: a caixa "Mostrar concluídos" de Acordos fica junto da tabela — ver remendos/acordos-b16.js)
 // ═══════ Backup 13 — Financeiro Jurídico: tipo de serviço na horizontal; valor no fim das barras ═══════
 trocar("    var cfgT=bCfg(it.map(function(i){return tp[i];}),it.map(function(i){return tv[i];}),null);\n    cfgT.options.animation=SEM_ANIM;",
   "    var cfgT=bCfg(it.map(function(i){return tp[i];}),it.map(function(i){return tv[i];}),null,true);\n    cfgT.options.animation=SEM_ANIM; _barrasComValor(cfgT);", 1);
@@ -358,6 +357,10 @@ removerBloco('/* ── CRM v2', '.crm-base-item:last-child{border-bottom:none}\
   if (k < 0 || i < 0 || j < 0) throw new Error('Janela do CRM antigo não encontrada');
   s = s.slice(0, i) + s.slice(j + '</div>\n</div>\n'.length); trocas++; }
 
+// ═══════ Backup 19 — Painel: "Empresas do grupo" ordenada por grupo (dentro do grupo, maior passivo primeiro) ═══════
+trocar("let _execRankSort={col:'total',asc:false};", "let _execRankSort={col:'grupo',asc:true};", 1);
+trocar("    if(_execRankSort.col==='grupo')return v*(a.grupo||'').localeCompare(b.grupo||'','pt-BR');",
+  "    if(_execRankSort.col==='grupo')return (!a.grupo-!b.grupo)||v*(a.grupo||'').localeCompare(b.grupo||'','pt-BR')||(trib(b)-trib(a));", 1);
 // 10. CAPAG "Omisso" com selo vermelho (antes caía em texto cinza)
 trocar("    if(m[v])return`<span class=\"capag ${m[v]}\">${v}</span>`;\n    return`<span style=\"font-size:10px;color:var(--text3)\">${v}</span>`;",
   "    if(m[v])return`<span class=\"capag ${m[v]}\">${v}</span>`;\n    if(/omisso/i.test(v))return`<span class=\"capag capag-O\">Omisso</span>`;\n    return`<span style=\"font-size:10px;color:var(--text3)\">${v}</span>`;", 1);
@@ -401,6 +404,49 @@ trocar("var _FA_NEUTRAS=['#1B2A4A','#7C3AED','#0D9488','#DC2626','#0EA5E9','#6B7
   trocar(`'<div class="rh"><img src="data:image/png;base64,'+RECIBO_HEADER_B64+'"></div>'`, `'<div class="rh"><img src="'+RECIBO_HEADER_URL+'"></div>'`, 1);
 }
 
+// ═══════ Backup 19 — Parcelamentos no modelo de Acordos ═══════
+trocar('function filtrarParc(){\n  const seen=new Set();', 'function _filtrarParcBase(){\n  const seen=new Set();', 1);
+trocar('function renderParcelamentos(){', fs.readFileSync(path.join(__dirname, 'remendos', 'parcelamentos-b19.js'), 'utf8') +
+  "// concluídos ocultos (caixa \"Mostrar concluídos\" junto da tabela)\nfunction filtrarParc(){ var l=_filtrarParcBase(); return _parcTodos?l:l.filter(function(p){ return !_parcConcluido(p); }); }\n" +
+  'function renderParcelamentos(){', 1);
+// Progresso por parcelamento: clicar abre as parcelas (como em Acordos)
+trocar("    const acento2=inadN>0?'var(--red)':pct2>=80?'var(--green-d)':pct2>=50?'var(--amber)':'var(--blue)';\n    return`<div class=\"pc-item\" style=\"border-left:4px solid ${acento2}\">",
+  "    const acento2=inadN>0?'var(--red)':pct2>=80?'var(--green-d)':pct2>=50?'var(--amber)':'var(--blue)';\n    const _k=_parcChave(p), _ab=!!_parcAbertos[_k];\n" +
+  "    return`<div class=\"pc-item${_ab?' pc-aberto':''}\" role=\"button\" tabindex=\"0\" aria-expanded=\"${_ab}\" title=\"Clique para ver as parcelas\" data-k=\"${esc(_k)}\" onclick=\"_parcToggle(this.dataset.k)\" onkeydown=\"if(event.key==='Enter')_parcToggle(this.dataset.k)\" style=\"border-left:4px solid ${acento2}\">", 1);
+trocar("      </div>\n    </div>`;\n  }).join('');\n\n  renderParcVencTbl();",
+  "      </div>\n      ${_ab?'<div onclick=\"event.stopPropagation()\">'+_parcDetalhe(p)+'</div>':''}\n    </div>`;\n  }).join('');\n\n  renderParcVencTbl();", 1);
+// tabelas: "Status" vira dias (Atraso nos vencidos; Dias nos a vencer), como em Acordos
+trocar('          <th class="s" onclick="sortParcVenc(4)">Vencimento</th>\n          <th>Status</th>', '          <th class="s" onclick="sortParcVenc(4)">Vencimento</th>\n          <th>Atraso</th>', 1);
+trocar('          <th class="s" onclick="sortParc(4)">Vencimento</th>\n          <th>Status</th>', '          <th class="s" onclick="sortParc(4)">Vencimento</th>\n          <th>Dias</th>', 1);
+trocar("    <td><span class=\"tag ${sC[p.status]||'tx'} ${p.status==='Inadimplente'?'tpls':''}\" style=\"${p.status==='Inadimplente'?'border-left:3px solid var(--red);':''}\">${p.status||'—'}</span></td>\n  </tr>`).join(''):`<tr><td colspan=\"8\">${emp()}</td></tr>`;",
+  "    <td class=\"mono\">${_parcDias(p.vencimento)}</td>\n  </tr>`).join(''):`<tr><td colspan=\"8\">${emp()}</td></tr>`;", 1);
+trocar("    <td><span class=\"tag tr tpls\" style=\"border-left:3px solid var(--red)\">Inadimplente</span></td>\n  </tr>`).join(''):`<tr><td colspan=\"8\">${emp('Nenhuma parcela vencida — tudo em dia! ✅')}</td></tr>`;",
+  "    <td class=\"mono\">${_parcDias(p.vencimento)}</td>\n  </tr>`).join(''):`<tr><td colspan=\"8\">${emp('Nenhuma parcela vencida — tudo em dia! ✅')}</td></tr>`;", 1);
+// ═══════ Backup 19 — Acordos: sai a coluna "Situação" (Vencido) dos vencidos — o "Atraso" em dias já diz ═══════
+trocar('          <th>Atraso</th><th>Situação</th>\n        </tr></thead><tbody id="tblAcordosVencBody">', '          <th>Atraso</th>\n        </tr></thead><tbody id="tblAcordosVencBody">', 1);
+trocar("      <td class=\"mono\" style=\"font-weight:700;color:var(--red)\">${dias===0?'Hoje':dias+' d atraso'}</td>\n      <td><span class=\"tag tr tpls\" style=\"border-left:3px solid var(--red)\">${a.situacao||'Vencido'}</span></td>\n",
+  "      <td class=\"mono\" style=\"font-weight:700;color:var(--red-d)\">${dias===0?'Hoje':dias+' d atraso'}</td>\n", 1);
+trocar("`<tr><td colspan=\"8\">${emp('Nenhum acordo vencido — tudo em dia! ✅')}</td></tr>`", "`<tr><td colspan=\"7\">${emp('Nenhum acordo vencido — tudo em dia! ✅')}</td></tr>`", 1);
+// ═══════ Backup 19 — Financeiro ═══════
+// "Comparativo por pessoa" com linha de Total
+trocar("     }).join('') : '<tr><td colspan=\"'+nCols+'\" class=\"vazio\">Nada no período.</td></tr>')\n   + '</tbody></table></div>';",
+  "     }).join('') : '<tr><td colspan=\"'+nCols+'\" class=\"vazio\">Nada no período.</td></tr>')\n   + '</tbody>'\n" +
+  "   + (linhas.length? (function(){ var sR=0,sN=0,sA=0,sP=0; linhas.forEach(function(l){ sR+=l.rec; sN+=l.n; sA+=l.ar; sP+=l.pj; });\n" +
+  "       return '<tfoot><tr><td>Total</td><td class=\"mono\" style=\"text-align:right\">'+_faFT(sR)+'</td><td class=\"mono\" style=\"text-align:right\">100%</td>'\n" +
+  "        +'<td class=\"mono\" style=\"text-align:right\">'+sN+'</td><td class=\"mono\" style=\"text-align:right\">'+_faFT(sN?sR/sN:0)+'</td>'\n" +
+  "        +'<td class=\"mono\" style=\"text-align:right\">'+(sA?_faFT(sA):'—')+'</td>'+(cliente?'':'<td class=\"mono\" style=\"text-align:right\">'+(sP?_faFT(sP):'—')+'</td>')+'</tr></tfoot>'; })() : '')\n" +
+  "   + '</table></div>';", 1);
+// "Em atraso" (Análise do Jurídico) como os vencidos de Acordos: … valor, vencimento e atraso em dias
+trocar("+_faTabelaDetalhe(vencidos.slice().sort(function(a,b){return (pDate(a.vencimento)||0)-(pDate(b.vencimento)||0);}))+", "+_faTabelaAtraso(vencidos.slice().sort(function(a,b){return (pDate(a.vencimento)||0)-(pDate(b.vencimento)||0);}))+", 1);
+trocar('function _faTabelaPessoas(pessoas){', "function _faTabelaAtraso(rows){\n" +
+  "  var h=new Date(); h.setHours(0,0,0,0);\n" +
+  "  return '<div class=\"tw scr\"><table><thead><tr><th>Quem</th><th>Grupo</th><th>Descrição</th><th style=\"text-align:right\">Valor</th><th>Vencimento</th><th>Atraso</th></tr></thead><tbody>'\n" +
+  "   + rows.slice(0,400).map(function(f){ var d=pDate(f.vencimento), n=d?Math.floor((h-d)/864e5):0;\n" +
+  "       var q=_faQuem(f); return '<tr><td>'+(q&&q!=='—'?_faSelo(q):'<span style=\"color:var(--text3)\">—</span>')+'</td><td>'+esc(f.grupo||'—')+'</td><td>'+esc(f.descricao||f.tipo||'—')+_legLanc(f)+'</td>'\n" +
+  "        +'<td class=\"mono\" style=\"text-align:right;font-weight:600\">'+_faFT(_faVal(f))+'</td>'\n" +
+  "        +'<td class=\"mono\" style=\"color:var(--red-d);font-weight:600\">'+(d?d.toLocaleDateString('pt-BR'):'—')+'</td>'\n" +
+  "        +'<td class=\"mono\" style=\"font-weight:700;color:var(--red-d)\">'+(n<=0?'Hoje':n+' d atraso')+'</td></tr>'; }).join('')\n" +
+  "   + '</tbody></table></div>';\n}\nfunction _faTabelaPessoas(pessoas){", 1);
 // 13. Cores de tokens.css (fonte única) depois do CSS do ERP; modo escuro lembrado neste aparelho.
 trocar('\n</head>\n', '\n<link rel="stylesheet" href="tokens.css">\n<link rel="stylesheet" href="tema-escuro.css">\n<link rel="stylesheet" href="design.css">\n' +
   '<script>try{if(localStorage.getItem("erp_tema")==="escuro")document.documentElement.setAttribute("data-tema","escuro")}catch(e){}</script>\n</head>\n', 1);
