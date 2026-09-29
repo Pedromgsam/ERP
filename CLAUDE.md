@@ -64,8 +64,11 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - `FOTOS=/pasta node erp.js` salva prints das telas para conferência visual.
 
 ## Padrões de tela (desde o Backup 10)
-- Cores: só em `tokens.css` (fonte única). O modo escuro (`html[data-tema=escuro]`) é gerado por
-  `ferramentas/tema-escuro.js` a partir do CSS existente — não escreva regras escuras à mão, salvo exceções pontuais.
+- Cores: só em `tokens.css` (fonte única; inclui `--chart-*` dos gráficos, `--sp-*`, `--fs-*`, `--on-cor`, `--primario`, `--bar-bg`).
+  O modo escuro (`html[data-tema=escuro]`, preto desde o Backup 18) troca os tokens; o que sobra de cor fixa no HTML antigo é gerado por
+  `ferramentas/tema-escuro.js` — não escreva regras escuras à mão, salvo exceções pontuais.
+- Desenho único (Backup 18): `design.css` é a ÚLTIMA camada (cartão, KPI com pontinho de cor, tabela de cabeçalho claro, botões,
+  pílulas, janelas). Só `var(--…)` lá. Gráficos Chart.js: `pluginTema` (erp-telas.js) troca a cor fixa pelo token do mesmo matiz.
 - Lista vazia: `vazio(frase, rótulo, seletorDoBotão)`. Relatório com CSV: `relatorioTabela({titulo, colunas, linhas, ids})`.
 - Tabelas longas paginam sozinhas (100) — `paginarTabelas` no `nucleo.js`. No celular (≤600px) viram cartões (`rotularTabelas`).
 - Clientes nas listas usam `window.ERP_COLS_CLIENTE` (sem `cnpj_dados`); coluna nova em `clientes` → incluir lá (o teste avisa).
@@ -80,7 +83,10 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
-- Última entrega: **Backup 17** — Início: `cardResumoEscritorio` sem Processos (atraso/hoje/5 dias no mesmo cartão), `buscaPubAutomatica`
+- Última entrega: **Backup 18 — Design** (só visual): tokens sóbrios + escuro preto, `design.css`, cores soltas dos CSS viraram tokens,
+  gráficos com `--chart-*` e sem animação, `tema-escuro.js` sem tons azulados. Diagnóstico em `sistema/DIAGNOSTICO-DESIGN-B18.md`.
+  `estrutura.sql` sem mudança (4556 linhas).
+- Backup 17 (base): Início: `cardResumoEscritorio` sem Processos (atraso/hoje/5 dias no mesmo cartão), `buscaPubAutomatica`
   (DJEN pelo navegador 1×/dia, localStorage `erp_pub_auto`). Painel "Empresas do grupo" = visual de Processos (#tblExecRanking em erp-telas.css).
   Acordos: lista `.acx-*` no remendo `acordos-b16.js`. CRM: 8 etapas abertas (nova "Follow-up da proposta", ordem 5), finais viram faixa
   `.cr-solte` (4+4 por linha em `crmFunil`). E-mails: `emails_central` devolve `contato`/`finalidade` (coluna "E-mail de destino"),
@@ -111,4 +117,4 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Aguardando o usuário: criar as 4 contas (Administração → Usuários → Acessos combinados); contratar a API "Consulta Dívida Ativa"
   do SERPRO e salvar a chave em Alertas → PGFN; Integra Contador depois; boletos: não por enquanto; Financeiro: 9 sugestões aguardando
   escolha (não executar sem autorização).
-- Próxima rodada sugerida: design (prompt em `sistema/PROMPT-DESIGN-BACKUP-18.md`); aprovar a Central de e-mails (depois apagar a tela antiga), tirar "Progresso por acordo" após aprovação.
+- Próxima rodada sugerida: aprovar a Central de e-mails (depois apagar a tela antiga), tirar "Progresso por acordo" após aprovação.

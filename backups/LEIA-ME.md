@@ -23,6 +23,7 @@ versão foi ao ar**. O número cresce a cada entrega.
 | 15 | Início (fila de 5 com calendário salvo, mural), Painel sem faixa, Processos/Parcelamentos/Acordos de volta ao 13, área do serviço e detalhe no Financeiro, novo cliente no contrato, CRM em abas, filtros em Documentos, Tarefas em abas, alerta vira tarefa, prompts |
 | 16 | Início home (resumo + lembretes), Painel/Processos/Acordos/Financeiro ajustados, publicações por cliente, CRM completo, Central de e-mails (recibo em PDF), Tarefas (criação rápida, minha semana, carga), geradores de documentos + petição, PGFN grátis (dados abertos) |
 | 17 | Início só com o que pede ação, Painel igual a Processos, Acordos em cartões, CRM 8 quadros (Follow-up), e-mail de destino e prévia com a marca, partes Autor/Réu, PGFN Dívida Aberta (CSV), ficha do contrato com aditivos |
+| 18 | Design: cores sóbrias, cartão e tabela únicos, barra lisa, gráficos com a paleta do sistema, modo escuro preto |
 
 ## Como baixar um backup
 No GitHub, abra a pasta `backups`, clique no arquivo e depois em **Download** (ícone de seta, à direita).

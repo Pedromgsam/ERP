@@ -9,30 +9,30 @@ body.gx-barra-topo #main{margin-left:0!important}
 
 /* ── barra superior (Gestão) ── */
 #gs-hd{position:fixed!important;top:0;left:0;right:0;z-index:1200!important;height:var(--hh)!important;display:flex;align-items:center;gap:16px;padding:0 20px;
-  background:linear-gradient(115deg,#1B2A4A,#243659 55%,#141F38)!important;color:#fff;box-shadow:0 3px 12px rgba(15,35,64,.22);gap:12px!important}
+  background:linear-gradient(115deg,var(--navy),var(--navy2) 55%,var(--navy))!important;color:var(--on-cor);box-shadow:var(--shadow-sm);gap:12px!important}
 #gs-hd nav button.tn-it{padding:8px 7px}
 #gs-hd .gs-marca{display:flex;flex-direction:column;justify-content:center;gap:2px;flex-shrink:0}
-#gs-hd .gs-marca-nome{font-family:'Playfair Display',Georgia,serif;font-weight:700;font-size:17px;line-height:1;color:#C9A84C}
-#gs-hd .gs-marca-sub{font-size:8.5px;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.5);white-space:nowrap}
+#gs-hd .gs-marca-nome{font-family:'Playfair Display',Georgia,serif;font-weight:700;font-size:17px;line-height:1;color:var(--ac-gold)}
+#gs-hd .gs-marca-sub{font-size:8.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--on-cor-3);white-space:nowrap}
 #gs-hd nav{overflow:visible;flex:1;min-width:0;display:flex;gap:2px;align-items:center}
-#gs-hd nav .tn-it.ativo,#gs-hd nav .tn-grupo.ativo>.tn-it{background:rgba(255,255,255,.14);color:#fff;box-shadow:inset 0 -2px 0 #C9A84C}
+#gs-hd nav .tn-it.ativo,#gs-hd nav .tn-grupo.ativo>.tn-it{background:var(--veu-3);color:var(--on-cor);box-shadow:inset 0 -2px 0 var(--ac-gold)}
 #gs-hd .tn-seta{font-size:9px;opacity:.7}
 .tn-grupo,.tn-lancar{position:relative;display:flex}
-#gs-hd .tn-menu{display:none;position:absolute;top:calc(100% + 6px);left:0;min-width:210px;background:#fff;border-radius:12px;padding:6px;
-  box-shadow:0 14px 40px rgba(15,23,42,.22);border:1px solid rgba(0,0,0,.06);z-index:600}
+#gs-hd .tn-menu{display:none;position:absolute;top:calc(100% + 6px);left:0;min-width:210px;background:var(--surface);border-radius:12px;padding:6px;
+  box-shadow:var(--shadow-lg);border:1px solid var(--border);z-index:600}
 #gs-hd .tn-menu-dir{left:auto;right:0}
 #gs-hd .tn-grupo.on>.tn-menu,#gs-hd .tn-lancar.on>.tn-menu{display:block}
 #gs-hd .tn-menu button{display:block;width:100%;text-align:left;background:none;border:0;border-radius:8px;padding:9px 12px;box-shadow:none;
-  font:500 13.5px 'DM Sans',sans-serif;color:#1B2A4A;cursor:pointer;white-space:nowrap}
-#gs-hd .tn-menu button:hover,#gs-hd .tn-menu button.ativo{background:#F5EDD6;color:#1B2A4A}
+  font:500 13.5px 'DM Sans',sans-serif;color:var(--ink);cursor:pointer;white-space:nowrap}
+#gs-hd .tn-menu button:hover,#gs-hd .tn-menu button.ativo{background:var(--ac-gold-lt);color:var(--ink)}
 .gs-contadores{display:flex;gap:4px;flex-shrink:0}
 .gs-contadores[hidden]{display:none}
 #gs-hd .gs-cont{border-radius:20px;padding:3px 7px;font-size:10.5px;font-weight:600;white-space:nowrap}
-.gs-cont-ent{background:rgba(201,168,76,.18);border:1px solid rgba(201,168,76,.35);color:#C9A84C}
-.gs-cont-grp{background:rgba(37,99,235,.18);border:1px solid rgba(37,99,235,.35);color:#BFDBFE}
+.gs-cont-ent{background:var(--ac-gold-lt);border:1px solid var(--gold-bd);color:var(--ac-gold)}
+.gs-cont-grp{background:var(--blue-lt);border:1px solid var(--blue-bd);color:var(--on-cor-2)}
 .tn-lancar{align-items:center;flex-shrink:0}
-#gs-hd .tn-lancar-bt{background:#C9A84C;color:#1B2A4A;border:0;border-radius:8px;padding:7px 13px;font:700 12.5px 'DM Sans',sans-serif;cursor:pointer;white-space:nowrap}
-#gs-hd .tn-lancar-bt:hover{background:#D4A84B}
+#gs-hd .tn-lancar-bt{background:var(--ac-gold);color:var(--on-ouro);border:0;border-radius:8px;padding:7px 13px;font:700 12.5px 'DM Sans',sans-serif;cursor:pointer;white-space:nowrap}
+#gs-hd .tn-lancar-bt:hover{background:var(--ac-gold2)}
 #gs-hd .hd-usuario .gs-bt-mais{padding:4px 10px;font-size:14px;line-height:1}
 #gs-nome{white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis}
 
@@ -60,7 +60,7 @@ body.gx-barra-topo .cc{padding:18px 20px 16px}
 /* selo do grupo: do tamanho do nome (até 150px); nome grande quebra em mais linhas em vez de esticar ou cortar */
 body.gx-barra-topo .tw td>.tag.tn,body.gx-barra-topo .tw td .er-grupo{display:inline-block!important;width:auto!important;max-width:150px!important;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;overflow-wrap:anywhere;line-height:1.3;text-align:left;box-sizing:border-box;padding:3px 9px}
 /* tabela no formato do Gestão dentro dos Honorários */
-.gx-tab-gs{background:#fff}
+.gx-tab-gs{background:var(--surface)}
 .gx-tab-gs .tabela-wrap{max-height:none}
 
 /* ── celular ── */
@@ -72,43 +72,43 @@ body.gx-barra-topo .tw td>.tag.tn,body.gx-barra-topo .tw td .er-grupo{display:in
 @media (max-width:1100px){
   #gs-hd nav,#gs-hd .tn-lancar,#gs-hd .tn-mais-acoes{display:none!important}
   #gs-hd{justify-content:space-between}
-  #tn-baixo{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:700;background:#1B2A4A;
-    padding:6px 4px calc(6px + env(safe-area-inset-bottom));box-shadow:0 -4px 16px rgba(15,23,42,.25)}
-  #tn-baixo button{flex:1;background:none;border:0;color:rgba(255,255,255,.7);font:600 10.5px 'DM Sans',sans-serif;display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 0;cursor:pointer}
+  #tn-baixo{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:700;background:var(--navy);
+    padding:6px 4px calc(6px + env(safe-area-inset-bottom));box-shadow:var(--shadow-md)}
+  #tn-baixo button{flex:1;background:none;border:0;color:var(--on-cor-3);font:600 10.5px 'DM Sans',sans-serif;display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 0;cursor:pointer}
   #tn-baixo button span{font-size:18px;line-height:1}
-  #tn-baixo button.ativo{color:#C9A84C}
+  #tn-baixo button.ativo{color:var(--ac-gold)}
   body.gx-barra-topo #main{padding-bottom:80px}
   #gx-rodape{bottom:74px}
 }
-#tn-mais{position:fixed;inset:0;z-index:9000;background:rgba(15,23,42,.45);display:flex;align-items:flex-end}
-.tn-mais-caixa{background:#fff;width:100%;border-radius:18px 18px 0 0;padding:10px 12px calc(16px + env(safe-area-inset-bottom));max-height:80vh;overflow-y:auto}
-.tn-mais-caixa button{display:block;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid #F1F5F9;padding:13px 10px;font:600 15px 'DM Sans',sans-serif;color:#1B2A4A;cursor:pointer}
-.tn-mais-tit{font:700 11px 'DM Sans',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#6B7280;padding:14px 10px 4px}
-.tn-mais-caixa .tn-mais-fechar{text-align:center;color:#6B7280;border:0;margin-top:6px}
+#tn-mais{position:fixed;inset:0;z-index:9000;background:var(--overlay);display:flex;align-items:flex-end}
+.tn-mais-caixa{background:var(--surface);width:100%;border-radius:18px 18px 0 0;padding:10px 12px calc(16px + env(safe-area-inset-bottom));max-height:80vh;overflow-y:auto}
+.tn-mais-caixa button{display:block;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--line);padding:13px 10px;font:600 15px 'DM Sans',sans-serif;color:var(--ink);cursor:pointer}
+.tn-mais-tit{font:700 11px 'DM Sans',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:14px 10px 4px}
+.tn-mais-caixa .tn-mais-fechar{text-align:center;color:var(--text3);border:0;margin-top:6px}
 
 /* ── ações fixas no fim da linha (telas do ERP) ── */
 .gx-la{display:inline-flex;gap:4px;margin-left:8px;vertical-align:middle;white-space:nowrap}
 .gx-la button{font:700 12px 'DM Sans',sans-serif;border-radius:7px;padding:4px 9px;cursor:pointer;line-height:1.3}
-.gx-la-ed{background:#fff;border:1.5px solid rgba(15,23,42,.15);color:#1B2A4A}
-.gx-la-ed:hover{background:#F5EDD6;border-color:#C9A84C}
-.gx-la-bx{background:#15803d;border:1px solid #15803d;color:#fff}
+.gx-la-ed{background:var(--surface);border:1.5px solid var(--border-strong);color:var(--ink)}
+.gx-la-ed:hover{background:var(--ac-gold-lt);border-color:var(--ac-gold)}
+.gx-la-bx{background:var(--btn-verde);border:1px solid var(--btn-verde);color:var(--on-cor)}
 .gx-la button:disabled{opacity:.5}
 
 /* ── rodapé "Última gravação" ── */
-#gx-rodape{position:fixed;left:16px;bottom:16px;z-index:8000;background:#1B2A4A;color:#fff;border-radius:12px;padding:9px 12px 9px 14px;
-  font:13px 'DM Sans',sans-serif;box-shadow:0 10px 28px rgba(15,23,42,.3);display:none;align-items:center;gap:8px;max-width:calc(100vw - 32px)}
+#gx-rodape{position:fixed;left:16px;bottom:16px;z-index:8000;background:var(--navy);color:var(--on-cor);border-radius:12px;padding:9px 12px 9px 14px;
+  font:13px 'DM Sans',sans-serif;box-shadow:var(--shadow-md);display:none;align-items:center;gap:8px;max-width:calc(100vw - 32px)}
 #gx-rodape.on{display:flex}
-#gx-rodape b{color:#C9A84C}
-.gx-rod-ok{background:#16A34A;color:#fff;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0}
-.gx-rod-bt{background:#C9A84C;color:#1B2A4A;border:0;border-radius:7px;padding:4px 10px;font:700 12px 'DM Sans',sans-serif;cursor:pointer}
-.gx-rod-x{background:none;border:0;color:rgba(255,255,255,.6);cursor:pointer;font-size:13px}
+#gx-rodape b{color:var(--ac-gold)}
+.gx-rod-ok{background:var(--green);color:var(--on-cor);border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0}
+.gx-rod-bt{background:var(--ac-gold);color:var(--on-ouro);border:0;border-radius:7px;padding:4px 10px;font:700 12px 'DM Sans',sans-serif;cursor:pointer}
+.gx-rod-x{background:none;border:0;color:var(--on-cor-3);cursor:pointer;font-size:13px}
 .gx-sobre{z-index:9600}
 .gx-sobre-login{z-index:100000!important}
 /* janelas do Gestão acima de tudo do ERP */
 #gs-raiz .fundo{z-index:9600}
 #gs-raiz #aviso{z-index:9700}
 /* nas tabelas do Gestão dentro do ERP, vale a ordenação e o visual do Gestão */
-.gx-tab-gs.gs table thead th{background:#fafbfd!important;color:var(--text3)!important;cursor:pointer}
+.gx-tab-gs.gs table thead th{background:var(--surface2)!important;color:var(--text3)!important;cursor:pointer}
 .gx-tab-gs.gs table thead th:hover{color:var(--navy)!important}
 .gx-tab-gs.gs table thead th::after{content:none!important}
 .gx-tab-gs.gs table.ordenavel thead th[aria-sort=ascending]::after{content:' ▲'!important;font-size:9px}
@@ -123,13 +123,13 @@ body.gx-barra-topo .tw td>.tag.tn,body.gx-barra-topo .tw td .er-grupo{display:in
 #panel-processos .tw th:nth-child(8),#panel-processos .tw td:nth-child(8),
 #panel-processos .tw th:nth-child(9),#panel-processos .tw td:nth-child(9){display:none}
 /* sino de avisos */
-#gs-hd #gs-tema{background:rgba(255,255,255,.1);border:0;border-radius:8px;padding:5px 8px;cursor:pointer;font-size:15px;line-height:1;margin-right:2px;color:#fff}
-#gs-hd #gs-tema:hover{background:rgba(255,255,255,.2)}
-#gs-hd #gs-tema[aria-pressed=true]{background:rgba(201,168,76,.28);color:#F5EDD6}
-#gs-hd #gs-sino{background:rgba(255,255,255,.1);border:0;border-radius:8px;padding:5px 9px;cursor:pointer;font-size:15px;position:relative;line-height:1;margin-right:2px}
-#gs-hd #gs-sino:hover{background:rgba(255,255,255,.2)}
-#gs-sino-n{position:absolute;top:-5px;right:-6px;background:#C9A84C;color:#1B2A4A;border-radius:99px;font:700 10px 'DM Sans',sans-serif;padding:1px 5px;min-width:16px}
-#gs-sino-n.alto{background:#DC2626;color:#fff}
+#gs-hd #gs-tema{background:var(--veu-2);border:0;border-radius:8px;padding:5px 8px;cursor:pointer;font-size:15px;line-height:1;margin-right:2px;color:var(--on-cor)}
+#gs-hd #gs-tema:hover{background:var(--veu-3)}
+#gs-hd #gs-tema[aria-pressed=true]{background:var(--ac-gold-lt);color:var(--ac-gold-lt)}
+#gs-hd #gs-sino{background:var(--veu-2);border:0;border-radius:8px;padding:5px 9px;cursor:pointer;font-size:15px;position:relative;line-height:1;margin-right:2px}
+#gs-hd #gs-sino:hover{background:var(--veu-3)}
+#gs-sino-n{position:absolute;top:-5px;right:-6px;background:var(--ac-gold);color:var(--on-ouro);border-radius:99px;font:700 10px 'DM Sans',sans-serif;padding:1px 5px;min-width:16px}
+#gs-sino-n.alto{background:var(--red);color:var(--on-cor)}
 #gs-sino-n[hidden]{display:none}
 
 /* ═══════ Design unificado (etapa 2) ═══════ */
@@ -137,7 +137,7 @@ body.gx-barra-topo .tw td>.tag.tn,body.gx-barra-topo .tw td .er-grupo{display:in
 body.gx-barra-topo{--font-d:'DM Sans','Inter',system-ui,sans-serif}
 body.gx-barra-topo .mod-banner-t{font-family:'Space Grotesk','DM Sans',system-ui,sans-serif;font-size:19px;letter-spacing:-.01em}
 .gx-sec-tit,body.gx-barra-topo .ex-t{font-family:'DM Sans',system-ui,sans-serif!important;font-size:11px!important;font-weight:700!important;letter-spacing:.09em!important;
-  text-transform:uppercase;color:#1B2A4A!important;margin-bottom:12px}
+  text-transform:uppercase;color:var(--ink)!important;margin-bottom:12px}
 body.gx-barra-topo .cc-t,body.gx-barra-topo .sec-t{font-family:'DM Sans',system-ui,sans-serif;font-size:14px;font-weight:700}
 /* dinheiro nunca quebra: número inteiro numa linha */
 body.gx-barra-topo td.mono,body.gx-barra-topo span.mono,body.gx-barra-topo .kv,body.gx-barra-topo td.num{white-space:nowrap}
@@ -150,7 +150,7 @@ body.gx-barra-topo:not(.gx-tela-nova) #main{padding-top:calc(var(--hh) + 62px)}
 /* Processos: o total já aparece na análise da carteira (bloco repetido) */
 #kpiProc>:first-child{display:none}
 /* nome da tela na barra quando o menu vira o menu inferior */
-#gs-tela-nome{display:none;color:#fff;font:700 15px 'Space Grotesk','DM Sans',sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#gs-tela-nome{display:none;color:var(--on-cor);font:700 15px 'Space Grotesk','DM Sans',sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 @media (max-width:1100px){#gs-tela-nome{display:block;flex:1;min-width:0}}
 /* gráfico sem dados */
 canvas.gx-sem-dados{opacity:1}
@@ -176,7 +176,7 @@ canvas.gx-sem-dados{opacity:1}
   #execKpiSection > div[style*="align-items:stretch"] > div[style*="width:1px"]{display:none}
 }
 /* acessibilidade: foco visível */
-body.gx-barra-topo :focus-visible{outline:2px solid #2E5EAA;outline-offset:2px}
+body.gx-barra-topo :focus-visible{outline:2px solid var(--navy3);outline-offset:2px}
 /* resumos em 3 colunas (Grupo / Tribunal / Natureza) viram 2 e depois 1 para o valor caber inteiro */
 @media (max-width:1300px){body.gx-barra-topo .crow.c3{grid-template-columns:1fr 1fr}}
 @media (max-width:860px){body.gx-barra-topo .crow.c3,body.gx-barra-topo .crow.c2{grid-template-columns:1fr}}
@@ -190,8 +190,8 @@ body.gx-barra-topo :focus-visible{outline:2px solid #2E5EAA;outline-offset:2px}
 /* barra superior: títulos dos módulos centralizados */
 #gs-hd nav#tn{justify-content:center}
 /* menu ⋯: o estilo dos botões da área do usuário (texto branco) não vale para os itens do menu */
-#gs-hd .hd-usuario .tn-menu button{background:none!important;border:0!important;color:#1B2A4A!important;padding:9px 12px;font-weight:500;font-size:13.5px;border-radius:8px}
-#gs-hd .hd-usuario .tn-menu button:hover{background:#F5EDD6!important}
+#gs-hd .hd-usuario .tn-menu button{background:none!important;border:0!important;color:var(--ink)!important;padding:9px 12px;font-weight:500;font-size:13.5px;border-radius:8px}
+#gs-hd .hd-usuario .tn-menu button:hover{background:var(--ac-gold-lt)!important}
 /* Painel Executivo (Backup 15): sem o cartão de título; entidades, grupos e "Atualizado" na linha dos filtros, à esquerda */
 #panel-resumo > .mod-banner{display:none!important}
 #gx-linha-painel{display:none;position:fixed;top:calc(var(--hh) + 12px);left:24px;z-index:249;align-items:center;gap:8px;font-family:var(--font-ui)}
@@ -199,22 +199,22 @@ body.gx-barra-topo[data-painel="resumo"]:not(.gx-cliente) #gx-linha-painel{displ
 #gx-linha-painel .gs-contadores{display:flex;gap:6px}
 #gx-linha-painel .gs-contadores[hidden]{display:none}
 #gx-linha-painel .gs-cont{border-radius:20px;padding:4px 12px;font-size:12px;font-weight:700;white-space:nowrap}
-#gx-linha-painel .gs-cont-ent{background:#FBF3DC;border:1px solid rgba(201,168,76,.45);color:#8A6D14}
-#gx-linha-painel .gs-cont-grp{background:#EAF0FB;border:1px solid rgba(46,94,170,.3);color:#1D4ED8}
+#gx-linha-painel .gs-cont-ent{background:var(--ac-gold-lt);border:1px solid var(--gold-bd);color:var(--gold-d)}
+#gx-linha-painel .gs-cont-grp{background:var(--blue-lt);border:1px solid var(--blue-bd);color:var(--blue-d)}
 #gx-atualizado{font-size:12px;font-weight:600;color:var(--text2);white-space:nowrap}
 @media (max-width:1100px){#gx-linha-painel{display:none!important}}
 
 /* Painel Executivo: números do passivo na cor do Gestão (não azul) */
-#execKpis .kv,#execKpis .kv *{color:#1B2A4A!important}
+#execKpis .kv,#execKpis .kv *{color:var(--ink)!important}
 /* CAPAG Omisso: selo vermelho cheio (é o que mais importa ver) */
-.capag.capag-O{background:#DC2626!important;color:#fff!important;border:1px solid #B91C1C!important}
+.capag.capag-O{background:var(--red)!important;color:var(--on-cor)!important;border:1px solid var(--red)!important}
 /* coluna própria para ✎ e ✓ Baixa (não fica mais dentro da última coluna) */
 .gx-td-acoes{white-space:nowrap;text-align:right;width:1%}
 .gx-td-acoes .gx-la{margin-left:0}
 .gx-th-acoes{width:1%}
 /* linhas de acordo abrem o detalhe ao clicar */
 #panel-acordos tr[data-gx^="acordos:"]{cursor:pointer}
-#panel-acordos tr[data-gx^="acordos:"]:hover td{background:#f4f7fc}
+#panel-acordos tr[data-gx^="acordos:"]:hover td{background:var(--hover)}
 /* menu mais compacto em telas médias (o menu tem 12 itens) */
 @media (max-width:1460px){#gs-hd nav button.tn-it{padding:8px 5px;font-size:12.5px}}
 @media (max-width:1320px){#gs-hd nav button.tn-it{padding:7px 4px;font-size:12px}#gs-hd .tn-seta{display:none}}
@@ -242,13 +242,13 @@ body.gx-barra-topo .gs-area > .titulo-pag:first-child h1,body.gx-barra-topo .mod
 #gs-hd .tn-menu button,#gs-hd .tn-lancar-bt,#tn-baixo button,.tn-mais-caixa button,.gx-la button,#gx-rodape{font-family:var(--font-ui)!important}
 
 /* barra superior: vidro escuro com filete ouro→azul */
-#gs-hd{background:linear-gradient(115deg,rgba(20,31,56,.97),rgba(36,54,89,.96) 55%,rgba(20,31,56,.97))!important;backdrop-filter:saturate(1.4) blur(10px)}
-#gs-hd::after{content:'';position:absolute;left:0;right:0;bottom:0;height:1px;background:linear-gradient(90deg,transparent,rgba(201,168,76,.75) 30%,rgba(96,165,250,.6) 70%,transparent);pointer-events:none}
+#gs-hd{background:linear-gradient(115deg,var(--bar-bg),var(--bar-bg) 55%,var(--bar-bg))!important;backdrop-filter:saturate(1.4) blur(10px)}
+#gs-hd::after{content:'';position:absolute;left:0;right:0;bottom:0;height:1px;background:linear-gradient(90deg,transparent,var(--ac-gold-lt) 30%,var(--blue-lt) 70%,transparent);pointer-events:none}
 #gs-hd nav button.tn-it{border-radius:8px;transition:background .15s,color .15s}
-#gs-hd nav button.tn-it:hover{background:rgba(255,255,255,.08)}
-#gs-hd nav .tn-it.ativo,#gs-hd nav .tn-grupo.ativo>.tn-it{background:rgba(255,255,255,.12);box-shadow:inset 0 -2px 0 #C9A84C}
-#gs-hd .tn-lancar-bt{background-color:#C9A84C;background-image:var(--grad-ouro);box-shadow:0 4px 14px -6px rgba(201,168,76,.9)}
-#gs-hd .tn-menu{border-radius:14px;box-shadow:0 18px 48px -12px rgba(15,23,42,.35)}
+#gs-hd nav button.tn-it:hover{background:var(--veu-2)}
+#gs-hd nav .tn-it.ativo,#gs-hd nav .tn-grupo.ativo>.tn-it{background:var(--veu-2);box-shadow:inset 0 -2px 0 var(--ac-gold)}
+#gs-hd .tn-lancar-bt{background-color:var(--ac-gold);background-image:var(--grad-ouro);box-shadow:var(--shadow-md)}
+#gs-hd .tn-menu{border-radius:14px;box-shadow:var(--shadow-lg)}
 
 /* cartões e KPIs (telas novas e do ERP) */
 body.gx-barra-topo .gs .card,body.gx-barra-topo .cc,body.gx-barra-topo .tw{border-radius:14px;box-shadow:var(--shadow-card)}
@@ -267,22 +267,22 @@ body.gx-barra-topo .kc{border-radius:14px!important;box-shadow:var(--shadow-card
 /* botões: primário com degradê da marca; todos com cantos e foco iguais */
 body.gx-barra-topo .gs .btn{border-radius:10px;font-weight:650;transition:filter .15s,box-shadow .15s,transform .05s}
 body.gx-barra-topo .gs .btn:active{transform:translateY(1px)}
-body.gx-barra-topo .gs .btn-p{background-color:#243659;background-image:var(--grad-marca);border-color:transparent;box-shadow:0 6px 16px -8px rgba(46,94,170,.8)}
+body.gx-barra-topo .gs .btn-p{background-color:var(--navy2);background-image:var(--grad-marca);border-color:transparent;box-shadow:var(--shadow-md)}
 body.gx-barra-topo .gs .btn-p:hover{filter:brightness(1.08)}
-html[data-tema="escuro"] body.gx-barra-topo .gs .btn-p{background-color:#2E5EAA;color:#fff}
+html[data-tema="escuro"] body.gx-barra-topo .gs .btn-p{background-color:var(--navy3);color:var(--on-cor)}
 
 /* campos: anel azul no foco; tabelas: linha realçada ao passar o mouse */
 body.gx-barra-topo .gs input:focus,body.gx-barra-topo .gs select:focus,body.gx-barra-topo .gs textarea:focus{border-color:var(--ac-navy3);box-shadow:var(--anel);outline:none}
 body.gx-barra-topo .gs tbody tr:hover>td{background:var(--surface2)}
 body.gx-barra-topo .gs .pill{font-weight:650;letter-spacing:.01em}
 /* janelas: cantos e sombra no mesmo padrão */
-body.gx-barra-topo .gs .janela{border-radius:18px;box-shadow:0 30px 80px -20px rgba(15,23,42,.45)}
+body.gx-barra-topo .gs .janela{border-radius:18px;box-shadow:var(--shadow-lg)}
 /* nome da pessoa na barra (primeiro nome) */
-#gs-hd #gs-nome{font-weight:650;font-size:13px;color:#fff;padding:4px 10px;border-radius:99px;background:rgba(255,255,255,.08);max-width:140px}
+#gs-hd #gs-nome{font-weight:650;font-size:13px;color:var(--on-cor);padding:4px 10px;border-radius:99px;background:var(--veu-2);max-width:140px}
 #gs-hd #gs-nome:empty{display:none}
 /* cartão de avisos novos (canto inferior direito, some sozinho) */
 #gx-pop-avisos{position:fixed;right:18px;bottom:18px;z-index:9400;width:min(380px,calc(100vw - 32px));background:var(--surface);color:var(--text);border:1px solid var(--border-strong);
-  border-radius:16px;box-shadow:0 24px 60px -18px rgba(15,23,42,.45);padding:12px 14px;font:13px var(--font-ui);transform:translateY(20px);opacity:0;transition:transform .3s,opacity .3s}
+  border-radius:16px;box-shadow:var(--shadow-lg);padding:12px 14px;font:13px var(--font-ui);transform:translateY(20px);opacity:0;transition:transform .3s,opacity .3s}
 #gx-pop-avisos.on{transform:none;opacity:1}
 #gx-pop-avisos .gx-pop-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;color:var(--ink)}
 #gx-pop-avisos .gx-pop-x{background:none;border:0;cursor:pointer;color:var(--text3);font-size:14px}
@@ -291,7 +291,7 @@ body.gx-barra-topo .gs .janela{border-radius:18px;box-shadow:0 30px 80px -20px r
 #gx-pop-avisos .gx-pop-it.nivel-medio{border-left-color:var(--amber)}
 #gx-pop-avisos .gx-pop-it div div{color:var(--text3);font-size:12px}
 #gx-pop-avisos .gx-pop-mais{color:var(--text3);font-size:12px;margin:6px 2px 0}
-#gx-pop-avisos .gx-pop-abrir{margin-top:10px;width:100%;border:0;border-radius:10px;padding:8px;font:650 13px var(--font-ui);color:#fff;background-color:#243659;background-image:var(--grad-marca);cursor:pointer}
+#gx-pop-avisos .gx-pop-abrir{margin-top:10px;width:100%;border:0;border-radius:10px;padding:8px;font:650 13px var(--font-ui);color:var(--on-cor);background-color:var(--navy2);background-image:var(--grad-marca);cursor:pointer}
 @media (max-width:1100px){#gx-pop-avisos{bottom:84px}}
 
 /* ═══════ Backup 13 — telas do ERP antigo ═══════ */
@@ -319,12 +319,12 @@ body.gx-barra-topo .tw td:has(>.tag.tn),body.gx-barra-topo .tw td:has(.er-grupo)
 #tblExecRanking .er-nome{font-size:13px!important;font-weight:700!important;text-transform:none;letter-spacing:0;border-left:0!important;padding-left:0!important;color:var(--ink)!important}
 #tblExecRanking .er-socio{font-size:11.5px!important;text-transform:none;letter-spacing:0;color:var(--text2)!important;margin-top:2px;padding-left:0!important;margin-left:0!important}
 #tblExecRanking .er-socio b{font-weight:700!important;color:var(--ink)}
-#tblExecRanking .er-grupo{color:rgb(45,74,112)!important;background:rgba(11,29,58,.05)!important;border:1px solid rgba(11,29,58,.14)!important}
-html[data-tema="escuro"] #tblExecRanking .er-grupo{color:var(--text)!important;background:rgba(255,255,255,.06)!important;border-color:rgba(255,255,255,.14)!important}
+#tblExecRanking .er-grupo{color:var(--text2)!important;background:var(--hover)!important;border:1px solid var(--border-strong)!important}
+html[data-tema="escuro"] #tblExecRanking .er-grupo{color:var(--text)!important;background:var(--veu-1)!important;border-color:var(--veu-3)!important}
 #tblExecRanking span[title]{border-bottom:0!important}
 #tblExecRanking .capag{display:inline-flex!important;align-items:center;justify-content:center;width:30px;height:24px;padding:0!important;border-radius:6px!important;
   font:700 12px var(--font-ui)!important;letter-spacing:0;box-sizing:border-box}
-#tblExecRanking .capag.capag-O{width:auto;padding:0 9px!important;font-size:10.5px!important;text-transform:uppercase;background:var(--red-lt)!important;color:var(--red-d)!important;border:1px solid rgba(200,30,30,.28)!important}
+#tblExecRanking .capag.capag-O{width:auto;padding:0 9px!important;font-size:10.5px!important;text-transform:uppercase;background:var(--red-lt)!important;color:var(--red-d)!important;border:1px solid var(--red-bd)!important}
 #tblExecRanking .tag.tg::before,#tblExecRanking .tag.tr::before{content:none!important;display:none!important}
 #tblExecRanking .tag.tv{font:600 10.5px var(--font-ui)!important;border-radius:99px;text-transform:uppercase;letter-spacing:.02em}
 /* Processos: tabela com uma letra e um tamanho só */
@@ -338,32 +338,32 @@ html[data-tema="escuro"] #tblExecRanking .er-grupo{color:var(--text)!important;b
 /* ordenar clicando no título (Progresso por parcelamento) */
 .gx-ord{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
 .gx-ord button{border:1px solid var(--border-strong);background:var(--surface);color:var(--text2);border-radius:99px;padding:4px 11px;font:600 12px var(--font-ui);cursor:pointer}
-.gx-ord button.ativo{background:var(--ac-navy);border-color:var(--ac-navy);color:#fff}
+.gx-ord button.ativo{background:var(--ac-navy);border-color:var(--ac-navy);color:var(--on-cor)}
 .gx-ord button[data-dir]:not([data-dir=""])::after{content:' ' attr(data-dir);font-size:9px}
 .gx-ord .gx-ord-so{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:var(--text2);margin-left:6px;cursor:pointer}
 html[data-tema="escuro"] .gx-ord button.ativo{background:var(--ac-navy3);border-color:var(--ac-navy3)}
 
 /* abas do Financeiro: a aba escolhida fica levemente marcada, cada uma com a sua cor
    Análise = azul · A receber = amarelo · Recebido/Receita = verde · Prejuízo = roxo · A pagar = laranja · Despesa = cinza */
-body.gx-barra-topo .fin-tab.active{background:var(--blue-lt)!important;color:var(--blue-d)!important;border-color:rgba(37,99,235,.45)!important;box-shadow:inset 0 -2px 0 currentColor;font-weight:700}
-body.gx-barra-topo .fin-tab.active[data-tab=analise]{background:var(--blue-lt)!important;color:var(--blue-d)!important;border-color:rgba(37,99,235,.45)!important}
+body.gx-barra-topo .fin-tab.active{background:var(--blue-lt)!important;color:var(--blue-d)!important;border-color:var(--blue-bd)!important;box-shadow:inset 0 -2px 0 currentColor;font-weight:700}
+body.gx-barra-topo .fin-tab.active[data-tab=analise]{background:var(--blue-lt)!important;color:var(--blue-d)!important;border-color:var(--blue-bd)!important}
 body.gx-barra-topo .fin-tab.active[data-tab=receber]{background:var(--amber-lt)!important;color:var(--amber-d)!important;border-color:var(--amber-border)!important}
-body.gx-barra-topo .fin-tab.active:is([data-tab=recebidos],[data-tab=receita]){background:var(--green-lt)!important;color:var(--green-d)!important;border-color:rgba(21,128,61,.4)!important}
-body.gx-barra-topo .fin-tab.active[data-tab=prejuizo]{background:var(--violet-lt)!important;color:var(--violet-d)!important;border-color:rgba(124,58,237,.4)!important}
-body.gx-barra-topo .fin-tab.active:is([data-tab=apagar],[data-tab=pagar]){background:#FFEDD5!important;color:#9A3412!important;border-color:rgba(194,65,12,.4)!important}
+body.gx-barra-topo .fin-tab.active:is([data-tab=recebidos],[data-tab=receita]){background:var(--green-lt)!important;color:var(--green-d)!important;border-color:var(--green-bd)!important}
+body.gx-barra-topo .fin-tab.active[data-tab=prejuizo]{background:var(--violet-lt)!important;color:var(--violet-d)!important;border-color:var(--violet-bd)!important}
+body.gx-barra-topo .fin-tab.active:is([data-tab=apagar],[data-tab=pagar]){background:var(--orange-lt)!important;color:var(--orange-d)!important;border-color:var(--orange-bd)!important}
 body.gx-barra-topo .fin-tab.active[data-tab=despesa]{background:var(--gray-lt)!important;color:var(--text)!important;border-color:var(--border-strong)!important}
-body.gx-barra-topo .fin-tab.active[data-tab=caixa]{background:var(--teal-lt)!important;color:var(--teal)!important;border-color:rgba(15,118,110,.4)!important}
-body.gx-barra-topo .fin-tab.active[data-tab=socios]{background:var(--violet-lt)!important;color:var(--violet-d)!important;border-color:rgba(124,58,237,.4)!important}
+body.gx-barra-topo .fin-tab.active[data-tab=caixa]{background:var(--teal-lt)!important;color:var(--teal)!important;border-color:var(--teal-bd)!important}
+body.gx-barra-topo .fin-tab.active[data-tab=socios]{background:var(--violet-lt)!important;color:var(--violet-d)!important;border-color:var(--violet-bd)!important}
 /* "Vencidos" só destaca quando está escolhido (antes ficava vermelho sempre) */
 body.gx-barra-topo .fin-tab-vencidos:not(.active){background:var(--surface)!important;color:var(--red-d)!important;border-color:var(--border-strong)!important;font-weight:600}
-body.gx-barra-topo .fin-tab-vencidos.active{background:var(--red-lt)!important;color:var(--red-d)!important;border-color:rgba(200,30,30,.4)!important}
+body.gx-barra-topo .fin-tab-vencidos.active{background:var(--red-lt)!important;color:var(--red-d)!important;border-color:var(--red-bd)!important}
 /* botões ✉ Cobrar / 🧾 Recibo no cabeçalho de Financeiro, Parcelamentos e Acordos */
 .mod-banner .gx-cobrar{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
 .mod-banner .gx-cobrar button{border:1px solid var(--border-strong);background:var(--surface);color:var(--ink);border-radius:10px;padding:7px 12px;font:650 12.5px var(--font-ui);cursor:pointer}
 .mod-banner .gx-cobrar button:hover{border-color:var(--ac-navy3);box-shadow:var(--anel)}
 /* Cobranças (módulo antigo): botão principal com contraste nos dois modos */
-#panel-notificacoes .btn-p{background:var(--ac-navy)!important;border-color:var(--ac-navy)!important;color:#fff!important}
-html[data-tema="escuro"] #panel-notificacoes .btn-p{background:#2E5EAA!important;border-color:#2E5EAA!important}
+#panel-notificacoes .btn-p{background:var(--ac-navy)!important;border-color:var(--ac-navy)!important;color:var(--on-cor)!important}
+html[data-tema="escuro"] #panel-notificacoes .btn-p{background:var(--navy3)!important;border-color:var(--navy3)!important}
 /* números das tabelas: o mesmo desenho do "Resumo mensal" (Inter, algarismos alinhados) em todas as telas */
 body.gx-barra-topo .gs table td.num,body.gx-barra-topo .gs table td.mono,body.gx-barra-topo .gs table tfoot td{font-family:var(--font-ui)!important;font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1,"lnum" 1}
 body.gx-barra-topo .gs table td.num{font-size:13px}
@@ -373,7 +373,7 @@ body.gx-barra-topo .gs table td.num{font-size:13px}
   .pc-item > div:first-child > div:last-child{flex-wrap:wrap;gap:4px 10px}
 }
 /* Acordos (Backup 16): tabela única "Acordos em andamento" com linha que abre as parcelas */
-.ac-todos{display:inline-flex;align-items:center;gap:6px;font:600 12.5px var(--font-ui);color:var(--text2);cursor:pointer;background:#fff;border:1px solid var(--border);border-radius:99px;padding:5px 12px}
+.ac-todos{display:inline-flex;align-items:center;gap:6px;font:600 12.5px var(--font-ui);color:var(--text2);cursor:pointer;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:5px 12px}
 /* Acordos em andamento (Backup 17): lista leve em linhas-cartão */
 .acx{border:1px solid var(--border);border-radius:14px;background:var(--surface);overflow:hidden}
 .acx-hd,.acx-row{display:grid;grid-template-columns:minmax(200px,1.5fr) minmax(220px,1.4fr) minmax(130px,.8fr) minmax(130px,.8fr) 22px;gap:18px;align-items:center;padding:12px 18px}
@@ -381,7 +381,7 @@ body.gx-barra-topo .gs table td.num{font-size:13px}
 .acx-item{border-bottom:1px solid var(--border)}
 .acx-item:last-child{border-bottom:0}
 .acx-row{cursor:pointer;font:13px var(--font-ui);color:var(--ink);transition:background .15s}
-.acx-row:hover{background:rgba(27,42,74,.035)}
+.acx-row:hover{background:var(--hover)}
 .acx-row:focus-visible{outline:2px solid var(--ac-navy3);outline-offset:-2px}
 .acx-atr .acx-row{box-shadow:inset 3px 0 0 var(--red)}
 .acx-dev{font-weight:700;font-size:13.5px}
@@ -390,7 +390,7 @@ body.gx-barra-topo .gs table td.num{font-size:13px}
 .acx-proc{font-variant-numeric:tabular-nums}
 .acx-prog-hd{display:flex;justify-content:space-between;gap:8px;font-size:12.5px;color:var(--text2);font-variant-numeric:tabular-nums}
 .acx-prog-hd b{color:var(--green-d);font-weight:700}
-.acx-bar{height:6px;border-radius:99px;background:rgba(27,42,74,.08);margin:6px 0 2px;overflow:hidden}
+.acx-bar{height:6px;border-radius:99px;background:var(--surface3);margin:6px 0 2px;overflow:hidden}
 .acx-bar>div{height:100%;border-radius:99px;background:var(--green)}
 .acx-rot{font:700 10px var(--font-ui);letter-spacing:.06em;text-transform:uppercase;color:var(--text3)}
 .acx-val{font-weight:700;font-size:14px;font-variant-numeric:tabular-nums;margin-top:1px}
@@ -399,19 +399,19 @@ body.gx-barra-topo .gs table td.num{font-size:13px}
 .acx-st-g{background:var(--green-lt);color:var(--green-d)}
 .acx-st-x{background:var(--gray-lt);color:var(--text2)}
 .acx-cv{color:var(--text3);font-size:12px;text-align:center}
-.acx-det{padding:4px 18px 16px 18px;background:rgba(27,42,74,.025);border-top:1px dashed var(--border)}
+.acx-det{padding:4px 18px 16px 18px;background:var(--hover);border-top:1px dashed var(--border)}
 .acx-info{font-size:12px;color:var(--text2);padding:10px 0 6px}
 .acx-parcs{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;margin-top:6px}
 .acx-parc{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;border-top:3px solid var(--border-strong)}
 .acx-parc-p{border-top-color:var(--green)}
 .acx-parc-r{border-top-color:var(--red)}
-.acx-parc-a{border-top-color:var(--blue,#2563EB)}
+.acx-parc-a{border-top-color:var(--blue)}
 .acx-parc-n{font:700 10.5px var(--font-ui);letter-spacing:.05em;text-transform:uppercase;color:var(--text3)}
 .acx-parc-v{font-weight:700;font-size:15px;font-variant-numeric:tabular-nums;margin:2px 0}
 .acx-parc-r .acx-sub{color:var(--red-d)}
 .acx-parc-p .acx-sub{color:var(--green-d)}
 .acx-parc-bt{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
-.acx .ac-bt-pagar{background:var(--ac-navy)!important;color:#fff!important;border:1px solid var(--ac-navy)!important;border-radius:8px!important;padding:5px 10px!important;font:600 12px var(--font-ui)!important;cursor:pointer}
+.acx .ac-bt-pagar{background:var(--ac-navy)!important;color:var(--on-cor)!important;border:1px solid var(--ac-navy)!important;border-radius:8px!important;padding:5px 10px!important;font:600 12px var(--font-ui)!important;cursor:pointer}
 .acx .ac-bt-pagar:hover{filter:brightness(1.15)}
 .acx-link{font:500 12px var(--font-ui)!important;cursor:pointer;background:none!important;border:0!important;color:var(--text2)!important;text-decoration:underline;padding:4px 2px!important}
 @media (max-width:900px){.acx-hd{display:none}.acx-row{grid-template-columns:1fr auto;gap:8px 12px}.acx-prog{grid-column:1/-1}.acx-prox{grid-column:1}.acx-sit{grid-column:2;grid-row:1}.acx-cv{display:none}}

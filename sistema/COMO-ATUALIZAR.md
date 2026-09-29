@@ -244,3 +244,21 @@ Se precisar dele de volta, basta voltar a publicação na Vercel (passo A acima)
 - **Contratos:** a ficha (clique no contrato) mostra tipo, área, vigência, **reajuste** (só consultoria em salários mínimos é reajustada),
   próximo vencimento e atraso, e o card **📝 Aditivos** (**+ Novo aditivo**: valor — consultoria muda a mensalidade a partir de uma
   competência; pontual lança o valor a mais em parcelas —, escopo, prazo ou outro).
+
+## Backup 18 — Design (só visual; sem SQL e sem funções novas)
+Depois do Merge, aperte **Ctrl+Shift+R** no ERP para baixar o visual novo.
+- **Cores mais sóbrias** em todas as telas: fundo cinza neutro, cartões brancos com borda fina e sombra quase invisível,
+  selos (pílulas) menores e em tons suaves. Nenhum botão ou texto mudou de nome.
+- **Cartões:** um desenho só (Início, Painel, Processos, Financeiro, Acordos, CRM…): título pequeno em caixa alta cinza com um
+  **pontinho de cor** (verde, âmbar, vermelho…), número grande embaixo. A faixa grossa colorida à esquerda saiu; ela só aparece,
+  fina, onde quer dizer algo (atraso, crítico, recado fixado).
+- **Tabelas:** cabeçalho claro (saiu o azul-marinho pesado), linhas separadas por um fio leve, números alinhados à direita.
+- **Barra superior:** lisa, sem brilho; os botões ◐, 🔔, ⋯ e Sair sem contorno. Menus com cantos e sombra iguais aos cartões.
+- **Títulos das telas** sem caixa em volta, maiores; janelas com cabeçalho branco e botões no rodapé, à direita.
+- **Gráficos:** cores vindas da paleta do sistema (rampa azul nas barras; rosca com cores contidas), grade bem leve, sem animação
+  ao redesenhar.
+- **Modo escuro (◐):** agora **preto de verdade**, com cinzas neutros (sem azulado) e cartões em cinza bem escuro.
+
+Para quem mexe no código: as cores continuam **só** em `sistema/app/tokens.css` (paleta, `--chart-*` dos gráficos, escala de
+espaçamento `--sp-*` e de letras `--fs-*`, raios `--card-r`/`--r-ctl`/`--r-pill`). O desenho único fica em `sistema/app/design.css`
+(última camada, só `var(--…)`).

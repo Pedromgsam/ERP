@@ -1,0 +1,238 @@
+/* ═══════════════════════════════════════════════════════════════════
+   design.css — Backup 18: visual moderno e minimalista, a ÚLTIMA camada.
+   Um desenho só de cartão, tabela, botão, pílula e janela para o ERP antigo
+   e para as telas do Gestão. Só usa var(--...) de tokens.css (nenhuma cor
+   solta aqui): o modo escuro preto vem sozinho dos tokens.
+   Carregado depois de tokens.css e tema-escuro.css (montar-erp.js).
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── página: fundo liso, sem halos ── */
+body.gx-barra-topo{background:var(--bg)!important;color:var(--text)}
+body.gx-barra-topo .panel{gap:var(--sp-5)}
+
+/* ── barra superior: lisa, sem degradê nem filete, ícones e contornos leves ── */
+#gs-hd{background:var(--bar-bg)!important;box-shadow:none!important;border-bottom:1px solid var(--bar-borda);backdrop-filter:none!important}
+#gs-hd::after{content:none!important}
+#gs-hd nav button.tn-it{font-weight:500;color:var(--on-cor-2);border-radius:var(--r-ctl)}
+#gs-hd nav button.tn-it:hover{background:var(--veu-1);color:var(--on-cor)}
+#gs-hd nav .tn-it.ativo,#gs-hd nav .tn-grupo.ativo>.tn-it{background:var(--veu-2)!important;color:var(--on-cor)!important;box-shadow:none!important;font-weight:600}
+#gs-hd .tn-lancar-bt{background:var(--ac-gold)!important;background-image:none!important;box-shadow:none!important;color:var(--on-ouro)!important;border-radius:var(--r-ctl);font-weight:650}
+#gs-hd .tn-lancar-bt:hover{background:var(--ac-gold2)!important}
+#gs-hd .hd-usuario>button,#gs-hd #gs-tema,#gs-hd #gs-sino,#gs-hd .gs-bt-mais{background:transparent!important;border:1px solid transparent!important;border-radius:var(--r-ctl)!important;color:var(--on-cor-2)!important;box-shadow:none!important}
+#gs-hd .hd-usuario>button:hover,#gs-hd #gs-tema:hover,#gs-hd #gs-sino:hover,#gs-hd .gs-bt-mais:hover{background:var(--veu-2)!important;color:var(--on-cor)!important}
+#gs-hd #gs-tema[aria-pressed=true]{background:var(--veu-2)!important;color:var(--on-cor)!important}
+#gs-hd #gs-nome{background:var(--veu-1);font-weight:600;color:var(--on-cor)}
+#gs-sino-n{box-shadow:0 0 0 2px var(--bar-bg)}
+/* menus suspensos (Jurídico, Financeiro, + Lançar, ⋯): raio do cartão, sombra difusa, item cinza ao passar */
+#gs-hd .tn-menu{border-radius:var(--card-r)!important;box-shadow:var(--shadow-lg)!important;border:1px solid var(--border)!important;background:var(--surface)!important;padding:var(--sp-1)!important}
+#gs-hd .tn-menu button,#gs-hd .hd-usuario .tn-menu button{border-radius:var(--radius-xs)!important;color:var(--text)!important;font-weight:500!important;font-size:var(--fs-sm)!important;padding:8px 12px!important}
+#gs-hd .tn-menu button:hover,#gs-hd .tn-menu button.ativo,#gs-hd .hd-usuario .tn-menu button:hover{background:var(--surface3)!important;color:var(--ink)!important}
+/* filtro flutuante do ERP e menu de baixo (celular): mesma cor da barra */
+body.gx-barra-topo #fb{background:var(--bar-bg);border-color:var(--bar-borda);box-shadow:var(--shadow-md)}
+body.gx-barra-topo #fbPop,body.gx-barra-topo #fbPop::before{background:var(--bar-bg)}
+#tn-baixo{background:var(--bar-bg)!important;box-shadow:none!important;border-top:1px solid var(--bar-borda)}
+.tn-mais-caixa{border-radius:var(--card-r) var(--card-r) 0 0}
+
+/* ── títulos das telas: sem cartão em volta, hierarquia pelo tamanho ── */
+body.gx-barra-topo .gs-area > .titulo-pag:first-child,body.gx-barra-topo .mod-banner{background:transparent!important;border:0!important;box-shadow:none!important;padding:4px 2px!important}
+body.gx-barra-topo .gs-area > .titulo-pag:first-child::before,body.gx-barra-topo .mod-banner-bar{display:none!important}
+body.gx-barra-topo .gs-area > .titulo-pag:first-child h1,body.gx-barra-topo .mod-banner-t{font-size:var(--fs-2xl)!important;font-weight:700!important;letter-spacing:-.02em!important;color:var(--ink)!important}
+body.gx-barra-topo .gs-area > .titulo-pag:first-child p,body.gx-barra-topo .mod-banner-d{font-size:var(--fs-sm)!important;color:var(--text3)!important;margin-top:2px}
+@media (max-width:600px){body.gx-barra-topo .gs-area > .titulo-pag:first-child h1,body.gx-barra-topo .mod-banner-t{font-size:var(--fs-xl)!important}}
+
+/* ═══ cartões: UM desenho só ═══
+   fundo do cartão, borda 1px leve, raio 12px, sombra de uma camada; cor de situação só no ponto/ícone */
+body.gx-barra-topo :is(.cc,.ex-bn,.tw,.kc,.acx),
+body.gx-barra-topo .gs :is(.card,.kpi,.ini-res,.al-card:not(.al-chip),.al-radar,.ap-item,.faixa-aprov,.cx-item,.mural-it,.item-ficha,.pub-card),
+body.gx-barra-topo .cr-linha .cr-col{
+  background:var(--surface)!important;border:1px solid var(--border)!important;border-radius:var(--card-r)!important;box-shadow:var(--shadow-card)!important}
+body.gx-barra-topo :is(.cc,.kc):hover{transform:none!important;box-shadow:var(--shadow-card)!important;border-color:var(--border)!important}
+body.gx-barra-topo .cc::before,body.gx-barra-topo .kc::after{content:none!important;display:none!important}
+body.gx-barra-topo .cc{padding:var(--sp-5)!important}
+body.gx-barra-topo .cc-t,body.gx-barra-topo .gs .card-hd{font-size:var(--fs-md)!important;font-weight:650!important;color:var(--ink)!important;letter-spacing:-.01em}
+body.gx-barra-topo .cc-d{color:var(--text3)!important;font-size:var(--fs-xs)!important}
+body.gx-barra-topo .gs .card-hd{border-bottom:1px solid var(--line)!important;padding:14px 18px}
+/* título de seção: pequeno, caixa alta, cinza */
+body.gx-barra-topo :is(.ex-t,.gx-sec-t,.gx-sec-tit),body.gx-barra-topo .gs .kpis-titulo{font-size:11px!important;font-weight:650!important;letter-spacing:.07em!important;text-transform:uppercase;color:var(--text3)!important}
+
+/* KPI: título pequeno em caixa alta cinza + ponto de cor, número grande, legenda discreta */
+body.gx-barra-topo .kc{border-left:1px solid var(--border)!important;padding:16px 18px!important;--kc:var(--text3)}
+body.gx-barra-topo .kc.cr{--kc:var(--red)}body.gx-barra-topo .kc.ca{--kc:var(--amber)}body.gx-barra-topo .kc.cg{--kc:var(--green)}
+body.gx-barra-topo .kc.cb{--kc:var(--blue)}body.gx-barra-topo .kc.cv{--kc:var(--violet)}body.gx-barra-topo .kc.ct{--kc:var(--teal)}
+body.gx-barra-topo .kc.cs{--kc:var(--blue)}body.gx-barra-topo .kc.cn{--kc:var(--ink)}
+body.gx-barra-topo .kl{display:flex;align-items:center;gap:7px;font-size:11px!important;font-weight:600!important;letter-spacing:.06em!important;color:var(--text3)!important;margin-bottom:8px}
+body.gx-barra-topo .kl::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--kc);flex-shrink:0}
+body.gx-barra-topo .kv{font-family:var(--font-ui)!important;font-weight:700!important;letter-spacing:-.02em!important;color:var(--ink)!important}
+body.gx-barra-topo .ks{color:var(--text3)!important;font-size:var(--fs-xs)!important}
+body.gx-barra-topo .gs .kpi{--kc:var(--text3);padding:16px 18px!important}
+body.gx-barra-topo .gs .kpi.verde{--kc:var(--green)}body.gx-barra-topo .gs .kpi.vermelho{--kc:var(--red)}body.gx-barra-topo .gs .kpi.ambar{--kc:var(--amber)}
+body.gx-barra-topo .gs .kpi::before{content:none!important}
+body.gx-barra-topo .gs .kpi-l{font-size:11px!important;font-weight:600!important;letter-spacing:.06em!important;color:var(--text3)!important}
+body.gx-barra-topo .gs .kpi-l::before{width:6px!important;height:6px!important;box-shadow:none!important}
+body.gx-barra-topo .gs .kpi-v{font-weight:700!important;color:var(--ink)!important}
+body.gx-barra-topo .gs .kpi-s{color:var(--text3)!important}
+body.gx-barra-topo .gs .kpi.kpi-clica:hover,body.gx-barra-topo .gs .ini-res:hover{box-shadow:var(--shadow-hover)!important;transform:none}
+
+/* Início: resumo do escritório no mesmo desenho (sem a faixa grossa à esquerda) */
+body.gx-barra-topo .gs .ini-res{padding:16px 18px!important;gap:4px;--kc:var(--text3)}
+body.gx-barra-topo .gs .ini-res.vermelho{--kc:var(--red)}body.gx-barra-topo .gs .ini-res.ambar{--kc:var(--amber)}
+body.gx-barra-topo .gs .ini-res-ic{font-size:15px;opacity:.85}
+body.gx-barra-topo .gs .ini-res-tit{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:600;letter-spacing:.06em;color:var(--text3)}
+body.gx-barra-topo .gs .ini-res-tit::after{content:'';width:6px;height:6px;border-radius:50%;background:var(--kc)}
+body.gx-barra-topo .gs .ini-res-num{font-size:26px;font-weight:700;letter-spacing:-.02em;color:var(--ink)}
+body.gx-barra-topo .gs .ini-res-rot,body.gx-barra-topo .gs .ini-res-sub{color:var(--text3)}
+body.gx-barra-topo .gs .ini-res-sub b{color:var(--text)}
+body.gx-barra-topo .gs .ini-res.vermelho .ini-res-sub{color:var(--red-d);font-weight:500}
+
+/* faixas coloridas à esquerda: ficam só onde dizem algo (atraso, crítico), e mais finas */
+body.gx-barra-topo .gs :is(.item-ficha.alerta-alto,.cx-item.nivel-alto){border-left:3px solid var(--red)!important}
+body.gx-barra-topo .gs :is(.item-ficha.alerta-medio,.cx-item.nivel-medio){border-left:3px solid var(--amber)!important}
+body.gx-barra-topo .gs :is(.item-ficha.alerta-info,.cx-item){border-left-width:1px}
+body.gx-barra-topo .gs .mural-it{border-left:1px solid var(--border)!important}
+body.gx-barra-topo .gs .mural-it.fixo{border-left:3px solid var(--ac-gold)!important}
+body.gx-barra-topo .gs .pub-card.pub-nova{border-left:3px solid var(--amber)!important}
+body.gx-barra-topo .gs .al-card{border-left-width:1px!important}
+body.gx-barra-topo .gs .al-card.al-critico{background:var(--surface)!important}
+body.gx-barra-topo .gs .al-card.al-critico:not(.al-chip):not(.al-rotina){border-left:3px solid var(--red)!important}
+body.gx-barra-topo .gs .al-card.al-atencao:not(.al-chip):not(.al-rotina){border-left:3px solid var(--amber)!important}
+body.gx-barra-topo .gs .al-card:hover{transform:none;box-shadow:var(--shadow-hover)!important}
+body.gx-barra-topo .gs .al-radar{background:var(--surface)!important}
+body.gx-barra-topo .gs .ev-frase{background:var(--surface2);border-left:3px solid var(--navy3)}
+body.gx-barra-topo .gs .dica{background:var(--surface2);border-left:2px solid var(--navy3)}
+
+/* CRM: quadros e cartões leves */
+body.gx-barra-topo .gs .cr-card,body.gx-barra-topo .cr-linha .cr-card{background:var(--surface)!important;border:1px solid var(--border)!important;border-radius:var(--r-ctl)!important;box-shadow:none!important}
+body.gx-barra-topo .cr-linha .cr-card.cr-atrasada{border-left:3px solid var(--red)!important}
+body.gx-barra-topo .cr-linha .cr-card:hover{border-color:var(--border-strong)!important;box-shadow:var(--shadow-hover)!important}
+body.gx-barra-topo .gs .cr-col-tit{font-family:var(--font-ui);font-weight:650;font-size:var(--fs-sm);border-bottom:0!important}
+body.gx-barra-topo .gs .cr-vazia{border:1px dashed var(--border-strong)!important;background:transparent!important;font-weight:500}
+body.gx-barra-topo .gs .cr-solte{border-width:1px!important;border-radius:var(--card-r)!important}
+body.gx-barra-topo .gs .cr-at{border-radius:var(--radius-xs);background:transparent}
+body.gx-barra-topo .gs .cr-at:hover{background:var(--surface3)}
+body.gx-barra-topo .gs :is(.kanban .kb-col,.sm-col){background:var(--surface2)!important;border:1px solid var(--border)}
+body.gx-barra-topo .gs :is(.kb-card,.sm-card){border:1px solid var(--border);box-shadow:none}
+
+/* Acordos e parcelas: sem faixa grossa em cima; situação no selo */
+body.gx-barra-topo .acx-hd{background:var(--surface2)!important;border-bottom:1px solid var(--line)!important}
+body.gx-barra-topo .acx-item{border-bottom-color:var(--line)!important}
+body.gx-barra-topo .acx-row:hover{background:var(--hover)!important}
+body.gx-barra-topo .acx-atr .acx-row{box-shadow:inset 2px 0 0 var(--red)}
+body.gx-barra-topo .acx-bar{background:var(--surface3)}
+body.gx-barra-topo .acx-det{background:var(--surface2)!important;border-top:1px solid var(--line)!important}
+body.gx-barra-topo .acx-parc{border:1px solid var(--border)!important;border-top:1px solid var(--border)!important;border-radius:var(--r-ctl)!important;position:relative;padding-left:22px}
+body.gx-barra-topo .acx-parc::before{content:'';position:absolute;left:10px;top:14px;width:6px;height:6px;border-radius:50%;background:var(--border-strong)}
+body.gx-barra-topo .acx-parc-p::before{background:var(--green)}
+body.gx-barra-topo .acx-parc-r::before{background:var(--red)}
+body.gx-barra-topo .acx-parc-a::before{background:var(--blue)}
+body.gx-barra-topo .acx .ac-bt-pagar{background:var(--primario)!important;border-color:var(--primario)!important;color:var(--on-primario)!important}
+body.gx-barra-topo .pc-item{border-radius:var(--r-ctl)}
+
+/* ═══ tabelas: cabeçalho claro, separador sutil, hover leve, números à direita ═══ */
+body.gx-barra-topo :is(thead,thead tr){background:transparent!important;box-shadow:none!important}
+body.gx-barra-topo th,body.gx-barra-topo .gs th,body.gx-barra-topo #execRankWrap th,body.gx-barra-topo .gx-tab-gs.gs table thead th{
+  background:var(--surface2)!important;color:var(--text3)!important;font-family:var(--font-ui)!important;font-size:11px!important;font-weight:600!important;
+  letter-spacing:.06em!important;text-transform:uppercase;border-bottom:1px solid var(--line)!important;border-top:0!important}
+body.gx-barra-topo td{border-bottom:1px solid var(--line)!important;color:var(--text)}
+body.gx-barra-topo tbody tr:last-child td{border-bottom:0!important}
+body.gx-barra-topo tbody tr:nth-child(even) td{background:transparent}
+body.gx-barra-topo tbody tr:not([style*="border-left"]):hover{background:transparent!important;border-left:0!important}
+body.gx-barra-topo tbody tr:hover td,body.gx-barra-topo .gs tbody tr:hover>td{background:var(--hover)!important}
+body.gx-barra-topo tfoot td{background:var(--surface2)!important;border-top:1px solid var(--line)!important;color:var(--ink)}
+body.gx-barra-topo :is(td.num,th.num,td.mono,.num){font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1}
+body.gx-barra-topo .tw{overflow:auto}
+body.gx-barra-topo .gs .tabela-wrap.tabela-longa thead th{box-shadow:0 1px 0 var(--line)}
+body.gx-barra-topo .gs .cli-tabela tr.cli-grp td{background:var(--surface2)!important;color:var(--ink)}
+body.gx-barra-topo .gs tr.cli-aberta td,body.gx-barra-topo .gs tr.cli-det>td{background:var(--surface2)!important}
+body.gx-barra-topo .gs tr.cli-det>td{border-bottom:1px solid var(--line)!important}
+.gx-leg td{border-bottom-color:var(--line)!important}
+
+/* ═══ botões: primário (navy), secundário (contorno leve), terciário (texto) ═══ */
+body.gx-barra-topo .gs .btn{border-radius:var(--r-ctl);font-weight:600;box-shadow:none;transform:none!important}
+body.gx-barra-topo .gs .btn-p,body.gx-barra-topo .gx-prim,body.gx-barra-topo .btn-prim{background:var(--primario)!important;background-image:none!important;color:var(--on-primario)!important;border:1px solid var(--primario)!important;box-shadow:none!important;filter:none}
+body.gx-barra-topo .gs .btn-p:hover,body.gx-barra-topo .gx-prim:hover,body.gx-barra-topo .btn-prim:hover{background:var(--primario-hover)!important}
+body.gx-barra-topo .gs .btn-o,body.gx-barra-topo .gx-bt:not(.gx-prim):not(.gx-ok),body.gx-barra-topo .mod-banner .gx-cobrar button,body.gx-barra-topo .gx-la-ed{
+  background:var(--surface);color:var(--text);border:1px solid var(--border-strong)!important;box-shadow:none}
+body.gx-barra-topo .gs .btn-o:hover,body.gx-barra-topo .gx-bt:not(.gx-prim):not(.gx-ok):hover,body.gx-barra-topo .mod-banner .gx-cobrar button:hover,body.gx-barra-topo .gx-la-ed:hover{background:var(--surface3);border-color:var(--border-strong)!important;box-shadow:none}
+body.gx-barra-topo .gs .btn-x{border-width:1px;background:var(--surface)}
+body.gx-barra-topo .gs .btn-link{font-weight:500}
+body.gx-barra-topo .mod-banner .gx-cobrar button,body.gx-barra-topo .gx-bt,body.gx-barra-topo .gx-la button{border-radius:var(--r-ctl)}
+
+/* abas: sublinhado fino, sem caixa colorida */
+body.gx-barra-topo .gs .abas{border-bottom:1px solid var(--line)}
+body.gx-barra-topo .gs .abas button{font-weight:500;border-bottom-width:2px;color:var(--text3)}
+body.gx-barra-topo .gs .abas button.ativo{color:var(--ink);font-weight:600}
+body.gx-barra-topo .tb{border-bottom-color:var(--line)}
+body.gx-barra-topo .tb-btn.active{background:transparent!important}
+body.gx-barra-topo .fin-tab{border:1px solid var(--border)!important;background:var(--surface)!important;color:var(--text2)!important;border-radius:var(--r-pill)!important;padding:6px 14px!important;font-weight:500!important;box-shadow:none!important}
+body.gx-barra-topo .fin-tab:hover{background:var(--surface3)!important;color:var(--ink)!important}
+body.gx-barra-topo .fin-tab.active{box-shadow:none!important;font-weight:600!important}
+/* segmentos e chips: seleção em navy liso */
+body.gx-barra-topo .gs :is(.segmento,.mes-sel){border:1px solid var(--border-strong);border-radius:var(--r-ctl)}
+body.gx-barra-topo .gs .segmento button{border-radius:var(--radius-xs);font-weight:500}
+body.gx-barra-topo .gs :is(.segmento button.ativo,.chip.ativo,.tf-part-it input:checked+span),body.gx-barra-topo :is(.gx-ord button.ativo,.al-filtros button.ativo,.gx-seg button.on){background:var(--selecao)!important;border-color:var(--selecao)!important;color:var(--on-selecao)!important}
+body.gx-barra-topo .gs .chip,body.gx-barra-topo .gs .tf-part-it span{border-width:1px;font-weight:500}
+body.gx-barra-topo .fa-chip.on{background:var(--selecao)!important;border-color:var(--selecao)!important}
+
+/* ═══ pílulas e selos: menores, cor suave, mesmo desenho (inclusive CAPAG e Situação) ═══ */
+body.gx-barra-topo .gs .pill,body.gx-barra-topo .tag,body.gx-barra-topo .capag,body.gx-barra-topo .acx-st,body.gx-barra-topo .al-conta,body.gx-barra-topo .ini-atraso-area{
+  font-family:var(--font-ui)!important;font-size:11px!important;font-weight:600!important;letter-spacing:.01em!important;padding:2px 8px!important;border-radius:var(--r-pill)!important;box-shadow:none!important;line-height:1.5}
+body.gx-barra-topo .tag.tr,body.gx-barra-topo .capag.capag-D,body.gx-barra-topo .capag.capag-O,body.gx-barra-topo #tblExecRanking .capag.capag-O{background:var(--red-lt)!important;color:var(--red-d)!important;border:1px solid var(--red-bd)!important}
+body.gx-barra-topo .tag.ta,body.gx-barra-topo .capag.capag-C{background:var(--amber-lt)!important;color:var(--amber-d)!important;border:1px solid var(--amber-border)!important}
+body.gx-barra-topo .tag.tg,body.gx-barra-topo .capag.capag-A,body.gx-barra-topo .capag.capag-B{background:var(--green-lt)!important;color:var(--green-d)!important;border:1px solid var(--green-bd)!important}
+body.gx-barra-topo .tag.tb2{background:var(--blue-lt)!important;color:var(--blue-d)!important;border:1px solid var(--blue-bd)!important}
+body.gx-barra-topo .tag.tv{background:var(--violet-lt)!important;color:var(--violet-d)!important;border:1px solid var(--violet-bd)!important}
+body.gx-barra-topo .tag.tt{background:var(--teal-lt)!important;color:var(--teal)!important;border:1px solid var(--teal-bd)!important}
+body.gx-barra-topo .tag.tx,body.gx-barra-topo .capag.capag-x{background:var(--surface3)!important;color:var(--text3)!important;border:1px solid var(--border)!important}
+body.gx-barra-topo .tag.tn,body.gx-barra-topo .er-grupo,body.gx-barra-topo #tblExecRanking .er-grupo{background:var(--surface3)!important;color:var(--text2)!important;border:1px solid var(--border)!important;font-weight:600!important;border-radius:var(--r-ctl)!important}
+body.gx-barra-topo .tag::before{content:none!important}
+body.gx-barra-topo #tblExecRanking .capag{width:auto!important;min-width:26px;height:auto!important;padding:2px 8px!important;border-radius:var(--r-pill)!important;font-size:11px!important}
+body.gx-barra-topo #execKpis .kv,body.gx-barra-topo #execKpis .kv *{color:var(--ink)!important}
+body.gx-barra-topo .gs .pill.neutro,body.gx-barra-topo .gs .pill.cobranca{background:var(--surface3);color:var(--text2)}
+body.gx-barra-topo .gs .pill.omisso{background:var(--red-lt);color:var(--red-d);border:1px solid var(--red-bd)}
+body.gx-barra-topo .gs .ini-atraso-area.area-cont{background:var(--violet-lt);color:var(--violet-d)}
+body.gx-barra-topo .gs .mural-dest{background:var(--surface);border-color:var(--border);font-weight:500}
+body.gx-barra-topo .gs .mural-dest.ambar{background:var(--amber-lt);color:var(--amber-d);border-color:var(--amber-border)}
+body.gx-barra-topo .gs .al-chip{background:var(--green-lt)!important;border:1px solid var(--green-bd)!important}
+body.gx-barra-topo .gs .al-chip.al-info{background:var(--surface2)!important;border-color:var(--border)!important}
+body.gx-barra-topo .gs .cr-col-n{background:var(--surface3);font-weight:600}
+body.gx-barra-topo #gx-linha-painel .gs-cont{font-size:12px;font-weight:600;padding:3px 10px;border-radius:var(--r-pill)}
+body.gx-barra-topo #gx-linha-painel .gs-cont-ent{background:var(--ac-gold-lt)!important;border-color:var(--gold-bd)!important;color:var(--gold-d)!important}
+body.gx-barra-topo #gx-linha-painel .gs-cont-grp{background:var(--blue-lt)!important;border-color:var(--blue-bd)!important;color:var(--blue-d)!important}
+body.gx-barra-topo #panel-resumo .gs-cont-ent{color:var(--gold-d)!important;background:var(--ac-gold-lt)!important}
+
+/* ═══ campos ═══ */
+body.gx-barra-topo .gs :is(label.campo input,label.campo select,label.campo textarea,.busca,.tf-rapida input,.mural-novo textarea,.pr-texto),
+body.gx-barra-topo :is(.gx-campo input,.gx-campo select,.gx-campo textarea){border:1px solid var(--border-strong)!important;border-radius:var(--r-ctl)!important;background-color:var(--surface)}
+body.gx-barra-topo .gs :is(label.campo input,label.campo select,label.campo textarea,.busca):focus,body.gx-barra-topo :is(.gx-campo input,.gx-campo select,.gx-campo textarea):focus{border-color:var(--navy3)!important;box-shadow:var(--anel)!important}
+body.gx-barra-topo .gs label.campo,body.gx-barra-topo .gx-campo label{font-weight:600}
+
+/* ═══ janelas: cabeçalho limpo, rodapé fixo com ações à direita ═══ */
+body.gx-barra-topo .gs .fundo,body.gx-barra-topo .gx-fundo{background:var(--overlay)!important;backdrop-filter:blur(2px)}
+body.gx-barra-topo .gs .janela,body.gx-barra-topo .gx-janela{background:var(--surface)!important;border:1px solid var(--border);border-radius:var(--card-r)!important;box-shadow:var(--shadow-lg)!important;color:var(--text)}
+body.gx-barra-topo .gs .janela-hd,body.gx-barra-topo .gx-topo{background:var(--surface)!important;border-bottom:1px solid var(--line)!important;border-radius:var(--card-r) var(--card-r) 0 0!important;padding:14px 20px!important}
+body.gx-barra-topo .gs .janela-hd h2,body.gx-barra-topo .gx-topo h3{font-family:var(--font-ui)!important;font-size:var(--fs-lg)!important;font-weight:650!important;color:var(--ink)!important}
+body.gx-barra-topo .gs .janela-hd button,body.gx-barra-topo .gx-x{color:var(--text3)!important;border-radius:var(--radius-xs)}
+body.gx-barra-topo .gs .janela-hd button:hover,body.gx-barra-topo .gx-x:hover{background:var(--surface3)!important}
+body.gx-barra-topo .gs .janela-rp,body.gx-barra-topo .gx-acoes{position:sticky;bottom:0;z-index:3;background:var(--surface)!important;border-top:1px solid var(--line)!important;border-radius:0 0 var(--card-r) var(--card-r)!important;justify-content:flex-end}
+body.gx-barra-topo .gs .janela-rp>:first-child:not(:only-child){margin-right:auto}
+body.gx-barra-topo .gs .janela.janela-massa{max-width:calc(100vw - 32px)}
+@media (max-width:600px){body.gx-barra-topo .gx-janela,body.gx-barra-topo .gs .janela{border-radius:0!important}}
+body.gx-barra-topo .gs #aviso,body.gx-barra-topo #gx-rodape{background:var(--bar-bg);border:1px solid var(--bar-borda);box-shadow:var(--shadow-md);border-radius:var(--card-r)}
+body.gx-barra-topo #gx-pop-avisos{border-radius:var(--card-r);box-shadow:var(--shadow-lg);border-color:var(--border)}
+body.gx-barra-topo #gx-pop-avisos .gx-pop-it{border-left-width:2px;background:var(--surface2)}
+body.gx-barra-topo #gx-pop-avisos .gx-pop-abrir{background:var(--primario);background-image:none;color:var(--on-primario);border-radius:var(--r-ctl)}
+
+/* ═══ gráficos SVG do Gestão ═══ */
+body.gx-barra-topo .gs .grafico .g-grade{stroke:var(--chart-grade)}
+body.gx-barra-topo .gs .grafico .g-base{stroke:var(--border-strong)}
+body.gx-barra-topo .gs .grafico .g-forte{fill:var(--ink)}
+body.gx-barra-topo .gs :is(.bp-trilho,.gantt-trilho,.carga-bar,.tf-prog){background:var(--surface3)}
+
+/* ═══ celular: cartões empilhados com respiro ═══ */
+@media (max-width:600px){
+  body.gx-barra-topo table.gx-cartoes tr{border:1px solid var(--border)!important;border-radius:var(--card-r)!important;box-shadow:var(--shadow-card);padding:8px 14px!important;margin-bottom:var(--sp-3)!important;background:var(--surface)!important}
+  body.gx-barra-topo table.gx-cartoes td{border:0!important}
+  body.gx-barra-topo table.gx-cartoes td::before{font-size:10.5px;font-weight:600;color:var(--text3)}
+  body.gx-barra-topo .panel{gap:var(--sp-4)}
+  body.gx-barra-topo .cc{padding:var(--sp-4)!important}
+}

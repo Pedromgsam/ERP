@@ -3,23 +3,23 @@
 // Gráficos em SVG escrito à mão (sem biblioteca externa), no padrão
 // "telas com dados" do escritório:
 //  · barra de ranking  → rampa azul pelo posto (maior = mais escuro)
-//  · série mensal      → passado #8CAADE, mês atual #16294B, futuro #C6D1EF
+//  · série mensal      → passado, mês atual (mais escuro) e futuro na rampa azul dos tokens (--chart-rampa-*)
 //  · rosca por órgão   → cor fixa por categoria, saturação contida
 // Todo gráfico tem dica ao passar o mouse (valor exato) e legenda/rótulo,
 // para a cor nunca ser a única forma de identificar.
 // ═══════════════════════════════════════════════════════════════════
 
-const RAMPA_AZUL = ['#16294B', '#223A66', '#2E4C81', '#3B5E9C', '#4A71B5',
-                    '#5D84C5', '#7397D3', '#8CAADE', '#A8BDE7', '#C6D1EF'];
+// Backup 18: cores vêm dos tokens (tokens.css) — style="fill:var(--...)" troca sozinho no modo escuro
+const RAMPA_AZUL = ['var(--chart-rampa-1)', 'var(--chart-rampa-2)', 'var(--chart-rampa-3)', 'var(--chart-rampa-4)', 'var(--chart-rampa-5)'];
 function tomAzul(i, n) {
   if (!n || n <= 1) return RAMPA_AZUL[0];
   const passos = Math.min(n, RAMPA_AZUL.length);
   const k = Math.round(i * (RAMPA_AZUL.length - 1) / (passos - 1));
   return RAMPA_AZUL[Math.min(k, RAMPA_AZUL.length - 1)];
 }
-// Ordem e tons validados (daltonismo e visão normal) — ver sistema/README.md.
-const CORES_ORGAO = { 'PGFN': '#5873C1', 'AGE/MG': '#AD6833', 'RFB': '#23906F', 'SEFAZ/MG': '#9A79D2' };
-const COR_MES = { passado: '#8CAADE', atual: '#16294B', futuro: '#C6D1EF' };
+// Ordem validada (daltonismo e visão normal) — ver sistema/README.md.
+const CORES_ORGAO = { 'PGFN': 'var(--chart-1)', 'AGE/MG': 'var(--chart-3)', 'RFB': 'var(--chart-2)', 'SEFAZ/MG': 'var(--chart-4)' };
+const COR_MES = { passado: 'var(--chart-rampa-4)', atual: 'var(--chart-rampa-1)', futuro: 'var(--chart-rampa-5)' };
 
 // Dica flutuante única, alimentada por data-dica.
 (function () {
@@ -52,7 +52,7 @@ function graficoRanking(itens, opc) {
     s += '<g data-dica="' + esc(dica) + '"' + (it.acao ? ' class="clicavel" data-acao="' + esc(it.acao) + '"' : '') + '>' +
       '<rect x="0" y="' + (y - 2) + '" width="' + larg + '" height="' + alt + '" fill="transparent"/>' +
       '<text x="' + (esq - 10) + '" y="' + (y + 16) + '" text-anchor="end" class="g-rot">' + esc(nome) + '</text>' +
-      '<path d="M' + esq + ',' + (y + 4) + ' h' + (w - 4) + ' a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-' + (w - 4) + ' z" fill="' + cor[i] + '"/>' +
+      '<path d="M' + esq + ',' + (y + 4) + ' h' + (w - 4) + ' a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-' + (w - 4) + ' z" style="fill:' + cor[i] + '"/>' +
       '<text x="' + (esq + w + 8) + '" y="' + (y + 16) + '" class="g-val">' + esc((opc.fmt || brlCurto)(it.valor)) + '</text></g>';
   });
   return s + '</svg>';
@@ -77,7 +77,7 @@ function graficoMensal(itens, opc) {
     const cor = COR_MES[it.estado] || COR_MES.passado;
     s += '<g data-dica="' + esc(it.dica || (it.rotulo + ': ' + brl(it.valor))) + '">' +
       '<rect x="' + (i * col) + '" y="' + topo + '" width="' + col + '" height="' + (base - topo + 30) + '" fill="transparent"/>' +
-      (hh ? '<path d="M' + x + ',' + base + ' v-' + (hh - 4) + ' a4,4 0 0 1 4,-4 h' + (bw - 8) + ' a4,4 0 0 1 4,4 v' + (hh - 4) + ' z" fill="' + cor + '"/>' : '') +
+      (hh ? '<path d="M' + x + ',' + base + ' v-' + (hh - 4) + ' a4,4 0 0 1 4,-4 h' + (bw - 8) + ' a4,4 0 0 1 4,4 v' + (hh - 4) + ' z" style="fill:' + cor + '"/>' : '') +
       '<text x="' + (x + bw / 2) + '" y="' + (base + 16) + '" text-anchor="middle" class="g-eixo' + (it.estado === 'atual' ? ' g-forte' : '') + '">' + esc(it.rotulo) + '</text>' +
       (it.estado === 'atual' && hh ? '<text x="' + (x + bw / 2) + '" y="' + (base - hh - 6) + '" text-anchor="middle" class="g-val">' + esc(brlCurto(it.valor)) + '</text>' : '') +
       '</g>';
@@ -106,14 +106,14 @@ function graficoRosca(itens, opc) {
     const d = frac >= 0.999
       ? 'M' + (cx - R) + ',' + cy + ' a' + R + ',' + R + ' 0 1 0 ' + (2 * R) + ',0 a' + R + ',' + R + ' 0 1 0 -' + (2 * R) + ',0 M' + (cx - r) + ',' + cy + ' a' + r + ',' + r + ' 0 1 1 ' + (2 * r) + ',0 a' + r + ',' + r + ' 0 1 1 -' + (2 * r) + ',0'
       : 'M' + x1 + ',' + y1 + ' A' + R + ',' + R + ' 0 ' + grande + ' 1 ' + x2 + ',' + y2 + ' L' + x3 + ',' + y3 + ' A' + r + ',' + r + ' 0 ' + grande + ' 0 ' + x4 + ',' + y4 + ' Z';
-    s += '<path d="' + d + '" fill="' + (CORES_ORGAO[it.nome] || '#8B93A3') + '" fill-rule="evenodd" data-dica="' +
+    s += '<path d="' + d + '" style="fill:' + (CORES_ORGAO[it.nome] || 'var(--chart-7)') + '" fill-rule="evenodd" data-dica="' +
       esc(it.nome + ': ' + brl(it.valor) + ' (' + (frac * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + '%)') + '"/>';
     ang += frac * Math.PI * 2;
   });
   s += '<text x="80" y="76" text-anchor="middle" class="g-eixo">Total</text><text x="80" y="94" text-anchor="middle" class="g-val g-forte">' +
     esc(brlCurto(total)) + '</text></svg><div class="rosca-leg">';
   itens.forEach((it) => {
-    s += '<div data-dica="' + esc(it.nome + ': ' + brl(it.valor)) + '"><i style="background:' + (CORES_ORGAO[it.nome] || '#8B93A3') + '"></i>' +
+    s += '<div data-dica="' + esc(it.nome + ': ' + brl(it.valor)) + '"><i style="background:' + (CORES_ORGAO[it.nome] || 'var(--chart-7)') + '"></i>' +
       '<span class="nome">' + esc(it.nome) + '</span><span class="mono">' +
       (it.valor / total * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + '%</span><span class="mono sub">' + esc(brlCurto(it.valor)) + '</span></div>';
   });
