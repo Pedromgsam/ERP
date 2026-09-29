@@ -1229,6 +1229,8 @@ begin
   end if;
   -- e-mails automáticos ao cliente (v17; cada tipo começa desligado)
   begin n := n + public.rodar_emails_cliente(); exception when undefined_function then null; end;
+  -- regras novas (v22+: CRM parado, follow-up de proposta, tarefas…) ficam em rodar_regras_extras
+  begin n := n + public.rodar_regras_extras(); exception when undefined_function then null; end;
   insert into public.configuracoes (chave, valor) values ('regras_tarefas_ultima', jsonb_build_object('quando', now(), 'criadas', n))
   on conflict (chave) do update set valor = excluded.valor, atualizado_em = now();
   return n;
@@ -3714,3 +3716,168 @@ begin
     grant select on public.partes_monitoradas to service_role;
   end if;
 end $$;
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- v22 (Backup 16) — CRM: etapas novas, contrato fechado × assinado, área do serviço,
+-- alerta de oportunidade parada, follow-up de proposta, motivo de perda em lista fixa
+-- ═══════════════════════════════════════════════════════════════════════
+update public.crm_etapas set nome = 'Contrato assinado', ordem = 9 where final = 'ganho' and nome in ('Ganhou', 'Contrato assinado');
+update public.crm_etapas set nome = 'Lead perdido', ordem = 10 where final = 'perdido' and nome in ('Perdeu', 'Lead perdido');
+insert into public.crm_etapas (nome, ordem, probabilidade, final)
+select 'Contrato fechado', 6, 90, '' where not exists (select 1 from public.crm_etapas where nome = 'Contrato fechado');
+insert into public.crm_etapas (nome, ordem, probabilidade, final)
+select 'Aguardando assinatura', 7, 95, '' where not exists (select 1 from public.crm_etapas where nome = 'Aguardando assinatura');
+alter table public.crm_etapas add column if not exists dias_alerta int;
+alter table public.crm_etapas add column if not exists descricao text not null default '';
+update public.crm_etapas e set dias_alerta = v.d, descricao = v.t from (values
+  ('Novo contato', 3, 'Primeiro contato registrado; falta qualificar e marcar o diagnóstico.'),
+  ('Diagnóstico agendado', 7, 'Reunião de diagnóstico marcada com o cliente.'),
+  ('Diagnóstico feito', 5, 'Diagnóstico realizado; falta montar e enviar a proposta.'),
+  ('Proposta enviada', 5, 'Proposta com o cliente, aguardando resposta.'),
+  ('Negociação', 7, 'Cliente negociando valor, forma de pagamento ou escopo.'),
+  ('Contrato fechado', 3, 'Cliente disse SIM: cadastro, contrato e onboarding criados; falta enviar o contrato.'),
+  ('Aguardando assinatura', 5, 'Contrato enviado; aguardando a assinatura do cliente.'),
+  ('Contrato assinado', null, 'Contrato assinado: sai do painel e vai para a aba "Contratos assinados".'),
+  ('Lead perdido', null, 'Não fechou: sai do painel e vai para a aba "Leads perdidos".')) v(n, d, t)
+where e.nome = v.n and e.descricao = '';
+alter table public.crm_oportunidades add column if not exists servico text not null default '';
+alter table public.crm_oportunidades add column if not exists assinado_em timestamptz;
+
+-- "Contrato fechado" (cliente aceitou): cria cliente (herda os dados do prospecto), contrato com a área do serviço
+-- e a forma da proposta (parcelas ou mensalidade), onboarding e a tarefa "Enviar contrato para assinatura".
+create or replace function public.crm_ganhar(p_op uuid, p jsonb) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare o record; cli uuid; grp uuid; ctr uuid; flx uuid; resp text; etp uuid; consult boolean;
+begin
+  if not public.pode('crm', 'editar') then raise exception 'Sem a função CRM (editar).'; end if;
+  select * into o from public.crm_oportunidades where id = p_op;
+  if not found then raise exception 'Oportunidade não encontrada.'; end if;
+  resp := coalesce(nullif(p->>'responsavel', ''), o.responsavel);
+  cli := coalesce(nullif(p->>'cliente_id', '')::uuid, o.cliente_id);
+  consult := coalesce(p->>'modalidade', '') = 'consultoria';
+  if cli is null then
+    if coalesce(p->>'cliente_nome', '') = '' then raise exception 'Informe o nome do cliente.'; end if;
+    if coalesce(p->>'grupo', '') <> '' then
+      select id into grp from public.grupos where lower(nome) = lower(p->>'grupo') limit 1;
+      if grp is null then insert into public.grupos (nome) values (p->>'grupo') returning id into grp; end if;
+    end if;
+    insert into public.clientes (nome, cpf_cnpj, email, telefone, grupo_id, responsavel, tipo, origem)
+    values (p->>'cliente_nome', coalesce(nullif(p->>'cpf_cnpj', ''), o.prospecto_doc, ''), coalesce(nullif(p->>'email', ''), o.prospecto_email, ''),
+            coalesce(nullif(p->>'telefone', ''), o.prospecto_telefone, ''), grp, coalesce(resp, ''), case when consult then 'Consultoria' else 'Pontual' end, 'CRM')
+    returning id into cli;
+  else
+    select grupo_id into grp from public.clientes where id = cli;
+  end if;
+  if consult or coalesce((p->>'valor_total')::numeric, 0) > 0 or coalesce(p->>'descricao', '') <> '' then
+    perform set_config('erp.sem_regra_onboarding', case when coalesce((p->>'criar_fluxo')::boolean, true) then '1' else '' end, true);
+    insert into public.contratos (cliente_id, descricao, valor_total, num_parcelas, primeiro_vencimento, percentual_exito, responsavel, servico,
+                                  modalidade, valor_mensal, dia_vencimento, inicio_competencia)
+    values (cli, coalesce(nullif(p->>'descricao', ''), o.titulo), case when consult then 0 else coalesce((p->>'valor_total')::numeric, 0) end,
+            case when consult then 1 else greatest(1, coalesce((p->>'num_parcelas')::int, 1)) end,
+            case when consult then null else nullif(p->>'primeiro_vencimento', '')::date end, nullif(p->>'percentual_exito', '')::numeric, coalesce(resp, ''),
+            coalesce(nullif(p->>'servico', ''), o.servico, ''), case when consult then 'consultoria' else 'pontual' end,
+            case when consult then nullif(p->>'valor_mensal', '')::numeric end, coalesce(nullif(p->>'dia_vencimento', '')::int, 10),
+            case when consult then date_trunc('month', coalesce(nullif(p->>'inicio_competencia', '')::date, current_date))::date end)
+    returning id into ctr;
+    perform set_config('erp.sem_regra_onboarding', '', true);
+    if consult then begin perform public.gerar_mensalidades(); exception when undefined_function then null; end; end if;
+  end if;
+  if coalesce((p->>'criar_fluxo')::boolean, true) then
+    flx := public.criar_fluxo_modelo('Onboarding de cliente', public.somar_uteis(current_date, 15), cli, grp, resp,
+                                     'Onboarding — ' || coalesce(p->>'cliente_nome', (select nome from public.clientes where id = cli)));
+  end if;
+  perform public.tarefa_da_regra('crm-contrato:' || p_op, 'Enviar contrato para assinatura — ' || coalesce(nullif(p->>'cliente_nome', ''), (select nome from public.clientes where id = cli)),
+    resp, public.somar_uteis(current_date, 2), cli, grp, ctr, '[]'::jsonb, 'Oportunidade do CRM: ' || o.titulo, '', 'alta');
+  insert into public.interacoes (cliente_id, tipo, resumo) values (cli, 'anotacao', 'Contrato fechado pelo CRM: ' || o.titulo);
+  update public.crm_propostas set status = 'aceita' where id = (select id from public.crm_propostas where oportunidade_id = p_op order by versao desc limit 1);
+  update public.documentos set cliente_id = cli, grupo_id = grp, contrato_id = coalesce(ctr, contrato_id) where oportunidade_id = p_op;
+  select id into etp from public.crm_etapas where nome = 'Contrato fechado' limit 1;
+  if etp is null then select id into etp from public.crm_etapas where final = 'ganho' order by ordem limit 1; end if;
+  update public.crm_oportunidades set etapa_id = etp, probabilidade = 90, ganho_em = now(), perdido_em = null, cliente_id = cli, contrato_id = ctr,
+         servico = coalesce(nullif(p->>'servico', ''), servico) where id = p_op;
+  return jsonb_build_object('cliente_id', cli, 'contrato_id', ctr, 'fluxo_id', flx);
+end $$;
+revoke all on function public.crm_ganhar(uuid, jsonb) from anon;
+grant execute on function public.crm_ganhar(uuid, jsonb) to authenticated;
+
+-- entrar em "Contrato assinado" marca a data (e o contrato); sair limpa
+create or replace function public.crm_ao_mudar_etapa() returns trigger
+language plpgsql as $$
+declare fim text;
+begin
+  if tg_op = 'UPDATE' and new.etapa_id is distinct from old.etapa_id then
+    new.etapa_desde := now();
+    select final into fim from public.crm_etapas where id = new.etapa_id;
+    if fim = 'ganho' then new.assinado_em := coalesce(new.assinado_em, now()); new.probabilidade := 100; new.ganho_em := coalesce(new.ganho_em, now());
+    elsif fim is distinct from 'ganho' then new.assinado_em := null; end if;
+  end if;
+  return new;
+end $$;
+
+-- regras automáticas do CRM (rodam com as demais, todo dia útil)
+insert into public.regras_tarefas (chave, nome, descricao, ligada, dias, grupo) values
+  ('crm_parada', 'CRM: oportunidade parada na etapa → tarefa', 'Quando passa do prazo de cada etapa (CRM → ⚙ Etapas), cria tarefa para o responsável', true, 0, 'tarefas'),
+  ('crm_followup', 'CRM: proposta sem resposta → follow-up', 'N dias depois do envio da proposta sem resposta, cria tarefa de follow-up (com e-mail pronto na ficha)', true, 5, 'tarefas')
+on conflict (chave) do nothing;
+create or replace function public.rodar_regras_extras() returns int
+language plpgsql security definer set search_path = public as $$
+declare rg record; x record; n int := 0;
+begin
+  select * into rg from public.regras_tarefas where chave = 'crm_parada' and ligada;
+  if found then
+    for x in select o.id, o.titulo, o.responsavel, o.cliente_id, o.etapa_id, e.nome etapa, e.dias_alerta
+               from public.crm_oportunidades o join public.crm_etapas e on e.id = o.etapa_id
+              where e.final = '' and e.dias_alerta is not null and o.etapa_desde < now() - make_interval(days => e.dias_alerta) loop
+      if public.tarefa_da_regra('crm-parada:' || x.id || ':' || x.etapa_id, 'CRM parado há mais de ' || x.dias_alerta || ' dia(s) em "' || x.etapa || '" — ' || x.titulo,
+           x.responsavel, public.somar_uteis(current_date, 1), x.cliente_id, null, null, '[]'::jsonb, 'Avance a oportunidade no CRM ou registre o próximo passo.') then n := n + 1; end if;
+    end loop;
+  end if;
+  select * into rg from public.regras_tarefas where chave = 'crm_followup' and ligada;
+  if found then
+    for x in select pr.id, pr.titulo, pr.versao, o.titulo op, o.responsavel, o.cliente_id from public.crm_propostas pr join public.crm_oportunidades o on o.id = pr.oportunidade_id
+               join public.crm_etapas e on e.id = o.etapa_id
+              where pr.status = 'enviada' and pr.enviada_em < now() - make_interval(days => rg.dias) and e.final = '' loop
+      if public.tarefa_da_regra('crm-follow:' || x.id, 'Follow-up da proposta — ' || x.op, x.responsavel, current_date, x.cliente_id, null, null, '[]'::jsonb,
+           'Proposta v' || x.versao || ' enviada há mais de ' || rg.dias || ' dias sem resposta. Na ficha da oportunidade: "✉ Follow-up" envia o e-mail pronto.') then n := n + 1; end if;
+    end loop;
+  end if;
+  return n;
+end $$;
+revoke all on function public.rodar_regras_extras() from public, anon, authenticated;
+-- follow-up da proposta por e-mail (1 clique na ficha da oportunidade): modelo da marca + registro na linha do tempo
+create or replace function public.crm_followup_email(p_op uuid, p_para text, p_assunto text, p_texto text) returns void
+language plpgsql security definer set search_path = public as $$
+declare corpo text;
+begin
+  if not public.pode('crm', 'editar') then raise exception 'Sem a função CRM (editar).'; end if;
+  if coalesce(p_para, '') !~ '^[^@\s,;]+@[^@\s,;]+\.[^@\s,;]+$' then raise exception 'Informe um e-mail válido (um só).'; end if;
+  if p_para ilike '%@example.%' then raise exception 'E-mail de exemplo não recebe mensagens.'; end if;
+  if btrim(coalesce(p_texto, '')) = '' then raise exception 'A mensagem está vazia.'; end if;
+  corpo := '<p style="margin:0 0 10px">' || replace(replace(public.esc_html(btrim(p_texto)), E'\n\n', '</p><p style="margin:0 0 10px">'), E'\n', '<br>') || '</p>';
+  insert into public.email_fila (usuario_id, para, assunto, html, tipo, referencia)
+  values (null, p_para, left(coalesce(nullif(btrim(p_assunto), ''), 'Nossa proposta'), 200),
+          public.email_cliente_html(coalesce(nullif(btrim(p_assunto), ''), 'Nossa proposta'), '-', corpo, '[]', false, '-'), 'proposta', '');
+  insert into public.crm_atividades (oportunidade_id, tipo, resumo) values (p_op, 'email', 'Follow-up enviado para ' || p_para || ': ' || left(p_texto, 300));
+  update public.tarefas set status = 'concluida' where chave_regra like 'crm-follow:%' and status not in ('concluida', 'cancelada')
+     and chave_regra in (select 'crm-follow:' || id from public.crm_propostas where oportunidade_id = p_op);
+end $$;
+revoke all on function public.crm_followup_email(uuid, text, text, text) from public, anon;
+grant execute on function public.crm_followup_email(uuid, text, text, text) to authenticated;
+
+-- modelos de proposta novos (o visual da proposta é o mesmo para todos: capa, apresentação, escopo, valores, aceite)
+insert into public.crm_modelos_proposta (nome, texto, itens)
+select v.n, v.t, v.i::jsonb from (values
+  ('Planejamento tributário',
+   '<p>Prezado(a) {cliente},</p><p>Agradecemos a confiança. Esta proposta trata do <b>planejamento tributário</b> da empresa: diagnóstico do regime atual, simulação dos cenários (Simples Nacional, Lucro Presumido e Lucro Real), indicação do caminho mais econômico e seguro e acompanhamento da implantação.</p><h3>O que está incluído</h3><ul><li>Levantamento de faturamento, folha e despesas dos últimos 12 meses</li><li>Comparativo dos regimes com a economia estimada</li><li>Relatório final com a recomendação e o passo a passo</li><li>Reunião de apresentação dos resultados</li></ul><p>Esta proposta vale até {validade}.</p>',
+   '[{"servico":"Diagnóstico e planejamento tributário","valor":0,"forma":"50% na assinatura e 50% na entrega"}]'),
+  ('Inventário e planejamento sucessório',
+   '<p>Prezado(a) {cliente},</p><p>Apresentamos proposta para a condução do <b>inventário</b> (judicial ou extrajudicial) e a orientação sucessória da família, com levantamento de bens, cálculo do ITCD, partilha e registro.</p><h3>O que está incluído</h3><ul><li>Levantamento de bens, dívidas e documentos</li><li>Cálculo e emissão das guias do ITCD</li><li>Minuta da partilha e acompanhamento no cartório ou no processo</li></ul><p>Esta proposta vale até {validade}.</p>',
+   '[{"servico":"Inventário e partilha","valor":0,"forma":"em até 3 parcelas"}]'),
+  ('Defesa trabalhista',
+   '<p>Prezado(a) {cliente},</p><p>Apresentamos proposta para a <b>defesa na reclamação trabalhista</b>: análise da inicial e dos documentos, contestação, audiências e recursos até a decisão de primeira instância.</p><p>Esta proposta vale até {validade}.</p>',
+   '[{"servico":"Honorários iniciais","valor":0,"forma":"à vista ou em até 3 parcelas"},{"servico":"Honorários por audiência","valor":0,"forma":"por ato"}]'),
+  ('Abertura e regularização de empresa',
+   '<p>Prezado(a) {cliente},</p><p>Apresentamos proposta para a <b>abertura (ou regularização) da empresa</b>: escolha do tipo societário e do regime tributário, contrato social, registros na Junta, Receita, Estado e Prefeitura e licenças.</p><p>Esta proposta vale até {validade}.</p>',
+   '[{"servico":"Abertura / regularização","valor":0,"forma":"à vista"}]')
+) v(n, t, i)
+where not exists (select 1 from public.crm_modelos_proposta m where m.nome = v.n);

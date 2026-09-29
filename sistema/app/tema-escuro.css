@@ -213,6 +213,11 @@ html[data-tema="escuro"] .gs .mural-it{background:var(--surface)}
 html[data-tema="escuro"] .gs .mural-it.fixo{background:#342e14}
 html[data-tema="escuro"] .gs .mural-dest{background:var(--surface2)}
 html[data-tema="escuro"] .gs .ini-res{background:var(--surface)}
+html[data-tema="escuro"] .gs .cr-at{background:var(--surface)}
+html[data-tema="escuro"] .gs .cr-at:hover{background:#1b212b}
+@media (max-width:900px){html[data-tema="escuro"] .gs .cr-avancar{color:var(--ink)}
+}
+html[data-tema="escuro"] .gs .mural-dest.ambar{background:#362c15;color:#ebc4ab}
 html[data-tema="escuro"] #gs-hd .gs-marca-nome{color:#cdbb89}
 html[data-tema="escuro"] #gs-hd .tn-menu{background:var(--surface);border:1px solid rgba(255,255,255,0.066)}
 html[data-tema="escuro"] #gs-hd .tn-menu button{color:#d3d9e4}
@@ -332,10 +337,10 @@ html[data-tema="escuro"] [style*="border-bottom:1px solid #E2E8F0"]{border-botto
 html[data-tema="escuro"] [style*="color:#64748B"]{color:#b0b5bc!important}
 html[data-tema="escuro"] [style*="background:#FEF2F2"]{background:#301515!important}
 html[data-tema="escuro"] [style*="color:#991B1B"]{color:#e4a8a8!important}
-html[data-tema="escuro"] [style*="color:#1F2937"]{color:#dbdfe4!important}
-html[data-tema="escuro"] [style*="border-bottom:3px solid #C9A84C"]{border-bottom:3px solid #766948!important}
-html[data-tema="escuro"] [style*="color:#1B2A4A"]{color:#d3d9e4!important}
-html[data-tema="escuro"] [style*="color:#6B7280"]{color:#b3b6ba!important}
+html[data-tema="escuro"] [style*="border-right:1px solid #E5E7EB"]{border-right:1px solid var(--line)!important}
+html[data-tema="escuro"] [style*="border:1px solid #E5E7EB"]{border:1px solid var(--line)!important}
 html[data-tema="escuro"] [style*="border-bottom:1px solid #E5E7EB"]{border-bottom:1px solid var(--line)!important}
 html[data-tema="escuro"] [style*="border-top:1px solid #9CA3AF"]{border-top:1px solid var(--line)!important}
+html[data-tema="escuro"] [style*="border-top:1px solid #E5E7EB"]{border-top:1px solid var(--line)!important}
 html[data-tema="escuro"] [style*="background:#C9A84C"]{background:#766948!important}
+html[data-tema="escuro"] [style*="background:#EEF1F6"]{background:#232529!important}

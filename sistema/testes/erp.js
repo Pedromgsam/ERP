@@ -469,7 +469,8 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
 
     // ── CRM: oportunidade → funil → proposta → Ganhou ──
     await nav(p, 'crm'); await p.waitForTimeout(1500);
-    ok('CRM no menu e funil com as 7 etapas', await p.isVisible('#tn [data-ir=crm]') && (await p.$$('#panel-crm .cr-col')).length === 7);
+    ok('CRM no menu e funil em duas linhas com as 9 etapas (contrato fechado, aguardando assinatura, assinado, perdido)', await p.isVisible('#tn [data-ir=crm]') &&
+      (await p.$$('#panel-crm .cr-col')).length === 9 && (await p.$$('#panel-crm .cr-linha')).length === 2 && /Aguardando assinatura/.test(await p.textContent('#panel-crm')));
     await p.click('#cr-nova'); await p.waitForSelector('#f-op'); await p.waitForTimeout(300);
     await p.fill('#f-op [name=titulo]', 'Planejamento tributário — Prospect'); await p.fill('#f-op [name=prospecto_nome]', 'Carla Prospect');
     await p.fill('#f-op [name=prospecto_empresa]', 'Empresa Prospect Ltda'); await p.fill('#f-op [name=prospecto_email]', 'carla@prospect.com');
@@ -494,12 +495,19 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.keyboard.press('Escape'); await p.waitForTimeout(300);
     await p.click('#op-ganhou'); await p.waitForSelector('#f-gan'); await p.waitForTimeout(300);
     await p.fill('#f-gan [name=num_parcelas]', '2'); await p.click('#btn-ganhar'); await p.waitForTimeout(2500);
-    ok('Ganhou: cria cliente, contrato com 2 parcelas e fluxo de onboarding', sql("select count(*) from clientes where nome='Empresa Prospect Ltda'") === '1' &&
+    ok('Contrato fechado: cria cliente (com os dados do prospecto), contrato com 2 parcelas, onboarding e a tarefa "Enviar contrato para assinatura"', sql("select count(*) from clientes where nome='Empresa Prospect Ltda' and email='carla@prospect.com'") === '1' &&
       sql("select count(*) from lancamentos l join contratos c on c.id=l.contrato_id join clientes cl on cl.id=c.cliente_id where cl.nome='Empresa Prospect Ltda'") === '2' &&
-      sql("select count(*) from fluxos where nome like 'Onboarding — Empresa Prospect%'") === '1' && sql("select status from crm_propostas") === 'aceita');
+      sql("select count(*) from fluxos where nome like 'Onboarding — Empresa Prospect%'") === '1' && sql("select status from crm_propostas") === 'aceita' &&
+      sql("select count(*) from tarefas where titulo like 'Enviar contrato para assinatura%'") === '1' &&
+      sql("select e.nome from crm_oportunidades o join crm_etapas e on e.id=o.etapa_id where o.titulo like 'Planejamento tributário%'") === 'Contrato fechado');
     await p.keyboard.press('Escape'); await p.waitForTimeout(300);
+    await p.click('#panel-crm .cr-card:has-text("Planejamento tributário")'); await p.waitForSelector('#op-assinado'); await p.click('#op-assinado'); await p.waitForTimeout(1500);
+    ok('Contrato assinado: sai do painel e marca a data', sql("select e.final||'|'||(o.assinado_em is not null) from crm_oportunidades o join crm_etapas e on e.id=o.etapa_id where o.titulo like 'Planejamento tributário%'") === 'ganho|true' &&
+      !(await p.$('#panel-crm .cr-card:has-text("Planejamento tributário")')));
     await p.click('#cr-vista [data-v=painel]'); await p.waitForTimeout(800);
-    ok('painel do CRM: ganhos no mês e origem que mais converte', /Ganhos no mês/.test(await p.textContent('#cr-corpo')) && /R\$\s12\.000,00/.test(await p.textContent('#cr-corpo')));
+    ok('painel do CRM: fechados no mês, valor por área e quem mais indica', /Fechados no mês/.test(await p.textContent('#cr-corpo')) && /R\$\s12\.000,00/.test(await p.textContent('#cr-corpo')) &&
+      /Quem mais indica/.test(await p.textContent('#cr-corpo')) && /Novas no mês/.test(await p.textContent('#cr-corpo')));
+    await p.click('#cr-vista [data-v=funil]'); await p.waitForTimeout(300);
     await foto(p, 'crm-painel');
 
     // ── Publicações: OAB monitorada → busca → tarefa com prazo em dias úteis ──
@@ -781,7 +789,19 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.click('#parcOrd [data-o=residual]'); await p.waitForTimeout(400);
     ok('Parcelamentos: clicar no título ordena', await p.evaluate(() => document.querySelector('#parcOrd [data-o=residual]').classList.contains('ativo')));
     await nav(p, 'acordos'); await p.waitForTimeout(1200);
-    ok('Acordos: "Situação dos acordos" no lugar da Visão Geral', /Situação dos acordos/.test(await p.textContent('#acAnalise')) && /Por credor/.test(await p.textContent('#acAnalise')));
+    ok('Acordos: "Situação dos acordos" com a tabela "Acordos em andamento" (sem "Por credor" e sem o gráfico de atraso)', /Situação dos acordos/.test(await p.textContent('#acAnalise')) && /Acordos em andamento/.test(await p.textContent('#acAnalise')) &&
+      !/Por credor/.test(await p.textContent('#acAnalise')) && !(await p.$('#cAcordAtraso')));
+    { const n0 = (await p.$$('#acAnalise .ac-linha')).length, pg0 = Number(sql("select count(*) from acordos where pago")); await p.click('#acAnalise .ac-linha'); await p.waitForTimeout(400);
+      ok('Acordos: clicar na linha abre as parcelas com "Lançar pagamento"', n0 >= 1 && !!(await p.$('#acAnalise .ac-det .ac-bt-pagar')));
+      await p.click('#acAnalise .ac-bt-pagar'); await p.waitForSelector('#gs-raiz .janela'); await p.click('#gs-raiz [data-bx-ok]'); await p.waitForTimeout(2500);
+      ok('Acordos: "Lançar pagamento" dá baixa na parcela', Number(sql("select count(*) from acordos where pago")) === pg0 + 1); }
+    ok('Acordos: acordo todo pago some da lista; "Mostrar concluídos" traz de volta', await (async () => {
+      sql("update acordos set pago=true, data_pagamento=current_date where devedor='Alfa Comércio Ltda'"); await p.evaluate(() => ERP_RECARREGAR()); await p.waitForTimeout(2500);
+      const sem = !/Alfa Comércio/.test(await p.textContent('#acAnalise'));
+      await p.check('#acMostrarTodos'); await p.waitForTimeout(500);
+      const com = /Alfa Comércio/.test(await p.textContent('#acAnalise'));
+      await p.uncheck('#acMostrarTodos'); sql("update acordos set pago=false, data_pagamento=null where devedor='Alfa Comércio Ltda'"); await p.evaluate(() => ERP_RECARREGAR()); await p.waitForTimeout(2000);
+      return sem && com; })());
     await nav(p, 'financeiroContab'); await p.waitForTimeout(1500);
     ok('Contabilidade: Análise sem "Maiores clientes" e sem a lista de lançamentos', !/Maiores clientes/.test(await p.textContent('#panel-financeiroContab')) && !(await p.$('#fcLancTbl')));
     sql("insert into lancamentos(empresa,tipo,descricao,vencimento,valor,pago,data_pagamento) values ('contabilidade','receita','Caixa teste',current_date-5,500,true,current_date-5)");
@@ -922,7 +942,30 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('CRM: aba "Ganhos" lista as fechadas', /Planejamento tributário/.test(await p.textContent('#cr-corpo')));
     await p.click('#cr-corpo tr[data-op]'); await p.waitForSelector('#op-abas'); await p.waitForTimeout(500);
     ok('CRM: ficha abre em "Resumo" (visualização), com botão Editar', await p.evaluate(() => document.querySelector('#op-abas .ativo').dataset.aba === 'dados') && !!(await p.$('#op-editar')));
-    await p.keyboard.press('Escape'); await p.waitForTimeout(300); await p.click('#cr-abas [data-aba=andamento]');
+    await p.keyboard.press('Escape'); await p.waitForTimeout(300); await p.click('#cr-abas [data-aba=andamento]'); await p.waitForTimeout(300);
+    // Backup 16: cadastro rápido, ligação em 1 clique, lead perdido com motivo fixo, regras (parada, follow-up), follow-up por e-mail
+    await p.click('#cr-rapido'); await p.waitForSelector('#f-rap'); await p.fill('#f-rap [name=nome]', 'Rápido Teste B16'); await p.fill('#f-rap [name=tel]', '31 99999-0000');
+    await p.fill('#f-rap [name=interesse]', 'Holding'); await p.click('#rap-salvar'); await p.waitForTimeout(1500);
+    ok('CRM: cadastro rápido entra em "Novo contato"', sql("select e.nome from crm_oportunidades o join crm_etapas e on e.id=o.etapa_id where o.prospecto_nome='Rápido Teste B16'") === 'Novo contato' &&
+      !!(await p.$('#panel-crm .cr-card:has-text("Rápido Teste B16")')));
+    await p.fill('#cr-busca', '99999'); await p.waitForTimeout(600);
+    ok('CRM: busca única acha pelo telefone', (await p.$$('#panel-crm .cr-card')).length === 1);
+    await p.fill('#cr-busca', ''); await p.waitForTimeout(500);
+    await p.click('#panel-crm .cr-card:has-text("Rápido Teste B16") [data-ligacao]'); await p.waitForTimeout(1200);
+    ok('CRM: "registrar ligação" em 1 clique', sql("select count(*) from crm_atividades a join crm_oportunidades o on o.id=a.oportunidade_id where o.prospecto_nome='Rápido Teste B16' and a.tipo='ligacao'") === '1');
+    { const idr = sql("select id from crm_oportunidades where prospecto_nome='Rápido Teste B16'");
+      sql("update crm_oportunidades set etapa_desde = now() - interval '10 days', prospecto_email='rapido@teste.local' where id='" + idr + "'");
+      sql("select public.rodar_regras_tarefas()");
+      ok('CRM: oportunidade parada além do prazo da etapa vira tarefa', sql("select count(*) from tarefas where titulo like 'CRM parado há mais de 3 dia(s) em \"Novo contato\"%'") === '1');
+      const r = await p.evaluate(async (id) => (await SB.rpc('crm_followup_email', { p_op: id, p_para: 'rapido@teste.local', p_assunto: 'Nossa proposta', p_texto: 'Olá!\n\nConseguiu ver?' })).error, idr);
+      ok('CRM: follow-up por e-mail vai para a fila e fica nas atividades', !r && sql("select count(*) from email_fila where para='rapido@teste.local' and tipo='proposta'") === '1' &&
+        sql("select count(*) from crm_atividades where oportunidade_id='" + idr + "' and tipo='email'") === '1', r && r.message); }
+    await p.evaluate(() => ERP_RECARREGAR && 0); await nav(p, 'crm'); await p.waitForTimeout(1200);
+    await p.click('#panel-crm .cr-card:has-text("Rápido Teste B16")'); await p.waitForSelector('#op-perdeu'); await p.click('#op-perdeu'); await p.waitForSelector('#f-per');
+    await p.selectOption('#f-per [name=motivo]', 'Preço'); await p.click('#btn-perder'); await p.waitForTimeout(1500);
+    ok('CRM: lead perdido com motivo da lista fixa sai do painel', sql("select motivo_perda from crm_oportunidades where prospecto_nome='Rápido Teste B16'") === 'Preço' &&
+      !(await p.$('#panel-crm .cr-card:has-text("Rápido Teste B16")')));
+    await p.keyboard.press('Escape'); await p.waitForTimeout(300);
     // Tarefas: excluir manda para a aba Excluídas; restaurar volta
     sql("insert into tarefas(titulo,responsavel,status) values ('Tarefa B15 excluir','Pedro','pendente')");
     await p.evaluate(() => { GS.E.tf = null; }); await nav(p, 'tarefas'); await p.waitForTimeout(1500);

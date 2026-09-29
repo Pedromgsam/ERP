@@ -586,3 +586,22 @@ label.ofx-it{cursor:pointer}
 .lemb-it:last-child{border-bottom:0}
 .lemb-auto{display:block}
 .lemb-tg{background:none;border:0;padding:0;font:inherit;color:var(--ink);cursor:pointer;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+/* CRM (Backup 16): funil em duas linhas — prospecção em cima; negociação, contrato e o fim embaixo */
+.cr-linha{display:grid;grid-template-columns:repeat(var(--n,4),minmax(0,1fr));gap:12px;margin-bottom:12px}
+.cr-linha .cr-col{min-height:170px}
+.cr-col-tit{cursor:help}
+.cr-card{min-height:150px}
+.cr-sem-prox{color:var(--amber);font-style:italic}
+.cr-card-at{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:6px}
+.cr-atalhos{display:inline-flex;gap:4px}
+.cr-at{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;border:1px solid var(--border);background:#fff;cursor:pointer;font-size:13px;text-decoration:none;color:var(--ink);padding:0}
+.cr-at:hover{border-color:var(--navy);background:#f3f6fb}
+.cr-avancar{display:none}
+.cr-vazia{color:var(--text3);text-align:center;font-size:12px;padding:10px 0}
+@media (max-width:900px){
+  .cr-linha{grid-template-columns:1fr}
+  .cr-linha .cr-col{min-height:0}
+  .cr-card{min-height:0}
+  .cr-avancar{display:inline-flex;font-weight:700;color:var(--navy)}
+}
+.mural-dest.ambar{background:#FFF7E6;border-color:rgba(180,83,9,.25);color:#92400E}

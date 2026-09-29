@@ -246,8 +246,11 @@ async function cardMural() {
     q(sb.from('mural').select('*').order('fixo', { ascending: false }).order('criado_em', { ascending: false }).limit(20)).catch(() => []),
     contarAlertas().catch(() => ({ total: 0, altos: 0 })),
     q(sb.from('tarefas').select('id, prazo, prazo_fatal, responsavel, participantes, chave_regra').not('status', 'in', '(concluida,cancelada)')).catch(() => []),
-    pode('juridico') ? q(sb.from('publicacoes').select('id').eq('status', 'nova')).catch(() => []) : []
+    pode('juridico') ? q(sb.from('publicacoes').select('id').eq('status', 'nova')).catch(() => []) : [],
   ]);
+  // CRM: oportunidades em andamento sem próximo passo marcado
+  const semPasso = pode('crm') ? (await q(sb.from('crm_oportunidades').select('id, proxima_acao, proxima_acao_em, crm_etapas(final)')).catch(() => []))
+    .filter((o) => !(o.crm_etapas && o.crm_etapas.final) && (!o.proxima_acao || !o.proxima_acao_em)).length : 0;
   const minhas = tarefas.filter(ehMinha);
   const fatais = minhas.filter((t) => t.prazo_fatal && t.prazo_fatal <= somarDias(h, 7)).length, atrasadas = minhas.filter((t) => t.prazo && t.prazo < h && !/^(cob|parc|aco):/.test(t.chave_regra || '')).length;
   const vivos = recados.filter((r) => !r.expira_em || r.expira_em >= h).slice(0, 6);
@@ -256,7 +259,8 @@ async function cardMural() {
     avisos.total ? ['avisos', (avisos.altos ? 'critico' : ''), '🔔', avisos.total, 'aviso(s) não lido(s)'] : null,
     fatais ? ['fatais', 'critico', '⚑', fatais, 'prazo(s) fatal(is) em 7 dias'] : null,
     atrasadas ? ['atrasadas', 'critico', '⏰', atrasadas, 'tarefa(s) atrasada(s)'] : null,
-    pubs.length ? ['pubs', '', '📰', pubs.length, 'publicação(ões) nova(s)'] : null
+    pubs.length ? ['pubs', '', '📰', pubs.length, 'publicação(ões) nova(s)'] : null,
+    semPasso ? ['crm', 'ambar', '🎯', semPasso, 'oportunidade(s) sem próximo passo'] : null
   ].filter(Boolean);
   el.innerHTML = '<div class="card ini-mural"><div class="card-hd">📌 Mural</div><div class="card-bd">' +
     (dest.length ? '<div class="mural-destaques">' + dest.map((d) => '<button type="button" class="mural-dest ' + d[1] + '" data-mural="' + d[0] + '">' + d[2] + ' <b>' + d[3] + '</b> ' + d[4] + '</button>').join('') + '</div>'
@@ -271,6 +275,7 @@ async function cardMural() {
     const k = b.dataset.mural;
     if (k === 'avisos') abrirAlertas(null, () => cardMural());
     else if (k === 'pubs') irParaTela('publicacoes');
+    else if (k === 'crm') { E.crm = Object.assign(E.crm || {}, { aba: 'andamento', vista: 'lista' }); irParaTela('crm'); }
     else { E.tf = Object.assign(E.tf || {}, { vista: 'lista', atalho: k === 'fatais' ? '7' : 'atrasadas', aba: 'abertas' }); irParaTela('tarefas'); }
   });
   el.querySelectorAll('[data-mural-x]').forEach((b) => b.onclick = () => comBotao(b, async () => {

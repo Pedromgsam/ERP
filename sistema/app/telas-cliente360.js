@@ -122,6 +122,7 @@ async function abrirFicha(id, aba) {
       '<div class="ficha-atalhos">' +
       '<button class="btn btn-o btn-mini" id="fc-tarefa">+ Tarefa</button><button class="btn btn-o btn-mini" id="fc-lanc">+ Lançamento</button>' +
       '<button class="btn btn-o btn-mini" id="fc-doc">+ Documento</button><button class="btn btn-o btn-mini" id="fc-int">+ Interação</button>' +
+      (pode('crm', 'editar') ? '<button class="btn btn-o btn-mini" id="fc-indic" title="Oportunidade nova no CRM com origem = indicação deste cliente">🤝 Indicação</button>' : '') +
       (tel ? '<a class="btn btn-o btn-mini" target="_blank" rel="noopener" href="https://wa.me/' + (soDigitos(tel).length <= 11 ? '55' : '') + soDigitos(tel) + '">WhatsApp</a>' : '') +
       (mail ? '<a class="btn btn-o btn-mini" href="mailto:' + esc(mail) + '">E-mail</a>' : '') +
       '<button class="btn btn-p btn-mini" id="fc-editar">Editar cadastro</button></div></div>' +
@@ -145,6 +146,9 @@ async function abrirFicha(id, aba) {
   j.querySelector('#fc-doc').onclick = () => janelaEnviarDocumento({ cliente_id: cl.id, grupo_id: cl.grupo_id }, () => mostrar('documentos'));
   j.querySelector('#fc-int').onclick = () => formInteracao(cl, () => mostrar('linha'));
   j.querySelector('#fc-etq').onclick = () => janelaEtiquetas(cl, etq, reabrir);
+  const ind = j.querySelector('#fc-indic');
+  if (ind) ind.onclick = async () => { if (!E._crmEtapas) E._crmEtapas = await q(sb.from('crm_etapas').select('*').order('ordem')).catch(() => []);
+    formOportunidade({ origem: 'Indicação de cliente', indicado_por: cl.nome, responsavel: cl.responsavel }, () => aviso('✓ Prospecto indicado por ' + cl.nome + ' criado no CRM.')); };
   await mostrar(atual);
   return j;
 }
@@ -272,16 +276,19 @@ const ABA_FICHA = {
   },
   documentos: (alvo, cl) => blocoDocumentos(alvo, { cliente_id: cl.id, grupo_id: cl.grupo_id }, { vazio: 'Nenhum documento. Envie contrato social, procuração, documentos pessoais…' }),
   async linha(alvo, cl) {
-    const [ints, ctrs, lanc, ts, docs, hist] = await Promise.all([
+    const [ints, ctrs, lanc, ts, docs, hist, crm] = await Promise.all([
       q(sb.from('interacoes').select('*').eq('cliente_id', cl.id)),
       q(sb.from('contratos').select('id, descricao, data_contrato').eq('cliente_id', cl.id)),
       q(sb.from('lancamentos').select('descricao, valor, redutor, data_pagamento, vencimento').eq('cliente_id', cl.id).eq('pago', true).order('data_pagamento', { ascending: false }).limit(60)),
       q(sb.from('tarefas').select('titulo, concluida_em, status').or('cliente_id.eq.' + cl.id + (cl.grupo_id ? ',grupo_id.eq.' + cl.grupo_id : '')).eq('status', 'concluida').not('concluida_em', 'is', null)),
       q(sb.from('documentos').select('nome, tipo, criado_em').eq('cliente_id', cl.id)),
-      q(sb.from('historico').select('acao, quando, antes, depois').eq('tabela', 'clientes').eq('registro_id', cl.id).order('quando', { ascending: false }).limit(30)).catch(() => [])
+      q(sb.from('historico').select('acao, quando, antes, depois').eq('tabela', 'clientes').eq('registro_id', cl.id).order('quando', { ascending: false }).limit(30)).catch(() => []),
+      // atividades do CRM (inclusive as de antes de virar cliente)
+      pode('crm') ? q(sb.from('crm_atividades').select('tipo, quando, resumo, crm_oportunidades!inner(titulo, cliente_id)').eq('crm_oportunidades.cliente_id', cl.id)).catch(() => []) : []
     ]);
     const ev = [];
-    ints.forEach((i) => ev.push([i.quando, '💬', rotuloInteracao(i.tipo), i.resumo, i]));
+    ints.filter((i) => !(crm.length && /^\[CRM\]/.test(i.resumo || ''))).forEach((i) => ev.push([i.quando, '💬', rotuloInteracao(i.tipo), i.resumo, i]));
+    crm.forEach((a) => ev.push([a.quando, '🎯', 'CRM · ' + rotuloInteracao(a.tipo), (a.crm_oportunidades ? a.crm_oportunidades.titulo + ': ' : '') + a.resumo]));
     ctrs.forEach((c) => ev.push([c.data_contrato + 'T12:00:00', '📄', 'Contrato', c.descricao]));
     lanc.forEach((l) => ev.push([(l.data_pagamento || l.vencimento) + 'T12:00:00', '💰', 'Pagamento', l.descricao + ' — ' + brl(vl(l))]));
     ts.forEach((t) => ev.push([t.concluida_em, '✓', 'Tarefa concluída', t.titulo]));
