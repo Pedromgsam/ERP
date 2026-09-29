@@ -604,7 +604,7 @@ async function admEmail(corpo) {
     // e-mails ao cliente: dados do quadro "Como pagar" e prévia de cada modelo
     '<div class="card"><div class="card-hd">✉ E-mails ao cliente — dados para pagamento e modelos<span class="sub" style="margin-left:auto;font-weight:400">aparecem nas cobranças e lembretes</span></div><div class="card-bd">' +
       '<form id="f-pag" class="grade">' + campo('Chave PIX do escritório', '<input name="pix" placeholder="CNPJ, e-mail ou telefone">') + campo('Titular da conta', '<input name="titular">') +
-      campo('Banco / agência / conta (opcional)', '<input name="banco" placeholder="Ex.: Sicoob · ag 0000 · cc 00000-0">') + campo('WhatsApp para dúvidas (opcional)', '<input name="whatsapp" placeholder="(31) 90000-0000">') +
+      campo('Banco / agência / conta (opcional)', '<input name="banco" placeholder="Ex.: Sicoob · ag 0000 · cc 00000-0">') + campo('WhatsApp para dúvidas (opcional)', '<input name="whatsapp" placeholder="(31) 90000-0000">') + campo('Cidade do recebedor (para o PIX copia e cola)', '<input name="cidade" placeholder="Belo Horizonte">') +
       campo('Assinatura dos e-mails', '<input name="assinatura" placeholder="Equipe Araújo & Castro">', 'inteiro') + '</form>' +
       '<div class="acoes" style="margin-top:10px;flex-wrap:wrap"><button class="btn btn-p" id="pag-salvar">Salvar</button><span class="sub" style="align-self:center">Ver modelo:</span>' +
       [['lembrete', 'Lembrete'], ['cobranca', 'Cobrança'], ['acordo', 'Acordo'], ['parcelamento', 'Parcelamento'], ['recebido', 'Pagamento recebido']].map(([k, r]) => '<button class="btn btn-o btn-mini" data-previa="' + k + '">' + r + '</button>').join('') +
@@ -618,9 +618,9 @@ async function admEmail(corpo) {
   const f = $('f-email');
   f.provedor.value = prov;
   const fp = $('f-pag');
-  q(sb.from('configuracoes').select('valor').eq('chave', 'dados_pagamento').maybeSingle()).then((r) => { const v = (r && r.valor) || {}; ['pix', 'titular', 'banco', 'whatsapp', 'assinatura'].forEach((k) => { fp[k].value = v[k] || ''; }); }).catch(() => {});
+  q(sb.from('configuracoes').select('valor').eq('chave', 'dados_pagamento').maybeSingle()).then((r) => { const v = (r && r.valor) || {}; ['pix', 'titular', 'banco', 'whatsapp', 'assinatura', 'cidade'].forEach((k) => { fp[k].value = v[k] || ''; }); }).catch(() => {});
   $('pag-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
-    const v = {}; ['pix', 'titular', 'banco', 'whatsapp', 'assinatura'].forEach((k) => { v[k] = fp[k].value.trim(); });
+    const v = {}; ['pix', 'titular', 'banco', 'whatsapp', 'assinatura', 'cidade'].forEach((k) => { v[k] = fp[k].value.trim(); });
     await q(sb.from('configuracoes').upsert({ chave: 'dados_pagamento', valor: v }, { onConflict: 'chave' }));
     aviso('✓ Dados para pagamento salvos: já valem nos próximos e-mails.');
   });

@@ -38,23 +38,22 @@ TELAS.inicio = async function () {
   const ateFim = 'de hoje até ' + dataBR(fim).slice(0, 5);
   // cada cartão abre o relatório completo (tabela com as mesmas ações do Financeiro + CSV)
   const clic = (emp, k, html) => html.replace('<div class="kpi ', '<div role="button" tabindex="0" title="Clique para ver a lista completa" data-ini-rel="' + emp + '|' + k + '" class="kpi kpi-clica ');
+  // Backup 20: ordem recebido → a receber → a pagar → em atraso; recebido em verde, atraso em vermelho; o mês no título
+  const mes = nomeMes(new Date());
   const linha = (emp, titulo) => { const t = totais[emp] || {};
-    return '<div class="kpis-titulo">' + titulo + '</div><div class="kpis">' +
+    return '<div class="kpis-titulo ini-fin-tit">' + titulo + ' <span class="ini-mes">' + esc(mes) + '</span></div><div class="kpis ini-fin">' +
     clic(emp, 'recebido', kpi('Recebido no mês', brl(t.recebido || 0), 'verde', plural(t.n_recebido || 0, 'recebimento', 'recebimentos'))) +
     clic(emp, 'a_receber', kpi('A receber', brl(t.a_receber || 0), '', (t.n_a_receber || 0) + ' em aberto · ' + ateFim)) +
+    clic(emp, 'a_pagar', kpi('A pagar', brl(t.a_pagar || 0), '', plural(t.n_a_pagar || 0, 'conta', 'contas') + ' · ' + ateFim)) +
     clic(emp, 'em_atraso', kpi('Em atraso', brl(t.em_atraso || 0), 'vermelho', plural(t.n_em_atraso || 0, 'vencido', 'vencidos') + ' · todos os meses')) +
-    clic(emp, 'a_pagar', kpi('A pagar', brl(t.a_pagar || 0), 'ambar', plural(t.n_a_pagar || 0, 'conta', 'contas') + ' · ' + ateFim)) +
     '</div>'; };
   const verJur = pode('financeiro_juridico'), verCont = pode('financeiro_contab');
   const de = (emp) => atrasados.filter((l) => l.empresa === emp);
   $('conteudo').innerHTML =
     '<div class="titulo-pag"><div><h1>Olá, ' + esc(primeiroNomeUsuario()) + '</h1>' +
-    '<p>Resumo de ' + esc(nomeMes(new Date())) + '</p></div>' +
-    '<div class="acoes"><button class="btn btn-p" data-novo="receita">+ Receita</button>' +
-    '<button class="btn btn-o" data-novo="despesa">+ Despesa</button>' +
-    '<button class="btn btn-o" data-novo="contrato">+ Contrato</button></div></div>' +
+    '<p>Resumo de ' + esc(mes) + ' · para lançar receita, despesa ou contrato use <b>+ Lançar</b> na barra de cima</p></div></div>' +
     '<div id="ini-mural"></div><div id="ini-resumo"></div><div id="ini-aprov"></div><div id="ini-fila"></div>' +
-    (verJur ? linha('escritorio', '💼 Honorários Jurídico') : '') + (verCont ? linha('contabilidade', '🧮 Contabilidade') : '') +
+    (verJur ? linha('escritorio', '💼 Honorários Jurídico') : '') + (verCont ? linha('contabilidade', '🧮 Honorários Contabilidade') : '') +
     (verJur || verCont ? '<div class="' + (verJur && verCont ? 'duas-col' : '') + ' ini-atraso">' +
       (verJur ? cardAtraso('Atrasados', 'Jurídico', de('escritorio')) : '') +
       (verCont ? cardAtraso('Atrasados', 'Contabilidade', de('contabilidade')) : '') + '</div>' : '');
@@ -64,10 +63,9 @@ TELAS.inicio = async function () {
   if (typeof cardAprovacoes === 'function') cardAprovacoes().then((x) => { const el = $('ini-aprov'); if (el) el.innerHTML = x; }).catch((e) => console.error(e));
   if (typeof cardMinhaFila === 'function') cardMinhaFila().then((c) => { const el = $('ini-fila'); if (el) { el.innerHTML = c.html; c.ligar(el); } }).catch((e) => console.error(e));
   ligarAcoesLancamentos($('conteudo'));
-  ligarBotoesNovo($('conteudo'));
   // clicar na linha do atraso = registrar o pagamento (mesma janela do botão)
   $('conteudo').querySelectorAll('.ini-atraso tr[data-linha-pagar]').forEach((tr) => tr.onclick = (ev) => {
-    if (ev.target.closest('button,a')) return;
+    if (ev.target.closest('button,a,input,label')) return;
     const b = tr.querySelector('[data-pagar]'); if (b) b.click();
   });
   $('conteudo').querySelectorAll('[data-ini-rel]').forEach((k) => {
@@ -108,18 +106,24 @@ function cardAtraso(titulo, area, lista) {
   const h = hojeISO();
   const quemDe = (l) => (l.grupos && l.grupos.nome) || l.favorecido || (l.clientes && l.clientes.nome) || '';
   const hoje = lista.filter((l) => l.vencimento === h), vencidos = lista.length - hoje.length, total = soma(lista, (l) => l.tipo === 'despesa' ? -l.valor : vl(l));
-  return '<div class="card card-lista ini-atraso-card"><div class="card-hd"><span class="ini-atraso-tit">' + esc(titulo) + ' <span class="ini-atraso-area area-' + (area === 'Jurídico' ? 'jur' : 'cont') + '">' + esc(area) + '</span></span>' +
-      '<span class="ini-atraso-selos">' + (vencidos ? '<span class="pill vencido">' + vencidos + ' vencido' + (vencidos > 1 ? 's' : '') + '</span>' : '') +
+  return '<div class="card card-lista ini-atraso-card' + (lista.length ? ' tem-atraso' : '') + '"><div class="card-hd"><span class="ini-atraso-tit">' + (lista.length ? '<span class="ini-alerta" aria-hidden="true">▲</span>' : '') + esc(titulo) +
+      ' <span class="ini-atraso-area area-' + (area === 'Jurídico' ? 'jur' : 'cont') + '">' + esc(area) + '</span></span>' +
+      '<span class="ini-atraso-selos">' + (vencidos ? '<span class="pill vencido">' + plural(vencidos, 'vencido', 'vencidos') + '</span>' : '') +
       (hoje.length ? '<span class="pill hoje">' + hoje.length + ' vence' + (hoje.length > 1 ? 'm' : '') + ' hoje</span>' : '') +
       (!lista.length ? '<span class="pill pago">em dia</span>' : '') + '</span></div>' +
-    (lista.length ? '<div class="tabela-wrap"><table class="ordenavel"><thead><tr><th data-tipo="data">Vencimento</th><th>Quem</th><th class="num">Valor</th><th class="sem-ordem"></th></tr></thead><tbody>' +
-      lista.map((l) => '<tr class="clicavel' + (l.vencimento === h ? ' linha-hoje' : '') + '" data-linha-pagar title="Clique para dar como recebido"><td class="mono" data-ord="' + l.vencimento + '">' +
-        (l.vencimento === h ? '<span class="pill hoje">Vence hoje</span>' : dataBR(l.vencimento) + '<div class="sub">' + diasAtraso(l.vencimento) + '</div>') + '</td>' +
-        '<td><b>' + esc(quemDe(l) || l.descricao) + '</b><div class="sub">' + esc(l.descricao) + (legendaLanc(l) ? ' · ' + esc(legendaLanc(l)) : '') + '</div></td>' +
+    (lista.length ? '<div class="lote-wrap"><div class="lote-barra" hidden><span class="lote-txt"></span><button type="button" class="btn btn-v btn-mini" data-lote-baixa>✓ Dar baixa nos marcados</button><button type="button" class="btn btn-o btn-mini" data-lote-limpar>Desmarcar</button></div>' +
+      '<div class="tabela-wrap"><table class="ordenavel tab-pag"><thead><tr><th class="sem-ordem th-lote"><input type="checkbox" data-lote-todos aria-label="Marcar todos" title="Marcar todos para dar baixa de uma vez"></th>' +
+      '<th>Quem</th><th>Grupo</th><th class="num">Valor</th><th data-tipo="data">Vencimento</th><th>Atraso</th><th class="sem-ordem"></th></tr></thead><tbody>' +
+      lista.map((l) => '<tr class="clicavel' + (l.vencimento === h ? ' linha-hoje' : '') + '" data-linha-pagar title="Clique para dar como recebido">' +
+        '<td class="td-lote"><input type="checkbox" data-lote="' + l.id + '" data-valor="' + (l.tipo === 'despesa' ? -l.valor : vl(l)) + '" aria-label="Marcar para dar baixa"></td>' +
+        '<td>' + pillPessoa(l.responsavel) + '</td>' +
+        '<td>' + esc(quemDe(l) || l.descricao) + '<div class="sub">' + esc([l.descricao !== quemDe(l) ? l.descricao : '', legendaLanc(l)].filter(Boolean).join(' · ')) + '</div></td>' +
         '<td class="num mono ' + (l.tipo === 'receita' && !l.redutor ? 'valor-rec' : 'valor-desp') + '" data-ord="' + (l.tipo === 'despesa' ? -l.valor : vl(l)) + '">' +
           (l.tipo === 'despesa' || l.redutor ? '− ' : '') + brl(l.valor) + (l.redutor ? '<div class="sub">redutor</div>' : l.tipo === 'despesa' ? '<div class="sub">a pagar</div>' : '') + '</td>' +
+        '<td class="mono' + (l.vencimento < h ? ' venc-atraso' : '') + '" data-ord="' + l.vencimento + '">' + dataBR(l.vencimento) + '</td>' +
+        '<td data-ord="' + diasAte(l.vencimento) + '">' + celulaAtraso(l.vencimento) + '</td>' +
         '<td class="acoes-l"><button class="btn btn-v btn-mini" data-pagar="' + l.id + '">✓ Recebido</button></td></tr>').join('') +
-      '</tbody><tfoot><tr><td colspan="2">Total</td><td class="num mono">' + brl(total) + '</td><td></td></tr></tfoot></table></div>'
+      '</tbody><tfoot><tr><td></td><td colspan="2">Total</td><td class="num mono">' + brl(total) + '</td><td colspan="3"></td></tr></tfoot></table></div></div>'
       : vazio('Nada em atraso. 👏')) + '</div>';
 }
 function diasAtraso(venc) {
@@ -236,11 +240,17 @@ function pintarPainel() {
 }
 
 
-// ─────────── Mural do Início: o que pede atenção hoje + lembretes + recados do escritório ───────────
-// Backup 19: uma linha de destaques (sem repetir o que o Resumo já mostra) e os Lembretes juntos, abrindo no próprio mural.
-//  • "suas" = só do usuário logado (o Resumo do escritório mostra a equipe toda).
-//  • Avisos = só novidades (prazo chegando, vence hoje, menções…) — ver coletarAlertas.
-// Recados: qualquer pessoa da equipe publica; o administrador pode fixar no topo; apaga quem publicou ou o admin.
+// ─────────── Lembretes do Início (Backup 20: substituem o mural de recados) ───────────
+// Topo do Início: destaques do que é SEU (avisos, tarefas atrasadas, prazos fatais…) e a lista de LEMBRETES sempre à vista.
+// Lembrete pode ser SEM PRAZO (fica até "Feito", como era o recado), FIXO no topo e ter uma COR de destaque.
+const EXPLICA = {
+  avisos: 'Avisos (sino 🔔): novidades que pedem sua atenção agora — prazo chegando, o que vence hoje, menções, tarefa que alguém te passou. Depois de lido, some.',
+  tarefas: 'Tarefas: trabalho com responsável e prazo (ex.: protocolar defesa). Aqui aparecem só as SUAS que já passaram do prazo.',
+  fila: 'Minha fila de trabalho: todas as SUAS tarefas abertas, em ordem de prazo — é a sua lista do dia.',
+  lembretes: 'Lembretes: recados com ou sem data que NÃO viram tarefa (ex.: pagar o aluguel, reunião sexta). Aparecem até 7 dias antes da data; sem prazo, ficam até você marcar "Feito".'
+};
+const DESTAQUES_LEMB = [['', 'Sem destaque'], ['vermelho', '🔴 Vermelho — urgente'], ['amarelo', '🟡 Amarelo — atenção'], ['verde', '🟢 Verde — tudo certo'], ['azul', '🔵 Azul — informação'], ['roxo', '🟣 Roxo — pessoal']];
+function infoI(chave) { return '<span class="info-i" tabindex="0" title="' + esc(EXPLICA[chave]) + '" aria-label="' + esc(EXPLICA[chave]) + '">ⓘ</span>'; }
 async function dadosLembretes() {
   const h = hojeISO(), jur = pode('juridico');
   const rg = await q(sb.from('regras_tarefas').select('ligada, dias').eq('chave', 'parcela_parcelamento').maybeSingle()).catch(() => null);
@@ -248,18 +258,17 @@ async function dadosLembretes() {
   const [guias, meus] = await Promise.all([
     jur && guiasLigado ? q(sb.from('parcelas').select('id, numero, vencimento, emissao, parcelamentos(empresa, natureza, numero, total_parcelas, grupo_id)')
       .eq('pago', false).lte('vencimento', somarDias(h, dias)).order('vencimento')).catch(() => []) : [],
-    q(sb.from('lembretes').select('*').is('feito_em', null).lte('dia', somarDias(h, 7)).order('dia')).catch(() => [])
+    q(sb.from('lembretes').select('*').is('feito_em', null).or('dia.is.null,dia.lte.' + somarDias(h, 7)).order('dia', { nullsFirst: true })).catch(() => [])
   ]);
   const eu = primeiroNome((E.perfil && E.perfil.nome) || '');
-  return { dias, semGuia: guias.filter((g) => !/sim|emitid/i.test(g.emissao || '')),
-    vis: meus.filter((l) => !l.pessoa || primeiroNome(l.pessoa) === eu || (E.perfil && E.perfil.papel === 'admin')) };
+  const vis = meus.filter((l) => !l.pessoa || primeiroNome(l.pessoa) === eu || (E.perfil && E.perfil.papel === 'admin'))
+    .sort((a, b) => (b.fixo - a.fixo) || ((a.dia ? 1 : 0) - (b.dia ? 1 : 0)) || String(a.dia || '').localeCompare(String(b.dia || '')));
+  return { dias, semGuia: guias.filter((g) => !/sim|emitid/i.test(g.emissao || '')), vis };
 }
 async function cardMural() {
   const el = $('ini-mural'); if (!el) return;
   const h = hojeISO();
-  // (publicações novas ficam só no Resumo do escritório — são do escritório todo, não repetem no mural)
-  const [recados, avisos, tarefas, lemb] = await Promise.all([
-    q(sb.from('mural').select('*').order('fixo', { ascending: false }).order('criado_em', { ascending: false }).limit(20)).catch(() => []),
+  const [avisos, tarefas, lemb] = await Promise.all([
     contarAlertas().catch(() => ({ total: 0, altos: 0 })),
     q(sb.from('tarefas').select('id, prazo, prazo_fatal, responsavel, participantes, chave_regra').not('status', 'in', '(concluida,cancelada)')).catch(() => []),
     dadosLembretes().catch(() => ({ semGuia: [], vis: [], dias: 5 }))
@@ -269,47 +278,33 @@ async function cardMural() {
     .filter((o) => !(o.crm_etapas && o.crm_etapas.final) && (!o.proxima_acao || !o.proxima_acao_em)).length : 0;
   const minhas = tarefas.filter(ehMinha);
   const fatais = minhas.filter((t) => t.prazo_fatal && t.prazo_fatal <= somarDias(h, 7)).length, atrasadas = minhas.filter((t) => t.prazo && t.prazo < h && !/^(cob|parc|aco):/.test(t.chave_regra || '')).length;
-  const vivos = recados.filter((r) => !r.expira_em || r.expira_em >= h).slice(0, 6);
-  const admin = E.perfil && E.perfil.papel === 'admin';
-  const nLemb = lemb.vis.length, nGuias = lemb.semGuia.length, aberto = cardMural.aberto || '';
+  const nGuias = lemb.semGuia.length, aberto = cardMural.aberto || '';
   const dest = [
-    avisos.total ? ['avisos', (avisos.altos ? 'critico' : ''), '🔔', plural(avisos.total, 'aviso não lido', 'avisos não lidos')] : null,
-    atrasadas ? ['atrasadas', 'critico', '⏰', plural(atrasadas, 'tarefa sua atrasada', 'tarefas suas atrasadas')] : null,
-    fatais ? ['fatais', 'critico', '⚑', plural(fatais, 'prazo fatal seu em 7 dias', 'prazos fatais seus em 7 dias')] : null,
-    semPasso ? ['crm', 'ambar', '🎯', plural(semPasso, 'oportunidade sem próximo passo', 'oportunidades sem próximo passo')] : null,
-    nLemb ? ['lembretes', lemb.vis.some((l) => l.dia < h) ? 'ambar' : '', '🗓', plural(nLemb, 'lembrete', 'lembretes')] : null,
-    nGuias ? ['guias', lemb.semGuia.some((g) => g.vencimento < h) ? 'critico' : 'ambar', '🧾', plural(nGuias, 'guia de parcelamento a emitir', 'guias de parcelamento a emitir')] : null
+    avisos.total ? ['avisos', (avisos.altos ? 'critico' : ''), '🔔', plural(avisos.total, 'aviso não lido', 'avisos não lidos'), EXPLICA.avisos] : null,
+    atrasadas ? ['atrasadas', 'critico', '⏰', plural(atrasadas, 'tarefa sua atrasada', 'tarefas suas atrasadas'), EXPLICA.tarefas] : null,
+    fatais ? ['fatais', 'critico', '⚑', plural(fatais, 'prazo fatal seu em 7 dias', 'prazos fatais seus em 7 dias'), 'Tarefas SUAS com prazo fatal nos próximos 7 dias.'] : null,
+    semPasso ? ['crm', 'ambar', '🎯', plural(semPasso, 'oportunidade sem próximo passo', 'oportunidades sem próximo passo'), 'CRM: oportunidades em andamento sem o próximo passo marcado.'] : null,
+    nGuias ? ['guias', lemb.semGuia.some((g) => g.vencimento < h) ? 'critico' : 'ambar', '🧾', plural(nGuias, 'guia de parcelamento a emitir', 'guias de parcelamento a emitir'), 'Guias de parcelamento que vencem nos próximos dias e ainda não foram emitidas. Clique para ver e marcar "Guia emitida".'] : null
   ].filter(Boolean);
   const chip = (d) => { const n = d[3].match(/^\d+/)[0], resto = d[3].slice(n.length);
-    return '<button type="button" class="mural-dest ' + d[1] + (aberto === d[0] ? ' ativo' : '') + '" data-mural="' + d[0] + '"' + (/lembretes|guias/.test(d[0]) ? ' aria-expanded="' + (aberto === d[0]) + '"' : '') + '>' + d[2] + ' <b>' + n + '</b>' + esc(resto) + '</button>'; };
-  el.innerHTML = '<div class="card ini-mural"><div class="card-hd">📌 Mural <span class="sub">o que é seu e pede atenção</span>' +
-      '<button type="button" class="btn btn-o btn-mini" id="lemb-novo" style="margin-left:auto">+ Lembrete</button></div><div class="card-bd">' +
-    (dest.length ? '<div class="mural-destaques">' + dest.map(chip).join('') + '</div>' : '<div class="sub" style="margin-bottom:10px">Nada pedindo atenção agora. 👏</div>') +
-    (aberto === 'lembretes' || aberto === 'guias' ? '<div class="mural-lemb">' + htmlLembretes(lemb, aberto) + '</div>' : '') +
-    (vivos.length ? '<div class="mural-lista">' + vivos.map((r) => '<div class="mural-it' + (r.fixo ? ' fixo' : '') + '"><div class="mural-txt">' + (r.fixo ? '📌 ' : '') + esc(r.texto) +
-      '<div class="sub">' + esc(r.autor_nome || '—') + ' · ' + dataHoraBR(r.criado_em) + (r.expira_em ? ' · até ' + dataBR(r.expira_em) : '') + '</div></div>' +
-      (admin || (E.perfil && r.autor === E.perfil.id) ? '<button type="button" class="btn-etq" data-mural-x="' + r.id + '" title="Apagar recado" aria-label="Apagar recado">×</button>' : '') + '</div>').join('') + '</div>' : '') +
-    '<div class="mural-novo"><textarea id="mural-txt" maxlength="1000" placeholder="Recado para o escritório (ex.: reunião sexta às 14h; feriado municipal na segunda)"></textarea>' +
-      '<div style="display:flex;flex-direction:column;gap:6px">' + (admin ? '<label class="check" style="font-size:12.5px"><input type="checkbox" id="mural-fixo"> Fixar no topo</label>' : '') +
-      '<button type="button" class="btn btn-p btn-mini" id="mural-pub">Publicar</button></div></div></div></div>';
+    return '<button type="button" class="mural-dest ' + d[1] + (aberto === d[0] ? ' ativo' : '') + '" data-mural="' + d[0] + '" title="' + esc(d[4]) + '"' + (d[0] === 'guias' ? ' aria-expanded="' + (aberto === 'guias') + '"' : '') + '>' + d[2] + ' <b>' + n + '</b>' + esc(resto) + '</button>'; };
+  el.innerHTML = '<div class="card ini-mural ini-lemb"><div class="card-hd">📌 Lembretes ' + infoI('lembretes') +
+      '<span class="sub">' + (lemb.vis.length ? plural(lemb.vis.length, 'lembrete', 'lembretes') : 'nenhum lembrete') + '</span>' +
+      '<button type="button" class="btn btn-p btn-mini" id="lemb-novo" style="margin-left:auto">+ Lembrete</button></div><div class="card-bd">' +
+    (dest.length ? '<div class="mural-destaques">' + dest.map(chip).join('') + '</div>' : '') +
+    (aberto === 'guias' ? '<div class="mural-lemb">' + htmlGuias(lemb) + '</div>' : '') +
+    (lemb.vis.length ? '<div class="lemb-lista">' + htmlLembretes(lemb) + '</div>'
+      : '<div class="sub">Nenhum lembrete. Use <b>+ Lembrete</b> para um recado ao escritório (com ou sem data) — dá para fixar no topo e escolher uma cor.</div>') +
+    '</div></div>';
   el.querySelectorAll('[data-mural]').forEach((b) => b.onclick = () => {
     const k = b.dataset.mural;
-    if (k === 'lembretes' || k === 'guias') { cardMural.aberto = aberto === k ? '' : k; cardMural(); }
+    if (k === 'guias') { cardMural.aberto = aberto === k ? '' : k; cardMural(); }
     else if (k === 'avisos') abrirAlertas(null, () => cardMural());
     else if (k === 'crm') { E.crm = Object.assign(E.crm || {}, { aba: 'andamento', vista: 'lista' }); irParaTela('crm'); }
     else { E.tf = Object.assign(E.tf || {}, { vista: 'lista', atalho: k === 'fatais' ? '7' : 'atrasadas', aba: 'abertas' }); irParaTela('tarefas'); }
   });
   ligarLembretes(el, lemb);
   $('lemb-novo').onclick = () => formLembrete();
-  el.querySelectorAll('[data-mural-x]').forEach((b) => b.onclick = () => comBotao(b, async () => {
-    if (!confirm('Apagar este recado?')) return;
-    await q(sb.from('mural').delete().eq('id', b.dataset.muralX)); await cardMural();
-  }));
-  $('mural-pub').onclick = (ev) => comBotao(ev.currentTarget, async () => {
-    const t = $('mural-txt').value.trim(); if (!t) throw new Error('Escreva o recado.');
-    await q(sb.from('mural').insert({ texto: t, fixo: !!($('mural-fixo') && $('mural-fixo').checked) }));
-    aviso('✓ Recado publicado no mural.'); await cardMural();
-  });
 }
 
 // ── Resumo do escritório (Início = "home"): um número por assunto, clicável ──
@@ -345,7 +340,7 @@ async function cardResumoEscritorio() {
   ].filter(Boolean);
   const sub = (l) => '<span class="ini-res-sub' + (l[0] && l[2] ? ' ' + l[2] : '') + '">' + (l[0] == null ? '' : '<b>' + l[0] + '</b> ') + esc(l[1]) + '</span>';
   el.innerHTML = '<div class="kpis-titulo">🏠 Resumo do escritório</div><div class="ini-resumo">' + T.map((t) =>
-    '<button type="button" class="ini-res ' + t[6] + '" data-ini-ir="' + t[0] + '"><span class="ini-res-ic" aria-hidden="true">' + t[1] + '</span>' +
+    '<button type="button" class="ini-res ' + t[6] + '" data-ini-ir="' + t[0] + '"' + (t[0] === 'tarefas' ? ' title="Tarefas do escritório: todas as tarefas abertas da equipe (a sua fila fica mais abaixo)."' : '') + '><span class="ini-res-ic" aria-hidden="true">' + t[1] + '</span>' +
     '<span class="ini-res-tit">' + esc(t[2]) + '</span><b class="ini-res-num">' + t[3] + '</b><span class="ini-res-rot">' + esc(t[4]) + '</span>' +
     (t[5].length ? '<span class="ini-res-subs">' + t[5].map(sub).join('') + '</span>' : '') + '</button>').join('') + '</div>';
   el.querySelectorAll('[data-ini-ir]').forEach((b) => b.onclick = () => {
@@ -356,16 +351,23 @@ async function cardResumoEscritorio() {
 }
 function fimDoMesISO(d) { const x = new Date(d + 'T12:00:00'); return iso(new Date(x.getFullYear(), x.getMonth() + 1, 0)); }
 
-// ── Lembretes: o que NÃO é tarefa (ex.: emitir guias de parcelamentos; recados com data que se repetem) — abrem dentro do mural ──
-function htmlLembretes(L, qual) {
+// ── Lembretes: o que NÃO é tarefa (recado sem prazo, pagar o aluguel, emitir guias de parcelamento) ──
+function htmlGuias(L) {
   const h = hojeISO();
-  if (qual === 'guias') return '<div class="lista-ficha">' + L.semGuia.map((g) => { const p = g.parcelamentos || {};
+  return '<div class="lista-ficha">' + L.semGuia.map((g) => { const p = g.parcelamentos || {};
     return '<div class="item-ficha"><div><b>' + esc(p.empresa || '—') + '</b> <span class="sub">' + esc([p.natureza, p.numero ? 'nº ' + p.numero : '', 'parc. ' + (g.numero || '?') + (p.total_parcelas ? '/' + p.total_parcelas : '')].filter(Boolean).join(' · ')) + '</span>' +
       '<div class="sub">vence ' + dataBR(g.vencimento) + (g.vencimento < h ? ' <span class="pill vencido">vencida</span>' : '') + '</div></div>' +
       '<button type="button" class="btn btn-v btn-mini" data-guia-ok="' + g.id + '">✓ Guia emitida</button></div>'; }).join('') + '</div>';
-  return L.vis.map((l) => '<div class="lemb-it"><div><b>' + esc(l.texto) + '</b><div class="sub">' + (l.dia < h ? '<span class="pill vencido">desde ' + dataBR(l.dia) + '</span>' : l.dia === h ? '<span class="pill hoje">hoje</span>' : dataBR(l.dia)) +
-      (l.repete ? ' · ↻ ' + esc(l.repete) : '') + (l.pessoa ? ' · ' + esc(l.pessoa) : ' · todos') + '</div></div>' +
-    '<div class="acoes-l"><button type="button" class="btn btn-v btn-mini" data-lemb-ok="' + l.id + '">✓ Feito</button><button type="button" class="btn-etq" data-lemb-x="' + l.id + '" title="Apagar lembrete" aria-label="Apagar lembrete">×</button></div></div>').join('');
+}
+function htmlLembretes(L) {
+  const h = hojeISO();
+  return L.vis.map((l) => '<div class="lemb-it' + (l.fixo ? ' fixo' : '') + (l.destaque ? ' dest-' + esc(l.destaque) : '') + '" data-lemb-ed="' + l.id + '" title="Clique para editar">' +
+      '<div class="lemb-txt">' + (l.fixo ? '<span class="lemb-pino" title="Fixado no topo">📌</span> ' : '') + '<span>' + esc(l.texto) + '</span>' +
+      '<div class="sub">' + (!l.dia ? 'sem prazo' : l.dia < h ? '<span class="pill vencido">desde ' + dataBR(l.dia) + '</span>' : l.dia === h ? '<span class="pill hoje">hoje</span>' : dataBR(l.dia)) +
+        (l.repete ? ' · ↻ ' + esc(l.repete) : '') + (l.pessoa ? ' · ' + esc(l.pessoa) : ' · todos') + '</div></div>' +
+    '<div class="acoes-l"><button type="button" class="btn btn-v btn-mini" data-lemb-ok="' + l.id + '">✓ Feito</button>' +
+      '<button type="button" class="btn-etq" data-lemb-fixo="' + l.id + '" title="' + (l.fixo ? 'Tirar do topo' : 'Fixar no topo') + '" aria-label="' + (l.fixo ? 'Tirar do topo' : 'Fixar no topo') + '">📌</button>' +
+      '<button type="button" class="btn-etq" data-lemb-x="' + l.id + '" title="Apagar lembrete" aria-label="Apagar lembrete">×</button></div></div>').join('');
 }
 function ligarLembretes(el, L) {
   const h = hojeISO();
@@ -375,27 +377,41 @@ function ligarLembretes(el, L) {
   el.querySelectorAll('[data-lemb-ok]').forEach((b) => b.onclick = () => comBotao(b, async () => {
     const l = L.vis.find((x) => x.id === b.dataset.lembOk);
     const prox = { semanal: 7, mensal: 'm1', anual: 'm12' }[l.repete];
-    const dados = !l.repete ? { feito_em: h } : { dia: typeof prox === 'number' ? somarDias(l.dia, prox) : somarMeses(l.dia, +prox.slice(1)) };
+    const dados = !l.repete || !l.dia ? { feito_em: h } : { dia: typeof prox === 'number' ? somarDias(l.dia, prox) : somarMeses(l.dia, +prox.slice(1)) };
     await q(sb.from('lembretes').update(dados).eq('id', l.id));
-    aviso(l.repete ? '✓ Feito. Próximo em ' + dataBR(dados.dia) + '.' : '✓ Lembrete concluído.'); await cardMural();
+    aviso(dados.dia ? '✓ Feito. Próximo em ' + dataBR(dados.dia) + '.' : '✓ Lembrete concluído.'); await cardMural();
+  }));
+  el.querySelectorAll('[data-lemb-fixo]').forEach((b) => b.onclick = () => comBotao(b, async () => {
+    const l = L.vis.find((x) => x.id === b.dataset.lembFixo);
+    await q(sb.from('lembretes').update({ fixo: !l.fixo }).eq('id', l.id)); await cardMural();
   }));
   el.querySelectorAll('[data-lemb-x]').forEach((b) => b.onclick = () => comBotao(b, async () => {
     if (!confirm('Apagar este lembrete?')) return;
     await q(sb.from('lembretes').delete().eq('id', b.dataset.lembX)); await cardMural();
   }));
+  el.querySelectorAll('[data-lemb-ed]').forEach((d) => d.onclick = (ev) => { if (ev.target.closest('button')) return; formLembrete(L.vis.find((x) => x.id === d.dataset.lembEd)); });
 }
-function formLembrete() {
-  const j = abrirJanela({ titulo: '🔔 Novo lembrete',
-    corpo: '<div class="dica" style="margin-bottom:10px">Lembrete é um aviso rápido que <b>não vira tarefa</b> (ex.: "pagar o aluguel da sala", "renovar o certificado digital"). ' +
-      'Aparece no Início a partir de 7 dias antes da data.</div><form id="f-lemb" class="grade">' +
-      campo('Lembrete <span class="obrig">*</span>', '<input name="texto" maxlength="300">', 'inteiro') +
-      campo('Data', '<input name="dia" type="date" value="' + hojeISO() + '">') +
-      campo('Repete', '<select name="repete"><option value="">Não repete</option><option value="semanal">Toda semana</option><option value="mensal">Todo mês</option><option value="anual">Todo ano</option></select>') +
-      campo('Para quem', selectPessoa('pessoa', '', 'Todo o escritório')) + '</form>',
+function formLembrete(l) {
+  l = l || null;
+  const semPrazo = l ? !l.dia : false;
+  const j = abrirJanela({ titulo: l ? '📌 Editar lembrete' : '📌 Novo lembrete',
+    corpo: '<div class="dica" style="margin-bottom:10px">Lembrete é um recado que <b>não vira tarefa</b> (ex.: "reunião sexta às 14h", "pagar o aluguel da sala"). ' +
+      '<b>Sem prazo</b>: fica no Início até você marcar "Feito". Com data: aparece a partir de 7 dias antes.</div><form id="f-lemb" class="grade">' +
+      campo('Lembrete <span class="obrig">*</span>', '<input name="texto" maxlength="300" value="' + esc(l ? l.texto : '') + '">', 'inteiro') +
+      campo('Prazo', '<select name="prazo"><option value="data">Com data</option><option value="sem"' + (semPrazo ? ' selected' : '') + '>Sem prazo (fica até "Feito")</option></select>') +
+      campo('Data', '<input name="dia" type="date" value="' + esc(l ? l.dia || '' : hojeISO()) + '"' + (semPrazo ? ' disabled' : '') + '>') +
+      campo('Repete', '<select name="repete"><option value="">Não repete</option>' + [['semanal', 'Toda semana'], ['mensal', 'Todo mês'], ['anual', 'Todo ano']].map(([v, r]) => '<option value="' + v + '"' + (l && l.repete === v ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>') +
+      campo('Para quem', selectPessoa('pessoa', l ? l.pessoa : '', 'Todo o escritório')) +
+      campo('Destaque', '<select name="destaque">' + DESTAQUES_LEMB.map(([v, r]) => '<option value="' + v + '"' + (l && l.destaque === v ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>') +
+      '<label class="check inteiro"><input type="checkbox" name="fixo"' + (l && l.fixo ? ' checked' : '') + '> 📌 Fixar no topo</label></form>',
     rodape: '<span></span><div class="acoes"><button class="btn btn-p" type="button" id="lemb-salvar">Salvar</button></div>' });
+  const f = j.querySelector('#f-lemb');
+  f.prazo.onchange = () => { f.dia.disabled = f.prazo.value === 'sem'; if (!f.dia.disabled && !f.dia.value) f.dia.value = hojeISO(); };
   j.querySelector('#lemb-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
-    const f = j.querySelector('#f-lemb'), t = f.texto.value.trim(); if (!t) throw new Error('Escreva o lembrete.');
-    await q(sb.from('lembretes').insert({ texto: t, dia: f.dia.value || hojeISO(), repete: f.repete.value, pessoa: f.pessoa.value }));
-    aviso('✓ Lembrete criado.'); fecharJanela(j); cardMural.aberto = 'lembretes'; await cardMural();
+    const t = f.texto.value.trim(); if (!t) throw new Error('Escreva o lembrete.');
+    const dados = { texto: t, dia: f.prazo.value === 'sem' ? null : (f.dia.value || hojeISO()), repete: f.prazo.value === 'sem' ? '' : f.repete.value,
+      pessoa: f.pessoa.value, destaque: f.destaque.value, fixo: f.fixo.checked };
+    if (l) await q(sb.from('lembretes').update(dados).eq('id', l.id)); else await q(sb.from('lembretes').insert(dados));
+    aviso(l ? '✓ Lembrete salvo.' : '✓ Lembrete criado.'); fecharJanela(j); await cardMural();
   });
 }

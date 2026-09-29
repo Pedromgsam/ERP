@@ -133,7 +133,6 @@
       else if (alvo.dataset.acao === 'aprovacoes') ir('aprovacoes');
       else if (alvo.dataset.acao === 'meunome') pedirMeuNome(false);
       else if (alvo.dataset.acao === 'cobrancas') abrirCentralEmails('');
-      else if (alvo.dataset.acao === 'cobrancas_antiga') abrirCobrancas('hon');
       else if (alvo.dataset.acao === 'geradores') { if (GS()) GS().janelaGeradores(); }
       else if (alvo.dataset.acao === 'avisos') { if (GS()) GS().janelaMeusAvisos().catch((er) => aviso(erroAmigavel(er), true)); }
       else if (alvo.dataset.ir) ir(alvo.dataset.ir);
@@ -231,7 +230,7 @@
   function botoesCobranca() {
     [['panel-financeiro', 'hon', '✉ Cobrar clientes', true], ['panel-financeiroContab', 'hon', '✉ Cobrar clientes', true], ['panel-parcelamentos', 'parc', '✉ Notificar clientes', false], ['panel-acordos', 'acord', '✉ Notificar clientes', false]]
       .forEach(([pid, aba, rot, recibo]) => {
-        const ban = document.querySelector('#' + pid + ' .mod-banner'); if (!ban || ban.querySelector('.gx-cobrar')) return;
+        const ban = document.querySelector('#' + pid + ' .mod-banner'); if (!ban || document.querySelector('#' + pid + ' .gx-cobrar')) return;
         const d = document.createElement('div'); d.className = 'gx-cobrar gx-so-equipe';
         d.innerHTML = '<button type="button" data-cob="' + aba + '">' + rot + '</button>' + (recibo ? '<button type="button" data-cob="rec">🧾 Recibo</button>' +
           '<button type="button" data-ofx="' + (pid === 'panel-financeiroContab' ? 'contabilidade' : 'escritorio') + '" title="Dar baixa pelos créditos do extrato do banco (arquivo OFX)">🏦 Conciliar extrato</button>' +
@@ -243,18 +242,154 @@
         ban.appendChild(d);
       });
   }
-  // Backup 19: Jurídico segregado em Processos · Parcelamentos · Publicações — abas no topo das três telas
-  function subnavJuridico(id) {
-    const J = (MENU.find((m) => m.rot === 'Jurídico') || {}).itens || [];
-    if (!J.some((x) => x[0] === id)) return;
-    const painel = document.getElementById('panel-' + id); if (!painel) return;
-    let bar = painel.querySelector(':scope > .gx-subnav');
-    if (!bar) { bar = document.createElement('div'); bar.className = 'gx-subnav'; bar.setAttribute('role', 'tablist'); bar.setAttribute('aria-label', 'Jurídico'); painel.insertBefore(bar, painel.firstChild); }
-    bar.innerHTML = '<span class="gx-subnav-t">⚖ Jurídico</span>' + J.filter((x) => permitido(x[2])).map((x) => '<button type="button" role="tab" data-sub="' + x[0] + '" aria-selected="' + (x[0] === id) + '" class="' + (x[0] === id ? 'ativo' : '') + '">' + x[1] + '</button>').join('');
-    bar.querySelectorAll('[data-sub]').forEach((b) => b.onclick = () => { if (b.dataset.sub !== id) ir(b.dataset.sub); });
+  // ═══════ Backup 20: tabelas do ERP antigo no MESMO padrão de Clientes ═══════
+  // "Por grupo" (linha de título com o grupo e quantos cadastros) ou "Lista"; ▸ na frente de cada linha, que abre o detalhe logo abaixo;
+  // filtros discretos (segmentos com fundo azul no escolhido). Vale para Painel → Empresas do grupo e Processos.
+  const _pad = { emp: { visao: 'grupo', tipo: 'ativos', area: '', grupo: '', busca: '' }, proc: { visao: 'grupo' } };
+  const escH = (t) => String(t == null ? '' : t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const normH = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const regDe = (lista, tr) => { const id = (tr.dataset.gx || '').split(':')[1]; return (lista || []).find((x) => x._id === id); };
+  function tabelaPadrao(tbody, o) {
+    const table = tbody && tbody.closest('table'); if (!table) return;
+    const cab = table.querySelector('thead tr:last-child');
+    if (cab && !cab.querySelector('.gx-th-seta')) { const th = document.createElement('th'); th.className = 'gx-th-seta'; th.setAttribute('aria-label', 'Abrir'); cab.insertBefore(th, cab.firstChild); }
+    tbody.querySelectorAll(':scope > tr.gx-grp, :scope > tr.gx-det').forEach((x) => x.remove());
+    const linhas = [...tbody.querySelectorAll(':scope > tr[data-gx]')];
+    linhas.forEach((tr) => {
+      if (!tr.querySelector(':scope > td.gx-seta')) { const td = document.createElement('td'); td.className = 'gx-seta'; td.textContent = '▸'; tr.insertBefore(td, tr.firstChild); }
+      tr.classList.add('gx-linha-exp'); tr.classList.remove('gx-aberta'); tr.setAttribute('aria-expanded', 'false'); tr.tabIndex = 0;
+      tr.hidden = o.filtro ? !o.filtro(tr) : false;
+    });
+    const vazia = tbody.querySelector(':scope > tr:not([data-gx]) td[colspan]'); if (vazia) vazia.colSpan = 50;
+    if (_pad[o.chave].visao === 'grupo') {
+      const ord = linhas.slice().sort((a, b) => (o.grupo(a) || '￿').localeCompare(o.grupo(b) || '￿', 'pt-BR'));
+      ord.forEach((tr) => tbody.appendChild(tr));
+      const vis = ord.filter((tr) => !tr.hidden); let ult = null;
+      vis.forEach((tr) => { const g = o.grupo(tr) || ''; if (g === ult) return; ult = g;
+        const n = vis.filter((x) => (o.grupo(x) || '') === g).length, h = document.createElement('tr');
+        h.className = 'gx-grp'; h.innerHTML = '<td colspan="50">' + escH(g || 'Sem grupo') + ' <span class="sub">' + n + ' ' + (n === 1 ? o.um : o.varios) + '</span></td>'; tr.before(h); });
+    }
+    if (!tbody._gxPad) {
+      tbody._gxPad = true;
+      const abrir = (tr) => {
+        const aberta = tr.classList.contains('gx-aberta');
+        tbody.querySelectorAll(':scope > tr.gx-det').forEach((x) => x.remove());
+        tbody.querySelectorAll(':scope > tr.gx-aberta').forEach((x) => { x.classList.remove('gx-aberta'); x.setAttribute('aria-expanded', 'false'); const s = x.querySelector('.gx-seta'); if (s) s.textContent = '▸'; });
+        if (aberta) return;
+        tr.classList.add('gx-aberta'); tr.setAttribute('aria-expanded', 'true'); const s = tr.querySelector('.gx-seta'); if (s) s.textContent = '▾';
+        const det = document.createElement('tr'); det.className = 'gx-det'; det.innerHTML = '<td colspan="50"><div class="gx-det-corpo">' + tbody._gxDet(tr) + '</div></td>'; tr.after(det);
+        det.querySelectorAll('[data-det-acao]').forEach((b) => b.onclick = () => tbody._gxAcao(b.dataset.detAcao, tr));
+      };
+      tbody.addEventListener('click', (ev) => { const tr = ev.target.closest('tr.gx-linha-exp'); if (!tr || ev.target.closest('button, a, input, select, .gx-la, .lnk, .er-nome')) return; abrir(tr); });
+      tbody.addEventListener('keydown', (ev) => { const tr = ev.target.closest('tr.gx-linha-exp'); if (tr && (ev.key === 'Enter' || ev.key === ' ') && ev.target === tr) { ev.preventDefault(); abrir(tr); } });
+    }
+    tbody._gxDet = o.detalhe; tbody._gxAcao = o.acao || (() => {});
+  }
+  const seg = (id, ops, atual) => '<div class="segmento gx-seg-cli" id="' + id + '">' + ops.map(([v, r]) => '<button type="button" data-v="' + v + '" class="' + (v === atual ? 'ativo' : '') + '">' + r + '</button>').join('') + '</div>';
+  // ── Painel → Empresas do grupo ──
+  const kNeg = (v) => { v = Number(v) || 0; return v >= 1e6 ? (v / 1e6).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' mi' : Math.round(v / 1e3).toLocaleString('pt-BR') + 'k'; };
+  function filtrosEmpresas() {
+    const wrap = document.getElementById('execRankWrap'); if (!wrap || wrap.querySelector('#pe-filtros')) return;
+    const hd = wrap.querySelector('.cc-hd'); if (!hd) return;
+    const F = _pad.emp, grupos = [...new Set((window.DB && DB.baseDados || []).map((r) => r.grupo).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    const d = document.createElement('div'); d.id = 'pe-filtros'; d.className = 'gx-filtros-cli';
+    d.innerHTML = seg('pe-visao', [['grupo', 'Por grupo'], ['lista', 'Lista']], F.visao) +
+      seg('pe-tipo', [['ativos', 'Ativos'], ['Consultoria', 'Consultoria'], ['Demanda', 'Serviço pontual'], ['Inativo', 'Inativos'], ['todos', 'Todos']], F.tipo) +
+      '<select class="fsel" id="pe-area" aria-label="Área"><option value="">Todas as áreas</option><option value="juridico">Jurídico</option><option value="contabil">Contabilidade</option></select>' +
+      '<select class="fsel" id="pe-grupo" aria-label="Grupo"><option value="">Todos os grupos</option>' + grupos.map((g) => '<option>' + escH(g) + '</option>').join('') + '</select>' +
+      '<input type="text" class="fsel" id="pe-busca" placeholder="Buscar nome, grupo, sócio ou CPF/CNPJ" autocomplete="off">';
+    hd.appendChild(d);
+    const re = () => { if (typeof window.renderExecRanking === 'function') window.renderExecRanking(); };
+    d.querySelector('#pe-visao').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.visao = b.dataset.v; d.querySelectorAll('#pe-visao button').forEach((x) => x.classList.toggle('ativo', x === b)); re(); } };
+    d.querySelector('#pe-tipo').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.tipo = b.dataset.v; d.querySelectorAll('#pe-tipo button').forEach((x) => x.classList.toggle('ativo', x === b)); re(); } };
+    d.querySelector('#pe-area').onchange = (ev) => { F.area = ev.target.value; re(); };
+    d.querySelector('#pe-grupo').onchange = (ev) => { F.grupo = ev.target.value; re(); };
+    let t; d.querySelector('#pe-busca').oninput = (ev) => { clearTimeout(t); t = setTimeout(() => { F.busca = ev.target.value; re(); }, 250); };
+  }
+  function padraoEmpresas() {
+    const tb = document.getElementById('tblExecRanking'); if (!tb || ehCliente()) return;
+    filtrosEmpresas();
+    const F = _pad.emp, B = (window.DB && DB.baseDados) || [], cli = GS() && GS().E ? GS().E.clientes || [] : [];
+    const busca = normH(F.busca), dig = String(F.busca || '').replace(/\D/g, '');
+    // valor negociado: "18k neg." (sem caixa alta)
+    tb.querySelectorAll('.tag.tv[title]').forEach((tg) => { const v = Number(String(tg.title).replace(/[^\d,]/g, '').replace(',', '.')); if (v) tg.textContent = kNeg(v) + ' neg.'; });
+    tabelaPadrao(tb, { chave: 'emp', um: 'cadastro', varios: 'cadastros',
+      grupo: (tr) => (regDe(B, tr) || {}).grupo || '',
+      filtro: (tr) => { const r = regDe(B, tr); if (!r) return true; const c = cli.find((x) => x.id === r._id) || {};
+        const tipo = r.tipoCliente || c.tipo || '';
+        if (F.tipo === 'ativos' && tipo === 'Inativo') return false;
+        if (F.tipo !== 'ativos' && F.tipo !== 'todos' && tipo !== F.tipo) return false;
+        if (F.area && (c.area || 'ambos') !== F.area && (c.area || 'ambos') !== 'ambos') return false;
+        if (F.grupo && r.grupo !== F.grupo) return false;
+        if (busca && !(normH([r.nome, r.grupo, r.socioAdmin].join(' ')).includes(busca) || (dig && String(r.cpfCnpj || '').replace(/\D/g, '').includes(dig)))) return false;
+        return true; },
+      detalhe: (tr) => { const r = regDe(B, tr) || {}, M = (v) => (Number(v) ? fBRL(v) : '—');
+        const lin = (o, v, n) => '<tr><td>' + o + '</td><td class="num">' + M(v) + '</td><td class="num">' + (Number(n) ? M(n) : '—') + '</td><td class="num">' + M((Number(v) || 0) + (Number(n) || 0)) + '</td></tr>';
+        return '<div class="gx-det-grade"><div><div class="gx-det-tit">Dívida por órgão</div><table class="gx-leg"><thead><tr><td>Órgão</td><td class="num">Em aberto</td><td class="num">Negociado</td><td class="num">Total</td></tr></thead><tbody>' +
+          lin('RFB', r.rfb, r.rfbNeg) + lin('PGFN', r.pgfn, r.pgfnNeg) + lin('AGE/MG', r.ageMG, r.ageMGNeg) + lin('SEFAZ/MG', r.sefaz, 0) + '</tbody></table>' +
+          (Number(r.ceat) ? '<div class="sub" style="margin-top:6px">CEAT/TRT3: ' + escH(r.ceat) + '</div>' : '') + '</div>' +
+          '<div><div class="gx-det-tit">Cadastro</div><div class="gx-det-dados">' + [['Grupo', r.grupo], ['Sócio', r.socioAdmin], ['CPF/CNPJ', r.cpfCnpj], ['CAPAG', r.capag], ['Situação', r.sitCadastral], ['Regime', r.regimeTrib]]
+            .filter((x) => x[1]).map((x) => '<div><span>' + x[0] + '</span><b>' + escH(x[1]) + '</b></div>').join('') + '</div></div></div>' +
+          '<div class="gx-det-acoes"><button type="button" class="btn-m" data-det-acao="ficha">Abrir ficha completa</button><button type="button" class="btn-m" data-det-acao="empresa">Ver processos e parcelamentos</button></div>'; },
+      acao: (a, tr) => { const r = regDe(B, tr) || {};
+        if (a === 'ficha' && GS() && GS().abrirFicha) Promise.resolve(GS().carregarCadastros()).then(() => GS().abrirFicha(r._id));
+        if (a === 'empresa' && typeof window.goEmpresa === 'function') window.goEmpresa(r.nome); } });
+  }
+  // ── Processos ──
+  function padraoProcessos() {
+    const tb = document.getElementById('tblProcBody'); if (!tb || ehCliente()) return;
+    const hd = document.querySelector('#panel-processos .cc-hd > div:last-child');
+    if (hd && !document.getElementById('pr-visao')) {
+      const d = document.createElement('div'); d.innerHTML = seg('pr-visao', [['grupo', 'Por grupo'], ['lista', 'Lista']], _pad.proc.visao);
+      const sv = d.firstChild; hd.insertBefore(sv, hd.firstChild);
+      sv.onclick = (ev) => { const b = ev.target.closest('button'); if (b) { _pad.proc.visao = b.dataset.v; sv.querySelectorAll('button').forEach((x) => x.classList.toggle('ativo', x === b)); if (typeof window.renderProcTbl === 'function') window.renderProcTbl(); } };
+      // Ativos · Arquivados · Extintos juntos, no mesmo desenho dos filtros de Clientes
+      const chips = [...hd.querySelectorAll('.chip')]; if (chips.length) { const box = document.createElement('div'); box.className = 'segmento gx-seg-cli gx-seg-chips'; chips[0].before(box); chips.forEach((c) => box.appendChild(c)); }
+    }
+    const P = (window.DB && DB.processos) || [];
+    tabelaPadrao(tb, { chave: 'proc', um: 'processo', varios: 'processos',
+      grupo: (tr) => (regDe(P, tr) || {}).grupo || '',
+      detalhe: (tr) => { const p = regDe(P, tr) || {};
+        return '<div class="gx-det-grade"><div><div class="gx-det-tit">Processo</div><div class="gx-det-dados">' +
+          [['Nº', p.numero], ['Grupo', p.grupo], ['Competência', p.competencia], ['Natureza', p.natureza], ['Autor', String(p.autor || '').replace(/;\s*/g, ' · ')], ['Réu', String(p.reu || '').replace(/;\s*/g, ' · ')]]
+            .filter((x) => x[1]).map((x) => '<div><span>' + x[0] + '</span><b>' + escH(x[1]) + '</b></div>').join('') + '</div></div>' +
+          '<div><div class="gx-det-tit">Andamento</div><div class="gx-det-dados">' +
+          [['Valor da causa', p.valor ? fBRL(p.valor) : ''], ['Situação', p.statusOriginal], ['Distribuição', p.dataDistrib], ['Última atualização', p.atualizacao], ['Advogado', p.advogado], ['Procuração', p.procuracao], ['Prescrição', p.prescricao]]
+            .filter((x) => x[1]).map((x) => '<div><span>' + x[0] + '</span><b>' + escH(x[1]) + '</b></div>').join('') + '</div>' +
+          (p.obs ? '<div class="sub" style="margin-top:8px;white-space:pre-wrap">' + escH(p.obs) + '</div>' : '') + '</div></div>' +
+          '<div class="gx-det-acoes"><button type="button" class="btn-m" data-det-acao="editar">✎ Editar processo</button></div>'; },
+      acao: (a, tr) => { if (a === 'editar' && window.ERP_EDITAR) window.ERP_EDITAR(tr.dataset.gx); } });
+  }
+  const fBRL = (v) => (Number(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  // ═══════ Backup 20: sem o cartão de título no topo; botões e alertas vão para junto do conteúdo ═══════
+  // Financeiro: à direita das abas (Análise, A receber…). Acordos/Parcelamentos: no canto de cima da "Situação".
+  function acoesNoLugar() {
+    [['panel-financeiro', 'finTabBar'], ['panel-financeiroContab', 'finCTabBar']].forEach(([pid, bar]) => {
+      const tb = document.getElementById(bar), painel = document.getElementById(pid); if (!tb || !painel) return;
+      let dir = tb.querySelector(':scope > .gx-tabbar-dir'); if (!dir) { dir = document.createElement('div'); dir.className = 'gx-tabbar-dir'; tb.appendChild(dir); }
+      painel.querySelectorAll(':scope > .mod-banner [id^="alertFin"], :scope > .mod-banner .gx-cobrar').forEach((x) => dir.appendChild(x));
+    });
+  }
+  function devolverAoBanner(pid) {
+    const ban = document.querySelector('#' + pid + ' > .mod-banner'); if (!ban) return;
+    document.querySelectorAll('#' + pid + ' .gx-bn-dir > *').forEach((x) => ban.appendChild(x));
+  }
+  function acoesNaSituacao(pid, bloco) {
+    const ex = document.getElementById(bloco), ban = document.querySelector('#' + pid + ' > .mod-banner'); if (!ex || !ban) return;
+    let dir = ex.querySelector(':scope > .gx-bn-dir'); if (!dir) { dir = document.createElement('div'); dir.className = 'gx-bn-dir'; ex.insertBefore(dir, ex.firstChild); }
+    ban.querySelectorAll('[id^="alert"], .gx-cobrar').forEach((x) => dir.appendChild(x));
   }
   function instalarGanchos() {
     botoesCobranca();
+    // Backup 20: Painel (Empresas do grupo) e Processos no padrão de Clientes — redesenha junto com a tabela do ERP
+    [['renderExecRanking', padraoEmpresas], ['renderProcTbl', padraoProcessos],
+     ['renderAcordos', () => acoesNaSituacao('panel-acordos', 'exAcSit'), () => devolverAoBanner('panel-acordos')],
+     ['renderParcelamentos', () => acoesNaSituacao('panel-parcelamentos', 'exParcSit'), () => devolverAoBanner('panel-parcelamentos')],
+     ['renderParcAnalise', () => acoesNaSituacao('panel-parcelamentos', 'exParcSit'), () => devolverAoBanner('panel-parcelamentos')]].forEach(([nome, fn, antes]) => {
+      const orig = window[nome]; if (typeof orig !== 'function') return;
+      window[nome] = function () { if (antes) antes(); const r = orig.apply(this, arguments); try { fn(); } catch (e) { console.warn('[ERP] ' + nome + ':', e); } return r; };
+    });
+    acoesNoLugar();
     // aba do Financeiro marcada no próprio conteúdo (o CSS esconde gráficos repetidos só nas abas de lista)
     ['setFinTab', 'setFinCTab'].forEach((nome) => {
       const orig = window[nome]; if (typeof orig !== 'function') return;
@@ -276,7 +411,7 @@
         if (!history.state || !history.state.tela) history.replaceState(est, '', '#' + id);
         else if (history.state.tela !== id) history.pushState(est, '', '#' + id);
       }
-      _painel = id; destacar(id); subnavJuridico(id);
+      _painel = id; destacar(id);
       if (id) document.body.dataset.painel = id;
       document.body.classList.toggle('gx-tela-nova', !!TELAS_GS[id]);
       if (TELAS_GS[id]) desenharGS(id);

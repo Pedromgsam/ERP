@@ -251,8 +251,8 @@ body.gx-barra-topo #tblExecRanking .er-grupo{background:none!important;border:0!
 body.gx-barra-topo .tw td:has(.er-grupo){min-width:0;width:auto}
 body.gx-barra-topo #tblExecRanking .er-nome,body.gx-barra-topo #tblExecRanking .er-socio,body.gx-barra-topo #tblExecRanking .er-socio b{text-transform:uppercase!important;font-weight:400!important}
 body.gx-barra-topo #tblExecRanking .capag.capag-O{text-transform:none!important}
-body.gx-barra-topo #tblExecRanking td:nth-child(10) .tag{display:inline-block!important;text-transform:lowercase!important}
-body.gx-barra-topo #tblExecRanking td:nth-child(10) .tag::first-letter{text-transform:uppercase}
+body.gx-barra-topo #tblExecRanking td:nth-child(11) .tag{display:inline-block!important;text-transform:lowercase!important}
+body.gx-barra-topo #tblExecRanking td:nth-child(11) .tag::first-letter{text-transform:uppercase}
 /* Clientes: nomes em CAIXA ALTA, sem negrito */
 body.gx-barra-topo .gs .cli-tabela .cli-nome,body.gx-barra-topo .gs .cli-tabela .cli-socio,body.gx-barra-topo .gs .cli-tabela .cli-grupo,body.gx-barra-topo .gs .cli-tabela tr.cli-grp td{text-transform:uppercase;letter-spacing:.01em}
 body.gx-barra-topo .gs .cli-tabela .cli-nome{font-weight:400;color:var(--ink)}
@@ -306,3 +306,124 @@ body.gx-barra-topo .gs .al-rotina .al-pt{animation:none}
 .gx-subnav button.ativo{color:var(--ink);font-weight:600;border-bottom-color:var(--navy3)}
 @media (max-width:600px){.gx-painel-gs>.gx-subnav{margin:12px 12px 0}}
 body.gx-barra-topo .gs .al-feed .al-card.al-linha.al-atencao:not(.al-chip){border-left:0!important}
+
+/* ═══ Backup 20 ═══ */
+/* explicação ao passar o mouse (ⓘ) */
+.info-i{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;font:600 11px var(--font-ui);color:var(--text3);cursor:help;vertical-align:1px;margin-left:2px}
+.info-i:hover,.info-i:focus{color:var(--navy3);outline:none}
+/* Início: lembretes no topo, com destaque de cor e fixos */
+body.gx-barra-topo .gs .ini-lemb .card-hd{gap:8px}
+body.gx-barra-topo .gs .lemb-lista{display:flex;flex-direction:column;gap:6px}
+body.gx-barra-topo .gs .lemb-it{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--border);border-left:3px solid var(--border-strong);border-radius:var(--r-ctl);background:var(--surface);cursor:pointer}
+body.gx-barra-topo .gs .lemb-it:hover{background:var(--hover)}
+body.gx-barra-topo .gs .lemb-it.fixo{background:var(--surface2)}
+body.gx-barra-topo .gs .lemb-it .lemb-txt{min-width:0;font-size:14px;color:var(--ink)}
+body.gx-barra-topo .gs .lemb-it.dest-vermelho{border-left-color:var(--red);background:var(--red-lt)}
+body.gx-barra-topo .gs .lemb-it.dest-amarelo{border-left-color:var(--amber);background:var(--amber-lt)}
+body.gx-barra-topo .gs .lemb-it.dest-verde{border-left-color:var(--green);background:var(--green-lt)}
+body.gx-barra-topo .gs .lemb-it.dest-azul{border-left-color:var(--blue);background:var(--blue-lt)}
+body.gx-barra-topo .gs .lemb-it.dest-roxo{border-left-color:var(--violet);background:var(--violet-lt)}
+body.gx-barra-topo .gs .lemb-it .acoes-l{display:flex;gap:4px;align-items:center}
+body.gx-barra-topo .gs .ini-lemb .mural-destaques{margin-bottom:12px}
+/* Início: honorários com o mês no título; recebido verde, atraso vermelho */
+body.gx-barra-topo .gs .ini-fin-tit .ini-mes{font-weight:700;color:var(--ink);letter-spacing:.04em;margin-left:6px;padding-left:8px;border-left:1px solid var(--border-strong)}
+body.gx-barra-topo .gs .ini-fin .kpi.verde .kpi-v{color:var(--green-d)!important}
+body.gx-barra-topo .gs .ini-fin .kpi.vermelho .kpi-v{color:var(--red-d)!important}
+/* Atrasados: alerta vermelho sutil */
+body.gx-barra-topo .gs .ini-atraso-card.tem-atraso{border-top:2px solid var(--red)!important}
+body.gx-barra-topo .gs .ini-alerta{color:var(--red);font-size:11px;margin-right:6px;vertical-align:1px}
+/* tabela padrão de pagamento: atraso em vermelho, vencimento vencido em vermelho, baixa em lote */
+.atraso-d{color:var(--red-d);font-weight:700;white-space:nowrap}
+.atraso-perto{color:var(--amber-d);font-weight:600;white-space:nowrap}
+.venc-atraso{color:var(--red-d)!important;font-weight:600}
+body.gx-barra-topo .th-lote,body.gx-barra-topo .td-lote{width:34px;text-align:center}
+body.gx-barra-topo .td-lote input,body.gx-barra-topo .th-lote input{width:16px;height:16px;cursor:pointer;accent-color:var(--navy3)}
+.lote-barra{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 12px;margin:0 0 8px;border:1px solid var(--blue-bd);background:var(--blue-lt);border-radius:var(--r-ctl);font-size:13px;color:var(--ink)}
+.lote-barra[hidden]{display:none}
+.lote-barra .lote-txt{margin-right:auto}
+
+/* ── Backup 20: telas do ERP sem o cartão de título; botões e alertas junto do conteúdo ── */
+#panel-processos > .mod-banner,#panel-acordos > .mod-banner,#panel-parcelamentos > .mod-banner,#panel-financeiro > .mod-banner,#panel-financeiroContab > .mod-banner{display:none!important}
+.gx-tabbar-dir{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+body.gx-barra-topo .gx-cobrar{display:flex;gap:6px;flex-wrap:wrap;margin-left:0}
+body.gx-barra-topo .gx-cobrar button{border:1px solid var(--border-strong);background:var(--surface);color:var(--text);border-radius:var(--r-ctl);padding:6px 11px;font:600 12.5px var(--font-ui);cursor:pointer}
+body.gx-barra-topo .gx-cobrar button:hover{background:var(--surface3)}
+body.gx-barra-topo .ex-bn{position:relative}
+.gx-bn-dir{position:absolute;top:16px;right:20px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end;z-index:2;max-width:62%}
+body.gx-barra-topo .ex-bn:has(> .gx-bn-dir) > .ex-tg{width:auto;max-width:36%}
+.gx-bn-dir [id^="alert"]{display:flex;gap:6px;flex-wrap:wrap}
+@media (max-width:760px){.gx-bn-dir{position:static;max-width:none;margin:0 0 10px}}
+/* ── filtros no desenho de Clientes: discretos, fundo azul no escolhido ── */
+.gx-seg-cli{display:inline-flex;flex-wrap:wrap;gap:2px;border:1px solid var(--border-strong);border-radius:var(--r-ctl);padding:2px;background:var(--surface);align-items:center}
+.gx-seg-cli button,.gx-seg-cli .chip{background:none!important;border:0!important;box-shadow:none!important;padding:5px 12px!important;border-radius:var(--radius-xs)!important;font:500 12.5px var(--font-ui)!important;color:var(--text2)!important;cursor:pointer;transform:none!important}
+.gx-seg-cli button:hover,.gx-seg-cli .chip:hover{background:var(--surface3)!important}
+.gx-seg-cli button.ativo,.gx-seg-cli .chip.on{background:var(--selecao)!important;color:var(--on-selecao)!important}
+.gx-filtros-cli{display:flex;flex-wrap:wrap;gap:8px;align-items:center;width:100%;margin-top:10px}
+body.gx-barra-topo :is(.gx-filtros-cli,#panel-processos .cc-hd) :is(select.fsel,input.fsel){height:34px;border:1px solid var(--border-strong)!important;border-radius:var(--r-ctl)!important;background-color:var(--surface)!important;color:var(--ink)!important;font:13px var(--font-ui)!important;padding:6px 10px!important;max-width:240px}
+body.gx-barra-topo .gx-filtros-cli input.fsel{flex:1 1 240px;max-width:360px}
+#execRankWrap > .cc-hd > div:nth-child(2):not(#pe-filtros){display:none!important}
+/* abas do Financeiro (Análise, A receber…): sublinhadas; filtros de período: segmento */
+body.gx-barra-topo :is(#finTabBar,#finCTabBar){border-bottom:1px solid var(--line);gap:2px!important;align-items:flex-end!important}
+body.gx-barra-topo :is(#finTabBar,#finCTabBar) .fin-tab{background:none!important;border:0!important;border-bottom:2px solid transparent!important;border-radius:0!important;color:var(--text3)!important;padding:9px 14px!important;font-weight:500!important;box-shadow:none!important;margin-bottom:-1px}
+body.gx-barra-topo :is(#finTabBar,#finCTabBar) .fin-tab.active{color:var(--ink)!important;border-bottom-color:var(--navy3)!important;font-weight:600!important;background:none!important}
+body.gx-barra-topo :is(#finTabBar,#finCTabBar) .gx-tabbar-dir{margin-bottom:6px}
+body.gx-barra-topo div:has(> .fin-tab):not(#finTabBar):not(#finCTabBar){display:inline-flex!important;flex-wrap:wrap;gap:2px!important;border:1px solid var(--border-strong);border-radius:var(--r-ctl);padding:2px!important;background:var(--surface);align-items:center}
+body.gx-barra-topo div:not(#finTabBar):not(#finCTabBar) > .fin-tab{border:0!important;background:none!important;border-radius:var(--radius-xs)!important;padding:5px 12px!important;color:var(--text2)!important;font:500 12.5px var(--font-ui)!important}
+body.gx-barra-topo div:not(#finTabBar):not(#finCTabBar) > .fin-tab:hover{background:var(--surface3)!important}
+body.gx-barra-topo :is(#finContent,#finCContent,#panel-parcelamentos,#panel-acordos,div) div:not(#finTabBar):not(#finCTabBar) > .fin-tab.active{background:var(--selecao)!important;color:var(--on-selecao)!important}
+body.gx-barra-topo div:has(> .fin-tab) > select.fsel{border:0!important;background-color:transparent!important}
+body.gx-barra-topo .fa-chip:not(.fa-chip-p){background:var(--surface)!important;border:1px solid var(--border-strong)!important;color:var(--text2)!important;border-radius:var(--r-ctl)!important;font-weight:500!important}
+body.gx-barra-topo .fa-chip.on:not(.fa-chip-p),body.gx-barra-topo .fa-aplicar{background:var(--selecao)!important;border-color:var(--selecao)!important;color:var(--on-selecao)!important}
+/* Financeiro: sem "Ano passado", sem o campo mm/aaaa e sem CSV; recebidos/prejuízo sem os cartões repetidos da Análise */
+.fa-chip[data-preset="anoant"],.fa-dtwrap:has(> .fa-mes),.fa-chip[onclick*="CSV"]{display:none!important}
+:is(#finContent,#finCContent):is([data-aba=recebidos],[data-aba=prejuizo],[data-aba=receita]) .kpi-grid{display:none!important}
+/* números: recebido/pago em verde, atraso em vermelho (Início, Acordos, Parcelamentos, Financeiro) */
+body.gx-barra-topo .kv.dg{color:var(--green-d)!important}
+body.gx-barra-topo .kv.dr{color:var(--red-d)!important}
+/* ── tabela no padrão de Clientes: por grupo, ▸ que abre o detalhe ── */
+body.gx-barra-topo th.gx-th-seta,body.gx-barra-topo td.gx-seta{width:30px;text-align:center;padding-left:8px!important;padding-right:0!important}
+body.gx-barra-topo td.gx-seta{color:var(--text3);font-size:12px}
+body.gx-barra-topo tr.gx-linha-exp{cursor:pointer}
+body.gx-barra-topo tr.gx-linha-exp:focus-visible{outline:2px solid var(--navy3);outline-offset:-2px}
+body.gx-barra-topo tr.gx-grp td{background:var(--surface2)!important;color:var(--ink)!important;font:700 13px var(--font-ui)!important;text-transform:uppercase;letter-spacing:.01em;padding:9px 12px!important}
+body.gx-barra-topo tr.gx-grp td .sub{text-transform:none;font-weight:500;margin-left:6px;color:var(--text3)}
+body.gx-barra-topo tr.gx-aberta > td{background:var(--surface2)!important}
+body.gx-barra-topo tr.gx-det > td{background:var(--surface2)!important;padding:0!important;border-bottom:1px solid var(--line)!important}
+.gx-det-corpo{padding:14px 18px 16px;font-family:var(--font-ui)}
+.gx-det-grade{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px 28px}
+.gx-det-tit{font:700 10.5px var(--font-ui);letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:6px}
+.gx-det-dados > div{display:flex;justify-content:space-between;gap:12px;padding:5px 0;border-bottom:1px solid var(--line);font-size:13px}
+.gx-det-dados span{color:var(--text3)}
+.gx-det-dados b{font-weight:500;color:var(--ink);text-align:right;overflow-wrap:anywhere}
+.gx-det-acoes{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+.gx-det-acoes .btn-m{border:1px solid var(--border-strong);background:var(--surface);color:var(--text);border-radius:var(--r-ctl);padding:6px 12px;font:600 12.5px var(--font-ui);cursor:pointer}
+.gx-det-acoes .btn-m:first-child{background:var(--primario);border-color:var(--primario);color:var(--on-primario)}
+/* Painel → Empresas do grupo: nome em caixa alta; "Sócio:" embaixo, menor e cinza; negociado "18k neg." */
+body.gx-barra-topo #tblExecRanking .er-socio,body.gx-barra-topo #tblExecRanking .er-socio b{text-transform:none!important;color:var(--text3)!important;font-size:11.5px!important;font-weight:400!important}
+body.gx-barra-topo #tblExecRanking .tag.tv{text-transform:none!important;font-size:10.5px!important}
+/* ── Acordos: acordo com mais espaço; aberto vira um cartão destacado com as parcelas dentro ── */
+body.gx-barra-topo .acx-hd,body.gx-barra-topo .acx-row{grid-template-columns:minmax(260px,2.2fr) minmax(220px,1.4fr) minmax(110px,.6fr) minmax(110px,.6fr) 22px}
+body.gx-barra-topo .acx-item.acx-aberto{margin:8px 10px;border:1px solid var(--border-strong)!important;border-left:3px solid var(--navy3)!important;border-radius:var(--card-r);box-shadow:var(--shadow-md);overflow:hidden}
+body.gx-barra-topo .acx-item.acx-aberto .acx-row{background:var(--surface2)}
+body.gx-barra-topo .acx-item.acx-aberto .acx-det{background:var(--surface)!important;border-top:1px solid var(--line)!important}
+body.gx-barra-topo #parcProgressList .pc-item.pc-aberto{border:1px solid var(--border-strong)!important;border-left:3px solid var(--navy3)!important;box-shadow:var(--shadow-md)}
+@media (max-width:900px){body.gx-barra-topo .acx-row{grid-template-columns:1fr auto}}
+/* Acordos → Saldo por devedor: lista enxuta no lugar do gráfico */
+.gx-rank{width:100%;border-collapse:collapse;font:13px var(--font-ui)}
+.gx-rank td{padding:8px 8px!important;border-bottom:1px solid var(--line);color:var(--text)}
+.gx-rank .gx-rank-n{width:32%;color:var(--ink)}
+.gx-rank .gx-rank-b{width:38%}
+.gx-rank .gx-rank-b span{display:block;height:8px;border-radius:99px;background:var(--chart-rampa-2);min-width:2px}
+.gx-rank td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.gx-rank tfoot td{font-weight:700;color:var(--ink);border-bottom:0}
+/* ── pílulas no desenho do Painel (contorno leve); sim/não neutros ── */
+body.gx-barra-topo .gs .pill{border:1px solid var(--border)}
+body.gx-barra-topo .gs .pill.pago,body.gx-barra-topo .gs .pill.receita{border-color:var(--green-bd)}
+body.gx-barra-topo .gs .pill.vencido,body.gx-barra-topo .gs .pill.despesa{border-color:var(--red-bd)}
+body.gx-barra-topo .gs .pill.hoje,body.gx-barra-topo .gs .pill.perda{border-color:var(--amber-border)}
+body.gx-barra-topo .gs .pill.aberto{border-color:var(--blue-bd)}
+body.gx-barra-topo .gs .pill.pill-sim{color:var(--ink);font-weight:600}
+/* ── tabelas com cantos arredondados em todas as telas ── */
+body.gx-barra-topo .gs .card:has(.tabela-wrap){overflow:hidden}
+body.gx-barra-topo .gs .tabela-wrap{border-radius:inherit}
+body.gx-barra-topo .gx-tab-gs .tabela-wrap{border-radius:var(--card-r-sm)}

@@ -286,3 +286,25 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
 - **Tabelas:** cabeçalho azul-marinho de novo; sem a bolinha antes do título dos cartões.
 - **Usuários:** a conta nova já nasce liberada (não precisa clicar no link de confirmação). Para quem já foi criado: Administração →
   Usuários → **✓ Liberar entrada**.
+
+## Backup 20 — tudo no mesmo padrão (tem SQL novo)
+Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+Shift+R**. Nenhuma função do Supabase mudou.
+- **Início:** saíram "+ Receita / + Despesa / + Contrato" (use **+ Lançar**). O **Recado** acabou: virou **📌 Lembretes**, sempre à vista
+  no topo. Lembrete pode ser **sem prazo** (fica até "Feito"), **📌 fixo no topo** e ter **cor de destaque**. Os recados que estavam no
+  mural foram copiados para os lembretes pelo SQL. Honorários **Jurídico** e **Contabilidade** com o mês no título, na ordem
+  recebido (verde) · a receber · a pagar · em atraso (vermelho). "Atrasados" com um alerta vermelho discreto e baixa em lote.
+- **ⓘ ao lado de Avisos, Tarefas, Minha fila e Lembretes:** pare o mouse em cima para ver a diferença entre eles.
+- **Tabelas de pagamento (Início, Financeiro):** Quem · Grupo · Descrição · Valor · Vencimento · Atraso (em vermelho) · ações.
+  **Baixa em lote:** marque as caixinhas → "✓ Dar baixa nos marcados". **PIX copia e cola:** botão **PIX** na linha (valor já
+  preenchido); o e-mail de cobrança também leva o código. Para funcionar, preencha a **chave PIX, o titular e a cidade** em
+  Central de e-mails → Configuração do envio → Dados para pagamento.
+- **Painel → Empresas do grupo e Processos:** iguais a Clientes — agrupados por grupo (com a contagem), **▸** abre o detalhe,
+  filtros no mesmo desenho (fundo azul no escolhido). Negociado aparece como "18k neg.". Os filtros antigos saíram.
+- **Processos, Acordos, Parcelamentos e Financeiro:** sem o cartão de título. Os alertas (vencidos) e os botões (Cobrar/Notificar,
+  Recibo, Conciliar, Editar em tabela) foram para a direita das abas ou do quadro "Situação".
+- **Acordos:** já pago em verde, em atraso em vermelho; coluna do acordo mais larga; o acordo aberto vira um cartão; o gráfico
+  gigante "Saldo por devedor" virou uma lista com barrinhas e total.
+- **Financeiro:** sem "Ano passado", sem o campo mm/aaaa e sem CSV nos filtros; Recebidos e Prejuízo sem os cartões repetidos;
+  "Em atraso" com ▲ vermelho e no padrão novo.
+- **Clientes/Contratos:** tabelas com cantos arredondados; pílulas no desenho do Painel; "Sim" neutro (nem verde nem vermelho).
+- **Saiu:** a tela antiga de Cobranças (o 🧾 Recibo continua funcionando).

@@ -120,8 +120,9 @@ body.gx-barra-topo .tw td>.tag.tn,body.gx-barra-topo .tw td .er-grupo{display:in
 /* (só nas abas de LISTA: Composição de Caixa, Distribuição e Análise mantêm os gráficos) */
 :is(#finContent,#finCContent):is([data-aba=receber],[data-aba=recebidos],[data-aba=prejuizo],[data-aba=receita],[data-aba=apagar],[data-aba=despesa])>:is(.ex-bn,.cc:has(canvas)){display:none!important}
 /* Processos: Atualização e Procuração saem da lista (continuam no Editar) */
-#panel-processos .tw th:nth-child(8),#panel-processos .tw td:nth-child(8),
-#panel-processos .tw th:nth-child(9),#panel-processos .tw td:nth-child(9){display:none}
+/* (Backup 20: a 1ª coluna agora é o ▸ que abre o detalhe, por isso 9 e 10) */
+#panel-processos .tw th:nth-child(9),#panel-processos .tw td:nth-child(9),
+#panel-processos .tw th:nth-child(10),#panel-processos .tw td:nth-child(10){display:none}
 /* sino de avisos */
 #gs-hd #gs-tema{background:var(--veu-2);border:0;border-radius:8px;padding:5px 8px;cursor:pointer;font-size:15px;line-height:1;margin-right:2px;color:var(--on-cor)}
 #gs-hd #gs-tema:hover{background:var(--veu-3)}
