@@ -349,21 +349,42 @@
   // ═════ modo escuro nos gráficos: texto escuro vira claro, grade preta vira branca (e volta) ═════
   function temaEscuro() { return document.documentElement.getAttribute('data-tema') === 'escuro'; }
   window.ERP_TEMA_ESCURO = temaEscuro;
-  function lum(c) {
-    const m = String(c || '').match(/^#([0-9a-f]{6})$/i) || null;
-    if (m) { const n = parseInt(m[1], 16); return ((n >> 16) * 0.299 + ((n >> 8) & 255) * 0.587 + (n & 255) * 0.114) / 255; }
-    const r = String(c || '').match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/); return r ? (r[1] * 0.299 + r[2] * 0.587 + r[3] * 0.114) / 255 : 1;
+  // Backup 18: cores dos gráficos vêm dos tokens (--chart-*), lidas na hora de desenhar (o canvas não entende var())
+  const tok = (n) => getComputedStyle(document.documentElement).getPropertyValue('--' + n).trim();
+  window.ERP_TOKEN = tok;
+  function rgbaDe(c) {
+    let m = String(c).match(/^#([0-9a-f]{6})([0-9a-f]{2})?$/i);
+    if (m) { const n = parseInt(m[1], 16); return [n >> 16, (n >> 8) & 255, n & 255, m[2] ? parseInt(m[2], 16) / 255 : 1]; }
+    m = String(c).match(/^#([0-9a-f]{3})$/i);
+    if (m) return m[1].split('').map((x) => parseInt(x + x, 16)).concat([1]);
+    m = String(c).match(/rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*(?:,\s*([\d.]+)\s*)?\)/);
+    return m ? [+m[1], +m[2], +m[3], m[4] === undefined ? 1 : +m[4]] : null;
   }
-  function misturar(a, b, t) {
-    const x = parseInt(a.slice(1), 16), y = parseInt(b.slice(1), 16);
-    const c = (sh) => Math.round(((x >> sh) & 255) * (1 - t) + ((y >> sh) & 255) * t);
-    return '#' + [16, 8, 0].map((sh) => c(sh).toString(16).padStart(2, '0')).join('');
+  function comAlfa(cor, a) { const x = rgbaDe(cor); return !x || a >= 1 ? cor : 'rgba(' + x[0] + ',' + x[1] + ',' + x[2] + ',' + (+a.toFixed(3)) + ')'; }
+  // cor fixa do gráfico → nome do token do mesmo matiz (rampa azul para barras; categórica para roscas)
+  function tokenDaCor(c, categorica) {
+    if (typeof c !== 'string') return null;
+    if (/^(#fff|#ffffff|white)$/i.test(c)) return 'chart-borda';
+    const x = rgbaDe(c); if (!x) return null;
+    const r = x[0] / 255, g = x[1] / 255, b = x[2] / 255, mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2;
+    let h = 0, sat = 0;
+    if (mx !== mn) { const d = mx - mn; sat = l > 0.5 ? d / (2 - mx - mn) : d / (mx + mn); h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; h *= 60; }
+    if (sat < 0.15) return l > 0.85 ? 'chart-rampa-5' : 'chart-7';
+    if (h >= 200 && h < 250) return categorica ? 'chart-1' : 'chart-rampa-' + (l < 0.25 ? 1 : l < 0.45 ? 2 : l < 0.62 ? 3 : l < 0.8 ? 4 : 5);
+    if (h >= 170 && h < 200) return 'chart-6';
+    if (h >= 80 && h < 170) return 'chart-2';
+    if (h >= 42 && h < 80) return 'chart-8';
+    if (h >= 15 && h < 42) return 'chart-3';
+    if (h >= 250 && h < 300) return 'chart-4';
+    return 'chart-5';
   }
-  function corTema(c, grade) {
-    if (typeof c !== 'string') return c;
-    if (grade) return /rgba\(0,\s*0,\s*0,/.test(c) ? c.replace(/rgba\(0,\s*0,\s*0,\s*([\d.]+)\)/, (x, a) => 'rgba(255,255,255,' + Math.min(0.14, +a * 2) + ')') : c;
-    return lum(c) < 0.5 ? '#C3CCDB' : c;
+  function corDoToken(c, categorica) {
+    const n = tokenDaCor(c, categorica), t = n && tok(n);
+    if (!t) return c;
+    const x = rgbaDe(c); return n === 'chart-borda' || !x ? t : comAlfa(t, x[3]);
   }
+  // legenda feita em HTML (rosca do Painel/Parcelamentos/Acordos): mesma cor, e troca sozinha no modo escuro
+  window.ERP_COR_LEGENDA = (c) => { const n = tokenDaCor(c, true); return n ? 'var(--' + n + ')' : String(c).slice(0, 7); };
   const CAMINHOS = (o) => {
     const out = [];
     Object.values((o && o.scales) || {}).forEach((sc) => { if (sc.ticks) out.push([sc.ticks, 'color', false]); if (sc.grid) out.push([sc.grid, 'color', true]); if (sc.title) out.push([sc.title, 'color', false]); });
@@ -372,21 +393,20 @@
   };
   const pluginTema = { id: 'gxTema', beforeUpdate(ch) {
     const o = ch.config.options; if (!o) return;
-    if (!ch.$gxOrig) ch.$gxOrig = CAMINHOS(o).map(([obj, k]) => [obj, k, obj[k]]);
-    ch.$gxOrig.forEach(([obj, k, v], i) => { const grade = CAMINHOS(o)[i] && CAMINHOS(o)[i][2]; obj[k] = temaEscuro() ? corTema(v, grade) : v; });
-    // barras muito escuras (rampa azul) clareiam; borda branca de rosca vira a cor do cartão
-    const clarear = (c) => (typeof c === 'string' && /^#[0-9a-f]{6}([0-9a-f]{2})?$/i.test(c) && lum(c.slice(0, 7)) < 0.3 ? misturar(c.slice(0, 7), '#ffffff', 0.42) + c.slice(7) : c);
-    const clarearTodos = (v) => (Array.isArray(v) ? v.map(clarear) : clarear(v));
+    // grade bem leve e texto cinza dos tokens; sem animação ao repintar
+    CAMINHOS(o).forEach(([obj, k, grade]) => { if (typeof obj[k] !== 'function') obj[k] = grade ? tok('chart-grade') : tok('chart-texto'); });
+    Object.values(o.scales || {}).forEach((sc) => { if (sc.border) sc.border.color = tok('chart-grade'); });
+    o.animation = false;
     (ch.data.datasets || []).forEach((ds) => {
       if (!('$gxBg' in ds)) { ds.$gxBg = ds.backgroundColor; ds.$gxBd = ds.borderColor; ds.$gxHv = ds.hoverBackgroundColor; }
-      const esc = temaEscuro();
-      ds.backgroundColor = esc ? clarearTodos(ds.$gxBg) : ds.$gxBg;
-      if (ds.$gxHv !== undefined) ds.hoverBackgroundColor = esc ? clarearTodos(ds.$gxHv) : ds.$gxHv;
-      const bd = ds.$gxBd, branco = (x) => typeof x === 'string' && /^(#fff|#ffffff|white)$/i.test(x);
-      ds.borderColor = esc && (branco(bd) || (Array.isArray(bd) && bd.every(branco))) ? '#161D2B' : esc ? clarearTodos(bd) : bd;
+      const cat = /doughnut|pie|polarArea/.test(ch.config.type), um = (c) => corDoToken(c, cat);
+      const conv = (v) => (Array.isArray(v) ? v.map(um) : um(v));
+      ds.backgroundColor = conv(ds.$gxBg);
+      if (ds.$gxHv !== undefined) ds.hoverBackgroundColor = conv(ds.$gxHv);
+      if (ds.$gxBd !== undefined) ds.borderColor = conv(ds.$gxBd);
     });
-    Chart.defaults.color = temaEscuro() ? '#C3CCDB' : '#666';
-    Chart.defaults.borderColor = temaEscuro() ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,0.1)';
+    Chart.defaults.color = tok('chart-texto');
+    Chart.defaults.borderColor = tok('chart-grade');
   } };
 
   // ═════ gráficos: números em pt-BR e aviso quando não há dados ═════
@@ -394,12 +414,13 @@
     if (!window.Chart || window.Chart._gx) return;
     window.Chart._gx = true;
     Chart.defaults.locale = 'pt-BR';
+    Chart.defaults.animation = false;
     Chart.register(pluginTema);
     // valor escrito na frente de cada barra (gráficos marcados com options.gxValores)
     Chart.register({ id: 'gxValores', afterDatasetsDraw(ch) {
       if (!ch.config.options || !ch.config.options.gxValores) return;
       const meta = ch.getDatasetMeta(0), dados = ch.data.datasets[0].data, ctx = ch.ctx, horiz = ch.config.options.indexAxis === 'y';
-      ctx.save(); ctx.fillStyle = temaEscuro() ? '#E6ECF7' : '#1F2937'; ctx.font = '600 12px Inter, "DM Sans", system-ui, sans-serif'; ctx.textBaseline = 'middle';
+      ctx.save(); ctx.fillStyle = tok('ink'); ctx.font = '600 12px Inter, "DM Sans", system-ui, sans-serif'; ctx.textBaseline = 'middle';
       // valor inteiro (R$ 1.234.567), sem abreviar — nas barras deitadas; nas em pé continua curto por falta de espaço
       const inteiro = (v) => 'R$ ' + (Number(v) || 0).toLocaleString('pt-BR', { maximumFractionDigits: 0 });
       meta.data.forEach((bar, i) => {
@@ -413,7 +434,7 @@
       if (temDado) return;
       const { ctx, width, height } = ch;
       ctx.save(); ctx.clearRect(0, 0, width, height);
-      ctx.fillStyle = '#6B7280'; ctx.font = '500 13px "DM Sans", system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = tok('text3'); ctx.font = '500 13px "DM Sans", system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText('Nada para mostrar neste recorte', width / 2, height / 2); ctx.restore();
       return false;
     } });

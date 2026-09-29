@@ -140,7 +140,7 @@ depoisDe('function dCfg(labels,data,colors){', '\n', '\n' +
   "  var el=document.getElementById(id+'Leg'); if(!el) return;\n" +
   "  var tot=data.reduce(function(s,v){return s+(Number(v)||0);},0)||1;\n" +
   "  el.innerHTML='<table class=\"gx-leg\"><tbody>'+labels.map(function(l,i){var v=Number(data[i])||0;\n" +
-  "    return '<tr><td><span class=\"gx-leg-c\" style=\"background:'+String(cores[i]).slice(0,7)+'\"></span>'+l+'</td><td class=\"num\">'+fF(v)+'</td><td class=\"num gx-leg-p\">'+(v/tot*100).toFixed(1).replace('.',',')+'%</td></tr>';}).join('')+\n" +
+  "    return '<tr><td><span class=\"gx-leg-c\" style=\"background:'+(window.ERP_COR_LEGENDA?ERP_COR_LEGENDA(cores[i]):String(cores[i]).slice(0,7))+'\"></span>'+l+'</td><td class=\"num\">'+fF(v)+'</td><td class=\"num gx-leg-p\">'+(v/tot*100).toFixed(1).replace('.',',')+'%</td></tr>';}).join('')+\n" +
   "    '</tbody><tfoot><tr><td>Total</td><td class=\"num\">'+fF(tot===1&&!data.some(Number)?0:tot)+'</td><td class=\"num\">100%</td></tr></tfoot></table>';\n" +
   "}\n" +
   "function _dCfgBase(labels,data,colors){\n");
@@ -402,7 +402,7 @@ trocar("var _FA_NEUTRAS=['#1B2A4A','#7C3AED','#0D9488','#DC2626','#0EA5E9','#6B7
 }
 
 // 13. Cores de tokens.css (fonte única) depois do CSS do ERP; modo escuro lembrado neste aparelho.
-trocar('\n</head>\n', '\n<link rel="stylesheet" href="tokens.css">\n<link rel="stylesheet" href="tema-escuro.css">\n' +
+trocar('\n</head>\n', '\n<link rel="stylesheet" href="tokens.css">\n<link rel="stylesheet" href="tema-escuro.css">\n<link rel="stylesheet" href="design.css">\n' +
   '<script>try{if(localStorage.getItem("erp_tema")==="escuro")document.documentElement.setAttribute("data-tema","escuro")}catch(e){}</script>\n</head>\n', 1);
 fs.writeFileSync(destino, s);
 

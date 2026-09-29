@@ -46,13 +46,13 @@
 <script src="vendor/supabase.js?v=16aeff36"></script>
 <script src="config.js"></script>
 <script src="erp-dados.js?v=22001e3e"></script>
-<link rel="stylesheet" href="editor.css?v=b8509b3b">
-<link rel="stylesheet" href="erp-telas.css?v=e4f03855">
+<link rel="stylesheet" href="editor.css?v=7747e46f">
+<link rel="stylesheet" href="erp-telas.css?v=d3cf93ec">
 <script src="editor.js?v=c78b852e" defer></script>
-<script src="erp-telas.js?v=8a58d57e" defer></script>
-<link rel="stylesheet" href="gs.css?v=c887a840">
+<script src="erp-telas.js?v=da2664bd" defer></script>
+<link rel="stylesheet" href="gs.css?v=b03d2c97">
 <script src="importador.js?v=4fb0d655" defer></script>
-<script src="gestao-embutida.js?v=6c15dafb" defer></script>
+<script src="gestao-embutida.js?v=14cf4411" defer></script>
 <script>
 
 
@@ -1615,8 +1615,9 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
 .ep-val:focus{border-bottom-color:var(--navy);background:#FFF8E1}
 .ep-val::placeholder{color:var(--text4);font-weight:400}
 </style>
-<link rel="stylesheet" href="tokens.css?v=61c9c820">
-<link rel="stylesheet" href="tema-escuro.css?v=cbb8dab2">
+<link rel="stylesheet" href="tokens.css?v=4d6f2572">
+<link rel="stylesheet" href="tema-escuro.css?v=a032edaa">
+<link rel="stylesheet" href="design.css?v=a73e8383">
 <script>try{if(localStorage.getItem("erp_tema")==="escuro")document.documentElement.setAttribute("data-tema","escuro")}catch(e){}</script>
 </head>
 <body>
@@ -2783,7 +2784,7 @@ function _donutComLegenda(id,cfgOuArgs,extra){
   var el=document.getElementById(id+'Leg'); if(!el) return;
   var tot=data.reduce(function(s,v){return s+(Number(v)||0);},0)||1;
   el.innerHTML='<table class="gx-leg"><tbody>'+labels.map(function(l,i){var v=Number(data[i])||0;
-    return '<tr><td><span class="gx-leg-c" style="background:'+String(cores[i]).slice(0,7)+'"></span>'+l+'</td><td class="num">'+fF(v)+'</td><td class="num gx-leg-p">'+(v/tot*100).toFixed(1).replace('.',',')+'%</td></tr>';}).join('')+
+    return '<tr><td><span class="gx-leg-c" style="background:'+(window.ERP_COR_LEGENDA?ERP_COR_LEGENDA(cores[i]):String(cores[i]).slice(0,7))+'"></span>'+l+'</td><td class="num">'+fF(v)+'</td><td class="num gx-leg-p">'+(v/tot*100).toFixed(1).replace('.',',')+'%</td></tr>';}).join('')+
     '</tbody><tfoot><tr><td>Total</td><td class="num">'+fF(tot===1&&!data.some(Number)?0:tot)+'</td><td class="num">100%</td></tr></tfoot></table>';
 }
 function _dCfgBase(labels,data,colors){

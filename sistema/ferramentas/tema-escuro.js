@@ -39,7 +39,7 @@ function mapear(r, g, b, a, papel) {
   const [h, s, l] = rgbHsl(r, g, b);
   if (papel === 'texto') {
     if (l >= 0.55) return null;                                   // já é clara
-    const l2 = Math.min(0.93, 0.97 - l * 0.55), s2 = s * (s > 0.5 ? 0.75 : 0.5);
+    const l2 = Math.min(0.93, 0.97 - l * 0.55), s2 = s * (s > 0.6 ? 0.6 : 0.15);   // Backup 18: cinzas neutros (sem azul)
     return a < 1 ? rgba(hslHex(h, s2, l2), a) : hslHex(h, s2, l2);
   }
   if (a < 1) {
@@ -47,11 +47,11 @@ function mapear(r, g, b, a, papel) {
     return a >= 0.3 ? rgba('#ffffff', 0.03) : null;                 // zebra clara → leve; véu fraco (sobre a barra) fica
   }
   if (l <= 0.5) return null;                                      // fundo escuro (barra, botão) fica
-  if (s < 0.3 || l > 0.975) {                                     // branco e cinzas: superfícies do tema
+  if (s < 0.45 || l > 0.975) {                                     // branco e cinzas: superfícies do tema
     if (papel === 'borda') return 'var(--line)';
     return l >= 0.985 ? 'var(--surface)' : l >= 0.94 ? 'var(--surface2)' : 'var(--surface3)';
   }
-  const l2 = 0.12 + (1 - l) * 0.55, s2 = Math.min(s, 1) * (s > 0.4 ? 0.45 : 0.25);
+  const l2 = 0.08 + (1 - l) * 0.5, s2 = Math.min(s, 1) * (s > 0.6 ? 0.35 : 0.1);   // Backup 18: tons quase pretos, pouco tingidos
   return a < 1 ? rgba(hslHex(h, s2, l2), a) : hslHex(h, s2, l2);
 }
 function rgba(hex, a) { const [r, g, b] = hexRgb(hex); return 'rgba(' + r + ',' + g + ',' + b + ',' + (+a.toFixed(3)) + ')'; }
