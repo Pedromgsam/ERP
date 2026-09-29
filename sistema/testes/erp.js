@@ -1000,6 +1000,24 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.click('#tf-abas [data-aba=excluidas]'); await p.waitForTimeout(500);
     await p.click('#tf-corpo [data-restaurar-t]'); await p.waitForTimeout(1500);
     ok('Tarefas: "Restaurar" volta para Em aberto', sql("select status from tarefas where titulo='Tarefa B15 excluir'") === 'pendente');
+    // Backup 16: criação rápida, minha semana (arrastar), pular recorrência, relatório por cliente, carga
+    await p.fill('#tf-rapida', 'Protocolar defesa amanhã @Emanuelle !alta #trabalhista'); await p.waitForTimeout(200);
+    ok('Tarefas: criação rápida mostra o que entendeu', /Emanuelle/.test(await p.textContent('#tf-rapida-prev')) && /Alta/.test(await p.textContent('#tf-rapida-prev')));
+    await p.press('#tf-rapida', 'Enter'); await p.waitForTimeout(1500);
+    ok('Tarefas: criação rápida grava título, prazo (amanhã), pessoa, prioridade e etiqueta',
+      sql("select responsavel||'|'||prioridade||'|'||(prazo=current_date+1)::text||'|'||etiquetas from tarefas where titulo='Protocolar defesa'") === 'Emanuelle|alta|true|trabalhista');
+    sql("insert into tarefas(titulo,responsavel,status,prazo,recorrencia) values ('Semana B16','Pedro','pendente',date_trunc('week', current_date)::date,'mensal')");
+    await p.evaluate(() => { GS.E.tf = null; }); await nav(p, 'tarefas'); await p.waitForTimeout(1500);
+    await p.click('#tf-vista [data-v=semana]'); await p.waitForTimeout(600);
+    { const terca = sql("select (date_trunc('week', current_date)::date + 1)::text");
+      await p.dragAndDrop('.sm-card:has-text("Semana B16")', '.sm-col[data-dia="' + terca + '"]'); await p.waitForTimeout(1500);
+      ok('Minha semana: arrastar para outro dia remarca o prazo', sql("select prazo::text from tarefas where titulo='Semana B16'") === terca, terca); }
+    { const idS = sql("select id from tarefas where titulo='Semana B16'"), p0 = sql("select prazo::text from tarefas where titulo='Semana B16'");
+      await p.evaluate((id) => GS.abrirTarefa(id), idS); await p.waitForSelector('#tf-f-pular'); await p.click('#tf-f-pular'); await p.waitForTimeout(1500);
+      ok('Tarefa recorrente: "Pular esta vez" passa para o mês seguinte sem concluir', sql("select status||'|'||(prazo = ('" + p0 + "'::date + interval '1 month')::date)::text from tarefas where titulo='Semana B16'") === 'pendente|true'); }
+    await p.click('#tf-vista [data-v=relatorio]'); await p.waitForTimeout(800);
+    ok('Tarefas: relatório com mês, por cliente e carga da semana', !!(await p.$('#tf-mes-rel')) && /Por cliente/.test(await p.textContent('#tf-corpo')) && /Carga da semana/.test(await p.textContent('#tf-corpo')));
+    await p.click('#tf-vista [data-v=lista]');
     // Alertas: virar tarefa com subtarefas
     await nav(p, 'alertas'); await p.waitForTimeout(2500);
     { let bt = null;
@@ -1015,6 +1033,35 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await nav(p, 'documentos'); await p.waitForTimeout(1500);
     ok('Documentos: filtros por grupo e atalhos por tipo (Procuração)', !!(await p.$('#doc-grupo')) && /Procuração/.test(await p.textContent('#doc-chips')));
     ok('"Jur + Cont" virou "Jurídico + Contábil"', await p.evaluate(() => !/Jur \+ Cont/.test(document.body.innerText)));
+
+    // Geradores de documentos (páginas separadas, com a ponte do ERP)
+    { const g = await p.context().newPage(); g.on('dialog', (d) => d.accept());
+      g.on('pageerror', (e) => erros.push('gerador: ' + e.message));
+      await g.goto(BASE + '/geradores/peticao.html'); await g.waitForSelector('#ponte'); await g.waitForTimeout(800);
+      await g.fill('#ponte-cli', 'Alfa Comércio Ltda'); await g.click('#ponte-preencher'); await g.waitForTimeout(1500);
+      ok('Gerador de petição: exige login, puxa o cliente do banco e monta a peça', /ALFA COMÉRCIO LTDA/.test(await g.textContent('#folha')) && /Nestes termos/.test(await g.textContent('#folha')));
+      await g.click('#ponte-guardar'); await g.waitForTimeout(2000);
+      ok('Gerador: "Guardar em Documentos" salva na pasta do cliente', sql("select count(*) from documentos d join clientes c on c.id=d.cliente_id where c.nome='Alfa Comércio Ltda' and d.tipo='peticao'") === '1', await g.textContent('#ponte-msg'));
+      await g.goto(BASE + '/geradores/contrato-procuracao.html'); await g.waitForSelector('#ponte'); await g.waitForTimeout(800);
+      ok('Gerador de contrato: contas bancárias fora do arquivo público', !/SICOOB \(756\)',ag:'4113'/.test(await g.content()) && /var BANCOS=\{\}/.test(await g.content()));
+      await g.fill('#ponte-cli', 'Alfa Comércio Ltda'); await g.click('#ponte-preencher'); await g.waitForTimeout(1200);
+      ok('Gerador de contrato: preenche o contratante com os dados do cliente', /Alfa Comércio/.test(await g.inputValue('#ctteRazao').catch(() => '')) || /Alfa Comércio/.test(await g.inputValue('#ctteNome').catch(() => '')));
+      await g.close();
+      const semLogin = await (await b.newContext()).newPage(); await semLogin.goto(BASE + '/geradores/propostas.html'); await semLogin.waitForTimeout(1500);
+      ok('Gerador sem login: bloqueia a página', await semLogin.isVisible('#ponte-bloqueio')); await semLogin.close(); }
+    // PGFN pelos dados abertos (arquivo público, lido no navegador)
+    { sql("update clientes set cpf_cnpj='11222333000181' where nome='Alfa Comércio Ltda'");
+      const arq = require('path').join(require('os').tmpdir(), 'arquivo_lai_SIDA_MG.csv');
+      require('fs').writeFileSync(arq, 'CPF_CNPJ;TIPO_PESSOA;TIPO_DEVEDOR;NOME_DEVEDOR;UF_DEVEDOR;UNIDADE_RESPONSAVEL;NUMERO_INSCRICAO;TIPO_SITUACAO_INSCRICAO;SITUACAO_INSCRICAO;RECEITA_PRINCIPAL;DATA_INSCRICAO;INDICADOR_AJUIZADO;VALOR_CONSOLIDADO\n' +
+        '11.222.333/0001-81;Pessoa jurídica;PRINCIPAL;ALFA COMERCIO LTDA;MG;PRFN;10 6 25 000123-45;Em cobrança;ATIVA EM COBRANCA;IRPJ;10/03/2025;SIM;15000.50\n' +
+        '11.222.333/0001-81;Pessoa jurídica;PRINCIPAL;ALFA COMERCIO LTDA;MG;PRFN;10 6 25 000999-01;Benefício Fiscal;ATIVA EM COBRANCA - PARCELADA;COFINS;11/04/2025;NAO;2000.00\n' +
+        '99.999.999/0001-99;Pessoa jurídica;PRINCIPAL;OUTRA EMPRESA;MG;PRFN;10 6 25 000777-77;Em cobrança;ATIVA;IRPJ;01/01/2025;NAO;999.00\n');
+      await nav(p, 'alertas'); await p.waitForTimeout(2500);
+      await p.click('#panel-alertas [data-al]:has-text("PGFN — dados abertos")'); await p.waitForSelector('#pa-arq', { state: 'attached' });
+      await p.setInputFiles('#pa-arq', arq); await p.click('#pa-ler'); await p.waitForTimeout(3000);
+      ok('PGFN (dados abertos): lê o arquivo, separa só os clientes e atualiza PGFN / negociada', sql("select pgfn||'|'||pgfn_negociada from clientes where nome='Alfa Comércio Ltda'") === '15000.50|2000.00' &&
+        sql("select count(*) from pgfn_inscricoes where fonte='dados_abertos'") === '2', await p.textContent('#pa-prog'));
+      await p.keyboard.press('Escape'); }
 
     // ── sair ──
     await p.evaluate(() => acLogout()); await p.waitForTimeout(800);

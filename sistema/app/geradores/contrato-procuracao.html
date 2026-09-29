@@ -1,0 +1,2717 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta name="robots" content="noindex, nofollow">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Gerador de Contrato e Procuração — Araújo &amp; Castro</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300..700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ══════════ TOKENS ══════════ */
+:root{
+  --bg:#EEF1F7;--navy:#1F3864;--navy2:#28437a;--navy3:#2E5395;
+  --accent:#B8860B;--accent2:#2E5395;--accent2-d:#1F3864;
+  --glow2:0 0 0 3px rgba(46,83,149,.14);
+  --border:rgba(15,23,42,.08);--border-strong:rgba(15,23,42,.15);
+  --shadow-sm:0 1px 3px rgba(15,23,42,.08);--shadow-md:0 3px 10px rgba(15,23,42,.10);--shadow-navy:0 3px 12px rgba(15,35,64,.22);
+  --card-r:16px;--radius-sm:10px;--radius-xs:7px;
+  --text:#0f1521;--text2:#4b5563;--text3:#8b93a3;
+  --green:#16a34a;--green-d:#15803d;--green-lt:#dcfce7;
+  --blue-lt:#dbeafe;--blue-d:#1f3864;
+  --amber:#b45309;--amber-lt:#fef3c7;--amber-border:rgba(180,83,9,.25);
+  --red:#dc2626;--red-lt:#fee2e2;
+  --font-d:'DM Sans',sans-serif;--font-h:'Space Grotesk','DM Sans',sans-serif;--font-m:'JetBrains Mono',monospace;
+  --hh:52px;--th:44px;
+  --ease:cubic-bezier(.16,1,.3,1);
+  --w-mid:1360px;--w-narrow:1180px}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:var(--font-d);background:
+    radial-gradient(1200px 560px at 8% -12%,rgba(46,83,149,.08),transparent 58%),
+    radial-gradient(900px 480px at 102% -6%,rgba(184,134,11,.09),transparent 55%),
+    var(--bg);background-attachment:fixed;
+  color:var(--text);min-height:100vh;font-size:14px;-webkit-font-smoothing:antialiased}
+input,select,button,textarea{font-family:var(--font-d)}
+.mono{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1,"lnum" 1}
+
+/* ══════════ HEADER ══════════ */
+#hd{position:fixed;top:0;left:0;right:0;z-index:300;height:var(--hh);
+  background:linear-gradient(115deg,var(--navy) 0%,var(--navy2) 55%,#0d1730 100%);
+  color:#fff;padding:0 22px;display:flex;align-items:center;justify-content:space-between;
+  box-shadow:var(--shadow-navy);border-bottom:1px solid rgba(46,83,149,.18);overflow:hidden}
+#hd::after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(46,83,149,.6) 20%,rgba(184,134,11,.6) 55%,transparent 85%)}
+.hd-brand{display:flex;align-items:center;gap:11px;position:relative;z-index:1}
+.hd-name{font-family:var(--font-h);font-size:14.5px;font-weight:700;color:#fff;line-height:1.2}
+.hd-sub{font-size:9px;color:rgba(255,255,255,.42);letter-spacing:.14em;text-transform:uppercase;margin-top:2px}
+.hd-r{display:flex;align-items:center;gap:8px;position:relative;z-index:1}
+.hd-btn{background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.14);color:#fff;padding:6px 13px;border-radius:7px;font-size:11.5px;font-weight:600;cursor:pointer;transition:.18s var(--ease);display:flex;align-items:center;gap:6px}
+.hd-btn:hover{background:rgba(46,83,149,.16);border-color:rgba(46,83,149,.5);transform:translateY(-1px)}
+
+/* ══════════ ABAS ══════════ */
+#tabnav{position:fixed;top:var(--hh);left:0;right:0;z-index:200;background:#fff;border-bottom:1.5px solid var(--border);display:flex;align-items:center;padding:0 18px;box-shadow:0 2px 10px rgba(0,0,0,.05);height:var(--th)}
+.tab{position:relative;padding:0 16px;height:100%;font-size:12.5px;font-weight:600;cursor:pointer;border:none;background:transparent;color:var(--text2);border-bottom:2.5px solid transparent;margin-bottom:-1.5px;display:flex;align-items:center;gap:6px;transition:color .18s var(--ease)}
+.tab:hover{color:var(--navy)}
+.tab.active{color:var(--navy)}
+.tab.active::after{content:'';position:absolute;left:12px;right:12px;bottom:-1.5px;height:2.5px;border-radius:2px;background:linear-gradient(90deg,var(--accent2),var(--accent))}
+
+/* ══════════ LAYOUT ══════════ */
+#main{margin-top:calc(var(--hh) + var(--th) + 16px);padding:18px 22px 60px}
+.panel{display:none}
+.panel.active{display:flex;gap:14px;flex-wrap:wrap;flex-direction:column;max-width:var(--w-mid);margin:0 auto}
+.doc-narrow{max-width:var(--w-narrow);margin:0 auto;display:flex;flex-direction:column;gap:16px}
+/* Espaçamento interno padronizado — evita que cards com mais campos condicionais visíveis
+   pareçam mais "densos" que os outros: toda área que aparece/desaparece por toggle mantém a
+   mesma margem superior, e não sobra respiro extra no último campo de dentro de um hon-cfg. */
+.hon-cfg>.fg:last-child,.hon-cfg>div:last-child{margin-bottom:0}
+.hon-cfg .g2,.hon-cfg .g3{margin-top:8px}
+.hon-cfg .g2:first-child,.hon-cfg .g3:first-child{margin-top:0}
+
+/* ══════════ MODO TELA DIVIDIDA ══════════ */
+.split-form,.split-preview{display:contents}
+body.tela-dividida .doc-narrow{flex-direction:row;align-items:flex-start;max-width:none;margin:0;gap:20px}
+body.tela-dividida .split-form{display:flex;flex-direction:column;gap:14px;flex:1 1 0;min-width:0;max-width:var(--w-narrow);overflow-y:auto;height:calc(100vh - var(--hh) - var(--th) - 54px);padding-right:4px}
+body.tela-dividida .split-preview{display:flex;flex-direction:column;flex:1 1 0;min-width:0;overflow-y:auto;height:calc(100vh - var(--hh) - var(--th) - 54px)}
+/* Em tela dividida, o painel deixa de ficar limitado a --w-mid e centralizado — as duas
+   colunas usam a largura real da janela, com só uma margem mínima de respiro nas bordas. */
+body.tela-dividida .panel.active{max-width:none}
+body.tela-dividida #main{padding-left:20px;padding-right:20px}
+.hd-btn.is-active{background:rgba(46,83,149,.35);border-color:rgba(46,83,149,.6)}
+@media(max-width:1100px){
+  body.tela-dividida .doc-narrow{flex-direction:column;max-width:var(--w-narrow);gap:14px}
+  body.tela-dividida .split-form,body.tela-dividida .split-preview{display:contents;overflow:visible;height:auto}
+  /* Abaixo do breakpoint a tela dividida vira layout empilhado normal — volta ao respiro padrão. */
+  body.tela-dividida .panel.active{max-width:var(--w-mid)}
+  body.tela-dividida #main{padding-left:22px;padding-right:22px}
+}
+
+/* ══════════ CARDS ══════════ */
+.card{background:#fff;border-radius:var(--card-r);border:1px solid var(--border);box-shadow:var(--shadow-sm);transition:box-shadow .22s var(--ease),border-color .22s var(--ease);animation:riseIn .38s var(--ease) both}
+.card:hover{box-shadow:var(--shadow-md);border-color:rgba(46,83,149,.16)}
+.panel.active>.doc-narrow>.card:nth-child(1){animation-delay:.02s}
+.panel.active>.doc-narrow>.card:nth-child(2){animation-delay:.05s}
+.panel.active>.doc-narrow>.card:nth-child(3){animation-delay:.08s}
+.panel.active>.doc-narrow>.card:nth-child(4){animation-delay:.11s}
+.panel.active>.doc-narrow>.card:nth-child(5){animation-delay:.14s}
+.panel.active>.doc-narrow>.card:nth-child(6){animation-delay:.17s}
+.panel.active>.doc-narrow>.card:nth-child(7){animation-delay:.2s}
+@keyframes riseIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+/* Selo "i" com tooltip — ajuda contextual sem poluir o layout */
+.lg{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:var(--text3);color:#fff;font-size:9px;font-weight:700;font-style:italic;cursor:help;position:relative;flex-shrink:0}
+.lg:hover .lg-tip{opacity:1;transform:translateY(0);pointer-events:auto}
+.lg-tip{position:absolute;left:50%;bottom:calc(100% + 7px);transform:translateY(4px) translateX(-50%);opacity:0;pointer-events:none;transition:.16s var(--ease);background:var(--navy);color:#fff;font-size:11px;font-weight:500;line-height:1.4;padding:7px 10px;border-radius:7px;width:220px;text-transform:none;letter-spacing:normal;box-shadow:var(--shadow-md);z-index:20}
+.lg-tip:after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:var(--navy)}
+.card-hd{background:var(--navy);color:rgba(255,255,255,.94);padding:11px 18px;display:flex;align-items:center;gap:8px;font-size:11px;font-weight:600;letter-spacing:.045em;text-transform:uppercase;justify-content:space-between;border-top-left-radius:var(--card-r);border-top-right-radius:var(--card-r);font-family:var(--font-h)}
+.card-body{padding:19px}
+.card.collapsed .card-body{display:none}
+.card-min-btn{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;margin-left:8px;border-radius:5px;background:rgba(255,255,255,.14);cursor:pointer;user-select:none;font-size:13px;line-height:1;flex-shrink:0}
+.card-min-btn:hover{background:rgba(255,255,255,.26)}
+
+/* ══════════ FORMULÁRIO ══════════ */
+.fg{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}
+.fg:last-child{margin-bottom:0}
+label.lbl{font-size:11px;font-weight:600;color:var(--navy);text-transform:uppercase;letter-spacing:.04em}
+.fi{padding:8px 12px;border:1.5px solid var(--border-strong);border-radius:var(--radius-sm);font-size:13.5px;color:var(--text);background:#fff;width:100%;outline:none;transition:.18s var(--ease)}
+.fi:hover{border-color:#c3cad8}
+.fi:focus{border-color:var(--accent2-d);box-shadow:var(--glow2)}
+.fi.mono{font-family:var(--font-m);font-size:13px}
+select.fi{cursor:pointer}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.g4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px}
+@media(max-width:760px){.g2,.g3,.g4{grid-template-columns:1fr}}
+.chk-row{display:flex;align-items:flex-start;gap:8px;cursor:pointer}
+.chk-row input[type=checkbox]{width:15px;height:15px;margin-top:2px;accent-color:var(--navy);flex-shrink:0;cursor:pointer}
+.chk-row span{font-size:12.5px;color:var(--text2);line-height:1.45}
+.sec-div{display:flex;align-items:center;gap:10px;margin:16px 0 12px}
+.sec-div:first-child{margin-top:0}
+.sec-div-line{flex:1;height:1px;background:var(--border)}
+.sec-div-lbl{font-size:10px;font-weight:700;color:var(--text3);letter-spacing:.07em;text-transform:uppercase;white-space:nowrap}
+
+/* Escolha entre modos (PF/PJ, tipo de serviço) */
+.modo-toggle{display:flex;gap:8px;margin-bottom:4px;flex-wrap:wrap}
+.modo-opt{flex:1;min-width:200px;display:flex;align-items:flex-start;gap:8px;padding:10px 12px;border:1.5px solid var(--border);border-radius:9px;background:#fff;cursor:pointer;transition:.15s var(--ease)}
+.modo-opt:hover{border-color:rgba(46,83,149,.4)}
+.modo-opt.is-active{border-color:var(--accent2);background:rgba(46,83,149,.06)}
+.modo-opt input{margin-top:2px;accent-color:var(--accent2);flex-shrink:0;cursor:pointer}
+.modo-opt span{font-size:12px;color:var(--text2);line-height:1.4}
+.modo-opt b{color:var(--navy)}
+
+/* Cartão de pessoa (advogados / procuradores) — multi-seleção */
+.pessoa-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:9px}
+.pessoa-card{border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 13px;cursor:pointer;transition:.15s var(--ease);background:#fff}
+.pessoa-card:hover{border-color:rgba(46,83,149,.4)}
+.pessoa-card.is-active{border-color:var(--accent2);background:rgba(46,83,149,.06);box-shadow:0 0 0 1px var(--accent2) inset}
+.pessoa-nome{font-size:12.5px;font-weight:700;color:var(--navy)}
+.pessoa-oab{font-size:11px;color:var(--text3);margin-top:2px}
+
+/* Checklist de poderes (gerais e específicos por área) */
+.poderes-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+@media(max-width:760px){.poderes-grid{grid-template-columns:1fr}}
+.poder-lbl{display:flex;align-items:flex-start;gap:7px;padding:7px 9px;border:1px solid var(--border);border-radius:7px;background:#fff;cursor:pointer;transition:.15s var(--ease);font-size:11.5px;color:var(--text2);line-height:1.4}
+.poder-lbl:hover{border-color:rgba(46,83,149,.35)}
+.poder-lbl.checked{background:rgba(46,83,149,.05);border-color:var(--accent2)}
+.poder-lbl input{margin-top:2px;accent-color:var(--accent2);flex-shrink:0;cursor:pointer}
+
+/* Cartão de honorário combinável */
+.hon-card{border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:11px 14px;cursor:pointer;transition:.15s var(--ease);margin-bottom:8px}
+.hon-card:hover{border-color:rgba(46,83,149,.4)}
+.hon-card.is-active{border-color:var(--accent2);background:rgba(46,83,149,.045)}
+.hon-card-tit{font-size:12.5px;font-weight:700;color:var(--navy);display:flex;align-items:center;gap:7px}
+.hon-card-sub{font-size:11px;color:var(--text3);margin-top:2px}
+.hon-cfg{margin-top:12px;padding-top:12px;border-top:1px dashed var(--border-strong);display:none}
+.hon-card.is-active .hon-cfg{display:block}
+
+/* Listas dinâmicas de campos (atividades / beneficiários) */
+.lista-din{display:flex;flex-direction:column;gap:7px;margin-bottom:8px}
+.lista-din-item{display:flex;gap:7px;align-items:center}
+.lista-din-item .fi{flex:1}
+.rm-x{border:none;background:none;color:var(--text3);cursor:pointer;font-size:13px;flex-shrink:0}
+.rm-x:hover{color:var(--red)}
+.add-mini{background:transparent;border:1.5px dashed var(--border-strong);border-radius:var(--radius-xs);padding:6px 12px;font-size:11.5px;font-weight:600;color:var(--text2);cursor:pointer}
+.add-mini:hover{border-color:var(--accent2-d);color:var(--navy)}
+
+.alrt{border-radius:var(--radius-xs);padding:10px 14px;font-size:12.5px;line-height:1.5;margin-bottom:10px;border-left:3px solid}
+.alrt-blue{background:var(--blue-lt);border-color:var(--blue-d);color:var(--blue-d)}
+.alrt b{font-weight:700}
+.btn-g{background:linear-gradient(120deg,var(--navy),var(--navy2));color:#fff;border:none;border-radius:var(--radius-sm);padding:8px 16px;font-size:12.5px;font-weight:600;cursor:pointer;box-shadow:0 2px 8px rgba(10,15,31,.18)}
+.btn-g:hover{box-shadow:0 4px 16px rgba(10,15,31,.28)}
+.btn-o{background:#fff;color:var(--navy);border:1.5px solid var(--border-strong);border-radius:var(--radius-sm);padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer}
+.btn-o:hover{border-color:var(--accent2-d)}
+
+/* ══════════ PRÉ-VISUALIZAÇÃO — "papel" ══════════ */
+.preview-topbar{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#fff;border:1px solid var(--border);border-bottom:none;border-top-left-radius:var(--card-r);border-top-right-radius:var(--card-r)}
+.preview-topbar-l{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3)}
+.pill-live{font-size:9.5px;background:var(--green-lt);color:var(--green-d);border:1px solid rgba(21,128,61,.2);border-radius:20px;padding:2px 9px;font-weight:700}
+.pill-editando{font-size:9.5px;background:var(--amber-lt);color:var(--amber);border:1px solid var(--amber-border);border-radius:20px;padding:2px 9px;font-weight:700}
+.just-edited{animation:flashEdit 1.2s ease-out;border-radius:4px}
+.busca-dropdown{position:absolute;left:10px;right:10px;top:100%;z-index:40;background:#fff;border:1px solid var(--border-strong);border-radius:8px;box-shadow:var(--shadow-md,0 8px 24px rgba(0,0,0,.12));max-height:220px;overflow-y:auto;margin-top:2px}
+.busca-item{padding:7px 10px;cursor:pointer;border-bottom:1px solid var(--border)}
+.busca-item:last-child{border-bottom:none}
+.busca-item:hover{background:rgba(46,83,149,.08)}
+@keyframes flashEdit{0%{background:rgba(250,204,21,.4);box-shadow:0 0 0 4px rgba(250,204,21,.28)}100%{background:transparent;box-shadow:0 0 0 4px rgba(250,204,21,0)}}
+.papel-wrap{border:1px solid var(--border);border-top:none;border-bottom-left-radius:var(--card-r);border-bottom-right-radius:var(--card-r);box-shadow:var(--shadow-sm);background:#fff;padding:0 0 6px;overflow-x:auto}
+.papel{background:#fff;padding:44px 54px;font-family:'Times New Roman',Times,serif;color:#000;font-size:12pt;width:178mm;max-width:none;margin:0 auto}
+.papel.editando{outline:2px dashed var(--accent);outline-offset:-6px}
+.timbre{text-align:center;font-family:var(--font-d);font-size:.75em;letter-spacing:.14em;text-transform:uppercase;color:var(--text3);margin-bottom:6px}
+.doc-titulo{text-align:center;font-family:var(--font-d);font-weight:700;font-size:1.18em;letter-spacing:.03em;text-transform:uppercase;color:#000;margin:0 0 26px}
+.anexo-titulo{text-align:center;font-family:var(--font-d);font-weight:700;font-size:1.1em;letter-spacing:.03em;text-transform:uppercase;color:#000;margin:0 0 18px}
+.quali{font-size:1em;line-height:1.5;color:var(--text);margin-bottom:10px;text-align:justify}
+.quali b{color:#000}
+.abertura{font-size:1em;line-height:1.5;color:var(--text);margin:18px 0 20px;text-align:justify}
+.clausula,.paragrafo{font-size:1em;line-height:1.5;color:var(--text);text-align:justify;margin-bottom:12px}
+.cl-tit,.par-tit{font-weight:700;color:#000}
+.atv-lista{margin:0 0 12px 0;counter-reset:atvnum}
+.atv-item{position:relative;padding-left:24px;margin-bottom:7px;font-size:1em;line-height:1.5;color:var(--text);text-align:justify;counter-increment:atvnum}
+.atv-item:before{content:counter(atvnum)')';position:absolute;left:0;color:var(--text);font-weight:600}
+.fecho-data{font-size:1em;color:var(--text);text-align:center;margin:30px 0 0}
+.assin-bloco{margin-top:40px}
+.assin-grid{display:flex;gap:26px;flex-wrap:wrap}
+.assin-grid+.assin-grid{margin-top:26px}
+.assin-col{flex:1 1 230px;text-align:center}
+.assin-linha{border-top:1px solid #000;margin-top:50px;padding-top:6px}
+.assin-nome{font-weight:700;font-size:.95em;color:#000}
+.assin-doc{font-size:.85em;color:var(--text2);margin-top:2px}
+.placeholder-fraco{color:var(--text3);font-style:italic}
+.campo-invalido{border-color:var(--red)!important;background:rgba(220,38,38,.045)}
+.txt-opcional{color:var(--text3)!important;font-weight:600}
+.txt-obrigatorio{color:var(--navy)}
+.hon-resumo{font-size:11px;color:var(--text2);margin-top:3px;line-height:1.4}
+.hon-resumo b{color:var(--navy)}
+
+/* Tabela (honorários progressivos / Anexo I) */
+.hon-tbl-wrap{overflow-x:auto;margin:6px 0 14px}
+.hon-tbl{width:100%;border-collapse:collapse;font-size:.9em}
+.hon-tbl th{background:rgba(27,42,74,.06);color:var(--navy);padding:8px 10px;font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;text-align:left;border:1px solid var(--border-strong)}
+.hon-tbl td{padding:7px 10px;border:1px solid var(--border);color:var(--text);vertical-align:top}
+.hon-tbl td[contenteditable]:hover{background:rgba(46,83,149,.04)}
+.hon-tbl td[contenteditable]:focus{background:rgba(46,83,149,.07);outline:none}
+.hon-tbl td[contenteditable]:empty:before{content:attr(data-placeholder);color:var(--text3);font-style:italic;font-weight:400}
+.hon-tbl .r{text-align:right}
+.row-rm{border:none;background:none;color:var(--text3);cursor:pointer;font-size:12px}
+.row-rm:hover{color:var(--red)}
+
+.no-print{}
+@media print{
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+  #hd,#tabnav,.no-print,.preview-topbar{display:none!important}
+  #main{margin-top:0;padding:0}
+  body{background:#fff}
+  /* .papel já herda font-family/tamanho/cor/largura da regra base — em 178mm ela já corresponde
+     exatamente à área útil da página impressa (A4 − margens do @page), então tela e PDF usam a
+     mesma largura e a mesma quebra de linha, sem precisar de regra própria aqui. */
+  /* Só a cópia dentro de #print-root (sem o atributo data-pdf, ver _clonarSemIds) deve imprimir —
+     sem isto, o papel original (ainda na tela, dentro do .panel ativo) imprime também, duplicado
+     e com qualquer estado de edição manual/moldura tracejada que estiver ligado no momento. */
+  [data-pdf]{display:none!important}
+  .papel-wrap{display:none!important}
+  .panel,.doc-narrow{max-width:none!important}
+  /* #print-root fica fora da tela (left:-99999px) na regra base, para não ganhar camada de
+     pintura fora da impressão; na impressão precisa voltar ao fluxo normal, senão o Chromium
+     imprime a página em branco (o conteúdo real fica renderizado fora da folha). */
+  #print-root{position:static!important;left:auto!important;top:auto!important;width:auto!important}
+  .anexo-quebra{break-before:page;page-break-before:always}
+  .assin-bloco{break-inside:avoid;page-break-inside:avoid}
+  .hon-tbl{font-size:11px}.hon-tbl th,.hon-tbl td{padding:5px 8px}
+  .hon-tbl tr{break-inside:avoid;page-break-inside:avoid}
+  .hon-tbl thead{display:table-header-group}
+  @page{size:A4 portrait;margin:16mm 16mm 18mm}
+}
+#print-root{position:absolute;left:-99999px;top:0;width:1100px}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(15,23,42,.16);border-radius:20px;border:2px solid transparent;background-clip:padding-box}
+</style>
+</head>
+<body>
+
+<div id="hd">
+  <div class="hd-brand">
+    <div>
+      <div class="hd-name">Gerador de Contrato e Procuração</div>
+      <div class="hd-sub">Araújo &amp; Castro — Advocacia e Consultoria</div>
+    </div>
+  </div>
+  <div class="hd-r no-print">
+    <span id="autosaveLbl" style="font-size:10px;color:var(--text3);display:none"></span>
+    <button class="hd-btn" onclick="gerarPDF()">↓ Exportar PDF da aba atual</button>
+    <button class="hd-btn" onclick="gerarWord()">↓ Exportar Word (.doc)</button>
+  </div>
+</div>
+
+<div id="tabnav" class="no-print">
+  <button class="tab active" id="tabbtn-contrato" onclick="switchTab('contrato')">📋 Contrato</button>
+  <button class="tab" id="tabbtn-procuracao" onclick="switchTab('procuracao')">✍️ Procuração</button>
+</div>
+
+<div id="print-root"></div>
+
+<div id="main">
+
+<!-- ═══════════════════════ ABA: CONTRATO ═══════════════════════ -->
+<div class="panel active" id="panel-contrato">
+  <div class="doc-narrow">
+  <div class="split-form">
+
+    <section class="card no-print">
+      <div class="card-hd">📌 Tipo de serviço</div>
+      <div class="card-body">
+        <div class="modo-toggle">
+          <label class="modo-opt is-active" id="opt-tipo-demanda"><input type="radio" name="tipoServico" value="demanda" checked onchange="setTipoServico('demanda')">
+            <span><b>Demanda específica</b> — objeto fechado (ex.: acompanhar uma ação já proposta, uma defesa determinada)</span></label>
+          <label class="modo-opt" id="opt-tipo-consultoria"><input type="radio" name="tipoServico" value="consultoria" onchange="setTipoServico('consultoria')">
+            <span><b>Consultoria / escopo aberto</b> — honorário recorrente, pode cobrir várias áreas e vários beneficiários</span></label>
+        </div>
+      </div>
+    </section>
+
+    <section class="card no-print">
+      <div class="card-hd">👤 Contratante</div>
+      <div class="card-body">
+        <div class="modo-toggle">
+          <label class="modo-opt is-active" id="opt-ctte-pf"><input type="radio" name="ctteTipo" value="pf" checked onchange="setCtteTipo('pf')"><span><b>Pessoa física</b></span></label>
+          <label class="modo-opt" id="opt-ctte-pj"><input type="radio" name="ctteTipo" value="pj" onchange="setCtteTipo('pj')"><span><b>Pessoa jurídica</b></span></label>
+        </div>
+        <div id="ctte-pf-fields" style="margin-top:12px">
+          <div class="g2">
+            <div class="fg"><label class="lbl">Nome completo</label><input class="fi" id="ctteNome" oninput="renderDebounced()" placeholder="Ex.: João da Silva Santos"></div>
+            <div class="fg"><label class="lbl">CPF</label><input class="fi mono" id="ctteCpf" oninput="maskCPF(this);renderDebounced()" placeholder="000.000.000-00"></div>
+          </div>
+          <div class="fg"><label class="lbl">Endereço completo</label><input class="fi" id="ctteEndereco" oninput="renderDebounced()" placeholder="Rua, nº, bairro, cidade/UF, CEP"></div>
+          <div class="g2">
+            <div class="fg"><label class="lbl">E-mail</label><input class="fi" id="ctteEmail" oninput="renderDebounced()" placeholder="opcional"></div>
+            <div class="fg"><label class="lbl">WhatsApp</label><input class="fi" id="ctteWpp" oninput="maskTelefone(this);renderDebounced()" placeholder="(00) 00000-0000"></div>
+          </div>
+        </div>
+        <div id="ctte-pj-fields" style="margin-top:12px;display:none">
+          <div class="g2">
+            <div class="fg"><label class="lbl">Razão social</label><input class="fi" id="ctteRazao" oninput="renderDebounced()" placeholder="Ex.: Empresa XYZ Ltda."></div>
+            <div class="fg"><label class="lbl">CNPJ <span class="lg">i<span class="lg-tip">Ao completar os 14 dígitos, o sistema busca automaticamente razão social, endereço e sócio-administrador na Receita Federal (dados públicos).</span></span></label>
+              <div style="display:flex;gap:6px">
+                <input class="fi mono" id="ctteCnpj" oninput="onCnpjBuscaInput('ctte',this)" onblur="renderDebounced()" placeholder="00.000.000/0001-00" style="flex:1">
+                <button type="button" class="btn-o" style="padding:0 10px;font-size:11px;white-space:nowrap" onclick="buscarDadosCNPJGCP('ctte',false)">🔎 Buscar</button>
+              </div>
+              <div id="ctteCnpjStatus" style="font-size:10.5px;margin-top:4px;color:var(--text3)"></div>
+              <div id="ctteCnpjStatusSel"></div>
+            </div>
+          </div>
+          <div class="fg"><label class="lbl">Endereço da sede</label><input class="fi" id="ctteEnderecoPJ" oninput="renderDebounced()" placeholder="Rua, nº, bairro, cidade/UF, CEP"></div>
+          <div class="sec-div"><div class="sec-div-line"></div><div class="sec-div-lbl">Representante legal <span class="lg">i<span class="lg-tip">Quando a busca por CNPJ encontra um sócio-administrador, o nome é preenchido automaticamente aqui. O CPF nunca vem da consulta pública — preencha manualmente; se deixar em branco, o contrato simplesmente omite essa informação, sem deixar lacuna visível.</span></span></div><div class="sec-div-line"></div></div>
+          <div class="g2">
+            <div class="fg"><label class="lbl">Nome</label><input class="fi" id="ctteRepNome" oninput="renderDebounced()"></div>
+            <div class="fg"><label class="lbl">CPF <span style="text-transform:none;font-weight:400;color:var(--text3)">(opcional — se vazio, não aparece no contrato)</span></label><input class="fi mono" id="ctteRepCpf" oninput="maskCPF(this);renderDebounced()" placeholder="000.000.000-00"></div>
+          </div>
+          <div class="g2">
+            <div class="fg"><label class="lbl">E-mail</label><input class="fi" id="ctteEmailPJ" oninput="renderDebounced()" placeholder="opcional"></div>
+            <div class="fg"><label class="lbl">WhatsApp</label><input class="fi" id="ctteWppPJ" oninput="maskTelefone(this);renderDebounced()" placeholder="(00) 00000-0000"></div>
+          </div>
+        </div>
+        <div class="sec-div" style="margin-top:14px"><div class="sec-div-line"></div><div class="sec-div-lbl">Contratantes adicionais (opcional)</div><div class="sec-div-line"></div></div>
+        <div class="lista-din" id="listaCtteExtra"></div>
+        <button class="add-mini" type="button" onclick="addContratanteExtra()">+ adicionar contratante</button>
+      </div>
+    </section>
+
+    <section class="card no-print">
+      <div class="card-hd">⚖ Contratado(a)(s) <div class="card-hd-r" style="font-weight:400;text-transform:none;font-size:11px">clique para selecionar — atualiza sozinho</div></div>
+      <div class="card-body">
+        <div class="pessoa-grid">
+          <div class="pessoa-card" id="pcard-pedro" onclick="toggleContratado('pedro')"><div class="pessoa-nome">Pedro Henrique de O. Castro</div><div class="pessoa-oab">OAB/MG 228.471 · Lagoa da Prata/MG</div></div>
+          <div class="pessoa-card" id="pcard-emanuelle" onclick="toggleContratado('emanuelle')"><div class="pessoa-nome">Emanuelle Oliveira Araújo</div><div class="pessoa-oab">OAB/MG 240.369</div></div>
+          <div class="pessoa-card" id="pcard-adriana" onclick="toggleContratado('adriana')"><div class="pessoa-nome">Adriana Fátima Araújo Borges</div><div class="pessoa-oab">OAB/MG 123.438</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ BLOCO OBJETO — DEMANDA ═══ -->
+    <section class="card no-print bloco-demanda">
+      <div class="card-hd">📝 Objeto — demanda específica</div>
+      <div class="card-body">
+        <div class="fg"><label class="lbl">Descreva o objeto</label><input class="fi" id="objDemandaTexto" oninput="renderDebounced()" placeholder="Ex.: acompanhar a ação de usucapião já proposta sob o n. ..., até decisão de primeira instância"></div>
+        <div class="sec-div"><div class="sec-div-line"></div><div class="sec-div-lbl">Atividades incluídas (parágrafo primeiro)</div><div class="sec-div-line"></div></div>
+        <div class="lista-din" id="listaAtivDemanda">
+          <div class="lista-din-item"><input class="fi" value="Acompanhamento do processo" oninput="renderDebounced()"><button class="rm-x" onclick="this.parentElement.remove();renderContrato()">✕</button></div>
+          <div class="lista-din-item"><input class="fi" value="Apresentação de defesas no processo" oninput="renderDebounced()"><button class="rm-x" onclick="this.parentElement.remove();renderContrato()">✕</button></div>
+        </div>
+        <button class="add-mini" onclick="addListaItem('listaAtivDemanda','')">+ adicionar atividade</button>
+      </div>
+    </section>
+
+    <!-- ═══ BLOCO OBJETO — CONSULTORIA ═══ -->
+    <section class="card no-print bloco-consultoria" style="display:none">
+      <div class="card-hd">📝 Objeto — consultoria / escopo aberto</div>
+      <div class="card-body">
+        <div class="fg"><label class="lbl">Áreas abrangidas</label><input class="fi" id="areasConsultoria" oninput="renderDebounced()" value="tributária, empresarial e imobiliária"></div>
+        <div class="sec-div"><div class="sec-div-line"></div><div class="sec-div-lbl">Atividades incluídas (parágrafo primeiro)</div><div class="sec-div-line"></div></div>
+        <div class="lista-din" id="listaAtivConsultoria">
+          <div class="lista-din-item"><input class="fi" value="Análise da estrutura tributária atual, com levantamento detalhado da carga fiscal e estudo de alternativas para sua otimização" oninput="renderDebounced()"><button class="rm-x" onclick="this.parentElement.remove();renderContrato()">✕</button></div>
+          <div class="lista-din-item"><input class="fi" value="Revisão do enquadramento tributário, considerando regimes como Lucro Real, Lucro Presumido e Simples Nacional, conforme aplicável" oninput="renderDebounced()"><button class="rm-x" onclick="this.parentElement.remove();renderContrato()">✕</button></div>
+          <div class="lista-din-item"><input class="fi" value="Diagnóstico de oportunidades fiscais e incentivos tributários, incluindo créditos presumidos, regimes especiais, compensações e benefícios fiscais aplicáveis ao setor do contratante" oninput="renderDebounced()"><button class="rm-x" onclick="this.parentElement.remove();renderContrato()">✕</button></div>
+          <div class="lista-din-item"><input class="fi" value="Assessoria na implementação de estratégias tributárias, incluindo reorganizações societárias, sucessão empresarial e segregação de atividades" oninput="renderDebounced()"><button class="rm-x" onclick="this.parentElement.remove();renderContrato()">✕</button></div>
+          <div class="lista-din-item"><input class="fi" value="Elaboração de relatórios e planilhas relativos aos débitos existentes" oninput="renderDebounced()"><button class="rm-x" onclick="this.parentElement.remove();renderContrato()">✕</button></div>
+        </div>
+        <button class="add-mini" onclick="addListaItem('listaAtivConsultoria','')">+ adicionar atividade</button>
+        <div class="sec-div"><div class="sec-div-line"></div><div class="sec-div-lbl">Beneficiários adicionais (opcional)</div><div class="sec-div-line"></div></div>
+        <label class="chk-row"><input type="checkbox" id="tglBeneficiarios" checked onchange="toggleShow('beneficiariosArea',this.checked);renderContrato()"><span>Incluir parágrafo terceiro — outras pessoas/empresas beneficiadas</span></label>
+        <div id="beneficiariosArea" style="margin-top:8px">
+          <div class="lista-din" id="listaBenef">
+            <div class="lista-din-item"><input class="fi" value="" oninput="renderDebounced()" placeholder="Nome (CPF ...) ou razão social (CNPJ ...)"><button class="rm-x" onclick="this.parentElement.remove();renderContrato()">✕</button></div>
+          </div>
+          <button class="add-mini" onclick="addListaItem('listaBenef','')">+ adicionar beneficiário</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══ HONORÁRIOS — DEMANDA ═══ -->
+    <section class="card no-print bloco-demanda">
+      <div class="card-hd">💰 Honorários — blocos combináveis</div>
+      <div class="card-body">
+        <div class="hon-card" id="honD-fixo" onclick="toggleHon('honD-fixo',event)">
+          <div class="hon-card-tit">Valor Fixo</div>
+          <div class="hon-card-sub">Valor e forma de pagamento — à vista (evento ou data) ou parcelado, com ou sem entrada</div>
+          <div class="hon-cfg" onclick="event.stopPropagation()">
+            <div class="g2">
+              <div class="fg"><label class="lbl">Forma do valor</label>
+                <select class="fi" id="honD_fixoForma" onchange="onFormaValorChange('honD_fixo')">
+                  <option value="rs" selected>Valor em R$</option>
+                  <option value="sm">Salários mínimos</option>
+                </select>
+              </div>
+              <div class="fg" id="honD_fixo-area-rs"><label class="lbl">Valor</label><input class="fi" id="honD_fixoValor" oninput="maskMoeda(this);renderDebouncedParcelasFixo('honD_fixo')" onblur="maskMoedaBlur(this)" placeholder="Ex.: 10000 → R$ 10.000,00"></div>
+              <div class="fg" id="honD_fixo-area-sm" style="display:none"><label class="lbl">Qtde. de salários mínimos</label><input class="fi" type="number" min="0" step="0.5" id="honD_fixoQtdSm" oninput="renderDebounced()" placeholder="Ex.: 2"></div>
+            </div>
+            <div class="fg" style="margin-top:10px"><label class="lbl">Forma de pagamento</label>
+              <select class="fi" id="honD_fixoFormaPg" onchange="setFormaPagtoFixo('honD_fixo',this.value)">
+                <option value="vista" selected>À vista</option>
+                <option value="parcelado">Parcelado</option>
+              </select>
+            </div>
+            <div id="honD_fixo-area-vista" style="margin-top:8px">
+              <div class="fg"><label class="lbl">Data de pagamento <span class="lg">i<span class="lg-tip">O quê dispara o pagamento — ex.: a assinatura do contrato, uma sentença, um levantamento de valores. Use "Evento de pagamento" quando não há uma data certa, só um marco no processo.</span></span></label>
+                <select class="fi" id="honD_fixoModo" onchange="setPagtoFixoModo('honD_fixo',this.value)">
+                  <option value="evento" selected>Evento de pagamento</option>
+                  <option value="data">Data específica</option>
+                </select>
+              </div>
+              <div class="fg" id="honD_fixo-area-evento" style="margin-top:8px"><label class="lbl">Evento de pagamento</label><input class="fi" id="honD_fixoEvento" oninput="renderDebounced()" placeholder="Ex.: na data da manifestação nos autos"></div>
+              <div class="fg" id="honD_fixo-area-data" style="display:none;margin-top:8px"><label class="lbl">Data específica</label><input class="fi" type="date" id="honD_fixoDataEspecifica" onchange="renderContrato()"></div>
+            </div>
+            <div id="honD_fixo-area-parcelado" style="display:none;margin-top:8px">
+              <label class="chk-row"><input type="checkbox" id="honD_fixoEntradaChk" onchange="toggleShow('honD_fixo-area-entradaval',this.checked);gerarParcelasFixo('honD_fixo')"><span>Com entrada</span></label>
+              <div class="fg" id="honD_fixo-area-entradaval" style="display:none;margin-top:8px"><label class="lbl">Valor da entrada</label><input class="fi" id="honD_fixoEntradaValor" oninput="maskMoeda(this);renderDebouncedParcelasFixo('honD_fixo')" onblur="maskMoedaBlur(this)" placeholder="Ex.: 10000 → R$ 10.000,00">
+                <div class="fg" style="margin-top:8px"><label class="lbl">Data de pagamento (entrada) <span class="lg">i<span class="lg-tip">O quê dispara o pagamento da entrada — ex.: a assinatura do contrato, ou outro evento à sua escolha.</span></span></label>
+                  <select class="fi" id="honD_fixoEntradaModo" onchange="setPagtoFixoModo('honD_fixoEntrada',this.value)">
+                    <option value="evento" selected>Evento de pagamento</option>
+                    <option value="data">Data específica</option>
+                  </select>
+                </div>
+                <div class="fg" id="honD_fixoEntrada-area-evento" style="margin-top:8px"><label class="lbl">Evento de pagamento</label><input class="fi" id="honD_fixoEntradaEvento" oninput="renderDebounced()" placeholder="Ex.: na assinatura do contrato"></div>
+                <div class="fg" id="honD_fixoEntrada-area-data" style="display:none;margin-top:8px"><label class="lbl">Data específica</label><input class="fi" type="date" id="honD_fixoEntradaDataEspecifica" onchange="renderContrato()"></div>
+              </div>
+              <div class="g2" style="margin-top:8px">
+                <div class="fg"><label class="lbl">Número de parcelas</label><input class="fi" type="number" min="2" max="60" id="honD_fixoParcNum" oninput="renderDebouncedParcelasFixo('honD_fixo')" placeholder="Ex.: 3"></div>
+                <div class="fg"><label class="lbl">Data da 1ª parcela</label><input class="fi" type="date" id="honD_fixoParcInicio" onchange="gerarParcelasFixo('honD_fixo')"></div>
+              </div>
+              <div style="margin-top:10px" id="honD_fixo-parcelas-lista"></div>
+            </div>
+          </div>
+        </div>
+        <div class="hon-card is-active" id="honD-exito" onclick="toggleHon('honD-exito',event)">
+          <div class="hon-card-tit">Honorário de êxito</div>
+          <div class="hon-card-sub">Percentual ou valor fixo, condicionado à procedência</div>
+          <div class="hon-cfg" onclick="event.stopPropagation()">
+            <div class="modo-toggle" style="margin-bottom:10px">
+              <label class="modo-opt" id="honD_exito-opt-pct"><input type="radio" name="honD_exitoTipo" value="pct" onchange="setExitoTipo('honD_exito','pct')"><span><b>Percentual</b></span></label>
+              <label class="modo-opt" id="honD_exito-opt-valor"><input type="radio" name="honD_exitoTipo" value="valor" onchange="setExitoTipo('honD_exito','valor')"><span><b>Valor fixo</b></span></label>
+            </div>
+            <div class="g2">
+              <div class="fg" id="honD_exito-area-pct" style="display:none"><label class="lbl">Percentual sobre o proveito econômico <span class="lg">i<span class="lg-tip">Proveito econômico é o benefício obtido pelo cliente — valor recuperado, dívida reduzida ou vantagem alcançada — sobre o qual incide o percentual de êxito.</span></span></label><input class="fi" id="honD_exitoPct" oninput="maskPercentual(this);renderDebounced()" placeholder="Ex.: 20 → 20%"></div>
+              <div class="fg" id="honD_exito-area-valor" style="display:none"><label class="lbl">Valor fixo</label><input class="fi" id="honD_exitoValorFixo" oninput="maskMoeda(this);renderDebouncedParcelasExito('honD_exito')" onblur="maskMoedaBlur(this)" placeholder="Ex.: 15000 → R$ 15.000,00"></div>
+            </div>
+            <label class="chk-row" style="margin-top:10px"><input type="checkbox" id="honD_exitoParceladoChk" onchange="toggleShow('honD_exito-area-parcelas',this.checked);syncExitoParcelamento('honD_exito');renderContrato()"><span>Permitir parcelamento do valor de êxito</span></label>
+            <div id="honD_exito-area-parcelas" style="display:none;margin-top:8px">
+              <!-- percentual: total só existe quando o caso se resolver — sem valor certo pra gerar parcelas agora -->
+              <div id="honD_exito-area-parc-pct">
+                <div class="fg" id="honD_exito-area-numparc"><label class="lbl">Número de parcelas</label><input class="fi" type="number" min="2" max="60" id="honD_exitoNumParcelas" oninput="renderDebounced()" placeholder="Ex.: 6"></div>
+                <label class="chk-row" style="margin-top:8px"><input type="checkbox" id="honD_exitoLimiteChk" onchange="onExitoLimiteToggle('honD_exito',this.checked)"><span>Limitar valor máximo de cada parcela (calcula o nº de parcelas automaticamente)</span></label>
+                <div id="honD_exito-area-limite" style="display:none;margin-top:8px" class="fg"><label class="lbl">Valor máximo por parcela</label><input class="fi" id="honD_exitoLimiteParcela" oninput="maskMoeda(this);renderDebounced()" onblur="maskMoedaBlur(this)" placeholder="Ex.: 15000 → R$ 15.000,00"></div>
+              </div>
+              <!-- valor fixo: total já é conhecido — mesmo padrão de linhas editáveis do Valor Fixo -->
+              <div id="honD_exito-area-parc-valor" style="display:none">
+                <div class="g2">
+                  <div class="fg"><label class="lbl">Número de parcelas</label><input class="fi" type="number" min="2" max="60" id="honD_exitoParcNum" oninput="renderDebouncedParcelasExito('honD_exito')" placeholder="Ex.: 6"></div>
+                  <div class="fg"><label class="lbl">Evento de pagamento (1ª parcela)</label><input class="fi" id="honD_exitoEventoGeral" oninput="renderDebounced()" value="no levantamento judicial do valor correspondente" placeholder="Ex.: no levantamento judicial do valor correspondente"></div>
+                </div>
+                <div class="hon-card-sub" style="margin-top:4px">Pagamento de honorários de êxito não tem data certa — a 1ª parcela vence no evento acima; as demais, no mesmo evento do mês subsequente.</div>
+                <div style="margin-top:10px" id="honD_exito-parcelas-lista"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="hon-card" id="honD-2ainst" onclick="toggleHon('honD-2ainst',event)">
+          <div class="hon-card-tit">Honorários adicionais para 2ª instância</div>
+          <div class="hon-card-sub">Valor a ser pago em caso de recurso</div>
+          <div class="hon-cfg" onclick="event.stopPropagation()">
+            <div class="fg"><label class="lbl">Valor</label><input class="fi" id="honD_2ainstValor" oninput="maskMoeda(this);renderDebounced()" onblur="maskMoedaBlur(this)" placeholder="Ex.: 3000 → R$ 3.000,00, ou 50% do valor inicial"></div>
+          </div>
+        </div>
+        <div class="sec-div"><div class="sec-div-line"></div><div class="sec-div-lbl">Pagamento — conta para recebimento</div><div class="sec-div-line"></div></div>
+        <div class="pessoa-grid" id="bancoCardsD"></div>
+      </div>
+    </section>
+
+    <!-- ═══ HONORÁRIOS — CONSULTORIA ═══ -->
+    <section class="card no-print bloco-consultoria" style="display:none">
+      <div class="card-hd">💰 Honorários — blocos combináveis</div>
+      <div class="card-body">
+        <div class="hon-card is-active" id="honC-recorrente" onclick="toggleHon('honC-recorrente',event)">
+          <div class="hon-card-tit">Honorário fixo recorrente mensal (valor fixo / em salários mínimos)</div>
+          <div class="hon-card-sub">Pago com recorrência mensal — não depende de evento, é periódico</div>
+          <div class="hon-cfg" onclick="event.stopPropagation()">
+            <div class="g2">
+              <div class="fg"><label class="lbl">Forma do valor</label>
+                <select class="fi" id="honC_recForma" onchange="onFormaValorChange('honC_rec')">
+                  <option value="rs" selected>Valor em R$</option>
+                  <option value="sm">Salários mínimos</option>
+                </select>
+              </div>
+              <div class="fg" id="honC_rec-area-rs"><label class="lbl">Valor mensal</label><input class="fi" id="honC_recValor" oninput="maskMoeda(this);renderDebounced()" onblur="maskMoedaBlur(this)" placeholder="Ex.: 1500 → R$ 1.500,00"></div>
+              <div class="fg" id="honC_rec-area-sm" style="display:none"><label class="lbl">Qtde. de salários mínimos</label><input class="fi" type="number" min="0" step="0.5" id="honC_recQtdSm" oninput="renderDebounced()" placeholder="Ex.: 1"></div>
+            </div>
+            <div class="g2" style="margin-top:8px">
+              <div class="fg"><label class="lbl">Dia do vencimento</label><input class="fi" id="honC_recDia" oninput="renderDebounced()" placeholder="Ex.: 10 (dez)"></div>
+              <div class="fg"><label class="lbl">A partir de</label><input class="fi" id="honC_recInicio" oninput="renderDebounced()" placeholder="Ex.: março de 2026"></div>
+            </div>
+            <label class="chk-row" style="margin-top:4px"><input type="checkbox" id="honC_reajusteChk" onchange="toggleShow('honC_reajusteArea',this.checked);renderContrato()"><span>Reajuste automático programado (aumenta a partir de data certa, sem aditivo)</span></label>
+            <div id="honC_reajusteArea" style="display:none;margin-top:8px" class="g2">
+              <div class="fg"><label class="lbl">A partir de</label><input class="fi" id="honC_reajusteData" oninput="renderDebounced()" placeholder="Ex.: agosto de 2026"></div>
+              <div class="fg"><label class="lbl">Novo valor</label><input class="fi" id="honC_reajusteValor" oninput="renderDebounced()" placeholder="Ex.: 1,3 salários mínimos vigentes"></div>
+            </div>
+          </div>
+        </div>
+        <div class="hon-card is-active" id="honC-exito" onclick="toggleHon('honC-exito',event)">
+          <div class="hon-card-tit">Honorário de êxito</div>
+          <div class="hon-card-sub">Percentual fixo ou tabela progressiva, sobre o proveito econômico obtido</div>
+          <div class="hon-cfg" onclick="event.stopPropagation()">
+            <div class="modo-toggle" style="margin-bottom:10px">
+              <label class="modo-opt" id="honC_exito-opt-fixo"><input type="radio" name="honC_exitoModoCalc" value="fixo" onchange="setExitoModoCalc('fixo')"><span><b>Percentual fixo</b></span></label>
+              <label class="modo-opt" id="honC_exito-opt-progressivo"><input type="radio" name="honC_exitoModoCalc" value="progressivo" onchange="setExitoModoCalc('progressivo')"><span><b>Percentual progressivo (tabela por faixa)</b></span></label>
+            </div>
+            <div id="honC_exito-area-fixo" style="display:none">
+              <div class="modo-toggle" style="margin-bottom:10px">
+                <label class="modo-opt" id="honC_exito-opt-pct"><input type="radio" name="honC_exitoTipo" value="pct" onchange="setExitoTipo('honC_exito','pct')"><span><b>Percentual</b></span></label>
+                <label class="modo-opt" id="honC_exito-opt-valor"><input type="radio" name="honC_exitoTipo" value="valor" onchange="setExitoTipo('honC_exito','valor')"><span><b>Valor fixo</b></span></label>
+              </div>
+              <div class="g2">
+                <div class="fg" id="honC_exito-area-pct" style="display:none"><label class="lbl">Percentual sobre o proveito econômico <span class="lg">i<span class="lg-tip">Proveito econômico é o benefício obtido pelo cliente — valor recuperado, dívida reduzida ou vantagem alcançada — sobre o qual incide o percentual de êxito.</span></span></label><input class="fi" id="honC_exitoPct" oninput="maskPercentual(this);renderDebounced()" placeholder="Ex.: 8 → 8%"></div>
+                <div class="fg" id="honC_exito-area-valor" style="display:none"><label class="lbl">Valor fixo</label><input class="fi" id="honC_exitoValorFixo" oninput="maskMoeda(this);renderDebounced()" onblur="maskMoedaBlur(this)" placeholder="Ex.: 8000 → R$ 8.000,00"></div>
+              </div>
+            </div>
+            <div id="honC_exito-area-progressivo" style="display:none">
+              <div class="hon-tbl-wrap">
+                <table class="hon-tbl" id="tabelaProgressiva" oninput="renderDebounced()">
+                  <thead><tr><th>Faixa de proveito econômico</th><th class="r">Percentual</th><th class="no-print"></th></tr></thead>
+                  <tbody>
+                    <tr><td contenteditable="true">Até R$ 100.000,00</td><td class="r" contenteditable="true">8%</td><td class="no-print"><button class="row-rm" onclick="this.closest('tr').remove();renderContrato()">✕</button></td></tr>
+                    <tr><td contenteditable="true">De R$ 100.000,01 até R$ 200.000,00</td><td class="r" contenteditable="true">6%</td><td class="no-print"><button class="row-rm" onclick="this.closest('tr').remove();renderContrato()">✕</button></td></tr>
+                    <tr><td contenteditable="true">De R$ 200.000,01 até R$ 300.000,00</td><td class="r" contenteditable="true">4%</td><td class="no-print"><button class="row-rm" onclick="this.closest('tr').remove();renderContrato()">✕</button></td></tr>
+                    <tr><td contenteditable="true">De R$ 300.000,01 até R$ 500.000,00</td><td class="r" contenteditable="true">2%</td><td class="no-print"><button class="row-rm" onclick="this.closest('tr').remove();renderContrato()">✕</button></td></tr>
+                    <tr><td contenteditable="true">Acima de R$ 500.000,00</td><td class="r" contenteditable="true">1%</td><td class="no-print"><button class="row-rm" onclick="this.closest('tr').remove();renderContrato()">✕</button></td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <button class="add-mini" onclick="addLinhaTabela('tabelaProgressiva',2)">+ adicionar faixa</button>
+              <div class="hon-card-sub" style="margin-top:6px">Pré-preenchido conforme padrão do escritório — edite ou remova as faixas conforme o caso.</div>
+            </div>
+            <div class="fg" style="margin-top:8px"><label class="lbl">Base do êxito <span class="lg">i<span class="lg-tip">Define sobre o que incide o percentual de êxito — a hipótese que gera o direito a esse honorário.</span></span></label>
+              <select class="fi" id="honC_exitoBaseSel" onchange="onExitoBaseChange()">
+                <option value="reducao">Redução de dívidas ou valores discutidos</option>
+                <option value="extincao">Extinção ou anulação de multas/autuações administrativas</option>
+                <option value="parcelamento">Parcelamento ou transação vantajosa dos débitos</option>
+                <option value="recuperacao">Recuperação de créditos ou valores</option>
+                <option value="outra">Outra (digitar)</option>
+              </select>
+            </div>
+            <div class="fg" id="honC_exitoBaseLivreArea" style="display:none;margin-top:8px"><input class="fi" id="honC_exitoBaseLivre" oninput="renderDebounced()" placeholder="Descreva a hipótese de êxito"></div>
+            <label class="chk-row" style="margin-top:10px"><input type="checkbox" id="honC_exitoParceladoChk" onchange="toggleShow('honC_exito-area-parcelas',this.checked);renderContrato()"><span>Permitir parcelamento do valor de êxito</span></label>
+            <div id="honC_exito-area-parcelas" style="display:none;margin-top:8px">
+              <div class="fg" id="honC_exito-area-numparc"><label class="lbl">Número de parcelas</label><input class="fi" type="number" min="2" max="60" id="honC_exitoNumParcelas" oninput="renderDebounced()" placeholder="Ex.: 6"></div>
+              <label class="chk-row" style="margin-top:8px"><input type="checkbox" id="honC_exitoLimiteChk" onchange="onExitoLimiteToggle('honC_exito',this.checked)"><span>Limitar valor máximo de cada parcela (calcula o nº de parcelas automaticamente)</span></label>
+              <div id="honC_exito-area-limite" style="display:none;margin-top:8px" class="fg"><label class="lbl">Valor máximo por parcela</label><input class="fi" id="honC_exitoLimiteParcela" oninput="maskMoeda(this);renderDebounced()" onblur="maskMoedaBlur(this)" placeholder="Ex.: 15000 → R$ 15.000,00"></div>
+            </div>
+          </div>
+        </div>
+        <div class="hon-card" id="honC-pagto" onclick="toggleHon('honC-pagto',event)">
+          <div class="hon-card-tit">Forma de pagamento do valor fixo</div>
+          <div class="hon-card-sub">Valor total fixo, pago à vista, parcelado, ou com entrada + parcelamento do restante</div>
+          <div class="hon-cfg" onclick="event.stopPropagation()">
+            <div class="fg"><label class="lbl">Valor total</label><input class="fi" id="honC_pagtoValor" oninput="maskMoeda(this);renderDebounced()" onblur="maskMoedaBlur(this)" placeholder="Ex.: 50000 → R$ 50.000,00"></div>
+            <div class="fg" style="margin-top:10px"><label class="lbl">Forma de pagamento</label>
+              <select class="fi" id="honC_pagtoModo" onchange="setPagtoModo('honC_pagto',this.value)">
+                <option value="" selected disabled>Selecione</option>
+                <option value="vista">À vista</option>
+                <option value="entrada">Entrada + parcelamento do restante</option>
+                <option value="parcelado">Parcelado (sem entrada)</option>
+              </select>
+            </div>
+            <div id="honC_pagto-area-vista" style="display:none;margin-top:8px">
+              <div class="fg"><label class="lbl">Data de pagamento <span class="lg">i<span class="lg-tip">O quê dispara o pagamento — ex.: a assinatura do contrato. Use "Evento de pagamento" quando não há uma data certa, só um marco.</span></span></label>
+                <select class="fi" id="honC_pagtoQuando" onchange="setPagtoFixoModo('honC_pagto',this.value)">
+                  <option value="evento" selected>Evento de pagamento</option>
+                  <option value="data">Data específica</option>
+                </select>
+              </div>
+              <div class="fg" id="honC_pagto-area-evento" style="margin-top:8px"><label class="lbl">Evento de pagamento</label><input class="fi" id="honC_pagtoEvento" oninput="renderDebounced()" placeholder="Ex.: na assinatura do contrato"></div>
+              <div class="fg" id="honC_pagto-area-data" style="display:none;margin-top:8px"><label class="lbl">Data específica</label><input class="fi" type="date" id="honC_pagtoDataEspecifica" onchange="renderContrato()"></div>
+            </div>
+            <div id="honC_pagto-area-entrada" style="display:none;margin-top:8px">
+              <div class="g2">
+                <div class="fg"><label class="lbl">Valor da entrada</label><input class="fi" id="honC_pagtoEntradaValor" oninput="maskMoeda(this);renderDebounced()" onblur="maskMoedaBlur(this)" placeholder="Ex.: 10000 → R$ 10.000,00"></div>
+                <div class="fg"><label class="lbl">Data de pagamento (entrada)</label>
+                  <select class="fi" id="honC_pagtoEntradaModo" onchange="setPagtoFixoModo('honC_pagtoEntrada',this.value)">
+                    <option value="evento" selected>Evento de pagamento</option>
+                    <option value="data">Data específica</option>
+                  </select>
+                </div>
+              </div>
+              <div class="fg" id="honC_pagtoEntrada-area-evento" style="margin-top:8px"><label class="lbl">Evento de pagamento</label><input class="fi" id="honC_pagtoEntradaEvento" oninput="renderDebounced()" placeholder="Ex.: na assinatura do contrato"></div>
+              <div class="fg" id="honC_pagtoEntrada-area-data" style="display:none;margin-top:8px"><label class="lbl">Data específica</label><input class="fi" type="date" id="honC_pagtoEntradaDataEspecifica" onchange="renderContrato()"></div>
+              <div class="g2" style="margin-top:8px">
+                <div class="fg"><label class="lbl">Número de parcelas do restante</label><input class="fi" type="number" min="1" max="60" id="honC_pagtoEntradaNumParc" oninput="renderDebounced()" placeholder="Ex.: 6"></div>
+                <div class="fg"><label class="lbl">A partir de quando (parcelas)</label><input class="fi" id="honC_pagtoEntradaInicio" oninput="renderDebounced()" placeholder="Ex.: 30 dias após a assinatura"></div>
+              </div>
+              <div class="fg" style="margin-top:8px"><label class="lbl">Valor de cada parcela <span class="lg">i<span class="lg-tip">Deixe em branco para dividir o restante igualmente entre as parcelas.</span></span></label><input class="fi" id="honC_pagtoEntradaValorParc" oninput="renderDebounced()" placeholder="Opcional — em branco, divide o restante igualmente"></div>
+            </div>
+            <div id="honC_pagto-area-parcelado" style="display:none;margin-top:8px">
+              <div class="g2">
+                <div class="fg"><label class="lbl">Número de parcelas</label><input class="fi" type="number" min="2" max="60" id="honC_pagtoNumParc" oninput="renderDebounced()" placeholder="Ex.: 6"></div>
+                <div class="fg"><label class="lbl">A partir de</label><input class="fi" id="honC_pagtoInicio" oninput="renderDebounced()" placeholder="Ex.: assinatura do contrato"></div>
+              </div>
+              <div class="fg" style="margin-top:8px"><label class="lbl">Valor de cada parcela <span class="lg">i<span class="lg-tip">Deixe em branco para dividir o valor total igualmente entre as parcelas.</span></span></label><input class="fi" id="honC_pagtoValorParc" oninput="renderDebounced()" placeholder="Opcional — em branco, divide o total igualmente"></div>
+            </div>
+          </div>
+        </div>
+        <div class="sec-div"><div class="sec-div-line"></div><div class="sec-div-lbl">Pagamento — conta para recebimento</div><div class="sec-div-line"></div></div>
+        <div class="pessoa-grid" id="bancoCardsC"></div>
+        <div style="margin-top:12px"></div>
+        <label class="chk-row"><input type="checkbox" id="honC_revisaoChk" onchange="toggleShow('honC_revisaoArea',this.checked);renderContrato()"><span>Cláusula de revisão periódica do valor fixo</span></label>
+        <div id="honC_revisaoArea" style="display:none;margin-top:8px" class="fg"><label class="lbl">Prazo</label><input class="fi" id="honC_revisaoMeses" oninput="renderDebounced()" placeholder="Ex.: 4 (quatro) meses"></div>
+      </div>
+    </section>
+
+    <section class="card no-print">
+      <div class="card-hd">📊 Anexo I — Tabela de Honorários por Matéria</div>
+      <div class="card-body">
+        <label class="chk-row"><input type="checkbox" id="tglAnexo" checked onchange="toggleAnexo(this.checked)"><span>Incluir Anexo I no contrato (serviços fora do escopo)</span></label>
+        <div class="hon-card-sub" style="margin:4px 0 0 23px">Desmarque para não incluir o Anexo no contrato. A lista abaixo é onde você inclui ou exclui cada matéria e edita os valores — funciona igual em Demanda Específica e em Consultoria.</div>
+        <div id="anexoAccordionArea" style="margin-top:12px">
+          <div id="anexoAccordion"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card no-print">
+      <div class="card-hd">➕ Cláusulas extras (opcional)</div>
+      <div class="card-body">
+        <label class="chk-row"><input type="checkbox" id="tglTestemunhas" onchange="renderContrato()"><span>Incluir testemunhas na assinatura <span style="color:var(--text3)">(padrão: sem testemunhas)</span></span></label>
+        <label class="chk-row bloco-consultoria" style="display:none;margin-top:6px"><input type="checkbox" id="tglLimitacao" checked onchange="renderContrato()"><span>Cláusula de limitação de responsabilidade</span></label>
+        <label class="chk-row bloco-demanda" style="margin-top:6px"><input type="checkbox" id="tglMoraAutoD" onchange="renderContrato()"><span>Rescisão automática de pleno direito em caso de mora superior a 30 dias</span></label>
+        <label class="chk-row bloco-consultoria" style="margin-top:6px;display:none"><input type="checkbox" id="tglMoraAutoC" onchange="renderContrato()"><span>Rescisão automática de pleno direito em caso de mora superior a 30 dias</span></label>
+        <label class="chk-row bloco-demanda" style="margin-top:6px"><input type="checkbox" id="tglMultaAntecipadaD" onchange="renderContrato()"><span>Multa de 30% por rescisão antecipada e imotivada pelo contratante</span></label>
+        <label class="chk-row bloco-consultoria" style="margin-top:6px;display:none"><input type="checkbox" id="tglMultaAntecipadaC" onchange="renderContrato()"><span>Multa de 30% por rescisão antecipada e imotivada pelo contratante</span></label>
+        <label class="chk-row" style="margin-top:6px"><input type="checkbox" id="tglNegProc" onchange="renderContrato()"><span>Negócios processuais (CPC, art. 190) — autoriza, em caso de inadimplência, penhora de bem imóvel (com renúncia à impenhorabilidade de bem de família), até 30% do salário e do saldo do FGTS</span></label>
+        <label class="chk-row bloco-consultoria" style="margin-top:6px;display:none"><input type="checkbox" id="tglEscopoJudicial" onchange="renderContrato()"><span>Excluir expressamente atuação judicial/administrativa do escopo (fica sujeita a contratação própria)</span></label>
+        <label class="chk-row bloco-consultoria" style="margin-top:6px;display:none"><input type="checkbox" id="tglExecRecomendacoes" onchange="renderContrato()"><span>Execução das recomendações é responsabilidade exclusiva do cliente/contabilidade</span></label>
+        <div class="sec-div" style="margin-top:12px"><div class="sec-div-line"></div><div class="sec-div-lbl">Fiador / garantia solidária</div><div class="sec-div-line"></div></div>
+        <label class="chk-row"><input type="checkbox" id="tglFiador" onchange="toggleShow('fiadorArea',this.checked);renderContrato()"><span>Incluir fiador, com renúncia ao benefício de ordem (CC, art. 827)</span></label>
+        <div id="fiadorArea" style="display:none;margin-top:8px" class="g3">
+          <div class="fg"><label class="lbl">Nome do fiador</label><input class="fi" id="fiadorNome" oninput="renderDebounced()"></div>
+          <div class="fg"><label class="lbl">CPF</label><input class="fi mono" id="fiadorCpf" maxlength="14" oninput="maskCPF(this);renderDebounced()"></div>
+          <div class="fg"><label class="lbl">Endereço</label><input class="fi" id="fiadorEndereco" oninput="renderDebounced()"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card no-print">
+      <div class="card-hd">📅 Local, data e foro</div>
+      <div class="card-body">
+        <div class="g3">
+          <div class="fg"><label class="lbl">Local de celebração</label>
+            <select class="fi" id="localContratoSel" onchange="onLocalForoChange('local')">
+              <option value="Lagoa da Prata/MG">Lagoa da Prata/MG</option>
+              <option value="Santo Antônio do Monte/MG">Santo Antônio do Monte/MG</option>
+              <option value="outro">Outro (digitar)</option>
+            </select>
+          </div>
+          <div class="fg"><label class="lbl">Data</label><input class="fi" type="date" id="dataContrato" onchange="renderContrato();renderDebouncedProc()"></div>
+          <div class="fg"><label class="lbl">Foro (comarca)</label>
+            <select class="fi" id="foroContratoSel" onchange="onLocalForoChange('foro')">
+              <option value="Lagoa da Prata/MG">Lagoa da Prata/MG</option>
+              <option value="Santo Antônio do Monte/MG">Santo Antônio do Monte/MG</option>
+              <option value="outro">Outro (digitar)</option>
+            </select>
+          </div>
+        </div>
+        <div class="g2" style="margin-top:8px">
+          <div class="fg" id="localContratoLivreArea" style="display:none"><label class="lbl">Local (digitado)</label><input class="fi" id="localContratoLivre" oninput="renderDebounced()"></div>
+          <div class="fg" id="foroContratoLivreArea" style="display:none"><label class="lbl">Foro (digitado)</label><input class="fi" id="foroContratoLivre" oninput="renderDebounced()"></div>
+        </div>
+      </div>
+    </section>
+
+  </div><!-- /split-form -->
+  <div class="split-preview">
+    <!-- ═══ PRÉ-VISUALIZAÇÃO ═══ -->
+    <div class="preview-topbar">
+      <div class="preview-topbar-l">Pré-visualização do contrato <span class="pill-live" id="pillContrato" style="display:none"></span></div>
+      <div class="no-print" style="display:flex;gap:7px">
+        <button class="btn-o" id="btnEditContrato" onclick="toggleEditMode('contrato')">✏ Editar manualmente</button>
+        <button class="btn-o" id="btnRevertContrato" onclick="revertEdit('contrato')" style="display:none">↺ Reverter ao gerado</button>
+        <button class="btn-o" onclick="gerarWord()">↓ Word</button>
+        <button class="btn-g" onclick="gerarPDF()">↓ PDF</button>
+      </div>
+    </div>
+    <div class="papel-wrap">
+      <div class="papel" id="papelContrato" data-pdf="Contrato"></div>
+      <div class="papel anexo-quebra" id="papelAnexo" data-pdf="Anexo" style="display:none"></div>
+    </div>
+
+  </div><!-- /split-preview -->
+  </div>
+</div>
+
+<!-- ═══════════════════════ ABA: PROCURAÇÃO ═══════════════════════ -->
+<div class="panel" id="panel-procuracao">
+  <div class="doc-narrow">
+  <div class="split-form">
+
+    <section class="card no-print">
+      <div class="card-hd">👤 Outorgante <div class="card-hd-r" style="font-weight:400;text-transform:none;font-size:11px"><button class="btn-o" style="padding:4px 10px;font-size:11px" onclick="copiarContratanteParaOutorgante()">copiar do Contratante</button></div></div>
+      <div class="card-body">
+        <div class="modo-toggle">
+          <label class="modo-opt is-active" id="opt-out-pf"><input type="radio" name="outTipo" value="pf" checked onchange="setOutTipo('pf')"><span><b>Pessoa física</b></span></label>
+          <label class="modo-opt" id="opt-out-pj"><input type="radio" name="outTipo" value="pj" onchange="setOutTipo('pj')"><span><b>Pessoa jurídica</b></span></label>
+        </div>
+        <div id="out-pf-fields" style="margin-top:12px">
+          <div class="g2">
+            <div class="fg"><label class="lbl">Nome completo</label><input class="fi" id="outNome" oninput="renderDebouncedProc()"></div>
+            <div class="fg"><label class="lbl">CPF</label><input class="fi mono" id="outCpf" oninput="maskCPF(this);renderDebouncedProc()" placeholder="000.000.000-00"></div>
+          </div>
+          <div class="fg"><label class="lbl">Endereço completo</label><input class="fi" id="outEndereco" oninput="renderDebouncedProc()" placeholder="Rua, nº, bairro, cidade/UF, CEP"></div>
+          <div class="g2">
+            <div class="fg"><label class="lbl">E-mail</label><input class="fi" id="outEmail" oninput="renderDebouncedProc()" placeholder="opcional — só entra no texto se preenchido"></div>
+            <div class="fg"><label class="lbl">Telefone / WhatsApp</label><input class="fi" id="outTelefone" oninput="maskTelefone(this);renderDebouncedProc()" placeholder="opcional — (00) 00000-0000"></div>
+          </div>
+        </div>
+        <div id="out-pj-fields" style="margin-top:12px;display:none">
+          <div class="g2">
+            <div class="fg"><label class="lbl">Razão social</label><input class="fi" id="outRazao" oninput="renderDebouncedProc()"></div>
+            <div class="fg"><label class="lbl">CNPJ <span class="lg">i<span class="lg-tip">Ao completar os 14 dígitos, o sistema busca automaticamente razão social, endereço e sócio-administrador na Receita Federal (dados públicos).</span></span></label>
+              <div style="display:flex;gap:6px">
+                <input class="fi mono" id="outCnpj" oninput="onCnpjBuscaInput('out',this)" onblur="renderDebouncedProc()" placeholder="00.000.000/0001-00" style="flex:1">
+                <button type="button" class="btn-o" style="padding:0 10px;font-size:11px;white-space:nowrap" onclick="buscarDadosCNPJGCP('out',false)">🔎 Buscar</button>
+              </div>
+              <div id="outCnpjStatus" style="font-size:10.5px;margin-top:4px;color:var(--text3)"></div>
+              <div id="outCnpjStatusSel"></div>
+            </div>
+          </div>
+          <div class="fg"><label class="lbl">Endereço da sede</label><input class="fi" id="outEnderecoPJ" oninput="renderDebouncedProc()"></div>
+          <div class="sec-div"><div class="sec-div-line"></div><div class="sec-div-lbl">Representante legal</div><div class="sec-div-line"></div></div>
+          <div class="g2">
+            <div class="fg"><label class="lbl">Nome</label><input class="fi" id="outRepNome" oninput="renderDebouncedProc()"></div>
+            <div class="fg"><label class="lbl">CPF <span style="text-transform:none;font-weight:400;color:var(--text3)">(opcional)</span></label><input class="fi mono" id="outRepCpf" oninput="maskCPF(this);renderDebouncedProc()" placeholder="000.000.000-00"></div>
+          </div>
+          <div class="g2">
+            <div class="fg"><label class="lbl">E-mail</label><input class="fi" id="outEmailPJ" oninput="renderDebouncedProc()" placeholder="opcional — só entra no texto se preenchido"></div>
+            <div class="fg"><label class="lbl">Telefone / WhatsApp</label><input class="fi" id="outWppPJ" oninput="maskTelefone(this);renderDebouncedProc()" placeholder="opcional — (00) 00000-0000"></div>
+          </div>
+        </div>
+
+        <div id="out2-wrap" style="display:none;margin-top:16px">
+          <div class="sec-div"><div class="sec-div-line"></div><div class="sec-div-lbl">Segundo outorgante</div><div class="sec-div-line"></div></div>
+          <div class="modo-toggle">
+            <label class="modo-opt is-active" id="opt-out2-pf"><input type="radio" name="out2Tipo" value="pf" checked onchange="setOutTipo2('pf')"><span><b>Pessoa física</b></span></label>
+            <label class="modo-opt" id="opt-out2-pj"><input type="radio" name="out2Tipo" value="pj" onchange="setOutTipo2('pj')"><span><b>Pessoa jurídica</b></span></label>
+          </div>
+          <div id="out2-pf-fields" style="margin-top:12px">
+            <div class="g2">
+              <div class="fg"><label class="lbl">Nome completo</label><input class="fi" id="outNome2" oninput="renderDebouncedProc()"></div>
+              <div class="fg"><label class="lbl">CPF</label><input class="fi mono" id="outCpf2" oninput="maskCPF(this);renderDebouncedProc()" placeholder="000.000.000-00"></div>
+            </div>
+            <div class="fg"><label class="lbl">Endereço completo</label><input class="fi" id="outEndereco2" oninput="renderDebouncedProc()" placeholder="Rua, nº, bairro, cidade/UF, CEP"></div>
+            <div class="g2">
+              <div class="fg"><label class="lbl">E-mail</label><input class="fi" id="outEmail2" oninput="renderDebouncedProc()" placeholder="opcional — só entra no texto se preenchido"></div>
+              <div class="fg"><label class="lbl">Telefone / WhatsApp</label><input class="fi" id="outTelefone2" oninput="maskTelefone(this);renderDebouncedProc()" placeholder="opcional — (00) 00000-0000"></div>
+            </div>
+          </div>
+          <div id="out2-pj-fields" style="margin-top:12px;display:none">
+            <div class="g2">
+              <div class="fg"><label class="lbl">Razão social</label><input class="fi" id="outRazao2" oninput="renderDebouncedProc()"></div>
+              <div class="fg"><label class="lbl">CNPJ</label>
+                <div style="display:flex;gap:6px">
+                  <input class="fi mono" id="outCnpj2" oninput="onCnpjBuscaInput('out2',this)" onblur="renderDebouncedProc()" placeholder="00.000.000/0001-00" style="flex:1">
+                  <button type="button" class="btn-o" style="padding:0 10px;font-size:11px;white-space:nowrap" onclick="buscarDadosCNPJGCP('out2',false)">🔎 Buscar</button>
+                </div>
+                <div id="outCnpj2Status" style="font-size:10.5px;margin-top:4px;color:var(--text3)"></div>
+                <div id="outCnpj2StatusSel"></div>
+              </div>
+            </div>
+            <div class="fg"><label class="lbl">Endereço da sede</label><input class="fi" id="outEnderecoPJ2" oninput="renderDebouncedProc()"></div>
+            <div class="sec-div"><div class="sec-div-line"></div><div class="sec-div-lbl">Representante legal</div><div class="sec-div-line"></div></div>
+            <div class="g2">
+              <div class="fg"><label class="lbl">Nome</label><input class="fi" id="outRepNome2" oninput="renderDebouncedProc()"></div>
+              <div class="fg"><label class="lbl">CPF <span style="text-transform:none;font-weight:400;color:var(--text3)">(opcional)</span></label><input class="fi mono" id="outRepCpf2" oninput="maskCPF(this);renderDebouncedProc()" placeholder="000.000.000-00"></div>
+            </div>
+            <div class="g2">
+              <div class="fg"><label class="lbl">E-mail</label><input class="fi" id="outEmailPJ2" oninput="renderDebouncedProc()" placeholder="opcional — só entra no texto se preenchido"></div>
+              <div class="fg"><label class="lbl">Telefone / WhatsApp</label><input class="fi" id="outWppPJ2" oninput="maskTelefone(this);renderDebouncedProc()" placeholder="opcional — (00) 00000-0000"></div>
+            </div>
+          </div>
+          <button class="btn-o" type="button" style="margin-top:10px;color:#b42318;border-color:rgba(180,35,24,.3)" onclick="toggleSegundoOutorgante(false)">✕ remover segundo outorgante</button>
+        </div>
+        <button class="add-mini no-print" type="button" id="btnAddOut2" onclick="toggleSegundoOutorgante(true)" style="margin-top:14px">+ adicionar segundo outorgante</button>
+      </div>
+    </section>
+
+    <section class="card no-print">
+      <div class="card-hd">⚖ Outorgado (procurador)</div>
+      <div class="card-body">
+        <div class="pessoa-grid">
+          <div class="pessoa-card is-active" id="ocard-pedro" onclick="toggleOutorgado('pedro')"><div class="pessoa-nome">Pedro Henrique de O. Castro</div><div class="pessoa-oab">OAB/MG 228.471 · Lagoa da Prata/MG</div></div>
+          <div class="pessoa-card" id="ocard-emanuelle" onclick="toggleOutorgado('emanuelle')"><div class="pessoa-nome">Emanuelle Oliveira Araújo</div><div class="pessoa-oab">OAB/MG 240.369</div></div>
+          <div class="pessoa-card" id="ocard-adriana" onclick="toggleOutorgado('adriana')"><div class="pessoa-nome">Adriana Fátima Araújo Borges</div><div class="pessoa-oab">OAB/MG 123.438</div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card no-print">
+      <div class="card-hd">🎯 Finalidade</div>
+      <div class="card-body">
+        <div class="fg">
+          <label class="lbl">Selecione a finalidade</label>
+          <select class="fi" id="procFinalidade" onchange="onFinalidadeChange()">
+            <option value="processo">Processo judicial determinado</option>
+            <option value="fazendaria">Repartições fazendárias</option>
+            <option value="registro">Junta Comercial, Cartórios e Órgãos de registro</option>
+            <option value="administrativo">Processo administrativo determinado</option>
+            <option value="ampla">Ampla, defesa de direitos em geral</option>
+            <option value="outra">Outra finalidade (digitar)</option>
+          </select>
+        </div>
+        <div class="fg" id="procNumProcessoArea">
+          <div class="modo-toggle" id="procAcaoStatusToggle" style="margin-bottom:10px">
+            <label class="modo-opt is-active" id="opt-proc-existente"><input type="radio" name="procAcaoStatus" value="existente" checked onchange="onProcAcaoStatusChange('existente')"><span><b>Ação já distribuída</b> — já tem número do processo</span></label>
+            <label class="modo-opt" id="opt-proc-propor"><input type="radio" name="procAcaoStatus" value="propor" onchange="onProcAcaoStatusChange('propor')"><span><b>Ação a ser proposta</b> — ainda não distribuída</span></label>
+          </div>
+          <div id="procNumProcessoCampo"><label class="lbl">Número do processo</label><input class="fi mono" id="procNumProcesso" oninput="renderDebouncedProc()" placeholder="Ex.: 5003048-70.2023.8.13.0604"></div>
+          <div id="procAcaoProporCampo" style="display:none"><label class="lbl">Descreva a ação a ser proposta</label><input class="fi" id="procAcaoDescricao" oninput="renderDebouncedProc()" placeholder="Ex.: ação de usucapião do imóvel matrícula nº ...; ação de cobrança em face de Fulano de Tal"></div>
+        </div>
+        <div class="fg" id="procFinalidadeLivreArea" style="display:none"><label class="lbl">Descreva a finalidade</label><textarea class="fi" id="procFinalidadeLivre" rows="2" oninput="renderDebouncedProc()"></textarea></div>
+        <div class="sec-div"><div class="sec-div-line"></div><div class="sec-div-lbl">Poderes gerais adicionais (opcional)</div><div class="sec-div-line"></div></div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;margin-bottom:8px">
+          <button class="btn-o" style="padding:3px 10px;font-size:10.5px" onclick="marcarTodosPoderesGerais(true)">✓ marcar todos</button>
+          <button class="btn-o" style="padding:3px 10px;font-size:10.5px" onclick="marcarTodosPoderesGerais(false)">✗ desmarcar todos</button>
+        </div>
+        <div class="poderes-grid" id="poderesGeraisGrid"></div>
+
+        <div class="sec-div"><div class="sec-div-line"></div><div class="sec-div-lbl">Poderes específicos por área (opcional)</div><div class="sec-div-line"></div></div>
+        <div class="modo-toggle" style="margin-bottom:10px">
+          <label class="modo-opt" id="area-opt-trib"><input type="checkbox" onchange="toggleArea('trib',this.checked)"><span><b>Tributário</b></span></label>
+          <label class="modo-opt" id="area-opt-imob"><input type="checkbox" onchange="toggleArea('imob',this.checked)"><span><b>Imobiliário</b></span></label>
+          <label class="modo-opt" id="area-opt-soc"><input type="checkbox" onchange="toggleArea('soc',this.checked)"><span><b>Societário</b></span></label>
+        </div>
+        <div id="areaBlocosWrap"></div>
+
+        <div class="fg" style="margin-top:8px"><label class="lbl">Outros poderes específicos (opcional)</label><input class="fi" id="podOutros" oninput="renderDebouncedProc()" placeholder="Ex.: assinar declarações perante o INSS"></div>
+      </div>
+    </section>
+
+  </div><!-- /split-form -->
+  <div class="split-preview">
+    <div class="preview-topbar">
+      <div class="preview-topbar-l">Pré-visualização da procuração <span class="pill-live" id="pillProc" style="display:none"></span></div>
+      <div class="no-print" style="display:flex;gap:7px">
+        <button class="btn-o" id="btnEditProc" onclick="toggleEditMode('proc')">✏ Editar manualmente</button>
+        <button class="btn-o" id="btnRevertProc" onclick="revertEdit('proc')" style="display:none">↺ Reverter ao gerado</button>
+        <button class="btn-o" onclick="gerarWord()">↓ Word</button>
+        <button class="btn-g" onclick="gerarPDF()">↓ PDF</button>
+      </div>
+    </div>
+    <div class="papel-wrap">
+      <div class="papel" id="papelProc" data-pdf="Procuração"></div>
+    </div>
+
+  </div><!-- /split-preview -->
+  </div>
+</div>
+
+</div><!-- /#main -->
+
+<script>
+function $(id){return document.getElementById(id);}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function val(id){var el=$(id);return el?el.value.trim():'';}
+function ph(text,fallbackLabel){return text?esc(text):'<span class="placeholder-fraco">'+esc(fallbackLabel)+'</span>';}
+function phCaps(text,fallbackLabel){return text?esc(text.toUpperCase()):'<span class="placeholder-fraco">'+esc(fallbackLabel)+'</span>';}
+/* Diferente de ph(): quando o CPF do representante/sócio não é preenchido, a cláusula omite o
+   trecho inteiro (sem placeholder âmbar) — é um dado que legitimamente pode não existir
+   (a busca pública por CNPJ não traz CPF de sócio), então sua ausência não deve "aparecer" no
+   documento como se fosse um campo esquecido. */
+function _cpfClausula(cpf){return cpf?', inscrito(a) no CPF sob o n. '+esc(cpf):'';}
+var _ORDINAIS=['PRIMEIRO','SEGUNDO','TERCEIRO','QUARTO','QUINTO','SEXTO','SÉTIMO'];
+function _paragrafosSeq(lista){
+  var textos=lista.filter(Boolean);
+  if(!textos.length)return'';
+  if(textos.length===1)return '<p class="paragrafo"><span class="par-tit">PARÁGRAFO ÚNICO:</span> '+textos[0]+'</p>';
+  return textos.map(function(t,i){return '<p class="paragrafo"><span class="par-tit">PARÁGRAFO '+_ORDINAIS[i]+':</span> '+t+'</p>';}).join('');
+}
+function _clausulasExtras(CLtit){
+  var out='';
+  if($('tglNegProc')&&$('tglNegProc').checked){
+    out+='<p class="clausula"><span class="cl-tit">CLÁUSULA ADICIONAL – DOS NEGÓCIOS PROCESSUAIS (ART. 190, CPC):</span> em caso de inadimplemento, a CONTRATANTE autoriza expressamente: (i) arresto e penhora sobre bem imóvel, renunciando à impenhorabilidade de bem de família; (ii) penhora de até 30% (trinta por cento) do salário, com renúncia ao art. 833, IV do CPC; (iii) penhora do saldo do FGTS.</p>';
+  }
+  if($('tglFiador')&&$('tglFiador').checked){
+    var fNome=ph(val('fiadorNome'),'nome do fiador'),fCpf=ph(val('fiadorCpf'),'CPF do fiador'),fEnd=ph(val('fiadorEndereco'),'endereço do fiador');
+    out+='<p class="clausula"><span class="cl-tit">CLÁUSULA ADICIONAL – DO FIADOR E GARANTIA:</span> <strong>'+fNome+'</strong>, inscrito(a) no CPF sob o n. '+fCpf+', residente e domiciliado(a) à '+fEnd+', obriga-se como fiador e principal pagador, solidariamente responsável pelo cumprimento de todas as obrigações assumidas pela CONTRATANTE neste instrumento, renunciando ao benefício de ordem previsto no art. 827 do Código Civil.</p>';
+  }
+  if($('tglEscopoJudicial')&&$('tglEscopoJudicial').checked){
+    out+='<p class="clausula"><span class="cl-tit">CLÁUSULA ADICIONAL – DA EXCLUSÃO DE ESCOPO:</span> o presente contrato não abrange a propositura ou o acompanhamento de processos judiciais ou administrativos. Caso tais medidas sejam necessárias, serão objeto de contratação específica, mediante instrumento próprio e ajuste prévio de honorários.</p>';
+  }
+  if($('tglExecRecomendacoes')&&$('tglExecRecomendacoes').checked){
+    out+='<p class="clausula"><span class="cl-tit">CLÁUSULA ADICIONAL – DA EXECUÇÃO DAS RECOMENDAÇÕES:</span> as recomendações apresentadas no âmbito da consultoria deverão ser executadas exclusivamente pela CONTRATANTE e/ou por sua contabilidade, não sendo responsabilidade do '+CLtit+' sua implementação.</p>';
+  }
+  return out;
+}
+
+/* ══ MÁSCARAS — formata enquanto digita (CPF, CNPJ, telefone) ══ */
+function maskCPF(el){var v=el.value.replace(/\D/g,'').slice(0,11);if(v.length>9)v=v.replace(/^(\d{3})(\d{3})(\d{3})(\d{1,2})$/,'$1.$2.$3-$4');else if(v.length>6)v=v.replace(/^(\d{3})(\d{3})(\d{1,3})$/,'$1.$2.$3');else if(v.length>3)v=v.replace(/^(\d{3})(\d{1,3})$/,'$1.$2');el.value=v;}
+function maskCNPJ(el){var v=el.value.replace(/\D/g,'').slice(0,14);if(v.length>12)v=v.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{1,2})$/,'$1.$2.$3/$4-$5');else if(v.length>8)v=v.replace(/^(\d{2})(\d{3})(\d{3})(\d{1,4})$/,'$1.$2.$3/$4');else if(v.length>5)v=v.replace(/^(\d{2})(\d{3})(\d{1,3})$/,'$1.$2.$3');else if(v.length>2)v=v.replace(/^(\d{2})(\d{1,3})$/,'$1.$2');el.value=v;}
+function maskTelefone(el){var v=el.value.replace(/\D/g,'').slice(0,11);if(v.length>10)v=v.replace(/^(\d{2})(\d)(\d{4})(\d{4})$/,'($1) $2 $3-$4');else if(v.length>6)v=v.replace(/^(\d{2})(\d{4})(\d{1,4})$/,'($1) $2-$3');else if(v.length>2)v=v.replace(/^(\d{2})(\d{0,5})$/,'($1) $2');el.value=v;}
+function maskCPFouCNPJ(el){var d=el.value.replace(/\D/g,'');if(d.length>11)maskCNPJ(el);else maskCPF(el);}
+/* ══ MÁSCARA DE PERCENTUAL — mesmo princípio da máscara de moeda: formata ao digitar, "20"→"20%" ══ */
+function maskPercentual(el){
+  var s=el.value.replace(/[^\d,]/g,'');
+  var comIdx=s.indexOf(',');
+  var intPart,decPart;
+  if(comIdx>-1){intPart=s.slice(0,comIdx).replace(/\D/g,'');decPart=s.slice(comIdx+1).replace(/\D/g,'').slice(0,2);}
+  else{intPart=s;decPart=null;}
+  intPart=intPart.replace(/^0+(?=\d)/,'');
+  if(!intPart){el.value='';return;}
+  if(parseInt(intPart,10)>100){intPart='100';decPart=null;}
+  el.value=intPart+(decPart!==null?','+decPart:'')+'%';
+}
+function _parsePercentual(str){
+  if(!str)return NaN;
+  var s=String(str).replace(/%/g,'').replace(/[^\d,]/g,'');
+  if(!s)return NaN;
+  s=s.replace(',','.');
+  var n=parseFloat(s);
+  return isNaN(n)?NaN:n;
+}
+/* ══ VALIDAÇÃO DE DÍGITO VERIFICADOR — CPF/CNPJ, evita buscas fadadas a erro e sinaliza campo digitado errado ══ */
+function validarCPF(cpf){
+  cpf=(cpf||'').replace(/\D/g,'');
+  if(cpf.length!==11||/^(\d)\1{10}$/.test(cpf))return false;
+  var soma=0,i,r;
+  for(i=0;i<9;i++)soma+=parseInt(cpf[i],10)*(10-i);
+  r=(soma*10)%11;if(r===10)r=0;
+  if(r!==parseInt(cpf[9],10))return false;
+  soma=0;
+  for(i=0;i<10;i++)soma+=parseInt(cpf[i],10)*(11-i);
+  r=(soma*10)%11;if(r===10)r=0;
+  return r===parseInt(cpf[10],10);
+}
+function validarCNPJ(cnpj){
+  cnpj=(cnpj||'').replace(/\D/g,'');
+  if(cnpj.length!==14||/^(\d)\1{13}$/.test(cnpj))return false;
+  function calc(base){
+    var pesos=base.length===12?[5,4,3,2,9,8,7,6,5,4,3,2]:[6,5,4,3,2,9,8,7,6,5,4,3,2];
+    var soma=0;
+    for(var i=0;i<base.length;i++)soma+=parseInt(base[i],10)*pesos[i];
+    var r=soma%11;
+    return r<2?0:11-r;
+  }
+  var d1=calc(cnpj.slice(0,12));
+  if(d1!==parseInt(cnpj[12],10))return false;
+  var d2=calc(cnpj.slice(0,13));
+  return d2===parseInt(cnpj[13],10);
+}
+
+/* ══ VALIDAÇÃO VISUAL DE CPF/CNPJ AO SAIR DO CAMPO — marca borda vermelha se o dígito verificador
+   não confere. Delegado num único listener (blur não borbulha, por isso capture:true) em vez de
+   espalhar onblur por cada campo CPF/CNPJ do arquivo. ══ */
+document.addEventListener('blur',function(ev){
+  var el=ev.target;
+  if(!el||!el.id||el.tagName!=='INPUT')return;
+  var digits=(el.value||'').replace(/\D/g,'');
+  var ehCpf=/Cpf/i.test(el.id),ehCnpj=/Cnpj/i.test(el.id);
+  if(ehCpf&&digits.length===11){
+    el.classList.toggle('campo-invalido',!validarCPF(digits));
+  } else if(ehCnpj&&digits.length===14){
+    el.classList.toggle('campo-invalido',!validarCNPJ(digits));
+  } else if(ehCpf||ehCnpj){
+    el.classList.remove('campo-invalido');
+  }
+},true);
+
+/* ══ BUSCADOR POR API — CNPJ + sócio-administrador, dados públicos da Receita Federal ══
+   Mesma cadeia de provedores usada no Planejamento Tributário do escritório: tenta BrasilAPI,
+   depois CNPJ.ws, depois ReceitaWS, ficando com o primeiro que responder. O CPF do sócio não é
+   dado público em nenhum dos três provedores — nunca vem preenchido pela busca; fica para
+   preenchimento manual (e, se deixado em branco, o contrato omite essa informação sem deixar
+   lacuna visível — ver _cpfClausula). */
+var ADMIN_QUALIF=['Administrador','Sócio-Administrador','Diretor','Presidente','Sócio-Gerente','Titular'];
+function _formatarCepGCP(cep){
+  var d=(cep||'').replace(/\D/g,'');
+  if(d.length!==8)return cep||'';
+  return d.slice(0,2)+'.'+d.slice(2,5)+'-'+d.slice(5,8);
+}
+function _montarEnderecoGCP(log,num,bairro,mun,uf,cep){
+  var partes=[];
+  if(log)partes.push(log+(num?', n. '+num:''));
+  if(bairro)partes.push('Bairro '+bairro);
+  if(mun&&uf)partes.push(mun+'/'+uf);
+  var end=partes.join(', ');
+  var cepFmt=_formatarCepGCP(cep);
+  if(cepFmt)end+=(end?', CEP '+cepFmt:'CEP '+cepFmt);
+  return end;
+}
+function _mapBrasilApiGCP(d){
+  if(!d||!d.razao_social)return null;
+  return{fonte:'BrasilAPI',razaoSocial:d.razao_social||'',
+    endereco:_montarEnderecoGCP(d.logradouro,d.numero,d.bairro,d.municipio,d.uf,d.cep),
+    socios:(d.qsa||[]).map(function(q){return{nome:q.nome_socio||'',cargo:q.qualificacao_socio||''};})};
+}
+function _mapCnpjWsGCP(d){
+  if(!d||!d.estabelecimento)return null;
+  var e=d.estabelecimento;
+  return{fonte:'CNPJ.ws',razaoSocial:d.razao_social||'',
+    endereco:_montarEnderecoGCP(e.logradouro,e.numero,e.bairro,(e.cidade&&e.cidade.nome),(e.estado&&e.estado.sigla),e.cep),
+    socios:(d.socios||[]).map(function(q){return{nome:q.nome||'',cargo:(q.qualificacao_socio&&q.qualificacao_socio.descricao)||q.qualificacao_socio||''};})};
+}
+function _mapReceitaWsGCP(d){
+  if(!d||d.status==='ERROR')return null;
+  return{fonte:'ReceitaWS',razaoSocial:d.nome||'',
+    endereco:_montarEnderecoGCP(d.logradouro,d.numero,d.bairro,d.municipio,d.uf,d.cep),
+    socios:(d.qsa||[]).map(function(q){return{nome:q.nome||'',cargo:q.qual||''};})};
+}
+var CNPJ_PROVEDORES_GCP=[
+  {nome:'BrasilAPI',url:function(d){return'https://brasilapi.com.br/api/cnpj/v1/'+d;},map:_mapBrasilApiGCP},
+  {nome:'CNPJ.ws',url:function(d){return'https://publica.cnpj.ws/cnpj/'+d;},map:_mapCnpjWsGCP},
+  {nome:'ReceitaWS',url:function(d){return'https://receitaws.com.br/v1/cnpj/'+d;},map:_mapReceitaWsGCP}
+];
+function _tentarProvedoresGCP(digits,i,erros,status){
+  if(i>=CNPJ_PROVEDORES_GCP.length)return Promise.reject(erros);
+  var pv=CNPJ_PROVEDORES_GCP[i];
+  if(status)status.textContent='Consultando '+pv.nome+' ('+(i+1)+' de '+CNPJ_PROVEDORES_GCP.length+')...';
+  return fetch(pv.url(digits),{headers:{'Accept':'application/json'}})
+    .then(function(r){
+      if(r.status===429)throw new Error('limite de consultas por minuto atingido');
+      if(r.status===404)throw new Error('CNPJ não encontrado');
+      if(!r.ok)throw new Error('HTTP '+r.status);
+      return r.json();
+    })
+    .then(function(j){var m=pv.map(j);if(!m)throw new Error('resposta sem os dados esperados');return m;})
+    .catch(function(e){
+      erros.push(pv.nome+': '+(e&&e.message?e.message:'falha de rede'));
+      return _tentarProvedoresGCP(digits,i+1,erros,status);
+    });
+}
+var _CNPJ_BUSCANDO_GCP={};
+var _CNPJ_BUSCA_ALVOS={
+  ctte:{razao:'ctteRazao',cnpj:'ctteCnpj',end:'ctteEnderecoPJ',rep:'ctteRepNome',status:'ctteCnpjStatus',render:function(){renderContrato();}},
+  out:{razao:'outRazao',cnpj:'outCnpj',end:'outEnderecoPJ',rep:'outRepNome',status:'outCnpjStatus',render:function(){renderProcuracao();}},
+  out2:{razao:'outRazao2',cnpj:'outCnpj2',end:'outEnderecoPJ2',rep:'outRepNome2',status:'outCnpj2Status',render:function(){renderProcuracao();}}
+};
+function onCnpjBuscaInput(alvo,el){
+  maskCNPJ(el);
+  var cfg=_CNPJ_BUSCA_ALVOS[alvo];
+  var digits=(el.value||'').replace(/\D/g,'');
+  var status=cfg&&$(cfg.status);
+  if(alvo==='ctte')renderDebounced();else renderDebouncedProc();
+  if(digits.length===14){
+    if(!validarCNPJ(digits)){
+      if(status)status.innerHTML='<span style="color:var(--red)">CNPJ inválido (dígito verificador não confere) — confira os números.</span>';
+    } else if(status){
+      status.innerHTML='<span style="color:var(--text3)">CNPJ válido — clique em "Buscar" para importar os dados.</span>';
+    }
+  } else if(status){
+    status.textContent='';
+    var sel=$(cfg.status+'Sel');if(sel)sel.innerHTML='';
+  }
+}
+function buscarDadosCNPJGCP(alvo,silencioso){
+  var cfg=_CNPJ_BUSCA_ALVOS[alvo];
+  if(!cfg)return;
+  var el=$(cfg.cnpj),status=$(cfg.status);
+  if(!el)return;
+  var digits=(el.value||'').replace(/\D/g,'');
+  if(digits.length!==14||!validarCNPJ(digits)){
+    if(!silencioso)alert('Informe um CNPJ válido e completo (14 dígitos) para buscar.');
+    return;
+  }
+  if(_CNPJ_BUSCANDO_GCP[alvo])return;
+  _CNPJ_BUSCANDO_GCP[alvo]=true;
+  if(status)status.innerHTML='<span style="color:var(--text3)">Buscando dados na Receita Federal...</span>';
+  _tentarProvedoresGCP(digits,0,[],status)
+    .then(function(d){
+      _CNPJ_BUSCANDO_GCP[alvo]=false;
+      if(d.razaoSocial&&$(cfg.razao))$(cfg.razao).value=d.razaoSocial;
+      if(d.endereco&&$(cfg.end))$(cfg.end).value=d.endereco;
+      var socios=d.socios||[];
+      var admins=socios.filter(function(q){return ADMIN_QUALIF.some(function(a){return (q.cargo||'').toLowerCase().indexOf(a.toLowerCase())>=0;});});
+      var selEl=$(cfg.status+'Sel');
+      if(selEl)selEl.innerHTML='';
+      if($(cfg.rep))$(cfg.rep).value='';
+      if(admins.length===1&&$(cfg.rep)){
+        $(cfg.rep).value=admins[0].nome;
+      } else if(admins.length>1){
+        _renderSeletorSociosGCP(alvo,admins);
+      }
+      if(status){
+        var msg='<span style="color:var(--green-d);font-weight:600">✓ Importado de '+esc(d.fonte)+'</span>';
+        if(socios.length){
+          if(admins.length===1){
+            msg+=' — sócio-administrador identificado: <b>'+esc(admins[0].nome)+'</b> ('+esc(admins[0].cargo)+'). CPF não é dado público — preencha manualmente, ou deixe em branco.';
+          } else if(admins.length>1){
+            msg+=' — '+admins.length+' possíveis administradores encontrados, selecione abaixo quem assina.';
+          } else {
+            msg+=' — nenhum sócio com qualificação de administrador entre os '+socios.length+' sócio(s) encontrados; preencha o representante manualmente.';
+          }
+        } else {
+          msg+=' — quadro societário não informado pela fonte; preencha o representante manualmente.';
+        }
+        status.innerHTML=msg;
+      }
+      cfg.render();
+    })
+    .catch(function(erros){
+      _CNPJ_BUSCANDO_GCP[alvo]=false;
+      if(!status)return;
+      var lista=(erros&&erros.length)?erros:['falha de rede'];
+      var todosRede=lista.every(function(t){return /falha de rede|Failed to fetch|NetworkError/i.test(t);});
+      status.innerHTML='<span style="color:var(--red);font-weight:600">Não foi possível importar.</span> '+
+        (todosRede?'Nenhum dos serviços respondeu — normalmente é falta de internet ou bloqueio de rede. Preencha manualmente; nada mais depende dessa consulta.':'Preencha manualmente.')+
+        '<br><span style="color:var(--text3);font-size:10.5px">Tentativas — '+esc(lista.join(' · '))+'</span>';
+    });
+}
+function _renderSeletorSociosGCP(alvo,admins){
+  var cfg=_CNPJ_BUSCA_ALVOS[alvo];
+  var host=$(cfg.status+'Sel');
+  if(!host)return;
+  window['_sociosGCP_'+alvo]=admins;
+  host.innerHTML='<div style="margin-top:6px;display:flex;flex-direction:column;gap:4px">'+admins.map(function(a,i){
+    return '<label style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);cursor:pointer"><input type="radio" name="socioSel_'+alvo+'" onclick="_selecionarSocioGCP(\''+alvo+'\','+i+')"> '+esc(a.nome)+' <span style="color:var(--text3)">('+esc(a.cargo)+')</span></label>';
+  }).join('')+'</div>';
+}
+function _selecionarSocioGCP(alvo,i){
+  var cfg=_CNPJ_BUSCA_ALVOS[alvo];
+  var admins=window['_sociosGCP_'+alvo]||[];
+  var s=admins[i];if(!s)return;
+  if($(cfg.rep))$(cfg.rep).value=s.nome;
+  cfg.render();
+}
+
+/* ══ CONTRATANTES ADICIONAIS — lista livre de partes extras do lado da CONTRATANTE (co-titulares,
+   cônjuge, sócios etc.), reaproveitando o padrão de lista dinâmica já usado para atividades e
+   beneficiários. PF/PJ é detectado pela quantidade de dígitos do documento, sem precisar de um
+   segundo toggle por linha. ══ */
+function addContratanteExtra(nome,doc,end){
+  var lista=$('listaCtteExtra');
+  if(!lista)return;
+  var div=document.createElement('div');
+  div.className='lista-din-item';
+  div.style.cssText='flex-direction:column;align-items:stretch;gap:6px;border:1px dashed var(--border-strong);border-radius:8px;padding:8px;margin-bottom:2px';
+  div.innerHTML=
+    '<div class="g2">'
+    +'<input class="fi" value="'+esc(nome||'')+'" oninput="renderDebounced()" placeholder="Nome completo ou razão social">'
+    +'<input class="fi mono" value="'+esc(doc||'')+'" oninput="maskCPFouCNPJ(this);renderDebounced()" placeholder="CPF ou CNPJ">'
+    +'</div>'
+    +'<div style="display:flex;gap:7px;align-items:center">'
+    +'<input class="fi" value="'+esc(end||'')+'" oninput="renderDebounced()" placeholder="Endereço completo" style="flex:1">'
+    +'<button class="rm-x" onclick="this.closest(\'.lista-din-item\').remove();renderContrato()">✕</button>'
+    +'</div>';
+  lista.appendChild(div);
+}
+function contratantesExtras(){
+  var lista=$('listaCtteExtra');
+  if(!lista)return [];
+  return Array.prototype.map.call(lista.querySelectorAll('.lista-din-item'),function(item){
+    var inputs=item.querySelectorAll('input');
+    return {nome:(inputs[0]&&inputs[0].value.trim())||'',doc:(inputs[1]&&inputs[1].value.trim())||'',end:(inputs[2]&&inputs[2].value.trim())||''};
+  }).filter(function(c){return c.nome;});
+}
+
+/* ══ ABAS ══ */
+function switchTab(name){
+  document.querySelectorAll('.panel').forEach(function(p){p.classList.remove('active');});
+  document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('active');});
+  $('panel-'+name).classList.add('active');
+  $('tabbtn-'+name).classList.add('active');
+}
+
+/* ══ TELA DIVIDIDA — formulário à esquerda, papel sempre visível à direita (modo único, sem toggle) ══ */
+function aplicarTelaDivididaSalva(){document.body.classList.add('tela-dividida');}
+
+/* ══ DEBOUNCE PARA CAMPOS DE TEXTO ══ */
+var _tContrato=null;
+function renderDebounced(){clearTimeout(_tContrato);_tContrato=setTimeout(renderContrato,180);}
+var _tProc=null;
+function renderDebouncedProc(){clearTimeout(_tProc);_tProc=setTimeout(renderProcuracao,180);}
+
+/* ══ DATA POR EXTENSO ══ */
+var MESES=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+function dataExtenso(iso){
+  if(!iso)return '';
+  var p=iso.split('-');if(p.length!==3)return '';
+  return parseInt(p[2],10)+' de '+MESES[parseInt(p[1],10)-1]+' de '+p[0];
+}
+function dataCurta(iso){
+  if(!iso)return '';
+  var p=iso.split('-');if(p.length!==3)return '';
+  return p[2]+'.'+p[1]+'.'+p[0];
+}
+
+/* ══ ADVOGADOS ══ */
+var LAWYERS={
+  pedro:{nome:'PEDRO HENRIQUE DE OLIVEIRA CASTRO',fem:false,oab:'228.471',end:'com escritório profissional na Rua Araucária, n. 231, Coronel Luciano, Lagoa da Prata/MG, CEP 35.591-218'},
+  emanuelle:{nome:'EMANUELLE OLIVEIRA ARAÚJO',fem:true,oab:'240.369',end:''},
+  adriana:{nome:'ADRIANA FÁTIMA ARAÚJO BORGES',fem:true,oab:'123.438',end:''}
+};
+var contratadosAtivos={pedro:false,emanuelle:false,adriana:false};
+var outorgadosAtivos={pedro:true,emanuelle:false,adriana:false};
+function toggleContratado(k){
+  contratadosAtivos[k]=!contratadosAtivos[k];
+  $('pcard-'+k).classList.toggle('is-active',contratadosAtivos[k]);
+  aplicarDefaultLocalForo();
+  renderContrato();
+}
+function toggleOutorgado(k){outorgadosAtivos[k]=!outorgadosAtivos[k];$('ocard-'+k).classList.toggle('is-active',outorgadosAtivos[k]);renderProcuracao();}
+function listaSelecionados(mapa){return Object.keys(LAWYERS).filter(function(k){return mapa[k];});}
+function qualificacaoAdvogados(chaves,bold){
+  if(!chaves.length)return {texto:'<span class="placeholder-fraco">selecione ao menos um advogado</span>',n:0,fem:false,mixed:false,nomes:'<span class="placeholder-fraco">selecione ao menos um advogado</span>',resto:''};
+  var partes=chaves.map(function(k){
+    var a=LAWYERS[k];var g=a.fem?'a':'o';
+    var nome=esc(a.nome);
+    if(bold)nome='<strong>'+nome+'</strong>';
+    return nome+', advogad'+g+', inscrit'+g+' na OAB/MG sob o n. '+esc(a.oab)+(a.end?', '+esc(a.end):'');
+  });
+  var nomesArr=chaves.map(function(k){return esc(LAWYERS[k].nome.toUpperCase());});
+  var restoArr=chaves.map(function(k){
+    var a=LAWYERS[k];var g=a.fem?'a':'o';
+    return 'advogad'+g+', inscrit'+g+' na OAB/MG sob o n. '+esc(a.oab)+(a.end?', '+esc(a.end):'');
+  });
+  var texto=partes.length>1?(partes.slice(0,-1).join('; ')+'; e '+partes[partes.length-1]):partes[0];
+  var nomes=nomesArr.length>1?(nomesArr.slice(0,-1).join('; ')+'; e '+nomesArr[nomesArr.length-1]):nomesArr[0];
+  var resto=restoArr.length>1?(restoArr.slice(0,-1).join('; ')+'; e '+restoArr[restoArr.length-1]):restoArr[0];
+  var allFem=chaves.every(function(k){return LAWYERS[k].fem;});
+  var allMasc=chaves.every(function(k){return !LAWYERS[k].fem;});
+  return {texto:texto,n:chaves.length,fem:allFem,mixed:!allFem&&!allMasc,allMasc:allMasc,nomes:nomes,resto:resto};
+}
+
+/* ══ DADOS BANCÁRIOS — cartão por advogado(a) (dados já cadastrados no escritório) ══ */
+var BANCOS={}; // contas e PIX vêm do banco depois do login (configuracoes.geradores_bancos)
+var bancoSelD=null,bancoSelC=null;
+/* A conta para recebimento é independente de quem está marcado como contratado — às vezes
+   dois advogados atuam e o pagamento cai numa única conta, ou a conta é de quem não está
+   necessariamente selecionado como contratado neste contrato específico. Por isso as três
+   contas ficam sempre disponíveis para escolha, sem filtrar pelos contratados ativos. */
+function renderBancoSelector(qual){
+  var sel=qual==='D'?bancoSelD:bancoSelC;
+  var cont=$('bancoCards'+qual);
+  if(!cont)return;
+  cont.innerHTML=Object.keys(BANCOS).map(function(k){
+    var b=BANCOS[k];
+    var isSel=k===sel;
+    return '<div class="pessoa-card'+(isSel?' is-active':'')+'" onclick="selecionarBanco(\''+qual+'\',\''+k+'\')"><div class="pessoa-nome">'+esc(b.nome)+'</div><div class="pessoa-oab">'+esc(b.banco)+' · Ag. '+esc(b.ag)+(b.cc?' · CC '+esc(b.cc):'')+' · PIX '+esc(b.pix)+'</div></div>';
+  }).join('');
+}
+function selecionarBanco(qual,k){
+  if(qual==='D')bancoSelD=k;else bancoSelC=k;
+  renderBancoSelector(qual);
+  renderContrato();
+}
+function textoBanco(k){
+  var b=BANCOS[k];
+  if(!b)return '<span class="placeholder-fraco">selecione a conta para recebimento</span>';
+  return 'depósito bancário ou PIX em favor de '+esc(b.nome)+' — '+esc(b.banco)+', agência '+esc(b.ag)+(b.cc?', conta '+esc(b.cc):'')+', chave PIX '+esc(b.pix);
+}
+
+/* ══ HONORÁRIOS DE ÊXITO — percentual/valor fixo, base do êxito, parcelas (campos próprios) ══ */
+/* ══ VALOR FIXO — forma do valor (R$ ou salários mínimos) + modo de pagamento (evento OU data específica) ══ */
+function onFormaValorChange(prefix){
+  var forma=val(prefix+'Forma');
+  $(prefix+'-area-rs').style.display=forma==='sm'?'none':'';
+  $(prefix+'-area-sm').style.display=forma==='sm'?'':'none';
+  renderContrato();
+}
+function textoValorFixoForma(prefix){
+  var forma=val(prefix+'Forma');
+  if(!forma)return '<span class="placeholder-fraco">valor e forma do valor (R$ ou salários mínimos)</span>';
+  if(forma==='sm'){
+    var raw=val(prefix+'QtdSm');
+    if(!raw)return '<span class="placeholder-fraco">quantidade de salários mínimos</span>';
+    var n=parseFloat(raw.replace(',','.'));
+    if(isNaN(n))return '<span class="placeholder-fraco">quantidade de salários mínimos</span>';
+    var pl=n!==1;
+    var qtxt=(n%1===0)?String(parseInt(n,10)):esc(raw);
+    return qtxt+' ('+extensoNum(n)+') salário'+(pl?'s':'')+' mínimo'+(pl?'s':'')+' vigente'+(pl?'s':'')+' à época do pagamento';
+  }
+  return ph(val(prefix+'Valor'),'valor fixo');
+}
+function setPagtoFixoModo(prefix,modo){
+  $(prefix+'-area-evento').style.display=modo==='data'?'none':'';
+  $(prefix+'-area-data').style.display=modo==='data'?'':'none';
+  window['_modoPagtoFixo_'+prefix]=modo;
+  renderContrato();
+}
+function textoPagtoModoFixo(prefix){
+  var modo=window['_modoPagtoFixo_'+prefix]||'evento';
+  if(modo==='data'){
+    var d=val(prefix+'DataEspecifica');
+    return d?'até '+esc(dataExtenso(d)):'<span class="placeholder-fraco">data específica de pagamento</span>';
+  }
+  return ph(val(prefix+'Evento'),'evento de pagamento');
+}
+function setExitoTipo(prefix,tipo){
+  $(prefix+'-area-pct').style.display=tipo==='pct'?'':'none';
+  $(prefix+'-area-valor').style.display=tipo==='valor'?'':'none';
+  $(prefix+'-opt-pct').classList.toggle('is-active',tipo==='pct');
+  $(prefix+'-opt-valor').classList.toggle('is-active',tipo==='valor');
+  window['_tipoExito_'+prefix]=tipo;
+  syncExitoParcelamento(prefix);
+  renderContrato();
+}
+/* ══ PARCELAMENTO EM LINHAS — número/valor/data, editável (Valor Fixo e êxito em valor fixo) ══
+   Reaproveita a mesma lista de parcelas (window['_parcelas_'+prefix]) para os dois cartões:
+   a diferença é só de onde vem o valor total (totalFieldId). */
+var _tParcelas={};
+function _addMeses(iso,n){
+  if(!iso)return '';
+  var p=iso.split('-');if(p.length!==3)return '';
+  var y=parseInt(p[0],10),m=parseInt(p[1],10)-1,d=parseInt(p[2],10);
+  var alvo=new Date(Date.UTC(y,m+n,d));
+  var mesEsperado=((m+n)%12+12)%12;
+  if(alvo.getUTCMonth()!==mesEsperado)alvo=new Date(Date.UTC(y,m+n+1,0)); // dia não existe no mês (ex.: 31) — vai pro último dia do mês
+  return alvo.getUTCFullYear()+'-'+String(alvo.getUTCMonth()+1).padStart(2,'0')+'-'+String(alvo.getUTCDate()).padStart(2,'0');
+}
+function gerarParcelasFixo(prefix,totalFieldId){
+  totalFieldId=totalFieldId||(prefix+'Valor');
+  var n=parseInt(val(prefix+'ParcNum'),10);
+  var total=_parseMoeda(val(totalFieldId));
+  var temEntrada=!!($(prefix+'EntradaChk')&&$(prefix+'EntradaChk').checked);
+  var entrada=temEntrada?_parseMoeda(val(prefix+'EntradaValor')):0;
+  if(isNaN(entrada))entrada=0;
+  var inicio=val(prefix+'ParcInicio');
+  if(!n||n<1||isNaN(total)){window['_parcelas_'+prefix]=[];renderParcelasFixo(prefix);renderContrato();return;}
+  var resto=Math.max(0,total-entrada);
+  var base=Math.floor((resto/n)*100)/100;
+  var arr=[],soma=0;
+  for(var i=0;i<n;i++){
+    var v=(i===n-1)?Math.round((resto-soma)*100)/100:base;
+    soma+=v;
+    arr.push({valor:_moedaFmt(v),data:inicio?_addMeses(inicio,i):''});
+  }
+  window['_parcelas_'+prefix]=arr;
+  renderParcelasFixo(prefix);
+  renderContrato();
+}
+function renderParcelasFixo(prefix){
+  var cont=$(prefix+'-parcelas-lista');
+  if(!cont)return;
+  var arr=window['_parcelas_'+prefix]||[];
+  if(!arr.length){cont.innerHTML='<div class="placeholder-fraco" style="padding:4px 2px">preencha valor, nº de parcelas e a data da 1ª parcela para gerar as linhas</div>';return;}
+  cont.innerHTML=arr.map(function(p,i){
+    return '<div style="display:flex;gap:8px;align-items:end;margin-top:'+(i?'6px':'0')+'">'
+      +'<div class="fg" style="flex:0 0 74px"><label class="lbl">Parcela</label><input class="fi" value="'+(i+1)+'/'+arr.length+'" disabled style="opacity:.6"></div>'
+      +'<div class="fg" style="flex:1"><label class="lbl">Valor</label><input class="fi" value="'+esc(p.valor)+'" oninput="onParcelaFixoInput(\''+prefix+'\','+i+',\'valor\',this)" onblur="maskMoedaBlur(this);onParcelaFixoInput(\''+prefix+'\','+i+',\'valor\',this)"></div>'
+      +'<div class="fg" style="flex:1"><label class="lbl">Data</label><input class="fi" type="date" value="'+esc(p.data)+'" onchange="onParcelaFixoInput(\''+prefix+'\','+i+',\'data\',this)"></div>'
+      +'</div>';
+  }).join('');
+}
+function onParcelaFixoInput(prefix,i,campo,el){
+  if(campo==='valor')maskMoeda(el);
+  var arr=window['_parcelas_'+prefix];
+  if(!arr||!arr[i])return;
+  arr[i][campo]=el.value;
+  renderContrato();
+}
+function renderDebouncedParcelasFixo(prefix){clearTimeout(_tParcelas[prefix]);_tParcelas[prefix]=setTimeout(function(){gerarParcelasFixo(prefix);},250);}
+/* ══ PARCELAMENTO DO ÊXITO EM VALOR FIXO — sem data (pagamento condicionado a evento futuro):
+   um único "evento de pagamento" vale para a 1ª parcela; as demais vencem no mesmo evento do
+   mês subsequente. Só o valor de cada parcela é editável linha a linha. ══ */
+function gerarParcelasExito(prefix,totalFieldId){
+  totalFieldId=totalFieldId||(prefix+'Valor');
+  var n=parseInt(val(prefix+'ParcNum'),10);
+  var total=_parseMoeda(val(totalFieldId));
+  if(!n||n<1||isNaN(total)){window['_parcelas_'+prefix]=[];renderParcelasExito(prefix);renderContrato();return;}
+  var base=Math.floor((total/n)*100)/100;
+  var arr=[],soma=0;
+  for(var i=0;i<n;i++){
+    var v=(i===n-1)?Math.round((total-soma)*100)/100:base;
+    soma+=v;
+    arr.push({valor:_moedaFmt(v)});
+  }
+  window['_parcelas_'+prefix]=arr;
+  renderParcelasExito(prefix);
+  renderContrato();
+}
+function renderParcelasExito(prefix){
+  var cont=$(prefix+'-parcelas-lista');
+  if(!cont)return;
+  var arr=window['_parcelas_'+prefix]||[];
+  if(!arr.length){cont.innerHTML='<div class="placeholder-fraco" style="padding:4px 2px">preencha valor e nº de parcelas para gerar as linhas</div>';return;}
+  cont.innerHTML=arr.map(function(p,i){
+    return '<div style="display:flex;gap:8px;align-items:end;margin-top:'+(i?'6px':'0')+'">'
+      +'<div class="fg" style="flex:0 0 74px"><label class="lbl">Parcela</label><input class="fi" value="'+(i+1)+'/'+arr.length+'" disabled style="opacity:.6"></div>'
+      +'<div class="fg" style="flex:1"><label class="lbl">Valor</label><input class="fi" value="'+esc(p.valor)+'" oninput="onParcelaExitoInput(\''+prefix+'\','+i+',this)" onblur="maskMoedaBlur(this);onParcelaExitoInput(\''+prefix+'\','+i+',this)"></div>'
+      +'</div>';
+  }).join('');
+}
+function onParcelaExitoInput(prefix,i,el){
+  maskMoeda(el);
+  var arr=window['_parcelas_'+prefix];
+  if(!arr||!arr[i])return;
+  arr[i].valor=el.value;
+  renderContrato();
+}
+function renderDebouncedParcelasExito(prefix){clearTimeout(_tParcelas[prefix]);_tParcelas[prefix]=setTimeout(function(){gerarParcelasExito(prefix,prefix+'ValorFixo');},250);}
+function setFormaPagtoFixo(prefix,modo){
+  $(prefix+'-area-vista').style.display=modo==='parcelado'?'none':'';
+  $(prefix+'-area-parcelado').style.display=modo==='parcelado'?'':'none';
+  window['_formaPagtoFixo_'+prefix]=modo;
+  if(modo==='parcelado')gerarParcelasFixo(prefix);
+  renderContrato();
+}
+function textoFormaPagamentoFixo(prefix){
+  var modo=window['_formaPagtoFixo_'+prefix]||'vista';
+  if(modo!=='parcelado')return 'a serem pagos '+textoPagtoModoFixo(prefix);
+  var arr=window['_parcelas_'+prefix]||[];
+  if(!arr.length)return '<span class="placeholder-fraco">parcelamento (nº de parcelas, valor e data da 1ª parcela)</span>';
+  var temEntrada=!!($(prefix+'EntradaChk')&&$(prefix+'EntradaChk').checked);
+  var entradaTxt=temEntrada?('sendo '+ph(val(prefix+'EntradaValor'),'valor da entrada')+' pago(s) a título de entrada, '+textoPagtoModoFixo(prefix+'Entrada')+', e o restante '):'';
+  var iguais=arr.length>1?arr.slice(0,-1).every(function(p){return p.valor===arr[0].valor;}):true;
+  var todasComData=arr.every(function(p){return !!p.data;});
+  if(iguais&&todasComData){
+    return entradaTxt+'em '+numParcelasExtenso(prefix+'ParcNum')+' de '+esc(arr[0].valor)+' cada, vencendo a primeira em '+esc(dataExtenso(arr[0].data))+' e as demais no mesmo dia dos meses subsequentes';
+  }
+  var itens=arr.map(function(p,i){return (i+1)+'ª parcela de '+esc(p.valor||'—')+(p.data?', vencível em '+esc(dataExtenso(p.data)):'');}).join('<br>');
+  return entradaTxt+'em '+arr.length+' ('+extensoNum(arr.length)+') parcelas, sendo:<br>'+itens;
+}
+function syncExitoParcelamento(prefix){
+  var tipo=window['_tipoExito_'+prefix]||'pct';
+  var chk=$(prefix+'ParceladoChk');
+  var ligado=!!(chk&&chk.checked);
+  var elPct=$(prefix+'-area-parc-pct'),elValor=$(prefix+'-area-parc-valor');
+  if(!elPct||!elValor)return;
+  elPct.style.display=(ligado&&tipo!=='valor')?'':'none';
+  elValor.style.display=(ligado&&tipo==='valor')?'':'none';
+  if(ligado&&tipo==='valor')gerarParcelasExito(prefix,prefix+'ValorFixo');
+}
+function textoParcelamentoExitoValor(prefix){
+  var arr=window['_parcelas_'+prefix]||[];
+  if(!arr.length)return ', podendo o valor ser parcelado (defina o nº de parcelas)';
+  var evento=val(prefix+'EventoGeral');
+  var itens=arr.map(function(p,i){
+    var quando=i===0?(evento?', vencível '+esc(evento):''):', vencível no mesmo evento do mês subsequente ao da parcela anterior';
+    return (i+1)+'ª parcela de '+esc(p.valor||'—')+quando;
+  }).join('<br>');
+  return ', podendo o valor ser parcelado em '+arr.length+' ('+extensoNum(arr.length)+') parcelas, sendo:<br>'+itens;
+}
+function setExitoModoCalc(modo){
+  $('honC_exito-area-fixo').style.display=modo==='progressivo'?'none':'';
+  $('honC_exito-area-progressivo').style.display=modo==='progressivo'?'':'none';
+  $('honC_exito-opt-fixo').classList.toggle('is-active',modo==='fixo');
+  $('honC_exito-opt-progressivo').classList.toggle('is-active',modo==='progressivo');
+  window._exitoModoCalc_honC=modo;
+  renderContrato();
+}
+function textoValorExito(prefix){
+  var tipo=window['_tipoExito_'+prefix];
+  if(!tipo)return '<span class="placeholder-fraco">forma do honorário de êxito (percentual ou valor fixo)</span>';
+  if(tipo==='valor')return ph(val(prefix+'ValorFixo'),'valor fixo de êxito');
+  var p=_parsePercentual(val(prefix+'Pct'));
+  return !isNaN(p)?String(p).replace('.',',')+'% ('+extensoNum(p)+' por cento)':'<span class="placeholder-fraco">percentual de êxito</span>';
+}
+/* ══ FORMA DE PAGAMENTO DO VALOR FIXO — à vista / entrada+parcelamento do resto / parcelado sem entrada ══ */
+function _moedaFmt(n){
+  var s=Math.abs(n).toFixed(2);
+  var parts=s.split('.');
+  var withSep=parts[0].replace(/\B(?=(\d{3})+(?!\d))/g,'.');
+  return (n<0?'-':'')+'R$ '+withSep+','+parts[1];
+}
+function _divParcela(totalStr,entradaStr,n){
+  if(!n||n<=0)return null;
+  var t=_parseMoeda(totalStr);
+  if(isNaN(t))return null;
+  var e=_parseMoeda(entradaStr);
+  if(isNaN(e))e=0;
+  var resto=t-e;
+  if(resto<0)return null;
+  return resto/n;
+}
+function setPagtoModo(prefix,modo){
+  $(prefix+'-area-vista').style.display=modo==='vista'?'':'none';
+  $(prefix+'-area-entrada').style.display=modo==='entrada'?'':'none';
+  $(prefix+'-area-parcelado').style.display=modo==='parcelado'?'':'none';
+  window['_pagtoModo_'+prefix]=modo;
+  renderContrato();
+}
+function textoFormaPagamento(prefix){
+  var modo=window['_pagtoModo_'+prefix];
+  if(!modo)return '<span class="placeholder-fraco">forma de pagamento do valor fixo</span>';
+  var valorTotal=ph(val(prefix+'Valor'),'valor total');
+  if(modo==='vista'){
+    return valorTotal+', pagos '+textoPagtoModoFixo(prefix);
+  }
+  if(modo==='entrada'){
+    var entradaTxt=ph(val(prefix+'EntradaValor'),'valor da entrada');
+    var entradaQuando=textoPagtoModoFixo(prefix+'Entrada');
+    var n=parseInt(val(prefix+'EntradaNumParc'),10);
+    var manual=val(prefix+'EntradaValorParc');
+    var inicioParc=val(prefix+'EntradaInicio');
+    var parcTxt;
+    if(!n){
+      parcTxt='<span class="placeholder-fraco">número de parcelas do restante</span>';
+    } else if(manual){
+      parcTxt=numParcelasExtenso(prefix+'EntradaNumParc')+' de '+esc(manual)+' cada';
+    } else {
+      var calc=_divParcela(val(prefix+'Valor'),val(prefix+'EntradaValor'),n);
+      parcTxt=numParcelasExtenso(prefix+'EntradaNumParc')+(calc!=null?', de, aproximadamente, '+_moedaFmt(calc)+' cada, correspondentes ao saldo remanescente':', correspondentes ao saldo remanescente');
+    }
+    return valorTotal+', sendo '+entradaTxt+' pago(s) a título de entrada, '+entradaQuando+', e o restante em '+parcTxt+(inicioParc?', a partir de '+esc(inicioParc):'');
+  }
+  var n2=parseInt(val(prefix+'NumParc'),10);
+  var manual2=val(prefix+'ValorParc');
+  var inicio=val(prefix+'Inicio');
+  var parcTxt2;
+  if(!n2){
+    parcTxt2='<span class="placeholder-fraco">número de parcelas</span>';
+  } else if(manual2){
+    parcTxt2=numParcelasExtenso(prefix+'NumParc')+' de '+esc(manual2)+' cada';
+  } else {
+    var calc2=_divParcela(val(prefix+'Valor'),null,n2);
+    parcTxt2=numParcelasExtenso(prefix+'NumParc')+(calc2!=null?', de, aproximadamente, '+_moedaFmt(calc2)+' cada':'');
+  }
+  return valorTotal+', parcelado em '+parcTxt2+(inicio?', a partir de '+esc(inicio):'');
+}
+function _parseMoeda(str){
+  if(!str)return NaN;
+  var s=String(str).replace(/[^\d.,]/g,'');
+  if(!s)return NaN;
+  if(s.indexOf(',')>-1){
+    s=s.replace(/\./g,'').replace(',','.');
+  } else {
+    /* sem vírgula: um ponto seguido de 3 dígitos (ou mais de um ponto) é separador de milhar,
+       não decimal — evita interpretar "10.000" (ainda sem vírgula, digitação em andamento) como 10 */
+    var dots=(s.match(/\./g)||[]).length;
+    var digitsAfterLastDot=s.length-s.lastIndexOf('.')-1;
+    if(dots>1||digitsAfterLastDot===3)s=s.replace(/\./g,'');
+  }
+  var n=parseFloat(s);
+  return isNaN(n)?NaN:n;
+}
+/* ══ MÁSCARA DE MOEDA — formata em tempo real como "R$ 10.000,00" ══ */
+function maskMoeda(el){
+  var s=el.value.replace(/[^\d,]/g,'');
+  var comIdx=s.indexOf(',');
+  var intPart,decPart;
+  if(comIdx>-1){
+    intPart=s.slice(0,comIdx).replace(/\D/g,'');
+    decPart=s.slice(comIdx+1).replace(/\D/g,'').slice(0,2);
+  } else {
+    intPart=s;decPart=null;
+  }
+  intPart=intPart.replace(/^0+(?=\d)/,'');
+  if(!intPart){el.value=s?'R$ ':'';return;}
+  var withSep=intPart.replace(/\B(?=(\d{3})+(?!\d))/g,'.');
+  el.value='R$ '+withSep+(decPart!==null?','+decPart:'');
+}
+function maskMoedaBlur(el){
+  if(!el.value||el.value==='R$ ')return;
+  var n=_parseMoeda(el.value);
+  if(isNaN(n)){el.value='';return;}
+  el.value=_moedaFmt(n);
+}
+function onExitoLimiteToggle(prefix,checked){
+  $(prefix+'-area-limite').style.display=checked?'':'none';
+  $(prefix+'-area-numparc').style.display=checked?'none':'';
+  renderContrato();
+}
+function textoParcelamentoExito(prefix){
+  var chk=$(prefix+'ParceladoChk');
+  if(!chk||!chk.checked)return '';
+  var tipoAtual=window['_tipoExito_'+prefix]||'pct';
+  if(tipoAtual==='valor')return textoParcelamentoExitoValor(prefix);
+  var limChk=$(prefix+'LimiteChk');
+  if(limChk&&limChk.checked){
+    var limiteStr=val(prefix+'LimiteParcela');
+    if(!limiteStr)return ', podendo o valor ser parcelado, observado limite de valor máximo por parcela a ser definido';
+    var limite=_parseMoeda(limiteStr);
+    var tipo=window['_tipoExito_'+prefix]||'pct';
+    if(tipo==='valor'&&limite>0){
+      var total=_parseMoeda(val(prefix+'ValorFixo'));
+      if(total>0){
+        var n=Math.max(2,Math.ceil(total/limite));
+        return ', podendo o valor ser parcelado em, no mínimo, '+n+' ('+extensoNum(n)+') parcelas mensais e sucessivas, de modo que o valor de cada parcela não exceda '+esc(limiteStr);
+      }
+    }
+    return ', podendo o valor ser parcelado em tantas parcelas mensais e sucessivas quantas forem necessárias para que nenhuma delas exceda '+esc(limiteStr)+', calculadas no momento da apuração do valor devido';
+  }
+  return ', podendo o valor ser parcelado em até '+numParcelasExtenso(prefix+'NumParcelas');
+}
+var BASE_EXITO_TXT={
+  reducao:'redução de dívidas ou valores discutidos',
+  extincao:'extinção ou anulação de multas e autuações administrativas',
+  parcelamento:'parcelamento ou transação vantajosa dos débitos',
+  recuperacao:'recuperação de créditos ou valores'
+};
+function textoBaseExito(){
+  var sel=val('honC_exitoBaseSel')||'reducao';
+  if(sel==='outra')return ph(val('honC_exitoBaseLivre'),'hipóteses de êxito');
+  return BASE_EXITO_TXT[sel];
+}
+function onExitoBaseChange(){
+  toggleShow('honC_exitoBaseLivreArea',val('honC_exitoBaseSel')==='outra');
+  renderContrato();
+}
+function numParcelasExtenso(fieldId){
+  var n=parseInt(val(fieldId),10);
+  if(!n)return '<span class="placeholder-fraco">número de parcelas</span>';
+  return n+' ('+extensoNum(n)+') parcelas mensais e sucessivas';
+}
+var _EXT_UN=['zero','um','dois','três','quatro','cinco','seis','sete','oito','nove','dez','onze','doze','treze','quatorze','quinze','dezesseis','dezessete','dezoito','dezenove'];
+var _EXT_DEZ=['','','vinte','trinta','quarenta','cinquenta','sessenta','setenta','oitenta','noventa'];
+var _EXT_CEM=['','cento','duzentos','trezentos','quatrocentos','quinhentos','seiscentos','setecentos','oitocentos','novecentos'];
+function extensoNum(n){
+  if(n==null||isNaN(n))return '';
+  n=Math.abs(n);
+  var inteiro=Math.floor(n);
+  function ext100(v){
+    if(v<20)return _EXT_UN[v];
+    if(v<100){var d=Math.floor(v/10),u=v%10;return _EXT_DEZ[d]+(u?' e '+_EXT_UN[u]:'');}
+    if(v===100)return 'cem';
+    var c=Math.floor(v/100),r=v%100;
+    return _EXT_CEM[c]+(r?' e '+ext100(r):'');
+  }
+  var txt=ext100(inteiro);
+  var dec=Math.round((n-inteiro)*100);
+  if(dec)txt+=' vírgula '+ext100(dec);
+  return txt;
+}
+
+/* ══ LOCAL / FORO — lista suspensa com padrão condicional (Pedro sozinho → Lagoa da Prata/MG; demais casos → Santo Antônio do Monte/MG), alterável manualmente ══ */
+var localForoManual=false;
+function calcDefaultLocalForo(){
+  var ativos=listaSelecionados(contratadosAtivos);
+  if(ativos.length===1&&ativos[0]==='pedro')return 'Lagoa da Prata/MG';
+  return 'Santo Antônio do Monte/MG';
+}
+function aplicarDefaultLocalForo(){
+  if(localForoManual)return;
+  var d=calcDefaultLocalForo();
+  if($('localContratoSel'))$('localContratoSel').value=d;
+  if($('foroContratoSel'))$('foroContratoSel').value=d;
+}
+function onLocalForoChange(which){
+  localForoManual=true;
+  var sel=$(which==='local'?'localContratoSel':'foroContratoSel').value;
+  toggleShow(which==='local'?'localContratoLivreArea':'foroContratoLivreArea',sel==='outro');
+  renderContrato();
+}
+function valLocalForo(which){
+  var sel=$(which==='local'?'localContratoSel':'foroContratoSel').value;
+  if(sel==='outro')return val(which==='local'?'localContratoLivre':'foroContratoLivre');
+  return sel;
+}
+
+/* ══ TOGGLES DE UI ══ */
+function toggleShow(id,on){$(id).style.display=on?'':'none';}
+function setTipoServico(tipo){
+  document.querySelectorAll('.bloco-demanda').forEach(function(el){el.style.display=tipo==='demanda'?'':'none';});
+  document.querySelectorAll('.bloco-consultoria').forEach(function(el){el.style.display=tipo==='consultoria'?'':'none';});
+  $('opt-tipo-demanda').classList.toggle('is-active',tipo==='demanda');
+  $('opt-tipo-consultoria').classList.toggle('is-active',tipo==='consultoria');
+  window.TIPO_SERVICO=tipo;
+  renderContrato();
+}
+function setCtteTipo(tipo){
+  $('ctte-pf-fields').style.display=tipo==='pf'?'':'none';
+  $('ctte-pj-fields').style.display=tipo==='pj'?'':'none';
+  $('opt-ctte-pf').classList.toggle('is-active',tipo==='pf');
+  $('opt-ctte-pj').classList.toggle('is-active',tipo==='pj');
+  window.CTTE_TIPO=tipo;
+  renderContrato();
+}
+function setOutTipo(tipo){
+  $('out-pf-fields').style.display=tipo==='pf'?'':'none';
+  $('out-pj-fields').style.display=tipo==='pj'?'':'none';
+  $('opt-out-pf').classList.toggle('is-active',tipo==='pf');
+  $('opt-out-pj').classList.toggle('is-active',tipo==='pj');
+  window.OUT_TIPO=tipo;
+  renderProcuracao();
+}
+function setOutTipo2(tipo){
+  $('out2-pf-fields').style.display=tipo==='pf'?'':'none';
+  $('out2-pj-fields').style.display=tipo==='pj'?'':'none';
+  $('opt-out2-pf').classList.toggle('is-active',tipo==='pf');
+  $('opt-out2-pj').classList.toggle('is-active',tipo==='pj');
+  window.OUT_TIPO2=tipo;
+  renderProcuracao();
+}
+function toggleSegundoOutorgante(ligado){
+  window.OUT2_ATIVO=ligado;
+  $('out2-wrap').style.display=ligado?'':'none';
+  $('btnAddOut2').style.display=ligado?'none':'';
+  renderProcuracao();
+}
+function toggleHon(id,ev){
+  if(ev&&ev.target&&ev.target.closest('.hon-cfg'))return;
+  $(id).classList.toggle('is-active');
+  renderContrato();
+}
+function toggleAnexo(on){
+  $('papelAnexo').style.display=on?'':'none';
+  $('anexoAccordionArea').style.display=on?'':'none';
+  renderContrato();
+}
+
+/* ══ ANEXO I — acordeão por matéria (inclui/exclui seção, adiciona/remove linha; ao contrário do
+   Sistema Jurídico, o acordeão aqui realmente expande/recolhe e "excluir seção" realmente tira a
+   seção do documento gerado) ══ */
+var ANEXO_DATA={
+  imobiliario:{titulo:'Imobiliário',aberto:true,ativo:true,rows:[
+    {servico:'Usucapião',min:'R$ 10.000,00',max:'R$ 15.000,00'},
+    {servico:'Retificação de área judicial',min:'R$ 10.000,00',max:'R$ 15.000,00'},
+    {servico:'Retificação de área extrajudicial',min:'R$ 8.000,00',max:'R$ 10.000,00'},
+    {servico:'Regularização de imóvel por inventário',min:'R$ 6.000,00',max:'R$ 15.000,00'},
+    {servico:'Regularização de imóvel (CRI)',min:'R$ 759,00',max:'R$ 7.590,00'}
+  ]},
+  empresarial:{titulo:'Empresarial / Societário',aberto:true,ativo:true,rows:[
+    {servico:'Holding LTDA — valor fixo inicial',min:'R$ 6.000,00',max:'R$ 8.000,00'},
+    {servico:'Holding LTDA — por imóvel integralizado',min:'R$ 1.500,00',max:'R$ 3.000,00'},
+    {servico:'Holding S.A. — valor fixo inicial',min:'R$ 8.000,00',max:'R$ 12.000,00'},
+    {servico:'Holding S.A. — por imóvel integralizado',min:'R$ 2.500,00',max:'R$ 4.000,00'},
+    {servico:'Constituição de empresa',min:'1 salário mínimo',max:'1 salário mínimo'},
+    {servico:'Alterações societárias (Junta Comercial)',min:'0,25 salário',max:'0,25 salário'}
+  ]},
+  execucao:{titulo:'Execução / Cobrança',aberto:true,ativo:true,rows:[
+    {servico:'Cobranças/execuções, judiciais e extrajudiciais',min:'20% sobre o êxito',max:'20% sobre o êxito'}
+  ]},
+  tributario:{titulo:'Tributário',aberto:true,ativo:true,rows:[
+    {servico:'Dívidas tributárias',min:'Conforme Cláusula de Honorários',max:'Conforme Cláusula de Honorários'},
+    {servico:'Planejamento tributário',min:'R$ 5.000,00',max:'R$ 8.000,00'},
+    {servico:'Importação (liberação de radar no SISCOMEX)',min:'R$ 21.000,00',max:'R$ 21.000,00'},
+    {servico:'Consultoria cível, ambiental e empresarial',min:'0,6 salário',max:'0,6 salário'}
+  ]}
+};
+function renderAnexoAccordion(){
+  var el=$('anexoAccordion');
+  if(!el)return;
+  var html='';
+  Object.keys(ANEXO_DATA).forEach(function(key){
+    var sec=ANEXO_DATA[key];
+    var arrow=sec.aberto?'▾':'▸';
+    html+='<div style="border:1.5px solid var(--border);border-radius:9px;margin-bottom:8px;overflow:hidden'+(sec.ativo?'':';opacity:.5')+'">';
+    html+='<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;background:rgba(27,42,74,.045);cursor:pointer" onclick="toggleAnexoAcc(\''+key+'\')">';
+    html+='<span style="font-weight:700;font-size:12.5px;color:var(--navy)">'+esc(sec.titulo)+(sec.ativo?'':' — excluída do Anexo')+'</span>';
+    html+='<span style="display:flex;align-items:center;gap:10px">';
+    html+='<button class="btn-o" style="padding:3px 10px;font-size:10.5px" onclick="event.stopPropagation();toggleAnexoAtivo(\''+key+'\')">'+(sec.ativo?'✕ excluir seção':'✓ incluir seção')+'</button>';
+    html+='<span style="color:var(--text3)">'+arrow+'</span></span></div>';
+    if(sec.aberto){
+      html+='<div style="padding:10px 12px">';
+      html+='<div class="hon-tbl-wrap"><table class="hon-tbl"><thead><tr><th>Serviço</th><th class="r">Mínimo</th><th class="r">Máximo</th><th class="no-print"></th></tr></thead><tbody>';
+      sec.rows.forEach(function(r,ri){
+        html+='<tr>'
+          +'<td><input class="fi" style="border:none;padding:2px 4px;font-size:12.5px" value="'+esc(r.servico)+'" data-key="'+key+'" data-ri="'+ri+'" data-field="servico" oninput="onAnexoInput(this)"></td>'
+          +'<td class="r"><input class="fi" style="border:none;padding:2px 4px;font-size:12.5px;text-align:right" value="'+esc(r.min)+'" data-key="'+key+'" data-ri="'+ri+'" data-field="min" oninput="onAnexoInput(this)"></td>'
+          +'<td class="r"><input class="fi" style="border:none;padding:2px 4px;font-size:12.5px;text-align:right" value="'+esc(r.max)+'" data-key="'+key+'" data-ri="'+ri+'" data-field="max" oninput="onAnexoInput(this)"></td>'
+          +'<td class="no-print"><button class="row-rm" onclick="removerLinhaAnexo(\''+key+'\','+ri+')">✕</button></td>'
+          +'</tr>';
+      });
+      html+='</tbody></table></div>';
+      html+='<button class="add-mini no-print" onclick="adicionarLinhaAnexo(\''+key+'\')">+ adicionar item</button>';
+      html+='</div>';
+    }
+    html+='</div>';
+  });
+  el.innerHTML=html;
+  renderAnexoPreview();
+}
+function toggleAnexoAcc(key){ANEXO_DATA[key].aberto=!ANEXO_DATA[key].aberto;renderAnexoAccordion();}
+function toggleAnexoAtivo(key){ANEXO_DATA[key].ativo=!ANEXO_DATA[key].ativo;renderAnexoAccordion();}
+function onAnexoInput(inp){ANEXO_DATA[inp.dataset.key].rows[parseInt(inp.dataset.ri,10)][inp.dataset.field]=inp.value;renderAnexoPreview();}
+function adicionarLinhaAnexo(key){ANEXO_DATA[key].rows.push({servico:'',min:'',max:''});renderAnexoAccordion();}
+function removerLinhaAnexo(key,ri){ANEXO_DATA[key].rows.splice(ri,1);renderAnexoAccordion();}
+function renderAnexoPreview(){
+  var el=$('papelAnexo');
+  if(!el)return;
+  /* Título tratado como cabeçalho de seção do próprio contrato (mesmo padrão das cláusulas),
+     não como abertura de um documento novo — o Anexo é continuação do mesmo instrumento. */
+  var h='<p class="clausula" style="margin-bottom:6px;text-align:center"><span class="cl-tit">ANEXO I – TABELA DE HONORÁRIOS POR MATÉRIA</span></p>';
+  h+='<p class="paragrafo" style="margin-bottom:14px">Referência de preços para serviços complementares ao objeto deste contrato (fora do escopo aqui contratado). Confirme os valores antes de assinar — tabela de preço envelhece.</p>';
+  Object.keys(ANEXO_DATA).forEach(function(key){
+    var sec=ANEXO_DATA[key];
+    var rows=sec.rows.filter(function(r){return r.servico;});
+    if(!sec.ativo||!rows.length)return;
+    h+='<p class="clausula" style="margin:14px 0 6px;font-weight:700">'+esc(sec.titulo)+'</p>';
+    h+='<div class="hon-tbl-wrap"><table class="hon-tbl"><thead><tr><th>Serviço</th><th class="r">Mínimo</th><th class="r">Máximo</th></tr></thead><tbody>';
+    rows.forEach(function(r){h+='<tr><td>'+esc(r.servico)+'</td><td class="r">'+esc(r.min)+'</td><td class="r">'+esc(r.max)+'</td></tr>';});
+    h+='</tbody></table></div>';
+  });
+  el.innerHTML=h;
+}
+window.TIPO_SERVICO='demanda';window.CTTE_TIPO='pf';window.OUT_TIPO='pf';window.OUT_TIPO2='pf';window.OUT2_ATIVO=false;
+
+/* ══ LISTAS DINÂMICAS ══ */
+function addListaItem(listaId,val0,placeholder){
+  var lista=$(listaId);
+  var div=document.createElement('div');
+  div.className='lista-din-item';
+  div.innerHTML='<input class="fi" value="'+esc(val0||'')+'" oninput="renderDebounced()" placeholder="'+esc(placeholder||'')+'"><button class="rm-x" onclick="this.parentElement.remove();renderContrato()">✕</button>';
+  lista.appendChild(div);
+  div.querySelector('input').focus();
+}
+function listaValores(listaId){
+  return Array.from($(listaId).querySelectorAll('input')).map(function(i){return i.value.trim();}).filter(Boolean);
+}
+function addLinhaTabela(tabelaId,ncols){
+  var tbody=$(tabelaId).querySelector('tbody');
+  var tr=document.createElement('tr');
+  var tds='';
+  for(var i=0;i<ncols;i++){tds+='<td'+(i>0?' class="r"':'')+' contenteditable="true"></td>';}
+  tr.innerHTML=tds+'<td class="no-print"><button class="row-rm" onclick="this.closest(\'tr\').remove();renderContrato()">✕</button></td>';
+  tbody.appendChild(tr);
+  tr.querySelector('td').focus();
+}
+function tabelaLinhas(tabelaId){
+  return Array.from($(tabelaId).querySelectorAll('tbody tr')).map(function(tr){
+    return Array.from(tr.querySelectorAll('td[contenteditable]')).map(function(td){return td.textContent.trim();});
+  }).filter(function(r){return r[0];});
+}
+
+/* ══ MODO DE EDIÇÃO MANUAL — trava a regeneração automática ══
+   Diferente do Sistema Jurídico antigo: lá, qualquer campo alterado reconstruía o texto e
+   apagava silenciosamente uma edição manual em andamento. Aqui, uma vez em modo de edição,
+   render*() não escreve mais no papel até o usuário finalizar ou reverter explicitamente. */
+var EDITANDO={contrato:false,proc:false};
+function setEditMode(qual,on){
+  var papel=qual==='contrato'?$('papelContrato'):$('papelProc');
+  var btn=qual==='contrato'?$('btnEditContrato'):$('btnEditProc');
+  var rev=qual==='contrato'?$('btnRevertContrato'):$('btnRevertProc');
+  var pill=qual==='contrato'?$('pillContrato'):$('pillProc');
+  EDITANDO[qual]=on;
+  if(on){
+    papel.contentEditable='true';papel.classList.add('editando');papel.focus();
+    btn.textContent='✅ Finalizar edição';rev.style.display='';
+    pill.textContent='edição manual';pill.className='pill-editando';pill.style.display='';
+  } else {
+    papel.contentEditable='false';papel.classList.remove('editando');
+    btn.textContent='✏ Editar manualmente';rev.style.display='none';
+    pill.textContent='';pill.className='pill-live';pill.style.display='none';
+  }
+}
+function toggleEditMode(qual){setEditMode(qual,!EDITANDO[qual]);}
+function revertEdit(qual){
+  setEditMode(qual,false);
+  if(qual==='contrato')renderContrato();else renderProcuracao();
+}
+
+/* ══════════ GERAÇÃO DO CONTRATO ══════════ */
+function qualificacaoContratante(){
+  var principal;
+  if(window.CTTE_TIPO==='pj'){
+    var razao=val('ctteRazao'),cnpj=val('ctteCnpj'),end=val('ctteEnderecoPJ'),rep=val('ctteRepNome'),repCpf=val('ctteRepCpf'),email=val('ctteEmailPJ'),wpp=val('ctteWppPJ');
+    principal='<b>CONTRATANTE:</b> '+ph(razao,'razão social')+', pessoa jurídica de direito privado, inscrita no CNPJ sob o n. '+ph(cnpj,'CNPJ')+', com sede na '+ph(end,'endereço da sede')+', neste ato representada por seu(sua) representante legal '+ph(rep,'nome do representante')+_cpfClausula(repCpf)+(email?', e-mail '+esc(email):'')+(wpp?', telefone/WhatsApp '+esc(wpp):'');
+  } else {
+    var nome=val('ctteNome'),cpf=val('ctteCpf'),end2=val('ctteEndereco'),email2=val('ctteEmail'),wpp2=val('ctteWpp');
+    principal='<b>CONTRATANTE:</b> '+ph(nome,'nome completo')+', inscrito(a) no CPF sob o n. '+ph(cpf,'CPF')+', residente e domiciliado(a) à '+ph(end2,'endereço completo')+(email2?', e-mail '+esc(email2):'')+(wpp2?', telefone/WhatsApp '+esc(wpp2):'');
+  }
+  var extras=contratantesExtras();
+  if(extras.length){
+    var partesExtra=extras.map(function(c){
+      var digits=c.doc.replace(/\D/g,'');
+      var ehPJ=digits.length>11;
+      var docTxt=c.doc?(ehPJ?', inscrita no CNPJ sob o n. '+esc(c.doc):', inscrito(a) no CPF sob o n. '+esc(c.doc)):'';
+      var endTxt=c.end?(ehPJ?', com sede em '+esc(c.end):', residente e domiciliado(a) à '+esc(c.end)):'';
+      return esc(c.nome)+docTxt+endTxt;
+    });
+    principal+='; e ainda, em conjunto e solidariamente, '+partesExtra.join('; e ');
+  }
+  return principal+'.';
+}
+function generoContratante(){
+  // usado só para "residente e domiciliado(a)" — já tratado com (a) fixo; mantido simples.
+  return true;
+}
+/* ══ INDICADOR VISUAL — pisca em amarelo o(s) bloco(s) do texto que mudaram no último render, pra
+   ajudar a se situar sem precisar reescrever a geração de texto campo a campo. Comparação é por
+   posição (índice do filho direto do papel); ao trocar cláusulas opcionais o índice desloca e pode
+   piscar blocos vizinhos também — efeito colateral inofensivo, aceito pela simplicidade. ══ */
+function _stripJustEdited(html){return html.replace(/\s*\bjust-edited\b/g,'');}
+function _renderComFlash(elId,newHtml){
+  var el=$(elId);
+  if(!el)return;
+  var antigos=Array.prototype.map.call(el.children,function(c){return _stripJustEdited(c.outerHTML);});
+  el.innerHTML=newHtml;
+  var novos=el.children;
+  var usados={};
+  for(var i=0;i<novos.length;i++){
+    var htmlAtual=_stripJustEdited(novos[i].outerHTML);
+    var inalterado=(antigos[i]===htmlAtual);
+    if(!inalterado){
+      /* Conteúdo idêntico pode só ter mudado de posição — por exemplo, ligar/desligar uma
+         cláusula extra desloca o índice de tudo que vem depois dela. Em vez de comparar só a
+         mesma posição (o que piscaria todos os blocos deslocados, mesmo sem mudança real),
+         procura o mesmo HTML em qualquer posição antiga ainda não usada; só o que não tem
+         correspondência nenhuma é, de fato, novo ou alterado. */
+      for(var j=0;j<antigos.length;j++){
+        if(!usados[j]&&antigos[j]===htmlAtual){usados[j]=true;inalterado=true;break;}
+      }
+    } else {
+      usados[i]=true;
+    }
+    if(!inalterado){
+      (function(node){
+        node.classList.add('just-edited');
+        setTimeout(function(){node.classList.remove('just-edited');},1200);
+      })(novos[i]);
+    }
+  }
+}
+function renderContrato(){
+  if(EDITANDO.contrato)return;
+  var html=window.TIPO_SERVICO==='consultoria'?renderContratoConsultoria():renderContratoDemanda();
+  _renderComFlash('papelContrato',html);
+  atualizarResumosHonorarios();
+  _autoSalvarRascunhoDebounced();
+}
+/* ══ RESUMO NO CARD — 1 linha embaixo do card ativo mostrando quantos campos já foram
+   preenchidos, pra escanear rapidamente quais honorários já estão configurados sem abrir cada
+   um. Genérico (conta campos .fi visíveis dentro do hon-cfg) em vez de lógica por cartão. ══ */
+function atualizarResumosHonorarios(){
+  document.querySelectorAll('.hon-card').forEach(function(card){
+    var resumoEl=card.querySelector('.hon-resumo');
+    if(!resumoEl){
+      var sub=card.querySelector('.hon-card-sub');
+      if(!sub)return;
+      resumoEl=document.createElement('div');
+      resumoEl.className='hon-resumo';
+      sub.insertAdjacentElement('afterend',resumoEl);
+    }
+    if(!card.classList.contains('is-active')){resumoEl.style.display='none';return;}
+    var cfg=card.querySelector('.hon-cfg');
+    if(!cfg){resumoEl.style.display='none';return;}
+    var visiveis=Array.prototype.filter.call(cfg.querySelectorAll('.fi'),function(el){return el.offsetParent!==null;});
+    var total=visiveis.length;
+    if(!total){resumoEl.style.display='none';return;}
+    var preenchidos=visiveis.filter(function(el){var v=(el.value||'').trim();return v&&v!=='R$';}).length;
+    resumoEl.style.display='';
+    resumoEl.innerHTML=preenchidos>=total?'<b>✓ configurado</b>':'<b>'+preenchidos+' de '+total+'</b> campos preenchidos';
+  });
+}
+function blocoAssinaturas(qq,contratados,comTestemunhas){
+  var h='<div class="assin-bloco"><div class="assin-grid">';
+  h+='<div class="assin-col"><div class="assin-linha"></div><div class="assin-nome">CONTRATANTE</div><div class="assin-doc">'+ph(qq.nomeCurto,'nome do contratante')+'</div></div>';
+  contratantesExtras().forEach(function(c){
+    h+='<div class="assin-col"><div class="assin-linha"></div><div class="assin-nome">CONTRATANTE</div><div class="assin-doc">'+esc(c.nome)+'</div></div>';
+  });
+  if(!contratados.n){
+    h+='<div class="assin-col"><div class="assin-linha"></div><div class="assin-nome placeholder-fraco">CONTRATADO</div><div class="assin-doc placeholder-fraco">OAB/MG</div></div>';
+  } else {
+    Object.keys(LAWYERS).forEach(function(k){
+      if(!contratadosAtivos[k])return;
+      var a=LAWYERS[k];
+      h+='<div class="assin-col"><div class="assin-linha"></div><div class="assin-nome">'+esc(a.nome)+'</div><div class="assin-doc">OAB/MG '+esc(a.oab)+'</div></div>';
+    });
+  }
+  h+='</div>';
+  if(comTestemunhas){
+    h+='<div class="assin-grid"><div class="assin-col"><div class="assin-linha"></div><div class="assin-nome">TESTEMUNHA</div><div class="assin-doc">CPF: <span class="placeholder-fraco">___</span></div></div><div class="assin-col"><div class="assin-linha"></div><div class="assin-nome">TESTEMUNHA</div><div class="assin-doc">CPF: <span class="placeholder-fraco">___</span></div></div></div>';
+  }
+  h+='</div>';
+  return h;
+}
+function renderContratoDemanda(){
+  var contratados=qualificacaoAdvogados(listaSelecionados(contratadosAtivos));
+  /* CONTRATANTE/CONTRATADO são termos definidos do contrato — fixos no masculino singular,
+     mesmo representando mais de uma pessoa ou pessoa de outro gênero (evita "DO(A)(S)" repetido). */
+  var CLtit='CONTRATADO';
+  var verbPrestar='prestará';
+  var verbPoder='poderá';
+
+  var h='<div class="doc-titulo">Contrato de Prestação de Serviços Advocatícios</div>';
+  h+='<div class="quali">'+qualificacaoContratante()+'</div>';
+  h+='<div class="quali"><b>CONTRATADO:</b> '+contratados.texto+'.</div>';
+  h+='<div class="abertura">Pelo presente instrumento, as partes celebram entre si contrato de prestação de serviços advocatícios, mediante as seguintes cláusulas e condições:</div>';
+
+  var objeto=val('objDemandaTexto');
+  h+='<p class="clausula"><span class="cl-tit">CLÁUSULA PRIMEIRA – OBJETO:</span> o '+CLtit+' '+verbPrestar+' serviços advocatícios consistentes em '+ph(objeto,'descreva o objeto')+'.</p>';
+
+  var ativ=listaValores('listaAtivDemanda');
+  if(ativ.length){
+    h+='<p class="clausula" style="margin-bottom:6px"><span class="par-tit">PARÁGRAFO PRIMEIRO:</span> as atividades de atuação advocatícia englobam medidas judiciais e extrajudiciais necessárias à execução dos serviços, incluindo:</p>';
+    h+='<div class="atv-lista">'+ativ.map(function(a){return '<div class="atv-item">'+esc(a)+'</div>';}).join('')+'</div>';
+  }
+  h+='<p class="paragrafo"><span class="par-tit">PARÁGRAFO SEGUNDO:</span> outros atos não previstos, inclusive recursos, ações autônomas ou procedimentos administrativos distintos, dependerão de ajuste contratual próprio.</p>';
+
+  h+='<p class="clausula" style="margin-bottom:6px"><span class="cl-tit">CLÁUSULA SEGUNDA – DOS HONORÁRIOS:</span> os honorários advocatícios serão pagos da seguinte forma:</p>';
+  var itensHon=[];
+  if($('honD-fixo').classList.contains('is-active')){
+    itensHon.push(textoValorFixoForma('honD_fixo')+', '+textoFormaPagamentoFixo('honD_fixo')+';');
+  }
+  if($('honD-exito').classList.contains('is-active')){
+    itensHon.push(textoValorExito('honD_exito')+', a título de honorários de êxito, devidos em caso de procedência'+textoParcelamentoExito('honD_exito')+';');
+  }
+  if(itensHon.length){
+    h+='<div class="atv-lista">'+itensHon.map(function(i){return '<div class="atv-item">'+i+'</div>';}).join('')+'</div>';
+  }
+  h+='<p class="paragrafo"><span class="par-tit">PARÁGRAFO PRIMEIRO:</span> o pagamento será feito por '+textoBanco(bancoSelD)+'.</p>';
+  if($('honD-2ainst').classList.contains('is-active')){
+    h+='<p class="paragrafo">Caso seja necessária a atuação em segunda instância, grau de recurso ou tribunal superior, serão devidos honorários adicionais no valor de '+ph(val('honD_2ainstValor'),'valor')+', a serem pagos previamente ao início da atuação recursal.</p>';
+  }
+  h+='<p class="paragrafo"><span class="par-tit">PARÁGRAFO SEGUNDO:</span> o atraso no pagamento acarretará multa de 2% (dois por cento), juros de 1% (um por cento) ao mês e correção monetária pelo ICGJ/TJMG.</p>';
+
+  h+='<p class="clausula"><span class="cl-tit">CLÁUSULA TERCEIRA – DA RESCISÃO:</span> a relação advocatícia baseia-se na confiança. Havendo quebra, qualquer parte poderá rescindir o contrato, mediante comunicação prévia, permanecendo exigíveis as obrigações e honorários já pactuados.</p>';
+  var parsRescisaoD=[
+    'em caso de inadimplemento, o '+CLtit+' '+verbPoder+' rescindir o contrato e cobrar judicialmente o valor devido, com multa e correção. A CONTRATANTE responderá pelas despesas decorrentes, incluindo custas, taxas e honorários advocatícios de 20% (vinte por cento) sobre o débito.',
+    'a desistência por parte da CONTRATANTE, ainda que anterior ao ajuizamento da ação, implicará o pagamento integral dos honorários contratados, considerando o trabalho já iniciado e a disponibilidade profissional.'
+  ];
+  if($('honD-exito').classList.contains('is-active'))parsRescisaoD.push('havendo honorário de êxito pactuado neste instrumento, ele permanece devido — na proporção do trabalho realizado até a rescisão — se sobrevier resultado favorável mesmo após a saída do '+CLtit+'.');
+  if($('tglMoraAutoD').checked)parsRescisaoD.push('a mora superior a 30 (trinta) dias no pagamento dos honorários ensejará a rescisão automática deste contrato de pleno direito, independentemente de notificação.');
+  if($('tglMultaAntecipadaD').checked)parsRescisaoD.push('a rescisão imotivada do presente contrato pela CONTRATANTE, antes da conclusão dos serviços contratados, implicará o pagamento de multa equivalente a 30% (trinta por cento) sobre o valor total dos honorários ajustados ou sobre o montante remanescente, sem prejuízo dos valores já vencidos e das despesas incorridas.');
+  h+=parsRescisaoD.map(function(t,i){return '<p class="paragrafo"><span class="par-tit">PARÁGRAFO '+_ORDINAIS[i]+':</span> '+t+'</p>';}).join('');
+
+  h+='<p class="clausula"><span class="cl-tit">CLÁUSULA QUARTA – DAS OBRIGAÇÕES DA CONTRATANTE:</span> a CONTRATANTE se obriga a:</p>';
+  h+='<div class="atv-lista"><div class="atv-item">Fornecer, de forma completa e tempestiva, documentos e informações solicitadas;</div><div class="atv-item">Manter atualizados seus meios de contato;</div><div class="atv-item">Comparecer a audiências, perícias ou demais atos quando convocada;</div><div class="atv-item">Arcar integralmente com custas, despesas e tributos decorrentes da demanda.</div></div>';
+
+  h+='<p class="clausula"><span class="cl-tit">CLÁUSULA QUINTA – DAS OBRIGAÇÕES DO '+CLtit+':</span> o '+CLtit+' se compromete a:</p>';
+  h+='<div class="atv-lista"><div class="atv-item">Atuar com zelo, ética e diligência, conforme Estatuto da OAB e Código de Ética;</div><div class="atv-item">Manter sigilo profissional sobre todas as informações;</div><div class="atv-item">Manter a CONTRATANTE informada sobre o andamento processual relevante;</div><div class="atv-item">Enviar recibos de eventuais despesas adiantadas a serem ressarcidas.</div></div>';
+
+  h+='<p class="clausula"><span class="cl-tit">CLÁUSULA SEXTA – DISPOSIÇÕES GERAIS:</span> o presente instrumento constitui título executivo extrajudicial (CPC, art. 784, III e §4º), inclusive se assinado eletronicamente (MP nº 2.200-2/2001).</p>';
+  h+='<p class="paragrafo"><span class="par-tit">PARÁGRAFO PRIMEIRO:</span> os honorários de sucumbência eventualmente fixados judicialmente pertencem exclusivamente ao '+CLtit+' (Lei nº 8.906/94, art. 23), e não se compensam com honorários de êxito eventualmente pactuados.</p>';
+  h+='<p class="paragrafo"><span class="par-tit">PARÁGRAFO SEGUNDO:</span> elege-se o foro da Comarca de '+ph(valLocalForo('foro'),'foro')+', com renúncia de qualquer outro, para dirimir eventuais controvérsias.</p>';
+  h+=_clausulasExtras(CLtit);
+
+  h+='<div class="fecho-data">'+ph(valLocalForo('local'),'local')+', '+ph(dataExtenso(val('dataContrato')),'data')+'.</div>';
+  var nomeCtte=window.CTTE_TIPO==='pj'?val('ctteRazao'):val('ctteNome');
+  h+=blocoAssinaturas({nomeCurto:nomeCtte},contratados,!!($('tglTestemunhas')&&$('tglTestemunhas').checked));
+  return h;
+}
+function renderContratoConsultoria(){
+  var contratados=qualificacaoAdvogados(listaSelecionados(contratadosAtivos));
+  /* termo definido fixo no masculino singular — mesmo critério do renderContratoDemanda */
+  var CLtit='CONTRATADO';
+
+  var h='<div class="doc-titulo">Contrato de Prestação de Serviços Advocatícios</div>';
+  h+='<div class="quali">'+qualificacaoContratante()+'</div>';
+  h+='<div class="quali"><b>CONTRATADO:</b> '+contratados.texto+'.</div>';
+  h+='<div class="abertura">Pelo presente instrumento, as partes celebram entre si contrato de prestação de serviços advocatícios, mediante as seguintes cláusulas e condições:</div>';
+
+  h+='<p class="clausula"><span class="cl-tit">CLÁUSULA PRIMEIRA – OBJETO:</span> o presente contrato tem por objeto a prestação de serviços advocatícios de consultoria e assessoria jurídica nas áreas '+ph(val('areasConsultoria'),'áreas')+', compreendendo:</p>';
+  var ativ=listaValores('listaAtivConsultoria');
+  if(ativ.length){
+    h+='<p class="clausula" style="margin-bottom:6px"><span class="par-tit">PARÁGRAFO PRIMEIRO:</span> as atividades incluem:</p>';
+    h+='<div class="atv-lista">'+ativ.map(function(a){return '<div class="atv-item">'+esc(a)+'</div>';}).join('')+'</div>';
+  }
+  h+='<p class="paragrafo"><span class="par-tit">PARÁGRAFO SEGUNDO:</span> qualquer outra demanda judicial, administrativa ou consultiva não expressamente prevista — como propositura de ações autônomas, constituição de estruturas societárias (incluindo holding), regularização de imóveis, planejamento tributário, inventário e partilha, ou operações de comércio exterior — será considerada serviço complementar, sujeito a contratação própria'+($('tglAnexo').checked?', conforme valores de referência no <strong>ANEXO I – TABELA DE HONORÁRIOS POR MATÉRIA</strong>':'')+'.</p>';
+  if($('tglBeneficiarios').checked){
+    var benef=listaValores('listaBenef');
+    if(benef.length){
+      h+='<p class="clausula" style="margin-bottom:6px"><span class="par-tit">PARÁGRAFO TERCEIRO:</span> as pessoas beneficiadas pelos serviços descritos nos parágrafos anteriores são:</p>';
+      h+='<div class="atv-lista">'+benef.map(function(b){return '<div class="atv-item">'+esc(b)+'</div>';}).join('')+'</div>';
+    }
+  }
+
+  h+='<p class="clausula"><span class="cl-tit">CLÁUSULA SEGUNDA – OBRIGAÇÕES DA CONTRATANTE:</span> a CONTRATANTE assume as seguintes obrigações:</p>';
+  h+='<div class="atv-lista"><div class="atv-item">Apresentar documentos e informações necessárias, nos prazos e formas solicitados;</div><div class="atv-item">Remunerar os serviços contratados, conforme as condições estipuladas;</div><div class="atv-item">Cumprir as recomendações e diretrizes estabelecidas;</div><div class="atv-item">Comunicar previamente qualquer alteração na estrutura societária ou operacional que possa impactar os serviços;</div><div class="atv-item">Informar imediatamente eventual mudança de endereço, telefone ou e-mail;</div><div class="atv-item">Custear todas as despesas necessárias ao cumprimento do contrato, tais como certidões, perícias, taxas, impostos, autenticações, deslocamento, viagens, diárias e demais despesas existentes.</div></div>';
+
+  h+='<p class="clausula" style="margin-bottom:6px"><span class="cl-tit">CLÁUSULA TERCEIRA – DOS HONORÁRIOS:</span> os honorários pelos serviços prestados serão pagos da seguinte forma:</p>';
+  var itens=[];
+  if($('honC-recorrente').classList.contains('is-active')){
+    itens.push('Honorários fixos correspondentes a '+textoValorFixoForma('honC_rec')+', pagos mensalmente até o dia '+ph(val('honC_recDia'),'dia')+(val('honC_recInicio')?', a partir de '+esc(val('honC_recInicio')):'')+'.');
+  }
+  var exitoModoCalcC=window._exitoModoCalc_honC;
+  if($('honC-exito').classList.contains('is-active')){
+    if(exitoModoCalcC==='progressivo'){
+      itens.push('Honorários de êxito: aplicáveis em casos de '+textoBaseExito()+', calculados sobre o proveito econômico obtido — entendido como a diferença entre o valor atualizado originalmente devido e o valor efetivamente pago ou reduzido —, conforme tabela progressiva por faixa de proveito econômico'+textoParcelamentoExito('honC_exito')+'.');
+    } else if(exitoModoCalcC==='fixo'){
+      itens.push('Honorários de êxito: aplicáveis em casos de '+textoBaseExito()+', calculados sobre o proveito econômico obtido — entendido como a diferença entre o valor atualizado originalmente devido e o valor efetivamente pago ou reduzido —, à razão de '+textoValorExito('honC_exito')+textoParcelamentoExito('honC_exito')+'.');
+    } else {
+      itens.push('<span class="placeholder-fraco">honorário de êxito — escolha percentual fixo ou tabela progressiva</span>');
+    }
+  }
+  if($('honC-pagto').classList.contains('is-active')){
+    itens.push(textoFormaPagamento('honC_pagto')+'.');
+  }
+  if(itens.length){h+='<div class="atv-lista">'+itens.map(function(i){return '<div class="atv-item">'+i+'</div>';}).join('')+'</div>';}
+  if($('honC-exito').classList.contains('is-active')&&exitoModoCalcC==='progressivo'){
+    var linhas=tabelaLinhas('tabelaProgressiva');
+    if(linhas.length){
+      h+='<p class="paragrafo" style="margin-bottom:6px">Nos casos de honorário de êxito calculado por faixa, aplica-se a seguinte tabela progressiva sobre o proveito econômico obtido:</p>';
+      h+='<div class="hon-tbl-wrap"><table class="hon-tbl"><thead><tr><th>Faixa de proveito econômico</th><th class="r">Percentual</th></tr></thead><tbody>';
+      linhas.forEach(function(r){h+='<tr><td>'+esc(r[0]||'')+'</td><td class="r">'+esc(r[1]||'')+'</td></tr>';});
+      h+='</tbody></table></div>';
+    }
+  }
+  if($('honC-recorrente').classList.contains('is-active')&&$('honC_reajusteChk').checked){
+    h+='<p class="paragrafo">A partir de '+ph(val('honC_reajusteData'),'data do reajuste')+', os honorários fixos passarão automaticamente a corresponder a '+ph(val('honC_reajusteValor'),'novo valor')+', independentemente da celebração de termo aditivo.</p>';
+  }
+  h+='<p class="paragrafo"><span class="par-tit">PARÁGRAFO PRIMEIRO:</span> os pagamentos deverão ser feitos por '+textoBanco(bancoSelC)+'.</p>';
+  h+='<p class="paragrafo"><span class="par-tit">PARÁGRAFO SEGUNDO:</span> as custas, taxas e demais despesas processuais poderão ser adiantadas pelo '+CLtit+', mediante autorização prévia e expressa da CONTRATANTE, e serão restituídas mediante a apresentação de recibos e planilha de comprovação, acompanhados de prestação de contas detalhada.</p>';
+  if($('honC_revisaoChk').checked){
+    h+='<p class="paragrafo"><span class="par-tit">PARÁGRAFO TERCEIRO:</span> o valor dos honorários fixos será revisto em '+ph(val('honC_revisaoMeses'),'prazo')+', contados da assinatura deste contrato, mediante avaliação conjunta das partes, levando-se em consideração a complexidade, o volume de trabalho e a variação dos custos operacionais.</p>';
+  }
+  h+='<p class="paragrafo"><span class="par-tit">PARÁGRAFO QUARTO:</span> o atraso no pagamento acarretará multa de 2% (dois por cento), juros de 1% (um por cento) ao mês e correção monetária pelo ICGJ/TJMG.</p>';
+
+  h+='<p class="clausula"><span class="cl-tit">CLÁUSULA QUARTA – CONFIDENCIALIDADE:</span> as informações, documentos e dados trocados entre as partes são estritamente confidenciais, devendo ser preservados pelo '+CLtit+' sob o dever de sigilo profissional, inclusive após eventual extinção do presente contrato.</p>';
+
+  if($('tglLimitacao').checked){
+    h+='<p class="clausula"><span class="cl-tit">CLÁUSULA QUINTA – LIMITAÇÃO DE RESPONSABILIDADE:</span> o '+CLtit+' compromete-se a prestar orientação jurídica e informações legais com diligência e técnica. Contudo, não se responsabiliza por decisões administrativas, comerciais ou financeiras adotadas pela CONTRATANTE com base em tais orientações, sendo sua atuação restrita à consultoria e representação jurídica.</p>';
+  }
+
+  h+='<p class="clausula"><span class="cl-tit">CLÁUSULA SEXTA – RESCISÃO:</span> o presente contrato poderá ser rescindido por vontade de qualquer das partes, mediante notificação prévia com antecedência mínima de 30 (trinta) dias, pelos meios de comunicação indicados no preâmbulo deste instrumento (e-mail ou WhatsApp), ou pelo descumprimento de qualquer das obrigações contratuais.</p>';
+  var parsRescisaoC=[];
+  if($('tglMoraAutoC').checked)parsRescisaoC.push('a mora superior a 30 (trinta) dias no pagamento dos honorários ensejará a rescisão automática deste contrato de pleno direito, independentemente de notificação.');
+  if($('tglMultaAntecipadaC').checked)parsRescisaoC.push('a rescisão imotivada do presente contrato pela CONTRATANTE, antes da conclusão dos serviços contratados, implicará o pagamento de multa equivalente a 30% (trinta por cento) sobre o valor total dos honorários ajustados ou sobre o montante remanescente, sem prejuízo dos valores já vencidos e das despesas incorridas.');
+  h+=_paragrafosSeq(parsRescisaoC);
+
+  h+='<p class="clausula"><span class="cl-tit">CLÁUSULA SÉTIMA – DISPOSIÇÕES GERAIS:</span> o presente instrumento constitui título executivo extrajudicial (CPC, art. 784, III e §4º), inclusive se assinado eletronicamente (MP nº 2.200-2/2001).</p>';
+  h+='<p class="paragrafo"><span class="par-tit">PARÁGRAFO PRIMEIRO:</span> os honorários de sucumbência eventualmente fixados judicialmente pertencem exclusivamente ao '+CLtit+' (Lei nº 8.906/94, art. 23), e não se compensam com honorários de êxito eventualmente pactuados.</p>';
+  h+='<p class="paragrafo"><span class="par-tit">PARÁGRAFO SEGUNDO:</span> elege-se o foro da Comarca de '+ph(valLocalForo('foro'),'foro')+', com renúncia de qualquer outro, para dirimir eventuais controvérsias.</p>';
+  h+=_clausulasExtras(CLtit);
+
+  h+='<div class="fecho-data">'+ph(valLocalForo('local'),'local')+', '+ph(dataExtenso(val('dataContrato')),'data')+'.</div>';
+  var nomeCtte=window.CTTE_TIPO==='pj'?val('ctteRazao'):val('ctteNome');
+  h+=blocoAssinaturas({nomeCurto:nomeCtte},contratados,!!($('tglTestemunhas')&&$('tglTestemunhas').checked));
+  return h;
+}
+
+/* ══════════ GERAÇÃO DA PROCURAÇÃO ══════════ */
+/* ══ PODERES — gerais (checklist único) e específicos por área (Tributário/Imobiliário/
+   Societário), no padrão do Sistema Jurídico — mas sem expor a lista "extrajudicial" que lá
+   nunca aparece de fato (bug morto: fica condicionada a uma variável que nunca muda de valor).
+   Áreas só mostram a checklist quando marcadas, para não alongar a tela à toa. ══ */
+var PODERES_GERAIS=[
+  {id:'renunciar',label:'renunciar ao direito sobre que se funda a ação'},
+  {id:'citacao',label:'receber citação, intimação e notificação'},
+  {id:'substabelecer',label:'substabelecer o mandato, com ou sem reserva de poderes'},
+  {id:'assinar',label:'assinar petições, procurações e termos de audiência'},
+  {id:'representar',label:'representar em juízo e fora dele, ativa e passivamente'},
+  {id:'levantar',label:'caucionar e levantar quantias depositadas em juízo'},
+  {id:'docs',label:'assinar documentos em geral'},
+  {id:'certidoes',label:'requerer e retirar certidões e extratos'}
+];
+var PODERES_ESP={
+  trib:[
+    {id:'rfb',label:'representar perante a Receita Federal (RFB)'},
+    {id:'pgfn',label:'representar perante a PGFN / Portal Regularize'},
+    {id:'sefaz',label:'representar perante a SEFAZ/MG e demais fiscos estaduais'},
+    {id:'municipio',label:'representar perante a Prefeitura Municipal / SMAT'},
+    {id:'parcelar',label:'parcelar, negociar e quitar débitos tributários'},
+    {id:'ecac',label:'acessar e operar o e-CAC (portal da Receita Federal)'},
+    {id:'def_admin',label:'impugnar autos de infração e defesas administrativas'},
+    {id:'recurso_adm',label:'interpor recursos administrativos (CARF, CAT/SEFAZ)'}
+  ],
+  imob:[
+    {id:'registrar',label:'registrar e averbar atos no Cartório de Registro de Imóveis'},
+    {id:'pacto_ant',label:'registrar pacto antenupcial no CRI competente'},
+    {id:'escritura',label:'lavrar e assinar escrituras públicas de compra, venda ou doação'},
+    {id:'hipoteca',label:'constituir, dar e cancelar hipotecas e ônus reais'},
+    {id:'usucapiao',label:'promover ação ou procedimento extrajudicial de usucapião'},
+    {id:'ret_area',label:'requerer retificação de área e georreferenciamento'},
+    {id:'inventario_imob',label:'praticar atos em inventário e partilha de bens imóveis'},
+    {id:'habite_se',label:'requerer habite-se e regularização de construção'}
+  ],
+  soc:[
+    {id:'junta_soc',label:'praticar todos os atos perante a JUCEMG'},
+    {id:'alt_contrato',label:'assinar alterações do contrato social e atas de reunião'},
+    {id:'abre_empresa',label:'constituir nova empresa e gerir processo de abertura'},
+    {id:'receita_cnpj',label:'representar perante a Receita Federal (CNPJ)'},
+    {id:'inpi',label:'requerer registros de marca e patente perante o INPI'},
+    {id:'holding_atos',label:'praticar atos de integralização de capital em holding'}
+  ]
+};
+var AREA_TITULOS={trib:'Poderes Tributários / Fiscais',imob:'Poderes Imobiliários',soc:'Poderes Societários'};
+var PODERES_SEL=new Set();
+var AREAS_ATIVAS={trib:false,imob:false,soc:false};
+var PODERES_ESP_SEL={trib:new Set(),imob:new Set(),soc:new Set()};
+function renderPoderesGeraisGrid(){
+  var wrap=$('poderesGeraisGrid');
+  if(!wrap)return;
+  wrap.innerHTML=PODERES_GERAIS.map(function(p){
+    var checked=PODERES_SEL.has(p.id);
+    return '<label class="poder-lbl'+(checked?' checked':'')+'"><input type="checkbox" '+(checked?'checked':'')+' onchange="togglePoderGeral(\''+p.id+'\',this.checked)"><span>'+esc(p.label)+'</span></label>';
+  }).join('');
+}
+function togglePoderGeral(id,on){
+  if(on)PODERES_SEL.add(id);else PODERES_SEL.delete(id);
+  renderPoderesGeraisGrid();
+  renderProcuracao();
+}
+function marcarTodosPoderesGerais(sel){
+  PODERES_SEL=new Set(sel?PODERES_GERAIS.map(function(p){return p.id;}):[]);
+  renderPoderesGeraisGrid();
+  renderProcuracao();
+}
+function toggleArea(area,on){
+  AREAS_ATIVAS[area]=on;
+  $('area-opt-'+area).classList.toggle('is-active',on);
+  renderAreaBlocos();
+  renderProcuracao();
+}
+function marcarTodosArea(area,sel){
+  PODERES_ESP_SEL[area]=new Set(sel?PODERES_ESP[area].map(function(p){return p.id;}):[]);
+  renderAreaBlocos();
+  renderProcuracao();
+}
+function togglePoderEsp(area,id,on){
+  if(on)PODERES_ESP_SEL[area].add(id);else PODERES_ESP_SEL[area].delete(id);
+  renderProcuracao();
+}
+function renderAreaBlocos(){
+  var wrap=$('areaBlocosWrap');
+  if(!wrap)return;
+  var html='';
+  Object.keys(PODERES_ESP).forEach(function(area){
+    if(!AREAS_ATIVAS[area])return;
+    html+='<div style="border:1.5px solid var(--border);border-radius:9px;padding:11px 13px;margin-bottom:8px">';
+    html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">';
+    html+='<span style="font-weight:700;font-size:12px;color:var(--navy)">'+esc(AREA_TITULOS[area])+'</span>';
+    html+='<span style="display:flex;gap:6px">';
+    html+='<button class="btn-o" style="padding:2px 8px;font-size:10px" onclick="marcarTodosArea(\''+area+'\',true)">✓ todos</button>';
+    html+='<button class="btn-o" style="padding:2px 8px;font-size:10px" onclick="marcarTodosArea(\''+area+'\',false)">✗ nenhum</button>';
+    html+='</span></div>';
+    html+='<div class="poderes-grid">';
+    PODERES_ESP[area].forEach(function(p){
+      var checked=PODERES_ESP_SEL[area].has(p.id);
+      html+='<label class="poder-lbl'+(checked?' checked':'')+'"><input type="checkbox" '+(checked?'checked':'')+' onchange="togglePoderEsp(\''+area+'\',\''+p.id+'\',this.checked)"><span>'+esc(p.label)+'</span></label>';
+    });
+    html+='</div></div>';
+  });
+  wrap.innerHTML=html;
+}
+
+window.PROC_ACAO_STATUS='existente';
+function onProcAcaoStatusChange(v){
+  window.PROC_ACAO_STATUS=v;
+  $('opt-proc-existente').classList.toggle('is-active',v==='existente');
+  $('opt-proc-propor').classList.toggle('is-active',v==='propor');
+  $('procNumProcessoCampo').style.display=v==='existente'?'':'none';
+  $('procAcaoProporCampo').style.display=v==='propor'?'':'none';
+  renderProcuracao();
+}
+var FINALIDADES={
+  processo:function(){
+    if(window.PROC_ACAO_STATUS==='propor'){
+      return 'propor, acompanhar e atuar, em todos os seus termos e instâncias, em '+ph(val('procAcaoDescricao'),'descreva a ação a ser proposta')+', praticando todos os atos necessários ao fiel cumprimento do presente mandato';
+    }
+    var n=val('procNumProcesso');
+    return 'atuar e acompanhar, em todos os seus termos e instâncias, o processo judicial'+(n?' n. '+esc(n):' determinado')+', praticando todos os atos necessários ao fiel cumprimento do presente mandato';
+  },
+  fazendaria:function(){return 'representar o outorgante perante repartições fazendárias — Receita Federal, PGFN, SEFAZ, Regularize, eCAC e SIARE —, inclusive para aderir a parcelamento e transação';},
+  registro:function(){return 'representar o outorgante perante a Junta Comercial, cartórios e demais órgãos de registro';},
+  administrativo:function(){var n=val('procNumProcesso');return 'atuar e acompanhar o processo administrativo'+(n?' n. '+esc(n):' determinado')+', inclusive para apresentar impugnação, interpor recurso e requerer o que for necessário';},
+  ampla:function(){return 'representar o outorgante de forma ampla, para a defesa de seus direitos e interesses em geral';},
+  outra:function(){return ph(val('procFinalidadeLivre'),'descreva a finalidade');}
+};
+function onFinalidadeChange(){
+  var f=val('procFinalidade');
+  $('procNumProcessoArea').style.display=(f==='processo'||f==='administrativo')?'':'none';
+  $('procFinalidadeLivreArea').style.display=f==='outra'?'':'none';
+  $('procAcaoStatusToggle').style.display=f==='processo'?'':'none';
+  if(f==='administrativo'){
+    $('procNumProcessoCampo').style.display='';
+    $('procAcaoProporCampo').style.display='none';
+  } else if(f==='processo'){
+    $('procNumProcessoCampo').style.display=window.PROC_ACAO_STATUS==='existente'?'':'none';
+    $('procAcaoProporCampo').style.display=window.PROC_ACAO_STATUS==='propor'?'':'none';
+  }
+  renderProcuracao();
+}
+function copiarContratanteParaOutorgante(){
+  if(window.CTTE_TIPO==='pj'){
+    $('opt-out-pj').querySelector('input').checked=true;setOutTipo('pj');
+    $('outRazao').value=val('ctteRazao');$('outCnpj').value=val('ctteCnpj');$('outEnderecoPJ').value=val('ctteEnderecoPJ');
+    $('outRepNome').value=val('ctteRepNome');$('outRepCpf').value=val('ctteRepCpf');
+    $('outEmailPJ').value=val('ctteEmailPJ');$('outWppPJ').value=val('ctteWppPJ');
+  } else {
+    $('opt-out-pf').querySelector('input').checked=true;setOutTipo('pf');
+    $('outNome').value=val('ctteNome');$('outCpf').value=val('ctteCpf');$('outEndereco').value=val('ctteEndereco');
+    $('outEmail').value=val('ctteEmail');$('outTelefone').value=val('ctteWpp');
+  }
+  renderProcuracao();
+}
+function qualificacaoOutorganteUnico(sufixo,tipo){
+  if(tipo==='pj'){
+    var razao=val('outRazao'+sufixo),cnpj=val('outCnpj'+sufixo),end=val('outEnderecoPJ'+sufixo),rep=val('outRepNome'+sufixo),repCpf=val('outRepCpf'+sufixo),email=val('outEmailPJ'+sufixo),wpp=val('outWppPJ'+sufixo);
+    return {
+      nome:phCaps(razao,'razão social'),
+      resto:'pessoa jurídica de direito privado, inscrita no CNPJ sob o n. '+ph(cnpj,'CNPJ')+', com sede na '+ph(end,'endereço da sede')+', neste ato representada por seu(sua) representante legal '+ph(rep,'nome do representante')+_cpfClausula(repCpf)+(email?', e-mail '+esc(email):'')+(wpp?', telefone/WhatsApp '+esc(wpp):'')
+    };
+  }
+  var nome=val('outNome'+sufixo),cpf=val('outCpf'+sufixo),end=val('outEndereco'+sufixo),email=val('outEmail'+sufixo),wpp=val('outTelefone'+sufixo);
+  return {
+    nome:phCaps(nome,'nome completo'),
+    resto:'inscrito(a) no CPF sob o n. '+ph(cpf,'CPF')+', residente e domiciliado(a) à '+ph(end,'endereço completo')+(email?', e-mail '+esc(email):'')+(wpp?', telefone/WhatsApp '+esc(wpp):'')
+  };
+}
+function qualificacaoOutorgante(){
+  var o1=qualificacaoOutorganteUnico('',window.OUT_TIPO);
+  if(!window.OUT2_ATIVO)return {nomes:o1.nome,resto:o1.resto};
+  var o2=qualificacaoOutorganteUnico('2',window.OUT_TIPO2);
+  return {nomes:o1.nome+'; e '+o2.nome,resto:o1.resto+'; e '+o2.resto};
+}
+function nomeOutorganteExibicao(sufixo,tipo){
+  return tipo==='pj'?val('outRazao'+sufixo):val('outNome'+sufixo);
+}
+function blocoAssinaturaOutorgante(){
+  var col1='<div class="assin-col"><div class="assin-linha"></div><div class="assin-nome" style="text-transform:uppercase">'+ph(nomeOutorganteExibicao('',window.OUT_TIPO),'nome do outorgante')+'</div></div>';
+  if(!window.OUT2_ATIVO)return '<div class="assin-bloco"><div class="assin-grid">'+col1+'</div></div>';
+  var col2='<div class="assin-col"><div class="assin-linha"></div><div class="assin-nome" style="text-transform:uppercase">'+ph(nomeOutorganteExibicao('2',window.OUT_TIPO2),'nome do outorgante')+'</div></div>';
+  return '<div class="assin-bloco"><div class="assin-grid">'+col1+col2+'</div></div>';
+}
+/* ══ AJUSTE AUTOMÁTICO DE 1 PÁGINA — blocos com rótulo + margem de página variável, no
+   padrão do Sistema Jurídico: mede o conteúdo em cada nível de compactação (fonte, entrelinha,
+   margens) e escolhe o mais espaçoso que ainda caiba em uma folha A4. ══ */
+var PROC_TIERS=[
+  {fs:11.5,lh:1.55,lbl:9,  blkM:14,blkP:'11px 13px',pTop:5,sigMT:34,mm:22},
+  {fs:11,  lh:1.48,lbl:8.5,blkM:11,blkP:'10px 12px',pTop:4,sigMT:28,mm:20},
+  {fs:10.5,lh:1.4, lbl:8,  blkM:9, blkP:'8px 10px', pTop:4,sigMT:22,mm:18},
+  {fs:10,  lh:1.32,lbl:7.5,blkM:7, blkP:'7px 9px',  pTop:3,sigMT:18,mm:16},
+  {fs:9.5, lh:1.25,lbl:7,  blkM:5, blkP:'6px 8px',  pTop:3,sigMT:14,mm:15},
+  {fs:9,   lh:1.2, lbl:7,  blkM:4, blkP:'5px 7px',  pTop:2,sigMT:11,mm:15}
+];
+function _mmToPxProc(){
+  var d=document.createElement('div');
+  d.style.cssText='width:100mm;position:absolute;visibility:hidden;left:-9999px';
+  document.body.appendChild(d);
+  var px=d.offsetWidth/100;
+  document.body.removeChild(d);
+  return px||3.78;
+}
+function _procBloco(t,titulo,conteudoHtml){
+  var blk='border-radius:7px;border:1px solid rgba(184,134,11,.22);background:rgba(184,134,11,.045);margin:'+t.blkM+'px 0;padding:'+t.blkP;
+  var lbl='font-size:'+t.lbl+'pt;font-weight:700;text-transform:uppercase;color:#000;margin-bottom:3px;letter-spacing:.06em';
+  return '<div style="'+blk+'"><div style="'+lbl+'">'+titulo+'</div><p style="margin-top:'+t.pTop+'px;text-align:justify;color:#000">'+conteudoHtml+'</p></div>';
+}
+function _procBlocoMulti(t,titulo,paragrafos){
+  var blk='border-radius:7px;border:1px solid rgba(184,134,11,.22);background:rgba(184,134,11,.045);margin:'+t.blkM+'px 0;padding:'+t.blkP;
+  var lbl='font-size:'+t.lbl+'pt;font-weight:700;text-transform:uppercase;color:#000;margin-bottom:3px;letter-spacing:.06em';
+  var ps=paragrafos.map(function(p,i){return '<p style="margin-top:'+(i===0?t.pTop:Math.round(t.pTop*1.8+2))+'px;text-align:justify">'+p+'</p>';}).join('');
+  return '<div style="'+blk+'"><div style="'+lbl+'">'+titulo+'</div>'+ps+'</div>';
+}
+function _procMontarHtml(t,d){
+  var h='<div style="font-size:'+t.fs+'pt;line-height:'+t.lh+'">';
+  h+='<div class="doc-titulo" style="font-size:'+(t.fs+3.5)+'pt;margin-bottom:'+Math.round(t.sigMT*0.5)+'px;padding-bottom:'+Math.round(t.sigMT*0.32)+'px;border-bottom:2px solid #B8860B">Procuração</div>';
+  h+=_procBloco(t,(d.outorgantePl?'Outorgantes: ':'Outorgante: ')+d.qualifOutorgante.nomes,d.qualifOutorgante.resto+'.');
+  h+=_procBloco(t,'Outorgado'+(d.pl?'s':'')+': '+d.outNomes,d.outResto+'.');
+  h+=_procBlocoMulti(t,'Poderes Conferidos',d.poderesParagrafos);
+  h+='<div style="text-align:center;margin-top:'+t.sigMT+'px">'+d.localData+'</div>';
+  h+=d.assin;
+  h+='</div>';
+  return h;
+}
+function renderProcuracao(){
+  if(EDITANDO.proc)return;
+  var chaves=listaSelecionados(outorgadosAtivos);
+  var proc=qualificacaoAdvogados(chaves,true);
+  var geraisLabels=PODERES_GERAIS.filter(function(p){return PODERES_SEL.has(p.id);}).map(function(p){return p.label;});
+  if(val('podOutros'))geraisLabels.push(val('podOutros'));
+  var extraTxt=geraisLabels.length?(', bem como '+geraisLabels.join(', ')):'';
+  var finFn=FINALIDADES[val('procFinalidade')]||FINALIDADES.ampla;
+  var verboConfere=chaves.length>1?'conferindo-lhes':'conferindo-lhe';
+
+  var poderesParagrafos=['Pelos poderes da cláusula ad judicia et extra, para o foro em geral, com os poderes especiais de receber e dar quitação, transigir, firmar compromissos, desistir, reconhecer a procedência de pedidos e confessar'+esc(extraTxt)+', <strong>a fim de '+finFn()+'</strong>.'];
+  Object.keys(PODERES_ESP).forEach(function(area){
+    if(!AREAS_ATIVAS[area])return;
+    var labels=PODERES_ESP[area].filter(function(p){return PODERES_ESP_SEL[area].has(p.id);}).map(function(p){return p.label;});
+    if(!labels.length)return;
+    poderesParagrafos.push('<strong>'+esc(AREA_TITULOS[area])+':</strong> '+esc(labels.join('; '))+'.');
+  });
+
+  var d={
+    pl:chaves.length>1,
+    outorgantePl:!!window.OUT2_ATIVO,
+    qualifOutorgante:qualificacaoOutorgante(),
+    outNomes:proc.nomes,
+    outResto:proc.resto+', '+verboConfere+' os poderes abaixo especificados',
+    poderesParagrafos:poderesParagrafos,
+    localData:ph(valLocalForo('local')||'Santo Antônio do Monte/MG','local')+', '+ph(dataExtenso(val('dataContrato')),'data')+'.',
+    assin:blocoAssinaturaOutorgante()
+  };
+
+  var pxPerMm=_mmToPxProc();
+  var meas=document.createElement('div');
+  meas.style.cssText='position:absolute;visibility:hidden;left:-9999px;top:0;font-family:"Times New Roman",Times,serif;background:#fff;padding:44px 54px;box-sizing:border-box';
+  document.body.appendChild(meas);
+  var escolhido=PROC_TIERS[PROC_TIERS.length-1],marginMM=escolhido.mm;
+  for(var i=0;i<PROC_TIERS.length;i++){
+    var t=PROC_TIERS[i];
+    var larguraMM=210-2*t.mm,alturaMM=297-2*t.mm;
+    meas.style.width=larguraMM+'mm';
+    meas.innerHTML=_procMontarHtml(t,d);
+    var alturaConteudoPx=meas.scrollHeight;
+    var alturaDisponivelPx=alturaMM*pxPerMm*0.94;
+    if(alturaConteudoPx<=alturaDisponivelPx){escolhido=t;marginMM=t.mm;break;}
+  }
+  document.body.removeChild(meas);
+  window._procMarginMM=marginMM;
+  /* Largura da tela igual à largura usada pra medir o encaixe (e igual à que o PDF vai usar com
+     essa margem escolhida) — sem isto, tela e PDF calculam a fonte/margem certas mas quebram a
+     linha em pontos diferentes, porque a pré-visualização continuava larga demais. */
+  $('papelProc').style.width=(210-2*marginMM)+'mm';
+  _renderComFlash('papelProc',_procMontarHtml(escolhido,d));
+  _autoSalvarRascunhoDebounced();
+}
+
+/* ══════════ EXPORTAR PDF (aba ativa) ══════════ */
+function _clonarSemIds(el){
+  var clone=el.cloneNode(true);
+  clone.removeAttribute('id');
+  clone.querySelectorAll('[id]').forEach(function(n){n.removeAttribute('id');});
+  clone.removeAttribute('data-pdf');
+  return clone;
+}
+/* ══ NOME DO ARQUIVO EXPORTADO — "Procuração/Contrato - Nome - DD.MM.AAAA" ══ */
+function sanitizeNomeArquivo(s){return s.replace(/[\\/:*?"<>|]/g,'-');}
+function nomeArquivoDoc(ehProc){
+  var nome=ehProc?nomeOutorganteExibicao('',window.OUT_TIPO):(window.CTTE_TIPO==='pj'?val('ctteRazao'):val('ctteNome'));
+  var partes=[ehProc?'Procuração':'Contrato'];
+  if(nome)partes.push(nome.trim());
+  var dc=dataCurta(val('dataContrato'));
+  if(dc)partes.push(dc);
+  return sanitizeNomeArquivo(partes.join(' - '));
+}
+var _printClearTimer=null;
+function gerarPDF(){
+  if(_printClearTimer){clearTimeout(_printClearTimer);_printClearTimer=null;}
+  var oldTmp=$('tmpProcPageMargin');if(oldTmp)oldTmp.remove();
+  var painelAtivo=document.querySelector('.panel.active');
+  var root=$('print-root');
+  root.innerHTML='';
+  painelAtivo.querySelectorAll('[data-pdf]').forEach(function(sec){
+    if(sec.offsetParent===null)return; // pulado se estiver escondido (ex.: Anexo desligado)
+    root.appendChild(_clonarSemIds(sec));
+  });
+  var tmpStyle=null;
+  if(painelAtivo.id==='panel-procuracao'&&window._procMarginMM){
+    tmpStyle=document.createElement('style');
+    tmpStyle.id='tmpProcPageMargin';
+    tmpStyle.textContent='@page{margin:'+window._procMarginMM+'mm}';
+    document.head.appendChild(tmpStyle);
+  }
+  var tituloOriginal=document.title;
+  document.title=nomeArquivoDoc(painelAtivo.id==='panel-procuracao');
+  window.print();
+  _printClearTimer=setTimeout(function(){root.innerHTML='';if(tmpStyle)tmpStyle.remove();document.title=tituloOriginal;_printClearTimer=null;},800);
+}
+
+/* ══════════ EXPORTAR WORD (.doc compatível — arquivo HTML com cabeçalho MSO, abre direto no Word) ══════════ */
+function gerarWord(){
+  var painelAtivo=document.querySelector('.panel.active');
+  var ehProc=painelAtivo.id==='panel-procuracao';
+  var partes=[];
+  painelAtivo.querySelectorAll('[data-pdf]').forEach(function(sec){
+    if(sec.offsetParent===null)return;
+    partes.push(_clonarSemIds(sec).innerHTML);
+  });
+  if(!partes.length)return;
+  var nomeArq=nomeArquivoDoc(ehProc);
+  var estilos=''
+    +'body{font-family:"Times New Roman",Times,serif;font-size:12pt;line-height:1.5;color:#000}'
+    +'.timbre{text-align:center;font-family:Arial,sans-serif;font-size:9pt;letter-spacing:1px;text-transform:uppercase;color:#555;margin-bottom:8px}'
+    +'.doc-titulo,.anexo-titulo{text-align:center;font-weight:bold;font-size:14pt;text-transform:uppercase;margin:0 0 20px}'
+    +'.quali,.abertura,.clausula,.paragrafo{text-align:justify;margin-bottom:10px}'
+    +'.cl-tit,.par-tit{font-weight:bold}'
+    +'.atv-lista{counter-reset:atvnum}'
+    +'.atv-item{margin-bottom:5px;margin-left:24px;text-align:justify;position:relative;counter-increment:atvnum}'
+    +'.atv-item:before{content:counter(atvnum)")";position:absolute;left:-24px;font-weight:bold}'
+    +'.fecho-data{text-align:center;margin:24px 0 0}'
+    +'.assin-grid{width:100%;margin-top:6px}'
+    +'.assin-grid:after{content:"";display:block;clear:both}'
+    +'.assin-col{text-align:center;float:left;width:46%;margin:0 2%}'
+    +'.assin-linha{border-top:1px solid #000;margin-top:44px;padding-top:4px}'
+    +'.assin-nome{font-weight:bold}'
+    +'.assin-doc{font-size:10pt}'
+    +'.assin-bloco{margin-top:34px}'
+    +'table{border-collapse:collapse;width:100%;margin:10px 0}'
+    +'td,th{border:1px solid #000;padding:5px 8px;font-size:10pt}'
+    +'th{background:#f0f0f0;text-align:left}'
+    +'.placeholder-fraco{color:#999;font-style:italic}'
+    +'div[style*="border-radius"]{border:1px solid #B8860B;padding:8px 10px;margin:8px 0}';
+  var corpo=partes.join('<br clear="all" style="page-break-before:always">');
+  var html='<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">'
+    +'<head><meta charset="utf-8"><title>'+esc(nomeArq)+'</title>'
+    +'<!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View><w:Zoom>100</w:Zoom><w:DoNotOptimizeForBrowser/></w:WordDocument></xml><![endif]-->'
+    +'<style>'+estilos+'</style></head><body>'+corpo+'</body></html>';
+  var blob=new Blob(['﻿',html],{type:'application/msword'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url;a.download=nomeArq+'.doc';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  setTimeout(function(){URL.revokeObjectURL(url);},4000);
+}
+
+/* ══ MINIMIZAR SEÇÕES — cada card do formulário ganha um botão "−" no cabeçalho para recolher o
+   corpo e reduzir o número de cliques/rolagem; por padrão (pré-preenchimento) tudo fica visível. ══ */
+function initCardCollapse(){
+  document.querySelectorAll('.card > .card-hd').forEach(function(hd){
+    if(hd.querySelector('.card-min-btn'))return;
+    var host=hd.querySelector('.card-hd-r')||hd;
+    var btn=document.createElement('span');
+    btn.className='card-min-btn';
+    btn.title='Minimizar/expandir esta seção';
+    btn.textContent='−';
+    btn.onclick=function(ev){
+      ev.stopPropagation();
+      var card=hd.closest('.card');
+      var col=card.classList.toggle('collapsed');
+      btn.textContent=col?'+':'−';
+    };
+    host.appendChild(btn);
+  });
+}
+
+/* ══ RASCUNHO — salva automaticamente no navegador (localStorage), pra retomar um contrato
+   começado sem perder tudo se a aba fechar. Só liga o auto-save DEPOIS da decisão inicial de
+   carregar (ou não) um rascunho anterior — senão o primeiro render da página, que roda antes de
+   qualquer interação do usuário, apagaria silenciosamente um rascunho bom com a tela em branco. ══ */
+var _RASCUNHO_PREFIXOS=['honD_fixo','honD_fixoEntrada','honD_exito','honC_rec','honC_exito','honC_pagto','honC_pagtoEntrada'];
+function _coletarValoresFormulario(){
+  var out={};
+  document.querySelectorAll('#panel-contrato [id],#panel-procuracao [id]').forEach(function(el){
+    if(!el.id||el.tagName==='BUTTON')return;
+    if(el.tagName==='INPUT'){
+      if(el.type==='checkbox'||el.type==='radio')out[el.id]={t:'chk',v:el.checked};
+      else if(el.type!=='file')out[el.id]={t:'val',v:el.value};
+    } else if(el.tagName==='SELECT'||el.tagName==='TEXTAREA'){
+      out[el.id]={t:'val',v:el.value};
+    }
+  });
+  return out;
+}
+function _aplicarValoresFormulario(campos){
+  Object.keys(campos).forEach(function(id){
+    var el=$(id);if(!el)return;
+    var info=campos[id];
+    if(info.t==='chk')el.checked=info.v;else el.value=info.v;
+  });
+}
+function _coletarListasDin(){
+  var out={};
+  ['listaAtivDemanda','listaAtivConsultoria','listaBenef','listaCtteExtra'].forEach(function(id){
+    var el=$(id);if(!el)return;
+    out[id]=Array.prototype.map.call(el.querySelectorAll('.lista-din-item'),function(item){
+      return Array.prototype.map.call(item.querySelectorAll('input'),function(i){return i.value;});
+    });
+  });
+  return out;
+}
+function _aplicarListasDin(listas){
+  Object.keys(listas).forEach(function(id){
+    var el=$(id);if(!el)return;
+    el.innerHTML='';
+    (listas[id]||[]).forEach(function(vals){
+      if(id==='listaCtteExtra'){addContratanteExtra(vals[0],vals[1],vals[2]);return;}
+      addListaItem(id,vals[0]||'');
+    });
+  });
+}
+function salvarRascunho(){
+  try{
+    var estado={
+      campos:_coletarValoresFormulario(),
+      listas:_coletarListasDin(),
+      tabelaProgressiva:tabelaLinhas('tabelaProgressiva'),
+      anexoData:ANEXO_DATA,
+      contratadosAtivos:contratadosAtivos,
+      outorgadosAtivos:outorgadosAtivos,
+      honCardsAtivos:Array.prototype.map.call(document.querySelectorAll('.hon-card.is-active'),function(el){return el.id;}),
+      bancoSelD:bancoSelD,bancoSelC:bancoSelC,
+      poderesSel:Array.from(PODERES_SEL),
+      areasAtivas:AREAS_ATIVAS,
+      poderesEspSel:{trib:Array.from(PODERES_ESP_SEL.trib),imob:Array.from(PODERES_ESP_SEL.imob),soc:Array.from(PODERES_ESP_SEL.soc)},
+      tipoServico:window.TIPO_SERVICO,ctteTipo:window.CTTE_TIPO,outTipo:window.OUT_TIPO,outTipo2:window.OUT_TIPO2,out2Ativo:window.OUT2_ATIVO,
+      procAcaoStatus:window.PROC_ACAO_STATUS,localForoManual:localForoManual,
+      exitoModoCalcHonC:window._exitoModoCalc_honC,
+      prefixState:{}
+    };
+    _RASCUNHO_PREFIXOS.forEach(function(p){
+      estado.prefixState[p]={
+        modoPagtoFixo:window['_modoPagtoFixo_'+p],
+        tipoExito:window['_tipoExito_'+p],
+        formaPagtoFixo:window['_formaPagtoFixo_'+p],
+        pagtoModo:window['_pagtoModo_'+p],
+        parcelas:window['_parcelas_'+p]
+      };
+    });
+    localStorage.setItem('gcp_rascunho',JSON.stringify(estado));
+    localStorage.setItem('gcp_rascunho_data',new Date().toISOString());
+    var lbl=$('autosaveLbl');
+    if(lbl){lbl.style.display='';lbl.textContent='💾 Salvo às '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});}
+  }catch(e){}
+}
+function carregarRascunho(silencioso){
+  var raw;
+  try{raw=localStorage.getItem('gcp_rascunho');}catch(e){raw=null;}
+  if(!raw){if(!silencioso)alert('Nenhum rascunho salvo encontrado neste navegador.');return false;}
+  var estado;
+  try{estado=JSON.parse(raw);}catch(e){return false;}
+  _aplicarValoresFormulario(estado.campos||{});
+  _aplicarListasDin(estado.listas||{});
+  if(estado.tabelaProgressiva&&estado.tabelaProgressiva.length&&$('tabelaProgressiva')){
+    var tbody=$('tabelaProgressiva').querySelector('tbody');
+    tbody.innerHTML='';
+    estado.tabelaProgressiva.forEach(function(r){
+      tbody.innerHTML+='<tr><td contenteditable="true">'+esc(r[0]||'')+'</td><td class="r" contenteditable="true">'+esc(r[1]||'')+'</td><td class="no-print"><button class="row-rm" onclick="this.closest(\'tr\').remove();renderContrato()">✕</button></td></tr>';
+    });
+  }
+  if(estado.anexoData)Object.keys(estado.anexoData).forEach(function(k){if(ANEXO_DATA[k])ANEXO_DATA[k]=estado.anexoData[k];});
+  if(estado.contratadosAtivos)Object.keys(estado.contratadosAtivos).forEach(function(k){contratadosAtivos[k]=estado.contratadosAtivos[k];if($('pcard-'+k))$('pcard-'+k).classList.toggle('is-active',contratadosAtivos[k]);});
+  if(estado.outorgadosAtivos)Object.keys(estado.outorgadosAtivos).forEach(function(k){outorgadosAtivos[k]=estado.outorgadosAtivos[k];if($('ocard-'+k))$('ocard-'+k).classList.toggle('is-active',outorgadosAtivos[k]);});
+  document.querySelectorAll('.hon-card').forEach(function(hc){hc.classList.toggle('is-active',(estado.honCardsAtivos||[]).indexOf(hc.id)>=0);});
+  bancoSelD=estado.bancoSelD||null;bancoSelC=estado.bancoSelC||null;
+  renderBancoSelector('D');renderBancoSelector('C');
+  PODERES_SEL=new Set(estado.poderesSel||[]);
+  if(estado.areasAtivas)Object.keys(estado.areasAtivas).forEach(function(k){
+    AREAS_ATIVAS[k]=estado.areasAtivas[k];
+    var opt=$('area-opt-'+k);
+    if(opt){opt.classList.toggle('is-active',AREAS_ATIVAS[k]);var inp=opt.querySelector('input');if(inp)inp.checked=AREAS_ATIVAS[k];}
+  });
+  if(estado.poderesEspSel)PODERES_ESP_SEL={trib:new Set(estado.poderesEspSel.trib||[]),imob:new Set(estado.poderesEspSel.imob||[]),soc:new Set(estado.poderesEspSel.soc||[])};
+  window.TIPO_SERVICO=estado.tipoServico||'demanda';
+  window.CTTE_TIPO=estado.ctteTipo||'pf';
+  window.OUT_TIPO=estado.outTipo||'pf';
+  window.OUT_TIPO2=estado.outTipo2||'pf';
+  window.OUT2_ATIVO=!!estado.out2Ativo;
+  window.PROC_ACAO_STATUS=estado.procAcaoStatus||'existente';
+  localForoManual=!!estado.localForoManual;
+  window._exitoModoCalc_honC=estado.exitoModoCalcHonC;
+  if(estado.prefixState)Object.keys(estado.prefixState).forEach(function(p){
+    var s=estado.prefixState[p];
+    if(s.modoPagtoFixo)window['_modoPagtoFixo_'+p]=s.modoPagtoFixo;
+    if(s.tipoExito)window['_tipoExito_'+p]=s.tipoExito;
+    if(s.formaPagtoFixo)window['_formaPagtoFixo_'+p]=s.formaPagtoFixo;
+    if(s.pagtoModo)window['_pagtoModo_'+p]=s.pagtoModo;
+    if(s.parcelas)window['_parcelas_'+p]=s.parcelas;
+  });
+  document.querySelectorAll('.modo-opt').forEach(function(opt){
+    var inp=opt.querySelector('input[type=radio],input[type=checkbox]');
+    if(inp)opt.classList.toggle('is-active',inp.checked);
+  });
+  setCtteTipo(window.CTTE_TIPO);setOutTipo(window.OUT_TIPO);setOutTipo2(window.OUT_TIPO2);
+  setTipoServico(window.TIPO_SERVICO);
+  toggleSegundoOutorgante(window.OUT2_ATIVO);
+  onFinalidadeChange();
+  onProcAcaoStatusChange(window.PROC_ACAO_STATUS);
+  renderPoderesGeraisGrid();renderAreaBlocos();renderAnexoAccordion();
+  _RASCUNHO_PREFIXOS.forEach(function(p){if(p==='honD_exito')renderParcelasExito(p);else renderParcelasFixo(p);});
+  renderContrato();renderProcuracao();
+  if(!silencioso)alert('Rascunho carregado.');
+  return true;
+}
+var _rascunhoAutoSaveAtivo=false,_tRascunho=null;
+function _autoSalvarRascunhoDebounced(){
+  if(!_rascunhoAutoSaveAtivo)return;
+  clearTimeout(_tRascunho);_tRascunho=setTimeout(salvarRascunho,700);
+}
+function _iniciarRascunho(){
+  var raw;try{raw=localStorage.getItem('gcp_rascunho');}catch(e){raw=null;}
+  if(raw){
+    var dataStr='';
+    try{var d=localStorage.getItem('gcp_rascunho_data');if(d)dataStr=' (salvo em '+new Date(d).toLocaleString('pt-BR')+')';}catch(e){}
+    if(confirm('Encontramos um rascunho salvo automaticamente neste navegador'+dataStr+'. Deseja carregá-lo e continuar de onde parou?')){
+      carregarRascunho(true);
+    }
+  }
+  _rascunhoAutoSaveAtivo=true;
+}
+
+/* ══ CAMPOS OPCIONAIS EM COR DIFERENTE — rótulos cujo texto já diz "(opcional)" ganham cor
+   apagada, pra distinguir rapidamente de campo obrigatório sem precisar ler cada rótulo. ══ */
+function marcarCamposOpcionais(){
+  document.querySelectorAll('.lbl,.sec-div-lbl,.chk-row>span').forEach(function(el){
+    if(/opcional/i.test(el.textContent))el.classList.add('txt-opcional');
+  });
+}
+
+/* ══ INICIALIZAÇÃO ══ */
+function aplicarDataAtual(){
+  var campo=$('dataContrato');
+  if(!campo||campo.value)return;
+  var d=new Date();
+  campo.value=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+renderBancoSelector('D');
+renderBancoSelector('C');
+aplicarDataAtual();
+aplicarDefaultLocalForo();
+toggleAnexo($('tglAnexo').checked);
+renderAnexoAccordion();
+renderPoderesGeraisGrid();
+renderAreaBlocos();
+initCardCollapse();
+marcarCamposOpcionais();
+renderContrato();
+renderProcuracao();
+aplicarTelaDivididaSalva();
+_iniciarRascunho();
+</script>
+
+<script>
+// ligação com o ERP (ponte.js) — gerado por ferramentas/montar-geradores.js
+window.GERADOR = { titulo: 'Contrato e Procuração', tipoDocumento: function () { var p = document.querySelector('.panel.active'); return p && p.id === 'panel-procuracao' ? 'procuracao' : 'contrato'; },
+  nomeArquivo: function () { var p = document.querySelector('.panel.active'); return p && p.id === 'panel-procuracao' ? 'Procuração' : 'Contrato de honorários'; },
+  aoEntrar: async function (sb) { var r = await sb.from('configuracoes').select('valor').eq('chave', 'geradores_bancos').maybeSingle(); if (r.data && r.data.valor) Object.assign(BANCOS, r.data.valor);
+    try { if (typeof renderContrato === 'function') renderContrato(); } catch (e) {} },
+  preencher: function (c, f) { if (c.pj) { f.marcar('ctteTipo','pj'); f.por('ctteRazao', c.nome); f.por('ctteEnderecoPJ', c.endereco); f.por('ctteRepNome', c.rep); f.por('ctteRepCpf', c.repDoc); f.por('ctteEmailPJ', c.email); f.por('ctteWppPJ', c.telefone); var cn = document.getElementById('ctteCnpj'); if (cn) { cn.value = c.doc; } } else { f.marcar('ctteTipo','pf'); f.por('ctteNome', c.nome); f.por('ctteCpf', c.doc); f.por('ctteEndereco', c.endereco); f.por('ctteEmail', c.email); f.por('ctteWpp', c.telefone); } if (c.pj) { f.marcar('outTipo','pj'); f.por('outRazao', c.nome); f.por('outEnderecoPJ', c.endereco); f.por('outRepNome', c.rep); f.por('outRepCpf', c.repDoc); f.por('outEmailPJ', c.email); f.por('outWppPJ', c.telefone); var cn = document.getElementById('outCnpj'); if (cn) { cn.value = c.doc; } } else { f.marcar('outTipo','pf'); f.por('outNome', c.nome); f.por('outCpf', c.doc); f.por('outEndereco', c.endereco); f.por('outEmail', c.email); f.por('outTelefone', c.telefone); }
+    try { renderContrato(); } catch (e) {} try { renderProcuracao(); } catch (e) {} },
+  guardar: function () { var p = document.querySelector('.panel.active'); if (!p) return ''; var partes = []; p.querySelectorAll('[data-pdf]').forEach(function (s) { if (s.offsetParent !== null) partes.push(s.outerHTML); });
+    return partes.join('<div style="page-break-after:always"></div>'); } };
+</script>
+<script src="../vendor/supabase.js"></script>
+<script src="../config.js"></script>
+<script src="ponte.js"></script>
+</body>
+</html>

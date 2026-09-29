@@ -4366,3 +4366,33 @@ begin
   perform cron.schedule('erp_resumo_diario', '0 11 * * 1-5', 'select public.montar_resumos_diarios()');
 exception when others then null;
 end $$;
+
+-- ═══════════════════════════════════════════════════════════════════════
+-- v22 (Backup 16) — PGFN pelos DADOS ABERTOS (gratuito, sem SERPRO): o admin baixa o arquivo público da PGFN,
+-- o navegador lê e separa só os CPFs/CNPJs dos clientes, e esta função grava (substitui) as inscrições deles.
+-- ═══════════════════════════════════════════════════════════════════════
+alter table public.pgfn_inscricoes add column if not exists fonte text not null default 'serpro';
+create or replace function public.pgfn_importar_abertos(p jsonb, p_referencia text default '') returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare x jsonb; cli uuid; n int := 0; ins int := 0;
+begin
+  if not public.eh_admin() then raise exception 'permission denied: só o administrador importa.'; end if;
+  for x in select * from jsonb_array_elements(coalesce(p, '[]')) loop
+    cli := (x->>'cliente_id')::uuid;
+    delete from public.pgfn_inscricoes where cliente_id = cli;
+    insert into public.pgfn_inscricoes (cliente_id, inscricao, natureza, receita, situacao, parcelada, valor, data_inscricao, fonte)
+    select cli, i->>'inscricao', coalesce(i->>'natureza', ''), coalesce(i->>'receita', ''), coalesce(i->>'situacao', ''), coalesce((i->>'parcelada')::boolean, false),
+           coalesce((i->>'valor')::numeric, 0), nullif(i->>'data', '')::date, 'dados_abertos'
+      from jsonb_array_elements(coalesce(x->'inscricoes', '[]')) i
+    on conflict (cliente_id, inscricao) do update set valor = excluded.valor, situacao = excluded.situacao, parcelada = excluded.parcelada, atualizado_em = now(), fonte = 'dados_abertos';
+    get diagnostics ins = row_count;
+    update public.clientes set pgfn = coalesce((select sum(valor) from public.pgfn_inscricoes where cliente_id = cli and not parcelada), 0),
+                               pgfn_negociada = coalesce((select sum(valor) from public.pgfn_inscricoes where cliente_id = cli and parcelada), 0) where id = cli;
+    n := n + 1;
+  end loop;
+  insert into public.configuracoes (chave, valor) values ('pgfn_abertos_ultima', jsonb_build_object('quando', now(), 'clientes', n, 'referencia', p_referencia))
+  on conflict (chave) do update set valor = excluded.valor, atualizado_em = now();
+  return jsonb_build_object('clientes', n);
+end $$;
+revoke all on function public.pgfn_importar_abertos(jsonb, text) from public, anon;
+grant execute on function public.pgfn_importar_abertos(jsonb, text) to authenticated;

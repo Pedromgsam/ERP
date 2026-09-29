@@ -91,7 +91,7 @@
       '<div class="tn-menu tn-menu-dir" role="menu">' + LANCAR.map((x, i) => '<button type="button" role="menuitem" data-lancar="' + i + '">' + esc(x[0]) + '</button>').join('') + '</div></div>' +
       '<div class="hd-usuario"><button type="button" id="gs-tema" title="Modo escuro / claro" aria-label="Alternar modo escuro" aria-pressed="false">◐</button><button type="button" id="gs-sino" class="gx-so-equipe" title="Avisos: prazos, menções e vencimentos" aria-label="Avisos">🔔<span id="gs-sino-n" hidden></span></button><span id="gs-nome"></span>' +
       '<div class="tn-grupo tn-mais-acoes"><button type="button" class="tn-abre gs-bt-mais" data-grupo="acoes" title="Atualizar dados e relatório em PDF" aria-label="Mais ações" aria-haspopup="true" aria-expanded="false">⋯</button>' +
-      '<div class="tn-menu tn-menu-dir" role="menu"><button type="button" data-acao="atualizar">↻ Atualizar dados</button><button type="button" data-acao="pdf" class="gx-so-equipe">📄 Relatório em PDF</button><button type="button" data-acao="cobrancas" class="gx-so-equipe">✉ Central de e-mails ao cliente</button><button type="button" data-acao="cobrancas_antiga" class="gx-so-equipe">✉ Tela antiga de cobranças</button><button type="button" data-acao="meunome">👤 Meu nome</button><button type="button" data-acao="aprovacoes" class="gx-so-equipe">📝 Aprovações (rascunhos)</button><button type="button" data-acao="avisos" class="gx-so-equipe">✉ Meus avisos por e-mail</button></div></div>' +
+      '<div class="tn-menu tn-menu-dir" role="menu"><button type="button" data-acao="atualizar">↻ Atualizar dados</button><button type="button" data-acao="pdf" class="gx-so-equipe">📄 Relatório em PDF</button><button type="button" data-acao="cobrancas" class="gx-so-equipe">✉ Central de e-mails ao cliente</button><button type="button" data-acao="cobrancas_antiga" class="gx-so-equipe">✉ Tela antiga de cobranças</button><button type="button" data-acao="geradores" class="gx-so-equipe">📄 Geradores de documentos</button><button type="button" data-acao="meunome">👤 Meu nome</button><button type="button" data-acao="aprovacoes" class="gx-so-equipe">📝 Aprovações (rascunhos)</button><button type="button" data-acao="avisos" class="gx-so-equipe">✉ Meus avisos por e-mail</button></div></div>' +
       '<button type="button" id="gs-sair">Sair</button></div>';
     document.body.insertBefore(hd, document.body.firstChild);
     const btTema = document.getElementById('gs-tema');
@@ -134,6 +134,7 @@
       else if (alvo.dataset.acao === 'meunome') pedirMeuNome(false);
       else if (alvo.dataset.acao === 'cobrancas') abrirCentralEmails('');
       else if (alvo.dataset.acao === 'cobrancas_antiga') abrirCobrancas('hon');
+      else if (alvo.dataset.acao === 'geradores') { if (GS()) GS().janelaGeradores(); }
       else if (alvo.dataset.acao === 'avisos') { if (GS()) GS().janelaMeusAvisos().catch((er) => aviso(erroAmigavel(er), true)); }
       else if (alvo.dataset.ir) ir(alvo.dataset.ir);
       else if (alvo.dataset.lancar !== undefined) LANCAR[+alvo.dataset.lancar][1]();
