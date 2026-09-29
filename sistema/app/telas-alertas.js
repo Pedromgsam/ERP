@@ -106,8 +106,8 @@ TELAS.alertas = async function () {
     ult ? ult.mensagem || ult.status : 'publique a função erp-cnpj e ligue o agendador', cnpjNivel, { cnpj: true });
   // PGFN (dívida ativa, API paga do SERPRO): só aparece depois de configurada, ou para o admin configurar
   const pgfnCfg = await q(sb.rpc('status_config_pgfn')).catch(() => null) || {};
-  const pgfnEx = pgfnCfg.tem_chave || (E.perfil && E.perfil.papel === 'admin') ? await q(sb.from('pgfn_execucoes').select('*').order('inicio', { ascending: false }).limit(10)).catch(nada) : [];
-  if (pgfnCfg.tem_chave || (E.perfil && E.perfil.papel === 'admin')) {
+  const pgfnEx = pgfnCfg.tem_chave ? await q(sb.from('pgfn_execucoes').select('*').order('inicio', { ascending: false }).limit(10)).catch(nada) : [];
+  if (pgfnCfg.tem_chave) {   // sem SERPRO contratado o cartão fica escondido (decisão do escritório)
     const u = pgfnEx[0];
     add('Rotinas', 'PGFN — dívida ativa', !pgfnCfg.tem_chave ? 'não contratada' : !pgfnCfg.ligada ? 'desligada' : u ? quandoCurto(u.inicio) : 'nunca rodou',
       !pgfnCfg.tem_chave ? 'API paga do SERPRO: clique para ver como ligar' : u ? u.mensagem || u.status : 'frequência: ' + (pgfnCfg.frequencia || 'diaria'),
@@ -183,7 +183,44 @@ function irTelaAlerta(t, aba) { if (aba && t === 'admin') { E.adm = Object.assig
 function relatorioAlerta(a) {
   const r = a.rel;
   if (!r.colunas) { if (r.tela) irTelaAlerta(r.tela); return; }
-  relatorioTabela(Object.assign({}, r, r.tela ? { acao: { rotulo: 'Abrir a tela', fn: () => irTelaAlerta(r.tela) } } : {}));
+  const j = relatorioTabela(Object.assign({}, r, r.tela ? { acao: { rotulo: 'Abrir a tela', fn: () => irTelaAlerta(r.tela) } } : {}));
+  // transformar o alerta em tarefa (para o administrador ou o estagiário), com subtarefas e prazos
+  const ac = j.querySelector('.janela-rp .acoes');
+  if (r.linhas.length && ac) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'btn btn-o'; b.dataset.virarTarefa = '1'; b.textContent = '📋 Virar tarefa';
+    b.onclick = () => { fecharJanela(j); janelaVirarTarefa(a.titulo || r.titulo, r); };
+    ac.prepend(b);
+  }
+}
+async function janelaVirarTarefa(titulo, r) {
+  const linhas = r.linhas.slice(0, 60), rot = (l) => l.filter((v) => v != null && v !== '').slice(0, 3).join(' · ');
+  const prazo = somarDias(hojeISO(), 7);
+  const j = abrirJanela({ titulo: '📋 Virar tarefa', larga: true,
+    corpo: '<form id="f-vt" class="grade">' +
+      campo('Tarefa <span class="obrig">*</span>', '<input name="titulo" maxlength="300" value="' + esc(titulo) + '">', 'inteiro') +
+      campo('Quem faz', selectPessoa('responsavel', '', '— escolha —')) +
+      campo('Prazo da tarefa', '<input name="prazo" type="date" value="' + prazo + '">') +
+      campo('Prioridade', '<select name="prioridade"><option value="media">Média</option><option value="alta">Alta</option><option value="baixa">Baixa</option></select>') +
+      campo('Cada linha do alerta vira', '<select name="modo"><option value="sub">Uma subtarefa (com prazo próprio)</option><option value="check">Um item do checklist</option><option value="nada">Nada (só a tarefa)</option></select>') +
+      campo('Prazo de cada subtarefa', '<input name="prazo_sub" type="date" value="' + prazo + '">') +
+      '<div class="inteiro"><div class="secao">Linhas (' + linhas.length + (r.linhas.length > linhas.length ? ' de ' + r.linhas.length : '') + ') — desmarque o que não entra</div>' +
+      '<div class="lista-ficha" style="max-height:34vh;overflow:auto">' + linhas.map((l, i) => '<label class="check item-ficha"><input type="checkbox" data-vt="' + i + '" checked> ' + esc(rot(l)) + '</label>').join('') + '</div></div>' +
+      '</form>',
+    rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" id="vt-cancelar">Cancelar</button><button class="btn btn-p" type="button" id="vt-salvar">Criar tarefa</button></div>' });
+  j.querySelector('#vt-cancelar').onclick = () => fecharJanela(j);
+  j.querySelector('#vt-salvar').onclick = (ev) => comBotao(ev.target, async () => {
+    const f = j.querySelector('#f-vt'), marc = [...j.querySelectorAll('[data-vt]:checked')].map((c) => linhas[+c.dataset.vt]);
+    const t = { titulo: f.titulo.value.trim(), responsavel: f.responsavel.value, prazo: f.prazo.value || null, prioridade: f.prioridade.value, status: 'pendente',
+      descricao: 'Criada a partir do alerta "' + titulo + '".', checklist: f.modo.value === 'check' ? marc.map((l) => ({ texto: rot(l), feito: false })) : [] };
+    if (!t.titulo) throw new Error('Informe o nome da tarefa.');
+    if (!t.responsavel) throw new Error('Escolha quem faz.');
+    const nova = (await q(sb.from('tarefas').insert(t).select('id')))[0];
+    if (f.modo.value === 'sub' && marc.length && nova) await q(sb.from('tarefas').insert(marc.map((l) => ({ titulo: rot(l), responsavel: t.responsavel, prazo: f.prazo_sub.value || t.prazo,
+      prioridade: t.prioridade, status: 'pendente', tarefa_pai_id: nova.id }))));
+    await notificar(t.responsavel, 'Nova tarefa para você: ' + t.titulo, t.prazo ? 'Prazo ' + dataBR(t.prazo) : '', 'tarefas').catch(() => {});
+    aviso('✓ Tarefa criada para ' + t.responsavel + (f.modo.value === 'sub' && marc.length ? ' com ' + marc.length + ' subtarefa(s).' : '.'));
+    fecharJanela(j);
+  });
 }
 
 // PGFN: chave do SERPRO (só admin), frequência, ligar/desligar, consultar agora e o que mudou

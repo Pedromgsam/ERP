@@ -45,14 +45,14 @@
 <script src="vendor/chart.umd.js?v=3402f6de" defer></script>
 <script src="vendor/supabase.js?v=16aeff36"></script>
 <script src="config.js"></script>
-<script src="erp-dados.js?v=c8a569fe"></script>
+<script src="erp-dados.js?v=c6fb5f63"></script>
 <link rel="stylesheet" href="editor.css?v=b8509b3b">
-<link rel="stylesheet" href="erp-telas.css?v=beb0d2e4">
-<script src="editor.js?v=c1abbb24" defer></script>
-<script src="erp-telas.js?v=04efacfb" defer></script>
-<link rel="stylesheet" href="gs.css?v=6ce90484">
+<link rel="stylesheet" href="erp-telas.css?v=204502f1">
+<script src="editor.js?v=c78b852e" defer></script>
+<script src="erp-telas.js?v=81254c1e" defer></script>
+<link rel="stylesheet" href="gs.css?v=b35a4fee">
 <script src="importador.js?v=4fb0d655" defer></script>
-<script src="gestao-embutida.js?v=1b56936d" defer></script>
+<script src="gestao-embutida.js?v=8b3021ee" defer></script>
 <script>
 
 
@@ -1616,7 +1616,7 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
 .ep-val::placeholder{color:var(--text4);font-weight:400}
 </style>
 <link rel="stylesheet" href="tokens.css?v=61c9c820">
-<link rel="stylesheet" href="tema-escuro.css?v=96e76b67">
+<link rel="stylesheet" href="tema-escuro.css?v=4ee8d78b">
 <script>try{if(localStorage.getItem("erp_tema")==="escuro")document.documentElement.setAttribute("data-tema","escuro")}catch(e){}</script>
 </head>
 <body>
@@ -2011,8 +2011,8 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
   <div id="parcAnalise"></div>
   <div hidden aria-hidden="true"><div id="kpiParc"></div><canvas id="cParcNatureza"></canvas></div>
   <div class="cc">
-    <div class="cc-hd"><div><div class="cc-t">Saldo residual por empresa</div><div class="cc-d">clique no título da coluna para ordenar</div></div></div>
-    <div id="cParcResidualTab"></div>
+    <div class="cc-hd"><div><div class="cc-t">Saldo residual por empresa</div><div class="cc-d">gráfico e tabela lado a lado · 10 maiores</div></div></div>
+    <div class="gx-graf-tab"><div class="cb" style="height:260px"><canvas id="cParcResidual"></canvas></div><div id="cParcResidualTab"></div></div>
   </div>
   <div class="cc">
     <!-- Tab bar com filtros inline à direita -->
@@ -2117,9 +2117,16 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
   </div>
 
   <div id="acAnalise"></div><div hidden aria-hidden="true"><div class="kpi-grid" id="kpiAcordos"></div></div>
-  <div class="cc">
-    <div class="cc-hd"><div><div class="cc-t">Valor por devedor</div><div class="cc-d">clique no título da coluna para ordenar</div></div><div id="acordDevedorChip"></div></div>
-    <div id="acordDevedorTab"></div>
+  <div class="crow c2">
+    <div class="cc">
+      <div class="cc-hd"><div><div class="cc-t">Valor por devedor</div><div class="cc-d">parcelas em aberto</div></div></div>
+      <div class="cb" style="height:280px"><canvas id="cAcordDevedor"></canvas></div>
+    </div>
+    <div class="cc">
+      <div class="cc-hd"><div><div class="cc-t">Valor em atraso por devedor</div><div class="cc-d">parcelas com vencimento passado</div></div></div>
+      <div class="pa-ok" id="acordAtrasoVazio" style="display:none;margin:0">✓ Nenhuma parcela de acordo em atraso.</div>
+      <div class="cb" id="acordAtrasoBox" style="height:280px"><canvas id="cAcordAtraso"></canvas></div>
+    </div>
   </div>
   <div class="cc">
     <!-- Tab bar horizontal (v82 layout) -->
@@ -2732,7 +2739,7 @@ function pDate(v){
 const fDate = d => { const dt=pDate(d); if(!dt)return'—'; return dt.toLocaleDateString('pt-BR'); };
 
 function dCh(id){if(charts[id]){charts[id].destroy();delete charts[id];}}
-function mCh(id,cfg){if(cfg&&cfg.type==='bar'&&cfg.options&&cfg.options.indexAxis==='y'&&!cfg.options.gxValores&&(cfg.data.datasets||[]).length===1&&typeof _barrasComValor==='function')_barrasComValor(cfg);dCh(id);const c=$(id);if(!c)return;charts[id]=new Chart(c,cfg);return charts[id];}
+function mCh(id,cfg){if(id!=='cParcResidual'&&id!=='cAcordAtraso'&&cfg&&cfg.type==='bar'&&cfg.options&&cfg.options.indexAxis==='y'&&!cfg.options.gxValores&&(cfg.data.datasets||[]).length===1&&typeof _barrasComValor==='function')_barrasComValor(cfg);dCh(id);const c=$(id);if(!c)return;charts[id]=new Chart(c,cfg);return charts[id];}
 
 const BO={responsive:true,maintainAspectRatio:false,
   animation:{duration:500,easing:'easeOutQuart'},
@@ -3964,10 +3971,10 @@ function renderParcAnalise(){
    +  kC('Em atraso',risco.length,'parcelamento(s) com parcela vencida','cr',risco.length?'dr':'')
    +'</div>'
    +'<div class="crow c2">'
-   +  '<div><div class="pa-sub">Por órgão'+_chipQuitados('parcOrg',ordem.filter(function(o){return orgaos[o].falta<=0;}).length)+'</div><div class="tw"><table><thead><tr>'
+   +  '<div><div class="pa-sub">Por órgão</div><div class="tw"><table><thead><tr>'
    +    '<th>Órgão</th><th style="text-align:right">Quitado</th><th style="text-align:right">Falta</th>'
    +    '<th style="text-align:right">Por mês</th><th style="width:130px">Andamento</th></tr></thead><tbody>'
-   +    ordem.filter(function(o){return _verQuitados.parcOrg||orgaos[o].falta>0;}).map(function(o){ var d=orgaos[o];
+   +    ordem.map(function(o){ var d=orgaos[o];
         return '<tr><td><strong>'+esc(o)+'</strong><div style="font-size:10.5px;color:var(--text3)">'+d.n+' parcelamento(s)</div></td>'
          +'<td class="mono" style="text-align:right;color:var(--green-d)">'+_faFT(d.pago)+'</td>'
          +'<td class="mono" style="text-align:right">'+_faFT(d.falta)+'</td>'
@@ -4025,12 +4032,16 @@ function renderProcAnalise(){
 
   el.innerHTML=exBloco('exProcAn','Análise da carteira judicial',
     '<div class="kpi-grid" style="margin-bottom:14px">'
-   +  kC('Processos',fI(lista.length),'('+fI(ativos)+' em andamento · '+fI(lista.length-ativos)+' arquivados/extintos)','cb','')
-   +  kC('Valor em disputa',_faFT(totalV),'('+fI(lista.length-comValor.length)+' sem valor)','cv','')
+   +  kC('Processos',lista.length,ativos+' em andamento','cb','db')
+   +  kC('Arquivados / extintos',lista.length-ativos,'encerrados, prescritos e extintos','cx','')
+   +  kC('Valor em disputa',_faFT(totalV),comValor.length+' com valor informado','cv','dv')
    +  (function(){ var nomes=(FIL.length?FIL:DB.baseDados).map(function(r){return String(r.nome||'').toLowerCase();}).filter(function(n){return n.length>2;});
         var tem=function(t){ t=String(t||'').toLowerCase(); return nomes.some(function(n){return t.indexOf(n)>=0;}); };
         var vP=lista.filter(function(p){return tem(p.reu);}).reduce(function(s,p){return s+val(p);},0), vA=lista.filter(function(p){return tem(p.autor);}).reduce(function(s,p){return s+val(p);},0);
         return kC('Passivo em disputas',_faFT(vP),'cliente como réu','cr','')+kC('Ativo em disputas',_faFT(vA),'cliente como autor','cg',''); })()
+   +  kC('Ticket médio',_faFT(comValor.length?totalV/comValor.length:0),'por processo com valor','cx','')
+   +  kC('Sem valor',lista.length-comValor.length,'processos sem valor da causa',
+        (lista.length-comValor.length)?'ca':'cg',(lista.length-comValor.length)?'da':'')
    +'</div>'
    +'<div class="crow c3">'+agrupa('grupo','Grupo')+agrupa('competencia','Tribunal')+agrupa('natureza','Natureza')+'</div>');
 }
@@ -4432,13 +4443,10 @@ function renderParcelamentos(){
   const emps=[...new Set(parc.map(p=>p.empresa))].filter(Boolean);
   const eR=emps.map(e=>parc.filter(p=>p.empresa===e).reduce((s,p)=>s+(Number(p.residual)||0),0));
   const iR=eR.map((_,i)=>i).sort((a,b)=>eR[b]-eR[a]).slice(0,10);
-  { const _tR=eR.reduce((s,v)=>s+v,0)||1, _t=$('cParcResidualTab'), _ord=eR.map((_,i)=>i).filter(i=>eR[i]>0).sort((a,b)=>eR[b]-eR[a]);
-    const _nP=e=>parc.filter(p=>p.empresa===e).length, _mes=e=>parc.filter(p=>p.empresa===e&&(Number(p.parcelasPagas)||0)<(Number(p.totalParcelas)||0)).reduce((s,p)=>s+(Number(p.valorUltimaParcela)||0),0);
-    if(_t) _t.innerHTML=_ord.length?'<div class="tw"><table><thead><tr><th>Empresa</th><th style="text-align:right">Parcelamentos</th><th style="text-align:right">Por mês</th><th style="text-align:right">Saldo residual</th><th style="text-align:right">%</th></tr></thead><tbody>'+
-      _ord.map(i=>'<tr><td><strong>'+esc(emps[i])+'</strong></td><td class="mono" style="text-align:right">'+_nP(emps[i])+'</td><td class="mono" style="text-align:right" data-ord="'+_mes(emps[i])+'">'+_faFT(_mes(emps[i]))+'</td>'+
-        '<td class="mono" style="text-align:right" data-ord="'+eR[i]+'">'+_faFT(eR[i])+'</td><td class="mono" style="text-align:right;color:var(--text3)" data-ord="'+eR[i]+'">'+(eR[i]/_tR*100).toFixed(1).replace('.',',')+'%</td></tr>').join('')+
-      '</tbody><tfoot><tr><td>Total</td><td></td><td></td><td class="mono" style="text-align:right">'+_faFT(eR.reduce((s,v)=>s+v,0))+'</td><td class="mono" style="text-align:right">100%</td></tr></tfoot></table></div>'
-      :'<div class="pa-ok">Nenhum saldo residual neste recorte.</div>'; }
+  mCh('cParcResidual',bCfg(iR.map(i=>emps[i].length>18?emps[i].slice(0,18)+'…':emps[i]),iR.map(i=>eR[i]),null,true));
+  { const _tR=eR.reduce((s,v)=>s+v,0)||1, _t=$('cParcResidualTab');
+    if(_t) _t.innerHTML='<table class="gx-leg"><thead><tr><td>Empresa</td><td class="num">Saldo residual</td><td class="num">%</td></tr></thead><tbody>'+iR.map(i=>'<tr><td>'+emps[i]+'</td><td class="num">'+fF(eR[i])+'</td><td class="num gx-leg-p">'+(eR[i]/_tR*100).toFixed(1).replace('.',',')+'%</td></tr>').join('')+
+      '</tbody><tfoot><tr><td>Total</td><td class="num">'+fF(eR.reduce((s,v)=>s+v,0))+'</td><td class="num">100%</td></tr></tfoot></table>'; }
 
   const nats=[...new Set(parc.map(p=>p.natureza))].filter(Boolean);
   mCh('cParcNatureza',dCfg(nats,nats.map(n=>parc.filter(p=>p.natureza===n).reduce((s,p)=>s+(Number(p.residual)||0),0)),nats.map(function(n,k){return corCategoria(n,k);})));
@@ -4460,8 +4468,7 @@ function renderParcelamentos(){
           ${inadN>0?`<span class="tag tr tpls" style="font-size:10.5px">${inadN} inadim.</span>`:''}
           <span style="font-size:10.5px;color:var(--text3);font-family:var(--font-m)">${p.parcelasPagas||0}/${p.totalParcelas||0}</span>
           <span style="font-size:11px;font-weight:700;color:${cor};font-family:var(--font-m)">${pct2}%</span>
-          <span style="font-size:10.5px;color:var(--text4)">Parcela: <strong style="color:var(--navy)">${fF(p.valorUltimaParcela||0)}</strong></span>
-          <span style="font-size:10.5px;color:var(--text4)">Saldo: <strong style="color:var(--navy)">${fF(p.residual||0)}</strong></span>
+          <span style="font-size:10.5px;color:var(--text4)">Res: <strong style="color:var(--navy)">${fS(p.residual||0)}</strong></span>
         </div>
       </div>
       <div style="background:rgba(0,0,0,.06);border-radius:20px;height:6px;overflow:hidden;margin-top:8px">
@@ -4661,9 +4668,6 @@ function setAcordPeriod(p,btn){_setPeriod('_acordPeriod','acordPeriodBar',render
 
 let _acordPgPg=1; // página da tabela de pagos
 
-// tabelas de acompanhamento: os 100% pagos ficam escondidos; o chip mostra/esconde (Backup 14)
-var _verQuitados={};
-function _chipQuitados(k,n){ return n?'<label class="gx-quit"><input type="checkbox"'+(_verQuitados[k]?' checked':'')+' onchange="_verQuitados[\''+k+'\']=this.checked;'+(k.indexOf('parc')===0?'renderParcAnalise()':'renderAcordos()')+'"> mostrar quitados ('+n+')</label>':''; }
 function _acordosAnalise(ac){
   var el=$('acAnalise'); if(!el) return; if(!ac.length){ el.innerHTML=''; return; }
   var hj=new Date(); hj.setHours(0,0,0,0); var fimMes=new Date(hj.getFullYear(),hj.getMonth()+1,0);
@@ -4673,8 +4677,7 @@ function _acordosAnalise(ac){
   var soma=function(l){return l.reduce(function(s,a){return s+v(a);},0);};
   var porCred={}; ac.forEach(function(a){ var k=a.credor||'—'; if(!porCred[k]) porCred[k]={pago:0,falta:0,n:new Set(),atr:0}; var c=porCred[k];
     if(pago(a)) c.pago+=v(a); else c.falta+=v(a); c.n.add(a.processo); if(atrasada(a)) c.atr++; });
-  var ordemTudo=Object.keys(porCred).sort(function(a,b){return porCred[b].falta-porCred[a].falta;});
-  var nQuit=ordemTudo.filter(function(k){return porCred[k].falta<=0;}).length, ordem=ordemTudo.filter(function(k){return _verQuitados.acCred||porCred[k].falta>0;});
+  var ordem=Object.keys(porCred).sort(function(a,b){return porCred[b].falta-porCred[a].falta;});
   var porAc={}; ac.filter(atrasada).forEach(function(a){ var k=a.processo+'|'+(a.devedor||''); if(!porAc[k]) porAc[k]={a:a,n:0,v:0}; porAc[k].n++; porAc[k].v+=v(a); });
   var risco=Object.keys(porAc).map(function(k){return porAc[k];}).sort(function(x,y){return y.n-x.n||y.v-x.v;});
   var barra=function(p,f){ var t=p+f; if(t<=0) return ''; var pc=Math.round(p/t*100); return '<div class="pa-bar"><div class="pa-bar-in" style="width:'+pc+'%"></div></div><div class="pa-pc">'+pc+'% pago</div>'; };
@@ -4686,7 +4689,7 @@ function _acordosAnalise(ac){
    + kC('Vence este mês',_faFT(soma(ac.filter(noMes))),ac.filter(noMes).length+' parcela(s) até '+fimMes.toLocaleDateString('pt-BR').slice(0,5),'cb','')
    + kC('Em atraso',_faFT(soma(ac.filter(atrasada))),ac.filter(atrasada).length+' parcela(s) vencida(s)','cr',ac.some(atrasada)?'dr':'')
    + '</div><div class="crow c2">'
-   + '<div><div class="pa-sub">Por credor'+_chipQuitados('acCred',nQuit)+'</div><div class="tw"><table><thead><tr><th>Credor</th><th style="text-align:right">Pago</th><th style="text-align:right">Falta</th><th style="width:130px">Andamento</th></tr></thead><tbody>'
+   + '<div><div class="pa-sub">Por credor</div><div class="tw"><table><thead><tr><th>Credor</th><th style="text-align:right">Pago</th><th style="text-align:right">Falta</th><th style="width:130px">Andamento</th></tr></thead><tbody>'
    + ordem.map(function(k){ var c=porCred[k]; return '<tr><td><strong>'+esc(k)+'</strong><div style="font-size:11px;color:var(--text3)">'+c.n.size+' acordo(s)'+(c.atr?' · <span style="color:var(--red-d)">'+c.atr+' em atraso</span>':'')+'</div></td>'
        +'<td class="mono" style="text-align:right;color:var(--green-d)">'+_faFT(c.pago)+'</td><td class="mono" style="text-align:right">'+_faFT(c.falta)+'</td><td>'+barra(c.pago,c.falta)+'</td></tr>'; }).join('')
    + '</tbody></table></div></div>'
@@ -4715,17 +4718,7 @@ function renderAcordos(){
   const devs=[...new Set(acAP.map(a=>a.devedor))].filter(Boolean);
   const dV=devs.map(d=>acAP.filter(a=>a.devedor===d).reduce((s,a)=>s+(Number(a.valor)||0),0));
   const iD=dV.map((_,i)=>i).sort((a,b)=>dV[b]-dV[a]).slice(0,10);
-  { const _hj=new Date(); _hj.setHours(0,0,0,0); const _v=a=>Number(a.valor)||0;
-    const _todos=[...new Set(ac.map(a=>a.devedor))].filter(Boolean).map(d=>{ const l=ac.filter(a=>a.devedor===d), ab=l.filter(a=>a.situacao!=='Pago');
-      return {d:d,n:new Set(l.map(a=>a.processo||a.ref)).size,pago:l.filter(a=>a.situacao==='Pago').reduce((s,a)=>s+_v(a),0),aberto:ab.reduce((s,a)=>s+_v(a),0),
-        atraso:ab.filter(a=>{const dv=pDate(a.vencimento);return a.situacao==='Vencido'||(dv&&dv<_hj);}).reduce((s,a)=>s+_v(a),0)}; }).sort((x,y)=>y.aberto-x.aberto);
-    const _nq=_todos.filter(x=>x.aberto<=0).length, _l=_todos.filter(x=>_verQuitados.acDev||x.aberto>0), _t=$('acordDevedorTab');
-    const _c=$('acordDevedorChip'); if(_c) _c.innerHTML=_chipQuitados('acDev',_nq);
-    if(_t) _t.innerHTML=_l.length?'<div class="tw"><table><thead><tr><th>Devedor</th><th style="text-align:right">Acordos</th><th style="text-align:right">Pago</th><th style="text-align:right">Em aberto</th><th style="text-align:right">Em atraso</th></tr></thead><tbody>'+
-      _l.map(x=>'<tr><td><strong>'+esc(x.d)+'</strong></td><td class="mono" style="text-align:right">'+x.n+'</td><td class="mono" style="text-align:right;color:var(--green-d)" data-ord="'+x.pago+'">'+_faFT(x.pago)+'</td>'+
-        '<td class="mono" style="text-align:right" data-ord="'+x.aberto+'">'+_faFT(x.aberto)+'</td><td class="mono" style="text-align:right'+(x.atraso?';color:var(--red-d);font-weight:700':'')+'" data-ord="'+x.atraso+'">'+(x.atraso?_faFT(x.atraso):'—')+'</td></tr>').join('')+
-      '</tbody><tfoot><tr><td>Total</td><td></td><td class="mono" style="text-align:right">'+_faFT(_l.reduce((s,x)=>s+x.pago,0))+'</td><td class="mono" style="text-align:right">'+_faFT(_l.reduce((s,x)=>s+x.aberto,0))+'</td><td class="mono" style="text-align:right">'+_faFT(_l.reduce((s,x)=>s+x.atraso,0))+'</td></tr></tfoot></table></div>'
-      :'<div class="pa-ok">Nenhum acordo em aberto neste recorte.</div>'; }
+  mCh('cAcordDevedor',bCfg(iD.map(i=>devs[i].length>20?devs[i].slice(0,20)+'…':devs[i]),iD.map(i=>dV[i]),null,false));
   // v44: valor em atraso por devedor — mesma leitura do painel de
   // parcelamentos. Atrasado = não pago e vencimento anterior a hoje
   // (ou situação já marcada como Vencido na planilha).
@@ -4777,7 +4770,7 @@ function renderAcordos(){
         if(a.situacao==='Vencido'||(_dv&&_dv<_hj))grupos2[key].inadim++;
         grupos2[key].residual+=(Number(a.valor)||0);
       }
-      grupos2[key].valor+=(Number(a.valor)||0); grupos2[key].parcela=Math.max(grupos2[key].parcela||0,Number(a.valor)||0);
+      grupos2[key].valor+=(Number(a.valor)||0);
     });
     const gArr=Object.values(grupos2).sort((a,b)=>{
       const pA=a.tot>0?a.pagas/a.tot:0,pB=b.tot>0?b.pagas/b.tot:0;
@@ -4798,8 +4791,7 @@ function renderAcordos(){
             ${g.inadim>0?`<span class="tag tr tpls" style="font-size:10.5px">${g.inadim} inadim.</span>`:''}
             <span style="font-size:10.5px;color:var(--text3);font-family:var(--font-m)">${g.pagas}/${g.tot}</span>
             <span style="font-size:11px;font-weight:700;color:${cor};font-family:var(--font-m)">${pct}%</span>
-            <span style="font-size:10.5px;color:var(--text4)">Parcela: <strong style="color:var(--navy)">${fF(g.parcela||0)}</strong></span>
-            <span style="font-size:10.5px;color:var(--text4)">Saldo: <strong style="color:var(--navy)">${fF(g.residual)}</strong></span>
+            <span style="font-size:10.5px;color:var(--text4)">Res: <strong style="color:var(--navy)">${fS(g.residual)}</strong></span>
           </div>
         </div>
         <div style="background:rgba(0,0,0,.06);border-radius:20px;height:6px;overflow:hidden;margin-top:8px">
@@ -5468,7 +5460,7 @@ function _faPintarCorpo(){
   +   _faTabelaPessoas(_faPessoas()) + '</div>'
   + '<div class="crow c2" style="margin-bottom:14px">'
   +   '<div class="cc"><div class="cc-hd"><div><div class="cc-t">Recebido por tipo de serviço</div>'
-  +     '<div class="cc-d">consultoria, fixo, êxito…</div></div></div>'
+  +     '<div class="cc-d">área: tributário, imobiliário, empresarial, família…</div></div></div>'
   +     '<div class="cb" style="height:240px"><canvas id="cFaTipo"></canvas></div></div>'
   +   '<div class="cc"><div class="cc-hd"><div><div class="cc-t">Maiores grupos</div>'
   +     '<div class="cc-d">10 primeiros por valor recebido</div></div></div>'
@@ -5549,7 +5541,7 @@ function _faTabelaDetalhe(rows){
    +'<th>Situação</th><th>Origem</th>'
    +'<th class="s" onclick="faOrd(\'quem\')">Quem'+seta('quem')+'</th>'
    +'<th class="s" onclick="faOrd(\'grupo\')">Grupo'+seta('grupo')+'</th>'
-   +'<th>Tipo</th><th>Referência</th>'
+   +'<th>Tipo</th>'
    +'<th class="s" style="text-align:right" onclick="faOrd(\'valor\')">Valor'+seta('valor')+'</th>'
    +'</tr></thead><tbody>'
    + (rows.length? rows.slice(0,400).map(function(f){
@@ -5560,9 +5552,8 @@ function _faTabelaDetalhe(rows){
         +'<td style="color:'+(corAba[f.aba]||'var(--text3)')+';font-weight:600;font-size:11.5px">'+esc(f.aba)+'</td>'
         +'<td>'+_faSelo(_faQuem(f))+'</td><td>'+esc(f.grupo||'—')+'</td>'
         +'<td>'+esc(f.tipo||'—')+'</td>'
-        +'<td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(f.referencia||'')+'">'+esc(f.referencia||'—')+'</td>'
         +'<td class="mono" style="text-align:right;font-weight:600">'+_faFT(_faVal(f))+'</td></tr>';
-     }).join('') : '<tr><td colspan="8" class="vazio">Nenhum lançamento com esses recortes.</td></tr>')
+     }).join('') : '<tr><td colspan="7" class="vazio">Nenhum lançamento com esses recortes.</td></tr>')
    + '</tbody></table></div>'
    + (rows.length>400?'<div style="font-size:11px;color:var(--text3);padding:8px 2px">mostrando 400 de '+rows.length+' — use o CSV para a lista inteira</div>':'');
 }
@@ -5656,8 +5647,8 @@ function _faGraficos(receita){
 
   // ── por tipo de serviço ──
   if($('cFaTipo')){
-    var tp=[...new Set(receita.map(function(f){return f.tipo||'—';}))];
-    var tv=tp.map(function(t){return receita.filter(function(f){return (f.tipo||'—')===t;}).reduce(function(s,f){return s+_faVal(f);},0);});
+    var tp=[...new Set(receita.map(function(f){return f.servico||'Não informado';}))];
+    var tv=tp.map(function(t){return receita.filter(function(f){return (f.servico||'Não informado')===t;}).reduce(function(s,f){return s+_faVal(f);},0);});
     var it=tv.map(function(_,i){return i;}).sort(function(a,b){return tv[b]-tv[a];}).slice(0,10);
     var cfgT=bCfg(it.map(function(i){return tp[i];}),it.map(function(i){return tv[i];}),null,true);
     cfgT.options.animation=SEM_ANIM; _barrasComValor(cfgT);

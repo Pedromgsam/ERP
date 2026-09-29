@@ -53,11 +53,12 @@ TELAS.inicio = async function () {
     '<div class="acoes"><button class="btn btn-p" data-novo="receita">+ Receita</button>' +
     '<button class="btn btn-o" data-novo="despesa">+ Despesa</button>' +
     '<button class="btn btn-o" data-novo="contrato">+ Contrato</button></div></div>' +
-    '<div id="ini-aprov"></div><div id="ini-fila"></div>' +
+    '<div id="ini-mural"></div><div id="ini-aprov"></div><div id="ini-fila"></div>' +
     (verJur ? linha('escritorio', '💼 Honorários Jurídico') : '') + (verCont ? linha('contabilidade', '🧮 Contabilidade') : '') +
     (verJur || verCont ? '<div class="' + (verJur && verCont ? 'duas-col' : '') + ' ini-atraso">' +
       (verJur ? cardAtraso('Atrasados', 'Jurídico', de('escritorio')) : '') +
       (verCont ? cardAtraso('Atrasados', 'Contabilidade', de('contabilidade')) : '') + '</div>' : '');
+  cardMural().catch((e) => console.error(e));
   if (typeof cardAprovacoes === 'function') cardAprovacoes().then((x) => { const el = $('ini-aprov'); if (el) el.innerHTML = x; }).catch((e) => console.error(e));
   if (typeof cardMinhaFila === 'function') cardMinhaFila().then((c) => { const el = $('ini-fila'); if (el) { el.innerHTML = c.html; c.ligar(el); } }).catch((e) => console.error(e));
   ligarAcoesLancamentos($('conteudo'));
@@ -86,10 +87,12 @@ async function relatorioHonorarios(emp, tipo, ini, fim) {
   const lista = await buscarTodos(Q[0]);
   const total = soma(lista, (l) => l.redutor ? -l.valor : l.valor);
   const nomeEmp = emp === 'contabilidade' ? 'Contabilidade' : 'Jurídico';
+  // janela bem larga; sem a coluna Descrição; "Recebido" não se repete na lista de recebidos; sem "Emitir guia" nos a receber
   const j = abrirJanela({ titulo: Q[1] + ' — ' + nomeEmp, larga: true,
     corpo: '<div class="kpis" style="margin-bottom:12px">' + kpi('Total', brl(total), tipo === 'em_atraso' ? 'vermelho' : tipo === 'recebido' ? 'verde' : '', lista.length + ' lançamento(s)') + '</div>' +
-      '<div class="card" style="margin:0">' + tabelaLancamentos(lista, { aba: Q[2] }) + '</div>',
+      '<div class="card" style="margin:0">' + tabelaLancamentos(lista, { aba: Q[2], semDescricao: true, semSituacao: tipo === 'recebido', semCobranca: true }) + '</div>',
     rodape: '<button class="btn btn-o" type="button" data-rel-csv>⬇ CSV</button><span></span>' });
+  j.querySelector('.janela').classList.add('janela-rel');
   ligarAcoesLancamentos(j, async () => { fecharJanela(j); await relatorioHonorarios(emp, tipo, ini, fim); await recarregar(); });
   j.querySelector('[data-rel-csv]').onclick = () => baixarArquivo(Q[1] + ' ' + nomeEmp + ' ' + h + '.csv',
     '\ufeff' + [['Vencimento', 'Pago em', 'Quem', 'Descrição', 'Valor', 'Situação']].concat(lista.map((l) => [dataBR(l.vencimento), dataBR(l.data_pagamento),
@@ -108,12 +111,12 @@ function cardAtraso(titulo, area, lista) {
       (hoje.length ? '<span class="pill hoje">' + hoje.length + ' vence' + (hoje.length > 1 ? 'm' : '') + ' hoje</span>' : '') +
       (!lista.length ? '<span class="pill pago">em dia</span>' : '') + '</span></div>' +
     (lista.length ? '<div class="tabela-wrap"><table class="ordenavel"><thead><tr><th data-tipo="data">Vencimento</th><th>Quem</th><th class="num">Valor</th><th class="sem-ordem"></th></tr></thead><tbody>' +
-      lista.map((l) => '<tr class="clicavel' + (l.vencimento === h ? ' linha-hoje' : '') + '" data-linha-pagar title="Clique para registrar o pagamento"><td class="mono" data-ord="' + l.vencimento + '">' +
+      lista.map((l) => '<tr class="clicavel' + (l.vencimento === h ? ' linha-hoje' : '') + '" data-linha-pagar title="Clique para dar como recebido"><td class="mono" data-ord="' + l.vencimento + '">' +
         (l.vencimento === h ? '<span class="pill hoje">Vence hoje</span>' : dataBR(l.vencimento) + '<div class="sub">' + diasAtraso(l.vencimento) + '</div>') + '</td>' +
         '<td><b>' + esc(quemDe(l) || l.descricao) + '</b><div class="sub">' + esc(l.descricao) + '</div></td>' +
         '<td class="num mono ' + (l.tipo === 'receita' && !l.redutor ? 'valor-rec' : 'valor-desp') + '" data-ord="' + (l.tipo === 'despesa' ? -l.valor : vl(l)) + '">' +
           (l.tipo === 'despesa' || l.redutor ? '− ' : '') + brl(l.valor) + (l.redutor ? '<div class="sub">redutor</div>' : l.tipo === 'despesa' ? '<div class="sub">a pagar</div>' : '') + '</td>' +
-        '<td class="acoes-l"><button class="btn btn-v btn-mini" data-pagar="' + l.id + '">✓ Registrar pagamento</button></td></tr>').join('') +
+        '<td class="acoes-l"><button class="btn btn-v btn-mini" data-pagar="' + l.id + '">✓ Recebido</button></td></tr>').join('') +
       '</tbody><tfoot><tr><td colspan="2">Total</td><td class="num mono">' + brl(total) + '</td><td></td></tr></tfoot></table></div>'
       : vazio('Nada em atraso. 👏')) + '</div>';
 }
@@ -228,4 +231,53 @@ function pintarPainel() {
 
   $('pn-corpo').querySelectorAll('[data-cli]').forEach((tr) => tr.onclick = () => formCliente(E.clientes.find((x) => x.id === tr.dataset.cli), () => pintarPainel()));
   $('pn-corpo').querySelectorAll('g[data-acao]').forEach((g) => g.onclick = () => { if (g.dataset.acao) { P.grupo = g.dataset.acao; pintarPainel(); } });
+}
+
+
+// ─────────── Mural do Início: o que pede atenção hoje + recados do escritório ───────────
+// Destaques (avisos não lidos, prazos fatais da semana, tarefas atrasadas, publicações novas) abrem o lugar certo.
+// Recados: qualquer pessoa da equipe publica; o administrador pode fixar no topo; apaga quem publicou ou o admin.
+async function cardMural() {
+  const el = $('ini-mural'); if (!el) return;
+  const h = hojeISO();
+  const [recados, avisos, tarefas, pubs] = await Promise.all([
+    q(sb.from('mural').select('*').order('fixo', { ascending: false }).order('criado_em', { ascending: false }).limit(20)).catch(() => []),
+    contarAlertas().catch(() => ({ total: 0, altos: 0 })),
+    q(sb.from('tarefas').select('id, prazo, prazo_fatal, responsavel, participantes, chave_regra').not('status', 'in', '(concluida,cancelada)')).catch(() => []),
+    pode('juridico') ? q(sb.from('publicacoes').select('id').eq('status', 'nova')).catch(() => []) : []
+  ]);
+  const minhas = tarefas.filter(ehMinha);
+  const fatais = minhas.filter((t) => t.prazo_fatal && t.prazo_fatal <= somarDias(h, 7)).length, atrasadas = minhas.filter((t) => t.prazo && t.prazo < h && !/^cob:/.test(t.chave_regra || '')).length;
+  const vivos = recados.filter((r) => !r.expira_em || r.expira_em >= h).slice(0, 6);
+  const admin = E.perfil && E.perfil.papel === 'admin';
+  const dest = [
+    avisos.total ? ['avisos', (avisos.altos ? 'critico' : ''), '🔔', avisos.total, 'aviso(s) não lido(s)'] : null,
+    fatais ? ['fatais', 'critico', '⚑', fatais, 'prazo(s) fatal(is) em 7 dias'] : null,
+    atrasadas ? ['atrasadas', 'critico', '⏰', atrasadas, 'tarefa(s) atrasada(s)'] : null,
+    pubs.length ? ['pubs', '', '📰', pubs.length, 'publicação(ões) nova(s)'] : null
+  ].filter(Boolean);
+  el.innerHTML = '<div class="card ini-mural"><div class="card-hd">📌 Mural</div><div class="card-bd">' +
+    (dest.length ? '<div class="mural-destaques">' + dest.map((d) => '<button type="button" class="mural-dest ' + d[1] + '" data-mural="' + d[0] + '">' + d[2] + ' <b>' + d[3] + '</b> ' + d[4] + '</button>').join('') + '</div>'
+      : '<div class="sub" style="margin-bottom:10px">Nada pedindo atenção agora. 👏</div>') +
+    (vivos.length ? '<div class="mural-lista">' + vivos.map((r) => '<div class="mural-it' + (r.fixo ? ' fixo' : '') + '"><div class="mural-txt">' + (r.fixo ? '📌 ' : '') + esc(r.texto) +
+      '<div class="sub">' + esc(r.autor_nome || '—') + ' · ' + dataHoraBR(r.criado_em) + (r.expira_em ? ' · até ' + dataBR(r.expira_em) : '') + '</div></div>' +
+      (admin || (E.perfil && r.autor === E.perfil.id) ? '<button type="button" class="btn-etq" data-mural-x="' + r.id + '" title="Apagar recado" aria-label="Apagar recado">×</button>' : '') + '</div>').join('') + '</div>' : '') +
+    '<div class="mural-novo"><textarea id="mural-txt" maxlength="1000" placeholder="Recado para o escritório (ex.: reunião sexta às 14h; feriado municipal na segunda)"></textarea>' +
+      '<div style="display:flex;flex-direction:column;gap:6px">' + (admin ? '<label class="check" style="font-size:12.5px"><input type="checkbox" id="mural-fixo"> Fixar no topo</label>' : '') +
+      '<button type="button" class="btn btn-p btn-mini" id="mural-pub">Publicar</button></div></div></div></div>';
+  el.querySelectorAll('[data-mural]').forEach((b) => b.onclick = () => {
+    const k = b.dataset.mural;
+    if (k === 'avisos') abrirAlertas(null, () => cardMural());
+    else if (k === 'pubs') irParaTela('publicacoes');
+    else { E.tf = Object.assign(E.tf || {}, { vista: 'lista', atalho: k === 'fatais' ? '7' : 'atrasadas', aba: 'abertas' }); irParaTela('tarefas'); }
+  });
+  el.querySelectorAll('[data-mural-x]').forEach((b) => b.onclick = () => comBotao(b, async () => {
+    if (!confirm('Apagar este recado?')) return;
+    await q(sb.from('mural').delete().eq('id', b.dataset.muralX)); await cardMural();
+  }));
+  $('mural-pub').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    const t = $('mural-txt').value.trim(); if (!t) throw new Error('Escreva o recado.');
+    await q(sb.from('mural').insert({ texto: t, fixo: !!($('mural-fixo') && $('mural-fixo').checked) }));
+    aviso('✓ Recado publicado no mural.'); await cardMural();
+  });
 }

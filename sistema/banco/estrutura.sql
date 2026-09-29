@@ -3595,3 +3595,78 @@ begin
 exception when others then
   raise notice 'Agendador indisponível: use o botão "Consultar agora" em Alertas → PGFN.';
 end $$;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- v21 (Backup 15) — preferências de tela por usuário, mural do Início,
+-- área do serviço nos honorários e contratos
+-- ═══════════════════════════════════════════════════════════════════
+
+-- preferências de tela (ex.: fila do Início em lista ou calendário) — valem em qualquer computador
+alter table public.perfis add column if not exists preferencias jsonb not null default '{}';
+create or replace function public.salvar_preferencia(p_chave text, p_valor jsonb) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then raise exception 'permission denied'; end if;
+  if coalesce(p_chave, '') !~ '^[a-z_]{1,40}$' then raise exception 'Preferência inválida.'; end if;
+  update public.perfis set preferencias = coalesce(preferencias, '{}') || jsonb_build_object(p_chave, p_valor) where id = auth.uid();
+end $$;
+revoke all on function public.salvar_preferencia(text, jsonb) from public, anon;
+grant execute on function public.salvar_preferencia(text, jsonb) to authenticated;
+
+-- mural do Início: recados do escritório (qualquer pessoa da equipe publica; apaga quem publicou ou o admin)
+create table if not exists public.mural (
+  id         uuid primary key default gen_random_uuid(),
+  texto      text not null check (btrim(texto) <> '' and length(texto) <= 1000),
+  fixo       boolean not null default false,
+  expira_em  date,
+  autor      uuid default auth.uid() references public.perfis(id) on delete set null,
+  autor_nome text not null default '',
+  criado_em  timestamptz not null default now()
+);
+create index if not exists mural_criado on public.mural (criado_em desc);
+alter table public.mural enable row level security;
+revoke all on public.mural from anon;
+grant select, insert, delete on public.mural to authenticated;
+drop policy if exists mural_ver on public.mural;
+create policy mural_ver on public.mural for select to authenticated using (public.eh_equipe());
+drop policy if exists mural_publicar on public.mural;
+create policy mural_publicar on public.mural for insert to authenticated with check (public.eh_equipe() and autor = auth.uid());
+drop policy if exists mural_apagar on public.mural;
+create policy mural_apagar on public.mural for delete to authenticated using (autor = auth.uid() or public.eh_admin());
+create or replace function public.mural_autor() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  new.autor := auth.uid();
+  new.autor_nome := coalesce((select nullif(split_part(btrim(nome), ' ', 1), '') from public.perfis where id = auth.uid()), '');
+  if new.fixo and not public.eh_admin() then new.fixo := false; end if;   -- só o administrador fixa recado
+  return new;
+end $$;
+drop trigger if exists mural_autor on public.mural;
+create trigger mural_autor before insert on public.mural for each row execute function public.mural_autor();
+
+-- área do serviço (gráfico "Recebido por tipo de serviço"): tributário, imobiliário, empresarial, sucessões, família,
+-- criminal, trabalhista, contratual, cobrança, consultoria. A regra de consultoria mensal (recorrência) não muda.
+alter table public.lancamentos add column if not exists servico text not null default '';
+alter table public.contratos add column if not exists servico text not null default '';
+create or replace function public.lancamento_servico() returns trigger
+language plpgsql as $$
+begin
+  if coalesce(new.servico, '') = '' and new.contrato_id is not null then
+    select servico into new.servico from public.contratos where id = new.contrato_id;
+    new.servico := coalesce(new.servico, '');
+  end if;
+  return new;
+end $$;
+drop trigger if exists lancamento_servico on public.lancamentos;
+create trigger lancamento_servico before insert on public.lancamentos for each row execute function public.lancamento_servico();
+-- contrato ganhou/trocou a área: os honorários dele sem área passam a ter a mesma
+create or replace function public.contrato_servico_propaga() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if coalesce(new.servico, '') <> '' and new.servico is distinct from old.servico then
+    update public.lancamentos set servico = new.servico where contrato_id = new.id and (servico = '' or servico = coalesce(old.servico, ''));
+  end if;
+  return null;
+end $$;
+drop trigger if exists contrato_servico_propaga on public.contratos;
+create trigger contrato_servico_propaga after update of servico on public.contratos for each row execute function public.contrato_servico_propaga();

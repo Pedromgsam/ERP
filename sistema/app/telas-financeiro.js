@@ -151,30 +151,36 @@ function tabelaLancamentos(lista, opc) {
   if (!lista.length) return '<div class="vazio">Nenhum lançamento aqui.</div>';
   const porPagamento = opc.aba === 'recebidos' || opc.aba === 'despesas';
   const compacta = !!opc.compacta;
-  return '<div class="tabela-wrap"><table class="ordenavel"><thead><tr>' +
+  // opc.semDescricao / opc.semSituacao / opc.semCobranca: relatórios do Início (janela larga, menos colunas)
+  const comDesc = !opc.semDescricao, comSit = !opc.semSituacao;
+  return '<div class="tabela-wrap"><table class="ordenavel' + (opc.semDescricao ? ' tab-rel' : '') + '"><thead><tr>' +
     '<th data-tipo="data">' + (porPagamento ? 'Pago em' : 'Vencimento') + '</th>' +
-    (compacta ? '' : '<th>Grupo / Favorecido</th>') + '<th>Descrição</th>' +
-    (compacta ? '' : '<th>Pessoa</th>') + '<th class="num">Valor</th><th>Situação</th><th class="sem-ordem"></th></tr></thead><tbody>' +
+    (compacta ? '' : '<th>Grupo / Favorecido</th>') + (comDesc ? '<th>Descrição</th>' : '') +
+    (compacta ? '' : '<th>Pessoa</th>') + '<th class="num">Valor</th>' + (comSit ? '<th>Situação</th>' : '') + '<th class="sem-ordem"></th></tr></thead><tbody>' +
     lista.map((l) => {
       const data = porPagamento ? l.data_pagamento : l.vencimento;
       const quem = (l.grupos && l.grupos.nome) || l.favorecido || (l.clientes && l.clientes.nome) || '';
-      return '<tr><td class="mono" data-ord="' + esc(data || '') + '">' + dataBR(data) +
+      return '<tr class="clicavel" data-lanc="' + l.id + '" title="Clique para ver o detalhe"><td class="mono" data-ord="' + esc(data || '') + '">' + dataBR(data) +
         (porPagamento && l.vencimento !== data ? '<div class="sub">venc. ' + dataBR(l.vencimento) + '</div>' : '') + '</td>' +
         (compacta ? '' : '<td title="' + esc(quem) + '"><b>' + esc(quem || '—') + '</b>' + (l.clientes && l.grupos ? '<div class="sub">' + esc(l.clientes.nome) + '</div>' : '') + '</td>') +
-        '<td>' + esc(l.descricao) + (l.categoria && !compacta ? '<div class="sub">' + esc(l.categoria) + (l.forma_pagamento ? ' · ' + esc(l.forma_pagamento) : '') + '</div>' : '') + '</td>' +
+        (comDesc ? '<td>' + esc(l.descricao) + (l.categoria && !compacta ? '<div class="sub">' + esc(l.categoria) + (l.forma_pagamento ? ' · ' + esc(l.forma_pagamento) : '') + '</div>' : '') + '</td>' : '') +
         (compacta ? '' : '<td>' + pillPessoa(l.responsavel) + '</td>') +
         '<td class="num mono ' + (l.tipo === 'receita' && !l.redutor ? 'valor-rec' : 'valor-desp') + '" data-ord="' + (l.tipo === 'despesa' ? -l.valor : vl(l)) + '">' + (l.tipo === 'despesa' || l.redutor ? '−\u00A0' : '') + brl(l.valor) + (l.redutor ? '<div class="sub">redutor</div>' : '') + '</td>' +
-        '<td>' + pillSit(l) + '</td><td class="acoes-l">' +
+        (comSit ? '<td>' + (opc.semCobranca ? pillSit(Object.assign({}, l, { cobranca: '' })) : pillSit(l)) + '</td>' : '') + '<td class="acoes-l">' +
         (l.pago ? '<button class="btn btn-o btn-mini" data-desfazer="' + l.id + '" title="Voltar para em aberto">↺</button> '
-                : l.perda ? '' : '<button class="btn btn-v btn-mini" data-pagar="' + l.id + '" title="Registrar pagamento (pergunta a data)">✓ Registrar pagamento</button> ') +
+                : l.perda ? '' : '<button class="btn btn-v btn-mini" data-pagar="' + l.id + '" title="Recebido (pergunta a data)">✓ Recebido</button> ') +
         '<button class="btn btn-o btn-mini" data-editar="' + l.id + '">Editar</button></td></tr>';
     }).join('') +
-    '</tbody><tfoot><tr><td colspan="' + (compacta ? 2 : 4) + '">Total (' + lista.length + ')</td><td class="num mono">' +
-    brl(soma(lista, (l) => l.tipo === 'despesa' ? -l.valor : vl(l))) + '</td><td colspan="2"></td></tr></tfoot></table></div>';
+    '</tbody><tfoot><tr><td colspan="' + ((compacta ? 2 : 4) - (comDesc ? 0 : 1)) + '">Total (' + lista.length + ')</td><td class="num mono">' +
+    brl(soma(lista, (l) => l.tipo === 'despesa' ? -l.valor : vl(l))) + '</td><td colspan="' + (comSit ? 2 : 1) + '"></td></tr></tfoot></table></div>';
 }
 
 function ligarAcoesLancamentos(raiz, depois) {
   const apos = depois || recarregar;
+  raiz.querySelectorAll('tr[data-lanc]').forEach((tr) => tr.addEventListener('click', (ev) => {
+    if (ev.target.closest('button, a, input, select, label')) return;
+    detalheLancamento(tr.dataset.lanc).catch((e) => aviso(erroAmigavel(e), true));
+  }));
   raiz.querySelectorAll('[data-pagar]').forEach((b) => b.onclick = () => comBotao(b, async () => {
     const l = await q(sb.from('lancamentos').select('descricao, valor, tipo, redutor').eq('id', b.dataset.pagar).single());
     const bx = await perguntarBaixa({ descricao: l.descricao, valor: l.valor, despesa: l.tipo === 'despesa' && !l.redutor });
@@ -288,6 +294,7 @@ function formLancamento(l, depois) {
       campo('Pessoa responsável', '<input name="responsavel" list="lanc-pessoas" value="' + esc(l.responsavel || '') + '">' + datalistPessoas('lanc-pessoas')) +
       campo('Categoria / tipo', '<input name="categoria" list="lanc-cat" value="' + esc(l.categoria || '') + '"><datalist id="lanc-cat">' +
         CATEGORIAS[tipo].map((c) => '<option value="' + esc(c) + '">').join('') + '</datalist>') +
+      (tipo === 'receita' ? campo('Área do serviço', selectServico(l.servico || '')) : '') +
       campo('Referência', '<input name="referencia" placeholder="Ex.: 0,7 salário" value="' + esc(l.referencia || '') + '">') +
       campo('Situação da cobrança', '<input name="cobranca" list="lanc-cob" placeholder="Ex.: Cobrado, Emitir guia" value="' + esc(l.cobranca || '') + '"><datalist id="lanc-cob">' +
         ['Cobrado', 'Emitir guia', 'Guia enviada', 'Negociando'].map((c) => '<option value="' + c + '">').join('') + '</datalist>') +
@@ -331,7 +338,7 @@ function formLancamento(l, depois) {
     const grupo_id = await grupoPorNome(f.grupo.value);
     const dados = {
       tipo, empresa: f.empresa.value, descricao: f.descricao.value.trim(), valor, vencimento: f.vencimento.value,
-      grupo_id, cliente_id: f.cliente_id.value || null, categoria: f.categoria.value.trim(),
+      grupo_id, cliente_id: f.cliente_id.value || null, categoria: f.categoria.value.trim(), servico: f.servico ? f.servico.value : (l.servico || ''),
       favorecido: f.favorecido ? f.favorecido.value.trim() : (l.favorecido || ''),
       responsavel: f.responsavel.value.trim(), referencia: f.referencia.value.trim(),
       cobranca: f.pago.checked ? '' : f.cobranca.value.trim(), chave_pix: f.chave_pix.value.trim(),
@@ -370,4 +377,32 @@ function formLancamento(l, depois) {
     await excluir('lancamentos', l.id);
     aviso('Lançamento excluído.'); fecharJanela(j); await apos();
   });
+}
+
+
+// Detalhe de um honorário/lançamento (clique na linha do Financeiro): o que é, de quem, contrato e ações
+async function detalheLancamento(id) {
+  const l = (await q(sb.from('lancamentos').select('*, grupos(nome), clientes(nome), contratos(descricao, modalidade, servico)').eq('id', id)))[0];
+  if (!l) return aviso('Lançamento não encontrado (pode ter sido excluído ou ser de outra área).', true);
+  const lin = (rot, v) => v ? '<div class="tf-lin"><span>' + rot + '</span><div>' + v + '</div></div>' : '';
+  const empresa = l.empresa === 'contabilidade' ? 'Contabilidade' : 'Jurídico';
+  const j = abrirJanela({ titulo: (l.tipo === 'despesa' ? 'Despesa' : l.redutor ? 'Redutor de receita' : 'Honorário') + ' — ' + empresa, larga: true,
+    corpo: '<div class="tf-ficha"><div class="tf-ficha-hd"><h3>' + esc(l.descricao) + '</h3><div class="tf-selos">' + pillSit(l) +
+        (l.servico ? ' <span class="pill neutro">' + esc(l.servico) + '</span>' : '') + (l.categoria ? ' <span class="pill neutro">' + esc(l.categoria) + '</span>' : '') + '</div></div>' +
+      '<div class="tf-grade">' +
+        lin('Valor', '<b>' + (l.redutor || l.tipo === 'despesa' ? '− ' : '') + brl(l.valor) + '</b>') +
+        lin('Vencimento', dataBR(l.vencimento)) + lin('Recebido em', l.pago ? dataBR(l.data_pagamento) + (l.forma_pagamento ? ' · ' + esc(l.forma_pagamento) : '') : '') +
+        lin('Grupo', esc((l.grupos && l.grupos.nome) || '')) + lin('Cliente', esc((l.clientes && l.clientes.nome) || '')) + lin('Favorecido', esc(l.favorecido || '')) +
+        lin('Responsável', l.responsavel ? pillPessoa(l.responsavel) : '') + lin('Área do serviço', esc(l.servico || '')) + lin('Tipo', esc(l.categoria || '')) +
+        lin('Referência', esc(l.referencia || '')) + lin('Situação da cobrança', esc(l.cobranca || '')) +
+        lin('Contrato', l.contratos ? esc(l.contratos.descricao) + (l.contratos.modalidade === 'consultoria' ? ' <span class="sub">(consultoria mensal)</span>' : '') : '') +
+      '</div>' + (l.obs ? '<div class="tf-bloco"><div class="secao">Observação</div><div class="tf-texto">' + esc(l.obs).replace(/\n/g, '<br>') + '</div></div>' : '') + '</div>',
+    rodape: '<span>' + (l.contrato_id ? '<button class="btn btn-o btn-mini" type="button" id="dl-ctr">Abrir contrato</button> ' : '') +
+        (l.cliente_id ? '<button class="btn btn-o btn-mini" type="button" id="dl-cli">Ficha do cliente</button>' : '') + '</span>' +
+      '<div class="acoes"><button class="btn btn-o" type="button" data-editar="' + l.id + '">✎ Editar</button>' +
+      (!l.pago && !l.perda ? '<button class="btn btn-v" type="button" data-pagar="' + l.id + '">✓ ' + (l.tipo === 'despesa' && !l.redutor ? 'Pago' : 'Recebido') + '</button>' : '') + '</div>' });
+  ligarAcoesLancamentos(j, async () => { fecharJanela(j); if (window.ERP_RECARREGAR) window.ERP_RECARREGAR(); else await recarregar(); });
+  const bc = j.querySelector('#dl-ctr'); if (bc) bc.onclick = () => { fecharJanela(j); detalheContrato(l.contrato_id); };
+  const bl = j.querySelector('#dl-cli'); if (bl) bl.onclick = () => { fecharJanela(j); abrirFicha(l.cliente_id); };
+  return j;
 }
