@@ -139,7 +139,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.evaluate(() => { const b = [...document.querySelectorAll('#panel-financeiro button')].find((x) => /A Receber/.test(x.textContent)); if (b) b.click(); });
     await p.waitForTimeout(1200);
     const cab = await p.$$eval('#panel-financeiro .gx-tab-gs table thead th', (l) => l.map((t) => t.textContent.trim()).filter(Boolean));
-    ok('A Receber no formato do Gestão (Vencimento, Grupo, Descrição, Pessoa, Valor, Situação)', cab.join('|') === 'Vencimento|Grupo / Favorecido|Descrição|Pessoa|Valor|Situação', cab.join('|'));
+    ok('A Receber no padrão de pagamento (Quem, Grupo, Descrição, Valor, Vencimento, Atraso)', cab.join('|') === 'Quem|Grupo / Favorecido|Descrição|Valor|Vencimento|Atraso', cab.join('|'));
     ok('tabela original do ERP escondida (sem duplicar)', await p.$eval('#tblFinBody', (tb) => tb.closest('table').classList.contains('gx-oculta')));
     ok('comissão aparece como redutor (valor negativo)', /−\s*R\$\s*150,00/.test(await p.textContent('#panel-financeiro .gx-tab-gs')) && /redutor/.test(await p.textContent('#panel-financeiro .gx-tab-gs')));
     await foto(p, 'areceber');
@@ -854,9 +854,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.click('#em-auto'); await p.waitForSelector('#f-emauto'); await p.fill('#f-emauto [name=hora]', '09:30'); await p.click('#emauto-salvar'); await p.waitForTimeout(1200);
     ok('Central: horário e automático salvos', sql("select valor->>'hora' from configuracoes where chave='emails_central'") === '09:30');
     sql("update configuracoes set valor = valor - 'hora' where chave='emails_central'");
-    await p.click('#em-area [data-area=antiga]'); await p.click('#em-antiga'); await p.waitForTimeout(1200);
-    ok('Central → "Cobranças (tela antiga)" continua abrindo', await p.isVisible('#panel-notificacoes') && await p.isVisible('#notif-aba-hon'));
-    await p.keyboard.press('Escape');
+    ok('Central: a aba "Cobranças (tela antiga)" saiu', !(await p.$('#em-area [data-area=antiga]')));
     ok('Notificações saiu da barra de cima', !(await p.$('#tn [data-ir=notificacoes]')));
     // envio manual pelo e-mail do escritório (modelo da marca)
     { const r = await p.evaluate(async () => (await SB.rpc('enviar_email_manual', { p_para: 'cliente@exemplo.test', p_assunto: 'Teste manual', p_texto: 'Prezados,\n\nSegue a cobrança.' })).error);
@@ -908,7 +906,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await nav(p, 'resumo'); await p.waitForTimeout(1500);
     ok('Painel: valores inteiros (sem "mil"/"mi")', /R\$\s?[\d.]+,\d{2}/.test(await p.textContent('#execKpis')) && !/\d(k|M)\b/.test(await p.textContent('#kpiSecProc')));
     await nav(p, 'parcelamentos'); await p.waitForTimeout(1200);
-    ok('Parcelamentos: botão "Notificar clientes" (versão do Backup 13)', /Notificar clientes/.test(await p.textContent('#panel-parcelamentos .mod-banner')));
+    ok('Parcelamentos: botão "Notificar clientes" (versão do Backup 13)', /Notificar clientes/.test(await p.textContent('#panel-parcelamentos')));
     await nav(p, 'processos'); await p.waitForTimeout(1200);
     ok('Processos: volta a abrir a tela do Backup 13 (sem a tela nova)', /#processos$/.test(p.url()) && await p.isVisible('#panel-processos') && !!(await p.$('#tblProcBody')) && !(await p.$('#panel-processosNovo')));
     // conciliação OFX
@@ -960,8 +958,13 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       sql("select preferencias->'fila'->>'vista' from perfis where email='pedro@teste'") === 'semana', sql("select preferencias::text from perfis where email='pedro@teste'"));
     await p.click('#panel-hoje [data-fila-vista=lista]'); await p.waitForTimeout(800);
     ok('Início: fila mostra no máximo 5 de cara', (await p.$$('#panel-hoje .ini-fila .fila-item, #panel-hoje .ini-fila tbody tr')).length <= 5);
-    await p.fill('#mural-txt', 'Reunião geral sexta às 14h (teste)'); await p.click('#mural-pub'); await p.waitForTimeout(1500);
-    ok('Início: mural publica recado para o escritório', sql("select count(*) from mural where texto like 'Reunião geral%'") === '1' && /Reunião geral sexta/.test(await p.textContent('#ini-mural')));
+    ok('Início: sem "+ Receita/+ Despesa/+ Contrato" (o "+ Lançar" faz isso)', !/\+ Receita|\+ Despesa|\+ Contrato/.test(await p.textContent('#panel-hoje')));
+    await p.click('#lemb-novo'); await p.waitForSelector('#f-lemb');
+    await p.fill('#f-lemb [name=texto]', 'Reunião geral sexta às 14h (teste)'); await p.selectOption('#f-lemb [name=prazo]', 'sem');
+    await p.selectOption('#f-lemb [name=destaque]', 'vermelho'); await p.check('#f-lemb [name=fixo]');
+    await p.click('#lemb-salvar'); await p.waitForTimeout(1500);
+    ok('Início: lembrete sem prazo, fixo e com destaque (substitui o recado)', sql("select count(*) from lembretes where texto like 'Reunião geral%' and dia is null and fixo and destaque='vermelho'") === '1' &&
+      /Reunião geral sexta/.test(await p.textContent('#ini-mural')) && !!(await p.$('#ini-mural .lemb-it.fixo.dest-vermelho')));
     // Painel: sem faixa, "Atualizado" e entidades/grupos na linha do filtro
     await nav(p, 'resumo'); await p.waitForTimeout(1500);
     ok('Painel: sem a faixa "Painel Executivo" e com "Atualizado" na linha do filtro', !(await p.isVisible('#panel-resumo > .mod-banner')) && await p.isVisible('#gx-linha-painel'));

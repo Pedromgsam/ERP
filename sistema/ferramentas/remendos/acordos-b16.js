@@ -12,7 +12,7 @@ function _acToggle(k){ _acAbertos[k]=!_acAbertos[k]; renderAcordos(); }
 function _acPagar(id,bt){ if(bt) bt.disabled=true; if(window.ERP_EDITOR&&window.ERP_EDITOR.baixaRapida) window.ERP_EDITOR.baixaRapida('acordos',id); }
 function _acDetalhe(id){ if(window.GS&&window.GS.detalheAcordo) Promise.resolve(window.GS.carregarCadastros()).then(function(){ window.GS.detalheAcordo(id); }); }
 function _acordosAnalise(ac){
-  var el=$('acAnalise'); if(!el) return; if(!ac.length){ el.innerHTML='<div class="gx-tab-topo"><div class="pa-sub">Acordos em andamento</div>'+_acCaixaTodos()+'</div><div class="pa-ok">Nenhum acordo pendente. Marque "Mostrar concluídos" para ver todos.</div>'; return; }
+  var el=$('acAnalise'); if(!el) return; if(!ac.length){ el.innerHTML=exBloco('exAcSit','Situação dos acordos','<div class="gx-tab-topo"><div class="pa-sub">Acordos em andamento</div>'+_acCaixaTodos()+'</div><div class="pa-ok">Nenhum acordo pendente. Marque "Mostrar concluídos" para ver todos.</div>'); return; }
   var hj=new Date(); hj.setHours(0,0,0,0); var fimMes=new Date(hj.getFullYear(),hj.getMonth()+1,0);
   var v=function(a){return Number(a.valor)||0;}, pago=function(a){return a.situacao==='Pago';};
   var atrasada=function(a){ if(pago(a)) return false; var d=pDate(a.vencimento); return a.situacao==='Vencido'||(d&&d<hj); };

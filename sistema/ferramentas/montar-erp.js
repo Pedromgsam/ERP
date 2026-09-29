@@ -442,11 +442,24 @@ trocar('function _faTabelaPessoas(pessoas){', "function _faTabelaAtraso(rows){\n
   "  var h=new Date(); h.setHours(0,0,0,0);\n" +
   "  return '<div class=\"tw scr\"><table><thead><tr><th>Quem</th><th>Grupo</th><th>Descrição</th><th style=\"text-align:right\">Valor</th><th>Vencimento</th><th>Atraso</th></tr></thead><tbody>'\n" +
   "   + rows.slice(0,400).map(function(f){ var d=pDate(f.vencimento), n=d?Math.floor((h-d)/864e5):0;\n" +
-  "       var q=_faQuem(f); return '<tr><td>'+(q&&q!=='—'?_faSelo(q):'<span style=\"color:var(--text3)\">—</span>')+'</td><td>'+esc(f.grupo||'—')+'</td><td>'+esc(f.descricao||f.tipo||'—')+_legLanc(f)+'</td>'\n" +
+  "       var q=_faQuem(f); return '<tr data-gx=\"'+_gx(f)+'\"><td>'+(q&&q!=='—'?_faSelo(q):'<span style=\"color:var(--text3)\">—</span>')+'</td><td>'+esc(f.grupo||'—')+'</td><td>'+esc(f.descricao||f.tipo||'—')+_legLanc(f)+'</td>'\n" +
   "        +'<td class=\"mono\" style=\"text-align:right;font-weight:600\">'+_faFT(_faVal(f))+'</td>'\n" +
   "        +'<td class=\"mono\" style=\"color:var(--red-d);font-weight:600\">'+(d?d.toLocaleDateString('pt-BR'):'—')+'</td>'\n" +
   "        +'<td class=\"mono\" style=\"font-weight:700;color:var(--red-d)\">'+(n<=0?'Hoje':n+' d atraso')+'</td></tr>'; }).join('')\n" +
   "   + '</tbody></table></div>';\n}\nfunction _faTabelaPessoas(pessoas){", 1);
+// ═══════ Backup 20 ═══════
+// filtros de Processos (Ativos · Arquivados · Extintos) no desenho de Clientes: o escolhido ganha a classe "on"
+trocar("function _applyChip(elId,val,active){\n  const el=$(elId);if(!el)return;", "function _applyChip(elId,val,active){\n  const el=$(elId);if(!el)return; el.classList.toggle('on',!!active);", 1);
+// Acordos: "Saldo por devedor" vira uma lista enxuta (devedor · barra · valor · %) no lugar do gráfico gigante
+trocar('      <div class="cc-hd"><div><div class="cc-t">Valor por devedor</div><div class="cc-d">parcelas em aberto</div></div></div>\n      <div class="cb" style="height:280px"><canvas id="cAcordDevedor"></canvas></div>',
+  '      <div class="cc-hd"><div><div class="cc-t">Saldo por devedor</div><div class="cc-d">quanto cada devedor ainda deve · 10 maiores</div></div></div>\n      <div id="acDevedorLista"></div><div hidden aria-hidden="true"><canvas id="cAcordDevedor"></canvas></div>', 1);
+trocar("  mCh('cAcordDevedor',bCfg(iD.map(i=>devs[i].length>20?devs[i].slice(0,20)+'…':devs[i]),iD.map(i=>dV[i]),null,false));",
+  "  { const _el=$('acDevedorLista'), _tot=dV.reduce((s,v)=>s+v,0)||1, _max=Math.max(1,...dV);\n" +
+  "    if(_el) _el.innerHTML=iD.length?'<table class=\"gx-rank\"><tbody>'+iD.map(i=>'<tr><td class=\"gx-rank-n\">'+esc(devs[i])+'</td><td class=\"gx-rank-b\"><span style=\"width:'+(dV[i]/_max*100).toFixed(1)+'%\"></span></td>'+\n" +
+  "      '<td class=\"num mono\">'+fF(dV[i])+'</td><td class=\"num gx-leg-p\">'+(dV[i]/_tot*100).toFixed(1).replace('.',',')+'%</td></tr>').join('')+'</tbody><tfoot><tr><td>Total</td><td></td><td class=\"num mono\">'+fF(dV.reduce((s,v)=>s+v,0))+'</td><td class=\"num\">100%</td></tr></tfoot></table>'\n" +
+  "      :'<div class=\"pa-ok\">Nenhum saldo em aberto.</div>'; }", 1);
+// Financeiro → Análise → Em atraso: linhas com ✓ Baixa e ✎ (viram a tabela padrão de pagamento) e triângulo vermelho no título
+trocar('<div class="cc-t">⚠ Em atraso</div>', '<div class="cc-t"><span class="ini-alerta">▲</span> Em atraso</div>', 2);
 // 13. Cores de tokens.css (fonte única) depois do CSS do ERP; modo escuro lembrado neste aparelho.
 trocar('\n</head>\n', '\n<link rel="stylesheet" href="tokens.css">\n<link rel="stylesheet" href="tema-escuro.css">\n<link rel="stylesheet" href="design.css">\n' +
   '<script>try{if(localStorage.getItem("erp_tema")==="escuro")document.documentElement.setAttribute("data-tema","escuro")}catch(e){}</script>\n</head>\n', 1);

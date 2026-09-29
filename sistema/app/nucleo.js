@@ -37,6 +37,20 @@ function iso(d) {
 function hojeISO() { return iso(new Date()); }
 function primeiroDiaDoMes(d) { return new Date(d.getFullYear(), d.getMonth(), 1); }
 function fimDoMes(d) { return new Date(d.getFullYear(), d.getMonth() + 1, 0); }
+// PIX copia e cola (BR Code estático do Banco Central, com valor): chave, nome (até 25), cidade (até 15), valor, txid
+function pixCopiaECola({ chave, nome, cidade, valor, txid }) {
+  const semAcento = (t, n) => String(t || '').replace(/&/g, 'e').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9 .\-]/g, '').slice(0, n).trim();
+  let k = String(chave || '').trim();
+  if (!/@/.test(k)) { const dig = k.replace(/\D/g, ''); if (/^\+/.test(k)) k = '+' + dig; else if (dig.length === 11 || dig.length === 14) k = dig; }
+  const f = (id, v) => id + String(v.length).padStart(2, '0') + v;
+  const v = Number(valor) > 0 ? f('54', Number(valor).toFixed(2)) : '';
+  const t = String(txid || '***').replace(/[^A-Za-z0-9]/g, '').slice(0, 25) || '***';
+  const base = f('00', '01') + f('26', f('00', 'br.gov.bcb.pix') + f('01', k)) + f('52', '0000') + f('53', '986') + v + f('58', 'BR') +
+    f('59', semAcento(nome, 25) || 'RECEBEDOR') + f('60', semAcento(cidade, 15) || 'BRASIL') + f('62', f('05', t)) + '6304';
+  let crc = 0xFFFF;
+  for (const b of new TextEncoder().encode(base)) { crc ^= b << 8; for (let i = 0; i < 8; i++) crc = crc & 0x8000 ? ((crc << 1) ^ 0x1021) & 0xFFFF : (crc << 1) & 0xFFFF; }
+  return base + crc.toString(16).toUpperCase().padStart(4, '0');
+}
 // plural certo, sem "(s)": plural(1, 'aviso não lido', 'avisos não lidos') → "1 aviso não lido"
 function plural(n, um, varios) { return n + ' ' + (Number(n) === 1 ? um : varios); }
 function somarDias(isoStr, n) { const d = new Date(isoStr + 'T12:00:00'); d.setDate(d.getDate() + n); return iso(d); }
@@ -214,7 +228,7 @@ function lerDataBR(txt) {
   const ult = new Date(ano, mes, 0).getDate(), d = Math.min(dia, ult);
   return { iso: ano + '-' + String(mes).padStart(2, '0') + '-' + String(d).padStart(2, '0'), corrigida: d !== dia };
 }
-function normalizar(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
+function normalizar(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
 // Valor com sinal: comissão/desconto (redutor) diminui a receita.
 function vl(l) { return l.redutor ? -(Number(l.valor) || 0) : (Number(l.valor) || 0); }
 function soma(lista, f) { return lista.reduce((s, x) => s + (Number(f ? f(x) : x) || 0), 0); }
@@ -251,7 +265,7 @@ function pillSitCad(v) {
   return '<span class="pill ' + (SITCAD_COR[t] || 'neutro') + '">' + esc(t.charAt(0) + t.slice(1).toLowerCase()) + '</span>';
 }
 function pillSimNao(v) {
-  if (v === true) return '<span class="pill pago">Sim</span>';
+  if (v === true) return '<span class="pill neutro pill-sim">Sim</span>';   // Backup 20: sim/não sem verde nem vermelho
   if (v === false) return '<span class="pill neutro">Não</span>';
   return '<span class="sub">—</span>';
 }

@@ -154,37 +154,89 @@ function legendaLanc(l) {
   if (partes.length) return partes.join(' — ');
   return l.categoria && normalizar(l.categoria) !== normalizar(l.descricao) ? l.categoria : '';
 }
+// Backup 20 — TABELA PADRÃO de pagamento/recebimento (vale para o sistema todo; modelo: vencidos de Acordos):
+// [lote] · Quem (advogado que recebe/paga) · Grupo / favorecido (legenda: área do serviço — contrato) · Descrição · Valor ·
+// Vencimento (ou "Pago em") · Atraso (dias, vermelho) · ações (✓ Recebido, PIX, Editar). Marcar várias linhas = baixa em lote.
+function celulaAtraso(venc, l) {
+  if (!venc) return '<span class="sub">—</span>';
+  const n = diasAte(venc);
+  const extra = l && l.cobranca ? '<div class="sub">' + esc(l.cobranca) + '</div>' : '';
+  if (n < 0) return '<span class="atraso-d">' + (-n) + ' d atraso</span>' + extra;
+  if (n === 0) return '<span class="pill hoje">Vence hoje</span>' + extra;
+  return '<span class="' + (n <= 7 ? 'atraso-perto' : 'sub') + '">em ' + n + ' d</span>' + extra;
+}
 function tabelaLancamentos(lista, opc) {
   opc = opc || {};
   if (!lista.length) return '<div class="vazio">Nenhum lançamento aqui.</div>';
   const porPagamento = opc.aba === 'recebidos' || opc.aba === 'despesas';
   const compacta = !!opc.compacta;
-  // opc.semDescricao / opc.semSituacao / opc.semCobranca: relatórios do Início (janela larga, menos colunas)
-  const comDesc = !opc.semDescricao, comSit = !opc.semSituacao;
-  return '<div class="tabela-wrap"><table class="ordenavel' + (opc.semDescricao ? ' tab-rel' : '') + '"><thead><tr>' +
-    '<th data-tipo="data">' + (porPagamento ? 'Pago em' : 'Vencimento') + '</th>' +
-    (compacta ? '' : '<th>Grupo / Favorecido</th>') + (comDesc ? '<th>Descrição</th>' : '') +
-    (compacta ? '' : '<th>Pessoa</th>') + '<th class="num">Valor</th>' + (comSit ? '<th>Situação</th>' : '') + '<th class="sem-ordem"></th></tr></thead><tbody>' +
+  const comDesc = !opc.semDescricao, comAtraso = !opc.semSituacao && !porPagamento && opc.aba !== 'prejuizo';
+  const lote = !compacta && !opc.semLote && lista.some((l) => !l.pago && !l.perda);
+  const h = hojeISO();
+  const nCols = (lote ? 1 : 0) + (compacta ? 0 : 2) + (comDesc ? 1 : 0) + 2 + (comAtraso ? 1 : 0) + 1;
+  return '<div class="lote-wrap">' + (lote ? '<div class="lote-barra" hidden><span class="lote-txt"></span><button type="button" class="btn btn-v btn-mini" data-lote-baixa>✓ Dar baixa nos marcados</button><button type="button" class="btn btn-o btn-mini" data-lote-limpar>Desmarcar</button></div>' : '') +
+    '<div class="tabela-wrap"><table class="ordenavel tab-pag' + (opc.semDescricao ? ' tab-rel' : '') + '"><thead><tr>' +
+    (lote ? '<th class="sem-ordem th-lote"><input type="checkbox" data-lote-todos aria-label="Marcar todos" title="Marcar todos para dar baixa de uma vez"></th>' : '') +
+    (compacta ? '' : '<th>Quem</th><th>Grupo / Favorecido</th>') + (comDesc ? '<th>Descrição</th>' : '') +
+    '<th class="num">Valor</th><th data-tipo="data">' + (porPagamento ? 'Pago em' : 'Vencimento') + '</th>' + (comAtraso ? '<th>Atraso</th>' : '') + '<th class="sem-ordem"></th></tr></thead><tbody>' +
     lista.map((l) => {
       const data = porPagamento ? l.data_pagamento : l.vencimento;
       const quem = (l.grupos && l.grupos.nome) || l.favorecido || (l.clientes && l.clientes.nome) || '';
-      return '<tr class="clicavel" data-lanc="' + l.id + '" title="Clique para ver o detalhe"><td class="mono" data-ord="' + esc(data || '') + '">' + dataBR(data) +
-        (porPagamento && l.vencimento !== data ? '<div class="sub">venc. ' + dataBR(l.vencimento) + '</div>' : '') + '</td>' +
-        (compacta ? '' : '<td title="' + esc(quem) + '"><b>' + esc(quem || '—') + '</b>' + (l.clientes && l.grupos ? '<div class="sub">' + esc(l.clientes.nome) + '</div>' : '') + '</td>') +
-        (comDesc ? '<td>' + esc(l.descricao) + (!compacta && legendaLanc(l) ? '<div class="sub">' + esc(legendaLanc(l)) + '</div>' : '') + '</td>' : '') +
-        (compacta ? '' : '<td>' + pillPessoa(l.responsavel) + '</td>') +
-        '<td class="num mono ' + (l.tipo === 'receita' && !l.redutor ? 'valor-rec' : 'valor-desp') + '" data-ord="' + (l.tipo === 'despesa' ? -l.valor : vl(l)) + '">' + (l.tipo === 'despesa' || l.redutor ? '−\u00A0' : '') + brl(l.valor) + (l.redutor ? '<div class="sub">redutor</div>' : '') + '</td>' +
-        (comSit ? '<td>' + (opc.semCobranca ? pillSit(Object.assign({}, l, { cobranca: '' })) : pillSit(l)) + '</td>' : '') + '<td class="acoes-l">' +
+      const venceu = !l.pago && !l.perda && l.vencimento && l.vencimento < h;
+      const leg = legendaLanc(l);
+      return '<tr class="clicavel' + (l.vencimento === h && !l.pago ? ' linha-hoje' : '') + '" data-lanc="' + l.id + '" title="Clique para ver o detalhe">' +
+        (lote ? '<td class="td-lote">' + (!l.pago && !l.perda ? '<input type="checkbox" data-lote="' + l.id + '" data-valor="' + (l.tipo === 'despesa' ? -l.valor : vl(l)) + '" aria-label="Marcar para dar baixa">' : '') + '</td>' : '') +
+        (compacta ? '' : '<td>' + pillPessoa(l.responsavel) + '</td><td title="' + esc(quem) + '">' + esc(quem || '—') +
+          (l.clientes && l.grupos ? '<div class="sub">' + esc(l.clientes.nome) + '</div>' : !comDesc && leg ? '<div class="sub">' + esc(leg) + '</div>' : '') + '</td>') +
+        (comDesc ? '<td>' + esc(l.descricao) + (leg ? '<div class="sub">' + esc(leg) + '</div>' : '') + '</td>' : '') +
+        '<td class="num mono ' + (l.tipo === 'receita' && !l.redutor ? 'valor-rec' : 'valor-desp') + '" data-ord="' + (l.tipo === 'despesa' ? -l.valor : vl(l)) + '">' + (l.tipo === 'despesa' || l.redutor ? '− ' : '') + brl(l.valor) + (l.redutor ? '<div class="sub">redutor</div>' : '') + '</td>' +
+        '<td class="mono' + (venceu ? ' venc-atraso' : '') + '" data-ord="' + esc(data || '') + '">' + dataBR(data) + (porPagamento && l.vencimento !== data ? '<div class="sub">venc. ' + dataBR(l.vencimento) + '</div>' : '') + '</td>' +
+        (comAtraso ? '<td data-ord="' + (l.pago || l.perda || !l.vencimento ? 99999 : diasAte(l.vencimento)) + '">' + (l.pago ? '<span class="pill pago">pago</span>' : l.perda ? pillSit(l) : celulaAtraso(l.vencimento, l)) + '</td>' : '') +
+        '<td class="acoes-l">' +
         (l.pago ? '<button class="btn btn-o btn-mini" data-desfazer="' + l.id + '" title="Voltar para em aberto">↺</button> '
-                : l.perda ? '' : '<button class="btn btn-v btn-mini" data-pagar="' + l.id + '" title="Recebido (pergunta a data)">✓ Recebido</button> ') +
+                : l.perda ? '' : '<button class="btn btn-v btn-mini" data-pagar="' + l.id + '" title="' + (l.tipo === 'despesa' ? 'Pago' : 'Recebido') + ' (pergunta a data)">✓ ' + (l.tipo === 'despesa' && !l.redutor ? 'Pago' : 'Recebido') + '</button> ') +
+        (!l.pago && !l.perda && l.tipo === 'receita' && !l.redutor ? '<button class="btn btn-o btn-mini" data-pix="' + l.id + '" title="PIX copia e cola deste valor (para mandar ao cliente)">PIX</button> ' : '') +
         '<button class="btn btn-o btn-mini" data-editar="' + l.id + '">Editar</button></td></tr>';
     }).join('') +
-    '</tbody><tfoot><tr><td colspan="' + ((compacta ? 2 : 4) - (comDesc ? 0 : 1)) + '">Total (' + lista.length + ')</td><td class="num mono">' +
-    brl(soma(lista, (l) => l.tipo === 'despesa' ? -l.valor : vl(l))) + '</td><td colspan="' + (comSit ? 2 : 1) + '"></td></tr></tfoot></table></div>';
+    '</tbody><tfoot><tr><td colspan="' + ((lote ? 1 : 0) + (compacta ? 0 : 2) + (comDesc ? 1 : 0)) + '">Total (' + lista.length + ')</td><td class="num mono">' +
+    brl(soma(lista, (l) => l.tipo === 'despesa' ? -l.valor : vl(l))) + '</td><td colspan="' + (nCols - (lote ? 1 : 0) - (compacta ? 0 : 2) - (comDesc ? 1 : 0) - 1) + '"></td></tr></tfoot></table></div></div>';
+}
+
+// PIX copia e cola (BR Code do Banco Central) com o valor do lançamento — dados em Central de e-mails → Configuração do envio
+async function janelaPix(valor, descricao) {
+  const d = await q(sb.from('configuracoes').select('valor').eq('chave', 'dados_pagamento').maybeSingle()).then((r) => (r && r.valor) || {}).catch(() => ({}));
+  if (!d.pix) return aviso('Cadastre a chave PIX do escritório em Central de e-mails → ⚙ Configuração do envio → "Dados para pagamento".', true);
+  const cod = pixCopiaECola({ chave: d.pix, nome: d.titular || 'Araujo e Castro', cidade: d.cidade || 'Belo Horizonte', valor });
+  const j = abrirJanela({ titulo: 'PIX copia e cola — ' + brl(valor),
+    corpo: '<div class="dica" style="margin-bottom:10px">' + esc(descricao || '') + ' · chave <b>' + esc(d.pix) + '</b> · ' + esc(d.titular || '') + '</div>' +
+      '<textarea id="pix-cod" readonly style="width:100%;min-height:96px;font:12.5px ui-monospace,monospace;padding:10px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface2);color:var(--ink)">' + esc(cod) + '</textarea>' +
+      '<p class="sub" style="margin-top:6px">Mande este código ao cliente (WhatsApp, e-mail). No app do banco: PIX → "Pix copia e cola" → colar. O valor já vem preenchido.</p>',
+    rodape: '<span></span><button class="btn btn-p" type="button" id="pix-copiar">Copiar código</button>' });
+  j.querySelector('#pix-copiar').onclick = async () => { const t = j.querySelector('#pix-cod'); try { await navigator.clipboard.writeText(cod); aviso('✓ Código PIX copiado.'); } catch (e) { t.select(); aviso('Selecionei o código: aperte Ctrl+C.'); } };
 }
 
 function ligarAcoesLancamentos(raiz, depois) {
   const apos = depois || recarregar;
+  // baixa em lote: marcar várias linhas → uma data só para todas
+  raiz.querySelectorAll('.lote-wrap').forEach((w) => {
+    const bar = w.querySelector('.lote-barra'); if (!bar) return;
+    const marcados = () => [...w.querySelectorAll('[data-lote]:checked')];
+    const atualiza = () => { const m = marcados(); bar.hidden = !m.length; bar.querySelector('.lote-txt').innerHTML = '<b>' + plural(m.length, 'lançamento marcado', 'lançamentos marcados') + '</b> · ' + brl(soma(m, (c) => Number(c.dataset.valor) || 0)); };
+    w.querySelectorAll('[data-lote]').forEach((c) => c.onchange = atualiza);
+    const todos = w.querySelector('[data-lote-todos]'); if (todos) todos.onchange = () => { w.querySelectorAll('[data-lote]').forEach((c) => { if (!c.closest('tr').classList.contains('pag-oculta')) c.checked = todos.checked; }); atualiza(); };
+    bar.querySelector('[data-lote-limpar]').onclick = () => { w.querySelectorAll('[data-lote]').forEach((c) => { c.checked = false; }); if (todos) todos.checked = false; atualiza(); };
+    bar.querySelector('[data-lote-baixa]').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+      const ids = marcados().map((c) => c.dataset.lote); if (!ids.length) return;
+      const bx = await perguntarBaixa({ titulo: 'Baixa em lote — confirme a data', descricao: plural(ids.length, 'lançamento', 'lançamentos'), valor: soma(marcados(), (c) => Number(c.dataset.valor) || 0) });
+      if (!bx) return;
+      await q(sb.from('lancamentos').update(Object.assign(bx, { cobranca: '', perda: false })).in('id', ids));
+      aviso('✓ Baixa de ' + plural(ids.length, 'lançamento', 'lançamentos') + ' em ' + dataBR(bx.data_pagamento) + '.'); await apos();
+    });
+  });
+  raiz.querySelectorAll('[data-pix]').forEach((b) => b.onclick = () => comBotao(b, async () => {
+    const l = await q(sb.from('lancamentos').select('descricao, valor').eq('id', b.dataset.pix).single());
+    await janelaPix(Number(l.valor) || 0, l.descricao);
+  }));
   raiz.querySelectorAll('tr[data-lanc]').forEach((tr) => tr.addEventListener('click', (ev) => {
     if (ev.target.closest('button, a, input, select, label')) return;
     detalheLancamento(tr.dataset.lanc).catch((e) => aviso(erroAmigavel(e), true));

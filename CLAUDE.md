@@ -83,7 +83,16 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
-- Última entrega: **Backup 19 — enxuto** (prompt em `sistema/PROMPT-BACKUP-19.md`). SQL: pausa de e-mails (`configuracoes.emails_pausados`,
+- Última entrega: **Backup 20 — padrão único**. SQL: `lembretes` com `dia` opcional, `fixo`, `destaque` (''|vermelho|amarelo|verde|azul|roxo),
+  `origem` (mural copiado como `mural:<id>`); `crc16_ccitt`, `pix_copia_cola(chave,nome,cidade,valor,txid)` (igual ao `pixCopiaECola` do nucleo.js;
+  `dados_pagamento.cidade`), bloco PIX no `email_cliente_html`. Início: sem +Receita/+Despesa/+Contrato, `cardMural` = Lembretes (`formLembrete`,
+  `htmlLembretes`, `DESTAQUES_LEMB`), recados fora, `infoI(chave)`/`EXPLICA` (tooltips ⓘ). Pagamentos: `tabelaLancamentos` (Quem·Grupo·Descrição·
+  Valor·Vencimento·Atraso, `celulaAtraso`, lote `.lote-barra`/`data-lote`, botão `data-pix` → `janelaPix`). erp-telas.js: `tabelaPadrao(tbody,o)`
+  (coluna ▸ `gx-seta`, `tr.gx-grp` por grupo, `tr.gx-det`), `padraoEmpresas`/`padraoProcessos` (filtros `#pe-filtros`, `#pr-visao`, `kNeg`),
+  `acoesNoLugar` (alertas/botões à direita das abas do Financeiro), `acoesNaSituacao`/`devolverAoBanner` (Acordos/Parcelamentos); `subnavJuridico`
+  e a área "antiga" da Central saíram. CSS do bloco "Backup 20" no fim do design.css (mod-banner escondido nessas telas, `.gx-seg-cli`, `.gx-rank`).
+  Colunas com ▸ deslocam o nth-child (+1). `estrutura.sql` = 4681 linhas. Protótipo "Progresso por acordo" só em imagem (aguardando aprovação).
+- Backup 19 (base): enxuto (prompt em `sistema/PROMPT-BACKUP-19.md`). SQL: pausa de e-mails (`configuracoes.emails_pausados`,
   trigger `email_fila_reter` → status `retido`; `pausar_emails`, `emails_retidos_acao(ids,'liberar'|'descartar')`, flag de sessão
   `erp.liberar_email`), `confirmar_email_usuario(perfil)` (admin libera a entrada sem o e-mail de confirmação). Testes rodam com a pausa
   desligada (`preparar-banco.sh`). Central de e-mails com abas (`AREAS_EMAIL`: fila/clientes/config/avisos/antiga; `pintarAreaEmail`,

@@ -47,12 +47,12 @@
 <script src="config.js"></script>
 <script src="erp-dados.js?v=22001e3e"></script>
 <link rel="stylesheet" href="editor.css?v=7747e46f">
-<link rel="stylesheet" href="erp-telas.css?v=306905ca">
+<link rel="stylesheet" href="erp-telas.css?v=bf2799c9">
 <script src="editor.js?v=c78b852e" defer></script>
-<script src="erp-telas.js?v=5559c513" defer></script>
+<script src="erp-telas.js?v=e901fead" defer></script>
 <link rel="stylesheet" href="gs.css?v=b03d2c97">
 <script src="importador.js?v=4fb0d655" defer></script>
-<script src="gestao-embutida.js?v=057ce30a" defer></script>
+<script src="gestao-embutida.js?v=319fafc9" defer></script>
 <script>
 
 
@@ -1617,7 +1617,7 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
 </style>
 <link rel="stylesheet" href="tokens.css?v=d75e8677">
 <link rel="stylesheet" href="tema-escuro.css?v=a032edaa">
-<link rel="stylesheet" href="design.css?v=d199c86f">
+<link rel="stylesheet" href="design.css?v=06a0a775">
 <script>try{if(localStorage.getItem("erp_tema")==="escuro")document.documentElement.setAttribute("data-tema","escuro")}catch(e){}</script>
 </head>
 <body>
@@ -2120,8 +2120,8 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
   <div id="acAnalise"></div><div hidden aria-hidden="true"><div class="kpi-grid" id="kpiAcordos"></div></div>
   <div class="crow">
     <div class="cc">
-      <div class="cc-hd"><div><div class="cc-t">Valor por devedor</div><div class="cc-d">parcelas em aberto</div></div></div>
-      <div class="cb" style="height:280px"><canvas id="cAcordDevedor"></canvas></div>
+      <div class="cc-hd"><div><div class="cc-t">Saldo por devedor</div><div class="cc-d">quanto cada devedor ainda deve · 10 maiores</div></div></div>
+      <div id="acDevedorLista"></div><div hidden aria-hidden="true"><canvas id="cAcordDevedor"></canvas></div>
     </div>
   </div>
   <div class="cc">
@@ -4775,7 +4775,7 @@ function _acToggle(k){ _acAbertos[k]=!_acAbertos[k]; renderAcordos(); }
 function _acPagar(id,bt){ if(bt) bt.disabled=true; if(window.ERP_EDITOR&&window.ERP_EDITOR.baixaRapida) window.ERP_EDITOR.baixaRapida('acordos',id); }
 function _acDetalhe(id){ if(window.GS&&window.GS.detalheAcordo) Promise.resolve(window.GS.carregarCadastros()).then(function(){ window.GS.detalheAcordo(id); }); }
 function _acordosAnalise(ac){
-  var el=$('acAnalise'); if(!el) return; if(!ac.length){ el.innerHTML='<div class="gx-tab-topo"><div class="pa-sub">Acordos em andamento</div>'+_acCaixaTodos()+'</div><div class="pa-ok">Nenhum acordo pendente. Marque "Mostrar concluídos" para ver todos.</div>'; return; }
+  var el=$('acAnalise'); if(!el) return; if(!ac.length){ el.innerHTML=exBloco('exAcSit','Situação dos acordos','<div class="gx-tab-topo"><div class="pa-sub">Acordos em andamento</div>'+_acCaixaTodos()+'</div><div class="pa-ok">Nenhum acordo pendente. Marque "Mostrar concluídos" para ver todos.</div>'); return; }
   var hj=new Date(); hj.setHours(0,0,0,0); var fimMes=new Date(hj.getFullYear(),hj.getMonth()+1,0);
   var v=function(a){return Number(a.valor)||0;}, pago=function(a){return a.situacao==='Pago';};
   var atrasada=function(a){ if(pago(a)) return false; var d=pDate(a.vencimento); return a.situacao==='Vencido'||(d&&d<hj); };
@@ -4844,7 +4844,10 @@ function renderAcordos(){
   const devs=[...new Set(acAP.map(a=>a.devedor))].filter(Boolean);
   const dV=devs.map(d=>acAP.filter(a=>a.devedor===d).reduce((s,a)=>s+(Number(a.valor)||0),0));
   const iD=dV.map((_,i)=>i).sort((a,b)=>dV[b]-dV[a]).slice(0,10);
-  mCh('cAcordDevedor',bCfg(iD.map(i=>devs[i].length>20?devs[i].slice(0,20)+'…':devs[i]),iD.map(i=>dV[i]),null,false));
+  { const _el=$('acDevedorLista'), _tot=dV.reduce((s,v)=>s+v,0)||1, _max=Math.max(1,...dV);
+    if(_el) _el.innerHTML=iD.length?'<table class="gx-rank"><tbody>'+iD.map(i=>'<tr><td class="gx-rank-n">'+esc(devs[i])+'</td><td class="gx-rank-b"><span style="width:'+(dV[i]/_max*100).toFixed(1)+'%"></span></td>'+
+      '<td class="num mono">'+fF(dV[i])+'</td><td class="num gx-leg-p">'+(dV[i]/_tot*100).toFixed(1).replace('.',',')+'%</td></tr>').join('')+'</tbody><tfoot><tr><td>Total</td><td></td><td class="num mono">'+fF(dV.reduce((s,v)=>s+v,0))+'</td><td class="num">100%</td></tr></tfoot></table>'
+      :'<div class="pa-ok">Nenhum saldo em aberto.</div>'; }
   // v44: valor em atraso por devedor — mesma leitura do painel de
   // parcelamentos. Atrasado = não pago e vencimento anterior a hoje
   // (ou situação já marcada como Vencido na planilha).
@@ -5591,7 +5594,7 @@ function _faPintarCorpo(){
   +     '<div class="cc-d">10 primeiros por valor recebido</div></div></div>'
   +     '<div class="cb" style="height:240px"><canvas id="cFaGrupo"></canvas></div></div>'
   + '</div>'
-  + (vencidos.length?'<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t">⚠ Em atraso</div><div class="cc-d">todos os meses · mesmos recortes de pessoa, tipo e grupo</div></div></div>'+_faTabelaAtraso(vencidos.slice().sort(function(a,b){return (pDate(a.vencimento)||0)-(pDate(b.vencimento)||0);}))+'</div>':'');
+  + (vencidos.length?'<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t"><span class="ini-alerta">▲</span> Em atraso</div><div class="cc-d">todos os meses · mesmos recortes de pessoa, tipo e grupo</div></div></div>'+_faTabelaAtraso(vencidos.slice().sort(function(a,b){return (pDate(a.vencimento)||0)-(pDate(b.vencimento)||0);}))+'</div>':'');
 
   _faGraficos(receita);
 }
@@ -5630,7 +5633,7 @@ function _faTabelaAtraso(rows){
   var h=new Date(); h.setHours(0,0,0,0);
   return '<div class="tw scr"><table><thead><tr><th>Quem</th><th>Grupo</th><th>Descrição</th><th style="text-align:right">Valor</th><th>Vencimento</th><th>Atraso</th></tr></thead><tbody>'
    + rows.slice(0,400).map(function(f){ var d=pDate(f.vencimento), n=d?Math.floor((h-d)/864e5):0;
-       var q=_faQuem(f); return '<tr><td>'+(q&&q!=='—'?_faSelo(q):'<span style="color:var(--text3)">—</span>')+'</td><td>'+esc(f.grupo||'—')+'</td><td>'+esc(f.descricao||f.tipo||'—')+_legLanc(f)+'</td>'
+       var q=_faQuem(f); return '<tr data-gx="'+_gx(f)+'"><td>'+(q&&q!=='—'?_faSelo(q):'<span style="color:var(--text3)">—</span>')+'</td><td>'+esc(f.grupo||'—')+'</td><td>'+esc(f.descricao||f.tipo||'—')+_legLanc(f)+'</td>'
         +'<td class="mono" style="text-align:right;font-weight:600">'+_faFT(_faVal(f))+'</td>'
         +'<td class="mono" style="color:var(--red-d);font-weight:600">'+(d?d.toLocaleDateString('pt-BR'):'—')+'</td>'
         +'<td class="mono" style="font-weight:700;color:var(--red-d)">'+(n<=0?'Hoje':n+' d atraso')+'</td></tr>'; }).join('')
@@ -6784,7 +6787,7 @@ function _fcPintarCorpo(){
   + '<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t">Comparativo por '+esc(L.tituloQuem.toLowerCase())+'</div>'
   +   '<div class="cc-d">mesmo período e mesmos recortes acima</div></div></div>'
   +   _fcTabelaPessoas(_fcPessoas()) + '</div>'
-  + (vencidos.length?'<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t">⚠ Em atraso</div><div class="cc-d">todos os meses · mesmos recortes</div></div></div>'+_fcTabelaDetalhe(vencidos)+'</div>':'');
+  + (vencidos.length?'<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t"><span class="ini-alerta">▲</span> Em atraso</div><div class="cc-d">todos os meses · mesmos recortes</div></div></div>'+_fcTabelaDetalhe(vencidos)+'</div>':'');
 
   _fcGraficos(fechado);
 }
@@ -7884,7 +7887,7 @@ const _chipColors={
   Honorário: {active:'var(--blue-d)',bg:'var(--blue-lt)'}
 };
 function _applyChip(elId,val,active){
-  const el=$(elId);if(!el)return;
+  const el=$(elId);if(!el)return; el.classList.toggle('on',!!active);
   const c=_chipColors[val]||{active:'var(--text2)',bg:'#F3F4F6'};
   if(active){el.style.background=c.active;el.style.color='#fff';el.style.borderColor=c.active;}
   else{el.style.background='rgba(0,0,0,0)';el.style.color=c.active;
