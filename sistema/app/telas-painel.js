@@ -54,8 +54,8 @@ TELAS.inicio = async function () {
     '<p>Resumo de ' + esc(mes) + ' · para lançar receita, despesa ou contrato use <b>+ Lançar</b> na barra de cima</p></div></div>' +
     '<div id="ini-mural"></div><div id="ini-resumo"></div><div id="ini-aprov"></div><div id="ini-fila"></div>' +
     (verJur ? linha('escritorio', '💼 Honorários Jurídico') : '') + (verCont ? linha('contabilidade', '🧮 Honorários Contabilidade') : '') +
-    // Backup 21: um embaixo do outro, cada tabela com a largura inteira (lado a lado ficavam espremidas)
-    (verJur || verCont ? '<div class="ini-atraso ini-atraso-pilha">' +
+    // Backup 22: Jurídico e Contabilidade lado a lado (a pedido)
+    (verJur || verCont ? '<div class="' + (verJur && verCont ? 'duas-col' : '') + ' ini-atraso">' +
       (verJur ? cardAtraso('Atrasados', 'Jurídico', de('escritorio')) : '') +
       (verCont ? cardAtraso('Atrasados', 'Contabilidade', de('contabilidade')) : '') + '</div>' : '');
   cardMural().catch((e) => console.error(e));
@@ -64,7 +64,7 @@ TELAS.inicio = async function () {
   if (typeof cardAprovacoes === 'function') cardAprovacoes().then((x) => { const el = $('ini-aprov'); if (el) el.innerHTML = x; }).catch((e) => console.error(e));
   if (typeof cardMinhaFila === 'function') cardMinhaFila().then((c) => { const el = $('ini-fila'); if (el) { el.innerHTML = c.html; c.ligar(el); } }).catch((e) => console.error(e));
   ligarAcoesLancamentos($('conteudo'));
-  // Backup 21: clicar na dívida abre o detalhamento; o pagamento é só no botão "✓ Recebido"
+  // Backup 21: clicar na dívida abre o detalhamento; o pagamento é só no botão "✓ Baixa"
   $('conteudo').querySelectorAll('.ini-atraso tr[data-linha-det]').forEach((tr) => {
     tr.onclick = (ev) => { if (ev.target.closest('button,a,input,label,.td-lote')) return; detalheLancamento(tr.dataset.linhaDet); };
     tr.onkeydown = (ev) => { if ((ev.key === 'Enter' || ev.key === ' ') && ev.target === tr) { ev.preventDefault(); detalheLancamento(tr.dataset.linhaDet); } };
@@ -101,12 +101,12 @@ async function relatorioHonorarios(emp, tipo, ini, fim) {
       .map((r) => r.map((v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(';')).join('\r\n'), 'text/csv;charset=utf-8');
 }
 
-// Tabela inteira (sem "ver todos"): clicar na linha abre o detalhamento; "✓ Recebido" registra o pagamento. Selos separados: vencidos (vermelho) e vence hoje (âmbar).
+// Tabela inteira (sem "ver todos"): clicar na linha abre o detalhamento; "✓ Baixa" registra o pagamento. Selos separados: vencidos (vermelho) e vence hoje (âmbar).
 function cardAtraso(titulo, area, lista) {
   const h = hojeISO();
   const quemDe = (l) => (l.grupos && l.grupos.nome) || l.favorecido || (l.clientes && l.clientes.nome) || '';
   const hoje = lista.filter((l) => l.vencimento === h), vencidos = lista.length - hoje.length, total = soma(lista, (l) => l.tipo === 'despesa' ? -l.valor : vl(l));
-  return '<div class="card card-lista ini-atraso-card' + (lista.length ? ' tem-atraso' : '') + '"><div class="card-hd"><span class="ini-atraso-tit">' + (lista.length ? '<span class="ini-alerta" aria-hidden="true">▲</span>' : '') + esc(titulo) +
+  return '<div class="card card-lista ini-atraso-card' + (lista.length ? ' tem-atraso' : '') + '"><div class="card-hd"><span class="ini-atraso-tit">' + (lista.length ? '<span class="alerta-tri" aria-hidden="true"></span>' : '') + esc(titulo) +
       ' <span class="ini-atraso-area area-' + (area === 'Jurídico' ? 'jur' : 'cont') + '">' + esc(area) + '</span></span>' +
       '<span class="ini-atraso-selos">' + (vencidos ? '<span class="pill vencido">' + plural(vencidos, 'vencido', 'vencidos') + '</span>' : '') +
       (hoje.length ? '<span class="pill hoje">' + hoje.length + ' vence' + (hoje.length > 1 ? 'm' : '') + ' hoje</span>' : '') +
@@ -122,7 +122,7 @@ function cardAtraso(titulo, area, lista) {
           (l.tipo === 'despesa' || l.redutor ? '− ' : '') + brl(l.valor) + (l.redutor ? '<div class="sub">redutor</div>' : l.tipo === 'despesa' ? '<div class="sub">a pagar</div>' : '') + '</td>' +
         '<td class="mono' + (l.vencimento <= h ? ' venc-atraso' : '') + '" data-ord="' + l.vencimento + '">' + dataBR(l.vencimento) + '</td>' +
         '<td data-ord="' + diasAte(l.vencimento) + '">' + celulaAtraso(l.vencimento) + '</td>' +
-        '<td class="acoes-l"><button class="btn btn-v btn-mini" data-pagar="' + l.id + '">✓ Recebido</button></td></tr>').join('') +
+        '<td class="acoes-l"><button class="btn btn-v btn-mini" data-pagar="' + l.id + '" title="Dar baixa — recebido (pergunta a data)">✓ Baixa</button></td></tr>').join('') +
       '</tbody><tfoot><tr><td></td><td colspan="2">Total</td><td class="num mono">' + brl(total) + '</td><td colspan="3"></td></tr></tfoot></table></div></div>'
       : vazio('Nada em atraso. 👏')) + '</div>';
 }
@@ -250,8 +250,8 @@ const EXPLICA = {
   lembretes: 'Lembretes: recados com ou sem data que NÃO viram tarefa (ex.: pagar o aluguel, reunião sexta). Aparecem até 7 dias antes da data; sem prazo, ficam até você marcar "Feito".'
 };
 const DESTAQUES_LEMB = [['', 'Sem destaque'], ['vermelho', '🔴 Vermelho — urgente'], ['amarelo', '🟡 Amarelo — atenção'], ['verde', '🟢 Verde — tudo certo'], ['azul', '🔵 Azul — informação'], ['roxo', '🟣 Roxo — pessoal']];
-// Backup 21: "?" discreto com balão próprio (o ⓘ com a dica do navegador ficava feio e demorava a aparecer)
-function infoI(chave) { return '<span class="info-i" tabindex="0" role="note" data-dica="' + esc(EXPLICA[chave]) + '" aria-label="' + esc(EXPLICA[chave]) + '">?</span>'; }
+// ⓘ com balão próprio (Backup 22: volta o ⓘ; o balão do Backup 21 fica)
+function infoI(chave) { return '<span class="info-i" tabindex="0" role="note" data-dica="' + esc(EXPLICA[chave]) + '" aria-label="' + esc(EXPLICA[chave]) + '">ⓘ</span>'; }
 async function dadosLembretes() {
   const h = hojeISO(), jur = pode('juridico');
   const rg = await q(sb.from('regras_tarefas').select('ligada, dias').eq('chave', 'parcela_parcelamento').maybeSingle()).catch(() => null);
@@ -360,17 +360,14 @@ function htmlGuias(L) {
       '<div class="sub">vence ' + dataBR(g.vencimento) + (g.vencimento < h ? ' <span class="pill vencido">vencida</span>' : '') + '</div></div>' +
       '<button type="button" class="btn btn-v btn-mini" data-guia-ok="' + g.id + '">✓ Guia emitida</button></div>'; }).join('') + '</div>';
 }
-// Backup 21: cada lembrete é uma linha de "a fazer": ○ conclui, o texto em destaque e o prazo ao lado; ✎ 📌 × aparecem ao passar o mouse
+// Backup 22: de volta ao desenho do Backup 20 (fundo pela cor do destaque, "✓ Feito" à vista); clicar no texto edita
 function htmlLembretes(L) {
   const h = hojeISO();
-  const prazo = (l) => !l.dia ? '<span class="lemb-prazo">sem prazo</span>' : l.dia < h ? '<span class="lemb-prazo atrasado">desde ' + dataBR(l.dia) + '</span>'
-    : l.dia === h ? '<span class="lemb-prazo hoje">hoje</span>' : '<span class="lemb-prazo">' + dataBR(l.dia) + '</span>';
-  return L.vis.map((l) => '<div class="lemb-it' + (l.fixo ? ' fixo' : '') + (l.destaque ? ' dest-' + esc(l.destaque) : '') + '">' +
-      '<button type="button" class="lemb-ok" data-lemb-ok="' + l.id + '" title="Concluir (marcar como feito)" aria-label="Concluir: ' + esc(l.texto) + '"></button>' +
-      '<div class="lemb-txt"><span class="lemb-t">' + esc(l.texto) + '</span>' +
-        '<span class="lemb-meta">' + prazo(l) + (l.repete ? '<span>↻ ' + esc(l.repete) + '</span>' : '') + '<span>' + (l.pessoa ? esc(l.pessoa) : 'todos') + '</span>' +
-        (l.fixo ? '<span class="lemb-pino" title="Fixado no topo">📌 fixo</span>' : '') + '</span></div>' +
-    '<div class="lemb-acoes"><button type="button" class="btn-etq" data-lemb-ed="' + l.id + '" title="Editar lembrete" aria-label="Editar lembrete">✎</button>' +
+  return L.vis.map((l) => '<div class="lemb-it' + (l.fixo ? ' fixo' : '') + (l.destaque ? ' dest-' + esc(l.destaque) : '') + '" data-lemb-ed="' + l.id + '" title="Clique para editar">' +
+      '<div class="lemb-txt">' + (l.fixo ? '<span class="lemb-pino" title="Fixado no topo">📌</span> ' : '') + '<span>' + esc(l.texto) + '</span>' +
+      '<div class="sub">' + (!l.dia ? 'sem prazo' : l.dia < h ? '<span class="pill vencido">desde ' + dataBR(l.dia) + '</span>' : l.dia === h ? '<span class="pill hoje">hoje</span>' : dataBR(l.dia)) +
+        (l.repete ? ' · ↻ ' + esc(l.repete) : '') + (l.pessoa ? ' · ' + esc(l.pessoa) : ' · todos') + '</div></div>' +
+    '<div class="acoes-l"><button type="button" class="btn btn-v btn-mini" data-lemb-ok="' + l.id + '" title="Concluir (marcar como feito)">✓ Feito</button>' +
       '<button type="button" class="btn-etq" data-lemb-fixo="' + l.id + '" title="' + (l.fixo ? 'Tirar do topo' : 'Fixar no topo') + '" aria-label="' + (l.fixo ? 'Tirar do topo' : 'Fixar no topo') + '">📌</button>' +
       '<button type="button" class="btn-etq" data-lemb-x="' + l.id + '" title="Apagar lembrete" aria-label="Apagar lembrete">×</button></div></div>').join('');
 }
@@ -394,7 +391,7 @@ function ligarLembretes(el, L) {
     if (!confirm('Apagar este lembrete?')) return;
     await q(sb.from('lembretes').delete().eq('id', b.dataset.lembX)); await cardMural();
   }));
-  el.querySelectorAll('[data-lemb-ed]').forEach((b) => b.onclick = () => formLembrete(L.vis.find((x) => x.id === b.dataset.lembEd)));
+  el.querySelectorAll('[data-lemb-ed]').forEach((d) => d.onclick = (ev) => { if (ev.target.closest('button')) return; formLembrete(L.vis.find((x) => x.id === d.dataset.lembEd)); });
 }
 function formLembrete(l) {
   l = l || null;

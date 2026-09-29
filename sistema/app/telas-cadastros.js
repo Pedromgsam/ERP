@@ -295,7 +295,7 @@ async function pintarContratos(buscar) {
   }
   const h = hojeISO();
   $('ctr-corpo').innerHTML = '<div class="card">' + (lista.length ?
-    '<div class="tabela-wrap"><table class="ordenavel"><thead><tr><th>Cliente</th><th>Contrato</th><th>Tipo</th><th data-tipo="data">Data</th><th class="num">Valor</th><th class="num">Recebido</th><th>Parcelas</th><th>Anexo</th><th>Situação</th></tr></thead><tbody>' +
+    '<div class="tabela-wrap"><table class="ordenavel ctr-tab"><thead><tr><th>Cliente</th><th>Contrato</th><th>Tipo</th><th data-tipo="data">Data</th><th class="num">Valor</th><th class="num">Recebido</th><th>Parcelas</th><th>Anexo</th><th>Situação</th></tr></thead><tbody>' +
     lista.map((c) => {
       const parc = c.lancamentos || [];
       const recebido = soma(parc.filter((p) => p.pago), (p) => p.valor);
@@ -319,10 +319,11 @@ async function pintarContratos(buscar) {
 const EXITO_BASES = [['economia', 'Economia obtida (redução da dívida)'], ['valor_recebido', 'Valor recebido pelo cliente'],
   ['valor_causa', 'Valor da causa / condenação'], ['outro', 'Outro valor (descrever)']];
 const exitoBaseRot = (b) => (EXITO_BASES.find((x) => x[0] === b) || EXITO_BASES[3])[1];
-const SM_ROT = (c) => String(c.qtd_salarios).replace('.', ',') + ' salário(s) mínimo(s)';
+// Backup 22: "1,5 salários/mês" (mais curto; a forma "em salários mínimos" já aparece no contrato)
+const SM_ROT = (c) => String(c.qtd_salarios).replace('.', ',') + (Number(c.qtd_salarios) === 1 ? ' salário' : ' salários');
 function valorContratoTexto(c) {
   if (c.modalidade !== 'consultoria') return brl(c.valor_total);
-  return (c.forma_valor === 'salario_minimo' ? SM_ROT(c) : brl(c.valor_mensal)) + ' / mês';
+  return (c.forma_valor === 'salario_minimo' ? SM_ROT(c) : brl(c.valor_mensal)) + '/mês';
 }
 function formContrato(ct) {
   ct = ct || {};

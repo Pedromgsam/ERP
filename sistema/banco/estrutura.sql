@@ -3062,10 +3062,6 @@ begin
     pag := '<div style="background:#F5EDD6;border-left:4px solid #C9A84C;border-radius:10px;padding:12px 14px;margin:14px 0;font-size:13.5px"><b style="color:#1B2A4A">Como pagar</b><br>'
       || case when coalesce(d->>'pix', '') <> '' then 'PIX: <b>' || public.esc_html(d->>'pix') || '</b>' || coalesce(' · ' || nullif(public.esc_html(d->>'titular'), ''), '') || '<br>' else '' end
       || case when coalesce(d->>'banco', '') <> '' then public.esc_html(d->>'banco') || '<br>' else '' end
-      -- Backup 20: PIX copia e cola com o valor total (o cliente cola no app do banco)
-      || case when coalesce(d->>'pix', '') <> '' and tot > 0 then '<div style="margin:8px 0 4px">PIX copia e cola (valor já preenchido):</div>'
-           || '<div style="font-family:Consolas,monospace;font-size:11.5px;background:#fff;border:1px solid #E5E7EB;border-radius:6px;padding:8px;word-break:break-all">'
-           || public.esc_html(public.pix_copia_cola(d->>'pix', coalesce(nullif(d->>'titular', ''), 'Araujo e Castro'), coalesce(nullif(d->>'cidade', ''), 'Belo Horizonte'), tot)) || '</div>' else '' end
       || 'Depois de pagar, responda este e-mail com o comprovante.</div>';
   end if;
   return '<div style="font-family:Arial,Helvetica,sans-serif;background:#F0F2F7;padding:24px 12px">'
@@ -4646,36 +4642,6 @@ select left(btrim(m.texto), 300), null, m.fixo, '', m.autor, m.criado_em, 'mural
  where (m.expira_em is null or m.expira_em >= current_date)
    and not exists (select 1 from public.lembretes l where l.origem = 'mural:' || m.id);
 
--- PIX copia e cola (BR Code estático do Banco Central) — usado no "Como pagar" dos e-mails ao cliente
-create or replace function public.crc16_ccitt(t text) returns text language plpgsql immutable as $$
-declare crc int := 65535; b bytea := convert_to(t, 'UTF8'); i int; j int;
-begin
-  for i in 0 .. length(b) - 1 loop
-    crc := crc # (get_byte(b, i) << 8);
-    for j in 1 .. 8 loop
-      if (crc & 32768) <> 0 then crc := ((crc << 1) # 4129) & 65535; else crc := (crc << 1) & 65535; end if;
-    end loop;
-  end loop;
-  return upper(lpad(to_hex(crc), 4, '0'));
-end $$;
-create or replace function public.pix_copia_cola(p_chave text, p_nome text, p_cidade text, p_valor numeric default 0, p_txid text default '***')
-returns text language plpgsql immutable as $$
-declare k text := btrim(coalesce(p_chave, '')); dig text; base text; nome text; cid text; tx text;
-begin
-  if position('@' in k) = 0 then
-    dig := regexp_replace(k, '\D', '', 'g');
-    if left(k, 1) = '+' then k := '+' || dig; elsif length(dig) in (11, 14) then k := dig; end if;
-  end if;
-  nome := left(btrim(regexp_replace(translate(coalesce(p_nome, ''), 'ÁÀÂÃÄáàâãäÉÈÊËéèêëÍÌÎÏíìîïÓÒÔÕÖóòôõöÚÙÛÜúùûüÇçÑñ&', 'AAAAAaaaaaEEEEeeeeIIIIiiiiOOOOOoooooUUUUuuuuCcNne'), '[^A-Za-z0-9 .-]', '', 'g')), 25);
-  cid := left(btrim(regexp_replace(translate(coalesce(p_cidade, ''), 'ÁÀÂÃÄáàâãäÉÈÊËéèêëÍÌÎÏíìîïÓÒÔÕÖóòôõöÚÙÛÜúùûüÇçÑñ', 'AAAAAaaaaaEEEEeeeeIIIIiiiiOOOOOoooooUUUUuuuuCcNn'), '[^A-Za-z0-9 .-]', '', 'g')), 15);
-  tx := coalesce(nullif(left(regexp_replace(coalesce(p_txid, ''), '[^A-Za-z0-9]', '', 'g'), 25), ''), '***');
-  if p_txid = '***' then tx := '***'; end if;
-  base := '000201' || '26' || lpad(length('0014br.gov.bcb.pix01' || lpad(length(k)::text, 2, '0') || k)::text, 2, '0') || '0014br.gov.bcb.pix01' || lpad(length(k)::text, 2, '0') || k
-    || '52040000' || '5303986'
-    || case when coalesce(p_valor, 0) > 0 then '54' || lpad(length(to_char(p_valor, 'FM999999990.00'))::text, 2, '0') || to_char(p_valor, 'FM999999990.00') else '' end
-    || '5802BR' || '59' || lpad(length(coalesce(nullif(nome, ''), 'RECEBEDOR'))::text, 2, '0') || coalesce(nullif(nome, ''), 'RECEBEDOR')
-    || '60' || lpad(length(coalesce(nullif(cid, ''), 'BRASIL'))::text, 2, '0') || coalesce(nullif(cid, ''), 'BRASIL')
-    || '62' || lpad((length(tx) + 4)::text, 2, '0') || '05' || lpad(length(tx)::text, 2, '0') || tx || '6304';
-  return base || public.crc16_ccitt(base);
-end $$;
-grant execute on function public.pix_copia_cola(text, text, text, numeric, text) to authenticated;
+-- Backup 22: o PIX copia e cola saiu (botão e e-mail); as funções do Backup 20 são apagadas
+drop function if exists public.pix_copia_cola(text, text, text, numeric, text);
+drop function if exists public.crc16_ccitt(text);

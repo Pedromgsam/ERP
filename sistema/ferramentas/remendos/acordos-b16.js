@@ -73,7 +73,7 @@ function _acSaldoDevedor(acAP){
   acAP.forEach(function(a){ var k=a.devedor||'—', d=pDate(a.vencimento); var x=D[k]=D[k]||{n:k,v:0,atr:0,vAtr:0,ac:{}};
     x.v+=Number(a.valor)||0; x.ac[_acChave(a)]=1; if(a.situacao==='Vencido'||(d&&d<=hj)){ x.atr++; x.vAtr+=Number(a.valor)||0; } });
   var L=Object.keys(D).map(function(k){ return D[k]; }).sort(function(a,b){ return b.v-a.v; });
-  if(!L.length){ el.innerHTML='<div class="pa-ok">Nenhum saldo em aberto.</div>'; return; }
+  if(!L.length){ el.innerHTML='<div class="pa-ok">Nenhum saldo em aberto.</div>'; _acProx30(acAP, hj); return; }
   var tot=L.reduce(function(s,x){return s+x.v;},0)||1, max=L[0].v||1, mais=L.length>10?L.length-10:0, n10=Math.min(L.length,10);
   el.innerHTML='<div class="acs-tot"><span>Total em aberto</span><b>'+fF(tot)+'</b><span class="acs-n">'+L.length+' devedor'+(L.length>1?'es':'')+'</span></div>'
     +'<div class="acs">'+L.slice(0,10).map(function(x,i){ var na=Object.keys(x.ac).length;
@@ -83,4 +83,20 @@ function _acSaldoDevedor(acAP){
         +'<div class="acs-bar"><span style="width:'+Math.max(2,x.v/max*100).toFixed(1)+'%;background:'+_AC_RAMPA[n10>1?Math.round(i*(_AC_RAMPA.length-1)/(n10-1)):0]+'"></span></div>'
         +'<div class="acs-v">'+fF(x.v)+'</div><div class="acs-p">'+(x.v/tot*100).toFixed(1).replace('.',',')+'%</div></div>'; }).join('')
     +'</div>'+(mais?'<div class="acs-mais">+ '+mais+' devedor'+(mais>1?'es':'')+' com saldo menor</div>':'');
+  _acProx30(acAP, hj);
+}
+// Vencimentos dos próximos 30 dias (o próprio dia do vencimento já está em "Vencidos"): data · devedor → credor · parcela · valor · dias (régua de cores)
+function _acProx30(acAP, hj){
+  var el=$('acProx30'); if(!el) return;
+  var lim=new Date(hj); lim.setDate(lim.getDate()+30);
+  var L=acAP.map(function(a){ return {a:a,d:pDate(a.vencimento)}; }).filter(function(x){ return x.d&&x.d>hj&&x.d<=lim&&x.a.situacao!=='Vencido'; })
+    .sort(function(x,y){ return x.d-y.d; });
+  if(!L.length){ el.innerHTML='<div class="pa-ok">Nenhuma parcela vence nos próximos 30 dias.</div>'; return; }
+  var tot=L.reduce(function(s,x){ return s+(Number(x.a.valor)||0); },0);
+  el.innerHTML='<div class="acs-tot"><span>A vencer em 30 dias</span><b>'+fF(tot)+'</b><span class="acs-n">'+L.length+' parcela'+(L.length>1?'s':'')+'</span></div>'
+    +'<div class="acs acp">'+L.slice(0,10).map(function(x){ var n=Math.round((x.d-hj)/864e5), a=x.a;
+      return '<div class="acp-it"><div class="acp-data">'+esc(a.vencimento||'')+'</div>'
+        +'<div class="acs-quem"><div class="acs-nome" title="'+esc(a.devedor||'')+'">'+esc(a.devedor||'—')+'</div><div class="acs-sub">→ '+esc(a.credor||'—')+' · parcela '+esc(a.parcela||'?')+(a.totalParc?'/'+esc(a.totalParc):'')+'</div></div>'
+        +'<div class="acs-v">'+fF(Number(a.valor)||0)+'</div><div class="acp-dias"><span class="'+_diasCls(n)+'">'+(n<=0?'vence hoje':'em '+n+' d')+'</span></div></div>'; }).join('')
+    +'</div>'+(L.length>10?'<div class="acs-mais">+ '+(L.length-10)+' parcela'+(L.length-10>1?'s':'')+'</div>':'');
 }

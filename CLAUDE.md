@@ -83,7 +83,15 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
-- Última entrega: **Backup 21 — ajustes finos** (sem SQL). `dbERP()` no erp-telas.js (o `DB` do ERP é const global, NÃO `window.DB` — por isso
+- Última entrega: **Backup 22 — padronização** (prompt em `sistema/PROMPT-BACKUP-22.md`). **Régua única:** `marcarColunas()` (erp-telas.js, no
+  MutationObserver) reconhece a coluna pelo título (`REGUA`: Vencimento/Pago em → `col-venc`, Valor/Total/Saldo → `col-valor`, Atraso/Dias →
+  `col-dias`, Grupo/Devedor/Credor/Empresa/Cliente/Nome → `col-nome`) em toda `.tw/.tabela-wrap/.gx-tab-gs table`; o estilo fica no bloco "RÉGUA
+  ÚNICA" do design.css (13 px, sub 12 px, venc/valor negrito, nomes CAIXA ALTA, selo da pessoa 92 px, `.alerta-tri`). Coluna nova com esses
+  títulos já sai no padrão; **não** escreva font-size/cor inline em célula. Teste `testes/padrao.js` (no rodar-tudo) mede as telas e exige
+  um estilo único por tipo. Botões da linha: "✓ Baixa" + "✎" (`.btn-ed`). PIX removido (SQL dropa `pix_copia_cola`/`crc16_ccitt`).
+  Parcelamentos: `renderParcAnalise` = lista `.pcx` (modelo acordos, `_parcVisao` grupo/lista, `_parcAtraso`, `_parcProxima`); saíram
+  Saldo residual e "Progresso por parcelamento" (escondido). Acordos: `_acProx30` (#acProx30), `.ac-saldo-linha`. Início: lembretes/fila do B20.
+- Backup 21 (base): ajustes finos (sem SQL). `dbERP()` no erp-telas.js (o `DB` do ERP é const global, NÃO `window.DB` — por isso
   grupos/filtros/ficha do Painel falhavam). `tabelaPadrao` aceita `popup` (Processos abre `GS().abrirJanela`). Lembretes: `.lemb-ok` (○ conclui),
   ações ao passar o mouse; `infoI` = "?" com balão CSS (`data-dica`). Início: Atrasados empilhados (`.ini-atraso-pilha`), linha `data-linha-det` →
   `detalheLancamento`. Régua de dias: `_diasCls` (remendo acordos) e `celulaAtraso` — vencido (inclui hoje) `dias-r`, <3 `dias-a`, <10 `dias-b`,

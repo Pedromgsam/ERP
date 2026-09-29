@@ -309,39 +309,26 @@ body.gx-barra-topo .gs .al-feed .al-card.al-linha.al-atencao:not(.al-chip){borde
 
 /* ═══ Backup 20 ═══ */
 /* explicação ao passar o mouse: "?" discreto com balão (Backup 21) */
-.info-i{position:relative;display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;border:1px solid var(--border-strong);
-  font:600 10px/1 var(--font-ui);color:var(--text3);cursor:help;vertical-align:2px;margin-left:4px;text-transform:none;letter-spacing:0}
-.info-i:hover,.info-i:focus-visible{color:var(--on-primario);background:var(--primario);border-color:var(--primario);outline:none}
+.info-i{position:relative;display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;
+  font:500 13px/1 var(--font-ui);color:var(--text3);cursor:help;vertical-align:0;margin-left:4px;text-transform:none;letter-spacing:0}
+.info-i:hover,.info-i:focus-visible{color:var(--navy3);outline:none}
 .info-i::after{content:attr(data-dica);position:absolute;left:50%;top:calc(100% + 8px);transform:translateX(-50%);width:max-content;max-width:280px;
   padding:8px 11px;border-radius:var(--r-ctl);background:var(--ink);color:var(--surface);font:400 12px/1.45 var(--font-ui);text-align:left;white-space:normal;
   box-shadow:var(--shadow-md);display:none;pointer-events:none;z-index:300}
 .info-i:hover::after,.info-i:focus-visible::after{display:block}
-/* Início: lembretes = lista de "a fazer" (○ conclui; editar/fixar/apagar aparecem ao passar o mouse) */
+/* Início: lembretes no topo, com destaque de cor e fixos */
 body.gx-barra-topo .gs .ini-lemb .card-hd{gap:8px}
-body.gx-barra-topo .gs .lemb-lista{display:flex;flex-direction:column;gap:0;border:1px solid var(--border);border-radius:var(--r-ctl);overflow:hidden}
-body.gx-barra-topo .gs .lemb-it{display:flex;align-items:center;gap:12px;padding:10px 12px 10px 14px;border-bottom:1px solid var(--line);border-left:3px solid transparent;background:var(--surface)}
-body.gx-barra-topo .gs .lemb-it:last-child{border-bottom:0}
+body.gx-barra-topo .gs .lemb-lista{display:flex;flex-direction:column;gap:6px}
+body.gx-barra-topo .gs .lemb-it{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--border);border-left:3px solid var(--border-strong);border-radius:var(--r-ctl);background:var(--surface);cursor:pointer}
 body.gx-barra-topo .gs .lemb-it:hover{background:var(--hover)}
-body.gx-barra-topo .gs .lemb-ok{flex:none;width:20px;height:20px;border-radius:50%;border:1.5px solid var(--border-strong);background:var(--surface);cursor:pointer;padding:0;position:relative}
-body.gx-barra-topo .gs .lemb-ok:hover,body.gx-barra-topo .gs .lemb-ok:focus-visible{border-color:var(--green);background:var(--green-lt)}
-body.gx-barra-topo .gs .lemb-ok:hover::after,body.gx-barra-topo .gs .lemb-ok:focus-visible::after{content:'✓';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:700 12px var(--font-ui);color:var(--green-d)}
-body.gx-barra-topo .gs .lemb-txt{flex:1;min-width:0;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px}
-body.gx-barra-topo .gs .lemb-t{font-size:14px;font-weight:500;color:var(--ink);overflow-wrap:anywhere}
-body.gx-barra-topo .gs .lemb-meta{display:inline-flex;flex-wrap:wrap;gap:4px 10px;font-size:12px;color:var(--text3)}
-body.gx-barra-topo .gs .lemb-prazo{font-weight:600;color:var(--text2)}
-body.gx-barra-topo .gs .lemb-prazo.atrasado{color:var(--red-d)}
-body.gx-barra-topo .gs .lemb-prazo.hoje{color:var(--amber-d)}
-body.gx-barra-topo .gs .lemb-pino{color:var(--text2)}
-body.gx-barra-topo .gs .lemb-acoes{display:flex;gap:4px;align-items:center;opacity:0;transition:opacity .12s}
-body.gx-barra-topo .gs .lemb-it:hover .lemb-acoes,body.gx-barra-topo .gs .lemb-it:focus-within .lemb-acoes{opacity:1}
-@media (hover:none){body.gx-barra-topo .gs .lemb-acoes{opacity:1}}
 body.gx-barra-topo .gs .lemb-it.fixo{background:var(--surface2)}
-body.gx-barra-topo .gs .lemb-it.dest-vermelho{border-left-color:var(--red)}
-body.gx-barra-topo .gs .lemb-it.dest-amarelo{border-left-color:var(--amber)}
-body.gx-barra-topo .gs .lemb-it.dest-verde{border-left-color:var(--green)}
-body.gx-barra-topo .gs .lemb-it.dest-azul{border-left-color:var(--blue)}
-body.gx-barra-topo .gs .lemb-it.dest-roxo{border-left-color:var(--violet)}
-body.gx-barra-topo .gs .lemb-it.dest-vermelho .lemb-t{color:var(--red-d)}
+body.gx-barra-topo .gs .lemb-it .lemb-txt{min-width:0;font-size:14px;color:var(--ink)}
+body.gx-barra-topo .gs .lemb-it.dest-vermelho{border-left-color:var(--red);background:var(--red-lt)}
+body.gx-barra-topo .gs .lemb-it.dest-amarelo{border-left-color:var(--amber);background:var(--amber-lt)}
+body.gx-barra-topo .gs .lemb-it.dest-verde{border-left-color:var(--green);background:var(--green-lt)}
+body.gx-barra-topo .gs .lemb-it.dest-azul{border-left-color:var(--blue);background:var(--blue-lt)}
+body.gx-barra-topo .gs .lemb-it.dest-roxo{border-left-color:var(--violet);background:var(--violet-lt)}
+body.gx-barra-topo .gs .lemb-it .acoes-l{display:flex;gap:4px;align-items:center}
 body.gx-barra-topo .gs .ini-lemb .mural-destaques{margin-bottom:12px}
 /* Início: honorários com o mês no título; recebido verde, atraso vermelho */
 body.gx-barra-topo .gs .ini-fin-tit .ini-mes{font-weight:700;color:var(--ink);letter-spacing:.04em;margin-left:6px;padding-left:8px;border-left:1px solid var(--border-strong)}
@@ -349,7 +336,6 @@ body.gx-barra-topo .gs .ini-fin .kpi.verde .kpi-v{color:var(--green-d)!important
 body.gx-barra-topo .gs .ini-fin .kpi.vermelho .kpi-v{color:var(--red-d)!important}
 /* Atrasados: alerta vermelho sutil */
 body.gx-barra-topo .gs .ini-atraso-card.tem-atraso{border-top:2px solid var(--red)!important}
-body.gx-barra-topo .gs .ini-alerta{color:var(--red);font-size:11px;margin-right:6px;vertical-align:1px}
 /* tabela padrão de pagamento: atraso em vermelho, vencimento vencido em vermelho, baixa em lote */
 .atraso-d{color:var(--red-d);font-weight:700;white-space:nowrap}
 .atraso-perto{color:var(--amber-d);font-weight:600;white-space:nowrap}
@@ -452,8 +438,6 @@ body.gx-barra-topo .gx-tab-gs .tabela-wrap{border-radius:var(--card-r-sm)}
 .dias-b,.gs .dias-b{color:var(--blue-d);font-weight:600}
 .dias-g,.gs .dias-g{color:var(--green-d);font-weight:600}
 /* "Quem": o selo pastel da pessoa (verde do Pedro, rosé da Emanuelle, ouro do Escritório), como nas primeiras versões — sem contorno, do tamanho do nome */
-body.gx-barra-topo .gs .pill.pill-pessoa{min-width:0;border:0!important;border-radius:6px;padding:3px 10px;font-size:12px;font-weight:600;letter-spacing:.01em;box-shadow:none}
-body.gx-barra-topo .fa-pessoa{border-radius:6px;padding:3px 10px;font-size:12px;font-weight:600}
 /* Início → Atrasados: caixinha de marcar maior; a linha abre o detalhe */
 body.gx-barra-topo .gs :is(.th-lote,.td-lote) input[type=checkbox]{width:18px;height:18px;cursor:pointer;accent-color:var(--primario)}
 body.gx-barra-topo .gs .ini-atraso tr[data-linha-det]{cursor:pointer}
@@ -474,8 +458,6 @@ body.gx-barra-topo td.gx-grupo-txt{text-transform:uppercase;color:var(--ink);let
 body.gx-barra-topo .acx-hd,body.gx-barra-topo .acx-row{grid-template-columns:minmax(240px,1.7fr) minmax(260px,1.6fr) 132px 150px 22px}
 @media (max-width:900px){body.gx-barra-topo .acx-row{grid-template-columns:1fr auto}body.gx-barra-topo .acx-hd{display:none}}
 /* Acordos: mesmas letras das outras telas (13px nas tabelas; nº de processo 12px) */
-body.gx-barra-topo #panel-acordos .tw td{font-size:13px!important}
-body.gx-barra-topo #panel-acordos .tw td.mono{font-size:12.5px!important}
 body.gx-barra-topo #panel-acordos .acx-dev{font-size:14px}
 /* Acordos → Saldo por devedor: ranking em linhas (posição · devedor · barra · saldo · %) */
 .acs-tot{display:flex;align-items:baseline;gap:10px;margin:0 0 10px;font:13px var(--font-ui);color:var(--text2)}
@@ -505,5 +487,65 @@ body.gx-barra-topo :is(#finContent,#finCContent) .cc-hd > div:last-child{display
 .gs .pub-trib-linha[hidden]{display:none}
 .gs .segmento .seg-n{display:inline-block;min-width:18px;padding:0 5px;margin-left:4px;border-radius:99px;background:var(--surface2);color:var(--text2);font-size:11px;font-weight:700}
 .gs .segmento button.ativo .seg-n{background:transparent;box-shadow:inset 0 0 0 1px currentColor;color:inherit}
-body.gx-barra-topo .gs .ini-atraso-pilha{display:flex;flex-direction:column;gap:var(--sp-4)}
-body.gx-barra-topo .gs .ini-atraso-pilha .ini-atraso-card:not(.tem-atraso) .vazio{padding:14px}
+
+/* ═══ Backup 22 — RÉGUA ÚNICA (vale para todas as telas; as colunas são marcadas pelo título em erp-telas.js › marcarColunas) ═══ */
+/* célula 13 px · linha de baixo (sócio, descrição, "Mensal"…) cinza 12 px · cabeçalho 11 px azul-marinho */
+body.gx-barra-topo :is(.tw,.tabela-wrap,.gx-tab-gs) table:not(.gx-leg):not(.massa) > tbody > tr > td{font-size:var(--fs-sm)!important}
+body.gx-barra-topo :is(.tw,.tabela-wrap,.gx-tab-gs) table:not(.gx-leg) > tbody > tr > td :is(.sub,.er-socio,small){font-size:var(--fs-xs)!important;color:var(--text3)!important;font-weight:400!important}
+/* vencimento: negrito; vencido em vermelho */
+body.gx-barra-topo td.col-venc{font-weight:700!important;color:var(--ink)!important;white-space:nowrap}
+body.gx-barra-topo td.col-venc.venc-atraso{color:var(--red-d)!important}
+body.gx-barra-topo td.col-venc .sub{font-weight:400!important}
+body.gx-barra-topo table.massa :is([data-k=vencimento],[data-k=data_pagamento]){font-weight:700}
+/* valor: negrito, preto, à direita */
+body.gx-barra-topo td.col-valor,body.gx-barra-topo td.col-valor :is(strong,b){font-weight:700!important;color:var(--ink)!important;text-align:right;white-space:nowrap}
+body.gx-barra-topo th.col-valor{text-align:right!important}
+/* atraso/dias: a régua de cores (dias-r/-a/-b/-g); o texto de atraso sempre em negrito */
+body.gx-barra-topo td.col-dias{white-space:nowrap}
+body.gx-barra-topo td.col-dias :is(.atraso-d,.dias-r){font-weight:700}
+/* nomes de cliente/empresa: CAIXA ALTA, sem negrito (a linha de baixo continua normal) */
+body.gx-barra-topo td.col-nome{text-transform:uppercase;letter-spacing:.01em;font-weight:400!important;color:var(--ink)!important}
+body.gx-barra-topo td.col-nome :is(b,strong){font-weight:400!important}
+body.gx-barra-topo td.col-nome :is(.sub,.er-socio,small){text-transform:none}
+/* selo da pessoa: retângulo, negrito, a MESMA largura para todos (cabe "Emanuelle") */
+body.gx-barra-topo :is(.gs .pill.pill-pessoa,.fa-pessoa){display:inline-block;width:92px;min-width:92px;box-sizing:border-box;text-align:center;border:0!important;border-radius:6px!important;
+  padding:3px 6px!important;font:700 12px/1.35 var(--font-ui)!important;letter-spacing:.01em!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:none!important;vertical-align:middle}
+/* botões da linha: "✓ Baixa" e "✎" do mesmo tamanho em todas as tabelas */
+body.gx-barra-topo td :is(.gx-la-bx,[data-pagar].btn-mini){font:700 12px var(--font-ui)!important;padding:4px 10px!important;border-radius:var(--r-ctl)!important}
+body.gx-barra-topo td :is(.gx-la-ed,.btn-ed){font:600 13px var(--font-ui)!important;padding:3px 9px!important;border-radius:var(--r-ctl)!important;min-width:30px}
+/* triângulo de atraso: um só, vermelho, com "!" vazado — nos títulos de cartões e abas com atraso */
+.alerta-tri{display:inline-block;width:15px;height:14px;vertical-align:-2px;margin-right:6px;background:var(--red);flex:none;
+  -webkit-mask:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 22'><path fill-rule='evenodd' d='M12 .5c.7 0 1.3.4 1.7 1l9.6 16.6c.8 1.3-.2 3-1.7 3H2.4c-1.5 0-2.5-1.7-1.7-3L10.3 1.5c.4-.6 1-1 1.7-1zM10.8 7h2.4l-.3 7.2h-1.8zM12 15.6a1.4 1.4 0 1 1 0 2.8 1.4 1.4 0 0 1 0-2.8z'/></svg>") center/contain no-repeat;
+  mask:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 22'><path fill-rule='evenodd' d='M12 .5c.7 0 1.3.4 1.7 1l9.6 16.6c.8 1.3-.2 3-1.7 3H2.4c-1.5 0-2.5-1.7-1.7-3L10.3 1.5c.4-.6 1-1 1.7-1zM10.8 7h2.4l-.3 7.2h-1.8zM12 15.6a1.4 1.4 0 1 1 0 2.8 1.4 1.4 0 0 1 0-2.8z'/></svg>") center/contain no-repeat}
+/* Início → Atrasados: tabela com borda e cantos arredondados, como em Clientes */
+body.gx-barra-topo .gs .ini-atraso-card .lote-wrap{padding:0 14px 14px}
+body.gx-barra-topo .gs .ini-atraso-card .tabela-wrap{border:1px solid var(--border);border-radius:var(--card-r-sm);overflow-x:auto}
+body.gx-barra-topo .gs .ini-atraso-card :is(td,th){padding-left:8px!important;padding-right:8px!important}
+body.gx-barra-topo .gs .ini-atraso-card td.col-nome{min-width:120px}
+/* Acordos — "Acordos em andamento" com letras um pouco maiores; nomes no padrão (CAIXA ALTA, sem negrito); Situação centralizada */
+body.gx-barra-topo .acx-row{font-size:14px}
+body.gx-barra-topo :is(.acx-dev,.pcx-dev){font-size:14.5px;font-weight:400;text-transform:uppercase;letter-spacing:.01em;color:var(--ink)}
+body.gx-barra-topo :is(.acx-sub,.pcx .acx-sub){font-size:12.5px}
+body.gx-barra-topo .acx-val{font-size:15px}
+body.gx-barra-topo .acx-sit{justify-self:center;text-align:center}
+body.gx-barra-topo .acx-hd > span:nth-child(4){text-align:center;justify-self:center}
+/* Acordos — Vencidos / A pagar / Pago: altura mínima de 10 linhas (a tela não "pula" ao trocar de aba) */
+body.gx-barra-topo :is(#acordTabVencidos,#acordTabPagar,#acordTabPago) .tw{min-height:calc(38px + 10 * 46px)}
+/* Acordos — saldo por devedor (metade esquerda) e vencimentos dos próximos 30 dias (metade direita) */
+body.gx-barra-topo .ac-saldo-linha{align-items:start}
+body.gx-barra-topo .ac-saldo-linha .acs-it{grid-template-columns:26px minmax(0,1fr) minmax(60px,.7fr) 118px 48px;gap:10px}
+.acp-it{display:grid;grid-template-columns:86px minmax(0,1fr) 118px 70px;gap:10px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line);font:13px var(--font-ui)}
+.acp-it:last-child{border-bottom:0}
+.acp-it:hover{background:var(--hover)}
+.acp-data{font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
+.acp-dias{text-align:right;white-space:nowrap}
+.acs-nome{text-transform:uppercase;font-weight:400!important;letter-spacing:.01em}
+@media (max-width:1100px){body.gx-barra-topo .ac-saldo-linha{grid-template-columns:1fr}}
+/* Contratos: Valor e Recebido só do tamanho do número (a coluna Contrato fica com o espaço) */
+body.gx-barra-topo .gs table.ctr-tab :is(th.num,td.num){width:1%;white-space:nowrap}
+/* Parcelamentos — "Parcelamentos em andamento" no modelo de Acordos, separado por grupo (como em Clientes) */
+body.gx-barra-topo .pcx-grp{padding:9px 18px;background:var(--surface2);border-bottom:1px solid var(--line);font:700 13px var(--font-ui);color:var(--ink);text-transform:uppercase;letter-spacing:.01em}
+body.gx-barra-topo .pcx-grp .sub{text-transform:none;font-weight:500;margin-left:6px;color:var(--text3)}
+body.gx-barra-topo .pcx-grp .pcx-grp-atr{color:var(--red-d);font-weight:600}
+body.gx-barra-topo .pcx-ctl{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+body.gx-barra-topo .pcx-risco{color:var(--red-d);font-weight:600;margin-top:4px}
