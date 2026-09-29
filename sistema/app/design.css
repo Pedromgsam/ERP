@@ -308,22 +308,40 @@ body.gx-barra-topo .gs .al-rotina .al-pt{animation:none}
 body.gx-barra-topo .gs .al-feed .al-card.al-linha.al-atencao:not(.al-chip){border-left:0!important}
 
 /* ═══ Backup 20 ═══ */
-/* explicação ao passar o mouse (ⓘ) */
-.info-i{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;font:600 11px var(--font-ui);color:var(--text3);cursor:help;vertical-align:1px;margin-left:2px}
-.info-i:hover,.info-i:focus{color:var(--navy3);outline:none}
-/* Início: lembretes no topo, com destaque de cor e fixos */
+/* explicação ao passar o mouse: "?" discreto com balão (Backup 21) */
+.info-i{position:relative;display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;border:1px solid var(--border-strong);
+  font:600 10px/1 var(--font-ui);color:var(--text3);cursor:help;vertical-align:2px;margin-left:4px;text-transform:none;letter-spacing:0}
+.info-i:hover,.info-i:focus-visible{color:var(--on-primario);background:var(--primario);border-color:var(--primario);outline:none}
+.info-i::after{content:attr(data-dica);position:absolute;left:50%;top:calc(100% + 8px);transform:translateX(-50%);width:max-content;max-width:280px;
+  padding:8px 11px;border-radius:var(--r-ctl);background:var(--ink);color:var(--surface);font:400 12px/1.45 var(--font-ui);text-align:left;white-space:normal;
+  box-shadow:var(--shadow-md);display:none;pointer-events:none;z-index:300}
+.info-i:hover::after,.info-i:focus-visible::after{display:block}
+/* Início: lembretes = lista de "a fazer" (○ conclui; editar/fixar/apagar aparecem ao passar o mouse) */
 body.gx-barra-topo .gs .ini-lemb .card-hd{gap:8px}
-body.gx-barra-topo .gs .lemb-lista{display:flex;flex-direction:column;gap:6px}
-body.gx-barra-topo .gs .lemb-it{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--border);border-left:3px solid var(--border-strong);border-radius:var(--r-ctl);background:var(--surface);cursor:pointer}
+body.gx-barra-topo .gs .lemb-lista{display:flex;flex-direction:column;gap:0;border:1px solid var(--border);border-radius:var(--r-ctl);overflow:hidden}
+body.gx-barra-topo .gs .lemb-it{display:flex;align-items:center;gap:12px;padding:10px 12px 10px 14px;border-bottom:1px solid var(--line);border-left:3px solid transparent;background:var(--surface)}
+body.gx-barra-topo .gs .lemb-it:last-child{border-bottom:0}
 body.gx-barra-topo .gs .lemb-it:hover{background:var(--hover)}
+body.gx-barra-topo .gs .lemb-ok{flex:none;width:20px;height:20px;border-radius:50%;border:1.5px solid var(--border-strong);background:var(--surface);cursor:pointer;padding:0;position:relative}
+body.gx-barra-topo .gs .lemb-ok:hover,body.gx-barra-topo .gs .lemb-ok:focus-visible{border-color:var(--green);background:var(--green-lt)}
+body.gx-barra-topo .gs .lemb-ok:hover::after,body.gx-barra-topo .gs .lemb-ok:focus-visible::after{content:'✓';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:700 12px var(--font-ui);color:var(--green-d)}
+body.gx-barra-topo .gs .lemb-txt{flex:1;min-width:0;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px}
+body.gx-barra-topo .gs .lemb-t{font-size:14px;font-weight:500;color:var(--ink);overflow-wrap:anywhere}
+body.gx-barra-topo .gs .lemb-meta{display:inline-flex;flex-wrap:wrap;gap:4px 10px;font-size:12px;color:var(--text3)}
+body.gx-barra-topo .gs .lemb-prazo{font-weight:600;color:var(--text2)}
+body.gx-barra-topo .gs .lemb-prazo.atrasado{color:var(--red-d)}
+body.gx-barra-topo .gs .lemb-prazo.hoje{color:var(--amber-d)}
+body.gx-barra-topo .gs .lemb-pino{color:var(--text2)}
+body.gx-barra-topo .gs .lemb-acoes{display:flex;gap:4px;align-items:center;opacity:0;transition:opacity .12s}
+body.gx-barra-topo .gs .lemb-it:hover .lemb-acoes,body.gx-barra-topo .gs .lemb-it:focus-within .lemb-acoes{opacity:1}
+@media (hover:none){body.gx-barra-topo .gs .lemb-acoes{opacity:1}}
 body.gx-barra-topo .gs .lemb-it.fixo{background:var(--surface2)}
-body.gx-barra-topo .gs .lemb-it .lemb-txt{min-width:0;font-size:14px;color:var(--ink)}
-body.gx-barra-topo .gs .lemb-it.dest-vermelho{border-left-color:var(--red);background:var(--red-lt)}
-body.gx-barra-topo .gs .lemb-it.dest-amarelo{border-left-color:var(--amber);background:var(--amber-lt)}
-body.gx-barra-topo .gs .lemb-it.dest-verde{border-left-color:var(--green);background:var(--green-lt)}
-body.gx-barra-topo .gs .lemb-it.dest-azul{border-left-color:var(--blue);background:var(--blue-lt)}
-body.gx-barra-topo .gs .lemb-it.dest-roxo{border-left-color:var(--violet);background:var(--violet-lt)}
-body.gx-barra-topo .gs .lemb-it .acoes-l{display:flex;gap:4px;align-items:center}
+body.gx-barra-topo .gs .lemb-it.dest-vermelho{border-left-color:var(--red)}
+body.gx-barra-topo .gs .lemb-it.dest-amarelo{border-left-color:var(--amber)}
+body.gx-barra-topo .gs .lemb-it.dest-verde{border-left-color:var(--green)}
+body.gx-barra-topo .gs .lemb-it.dest-azul{border-left-color:var(--blue)}
+body.gx-barra-topo .gs .lemb-it.dest-roxo{border-left-color:var(--violet)}
+body.gx-barra-topo .gs .lemb-it.dest-vermelho .lemb-t{color:var(--red-d)}
 body.gx-barra-topo .gs .ini-lemb .mural-destaques{margin-bottom:12px}
 /* Início: honorários com o mês no título; recebido verde, atraso vermelho */
 body.gx-barra-topo .gs .ini-fin-tit .ini-mes{font-weight:700;color:var(--ink);letter-spacing:.04em;margin-left:6px;padding-left:8px;border-left:1px solid var(--border-strong)}
@@ -402,7 +420,6 @@ body.gx-barra-topo tr.gx-det > td{background:var(--surface2)!important;padding:0
 body.gx-barra-topo #tblExecRanking .er-socio,body.gx-barra-topo #tblExecRanking .er-socio b{text-transform:none!important;color:var(--text3)!important;font-size:11.5px!important;font-weight:400!important}
 body.gx-barra-topo #tblExecRanking .tag.tv{text-transform:none!important;font-size:10.5px!important}
 /* ── Acordos: acordo com mais espaço; aberto vira um cartão destacado com as parcelas dentro ── */
-body.gx-barra-topo .acx-hd,body.gx-barra-topo .acx-row{grid-template-columns:minmax(260px,2.2fr) minmax(220px,1.4fr) minmax(110px,.6fr) minmax(110px,.6fr) 22px}
 body.gx-barra-topo .acx-item.acx-aberto{margin:8px 10px;border:1px solid var(--border-strong)!important;border-left:3px solid var(--navy3)!important;border-radius:var(--card-r);box-shadow:var(--shadow-md);overflow:hidden}
 body.gx-barra-topo .acx-item.acx-aberto .acx-row{background:var(--surface2)}
 body.gx-barra-topo .acx-item.acx-aberto .acx-det{background:var(--surface)!important;border-top:1px solid var(--line)!important}
@@ -427,3 +444,66 @@ body.gx-barra-topo .gs .pill.pill-sim{color:var(--ink);font-weight:600}
 body.gx-barra-topo .gs .card:has(.tabela-wrap){overflow:hidden}
 body.gx-barra-topo .gs .tabela-wrap{border-radius:inherit}
 body.gx-barra-topo .gx-tab-gs .tabela-wrap{border-radius:var(--card-r-sm)}
+
+/* ═══ Backup 21 ═══ */
+/* dias até o vencimento — a mesma régua em todo o ERP: vencido vermelho · <3 dias amarelo · <10 azul · ≥10 verde */
+.dias-r,.gs .dias-r{color:var(--red-d);font-weight:700}
+.dias-a,.gs .dias-a{color:var(--amber-d);font-weight:700}
+.dias-b,.gs .dias-b{color:var(--blue-d);font-weight:600}
+.dias-g,.gs .dias-g{color:var(--green-d);font-weight:600}
+/* "Quem": o selo pastel da pessoa (verde do Pedro, rosé da Emanuelle, ouro do Escritório), como nas primeiras versões — sem contorno, do tamanho do nome */
+body.gx-barra-topo .gs .pill.pill-pessoa{min-width:0;border:0!important;border-radius:6px;padding:3px 10px;font-size:12px;font-weight:600;letter-spacing:.01em;box-shadow:none}
+body.gx-barra-topo .fa-pessoa{border-radius:6px;padding:3px 10px;font-size:12px;font-weight:600}
+/* Início → Atrasados: caixinha de marcar maior; a linha abre o detalhe */
+body.gx-barra-topo .gs :is(.th-lote,.td-lote) input[type=checkbox]{width:18px;height:18px;cursor:pointer;accent-color:var(--primario)}
+body.gx-barra-topo .gs .ini-atraso tr[data-linha-det]{cursor:pointer}
+body.gx-barra-topo .gs .ini-atraso tr[data-linha-det]:focus-visible{outline:2px solid var(--navy3);outline-offset:-2px}
+body.gx-barra-topo .gs .ini-atraso .tabela-wrap{overflow-x:auto}
+/* Painel e Processos: busca aberta mais larga; filtros numa linha própria, embaixo do título */
+body.gx-barra-topo .gx-filtros-cli input.fsel{flex:1 1 320px!important;max-width:none!important;min-width:240px}
+body.gx-barra-topo #panel-processos .cc-hd{flex-direction:column;align-items:stretch}
+body.gx-barra-topo #panel-processos .cc-hd > div:last-child{width:100%;margin-top:10px;gap:8px!important;align-items:center}
+body.gx-barra-topo #panel-processos #busProc{flex:1 1 360px!important;min-width:260px!important}
+body.gx-barra-topo #panel-processos .gx-seg-chips .chip:not(.on){color:var(--text2)!important}
+#btnProcClear{display:none!important}
+/* grupo em texto simples, como em Clientes */
+body.gx-barra-topo td.gx-grupo-txt{text-transform:uppercase;color:var(--ink);letter-spacing:.01em}
+/* Processos: detalhe numa janela */
+.gx-det-janela{padding:4px 2px}
+/* Acordos: situação e próxima parcela mais estreitas; acordo e pagamento ganham o espaço */
+body.gx-barra-topo .acx-hd,body.gx-barra-topo .acx-row{grid-template-columns:minmax(240px,1.7fr) minmax(260px,1.6fr) 132px 150px 22px}
+@media (max-width:900px){body.gx-barra-topo .acx-row{grid-template-columns:1fr auto}body.gx-barra-topo .acx-hd{display:none}}
+/* Acordos: mesmas letras das outras telas (13px nas tabelas; nº de processo 12px) */
+body.gx-barra-topo #panel-acordos .tw td{font-size:13px!important}
+body.gx-barra-topo #panel-acordos .tw td.mono{font-size:12.5px!important}
+body.gx-barra-topo #panel-acordos .acx-dev{font-size:14px}
+/* Acordos → Saldo por devedor: ranking em linhas (posição · devedor · barra · saldo · %) */
+.acs-tot{display:flex;align-items:baseline;gap:10px;margin:0 0 10px;font:13px var(--font-ui);color:var(--text2)}
+.acs-tot b{font-size:18px;color:var(--ink);font-variant-numeric:tabular-nums}
+.acs-tot .acs-n{margin-left:auto;color:var(--text3);font-size:12px}
+.acs{border:1px solid var(--border);border-radius:var(--r-ctl);overflow:hidden}
+.acs-it{display:grid;grid-template-columns:28px minmax(180px,1.3fr) minmax(120px,1.5fr) 130px 56px;gap:14px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line);font:13px var(--font-ui)}
+.acs-it:last-child{border-bottom:0}
+.acs-it:hover{background:var(--hover)}
+.acs-pos{width:24px;height:24px;border-radius:50%;background:var(--surface2);color:var(--text2);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px}
+.acs-quem{min-width:0}
+.acs-nome{color:var(--ink);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.acs-sub{font-size:12px;color:var(--text3)}
+.acs-atr{color:var(--red-d);font-weight:600}
+.acs-bar{height:10px;background:var(--surface2);border-radius:99px;overflow:hidden}
+.acs-bar span{display:block;height:100%;border-radius:99px}
+.acs-v{text-align:right;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}
+.acs-p{text-align:right;color:var(--text3);font-variant-numeric:tabular-nums}
+.acs-mais{margin-top:8px;font-size:12px;color:var(--text3)}
+@media (max-width:700px){.acs-it{grid-template-columns:24px 1fr auto;gap:8px}.acs-bar,.acs-p{display:none}}
+/* Financeiro (A receber, Recebidos, Prejuízo) e Acordos: selects e campos da barra de filtros no desenho de Clientes */
+body.gx-barra-topo :is(#finContent,#finCContent,#panel-acordos,#panel-parcelamentos) :is(select.fsel,input.fsel){height:34px;border:1px solid var(--border-strong)!important;border-radius:var(--r-ctl)!important;background-color:var(--surface)!important;color:var(--ink)!important;font:13px var(--font-ui)!important;padding:6px 10px!important}
+body.gx-barra-topo :is(#finContent,#finCContent) .cc-hd{flex-wrap:wrap;gap:10px}
+body.gx-barra-topo :is(#finContent,#finCContent) .cc-hd > div:last-child{display:flex;flex-wrap:wrap;gap:8px;width:100%}
+/* Publicações: tribunais com publicação pendente */
+.gs .pub-trib-linha{margin-top:-4px}
+.gs .pub-trib-linha[hidden]{display:none}
+.gs .segmento .seg-n{display:inline-block;min-width:18px;padding:0 5px;margin-left:4px;border-radius:99px;background:var(--surface2);color:var(--text2);font-size:11px;font-weight:700}
+.gs .segmento button.ativo .seg-n{background:transparent;box-shadow:inset 0 0 0 1px currentColor;color:inherit}
+body.gx-barra-topo .gs .ini-atraso-pilha{display:flex;flex-direction:column;gap:var(--sp-4)}
+body.gx-barra-topo .gs .ini-atraso-pilha .ini-atraso-card:not(.tem-atraso) .vazio{padding:14px}

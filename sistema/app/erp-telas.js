@@ -248,6 +248,8 @@
   const _pad = { emp: { visao: 'grupo', tipo: 'ativos', area: '', grupo: '', busca: '' }, proc: { visao: 'grupo' } };
   const escH = (t) => String(t == null ? '' : t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const normH = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  // o DB do ERP é um const do script principal: existe como nome global, mas NÃO como window.DB
+  const dbERP = () => { try { return DB || {}; } catch (e) { return {}; } }; // eslint-disable-line no-undef
   const regDe = (lista, tr) => { const id = (tr.dataset.gx || '').split(':')[1]; return (lista || []).find((x) => x._id === id); };
   function tabelaPadrao(tbody, o) {
     const table = tbody && tbody.closest('table'); if (!table) return;
@@ -256,7 +258,7 @@
     tbody.querySelectorAll(':scope > tr.gx-grp, :scope > tr.gx-det').forEach((x) => x.remove());
     const linhas = [...tbody.querySelectorAll(':scope > tr[data-gx]')];
     linhas.forEach((tr) => {
-      if (!tr.querySelector(':scope > td.gx-seta')) { const td = document.createElement('td'); td.className = 'gx-seta'; td.textContent = '▸'; tr.insertBefore(td, tr.firstChild); }
+      if (!tr.querySelector(':scope > td.gx-seta')) { const td = document.createElement('td'); td.className = 'gx-seta'; td.textContent = o.popup ? '›' : '▸'; tr.insertBefore(td, tr.firstChild); }
       tr.classList.add('gx-linha-exp'); tr.classList.remove('gx-aberta'); tr.setAttribute('aria-expanded', 'false'); tr.tabIndex = 0;
       tr.hidden = o.filtro ? !o.filtro(tr) : false;
     });
@@ -272,6 +274,7 @@
     if (!tbody._gxPad) {
       tbody._gxPad = true;
       const abrir = (tr) => {
+        if (tbody._gxPopup) return tbody._gxPopup(tr);   // Backup 21: Processos abre uma janela em vez de abrir para baixo
         const aberta = tr.classList.contains('gx-aberta');
         tbody.querySelectorAll(':scope > tr.gx-det').forEach((x) => x.remove());
         tbody.querySelectorAll(':scope > tr.gx-aberta').forEach((x) => { x.classList.remove('gx-aberta'); x.setAttribute('aria-expanded', 'false'); const s = x.querySelector('.gx-seta'); if (s) s.textContent = '▸'; });
@@ -283,7 +286,7 @@
       tbody.addEventListener('click', (ev) => { const tr = ev.target.closest('tr.gx-linha-exp'); if (!tr || ev.target.closest('button, a, input, select, .gx-la, .lnk, .er-nome')) return; abrir(tr); });
       tbody.addEventListener('keydown', (ev) => { const tr = ev.target.closest('tr.gx-linha-exp'); if (tr && (ev.key === 'Enter' || ev.key === ' ') && ev.target === tr) { ev.preventDefault(); abrir(tr); } });
     }
-    tbody._gxDet = o.detalhe; tbody._gxAcao = o.acao || (() => {});
+    tbody._gxDet = o.detalhe; tbody._gxAcao = o.acao || (() => {}); tbody._gxPopup = o.popup || null;
   }
   const seg = (id, ops, atual) => '<div class="segmento gx-seg-cli" id="' + id + '">' + ops.map(([v, r]) => '<button type="button" data-v="' + v + '" class="' + (v === atual ? 'ativo' : '') + '">' + r + '</button>').join('') + '</div>';
   // ── Painel → Empresas do grupo ──
@@ -291,7 +294,7 @@
   function filtrosEmpresas() {
     const wrap = document.getElementById('execRankWrap'); if (!wrap || wrap.querySelector('#pe-filtros')) return;
     const hd = wrap.querySelector('.cc-hd'); if (!hd) return;
-    const F = _pad.emp, grupos = [...new Set((window.DB && DB.baseDados || []).map((r) => r.grupo).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    const F = _pad.emp, grupos = [...new Set((dbERP().baseDados || []).map((r) => r.grupo).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
     const d = document.createElement('div'); d.id = 'pe-filtros'; d.className = 'gx-filtros-cli';
     d.innerHTML = seg('pe-visao', [['grupo', 'Por grupo'], ['lista', 'Lista']], F.visao) +
       seg('pe-tipo', [['ativos', 'Ativos'], ['Consultoria', 'Consultoria'], ['Demanda', 'Serviço pontual'], ['Inativo', 'Inativos'], ['todos', 'Todos']], F.tipo) +
@@ -309,7 +312,7 @@
   function padraoEmpresas() {
     const tb = document.getElementById('tblExecRanking'); if (!tb || ehCliente()) return;
     filtrosEmpresas();
-    const F = _pad.emp, B = (window.DB && DB.baseDados) || [], cli = GS() && GS().E ? GS().E.clientes || [] : [];
+    const F = _pad.emp, B = dbERP().baseDados || [], cli = GS() && GS().E ? GS().E.clientes || [] : [];
     const busca = normH(F.busca), dig = String(F.busca || '').replace(/\D/g, '');
     // valor negociado: "18k neg." (sem caixa alta)
     tb.querySelectorAll('.tag.tv[title]').forEach((tg) => { const v = Number(String(tg.title).replace(/[^\d,]/g, '').replace(',', '.')); if (v) tg.textContent = kNeg(v) + ' neg.'; });
@@ -346,7 +349,7 @@
       // Ativos · Arquivados · Extintos juntos, no mesmo desenho dos filtros de Clientes
       const chips = [...hd.querySelectorAll('.chip')]; if (chips.length) { const box = document.createElement('div'); box.className = 'segmento gx-seg-cli gx-seg-chips'; chips[0].before(box); chips.forEach((c) => box.appendChild(c)); }
     }
-    const P = (window.DB && DB.processos) || [];
+    const P = dbERP().processos || [];
     tabelaPadrao(tb, { chave: 'proc', um: 'processo', varios: 'processos',
       grupo: (tr) => (regDe(P, tr) || {}).grupo || '',
       detalhe: (tr) => { const p = regDe(P, tr) || {};
@@ -357,8 +360,13 @@
           [['Valor da causa', p.valor ? fBRL(p.valor) : ''], ['Situação', p.statusOriginal], ['Distribuição', p.dataDistrib], ['Última atualização', p.atualizacao], ['Advogado', p.advogado], ['Procuração', p.procuracao], ['Prescrição', p.prescricao]]
             .filter((x) => x[1]).map((x) => '<div><span>' + x[0] + '</span><b>' + escH(x[1]) + '</b></div>').join('') + '</div>' +
           (p.obs ? '<div class="sub" style="margin-top:8px;white-space:pre-wrap">' + escH(p.obs) + '</div>' : '') + '</div></div>' +
-          '<div class="gx-det-acoes"><button type="button" class="btn-m" data-det-acao="editar">✎ Editar processo</button></div>'; },
-      acao: (a, tr) => { if (a === 'editar' && window.ERP_EDITAR) window.ERP_EDITAR(tr.dataset.gx); } });
+          ''; },
+      // Backup 21: clicar no processo abre uma janela com o detalhe (Editar fica no rodapé)
+      popup: (tr) => { const p = regDe(P, tr) || {}; if (!GS() || !GS().abrirJanela) return;
+        const j = GS().abrirJanela({ titulo: 'Processo ' + (p.numero || ''), larga: true, corpo: '<div class="gx-det-corpo gx-det-janela">' + tbody_det(tr) + '</div>',
+          rodape: '<span class="sub">' + escH(p.grupo || '') + '</span><div class="acoes"><button type="button" class="btn btn-p" data-pr-editar>✎ Editar processo</button></div>' });
+        j.querySelector('[data-pr-editar]').onclick = () => { GS().fecharJanela(j); if (window.ERP_EDITAR) window.ERP_EDITAR(tr.dataset.gx); }; } });
+    function tbody_det(tr) { return tb._gxDet(tr); }
   }
   const fBRL = (v) => (Number(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   // ═══════ Backup 20: sem o cartão de título no topo; botões e alertas vão para junto do conteúdo ═══════

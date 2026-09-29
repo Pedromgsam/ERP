@@ -882,7 +882,8 @@ TELAS.inicio = async function () {
     '<p>Resumo de ' + esc(mes) + ' · para lançar receita, despesa ou contrato use <b>+ Lançar</b> na barra de cima</p></div></div>' +
     '<div id="ini-mural"></div><div id="ini-resumo"></div><div id="ini-aprov"></div><div id="ini-fila"></div>' +
     (verJur ? linha('escritorio', '💼 Honorários Jurídico') : '') + (verCont ? linha('contabilidade', '🧮 Honorários Contabilidade') : '') +
-    (verJur || verCont ? '<div class="' + (verJur && verCont ? 'duas-col' : '') + ' ini-atraso">' +
+    // Backup 21: um embaixo do outro, cada tabela com a largura inteira (lado a lado ficavam espremidas)
+    (verJur || verCont ? '<div class="ini-atraso ini-atraso-pilha">' +
       (verJur ? cardAtraso('Atrasados', 'Jurídico', de('escritorio')) : '') +
       (verCont ? cardAtraso('Atrasados', 'Contabilidade', de('contabilidade')) : '') + '</div>' : '');
   cardMural().catch((e) => console.error(e));
@@ -891,10 +892,10 @@ TELAS.inicio = async function () {
   if (typeof cardAprovacoes === 'function') cardAprovacoes().then((x) => { const el = $('ini-aprov'); if (el) el.innerHTML = x; }).catch((e) => console.error(e));
   if (typeof cardMinhaFila === 'function') cardMinhaFila().then((c) => { const el = $('ini-fila'); if (el) { el.innerHTML = c.html; c.ligar(el); } }).catch((e) => console.error(e));
   ligarAcoesLancamentos($('conteudo'));
-  // clicar na linha do atraso = registrar o pagamento (mesma janela do botão)
-  $('conteudo').querySelectorAll('.ini-atraso tr[data-linha-pagar]').forEach((tr) => tr.onclick = (ev) => {
-    if (ev.target.closest('button,a,input,label')) return;
-    const b = tr.querySelector('[data-pagar]'); if (b) b.click();
+  // Backup 21: clicar na dívida abre o detalhamento; o pagamento é só no botão "✓ Recebido"
+  $('conteudo').querySelectorAll('.ini-atraso tr[data-linha-det]').forEach((tr) => {
+    tr.onclick = (ev) => { if (ev.target.closest('button,a,input,label,.td-lote')) return; detalheLancamento(tr.dataset.linhaDet); };
+    tr.onkeydown = (ev) => { if ((ev.key === 'Enter' || ev.key === ' ') && ev.target === tr) { ev.preventDefault(); detalheLancamento(tr.dataset.linhaDet); } };
   });
   $('conteudo').querySelectorAll('[data-ini-rel]').forEach((k) => {
     k.onclick = () => { const [emp, tipo] = k.dataset.iniRel.split('|'); relatorioHonorarios(emp, tipo, ini, fim); };
@@ -928,8 +929,7 @@ async function relatorioHonorarios(emp, tipo, ini, fim) {
       .map((r) => r.map((v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"').join(';')).join('\r\n'), 'text/csv;charset=utf-8');
 }
 
-// Tabela inteira (sem "ver todos"): dá para registrar o pagamento em qualquer linha ali mesmo
-// (clicar na linha abre a mesma janela). Selos separados: vencidos (vermelho) e vence hoje (âmbar).
+// Tabela inteira (sem "ver todos"): clicar na linha abre o detalhamento; "✓ Recebido" registra o pagamento. Selos separados: vencidos (vermelho) e vence hoje (âmbar).
 function cardAtraso(titulo, area, lista) {
   const h = hojeISO();
   const quemDe = (l) => (l.grupos && l.grupos.nome) || l.favorecido || (l.clientes && l.clientes.nome) || '';
@@ -942,13 +942,13 @@ function cardAtraso(titulo, area, lista) {
     (lista.length ? '<div class="lote-wrap"><div class="lote-barra" hidden><span class="lote-txt"></span><button type="button" class="btn btn-v btn-mini" data-lote-baixa>✓ Dar baixa nos marcados</button><button type="button" class="btn btn-o btn-mini" data-lote-limpar>Desmarcar</button></div>' +
       '<div class="tabela-wrap"><table class="ordenavel tab-pag"><thead><tr><th class="sem-ordem th-lote"><input type="checkbox" data-lote-todos aria-label="Marcar todos" title="Marcar todos para dar baixa de uma vez"></th>' +
       '<th>Quem</th><th>Grupo</th><th class="num">Valor</th><th data-tipo="data">Vencimento</th><th>Atraso</th><th class="sem-ordem"></th></tr></thead><tbody>' +
-      lista.map((l) => '<tr class="clicavel' + (l.vencimento === h ? ' linha-hoje' : '') + '" data-linha-pagar title="Clique para dar como recebido">' +
+      lista.map((l) => '<tr class="clicavel' + (l.vencimento === h ? ' linha-hoje' : '') + '" data-linha-det="' + l.id + '" tabindex="0" title="Clique para ver o detalhe">' +
         '<td class="td-lote"><input type="checkbox" data-lote="' + l.id + '" data-valor="' + (l.tipo === 'despesa' ? -l.valor : vl(l)) + '" aria-label="Marcar para dar baixa"></td>' +
         '<td>' + pillPessoa(l.responsavel) + '</td>' +
         '<td>' + esc(quemDe(l) || l.descricao) + '<div class="sub">' + esc([l.descricao !== quemDe(l) ? l.descricao : '', legendaLanc(l)].filter(Boolean).join(' · ')) + '</div></td>' +
         '<td class="num mono ' + (l.tipo === 'receita' && !l.redutor ? 'valor-rec' : 'valor-desp') + '" data-ord="' + (l.tipo === 'despesa' ? -l.valor : vl(l)) + '">' +
           (l.tipo === 'despesa' || l.redutor ? '− ' : '') + brl(l.valor) + (l.redutor ? '<div class="sub">redutor</div>' : l.tipo === 'despesa' ? '<div class="sub">a pagar</div>' : '') + '</td>' +
-        '<td class="mono' + (l.vencimento < h ? ' venc-atraso' : '') + '" data-ord="' + l.vencimento + '">' + dataBR(l.vencimento) + '</td>' +
+        '<td class="mono' + (l.vencimento <= h ? ' venc-atraso' : '') + '" data-ord="' + l.vencimento + '">' + dataBR(l.vencimento) + '</td>' +
         '<td data-ord="' + diasAte(l.vencimento) + '">' + celulaAtraso(l.vencimento) + '</td>' +
         '<td class="acoes-l"><button class="btn btn-v btn-mini" data-pagar="' + l.id + '">✓ Recebido</button></td></tr>').join('') +
       '</tbody><tfoot><tr><td></td><td colspan="2">Total</td><td class="num mono">' + brl(total) + '</td><td colspan="3"></td></tr></tfoot></table></div></div>'
@@ -1078,7 +1078,8 @@ const EXPLICA = {
   lembretes: 'Lembretes: recados com ou sem data que NÃO viram tarefa (ex.: pagar o aluguel, reunião sexta). Aparecem até 7 dias antes da data; sem prazo, ficam até você marcar "Feito".'
 };
 const DESTAQUES_LEMB = [['', 'Sem destaque'], ['vermelho', '🔴 Vermelho — urgente'], ['amarelo', '🟡 Amarelo — atenção'], ['verde', '🟢 Verde — tudo certo'], ['azul', '🔵 Azul — informação'], ['roxo', '🟣 Roxo — pessoal']];
-function infoI(chave) { return '<span class="info-i" tabindex="0" title="' + esc(EXPLICA[chave]) + '" aria-label="' + esc(EXPLICA[chave]) + '">ⓘ</span>'; }
+// Backup 21: "?" discreto com balão próprio (o ⓘ com a dica do navegador ficava feio e demorava a aparecer)
+function infoI(chave) { return '<span class="info-i" tabindex="0" role="note" data-dica="' + esc(EXPLICA[chave]) + '" aria-label="' + esc(EXPLICA[chave]) + '">?</span>'; }
 async function dadosLembretes() {
   const h = hojeISO(), jur = pode('juridico');
   const rg = await q(sb.from('regras_tarefas').select('ligada, dias').eq('chave', 'parcela_parcelamento').maybeSingle()).catch(() => null);
@@ -1187,13 +1188,17 @@ function htmlGuias(L) {
       '<div class="sub">vence ' + dataBR(g.vencimento) + (g.vencimento < h ? ' <span class="pill vencido">vencida</span>' : '') + '</div></div>' +
       '<button type="button" class="btn btn-v btn-mini" data-guia-ok="' + g.id + '">✓ Guia emitida</button></div>'; }).join('') + '</div>';
 }
+// Backup 21: cada lembrete é uma linha de "a fazer": ○ conclui, o texto em destaque e o prazo ao lado; ✎ 📌 × aparecem ao passar o mouse
 function htmlLembretes(L) {
   const h = hojeISO();
-  return L.vis.map((l) => '<div class="lemb-it' + (l.fixo ? ' fixo' : '') + (l.destaque ? ' dest-' + esc(l.destaque) : '') + '" data-lemb-ed="' + l.id + '" title="Clique para editar">' +
-      '<div class="lemb-txt">' + (l.fixo ? '<span class="lemb-pino" title="Fixado no topo">📌</span> ' : '') + '<span>' + esc(l.texto) + '</span>' +
-      '<div class="sub">' + (!l.dia ? 'sem prazo' : l.dia < h ? '<span class="pill vencido">desde ' + dataBR(l.dia) + '</span>' : l.dia === h ? '<span class="pill hoje">hoje</span>' : dataBR(l.dia)) +
-        (l.repete ? ' · ↻ ' + esc(l.repete) : '') + (l.pessoa ? ' · ' + esc(l.pessoa) : ' · todos') + '</div></div>' +
-    '<div class="acoes-l"><button type="button" class="btn btn-v btn-mini" data-lemb-ok="' + l.id + '">✓ Feito</button>' +
+  const prazo = (l) => !l.dia ? '<span class="lemb-prazo">sem prazo</span>' : l.dia < h ? '<span class="lemb-prazo atrasado">desde ' + dataBR(l.dia) + '</span>'
+    : l.dia === h ? '<span class="lemb-prazo hoje">hoje</span>' : '<span class="lemb-prazo">' + dataBR(l.dia) + '</span>';
+  return L.vis.map((l) => '<div class="lemb-it' + (l.fixo ? ' fixo' : '') + (l.destaque ? ' dest-' + esc(l.destaque) : '') + '">' +
+      '<button type="button" class="lemb-ok" data-lemb-ok="' + l.id + '" title="Concluir (marcar como feito)" aria-label="Concluir: ' + esc(l.texto) + '"></button>' +
+      '<div class="lemb-txt"><span class="lemb-t">' + esc(l.texto) + '</span>' +
+        '<span class="lemb-meta">' + prazo(l) + (l.repete ? '<span>↻ ' + esc(l.repete) + '</span>' : '') + '<span>' + (l.pessoa ? esc(l.pessoa) : 'todos') + '</span>' +
+        (l.fixo ? '<span class="lemb-pino" title="Fixado no topo">📌 fixo</span>' : '') + '</span></div>' +
+    '<div class="lemb-acoes"><button type="button" class="btn-etq" data-lemb-ed="' + l.id + '" title="Editar lembrete" aria-label="Editar lembrete">✎</button>' +
       '<button type="button" class="btn-etq" data-lemb-fixo="' + l.id + '" title="' + (l.fixo ? 'Tirar do topo' : 'Fixar no topo') + '" aria-label="' + (l.fixo ? 'Tirar do topo' : 'Fixar no topo') + '">📌</button>' +
       '<button type="button" class="btn-etq" data-lemb-x="' + l.id + '" title="Apagar lembrete" aria-label="Apagar lembrete">×</button></div></div>').join('');
 }
@@ -1217,7 +1222,7 @@ function ligarLembretes(el, L) {
     if (!confirm('Apagar este lembrete?')) return;
     await q(sb.from('lembretes').delete().eq('id', b.dataset.lembX)); await cardMural();
   }));
-  el.querySelectorAll('[data-lemb-ed]').forEach((d) => d.onclick = (ev) => { if (ev.target.closest('button')) return; formLembrete(L.vis.find((x) => x.id === d.dataset.lembEd)); });
+  el.querySelectorAll('[data-lemb-ed]').forEach((b) => b.onclick = () => formLembrete(L.vis.find((x) => x.id === b.dataset.lembEd)));
 }
 function formLembrete(l) {
   l = l || null;
@@ -1407,9 +1412,10 @@ function celulaAtraso(venc, l) {
   if (!venc) return '<span class="sub">—</span>';
   const n = diasAte(venc);
   const extra = l && l.cobranca ? '<div class="sub">' + esc(l.cobranca) + '</div>' : '';
+  // Backup 21: o dia do vencimento já conta como vencido; até vencer, a régua única: <3 amarelo · <10 azul · ≥10 verde
   if (n < 0) return '<span class="atraso-d">' + (-n) + ' d atraso</span>' + extra;
-  if (n === 0) return '<span class="pill hoje">Vence hoje</span>' + extra;
-  return '<span class="' + (n <= 7 ? 'atraso-perto' : 'sub') + '">em ' + n + ' d</span>' + extra;
+  if (n === 0) return '<span class="atraso-d">vence hoje</span>' + extra;
+  return '<span class="' + (n < 3 ? 'dias-a' : n < 10 ? 'dias-b' : 'dias-g') + '">em ' + n + ' d</span>' + extra;
 }
 function tabelaLancamentos(lista, opc) {
   opc = opc || {};
@@ -1428,7 +1434,7 @@ function tabelaLancamentos(lista, opc) {
     lista.map((l) => {
       const data = porPagamento ? l.data_pagamento : l.vencimento;
       const quem = (l.grupos && l.grupos.nome) || l.favorecido || (l.clientes && l.clientes.nome) || '';
-      const venceu = !l.pago && !l.perda && l.vencimento && l.vencimento < h;
+      const venceu = !l.pago && !l.perda && l.vencimento && l.vencimento <= h;
       const leg = legendaLanc(l);
       return '<tr class="clicavel' + (l.vencimento === h && !l.pago ? ' linha-hoje' : '') + '" data-lanc="' + l.id + '" title="Clique para ver o detalhe">' +
         (lote ? '<td class="td-lote">' + (!l.pago && !l.perda ? '<input type="checkbox" data-lote="' + l.id + '" data-valor="' + (l.tipo === 'despesa' ? -l.valor : vl(l)) + '" aria-label="Marcar para dar baixa">' : '') + '</td>' : '') +
@@ -5729,8 +5735,10 @@ TELAS.publicacoes = async function () {
     '<div class="acoes"><button class="btn btn-o" id="pub-oabs">⚙ Monitoramento (OABs e clientes)</button><button class="btn btn-o" id="pub-nav" title="Busca direto do seu computador — use se o servidor não conseguir falar com o CNJ">🌐 Buscar pelo navegador</button><button class="btn btn-p" id="pub-buscar">↻ Buscar agora</button></div></div>' +
     '<div class="filtros"><div class="segmento" id="pub-st">' + [['nova', 'Novas'], ['lida', 'Lidas'], ['tratada', 'Tratadas'], ['descartada', 'Descartadas'], ['', 'Todas']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<select class="busca sel" id="pub-dias"><option value="7">Últimos 7 dias</option><option value="30">Últimos 30 dias</option><option value="90">Últimos 90 dias</option><option value="">Todo o período</option></select>' +
-    '<select class="busca sel" id="pub-adv"><option value="">Todos os advogados</option></select><select class="busca sel" id="pub-trib"><option value="">Todos os tribunais</option></select>' +
-    '<input class="busca" id="pub-busca" placeholder="Buscar no texto, processo ou parte" autocomplete="off"></div><div id="pub-corpo"><div class="carregando">Carregando…</div></div>';
+    '<select class="busca sel" id="pub-adv"><option value="">Todos os advogados</option></select>' +
+    '<input class="busca" id="pub-busca" placeholder="Buscar no texto, processo ou parte" autocomplete="off"></div>' +
+    // Backup 21: tribunais como filtro de botões — só os que têm publicação pendente (nova ou lida) no período
+    '<div class="filtros pub-trib-linha"><div class="segmento" id="pub-trib" role="group" aria-label="Tribunal"></div></div><div id="pub-corpo"><div class="carregando">Carregando…</div></div>';
   $('pub-oabs').onclick = () => janelaOabs();
   $('pub-buscar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
     const data = await chamarFuncao('erp-publicacoes', {});
@@ -5742,7 +5750,8 @@ TELAS.publicacoes = async function () {
   });
   $('pub-nav').onclick = (ev) => comBotao(ev.currentTarget, async () => { await buscarPubNoNavegador(); await TELAS.publicacoes(); });
   $('pub-st').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.status = b.dataset.v; pintarPublicacoes(); } };
-  [['pub-dias', 'dias'], ['pub-adv', 'adv'], ['pub-trib', 'tribunal']].forEach(([id, k]) => { $(id).onchange = (ev) => { F[k] = ev.target.value; if (k === 'dias') carregarPublicacoes(); else pintarPublicacoes(); }; });
+  $('pub-trib').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.tribunal = b.dataset.v; pintarPublicacoes(); } };
+  [['pub-dias', 'dias'], ['pub-adv', 'adv']].forEach(([id, k]) => { $(id).onchange = (ev) => { F[k] = ev.target.value; if (k === 'dias') carregarPublicacoes(); else pintarPublicacoes(); }; });
   $('pub-dias').value = F.dias; $('pub-busca').value = F.busca;
   let t; $('pub-busca').oninput = (ev) => { clearTimeout(t); t = setTimeout(() => { F.busca = ev.target.value; pintarPublicacoes(); }, 250); };
   q(sb.from('configuracoes').select('valor').eq('chave', 'publicacoes_ultima').maybeSingle()).then((u) => {
@@ -5764,7 +5773,7 @@ async function carregarPublicacoes() {
   E._pubs = await buscarTodos(() => { let c = sb.from('publicacoes').select('id, data_disponibilizacao, tribunal, orgao, tipo, processo, processo_numero, classe, texto, link, destinatarios, polos:bruto->destinatarios, advogados, oab_numero, oab_uf, advogado, parte_monitorada, processo_id, status, tarefa_id')
     .order('data_disponibilizacao', { ascending: false, nullsFirst: false }); if (F.dias) c = c.gte('data_disponibilizacao', somarDias(hojeISO(), -Number(F.dias))); return c; });
   const opts = (id, vals, rot) => { const s = $(id); if (!s) return; const v = s.value; s.innerHTML = '<option value="">' + rot + '</option>' + [...new Set(vals.filter(Boolean))].sort().map((x) => '<option>' + esc(x) + '</option>').join(''); s.value = v; };
-  opts('pub-adv', E._pubs.map((p) => p.advogado), 'Todos os advogados'); opts('pub-trib', E._pubs.map((p) => p.tribunal), 'Todos os tribunais');
+  opts('pub-adv', E._pubs.map((p) => p.advogado), 'Todos os advogados');
   pintarPublicacoes();
 }
 function pintarPublicacoes() {
@@ -5772,6 +5781,14 @@ function pintarPublicacoes() {
   if (!$('pub-corpo')) return;
   document.querySelectorAll('#pub-st button').forEach((x) => x.classList.toggle('ativo', x.dataset.v === F.status));
   const todas = E._pubs || [];
+  // tribunais com publicação pendente (nova/lida): quando todas forem tratadas/descartadas ou saírem do período, o botão some
+  const pend = {}; todas.filter((p) => (p.status === 'nova' || p.status === 'lida') && p.tribunal).forEach((p) => { pend[p.tribunal] = (pend[p.tribunal] || 0) + 1; });
+  const tribs = Object.keys(pend).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  if (F.tribunal && !pend[F.tribunal]) F.tribunal = '';
+  const st = $('pub-trib');
+  if (st) { st.parentNode.hidden = !tribs.length;
+    st.innerHTML = '<button type="button" data-v="" class="' + (F.tribunal ? '' : 'ativo') + '">Todos os tribunais</button>' +
+      tribs.map((t) => '<button type="button" data-v="' + esc(t) + '" class="' + (F.tribunal === t ? 'ativo' : '') + '" title="' + pend[t] + ' pendente(s)">' + esc(t) + ' <span class="seg-n">' + pend[t] + '</span></button>').join(''); }
   const lista = todas.filter((p) => (!F.status || p.status === F.status) && (!F.adv || p.advogado === F.adv) && (!F.tribunal || p.tribunal === F.tribunal) &&
     (!b || normalizar(p.texto + ' ' + p.processo + ' ' + p.destinatarios + ' ' + p.orgao).includes(b)));
   const conta = (s) => todas.filter((p) => p.status === s).length;

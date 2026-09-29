@@ -542,6 +542,8 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       await p.textContent('#gs-raiz #aviso'));
     ok('publicação liga ao processo cadastrado e avisa a advogada', sql("select count(*) from publicacoes where processo_id is not null") === '1' &&
       sql("select count(*) from notificacoes n join perfis pf on pf.id=n.usuario_id where pf.email='equipe@teste' and n.tipo='publicacao'") === '2');
+    ok('Publicações: filtro por tribunal só com os tribunais de publicações pendentes', (await p.$$('#pub-trib button[data-v]:not([data-v=""])')).length >= 1 &&
+      await p.evaluate(() => [...document.querySelectorAll('#pub-trib button[data-v]')].filter((b) => b.dataset.v).every((b) => (window.GS.E._pubs || []).some((x) => x.tribunal === b.dataset.v && /nova|lida/.test(x.status)))));
     ok('texto sem HTML e com as palavras importantes destacadas', sql("select count(*) from publicacoes where texto like '%<p>%'") === '0' && (await p.$$('#pub-corpo mark')).length > 0);
     await p.click('#pub-buscar'); await p.waitForTimeout(2500);
     ok('buscar de novo não duplica', sql("select count(*) from publicacoes") === '2');
@@ -785,7 +787,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       ok('Início: "A receber" conta de hoje até o fim do mês (não repete o atraso)', /de hoje até/.test(t)); }
     sql("insert into lancamentos(empresa,tipo,descricao,vencimento,valor) values ('escritorio','receita','Vence hoje teste',current_date,123)");
     await nav(p, 'hoje'); await p.waitForTimeout(1500);
-    ok('Início mostra o que vence hoje, destacado', /Vence hoje/.test(await p.textContent('#panel-hoje .ini-atraso')) && !!(await p.$('#panel-hoje tr.linha-hoje')));
+    ok('Início mostra o que vence hoje, destacado (o dia do vencimento já conta como vencido)', /vence hoje/i.test(await p.textContent('#panel-hoje .ini-atraso')) && !!(await p.$('#panel-hoje tr.linha-hoje')));
     sql("delete from lancamentos where descricao='Vence hoje teste'");
     // caixa de avisos: lido some e fica registrado
     await p.click('#gs-sino'); await p.waitForSelector('.cx-janela', { timeout: 8000 }); await p.waitForTimeout(300);
@@ -804,6 +806,11 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       await p.click('#chipProcAtivo'); await p.waitForTimeout(400);
       const n2 = await p.evaluate(() => document.querySelectorAll('#tblProcBody tr').length);
       ok('Processos: começa só com Ativos; desmarcar mostra todos', n2 >= n1, n1 + '→' + n2); await p.click('#chipProcAtivo'); }
+    await p.click('#tblProcBody tr.gx-linha-exp'); await p.waitForTimeout(500);
+    ok('Processos: clicar no processo abre uma janela com o detalhe (não abre para baixo)', await p.evaluate(() => [...document.querySelectorAll('#janelas .janela h2')].some((h) => /Processo 5000001/.test(h.textContent))) &&
+      !(await p.$('#tblProcBody tr.gx-det')) && !!(await p.$('#janelas [data-pr-editar]')));
+    await p.evaluate(() => { while (document.querySelector('#janelas .fundo')) window.GS.fecharJanela(); });
+    ok('Processos: grupo em texto simples e sem o botão "Limpar"', !!(await p.$('#tblProcBody td.gx-grupo-txt')) && !(await p.isVisible('#btnProcClear')));
     await nav(p, 'parcelamentos'); await p.waitForTimeout(1200);
     ok('Parcelamentos: saldo residual com tabela ao lado e ordenar por título', !!(await p.$('#cParcResidualTab table')) && await p.isVisible('#parcOrd [data-o=residual]'));
     await p.click('#parcOrd [data-o=residual]'); await p.waitForTimeout(400);
@@ -822,6 +829,8 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       const com = /Alfa Comércio/.test(await p.textContent('#acAnalise'));
       await p.uncheck('#acMostrarTodos'); sql("update acordos set pago=false, data_pagamento=null where devedor='Alfa Comércio Ltda'"); await p.evaluate(() => ERP_RECARREGAR()); await p.waitForTimeout(2000);
       return sem && com; })());
+    ok('Acordos: sem "Progresso por acordo"; A Pagar sem a coluna Situação; Saldo por devedor em lista', !(await p.isVisible('#acordProgressList')) &&
+      !(await p.$$eval('#acordTabPagar thead th', (l) => l.map((t) => t.textContent))).includes('Situação') && !!(await p.$('#acDevedorLista .acs-it')));
     await nav(p, 'financeiroContab'); await p.waitForTimeout(1500);
     ok('Contabilidade: Análise sem "Maiores clientes" e sem a lista de lançamentos', !/Maiores clientes/.test(await p.textContent('#panel-financeiroContab')) && !(await p.$('#fcLancTbl')));
     sql("insert into lancamentos(empresa,tipo,descricao,vencimento,valor,pago,data_pagamento) values ('contabilidade','receita','Caixa teste',current_date-5,500,true,current_date-5)");
@@ -898,8 +907,11 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('Início: clicar no cartão abre o relatório completo (largo e sem a coluna Descrição)', /Em atraso/.test(await p.textContent('#gs-raiz .janela-hd')) &&
       (await p.$$('#gs-raiz .janela-bd tbody tr')).length >= 2 && !(await p.$$eval('#gs-raiz .janela-bd th', (l) => l.some((x) => /Descrição/.test(x.textContent)))) && !!(await p.$('#gs-raiz .janela.janela-rel')));
     await p.keyboard.press('Escape'); await p.waitForTimeout(200);
-    await p.click('#panel-hoje .ini-atraso tr[data-linha-pagar]:has-text("Venceu B14") td:nth-child(2)'); await p.waitForTimeout(600);
-    ok('Início: clicar no honorário abre "Recebido — confirme a data"', /Recebido/.test(await p.textContent('#gs-raiz .janela-hd')));
+    await p.click('#panel-hoje .ini-atraso tr[data-linha-det]:has-text("Venceu B14") td:nth-child(3)'); await p.waitForTimeout(800);
+    ok('Início: clicar na dívida abre o detalhamento (o pagamento fica no botão "Recebido")', /Honorário/.test(await p.textContent('#gs-raiz .janela-hd')) && /Venceu B14/.test(await p.textContent('#gs-raiz .janela-bd')));
+    await p.keyboard.press('Escape'); await p.waitForTimeout(200);
+    await p.click('#panel-hoje .ini-atraso tr[data-linha-det]:has-text("Venceu B14") [data-pagar]'); await p.waitForTimeout(600);
+    ok('Início: "✓ Recebido" abre "Recebido — confirme a data"', /Recebido/.test(await p.textContent('#gs-raiz .janela-hd')));
     await p.keyboard.press('Escape'); await p.waitForTimeout(200);
     sql("delete from lancamentos where descricao in ('Vence hoje B14','Venceu B14')");
     // telas antigas
@@ -968,6 +980,16 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     // Painel: sem faixa, "Atualizado" e entidades/grupos na linha do filtro
     await nav(p, 'resumo'); await p.waitForTimeout(1500);
     ok('Painel: sem a faixa "Painel Executivo" e com "Atualizado" na linha do filtro', !(await p.isVisible('#panel-resumo > .mod-banner')) && await p.isVisible('#gx-linha-painel'));
+    ok('Painel: contadores rolam com a página (não ficam presos no topo)', await p.evaluate(() => getComputedStyle(document.getElementById('gx-linha-painel')).position !== 'fixed'));
+    await p.click('#pe-visao [data-v=grupo]'); await p.waitForTimeout(500);
+    { const grps = await p.$$eval('#tblExecRanking tr.gx-grp', (l) => l.map((t) => t.textContent));
+      ok('Painel → Empresas do grupo: separado por grupo como em Clientes ("Grupo Alfa 2 cadastros")', grps.some((t) => /Grupo Alfa\s*2 cadastros/.test(t)) && grps.some((t) => /Grupo Beta\s*1 cadastro/.test(t)), grps.join(' | ')); }
+    await p.click('#tblExecRanking tr.gx-linha-exp:has-text("Alfa Comércio") td:nth-child(4)'); await p.waitForTimeout(400);
+    await p.click('#tblExecRanking tr.gx-det [data-det-acao=ficha]');
+    await p.waitForFunction(() => [...document.querySelectorAll('#janelas .janela h2')].some((h) => /Alfa Comércio/i.test(h.textContent)), null, { timeout: 8000 }).catch(() => {});
+    ok('Painel → "Abrir ficha" abre a ficha do cliente (sem erro de uuid)', !/uuid|Erro no ERP/.test(await p.textContent('#gs-raiz #aviso').catch(() => '')) &&
+      await p.evaluate(() => [...document.querySelectorAll('#janelas .janela h2')].some((h) => /Alfa Comércio/i.test(h.textContent))));
+    await p.evaluate(() => { while (document.querySelector('#janelas .fundo')) window.GS.fecharJanela(); }); await p.waitForTimeout(200);
     // Financeiro Jurídico: área do serviço, detalhe ao clicar na linha
     { const cli = sql("select id from clientes where nome='Alfa Comércio Ltda'");
       sql("insert into lancamentos(empresa,tipo,descricao,cliente_id,vencimento,valor,servico) values ('escritorio','receita','Serviço B15','" + cli + "',current_date+10,321,'Tributário')");

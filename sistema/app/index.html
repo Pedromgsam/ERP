@@ -47,12 +47,12 @@
 <script src="config.js"></script>
 <script src="erp-dados.js?v=22001e3e"></script>
 <link rel="stylesheet" href="editor.css?v=7747e46f">
-<link rel="stylesheet" href="erp-telas.css?v=bf2799c9">
+<link rel="stylesheet" href="erp-telas.css?v=bee390b7">
 <script src="editor.js?v=c78b852e" defer></script>
-<script src="erp-telas.js?v=e901fead" defer></script>
+<script src="erp-telas.js?v=9fb51007" defer></script>
 <link rel="stylesheet" href="gs.css?v=b03d2c97">
 <script src="importador.js?v=4fb0d655" defer></script>
-<script src="gestao-embutida.js?v=319fafc9" defer></script>
+<script src="gestao-embutida.js?v=f63fca3e" defer></script>
 <script>
 
 
@@ -1617,7 +1617,7 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
 </style>
 <link rel="stylesheet" href="tokens.css?v=d75e8677">
 <link rel="stylesheet" href="tema-escuro.css?v=a032edaa">
-<link rel="stylesheet" href="design.css?v=06a0a775">
+<link rel="stylesheet" href="design.css?v=98a4eccb">
 <script>try{if(localStorage.getItem("erp_tema")==="escuro")document.documentElement.setAttribute("data-tema","escuro")}catch(e){}</script>
 </head>
 <body>
@@ -1974,14 +1974,14 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
     <div class="cc-hd" style="flex-wrap:wrap;gap:7px">
       <div><div class="cc-t">Processos <span style="font-size:10.5px;color:var(--text3);font-weight:400" id="procCount"></span></div></div>
       <div style="display:flex;gap:5px;flex-wrap:wrap">
-        <span class="chip" id="chipProcAtivo"    style="color:#166534;border-color:rgba(22,101,52,.35);background:rgba(22,101,52,.10)" onclick="procToggleChip('Ativo')">⚖ Ativos</span>
-        <span class="chip" id="chipProcArquivado" style="color:var(--text2);border-color:rgba(55,65,81,.35);background:rgba(55,65,81,.10)" onclick="procToggleChip('Arquivado')">📁 Arq. Provisoriamente</span>
-        <span class="chip" id="chipProcExtinto" style="color:var(--violet);border-color:rgba(124,58,237,.35);background:rgba(124,58,237,.10)" onclick="procToggleChip('Extinto')">⚫ Extintos</span>
+        <span class="chip" id="chipProcAtivo"    style="color:#166534;border-color:rgba(22,101,52,.35);background:rgba(22,101,52,.10)" onclick="procToggleChip('Ativo')">Ativos</span>
+        <span class="chip" id="chipProcArquivado" style="color:var(--text2);border-color:rgba(55,65,81,.35);background:rgba(55,65,81,.10)" onclick="procToggleChip('Arquivado')">Arquivados provisoriamente</span>
+        <span class="chip" id="chipProcExtinto" style="color:var(--violet);border-color:rgba(124,58,237,.35);background:rgba(124,58,237,.10)" onclick="procToggleChip('Extinto')">Extintos</span>
         <div style="width:1px;height:20px;background:var(--border);margin:0 2px"></div>
         <select class="fsel" id="fProcComp"   onchange="renderProcTbl()"><option value="">Todas competências</option></select>
         <select class="fsel" id="fProcNat"    onchange="renderProcTbl()"><option value="">Todas naturezas</option></select>
         <input type="text" class="fsel" id="busProc" placeholder="Buscar nº do processo, autor ou réu…" oninput="renderProcTbl()" style="min-width:260px;flex:1 1 260px">
-        <button class="btn-clear" id="btnProcClear" onclick="procClearFilters()" style="display:none">✕ Limpar</button>
+        <button class="btn-clear" id="btnProcClear" onclick="procClearFilters()" style="display:none" hidden>✕ Limpar</button>
       </div>
     </div>
     <div class="tw scr">
@@ -2050,10 +2050,10 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
       <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
         <div id="parcPeriodBar" style="display:flex;gap:4px;flex-wrap:wrap">
           <button class="fin-tab active" data-pp="todos" onclick="setParcPeriod('todos',this)">Todos</button>
-          <button class="fin-tab"        data-pp="7"     onclick="setParcPeriod('7',this)">🔴 7 dias</button>
-          <button class="fin-tab"        data-pp="15"    onclick="setParcPeriod('15',this)">🟠 15 dias</button>
-          <button class="fin-tab"        data-pp="30"    onclick="setParcPeriod('30',this)">🟡 30 dias</button>
-          <button class="fin-tab"        data-pp="60"    onclick="setParcPeriod('60',this)">🔵 60 dias</button>
+          <button class="fin-tab"        data-pp="7"     onclick="setParcPeriod('7',this)">7 dias</button>
+          <button class="fin-tab"        data-pp="15"    onclick="setParcPeriod('15',this)">15 dias</button>
+          <button class="fin-tab"        data-pp="30"    onclick="setParcPeriod('30',this)">30 dias</button>
+          <button class="fin-tab"        data-pp="60"    onclick="setParcPeriod('60',this)">60 dias</button>
         </div>
         <select class="fsel" id="fParcNat"   onchange="renderParcTbl()"><option value="">Todas as naturezas</option></select>
         <select class="fsel" id="fParcLocal" onchange="renderParcTbl()"><option value="">Todas plataformas</option></select>
@@ -2077,11 +2077,11 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
     <div id="parcTabPago" style="display:none">
       <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
         <div id="parcPagoPeriodBar" style="display:flex;gap:4px;flex-wrap:wrap">
-          <button class="fin-tab active" data-ppp="todos" onclick="setParcPagoPeriod('todos',this)">🟢 Todos</button>
-          <button class="fin-tab" data-ppp="7"   onclick="setParcPagoPeriod('7',this)">🟢 7 dias</button>
-          <button class="fin-tab" data-ppp="15"  onclick="setParcPagoPeriod('15',this)">🟢 15 dias</button>
-          <button class="fin-tab" data-ppp="30"  onclick="setParcPagoPeriod('30',this)">🟢 30 dias</button>
-          <button class="fin-tab" data-ppp="60"  onclick="setParcPagoPeriod('60',this)">🟢 60 dias</button>
+          <button class="fin-tab active" data-ppp="todos" onclick="setParcPagoPeriod('todos',this)">Todos</button>
+          <button class="fin-tab" data-ppp="7"   onclick="setParcPagoPeriod('7',this)">7 dias</button>
+          <button class="fin-tab" data-ppp="15"  onclick="setParcPagoPeriod('15',this)">15 dias</button>
+          <button class="fin-tab" data-ppp="30"  onclick="setParcPagoPeriod('30',this)">30 dias</button>
+          <button class="fin-tab" data-ppp="60"  onclick="setParcPagoPeriod('60',this)">60 dias</button>
         </div>
         <select class="fsel" id="fParcPagoNat"   onchange="renderParcPagoTbl()"><option value="">Todas as naturezas</option></select>
         <select class="fsel" id="fParcPagoLocal" onchange="renderParcPagoTbl()"><option value="">Todas plataformas</option></select>
@@ -2157,18 +2157,13 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
       <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
         <div id="acordPeriodBar" style="display:flex;gap:4px;flex-wrap:wrap">
           <button class="fin-tab active" data-ap="todos" onclick="setAcordPeriod('todos',this)">Todos</button>
-          <button class="fin-tab"        data-ap="7"     onclick="setAcordPeriod('7',this)">🔴 7 dias</button>
-          <button class="fin-tab"        data-ap="15"    onclick="setAcordPeriod('15',this)">🟠 15 dias</button>
-          <button class="fin-tab"        data-ap="30"    onclick="setAcordPeriod('30',this)">🟡 30 dias</button>
-          <button class="fin-tab"        data-ap="60"    onclick="setAcordPeriod('60',this)">🔵 60 dias</button>
+          <button class="fin-tab"        data-ap="7"     onclick="setAcordPeriod('7',this)">7 dias</button>
+          <button class="fin-tab"        data-ap="15"    onclick="setAcordPeriod('15',this)">15 dias</button>
+          <button class="fin-tab"        data-ap="30"    onclick="setAcordPeriod('30',this)">30 dias</button>
+          <button class="fin-tab"        data-ap="60"    onclick="setAcordPeriod('60',this)">60 dias</button>
         </div>
         <select class="fsel" id="fAcordGrupo" onchange="renderAcordosTbl()"><option value="">Todos grupos</option></select>
         <select class="fsel" id="fAcordDev"   onchange="renderAcordosTbl()"><option value="">Todos devedores</option></select>
-        <select class="fsel" id="fAcordSit"   onchange="renderAcordosTbl()">
-          <option value="">Todas situações</option>
-          <option value="Emitir Guia">Emitir Guia</option>
-          <option value="OK">A Vencer (OK)</option>
-        </select>
         <input type="text" class="fsel" id="busAcord" placeholder="Devedor / processo..." oninput="renderAcordosTbl()" style="max-width:155px">
         <span style="font-size:10.5px;color:var(--text3);align-self:center" id="acordAPCount"></span>
       </div>
@@ -2178,7 +2173,7 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
           <th class="s" onclick="sortAcordos(5)">Parcela</th>
           <th class="s" onclick="sortAcordos(7)">Valor</th>
           <th class="s" onclick="sortAcordos(8)">Vencimento</th>
-          <th>Dias</th><th>Situação</th>
+          <th>Dias</th>
         </tr></thead><tbody id="tblAcordosBody"></tbody></table>
       </div>
       <div class="pgn" id="pagAcordos"></div>
@@ -2188,11 +2183,11 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
     <div id="acordTabPago" style="display:none">
       <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
         <div id="acordPagoPeriodBar" style="display:flex;gap:4px;flex-wrap:wrap">
-          <button class="fin-tab active" data-app="todos" onclick="setAcordPagoPeriod('todos',this)">🟢 Todos</button>
-          <button class="fin-tab" data-app="7"   onclick="setAcordPagoPeriod('7',this)">🟢 7 dias</button>
-          <button class="fin-tab" data-app="15"  onclick="setAcordPagoPeriod('15',this)">🟢 15 dias</button>
-          <button class="fin-tab" data-app="30"  onclick="setAcordPagoPeriod('30',this)">🟢 30 dias</button>
-          <button class="fin-tab" data-app="60"  onclick="setAcordPagoPeriod('60',this)">🟢 60 dias</button>
+          <button class="fin-tab active" data-app="todos" onclick="setAcordPagoPeriod('todos',this)">Todos</button>
+          <button class="fin-tab" data-app="7"   onclick="setAcordPagoPeriod('7',this)">7 dias</button>
+          <button class="fin-tab" data-app="15"  onclick="setAcordPagoPeriod('15',this)">15 dias</button>
+          <button class="fin-tab" data-app="30"  onclick="setAcordPagoPeriod('30',this)">30 dias</button>
+          <button class="fin-tab" data-app="60"  onclick="setAcordPagoPeriod('60',this)">60 dias</button>
         </div>
         <select class="fsel" id="fAcordPgDev"   onchange="renderAcordosPgTbl()"><option value="">Todos devedores</option></select>
         <select class="fsel" id="fAcordPgGrupo" onchange="renderAcordosPgTbl()"><option value="">Todos grupos</option></select>
@@ -2207,10 +2202,7 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
       <div class="pgn" id="pagAcordosPg"></div>
     </div><!-- /acordTabPago -->
   </div><!-- /outer cc -->
-  <div class="cc">
-    <div class="cc-hd"><div><div class="cc-t">Progresso por Acordo</div><div class="cc-d">Parcelas pagas / total · Devedor → Credor</div></div></div>
-    <div id="acordProgressList" style="display:flex;flex-direction:column;gap:10px"></div>
-  </div>
+<div hidden aria-hidden="true"><div id="acordProgressList"></div></div>
 </section>
 
 <!-- FINANCEIRO -->
@@ -4346,7 +4338,7 @@ function renderProcTbl(){
     const sC={Ativo:'tg',Arquivado:'tx',Extinto:'tv',Prescrito:'ta'}[stat]||'tx';
     const pC=p.procuracao==='SIM'?'tg':'tr';
     return`<tr data-gx="${_gx(p)}">
-      <td><span class="tag tn">${p.grupo||'—'}</span></td>
+      <td class="gx-grupo-txt">${p.grupo||'—'}</td>
       <td class="mono" style="font-size:10.5px">${p.numero||'—'}</td>
       <td>${p.competencia||'—'}</td><td>${p.natureza||'—'}</td>
       <td style="font-size:11px">${String(p.autor||'—').replace(/;\s*/g,' · ')}</td>
@@ -4825,6 +4817,28 @@ function _acordosAnalise(ac){
    + '<div class="acx"><div class="acx-hd"><span>Acordo</span><span>Pagamento</span><span>Próxima parcela</span><span>Situação</span><span></span></div>'
    + linhas + '</div>');
 }
+// ═══ Backup 21 ═══
+// Dias até o vencimento, a mesma régua em todo o ERP: vencido (inclui o próprio dia) vermelho · <3 amarelo · <10 azul · ≥10 verde
+function _diasCls(d){ return d<=0?'dias-r':d<3?'dias-a':d<10?'dias-b':'dias-g'; }
+// Saldo por devedor: um cartão-linha por devedor (posição, nome, nº de acordos, parcelas em atraso, barra na rampa azul pelo posto, saldo e %)
+var _AC_RAMPA=['var(--chart-rampa-1)','var(--chart-rampa-2)','var(--chart-rampa-3)','var(--chart-rampa-4)','var(--chart-rampa-5)'];
+function _acSaldoDevedor(acAP){
+  var el=$('acDevedorLista'); if(!el) return;
+  var hj=new Date(), D={}; hj.setHours(0,0,0,0);
+  acAP.forEach(function(a){ var k=a.devedor||'—', d=pDate(a.vencimento); var x=D[k]=D[k]||{n:k,v:0,atr:0,vAtr:0,ac:{}};
+    x.v+=Number(a.valor)||0; x.ac[_acChave(a)]=1; if(a.situacao==='Vencido'||(d&&d<=hj)){ x.atr++; x.vAtr+=Number(a.valor)||0; } });
+  var L=Object.keys(D).map(function(k){ return D[k]; }).sort(function(a,b){ return b.v-a.v; });
+  if(!L.length){ el.innerHTML='<div class="pa-ok">Nenhum saldo em aberto.</div>'; return; }
+  var tot=L.reduce(function(s,x){return s+x.v;},0)||1, max=L[0].v||1, mais=L.length>10?L.length-10:0, n10=Math.min(L.length,10);
+  el.innerHTML='<div class="acs-tot"><span>Total em aberto</span><b>'+fF(tot)+'</b><span class="acs-n">'+L.length+' devedor'+(L.length>1?'es':'')+'</span></div>'
+    +'<div class="acs">'+L.slice(0,10).map(function(x,i){ var na=Object.keys(x.ac).length;
+      return '<div class="acs-it"><div class="acs-pos">'+(i+1)+'</div>'
+        +'<div class="acs-quem"><div class="acs-nome" title="'+esc(x.n)+'">'+esc(x.n)+'</div><div class="acs-sub">'+na+' acordo'+(na>1?'s':'')
+        +(x.atr?' · <span class="acs-atr">'+x.atr+' parcela'+(x.atr>1?'s':'')+' em atraso ('+fF(x.vAtr)+')</span>':' · em dia')+'</div></div>'
+        +'<div class="acs-bar"><span style="width:'+Math.max(2,x.v/max*100).toFixed(1)+'%;background:'+_AC_RAMPA[n10>1?Math.round(i*(_AC_RAMPA.length-1)/(n10-1)):0]+'"></span></div>'
+        +'<div class="acs-v">'+fF(x.v)+'</div><div class="acs-p">'+(x.v/tot*100).toFixed(1).replace('.',',')+'%</div></div>'; }).join('')
+    +'</div>'+(mais?'<div class="acs-mais">+ '+mais+' devedor'+(mais>1?'es':'')+' com saldo menor</div>':'');
+}
 function renderAcordos(){
   const ac=_acordosPendentes(filtrarAcordos());
   const acAP=ac.filter(a=>a.situacao!=='Pago'); // A pagar
@@ -4844,10 +4858,7 @@ function renderAcordos(){
   const devs=[...new Set(acAP.map(a=>a.devedor))].filter(Boolean);
   const dV=devs.map(d=>acAP.filter(a=>a.devedor===d).reduce((s,a)=>s+(Number(a.valor)||0),0));
   const iD=dV.map((_,i)=>i).sort((a,b)=>dV[b]-dV[a]).slice(0,10);
-  { const _el=$('acDevedorLista'), _tot=dV.reduce((s,v)=>s+v,0)||1, _max=Math.max(1,...dV);
-    if(_el) _el.innerHTML=iD.length?'<table class="gx-rank"><tbody>'+iD.map(i=>'<tr><td class="gx-rank-n">'+esc(devs[i])+'</td><td class="gx-rank-b"><span style="width:'+(dV[i]/_max*100).toFixed(1)+'%"></span></td>'+
-      '<td class="num mono">'+fF(dV[i])+'</td><td class="num gx-leg-p">'+(dV[i]/_tot*100).toFixed(1).replace('.',',')+'%</td></tr>').join('')+'</tbody><tfoot><tr><td>Total</td><td></td><td class="num mono">'+fF(dV.reduce((s,v)=>s+v,0))+'</td><td class="num">100%</td></tr></tfoot></table>'
-      :'<div class="pa-ok">Nenhum saldo em aberto.</div>'; }
+  _acSaldoDevedor(acAP);
   // v44: valor em atraso por devedor — mesma leitura do painel de
   // parcelamentos. Atrasado = não pago e vencimento anterior a hoje
   // (ou situação já marcada como Vencido na planilha).
@@ -4938,7 +4949,7 @@ function renderAcordosTbl(){
   let rows=filtrarAcordos().filter(a=>{
     if(a.situacao==='Pago'||a.situacao==='Vencido')return false; // Vencidos na aba própria
     const dv=pDate(a.vencimento);
-    if(dv&&dv<hojeAc)return false;
+    if(dv&&dv<=hojeAc)return false;
     if(ap!=='todos'){
       const limA=new Date(hojeAc);limA.setDate(limA.getDate()+Number(ap));
       if(!dv||dv>limA)return false;
@@ -4978,10 +4989,9 @@ function renderAcordosTbl(){
       <td class="mono">${a.parcela||'—'} / ${a.totalParc||'—'}</td>
       <td class="mono"><strong>${fF(a.valor||0)}</strong></td>
       <td class="mono">${a.vencimento||'—'}</td>
-      <td class="mono" style="font-size:11px;font-weight:600;color:${dias<0?'var(--red-d)':dias<=7?'var(--amber)':'var(--text3)'}">${dias<0?Math.abs(dias)+' d atraso':dias+' d'}</td>
-      <td><span class="tag ${(sC[a.situacao]||'tx')+puls}" style="${a.situacao==='Vencido'?'border-left:3px solid var(--red);':''}">${a.situacao||'—'}</span></td>
+      <td class="mono"><span class="${_diasCls(dias)}">${dias<=0?'vencida':'em '+dias+' d'}</span></td>
     </tr>`;
-  }).join(''):`<tr><td colspan="8">${emp()}</td></tr>`;
+  }).join(''):`<tr><td colspan="7">${emp()}</td></tr>`;
 }
 function sortAcordos(c){
   if(_acordSort.col===c)_acordSort.asc=!_acordSort.asc;
@@ -5020,8 +5030,8 @@ function renderAcordosVencTbl(){
     const dv=pDate(a.vencimento);
     const dias=dv?Math.floor((hoje-dv)/(1000*60*60*24)):0;
     return`<tr data-gx="${_gx(a)}">
-      <td style="font-size:11px">${a.devedor||'—'}</td>
-      <td style="font-size:11px">${a.credor||'—'}</td>
+      <td>${a.devedor||'—'}</td>
+      <td>${a.credor||'—'}</td>
       <td class="mono" style="font-size:10.5px">${a.processo||'—'}</td>
       <td class="mono">${a.parcela||'—'} / ${a.totalParc||'—'}</td>
       <td class="mono"><strong>${fF(a.valor||0)}</strong></td>
@@ -5880,12 +5890,12 @@ function renderFinanceiro(){
   var h='';
   h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px" id="finPeriodBar">';
   h+='<button class="fin-tab '+(window._finPeriod==='todos'?'active':'')+'" data-fp="todos" onclick="setFinPeriod(\'todos\',this)" style="font-size:12px;padding:6px 14px">Todos</button>';
-  h+='<button class="fin-tab fin-tab-vencidos '+(window._finPeriod==='vencidos'?'active':'')+'" data-fp="vencidos" onclick="setFinPeriod(\'vencidos\',this)" style="font-size:12px;padding:6px 14px">⚠ Vencidos</button>';
-  h+='<button class="fin-tab '+(window._finPeriod==='7'?'active':'')+'" data-fp="7" onclick="setFinPeriod(\'7\',this)" style="font-size:12px;padding:6px 14px">🔴 7 dias</button>';
-  h+='<button class="fin-tab '+(window._finPeriod==='15'?'active':'')+'" data-fp="15" onclick="setFinPeriod(\'15\',this)" style="font-size:12px;padding:6px 14px">🟠 15 dias</button>';
-  h+='<button class="fin-tab '+(window._finPeriod==='30'?'active':'')+'" data-fp="30" onclick="setFinPeriod(\'30\',this)" style="font-size:12px;padding:6px 14px">🟡 30 dias</button>';
-  h+='<button class="fin-tab '+(window._finPeriod==='60'?'active':'')+'" data-fp="60" onclick="setFinPeriod(\'60\',this)" style="font-size:12px;padding:6px 14px">🔵 60 dias</button>';
-  h+='<select class="fsel" id="fFinMesAno" onchange="renderFinTbl()" style="min-width:140px;font-size:12px" title="Filtrar por mês/ano exato"><option value="">— Mês/Ano —</option></select>';
+  h+='<button class="fin-tab fin-tab-vencidos '+(window._finPeriod==='vencidos'?'active':'')+'" data-fp="vencidos" onclick="setFinPeriod(\'vencidos\',this)" style="font-size:12px;padding:6px 14px">Vencidos</button>';
+  h+='<button class="fin-tab '+(window._finPeriod==='7'?'active':'')+'" data-fp="7" onclick="setFinPeriod(\'7\',this)" style="font-size:12px;padding:6px 14px">7 dias</button>';
+  h+='<button class="fin-tab '+(window._finPeriod==='15'?'active':'')+'" data-fp="15" onclick="setFinPeriod(\'15\',this)" style="font-size:12px;padding:6px 14px">15 dias</button>';
+  h+='<button class="fin-tab '+(window._finPeriod==='30'?'active':'')+'" data-fp="30" onclick="setFinPeriod(\'30\',this)" style="font-size:12px;padding:6px 14px">30 dias</button>';
+  h+='<button class="fin-tab '+(window._finPeriod==='60'?'active':'')+'" data-fp="60" onclick="setFinPeriod(\'60\',this)" style="font-size:12px;padding:6px 14px">60 dias</button>';
+  h+='<select class="fsel" id="fFinMesAno" onchange="renderFinTbl()" style="min-width:140px;font-size:12px" title="Filtrar por mês/ano exato"><option value="">Mês/ano</option></select>';
   h+='</div>';
   h+='<div class="ex-bn" style="margin-bottom:16px;position:relative;background:none;border:1.5px solid var(--border);box-shadow:var(--shadow-md);padding:22px 26px">';
   h+='<div class="gx-sec-tit">💼 Financeiro — Visão Geral</div>';
@@ -5925,7 +5935,7 @@ function renderFinanceiro(){
   h+='<div class="cc-d">Filtro único · impacta todos os gráficos abaixo</div></div>';
   h+='<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">';
   h+='<select class="fsel" id="fFinChAdv" onchange="_finCharts()" style="max-width:150px">'+advCOpts+'</select>';
-  h+='<select class="fsel" id="fFinChMesAno" onchange="_finCharts()" style="min-width:140px;font-size:12px" title="Filtrar gráficos por mês/ano"><option value="">— Mês/Ano —</option></select>';
+  h+='<select class="fsel" id="fFinChMesAno" onchange="_finCharts()" style="min-width:140px;font-size:12px" title="Filtrar gráficos por mês/ano"><option value="">Mês/ano</option></select>';
   h+='</div></div>';
   h+='<div class="crow c2" style="margin-top:10px">';
   h+='<div class="cb" style="height:210px"><canvas id="cFinGrupo"></canvas>';
@@ -5959,7 +5969,7 @@ function _finCharts(){
     var cur=sel.value;
     var meses=[...new Set(_finDados().filter(f=>f.aba==='A Receber').map(f=>{var d=pDate(f.vencimento);return d?d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'):null;}).filter(Boolean))].sort().reverse();
     var lbls={'01':'Jan','02':'Fev','03':'Mar','04':'Abr','05':'Mai','06':'Jun','07':'Jul','08':'Ago','09':'Set','10':'Out','11':'Nov','12':'Dez'};
-    sel.innerHTML='<option value="">— Mês/Ano —</option>'+meses.map(m=>{var p=m.split('-');return`<option value="${m}"${m===cur?' selected':''}>${lbls[p[1]]||p[1]}/${p[0]}</option>`;}).join('');
+    sel.innerHTML='<option value="">Mês/ano</option>'+meses.map(m=>{var p=m.split('-');return`<option value="${m}"${m===cur?' selected':''}>${lbls[p[1]]||p[1]}/${p[0]}</option>`;}).join('');
     if(cur)sel.value=cur;
   })();
 
@@ -6041,7 +6051,7 @@ function _popMesAnoSel(selId, rows, dateField, curVal) {
     if (!seen[key]) { seen[key] = true; meses.push(key); }
   });
   meses.sort().reverse();
-  sel.innerHTML = '<option value="">— Mês/Ano —</option>' +
+  sel.innerHTML = '<option value="">Mês/ano</option>' +
     meses.map(function(m){
       var p = m.split('-');
       return '<option value="' + m + '"' + (m === curVal ? ' selected' : '') + '>' +
@@ -6076,11 +6086,11 @@ function _finRecebidos(fin){
   var _recPeriod=window._recPeriod||'todos';
   h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px" id="recPeriodBar">';
   h+='<button class="fin-tab '+(window._recPeriod==='todos'?'active':'' )+'" onclick="setRecPeriod(\'todos\',this)" style="font-size:12px;padding:6px 14px">Todos</button>';
-  h+='<button class="fin-tab '+(window._recPeriod==='7'?'active':'')+'" onclick="setRecPeriod(\'7\',this)" style="font-size:12px;padding:6px 14px">🔴 7 dias</button>';
-  h+='<button class="fin-tab '+(window._recPeriod==='15'?'active':'')+'" onclick="setRecPeriod(\'15\',this)" style="font-size:12px;padding:6px 14px">🟠 15 dias</button>';
-  h+='<button class="fin-tab '+(window._recPeriod==='30'?'active':'')+'" onclick="setRecPeriod(\'30\',this)" style="font-size:12px;padding:6px 14px">🟡 30 dias</button>';
-  h+='<button class="fin-tab '+(window._recPeriod==='60'?'active':'')+'" onclick="setRecPeriod(\'60\',this)" style="font-size:12px;padding:6px 14px">🔵 60 dias</button>';
-  h+='<select class="fsel" id="fRecMesAno" onchange="setRecMesAno(this.value)" style="min-width:130px;font-size:12px" title="Filtrar por mês"><option value="">— Mês/Ano —</option></select>';
+  h+='<button class="fin-tab '+(window._recPeriod==='7'?'active':'')+'" onclick="setRecPeriod(\'7\',this)" style="font-size:12px;padding:6px 14px">7 dias</button>';
+  h+='<button class="fin-tab '+(window._recPeriod==='15'?'active':'')+'" onclick="setRecPeriod(\'15\',this)" style="font-size:12px;padding:6px 14px">15 dias</button>';
+  h+='<button class="fin-tab '+(window._recPeriod==='30'?'active':'')+'" onclick="setRecPeriod(\'30\',this)" style="font-size:12px;padding:6px 14px">30 dias</button>';
+  h+='<button class="fin-tab '+(window._recPeriod==='60'?'active':'')+'" onclick="setRecPeriod(\'60\',this)" style="font-size:12px;padding:6px 14px">60 dias</button>';
+  h+='<select class="fsel" id="fRecMesAno" onchange="setRecMesAno(this.value)" style="min-width:130px;font-size:12px" title="Filtrar por mês"><option value="">Mês/ano</option></select>';
   h+='</div>';
   h+='<div class="kpi-grid">';
   h+=kC('Total Recebido',fS(tot),fF(tot),'cg','dg');
@@ -6241,11 +6251,11 @@ function _finPrejuizo(fin){
   var h='';
   h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px" id="prejPeriodBar">';
   h+='<button class="fin-tab '+(pp5==='todos'?'active':'')+'" data-pj="todos" onclick="setPrejPeriod(\'todos\',this)">🔴 Todos</button>';
-  h+='<button class="fin-tab '+(pp5==='7'?'active':'')+'" data-pj="7" onclick="setPrejPeriod(\'7\',this)">🔴 7 dias</button>';
+  h+='<button class="fin-tab '+(pp5==='7'?'active':'')+'" data-pj="7" onclick="setPrejPeriod(\'7\',this)">7 dias</button>';
   h+='<button class="fin-tab '+(pp5==='15'?'active':'')+'" data-pj="15" onclick="setPrejPeriod(\'15\',this)">🔴 15 dias</button>';
   h+='<button class="fin-tab '+(pp5==='30'?'active':'')+'" data-pj="30" onclick="setPrejPeriod(\'30\',this)">🔴 30 dias</button>';
   h+='<button class="fin-tab '+(pp5==='60'?'active':'')+'" data-pj="60" onclick="setPrejPeriod(\'60\',this)">🔴 60 dias</button>';
-  h+='<select class="fsel" id="fPrejMesAno" onchange="setPrejMesAno(this.value)" style="min-width:130px;font-size:12px"><option value="">— Mês/Ano —</option></select>';
+  h+='<select class="fsel" id="fPrejMesAno" onchange="setPrejMesAno(this.value)" style="min-width:130px;font-size:12px"><option value="">Mês/ano</option></select>';
   h+='</div>';
   h+='<div class="kpi-grid">';
   h+=kC('Prejuízo/Crédito',fS(Math.abs(tot)),fF(tot),'cv','dv');
@@ -6405,7 +6415,7 @@ function _finPopMesAno(rows){
   var cur=sel.value;
   var meses=[...new Set(rows.map(f=>{var d=pDate(f.vencimento);return d?d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'):null;}).filter(Boolean))].sort().reverse();
   var lbls={'01':'Jan','02':'Fev','03':'Mar','04':'Abr','05':'Mai','06':'Jun','07':'Jul','08':'Ago','09':'Set','10':'Out','11':'Nov','12':'Dez'};
-  sel.innerHTML='<option value="">— Mês/Ano —</option>'+meses.map(m=>{var p=m.split('-');return`<option value="${m}"${m===cur?' selected':''}>${lbls[p[1]]||p[1]}/${p[0]}</option>`;}).join('');
+  sel.innerHTML='<option value="">Mês/ano</option>'+meses.map(m=>{var p=m.split('-');return`<option value="${m}"${m===cur?' selected':''}>${lbls[p[1]]||p[1]}/${p[0]}</option>`;}).join('');
   if(cur&&meses.includes(cur))sel.value=cur;
 }
 
@@ -6991,12 +7001,12 @@ function _renderFinCAbaAberta(ladoKey){
   var h='';
   h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px" id="fcAbaPeriodBar">';
   h+='<button class="fin-tab '+(window._fcAbaPeriod==='todos'?'active':'')+'" onclick="setFinCAbaPeriod(\'todos\',this)" style="font-size:12px;padding:6px 14px">Todos</button>';
-  h+='<button class="fin-tab fin-tab-vencidos '+(window._fcAbaPeriod==='vencidos'?'active':'')+'" onclick="setFinCAbaPeriod(\'vencidos\',this)" style="font-size:12px;padding:6px 14px">⚠ Vencidos</button>';
-  h+='<button class="fin-tab '+(window._fcAbaPeriod==='7'?'active':'')+'" onclick="setFinCAbaPeriod(\'7\',this)" style="font-size:12px;padding:6px 14px">🔴 7 dias</button>';
-  h+='<button class="fin-tab '+(window._fcAbaPeriod==='15'?'active':'')+'" onclick="setFinCAbaPeriod(\'15\',this)" style="font-size:12px;padding:6px 14px">🟠 15 dias</button>';
-  h+='<button class="fin-tab '+(window._fcAbaPeriod==='30'?'active':'')+'" onclick="setFinCAbaPeriod(\'30\',this)" style="font-size:12px;padding:6px 14px">🟡 30 dias</button>';
-  h+='<button class="fin-tab '+(window._fcAbaPeriod==='60'?'active':'')+'" onclick="setFinCAbaPeriod(\'60\',this)" style="font-size:12px;padding:6px 14px">🔵 60 dias</button>';
-  h+='<select class="fsel" id="fcAbaMesAno" onchange="renderFinCAbaTbl()" style="min-width:140px;font-size:12px" title="Filtrar por mês/ano exato"><option value="">— Mês/Ano —</option></select>';
+  h+='<button class="fin-tab fin-tab-vencidos '+(window._fcAbaPeriod==='vencidos'?'active':'')+'" onclick="setFinCAbaPeriod(\'vencidos\',this)" style="font-size:12px;padding:6px 14px">Vencidos</button>';
+  h+='<button class="fin-tab '+(window._fcAbaPeriod==='7'?'active':'')+'" onclick="setFinCAbaPeriod(\'7\',this)" style="font-size:12px;padding:6px 14px">7 dias</button>';
+  h+='<button class="fin-tab '+(window._fcAbaPeriod==='15'?'active':'')+'" onclick="setFinCAbaPeriod(\'15\',this)" style="font-size:12px;padding:6px 14px">15 dias</button>';
+  h+='<button class="fin-tab '+(window._fcAbaPeriod==='30'?'active':'')+'" onclick="setFinCAbaPeriod(\'30\',this)" style="font-size:12px;padding:6px 14px">30 dias</button>';
+  h+='<button class="fin-tab '+(window._fcAbaPeriod==='60'?'active':'')+'" onclick="setFinCAbaPeriod(\'60\',this)" style="font-size:12px;padding:6px 14px">60 dias</button>';
+  h+='<select class="fsel" id="fcAbaMesAno" onchange="renderFinCAbaTbl()" style="min-width:140px;font-size:12px" title="Filtrar por mês/ano exato"><option value="">Mês/ano</option></select>';
   h+='</div>';
   h+='<div class="ex-bn" style="margin-bottom:16px;position:relative;background:none;border:1.5px solid var(--border);box-shadow:var(--shadow-md);padding:22px 26px">';
   h+='<div class="gx-sec-tit">'+L.bannerAberto+' '+esc(L.abaAberto)+' — Visão Geral</div>';
@@ -7033,7 +7043,7 @@ function _renderFinCAbaAberta(ladoKey){
   h+='<div class="cc-d">Filtro único · impacta todos os gráficos abaixo</div></div>';
   h+='<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">';
   h+='<select class="fsel" id="fFcAbaChRecorte" onchange="_finCAbaCharts(\''+ladoKey+'\')" style="max-width:150px">'+recOpts+'</select>';
-  h+='<select class="fsel" id="fFcAbaChMesAno" onchange="_finCAbaCharts(\''+ladoKey+'\')" style="min-width:140px;font-size:12px" title="Filtrar gráficos por mês/ano"><option value="">— Mês/Ano —</option></select>';
+  h+='<select class="fsel" id="fFcAbaChMesAno" onchange="_finCAbaCharts(\''+ladoKey+'\')" style="min-width:140px;font-size:12px" title="Filtrar gráficos por mês/ano"><option value="">Mês/ano</option></select>';
   h+='</div></div>';
   h+='<div class="crow c2" style="margin-top:10px">';
   h+='<div class="cb" style="height:210px"><canvas id="cFinCGrupo"></canvas>';
@@ -7149,7 +7159,7 @@ function _finCPopMesAno(sel, rows, dateField, curVal){
     if(!seen[key]){seen[key]=true;meses.push(key);}
   });
   meses.sort().reverse();
-  sel.innerHTML='<option value="">— Mês/Ano —</option>'+meses.map(function(m){
+  sel.innerHTML='<option value="">Mês/ano</option>'+meses.map(function(m){
     var p=m.split('-');
     return '<option value="'+m+'"'+(m===curVal?' selected':'')+'>'+(lb[p[1]]||p[1])+'/'+p[0]+'</option>';
   }).join('');
@@ -7169,7 +7179,7 @@ function _finCAbaCharts(ladoKey){
     var cur=sel.value;
     var meses=[...new Set(_finCDados().filter(function(f){return f.aba===L.abaAberto;}).map(function(f){var d=pDate(f.vencimento);return d?d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'):null;}).filter(Boolean))].sort().reverse();
     var lbls={'01':'Jan','02':'Fev','03':'Mar','04':'Abr','05':'Mai','06':'Jun','07':'Jul','08':'Ago','09':'Set','10':'Out','11':'Nov','12':'Dez'};
-    sel.innerHTML='<option value="">— Mês/Ano —</option>'+meses.map(function(m){var p=m.split('-');return '<option value="'+m+'"'+(m===cur?' selected':'')+'>'+(lbls[p[1]]||p[1])+'/'+p[0]+'</option>';}).join('');
+    sel.innerHTML='<option value="">Mês/ano</option>'+meses.map(function(m){var p=m.split('-');return '<option value="'+m+'"'+(m===cur?' selected':'')+'>'+(lbls[p[1]]||p[1])+'/'+p[0]+'</option>';}).join('');
     if(cur)sel.value=cur;
   })();
 
@@ -7266,11 +7276,11 @@ function _renderFinCAbaFechada(ladoKey){
   var h='';
   h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px" id="fcFechPeriodBar">';
   h+='<button class="fin-tab '+(_pp==='todos'?'active':'' )+'" onclick="setFinCFechPeriod(\'todos\',this)" style="font-size:12px;padding:6px 14px">Todos</button>';
-  h+='<button class="fin-tab '+(_pp==='7'?'active':'')+'" onclick="setFinCFechPeriod(\'7\',this)" style="font-size:12px;padding:6px 14px">🔴 7 dias</button>';
-  h+='<button class="fin-tab '+(_pp==='15'?'active':'')+'" onclick="setFinCFechPeriod(\'15\',this)" style="font-size:12px;padding:6px 14px">🟠 15 dias</button>';
-  h+='<button class="fin-tab '+(_pp==='30'?'active':'')+'" onclick="setFinCFechPeriod(\'30\',this)" style="font-size:12px;padding:6px 14px">🟡 30 dias</button>';
-  h+='<button class="fin-tab '+(_pp==='60'?'active':'')+'" onclick="setFinCFechPeriod(\'60\',this)" style="font-size:12px;padding:6px 14px">🔵 60 dias</button>';
-  h+='<select class="fsel" id="fFcFechMesAno" onchange="setFinCFechMesAno(this.value)" style="min-width:130px;font-size:12px" title="Filtrar por mês"><option value="">— Mês/Ano —</option></select>';
+  h+='<button class="fin-tab '+(_pp==='7'?'active':'')+'" onclick="setFinCFechPeriod(\'7\',this)" style="font-size:12px;padding:6px 14px">7 dias</button>';
+  h+='<button class="fin-tab '+(_pp==='15'?'active':'')+'" onclick="setFinCFechPeriod(\'15\',this)" style="font-size:12px;padding:6px 14px">15 dias</button>';
+  h+='<button class="fin-tab '+(_pp==='30'?'active':'')+'" onclick="setFinCFechPeriod(\'30\',this)" style="font-size:12px;padding:6px 14px">30 dias</button>';
+  h+='<button class="fin-tab '+(_pp==='60'?'active':'')+'" onclick="setFinCFechPeriod(\'60\',this)" style="font-size:12px;padding:6px 14px">60 dias</button>';
+  h+='<select class="fsel" id="fFcFechMesAno" onchange="setFinCFechMesAno(this.value)" style="min-width:130px;font-size:12px" title="Filtrar por mês"><option value="">Mês/ano</option></select>';
   h+='</div>';
   h+='<div class="kpi-grid">';
   h+=kC('Total '+(ladoKey==='pagar'?'Pago':'Recebido'),fS(tot),fF(tot),'cg','dg');

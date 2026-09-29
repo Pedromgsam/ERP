@@ -454,10 +454,37 @@ trocar("function _applyChip(elId,val,active){\n  const el=$(elId);if(!el)return;
 trocar('      <div class="cc-hd"><div><div class="cc-t">Valor por devedor</div><div class="cc-d">parcelas em aberto</div></div></div>\n      <div class="cb" style="height:280px"><canvas id="cAcordDevedor"></canvas></div>',
   '      <div class="cc-hd"><div><div class="cc-t">Saldo por devedor</div><div class="cc-d">quanto cada devedor ainda deve · 10 maiores</div></div></div>\n      <div id="acDevedorLista"></div><div hidden aria-hidden="true"><canvas id="cAcordDevedor"></canvas></div>', 1);
 trocar("  mCh('cAcordDevedor',bCfg(iD.map(i=>devs[i].length>20?devs[i].slice(0,20)+'…':devs[i]),iD.map(i=>dV[i]),null,false));",
-  "  { const _el=$('acDevedorLista'), _tot=dV.reduce((s,v)=>s+v,0)||1, _max=Math.max(1,...dV);\n" +
-  "    if(_el) _el.innerHTML=iD.length?'<table class=\"gx-rank\"><tbody>'+iD.map(i=>'<tr><td class=\"gx-rank-n\">'+esc(devs[i])+'</td><td class=\"gx-rank-b\"><span style=\"width:'+(dV[i]/_max*100).toFixed(1)+'%\"></span></td>'+\n" +
-  "      '<td class=\"num mono\">'+fF(dV[i])+'</td><td class=\"num gx-leg-p\">'+(dV[i]/_tot*100).toFixed(1).replace('.',',')+'%</td></tr>').join('')+'</tbody><tfoot><tr><td>Total</td><td></td><td class=\"num mono\">'+fF(dV.reduce((s,v)=>s+v,0))+'</td><td class=\"num\">100%</td></tr></tfoot></table>'\n" +
-  "      :'<div class=\"pa-ok\">Nenhum saldo em aberto.</div>'; }", 1);
+  "  _acSaldoDevedor(acAP);", 1);
+// Backup 21: sai o "Progresso por acordo" (a lista "Acordos em andamento" já mostra o progresso de cada um)
+trocar('  <div class="cc">\n    <div class="cc-hd"><div><div class="cc-t">Progresso por Acordo</div><div class="cc-d">Parcelas pagas / total · Devedor → Credor</div></div></div>\n    <div id="acordProgressList" style="display:flex;flex-direction:column;gap:10px"></div>\n  </div>\n', '<div hidden aria-hidden="true"><div id="acordProgressList"></div></div>\n', 1);
+// Backup 21: Acordos → A Pagar sem "Situação"; dias até o vencimento com cor (≥10 verde · <10 azul · <3 amarelo);
+// o dia do vencimento já conta como vencido (vai para "Vencidos")
+trocar("    if(dv&&dv<hojeAc)return false;\n    if(ap!=='todos'){", "    if(dv&&dv<=hojeAc)return false;\n    if(ap!=='todos'){", 1);
+trocar('          <th>Dias</th><th>Situação</th>\n        </tr></thead><tbody id="tblAcordosBody">', '          <th>Dias</th>\n        </tr></thead><tbody id="tblAcordosBody">', 1);
+trocar(`      <td class="mono" style="font-size:11px;font-weight:600;color:\${dias<0?'var(--red-d)':dias<=7?'var(--amber)':'var(--text3)'}">\${dias<0?Math.abs(dias)+' d atraso':dias+' d'}</td>
+      <td><span class="tag \${(sC[a.situacao]||'tx')+puls}" style="\${a.situacao==='Vencido'?'border-left:3px solid var(--red);':''}">\${a.situacao||'—'}</span></td>`,
+  `      <td class="mono"><span class="\${_diasCls(dias)}">\${dias<=0?'vencida':'em '+dias+' d'}</span></td>`, 1);
+trocar('`<tr><td colspan="8">${emp()}</td></tr>`;\n}\nfunction sortAcordos(c){', '`<tr><td colspan="7">${emp()}</td></tr>`;\n}\nfunction sortAcordos(c){', 1);
+trocar(`        <select class="fsel" id="fAcordSit"   onchange="renderAcordosTbl()">
+          <option value="">Todas situações</option>
+          <option value="Emitir Guia">Emitir Guia</option>
+          <option value="OK">A Vencer (OK)</option>
+        </select>\n`, '', 1);
+// fontes da tabela de vencidos iguais às demais
+trocar(`      <td style="font-size:11px">\${a.devedor||'—'}</td>
+      <td style="font-size:11px">\${a.credor||'—'}</td>`, `      <td>\${a.devedor||'—'}</td>
+      <td>\${a.credor||'—'}</td>`, 1);
+// Backup 21: Processos — grupo em texto simples (como em Clientes) e sem o botão "✕ Limpar" dos filtros
+trocar('      <td><span class="tag tn">${p.grupo||\'—\'}</span></td>', '      <td class="gx-grupo-txt">${p.grupo||\'—\'}</td>', 1);
+trocar('<button class="btn-clear" id="btnProcClear" onclick="procClearFilters()" style="display:none">✕ Limpar</button>', '<button class="btn-clear" id="btnProcClear" onclick="procClearFilters()" style="display:none" hidden>✕ Limpar</button>', 1);
+// Backup 21: filtros de período sem as bolinhas coloridas (🔴 7 dias, 🟠 15 dias…) — o escolhido fica azul, como em Clientes
+[['>🔴 7 dias<', '>7 dias<'], ['>🟠 15 dias<', '>15 dias<'], ['>🟡 30 dias<', '>30 dias<'], ['>🔵 60 dias<', '>60 dias<'], ['>🟢 Todos<', '>Todos<'],
+ ['>🟢 7 dias<', '>7 dias<'], ['>🟢 15 dias<', '>15 dias<'], ['>🟢 30 dias<', '>30 dias<'], ['>🟢 60 dias<', '>60 dias<'], ['>⚠ Vencidos<', '>Vencidos<'],
+ ['— Mês/Ano —', 'Mês/ano']].forEach(([de, para]) => { const n = s.split(de).length - 1; if (!n) throw new Error('Filtro não encontrado: ' + de); s = s.split(de).join(para); });
+// Backup 21: situação dos processos sem ícone (o escolhido fica azul, como os filtros de Clientes)
+trocar(`onclick="procToggleChip('Ativo')">⚖ Ativos</span>`, `onclick="procToggleChip('Ativo')">Ativos</span>`, 1);
+trocar(`onclick="procToggleChip('Arquivado')">📁 Arq. Provisoriamente</span>`, `onclick="procToggleChip('Arquivado')">Arquivados provisoriamente</span>`, 1);
+trocar(`onclick="procToggleChip('Extinto')">⚫ Extintos</span>`, `onclick="procToggleChip('Extinto')">Extintos</span>`, 1);
 // Financeiro → Análise → Em atraso: linhas com ✓ Baixa e ✎ (viram a tabela padrão de pagamento) e triângulo vermelho no título
 trocar('<div class="cc-t">⚠ Em atraso</div>', '<div class="cc-t"><span class="ini-alerta">▲</span> Em atraso</div>', 2);
 // 13. Cores de tokens.css (fonte única) depois do CSS do ERP; modo escuro lembrado neste aparelho.

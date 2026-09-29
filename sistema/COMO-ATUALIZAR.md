@@ -308,3 +308,22 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
   "Em atraso" com ▲ vermelho e no padrão novo.
 - **Clientes/Contratos:** tabelas com cantos arredondados; pílulas no desenho do Painel; "Sim" neutro (nem verde nem vermelho).
 - **Saiu:** a tela antiga de Cobranças (o 🧾 Recibo continua funcionando).
+
+## Backup 21 — ajustes finos (sem SQL novo)
+Ordem: **1) Merge  2) Ctrl+Shift+R**. O banco não mudou (se quiser rodar o SQL mesmo assim, não faz mal). Nenhuma função do Supabase mudou.
+- **Início:** os lembretes viraram uma lista de "a fazer": clique na **bolinha ○** para concluir (ao passar o mouse aparece "Concluir");
+  ✎ editar, 📌 fixar e × apagar aparecem ao passar o mouse. O **?** ao lado dos títulos mostra a explicação num balão.
+  **Atrasados:** clicar na dívida abre o **detalhamento**; o pagamento é só no botão **✓ Recebido**. Caixinhas maiores e as tabelas
+  Jurídico/Contabilidade uma embaixo da outra (largura inteira).
+- **Painel:** "entidades · grupos · Atualizado" ficam no topo e somem ao rolar. **Empresas do grupo** separada por grupo igual a
+  Clientes ("BTCG 8 cadastros"); busca mais larga; **"Abrir ficha" voltou a funcionar** (dava erro de uuid).
+- **Processos:** separado por grupo igual a Clientes, grupo em texto simples, filtros sem ícones e sem "Limpar", busca mais larga;
+  clicar no processo abre uma **janela** com o detalhe (e o botão Editar).
+- **Publicações:** filtro por **tribunal** em botões — só aparecem os tribunais com publicação pendente (nova ou lida) no período;
+  quando todas forem tratadas/descartadas, o botão some.
+- **Acordos:** sai o "Progresso por acordo"; colunas Situação e Próxima parcela mais estreitas; letras iguais às outras telas;
+  **Saldo por devedor** em ranking (posição, nº de acordos, parcelas em atraso, barra e %); **A Pagar** sem "Situação".
+- **Dias até o vencimento (todo o ERP):** vencido em vermelho (o próprio dia do vencimento já conta como vencido), menos de 3 dias
+  amarelo, menos de 10 azul, 10 ou mais verde.
+- **Financeiro:** selo do "Quem" no pastel da pessoa (verde do Pedro), sem contorno; filtros de período sem as bolinhas coloridas e
+  selects no desenho de Clientes.
