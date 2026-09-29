@@ -52,6 +52,16 @@ const tokenDe = (email) => jwt({ sub: sql("select id from perfis where email='" 
     sql("insert into notificacoes(usuario_id,tipo,titulo) select id,'tarefa','Via Resend' from perfis where email='pedro@teste'");
     x = await chamar({}, segredo());
     ok('Resend: chama a API com a chave no cabeçalho', pedido && /api\.resend\.com/.test(pedido.url) && pedido.o.headers.Authorization === 'Bearer re_teste' && JSON.parse(pedido.o.body).to[0] === 'pedro@teste');
+    // recibo: "Recebido" gera o e-mail com o PDF anexo (valor por extenso, emitente)
+    sql("update regras_tarefas set ligada=true where chave='email_pagamento_recebido'");
+    sql("insert into clientes(nome,email,cpf_cnpj) values ('Recibo Teste Ltda','recibo@cliente.test','11222333000181')");
+    sql("insert into lancamentos(empresa,tipo,descricao,cliente_id,vencimento,valor,responsavel) select 'escritorio','receita','Honorários recibo',id,current_date,1500,'Pedro' from clientes where nome='Recibo Teste Ltda'");
+    sql("update lancamentos set pago=true, data_pagamento=current_date where descricao='Honorários recibo'");
+    ok('recibo: entra na fila com o anexo e o valor por extenso', sql("select (anexo->>'tipo')||'|'||(anexo->'dados'->>'extenso') from email_fila where para='recibo@cliente.test'") === 'recibo|mil e quinhentos reais');
+    x = await chamar({}, segredo());
+    const corpoR = pedido && JSON.parse(pedido.o.body), anx = corpoR && corpoR.attachments && corpoR.attachments[0];
+    const pdf = anx ? Buffer.from(anx.content, 'base64').toString('latin1') : '';
+    ok('recibo: vai com o PDF anexo (Resend)', corpoR && corpoR.to[0] === 'recibo@cliente.test' && /\.pdf$/.test(anx.filename) && /^%PDF-1\.4/.test(pdf) && /RECIBO/.test(pdf) && /quinhentos/.test(pdf) && /%%EOF$/.test(pdf), anx && anx.filename);
     ok('senha nunca sai pelo site', sql("select count(*) from information_schema.role_table_grants where table_name='config_privada' and grantee in ('anon','authenticated')") === '0');
   } catch (e) { console.error(e); ok('sem exceção', false); }
   execFileSync('sh', [path.join(__dirname, 'preparar-banco.sh')]);   // devolve o banco limpo para os próximos testes

@@ -554,6 +554,62 @@
 .gs .ctr-cli{display:flex;gap:8px;align-items:center}
 .gs .ctr-cli select{flex:1;min-width:0}
 .gs .doc-chips{display:flex;flex-wrap:wrap;gap:6px;margin:-4px 0 12px}
+.gs .ini-resumo{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;margin-bottom:18px}
+.gs .ini-res{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;background:#fff;border:1px solid var(--border);border-left:4px solid var(--navy);border-radius:12px;padding:12px 14px;box-shadow:var(--shadow-sm);cursor:pointer;font:inherit;color:var(--ink);min-height:112px}
+.gs .ini-res:hover{box-shadow:var(--shadow-hover)}
+.gs .ini-res.vermelho{border-left-color:var(--red)}
+.gs .ini-res.ambar{border-left-color:var(--amber)}
+.gs .ini-res-ic{font-size:16px}
+.gs .ini-res-tit{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text)}
+.gs .ini-res-num{font-size:24px;line-height:1.15;font-variant-numeric:tabular-nums}
+.gs .ini-res-rot{font-size:12.5px;color:var(--text)}
+.gs .ini-res-sub{font-size:12px;color:var(--text);margin-top:auto}
+.gs .ini-res.vermelho .ini-res-sub{color:var(--red);font-weight:600}
+.gs .ini-lemb .card-hd{display:flex;align-items:center;gap:8px}
+.gs .lemb-it{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)}
+.gs .lemb-it:last-child{border-bottom:0}
+.gs .lemb-auto{display:block}
+.gs .lemb-tg{background:none;border:0;padding:0;font:inherit;color:var(--ink);cursor:pointer;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.gs .cr-linha{display:grid;grid-template-columns:repeat(var(--n,4),minmax(0,1fr));gap:12px;margin-bottom:12px}
+.gs .cr-linha .cr-col{min-height:170px}
+.gs .cr-col-tit{cursor:help}
+.gs .cr-card{min-height:150px}
+.gs .cr-sem-prox{color:var(--amber);font-style:italic}
+.gs .cr-card-at{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:6px}
+.gs .cr-atalhos{display:inline-flex;gap:4px}
+.gs .cr-at{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;border:1px solid var(--border);background:#fff;cursor:pointer;font-size:13px;text-decoration:none;color:var(--ink);padding:0}
+.gs .cr-at:hover{border-color:var(--navy);background:#f3f6fb}
+.gs .cr-avancar{display:none}
+.gs .cr-vazia{color:var(--text3);text-align:center;font-size:12px;padding:10px 0}
+@media (max-width:900px){.gs .cr-linha{grid-template-columns:1fr}
+.gs .cr-linha .cr-col{min-height:0}
+.gs .cr-card{min-height:0}
+.gs .cr-avancar{display:inline-flex;font-weight:700;color:var(--navy)}
+}
+.gs .mural-dest.ambar{background:#FFF7E6;border-color:rgba(180,83,9,.25);color:#92400E}
+.gs .em-previa{width:100%;height:62vh;border:1px solid var(--border);border-radius:10px;background:#fff}
+.gs .em-lig{display:block;margin:4px 0 8px}
+.gs .tf-rapida{margin:0 0 12px}
+.gs .tf-rapida input{width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:12px;font:inherit;font-size:14px;background:#fff}
+.gs .tf-rapida input:focus{border-color:var(--navy);outline:none}
+.gs .tf-rapida-prev{min-height:18px;margin-top:5px;font-size:12.5px;color:var(--text2)}
+.gs .sm-grade{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.gs .sm-col{background:#eef1f7;border-radius:12px;padding:8px;min-height:160px;display:flex;flex-direction:column;gap:6px}
+.gs .sm-col.sobre{outline:2px dashed var(--navy);background:#dfe7f5}
+.gs .sm-col.sm-hoje{background:#e6eefc}
+.gs .sm-col.sm-atr{background:#fdeaea}
+.gs .sm-col.sm-sem{background:#f3f4f6}
+.gs .sm-tit{font-weight:700;font-size:12.5px;color:var(--navy);padding:2px 4px}
+.gs .sm-card{background:#fff;border-radius:10px;padding:8px 10px;box-shadow:var(--shadow-sm);cursor:grab;font-size:12.5px}
+.gs .carga-lin{display:grid;grid-template-columns:150px 1fr 190px;gap:10px;align-items:center;margin-bottom:8px}
+.gs .carga-bar{height:10px;background:#eef1f7;border-radius:99px;overflow:hidden}
+.gs .carga-in{height:100%;background:var(--navy);border-radius:99px}
+.gs .carga-in.alta{background:var(--amber)}
+.gs .carga-in.acima{background:var(--red)}
+.gs .carga-num{font-size:12.5px;color:var(--text2)}
+@media (max-width:700px){.gs .carga-lin{grid-template-columns:1fr}
+}
+.gs .ger-link{text-decoration:none;color:inherit}
 /* cores do ERP, tamanhos do Gestão */
 .gs{background:none!important;min-height:0!important}
 .gs .duas-col>*,.gs .card{min-width:0}

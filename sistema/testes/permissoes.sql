@@ -251,7 +251,7 @@ select pg_temp.ok((select count(*) from clientes where nome='Holding Teste Ltda'
 select pg_temp.ok((select count(*) from lancamentos l join contratos c on c.id=l.contrato_id where c.descricao='Holding familiar')=3,'Ganhou: contrato com 3 parcelas');
 select pg_temp.ok((select count(*) from tarefas t join fluxos f on f.id=t.fluxo_id where f.nome like 'Onboarding — Holding Teste%')=7,'Ganhou: fluxo de onboarding com etapas e subtarefas');
 select pg_temp.ok((select count(*) from tarefas where titulo like 'Onboarding: Holding Teste%')=0,'Ganhou: regra de onboarding não duplica o fluxo');
-select pg_temp.ok((select e.final from crm_oportunidades o join crm_etapas e on e.id=o.etapa_id where o.titulo='Holding Família Teste')='ganho','oportunidade vai para Ganhou');
+select pg_temp.ok((select e.nome from crm_oportunidades o join crm_etapas e on e.id=o.etapa_id where o.titulo='Holding Família Teste')='Contrato fechado' and (select ganho_em is not null from crm_oportunidades where titulo='Holding Família Teste'),'oportunidade vai para Contrato fechado');
 insert into crm_oportunidades(titulo, prospecto_nome, etapa_id) select 'Consulta perdida', 'Fulano', id from crm_etapas where ordem = 2;
 do $$ begin
   perform public.crm_perder((select id from crm_oportunidades where titulo='Consulta perdida'), '', false);
@@ -551,3 +551,25 @@ delete from mural where texto='Recado fixo do admin';
 select pg_temp.ok((select count(*) from mural where texto='Recado fixo do admin')=1,'equipe não apaga recado de outra pessoa');
 commit;
 delete from mural;
+-- Backup 16: Central de e-mails e lembretes
+begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-00000000000d');
+do $$ begin
+  perform public.emails_central('hoje');
+  raise exception 'FALHOU: cliente abriu a Central de e-mails';
+exception when raise_exception then
+  if sqlerrm like 'FALHOU%' then raise; end if; raise notice 'PASSA: cliente não abre a Central de e-mails';
+end $$;
+select pg_temp.ok((select count(*) from lembretes)=0,'cliente não vê os lembretes do escritório');
+commit;
+begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-00000000000b');
+insert into lembretes(texto, dia) values ('Renovar certificado digital', current_date);
+select pg_temp.ok((select count(*) from lembretes where texto='Renovar certificado digital')=1,'equipe cria lembrete');
+do $$ begin
+  perform public.salvar_config_emails('{"hora":"08:00"}');
+  raise exception 'FALHOU: equipe mudou o automático dos e-mails';
+exception when raise_exception then
+  if sqlerrm like 'FALHOU%' then raise; end if; raise notice 'PASSA: só o admin muda o automático dos e-mails';
+end $$;
+commit;
+delete from lembretes;
+select pg_temp.ok(public.valor_extenso(1234.56)='mil duzentos e trinta e quatro reais e cinquenta e seis centavos' and public.valor_extenso(2000000)='dois milhões de reais' and public.valor_extenso(1001)='mil e um reais','valor por extenso do recibo');

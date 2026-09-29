@@ -104,7 +104,7 @@ window.ERP_COLS_CLIENTE = 'id,grupo_id,nome,cpf_cnpj,tipo,responsavel,email,tele
       devedor: a.devedor || '', credor: a.credor || '', parcela: a.parcela || '', totalParc: a.total_parcelas || '',
       valor: num(a.valor), vencimento: br(a.vencimento), diasRestantes: dias(a.vencimento),
       situacao: a.pago ? 'Pago' : (a.vencimento && a.vencimento < hojeISO()) ? 'Vencido' : /emitir/i.test(a.situacao || '') ? 'Emitir Guia' : 'OK', emissao: a.emissao || '', pagamento: a.pago ? 'SIM' : '',
-      dataPag: br(a.data_pagamento), pix: a.pix || '', banco: a.banco || ''
+      dataPag: br(a.data_pagamento), pix: a.pix || '', banco: a.banco || '', obs: a.obs || ''
     };
   }
   // Lançamento → linha do financeiro antigo. Despesa que veio da aba de
@@ -125,7 +125,7 @@ window.ERP_COLS_CLIENTE = 'id,grupo_id,nome,cpf_cnpj,tipo,responsavel,email,tele
     return {
       _id: l.id, _t: 'lancamentos', aba, categoria: l.tipo === 'despesa' ? l.categoria || '' : '', centCusto: '',
       responsavel: l.responsavel || '', descricao: l.descricao || '', grupo: gNome || l.favorecido || '',
-      advogado: l.responsavel || '', tipo: l.categoria || '', servico: l.servico || '', referencia: l.referencia || '',
+      advogado: l.responsavel || '', tipo: l.categoria || '', servico: l.servico || '', contrato: (l.contratos && l.contratos.descricao) || '', referencia: l.referencia || '',
       vencimento: br(l.vencimento), valor: (deducao || estorno) ? -num(l.valor) : num(l.valor), diasRestantes: l.pago ? 0 : dias(l.vencimento),
       situacao, pagamento: l.pago ? 'SIM' : '', dataPagamento: dataPag, formaPagamento: l.forma_pagamento || '',
       pix: /cheque/i.test(l.forma_pagamento || '') ? 'Cheque' : (l.chave_pix || ''), banco: l.conta || '', obs: l.obs || ''
@@ -155,8 +155,8 @@ window.ERP_COLS_CLIENTE = 'id,grupo_id,nome,cpf_cnpj,tipo,responsavel,email,tele
       return pas.map((pa) => parcelamento(pa, porParc[pa.id] || []));
     },
     async acordos() { const G = await grupos(); return (await todos(() => sb.from('acordos').select('*').order('vencimento'))).map((a) => acordo(a, G[a.grupo_id])); },
-    async financeiro() { const G = await grupos(); return (await todos(() => sb.from('lancamentos').select('*').eq('empresa', 'escritorio').order('vencimento'))).map((l) => { guardarLanc(l, G); return financeiro(l, G[l.grupo_id]); }); },
-    async financeiroContab() { const G = await grupos(); return (await todos(() => sb.from('lancamentos').select('*').eq('empresa', 'contabilidade').order('vencimento'))).map((l) => { guardarLanc(l, G); return financeiro(l, G[l.grupo_id]); }); },
+    async financeiro() { const G = await grupos(); return (await todos(() => sb.from('lancamentos').select('*, contratos(descricao)').eq('empresa', 'escritorio').order('vencimento'))).map((l) => { guardarLanc(l, G); return financeiro(l, G[l.grupo_id]); }); },
+    async financeiroContab() { const G = await grupos(); return (await todos(() => sb.from('lancamentos').select('*, contratos(descricao)').eq('empresa', 'contabilidade').order('vencimento'))).map((l) => { guardarLanc(l, G); return financeiro(l, G[l.grupo_id]); }); },
     async tarefas() {
       const G = await grupos();
       return (await todos(() => sb.from('tarefas').select('*').order('prazo'))).map((t) => ({

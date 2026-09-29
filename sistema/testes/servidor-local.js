@@ -104,6 +104,15 @@ http.createServer((req, res) => {
     // imitação da API pública do CNJ (Comunica PJe): 2 publicações para a OAB 123456/MG (dados fictícios)
     if (u.pathname === '/__teste/djen/comunicacao') {
       PEDIDOS_DJEN.push(u.search);
+      if (u.searchParams.get('nomeParte')) {   // busca pelo nome do cliente (uma certa e uma de outra empresa com nome parecido)
+        const alvo = u.searchParams.get('nomeParte') === 'BETA SERVICOS LTDA' && u.searchParams.get('pagina') === '1';
+        return json(res, 200, { status: 'success', items: alvo ? [
+          { id: 900101, data_disponibilizacao: '2026-09-26', siglaTribunal: 'TRF6', tipoComunicacao: 'Citação', nomeOrgao: '1ª Vara Federal', texto: 'Cite-se a executada BETA SERVICOS LTDA.',
+            numero_processo: '10000011120264060001', destinatarios: [{ nome: 'BETA SERVICOS LTDA', polo: 'P' }], destinatarioadvogados: [] },
+          { id: 900102, data_disponibilizacao: '2026-09-26', siglaTribunal: 'TJMG', tipoComunicacao: 'Intimação', nomeOrgao: 'Vara Cível', texto: 'Outra empresa.',
+            numero_processo: '10000022220268130024', destinatarios: [{ nome: 'GAMA TRANSPORTES LTDA', polo: 'P' }], destinatarioadvogados: [] }
+        ] : [] });
+      }
       const ok = u.searchParams.get('numeroOab') === '123456' && u.searchParams.get('ufOab') === 'MG' && u.searchParams.get('pagina') === '1';
       return json(res, 200, { status: 'success', count: ok ? 2 : 0, items: ok ? [
         { id: 900001, data_disponibilizacao: '2026-09-25', siglaTribunal: 'TJMG', tipoComunicacao: 'Intimação', nomeOrgao: '2ª Vara de Feitos Tributários',

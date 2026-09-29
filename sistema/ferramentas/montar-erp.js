@@ -150,9 +150,15 @@ removerTrechoHtml('  <div class="ex-bn" style="margin-bottom:16px;position:relat
   '      <div class="cb" style="height:210px"><canvas id="cProcNatureza"></canvas></div>\n    </div>\n  </div>\n',
   '  <div hidden aria-hidden="true"><div id="kpiProc"></div><canvas id="cProcGrupos"></canvas><canvas id="cProcComp"></canvas><canvas id="cProcValor"></canvas><canvas id="cProcNatureza"></canvas></div>\n');
 // Análise da carteira ganha Arquivados/extintos, Passivo e Ativo em disputas
+// Backup 16: o mesmo processo (mesmo número) que aparece para o sócio e para a PJ conta uma vez só — no total,
+// no valor em disputa e no passivo/ativo; arquivados/extintos viram legenda do card Processos (sem card próprio).
+trocar("  var comValor=lista.filter(function(p){ return val(p)>0; });\n  var totalV=comValor.reduce(function(s,p){ return s+val(p); },0);\n  var ativos=lista.filter(function(p){ return !String(p.arquivamento||'').trim(); }).length;",
+  "  var _vistos={}; lista=lista.filter(function(p){ var k=String(p.numero||'').replace(/\\D/g,'')||String(p.numero||'')||('#'+Math.random()); if(_vistos[k]) return false; _vistos[k]=1; return true; });\n" +
+  "  var comValor=lista.filter(function(p){ return val(p)>0; });\n  var totalV=comValor.reduce(function(s,p){ return s+val(p); },0);\n  var ativos=lista.filter(function(p){ return !String(p.arquivamento||'').trim(); }).length;", 1);
+trocar("   +  kC('Processos',lista.length,ativos+' em andamento','cb','db')",
+  "   +  kC('Processos',lista.length,ativos+' em andamento · '+(lista.length-ativos)+' arquivados/extintos','cb','db')", 1);
 trocar("   +  kC('Valor em disputa',_faFT(totalV),comValor.length+' com valor informado','cv','dv')",
-  "   +  kC('Arquivados / extintos',lista.length-ativos,'encerrados, prescritos e extintos','cx','')\n" +
-  "   +  kC('Valor em disputa',_faFT(totalV),comValor.length+' com valor informado','cv','dv')\n" +
+  "   +  kC('Valor em disputa',_faFT(totalV),comValor.length+' com valor informado · '+(lista.length-comValor.length)+' sem valor informado','cv','dv')\n" +
   "   +  (function(){ var nomes=(FIL.length?FIL:DB.baseDados).map(function(r){return String(r.nome||'').toLowerCase();}).filter(function(n){return n.length>2;});\n" +
   "        var tem=function(t){ t=String(t||'').toLowerCase(); return nomes.some(function(n){return t.indexOf(n)>=0;}); };\n" +
   "        var vP=lista.filter(function(p){return tem(p.reu);}).reduce(function(s,p){return s+val(p);},0), vA=lista.filter(function(p){return tem(p.autor);}).reduce(function(s,p){return s+val(p);},0);\n" +
@@ -213,37 +219,13 @@ removerTrechoHtml('  <div class="ex-bn" style="margin-bottom:16px;position:relat
   '    <div class="kpi-grid" id="kpiAcordos"></div>\n  </div>\n',
   '  <div id="acAnalise"></div><div hidden aria-hidden="true"><div class="kpi-grid" id="kpiAcordos"></div></div>\n');
 trocar("  $('kpiAcordos').innerHTML=\n", "  _acordosAnalise(ac);\n  $('kpiAcordos').innerHTML=\n", 1);
-trocar('function renderAcordos(){', "function _acordosAnalise(ac){\n" +
-  "  var el=$('acAnalise'); if(!el) return; if(!ac.length){ el.innerHTML=''; return; }\n" +
-  "  var hj=new Date(); hj.setHours(0,0,0,0); var fimMes=new Date(hj.getFullYear(),hj.getMonth()+1,0);\n" +
-  "  var v=function(a){return Number(a.valor)||0;}, pago=function(a){return a.situacao==='Pago';};\n" +
-  "  var atrasada=function(a){ if(pago(a)) return false; var d=pDate(a.vencimento); return a.situacao==='Vencido'||(d&&d<hj); };\n" +
-  "  var noMes=function(a){ if(pago(a)) return false; var d=pDate(a.vencimento); return d&&d>=hj&&d<=fimMes; };\n" +
-  "  var soma=function(l){return l.reduce(function(s,a){return s+v(a);},0);};\n" +
-  "  var porCred={}; ac.forEach(function(a){ var k=a.credor||'—'; if(!porCred[k]) porCred[k]={pago:0,falta:0,n:new Set(),atr:0}; var c=porCred[k];\n" +
-  "    if(pago(a)) c.pago+=v(a); else c.falta+=v(a); c.n.add(a.processo); if(atrasada(a)) c.atr++; });\n" +
-  "  var ordem=Object.keys(porCred).sort(function(a,b){return porCred[b].falta-porCred[a].falta;});\n" +
-  "  var porAc={}; ac.filter(atrasada).forEach(function(a){ var k=a.processo+'|'+(a.devedor||''); if(!porAc[k]) porAc[k]={a:a,n:0,v:0}; porAc[k].n++; porAc[k].v+=v(a); });\n" +
-  "  var risco=Object.keys(porAc).map(function(k){return porAc[k];}).sort(function(x,y){return y.n-x.n||y.v-x.v;});\n" +
-  "  var barra=function(p,f){ var t=p+f; if(t<=0) return ''; var pc=Math.round(p/t*100); return '<div class=\"pa-bar\"><div class=\"pa-bar-in\" style=\"width:'+pc+'%\"></div></div><div class=\"pa-pc\">'+pc+'% pago</div>'; };\n" +
-  "  var sem=ac.filter(function(a){return pago(a)&&a.comprovante===false;}).length;\n" +
-  "  el.innerHTML=exBloco('exAcSit','Situação dos acordos',\n" +
-  "    '<div class=\"kpi-grid\" style=\"margin-bottom:14px\">'\n" +
-  "   + kC('Já pago',_faFT(soma(ac.filter(pago))),ac.filter(pago).length+' parcela(s)','cg','dg')\n" +
-  "   + kC('Falta pagar',_faFT(soma(ac.filter(function(a){return !pago(a);}))),new Set(ac.filter(function(a){return !pago(a);}).map(function(a){return a.processo;})).size+' acordo(s) em aberto','ca','')\n" +
-  "   + kC('Vence este mês',_faFT(soma(ac.filter(noMes))),ac.filter(noMes).length+' parcela(s) até '+fimMes.toLocaleDateString('pt-BR').slice(0,5),'cb','')\n" +
-  "   + kC('Em atraso',_faFT(soma(ac.filter(atrasada))),ac.filter(atrasada).length+' parcela(s) vencida(s)','cr',ac.some(atrasada)?'dr':'')\n" +
-  "   + '</div><div class=\"crow c2\">'\n" +
-  "   + '<div><div class=\"pa-sub\">Por credor</div><div class=\"tw\"><table><thead><tr><th>Credor</th><th style=\"text-align:right\">Pago</th><th style=\"text-align:right\">Falta</th><th style=\"width:130px\">Andamento</th></tr></thead><tbody>'\n" +
-  "   + ordem.map(function(k){ var c=porCred[k]; return '<tr><td><strong>'+esc(k)+'</strong><div style=\"font-size:11px;color:var(--text3)\">'+c.n.size+' acordo(s)'+(c.atr?' · <span style=\"color:var(--red-d)\">'+c.atr+' em atraso</span>':'')+'</div></td>'\n" +
-  "       +'<td class=\"mono\" style=\"text-align:right;color:var(--green-d)\">'+_faFT(c.pago)+'</td><td class=\"mono\" style=\"text-align:right\">'+_faFT(c.falta)+'</td><td>'+barra(c.pago,c.falta)+'</td></tr>'; }).join('')\n" +
-  "   + '</tbody></table></div></div>'\n" +
-  "   + '<div><div class=\"pa-sub\">Risco <span style=\"font-weight:400;text-transform:none;letter-spacing:0\">— acordos com parcela vencida (o credor pode executar)</span></div>'\n" +
-  "   + (risco.length?'<div class=\"tw\"><table><thead><tr><th>Devedor</th><th>Processo</th><th style=\"text-align:right\">Em atraso</th></tr></thead><tbody>'\n" +
-  "     + risco.map(function(r){ return '<tr><td><strong>'+esc(r.a.devedor||'—')+'</strong><div style=\"font-size:11px;color:var(--text3)\">'+esc(r.a.credor||'')+'</div></td><td class=\"mono\">'+esc(r.a.processo||'')+'</td><td style=\"text-align:right\"><span class=\"tag tr\">'+r.n+' parcela(s)</span><div class=\"mono\" style=\"font-size:11.5px\">'+_faFT(r.v)+'</div></td></tr>'; }).join('')\n" +
-  "     + '</tbody></table></div>':'<div class=\"pa-ok\">Nenhum acordo com parcela vencida. 👏</div>')\n" +
-  "   + '</div></div>');\n" +
-  "}\nfunction renderAcordos(){", 1);
+trocar('function renderAcordos(){', fs.readFileSync(path.join(__dirname, 'remendos', 'acordos-b16.js'), 'utf8') + 'function renderAcordos(){', 1);
+trocar('function renderAcordos(){\n  const ac=filtrarAcordos();', 'function renderAcordos(){\n  const ac=_acordosPendentes(filtrarAcordos());', 1);
+// sai o gráfico "Valor em atraso por devedor"; "Valor por devedor" ocupa a linha inteira
+removerTrechoHtml('    <div class="cc">\n      <div class="cc-hd"><div><div class="cc-t">Valor em atraso por devedor</div>', '      <div class="cb" id="acordAtrasoBox" style="height:280px"><canvas id="cAcordAtraso"></canvas></div>\n    </div>\n', '');
+trocar('  <div class="crow c2">\n    <div class="cc">\n      <div class="cc-hd"><div><div class="cc-t">Valor por devedor</div>', '  <div class="crow">\n    <div class="cc">\n      <div class="cc-hd"><div><div class="cc-t">Valor por devedor</div>', 1);
+// caixa "Mostrar concluídos" na faixa do topo de Acordos
+trocar('    <div id="alertAcordos" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"></div>', '    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><div id="alertAcordos" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"></div><label class="ac-todos"><input type="checkbox" id="acMostrarTodos" onchange="renderAcordos()"> Mostrar concluídos</label></div>', 1);
 // ═══════ Backup 13 — Financeiro Jurídico: tipo de serviço na horizontal; valor no fim das barras ═══════
 trocar("    var cfgT=bCfg(it.map(function(i){return tp[i];}),it.map(function(i){return tv[i];}),null);\n    cfgT.options.animation=SEM_ANIM;",
   "    var cfgT=bCfg(it.map(function(i){return tp[i];}),it.map(function(i){return tv[i];}),null,true);\n    cfgT.options.animation=SEM_ANIM; _barrasComValor(cfgT);", 1);
@@ -253,7 +235,7 @@ trocar('function bCfg(labels,data,colors,horiz=false){', "// barras horizontais 
   "  cfg.options.scales.y.ticks=Object.assign({},cfg.options.scales.y.ticks,{autoSkip:false,callback:function(v){var t=String(this.getLabelForValue(v)||'');return t.length>28?t.slice(0,27)+'…':t;}}); return cfg; }\n" +
   "function bCfg(labels,data,colors,horiz=false){", 1);
 // Backup 14: todo gráfico de barras deitadas (uma série) ganha o valor à direita da barra (Parcelamentos e Acordos ficam como no Backup 13)
-trocar("function mCh(id,cfg){dCh(id);", "function mCh(id,cfg){if(id!=='cParcResidual'&&id!=='cAcordAtraso'&&cfg&&cfg.type==='bar'&&cfg.options&&cfg.options.indexAxis==='y'&&!cfg.options.gxValores&&(cfg.data.datasets||[]).length===1&&typeof _barrasComValor==='function')_barrasComValor(cfg);dCh(id);", 1);
+trocar("function mCh(id,cfg){dCh(id);", "function mCh(id,cfg){if(/^c(Fin|Rec|Prej|FcFech)|^cFcCaixaCat$/.test(id)){dCh(id);return;}if(id!=='cParcResidual'&&id!=='cAcordAtraso'&&cfg&&cfg.type==='bar'&&cfg.options&&cfg.options.indexAxis==='y'&&!cfg.options.gxValores&&(cfg.data.datasets||[]).length===1&&typeof _barrasComValor==='function')_barrasComValor(cfg);dCh(id);", 1);
 // Resumo mensal (Contabilidade → Caixa): valores inteiros (o total aparecia como "R$ 1,2 mi")
 { const i = s.indexOf('function _fcTabelaCaixa(meses){'), j = s.indexOf('// v53: análise detalhada mês a mês', i);
   if (i < 0 || j < 0) throw new Error('_fcTabelaCaixa não encontrada');
@@ -321,9 +303,10 @@ trocar("  +     '<div class=\"cc-d\">consultoria, fixo, êxito…</div></div></d
   const f0 = f;
   f = f.replace("+'<th>Tipo</th><th>Referência</th>'", "+'<th>Tipo</th>'")
        .replace("        +'<td style=\"max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap\" title=\"'+esc(f.referencia||'')+'\">'+esc(f.referencia||'—')+'</td>'\n", '')
-       .replace("colspan=\"8\"", "colspan=\"7\"");
+       .replace("colspan=\"8\"", "colspan=\"7\"")
+       .replace("+'<td>'+esc(f.tipo||'—')+'</td>'", "+'<td>'+esc(f.tipo||'—')+_legLanc(f)+'</td>'");
   if (f === f0 || /Referência/.test(f)) throw new Error('_faTabelaDetalhe: troca não aplicada');
-  s = s.slice(0, i) + f + s.slice(j); trocas++; }
+  s = s.slice(0, i) + "// legenda (Backup 16): 2ª linha = área do serviço — contrato (sem contrato, só a área)\nfunction _legLanc(f){ var p=[f.servico,f.contrato].filter(Boolean); return p.length?'<div style=\"font-size:11.5px;color:var(--text3);margin-top:2px\">'+esc(p.join(' — '))+'</div>':''; }\n" + f + s.slice(j); trocas++; }
 // Análise (Jurídico): sem a lista de lançamentos (os lançamentos já estão em A Receber / Recebidos)
 trocar("  + '<div id=\"faCorpo\"></div>'\n  + '<div class=\"cc\"><div class=\"cc-hd\" style=\"align-items:center\"><div><div class=\"cc-t\">Lançamentos</div>'\n  +   '<div class=\"cc-d\">os filtros do topo já valem para esta lista · clique no cabeçalho para ordenar</div></div>'\n  +   '<span class=\"fa-dica\" id=\"faLqCount\"></span></div>'\n  +   '<div id=\"faLancTbl\"></div></div>';",
   "  + '<div id=\"faCorpo\"></div>';", 1);
@@ -463,10 +446,10 @@ let graf = ler('graficos.js').replace("document.addEventListener('DOMContentLoad
 const bundle = "'use strict';\n// GERADO por sistema/ferramentas/montar-erp.js — não edite; edite os arquivos do Gestão.\n(function () {\n" +
   "const _raiz = document.createElement('div'); _raiz.id = 'gs-raiz'; _raiz.className = 'gs';\n" +
   "_raiz.innerHTML = '<div id=\"janelas\"></div><div id=\"aviso\"></div>'; document.body.appendChild(_raiz);\n" +
-  [nuc, graf, ler('telas-painel.js'), ler('telas-financeiro.js'), ler('telas-cadastros.js'), ler('telas-admin.js'), ler('telas-tarefas.js'), ler('telas-documentos.js'), ler('telas-cliente360.js'), ler('telas-crm.js'), ler('telas-publicacoes.js'), ler('telas-acordos.js'), ler('telas-alertas.js'), ler('telas-automacoes.js'), ler('telas-aprovacoes.js'), ler('telas-ofx.js')].join('\n') +
+  [nuc, graf, ler('telas-painel.js'), ler('telas-financeiro.js'), ler('telas-cadastros.js'), ler('telas-admin.js'), ler('telas-tarefas.js'), ler('telas-documentos.js'), ler('telas-cliente360.js'), ler('telas-crm.js'), ler('telas-publicacoes.js'), ler('telas-acordos.js'), ler('telas-alertas.js'), ler('telas-automacoes.js'), ler('telas-aprovacoes.js'), ler('telas-ofx.js'), ler('telas-emails.js')].join('\n') +
   "\n// toda gravação confirmada aparece também no rodapé do ERP\nconst _avisoOrig = aviso;\n" +
   "aviso = function (msg, erro) { _avisoOrig(msg, erro); if (!erro && window.ERP_EDITOR && /^✓/.test(msg)) window.ERP_EDITOR.gravou(String(msg).replace(/^✓\\s*/, '')); };\n" +
-  "window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, invalidarCadastros, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo, perguntarBaixa, detalheContrato, ICONE_AVISO, conciliarOfx, abrirTarefa, detalheLancamento };\n})();\n";
+  "window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, invalidarCadastros, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo, perguntarBaixa, detalheContrato, ICONE_AVISO, conciliarOfx, abrirTarefa, detalheLancamento, edicaoLancamentos, janelaModelosEmail, janelaAutoEmails, janelaGeradores };\n})();\n";
 fs.writeFileSync(path.join(APP, 'gestao-embutida.js'), bundle);
 
 // CSS do Gestão só dentro de .gs (as telas do Gestão) e #gs-hd (barra superior)
@@ -526,3 +509,6 @@ console.log('gestao-embutida.js e gs.css gerados');
 }
 console.log('index.html gerado: ' + trocas + ' ajustes, ' + Math.round(s.length / 1024) + ' KB');
 
+
+// 16. Geradores de documentos (Backup 16): páginas separadas em app/geradores/, com a ponte do ERP
+require('./montar-geradores').montar();

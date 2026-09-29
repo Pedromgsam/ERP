@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Gerador de Petições — Araújo &amp; Castro</title>
+<style>
+:root{--navy:#1B2A4A;--gold:#C9A84C;--bg:#EEF1F6;--borda:#D7DDE8;--texto:#1F2937;--sub:#6B7280}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--texto);font:14px Arial,Helvetica,sans-serif}
+.pt-wrap{display:grid;grid-template-columns:minmax(320px,440px) 1fr;gap:18px;padding:18px;max-width:1500px;margin:0 auto}
+.pt-form{background:#fff;border-radius:14px;padding:16px;box-shadow:0 2px 12px rgba(27,42,74,.08);align-self:start;position:sticky;top:60px;max-height:calc(100vh - 80px);overflow:auto}
+.pt-form h1{font-size:18px;color:var(--navy);margin:0 0 4px}.pt-form p.sub{color:var(--sub);font-size:12.5px;margin:0 0 12px}
+.pt-form label{display:block;font-size:12px;font-weight:700;color:var(--navy);margin:10px 0 4px;text-transform:uppercase;letter-spacing:.04em}
+.pt-form input,.pt-form select,.pt-form textarea{width:100%;border:1.5px solid var(--borda);border-radius:9px;padding:8px 10px;font:inherit;color:var(--texto);background:#fff}
+.pt-form textarea{min-height:92px;resize:vertical}
+.pt-form .linha{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pt-bts{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.pt-bts button{border:0;border-radius:9px;padding:9px 14px;font:700 13px Arial,sans-serif;cursor:pointer;background:var(--navy);color:#fff}
+.pt-bts button.o{background:#fff;color:var(--navy);border:1.5px solid var(--navy)}
+.folha{background:#fff;width:210mm;min-height:297mm;margin:0 auto;padding:28mm 25mm 25mm 30mm;box-shadow:0 4px 20px rgba(0,0,0,.12);font:12pt/1.6 "Times New Roman",Times,serif;color:#000}
+.folha .timbre{text-align:center;font:9pt Arial,sans-serif;letter-spacing:.2em;text-transform:uppercase;color:#555;border-bottom:1px solid #C9A84C;padding-bottom:6px;margin-bottom:28px}
+.folha .ender{font-weight:bold;text-transform:uppercase;margin-bottom:60px}
+.folha .proc{margin:-40px 0 30px}
+.folha .quali,.folha p{text-align:justify;text-indent:2.5cm;margin:0 0 12px}
+.folha h2{font-size:12pt;text-transform:uppercase;margin:22px 0 10px;text-align:left}
+.folha .titulo-peca{text-align:center;font-weight:bold;text-transform:uppercase;margin:0 0 22px}
+.folha ol{margin:0 0 12px 1.5cm;padding:0}.folha li{margin:0 0 8px;text-align:justify}
+.folha .fecho{text-indent:0;margin-top:26px}
+.folha .assin{margin-top:60px;text-align:center}
+.folha .assin .linha-a{width:70%;margin:0 auto 4px;border-top:1px solid #000}
+@media (max-width:1000px){.pt-wrap{grid-template-columns:1fr}.pt-form{position:static;max-height:none}.folha{width:100%;padding:18mm 12mm}}
+@media print{body{background:#fff}.pt-form{display:none}.pt-wrap{display:block;padding:0}.folha{box-shadow:none;width:auto;min-height:0;padding:0}@page{size:A4;margin:25mm 20mm 20mm 30mm}}
+</style>
+</head>
+<body>
+<div class="pt-wrap">
+  <form class="pt-form" id="f-pet" autocomplete="off" onsubmit="return false">
+    <h1>Gerador de Petições</h1>
+    <p class="sub">Escolha o cliente na barra de cima e clique em "Preencher". Os dados do cliente e do processo entram sozinhos; ajuste o texto e gere o PDF ou o Word.</p>
+    <label for="tipo">Tipo de peça</label>
+    <select id="tipo">
+      <option value="inicial">Petição inicial</option><option value="contestacao">Contestação</option><option value="manifestacao">Manifestação</option>
+      <option value="juntada">Juntada de documentos</option><option value="embargos">Embargos à execução fiscal</option><option value="excecao">Exceção de pré-executividade</option>
+    </select>
+    <label for="juizo">Endereçamento (juízo)</label>
+    <input id="juizo" placeholder="Ex.: Juízo da 2ª Vara de Feitos Tributários da Comarca de Belo Horizonte/MG">
+    <div class="linha"><div><label for="processo">Nº do processo</label><input id="processo" list="lista-proc" placeholder="0000000-00.0000.0.00.0000"><datalist id="lista-proc"></datalist></div>
+      <div><label for="valor">Valor da causa</label><input id="valor" placeholder="R$ 0,00"></div></div>
+    <label for="cliente">Cliente (parte)</label><input id="cliente">
+    <label for="quali">Qualificação do cliente</label><textarea id="quali"></textarea>
+    <label for="contraria">Parte contrária</label><input id="contraria" placeholder="Ex.: FAZENDA PÚBLICA DO ESTADO DE MINAS GERAIS">
+    <label for="titulo">Nome da ação / título</label><input id="titulo" placeholder="Ex.: AÇÃO ANULATÓRIA DE DÉBITO FISCAL">
+    <label for="fatos">Dos fatos</label><textarea id="fatos"></textarea>
+    <label for="direito">Do direito</label><textarea id="direito"></textarea>
+    <label for="pedidos">Dos pedidos (um por linha)</label><textarea id="pedidos"></textarea>
+    <div class="linha"><div><label for="local">Local</label><input id="local" value="Lagoa da Prata/MG"></div><div><label for="data">Data</label><input id="data" type="date"></div></div>
+    <div class="linha"><div><label for="adv">Advogado(a)</label><input id="adv" list="lista-adv"><datalist id="lista-adv"></datalist></div><div><label for="oab">OAB</label><input id="oab"></div></div>
+    <div class="pt-bts"><button type="button" onclick="window.print()">🖨 PDF / imprimir</button><button type="button" class="o" onclick="baixarWord()">⬇ Word (.doc)</button></div>
+  </form>
+  <div><div class="folha" id="folha"></div></div>
+</div>
+<script>
+'use strict';
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+// esqueleto de cada tipo de peça (o texto é ponto de partida: revise sempre)
+const MODELOS = {
+  inicial: { abertura: 'vem, respeitosamente, à presença de Vossa Excelência, por seus advogados, propor a presente', contra: 'em face de', fatos: 'Descreva aqui, em ordem cronológica, os fatos que levaram à demanda.',
+    direito: 'Exponha os fundamentos jurídicos (legislação, jurisprudência e doutrina) que sustentam o pedido.', pedidos: 'a citação da parte ré para, querendo, apresentar resposta;\na procedência dos pedidos;\na condenação da parte ré ao pagamento das custas e dos honorários advocatícios;\na produção de todas as provas admitidas em direito.' },
+  contestacao: { abertura: 'nos autos do processo em epígrafe, movido por', contra: '', fatos: 'Síntese da inicial e da versão do cliente.', direito: 'Preliminares (se houver) e mérito.',
+    pedidos: 'o acolhimento das preliminares arguidas;\nno mérito, a total improcedência dos pedidos;\na condenação da parte autora nos ônus da sucumbência;\na produção de todas as provas admitidas em direito.' },
+  manifestacao: { abertura: 'nos autos do processo em epígrafe, vem, respeitosamente, à presença de Vossa Excelência, manifestar-se nos seguintes termos:', contra: '', fatos: 'Contexto da manifestação.', direito: 'Fundamentos.', pedidos: 'o recebimento da presente manifestação e o regular prosseguimento do feito.' },
+  juntada: { abertura: 'nos autos do processo em epígrafe, vem, respeitosamente, à presença de Vossa Excelência, requerer a juntada dos documentos anexos:', contra: '', fatos: 'Liste os documentos juntados.', direito: '', pedidos: 'a juntada dos documentos anexos aos autos, para os devidos fins.' },
+  embargos: { abertura: 'vem, respeitosamente, à presença de Vossa Excelência, com fundamento na Lei n. 6.830/1980, opor os presentes', contra: 'em face de', fatos: 'Síntese da execução fiscal e da garantia do juízo.',
+    direito: 'Nulidade da CDA, prescrição, decadência, excesso de execução ou outras teses cabíveis.', pedidos: 'o recebimento dos embargos com efeito suspensivo;\na intimação da parte embargada para impugnação;\na procedência dos embargos, com a extinção da execução fiscal;\na condenação da embargada nos ônus da sucumbência.' },
+  excecao: { abertura: 'nos autos da execução fiscal em epígrafe, movida por', contra: '', fatos: 'Síntese da execução fiscal.', direito: 'Matéria de ordem pública, sem necessidade de dilação probatória (Súmula 393 do STJ).',
+    pedidos: 'o acolhimento da exceção de pré-executividade, com a extinção da execução fiscal;\na condenação da exequente ao pagamento de honorários advocatícios.' }
+};
+const TITULOS = { inicial: '', contestacao: 'CONTESTAÇÃO', manifestacao: 'MANIFESTAÇÃO', juntada: 'JUNTADA DE DOCUMENTOS', embargos: 'EMBARGOS À EXECUÇÃO FISCAL', excecao: 'EXCEÇÃO DE PRÉ-EXECUTIVIDADE' };
+function aplicarModelo(forcar) {
+  const m = MODELOS[$('tipo').value];
+  ['fatos', 'direito', 'pedidos'].forEach((k) => { if (forcar || !$(k).value.trim() || Object.values(MODELOS).some((x) => x[k] === $(k).value)) $(k).value = m[k]; });
+  if (TITULOS[$('tipo').value] && (forcar || !$('titulo').value || Object.values(TITULOS).includes($('titulo').value))) $('titulo').value = TITULOS[$('tipo').value];
+  desenhar();
+}
+function dataExtenso(v) { const d = v ? new Date(v + 'T12:00:00') : new Date(); return d.getDate() + ' de ' + MESES[d.getMonth()] + ' de ' + d.getFullYear(); }
+function paragrafos(t) { return String(t || '').split(/\n{2,}|\n/).map((x) => x.trim()).filter(Boolean).map((x) => '<p>' + esc(x) + '</p>').join(''); }
+function desenhar() {
+  const tipo = $('tipo').value, m = MODELOS[tipo], proc = $('processo').value.trim(), cli = $('cliente').value.trim() || '[CLIENTE]';
+  const inicial = tipo === 'inicial' || tipo === 'embargos';
+  const pedidos = $('pedidos').value.split('\n').map((x) => x.trim()).filter(Boolean);
+  $('folha').innerHTML = '<div class="timbre">Araújo &amp; Castro · Advocacia e Consultoria</div>' +
+    '<div class="ender">Excelentíssimo(a) Senhor(a) ' + esc($('juizo').value || 'Juiz(a) de Direito da ___ Vara da Comarca de ______') + '</div>' +
+    (proc && !inicial ? '<div class="proc"><b>Processo n.</b> ' + esc(proc) + '</div>' : '') +
+    '<p class="quali"><b>' + esc(cli.toUpperCase()) + '</b>' + ($('quali').value.trim() ? ', ' + esc($('quali').value.trim()) : '') + ', ' + esc(m.abertura) +
+      (inicial ? ' <b>' + esc(($('titulo').value || 'AÇÃO').toUpperCase()) + '</b> ' + esc(m.contra) + ' <b>' + esc(($('contraria').value || '[PARTE CONTRÁRIA]').toUpperCase()) + '</b>, pelos fatos e fundamentos a seguir expostos.'
+        : (m.contra === '' && /movid[oa] por$/.test(m.abertura) ? ' <b>' + esc(($('contraria').value || '[PARTE CONTRÁRIA]').toUpperCase()) + '</b>, vem, respeitosamente, à presença de Vossa Excelência, apresentar' : '') +
+          (TITULOS[tipo] && /movid[oa] por$/.test(m.abertura) ? ' <b>' + esc(TITULOS[tipo]) + '</b>, pelos fatos e fundamentos a seguir expostos.' : '')) + '</p>' +
+    (!inicial && TITULOS[tipo] ? '<div class="titulo-peca">' + esc($('titulo').value || TITULOS[tipo]) + '</div>' : '') +
+    ($('fatos').value.trim() ? '<h2>I. Dos fatos</h2>' + paragrafos($('fatos').value) : '') +
+    ($('direito').value.trim() ? '<h2>II. Do direito</h2>' + paragrafos($('direito').value) : '') +
+    (pedidos.length ? '<h2>' + ($('direito').value.trim() ? 'III' : 'II') + '. Dos pedidos</h2><p>Diante do exposto, requer:</p><ol type="a">' + pedidos.map((x) => '<li>' + esc(x.replace(/[;.]$/, '')) + ';</li>').join('').replace(/;<\/li>$/, '.</li>') + '</ol>' : '') +
+    (inicial && $('valor').value.trim() ? '<p>Dá-se à causa o valor de ' + esc($('valor').value.trim()) + '.</p>' : '') +
+    '<p class="fecho">Nestes termos, pede deferimento.</p><p class="fecho">' + esc($('local').value || '') + ', ' + dataExtenso($('data').value) + '.</p>' +
+    '<div class="assin"><div class="linha-a"></div><b>' + esc(($('adv').value || '[ADVOGADO(A)]').toUpperCase()) + '</b><br>' + esc($('oab').value || 'OAB/__ ___') + '</div>';
+}
+function baixarWord() {
+  const estilos = 'body{font-family:"Times New Roman",serif;font-size:12pt;line-height:1.5}p{text-align:justify;text-indent:2.5cm;margin:0 0 10px}.ender{font-weight:bold;text-transform:uppercase;margin-bottom:40px}h2{font-size:12pt;text-transform:uppercase}.titulo-peca{text-align:center;font-weight:bold}.assin{text-align:center;margin-top:50px}.timbre{text-align:center;font-size:9pt;color:#555}';
+  const html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><style>' + estilos + '</style></head><body>' + $('folha').innerHTML + '</body></html>';
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob(['﻿' + html], { type: 'application/msword' }));
+  a.download = ('Petição ' + ($('cliente').value || '') + ' ' + ($('processo').value || '')).trim().replace(/[\\/:*?"<>|]/g, '-') + '.doc'; document.body.appendChild(a); a.click(); a.remove();
+}
+document.querySelectorAll('#f-pet input, #f-pet textarea').forEach((el) => { el.oninput = desenhar; });
+$('tipo').onchange = () => aplicarModelo(false);
+$('data').value = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+aplicarModelo(true);
+// ligação com o ERP (ponte.js): preenche cliente, processos e advogados do banco
+window.GERADOR = {
+  titulo: 'Gerador de Petições', tipoDocumento: 'peticao', nomeArquivo: () => 'Petição ' + ($('titulo').value || TITULOS[$('tipo').value] || ''),
+  aoEntrar: async (sb) => {
+    const r = await sb.from('configuracoes').select('valor').eq('chave', 'recibo_emitentes').maybeSingle();
+    window._ADVS = Object.values((r.data && r.data.valor) || {});
+    $('lista-adv').innerHTML = window._ADVS.map((a) => '<option value="' + esc(a.nome) + '">').join('');
+    $('adv').onchange = () => { const a = window._ADVS.find((x) => x.nome === $('adv').value); if (a) { $('oab').value = a.oab || ''; if (a.local) $('local').value = a.local; } desenhar(); };
+    window._sbPet = sb;
+  },
+  preencher: async (c, f) => {
+    f.por('cliente', c.nome);
+    f.por('quali', c.pj ? 'pessoa jurídica de direito privado, inscrita no CNPJ sob o n. ' + (c.doc || '__') + ', com sede em ' + (c.endereco || '__') + (c.rep ? ', neste ato representada por ' + c.rep : '')
+      : 'inscrito(a) no CPF sob o n. ' + (c.doc || '__') + ', residente e domiciliado(a) em ' + (c.endereco || '__'));
+    if (window._sbPet && c.grupo_id) {
+      const ps = (await window._sbPet.from('processos').select('numero, competencia, natureza, autor, reu, valor').eq('grupo_id', c.grupo_id)).data || [];
+      $('lista-proc').innerHTML = ps.map((p) => '<option value="' + esc(p.numero) + '">' + esc([p.natureza, p.competencia].filter(Boolean).join(' · ')) + '</option>').join('');
+      $('processo').onchange = () => { const p = ps.find((x) => x.numero === $('processo').value); if (p) { if (!$('juizo').value) $('juizo').value = p.competencia || '';
+        const outro = [p.autor, p.reu].find((x) => x && !String(x).toUpperCase().includes(String(c.nome).toUpperCase().split(' ')[0])); if (outro && !$('contraria').value) $('contraria').value = outro;
+        if (p.valor && !$('valor').value) $('valor').value = 'R$ ' + Number(p.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 }); } desenhar(); };
+    }
+    desenhar();
+  },
+  guardar: () => $('folha').outerHTML
+};
+</script>
+<script src="../vendor/supabase.js"></script>
+<script src="../config.js"></script>
+<script src="ponte.js"></script>
+</body>
+</html>

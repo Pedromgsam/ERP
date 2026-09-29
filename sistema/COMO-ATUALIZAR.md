@@ -177,6 +177,46 @@ Se precisar dele de volta, basta voltar a publicação na Vercel (passo A acima)
 - **Prompts prontos** para as próximas rodadas (e-mails de honorários/parcelamentos/acordos/recibos, CRM, Tarefas):
   `sistema/PROMPTS-BACKUP-15.md`.
 
+## Backup 16 — o que mudou e onde clicar
+- **Início (a "home" do escritório):** logo abaixo do mural, o **🏠 Resumo do escritório** (processos, publicações, parcelamentos, acordos,
+  CRM, tarefas e documentos — clique no número para abrir). A fila mostra só tarefas; **"Emitir guias de parcelamentos"** virou
+  **🔔 Lembrete** (card Lembretes, abaixo da fila): abra a linha e marque **✓ Guia emitida** em cada parcela. Em **+ Lembrete** você cria
+  avisos que não são tarefa (ex.: "renovar certificado digital", todo ano).
+- **Painel Executivo → Empresas do grupo:** grupo, empresa e sócio em CAIXA ALTA, uma letra só, selo do grupo mais estreito,
+  CAPAG em selo quadrado e Situação em pílula do mesmo tamanho.
+- **Processos → Análise da carteira:** "Processos" mostra *X em andamento · Y arquivados/extintos*; o card "Arquivados / extintos" saiu;
+  o mesmo processo do sócio e da PJ conta uma vez só; "Valor em disputa" mostra *com valor · sem valor informado*.
+- **Publicações:** **⚙ Monitoramento (OABs e clientes)** → além das OABs, escolha **clientes** (o Diário busca pelo nome da empresa).
+  **🩺 Testar conexão com o CNJ** explica o problema se houver. **🌐 Buscar pelo navegador** busca do seu computador (use se o servidor não conseguir).
+- **Acordos:** mostra só os acordos com parcela pendente (caixa **Mostrar concluídos** no topo traz todos). A tabela **Acordos em andamento**
+  (devedor, credor, descrição, total, pago, falta, parcela e inadimplência) abre ao clicar, com **✓ Lançar pagamento** em cada parcela.
+  Saiu o gráfico "Valor em atraso por devedor". O "Progresso por acordo" continua até você aprovar a tabela nova.
+- **Financeiro:** a 2ª linha de cada honorário mostra *Área do serviço — contrato* (sem contrato, só a área). Saíram os gráficos das abas
+  A receber / Recebidos / Prejuízo / Despesas (a análise fica na aba Análise) e o "Despesas por categoria" do caixa da Contabilidade.
+  **✎ Editar em tabela** (botão no topo do Financeiro): completa vários lançamentos na tela ou por planilha (⬇ Baixar → ajustar no Excel → ⬆ Enviar).
+- **CRM:** funil em duas linhas; etapas novas **Contrato fechado** (o cliente disse sim: cria cadastro, contrato e a tarefa "Enviar contrato
+  para assinatura") → **Aguardando assinatura** → **Contrato assinado** (vai para a aba). **Lead perdido** pede o motivo numa lista.
+  **⚡ Cadastro rápido**, atalhos no cartão (💬 WhatsApp, ✉ e-mail, 📞 registrar ligação), **✉ Follow-up** na ficha, **⚙ Etapas** (prazo de cada
+  etapa: passou do prazo, vira tarefa), painel do mês (novas, conversão, valor por área, quem mais indica), modelos de proposta novos e
+  proposta com visual da marca (**👁 Ver como fica** em Modelos de proposta). Na ficha do cliente: **🤝 Indicação** cria prospecto indicado por ele.
+- **Central de e-mails ao cliente:** **⋯ → ✉ Central de e-mails ao cliente** (ou ✉ Cobrar/Notificar em cada tela). Abas *A enviar hoje*
+  (clique na linha = prévia; **Enviar agora**, **Pular este**, **Enviar selecionados**), *Enviados* e *Com erro* (**Tentar de novo**).
+  **⚙ Automático e horário**: liga/desliga honorários, parcelamentos, acordos e recibos, horário do envio e os dias do 1º/2º/3º aviso.
+  **✎ Modelos**: texto de cada e-mail (também em Administração → E-mails aos clientes). O **recibo** sai sozinho ao marcar **Recebido**, com o PDF anexo.
+  A tela antiga continua em **⋯ → Tela antiga de cobranças** até você aprovar a nova. Na ficha do cliente, aba **✉ E-mails** mostra o histórico.
+- **Tarefas:** barra de **criação rápida** no topo ("Protocolar defesa amanhã @Emanuelle !alta #trabalhista" + Enter); vista **Minha semana**
+  (arraste para remarcar); prazo fatal com **contagem de dias úteis**; **⏭ Pular esta vez** nas recorrentes; **Relatório** com mês,
+  por cliente e **Carga da semana** (horas estimadas × disponíveis; o admin ajusta as horas); modelos de fluxo novos (Abertura de empresa,
+  Inventário, Defesa trabalhista); resumo do dia por e-mail às **8h** (cada um liga/desliga em ⋯ → Meus avisos por e-mail);
+  excluídas há mais de 90 dias somem da aba (ficam no histórico).
+- **Geradores de documentos:** **⋯ → 📄 Geradores de documentos** (ou **📄 Gerar** na ficha do cliente / **📄 Gerar documento** em Documentos):
+  Contrato e Procuração, **Petição** (nova), Solicitação de Documentos, Proposta e Modelos de E-mail. Cada um abre numa aba, exige login,
+  **Preencher com o cliente** puxa nome, CPF/CNPJ, endereço e sócios, e **📁 Guardar em Documentos** salva na pasta do cliente.
+  As contas bancárias/PIX dos advogados saíram do arquivo público: rode **uma vez** o `sistema/banco/dados-recibos.sql` (mesmo jeito do estrutura.sql).
+- **PGFN grátis (dados abertos):** **Alertas → Rotinas → PGFN — dados abertos (grátis)** → siga os 3 passos da janela (baixar o arquivo
+  público da PGFN, descompactar, escolher os .csv). Atualiza PGFN e PGFN negociada de cada cliente e a aba PGFN da ficha. A PGFN publica
+  esses dados a cada trimestre.
+
 ## PGFN — dívida ativa pela API do SERPRO (paga)
 1. Contrate na Loja SERPRO a API **Consulta Dívida Ativa** (cobrança por consulta; confira a tabela antes).
 2. Na área do cliente SERPRO copie a **Consumer Key** e a **Consumer Secret**.

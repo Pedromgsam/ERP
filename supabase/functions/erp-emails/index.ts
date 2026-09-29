@@ -6,12 +6,13 @@
 //   "enviar" → envia os pendentes (a rotina chama a cada 5 min; o admin pelo botão "Enviar agora")
 //   "teste"  → põe um e-mail de teste para o admin e envia
 //   "resumo" → monta o resumo do dia de cada pessoa e envia
+// E-mail com anexo {tipo:'recibo', dados} (Recebido → recibo): o PDF do recibo é montado aqui, sem biblioteca.
 // Quem pode chamar: a rotina do banco (cabeçalho x-erp-segredo) ou um administrador logado.
 // A senha do Gmail/SMTP/Resend fica no banco (config_privada) — nunca no site.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import nodemailer from 'npm:nodemailer@6.9.14';
 
-const VERSAO = '2026-09-28';
+const VERSAO = '2026-10-01';
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-erp-segredo',
@@ -24,6 +25,64 @@ async function valor(db, chave) {
   return data ? data.valor : null;
 }
 
+// ─────────── PDF do recibo (texto simples, Helvetica, A4) ───────────
+const WIN = { '—': 0x97, '–': 0x96, '“': 0x93, '”': 0x94, '‘': 0x91, '’': 0x92, '•': 0x95, '€': 0x80, 'º': 0xBA, 'ª': 0xAA };
+function latin1(t) {
+  const out = [];
+  for (const ch of String(t || '')) {
+    const c = ch.codePointAt(0);
+    out.push(WIN[ch] || (c < 256 ? c : 0x3F));
+  }
+  return out;
+}
+function pdfTexto(t) {   // string PDF entre parênteses, com escape
+  return '(' + latin1(t).map((c) => (c === 0x28 || c === 0x29 || c === 0x5C) ? '\\' + String.fromCharCode(c) : c < 32 || c > 126 ? '\\' + c.toString(8).padStart(3, '0') : String.fromCharCode(c)).join('') + ')';
+}
+function quebrar(t, max) {
+  const linhas = []; let atual = '';
+  for (const p of String(t || '').split(/\s+/)) { if ((atual + ' ' + p).trim().length > max) { if (atual) linhas.push(atual); atual = p; } else atual = (atual + ' ' + p).trim(); }
+  if (atual) linhas.push(atual); return linhas;
+}
+export function pdfRecibo(d) {
+  const ops = [];
+  const txt = (x, y, tam, s, negrito) => ops.push('BT /' + (negrito ? 'F2' : 'F1') + ' ' + tam + ' Tf ' + x + ' ' + y + ' Td ' + pdfTexto(s) + ' Tj ET');
+  // faixa da marca
+  ops.push('0.106 0.165 0.290 rg 0 772 595 70 re f', '0.788 0.659 0.298 rg 0 768 595 4 re f');
+  ops.push('1 1 1 rg'); txt(50, 808, 18, 'ARAÚJO & CASTRO', true); txt(50, 790, 9, 'ADVOCACIA E CONSULTORIA', false); ops.push('0 0 0 rg');
+  txt(50, 720, 22, 'RECIBO', true); txt(400, 720, 11, 'Nº ' + (d.numero || ''), false);
+  ops.push('0.95 0.96 0.98 rg 380 680 165 30 re f 0 0 0 rg'); txt(392, 690, 15, d.valor_txt || '', true);
+  const corpo = (d.emitente || '') + (d.qualif ? ', ' + d.qualif : '') + ', declara que recebeu de ' + (d.pagador || '') + (d.doc ? ', inscrito(a) no CPF/CNPJ sob o n. ' + d.doc : '') +
+    ', a quantia de ' + (d.valor_txt || '') + ' (' + (d.extenso || '') + '), referente a ' + (d.referente || '') + ', dando plena e geral quitação do valor recebido.';
+  let y = 640;
+  for (const l of quebrar(corpo, 92)) { txt(50, y, 11.5, l, false); y -= 17; }
+  y -= 20; txt(50, y, 11.5, (d.local ? d.local + ', ' : '') + (d.data_extenso || d.data || '') + '.', false);
+  y -= 90; ops.push('0.5 0.5 0.5 RG 180 ' + (y + 14) + ' m 415 ' + (y + 14) + ' l S');
+  txt(297 - Math.min(117, (d.emitente || '').length * 3), y, 11, d.emitente || '', true); if (d.oab) txt(297 - d.oab.length * 2.6, y - 15, 10, d.oab, false);
+  ops.push('0.85 0.85 0.85 RG 50 60 m 545 60 l S'); txt(50, 45, 8, 'Recibo emitido pelo sistema do escritório Araújo & Castro.', false);
+  const conteudo = ops.join('\n');
+  const objs = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>',
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>',
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>',
+    '<< /Length ' + conteudo.length + ' >>\nstream\n' + conteudo + '\nendstream'
+  ];
+  let pdf = '%PDF-1.4\n'; const pos = [];
+  objs.forEach((o, i) => { pos.push(pdf.length); pdf += (i + 1) + ' 0 obj\n' + o + '\nendobj\n'; });
+  const xref = pdf.length;
+  pdf += 'xref\n0 ' + (objs.length + 1) + '\n0000000000 65535 f \n' + pos.map((p) => String(p).padStart(10, '0') + ' 00000 n \n').join('') +
+    'trailer\n<< /Size ' + (objs.length + 1) + ' /Root 1 0 R >>\nstartxref\n' + xref + '\n%%EOF';
+  // o conteúdo já é ASCII (acentos viram \ooo), então cada caractere = 1 byte
+  const bytes = new Uint8Array(pdf.length); for (let i = 0; i < pdf.length; i++) bytes[i] = pdf.charCodeAt(i) & 0xFF;
+  return bytes;
+}
+function base64(bytes) { let s = ''; for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]); return btoa(s); }
+function anexos(msg) {
+  if (!msg.anexo || msg.anexo.tipo !== 'recibo' || !msg.anexo.dados) return [];
+  return [{ filename: String(msg.anexo.arquivo || 'Recibo.pdf').replace(/[\\/:*?"<>|]/g, '-'), content: base64(pdfRecibo(msg.anexo.dados)) }];
+}
+
 // envia um e-mail conforme o serviço escolhido na tela
 async function enviarUm(cfg, msg, mailer) {
   const de = (cfg.remetente ? '"' + String(cfg.remetente).replace(/"/g, '') + '" ' : '') + '<' + cfg.usuario + '>';
@@ -31,7 +90,7 @@ async function enviarUm(cfg, msg, mailer) {
     const r = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: 'Bearer ' + cfg.senha, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: de, to: [msg.para], subject: msg.assunto, html: msg.html, reply_to: cfg.responder || undefined })
+      body: JSON.stringify({ from: de, to: [msg.para], subject: msg.assunto, html: msg.html, reply_to: cfg.responder || undefined, attachments: anexos(msg).length ? anexos(msg) : undefined })
     });
     if (!r.ok) throw new Error('Resend recusou (' + r.status + '): ' + (await r.text()).slice(0, 300));
     return;
@@ -40,7 +99,8 @@ async function enviarUm(cfg, msg, mailer) {
   const host = cfg.provedor === 'gmail' ? 'smtp.gmail.com' : cfg.host;
   const porta = Number(cfg.provedor === 'gmail' ? 465 : cfg.porta || 465);
   const t = mailer.createTransport({ host, port: porta, secure: porta === 465, auth: { user: cfg.usuario, pass: cfg.senha } });
-  await t.sendMail({ from: de, to: msg.para, subject: msg.assunto, html: msg.html, replyTo: cfg.responder || undefined });
+  await t.sendMail({ from: de, to: msg.para, subject: msg.assunto, html: msg.html, replyTo: cfg.responder || undefined,
+    attachments: anexos(msg).map((a) => ({ filename: a.filename, content: a.content, encoding: 'base64', contentType: 'application/pdf' })) });
 }
 
 async function processarFila(db, mailer) {

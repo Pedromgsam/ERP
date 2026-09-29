@@ -45,14 +45,14 @@
 <script src="vendor/chart.umd.js?v=3402f6de" defer></script>
 <script src="vendor/supabase.js?v=16aeff36"></script>
 <script src="config.js"></script>
-<script src="erp-dados.js?v=c6fb5f63"></script>
+<script src="erp-dados.js?v=599aa9b0"></script>
 <link rel="stylesheet" href="editor.css?v=b8509b3b">
-<link rel="stylesheet" href="erp-telas.css?v=204502f1">
+<link rel="stylesheet" href="erp-telas.css?v=21ccb99c">
 <script src="editor.js?v=c78b852e" defer></script>
-<script src="erp-telas.js?v=81254c1e" defer></script>
-<link rel="stylesheet" href="gs.css?v=b35a4fee">
+<script src="erp-telas.js?v=8a58d57e" defer></script>
+<link rel="stylesheet" href="gs.css?v=46570036">
 <script src="importador.js?v=4fb0d655" defer></script>
-<script src="gestao-embutida.js?v=8b3021ee" defer></script>
+<script src="gestao-embutida.js?v=18ed4077" defer></script>
 <script>
 
 
@@ -1616,7 +1616,7 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
 .ep-val::placeholder{color:var(--text4);font-weight:400}
 </style>
 <link rel="stylesheet" href="tokens.css?v=61c9c820">
-<link rel="stylesheet" href="tema-escuro.css?v=4ee8d78b">
+<link rel="stylesheet" href="tema-escuro.css?v=ec6ef983">
 <script>try{if(localStorage.getItem("erp_tema")==="escuro")document.documentElement.setAttribute("data-tema","escuro")}catch(e){}</script>
 </head>
 <body>
@@ -2113,19 +2113,14 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
         <div class="mod-banner-d">Controle de acordos judiciais · parcelas e vencimentos consolidados</div>
       </div>
     </div>
-    <div id="alertAcordos" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"></div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><div id="alertAcordos" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"></div><label class="ac-todos"><input type="checkbox" id="acMostrarTodos" onchange="renderAcordos()"> Mostrar concluídos</label></div>
   </div>
 
   <div id="acAnalise"></div><div hidden aria-hidden="true"><div class="kpi-grid" id="kpiAcordos"></div></div>
-  <div class="crow c2">
+  <div class="crow">
     <div class="cc">
       <div class="cc-hd"><div><div class="cc-t">Valor por devedor</div><div class="cc-d">parcelas em aberto</div></div></div>
       <div class="cb" style="height:280px"><canvas id="cAcordDevedor"></canvas></div>
-    </div>
-    <div class="cc">
-      <div class="cc-hd"><div><div class="cc-t">Valor em atraso por devedor</div><div class="cc-d">parcelas com vencimento passado</div></div></div>
-      <div class="pa-ok" id="acordAtrasoVazio" style="display:none;margin:0">✓ Nenhuma parcela de acordo em atraso.</div>
-      <div class="cb" id="acordAtrasoBox" style="height:280px"><canvas id="cAcordAtraso"></canvas></div>
     </div>
   </div>
   <div class="cc">
@@ -2739,7 +2734,7 @@ function pDate(v){
 const fDate = d => { const dt=pDate(d); if(!dt)return'—'; return dt.toLocaleDateString('pt-BR'); };
 
 function dCh(id){if(charts[id]){charts[id].destroy();delete charts[id];}}
-function mCh(id,cfg){if(id!=='cParcResidual'&&id!=='cAcordAtraso'&&cfg&&cfg.type==='bar'&&cfg.options&&cfg.options.indexAxis==='y'&&!cfg.options.gxValores&&(cfg.data.datasets||[]).length===1&&typeof _barrasComValor==='function')_barrasComValor(cfg);dCh(id);const c=$(id);if(!c)return;charts[id]=new Chart(c,cfg);return charts[id];}
+function mCh(id,cfg){if(/^c(Fin|Rec|Prej|FcFech)|^cFcCaixaCat$/.test(id)){dCh(id);return;}if(id!=='cParcResidual'&&id!=='cAcordAtraso'&&cfg&&cfg.type==='bar'&&cfg.options&&cfg.options.indexAxis==='y'&&!cfg.options.gxValores&&(cfg.data.datasets||[]).length===1&&typeof _barrasComValor==='function')_barrasComValor(cfg);dCh(id);const c=$(id);if(!c)return;charts[id]=new Chart(c,cfg);return charts[id];}
 
 const BO={responsive:true,maintainAspectRatio:false,
   animation:{duration:500,easing:'easeOutQuart'},
@@ -4026,15 +4021,15 @@ function renderProcAnalise(){
       + '</tbody></table></div></div>';
   };
 
+  var _vistos={}; lista=lista.filter(function(p){ var k=String(p.numero||'').replace(/\D/g,'')||String(p.numero||'')||('#'+Math.random()); if(_vistos[k]) return false; _vistos[k]=1; return true; });
   var comValor=lista.filter(function(p){ return val(p)>0; });
   var totalV=comValor.reduce(function(s,p){ return s+val(p); },0);
   var ativos=lista.filter(function(p){ return !String(p.arquivamento||'').trim(); }).length;
 
   el.innerHTML=exBloco('exProcAn','Análise da carteira judicial',
     '<div class="kpi-grid" style="margin-bottom:14px">'
-   +  kC('Processos',lista.length,ativos+' em andamento','cb','db')
-   +  kC('Arquivados / extintos',lista.length-ativos,'encerrados, prescritos e extintos','cx','')
-   +  kC('Valor em disputa',_faFT(totalV),comValor.length+' com valor informado','cv','dv')
+   +  kC('Processos',lista.length,ativos+' em andamento · '+(lista.length-ativos)+' arquivados/extintos','cb','db')
+   +  kC('Valor em disputa',_faFT(totalV),comValor.length+' com valor informado · '+(lista.length-comValor.length)+' sem valor informado','cv','dv')
    +  (function(){ var nomes=(FIL.length?FIL:DB.baseDados).map(function(r){return String(r.nome||'').toLowerCase();}).filter(function(n){return n.length>2;});
         var tem=function(t){ t=String(t||'').toLowerCase(); return nomes.some(function(n){return t.indexOf(n)>=0;}); };
         var vP=lista.filter(function(p){return tem(p.reu);}).reduce(function(s,p){return s+val(p);},0), vA=lista.filter(function(p){return tem(p.autor);}).reduce(function(s,p){return s+val(p);},0);
@@ -4668,39 +4663,65 @@ function setAcordPeriod(p,btn){_setPeriod('_acordPeriod','acordPeriodBar',render
 
 let _acordPgPg=1; // página da tabela de pagos
 
+// ═══ Backup 16 — Acordos: só os pendentes (caixa "Mostrar concluídos"), tabela única "Acordos em andamento" ═══
+// Um acordo = mesmo processo + devedor + credor. Concluído = todas as parcelas pagas.
+var _acAbertos={};
+function _acChave(a){ return (a.processo||'')+'|'+(a.devedor||'')+'|'+(a.credor||''); }
+function _acordosPendentes(ac){
+  var cx=document.getElementById('acMostrarTodos'); if(cx&&cx.checked) return ac;
+  var pend={}; ac.forEach(function(a){ if(a.situacao!=='Pago') pend[_acChave(a)]=1; });
+  return ac.filter(function(a){ return pend[_acChave(a)]; });
+}
+function _acToggle(k){ _acAbertos[k]=!_acAbertos[k]; renderAcordos(); }
+function _acPagar(id,bt){ if(bt) bt.disabled=true; if(window.ERP_EDITOR&&window.ERP_EDITOR.baixaRapida) window.ERP_EDITOR.baixaRapida('acordos',id); }
+function _acDetalhe(id){ if(window.GS&&window.GS.detalheAcordo) Promise.resolve(window.GS.carregarCadastros()).then(function(){ window.GS.detalheAcordo(id); }); }
 function _acordosAnalise(ac){
-  var el=$('acAnalise'); if(!el) return; if(!ac.length){ el.innerHTML=''; return; }
+  var el=$('acAnalise'); if(!el) return; if(!ac.length){ el.innerHTML='<div class="pa-ok">Nenhum acordo pendente. Marque "Mostrar concluídos" para ver todos.</div>'; return; }
   var hj=new Date(); hj.setHours(0,0,0,0); var fimMes=new Date(hj.getFullYear(),hj.getMonth()+1,0);
   var v=function(a){return Number(a.valor)||0;}, pago=function(a){return a.situacao==='Pago';};
   var atrasada=function(a){ if(pago(a)) return false; var d=pDate(a.vencimento); return a.situacao==='Vencido'||(d&&d<hj); };
   var noMes=function(a){ if(pago(a)) return false; var d=pDate(a.vencimento); return d&&d>=hj&&d<=fimMes; };
   var soma=function(l){return l.reduce(function(s,a){return s+v(a);},0);};
-  var porCred={}; ac.forEach(function(a){ var k=a.credor||'—'; if(!porCred[k]) porCred[k]={pago:0,falta:0,n:new Set(),atr:0}; var c=porCred[k];
-    if(pago(a)) c.pago+=v(a); else c.falta+=v(a); c.n.add(a.processo); if(atrasada(a)) c.atr++; });
-  var ordem=Object.keys(porCred).sort(function(a,b){return porCred[b].falta-porCred[a].falta;});
-  var porAc={}; ac.filter(atrasada).forEach(function(a){ var k=a.processo+'|'+(a.devedor||''); if(!porAc[k]) porAc[k]={a:a,n:0,v:0}; porAc[k].n++; porAc[k].v+=v(a); });
-  var risco=Object.keys(porAc).map(function(k){return porAc[k];}).sort(function(x,y){return y.n-x.n||y.v-x.v;});
-  var barra=function(p,f){ var t=p+f; if(t<=0) return ''; var pc=Math.round(p/t*100); return '<div class="pa-bar"><div class="pa-bar-in" style="width:'+pc+'%"></div></div><div class="pa-pc">'+pc+'% pago</div>'; };
-  var sem=ac.filter(function(a){return pago(a)&&a.comprovante===false;}).length;
+  var G={}; ac.forEach(function(a){ var k=_acChave(a); if(!G[k]) G[k]={k:k,a:a,l:[]}; G[k].l.push(a); });
+  var lista=Object.keys(G).map(function(k){ var g=G[k];
+    g.l.sort(function(x,y){ var dx=pDate(x.vencimento), dy=pDate(y.vencimento); return (dx?dx.getTime():0)-(dy?dy.getTime():0); });
+    g.total=soma(g.l); g.pago=soma(g.l.filter(pago)); g.falta=g.total-g.pago; g.atr=g.l.filter(atrasada).length;
+    g.pagas=g.l.filter(pago).length; g.prox=g.l.filter(function(a){return !pago(a);})[0]||null; g.parcela=g.prox?v(g.prox):v(g.l[g.l.length-1]);
+    g.obs=(g.l.find(function(a){return a.obs;})||{}).obs||''; return g; })
+    .sort(function(x,y){ return y.atr-x.atr || y.falta-x.falta; });
+  var pc=function(g){ return g.total>0?Math.round(g.falta/g.total*100):0; };
+  var linhas=lista.map(function(g){ var aberto=!!_acAbertos[g.k], kk=g.k.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;');
+    var tr='<tr class="ac-linha'+(g.atr?' ac-atr':'')+'" onclick="_acToggle(\''+kk+'\')" title="Clique para ver as parcelas">'
+     +'<td><span class="ac-cv">'+(aberto?'▾':'▸')+'</span> <strong>'+esc(g.a.devedor||'—')+'</strong></td>'
+     +'<td>'+esc(g.a.credor||'—')+'</td>'
+     +'<td>'+esc(g.obs||'Acordo no processo')+'<div class="ac-proc">'+esc(g.a.processo||'')+'</div></td>'
+     +'<td class="mono num">'+_faFT(g.total)+'</td>'
+     +'<td class="mono num ac-pago">'+_faFT(g.pago)+'</td>'
+     +'<td class="mono num">'+_faFT(g.falta)+'<div class="ac-falta"><div class="pa-bar"><div class="pa-bar-in" style="width:'+(100-pc(g))+'%"></div></div><span>'+pc(g)+'% falta</span></div></td>'
+     +'<td class="mono num">'+_faFT(g.parcela)+'<div class="ac-proc">'+g.pagas+'/'+g.l.length+' pagas</div></td>'
+     +'<td>'+(g.atr?'<span class="tag tr">'+g.atr+' em atraso</span>':(g.falta>0?'<span class="tag tg">em dia</span>':'<span class="tag tx">concluído</span>'))+'</td></tr>';
+    if(aberto) tr+='<tr class="ac-det"><td colspan="8"><div class="ac-det-in">'
+      +(g.a.grupo?'<div class="ac-det-info">Grupo: <b>'+esc(g.a.grupo)+'</b>'+(g.a.responsavel?' · Responsável: <b>'+esc(g.a.responsavel)+'</b>':'')+(g.l[0].pix?' · PIX: <b>'+esc(g.l[0].pix)+'</b>':'')+(g.l[0].banco?' · Banco: <b>'+esc(g.l[0].banco)+'</b>':'')+'</div>':'')
+      +'<table><thead><tr><th>Parcela</th><th>Vencimento</th><th class="num">Valor</th><th>Situação</th><th>Pago em</th><th></th></tr></thead><tbody>'
+      +g.l.map(function(a){ return '<tr><td>'+esc(a.parcela||'?')+(a.totalParc?'/'+esc(a.totalParc):'')+'</td><td class="mono">'+esc(a.vencimento||'—')+'</td><td class="mono num">'+_faFT(v(a))+'</td>'
+        +'<td>'+(pago(a)?'<span class="tag tg">pago</span>':atrasada(a)?'<span class="tag tr">vencida</span>':'<span class="tag tn">a vencer</span>')+'</td><td class="mono">'+esc(a.dataPag||'—')+'</td>'
+        +'<td style="text-align:right;white-space:nowrap">'+(pago(a)?'':'<button type="button" class="btn-m ac-bt-pagar" onclick="event.stopPropagation();_acPagar(\''+a._id+'\',this)">✓ Lançar pagamento</button> ')
+        +'<button type="button" class="btn-m" onclick="event.stopPropagation();_acDetalhe(\''+a._id+'\')">Detalhe</button></td></tr>'; }).join('')
+      +'</tbody></table></div></td></tr>';
+    return tr; }).join('');
   el.innerHTML=exBloco('exAcSit','Situação dos acordos',
     '<div class="kpi-grid" style="margin-bottom:14px">'
    + kC('Já pago',_faFT(soma(ac.filter(pago))),ac.filter(pago).length+' parcela(s)','cg','dg')
-   + kC('Falta pagar',_faFT(soma(ac.filter(function(a){return !pago(a);}))),new Set(ac.filter(function(a){return !pago(a);}).map(function(a){return a.processo;})).size+' acordo(s) em aberto','ca','')
+   + kC('Falta pagar',_faFT(soma(ac.filter(function(a){return !pago(a);}))),lista.filter(function(g){return g.falta>0;}).length+' acordo(s) em aberto','ca','')
    + kC('Vence este mês',_faFT(soma(ac.filter(noMes))),ac.filter(noMes).length+' parcela(s) até '+fimMes.toLocaleDateString('pt-BR').slice(0,5),'cb','')
    + kC('Em atraso',_faFT(soma(ac.filter(atrasada))),ac.filter(atrasada).length+' parcela(s) vencida(s)','cr',ac.some(atrasada)?'dr':'')
-   + '</div><div class="crow c2">'
-   + '<div><div class="pa-sub">Por credor</div><div class="tw"><table><thead><tr><th>Credor</th><th style="text-align:right">Pago</th><th style="text-align:right">Falta</th><th style="width:130px">Andamento</th></tr></thead><tbody>'
-   + ordem.map(function(k){ var c=porCred[k]; return '<tr><td><strong>'+esc(k)+'</strong><div style="font-size:11px;color:var(--text3)">'+c.n.size+' acordo(s)'+(c.atr?' · <span style="color:var(--red-d)">'+c.atr+' em atraso</span>':'')+'</div></td>'
-       +'<td class="mono" style="text-align:right;color:var(--green-d)">'+_faFT(c.pago)+'</td><td class="mono" style="text-align:right">'+_faFT(c.falta)+'</td><td>'+barra(c.pago,c.falta)+'</td></tr>'; }).join('')
-   + '</tbody></table></div></div>'
-   + '<div><div class="pa-sub">Risco <span style="font-weight:400;text-transform:none;letter-spacing:0">— acordos com parcela vencida (o credor pode executar)</span></div>'
-   + (risco.length?'<div class="tw"><table><thead><tr><th>Devedor</th><th>Processo</th><th style="text-align:right">Em atraso</th></tr></thead><tbody>'
-     + risco.map(function(r){ return '<tr><td><strong>'+esc(r.a.devedor||'—')+'</strong><div style="font-size:11px;color:var(--text3)">'+esc(r.a.credor||'')+'</div></td><td class="mono">'+esc(r.a.processo||'')+'</td><td style="text-align:right"><span class="tag tr">'+r.n+' parcela(s)</span><div class="mono" style="font-size:11.5px">'+_faFT(r.v)+'</div></td></tr>'; }).join('')
-     + '</tbody></table></div>':'<div class="pa-ok">Nenhum acordo com parcela vencida. 👏</div>')
-   + '</div></div>');
+   + '</div>'
+   + '<div class="pa-sub">Acordos em andamento <span style="font-weight:400;text-transform:none;letter-spacing:0">— clique na linha para ver as parcelas e lançar pagamento</span></div>'
+   + '<div class="tw"><table class="ac-tab"><thead><tr><th>Devedor</th><th>Credor</th><th>Descrição</th><th class="num">Total</th><th class="num">Pago</th><th class="num">Falta</th><th class="num">Parcela</th><th>Inadimplência</th></tr></thead><tbody>'
+   + linhas + '</tbody></table></div>');
 }
 function renderAcordos(){
-  const ac=filtrarAcordos();
+  const ac=_acordosPendentes(filtrarAcordos());
   const acAP=ac.filter(a=>a.situacao!=='Pago'); // A pagar
   const acPg=ac.filter(a=>a.situacao==='Pago');  // Pagos
   const tot=acAP.reduce((s,a)=>s+(Number(a.valor)||0),0);
@@ -5533,6 +5554,8 @@ function _faTabelaPessoas(pessoas){
    + '</tbody></table></div>';
 }
 
+// legenda (Backup 16): 2ª linha = área do serviço — contrato (sem contrato, só a área)
+function _legLanc(f){ var p=[f.servico,f.contrato].filter(Boolean); return p.length?'<div style="font-size:11.5px;color:var(--text3);margin-top:2px">'+esc(p.join(' — '))+'</div>':''; }
 function _faTabelaDetalhe(rows){
   var seta=function(c){ return _FA.ord===c?(_FA.asc?' ↑':' ↓'):''; };
   var corAba={'Receita':'var(--green-d)','A Receber':'var(--blue-d)','Prejuízo':'var(--red-d)'};
@@ -5551,7 +5574,7 @@ function _faTabelaDetalhe(rows){
         +'<td>'+_faSitTag(f)+'</td>'
         +'<td style="color:'+(corAba[f.aba]||'var(--text3)')+';font-weight:600;font-size:11.5px">'+esc(f.aba)+'</td>'
         +'<td>'+_faSelo(_faQuem(f))+'</td><td>'+esc(f.grupo||'—')+'</td>'
-        +'<td>'+esc(f.tipo||'—')+'</td>'
+        +'<td>'+esc(f.tipo||'—')+_legLanc(f)+'</td>'
         +'<td class="mono" style="text-align:right;font-weight:600">'+_faFT(_faVal(f))+'</td></tr>';
      }).join('') : '<tr><td colspan="7" class="vazio">Nenhum lançamento com esses recortes.</td></tr>')
    + '</tbody></table></div>'

@@ -80,21 +80,27 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
-- Última entrega: **Backup 15** — Processos/Parcelamentos/Acordos de volta ao Backup 13 (tela nova de Processos removida;
-  o usuário não gostou). Início: fila de 5 (`FILA`, ▾ Ver todas) com vista lista/mês/semana/dia salva em `perfis.preferencias`
-  (`salvar_preferencia`), sem honorário (`cob:`), mural (`mural` + `cardMural`), botão "✓ Recebido"; relatório de honorários
-  largo (`janela-rel`, `semDescricao/semSituacao/semCobranca`). Painel: sem `.mod-banner`, `#gx-linha-painel` (Atualizado +
-  entidades/grupos), pílulas de grupo 150px iguais. Financeiro: `servico` (Área do serviço, `AREAS_SERVICO`/`selectServico`) em
-  lançamentos e contratos (gatilhos copiam do contrato), gráfico por área, `detalheLancamento` (linha clicável). Contrato: "+ Novo
-  cliente". CRM: abas andamento/ganho/perdido (`E.crm.aba`, `crmFinalizadas`), ficha abre em Resumo. Documentos: filtro de grupo e
-  atalhos por tipo. Tarefas: abas `E.tf.aba` (abertas/concluidas/excluidas; excluir = status `cancelada`, admin exclui de vez).
-  Alertas: "📋 Virar tarefa" (`janelaVirarTarefa`, subtarefas por linha); cartão PGFN só aparece com chave (sem SERPRO por ora).
-  Prompts das próximas rodadas: `sistema/PROMPTS-BACKUP-15.md`. `estrutura.sql` = 3672 linhas.
+- Última entrega: **Backup 16** — Início home (`cardResumoEscritorio`, `cardLembretes` + tabela `lembretes`; guias de parcelamento viraram
+  lembrete: regra `parcela_parcelamento` não cria tarefa, marca `parcelas.emissao='SIM'`; fila exclui `cob:|parc:|aco:`). Painel: selos
+  (CAPAG/situação/grupo 124px, caixa alta) em erp-telas.css. Processos: análise sem duplicar número (sócio+PJ). Publicações: `partes_monitoradas`
+  (busca `nomeParte` no DJEN), `acao:'diagnostico'`, busca pelo navegador (`buscarPubNoNavegador`, CSP libera comunicaapi). Acordos: remendo
+  `ferramentas/remendos/acordos-b16.js` (`_acordosPendentes`, tabela "Acordos em andamento"). Financeiro: `legendaLanc`/`_legLanc` (área — contrato),
+  gráficos das abas fora (`mCh` ignora `cFin*/cRec*/cPrej*/cFcFech*/cFcCaixaCat` + CSS :has), `edicaoLancamentos` (tabela + planilha por id).
+  CRM: etapas Contrato fechado/Aguardando assinatura/Contrato assinado/Lead perdido (`crm_etapas.dias_alerta`, `descricao`), `crm_ganhar` novo
+  (modalidade, área, tarefa `crm-contrato:`), `crm_followup_email`, regras `crm_parada`/`crm_followup` em `rodar_regras_extras()` (gancho no
+  fim de `rodar_regras_tarefas`), `htmlProposta` com a marca. Central de e-mails (`telas-emails.js`, painel `emails`): `emails_pendentes()` é a
+  fonte única (rotina e tela), `emails_modelos` editáveis, 3 avisos de atraso, `emails_central*`, `salvar_config_emails` (cron `erp_emails_cliente`),
+  recibo com `recibo_dados`/`valor_extenso` e PDF montado na erp-emails (`pdfRecibo`, `email_fila.anexo`). `email_cliente_enviar` tem 10 parâmetros
+  (p_anexo). Tarefas: `interpretarRapida`, vista `semana`, carga (`configuracoes.carga_horas`), pular recorrência, relatório por cliente,
+  resumo diário 8h. Geradores: `ferramentas/montar-geradores.js` copia os HTML de #Sistemas para `app/geradores/` + `ponte.js` (login,
+  cliente, guardar em Documentos); `peticao.html` novo; contas dos advogados em `configuracoes.geradores_bancos` (dados-recibos.sql).
+  PGFN grátis: `pgfn_importar_abertos` + leitura de CSV no navegador (Alertas → Rotinas). `estrutura.sql` = 4398 linhas.
+- Backup 15 (base): fila/calendário/mural, `servico` (Área do serviço), CRM em abas, Tarefas em abas, alerta vira tarefa.
 - Backup 14 (base): perfil de e-mail por cliente, `usuarios_previstos`, fotos mensais/Evolução, OFX (`telas-ofx.js`), PGFN (`erp-pgfn`),
   ficha da tarefa `abrirTarefa`, `pessoasEscritorio`/`selectPessoa`, Clientes "Por grupo" e "Editar em tabela".
 - Documentos: `sistema/PROXIMOS-PASSOS.md`, `sistema/VIABILIDADE-INTEGRACOES.md` (RFB/SERPRO, PGFN pela API, SIARE, Sicoob OFX/API).
-- Funções do Supabase: erp-emails, erp-publicacoes, erp-cnpj, erp-agenda, erp-backup, **erp-pgfn** (nova no Backup 14).
+- Funções do Supabase: erp-emails (recibo em PDF no Backup 16), erp-publicacoes (partes/diagnóstico no Backup 16), erp-cnpj, erp-agenda, erp-backup, erp-pgfn.
 - Aguardando o usuário: criar as 4 contas (Administração → Usuários → Acessos combinados); contratar a API "Consulta Dívida Ativa"
   do SERPRO e salvar a chave em Alertas → PGFN; Integra Contador depois; boletos: não por enquanto; Financeiro: 9 sugestões aguardando
   escolha (não executar sem autorização).
-- Próxima rodada sugerida: Central de e-mails ao cliente, CRM e Tarefas (prompts em `PROMPTS-BACKUP-15.md`); Integra Contador quando contratado.
+- Próxima rodada sugerida: aprovar a Central de e-mails (depois apagar a tela antiga), tirar "Progresso por acordo" após aprovação, melhorias de Contratos (sugestões na resposta do Backup 16).
