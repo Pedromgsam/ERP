@@ -4147,14 +4147,14 @@ revoke all on function public.rodar_emails_cliente() from public, anon, authenti
 -- dados do recibo: emitente (pela pessoa do lançamento), quem pagou, valor por extenso, data e local
 create or replace function public.recibo_dados(p_lanc uuid) returns jsonb
 language plpgsql stable security definer set search_path = public as $$
-declare l record; em jsonb; chave text; quem text; doc text; cfg jsonb;
+declare l record; em jsonb; k_em text; quem text; doc text; cfg jsonb;
 begin
   select * into l from public.lancamentos where id = p_lanc;
   if not found then return null; end if;
   cfg := coalesce((select valor from public.configuracoes where chave = 'recibo_emitentes'), '{}');
-  chave := lower(public.primeiro_nome(coalesce(l.responsavel, '')));
-  chave := translate(chave, 'áàâãéêíóôõúç', 'aaaaeeiooouc');
-  em := coalesce(cfg->chave, cfg->'escritorio', jsonb_build_object('nome', 'ARAÚJO & CASTRO ADVOCACIA E CONSULTORIA', 'qualif', '', 'local', coalesce((select value->>'local' from jsonb_each(cfg) limit 1), '')));
+  k_em := lower(public.primeiro_nome(coalesce(l.responsavel, '')));
+  k_em := translate(k_em, 'áàâãéêíóôõúç', 'aaaaeeiooouc');
+  em := coalesce(cfg->k_em, cfg->'escritorio', jsonb_build_object('nome', 'ARAÚJO & CASTRO ADVOCACIA E CONSULTORIA', 'qualif', '', 'local', coalesce((select value->>'local' from jsonb_each(cfg) limit 1), '')));
   select coalesce(cl.nome, g.nome, l.favorecido, 'cliente'), coalesce(nullif(cl.cpf_cnpj, ''), '') into quem, doc
     from (select 1) z left join public.clientes cl on cl.id = l.cliente_id left join public.grupos g on g.id = l.grupo_id;
   return jsonb_build_object('emitente', em->>'nome', 'qualif', coalesce(em->>'qualif', ''), 'oab', coalesce(em->>'oab', ''), 'local', coalesce(em->>'local', ''),
