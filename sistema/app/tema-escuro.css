@@ -257,6 +257,10 @@ html[data-tema="escuro"] body.gx-barra-topo .fin-tab.active:is([data-tab=apagar]
 html[data-tema="escuro"] body.gx-barra-topo .fin-tab.active[data-tab=caixa]{border-color:rgba(255,255,255,0.22)!important}
 html[data-tema="escuro"] body.gx-barra-topo .fin-tab.active[data-tab=socios]{border-color:rgba(255,255,255,0.03)!important}
 html[data-tema="escuro"] body.gx-barra-topo .fin-tab-vencidos.active{border-color:rgba(255,255,255,0.03)!important}
+html[data-tema="escuro"] .ac-todos{background:var(--surface)}
+html[data-tema="escuro"] .ac-tab .ac-linha:hover td{background:rgba(255,255,255,0.044)}
+html[data-tema="escuro"] .ac-det>td{background:var(--surface2)!important}
+html[data-tema="escuro"] .ac-det-in table{background:var(--surface)}
 html[data-tema="escuro"] #gx-editar{border:1px solid var(--ac-gold,#766948)}
 html[data-tema="escuro"] .gx-fundo{background:rgba(255,255,255,0.22)}
 html[data-tema="escuro"] .gx-janela{background:var(--surface);color:#dadee4}

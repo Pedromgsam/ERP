@@ -525,6 +525,17 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await salvarGs(p, '#btn-salvar-tf'); await p.waitForTimeout(800);
     ok('publicação fica "tratada" e ligada à tarefa', sql("select status||'|'||(tarefa_id is not null) from publicacoes where processo_numero='50000011120248130024'") === 'tratada|true');
     await foto(p, 'publicacoes');
+    // Backup 16: cliente monitorado pelo nome da parte; busca pelo navegador (plano B)
+    await p.click('#pub-oabs'); await p.waitForSelector('#f-pt'); await p.fill('#f-pt [name=nome]', 'Beta Servicos Ltda'); await p.click('#btn-add-pt'); await p.waitForTimeout(1200);
+    await p.click('#pub-diag'); await p.waitForTimeout(1200);
+    ok('Publicações: "Testar conexão" explica o resultado', /API do CNJ respondeu/.test(await p.textContent('#pub-diag-res')), await p.textContent('#pub-diag-res').catch(() => ''));
+    await p.keyboard.press('Escape'); await p.waitForTimeout(200);
+    await p.click('#pub-buscar'); await p.waitForTimeout(3000);
+    ok('Publicações: busca também pelo nome do cliente e descarta o nome parecido', sql("select count(*) from publicacoes where parte_monitorada='BETA SERVICOS LTDA'") === '1' &&
+      sql("select count(*) from publicacoes where destinatarios like '%GAMA%'") === '0');
+    sql("delete from publicacoes where parte_monitorada='BETA SERVICOS LTDA'");
+    await p.evaluate((b) => { window.ERP_DJEN_API = b + '/__teste/djen'; }, BASE); await p.click('#pub-nav'); await p.waitForTimeout(3000);
+    ok('Publicações: "Buscar pelo navegador" grava sem duplicar', sql("select count(*) from publicacoes where parte_monitorada='BETA SERVICOS LTDA'") === '1' && Number(sql("select count(*) from publicacoes")) === 3);
 
     // ── Alertas: cartões por setor + cartão CNPJ (rotina das 6h) ──
     await nav(p, 'alertas'); await p.waitForSelector('#panel-alertas .al-card'); await p.waitForTimeout(500);

@@ -3686,3 +3686,31 @@ grant select, insert, update, delete on public.lembretes to authenticated;
 drop policy if exists lembretes_equipe on public.lembretes;
 create policy lembretes_equipe on public.lembretes for all to authenticated using (public.eh_equipe()) with check (public.eh_equipe());
 create index if not exists lembretes_dia on public.lembretes (dia) where feito_em is null;
+
+-- Publicações por PARTE (cliente): o Diário (DJEN) não busca por CNPJ, mas busca pelo nome da parte.
+-- O cliente escolhido entra com a razão social; o CNPJ fica guardado para conferência.
+create table if not exists public.partes_monitoradas (
+  id uuid primary key default gen_random_uuid(),
+  nome text not null check (btrim(nome) <> ''),
+  documento text not null default '',
+  cliente_id uuid references public.clientes(id) on delete cascade,
+  ativo boolean not null default true,
+  criado_em timestamptz not null default now(), atualizado_em timestamptz not null default now(),
+  unique (nome)
+);
+alter table public.publicacoes add column if not exists parte_monitorada text not null default '';
+do $$
+begin
+  alter table public.partes_monitoradas enable row level security;
+  revoke all on public.partes_monitoradas from anon;
+  grant select, insert, update, delete on public.partes_monitoradas to authenticated;
+  drop trigger if exists atualizado_partes_monitoradas on public.partes_monitoradas;
+  create trigger atualizado_partes_monitoradas before update on public.partes_monitoradas for each row execute function public.marcar_atualizacao();
+  drop policy if exists partes_monitoradas_ver on public.partes_monitoradas;
+  create policy partes_monitoradas_ver on public.partes_monitoradas for select to authenticated using (public.pode('juridico'));
+  drop policy if exists partes_monitoradas_gravar on public.partes_monitoradas;
+  create policy partes_monitoradas_gravar on public.partes_monitoradas for all to authenticated using (public.pode('juridico','editar')) with check (public.pode('juridico','editar'));
+  if exists (select 1 from pg_roles where rolname = 'service_role') then
+    grant select on public.partes_monitoradas to service_role;
+  end if;
+end $$;

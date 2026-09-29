@@ -227,9 +227,11 @@
         const ban = document.querySelector('#' + pid + ' .mod-banner'); if (!ban || ban.querySelector('.gx-cobrar')) return;
         const d = document.createElement('div'); d.className = 'gx-cobrar gx-so-equipe';
         d.innerHTML = '<button type="button" data-cob="' + aba + '">' + rot + '</button>' + (recibo ? '<button type="button" data-cob="rec">🧾 Recibo</button>' +
-          '<button type="button" data-ofx="' + (pid === 'panel-financeiroContab' ? 'contabilidade' : 'escritorio') + '" title="Dar baixa pelos créditos do extrato do banco (arquivo OFX)">🏦 Conciliar extrato</button>' : '');
+          '<button type="button" data-ofx="' + (pid === 'panel-financeiroContab' ? 'contabilidade' : 'escritorio') + '" title="Dar baixa pelos créditos do extrato do banco (arquivo OFX)">🏦 Conciliar extrato</button>' +
+          '<button type="button" data-massa-lanc="' + (pid === 'panel-financeiroContab' ? 'contabilidade' : 'escritorio') + '" title="Completar vários lançamentos de uma vez (área do serviço, descrição…) na tela ou por planilha">✎ Editar em tabela</button>' : '');
         d.querySelectorAll('[data-cob]').forEach((b) => b.onclick = () => abrirCobrancas(b.dataset.cob));
         d.querySelectorAll('[data-ofx]').forEach((b) => b.onclick = () => { if (GS() && GS().conciliarOfx) GS().conciliarOfx(b.dataset.ofx); });
+        d.querySelectorAll('[data-massa-lanc]').forEach((b) => b.onclick = () => { if (GS() && GS().edicaoLancamentos) GS().edicaoLancamentos(b.dataset.massaLanc); });
         ban.appendChild(d);
       });
   }

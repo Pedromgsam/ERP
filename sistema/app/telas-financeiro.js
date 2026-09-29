@@ -87,7 +87,7 @@ function sincronizarBarraFin(empresa) {
 
 function consultaBase(empresa) {
   const F = estadoFin(empresa);
-  let q1 = sb.from('lancamentos').select('*, grupos(nome), clientes(nome)').eq('empresa', empresa);
+  let q1 = sb.from('lancamentos').select('*, grupos(nome), clientes(nome), contratos(descricao)').eq('empresa', empresa);
   if (F.grupo) q1 = q1.eq('grupo_id', F.grupo);
   if (F.resp) q1 = q1.eq('responsavel', F.resp);
   return q1;
@@ -146,6 +146,14 @@ async function pintarLista(empresa, buscar) {
   ligarAcoesLancamentos($('fin-corpo'), () => pintarFin(empresa));
 }
 
+// Legenda do lançamento (vale no sistema todo): 2ª linha = "Área do serviço — contrato"; sem contrato, só a área;
+// sem área, o tipo (categoria). Ex.: 1ª linha "Consultoria", 2ª linha "Tributário — Contrato Alfa 2026".
+function legendaLanc(l) {
+  const ct = (l.contratos && l.contratos.descricao) || l.contrato || '';
+  const partes = [l.servico, ct].filter(Boolean);
+  if (partes.length) return partes.join(' — ');
+  return l.categoria && normalizar(l.categoria) !== normalizar(l.descricao) ? l.categoria : '';
+}
 function tabelaLancamentos(lista, opc) {
   opc = opc || {};
   if (!lista.length) return '<div class="vazio">Nenhum lançamento aqui.</div>';
@@ -163,7 +171,7 @@ function tabelaLancamentos(lista, opc) {
       return '<tr class="clicavel" data-lanc="' + l.id + '" title="Clique para ver o detalhe"><td class="mono" data-ord="' + esc(data || '') + '">' + dataBR(data) +
         (porPagamento && l.vencimento !== data ? '<div class="sub">venc. ' + dataBR(l.vencimento) + '</div>' : '') + '</td>' +
         (compacta ? '' : '<td title="' + esc(quem) + '"><b>' + esc(quem || '—') + '</b>' + (l.clientes && l.grupos ? '<div class="sub">' + esc(l.clientes.nome) + '</div>' : '') + '</td>') +
-        (comDesc ? '<td>' + esc(l.descricao) + (l.categoria && !compacta ? '<div class="sub">' + esc(l.categoria) + (l.forma_pagamento ? ' · ' + esc(l.forma_pagamento) : '') + '</div>' : '') + '</td>' : '') +
+        (comDesc ? '<td>' + esc(l.descricao) + (!compacta && legendaLanc(l) ? '<div class="sub">' + esc(legendaLanc(l)) + '</div>' : '') + '</td>' : '') +
         (compacta ? '' : '<td>' + pillPessoa(l.responsavel) + '</td>') +
         '<td class="num mono ' + (l.tipo === 'receita' && !l.redutor ? 'valor-rec' : 'valor-desp') + '" data-ord="' + (l.tipo === 'despesa' ? -l.valor : vl(l)) + '">' + (l.tipo === 'despesa' || l.redutor ? '−\u00A0' : '') + brl(l.valor) + (l.redutor ? '<div class="sub">redutor</div>' : '') + '</td>' +
         (comSit ? '<td>' + (opc.semCobranca ? pillSit(Object.assign({}, l, { cobranca: '' })) : pillSit(l)) + '</td>' : '') + '<td class="acoes-l">' +
@@ -405,4 +413,136 @@ async function detalheLancamento(id) {
   const bc = j.querySelector('#dl-ctr'); if (bc) bc.onclick = () => { fecharJanela(j); detalheContrato(l.contrato_id); };
   const bl = j.querySelector('#dl-cli'); if (bl) bl.onclick = () => { fecharJanela(j); abrirFicha(l.cliente_id); };
   return j;
+}
+
+// ─────────── Editar em tabela / por planilha (Backup 16) ───────────
+// Para completar dados importados sem detalhe (área do serviço, descrição, tipo, pessoa, datas…):
+// edita na tela (Tab/Enter/colar do Excel) ou baixa a planilha, ajusta no Excel e envia de volta.
+// A coluna "id" liga cada linha ao lançamento; só o que mudou é gravado.
+const COLS_LANC = [
+  ['vencimento', 'Vencimento', 'data'], ['descricao', 'Descrição', 'texto'], ['categoria', 'Tipo', 'texto'], ['servico', 'Área do serviço', 'area'],
+  ['referencia', 'Referência', 'texto'], ['valor', 'Valor', 'valor'], ['responsavel', 'Pessoa', 'texto'], ['pago', 'Pago', 'simnao'],
+  ['data_pagamento', 'Pago em', 'data'], ['obs', 'Observação', 'texto']];
+const txtLanc = (l, k, t) => { const v = l[k];
+  if (t === 'simnao') return v ? 'Sim' : 'Não';
+  if (v == null || v === '') return '';
+  if (t === 'valor') return Number(v).toFixed(2).replace('.', ',');
+  if (t === 'data') return dataBR(v);
+  return String(v); };
+function lerCelLanc(k, t, v, rot) {
+  v = String(v == null ? '' : v).trim();
+  if (t === 'simnao') return /^(s|sim|x|true|1|pago)$/i.test(v);
+  if (t === 'valor') { const n = lerValor(v.replace(/^R\$\s*/, '')); if (!v || isNaN(n)) throw new Error(rot + ': valor inválido ("' + v + '").'); return n; }
+  if (t === 'data') { if (!v) return null; const d = /^\d{4}-\d{2}-\d{2}/.test(v) ? { iso: v.slice(0, 10) } : lerDataBR(v); if (!d) throw new Error(rot + ': data inválida ("' + v + '"), use dd/mm/aaaa.'); return d.iso; }
+  if (t === 'area') { if (!v) return ''; const a = AREAS_SERVICO.find((x) => normalizar(x) === normalizar(v)); if (!a) throw new Error(rot + ': área "' + v + '" não existe (use ' + AREAS_SERVICO.join(', ') + ').'); return a; }
+  if (k === 'descricao' && !v) throw new Error(rot + ': a descrição não pode ficar vazia.');
+  return v;
+}
+async function edicaoLancamentos(empresa) {
+  const nomeEmp = empresa === 'contabilidade' ? 'Contabilidade' : 'Jurídico';
+  const todos = await buscarTodos(() => sb.from('lancamentos').select('*, grupos(nome), clientes(nome)').eq('empresa', empresa).order('vencimento', { ascending: false }));
+  const EST = { filtro: 'sem_area', busca: '' };
+  const j = abrirJanela({ titulo: '✎ Editar em tabela — Financeiro ' + nomeEmp, larga: true,
+    corpo: '<div class="dica" style="margin-bottom:10px">Para completar o que veio da planilha sem detalhe. Clique numa célula e digite (<b>Tab</b> anda para a direita, <b>Enter</b> para baixo, pode <b>colar do Excel</b>). ' +
+        'Ou use <b>⬇ Baixar planilha</b>, ajuste no Excel (não mexa na coluna <b>id</b>) e <b>⬆ Enviar planilha</b>. Só o que mudou é gravado.</div>' +
+      '<div class="filtros" style="margin-bottom:8px"><select class="busca sel" id="ml-filtro"><option value="sem_area">Sem área do serviço</option><option value="receitas">Todas as receitas</option>' +
+        '<option value="todos">Tudo (receitas e despesas)</option></select><input class="busca" id="ml-busca" placeholder="Buscar grupo, cliente ou descrição" autocomplete="off">' +
+        '<span class="sub" id="ml-qtd"></span></div><div id="ml-grade"></div>',
+    rodape: '<span><button class="btn btn-o" type="button" id="ml-baixar">⬇ Baixar planilha</button> <label class="btn btn-o" style="cursor:pointer">⬆ Enviar planilha<input type="file" id="ml-arq" accept=".xlsx" hidden></label></span>' +
+      '<div class="acoes"><span class="sub" id="ml-conta">Nenhuma alteração</span><button class="btn btn-p" type="button" id="ml-salvar">Salvar alterações</button></div>' });
+  j.querySelector('.janela').classList.add('janela-massa');
+  let lista = [];
+  const filtrar = () => { const b = normalizar(EST.busca);
+    return todos.filter((l) => (EST.filtro === 'todos' || l.tipo === 'receita') && (EST.filtro !== 'sem_area' || !l.servico) &&
+      (!b || normalizar([(l.grupos || {}).nome, (l.clientes || {}).nome, l.favorecido, l.descricao].join(' ')).includes(b))).slice(0, 400); };
+  const cel = (i, c) => j.querySelector('tr[data-i="' + i + '"] [data-c="' + c + '"]');
+  const marcar = (el) => { const l = lista[+el.closest('tr').dataset.i], [k, , t] = COLS_LANC[+el.dataset.c];
+    el.closest('td').classList.toggle('mudou', el.value.trim() !== txtLanc(l, k, t));
+    const n = new Set([...j.querySelectorAll('td.mudou')].map((td) => td.parentElement.dataset.i)).size;
+    j.querySelector('#ml-conta').textContent = n ? n + ' linha(s) alterada(s)' : 'Nenhuma alteração'; };
+  const pintar = () => {
+    if (j.querySelector('td.mudou') && !confirm('Há alterações não salvas nesta lista. Trocar o filtro e perder essas alterações?')) return;
+    lista = filtrar();
+    j.querySelector('#ml-qtd').textContent = lista.length + (lista.length === 400 ? '+ (mostrando 400 — use a busca)' : '') + ' lançamento(s)';
+    j.querySelector('#ml-grade').innerHTML = lista.length ? '<div class="tabela-wrap massa-wrap"><table class="massa"><thead><tr><th>Grupo / cliente</th>' +
+      COLS_LANC.map(([, r, t]) => '<th' + (t === 'valor' ? ' class="num"' : '') + '>' + r + '</th>').join('') + '</tr></thead><tbody>' +
+      lista.map((l, i) => '<tr data-i="' + i + '"><td class="sub">' + esc((l.grupos && l.grupos.nome) || (l.clientes && l.clientes.nome) || l.favorecido || '—') + '</td>' +
+        COLS_LANC.map(([k, , t], jx) => '<td>' + (t === 'area' ? '<select data-k="' + k + '" data-c="' + jx + '"><option value=""></option>' + AREAS_SERVICO.map((a) => '<option' + (l.servico === a ? ' selected' : '') + '>' + a + '</option>').join('') + '</select>'
+          : t === 'simnao' ? '<select data-k="' + k + '" data-c="' + jx + '"><option' + (l.pago ? '' : ' selected') + '>Não</option><option' + (l.pago ? ' selected' : '') + '>Sim</option></select>'
+          : '<input data-k="' + k + '" data-c="' + jx + '" value="' + esc(txtLanc(l, k, t)) + '"' + (t === 'valor' ? ' inputmode="decimal" class="num"' : t === 'data' ? ' placeholder="dd/mm/aaaa" class="mono"' : '') + '>') + '</td>').join('') + '</tr>').join('') +
+      '</tbody></table></div>' : vazio('Nada neste filtro. 👏');
+    j.querySelector('#ml-conta').textContent = 'Nenhuma alteração';
+    j.querySelectorAll('[data-k]').forEach((el) => {
+      el.oninput = el.onchange = () => marcar(el);
+      el.onkeydown = (ev) => { if (ev.key !== 'Enter' || el.tagName === 'SELECT') return; ev.preventDefault(); const p = cel(+el.closest('tr').dataset.i + 1, +el.dataset.c); if (p) p.focus(); };
+      el.onpaste = (ev) => {
+        const dado = (ev.clipboardData || window.clipboardData).getData('text'); if (!/[\t\n]/.test(dado)) return;
+        ev.preventDefault(); const i0 = +el.closest('tr').dataset.i, c0 = +el.dataset.c;
+        dado.replace(/\r/g, '').replace(/\n$/, '').split('\n').forEach((lin, di) => lin.split('\t').forEach((v, dc) => {
+          const alvo = cel(i0 + di, c0 + dc); if (!alvo) return;
+          if (alvo.tagName === 'SELECT') { const o = [...alvo.options].find((x) => normalizar(x.value || x.text) === normalizar(v.trim())); if (o) alvo.value = o.value || o.text; }
+          else alvo.value = v.trim();
+          marcar(alvo); }));
+      };
+    });
+  };
+  j.querySelector('#ml-filtro').onchange = (ev) => { EST.filtro = ev.target.value; pintar(); };
+  let t0; j.querySelector('#ml-busca').oninput = (ev) => { clearTimeout(t0); t0 = setTimeout(() => { EST.busca = ev.target.value; pintar(); }, 300); };
+  pintar();
+  const gravar = async (mudancas) => {
+    let ok = 0, rasc = 0;
+    for (const [l, d] of mudancas) {
+      if ('pago' in d && d.pago && !d.data_pagamento && !l.data_pagamento) d.data_pagamento = hojeISO();
+      if ('pago' in d && !d.pago) d.data_pagamento = null;
+      const { error } = await sb.from('lancamentos').update(d).eq('id', l.id);
+      if (error && error.rascunho) rasc++; else if (error) throw new Error((l.descricao || 'lançamento') + ': ' + erroAmigavel(error)); else ok++;
+    }
+    return { ok, rasc };
+  };
+  const fim = async (r) => { fecharJanela(j);
+    aviso(r.rasc ? '📝 ' + r.rasc + ' alteração(ões) enviada(s) para aprovação' + (r.ok ? ' e ' + r.ok + ' gravada(s)' : '') + '.' : '✓ ' + r.ok + ' lançamento(s) atualizado(s).');
+    if (typeof recarregar === 'function') await recarregar(); };
+  j.querySelector('#ml-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    const linhas = [...new Set([...j.querySelectorAll('td.mudou')].map((td) => +td.parentElement.dataset.i))];
+    if (!linhas.length) throw new Error('Nada foi alterado.');
+    const mud = linhas.map((i) => { const l = lista[i], d = {};
+      j.querySelectorAll('tr[data-i="' + i + '"] td.mudou [data-k]').forEach((el) => { const [k, r, t] = COLS_LANC[+el.dataset.c]; d[k] = lerCelLanc(k, t, el.value, r + ' de "' + (l.descricao || '') + '"'); });
+      return [l, d]; });
+    await fim(await gravar(mud));
+  });
+  j.querySelector('#ml-baixar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    await carregarScript('vendor/exceljs.min.js');
+    const wb = new window.ExcelJS.Workbook(), ws = wb.addWorksheet('Lançamentos');
+    ws.addRow(['id', 'Grupo / cliente', 'Receita/Despesa'].concat(COLS_LANC.map((c) => c[1]))).font = { bold: true };
+    todos.forEach((l) => ws.addRow([l.id, (l.grupos && l.grupos.nome) || (l.clientes && l.clientes.nome) || l.favorecido || '', l.tipo === 'despesa' ? 'Despesa' : 'Receita']
+      .concat(COLS_LANC.map(([k, , t]) => t === 'valor' ? Number(l[k]) || 0 : txtLanc(l, k, t)))));
+    ws.views = [{ state: 'frozen', ySplit: 1 }]; ws.getColumn(1).hidden = false; ws.getColumn(1).width = 12;
+    [2, 5, 13].forEach((c) => { ws.getColumn(c).width = 34; }); [4, 6, 7, 9, 10, 11, 12].forEach((c) => { ws.getColumn(c).width = 15; });
+    const ls = wb.addWorksheet('Áreas do serviço'); AREAS_SERVICO.forEach((a) => ls.addRow([a]));
+    const buf = await wb.xlsx.writeBuffer();
+    baixarArquivo('Lancamentos ' + nomeEmp + ' ' + hojeISO() + '.xlsx', new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+  });
+  j.querySelector('#ml-arq').onchange = (ev) => comBotao(null, async () => {
+    const arq = ev.target.files[0]; if (!arq) return;
+    await carregarScript('vendor/exceljs.min.js');
+    const wb = new window.ExcelJS.Workbook(); await wb.xlsx.load(await arq.arrayBuffer());
+    const ws = wb.worksheets[0], cab = (ws.getRow(1).values || []).map((v) => String(v || '').trim());
+    const ci = (rot) => cab.findIndex((x) => normalizar(x) === normalizar(rot));
+    if (ci('id') < 0) throw new Error('A planilha precisa da coluna "id" (use a planilha baixada aqui).');
+    const porId = {}; todos.forEach((l) => { porId[l.id] = l; });
+    const mud = []; let ign = 0;
+    ws.eachRow((row, n) => { if (n === 1) return;
+      const cv = (i) => { const x = row.getCell(i).value; return x && typeof x === 'object' && x.result !== undefined ? x.result : x instanceof Date ? x.toISOString().slice(0, 10) : x; };
+      const l = porId[String(cv(ci('id')) || '').trim()]; if (!l) { ign++; return; }
+      const d = {};
+      COLS_LANC.forEach(([k, r, t]) => { const c = ci(r); if (c < 0) return;
+        const bruto = cv(c), novo = lerCelLanc(k, t, t === 'valor' && typeof bruto === 'number' ? String(bruto).replace('.', ',') : bruto, r + ' (linha ' + n + ')');
+        const atual = t === 'simnao' ? !!l[k] : t === 'valor' ? Number(l[k]) || 0 : (l[k] == null ? (t === 'data' ? null : '') : l[k]);
+        if (t === 'valor' ? Math.abs(novo - atual) > 0.004 : String(novo == null ? '' : novo) !== String(atual == null ? '' : atual)) d[k] = novo; });
+      if (Object.keys(d).length) mud.push([l, d]); });
+    ev.target.value = '';
+    if (!mud.length) return aviso('Nenhuma diferença encontrada na planilha' + (ign ? ' (' + ign + ' linha(s) sem id conhecido foram ignoradas)' : '') + '.');
+    if (!confirm(mud.length + ' lançamento(s) serão atualizados a partir da planilha' + (ign ? ' (' + ign + ' linha(s) ignoradas: id desconhecido)' : '') + '. Continuar?')) return;
+    await fim(await gravar(mud));
+  });
 }

@@ -373,3 +373,21 @@ body.gx-barra-topo .gs table td.num{font-size:13px}
   .pc-item > div:first-child{flex-wrap:wrap;gap:6px}
   .pc-item > div:first-child > div:last-child{flex-wrap:wrap;gap:4px 10px}
 }
+/* Acordos (Backup 16): tabela única "Acordos em andamento" com linha que abre as parcelas */
+.ac-todos{display:inline-flex;align-items:center;gap:6px;font:600 12.5px var(--font-ui);color:var(--text2);cursor:pointer;background:#fff;border:1px solid var(--border);border-radius:99px;padding:5px 12px}
+.ac-tab td,.ac-tab th{font-family:var(--font-ui)!important;font-size:13px!important;vertical-align:top}
+.ac-tab th.num,.ac-tab td.num{text-align:right}
+.ac-tab .ac-linha{cursor:pointer}
+.ac-tab .ac-linha:hover td{background:rgba(27,42,74,.04)}
+.ac-tab .ac-atr td:first-child{box-shadow:inset 3px 0 0 var(--red)}
+.ac-tab .ac-cv{display:inline-block;width:12px;color:var(--text3)}
+.ac-proc{font-size:11.5px;color:var(--text3);margin-top:2px}
+.ac-pago{color:var(--green-d)!important}
+.ac-falta{display:flex;align-items:center;gap:6px;justify-content:flex-end;margin-top:4px;font-size:11px;color:var(--text3)}
+.ac-falta .pa-bar{width:60px;margin:0}
+.ac-det>td{background:#f7f8fb!important;padding:10px 14px!important}
+.ac-det-in table{width:100%;background:#fff;border:1px solid var(--border);border-radius:8px}
+.ac-det-info{font-size:12.5px;color:var(--text2);margin-bottom:8px}
+/* Financeiro (Backup 16): sem gráficos nas abas A receber / Recebidos / Prejuízo / Despesas (Jurídico e Contabilidade);
+   a análise com gráficos fica só na aba Análise. Composição do caixa sem "Despesas por categoria". */
+.cc:has(canvas#cFinGrupo),.cc:has(canvas#cFinCGrupo),.crow:has(canvas[id^="cRec"]),.crow:has(canvas[id^="cPrej"]),.crow:has(canvas[id^="cFcFech"]),.cc:has(canvas#cFcCaixaCat){display:none!important}
