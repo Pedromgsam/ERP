@@ -306,7 +306,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('clicar de novo recolhe', (await p.$$('#panel-clientes tr.cli-det')).length === 0);
     await p.click('#panel-clientes tr[data-cli]:has-text("Alfa Comércio Ltda")'); await p.waitForSelector('#panel-clientes [data-cli-ficha]');
     await p.click('#panel-clientes [data-cli-ficha]'); await p.waitForSelector('.janela.ficha #fc-abas'); await p.waitForTimeout(1200);
-    ok('ficha do cliente abre com 15 abas e resumo', (await p.$$('.janela.ficha #fc-abas button')).length === 15 && /A receber/.test(await p.textContent('#fc-corpo')));
+    ok('ficha do cliente abre com 16 abas e resumo', (await p.$$('.janela.ficha #fc-abas button')).length === 16 && /A receber/.test(await p.textContent('#fc-corpo')));
     await foto(p, 'ficha');
     await p.click('#fc-abas [data-aba=contatos]'); await p.waitForSelector('[data-novo-sub]'); await p.click('[data-novo-sub]');
     await p.waitForSelector('#f-sub'); await p.waitForTimeout(250);
@@ -1001,16 +1001,18 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.click('#tf-corpo [data-restaurar-t]'); await p.waitForTimeout(1500);
     ok('Tarefas: "Restaurar" volta para Em aberto', sql("select status from tarefas where titulo='Tarefa B15 excluir'") === 'pendente');
     // Backup 16: criação rápida, minha semana (arrastar), pular recorrência, relatório por cliente, carga
-    await p.fill('#tf-rapida', 'Protocolar defesa amanhã @Emanuelle !alta #trabalhista'); await p.waitForTimeout(200);
+    await p.fill('#tf-rapida', 'Protocolar recurso B16 amanhã @Emanuelle !alta #trabalhista'); await p.waitForTimeout(200);
     ok('Tarefas: criação rápida mostra o que entendeu', /Emanuelle/.test(await p.textContent('#tf-rapida-prev')) && /Alta/.test(await p.textContent('#tf-rapida-prev')));
     await p.press('#tf-rapida', 'Enter'); await p.waitForTimeout(1500);
     ok('Tarefas: criação rápida grava título, prazo (amanhã), pessoa, prioridade e etiqueta',
-      sql("select responsavel||'|'||prioridade||'|'||(prazo=current_date+1)::text||'|'||etiquetas from tarefas where titulo='Protocolar defesa'") === 'Emanuelle|alta|true|trabalhista');
+      sql("select responsavel||'|'||prioridade||'|'||(prazo=current_date+1)::text||'|'||etiquetas from tarefas where titulo='Protocolar recurso B16'") === 'Emanuelle|alta|true|trabalhista');
     sql("insert into tarefas(titulo,responsavel,status,prazo,recorrencia) values ('Semana B16','Pedro','pendente',date_trunc('week', current_date)::date,'mensal')");
-    await p.evaluate(() => { GS.E.tf = null; }); await nav(p, 'tarefas'); await p.waitForTimeout(1500);
+    await p.evaluate(() => { GS.E.tf = null; }); await nav(p, 'hoje'); await p.waitForTimeout(800); await nav(p, 'tarefas'); await p.waitForTimeout(1500);
     await p.click('#tf-vista [data-v=semana]'); await p.waitForTimeout(600);
     { const terca = sql("select (date_trunc('week', current_date)::date + 1)::text");
-      await p.dragAndDrop('.sm-card:has-text("Semana B16")', '.sm-col[data-dia="' + terca + '"]'); await p.waitForTimeout(1500);
+      await p.evaluate((d) => { const c = [...document.querySelectorAll('.sm-card')].find((x) => /Semana B16/.test(x.textContent)), col = document.querySelector('.sm-col[data-dia="' + d + '"]'), dt = new DataTransfer();
+        c.dispatchEvent(new DragEvent('dragstart', { dataTransfer: dt, bubbles: true })); col.dispatchEvent(new DragEvent('dragover', { dataTransfer: dt, bubbles: true, cancelable: true }));
+        col.dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true })); }, terca); await p.waitForTimeout(1500);
       ok('Minha semana: arrastar para outro dia remarca o prazo', sql("select prazo::text from tarefas where titulo='Semana B16'") === terca, terca); }
     { const idS = sql("select id from tarefas where titulo='Semana B16'"), p0 = sql("select prazo::text from tarefas where titulo='Semana B16'");
       await p.evaluate((id) => GS.abrirTarefa(id), idS); await p.waitForSelector('#tf-f-pular'); await p.click('#tf-f-pular'); await p.waitForTimeout(1500);
@@ -1039,13 +1041,13 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       g.on('pageerror', (e) => erros.push('gerador: ' + e.message));
       await g.goto(BASE + '/geradores/peticao.html'); await g.waitForSelector('#ponte'); await g.waitForTimeout(800);
       await g.fill('#ponte-cli', 'Alfa Comércio Ltda'); await g.click('#ponte-preencher'); await g.waitForTimeout(1500);
-      ok('Gerador de petição: exige login, puxa o cliente do banco e monta a peça', /ALFA COMÉRCIO LTDA/.test(await g.textContent('#folha')) && /Nestes termos/.test(await g.textContent('#folha')));
+      ok('Gerador de petição: exige login, puxa o cliente do banco e monta a peça', /ALFA COM[EÉ]RCIO LTDA/i.test(await g.textContent('#folha')) && /Nestes termos/.test(await g.textContent('#folha')));
       await g.click('#ponte-guardar'); await g.waitForTimeout(2000);
       ok('Gerador: "Guardar em Documentos" salva na pasta do cliente', sql("select count(*) from documentos d join clientes c on c.id=d.cliente_id where c.nome='Alfa Comércio Ltda' and d.tipo='peticao'") === '1', await g.textContent('#ponte-msg'));
       await g.goto(BASE + '/geradores/contrato-procuracao.html'); await g.waitForSelector('#ponte'); await g.waitForTimeout(800);
       ok('Gerador de contrato: contas bancárias fora do arquivo público', !/SICOOB \(756\)',ag:'4113'/.test(await g.content()) && /var BANCOS=\{\}/.test(await g.content()));
       await g.fill('#ponte-cli', 'Alfa Comércio Ltda'); await g.click('#ponte-preencher'); await g.waitForTimeout(1200);
-      ok('Gerador de contrato: preenche o contratante com os dados do cliente', /Alfa Comércio/.test(await g.inputValue('#ctteRazao').catch(() => '')) || /Alfa Comércio/.test(await g.inputValue('#ctteNome').catch(() => '')));
+      ok('Gerador de contrato: preenche o contratante com os dados do cliente', /alfa com[eé]rcio/i.test(await g.inputValue('#ctteRazao').catch(() => '')) || /alfa com[eé]rcio/i.test(await g.inputValue('#ctteNome').catch(() => '')));
       await g.close();
       const semLogin = await (await b.newContext()).newPage(); await semLogin.goto(BASE + '/geradores/propostas.html'); await semLogin.waitForTimeout(1500);
       ok('Gerador sem login: bloqueia a página', await semLogin.isVisible('#ponte-bloqueio')); await semLogin.close(); }

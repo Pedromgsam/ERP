@@ -492,7 +492,7 @@ async function janelaGanhar(o, depois, etapaDestino) {
       campo('Área do serviço', selectServico(o.servico || '')) +
       campo('Tipo', '<select name="modalidade"><option value="pontual"' + (consult ? '' : ' selected') + '>Serviço pontual (parcelas)</option><option value="consultoria"' + (consult ? ' selected' : '') + '>Consultoria (mensalidade)</option></select>') +
       '<div class="grade inteiro" id="gan-pontual">' +
-        campo('Valor total (R$)', '<input name="valor_total" inputmode="decimal" value="' + valorParaCampo(totalPr || (!consult ? o.valor_estimado : 0) || 0) + '">') +
+        campo('Valor total (R$)', '<input name="valor_total" inputmode="decimal" value="' + valorParaCampo(totalPr || o.valor_estimado || 0) + '">') +
         campo('Número de parcelas', '<input name="num_parcelas" type="number" min="1" max="120" value="' + parcelas + '">') +
         campo('1º vencimento', '<input name="primeiro_vencimento" type="date" value="' + somarDias(hojeISO(), 10) + '">') +
         campo('% de êxito (se houver)', '<input name="percentual_exito" inputmode="decimal">') + '</div>' +

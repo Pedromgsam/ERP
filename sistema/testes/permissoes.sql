@@ -251,7 +251,7 @@ select pg_temp.ok((select count(*) from clientes where nome='Holding Teste Ltda'
 select pg_temp.ok((select count(*) from lancamentos l join contratos c on c.id=l.contrato_id where c.descricao='Holding familiar')=3,'Ganhou: contrato com 3 parcelas');
 select pg_temp.ok((select count(*) from tarefas t join fluxos f on f.id=t.fluxo_id where f.nome like 'Onboarding — Holding Teste%')=7,'Ganhou: fluxo de onboarding com etapas e subtarefas');
 select pg_temp.ok((select count(*) from tarefas where titulo like 'Onboarding: Holding Teste%')=0,'Ganhou: regra de onboarding não duplica o fluxo');
-select pg_temp.ok((select e.final from crm_oportunidades o join crm_etapas e on e.id=o.etapa_id where o.titulo='Holding Família Teste')='ganho','oportunidade vai para Ganhou');
+select pg_temp.ok((select e.nome from crm_oportunidades o join crm_etapas e on e.id=o.etapa_id where o.titulo='Holding Família Teste')='Contrato fechado' and (select ganho_em is not null from crm_oportunidades where titulo='Holding Família Teste'),'oportunidade vai para Contrato fechado');
 insert into crm_oportunidades(titulo, prospecto_nome, etapa_id) select 'Consulta perdida', 'Fulano', id from crm_etapas where ordem = 2;
 do $$ begin
   perform public.crm_perder((select id from crm_oportunidades where titulo='Consulta perdida'), '', false);

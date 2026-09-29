@@ -3765,7 +3765,7 @@ begin
     end if;
     insert into public.clientes (nome, cpf_cnpj, email, telefone, grupo_id, responsavel, tipo, origem)
     values (p->>'cliente_nome', coalesce(nullif(p->>'cpf_cnpj', ''), o.prospecto_doc, ''), coalesce(nullif(p->>'email', ''), o.prospecto_email, ''),
-            coalesce(nullif(p->>'telefone', ''), o.prospecto_telefone, ''), grp, coalesce(resp, ''), case when consult then 'Consultoria' else 'Pontual' end, 'CRM')
+            coalesce(nullif(p->>'telefone', ''), o.prospecto_telefone, ''), grp, coalesce(resp, ''), case when consult then 'Consultoria' else 'Demanda' end, 'CRM')
     returning id into cli;
   else
     select grupo_id into grp from public.clientes where id = cli;
