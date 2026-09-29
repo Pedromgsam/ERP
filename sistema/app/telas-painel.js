@@ -61,6 +61,7 @@ TELAS.inicio = async function () {
   cardMural().catch((e) => console.error(e));
   cardResumoEscritorio().catch((e) => console.error(e));
   cardLembretes().catch((e) => console.error(e));
+  if (typeof buscaPubAutomatica === 'function') buscaPubAutomatica().catch(() => {});
   if (typeof cardAprovacoes === 'function') cardAprovacoes().then((x) => { const el = $('ini-aprov'); if (el) el.innerHTML = x; }).catch((e) => console.error(e));
   if (typeof cardMinhaFila === 'function') cardMinhaFila().then((c) => { const el = $('ini-fila'); if (el) { el.innerHTML = c.html; c.ligar(el); } }).catch((e) => console.error(e));
   ligarAcoesLancamentos($('conteudo'));
@@ -292,38 +293,38 @@ async function cardMural() {
 // ── Resumo do escritório (Início = "home"): um número por assunto, clicável ──
 async function cardResumoEscritorio() {
   const el = $('ini-resumo'); if (!el) return;
-  const h = hojeISO(), lim15 = somarDias(h, 15), mes = h.slice(0, 7);
+  // Backup 17: só o que pede ação (sem Processos). Atraso, hoje e próximos 5 dias ficam no mesmo cartão, um por linha.
+  const h = hojeISO(), lim5 = somarDias(h, 5), lim15 = somarDias(h, 15);
   const conta = (qq) => qq.then((r) => (r.error ? 0 : r.count || 0)).catch(() => 0);
   const cnt = (t) => sb.from(t).select('id', { count: 'exact', head: true });
   const jur = pode('juridico'), crm = pode('crm'), docs = pode('documentos');
-  const [proc, procEnc, procMes, pubs, parcAtr, parcMes, acPend, acAtr, ops, tAb, tAtr, docV] = await Promise.all([
-    jur ? conta(cnt('processos')) : 0,
-    jur ? conta(cnt('processos').or('status.ilike.arq*,status.ilike.extint*,status.ilike.*prescri*')) : 0,
-    jur ? conta(cnt('processos').gte('criado_em', mes + '-01')) : 0,
+  const aberta = () => cnt('tarefas').not('status', 'in', '(concluida,cancelada)');
+  const tres = (t, col, filtro) => jur ? Promise.all([
+    conta(filtro(cnt(t)).lt(col, h)), conta(filtro(cnt(t)).eq(col, h)), conta(filtro(cnt(t)).gt(col, h).lte(col, lim5))]) : [0, 0, 0];
+  const [pubs, parc, aco, ops, tAb, tAtr, tHoje, t5, docV] = await Promise.all([
     jur ? conta(cnt('publicacoes').eq('status', 'nova')) : 0,
-    jur ? conta(cnt('parcelas').eq('pago', false).lt('vencimento', h)) : 0,
-    jur ? conta(cnt('parcelas').eq('pago', false).gte('vencimento', h).lte('vencimento', fimDoMesISO(h))) : 0,
-    jur ? conta(cnt('acordos').eq('pago', false)) : 0,
-    jur ? conta(cnt('acordos').eq('pago', false).lt('vencimento', h)) : 0,
+    tres('parcelas', 'vencimento', (x) => x.eq('pago', false)),
+    tres('acordos', 'vencimento', (x) => x.eq('pago', false)),
     crm ? q(sb.from('crm_oportunidades').select('valor_estimado, crm_etapas(final)')).catch(() => []) : [],
-    conta(cnt('tarefas').not('status', 'in', '(concluida,cancelada)')),
-    conta(cnt('tarefas').not('status', 'in', '(concluida,cancelada)').lt('prazo', h)),
-    docs ? conta(cnt('documentos').eq('arquivado', false).lte('validade', lim15)) : 0
+    conta(aberta()), conta(aberta().lt('prazo', h)), conta(aberta().eq('prazo', h)), conta(aberta().gt('prazo', h).lte('prazo', lim5)),
+    docs ? conta(cnt('documentos').eq('arquivado', false).gte('validade', h).lte('validade', lim15)) : 0
   ]);
   const abertas = (ops || []).filter((o) => !(o.crm_etapas && o.crm_etapas.final));
+  // linhas de prazo: [quantidade, texto, cor]
+  const prazos = (v, un) => [[v[0], un + ' em atraso', 'vermelho'], [v[1], 'vence(m) hoje', 'ambar'], [v[2], 'nos próximos 5 dias', '']];
   const T = [
-    jur ? ['processos', '⚖', 'Processos', proc - procEnc, 'em andamento', (procEnc ? procEnc + ' arquivados/extintos' : '') + (procMes ? (procEnc ? ' · ' : '') + procMes + ' novo(s) no mês' : ''), ''] : null,
-    jur ? ['publicacoes', '📰', 'Publicações', pubs, 'nova(s) para ler', '', pubs ? 'ambar' : ''] : null,
-    jur ? ['parcelamentos', '🧾', 'Parcelamentos', parcMes, 'parcela(s) a vencer no mês', parcAtr ? parcAtr + ' em atraso' : 'nenhuma em atraso', parcAtr ? 'vermelho' : ''] : null,
-    jur ? ['acordos', '🤝', 'Acordos', acPend, 'parcela(s) pendente(s)', acAtr ? acAtr + ' em atraso' : 'nenhuma em atraso', acAtr ? 'vermelho' : ''] : null,
-    crm ? ['crm', '🎯', 'CRM', abertas.length, 'oportunidade(s) em andamento', brl(soma(abertas, (o) => o.valor_estimado)) + ' em negociação', ''] : null,
-    ['tarefas', '📋', 'Tarefas do escritório', tAb, 'em aberto', tAtr ? tAtr + ' atrasada(s)' : 'nenhuma atrasada', tAtr ? 'vermelho' : ''],
-    docs ? ['documentos', '📁', 'Documentos', docV, 'vencendo em 15 dias', '', docV ? 'ambar' : ''] : null
+    jur ? ['publicacoes', '📰', 'Publicações', pubs, 'nova(s) para ler', [], pubs ? 'ambar' : ''] : null,
+    jur ? ['parcelamentos', '🧾', 'Parcelamentos', parc[0], 'parcela(s) em atraso', prazos(parc, 'parcela(s)').slice(1), parc[0] ? 'vermelho' : parc[1] ? 'ambar' : ''] : null,
+    jur ? ['acordos', '🤝', 'Acordos', aco[0], 'parcela(s) em atraso', prazos(aco, 'parcela(s)').slice(1), aco[0] ? 'vermelho' : aco[1] ? 'ambar' : ''] : null,
+    crm ? ['crm', '🎯', 'CRM', abertas.length, 'oportunidade(s) em andamento', [[null, brl(soma(abertas, (o) => o.valor_estimado)) + ' em negociação', '']], ''] : null,
+    ['tarefas', '📋', 'Tarefas do escritório', tAb, 'em aberto', prazos([tAtr, tHoje, t5], 'atrasada(s)').map((x, i) => i ? x : [x[0], 'atrasada(s)', x[2]]), tAtr ? 'vermelho' : ''],
+    docs ? ['documentos', '📁', 'Documentos', docV, 'vencem em 15 dias', [], docV ? 'ambar' : ''] : null
   ].filter(Boolean);
+  const sub = (l) => '<span class="ini-res-sub' + (l[0] && l[2] ? ' ' + l[2] : '') + '">' + (l[0] == null ? '' : '<b>' + l[0] + '</b> ') + esc(l[1]) + '</span>';
   el.innerHTML = '<div class="kpis-titulo">🏠 Resumo do escritório</div><div class="ini-resumo">' + T.map((t) =>
     '<button type="button" class="ini-res ' + t[6] + '" data-ini-ir="' + t[0] + '"><span class="ini-res-ic" aria-hidden="true">' + t[1] + '</span>' +
     '<span class="ini-res-tit">' + esc(t[2]) + '</span><b class="ini-res-num">' + t[3] + '</b><span class="ini-res-rot">' + esc(t[4]) + '</span>' +
-    (t[5] ? '<span class="ini-res-sub">' + esc(t[5]) + '</span>' : '') + '</button>').join('') + '</div>';
+    (t[5].length ? '<span class="ini-res-subs">' + t[5].map(sub).join('') + '</span>' : '') + '</button>').join('') + '</div>';
   el.querySelectorAll('[data-ini-ir]').forEach((b) => b.onclick = () => {
     const k = b.dataset.iniIr;
     if (k === 'tarefas') E.tf = Object.assign(E.tf || {}, { aba: 'abertas', atalho: '' });

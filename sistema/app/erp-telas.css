@@ -311,22 +311,21 @@ body.gx-barra-topo .tw td>.tag.tn,body.gx-barra-topo .tw td .er-grupo{display:in
   overflow:visible!important;text-overflow:clip!important;overflow-wrap:normal!important;word-break:normal!important;hyphens:none;line-height:1.3;text-align:center;box-sizing:border-box;padding:4px 8px;
   font:650 10.5px/1.3 var(--font-ui)!important;text-transform:uppercase!important;letter-spacing:.03em!important}
 body.gx-barra-topo .tw td:has(>.tag.tn),body.gx-barra-topo .tw td:has(.er-grupo){min-width:134px;width:134px}
-/* Empresas do Grupo: uma letra só, mesmos tamanhos, grupo/entidade/sócio em caixa alta, selos no mesmo desenho */
+/* Empresas do Grupo (Backup 17): mesmo visual da tabela de Processos — letra 13px normal, selo do grupo cinza-azulado,
+   entidade/sócio em negrito (sem filete dourado), Situação sem bolinha */
 #tblExecRanking td,#tblExecRanking td.mono,#tblExecRanking .er-nome,#tblExecRanking .er-socio,#tblExecRanking strong{font-family:var(--font-ui)!important;font-variant-numeric:tabular-nums}
-#tblExecRanking td{font-size:13px!important;color:var(--text)!important;vertical-align:middle!important}
-#tblExecRanking td.mono{font-size:13px!important;color:var(--text)!important;font-weight:500}
-#tblExecRanking td.mono strong{font-size:13px!important;font-weight:700!important;color:var(--navy)!important}
-#tblExecRanking .er-nome{font-size:12.5px!important;font-weight:650!important;text-transform:uppercase;letter-spacing:.02em;border-left-width:3px}
-#tblExecRanking .er-socio{font-size:11px!important;text-transform:uppercase;letter-spacing:.02em;color:var(--text2)!important}
-#tblExecRanking .er-socio b{font-weight:600!important}
+#tblExecRanking td,#tblExecRanking td.mono{font-size:13px!important;color:var(--ink)!important;font-weight:400;vertical-align:middle!important}
+#tblExecRanking td.mono strong{font-size:13px!important;font-weight:700!important;color:var(--ink)!important}
+#tblExecRanking .er-nome{font-size:13px!important;font-weight:700!important;text-transform:none;letter-spacing:0;border-left:0!important;padding-left:0!important;color:var(--ink)!important}
+#tblExecRanking .er-socio{font-size:11.5px!important;text-transform:none;letter-spacing:0;color:var(--text2)!important;margin-top:2px;padding-left:0!important;margin-left:0!important}
+#tblExecRanking .er-socio b{font-weight:700!important;color:var(--ink)}
+#tblExecRanking .er-grupo{color:rgb(45,74,112)!important;background:rgba(11,29,58,.05)!important;border:1px solid rgba(11,29,58,.14)!important}
+html[data-tema="escuro"] #tblExecRanking .er-grupo{color:var(--text)!important;background:rgba(255,255,255,.06)!important;border-color:rgba(255,255,255,.14)!important}
 #tblExecRanking span[title]{border-bottom:0!important}
-/* CAPAG: selo quadrado com a letra; Situação: pílula de largura fixa */
-#tblExecRanking .capag{display:inline-flex!important;align-items:center;justify-content:center;width:30px;height:26px;padding:0!important;border-radius:8px!important;
-  font:700 12.5px var(--font-ui)!important;letter-spacing:0;box-sizing:border-box}
+#tblExecRanking .capag{display:inline-flex!important;align-items:center;justify-content:center;width:30px;height:24px;padding:0!important;border-radius:6px!important;
+  font:700 12px var(--font-ui)!important;letter-spacing:0;box-sizing:border-box}
 #tblExecRanking .capag.capag-O{width:auto;padding:0 9px!important;font-size:10.5px!important;text-transform:uppercase;background:var(--red-lt)!important;color:var(--red-d)!important;border:1px solid rgba(200,30,30,.28)!important}
-#tblExecRanking .tag.tg,#tblExecRanking .tag.tr,#tblExecRanking .tag.tx{display:inline-flex!important;align-items:center;justify-content:center;gap:5px;width:92px;height:26px;padding:0 8px!important;border-radius:99px!important;box-sizing:border-box;
-  font:650 10.5px var(--font-ui)!important;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#tblExecRanking .tag.tg::before,#tblExecRanking .tag.tr::before{content:'';width:7px;height:7px;border-radius:50%;background:currentColor;flex:none}
+#tblExecRanking .tag.tg::before,#tblExecRanking .tag.tr::before{content:none!important;display:none!important}
 #tblExecRanking .tag.tv{font:600 10.5px var(--font-ui)!important;border-radius:99px;text-transform:uppercase;letter-spacing:.02em}
 /* Processos: tabela com uma letra e um tamanho só */
 #tblProcBody td,#tblProcBody td.mono{font-family:var(--font-ui)!important;font-size:13px!important;font-variant-numeric:tabular-nums;color:var(--text)}
@@ -375,19 +374,47 @@ body.gx-barra-topo .gs table td.num{font-size:13px}
 }
 /* Acordos (Backup 16): tabela única "Acordos em andamento" com linha que abre as parcelas */
 .ac-todos{display:inline-flex;align-items:center;gap:6px;font:600 12.5px var(--font-ui);color:var(--text2);cursor:pointer;background:#fff;border:1px solid var(--border);border-radius:99px;padding:5px 12px}
-.ac-tab td,.ac-tab th{font-family:var(--font-ui)!important;font-size:13px!important;vertical-align:top}
-.ac-tab th.num,.ac-tab td.num{text-align:right}
-.ac-tab .ac-linha{cursor:pointer}
-.ac-tab .ac-linha:hover td{background:rgba(27,42,74,.04)}
-.ac-tab .ac-atr td:first-child{box-shadow:inset 3px 0 0 var(--red)}
-.ac-tab .ac-cv{display:inline-block;width:12px;color:var(--text3)}
-.ac-proc{font-size:11.5px;color:var(--text3);margin-top:2px}
-.ac-pago{color:var(--green-d)!important}
-.ac-falta{display:flex;align-items:center;gap:6px;justify-content:flex-end;margin-top:4px;font-size:11px;color:var(--text3)}
-.ac-falta .pa-bar{width:60px;margin:0}
-.ac-det>td{background:#f7f8fb!important;padding:10px 14px!important}
-.ac-det-in table{width:100%;background:#fff;border:1px solid var(--border);border-radius:8px}
-.ac-det-info{font-size:12.5px;color:var(--text2);margin-bottom:8px}
+/* Acordos em andamento (Backup 17): lista leve em linhas-cartão */
+.acx{border:1px solid var(--border);border-radius:14px;background:var(--surface);overflow:hidden}
+.acx-hd,.acx-row{display:grid;grid-template-columns:minmax(200px,1.5fr) minmax(220px,1.4fr) minmax(130px,.8fr) minmax(130px,.8fr) 22px;gap:18px;align-items:center;padding:12px 18px}
+.acx-hd{padding:9px 18px;font:700 10.5px var(--font-ui);letter-spacing:.07em;text-transform:uppercase;color:var(--text3);border-bottom:1px solid var(--border);background:var(--surface2)}
+.acx-item{border-bottom:1px solid var(--border)}
+.acx-item:last-child{border-bottom:0}
+.acx-row{cursor:pointer;font:13px var(--font-ui);color:var(--ink);transition:background .15s}
+.acx-row:hover{background:rgba(27,42,74,.035)}
+.acx-row:focus-visible{outline:2px solid var(--ac-navy3);outline-offset:-2px}
+.acx-atr .acx-row{box-shadow:inset 3px 0 0 var(--red)}
+.acx-dev{font-weight:700;font-size:13.5px}
+.acx-sub{font-size:11.5px;color:var(--text3);margin-top:2px;line-height:1.35}
+.acx-sub b{color:var(--text);font-weight:600}
+.acx-proc{font-variant-numeric:tabular-nums}
+.acx-prog-hd{display:flex;justify-content:space-between;gap:8px;font-size:12.5px;color:var(--text2);font-variant-numeric:tabular-nums}
+.acx-prog-hd b{color:var(--green-d);font-weight:700}
+.acx-bar{height:6px;border-radius:99px;background:rgba(27,42,74,.08);margin:6px 0 2px;overflow:hidden}
+.acx-bar>div{height:100%;border-radius:99px;background:var(--green)}
+.acx-rot{font:700 10px var(--font-ui);letter-spacing:.06em;text-transform:uppercase;color:var(--text3)}
+.acx-val{font-weight:700;font-size:14px;font-variant-numeric:tabular-nums;margin-top:1px}
+.acx-st{display:inline-block;padding:4px 10px;border-radius:99px;font:650 11.5px var(--font-ui);white-space:nowrap}
+.acx-st-r{background:var(--red-lt);color:var(--red-d)}
+.acx-st-g{background:var(--green-lt);color:var(--green-d)}
+.acx-st-x{background:var(--gray-lt);color:var(--text2)}
+.acx-cv{color:var(--text3);font-size:12px;text-align:center}
+.acx-det{padding:4px 18px 16px 18px;background:rgba(27,42,74,.025);border-top:1px dashed var(--border)}
+.acx-info{font-size:12px;color:var(--text2);padding:10px 0 6px}
+.acx-parcs{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;margin-top:6px}
+.acx-parc{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;border-top:3px solid var(--border-strong)}
+.acx-parc-p{border-top-color:var(--green)}
+.acx-parc-r{border-top-color:var(--red)}
+.acx-parc-a{border-top-color:var(--blue,#2563EB)}
+.acx-parc-n{font:700 10.5px var(--font-ui);letter-spacing:.05em;text-transform:uppercase;color:var(--text3)}
+.acx-parc-v{font-weight:700;font-size:15px;font-variant-numeric:tabular-nums;margin:2px 0}
+.acx-parc-r .acx-sub{color:var(--red-d)}
+.acx-parc-p .acx-sub{color:var(--green-d)}
+.acx-parc-bt{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.acx .ac-bt-pagar{background:var(--ac-navy)!important;color:#fff!important;border:1px solid var(--ac-navy)!important;border-radius:8px!important;padding:5px 10px!important;font:600 12px var(--font-ui)!important;cursor:pointer}
+.acx .ac-bt-pagar:hover{filter:brightness(1.15)}
+.acx-link{font:500 12px var(--font-ui)!important;cursor:pointer;background:none!important;border:0!important;color:var(--text2)!important;text-decoration:underline;padding:4px 2px!important}
+@media (max-width:900px){.acx-hd{display:none}.acx-row{grid-template-columns:1fr auto;gap:8px 12px}.acx-prog{grid-column:1/-1}.acx-prox{grid-column:1}.acx-sit{grid-column:2;grid-row:1}.acx-cv{display:none}}
 /* Financeiro (Backup 16): sem gráficos nas abas A receber / Recebidos / Prejuízo / Despesas (Jurídico e Contabilidade);
    a análise com gráficos fica só na aba Análise. Composição do caixa sem "Despesas por categoria". */
 .cc:has(canvas#cFinGrupo),.cc:has(canvas#cFinCGrupo),.crow:has(canvas[id^="cRec"]),.crow:has(canvas[id^="cPrej"]),.crow:has(canvas[id^="cFcFech"]),.cc:has(canvas#cFcCaixaCat){display:none!important}

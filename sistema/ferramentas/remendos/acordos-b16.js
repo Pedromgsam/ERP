@@ -24,26 +24,32 @@ function _acordosAnalise(ac){
     g.pagas=g.l.filter(pago).length; g.prox=g.l.filter(function(a){return !pago(a);})[0]||null; g.parcela=g.prox?v(g.prox):v(g.l[g.l.length-1]);
     g.obs=(g.l.find(function(a){return a.obs;})||{}).obs||''; return g; })
     .sort(function(x,y){ return y.atr-x.atr || y.falta-x.falta; });
-  var pc=function(g){ return g.total>0?Math.round(g.falta/g.total*100):0; };
+  // Backup 17: lista em cartões-linha (sem tabela escura). Cada acordo mostra quem deve a quem, a barra do que já foi pago,
+  // a próxima parcela e a situação; clicar abre as parcelas em "chips" com "Lançar pagamento".
+  var pcPago=function(g){ return g.total>0?Math.round(g.pago/g.total*100):0; };
+  var sel=function(g){ return g.atr?'<span class="acx-st acx-st-r">'+g.atr+' parcela'+(g.atr>1?'s':'')+' em atraso</span>'
+    :(g.falta>0?'<span class="acx-st acx-st-g">Em dia</span>':'<span class="acx-st acx-st-x">Concluído</span>'); };
   var linhas=lista.map(function(g){ var aberto=!!_acAbertos[g.k], kk=g.k.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;');
-    var tr='<tr class="ac-linha'+(g.atr?' ac-atr':'')+'" onclick="_acToggle(\''+kk+'\')" title="Clique para ver as parcelas">'
-     +'<td><span class="ac-cv">'+(aberto?'▾':'▸')+'</span> <strong>'+esc(g.a.devedor||'—')+'</strong></td>'
-     +'<td>'+esc(g.a.credor||'—')+'</td>'
-     +'<td>'+esc(g.obs||'Acordo no processo')+'<div class="ac-proc">'+esc(g.a.processo||'')+'</div></td>'
-     +'<td class="mono num">'+_faFT(g.total)+'</td>'
-     +'<td class="mono num ac-pago">'+_faFT(g.pago)+'</td>'
-     +'<td class="mono num">'+_faFT(g.falta)+'<div class="ac-falta"><div class="pa-bar"><div class="pa-bar-in" style="width:'+(100-pc(g))+'%"></div></div><span>'+pc(g)+'% falta</span></div></td>'
-     +'<td class="mono num">'+_faFT(g.parcela)+'<div class="ac-proc">'+g.pagas+'/'+g.l.length+' pagas</div></td>'
-     +'<td>'+(g.atr?'<span class="tag tr">'+g.atr+' em atraso</span>':(g.falta>0?'<span class="tag tg">em dia</span>':'<span class="tag tx">concluído</span>'))+'</td></tr>';
-    if(aberto) tr+='<tr class="ac-det"><td colspan="8"><div class="ac-det-in">'
-      +(g.a.grupo?'<div class="ac-det-info">Grupo: <b>'+esc(g.a.grupo)+'</b>'+(g.a.responsavel?' · Responsável: <b>'+esc(g.a.responsavel)+'</b>':'')+(g.l[0].pix?' · PIX: <b>'+esc(g.l[0].pix)+'</b>':'')+(g.l[0].banco?' · Banco: <b>'+esc(g.l[0].banco)+'</b>':'')+'</div>':'')
-      +'<table><thead><tr><th>Parcela</th><th>Vencimento</th><th class="num">Valor</th><th>Situação</th><th>Pago em</th><th></th></tr></thead><tbody>'
-      +g.l.map(function(a){ return '<tr><td>'+esc(a.parcela||'?')+(a.totalParc?'/'+esc(a.totalParc):'')+'</td><td class="mono">'+esc(a.vencimento||'—')+'</td><td class="mono num">'+_faFT(v(a))+'</td>'
-        +'<td>'+(pago(a)?'<span class="tag tg">pago</span>':atrasada(a)?'<span class="tag tr">vencida</span>':'<span class="tag tn">a vencer</span>')+'</td><td class="mono">'+esc(a.dataPag||'—')+'</td>'
-        +'<td style="text-align:right;white-space:nowrap">'+(pago(a)?'':'<button type="button" class="btn-m ac-bt-pagar" onclick="event.stopPropagation();_acPagar(\''+a._id+'\',this)">✓ Lançar pagamento</button> ')
-        +'<button type="button" class="btn-m" onclick="event.stopPropagation();_acDetalhe(\''+a._id+'\')">Detalhe</button></td></tr>'; }).join('')
-      +'</tbody></table></div></td></tr>';
-    return tr; }).join('');
+    var r='<div class="acx-item'+(g.atr?' acx-atr':'')+(aberto?' acx-aberto':'')+'">'
+     +'<div class="acx-row" role="button" tabindex="0" aria-expanded="'+aberto+'" onclick="_acToggle(\''+kk+'\')" onkeydown="if(event.key===\'Enter\')_acToggle(\''+kk+'\')" title="Clique para ver as parcelas">'
+     +'<div class="acx-quem"><div class="acx-dev">'+esc(g.a.devedor||'—')+'</div>'
+     +'<div class="acx-sub">deve a <b>'+esc(g.a.credor||'—')+'</b></div>'
+     +'<div class="acx-sub">'+esc(g.obs||'Acordo no processo')+(g.a.processo?' · <span class="acx-proc">'+esc(g.a.processo)+'</span>':'')+'</div></div>'
+     +'<div class="acx-prog"><div class="acx-prog-hd"><span><b>'+_faFT(g.pago)+'</b> pago de '+_faFT(g.total)+'</span><span>'+pcPago(g)+'%</span></div>'
+     +'<div class="acx-bar"><div style="width:'+pcPago(g)+'%"></div></div>'
+     +'<div class="acx-sub">Falta <b>'+_faFT(g.falta)+'</b> · '+g.pagas+' de '+g.l.length+' parcela'+(g.l.length>1?'s':'')+' paga'+(g.pagas>1?'s':'')+'</div></div>'
+     +'<div class="acx-prox">'+(g.prox?'<div class="acx-val">'+_faFT(v(g.prox))+'</div><div class="acx-sub">vence '+esc(g.prox.vencimento||'—')+'</div>':'<div class="acx-val">'+_faFT(g.parcela)+'</div><div class="acx-sub">todas pagas</div>')+'</div>'
+     +'<div class="acx-sit">'+sel(g)+'</div><div class="acx-cv" aria-hidden="true">'+(aberto?'▴':'▾')+'</div></div>';
+    if(aberto) r+='<div class="acx-det">'
+      +(g.a.grupo||g.a.responsavel||g.l[0].pix||g.l[0].banco?'<div class="acx-info">'+[g.a.grupo?'Grupo: <b>'+esc(g.a.grupo)+'</b>':'',g.a.responsavel?'Responsável: <b>'+esc(g.a.responsavel)+'</b>':'',g.l[0].pix?'PIX: <b>'+esc(g.l[0].pix)+'</b>':'',g.l[0].banco?'Banco: <b>'+esc(g.l[0].banco)+'</b>':''].filter(Boolean).join(' · ')+'</div>':'')
+      +'<div class="acx-parcs">'+g.l.map(function(a){ var st=pago(a)?'p':atrasada(a)?'r':'a';
+        return '<div class="acx-parc acx-parc-'+st+'"><div class="acx-parc-n">Parcela '+esc(a.parcela||'?')+(a.totalParc?'/'+esc(a.totalParc):'')+'</div>'
+          +'<div class="acx-parc-v">'+_faFT(v(a))+'</div>'
+          +'<div class="acx-sub">'+(pago(a)?'✓ paga'+(a.dataPag?' em '+esc(a.dataPag):''):(st==='r'?'venceu ':'vence ')+esc(a.vencimento||'—'))+'</div>'
+          +'<div class="acx-parc-bt">'+(pago(a)?'':'<button type="button" class="btn-m ac-bt-pagar" onclick="event.stopPropagation();_acPagar(\''+a._id+'\',this)">✓ Lançar pagamento</button>')
+          +'<button type="button" class="btn-m acx-link" onclick="event.stopPropagation();_acDetalhe(\''+a._id+'\')">Detalhe</button></div></div>'; }).join('')
+      +'</div></div>';
+    return r+'</div>'; }).join('');
   el.innerHTML=exBloco('exAcSit','Situação dos acordos',
     '<div class="kpi-grid" style="margin-bottom:14px">'
    + kC('Já pago',_faFT(soma(ac.filter(pago))),ac.filter(pago).length+' parcela(s)','cg','dg')
@@ -51,7 +57,7 @@ function _acordosAnalise(ac){
    + kC('Vence este mês',_faFT(soma(ac.filter(noMes))),ac.filter(noMes).length+' parcela(s) até '+fimMes.toLocaleDateString('pt-BR').slice(0,5),'cb','')
    + kC('Em atraso',_faFT(soma(ac.filter(atrasada))),ac.filter(atrasada).length+' parcela(s) vencida(s)','cr',ac.some(atrasada)?'dr':'')
    + '</div>'
-   + '<div class="pa-sub">Acordos em andamento <span style="font-weight:400;text-transform:none;letter-spacing:0">— clique na linha para ver as parcelas e lançar pagamento</span></div>'
-   + '<div class="tw"><table class="ac-tab"><thead><tr><th>Devedor</th><th>Credor</th><th>Descrição</th><th class="num">Total</th><th class="num">Pago</th><th class="num">Falta</th><th class="num">Parcela</th><th>Inadimplência</th></tr></thead><tbody>'
-   + linhas + '</tbody></table></div>');
+   + '<div class="pa-sub">Acordos em andamento <span style="font-weight:400;text-transform:none;letter-spacing:0">— clique no acordo para ver as parcelas e lançar pagamento</span></div>'
+   + '<div class="acx"><div class="acx-hd"><span>Acordo</span><span>Pagamento</span><span>Próxima parcela</span><span>Situação</span><span></span></div>'
+   + linhas + '</div>');
 }

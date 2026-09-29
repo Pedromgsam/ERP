@@ -310,10 +310,17 @@ window.ERP_COLS_CLIENTE = 'id,grupo_id,nome,cpf_cnpj,tipo,responsavel,email,tele
           const j = G.abrirJanela({ titulo: '✉ Enviar e-mail ao cliente', larga: true,
             corpo: '<div class="grade"><label class="campo inteiro"><span>Para</span><input id="em-para" type="email" value="' + esc2(d.to) + '" placeholder="e-mail do cliente"></label>' +
               '<label class="campo inteiro"><span>Assunto</span><input id="em-assunto" value="' + esc2(d.assunto) + '"></label>' +
-              '<label class="campo inteiro"><span>Mensagem (pode ajustar)</span><textarea id="em-texto" rows="12">' + esc2(d.corpo) + '</textarea></label>' +
+              '<div class="inteiro em-manual"><label class="campo"><span>Mensagem (pode ajustar)</span><textarea id="em-texto" rows="16">' + esc2(d.corpo) + '</textarea></label>' +
+              '<div class="campo"><span>Como o cliente recebe</span><iframe id="em-previa" class="em-previa" sandbox="" title="Prévia do e-mail"></iframe></div></div>' +
               '<div class="dica inteiro"><b>Pelo e-mail do escritório</b>: sai com a marca Araújo &amp; Castro, fica registrado em Administração → E-mail e em Automações. ' +
               '<b>No meu e-mail</b>: abre o programa de e-mail deste computador com o texto pronto.</div></div>',
             rodape: '<button class="btn btn-o" type="button" id="em-meu">Abrir no meu e-mail</button><div class="acoes"><button class="btn btn-o" type="button" id="em-cancelar">Cancelar</button><button class="btn btn-p" type="button" id="em-enviar">✉ Enviar pelo e-mail do escritório</button></div>' });
+          const jn = j.querySelector('.janela'); if (jn) jn.classList.add('janela-rel');
+          // prévia ao vivo no layout com a marca (o mesmo que sai pelo e-mail do escritório)
+          let tPrev; const previa = () => { clearTimeout(tPrev); tPrev = setTimeout(async () => {
+            const r = await sb.rpc('previa_email_manual', { p_assunto: j.querySelector('#em-assunto').value, p_texto: j.querySelector('#em-texto').value });
+            const f = j.querySelector('#em-previa'); if (f && !r.error) f.srcdoc = r.data || ''; }, 350); };
+          j.querySelector('#em-texto').addEventListener('input', previa); j.querySelector('#em-assunto').addEventListener('input', previa); previa();
           let feito = false; const fim = (v) => { if (feito) return; feito = true; G.fecharJanela(j); ok(v); };
           j._aoFechar = () => fim({ ok: false, cancelado: true });
           j.querySelector('#em-cancelar').onclick = () => fim({ ok: false, cancelado: true });

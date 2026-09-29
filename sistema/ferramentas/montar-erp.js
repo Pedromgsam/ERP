@@ -156,9 +156,9 @@ trocar("  var comValor=lista.filter(function(p){ return val(p)>0; });\n  var tot
   "  var _vistos={}; lista=lista.filter(function(p){ var k=String(p.numero||'').replace(/\\D/g,'')||String(p.numero||'')||('#'+Math.random()); if(_vistos[k]) return false; _vistos[k]=1; return true; });\n" +
   "  var comValor=lista.filter(function(p){ return val(p)>0; });\n  var totalV=comValor.reduce(function(s,p){ return s+val(p); },0);\n  var ativos=lista.filter(function(p){ return !String(p.arquivamento||'').trim(); }).length;", 1);
 trocar("   +  kC('Processos',lista.length,ativos+' em andamento','cb','db')",
-  "   +  kC('Processos',lista.length,ativos+' em andamento · '+(lista.length-ativos)+' arquivados/extintos','cb','db')", 1);
+  "   +  kC('Processos',lista.length,ativos+' em andamento<br>'+(lista.length-ativos)+' arquivados/extintos','cb','db')", 1);
 trocar("   +  kC('Valor em disputa',_faFT(totalV),comValor.length+' com valor informado','cv','dv')",
-  "   +  kC('Valor em disputa',_faFT(totalV),comValor.length+' com valor informado · '+(lista.length-comValor.length)+' sem valor informado','cv','dv')\n" +
+  "   +  kC('Valor em disputa',_faFT(totalV),comValor.length+' com valor informado<br>'+(lista.length-comValor.length)+' sem valor informado','cv','dv')\n" +
   "   +  (function(){ var nomes=(FIL.length?FIL:DB.baseDados).map(function(r){return String(r.nome||'').toLowerCase();}).filter(function(n){return n.length>2;});\n" +
   "        var tem=function(t){ t=String(t||'').toLowerCase(); return nomes.some(function(n){return t.indexOf(n)>=0;}); };\n" +
   "        var vP=lista.filter(function(p){return tem(p.reu);}).reduce(function(s,p){return s+val(p);},0), vA=lista.filter(function(p){return tem(p.autor);}).reduce(function(s,p){return s+val(p);},0);\n" +

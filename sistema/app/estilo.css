@@ -578,7 +578,10 @@ label.ofx-it{cursor:pointer}
 .ini-res-tit{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text)}
 .ini-res-num{font-size:24px;line-height:1.15;font-variant-numeric:tabular-nums}
 .ini-res-rot{font-size:12.5px;color:var(--text)}
-.ini-res-sub{font-size:12px;color:var(--text);margin-top:auto}
+.ini-res-subs{display:flex;flex-direction:column;gap:1px;margin-top:auto;padding-top:4px}
+.ini-res-sub{font-size:12px;color:var(--text)}
+.ini-res-sub.vermelho{color:var(--red)}
+.ini-res-sub.ambar{color:var(--amber-d)}
 .ini-res.vermelho .ini-res-sub{color:var(--red);font-weight:600}
 /* Início: lembretes */
 .ini-lemb .card-hd{display:flex;align-items:center;gap:8px}
@@ -624,3 +627,36 @@ label.ofx-it{cursor:pointer}
 .carga-num{font-size:12.5px;color:var(--text2)}
 @media (max-width:700px){.carga-lin{grid-template-columns:1fr}}
 .ger-link{text-decoration:none;color:inherit}
+.janela.janela-cheia{max-width:none;width:calc(100vw - 32px)}
+.janela.janela-cheia .massa-tab input,.janela.janela-cheia .massa-tab select{min-width:0}
+/* CRM (Backup 17): 8 quadros do mesmo tamanho (4 + 4), quadro com fundo próprio (não some no fundo da tela) e vazio desenhado */
+.cr-linha .cr-col{background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow-sm);min-height:200px;padding:10px;min-width:0}
+.cr-col-tit{align-items:center;padding:2px 4px 6px;border-bottom:1px solid var(--border);margin-bottom:2px}
+.cr-col-n{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:20px;padding:0 7px;border-radius:99px;background:var(--surface3);color:var(--text2);font:700 11px var(--font-ui)}
+.cr-col-val{font:600 11.5px var(--font-ui);color:var(--text3);padding:0 4px;font-variant-numeric:tabular-nums}
+.cr-linha .cr-card{background:var(--surface2);box-shadow:none;border:1px solid var(--border);border-left:4px solid var(--navy3)}
+.cr-linha .cr-card.cr-atrasada{border-left-color:var(--red)}
+.cr-linha .cr-card:hover{box-shadow:var(--shadow-sm);background:var(--surface)}
+.cr-vazia{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:1.5px dashed var(--border-strong);border-radius:10px;background:var(--surface2);color:var(--text3);font:600 12.5px var(--font-ui);padding:18px 8px;margin-top:4px}
+.cr-vazia .sub{font-weight:400;font-size:11.5px}
+.cr-vazia-ic{font-size:18px;opacity:.5;line-height:1}
+.cr-linha .cr-col.sobre{background:var(--blue-lt);outline:2px dashed var(--navy3)}
+.cr-fins{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.cr-fins .cr-solte{padding:10px;font-size:12.5px;border-width:1.5px}
+.cr-solte-ganho{border-color:rgba(21,128,61,.35)!important;background:var(--green-lt);color:var(--green-d)}
+.cr-solte-perdido{background:var(--surface2)}
+.cr-solte.sobre{outline:2px solid var(--navy3)}
+@media (max-width:900px){.cr-fins{grid-template-columns:1fr}.cr-linha .cr-col{min-height:0}}
+.em-para{font-weight:600;word-break:break-all}
+.em-manual{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:14px;align-items:start}
+.em-manual textarea{min-height:58vh}
+.em-manual .em-previa{height:58vh}
+@media (max-width:900px){.em-manual{grid-template-columns:1fr}.em-manual textarea{min-height:200px}}
+.pub-partes{margin:6px 0;display:flex;flex-direction:column;gap:1px}
+/* Ficha do contrato (Backup 17) */
+.ctr-ficha{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px 18px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 16px;margin-bottom:10px}
+.ctr-ficha>div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.ctr-ficha span{font:700 10.5px var(--font-ui);letter-spacing:.06em;text-transform:uppercase;color:var(--text3)}
+.ctr-ficha b{font-size:13.5px;font-weight:600;color:var(--ink)}
+.ctr-barra{height:6px;border-radius:99px;background:var(--surface3);overflow:hidden;margin:4px 0 8px}
+.ctr-barra>div{height:100%;background:var(--green);border-radius:99px}

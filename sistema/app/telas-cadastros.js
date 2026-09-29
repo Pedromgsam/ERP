@@ -517,13 +517,26 @@ async function detalheContrato(id) {
 async function _detalheContrato(id) {
   const ct = (await q(sb.from('contratos').select('*, clientes(nome, grupo_id, responsavel)').eq('id', id)))[0];
   if (!ct) throw new Error('contrato não encontrado ou de um cliente que você não vê (área)');
-  const [parc, exitos] = await Promise.all([q(sb.from('lancamentos').select('*').eq('contrato_id', id).order('vencimento')),
-    ct.percentual_exito ? q(sb.from('exitos').select('*').eq('contrato_id', id).order('data')).catch(() => []) : []]);
+  const [parc, exitos, aditivos] = await Promise.all([q(sb.from('lancamentos').select('*').eq('contrato_id', id).order('vencimento')),
+    ct.percentual_exito ? q(sb.from('exitos').select('*').eq('contrato_id', id).order('data')).catch(() => []) : [],
+    q(sb.from('contratos_aditivos').select('*').eq('contrato_id', id).order('numero')).catch(() => [])]);
   const recebido = soma(parc.filter((p) => p.pago), (p) => p.valor);
   const total = soma(parc, (p) => p.valor);
+  const h = hojeISO(), atrasadas = parc.filter((p) => !p.pago && p.vencimento < h), prox = parc.find((p) => !p.pago && p.vencimento >= h);
+  // Backup 17: ficha do contrato — resumo em linha (tipo, área, vigência, reajuste, próximo vencimento) + aditivos
+  const reajuste = ct.modalidade !== 'consultoria' ? 'Sem reajuste (serviço pontual)'
+    : ct.forma_valor === 'salario_minimo' ? 'Automático pelo salário mínimo (todo ano)' : 'Sem reajuste · mudança de valor só por aditivo';
+  const ficha = [['Tipo', ct.modalidade === 'consultoria' ? 'Consultoria (mensal)' : 'Serviço pontual'], ['Área do serviço', ct.servico || '—'],
+    ['Vigência', dataBR(ct.inicio_competencia || ct.data_contrato) + ' → ' + (ct.rescindido_em ? 'rescindido em ' + dataBR(ct.rescindido_em) : ct.modalidade === 'consultoria' ? 'até a rescisão' : 'fim das parcelas')],
+    ['Reajuste', reajuste], ['Próximo vencimento', prox ? dataBR(prox.vencimento) + ' · ' + brl(prox.valor) : '—'],
+    ['Em atraso', atrasadas.length ? '<span class="pill vencido">' + atrasadas.length + ' parcela(s) · ' + brl(soma(atrasadas, (p) => p.valor)) + '</span>' : '<span class="pill pago">em dia</span>'],
+    ['Situação', esc(ct.status)]];
+  const pctRec = total > 0 ? Math.round(recebido / total * 100) : 0;
   const j = abrirJanela({
-    titulo: ct.descricao, larga: true,
+    titulo: '📄 Ficha do contrato — ' + ct.descricao, larga: true,
     corpo:
+      '<div class="ctr-ficha">' + ficha.map(([r, v]) => '<div><span>' + r + '</span><b>' + (/^</.test(v) ? v : esc(v)) + '</b></div>').join('') + '</div>' +
+      '<div class="ctr-barra" title="Recebido × previsto"><div style="width:' + pctRec + '%"></div></div><div class="sub" style="margin:-4px 0 12px">' + pctRec + '% do previsto já recebido</div>' +
       '<div class="kpis" style="margin-bottom:12px">' +
       kpi('Cliente', '<span style="font-family:var(--font-d);font-size:16px">' + esc(ct.clientes ? ct.clientes.nome : '—') + '</span>', '', 'Contrato de ' + dataBR(ct.data_contrato)) +
       (ct.modalidade === 'consultoria' ? kpi('Consultoria mensal', valorContratoTexto(ct), '', ct.rescindido_em ? 'rescindido em ' + dataBR(ct.rescindido_em) : 'vence dia ' + ct.dia_vencimento + ' do mês seguinte · até a rescisão') : '') +
@@ -533,7 +546,7 @@ async function _detalheContrato(id) {
       (ct.obs ? '<div class="dica" style="margin-bottom:12px">' + esc(ct.obs) + '</div>' : '') +
       '<div class="card" style="margin:0">' + tabelaLancamentos(parc, { compacta: true }) + '</div>' +
       '<div style="margin-top:10px"><button class="btn btn-o btn-mini" id="ctr-add-parc">+ Lançar valor avulso neste contrato</button></div>' +
-      (ct.percentual_exito ? blocoExito(ct, exitos) : '') +
+      (ct.percentual_exito ? blocoExito(ct, exitos) : '') + blocoAditivos(ct, aditivos) +
       '<div class="card" style="margin:14px 0 0"><div class="card-bd" id="ctr-docs"></div></div>',
     rodape:
       (E.perfil.papel === 'admin' ? '<button class="btn btn-x" id="btn-excluir-ctr" type="button">Excluir contrato</button>' : '<span></span>') +
@@ -547,6 +560,7 @@ async function _detalheContrato(id) {
   j.querySelector('#btn-editar-ctr').onclick = () => formContrato(ct);
   const br = j.querySelector('#btn-rescindir-ctr'); if (br) br.onclick = () => formRescisao(ct, reabrir);
   const be = j.querySelector('#ctr-exito-reg'); if (be) be.onclick = () => formExito(ct, reabrir);
+  const ba = j.querySelector('#ctr-aditivo'); if (ba) ba.onclick = () => formAditivo(ct, reabrir);
   j.querySelector('#ctr-add-parc').onclick = () => {
     formLancamento({ tipo: 'receita', empresa: 'escritorio', cliente_id: ct.cliente_id, contrato_id: id,
                      grupo_id: ct.clientes && ct.clientes.grupo_id, responsavel: ct.clientes && ct.clientes.responsavel,
@@ -557,6 +571,58 @@ async function _detalheContrato(id) {
     if (!confirm('Excluir o contrato e TODAS as parcelas dele? Esta ação não pode ser desfeita.')) return;
     await excluir('contratos', id);
     aviso('Contrato excluído.'); fecharJanela(j); await recarregar();
+  });
+}
+
+// ─────────── aditivos: o que mudou no contrato, com a data e o efeito no financeiro ───────────
+const TIPOS_ADITIVO = [['valor', 'Valor'], ['escopo', 'Escopo (o que está incluído)'], ['prazo', 'Prazo / vigência'], ['outro', 'Outro']];
+function blocoAditivos(ct, ads) {
+  const efeito = (a) => a.tipo !== 'valor' ? '—' : a.valor_adicional ? '+ ' + brl(a.valor_adicional) + (a.parcelas > 1 ? ' em ' + a.parcelas + ' parcelas' : '')
+    : (a.forma_nova === 'salario_minimo' ? String(a.qtd_salarios_novo).replace('.', ',') + ' SM' : brl(a.valor_mensal_novo)) + '/mês a partir de ' + dataBR(a.a_partir).slice(3) +
+      '<div class="sub">antes: ' + (a.forma_anterior === 'salario_minimo' ? String(a.qtd_salarios_anterior || 0).replace('.', ',') + ' SM' : brl(a.valor_mensal_anterior)) + '</div>';
+  return '<div class="card" style="margin:14px 0 0"><div class="card-hd">📝 Aditivos <span class="pill ' + (ads.length ? 'aberto' : 'neutro') + '">' + ads.length + '</span>' +
+      (pode('contratos', 'editar') ? '<button class="btn btn-o btn-mini" id="ctr-aditivo" style="margin-left:auto">+ Novo aditivo</button>' : '') + '</div>' +
+    '<div class="card-bd">' + (ads.length ? '<div class="tabela-wrap"><table><thead><tr><th>Nº</th><th>Data</th><th>Tipo</th><th>O que mudou</th><th>Efeito no financeiro</th></tr></thead><tbody>' +
+      ads.map((a) => '<tr><td>' + a.numero + '</td><td class="mono">' + dataBR(a.data) + '</td><td><span class="pill neutro">' + esc((TIPOS_ADITIVO.find((t) => t[0] === a.tipo) || [0, a.tipo])[1]) + '</span></td>' +
+        '<td>' + esc(a.descricao) + '</td><td class="mono">' + efeito(a) + '</td></tr>').join('') + '</tbody></table></div>'
+      : '<div class="sub">Nenhum aditivo. Use <b>+ Novo aditivo</b> quando mudar valor, escopo ou prazo — o documento assinado vai em "Documentos do contrato".</div>') + '</div></div>';
+}
+function formAditivo(ct, depois) {
+  const cons = ct.modalidade === 'consultoria';
+  const j = abrirJanela({ titulo: '📝 Novo aditivo — ' + ct.descricao, larga: true,
+    corpo: '<form class="grade" id="f-ad">' +
+      campo('Tipo', '<select name="tipo">' + TIPOS_ADITIVO.map(([v, r]) => '<option value="' + v + '">' + r + '</option>').join('') + '</select>') +
+      campo('Data do aditivo', '<input name="data" type="date" value="' + hojeISO() + '">') +
+      campo('O que o aditivo muda <span class="obrig">*</span>', '<textarea name="descricao" maxlength="1000" placeholder="Ex.: inclui a consultoria trabalhista a partir de novembro"></textarea>', 'inteiro') +
+      '<div class="grade inteiro" id="ad-valor">' + (cons
+        ? '<div class="inteiro"><div class="segmento" id="ad-forma">' + [['fixo', 'Valor fixo'], ['salario_minimo', 'Em salários mínimos']].map(([v, r]) => '<button type="button" data-v="' + v + '"' + ((ct.forma_valor || 'fixo') === v ? ' class="ativo"' : '') + '>' + r + '</button>').join('') + '</div></div>' +
+          campo('Novo valor mensal (R$)', '<input name="valor_mensal" inputmode="decimal" placeholder="' + (ct.valor_mensal ? valorParaCampo(ct.valor_mensal) : '0,00') + '">') +
+          campo('Nº de salários mínimos', '<input name="qtd_salarios" inputmode="decimal" placeholder="' + (ct.qtd_salarios ? String(ct.qtd_salarios).replace('.', ',') : '1') + '">') +
+          campo('Vale a partir da competência', '<input name="a_partir" type="month" value="' + somarMeses(hojeISO(), 1).slice(0, 7) + '">') +
+          '<div class="dica inteiro">As mensalidades <b>antes</b> dessa competência continuam com o valor antigo; as em aberto a partir dela mudam sozinhas. Atual: <b>' + valorContratoTexto(ct) + '</b>.</div>'
+        : campo('Valor a mais (R$)', '<input name="valor_adicional" inputmode="decimal" placeholder="0,00">') +
+          campo('Nº de parcelas', '<input name="parcelas" type="number" min="1" max="120" value="1">') +
+          campo('1º vencimento', '<input name="primeiro_vencimento" type="date" value="' + somarDias(hojeISO(), 30) + '">') +
+          '<div class="dica inteiro">O valor a mais entra em Honorários Jurídico, nas parcelas escolhidas, marcado como "aditivo".</div>') + '</div></form>',
+    rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="btn-ad">Registrar aditivo</button></div>' });
+  const f = j.querySelector('#f-ad'); let forma = ct.forma_valor || 'fixo';
+  const mostrar = () => {
+    j.querySelector('#ad-valor').classList.toggle('escondido', f.tipo.value !== 'valor');
+    if (cons) { j.querySelectorAll('#ad-forma button').forEach((b) => b.classList.toggle('ativo', b.dataset.v === forma));
+      f.valor_mensal.closest('.campo').classList.toggle('escondido', forma !== 'fixo'); f.qtd_salarios.closest('.campo').classList.toggle('escondido', forma !== 'salario_minimo'); }
+  };
+  f.tipo.onchange = mostrar; if (cons) j.querySelector('#ad-forma').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { forma = b.dataset.v; mostrar(); } };
+  mostrar();
+  j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
+  j.querySelector('#btn-ad').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    const p = { tipo: f.tipo.value, data: f.data.value, descricao: f.descricao.value.trim() };
+    if (!p.descricao) throw new Error('Descreva o que o aditivo muda.');
+    if (p.tipo === 'valor') {
+      if (cons) Object.assign(p, { forma, valor_mensal: forma === 'fixo' ? lerValor(f.valor_mensal.value) : null, qtd_salarios: forma === 'salario_minimo' ? lerValor(f.qtd_salarios.value) : null, a_partir: (f.a_partir.value || hojeISO().slice(0, 7)) + '-01' });
+      else Object.assign(p, { valor_adicional: lerValor(f.valor_adicional.value), parcelas: Number(f.parcelas.value) || 1, primeiro_vencimento: f.primeiro_vencimento.value });
+    }
+    await q(sb.rpc('registrar_aditivo', { p_contrato: ct.id, p }));
+    aviso('✓ Aditivo registrado' + (p.tipo === 'valor' ? ' e financeiro ajustado.' : '.')); fecharJanela(j); await recarregar(); if (depois) await depois();
   });
 }
 

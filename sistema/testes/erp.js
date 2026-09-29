@@ -110,6 +110,10 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('menu Financeiro com Jurídico e Contabilidade', (await p.$$eval('#tn .tn-grupo:nth-of-type(2) .tn-menu button', (l) => l.map((b) => b.textContent))).join('|') === 'Jurídico|Contabilidade');
     await nav(p, 'hoje'); await p.waitForTimeout(1500);
     ok('equipe entra no Início do Gestão (resumo do mês)', await p.isVisible('#panel-hoje') && /Olá, Pedro/.test(await p.textContent('#panel-hoje')) && /Contabilidade/.test(await p.textContent('#panel-hoje')));
+    await p.waitForSelector('#ini-resumo .ini-res'); await p.waitForTimeout(300);
+    ok('Início: resumo sem Processos; Tarefas com atrasadas, hoje e próximos 5 dias no mesmo cartão', await p.evaluate(() => {
+      const t = [...document.querySelectorAll('#ini-resumo .ini-res-tit')].map((x) => x.textContent), tf = document.querySelector('#ini-resumo [data-ini-ir=tarefas]');
+      return !t.includes('Processos') && t.includes('Publicações') && t.includes('Documentos') && tf.querySelectorAll('.ini-res-sub').length === 3 && /próximos 5 dias/.test(tf.textContent); }));
     await foto(p, 'inicio');
     await p.waitForTimeout(1500);
     const n = await p.evaluate(() => ({ b: DB.baseDados.length, pr: DB.processos.length, pa: DB.parcelamentos.length, ac: DB.acordos.length, fi: DB.financeiro.length, fc: DB.financeiroContabilidade.length }));
@@ -291,6 +295,16 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.click('#btn-exito'); await p.waitForTimeout(2000);
     ok('êxito registrado: 20% de 150 mil lançado em Honorários Jurídico', sql("select valor||'|'||categoria||'|'||empresa from lancamentos where contrato_id='" + idEx + "'") === '30000.00|Êxito|escritorio' &&
       sql("select count(*) from exitos where contrato_id='" + idEx + "'") === '1');
+    // ficha do contrato + aditivo (Backup 17)
+    await p.waitForSelector('#ctr-aditivo'); await p.waitForTimeout(300);
+    ok('ficha do contrato mostra vigência, reajuste e aditivos', await p.evaluate(() => { const t = document.querySelector('#gs-raiz .ctr-ficha').textContent; return /Vigência/.test(t) && /Reajuste/.test(t) && /Sem reajuste/.test(t); }) &&
+      /Aditivos/.test(await p.textContent('#gs-raiz')));
+    await p.click('#ctr-aditivo'); await p.waitForSelector('#f-ad'); await p.waitForTimeout(200);
+    await p.selectOption('#f-ad [name=tipo]', 'valor'); await p.fill('#f-ad [name=descricao]', 'Inclui recurso ao CARF');
+    await p.fill('#f-ad [name=valor_adicional]', '1.000,00'); await p.fill('#f-ad [name=parcelas]', '2'); await p.click('#btn-ad'); await p.waitForTimeout(2000);
+    ok('aditivo de valor no serviço pontual lança o valor a mais em 2 parcelas', sql("select count(*)||'|'||sum(valor) from lancamentos where contrato_id='" + idEx + "' and descricao like '%aditivo 1%'") === '2|1000.00' &&
+      sql("select numero||'|'||tipo from contratos_aditivos where contrato_id='" + idEx + "'") === '1|valor');
+    ok('aditivo aparece na ficha do contrato', await p.evaluate(() => /Inclui recurso ao CARF/.test(document.querySelector('#gs-raiz').textContent)));
     await p.keyboard.press('Escape'); await p.keyboard.press('Escape');
 
     // ── clientes (tela do Gestão) ──
@@ -469,8 +483,8 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
 
     // ── CRM: oportunidade → funil → proposta → Ganhou ──
     await nav(p, 'crm'); await p.waitForTimeout(1500);
-    ok('CRM no menu e funil em duas linhas com as 9 etapas (contrato fechado, aguardando assinatura, assinado, perdido)', await p.isVisible('#tn [data-ir=crm]') &&
-      (await p.$$('#panel-crm .cr-col')).length === 9 && (await p.$$('#panel-crm .cr-linha')).length === 2 && /Aguardando assinatura/.test(await p.textContent('#panel-crm')));
+    ok('CRM no menu e funil em duas linhas com 8 quadros (4 + 4), sem Contrato assinado e Lead perdido', await p.isVisible('#tn [data-ir=crm]') &&
+      (await p.$$('#panel-crm .cr-col')).length === 8 && (await p.$$('#panel-crm .cr-linha:first-child .cr-col')).length === 4 && !(await p.evaluate(() => [...document.querySelectorAll('#panel-crm .cr-col-tit')].some((t) => /Contrato assinado|Lead perdido/.test(t.textContent)))) && (await p.$$('#panel-crm .cr-linha')).length === 2 && /Aguardando assinatura/.test(await p.textContent('#panel-crm')));
     await p.click('#cr-nova'); await p.waitForSelector('#f-op'); await p.waitForTimeout(300);
     await p.fill('#f-op [name=titulo]', 'Planejamento tributário — Prospect'); await p.fill('#f-op [name=prospecto_nome]', 'Carla Prospect');
     await p.fill('#f-op [name=prospecto_empresa]', 'Empresa Prospect Ltda'); await p.fill('#f-op [name=prospecto_email]', 'carla@prospect.com');
@@ -543,6 +557,8 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       sql("select count(*) from publicacoes where destinatarios like '%GAMA%'") === '0');
     sql("delete from publicacoes where parte_monitorada='BETA SERVICOS LTDA'");
     await p.evaluate((b) => { window.ERP_DJEN_API = b + '/__teste/djen'; }, BASE); await p.click('#pub-nav'); await p.waitForTimeout(3000);
+    await nav(p, 'publicacoes'); await p.waitForTimeout(1200);
+    ok('Publicações: partes em linhas (Réu: …)', await p.evaluate(() => [...document.querySelectorAll('#pub-corpo .pub-partes div')].some((d) => /^Réu:/.test(d.textContent.trim()))));
     ok('Publicações: "Buscar pelo navegador" grava sem duplicar', sql("select count(*) from publicacoes where parte_monitorada='BETA SERVICOS LTDA'") === '1' && Number(sql("select count(*) from publicacoes")) === 3);
 
     // ── Alertas: cartões por setor + cartão CNPJ (rotina das 6h) ──
@@ -791,8 +807,8 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await nav(p, 'acordos'); await p.waitForTimeout(1200);
     ok('Acordos: "Situação dos acordos" com a tabela "Acordos em andamento" (sem "Por credor" e sem o gráfico de atraso)', /Situação dos acordos/.test(await p.textContent('#acAnalise')) && /Acordos em andamento/.test(await p.textContent('#acAnalise')) &&
       !/Por credor/.test(await p.textContent('#acAnalise')) && !(await p.$('#cAcordAtraso')));
-    { const n0 = (await p.$$('#acAnalise .ac-linha')).length, pg0 = Number(sql("select count(*) from acordos where pago")); await p.click('#acAnalise .ac-linha'); await p.waitForTimeout(400);
-      ok('Acordos: clicar na linha abre as parcelas com "Lançar pagamento"', n0 >= 1 && !!(await p.$('#acAnalise .ac-det .ac-bt-pagar')));
+    { const n0 = (await p.$$('#acAnalise .acx-row')).length, pg0 = Number(sql("select count(*) from acordos where pago")); await p.click('#acAnalise .acx-row'); await p.waitForTimeout(400);
+      ok('Acordos: clicar na linha abre as parcelas com "Lançar pagamento"', n0 >= 1 && !!(await p.$('#acAnalise .acx-det .ac-bt-pagar')));
       await p.click('#acAnalise .ac-bt-pagar'); await p.waitForSelector('#gs-raiz .janela'); await p.click('#gs-raiz [data-bx-ok]'); await p.waitForTimeout(2500);
       ok('Acordos: "Lançar pagamento" dá baixa na parcela', Number(sql("select count(*) from acordos where pago")) === pg0 + 1); }
     ok('Acordos: acordo todo pago some da lista; "Mostrar concluídos" traz de volta', await (async () => {
@@ -819,6 +835,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('Central: "A enviar hoje" lista o 1º aviso de atraso e o lembrete, com o destinatário certo', /atraso@central\.test/.test(await p.textContent('#em-corpo')) && /lembrete@central\.test/.test(await p.textContent('#em-corpo')) &&
       /Honorários em aberto/.test(await p.textContent('#em-corpo')));
     await p.click('#em-corpo tr:has-text("atraso@central.test") td:nth-child(3)'); await p.waitForSelector('#gs-raiz iframe.em-previa'); await p.waitForTimeout(400);
+    ok('Central: coluna "E-mail de destino" diz de qual contato vem o e-mail', await p.evaluate(() => /E-mail de destino/.test(document.querySelector('#em-corpo thead').textContent) && /e-mail do cadastro|contato/.test(document.querySelector('#em-corpo tbody').textContent)));
     ok('Central: clicar na linha mostra a prévia do e-mail com a marca', /Hon central atraso/.test(await p.evaluate(() => document.querySelector('#gs-raiz iframe.em-previa').srcdoc)));
     await p.keyboard.press('Escape'); await p.waitForTimeout(200);
     await p.click('#em-corpo tr:has-text("atraso@central.test") [data-em-agora]'); await p.waitForTimeout(1500);
@@ -961,7 +978,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.keyboard.press('Escape'); await p.waitForTimeout(300);
     // CRM: só as vigentes no funil; ganhas em aba própria; ficha abre em Resumo
     await nav(p, 'crm'); await p.waitForTimeout(1500);
-    ok('CRM: funil só com oportunidades em andamento', !(await p.$('#panel-crm .cr-final-ganho .cr-card')) && !!(await p.$('#panel-crm .cr-solte')));
+    ok('CRM: funil só com oportunidades em andamento', !(await p.$('#panel-crm .cr-solte .cr-card')) && !!(await p.$('#panel-crm .cr-solte-ganho')));
     await p.click('#cr-abas [data-aba=ganho]'); await p.waitForTimeout(600);
     ok('CRM: aba "Ganhos" lista as fechadas', /Planejamento tributário/.test(await p.textContent('#cr-corpo')));
     await p.click('#cr-corpo tr[data-op]'); await p.waitForSelector('#op-abas'); await p.waitForTimeout(500);

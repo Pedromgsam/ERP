@@ -873,6 +873,7 @@ TELAS.inicio = async function () {
   cardMural().catch((e) => console.error(e));
   cardResumoEscritorio().catch((e) => console.error(e));
   cardLembretes().catch((e) => console.error(e));
+  if (typeof buscaPubAutomatica === 'function') buscaPubAutomatica().catch(() => {});
   if (typeof cardAprovacoes === 'function') cardAprovacoes().then((x) => { const el = $('ini-aprov'); if (el) el.innerHTML = x; }).catch((e) => console.error(e));
   if (typeof cardMinhaFila === 'function') cardMinhaFila().then((c) => { const el = $('ini-fila'); if (el) { el.innerHTML = c.html; c.ligar(el); } }).catch((e) => console.error(e));
   ligarAcoesLancamentos($('conteudo'));
@@ -1104,38 +1105,38 @@ async function cardMural() {
 // ── Resumo do escritório (Início = "home"): um número por assunto, clicável ──
 async function cardResumoEscritorio() {
   const el = $('ini-resumo'); if (!el) return;
-  const h = hojeISO(), lim15 = somarDias(h, 15), mes = h.slice(0, 7);
+  // Backup 17: só o que pede ação (sem Processos). Atraso, hoje e próximos 5 dias ficam no mesmo cartão, um por linha.
+  const h = hojeISO(), lim5 = somarDias(h, 5), lim15 = somarDias(h, 15);
   const conta = (qq) => qq.then((r) => (r.error ? 0 : r.count || 0)).catch(() => 0);
   const cnt = (t) => sb.from(t).select('id', { count: 'exact', head: true });
   const jur = pode('juridico'), crm = pode('crm'), docs = pode('documentos');
-  const [proc, procEnc, procMes, pubs, parcAtr, parcMes, acPend, acAtr, ops, tAb, tAtr, docV] = await Promise.all([
-    jur ? conta(cnt('processos')) : 0,
-    jur ? conta(cnt('processos').or('status.ilike.arq*,status.ilike.extint*,status.ilike.*prescri*')) : 0,
-    jur ? conta(cnt('processos').gte('criado_em', mes + '-01')) : 0,
+  const aberta = () => cnt('tarefas').not('status', 'in', '(concluida,cancelada)');
+  const tres = (t, col, filtro) => jur ? Promise.all([
+    conta(filtro(cnt(t)).lt(col, h)), conta(filtro(cnt(t)).eq(col, h)), conta(filtro(cnt(t)).gt(col, h).lte(col, lim5))]) : [0, 0, 0];
+  const [pubs, parc, aco, ops, tAb, tAtr, tHoje, t5, docV] = await Promise.all([
     jur ? conta(cnt('publicacoes').eq('status', 'nova')) : 0,
-    jur ? conta(cnt('parcelas').eq('pago', false).lt('vencimento', h)) : 0,
-    jur ? conta(cnt('parcelas').eq('pago', false).gte('vencimento', h).lte('vencimento', fimDoMesISO(h))) : 0,
-    jur ? conta(cnt('acordos').eq('pago', false)) : 0,
-    jur ? conta(cnt('acordos').eq('pago', false).lt('vencimento', h)) : 0,
+    tres('parcelas', 'vencimento', (x) => x.eq('pago', false)),
+    tres('acordos', 'vencimento', (x) => x.eq('pago', false)),
     crm ? q(sb.from('crm_oportunidades').select('valor_estimado, crm_etapas(final)')).catch(() => []) : [],
-    conta(cnt('tarefas').not('status', 'in', '(concluida,cancelada)')),
-    conta(cnt('tarefas').not('status', 'in', '(concluida,cancelada)').lt('prazo', h)),
-    docs ? conta(cnt('documentos').eq('arquivado', false).lte('validade', lim15)) : 0
+    conta(aberta()), conta(aberta().lt('prazo', h)), conta(aberta().eq('prazo', h)), conta(aberta().gt('prazo', h).lte('prazo', lim5)),
+    docs ? conta(cnt('documentos').eq('arquivado', false).gte('validade', h).lte('validade', lim15)) : 0
   ]);
   const abertas = (ops || []).filter((o) => !(o.crm_etapas && o.crm_etapas.final));
+  // linhas de prazo: [quantidade, texto, cor]
+  const prazos = (v, un) => [[v[0], un + ' em atraso', 'vermelho'], [v[1], 'vence(m) hoje', 'ambar'], [v[2], 'nos próximos 5 dias', '']];
   const T = [
-    jur ? ['processos', '⚖', 'Processos', proc - procEnc, 'em andamento', (procEnc ? procEnc + ' arquivados/extintos' : '') + (procMes ? (procEnc ? ' · ' : '') + procMes + ' novo(s) no mês' : ''), ''] : null,
-    jur ? ['publicacoes', '📰', 'Publicações', pubs, 'nova(s) para ler', '', pubs ? 'ambar' : ''] : null,
-    jur ? ['parcelamentos', '🧾', 'Parcelamentos', parcMes, 'parcela(s) a vencer no mês', parcAtr ? parcAtr + ' em atraso' : 'nenhuma em atraso', parcAtr ? 'vermelho' : ''] : null,
-    jur ? ['acordos', '🤝', 'Acordos', acPend, 'parcela(s) pendente(s)', acAtr ? acAtr + ' em atraso' : 'nenhuma em atraso', acAtr ? 'vermelho' : ''] : null,
-    crm ? ['crm', '🎯', 'CRM', abertas.length, 'oportunidade(s) em andamento', brl(soma(abertas, (o) => o.valor_estimado)) + ' em negociação', ''] : null,
-    ['tarefas', '📋', 'Tarefas do escritório', tAb, 'em aberto', tAtr ? tAtr + ' atrasada(s)' : 'nenhuma atrasada', tAtr ? 'vermelho' : ''],
-    docs ? ['documentos', '📁', 'Documentos', docV, 'vencendo em 15 dias', '', docV ? 'ambar' : ''] : null
+    jur ? ['publicacoes', '📰', 'Publicações', pubs, 'nova(s) para ler', [], pubs ? 'ambar' : ''] : null,
+    jur ? ['parcelamentos', '🧾', 'Parcelamentos', parc[0], 'parcela(s) em atraso', prazos(parc, 'parcela(s)').slice(1), parc[0] ? 'vermelho' : parc[1] ? 'ambar' : ''] : null,
+    jur ? ['acordos', '🤝', 'Acordos', aco[0], 'parcela(s) em atraso', prazos(aco, 'parcela(s)').slice(1), aco[0] ? 'vermelho' : aco[1] ? 'ambar' : ''] : null,
+    crm ? ['crm', '🎯', 'CRM', abertas.length, 'oportunidade(s) em andamento', [[null, brl(soma(abertas, (o) => o.valor_estimado)) + ' em negociação', '']], ''] : null,
+    ['tarefas', '📋', 'Tarefas do escritório', tAb, 'em aberto', prazos([tAtr, tHoje, t5], 'atrasada(s)').map((x, i) => i ? x : [x[0], 'atrasada(s)', x[2]]), tAtr ? 'vermelho' : ''],
+    docs ? ['documentos', '📁', 'Documentos', docV, 'vencem em 15 dias', [], docV ? 'ambar' : ''] : null
   ].filter(Boolean);
+  const sub = (l) => '<span class="ini-res-sub' + (l[0] && l[2] ? ' ' + l[2] : '') + '">' + (l[0] == null ? '' : '<b>' + l[0] + '</b> ') + esc(l[1]) + '</span>';
   el.innerHTML = '<div class="kpis-titulo">🏠 Resumo do escritório</div><div class="ini-resumo">' + T.map((t) =>
     '<button type="button" class="ini-res ' + t[6] + '" data-ini-ir="' + t[0] + '"><span class="ini-res-ic" aria-hidden="true">' + t[1] + '</span>' +
     '<span class="ini-res-tit">' + esc(t[2]) + '</span><b class="ini-res-num">' + t[3] + '</b><span class="ini-res-rot">' + esc(t[4]) + '</span>' +
-    (t[5] ? '<span class="ini-res-sub">' + esc(t[5]) + '</span>' : '') + '</button>').join('') + '</div>';
+    (t[5].length ? '<span class="ini-res-subs">' + t[5].map(sub).join('') + '</span>' : '') + '</button>').join('') + '</div>';
   el.querySelectorAll('[data-ini-ir]').forEach((b) => b.onclick = () => {
     const k = b.dataset.iniIr;
     if (k === 'tarefas') E.tf = Object.assign(E.tf || {}, { aba: 'abertas', atalho: '' });
@@ -1657,7 +1658,7 @@ async function edicaoLancamentos(empresa) {
         '<span class="sub" id="ml-qtd"></span></div><div id="ml-grade"></div>',
     rodape: '<span><button class="btn btn-o" type="button" id="ml-baixar">⬇ Baixar planilha</button> <label class="btn btn-o" style="cursor:pointer">⬆ Enviar planilha<input type="file" id="ml-arq" accept=".xlsx" hidden></label></span>' +
       '<div class="acoes"><span class="sub" id="ml-conta">Nenhuma alteração</span><button class="btn btn-p" type="button" id="ml-salvar">Salvar alterações</button></div>' });
-  j.querySelector('.janela').classList.add('janela-massa');
+  j.querySelector('.janela').classList.add('janela-massa', 'janela-cheia');
   let lista = [];
   const filtrar = () => { const b = normalizar(EST.busca);
     return todos.filter((l) => (EST.filtro === 'todos' || l.tipo === 'receita') && (EST.filtro !== 'sem_area' || !l.servico) &&
@@ -2273,13 +2274,26 @@ async function detalheContrato(id) {
 async function _detalheContrato(id) {
   const ct = (await q(sb.from('contratos').select('*, clientes(nome, grupo_id, responsavel)').eq('id', id)))[0];
   if (!ct) throw new Error('contrato não encontrado ou de um cliente que você não vê (área)');
-  const [parc, exitos] = await Promise.all([q(sb.from('lancamentos').select('*').eq('contrato_id', id).order('vencimento')),
-    ct.percentual_exito ? q(sb.from('exitos').select('*').eq('contrato_id', id).order('data')).catch(() => []) : []]);
+  const [parc, exitos, aditivos] = await Promise.all([q(sb.from('lancamentos').select('*').eq('contrato_id', id).order('vencimento')),
+    ct.percentual_exito ? q(sb.from('exitos').select('*').eq('contrato_id', id).order('data')).catch(() => []) : [],
+    q(sb.from('contratos_aditivos').select('*').eq('contrato_id', id).order('numero')).catch(() => [])]);
   const recebido = soma(parc.filter((p) => p.pago), (p) => p.valor);
   const total = soma(parc, (p) => p.valor);
+  const h = hojeISO(), atrasadas = parc.filter((p) => !p.pago && p.vencimento < h), prox = parc.find((p) => !p.pago && p.vencimento >= h);
+  // Backup 17: ficha do contrato — resumo em linha (tipo, área, vigência, reajuste, próximo vencimento) + aditivos
+  const reajuste = ct.modalidade !== 'consultoria' ? 'Sem reajuste (serviço pontual)'
+    : ct.forma_valor === 'salario_minimo' ? 'Automático pelo salário mínimo (todo ano)' : 'Sem reajuste · mudança de valor só por aditivo';
+  const ficha = [['Tipo', ct.modalidade === 'consultoria' ? 'Consultoria (mensal)' : 'Serviço pontual'], ['Área do serviço', ct.servico || '—'],
+    ['Vigência', dataBR(ct.inicio_competencia || ct.data_contrato) + ' → ' + (ct.rescindido_em ? 'rescindido em ' + dataBR(ct.rescindido_em) : ct.modalidade === 'consultoria' ? 'até a rescisão' : 'fim das parcelas')],
+    ['Reajuste', reajuste], ['Próximo vencimento', prox ? dataBR(prox.vencimento) + ' · ' + brl(prox.valor) : '—'],
+    ['Em atraso', atrasadas.length ? '<span class="pill vencido">' + atrasadas.length + ' parcela(s) · ' + brl(soma(atrasadas, (p) => p.valor)) + '</span>' : '<span class="pill pago">em dia</span>'],
+    ['Situação', esc(ct.status)]];
+  const pctRec = total > 0 ? Math.round(recebido / total * 100) : 0;
   const j = abrirJanela({
-    titulo: ct.descricao, larga: true,
+    titulo: '📄 Ficha do contrato — ' + ct.descricao, larga: true,
     corpo:
+      '<div class="ctr-ficha">' + ficha.map(([r, v]) => '<div><span>' + r + '</span><b>' + (/^</.test(v) ? v : esc(v)) + '</b></div>').join('') + '</div>' +
+      '<div class="ctr-barra" title="Recebido × previsto"><div style="width:' + pctRec + '%"></div></div><div class="sub" style="margin:-4px 0 12px">' + pctRec + '% do previsto já recebido</div>' +
       '<div class="kpis" style="margin-bottom:12px">' +
       kpi('Cliente', '<span style="font-family:var(--font-d);font-size:16px">' + esc(ct.clientes ? ct.clientes.nome : '—') + '</span>', '', 'Contrato de ' + dataBR(ct.data_contrato)) +
       (ct.modalidade === 'consultoria' ? kpi('Consultoria mensal', valorContratoTexto(ct), '', ct.rescindido_em ? 'rescindido em ' + dataBR(ct.rescindido_em) : 'vence dia ' + ct.dia_vencimento + ' do mês seguinte · até a rescisão') : '') +
@@ -2289,7 +2303,7 @@ async function _detalheContrato(id) {
       (ct.obs ? '<div class="dica" style="margin-bottom:12px">' + esc(ct.obs) + '</div>' : '') +
       '<div class="card" style="margin:0">' + tabelaLancamentos(parc, { compacta: true }) + '</div>' +
       '<div style="margin-top:10px"><button class="btn btn-o btn-mini" id="ctr-add-parc">+ Lançar valor avulso neste contrato</button></div>' +
-      (ct.percentual_exito ? blocoExito(ct, exitos) : '') +
+      (ct.percentual_exito ? blocoExito(ct, exitos) : '') + blocoAditivos(ct, aditivos) +
       '<div class="card" style="margin:14px 0 0"><div class="card-bd" id="ctr-docs"></div></div>',
     rodape:
       (E.perfil.papel === 'admin' ? '<button class="btn btn-x" id="btn-excluir-ctr" type="button">Excluir contrato</button>' : '<span></span>') +
@@ -2303,6 +2317,7 @@ async function _detalheContrato(id) {
   j.querySelector('#btn-editar-ctr').onclick = () => formContrato(ct);
   const br = j.querySelector('#btn-rescindir-ctr'); if (br) br.onclick = () => formRescisao(ct, reabrir);
   const be = j.querySelector('#ctr-exito-reg'); if (be) be.onclick = () => formExito(ct, reabrir);
+  const ba = j.querySelector('#ctr-aditivo'); if (ba) ba.onclick = () => formAditivo(ct, reabrir);
   j.querySelector('#ctr-add-parc').onclick = () => {
     formLancamento({ tipo: 'receita', empresa: 'escritorio', cliente_id: ct.cliente_id, contrato_id: id,
                      grupo_id: ct.clientes && ct.clientes.grupo_id, responsavel: ct.clientes && ct.clientes.responsavel,
@@ -2313,6 +2328,58 @@ async function _detalheContrato(id) {
     if (!confirm('Excluir o contrato e TODAS as parcelas dele? Esta ação não pode ser desfeita.')) return;
     await excluir('contratos', id);
     aviso('Contrato excluído.'); fecharJanela(j); await recarregar();
+  });
+}
+
+// ─────────── aditivos: o que mudou no contrato, com a data e o efeito no financeiro ───────────
+const TIPOS_ADITIVO = [['valor', 'Valor'], ['escopo', 'Escopo (o que está incluído)'], ['prazo', 'Prazo / vigência'], ['outro', 'Outro']];
+function blocoAditivos(ct, ads) {
+  const efeito = (a) => a.tipo !== 'valor' ? '—' : a.valor_adicional ? '+ ' + brl(a.valor_adicional) + (a.parcelas > 1 ? ' em ' + a.parcelas + ' parcelas' : '')
+    : (a.forma_nova === 'salario_minimo' ? String(a.qtd_salarios_novo).replace('.', ',') + ' SM' : brl(a.valor_mensal_novo)) + '/mês a partir de ' + dataBR(a.a_partir).slice(3) +
+      '<div class="sub">antes: ' + (a.forma_anterior === 'salario_minimo' ? String(a.qtd_salarios_anterior || 0).replace('.', ',') + ' SM' : brl(a.valor_mensal_anterior)) + '</div>';
+  return '<div class="card" style="margin:14px 0 0"><div class="card-hd">📝 Aditivos <span class="pill ' + (ads.length ? 'aberto' : 'neutro') + '">' + ads.length + '</span>' +
+      (pode('contratos', 'editar') ? '<button class="btn btn-o btn-mini" id="ctr-aditivo" style="margin-left:auto">+ Novo aditivo</button>' : '') + '</div>' +
+    '<div class="card-bd">' + (ads.length ? '<div class="tabela-wrap"><table><thead><tr><th>Nº</th><th>Data</th><th>Tipo</th><th>O que mudou</th><th>Efeito no financeiro</th></tr></thead><tbody>' +
+      ads.map((a) => '<tr><td>' + a.numero + '</td><td class="mono">' + dataBR(a.data) + '</td><td><span class="pill neutro">' + esc((TIPOS_ADITIVO.find((t) => t[0] === a.tipo) || [0, a.tipo])[1]) + '</span></td>' +
+        '<td>' + esc(a.descricao) + '</td><td class="mono">' + efeito(a) + '</td></tr>').join('') + '</tbody></table></div>'
+      : '<div class="sub">Nenhum aditivo. Use <b>+ Novo aditivo</b> quando mudar valor, escopo ou prazo — o documento assinado vai em "Documentos do contrato".</div>') + '</div></div>';
+}
+function formAditivo(ct, depois) {
+  const cons = ct.modalidade === 'consultoria';
+  const j = abrirJanela({ titulo: '📝 Novo aditivo — ' + ct.descricao, larga: true,
+    corpo: '<form class="grade" id="f-ad">' +
+      campo('Tipo', '<select name="tipo">' + TIPOS_ADITIVO.map(([v, r]) => '<option value="' + v + '">' + r + '</option>').join('') + '</select>') +
+      campo('Data do aditivo', '<input name="data" type="date" value="' + hojeISO() + '">') +
+      campo('O que o aditivo muda <span class="obrig">*</span>', '<textarea name="descricao" maxlength="1000" placeholder="Ex.: inclui a consultoria trabalhista a partir de novembro"></textarea>', 'inteiro') +
+      '<div class="grade inteiro" id="ad-valor">' + (cons
+        ? '<div class="inteiro"><div class="segmento" id="ad-forma">' + [['fixo', 'Valor fixo'], ['salario_minimo', 'Em salários mínimos']].map(([v, r]) => '<button type="button" data-v="' + v + '"' + ((ct.forma_valor || 'fixo') === v ? ' class="ativo"' : '') + '>' + r + '</button>').join('') + '</div></div>' +
+          campo('Novo valor mensal (R$)', '<input name="valor_mensal" inputmode="decimal" placeholder="' + (ct.valor_mensal ? valorParaCampo(ct.valor_mensal) : '0,00') + '">') +
+          campo('Nº de salários mínimos', '<input name="qtd_salarios" inputmode="decimal" placeholder="' + (ct.qtd_salarios ? String(ct.qtd_salarios).replace('.', ',') : '1') + '">') +
+          campo('Vale a partir da competência', '<input name="a_partir" type="month" value="' + somarMeses(hojeISO(), 1).slice(0, 7) + '">') +
+          '<div class="dica inteiro">As mensalidades <b>antes</b> dessa competência continuam com o valor antigo; as em aberto a partir dela mudam sozinhas. Atual: <b>' + valorContratoTexto(ct) + '</b>.</div>'
+        : campo('Valor a mais (R$)', '<input name="valor_adicional" inputmode="decimal" placeholder="0,00">') +
+          campo('Nº de parcelas', '<input name="parcelas" type="number" min="1" max="120" value="1">') +
+          campo('1º vencimento', '<input name="primeiro_vencimento" type="date" value="' + somarDias(hojeISO(), 30) + '">') +
+          '<div class="dica inteiro">O valor a mais entra em Honorários Jurídico, nas parcelas escolhidas, marcado como "aditivo".</div>') + '</div></form>',
+    rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="btn-ad">Registrar aditivo</button></div>' });
+  const f = j.querySelector('#f-ad'); let forma = ct.forma_valor || 'fixo';
+  const mostrar = () => {
+    j.querySelector('#ad-valor').classList.toggle('escondido', f.tipo.value !== 'valor');
+    if (cons) { j.querySelectorAll('#ad-forma button').forEach((b) => b.classList.toggle('ativo', b.dataset.v === forma));
+      f.valor_mensal.closest('.campo').classList.toggle('escondido', forma !== 'fixo'); f.qtd_salarios.closest('.campo').classList.toggle('escondido', forma !== 'salario_minimo'); }
+  };
+  f.tipo.onchange = mostrar; if (cons) j.querySelector('#ad-forma').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { forma = b.dataset.v; mostrar(); } };
+  mostrar();
+  j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
+  j.querySelector('#btn-ad').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    const p = { tipo: f.tipo.value, data: f.data.value, descricao: f.descricao.value.trim() };
+    if (!p.descricao) throw new Error('Descreva o que o aditivo muda.');
+    if (p.tipo === 'valor') {
+      if (cons) Object.assign(p, { forma, valor_mensal: forma === 'fixo' ? lerValor(f.valor_mensal.value) : null, qtd_salarios: forma === 'salario_minimo' ? lerValor(f.qtd_salarios.value) : null, a_partir: (f.a_partir.value || hojeISO().slice(0, 7)) + '-01' });
+      else Object.assign(p, { valor_adicional: lerValor(f.valor_adicional.value), parcelas: Number(f.parcelas.value) || 1, primeiro_vencimento: f.primeiro_vencimento.value });
+    }
+    await q(sb.rpc('registrar_aditivo', { p_contrato: ct.id, p }));
+    aviso('✓ Aditivo registrado' + (p.tipo === 'valor' ? ' e financeiro ajustado.' : '.')); fecharJanela(j); await recarregar(); if (depois) await depois();
   });
 }
 
@@ -4990,19 +5057,24 @@ function cartaoOp(o, e, h) {
       '<button type="button" class="cr-at cr-avancar" data-avancar="' + o.id + '" title="Avançar para a próxima etapa" aria-label="Avançar etapa">▸</button></span></div></div>';
 }
 function colunaCrm(e, ops, h) {
-  const cs = e.final ? [] : ops.filter((o) => o.etapa_id === e.id);
-  return '<div class="cr-col' + (e.final ? ' cr-final-' + e.final : '') + '" data-etapa="' + e.id + '" title="' + esc(e.descricao || '') + '"><div class="cr-col-tit"><span>' + esc(e.nome) + '</span><span class="sub">' +
-    (e.final ? '' : cs.length + (cs.length ? ' · ' + esc(brlCurto(soma(cs, (o) => o.valor_estimado))) : '')) + '</span></div>' +
-    (e.final ? '<div class="cr-solte">' + (e.final === 'ganho' ? 'Solte aqui quando o cliente <b>assinar</b> o contrato.<br><span class="sub">Vai para a aba "Contratos assinados".</span>' : 'Solte aqui quando <b>não fechar</b>.<br><span class="sub">Vai para a aba "Leads perdidos".</span>') + '</div>' : '') +
-    cs.map((o) => cartaoOp(o, e, h)).join('') + (!e.final && !cs.length ? '<div class="cr-vazia">—</div>' : '') + '</div>';
+  const cs = ops.filter((o) => o.etapa_id === e.id);
+  return '<div class="cr-col" data-etapa="' + e.id + '" title="' + esc(e.descricao || '') + '"><div class="cr-col-tit"><span>' + esc(e.nome) + '</span><span class="cr-col-n">' +
+    cs.length + '</span></div>' + (cs.length ? '<div class="cr-col-val">' + esc(brlCurto(soma(cs, (o) => o.valor_estimado))) + '</div>' : '') +
+    cs.map((o) => cartaoOp(o, e, h)).join('') +
+    (!cs.length ? '<div class="cr-vazia"><span class="cr-vazia-ic" aria-hidden="true">○</span>Nenhuma oportunidade<span class="sub">arraste um cartão para cá</span></div>' : '') + '</div>';
 }
+// Backup 17: "Em andamento" mostra só as etapas abertas — 4 em cima e 4 embaixo, todas do mesmo tamanho.
+// Contrato assinado e Lead perdido saem daqui (ficam nas abas); para mandar um cartão para lá, solte na faixa de baixo.
 function crmFunil(alvo) {
   const ops = filtrarOps(), h = hojeISO(), et = E._crmEtapas || [];
-  const cima = et.filter((e) => !e.final && e.ordem <= 4), baixo = et.filter((e) => e.final || e.ordem > 4);
-  alvo.innerHTML = '<div class="cr-linha" style="--n:' + cima.length + '">' + cima.map((e) => colunaCrm(e, ops, h)).join('') + '</div>' +
-    '<div class="cr-linha" style="--n:' + baixo.length + '">' + baixo.map((e) => colunaCrm(e, ops, h)).join('') + '</div>' +
-    '<p class="sub" style="margin-top:8px">Arraste o cartão para mudar a etapa (no celular, use ▸). <b>Contrato fechado</b> = o cliente disse sim (o sistema cria cadastro, contrato e onboarding); ' +
-    '<b>Contrato assinado</b> e <b>Lead perdido</b> saem do painel e ficam nas abas. Passe o mouse no nome da etapa para ver o que ela significa.</p>';
+  const abertas = et.filter((e) => !e.final), fins = et.filter((e) => e.final);
+  const porLinha = Math.max(4, Math.ceil(abertas.length / 2)), cima = abertas.slice(0, porLinha), baixo = abertas.slice(porLinha);
+  alvo.innerHTML = '<div class="cr-linha" style="--n:' + porLinha + '">' + cima.map((e) => colunaCrm(e, ops, h)).join('') + '</div>' +
+    (baixo.length ? '<div class="cr-linha" style="--n:' + porLinha + '">' + baixo.map((e) => colunaCrm(e, ops, h)).join('') + '</div>' : '') +
+    '<div class="cr-fins">' + fins.map((e) => '<div class="cr-solte cr-solte-' + e.final + '" data-etapa="' + e.id + '">' +
+      (e.final === 'ganho' ? '✓ Solte aqui quando o cliente <b>assinar</b> — vai para a aba "Contratos assinados"' : '✕ Solte aqui quando <b>não fechar</b> — vai para a aba "Leads perdidos"') + '</div>').join('') + '</div>' +
+    '<p class="sub" style="margin-top:8px">Arraste o cartão para mudar a etapa (no celular, use ▸). <b>Contrato fechado</b> = o cliente disse sim (o sistema cria cadastro, contrato e onboarding). ' +
+    'Passe o mouse no nome da etapa para ver o que ela significa.</p>';
   let arrastando = null;
   alvo.querySelectorAll('.cr-card').forEach((c) => {
     c.addEventListener('dragstart', (ev) => { arrastando = c.dataset.op; ev.dataTransfer.setData('text/plain', c.dataset.op); c.classList.add('arrastando'); });
@@ -5020,7 +5092,7 @@ function crmFunil(alvo) {
     const i = abertas.findIndex((e) => e.id === o.etapa_id), prox = abertas[i + 1] || (E._crmEtapas || []).find((e) => e.final === 'ganho');
     if (prox) moverOp(o.id, prox.id);
   });
-  alvo.querySelectorAll('.cr-col').forEach((col) => {
+  alvo.querySelectorAll('.cr-col, .cr-solte').forEach((col) => {
     col.addEventListener('dragover', (ev) => { ev.preventDefault(); col.classList.add('sobre'); });
     col.addEventListener('dragleave', () => col.classList.remove('sobre'));
     col.addEventListener('drop', (ev) => { ev.preventDefault(); col.classList.remove('sobre'); moverOp(ev.dataTransfer.getData('text/plain') || arrastando, col.dataset.etapa); });
@@ -5589,9 +5661,17 @@ TELAS.publicacoes = async function () {
   }).catch(() => {});
   await carregarPublicacoes();
 };
+// Partes em linhas: "Autor: …" e "Réu: …" (polo do Diário; as antigas sem polo continuam em "Partes:")
+function partesPub(p) {
+  const G = { 'Autor': [], 'Réu': [], 'Partes': [] };
+  if (Array.isArray(p.polos) && p.polos.some((d) => d && d.polo)) p.polos.forEach((d) => { if (d && d.nome) G[{ A: 'Autor', P: 'Réu' }[String(d.polo || '').toUpperCase()] || 'Partes'].push(d.nome); });
+  else String(p.destinatarios || '').split(/;\s*/).filter(Boolean).forEach((x) => { const m = /^(Autor|Réu):\s*(.*)$/.exec(x); if (m) G[m[1]].push(m[2]); else G.Partes.push(x); });
+  const l = Object.keys(G).filter((k) => G[k].length).map((k) => '<div><b>' + k + ':</b> ' + esc(G[k].join(' · ')) + '</div>');
+  return l.length ? '<div class="sub pub-partes">' + l.join('') + '</div>' : '';
+}
 async function carregarPublicacoes() {
   const F = E.pub;
-  E._pubs = await buscarTodos(() => { let c = sb.from('publicacoes').select('id, data_disponibilizacao, tribunal, orgao, tipo, processo, processo_numero, classe, texto, link, destinatarios, advogados, oab_numero, oab_uf, advogado, parte_monitorada, processo_id, status, tarefa_id')
+  E._pubs = await buscarTodos(() => { let c = sb.from('publicacoes').select('id, data_disponibilizacao, tribunal, orgao, tipo, processo, processo_numero, classe, texto, link, destinatarios, polos:bruto->destinatarios, advogados, oab_numero, oab_uf, advogado, parte_monitorada, processo_id, status, tarefa_id')
     .order('data_disponibilizacao', { ascending: false, nullsFirst: false }); if (F.dias) c = c.gte('data_disponibilizacao', somarDias(hojeISO(), -Number(F.dias))); return c; });
   const opts = (id, vals, rot) => { const s = $(id); if (!s) return; const v = s.value; s.innerHTML = '<option value="">' + rot + '</option>' + [...new Set(vals.filter(Boolean))].sort().map((x) => '<option>' + esc(x) + '</option>').join(''); s.value = v; };
   opts('pub-adv', E._pubs.map((p) => p.advogado), 'Todos os advogados'); opts('pub-trib', E._pubs.map((p) => p.tribunal), 'Todos os tribunais');
@@ -5613,7 +5693,7 @@ function pintarPublicacoes() {
       '<div class="sub">' + esc(p.orgao) + (p.classe ? ' · ' + esc(p.classe) : '') + '</div></div>' +
       '<div class="sub" style="text-align:right">' + (p.processo ? '<b class="mono">' + esc(p.processo) + '</b>' : '') + (p.processo_id ? ' <span class="pill pago" title="Processo cadastrado no ERP">no ERP</span>' : '') +
       '<div>' + (p.oab_numero ? esc(p.advogado ? p.advogado + ' · ' : '') + 'OAB ' + esc(p.oab_numero + '/' + p.oab_uf) : '🏢 cliente monitorado: ' + esc(p.parte_monitorada || '—')) + '</div></div></div>' +
-      (p.destinatarios ? '<div class="sub" style="margin:6px 0">Partes: ' + esc(p.destinatarios) + '</div>' : '') +
+      partesPub(p) +
       '<div class="pub-texto' + (p.texto.length > 500 ? ' curto' : '') + '">' + destacar(p.texto) + '</div>' + (p.texto.length > 500 ? '<button class="btn-link" data-ver>ver tudo</button>' : '') +
       '<div class="acoes" style="margin-top:10px">' + (p.tarefa_id || p.status === 'tratada' ? '' : '<button class="btn btn-p btn-mini" data-tarefa="' + p.id + '">+ Criar tarefa (' + prazoSugerido(p) + ' dias úteis)</button>') +
       (p.status === 'nova' ? '<button class="btn btn-o btn-mini" data-st="lida">Marcar lida</button>' : '') +
@@ -5685,8 +5765,19 @@ async function janelaOabs() {
     if (!confirm('Parar de monitorar este cliente?')) return; await q(sb.from('partes_monitoradas').delete().eq('id', b.dataset.ptX)); reabrir();
   }));
   j.querySelector('#pub-diag').onclick = (ev) => comBotao(ev.currentTarget, async () => {
-    const r = await chamarFuncao('erp-publicacoes', { acao: 'diagnostico' });
-    j.querySelector('#pub-diag-res').textContent = (r.ok ? '✅ ' : '❌ ') + r.dica + (r.status ? ' (código ' + r.status + ')' : '');
+    const res = j.querySelector('#pub-diag-res');
+    let r;
+    try { r = await chamarFuncao('erp-publicacoes', { acao: 'diagnostico' }); }
+    catch (e) {
+      // não respondeu: descobre se é a função (não publicada / versão antiga) ou o CNJ (demorou demais)
+      const ping = await chamarFuncao('erp-publicacoes', { acao: 'ping' }).catch((e2) => ({ erro: e2.message }));
+      res.innerHTML = '❌ ' + (ping.versao
+        ? 'A função está no ar (versão ' + esc(ping.versao) + '), mas o CNJ não respondeu ao servidor do Supabase a tempo. ' + (ping.versao < '2026-10-02' ? '<b>Publique a versão nova da função erp-publicacoes</b> (ela avisa em vez de travar). ' : '')
+        : esc(ping.erro || e.message) + ' ') +
+        'Enquanto isso, use <b>🌐 Buscar pelo navegador</b> — o ERP também faz essa busca sozinho 1 vez por dia quando você abre o Início.';
+      return;
+    }
+    res.textContent = (r.ok ? '✅ ' : '❌ ') + r.dica + (r.status ? ' (código ' + r.status + ')' : '');
   });
 }
 
@@ -5707,14 +5798,25 @@ function normalizarPub(it, oab, parte) {
     processo: String(pr(it, ['numeroprocessocommascara', 'numeroProcessoComMascara', 'numero_processo_com_mascara']) || cnj), processo_numero: numero,
     classe: String(pr(it, ['nomeClasse', 'nome_classe', 'classe'])),
     texto: texto.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 20000), link: String(pr(it, ['link', 'url'])),
-    destinatarios: Array.isArray(dest) ? dest.map((d) => (d && (d.nome || d.name)) || '').filter(Boolean).join('; ') : String(dest),
+    destinatarios: Array.isArray(dest) ? dest.map((d) => (d && (d.nome || d.name)) ? ({ A: 'Autor: ', P: 'Réu: ' }[String(d.polo || '').toUpperCase()] || '') + (d.nome || d.name) : '').filter(Boolean).join('; ') : String(dest),
     advogados: Array.isArray(advs) ? advs.map((a) => { const x = (a && (a.advogado || a)) || {}; return [x.nome, x.numero_oab ? 'OAB ' + x.numero_oab + '/' + (x.uf_oab || '') : ''].filter(Boolean).join(' '); }).filter(Boolean).join('; ') : String(advs),
     oab_numero: (oab && oab.numero) || '', oab_uf: (oab && oab.uf) || '', advogado: (oab && oab.advogado) || '', parte_monitorada: parte || ''
   };
 }
-async function buscarPubNoNavegador() {
+// Busca automática pelo navegador (Backup 17): o CNJ costuma recusar o servidor do Supabase, mas aceita o navegador do escritório.
+// Ao abrir o Início, se a última busca deste navegador tem mais de 20 horas, busca em segundo plano (só avisa se achar novas).
+async function buscaPubAutomatica() {
+  if (!pode('juridico')) return;
+  let ult = 0; try { ult = Number(localStorage.getItem('erp_pub_auto') || 0); } catch (e) { /* sem armazenamento: busca */ }
+  if (Date.now() - ult < 20 * 3600000) return;
+  try { localStorage.setItem('erp_pub_auto', String(Date.now())); } catch (e) { /* ok */ }
+  const n = await buscarPubNoNavegador({ silencioso: true }).catch(() => 0);
+  if (n) aviso('📰 ' + n + ' publicação(ões) nova(s) no Diário. Veja em Jurídico → Publicações.');
+}
+async function buscarPubNoNavegador(op) {
+  op = op || {};
   const [os, ps] = await Promise.all([q(sb.from('oabs_monitoradas').select('*').eq('ativo', true)), q(sb.from('partes_monitoradas').select('*').eq('ativo', true)).catch(() => [])]);
-  if (!os.length && !ps.length) throw new Error('Cadastre pelo menos uma OAB ou um cliente em "Monitoramento".');
+  if (!os.length && !ps.length) { if (op.silencioso) return 0; throw new Error('Cadastre pelo menos uma OAB ou um cliente em "Monitoramento".'); }
   const de = somarDias(hojeISO(), -Number(E.pub && E.pub.dias ? Math.min(Number(E.pub.dias), 30) : 7)), ate = hojeISO();
   const alvos = os.map((o) => ['numeroOab=' + encodeURIComponent(soDigitos(o.numero)) + '&ufOab=' + encodeURIComponent(o.uf), o, '']).concat(ps.map((p) => ['nomeParte=' + encodeURIComponent(p.nome), null, p.nome]));
   let lidas = 0, novas = 0; const erros = [];
@@ -5729,7 +5831,8 @@ async function buscarPubNoNavegador() {
       if (certos.length) { const ins = await q(sb.from('publicacoes').upsert(certos.map((it) => normalizarPub(it, oab, parte)), { onConflict: 'id_origem', ignoreDuplicates: true }).select('id')); novas += (ins || []).length; }
     } catch (e) { erros.push((oab ? 'OAB ' + oab.numero : parte) + ': ' + (/fetch|network|Failed/i.test(e.message) ? 'o navegador não conseguiu acessar o CNJ (bloqueio do site do CNJ)' : e.message)); }
   }
-  aviso('✓ Busca pelo navegador: ' + lidas + ' lida(s), ' + novas + ' nova(s).' + (erros.length ? ' Atenção: ' + erros[0] : ''), !!erros.length);
+  if (!op.silencioso) aviso('✓ Busca pelo navegador: ' + lidas + ' lida(s), ' + novas + ' nova(s).' + (erros.length ? ' Atenção: ' + erros[0] : ''), !!erros.length);
+  return novas;
 }
 
 'use strict';
@@ -6105,11 +6208,12 @@ async function janelaPgfnAbertos() {
   await carregarCadastros();
   const j = abrirJanela({ titulo: 'PGFN — dados abertos (gratuito)', larga: true,
     corpo: '<ol class="passos"><li>Abra <a href="https://www.gov.br/pgfn/pt-br/assuntos/divida-ativa-da-uniao/transparencia-fiscal-1/dados-abertos" target="_blank" rel="noopener">gov.br/pgfn → Dados abertos</a> e baixe os arquivos da <b>Dívida Ativa</b> (Não previdenciário, Previdenciário e FGTS) do trimestre mais recente.</li>' +
+      '<li><b>Mais atual (atualiza com frequência):</b> no site <a href="https://www.dividaaberta.pgfn.gov.br/consultar-devedores" target="_blank" rel="noopener">Dívida Aberta</a>, pesquise (por nome, CNPJ ou por estado/município), clique em <b>Exportar (CSV)</b> e escolha esse arquivo abaixo — o ERP entende os dois formatos. Nesse caso <b>não</b> marque "Zerar".</li>' +
       '<li>Descompacte (botão direito → Extrair tudo). Dentro há arquivos <b>.csv</b> (às vezes um por estado).</li><li>Escolha abaixo os .csv (pode marcar vários) e clique em <b>Ler e atualizar</b>. Arquivos grandes levam alguns minutos; a tela mostra o andamento.</li></ol>' +
       '<div class="grade"><div class="campo inteiro"><span>Arquivos .csv da PGFN</span><input type="file" id="pa-arq" accept=".csv,.txt" multiple></div>' +
       '<label class="check inteiro"><input type="checkbox" id="pa-zerar"> Zerar a PGFN dos clientes com CPF/CNPJ que <b>não</b> aparecem nos arquivos (use só se importou todos os arquivos do trimestre)</label></div>' +
       '<div id="pa-prog" class="dica" style="margin-top:10px">Nada lido ainda.</div>',
-    rodape: '<span class="sub">Custo: zero. Atualização: trimestral (é a frequência da PGFN).</span><button class="btn btn-p" type="button" id="pa-ler">Ler e atualizar</button>' });
+    rodape: '<span class="sub">Custo: zero. Dados abertos: trimestral · Dívida Aberta (CSV do site): atualização frequente.</span><button class="btn btn-p" type="button" id="pa-ler">Ler e atualizar</button>' });
   j.querySelector('#pa-ler').onclick = (ev) => comBotao(ev.currentTarget, async () => {
     const arqs = [...j.querySelector('#pa-arq').files]; if (!arqs.length) throw new Error('Escolha pelo menos um arquivo .csv.');
     const porDoc = {}; E.clientes.forEach((c) => { const d = soDigitos(c.cpf_cnpj); if (d.length === 11 || d.length === 14) porDoc[d] = c; });
@@ -6137,6 +6241,19 @@ async function janelaPgfnAbertos() {
   });
 }
 // lê o CSV em partes (arquivos de centenas de MB) e chama "cada" para cada linha como objeto {COLUNA: valor}
+// aceita o arquivo dos dados abertos (CPF_CNPJ, VALOR_CONSOLIDADO…) e o CSV exportado no site "Dívida Aberta"
+// (colunas com nomes por extenso, ex.: "CPF/CNPJ", "Nº Inscrição", "Valor Consolidado", "Situação")
+function cabecalhoPgfn(c) {
+  const t = c.replace(/^"|"$/g, '').trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_|_$/g, '');
+  if (/^(CPF|CNPJ)/.test(t) || t === 'DOCUMENTO') return 'CPF_CNPJ';
+  if (/DATA.*INSCRI/.test(t)) return 'DATA_INSCRICAO';
+  if (/^(N|NUM|NUMERO|NO)_?INSCRI/.test(t) || t === 'INSCRICAO') return 'NUMERO_INSCRICAO';
+  if (/^VALOR/.test(t)) return 'VALOR_CONSOLIDADO';
+  if (/^TIPO_SITUA/.test(t)) return 'TIPO_SITUACAO_INSCRICAO';
+  if (/SITUA/.test(t)) return 'SITUACAO_INSCRICAO';
+  if (/RECEITA/.test(t)) return 'RECEITA_PRINCIPAL';
+  return t;
+}
 async function lerCsvPgfn(arq, cada, andamento) {
   const leitor = arq.stream().getReader();
   let dec = new TextDecoder('utf-8'), resto = '', cab = null, sep = ';', n = 0, primeiro = true;
@@ -6147,7 +6264,7 @@ async function lerCsvPgfn(arq, cada, andamento) {
     const partes = txt.split(/\r?\n/); resto = done ? '' : partes.pop();
     for (const l of partes) {
       if (!l.trim()) continue;
-      if (!cab) { sep = (l.match(/;/g) || []).length >= (l.match(/,/g) || []).length ? ';' : ','; cab = l.split(sep).map((c) => c.replace(/^"|"$/g, '').trim().toUpperCase()); continue; }
+      if (!cab) { sep = (l.match(/;/g) || []).length >= (l.match(/,/g) || []).length ? ';' : ','; cab = l.split(sep).map((c) => cabecalhoPgfn(c)); continue; }
       const cols = l.split(sep).map((c) => c.replace(/^"|"$/g, '').trim()), o = {};
       cab.forEach((c, i) => { o[c] = cols[i]; }); cada(o); n++;
     }
@@ -6512,15 +6629,16 @@ function pintarEmails() {
     html += '<div class="card"><div class="card-hd">📬 A enviar hoje <span class="pill neutro">' + lista.length + '</span>' +
       (envia.length ? '<span style="margin-left:auto;display:flex;gap:6px"><label class="check" style="font-size:12.5px"><input type="checkbox" id="em-todos"> marcar todos</label>' +
         '<button class="btn btn-p btn-mini" id="em-enviar-sel">Enviar selecionados</button></span>' : '') + '</div>' +
-      (lista.length ? '<div class="tabela-wrap"><table><thead><tr><th class="sem-ordem"></th><th>Tipo</th><th>Cliente</th><th>Assunto</th><th>Para</th><th class="num">Valor</th><th></th></tr></thead><tbody>' +
+      (lista.length ? '<div class="tabela-wrap"><table><thead><tr><th class="sem-ordem"></th><th>Tipo</th><th>Cliente</th><th>Assunto</th><th>E-mail de destino</th><th class="num">Valor</th><th>Situação</th><th></th></tr></thead><tbody>' +
         lista.map((x) => '<tr class="clicavel" data-em-ref="' + esc(x.ref) + '" title="Clique para ver a prévia"><td>' + (x.bloqueio ? '' : '<input type="checkbox" data-em-sel="' + esc(x.ref) + '" aria-label="Selecionar">') + '</td>' +
           '<td><span class="pill aberto">' + esc(ROT_TIPO_EMAIL[x.tipo] || x.tipo) + '</span></td><td><b>' + esc(x.cliente || '—') + '</b>' + (x.grupo && x.grupo !== x.cliente ? '<div class="sub">' + esc(x.grupo) + '</div>' : '') + '</td>' +
-          '<td>' + esc(x.assunto) + '</td><td>' + (x.bloqueio ? '<span class="pill neutro" title="Não vai sair">' + esc(x.bloqueio) + '</span>' : esc(x.para || '')) + '</td>' +
+          '<td>' + esc(x.assunto) + '</td><td>' + destinoEmail(x) + '</td>' +
           '<td class="num mono">' + (Number(x.total) ? brl(x.total) : '—') + '</td>' +
+          '<td>' + (x.bloqueio ? '<span class="pill neutro" title="Não vai sair">' + esc(x.bloqueio) + '</span>' : '<span class="pill pago">' + (x.auto ? 'sai no horário' : 'pronto') + '</span>') + '</td>' +
           '<td class="acoes-l">' + (x.bloqueio ? '' : '<button class="btn btn-v btn-mini" data-em-agora="' + esc(x.ref) + '">Enviar agora</button> ') + '<button class="btn btn-o btn-mini" data-em-pular="' + esc(x.ref) + '">Pular este</button></td></tr>').join('') +
         '</tbody></table></div>' : vazio('Nada para enviar hoje. 👏')) + '</div>';
   } else {
-    html += '<div class="card">' + (lista.length ? '<div class="tabela-wrap"><table class="ordenavel"><thead><tr><th data-tipo="data">Quando</th><th>Tipo</th><th>Cliente</th><th>Assunto</th><th>Para</th><th>Situação</th><th></th></tr></thead><tbody>' +
+    html += '<div class="card">' + (lista.length ? '<div class="tabela-wrap"><table class="ordenavel"><thead><tr><th data-tipo="data">Quando</th><th>Tipo</th><th>Cliente</th><th>Assunto</th><th>E-mail de destino</th><th>Situação</th><th></th></tr></thead><tbody>' +
       lista.map((x) => '<tr class="clicavel" data-em-ref="' + esc(x.ref || x.id) + '"><td class="mono" data-ord="' + esc(x.quando) + '">' + dataHoraBR(x.quando) + '</td>' +
         '<td><span class="pill aberto">' + esc(ROT_TIPO_EMAIL[x.tipo] || x.tipo) + '</span>' + (x.anexo ? ' 📎' : '') + '</td><td>' + esc(x.cliente || '—') + '</td><td>' + esc(x.assunto) + '</td><td>' + esc(x.para) + '</td>' +
         '<td>' + (x.status === 'erro' ? '<span class="pill vencido" title="' + esc(x.erro) + '">erro</span><div class="sub">' + esc(String(x.erro || '').slice(0, 80)) + '</div>' : x.status === 'enviado' ? '<span class="pill pago">enviado</span>' : '<span class="pill hoje">na fila</span>') + '</td>' +
@@ -6544,6 +6662,13 @@ function pintarEmails() {
   alvo.querySelectorAll('[data-em-de-novo]').forEach((bt) => bt.onclick = () => comBotao(bt, async () => {
     await q(sb.rpc('email_reenviar', { p_id: bt.dataset.emDeNovo })); aviso('✓ Voltou para a fila: sai na próxima rodada (até 5 minutos).'); await carregarEmails();
   }));
+}
+// "E-mail de destino": o endereço e de qual contato ele veio (empresas podem ter vários e-mails)
+const ROT_FINALIDADE = { financeiro: 'contato financeiro', cobranca: 'contato financeiro', juridico: 'contato jurídico', contabil: 'contato contábil' };
+function destinoEmail(x) {
+  if (!x.para) return '<span class="sub">— sem e-mail —</span><div class="sub">cadastre em Clientes → ficha → Contatos</div>';
+  const de = x.contato ? esc(x.contato) + ' · ' + esc(ROT_FINALIDADE[x.finalidade] || 'contato') : 'e-mail do cadastro';
+  return '<span class="em-para">' + esc(x.para) + '</span><div class="sub" title="Quem recebe: o contato marcado com a finalidade deste e-mail (Clientes → ficha → Contatos)">' + de + '</div>';
 }
 async function previaEmail(ref) {
   const p = await q(sb.rpc('emails_central_previa', { p_ref: ref }));
@@ -6589,8 +6714,17 @@ async function janelaModelosEmail() {
     const m = ms.find((x) => x.chave === b.dataset.emm);
     const k = abrirJanela({ titulo: 'Modelo — ' + m.nome, larga: true,
       corpo: '<form id="f-emm" class="grade">' + campo('Assunto', '<input name="assunto" maxlength="200" value="' + esc(m.assunto) + '">', 'inteiro') +
-        '<div class="inteiro"><div class="secao">Texto</div><div class="pr-texto" id="emm-texto" contenteditable="true">' + m.texto + '</div></div></form>',
+        '<div class="inteiro em-manual"><div><div class="secao">Texto</div><div class="pr-texto" id="emm-texto" contenteditable="true">' + m.texto + '</div></div>' +
+        '<div><div class="secao">Como o cliente recebe <span class="sub">(com dados de exemplo)</span></div><iframe id="emm-previa" class="em-previa" sandbox="" title="Prévia"></iframe></div></div></form>',
       rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="emm-salvar">Salvar</button></div>' });
+    k.querySelector('.janela').classList.add('janela-rel');
+    const EXEMPLO = { vencimento: '10/10/2026', parcela: '4/6', credor: 'Fornecedor Exemplo S.A.', processo: '0000000-00.2025.8.13.0000', empresa: 'Empresa Exemplo Ltda',
+      natureza: 'Transação tributária · PGFN', numero: '12345', atrasadas: '2', pix: 'pix@escritorio.com.br', valor: 'R$ 4.500,00', extenso: 'quatro mil e quinhentos reais', data_pagamento: '28/09/2026' };
+    let tPv; const pv = () => { clearTimeout(tPv); tPv = setTimeout(async () => {
+      const troca = (t) => String(t).replace(/\{(\w+)\}/g, (x, c) => EXEMPLO[c] || x);
+      const r = await sb.rpc('previa_email_modelo', { p_assunto: troca(k.querySelector('[name=assunto]').value), p_html: troca(limparHtmlEmail(k.querySelector('#emm-texto').innerHTML)) });
+      if (!r.error) k.querySelector('#emm-previa').srcdoc = r.data || ''; }, 350); };
+    k.querySelector('#emm-texto').addEventListener('input', pv); k.querySelector('[name=assunto]').addEventListener('input', pv); pv();
     k.querySelector('[data-cancelar]').onclick = () => fecharJanela(k);
     k.querySelector('#emm-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
       const f = k.querySelector('#f-emm'), txt = limparHtmlEmail(k.querySelector('#emm-texto').innerHTML);

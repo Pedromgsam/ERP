@@ -80,7 +80,15 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
-- Última entrega: **Backup 16** — Início home (`cardResumoEscritorio`, `cardLembretes` + tabela `lembretes`; guias de parcelamento viraram
+- Última entrega: **Backup 17** — Início: `cardResumoEscritorio` sem Processos (atraso/hoje/5 dias no mesmo cartão), `buscaPubAutomatica`
+  (DJEN pelo navegador 1×/dia, localStorage `erp_pub_auto`). Painel "Empresas do grupo" = visual de Processos (#tblExecRanking em erp-telas.css).
+  Acordos: lista `.acx-*` no remendo `acordos-b16.js`. CRM: 8 etapas abertas (nova "Follow-up da proposta", ordem 5), finais viram faixa
+  `.cr-solte` (4+4 por linha em `crmFunil`). E-mails: `emails_central` devolve `contato`/`finalidade` (coluna "E-mail de destino"),
+  `previa_email_manual` e `previa_email_modelo` (prévia com a marca). Publicações: destinatários com "Autor:/Réu:" (polo A/P), `partesPub`,
+  função com timeout (`AbortSignal.timeout`, VERSAO 2026-10-02). PGFN: `cabecalhoPgfn` lê o CSV do site Dívida Aberta. Contratos: ficha
+  (`.ctr-ficha`), tabela `contratos_aditivos` + `registrar_aditivo(p_contrato, p jsonb)`; `valor_competencia` usa o valor anterior ao aditivo.
+  Prompt da rodada de design: `sistema/PROMPT-DESIGN-BACKUP-18.md`. `estrutura.sql` = 4556 linhas.
+- Backup 16 (base): Início home (`cardResumoEscritorio`, `cardLembretes` + tabela `lembretes`; guias de parcelamento viraram
   lembrete: regra `parcela_parcelamento` não cria tarefa, marca `parcelas.emissao='SIM'`; fila exclui `cob:|parc:|aco:`). Painel: selos
   (CAPAG/situação/grupo 124px, caixa alta) em erp-telas.css. Processos: análise sem duplicar número (sócio+PJ). Publicações: `partes_monitoradas`
   (busca `nomeParte` no DJEN), `acao:'diagnostico'`, busca pelo navegador (`buscarPubNoNavegador`, CSP libera comunicaapi). Acordos: remendo
@@ -94,13 +102,13 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
   (p_anexo). Tarefas: `interpretarRapida`, vista `semana`, carga (`configuracoes.carga_horas`), pular recorrência, relatório por cliente,
   resumo diário 8h. Geradores: `ferramentas/montar-geradores.js` copia os HTML de #Sistemas para `app/geradores/` + `ponte.js` (login,
   cliente, guardar em Documentos); `peticao.html` novo; contas dos advogados em `configuracoes.geradores_bancos` (dados-recibos.sql).
-  PGFN grátis: `pgfn_importar_abertos` + leitura de CSV no navegador (Alertas → Rotinas). `estrutura.sql` = 4398 linhas.
+  PGFN grátis: `pgfn_importar_abertos` + leitura de CSV no navegador (Alertas → Rotinas).
 - Backup 15 (base): fila/calendário/mural, `servico` (Área do serviço), CRM em abas, Tarefas em abas, alerta vira tarefa.
 - Backup 14 (base): perfil de e-mail por cliente, `usuarios_previstos`, fotos mensais/Evolução, OFX (`telas-ofx.js`), PGFN (`erp-pgfn`),
   ficha da tarefa `abrirTarefa`, `pessoasEscritorio`/`selectPessoa`, Clientes "Por grupo" e "Editar em tabela".
 - Documentos: `sistema/PROXIMOS-PASSOS.md`, `sistema/VIABILIDADE-INTEGRACOES.md` (RFB/SERPRO, PGFN pela API, SIARE, Sicoob OFX/API).
-- Funções do Supabase: erp-emails (recibo em PDF no Backup 16), erp-publicacoes (partes/diagnóstico no Backup 16), erp-cnpj, erp-agenda, erp-backup, erp-pgfn.
+- Funções do Supabase: erp-emails (recibo em PDF no Backup 16), erp-publicacoes (partes/diagnóstico no Backup 16; timeout e polo no Backup 17), erp-cnpj, erp-agenda, erp-backup, erp-pgfn.
 - Aguardando o usuário: criar as 4 contas (Administração → Usuários → Acessos combinados); contratar a API "Consulta Dívida Ativa"
   do SERPRO e salvar a chave em Alertas → PGFN; Integra Contador depois; boletos: não por enquanto; Financeiro: 9 sugestões aguardando
   escolha (não executar sem autorização).
-- Próxima rodada sugerida: aprovar a Central de e-mails (depois apagar a tela antiga), tirar "Progresso por acordo" após aprovação, melhorias de Contratos (sugestões na resposta do Backup 16).
+- Próxima rodada sugerida: design (prompt em `sistema/PROMPT-DESIGN-BACKUP-18.md`); aprovar a Central de e-mails (depois apagar a tela antiga), tirar "Progresso por acordo" após aprovação.

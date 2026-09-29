@@ -6,7 +6,7 @@ function jwt(c) { const h = b64({ alg: 'HS256', typ: 'JWT' }), p = b64(c); retur
 function carregarFuncao(base, nome) {
   const fonte = fs.readFileSync(path.join(__dirname, '..', '..', 'supabase', 'functions', nome, 'index.ts'), 'utf8')
     .replace(/^import .*$/mg, '').replace(/^export\s+/mg, '').replace(/Deno\.serve\([\s\S]*$/, '') + '\nthis.tratar = tratar;';
-  const ctx = { fetch: (...a) => ctx._fetch(...a), _fetch: fetch, Response, Headers, JSON, String, Number, Date, Error, console, URL, Blob, TextEncoder, btoa };
+  const ctx = { fetch: (...a) => ctx._fetch(...a), _fetch: fetch, Response, Headers, JSON, String, Number, Date, Error, console, URL, Blob, TextEncoder, btoa, AbortSignal, AbortController };
   vm.createContext(ctx); vm.runInContext(fonte, ctx);
   const sbCtx = { fetch, Headers, Request, Response, URL, URLSearchParams, AbortController, setTimeout, clearTimeout, console, TextEncoder, TextDecoder,
     crypto: globalThis.crypto, atob, btoa, Blob, FormData, WebSocket, setInterval, clearInterval, queueMicrotask, structuredClone };
