@@ -161,9 +161,10 @@ function celulaAtraso(venc, l) {
   if (!venc) return '<span class="sub">—</span>';
   const n = diasAte(venc);
   const extra = l && l.cobranca ? '<div class="sub">' + esc(l.cobranca) + '</div>' : '';
+  // Backup 21: o dia do vencimento já conta como vencido; até vencer, a régua única: <3 amarelo · <10 azul · ≥10 verde
   if (n < 0) return '<span class="atraso-d">' + (-n) + ' d atraso</span>' + extra;
-  if (n === 0) return '<span class="pill hoje">Vence hoje</span>' + extra;
-  return '<span class="' + (n <= 7 ? 'atraso-perto' : 'sub') + '">em ' + n + ' d</span>' + extra;
+  if (n === 0) return '<span class="atraso-d">vence hoje</span>' + extra;
+  return '<span class="' + (n < 3 ? 'dias-a' : n < 10 ? 'dias-b' : 'dias-g') + '">em ' + n + ' d</span>' + extra;
 }
 function tabelaLancamentos(lista, opc) {
   opc = opc || {};
@@ -182,7 +183,7 @@ function tabelaLancamentos(lista, opc) {
     lista.map((l) => {
       const data = porPagamento ? l.data_pagamento : l.vencimento;
       const quem = (l.grupos && l.grupos.nome) || l.favorecido || (l.clientes && l.clientes.nome) || '';
-      const venceu = !l.pago && !l.perda && l.vencimento && l.vencimento < h;
+      const venceu = !l.pago && !l.perda && l.vencimento && l.vencimento <= h;
       const leg = legendaLanc(l);
       return '<tr class="clicavel' + (l.vencimento === h && !l.pago ? ' linha-hoje' : '') + '" data-lanc="' + l.id + '" title="Clique para ver o detalhe">' +
         (lote ? '<td class="td-lote">' + (!l.pago && !l.perda ? '<input type="checkbox" data-lote="' + l.id + '" data-valor="' + (l.tipo === 'despesa' ? -l.valor : vl(l)) + '" aria-label="Marcar para dar baixa">' : '') + '</td>' : '') +

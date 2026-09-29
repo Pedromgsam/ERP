@@ -62,3 +62,25 @@ function _acordosAnalise(ac){
    + '<div class="acx"><div class="acx-hd"><span>Acordo</span><span>Pagamento</span><span>Próxima parcela</span><span>Situação</span><span></span></div>'
    + linhas + '</div>');
 }
+// ═══ Backup 21 ═══
+// Dias até o vencimento, a mesma régua em todo o ERP: vencido (inclui o próprio dia) vermelho · <3 amarelo · <10 azul · ≥10 verde
+function _diasCls(d){ return d<=0?'dias-r':d<3?'dias-a':d<10?'dias-b':'dias-g'; }
+// Saldo por devedor: um cartão-linha por devedor (posição, nome, nº de acordos, parcelas em atraso, barra na rampa azul pelo posto, saldo e %)
+var _AC_RAMPA=['var(--chart-rampa-1)','var(--chart-rampa-2)','var(--chart-rampa-3)','var(--chart-rampa-4)','var(--chart-rampa-5)'];
+function _acSaldoDevedor(acAP){
+  var el=$('acDevedorLista'); if(!el) return;
+  var hj=new Date(), D={}; hj.setHours(0,0,0,0);
+  acAP.forEach(function(a){ var k=a.devedor||'—', d=pDate(a.vencimento); var x=D[k]=D[k]||{n:k,v:0,atr:0,vAtr:0,ac:{}};
+    x.v+=Number(a.valor)||0; x.ac[_acChave(a)]=1; if(a.situacao==='Vencido'||(d&&d<=hj)){ x.atr++; x.vAtr+=Number(a.valor)||0; } });
+  var L=Object.keys(D).map(function(k){ return D[k]; }).sort(function(a,b){ return b.v-a.v; });
+  if(!L.length){ el.innerHTML='<div class="pa-ok">Nenhum saldo em aberto.</div>'; return; }
+  var tot=L.reduce(function(s,x){return s+x.v;},0)||1, max=L[0].v||1, mais=L.length>10?L.length-10:0, n10=Math.min(L.length,10);
+  el.innerHTML='<div class="acs-tot"><span>Total em aberto</span><b>'+fF(tot)+'</b><span class="acs-n">'+L.length+' devedor'+(L.length>1?'es':'')+'</span></div>'
+    +'<div class="acs">'+L.slice(0,10).map(function(x,i){ var na=Object.keys(x.ac).length;
+      return '<div class="acs-it"><div class="acs-pos">'+(i+1)+'</div>'
+        +'<div class="acs-quem"><div class="acs-nome" title="'+esc(x.n)+'">'+esc(x.n)+'</div><div class="acs-sub">'+na+' acordo'+(na>1?'s':'')
+        +(x.atr?' · <span class="acs-atr">'+x.atr+' parcela'+(x.atr>1?'s':'')+' em atraso ('+fF(x.vAtr)+')</span>':' · em dia')+'</div></div>'
+        +'<div class="acs-bar"><span style="width:'+Math.max(2,x.v/max*100).toFixed(1)+'%;background:'+_AC_RAMPA[n10>1?Math.round(i*(_AC_RAMPA.length-1)/(n10-1)):0]+'"></span></div>'
+        +'<div class="acs-v">'+fF(x.v)+'</div><div class="acs-p">'+(x.v/tot*100).toFixed(1).replace('.',',')+'%</div></div>'; }).join('')
+    +'</div>'+(mais?'<div class="acs-mais">+ '+mais+' devedor'+(mais>1?'es':'')+' com saldo menor</div>':'');
+}

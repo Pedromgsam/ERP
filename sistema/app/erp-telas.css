@@ -195,7 +195,7 @@ body.gx-barra-topo :focus-visible{outline:2px solid var(--navy3);outline-offset:
 #gs-hd .hd-usuario .tn-menu button:hover{background:var(--ac-gold-lt)!important}
 /* Painel Executivo (Backup 15): sem o cartão de título; entidades, grupos e "Atualizado" na linha dos filtros, à esquerda */
 #panel-resumo > .mod-banner{display:none!important}
-#gx-linha-painel{display:none;position:fixed;top:calc(var(--hh) + 12px);left:24px;z-index:249;align-items:center;gap:8px;font-family:var(--font-ui)}
+#gx-linha-painel{display:none;position:absolute;top:calc(var(--hh) + 12px);left:24px;z-index:249;align-items:center;gap:8px;font-family:var(--font-ui)}
 body.gx-barra-topo[data-painel="resumo"]:not(.gx-cliente) #gx-linha-painel{display:flex}
 #gx-linha-painel .gs-contadores{display:flex;gap:6px}
 #gx-linha-painel .gs-contadores[hidden]{display:none}

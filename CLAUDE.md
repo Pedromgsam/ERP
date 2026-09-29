@@ -83,7 +83,13 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
-- Última entrega: **Backup 20 — padrão único**. SQL: `lembretes` com `dia` opcional, `fixo`, `destaque` (''|vermelho|amarelo|verde|azul|roxo),
+- Última entrega: **Backup 21 — ajustes finos** (sem SQL). `dbERP()` no erp-telas.js (o `DB` do ERP é const global, NÃO `window.DB` — por isso
+  grupos/filtros/ficha do Painel falhavam). `tabelaPadrao` aceita `popup` (Processos abre `GS().abrirJanela`). Lembretes: `.lemb-ok` (○ conclui),
+  ações ao passar o mouse; `infoI` = "?" com balão CSS (`data-dica`). Início: Atrasados empilhados (`.ini-atraso-pilha`), linha `data-linha-det` →
+  `detalheLancamento`. Régua de dias: `_diasCls` (remendo acordos) e `celulaAtraso` — vencido (inclui hoje) `dias-r`, <3 `dias-a`, <10 `dias-b`,
+  ≥10 `dias-g`. Acordos: `_acSaldoDevedor` (`.acs-*`), "Progresso por acordo" escondido, A Pagar sem Situação. Publicações: `#pub-trib` (segmento só
+  com tribunais de publicações nova/lida). Filtros de período sem emoji (montar-erp). `#gx-linha-painel` em `position:absolute`.
+- Backup 20 (base): padrão único. SQL: `lembretes` com `dia` opcional, `fixo`, `destaque` (''|vermelho|amarelo|verde|azul|roxo),
   `origem` (mural copiado como `mural:<id>`); `crc16_ccitt`, `pix_copia_cola(chave,nome,cidade,valor,txid)` (igual ao `pixCopiaECola` do nucleo.js;
   `dados_pagamento.cidade`), bloco PIX no `email_cliente_html`. Início: sem +Receita/+Despesa/+Contrato, `cardMural` = Lembretes (`formLembrete`,
   `htmlLembretes`, `DESTAQUES_LEMB`), recados fora, `infoI(chave)`/`EXPLICA` (tooltips ⓘ). Pagamentos: `tabelaLancamentos` (Quem·Grupo·Descrição·
