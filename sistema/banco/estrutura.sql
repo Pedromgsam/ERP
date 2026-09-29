@@ -2981,8 +2981,8 @@ begin
     ('DEMO · Levantar redução da dívida (êxito)', mp, gm, k4, '', 'Pedro', 'Média', 'pendente', h, h + 12, null, 'Quando a transação for homologada, registrar o êxito no contrato.', '[]', 'demo:t5');
   -- CRM
   select id into e1 from public.crm_etapas order by ordem limit 1;
-  select id into e2 from public.crm_etapas where ordem = 4 limit 1;
-  select id into e4 from public.crm_etapas where ordem = 5 limit 1;
+  select id into e2 from public.crm_etapas where nome = 'Proposta enviada' limit 1;
+  select id into e4 from public.crm_etapas where nome = 'Negociação' limit 1;
   insert into public.crm_oportunidades (titulo, cliente_id, prospecto_empresa, prospecto_nome, prospecto_email, origem, etapa_id, valor_estimado, honorario_tipo, probabilidade, previsao_fechamento, responsavel, proxima_acao, proxima_acao_em) values
     ('DEMO · Holding familiar Moreira', mp, '', '', '', 'Cliente atual', e2, 25000, 'fixo', 60, h + 20, 'Pedro', 'Ligar para fechar a proposta', h + 2),
     ('DEMO · Recuperação de créditos de PIS/COFINS', null, 'DEMO · Mercado Bom Preço', 'João Exemplo', 'joao@bompreco.example.com', 'Indicação', e1, 40000, 'exito', 20, h + 45, 'Emanuelle', 'Agendar diagnóstico', h + 1),
@@ -4396,3 +4396,161 @@ begin
 end $$;
 revoke all on function public.pgfn_importar_abertos(jsonb, text) from public, anon;
 grant execute on function public.pgfn_importar_abertos(jsonb, text) to authenticated;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- v23 (Backup 17) — CRM: 8 etapas em andamento (4 em cima, 4 embaixo) com "Follow-up da proposta"
+-- entre "Proposta enviada" e "Negociação". Só roda uma vez (se a etapa ainda não existir).
+-- ═══════════════════════════════════════════════════════════════════
+do $$ begin
+  if not exists (select 1 from public.crm_etapas where nome = 'Follow-up da proposta') then
+    update public.crm_etapas set ordem = ordem + 1 where final = '' and ordem >= 5;
+    insert into public.crm_etapas (nome, ordem, probabilidade, final, dias_alerta, descricao)
+    values ('Follow-up da proposta', 5, 65, '', 4, 'Proposta sem resposta: cobrar retorno do cliente (✉ Follow-up no cartão).');
+  end if;
+end $$;
+
+-- v23: a Central mostra para qual e-mail vai (e de qual contato: nome e finalidade), separado da situação
+create or replace function public.emails_central(p_situacao text default 'hoje') returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+declare r jsonb;
+begin
+  if not public.pode_central_emails() then raise exception 'permission denied: sem acesso à Central de e-mails.'; end if;
+  if p_situacao = 'hoje' then
+    select coalesce(jsonb_agg(jsonb_build_object('ref', x.ref, 'tipo', x.tipo, 'assunto', x.assunto, 'vence', x.vence, 'cliente', coalesce(cl.nome, g.nome, '—'), 'grupo', g.nome,
+             'para', ct.email, 'contato', ct.nome, 'finalidade', x.finalidade, 'auto', public.email_tipo_auto(x.tipo),
+             'bloqueio', case when x.tipo <> 'honorarios' and x.tipo <> 'recibos' and not public.pode_email(x.cliente_id, x.grupo_id, case x.regra when 'email_lp' then 'parcelamento' else 'acordo' end) then 'perfil do cliente'
+                              when x.tipo = 'honorarios' and not public.pode_email(x.cliente_id, x.grupo_id, case x.regra when 'email_lh' then 'lembrete' when 'email_vh' then 'vencimento' else 'cobranca' end) then 'perfil do cliente'
+                              when coalesce(ct.email, '') = '' then 'sem e-mail cadastrado'
+                              when ct.email ~* '(@|\.)example\.com$' then 'demonstração' else '' end,
+             'total', (select coalesce(sum((i->>'valor')::numeric), 0) from jsonb_array_elements(x.itens) i)) order by x.tipo, coalesce(cl.nome, g.nome)), '[]')
+      into r
+      from public.emails_pendentes() x left join public.clientes cl on cl.id = x.cliente_id left join public.grupos g on g.id = coalesce(x.grupo_id, cl.grupo_id)
+      left join lateral (select email, nome from public.contato_do_cliente(x.cliente_id, x.grupo_id, x.finalidade) limit 1) ct on true;
+  else
+    select coalesce(jsonb_agg(jsonb_build_object('id', f.id, 'para', f.para, 'assunto', f.assunto, 'status', f.status, 'erro', f.erro, 'quando', coalesce(f.enviado_em, f.criado_em),
+             'ref', f.referencia, 'anexo', f.anexo is not null, 'tipo', case when f.referencia like 'email_pr:%' then 'recibos' when f.referencia ~ '^email_(lp|pa)' then 'parcelamentos'
+             when f.referencia ~ '^email_(la|aa)' then 'acordos' when f.tipo = 'proposta' then 'propostas' else 'honorarios' end,
+             'cliente', (select coalesce(cl.nome, '') from public.automacoes_log a left join public.clientes cl on cl.id = a.cliente_id where a.ref = f.referencia and f.referencia <> '' limit 1))
+             order by coalesce(f.enviado_em, f.criado_em) desc), '[]') into r
+      from (select * from public.email_fila where tipo in ('cliente', 'proposta') and criado_em > now() - interval '120 days'
+               and (case when p_situacao = 'erro' then status = 'erro' else status in ('enviado', 'pendente') end) order by criado_em desc limit 300) f;
+  end if;
+  return r;
+end $$;
+revoke all on function public.emails_central(text) from public, anon;
+grant execute on function public.emails_central(text) to authenticated;
+
+-- v23: prévia do e-mail escrito à mão ("✉ Enviar e-mail ao cliente") no mesmo layout com a marca que ele vai sair
+create or replace function public.previa_email_manual(p_assunto text, p_texto text) returns text
+language plpgsql stable security definer set search_path = public as $$
+declare corpo text;
+begin
+  if not (public.pode('clientes', 'editar') or public.pode('financeiro_juridico', 'editar') or public.pode('financeiro_contab', 'editar') or public.pode('juridico', 'editar')) then
+    raise exception 'permission denied';
+  end if;
+  corpo := '<p style="margin:0 0 10px">' || replace(replace(public.esc_html(btrim(coalesce(p_texto, ''))), E'\n\n', '</p><p style="margin:0 0 10px">'), E'\n', '<br>') || '</p>';
+  return public.email_cliente_html(coalesce(nullif(btrim(p_assunto), ''), 'Mensagem do escritório'), '-', corpo, '[]', false, '-');
+end $$;
+revoke all on function public.previa_email_manual(text, text) from public, anon;
+grant execute on function public.previa_email_manual(text, text) to authenticated;
+-- v23: prévia de um modelo da Central enquanto edita (texto do modelo já com exemplos no lugar das {chaves})
+create or replace function public.previa_email_modelo(p_assunto text, p_html text) returns text
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not public.pode_central_emails() then raise exception 'permission denied'; end if;
+  return public.email_cliente_html(coalesce(nullif(btrim(p_assunto), ''), 'Assunto'), 'Marta', coalesce(p_html, ''),
+    '[{"descricao":"Consultoria tributária mensal (exemplo)","vencimento":"2026-10-10","valor":4500}]', true);
+end $$;
+revoke all on function public.previa_email_modelo(text, text) from public, anon;
+grant execute on function public.previa_email_modelo(text, text) to authenticated;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- v23 (Backup 17) — Contratos: aditivos dentro do contrato
+--   valor  → consultoria: novo valor mensal (ou nº de salários) a partir de uma competência; as mensalidades
+--            anteriores continuam com o valor antigo. Serviço pontual: valor a mais, lançado em parcelas.
+--   escopo / prazo / outro → só registra (com o documento no contrato).
+-- Reajuste: só consultoria em salários mínimos (automático quando o salário mínimo do ano é cadastrado).
+-- ═══════════════════════════════════════════════════════════════════
+create table if not exists public.contratos_aditivos (
+  id                 uuid primary key default gen_random_uuid(),
+  contrato_id        uuid not null references public.contratos(id) on delete cascade,
+  cliente_id         uuid references public.clientes(id) on delete set null,
+  numero             int not null default 1,
+  data               date not null default current_date,
+  tipo               text not null default 'outro' check (tipo in ('valor','escopo','prazo','outro')),
+  descricao          text not null default '',
+  a_partir           date,                         -- competência (1º dia do mês) em que o valor novo começa
+  forma_anterior     text, valor_mensal_anterior numeric(14,2), qtd_salarios_anterior numeric(8,2),
+  forma_nova         text, valor_mensal_novo numeric(14,2), qtd_salarios_novo numeric(8,2),
+  valor_adicional    numeric(14,2),                -- serviço pontual: valor a mais
+  parcelas           int,
+  criado_por         uuid default auth.uid(),
+  criado_em          timestamptz not null default now()
+);
+create index if not exists contratos_aditivos_contrato on public.contratos_aditivos (contrato_id, a_partir);
+alter table public.contratos_aditivos enable row level security;
+revoke all on public.contratos_aditivos from anon;
+grant select on public.contratos_aditivos to authenticated;
+drop policy if exists aditivos_ver on public.contratos_aditivos;
+create policy aditivos_ver on public.contratos_aditivos for select to authenticated using (public.pode('contratos') and public.ve_cliente(cliente_id));
+
+-- valor de uma competência: antes de um aditivo de valor vale o valor anterior a ele; depois, o do contrato
+create or replace function public.valor_competencia(c public.contratos, comp date) returns numeric
+language sql stable set search_path = public as $$
+  with a as (select * from public.contratos_aditivos where contrato_id = c.id and tipo = 'valor' and a_partir > comp order by a_partir limit 1)
+  select case when exists (select 1 from a) then
+           (select case when coalesce(a.forma_anterior, c.forma_valor) = 'salario_minimo'
+                        then round(coalesce(a.qtd_salarios_anterior, 0) * coalesce(public.salario_minimo(extract(year from comp)::int), 0), 2)
+                        else coalesce(a.valor_mensal_anterior, 0) end from a)
+         when c.forma_valor = 'salario_minimo'
+              then round(coalesce(c.qtd_salarios, 0) * coalesce(public.salario_minimo(extract(year from comp)::int), 0), 2)
+         else coalesce(c.valor_mensal, 0) end;
+$$;
+
+create or replace function public.registrar_aditivo(p_contrato uuid, p jsonb) returns uuid
+language plpgsql security definer set search_path = public as $$
+declare c record; ad uuid; n int; tp text := coalesce(nullif(p->>'tipo', ''), 'outro'); ap date; i int; np int; vt numeric; base numeric; v numeric; pv date;
+begin
+  if not public.pode('contratos', 'editar') then raise exception 'permission denied: só quem edita Contratos registra aditivo.'; end if;
+  select k.*, cl.grupo_id, cl.responsavel resp_cliente into c from public.contratos k join public.clientes cl on cl.id = k.cliente_id where k.id = p_contrato;
+  if c.id is null or not public.ve_cliente(c.cliente_id) then raise exception 'Contrato não encontrado.'; end if;
+  if btrim(coalesce(p->>'descricao', '')) = '' then raise exception 'Descreva o que o aditivo muda.'; end if;
+  select coalesce(max(numero), 0) + 1 into n from public.contratos_aditivos where contrato_id = c.id;
+  ap := date_trunc('month', coalesce(nullif(p->>'a_partir', '')::date, current_date))::date;
+  insert into public.contratos_aditivos (contrato_id, cliente_id, numero, data, tipo, descricao, a_partir,
+      forma_anterior, valor_mensal_anterior, qtd_salarios_anterior, forma_nova, valor_mensal_novo, qtd_salarios_novo, valor_adicional, parcelas)
+  values (c.id, c.cliente_id, n, coalesce(nullif(p->>'data', '')::date, current_date), tp, btrim(p->>'descricao'),
+      case when tp = 'valor' and c.modalidade = 'consultoria' then ap end,
+      c.forma_valor, c.valor_mensal, c.qtd_salarios,
+      case when tp = 'valor' and c.modalidade = 'consultoria' then coalesce(nullif(p->>'forma', ''), c.forma_valor) end,
+      nullif(p->>'valor_mensal', '')::numeric, nullif(p->>'qtd_salarios', '')::numeric,
+      nullif(p->>'valor_adicional', '')::numeric, nullif(p->>'parcelas', '')::int)
+  returning id into ad;
+  if tp = 'valor' and c.modalidade = 'consultoria' then
+    if coalesce(nullif(p->>'forma', ''), c.forma_valor) = 'salario_minimo' then
+      if coalesce(nullif(p->>'qtd_salarios', '')::numeric, 0) <= 0 then raise exception 'Informe quantos salários mínimos.'; end if;
+      update public.contratos set forma_valor = 'salario_minimo', qtd_salarios = (p->>'qtd_salarios')::numeric where id = c.id;
+    else
+      if coalesce(nullif(p->>'valor_mensal', '')::numeric, 0) <= 0 then raise exception 'Informe o novo valor mensal.'; end if;
+      update public.contratos set forma_valor = 'fixo', valor_mensal = (p->>'valor_mensal')::numeric where id = c.id;
+    end if;
+    perform public.gerar_mensalidades(c.id);   -- reajusta só as mensalidades em aberto a partir da competência do aditivo
+  elsif tp = 'valor' then
+    vt := coalesce(nullif(p->>'valor_adicional', '')::numeric, 0);
+    if vt <= 0 then raise exception 'Informe o valor a mais do aditivo.'; end if;
+    np := greatest(1, least(120, coalesce(nullif(p->>'parcelas', '')::int, 1)));
+    pv := coalesce(nullif(p->>'primeiro_vencimento', '')::date, current_date + 30);
+    base := trunc(vt / np, 2);
+    for i in 1..np loop
+      v := case when i = np then vt - base * (np - 1) else base end;
+      insert into public.lancamentos (empresa, tipo, descricao, categoria, cliente_id, contrato_id, grupo_id, responsavel, referencia, parcela, total_parcelas, vencimento, valor, obs)
+      values ('escritorio', 'receita', c.descricao || ' — aditivo ' || n || case when np > 1 then ' — parcela ' || i || '/' || np else '' end, 'Honorários',
+              c.cliente_id, c.id, c.grupo_id, coalesce(nullif(c.responsavel, ''), c.resp_cliente, ''), case when np > 1 then i || '/' || np else '' end,
+              i, np, (pv + make_interval(months => i - 1))::date, v, 'Aditivo nº ' || n || ': ' || btrim(p->>'descricao'));
+    end loop;
+    update public.contratos set valor_total = valor_total + vt where id = c.id;
+  end if;
+  return ad;
+end $$;
+revoke all on function public.registrar_aditivo(uuid, jsonb) from public, anon;
+grant execute on function public.registrar_aditivo(uuid, jsonb) to authenticated;

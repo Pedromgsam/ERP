@@ -8,7 +8,7 @@
 // Corpo opcional: {"de":"2026-09-01","ate":"2026-09-27"} (padrão: desde a última busca, no máximo 30 dias).
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const VERSAO = '2026-10-01';
+const VERSAO = '2026-10-02';
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-erp-segredo',
@@ -16,6 +16,8 @@ const CORS = {
 };
 const resposta = (obj, status) => new Response(JSON.stringify(obj), { status: status || 200, headers: { ...CORS, 'Content-Type': 'application/json' } });
 const iso = (d) => d.toISOString().slice(0, 10);
+// polo do Diário: A = ativo (autor), P = passivo (réu)
+const POLO = (d) => ({ A: 'Autor: ', P: 'Réu: ' }[String((d && d.polo) || '').toUpperCase()] || '');
 const primeiro = (o, nomes) => { for (const n of nomes) { if (o && o[n] != null && o[n] !== '') return o[n]; } return ''; };
 
 // A API devolve campos com nomes em formatos variados: lê o primeiro que existir.
@@ -43,7 +45,7 @@ export function normalizar(it, oab, parte) {
     classe: String(primeiro(it, ['nomeClasse', 'nome_classe', 'classe'])),
     texto: texto.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 20000),
     link: String(primeiro(it, ['link', 'url'])),
-    destinatarios: Array.isArray(dest) ? dest.map((d) => (d && (d.nome || d.name)) || '').filter(Boolean).join('; ') : String(dest),
+    destinatarios: Array.isArray(dest) ? dest.map((d) => (d && (d.nome || d.name)) ? POLO(d) + (d.nome || d.name) : '').filter(Boolean).join('; ') : String(dest),
     advogados: Array.isArray(advs) ? advs.map((a) => { const x = (a && (a.advogado || a)) || {}; return [x.nome, x.numero_oab ? 'OAB ' + x.numero_oab + '/' + (x.uf_oab || '') : ''].filter(Boolean).join(' '); }).filter(Boolean).join('; ') : String(advs),
     oab_numero: oab.numero || '', oab_uf: oab.uf || '', advogado: oab.advogado || '', parte_monitorada: parte || '',
     bruto: it
@@ -72,7 +74,10 @@ async function autorizado(req, db) {
   return !!p && (p.papel === 'admin' || (p.papel === 'equipe' && !!(p.funcoes || {}).juridico));
 }
 
-export async function tratar(req, db, buscar) {
+export async function tratar(req, db, buscar0) {
+  // cada consulta ao CNJ tem prazo: sem isso, quando o CNJ não responde ao servidor, o Supabase corta a função
+  // sem resposta e o navegador só vê "não consegui falar com a função"
+  const buscar = (url, o, ms) => buscar0(url, { ...(o || {}), signal: AbortSignal.timeout(ms || 20000) });
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   try {
     if (!(await autorizado(req, db))) return resposta({ erro: 'Sem permissão.' }, 401);
@@ -83,7 +88,7 @@ export async function tratar(req, db, buscar) {
     if (corpo.acao === 'diagnostico') {
       const hj = iso(new Date());
       try {
-        const r = await buscar(API + '/comunicacao?numeroOab=1&ufOab=MG&dataDisponibilizacaoInicio=' + hj + '&dataDisponibilizacaoFim=' + hj + '&pagina=1&itensPorPagina=5', { headers: { Accept: 'application/json' } });
+        const r = await buscar(API + '/comunicacao?numeroOab=1&ufOab=MG&dataDisponibilizacaoInicio=' + hj + '&dataDisponibilizacaoFim=' + hj + '&pagina=1&itensPorPagina=5', { headers: { Accept: 'application/json' } }, 12000);
         return resposta({ ok: r.ok, status: r.status, versao: VERSAO, dica: r.ok ? 'A API do CNJ respondeu normalmente.' : dicaErro(r.status) });
       } catch (e) { return resposta({ ok: false, status: 0, versao: VERSAO, dica: 'Sem conexão com a API do CNJ: ' + String((e && e.message) || e) + '. ' + dicaErro(0) }); }
     }

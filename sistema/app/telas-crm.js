@@ -95,19 +95,24 @@ function cartaoOp(o, e, h) {
       '<button type="button" class="cr-at cr-avancar" data-avancar="' + o.id + '" title="Avançar para a próxima etapa" aria-label="Avançar etapa">▸</button></span></div></div>';
 }
 function colunaCrm(e, ops, h) {
-  const cs = e.final ? [] : ops.filter((o) => o.etapa_id === e.id);
-  return '<div class="cr-col' + (e.final ? ' cr-final-' + e.final : '') + '" data-etapa="' + e.id + '" title="' + esc(e.descricao || '') + '"><div class="cr-col-tit"><span>' + esc(e.nome) + '</span><span class="sub">' +
-    (e.final ? '' : cs.length + (cs.length ? ' · ' + esc(brlCurto(soma(cs, (o) => o.valor_estimado))) : '')) + '</span></div>' +
-    (e.final ? '<div class="cr-solte">' + (e.final === 'ganho' ? 'Solte aqui quando o cliente <b>assinar</b> o contrato.<br><span class="sub">Vai para a aba "Contratos assinados".</span>' : 'Solte aqui quando <b>não fechar</b>.<br><span class="sub">Vai para a aba "Leads perdidos".</span>') + '</div>' : '') +
-    cs.map((o) => cartaoOp(o, e, h)).join('') + (!e.final && !cs.length ? '<div class="cr-vazia">—</div>' : '') + '</div>';
+  const cs = ops.filter((o) => o.etapa_id === e.id);
+  return '<div class="cr-col" data-etapa="' + e.id + '" title="' + esc(e.descricao || '') + '"><div class="cr-col-tit"><span>' + esc(e.nome) + '</span><span class="cr-col-n">' +
+    cs.length + '</span></div>' + (cs.length ? '<div class="cr-col-val">' + esc(brlCurto(soma(cs, (o) => o.valor_estimado))) + '</div>' : '') +
+    cs.map((o) => cartaoOp(o, e, h)).join('') +
+    (!cs.length ? '<div class="cr-vazia"><span class="cr-vazia-ic" aria-hidden="true">○</span>Nenhuma oportunidade<span class="sub">arraste um cartão para cá</span></div>' : '') + '</div>';
 }
+// Backup 17: "Em andamento" mostra só as etapas abertas — 4 em cima e 4 embaixo, todas do mesmo tamanho.
+// Contrato assinado e Lead perdido saem daqui (ficam nas abas); para mandar um cartão para lá, solte na faixa de baixo.
 function crmFunil(alvo) {
   const ops = filtrarOps(), h = hojeISO(), et = E._crmEtapas || [];
-  const cima = et.filter((e) => !e.final && e.ordem <= 4), baixo = et.filter((e) => e.final || e.ordem > 4);
-  alvo.innerHTML = '<div class="cr-linha" style="--n:' + cima.length + '">' + cima.map((e) => colunaCrm(e, ops, h)).join('') + '</div>' +
-    '<div class="cr-linha" style="--n:' + baixo.length + '">' + baixo.map((e) => colunaCrm(e, ops, h)).join('') + '</div>' +
-    '<p class="sub" style="margin-top:8px">Arraste o cartão para mudar a etapa (no celular, use ▸). <b>Contrato fechado</b> = o cliente disse sim (o sistema cria cadastro, contrato e onboarding); ' +
-    '<b>Contrato assinado</b> e <b>Lead perdido</b> saem do painel e ficam nas abas. Passe o mouse no nome da etapa para ver o que ela significa.</p>';
+  const abertas = et.filter((e) => !e.final), fins = et.filter((e) => e.final);
+  const porLinha = Math.max(4, Math.ceil(abertas.length / 2)), cima = abertas.slice(0, porLinha), baixo = abertas.slice(porLinha);
+  alvo.innerHTML = '<div class="cr-linha" style="--n:' + porLinha + '">' + cima.map((e) => colunaCrm(e, ops, h)).join('') + '</div>' +
+    (baixo.length ? '<div class="cr-linha" style="--n:' + porLinha + '">' + baixo.map((e) => colunaCrm(e, ops, h)).join('') + '</div>' : '') +
+    '<div class="cr-fins">' + fins.map((e) => '<div class="cr-solte cr-solte-' + e.final + '" data-etapa="' + e.id + '">' +
+      (e.final === 'ganho' ? '✓ Solte aqui quando o cliente <b>assinar</b> — vai para a aba "Contratos assinados"' : '✕ Solte aqui quando <b>não fechar</b> — vai para a aba "Leads perdidos"') + '</div>').join('') + '</div>' +
+    '<p class="sub" style="margin-top:8px">Arraste o cartão para mudar a etapa (no celular, use ▸). <b>Contrato fechado</b> = o cliente disse sim (o sistema cria cadastro, contrato e onboarding). ' +
+    'Passe o mouse no nome da etapa para ver o que ela significa.</p>';
   let arrastando = null;
   alvo.querySelectorAll('.cr-card').forEach((c) => {
     c.addEventListener('dragstart', (ev) => { arrastando = c.dataset.op; ev.dataTransfer.setData('text/plain', c.dataset.op); c.classList.add('arrastando'); });
@@ -125,7 +130,7 @@ function crmFunil(alvo) {
     const i = abertas.findIndex((e) => e.id === o.etapa_id), prox = abertas[i + 1] || (E._crmEtapas || []).find((e) => e.final === 'ganho');
     if (prox) moverOp(o.id, prox.id);
   });
-  alvo.querySelectorAll('.cr-col').forEach((col) => {
+  alvo.querySelectorAll('.cr-col, .cr-solte').forEach((col) => {
     col.addEventListener('dragover', (ev) => { ev.preventDefault(); col.classList.add('sobre'); });
     col.addEventListener('dragleave', () => col.classList.remove('sobre'));
     col.addEventListener('drop', (ev) => { ev.preventDefault(); col.classList.remove('sobre'); moverOp(ev.dataTransfer.getData('text/plain') || arrastando, col.dataset.etapa); });

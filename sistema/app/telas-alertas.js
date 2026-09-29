@@ -312,11 +312,12 @@ async function janelaPgfnAbertos() {
   await carregarCadastros();
   const j = abrirJanela({ titulo: 'PGFN — dados abertos (gratuito)', larga: true,
     corpo: '<ol class="passos"><li>Abra <a href="https://www.gov.br/pgfn/pt-br/assuntos/divida-ativa-da-uniao/transparencia-fiscal-1/dados-abertos" target="_blank" rel="noopener">gov.br/pgfn → Dados abertos</a> e baixe os arquivos da <b>Dívida Ativa</b> (Não previdenciário, Previdenciário e FGTS) do trimestre mais recente.</li>' +
+      '<li><b>Mais atual (atualiza com frequência):</b> no site <a href="https://www.dividaaberta.pgfn.gov.br/consultar-devedores" target="_blank" rel="noopener">Dívida Aberta</a>, pesquise (por nome, CNPJ ou por estado/município), clique em <b>Exportar (CSV)</b> e escolha esse arquivo abaixo — o ERP entende os dois formatos. Nesse caso <b>não</b> marque "Zerar".</li>' +
       '<li>Descompacte (botão direito → Extrair tudo). Dentro há arquivos <b>.csv</b> (às vezes um por estado).</li><li>Escolha abaixo os .csv (pode marcar vários) e clique em <b>Ler e atualizar</b>. Arquivos grandes levam alguns minutos; a tela mostra o andamento.</li></ol>' +
       '<div class="grade"><div class="campo inteiro"><span>Arquivos .csv da PGFN</span><input type="file" id="pa-arq" accept=".csv,.txt" multiple></div>' +
       '<label class="check inteiro"><input type="checkbox" id="pa-zerar"> Zerar a PGFN dos clientes com CPF/CNPJ que <b>não</b> aparecem nos arquivos (use só se importou todos os arquivos do trimestre)</label></div>' +
       '<div id="pa-prog" class="dica" style="margin-top:10px">Nada lido ainda.</div>',
-    rodape: '<span class="sub">Custo: zero. Atualização: trimestral (é a frequência da PGFN).</span><button class="btn btn-p" type="button" id="pa-ler">Ler e atualizar</button>' });
+    rodape: '<span class="sub">Custo: zero. Dados abertos: trimestral · Dívida Aberta (CSV do site): atualização frequente.</span><button class="btn btn-p" type="button" id="pa-ler">Ler e atualizar</button>' });
   j.querySelector('#pa-ler').onclick = (ev) => comBotao(ev.currentTarget, async () => {
     const arqs = [...j.querySelector('#pa-arq').files]; if (!arqs.length) throw new Error('Escolha pelo menos um arquivo .csv.');
     const porDoc = {}; E.clientes.forEach((c) => { const d = soDigitos(c.cpf_cnpj); if (d.length === 11 || d.length === 14) porDoc[d] = c; });
@@ -344,6 +345,19 @@ async function janelaPgfnAbertos() {
   });
 }
 // lê o CSV em partes (arquivos de centenas de MB) e chama "cada" para cada linha como objeto {COLUNA: valor}
+// aceita o arquivo dos dados abertos (CPF_CNPJ, VALOR_CONSOLIDADO…) e o CSV exportado no site "Dívida Aberta"
+// (colunas com nomes por extenso, ex.: "CPF/CNPJ", "Nº Inscrição", "Valor Consolidado", "Situação")
+function cabecalhoPgfn(c) {
+  const t = c.replace(/^"|"$/g, '').trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_|_$/g, '');
+  if (/^(CPF|CNPJ)/.test(t) || t === 'DOCUMENTO') return 'CPF_CNPJ';
+  if (/DATA.*INSCRI/.test(t)) return 'DATA_INSCRICAO';
+  if (/^(N|NUM|NUMERO|NO)_?INSCRI/.test(t) || t === 'INSCRICAO') return 'NUMERO_INSCRICAO';
+  if (/^VALOR/.test(t)) return 'VALOR_CONSOLIDADO';
+  if (/^TIPO_SITUA/.test(t)) return 'TIPO_SITUACAO_INSCRICAO';
+  if (/SITUA/.test(t)) return 'SITUACAO_INSCRICAO';
+  if (/RECEITA/.test(t)) return 'RECEITA_PRINCIPAL';
+  return t;
+}
 async function lerCsvPgfn(arq, cada, andamento) {
   const leitor = arq.stream().getReader();
   let dec = new TextDecoder('utf-8'), resto = '', cab = null, sep = ';', n = 0, primeiro = true;
@@ -354,7 +368,7 @@ async function lerCsvPgfn(arq, cada, andamento) {
     const partes = txt.split(/\r?\n/); resto = done ? '' : partes.pop();
     for (const l of partes) {
       if (!l.trim()) continue;
-      if (!cab) { sep = (l.match(/;/g) || []).length >= (l.match(/,/g) || []).length ? ';' : ','; cab = l.split(sep).map((c) => c.replace(/^"|"$/g, '').trim().toUpperCase()); continue; }
+      if (!cab) { sep = (l.match(/;/g) || []).length >= (l.match(/,/g) || []).length ? ';' : ','; cab = l.split(sep).map((c) => cabecalhoPgfn(c)); continue; }
       const cols = l.split(sep).map((c) => c.replace(/^"|"$/g, '').trim()), o = {};
       cab.forEach((c, i) => { o[c] = cols[i]; }); cada(o); n++;
     }

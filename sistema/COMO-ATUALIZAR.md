@@ -223,3 +223,24 @@ Se precisar dele de volta, basta voltar a publicação na Vercel (passo A acima)
 3. Peça ao Claude para reexibir o cartão PGFN em Alertas (escondido desde o Backup 15 a seu pedido). Depois: **Alertas** → cartão **PGFN — dívida ativa** → cole as duas chaves → escolha a frequência
    (todo dia, toda segunda ou todo dia 1º) → marque **Rotina ligada** → **Salvar** → **↻ Consultar agora**.
 4. O resultado atualiza os campos PGFN (em cobrança) e PGFN negociada (parcelada) e aparece na ficha do cliente → aba **PGFN**.
+
+## Backup 17 — o que mudou e onde clicar
+- **Início:** o Resumo mostra só o que pede ação (sem Processos): Publicações novas, Parcelamentos e Acordos (em atraso, com
+  "vencem hoje" e "nos próximos 5 dias" embaixo, no mesmo cartão), CRM, Tarefas do escritório (em aberto + atrasadas, hoje e
+  próximos 5 dias no mesmo cartão) e Documentos que vencem em 15 dias. O Início também busca publicações pelo navegador 1× por dia.
+- **Painel Executivo → Empresas do grupo:** mesmo visual da tabela de Processos (letra normal, selo cinza do grupo), empresa e sócio em
+  negrito, Situação sem a bolinha.
+- **Processos:** legendas em duas linhas (em andamento / arquivados-extintos; com valor / sem valor informado).
+- **Acordos → Acordos em andamento:** lista nova (quem deve a quem, barra do que já foi pago, próxima parcela e situação); clique no
+  acordo para ver as parcelas em cartões com **✓ Lançar pagamento**.
+- **Financeiro → ✎ Editar em tabela:** a janela ocupa a largura toda da tela.
+- **CRM:** 8 quadros do mesmo tamanho (4 + 4) com a etapa nova **Follow-up da proposta**; Contrato assinado e Lead perdido saíram do
+  "Em andamento" (solte o cartão na faixa verde/cinza embaixo). Quadro vazio desenhado.
+- **E-mails:** a Central mostra a coluna **E-mail de destino** (endereço + de qual contato veio). A janela **✉ Enviar e-mail ao cliente**
+  e o editor de **✎ Modelos** mostram ao lado **como o cliente recebe** (o mesmo layout com a marca).
+- **Publicações:** partes em linhas (**Autor:** / **Réu:**). O "Testar conexão" explica quando a função não responde; a função nova
+  (erp-publicacoes) não trava mais quando o CNJ não responde. **Publicar a função erp-publicacoes de novo.**
+- **PGFN:** Alertas → Rotinas → PGFN — dados abertos aceita também o CSV exportado do site **Dívida Aberta** (mais atual).
+- **Contratos:** a ficha (clique no contrato) mostra tipo, área, vigência, **reajuste** (só consultoria em salários mínimos é reajustada),
+  próximo vencimento e atraso, e o card **📝 Aditivos** (**+ Novo aditivo**: valor — consultoria muda a mensalidade a partir de uma
+  competência; pontual lança o valor a mais em parcelas —, escopo, prazo ou outro).

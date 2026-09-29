@@ -59,9 +59,17 @@ TELAS.publicacoes = async function () {
   }).catch(() => {});
   await carregarPublicacoes();
 };
+// Partes em linhas: "Autor: …" e "Réu: …" (polo do Diário; as antigas sem polo continuam em "Partes:")
+function partesPub(p) {
+  const G = { 'Autor': [], 'Réu': [], 'Partes': [] };
+  if (Array.isArray(p.polos) && p.polos.some((d) => d && d.polo)) p.polos.forEach((d) => { if (d && d.nome) G[{ A: 'Autor', P: 'Réu' }[String(d.polo || '').toUpperCase()] || 'Partes'].push(d.nome); });
+  else String(p.destinatarios || '').split(/;\s*/).filter(Boolean).forEach((x) => { const m = /^(Autor|Réu):\s*(.*)$/.exec(x); if (m) G[m[1]].push(m[2]); else G.Partes.push(x); });
+  const l = Object.keys(G).filter((k) => G[k].length).map((k) => '<div><b>' + k + ':</b> ' + esc(G[k].join(' · ')) + '</div>');
+  return l.length ? '<div class="sub pub-partes">' + l.join('') + '</div>' : '';
+}
 async function carregarPublicacoes() {
   const F = E.pub;
-  E._pubs = await buscarTodos(() => { let c = sb.from('publicacoes').select('id, data_disponibilizacao, tribunal, orgao, tipo, processo, processo_numero, classe, texto, link, destinatarios, advogados, oab_numero, oab_uf, advogado, parte_monitorada, processo_id, status, tarefa_id')
+  E._pubs = await buscarTodos(() => { let c = sb.from('publicacoes').select('id, data_disponibilizacao, tribunal, orgao, tipo, processo, processo_numero, classe, texto, link, destinatarios, polos:bruto->destinatarios, advogados, oab_numero, oab_uf, advogado, parte_monitorada, processo_id, status, tarefa_id')
     .order('data_disponibilizacao', { ascending: false, nullsFirst: false }); if (F.dias) c = c.gte('data_disponibilizacao', somarDias(hojeISO(), -Number(F.dias))); return c; });
   const opts = (id, vals, rot) => { const s = $(id); if (!s) return; const v = s.value; s.innerHTML = '<option value="">' + rot + '</option>' + [...new Set(vals.filter(Boolean))].sort().map((x) => '<option>' + esc(x) + '</option>').join(''); s.value = v; };
   opts('pub-adv', E._pubs.map((p) => p.advogado), 'Todos os advogados'); opts('pub-trib', E._pubs.map((p) => p.tribunal), 'Todos os tribunais');
@@ -83,7 +91,7 @@ function pintarPublicacoes() {
       '<div class="sub">' + esc(p.orgao) + (p.classe ? ' · ' + esc(p.classe) : '') + '</div></div>' +
       '<div class="sub" style="text-align:right">' + (p.processo ? '<b class="mono">' + esc(p.processo) + '</b>' : '') + (p.processo_id ? ' <span class="pill pago" title="Processo cadastrado no ERP">no ERP</span>' : '') +
       '<div>' + (p.oab_numero ? esc(p.advogado ? p.advogado + ' · ' : '') + 'OAB ' + esc(p.oab_numero + '/' + p.oab_uf) : '🏢 cliente monitorado: ' + esc(p.parte_monitorada || '—')) + '</div></div></div>' +
-      (p.destinatarios ? '<div class="sub" style="margin:6px 0">Partes: ' + esc(p.destinatarios) + '</div>' : '') +
+      partesPub(p) +
       '<div class="pub-texto' + (p.texto.length > 500 ? ' curto' : '') + '">' + destacar(p.texto) + '</div>' + (p.texto.length > 500 ? '<button class="btn-link" data-ver>ver tudo</button>' : '') +
       '<div class="acoes" style="margin-top:10px">' + (p.tarefa_id || p.status === 'tratada' ? '' : '<button class="btn btn-p btn-mini" data-tarefa="' + p.id + '">+ Criar tarefa (' + prazoSugerido(p) + ' dias úteis)</button>') +
       (p.status === 'nova' ? '<button class="btn btn-o btn-mini" data-st="lida">Marcar lida</button>' : '') +
@@ -155,8 +163,19 @@ async function janelaOabs() {
     if (!confirm('Parar de monitorar este cliente?')) return; await q(sb.from('partes_monitoradas').delete().eq('id', b.dataset.ptX)); reabrir();
   }));
   j.querySelector('#pub-diag').onclick = (ev) => comBotao(ev.currentTarget, async () => {
-    const r = await chamarFuncao('erp-publicacoes', { acao: 'diagnostico' });
-    j.querySelector('#pub-diag-res').textContent = (r.ok ? '✅ ' : '❌ ') + r.dica + (r.status ? ' (código ' + r.status + ')' : '');
+    const res = j.querySelector('#pub-diag-res');
+    let r;
+    try { r = await chamarFuncao('erp-publicacoes', { acao: 'diagnostico' }); }
+    catch (e) {
+      // não respondeu: descobre se é a função (não publicada / versão antiga) ou o CNJ (demorou demais)
+      const ping = await chamarFuncao('erp-publicacoes', { acao: 'ping' }).catch((e2) => ({ erro: e2.message }));
+      res.innerHTML = '❌ ' + (ping.versao
+        ? 'A função está no ar (versão ' + esc(ping.versao) + '), mas o CNJ não respondeu ao servidor do Supabase a tempo. ' + (ping.versao < '2026-10-02' ? '<b>Publique a versão nova da função erp-publicacoes</b> (ela avisa em vez de travar). ' : '')
+        : esc(ping.erro || e.message) + ' ') +
+        'Enquanto isso, use <b>🌐 Buscar pelo navegador</b> — o ERP também faz essa busca sozinho 1 vez por dia quando você abre o Início.';
+      return;
+    }
+    res.textContent = (r.ok ? '✅ ' : '❌ ') + r.dica + (r.status ? ' (código ' + r.status + ')' : '');
   });
 }
 
@@ -177,14 +196,25 @@ function normalizarPub(it, oab, parte) {
     processo: String(pr(it, ['numeroprocessocommascara', 'numeroProcessoComMascara', 'numero_processo_com_mascara']) || cnj), processo_numero: numero,
     classe: String(pr(it, ['nomeClasse', 'nome_classe', 'classe'])),
     texto: texto.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 20000), link: String(pr(it, ['link', 'url'])),
-    destinatarios: Array.isArray(dest) ? dest.map((d) => (d && (d.nome || d.name)) || '').filter(Boolean).join('; ') : String(dest),
+    destinatarios: Array.isArray(dest) ? dest.map((d) => (d && (d.nome || d.name)) ? ({ A: 'Autor: ', P: 'Réu: ' }[String(d.polo || '').toUpperCase()] || '') + (d.nome || d.name) : '').filter(Boolean).join('; ') : String(dest),
     advogados: Array.isArray(advs) ? advs.map((a) => { const x = (a && (a.advogado || a)) || {}; return [x.nome, x.numero_oab ? 'OAB ' + x.numero_oab + '/' + (x.uf_oab || '') : ''].filter(Boolean).join(' '); }).filter(Boolean).join('; ') : String(advs),
     oab_numero: (oab && oab.numero) || '', oab_uf: (oab && oab.uf) || '', advogado: (oab && oab.advogado) || '', parte_monitorada: parte || ''
   };
 }
-async function buscarPubNoNavegador() {
+// Busca automática pelo navegador (Backup 17): o CNJ costuma recusar o servidor do Supabase, mas aceita o navegador do escritório.
+// Ao abrir o Início, se a última busca deste navegador tem mais de 20 horas, busca em segundo plano (só avisa se achar novas).
+async function buscaPubAutomatica() {
+  if (!pode('juridico')) return;
+  let ult = 0; try { ult = Number(localStorage.getItem('erp_pub_auto') || 0); } catch (e) { /* sem armazenamento: busca */ }
+  if (Date.now() - ult < 20 * 3600000) return;
+  try { localStorage.setItem('erp_pub_auto', String(Date.now())); } catch (e) { /* ok */ }
+  const n = await buscarPubNoNavegador({ silencioso: true }).catch(() => 0);
+  if (n) aviso('📰 ' + n + ' publicação(ões) nova(s) no Diário. Veja em Jurídico → Publicações.');
+}
+async function buscarPubNoNavegador(op) {
+  op = op || {};
   const [os, ps] = await Promise.all([q(sb.from('oabs_monitoradas').select('*').eq('ativo', true)), q(sb.from('partes_monitoradas').select('*').eq('ativo', true)).catch(() => [])]);
-  if (!os.length && !ps.length) throw new Error('Cadastre pelo menos uma OAB ou um cliente em "Monitoramento".');
+  if (!os.length && !ps.length) { if (op.silencioso) return 0; throw new Error('Cadastre pelo menos uma OAB ou um cliente em "Monitoramento".'); }
   const de = somarDias(hojeISO(), -Number(E.pub && E.pub.dias ? Math.min(Number(E.pub.dias), 30) : 7)), ate = hojeISO();
   const alvos = os.map((o) => ['numeroOab=' + encodeURIComponent(soDigitos(o.numero)) + '&ufOab=' + encodeURIComponent(o.uf), o, '']).concat(ps.map((p) => ['nomeParte=' + encodeURIComponent(p.nome), null, p.nome]));
   let lidas = 0, novas = 0; const erros = [];
@@ -199,5 +229,6 @@ async function buscarPubNoNavegador() {
       if (certos.length) { const ins = await q(sb.from('publicacoes').upsert(certos.map((it) => normalizarPub(it, oab, parte)), { onConflict: 'id_origem', ignoreDuplicates: true }).select('id')); novas += (ins || []).length; }
     } catch (e) { erros.push((oab ? 'OAB ' + oab.numero : parte) + ': ' + (/fetch|network|Failed/i.test(e.message) ? 'o navegador não conseguiu acessar o CNJ (bloqueio do site do CNJ)' : e.message)); }
   }
-  aviso('✓ Busca pelo navegador: ' + lidas + ' lida(s), ' + novas + ' nova(s).' + (erros.length ? ' Atenção: ' + erros[0] : ''), !!erros.length);
+  if (!op.silencioso) aviso('✓ Busca pelo navegador: ' + lidas + ' lida(s), ' + novas + ' nova(s).' + (erros.length ? ' Atenção: ' + erros[0] : ''), !!erros.length);
+  return novas;
 }

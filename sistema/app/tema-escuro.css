@@ -228,6 +228,7 @@ html[data-tema="escuro"] .gs .sm-col.sm-sem{background:var(--surface2)}
 html[data-tema="escuro"] .gs .sm-tit{color:var(--ink)}
 html[data-tema="escuro"] .gs .sm-card{background:var(--surface)}
 html[data-tema="escuro"] .gs .carga-bar{background:#222429}
+html[data-tema="escuro"] .gs .cr-solte-ganho{border-color:rgba(255,255,255,0.22)!important}
 html[data-tema="escuro"] #gs-hd .gs-marca-nome{color:#cdbb89}
 html[data-tema="escuro"] #gs-hd .tn-menu{background:var(--surface);border:1px solid rgba(255,255,255,0.066)}
 html[data-tema="escuro"] #gs-hd .tn-menu button{color:#d3d9e4}
@@ -263,7 +264,7 @@ html[data-tema="escuro"] #panel-acordos tr[data-gx^="acordos:"]:hover td{backgro
 html[data-tema="escuro"] #gs-hd{background:linear-gradient(115deg,rgba(255,255,255,0.22),rgba(255,255,255,0.22) 55%,rgba(255,255,255,0.22))!important}
 html[data-tema="escuro"] #gs-hd::after{background:linear-gradient(90deg,transparent,rgba(255,255,255,0.03) 30%,rgba(255,255,255,0.03) 70%,transparent)}
 html[data-tema="escuro"] #gs-hd .tn-lancar-bt{background-color:#766948}
-html[data-tema="escuro"] #tblExecRanking td.mono strong{color:var(--ink)!important}
+html[data-tema="escuro"] #tblExecRanking .er-grupo{color:#c1cbd7!important;background:rgba(255,255,255,0.055)!important;border:1px solid rgba(255,255,255,0.154)!important}
 html[data-tema="escuro"] body.gx-barra-topo .fin-tab.active{border-color:rgba(255,255,255,0.03)!important}
 html[data-tema="escuro"] body.gx-barra-topo .fin-tab.active[data-tab=analise]{border-color:rgba(255,255,255,0.03)!important}
 html[data-tema="escuro"] body.gx-barra-topo .fin-tab.active:is([data-tab=recebidos],html[data-tema="escuro"] [data-tab=receita]){border-color:rgba(255,255,255,0.22)!important}
@@ -273,9 +274,10 @@ html[data-tema="escuro"] body.gx-barra-topo .fin-tab.active[data-tab=caixa]{bord
 html[data-tema="escuro"] body.gx-barra-topo .fin-tab.active[data-tab=socios]{border-color:rgba(255,255,255,0.03)!important}
 html[data-tema="escuro"] body.gx-barra-topo .fin-tab-vencidos.active{border-color:rgba(255,255,255,0.03)!important}
 html[data-tema="escuro"] .ac-todos{background:var(--surface)}
-html[data-tema="escuro"] .ac-tab .ac-linha:hover td{background:rgba(255,255,255,0.044)}
-html[data-tema="escuro"] .ac-det>td{background:var(--surface2)!important}
-html[data-tema="escuro"] .ac-det-in table{background:var(--surface)}
+html[data-tema="escuro"] .acx-row:hover{background:rgba(255,255,255,0.039)}
+html[data-tema="escuro"] .acx-bar{background:rgba(255,255,255,0.088)}
+html[data-tema="escuro"] .acx-det{background:rgba(255,255,255,0.028)}
+html[data-tema="escuro"] .acx-parc-a{border-top-color:var(--blue,#3c5384)}
 html[data-tema="escuro"] #gx-editar{border:1px solid var(--ac-gold,#766948)}
 html[data-tema="escuro"] .gx-fundo{background:rgba(255,255,255,0.22)}
 html[data-tema="escuro"] .gx-janela{background:var(--surface);color:#dadee4}

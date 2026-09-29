@@ -450,7 +450,7 @@ async function edicaoLancamentos(empresa) {
         '<span class="sub" id="ml-qtd"></span></div><div id="ml-grade"></div>',
     rodape: '<span><button class="btn btn-o" type="button" id="ml-baixar">⬇ Baixar planilha</button> <label class="btn btn-o" style="cursor:pointer">⬆ Enviar planilha<input type="file" id="ml-arq" accept=".xlsx" hidden></label></span>' +
       '<div class="acoes"><span class="sub" id="ml-conta">Nenhuma alteração</span><button class="btn btn-p" type="button" id="ml-salvar">Salvar alterações</button></div>' });
-  j.querySelector('.janela').classList.add('janela-massa');
+  j.querySelector('.janela').classList.add('janela-massa', 'janela-cheia');
   let lista = [];
   const filtrar = () => { const b = normalizar(EST.busca);
     return todos.filter((l) => (EST.filtro === 'todos' || l.tipo === 'receita') && (EST.filtro !== 'sem_area' || !l.servico) &&
