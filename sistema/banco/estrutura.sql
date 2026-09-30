@@ -4663,3 +4663,7 @@ begin
 end $$;
 revoke all on function public.excluir_usuario(uuid) from public, anon;
 grant execute on function public.excluir_usuario(uuid) to authenticated;
+
+-- ═══ Backup 25: quem emite as guias de cada parcelamento ═══
+-- true (padrão) = o escritório emite (entra no aviso "guias a emitir" do Início); false = o próprio cliente emite.
+alter table public.parcelamentos add column if not exists emitimos_guia boolean not null default true;

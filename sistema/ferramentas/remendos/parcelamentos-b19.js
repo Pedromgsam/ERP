@@ -46,7 +46,7 @@ function _parcProxima(p){
 }
 // Backup 23: grupos RECOLHIDOS de início (clique no grupo abre os parcelamentos, em ordem alfabética da empresa); filtros por grupo,
 // pagamento, próxima parcela e situação; clicar no parcelamento abre o DETALHAMENTO numa janela própria (parcelas e "Lançar pagamento").
-var _parcF={grupo:'',pag:'',prox:'',sit:''};
+var _parcF={grupo:'',pag:'',prox:'',sit:'',guia:''};
 function _parcFiltro(k,v){ _parcF[k]=v; renderParcAnalise(); }
 function _parcPassa(x){
   var F=_parcF, h=new Date(); h.setHours(0,0,0,0);
@@ -54,7 +54,8 @@ function _parcPassa(x){
   if(F.pag){ var pc=x.pc; if(F.pag==='ate25'&&pc>25) return false; if(F.pag==='meio'&&(pc<=25||pc>75)) return false; if(F.pag==='mais75'&&pc<=75) return false; }
   if(F.prox){ var d=x.prox?pDate(x.prox.vencimento):null, n=d?Math.round((d-h)/864e5):null;
     if(F.prox==='7'&&!(n!==null&&n<=7)) return false; if(F.prox==='30'&&!(n!==null&&n<=30)) return false; if(F.prox==='sem'&&x.prox) return false; }
-  if(F.sit==='atraso'&&!x.atr) return false; if(F.sit==='risco'&&x.atr<3) return false; if(F.sit==='dia'&&x.atr) return false;
+  if(F.sit==='atraso'&&!x.atr) return false; if(F.sit==='risco'&&x.atr<2) return false; if(F.sit==='dia'&&x.atr) return false;   // Backup 25: risco = 2+ em atraso no MESMO parcelamento
+  if(F.guia==='nos'&&x.p.emitimosGuia===false) return false; if(F.guia==='cliente'&&x.p.emitimosGuia!==false) return false;
   return true;
 }
 function _parcAbrirGrupo(g){ _parcGrpAbertos[g]=!_parcGrpAbertos[g]; renderParcAnalise(); }
@@ -63,52 +64,27 @@ function renderParcAnalise(){
   var lista=filtrarParc();
   var cx='<label class="ac-todos"><input type="checkbox" id="parcMostrarTodos"'+(_parcTodos?' checked':'')+' onchange="_parcMostrarTodos(this.checked)"> Mostrar concluídos</label>';
   var vis='<div class="segmento gx-seg-cli" id="parcVisao">'+[['grupo','Por grupo'],['lista','Lista']].map(function(o){ return '<button type="button" data-v="'+o[0]+'" class="'+(_parcVisao===o[0]?'ativo':'')+'" onclick="_parcVisao=\''+o[0]+'\';renderParcAnalise()">'+o[1]+'</button>'; }).join('')+'</div>';
-  if(!lista.length){ el.innerHTML=exBloco('exParcSit','Situação dos parcelamentos','<div class="gx-tab-topo"><div class="pa-sub">Parcelamentos em andamento</div>'+cx+'</div><div class="pa-ok">'+(_parcTodos?'Nenhum parcelamento neste recorte (grupo / empresa escolhidos).':'Nenhum parcelamento em andamento neste recorte. Marque "Mostrar concluídos" para ver todos.')+'</div>'); return; }
+  if(!lista.length){ el.innerHTML=exBloco('exParcSit','Situação dos parcelamentos','<div class="gx-tab-topo"><div class="pa-sub">Parcelamentos em andamento</div><div class="pcx-ctl">'+vis+cx+'</div></div><div class="pa-ok">'+(_parcTodos?'Nenhum parcelamento neste recorte (grupo / empresa escolhidos).':'Nenhum parcelamento em andamento neste recorte. Marque "Mostrar concluídos" para ver todos.')+'</div>'); return; }
   var TODOS=lista.map(function(p){ var n=_parcNumeros(p), tot=Number(p.totalParcelas)||(p.parcelas||[]).length, pg=Number(p.parcelasPagas)||0;
     return {p:p, g:_parcGrupoDe(p), n:n, atr:_parcAtraso(p), prox:_parcProxima(p), k:_parcChave(p), tot:tot, pg:pg, pc:tot>0?Math.round(pg/tot*100):0}; });
   _parcTODOS=TODOS;
   var L=TODOS.filter(_parcPassa);
   var totPago=0, totFalta=0, totMes=0; TODOS.forEach(function(x){ totPago+=x.n.pago; totFalta+=x.n.falta; totMes+=x.n.mes; });
   var comAtr=TODOS.filter(function(x){ return x.atr>0; }), vAtr=comAtr.reduce(function(s,x){ return s+x.atr*(Number(x.p.valorUltimaParcela)||0); },0);
-  var alfa=function(a,b){ return String(a.p.empresa).localeCompare(String(b.p.empresa),'pt-BR') || String(a.p.numero).localeCompare(String(b.p.numero)); };
-  var ordem=function(a,b){ return b.atr-a.atr || b.n.falta-a.n.falta || alfa(a,b); };
-  var esq=function(t){ return String(t).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;'); };
-  var sitHtml=function(atr,conc){ return atr?'<span class="acx-st acx-st-r">'+atr+' em atraso</span>'+(atr>=3?'<div class="acx-sub pcx-risco">risco de rescisão</div>':'')
-      :(conc?'<span class="acx-st acx-st-x">Concluído</span>':'<span class="acx-st acx-st-g">Em dia</span>'); };
-  var linha=function(x,sub){ var p=x.p;
-    return '<div class="acx-item pcx-item'+(sub?' pcx-sub':'')+(x.atr?' acx-atr':'')+'">'
-      +'<div class="acx-row" role="button" tabindex="0" onclick="_parcAbrir(\''+esq(x.k)+'\')" onkeydown="if(event.key===\'Enter\')_parcAbrir(\''+esq(x.k)+'\')" title="Clique para abrir o detalhamento deste parcelamento">'
-      +'<div class="acx-quem"><div class="acx-dev pcx-dev">'+esc(p.empresa||'—')+'</div>'
-      +'<div class="acx-sub">'+[p.local||p.orgao||'',p.natureza||'',p.numero?'Nº '+p.numero:''].filter(Boolean).map(esc).join(' · ')+(x.g&&_parcVisao==='lista'?' · '+esc(x.g):'')+'</div></div>'
-      +'<div class="acx-prog"><div class="acx-prog-hd"><span><b>'+x.pg+' de '+(x.tot||'?')+'</b> parcelas pagas</span><span>'+x.pc+'%</span></div>'
-      +'<div class="acx-bar"><div style="width:'+x.pc+'%"></div></div>'
-      +'<div class="acx-sub">Quitado <b>'+_faFT(x.n.pago)+'</b> · falta <b>'+_faFT(x.n.falta)+'</b></div></div>'
-      +'<div class="acx-prox">'+(x.prox?'<div class="acx-val">'+_faFT(Number(p.valorUltimaParcela)||0)+'</div><div class="acx-sub">vence '+esc(x.prox.vencimento||'—')+'</div>':'<div class="acx-val">—</div><div class="acx-sub">'+(x.atr?'só vencidas':'sem próxima')+'</div>')+'</div>'
-      +'<div class="acx-sit">'+sitHtml(x.atr,_parcConcluido(p))+'</div><div class="acx-cv pcx-abre" aria-hidden="true">›</div></div></div>'; };
-  var corpo;
-  if(!L.length) corpo='<div class="pa-ok">Nenhum parcelamento com esses filtros.</div>';
-  else if(_parcVisao==='grupo'){
-    var G={}; L.forEach(function(x){ (G[x.g]=G[x.g]||[]).push(x); });
-    var gs=Object.keys(G).sort(function(a,b){ var aa=G[a].reduce(function(s,x){return s+x.atr;},0), bb=G[b].reduce(function(s,x){return s+x.atr;},0); return (bb>0)-(aa>0) || a.localeCompare(b,'pt-BR'); });
-    corpo=gs.map(function(g){ var l=G[g].slice().sort(alfa), ab=!!_parcGrpAbertos[g] || !!_parcF.grupo;
-      var atr=l.reduce(function(s,x){return s+x.atr;},0), tot=l.reduce(function(s,x){return s+x.tot;},0), pg=l.reduce(function(s,x){return s+x.pg;},0), pc=tot>0?Math.round(pg/tot*100):0;
-      var pago=l.reduce(function(s,x){return s+x.n.pago;},0), falta=l.reduce(function(s,x){return s+x.n.falta;},0);
-      var prox=l.filter(function(x){return x.prox;}).sort(function(a,b){return pDate(a.prox.vencimento)-pDate(b.prox.vencimento);})[0];
-      return '<div class="acx-item pcx-grupo'+(atr?' acx-atr':'')+(ab?' pcx-grupo-aberto':'')+'">'
-        +'<div class="acx-row" role="button" tabindex="0" aria-expanded="'+ab+'" onclick="_parcAbrirGrupo(\''+esq(g)+'\')" onkeydown="if(event.key===\'Enter\')_parcAbrirGrupo(\''+esq(g)+'\')" title="Clique para '+(ab?'recolher':'ver os parcelamentos do grupo')+'">'
-        +'<div class="acx-quem"><div class="acx-dev pcx-dev"><span class="pcx-seta" aria-hidden="true">'+(ab?'▾':'▸')+'</span> '+esc(g)+'</div><div class="acx-sub">'+l.length+' parcelamento'+(l.length>1?'s':'')+'</div></div>'
-        +'<div class="acx-prog"><div class="acx-prog-hd"><span><b>'+pg+' de '+(tot||'?')+'</b> parcelas pagas</span><span>'+pc+'%</span></div><div class="acx-bar"><div style="width:'+pc+'%"></div></div>'
-        +'<div class="acx-sub">Quitado <b>'+_faFT(pago)+'</b> · falta <b>'+_faFT(falta)+'</b></div></div>'
-        +'<div class="acx-prox">'+(prox?'<div class="acx-val">'+_faFT(Number(prox.p.valorUltimaParcela)||0)+'</div><div class="acx-sub">vence '+esc(prox.prox.vencimento||'—')+'</div>':'<div class="acx-val">—</div>')+'</div>'
-        +'<div class="acx-sit">'+sitHtml(atr,false)+'</div><div class="acx-cv" aria-hidden="true"></div></div>'
-        +(ab?'<div class="pcx-filhos">'+l.map(function(x){ return linha(x,true); }).join('')+'</div>':'')+'</div>'; }).join('');
-  } else corpo=L.slice().sort(ordem).map(function(x){ return linha(x,false); }).join('');
+  // Backup 25: a lista por grupo é a mesma de Acordos (_lgRender, remendos/lista-grupos-b25.js)
+  var itens=L.map(function(x){ var p=x.p, v=Number(p.valorUltimaParcela)||0;
+    return {k:x.k, grupo:x.g, titulo:p.empresa||'—', pagas:x.pg, total:x.tot, pago:x.n.pago, falta:x.n.falta, atr:x.atr, concluido:_parcConcluido(p),
+      sub:[p.local||p.orgao||'',p.natureza||'',p.numero?'nº '+p.numero:''].filter(Boolean).map(esc).join(' · ')+(_parcVisao==='lista'?' · '+esc(x.g):'')
+        +(p.emitimosGuia===false?' <span class="lg-tag" title="As guias deste parcelamento são emitidas pelo cliente">guia: cliente</span>':''),
+      abertas:(p.parcelas||[]).filter(function(pa){ return String(pa.pagamento||'').toUpperCase()!=='SIM'; }).map(function(pa){ return {d:pDate(pa.vencimento), v:Number(pa.valor)||v}; })}; });
+  var corpo=_lgRender({itens:itens, porGrupo:_parcVisao==='grupo'&&!_parcF.grupo, abertos:_parcGrpAbertos, fnGrupo:'_parcAbrirGrupo', fnItem:'_parcAbrir', rotulo:'parcelamento', cab:_parcVisao==='grupo'?'Grupo / parcelamento':'Parcelamento'});
   var grupos=[...new Set(TODOS.map(function(x){return x.g;}))].sort(function(a,b){return a.localeCompare(b,'pt-BR');});
   var sel=function(id,k,ops){ return '<select class="fsel" id="'+id+'" aria-label="'+ops[0][1]+'" onchange="_parcFiltro(\''+k+'\',this.value)">'+ops.map(function(o){ return '<option value="'+esc(o[0])+'"'+(_parcF[k]===o[0]?' selected':'')+'>'+esc(o[1])+'</option>'; }).join('')+'</select>'; };
   var filtros='<div class="pcx-filtros">'
     +sel('parcFGrupo','grupo',[['','Todos os grupos']].concat(grupos.map(function(g){return [g,g];})))
     +sel('parcFPag','pag',[['','Pagamento: todos'],['ate25','Até 25% pago'],['meio','De 25% a 75% pago'],['mais75','Mais de 75% pago']])
     +sel('parcFProx','prox',[['','Próxima parcela: todas'],['7','Vence em até 7 dias'],['30','Vence em até 30 dias'],['sem','Sem próxima parcela']])
+    +sel('parcFGuia','guia',[['','Guias: todas'],['nos','Guias: nós emitimos'],['cliente','Guias: o cliente emite']])
     +'<div class="segmento gx-seg-cli" id="parcFSit">'+[['','Todas'],['atraso','Em atraso'],['risco','Risco de rescisão'],['dia','Em dia']].map(function(o){ return '<button type="button" class="'+(_parcF.sit===o[0]?'ativo':'')+'" onclick="_parcFiltro(\'sit\',\''+o[0]+'\')">'+o[1]+'</button>'; }).join('')+'</div>'
     +'<span class="sub">'+L.length+' de '+TODOS.length+'</span></div>';
   el.innerHTML=exBloco('exParcSit','Situação dos parcelamentos',
@@ -118,9 +94,9 @@ function renderParcAnalise(){
    +  kC('Sai por mês',_faFT(totMes),lista.length+' parcelamento'+(lista.length>1?'s':'')+(_parcTodos?'':' em andamento'),'cb','')
    +  kC('Em atraso',_faFT(vAtr),comAtr.length+' parcelamento'+(comAtr.length===1?'':'s')+' com parcela vencida','cr',comAtr.length?'dr':'')
    +'</div>'
-   +'<div class="gx-tab-topo"><div class="pa-sub">Parcelamentos em andamento <span class="pa-nota">'+(_parcVisao==='grupo'?'clique no grupo para ver os parcelamentos · ':'')+'clique no parcelamento para abrir o detalhamento</span></div><div class="pcx-ctl">'+vis+cx+'</div></div>'
+   +'<div class="gx-tab-topo"><div class="pa-sub">Parcelamentos em andamento</div><div class="pcx-ctl">'+vis+cx+'</div></div>'
    +filtros
-   +'<div class="acx pcx"><div class="acx-hd"><span>'+(_parcVisao==='grupo'?'Grupo / parcelamento':'Parcelamento')+'</span><span>Pagamento</span><span>Próxima parcela</span><span>Situação</span><span></span></div>'+corpo+'</div>');
+   +corpo);
 }
 var _parcTODOS=[];
 // Detalhamento do parcelamento numa janela própria ("subpágina"): resumo, dados e as parcelas com "Lançar pagamento"
@@ -131,11 +107,19 @@ function _parcAbrir(k){
   var j=GS.abrirJanela({ titulo:'Parcelamento'+(p.numero?' nº '+p.numero:'')+' — '+(p.empresa||''), larga:true,
     corpo:'<div class="pcd">'
       +'<div class="pcd-hd"><div><div class="pcd-emp">'+esc(p.empresa||'—')+'</div><div class="sub">'+[x.g,p.local||p.orgao||'',p.natureza||'',p.cnpj||''].filter(Boolean).map(esc).join(' · ')+'</div></div>'
-      +'<div>'+(x.atr?'<span class="acx-st acx-st-r">'+x.atr+' em atraso</span>'+(x.atr>=3?' <span class="acx-st acx-st-r">risco de rescisão</span>':''):'<span class="acx-st acx-st-g">Em dia</span>')+'</div></div>'
+      +'<div>'+_lgSit(x.atr,x.atr>=2,false)+'</div></div>'
+      // Backup 25: quem emite as guias deste parcelamento (só os "nós emitimos" entram no aviso de guias do Início)
+      +'<div class="pcd-guia"><span>Guias deste parcelamento:</span><div class="segmento gx-seg-cli"><button type="button" class="'+(p.emitimosGuia!==false?'ativo':'')+'" data-guia-v="1">Nós emitimos</button>'
+      +'<button type="button" class="'+(p.emitimosGuia===false?'ativo':'')+'" data-guia-v="0">O cliente emite</button></div>'
+      +'<span class="sub">'+(p.emitimosGuia===false?'não aparece no aviso "guias a emitir" do Início':'aparece no aviso "guias a emitir" do Início')+'</span></div>'
       +'<div class="pcd-kpis">'+kp('Parcelas pagas',x.pg+' de '+(x.tot||'?')+' ('+x.pc+'%)')+kp('Já quitado',_faFT(x.n.pago),'verde')+kp('Falta pagar',_faFT(x.n.falta))
         +kp('Próxima parcela',x.prox?esc(x.prox.vencimento||'—'):'—')+(x.atr?kp('Em atraso',x.atr+' parcela'+(x.atr>1?'s':''),'vermelho'):'')+'</div>'
       +'<div class="pcd-tit">Parcelas</div>'+_parcDetalhe(p)+'</div>' });
   j.querySelectorAll('.ac-bt-pagar').forEach(function(b){ var f=b.onclick; b.onclick=function(ev){ GS.fecharJanela(j); if(f) f.call(b,ev); }; });
+  j.querySelectorAll('[data-guia-v]').forEach(function(b){ b.onclick=function(){ var v=b.dataset.guiaV==='1'; b.disabled=true;
+    window.SB.from('parcelamentos').update({emitimos_guia:v}).eq('id',p._id).then(function(r){
+      if(r.error){ alert('Não foi possível salvar: '+(r.error.message||'')); b.disabled=false; return; }
+      p.emitimosGuia=v; GS.fecharJanela(j); renderParcAnalise(); _parcAbrir(k); }); }; });
 }
 // detalhe do parcelamento (clicar no item de "Progresso por parcelamento"): parcelas em cartões, como em Acordos
 function _parcDetalhe(p){

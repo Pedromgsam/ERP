@@ -92,6 +92,7 @@ window.ERP_COLS_CLIENTE = 'id,grupo_id,nome,cpf_cnpj,tipo,responsavel,email,tele
     return {
       _id: pa.id, _t: 'parcelamentos', aba: pa.aba || '', empresa: pa.empresa, cnpj: doc(pa.cnpj), local: pa.local || '',
       natureza: pa.natureza || '', numero: pa.numero || '', totalParcelas: pa.total_parcelas || 0, parcelasPagas: pagas,
+      emitimosGuia: pa.emitimos_guia !== false,   // Backup 25: o escritório emite as guias deste parcelamento?
       valorUltimaParcela: num(pa.valor_ultima_parcela), residual: num(pa.valor_residual),
       pagasReais: pagas, totalReais: ord.length, proximoVencimento: br(prox), vencidas, janela: true,
       parcelas: ord.filter((x) => !x.vencimento || (x.vencimento >= iIso && x.vencimento <= fIso))

@@ -83,7 +83,13 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
-- Última entrega: **Backup 24** (sem SQL). Início: o destaque `guias` voltou para a faixa de `cardMural` (lista `.ini-guias` com `data-guia-ok`),
+- Última entrega: **Backup 25**. SQL: `parcelamentos.emitimos_guia` (padrão true; false = o cliente emite; o aviso de guias do Início só
+  conta os true). **Lista por grupo única** para Parcelamentos e Acordos: `remendos/lista-grupos-b25.js` (`_lgRender`, `_lgProx` = soma das
+  parcelas do mês da próxima, `_lgSit` = "N em atraso" + risco quando o item tem ≥2), injetado antes do remendo de acordos. Parcelamentos:
+  itens montados em `renderParcAnalise`, filtro `_parcF.guia`, janela `_parcAbrir` com "Guias deste parcelamento" (`window.SB` update).
+  Acordos: `_acVisao`, `_acGrpAbertos`, `_acAbrir(k)` (janela `.pcd`), atraso inclui o dia. CSS `.lg-*` no fim do design.css; `#alertParc`,
+  `#alertAcordos` e `.pa-nota` escondidos; Início com 5 tamanhos (teste em padrao.js).
+- Backup 24 (sem SQL). Início: o destaque `guias` voltou para a faixa de `cardMural` (lista `.ini-guias` com `data-guia-ok`),
   o cartão de Lembretes ficou só com lembretes. Painel: `.res-graficos` (cResGrupos/cResDonut) escondido (ids mantidos para o JS do ERP).
   Próximo passo: chat "ERP Automação" com o prompt `sistema/PROMPT-AUTOMACAO.md` (cadastro robusto com contatos por setor, fluxo
   Lead→Reunião→Contrato→Assinatura→Financeiro→E-mails, delegar e validar, simplificar).
