@@ -64,7 +64,7 @@ function renderParcAnalise(){
   var lista=filtrarParc();
   var cx='<label class="ac-todos"><input type="checkbox" id="parcMostrarTodos"'+(_parcTodos?' checked':'')+' onchange="_parcMostrarTodos(this.checked)"> Mostrar concluídos</label>';
   var vis='<div class="segmento gx-seg-cli" id="parcVisao">'+[['grupo','Por grupo'],['lista','Lista']].map(function(o){ return '<button type="button" data-v="'+o[0]+'" class="'+(_parcVisao===o[0]?'ativo':'')+'" onclick="_parcVisao=\''+o[0]+'\';renderParcAnalise()">'+o[1]+'</button>'; }).join('')+'</div>';
-  if(!lista.length){ el.innerHTML=exBloco('exParcSit','Situação dos parcelamentos','<div class="gx-tab-topo"><div class="pa-sub">Parcelamentos em andamento</div>'+cx+'</div><div class="pa-ok">'+(_parcTodos?'Nenhum parcelamento neste recorte (grupo / empresa escolhidos).':'Nenhum parcelamento em andamento neste recorte. Marque "Mostrar concluídos" para ver todos.')+'</div>'); return; }
+  if(!lista.length){ el.innerHTML=exBloco('exParcSit','Situação dos parcelamentos','<div class="gx-tab-topo"><div class="pa-sub">Parcelamentos em andamento</div><div class="pcx-ctl">'+vis+cx+'</div></div><div class="pa-ok">'+(_parcTodos?'Nenhum parcelamento neste recorte (grupo / empresa escolhidos).':'Nenhum parcelamento em andamento neste recorte. Marque "Mostrar concluídos" para ver todos.')+'</div>'); return; }
   var TODOS=lista.map(function(p){ var n=_parcNumeros(p), tot=Number(p.totalParcelas)||(p.parcelas||[]).length, pg=Number(p.parcelasPagas)||0;
     return {p:p, g:_parcGrupoDe(p), n:n, atr:_parcAtraso(p), prox:_parcProxima(p), k:_parcChave(p), tot:tot, pg:pg, pc:tot>0?Math.round(pg/tot*100):0}; });
   _parcTODOS=TODOS;

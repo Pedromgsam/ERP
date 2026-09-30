@@ -12,7 +12,7 @@ function _acToggle(k){ _acAbertos[k]=!_acAbertos[k]; renderAcordos(); }
 function _acPagar(id,bt){ if(bt) bt.disabled=true; if(window.ERP_EDITOR&&window.ERP_EDITOR.baixaRapida) window.ERP_EDITOR.baixaRapida('acordos',id); }
 function _acDetalhe(id){ if(window.GS&&window.GS.detalheAcordo) Promise.resolve(window.GS.carregarCadastros()).then(function(){ window.GS.detalheAcordo(id); }); }
 function _acordosAnalise(ac){
-  var el=$('acAnalise'); if(!el) return; if(!ac.length){ el.innerHTML=exBloco('exAcSit','Situação dos acordos','<div class="gx-tab-topo"><div class="pa-sub">Acordos em andamento</div>'+_acCaixaTodos()+'</div><div class="pa-ok">Nenhum acordo pendente. Marque "Mostrar concluídos" para ver todos.</div>'); return; }
+  var el=$('acAnalise'); if(!el) return; if(!ac.length){ el.innerHTML=exBloco('exAcSit','Situação dos acordos','<div class="gx-tab-topo"><div class="pa-sub">Acordos em andamento</div><div class="pcx-ctl">'+_acVisSeg()+_acCaixaTodos()+'</div></div><div class="pa-ok">Nenhum acordo pendente. Marque "Mostrar concluídos" para ver todos.</div>'); return; }
   var hj=new Date(); hj.setHours(0,0,0,0); var fimMes=new Date(hj.getFullYear(),hj.getMonth()+1,0);
   var v=function(a){return Number(a.valor)||0;}, pago=function(a){return a.situacao==='Pago';};
   var atrasada=function(a){ if(pago(a)) return false; var d=pDate(a.vencimento); return a.situacao==='Vencido'||(d&&d<=hj); };   // Backup 25: o dia do vencimento já conta
@@ -30,7 +30,7 @@ function _acordosAnalise(ac){
   var itens=lista.map(function(g){ return {k:g.k, grupo:g.a.grupo||'Sem grupo', titulo:g.a.devedor||'—', pagas:g.pagas, total:g.l.length, pago:g.pago, falta:g.falta, atr:g.atr, concluido:g.falta<=0,
     sub:'deve a <b>'+esc(g.a.credor||'—')+'</b>'+(g.a.processo?' · '+esc(g.a.processo):'')+(_acVisao==='lista'&&g.a.grupo?' · '+esc(g.a.grupo):''),
     abertas:g.l.filter(function(a){ return !pago(a); }).map(function(a){ return {d:pDate(a.vencimento), v:v(a)}; })}; });
-  var vis='<div class="segmento gx-seg-cli" id="acVisao">'+[['grupo','Por grupo'],['lista','Lista']].map(function(o){ return '<button type="button" data-v="'+o[0]+'" class="'+(_acVisao===o[0]?'ativo':'')+'" onclick="_acVisao=\''+o[0]+'\';renderAcordos()">'+o[1]+'</button>'; }).join('')+'</div>';
+  var vis=_acVisSeg();
   var linhas=_lgRender({itens:itens, porGrupo:_acVisao==='grupo', abertos:_acGrpAbertos, fnGrupo:'_acAbrirGrupo', fnItem:'_acAbrir', rotulo:'acordo', cab:_acVisao==='grupo'?'Grupo / acordo':'Acordo'});
   el.innerHTML=exBloco('exAcSit','Situação dos acordos',
     '<div class="kpi-grid" style="margin-bottom:14px">'
@@ -43,6 +43,7 @@ function _acordosAnalise(ac){
    + linhas);
 }
 var _acVisao='grupo', _acGrpAbertos={}, _acLISTA=[], _acFns=null;
+function _acVisSeg(){ return '<div class="segmento gx-seg-cli" id="acVisao">'+[['grupo','Por grupo'],['lista','Lista']].map(function(o){ return '<button type="button" data-v="'+o[0]+'" class="'+(_acVisao===o[0]?'ativo':'')+'" onclick="_acVisao=\''+o[0]+'\';renderAcordos()">'+o[1]+'</button>'; }).join('')+'</div>'; }
 function _acAbrirGrupo(g){ _acGrpAbertos[g]=!_acGrpAbertos[g]; renderAcordos(); }
 // Detalhamento do acordo numa janela: resumo e as parcelas com "Lançar pagamento"
 function _acAbrir(k){
