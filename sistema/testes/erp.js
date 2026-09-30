@@ -103,7 +103,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('clicar em Financeiro › Jurídico abre os Honorários', await p.isVisible('#panel-financeiro'));
     ok('barra sem o texto "Araujo & Castro"', !/Araujo/.test(await p.textContent('#gs-hd')));
     await p.click('.gs-bt-mais'); await p.waitForTimeout(200);
-    ok('⋯ sem o link do Gestão antigo e com a Central de e-mails e Meu nome', !(await p.$('#gs-hd [data-acao=gestao]')) && await p.isVisible('#gs-hd [data-acao=cobrancas]') && await p.isVisible('#gs-hd [data-acao=meunome]'));
+    ok('⋯ sem o link do Gestão antigo e sem a Central de e-mails (fica no menu E-mails); com Meu nome', !(await p.$('#gs-hd [data-acao=gestao]')) && !(await p.$('#gs-hd [data-acao=cobrancas]')) && await p.isVisible('#gs-hd [data-acao=meunome]'));
     await p.mouse.click(700, 600); await p.waitForTimeout(150);
     const g2 = await p.request.get(BASE + '/gestao.html');
     ok('gestao.html saiu do site', g2.status() === 404);
@@ -188,6 +188,13 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.fill('#f-lanc [name=grupo]', 'Grupo Beta'); await p.fill('#f-lanc [name=categoria]', 'Êxito');
     await salvarGs(p, '#btn-salvar-lanc');
     ok('nova receita gravada', sql("select count(*) from lancamentos where categoria='Êxito' and valor=2500") === '1');
+    // Backup 29: despesa "Distribuição de lucros" pede só o sócio
+    await p.evaluate(() => GS.formLancamento({ tipo: 'despesa', empresa: 'contabilidade' }, () => {})); await p.waitForSelector('#f-lanc [name=categoria]');
+    await p.selectOption('#f-lanc [name=categoria]', 'Distribuição de lucros'); await p.waitForTimeout(200);
+    ok('Distribuição de lucros: some grupo/cliente/fornecedor e aparece "Sócio que recebeu"', !(await p.isVisible('#f-lanc [name=grupo]')) && !(await p.isVisible('#f-lanc [name=favorecido]')) && await p.isVisible('#f-lanc [name=socio]'));
+    await p.selectOption('#f-lanc [name=socio]', 'Pedro'); await p.fill('#f-lanc [name=valor]', '5.000,00');
+    await p.click('#btn-salvar-lanc'); await p.waitForTimeout(1500);
+    ok('Distribuição de lucros gravada com o sócio', sql("select favorecido||'|'||empresa||'|'||tipo from lancamentos where categoria='Distribuição de lucros' and valor=5000") === 'Pedro|contabilidade|despesa');
     await lancar(p, 2);
     ok('comissão abre já marcada como redutor', await p.isChecked('#f-lanc [name=redutor]'));
     await p.fill('#f-lanc [name=descricao]', 'Comissão parceiro'); await p.fill('#f-lanc [name=valor]', '300');
@@ -775,11 +782,8 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('botões só com ícone têm nome para leitor de tela', await p.evaluate(() => ['#gs-tema', '#gs-sino', '.gs-bt-mais'].every((q) => (document.querySelector(q) || {}).getAttribute && document.querySelector(q).getAttribute('aria-label'))));
     sql("insert into tarefas(titulo,responsavel,prazo) select 'Tarefa em massa '||g,'Pedro',current_date+30+g from generate_series(1,130) g");
     await nav(p, 'tarefas'); await p.waitForTimeout(1800);
-    { const rod = await p.textContent('#panel-tarefas .pag-rodape').catch(() => '');
-      ok('tabela longa mostra 100 linhas por vez', /Mostrando 100 de 1[3-9]\d/.test(rod) && await p.evaluate(() => [...document.querySelectorAll('#panel-tarefas tbody tr')].filter((r) => r.offsetParent).length === 100), rod); }
-    await p.click('#panel-tarefas .pag-rodape [data-pag=todas]'); await p.waitForTimeout(400);
-    ok('"Mostrar todas" exibe o restante', await p.evaluate(() => !document.querySelector('#panel-tarefas .pag-oculta')));
-    ok('tabela longa: cabeçalho fixo dentro do quadro', await p.evaluate(() => { const w = document.querySelector('#panel-tarefas .tabela-wrap.tabela-longa'); return !!w && getComputedStyle(w.querySelector('thead th')).position === 'sticky'; }));
+    ok('tabela longa mostra todas as linhas (sem "Mostrar mais")', !(await p.$('#panel-tarefas .pag-rodape')) && await p.evaluate(() => !document.querySelector('#panel-tarefas .pag-oculta') && [...document.querySelectorAll('#panel-tarefas tbody tr')].filter((r) => r.offsetParent).length > 100));
+    ok('tabela longa: cabeçalho fixo dentro do quadro', await p.evaluate(() => { const w = document.querySelector('#panel-tarefas .tabela-wrap'); return !!w && getComputedStyle(w.querySelector('thead th')).position === 'sticky'; }));
     sql("delete from tarefas where titulo like 'Tarefa em massa %'");
     await p.fill('#panel-tarefas #tf-busca', 'nada-com-este-nome-xyz').catch(() => {}); await p.waitForTimeout(700);
     { const v = await p.$('#panel-tarefas .vazio [data-vazio-clica]');
@@ -943,7 +947,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await nav(p, 'resumo'); await p.waitForTimeout(1500);
     ok('Painel: valores inteiros (sem "mil"/"mi")', /R\$\s?[\d.]+,\d{2}/.test(await p.textContent('#execKpis')) && !/\d(k|M)\b/.test(await p.textContent('#kpiSecProc')));
     await nav(p, 'parcelamentos'); await p.waitForTimeout(1200);
-    ok('Parcelamentos: botão "Notificar clientes" (versão do Backup 13)', /Notificar clientes/.test(await p.textContent('#panel-parcelamentos')));
+    ok('Parcelamentos: sem o botão "Notificar clientes" (o envio é pelo quadro de guias)', !/Notificar clientes/.test(await p.textContent('#panel-parcelamentos')));
     await nav(p, 'processos'); await p.waitForTimeout(1200);
     ok('Processos: volta a abrir a tela do Backup 13 (sem a tela nova)', /#processos$/.test(p.url()) && await p.isVisible('#panel-processos') && !!(await p.$('#tblProcBody')) && !(await p.$('#panel-processosNovo')));
     // conciliação OFX
@@ -1184,7 +1188,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     { // Central de e-mails: quem recebe o quê, por cliente (destino, responsável, contatos por tipo)
       await nav(p, 'emails'); await p.waitForSelector('#em-area'); await p.waitForTimeout(600);
       await p.click('#em-area [data-area=clientes]'); await p.waitForSelector('.emc-tab'); await p.waitForTimeout(400);
-      ok('Central: controle por cliente mostra destino de cada tipo de e-mail', /Cobranças/.test(await p.textContent('.emc-tab thead')) && /Guias/.test(await p.textContent('.emc-tab thead')) &&
+      ok('Central: controle por cliente mostra destino de cada tipo de e-mail', /Honorários/.test(await p.textContent('.emc-tab thead')) && /Parcelamentos/.test(await p.textContent('.emc-tab thead')) && /Reuniões/.test(await p.textContent('.emc-tab thead')) &&
         /financeiro@alfa\.teste|fin@teste\.com/.test(await p.textContent('.emc-tab')));
       const idA = sql("select id from clientes where nome='Alfa Comércio Ltda'");
       await p.click('.emc-tab tr[data-emc="' + idA + '"] td:nth-child(2)'); await p.waitForSelector('#gs-raiz .emc-det'); await p.waitForTimeout(500);
@@ -1220,8 +1224,30 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.uncheck('#gs-raiz #gd-enviar'); await p.click('#gs-raiz #gd-ok'); await p.waitForTimeout(2000);
     ok('Guias: "Marcar como emitida" grava a data e quem emitiu', sql("select (emitida_em = current_date)::text || '|' || (emitida_por <> '')::text || '|' || emissao from parcelas where numero='77'") === 'true|true|SIM');
     await p.click('#parcGuias [data-gd-aba=emitidas]'); await p.waitForTimeout(1200);
-    ok('Guias: a parcela passa para "Emitidas — aguardando pagamento"', /Parcela 77/.test(await p.textContent('#parcGuias')) && /emitida/.test(await p.textContent('#parcGuias')));
-    sql("delete from parcelas where numero='77'");
+    ok('Guias: a parcela passa para "Emitidas — falta enviar" com "Guia emitida em dd/mm/aaaa"', /Parcela 77/.test(await p.textContent('#parcGuias')) && /Guia emitida em \d{2}\/\d{2}\/\d{4}/.test(await p.textContent('#parcGuias')));
+    // Backup 29: várias guias da empresa num e-mail só, com o PDF anexado na tela (não fica guardado) — e as enviadas saem do quadro
+    sql("insert into parcelas(parcelamento_id,numero,vencimento,pago) select parcelamento_id,'78',current_date+4,false from parcelas where numero='77' limit 1");
+    await p.evaluate(() => ERP_RECARREGAR()); await nav(p, 'parcelamentos'); await p.waitForTimeout(2000);
+    await p.waitForSelector('#parcGuias [data-gd-empresa]', { timeout: 8000 }).catch(() => {});
+    ok('Parcelamentos: quadro "Parcelamentos para emitir" com "Enviar por empresa"', /Parcelamentos para emitir/.test(await p.textContent('#parcGuias')) && !!(await p.$('#parcGuias [data-gd-empresa]')));
+    await p.click('#parcGuias [data-gd-empresa]'); await p.waitForSelector('#gs-raiz .ge-janela'); await p.waitForTimeout(400);
+    ok('Enviar por empresa: texto "Prezados," e WhatsApp ao lado de Enviar e-mail', /Prezados,/.test(await p.inputValue('#ge-texto')) && await p.evaluate(() => { const a = document.querySelector('#ge-zap'), b = document.querySelector('#ge-enviar'); return a && b && a.parentElement === b.parentElement; }));
+    await p.fill('#gs-raiz #ge-para', 'guias@teste.com');
+    await p.setInputFiles('#gs-raiz #ge-arqs', { name: 'guia78.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 teste') });
+    await p.click('#gs-raiz #ge-enviar'); await p.waitForTimeout(2500);
+    ok('Enviar por empresa: um e-mail com as parcelas e o PDF anexado (vai no e-mail, não no Storage)', sql("select count(*) from email_fila where para='guias@teste.com' and anexo->'itens'->0->>'arquivo'='guia78.pdf' and coalesce(anexo->'itens'->0->>'b64','') <> ''") === '1' &&
+      sql("select count(*) from documentos where nome='guia78.pdf'") === '0');
+    await p.waitForTimeout(1500);
+    ok('Enviar por empresa: as parcelas enviadas saem do quadro', !/Parcela 78/.test(await p.textContent('#parcGuias')));
+    sql("delete from parcelas where numero in ('77','78')");
+
+    // Backup 29: Relatório em PDF refeito (⋯ → Relatório em PDF)
+    await p.click('#gs-hd .gs-bt-mais'); await p.click('#gs-hd [data-acao=pdf]'); await p.waitForSelector('#gs-raiz #rp-gerar');
+    { const [pop] = await Promise.all([p.waitForEvent('popup'), p.click('#gs-raiz #rp-gerar')]);
+      await pop.waitForSelector('main .kpis', { timeout: 15000 }).catch(() => {});
+      const t = await pop.textContent('body').catch(() => '');
+      ok('Relatório em PDF: novo layout com números, passivo, parcelamentos e processos', /Passivo em aberto/.test(t) && /Passivo tributário por empresa/.test(t) && /Parcelamentos/.test(t) && /Processos judiciais/.test(t) && /Salvar em PDF/.test(t), t.slice(0, 200));
+      await pop.close(); }
 
     // ── sair ──
     await p.evaluate(() => acLogout()); await p.waitForTimeout(800);

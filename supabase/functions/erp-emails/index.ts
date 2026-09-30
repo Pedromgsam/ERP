@@ -15,7 +15,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import nodemailer from 'npm:nodemailer@6.9.14';
 
-const VERSAO = '2026-10-28';
+const VERSAO = '2026-10-29';
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-erp-segredo',
@@ -134,8 +134,13 @@ async function processarFila(db, mailer) {
       // Backup 27: anexo que está no Storage ("documentos") — baixa antes de enviar
       if (m.anexo && m.anexo.tipo === 'arquivo' && m.anexo.caminho) m.anexo = await baixar(m.anexo);
       if (m.anexo && m.anexo.tipo === 'arquivos') m.anexo = { tipo: 'lista', itens: await Promise.all((m.anexo.lista || []).filter((a) => a && a.caminho).map(baixar)) };
+      // Backup 29: lista mista — PDFs que vieram direto da tela (bin, não ficam guardados) e arquivos de Documentos
+      if (m.anexo && m.anexo.tipo === 'lista') m.anexo = { tipo: 'lista', itens: await Promise.all((m.anexo.itens || []).map((a) => (a && a.tipo === 'arquivo' && a.caminho ? baixar(a) : a))) };
       await enviarUm(contaDe(m), m, mailer);
-      await db.from('email_fila').update({ status: 'enviado', enviado_em: new Date().toISOString(), erro: '' }).eq('id', m.id);
+      // o PDF anexado na tela não fica guardado: depois de enviar, só o nome do arquivo fica no registro
+      const semArquivo = (a) => (a && (a.tipo === 'lista' || a.tipo === 'bin') ? { tipo: 'enviado', arquivos: (a.tipo === 'lista' ? a.itens : [a]).map((x) => x && x.arquivo).filter(Boolean) } : undefined);
+      const limpo = semArquivo(m.anexo);
+      await db.from('email_fila').update(Object.assign({ status: 'enviado', enviado_em: new Date().toISOString(), erro: '' }, limpo ? { anexo: limpo } : {})).eq('id', m.id);
       enviados++;
     } catch (e) {
       const t = (m.tentativas || 0) + 1;

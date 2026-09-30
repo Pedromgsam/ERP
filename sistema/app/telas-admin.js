@@ -585,6 +585,23 @@ function fmtHist(v, campo) {
 // ─────────────────────────── E-MAIL ──────────────────────────────
 // Configuração dos avisos por e-mail: o serviço (Gmail do escritório, outro SMTP ou Resend),
 // o teste e a fila. A senha vai direto para o banco (config_privada) e nunca volta para a tela.
+// Backup 29: dados para pagamento no MESMO formato para o escritório e a Contabilidade; banco, agência e conta separados
+const CAMPOS_PAG = ['pix', 'titular', 'banco', 'agencia', 'conta', 'whatsapp', 'assinatura'];
+function formPagamento(id, rotPix, rotAss) {
+  return '<form id="' + id + '" class="grade g3">' + campo('Chave PIX' + (rotPix || ''), '<input name="pix" placeholder="CNPJ, e-mail ou telefone">') + campo('Titular da conta', '<input name="titular">', 'dois') +
+    campo('Banco', '<input name="banco" placeholder="Ex.: Sicoob">') + campo('Agência', '<input name="agencia" inputmode="numeric" placeholder="0000">') + campo('Conta', '<input name="conta" placeholder="00000-0">') +
+    campo('WhatsApp para dúvidas', '<input name="whatsapp" data-mascara="tel" placeholder="(37) 9 0000-0000">') + campo('Assinatura dos e-mails', '<input name="assinatura" placeholder="' + (rotAss || 'Equipe Araújo & Castro') + '">', 'dois') + '</form>';
+}
+async function carregarPagamento(form, chave) {
+  const r = await q(sb.from('configuracoes').select('valor').eq('chave', chave).maybeSingle()).catch(() => null), v = (r && r.valor) || {};
+  // dados antigos com "Banco / agência / conta" num campo só continuam aparecendo no campo Banco
+  CAMPOS_PAG.forEach((k) => { if (form[k]) form[k].value = v[k] || ''; });
+  mascararCampos(form);
+}
+async function salvarPagamento(form, chave) {
+  const v = {}; CAMPOS_PAG.forEach((k) => { v[k] = form[k].value.trim(); });
+  await q(sb.from('configuracoes').upsert({ chave, valor: v }, { onConflict: 'chave' }));
+}
 async function admEmail(corpo) {
   const [st, fila] = await Promise.all([
     q(sb.rpc('status_config_email')).catch(() => ({})),
@@ -604,15 +621,16 @@ async function admEmail(corpo) {
     campo('Endereço do sistema (botão "Abrir no ERP")', '<input name="url" value="' + esc(location.origin) + '">', 'inteiro') +
     '</form>' +
     '<div class="acoes" style="margin-top:12px"><button class="btn btn-p" id="email-salvar">Salvar</button><button class="btn btn-o" id="email-teste">Enviar e-mail de teste</button>' +
-    '<button class="btn btn-o" id="email-diag">🩺 Verificar funções</button><button class="btn btn-o" id="email-agora">Enviar fila agora</button><button class="btn btn-o" id="email-resumo">Mandar resumo do dia agora</button></div>' +
+    '<button class="btn btn-o" id="email-diag" title="Confere se as funções do Supabase estão publicadas (erp-emails, erp-publicacoes, erp-cnpj, erp-agenda)">🩺 Verificar funções</button>' +
+    '<button class="btn btn-o" id="email-agora" title="A fila é a lista de e-mails esperando para sair; a rotina envia sozinha a cada 5 minutos. Este botão manda agora.">Enviar fila agora</button>' +
+    '<button class="btn btn-o" id="email-resumo" title="Resumo do dia = e-mail interno para cada pessoa da equipe com as tarefas e prazos dela (sai sozinho às 7h45 nos dias úteis). Não vai para cliente.">Mandar resumo do dia agora</button></div>' +
+    '<p class="sub" style="margin-top:8px"><b>Enviar fila agora:</b> manda já o que está esperando (a rotina manda sozinha a cada 5 min). <b>Resumo do dia:</b> e-mail interno para a equipe com as tarefas e prazos de cada um — não vai para cliente.</p>' +
     (st.configurado_em ? '<p class="sub" style="margin-top:8px">Configurado em ' + dataHoraBR(st.configurado_em) + '.</p>' : '') +
     '</div></div>' +
     '<div class="card"><div class="card-hd">Como configurar (uma vez)</div><div class="card-bd" id="email-ajuda"></div></div></div>' +
     // e-mails ao cliente: dados do quadro "Como pagar" e prévia de cada modelo
-    '<div class="card"><div class="card-hd">✉ E-mails ao cliente — dados para pagamento e modelos<span class="sub" style="margin-left:auto;font-weight:400">aparecem nas cobranças e lembretes</span></div><div class="card-bd">' +
-      '<form id="f-pag" class="grade">' + campo('Chave PIX do escritório', '<input name="pix" placeholder="CNPJ, e-mail ou telefone">') + campo('Titular da conta', '<input name="titular">') +
-      campo('Banco / agência / conta (opcional)', '<input name="banco" placeholder="Ex.: Sicoob · ag 0000 · cc 00000-0">') + campo('WhatsApp para dúvidas (opcional)', '<input name="whatsapp" placeholder="(31) 90000-0000">') +
-      campo('Assinatura dos e-mails', '<input name="assinatura" placeholder="Equipe Araújo & Castro">', 'inteiro') + '</form>' +
+    '<div class="card"><div class="card-hd">⚖ Escritório (Jurídico) — dados para pagamento<span class="sub" style="margin-left:auto;font-weight:400">aparecem nos e-mails dos clientes do escritório</span></div><div class="card-bd">' +
+      formPagamento('f-pag', ' do escritório', 'Equipe Araújo & Castro') +
       '<div class="acoes" style="margin-top:10px;flex-wrap:wrap"><button class="btn btn-p" id="pag-salvar">Salvar</button><span class="sub" style="align-self:center">Ver modelo:</span>' +
       [['lembrete', 'Lembrete'], ['cobranca', 'Cobrança'], ['acordo', 'Acordo'], ['parcelamento', 'Parcelamento'], ['recebido', 'Pagamento recebido']].map(([k, r]) => '<button class="btn btn-o btn-mini" data-previa="' + k + '">' + r + '</button>').join('') +
       '</div><p class="sub" style="margin-top:8px">Os e-mails ao cliente vão para os contatos marcados em "Recebe por e-mail" ou, se ninguém estiver marcado, para o contato do setor certo (veja Central de e-mails → Quem recebe o quê). Sem e-mail cadastrado, nada é enviado. Liga/desliga cada um em Automações.</p></div></div>' +
@@ -624,8 +642,7 @@ async function admEmail(corpo) {
       campo('Senha de app / senha', '<input name="senha" type="password" autocomplete="new-password" placeholder="deixe vazio para manter">') +
       campo('Servidor SMTP (só "Outro e-mail")', '<input name="host" placeholder="smtp.hostinger.com">') + campo('Porta', '<input name="porta" inputmode="numeric" value="465">') +
       campo('Nome do remetente', '<input name="remetente" placeholder="Contabilidade Araújo & Castro">') + '</form>' +
-      '<form id="f-pag-ct" class="grade" style="margin-top:10px">' + campo('Chave PIX da Contabilidade', '<input name="pix">') + campo('Titular da conta', '<input name="titular">') +
-      campo('Banco / agência / conta', '<input name="banco">') + campo('WhatsApp para dúvidas', '<input name="whatsapp" data-mascara="tel">') + campo('Assinatura dos e-mails', '<input name="assinatura" placeholder="Equipe da Contabilidade">', 'inteiro') + '</form>' +
+      '<div class="secao" style="margin-top:14px">Dados para pagamento da Contabilidade</div>' + formPagamento('f-pag-ct', ' da Contabilidade', 'Equipe da Contabilidade') +
       '<div class="acoes" style="margin-top:10px"><button class="btn btn-p" id="ct-salvar">Salvar Contabilidade</button><span class="sub" id="ct-status"></span></div></div></div>' +
     '<div class="kpis">' + kpi('Na fila', String(st.pendentes || 0), '', 'saem a cada 5 minutos') + kpi('Enviados em 7 dias', String(st.enviados_7d || 0), 'verde', '') +
     kpi('Com erro', String(st.erros || 0), st.erros ? 'vermelho' : '', 'veja o motivo abaixo') + '</div>' +
@@ -636,24 +653,22 @@ async function admEmail(corpo) {
   const f = $('f-email');
   f.provedor.value = prov;
   const fp = $('f-pag');
-  q(sb.from('configuracoes').select('valor').eq('chave', 'dados_pagamento').maybeSingle()).then((r) => { const v = (r && r.valor) || {}; ['pix', 'titular', 'banco', 'whatsapp', 'assinatura'].forEach((k) => { fp[k].value = v[k] || ''; }); }).catch(() => {});
-  const fct = $('f-email-ct'), fpct = $('f-pag-ct'), CAMPOS_PAG = ['pix', 'titular', 'banco', 'whatsapp', 'assinatura'];
+  carregarPagamento(fp, 'dados_pagamento');
+  const fct = $('f-email-ct'), fpct = $('f-pag-ct');
   q(sb.rpc('status_config_email_conta', { p_conta: 'contabilidade' })).then((c) => { c = c || {}; ['usuario', 'host', 'remetente'].forEach((k) => { fct[k].value = c[k] || ''; });
     fct.provedor.value = c.provedor || 'gmail'; fct.porta.value = c.porta || 465; $('ct-status').textContent = c.tem_senha ? '✓ conta configurada' : 'conta ainda não configurada'; }).catch(() => {});
-  q(sb.from('configuracoes').select('valor').eq('chave', 'dados_pagamento_contab').maybeSingle()).then((r) => { const v = (r && r.valor) || {}; CAMPOS_PAG.forEach((k) => { fpct[k].value = v[k] || ''; }); }).catch(() => {});
+  carregarPagamento(fpct, 'dados_pagamento_contab');
   $('ct-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
     if (fct.usuario.value.trim()) {
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(fct.usuario.value.trim())) throw new Error('E-mail da Contabilidade inválido.');
       await q(sb.rpc('salvar_config_email_conta', { p_conta: 'contabilidade', p: { provedor: fct.provedor.value, usuario: fct.usuario.value.trim(), senha: fct.senha.value.replace(/\s+/g, fct.provedor.value === 'gmail' ? '' : ' ').trim(),
         host: fct.host.value.trim(), porta: Number(fct.porta.value) || 465, remetente: fct.remetente.value.trim() } }));
     }
-    const v = {}; CAMPOS_PAG.forEach((k) => { v[k] = fpct[k].value.trim(); });
-    await q(sb.from('configuracoes').upsert({ chave: 'dados_pagamento_contab', valor: v }, { onConflict: 'chave' }));
+    await salvarPagamento(fpct, 'dados_pagamento_contab');
     aviso('✓ Dados da Contabilidade salvos.'); fct.senha.value = '';
   });
   $('pag-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
-    const v = {}; ['pix', 'titular', 'banco', 'whatsapp', 'assinatura'].forEach((k) => { v[k] = fp[k].value.trim(); });
-    await q(sb.from('configuracoes').upsert({ chave: 'dados_pagamento', valor: v }, { onConflict: 'chave' }));
+    await salvarPagamento(fp, 'dados_pagamento');
     aviso('✓ Dados para pagamento salvos: já valem nos próximos e-mails.');
   });
   corpo.querySelectorAll('[data-previa]').forEach((b) => b.onclick = () => comBotao(b, async () => {

@@ -127,9 +127,9 @@ async function formCliente(cl, depois) {
   const ABAS_CLI = [['id', '🏢 Empresa'], ['class', '🗂 Classificação'], ['contato', '📞 Contatos'], ['end', '📍 Endereço'], ['sit', '🏛 Situação e passivo'], ['obs', '📝 Observações']];
   const aba = (k, html) => '<div class="cli-aba grade g3 inteiro" data-aba="' + k + '"' + (k === 'id' ? '' : ' hidden') + '>' + html + '</div>';
   const setorOpc = (v) => SETORES_CONTATO.map(([k, r]) => '<option value="' + k + '"' + (k === (v || 'geral') ? ' selected' : '') + '>' + r + '</option>').join('');
-  const linhaEmail = (v, principal) => '<div class="cli-lin cli-lin-email"><input ' + (principal ? 'name="email"' : 'data-extra="email"') + ' type="email" placeholder="nome@empresa.com.br" value="' + esc(v || '') + '">' +
+  const linhaEmail = (v, principal) => '<div class="cli-lin cli-lin-email"><span class="cli-lin-ic" aria-hidden="true">✉</span><input ' + (principal ? 'name="email"' : 'data-extra="email"') + ' type="email" placeholder="nome@empresa.com.br" value="' + esc(v || '') + '">' +
     '<select data-setor>' + setorOpc(principal ? 'geral' : 'financeiro') + '</select>' + (principal ? '<span class="pill neutro" title="E-mail principal do cadastro">principal</span>' : '<button type="button" class="btn btn-o btn-mini" data-tirar title="Tirar">✕</button>') + '</div>';
-  const linhaTel = (v, principal) => '<div class="cli-lin cli-lin-tel"><input ' + (principal ? 'name="telefone"' : 'data-extra="telefone"') + ' type="tel" data-mascara="tel" inputmode="tel" placeholder="(37) 9 9999-9999" value="' + esc(v || '') + '">' +
+  const linhaTel = (v, principal) => '<div class="cli-lin cli-lin-tel"><span class="cli-lin-ic" aria-hidden="true">📱</span><input ' + (principal ? 'name="telefone"' : 'data-extra="telefone"') + ' type="tel" data-mascara="tel" inputmode="tel" placeholder="(37) 9 9999-9999" value="' + esc(v || '') + '">' +
     '<select data-setor>' + setorOpc(principal ? 'geral' : 'financeiro') + '</select>' + (principal ? '<span class="pill neutro">principal</span>' : '<button type="button" class="btn btn-o btn-mini" data-tirar title="Tirar">✕</button>') + '</div>';
   const grupoAtual = cl.grupo_id || '';
   const j = abrirJanela({
@@ -138,8 +138,9 @@ async function formCliente(cl, depois) {
       '<form id="f-cli" class="grade g3 cli-form">' + resumo +
       '<div class="inteiro"><div class="segmento cli-abas" id="cli-abas" role="tablist">' + ABAS_CLI.map(([k, r], i) => '<button type="button" role="tab" data-cli-aba="' + k + '"' + (i ? '' : ' class="ativo"') + '>' + r + '</button>').join('') + '</div></div>' +
       aba('id',
-        campo('CPF/CNPJ', '<input name="cpf_cnpj" inputmode="numeric" maxlength="18" placeholder="Digite o CNPJ: a Receita preenche o resto" value="' + esc(mascaraDoc(cl.cpf_cnpj)) + '"><div class="sub" id="cli-doc-aviso"></div>') +
-        campo('Nome / Razão social <span class="obrig">*</span>', '<input name="nome" required maxlength="200" value="' + esc(cl.nome || '') + '">', 'dois') +
+        campo('CPF/CNPJ', '<div class="cli-doc"><input name="cpf_cnpj" inputmode="numeric" maxlength="18" placeholder="00.000.000/0000-00" value="' + esc(mascaraDoc(cl.cpf_cnpj)) + '">' +
+          '<button type="button" class="btn btn-p" id="cli-buscar" title="Busca na Receita e preenche nome, endereço, situação, sócio, e-mail, telefone, tipo societário e regime">🔎 Buscar dados</button></div><div class="sub" id="cli-doc-aviso"></div>', 'dois') +
+        campo('Nome / Razão social <span class="obrig">*</span>', '<input name="nome" required maxlength="200" value="' + esc(cl.nome || '') + '">', 'inteiro') +
         '<div class="inteiro" id="cli-cnpj-card"></div>' +
         campo('Tipo societário', selectOpcoes('tipo_societario', ['LTDA', 'S.A', 'MEI', 'EI', 'SLU', 'PF'], cl.tipo_societario)) +
         campo('Sócio-administrador', '<input name="socio_admin" value="' + esc(cl.socio_admin || '') + '">') +
@@ -155,8 +156,8 @@ async function formCliente(cl, depois) {
           '<option value="' + esc(o) + '"' + ((cl.origem || '') === o ? ' selected' : '') + '>' + (o ? esc(o) : '—') + '</option>').join('') + '</select>') +
         campo('Indicado por', '<input name="indicado_por" maxlength="200" placeholder="Quem indicou (quando a origem é Indicação)" value="' + esc(cl.indicado_por || '') + '">')) +
       aba('contato',
-        '<div class="inteiro"><div class="cli-lista-tit">E-mails <button type="button" class="btn btn-o btn-mini" id="cli-mais-email">+ e-mail</button></div><div id="cli-emails">' + linhaEmail(cl.email, true) + '</div></div>' +
-        '<div class="inteiro"><div class="cli-lista-tit">Telefones / WhatsApp <button type="button" class="btn btn-o btn-mini" id="cli-mais-tel">+ telefone</button></div><div id="cli-tels">' + linhaTel(cl.telefone, true) + '</div></div>' +
+        '<div class="inteiro cli-bloco"><div class="cli-lista-tit"><span>E-mails</span><span class="sub">o principal é o do cadastro; os outros viram contatos do setor escolhido</span><button type="button" class="btn btn-o btn-mini" id="cli-mais-email">+ Adicionar e-mail</button></div><div id="cli-emails">' + linhaEmail(cl.email, true) + '</div></div>' +
+        '<div class="inteiro cli-bloco"><div class="cli-lista-tit"><span>Telefones / WhatsApp</span><span class="sub">celular com 9 dígitos vira link de WhatsApp</span><button type="button" class="btn btn-o btn-mini" id="cli-mais-tel">+ Adicionar telefone</button></div><div id="cli-tels">' + linhaTel(cl.telefone, true) + '</div></div>' +
         campo('E-mails automáticos', '<select name="perfil_email" title="Quais e-mails automáticos este cliente recebe">' + PERFIS_EMAIL.map(([v, r]) =>
           '<option value="' + v + '"' + ((cl.perfil_email || 'padrao') === v ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>') +
         '<div class="dica dois">Os e-mails e telefones a mais viram <b>contatos</b> do cliente, com o setor escolhido (financeiro, fiscal, RH…): é por eles que o sistema sabe para quem mandar cobranças, guias e recibos (ficha → Contatos).</div>') +
@@ -201,7 +202,8 @@ async function formCliente(cl, depois) {
     repetidos = await q(sb.rpc('clientes_mesmo_documento', { p_doc: d, p_ignorar: cl.id || null })).catch(() => []);
     el.innerHTML = repetidos.length ? '<span class="pill vencido">já cadastrado</span> ' + repetidos.map((x) => esc(x.nome) + (x.grupo ? ' (' + esc(x.grupo) + ')' : '')).join(', ') : '';
   };
-  // CNPJ consultado na Receita enquanto digita (sem gravar): preenche nome, endereço, situação e sócio-administrador
+  // Backup 29: a busca é pelo botão "🔎 Buscar dados" (não sai sozinha ao digitar) e SOBRESCREVE o que veio do CNPJ anterior
+  const TIPO_SOC = (nat, mei) => mei ? 'MEI' : /limitada/i.test(nat) ? (/unipessoal/i.test(nat) ? 'SLU' : 'LTDA') : /an[oô]nima/i.test(nat) ? 'S.A' : /empres[aá]rio/i.test(nat) ? 'EI' : '';
   const consultarNaHora = async (d) => {
     const card = j.querySelector('#cli-cnpj-card'); ultimoCnpj = d;
     card.innerHTML = '<div class="cli-cnpj carregando">🔎 Consultando o CNPJ na Receita…</div>';
@@ -209,23 +211,31 @@ async function formCliente(cl, depois) {
       const r = await chamarFuncao('erp-cnpj', { acao: 'previa', cnpj: d });
       if (ultimoCnpj !== d || !card.isConnected) return;
       if (!r || !r.ok || !r.dados) { card.innerHTML = '<div class="cli-cnpj">' + esc((r && r.erro) || 'Não foi possível consultar agora.') + '</div>'; return; }
-      const x = r.dados, adm = (x.socios || []).find((s) => /administrador/i.test(s.qualificacao)) || (x.socios || [])[0];
-      const porCampo = (n, v) => { if (v && f[n] && !f[n].value.trim()) f[n].value = v; };
-      porCampo('nome', x.razao_social); porCampo('endereco', x.endereco); porCampo('cidade', x.cidade); porCampo('estado', x.estado); porCampo('cep', x.cep); porCampo('socio_admin', adm && adm.nome);
-      if (x.situacao_cadastral && !f.situacao_cadastral.value) f.situacao_cadastral.value = x.situacao_cadastral;
+      const x = r.dados, adm = (x.socios || []).find((s2) => /administrador/i.test(s2.qualificacao)) || (x.socios || [])[0];
+      const poe = (n, v) => { if (f[n]) f[n].value = v || ''; };
+      poe('nome', x.razao_social || f.nome.value); poe('endereco', x.endereco); poe('cidade', x.cidade); poe('estado', x.estado); poe('cep', x.cep);
+      poe('socio_admin', adm ? adm.nome : '');
+      if (x.situacao_cadastral) f.situacao_cadastral.value = x.situacao_cadastral;
+      const ts = TIPO_SOC(x.natureza_juridica || '', x.mei); if (ts && [...f.tipo_societario.options].some((o) => o.value === ts)) f.tipo_societario.value = ts;
+      if (x.simples === true) f.regime_tributario.value = 'SN';
+      if (x.email && !f.email.value.trim()) f.email.value = x.email;
+      if (x.telefone && !f.telefone.value.trim()) { f.telefone.value = x.telefone; aplicarMascara(f.telefone, true); }
       card.innerHTML = '<div class="cli-cnpj ok"><b>✓ ' + esc(x.razao_social || '') + '</b>' + (x.nome_fantasia ? ' <span class="sub">(' + esc(x.nome_fantasia) + ')</span>' : '') +
         ' <span class="pill ' + (x.situacao_cadastral === 'ATIVA' ? 'pago' : 'vencido') + '">' + esc(x.situacao_cadastral || '—') + '</span>' +
-        '<div class="sub">' + esc([x.cnae_principal, x.porte, x.cidade && x.estado ? x.cidade + '/' + x.estado : ''].filter(Boolean).join(' · ')) +
-        ((x.socios || []).length ? ' · sócios: ' + esc(x.socios.map((s) => s.nome).join(', ')) : '') + '</div><div class="sub">Campos vazios preenchidos com a Receita — confira nas abas.</div></div>';
-    } catch (e) { if (card.isConnected) card.innerHTML = '<div class="cli-cnpj">Consulta do CNPJ indisponível agora (' + esc(e.message) + '). Ao salvar, a rotina tenta de novo.</div>'; }
+        '<div class="sub">' + esc([x.natureza_juridica, x.cnae_principal, x.porte, x.simples === true ? 'Simples Nacional' : '', x.cidade && x.estado ? x.cidade + '/' + x.estado : ''].filter(Boolean).join(' · ')) + '</div>' +
+        ((x.socios || []).length ? '<div class="sub">Sócios: ' + esc(x.socios.map((s2) => s2.nome + (s2.qualificacao ? ' (' + s2.qualificacao + ')' : '')).join(', ')) + '</div>' : '') +
+        '<div class="sub">Preenchido com a Receita: nome, endereço, situação, sócio-administrador, tipo societário' + (x.simples === true ? ', regime' : '') + (x.email ? ', e-mail' : '') + (x.telefone ? ', telefone' : '') + '. Confira nas abas.</div></div>';
+    } catch (e) { if (card.isConnected) card.innerHTML = '<div class="cli-cnpj">Consulta do CNPJ indisponível agora (' + esc(e.message) + '). Confira se a função erp-cnpj está publicada; ao salvar, a rotina tenta de novo.</div>'; }
   };
   f.cpf_cnpj.oninput = () => {
     const d = soDigitos(f.cpf_cnpj.value).slice(0, 14);
     f.cpf_cnpj.value = d.length > 11 ? d.replace(/^(\d{2})(\d{3})?(\d{3})?(\d{4})?(\d{0,2})?$/, (m, a, b, c, e, g) => a + (b ? '.' + b : '') + (c ? '.' + c : '') + (e ? '/' + e : '') + (g ? '-' + g : ''))
       : d.replace(/^(\d{3})(\d{3})?(\d{3})?(\d{0,2})?$/, (m, a, b, c, e) => a + (b ? '.' + b : '') + (c ? '.' + c : '') + (e ? '-' + e : ''));
-    if (d.length === 14 && d !== ultimoCnpj) { conferirDoc(); consultarNaHora(d); }
-    if (d.length === 11) conferirDoc();
+    if (d.length === 14 || d.length === 11) conferirDoc();
+    // CNPJ trocado: some o resultado da busca anterior (o sócio e o resto só voltam ao buscar de novo)
+    if (ultimoCnpj && d !== ultimoCnpj) { j.querySelector('#cli-cnpj-card').innerHTML = '<div class="cli-cnpj">CNPJ alterado — clique em <b>🔎 Buscar dados</b> para trocar as informações.</div>'; }
   };
+  j.querySelector('#cli-buscar').onclick = () => { const d = soDigitos(f.cpf_cnpj.value); if (d.length !== 14) return aviso('Digite o CNPJ completo (14 números) para buscar.', true); ultimoCnpj = ''; consultarNaHora(d); };
   f.cpf_cnpj.onblur = () => { f.cpf_cnpj.value = mascaraDoc(f.cpf_cnpj.value); conferirDoc(); };
   j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
   const apos = async () => { await carregarCadastros(true); if (depois) depois(); else await recarregar(); };

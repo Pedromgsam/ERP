@@ -716,3 +716,21 @@ body.gx-barra-topo .gs select:not([multiple]):not([size]):focus{outline:none;bor
 table.fc-comp{table-layout:fixed;width:100%}
 table.fc-comp td:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 table.fc-comp tr.fc-comp-tot td{border-top:2px solid var(--border-strong);background:var(--surface2)}
+
+/* ═══ Backup 29 — Início: Honorários com o mesmo cartão do Financeiro (5 cartões) ═══ */
+.kpi-grid.ini-fin{grid-template-columns:repeat(5,minmax(0,1fr));margin-bottom:18px}
+.kpi-grid.ini-fin .kc.kpi-clica{cursor:pointer}
+.kpi-grid.ini-fin .kc.kpi-clica:hover{box-shadow:var(--shadow-md)}
+@media(max-width:900px){.kpi-grid.ini-fin{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* Backup 29: coluna "Guias" na lista por grupo (Parcelamentos e Acordos) */
+@media(min-width:901px){body.gx-barra-topo :is(.lg-hd,.lg-gl,.lg-i){grid-template-columns:minmax(0,1fr) 170px 230px 180px 200px 24px}}
+body.gx-barra-topo .lg-hd > span:nth-child(4){text-align:left}
+body.gx-barra-topo .lg-hd > span:nth-child(5){text-align:center}
+.lg-cg{display:flex;align-items:center}
+.lg-cg .lg-guia{margin-top:0}
+.lg-guia-ok{color:var(--text3)}
+/* ═══ Backup 29 — em TODA tabela a linha de títulos fica fixa no topo (a tabela rola dentro do quadro) ═══ */
+body.gx-barra-topo :is(.tw,.tabela-wrap){max-height:calc(100vh - 150px);overflow:auto}
+body.gx-barra-topo :is(.tw,.tabela-wrap) > table > thead th{position:sticky;top:0;z-index:3}
+body.gx-barra-topo .janela :is(.tw,.tabela-wrap){max-height:60vh}
+@media(max-width:600px){body.gx-barra-topo :is(.tw,.tabela-wrap){max-height:none}}

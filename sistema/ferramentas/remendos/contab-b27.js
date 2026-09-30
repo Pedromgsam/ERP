@@ -27,11 +27,11 @@ function _fcPintarCorpo(){
     .sort(function(a,b){ return (pDate(a.f.vencimento)||0)-(pDate(b.f.vencimento)||0); });
   el.innerHTML =
     '<div class="kpi-grid fc-kpis5" style="margin-bottom:14px">'
-  +   kC('Recebido',_faFT(_fcSoma(rec)),rec.length+' lançamento(s)','cg','dg')
-  +   kC('A receber',_faFT(_fcSoma(aRec)),aRec.length+' em aberto','cb','db')
-  +   kC('Pago',_faFT(_fcSoma(pag)),pag.length+' despesa(s)','cr','')
-  +   kC('A pagar',_faFT(_fcSoma(aPag)),aPag.length+' em aberto','ca','')
-  +   kC('Em atraso',_faFT(_fcSoma(vR)+_fcSoma(vP)),_faFT(_fcSoma(vR))+' a receber<br>'+_faFT(_fcSoma(vP))+' a pagar','cr',(vR.length||vP.length)?'dr':'')
+  +   kC('Recebido',fF(_fcSoma(rec)),rec.length+' lançamento(s)','cg','dg')
+  +   kC('A receber',fF(_fcSoma(aRec)),aRec.length+' em aberto','cb','db')
+  +   kC('Pago',fF(_fcSoma(pag)),pag.length+' despesa(s)','cr','')
+  +   kC('A pagar',fF(_fcSoma(aPag)),aPag.length+' em aberto','ca','')
+  +   kC('Em atraso',fF(_fcSoma(vR)+_fcSoma(vP)),fF(_fcSoma(vR))+' a receber<br>'+fF(_fcSoma(vP))+' a pagar','cr',(vR.length||vP.length)?'dr':'')
   + '</div>'
   + '<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t">Recebido × pago mês a mês</div>'
   +   '<div class="cc-d">verde = recebido · vermelho = pago (despesas) · passe o mouse na coluna para ver o saldo do mês</div></div></div>'

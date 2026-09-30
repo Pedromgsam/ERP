@@ -142,7 +142,7 @@ function _parcDetalhe(p){
         +'<div class="acx-parc-v">'+_faFT(Number(pa.valor||p.valorUltimaParcela)||0)+'</div>'
         +'<div class="acx-sub">'+(st==='Pago'?'✓ paga':(c==='r'?'venceu ':'vence ')+esc(pa.vencimento||'—'))+(st==='Pago'?'':' · '+_parcDias(pa.vencimento))+'</div>'
         // Backup 27: emissão da guia (quando e quem) e o botão para emitir / ver
-        +'<div class="acx-parc-lin"><span>Guia</span>'+(emit?'<b title="'+esc(pa.emitidaPor?'por '+pa.emitidaPor:'')+'">✓ emitida'+(pa.emitidaEm?' '+esc(pa.emitidaEm.slice(0,5)):'')+'</b>':(st==='Pago'?'<span>—</span>':'<b style="color:var(--amber-d)">a emitir</b>'))+'</div>'
+        +'<div class="acx-parc-lin"><span>Guia</span>'+(emit?'<b title="'+esc(pa.emitidaPor?'por '+pa.emitidaPor:'')+'">Guia emitida'+(pa.emitidaEm?' em '+esc(pa.emitidaEm):'')+'</b>':(st==='Pago'?'<span>—</span>':'<b style="color:var(--amber-d)">a emitir</b>'))+'</div>'
         +(st==='Pago'?'':'<div class="acx-parc-bt"><button type="button" class="btn btn-o btn-mini" data-emitir="'+pa._id+'">'+(emit?'✎ Emissão':'🧾 Emitir guia')+'</button>'
           +'<button type="button" class="btn-m ac-bt-pagar" onclick="event.stopPropagation();_parcBaixa(\''+pa._id+'\',this)">✓ Lançar pagamento</button></div>')+'</div>'; }).join('')
     +'</div></div>';

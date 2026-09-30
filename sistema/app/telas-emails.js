@@ -16,6 +16,7 @@ TELAS.emails = async function () {
   const F = E.em;
   const admin = E.perfil && E.perfil.papel === 'admin';
   const pausado = await q(sb.rpc('emails_pausados')).catch(() => false);
+  const emTeste = await q(sb.from('configuracoes').select('valor').eq('chave', 'emails_teste').maybeSingle()).then((r) => (r && r.valor) || '').catch(() => '');
   $('conteudo').innerHTML =
     '<div class="titulo-pag"><div><h1>Central de e-mails</h1><p>Tudo de e-mail num lugar só: o que sai, o que já foi, quem recebe, modelos e configuração</p></div>' +
     '<div class="acoes">' + (admin ? '<button class="btn btn-o" id="em-auto">⚙ Automático e horário</button><button class="btn btn-o" id="em-modelos">✎ Modelos</button>' : '') + '</div></div>' +
@@ -23,8 +24,14 @@ TELAS.emails = async function () {
       (pausado ? 'Envio de e-mails PAUSADO — nada sai do sistema.' : 'Envio de e-mails ligado.') + '</b><div class="sub">' +
       (pausado ? 'Os e-mails novos ficam em "Retidos (pausa)": dá para liberar um a um ou descartar. O e-mail de teste da Configuração sai sempre.' : 'Os e-mails da fila saem em até 5 minutos.') + '</div></div>' +
       (admin ? '<button class="btn ' + (pausado ? 'btn-p' : 'btn-o') + '" id="em-pausar" data-pausar="' + (pausado ? '0' : '1') + '">' + (pausado ? '▶ Liberar o envio' : '⏸ Pausar o envio') + '</button>' : '') + '</div>' +
+    // Backup 29: modo teste — com a pausa ligada, só os e-mails desta lista saem (para testar sem mandar nada aos clientes)
+    '<div class="em-teste"><span class="em-teste-ic" aria-hidden="true">🧪</span><div class="em-teste-txt"><b>E-mails de teste</b><div class="sub">Saem mesmo com o envio pausado. Use para testar: cadastre um cliente com um destes e-mails (ex.: o cliente "TESTE E-MAIL") e mande o que quiser.</div></div>' +
+      '<input id="em-teste-lista" value="' + esc(emTeste) + '" placeholder="seu@email.com, outro@email.com"' + (admin ? '' : ' disabled') + '>' + (admin ? '<button class="btn btn-o" id="em-teste-salvar">Salvar</button>' : '') + '</div>' +
     '<div class="segmento" id="em-area" style="margin-bottom:14px">' + AREAS_EMAIL.filter((a) => !a[2] || admin).map(([v, r]) => '<button data-area="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<div id="em-area-corpo"></div>';
+  if ($('em-teste-salvar')) $('em-teste-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    await q(sb.rpc('salvar_emails_teste', { p: $('em-teste-lista').value.trim() })); aviso('✓ E-mails de teste salvos: saem mesmo com a pausa ligada.');
+  });
   $('em-area').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.area = b.dataset.area; pintarAreaEmail(); } };
   if ($('em-auto')) $('em-auto').onclick = () => janelaAutoEmails();
   if ($('em-modelos')) $('em-modelos').onclick = () => janelaModelosEmail();
@@ -222,10 +229,11 @@ async function abaEmailsCliente(alvo, cl) {
 }
 
 // ═══ Backup 26: CONTROLE POR CLIENTE — o que cada cliente recebe, para qual e-mail, quem é o responsável, modelo e histórico ═══
-const TIPOS_CONTROLE = [['cobranca', 'Cobranças', 'hon_lembrete', 'lembrete antes do vencimento, vence hoje e 1º/2º/3º aviso de atraso'],
-  ['guia', 'Guias', 'parc_guia', 'guia do parcelamento e parcelas em atraso'], ['acordo', 'Acordos', 'aco_lembrete', 'lembrete e atraso da parcela do acordo'],
-  ['recibo', 'Recibos', 'recibo', 'ao dar baixa, com o PDF do recibo'], ['contrato', 'Contratos', 'boas_vindas', 'boas-vindas na assinatura, propostas'],
-  ['convite', 'Convites', 'convite', 'convite de reunião (quando marcado na reunião)']];
+// Backup 29: nomes mais claros — Honorários, Parcelamentos, Recibo de honorário, Reuniões (as chaves internas não mudam)
+const TIPOS_CONTROLE = [['cobranca', 'Honorários', 'hon_lembrete', 'lembrete antes do vencimento, vence hoje e 1º/2º/3º aviso de atraso dos honorários'],
+  ['guia', 'Parcelamentos', 'parc_guia', 'guias dos parcelamentos e parcelas em atraso'], ['acordo', 'Acordos', 'aco_lembrete', 'lembrete e atraso da parcela do acordo'],
+  ['recibo', 'Recibo de honorário', 'recibo', 'ao dar baixa no honorário, com o PDF do recibo'], ['contrato', 'Contratos', 'boas_vindas', 'boas-vindas na assinatura, propostas'],
+  ['convite', 'Reuniões', 'convite', 'convite de reunião (quando marcado na reunião)']];
 let _emCtrl = [];
 async function controleEmails(alvo) {
   const admin = E.perfil && E.perfil.papel === 'admin';

@@ -49,10 +49,10 @@
 <link rel="stylesheet" href="editor.css?v=7747e46f">
 <link rel="stylesheet" href="erp-telas.css?v=9687b172">
 <script src="editor.js?v=15c9111e" defer></script>
-<script src="erp-telas.js?v=6ce77d38" defer></script>
-<link rel="stylesheet" href="gs.css?v=0377e9bc">
+<script src="erp-telas.js?v=837a0d90" defer></script>
+<link rel="stylesheet" href="gs.css?v=fad12230">
 <script src="importador.js?v=4fb0d655" defer></script>
-<script src="gestao-embutida.js?v=02b18d8b" defer></script>
+<script src="gestao-embutida.js?v=31038165" defer></script>
 <script>
 
 
@@ -1617,7 +1617,7 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
 </style>
 <link rel="stylesheet" href="tokens.css?v=1263585f">
 <link rel="stylesheet" href="tema-escuro.css?v=09e344f4">
-<link rel="stylesheet" href="design.css?v=b4bd8016">
+<link rel="stylesheet" href="design.css?v=041f7849">
 <script>try{if(localStorage.getItem("erp_tema")==="escuro")document.documentElement.setAttribute("data-tema","escuro")}catch(e){}</script>
 </head>
 <body>
@@ -2638,7 +2638,7 @@ let FIL = [];
 let FILTROS = {};
 let PASSIVO_ORGAO = 'total';
 let charts = {};
-const PG = 25;
+const PG = 1e9;   // Backup 29: sem páginas — todas as linhas
 
 // v46: a coluna SEFAZ saiu da Base de Dados. Tirada daqui, some do filtro
 // de órgão, da rosca de passivo, do gráfico por órgão e do PDF por empresa.
@@ -4549,7 +4549,7 @@ function _parcDetalhe(p){
         +'<div class="acx-parc-v">'+_faFT(Number(pa.valor||p.valorUltimaParcela)||0)+'</div>'
         +'<div class="acx-sub">'+(st==='Pago'?'✓ paga':(c==='r'?'venceu ':'vence ')+esc(pa.vencimento||'—'))+(st==='Pago'?'':' · '+_parcDias(pa.vencimento))+'</div>'
         // Backup 27: emissão da guia (quando e quem) e o botão para emitir / ver
-        +'<div class="acx-parc-lin"><span>Guia</span>'+(emit?'<b title="'+esc(pa.emitidaPor?'por '+pa.emitidaPor:'')+'">✓ emitida'+(pa.emitidaEm?' '+esc(pa.emitidaEm.slice(0,5)):'')+'</b>':(st==='Pago'?'<span>—</span>':'<b style="color:var(--amber-d)">a emitir</b>'))+'</div>'
+        +'<div class="acx-parc-lin"><span>Guia</span>'+(emit?'<b title="'+esc(pa.emitidaPor?'por '+pa.emitidaPor:'')+'">Guia emitida'+(pa.emitidaEm?' em '+esc(pa.emitidaEm):'')+'</b>':(st==='Pago'?'<span>—</span>':'<b style="color:var(--amber-d)">a emitir</b>'))+'</div>'
         +(st==='Pago'?'':'<div class="acx-parc-bt"><button type="button" class="btn btn-o btn-mini" data-emitir="'+pa._id+'">'+(emit?'✎ Emissão':'🧾 Emitir guia')+'</button>'
           +'<button type="button" class="btn-m ac-bt-pagar" onclick="event.stopPropagation();_parcBaixa(\''+pa._id+'\',this)">✓ Lançar pagamento</button></div>')+'</div>'; }).join('')
     +'</div></div>';
@@ -4842,8 +4842,8 @@ function _lgFaltaEmitir(lista, emitida, paga){
   return (lista||[]).filter(function(pa){ var d=pDate(pa.vencimento); return !paga(pa) && !emitida(pa) && d && d<=lim; }).length;
 }
 function _lgTagGuia(n, grupo){
-  if(!n) return '';
-  return '<span class="lg-guia" title="'+(grupo?'Há parcelas deste grupo sem a guia emitida (vencem em até 15 dias)':'Parcela vencendo em até 15 dias sem a guia emitida')+'">🧾 '+(grupo?'há guias para emitir':(n>1?'faltam '+n+' guias':'falta emitir a guia'))+'</span>';
+  if(!n) return '<span class="lg-guia-ok">—</span>';
+  return '<span class="lg-guia" title="'+(grupo?'Há parcelas deste grupo sem a guia emitida (vencem em até 15 dias)':'Parcela vencendo em até 15 dias sem a guia emitida')+'">🧾 '+(grupo?'Há guias a emitir':(n>1?'Faltam '+n+' guias':'Falta emitir a guia'))+'</span>';
 }
 function _lgEsc(t){ return String(t).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;'); }
 // o: {itens, porGrupo, abertos (obj), fnGrupo (nome da função global que abre/fecha o grupo), fnItem (nome da função que abre o item),
@@ -4853,9 +4853,10 @@ function _lgRender(o){
     var p=_lgProx(x.abertas);
     return '<div class="lg-i'+(sub?' lg-filho':'')+(x.atr?' lg-atr':'')+'" role="button" tabindex="0" onclick="'+o.fnItem+'(\''+_lgEsc(x.k)+'\')" onkeydown="if(event.key===\'Enter\')'+o.fnItem+'(\''+_lgEsc(x.k)+'\')" title="Abrir o detalhamento">'
       +'<div class="lg-c1"><div class="lg-nome">'+esc(x.titulo)+'</div><div class="lg-sub">'+x.sub+'</div></div>'
+      +'<div class="lg-cg">'+_lgTagGuia(x.guias,false)+'</div>'
       +'<div class="lg-c2">'+_lgPag(x.pagas,x.total,x.pago,x.falta)+'</div>'
       +'<div class="lg-c3">'+(p?'<div class="lg-val">'+_lgFmtV(p.v)+'</div><div class="lg-sub">vence '+p.d.toLocaleDateString('pt-BR')+'</div>':'<div class="lg-val">—</div><div class="lg-sub">'+(x.atr?'só vencidas':'sem próxima')+'</div>')+'</div>'
-      +'<div class="lg-c4">'+_lgSit(x.atr,x.atr>=2,x.concluido)+_lgTagGuia(x.guias,false)+'</div><div class="lg-c5" aria-hidden="true">›</div></div>'; };
+      +'<div class="lg-c4">'+_lgSit(x.atr,x.atr>=2,x.concluido)+'</div><div class="lg-c5" aria-hidden="true">›</div></div>'; };
   var corpo;
   if(!o.itens.length) corpo='<div class="pa-ok">Nada com esses filtros.</div>';
   else if(o.porGrupo){
@@ -4870,12 +4871,13 @@ function _lgRender(o){
       return '<div class="lg-g'+(ab?' lg-g-aberto':'')+(atr?' lg-atr':'')+'">'
         +'<div class="lg-gl" role="button" tabindex="0" aria-expanded="'+ab+'" onclick="'+o.fnGrupo+'(\''+_lgEsc(g)+'\')" onkeydown="if(event.key===\'Enter\')'+o.fnGrupo+'(\''+_lgEsc(g)+'\')" title="'+(ab?'Recolher':'Ver os '+o.rotulo+'s do grupo')+'">'
         +'<div class="lg-c1"><div class="lg-gnome"><span class="lg-seta" aria-hidden="true">'+(ab?'▾':'▸')+'</span>'+esc(g)+'</div><div class="lg-sub">'+l.length+' '+o.rotulo+(l.length>1?'s':'')+'</div></div>'
+        +'<div class="lg-cg">'+_lgTagGuia(soma('guias'),true)+'</div>'
         +'<div class="lg-c2">'+_lgPag(soma('pagas'),soma('total'),soma('pago'),soma('falta'))+'</div>'
         +'<div class="lg-c3">'+(p?'<div class="lg-val">'+_lgFmtV(p.v)+'</div><div class="lg-sub">'+(p.n>1?p.n+' parcelas em '+p.mes:'vence '+p.d.toLocaleDateString('pt-BR'))+'</div>':'<div class="lg-val">—</div>')+'</div>'
-        +'<div class="lg-c4">'+_lgSit(atr,risco,false)+_lgTagGuia(soma('guias'),true)+'</div><div class="lg-c5" aria-hidden="true"></div></div>'
+        +'<div class="lg-c4">'+_lgSit(atr,risco,false)+'</div><div class="lg-c5" aria-hidden="true"></div></div>'
         +(ab?'<div class="lg-filhos"><div class="lg-filhos-tit">'+l.length+' '+o.rotulo+(l.length>1?'s':'')+' de '+esc(g)+' · clique para ver as parcelas</div>'+l.map(function(x){ return linhaItem(x,true); }).join('')+'</div>':'')+'</div>'; }).join('');
   } else corpo=o.itens.slice().sort(function(a,b){ return b.atr-a.atr || String(a.titulo).localeCompare(String(b.titulo),'pt-BR'); }).map(function(x){ return '<div class="lg-solto">'+linhaItem(x,false)+'</div>'; }).join('');
-  return '<div class="lg"><div class="lg-hd"><span>'+o.cab+'</span><span>Parcelas pagas</span><span>Próxima parcela</span><span>Situação</span><span></span></div>'+corpo+'</div>';
+  return '<div class="lg"><div class="lg-hd"><span>'+o.cab+'</span><span>Guias</span><span>Parcelas pagas</span><span>Próxima parcela</span><span>Situação</span><span></span></div>'+corpo+'</div>';
 }
 // ═══ Backup 16 — Acordos: só os pendentes (caixa "Mostrar concluídos"), tabela única "Acordos em andamento" ═══
 // Um acordo = mesmo processo + devedor + credor. Concluído = todas as parcelas pagas.
@@ -4940,7 +4942,7 @@ function _acAbrir(k){
           +'<div class="acx-parc-v">'+_faFT(F.v(a))+'</div>'
           +'<div class="acx-sub">'+(F.pago(a)?'✓ paga'+(a.dataPag?' em '+esc(a.dataPag):''):(st==='r'?'venceu ':'vence ')+esc(a.vencimento||'—'))+'</div>'
           // Backup 27: emissão do boleto/PIX (quando e quem)
-          +'<div class="acx-parc-lin"><span>Boleto / PIX</span>'+((a.emitidaEm||/sim|emitid/i.test(a.emissao||''))?'<b title="'+esc(a.emitidaPor?'por '+a.emitidaPor:'')+'">✓ emitido'+(a.emitidaEm?' '+esc(a.emitidaEm.slice(0,5)):'')+'</b>':(F.pago(a)?'<span>—</span>':'<b style="color:var(--amber-d)">a emitir</b>'))+'</div>'
+          +'<div class="acx-parc-lin"><span>Boleto / PIX</span>'+((a.emitidaEm||/sim|emitid/i.test(a.emissao||''))?'<b title="'+esc(a.emitidaPor?'por '+a.emitidaPor:'')+'">Boleto emitido'+(a.emitidaEm?' em '+esc(a.emitidaEm):'')+'</b>':(F.pago(a)?'<span>—</span>':'<b style="color:var(--amber-d)">a emitir</b>'))+'</div>'
           +'<div class="acx-parc-bt">'+(F.pago(a)?'':'<button type="button" class="btn btn-o btn-mini" data-emitir="'+a._id+'">'+((a.emitidaEm||/sim|emitid/i.test(a.emissao||''))?'✎ Emissão':'🧾 Emitir boleto')+'</button><button type="button" class="btn-m ac-bt-pagar" data-ac-pagar="'+a._id+'">✓ Lançar pagamento</button>')
           +'<button type="button" class="btn-m acx-link" data-ac-det="'+a._id+'">Detalhe</button></div></div>'; }).join('')+'</div></div>' });
   j.querySelectorAll('[data-ac-pagar]').forEach(function(b){ b.onclick=function(){ GS.fecharJanela(j); _acPagar(b.dataset.acPagar,b); }; });
@@ -5730,11 +5732,14 @@ function _faPintarCorpo(){
 
   el.innerHTML =
     '<div class="kpi-grid" style="margin-bottom:14px">'
-  +   kC('Recebido',_faFT(vRec),receita.length+' lançamento(s)','cg','dg')
-  +   kC('A receber',_faFT(vAR),aReceber.length+' em aberto','cb','db')
-  +   kC('Em atraso',_faFT(vVenc),vencidos.length+' vencido(s) · todos os meses','cr',vVenc>0?'dr':'')
-  +   (cliente?'':kC('Prejuízo',_faFT(vPrej),prejuizo.length+' baixa(s)','cx',vPrej>0?'dr':''))
-  +   kC('Ticket médio',_faFT(ticket),'por lançamento recebido','cv','dv')
+  +   kC('Recebido',fF(vRec),receita.length+' recebimento(s) no período','cg','dg')
+  +   (function(){ var aVenc=aReceber.filter(function(f){ return vencidos.indexOf(f)<0; }), aPag=_faFiltrar(['A Pagar']);
+        return kC('A receber',fF(_faSoma(aVenc)),aVenc.length+' em aberto · a vencer','cb','db')
+          + (cliente?'':kC('A pagar',fF(_faSoma(aPag)),aPag.length+' conta(s) em aberto','ca',''));
+      })()
+  +   kC('Em atraso',fF(vVenc),vencidos.length+' vencido(s)','cr',vVenc>0?'dr':'')
+  +   (cliente?'':kC('Prejuízo',fF(vPrej),prejuizo.length+' baixa(s)','cx',vPrej>0?'dr':''))
+  +   kC('Ticket médio',fF(ticket),'por lançamento recebido','cv','dv')
   + '</div>'
   + '<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t">Recebido mês a mês</div>'
   +   '<div class="cc-d">empilhado por pessoa · passe o mouse na coluna para ver o total do mês</div></div></div>'
@@ -7013,11 +7018,11 @@ function _fcPintarCorpo(){
     .sort(function(a,b){ return (pDate(a.f.vencimento)||0)-(pDate(b.f.vencimento)||0); });
   el.innerHTML =
     '<div class="kpi-grid fc-kpis5" style="margin-bottom:14px">'
-  +   kC('Recebido',_faFT(_fcSoma(rec)),rec.length+' lançamento(s)','cg','dg')
-  +   kC('A receber',_faFT(_fcSoma(aRec)),aRec.length+' em aberto','cb','db')
-  +   kC('Pago',_faFT(_fcSoma(pag)),pag.length+' despesa(s)','cr','')
-  +   kC('A pagar',_faFT(_fcSoma(aPag)),aPag.length+' em aberto','ca','')
-  +   kC('Em atraso',_faFT(_fcSoma(vR)+_fcSoma(vP)),_faFT(_fcSoma(vR))+' a receber<br>'+_faFT(_fcSoma(vP))+' a pagar','cr',(vR.length||vP.length)?'dr':'')
+  +   kC('Recebido',fF(_fcSoma(rec)),rec.length+' lançamento(s)','cg','dg')
+  +   kC('A receber',fF(_fcSoma(aRec)),aRec.length+' em aberto','cb','db')
+  +   kC('Pago',fF(_fcSoma(pag)),pag.length+' despesa(s)','cr','')
+  +   kC('A pagar',fF(_fcSoma(aPag)),aPag.length+' em aberto','ca','')
+  +   kC('Em atraso',fF(_fcSoma(vR)+_fcSoma(vP)),fF(_fcSoma(vR))+' a receber<br>'+fF(_fcSoma(vP))+' a pagar','cr',(vR.length||vP.length)?'dr':'')
   + '</div>'
   + '<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t">Recebido × pago mês a mês</div>'
   +   '<div class="cc-d">verde = recebido · vermelho = pago (despesas) · passe o mouse na coluna para ver o saldo do mês</div></div></div>'
@@ -8308,9 +8313,7 @@ const BASE_ETAPA_OPTS=[
 function paginate(id,total,pg,onChange){
   const el=$(id);if(!el)return;
   const tPg=Math.max(1,Math.ceil(total/PG));
-  el.innerHTML=`<button class="pg-b" onclick="(${onChange.toString()})(${pg-1})" ${pg<=1?'disabled':''}>‹</button>
-    <span class="pg-i">Pág. ${pg} de ${tPg} · ${fI(total)} registros</span>
-    <button class="pg-b" onclick="(${onChange.toString()})(${pg+1})" ${pg>=tPg?'disabled':''}>›</button>`;
+  el.innerHTML=total?`<span class="pg-i">${fI(total)} registro${total===1?'':'s'}</span>`:'';
 }
 
 

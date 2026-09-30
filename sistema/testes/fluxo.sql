@@ -244,7 +244,7 @@ select pg_temp.ok((select (enviar_guias_email('10000000-0000-0000-0000-000000000
   '[{"tabela":"parcelas","id":"60000000-0000-0000-0000-000000000001","descricao":"Parcela 6","vencimento":"2030-01-10","valor":812.5},{"tabela":"parcelas","id":"60000000-0000-0000-0000-000000000002","descricao":"Parcela 7","vencimento":"2030-02-10","valor":799.9}]',
   'Guias da Padaria', 'Seguem as guias.', array['60000000-0000-0000-0000-000000000003','60000000-0000-0000-0000-000000000004']::uuid[], null))->>'itens') = '2', '11.1 duas guias da mesma empresa num e-mail só');
 reset role;
-select pg_temp.ok((select count(*) from email_fila where assunto = 'Guias da Padaria' and jsonb_array_length(anexo->'lista') = 2 and html like '%812,50%' and html like '%799,90%' and html like '%1.612,40%' and conta = 'escritorio') = 1,
+select pg_temp.ok((select count(*) from email_fila where assunto = 'Guias da Padaria' and jsonb_array_length(anexo->'itens') = 2 and html like '%812,50%' and html like '%799,90%' and html like '%1.612,40%' and conta = 'escritorio') = 1,
   '11.2 os dois PDFs anexos, os valores digitados e o total', (select string_agg(coalesce(anexo::text, '') || ' ' || conta, ' | ') from email_fila where assunto = 'Guias da Padaria'));
 select pg_temp.ok((select count(*) from parcelas where id in ('60000000-0000-0000-0000-000000000001', '60000000-0000-0000-0000-000000000002') and emitida_em is not null) = 2, '11.3 as guias enviadas ficam marcadas como emitidas');
 insert into configuracoes (chave, valor) values ('dados_pagamento_contab', '{"pix":"pix-da-contabilidade","assinatura":"Equipe da Contabilidade"}') on conflict (chave) do update set valor = excluded.valor;

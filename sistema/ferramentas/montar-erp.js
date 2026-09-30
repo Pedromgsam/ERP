@@ -117,6 +117,21 @@ trocar("var vencidos=aberto.filter(function(f){ var d=_fcData(f); return d&&d<ho
   "var vencidos=" + semPeriodo('_FC', '_fcFiltrar', '[L.abaAberto]') + ".filter(function(f){ var d=pDate(f.vencimento); return d&&d<hoje; });", 1);
 trocar("  +   kC('Vencido',_faFT(vVenc),vencidos.length+' lançamento(s)','cr',vVenc>0?'dr':'')",
   "  +   kC('Em atraso',_faFT(vVenc),vencidos.length+' vencido(s) · todos os meses','cr',vVenc>0?'dr':'')", 2);
+// Backup 29: tabelas mostram TODOS os registros (sem "Pág. 1 de 5"); o rodapé fica só com o total
+trocar("const PG = 25;", "const PG = 1e9;   // Backup 29: sem páginas — todas as linhas", 1);
+trocar("  el.innerHTML=`<button class=\"pg-b\" onclick=\"(${onChange.toString()})(${pg-1})\" ${pg<=1?'disabled':''}>‹</button>\n    <span class=\"pg-i\">Pág. ${pg} de ${tPg} · ${fI(total)} registros</span>\n    <button class=\"pg-b\" onclick=\"(${onChange.toString()})(${pg+1})\" ${pg>=tPg?'disabled':''}>›</button>`;",
+  "  el.innerHTML=total?`<span class=\"pg-i\">${fI(total)} registro${total===1?'':'s'}</span>`:'';", 1);
+// Backup 29: Financeiro → Jurídico com os MESMOS cartões do Início (Recebido · A receber · A pagar · Em atraso · Prejuízo) + Ticket médio.
+// "Recebido" segue o filtro de período (no Início é sempre o mês corrente); "A receber" é o que ainda não venceu.
+trocar("  +   kC('A receber',_faFT(vAR),aReceber.length+' em aberto','cb','db')\n  +   kC('Em atraso',_faFT(vVenc),vencidos.length+' vencido(s) · todos os meses','cr',vVenc>0?'dr':'')\n  +   (cliente?'':kC('Prejuízo',_faFT(vPrej),prejuizo.length+' baixa(s)','cx',vPrej>0?'dr':''))",
+  "  +   (function(){ var aVenc=aReceber.filter(function(f){ return vencidos.indexOf(f)<0; }), aPag=_faFiltrar(['A Pagar']);\n" +
+  "        return kC('A receber',fF(_faSoma(aVenc)),aVenc.length+' em aberto · a vencer','cb','db')\n" +
+  "          + (cliente?'':kC('A pagar',fF(_faSoma(aPag)),aPag.length+' conta(s) em aberto','ca',''));\n      })()\n" +
+  "  +   kC('Em atraso',fF(vVenc),vencidos.length+' vencido(s)','cr',vVenc>0?'dr':'')\n" +
+  "  +   (cliente?'':kC('Prejuízo',fF(vPrej),prejuizo.length+' baixa(s)','cx',vPrej>0?'dr':''))", 1);
+// valores inteiros nos cartões (iguais aos do Início)
+trocar("  +   kC('Recebido',_faFT(vRec),receita.length+' lançamento(s)','cg','dg')", "  +   kC('Recebido',fF(vRec),receita.length+' recebimento(s) no período','cg','dg')", 1);
+trocar("  +   kC('Ticket médio',_faFT(ticket),'por lançamento recebido','cv','dv')", "  +   kC('Ticket médio',fF(ticket),'por lançamento recebido','cv','dv')", 1);
 // Análise (Jurídico): ordem Recebido mês a mês → tipo de serviço e maiores grupos → comparativo por pessoa → Em atraso
 trocar("  +   _faTabelaPessoas(_faPessoas()) + '</div>';",
   "  +   _faTabelaPessoas(_faPessoas()) + '</div>'\n" +
@@ -579,10 +594,10 @@ let graf = ler('graficos.js').replace("document.addEventListener('DOMContentLoad
 const bundle = "'use strict';\n// GERADO por sistema/ferramentas/montar-erp.js — não edite; edite os arquivos do Gestão.\n(function () {\n" +
   "const _raiz = document.createElement('div'); _raiz.id = 'gs-raiz'; _raiz.className = 'gs';\n" +
   "_raiz.innerHTML = '<div id=\"janelas\"></div><div id=\"aviso\"></div>'; document.body.appendChild(_raiz);\n" +
-  [nuc, graf, ler('telas-painel.js'), ler('telas-financeiro.js'), ler('telas-cadastros.js'), ler('telas-admin.js'), ler('telas-tarefas.js'), ler('telas-documentos.js'), ler('telas-cliente360.js'), ler('telas-crm.js'), ler('telas-publicacoes.js'), ler('telas-acordos.js'), ler('telas-alertas.js'), ler('telas-automacoes.js'), ler('telas-aprovacoes.js'), ler('telas-ofx.js'), ler('telas-emails.js'), ler('telas-guias.js'), ler('telas-rotina.js')].join('\n') +
+  [nuc, graf, ler('telas-painel.js'), ler('telas-financeiro.js'), ler('telas-cadastros.js'), ler('telas-admin.js'), ler('telas-tarefas.js'), ler('telas-documentos.js'), ler('telas-cliente360.js'), ler('telas-crm.js'), ler('telas-publicacoes.js'), ler('telas-acordos.js'), ler('telas-alertas.js'), ler('telas-automacoes.js'), ler('telas-aprovacoes.js'), ler('telas-ofx.js'), ler('telas-emails.js'), ler('telas-guias.js'), ler('telas-rotina.js'), ler('telas-relatorio.js')].join('\n') +
   "\n// toda gravação confirmada aparece também no rodapé do ERP\nconst _avisoOrig = aviso;\n" +
   "aviso = function (msg, erro) { _avisoOrig(msg, erro); if (!erro && window.ERP_EDITOR && /^✓/.test(msg)) window.ERP_EDITOR.gravou(String(msg).replace(/^✓\\s*/, '')); };\n" +
-  "window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, invalidarCadastros, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo, perguntarBaixa, detalheContrato, ICONE_AVISO, conciliarOfx, abrirTarefa, detalheLancamento, edicaoLancamentos, janelaModelosEmail, janelaAutoEmails, janelaGeradores, formReuniao, janelaDelegar, abrirGeradorContrato, cardGuias, emitirParcela, janelaMovimentacao };\n})();\n";
+  "window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, invalidarCadastros, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo, perguntarBaixa, detalheContrato, ICONE_AVISO, conciliarOfx, abrirTarefa, detalheLancamento, edicaoLancamentos, janelaModelosEmail, janelaAutoEmails, janelaGeradores, formReuniao, janelaDelegar, abrirGeradorContrato, cardGuias, emitirParcela, janelaMovimentacao, janelaRelatorioPDF };\n})();\n";
 fs.writeFileSync(path.join(APP, 'gestao-embutida.js'), bundle);
 
 // CSS do Gestão só dentro de .gs (as telas do Gestão) e #gs-hd (barra superior)

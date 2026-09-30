@@ -110,10 +110,10 @@ const PERFIS_EMAIL = [['padrao', 'Padrão', 'lembrete antes do vencimento, cobra
 // Backup 26: setor do contato e "recebe o quê" (os e-mails automáticos usam isso para escolher o destinatário)
 const SETORES_CONTATO = [['geral', 'Geral'], ['financeiro', 'Financeiro'], ['fiscal', 'Fiscal'], ['rh', 'RH / Depto. pessoal'], ['socio', 'Sócio / decisor'],
   ['juridico', 'Jurídico'], ['contador', 'Contador externo']];
-const RECEBE_EMAIL = [['cobranca', 'Cobranças e lembretes de honorários'], ['recibo', 'Recibos'], ['guia', 'Guias de parcelamento'],
-  ['acordo', 'Avisos de acordo'], ['contrato', 'Contratos, propostas e boas-vindas'], ['convite', 'Convites de reunião']];
+const RECEBE_EMAIL = [['cobranca', 'Honorários (lembretes e atrasos)'], ['recibo', 'Recibo de honorário'], ['guia', 'Parcelamentos (guias)'],
+  ['acordo', 'Acordos'], ['contrato', 'Contratos, propostas e boas-vindas'], ['convite', 'Reuniões (convites)']];
 const ORIGENS_CLIENTE = ['Indicação', 'Site', 'Instagram', 'Google', 'Cliente antigo', 'Evento', 'CRM', 'Outro'];
-const RECEBE_CURTO = { cobranca: 'Cobranças', recibo: 'Recibos', guia: 'Guias', acordo: 'Acordos', contrato: 'Contratos', convite: 'Convites' };
+const RECEBE_CURTO = { cobranca: 'Honorários', recibo: 'Recibo de honorário', guia: 'Parcelamentos', acordo: 'Acordos', contrato: 'Contratos', convite: 'Reuniões' };
 const TIPOS_EMAIL = [['lembrete', 'Lembrete antes do vencimento'], ['vencimento', 'Aviso no dia do vencimento'], ['cobranca', 'Cobrança de atraso'],
   ['recibo', 'Recibo / pagamento recebido'], ['parcelamento', 'Guia de parcelamento'], ['acordo', 'Parcela de acordo'],
   ['boas_vindas', 'Boas-vindas (contrato assinado)'], ['convite', 'Convite de reunião']];
@@ -537,7 +537,7 @@ document.addEventListener('click', (ev) => {
 // Tabelas longas (todas as telas): mostra 100 linhas por vez com "Mostrar mais", e nas tabelas das
 // telas novas com mais de 25 linhas a rolagem fica dentro do quadro, com o cabeçalho fixo.
 // Reaplica sozinho quando a tabela é redesenhada (filtro) ou reordenada (clique no cabeçalho).
-const PAGINA_TABELA = 100;
+const PAGINA_TABELA = 1e9;   // Backup 29: sem "Mostrar mais" — sempre todas as linhas (o cabeçalho fica fixo no topo)
 function paginarTabelas() {
   document.querySelectorAll('.tw table, .tabela-wrap table').forEach((t) => {
     const corpo = t.tBodies[0]; if (!corpo) return;

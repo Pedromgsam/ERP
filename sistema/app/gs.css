@@ -739,6 +739,77 @@
 .gs .op-integra{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 10px}
 .gs .reu-local{display:flex;gap:6px;flex-wrap:wrap}
 .gs .reu-local input{flex:1 1 260px}
+.gs .janela.ge-janela{max-width:1180px;width:96vw}
+.gs .ge{display:grid;grid-template-columns:260px minmax(0,1fr);gap:16px;min-height:420px}
+.gs .ge-emps{border-right:1px solid var(--border);padding-right:12px;display:flex;flex-direction:column;gap:6px;max-height:64vh;overflow:auto}
+.gs .ge-emps-tit{font:700 11px var(--font-ui);letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin:2px 4px 4px}
+.gs .ge-emp{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--surface);cursor:pointer;font:inherit;color:var(--ink)}
+.gs .ge-emp:hover{background:var(--surface2)}
+.gs .ge-emp.ativo{border-color:var(--primario);background:var(--blue-lt);box-shadow:inset 3px 0 0 var(--primario)}
+.gs .ge-emp b{font-size:13px}
+.gs .ge-emp .pill{margin-top:3px}
+.gs .ge-msg{display:flex;flex-direction:column;gap:12px;min-width:0}
+.gs .ge-emp-nome{font:700 17px var(--font-ui);color:var(--ink)}
+.gs .ge-dest{display:grid;grid-template-columns:1fr 200px;gap:10px}
+.gs .ge-dest .ge-ass{grid-column:1/-1}
+.gs .ge-papel{border:1px solid var(--border);border-radius:12px;background:var(--surface);padding:14px 16px;display:flex;flex-direction:column;gap:10px;box-shadow:var(--shadow-sm)}
+.gs .ge-papel textarea{border:1px dashed var(--border);border-radius:8px;padding:8px 10px;font:inherit;font-size:13.5px;line-height:1.55;resize:vertical;background:var(--surface);color:var(--ink)}
+.gs .ge-itens{display:flex;flex-direction:column;gap:8px}
+.gs .ge-it{display:grid;grid-template-columns:22px minmax(0,1fr) 150px;gap:10px;align-items:center;padding:10px 12px;border:1px solid var(--border);border-left:3px solid var(--primario);border-radius:10px;background:var(--surface2);cursor:pointer}
+.gs .ge-it.ge-venc{border-left-color:var(--red)}
+.gs .ge-it-txt{display:flex;flex-direction:column;gap:3px;font-size:13px;color:var(--text2)}
+.gs .ge-it-txt b{color:var(--ink)}
+.gs .ge-alerta{font:700 11px var(--font-ui);color:var(--red-d);letter-spacing:.04em}
+.gs .ge-it-v{display:flex;flex-direction:column;gap:2px}
+.gs .ge-it-v small{font-size:11px;color:var(--text3);font-weight:600}
+.gs .ge-it-v input{text-align:right;font-weight:700}
+.gs .ge-fecho{font-size:13px;color:var(--text2)}
+.gs .ge-drop{display:flex;flex-direction:column;align-items:center;gap:2px;padding:14px;border:1.5px dashed var(--border-strong);border-radius:12px;cursor:pointer;background:var(--surface2);color:var(--text2);text-align:center}
+.gs .ge-drop:hover{border-color:var(--primario);color:var(--ink)}
+.gs .ge-drop small{color:var(--text3)}
+.gs .ge-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.gs .ge-chip{display:inline-flex;align-items:center;gap:6px;padding:4px 6px 4px 10px;border:1px solid var(--border);border-radius:99px;background:var(--surface);font-size:12.5px}
+.gs .ge-chip small{color:var(--text3)}
+.gs .ge-chip button{border:0;background:transparent;cursor:pointer;font-size:15px;color:var(--text3)}
+.gs .ge-tot{font-size:13px;color:var(--text2)}
+.gs .ge-acoes{gap:8px}
+@media(max-width:800px){.gs .ge{grid-template-columns:1fr}
+.gs .ge-emps{border-right:0;max-height:none}
+.gs .ge-dest{grid-template-columns:1fr}
+.gs .ge-it{grid-template-columns:22px 1fr}
+.gs .ge-it-v{grid-column:2}
+}
+.gs .em-teste{display:grid;grid-template-columns:auto minmax(0,1fr) minmax(220px,340px) auto;gap:12px;align-items:center;padding:12px 16px;margin:-6px 0 14px;border:1px dashed var(--border-strong);border-radius:12px;background:var(--surface)}
+.gs .em-teste-ic{font-size:20px}
+@media(max-width:800px){.gs .em-teste{grid-template-columns:1fr}
+}
+.gs .cli-doc{display:flex;gap:8px}
+.gs .cli-doc input{flex:1}
+.gs .cli-bloco{border:1px solid var(--border);border-radius:12px;padding:12px 14px;background:var(--surface2)}
+.gs .cli-lista-tit{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 10px}
+.gs .cli-lista-tit > span:first-child{font:700 13px var(--font-ui);color:var(--ink)}
+.gs .cli-lista-tit .sub{font-weight:400;font-size:12px}
+.gs .cli-lista-tit .btn{margin-left:auto}
+.gs .cli-lin{display:grid;grid-template-columns:34px minmax(220px,1fr) 190px 92px;gap:8px;align-items:center;margin-bottom:8px;padding:6px;border:1px solid var(--border);border-radius:10px;background:var(--surface)}
+.gs .cli-lin-ic{width:30px;height:30px;display:grid;place-items:center;border-radius:8px;background:var(--surface2);font-size:15px}
+.gs .cli-lin input,.gs .cli-lin select{border:1px solid var(--border);background:var(--surface);padding:8px 10px;border-radius:8px;min-height:36px}
+.gs .cli-lin input:focus,.gs .cli-lin select:focus{border-color:var(--primario);background:var(--surface)}
+.gs .cli-lin .pill,.gs .cli-lin .btn{justify-self:center}
+@media(max-width:600px){.gs .cli-lin{grid-template-columns:34px 1fr}
+.gs .cli-lin>select,.gs .cli-lin>.pill,.gs .cli-lin>.btn{grid-column:2}
+}
+.gs select.rt-in.rt-verde{background:var(--green-lt);color:var(--green-d);border-color:var(--green-bd);font-weight:700}
+.gs select.rt-in.rt-vermelho{background:var(--red-lt);color:var(--red-d);border-color:var(--red-bd);font-weight:700}
+.gs select.rt-in.rt-amarelo{background:var(--amber-lt);color:var(--amber-d);border-color:var(--amber-border);font-weight:700}
+.gs .rt-hist-bt{border:0;background:transparent;cursor:pointer;font-size:12px;padding:0 2px;opacity:.7}
+.gs .rt-hist-bt:hover{opacity:1}
+.gs .rt-tsec{margin-bottom:14px}
+.gs .rt-tsec-tit{display:flex;align-items:center;gap:8px;font:700 13.5px var(--font-ui);color:var(--ink);margin:4px 0 8px}
+.gs .rt-tsec-tit .sub{font-weight:400;font-size:12px}
+.gs .rt-ttab td{vertical-align:middle}
+.gs .rp-secoes{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px}
+@media(max-width:600px){.gs .rp-secoes{grid-template-columns:1fr}
+}
 /* cores do ERP, tamanhos do Gestão */
 .gs{background:none!important;min-height:0!important}
 .gs .duas-col>*,.gs .card{min-width:0}
