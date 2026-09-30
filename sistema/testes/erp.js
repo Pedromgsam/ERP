@@ -801,7 +801,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.keyboard.press('Escape'); await p.waitForTimeout(200);
     // telas do ERP antigo
     await nav(p, 'resumo'); await p.waitForTimeout(1500);
-    ok('Painel: rosca com a legenda em tabela ao lado', /Total/.test(await p.textContent('#cResDonutLeg').catch(() => '')));
+    ok('Painel: sem "Passivo total por grupo" e sem "Distribuição por órgão"', !(await p.isVisible('#cResGrupos')) && !(await p.isVisible('#cResDonut')));
     await nav(p, 'processos'); await p.waitForTimeout(1200);
     ok('Processos: sem "Visão Geral" e sem "Todos status"; Análise com passivo e ativo em disputas', !(await p.isVisible('#kpiProc')) && !(await p.$('#fProcStatus')) &&
       /Passivo em disputas/.test(await p.textContent('#procAnalise')) && /Ativo em disputas/.test(await p.textContent('#procAnalise')));
@@ -1002,6 +1002,11 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('Início: "Fixado" desmarca (o botão mostra se está fixo ou não)', sql("select fixo from lembretes where texto like 'Reunião geral%'") === 'f' && !!(await p.$('#ini-lembretes .lemb-fixo:not(.on)')));
     sql("insert into lembretes(texto,dia) values ('Lembrete distante B23', current_date + 60)"); await nav(p, 'hoje'); await p.waitForTimeout(1500);
     ok('Início: lembrete com data distante aparece em "Mais adiante" (não some)', /Mais adiante/.test(await p.textContent('#ini-lembretes')));
+    sql("insert into parcelas(parcelamento_id,numero,vencimento,pago) select id,'9',current_date+1,false from parcelamentos limit 1"); await nav(p, 'hoje'); await p.waitForTimeout(1500);
+    ok('Início: guias de parcelamento junto de avisos e tarefas (não mais nos lembretes)', !!(await p.$('#ini-mural [data-mural=guias]')) && !/Emitir guias/.test(await p.textContent('#ini-lembretes')));
+    await p.click('#ini-mural [data-mural=guias]'); await p.waitForTimeout(600);
+    ok('Início: clicar em "guias a emitir" abre a lista com "Guia emitida"', !!(await p.$('#ini-mural .ini-guias [data-guia-ok]')));
+    sql("delete from parcelas where numero='9'");
     ok('Início: lembretes num cartão próprio, sem o ⓘ', !(await p.$('#ini-lembretes .info-i')) && !(await p.$('#panel-hoje .ini-fila .info-i')));
     // Painel: sem faixa, "Atualizado" e entidades/grupos na linha do filtro
     await nav(p, 'resumo'); await p.waitForTimeout(1500);

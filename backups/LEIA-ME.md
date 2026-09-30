@@ -29,6 +29,7 @@ versão foi ao ar**. O número cresce a cada entrega.
 | 21 | Ajustes finos: lembretes como lista de "a fazer", Atrasados abre o detalhe, Painel/Processos por grupo como Clientes (ficha volta a abrir), processo em janela, Publicações por tribunal, Acordos (saldo por devedor em ranking, sem "Progresso"), régua de dias verde/azul/amarelo/vermelho |
 | 22 | Padronização: régua única nas tabelas (vencimento e valor em negrito, selo da pessoa igual, "✓ Baixa"/"✎", triângulo de atraso), Parcelamentos no modelo de Acordos, Acordos com próximos 30 dias, sem PIX, teste de padronização |
 | 23 | Lembretes em cartão próprio com detalhe e "Fixado", selo "Quem" sutil, sem triângulo, Painel com negociado na rosca, Parcelamentos por grupo com filtros e janela de detalhe, excluir usuário, modo escuro grafite |
+| 24 | Guias de parcelamento junto de avisos e tarefas no Início; Painel sem os gráficos por grupo e por órgão; prompt do chat "ERP Automação" |
 
 ## Como baixar um backup
 No GitHub, abra a pasta `backups`, clique no arquivo e depois em **Download** (ícone de seta, à direita).

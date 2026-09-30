@@ -1089,10 +1089,12 @@ async function dadosLembretes() {
 async function cardMural() {
   const el = $('ini-mural'); if (!el) return;
   const h = hojeISO();
-  const [avisos, tarefas] = await Promise.all([
+  const [avisos, tarefas, lemb] = await Promise.all([
     contarAlertas().catch(() => ({ total: 0, altos: 0 })),
-    q(sb.from('tarefas').select('id, prazo, prazo_fatal, responsavel, participantes, chave_regra').not('status', 'in', '(concluida,cancelada)')).catch(() => [])
+    q(sb.from('tarefas').select('id, prazo, prazo_fatal, responsavel, participantes, chave_regra').not('status', 'in', '(concluida,cancelada)')).catch(() => []),
+    dadosLembretes().catch(() => ({ semGuia: [], dias: 5 }))
   ]);
+  const nGuias = lemb.semGuia.length, aberto = cardMural.aberto || '';
   const semPasso = pode('crm') ? (await q(sb.from('crm_oportunidades').select('id, proxima_acao, proxima_acao_em, crm_etapas(final)')).catch(() => []))
     .filter((o) => !(o.crm_etapas && o.crm_etapas.final) && (!o.proxima_acao || !o.proxima_acao_em)).length : 0;
   const minhas = tarefas.filter(ehMinha);
@@ -1101,37 +1103,41 @@ async function cardMural() {
     avisos.total ? ['avisos', (avisos.altos ? 'critico' : ''), '🔔', plural(avisos.total, 'aviso não lido', 'avisos não lidos'), EXPLICA.avisos] : null,
     atrasadas ? ['atrasadas', 'critico', '⏰', plural(atrasadas, 'tarefa sua atrasada', 'tarefas suas atrasadas'), EXPLICA.tarefas] : null,
     fatais ? ['fatais', 'critico', '⚑', plural(fatais, 'prazo fatal seu em 7 dias', 'prazos fatais seus em 7 dias'), 'Tarefas SUAS com prazo fatal nos próximos 7 dias.'] : null,
-    semPasso ? ['crm', 'ambar', '🎯', plural(semPasso, 'oportunidade sem próximo passo', 'oportunidades sem próximo passo'), 'CRM: oportunidades em andamento sem o próximo passo marcado.'] : null
+    semPasso ? ['crm', 'ambar', '🎯', plural(semPasso, 'oportunidade sem próximo passo', 'oportunidades sem próximo passo'), 'CRM: oportunidades em andamento sem o próximo passo marcado.'] : null,
+    // Backup 24: guias de parcelamento a emitir ficam junto dos avisos e tarefas (clique abre a lista)
+    nGuias ? ['guias', lemb.semGuia.some((g) => g.vencimento < h) ? 'critico' : 'ambar', '🧾', plural(nGuias, 'guia de parcelamento a emitir', 'guias de parcelamento a emitir'),
+      'Guias de parcelamento que vencem até ' + dataBR(somarDias(h, lemb.dias)) + ' e ainda não foram emitidas. Clique para ver e marcar "Guia emitida".'] : null
   ].filter(Boolean);
   if (!dest.length) { el.innerHTML = ''; return; }
   const chip = (d) => { const n = d[3].match(/^\d+/)[0], resto = d[3].slice(n.length);
-    return '<button type="button" class="mural-dest ' + d[1] + '" data-mural="' + d[0] + '" title="' + esc(d[4]) + '">' + d[2] + ' <b>' + n + '</b>' + esc(resto) + '</button>'; };
-  el.innerHTML = '<div class="mural-destaques ini-destaques">' + dest.map(chip).join('') + '</div>';
+    return '<button type="button" class="mural-dest ' + d[1] + (aberto === d[0] ? ' ativo' : '') + '" data-mural="' + d[0] + '" title="' + esc(d[4]) + '"' + (d[0] === 'guias' ? ' aria-expanded="' + (aberto === 'guias') + '"' : '') + '>' + d[2] + ' <b>' + n + '</b>' + esc(resto) + '</button>'; };
+  el.innerHTML = '<div class="mural-destaques ini-destaques">' + dest.map(chip).join('') + '</div>' +
+    (aberto === 'guias' && nGuias ? '<div class="card ini-guias"><div class="card-bd">' + htmlGuias(lemb) + '</div></div>' : '');
+  el.querySelectorAll('[data-guia-ok]').forEach((b) => b.onclick = () => comBotao(b, async () => {
+    await q(sb.from('parcelas').update({ emissao: 'SIM' }).eq('id', b.dataset.guiaOk)); aviso('✓ Guia marcada como emitida.'); await cardMural();
+  }));
   el.querySelectorAll('[data-mural]').forEach((b) => b.onclick = () => {
     const k = b.dataset.mural;
-    if (k === 'avisos') abrirAlertas(null, () => cardMural());
+    if (k === 'guias') { cardMural.aberto = aberto === 'guias' ? '' : 'guias'; cardMural(); }
+    else if (k === 'avisos') abrirAlertas(null, () => cardMural());
     else if (k === 'crm') { E.crm = Object.assign(E.crm || {}, { aba: 'andamento', vista: 'lista' }); irParaTela('crm'); }
     else { E.tf = Object.assign(E.tf || {}, { vista: 'lista', atalho: k === 'fatais' ? '7' : 'atrasadas', aba: 'abertas' }); irParaTela('tarefas'); }
   });
 }
-// Cartão próprio de Lembretes (o que NÃO é tarefa): guias de parcelamento a emitir, lembretes dos próximos 7 dias / sem prazo / fixos,
+// Cartão próprio de Lembretes (o que NÃO é tarefa; Backup 24: as guias foram para a faixa de destaques): lembretes dos próximos 7 dias / sem prazo / fixos,
 // e "Mais adiante" com os de data distante. Clicar no lembrete abre o DETALHAMENTO (editar fica lá dentro).
 async function cardLembretes() {
   const el = $('ini-lembretes'); if (!el) return;
   const h = hojeISO(), L = await dadosLembretes().catch(() => ({ semGuia: [], vis: [], futuros: [], todos: [], dias: 5 }));
-  const abG = !!cardLembretes.abertoG, abF = !!cardLembretes.abertoF;
+  const abF = !!cardLembretes.abertoF;
   el.innerHTML = '<div class="card ini-lemb"><div class="card-hd">🔔 Lembretes <span class="sub">recados que não são tarefas</span>' +
       '<button type="button" class="btn btn-p btn-mini" id="lemb-novo" style="margin-left:auto">+ Lembrete</button></div><div class="card-bd">' +
-    (L.semGuia.length ? '<button type="button" class="lemb-tg" id="lemb-guias" aria-expanded="' + abG + '">' + (abG ? '▾' : '▸') + ' <b>Emitir guias de parcelamentos</b> ' +
-        '<span class="pill ' + (L.semGuia.some((g) => g.vencimento < h) ? 'vencido' : 'hoje') + '">' + L.semGuia.length + '</span><span class="sub"> até ' + dataBR(somarDias(h, L.dias)) + '</span></button>' +
-      (abG ? '<div class="mural-lemb">' + htmlGuias(L) + '</div>' : '') : '') +
     (L.vis.length ? '<div class="lemb-lista">' + htmlLembretes(L.vis) + '</div>'
       : '<div class="sub">Nenhum lembrete para os próximos 7 dias. Use <b>+ Lembrete</b> (com ou sem data; dá para fixar no topo e escolher uma cor).</div>') +
     (L.futuros.length ? '<button type="button" class="lemb-tg lemb-tg-fut" id="lemb-fut" aria-expanded="' + abF + '">' + (abF ? '▾' : '▸') + ' Mais adiante <span class="sub">' +
         plural(L.futuros.length, 'lembrete com data depois de ' + dataBR(somarDias(h, 7)), 'lembretes com data depois de ' + dataBR(somarDias(h, 7))) + '</span></button>' +
       (abF ? '<div class="lemb-lista">' + htmlLembretes(L.futuros) + '</div>' : '') : '') +
     '</div></div>';
-  const g = $('lemb-guias'); if (g) g.onclick = () => { cardLembretes.abertoG = !abG; cardLembretes(); };
   const fu = $('lemb-fut'); if (fu) fu.onclick = () => { cardLembretes.abertoF = !abF; cardLembretes(); };
   ligarLembretes(el, L);
   $('lemb-novo').onclick = () => formLembrete();
