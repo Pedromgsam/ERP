@@ -734,7 +734,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     sql("insert into processos(grupo_id,numero,advogado) select id,'7777777-77.2026.8.13.0024','Pedro' from grupos where nome='Grupo Beta'");
     ok('processo novo sem procuração cria "providenciar procuração"', sql("select count(*) from tarefas where chave_regra like 'procur:%' and status='pendente'") === '1');
     { const idB = sql("select id from clientes where nome='Beta Serviços Ltda'");
-      await p.evaluate((id) => ERP_EDITAR('clientes:' + id), idB); await p.waitForSelector('#gs-raiz [name=procuracao]'); await p.waitForTimeout(250);
+      await p.evaluate((id) => ERP_EDITAR('clientes:' + id), idB); await p.waitForSelector('#gs-raiz [data-cli-aba=sit]'); await p.click('#gs-raiz [data-cli-aba=sit]'); await p.waitForTimeout(250);
       await p.selectOption('#gs-raiz [name=procuracao]', { index: 1 }).catch(() => {});
       const opt = await p.$eval('#gs-raiz [name=procuracao]', (s) => [...s.options].map((o) => o.value + '=' + o.text).join('|'));
       await p.selectOption('#gs-raiz [name=procuracao]', { label: 'Sim' }).catch(() => {});
