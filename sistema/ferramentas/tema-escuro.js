@@ -51,7 +51,7 @@ function mapear(r, g, b, a, papel) {
     if (papel === 'borda') return 'var(--line)';
     return l >= 0.985 ? 'var(--surface)' : l >= 0.94 ? 'var(--surface2)' : 'var(--surface3)';
   }
-  const l2 = 0.08 + (1 - l) * 0.5, s2 = Math.min(s, 1) * (s > 0.6 ? 0.35 : 0.1);   // Backup 18: tons quase pretos, pouco tingidos
+  const l2 = 0.14 + (1 - l) * 0.45, s2 = Math.min(s, 1) * (s > 0.6 ? 0.3 : 0.1);   // Backup 23: tons de grafite (antes quase pretos), pouco tingidos
   return a < 1 ? rgba(hslHex(h, s2, l2), a) : hslHex(h, s2, l2);
 }
 function rgba(hex, a) { const [r, g, b] = hexRgb(hex); return 'rgba(' + r + ',' + g + ',' + b + ',' + (+a.toFixed(3)) + ')'; }

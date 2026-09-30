@@ -414,6 +414,9 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('admin cria usuário pelo sistema (Equipe)', sql("select papel||'|'||nome from perfis where email='nova@teste.com'") === 'equipe|Nova Pessoa');
     ok('admin continua logado depois de criar usuário', await p.evaluate(async () => (await SB.auth.getSession()).data.session.user.email) === 'pedro@teste');
     await p.click('[data-senha="novo@teste"]'); await p.waitForTimeout(1200);
+    ok('Usuários: não aparece "Excluir" para o próprio usuário', !(await p.$('[data-excluir-u="' + sql("select id from perfis where email='pedro@teste'") + '"]')));
+    await p.click('[data-excluir-u="' + sql("select id from perfis where email='nova@teste.com'") + '"]'); await p.waitForTimeout(1500);
+    ok('Usuários: 🗑 Excluir apaga o acesso da pessoa', sql("select count(*) from perfis where email='nova@teste.com'") === '0' && sql("select count(*) from auth.users where email='nova@teste.com'") === '0');
     ok('envia link de nova senha', (await (await p.request.get(BASE + '/__teste/recuperacoes')).json()).includes('novo@teste'));
     await p.selectOption('[data-papel="' + sql("select id from perfis where email='cliente@teste'") + '"]', 'cliente').catch(() => {});
     await p.click('#adm-abas [data-aba=historico]'); await p.waitForTimeout(1500);
@@ -815,10 +818,18 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('Parcelamentos: sem "Saldo residual por empresa" e sem "Progresso por parcelamento" separado', !(await p.$('#cParcResidual')) && !(await p.isVisible('#parcProgressList')));
     ok('Parcelamentos: "Parcelamentos em andamento" separado por grupo, com a situação de cada um (atraso ou em dia)', /Grupo Alfa/.test(await p.textContent('#parcAnalise .pcx')) &&
       /\d+ em atraso|Em dia/.test(await p.textContent('#parcAnalise .pcx')), await p.textContent('#parcAnalise .pcx').catch(() => 'sem .pcx'));
-    await p.click('#parcAnalise .pcx .acx-row'); await p.waitForTimeout(500);
-    ok('Parcelamentos: clicar no parcelamento abre as parcelas com "Lançar pagamento"', !!(await p.$('#parcAnalise .pcx .acx-det .ac-bt-pagar')));
+    ok('Parcelamentos: de início só os grupos (sem os parcelamentos abertos)', (await p.$$('#parcAnalise .pcx-grupo')).length >= 1 && !(await p.$('#parcAnalise .pcx-sub')));
+    await p.click('#parcAnalise .pcx-grupo .acx-row'); await p.waitForTimeout(500);
+    ok('Parcelamentos: clicar no grupo mostra os parcelamentos dele', (await p.$$('#parcAnalise .pcx-sub')).length >= 1);
+    await p.click('#parcAnalise .pcx-sub .acx-row'); await p.waitForTimeout(600);
+    ok('Parcelamentos: clicar no parcelamento abre o detalhamento numa janela, com as parcelas e "Lançar pagamento"', /Parcelamento/.test(await p.textContent('#janelas .janela-hd').catch(() => '')) && !!(await p.$('#janelas .pcd .ac-bt-pagar')));
+    await p.evaluate(() => { while (document.querySelector('#janelas .fundo')) window.GS.fecharJanela(); });
+    await p.selectOption('#parcFGrupo', { index: 1 }); await p.waitForTimeout(400);
+    await p.click('#parcFSit button:has-text("Em dia")'); await p.waitForTimeout(400);
+    ok('Parcelamentos: filtros de grupo e situação', /de \d+/.test(await p.textContent('#parcAnalise .pcx-filtros')) && !!(await p.$('#parcFSit button.ativo')));
+    await p.click('#parcFSit button:has-text("Todas")'); await p.selectOption('#parcFGrupo', ''); await p.waitForTimeout(400);
     await p.click('#parcVisao [data-v=lista]'); await p.waitForTimeout(300);
-    ok('Parcelamentos: visão "Lista" sem os cabeçalhos de grupo', !(await p.$('#parcAnalise .pcx-grp')) && (await p.$$('#parcAnalise .pcx .acx-row')).length >= 1);
+    ok('Parcelamentos: visão "Lista" sem os grupos', !(await p.$('#parcAnalise .pcx-grupo')) && (await p.$$('#parcAnalise .pcx .acx-row')).length >= 1);
     await p.click('#parcVisao [data-v=grupo]'); await p.waitForTimeout(300);
     await nav(p, 'acordos'); await p.waitForTimeout(1200);
     ok('Acordos: "Situação dos acordos" com a tabela "Acordos em andamento" (sem "Por credor" e sem o gráfico de atraso)', /Situação dos acordos/.test(await p.textContent('#acAnalise')) && /Acordos em andamento/.test(await p.textContent('#acAnalise')) &&
@@ -834,11 +845,11 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       const com = /Alfa Comércio/.test(await p.textContent('#acAnalise'));
       await p.uncheck('#acMostrarTodos'); sql("update acordos set pago=false, data_pagamento=null where devedor='Alfa Comércio Ltda'"); await p.evaluate(() => ERP_RECARREGAR()); await p.waitForTimeout(2000);
       return sem && com; })());
-    ok('Acordos: "Vencimentos dos próximos 30 dias" ao lado do saldo por devedor', !!(await p.$('.ac-saldo-linha #acProx30')) && /1\.600|800|Carlos Credor|Nenhuma parcela/i.test(await p.textContent('#acProx30')));
+    ok('Acordos: sem "Saldo por devedor" e sem "Vencimentos dos próximos 30 dias"', !(await p.isVisible('#acDevedorLista')) && !(await p.isVisible('#acProx30')));
     ok('Acordos: tabela de vencidos com altura mínima (10 linhas)', await p.evaluate(() => document.querySelector('#acordTabVencidos .tw').getBoundingClientRect().height >= 400));
     ok('PIX copia e cola saiu (sem botão e sem a função no banco)', !(await p.$('[data-pix]')) && sql("select count(*) from pg_proc where proname in ('pix_copia_cola','crc16_ccitt')") === '0');
     ok('Acordos: sem "Progresso por acordo"; A Pagar sem a coluna Situação; Saldo por devedor em lista', !(await p.isVisible('#acordProgressList')) &&
-      !(await p.$$eval('#acordTabPagar thead th', (l) => l.map((t) => t.textContent))).includes('Situação') && !!(await p.$('#acDevedorLista .acs-it')));
+      !(await p.$$eval('#acordTabPagar thead th', (l) => l.map((t) => t.textContent))).includes('Situação'));
     await nav(p, 'financeiroContab'); await p.waitForTimeout(1500);
     ok('Contabilidade: Análise sem "Maiores clientes" e sem a lista de lançamentos', !/Maiores clientes/.test(await p.textContent('#panel-financeiroContab')) && !(await p.$('#fcLancTbl')));
     sql("insert into lancamentos(empresa,tipo,descricao,vencimento,valor,pago,data_pagamento) values ('contabilidade','receita','Caixa teste',current_date-5,500,true,current_date-5)");
@@ -984,7 +995,14 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.selectOption('#f-lemb [name=destaque]', 'vermelho'); await p.check('#f-lemb [name=fixo]');
     await p.click('#lemb-salvar'); await p.waitForTimeout(1500);
     ok('Início: lembrete sem prazo, fixo e com destaque (substitui o recado)', sql("select count(*) from lembretes where texto like 'Reunião geral%' and dia is null and fixo and destaque='vermelho'") === '1' &&
-      /Reunião geral sexta/.test(await p.textContent('#ini-mural')) && !!(await p.$('#ini-mural .lemb-it.fixo.dest-vermelho')));
+      /Reunião geral sexta/.test(await p.textContent('#ini-lembretes')) && !!(await p.$('#ini-lembretes .lemb-it.fixo.dest-vermelho')) && !!(await p.$('#ini-lembretes .lemb-fixo.on')));
+    await p.click('#ini-lembretes .lemb-it.fixo .lemb-txt'); await p.waitForTimeout(500);
+    ok('Início: clicar no lembrete abre o detalhamento (não a edição)', /Lembrete/.test(await p.textContent('#gs-raiz .janela-hd')) && !(await p.$('#gs-raiz #f-lemb')) && !!(await p.$('#gs-raiz #ld-editar')));
+    await p.click('#gs-raiz .janela [data-lemb-fixo]'); await p.waitForTimeout(1200);
+    ok('Início: "Fixado" desmarca (o botão mostra se está fixo ou não)', sql("select fixo from lembretes where texto like 'Reunião geral%'") === 'f' && !!(await p.$('#ini-lembretes .lemb-fixo:not(.on)')));
+    sql("insert into lembretes(texto,dia) values ('Lembrete distante B23', current_date + 60)"); await nav(p, 'hoje'); await p.waitForTimeout(1500);
+    ok('Início: lembrete com data distante aparece em "Mais adiante" (não some)', /Mais adiante/.test(await p.textContent('#ini-lembretes')));
+    ok('Início: lembretes num cartão próprio, sem o ⓘ', !(await p.$('#ini-lembretes .info-i')) && !(await p.$('#panel-hoje .ini-fila .info-i')));
     // Painel: sem faixa, "Atualizado" e entidades/grupos na linha do filtro
     await nav(p, 'resumo'); await p.waitForTimeout(1500);
     ok('Painel: sem a faixa "Painel Executivo" e com "Atualizado" na linha do filtro', !(await p.isVisible('#panel-resumo > .mod-banner')) && await p.isVisible('#gx-linha-painel'));

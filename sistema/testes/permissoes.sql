@@ -573,3 +573,12 @@ end $$;
 commit;
 delete from lembretes;
 select pg_temp.ok(public.valor_extenso(1234.56)='mil duzentos e trinta e quatro reais e cinquenta e seis centavos' and public.valor_extenso(2000000)='dois milhões de reais' and public.valor_extenso(1001)='mil e um reais','valor por extenso do recibo');
+-- Backup 23: só o administrador exclui usuário (e nunca a si mesmo)
+begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-00000000000b');
+do $$ begin
+  perform public.excluir_usuario((select id from perfis where email='novo@teste'));
+  raise exception 'FALHOU: equipe excluiu usuário';
+exception when raise_exception then
+  if sqlerrm like 'FALHOU%' then raise; end if; raise notice 'PASSA: equipe não exclui usuário';
+end $$;
+commit;

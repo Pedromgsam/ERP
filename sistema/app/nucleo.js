@@ -244,15 +244,16 @@ function pillCapag(v) {
   if (!cls) console.warn('[ERP] CAPAG sem cor definida:', t);
   return '<span class="pill ' + (cls || 'neutro') + '">' + esc(t) + '</span>';
 }
-const SITCAD_COR = { ATIVA: 'pago', SUSPENSA: 'hoje', INAPTA: 'vencido', BAIXADA: 'neutro', NULA: 'neutro' };
+// Backup 23: ativa verde; suspensa, inapta, baixada e nula vermelho
+const SITCAD_COR = { ATIVA: 'pago', SUSPENSA: 'vencido', INAPTA: 'vencido', BAIXADA: 'vencido', NULA: 'vencido' };
 function pillSitCad(v) {
   const t = String(v || '').trim().toUpperCase();
   if (!t) return '<span class="sub">—</span>';
   return '<span class="pill ' + (SITCAD_COR[t] || 'neutro') + '">' + esc(t.charAt(0) + t.slice(1).toLowerCase()) + '</span>';
 }
 function pillSimNao(v) {
-  if (v === true) return '<span class="pill neutro pill-sim">Sim</span>';   // Backup 20: sim/não sem verde nem vermelho
-  if (v === false) return '<span class="pill neutro">Não</span>';
+  if (v === true) return '<span class="pill pago pill-sim">Sim</span>';   // Backup 23: sim verde, não vermelho
+  if (v === false) return '<span class="pill vencido pill-nao">Não</span>';
   return '<span class="sub">—</span>';
 }
 // Cor de pessoa — a mesma do ERP antigo e das planilhas.

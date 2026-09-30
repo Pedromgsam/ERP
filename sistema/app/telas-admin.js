@@ -65,10 +65,17 @@ async function admUsuarios(corpo) {
         : '<span class="sub">—</span>') + '</td>' +
       '<td class="mono" data-ord="' + p.criado_em + '">' + dataBR(p.criado_em) + '</td>' +
       '<td class="acoes-l"><button class="btn btn-o btn-mini" data-liberar="' + p.id + '" title="Confirma a conta sem depender do e-mail de confirmação: a pessoa entra com o e-mail e a senha provisória">✓ Liberar entrada</button> ' +
-        '<button class="btn btn-o btn-mini" data-senha="' + esc(p.email) + '" title="Envia por e-mail um link para a pessoa criar uma senha nova">🔑 Link de senha</button></td></tr>').join('') +
+        '<button class="btn btn-o btn-mini" data-senha="' + esc(p.email) + '" title="Envia por e-mail um link para a pessoa criar uma senha nova">🔑 Link de senha</button>' +
+        (E.perfil && p.id === E.perfil.id ? '' : ' <button class="btn btn-x btn-mini" data-excluir-u="' + p.id + '" data-nome-u="' + esc(p.nome || p.email) + '" title="Apaga o acesso desta pessoa (o que ela lançou continua no sistema)">🗑 Excluir</button>') + '</td></tr>').join('') +
     '</tbody></table></div></div>' +
     '<div class="dica"><b>Administrador</b>: tudo, inclusive excluir, importar e liberar usuários. <b>Equipe</b>: só as <b>funções</b> marcadas (Financeiro, Contratos, Jurídico…), em Ver ou Editar; não exclui. ' +
     '<b>Cliente</b>: só consulta, no Portal, os grupos escolhidos. <b>Inativo</b>: não entra.</div>';
+  // Backup 23: excluir usuário (só administrador; não exclui a si mesmo nem o último administrador)
+  corpo.querySelectorAll('[data-excluir-u]').forEach((b) => b.onclick = () => comBotao(b, async () => {
+    if (!confirm('Excluir o usuário "' + b.dataset.nomeU + '"?\n\nA pessoa perde o acesso ao sistema. O que ela lançou (tarefas, honorários, histórico) continua gravado.\nNão dá para desfazer: para voltar, crie a conta de novo.')) return;
+    await q(sb.rpc('excluir_usuario', { p_perfil: b.dataset.excluirU }));
+    aviso('✓ Usuário excluído.'); await pintarAdmin();
+  }));
   corpo.querySelectorAll('[data-liberar]').forEach((b) => b.onclick = () => comBotao(b, async () => {
     const ok = await q(sb.rpc('confirmar_email_usuario', { p_perfil: b.dataset.liberar }));
     aviso(ok ? '✓ Entrada liberada: a pessoa já entra com o e-mail e a senha provisória.' : 'Não foi possível confirmar por aqui: confirme em Supabase → Authentication → Users.', !ok);

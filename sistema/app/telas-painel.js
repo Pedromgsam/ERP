@@ -52,13 +52,14 @@ TELAS.inicio = async function () {
   $('conteudo').innerHTML =
     '<div class="titulo-pag"><div><h1>Olá, ' + esc(primeiroNomeUsuario()) + '</h1>' +
     '<p>Resumo de ' + esc(mes) + ' · para lançar receita, despesa ou contrato use <b>+ Lançar</b> na barra de cima</p></div></div>' +
-    '<div id="ini-mural"></div><div id="ini-resumo"></div><div id="ini-aprov"></div><div id="ini-fila"></div>' +
+    '<div id="ini-mural"></div><div id="ini-lembretes"></div><div id="ini-resumo"></div><div id="ini-aprov"></div><div id="ini-fila"></div>' +
     (verJur ? linha('escritorio', '💼 Honorários Jurídico') : '') + (verCont ? linha('contabilidade', '🧮 Honorários Contabilidade') : '') +
     // Backup 22: Jurídico e Contabilidade lado a lado (a pedido)
     (verJur || verCont ? '<div class="' + (verJur && verCont ? 'duas-col' : '') + ' ini-atraso">' +
       (verJur ? cardAtraso('Atrasados', 'Jurídico', de('escritorio')) : '') +
       (verCont ? cardAtraso('Atrasados', 'Contabilidade', de('contabilidade')) : '') + '</div>' : '');
   cardMural().catch((e) => console.error(e));
+  cardLembretes().catch((e) => console.error(e));
   cardResumoEscritorio().catch((e) => console.error(e));
   if (typeof buscaPubAutomatica === 'function') buscaPubAutomatica().catch(() => {});
   if (typeof cardAprovacoes === 'function') cardAprovacoes().then((x) => { const el = $('ini-aprov'); if (el) el.innerHTML = x; }).catch((e) => console.error(e));
@@ -106,7 +107,7 @@ function cardAtraso(titulo, area, lista) {
   const h = hojeISO();
   const quemDe = (l) => (l.grupos && l.grupos.nome) || l.favorecido || (l.clientes && l.clientes.nome) || '';
   const hoje = lista.filter((l) => l.vencimento === h), vencidos = lista.length - hoje.length, total = soma(lista, (l) => l.tipo === 'despesa' ? -l.valor : vl(l));
-  return '<div class="card card-lista ini-atraso-card' + (lista.length ? ' tem-atraso' : '') + '"><div class="card-hd"><span class="ini-atraso-tit">' + (lista.length ? '<span class="alerta-tri" aria-hidden="true"></span>' : '') + esc(titulo) +
+  return '<div class="card card-lista ini-atraso-card' + (lista.length ? ' tem-atraso' : '') + '"><div class="card-hd"><span class="ini-atraso-tit">' + esc(titulo) +
       ' <span class="ini-atraso-area area-' + (area === 'Jurídico' ? 'jur' : 'cont') + '">' + esc(area) + '</span></span>' +
       '<span class="ini-atraso-selos">' + (vencidos ? '<span class="pill vencido">' + plural(vencidos, 'vencido', 'vencidos') + '</span>' : '') +
       (hoje.length ? '<span class="pill hoje">' + hoje.length + ' vence' + (hoje.length > 1 ? 'm' : '') + ' hoje</span>' : '') +
@@ -259,52 +260,65 @@ async function dadosLembretes() {
   const [guias, meus] = await Promise.all([
     jur && guiasLigado ? q(sb.from('parcelas').select('id, numero, vencimento, emissao, parcelamentos(empresa, natureza, numero, total_parcelas, grupo_id)')
       .eq('pago', false).lte('vencimento', somarDias(h, dias)).order('vencimento')).catch(() => []) : [],
-    q(sb.from('lembretes').select('*').is('feito_em', null).or('dia.is.null,dia.lte.' + somarDias(h, 7)).order('dia', { nullsFirst: true })).catch(() => [])
+    q(sb.from('lembretes').select('*').is('feito_em', null).order('dia', { nullsFirst: true })).catch(() => [])
   ]);
-  const eu = primeiroNome((E.perfil && E.perfil.nome) || '');
-  const vis = meus.filter((l) => !l.pessoa || primeiroNome(l.pessoa) === eu || (E.perfil && E.perfil.papel === 'admin'))
+  const eu = primeiroNome((E.perfil && E.perfil.nome) || ''), lim = somarDias(h, 7);
+  const meu = meus.filter((l) => !l.pessoa || primeiroNome(l.pessoa) === eu || (E.perfil && E.perfil.papel === 'admin'))
     .sort((a, b) => (b.fixo - a.fixo) || ((a.dia ? 1 : 0) - (b.dia ? 1 : 0)) || String(a.dia || '').localeCompare(String(b.dia || '')));
-  return { dias, semGuia: guias.filter((g) => !/sim|emitid/i.test(g.emissao || '')), vis };
+  // Backup 23: o lembrete com data distante não "some" — fica em "Mais adiante" até faltar 7 dias
+  const vis = meu.filter((l) => l.fixo || !l.dia || l.dia <= lim), futuros = meu.filter((l) => !(l.fixo || !l.dia || l.dia <= lim));
+  return { dias, semGuia: guias.filter((g) => !/sim|emitid/i.test(g.emissao || '')), vis, futuros, todos: meu };
 }
+// Backup 23: o Início volta a ter dois blocos separados — a faixa de DESTAQUES (avisos, tarefas atrasadas, prazos fatais, CRM)
+// e o cartão próprio de LEMBRETES (com as guias de parcelamento), como era antes do Backup 19.
 async function cardMural() {
   const el = $('ini-mural'); if (!el) return;
   const h = hojeISO();
-  const [avisos, tarefas, lemb] = await Promise.all([
+  const [avisos, tarefas] = await Promise.all([
     contarAlertas().catch(() => ({ total: 0, altos: 0 })),
-    q(sb.from('tarefas').select('id, prazo, prazo_fatal, responsavel, participantes, chave_regra').not('status', 'in', '(concluida,cancelada)')).catch(() => []),
-    dadosLembretes().catch(() => ({ semGuia: [], vis: [], dias: 5 }))
+    q(sb.from('tarefas').select('id, prazo, prazo_fatal, responsavel, participantes, chave_regra').not('status', 'in', '(concluida,cancelada)')).catch(() => [])
   ]);
-  // CRM: oportunidades em andamento sem próximo passo marcado
   const semPasso = pode('crm') ? (await q(sb.from('crm_oportunidades').select('id, proxima_acao, proxima_acao_em, crm_etapas(final)')).catch(() => []))
     .filter((o) => !(o.crm_etapas && o.crm_etapas.final) && (!o.proxima_acao || !o.proxima_acao_em)).length : 0;
   const minhas = tarefas.filter(ehMinha);
   const fatais = minhas.filter((t) => t.prazo_fatal && t.prazo_fatal <= somarDias(h, 7)).length, atrasadas = minhas.filter((t) => t.prazo && t.prazo < h && !/^(cob|parc|aco):/.test(t.chave_regra || '')).length;
-  const nGuias = lemb.semGuia.length, aberto = cardMural.aberto || '';
   const dest = [
     avisos.total ? ['avisos', (avisos.altos ? 'critico' : ''), '🔔', plural(avisos.total, 'aviso não lido', 'avisos não lidos'), EXPLICA.avisos] : null,
     atrasadas ? ['atrasadas', 'critico', '⏰', plural(atrasadas, 'tarefa sua atrasada', 'tarefas suas atrasadas'), EXPLICA.tarefas] : null,
     fatais ? ['fatais', 'critico', '⚑', plural(fatais, 'prazo fatal seu em 7 dias', 'prazos fatais seus em 7 dias'), 'Tarefas SUAS com prazo fatal nos próximos 7 dias.'] : null,
-    semPasso ? ['crm', 'ambar', '🎯', plural(semPasso, 'oportunidade sem próximo passo', 'oportunidades sem próximo passo'), 'CRM: oportunidades em andamento sem o próximo passo marcado.'] : null,
-    nGuias ? ['guias', lemb.semGuia.some((g) => g.vencimento < h) ? 'critico' : 'ambar', '🧾', plural(nGuias, 'guia de parcelamento a emitir', 'guias de parcelamento a emitir'), 'Guias de parcelamento que vencem nos próximos dias e ainda não foram emitidas. Clique para ver e marcar "Guia emitida".'] : null
+    semPasso ? ['crm', 'ambar', '🎯', plural(semPasso, 'oportunidade sem próximo passo', 'oportunidades sem próximo passo'), 'CRM: oportunidades em andamento sem o próximo passo marcado.'] : null
   ].filter(Boolean);
+  if (!dest.length) { el.innerHTML = ''; return; }
   const chip = (d) => { const n = d[3].match(/^\d+/)[0], resto = d[3].slice(n.length);
-    return '<button type="button" class="mural-dest ' + d[1] + (aberto === d[0] ? ' ativo' : '') + '" data-mural="' + d[0] + '" title="' + esc(d[4]) + '"' + (d[0] === 'guias' ? ' aria-expanded="' + (aberto === 'guias') + '"' : '') + '>' + d[2] + ' <b>' + n + '</b>' + esc(resto) + '</button>'; };
-  el.innerHTML = '<div class="card ini-mural ini-lemb"><div class="card-hd">📌 Lembretes ' + infoI('lembretes') +
-      '<span class="sub">' + (lemb.vis.length ? plural(lemb.vis.length, 'lembrete', 'lembretes') : 'nenhum lembrete') + '</span>' +
-      '<button type="button" class="btn btn-p btn-mini" id="lemb-novo" style="margin-left:auto">+ Lembrete</button></div><div class="card-bd">' +
-    (dest.length ? '<div class="mural-destaques">' + dest.map(chip).join('') + '</div>' : '') +
-    (aberto === 'guias' ? '<div class="mural-lemb">' + htmlGuias(lemb) + '</div>' : '') +
-    (lemb.vis.length ? '<div class="lemb-lista">' + htmlLembretes(lemb) + '</div>'
-      : '<div class="sub">Nenhum lembrete. Use <b>+ Lembrete</b> para um recado ao escritório (com ou sem data) — dá para fixar no topo e escolher uma cor.</div>') +
-    '</div></div>';
+    return '<button type="button" class="mural-dest ' + d[1] + '" data-mural="' + d[0] + '" title="' + esc(d[4]) + '">' + d[2] + ' <b>' + n + '</b>' + esc(resto) + '</button>'; };
+  el.innerHTML = '<div class="mural-destaques ini-destaques">' + dest.map(chip).join('') + '</div>';
   el.querySelectorAll('[data-mural]').forEach((b) => b.onclick = () => {
     const k = b.dataset.mural;
-    if (k === 'guias') { cardMural.aberto = aberto === k ? '' : k; cardMural(); }
-    else if (k === 'avisos') abrirAlertas(null, () => cardMural());
+    if (k === 'avisos') abrirAlertas(null, () => cardMural());
     else if (k === 'crm') { E.crm = Object.assign(E.crm || {}, { aba: 'andamento', vista: 'lista' }); irParaTela('crm'); }
     else { E.tf = Object.assign(E.tf || {}, { vista: 'lista', atalho: k === 'fatais' ? '7' : 'atrasadas', aba: 'abertas' }); irParaTela('tarefas'); }
   });
-  ligarLembretes(el, lemb);
+}
+// Cartão próprio de Lembretes (o que NÃO é tarefa): guias de parcelamento a emitir, lembretes dos próximos 7 dias / sem prazo / fixos,
+// e "Mais adiante" com os de data distante. Clicar no lembrete abre o DETALHAMENTO (editar fica lá dentro).
+async function cardLembretes() {
+  const el = $('ini-lembretes'); if (!el) return;
+  const h = hojeISO(), L = await dadosLembretes().catch(() => ({ semGuia: [], vis: [], futuros: [], todos: [], dias: 5 }));
+  const abG = !!cardLembretes.abertoG, abF = !!cardLembretes.abertoF;
+  el.innerHTML = '<div class="card ini-lemb"><div class="card-hd">🔔 Lembretes <span class="sub">recados que não são tarefas</span>' +
+      '<button type="button" class="btn btn-p btn-mini" id="lemb-novo" style="margin-left:auto">+ Lembrete</button></div><div class="card-bd">' +
+    (L.semGuia.length ? '<button type="button" class="lemb-tg" id="lemb-guias" aria-expanded="' + abG + '">' + (abG ? '▾' : '▸') + ' <b>Emitir guias de parcelamentos</b> ' +
+        '<span class="pill ' + (L.semGuia.some((g) => g.vencimento < h) ? 'vencido' : 'hoje') + '">' + L.semGuia.length + '</span><span class="sub"> até ' + dataBR(somarDias(h, L.dias)) + '</span></button>' +
+      (abG ? '<div class="mural-lemb">' + htmlGuias(L) + '</div>' : '') : '') +
+    (L.vis.length ? '<div class="lemb-lista">' + htmlLembretes(L.vis) + '</div>'
+      : '<div class="sub">Nenhum lembrete para os próximos 7 dias. Use <b>+ Lembrete</b> (com ou sem data; dá para fixar no topo e escolher uma cor).</div>') +
+    (L.futuros.length ? '<button type="button" class="lemb-tg lemb-tg-fut" id="lemb-fut" aria-expanded="' + abF + '">' + (abF ? '▾' : '▸') + ' Mais adiante <span class="sub">' +
+        plural(L.futuros.length, 'lembrete com data depois de ' + dataBR(somarDias(h, 7)), 'lembretes com data depois de ' + dataBR(somarDias(h, 7))) + '</span></button>' +
+      (abF ? '<div class="lemb-lista">' + htmlLembretes(L.futuros) + '</div>' : '') : '') +
+    '</div></div>';
+  const g = $('lemb-guias'); if (g) g.onclick = () => { cardLembretes.abertoG = !abG; cardLembretes(); };
+  const fu = $('lemb-fut'); if (fu) fu.onclick = () => { cardLembretes.abertoF = !abF; cardLembretes(); };
+  ligarLembretes(el, L);
   $('lemb-novo').onclick = () => formLembrete();
 }
 
@@ -360,45 +374,66 @@ function htmlGuias(L) {
       '<div class="sub">vence ' + dataBR(g.vencimento) + (g.vencimento < h ? ' <span class="pill vencido">vencida</span>' : '') + '</div></div>' +
       '<button type="button" class="btn btn-v btn-mini" data-guia-ok="' + g.id + '">✓ Guia emitida</button></div>'; }).join('') + '</div>';
 }
-// Backup 22: de volta ao desenho do Backup 20 (fundo pela cor do destaque, "✓ Feito" à vista); clicar no texto edita
-function htmlLembretes(L) {
+// Linha do lembrete: fundo pela cor do destaque, "✓ Feito" e "📌 Fixar/Fixado" (o fixado fica marcado, como o Feito); clicar abre o detalhe
+function htmlLembretes(lista) {
   const h = hojeISO();
-  return L.vis.map((l) => '<div class="lemb-it' + (l.fixo ? ' fixo' : '') + (l.destaque ? ' dest-' + esc(l.destaque) : '') + '" data-lemb-ed="' + l.id + '" title="Clique para editar">' +
-      '<div class="lemb-txt">' + (l.fixo ? '<span class="lemb-pino" title="Fixado no topo">📌</span> ' : '') + '<span>' + esc(l.texto) + '</span>' +
+  return lista.map((l) => '<div class="lemb-it' + (l.fixo ? ' fixo' : '') + (l.destaque ? ' dest-' + esc(l.destaque) : '') + '" data-lemb-det="' + l.id + '" tabindex="0" title="Clique para ver o detalhamento">' +
+      '<div class="lemb-txt"><span>' + esc(l.texto) + '</span>' +
       '<div class="sub">' + (!l.dia ? 'sem prazo' : l.dia < h ? '<span class="pill vencido">desde ' + dataBR(l.dia) + '</span>' : l.dia === h ? '<span class="pill hoje">hoje</span>' : dataBR(l.dia)) +
         (l.repete ? ' · ↻ ' + esc(l.repete) : '') + (l.pessoa ? ' · ' + esc(l.pessoa) : ' · todos') + '</div></div>' +
-    '<div class="acoes-l"><button type="button" class="btn btn-v btn-mini" data-lemb-ok="' + l.id + '" title="Concluir (marcar como feito)">✓ Feito</button>' +
-      '<button type="button" class="btn-etq" data-lemb-fixo="' + l.id + '" title="' + (l.fixo ? 'Tirar do topo' : 'Fixar no topo') + '" aria-label="' + (l.fixo ? 'Tirar do topo' : 'Fixar no topo') + '">📌</button>' +
-      '<button type="button" class="btn-etq" data-lemb-x="' + l.id + '" title="Apagar lembrete" aria-label="Apagar lembrete">×</button></div></div>').join('');
+    '<div class="acoes-l">' + botoesLembrete(l) + '</div></div>').join('');
 }
-function ligarLembretes(el, L) {
-  const h = hojeISO();
+function botoesLembrete(l) {
+  return '<button type="button" class="btn btn-mini lemb-fixo' + (l.fixo ? ' on' : '') + '" data-lemb-fixo="' + l.id + '" aria-pressed="' + !!l.fixo + '" title="' + (l.fixo ? 'Fixado no topo — clique para tirar' : 'Fixar no topo') + '">📌 ' + (l.fixo ? 'Fixado' : 'Fixar') + '</button>' +
+    '<button type="button" class="btn btn-v btn-mini" data-lemb-ok="' + l.id + '" title="Concluir (marcar como feito)">✓ Feito</button>' +
+    '<button type="button" class="btn-etq" data-lemb-x="' + l.id + '" title="Apagar lembrete" aria-label="Apagar lembrete">×</button>';
+}
+// detalhamento do lembrete (igual aos outros cartões: abre uma janela; "Editar" fica aqui dentro)
+function detalheLembrete(l) {
+  const h = hojeISO(), lin = (r, v) => v ? '<div class="tf-lin"><span>' + r + '</span><div>' + v + '</div></div>' : '';
+  const dest = (DESTAQUES_LEMB.find((d) => d[0] === (l.destaque || '')) || ['', ''])[1];
+  const j = abrirJanela({ titulo: '🔔 Lembrete',
+    corpo: '<div class="tf-ficha"><div class="tf-ficha-hd"><h3>' + esc(l.texto) + '</h3><div class="tf-selos">' + (l.fixo ? '<span class="pill aberto">📌 fixado no topo</span> ' : '') +
+        (!l.dia ? '<span class="pill neutro">sem prazo</span>' : l.dia < h ? '<span class="pill vencido">desde ' + dataBR(l.dia) + '</span>' : l.dia === h ? '<span class="pill hoje">hoje</span>' : '<span class="pill neutro">' + dataBR(l.dia) + '</span>') + '</div></div>' +
+      '<div class="tf-grade">' + lin('Data', l.dia ? dataBR(l.dia) : 'sem prazo — fica até "Feito"') + lin('Repete', esc({ semanal: 'Toda semana', mensal: 'Todo mês', anual: 'Todo ano' }[l.repete] || '')) +
+        lin('Para quem', esc(l.pessoa || 'Todo o escritório')) + lin('Destaque', esc(dest)) + lin('Criado em', l.criado_em ? dataHoraBR(l.criado_em) : '') + '</div></div>',
+    rodape: '<span><button class="btn btn-o btn-mini" type="button" id="ld-editar">✎ Editar</button></span><div class="acoes">' + botoesLembrete(l) + '</div>' });
+  j.querySelector('#ld-editar').onclick = () => { fecharJanela(j); formLembrete(l); };
+  ligarLembretes(j, { todos: [l], semGuia: [] }, () => fecharJanela(j));
+  return j;
+}
+function ligarLembretes(el, L, depois) {
+  const h = hojeISO(), acha = (id) => (L.todos || []).find((x) => x.id === id);
+  const fim = async () => { if (depois) depois(); await cardLembretes(); };
   el.querySelectorAll('[data-guia-ok]').forEach((b) => b.onclick = () => comBotao(b, async () => {
-    await q(sb.from('parcelas').update({ emissao: 'SIM' }).eq('id', b.dataset.guiaOk)); aviso('✓ Guia marcada como emitida.'); await cardMural();
+    await q(sb.from('parcelas').update({ emissao: 'SIM' }).eq('id', b.dataset.guiaOk)); aviso('✓ Guia marcada como emitida.'); await fim();
   }));
-  el.querySelectorAll('[data-lemb-ok]').forEach((b) => b.onclick = () => comBotao(b, async () => {
-    const l = L.vis.find((x) => x.id === b.dataset.lembOk);
+  el.querySelectorAll('[data-lemb-ok]').forEach((b) => b.onclick = (ev) => { ev.stopPropagation(); comBotao(b, async () => {
+    const l = acha(b.dataset.lembOk);
     const prox = { semanal: 7, mensal: 'm1', anual: 'm12' }[l.repete];
     const dados = !l.repete || !l.dia ? { feito_em: h } : { dia: typeof prox === 'number' ? somarDias(l.dia, prox) : somarMeses(l.dia, +prox.slice(1)) };
     await q(sb.from('lembretes').update(dados).eq('id', l.id));
-    aviso(dados.dia ? '✓ Feito. Próximo em ' + dataBR(dados.dia) + '.' : '✓ Lembrete concluído.'); await cardMural();
-  }));
-  el.querySelectorAll('[data-lemb-fixo]').forEach((b) => b.onclick = () => comBotao(b, async () => {
-    const l = L.vis.find((x) => x.id === b.dataset.lembFixo);
-    await q(sb.from('lembretes').update({ fixo: !l.fixo }).eq('id', l.id)); await cardMural();
-  }));
-  el.querySelectorAll('[data-lemb-x]').forEach((b) => b.onclick = () => comBotao(b, async () => {
+    aviso(dados.dia ? '✓ Feito. Próximo em ' + dataBR(dados.dia) + '.' : '✓ Lembrete concluído.'); await fim();
+  }); });
+  el.querySelectorAll('[data-lemb-fixo]').forEach((b) => b.onclick = (ev) => { ev.stopPropagation(); comBotao(b, async () => {
+    const l = acha(b.dataset.lembFixo);
+    await q(sb.from('lembretes').update({ fixo: !l.fixo }).eq('id', l.id)); aviso(l.fixo ? 'Lembrete tirado do topo.' : '📌 Lembrete fixado no topo.'); await fim();
+  }); });
+  el.querySelectorAll('[data-lemb-x]').forEach((b) => b.onclick = (ev) => { ev.stopPropagation(); comBotao(b, async () => {
     if (!confirm('Apagar este lembrete?')) return;
-    await q(sb.from('lembretes').delete().eq('id', b.dataset.lembX)); await cardMural();
-  }));
-  el.querySelectorAll('[data-lemb-ed]').forEach((d) => d.onclick = (ev) => { if (ev.target.closest('button')) return; formLembrete(L.vis.find((x) => x.id === d.dataset.lembEd)); });
+    await q(sb.from('lembretes').delete().eq('id', b.dataset.lembX)); await fim();
+  }); });
+  el.querySelectorAll('[data-lemb-det]').forEach((d) => {
+    d.onclick = (ev) => { if (ev.target.closest('button')) return; detalheLembrete(acha(d.dataset.lembDet)); };
+    d.onkeydown = (ev) => { if ((ev.key === 'Enter' || ev.key === ' ') && ev.target === d) { ev.preventDefault(); detalheLembrete(acha(d.dataset.lembDet)); } };
+  });
 }
 function formLembrete(l) {
   l = l || null;
   const semPrazo = l ? !l.dia : false;
   const j = abrirJanela({ titulo: l ? '📌 Editar lembrete' : '📌 Novo lembrete',
     corpo: '<div class="dica" style="margin-bottom:10px">Lembrete é um recado que <b>não vira tarefa</b> (ex.: "reunião sexta às 14h", "pagar o aluguel da sala"). ' +
-      '<b>Sem prazo</b>: fica no Início até você marcar "Feito". Com data: aparece a partir de 7 dias antes.</div><form id="f-lemb" class="grade">' +
+      '<b>Sem prazo</b>: fica no Início até você marcar "Feito". Com data: aparece em destaque a partir de 7 dias antes (antes disso fica em "Mais adiante").</div><form id="f-lemb" class="grade">' +
       campo('Lembrete <span class="obrig">*</span>', '<input name="texto" maxlength="300" value="' + esc(l ? l.texto : '') + '">', 'inteiro') +
       campo('Prazo', '<select name="prazo"><option value="data">Com data</option><option value="sem"' + (semPrazo ? ' selected' : '') + '>Sem prazo (fica até "Feito")</option></select>') +
       campo('Data', '<input name="dia" type="date" value="' + esc(l ? l.dia || '' : hojeISO()) + '"' + (semPrazo ? ' disabled' : '') + '>') +
@@ -414,6 +449,6 @@ function formLembrete(l) {
     const dados = { texto: t, dia: f.prazo.value === 'sem' ? null : (f.dia.value || hojeISO()), repete: f.prazo.value === 'sem' ? '' : f.repete.value,
       pessoa: f.pessoa.value, destaque: f.destaque.value, fixo: f.fixo.checked };
     if (l) await q(sb.from('lembretes').update(dados).eq('id', l.id)); else await q(sb.from('lembretes').insert(dados));
-    aviso(l ? '✓ Lembrete salvo.' : '✓ Lembrete criado.'); fecharJanela(j); await cardMural();
+    aviso(l ? '✓ Lembrete salvo.' : '✓ Lembrete criado.'); fecharJanela(j); await cardLembretes();
   });
 }

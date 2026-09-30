@@ -83,7 +83,16 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
-- Última entrega: **Backup 22 — padronização** (prompt em `sistema/PROMPT-BACKUP-22.md`). **Régua única:** `marcarColunas()` (erp-telas.js, no
+- Última entrega: **Backup 23**. SQL: `excluir_usuario(p_perfil)` (admin; não a si mesmo nem o último admin; apaga auth.users → perfis em
+  cascata). Início: `cardMural` = só a faixa de destaques; `cardLembretes` (cartão próprio, `#ini-lembretes`: guias, lembretes ≤7 dias/sem prazo/
+  fixos e "Mais adiante"), `detalheLembrete`, `botoesLembrete` (`.lemb-fixo.on`); `dadosLembretes` devolve vis/futuros/todos. Selo da pessoa:
+  pílula 11 px, 88 px, contorno `color-mix` (design.css); `_faSelo` não é usado para grupo/cliente (montar-erp). Sem `.alerta-tri`. Painel:
+  `_orgV(r,k)` = em aberto + negociado (rosca e órgão da empresa), `_quebraRotulo` nos rótulos do gráfico. Parcelamentos: grupos recolhidos
+  (`_parcGrpAbertos`), `_parcF` (filtros grupo/pag/prox/sit), `_parcAbrir(k)` = janela `.pcd`. Acordos: `.ac-saldo-linha` escondida.
+  Tarefas: Grupo·Tarefa·Pessoa·Prioridade·Status·Prazo (régua: "Prazo" = `col-venc`). Clientes: `pillSimNao` verde/vermelho, `SITCAD_COR`.
+  Escuro: tokens grafite (bg #15171C, surface #1C1F26) + `tema-escuro.js` com tons de grafite. Imagem do Parcelamentos do Backup 17:
+  `sistema/prototipos/parcelamentos-backup17.png`.
+- Backup 22 (base): padronização (prompt em `sistema/PROMPT-BACKUP-22.md`). **Régua única:** `marcarColunas()` (erp-telas.js, no
   MutationObserver) reconhece a coluna pelo título (`REGUA`: Vencimento/Pago em → `col-venc`, Valor/Total/Saldo → `col-valor`, Atraso/Dias →
   `col-dias`, Grupo/Devedor/Credor/Empresa/Cliente/Nome → `col-nome`) em toda `.tw/.tabela-wrap/.gx-tab-gs table`; o estilo fica no bloco "RÉGUA
   ÚNICA" do design.css (13 px, sub 12 px, venc/valor negrito, nomes CAIXA ALTA, selo da pessoa 92 px, `.alerta-tri`). Coluna nova com esses
