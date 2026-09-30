@@ -5608,3 +5608,234 @@ language sql stable security definer set search_path = public as $$
 $$;
 revoke all on function public.emissao_emails(text, uuid[]) from public, anon;
 grant execute on function public.emissao_emails(text, uuid[]) to authenticated;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- Backup 28 — Acompanhamento de processos (estagiário): última movimentação + histórico
+-- ═══════════════════════════════════════════════════════════════════
+alter table public.processos add column if not exists ultima_movimentacao text not null default '';
+alter table public.processos add column if not exists ultima_movimentacao_em date;
+create table if not exists public.processo_movimentacoes (
+  id uuid primary key default gen_random_uuid(),
+  processo_id uuid not null references public.processos(id) on delete cascade,
+  data date not null default current_date,
+  tipo text not null default 'movimentacao' check (tipo in ('movimentacao','decisao','valor','procuracao','sem_novidade')),
+  descricao text not null default '',
+  valor_novo numeric(16,2),
+  quem text not null default '',
+  criado_por uuid default auth.uid(),
+  criado_em timestamptz not null default now()
+);
+create index if not exists processo_mov_proc on public.processo_movimentacoes (processo_id, data desc);
+alter table public.processo_movimentacoes enable row level security;
+revoke all on public.processo_movimentacoes from anon;
+grant select, insert, delete on public.processo_movimentacoes to authenticated;
+drop policy if exists pmov_ver on public.processo_movimentacoes;
+create policy pmov_ver on public.processo_movimentacoes for select to authenticated using (public.pode('juridico'));
+drop policy if exists pmov_criar on public.processo_movimentacoes;
+create policy pmov_criar on public.processo_movimentacoes for insert to authenticated with check (public.pode('juridico', 'editar'));
+drop policy if exists pmov_apagar on public.processo_movimentacoes;
+create policy pmov_apagar on public.processo_movimentacoes for delete to authenticated using (public.eh_admin());
+-- ao registrar: atualiza a "última movimentação" do processo (e o valor, quando é alteração de valor)
+create or replace function public.processo_mov_aplica() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if coalesce(new.quem, '') = '' then select coalesce(nullif(nome, ''), email) into new.quem from public.perfis where id = auth.uid(); new.quem := coalesce(new.quem, ''); end if;
+  update public.processos set
+    ultima_movimentacao = case when new.tipo = 'sem_novidade' then coalesce(nullif(ultima_movimentacao, ''), 'Conferido: sem novidade') else left(new.descricao, 500) end,
+    ultima_movimentacao_em = greatest(coalesce(ultima_movimentacao_em, new.data), new.data),
+    atualizacao = new.data,
+    valor = case when new.tipo = 'valor' and new.valor_novo is not null then new.valor_novo else valor end,
+    procuracao = case when new.tipo = 'procuracao' then true else procuracao end
+   where id = new.processo_id;
+  return new;
+end $$;
+drop trigger if exists processo_mov_aplica on public.processo_movimentacoes;
+create trigger processo_mov_aplica before insert on public.processo_movimentacoes for each row execute function public.processo_mov_aplica();
+
+-- Backup 28 — Certificado digital do cliente (validade e senha) — tabela separada, só quem EDITA clientes vê
+create table if not exists public.cliente_certificado (
+  cliente_id uuid primary key references public.clientes(id) on delete cascade,
+  validade date,
+  senha text not null default '',
+  tipo text not null default 'A1',
+  atualizado_por text not null default '',
+  atualizado_em timestamptz not null default now()
+);
+alter table public.cliente_certificado enable row level security;
+revoke all on public.cliente_certificado from anon;
+grant select, insert, update, delete on public.cliente_certificado to authenticated;
+drop policy if exists ccert_tudo on public.cliente_certificado;
+create policy ccert_tudo on public.cliente_certificado for all to authenticated
+  using (public.eh_equipe() and public.pode('clientes', 'editar')) with check (public.eh_equipe() and public.pode('clientes', 'editar'));
+create or replace function public.cliente_certificado_quem() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  select coalesce(nullif(nome, ''), email, '') into new.atualizado_por from public.perfis where id = auth.uid();
+  new.atualizado_por := coalesce(new.atualizado_por, ''); new.atualizado_em := now();
+  -- marca "Certificado: Sim" no cadastro quando há validade futura
+  if new.validade is not null then update public.clientes set certificado = (new.validade >= current_date) where id = new.cliente_id; end if;
+  return new;
+end $$;
+drop trigger if exists cliente_certificado_quem on public.cliente_certificado;
+create trigger cliente_certificado_quem before insert or update on public.cliente_certificado for each row execute function public.cliente_certificado_quem();
+
+-- Backup 28 — Contratos: início da vigência (ex.: fechado 28/07, trabalho começa 01/08, 1º pagamento 10/09) e quem fechou
+alter table public.contratos add column if not exists inicio_vigencia date;
+alter table public.contratos add column if not exists fechado_por text not null default '';
+update public.contratos set inicio_vigencia = coalesce(inicio_competencia, data_contrato) where inicio_vigencia is null;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- Backup 28 — E-mail por empresa: quem cobra é quem aparece
+--   • clientes do escritório (Pedro) → remetente e dados de pagamento do escritório;
+--   • clientes da Contabilidade (área "contabil") e lançamentos da Contabilidade → remetente e dados da Contabilidade.
+--   Conta da Contabilidade: config_privada 'email_contab' (senha fora do site); dados: configuracoes 'dados_pagamento_contab'.
+-- ═══════════════════════════════════════════════════════════════════
+alter table public.email_fila add column if not exists conta text not null default 'escritorio';
+create or replace function public.conta_email(p_cliente uuid, p_ref text) returns text
+language plpgsql stable security definer set search_path = public as $$
+declare u uuid; e text; a text; m text;
+begin
+  m := substring(coalesce(p_ref, '') from '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}');
+  if m is not null then u := m::uuid; select empresa into e from public.lancamentos where id = u;
+    if e is not null then return case when e = 'contabilidade' then 'contabilidade' else 'escritorio' end; end if; end if;
+  select area into a from public.clientes where id = p_cliente;
+  return case when a = 'contabil' then 'contabilidade' else 'escritorio' end;
+end $$;
+revoke all on function public.conta_email(uuid, text) from public, anon, authenticated;
+
+create or replace function public.email_cliente_html(p_titulo text, p_nome text, p_texto text, p_itens jsonb default '[]', p_pagar boolean default false, p_fecho text default '')
+returns text language plpgsql stable security definer set search_path = public as $$
+declare d jsonb; itens text := ''; tot numeric := 0; i jsonb; pag text := '';
+begin
+  -- Backup 28: dados de quem cobra (Contabilidade ou escritório), escolhidos por email_cliente_enviar
+  if coalesce(current_setting('erp.conta_email', true), '') = 'contabilidade' then
+    select valor into d from public.configuracoes where chave = 'dados_pagamento_contab';
+  end if;
+  if d is null or d = '{}'::jsonb then select valor into d from public.configuracoes where chave = 'dados_pagamento'; end if;
+  d := coalesce(d, '{}');
+  for i in select * from jsonb_array_elements(coalesce(p_itens, '[]')) loop
+    itens := itens || '<tr><td style="padding:10px 12px;border-bottom:1px solid #EEF0F5">' || public.esc_html(i->>'descricao') || '</td>'
+      || '<td style="padding:10px 12px;border-bottom:1px solid #EEF0F5;white-space:nowrap">' || coalesce(to_char((i->>'vencimento')::date, 'DD/MM/YYYY'), '') || '</td>'
+      || '<td style="padding:10px 12px;border-bottom:1px solid #EEF0F5;text-align:right;white-space:nowrap;font-weight:bold">' || public.brl_texto((i->>'valor')::numeric) || '</td></tr>';
+    tot := tot + coalesce((i->>'valor')::numeric, 0);
+  end loop;
+  if itens <> '' then
+    itens := '<table role="presentation" style="width:100%;border-collapse:collapse;margin:14px 0;font-size:14px;border:1px solid #E5E7EB;border-radius:10px">'
+      || '<tr style="background:#F7F8FB;color:#5B6472;font-size:11px;text-transform:uppercase;letter-spacing:.06em"><td style="padding:9px 12px">Descrição</td><td style="padding:9px 12px">Vencimento</td><td style="padding:9px 12px;text-align:right">Valor</td></tr>'
+      || itens || case when jsonb_array_length(p_itens) > 1 then '<tr><td colspan="2" style="padding:10px 12px;font-weight:bold">Total</td><td style="padding:10px 12px;text-align:right;font-weight:bold;color:#1B2A4A">' || public.brl_texto(tot) || '</td></tr>' else '' end
+      || '</table>';
+  end if;
+  if p_pagar and (coalesce(d->>'pix', '') <> '' or coalesce(d->>'banco', '') <> '') then
+    pag := '<div style="background:#F5EDD6;border-left:4px solid #C9A84C;border-radius:10px;padding:12px 14px;margin:14px 0;font-size:13.5px"><b style="color:#1B2A4A">Como pagar</b><br>'
+      || case when coalesce(d->>'pix', '') <> '' then 'PIX: <b>' || public.esc_html(d->>'pix') || '</b>' || coalesce(' · ' || nullif(public.esc_html(d->>'titular'), ''), '') || '<br>' else '' end
+      || case when coalesce(d->>'banco', '') <> '' then public.esc_html(d->>'banco') || '<br>' else '' end
+      || 'Depois de pagar, responda este e-mail com o comprovante.</div>';
+  end if;
+  return '<div style="font-family:Arial,Helvetica,sans-serif;background:#F0F2F7;padding:24px 12px">'
+    || '<div style="max-width:620px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;border:1px solid #E5E7EB">'
+    || '<div style="background:#1B2A4A;padding:20px 24px;border-bottom:3px solid #C9A84C">'
+    ||   '<div style="color:#C9A84C;font-family:Georgia,serif;font-size:20px;font-weight:bold">Araújo &amp; Castro</div>'
+    ||   '<div style="color:#CBD5E1;font-size:11px;letter-spacing:.14em;text-transform:uppercase;margin-top:2px">Advocacia · Contabilidade · Consultoria</div></div>'
+    || '<div style="padding:22px 24px;color:#1F2937;font-size:14.5px;line-height:1.6">'
+    ||   '<div style="font-size:18px;font-weight:bold;color:#1B2A4A;margin-bottom:10px">' || public.esc_html(p_titulo) || '</div>'
+    ||   case when p_nome = '-' then '' else '<p style="margin:0 0 10px">Olá' || coalesce(', ' || public.esc_html(nullif(p_nome, '')), '') || '!</p>' end
+    ||   p_texto || itens || pag
+    ||   case when p_fecho = '-' then '' else
+           coalesce(nullif(p_fecho, ''), '<p style="margin:14px 0 0">Qualquer dúvida, é só responder este e-mail' || case when coalesce(d->>'whatsapp', '') <> '' then ' ou chamar no WhatsApp ' || public.esc_html(d->>'whatsapp') else '' end || '.</p>')
+           || '<p style="margin:16px 0 0">Atenciosamente,<br><b>' || public.esc_html(coalesce(nullif(d->>'assinatura', ''), 'Equipe Araújo & Castro')) || '</b></p>' end || '</div>'
+    || '<div style="padding:12px 24px;background:#F7F8FB;border-top:1px solid #E5E7EB;color:#6B7280;font-size:11.5px">Mensagem automática do sistema do escritório. Se já resolveu, por favor desconsidere.</div>'
+    || '</div></div>';
+end $$;
+revoke all on function public.email_cliente_html(text, text, text, jsonb, boolean, text) from public, anon, authenticated;
+
+create or replace function public.email_cliente_enviar(p_regra text, p_ref text, p_cliente uuid, p_grupo uuid, p_finalidade text,
+  p_assunto text, p_texto text, p_itens jsonb default '[]', p_pagar boolean default false, p_anexo jsonb default null) returns boolean
+language plpgsql security definer set search_path = public as $$
+declare c record; tipo text; v_conta text;
+begin
+  if exists (select 1 from public.automacoes_log where ref = p_ref) then return false; end if;
+  tipo := case p_regra when 'email_lh' then 'lembrete' when 'email_vh' then 'vencimento' when 'email_ch' then 'cobranca'
+                       when 'email_pr' then 'recibo' when 'email_lp' then 'parcelamento' when 'email_la' then 'acordo'
+                       when 'email_bv' then 'boas_vindas' when 'email_cv' then 'convite' end;
+  if tipo is not null and not public.pode_email(p_cliente, p_grupo, tipo) then
+    insert into public.automacoes_log (chave, ref, descricao, cliente_id)
+    values (p_regra, p_ref, 'Não enviado (perfil de e-mail do cliente): ' || p_assunto, p_cliente);
+    return false;
+  end if;
+  select * into c from public.contato_do_cliente(p_cliente, p_grupo, p_finalidade);
+  if c.email is null or c.email = '' then return false; end if;
+  if c.email ~* '(@|\.)example\.com(,|$)' then
+    insert into public.automacoes_log (chave, ref, descricao, cliente_id) values (p_regra, p_ref, 'Demonstração (não enviado): ' || p_assunto, p_cliente);
+    return false;
+  end if;
+  v_conta := public.conta_email(p_cliente, p_ref);
+  perform set_config('erp.conta_email', v_conta, true);
+  insert into public.email_fila (usuario_id, para, assunto, html, tipo, referencia, anexo, conta)
+  values (null, c.email, p_assunto, public.email_cliente_html(p_assunto, c.nome, p_texto, p_itens, p_pagar), 'cliente', p_ref, p_anexo, v_conta);
+  perform set_config('erp.conta_email', '', true);
+  insert into public.automacoes_log (chave, ref, descricao, cliente_id) values (p_regra, p_ref, p_assunto || ' → ' || c.email, p_cliente);
+  return true;
+end $$;
+revoke all on function public.email_cliente_enviar(text, text, uuid, uuid, text, text, text, jsonb, boolean, jsonb) from public, anon, authenticated;
+
+-- configuração da conta de e-mail por empresa (só admin; a senha nunca volta para o site)
+create or replace function public.salvar_config_email_conta(p_conta text, p jsonb) returns void
+language plpgsql security definer set search_path = public as $$
+declare atual jsonb; k text;
+begin
+  if not public.eh_admin() then raise exception 'Só o administrador configura o e-mail.'; end if;
+  if p_conta = 'escritorio' then perform public.salvar_config_email(p); return; end if;
+  if p_conta <> 'contabilidade' then raise exception 'Conta inválida.'; end if;
+  k := 'email_contab';
+  select valor into atual from public.config_privada where chave = k;
+  if coalesce(p->>'senha', '') = '' then p := p || jsonb_build_object('senha', coalesce(atual->>'senha', '')); end if;
+  insert into public.config_privada (chave, valor) values (k, p || jsonb_build_object('configurado_em', now(), 'configurado_por', auth.uid()))
+  on conflict (chave) do update set valor = excluded.valor, atualizado_em = now();
+end $$;
+create or replace function public.status_config_email_conta(p_conta text) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare c jsonb;
+begin
+  if not public.eh_admin() then raise exception 'Só o administrador vê a configuração do e-mail.'; end if;
+  select valor into c from public.config_privada where chave = case when p_conta = 'contabilidade' then 'email_contab' else 'email' end;
+  return coalesce(c - 'senha', '{}'::jsonb) || jsonb_build_object('tem_senha', coalesce(c->>'senha', '') <> '');
+end $$;
+revoke all on function public.salvar_config_email_conta(text, jsonb) from public, anon;
+revoke all on function public.status_config_email_conta(text) from public, anon;
+grant execute on function public.salvar_config_email_conta(text, jsonb), public.status_config_email_conta(text) to authenticated;
+insert into public.configuracoes (chave, valor) values ('dados_pagamento_contab', '{}'::jsonb) on conflict (chave) do nothing;
+
+-- Várias guias/boletos de UMA empresa num e-mail só, com o texto e os valores revisados na tela e as guias em PDF anexas
+-- p_itens: [{tabela:'parcelas'|'acordos', id, descricao, vencimento, valor}] · p_docs: documentos (PDF) já enviados ao Storage
+create or replace function public.enviar_guias_email(p_cliente uuid, p_grupo uuid, p_itens jsonb, p_assunto text, p_texto text,
+  p_docs uuid[] default '{}', p_para text default null) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare c record; para text; nome text; anexo jsonb; it jsonb; html text; v_conta text; n int := 0; lista jsonb;
+begin
+  if not public.pode('juridico', 'editar') then raise exception 'permission denied: sem acesso para enviar guias.'; end if;
+  if coalesce(jsonb_array_length(p_itens), 0) = 0 then raise exception 'Escolha ao menos uma guia.'; end if;
+  if coalesce(trim(p_para), '') <> '' then para := trim(p_para); nome := '';
+  else select * into c from public.contato_do_cliente(p_cliente, p_grupo, 'guia'); para := c.email; nome := c.nome; end if;
+  if coalesce(para, '') = '' then raise exception 'Este cliente não tem e-mail para guias: cadastre em Clientes → ficha → Contatos (ou informe o e-mail aqui).'; end if;
+  select coalesce(jsonb_agg(jsonb_build_object('caminho', dc.caminho, 'arquivo', dc.nome, 'mime', dc.mime)), '[]') into lista
+    from public.documentos dc where dc.id = any (coalesce(p_docs, '{}'));
+  anexo := case when jsonb_array_length(lista) > 0 then jsonb_build_object('tipo', 'arquivos', 'lista', lista) end;
+  v_conta := public.conta_email(p_cliente, null);
+  perform set_config('erp.conta_email', v_conta, true);
+  html := public.email_cliente_html(coalesce(nullif(trim(p_assunto), ''), 'Guias para pagamento'), coalesce(nome, ''),
+    '<p style="margin:0 0 10px">' || replace(public.esc_html(coalesce(p_texto, '')), E'\n', '<br>') || '</p>', p_itens, false);
+  perform set_config('erp.conta_email', '', true);
+  insert into public.email_fila (usuario_id, para, assunto, html, tipo, referencia, anexo, conta)
+  values (auth.uid(), para, coalesce(nullif(trim(p_assunto), ''), 'Guias para pagamento'), html, 'cliente', 'guias:' || gen_random_uuid(), anexo, v_conta);
+  for it in select * from jsonb_array_elements(p_itens) loop
+    if it->>'tabela' not in ('parcelas', 'acordos') then continue; end if;
+    perform public.registrar_emissao(it->>'tabela', (it->>'id')::uuid, true, null, false);
+    insert into public.automacoes_log (chave, ref, descricao, cliente_id)
+    values (case when it->>'tabela' = 'parcelas' then 'email_lp' else 'email_la' end, case when it->>'tabela' = 'parcelas' then 'email_lp:' else 'email_la:' end || (it->>'id'),
+            coalesce(nullif(trim(p_assunto), ''), 'Guias para pagamento') || ' → ' || para, p_cliente);
+    n := n + 1;
+  end loop;
+  return jsonb_build_object('para', para, 'itens', n, 'anexos', jsonb_array_length(lista), 'conta', v_conta);
+end $$;
+revoke all on function public.enviar_guias_email(uuid, uuid, jsonb, text, text, uuid[], text) from public, anon;
+grant execute on function public.enviar_guias_email(uuid, uuid, jsonb, text, text, uuid[], text) to authenticated;

@@ -68,6 +68,7 @@ function lerValor(txt) {
   let s = String(txt || '').replace(/[R$\s]/g, '');
   if (!s) return 0;
   if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+  else if (/^-?\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, '');   // "1.234" = mil duzentos e trinta e quatro
   const n = Number(s);
   return isFinite(n) ? Math.round(n * 100) / 100 : NaN;
 }
@@ -545,6 +546,7 @@ const PAGINA_TABELA = 100;
 function paginarTabelas() {
   document.querySelectorAll('.tw table, .tabela-wrap table').forEach((t) => {
     const corpo = t.tBodies[0]; if (!corpo) return;
+    if (t.closest('[data-sem-pagina]') || t.hasAttribute('data-sem-pagina')) return;   // Backup 28: Painel/Processos mostram tudo
     const linhas = [...corpo.rows].filter((r) => !r.classList.contains('linha-total'));
     const wrap = t.closest('.tabela-wrap');
     if (wrap) wrap.classList.toggle('tabela-longa', linhas.length > 25 && !wrap.closest('.janela'));
@@ -577,11 +579,74 @@ function nomearBotoesIcone() {
 }
 (() => {
   let agendado = false;
-  const agendar = () => { if (agendado) return; agendado = true; requestAnimationFrame(() => { agendado = false; paginarTabelas(); nomearBotoesIcone(); }); };
-  const ligar = () => new MutationObserver((ms) => { if (ms.some((m) => m.target.closest && m.target.closest('table, .tw, .tabela-wrap, main, .gs-area, #conteudo'))) agendar(); })
+  const agendar = () => { if (agendado) return; agendado = true; requestAnimationFrame(() => { agendado = false; paginarTabelas(); nomearBotoesIcone(); mascararCampos(); }); };
+  const ligar = () => new MutationObserver((ms) => { if (ms.some((m) => m.target.closest && m.target.closest('table, .tw, .tabela-wrap, main, .gs-area, #conteudo, #janelas, .janela, .gx-modal, form'))) agendar(); })
     .observe(document.body, { childList: true, subtree: true });
   if (document.body) ligar(); else document.addEventListener('DOMContentLoaded', ligar);
 })();
+
+// ═══ Backup 28: máscaras AO DIGITAR (valem para todo o sistema) ═══
+// Dinheiro: "10,2" → "R$ 10,2" (ao sair do campo: "R$ 10,20"); "10" → "R$ 10" (ao sair: "R$ 10,00"); milhar com ponto.
+// Telefone: "37998684323" → "(37) 9 9868-4323"; fixo "3732221234" → "(37) 3222-1234".
+// Campos: data-mascara="brl" | "tel", e também inputmode="decimal" com name começando por "valor" e name="telefone".
+function tipoMascara(el) {
+  if (!el || el.tagName !== 'INPUT' || (el.type && !/^(text|tel|search|)$/.test(el.type))) return '';
+  const m = el.getAttribute('data-mascara'); if (m) return m === 'nenhuma' ? '' : m;
+  const n = el.name || '';
+  if (el.getAttribute('inputmode') === 'decimal' && /^valor/.test(n)) return 'brl';
+  if (/(^|_)telefone$|^whatsapp$/.test(n) || el.type === 'tel') return 'tel';
+  return '';
+}
+function formatarBRL(txt, final) {
+  const jaMascarado = /R\$/.test(String(txt || ''));
+  let s = String(txt || '').replace(/R\$|\s/g, ''); if (!s) return '';
+  const neg = /^-/.test(s); s = s.replace(/-/g, '');
+  // ponto digitado como decimal vira vírgula: no fim do campo já mascarado ("R$ 10." → "R$ 10,") ou em valor colado ("10.5");
+  // os demais pontos são de milhar e saem
+  if (!s.includes(',')) {
+    if (jaMascarado) s = s.replace(/\.$/, ',');
+    else if (/\.\d{1,2}$/.test(s) && !/^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\.(\d{1,2})$/, ',$1');
+  }
+  const temVirg = s.includes(','), [a, b] = s.split(',');
+  let int = (a || '').replace(/\D/g, '').replace(/^0+(?=\d)/, ''), dec = (b || '').replace(/\D/g, '').slice(0, 2);
+  if (!int && !temVirg) return neg ? '-' : '';
+  if (!int) int = '0';
+  int = int.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  if (final) dec = (dec + '00').slice(0, 2);
+  return (neg ? '-' : '') + 'R$ ' + int + (temVirg || final ? ',' + dec : '');
+}
+function formatarTel(txt) {
+  const d = soDigitos(txt).replace(/^0+/, '').slice(0, 11); if (!d) return '';
+  if (d.length <= 2) return '(' + d;
+  const dd = '(' + d.slice(0, 2) + ') ', r = d.slice(2);
+  if (d.length === 11) return dd + r[0] + ' ' + r.slice(1, 5) + '-' + r.slice(5);
+  if (r.length <= 4) return dd + r;
+  return dd + r.slice(0, 4) + '-' + r.slice(4);
+}
+function aplicarMascara(el, final) {
+  const t = tipoMascara(el); if (!t) return;
+  const antes = el.value, fim = el.selectionStart === antes.length;
+  const pos = el.selectionStart == null ? antes.length : el.selectionStart;
+  const sig = (s, p) => s.slice(0, p).replace(t === 'brl' ? /[^\d,-]/g : /\D/g, '').length;   // dígitos antes do cursor
+  const novo = t === 'brl' ? formatarBRL(antes, final) : formatarTel(antes);
+  if (novo === antes) return;
+  el.value = novo;
+  if (document.activeElement === el && !final) {
+    let alvo = novo.length;
+    if (!fim) { const k = sig(antes, pos); alvo = 0; while (alvo < novo.length && sig(novo, alvo) < k) alvo++; }
+    try { el.setSelectionRange(alvo, alvo); } catch (e) { /* campo sem seleção */ }
+  }
+}
+document.addEventListener('input', (ev) => { if (!ev.isComposing) aplicarMascara(ev.target, false); }, true);
+document.addEventListener('blur', (ev) => aplicarMascara(ev.target, true), true);
+// valor que já vem preenchido (edição) também aparece com "R$"
+function mascararCampos(raiz) {
+  (raiz || document).querySelectorAll('input:not([data-mascara-ok])').forEach((el) => {
+    const t = tipoMascara(el); if (!t) return; el.setAttribute('data-mascara-ok', '');
+    if (t === 'brl' && !el.getAttribute('inputmode')) el.setAttribute('inputmode', 'decimal');
+    if (el.value && document.activeElement !== el) aplicarMascara(el, true);
+  });
+}
 
 function campo(rotulo, html, classe) {
   return '<label class="campo' + (classe ? ' ' + classe : '') + '"><span>' + rotulo + '</span>' + html + '</label>';
@@ -1904,9 +1969,6 @@ TELAS.clientes = async function () {
         [c.cidade, c.estado].filter(Boolean).join('/'), c.procuracao === true ? 'Sim' : c.procuracao === false ? 'Não' : '', c.certificado === true ? 'Sim' : c.certificado === false ? 'Não' : '', c.capag, c.situacao_cadastral]) }); };
   $('cli-massa').onclick = () => edicaoEmMassa(E.cli.ultima || []);
   ligarBotoesNovo($('conteudo'));
-  // ao ordenar pelo cabeçalho, fecha o detalhe aberto (senão ele fica solto no meio da tabela)
-  $('cli-corpo').addEventListener('click', (ev) => { if (ev.target.closest('th')) { document.querySelectorAll('#cli-corpo .cli-det').forEach((x) => x.remove());
-    document.querySelectorAll('#cli-corpo tr[data-cli]').forEach((x) => { x.setAttribute('aria-expanded', 'false'); x.classList.remove('cli-aberta'); x.querySelector('.cli-seta').textContent = '▸'; }); } });
   pintarClientes();
 };
 
@@ -1930,72 +1992,30 @@ function pintarClientes() {
   const gn = (c) => (c.grupos ? c.grupos.nome : '') || '';
   if (porGrupo) lista.sort((a, x) => (gn(a) || '\uffff').localeCompare(gn(x) || '\uffff', 'pt-BR') || String(a.nome).localeCompare(String(x.nome), 'pt-BR'));
   C.ultima = lista;
-  $('cli-conta').textContent = lista.length + ' de ' + E.clientes.length + ' cadastro(s) · clique na linha para ver os detalhes';
+  $('cli-conta').textContent = lista.length + ' de ' + E.clientes.length + ' cadastro(s) · clique na linha para abrir a ficha completa';
   $('cli-corpo').innerHTML = '<div class="card">' + (lista.length ?
-    '<div class="tabela-wrap"><table class="' + (porGrupo ? '' : 'ordenavel ') + 'cli-tabela"><thead><tr><th class="sem-ordem" style="width:28px"></th><th>Grupo</th><th>Nome</th><th>CPF/CNPJ</th><th>Responsável</th>' +
+    '<div class="tabela-wrap"><table class="' + (porGrupo ? '' : 'ordenavel ') + 'cli-tabela"><thead><tr><th>Grupo</th><th>Nome</th><th>CPF/CNPJ</th><th>Área</th><th>Responsável</th>' +
     '<th>Procuração</th><th>Certificado</th><th>Situação</th></tr></thead><tbody>' +
     lista.map((c, i) => (porGrupo && (i === 0 || gn(lista[i - 1]) !== gn(c)) ? '<tr class="cli-grp"><td colspan="8">' + esc(gn(c) || 'Sem grupo') +
-        ' <span class="sub">' + plural(lista.filter((x) => gn(x) === gn(c)).length, 'cadastro', 'cadastros') + '</span></td></tr>' : '') + '<tr class="clicavel cli-linha" tabindex="0" aria-expanded="false" data-cli="' + c.id + '"><td class="cli-seta">▸</td>' +
+        ' <span class="sub">' + plural(lista.filter((x) => gn(x) === gn(c)).length, 'cadastro', 'cadastros') + '</span></td></tr>' : '') + '<tr class="clicavel cli-linha" tabindex="0" data-cli="' + c.id + '" title="Abrir a ficha completa">' +
       '<td class="cli-grupo" title="' + esc(c.grupos ? c.grupos.nome : '') + '">' + esc(c.grupos ? c.grupos.nome : '—') + '</td>' +
-      '<td><span class="cli-nome">' + esc(c.nome) + '</span> ' + pillArea(c.area) + (c.socio_admin ? '<div class="sub cli-socio">' + esc(c.socio_admin) + '</div>' : '') + '</td>' +
+      '<td><span class="cli-nome">' + esc(c.nome) + '</span>' + (c.socio_admin ? '<div class="sub cli-socio">' + esc(c.socio_admin) + '</div>' : '') + '</td>' +
       '<td class="mono">' + esc(mascaraDoc(c.cpf_cnpj) || '—') + '</td>' +
+      '<td>' + pillAreaCli(c.area) + '</td>' +
       '<td>' + pillPessoa(c.responsavel) + '</td><td>' + pillSimNao(c.procuracao) + '</td><td>' + pillSimNao(c.certificado) + '</td>' +
       '<td>' + pillSitCad(c.situacao_cadastral) + '</td></tr>').join('') +
     '</tbody></table></div>'
     : (E.clientes.length ? vazio('Nenhum cliente neste recorte — mude o filtro ou a busca.') : vazio('Nenhum cliente ainda. Cadastre o primeiro ou importe a Base de Dados em Administração.', '+ Novo cliente', '[data-novo=cliente]'))) + '</div>';
   $('cli-corpo').querySelectorAll('tr[data-cli]').forEach((tr) => {
-    tr.onclick = () => expandirCliente(tr);
-    tr.onkeydown = (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); expandirCliente(tr); } };
+    tr.onclick = () => abrirFicha(tr.dataset.cli);
+    tr.onkeydown = (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); abrirFicha(tr.dataset.cli); } };
   });
 }
 
-// Linha que expande logo abaixo com o resumo do cliente (uma aberta por vez)
-async function expandirCliente(tr) {
-  const aberta = tr.getAttribute('aria-expanded') === 'true';
-  document.querySelectorAll('#cli-corpo .cli-det').forEach((x) => x.remove());
-  document.querySelectorAll('#cli-corpo tr[data-cli]').forEach((x) => { x.setAttribute('aria-expanded', 'false'); x.classList.remove('cli-aberta'); x.querySelector('.cli-seta').textContent = '▸'; });
-  if (aberta) return;
-  const c = E.clientes.find((x) => x.id === tr.dataset.cli);
-  tr.setAttribute('aria-expanded', 'true'); tr.classList.add('cli-aberta'); tr.querySelector('.cli-seta').textContent = '▾';
-  const det = document.createElement('tr');
-  det.className = 'cli-det';
-  det.innerHTML = '<td colspan="8"><div class="cli-det-corpo"><div class="carregando" style="padding:14px">Carregando…</div></div></td>';
-  tr.after(det);
-  const alvo = det.querySelector('.cli-det-corpo');
-  const nada = () => [];
-  const [contatos, ctrs, lanc, tfs, docs] = await Promise.all([
-    q(sb.from('contatos').select('nome, finalidade, email, telefone').eq('cliente_id', c.id).order('criado_em')).catch(nada),
-    q(sb.from('contratos').select('descricao, valor_total, status').eq('cliente_id', c.id).eq('status', 'Ativo')).catch(nada),
-    q(sb.from('lancamentos').select('valor, redutor, vencimento').eq('cliente_id', c.id).eq('tipo', 'receita').eq('pago', false).eq('perda', false)).catch(nada),
-    q(sb.from('tarefas').select('titulo, prazo').eq('cliente_id', c.id).not('status', 'in', '(concluida,cancelada)').order('prazo', { nullsFirst: false }).limit(3)).catch(nada),
-    q(sb.from('documentos').select('nome, criado_em').eq('cliente_id', c.id).eq('arquivado', false).order('criado_em', { ascending: false }).limit(3)).catch(nada)
-  ]);
-  if (!det.isConnected) return;
-  const h = hojeISO(), atraso = lanc.filter((l) => l.vencimento < h);
-  const lin = (rot, v) => v ? '<div class="dado"><span>' + rot + '</span><b>' + v + '</b></div>' : '';
-  const fin = contatos.find((x) => x.finalidade === 'financeiro'), jur = contatos.find((x) => x.finalidade === 'juridico');
-  const deb = [['RFB', c.rfb], ['PGFN', c.pgfn], ['SEFAZ/MG', c.sefaz_mg], ['AGE/MG', c.age_mg]].filter((d) => Number(d[1]));
-  const zap = soDigitos(c.telefone);
-  alvo.innerHTML =
-    '<div class="cli-det-grade">' +
-    '<div class="dados"><div class="cli-det-tit">Contato</div>' +
-      lin('Telefone', esc(c.telefone)) + lin('E-mail', c.email ? '<a href="mailto:' + esc(c.email) + '">' + esc(c.email) + '</a>' : '') +
-      lin('Financeiro', fin ? esc(fin.nome) + (fin.email ? ' · ' + esc(fin.email) : '') : '') + lin('Jurídico', jur ? esc(jur.nome) + (jur.email ? ' · ' + esc(jur.email) : '') : '') +
-      lin('Endereço', esc([c.endereco, c.cidade && c.estado ? c.cidade + '/' + c.estado : c.cidade].filter(Boolean).join(' · '))) +
-      lin('Tipo', esc(c.tipo === 'Demanda' ? 'Serviço pontual' : c.tipo)) + (!c.telefone && !c.email && !contatos.length ? '<div class="sub">Sem contato cadastrado.</div>' : '') + '</div>' +
-    '<div class="dados"><div class="cli-det-tit">Fiscal</div>' +
-      lin('Regime', esc(c.regime_tributario)) + lin('CAPAG', c.capag ? pillCapag(c.capag) : '') +
-      deb.map((d) => lin(d[0], brl(d[1]))).join('') + (!c.regime_tributario && !c.capag && !deb.length ? '<div class="sub">Sem dados fiscais.</div>' : '') + '</div>' +
-    '<div class="dados"><div class="cli-det-tit">Escritório</div>' +
-      lin('Contratos ativos', String(ctrs.length)) + lin('A receber', brl(soma(lanc, vl)) + (atraso.length ? ' <span class="pill vencido">' + atraso.length + ' em atraso</span>' : '')) +
-      lin('Tarefas abertas', tfs.length ? tfs.map((t) => esc(t.titulo) + (t.prazo ? ' <span class="sub">' + dataBR(t.prazo) + '</span>' : '')).join('<br>') : '—') +
-      lin('Últimos documentos', docs.length ? docs.map((d) => esc(d.nome)).join('<br>') : '—') + '</div>' +
-    '</div><div class="cli-det-acoes">' +
-      '<button class="btn btn-p btn-mini" data-cli-ficha>Abrir ficha completa</button><button class="btn btn-o btn-mini" data-cli-editar>Editar</button>' +
-      (zap ? '<a class="btn btn-o btn-mini" target="_blank" rel="noopener" href="https://wa.me/' + (zap.length <= 11 ? '55' : '') + zap + '">WhatsApp</a>' : '') +
-      (c.email ? '<a class="btn btn-o btn-mini" href="mailto:' + esc(c.email) + '">E-mail</a>' : '') + '</div>';
-  alvo.querySelector('[data-cli-ficha]').onclick = () => abrirFicha(c.id);
-  alvo.querySelector('[data-cli-editar]').onclick = () => formCliente(c, pintarClientes);
+// Backup 28: coluna Área (Jurídico · Contábil · Jurídico e contábil)
+function pillAreaCli(a) {
+  a = a || 'ambos';
+  return '<span class="pill area-' + a + '">' + (a === 'juridico' ? 'Jurídico' : a === 'contabil' ? 'Contábil' : 'Jurídico e contábil') + '</span>';
 }
 
 function selectSimNao(nome, v) {
@@ -2008,7 +2028,7 @@ function selectOpcoes(nome, opcoes, v) {
   return '<select name="' + nome + '"><option value="">—</option>' + lista.map((o) => '<option' + (o === v ? ' selected' : '') + '>' + esc(o) + '</option>').join('') + '</select>';
 }
 function campoValor(rotulo, nome, v) {
-  return campo(rotulo, '<input name="' + nome + '" inputmode="decimal" placeholder="—" value="' + esc(valorParaCampo(v)) + '">');
+  return campo(rotulo, '<input name="' + nome + '" inputmode="decimal" data-mascara="brl" placeholder="R$ 0,00" value="' + (v == null || v === '' ? '' : 'R$ ' + esc(valorParaCampo(v))) + '">');
 }
 
 async function formCliente(cl, depois) {
@@ -2027,67 +2047,108 @@ async function formCliente(cl, depois) {
       '<b class="mono">' + brl(emAberto) + '</b>' + (atraso ? ' · <span style="color:var(--red)">em atraso <b class="mono">' + brl(atraso) + '</b></span>' : '') +
       ' · passivo tributário <b class="mono">' + brl(passivo(cl)) + '</b></div>';
   }
-  const secao = (t) => '<div class="secao inteiro">' + t + '</div>';
+  // Backup 28: cadastro em abas, vários e-mails e telefones, CNPJ consultado enquanto digita, grupo existente ou novo
+  const ABAS_CLI = [['id', '🏢 Empresa'], ['class', '🗂 Classificação'], ['contato', '📞 Contatos'], ['end', '📍 Endereço'], ['sit', '🏛 Situação e passivo'], ['obs', '📝 Observações']];
+  const aba = (k, html) => '<div class="cli-aba grade g3 inteiro" data-aba="' + k + '"' + (k === 'id' ? '' : ' hidden') + '>' + html + '</div>';
+  const setorOpc = (v) => SETORES_CONTATO.map(([k, r]) => '<option value="' + k + '"' + (k === (v || 'geral') ? ' selected' : '') + '>' + r + '</option>').join('');
+  const linhaEmail = (v, principal) => '<div class="cli-lin cli-lin-email"><input ' + (principal ? 'name="email"' : 'data-extra="email"') + ' type="email" placeholder="nome@empresa.com.br" value="' + esc(v || '') + '">' +
+    '<select data-setor>' + setorOpc(principal ? 'geral' : 'financeiro') + '</select>' + (principal ? '<span class="pill neutro" title="E-mail principal do cadastro">principal</span>' : '<button type="button" class="btn btn-o btn-mini" data-tirar title="Tirar">✕</button>') + '</div>';
+  const linhaTel = (v, principal) => '<div class="cli-lin cli-lin-tel"><input ' + (principal ? 'name="telefone"' : 'data-extra="telefone"') + ' type="tel" data-mascara="tel" inputmode="tel" placeholder="(37) 9 9999-9999" value="' + esc(v || '') + '">' +
+    '<select data-setor>' + setorOpc(principal ? 'geral' : 'financeiro') + '</select>' + (principal ? '<span class="pill neutro">principal</span>' : '<button type="button" class="btn btn-o btn-mini" data-tirar title="Tirar">✕</button>') + '</div>';
+  const grupoAtual = cl.grupo_id || '';
   const j = abrirJanela({
     titulo: novo ? 'Novo cliente' : cl.nome, larga: true,
     corpo:
-      '<form id="f-cli" class="grade g3">' + resumo +
-      secao('📋 Identificação') +
-      campo('Nome / Razão social <span class="obrig">*</span>', '<input name="nome" required maxlength="200" value="' + esc(cl.nome || '') + '">', 'dois') +
-      campo('CPF/CNPJ', '<input name="cpf_cnpj" inputmode="numeric" maxlength="18" value="' + esc(mascaraDoc(cl.cpf_cnpj)) + '"><div class="sub" id="cli-doc-aviso"></div>') +
-      campo('Tipo societário', selectOpcoes('tipo_societario', ['LTDA', 'S.A', 'MEI', 'EI', 'PF'], cl.tipo_societario)) +
-      campo('Sócio-administrador', '<input name="socio_admin" value="' + esc(cl.socio_admin || '') + '">', 'dois') +
-      (novo ? '<div class="dica inteiro">Com CNPJ, ao salvar o sistema consulta a Receita e preenche razão social, endereço, situação e os <b>sócios</b>. Os contatos por setor (financeiro, fiscal, RH…) ficam na ficha → <b>Contatos</b>.</div>' : '') +
-      secao('🗂 Classificação') +
-      campo('Grupo', '<input name="grupo" list="cli-grupos" placeholder="Digite ou escolha" value="' + esc(cl.grupos ? cl.grupos.nome : nomeGrupo(cl.grupo_id)) + '">' + datalistGrupos('cli-grupos')) +
-      campo('Tipo', '<select name="tipo">' + [['Consultoria', 'Consultoria'], ['Demanda', 'Serviço pontual'], ['Inativo', 'Inativo']].map(([t, r]) => '<option value="' + t + '"' + (cl.tipo === t ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>') +
-      campo('Área do cliente', '<select name="area">' + AREAS.filter(([v]) => minhasAreas() === 'ambos' || v === minhasAreas() || v === (cl.area || '')).map(([v, r]) =>
-        '<option value="' + v + '"' + ((cl.area || (novo ? minhasAreas() : 'ambos')) === v ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>') +
-      campo('Responsável', '<input name="responsavel" list="cli-pessoas" value="' + esc(cl.responsavel || '') + '">' + datalistPessoas('cli-pessoas')) +
-      campo('Origem', '<select name="origem">' + ['', ...ORIGENS_CLIENTE, ...(cl.origem && !ORIGENS_CLIENTE.includes(cl.origem) ? [cl.origem] : [])].map((o) =>
-        '<option value="' + esc(o) + '"' + ((cl.origem || '') === o ? ' selected' : '') + '>' + (o ? esc(o) : '—') + '</option>').join('') + '</select>') +
-      campo('Indicado por', '<input name="indicado_por" maxlength="200" placeholder="Quem indicou (quando a origem é Indicação)" value="' + esc(cl.indicado_por || '') + '">') +
-      campo('Regime tributário', selectOpcoes('regime_tributario', ['PF', 'SN', 'LP', 'LR', 'BAIXADA'], cl.regime_tributario)) +
-      secao('📞 Contato principal') +
-      campo('E-mail', '<input name="email" type="email" value="' + esc(cl.email || '') + '">') +
-      campo('Telefone / WhatsApp', '<input name="telefone" inputmode="tel" value="' + esc(cl.telefone || '') + '">') +
-      campo('E-mails automáticos', '<select name="perfil_email" title="Quais e-mails automáticos este cliente recebe">' + PERFIS_EMAIL.map(([v, r]) =>
-        '<option value="' + v + '"' + ((cl.perfil_email || 'padrao') === v ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>') +
-      secao('📍 Endereço') +
-      campo('Endereço', '<input name="endereco" value="' + esc(cl.endereco || '') + '">') +
-      campo('Cidade', '<input name="cidade" value="' + esc(cl.cidade || '') + '">') +
-      campo('UF', '<input name="estado" maxlength="2" style="text-transform:uppercase" value="' + esc(cl.estado || '') + '">') +
-      secao('🏛 Situação') +
-      campo('Em operação', selectSimNao('em_operacao', cl.em_operacao)) +
-      campo('Procuração', selectSimNao('procuracao', cl.procuracao)) +
-      campo('Certificado', selectSimNao('certificado', cl.certificado)) +
-      campo('Cadastro regular', selectSimNao('cadastro_regular', cl.cadastro_regular)) +
-      campo('CAPAG', selectOpcoes('capag', ['A', 'B', 'C', 'D', 'Omisso'], cl.capag)) +
-      campo('Situação cadastral', selectOpcoes('situacao_cadastral', ['ATIVA', 'SUSPENSA', 'INAPTA', 'BAIXADA', 'NULA'], cl.situacao_cadastral)) +
-      secao('💰 Passivo tributário') +
-      campoValor('RFB', 'rfb', cl.rfb) + campoValor('RFB negociada', 'rfb_negociada', cl.rfb_negociada) +
-      campoValor('PGFN', 'pgfn', cl.pgfn) + campoValor('PGFN negociada', 'pgfn_negociada', cl.pgfn_negociada) +
-      campoValor('AGE/MG', 'age_mg', cl.age_mg) + campoValor('AGE/MG negociada', 'age_mg_negociada', cl.age_mg_negociada) +
-      campoValor('SEFAZ/MG', 'sefaz_mg', cl.sefaz_mg) +
-      campo('CEAT (TRT-3) — processos', '<input name="ceat_trt3" type="number" min="0" value="' + esc(cl.ceat_trt3 == null ? '' : cl.ceat_trt3) + '">') +
-      secao('📝 Observações') +
-      campo('Observação interna', '<textarea name="obs" maxlength="4000">' + esc(cl.obs || '') + '</textarea>', 'inteiro') +
-      (cl.historico_cadastral ? campo('Histórico cadastral', '<textarea name="historico_cadastral" maxlength="4000">' + esc(cl.historico_cadastral) + '</textarea>', 'inteiro') : '') +
+      '<form id="f-cli" class="grade g3 cli-form">' + resumo +
+      '<div class="inteiro"><div class="segmento cli-abas" id="cli-abas" role="tablist">' + ABAS_CLI.map(([k, r], i) => '<button type="button" role="tab" data-cli-aba="' + k + '"' + (i ? '' : ' class="ativo"') + '>' + r + '</button>').join('') + '</div></div>' +
+      aba('id',
+        campo('CPF/CNPJ', '<input name="cpf_cnpj" inputmode="numeric" maxlength="18" placeholder="Digite o CNPJ: a Receita preenche o resto" value="' + esc(mascaraDoc(cl.cpf_cnpj)) + '"><div class="sub" id="cli-doc-aviso"></div>') +
+        campo('Nome / Razão social <span class="obrig">*</span>', '<input name="nome" required maxlength="200" value="' + esc(cl.nome || '') + '">', 'dois') +
+        '<div class="inteiro" id="cli-cnpj-card"></div>' +
+        campo('Tipo societário', selectOpcoes('tipo_societario', ['LTDA', 'S.A', 'MEI', 'EI', 'SLU', 'PF'], cl.tipo_societario)) +
+        campo('Sócio-administrador', '<input name="socio_admin" value="' + esc(cl.socio_admin || '') + '">') +
+        campo('Regime tributário', selectOpcoes('regime_tributario', ['PF', 'SN', 'LP', 'LR', 'BAIXADA'], cl.regime_tributario))) +
+      aba('class',
+        campo('Grupo', '<select name="grupo_sel"><option value="">— sem grupo —</option>' + E.grupos.map((g) => '<option value="' + g.id + '"' + (g.id === grupoAtual ? ' selected' : '') + '>' + esc(g.nome) + '</option>').join('') + '</select>' +
+          '<label class="cli-chk"><input type="checkbox" name="grupo_novo"> É um grupo novo</label><input name="grupo" placeholder="Nome do grupo novo" hidden>') +
+        campo('Tipo', '<select name="tipo">' + [['Consultoria', 'Consultoria'], ['Demanda', 'Serviço pontual'], ['Inativo', 'Inativo']].map(([t, r]) => '<option value="' + t + '"' + (cl.tipo === t ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>') +
+        campo('Área do cliente', '<select name="area">' + AREAS.filter(([v]) => minhasAreas() === 'ambos' || v === minhasAreas() || v === (cl.area || '')).map(([v, r]) =>
+          '<option value="' + v + '"' + ((cl.area || (novo ? minhasAreas() : 'ambos')) === v ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>') +
+        campo('Responsável (quem cuida)', selectPessoa('responsavel', cl.responsavel || '', '— escolha —')) +
+        campo('Origem', '<select name="origem">' + ['', ...ORIGENS_CLIENTE, ...(cl.origem && !ORIGENS_CLIENTE.includes(cl.origem) ? [cl.origem] : [])].map((o) =>
+          '<option value="' + esc(o) + '"' + ((cl.origem || '') === o ? ' selected' : '') + '>' + (o ? esc(o) : '—') + '</option>').join('') + '</select>') +
+        campo('Indicado por', '<input name="indicado_por" maxlength="200" placeholder="Quem indicou (quando a origem é Indicação)" value="' + esc(cl.indicado_por || '') + '">')) +
+      aba('contato',
+        '<div class="inteiro"><div class="cli-lista-tit">E-mails <button type="button" class="btn btn-o btn-mini" id="cli-mais-email">+ e-mail</button></div><div id="cli-emails">' + linhaEmail(cl.email, true) + '</div></div>' +
+        '<div class="inteiro"><div class="cli-lista-tit">Telefones / WhatsApp <button type="button" class="btn btn-o btn-mini" id="cli-mais-tel">+ telefone</button></div><div id="cli-tels">' + linhaTel(cl.telefone, true) + '</div></div>' +
+        campo('E-mails automáticos', '<select name="perfil_email" title="Quais e-mails automáticos este cliente recebe">' + PERFIS_EMAIL.map(([v, r]) =>
+          '<option value="' + v + '"' + ((cl.perfil_email || 'padrao') === v ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>') +
+        '<div class="dica dois">Os e-mails e telefones a mais viram <b>contatos</b> do cliente, com o setor escolhido (financeiro, fiscal, RH…): é por eles que o sistema sabe para quem mandar cobranças, guias e recibos (ficha → Contatos).</div>') +
+      aba('end',
+        campo('CEP', '<input name="cep" inputmode="numeric" maxlength="9" value="' + esc(cl.cep || '') + '">') +
+        campo('Endereço', '<input name="endereco" value="' + esc(cl.endereco || '') + '">', 'dois') +
+        campo('Cidade', '<input name="cidade" value="' + esc(cl.cidade || '') + '">') +
+        campo('UF', '<input name="estado" maxlength="2" style="text-transform:uppercase" value="' + esc(cl.estado || '') + '">')) +
+      aba('sit',
+        campo('Em operação', selectSimNao('em_operacao', cl.em_operacao)) +
+        campo('Procuração', selectSimNao('procuracao', cl.procuracao)) +
+        campo('Certificado', selectSimNao('certificado', cl.certificado)) +
+        campo('Cadastro regular', selectSimNao('cadastro_regular', cl.cadastro_regular)) +
+        campo('CAPAG', selectOpcoes('capag', ['A', 'B', 'C', 'D', 'Omisso'], cl.capag)) +
+        campo('Situação cadastral', selectOpcoes('situacao_cadastral', ['ATIVA', 'SUSPENSA', 'INAPTA', 'BAIXADA', 'NULA'], cl.situacao_cadastral)) +
+        campoValor('RFB', 'rfb', cl.rfb) + campoValor('RFB negociada', 'rfb_negociada', cl.rfb_negociada) + campoValor('SEFAZ/MG', 'sefaz_mg', cl.sefaz_mg) +
+        campoValor('PGFN', 'pgfn', cl.pgfn) + campoValor('PGFN negociada', 'pgfn_negociada', cl.pgfn_negociada) +
+        campo('CEAT (TRT-3) — processos', '<input name="ceat_trt3" type="number" min="0" value="' + esc(cl.ceat_trt3 == null ? '' : cl.ceat_trt3) + '">') +
+        campoValor('AGE/MG', 'age_mg', cl.age_mg) + campoValor('AGE/MG negociada', 'age_mg_negociada', cl.age_mg_negociada)) +
+      aba('obs',
+        campo('Observação interna', '<textarea name="obs" maxlength="4000">' + esc(cl.obs || '') + '</textarea>', 'inteiro') +
+        (cl.historico_cadastral ? campo('Histórico cadastral', '<textarea name="historico_cadastral" maxlength="4000">' + esc(cl.historico_cadastral) + '</textarea>', 'inteiro') : '')) +
       '</form>',
     rodape:
-      (!novo && E.perfil.papel === 'admin' ? '<button class="btn btn-x" id="btn-excluir-cli" type="button">Excluir</button>' : '<span></span>') +
+      (!novo && E.perfil.papel === 'admin' ? '<button class="btn btn-x" id="btn-excluir-cli" type="button">Excluir</button>' : (novo ? '<label class="cli-chk"><input type="checkbox" id="cli-depois-ctr"> Depois de salvar, criar o contrato</label>' : '<span></span>')) +
       '<div class="acoes">' + (!novo ? '<button class="btn btn-o" type="button" id="btn-ctr-cli">+ Contrato</button>' : '') +
       '<button class="btn btn-o" type="button" data-cancelar>Cancelar</button>' +
       '<button class="btn btn-p" id="btn-salvar-cli" type="button">Salvar</button></div>'
   });
   const f = j.querySelector('#f-cli');
+  const irAba = (k) => { j.querySelectorAll('[data-cli-aba]').forEach((b) => b.classList.toggle('ativo', b.dataset.cliAba === k)); j.querySelectorAll('.cli-aba').forEach((d) => { d.hidden = d.dataset.aba !== k; }); };
+  j.querySelector('#cli-abas').onclick = (ev) => { const b = ev.target.closest('[data-cli-aba]'); if (b) irAba(b.dataset.cliAba); };
+  f.grupo_novo.onchange = () => { f.grupo.hidden = !f.grupo_novo.checked; f.grupo_sel.disabled = f.grupo_novo.checked; if (f.grupo_novo.checked) f.grupo.focus(); };
+  j.querySelector('#cli-mais-email').onclick = () => { j.querySelector('#cli-emails').insertAdjacentHTML('beforeend', linhaEmail('', false)); j.querySelector('#cli-emails').lastElementChild.querySelector('input').focus(); };
+  j.querySelector('#cli-mais-tel').onclick = () => { j.querySelector('#cli-tels').insertAdjacentHTML('beforeend', linhaTel('', false)); j.querySelector('#cli-tels').lastElementChild.querySelector('input').focus(); };
+  f.addEventListener('click', (ev) => { const b = ev.target.closest('[data-tirar]'); if (b) b.closest('.cli-lin').remove(); });
   // Backup 26: avisa na hora se o CPF/CNPJ já está cadastrado
-  let repetidos = [];
+  let repetidos = [], ultimoCnpj = '';
   const conferirDoc = async () => {
     const d = soDigitos(f.cpf_cnpj.value), el = j.querySelector('#cli-doc-aviso'); repetidos = [];
     if (d.length < 11) { el.innerHTML = ''; return; }
     repetidos = await q(sb.rpc('clientes_mesmo_documento', { p_doc: d, p_ignorar: cl.id || null })).catch(() => []);
     el.innerHTML = repetidos.length ? '<span class="pill vencido">já cadastrado</span> ' + repetidos.map((x) => esc(x.nome) + (x.grupo ? ' (' + esc(x.grupo) + ')' : '')).join(', ') : '';
+  };
+  // CNPJ consultado na Receita enquanto digita (sem gravar): preenche nome, endereço, situação e sócio-administrador
+  const consultarNaHora = async (d) => {
+    const card = j.querySelector('#cli-cnpj-card'); ultimoCnpj = d;
+    card.innerHTML = '<div class="cli-cnpj carregando">🔎 Consultando o CNPJ na Receita…</div>';
+    try {
+      const r = await chamarFuncao('erp-cnpj', { acao: 'previa', cnpj: d });
+      if (ultimoCnpj !== d || !card.isConnected) return;
+      if (!r || !r.ok || !r.dados) { card.innerHTML = '<div class="cli-cnpj">' + esc((r && r.erro) || 'Não foi possível consultar agora.') + '</div>'; return; }
+      const x = r.dados, adm = (x.socios || []).find((s) => /administrador/i.test(s.qualificacao)) || (x.socios || [])[0];
+      const porCampo = (n, v) => { if (v && f[n] && !f[n].value.trim()) f[n].value = v; };
+      porCampo('nome', x.razao_social); porCampo('endereco', x.endereco); porCampo('cidade', x.cidade); porCampo('estado', x.estado); porCampo('cep', x.cep); porCampo('socio_admin', adm && adm.nome);
+      if (x.situacao_cadastral && !f.situacao_cadastral.value) f.situacao_cadastral.value = x.situacao_cadastral;
+      card.innerHTML = '<div class="cli-cnpj ok"><b>✓ ' + esc(x.razao_social || '') + '</b>' + (x.nome_fantasia ? ' <span class="sub">(' + esc(x.nome_fantasia) + ')</span>' : '') +
+        ' <span class="pill ' + (x.situacao_cadastral === 'ATIVA' ? 'pago' : 'vencido') + '">' + esc(x.situacao_cadastral || '—') + '</span>' +
+        '<div class="sub">' + esc([x.cnae_principal, x.porte, x.cidade && x.estado ? x.cidade + '/' + x.estado : ''].filter(Boolean).join(' · ')) +
+        ((x.socios || []).length ? ' · sócios: ' + esc(x.socios.map((s) => s.nome).join(', ')) : '') + '</div><div class="sub">Campos vazios preenchidos com a Receita — confira nas abas.</div></div>';
+    } catch (e) { if (card.isConnected) card.innerHTML = '<div class="cli-cnpj">Consulta do CNPJ indisponível agora (' + esc(e.message) + '). Ao salvar, a rotina tenta de novo.</div>'; }
+  };
+  f.cpf_cnpj.oninput = () => {
+    const d = soDigitos(f.cpf_cnpj.value).slice(0, 14);
+    f.cpf_cnpj.value = d.length > 11 ? d.replace(/^(\d{2})(\d{3})?(\d{3})?(\d{4})?(\d{0,2})?$/, (m, a, b, c, e, g) => a + (b ? '.' + b : '') + (c ? '.' + c : '') + (e ? '/' + e : '') + (g ? '-' + g : ''))
+      : d.replace(/^(\d{3})(\d{3})?(\d{3})?(\d{0,2})?$/, (m, a, b, c, e) => a + (b ? '.' + b : '') + (c ? '.' + c : '') + (e ? '-' + e : ''));
+    if (d.length === 14 && d !== ultimoCnpj) { conferirDoc(); consultarNaHora(d); }
+    if (d.length === 11) conferirDoc();
   };
   f.cpf_cnpj.onblur = () => { f.cpf_cnpj.value = mascaraDoc(f.cpf_cnpj.value); conferirDoc(); };
   j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
@@ -2096,11 +2157,12 @@ async function formCliente(cl, depois) {
   if (bc) bc.onclick = () => { fecharJanela(j); formContrato({ cliente_id: cl.id }); };
 
   j.querySelector('#btn-salvar-cli').onclick = (ev) => comBotao(ev.currentTarget, async () => {
-    if (!f.nome.value.trim()) throw new Error('Preencha o nome.');
+    if (!f.nome.value.trim()) { irAba('id'); throw new Error('Preencha o nome.'); }
+    if (f.grupo_novo.checked && !f.grupo.value.trim()) { irAba('class'); throw new Error('Escreva o nome do grupo novo (ou desmarque "É um grupo novo").'); }
     if (soDigitos(f.cpf_cnpj.value) !== soDigitos(cl.cpf_cnpj || '')) await conferirDoc();
     if (repetidos.length && !confirm('Já existe cliente com este CPF/CNPJ: ' + repetidos.map((x) => x.nome).join(', ') + '.\n\nCadastrar mesmo assim?')) return;
     const num = (n) => { const t = f[n].value.trim(); if (!t) return null; const v = lerValor(t); if (isNaN(v)) throw new Error('Valor inválido em ' + n.toUpperCase().replace(/_/g, ' ') + '.'); return v; };
-    const grupo_id = await grupoPorNome(f.grupo.value);
+    const grupo_id = f.grupo_novo.checked ? await grupoPorNome(f.grupo.value) : (f.grupo_sel.value || null);
     const dados = {
       nome: f.nome.value.trim(), cpf_cnpj: soDigitos(f.cpf_cnpj.value), grupo_id, tipo: f.tipo.value, area: f.area.value,
       responsavel: f.responsavel.value.trim(), socio_admin: f.socio_admin.value.trim(), tipo_societario: f.tipo_societario.value,
@@ -2110,7 +2172,7 @@ async function formCliente(cl, depois) {
       rfb: num('rfb'), rfb_negociada: num('rfb_negociada'), pgfn: num('pgfn'), pgfn_negociada: num('pgfn_negociada'),
       age_mg: num('age_mg'), age_mg_negociada: num('age_mg_negociada'), sefaz_mg: num('sefaz_mg'),
       ceat_trt3: f.ceat_trt3.value === '' ? null : Number(f.ceat_trt3.value),
-      email: f.email.value.trim(), telefone: f.telefone.value.trim(), endereco: f.endereco.value.trim(), perfil_email: f.perfil_email.value,
+      email: f.email.value.trim(), telefone: f.telefone.value.trim(), endereco: f.endereco.value.trim(), perfil_email: f.perfil_email.value, cep: soDigitos(f.cep.value),
       cidade: f.cidade.value.trim(), estado: f.estado.value.trim().toUpperCase(), origem: f.origem.value.trim(), indicado_por: f.indicado_por.value.trim(),
       obs: f.obs.value.trim()
     };
@@ -2118,11 +2180,19 @@ async function formCliente(cl, depois) {
     let id = cl.id;
     if (novo) id = (await q(sb.from('clientes').insert(dados).select('id').single())).id;
     else await q(sb.from('clientes').update(dados).eq('id', cl.id));
-    aviso(novo ? '✓ Cliente cadastrado.' : '✓ Cadastro atualizado.');
+    // e-mails e telefones a mais → contatos do cliente, no setor escolhido
+    const extras = [...j.querySelectorAll('[data-extra]')].filter((i) => i.value.trim()).map((i) => {
+      const setor = i.closest('.cli-lin').querySelector('[data-setor]').value, rot = (SETORES_CONTATO.find((x) => x[0] === setor) || ['', ''])[1];
+      return i.dataset.extra === 'email' ? { cliente_id: id, nome: rot, finalidade: setor, email: i.value.trim() } : { cliente_id: id, nome: rot, finalidade: setor, telefone: i.value.trim(), whatsapp: soDigitos(i.value).length === 11 };
+    });
+    if (extras.length) await q(sb.from('contatos').insert(extras).select('id')).catch((e) => aviso('Cadastro salvo, mas os contatos a mais não: ' + erroAmigavel(e), true));
+    aviso(novo ? '✓ Cliente cadastrado.' + (extras.length ? ' ' + plural(extras.length, 'contato a mais', 'contatos a mais') + ' na ficha.' : '') : '✓ Cadastro atualizado.');
+    const depoisCtr = novo && j.querySelector('#cli-depois-ctr') && j.querySelector('#cli-depois-ctr').checked;
     fecharJanela(j);
     await apos();
     // automação: empresa nova (ou CNPJ trocado) → consulta a Receita na hora e preenche razão social, endereço, situação…
     if (dados.cpf_cnpj.length === 14 && (novo || soDigitos(cl.cpf_cnpj) !== dados.cpf_cnpj)) consultarCnpjNovo(id, dados.nome);
+    if (depoisCtr) formContrato({ cliente_id: id });
   });
   const bx = j.querySelector('#btn-excluir-cli');
   if (bx) bx.onclick = () => comBotao(bx, async () => {
@@ -2170,7 +2240,7 @@ async function pintarContratos(buscar) {
   }
   const h = hojeISO();
   $('ctr-corpo').innerHTML = '<div class="card">' + (lista.length ?
-    '<div class="tabela-wrap"><table class="ordenavel ctr-tab"><thead><tr><th>Cliente</th><th>Contrato</th><th>Tipo</th><th data-tipo="data">Data</th><th class="num">Valor</th><th class="num">Recebido</th><th>Parcelas</th><th>Anexo</th><th>Situação</th></tr></thead><tbody>' +
+    '<div class="tabela-wrap"><table class="ordenavel ctr-tab"><thead><tr><th>Cliente</th><th>Contrato</th><th>Tipo</th><th data-tipo="data">Data</th><th class="num">Valor</th><th class="num">Recebido</th><th>Parcelas</th><th>Anexo</th><th>Situação</th><th>Financeiro</th></tr></thead><tbody>' +
     lista.map((c) => {
       const parc = c.lancamentos || [];
       const recebido = soma(parc.filter((p) => p.pago), (p) => p.valor);
@@ -2184,12 +2254,20 @@ async function pintarContratos(buscar) {
         '<td class="num mono valor-rec" data-ord="' + recebido + '">' + brl(recebido) + '</td>' +
         '<td>' + parc.filter((p) => p.pago).length + '/' + parc.length + '</td>' +
         '<td>' + ((c.documentos || []).length ? '<span class="pill pago" title="Contrato anexado">📎 ' + c.documentos.length + '</span>' : '<span class="pill hoje" title="Anexe o contrato assinado no detalhe">sem anexo</span>') + '</td>' +
-        '<td>' + (atraso ? '<span class="pill vencido">Parcela em atraso</span>' : '<span class="pill ' + (c.status === 'Ativo' ? 'aberto' : c.status === 'Aguardando assinatura' ? 'hoje' : 'neutro') + '">' + esc(c.status) + '</span>') + '</td></tr>';
+        '<td>' + pillSituacaoCtr(c) + '</td>' +
+        '<td>' + (atraso ? '<span class="pill vencido">Parcela em atraso</span>' : parc.length ? '<span class="pill pago">Em dia</span>' : '<span class="pill neutro">—</span>') + '</td></tr>';
     }).join('') + '</tbody></table></div>'
     : vazio('Nenhum contrato' + (F.status !== 'todos' ? ' com essa situação' : '') + ' — cadastre um contrato e o sistema gera os lançamentos.', '+ Novo contrato', '[data-novo=contrato]')) + '</div>';
   $('ctr-corpo').querySelectorAll('[data-ctr]').forEach((tr) => tr.onclick = () => detalheContrato(tr.dataset.ctr));
 }
 
+// Backup 28: situação do contrato (sem misturar com o financeiro, que tem coluna própria)
+const SITUACOES_CTR = ['Ativo', 'Aguardando assinatura', 'Encerrado', 'Cancelado'];
+function situacaoCtr(c) { return c.rescindido_em && c.status === 'Ativo' ? 'Rescindido' : c.status; }
+function pillSituacaoCtr(c) {
+  const s = situacaoCtr(c);
+  return '<span class="pill ' + ({ Ativo: 'aberto', 'Aguardando assinatura': 'hoje', Cancelado: 'vencido', Rescindido: 'neutro' }[s] || 'neutro') + '">' + esc(s) + '</span>';
+}
 // Êxito: base de cálculo (o "X" que a pessoa informa quando o êxito acontece)
 const EXITO_BASES = [['economia', 'Economia obtida (redução da dívida)'], ['valor_recebido', 'Valor recebido pelo cliente'],
   ['valor_causa', 'Valor da causa / condenação'], ['outro', 'Outro valor (descrever)']];
@@ -2218,7 +2296,9 @@ function formContrato(ct) {
         .map(([v, r]) => '<button type="button" data-v="' + v + '"' + (mod === v ? ' class="ativo"' : '') + (novo ? '' : ' disabled') + '>' + r + '</button>').join('') + '</div></div>' +
       campo('Descrição do serviço <span class="obrig">*</span>', '<input name="descricao" required maxlength="200" placeholder="Ex.: Consultoria tributária mensal" value="' + esc(ct.descricao || '') + '">', 'inteiro') +
       campo('Área do serviço', selectServico(ct.servico || '')) +
-      campo('Data do contrato', '<input name="data_contrato" type="date" value="' + esc(ct.data_contrato || hojeISO()) + '">') +
+      campo('Data em que fechou', '<input name="data_contrato" type="date" value="' + esc(ct.data_contrato || hojeISO()) + '">') +
+      campo('Início da vigência', '<input name="inicio_vigencia" type="date" value="' + esc(ct.inicio_vigencia || ct.inicio_competencia || somarDias(iso(fimDoMes(new Date())), 1)) + '">') +
+      campo('Quem fechou', selectPessoa('fechado_por', ct.fechado_por || (novo && E.perfil ? E.perfil.nome : ''), '— escolha —')) +
       campo('% de êxito (se houver)', '<input name="percentual_exito" inputmode="decimal" placeholder="Ex.: 20" value="' + (ct.percentual_exito != null ? esc(String(ct.percentual_exito).replace('.', ',')) : '') + '">') +
       // êxito: sobre o quê e como foi combinado; só vira dinheiro quando acontecer (botão "Registrar êxito" no detalhe)
       '<div class="grade inteiro" id="ctr-exito">' +
@@ -2231,7 +2311,6 @@ function formContrato(ct) {
         .map(([v, r]) => '<button type="button" data-v="' + v + '"' + (forma === v ? ' class="ativo"' : '') + '>' + r + '</button>').join('') + '</div></div>' +
       campo('<span id="rot-valor-mensal">Valor mensal (R$)</span>', '<input name="valor_mensal" inputmode="decimal" placeholder="4.000,00" value="' + (ct.valor_mensal ? valorParaCampo(ct.valor_mensal) : '') + '">') +
       campo('Quantos salários mínimos', '<input name="qtd_salarios" inputmode="decimal" placeholder="1" value="' + (ct.qtd_salarios != null ? esc(String(ct.qtd_salarios).replace('.', ',')) : '') + '">') +
-      campo('1ª competência (mês de início)', '<input name="inicio_competencia" type="month" value="' + esc((ct.inicio_competencia || hojeISO()).slice(0, 7)) + '">') +
       campo('Dia do vencimento (mês seguinte)', '<input name="dia_vencimento" type="number" min="1" max="28" value="' + (ct.dia_vencimento || 10) + '">') +
       '<div class="dica inteiro" id="ctr-previa-rec"></div></div>' +
       // serviço pontual
@@ -2244,7 +2323,7 @@ function formContrato(ct) {
         : '<div class="dica inteiro">Valor e parcelas já foram lançados em Honorários Jurídico. Para ajustar uma parcela, use o botão Editar dela.</div>') + '</div>' +
       (novo ? '<div class="inteiro"><div class="segmento" id="ctr-assin">' + [['Ativo', '✓ Já está assinado (lança o financeiro agora)'], ['Aguardando assinatura', '⏳ Aguardando assinatura (lança só quando assinar)']]
           .map(([v, r], i) => '<button type="button" data-v="' + v + '"' + (i === 0 ? ' class="ativo"' : '') + '>' + r + '</button>').join('') + '</div></div>'
-        : campo('Situação', '<select name="status">' + (ct.status === 'Aguardando assinatura' ? ['Aguardando assinatura', 'Ativo', 'Cancelado'] : ['Ativo', 'Encerrado', 'Cancelado'])
+        : campo('Situação', '<select name="status">' + SITUACOES_CTR
           .map((st) => '<option value="' + st + '"' + (ct.status === st ? ' selected' : '') + '>' + (st === 'Ativo' && ct.status === 'Aguardando assinatura' ? 'Ativo (assinado: lança o financeiro)' : st) + '</option>').join('') + '</select>')) +
       campo('Observação', '<textarea name="obs" maxlength="2000">' + esc(ct.obs || '') + '</textarea>', 'inteiro') +
       '<div class="dica inteiro">Depois de salvar, anexe o contrato assinado no detalhe do contrato (Documentos do contrato).</div>' +
@@ -2270,9 +2349,11 @@ function formContrato(ct) {
   q(sb.from('salarios_minimos').select('*').order('ano', { ascending: false })).then((x) => { sm = x; previaRec(); }).catch(() => {});
   const previaRec = () => {
     const el = j.querySelector('#ctr-previa-rec'); if (!el) return;
-    const ano = Number((f.inicio_competencia.value || hojeISO()).slice(0, 4)), s0 = sm.find((x) => x.ano <= ano);
+    const ini = f.inicio_vigencia.value || hojeISO(), ano = Number(ini.slice(0, 4)), s0 = sm.find((x) => x.ano <= ano);
+    const dia = Math.min(28, Math.max(1, Number(f.dia_vencimento.value) || 10)), mesSeg = somarMeses(ini.slice(0, 7) + '-01', 1).slice(0, 8) + String(dia).padStart(2, '0');
     const v = formaValor === 'salario_minimo' ? (lerValor(f.qtd_salarios.value) || 0) * (s0 ? Number(s0.valor) : 0) : lerValor(f.valor_mensal.value) || 0;
-    el.innerHTML = 'Todo mês entra um lançamento em Honorários Jurídico (competência do mês, vencimento dia <b>' + (Number(f.dia_vencimento.value) || 10) + '</b> do mês seguinte) de <b class="mono">' + brl(v) + '</b>' +
+    el.innerHTML = 'Vigência a partir de <b>' + dataBR(ini) + '</b> · <b>1º pagamento em ' + dataBR(mesSeg) + '</b> (competência ' + ini.slice(5, 7) + '/' + ini.slice(0, 4) + '). ' +
+      'Todo mês entra um lançamento em Honorários Jurídico (competência do mês, vencimento dia <b>' + dia + '</b> do mês seguinte) de <b class="mono">' + brl(v) + '</b>' +
       (formaValor === 'salario_minimo' ? ' (salário mínimo de ' + (s0 ? s0.ano + ': ' + brl(s0.valor) : '—') + '). Quando o salário mínimo do ano seguinte for cadastrado, as mensalidades daquele ano são reajustadas sozinhas' : '') +
       '. Continua até a rescisão.';
   };
@@ -2313,15 +2394,16 @@ function formContrato(ct) {
     const cli = E.clientes.find((c) => c.id === f.cliente_id.value);
     const dados = { cliente_id: f.cliente_id.value, descricao: f.descricao.value.trim(), servico: f.servico.value, modalidade,
       data_contrato: f.data_contrato.value || hojeISO(), percentual_exito: exito, obs: f.obs.value.trim(),
-      exito_base: exito ? f.exito_base.value : null, exito_regra: exito ? f.exito_regra.value.trim() : '', responsavel: ct.responsavel || (cli && cli.responsavel) || '' };
+      exito_base: exito ? f.exito_base.value : null, exito_regra: exito ? f.exito_regra.value.trim() : '', responsavel: ct.responsavel || (cli && cli.responsavel) || '',
+      inicio_vigencia: f.inicio_vigencia.value || f.data_contrato.value || hojeISO(), fechado_por: f.fechado_por.value };
     if (modalidade === 'consultoria') {
       const vm = formaValor === 'fixo' ? lerValor(f.valor_mensal.value) : null, qs = formaValor === 'salario_minimo' ? lerValor(f.qtd_salarios.value) : null;
       if (formaValor === 'fixo' && !(vm > 0)) throw new Error('Informe o valor mensal (ex.: 4.000,00).');
       if (formaValor === 'salario_minimo' && !(qs > 0)) throw new Error('Informe quantos salários mínimos (ex.: 1 ou 0,7).');
       const dia = Number(f.dia_vencimento.value) || 10;
       if (dia < 1 || dia > 28) throw new Error('Dia do vencimento entre 1 e 28.');
-      if (!f.inicio_competencia.value) throw new Error('Informe o mês de início.');
-      Object.assign(dados, { forma_valor: formaValor, valor_mensal: vm, qtd_salarios: qs, dia_vencimento: dia, inicio_competencia: f.inicio_competencia.value + '-01', valor_total: 0, num_parcelas: 1 });
+      if (!f.inicio_vigencia.value) throw new Error('Informe o início da vigência.');
+      Object.assign(dados, { forma_valor: formaValor, valor_mensal: vm, qtd_salarios: qs, dia_vencimento: dia, inicio_competencia: f.inicio_vigencia.value.slice(0, 7) + '-01', valor_total: 0, num_parcelas: 1 });
     }
     if (novo) {
       if (modalidade === 'pontual') {
@@ -2399,6 +2481,7 @@ async function detalheContrato(id) {
 }
 async function _detalheContrato(id) {
   const ct = (await q(sb.from('contratos').select('*, clientes(nome, grupo_id, responsavel)').eq('id', id)))[0];
+  if (ct && !ct.fechado_por && ct.criado_por) ct.fechado_por = ((await q(sb.from('perfis').select('nome, email').eq('id', ct.criado_por)).catch(() => []))[0] || {}).nome || '';
   if (!ct) throw new Error('contrato não encontrado ou de um cliente que você não vê (área)');
   const [parc, exitos, aditivos] = await Promise.all([q(sb.from('lancamentos').select('*').eq('contrato_id', id).order('vencimento')),
     ct.percentual_exito ? q(sb.from('exitos').select('*').eq('contrato_id', id).order('data')).catch(() => []) : [],
@@ -2410,10 +2493,11 @@ async function _detalheContrato(id) {
   const reajuste = ct.modalidade !== 'consultoria' ? 'Sem reajuste (serviço pontual)'
     : ct.forma_valor === 'salario_minimo' ? 'Automático pelo salário mínimo (todo ano)' : 'Sem reajuste · mudança de valor só por aditivo';
   const ficha = [['Tipo', ct.modalidade === 'consultoria' ? 'Consultoria (mensal)' : 'Serviço pontual'], ['Área do serviço', ct.servico || '—'],
-    ['Vigência', dataBR(ct.inicio_competencia || ct.data_contrato) + ' → ' + (ct.rescindido_em ? 'rescindido em ' + dataBR(ct.rescindido_em) : ct.modalidade === 'consultoria' ? 'até a rescisão' : 'fim das parcelas')],
+    ['Fechado em', dataBR(ct.data_contrato)], ['Quem fechou', ct.fechado_por || '—'], ['Quem cuida do cliente', (ct.clientes && ct.clientes.responsavel) || ct.responsavel || '—'],
+    ['Vigência', dataBR(ct.inicio_vigencia || ct.inicio_competencia || ct.data_contrato) + ' → ' + (ct.rescindido_em ? 'rescindido em ' + dataBR(ct.rescindido_em) : ct.modalidade === 'consultoria' ? 'até a rescisão' : 'fim das parcelas')],
     ['Reajuste', reajuste], ['Próximo vencimento', prox ? dataBR(prox.vencimento) + ' · ' + brl(prox.valor) : '—'],
-    ['Em atraso', atrasadas.length ? '<span class="pill vencido">' + atrasadas.length + ' parcela(s) · ' + brl(soma(atrasadas, (p) => p.valor)) + '</span>' : '<span class="pill pago">em dia</span>'],
-    ['Situação', esc(ct.status)]];
+    ['Situação', pillSituacaoCtr(ct)],
+    ['Financeiro', atrasadas.length ? '<span class="pill vencido">' + plural(atrasadas.length, 'parcela em atraso', 'parcelas em atraso') + ' · ' + brl(soma(atrasadas, (p) => p.valor)) + '</span>' : '<span class="pill pago">em dia</span>']];
   const pctRec = total > 0 ? Math.round(recebido / total * 100) : 0;
   const j = abrirJanela({
     titulo: '📄 Ficha do contrato — ' + ct.descricao, larga: true,
@@ -2422,7 +2506,7 @@ async function _detalheContrato(id) {
         '<div class="sub">O financeiro, o onboarding e o aviso à equipe acontecem quando você marcar como assinado. Anexe o PDF assinado em "Documentos do contrato", abaixo.</div></div>' +
         '<div class="acoes"><button class="btn btn-o" type="button" id="ctr-gerar">📄 Gerar contrato</button><button class="btn btn-p" type="button" id="ctr-assinar">✓ Marcar como assinado</button></div></div>' : '') +
       '<div class="ctr-ficha">' + ficha.map(([r, v]) => '<div><span>' + r + '</span><b>' + (/^</.test(v) ? v : esc(v)) + '</b></div>').join('') + '</div>' +
-      '<div class="ctr-barra" title="Recebido × previsto"><div style="width:' + pctRec + '%"></div></div><div class="sub" style="margin:-4px 0 12px">' + pctRec + '% do previsto já recebido</div>' +
+      (ct.modalidade === 'consultoria' ? '' : '<div class="ctr-barra" title="Recebido × previsto"><div style="width:' + pctRec + '%"></div></div><div class="sub" style="margin:-4px 0 12px">' + pctRec + '% do previsto já recebido</div>') +
       '<div class="kpis" style="margin-bottom:12px">' +
       kpi('Cliente', '<span style="font-family:var(--font-d);font-size:16px">' + esc(ct.clientes ? ct.clientes.nome : '—') + '</span>', '', 'Contrato de ' + dataBR(ct.data_contrato)) +
       (ct.modalidade === 'consultoria' ? kpi('Consultoria mensal', valorContratoTexto(ct), '', ct.rescindido_em ? 'rescindido em ' + dataBR(ct.rescindido_em) : 'vence dia ' + ct.dia_vencimento + ' do mês seguinte · até a rescisão') : '') +
@@ -2432,8 +2516,8 @@ async function _detalheContrato(id) {
       (ct.obs ? '<div class="dica" style="margin-bottom:12px">' + esc(ct.obs) + '</div>' : '') +
       '<div class="card" style="margin:0">' + tabelaLancamentos(parc, { compacta: true }) + '</div>' +
       '<div style="margin-top:10px"><button class="btn btn-o btn-mini" id="ctr-add-parc">+ Lançar valor avulso neste contrato</button></div>' +
-      (ct.percentual_exito ? blocoExito(ct, exitos) : '') + blocoAditivos(ct, aditivos) +
-      '<div class="card" style="margin:14px 0 0"><div class="card-bd" id="ctr-docs"></div></div>',
+      (ct.percentual_exito ? blocoExito(ct, exitos) : '') +
+      '<div class="card" style="margin:14px 0 0"><div class="card-bd" id="ctr-docs"></div></div>' + blocoAditivos(ct, aditivos),
     rodape:
       (E.perfil.papel === 'admin' ? '<button class="btn btn-x" id="btn-excluir-ctr" type="button">Excluir contrato</button>' : '<span></span>') +
       '<div class="acoes">' + (ct.modalidade === 'consultoria' && !ct.rescindido_em ? '<button class="btn btn-x" id="btn-rescindir-ctr" type="button">Rescindir</button>' : '') +
@@ -2638,8 +2722,8 @@ const ABAS_ADMIN = [
   { id: 'backup',   rot: '💾 Backup' },
   { id: 'historico', rot: '🕘 Histórico' },
   { id: 'acessos', rot: '🔐 Acessos' },
-  { id: 'automacoes', rot: '⚡ Automações' },
-  { id: 'email', rot: '✉ E-mails → Central' }
+  { id: 'automacoes', rot: '⚡ Automações' }
+  // Backup 28: E-mails saiu da Administração (menu de cima → E-mails)
 ];
 
 TELAS.admin = async function () {
@@ -3243,6 +3327,17 @@ async function admEmail(corpo) {
       '<div class="acoes" style="margin-top:10px;flex-wrap:wrap"><button class="btn btn-p" id="pag-salvar">Salvar</button><span class="sub" style="align-self:center">Ver modelo:</span>' +
       [['lembrete', 'Lembrete'], ['cobranca', 'Cobrança'], ['acordo', 'Acordo'], ['parcelamento', 'Parcelamento'], ['recebido', 'Pagamento recebido']].map(([k, r]) => '<button class="btn btn-o btn-mini" data-previa="' + k + '">' + r + '</button>').join('') +
       '</div><p class="sub" style="margin-top:8px">Os e-mails ao cliente vão para os contatos marcados em "Recebe por e-mail" ou, se ninguém estiver marcado, para o contato do setor certo (veja Central de e-mails → Quem recebe o quê). Sem e-mail cadastrado, nada é enviado. Liga/desliga cada um em Automações.</p></div></div>' +
+    // Backup 28: a Contabilidade manda pelo e-mail dela e com os dados de pagamento dela
+    '<div class="card" id="email-contab"><div class="card-hd">🧮 Contabilidade — e-mail que envia e dados para pagamento<span class="sub" style="margin-left:auto;font-weight:400">usados nos e-mails dos clientes da Contabilidade e nas cobranças da Contabilidade</span></div><div class="card-bd">' +
+      '<div class="dica" style="margin-bottom:10px">Quem cobra é quem aparece: clientes do escritório recebem pelo e-mail acima com os dados do escritório; clientes com área <b>Contabilidade</b> e lançamentos da Contabilidade saem por esta conta, com estes dados. Sem esta conta configurada, sai pela do escritório.</div>' +
+      '<form id="f-email-ct" class="grade">' + campo('Serviço', '<select name="provedor"><option value="gmail">Gmail (sem custo)</option><option value="smtp">Outro e-mail (SMTP)</option><option value="resend">Resend</option></select>') +
+      campo('E-mail que envia', '<input name="usuario" type="email" placeholder="contabilidade@...">') +
+      campo('Senha de app / senha', '<input name="senha" type="password" autocomplete="new-password" placeholder="deixe vazio para manter">') +
+      campo('Servidor SMTP (só "Outro e-mail")', '<input name="host" placeholder="smtp.hostinger.com">') + campo('Porta', '<input name="porta" inputmode="numeric" value="465">') +
+      campo('Nome do remetente', '<input name="remetente" placeholder="Contabilidade Araújo & Castro">') + '</form>' +
+      '<form id="f-pag-ct" class="grade" style="margin-top:10px">' + campo('Chave PIX da Contabilidade', '<input name="pix">') + campo('Titular da conta', '<input name="titular">') +
+      campo('Banco / agência / conta', '<input name="banco">') + campo('WhatsApp para dúvidas', '<input name="whatsapp" data-mascara="tel">') + campo('Assinatura dos e-mails', '<input name="assinatura" placeholder="Equipe da Contabilidade">', 'inteiro') + '</form>' +
+      '<div class="acoes" style="margin-top:10px"><button class="btn btn-p" id="ct-salvar">Salvar Contabilidade</button><span class="sub" id="ct-status"></span></div></div></div>' +
     '<div class="kpis">' + kpi('Na fila', String(st.pendentes || 0), '', 'saem a cada 5 minutos') + kpi('Enviados em 7 dias', String(st.enviados_7d || 0), 'verde', '') +
     kpi('Com erro', String(st.erros || 0), st.erros ? 'vermelho' : '', 'veja o motivo abaixo') + '</div>' +
     '<div class="card"><div class="card-hd">Últimos e-mails</div>' + (fila.length ? '<div class="tabela-wrap"><table><thead><tr><th>Quando</th><th>Para</th><th>Assunto</th><th>Situação</th></tr></thead><tbody>' +
@@ -3253,6 +3348,20 @@ async function admEmail(corpo) {
   f.provedor.value = prov;
   const fp = $('f-pag');
   q(sb.from('configuracoes').select('valor').eq('chave', 'dados_pagamento').maybeSingle()).then((r) => { const v = (r && r.valor) || {}; ['pix', 'titular', 'banco', 'whatsapp', 'assinatura'].forEach((k) => { fp[k].value = v[k] || ''; }); }).catch(() => {});
+  const fct = $('f-email-ct'), fpct = $('f-pag-ct'), CAMPOS_PAG = ['pix', 'titular', 'banco', 'whatsapp', 'assinatura'];
+  q(sb.rpc('status_config_email_conta', { p_conta: 'contabilidade' })).then((c) => { c = c || {}; ['usuario', 'host', 'remetente'].forEach((k) => { fct[k].value = c[k] || ''; });
+    fct.provedor.value = c.provedor || 'gmail'; fct.porta.value = c.porta || 465; $('ct-status').textContent = c.tem_senha ? '✓ conta configurada' : 'conta ainda não configurada'; }).catch(() => {});
+  q(sb.from('configuracoes').select('valor').eq('chave', 'dados_pagamento_contab').maybeSingle()).then((r) => { const v = (r && r.valor) || {}; CAMPOS_PAG.forEach((k) => { fpct[k].value = v[k] || ''; }); }).catch(() => {});
+  $('ct-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    if (fct.usuario.value.trim()) {
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(fct.usuario.value.trim())) throw new Error('E-mail da Contabilidade inválido.');
+      await q(sb.rpc('salvar_config_email_conta', { p_conta: 'contabilidade', p: { provedor: fct.provedor.value, usuario: fct.usuario.value.trim(), senha: fct.senha.value.replace(/\s+/g, fct.provedor.value === 'gmail' ? '' : ' ').trim(),
+        host: fct.host.value.trim(), porta: Number(fct.porta.value) || 465, remetente: fct.remetente.value.trim() } }));
+    }
+    const v = {}; CAMPOS_PAG.forEach((k) => { v[k] = fpct[k].value.trim(); });
+    await q(sb.from('configuracoes').upsert({ chave: 'dados_pagamento_contab', valor: v }, { onConflict: 'chave' }));
+    aviso('✓ Dados da Contabilidade salvos.'); fct.senha.value = '';
+  });
   $('pag-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
     const v = {}; ['pix', 'titular', 'banco', 'whatsapp', 'assinatura'].forEach((k) => { v[k] = fp[k].value.trim(); });
     await q(sb.from('configuracoes').upsert({ chave: 'dados_pagamento', valor: v }, { onConflict: 'chave' }));
@@ -4708,7 +4817,18 @@ async function pintarDocumentos(buscar) {
   const cont = {}; base.forEach((d) => { cont[d.tipo] = (cont[d.tipo] || 0) + 1; });
   $('doc-chips').innerHTML = TIPOS_DOC.filter(([v]) => cont[v] || v === F.tipo || v === 'procuracao' || v === 'contrato')
     .map(([v, r]) => '<button class="chip' + (F.tipo === v ? ' ativo' : '') + '" data-tipo="' + v + '">' + r + ' <span class="sub">' + (cont[v] || 0) + '</span></button>').join('');
-  $('doc-corpo').innerHTML = '<div class="card">' + tabelaDocumentos(lista, { vazio: 'Nenhum documento neste recorte.' }) + '</div>';
+  // Backup 28: separados por grupo, como pastas (clique no grupo para abrir/fechar); com um grupo escolhido, só ele e aberto
+  const nomeG = (id) => (E.grupos.find((g) => g.id === id) || {}).nome || 'Sem grupo';
+  const G = {}; lista.forEach((d) => { const k = grupoDe(d); (G[k] = G[k] || []).push(d); });
+  const ks = Object.keys(G).sort((a, b2) => (a ? 0 : 1) - (b2 ? 0 : 1) || nomeG(a).localeCompare(nomeG(b2), 'pt-BR'));
+  F.abertos = F.abertos || {};
+  const aberto = (k) => ks.length === 1 || !!F.grupo || !!b || !!F.abertos[k];
+  $('doc-corpo').innerHTML = lista.length ? '<div class="doc-pastas">' + ks.map((k) => '<details class="card doc-pasta" data-pasta="' + esc(k) + '"' + (aberto(k) ? ' open' : '') + '><summary><span class="doc-pasta-ic" aria-hidden="true">📁</span><b>' + esc(nomeG(k)) + '</b>' +
+      '<span class="sub">' + plural(G[k].length, 'documento', 'documentos') + (G[k].some((d) => d.validade && d.validade <= lim) ? ' · <span class="pill vencido">vencendo</span>' : '') + '</span></summary>' +
+      (aberto(k) ? tabelaDocumentos(G[k], { vazio: '' }) : '') + '</details>').join('') + '</div>'
+    : '<div class="card">' + tabelaDocumentos([], { vazio: 'Nenhum documento neste recorte.' }) + '</div>';
+  // a tabela só é montada quando a pasta abre (pasta fechada não carrega nada)
+  $('doc-corpo').querySelectorAll('details[data-pasta]').forEach((d) => d.addEventListener('toggle', () => { const k = d.dataset.pasta; if (d.open === aberto(k)) return; F.abertos[k] = d.open; pintarDocumentos(false); }));
   ligarDocumentos($('doc-corpo'), lista, () => pintarDocumentos());
 }
 
@@ -5501,6 +5621,12 @@ async function fichaOportunidade(id, aba) {
       (o.contrato_id ? '<div class="dica" style="margin-bottom:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">' + (e.final === 'ganho' ? 'Contrato assinado.' : 'Contrato criado, <b>aguardando assinatura</b>.') +
         ' <a href="#" id="op-ver-cli">Abrir a ficha do cliente</a><span style="margin-left:auto;display:flex;gap:6px"><button class="btn btn-o btn-mini" type="button" id="op-gerar">📄 Gerar contrato</button>' +
         '<button class="btn btn-o btn-mini" type="button" id="op-ver-ctr">Abrir o contrato</button></span></div>' : '') +
+      // Backup 28: o CRM conversa com os outros módulos — proposta, contrato, sala no Meet e agenda
+      '<div class="op-integra"><span class="sub">Ferramentas:</span>' +
+        '<button class="btn btn-o btn-mini" type="button" id="op-int-prop" title="Proposta com a marca (aba Propostas) ou o gerador de apresentação">💼 Proposta</button>' +
+        '<button class="btn btn-o btn-mini" type="button" id="op-int-ctr" title="Gerador de contrato e procuração, já com o cliente">📜 Contrato</button>' +
+        '<button class="btn btn-o btn-mini" type="button" id="op-int-meet" title="Cria uma sala nova no Google Meet (abre em outra aba; copie o link para a reunião)">🎥 Meet</button>' +
+        '<button class="btn btn-o btn-mini" type="button" id="op-int-agenda" title="Abre o Google Agenda com o evento pronto para salvar">🗓 Agenda</button></div>' +
       '<div class="abas" id="op-abas">' + [['dados', 'Resumo'], ['atividades', 'Atividades'], ['propostas', 'Propostas'], ['documentos', 'Documentos']].map(([k, r]) => '<button data-aba="' + k + '">' + r + '</button>').join('') + '</div>' +
       '<div id="op-corpo" class="ficha-corpo"></div>' });
   j.querySelector('.janela').classList.add('ficha');
@@ -5527,6 +5653,10 @@ async function fichaOportunidade(id, aba) {
   const vc = j.querySelector('#op-ver-cli'); if (vc) vc.onclick = (ev) => { ev.preventDefault(); abrirFicha(o.cliente_id); };
   const vg = j.querySelector('#op-gerar'); if (vg) vg.onclick = () => abrirGeradorContrato(o.cliente_id, o.contrato_id);
   const vct = j.querySelector('#op-ver-ctr'); if (vct) vct.onclick = () => detalheContrato(o.contrato_id);
+  j.querySelector('#op-int-prop').onclick = () => { mostrar('propostas'); window.open('geradores/propostas.html' + (o.cliente_id ? '?cliente=' + encodeURIComponent(o.cliente_id) : ''), '_blank', 'noopener'); };
+  j.querySelector('#op-int-ctr').onclick = () => (o.cliente_id ? abrirGeradorContrato(o.cliente_id, o.contrato_id) : window.open('geradores/contrato-procuracao.html', '_blank', 'noopener'));
+  j.querySelector('#op-int-meet').onclick = () => window.open('https://meet.google.com/new', '_blank', 'noopener');
+  j.querySelector('#op-int-agenda').onclick = () => { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(10, 0, 0, 0); window.open(linkAgendaGoogle({ titulo: 'Reunião — ' + o.titulo, inicio: d, duracao_min: 60, detalhe: nomeOp(o) + (mailOp(o) ? ' · ' + mailOp(o) : '') }), '_blank', 'noopener'); };
   await mostrar(aba || 'dados');
   return j;
 }
@@ -5888,7 +6018,9 @@ async function formReuniao(r, depois) {
       campo('Data <span class="obrig">*</span>', '<input name="data" type="date" value="' + dataLocal + '">') +
       campo('Hora <span class="obrig">*</span>', '<input name="hora" type="time" value="' + horaLocal + '">') +
       campo('Duração', '<select name="duracao_min">' + [[30, '30 min'], [60, '1 hora'], [90, '1h30'], [120, '2 horas']].map(([v, t]) => '<option value="' + v + '"' + (Number(r.duracao_min || 60) === v ? ' selected' : '') + '>' + t + '</option>').join('') + '</select>') +
-      campo('Local ou link', '<input name="local" maxlength="300" placeholder="Ex.: escritório, ou o link do Meet/Zoom" value="' + esc(r.local || '') + '">', 'inteiro') +
+      campo('Local ou link', '<div class="reu-local"><input name="local" maxlength="300" placeholder="Ex.: escritório, ou o link do Meet/Zoom" value="' + esc(r.local || '') + '">' +
+        '<button type="button" class="btn btn-o btn-mini" id="reu-meet" title="Abre uma sala nova no Google Meet: copie o endereço e cole aqui">🎥 Criar sala no Meet</button>' +
+        '<button type="button" class="btn btn-o btn-mini" id="reu-agenda" title="Abre o Google Agenda com a reunião preenchida">🗓 Google Agenda</button></div>', 'inteiro') +
       '<div class="inteiro"><div class="secao">Participantes do escritório</div>' + campoParticipantes(r.participantes || (o && o.responsavel) || (E.perfil && E.perfil.nome) || '') + '</div>' +
       '<div class="inteiro"><div class="secao">Enviar convite por e-mail ao cliente?</div><div class="segmento" id="reu-convite">' +
         [['nao', 'Não'], ['sim', 'Sim, enviar o convite']].map(([v, t]) => '<button type="button" data-v="' + v + '"' + ((r.convite ? 'sim' : 'nao') === v ? ' class="ativo"' : '') + '>' + t + '</button>').join('') + '</div>' +
@@ -5905,6 +6037,9 @@ async function formReuniao(r, depois) {
   seg.onclick = (ev) => { const b = ev.target.closest('button'); if (b) { convite = b.dataset.v === 'sim'; mostrarConv(); } };
   mostrarConv();
   j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
+  j.querySelector('#reu-meet').onclick = () => { window.open('https://meet.google.com/new', '_blank', 'noopener'); aviso('Sala criada no Meet (outra aba): copie o endereço e cole em "Local ou link".'); };
+  j.querySelector('#reu-agenda').onclick = () => { if (!f.data.value || !f.hora.value) return aviso('Informe a data e a hora.', true);
+    window.open(linkAgendaGoogle({ titulo: f.titulo.value, inicio: new Date(f.data.value + 'T' + f.hora.value + ':00'), duracao_min: Number(f.duracao_min.value) || 60, local: f.local.value, detalhe: f.obs.value }), '_blank', 'noopener'); };
   j.querySelector('#reu-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
     if (!f.titulo.value.trim()) throw new Error('Informe o assunto da reunião.');
     if (!f.data.value || !f.hora.value) throw new Error('Informe a data e a hora.');
@@ -5930,6 +6065,14 @@ function htmlReunioes(lista) {
     ' <span class="pill ' + (x.status === 'cancelada' ? 'neutro' : new Date(x.inicio) < new Date() ? 'pago' : 'aberto') + '">' + (x.status === 'cancelada' ? 'cancelada' : dataHoraBR(x.inicio)) + '</span>' +
     (x.convite ? ' <span class="pill ' + (x.convite_enviado_em ? 'pago' : 'hoje') + '">' + (x.convite_enviado_em ? '✉ convite enviado' : '✉ convite na fila') + '</span>' : '') +
     '<div class="sub">' + esc([x.local, x.participantes].filter(Boolean).join(' · ')) + '</div></div></div>').join('') + '</div>';
+}
+
+// Backup 28: evento pronto no Google Agenda (a pessoa só confere e salva; dá para ligar o Meet lá também)
+function linkAgendaGoogle(ev) {
+  const z = (d) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  const ini = ev.inicio instanceof Date ? ev.inicio : new Date(ev.inicio), fim = new Date(ini.getTime() + (ev.duracao_min || 60) * 60000);
+  return 'https://calendar.google.com/calendar/render?action=TEMPLATE&text=' + encodeURIComponent(ev.titulo || 'Reunião') + '&dates=' + z(ini) + '/' + z(fim) +
+    (ev.local ? '&location=' + encodeURIComponent(ev.local) : '') + (ev.detalhe ? '&details=' + encodeURIComponent(ev.detalhe) : '');
 }
 
 'use strict';
@@ -5997,12 +6140,18 @@ TELAS.publicacoes = async function () {
   await carregarPublicacoes();
 };
 // Partes em linhas: "Autor: …" e "Réu: …" (polo do Diário; as antigas sem polo continuam em "Partes:")
+// Backup 28: identificação no topo de toda publicação (para copiar e encaixar rápido):
+//   Processo: 5003925-39.2025.8.13.0604 / Autor: … / Réu: … — Advogado: Pedro
 function partesPub(p) {
   const G = { 'Autor': [], 'Réu': [], 'Partes': [] };
   if (Array.isArray(p.polos) && p.polos.some((d) => d && d.polo)) p.polos.forEach((d) => { if (d && d.nome) G[{ A: 'Autor', P: 'Réu' }[String(d.polo || '').toUpperCase()] || 'Partes'].push(d.nome); });
   else String(p.destinatarios || '').split(/;\s*/).filter(Boolean).forEach((x) => { const m = /^(Autor|Réu):\s*(.*)$/.exec(x); if (m) G[m[1]].push(m[2]); else G.Partes.push(x); });
-  const l = Object.keys(G).filter((k) => G[k].length).map((k) => '<div><b>' + k + ':</b> ' + esc(G[k].join(' · ')) + '</div>');
-  return l.length ? '<div class="sub pub-partes">' + l.join('') + '</div>' : '';
+  const adv = p.advogado || String(p.advogados || '').split(';')[0].replace(/\s*OAB.*$/i, '').trim();
+  const linhas = [['Processo', p.processo || '—']].concat(Object.keys(G).filter((k) => G[k].length).map((k) => [k, G[k].join(' · ')]));
+  const txt = linhas.map((l) => l[0] + ': ' + l[1]).join('\n') + (adv ? ' - Advogado: ' + adv : '');
+  return '<div class="pub-id"><div class="pub-id-txt">' + linhas.map((l, i) => '<div><b>' + l[0] + ':</b> ' + (l[0] === 'Processo' ? '<span class="mono">' + esc(l[1]) + '</span>' : esc(l[1])) +
+      (i === linhas.length - 1 && adv ? ' <span class="pub-adv">— Advogado: <b>' + esc(adv) + '</b></span>' : '') + '</div>').join('') + '</div>' +
+    '<button type="button" class="btn btn-o btn-mini" data-copiar-id="' + esc(txt) + '" title="Copiar Processo, Autor, Réu e Advogado">📋 Copiar</button></div>';
 }
 async function carregarPublicacoes() {
   const F = E.pub;
@@ -6044,6 +6193,8 @@ function pintarPublicacoes() {
       (p.status !== 'descartada' ? '<button class="btn btn-o btn-mini" data-st="descartada">Descartar</button>' : '<button class="btn btn-o btn-mini" data-st="nova">Voltar para novas</button>') +
       (p.link && /^https?:/.test(p.link) ? '<a class="btn btn-o btn-mini" href="' + esc(p.link) + '" target="_blank" rel="noopener">Abrir no Diário</a>' : '') + '</div></div></div>').join('')
       : '<div class="card">' + (todas.length ? vazio('Nenhuma publicação neste recorte — mude o filtro.') : vazio('Nenhuma publicação ainda. Cadastre as OABs do escritório e o sistema busca no Diário todo dia.', 'OABs monitoradas', '#pub-oabs')) + '</div>');
+  $('pub-corpo').querySelectorAll('[data-copiar-id]').forEach((b2) => b2.onclick = async () => {
+    try { await navigator.clipboard.writeText(b2.dataset.copiarId); aviso('✓ Copiado: Processo, Autor, Réu e Advogado.'); } catch (e) { aviso('Não consegui copiar: selecione o texto e use Ctrl+C.', true); } });
   $('pub-corpo').querySelectorAll('[data-ver]').forEach((b2) => b2.onclick = () => { b2.previousElementSibling.classList.remove('curto'); b2.remove(); });
   $('pub-corpo').querySelectorAll('[data-st]').forEach((b2) => b2.onclick = () => comBotao(b2, async () => {
     const id = b2.closest('[data-pub]').dataset.pub;
@@ -6404,20 +6555,27 @@ TELAS.alertas = async function () {
         plural(emDia.length, 'verificação sem pendência', 'verificações sem pendência') + '</span></div>' +
       (setores.length > 1 ? '<div class="al-filtros"><button type="button" class="ativo" data-al-setor="">Todos</button>' + setores.map((st) => '<button type="button" data-al-setor="' + esc(st) + '">' + (ICONE_SETOR[st] || '') + ' ' + esc(st) + '</button>').join('') + '</div>' : '') +
     '</div></div>' +
-    (acao.length ? '<div class="al-feed">' + acao.map((a, k) => '<button type="button" class="al-card al-linha al-' + a.nivel + '" data-al="' + a.i + '" data-setor="' + esc(a.setor) + '" style="--k:' + k + '">' +
-        '<span class="al-ic" aria-hidden="true">' + (ICONE_SETOR[a.setor] || '•') + '</span><span class="al-meio"><span class="al-rot">' + esc(a.rot) + '</span> <span class="al-det">' + esc(a.setor) + ' · ' + esc(a.det) + '</span></span>' +
-        '<span class="al-val">' + esc(a.valor) + '</span><span class="al-ir">Ver →</span></button>').join('') + '</div>' : '') +
+    // Backup 28: blocos por setor (Cadastro, Jurídico, Financeiro…), dois lado a lado, cada um com o que pede ação
+    (acao.length ? '<div class="al-blocos">' + setores.map((st) => { const l = acao.filter((a) => a.setor === st);
+        return '<section class="al-bloco" data-setor="' + esc(st) + '"><div class="al-bloco-hd"><span class="al-ic" aria-hidden="true">' + (ICONE_SETOR[st] || '•') + '</span>' + esc(st) +
+          '<span class="al-bloco-n">' + l.length + '</span></div>' + l.map((a, k) => '<button type="button" class="al-card al-linha al-' + a.nivel + '" data-al="' + a.i + '" data-setor="' + esc(a.setor) + '" style="--k:' + k + '">' +
+          '<span class="al-meio"><span class="al-rot">' + esc(a.rot) + '</span> <span class="al-det">' + esc(a.det) + '</span></span>' +
+          '<span class="al-val">' + esc(a.valor) + '</span><span class="al-ir">Ver →</span></button>').join('') + '</section>'; }).join('') + '</div>' : '') +
     // Backup 19: menos poluído — o que está em dia fica recolhido (abre ao clicar); rotinas numa lista só
     (emDia.length ? '<div class="al-emdia"><button type="button" class="al-emdia-bt" aria-expanded="' + Alertas_emDiaAberto + '">' + (Alertas_emDiaAberto ? '▾' : '▸') + ' ✓ ' + plural(emDia.length, 'verificação em dia', 'verificações em dia') +
       ' <span class="sub">— clique para ' + (Alertas_emDiaAberto ? 'esconder' : 'ver') + '</span></button><div class="al-chips"' + (Alertas_emDiaAberto ? '' : ' hidden') + '>' +
       emDia.map((a) => '<button type="button" class="al-card al-chip al-' + a.nivel + '" data-al="' + a.i + '" data-setor="' + esc(a.setor) + '" title="' + esc(a.det) + '"><span class="al-rot">' + esc(a.rot) + '</span> <span class="al-val">' + esc(a.valor) + '</span></button>').join('') + '</div></div>' : '') +
-    (rotinas.length ? '<div class="kpis-titulo">⚙ Rotinas automáticas</div><div class="al-rotinas">' + rotinas.map((a) => '<button type="button" class="al-card al-rotina al-' + a.nivel + '" data-al="' + a.i + '"><span class="al-pt" aria-hidden="true"></span><span class="al-rot">' + esc(a.rot) + '</span> <span class="al-val">' + esc(a.valor) + '</span><span class="al-det">' + esc(a.det) + '</span></button>').join('') + '</div>' : '');
+    // Backup 28: rotinas automáticas numa tabela (rotina · situação · detalhe); clicar na linha abre o detalhe
+    (rotinas.length ? '<div class="kpis-titulo">⚙ Rotinas automáticas</div><div class="card al-rot-card"><div class="tabela-wrap" data-sem-pagina><table class="al-rot-tab"><thead><tr><th>Rotina</th><th>Situação</th><th>Detalhe</th><th></th></tr></thead><tbody>' +
+      rotinas.map((a) => '<tr class="clicavel al-rotina al-' + a.nivel + '" data-al="' + a.i + '" tabindex="0"><td><span class="al-pt" aria-hidden="true"></span> <b>' + esc(a.rot) + '</b></td>' +
+        '<td><span class="pill ' + ({ ok: 'pago', critico: 'vencido', atencao: 'hoje' }[a.nivel] || 'neutro') + '">' + esc(a.valor) + '</span></td><td class="sub">' + esc(a.det) + '</td><td class="al-ir">Abrir →</td></tr>').join('') +
+      '</tbody></table></div></div>' : '');
   const btEd = $('al-corpo').querySelector('.al-emdia-bt');
   if (btEd) btEd.onclick = () => { Alertas_emDiaAberto = !Alertas_emDiaAberto; const ch = btEd.nextElementSibling; ch.hidden = !Alertas_emDiaAberto;
     btEd.setAttribute('aria-expanded', Alertas_emDiaAberto); btEd.innerHTML = btEd.innerHTML.replace(/^[▸▾]/, Alertas_emDiaAberto ? '▾' : '▸').replace(/clique para (ver|esconder)/, 'clique para ' + (Alertas_emDiaAberto ? 'esconder' : 'ver')); };
   $('al-corpo').querySelectorAll('[data-al-setor]').forEach((b) => b.onclick = () => {
     $('al-corpo').querySelectorAll('[data-al-setor]').forEach((x) => x.classList.toggle('ativo', x === b));
-    $('al-corpo').querySelectorAll('.al-linha,.al-chip').forEach((l) => { l.hidden = !!b.dataset.alSetor && l.dataset.setor !== b.dataset.alSetor; });
+    $('al-corpo').querySelectorAll('.al-linha,.al-chip,.al-bloco').forEach((l) => { l.hidden = !!b.dataset.alSetor && l.dataset.setor !== b.dataset.alSetor; });
   });
   $('al-corpo').querySelectorAll('[data-al]').forEach((b) => b.onclick = () => { const a = A[+b.dataset.al]; if (a.rel.cnpj) janelaCnpj(cnpj); else if (a.rel.emailsAuto) janelaAutoEmails(); else if (a.rel.pgfnAbertos) janelaPgfnAbertos(); else if (a.rel.pgfn) janelaPgfn(pgfnEx); else if (a.rel.saude) janelaSaude(a.rel.saude); else if (a.rel.backup) irTelaAlerta('admin', 'backup'); else relatorioAlerta(a); });
 };
@@ -7291,6 +7449,9 @@ async function janelaControleCliente(id, depois) {
 const GUIA_DIAS = 15;   // o quadro mostra o que vence até 15 dias à frente (e tudo o que já venceu sem pagamento)
 const ABAS_GUIA = [['emitir', '🧾 A emitir'], ['emitidas', '✓ Emitidas — aguardando pagamento'], ['vencidas', '⏰ Vencidas sem pagamento']];
 const _guiaAba = { parcelas: 'emitir', acordos: 'emitir' };
+// Backup 28: quadro minimizável (lembra por navegador) e envio de várias guias da mesma empresa num e-mail/WhatsApp
+const _guiaMin = {};
+try { Object.assign(_guiaMin, JSON.parse(localStorage.getItem('erp_guias_min') || '{}')); } catch (e) { /* sem armazenamento: começa aberto */ }
 const emitida = (x) => !!x.emitida_em || /sim|emitid/i.test(x.emissao || '');
 
 async function dadosGuias(tabela) {
@@ -7325,9 +7486,13 @@ async function cardGuias(tabela, el) {
   const aba = _guiaAba[tabela], lista = grupos[aba], nome = tabela === 'parcelas' ? 'guia' : 'boleto/PIX';
   const dias = (v) => { const d = Math.round((new Date(v + 'T12:00:00') - new Date(h + 'T12:00:00')) / 864e5);
     return d < 0 ? '<span class="dias-r">' + (-d) + ' d atraso</span>' : d === 0 ? '<span class="dias-r">vence hoje</span>' : '<span class="' + (d < 3 ? 'dias-a' : d < 10 ? 'dias-b' : 'dias-g') + '">em ' + d + ' d</span>'; };
-  el.innerHTML = '<div class="card gd-card"><div class="card-hd">🧾 ' + (tabela === 'parcelas' ? 'Guias para emitir' : 'Boletos / PIX para emitir') +
-      '<span class="sub">vencem até ' + dataBR(somarDias(h, GUIA_DIAS)) + ' · emitir → marcar → enviar ao cliente → conferir o pagamento</span></div>' +
-    '<div class="card-bd"><div class="segmento gd-abas">' + ABAS_GUIA.map(([k, r]) => '<button type="button" data-gd-aba="' + k + '" class="' + (aba === k ? 'ativo' : '') + '">' + r +
+  const min = !!_guiaMin[tabela];
+  el.innerHTML = '<div class="card gd-card' + (min ? ' gd-min' : '') + '"><div class="card-hd">🧾 ' + (tabela === 'parcelas' ? 'Guias para emitir' : 'Boletos / PIX para emitir') +
+      (min && grupos.emitir.length ? ' <span class="pill hoje">' + grupos.emitir.length + ' a emitir</span>' : '') +
+      '<span class="sub">vencem até ' + dataBR(somarDias(h, GUIA_DIAS)) + ' · emitir → marcar → enviar ao cliente → conferir o pagamento</span>' +
+      '<span class="gd-hd-ac">' + (L.length ? '<button type="button" class="btn btn-o btn-mini" data-gd-empresa>✉ Enviar por empresa</button>' : '') +
+      '<button type="button" class="btn btn-o btn-mini" data-gd-min aria-expanded="' + (min ? 'false' : 'true') + '">' + (min ? '▸ Mostrar' : '▾ Minimizar') + '</button></span></div>' +
+    '<div class="card-bd"' + (min ? ' hidden' : '') + '><div class="segmento gd-abas">' + ABAS_GUIA.map(([k, r]) => '<button type="button" data-gd-aba="' + k + '" class="' + (aba === k ? 'ativo' : '') + '">' + r +
         ' <span class="pill ' + (k === 'vencidas' && grupos[k].length ? 'vencido' : k === 'emitir' && grupos[k].length ? 'hoje' : 'neutro') + '">' + grupos[k].length + '</span></button>').join('') + '</div>' +
     (lista.length ? '<div class="gd-lista">' + lista.map((x) => '<div class="gd-it' + (x.vencimento < h ? ' gd-venc' : '') + '">' +
         '<div class="gd-venc-d"><b>' + dataBR(x.vencimento).slice(0, 5) + '</b>' + dias(x.vencimento) + '</div>' +
@@ -7340,6 +7505,8 @@ async function cardGuias(tabela, el) {
           '<button type="button" class="btn btn-v btn-mini" data-gd-pago="' + x.id + '" title="Conferiu que o cliente pagou">✓ Pago</button></div></div>').join('') + '</div>'
       : '<div class="sub" style="padding:8px 2px">' + ({ emitir: 'Nada a emitir agora. 👏', emitidas: 'Nenhuma ' + nome + ' emitida aguardando pagamento.', vencidas: 'Nenhuma parcela vencida sem pagamento. 👏' })[aba] + '</div>') +
     '</div></div>';
+  el.querySelector('[data-gd-min]').onclick = () => { _guiaMin[tabela] = !_guiaMin[tabela]; try { localStorage.setItem('erp_guias_min', JSON.stringify(_guiaMin)); } catch (e) { /* ok */ } cardGuias(tabela, el); };
+  const be = el.querySelector('[data-gd-empresa]'); if (be) be.onclick = () => janelaGuiasEmpresa(tabela, L, null, () => cardGuias(tabela, el));
   el.querySelectorAll('[data-gd-aba]').forEach((b) => b.onclick = () => { _guiaAba[tabela] = b.dataset.gdAba; cardGuias(tabela, el); });
   el.querySelectorAll('[data-gd-emitir]').forEach((b) => b.onclick = () => janelaEmissao(tabela, L.find((x) => x.id === b.dataset.gdEmitir), () => cardGuias(tabela, el)));
   el.querySelectorAll('[data-gd-ver]').forEach((b) => b.onclick = () => comBotao(b, async () => { const d = (await q(sb.from('documentos').select('*').eq('id', b.dataset.gdVer)))[0]; if (d) await abrirDocumento(d); }));
@@ -7401,8 +7568,279 @@ async function emitirParcela(tabela, id, depois) {
   return janelaEmissao(tabela, x, depois);
 }
 
+// ═══ Backup 28: várias guias da MESMA empresa num e-mail só (ou no WhatsApp) ═══
+// Escolhe a empresa → marca as parcelas → confere/edita os valores (mudam todo mês) e o texto → anexa os PDFs → envia.
+// Nada sai sozinho: o e-mail só vai quando clica em "Enviar e-mail".
+const chaveEmpresaGuia = (x) => x.cliente_id || 'q:' + normalizar(x.quem || '');
+async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
+  if (!E.clientes.length) await carregarCadastros();
+  L = (L || []).filter((x) => !x.pago);
+  const emp = {};
+  L.forEach((x) => { const k = chaveEmpresaGuia(x); (emp[k] = emp[k] || { k, nome: x.quem || '—', cli: x.cliente_id, grupo: x.grupo_id, itens: [] }).itens.push(x); });
+  const lista = Object.values(emp).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+  if (!lista.length) return aviso('Nenhuma parcela em aberto para enviar.', true);
+  const nome = tabela === 'parcelas' ? 'guias' : 'boletos';
+  const j = abrirJanela({ titulo: '✉ Enviar ' + nome + ' por empresa', larga: true,
+    corpo: '<div class="grade">' + campo('Empresa', '<select id="ge-emp">' + lista.map((e) => '<option value="' + esc(e.k) + '"' + (e.k === chaveIni ? ' selected' : '') + '>' + esc(e.nome) + ' (' + e.itens.length + ')</option>').join('') + '</select>') +
+        campo('Para (e-mail)', '<input id="ge-para" type="email" placeholder="em branco = contato de Guias do cadastro">') + '</div>' +
+      '<div class="ge-itens" id="ge-itens"></div>' +
+      '<div class="grade">' + campo('Assunto', '<input id="ge-assunto">', 'inteiro') +
+        campo('Mensagem (pode editar)', '<textarea id="ge-texto" rows="5"></textarea>', 'inteiro') +
+        '<div class="campo inteiro"><span>PDFs das ' + nome + ' (pode escolher vários)</span><input type="file" id="ge-arqs" accept=".pdf,image/*" multiple><div class="sub" id="ge-arqs-info"></div></div></div>',
+    rodape: '<button type="button" class="btn btn-o" id="ge-zap">📲 WhatsApp</button><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="ge-enviar">✉ Enviar e-mail</button></div>' });
+  const $j = (sel) => j.querySelector(sel);
+  const atual = () => lista.find((e) => e.k === $j('#ge-emp').value) || lista[0];
+  const pintar = () => {
+    const e = atual();
+    $j('#ge-itens').innerHTML = '<table class="ge-tab"><thead><tr><th></th><th>Parcela</th><th>Vencimento</th><th>Valor (confira: muda todo mês)</th><th>Guia guardada</th></tr></thead><tbody>' +
+      e.itens.map((x) => '<tr data-ge="' + x.id + '"><td><input type="checkbox" checked aria-label="Incluir"></td><td>' + esc(x.parcela || '') + (x.detalhe ? '<div class="sub">' + esc(x.detalhe) + '</div>' : '') + '</td>' +
+        '<td>' + dataBR(x.vencimento) + '</td><td><input class="ge-valor" data-mascara="brl" inputmode="decimal" value="' + (x.valor ? 'R$ ' + valorParaCampo(x.valor) : '') + '" placeholder="R$ 0,00"></td>' +
+        '<td>' + (x.guia_doc ? '<span class="pill pago">📎 vai anexa</span>' : emitida(x) ? '<span class="pill neutro">sem PDF</span>' : '<span class="pill hoje">falta emitir</span>') + '</td></tr>').join('') + '</tbody></table>';
+    $j('#ge-assunto').value = (tabela === 'parcelas' ? 'Guias do parcelamento' : 'Boletos do acordo') + ' — ' + e.nome;
+    $j('#ge-texto').value = 'Seguem as ' + nome + ' para pagamento, com os valores e vencimentos abaixo. Os arquivos estão anexos.\nDepois de pagar, por favor responda com o comprovante.';
+  };
+  const itensMarcados = () => [...j.querySelectorAll('#ge-itens tr[data-ge]')].filter((tr) => tr.querySelector('input[type=checkbox]').checked).map((tr) => {
+    const x = atual().itens.find((y) => y.id === tr.dataset.ge), v = lerValor(tr.querySelector('.ge-valor').value);
+    return { x, valor: isNaN(v) ? 0 : v };
+  });
+  $j('#ge-emp').onchange = pintar; pintar();
+  $j('#ge-arqs').onchange = () => { const fs = [...$j('#ge-arqs').files]; $j('#ge-arqs-info').textContent = fs.length ? fs.map((f) => f.name).join(' · ') : ''; };
+  j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
+  const textoZap = (its) => { const e = atual(), tot = its.reduce((s2, i) => s2 + i.valor, 0);
+    return 'Olá! Seguem as ' + nome + ' de ' + e.nome + ':\n' + its.map((i) => '• Parcela ' + (i.x.parcela || '') + ' — vence ' + dataBR(i.x.vencimento) + ' — ' + brl(i.valor)).join('\n') +
+      (its.length > 1 ? '\nTotal: ' + brl(tot) : '') + '\nOs PDFs vão anexos. Depois de pagar, me mande o comprovante, por favor.'; };
+  $j('#ge-zap').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    const its = itensMarcados(); if (!its.length) throw new Error('Marque ao menos uma parcela.');
+    const txt = textoZap(its), arqs = [...$j('#ge-arqs').files];
+    if (arqs.length && navigator.canShare && navigator.canShare({ files: arqs })) { await navigator.share({ text: txt, files: arqs }); return; }
+    const c = E.clientes.find((y) => y.id === atual().cli), tel = soDigitos(c && c.telefone);
+    window.open('https://wa.me/' + (tel ? (tel.length <= 11 ? '55' : '') + tel : '') + '?text=' + encodeURIComponent(txt), '_blank', 'noopener');
+    if (arqs.length) aviso('No computador o WhatsApp não recebe anexo por link: arraste os PDFs para a conversa que abriu.');
+  });
+  $j('#ge-enviar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    const its = itensMarcados(), e = atual(); if (!its.length) throw new Error('Marque ao menos uma parcela.');
+    if (its.some((i) => !(i.valor > 0))) throw new Error('Confira o valor de todas as parcelas marcadas.');
+    const docs = its.map((i) => i.x.guia_doc).filter(Boolean);
+    for (const f of [...$j('#ge-arqs').files]) docs.push((await enviarDocumento(f, { cliente_id: e.cli || undefined, grupo_id: e.grupo || undefined, tipo: 'guia' }, { nome: f.name })).id);
+    const r = await q(sb.rpc('enviar_guias_email', { p_cliente: e.cli || null, p_grupo: e.grupo || null,
+      p_itens: its.map((i) => ({ tabela, id: i.x.id, descricao: 'Parcela ' + (i.x.parcela || '') + (i.x.detalhe ? ' · ' + i.x.detalhe : ''), vencimento: i.x.vencimento, valor: i.valor })),
+      p_assunto: $j('#ge-assunto').value.trim(), p_texto: $j('#ge-texto').value, p_docs: docs, p_para: $j('#ge-para').value.trim() || null }));
+    aviso('✓ E-mail com ' + plural(r.itens, 'parcela', 'parcelas') + (r.anexos ? ' e ' + plural(r.anexos, 'anexo', 'anexos') : '') + ' na fila para ' + r.para + ' (sai em até 5 minutos).');
+    fecharJanela(j); if (depois) await depois(); if (window.ERP_RECARREGAR) window.ERP_RECARREGAR();
+  });
+  return j;
+}
+
+'use strict';
+// ═══════════════════════════════════════════════════════════════════
+// Rotina do estagiário (Backup 28) — o lugar limpo que substitui as planilhas:
+//  1) Passivo e cadastro: RFB, PGFN, AGE/MG (em aberto e negociada), CEAT, em operação,
+//     procuração, certificado (validade e senha, guardada à parte) e CAPAG — edita na própria tabela.
+//  2) Processos: última movimentação, procuração, mudança de valor e decisão relevante
+//     (cada registro fica no histórico do processo).
+//  3) Guias de parcelamentos e boletos de acordos (emitir → enviar → conferir o pagamento).
+//  4) Financeiro do escritório (atalhos) e 5) Minhas tarefas.
+// ═══════════════════════════════════════════════════════════════════
+const ABAS_ROTINA = [['passivo', '🏛 Passivo e cadastro'], ['processos', '⚖ Processos'], ['guias', '🧾 Guias e boletos'], ['financeiro', '💰 Financeiro'], ['tarefas', '✓ Minhas tarefas']];
+const TIPOS_MOV = [['movimentacao', 'Movimentação'], ['decisao', 'Decisão relevante'], ['valor', 'Mudança de valor'], ['procuracao', 'Procuração juntada'], ['sem_novidade', 'Conferido — sem novidade']];
+const COLS_PASSIVO = [['rfb', 'RFB'], ['rfb_negociada', 'RFB negociada'], ['pgfn', 'PGFN'], ['pgfn_negociada', 'PGFN negociada'], ['age_mg', 'AGE/MG'], ['age_mg_negociada', 'AGE/MG negociada']];
+const CAPAG_OPCOES = ['', 'A', 'B', 'C', 'D', 'Omisso'];
+
+TELAS.rotina = async function () {
+  E.rt = Object.assign({ aba: 'passivo', busca: '', grupo: '', filtro: '' }, E.rt || {});
+  if (!E.clientes.length) await carregarCadastros();
+  $('conteudo').innerHTML =
+    '<div class="titulo-pag"><div><h1>Rotina</h1><p>Tudo o que era atualizado nas planilhas, num lugar só — o que você grava aqui aparece no Painel, nos Processos e no Financeiro</p></div></div>' +
+    '<div class="segmento rt-abas" id="rt-abas" style="margin-bottom:14px">' + ABAS_ROTINA.map(([k, r]) => '<button type="button" data-rt-aba="' + k + '">' + r + '</button>').join('') + '</div>' +
+    '<div id="rt-corpo"></div>';
+  $('rt-abas').onclick = (ev) => { const b = ev.target.closest('[data-rt-aba]'); if (b) { E.rt.aba = b.dataset.rtAba; pintarRotina(); } };
+  await pintarRotina();
+};
+async function pintarRotina() {
+  document.querySelectorAll('#rt-abas button').forEach((b) => b.classList.toggle('ativo', b.dataset.rtAba === E.rt.aba));
+  const el = $('rt-corpo'); if (!el) return;
+  el.innerHTML = '<div class="sub" style="padding:10px">Carregando…</div>';
+  try { await ({ passivo: rotinaPassivo, processos: rotinaProcessos, guias: rotinaGuias, financeiro: rotinaFinanceiro, tarefas: rotinaTarefas })[E.rt.aba](el); }
+  catch (e) { console.error(e); el.innerHTML = '<div class="card"><div class="card-bd msg-erro">' + esc(erroAmigavel(e)) + '</div></div>'; }
+}
+function filtroRotina(extra) {
+  return '<div class="rt-filtros"><input type="search" class="busca" id="rt-busca" placeholder="Buscar empresa, CNPJ ou nº do processo…" value="' + esc(E.rt.busca) + '" autocomplete="off">' +
+    '<select class="busca" id="rt-grupo" autocomplete="off"><option value="">Todos os grupos</option>' + E.grupos.map((g) => '<option value="' + g.id + '"' + (g.id === E.rt.grupo ? ' selected' : '') + '>' + esc(g.nome) + '</option>').join('') + '</select>' +
+    (extra || '') + '</div>';
+}
+function ligarFiltroRotina(el, repintar) {
+  let t; el.querySelector('#rt-busca').oninput = (ev) => { clearTimeout(t); t = setTimeout(() => { E.rt.busca = ev.target.value; repintar(); }, 250); };
+  el.querySelector('#rt-grupo').onchange = (ev) => { E.rt.grupo = ev.target.value; repintar(); };
+  const f = el.querySelector('#rt-filtro'); if (f) f.onchange = (ev) => { E.rt.filtro = ev.target.value; repintar(); };
+}
+const simNaoSel = (nome, v) => '<select class="rt-in" data-c="' + nome + '"><option value=""' + (v == null ? ' selected' : '') + '>—</option><option value="true"' + (v === true ? ' selected' : '') + '>Sim</option><option value="false"' + (v === false ? ' selected' : '') + '>Não</option></select>';
+
+// ── 1) Passivo e cadastro (edita na tabela e grava tudo de uma vez) ──
+async function rotinaPassivo(el) {
+  const certs = await q(sb.from('cliente_certificado').select('cliente_id, validade, senha, atualizado_por, atualizado_em')).catch(() => null);
+  const C = {}; (certs || []).forEach((c) => { C[c.cliente_id] = c; });
+  const podeCert = certs !== null;
+  el.innerHTML = '<div class="card"><div class="card-hd">🏛 Passivo e cadastro das empresas<span class="sub">edite direto na tabela · valores em R$ · as linhas alteradas ficam marcadas até você salvar</span></div>' +
+    '<div class="card-bd">' + filtroRotina('<select class="busca" id="rt-filtro" autocomplete="off">' + [['', 'Todas as empresas'], ['cert', 'Certificado vencido ou vence em 30 dias'], ['proc', 'Sem procuração'], ['capag', 'Sem CAPAG']]
+      .map(([v, r]) => '<option value="' + v + '"' + (v === E.rt.filtro ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>' +
+      '<span class="rt-salvar-box"><span class="sub" id="rt-alt"></span><button type="button" class="btn btn-p" id="rt-salvar" disabled>Salvar alterações</button></span>') +
+    '<div class="tabela-wrap rt-grade" data-sem-pagina><table><thead><tr><th>Empresa</th>' + COLS_PASSIVO.map((c) => '<th class="rt-num">' + c[1] + '</th>').join('') +
+      '<th class="rt-num">CEAT</th><th>Em operação</th><th>Procuração</th><th>Certificado (validade)</th>' + (podeCert ? '<th>Senha do certificado</th>' : '') + '<th>CAPAG</th></tr></thead><tbody id="rt-pas-corpo"></tbody></table></div>' +
+    (podeCert ? '<div class="dica" style="margin-top:10px">🔒 A senha do certificado fica numa tabela separada: só quem pode <b>editar clientes</b> vê. Não copie a senha para e-mail ou WhatsApp.</div>' : '') + '</div></div>';
+  const alterados = new Map();
+  const pintar = () => {
+    const b = normalizar(E.rt.busca), dig = soDigitos(E.rt.busca), lim = somarDias(hojeISO(), 30);
+    const L = E.clientes.filter((c) => (!E.rt.grupo || c.grupo_id === E.rt.grupo) &&
+      (!b || normalizar(c.nome + ' ' + (c.grupos ? c.grupos.nome : '')).includes(b) || (dig.length >= 3 && soDigitos(c.cpf_cnpj).includes(dig))) &&
+      (E.rt.filtro !== 'cert' || !C[c.id] || !C[c.id].validade || C[c.id].validade <= lim) &&
+      (E.rt.filtro !== 'proc' || c.procuracao !== true) && (E.rt.filtro !== 'capag' || !c.capag))
+      .sort((x, y) => String(x.grupos ? x.grupos.nome : '').localeCompare(String(y.grupos ? y.grupos.nome : ''), 'pt-BR') || x.nome.localeCompare(y.nome, 'pt-BR'));
+    let grp = null;
+    $('rt-pas-corpo').innerHTML = L.length ? L.map((c) => {
+      const g = c.grupos ? c.grupos.nome : 'Sem grupo', ct = C[c.id] || {};
+      const venc = ct.validade && ct.validade < hojeISO() ? ' rt-vencido' : ct.validade && ct.validade <= lim ? ' rt-vence' : '';
+      const cab = g !== grp ? (grp = g, '<tr class="gx-grp"><td colspan="' + (COLS_PASSIVO.length + 7 + (podeCert ? 1 : 0)) + '">' + esc(g) + '</td></tr>') : '';
+      return cab + '<tr data-id="' + c.id + '"' + (alterados.has(c.id) ? ' class="rt-alterado"' : '') + '><td class="rt-emp"><b>' + esc(c.nome) + '</b><div class="sub">' + esc(mascaraDoc(c.cpf_cnpj) || '') + '</div></td>' +
+        COLS_PASSIVO.map(([k]) => '<td><input class="rt-in rt-valor" data-mascara="brl" data-c="' + k + '" inputmode="decimal" value="' + (c[k] != null && c[k] !== '' ? 'R$ ' + valorParaCampo(c[k]) : '') + '"></td>').join('') +
+        '<td><input class="rt-in rt-int" data-c="ceat_trt3" inputmode="numeric" value="' + (c.ceat_trt3 == null ? '' : esc(c.ceat_trt3)) + '"></td>' +
+        '<td>' + simNaoSel('em_operacao', c.em_operacao) + '</td><td>' + simNaoSel('procuracao', c.procuracao) + '</td>' +
+        '<td><input class="rt-in rt-data' + venc + '" data-cert="validade" placeholder="dd/mm/aaaa" value="' + (ct.validade ? dataBR(ct.validade) : '') + '"' + (podeCert ? '' : ' disabled title="Sem acesso"') + '></td>' +
+        (podeCert ? '<td><span class="rt-senha"><input class="rt-in" type="password" data-cert="senha" autocomplete="new-password" value="' + esc(ct.senha || '') + '"><button type="button" class="btn btn-o btn-mini" data-ver-senha title="Mostrar senha">👁</button></span></td>' : '') +
+        '<td><select class="rt-in" data-c="capag">' + CAPAG_OPCOES.map((v) => '<option value="' + v + '"' + ((c.capag || '') === v ? ' selected' : '') + '>' + (v || '—') + '</option>').join('') + '</select></td></tr>';
+    }).join('') : '<tr><td colspan="12">' + vazio('Nenhuma empresa com esses filtros.') + '</td></tr>';
+    $('rt-pas-corpo').querySelectorAll('.rt-data').forEach(mascaraData);
+  };
+  const contar = () => { $('rt-alt').textContent = alterados.size ? plural(alterados.size, 'empresa alterada', 'empresas alteradas') : ''; $('rt-salvar').disabled = !alterados.size; };
+  $('rt-pas-corpo').oninput = $('rt-pas-corpo').onchange = (ev) => {
+    const tr = ev.target.closest('tr[data-id]'); if (!tr || !ev.target.classList.contains('rt-in')) return;
+    const a = alterados.get(tr.dataset.id) || { cli: {}, cert: {} };
+    if (ev.target.dataset.c) a.cli[ev.target.dataset.c] = ev.target.value; else a.cert[ev.target.dataset.cert] = ev.target.value;
+    alterados.set(tr.dataset.id, a); tr.classList.add('rt-alterado'); contar();
+  };
+  $('rt-pas-corpo').onclick = (ev) => { const b = ev.target.closest('[data-ver-senha]'); if (!b) return; const i = b.previousElementSibling; i.type = i.type === 'password' ? 'text' : 'password'; };
+  $('rt-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    let n = 0;
+    for (const [id, a] of alterados) {
+      const up = {};
+      Object.entries(a.cli).forEach(([k, v]) => {
+        if (k === 'em_operacao' || k === 'procuracao') up[k] = v === '' ? null : v === 'true';
+        else if (k === 'capag') up[k] = v;
+        else if (k === 'ceat_trt3') up[k] = v.trim() === '' ? null : parseInt(soDigitos(v), 10) || 0;
+        else { const n2 = lerValor(v); if (isNaN(n2)) throw new Error('Valor inválido: ' + v); up[k] = v.trim() === '' ? null : n2; }
+      });
+      if (Object.keys(up).length) await q(sb.from('clientes').update(up).eq('id', id).select('id'));
+      if (Object.keys(a.cert).length) {
+        const atual = Object.assign({}, C[id] || {}), row = { cliente_id: id, validade: atual.validade || null, senha: atual.senha || '' };
+        if ('validade' in a.cert) { const d = lerDataBR(a.cert.validade); if (a.cert.validade.trim() && !d) throw new Error('Data do certificado incompleta: ' + a.cert.validade); row.validade = d ? d.iso : null; }
+        if ('senha' in a.cert) row.senha = a.cert.senha;
+        await q(sb.from('cliente_certificado').upsert(row).select('cliente_id'));
+      }
+      n++;
+    }
+    alterados.clear(); aviso('✓ ' + plural(n, 'empresa atualizada', 'empresas atualizadas') + '.');
+    await carregarCadastros(true); await rotinaPassivo(el);
+  });
+  ligarFiltroRotina(el, pintar); pintar(); contar();
+}
+
+// ── 2) Processos: acompanhamento (o que está há mais tempo sem conferir vem primeiro) ──
+async function rotinaProcessos(el) {
+  const P = await q(sb.from('processos').select('id, numero, grupo_id, natureza, competencia, autor, reu, valor, procuracao, obs, atualizacao, ultima_movimentacao, ultima_movimentacao_em, grupos(nome)').limit(5000));
+  el.innerHTML = '<div class="card"><div class="card-hd">⚖ Acompanhamento dos processos<span class="sub">confira no tribunal e registre: movimentação, decisão relevante, mudança de valor ou procuração</span></div>' +
+    '<div class="card-bd">' + filtroRotina('<select class="busca" id="rt-filtro" autocomplete="off">' + [['', 'Todos'], ['30', 'Sem conferir há 30 dias ou mais'], ['proc', 'Sem procuração']]
+      .map(([v, r]) => '<option value="' + v + '"' + (v === E.rt.filtro ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>') +
+    '<div class="tabela-wrap" data-sem-pagina><table><thead><tr><th>Processo</th><th>Natureza</th><th>Última movimentação</th><th>Conferido em</th><th>Procuração</th><th class="rt-num">Valor</th><th></th></tr></thead><tbody id="rt-proc-corpo"></tbody></table></div></div></div>';
+  const pintar = () => {
+    const b = normalizar(E.rt.busca), lim = somarDias(hojeISO(), -30);
+    const L = P.filter((p) => (!E.rt.grupo || p.grupo_id === E.rt.grupo) && (!b || normalizar([p.numero, p.autor, p.reu, p.natureza, p.grupos ? p.grupos.nome : ''].join(' ')).includes(b)) &&
+      (E.rt.filtro !== '30' || !p.ultima_movimentacao_em || p.ultima_movimentacao_em <= lim) && (E.rt.filtro !== 'proc' || p.procuracao !== true))
+      .sort((x, y) => String(x.ultima_movimentacao_em || '').localeCompare(String(y.ultima_movimentacao_em || '')));
+    $('rt-proc-corpo').innerHTML = L.length ? L.map((p) => '<tr><td><b class="mono">' + esc(p.numero) + '</b><div class="sub">' + esc((p.grupos ? p.grupos.nome : '') + (p.reu ? ' · ' + p.reu : '')) + '</div></td>' +
+      '<td>' + esc(p.natureza || '—') + '</td><td class="rt-mov">' + (p.ultima_movimentacao ? esc(p.ultima_movimentacao) : '<span class="sub">nada registrado</span>') + '</td>' +
+      '<td>' + (p.ultima_movimentacao_em ? dataBR(p.ultima_movimentacao_em) : '<span class="pill vencido">nunca</span>') + '</td>' +
+      '<td><span class="pill ' + (p.procuracao ? 'pago' : 'vencido') + '">' + (p.procuracao ? 'Sim' : 'Não') + '</span></td>' +
+      '<td class="rt-num">' + (p.valor ? brl(p.valor) : '—') + '</td>' +
+      '<td class="acoes-l"><button type="button" class="btn btn-p btn-mini" data-mov="' + p.id + '">+ Registrar</button></td></tr>').join('')
+      : '<tr><td colspan="7">' + vazio('Nenhum processo com esses filtros.') + '</td></tr>';
+  };
+  $('rt-proc-corpo').onclick = (ev) => { const b = ev.target.closest('[data-mov]'); if (b) janelaMovimentacao(b.dataset.mov, () => rotinaProcessos(el)); };
+  ligarFiltroRotina(el, pintar); pintar();
+}
+// janela "Registrar movimentação" (também no detalhe do processo, em Jurídico → Processos)
+async function janelaMovimentacao(processoId, depois) {
+  const [p] = await q(sb.from('processos').select('id, numero, valor, obs, grupos(nome)').eq('id', processoId));
+  if (!p) return aviso('Processo não encontrado.', true);
+  const H = await q(sb.from('processo_movimentacoes').select('*').eq('processo_id', processoId).order('data', { ascending: false }).order('criado_em', { ascending: false }).limit(30)).catch(() => []);
+  const rot = Object.fromEntries(TIPOS_MOV);
+  const j = abrirJanela({ titulo: 'Processo ' + p.numero, larga: true,
+    corpo: '<form class="form-grid" id="mov-form">' +
+      campo('Data', '<input name="data" value="' + dataBR(hojeISO()) + '" placeholder="dd/mm/aaaa">') +
+      campo('O que aconteceu', '<select name="tipo">' + TIPOS_MOV.map(([v, r]) => '<option value="' + v + '">' + r + '</option>').join('') + '</select>') +
+      campo('Descrição', '<textarea name="descricao" rows="3" placeholder="Ex.: Juntada de petição; sentença de procedência; valor atualizado pela contadoria…"></textarea>', 'inteiro') +
+      campo('Valor novo', '<input name="valor" data-mascara="brl" inputmode="decimal" placeholder="' + (p.valor ? 'hoje: ' + brl(p.valor) : 'R$ 0,00') + '">', 'mov-valor') +
+      '</form>' +
+      '<div class="mov-hist"><div class="gx-det-tit">Histórico' + (p.grupos ? ' · ' + esc(p.grupos.nome) : '') + '</div>' +
+      (H.length ? H.map((m) => '<div class="mov-it"><span class="mov-d">' + dataBR(m.data) + '</span><span class="pill neutro">' + esc(rot[m.tipo] || m.tipo) + '</span><span class="mov-t">' +
+        esc(m.descricao || '') + (m.valor_novo != null ? ' <b>' + brl(m.valor_novo) + '</b>' : '') + '</span><span class="sub">' + esc(m.quem || '') + '</span></div>').join('')
+        : '<div class="sub">Nada registrado ainda.</div>') + '</div>',
+    rodape: '<span class="sub">A "última movimentação" do processo é atualizada ao salvar.</span><div class="acoes"><button type="button" class="btn btn-p" data-mov-ok>Salvar</button></div>' });
+  const f = j.querySelector('#mov-form'); mascaraData(f.data);
+  const mostrarValor = () => { j.querySelector('.mov-valor').hidden = f.tipo.value !== 'valor'; };
+  f.tipo.onchange = mostrarValor; mostrarValor();
+  j.querySelector('[data-mov-ok]').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    const d = lerDataBR(f.data.value); if (!d) throw new Error('Preencha a data (dd/mm/aaaa).');
+    const tipo = f.tipo.value, desc = f.descricao.value.trim();
+    if (tipo !== 'sem_novidade' && tipo !== 'procuracao' && tipo !== 'valor' && !desc) throw new Error('Descreva o que aconteceu.');
+    const row = { processo_id: processoId, data: d.iso, tipo, descricao: desc || rot[tipo] };
+    if (tipo === 'valor') { const v = lerValor(f.valor.value); if (!v) throw new Error('Informe o valor novo.'); row.valor_novo = v; if (!desc) row.descricao = 'Valor alterado para ' + brl(v); }
+    await q(sb.from('processo_movimentacoes').insert(row).select('id'));
+    aviso('✓ Movimentação registrada.'); fecharJanela(j); if (depois) depois();
+  });
+  return j;
+}
+
+// ── 3) Guias ──
+async function rotinaGuias(el) {
+  el.innerHTML = '<div class="rt-duas"><div id="rt-guias-p" class="gs"></div><div id="rt-guias-a" class="gs"></div></div>';
+  await Promise.all([cardGuias('parcelas', $('rt-guias-p')), cardGuias('acordos', $('rt-guias-a'))]);
+}
+
+// ── 4) Financeiro do escritório: atalhos ──
+async function rotinaFinanceiro(el) {
+  const h = hojeISO(), fim = somarDias(h, 7);
+  const L = await q(sb.from('lancamentos').select('id, tipo, empresa, valor, vencimento, pago, descricao, redutor').eq('pago', false).lte('vencimento', fim).order('vencimento').limit(300)).catch(() => []);
+  const cont = (emp, tipo, cond) => L.filter((x) => x.empresa === emp && x.tipo === tipo && cond(x));
+  const atr = (x) => x.vencimento < h, sem = (x) => x.vencimento >= h;
+  const bloco = (emp, rot, painel) => '<div class="card"><div class="card-hd">' + rot + '</div><div class="card-bd rt-fin">' +
+    [['A receber em atraso', cont(emp, 'receita', atr), 'vencido'], ['A receber nos próximos 7 dias', cont(emp, 'receita', sem), 'hoje'], ['A pagar em atraso', cont(emp, 'despesa', atr), 'vencido'], ['A pagar nos próximos 7 dias', cont(emp, 'despesa', sem), 'hoje']]
+      .map(([r, l, c]) => '<div class="rt-fin-l"><span>' + r + '</span><span class="pill ' + (l.length ? c : 'neutro') + '">' + l.length + '</span><b>' + brl(l.reduce((s, x) => s + vl(x), 0)) + '</b></div>').join('') +
+    '<div class="acoes" style="margin-top:10px"><button type="button" class="btn btn-o" data-fin-ir="' + painel + '">Abrir ' + rot + '</button>' +
+      '<button type="button" class="btn btn-p" data-fin-novo="' + emp + '|receita">+ Receita</button><button type="button" class="btn btn-o" data-fin-novo="' + emp + '|despesa">+ Despesa</button></div></div></div>';
+  el.innerHTML = '<div class="rt-duas">' + (pode('financeiro_juridico') ? bloco('escritorio', 'Financeiro — Jurídico', 'financeiro') : '') + (pode('financeiro_contab') ? bloco('contabilidade', 'Financeiro — Contabilidade', 'financeiroContab') : '') + '</div>' +
+    (!pode('financeiro_juridico') && !pode('financeiro_contab') ? vazio('Você não tem acesso ao Financeiro.') : '');
+  el.onclick = (ev) => {
+    const b = ev.target.closest('[data-fin-ir],[data-fin-novo]'); if (!b) return;
+    if (b.dataset.finIr) return irParaTela(b.dataset.finIr);
+    const [empresa, tipo] = b.dataset.finNovo.split('|'); formLancamento({ tipo, empresa }, () => rotinaFinanceiro(el));
+  };
+}
+
+// ── 5) Minhas tarefas ──
+async function rotinaTarefas(el) {
+  const T = (await q(sb.from('tarefas').select('*, clientes(nome)').not('status', 'in', '(concluida,cancelada)').order('prazo', { nullsFirst: false }).limit(1000)).catch(() => []))
+    .filter((t) => ehMinha(t) && !/^(cob|parc|aco):/.test(t.chave_regra || ''));
+  const h = hojeISO();
+  el.innerHTML = '<div class="card"><div class="card-hd">✓ Minhas tarefas<span class="sub">abertas, por prazo</span><button type="button" class="btn btn-p btn-mini" id="rt-nova-t" style="margin-left:auto">+ Tarefa</button></div><div class="card-bd">' +
+    (T.length ? '<div class="tabela-wrap" data-sem-pagina><table><thead><tr><th>Tarefa</th><th>Cliente</th><th>Prazo</th><th>Status</th></tr></thead><tbody>' + T.map((t) =>
+      '<tr class="clicavel" data-tarefa="' + t.id + '"><td>' + esc(t.titulo) + '</td><td>' + esc(t.clientes ? t.clientes.nome : '—') + '</td><td>' +
+      (t.prazo ? '<span class="' + (t.prazo < h ? 'dias-r' : t.prazo === h ? 'dias-a' : '') + '">' + dataBR(t.prazo) + '</span>' : '—') + '</td><td>' + esc(STATUS_TAREFA[t.status] || t.status || '') + '</td></tr>').join('') + '</tbody></table></div>'
+      : vazio('Nenhuma tarefa aberta com você. 🎉', '+ Tarefa', '#rt-nova-t')) + '</div></div>';
+  $('rt-nova-t').onclick = () => formTarefa({}, () => rotinaTarefas(el));
+  el.querySelectorAll('[data-tarefa]').forEach((tr) => tr.onclick = () => abrirTarefa(tr.dataset.tarefa, () => rotinaTarefas(el)));
+}
+
 // toda gravação confirmada aparece também no rodapé do ERP
 const _avisoOrig = aviso;
 aviso = function (msg, erro) { _avisoOrig(msg, erro); if (!erro && window.ERP_EDITOR && /^✓/.test(msg)) window.ERP_EDITOR.gravou(String(msg).replace(/^✓\s*/, '')); };
-window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, invalidarCadastros, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo, perguntarBaixa, detalheContrato, ICONE_AVISO, conciliarOfx, abrirTarefa, detalheLancamento, edicaoLancamentos, janelaModelosEmail, janelaAutoEmails, janelaGeradores, formReuniao, janelaDelegar, abrirGeradorContrato, cardGuias, emitirParcela };
+window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, invalidarCadastros, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo, perguntarBaixa, detalheContrato, ICONE_AVISO, conciliarOfx, abrirTarefa, detalheLancamento, edicaoLancamentos, janelaModelosEmail, janelaAutoEmails, janelaGeradores, formReuniao, janelaDelegar, abrirGeradorContrato, cardGuias, emitirParcela, janelaMovimentacao };
 })();

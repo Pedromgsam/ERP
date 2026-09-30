@@ -28,6 +28,7 @@ function _acordosAnalise(ac){
   // Backup 25: a mesma lista por grupo de Parcelamentos (_lgRender): grupo → acordos do grupo; clicar no acordo abre o detalhamento numa janela
   _acLISTA=lista; _acFns={v:v,pago:pago,atrasada:atrasada};
   var itens=lista.map(function(g){ return {k:g.k, grupo:g.a.grupo||'Sem grupo', titulo:g.a.devedor||'—', pagas:g.pagas, total:g.l.length, pago:g.pago, falta:g.falta, atr:g.atr, concluido:g.falta<=0,
+    guias:_lgFaltaEmitir(g.l, function(a){ return !!a.emitidaEm||/sim|emitid/i.test(a.emissao||''); }, pago),
     sub:'deve a <b>'+esc(g.a.credor||'—')+'</b>'+(g.a.processo?' · '+esc(g.a.processo):'')+(_acVisao==='lista'&&g.a.grupo?' · '+esc(g.a.grupo):''),
     abertas:g.l.filter(function(a){ return !pago(a); }).map(function(a){ return {d:pDate(a.vencimento), v:v(a)}; })}; });
   var vis=_acVisSeg();

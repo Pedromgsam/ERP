@@ -11,8 +11,8 @@ const ABAS_ADMIN = [
   { id: 'backup',   rot: '💾 Backup' },
   { id: 'historico', rot: '🕘 Histórico' },
   { id: 'acessos', rot: '🔐 Acessos' },
-  { id: 'automacoes', rot: '⚡ Automações' },
-  { id: 'email', rot: '✉ E-mails → Central' }
+  { id: 'automacoes', rot: '⚡ Automações' }
+  // Backup 28: E-mails saiu da Administração (menu de cima → E-mails)
 ];
 
 TELAS.admin = async function () {
@@ -616,6 +616,17 @@ async function admEmail(corpo) {
       '<div class="acoes" style="margin-top:10px;flex-wrap:wrap"><button class="btn btn-p" id="pag-salvar">Salvar</button><span class="sub" style="align-self:center">Ver modelo:</span>' +
       [['lembrete', 'Lembrete'], ['cobranca', 'Cobrança'], ['acordo', 'Acordo'], ['parcelamento', 'Parcelamento'], ['recebido', 'Pagamento recebido']].map(([k, r]) => '<button class="btn btn-o btn-mini" data-previa="' + k + '">' + r + '</button>').join('') +
       '</div><p class="sub" style="margin-top:8px">Os e-mails ao cliente vão para os contatos marcados em "Recebe por e-mail" ou, se ninguém estiver marcado, para o contato do setor certo (veja Central de e-mails → Quem recebe o quê). Sem e-mail cadastrado, nada é enviado. Liga/desliga cada um em Automações.</p></div></div>' +
+    // Backup 28: a Contabilidade manda pelo e-mail dela e com os dados de pagamento dela
+    '<div class="card" id="email-contab"><div class="card-hd">🧮 Contabilidade — e-mail que envia e dados para pagamento<span class="sub" style="margin-left:auto;font-weight:400">usados nos e-mails dos clientes da Contabilidade e nas cobranças da Contabilidade</span></div><div class="card-bd">' +
+      '<div class="dica" style="margin-bottom:10px">Quem cobra é quem aparece: clientes do escritório recebem pelo e-mail acima com os dados do escritório; clientes com área <b>Contabilidade</b> e lançamentos da Contabilidade saem por esta conta, com estes dados. Sem esta conta configurada, sai pela do escritório.</div>' +
+      '<form id="f-email-ct" class="grade">' + campo('Serviço', '<select name="provedor"><option value="gmail">Gmail (sem custo)</option><option value="smtp">Outro e-mail (SMTP)</option><option value="resend">Resend</option></select>') +
+      campo('E-mail que envia', '<input name="usuario" type="email" placeholder="contabilidade@...">') +
+      campo('Senha de app / senha', '<input name="senha" type="password" autocomplete="new-password" placeholder="deixe vazio para manter">') +
+      campo('Servidor SMTP (só "Outro e-mail")', '<input name="host" placeholder="smtp.hostinger.com">') + campo('Porta', '<input name="porta" inputmode="numeric" value="465">') +
+      campo('Nome do remetente', '<input name="remetente" placeholder="Contabilidade Araújo & Castro">') + '</form>' +
+      '<form id="f-pag-ct" class="grade" style="margin-top:10px">' + campo('Chave PIX da Contabilidade', '<input name="pix">') + campo('Titular da conta', '<input name="titular">') +
+      campo('Banco / agência / conta', '<input name="banco">') + campo('WhatsApp para dúvidas', '<input name="whatsapp" data-mascara="tel">') + campo('Assinatura dos e-mails', '<input name="assinatura" placeholder="Equipe da Contabilidade">', 'inteiro') + '</form>' +
+      '<div class="acoes" style="margin-top:10px"><button class="btn btn-p" id="ct-salvar">Salvar Contabilidade</button><span class="sub" id="ct-status"></span></div></div></div>' +
     '<div class="kpis">' + kpi('Na fila', String(st.pendentes || 0), '', 'saem a cada 5 minutos') + kpi('Enviados em 7 dias', String(st.enviados_7d || 0), 'verde', '') +
     kpi('Com erro', String(st.erros || 0), st.erros ? 'vermelho' : '', 'veja o motivo abaixo') + '</div>' +
     '<div class="card"><div class="card-hd">Últimos e-mails</div>' + (fila.length ? '<div class="tabela-wrap"><table><thead><tr><th>Quando</th><th>Para</th><th>Assunto</th><th>Situação</th></tr></thead><tbody>' +
@@ -626,6 +637,20 @@ async function admEmail(corpo) {
   f.provedor.value = prov;
   const fp = $('f-pag');
   q(sb.from('configuracoes').select('valor').eq('chave', 'dados_pagamento').maybeSingle()).then((r) => { const v = (r && r.valor) || {}; ['pix', 'titular', 'banco', 'whatsapp', 'assinatura'].forEach((k) => { fp[k].value = v[k] || ''; }); }).catch(() => {});
+  const fct = $('f-email-ct'), fpct = $('f-pag-ct'), CAMPOS_PAG = ['pix', 'titular', 'banco', 'whatsapp', 'assinatura'];
+  q(sb.rpc('status_config_email_conta', { p_conta: 'contabilidade' })).then((c) => { c = c || {}; ['usuario', 'host', 'remetente'].forEach((k) => { fct[k].value = c[k] || ''; });
+    fct.provedor.value = c.provedor || 'gmail'; fct.porta.value = c.porta || 465; $('ct-status').textContent = c.tem_senha ? '✓ conta configurada' : 'conta ainda não configurada'; }).catch(() => {});
+  q(sb.from('configuracoes').select('valor').eq('chave', 'dados_pagamento_contab').maybeSingle()).then((r) => { const v = (r && r.valor) || {}; CAMPOS_PAG.forEach((k) => { fpct[k].value = v[k] || ''; }); }).catch(() => {});
+  $('ct-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    if (fct.usuario.value.trim()) {
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(fct.usuario.value.trim())) throw new Error('E-mail da Contabilidade inválido.');
+      await q(sb.rpc('salvar_config_email_conta', { p_conta: 'contabilidade', p: { provedor: fct.provedor.value, usuario: fct.usuario.value.trim(), senha: fct.senha.value.replace(/\s+/g, fct.provedor.value === 'gmail' ? '' : ' ').trim(),
+        host: fct.host.value.trim(), porta: Number(fct.porta.value) || 465, remetente: fct.remetente.value.trim() } }));
+    }
+    const v = {}; CAMPOS_PAG.forEach((k) => { v[k] = fpct[k].value.trim(); });
+    await q(sb.from('configuracoes').upsert({ chave: 'dados_pagamento_contab', valor: v }, { onConflict: 'chave' }));
+    aviso('✓ Dados da Contabilidade salvos.'); fct.senha.value = '';
+  });
   $('pag-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
     const v = {}; ['pix', 'titular', 'banco', 'whatsapp', 'assinatura'].forEach((k) => { v[k] = fp[k].value.trim(); });
     await q(sb.from('configuracoes').upsert({ chave: 'dados_pagamento', valor: v }, { onConflict: 'chave' }));

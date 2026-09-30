@@ -243,8 +243,8 @@
       const lista = listaSugestoes(c.lista);
       const lid = lista.length ? 'gx-l-' + c.k : '';
       inp = '<input id="' + id + '" type="' + (c.tipo === 'data' ? 'date' : 'text') + '"'
-        + (c.tipo === 'num' ? ' inputmode="decimal" placeholder="0,00"' : '') + (lid ? ' list="' + lid + '"' : '')
-        + ' value="' + esc(v == null ? '' : (c.tipo === 'data' ? String(v).slice(0, 10) : c.tipo === 'num' ? numeroBR(v) : v)) + '">'
+        + (c.tipo === 'num' ? ' inputmode="decimal" placeholder="0,00"' + (/R\$/.test(c.rot) ? ' data-mascara="brl"' : '') : '') + (c.k === 'telefone' ? ' data-mascara="tel" inputmode="tel"' : '') + (lid ? ' list="' + lid + '"' : '')
+        + ' value="' + esc(v == null ? '' : (c.tipo === 'data' ? String(v).slice(0, 10) : c.tipo === 'num' ? (/R\$/.test(c.rot) && v != null && v !== '' ? 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : numeroBR(v)) : v)) + '">'
         + (lid ? '<datalist id="' + lid + '">' + lista.map((x) => '<option value="' + esc(x) + '">').join('') + '</datalist>' : '');
     }
     return '<div class="gx-campo">' + rot + inp + dica + '</div>';

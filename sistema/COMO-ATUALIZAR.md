@@ -496,3 +496,54 @@ Natureza, sem a seta "›"; a lista abre ordenada por **Competência**.
 **Financeiro → Contabilidade (Análise):** Recebimentos e Pagamentos juntos (saíram os dois cartões). Números: Recebido, A receber, Pago,
 A pagar e Em atraso. Gráfico **Recebido × pago mês a mês** (verde e vermelho, como no Jurídico), **Comparativo por cliente** e
 **Comparativo por fornecedor**, e "Em atraso" com a coluna **Receita / Despesa**.
+
+## Backup 28 — Rotina do estagiário, e-mail por empresa, várias guias num e-mail, cadastro em abas (tem SQL e 2 funções)
+Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) publicar as funções `erp-emails` e `erp-cnpj`
+(Verify JWT desligado)  4) Ctrl+Shift+R**. Para testar os e-mails, rode também `sistema/banco/cliente-teste-email.sql`
+(cria o cliente "TESTE E-MAIL (PEDRO)" com pedromgsam@gmail.com; para apagar, veja a 1ª linha do arquivo).
+
+**Menu de cima:** entraram **Rotina** (o ambiente do estagiário) e **E-mails** (saiu de dentro da Administração).
+
+**Rotina** (substitui as planilhas) — 5 abas:
+1. **Passivo e cadastro:** tabela editável com RFB, RFB negociada, PGFN, PGFN negociada, AGE/MG, AGE/MG negociada, CEAT, em operação,
+   procuração, **certificado (validade + senha)** e CAPAG. As linhas alteradas ficam amarelas até clicar **Salvar alterações**.
+   A senha do certificado fica numa tabela à parte: só quem pode **editar clientes** vê.
+2. **Processos:** o que está há mais tempo sem conferir vem primeiro. **+ Registrar**: movimentação, decisão relevante, mudança de valor
+   (atualiza o valor da causa), procuração juntada ou "conferido — sem novidade". Vira a "Última movimentação" do processo.
+3. **Guias e boletos** (os dois quadros de Parcelamentos e Acordos). 4. **Financeiro** (atrasados e próximos 7 dias, + Receita/+ Despesa).
+5. **Minhas tarefas.**
+
+**Publicações:** cada publicação começa com "Processo: …", "Autor: …", "Réu: … — Advogado: …" e o botão **📋 Copiar**.
+
+**Painel Executivo e Processos:** sem "Por grupo / Lista" (sempre por grupo), mostram **todas** as linhas (sem "Mostrar mais") e têm um
+separador mais forte entre grupos. Processos: tabelas Tribunal/Natureza sem negrito; ao clicar no processo aparecem **Última
+movimentação** e **Observação**, e o botão **+ Registrar movimentação**.
+
+**Contratos:** campos **Data em que fechou**, **Início da vigência** (ex.: fechou 28/07, começa 01/08 → 1º pagamento 10/09, a tela mostra)
+e **Quem fechou**. A ficha mostra quem fechou e **quem cuida do cliente**; "Documentos do contrato" vem antes de "Aditivos"; consultoria sem
+"% do previsto já recebido". Situação (Ativo, Aguardando assinatura, Encerrado, Cancelado, Rescindido) separada do **Financeiro**
+(coluna própria: "Parcela em atraso" / "Em dia"). Pílulas centralizadas.
+*Mensalidades:* o sistema gera sempre até 2 meses à frente, todo dia às 6h30 (rotina `erp_mensalidades`), e segue sozinho no ano seguinte até
+a rescisão — não precisa gerar o ano novo.
+
+**Clientes:** coluna **Área** (Jurídico / Contábil / Jurídico e contábil); sem a seta e sem abrir para baixo — clicar abre a
+**ficha completa**. **Novo cliente em abas** (Empresa, Classificação, Contatos, Endereço, Situação e passivo, Observações): digitando o CNPJ o
+sistema consulta a Receita na hora e preenche o que estiver vazio; **vários e-mails e telefones** (cada um com o setor — viram contatos);
+grupo **existente na lista** ou **"É um grupo novo"**; opção "Depois de salvar, criar o contrato".
+
+**Em todo o sistema:** valor em R$ e telefone com máscara **enquanto digita** ("10,20" → "R$ 10,20"; "10" → "R$ 10,00" ao sair do campo;
+"37998684323" → "(37) 9 9868-4323"). Listas de escolha (selects) com visual novo.
+
+**Parcelamentos e Acordos:** o quadro de guias tem **▾ Minimizar** e **✉ Enviar por empresa**: escolha a empresa, marque as parcelas, confira/
+edite **os valores** (mudam todo mês) e o texto, anexe **vários PDFs** e clique **✉ Enviar e-mail** (um e-mail só com todas as guias e o
+total) ou **📲 WhatsApp** (no celular vai com os PDFs; no computador abre a conversa com o texto e você arrasta os PDFs). Na lista: "🧾 há guias
+para emitir" no grupo e "falta emitir a guia" no parcelamento/acordo.
+
+**E-mails por empresa:** Central de e-mails → **⚙ Configuração do envio** → quadro **🧮 Contabilidade**: e-mail que envia (senha de app)
+e dados de pagamento (PIX, banco, assinatura) da Contabilidade. Clientes com área **Contabilidade** e lançamentos da Contabilidade saem por
+essa conta e com esses dados; os demais, pelo e-mail e dados do escritório (advocaciapedrocastro@gmail.com).
+
+**Documentos:** separados por grupo em pastas (clique para abrir/fechar). **Alertas:** blocos por setor, dois lado a lado; Rotinas
+automáticas em tabela. **CRM:** na ficha do lead, **💼 Proposta**, **📜 Contrato**, **🎥 Meet** (cria sala) e **🗓 Agenda** (evento pronto no
+Google Agenda); na reunião, "Criar sala no Meet" e "Google Agenda". **Financeiro → Contabilidade:** comparativos por cliente e por fornecedor
+com as mesmas colunas e **linha de Total**.

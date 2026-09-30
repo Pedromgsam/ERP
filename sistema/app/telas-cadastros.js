@@ -45,9 +45,6 @@ TELAS.clientes = async function () {
         [c.cidade, c.estado].filter(Boolean).join('/'), c.procuracao === true ? 'Sim' : c.procuracao === false ? 'Não' : '', c.certificado === true ? 'Sim' : c.certificado === false ? 'Não' : '', c.capag, c.situacao_cadastral]) }); };
   $('cli-massa').onclick = () => edicaoEmMassa(E.cli.ultima || []);
   ligarBotoesNovo($('conteudo'));
-  // ao ordenar pelo cabeçalho, fecha o detalhe aberto (senão ele fica solto no meio da tabela)
-  $('cli-corpo').addEventListener('click', (ev) => { if (ev.target.closest('th')) { document.querySelectorAll('#cli-corpo .cli-det').forEach((x) => x.remove());
-    document.querySelectorAll('#cli-corpo tr[data-cli]').forEach((x) => { x.setAttribute('aria-expanded', 'false'); x.classList.remove('cli-aberta'); x.querySelector('.cli-seta').textContent = '▸'; }); } });
   pintarClientes();
 };
 
@@ -71,72 +68,30 @@ function pintarClientes() {
   const gn = (c) => (c.grupos ? c.grupos.nome : '') || '';
   if (porGrupo) lista.sort((a, x) => (gn(a) || '\uffff').localeCompare(gn(x) || '\uffff', 'pt-BR') || String(a.nome).localeCompare(String(x.nome), 'pt-BR'));
   C.ultima = lista;
-  $('cli-conta').textContent = lista.length + ' de ' + E.clientes.length + ' cadastro(s) · clique na linha para ver os detalhes';
+  $('cli-conta').textContent = lista.length + ' de ' + E.clientes.length + ' cadastro(s) · clique na linha para abrir a ficha completa';
   $('cli-corpo').innerHTML = '<div class="card">' + (lista.length ?
-    '<div class="tabela-wrap"><table class="' + (porGrupo ? '' : 'ordenavel ') + 'cli-tabela"><thead><tr><th class="sem-ordem" style="width:28px"></th><th>Grupo</th><th>Nome</th><th>CPF/CNPJ</th><th>Responsável</th>' +
+    '<div class="tabela-wrap"><table class="' + (porGrupo ? '' : 'ordenavel ') + 'cli-tabela"><thead><tr><th>Grupo</th><th>Nome</th><th>CPF/CNPJ</th><th>Área</th><th>Responsável</th>' +
     '<th>Procuração</th><th>Certificado</th><th>Situação</th></tr></thead><tbody>' +
     lista.map((c, i) => (porGrupo && (i === 0 || gn(lista[i - 1]) !== gn(c)) ? '<tr class="cli-grp"><td colspan="8">' + esc(gn(c) || 'Sem grupo') +
-        ' <span class="sub">' + plural(lista.filter((x) => gn(x) === gn(c)).length, 'cadastro', 'cadastros') + '</span></td></tr>' : '') + '<tr class="clicavel cli-linha" tabindex="0" aria-expanded="false" data-cli="' + c.id + '"><td class="cli-seta">▸</td>' +
+        ' <span class="sub">' + plural(lista.filter((x) => gn(x) === gn(c)).length, 'cadastro', 'cadastros') + '</span></td></tr>' : '') + '<tr class="clicavel cli-linha" tabindex="0" data-cli="' + c.id + '" title="Abrir a ficha completa">' +
       '<td class="cli-grupo" title="' + esc(c.grupos ? c.grupos.nome : '') + '">' + esc(c.grupos ? c.grupos.nome : '—') + '</td>' +
-      '<td><span class="cli-nome">' + esc(c.nome) + '</span> ' + pillArea(c.area) + (c.socio_admin ? '<div class="sub cli-socio">' + esc(c.socio_admin) + '</div>' : '') + '</td>' +
+      '<td><span class="cli-nome">' + esc(c.nome) + '</span>' + (c.socio_admin ? '<div class="sub cli-socio">' + esc(c.socio_admin) + '</div>' : '') + '</td>' +
       '<td class="mono">' + esc(mascaraDoc(c.cpf_cnpj) || '—') + '</td>' +
+      '<td>' + pillAreaCli(c.area) + '</td>' +
       '<td>' + pillPessoa(c.responsavel) + '</td><td>' + pillSimNao(c.procuracao) + '</td><td>' + pillSimNao(c.certificado) + '</td>' +
       '<td>' + pillSitCad(c.situacao_cadastral) + '</td></tr>').join('') +
     '</tbody></table></div>'
     : (E.clientes.length ? vazio('Nenhum cliente neste recorte — mude o filtro ou a busca.') : vazio('Nenhum cliente ainda. Cadastre o primeiro ou importe a Base de Dados em Administração.', '+ Novo cliente', '[data-novo=cliente]'))) + '</div>';
   $('cli-corpo').querySelectorAll('tr[data-cli]').forEach((tr) => {
-    tr.onclick = () => expandirCliente(tr);
-    tr.onkeydown = (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); expandirCliente(tr); } };
+    tr.onclick = () => abrirFicha(tr.dataset.cli);
+    tr.onkeydown = (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); abrirFicha(tr.dataset.cli); } };
   });
 }
 
-// Linha que expande logo abaixo com o resumo do cliente (uma aberta por vez)
-async function expandirCliente(tr) {
-  const aberta = tr.getAttribute('aria-expanded') === 'true';
-  document.querySelectorAll('#cli-corpo .cli-det').forEach((x) => x.remove());
-  document.querySelectorAll('#cli-corpo tr[data-cli]').forEach((x) => { x.setAttribute('aria-expanded', 'false'); x.classList.remove('cli-aberta'); x.querySelector('.cli-seta').textContent = '▸'; });
-  if (aberta) return;
-  const c = E.clientes.find((x) => x.id === tr.dataset.cli);
-  tr.setAttribute('aria-expanded', 'true'); tr.classList.add('cli-aberta'); tr.querySelector('.cli-seta').textContent = '▾';
-  const det = document.createElement('tr');
-  det.className = 'cli-det';
-  det.innerHTML = '<td colspan="8"><div class="cli-det-corpo"><div class="carregando" style="padding:14px">Carregando…</div></div></td>';
-  tr.after(det);
-  const alvo = det.querySelector('.cli-det-corpo');
-  const nada = () => [];
-  const [contatos, ctrs, lanc, tfs, docs] = await Promise.all([
-    q(sb.from('contatos').select('nome, finalidade, email, telefone').eq('cliente_id', c.id).order('criado_em')).catch(nada),
-    q(sb.from('contratos').select('descricao, valor_total, status').eq('cliente_id', c.id).eq('status', 'Ativo')).catch(nada),
-    q(sb.from('lancamentos').select('valor, redutor, vencimento').eq('cliente_id', c.id).eq('tipo', 'receita').eq('pago', false).eq('perda', false)).catch(nada),
-    q(sb.from('tarefas').select('titulo, prazo').eq('cliente_id', c.id).not('status', 'in', '(concluida,cancelada)').order('prazo', { nullsFirst: false }).limit(3)).catch(nada),
-    q(sb.from('documentos').select('nome, criado_em').eq('cliente_id', c.id).eq('arquivado', false).order('criado_em', { ascending: false }).limit(3)).catch(nada)
-  ]);
-  if (!det.isConnected) return;
-  const h = hojeISO(), atraso = lanc.filter((l) => l.vencimento < h);
-  const lin = (rot, v) => v ? '<div class="dado"><span>' + rot + '</span><b>' + v + '</b></div>' : '';
-  const fin = contatos.find((x) => x.finalidade === 'financeiro'), jur = contatos.find((x) => x.finalidade === 'juridico');
-  const deb = [['RFB', c.rfb], ['PGFN', c.pgfn], ['SEFAZ/MG', c.sefaz_mg], ['AGE/MG', c.age_mg]].filter((d) => Number(d[1]));
-  const zap = soDigitos(c.telefone);
-  alvo.innerHTML =
-    '<div class="cli-det-grade">' +
-    '<div class="dados"><div class="cli-det-tit">Contato</div>' +
-      lin('Telefone', esc(c.telefone)) + lin('E-mail', c.email ? '<a href="mailto:' + esc(c.email) + '">' + esc(c.email) + '</a>' : '') +
-      lin('Financeiro', fin ? esc(fin.nome) + (fin.email ? ' · ' + esc(fin.email) : '') : '') + lin('Jurídico', jur ? esc(jur.nome) + (jur.email ? ' · ' + esc(jur.email) : '') : '') +
-      lin('Endereço', esc([c.endereco, c.cidade && c.estado ? c.cidade + '/' + c.estado : c.cidade].filter(Boolean).join(' · '))) +
-      lin('Tipo', esc(c.tipo === 'Demanda' ? 'Serviço pontual' : c.tipo)) + (!c.telefone && !c.email && !contatos.length ? '<div class="sub">Sem contato cadastrado.</div>' : '') + '</div>' +
-    '<div class="dados"><div class="cli-det-tit">Fiscal</div>' +
-      lin('Regime', esc(c.regime_tributario)) + lin('CAPAG', c.capag ? pillCapag(c.capag) : '') +
-      deb.map((d) => lin(d[0], brl(d[1]))).join('') + (!c.regime_tributario && !c.capag && !deb.length ? '<div class="sub">Sem dados fiscais.</div>' : '') + '</div>' +
-    '<div class="dados"><div class="cli-det-tit">Escritório</div>' +
-      lin('Contratos ativos', String(ctrs.length)) + lin('A receber', brl(soma(lanc, vl)) + (atraso.length ? ' <span class="pill vencido">' + atraso.length + ' em atraso</span>' : '')) +
-      lin('Tarefas abertas', tfs.length ? tfs.map((t) => esc(t.titulo) + (t.prazo ? ' <span class="sub">' + dataBR(t.prazo) + '</span>' : '')).join('<br>') : '—') +
-      lin('Últimos documentos', docs.length ? docs.map((d) => esc(d.nome)).join('<br>') : '—') + '</div>' +
-    '</div><div class="cli-det-acoes">' +
-      '<button class="btn btn-p btn-mini" data-cli-ficha>Abrir ficha completa</button><button class="btn btn-o btn-mini" data-cli-editar>Editar</button>' +
-      (zap ? '<a class="btn btn-o btn-mini" target="_blank" rel="noopener" href="https://wa.me/' + (zap.length <= 11 ? '55' : '') + zap + '">WhatsApp</a>' : '') +
-      (c.email ? '<a class="btn btn-o btn-mini" href="mailto:' + esc(c.email) + '">E-mail</a>' : '') + '</div>';
-  alvo.querySelector('[data-cli-ficha]').onclick = () => abrirFicha(c.id);
-  alvo.querySelector('[data-cli-editar]').onclick = () => formCliente(c, pintarClientes);
+// Backup 28: coluna Área (Jurídico · Contábil · Jurídico e contábil)
+function pillAreaCli(a) {
+  a = a || 'ambos';
+  return '<span class="pill area-' + a + '">' + (a === 'juridico' ? 'Jurídico' : a === 'contabil' ? 'Contábil' : 'Jurídico e contábil') + '</span>';
 }
 
 function selectSimNao(nome, v) {
@@ -149,7 +104,7 @@ function selectOpcoes(nome, opcoes, v) {
   return '<select name="' + nome + '"><option value="">—</option>' + lista.map((o) => '<option' + (o === v ? ' selected' : '') + '>' + esc(o) + '</option>').join('') + '</select>';
 }
 function campoValor(rotulo, nome, v) {
-  return campo(rotulo, '<input name="' + nome + '" inputmode="decimal" placeholder="—" value="' + esc(valorParaCampo(v)) + '">');
+  return campo(rotulo, '<input name="' + nome + '" inputmode="decimal" data-mascara="brl" placeholder="R$ 0,00" value="' + (v == null || v === '' ? '' : 'R$ ' + esc(valorParaCampo(v))) + '">');
 }
 
 async function formCliente(cl, depois) {
@@ -168,67 +123,108 @@ async function formCliente(cl, depois) {
       '<b class="mono">' + brl(emAberto) + '</b>' + (atraso ? ' · <span style="color:var(--red)">em atraso <b class="mono">' + brl(atraso) + '</b></span>' : '') +
       ' · passivo tributário <b class="mono">' + brl(passivo(cl)) + '</b></div>';
   }
-  const secao = (t) => '<div class="secao inteiro">' + t + '</div>';
+  // Backup 28: cadastro em abas, vários e-mails e telefones, CNPJ consultado enquanto digita, grupo existente ou novo
+  const ABAS_CLI = [['id', '🏢 Empresa'], ['class', '🗂 Classificação'], ['contato', '📞 Contatos'], ['end', '📍 Endereço'], ['sit', '🏛 Situação e passivo'], ['obs', '📝 Observações']];
+  const aba = (k, html) => '<div class="cli-aba grade g3 inteiro" data-aba="' + k + '"' + (k === 'id' ? '' : ' hidden') + '>' + html + '</div>';
+  const setorOpc = (v) => SETORES_CONTATO.map(([k, r]) => '<option value="' + k + '"' + (k === (v || 'geral') ? ' selected' : '') + '>' + r + '</option>').join('');
+  const linhaEmail = (v, principal) => '<div class="cli-lin cli-lin-email"><input ' + (principal ? 'name="email"' : 'data-extra="email"') + ' type="email" placeholder="nome@empresa.com.br" value="' + esc(v || '') + '">' +
+    '<select data-setor>' + setorOpc(principal ? 'geral' : 'financeiro') + '</select>' + (principal ? '<span class="pill neutro" title="E-mail principal do cadastro">principal</span>' : '<button type="button" class="btn btn-o btn-mini" data-tirar title="Tirar">✕</button>') + '</div>';
+  const linhaTel = (v, principal) => '<div class="cli-lin cli-lin-tel"><input ' + (principal ? 'name="telefone"' : 'data-extra="telefone"') + ' type="tel" data-mascara="tel" inputmode="tel" placeholder="(37) 9 9999-9999" value="' + esc(v || '') + '">' +
+    '<select data-setor>' + setorOpc(principal ? 'geral' : 'financeiro') + '</select>' + (principal ? '<span class="pill neutro">principal</span>' : '<button type="button" class="btn btn-o btn-mini" data-tirar title="Tirar">✕</button>') + '</div>';
+  const grupoAtual = cl.grupo_id || '';
   const j = abrirJanela({
     titulo: novo ? 'Novo cliente' : cl.nome, larga: true,
     corpo:
-      '<form id="f-cli" class="grade g3">' + resumo +
-      secao('📋 Identificação') +
-      campo('Nome / Razão social <span class="obrig">*</span>', '<input name="nome" required maxlength="200" value="' + esc(cl.nome || '') + '">', 'dois') +
-      campo('CPF/CNPJ', '<input name="cpf_cnpj" inputmode="numeric" maxlength="18" value="' + esc(mascaraDoc(cl.cpf_cnpj)) + '"><div class="sub" id="cli-doc-aviso"></div>') +
-      campo('Tipo societário', selectOpcoes('tipo_societario', ['LTDA', 'S.A', 'MEI', 'EI', 'PF'], cl.tipo_societario)) +
-      campo('Sócio-administrador', '<input name="socio_admin" value="' + esc(cl.socio_admin || '') + '">', 'dois') +
-      (novo ? '<div class="dica inteiro">Com CNPJ, ao salvar o sistema consulta a Receita e preenche razão social, endereço, situação e os <b>sócios</b>. Os contatos por setor (financeiro, fiscal, RH…) ficam na ficha → <b>Contatos</b>.</div>' : '') +
-      secao('🗂 Classificação') +
-      campo('Grupo', '<input name="grupo" list="cli-grupos" placeholder="Digite ou escolha" value="' + esc(cl.grupos ? cl.grupos.nome : nomeGrupo(cl.grupo_id)) + '">' + datalistGrupos('cli-grupos')) +
-      campo('Tipo', '<select name="tipo">' + [['Consultoria', 'Consultoria'], ['Demanda', 'Serviço pontual'], ['Inativo', 'Inativo']].map(([t, r]) => '<option value="' + t + '"' + (cl.tipo === t ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>') +
-      campo('Área do cliente', '<select name="area">' + AREAS.filter(([v]) => minhasAreas() === 'ambos' || v === minhasAreas() || v === (cl.area || '')).map(([v, r]) =>
-        '<option value="' + v + '"' + ((cl.area || (novo ? minhasAreas() : 'ambos')) === v ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>') +
-      campo('Responsável', '<input name="responsavel" list="cli-pessoas" value="' + esc(cl.responsavel || '') + '">' + datalistPessoas('cli-pessoas')) +
-      campo('Origem', '<select name="origem">' + ['', ...ORIGENS_CLIENTE, ...(cl.origem && !ORIGENS_CLIENTE.includes(cl.origem) ? [cl.origem] : [])].map((o) =>
-        '<option value="' + esc(o) + '"' + ((cl.origem || '') === o ? ' selected' : '') + '>' + (o ? esc(o) : '—') + '</option>').join('') + '</select>') +
-      campo('Indicado por', '<input name="indicado_por" maxlength="200" placeholder="Quem indicou (quando a origem é Indicação)" value="' + esc(cl.indicado_por || '') + '">') +
-      campo('Regime tributário', selectOpcoes('regime_tributario', ['PF', 'SN', 'LP', 'LR', 'BAIXADA'], cl.regime_tributario)) +
-      secao('📞 Contato principal') +
-      campo('E-mail', '<input name="email" type="email" value="' + esc(cl.email || '') + '">') +
-      campo('Telefone / WhatsApp', '<input name="telefone" inputmode="tel" value="' + esc(cl.telefone || '') + '">') +
-      campo('E-mails automáticos', '<select name="perfil_email" title="Quais e-mails automáticos este cliente recebe">' + PERFIS_EMAIL.map(([v, r]) =>
-        '<option value="' + v + '"' + ((cl.perfil_email || 'padrao') === v ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>') +
-      secao('📍 Endereço') +
-      campo('Endereço', '<input name="endereco" value="' + esc(cl.endereco || '') + '">') +
-      campo('Cidade', '<input name="cidade" value="' + esc(cl.cidade || '') + '">') +
-      campo('UF', '<input name="estado" maxlength="2" style="text-transform:uppercase" value="' + esc(cl.estado || '') + '">') +
-      secao('🏛 Situação') +
-      campo('Em operação', selectSimNao('em_operacao', cl.em_operacao)) +
-      campo('Procuração', selectSimNao('procuracao', cl.procuracao)) +
-      campo('Certificado', selectSimNao('certificado', cl.certificado)) +
-      campo('Cadastro regular', selectSimNao('cadastro_regular', cl.cadastro_regular)) +
-      campo('CAPAG', selectOpcoes('capag', ['A', 'B', 'C', 'D', 'Omisso'], cl.capag)) +
-      campo('Situação cadastral', selectOpcoes('situacao_cadastral', ['ATIVA', 'SUSPENSA', 'INAPTA', 'BAIXADA', 'NULA'], cl.situacao_cadastral)) +
-      secao('💰 Passivo tributário') +
-      campoValor('RFB', 'rfb', cl.rfb) + campoValor('RFB negociada', 'rfb_negociada', cl.rfb_negociada) +
-      campoValor('PGFN', 'pgfn', cl.pgfn) + campoValor('PGFN negociada', 'pgfn_negociada', cl.pgfn_negociada) +
-      campoValor('AGE/MG', 'age_mg', cl.age_mg) + campoValor('AGE/MG negociada', 'age_mg_negociada', cl.age_mg_negociada) +
-      campoValor('SEFAZ/MG', 'sefaz_mg', cl.sefaz_mg) +
-      campo('CEAT (TRT-3) — processos', '<input name="ceat_trt3" type="number" min="0" value="' + esc(cl.ceat_trt3 == null ? '' : cl.ceat_trt3) + '">') +
-      secao('📝 Observações') +
-      campo('Observação interna', '<textarea name="obs" maxlength="4000">' + esc(cl.obs || '') + '</textarea>', 'inteiro') +
-      (cl.historico_cadastral ? campo('Histórico cadastral', '<textarea name="historico_cadastral" maxlength="4000">' + esc(cl.historico_cadastral) + '</textarea>', 'inteiro') : '') +
+      '<form id="f-cli" class="grade g3 cli-form">' + resumo +
+      '<div class="inteiro"><div class="segmento cli-abas" id="cli-abas" role="tablist">' + ABAS_CLI.map(([k, r], i) => '<button type="button" role="tab" data-cli-aba="' + k + '"' + (i ? '' : ' class="ativo"') + '>' + r + '</button>').join('') + '</div></div>' +
+      aba('id',
+        campo('CPF/CNPJ', '<input name="cpf_cnpj" inputmode="numeric" maxlength="18" placeholder="Digite o CNPJ: a Receita preenche o resto" value="' + esc(mascaraDoc(cl.cpf_cnpj)) + '"><div class="sub" id="cli-doc-aviso"></div>') +
+        campo('Nome / Razão social <span class="obrig">*</span>', '<input name="nome" required maxlength="200" value="' + esc(cl.nome || '') + '">', 'dois') +
+        '<div class="inteiro" id="cli-cnpj-card"></div>' +
+        campo('Tipo societário', selectOpcoes('tipo_societario', ['LTDA', 'S.A', 'MEI', 'EI', 'SLU', 'PF'], cl.tipo_societario)) +
+        campo('Sócio-administrador', '<input name="socio_admin" value="' + esc(cl.socio_admin || '') + '">') +
+        campo('Regime tributário', selectOpcoes('regime_tributario', ['PF', 'SN', 'LP', 'LR', 'BAIXADA'], cl.regime_tributario))) +
+      aba('class',
+        campo('Grupo', '<select name="grupo_sel"><option value="">— sem grupo —</option>' + E.grupos.map((g) => '<option value="' + g.id + '"' + (g.id === grupoAtual ? ' selected' : '') + '>' + esc(g.nome) + '</option>').join('') + '</select>' +
+          '<label class="cli-chk"><input type="checkbox" name="grupo_novo"> É um grupo novo</label><input name="grupo" placeholder="Nome do grupo novo" hidden>') +
+        campo('Tipo', '<select name="tipo">' + [['Consultoria', 'Consultoria'], ['Demanda', 'Serviço pontual'], ['Inativo', 'Inativo']].map(([t, r]) => '<option value="' + t + '"' + (cl.tipo === t ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>') +
+        campo('Área do cliente', '<select name="area">' + AREAS.filter(([v]) => minhasAreas() === 'ambos' || v === minhasAreas() || v === (cl.area || '')).map(([v, r]) =>
+          '<option value="' + v + '"' + ((cl.area || (novo ? minhasAreas() : 'ambos')) === v ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>') +
+        campo('Responsável (quem cuida)', selectPessoa('responsavel', cl.responsavel || '', '— escolha —')) +
+        campo('Origem', '<select name="origem">' + ['', ...ORIGENS_CLIENTE, ...(cl.origem && !ORIGENS_CLIENTE.includes(cl.origem) ? [cl.origem] : [])].map((o) =>
+          '<option value="' + esc(o) + '"' + ((cl.origem || '') === o ? ' selected' : '') + '>' + (o ? esc(o) : '—') + '</option>').join('') + '</select>') +
+        campo('Indicado por', '<input name="indicado_por" maxlength="200" placeholder="Quem indicou (quando a origem é Indicação)" value="' + esc(cl.indicado_por || '') + '">')) +
+      aba('contato',
+        '<div class="inteiro"><div class="cli-lista-tit">E-mails <button type="button" class="btn btn-o btn-mini" id="cli-mais-email">+ e-mail</button></div><div id="cli-emails">' + linhaEmail(cl.email, true) + '</div></div>' +
+        '<div class="inteiro"><div class="cli-lista-tit">Telefones / WhatsApp <button type="button" class="btn btn-o btn-mini" id="cli-mais-tel">+ telefone</button></div><div id="cli-tels">' + linhaTel(cl.telefone, true) + '</div></div>' +
+        campo('E-mails automáticos', '<select name="perfil_email" title="Quais e-mails automáticos este cliente recebe">' + PERFIS_EMAIL.map(([v, r]) =>
+          '<option value="' + v + '"' + ((cl.perfil_email || 'padrao') === v ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>') +
+        '<div class="dica dois">Os e-mails e telefones a mais viram <b>contatos</b> do cliente, com o setor escolhido (financeiro, fiscal, RH…): é por eles que o sistema sabe para quem mandar cobranças, guias e recibos (ficha → Contatos).</div>') +
+      aba('end',
+        campo('CEP', '<input name="cep" inputmode="numeric" maxlength="9" value="' + esc(cl.cep || '') + '">') +
+        campo('Endereço', '<input name="endereco" value="' + esc(cl.endereco || '') + '">', 'dois') +
+        campo('Cidade', '<input name="cidade" value="' + esc(cl.cidade || '') + '">') +
+        campo('UF', '<input name="estado" maxlength="2" style="text-transform:uppercase" value="' + esc(cl.estado || '') + '">')) +
+      aba('sit',
+        campo('Em operação', selectSimNao('em_operacao', cl.em_operacao)) +
+        campo('Procuração', selectSimNao('procuracao', cl.procuracao)) +
+        campo('Certificado', selectSimNao('certificado', cl.certificado)) +
+        campo('Cadastro regular', selectSimNao('cadastro_regular', cl.cadastro_regular)) +
+        campo('CAPAG', selectOpcoes('capag', ['A', 'B', 'C', 'D', 'Omisso'], cl.capag)) +
+        campo('Situação cadastral', selectOpcoes('situacao_cadastral', ['ATIVA', 'SUSPENSA', 'INAPTA', 'BAIXADA', 'NULA'], cl.situacao_cadastral)) +
+        campoValor('RFB', 'rfb', cl.rfb) + campoValor('RFB negociada', 'rfb_negociada', cl.rfb_negociada) + campoValor('SEFAZ/MG', 'sefaz_mg', cl.sefaz_mg) +
+        campoValor('PGFN', 'pgfn', cl.pgfn) + campoValor('PGFN negociada', 'pgfn_negociada', cl.pgfn_negociada) +
+        campo('CEAT (TRT-3) — processos', '<input name="ceat_trt3" type="number" min="0" value="' + esc(cl.ceat_trt3 == null ? '' : cl.ceat_trt3) + '">') +
+        campoValor('AGE/MG', 'age_mg', cl.age_mg) + campoValor('AGE/MG negociada', 'age_mg_negociada', cl.age_mg_negociada)) +
+      aba('obs',
+        campo('Observação interna', '<textarea name="obs" maxlength="4000">' + esc(cl.obs || '') + '</textarea>', 'inteiro') +
+        (cl.historico_cadastral ? campo('Histórico cadastral', '<textarea name="historico_cadastral" maxlength="4000">' + esc(cl.historico_cadastral) + '</textarea>', 'inteiro') : '')) +
       '</form>',
     rodape:
-      (!novo && E.perfil.papel === 'admin' ? '<button class="btn btn-x" id="btn-excluir-cli" type="button">Excluir</button>' : '<span></span>') +
+      (!novo && E.perfil.papel === 'admin' ? '<button class="btn btn-x" id="btn-excluir-cli" type="button">Excluir</button>' : (novo ? '<label class="cli-chk"><input type="checkbox" id="cli-depois-ctr"> Depois de salvar, criar o contrato</label>' : '<span></span>')) +
       '<div class="acoes">' + (!novo ? '<button class="btn btn-o" type="button" id="btn-ctr-cli">+ Contrato</button>' : '') +
       '<button class="btn btn-o" type="button" data-cancelar>Cancelar</button>' +
       '<button class="btn btn-p" id="btn-salvar-cli" type="button">Salvar</button></div>'
   });
   const f = j.querySelector('#f-cli');
+  const irAba = (k) => { j.querySelectorAll('[data-cli-aba]').forEach((b) => b.classList.toggle('ativo', b.dataset.cliAba === k)); j.querySelectorAll('.cli-aba').forEach((d) => { d.hidden = d.dataset.aba !== k; }); };
+  j.querySelector('#cli-abas').onclick = (ev) => { const b = ev.target.closest('[data-cli-aba]'); if (b) irAba(b.dataset.cliAba); };
+  f.grupo_novo.onchange = () => { f.grupo.hidden = !f.grupo_novo.checked; f.grupo_sel.disabled = f.grupo_novo.checked; if (f.grupo_novo.checked) f.grupo.focus(); };
+  j.querySelector('#cli-mais-email').onclick = () => { j.querySelector('#cli-emails').insertAdjacentHTML('beforeend', linhaEmail('', false)); j.querySelector('#cli-emails').lastElementChild.querySelector('input').focus(); };
+  j.querySelector('#cli-mais-tel').onclick = () => { j.querySelector('#cli-tels').insertAdjacentHTML('beforeend', linhaTel('', false)); j.querySelector('#cli-tels').lastElementChild.querySelector('input').focus(); };
+  f.addEventListener('click', (ev) => { const b = ev.target.closest('[data-tirar]'); if (b) b.closest('.cli-lin').remove(); });
   // Backup 26: avisa na hora se o CPF/CNPJ já está cadastrado
-  let repetidos = [];
+  let repetidos = [], ultimoCnpj = '';
   const conferirDoc = async () => {
     const d = soDigitos(f.cpf_cnpj.value), el = j.querySelector('#cli-doc-aviso'); repetidos = [];
     if (d.length < 11) { el.innerHTML = ''; return; }
     repetidos = await q(sb.rpc('clientes_mesmo_documento', { p_doc: d, p_ignorar: cl.id || null })).catch(() => []);
     el.innerHTML = repetidos.length ? '<span class="pill vencido">já cadastrado</span> ' + repetidos.map((x) => esc(x.nome) + (x.grupo ? ' (' + esc(x.grupo) + ')' : '')).join(', ') : '';
+  };
+  // CNPJ consultado na Receita enquanto digita (sem gravar): preenche nome, endereço, situação e sócio-administrador
+  const consultarNaHora = async (d) => {
+    const card = j.querySelector('#cli-cnpj-card'); ultimoCnpj = d;
+    card.innerHTML = '<div class="cli-cnpj carregando">🔎 Consultando o CNPJ na Receita…</div>';
+    try {
+      const r = await chamarFuncao('erp-cnpj', { acao: 'previa', cnpj: d });
+      if (ultimoCnpj !== d || !card.isConnected) return;
+      if (!r || !r.ok || !r.dados) { card.innerHTML = '<div class="cli-cnpj">' + esc((r && r.erro) || 'Não foi possível consultar agora.') + '</div>'; return; }
+      const x = r.dados, adm = (x.socios || []).find((s) => /administrador/i.test(s.qualificacao)) || (x.socios || [])[0];
+      const porCampo = (n, v) => { if (v && f[n] && !f[n].value.trim()) f[n].value = v; };
+      porCampo('nome', x.razao_social); porCampo('endereco', x.endereco); porCampo('cidade', x.cidade); porCampo('estado', x.estado); porCampo('cep', x.cep); porCampo('socio_admin', adm && adm.nome);
+      if (x.situacao_cadastral && !f.situacao_cadastral.value) f.situacao_cadastral.value = x.situacao_cadastral;
+      card.innerHTML = '<div class="cli-cnpj ok"><b>✓ ' + esc(x.razao_social || '') + '</b>' + (x.nome_fantasia ? ' <span class="sub">(' + esc(x.nome_fantasia) + ')</span>' : '') +
+        ' <span class="pill ' + (x.situacao_cadastral === 'ATIVA' ? 'pago' : 'vencido') + '">' + esc(x.situacao_cadastral || '—') + '</span>' +
+        '<div class="sub">' + esc([x.cnae_principal, x.porte, x.cidade && x.estado ? x.cidade + '/' + x.estado : ''].filter(Boolean).join(' · ')) +
+        ((x.socios || []).length ? ' · sócios: ' + esc(x.socios.map((s) => s.nome).join(', ')) : '') + '</div><div class="sub">Campos vazios preenchidos com a Receita — confira nas abas.</div></div>';
+    } catch (e) { if (card.isConnected) card.innerHTML = '<div class="cli-cnpj">Consulta do CNPJ indisponível agora (' + esc(e.message) + '). Ao salvar, a rotina tenta de novo.</div>'; }
+  };
+  f.cpf_cnpj.oninput = () => {
+    const d = soDigitos(f.cpf_cnpj.value).slice(0, 14);
+    f.cpf_cnpj.value = d.length > 11 ? d.replace(/^(\d{2})(\d{3})?(\d{3})?(\d{4})?(\d{0,2})?$/, (m, a, b, c, e, g) => a + (b ? '.' + b : '') + (c ? '.' + c : '') + (e ? '/' + e : '') + (g ? '-' + g : ''))
+      : d.replace(/^(\d{3})(\d{3})?(\d{3})?(\d{0,2})?$/, (m, a, b, c, e) => a + (b ? '.' + b : '') + (c ? '.' + c : '') + (e ? '-' + e : ''));
+    if (d.length === 14 && d !== ultimoCnpj) { conferirDoc(); consultarNaHora(d); }
+    if (d.length === 11) conferirDoc();
   };
   f.cpf_cnpj.onblur = () => { f.cpf_cnpj.value = mascaraDoc(f.cpf_cnpj.value); conferirDoc(); };
   j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
@@ -237,11 +233,12 @@ async function formCliente(cl, depois) {
   if (bc) bc.onclick = () => { fecharJanela(j); formContrato({ cliente_id: cl.id }); };
 
   j.querySelector('#btn-salvar-cli').onclick = (ev) => comBotao(ev.currentTarget, async () => {
-    if (!f.nome.value.trim()) throw new Error('Preencha o nome.');
+    if (!f.nome.value.trim()) { irAba('id'); throw new Error('Preencha o nome.'); }
+    if (f.grupo_novo.checked && !f.grupo.value.trim()) { irAba('class'); throw new Error('Escreva o nome do grupo novo (ou desmarque "É um grupo novo").'); }
     if (soDigitos(f.cpf_cnpj.value) !== soDigitos(cl.cpf_cnpj || '')) await conferirDoc();
     if (repetidos.length && !confirm('Já existe cliente com este CPF/CNPJ: ' + repetidos.map((x) => x.nome).join(', ') + '.\n\nCadastrar mesmo assim?')) return;
     const num = (n) => { const t = f[n].value.trim(); if (!t) return null; const v = lerValor(t); if (isNaN(v)) throw new Error('Valor inválido em ' + n.toUpperCase().replace(/_/g, ' ') + '.'); return v; };
-    const grupo_id = await grupoPorNome(f.grupo.value);
+    const grupo_id = f.grupo_novo.checked ? await grupoPorNome(f.grupo.value) : (f.grupo_sel.value || null);
     const dados = {
       nome: f.nome.value.trim(), cpf_cnpj: soDigitos(f.cpf_cnpj.value), grupo_id, tipo: f.tipo.value, area: f.area.value,
       responsavel: f.responsavel.value.trim(), socio_admin: f.socio_admin.value.trim(), tipo_societario: f.tipo_societario.value,
@@ -251,7 +248,7 @@ async function formCliente(cl, depois) {
       rfb: num('rfb'), rfb_negociada: num('rfb_negociada'), pgfn: num('pgfn'), pgfn_negociada: num('pgfn_negociada'),
       age_mg: num('age_mg'), age_mg_negociada: num('age_mg_negociada'), sefaz_mg: num('sefaz_mg'),
       ceat_trt3: f.ceat_trt3.value === '' ? null : Number(f.ceat_trt3.value),
-      email: f.email.value.trim(), telefone: f.telefone.value.trim(), endereco: f.endereco.value.trim(), perfil_email: f.perfil_email.value,
+      email: f.email.value.trim(), telefone: f.telefone.value.trim(), endereco: f.endereco.value.trim(), perfil_email: f.perfil_email.value, cep: soDigitos(f.cep.value),
       cidade: f.cidade.value.trim(), estado: f.estado.value.trim().toUpperCase(), origem: f.origem.value.trim(), indicado_por: f.indicado_por.value.trim(),
       obs: f.obs.value.trim()
     };
@@ -259,11 +256,19 @@ async function formCliente(cl, depois) {
     let id = cl.id;
     if (novo) id = (await q(sb.from('clientes').insert(dados).select('id').single())).id;
     else await q(sb.from('clientes').update(dados).eq('id', cl.id));
-    aviso(novo ? '✓ Cliente cadastrado.' : '✓ Cadastro atualizado.');
+    // e-mails e telefones a mais → contatos do cliente, no setor escolhido
+    const extras = [...j.querySelectorAll('[data-extra]')].filter((i) => i.value.trim()).map((i) => {
+      const setor = i.closest('.cli-lin').querySelector('[data-setor]').value, rot = (SETORES_CONTATO.find((x) => x[0] === setor) || ['', ''])[1];
+      return i.dataset.extra === 'email' ? { cliente_id: id, nome: rot, finalidade: setor, email: i.value.trim() } : { cliente_id: id, nome: rot, finalidade: setor, telefone: i.value.trim(), whatsapp: soDigitos(i.value).length === 11 };
+    });
+    if (extras.length) await q(sb.from('contatos').insert(extras).select('id')).catch((e) => aviso('Cadastro salvo, mas os contatos a mais não: ' + erroAmigavel(e), true));
+    aviso(novo ? '✓ Cliente cadastrado.' + (extras.length ? ' ' + plural(extras.length, 'contato a mais', 'contatos a mais') + ' na ficha.' : '') : '✓ Cadastro atualizado.');
+    const depoisCtr = novo && j.querySelector('#cli-depois-ctr') && j.querySelector('#cli-depois-ctr').checked;
     fecharJanela(j);
     await apos();
     // automação: empresa nova (ou CNPJ trocado) → consulta a Receita na hora e preenche razão social, endereço, situação…
     if (dados.cpf_cnpj.length === 14 && (novo || soDigitos(cl.cpf_cnpj) !== dados.cpf_cnpj)) consultarCnpjNovo(id, dados.nome);
+    if (depoisCtr) formContrato({ cliente_id: id });
   });
   const bx = j.querySelector('#btn-excluir-cli');
   if (bx) bx.onclick = () => comBotao(bx, async () => {
@@ -311,7 +316,7 @@ async function pintarContratos(buscar) {
   }
   const h = hojeISO();
   $('ctr-corpo').innerHTML = '<div class="card">' + (lista.length ?
-    '<div class="tabela-wrap"><table class="ordenavel ctr-tab"><thead><tr><th>Cliente</th><th>Contrato</th><th>Tipo</th><th data-tipo="data">Data</th><th class="num">Valor</th><th class="num">Recebido</th><th>Parcelas</th><th>Anexo</th><th>Situação</th></tr></thead><tbody>' +
+    '<div class="tabela-wrap"><table class="ordenavel ctr-tab"><thead><tr><th>Cliente</th><th>Contrato</th><th>Tipo</th><th data-tipo="data">Data</th><th class="num">Valor</th><th class="num">Recebido</th><th>Parcelas</th><th>Anexo</th><th>Situação</th><th>Financeiro</th></tr></thead><tbody>' +
     lista.map((c) => {
       const parc = c.lancamentos || [];
       const recebido = soma(parc.filter((p) => p.pago), (p) => p.valor);
@@ -325,12 +330,20 @@ async function pintarContratos(buscar) {
         '<td class="num mono valor-rec" data-ord="' + recebido + '">' + brl(recebido) + '</td>' +
         '<td>' + parc.filter((p) => p.pago).length + '/' + parc.length + '</td>' +
         '<td>' + ((c.documentos || []).length ? '<span class="pill pago" title="Contrato anexado">📎 ' + c.documentos.length + '</span>' : '<span class="pill hoje" title="Anexe o contrato assinado no detalhe">sem anexo</span>') + '</td>' +
-        '<td>' + (atraso ? '<span class="pill vencido">Parcela em atraso</span>' : '<span class="pill ' + (c.status === 'Ativo' ? 'aberto' : c.status === 'Aguardando assinatura' ? 'hoje' : 'neutro') + '">' + esc(c.status) + '</span>') + '</td></tr>';
+        '<td>' + pillSituacaoCtr(c) + '</td>' +
+        '<td>' + (atraso ? '<span class="pill vencido">Parcela em atraso</span>' : parc.length ? '<span class="pill pago">Em dia</span>' : '<span class="pill neutro">—</span>') + '</td></tr>';
     }).join('') + '</tbody></table></div>'
     : vazio('Nenhum contrato' + (F.status !== 'todos' ? ' com essa situação' : '') + ' — cadastre um contrato e o sistema gera os lançamentos.', '+ Novo contrato', '[data-novo=contrato]')) + '</div>';
   $('ctr-corpo').querySelectorAll('[data-ctr]').forEach((tr) => tr.onclick = () => detalheContrato(tr.dataset.ctr));
 }
 
+// Backup 28: situação do contrato (sem misturar com o financeiro, que tem coluna própria)
+const SITUACOES_CTR = ['Ativo', 'Aguardando assinatura', 'Encerrado', 'Cancelado'];
+function situacaoCtr(c) { return c.rescindido_em && c.status === 'Ativo' ? 'Rescindido' : c.status; }
+function pillSituacaoCtr(c) {
+  const s = situacaoCtr(c);
+  return '<span class="pill ' + ({ Ativo: 'aberto', 'Aguardando assinatura': 'hoje', Cancelado: 'vencido', Rescindido: 'neutro' }[s] || 'neutro') + '">' + esc(s) + '</span>';
+}
 // Êxito: base de cálculo (o "X" que a pessoa informa quando o êxito acontece)
 const EXITO_BASES = [['economia', 'Economia obtida (redução da dívida)'], ['valor_recebido', 'Valor recebido pelo cliente'],
   ['valor_causa', 'Valor da causa / condenação'], ['outro', 'Outro valor (descrever)']];
@@ -359,7 +372,9 @@ function formContrato(ct) {
         .map(([v, r]) => '<button type="button" data-v="' + v + '"' + (mod === v ? ' class="ativo"' : '') + (novo ? '' : ' disabled') + '>' + r + '</button>').join('') + '</div></div>' +
       campo('Descrição do serviço <span class="obrig">*</span>', '<input name="descricao" required maxlength="200" placeholder="Ex.: Consultoria tributária mensal" value="' + esc(ct.descricao || '') + '">', 'inteiro') +
       campo('Área do serviço', selectServico(ct.servico || '')) +
-      campo('Data do contrato', '<input name="data_contrato" type="date" value="' + esc(ct.data_contrato || hojeISO()) + '">') +
+      campo('Data em que fechou', '<input name="data_contrato" type="date" value="' + esc(ct.data_contrato || hojeISO()) + '">') +
+      campo('Início da vigência', '<input name="inicio_vigencia" type="date" value="' + esc(ct.inicio_vigencia || ct.inicio_competencia || somarDias(iso(fimDoMes(new Date())), 1)) + '">') +
+      campo('Quem fechou', selectPessoa('fechado_por', ct.fechado_por || (novo && E.perfil ? E.perfil.nome : ''), '— escolha —')) +
       campo('% de êxito (se houver)', '<input name="percentual_exito" inputmode="decimal" placeholder="Ex.: 20" value="' + (ct.percentual_exito != null ? esc(String(ct.percentual_exito).replace('.', ',')) : '') + '">') +
       // êxito: sobre o quê e como foi combinado; só vira dinheiro quando acontecer (botão "Registrar êxito" no detalhe)
       '<div class="grade inteiro" id="ctr-exito">' +
@@ -372,7 +387,6 @@ function formContrato(ct) {
         .map(([v, r]) => '<button type="button" data-v="' + v + '"' + (forma === v ? ' class="ativo"' : '') + '>' + r + '</button>').join('') + '</div></div>' +
       campo('<span id="rot-valor-mensal">Valor mensal (R$)</span>', '<input name="valor_mensal" inputmode="decimal" placeholder="4.000,00" value="' + (ct.valor_mensal ? valorParaCampo(ct.valor_mensal) : '') + '">') +
       campo('Quantos salários mínimos', '<input name="qtd_salarios" inputmode="decimal" placeholder="1" value="' + (ct.qtd_salarios != null ? esc(String(ct.qtd_salarios).replace('.', ',')) : '') + '">') +
-      campo('1ª competência (mês de início)', '<input name="inicio_competencia" type="month" value="' + esc((ct.inicio_competencia || hojeISO()).slice(0, 7)) + '">') +
       campo('Dia do vencimento (mês seguinte)', '<input name="dia_vencimento" type="number" min="1" max="28" value="' + (ct.dia_vencimento || 10) + '">') +
       '<div class="dica inteiro" id="ctr-previa-rec"></div></div>' +
       // serviço pontual
@@ -385,7 +399,7 @@ function formContrato(ct) {
         : '<div class="dica inteiro">Valor e parcelas já foram lançados em Honorários Jurídico. Para ajustar uma parcela, use o botão Editar dela.</div>') + '</div>' +
       (novo ? '<div class="inteiro"><div class="segmento" id="ctr-assin">' + [['Ativo', '✓ Já está assinado (lança o financeiro agora)'], ['Aguardando assinatura', '⏳ Aguardando assinatura (lança só quando assinar)']]
           .map(([v, r], i) => '<button type="button" data-v="' + v + '"' + (i === 0 ? ' class="ativo"' : '') + '>' + r + '</button>').join('') + '</div></div>'
-        : campo('Situação', '<select name="status">' + (ct.status === 'Aguardando assinatura' ? ['Aguardando assinatura', 'Ativo', 'Cancelado'] : ['Ativo', 'Encerrado', 'Cancelado'])
+        : campo('Situação', '<select name="status">' + SITUACOES_CTR
           .map((st) => '<option value="' + st + '"' + (ct.status === st ? ' selected' : '') + '>' + (st === 'Ativo' && ct.status === 'Aguardando assinatura' ? 'Ativo (assinado: lança o financeiro)' : st) + '</option>').join('') + '</select>')) +
       campo('Observação', '<textarea name="obs" maxlength="2000">' + esc(ct.obs || '') + '</textarea>', 'inteiro') +
       '<div class="dica inteiro">Depois de salvar, anexe o contrato assinado no detalhe do contrato (Documentos do contrato).</div>' +
@@ -411,9 +425,11 @@ function formContrato(ct) {
   q(sb.from('salarios_minimos').select('*').order('ano', { ascending: false })).then((x) => { sm = x; previaRec(); }).catch(() => {});
   const previaRec = () => {
     const el = j.querySelector('#ctr-previa-rec'); if (!el) return;
-    const ano = Number((f.inicio_competencia.value || hojeISO()).slice(0, 4)), s0 = sm.find((x) => x.ano <= ano);
+    const ini = f.inicio_vigencia.value || hojeISO(), ano = Number(ini.slice(0, 4)), s0 = sm.find((x) => x.ano <= ano);
+    const dia = Math.min(28, Math.max(1, Number(f.dia_vencimento.value) || 10)), mesSeg = somarMeses(ini.slice(0, 7) + '-01', 1).slice(0, 8) + String(dia).padStart(2, '0');
     const v = formaValor === 'salario_minimo' ? (lerValor(f.qtd_salarios.value) || 0) * (s0 ? Number(s0.valor) : 0) : lerValor(f.valor_mensal.value) || 0;
-    el.innerHTML = 'Todo mês entra um lançamento em Honorários Jurídico (competência do mês, vencimento dia <b>' + (Number(f.dia_vencimento.value) || 10) + '</b> do mês seguinte) de <b class="mono">' + brl(v) + '</b>' +
+    el.innerHTML = 'Vigência a partir de <b>' + dataBR(ini) + '</b> · <b>1º pagamento em ' + dataBR(mesSeg) + '</b> (competência ' + ini.slice(5, 7) + '/' + ini.slice(0, 4) + '). ' +
+      'Todo mês entra um lançamento em Honorários Jurídico (competência do mês, vencimento dia <b>' + dia + '</b> do mês seguinte) de <b class="mono">' + brl(v) + '</b>' +
       (formaValor === 'salario_minimo' ? ' (salário mínimo de ' + (s0 ? s0.ano + ': ' + brl(s0.valor) : '—') + '). Quando o salário mínimo do ano seguinte for cadastrado, as mensalidades daquele ano são reajustadas sozinhas' : '') +
       '. Continua até a rescisão.';
   };
@@ -454,15 +470,16 @@ function formContrato(ct) {
     const cli = E.clientes.find((c) => c.id === f.cliente_id.value);
     const dados = { cliente_id: f.cliente_id.value, descricao: f.descricao.value.trim(), servico: f.servico.value, modalidade,
       data_contrato: f.data_contrato.value || hojeISO(), percentual_exito: exito, obs: f.obs.value.trim(),
-      exito_base: exito ? f.exito_base.value : null, exito_regra: exito ? f.exito_regra.value.trim() : '', responsavel: ct.responsavel || (cli && cli.responsavel) || '' };
+      exito_base: exito ? f.exito_base.value : null, exito_regra: exito ? f.exito_regra.value.trim() : '', responsavel: ct.responsavel || (cli && cli.responsavel) || '',
+      inicio_vigencia: f.inicio_vigencia.value || f.data_contrato.value || hojeISO(), fechado_por: f.fechado_por.value };
     if (modalidade === 'consultoria') {
       const vm = formaValor === 'fixo' ? lerValor(f.valor_mensal.value) : null, qs = formaValor === 'salario_minimo' ? lerValor(f.qtd_salarios.value) : null;
       if (formaValor === 'fixo' && !(vm > 0)) throw new Error('Informe o valor mensal (ex.: 4.000,00).');
       if (formaValor === 'salario_minimo' && !(qs > 0)) throw new Error('Informe quantos salários mínimos (ex.: 1 ou 0,7).');
       const dia = Number(f.dia_vencimento.value) || 10;
       if (dia < 1 || dia > 28) throw new Error('Dia do vencimento entre 1 e 28.');
-      if (!f.inicio_competencia.value) throw new Error('Informe o mês de início.');
-      Object.assign(dados, { forma_valor: formaValor, valor_mensal: vm, qtd_salarios: qs, dia_vencimento: dia, inicio_competencia: f.inicio_competencia.value + '-01', valor_total: 0, num_parcelas: 1 });
+      if (!f.inicio_vigencia.value) throw new Error('Informe o início da vigência.');
+      Object.assign(dados, { forma_valor: formaValor, valor_mensal: vm, qtd_salarios: qs, dia_vencimento: dia, inicio_competencia: f.inicio_vigencia.value.slice(0, 7) + '-01', valor_total: 0, num_parcelas: 1 });
     }
     if (novo) {
       if (modalidade === 'pontual') {
@@ -540,6 +557,7 @@ async function detalheContrato(id) {
 }
 async function _detalheContrato(id) {
   const ct = (await q(sb.from('contratos').select('*, clientes(nome, grupo_id, responsavel)').eq('id', id)))[0];
+  if (ct && !ct.fechado_por && ct.criado_por) ct.fechado_por = ((await q(sb.from('perfis').select('nome, email').eq('id', ct.criado_por)).catch(() => []))[0] || {}).nome || '';
   if (!ct) throw new Error('contrato não encontrado ou de um cliente que você não vê (área)');
   const [parc, exitos, aditivos] = await Promise.all([q(sb.from('lancamentos').select('*').eq('contrato_id', id).order('vencimento')),
     ct.percentual_exito ? q(sb.from('exitos').select('*').eq('contrato_id', id).order('data')).catch(() => []) : [],
@@ -551,10 +569,11 @@ async function _detalheContrato(id) {
   const reajuste = ct.modalidade !== 'consultoria' ? 'Sem reajuste (serviço pontual)'
     : ct.forma_valor === 'salario_minimo' ? 'Automático pelo salário mínimo (todo ano)' : 'Sem reajuste · mudança de valor só por aditivo';
   const ficha = [['Tipo', ct.modalidade === 'consultoria' ? 'Consultoria (mensal)' : 'Serviço pontual'], ['Área do serviço', ct.servico || '—'],
-    ['Vigência', dataBR(ct.inicio_competencia || ct.data_contrato) + ' → ' + (ct.rescindido_em ? 'rescindido em ' + dataBR(ct.rescindido_em) : ct.modalidade === 'consultoria' ? 'até a rescisão' : 'fim das parcelas')],
+    ['Fechado em', dataBR(ct.data_contrato)], ['Quem fechou', ct.fechado_por || '—'], ['Quem cuida do cliente', (ct.clientes && ct.clientes.responsavel) || ct.responsavel || '—'],
+    ['Vigência', dataBR(ct.inicio_vigencia || ct.inicio_competencia || ct.data_contrato) + ' → ' + (ct.rescindido_em ? 'rescindido em ' + dataBR(ct.rescindido_em) : ct.modalidade === 'consultoria' ? 'até a rescisão' : 'fim das parcelas')],
     ['Reajuste', reajuste], ['Próximo vencimento', prox ? dataBR(prox.vencimento) + ' · ' + brl(prox.valor) : '—'],
-    ['Em atraso', atrasadas.length ? '<span class="pill vencido">' + atrasadas.length + ' parcela(s) · ' + brl(soma(atrasadas, (p) => p.valor)) + '</span>' : '<span class="pill pago">em dia</span>'],
-    ['Situação', esc(ct.status)]];
+    ['Situação', pillSituacaoCtr(ct)],
+    ['Financeiro', atrasadas.length ? '<span class="pill vencido">' + plural(atrasadas.length, 'parcela em atraso', 'parcelas em atraso') + ' · ' + brl(soma(atrasadas, (p) => p.valor)) + '</span>' : '<span class="pill pago">em dia</span>']];
   const pctRec = total > 0 ? Math.round(recebido / total * 100) : 0;
   const j = abrirJanela({
     titulo: '📄 Ficha do contrato — ' + ct.descricao, larga: true,
@@ -563,7 +582,7 @@ async function _detalheContrato(id) {
         '<div class="sub">O financeiro, o onboarding e o aviso à equipe acontecem quando você marcar como assinado. Anexe o PDF assinado em "Documentos do contrato", abaixo.</div></div>' +
         '<div class="acoes"><button class="btn btn-o" type="button" id="ctr-gerar">📄 Gerar contrato</button><button class="btn btn-p" type="button" id="ctr-assinar">✓ Marcar como assinado</button></div></div>' : '') +
       '<div class="ctr-ficha">' + ficha.map(([r, v]) => '<div><span>' + r + '</span><b>' + (/^</.test(v) ? v : esc(v)) + '</b></div>').join('') + '</div>' +
-      '<div class="ctr-barra" title="Recebido × previsto"><div style="width:' + pctRec + '%"></div></div><div class="sub" style="margin:-4px 0 12px">' + pctRec + '% do previsto já recebido</div>' +
+      (ct.modalidade === 'consultoria' ? '' : '<div class="ctr-barra" title="Recebido × previsto"><div style="width:' + pctRec + '%"></div></div><div class="sub" style="margin:-4px 0 12px">' + pctRec + '% do previsto já recebido</div>') +
       '<div class="kpis" style="margin-bottom:12px">' +
       kpi('Cliente', '<span style="font-family:var(--font-d);font-size:16px">' + esc(ct.clientes ? ct.clientes.nome : '—') + '</span>', '', 'Contrato de ' + dataBR(ct.data_contrato)) +
       (ct.modalidade === 'consultoria' ? kpi('Consultoria mensal', valorContratoTexto(ct), '', ct.rescindido_em ? 'rescindido em ' + dataBR(ct.rescindido_em) : 'vence dia ' + ct.dia_vencimento + ' do mês seguinte · até a rescisão') : '') +
@@ -573,8 +592,8 @@ async function _detalheContrato(id) {
       (ct.obs ? '<div class="dica" style="margin-bottom:12px">' + esc(ct.obs) + '</div>' : '') +
       '<div class="card" style="margin:0">' + tabelaLancamentos(parc, { compacta: true }) + '</div>' +
       '<div style="margin-top:10px"><button class="btn btn-o btn-mini" id="ctr-add-parc">+ Lançar valor avulso neste contrato</button></div>' +
-      (ct.percentual_exito ? blocoExito(ct, exitos) : '') + blocoAditivos(ct, aditivos) +
-      '<div class="card" style="margin:14px 0 0"><div class="card-bd" id="ctr-docs"></div></div>',
+      (ct.percentual_exito ? blocoExito(ct, exitos) : '') +
+      '<div class="card" style="margin:14px 0 0"><div class="card-bd" id="ctr-docs"></div></div>' + blocoAditivos(ct, aditivos),
     rodape:
       (E.perfil.papel === 'admin' ? '<button class="btn btn-x" id="btn-excluir-ctr" type="button">Excluir contrato</button>' : '<span></span>') +
       '<div class="acoes">' + (ct.modalidade === 'consultoria' && !ct.rescindido_em ? '<button class="btn btn-x" id="btn-rescindir-ctr" type="button">Rescindir</button>' : '') +

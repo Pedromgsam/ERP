@@ -675,3 +675,84 @@ label.ofx-it{cursor:pointer}
 .fila-compacta .item-ficha .sub{font-size:12px}
 .fila-compacta{gap:4px}
 @media (max-width:900px){.fila-com-atr{grid-template-columns:1fr}.fila-atrasadas{max-height:none}}
+/* Publicações (Backup 28): identificação no topo — Processo / Autor / Réu — Advogado */
+.pub-id{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin:8px 0;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-left:3px solid var(--primario);border-radius:8px}
+.pub-id-txt{display:flex;flex-direction:column;gap:2px;font-size:13px;color:var(--ink);line-height:1.45}
+.pub-id-txt b{font-weight:700}
+.pub-adv{color:var(--text2)}
+
+/* ═══ Backup 28 — Rotina do estagiário ═══ */
+.rt-filtros{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+.rt-filtros #rt-busca{flex:1 1 260px;max-width:380px}
+.rt-salvar-box{margin-left:auto;display:flex;gap:10px;align-items:center}
+.rt-grade table{min-width:1280px}
+.rt-grade td{padding:5px 6px;vertical-align:middle}
+.rt-grade .rt-emp{min-width:220px}
+.rt-in{width:100%;min-width:92px;padding:5px 7px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--ink);font:inherit;font-size:13px}
+.rt-in:focus{outline:2px solid var(--primario);outline-offset:-1px}
+.rt-valor{text-align:right;min-width:118px}
+.rt-int{max-width:70px;text-align:right}
+.rt-num{text-align:right}
+.rt-data{max-width:112px}
+.rt-vencido{border-color:var(--red);color:var(--red-d)}
+.rt-vence{border-color:var(--amber)}
+.rt-senha{display:flex;gap:4px;align-items:center}
+tr.rt-alterado td{background:var(--amber-l)}
+.rt-mov{max-width:420px;white-space:normal}
+.rt-duas{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+.rt-fin-l{display:grid;grid-template-columns:1fr auto 130px;gap:10px;align-items:center;padding:7px 0;border-bottom:1px solid var(--border)}
+.rt-fin-l b{text-align:right}
+.mov-hist{margin-top:14px;border-top:1px solid var(--border);padding-top:10px}
+.mov-it{display:grid;grid-template-columns:86px auto 1fr auto;gap:8px;align-items:center;padding:6px 0;border-bottom:1px dashed var(--border);font-size:13px}
+.gx-det-tit{font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px}
+@media(max-width:900px){.rt-duas{grid-template-columns:1fr}}
+
+/* ═══ Backup 28 — cadastro de cliente em abas ═══ */
+.cli-form .cli-abas{flex-wrap:wrap;margin-bottom:4px}
+.cli-aba[hidden]{display:none!important}
+.cli-lista-tit{display:flex;align-items:center;gap:10px;font-size:12px;font-weight:700;color:var(--text2);margin:4px 0 6px}
+.cli-lin{display:grid;grid-template-columns:minmax(220px,1fr) 190px 64px;gap:8px;align-items:center;margin-bottom:6px}
+.cli-lin .pill{justify-self:start}
+.cli-chk{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text2);margin-top:6px;cursor:pointer}
+.cli-chk input{width:auto}
+.cli-cnpj{border:1px dashed var(--border);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--text2)}
+.cli-cnpj.ok{border-style:solid;border-color:var(--green);background:var(--green-lt);color:var(--ink)}
+@media(max-width:600px){.cli-lin{grid-template-columns:1fr 1fr}.cli-lin>:last-child{grid-column:span 2}}
+
+/* ═══ Backup 28 — guias: minimizar e envio por empresa ═══ */
+.gd-card .card-hd{flex-wrap:wrap}
+.gd-hd-ac{margin-left:auto;display:inline-flex;gap:6px}
+.gd-card.gd-min .card-hd{border-bottom:0}
+.ge-itens{margin:6px 0 12px;overflow-x:auto}
+.ge-tab{width:100%;border-collapse:collapse;font-size:13px}
+.ge-tab th{text-align:left;font-size:11.5px;color:var(--text3);font-weight:700;padding:6px 8px;border-bottom:1px solid var(--border)}
+.ge-tab td{padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:middle}
+.ge-tab .ge-valor{width:140px;text-align:right}
+
+/* ═══ Backup 28 — Alertas em blocos por setor (2 por linha) e rotinas em tabela ═══ */
+.al-blocos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:18px;align-items:start}
+.al-bloco[hidden]{display:none!important}
+.al-bloco{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:8px}
+.al-bloco-hd{display:flex;align-items:center;gap:10px;font:700 14px var(--font-ui);color:var(--ink);padding:0 2px 4px}
+.al-bloco-hd .al-ic{font-size:18px;width:30px;height:30px;display:grid;place-items:center;border-radius:9px;background:var(--surface2)}
+.al-bloco-n{margin-left:auto;font-size:12px;font-weight:700;background:var(--surface2);color:var(--text2);border-radius:99px;padding:2px 9px}
+.al-bloco .al-card.al-linha{padding:10px 12px;border-radius:10px}
+.al-rot-tab td{vertical-align:middle}
+.al-rot-tab .al-pt{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--text3);margin-right:4px}
+.al-rot-tab tr.al-ok .al-pt{background:var(--green)} .al-rot-tab tr.al-critico .al-pt{background:var(--red)} .al-rot-tab tr.al-atencao .al-pt{background:var(--amber)}
+.al-rot-tab .al-ir{color:var(--blue-d);font-weight:650;white-space:nowrap;text-align:right}
+@media(max-width:900px){.al-blocos{grid-template-columns:1fr}}
+
+/* ═══ Backup 28 — Documentos por grupo (pastas) ═══ */
+.doc-pastas{display:flex;flex-direction:column;gap:10px}
+.doc-pasta{margin:0}
+.doc-pasta>summary{display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer;list-style:none;font-size:14px}
+.doc-pasta>summary::-webkit-details-marker{display:none}
+.doc-pasta>summary::after{content:'▸';margin-left:auto;color:var(--text3)}
+.doc-pasta[open]>summary::after{content:'▾'}
+.doc-pasta[open]>summary{border-bottom:1px solid var(--border)}
+.doc-pasta-ic{font-size:18px}
+/* Backup 28 — CRM: ferramentas integradas */
+.op-integra{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:0 0 10px}
+.reu-local{display:flex;gap:6px;flex-wrap:wrap}
+.reu-local input{flex:1 1 260px}

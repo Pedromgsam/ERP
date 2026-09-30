@@ -165,20 +165,27 @@ TELAS.alertas = async function () {
         plural(emDia.length, 'verificação sem pendência', 'verificações sem pendência') + '</span></div>' +
       (setores.length > 1 ? '<div class="al-filtros"><button type="button" class="ativo" data-al-setor="">Todos</button>' + setores.map((st) => '<button type="button" data-al-setor="' + esc(st) + '">' + (ICONE_SETOR[st] || '') + ' ' + esc(st) + '</button>').join('') + '</div>' : '') +
     '</div></div>' +
-    (acao.length ? '<div class="al-feed">' + acao.map((a, k) => '<button type="button" class="al-card al-linha al-' + a.nivel + '" data-al="' + a.i + '" data-setor="' + esc(a.setor) + '" style="--k:' + k + '">' +
-        '<span class="al-ic" aria-hidden="true">' + (ICONE_SETOR[a.setor] || '•') + '</span><span class="al-meio"><span class="al-rot">' + esc(a.rot) + '</span> <span class="al-det">' + esc(a.setor) + ' · ' + esc(a.det) + '</span></span>' +
-        '<span class="al-val">' + esc(a.valor) + '</span><span class="al-ir">Ver →</span></button>').join('') + '</div>' : '') +
+    // Backup 28: blocos por setor (Cadastro, Jurídico, Financeiro…), dois lado a lado, cada um com o que pede ação
+    (acao.length ? '<div class="al-blocos">' + setores.map((st) => { const l = acao.filter((a) => a.setor === st);
+        return '<section class="al-bloco" data-setor="' + esc(st) + '"><div class="al-bloco-hd"><span class="al-ic" aria-hidden="true">' + (ICONE_SETOR[st] || '•') + '</span>' + esc(st) +
+          '<span class="al-bloco-n">' + l.length + '</span></div>' + l.map((a, k) => '<button type="button" class="al-card al-linha al-' + a.nivel + '" data-al="' + a.i + '" data-setor="' + esc(a.setor) + '" style="--k:' + k + '">' +
+          '<span class="al-meio"><span class="al-rot">' + esc(a.rot) + '</span> <span class="al-det">' + esc(a.det) + '</span></span>' +
+          '<span class="al-val">' + esc(a.valor) + '</span><span class="al-ir">Ver →</span></button>').join('') + '</section>'; }).join('') + '</div>' : '') +
     // Backup 19: menos poluído — o que está em dia fica recolhido (abre ao clicar); rotinas numa lista só
     (emDia.length ? '<div class="al-emdia"><button type="button" class="al-emdia-bt" aria-expanded="' + Alertas_emDiaAberto + '">' + (Alertas_emDiaAberto ? '▾' : '▸') + ' ✓ ' + plural(emDia.length, 'verificação em dia', 'verificações em dia') +
       ' <span class="sub">— clique para ' + (Alertas_emDiaAberto ? 'esconder' : 'ver') + '</span></button><div class="al-chips"' + (Alertas_emDiaAberto ? '' : ' hidden') + '>' +
       emDia.map((a) => '<button type="button" class="al-card al-chip al-' + a.nivel + '" data-al="' + a.i + '" data-setor="' + esc(a.setor) + '" title="' + esc(a.det) + '"><span class="al-rot">' + esc(a.rot) + '</span> <span class="al-val">' + esc(a.valor) + '</span></button>').join('') + '</div></div>' : '') +
-    (rotinas.length ? '<div class="kpis-titulo">⚙ Rotinas automáticas</div><div class="al-rotinas">' + rotinas.map((a) => '<button type="button" class="al-card al-rotina al-' + a.nivel + '" data-al="' + a.i + '"><span class="al-pt" aria-hidden="true"></span><span class="al-rot">' + esc(a.rot) + '</span> <span class="al-val">' + esc(a.valor) + '</span><span class="al-det">' + esc(a.det) + '</span></button>').join('') + '</div>' : '');
+    // Backup 28: rotinas automáticas numa tabela (rotina · situação · detalhe); clicar na linha abre o detalhe
+    (rotinas.length ? '<div class="kpis-titulo">⚙ Rotinas automáticas</div><div class="card al-rot-card"><div class="tabela-wrap" data-sem-pagina><table class="al-rot-tab"><thead><tr><th>Rotina</th><th>Situação</th><th>Detalhe</th><th></th></tr></thead><tbody>' +
+      rotinas.map((a) => '<tr class="clicavel al-rotina al-' + a.nivel + '" data-al="' + a.i + '" tabindex="0"><td><span class="al-pt" aria-hidden="true"></span> <b>' + esc(a.rot) + '</b></td>' +
+        '<td><span class="pill ' + ({ ok: 'pago', critico: 'vencido', atencao: 'hoje' }[a.nivel] || 'neutro') + '">' + esc(a.valor) + '</span></td><td class="sub">' + esc(a.det) + '</td><td class="al-ir">Abrir →</td></tr>').join('') +
+      '</tbody></table></div></div>' : '');
   const btEd = $('al-corpo').querySelector('.al-emdia-bt');
   if (btEd) btEd.onclick = () => { Alertas_emDiaAberto = !Alertas_emDiaAberto; const ch = btEd.nextElementSibling; ch.hidden = !Alertas_emDiaAberto;
     btEd.setAttribute('aria-expanded', Alertas_emDiaAberto); btEd.innerHTML = btEd.innerHTML.replace(/^[▸▾]/, Alertas_emDiaAberto ? '▾' : '▸').replace(/clique para (ver|esconder)/, 'clique para ' + (Alertas_emDiaAberto ? 'esconder' : 'ver')); };
   $('al-corpo').querySelectorAll('[data-al-setor]').forEach((b) => b.onclick = () => {
     $('al-corpo').querySelectorAll('[data-al-setor]').forEach((x) => x.classList.toggle('ativo', x === b));
-    $('al-corpo').querySelectorAll('.al-linha,.al-chip').forEach((l) => { l.hidden = !!b.dataset.alSetor && l.dataset.setor !== b.dataset.alSetor; });
+    $('al-corpo').querySelectorAll('.al-linha,.al-chip,.al-bloco').forEach((l) => { l.hidden = !!b.dataset.alSetor && l.dataset.setor !== b.dataset.alSetor; });
   });
   $('al-corpo').querySelectorAll('[data-al]').forEach((b) => b.onclick = () => { const a = A[+b.dataset.al]; if (a.rel.cnpj) janelaCnpj(cnpj); else if (a.rel.emailsAuto) janelaAutoEmails(); else if (a.rel.pgfnAbertos) janelaPgfnAbertos(); else if (a.rel.pgfn) janelaPgfn(pgfnEx); else if (a.rel.saude) janelaSaude(a.rel.saude); else if (a.rel.backup) irTelaAlerta('admin', 'backup'); else relatorioAlerta(a); });
 };
