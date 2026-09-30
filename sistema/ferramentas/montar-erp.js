@@ -219,7 +219,7 @@ removerTrechoHtml('  <div class="ex-bn" style="margin-bottom:16px;position:relat
   '    <div class="kpi-grid" id="kpiAcordos"></div>\n  </div>\n',
   '  <div id="acAnalise"></div><div hidden aria-hidden="true"><div class="kpi-grid" id="kpiAcordos"></div></div>\n');
 trocar("  $('kpiAcordos').innerHTML=\n", "  _acordosAnalise(ac);\n  $('kpiAcordos').innerHTML=\n", 1);
-trocar('function renderAcordos(){', fs.readFileSync(path.join(__dirname, 'remendos', 'acordos-b16.js'), 'utf8') + 'function renderAcordos(){', 1);
+trocar('function renderAcordos(){', fs.readFileSync(path.join(__dirname, 'remendos', 'lista-grupos-b25.js'), 'utf8') + fs.readFileSync(path.join(__dirname, 'remendos', 'acordos-b16.js'), 'utf8') + 'function renderAcordos(){', 1);
 trocar('function renderAcordos(){\n  const ac=filtrarAcordos();', 'function renderAcordos(){\n  const ac=_acordosPendentes(filtrarAcordos());', 1);
 // sai o gráfico "Valor em atraso por devedor"; "Valor por devedor" ocupa a linha inteira
 removerTrechoHtml('    <div class="cc">\n      <div class="cc-hd"><div><div class="cc-t">Valor em atraso por devedor</div>', '      <div class="cb" id="acordAtrasoBox" style="height:280px"><canvas id="cAcordAtraso"></canvas></div>\n    </div>\n', '');

@@ -1073,7 +1073,7 @@ async function dadosLembretes() {
   const rg = await q(sb.from('regras_tarefas').select('ligada, dias').eq('chave', 'parcela_parcelamento').maybeSingle()).catch(() => null);
   const dias = rg && rg.dias != null ? rg.dias : 5, guiasLigado = !rg || rg.ligada;
   const [guias, meus] = await Promise.all([
-    jur && guiasLigado ? q(sb.from('parcelas').select('id, numero, vencimento, emissao, parcelamentos(empresa, natureza, numero, total_parcelas, grupo_id)')
+    jur && guiasLigado ? q(sb.from('parcelas').select('id, numero, vencimento, emissao, parcelamentos(empresa, natureza, numero, total_parcelas, grupo_id, emitimos_guia)')
       .eq('pago', false).lte('vencimento', somarDias(h, dias)).order('vencimento')).catch(() => []) : [],
     q(sb.from('lembretes').select('*').is('feito_em', null).order('dia', { nullsFirst: true })).catch(() => [])
   ]);
@@ -1082,7 +1082,8 @@ async function dadosLembretes() {
     .sort((a, b) => (b.fixo - a.fixo) || ((a.dia ? 1 : 0) - (b.dia ? 1 : 0)) || String(a.dia || '').localeCompare(String(b.dia || '')));
   // Backup 23: o lembrete com data distante não "some" — fica em "Mais adiante" até faltar 7 dias
   const vis = meu.filter((l) => l.fixo || !l.dia || l.dia <= lim), futuros = meu.filter((l) => !(l.fixo || !l.dia || l.dia <= lim));
-  return { dias, semGuia: guias.filter((g) => !/sim|emitid/i.test(g.emissao || '')), vis, futuros, todos: meu };
+  // Backup 25: só as guias dos parcelamentos em que NÓS emitimos (Parcelamentos → abrir o parcelamento → "Guias deste parcelamento")
+  return { dias, semGuia: guias.filter((g) => !/sim|emitid/i.test(g.emissao || '') && !(g.parcelamentos && g.parcelamentos.emitimos_guia === false)), vis, futuros, todos: meu };
 }
 // Backup 23: o Início volta a ter dois blocos separados — a faixa de DESTAQUES (avisos, tarefas atrasadas, prazos fatais, CRM)
 // e o cartão próprio de LEMBRETES (com as guias de parcelamento), como era antes do Backup 19.
