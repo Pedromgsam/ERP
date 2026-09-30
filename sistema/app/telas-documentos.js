@@ -194,9 +194,10 @@ async function pintarDocumentos(buscar) {
   const aberto = (k) => ks.length === 1 || !!F.grupo || !!b || !!F.abertos[k];
   $('doc-corpo').innerHTML = lista.length ? '<div class="doc-pastas">' + ks.map((k) => '<details class="card doc-pasta" data-pasta="' + esc(k) + '"' + (aberto(k) ? ' open' : '') + '><summary><span class="doc-pasta-ic" aria-hidden="true">📁</span><b>' + esc(nomeG(k)) + '</b>' +
       '<span class="sub">' + plural(G[k].length, 'documento', 'documentos') + (G[k].some((d) => d.validade && d.validade <= lim) ? ' · <span class="pill vencido">vencendo</span>' : '') + '</span></summary>' +
-      tabelaDocumentos(G[k], { vazio: '' }) + '</details>').join('') + '</div>'
+      (aberto(k) ? tabelaDocumentos(G[k], { vazio: '' }) : '') + '</details>').join('') + '</div>'
     : '<div class="card">' + tabelaDocumentos([], { vazio: 'Nenhum documento neste recorte.' }) + '</div>';
-  $('doc-corpo').querySelectorAll('details[data-pasta]').forEach((d) => d.addEventListener('toggle', () => { F.abertos[d.dataset.pasta] = d.open; }));
+  // a tabela só é montada quando a pasta abre (pasta fechada não carrega nada)
+  $('doc-corpo').querySelectorAll('details[data-pasta]').forEach((d) => d.addEventListener('toggle', () => { const k = d.dataset.pasta; if (d.open === aberto(k)) return; F.abertos[k] = d.open; pintarDocumentos(false); }));
   ligarDocumentos($('doc-corpo'), lista, () => pintarDocumentos());
 }
 

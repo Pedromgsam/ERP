@@ -99,7 +99,7 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
   `navigator.share`/wa.me); `_lgFaltaEmitir`/`_lgTagGuia` (item `guias`). Alertas: `.al-blocos` por setor, rotinas em `.al-rot-tab`. Documentos:
   pastas por grupo (`details.doc-pasta`). CRM: `.op-integra` (proposta, contrato, Meet, agenda), `linkAgendaGoogle`. Contabilidade:
   `_fcTabelaComp` (colgroup fixo + Total). Cliente de teste: `banco/cliente-teste-email.sql`. Tabelas de lançamentos do Financeiro: iguais
-  ao B26 (conferido) — perguntar ao usuário qual versão ele quer. `estrutura.sql` = LINHAS linhas.
+  ao B26 (conferido) — perguntar ao usuário qual versão ele quer. `estrutura.sql` = 5841 linhas.
 - Backup 27 (base) (SQL + função erp-emails). Início: sem subtítulo e sem as tabelas "Atrasados" (`cardAtraso` saiu),
   Honorários antes de `#ini-fila`; destaque único `tarefas` (atrasadas ou fatal ≤7 d; atalho `atencao` em Tarefas) e `aguias` (boletos de
   acordo a emitir); `janelaTodosLembretes` (fixados/próximos/mais adiante/concluídos 90 d); fila: `.fila-com-atr` (atrasadas à esquerda em
