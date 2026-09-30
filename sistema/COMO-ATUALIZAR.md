@@ -346,3 +346,23 @@ O SQL tira o PIX copia e cola do e-mail de cobrança e apaga as funções do PIX
 - **Financeiro:** botão **PIX** removido (e o código PIX saiu do e-mail).
 - **Contratos:** coluna Valor só do tamanho do número; "1,5 salários/mês".
 - Teste novo `testes/padrao.js`: abre as telas e falha se o mesmo tipo de informação tiver tamanho/negrito/cor diferente entre elas.
+
+## Backup 23 — ajustes (tem SQL)
+Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+Shift+R**. Nenhuma função do Supabase mudou.
+O SQL cria o "Excluir usuário".
+- **Início:** os **Lembretes** voltaram a ter cartão próprio (com as guias de parcelamento), separados dos avisos/tarefas. Clicar no
+  lembrete abre o **detalhamento** (o Editar fica lá dentro). **📌 Fixar / 📌 Fixado**: o fixado fica marcado (cheio). Lembrete com data
+  distante não some: aparece em **Mais adiante**. Saíram o ⓘ e o contador do título; a fila também ficou sem o ⓘ.
+- **Selo "Quem"** (Pedro, Escritório, Emanuelle): mais sutil, no mesmo desenho da pílula de prioridade das Tarefas, em todo o sistema.
+  Nome de cliente/grupo nunca fica mais dentro do selo (era isso que cortava os nomes no Comparativo da Contabilidade).
+- **Sem o triângulo vermelho** nos títulos. Atrasados com a tabela de bordas arredondadas.
+- **Painel:** a rosca "Distribuição por órgão" passou a somar também o valor **negociado** (antes só o em aberto) — agora bate com o
+  "Passivo tributário total" e com o gráfico por grupo. Nomes compridos no gráfico quebram em linhas (não são mais cortados).
+- **Parcelamentos:** só os **grupos** de início; clique no grupo para ver os parcelamentos (ordem alfabética). **Filtros** de grupo,
+  pagamento, próxima parcela e situação. Clicar no parcelamento abre o **detalhamento numa janela** (resumo, parcelas e Lançar pagamento).
+- **Acordos:** saíram "Saldo por devedor" e "Vencimentos dos próximos 30 dias".
+- **Clientes:** Sim verde / Não vermelho; situação Ativa verde, Baixada/Inapta/Suspensa/Nula vermelho.
+- **Tarefas:** colunas Grupo · Tarefa · Pessoa · Prioridade · Status · Prazo.
+- **Administração → Usuários:** botão **🗑 Excluir** (só administrador; não exclui a si mesmo nem o último administrador; o que a pessoa
+  lançou continua gravado).
+- **Modo escuro:** grafite em vez de preto puro, com separação entre fundo, cartão e cabeçalho das tabelas.

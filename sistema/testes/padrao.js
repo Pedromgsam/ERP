@@ -17,7 +17,6 @@ const REGRAS = [
   ['cabeçalho de tabela', TAB + ' > thead > tr > th', ['fontSize', 'fontWeight', 'backgroundColor', 'color', 'textTransform']],
   ['célula de tabela', TAB + ' > tbody > tr:not(.gx-grp):not(.gx-det) > td', ['fontSize']],
   ['linha de baixo (sócio, descrição…)', TAB + ' > tbody > tr > td .sub', ['fontSize', 'color']],
-  ['triângulo de atraso', '.alerta-tri', ['width', 'height', 'backgroundColor']],
   ['botão "✓ Baixa" da linha', 'td :is(.gx-la-bx,[data-pagar].btn-mini)', ['fontSize', 'fontWeight']],
   ['botão "✎" da linha', 'td :is(.gx-la-ed,.btn-ed)', ['fontSize']]];
 
@@ -62,9 +61,10 @@ const TELAS = [['hoje'], ['resumo'], ['processos'], ['parcelamentos'], ['parcela
     ok('vencimento em negrito', tem('vencimento', /fontWeight=700/));
     ok('valor em negrito, preto e à direita', tem('valor', /fontWeight=700/) && tem('valor', /textAlign=right/));
     ok('nomes de cliente/empresa em CAIXA ALTA sem negrito', tem('nome de cliente/empresa', /fontWeight=400 textTransform=uppercase/));
-    ok('selo da pessoa com a mesma largura e em negrito', tem('selo da pessoa', /fontWeight=700 width=92px/));
+    ok('selo da pessoa sutil (11 px) e com a mesma largura', tem('selo da pessoa', /fontSize=11px fontWeight=600 width=88px/));
     ok('linha de baixo com 12 px', tem('linha de baixo (sócio, descrição…)', /fontSize=12px/));
     ok('nenhum botão PIX nas tabelas', await p.evaluate(() => !document.querySelector('[data-pix]')));
+    ok('sem triângulo vermelho nos títulos', await p.evaluate(() => !document.querySelector('.alerta-tri')));
     ok('sem erros de JavaScript', !erros.length, erros.join(' | '));
   } catch (e) { console.error(e); ok('sem exceção no teste', false); }
   await b.close();

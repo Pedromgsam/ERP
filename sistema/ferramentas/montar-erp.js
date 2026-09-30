@@ -486,7 +486,7 @@ trocar(`onclick="procToggleChip('Ativo')">⚖ Ativos</span>`, `onclick="procTogg
 trocar(`onclick="procToggleChip('Arquivado')">📁 Arq. Provisoriamente</span>`, `onclick="procToggleChip('Arquivado')">Arquivados provisoriamente</span>`, 1);
 trocar(`onclick="procToggleChip('Extinto')">⚫ Extintos</span>`, `onclick="procToggleChip('Extinto')">Extintos</span>`, 1);
 // Backup 22: "Saldo por devedor" na metade esquerda; "Vencimentos dos próximos 30 dias" na direita
-trocar('  <div class="crow">\n    <div class="cc">\n      <div class="cc-hd"><div><div class="cc-t">Saldo por devedor</div>', '  <div class="crow c2 ac-saldo-linha">\n    <div class="cc">\n      <div class="cc-hd"><div><div class="cc-t">Saldo por devedor</div>', 1);
+trocar('  <div class="crow">\n    <div class="cc">\n      <div class="cc-hd"><div><div class="cc-t">Saldo por devedor</div>', '  <div class="crow c2 ac-saldo-linha" hidden aria-hidden="true" style="display:none">\n    <div class="cc">\n      <div class="cc-hd"><div><div class="cc-t">Saldo por devedor</div>', 1);   // Backup 23: saíram (a pedido)
 trocar('<div id="acDevedorLista"></div><div hidden aria-hidden="true"><canvas id="cAcordDevedor"></canvas></div>\n    </div>\n  </div>',
   '<div id="acDevedorLista"></div><div hidden aria-hidden="true"><canvas id="cAcordDevedor"></canvas></div>\n    </div>\n' +
   '    <div class="cc">\n      <div class="cc-hd"><div><div class="cc-t">Vencimentos dos próximos 30 dias</div><div class="cc-d">parcelas em aberto, por data</div></div></div>\n      <div id="acProx30"></div>\n    </div>\n  </div>', 1);
@@ -499,10 +499,28 @@ trocar("const cellRfb =rfbTot >0?`${fT(r.rfb||0)}", "const cellRfb =rfbTot >0?`$
 trocar("const cellPgfn=pgfnTot>0?`${fT(r.pgfn||0)}", "const cellPgfn=pgfnTot>0?`${fF(r.pgfn||0)}", 1);
 trocar("const cellAge =ageTot >0?`${fT(r.ageMG||0)}", "const cellAge =ageTot >0?`${fF(r.ageMG||0)}", 1);
 trocar("<td class=\"mono\">${totVal>0?`<strong>${fT(totVal)}</strong>`", "<td class=\"mono\">${totVal>0?`<strong>${fF(totVal)}</strong>`", 1);
+// Backup 23: Painel — a rosca "Distribuição por órgão" e o gráfico por órgão de uma empresa passam a somar também o NEGOCIADO
+// (como o KPI "Passivo tributário total" e o gráfico por grupo); antes somavam só o em aberto e os totais não batiam.
+trocar("    valGr=ORGAOS_TRIB.map(k=>Number(row?row[k]:0)||0);", "    valGr=ORGAOS_TRIB.map(k=>_orgV(row,k));", 1);
+trocar("    _donutComLegenda('cResDonut',dCfg(ORGAOS_TRIB.map(k=>ORGAO_NOME[k]),ORGAOS_TRIB.map(k=>Number(rowEmp?rowEmp[k]:0)||0),ORGAO_CORES));",
+  "    _donutComLegenda('cResDonut',dCfg(ORGAOS_TRIB.map(k=>ORGAO_NOME[k]),ORGAOS_TRIB.map(k=>_orgV(rowEmp,k)),ORGAO_CORES));", 1);
+trocar("    const sumPJk=k=>data.filter(r=>r.isPJ!==false).reduce((s,r)=>s+(Number(r[k])||0),0);", "    const sumPJk=k=>data.filter(r=>r.isPJ!==false).reduce((s,r)=>s+_orgV(r,k),0);", 1);
+trocar("const tribAll = r =>", "const _orgV=(r,k)=>r?(Number(r[k])||0)+(Number(r[k+'Neg'])||0):0;   // órgão = em aberto + negociado (Backup 23)\nconst tribAll = r =>", 1);
+trocar('<div class="cc-d">% do passivo total (excl. CEAT)</div>', '<div class="cc-d">% do passivo total · em aberto + negociado (sem CEAT)</div>', 1);
+// Backup 23: nomes compridos no gráfico "Passivo total por grupo / por empresa" quebram em até 3 linhas (não são mais cortados)
+trocar("    labGr=idx.map(i=>emps[i].length>22?emps[i].slice(0,22)+'…':emps[i]);", "    labGr=idx.map(i=>emps[i]);", 1);
+trocar("callback:function(v){var t=String(this.getLabelForValue(v)||'');return t.length>30?t.slice(0,29)+'…':t;}});\n    const _box=$('cResGrupos').parentElement; if(_box) _box.style.height=Math.max(150,_n*30+30)+'px';",
+  "callback:function(v){return _quebraRotulo(this.getLabelForValue(v),24,3);}});\n    const _linhas=labGr.slice(0,_n).reduce((s,t)=>s+Math.max(1,_quebraRotulo(t,24,3).length),0);\n    const _box=$('cResGrupos').parentElement; if(_box) _box.style.height=Math.max(150,_n*22+_linhas*14+30)+'px';", 1);
+trocar("function pDate(v){", "// rótulo de gráfico em várias linhas (palavras inteiras), sem cortar o nome\nfunction _quebraRotulo(t,max,lin){ t=String(t||''); var w=t.split(/\\s+/), L=[], c=''; w.forEach(function(p){ if((c+' '+p).trim().length>max&&c){ L.push(c); c=p; } else c=(c+' '+p).trim(); }); if(c) L.push(c);\n  if(L.length>lin){ L=L.slice(0,lin); L[lin-1]=L[lin-1].replace(/.{0,1}$/,'…'); } return L.length>1?L:(L[0]||''); }\nfunction pDate(v){", 1);
+// Backup 23: selo colorido só para as PESSOAS do escritório (Pedro, Emanuelle, Escritório…); nome de cliente, fornecedor ou grupo
+// sai em texto normal e inteiro (no Comparativo por cliente/fornecedor da Contabilidade o nome ficava cortado dentro do selo)
+trocar("<td>'+_faSelo(f.grupo||'—')+'</td>", "<td>'+esc(f.grupo||'—')+'</td>", 3);
+trocar("        +'<td>'+_faSelo(_fcQuem(f))+'</td>'", "        +'<td>'+esc(_fcQuem(f))+'</td>'", 1);
+trocar("  return '<span class=\"fa-pessoa\" style=\"background:'+t+'26;color:'+RAMPA_AZUL[0]+'\">'+esc(nome)+'</span>';\n}", "  return '<span class=\"gx-nome-txt\">'+esc(nome)+'</span>';\n}", 1);
 // Financeiro → Análise → Em atraso: linhas com ✓ Baixa e ✎ (viram a tabela padrão de pagamento) e triângulo vermelho no título
-trocar('<div class="cc-t">⚠ Em atraso</div>', '<div class="cc-t"><span class="alerta-tri" aria-hidden="true"></span> Em atraso</div>', 2);
+trocar('<div class="cc-t">⚠ Em atraso</div>', '<div class="cc-t">Em atraso</div>', 2);   // Backup 23: sem triângulo
 // Backup 22: o mesmo triângulo vermelho nas abas "Vencidos" de Acordos e Parcelamentos (no lugar da bolinha 🔴)
-trocar('>🔴 Vencidos — URGENTE</button>', '><span class="alerta-tri" aria-hidden="true"></span> Vencidos — URGENTE</button>', 2);
+trocar('>🔴 Vencidos — URGENTE</button>', '>Vencidos — URGENTE</button>', 2);
 // 13. Cores de tokens.css (fonte única) depois do CSS do ERP; modo escuro lembrado neste aparelho.
 trocar('\n</head>\n', '\n<link rel="stylesheet" href="tokens.css">\n<link rel="stylesheet" href="tema-escuro.css">\n<link rel="stylesheet" href="design.css">\n' +
   '<script>try{if(localStorage.getItem("erp_tema")==="escuro")document.documentElement.setAttribute("data-tema","escuro")}catch(e){}</script>\n</head>\n', 1);

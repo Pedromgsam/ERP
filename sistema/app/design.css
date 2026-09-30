@@ -425,7 +425,6 @@ body.gx-barra-topo .gs .pill.pago,body.gx-barra-topo .gs .pill.receita{border-co
 body.gx-barra-topo .gs .pill.vencido,body.gx-barra-topo .gs .pill.despesa{border-color:var(--red-bd)}
 body.gx-barra-topo .gs .pill.hoje,body.gx-barra-topo .gs .pill.perda{border-color:var(--amber-border)}
 body.gx-barra-topo .gs .pill.aberto{border-color:var(--blue-bd)}
-body.gx-barra-topo .gs .pill.pill-sim{color:var(--ink);font-weight:600}
 /* ── tabelas com cantos arredondados em todas as telas ── */
 body.gx-barra-topo .gs .card:has(.tabela-wrap){overflow:hidden}
 body.gx-barra-topo .gs .tabela-wrap{border-radius:inherit}
@@ -507,16 +506,14 @@ body.gx-barra-topo td.col-dias :is(.atraso-d,.dias-r){font-weight:700}
 body.gx-barra-topo td.col-nome{text-transform:uppercase;letter-spacing:.01em;font-weight:400!important;color:var(--ink)!important}
 body.gx-barra-topo td.col-nome :is(b,strong){font-weight:400!important}
 body.gx-barra-topo td.col-nome :is(.sub,.er-socio,small){text-transform:none}
-/* selo da pessoa: retângulo, negrito, a MESMA largura para todos (cabe "Emanuelle") */
-body.gx-barra-topo :is(.gs .pill.pill-pessoa,.fa-pessoa){display:inline-block;width:92px;min-width:92px;box-sizing:border-box;text-align:center;border:0!important;border-radius:6px!important;
-  padding:3px 6px!important;font:700 12px/1.35 var(--font-ui)!important;letter-spacing:.01em!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:none!important;vertical-align:middle}
+/* selo da pessoa (Backup 23): sutil, no mesmo desenho da pílula de prioridade — redondo, 11 px, contorno leve na cor da pessoa;
+   mesma largura para todos (cabe "Emanuelle") */
+body.gx-barra-topo :is(.gs .pill.pill-pessoa,.fa-pessoa){display:inline-block;width:88px;min-width:88px;box-sizing:border-box;text-align:center;
+  border:1px solid color-mix(in srgb,currentColor 28%,transparent)!important;border-radius:var(--r-pill)!important;
+  padding:2px 6px!important;font:600 11px/1.5 var(--font-ui)!important;letter-spacing:.01em!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:none!important;vertical-align:middle}
 /* botões da linha: "✓ Baixa" e "✎" do mesmo tamanho em todas as tabelas */
 body.gx-barra-topo td :is(.gx-la-bx,[data-pagar].btn-mini){font:700 12px var(--font-ui)!important;padding:4px 10px!important;border-radius:var(--r-ctl)!important}
 body.gx-barra-topo td :is(.gx-la-ed,.btn-ed){font:600 13px var(--font-ui)!important;padding:3px 9px!important;border-radius:var(--r-ctl)!important;min-width:30px}
-/* triângulo de atraso: um só, vermelho, com "!" vazado — nos títulos de cartões e abas com atraso */
-.alerta-tri{display:inline-block;width:15px;height:14px;vertical-align:-2px;margin-right:6px;background:var(--red);flex:none;
-  -webkit-mask:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 22'><path fill-rule='evenodd' d='M12 .5c.7 0 1.3.4 1.7 1l9.6 16.6c.8 1.3-.2 3-1.7 3H2.4c-1.5 0-2.5-1.7-1.7-3L10.3 1.5c.4-.6 1-1 1.7-1zM10.8 7h2.4l-.3 7.2h-1.8zM12 15.6a1.4 1.4 0 1 1 0 2.8 1.4 1.4 0 0 1 0-2.8z'/></svg>") center/contain no-repeat;
-  mask:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 22'><path fill-rule='evenodd' d='M12 .5c.7 0 1.3.4 1.7 1l9.6 16.6c.8 1.3-.2 3-1.7 3H2.4c-1.5 0-2.5-1.7-1.7-3L10.3 1.5c.4-.6 1-1 1.7-1zM10.8 7h2.4l-.3 7.2h-1.8zM12 15.6a1.4 1.4 0 1 1 0 2.8 1.4 1.4 0 0 1 0-2.8z'/></svg>") center/contain no-repeat}
 /* Início → Atrasados: tabela com borda e cantos arredondados, como em Clientes */
 body.gx-barra-topo .gs .ini-atraso-card .lote-wrap{padding:0 14px 14px}
 body.gx-barra-topo .gs .ini-atraso-card .tabela-wrap{border:1px solid var(--border);border-radius:var(--card-r-sm);overflow-x:auto}
@@ -549,3 +546,36 @@ body.gx-barra-topo .pcx-grp .sub{text-transform:none;font-weight:500;margin-left
 body.gx-barra-topo .pcx-grp .pcx-grp-atr{color:var(--red-d);font-weight:600}
 body.gx-barra-topo .pcx-ctl{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 body.gx-barra-topo .pcx-risco{color:var(--red-d);font-weight:600;margin-top:4px}
+
+/* ═══ Backup 23 ═══ */
+/* Início: faixa de destaques (avisos, tarefas atrasadas…) solta, e o cartão próprio de Lembretes */
+body.gx-barra-topo .gs .ini-destaques{margin:0 0 var(--sp-3)}
+body.gx-barra-topo .gs .ini-lemb .lemb-tg{margin:4px 0 8px;font-size:13.5px}
+body.gx-barra-topo .gs .ini-lemb .lemb-tg-fut{margin-top:10px;color:var(--text2)}
+body.gx-barra-topo .gs .lemb-it[data-lemb-det]{cursor:pointer}
+body.gx-barra-topo .gs .lemb-it[data-lemb-det]:focus-visible{outline:2px solid var(--navy3);outline-offset:-2px}
+/* "📌 Fixar": contorno; "📌 Fixado": cheio (marcado, como o "✓ Feito") */
+body.gx-barra-topo .gs .btn.lemb-fixo{background:var(--surface)!important;color:var(--text2)!important;border:1px solid var(--border-strong)!important}
+body.gx-barra-topo .gs .btn.lemb-fixo.on{background:var(--primario)!important;color:var(--on-primario)!important;border-color:var(--primario)!important}
+/* Parcelamentos: grupos recolhidos, filtros e a janela de detalhamento */
+body.gx-barra-topo .pcx-filtros{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 10px}
+body.gx-barra-topo .pcx-filtros select.fsel{height:34px;border:1px solid var(--border-strong)!important;border-radius:var(--r-ctl)!important;background-color:var(--surface)!important;color:var(--ink)!important;font:13px var(--font-ui)!important;padding:6px 10px!important}
+body.gx-barra-topo .pcx-grupo > .acx-row{background:var(--surface2)}
+body.gx-barra-topo .pcx-grupo > .acx-row .pcx-dev{font-weight:700}
+body.gx-barra-topo .pcx-seta{display:inline-block;width:14px;color:var(--text3)}
+body.gx-barra-topo .pcx-filhos{border-top:1px solid var(--line)}
+body.gx-barra-topo .pcx-sub > .acx-row{padding-left:44px}
+body.gx-barra-topo .pcx-abre{font-size:18px;color:var(--text3)}
+.pcd{font-family:var(--font-ui)}
+.pcd-hd{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:14px}
+.pcd-emp{font-size:16px;color:var(--ink);text-transform:uppercase;letter-spacing:.01em}
+.pcd-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px}
+.pcd-kpi{border:1px solid var(--border);border-radius:var(--r-ctl);padding:10px 12px;background:var(--surface2)}
+.pcd-kpi span{display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text3)}
+.pcd-kpi b{display:block;margin-top:3px;font-size:15px;color:var(--ink);font-variant-numeric:tabular-nums}
+.pcd-kpi.verde b{color:var(--green-d)}
+.pcd-kpi.vermelho b{color:var(--red-d)}
+.pcd-tit{font:700 11px var(--font-ui);letter-spacing:.07em;text-transform:uppercase;color:var(--text3);margin:0 0 8px}
+.pcd .acx-det{border:0!important;padding:0!important;background:none!important}
+.pcd-kpi b *{font-size:inherit!important;font-weight:inherit!important;color:inherit!important}
+.pcd .acx-info{margin:0 0 10px;padding:8px 10px;border-radius:var(--r-ctl);background:var(--surface2)}

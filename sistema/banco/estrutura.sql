@@ -4645,3 +4645,21 @@ select left(btrim(m.texto), 300), null, m.fixo, '', m.autor, m.criado_em, 'mural
 -- Backup 22: o PIX copia e cola saiu (botão e e-mail); as funções do Backup 20 são apagadas
 drop function if exists public.pix_copia_cola(text, text, text, numeric, text);
 drop function if exists public.crc16_ccitt(text);
+
+-- ═══ Backup 23: excluir usuário (Administração → Usuários → 🗑 Excluir) ═══
+-- Só o administrador. Não exclui a si mesmo nem o último administrador. Apaga a conta de acesso (auth.users → perfis em cascata);
+-- o que a pessoa lançou continua (as ligações com ela ficam vazias).
+create or replace function public.excluir_usuario(p_perfil uuid) returns boolean language plpgsql security definer set search_path = public, auth as $$
+declare v_papel text;
+begin
+  if not public.eh_admin() then raise exception 'Só o administrador exclui usuários.'; end if;
+  if p_perfil = auth.uid() then raise exception 'Você não pode excluir o seu próprio usuário.'; end if;
+  select papel into v_papel from public.perfis where id = p_perfil;
+  if not found then raise exception 'Usuário não encontrado.'; end if;
+  if v_papel = 'admin' and (select count(*) from public.perfis where papel = 'admin') <= 1 then raise exception 'Este é o único administrador: dê o acesso de administrador a outra pessoa antes.'; end if;
+  delete from auth.users where id = p_perfil;
+  delete from public.perfis where id = p_perfil;   -- se a conta já não existia no login
+  return true;
+end $$;
+revoke all on function public.excluir_usuario(uuid) from public, anon;
+grant execute on function public.excluir_usuario(uuid) to authenticated;

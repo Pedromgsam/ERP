@@ -681,7 +681,7 @@
   // Cada coluna é reconhecida pelo título do cabeçalho e ganha a classe da régua (design.css) — em todas as telas, do ERP antigo e do Gestão:
   // col-venc (vencimento/pago em: negrito; vermelho se vencido) · col-valor (negrito, à direita) · col-dias (atraso/dias) · col-nome (CAIXA ALTA).
   const REGUA = [
-    ['col-venc', /^(vencimento|venc\.?|pago em|data (de )?pagamento|data pag\.?)$/],
+    ['col-venc', /^(vencimento|venc\.?|pago em|data (de )?pagamento|data pag\.?|prazo)$/],
     ['col-valor', /^(valor|valor da causa|valor parcela|total|saldo|saldo devedor)$/],
     ['col-dias', /^(atraso|dias|dias de atraso)$/],
     ['col-nome', /^(grupo|grupo \/ favorecido|devedor|credor|empresa|cliente|nome|entidade|entidade \/ socio)$/]];

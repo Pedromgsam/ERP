@@ -72,7 +72,7 @@
   color-scheme:light;
 }
 
-/* ── modo escuro PRETO (botão ◐ na barra superior; lembrado neste aparelho) ── */
+/* ── modo escuro GRAFITE (Backup 23: o preto puro ficava duro e sem separação entre fundo e cartão) ── */
 html[data-tema="escuro"]{
   --green:#4CB97D;--green-d:#7ACB9C;--green-lt:rgba(76,185,125,.12);--green-bd:rgba(76,185,125,.28);
   --amber:#D9A04A;--amber-d:#E3B66E;--amber-lt:rgba(217,160,74,.12);--amber-border:rgba(217,160,74,.3);
@@ -81,29 +81,29 @@ html[data-tema="escuro"]{
   --teal:#4DB6AC;--teal-lt:rgba(77,182,172,.12);--teal-bd:rgba(77,182,172,.3);
   --blue:#7CA3E0;--blue-d:#A3BFEA;--blue-lt:rgba(124,163,224,.12);--blue-bd:rgba(124,163,224,.3);
   --violet:#A48BDF;--violet-d:#BEAEE8;--violet-lt:rgba(164,139,223,.12);--violet-bd:rgba(164,139,223,.3);
-  --gray:#A1A1AA;--gray-lt:#1A1A1C;--gray-mid:#2A2A2D;
-  --sem-preto:#000000;
-  --bg:#000000;--surface:#0F0F10;--surface2:#161617;--surface3:#1C1C1E;--white:#0F0F10;--hover:#18181A;
-  --ink:#F2F2F3;
-  --text:#E6E6E8;--text2:#C4C4C9;--text3:#A0A0A8;--text4:#94949C;
-  --border:rgba(255,255,255,.08);--border-strong:rgba(255,255,255,.14);--line:#222224;
-  --overlay:rgba(0,0,0,.7);
+  --gray:#A3A9B4;--gray-lt:#22262E;--gray-mid:#2A2F38;
+  --sem-preto:#0E1014;
+  --bg:#15171C;--surface:#1C1F26;--surface2:#22262E;--surface3:#2A2F38;--white:#1C1F26;--hover:#252A33;
+  --ink:#EEF0F4;
+  --text:#DDE1E7;--text2:#BAC0CA;--text3:#9AA2AE;--text4:#8E96A3;
+  --border:rgba(255,255,255,.08);--border-strong:rgba(255,255,255,.15);--line:#2B2F37;
+  --overlay:rgba(8,10,14,.66);
   --ac-gold-lt:rgba(201,168,76,.12);--gold-d:#E3C877;--gold-bd:rgba(201,168,76,.32);
-  --bar-bg:#0A0A0A;--bar-borda:rgba(255,255,255,.08);
-  --primario:#2E5EAA;--primario-hover:#3A6BBA;--on-primario:#FFFFFF;
-  --selecao:#2A2A2E;--on-selecao:#FFFFFF;
-  --th-bg:#17223A;--th-fg:#EEF1F6;--th-fg-2:rgba(238,241,246,.72);
+  --bar-bg:#101318;--bar-borda:rgba(255,255,255,.07);
+  --primario:#3566B8;--primario-hover:#4174C6;--on-primario:#FFFFFF;
+  --selecao:#3566B8;--on-selecao:#FFFFFF;
+  --th-bg:#262C38;--th-fg:#E8ECF2;--th-fg-2:rgba(232,236,242,.72);
   --chart-1:#6E97DB;--chart-2:#55B08F;--chart-3:#D6A25C;--chart-4:#A08AD9;--chart-5:#D98080;--chart-6:#62AFC6;--chart-7:#8E8E96;--chart-8:#CDB66A;
   --chart-rampa-1:#A9C1EC;--chart-rampa-2:#7CA3E0;--chart-rampa-3:#5A83C8;--chart-rampa-4:#3D62A2;--chart-rampa-5:#284574;
-  --chart-texto:#A0A0A8;--chart-grade:rgba(255,255,255,.07);--chart-borda:#0F0F10;
-  /* no preto a sombra escura some: borda leve + brilho sutil no lugar */
-  --shadow-sm:0 0 0 1px rgba(255,255,255,.02);
-  --shadow-card:inset 0 1px 0 rgba(255,255,255,.03);
-  --shadow-hover:0 0 0 1px rgba(255,255,255,.1),0 8px 28px -12px rgba(255,255,255,.06);
-  --shadow-md:0 0 0 1px rgba(255,255,255,.08),0 12px 32px -12px rgba(0,0,0,.9);
-  --shadow-lg:0 0 0 1px rgba(255,255,255,.1),0 24px 60px -16px rgba(0,0,0,.95);
+  --chart-texto:#9AA2AE;--chart-grade:rgba(255,255,255,.07);--chart-borda:#1C1F26;
+  /* no grafite a sombra escura aparece de novo: suave, com um fio claro por cima */
+  --shadow-sm:0 1px 2px rgba(0,0,0,.3);
+  --shadow-card:0 1px 2px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.03);
+  --shadow-hover:0 0 0 1px rgba(255,255,255,.08),0 8px 24px -10px rgba(0,0,0,.6);
+  --shadow-md:0 0 0 1px rgba(255,255,255,.06),0 12px 32px -12px rgba(0,0,0,.7);
+  --shadow-lg:0 0 0 1px rgba(255,255,255,.08),0 24px 60px -16px rgba(0,0,0,.8);
   --anel:0 0 0 3px rgba(124,163,224,.28);
-  --grad-marca:linear-gradient(0deg,#2E5EAA,#2E5EAA);
+  --grad-marca:linear-gradient(0deg,#3566B8,#3566B8);
   color-scheme:dark;
 }
 html[data-tema="escuro"] body{background:var(--bg)!important;color:var(--text)}
