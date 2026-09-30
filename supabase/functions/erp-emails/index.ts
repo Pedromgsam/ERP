@@ -13,7 +13,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import nodemailer from 'npm:nodemailer@6.9.14';
 
-const VERSAO = '2026-10-05';
+const VERSAO = '2026-10-27';
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-erp-segredo',
@@ -85,6 +85,10 @@ function anexos(msg) {
   if (msg.anexo && msg.anexo.tipo === 'ics' && msg.anexo.conteudo) {
     return [{ filename: String(msg.anexo.arquivo || 'convite.ics').replace(/[\\/:*?"<>|]/g, '-'), content: base64(new TextEncoder().encode(String(msg.anexo.conteudo))), tipo: 'text/calendar' }];
   }
+  // Backup 27: arquivo guardado em Documentos (ex.: a guia do parcelamento/acordo), já baixado em processarFila
+  if (msg.anexo && msg.anexo.tipo === 'bin' && msg.anexo.b64) {
+    return [{ filename: String(msg.anexo.arquivo || 'guia.pdf').replace(/[\\/:*?"<>|]/g, '-'), content: msg.anexo.b64, tipo: msg.anexo.mime || 'application/pdf' }];
+  }
   if (!msg.anexo || msg.anexo.tipo !== 'recibo' || !msg.anexo.dados) return [];
   return [{ filename: String(msg.anexo.arquivo || 'Recibo.pdf').replace(/[\\/:*?"<>|]/g, '-'), content: base64(pdfRecibo(msg.anexo.dados)) }];
 }
@@ -117,6 +121,12 @@ async function processarFila(db, mailer) {
   let enviados = 0, erros = 0, ultimoErro = '';
   for (const m of fila || []) {
     try {
+      // Backup 27: anexo que está no Storage ("documentos") — baixa antes de enviar
+      if (m.anexo && m.anexo.tipo === 'arquivo' && m.anexo.caminho) {
+        const { data: arq, error: eArq } = await db.storage.from('documentos').download(m.anexo.caminho);
+        if (eArq || !arq) throw new Error('Não consegui ler o anexo em Documentos: ' + ((eArq && eArq.message) || m.anexo.caminho));
+        m.anexo = { tipo: 'bin', arquivo: m.anexo.arquivo, mime: m.anexo.mime || arq.type || 'application/pdf', b64: base64(new Uint8Array(await arq.arrayBuffer())) };
+      }
       await enviarUm(cfg, m, mailer);
       await db.from('email_fila').update({ status: 'enviado', enviado_em: new Date().toISOString(), erro: '' }).eq('id', m.id);
       enviados++;

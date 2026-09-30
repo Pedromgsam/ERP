@@ -253,6 +253,9 @@
   const regDe = (lista, tr) => { const id = (tr.dataset.gx || '').split(':')[1]; return (lista || []).find((x) => x._id === id); };
   function tabelaPadrao(tbody, o) {
     const table = tbody && tbody.closest('table'); if (!table) return;
+    // Backup 27: sem a seta (Painel abre a ficha; Processos abre a janela) — a coluna continua no lugar, só escondida,
+    // para as regras de coluna (nth-child) não mudarem
+    table.classList.toggle('gx-sem-seta', !!o.semSeta);
     const cab = table.querySelector('thead tr:last-child');
     if (cab && !cab.querySelector('.gx-th-seta')) { const th = document.createElement('th'); th.className = 'gx-th-seta'; th.setAttribute('aria-label', 'Abrir'); cab.insertBefore(th, cab.firstChild); }
     tbody.querySelectorAll(':scope > tr.gx-grp, :scope > tr.gx-det').forEach((x) => x.remove());
@@ -274,6 +277,7 @@
     if (!tbody._gxPad) {
       tbody._gxPad = true;
       const abrir = (tr) => {
+        if (tbody._gxClique) return tbody._gxClique(tr);   // Backup 27: Painel abre direto a ficha completa
         if (tbody._gxPopup) return tbody._gxPopup(tr);   // Backup 21: Processos abre uma janela em vez de abrir para baixo
         const aberta = tr.classList.contains('gx-aberta');
         tbody.querySelectorAll(':scope > tr.gx-det').forEach((x) => x.remove());
@@ -283,10 +287,10 @@
         const det = document.createElement('tr'); det.className = 'gx-det'; det.innerHTML = '<td colspan="50"><div class="gx-det-corpo">' + tbody._gxDet(tr) + '</div></td>'; tr.after(det);
         det.querySelectorAll('[data-det-acao]').forEach((b) => b.onclick = () => tbody._gxAcao(b.dataset.detAcao, tr));
       };
-      tbody.addEventListener('click', (ev) => { const tr = ev.target.closest('tr.gx-linha-exp'); if (!tr || ev.target.closest('button, a, input, select, .gx-la, .lnk, .er-nome')) return; abrir(tr); });
+      tbody.addEventListener('click', (ev) => { const tr = ev.target.closest('tr.gx-linha-exp'); if (!tr || ev.target.closest(tbody._gxClique ? 'button, a, input, select, .gx-la' : 'button, a, input, select, .gx-la, .lnk, .er-nome')) return; abrir(tr); });
       tbody.addEventListener('keydown', (ev) => { const tr = ev.target.closest('tr.gx-linha-exp'); if (tr && (ev.key === 'Enter' || ev.key === ' ') && ev.target === tr) { ev.preventDefault(); abrir(tr); } });
     }
-    tbody._gxDet = o.detalhe; tbody._gxAcao = o.acao || (() => {}); tbody._gxPopup = o.popup || null;
+    tbody._gxDet = o.detalhe; tbody._gxAcao = o.acao || (() => {}); tbody._gxPopup = o.popup || null; tbody._gxClique = o.clique || null;
   }
   const seg = (id, ops, atual) => '<div class="segmento gx-seg-cli" id="' + id + '">' + ops.map(([v, r]) => '<button type="button" data-v="' + v + '" class="' + (v === atual ? 'ativo' : '') + '">' + r + '</button>').join('') + '</div>';
   // ── Painel → Empresas do grupo ──
@@ -294,19 +298,18 @@
   function filtrosEmpresas() {
     const wrap = document.getElementById('execRankWrap'); if (!wrap || wrap.querySelector('#pe-filtros')) return;
     const hd = wrap.querySelector('.cc-hd'); if (!hd) return;
-    const F = _pad.emp, grupos = [...new Set((dbERP().baseDados || []).map((r) => r.grupo).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    const F = _pad.emp;
     const d = document.createElement('div'); d.id = 'pe-filtros'; d.className = 'gx-filtros-cli';
     d.innerHTML = seg('pe-visao', [['grupo', 'Por grupo'], ['lista', 'Lista']], F.visao) +
       seg('pe-tipo', [['ativos', 'Ativos'], ['Consultoria', 'Consultoria'], ['Demanda', 'Serviço pontual'], ['Inativo', 'Inativos'], ['todos', 'Todos']], F.tipo) +
       '<select class="fsel" id="pe-area" aria-label="Área"><option value="">Todas as áreas</option><option value="juridico">Jurídico</option><option value="contabil">Contabilidade</option></select>' +
-      '<select class="fsel" id="pe-grupo" aria-label="Grupo"><option value="">Todos os grupos</option>' + grupos.map((g) => '<option>' + escH(g) + '</option>').join('') + '</select>' +
+
       '<input type="text" class="fsel" id="pe-busca" placeholder="Buscar nome, grupo, sócio ou CPF/CNPJ" autocomplete="off">';
     hd.appendChild(d);
     const re = () => { if (typeof window.renderExecRanking === 'function') window.renderExecRanking(); };
     d.querySelector('#pe-visao').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.visao = b.dataset.v; d.querySelectorAll('#pe-visao button').forEach((x) => x.classList.toggle('ativo', x === b)); re(); } };
     d.querySelector('#pe-tipo').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.tipo = b.dataset.v; d.querySelectorAll('#pe-tipo button').forEach((x) => x.classList.toggle('ativo', x === b)); re(); } };
     d.querySelector('#pe-area').onchange = (ev) => { F.area = ev.target.value; re(); };
-    d.querySelector('#pe-grupo').onchange = (ev) => { F.grupo = ev.target.value; re(); };
     let t; d.querySelector('#pe-busca').oninput = (ev) => { clearTimeout(t); t = setTimeout(() => { F.busca = ev.target.value; re(); }, 250); };
   }
   function padraoEmpresas() {
@@ -316,7 +319,9 @@
     const busca = normH(F.busca), dig = String(F.busca || '').replace(/\D/g, '');
     // valor negociado: "18k neg." (sem caixa alta)
     tb.querySelectorAll('.tag.tv[title]').forEach((tg) => { const v = Number(String(tg.title).replace(/[^\d,]/g, '').replace(',', '.')); if (v) tg.textContent = kNeg(v) + ' neg.'; });
-    tabelaPadrao(tb, { chave: 'emp', um: 'cadastro', varios: 'cadastros',
+    tb.querySelectorAll('.er-grupo[onclick], .er-nome[onclick]').forEach((x) => { x.removeAttribute('onclick'); x.title = 'Abrir a ficha completa'; });
+    tabelaPadrao(tb, { chave: 'emp', um: 'cadastro', varios: 'cadastros', semSeta: true,
+      clique: (tr) => { const r = regDe(B, tr) || {}; if (r._id && GS() && GS().abrirFicha) Promise.resolve(GS().carregarCadastros()).then(() => GS().abrirFicha(r._id)); },
       grupo: (tr) => (regDe(B, tr) || {}).grupo || '',
       filtro: (tr) => { const r = regDe(B, tr); if (!r) return true; const c = cli.find((x) => x.id === r._id) || {};
         const tipo = r.tipoCliente || c.tipo || '';
@@ -350,7 +355,7 @@
       const chips = [...hd.querySelectorAll('.chip')]; if (chips.length) { const box = document.createElement('div'); box.className = 'segmento gx-seg-cli gx-seg-chips'; chips[0].before(box); chips.forEach((c) => box.appendChild(c)); }
     }
     const P = dbERP().processos || [];
-    tabelaPadrao(tb, { chave: 'proc', um: 'processo', varios: 'processos',
+    tabelaPadrao(tb, { chave: 'proc', um: 'processo', varios: 'processos', semSeta: true,
       grupo: (tr) => (regDe(P, tr) || {}).grupo || '',
       detalhe: (tr) => { const p = regDe(P, tr) || {};
         return '<div class="gx-det-grade"><div><div class="gx-det-tit">Processo</div><div class="gx-det-dados">' +
@@ -658,7 +663,7 @@
     if (!GS() || ehCliente()) return;
     document.querySelectorAll('#panel-financeiro tbody, #panel-financeiroContab tbody').forEach((tb) => {
       const tabela = tb.closest('table');
-      if (!tabela || tb.closest('.gs')) return;
+      if (!tabela || tb.closest('.gs') || tb.closest('[data-sem-gs]')) return;   // Backup 27: "Em atraso" da Contabilidade tem colunas próprias (Receita/Despesa)
       const linhas = [...tb.querySelectorAll('tr[data-gx^="lancamentos:"]')];
       const ehLista = LISTAS[tb.id] || linhas.length;
       if (!ehLista) return;

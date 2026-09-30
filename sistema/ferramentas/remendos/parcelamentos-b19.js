@@ -61,9 +61,10 @@ function _parcPassa(x){
 function _parcAbrirGrupo(g){ _parcGrpAbertos[g]=!_parcGrpAbertos[g]; renderParcAnalise(); }
 function renderParcAnalise(){
   var el=$('parcAnalise'); if(!el) return;
+  _guiasNoTopo('parcelas', el);
   var lista=filtrarParc();
   var cx='<label class="ac-todos"><input type="checkbox" id="parcMostrarTodos"'+(_parcTodos?' checked':'')+' onchange="_parcMostrarTodos(this.checked)"> Mostrar concluídos</label>';
-  var vis='<div class="segmento gx-seg-cli" id="parcVisao">'+[['grupo','Por grupo'],['lista','Lista']].map(function(o){ return '<button type="button" data-v="'+o[0]+'" class="'+(_parcVisao===o[0]?'ativo':'')+'" onclick="_parcVisao=\''+o[0]+'\';renderParcAnalise()">'+o[1]+'</button>'; }).join('')+'</div>';
+  var vis='';   // Backup 27: sem "Por grupo / Lista" — sempre por grupo
   if(!lista.length){ el.innerHTML=exBloco('exParcSit','Situação dos parcelamentos','<div class="gx-tab-topo"><div class="pa-sub">Parcelamentos em andamento</div><div class="pcx-ctl">'+vis+cx+'</div></div><div class="pa-ok">'+(_parcTodos?'Nenhum parcelamento neste recorte (grupo / empresa escolhidos).':'Nenhum parcelamento em andamento neste recorte. Marque "Mostrar concluídos" para ver todos.')+'</div>'); return; }
   var TODOS=lista.map(function(p){ var n=_parcNumeros(p), tot=Number(p.totalParcelas)||(p.parcelas||[]).length, pg=Number(p.parcelasPagas)||0;
     return {p:p, g:_parcGrupoDe(p), n:n, atr:_parcAtraso(p), prox:_parcProxima(p), k:_parcChave(p), tot:tot, pg:pg, pc:tot>0?Math.round(pg/tot*100):0}; });
@@ -77,7 +78,7 @@ function renderParcAnalise(){
       sub:[p.local||p.orgao||'',p.natureza||'',p.numero?'nº '+p.numero:''].filter(Boolean).map(esc).join(' · ')+(_parcVisao==='lista'?' · '+esc(x.g):'')
         +(p.emitimosGuia===false?' <span class="lg-tag" title="As guias deste parcelamento são emitidas pelo cliente">guia: cliente</span>':''),
       abertas:(p.parcelas||[]).filter(function(pa){ return String(pa.pagamento||'').toUpperCase()!=='SIM'; }).map(function(pa){ return {d:pDate(pa.vencimento), v:Number(pa.valor)||v}; })}; });
-  var corpo=_lgRender({itens:itens, porGrupo:_parcVisao==='grupo'&&!_parcF.grupo, abertos:_parcGrpAbertos, fnGrupo:'_parcAbrirGrupo', fnItem:'_parcAbrir', rotulo:'parcelamento', cab:_parcVisao==='grupo'?'Grupo / parcelamento':'Parcelamento'});
+  var corpo=_lgRender({itens:itens, porGrupo:!_parcF.grupo, abertos:_parcGrpAbertos, fnGrupo:'_parcAbrirGrupo', fnItem:'_parcAbrir', rotulo:'parcelamento', cab:'Grupo / parcelamento'});
   var grupos=[...new Set(TODOS.map(function(x){return x.g;}))].sort(function(a,b){return a.localeCompare(b,'pt-BR');});
   var sel=function(id,k,ops){ return '<select class="fsel" id="'+id+'" aria-label="'+ops[0][1]+'" onchange="_parcFiltro(\''+k+'\',this.value)">'+ops.map(function(o){ return '<option value="'+esc(o[0])+'"'+(_parcF[k]===o[0]?' selected':'')+'>'+esc(o[1])+'</option>'; }).join('')+'</select>'; };
   var filtros='<div class="pcx-filtros">'
@@ -99,6 +100,13 @@ function renderParcAnalise(){
    +corpo);
 }
 var _parcTODOS=[];
+// Backup 27: quadro "Guias para emitir" (telas-guias.js) acima da situação — emitir, marcar, enviar e conferir o pagamento
+var _gdT={};
+function _guiasNoTopo(tabela, el){
+  var id=tabela==='parcelas'?'parcGuias':'acGuias', box=document.getElementById(id);
+  if(!box){ box=document.createElement('div'); box.id=id; box.className='gd-topo gs'; el.parentNode.insertBefore(box, el); }
+  clearTimeout(_gdT[tabela]); _gdT[tabela]=setTimeout(function(){ if(window.GS&&GS.cardGuias) GS.cardGuias(tabela, box).catch(function(e){ console.warn('[guias]', e); }); }, 250);
+}
 // Detalhamento do parcelamento numa janela própria ("subpágina"): resumo, dados e as parcelas com "Lançar pagamento"
 function _parcAbrir(k){
   var x=_parcTODOS.find(function(y){ return y.k===k; }); if(!x||!window.GS||!GS.abrirJanela) return;
@@ -116,6 +124,7 @@ function _parcAbrir(k){
         +kp('Próxima parcela',x.prox?esc(x.prox.vencimento||'—'):'—')+(x.atr?kp('Em atraso',x.atr+' parcela'+(x.atr>1?'s':''),'vermelho'):'')+'</div>'
       +'<div class="pcd-tit">Parcelas</div>'+_parcDetalhe(p)+'</div>' });
   j.querySelectorAll('.ac-bt-pagar').forEach(function(b){ var f=b.onclick; b.onclick=function(ev){ GS.fecharJanela(j); if(f) f.call(b,ev); }; });
+  j.querySelectorAll('[data-emitir]').forEach(function(b){ b.onclick=function(){ GS.fecharJanela(j); GS.emitirParcela('parcelas', b.dataset.emitir, function(){ setTimeout(function(){ _parcAbrir(k); }, 900); }); }; });
   j.querySelectorAll('[data-guia-v]').forEach(function(b){ b.onclick=function(){ var v=b.dataset.guiaV==='1'; b.disabled=true;
     window.SB.from('parcelamentos').update({emitimos_guia:v}).eq('id',p._id).then(function(r){
       if(r.error){ alert('Não foi possível salvar: '+(r.error.message||'')); b.disabled=false; return; }
@@ -127,9 +136,13 @@ function _parcDetalhe(p){
   return '<div class="acx-det parc-det"><div class="acx-info">'+[p.natureza?'Natureza: <b>'+esc(p.natureza)+'</b>':'',p.local?'Plataforma: <b>'+esc(p.local)+'</b>':'',p.numero?'Nº: <b>'+esc(p.numero)+'</b>':'',
       p.proximoVencimento?'Próximo vencimento: <b>'+esc(p.proximoVencimento)+'</b>':''].filter(Boolean).join(' · ')+'</div>'
     +'<div class="acx-parcs">'+(p.parcelas||[]).map(function(pa){ var st=statusParc(pa,new Date()), c=st==='Pago'?'p':st==='Inadimplente'?'r':'a';
+      var emit=!!pa.emitidaEm||/sim|emitid/i.test(pa.emissao||'');
       return '<div class="acx-parc acx-parc-'+c+'"><div class="acx-parc-n">Parcela '+esc(pa.numero||'?')+(p.totalParcelas?'/'+esc(p.totalParcelas):'')+'</div>'
         +'<div class="acx-parc-v">'+_faFT(Number(pa.valor||p.valorUltimaParcela)||0)+'</div>'
         +'<div class="acx-sub">'+(st==='Pago'?'✓ paga':(c==='r'?'venceu ':'vence ')+esc(pa.vencimento||'—'))+(st==='Pago'?'':' · '+_parcDias(pa.vencimento))+'</div>'
-        +(st==='Pago'?'':'<div class="acx-parc-bt"><button type="button" class="btn-m ac-bt-pagar" onclick="event.stopPropagation();_parcBaixa(\''+pa._id+'\',this)">✓ Lançar pagamento</button></div>')+'</div>'; }).join('')
+        // Backup 27: emissão da guia (quando e quem) e o botão para emitir / ver
+        +'<div class="acx-parc-lin"><span>Guia</span>'+(emit?'<b title="'+esc(pa.emitidaPor?'por '+pa.emitidaPor:'')+'">✓ emitida'+(pa.emitidaEm?' '+esc(pa.emitidaEm.slice(0,5)):'')+'</b>':(st==='Pago'?'<span>—</span>':'<b style="color:var(--amber-d)">a emitir</b>'))+'</div>'
+        +(st==='Pago'?'':'<div class="acx-parc-bt"><button type="button" class="btn btn-o btn-mini" data-emitir="'+pa._id+'">'+(emit?'✎ Emissão':'🧾 Emitir guia')+'</button>'
+          +'<button type="button" class="btn-m ac-bt-pagar" onclick="event.stopPropagation();_parcBaixa(\''+pa._id+'\',this)">✓ Lançar pagamento</button></div>')+'</div>'; }).join('')
     +'</div></div>';
 }

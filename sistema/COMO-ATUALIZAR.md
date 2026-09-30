@@ -458,3 +458,41 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) public
 **Simplificar**
 - A lista com a sugestão manter / simplificar / remover está em `sistema/SIMPLIFICACAO-SUGESTOES.md`. Nada foi removido: responda
   com os números que aprovar.
+
+## Backup 27 — Início enxuto, guias para o estagiário, Contabilidade unificada (tem SQL e 1 função)
+Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) publicar a função `erp-emails` (Verify JWT desligado)
+4) Ctrl+Shift+R**.
+
+**Início**
+- Sem o subtítulo "Resumo de…". Os **Honorários** (Jurídico e Contabilidade) vêm antes da **Minha fila**; as tabelas "Atrasados"
+  saíram (estão iguais no Financeiro).
+- Destaques: "tarefas atrasadas" e "prazo fatal" viraram um só — **⏰ N tarefas suas pedem atenção** (atrasadas ou com prazo fatal em
+  7 dias). Novo destaque **🤝 boletos de acordo a emitir**.
+- **Lembretes:** sem a legenda; aparecem os fixados (sempre), os sem prazo e os com data em até 7 dias. **📋 Todos** abre a lista
+  completa (fixados, próximos, mais adiante e concluídos nos últimos 90 dias, com "↺ Reabrir").
+- **Minha fila:** no mês, os dias depois do último dia ficam iguais aos de antes do dia 1; em Dia/Semana/Mês as **atrasadas** ficam
+  numa coluna à esquerda; a Lista ficou mais compacta.
+- **🔔 Avisos:** só o que não aparece no Início nem em Tarefas — saíram publicações novas, tarefas e vencimentos do dia. Entrou o
+  **CRM com o próximo passo chegando** (2 dias antes, no dia e atrasado).
+
+**Painel Executivo:** sem a seta de expandir; clicar na linha, no nome ou no grupo abre a **ficha completa**. O filtro de grupo fica só
+no filtro de cima.
+
+**Processos:** sem "com/sem valor informado", sem "Ticket médio" e "Sem valor", sem o título em cima das tabelas Grupo/Tribunal/
+Natureza, sem a seta "›"; a lista abre ordenada por **Competência**.
+
+**Parcelamentos e Acordos**
+- Sem "Por grupo / Lista" (sempre por grupo). O grupo aberto fica com contorno e faixa azul; os itens aparecem dentro dele.
+- "**2 de 6** parcelas pagas" com o número em verde. Atraso numa pílula só: "2 em atraso" (rosa) ou "2 em atraso — risco de
+  rescisão" (vermelha).
+- Quadro novo **🧾 Guias para emitir** (em Acordos, **Boletos / PIX para emitir**), com 3 abas:
+  1. **A emitir** (vence em até 15 dias): **🧾 Emitir** → anexe o PDF (fica em Documentos do cliente) → marque "enviar ao cliente" → **✓ Marcar
+     como emitida**. Grava a data e quem emitiu; o e-mail sai com a guia **anexa** e o lembrete automático daquela parcela não repete.
+  2. **Emitidas — aguardando pagamento:** mostra "✓ emitida 12/10" e "✉ enviada 12/10"; **✓ Pago** dá a baixa.
+  3. **Vencidas sem pagamento.**
+- No detalhe do parcelamento/acordo, os cartões das parcelas estão maiores e mostram a guia (emitida/a emitir) com **🧾 Emitir guia**
+  e **✓ Lançar pagamento**.
+
+**Financeiro → Contabilidade (Análise):** Recebimentos e Pagamentos juntos (saíram os dois cartões). Números: Recebido, A receber, Pago,
+A pagar e Em atraso. Gráfico **Recebido × pago mês a mês** (verde e vermelho, como no Jurídico), **Comparativo por cliente** e
+**Comparativo por fornecedor**, e "Em atraso" com a coluna **Receita / Despesa**.

@@ -95,7 +95,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       await p.click('#tn .tn-abre:has-text("' + g + '")'); await p.waitForTimeout(250);
       const visivel = await p.evaluate(() => { const it = document.querySelector('#tn .tn-grupo.on .tn-menu button'); if (!it) return false; const r = it.getBoundingClientRect(); return document.elementFromPoint(r.left + 15, r.top + r.height / 2) === it; });
       ok('menu ' + g + ' abre e mostra os itens na tela', visivel);
-      await p.mouse.click(700, 600); await p.waitForTimeout(150);
+      await p.click('#panel-hoje .titulo-pag h1').catch(() => p.mouse.click(5, 5)); await p.waitForTimeout(150);
     }
     await p.click('#tn .tn-abre:has-text("Financeiro")'); await p.waitForTimeout(250);
     await p.mouse.click(...await p.evaluate(() => { const r = document.querySelector('#tn .tn-grupo.on .tn-menu button').getBoundingClientRect(); return [r.left + 15, r.top + r.height / 2]; }));
@@ -792,11 +792,11 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     // ── Backup 13 ──
     await nav(p, 'hoje'); await p.waitForTimeout(1500);
     { const t = await p.textContent('#panel-hoje');
-      ok('Início: atrasados em duas tabelas (Jurídico e Contabilidade), sem "Próximos 15 dias"', /Atrasados\s*Jurídico/.test(t) && /Atrasados\s*Contabilidade/.test(t) && !/Próximos 15 dias/.test(t) && !(await p.$('#panel-hoje [data-ver-todos]')));
+      ok('Início: sem as tabelas "Atrasados" (estão no Financeiro) e sem o subtítulo', !(await p.$('#panel-hoje .ini-atraso')) && !/Resumo de /.test(t) && !/Próximos 15 dias/.test(t));
+      ok('Início: Honorários acima da "Minha fila de trabalho"', await p.evaluate(() => { const f = document.getElementById('ini-fila'), k = document.querySelector('#panel-hoje .ini-fin'); return !!f && !!k && !!(k.compareDocumentPosition(f) & Node.DOCUMENT_POSITION_FOLLOWING); }));
       ok('Início: "A receber" conta de hoje até o fim do mês (não repete o atraso)', /de hoje até/.test(t)); }
     sql("insert into lancamentos(empresa,tipo,descricao,vencimento,valor) values ('escritorio','receita','Vence hoje teste',current_date,123)");
     await nav(p, 'hoje'); await p.waitForTimeout(1500);
-    ok('Início mostra o que vence hoje, destacado (o dia do vencimento já conta como vencido)', /vence hoje/i.test(await p.textContent('#panel-hoje .ini-atraso')) && !!(await p.$('#panel-hoje tr.linha-hoje')));
     sql("delete from lancamentos where descricao='Vence hoje teste'");
     // caixa de avisos: lido some e fica registrado
     await p.click('#gs-sino'); await p.waitForSelector('.cx-janela', { timeout: 8000 }); await p.waitForTimeout(300);
@@ -838,9 +838,9 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.click('#parcFSit button:has-text("Em dia")'); await p.waitForTimeout(400);
     ok('Parcelamentos: filtros de grupo e situação', /de \d+/.test(await p.textContent('#parcAnalise .pcx-filtros')) && !!(await p.$('#parcFSit button.ativo')));
     await p.click('#parcFSit button:has-text("Todas")'); await p.selectOption('#parcFGrupo', ''); await p.waitForTimeout(400);
-    await p.click('#parcVisao [data-v=lista]'); await p.waitForTimeout(300);
-    ok('Parcelamentos: visão "Lista" sem os grupos', !(await p.$('#parcAnalise .lg-gl')) && (await p.$$('#parcAnalise .lg-i')).length >= 1);
-    await p.click('#parcVisao [data-v=grupo]'); await p.waitForTimeout(300);
+    ok('Parcelamentos: sem "Por grupo / Lista" (sempre por grupo) e "N de M" em verde', !(await p.$('#parcVisao')) && !!(await p.$('#parcAnalise .lg-gl')) && !!(await p.$('#parcAnalise .lg-verde')));
+    await p.waitForSelector('#parcGuias .gd-card', { timeout: 8000 }).catch(() => {});
+    ok('Parcelamentos: quadro "Guias para emitir" com as abas A emitir / Emitidas / Vencidas', await p.isVisible('#parcGuias .gd-card') && (await p.$$('#parcGuias [data-gd-aba]')).length === 3);
     ok('Parcelamentos e Acordos: sem o selo vermelho do topo e sem a nota em itálico', !(await p.isVisible('#alertParc')) && !(await p.isVisible('#panel-parcelamentos .pa-nota')));
     await nav(p, 'acordos'); await p.waitForTimeout(1200);
     ok('Acordos: "Situação dos acordos" com a tabela "Acordos em andamento" (sem "Por credor" e sem o gráfico de atraso)', /Situação dos acordos/.test(await p.textContent('#acAnalise')) && /Acordos em andamento/.test(await p.textContent('#acAnalise')) &&
@@ -852,13 +852,13 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       await p.click('#janelas .pcd [data-ac-pagar]'); await p.waitForSelector('#gs-raiz .janela-baixa, #gs-raiz [data-bx-ok]'); await p.click('#gs-raiz [data-bx-ok]'); await p.waitForTimeout(2500);
       ok('Acordos: "Lançar pagamento" dá baixa na parcela', Number(sql("select count(*) from acordos where pago")) === pg0 + 1); }
     ok('Acordos: acordo todo pago some da lista; "Mostrar concluídos" traz de volta', await (async () => {
-      await p.click('#acVisao [data-v=lista]'); await p.waitForTimeout(300);
       sql("update acordos set pago=true, data_pagamento=current_date where devedor='Alfa Comércio Ltda'"); await p.evaluate(() => ERP_RECARREGAR()); await p.waitForTimeout(2500);
+      for (const g of await p.$$('#acAnalise .lg-gl[aria-expanded=false]')) { await g.click().catch(() => {}); await p.waitForTimeout(250); }
       const sem = !/Alfa Comércio/.test(await p.textContent('#acAnalise'));
       await p.check('#acMostrarTodos'); await p.waitForTimeout(500);
+      for (const g of await p.$$('#acAnalise .lg-gl[aria-expanded=false]')) { await g.click().catch(() => {}); await p.waitForTimeout(250); }
       const com = /Alfa Comércio/.test(await p.textContent('#acAnalise'));
       await p.uncheck('#acMostrarTodos'); sql("update acordos set pago=false, data_pagamento=null where devedor='Alfa Comércio Ltda'"); await p.evaluate(() => ERP_RECARREGAR()); await p.waitForTimeout(2000);
-      await p.click('#acVisao [data-v=grupo]'); await p.waitForTimeout(300);
       return sem && com; })());
     ok('Acordos: sem "Saldo por devedor" e sem "Vencimentos dos próximos 30 dias"', !(await p.isVisible('#acDevedorLista')) && !(await p.isVisible('#acProx30')));
     ok('Acordos: tabela de vencidos com altura mínima de 5 linhas (sem sobrar espaço em branco)', await p.evaluate(() => { const h = document.querySelector('#acordTabVencidos .tw').getBoundingClientRect().height; return h >= 250 && h < 400; }));
@@ -867,6 +867,9 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       !(await p.$$eval('#acordTabPagar thead th', (l) => l.map((t) => t.textContent))).includes('Situação'));
     await nav(p, 'financeiroContab'); await p.waitForTimeout(1500);
     ok('Contabilidade: Análise sem "Maiores clientes" e sem a lista de lançamentos', !/Maiores clientes/.test(await p.textContent('#panel-financeiroContab')) && !(await p.$('#fcLancTbl')));
+    ok('Contabilidade: Análise única (sem os cartões Recebimentos/Pagamentos) com comparativo por cliente e por fornecedor', !(await p.$('#fcLadoBar')) &&
+      /Comparativo por cliente/.test(await p.textContent('#fcCorpo')) && /Comparativo por fornecedor/.test(await p.textContent('#fcCorpo')) && /Recebido × pago mês a mês/.test(await p.textContent('#fcCorpo')));
+    ok('Contabilidade: gráfico mês a mês com recebido (verde) e pago (vermelho)', await p.evaluate(() => { const c = Chart.getChart('cFcMes'); return !!c && c.data.datasets.length === 2 && /Recebido/.test(c.data.datasets[0].label) && /Pago/.test(c.data.datasets[1].label); }));
     sql("insert into lancamentos(empresa,tipo,descricao,vencimento,valor,pago,data_pagamento) values ('contabilidade','receita','Caixa teste',current_date-5,500,true,current_date-5)");
     await p.evaluate(() => ERP_RECARREGAR()); await p.waitForTimeout(2500);
     await p.click('#panel-financeiroContab .fin-tab[data-tab=caixa]'); await p.waitForTimeout(1000);
@@ -934,18 +937,9 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     // Início: selos separados, Recebido, cartão abre relatório
     sql("insert into lancamentos(empresa,tipo,descricao,vencimento,valor) values ('escritorio','receita','Vence hoje B14',current_date,50),('escritorio','receita','Venceu B14',current_date-3,60)");
     await nav(p, 'hoje'); await p.waitForTimeout(1800); await p.evaluate(() => { const x = document.getElementById('gx-pop-avisos'); if (x) x.remove(); });
-    { const t = await p.textContent('#panel-hoje .ini-atraso-selos');
-      ok('Início: "vencidos" (vermelho) e "vence hoje" (âmbar) separados', /\d+ vencidos?/.test(t) && /vence(m)? hoje/.test(t) && !!(await p.$('#panel-hoje .ini-atraso-selos .pill.vencido')) && !!(await p.$('#panel-hoje .ini-atraso-selos .pill.hoje')), t);
-      ok('Início: botão "✓ Baixa" (o mesmo de todas as tabelas)', /✓ Baixa/.test(await p.textContent('#panel-hoje .ini-atraso')) && !/Registrar pagamento/.test(await p.textContent('#panel-hoje .ini-atraso'))); }
     await p.click('#panel-hoje [data-ini-rel="escritorio|em_atraso"]'); await p.waitForSelector('#gs-raiz .janela'); await p.waitForTimeout(500);
     ok('Início: clicar no cartão abre o relatório completo (largo e sem a coluna Descrição)', /Em atraso/.test(await p.textContent('#gs-raiz .janela-hd')) &&
       (await p.$$('#gs-raiz .janela-bd tbody tr')).length >= 2 && !(await p.$$eval('#gs-raiz .janela-bd th', (l) => l.some((x) => /Descrição/.test(x.textContent)))) && !!(await p.$('#gs-raiz .janela.janela-rel')));
-    await p.keyboard.press('Escape'); await p.waitForTimeout(200);
-    await p.click('#panel-hoje .ini-atraso tr[data-linha-det]:has-text("Venceu B14") td:nth-child(3)'); await p.waitForTimeout(800);
-    ok('Início: clicar na dívida abre o detalhamento (o pagamento fica no botão "Recebido")', /Honorário/.test(await p.textContent('#gs-raiz .janela-hd')) && /Venceu B14/.test(await p.textContent('#gs-raiz .janela-bd')));
-    await p.keyboard.press('Escape'); await p.waitForTimeout(200);
-    await p.click('#panel-hoje .ini-atraso tr[data-linha-det]:has-text("Venceu B14") [data-pagar]'); await p.waitForTimeout(600);
-    ok('Início: "✓ Baixa" abre "Recebido — confirme a data"', /Recebido/.test(await p.textContent('#gs-raiz .janela-hd')));
     await p.keyboard.press('Escape'); await p.waitForTimeout(200);
     sql("delete from lancamentos where descricao in ('Vence hoje B14','Venceu B14')");
     // telas antigas
@@ -1016,7 +1010,12 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.click('#gs-raiz .janela [data-lemb-fixo]'); await p.waitForTimeout(1200);
     ok('Início: "Fixado" desmarca (o botão mostra se está fixo ou não)', sql("select fixo from lembretes where texto like 'Reunião geral%'") === 'f' && !!(await p.$('#ini-lembretes .lemb-fixo:not(.on)')));
     sql("insert into lembretes(texto,dia) values ('Lembrete distante B23', current_date + 60)"); await nav(p, 'hoje'); await p.waitForTimeout(1500);
-    ok('Início: lembrete com data distante aparece em "Mais adiante" (não some)', /Mais adiante/.test(await p.textContent('#ini-lembretes')));
+    ok('Início: lembrete com data distante não aparece, mas fica em "Todos os lembretes"', !/Lembrete distante B23/.test(await p.textContent('#ini-lembretes')) && /mais adiante/.test(await p.textContent('#ini-lembretes')));
+    await p.click('#lemb-todos'); await p.waitForTimeout(800);
+    ok('Início: "Todos os lembretes" mostra os fixados, os próximos, os de mais adiante e os concluídos', /Todos os lembretes/.test(await p.textContent('#gs-raiz .janela-hd')) &&
+      /Lembrete distante B23/.test(await p.textContent('#gs-raiz .janela-bd')) && /Concluídos/.test(await p.textContent('#gs-raiz .janela-bd')));
+    await p.evaluate(() => { while (document.querySelector('#janelas .fundo')) window.GS.fecharJanela(); });
+    ok('Início: sem a legenda "recados que não são tarefas"', !/recados que não são tarefas/.test(await p.textContent('#ini-lembretes')));
     sql("insert into parcelas(parcelamento_id,numero,vencimento,pago) select id,'9',current_date+1,false from parcelamentos limit 1"); await nav(p, 'hoje'); await p.waitForTimeout(1500);
     ok('Início: guias de parcelamento junto de avisos e tarefas (não mais nos lembretes)', !!(await p.$('#ini-mural [data-mural=guias]')) && !/Emitir guias/.test(await p.textContent('#ini-lembretes')));
     await p.click('#ini-mural [data-mural=guias]'); await p.waitForTimeout(600);
@@ -1030,10 +1029,10 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.click('#pe-visao [data-v=grupo]'); await p.waitForTimeout(500);
     { const grps = await p.$$eval('#tblExecRanking tr.gx-grp', (l) => l.map((t) => t.textContent));
       ok('Painel → Empresas do grupo: separado por grupo como em Clientes ("Grupo Alfa 2 cadastros")', grps.some((t) => /Grupo Alfa\s*2 cadastros/.test(t)) && grps.some((t) => /Grupo Beta\s*1 cadastro/.test(t)), grps.join(' | ')); }
-    await p.click('#tblExecRanking tr.gx-linha-exp:has-text("Alfa Comércio") td:nth-child(4)'); await p.waitForTimeout(400);
-    await p.click('#tblExecRanking tr.gx-det [data-det-acao=ficha]');
+    ok('Painel: sem a seta de expandir e sem o filtro de grupo (fica só no filtro de cima)', !(await p.isVisible('#tblExecRanking td.gx-seta')) && !(await p.$('#pe-grupo')));
+    await p.click('#tblExecRanking tr.gx-linha-exp:has-text("Alfa Comércio") .er-grupo'); await p.waitForTimeout(400);
     await p.waitForFunction(() => [...document.querySelectorAll('#janelas .janela h2')].some((h) => /Alfa Comércio/i.test(h.textContent)), null, { timeout: 8000 }).catch(() => {});
-    ok('Painel → "Abrir ficha" abre a ficha do cliente (sem erro de uuid)', !/uuid|Erro no ERP/.test(await p.textContent('#gs-raiz #aviso').catch(() => '')) &&
+    ok('Painel: clicar no grupo (ou na linha) abre direto a ficha completa, sem expandir', !(await p.$('#tblExecRanking tr.gx-det')) && !/uuid|Erro no ERP/.test(await p.textContent('#gs-raiz #aviso').catch(() => '')) &&
       await p.evaluate(() => [...document.querySelectorAll('#janelas .janela h2')].some((h) => /Alfa Comércio/i.test(h.textContent))));
     await p.evaluate(() => { while (document.querySelector('#janelas .fundo')) window.GS.fecharJanela(); }); await p.waitForTimeout(200);
     // Financeiro Jurídico: área do serviço, detalhe ao clicar na linha
@@ -1214,6 +1213,18 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       sql("update tarefas t set status='concluida' from fluxos f where f.id=t.fluxo_id and f.nome like 'Lead completo%' and t.ordem=3");
       await nav(p, 'hoje'); await p.waitForSelector('#ini-valid [data-val-ok]'); await p.click('#ini-valid [data-val-ok]'); await p.waitForTimeout(1500);
       ok('Aprovar libera o próximo passo (enviar o contrato)', sql("select t.status from tarefas t join fluxos f on f.id=t.fluxo_id where f.nome like 'Lead completo%' and t.ordem=4") === 'pendente'); }
+
+    // ── Backup 27: emissão da guia (Parcelamentos → Guias para emitir) ──
+    sql("insert into parcelas(parcelamento_id,numero,vencimento,pago) select id,'77',current_date+2,false from parcelamentos where emitimos_guia limit 1");
+    await p.evaluate(() => ERP_RECARREGAR()); await nav(p, 'parcelamentos'); await p.waitForTimeout(2000);
+    await p.waitForSelector('#parcGuias .gd-it', { timeout: 8000 }).catch(() => {});
+    ok('Guias: a parcela que vence em 2 dias aparece em "A emitir"', /Parcela 77/.test(await p.textContent('#parcGuias')));
+    await p.click('#parcGuias .gd-it:has-text("Parcela 77") [data-gd-emitir]'); await p.waitForSelector('#gs-raiz #gd-ok'); await p.waitForTimeout(300);
+    await p.uncheck('#gs-raiz #gd-enviar'); await p.click('#gs-raiz #gd-ok'); await p.waitForTimeout(2000);
+    ok('Guias: "Marcar como emitida" grava a data e quem emitiu', sql("select (emitida_em = current_date)::text || '|' || (emitida_por <> '')::text || '|' || emissao from parcelas where numero='77'") === 'true|true|SIM');
+    await p.click('#parcGuias [data-gd-aba=emitidas]'); await p.waitForTimeout(1200);
+    ok('Guias: a parcela passa para "Emitidas — aguardando pagamento"', /Parcela 77/.test(await p.textContent('#parcGuias')) && /emitida/.test(await p.textContent('#parcGuias')));
+    sql("delete from parcelas where numero='77'");
 
     // ── sair ──
     await p.evaluate(() => acLogout()); await p.waitForTimeout(800);

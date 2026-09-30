@@ -83,7 +83,20 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
-- Última entrega: **Backup 26** (SQL + funções erp-emails, erp-cnpj, erp-agenda). Fluxo cliente → financeiro:
+- Última entrega: **Backup 27** (SQL + função erp-emails). Início: sem subtítulo e sem as tabelas "Atrasados" (`cardAtraso` saiu),
+  Honorários antes de `#ini-fila`; destaque único `tarefas` (atrasadas ou fatal ≤7 d; atalho `atencao` em Tarefas) e `aguias` (boletos de
+  acordo a emitir); `janelaTodosLembretes` (fixados/próximos/mais adiante/concluídos 90 d); fila: `.fila-com-atr` (atrasadas à esquerda em
+  dia/semana/mês), dias vazios no fim do mês, `.fila-compacta`; `coletarAlertas` sem publicacao/tarefa/atraso/prazo nem vencimentos do dia,
+  com `crm` (próximo passo ≤2 d). Painel: `tabelaPadrao` aceita `semSeta` (coluna fica, escondida — nth-child não muda) e `clique`
+  (Empresas → ficha); `#pe-grupo` saiu. Processos: sem Ticket médio/Sem valor, sem `pa-sub` nas tabelas, `_procSort` = Competência.
+  Guias (`telas-guias.js`, no bundle): `cardGuias(tabela, el)` (abas a emitir/emitidas/vencidas, 15 d) e `emitirParcela`/`janelaEmissao`;
+  SQL `parcelas`/`acordos` + `emitida_em`, `emitida_por`, `guia_doc`; `registrar_emissao(tabela, id, emitida, doc, enviar)` (e-mail com a
+  mesma ref do lembrete, `email_lp:`/`email_la:`, anexo `{tipo:'arquivo', caminho}` baixado do Storage na erp-emails → `tipo:'bin'`),
+  `emissao_emails`. Lista por grupo: `_lgSit` = pílula única (risco = vermelha), `.lg-verde`, grupo aberto com contorno; sem "Por grupo/Lista"
+  (`_parcVisao`/`_acVisao` ficaram, sem botão); `_guiasNoTopo` (#parcGuias/#acGuias). Contabilidade: `remendos/contab-b27.js`
+  (`_fcPintarCorpo` novo, o antigo virou `_fcPintarCorpoAntigo`; sem `#fcLadoBar`; `_fcGraficosB27` verde/vermelho; comparativo por
+  cliente e por fornecedor; `_fcTabelaAtraso` com Receita/Despesa, `data-sem-gs` para o `converterTabelas` não trocar). `estrutura.sql` = 5610 linhas.
+- Backup 26 (base) (SQL + funções erp-emails, erp-cnpj, erp-agenda). Fluxo cliente → financeiro:
   contrato `status='Aguardando assinatura'` (não lança nada; `lancar_parcelas_contrato`, `gerar_mensalidades` pula) → `contrato_assinar(id)` ou lead em
   etapa final 'ganho' (`crm_assina_contrato`) → gatilho `contrato_assinado` (parcelas/mensalidades, onboarding via `onboarding_pendente`, notificação,
   CRM, interação, boas-vindas `email_bv` se a regra `email_boas_vindas` — desligada — estiver ligada). `crm_ganhar` cria o contrato aguardando.

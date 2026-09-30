@@ -15,12 +15,13 @@ function _lgProx(abertas){
   var doMes=fut.filter(function(x){ return x.d.getMonth()===m&&x.d.getFullYear()===y; });
   return { d:fut[0].d, v:doMes.reduce(function(s,x){ return s+(Number(x.v)||0); },0), n:doMes.length, mes:_LG_MES[m]+'/'+y };
 }
+// Backup 27: uma pílula só — "2 em atraso" (rosa) ou, com risco, "2 em atraso — risco de rescisão" (a pílula toda vermelha)
 function _lgSit(atr,risco,concluido){
-  return (atr?'<span class="lg-st lg-st-r">'+atr+' em atraso</span>':(concluido?'<span class="lg-st lg-st-x">Concluído</span>':'<span class="lg-st lg-st-g">Em dia</span>'))
-    +(risco?'<span class="lg-st lg-st-risco" title="Um parcelamento/acordo com 2 ou mais parcelas em atraso">risco de rescisão</span>':'');
+  if(atr) return '<span class="lg-st '+(risco?'lg-st-risco':'lg-st-r')+'"'+(risco?' title="Um parcelamento/acordo com 2 ou mais parcelas em atraso"':'')+'>'+atr+' em atraso'+(risco?' — risco de rescisão':'')+'</span>';
+  return concluido?'<span class="lg-st lg-st-x">Concluído</span>':'<span class="lg-st lg-st-g">Em dia</span>';
 }
 function _lgPag(pagas,total,pago,falta){
-  return '<div class="lg-pag"><b>'+pagas+'</b> de '+(total||'?')+' parcelas pagas</div><div class="lg-sub">Quitado <b>'+_lgFmtV(pago)+'</b> · falta <b>'+_lgFmtV(falta)+'</b></div>';
+  return '<div class="lg-pag"><b class="lg-verde">'+pagas+' de '+(total||'?')+'</b> parcelas pagas</div><div class="lg-sub">Quitado <b>'+_lgFmtV(pago)+'</b> · falta <b>'+_lgFmtV(falta)+'</b></div>';
 }
 function _lgEsc(t){ return String(t).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;'); }
 // o: {itens, porGrupo, abertos (obj), fnGrupo (nome da função global que abre/fecha o grupo), fnItem (nome da função que abre o item),
@@ -50,7 +51,7 @@ function _lgRender(o){
         +'<div class="lg-c2">'+_lgPag(soma('pagas'),soma('total'),soma('pago'),soma('falta'))+'</div>'
         +'<div class="lg-c3">'+(p?'<div class="lg-val">'+_lgFmtV(p.v)+'</div><div class="lg-sub">'+(p.n>1?p.n+' parcelas em '+p.mes:'vence '+p.d.toLocaleDateString('pt-BR'))+'</div>':'<div class="lg-val">—</div>')+'</div>'
         +'<div class="lg-c4">'+_lgSit(atr,risco,false)+'</div><div class="lg-c5" aria-hidden="true"></div></div>'
-        +(ab?'<div class="lg-filhos">'+l.map(function(x){ return linhaItem(x,true); }).join('')+'</div>':'')+'</div>'; }).join('');
+        +(ab?'<div class="lg-filhos"><div class="lg-filhos-tit">'+l.length+' '+o.rotulo+(l.length>1?'s':'')+' de '+esc(g)+' · clique para ver as parcelas</div>'+l.map(function(x){ return linhaItem(x,true); }).join('')+'</div>':'')+'</div>'; }).join('');
   } else corpo=o.itens.slice().sort(function(a,b){ return b.atr-a.atr || String(a.titulo).localeCompare(String(b.titulo),'pt-BR'); }).map(function(x){ return '<div class="lg-solto">'+linhaItem(x,false)+'</div>'; }).join('');
   return '<div class="lg"><div class="lg-hd"><span>'+o.cab+'</span><span>Parcelas pagas</span><span>Próxima parcela</span><span>Situação</span><span></span></div>'+corpo+'</div>';
 }
