@@ -650,3 +650,40 @@ body.gx-barra-topo #panel-hoje .titulo-pag h1{font-size:20px!important}
 .tf-com{padding:4px 0;border-bottom:1px dashed var(--border);font-size:13px}
 .ini-valid .item-ficha{align-items:center}
 .ini-valid .acoes{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+/* ═══ Backup 27 — Parcelamentos e Acordos: grupo aberto bem marcado, "2 de 6" em verde, guias ═══ */
+body.gx-barra-topo .lg-verde{color:var(--green-d)!important;font-weight:700}
+body.gx-barra-topo .lg-g-aberto{margin:8px 6px;border:1.5px solid var(--primario);border-radius:var(--card-r);overflow:hidden;box-shadow:var(--shadow-md)}
+body.gx-barra-topo .lg-g-aberto > .lg-gl{background:var(--blue-lt);box-shadow:inset 4px 0 0 var(--primario)!important;border-bottom:1px solid var(--border-strong)}
+body.gx-barra-topo .lg-g-aberto .lg-gnome{color:var(--primario)}
+body.gx-barra-topo .lg-g-aberto > .lg-filhos{background:var(--surface2);padding:10px 14px 14px 30px}
+body.gx-barra-topo .lg-filhos-tit{font:600 11.5px var(--font-ui);color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin:0 0 2px 2px}
+body.gx-barra-topo .lg-filho{border-radius:var(--r-ctl);border-right:1px solid var(--border)}
+body.gx-barra-topo .lg-c5{font-weight:600}
+/* quadro "Guias para emitir" */
+.gd-card .card-hd{flex-wrap:wrap;gap:6px 10px}
+.gd-abas{margin-bottom:10px;flex-wrap:wrap}
+.gd-abas button{display:inline-flex;align-items:center;gap:6px}
+.gd-lista{display:flex;flex-direction:column;gap:6px}
+.gd-it{display:grid;grid-template-columns:92px minmax(0,1fr) 120px minmax(170px,auto) auto;gap:12px;align-items:center;padding:9px 12px;border:1px solid var(--border);border-radius:10px;background:var(--surface)}
+.gd-it.gd-venc{box-shadow:inset 3px 0 0 var(--red)}
+.gd-venc-d{display:flex;flex-direction:column;font-size:12px;gap:1px}
+.gd-venc-d b{font-size:14px;color:var(--ink)}
+.gd-quem b{font-size:13.5px;color:var(--ink)}
+.gd-val{font-weight:700;text-align:right;font-variant-numeric:tabular-nums;color:var(--ink)}
+.gd-st{display:flex;flex-wrap:wrap;gap:4px}
+.gd-ac{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap}
+.gd-jan-hd{display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap;padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px}
+.gd-jan-hd > div:first-child{flex:1;min-width:200px}
+.gd-jan-v{display:flex;flex-direction:column}
+.gd-jan-v span{font:700 10.5px var(--font-ui);text-transform:uppercase;letter-spacing:.05em;color:var(--text3)}
+.gd-jan-v b{font-size:15px;color:var(--ink)}
+.gd-passos{margin:12px 0 12px 18px;line-height:1.7;font-size:13px;color:var(--text2)}
+@media (max-width:900px){.gd-it{grid-template-columns:1fr auto}.gd-val{text-align:left}.gd-st,.gd-ac{grid-column:1/-1;justify-content:flex-start}}
+/* parcelas no detalhamento: cartões maiores, com emissão e pagamento */
+.pcd .acx-parcs{grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
+.pcd .acx-parc{padding:14px 16px;border-radius:12px;display:flex;flex-direction:column;gap:6px;box-shadow:var(--shadow-sm)}
+.pcd .acx-parc-v{font-size:18px}
+.pcd .acx-parc-lin{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12.5px;color:var(--text2);padding-top:6px;border-top:1px dashed var(--border)}
+.pcd .acx-parc-lin b{font-weight:600;color:var(--ink)}
+.pcd .acx-parc-bt{margin-top:4px}
+.gd-abas button.ativo .pill{background:var(--surface)!important;color:var(--ink)!important;border-color:transparent!important}

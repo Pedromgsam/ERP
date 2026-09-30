@@ -96,7 +96,9 @@ window.ERP_COLS_CLIENTE = 'id,grupo_id,nome,cpf_cnpj,tipo,responsavel,email,tele
       valorUltimaParcela: num(pa.valor_ultima_parcela), residual: num(pa.valor_residual),
       pagasReais: pagas, totalReais: ord.length, proximoVencimento: br(prox), vencidas, janela: true,
       parcelas: ord.filter((x) => !x.vencimento || (x.vencimento >= iIso && x.vencimento <= fIso))
-        .map((x) => ({ _id: x.id, _t: 'parcelas', _pai: pa.id, numero: x.numero, vencimento: br(x.vencimento), pagamento: x.pago ? 'SIM' : '', status: status(x) }))
+        .map((x) => ({ _id: x.id, _t: 'parcelas', _pai: pa.id, numero: x.numero, vencimento: br(x.vencimento), pagamento: x.pago ? 'SIM' : '', status: status(x),
+          // Backup 27: emissão da guia (data, quem, PDF guardado)
+          emissao: x.emissao || '', emitidaEm: br(x.emitida_em), emitidaPor: x.emitida_por || '', guiaDoc: x.guia_doc || '' }))
     };
   }
   function acordo(a, gNome) {
@@ -105,7 +107,8 @@ window.ERP_COLS_CLIENTE = 'id,grupo_id,nome,cpf_cnpj,tipo,responsavel,email,tele
       devedor: a.devedor || '', credor: a.credor || '', parcela: a.parcela || '', totalParc: a.total_parcelas || '',
       valor: num(a.valor), vencimento: br(a.vencimento), diasRestantes: dias(a.vencimento),
       situacao: a.pago ? 'Pago' : (a.vencimento && a.vencimento < hojeISO()) ? 'Vencido' : /emitir/i.test(a.situacao || '') ? 'Emitir Guia' : 'OK', emissao: a.emissao || '', pagamento: a.pago ? 'SIM' : '',
-      dataPag: br(a.data_pagamento), pix: a.pix || '', banco: a.banco || '', obs: a.obs || ''
+      dataPag: br(a.data_pagamento), pix: a.pix || '', banco: a.banco || '', obs: a.obs || '',
+      emitidaEm: br(a.emitida_em), emitidaPor: a.emitida_por || '', guiaDoc: a.guia_doc || ''
     };
   }
   // Lançamento → linha do financeiro antigo. Despesa que veio da aba de

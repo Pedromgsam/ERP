@@ -5524,3 +5524,87 @@ begin
 end $$;
 revoke all on function public.minhas_validacoes() from public, anon;
 grant execute on function public.minhas_validacoes() to authenticated;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- Backup 27 — EMISSÃO DAS GUIAS (parcelamentos) E DOS BOLETOS/PIX (acordos)
+-- Para o estagiário: emitir → marcar "emitida" (data e quem) → guardar o PDF → mandar ao cliente → conferir o pagamento.
+-- A coluna antiga "emissao" (texto da planilha) continua; "emitida_em" é a data certa.
+-- ═══════════════════════════════════════════════════════════════════
+alter table public.parcelas add column if not exists emitida_em date;
+alter table public.parcelas add column if not exists emitida_por text not null default '';
+alter table public.parcelas add column if not exists guia_doc uuid references public.documentos(id) on delete set null;
+alter table public.acordos add column if not exists emitida_em date;
+alter table public.acordos add column if not exists emitida_por text not null default '';
+alter table public.acordos add column if not exists guia_doc uuid references public.documentos(id) on delete set null;
+-- a planilha trazia "SIM" ou a data: vira data (quando é data) — só uma vez
+update public.parcelas set emitida_em = to_date(substring(emissao from '(\d{2}/\d{2}/\d{4})'), 'DD/MM/YYYY')
+ where emitida_em is null and emissao ~ '\d{2}/\d{2}/\d{4}';
+update public.acordos set emitida_em = to_date(substring(emissao from '(\d{2}/\d{2}/\d{4})'), 'DD/MM/YYYY')
+ where emitida_em is null and emissao ~ '\d{2}/\d{2}/\d{4}';
+
+-- marca (ou desmarca) a emissão; com p_enviar, põe na fila o e-mail ao cliente com o PDF anexo (mesma referência do lembrete
+-- automático, que então não repete). Devolve {emitida_em, emitida_por, email: 'enviado'|'sem e-mail'|'já enviado'|''}.
+create or replace function public.registrar_emissao(p_tabela text, p_id uuid, p_emitida boolean default true, p_doc uuid default null, p_enviar boolean default false)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare quem text; d record; cli uuid; grp uuid; v_ref text; assunto text; texto text; itens jsonb; anexo jsonb := null; ok boolean; res text := ''; m record;
+begin
+  if not public.pode('juridico', 'editar') then raise exception 'permission denied: sem acesso para marcar a emissão.'; end if;
+  if p_tabela not in ('parcelas', 'acordos') then raise exception 'Tabela inválida.'; end if;
+  select coalesce(nullif(nome, ''), email) into quem from public.perfis where id = auth.uid();
+  if p_tabela = 'parcelas' then
+    update public.parcelas set emitida_em = case when p_emitida then coalesce(emitida_em, current_date) end,
+           emitida_por = case when p_emitida then coalesce(nullif(emitida_por, ''), quem, '') else '' end,
+           emissao = case when p_emitida then 'SIM' else '' end, guia_doc = coalesce(p_doc, case when p_emitida then guia_doc end)
+     where id = p_id;
+  else
+    update public.acordos set emitida_em = case when p_emitida then coalesce(emitida_em, current_date) end,
+           emitida_por = case when p_emitida then coalesce(nullif(emitida_por, ''), quem, '') else '' end,
+           emissao = case when p_emitida then 'SIM' else '' end, guia_doc = coalesce(p_doc, case when p_emitida then guia_doc end)
+     where id = p_id;
+  end if;
+  if not found then raise exception 'Parcela não encontrada.'; end if;
+  if p_emitida and p_enviar then
+    if p_doc is not null then
+      select jsonb_build_object('tipo', 'arquivo', 'caminho', dc.caminho, 'arquivo', dc.nome, 'mime', dc.mime) into anexo from public.documentos dc where dc.id = p_doc;
+    end if;
+    if p_tabela = 'parcelas' then
+      select pa.id, pa.numero, pa.vencimento, p.empresa, p.natureza, p.local, p.numero parc_num, p.valor_ultima_parcela, p.grupo_id, p.total_parcelas,
+             (select cl.id from public.clientes cl where (regexp_replace(coalesce(p.cnpj, ''), '\D', '', 'g') <> '' and regexp_replace(cl.cpf_cnpj, '\D', '', 'g') = regexp_replace(coalesce(p.cnpj, ''), '\D', '', 'g')) or cl.nome = p.empresa limit 1) cli
+        into d from public.parcelas pa join public.parcelamentos p on p.id = pa.parcelamento_id where pa.id = p_id;
+      select * into m from public.modelo_email('parc_guia', jsonb_build_object('parcela', coalesce(d.numero, '') || coalesce('/' || d.total_parcelas, ''), 'natureza', trim(both ' ·' from coalesce(d.natureza, '') || coalesce(' · ' || nullif(d.local, ''), '')),
+        'numero', coalesce(' (nº ' || nullif(d.parc_num, '') || ')', ''), 'empresa', coalesce(d.empresa, ''), 'vencimento', to_char(d.vencimento, 'DD/MM/YYYY')));
+      v_ref := 'email_lp:' || p_id; cli := d.cli; grp := d.grupo_id;
+      assunto := m.assunto; texto := m.texto || case when anexo is not null then '<p style="margin:10px 0 0">A guia segue <b>anexa</b> a este e-mail.</p>' else '' end;
+      itens := case when coalesce(d.valor_ultima_parcela, 0) > 0 then jsonb_build_array(jsonb_build_object('descricao', 'Parcela ' || coalesce(d.numero, ''), 'vencimento', d.vencimento, 'valor', d.valor_ultima_parcela)) else '[]'::jsonb end;
+      if exists (select 1 from public.automacoes_log g where g.ref = 'email_lp:' || p_id) then res := 'já enviado';
+      else ok := public.email_cliente_enviar('email_lp', v_ref, cli, grp, 'guia', assunto, texto, itens, false, anexo); res := case when ok then 'enviado' else 'sem e-mail' end; end if;
+    else
+      select a.id, a.valor, a.vencimento, a.credor, a.parcela, a.total_parcelas, a.processo, a.grupo_id, a.pix, a.banco,
+             (select cl.id from public.clientes cl where cl.grupo_id = a.grupo_id and public.primeiro_nome(cl.nome) = public.primeiro_nome(a.devedor) limit 1) cli
+        into d from public.acordos a where a.id = p_id;
+      select * into m from public.modelo_email('aco_lembrete', jsonb_build_object('parcela', coalesce(d.parcela, '') || coalesce('/' || nullif(d.total_parcelas, ''), ''),
+        'credor', coalesce(d.credor, ''), 'processo', coalesce(d.processo, ''), 'vencimento', to_char(d.vencimento, 'DD/MM/YYYY'),
+        'pix', case when coalesce(d.pix, '') <> '' then ' — PIX do credor: ' || d.pix else '' end || case when coalesce(d.banco, '') <> '' then ' — ' || d.banco else '' end));
+      v_ref := 'email_la:' || p_id;
+      texto := m.texto || case when anexo is not null then '<p style="margin:10px 0 0">O boleto segue <b>anexo</b> a este e-mail.</p>' else '' end;
+      if exists (select 1 from public.automacoes_log g where g.ref = 'email_la:' || p_id) then res := 'já enviado';
+      else ok := public.email_cliente_enviar('email_la', v_ref, d.cli, d.grupo_id, 'acordo', m.assunto, texto,
+             jsonb_build_array(jsonb_build_object('descricao', 'Parcela ' || coalesce(d.parcela, '') || coalesce('/' || nullif(d.total_parcelas, ''), ''), 'vencimento', d.vencimento, 'valor', d.valor)), false, anexo);
+        res := case when ok then 'enviado' else 'sem e-mail' end; end if;
+    end if;
+  end if;
+  return jsonb_build_object('email', res);
+end $$;
+revoke all on function public.registrar_emissao(text, uuid, boolean, uuid, boolean) from public, anon;
+grant execute on function public.registrar_emissao(text, uuid, boolean, uuid, boolean) to authenticated;
+
+-- quando cada parcela teve o e-mail ao cliente (lembrete/guia) — para a tela mostrar "✉ enviado em"
+create or replace function public.emissao_emails(p_tabela text, p_ids uuid[]) returns jsonb
+language sql stable security definer set search_path = public as $$
+  select coalesce(jsonb_object_agg(split_part(g.ref, ':', 2), g.quando), '{}'::jsonb)
+    from (select ref, max(quando) quando from public.automacoes_log
+           where public.pode('juridico') and ref = any (select case when p_tabela = 'parcelas' then 'email_lp:' else 'email_la:' end || x::text from unnest(p_ids) x)
+             and descricao like '%→%' group by ref) g;
+$$;
+revoke all on function public.emissao_emails(text, uuid[]) from public, anon;
+grant execute on function public.emissao_emails(text, uuid[]) to authenticated;

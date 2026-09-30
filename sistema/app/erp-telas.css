@@ -419,3 +419,6 @@ body.gx-barra-topo .gs table td.num{font-size:13px}
 /* Financeiro (Backup 16): sem gráficos nas abas A receber / Recebidos / Prejuízo / Despesas (Jurídico e Contabilidade);
    a análise com gráficos fica só na aba Análise. Composição do caixa sem "Despesas por categoria". */
 .cc:has(canvas#cFinGrupo),.cc:has(canvas#cFinCGrupo),.crow:has(canvas[id^="cRec"]),.crow:has(canvas[id^="cPrej"]),.crow:has(canvas[id^="cFcFech"]),.cc:has(canvas#cFcCaixaCat){display:none!important}
+/* Backup 27: tabelas sem a seta (Painel abre a ficha; Processos abre a janela) — a coluna fica escondida, não some */
+body.gx-barra-topo table.gx-sem-seta th.gx-th-seta,body.gx-barra-topo table.gx-sem-seta td.gx-seta{display:none!important}
+#tblExecRanking tr.gx-linha-exp{cursor:pointer}

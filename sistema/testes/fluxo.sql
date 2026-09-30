@@ -214,6 +214,25 @@ insert into lancamentos (tipo, descricao, cliente_id, vencimento, valor, empresa
 select pg_temp.ok((select count(*) from emails_pendentes() where regra = 'email_ch' and texto like '%Não identificamos%' and itens::text like '%Atraso antigo sem aviso%') = 1, '9.4 atraso sem aviso anterior recebe o 1º aviso (não pula para o 2º)',
   (select string_agg(assunto, ' | ') from emails_pendentes() where regra = 'email_ch'));
 
+-- ═══ 10. Backup 27: EMISSÃO DA GUIA (estagiário) ═══
+insert into parcelamentos (id, empresa, cnpj, natureza, total_parcelas, valor_ultima_parcela) values ('50000000-0000-0000-0000-000000000001', 'Padaria Fictícia Ltda', '11.111.111/0001-11', 'Simples Nacional', 60, 800);
+insert into parcelas (id, parcelamento_id, numero, vencimento) values ('50000000-0000-0000-0000-000000000002', '50000000-0000-0000-0000-000000000001', '5', current_date + 3);
+insert into documentos (id, cliente_id, tipo, nome, caminho, mime) values ('50000000-0000-0000-0000-000000000003', '10000000-0000-0000-0000-000000000001', 'guia', 'Guia 5.pdf', 'x/guia5.pdf', 'application/pdf');
+update perfis set funcoes = funcoes || '{"juridico":"editar"}' where email = 'estagiario@teste';
+select pg_temp.como('00000000-0000-0000-0000-00000000000b');
+set role authenticated;
+select pg_temp.ok((select registrar_emissao('parcelas', '50000000-0000-0000-0000-000000000002', true, '50000000-0000-0000-0000-000000000003', true)->>'email') = 'enviado', '10.1 estagiário marca a guia como emitida e envia ao cliente');
+reset role;
+select pg_temp.ok((select emitida_em = current_date and emitida_por like 'Bruno%' and emissao = 'SIM' and guia_doc is not null from parcelas where id = '50000000-0000-0000-0000-000000000002'), '10.2 grava data, quem emitiu e o PDF');
+select pg_temp.ok((select count(*) from email_fila where referencia = 'email_lp:50000000-0000-0000-0000-000000000002' and para like '%fabio@padaria.teste%' and anexo->>'caminho' = 'x/guia5.pdf') = 1,
+  '10.3 e-mail da guia vai ao Fiscal com o PDF anexo', (select string_agg(para || ' ' || coalesce(anexo::text, ''), ' | ') from email_fila where referencia like 'email_lp:%'));
+select pg_temp.ok((select count(*) from emails_pendentes() where ref = 'email_lp:50000000-0000-0000-0000-000000000002') = 0, '10.4 o lembrete automático da guia não repete');
+select pg_temp.como('00000000-0000-0000-0000-00000000000b');
+set role authenticated;
+select pg_temp.ok((select registrar_emissao('parcelas', '50000000-0000-0000-0000-000000000002', true, null, true)->>'email') = 'já enviado', '10.5 enviar de novo avisa que já foi enviado');
+select pg_temp.ok((select emissao_emails('parcelas', array['50000000-0000-0000-0000-000000000002'::uuid]) ? '50000000-0000-0000-0000-000000000002'), '10.6 a tela sabe quando o e-mail saiu');
+reset role;
+
 -- ═══ RESUMO ═══
 select case when ok then 'PASSA ' else 'FALHA ' end || nome || case when not ok and obs <> '' then '  → ' || obs else '' end from r order by n;
 do $$ declare n int; begin

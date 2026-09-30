@@ -132,10 +132,17 @@ function calendarioFila(lista) {
       const d = iso(new Date(a, m, k)), l = doDia(d);
       c += '<div class="cal-dia' + (d === h ? ' cal-hoje' : '') + '"><div class="cal-num">' + k + '</div>' + l.slice(0, 3).map((t) => item(t, d)).join('') + (l.length > 3 ? '<div class="sub">+ ' + (l.length - 3) + '</div>' : '') + '</div>';
     }
-    corpo = c + '</div>';
+    // Backup 27: completa a última semana com dias vazios (igual aos dias antes do dia 1, sem o cinza do fundo)
+    const resto = (7 - ((primeiro.getDay() + n) % 7)) % 7;
+    corpo = c + '<div class="cal-dia vazio-dia"></div>'.repeat(resto) + '</div>';
   }
-  return '<div class="fila-cal-nav"><button type="button" class="btn btn-o btn-mini" data-fila-nav="-1" aria-label="Anterior">‹</button><b>' + esc(titulo) + '</b>' +
-    '<button type="button" class="btn btn-o btn-mini" data-fila-nav="1" aria-label="Próximo">›</button><button type="button" class="btn btn-o btn-mini" data-fila-nav="0">Hoje</button></div>' + corpo;
+  // Backup 27: à esquerda, as tarefas atrasadas (não aparecem na semana/dia/mês que você está vendo)
+  const atr = lista.filter((t) => t.prazo && t.prazo < h).sort((a, b) => a.prazo.localeCompare(b.prazo));
+  const lado = '<aside class="fila-atrasadas"><div class="fila-atr-tit">⏰ Atrasadas <span class="pill ' + (atr.length ? 'vencido' : 'pago') + '">' + atr.length + '</span></div>' +
+    (atr.length ? atr.map((t) => '<button type="button" class="fila-atr-it" data-fila="' + t.id + '" title="' + esc(t.titulo) + '"><b>' + esc(t.titulo) + '</b><span class="sub">prazo ' + dataBR(t.prazo) + ' · ' + plural(-diasAte(t.prazo), 'dia', 'dias') + ' de atraso</span></button>').join('')
+      : '<div class="sub">Nenhuma atrasada. 🎉</div>') + '</aside>';
+  return '<div class="fila-com-atr">' + lado + '<div class="fila-cal-area"><div class="fila-cal-nav"><button type="button" class="btn btn-o btn-mini" data-fila-nav="-1" aria-label="Anterior">‹</button><b>' + esc(titulo) + '</b>' +
+    '<button type="button" class="btn btn-o btn-mini" data-fila-nav="1" aria-label="Próximo">›</button><button type="button" class="btn btn-o btn-mini" data-fila-nav="0">Hoje</button></div>' + corpo + '</div></div>';
 }
 async function cardMinhaFila() {
   if (!FILA.lida) { const p = (E.perfil && E.perfil.preferencias && E.perfil.preferencias.fila) || {}; if (p.vista) FILA.vista = p.vista; FILA.min = !!p.min; FILA.lida = true; }
@@ -147,7 +154,7 @@ async function cardMinhaFila() {
       '<div class="segmento ini-fila-vista" role="group" aria-label="Ver como">' + VISTAS_FILA.map(([v, r]) => '<button type="button" data-fila-vista="' + v + '"' + (FILA.vista === v ? ' class="ativo"' : '') + '>' + r + '</button>').join('') + '</div>' +
       '<button type="button" class="btn btn-o btn-mini ini-fila-min" data-fila-min aria-expanded="' + !FILA.min + '">' + (FILA.min ? '▸ Mostrar' : '▾ Minimizar') + '</button></div>' +
     (FILA.min ? '' : '<div class="card-bd">' + (FILA.vista !== 'lista' ? calendarioFila(todas) :
-    (minhas.length ? '<div class="lista-ficha">' + minhas.map((t) => '<div class="item-ficha clicavel" data-fila="' + t.id + '"><div>' + bolinha(t) + ' <b>' + esc(t.titulo) + '</b>' + seloPrazo(t) +
+    (minhas.length ? '<div class="lista-ficha fila-compacta">' + minhas.map((t) => '<div class="item-ficha clicavel" data-fila="' + t.id + '"><div>' + bolinha(t) + ' <b>' + esc(t.titulo) + '</b>' + seloPrazo(t) +
       '<div class="sub">' + (t.prazo ? 'prazo ' + dataBR(t.prazo) : 'sem prazo') + (t.prazo_fatal ? ' · ⚑ fatal ' + dataBR(t.prazo_fatal) : '') + (t.status === 'revisao' ? ' · aguardando revisão' : '') +
       (nomeCliente(t.cliente_id) || nomeGrupo(t.grupo_id) ? ' · ' + esc(nomeCliente(t.cliente_id) || nomeGrupo(t.grupo_id)) : '') + '</div></div>' +
       '<span class="pill ' + (PRIORIDADE[t.prioridade] || ['', 'neutro'])[1] + '">' + esc((PRIORIDADE[t.prioridade] || [t.prioridade])[0]) + '</span></div>').join('') + '</div>' +
@@ -209,7 +216,7 @@ TELAS.tarefas = async function () {
     '<div class="filtros">' +
     '<div class="segmento" id="tf-vista">' + [['lista', 'Lista'], ['semana', 'Minha semana'], ['kanban', 'Quadro'], ['calendario', 'Calendário'], ['fluxos', 'Fluxos'], ['relatorio', 'Relatório']]
       .map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
-    '<div class="segmento" id="tf-atalho">' + [['', 'Todas'], ['minhas', 'Minhas'], ['hoje', 'Hoje'], ['atrasadas', 'Atrasadas'], ['7', '7 dias']]
+    '<div class="segmento" id="tf-atalho">' + [['', 'Todas'], ['minhas', 'Minhas'], ['hoje', 'Hoje'], ['atrasadas', 'Atrasadas'], ['7', '7 dias']].concat(F.atalho === 'atencao' ? [['atencao', 'Pedem atenção']] : [])
       .map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<select class="busca sel" id="tf-resp"><option value="">Todas as pessoas</option>' + Object.keys(PESSOA).map((p) => '<option>' + p + '</option>').join('') + '</select>' +
     '<select class="busca sel" id="tf-pri"><option value="">Todas as prioridades</option><option value="alta">Alta</option><option value="media">Média</option><option value="baixa">Baixa</option></select>' +
@@ -249,6 +256,8 @@ function filtrarTarefas() {
     if (a === 'hoje' && (tarefaFechada(t) || !t.prazo || t.prazo > h)) return false;
     if (a === 'atrasadas' && (tarefaFechada(t) || !t.prazo || t.prazo >= h)) return false;
     if (a === '7' && (tarefaFechada(t) || !t.prazo || t.prazo > somarDias(h, 7))) return false;
+    // "pedem atenção" (destaque do Início): minhas atrasadas ou com prazo fatal em até 7 dias
+    if (a === 'atencao' && (tarefaFechada(t) || !ehMinha(t) || !((t.prazo && t.prazo < h) || (t.prazo_fatal && t.prazo_fatal <= somarDias(h, 7))))) return false;
     if (F.resp && t.responsavel !== F.resp) return false;
     if (F.pri && t.prioridade !== F.pri) return false;
     if (b && !normalizar(t.titulo + ' ' + t.processos_vinculados + ' ' + nomeGrupo(t.grupo_id) + ' ' + nomeCliente(t.cliente_id) + ' ' + t.etiquetas + ' ' + t.descricao).includes(b)) return false;
@@ -894,42 +903,31 @@ function levaDoAviso(nivel) {
   return 's' + iso(d);
 }
 async function coletarAlertas() {
-  const h = hojeISO(), lim = somarDias(h, 5);
-  const fin = pode('financeiro_juridico') || pode('financeiro_contab'), jur = pode('juridico');
-  // Backup 19: aviso é só novidade (prazo chegando, o que vence HOJE, certidão, notificação). O que já tem lugar próprio no
-  // Início não repete aqui: tarefas atrasadas (suas e da equipe), honorários e acordos em atraso, documentos vencendo.
-  const [nots, ts, certs, lidos, lanc, acs] = await Promise.all([
-    q(sb.from('notificacoes').select('*').eq('lida', false).order('criado_em', { ascending: false }).limit(50)).catch(() => []),
-    q(sb.from('tarefas').select('id, titulo, prazo, prazo_fatal, responsavel, participantes, status').not('status', 'in', '(concluida,cancelada)').or('prazo.lte.' + lim + ',prazo_fatal.lte.' + lim)).catch(() => []),
+  const h = hojeISO(), lim = somarDias(h, 2);
+  // Backup 27: aviso é só o que NÃO aparece no Início nem nas Tarefas. Saíram: publicações novas, tarefas (atribuída, atrasada, prazo),
+  // honorários/acordos/parcelamentos que vencem hoje. Ficam: CRM com o próximo passo chegando, certidões, aprovações, menções, acessos.
+  const [nots, ops, certs, lidos] = await Promise.all([
+    q(sb.from('notificacoes').select('*').eq('lida', false).not('tipo', 'in', '(publicacao,tarefa,atraso,prazo)').order('criado_em', { ascending: false }).limit(50)).catch(() => []),
+    pode('crm') ? q(sb.from('crm_oportunidades').select('id, titulo, responsavel, proxima_acao, proxima_acao_em, crm_etapas(final)').not('proxima_acao_em', 'is', null).lte('proxima_acao_em', lim)).catch(() => []) : [],
     q(sb.from('certidoes').select('id, orgao, validade, cliente_id').not('validade', 'is', null).lte('validade', somarDias(h, 15))).catch(() => []),
-    q(sb.from('avisos_lidos').select('chave').gte('lido_em', new Date(Date.now() - 21 * 864e5).toISOString())).catch(() => []),
-    fin ? q(sb.from('lancamentos').select('empresa, valor, redutor, vencimento').eq('tipo', 'receita').eq('pago', false).eq('perda', false).eq('vencimento', h)).catch(() => []) : [],
-    jur ? q(sb.from('acordos').select('id, valor, vencimento').eq('pago', false).eq('vencimento', h)).catch(() => []) : []
+    q(sb.from('avisos_lidos').select('chave').gte('lido_em', new Date(Date.now() - 21 * 864e5).toISOString())).catch(() => [])
   ]);
   const al = nots.map((n) => ({ nivel: n.tipo === 'rascunho' ? 'medio' : 'info', tipo: n.tipo || 'aviso', titulo: n.titulo, detalhe: n.detalhe, notif: n.id, link: n.link, quando: n.criado_em }));
   const add = (a) => { a.chave = a.assunto + '@' + levaDoAviso(a.nivel); al.push(a); };
-  ts.forEach((t) => {
-    const minha = ehMinha(t);
-    const ref = t.prazo_fatal && (!t.prazo || t.prazo_fatal <= t.prazo) ? t.prazo_fatal : t.prazo, fatal = ref === t.prazo_fatal;
-    if (!ref) return;
-    const d = diasAte(ref);
-    if (minha && [5, 2, 1, 0].includes(d)) add({ nivel: d <= 1 ? 'alto' : 'medio', tipo: 'prazo', assunto: 'prazo:' + t.id + ':' + d, titulo: (fatal ? '⚑ Prazo fatal ' : 'Prazo ') + (d === 0 ? 'HOJE' : 'em ' + plural(d, 'dia', 'dias')) + ': ' + t.titulo, detalhe: dataBR(ref), tarefa: t.id });
+  const eu = primeiroNome((E.perfil && E.perfil.nome) || '');
+  ops.filter((o) => !(o.crm_etapas && o.crm_etapas.final) && (!o.responsavel || primeiroNome(o.responsavel) === eu)).forEach((o) => {
+    const d = diasAte(o.proxima_acao_em);
+    add({ nivel: d <= 0 ? 'alto' : 'medio', tipo: 'crm', assunto: 'crm:' + o.id + ':' + o.proxima_acao_em,
+      titulo: 'CRM — ' + (d < 0 ? 'passou do prazo' : d === 0 ? 'hoje' : 'em ' + plural(d, 'dia', 'dias')) + ': ' + (o.proxima_acao || 'próximo passo'),
+      detalhe: o.titulo + ' · ' + dataBR(o.proxima_acao_em), tela: 'crm' });
   });
   certs.forEach((x) => add({ nivel: x.validade < h ? 'alto' : 'medio', tipo: 'certidao', assunto: 'cert:' + x.id, titulo: 'Certidão ' + x.orgao + ' ' + (x.validade < h ? 'vencida' : 'vencendo'), detalhe: dataBR(x.validade) + ' · ' + nomeCliente(x.cliente_id), cliente: x.cliente_id }));
-  // financeiro e acordos: um aviso por assunto (não um por lançamento), com o total
-  [['escritorio', 'Jurídico', 'financeiro_juridico'], ['contabilidade', 'Contabilidade', 'financeiro_contab']].forEach(([emp, rot, f]) => {
-    if (!pode(f)) return;
-    const hoje = lanc.filter((l) => l.empresa === emp);
-    if (hoje.length) add({ nivel: 'alto', tipo: 'financeiro', assunto: 'vencehoje:' + emp, titulo: plural(hoje.length, 'honorário ' + rot + ' vence hoje', 'honorários ' + rot + ' vencem hoje'), detalhe: brl(soma(hoje, vl)) + ' · confira se entrou e dê baixa', tela: 'hoje' });
-  });
-  const acH = acs;
-  if (acH.length) add({ nivel: 'alto', tipo: 'acordo', assunto: 'acordohoje', titulo: plural(acH.length, 'parcela de acordo vence hoje', 'parcelas de acordo vencem hoje'), detalhe: brl(soma(acH, (a) => a.valor)) + ' · lembrar o cliente', tela: 'acordos' });
   const lidas = new Set(lidos.map((x) => x.chave));
   al.forEach((a) => { a.lido = !!(a.chave && lidas.has(a.chave)); });
   const ordem = { alto: 0, medio: 1, info: 2 };
   return al.sort((a, b) => (a.lido - b.lido) || (ordem[a.nivel] - ordem[b.nivel]));
 }
-const ICONE_AVISO = { prazo: '⏰', equipe: '👥', documento: '📄', certidao: '📜', financeiro: '💰', acordo: '🤝', rascunho: '📝', publicacao: '⚖', mencao: '💬', revisao: '🔎', acesso: '🔐', tarefa: '✅', cnpj: '🏢' };
+const ICONE_AVISO = { crm: '🎯', prazo: '⏰', equipe: '👥', documento: '📄', certidao: '📜', financeiro: '💰', acordo: '🤝', rascunho: '📝', publicacao: '⚖', mencao: '💬', revisao: '🔎', acesso: '🔐', tarefa: '✅', cnpj: '🏢' };
 async function marcarAvisosLidos(lista) {
   const nots = lista.filter((a) => a.notif).map((a) => a.notif), chaves = lista.filter((a) => a.chave).map((a) => ({ chave: a.chave }));
   if (nots.length) await q(sb.from('notificacoes').update({ lida: true }).in('id', nots));

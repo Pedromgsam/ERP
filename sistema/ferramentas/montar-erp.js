@@ -158,11 +158,20 @@ trocar("  var comValor=lista.filter(function(p){ return val(p)>0; });\n  var tot
 trocar("   +  kC('Processos',lista.length,ativos+' em andamento','cb','db')",
   "   +  kC('Processos',lista.length,ativos+' em andamento<br>'+(lista.length-ativos)+' arquivados/extintos','cb','db')", 1);
 trocar("   +  kC('Valor em disputa',_faFT(totalV),comValor.length+' com valor informado','cv','dv')",
-  "   +  kC('Valor em disputa',_faFT(totalV),comValor.length+' com valor informado<br>'+(lista.length-comValor.length)+' sem valor informado','cv','dv')\n" +
+  "   +  kC('Valor em disputa',_faFT(totalV),'soma dos valores da causa','cv','dv')\n" +
   "   +  (function(){ var nomes=(FIL.length?FIL:DB.baseDados).map(function(r){return String(r.nome||'').toLowerCase();}).filter(function(n){return n.length>2;});\n" +
   "        var tem=function(t){ t=String(t||'').toLowerCase(); return nomes.some(function(n){return t.indexOf(n)>=0;}); };\n" +
   "        var vP=lista.filter(function(p){return tem(p.reu);}).reduce(function(s,p){return s+val(p);},0), vA=lista.filter(function(p){return tem(p.autor);}).reduce(function(s,p){return s+val(p);},0);\n" +
   "        return kC('Passivo em disputas',_faFT(vP),'cliente como réu','cr','')+kC('Ativo em disputas',_faFT(vA),'cliente como autor','cg',''); })()", 1);
+// Backup 27: Processos sem "Ticket médio" e "Sem valor"; tabelas Grupo/Tribunal/Natureza sem o título em cima (a 1ª coluna já diz);
+// a lista já abre ordenada por Competência
+trocar("   +  kC('Ticket médio',_faFT(comValor.length?totalV/comValor.length:0),'por processo com valor','cx','')\n   +  kC('Sem valor',lista.length-comValor.length,'processos sem valor da causa',\n        (lista.length-comValor.length)?'ca':'cg',(lista.length-comValor.length)?'da':'')\n", "", 1);
+trocar("    return '<div><div class=\"pa-sub\">'+rotulo+'</div><div class=\"tw\"><table><thead><tr><th>'+rotulo+'</th>'", "    return '<div><div class=\"tw\"><table><thead><tr><th>'+rotulo+'</th>'", 1);
+trocar("let _procPg=1,_procSort={col:9,asc:false};", "let _procPg=1,_procSort={col:3,asc:true};", 1);
+// Backup 27: Financeiro Contabilidade — Análise única (sem os cartões Recebimentos/Pagamentos), ver remendos/contab-b27.js
+trocar("function _fcPintarCorpo(){", "function _fcPintarCorpoAntigo(){", 1);
+trocar("function _fcTabelaPessoas(pessoas){", fs.readFileSync(path.join(__dirname, 'remendos', 'contab-b27.js'), 'utf8') + "function _fcTabelaPessoas(pessoas){", 1);
+trocar("  + '<div style=\"display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;align-items:center\" id=\"fcLadoBar\">'\n  +   '<button class=\"fin-tab '+(_FC.lado==='receber'?'active':'')+'\" onclick=\"fcSetLado(\\'receber\\',this)\">📥 Recebimentos</button>'\n  +   '<button class=\"fin-tab '+(_FC.lado==='pagar'?'active':'')+'\" onclick=\"fcSetLado(\\'pagar\\',this)\">📤 Pagamentos</button>'\n  + '</div>'\n", "", 1);
 // Painel Executivo (Backup 14): valor inteiro no lugar de "R$ 1,2 mi" + legenda; Processos e Indicadores em preto
 trocar("    kC('Passivo Tributário Total',fS(total),fF(total),'cb','db',total)+\n    kC('RFB',fS(rfb),fF(rfb),'cb','db',rfb)+\n    kC('PGFN',fS(pgfn),fF(pgfn),'cb','db',pgfn)+\n    kC('AGE/MG',fS(age),fF(age),'cb','db',age);",
   "    kC('Passivo Tributário Total',fF(total),'RFB + PGFN + AGE/MG','cb','db',total)+\n    kC('RFB',fF(rfb),'Receita Federal','cb','db',rfb)+\n    kC('PGFN',fF(pgfn),'Procuradoria da Fazenda','cb','db',pgfn)+\n    kC('AGE/MG',fF(age),'Advocacia-Geral do Estado','cb','db',age);", 1);
@@ -568,10 +577,10 @@ let graf = ler('graficos.js').replace("document.addEventListener('DOMContentLoad
 const bundle = "'use strict';\n// GERADO por sistema/ferramentas/montar-erp.js — não edite; edite os arquivos do Gestão.\n(function () {\n" +
   "const _raiz = document.createElement('div'); _raiz.id = 'gs-raiz'; _raiz.className = 'gs';\n" +
   "_raiz.innerHTML = '<div id=\"janelas\"></div><div id=\"aviso\"></div>'; document.body.appendChild(_raiz);\n" +
-  [nuc, graf, ler('telas-painel.js'), ler('telas-financeiro.js'), ler('telas-cadastros.js'), ler('telas-admin.js'), ler('telas-tarefas.js'), ler('telas-documentos.js'), ler('telas-cliente360.js'), ler('telas-crm.js'), ler('telas-publicacoes.js'), ler('telas-acordos.js'), ler('telas-alertas.js'), ler('telas-automacoes.js'), ler('telas-aprovacoes.js'), ler('telas-ofx.js'), ler('telas-emails.js')].join('\n') +
+  [nuc, graf, ler('telas-painel.js'), ler('telas-financeiro.js'), ler('telas-cadastros.js'), ler('telas-admin.js'), ler('telas-tarefas.js'), ler('telas-documentos.js'), ler('telas-cliente360.js'), ler('telas-crm.js'), ler('telas-publicacoes.js'), ler('telas-acordos.js'), ler('telas-alertas.js'), ler('telas-automacoes.js'), ler('telas-aprovacoes.js'), ler('telas-ofx.js'), ler('telas-emails.js'), ler('telas-guias.js')].join('\n') +
   "\n// toda gravação confirmada aparece também no rodapé do ERP\nconst _avisoOrig = aviso;\n" +
   "aviso = function (msg, erro) { _avisoOrig(msg, erro); if (!erro && window.ERP_EDITOR && /^✓/.test(msg)) window.ERP_EDITOR.gravou(String(msg).replace(/^✓\\s*/, '')); };\n" +
-  "window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, invalidarCadastros, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo, perguntarBaixa, detalheContrato, ICONE_AVISO, conciliarOfx, abrirTarefa, detalheLancamento, edicaoLancamentos, janelaModelosEmail, janelaAutoEmails, janelaGeradores, formReuniao, janelaDelegar, abrirGeradorContrato };\n})();\n";
+  "window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, invalidarCadastros, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo, perguntarBaixa, detalheContrato, ICONE_AVISO, conciliarOfx, abrirTarefa, detalheLancamento, edicaoLancamentos, janelaModelosEmail, janelaAutoEmails, janelaGeradores, formReuniao, janelaDelegar, abrirGeradorContrato, cardGuias, emitirParcela };\n})();\n";
 fs.writeFileSync(path.join(APP, 'gestao-embutida.js'), bundle);
 
 // CSS do Gestão só dentro de .gs (as telas do Gestão) e #gs-hd (barra superior)
