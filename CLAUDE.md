@@ -59,7 +59,7 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Precisam de: PostgreSQL 16 na porta **54329**, PostgREST na **3001** (`testes/postgrest.conf`) e
   `node servidor-local.js` (porta **8090**; simula Supabase, Edge Functions, DJEN e BrasilAPI).
 - `NODE_PATH` com `playwright` e `exceljs`. Rodar tudo: `sh sistema/testes/rodar-tudo.sh`
-  (permissoes.sql, importador, e-mails, telas.js [Gestão], erp.js [ERP com cliques reais], visual.js).
+  (permissoes.sql, fluxo.sql [fluxo cliente → financeiro], importador, e-mails, telas.js [Gestão], erp.js [ERP com cliques reais], visual.js).
 - O `servidor-local.js` guarda as funções carregadas em memória: reinicie-o depois de mudar uma Edge Function.
 - `FOTOS=/pasta node erp.js` salva prints das telas para conferência visual.
 
@@ -83,16 +83,31 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
-- Última entrega: **Backup 25**. SQL: `parcelamentos.emitimos_guia` (padrão true; false = o cliente emite; o aviso de guias do Início só
+- Última entrega: **Backup 26** (SQL + funções erp-emails, erp-cnpj, erp-agenda). Fluxo cliente → financeiro:
+  contrato `status='Aguardando assinatura'` (não lança nada; `lancar_parcelas_contrato`, `gerar_mensalidades` pula) → `contrato_assinar(id)` ou lead em
+  etapa final 'ganho' (`crm_assina_contrato`) → gatilho `contrato_assinado` (parcelas/mensalidades, onboarding via `onboarding_pendente`, notificação,
+  CRM, interação, boas-vindas `email_bv` se a regra `email_boas_vindas` — desligada — estiver ligada). `crm_ganhar` cria o contrato aguardando.
+  Gerador: `abrirGeradorContrato(cli, ctr)` → `ponte.js` lê `?contrato=` e chama `G.preencherContrato` (montar-geradores.js); minuta HTML não conclui
+  a tarefa `anexo:`. Contatos: setores geral|financeiro|fiscal|rh|socio|juridico|contador, `contatos.recebe text[]` (cobranca|recibo|guia|acordo|contrato|convite,
+  sincroniza `recebe_boletos/notificacoes`), `configuracoes.emails_destino` (tipo→setor), `contato_do_cliente(cli,grp,tipo)` devolve email (vários = vírgula),
+  nome, setor, origem (marcado|setor|geral|cadastro); `emails_pendentes` usa finalidade = tipo (cobranca/guia/acordo); perfil `nada`; `emails_controle()` +
+  `contato_recebe()` (Central → "Quem recebe o quê", `controleEmails`/`janelaControleCliente` em telas-emails.js). Avisos de atraso em sequência.
+  Cadastro: seções, `ORIGENS_CLIENTE`, `clientes.indicado_por`, `clientes_mesmo_documento()`, e-mail do cadastro → contato Geral (`origem_cadastro`),
+  sócios do cartão CNPJ (`cnpj_dados.socios` → `vinculos_societarios`). Reunião: tabela `reunioes` (tarefa `reuniao:<id>:<nome>` por participante,
+  `crm_atividades`, etapa "Diagnóstico agendado", convite `email_cv` com anexo `{tipo:'ics'}` só se `convite`), `formReuniao`/`htmlReunioes` (telas-crm.js),
+  erp-agenda inclui reuniões. Linha do tempo com categorias (telas-cliente360.js). Delegar: `modelos_fluxo.sequencial` ("Lead completo"),
+  `delegar_sequencia`, status `aguardando` → `tarefa_libera_proxima`, `tarefa_validar(id, aprovar, comentário)`, `minhas_validacoes()` → `cardValidacoes`
+  (#ini-valid no Início), `janelaDelegar`/`janelaDevolver` (telas-tarefas.js); `depende_de` trava no banco. Teste novo `testes/fluxo.sql` (no rodar-tudo).
+  Lista para aprovar: `sistema/SIMPLIFICACAO-SUGESTOES.md` (nada removido).
+- Backup 25 (base). SQL: `parcelamentos.emitimos_guia` (padrão true; false = o cliente emite; o aviso de guias do Início só
   conta os true). **Lista por grupo única** para Parcelamentos e Acordos: `remendos/lista-grupos-b25.js` (`_lgRender`, `_lgProx` = soma das
   parcelas do mês da próxima, `_lgSit` = "N em atraso" + risco quando o item tem ≥2), injetado antes do remendo de acordos. Parcelamentos:
   itens montados em `renderParcAnalise`, filtro `_parcF.guia`, janela `_parcAbrir` com "Guias deste parcelamento" (`window.SB` update).
   Acordos: `_acVisao`, `_acGrpAbertos`, `_acAbrir(k)` (janela `.pcd`), atraso inclui o dia. CSS `.lg-*` no fim do design.css; `#alertParc`,
   `#alertAcordos` e `.pa-nota` escondidos; Início com 5 tamanhos (teste em padrao.js).
-- Backup 24 (sem SQL). Início: o destaque `guias` voltou para a faixa de `cardMural` (lista `.ini-guias` com `data-guia-ok`),
+- Backup 24 (base, sem SQL). Início: o destaque `guias` voltou para a faixa de `cardMural` (lista `.ini-guias` com `data-guia-ok`),
   o cartão de Lembretes ficou só com lembretes. Painel: `.res-graficos` (cResGrupos/cResDonut) escondido (ids mantidos para o JS do ERP).
-  Próximo passo: chat "ERP Automação" com o prompt `sistema/PROMPT-AUTOMACAO.md` (cadastro robusto com contatos por setor, fluxo
-  Lead→Reunião→Contrato→Assinatura→Financeiro→E-mails, delegar e validar, simplificar).
+  (O prompt `sistema/PROMPT-AUTOMACAO.md` foi executado no Backup 26.)
 - Backup 23 (base). SQL: `excluir_usuario(p_perfil)` (admin; não a si mesmo nem o último admin; apaga auth.users → perfis em
   cascata). Início: `cardMural` = só a faixa de destaques; `cardLembretes` (cartão próprio, `#ini-lembretes`: guias, lembretes ≤7 dias/sem prazo/
   fixos e "Mais adiante"), `detalheLembrete`, `botoesLembrete` (`.lemb-fixo.on`); `dadosLembretes` devolve vis/futuros/todos. Selo da pessoa:
@@ -167,4 +182,4 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Aguardando o usuário: criar as 4 contas (Administração → Usuários → Acessos combinados); contratar a API "Consulta Dívida Ativa"
   do SERPRO e salvar a chave em Alertas → PGFN; Integra Contador depois; boletos: não por enquanto; Financeiro: 9 sugestões aguardando
   escolha (não executar sem autorização).
-- Próxima rodada sugerida: aprovar a Central de e-mails (depois apagar a tela antiga), tirar "Progresso por acordo" após aprovação.
+- Próxima rodada sugerida: o usuário responder a `SIMPLIFICACAO-SUGESTOES.md` (números aprovados) e executar; tirar "Progresso por acordo" após aprovação.

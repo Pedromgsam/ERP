@@ -325,7 +325,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.click('#fc-abas [data-aba=contatos]'); await p.waitForSelector('[data-novo-sub]'); await p.click('[data-novo-sub]');
     await p.waitForSelector('#f-sub'); await p.waitForTimeout(250);
     await p.fill('#f-sub [name=nome]', 'Fernanda Financeiro'); await p.selectOption('#f-sub [name=finalidade]', 'financeiro');
-    await p.fill('#f-sub [name=email]', 'fin@teste.com'); await p.check('#f-sub [name=recebe_boletos]');
+    await p.fill('#f-sub [name=email]', 'fin@teste.com'); await p.check('#f-sub [name=recebe][value=cobranca]');
     await p.click('#btn-salvar-sub'); await p.waitForTimeout(1500);
     ok('ficha: cadastra contato financeiro que recebe boletos', sql("select finalidade||'|'||recebe_boletos from contatos") === 'financeiro|true' && /Fernanda Financeiro/.test(await p.textContent('#fc-corpo')));
     for (const aba of ['enderecos', 'contas', 'socios', 'processos', 'contratos', 'financeiro', 'tarefas', 'fiscal']) {
@@ -516,15 +516,20 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.keyboard.press('Escape'); await p.waitForTimeout(300);
     await p.click('#op-ganhou'); await p.waitForSelector('#f-gan'); await p.waitForTimeout(300);
     await p.selectOption('#f-gan [name=modalidade]', 'pontual'); await p.fill('#f-gan [name=num_parcelas]', '2'); await p.click('#btn-ganhar'); await p.waitForTimeout(2500);
-    ok('Contrato fechado: cria cliente (com os dados do prospecto), contrato com 2 parcelas, onboarding e a tarefa "Enviar contrato para assinatura"', sql("select count(*) from clientes where nome='Empresa Prospect Ltda' and email='carla@prospect.com'") === '1' &&
-      sql("select count(*) from lancamentos l join contratos c on c.id=l.contrato_id join clientes cl on cl.id=c.cliente_id where cl.nome='Empresa Prospect Ltda'") === '2' &&
-      sql("select count(*) from fluxos where nome like 'Onboarding — Empresa Prospect%'") === '1' && sql("select status from crm_propostas") === 'aceita' &&
+    ok('Contrato fechado: cria cliente (com os dados do prospecto), contrato AGUARDANDO ASSINATURA (sem parcelas nem onboarding) e a tarefa "Enviar contrato para assinatura"', sql("select count(*) from clientes where nome='Empresa Prospect Ltda' and email='carla@prospect.com'") === '1' &&
+      sql("select c.status from contratos c join clientes cl on cl.id=c.cliente_id where cl.nome='Empresa Prospect Ltda'") === 'Aguardando assinatura' &&
+      sql("select count(*) from lancamentos l join contratos c on c.id=l.contrato_id join clientes cl on cl.id=c.cliente_id where cl.nome='Empresa Prospect Ltda'") === '0' &&
+      sql("select count(*) from fluxos where nome like 'Onboarding — Empresa Prospect%'") === '0' && sql("select status from crm_propostas") === 'aceita' &&
+      sql("select count(*) from contatos c join clientes cl on cl.id=c.cliente_id where cl.nome='Empresa Prospect Ltda' and c.email='carla@prospect.com'") === '1' &&
       sql("select count(*) from tarefas where titulo like 'Enviar contrato para assinatura%'") === '1' &&
       sql("select e.nome from crm_oportunidades o join crm_etapas e on e.id=o.etapa_id where o.titulo like 'Planejamento tributário%'") === 'Contrato fechado');
     await p.keyboard.press('Escape'); await p.waitForTimeout(300);
     await p.click('#panel-crm .cr-card:has-text("Planejamento tributário")'); await p.waitForSelector('#op-assinado'); await p.click('#op-assinado'); await p.waitForTimeout(1500);
     ok('Contrato assinado: sai do painel e marca a data', sql("select e.final||'|'||(o.assinado_em is not null) from crm_oportunidades o join crm_etapas e on e.id=o.etapa_id where o.titulo like 'Planejamento tributário%'") === 'ganho|true' &&
       !(await p.$('#panel-crm .cr-card:has-text("Planejamento tributário")')));
+    ok('Contrato assinado: lança as 2 parcelas, cria o onboarding e avisa a equipe', sql("select count(*) from lancamentos l join contratos c on c.id=l.contrato_id join clientes cl on cl.id=c.cliente_id where cl.nome='Empresa Prospect Ltda'") === '2' &&
+      sql("select c.status from contratos c join clientes cl on cl.id=c.cliente_id where cl.nome='Empresa Prospect Ltda'") === 'Ativo' &&
+      sql("select count(*) from fluxos where nome like 'Onboarding — Empresa Prospect%'") === '1' && Number(sql("select count(*) from notificacoes where titulo like 'Contrato assinado:%Empresa Prospect%'")) >= 1);
     await p.click('#cr-vista [data-v=painel]'); await p.waitForTimeout(800);
     ok('painel do CRM: fechados no mês, valor por área e quem mais indica', /Fechados no mês/.test(await p.textContent('#cr-corpo')) && /R\$\s12\.000,00/.test(await p.textContent('#cr-corpo')) &&
       /Quem mais indica/.test(await p.textContent('#cr-corpo')) && /Novas no mês/.test(await p.textContent('#cr-corpo')));
@@ -708,7 +713,8 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
 
     // ── automações encadeadas (Central de automações) ──
     await nav(p, 'automacoes'); await p.waitForSelector('#panel-automacoes [data-au-lig]'); await p.waitForTimeout(400);
-    ok('e-mails ao cliente já vêm ligados (só saem para quem tem e-mail)', sql("select bool_and(ligada) from regras_tarefas where grupo='cliente_email'") === 't');
+    ok('e-mails ao cliente já vêm ligados (só saem para quem tem e-mail); boas-vindas vem desligado', sql("select bool_and(ligada) from regras_tarefas where grupo='cliente_email' and chave<>'email_boas_vindas'") === 't' &&
+      sql("select ligada from regras_tarefas where chave='email_boas_vindas'") === 'f');
     await p.click('#panel-automacoes [data-au="email_lembrete_honorario"] .au-chave'); await p.waitForTimeout(900);
     const desl = sql("select ligada from regras_tarefas where chave='email_lembrete_honorario'");
     await p.click('#panel-automacoes [data-au="email_lembrete_honorario"] .au-chave'); await p.waitForTimeout(900);
@@ -1151,6 +1157,63 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       ok('PGFN (dados abertos): lê o arquivo, separa só os clientes e atualiza PGFN / negociada', sql("select pgfn||'|'||pgfn_negociada from clientes where nome='Alfa Comércio Ltda'") === '15000.50|2000.00' &&
         sql("select count(*) from pgfn_inscricoes where fonte='dados_abertos'") === '2', await p.textContent('#pa-prog'));
       await p.keyboard.press('Escape'); }
+
+    // ── Backup 26: fluxo cliente → financeiro (cliques reais) ──
+    { // contrato novo "aguardando assinatura": não lança nada; "✓ Marcar como assinado" lança as parcelas
+      await nav(p, 'contratos'); await p.waitForTimeout(900);
+      await p.click('#panel-contratos button:has-text("Novo contrato")'); await p.waitForSelector('#gs-raiz #f-ctr'); await p.waitForTimeout(300);
+      await p.selectOption('#gs-raiz [name=cliente_id]', { label: 'Beta Serviços Ltda · Grupo Beta' });
+      await p.click('#gs-raiz #ctr-mod [data-v=pontual]'); await p.fill('#gs-raiz [name=descricao]', 'Contrato B25 aguardando');
+      await p.fill('#gs-raiz [name=valor_total]', '3.000,00'); await p.fill('#gs-raiz [name=num_parcelas]', '3');
+      await p.click('#gs-raiz #ctr-assin [data-v="Aguardando assinatura"]'); await salvarGs(p, '#btn-salvar-ctr'); await p.waitForTimeout(800);
+      ok('Contrato novo "aguardando assinatura" não lança o financeiro', sql("select status from contratos where descricao='Contrato B25 aguardando'") === 'Aguardando assinatura' &&
+        sql("select count(*) from lancamentos l join contratos c on c.id=l.contrato_id where c.descricao='Contrato B25 aguardando'") === '0');
+      const idC = sql("select id from contratos where descricao='Contrato B25 aguardando'");
+      await p.evaluate((id) => GS.detalheContrato(id), idC); await p.waitForSelector('#gs-raiz #ctr-assinar'); await p.waitForTimeout(300);
+      ok('ficha do contrato mostra "Aguardando a assinatura" com 📄 Gerar contrato', /Aguardando a assinatura/.test(await p.textContent('#gs-raiz #ctr-assinatura')) && !!(await p.$('#gs-raiz #ctr-gerar')));
+      await p.click('#gs-raiz #ctr-assinar'); await p.waitForTimeout(2000);
+      ok('"✓ Marcar como assinado" lança as 3 parcelas e ativa o contrato', sql("select status||'|'||(assinado_em is not null) from contratos where id='" + idC + "'") === 'Ativo|true' &&
+        sql("select count(*) from lancamentos where contrato_id='" + idC + "'") === '3');
+      await p.keyboard.press('Escape'); await p.waitForTimeout(200); await p.keyboard.press('Escape'); await p.waitForTimeout(200); }
+    { // reunião a partir do lead: tarefa para cada participante e convite (marcado) com o arquivo da agenda
+      sql("insert into crm_oportunidades(titulo, prospecto_nome, prospecto_email, responsavel, etapa_id) select 'Lead B25 reunião', 'Rui Lead', 'rui@lead.teste', 'Pedro', id from crm_etapas where ordem=1");
+      const idO = sql("select id from crm_oportunidades where titulo='Lead B25 reunião'");
+      await p.evaluate((id) => GS.formReuniao({ oportunidade_id: id }), idO); await p.waitForSelector('#gs-raiz #f-reu'); await p.waitForTimeout(300);
+      await p.fill('#gs-raiz #f-reu [name=local]', 'https://meet.teste/b25');
+      await p.click('#gs-raiz #reu-convite [data-v=sim]'); await p.click('#gs-raiz #reu-salvar'); await p.waitForTimeout(1800);
+      ok('reunião do lead: tarefa do participante, lead em "Diagnóstico agendado" e convite com .ics na fila', sql("select count(*) from reunioes where oportunidade_id='" + idO + "'") === '1' &&
+        Number(sql("select count(*) from tarefas where chave_regra like 'reuniao:%'")) >= 1 &&
+        sql("select e.nome from crm_oportunidades o join crm_etapas e on e.id=o.etapa_id where o.id='" + idO + "'") === 'Diagnóstico agendado' &&
+        sql("select count(*) from email_fila where para='rui@lead.teste' and anexo->>'tipo'='ics'") === '1'); }
+    { // Central de e-mails: quem recebe o quê, por cliente (destino, responsável, contatos por tipo)
+      await nav(p, 'emails'); await p.waitForSelector('#em-area'); await p.waitForTimeout(600);
+      await p.click('#em-area [data-area=clientes]'); await p.waitForSelector('.emc-tab'); await p.waitForTimeout(400);
+      ok('Central: controle por cliente mostra destino de cada tipo de e-mail', /Cobranças/.test(await p.textContent('.emc-tab thead')) && /Guias/.test(await p.textContent('.emc-tab thead')) &&
+        /financeiro@alfa\.teste|fin@teste\.com/.test(await p.textContent('.emc-tab')));
+      const idA = sql("select id from clientes where nome='Alfa Comércio Ltda'");
+      await p.click('.emc-tab tr[data-emc="' + idA + '"] td:nth-child(2)'); await p.waitForSelector('#gs-raiz .emc-det'); await p.waitForTimeout(500);
+      const idCt = sql("select id from contatos where cliente_id='" + idA + "' and email<>'' order by criado_em limit 1");
+      await p.click('#gs-raiz [data-emc-ct="' + idCt + '"][data-k=guia]'); await p.waitForTimeout(1200);
+      ok('Central: marcar o contato que recebe guias (vale na hora)', /guia/.test(sql("select recebe::text from contatos where id='" + idCt + "'")));
+      await p.keyboard.press('Escape'); await p.waitForTimeout(300); }
+    { // delegar a sequência e validar no Início
+      await nav(p, 'tarefas'); await p.waitForTimeout(900);
+      await p.click('#tf-delegar'); await p.waitForSelector('#gs-raiz #f-deleg'); await p.waitForTimeout(300);
+      await p.selectOption('#gs-raiz #f-deleg [name=pessoa]', { label: 'Adriana' }); await p.click('#gs-raiz #deleg-ok'); await p.waitForTimeout(1500);
+      ok('Delegar: 4 passos para a pessoa, só o 1º começa', sql("select count(*) from tarefas t join fluxos f on f.id=t.fluxo_id where f.nome like 'Lead completo%'") === '4' &&
+        sql("select count(*) from tarefas t join fluxos f on f.id=t.fluxo_id where f.nome like 'Lead completo%' and t.status='aguardando'") === '3');
+      sql("update tarefas t set status='concluida' from fluxos f where f.id=t.fluxo_id and f.nome like 'Lead completo%' and t.ordem=1");
+      sql("update tarefas t set status='concluida' from fluxos f where f.id=t.fluxo_id and f.nome like 'Lead completo%' and t.ordem=2");
+      sql("update tarefas t set status='concluida' from fluxos f where f.id=t.fluxo_id and f.nome like 'Lead completo%' and t.ordem=3");
+      await nav(p, 'hoje'); await p.waitForSelector('#ini-valid .ini-valid'); await p.waitForTimeout(400);
+      ok('Início: "Aguardando minha validação" mostra o contrato preparado', /Preparar o contrato/.test(await p.textContent('#ini-valid')));
+      await p.click('#ini-valid [data-val-dev]'); await p.waitForSelector('#gs-raiz [name=coment]');
+      await p.fill('#gs-raiz [name=coment]', 'Faltou a cláusula de êxito (teste)'); await p.click('#gs-raiz #tf-dev-ok'); await p.waitForTimeout(1200);
+      ok('Devolver com comentário: volta para a pessoa, com o comentário', sql("select t.status from tarefas t join fluxos f on f.id=t.fluxo_id where f.nome like 'Lead completo%' and t.ordem=3") === 'andamento' &&
+        sql("select count(*) from comentarios where texto like '↩ Devolvido: Faltou a cláusula%'") === '1');
+      sql("update tarefas t set status='concluida' from fluxos f where f.id=t.fluxo_id and f.nome like 'Lead completo%' and t.ordem=3");
+      await nav(p, 'hoje'); await p.waitForSelector('#ini-valid [data-val-ok]'); await p.click('#ini-valid [data-val-ok]'); await p.waitForTimeout(1500);
+      ok('Aprovar libera o próximo passo (enviar o contrato)', sql("select t.status from tarefas t join fluxos f on f.id=t.fluxo_id where f.nome like 'Lead completo%' and t.ordem=4") === 'pendente'); }
 
     // ── sair ──
     await p.evaluate(() => acLogout()); await p.waitForTimeout(800);

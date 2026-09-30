@@ -173,23 +173,37 @@ async function formCliente(cl, depois) {
     titulo: novo ? 'Novo cliente' : cl.nome, larga: true,
     corpo:
       '<form id="f-cli" class="grade g3">' + resumo +
-      secao('📋 Cadastro') +
+      secao('📋 Identificação') +
       campo('Nome / Razão social <span class="obrig">*</span>', '<input name="nome" required maxlength="200" value="' + esc(cl.nome || '') + '">', 'dois') +
-      campo('CPF/CNPJ', '<input name="cpf_cnpj" inputmode="numeric" maxlength="18" value="' + esc(mascaraDoc(cl.cpf_cnpj)) + '">') +
+      campo('CPF/CNPJ', '<input name="cpf_cnpj" inputmode="numeric" maxlength="18" value="' + esc(mascaraDoc(cl.cpf_cnpj)) + '"><div class="sub" id="cli-doc-aviso"></div>') +
+      campo('Tipo societário', selectOpcoes('tipo_societario', ['LTDA', 'S.A', 'MEI', 'EI', 'PF'], cl.tipo_societario)) +
+      campo('Sócio-administrador', '<input name="socio_admin" value="' + esc(cl.socio_admin || '') + '">', 'dois') +
+      (novo ? '<div class="dica inteiro">Com CNPJ, ao salvar o sistema consulta a Receita e preenche razão social, endereço, situação e os <b>sócios</b>. Os contatos por setor (financeiro, fiscal, RH…) ficam na ficha → <b>Contatos</b>.</div>' : '') +
+      secao('🗂 Classificação') +
       campo('Grupo', '<input name="grupo" list="cli-grupos" placeholder="Digite ou escolha" value="' + esc(cl.grupos ? cl.grupos.nome : nomeGrupo(cl.grupo_id)) + '">' + datalistGrupos('cli-grupos')) +
       campo('Tipo', '<select name="tipo">' + [['Consultoria', 'Consultoria'], ['Demanda', 'Serviço pontual'], ['Inativo', 'Inativo']].map(([t, r]) => '<option value="' + t + '"' + (cl.tipo === t ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>') +
       campo('Área do cliente', '<select name="area">' + AREAS.filter(([v]) => minhasAreas() === 'ambos' || v === minhasAreas() || v === (cl.area || '')).map(([v, r]) =>
         '<option value="' + v + '"' + ((cl.area || (novo ? minhasAreas() : 'ambos')) === v ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>') +
       campo('Responsável', '<input name="responsavel" list="cli-pessoas" value="' + esc(cl.responsavel || '') + '">' + datalistPessoas('cli-pessoas')) +
-      campo('Sócio-administrador', '<input name="socio_admin" value="' + esc(cl.socio_admin || '') + '">', 'dois') +
-      campo('Tipo societário', selectOpcoes('tipo_societario', ['LTDA', 'S.A', 'MEI', 'EI', 'PF'], cl.tipo_societario)) +
+      campo('Origem', '<select name="origem">' + ['', ...ORIGENS_CLIENTE, ...(cl.origem && !ORIGENS_CLIENTE.includes(cl.origem) ? [cl.origem] : [])].map((o) =>
+        '<option value="' + esc(o) + '"' + ((cl.origem || '') === o ? ' selected' : '') + '>' + (o ? esc(o) : '—') + '</option>').join('') + '</select>') +
+      campo('Indicado por', '<input name="indicado_por" maxlength="200" placeholder="Quem indicou (quando a origem é Indicação)" value="' + esc(cl.indicado_por || '') + '">') +
+      campo('Regime tributário', selectOpcoes('regime_tributario', ['PF', 'SN', 'LP', 'LR', 'BAIXADA'], cl.regime_tributario)) +
+      secao('📞 Contato principal') +
+      campo('E-mail', '<input name="email" type="email" value="' + esc(cl.email || '') + '">') +
+      campo('Telefone / WhatsApp', '<input name="telefone" inputmode="tel" value="' + esc(cl.telefone || '') + '">') +
+      campo('E-mails automáticos', '<select name="perfil_email" title="Quais e-mails automáticos este cliente recebe">' + PERFIS_EMAIL.map(([v, r]) =>
+        '<option value="' + v + '"' + ((cl.perfil_email || 'padrao') === v ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>') +
+      secao('📍 Endereço') +
+      campo('Endereço', '<input name="endereco" value="' + esc(cl.endereco || '') + '">') +
+      campo('Cidade', '<input name="cidade" value="' + esc(cl.cidade || '') + '">') +
+      campo('UF', '<input name="estado" maxlength="2" style="text-transform:uppercase" value="' + esc(cl.estado || '') + '">') +
       secao('🏛 Situação') +
       campo('Em operação', selectSimNao('em_operacao', cl.em_operacao)) +
       campo('Procuração', selectSimNao('procuracao', cl.procuracao)) +
       campo('Certificado', selectSimNao('certificado', cl.certificado)) +
       campo('Cadastro regular', selectSimNao('cadastro_regular', cl.cadastro_regular)) +
       campo('CAPAG', selectOpcoes('capag', ['A', 'B', 'C', 'D', 'Omisso'], cl.capag)) +
-      campo('Regime tributário', selectOpcoes('regime_tributario', ['PF', 'SN', 'LP', 'LR', 'BAIXADA'], cl.regime_tributario)) +
       campo('Situação cadastral', selectOpcoes('situacao_cadastral', ['ATIVA', 'SUSPENSA', 'INAPTA', 'BAIXADA', 'NULA'], cl.situacao_cadastral)) +
       secao('💰 Passivo tributário') +
       campoValor('RFB', 'rfb', cl.rfb) + campoValor('RFB negociada', 'rfb_negociada', cl.rfb_negociada) +
@@ -197,15 +211,7 @@ async function formCliente(cl, depois) {
       campoValor('AGE/MG', 'age_mg', cl.age_mg) + campoValor('AGE/MG negociada', 'age_mg_negociada', cl.age_mg_negociada) +
       campoValor('SEFAZ/MG', 'sefaz_mg', cl.sefaz_mg) +
       campo('CEAT (TRT-3) — processos', '<input name="ceat_trt3" type="number" min="0" value="' + esc(cl.ceat_trt3 == null ? '' : cl.ceat_trt3) + '">') +
-      secao('📞 Contato') +
-      campo('E-mail', '<input name="email" type="email" value="' + esc(cl.email || '') + '">') +
-      campo('Telefone / WhatsApp', '<input name="telefone" inputmode="tel" value="' + esc(cl.telefone || '') + '">') +
-      campo('E-mails de cobrança', '<select name="perfil_email" title="Quais e-mails automáticos de honorários este cliente recebe">' + PERFIS_EMAIL.map(([v, r]) =>
-        '<option value="' + v + '"' + ((cl.perfil_email || 'padrao') === v ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>') +
-      campo('Endereço', '<input name="endereco" value="' + esc(cl.endereco || '') + '">') +
-      campo('Cidade', '<input name="cidade" value="' + esc(cl.cidade || '') + '">') +
-      campo('UF', '<input name="estado" maxlength="2" style="text-transform:uppercase" value="' + esc(cl.estado || '') + '">') +
-      campo('Origem', '<input name="origem" value="' + esc(cl.origem || '') + '">') +
+      secao('📝 Observações') +
       campo('Observação interna', '<textarea name="obs" maxlength="4000">' + esc(cl.obs || '') + '</textarea>', 'inteiro') +
       (cl.historico_cadastral ? campo('Histórico cadastral', '<textarea name="historico_cadastral" maxlength="4000">' + esc(cl.historico_cadastral) + '</textarea>', 'inteiro') : '') +
       '</form>',
@@ -216,7 +222,15 @@ async function formCliente(cl, depois) {
       '<button class="btn btn-p" id="btn-salvar-cli" type="button">Salvar</button></div>'
   });
   const f = j.querySelector('#f-cli');
-  f.cpf_cnpj.onblur = () => { f.cpf_cnpj.value = mascaraDoc(f.cpf_cnpj.value); };
+  // Backup 26: avisa na hora se o CPF/CNPJ já está cadastrado
+  let repetidos = [];
+  const conferirDoc = async () => {
+    const d = soDigitos(f.cpf_cnpj.value), el = j.querySelector('#cli-doc-aviso'); repetidos = [];
+    if (d.length < 11) { el.innerHTML = ''; return; }
+    repetidos = await q(sb.rpc('clientes_mesmo_documento', { p_doc: d, p_ignorar: cl.id || null })).catch(() => []);
+    el.innerHTML = repetidos.length ? '<span class="pill vencido">já cadastrado</span> ' + repetidos.map((x) => esc(x.nome) + (x.grupo ? ' (' + esc(x.grupo) + ')' : '')).join(', ') : '';
+  };
+  f.cpf_cnpj.onblur = () => { f.cpf_cnpj.value = mascaraDoc(f.cpf_cnpj.value); conferirDoc(); };
   j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
   const apos = async () => { await carregarCadastros(true); if (depois) depois(); else await recarregar(); };
   const bc = j.querySelector('#btn-ctr-cli');
@@ -224,6 +238,8 @@ async function formCliente(cl, depois) {
 
   j.querySelector('#btn-salvar-cli').onclick = (ev) => comBotao(ev.currentTarget, async () => {
     if (!f.nome.value.trim()) throw new Error('Preencha o nome.');
+    if (soDigitos(f.cpf_cnpj.value) !== soDigitos(cl.cpf_cnpj || '')) await conferirDoc();
+    if (repetidos.length && !confirm('Já existe cliente com este CPF/CNPJ: ' + repetidos.map((x) => x.nome).join(', ') + '.\n\nCadastrar mesmo assim?')) return;
     const num = (n) => { const t = f[n].value.trim(); if (!t) return null; const v = lerValor(t); if (isNaN(v)) throw new Error('Valor inválido em ' + n.toUpperCase().replace(/_/g, ' ') + '.'); return v; };
     const grupo_id = await grupoPorNome(f.grupo.value);
     const dados = {
@@ -236,7 +252,7 @@ async function formCliente(cl, depois) {
       age_mg: num('age_mg'), age_mg_negociada: num('age_mg_negociada'), sefaz_mg: num('sefaz_mg'),
       ceat_trt3: f.ceat_trt3.value === '' ? null : Number(f.ceat_trt3.value),
       email: f.email.value.trim(), telefone: f.telefone.value.trim(), endereco: f.endereco.value.trim(), perfil_email: f.perfil_email.value,
-      cidade: f.cidade.value.trim(), estado: f.estado.value.trim().toUpperCase(), origem: f.origem.value.trim(),
+      cidade: f.cidade.value.trim(), estado: f.estado.value.trim().toUpperCase(), origem: f.origem.value.trim(), indicado_por: f.indicado_por.value.trim(),
       obs: f.obs.value.trim()
     };
     if (f.historico_cadastral) dados.historico_cadastral = f.historico_cadastral.value.trim();
@@ -265,7 +281,7 @@ TELAS.contratos = async function () {
   $('conteudo').innerHTML =
     '<div class="titulo-pag"><div><h1>Contratos</h1><p>Consultoria mensal (fixo ou em salários mínimos) ou serviço pontual · os valores entram sozinhos em Honorários Jurídico</p></div>' +
     '<div class="acoes"><button class="btn btn-o" id="ctr-sm">Salário mínimo</button><button class="btn btn-p" data-novo="contrato">+ Novo contrato</button></div></div>' +
-    '<div class="filtros"><div class="segmento" id="ctr-status">' + [['Ativo', 'Ativos'], ['Encerrado', 'Encerrados'], ['Cancelado', 'Cancelados'], ['todos', 'Todos']]
+    '<div class="filtros"><div class="segmento" id="ctr-status">' + [['Ativo', 'Ativos'], ['Aguardando assinatura', 'Aguardando assinatura'], ['Encerrado', 'Encerrados'], ['Cancelado', 'Cancelados'], ['todos', 'Todos']]
       .map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<input class="busca" id="ctr-busca" placeholder="Buscar cliente ou descrição" autocomplete="off"></div><div id="ctr-corpo"></div>';
   $('ctr-status').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.status = b.dataset.v; pintarContratos(true); } };
@@ -309,7 +325,7 @@ async function pintarContratos(buscar) {
         '<td class="num mono valor-rec" data-ord="' + recebido + '">' + brl(recebido) + '</td>' +
         '<td>' + parc.filter((p) => p.pago).length + '/' + parc.length + '</td>' +
         '<td>' + ((c.documentos || []).length ? '<span class="pill pago" title="Contrato anexado">📎 ' + c.documentos.length + '</span>' : '<span class="pill hoje" title="Anexe o contrato assinado no detalhe">sem anexo</span>') + '</td>' +
-        '<td>' + (atraso ? '<span class="pill vencido">Parcela em atraso</span>' : '<span class="pill ' + (c.status === 'Ativo' ? 'aberto' : 'neutro') + '">' + esc(c.status) + '</span>') + '</td></tr>';
+        '<td>' + (atraso ? '<span class="pill vencido">Parcela em atraso</span>' : '<span class="pill ' + (c.status === 'Ativo' ? 'aberto' : c.status === 'Aguardando assinatura' ? 'hoje' : 'neutro') + '">' + esc(c.status) + '</span>') + '</td></tr>';
     }).join('') + '</tbody></table></div>'
     : vazio('Nenhum contrato' + (F.status !== 'todos' ? ' com essa situação' : '') + ' — cadastre um contrato e o sistema gera os lançamentos.', '+ Novo contrato', '[data-novo=contrato]')) + '</div>';
   $('ctr-corpo').querySelectorAll('[data-ctr]').forEach((tr) => tr.onclick = () => detalheContrato(tr.dataset.ctr));
@@ -367,7 +383,10 @@ function formContrato(ct) {
           campo('1º vencimento', '<input name="primeiro_vencimento" type="date" value="' + somarDias(hojeISO(), 30) + '">') +
           '<div class="dica inteiro" id="ctr-previa">Informe o valor para ver as parcelas.</div>'
         : '<div class="dica inteiro">Valor e parcelas já foram lançados em Honorários Jurídico. Para ajustar uma parcela, use o botão Editar dela.</div>') + '</div>' +
-      (novo ? '' : campo('Situação', '<select name="status">' + ['Ativo', 'Encerrado', 'Cancelado'].map((st) => '<option' + (ct.status === st ? ' selected' : '') + '>' + st + '</option>').join('') + '</select>')) +
+      (novo ? '<div class="inteiro"><div class="segmento" id="ctr-assin">' + [['Ativo', '✓ Já está assinado (lança o financeiro agora)'], ['Aguardando assinatura', '⏳ Aguardando assinatura (lança só quando assinar)']]
+          .map(([v, r], i) => '<button type="button" data-v="' + v + '"' + (i === 0 ? ' class="ativo"' : '') + '>' + r + '</button>').join('') + '</div></div>'
+        : campo('Situação', '<select name="status">' + (ct.status === 'Aguardando assinatura' ? ['Aguardando assinatura', 'Ativo', 'Cancelado'] : ['Ativo', 'Encerrado', 'Cancelado'])
+          .map((st) => '<option value="' + st + '"' + (ct.status === st ? ' selected' : '') + '>' + (st === 'Ativo' && ct.status === 'Aguardando assinatura' ? 'Ativo (assinado: lança o financeiro)' : st) + '</option>').join('') + '</select>')) +
       campo('Observação', '<textarea name="obs" maxlength="2000">' + esc(ct.obs || '') + '</textarea>', 'inteiro') +
       '<div class="dica inteiro">Depois de salvar, anexe o contrato assinado no detalhe do contrato (Documentos do contrato).</div>' +
       '</form>',
@@ -386,7 +405,9 @@ function formContrato(ct) {
       if (novoCli) { sel.value = novoCli.id; sel.dispatchEvent(new Event('change')); aviso('✓ Cliente cadastrado e escolhido no contrato.'); }
     });
   };
-  let modalidade = mod, formaValor = forma, sm = [];
+  let modalidade = mod, formaValor = forma, sm = [], situacao = 'Ativo';
+  const segAssin = j.querySelector('#ctr-assin');
+  if (segAssin) segAssin.onclick = (ev) => { const b = ev.target.closest('button'); if (!b) return; situacao = b.dataset.v; segAssin.querySelectorAll('button').forEach((x) => x.classList.toggle('ativo', x === b)); };
   q(sb.from('salarios_minimos').select('*').order('ano', { ascending: false })).then((x) => { sm = x; previaRec(); }).catch(() => {});
   const previaRec = () => {
     const el = j.querySelector('#ctr-previa-rec'); if (!el) return;
@@ -452,9 +473,11 @@ function formContrato(ct) {
         if (v > 0 && !f.primeiro_vencimento.value) throw new Error('Informe o 1º vencimento.');
         Object.assign(dados, { valor_total: v, num_parcelas: n, primeiro_vencimento: v > 0 ? f.primeiro_vencimento.value : null });
       }
+      dados.status = situacao;
       const criado = await q(sb.from('contratos').insert(dados).select().single());
       if (modalidade === 'pontual' && dados.valor_total > 0 && cli) await q(sb.from('lancamentos').update({ grupo_id: cli.grupo_id, responsavel: cli.responsavel || '' }).eq('contrato_id', criado.id));
-      aviso(modalidade === 'consultoria' ? '✓ Contrato de consultoria criado: mensalidades lançadas em Honorários Jurídico.' :
+      if (situacao === 'Aguardando assinatura') aviso('✓ Contrato criado aguardando assinatura: o financeiro é lançado quando você marcar "✓ Assinado".');
+      else aviso(modalidade === 'consultoria' ? '✓ Contrato de consultoria criado: mensalidades lançadas em Honorários Jurídico.' :
         dados.valor_total > 0 ? '✓ Contrato criado e ' + dados.num_parcelas + ' parcela(s) lançada(s) em Honorários Jurídico.' : '✓ Contrato criado.');
     } else {
       dados.status = f.status.value;
@@ -536,6 +559,9 @@ async function _detalheContrato(id) {
   const j = abrirJanela({
     titulo: '📄 Ficha do contrato — ' + ct.descricao, larga: true,
     corpo:
+      (ct.status === 'Aguardando assinatura' ? '<div class="faixa-aprov tem" id="ctr-assinatura"><span class="faixa-ic" aria-hidden="true">⏳</span><div><b>Aguardando a assinatura do cliente</b>' +
+        '<div class="sub">O financeiro, o onboarding e o aviso à equipe acontecem quando você marcar como assinado. Anexe o PDF assinado em "Documentos do contrato", abaixo.</div></div>' +
+        '<div class="acoes"><button class="btn btn-o" type="button" id="ctr-gerar">📄 Gerar contrato</button><button class="btn btn-p" type="button" id="ctr-assinar">✓ Marcar como assinado</button></div></div>' : '') +
       '<div class="ctr-ficha">' + ficha.map(([r, v]) => '<div><span>' + r + '</span><b>' + (/^</.test(v) ? v : esc(v)) + '</b></div>').join('') + '</div>' +
       '<div class="ctr-barra" title="Recebido × previsto"><div style="width:' + pctRec + '%"></div></div><div class="sub" style="margin:-4px 0 12px">' + pctRec + '% do previsto já recebido</div>' +
       '<div class="kpis" style="margin-bottom:12px">' +
@@ -556,6 +582,14 @@ async function _detalheContrato(id) {
   });
   const reabrir = async () => { fecharJanela(j); await detalheContrato(id); };
   ligarAcoesLancamentos(j, reabrir);
+  const btAssinar = j.querySelector('#ctr-assinar');
+  if (btAssinar) btAssinar.onclick = () => comBotao(btAssinar, async () => {
+    if (!confirm('Marcar o contrato como assinado? O sistema lança o financeiro, cria o onboarding e avisa a equipe.')) return;
+    const r = await q(sb.rpc('contrato_assinar', { p_contrato: id, p_data: null }));
+    aviso('✓ Contrato assinado: ' + plural((r && r.lancamentos) || 0, 'lançamento', 'lançamentos') + ' no financeiro.'); await reabrir();
+  });
+  const btGerar = j.querySelector('#ctr-gerar');
+  if (btGerar) btGerar.onclick = () => abrirGeradorContrato(ct.cliente_id, id);
   blocoDocumentos(j.querySelector('#ctr-docs'), { contrato_id: id, cliente_id: ct.cliente_id, grupo_id: ct.clientes && ct.clientes.grupo_id, tipo: 'contrato' },
     { titulo: 'Documentos do contrato', vazio: 'Nenhum documento. Envie aqui o contrato assinado, a proposta e os aditivos.' }).catch((e) => console.error(e));
   j.querySelector('#btn-editar-ctr').onclick = () => formContrato(ct);

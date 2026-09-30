@@ -6,10 +6,10 @@
 // Modelos editáveis (Administração → E-mails) e o automático por tipo.
 // ═══════════════════════════════════════════════════════════════════
 const TIPOS_CENTRAL_EM = [['', 'Todos'], ['honorarios', 'Honorários'], ['parcelamentos', 'Parcelamentos'], ['acordos', 'Acordos'], ['recibos', 'Recibos']];
-const ROT_TIPO_EMAIL = { honorarios: 'Honorários', parcelamentos: 'Parcelamento', acordos: 'Acordo', recibos: 'Recibo', propostas: 'Proposta' };
+const ROT_TIPO_EMAIL = { honorarios: 'Honorários', parcelamentos: 'Parcelamento', acordos: 'Acordo', recibos: 'Recibo', propostas: 'Proposta', contratos: 'Boas-vindas', convites: 'Convite' };
 const SIT_EMAIL = [['hoje', 'A enviar hoje'], ['enviados', 'Enviados'], ['erro', 'Com erro'], ['retidos', 'Retidos (pausa)']];
 // Backup 19: tudo de e-mail num lugar só — cada área é uma aba da Central
-const AREAS_EMAIL = [['fila', '📬 Enviar e acompanhar'], ['clientes', '📨 Quem recebe (por cliente)'], ['config', '⚙ Configuração do envio', true], ['avisos', '🔔 Meus avisos por e-mail']];
+const AREAS_EMAIL = [['fila', '📬 Enviar e acompanhar'], ['clientes', '📨 Quem recebe o quê (por cliente)'], ['config', '⚙ Configuração do envio', true], ['avisos', '🔔 Meus avisos por e-mail']];
 
 TELAS.emails = async function () {
   E.em = Object.assign({ sit: 'hoje', tipo: '', busca: '', area: 'fila' }, E.em || {});
@@ -38,7 +38,7 @@ TELAS.emails = async function () {
 async function pintarAreaEmail() {
   const F = E.em, alvo = $('em-area-corpo'); if (!alvo) return;
   document.querySelectorAll('#em-area button').forEach((b) => b.classList.toggle('ativo', b.dataset.area === F.area));
-  if (F.area === 'clientes') { E.adm = E.adm || {}; return admClientesEmail(alvo); }
+  if (F.area === 'clientes') return controleEmails(alvo);
   if (F.area === 'config') { E.adm = E.adm || {}; return admEmail(alvo); }
   if (F.area === 'avisos') { alvo.innerHTML = '<div class="card"><div class="card-bd"><p class="sub" style="margin-bottom:10px">Avisos internos que <b>você</b> recebe por e-mail (resumo do dia, menções, tarefas…).</p>' +
       '<button class="btn btn-o" type="button" id="em-meus">🔔 Escolher meus avisos por e-mail</button></div></div>'; $('em-meus').onclick = () => janelaMeusAvisos(); return; }
@@ -97,18 +97,18 @@ function pintarEmails() {
     html += '<div class="card"><div class="card-hd">📬 A enviar hoje <span class="pill neutro">' + lista.length + '</span>' +
       (envia.length ? '<span style="margin-left:auto;display:flex;gap:6px"><label class="check" style="font-size:12.5px"><input type="checkbox" id="em-todos"> marcar todos</label>' +
         '<button class="btn btn-p btn-mini" id="em-enviar-sel">Enviar selecionados</button></span>' : '') + '</div>' +
-      (lista.length ? '<div class="tabela-wrap"><table><thead><tr><th class="sem-ordem"></th><th>Tipo</th><th>Cliente</th><th>Assunto</th><th>E-mail de destino</th><th class="num">Valor</th><th>Situação</th><th></th></tr></thead><tbody>' +
+      (lista.length ? '<div class="tabela-wrap"><table><thead><tr><th class="sem-ordem"></th><th>Tipo</th><th>Cliente</th><th>Quem</th><th>Assunto</th><th>E-mail de destino</th><th class="num">Valor</th><th>Situação</th><th></th></tr></thead><tbody>' +
         lista.map((x) => '<tr class="clicavel" data-em-ref="' + esc(x.ref) + '" title="Clique para ver a prévia"><td>' + (x.bloqueio ? '' : '<input type="checkbox" data-em-sel="' + esc(x.ref) + '" aria-label="Selecionar">') + '</td>' +
           '<td><span class="pill aberto">' + esc(ROT_TIPO_EMAIL[x.tipo] || x.tipo) + '</span></td><td><b>' + esc(x.cliente || '—') + '</b>' + (x.grupo && x.grupo !== x.cliente ? '<div class="sub">' + esc(x.grupo) + '</div>' : '') + '</td>' +
-          '<td>' + esc(x.assunto) + '</td><td>' + destinoEmail(x) + '</td>' +
+          '<td>' + pillPessoa(x.responsavel) + '</td><td>' + esc(x.assunto) + '</td><td>' + destinoEmail(x) + '</td>' +
           '<td class="num mono">' + (Number(x.total) ? brl(x.total) : '—') + '</td>' +
           '<td>' + (x.bloqueio ? '<span class="pill neutro" title="Não vai sair">' + esc(x.bloqueio) + '</span>' : '<span class="pill pago">' + (x.auto ? 'sai no horário' : 'pronto') + '</span>') + '</td>' +
           '<td class="acoes-l">' + (x.bloqueio ? '' : '<button class="btn btn-v btn-mini" data-em-agora="' + esc(x.ref) + '">Enviar agora</button> ') + '<button class="btn btn-o btn-mini" data-em-pular="' + esc(x.ref) + '">Pular este</button></td></tr>').join('') +
         '</tbody></table></div>' : vazio('Nada para enviar hoje. 👏')) + '</div>';
   } else {
-    html += '<div class="card">' + (lista.length ? '<div class="tabela-wrap"><table class="ordenavel"><thead><tr><th data-tipo="data">Quando</th><th>Tipo</th><th>Cliente</th><th>Assunto</th><th>E-mail de destino</th><th>Situação</th><th></th></tr></thead><tbody>' +
+    html += '<div class="card">' + (lista.length ? '<div class="tabela-wrap"><table class="ordenavel"><thead><tr><th data-tipo="data">Quando</th><th>Tipo</th><th>Cliente</th><th>Quem</th><th>Assunto</th><th>E-mail de destino</th><th>Situação</th><th></th></tr></thead><tbody>' +
       lista.map((x) => '<tr class="clicavel" data-em-ref="' + esc(x.ref || x.id) + '"><td class="mono" data-ord="' + esc(x.quando) + '">' + dataHoraBR(x.quando) + '</td>' +
-        '<td><span class="pill aberto">' + esc(ROT_TIPO_EMAIL[x.tipo] || x.tipo) + '</span>' + (x.anexo ? ' 📎' : '') + '</td><td>' + esc(x.cliente || '—') + '</td><td>' + esc(x.assunto) + '</td><td>' + esc(x.para) + '</td>' +
+        '<td><span class="pill aberto">' + esc(ROT_TIPO_EMAIL[x.tipo] || x.tipo) + '</span>' + (x.anexo ? ' 📎' : '') + '</td><td>' + esc(x.cliente || '—') + '</td><td>' + pillPessoa(x.responsavel || '') + '</td><td>' + esc(x.assunto) + '</td><td>' + esc(x.para) + '</td>' +
         '<td>' + (x.status === 'erro' ? '<span class="pill vencido" title="' + esc(x.erro) + '">erro</span><div class="sub">' + esc(String(x.erro || '').slice(0, 80)) + '</div>' : x.status === 'enviado' ? '<span class="pill pago">enviado</span>' : '<span class="pill hoje">na fila</span>') + '</td>' +
         '<td class="acoes-l">' + (x.status === 'erro' ? '<button class="btn btn-o btn-mini" data-em-de-novo="' + x.id + '">Tentar de novo</button>' : '') + '</td></tr>').join('') +
       '</tbody></table></div>' : vazio(F.sit === 'erro' ? 'Nenhum e-mail com erro. 👏' : 'Nenhum e-mail enviado nos últimos 120 dias.')) + '</div>';
@@ -132,10 +132,12 @@ function pintarEmails() {
   }));
 }
 // "E-mail de destino": o endereço e de qual contato ele veio (empresas podem ter vários e-mails)
-const ROT_FINALIDADE = { financeiro: 'contato financeiro', cobranca: 'contato financeiro', juridico: 'contato jurídico', contabil: 'contato contábil' };
+// Backup 26: de onde veio o destinatário — marcado para este tipo, contato do setor, contato geral ou e-mail do cadastro
+const ORIGEM_DESTINO = { marcado: 'marcado para receber', setor: 'contato do setor', geral: 'contato geral', cadastro: 'e-mail do cadastro' };
+const rotSetor = (k) => (SETORES_CONTATO.find((x) => x[0] === k) || [k, k || ''])[1];
 function destinoEmail(x) {
   if (!x.para) return '<span class="sub">— sem e-mail —</span><div class="sub">cadastre em Clientes → ficha → Contatos</div>';
-  const de = x.contato ? esc(x.contato) + ' · ' + esc(ROT_FINALIDADE[x.finalidade] || 'contato') : 'e-mail do cadastro';
+  const de = x.origem === 'cadastro' || (!x.contato && !x.setor) ? 'e-mail do cadastro' : [x.contato ? esc(x.contato) : '', x.setor ? esc(rotSetor(x.setor)) : '', esc(ORIGEM_DESTINO[x.origem] || '')].filter(Boolean).join(' · ');
   return '<span class="em-para">' + esc(x.para) + '</span><div class="sub" title="Quem recebe: o contato marcado com a finalidade deste e-mail (Clientes → ficha → Contatos)">' + de + '</div>';
 }
 async function previaEmail(ref) {
@@ -217,4 +219,133 @@ async function abaEmailsCliente(alvo, cl) {
         '<td>' + (x.status === 'erro' ? '<span class="pill vencido" title="' + esc(x.erro) + '">erro</span>' : x.status === 'enviado' ? '<span class="pill pago">entregue ao servidor</span>' : '<span class="pill hoje">na fila</span>') + '</td></tr>').join('') +
       '</tbody></table></div>' : vazio('Nenhum e-mail enviado a este cliente.'));
   alvo.querySelectorAll('[data-em-id]').forEach((tr) => tr.onclick = () => previaEmail(tr.dataset.emId).catch((e) => aviso(erroAmigavel(e), true)));
+}
+
+// ═══ Backup 26: CONTROLE POR CLIENTE — o que cada cliente recebe, para qual e-mail, quem é o responsável, modelo e histórico ═══
+const TIPOS_CONTROLE = [['cobranca', 'Cobranças', 'hon_lembrete', 'lembrete antes do vencimento, vence hoje e 1º/2º/3º aviso de atraso'],
+  ['guia', 'Guias', 'parc_guia', 'guia do parcelamento e parcelas em atraso'], ['acordo', 'Acordos', 'aco_lembrete', 'lembrete e atraso da parcela do acordo'],
+  ['recibo', 'Recibos', 'recibo', 'ao dar baixa, com o PDF do recibo'], ['contrato', 'Contratos', 'boas_vindas', 'boas-vindas na assinatura, propostas'],
+  ['convite', 'Convites', 'convite', 'convite de reunião (quando marcado na reunião)']];
+let _emCtrl = [];
+async function controleEmails(alvo) {
+  const admin = E.perfil && E.perfil.papel === 'admin';
+  E.emc = Object.assign({ busca: '', perfil: '', resp: '', problema: false }, E.emc || {});
+  const F = E.emc;
+  alvo.innerHTML = '<div class="carregando">Carregando…</div>';
+  const [lista, dest] = await Promise.all([q(sb.rpc('emails_controle')), q(sb.from('configuracoes').select('valor').eq('chave', 'emails_destino').maybeSingle()).catch(() => null)]);
+  _emCtrl = lista || [];
+  const mapa = (dest && dest.valor) || {};
+  const resps = [...new Set(_emCtrl.map((c) => c.responsavel).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  alvo.innerHTML =
+    '<div class="card"><div class="card-hd">📨 Quem recebe o quê</div><div class="card-bd">' +
+      '<p class="sub" style="margin-bottom:10px">Cada linha é um cliente: se ele recebe cada tipo de e-mail, <b>para qual endereço vai</b> e quem é o responsável. ' +
+      'Clique no cliente para escolher os contatos de cada tipo, ver o modelo (como o e-mail sai) e o histórico do que já foi enviado. Nada sai com a pausa ligada.</p>' +
+      '<div class="emc-destinos"><b>Quando ninguém está marcado, cada tipo vai para o setor:</b>' +
+      TIPOS_CONTROLE.map(([k, r]) => '<label>' + r + ' → <select class="busca sel" data-emc-dest="' + k + '"' + (admin ? '' : ' disabled') + '>' +
+        SETORES_CONTATO.map(([v, rs]) => '<option value="' + v + '"' + ((mapa[k] || 'financeiro') === v ? ' selected' : '') + '>' + rs + '</option>').join('') + '</select></label>').join('') +
+      '<span class="sub">depois: contato Geral e, por último, o e-mail do cadastro.</span></div></div></div>' +
+    '<div class="filtros" id="emc-filtros"><input class="busca" id="emc-busca" placeholder="Buscar cliente ou grupo" autocomplete="off" value="' + esc(F.busca) + '">' +
+      '<select class="busca sel" id="emc-perfil"><option value="">Todos os perfis</option>' + PERFIS_EMAIL.map(([v, r]) => '<option value="' + v + '"' + (F.perfil === v ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>' +
+      '<select class="busca sel" id="emc-resp"><option value="">Todos os responsáveis</option>' + resps.map((r) => '<option' + (F.resp === r ? ' selected' : '') + '>' + esc(r) + '</option>').join('') + '</select>' +
+      '<label class="check"><input type="checkbox" id="emc-prob"' + (F.problema ? ' checked' : '') + '> Só com e-mail faltando</label>' +
+      '<span class="sub" id="emc-sel" style="align-self:center"></span>' +
+      '<select class="busca sel" id="emc-lote"><option value="">Perfil aos marcados…</option>' + PERFIS_EMAIL.filter((x) => x[0] !== 'personalizado').map(([v, r]) => '<option value="' + v + '">' + r + '</option>').join('') + '</select></div>' +
+    '<div class="card"><div id="emc-tab"></div></div>';
+  const celula = (t) => {
+    if (!t || !t.recebe) return '<span class="pill neutro" title="O perfil de e-mail do cliente não manda este tipo">não recebe</span>';
+    if (!t.para) return '<span class="pill vencido" title="Cadastre um contato com e-mail na ficha do cliente">sem e-mail</span>';
+    const mails = String(t.para).split(/,\s*/);
+    return '<span class="em-para" title="' + esc(t.para) + '">' + esc(mails[0]) + (mails.length > 1 ? ' <b>+' + (mails.length - 1) + '</b>' : '') + '</span>' +
+      '<div class="sub">' + esc([t.contato, t.origem === 'cadastro' ? 'cadastro' : rotSetor(t.setor)].filter(Boolean).join(' · ')) + '</div>';
+  };
+  const pintar = () => {
+    const b = normalizar(F.busca);
+    const vis = _emCtrl.filter((c) => (!F.perfil || (c.perfil || 'padrao') === F.perfil) && (!F.resp || c.responsavel === F.resp) &&
+      (!b || normalizar(c.nome + ' ' + (c.grupo || '')).includes(b)) && (!F.problema || TIPOS_CONTROLE.some(([k]) => c.tipos[k] && c.tipos[k].recebe && !c.tipos[k].para)));
+    $('emc-tab').innerHTML = vis.length ? '<div class="tabela-wrap"><table class="ordenavel emc-tab"><thead><tr><th class="sem-ordem"><input type="checkbox" id="emc-todos" aria-label="Marcar todos"></th>' +
+      '<th>Cliente</th><th>Quem</th><th>Perfil</th>' + TIPOS_CONTROLE.map(([, r, , d]) => '<th title="' + esc(d) + '">' + r + '</th>').join('') + '<th data-tipo="data">Último envio</th></tr></thead><tbody>' +
+      vis.map((c) => '<tr class="clicavel" data-emc="' + c.id + '"><td><input type="checkbox" data-emc-x="' + c.id + '" aria-label="Marcar ' + esc(c.nome) + '"></td>' +
+        '<td><b>' + esc(c.nome) + '</b>' + (c.grupo && c.grupo !== c.nome ? '<div class="sub">' + esc(c.grupo) + '</div>' : '') + '</td><td>' + pillPessoa(c.responsavel) + '</td>' +
+        '<td><select class="busca sel cem-perfil-sel" data-cem="' + c.id + '" aria-label="Perfil de ' + esc(c.nome) + '">' + PERFIS_EMAIL.map(([v, r]) => '<option value="' + v + '"' + ((c.perfil || 'padrao') === v ? ' selected' : '') + '>' + r + '</option>').join('') + '</select></td>' +
+        TIPOS_CONTROLE.map(([k]) => '<td>' + celula(c.tipos[k]) + '</td>').join('') +
+        '<td data-ord="' + esc(c.ultimo ? c.ultimo.quando : '') + '">' + (c.ultimo ? '<span class="sub">' + dataHoraBR(c.ultimo.quando) + '</span><div class="sub" title="' + esc(c.ultimo.descricao) + '">' + esc(String(c.ultimo.descricao).slice(0, 60)) + '</div>' : '<span class="sub">—</span>') +
+        (c.enviados30 ? '<div class="sub">' + plural(c.enviados30, 'e-mail', 'e-mails') + ' em 30 dias</div>' : '') + '</td></tr>').join('') + '</tbody></table></div>'
+      : vazio('Nenhum cliente neste filtro.');
+    const marcados = () => [...alvo.querySelectorAll('[data-emc-x]:checked')].map((x) => x.dataset.emcX);
+    const conta = () => { const n = marcados().length; $('emc-sel').textContent = n ? n + ' marcado(s)' : ''; };
+    const todos = $('emc-todos'); if (todos) todos.onchange = () => { alvo.querySelectorAll('[data-emc-x]').forEach((x) => { x.checked = todos.checked; }); conta(); };
+    alvo.querySelectorAll('[data-emc-x]').forEach((x) => x.onchange = conta);
+    alvo.querySelectorAll('tr[data-emc]').forEach((tr) => tr.onclick = (ev) => { if (ev.target.closest('input, select, label, button')) return; janelaControleCliente(tr.dataset.emc, () => controleEmails(alvo)); });
+    alvo.querySelectorAll('[data-cem]').forEach((sel) => sel.onchange = () => comBotao(sel, async () => {
+      if (sel.value === 'personalizado') {
+        await q(sb.rpc('salvar_perfil_email', { p_ids: [sel.dataset.cem], p_perfil: 'personalizado', p_tipos: null }));
+        _emCtrl = (await q(sb.rpc('emails_controle'))) || [];
+        await janelaControleCliente(sel.dataset.cem, () => controleEmails(alvo)); return;
+      }
+      await q(sb.rpc('salvar_perfil_email', { p_ids: [sel.dataset.cem], p_perfil: sel.value, p_tipos: null }));
+      aviso('✓ Perfil de e-mail atualizado.'); await carregarCadastros(true); await controleEmails(alvo);
+    }));
+  };
+  $('emc-lote').onchange = (ev) => comBotao(ev.target, async () => {
+    const v = ev.target.value, ids = [...alvo.querySelectorAll('[data-emc-x]:checked')].map((x) => x.dataset.emcX); ev.target.value = '';
+    if (!v) return; if (!ids.length) throw new Error('Marque os clientes na primeira coluna.');
+    const n = await q(sb.rpc('salvar_perfil_email', { p_ids: ids, p_perfil: v, p_tipos: null }));
+    aviso('✓ ' + n + ' cliente(s) com o perfil atualizado.'); await carregarCadastros(true); await controleEmails(alvo);
+  });
+  alvo.querySelectorAll('[data-emc-dest]').forEach((sel) => sel.onchange = () => comBotao(sel, async () => {
+    await q(sb.rpc('salvar_destinos_email', { p: { [sel.dataset.emcDest]: sel.value } }));
+    aviso('✓ Destino padrão salvo.'); await controleEmails(alvo);
+  }));
+  let tb; $('emc-busca').oninput = (ev) => { clearTimeout(tb); tb = setTimeout(() => { F.busca = ev.target.value; pintar(); }, 250); };
+  $('emc-perfil').onchange = (ev) => { F.perfil = ev.target.value; pintar(); };
+  $('emc-resp').onchange = (ev) => { F.resp = ev.target.value; pintar(); };
+  $('emc-prob').onchange = (ev) => { F.problema = ev.target.checked; pintar(); };
+  pintar();
+}
+// detalhe de um cliente: tipo a tipo (recebe? para quem? quais contatos?), modelo de cada e-mail e histórico
+async function janelaControleCliente(id, depois) {
+  const c = _emCtrl.find((x) => x.id === id) || ((await q(sb.rpc('emails_controle'))) || []).find((x) => x.id === id);
+  if (!c) return aviso('Cliente não encontrado.', true);
+  const [contatos, cli, modelos] = await Promise.all([q(sb.from('contatos').select('id, nome, finalidade, email, recebe').eq('cliente_id', id).order('criado_em')),
+    q(sb.from('clientes').select('perfil_email, emails_tipos').eq('id', id).single()), q(sb.from('emails_modelos').select('chave, nome, assunto, texto')).catch(() => [])]);
+  const pers = cli.perfil_email === 'personalizado', tip = cli.emails_tipos || {};
+  const PERM = { cobranca: ['lembrete', 'vencimento', 'cobranca'], guia: ['parcelamento'], acordo: ['acordo'], recibo: ['recibo'], contrato: ['boas_vindas'], convite: ['convite'] };
+  const comEmail = contatos.filter((x) => x.email);
+  const j = abrirJanela({ titulo: '📨 E-mails de ' + c.nome, larga: true,
+    corpo: '<div class="ficha-selos" style="margin-bottom:10px">' + pillPessoa(c.responsavel) + ' <span class="pill neutro">Perfil: ' + esc((PERFIS_EMAIL.find((p) => p[0] === (c.perfil || 'padrao')) || PERFIS_EMAIL[0])[1]) + '</span></div>' +
+      (comEmail.length ? '' : '<div class="dica" style="margin-bottom:10px">Este cliente não tem contato com e-mail. Cadastre em <b>Clientes → ficha → Contatos</b> (com o setor e o que cada um recebe).</div>') +
+      '<div class="tabela-wrap"><table class="emc-det"><thead><tr><th>Tipo de e-mail</th><th>Recebe?</th><th>Vai para</th><th>Contatos que recebem este tipo</th><th></th></tr></thead><tbody>' +
+      TIPOS_CONTROLE.map(([k, r, mod, d]) => { const t = c.tipos[k] || {};
+        return '<tr><td><b>' + r + '</b><div class="sub">' + esc(d) + '</div></td>' +
+          '<td>' + (pers ? PERM[k].map((pk) => '<label class="check"><input type="checkbox" data-emc-tipo="' + pk + '"' + ((tip[pk] != null ? tip[pk] : pk !== 'vencimento') ? ' checked' : '') + '> ' + esc((TIPOS_EMAIL.find((x) => x[0] === pk) || [pk, pk])[1]) + '</label>').join('')
+            : t.recebe ? '<span class="pill pago">sim</span>' : '<span class="pill neutro">não</span>') + '</td>' +
+          '<td>' + (t.para ? '<span class="em-para">' + esc(t.para) + '</span><div class="sub">' + esc(ORIGEM_DESTINO[t.origem] || '') + '</div>' : '<span class="pill vencido">sem e-mail</span>') + '</td>' +
+          '<td>' + (comEmail.length ? comEmail.map((ct) => '<label class="check"><input type="checkbox" data-emc-ct="' + ct.id + '" data-k="' + k + '"' + ((ct.recebe || []).includes(k) ? ' checked' : '') + '> ' +
+              esc(ct.nome || ct.email) + ' <span class="sub">' + esc(rotSetor(ct.finalidade)) + '</span></label>').join('') : '<span class="sub">—</span>') + '</td>' +
+          '<td>' + (modelos.some((m) => m.chave === mod) ? '<button class="btn btn-o btn-mini" type="button" data-emc-modelo="' + mod + '">Ver modelo</button>' : '') + '</td></tr>'; }).join('') +
+      '</tbody></table></div>' +
+      '<p class="sub" style="margin:8px 0 14px">Marcar um contato num tipo faz <b>só ele(s)</b> receber aquele tipo. Sem ninguém marcado, vale o setor padrão (lá em cima, na lista).' +
+        (pers ? ' Perfil <b>Personalizado</b>: as caixinhas de "Recebe?" valem para este cliente.' : ' Para escolher tipo a tipo o que ele recebe, mude o perfil para <b>Personalizado</b>.') + '</p>' +
+      '<div class="secao">Histórico de e-mails</div><div id="emc-hist"><div class="carregando">Carregando…</div></div>',
+    rodape: '<button class="btn btn-o" type="button" id="emc-ficha">Abrir a ficha (Contatos)</button><div class="acoes">' + (pers ? '<button class="btn btn-p" type="button" id="emc-salvar-tipos">Salvar o que recebe</button>' : '') + '</div>' });
+  let mudou = false;
+  j._aoFechar = () => { if (mudou && depois) depois(); };
+  j.querySelectorAll('[data-emc-ct]').forEach((x) => x.onchange = () => comBotao(x, async () => {
+    await q(sb.rpc('contato_recebe', { p_contato: x.dataset.emcCt, p_tipo: x.dataset.k, p_recebe: x.checked })); mudou = true;
+    aviso('✓ ' + (x.checked ? 'Passa a receber' : 'Deixa de receber') + ' ' + (RECEBE_CURTO[x.dataset.k] || '').toLowerCase() + '.');
+  }));
+  j.querySelectorAll('[data-emc-modelo]').forEach((b) => b.onclick = () => comBotao(b, async () => {
+    const m = modelos.find((x) => x.chave === b.dataset.emcModelo);
+    const html = await q(sb.rpc('previa_email_modelo', { p_assunto: m.assunto, p_html: m.texto }));
+    const k = abrirJanela({ titulo: '✉ Modelo — ' + m.nome, larga: true, corpo: '<div class="sub" style="margin-bottom:8px">Assunto: <b>' + esc(m.assunto) + '</b> · os campos entre chaves são trocados pelos dados de verdade. Para mudar o texto: ✎ Modelos.</div><iframe class="em-previa" sandbox="" title="Prévia do modelo"></iframe>' });
+    k.querySelector('iframe').srcdoc = html;
+  }));
+  const bs = j.querySelector('#emc-salvar-tipos');
+  if (bs) bs.onclick = () => comBotao(bs, async () => {
+    const tipos = Object.assign({}, tip); j.querySelectorAll('[data-emc-tipo]').forEach((x) => { tipos[x.dataset.emcTipo] = x.checked; });
+    await q(sb.rpc('salvar_perfil_email', { p_ids: [id], p_perfil: 'personalizado', p_tipos: tipos })); mudou = true;
+    aviso('✓ O que ' + c.nome + ' recebe foi salvo.'); fecharJanela(j);
+  });
+  j.querySelector('#emc-ficha').onclick = () => { fecharJanela(j); abrirFicha(id, 'contatos'); };
+  abaEmailsCliente(j.querySelector('#emc-hist'), { id }).catch((e) => { j.querySelector('#emc-hist').innerHTML = '<div class="vazio">' + esc(erroAmigavel(e)) + '</div>'; });
 }

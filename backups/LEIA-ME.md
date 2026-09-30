@@ -31,6 +31,7 @@ versão foi ao ar**. O número cresce a cada entrega.
 | 23 | Lembretes em cartão próprio com detalhe e "Fixado", selo "Quem" sutil, sem triângulo, Painel com negociado na rosca, Parcelamentos por grupo com filtros e janela de detalhe, excluir usuário, modo escuro grafite |
 | 24 | Guias de parcelamento junto de avisos e tarefas no Início; Painel sem os gráficos por grupo e por órgão; prompt do chat "ERP Automação" |
 | 25 | Parcelamentos e Acordos na mesma lista por grupo (sem barra, "N de M parcelas pagas", próxima parcela somada no mês, risco com 2+ no mesmo), guias por parcelamento, Início com 5 tamanhos de letra |
+| 26 | Do primeiro contato ao financeiro: contrato aguardando assinatura (financeiro e onboarding só na assinatura), gerador preenchido pelo CRM, contatos por setor e Central "Quem recebe o quê", reunião com convite, linha do tempo única, delegar e validar, lista de simplificação |
 
 ## Como baixar um backup
 No GitHub, abra a pasta `backups`, clique no arquivo e depois em **Download** (ícone de seta, à direita).

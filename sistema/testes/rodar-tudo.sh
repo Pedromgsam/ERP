@@ -9,6 +9,14 @@ psql -h 127.0.0.1 -p ${PGPORT:-54329} -U postgres -q -c "drop database if exists
 psql -h 127.0.0.1 -p ${PGPORT:-54329} -U postgres -q -d erp_perm -f "$DIR/supabase-local.sql" >/dev/null 2>&1
 psql -h 127.0.0.1 -p ${PGPORT:-54329} -U postgres -q -d erp_perm -f "$DIR/../banco/estrutura.sql" >/dev/null 2>&1
 psql -h 127.0.0.1 -p ${PGPORT:-54329} -U postgres -q -d erp_perm -f "$DIR/permissoes.sql" 2>&1 | grep -oE "(PASSA|FALHOU).*" 
+# Backup 26: fluxo cliente → financeiro (cadastro, CRM, reunião, assinatura, e-mails, delegar/validar)
+psql -h 127.0.0.1 -p ${PGPORT:-54329} -U postgres -q -c "drop database if exists erp_fluxo with (force)" -c "create database erp_fluxo"
+psql -h 127.0.0.1 -p ${PGPORT:-54329} -U postgres -q -d erp_fluxo -f "$DIR/supabase-local.sql" >/dev/null 2>&1
+psql -h 127.0.0.1 -p ${PGPORT:-54329} -U postgres -q -d erp_fluxo -f "$DIR/../banco/estrutura.sql" >/dev/null 2>&1
+if ! psql -h 127.0.0.1 -p ${PGPORT:-54329} -U postgres -q -At -v ON_ERROR_STOP=1 -d erp_fluxo -f "$DIR/fluxo.sql" > /tmp/erp-fluxo.out 2>&1; then
+  grep -E "FALHA|ERROR|FALHOU" /tmp/erp-fluxo.out; exit 1
+fi
+echo "fluxo: $(grep -c '^PASSA' /tmp/erp-fluxo.out) passaram, 0 falharam"
 # espera o PostgREST reler a estrutura (responde "permission denied" = pronto)
 for i in 1 2 3 4 5 6 7 8 9 10; do
   curl -s http://127.0.0.1:3001/perfis | grep -q 42501 && break; sleep 1

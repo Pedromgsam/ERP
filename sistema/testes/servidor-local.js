@@ -177,7 +177,8 @@ http.createServer((req, res) => {
       const cnpj = u.pathname.split('/').pop();
       const base = { razao_social: 'ALFA COMERCIO LTDA', nome_fantasia: 'ALFA', descricao_situacao_cadastral: 'ATIVA', data_situacao_cadastral: '2005-11-03',
         cnae_fiscal_descricao: 'Comércio varejista', porte: 'MICRO EMPRESA', data_inicio_atividade: '2005-11-03', descricao_tipo_de_logradouro: 'RUA',
-        logradouro: 'DAS FLORES', numero: '100', complemento: 'SALA 2', bairro: 'CENTRO', municipio: 'BELO HORIZONTE', uf: 'MG', cep: '30110000' };
+        logradouro: 'DAS FLORES', numero: '100', complemento: 'SALA 2', bairro: 'CENTRO', municipio: 'BELO HORIZONTE', uf: 'MG', cep: '30110000',
+        qsa: [{ nome_socio: 'MARIA FICTICIA DA SILVA', cnpj_cpf_do_socio: '***123456**', qualificacao_socio: 'Sócio-Administrador' }] };
       if (cnpj === '11222333000181') return json(res, 200, base);
       if (cnpj === '22333444000172') return json(res, 200, Object.assign({}, base, { razao_social: 'BETA SERVICOS LTDA', descricao_situacao_cadastral: 'INAPTA', logradouro: 'SEM NOME' }));
       return json(res, 404, { message: 'CNPJ não encontrado' });

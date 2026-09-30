@@ -13,9 +13,9 @@ const GRUPOS_AUTOMACAO = [
 // prefixo gravado no registro → automação
 const PREFIXO_AUTOMACAO = { onb: 'contrato_onboarding', proc: 'processo_novo', cert: 'certidao_vencendo', doc: 'certidao_vencendo', parc: 'parcela_parcelamento',
   aco: 'parcela_acordo', cob: 'cobrar_honorario', anexo: 'contrato_anexo', procur: 'processo_procuracao', pagamento_conclui: 'pagamento_conclui', pub: 'publicacao_tarefa',
-  cliente_novo_cnpj: 'cliente_novo_cnpj', email_lp: 'email_lembrete_parcelamento', email_lh: 'email_lembrete_honorario', email_ch: 'email_cobranca_honorario', email_la: 'email_lembrete_acordo', email_pr: 'email_pagamento_recebido', email_vh: 'email_lembrete_honorario', 'crm-parada': 'crm_parada', 'crm-follow': 'crm_followup' };
+  cliente_novo_cnpj: 'cliente_novo_cnpj', email_lp: 'email_lembrete_parcelamento', email_lh: 'email_lembrete_honorario', email_ch: 'email_cobranca_honorario', email_la: 'email_lembrete_acordo', email_pr: 'email_pagamento_recebido', email_vh: 'email_lembrete_honorario', 'crm-parada': 'crm_parada', 'crm-follow': 'crm_followup', email_bv: 'email_boas_vindas' };
 // automações que não usam "N dias"
-const SEM_DIAS = ['pagamento_conclui', 'cliente_novo_cnpj', 'email_pagamento_recebido'];
+const SEM_DIAS = ['pagamento_conclui', 'cliente_novo_cnpj', 'email_pagamento_recebido', 'email_boas_vindas'];
 // automações de tarefa que não criam tarefa nova (não têm responsável)
 const SEM_RESP = ['pagamento_conclui', 'escalar_atraso'];
 

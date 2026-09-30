@@ -204,3 +204,7 @@ function janelaGeradores(clienteId) {
         '<div><b>' + rot + '</b><div class="sub">' + d + '</div></div><span class="sub">abrir ↗</span></a>').join('') + '</div>' });
   return j;
 }
+// Backup 26: gerador de contrato já com o cliente e os valores do contrato (o documento fica ligado ao contrato)
+function abrirGeradorContrato(clienteId, contratoId) {
+  window.open('geradores/contrato-procuracao.html?cliente=' + encodeURIComponent(clienteId || '') + (contratoId ? '&contrato=' + encodeURIComponent(contratoId) : ''), '_blank', 'noopener');
+}

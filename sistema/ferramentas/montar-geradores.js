@@ -24,6 +24,17 @@ const GERADORES = [
       "    try { if (typeof renderContrato === 'function') renderContrato(); } catch (e) {} },\n" +
       "  preencher: function (c, f) { " + preencherPessoa('ctte', 'Wpp') + " " + preencherPessoa('out', 'Telefone') + "\n" +
       "    try { renderContrato(); } catch (e) {} try { renderProcuracao(); } catch (e) {} },\n" +
+      // Backup 26: valores do contrato do ERP (serviço pontual → Valor Fixo à vista/parcelado; consultoria → mensalidade)
+      "  preencherContrato: function (ct, f) { var md = function (v) { return Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); };\n" +
+      "    var MES = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];\n" +
+      "    if (ct.modalidade === 'consultoria') { f.marcar('tipoServico', 'consultoria');\n" +
+      "      if (ct.forma_valor === 'salario_minimo') { f.por('honC_recForma', 'sm'); f.por('honC_recQtdSm', String(ct.qtd_salarios || '').replace('.', ',')); } else { f.por('honC_recForma', 'rs'); f.por('honC_recValor', md(ct.valor_mensal)); }\n" +
+      "      f.por('honC_recDia', String(ct.dia_vencimento || 10)); if (ct.inicio_competencia) { var d = new Date(ct.inicio_competencia + 'T12:00:00'); f.por('honC_recInicio', MES[d.getMonth()] + ' de ' + d.getFullYear()); }\n" +
+      "    } else { f.marcar('tipoServico', 'demanda'); var card = document.getElementById('honD-fixo'); if (card && !card.classList.contains('is-active')) card.classList.add('is-active');\n" +
+      "      f.por('honD_fixoForma', 'rs'); f.por('honD_fixoValor', md(ct.valor_total));\n" +
+      "      if (Number(ct.num_parcelas) > 1) { f.por('honD_fixoFormaPg', 'parcelado'); f.por('honD_fixoParcNum', String(ct.num_parcelas)); if (ct.primeiro_vencimento) f.por('honD_fixoParcInicio', ct.primeiro_vencimento); try { gerarParcelasFixo('honD_fixo'); } catch (e) {} }\n" +
+      "      else if (ct.primeiro_vencimento) { f.por('honD_fixoFormaPg', 'vista'); f.por('honD_fixoDataEspecifica', ct.primeiro_vencimento); } }\n" +
+      "    try { renderContrato(); } catch (e) {} },\n" +
       "  guardar: function () { var p = document.querySelector('.panel.active'); if (!p) return ''; var partes = []; p.querySelectorAll('[data-pdf]').forEach(function (s) { if (s.offsetParent !== null) partes.push(s.outerHTML); });\n" +
       "    return partes.join('<div style=\"page-break-after:always\"></div>'); } }",
     limpar: (s, extra) => {

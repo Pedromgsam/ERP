@@ -13,7 +13,7 @@
 // Colunas dos clientes que as telas usam: fica de fora a resposta completa da Receita (cnpj_dados,
 // vários KB por cliente, só na ficha) e a chave técnica de importação. Coluna nova no banco → incluir aqui
 // (o teste erp.js avisa quando a lista fica desatualizada).
-window.ERP_COLS_CLIENTE = 'id,grupo_id,nome,cpf_cnpj,tipo,responsavel,email,telefone,endereco,cidade,estado,obs,criado_por,criado_em,atualizado_em,socio_admin,rfb,rfb_negociada,pgfn,pgfn_negociada,sefaz_mg,age_mg,age_mg_negociada,ceat_trt3,em_operacao,procuracao,certificado,cadastro_regular,capag,regime_tributario,situacao_cadastral,tipo_societario,historico_cadastral,origem,data_migracao,razao_social,nome_fantasia,cnae_principal,porte,data_abertura,data_situacao,cep,cnpj_atualizado_em,area,perfil_email,emails_tipos';
+window.ERP_COLS_CLIENTE = 'id,grupo_id,nome,cpf_cnpj,tipo,responsavel,email,telefone,endereco,cidade,estado,obs,criado_por,criado_em,atualizado_em,socio_admin,rfb,rfb_negociada,pgfn,pgfn_negociada,sefaz_mg,age_mg,age_mg_negociada,ceat_trt3,em_operacao,procuracao,certificado,cadastro_regular,capag,regime_tributario,situacao_cadastral,tipo_societario,historico_cadastral,origem,data_migracao,razao_social,nome_fantasia,cnae_principal,porte,data_abertura,data_situacao,cep,cnpj_atualizado_em,area,perfil_email,emails_tipos,indicado_por';
 (function () {
   const CFG = window.ERP_CONFIG || {};
   // link "criar nova senha" enviado por e-mail: o Supabase volta para cá com type=recovery

@@ -1,10 +1,10 @@
 // erp-agenda — agenda de cada pessoa no formato iCalendar (.ics), para assinar no Google Agenda.
-// GET /functions/v1/erp-agenda?t=<link secreto da pessoa>  → prazos fatais e audiências dela.
+// GET /functions/v1/erp-agenda?t=<link secreto da pessoa>  → prazos fatais, audiências e reuniões (Backup 26) dela.
 // O link sai de "Tarefas → 📅 Google Agenda" (RPC meu_link_agenda) e pode ser trocado a qualquer hora.
 // Publicar com "Verify JWT" DESLIGADO (o Google não manda login; quem autoriza é o link secreto).
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const VERSAO = '2026-09-29';
+const VERSAO = '2026-10-05';
 
 const texto = (s, status) => new Response(s, { status: status || 200, headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Access-Control-Allow-Origin': '*' } });
 const primeiroNome = (s) => String(s || '').trim().split(/\s+/)[0].normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
@@ -50,6 +50,17 @@ export async function tratar(req, db) {
         'SUMMARY:' + icsTexto(titulo), 'DESCRIPTION:' + icsTexto(desc), 'TRANSP:TRANSPARENT',
         'BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + icsTexto(titulo), 'TRIGGER:-P1D', 'END:VALARM', 'END:VEVENT'].map(dobrar).join('\r\n'));
     }
+  }
+  // Backup 26: reuniões marcadas no CRM (com hora), para cada participante
+  const { data: reunioes } = await db.from('reunioes').select('id, titulo, inicio, duracao_min, local, participantes, status, clientes(nome)')
+    .eq('status', 'agendada').gte('inicio', new Date(Date.now() - 30 * 864e5).toISOString());
+  const utc = (d) => new Date(d).toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
+  for (const r of reunioes || []) {
+    if (!String(r.participantes || '').split(',').some((n) => primeiroNome(n) === eu)) continue;
+    const fim = new Date(new Date(r.inicio).getTime() + (Number(r.duracao_min) || 60) * 60000);
+    ev.push(['BEGIN:VEVENT', 'UID:reuniao-' + r.id + '@erp-araujo-castro', 'DTSTAMP:' + agora, 'DTSTART:' + utc(r.inicio), 'DTEND:' + utc(fim),
+      'SUMMARY:' + icsTexto('🤝 ' + r.titulo), 'LOCATION:' + icsTexto(r.local || ''), 'DESCRIPTION:' + icsTexto([r.clientes && r.clientes.nome, 'Participantes: ' + r.participantes].filter(Boolean).join('\n')),
+      'BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + icsTexto(r.titulo), 'TRIGGER:-PT30M', 'END:VALARM', 'END:VEVENT'].map(dobrar).join('\r\n'));
   }
   const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Araujo e Castro//ERP//PT-BR', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
     dobrar('X-WR-CALNAME:ERP · prazos de ' + icsTexto(pf.nome)), 'X-WR-TIMEZONE:America/Sao_Paulo', 'REFRESH-INTERVAL;VALUE=DURATION:PT6H', 'X-PUBLISHED-TTL:PT6H']

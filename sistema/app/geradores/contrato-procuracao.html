@@ -2707,6 +2707,16 @@ window.GERADOR = { titulo: 'Contrato e Procuração', tipoDocumento: function ()
     try { if (typeof renderContrato === 'function') renderContrato(); } catch (e) {} },
   preencher: function (c, f) { if (c.pj) { f.marcar('ctteTipo','pj'); f.por('ctteRazao', c.nome); f.por('ctteEnderecoPJ', c.endereco); f.por('ctteRepNome', c.rep); f.por('ctteRepCpf', c.repDoc); f.por('ctteEmailPJ', c.email); f.por('ctteWppPJ', c.telefone); var cn = document.getElementById('ctteCnpj'); if (cn) { cn.value = c.doc; } } else { f.marcar('ctteTipo','pf'); f.por('ctteNome', c.nome); f.por('ctteCpf', c.doc); f.por('ctteEndereco', c.endereco); f.por('ctteEmail', c.email); f.por('ctteWpp', c.telefone); } if (c.pj) { f.marcar('outTipo','pj'); f.por('outRazao', c.nome); f.por('outEnderecoPJ', c.endereco); f.por('outRepNome', c.rep); f.por('outRepCpf', c.repDoc); f.por('outEmailPJ', c.email); f.por('outWppPJ', c.telefone); var cn = document.getElementById('outCnpj'); if (cn) { cn.value = c.doc; } } else { f.marcar('outTipo','pf'); f.por('outNome', c.nome); f.por('outCpf', c.doc); f.por('outEndereco', c.endereco); f.por('outEmail', c.email); f.por('outTelefone', c.telefone); }
     try { renderContrato(); } catch (e) {} try { renderProcuracao(); } catch (e) {} },
+  preencherContrato: function (ct, f) { var md = function (v) { return Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); };
+    var MES = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+    if (ct.modalidade === 'consultoria') { f.marcar('tipoServico', 'consultoria');
+      if (ct.forma_valor === 'salario_minimo') { f.por('honC_recForma', 'sm'); f.por('honC_recQtdSm', String(ct.qtd_salarios || '').replace('.', ',')); } else { f.por('honC_recForma', 'rs'); f.por('honC_recValor', md(ct.valor_mensal)); }
+      f.por('honC_recDia', String(ct.dia_vencimento || 10)); if (ct.inicio_competencia) { var d = new Date(ct.inicio_competencia + 'T12:00:00'); f.por('honC_recInicio', MES[d.getMonth()] + ' de ' + d.getFullYear()); }
+    } else { f.marcar('tipoServico', 'demanda'); var card = document.getElementById('honD-fixo'); if (card && !card.classList.contains('is-active')) card.classList.add('is-active');
+      f.por('honD_fixoForma', 'rs'); f.por('honD_fixoValor', md(ct.valor_total));
+      if (Number(ct.num_parcelas) > 1) { f.por('honD_fixoFormaPg', 'parcelado'); f.por('honD_fixoParcNum', String(ct.num_parcelas)); if (ct.primeiro_vencimento) f.por('honD_fixoParcInicio', ct.primeiro_vencimento); try { gerarParcelasFixo('honD_fixo'); } catch (e) {} }
+      else if (ct.primeiro_vencimento) { f.por('honD_fixoFormaPg', 'vista'); f.por('honD_fixoDataEspecifica', ct.primeiro_vencimento); } }
+    try { renderContrato(); } catch (e) {} },
   guardar: function () { var p = document.querySelector('.panel.active'); if (!p) return ''; var partes = []; p.querySelectorAll('[data-pdf]').forEach(function (s) { if (s.offsetParent !== null) partes.push(s.outerHTML); });
     return partes.join('<div style="page-break-after:always"></div>'); } };
 </script>
