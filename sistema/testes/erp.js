@@ -446,10 +446,10 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await nav(p, 'hoje'); await p.waitForTimeout(1500);
     ok('Início avisa quem aprova', /aguardando sua aprovação/.test(await p.textContent('#panel-hoje')));
     await p.click('#panel-hoje [data-ir-aprovacoes]'); await p.waitForSelector('#panel-aprovacoes [data-aprovar]', { timeout: 8000 });
-    ok('Aprovações mostra antes → depois', /31 3333-0000/.test(await p.textContent('#panel-aprovacoes .ap-item')));
+    ok('Aprovações mostra antes → depois', /\(31\) 3333-0000/.test(await p.textContent('#panel-aprovacoes .ap-item')));
     await foto(p, 'aprovacoes');
     await p.click('#panel-aprovacoes [data-aprovar]'); await p.waitForTimeout(2000);
-    ok('aprovado: a alteração passa a valer', sql("select telefone from clientes where id='" + cliR + "'") === '31 3333-0000' && sql("select status from rascunhos limit 1") === 'aprovado');
+    ok('aprovado: a alteração passa a valer', sql("select telefone from clientes where id='" + cliR + "'") === '(31) 3333-0000' && sql("select status from rascunhos limit 1") === 'aprovado');
     sql("update perfis set areas='ambos' where email='equipe@teste'"); sql("update clientes set area='ambos'");
     sql("update perfis set funcoes='{\"financeiro_juridico\":\"editar\",\"financeiro_contab\":\"editar\",\"contratos\":\"editar\",\"clientes\":\"editar\",\"juridico\":\"editar\",\"tarefas\":\"editar\",\"documentos\":\"editar\",\"crm\":\"editar\",\"relatorios\":\"editar\"}' where email='equipe@teste'");
     const pf = await pagina();
@@ -579,7 +579,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.click('#panel-alertas .al-card:has-text("Procurações")'); await p.waitForTimeout(500);
     ok('clicar no cartão abre o relatório (entidades sem procuração)', /Entidades sem procuração/.test(await p.textContent('.janela')) && /Beta Serviços/.test(await p.textContent('.janela')));
     await p.keyboard.press('Escape'); await p.waitForTimeout(250);
-    await p.click('#panel-alertas .al-card:has-text("Cartão CNPJ")'); await p.waitForSelector('#cnpj-agora'); await p.waitForTimeout(300);
+    await p.click('#panel-alertas .al-rotina:has-text("Cartão CNPJ")'); await p.waitForSelector('#cnpj-agora'); await p.waitForTimeout(300);
     ok('cartão CNPJ ainda não rodou: explica o que fazer', /Ainda não rodou/.test(await p.textContent('.janela')));
     await p.click('#cnpj-agora');
     await p.waitForFunction(() => /Cartão CNPJ:|não respondeu|não foi encontrada|falhou/.test(document.querySelector('#gs-raiz #aviso').textContent), null, { timeout: 15000 }).catch(() => {});
@@ -591,9 +591,9 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await foto(p, 'alertas');
     ok('Alertas mostra a empresa INAPTA e a rotina de hoje', /Situação cadastral irregular[^]*?\b1\b/.test(await p.textContent('#panel-alertas')) && /✓ hoje/.test(await p.textContent('#panel-alertas')));
     sql("update clientes set situacao_cadastral='ATIVA', endereco='Rua Velha' where cpf_cnpj='22333444000172'");
-    await p.click('#panel-alertas .al-card:has-text("Cartão CNPJ")'); await p.waitForSelector('#cnpj-agora'); await p.click('#cnpj-agora');
+    await p.click('#panel-alertas .al-rotina:has-text("Cartão CNPJ")'); await p.waitForSelector('#cnpj-agora'); await p.click('#cnpj-agora');
     await p.waitForTimeout(3000);
-    await p.click('#panel-alertas .al-card:has-text("Cartão CNPJ")'); await p.waitForSelector('#cnpj-agora'); await p.waitForTimeout(300);
+    await p.click('#panel-alertas .al-rotina:has-text("Cartão CNPJ")'); await p.waitForSelector('#cnpj-agora'); await p.waitForTimeout(300);
     { const t = await p.textContent('.janela');
       ok('relatório de alterações: campo, antes e agora', /Alterações encontradas \(1\)/.test(t) && /Situação cadastral\s*ATIVA\s*INAPTA/.test(t) && /Rua Velha/.test(t), t.slice(0, 400)); }
     ok('empresa que ficou INAPTA vira tarefa para o responsável e aviso (e-mail) para o admin',
@@ -702,9 +702,9 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     { const [dl] = await Promise.all([p.waitForEvent('download', { timeout: 10000 }).catch(() => null), p.click('#bk-auto [data-bk^="backup-"]')]);
       let ok2 = false; if (dl) { const j = JSON.parse(require('fs').readFileSync(await dl.path(), 'utf8')); ok2 = j.versao === 2 && Array.isArray(j.dados.clientes) && j.dados.clientes.length > 0 && !('config_privada' in j.dados); }
       ok('backup baixa o .json com todos os dados (sem os segredos)', ok2); }
-    await nav(p, 'alertas'); await p.waitForSelector('#panel-alertas .al-card:has-text("Saúde do sistema")'); await p.waitForTimeout(300);
+    await nav(p, 'alertas'); await p.waitForSelector('#panel-alertas .al-rotina:has-text("Saúde do sistema")'); await p.waitForTimeout(300);
     ok('Alertas mostra saúde do sistema e o backup semanal', /Banco \d+%/.test(await p.textContent('#panel-alertas')) && /Backup semanal/.test(await p.textContent('#panel-alertas')));
-    await p.click('#panel-alertas .al-card:has-text("Saúde do sistema")'); await p.waitForTimeout(400);
+    await p.click('#panel-alertas .al-rotina:has-text("Saúde do sistema")'); await p.waitForTimeout(400);
     ok('saúde do sistema: banco e arquivos x limite do plano', /500 MB/.test(await p.textContent('#gs-raiz .janela')) && /Maiores tabelas/.test(await p.textContent('#gs-raiz .janela')));
     await p.keyboard.press('Escape'); await p.waitForTimeout(200);
 

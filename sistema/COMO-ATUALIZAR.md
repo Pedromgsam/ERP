@@ -526,7 +526,7 @@ e **Quem fechou**. A ficha mostra quem fechou e **quem cuida do cliente**; "Docu
 *Mensalidades:* o sistema gera sempre até 2 meses à frente, todo dia às 6h30 (rotina `erp_mensalidades`), e segue sozinho no ano seguinte até
 a rescisão — não precisa gerar o ano novo.
 
-**Clientes:** colunas **Área** (Jurídico / Contábil / Jurídico e contábil) e **Tipo**; sem a seta e sem abrir para baixo — clicar abre a
+**Clientes:** coluna **Área** (Jurídico / Contábil / Jurídico e contábil); sem a seta e sem abrir para baixo — clicar abre a
 **ficha completa**. **Novo cliente em abas** (Empresa, Classificação, Contatos, Endereço, Situação e passivo, Observações): digitando o CNPJ o
 sistema consulta a Receita na hora e preenche o que estiver vazio; **vários e-mails e telefones** (cada um com o setor — viram contatos);
 grupo **existente na lista** ou **"É um grupo novo"**; opção "Depois de salvar, criar o contrato".
