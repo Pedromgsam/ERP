@@ -45,14 +45,14 @@
 <script src="vendor/chart.umd.js?v=3402f6de" defer></script>
 <script src="vendor/supabase.js?v=16aeff36"></script>
 <script src="config.js"></script>
-<script src="erp-dados.js?v=d2f59cfe"></script>
+<script src="erp-dados.js?v=450c0d6c"></script>
 <link rel="stylesheet" href="editor.css?v=7747e46f">
 <link rel="stylesheet" href="erp-telas.css?v=9687b172">
-<script src="editor.js?v=48644b10" defer></script>
-<script src="erp-telas.js?v=52b0edf1" defer></script>
-<link rel="stylesheet" href="gs.css?v=acb1dc4f">
+<script src="editor.js?v=15c9111e" defer></script>
+<script src="erp-telas.js?v=6ce77d38" defer></script>
+<link rel="stylesheet" href="gs.css?v=0377e9bc">
 <script src="importador.js?v=4fb0d655" defer></script>
-<script src="gestao-embutida.js?v=a2610436" defer></script>
+<script src="gestao-embutida.js?v=858cc806" defer></script>
 <script>
 
 
@@ -1617,7 +1617,7 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
 </style>
 <link rel="stylesheet" href="tokens.css?v=1263585f">
 <link rel="stylesheet" href="tema-escuro.css?v=09e344f4">
-<link rel="stylesheet" href="design.css?v=4c582994">
+<link rel="stylesheet" href="design.css?v=b4bd8016">
 <script>try{if(localStorage.getItem("erp_tema")==="escuro")document.documentElement.setAttribute("data-tema","escuro")}catch(e){}</script>
 </head>
 <body>
@@ -4011,7 +4011,7 @@ function renderProcAnalise(){
     return '<div><div class="tw"><table><thead><tr><th>'+rotulo+'</th>'
       +'<th style="text-align:right">Processos</th><th style="text-align:right">Valor</th></tr></thead><tbody>'
       + ks.slice(0,10).map(function(k){
-          return '<tr><td><strong>'+esc(k)+'</strong></td>'
+          return '<tr><td>'+esc(k)+'</td>'
            +'<td class="mono" style="text-align:right">'+m[k].n+'</td>'
            +'<td class="mono" style="text-align:right">'+(m[k].v?_faFT(m[k].v):'—')+'</td></tr>';
         }).join('')
@@ -4482,6 +4482,7 @@ function renderParcAnalise(){
   // Backup 25: a lista por grupo é a mesma de Acordos (_lgRender, remendos/lista-grupos-b25.js)
   var itens=L.map(function(x){ var p=x.p, v=Number(p.valorUltimaParcela)||0;
     return {k:x.k, grupo:x.g, titulo:p.empresa||'—', pagas:x.pg, total:x.tot, pago:x.n.pago, falta:x.n.falta, atr:x.atr, concluido:_parcConcluido(p),
+      guias:p.emitimosGuia===false?0:_lgFaltaEmitir(p.parcelas, function(pa){ return !!pa.emitidaEm||/sim|emitid/i.test(pa.emissao||''); }, function(pa){ return String(pa.pagamento||'').toUpperCase()==='SIM'; }),
       sub:[p.local||p.orgao||'',p.natureza||'',p.numero?'nº '+p.numero:''].filter(Boolean).map(esc).join(' · ')+(_parcVisao==='lista'?' · '+esc(x.g):'')
         +(p.emitimosGuia===false?' <span class="lg-tag" title="As guias deste parcelamento são emitidas pelo cliente">guia: cliente</span>':''),
       abertas:(p.parcelas||[]).filter(function(pa){ return String(pa.pagamento||'').toUpperCase()!=='SIM'; }).map(function(pa){ return {d:pDate(pa.vencimento), v:Number(pa.valor)||v}; })}; });
@@ -4835,6 +4836,15 @@ function _lgSit(atr,risco,concluido){
 function _lgPag(pagas,total,pago,falta){
   return '<div class="lg-pag"><b class="lg-verde">'+pagas+' de '+(total||'?')+'</b> parcelas pagas</div><div class="lg-sub">Quitado <b>'+_lgFmtV(pago)+'</b> · falta <b>'+_lgFmtV(falta)+'</b></div>';
 }
+// Backup 28: guias a emitir — parcela sem pagamento, sem emissão, vencida ou vencendo em até 15 dias (mesmo prazo do quadro "Guias para emitir")
+function _lgFaltaEmitir(lista, emitida, paga){
+  var h=new Date(); h.setHours(0,0,0,0); var lim=new Date(h.getTime()+15*864e5);
+  return (lista||[]).filter(function(pa){ var d=pDate(pa.vencimento); return !paga(pa) && !emitida(pa) && d && d<=lim; }).length;
+}
+function _lgTagGuia(n, grupo){
+  if(!n) return '';
+  return '<span class="lg-guia" title="'+(grupo?'Há parcelas deste grupo sem a guia emitida (vencem em até 15 dias)':'Parcela vencendo em até 15 dias sem a guia emitida')+'">🧾 '+(grupo?'há guias para emitir':(n>1?'faltam '+n+' guias':'falta emitir a guia'))+'</span>';
+}
 function _lgEsc(t){ return String(t).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;'); }
 // o: {itens, porGrupo, abertos (obj), fnGrupo (nome da função global que abre/fecha o grupo), fnItem (nome da função que abre o item),
 //     rotulo ('parcelamento'|'acordo'), cab (título da 1ª coluna)}
@@ -4845,7 +4855,7 @@ function _lgRender(o){
       +'<div class="lg-c1"><div class="lg-nome">'+esc(x.titulo)+'</div><div class="lg-sub">'+x.sub+'</div></div>'
       +'<div class="lg-c2">'+_lgPag(x.pagas,x.total,x.pago,x.falta)+'</div>'
       +'<div class="lg-c3">'+(p?'<div class="lg-val">'+_lgFmtV(p.v)+'</div><div class="lg-sub">vence '+p.d.toLocaleDateString('pt-BR')+'</div>':'<div class="lg-val">—</div><div class="lg-sub">'+(x.atr?'só vencidas':'sem próxima')+'</div>')+'</div>'
-      +'<div class="lg-c4">'+_lgSit(x.atr,x.atr>=2,x.concluido)+'</div><div class="lg-c5" aria-hidden="true">›</div></div>'; };
+      +'<div class="lg-c4">'+_lgSit(x.atr,x.atr>=2,x.concluido)+_lgTagGuia(x.guias,false)+'</div><div class="lg-c5" aria-hidden="true">›</div></div>'; };
   var corpo;
   if(!o.itens.length) corpo='<div class="pa-ok">Nada com esses filtros.</div>';
   else if(o.porGrupo){
@@ -4862,7 +4872,7 @@ function _lgRender(o){
         +'<div class="lg-c1"><div class="lg-gnome"><span class="lg-seta" aria-hidden="true">'+(ab?'▾':'▸')+'</span>'+esc(g)+'</div><div class="lg-sub">'+l.length+' '+o.rotulo+(l.length>1?'s':'')+'</div></div>'
         +'<div class="lg-c2">'+_lgPag(soma('pagas'),soma('total'),soma('pago'),soma('falta'))+'</div>'
         +'<div class="lg-c3">'+(p?'<div class="lg-val">'+_lgFmtV(p.v)+'</div><div class="lg-sub">'+(p.n>1?p.n+' parcelas em '+p.mes:'vence '+p.d.toLocaleDateString('pt-BR'))+'</div>':'<div class="lg-val">—</div>')+'</div>'
-        +'<div class="lg-c4">'+_lgSit(atr,risco,false)+'</div><div class="lg-c5" aria-hidden="true"></div></div>'
+        +'<div class="lg-c4">'+_lgSit(atr,risco,false)+_lgTagGuia(soma('guias'),true)+'</div><div class="lg-c5" aria-hidden="true"></div></div>'
         +(ab?'<div class="lg-filhos"><div class="lg-filhos-tit">'+l.length+' '+o.rotulo+(l.length>1?'s':'')+' de '+esc(g)+' · clique para ver as parcelas</div>'+l.map(function(x){ return linhaItem(x,true); }).join('')+'</div>':'')+'</div>'; }).join('');
   } else corpo=o.itens.slice().sort(function(a,b){ return b.atr-a.atr || String(a.titulo).localeCompare(String(b.titulo),'pt-BR'); }).map(function(x){ return '<div class="lg-solto">'+linhaItem(x,false)+'</div>'; }).join('');
   return '<div class="lg"><div class="lg-hd"><span>'+o.cab+'</span><span>Parcelas pagas</span><span>Próxima parcela</span><span>Situação</span><span></span></div>'+corpo+'</div>';
@@ -4897,6 +4907,7 @@ function _acordosAnalise(ac){
   // Backup 25: a mesma lista por grupo de Parcelamentos (_lgRender): grupo → acordos do grupo; clicar no acordo abre o detalhamento numa janela
   _acLISTA=lista; _acFns={v:v,pago:pago,atrasada:atrasada};
   var itens=lista.map(function(g){ return {k:g.k, grupo:g.a.grupo||'Sem grupo', titulo:g.a.devedor||'—', pagas:g.pagas, total:g.l.length, pago:g.pago, falta:g.falta, atr:g.atr, concluido:g.falta<=0,
+    guias:_lgFaltaEmitir(g.l, function(a){ return !!a.emitidaEm||/sim|emitid/i.test(a.emissao||''); }, pago),
     sub:'deve a <b>'+esc(g.a.credor||'—')+'</b>'+(g.a.processo?' · '+esc(g.a.processo):'')+(_acVisao==='lista'&&g.a.grupo?' · '+esc(g.a.grupo):''),
     abertas:g.l.filter(function(a){ return !pago(a); }).map(function(a){ return {d:pDate(a.vencimento), v:v(a)}; })}; });
   var vis=_acVisSeg();
@@ -7013,9 +7024,9 @@ function _fcPintarCorpo(){
   +   '<div class="cb" style="height:280px"><canvas id="cFcMes"></canvas></div></div>'
   + '<div hidden aria-hidden="true"><canvas id="cFcQuem"></canvas></div>'
   + '<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t">Comparativo por cliente</div><div class="cc-d">receitas · mesmo período e mesmos recortes acima</div></div></div>'
-  +   _fcComLado('receber', function(){ return _fcTabelaPessoas(_fcPessoas()); }) + '</div>'
+  +   _fcComLado('receber', function(){ return _fcTabelaComp(_fcTabelaPessoas(_fcPessoas())); }) + '</div>'
   + '<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t">Comparativo por fornecedor</div><div class="cc-d">despesas · mesmo período</div></div></div>'
-  +   _fcComLado('pagar', function(){ return _fcTabelaPessoas(_fcPessoas()).replace('<th style="text-align:right">Recebido</th>','<th style="text-align:right">Pago</th>').replace('<th style="text-align:right">A receber</th>','<th style="text-align:right">A pagar</th>').replace(/color:var\(--green-d\);font-weight:600/g,'color:var(--red-d);font-weight:600'); }) + '</div>'
+  +   _fcComLado('pagar', function(){ return _fcTabelaComp(_fcTabelaPessoas(_fcPessoas())).replace('<th style="text-align:right">Recebido</th>','<th style="text-align:right">Pago</th>').replace('<th style="text-align:right">A receber</th>','<th style="text-align:right">A pagar</th>').replace(/color:var\(--green-d\);font-weight:600/g,'color:var(--red-d);font-weight:600'); }) + '</div>'
   + (atraso.length?'<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t">Em atraso</div><div class="cc-d">receitas e despesas vencidas · todos os meses</div></div></div>'+_fcTabelaAtraso(atraso)+'</div>':'');
   _fcGraficosB27(rec, pag);
 }
@@ -7046,6 +7057,25 @@ function _fcGraficosB27(rec, pag){
         tooltip:{mode:'index',intersect:false,callbacks:{label:function(c){ return ' '+c.dataset.label+': '+fF(c.raw||0); },
           footer:function(it){ if(!it||!it.length) return ''; var i=it[0].dataIndex; return 'Saldo do mês: '+fF((dR[i]||0)-(dP[i]||0)); }}}},
       scales:{x:{ticks:{font:{size:10}},grid:{display:false}},y:{ticks:{font:{size:10},callback:function(v){ return fS(v); }},grid:{color:'rgba(0,0,0,.04)'}}}}});
+}
+
+// Backup 28: os dois comparativos com as MESMAS larguras de coluna (um embaixo do outro, 100% alinhados) e linha de Total
+function _fcTotaisPessoas(){
+  var L=_FC_LADOS[_FC.lado], f=0, n=0, ab=0;
+  _fcPessoas().forEach(function(p){ var salvo=_FC.quem; _FC.quem=[p];
+    var fe=_fcFiltrar([L.abaFechado]), a=_fcFiltrar([L.abaAberto]); _FC.quem=salvo;
+    f+=_fcSoma(fe); n+=fe.length; ab+=_fcSoma(a); });
+  return {f:f, n:n, ab:ab};
+}
+function _fcTabelaComp(html){
+  var t=_fcTotaisPessoas(), pagar=_FC.lado==='pagar';
+  var tot='<tr class="linha-total fc-comp-tot"><td><b>Total</b></td>'
+    +'<td class="mono" style="text-align:right;font-weight:700;color:'+(pagar?'var(--red-d)':'var(--green-d)')+'">'+_faFT(t.f)+'</td>'
+    +'<td class="mono" style="text-align:right">'+(t.f?'100%':'—')+'</td><td class="mono" style="text-align:right">'+t.n+'</td>'
+    +'<td class="mono" style="text-align:right">'+(t.n?_faFT(t.f/t.n):'—')+'</td><td class="mono" style="text-align:right;font-weight:700">'+(t.ab?_faFT(t.ab):'—')+'</td>'
+    +'<td class="mono" style="text-align:right">—</td></tr>';
+  return html.replace('<div class="tw"><table>','<div class="tw fc-comp-wrap" data-sem-pagina><table class="fc-comp"><colgroup><col style="width:32%"><col style="width:15%"><col style="width:8%"><col style="width:8%"><col style="width:13%"><col style="width:14%"><col style="width:10%"></colgroup>')
+    .replace(/<\/tbody><\/table><\/div>$/, tot+'</tbody></table></div>');
 }
 function _fcTabelaPessoas(pessoas){
   var L=_FC_LADOS[_FC.lado];

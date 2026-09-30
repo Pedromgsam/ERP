@@ -23,6 +23,15 @@ function _lgSit(atr,risco,concluido){
 function _lgPag(pagas,total,pago,falta){
   return '<div class="lg-pag"><b class="lg-verde">'+pagas+' de '+(total||'?')+'</b> parcelas pagas</div><div class="lg-sub">Quitado <b>'+_lgFmtV(pago)+'</b> · falta <b>'+_lgFmtV(falta)+'</b></div>';
 }
+// Backup 28: guias a emitir — parcela sem pagamento, sem emissão, vencida ou vencendo em até 15 dias (mesmo prazo do quadro "Guias para emitir")
+function _lgFaltaEmitir(lista, emitida, paga){
+  var h=new Date(); h.setHours(0,0,0,0); var lim=new Date(h.getTime()+15*864e5);
+  return (lista||[]).filter(function(pa){ var d=pDate(pa.vencimento); return !paga(pa) && !emitida(pa) && d && d<=lim; }).length;
+}
+function _lgTagGuia(n, grupo){
+  if(!n) return '';
+  return '<span class="lg-guia" title="'+(grupo?'Há parcelas deste grupo sem a guia emitida (vencem em até 15 dias)':'Parcela vencendo em até 15 dias sem a guia emitida')+'">🧾 '+(grupo?'há guias para emitir':(n>1?'faltam '+n+' guias':'falta emitir a guia'))+'</span>';
+}
 function _lgEsc(t){ return String(t).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;'); }
 // o: {itens, porGrupo, abertos (obj), fnGrupo (nome da função global que abre/fecha o grupo), fnItem (nome da função que abre o item),
 //     rotulo ('parcelamento'|'acordo'), cab (título da 1ª coluna)}
@@ -33,7 +42,7 @@ function _lgRender(o){
       +'<div class="lg-c1"><div class="lg-nome">'+esc(x.titulo)+'</div><div class="lg-sub">'+x.sub+'</div></div>'
       +'<div class="lg-c2">'+_lgPag(x.pagas,x.total,x.pago,x.falta)+'</div>'
       +'<div class="lg-c3">'+(p?'<div class="lg-val">'+_lgFmtV(p.v)+'</div><div class="lg-sub">vence '+p.d.toLocaleDateString('pt-BR')+'</div>':'<div class="lg-val">—</div><div class="lg-sub">'+(x.atr?'só vencidas':'sem próxima')+'</div>')+'</div>'
-      +'<div class="lg-c4">'+_lgSit(x.atr,x.atr>=2,x.concluido)+'</div><div class="lg-c5" aria-hidden="true">›</div></div>'; };
+      +'<div class="lg-c4">'+_lgSit(x.atr,x.atr>=2,x.concluido)+_lgTagGuia(x.guias,false)+'</div><div class="lg-c5" aria-hidden="true">›</div></div>'; };
   var corpo;
   if(!o.itens.length) corpo='<div class="pa-ok">Nada com esses filtros.</div>';
   else if(o.porGrupo){
@@ -50,7 +59,7 @@ function _lgRender(o){
         +'<div class="lg-c1"><div class="lg-gnome"><span class="lg-seta" aria-hidden="true">'+(ab?'▾':'▸')+'</span>'+esc(g)+'</div><div class="lg-sub">'+l.length+' '+o.rotulo+(l.length>1?'s':'')+'</div></div>'
         +'<div class="lg-c2">'+_lgPag(soma('pagas'),soma('total'),soma('pago'),soma('falta'))+'</div>'
         +'<div class="lg-c3">'+(p?'<div class="lg-val">'+_lgFmtV(p.v)+'</div><div class="lg-sub">'+(p.n>1?p.n+' parcelas em '+p.mes:'vence '+p.d.toLocaleDateString('pt-BR'))+'</div>':'<div class="lg-val">—</div>')+'</div>'
-        +'<div class="lg-c4">'+_lgSit(atr,risco,false)+'</div><div class="lg-c5" aria-hidden="true"></div></div>'
+        +'<div class="lg-c4">'+_lgSit(atr,risco,false)+_lgTagGuia(soma('guias'),true)+'</div><div class="lg-c5" aria-hidden="true"></div></div>'
         +(ab?'<div class="lg-filhos"><div class="lg-filhos-tit">'+l.length+' '+o.rotulo+(l.length>1?'s':'')+' de '+esc(g)+' · clique para ver as parcelas</div>'+l.map(function(x){ return linhaItem(x,true); }).join('')+'</div>':'')+'</div>'; }).join('');
   } else corpo=o.itens.slice().sort(function(a,b){ return b.atr-a.atr || String(a.titulo).localeCompare(String(b.titulo),'pt-BR'); }).map(function(x){ return '<div class="lg-solto">'+linhaItem(x,false)+'</div>'; }).join('');
   return '<div class="lg"><div class="lg-hd"><span>'+o.cab+'</span><span>Parcelas pagas</span><span>Próxima parcela</span><span>Situação</span><span></span></div>'+corpo+'</div>';

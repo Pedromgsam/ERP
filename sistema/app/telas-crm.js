@@ -285,6 +285,12 @@ async function fichaOportunidade(id, aba) {
       (o.contrato_id ? '<div class="dica" style="margin-bottom:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">' + (e.final === 'ganho' ? 'Contrato assinado.' : 'Contrato criado, <b>aguardando assinatura</b>.') +
         ' <a href="#" id="op-ver-cli">Abrir a ficha do cliente</a><span style="margin-left:auto;display:flex;gap:6px"><button class="btn btn-o btn-mini" type="button" id="op-gerar">📄 Gerar contrato</button>' +
         '<button class="btn btn-o btn-mini" type="button" id="op-ver-ctr">Abrir o contrato</button></span></div>' : '') +
+      // Backup 28: o CRM conversa com os outros módulos — proposta, contrato, sala no Meet e agenda
+      '<div class="op-integra"><span class="sub">Ferramentas:</span>' +
+        '<button class="btn btn-o btn-mini" type="button" id="op-int-prop" title="Proposta com a marca (aba Propostas) ou o gerador de apresentação">💼 Proposta</button>' +
+        '<button class="btn btn-o btn-mini" type="button" id="op-int-ctr" title="Gerador de contrato e procuração, já com o cliente">📜 Contrato</button>' +
+        '<button class="btn btn-o btn-mini" type="button" id="op-int-meet" title="Cria uma sala nova no Google Meet (abre em outra aba; copie o link para a reunião)">🎥 Meet</button>' +
+        '<button class="btn btn-o btn-mini" type="button" id="op-int-agenda" title="Abre o Google Agenda com o evento pronto para salvar">🗓 Agenda</button></div>' +
       '<div class="abas" id="op-abas">' + [['dados', 'Resumo'], ['atividades', 'Atividades'], ['propostas', 'Propostas'], ['documentos', 'Documentos']].map(([k, r]) => '<button data-aba="' + k + '">' + r + '</button>').join('') + '</div>' +
       '<div id="op-corpo" class="ficha-corpo"></div>' });
   j.querySelector('.janela').classList.add('ficha');
@@ -311,6 +317,10 @@ async function fichaOportunidade(id, aba) {
   const vc = j.querySelector('#op-ver-cli'); if (vc) vc.onclick = (ev) => { ev.preventDefault(); abrirFicha(o.cliente_id); };
   const vg = j.querySelector('#op-gerar'); if (vg) vg.onclick = () => abrirGeradorContrato(o.cliente_id, o.contrato_id);
   const vct = j.querySelector('#op-ver-ctr'); if (vct) vct.onclick = () => detalheContrato(o.contrato_id);
+  j.querySelector('#op-int-prop').onclick = () => { mostrar('propostas'); window.open('geradores/propostas.html' + (o.cliente_id ? '?cliente=' + encodeURIComponent(o.cliente_id) : ''), '_blank', 'noopener'); };
+  j.querySelector('#op-int-ctr').onclick = () => (o.cliente_id ? abrirGeradorContrato(o.cliente_id, o.contrato_id) : window.open('geradores/contrato-procuracao.html', '_blank', 'noopener'));
+  j.querySelector('#op-int-meet').onclick = () => window.open('https://meet.google.com/new', '_blank', 'noopener');
+  j.querySelector('#op-int-agenda').onclick = () => { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(10, 0, 0, 0); window.open(linkAgendaGoogle({ titulo: 'Reunião — ' + o.titulo, inicio: d, duracao_min: 60, detalhe: nomeOp(o) + (mailOp(o) ? ' · ' + mailOp(o) : '') }), '_blank', 'noopener'); };
   await mostrar(aba || 'dados');
   return j;
 }
@@ -672,7 +682,9 @@ async function formReuniao(r, depois) {
       campo('Data <span class="obrig">*</span>', '<input name="data" type="date" value="' + dataLocal + '">') +
       campo('Hora <span class="obrig">*</span>', '<input name="hora" type="time" value="' + horaLocal + '">') +
       campo('Duração', '<select name="duracao_min">' + [[30, '30 min'], [60, '1 hora'], [90, '1h30'], [120, '2 horas']].map(([v, t]) => '<option value="' + v + '"' + (Number(r.duracao_min || 60) === v ? ' selected' : '') + '>' + t + '</option>').join('') + '</select>') +
-      campo('Local ou link', '<input name="local" maxlength="300" placeholder="Ex.: escritório, ou o link do Meet/Zoom" value="' + esc(r.local || '') + '">', 'inteiro') +
+      campo('Local ou link', '<div class="reu-local"><input name="local" maxlength="300" placeholder="Ex.: escritório, ou o link do Meet/Zoom" value="' + esc(r.local || '') + '">' +
+        '<button type="button" class="btn btn-o btn-mini" id="reu-meet" title="Abre uma sala nova no Google Meet: copie o endereço e cole aqui">🎥 Criar sala no Meet</button>' +
+        '<button type="button" class="btn btn-o btn-mini" id="reu-agenda" title="Abre o Google Agenda com a reunião preenchida">🗓 Google Agenda</button></div>', 'inteiro') +
       '<div class="inteiro"><div class="secao">Participantes do escritório</div>' + campoParticipantes(r.participantes || (o && o.responsavel) || (E.perfil && E.perfil.nome) || '') + '</div>' +
       '<div class="inteiro"><div class="secao">Enviar convite por e-mail ao cliente?</div><div class="segmento" id="reu-convite">' +
         [['nao', 'Não'], ['sim', 'Sim, enviar o convite']].map(([v, t]) => '<button type="button" data-v="' + v + '"' + ((r.convite ? 'sim' : 'nao') === v ? ' class="ativo"' : '') + '>' + t + '</button>').join('') + '</div>' +
@@ -689,6 +701,9 @@ async function formReuniao(r, depois) {
   seg.onclick = (ev) => { const b = ev.target.closest('button'); if (b) { convite = b.dataset.v === 'sim'; mostrarConv(); } };
   mostrarConv();
   j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
+  j.querySelector('#reu-meet').onclick = () => { window.open('https://meet.google.com/new', '_blank', 'noopener'); aviso('Sala criada no Meet (outra aba): copie o endereço e cole em "Local ou link".'); };
+  j.querySelector('#reu-agenda').onclick = () => { if (!f.data.value || !f.hora.value) return aviso('Informe a data e a hora.', true);
+    window.open(linkAgendaGoogle({ titulo: f.titulo.value, inicio: new Date(f.data.value + 'T' + f.hora.value + ':00'), duracao_min: Number(f.duracao_min.value) || 60, local: f.local.value, detalhe: f.obs.value }), '_blank', 'noopener'); };
   j.querySelector('#reu-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
     if (!f.titulo.value.trim()) throw new Error('Informe o assunto da reunião.');
     if (!f.data.value || !f.hora.value) throw new Error('Informe a data e a hora.');
@@ -714,4 +729,12 @@ function htmlReunioes(lista) {
     ' <span class="pill ' + (x.status === 'cancelada' ? 'neutro' : new Date(x.inicio) < new Date() ? 'pago' : 'aberto') + '">' + (x.status === 'cancelada' ? 'cancelada' : dataHoraBR(x.inicio)) + '</span>' +
     (x.convite ? ' <span class="pill ' + (x.convite_enviado_em ? 'pago' : 'hoje') + '">' + (x.convite_enviado_em ? '✉ convite enviado' : '✉ convite na fila') + '</span>' : '') +
     '<div class="sub">' + esc([x.local, x.participantes].filter(Boolean).join(' · ')) + '</div></div></div>').join('') + '</div>';
+}
+
+// Backup 28: evento pronto no Google Agenda (a pessoa só confere e salva; dá para ligar o Meet lá também)
+function linkAgendaGoogle(ev) {
+  const z = (d) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  const ini = ev.inicio instanceof Date ? ev.inicio : new Date(ev.inicio), fim = new Date(ini.getTime() + (ev.duracao_min || 60) * 60000);
+  return 'https://calendar.google.com/calendar/render?action=TEMPLATE&text=' + encodeURIComponent(ev.titulo || 'Reunião') + '&dates=' + z(ini) + '/' + z(fim) +
+    (ev.local ? '&location=' + encodeURIComponent(ev.local) : '') + (ev.detalhe ? '&details=' + encodeURIComponent(ev.detalhe) : '');
 }

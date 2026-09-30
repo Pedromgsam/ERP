@@ -63,6 +63,7 @@ function lerValor(txt) {
   let s = String(txt || '').replace(/[R$\s]/g, '');
   if (!s) return 0;
   if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+  else if (/^-?\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, '');   // "1.234" = mil duzentos e trinta e quatro
   const n = Number(s);
   return isFinite(n) ? Math.round(n * 100) / 100 : NaN;
 }
@@ -540,6 +541,7 @@ const PAGINA_TABELA = 100;
 function paginarTabelas() {
   document.querySelectorAll('.tw table, .tabela-wrap table').forEach((t) => {
     const corpo = t.tBodies[0]; if (!corpo) return;
+    if (t.closest('[data-sem-pagina]') || t.hasAttribute('data-sem-pagina')) return;   // Backup 28: Painel/Processos mostram tudo
     const linhas = [...corpo.rows].filter((r) => !r.classList.contains('linha-total'));
     const wrap = t.closest('.tabela-wrap');
     if (wrap) wrap.classList.toggle('tabela-longa', linhas.length > 25 && !wrap.closest('.janela'));
@@ -572,11 +574,74 @@ function nomearBotoesIcone() {
 }
 (() => {
   let agendado = false;
-  const agendar = () => { if (agendado) return; agendado = true; requestAnimationFrame(() => { agendado = false; paginarTabelas(); nomearBotoesIcone(); }); };
-  const ligar = () => new MutationObserver((ms) => { if (ms.some((m) => m.target.closest && m.target.closest('table, .tw, .tabela-wrap, main, .gs-area, #conteudo'))) agendar(); })
+  const agendar = () => { if (agendado) return; agendado = true; requestAnimationFrame(() => { agendado = false; paginarTabelas(); nomearBotoesIcone(); mascararCampos(); }); };
+  const ligar = () => new MutationObserver((ms) => { if (ms.some((m) => m.target.closest && m.target.closest('table, .tw, .tabela-wrap, main, .gs-area, #conteudo, #janelas, .janela, .gx-modal, form'))) agendar(); })
     .observe(document.body, { childList: true, subtree: true });
   if (document.body) ligar(); else document.addEventListener('DOMContentLoaded', ligar);
 })();
+
+// ═══ Backup 28: máscaras AO DIGITAR (valem para todo o sistema) ═══
+// Dinheiro: "10,2" → "R$ 10,2" (ao sair do campo: "R$ 10,20"); "10" → "R$ 10" (ao sair: "R$ 10,00"); milhar com ponto.
+// Telefone: "37998684323" → "(37) 9 9868-4323"; fixo "3732221234" → "(37) 3222-1234".
+// Campos: data-mascara="brl" | "tel", e também inputmode="decimal" com name começando por "valor" e name="telefone".
+function tipoMascara(el) {
+  if (!el || el.tagName !== 'INPUT' || (el.type && !/^(text|tel|search|)$/.test(el.type))) return '';
+  const m = el.getAttribute('data-mascara'); if (m) return m === 'nenhuma' ? '' : m;
+  const n = el.name || '';
+  if (el.getAttribute('inputmode') === 'decimal' && /^valor/.test(n)) return 'brl';
+  if (/(^|_)telefone$|^whatsapp$/.test(n) || el.type === 'tel') return 'tel';
+  return '';
+}
+function formatarBRL(txt, final) {
+  const jaMascarado = /R\$/.test(String(txt || ''));
+  let s = String(txt || '').replace(/R\$|\s/g, ''); if (!s) return '';
+  const neg = /^-/.test(s); s = s.replace(/-/g, '');
+  // ponto digitado como decimal vira vírgula: no fim do campo já mascarado ("R$ 10." → "R$ 10,") ou em valor colado ("10.5");
+  // os demais pontos são de milhar e saem
+  if (!s.includes(',')) {
+    if (jaMascarado) s = s.replace(/\.$/, ',');
+    else if (/\.\d{1,2}$/.test(s) && !/^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\.(\d{1,2})$/, ',$1');
+  }
+  const temVirg = s.includes(','), [a, b] = s.split(',');
+  let int = (a || '').replace(/\D/g, '').replace(/^0+(?=\d)/, ''), dec = (b || '').replace(/\D/g, '').slice(0, 2);
+  if (!int && !temVirg) return neg ? '-' : '';
+  if (!int) int = '0';
+  int = int.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  if (final) dec = (dec + '00').slice(0, 2);
+  return (neg ? '-' : '') + 'R$ ' + int + (temVirg || final ? ',' + dec : '');
+}
+function formatarTel(txt) {
+  const d = soDigitos(txt).replace(/^0+/, '').slice(0, 11); if (!d) return '';
+  if (d.length <= 2) return '(' + d;
+  const dd = '(' + d.slice(0, 2) + ') ', r = d.slice(2);
+  if (d.length === 11) return dd + r[0] + ' ' + r.slice(1, 5) + '-' + r.slice(5);
+  if (r.length <= 4) return dd + r;
+  return dd + r.slice(0, 4) + '-' + r.slice(4);
+}
+function aplicarMascara(el, final) {
+  const t = tipoMascara(el); if (!t) return;
+  const antes = el.value, fim = el.selectionStart === antes.length;
+  const pos = el.selectionStart == null ? antes.length : el.selectionStart;
+  const sig = (s, p) => s.slice(0, p).replace(t === 'brl' ? /[^\d,-]/g : /\D/g, '').length;   // dígitos antes do cursor
+  const novo = t === 'brl' ? formatarBRL(antes, final) : formatarTel(antes);
+  if (novo === antes) return;
+  el.value = novo;
+  if (document.activeElement === el && !final) {
+    let alvo = novo.length;
+    if (!fim) { const k = sig(antes, pos); alvo = 0; while (alvo < novo.length && sig(novo, alvo) < k) alvo++; }
+    try { el.setSelectionRange(alvo, alvo); } catch (e) { /* campo sem seleção */ }
+  }
+}
+document.addEventListener('input', (ev) => { if (!ev.isComposing) aplicarMascara(ev.target, false); }, true);
+document.addEventListener('blur', (ev) => aplicarMascara(ev.target, true), true);
+// valor que já vem preenchido (edição) também aparece com "R$"
+function mascararCampos(raiz) {
+  (raiz || document).querySelectorAll('input:not([data-mascara-ok])').forEach((el) => {
+    const t = tipoMascara(el); if (!t) return; el.setAttribute('data-mascara-ok', '');
+    if (t === 'brl' && !el.getAttribute('inputmode')) el.setAttribute('inputmode', 'decimal');
+    if (el.value && document.activeElement !== el) aplicarMascara(el, true);
+  });
+}
 
 function campo(rotulo, html, classe) {
   return '<label class="campo' + (classe ? ' ' + classe : '') + '"><span>' + rotulo + '</span>' + html + '</label>';

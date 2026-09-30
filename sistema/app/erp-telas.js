@@ -29,12 +29,14 @@
     { id: 'documentos', rot: 'Documentos', equipe: true, func: 'documentos' },
     { id: 'tarefas', rot: 'Tarefas', equipe: true },
     { id: 'alertas', rot: 'Alertas', equipe: true },
+    { id: 'rotina', rot: 'Rotina', equipe: true },   // Backup 28: o lugar do estagiário (substitui as planilhas)
+    { id: 'emails', rot: 'E-mails', equipe: true },  // Backup 28: fora da Administração
     { id: 'admin', rot: 'Administração', admin: true }
   ];
   // Cobranças, avisos e recibos (antiga "Notificações"): fora da barra; abre pelo botão ✉ de cada tela e pelo ⋯
   const FUNC_EXTRA = { notificacoes: 'clientes' };   // a Central de e-mails confere o acesso no banco
   // painéis novos → tela do Gestão que desenha nele
-  const TELAS_GS = { hoje: 'inicio', contratos: 'contratos', clientes: 'clientes', crm: 'crm', publicacoes: 'publicacoes', documentos: 'documentos', tarefas: 'tarefas', alertas: 'alertas', automacoes: 'automacoes', aprovacoes: 'aprovacoes', emails: 'emails', admin: 'admin' };
+  const TELAS_GS = { hoje: 'inicio', contratos: 'contratos', clientes: 'clientes', crm: 'crm', publicacoes: 'publicacoes', documentos: 'documentos', tarefas: 'tarefas', alertas: 'alertas', automacoes: 'automacoes', aprovacoes: 'aprovacoes', emails: 'emails', rotina: 'rotina', admin: 'admin' };
 
   // "+ Lançar": formulários do Gestão onde existem; os demais, do editor do ERP
   const empresaAtual = () => (_painel === 'financeiroContab' ? 'contabilidade' : 'escritorio');
@@ -300,20 +302,20 @@
     const hd = wrap.querySelector('.cc-hd'); if (!hd) return;
     const F = _pad.emp;
     const d = document.createElement('div'); d.id = 'pe-filtros'; d.className = 'gx-filtros-cli';
-    d.innerHTML = seg('pe-visao', [['grupo', 'Por grupo'], ['lista', 'Lista']], F.visao) +
+    d.innerHTML = '' +   // Backup 28: sem "Por grupo / Lista" (sempre por grupo)
       seg('pe-tipo', [['ativos', 'Ativos'], ['Consultoria', 'Consultoria'], ['Demanda', 'Serviço pontual'], ['Inativo', 'Inativos'], ['todos', 'Todos']], F.tipo) +
       '<select class="fsel" id="pe-area" aria-label="Área"><option value="">Todas as áreas</option><option value="juridico">Jurídico</option><option value="contabil">Contabilidade</option></select>' +
 
       '<input type="text" class="fsel" id="pe-busca" placeholder="Buscar nome, grupo, sócio ou CPF/CNPJ" autocomplete="off">';
     hd.appendChild(d);
     const re = () => { if (typeof window.renderExecRanking === 'function') window.renderExecRanking(); };
-    d.querySelector('#pe-visao').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.visao = b.dataset.v; d.querySelectorAll('#pe-visao button').forEach((x) => x.classList.toggle('ativo', x === b)); re(); } };
     d.querySelector('#pe-tipo').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.tipo = b.dataset.v; d.querySelectorAll('#pe-tipo button').forEach((x) => x.classList.toggle('ativo', x === b)); re(); } };
     d.querySelector('#pe-area').onchange = (ev) => { F.area = ev.target.value; re(); };
     let t; d.querySelector('#pe-busca').oninput = (ev) => { clearTimeout(t); t = setTimeout(() => { F.busca = ev.target.value; re(); }, 250); };
   }
   function padraoEmpresas() {
     const tb = document.getElementById('tblExecRanking'); if (!tb || ehCliente()) return;
+    if (tb.parentElement) tb.parentElement.setAttribute('data-sem-pagina', '');   // Backup 28: mostra todas
     filtrosEmpresas();
     const F = _pad.emp, B = dbERP().baseDados || [], cli = GS() && GS().E ? GS().E.clientes || [] : [];
     const busca = normH(F.busca), dig = String(F.busca || '').replace(/\D/g, '');
@@ -346,11 +348,11 @@
   // ── Processos ──
   function padraoProcessos() {
     const tb = document.getElementById('tblProcBody'); if (!tb || ehCliente()) return;
+    if (tb.parentElement) tb.parentElement.setAttribute('data-sem-pagina', '');   // Backup 28: mostra todos
     const hd = document.querySelector('#panel-processos .cc-hd > div:last-child');
     if (hd && !document.getElementById('pr-visao')) {
-      const d = document.createElement('div'); d.innerHTML = seg('pr-visao', [['grupo', 'Por grupo'], ['lista', 'Lista']], _pad.proc.visao);
-      const sv = d.firstChild; hd.insertBefore(sv, hd.firstChild);
-      sv.onclick = (ev) => { const b = ev.target.closest('button'); if (b) { _pad.proc.visao = b.dataset.v; sv.querySelectorAll('button').forEach((x) => x.classList.toggle('ativo', x === b)); if (typeof window.renderProcTbl === 'function') window.renderProcTbl(); } };
+      // Backup 28: sem "Por grupo / Lista" (sempre por grupo)
+      const sv = document.createElement('span'); sv.id = 'pr-visao'; sv.hidden = true; hd.insertBefore(sv, hd.firstChild);
       // Ativos · Arquivados · Extintos juntos, no mesmo desenho dos filtros de Clientes
       const chips = [...hd.querySelectorAll('.chip')]; if (chips.length) { const box = document.createElement('div'); box.className = 'segmento gx-seg-cli gx-seg-chips'; chips[0].before(box); chips.forEach((c) => box.appendChild(c)); }
     }
@@ -363,13 +365,17 @@
             .filter((x) => x[1]).map((x) => '<div><span>' + x[0] + '</span><b>' + escH(x[1]) + '</b></div>').join('') + '</div></div>' +
           '<div><div class="gx-det-tit">Andamento</div><div class="gx-det-dados">' +
           [['Valor da causa', p.valor ? fBRL(p.valor) : ''], ['Situação', p.statusOriginal], ['Distribuição', p.dataDistrib], ['Última atualização', p.atualizacao], ['Advogado', p.advogado], ['Procuração', p.procuracao], ['Prescrição', p.prescricao]]
-            .filter((x) => x[1]).map((x) => '<div><span>' + x[0] + '</span><b>' + escH(x[1]) + '</b></div>').join('') + '</div>' +
-          (p.obs ? '<div class="sub" style="margin-top:8px;white-space:pre-wrap">' + escH(p.obs) + '</div>' : '') + '</div></div>' +
+            .filter((x) => x[1]).map((x) => '<div><span>' + x[0] + '</span><b>' + escH(x[1]) + '</b></div>').join('') + '</div></div></div>' +
+          // Backup 28: sempre à vista — última movimentação e observação
+          '<div class="gx-det-blocos"><div class="gx-det-bloco"><div class="gx-det-tit">Última movimentação' + (p.ultimaMovEm ? ' · ' + escH(p.ultimaMovEm) : '') + '</div>' +
+            '<div class="gx-det-txt">' + (p.ultimaMov ? escH(p.ultimaMov) : '<span class="sub">Nenhuma registrada ainda.</span>') + '</div></div>' +
+          '<div class="gx-det-bloco"><div class="gx-det-tit">Observação</div><div class="gx-det-txt">' + (p.obs ? escH(p.obs) : '<span class="sub">—</span>') + '</div></div></div>' +
           ''; },
       // Backup 21: clicar no processo abre uma janela com o detalhe (Editar fica no rodapé)
       popup: (tr) => { const p = regDe(P, tr) || {}; if (!GS() || !GS().abrirJanela) return;
         const j = GS().abrirJanela({ titulo: 'Processo ' + (p.numero || ''), larga: true, corpo: '<div class="gx-det-corpo gx-det-janela">' + tbody_det(tr) + '</div>',
-          rodape: '<span class="sub">' + escH(p.grupo || '') + '</span><div class="acoes"><button type="button" class="btn btn-p" data-pr-editar>✎ Editar processo</button></div>' });
+          rodape: '<span class="sub">' + escH(p.grupo || '') + '</span><div class="acoes"><button type="button" class="btn btn-o" data-pr-mov>+ Registrar movimentação</button><button type="button" class="btn btn-p" data-pr-editar>✎ Editar processo</button></div>' });
+        j.querySelector('[data-pr-mov]').onclick = () => { GS().fecharJanela(j); if (GS().janelaMovimentacao) GS().janelaMovimentacao(p._id, () => { if (window.ERP_RECARREGAR) window.ERP_RECARREGAR(); }); };
         j.querySelector('[data-pr-editar]').onclick = () => { GS().fecharJanela(j); if (window.ERP_EDITAR) window.ERP_EDITAR(tr.dataset.gx); }; } });
     function tbody_det(tr) { return tb._gxDet(tr); }
   }

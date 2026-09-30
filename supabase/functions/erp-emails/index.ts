@@ -8,12 +8,14 @@
 //   "resumo" → monta o resumo do dia de cada pessoa e envia
 // E-mail com anexo {tipo:'recibo', dados} (Recebido → recibo): o PDF do recibo é montado aqui, sem biblioteca.
 // Backup 26: anexo {tipo:'ics', arquivo, conteudo} (convite de reunião) e vários destinatários em "para" (separados por vírgula).
+// Backup 28: anexo {tipo:'arquivos', lista:[{caminho, arquivo}]} (várias guias num e-mail só) e remetente por empresa:
+//   email_fila.conta = 'contabilidade' usa a conta de e-mail da Contabilidade (config_privada 'email_contab'), o resto a do escritório.
 // Quem pode chamar: a rotina do banco (cabeçalho x-erp-segredo) ou um administrador logado.
 // A senha do Gmail/SMTP/Resend fica no banco (config_privada) — nunca no site.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import nodemailer from 'npm:nodemailer@6.9.14';
 
-const VERSAO = '2026-10-27';
+const VERSAO = '2026-10-28';
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-erp-segredo',
@@ -82,6 +84,7 @@ function base64(bytes) { let s = ''; for (let i = 0; i < bytes.length; i++) s +=
 // "a@x.com, b@y.com" → ['a@x.com', 'b@y.com']
 const destinos = (para) => String(para || '').split(/[,;]\s*/).map((x) => x.trim()).filter(Boolean);
 function anexos(msg) {
+  if (msg.anexo && msg.anexo.tipo === 'lista') return (msg.anexo.itens || []).flatMap((a) => anexos({ anexo: a }));
   if (msg.anexo && msg.anexo.tipo === 'ics' && msg.anexo.conteudo) {
     return [{ filename: String(msg.anexo.arquivo || 'convite.ics').replace(/[\\/:*?"<>|]/g, '-'), content: base64(new TextEncoder().encode(String(msg.anexo.conteudo))), tipo: 'text/calendar' }];
   }
@@ -114,20 +117,24 @@ async function enviarUm(cfg, msg, mailer) {
 }
 
 async function processarFila(db, mailer) {
-  const cfg = await valor(db, 'email');
+  const cfg = await valor(db, 'email'), cfgContab = await valor(db, 'email_contab');
   if (!cfg || !cfg.usuario || !cfg.senha) return { enviados: 0, erros: 0, aviso: 'E-mail ainda não configurado em Administração → E-mail.' };
+  // Backup 28: clientes da Contabilidade saem pela conta da Contabilidade (se estiver configurada)
+  const contaDe = (m) => (m.conta === 'contabilidade' && cfgContab && cfgContab.usuario && cfgContab.senha ? cfgContab : cfg);
+  const baixar = async (a) => {
+    const { data: arq, error: eArq } = await db.storage.from('documentos').download(a.caminho);
+    if (eArq || !arq) throw new Error('Não consegui ler o anexo em Documentos: ' + ((eArq && eArq.message) || a.caminho));
+    return { tipo: 'bin', arquivo: a.arquivo, mime: a.mime || arq.type || 'application/pdf', b64: base64(new Uint8Array(await arq.arrayBuffer())) };
+  };
   const { data: fila, error } = await db.from('email_fila').select('*').eq('status', 'pendente').lt('tentativas', 3).order('criado_em').limit(40);
   if (error) throw error;
   let enviados = 0, erros = 0, ultimoErro = '';
   for (const m of fila || []) {
     try {
       // Backup 27: anexo que está no Storage ("documentos") — baixa antes de enviar
-      if (m.anexo && m.anexo.tipo === 'arquivo' && m.anexo.caminho) {
-        const { data: arq, error: eArq } = await db.storage.from('documentos').download(m.anexo.caminho);
-        if (eArq || !arq) throw new Error('Não consegui ler o anexo em Documentos: ' + ((eArq && eArq.message) || m.anexo.caminho));
-        m.anexo = { tipo: 'bin', arquivo: m.anexo.arquivo, mime: m.anexo.mime || arq.type || 'application/pdf', b64: base64(new Uint8Array(await arq.arrayBuffer())) };
-      }
-      await enviarUm(cfg, m, mailer);
+      if (m.anexo && m.anexo.tipo === 'arquivo' && m.anexo.caminho) m.anexo = await baixar(m.anexo);
+      if (m.anexo && m.anexo.tipo === 'arquivos') m.anexo = { tipo: 'lista', itens: await Promise.all((m.anexo.lista || []).filter((a) => a && a.caminho).map(baixar)) };
+      await enviarUm(contaDe(m), m, mailer);
       await db.from('email_fila').update({ status: 'enviado', enviado_em: new Date().toISOString(), erro: '' }).eq('id', m.id);
       enviados++;
     } catch (e) {

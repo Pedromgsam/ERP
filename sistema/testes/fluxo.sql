@@ -233,6 +233,28 @@ select pg_temp.ok((select registrar_emissao('parcelas', '50000000-0000-0000-0000
 select pg_temp.ok((select emissao_emails('parcelas', array['50000000-0000-0000-0000-000000000002'::uuid]) ? '50000000-0000-0000-0000-000000000002'), '10.6 a tela sabe quando o e-mail saiu');
 reset role;
 
+-- ═══ 11. Backup 28: várias guias da mesma empresa num e-mail só; remetente e dados de quem cobra ═══
+insert into parcelas (id, parcelamento_id, numero, vencimento) values ('60000000-0000-0000-0000-000000000001', '50000000-0000-0000-0000-000000000001', '6', current_date + 5),
+ ('60000000-0000-0000-0000-000000000002', '50000000-0000-0000-0000-000000000001', '7', current_date + 10);
+insert into documentos (id, cliente_id, tipo, nome, caminho, mime) values ('60000000-0000-0000-0000-000000000003', '10000000-0000-0000-0000-000000000001', 'guia', 'Guia 6.pdf', 'x/guia6.pdf', 'application/pdf'),
+ ('60000000-0000-0000-0000-000000000004', '10000000-0000-0000-0000-000000000001', 'guia', 'Guia 7.pdf', 'x/guia7.pdf', 'application/pdf');
+select pg_temp.como('00000000-0000-0000-0000-00000000000b');
+set role authenticated;
+select pg_temp.ok((select (enviar_guias_email('10000000-0000-0000-0000-000000000001', null,
+  '[{"tabela":"parcelas","id":"60000000-0000-0000-0000-000000000001","descricao":"Parcela 6","vencimento":"2030-01-10","valor":812.5},{"tabela":"parcelas","id":"60000000-0000-0000-0000-000000000002","descricao":"Parcela 7","vencimento":"2030-02-10","valor":799.9}]',
+  'Guias da Padaria', 'Seguem as guias.', array['60000000-0000-0000-0000-000000000003','60000000-0000-0000-0000-000000000004']::uuid[], null))->>'itens') = '2', '11.1 duas guias da mesma empresa num e-mail só');
+reset role;
+select pg_temp.ok((select count(*) from email_fila where assunto = 'Guias da Padaria' and jsonb_array_length(anexo->'lista') = 2 and html like '%812,50%' and html like '%799,90%' and html like '%1.612,40%' and conta = 'escritorio') = 1,
+  '11.2 os dois PDFs anexos, os valores digitados e o total', (select string_agg(coalesce(anexo::text, '') || ' ' || conta, ' | ') from email_fila where assunto = 'Guias da Padaria'));
+select pg_temp.ok((select count(*) from parcelas where id in ('60000000-0000-0000-0000-000000000001', '60000000-0000-0000-0000-000000000002') and emitida_em is not null) = 2, '11.3 as guias enviadas ficam marcadas como emitidas');
+insert into configuracoes (chave, valor) values ('dados_pagamento_contab', '{"pix":"pix-da-contabilidade","assinatura":"Equipe da Contabilidade"}') on conflict (chave) do update set valor = excluded.valor;
+insert into clientes (id, nome, area, email) values ('60000000-0000-0000-0000-000000000005', 'Cliente Só Contábil Ltda', 'contabil', 'contabil@cliente.teste');
+select pg_temp.ok(conta_email('60000000-0000-0000-0000-000000000005', null) = 'contabilidade' and conta_email('10000000-0000-0000-0000-000000000001', null) = 'escritorio', '11.4 cliente da Contabilidade sai pela conta da Contabilidade');
+select pg_temp.ok(email_cliente_enviar('email_ch', 'teste-b28-contab', '60000000-0000-0000-0000-000000000005', null, 'cobranca', 'Cobrança contábil', '<p>x</p>', '[]', true), '11.5 cobrança ao cliente da Contabilidade entra na fila');
+select pg_temp.ok((select count(*) from email_fila where referencia = 'teste-b28-contab' and conta = 'contabilidade' and html like '%pix-da-contabilidade%' and html like '%Equipe da Contabilidade%') = 1,
+  '11.6 com o PIX e a assinatura da Contabilidade', (select conta from email_fila where referencia = 'teste-b28-contab'));
+select pg_temp.ok((select count(*) from email_fila where referencia = 'email_lp:50000000-0000-0000-0000-000000000002' and html not like '%pix-da-contabilidade%') = 1, '11.7 cliente do escritório continua com os dados do escritório');
+
 -- ═══ RESUMO ═══
 select case when ok then 'PASSA ' else 'FALHA ' end || nome || case when not ok and obs <> '' then '  → ' || obs else '' end from r order by n;
 do $$ declare n int; begin

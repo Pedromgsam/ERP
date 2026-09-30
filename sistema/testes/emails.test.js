@@ -30,6 +30,14 @@ const tokenDe = (email) => jwt({ sub: sql("select id from perfis where email='" 
     ok('rotina envia pelo Gmail (smtp.gmail.com:465) com remetente do escritório', x.json.enviados === 1 && cartas[0]._host === 'smtp.gmail.com' && cartas[0]._porta === 465 &&
       /ERP Araújo & Castro/.test(cartas[0].from) && cartas[0].to === 'equipe@teste' && /mencionou/.test(cartas[0].subject), JSON.stringify(x.json));
     ok('e-mail marcado como enviado', sql("select status from email_fila where para='equipe@teste'") === 'enviado');
+    // Backup 28: cliente da Contabilidade sai pela conta da Contabilidade
+    sql(`insert into config_privada(chave,valor) values ('email_contab','{"provedor":"gmail","usuario":"contabilidade@gmail.com","senha":"zzzz","remetente":"Contabilidade A&C"}') on conflict (chave) do update set valor=excluded.valor`);
+    sql("insert into email_fila(para,assunto,html,tipo,conta) values ('cli@contab.teste','Cobrança contábil B28','<p>x</p>','cliente','contabilidade'),('cli@escr.teste','Cobrança escritório B28','<p>x</p>','cliente','escritorio')");
+    x = await chamar({}, segredo());
+    const cc = cartas.find((c) => c.subject === 'Cobrança contábil B28'), ce = cartas.find((c) => c.subject === 'Cobrança escritório B28');
+    ok('conta "contabilidade" sai pelo e-mail da Contabilidade; o resto pelo do escritório', !!cc && /contabilidade@gmail\.com/.test(cc.from) && /Contabilidade A&C/.test(cc.from) && !!ce && /escritorio@gmail\.com/.test(ce.from),
+      JSON.stringify([cc && cc.from, ce && ce.from]));
+    sql("delete from config_privada where chave='email_contab'");
     sql("update perfis set pref_email = pref_email || '{\"mencao\":false}' where email='equipe@teste'");
     sql("insert into notificacoes(usuario_id,tipo,titulo) select id,'mencao','Outra menção' from perfis where email='equipe@teste'");
     ok('preferência desligada: não enfileira', sql("select count(*) from email_fila where assunto='Outra menção'") === '0');

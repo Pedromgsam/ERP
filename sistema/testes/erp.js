@@ -269,7 +269,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.click('#panel-contratos button:has-text("Novo contrato")'); await p.waitForSelector('#gs-raiz #ctr-mod'); await p.waitForTimeout(250);
     await p.selectOption('#gs-raiz [name=cliente_id]', { label: 'Alfa Comércio Ltda · Grupo Alfa' });
     await p.fill('#gs-raiz [name=descricao]', 'Consultoria mensal Alfa'); await p.click('#ctr-forma [data-v=salario_minimo]');
-    await p.fill('#gs-raiz [name=qtd_salarios]', '1'); await p.fill('#gs-raiz [name=inicio_competencia]', '2026-08');
+    await p.fill('#gs-raiz [name=qtd_salarios]', '1'); await p.fill('#gs-raiz [name=inicio_vigencia]', '2026-08-01');
     ok('prévia mostra o valor do salário mínimo do ano', /1\.621,00/.test(await p.textContent('#ctr-previa-rec')));
     await salvarGs(p, '#btn-salvar-ctr');
     ok('consultoria em salário mínimo lança uma mensalidade por competência (paga no mês seguinte)',
@@ -314,12 +314,9 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
 
     // ── ficha 360° do cliente ──
     ok('Clientes sem as colunas Tipo e Contato', await p.evaluate(() => { const h = [...document.querySelectorAll('#panel-clientes thead th')].map((x) => x.textContent.trim()); return !h.includes('Tipo') && !h.includes('Contato') && h.includes('Responsável'); }));
-    await p.click('#panel-clientes tr[data-cli]:has-text("Alfa Comércio Ltda")'); await p.waitForSelector('#panel-clientes tr.cli-det [data-cli-ficha]'); await p.waitForTimeout(600);
-    ok('clicar no cliente expande os detalhes (contato, fiscal, escritório)', /Fiscal/.test(await p.textContent('#panel-clientes tr.cli-det')) && /PGFN/.test(await p.textContent('#panel-clientes tr.cli-det')));
-    await p.click('#panel-clientes tr[data-cli]:has-text("Alfa Comércio Ltda")'); await p.waitForTimeout(300);
-    ok('clicar de novo recolhe', (await p.$$('#panel-clientes tr.cli-det')).length === 0);
-    await p.click('#panel-clientes tr[data-cli]:has-text("Alfa Comércio Ltda")'); await p.waitForSelector('#panel-clientes [data-cli-ficha]');
-    await p.click('#panel-clientes [data-cli-ficha]'); await p.waitForSelector('.janela.ficha #fc-abas'); await p.waitForTimeout(1200);
+    ok('Clientes: coluna Área (Jurídico / Contábil / Jurídico e contábil), sem ▸', /Área/.test(await p.textContent('#panel-clientes .cli-tabela thead')) && (await p.$$('#panel-clientes .cli-seta')).length === 0);
+    await p.click('#panel-clientes tr[data-cli]:has-text("Alfa Comércio Ltda")'); await p.waitForSelector('.janela.ficha #fc-abas'); await p.waitForTimeout(1200);
+    ok('clicar no cliente abre a ficha completa (sem expandir para baixo)', (await p.$$('#panel-clientes tr.cli-det')).length === 0);
     ok('ficha do cliente abre com 16 abas e resumo', (await p.$$('.janela.ficha #fc-abas button')).length === 16 && /A receber/.test(await p.textContent('#fc-corpo')));
     await foto(p, 'ficha');
     await p.click('#fc-abas [data-aba=contatos]'); await p.waitForSelector('[data-novo-sub]'); await p.click('[data-novo-sub]');
@@ -441,7 +438,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('só Jurídico: não recebe cliente só da Contabilidade', await pe.evaluate(async () => { await GS.carregarCadastros(true); return GS.E.clientes.every((c) => c.area !== 'contabil') && GS.E.clientes.length > 0; }));
     ok('modo rascunho avisado no Início', /modo rascunho/.test(await pe.textContent('#panel-hoje')));
     await pe.evaluate((id) => GS.formCliente(GS.E.clientes.find((c) => c.id === id)), cliR); await pe.waitForSelector('#f-cli');
-    await pe.fill('#f-cli [name=telefone]', '31 3333-0000'); await pe.click('#btn-salvar-cli'); await pe.waitForTimeout(1500);
+    await pe.click('[data-cli-aba=contato]'); await pe.fill('#f-cli [name=telefone]', '31 3333-0000'); await pe.click('#btn-salvar-cli'); await pe.waitForTimeout(1500);
     const avR = await pe.textContent('#gs-raiz #aviso');
     ok('estagiário salva: vai para aprovação (não grava direto)', /aprovação/.test(avR) && sql("select telefone from clientes where id='" + cliR + "'") === telAntes &&
       sql("select count(*) from rascunhos where status='pendente' and tabela='clientes'") === '1', avR + ' | ' + sql("select count(*) from rascunhos"));
@@ -572,7 +569,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     sql("delete from publicacoes where parte_monitorada='BETA SERVICOS LTDA'");
     await p.evaluate((b) => { window.ERP_DJEN_API = b + '/__teste/djen'; }, BASE); await p.click('#pub-nav'); await p.waitForTimeout(3000);
     await nav(p, 'publicacoes'); await p.waitForTimeout(1200);
-    ok('Publicações: partes em linhas (Réu: …)', await p.evaluate(() => [...document.querySelectorAll('#pub-corpo .pub-partes div')].some((d) => /^Réu:/.test(d.textContent.trim()))));
+    ok('Publicações: identificação no topo (Processo / Réu / Advogado) com botão Copiar', await p.evaluate(() => [...document.querySelectorAll('#pub-corpo .pub-id-txt')].some((d) => /Processo:/.test(d.textContent) && /Réu:/.test(d.textContent))) && !!(await p.$('#pub-corpo [data-copiar-id]')));
     ok('Publicações: "Buscar pelo navegador" grava sem duplicar', sql("select count(*) from publicacoes where parte_monitorada='BETA SERVICOS LTDA'") === '1' && Number(sql("select count(*) from publicacoes")) === 3);
 
     // ── Alertas: cartões por setor + cartão CNPJ (rotina das 6h) ──

@@ -83,7 +83,24 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
-- Última entrega: **Backup 27** (SQL + função erp-emails). Início: sem subtítulo e sem as tabelas "Atrasados" (`cardAtraso` saiu),
+- Última entrega: **Backup 28** (SQL + funções erp-emails e erp-cnpj). Menu: **Rotina** (`telas-rotina.js`, `TELAS.rotina`: passivo editável
+  com `cliente_certificado` [validade/senha, RLS editar clientes], processos com `processo_movimentacoes` + gatilho `processo_mov_aplica` →
+  `processos.ultima_movimentacao/_em`, guias, financeiro, minhas tarefas; `janelaMovimentacao` no GS e no popup de Processos) e **E-mails**
+  (saiu da Administração). Máscaras ao digitar no nucleo.js (`tipoMascara`: `data-mascara="brl|tel"`, inputmode decimal + name `valor*`,
+  name telefone; `formatarBRL`, `formatarTel`, `mascararCampos` no observer); `lerValor` entende "1.234". Selects com seta própria (design.css).
+  `paginarTabelas` pula `[data-sem-pagina]` (Painel/Processos/Rotina). Painel/Processos sem `pe-visao`/`pr-visao` (`#pr-visao` oculto).
+  Publicações: `partesPub` = bloco `.pub-id` (Processo/Autor/Réu — Advogado, `data-copiar-id`). Contratos: `inicio_vigencia`, `fechado_por`,
+  `SITUACOES_CTR`/`pillSituacaoCtr` (Rescindido derivado), coluna Financeiro, docs antes de aditivos. Clientes: lista sem ▸ (clique → `abrirFicha`),
+  `pillAreaCli`; `formCliente` em abas (`ABAS_CLI`, `[data-cli-aba]`), `grupo_sel` + `grupo_novo`, e-mails/telefones extras → `contatos`,
+  CNPJ ao vivo `erp-cnpj {acao:'previa', cnpj}` (sem gravar). E-mail por empresa: `email_fila.conta`, `conta_email(cliente, ref)`,
+  GUC `erp.conta_email` lida por `email_cliente_html` (`dados_pagamento_contab`), `config_privada.email_contab` (`salvar_config_email_conta`,
+  `status_config_email_conta`), erp-emails escolhe a conta e aceita anexo `{tipo:'arquivos', lista}`. Guias: `cardGuias` minimizável
+  (`_guiaMin`, localStorage), `janelaGuiasEmpresa` → `enviar_guias_email(cli, grp, itens, assunto, texto, docs, para)` (+ WhatsApp via
+  `navigator.share`/wa.me); `_lgFaltaEmitir`/`_lgTagGuia` (item `guias`). Alertas: `.al-blocos` por setor, rotinas em `.al-rot-tab`. Documentos:
+  pastas por grupo (`details.doc-pasta`). CRM: `.op-integra` (proposta, contrato, Meet, agenda), `linkAgendaGoogle`. Contabilidade:
+  `_fcTabelaComp` (colgroup fixo + Total). Cliente de teste: `banco/cliente-teste-email.sql`. Tabelas de lançamentos do Financeiro: iguais
+  ao B26 (conferido) — perguntar ao usuário qual versão ele quer. `estrutura.sql` = LINHAS linhas.
+- Backup 27 (base) (SQL + função erp-emails). Início: sem subtítulo e sem as tabelas "Atrasados" (`cardAtraso` saiu),
   Honorários antes de `#ini-fila`; destaque único `tarefas` (atrasadas ou fatal ≤7 d; atalho `atencao` em Tarefas) e `aguias` (boletos de
   acordo a emitir); `janelaTodosLembretes` (fixados/próximos/mais adiante/concluídos 90 d); fila: `.fila-com-atr` (atrasadas à esquerda em
   dia/semana/mês), dias vazios no fim do mês, `.fila-compacta`; `coletarAlertas` sem publicacao/tarefa/atraso/prazo nem vencimentos do dia,
@@ -95,7 +112,7 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
   `emissao_emails`. Lista por grupo: `_lgSit` = pílula única (risco = vermelha), `.lg-verde`, grupo aberto com contorno; sem "Por grupo/Lista"
   (`_parcVisao`/`_acVisao` ficaram, sem botão); `_guiasNoTopo` (#parcGuias/#acGuias). Contabilidade: `remendos/contab-b27.js`
   (`_fcPintarCorpo` novo, o antigo virou `_fcPintarCorpoAntigo`; sem `#fcLadoBar`; `_fcGraficosB27` verde/vermelho; comparativo por
-  cliente e por fornecedor; `_fcTabelaAtraso` com Receita/Despesa, `data-sem-gs` para o `converterTabelas` não trocar). `estrutura.sql` = 5610 linhas.
+  cliente e por fornecedor; `_fcTabelaAtraso` com Receita/Despesa, `data-sem-gs` para o `converterTabelas` não trocar).
 - Backup 26 (base) (SQL + funções erp-emails, erp-cnpj, erp-agenda). Fluxo cliente → financeiro:
   contrato `status='Aguardando assinatura'` (não lança nada; `lancar_parcelas_contrato`, `gerar_mensalidades` pula) → `contrato_assinar(id)` ou lead em
   etapa final 'ganho' (`crm_assina_contrato`) → gatilho `contrato_assinado` (parcelas/mensalidades, onboarding via `onboarding_pendente`, notificação,

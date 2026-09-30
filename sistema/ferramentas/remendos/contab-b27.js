@@ -38,9 +38,9 @@ function _fcPintarCorpo(){
   +   '<div class="cb" style="height:280px"><canvas id="cFcMes"></canvas></div></div>'
   + '<div hidden aria-hidden="true"><canvas id="cFcQuem"></canvas></div>'
   + '<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t">Comparativo por cliente</div><div class="cc-d">receitas · mesmo período e mesmos recortes acima</div></div></div>'
-  +   _fcComLado('receber', function(){ return _fcTabelaPessoas(_fcPessoas()); }) + '</div>'
+  +   _fcComLado('receber', function(){ return _fcTabelaComp(_fcTabelaPessoas(_fcPessoas())); }) + '</div>'
   + '<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t">Comparativo por fornecedor</div><div class="cc-d">despesas · mesmo período</div></div></div>'
-  +   _fcComLado('pagar', function(){ return _fcTabelaPessoas(_fcPessoas()).replace('<th style="text-align:right">Recebido</th>','<th style="text-align:right">Pago</th>').replace('<th style="text-align:right">A receber</th>','<th style="text-align:right">A pagar</th>').replace(/color:var\(--green-d\);font-weight:600/g,'color:var(--red-d);font-weight:600'); }) + '</div>'
+  +   _fcComLado('pagar', function(){ return _fcTabelaComp(_fcTabelaPessoas(_fcPessoas())).replace('<th style="text-align:right">Recebido</th>','<th style="text-align:right">Pago</th>').replace('<th style="text-align:right">A receber</th>','<th style="text-align:right">A pagar</th>').replace(/color:var\(--green-d\);font-weight:600/g,'color:var(--red-d);font-weight:600'); }) + '</div>'
   + (atraso.length?'<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t">Em atraso</div><div class="cc-d">receitas e despesas vencidas · todos os meses</div></div></div>'+_fcTabelaAtraso(atraso)+'</div>':'');
   _fcGraficosB27(rec, pag);
 }
@@ -71,4 +71,23 @@ function _fcGraficosB27(rec, pag){
         tooltip:{mode:'index',intersect:false,callbacks:{label:function(c){ return ' '+c.dataset.label+': '+fF(c.raw||0); },
           footer:function(it){ if(!it||!it.length) return ''; var i=it[0].dataIndex; return 'Saldo do mês: '+fF((dR[i]||0)-(dP[i]||0)); }}}},
       scales:{x:{ticks:{font:{size:10}},grid:{display:false}},y:{ticks:{font:{size:10},callback:function(v){ return fS(v); }},grid:{color:'rgba(0,0,0,.04)'}}}}});
+}
+
+// Backup 28: os dois comparativos com as MESMAS larguras de coluna (um embaixo do outro, 100% alinhados) e linha de Total
+function _fcTotaisPessoas(){
+  var L=_FC_LADOS[_FC.lado], f=0, n=0, ab=0;
+  _fcPessoas().forEach(function(p){ var salvo=_FC.quem; _FC.quem=[p];
+    var fe=_fcFiltrar([L.abaFechado]), a=_fcFiltrar([L.abaAberto]); _FC.quem=salvo;
+    f+=_fcSoma(fe); n+=fe.length; ab+=_fcSoma(a); });
+  return {f:f, n:n, ab:ab};
+}
+function _fcTabelaComp(html){
+  var t=_fcTotaisPessoas(), pagar=_FC.lado==='pagar';
+  var tot='<tr class="linha-total fc-comp-tot"><td><b>Total</b></td>'
+    +'<td class="mono" style="text-align:right;font-weight:700;color:'+(pagar?'var(--red-d)':'var(--green-d)')+'">'+_faFT(t.f)+'</td>'
+    +'<td class="mono" style="text-align:right">'+(t.f?'100%':'—')+'</td><td class="mono" style="text-align:right">'+t.n+'</td>'
+    +'<td class="mono" style="text-align:right">'+(t.n?_faFT(t.f/t.n):'—')+'</td><td class="mono" style="text-align:right;font-weight:700">'+(t.ab?_faFT(t.ab):'—')+'</td>'
+    +'<td class="mono" style="text-align:right">—</td></tr>';
+  return html.replace('<div class="tw"><table>','<div class="tw fc-comp-wrap" data-sem-pagina><table class="fc-comp"><colgroup><col style="width:32%"><col style="width:15%"><col style="width:8%"><col style="width:8%"><col style="width:13%"><col style="width:14%"><col style="width:10%"></colgroup>')
+    .replace(/<\/tbody><\/table><\/div>$/, tot+'</tbody></table></div>');
 }

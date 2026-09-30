@@ -75,6 +75,7 @@ function renderParcAnalise(){
   // Backup 25: a lista por grupo é a mesma de Acordos (_lgRender, remendos/lista-grupos-b25.js)
   var itens=L.map(function(x){ var p=x.p, v=Number(p.valorUltimaParcela)||0;
     return {k:x.k, grupo:x.g, titulo:p.empresa||'—', pagas:x.pg, total:x.tot, pago:x.n.pago, falta:x.n.falta, atr:x.atr, concluido:_parcConcluido(p),
+      guias:p.emitimosGuia===false?0:_lgFaltaEmitir(p.parcelas, function(pa){ return !!pa.emitidaEm||/sim|emitid/i.test(pa.emissao||''); }, function(pa){ return String(pa.pagamento||'').toUpperCase()==='SIM'; }),
       sub:[p.local||p.orgao||'',p.natureza||'',p.numero?'nº '+p.numero:''].filter(Boolean).map(esc).join(' · ')+(_parcVisao==='lista'?' · '+esc(x.g):'')
         +(p.emitimosGuia===false?' <span class="lg-tag" title="As guias deste parcelamento são emitidas pelo cliente">guia: cliente</span>':''),
       abertas:(p.parcelas||[]).filter(function(pa){ return String(pa.pagamento||'').toUpperCase()!=='SIM'; }).map(function(pa){ return {d:pDate(pa.vencimento), v:Number(pa.valor)||v}; })}; });

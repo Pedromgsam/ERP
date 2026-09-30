@@ -8,7 +8,7 @@
 // limite de 3 consultas por minuto; com token, sem limite) e CNPJá (open.cnpja.com, grátis com limite).
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const VERSAO = '2026-10-05';
+const VERSAO = '2026-10-28';
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-erp-segredo',
@@ -83,7 +83,7 @@ export async function tratar(req, db, buscar, esperar) {
     if (!origem) return resposta({ erro: 'Sem permissão.' }, 401);
     const corpo = await req.json().catch(() => ({}));
     if (corpo.acao === 'ping') return resposta({ ok: true, versao: VERSAO });
-    if (origem === 'equipe' && !corpo.cliente_id) return resposta({ erro: 'Sem permissão: a equipe consulta um cliente por vez.' }, 401);
+    if (origem === 'equipe' && !corpo.cliente_id && corpo.acao !== 'previa') return resposta({ erro: 'Sem permissão: a equipe consulta um cliente por vez.' }, 401);
     // disparo automático do cadastro (Central de automações → "Cliente novo com CNPJ")
     if (corpo.auto) {
       const { data: rg } = await db.from('regras_tarefas').select('ligada').eq('chave', 'cliente_novo_cnpj').maybeSingle();
@@ -92,6 +92,22 @@ export async function tratar(req, db, buscar, esperar) {
     const { data: cfgRow } = await db.from('config_privada').select('valor').eq('chave', 'api_cnpj').maybeSingle();
     const cfg = (cfgRow && cfgRow.valor) || { provedor: 'brasilapi' };
     const provedor = cfg.provedor || 'brasilapi', bases = cfg.bases || {};
+    // Backup 28: {acao:'previa', cnpj} — cadastro novo: consulta na hora, enquanto digita, SEM gravar nada
+    if (corpo.acao === 'previa') {
+      const cnpj = String(corpo.cnpj || '').replace(/\D/g, '');
+      if (cnpj.length !== 14) return resposta({ erro: 'CNPJ incompleto.' }, 400);
+      for (const prov of [provedor].concat(RESERVAS.filter((x) => x !== provedor)).slice(0, 2)) {
+        const tk = prov === provedor ? cfg.token : '';
+        try {
+          const r = await buscar(url(prov, cnpj, tk, bases), { headers: Object.assign({ Accept: 'application/json' }, prov === 'receitaws' && tk ? { Authorization: 'Bearer ' + tk } : {}) });
+          if (r.status === 404) continue;
+          if (!r.ok) return resposta({ ok: false, erro: 'A consulta respondeu ' + r.status + '. Tente de novo em instantes.' });
+          const j = await r.json();
+          return resposta({ ok: true, fonte: prov, dados: normalizar(prov, j) });
+        } catch (e) { if (prov !== provedor) break; }
+      }
+      return resposta({ ok: false, aguardando: true, erro: 'CNPJ ainda não está na base pública da Receita (empresa recém-aberta). Preencha à mão; o sistema tenta de novo todo dia.' });
+    }
     // {cliente_id}: consulta só aquela empresa (botão "Consultar agora" da ficha do cliente)
     let consulta = db.from('clientes')
       .select('id, nome, cpf_cnpj, razao_social, nome_fantasia, situacao_cadastral, data_situacao, cnae_principal, porte, data_abertura, endereco, cidade, estado, cep, cnpj_atualizado_em');

@@ -33,6 +33,7 @@ versão foi ao ar**. O número cresce a cada entrega.
 | 25 | Parcelamentos e Acordos na mesma lista por grupo (sem barra, "N de M parcelas pagas", próxima parcela somada no mês, risco com 2+ no mesmo), guias por parcelamento, Início com 5 tamanhos de letra |
 | 26 | Do primeiro contato ao financeiro: contrato aguardando assinatura (financeiro e onboarding só na assinatura), gerador preenchido pelo CRM, contatos por setor e Central "Quem recebe o quê", reunião com convite, linha do tempo única, delegar e validar, lista de simplificação |
 | 27 | Início enxuto (sem Atrasados, lembretes "Todos", fila com atrasadas ao lado, avisos só do que importa), Painel abre a ficha, Processos sem legendas extras, Parcelamentos/Acordos com emissão de guias/boletos (PDF, e-mail com anexo, controle), Contabilidade com análise única |
+| 28 | Rotina do estagiário (passivo, certificado, acompanhamento de processos, guias), e-mail e dados de pagamento por empresa, várias guias num e-mail (valores editáveis, PDFs, WhatsApp), cadastro de cliente em abas com CNPJ na hora, máscaras R$/telefone, contratos com vigência, Alertas em blocos, Documentos por grupo, CRM com Meet/agenda |
 
 ## Como baixar um backup
 No GitHub, abra a pasta `backups`, clique no arquivo e depois em **Download** (ícone de seta, à direita).
