@@ -550,7 +550,7 @@ body.gx-barra-topo .pcx-risco{color:var(--red-d);font-weight:600;margin-top:4px}
 /* ═══ Backup 23 ═══ */
 /* Início: faixa de destaques (avisos, tarefas atrasadas…) solta, e o cartão próprio de Lembretes */
 body.gx-barra-topo .gs .ini-destaques{margin:0 0 var(--sp-3)}
-body.gx-barra-topo .gs .ini-lemb .lemb-tg{margin:4px 0 8px;font-size:13.5px}
+body.gx-barra-topo .gs .ini-lemb .lemb-tg{margin:4px 0 8px;font-size:13px}
 body.gx-barra-topo .gs .ini-lemb .lemb-tg-fut{margin-top:10px;color:var(--text2)}
 body.gx-barra-topo .gs .lemb-it[data-lemb-det]{cursor:pointer}
 body.gx-barra-topo .gs .lemb-it[data-lemb-det]:focus-visible{outline:2px solid var(--navy3);outline-offset:-2px}
