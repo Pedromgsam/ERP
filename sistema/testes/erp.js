@@ -1023,7 +1023,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await nav(p, 'resumo'); await p.waitForTimeout(1500);
     ok('Painel: sem a faixa "Painel Executivo" e com "Atualizado" na linha do filtro', !(await p.isVisible('#panel-resumo > .mod-banner')) && await p.isVisible('#gx-linha-painel'));
     ok('Painel: contadores rolam com a página (não ficam presos no topo)', await p.evaluate(() => getComputedStyle(document.getElementById('gx-linha-painel')).position !== 'fixed'));
-    await p.click('#pe-visao [data-v=grupo]'); await p.waitForTimeout(500);
+    ok('Painel: sem "Por grupo / Lista" e sem "Mostrar mais" (todas as linhas)', !(await p.$('#pe-visao')) && !(await p.isVisible('#panel-resumo .pag-rodape')));
     { const grps = await p.$$eval('#tblExecRanking tr.gx-grp', (l) => l.map((t) => t.textContent));
       ok('Painel → Empresas do grupo: separado por grupo como em Clientes ("Grupo Alfa 2 cadastros")', grps.some((t) => /Grupo Alfa\s*2 cadastros/.test(t)) && grps.some((t) => /Grupo Beta\s*1 cadastro/.test(t)), grps.join(' | ')); }
     ok('Painel: sem a seta de expandir e sem o filtro de grupo (fica só no filtro de cima)', !(await p.isVisible('#tblExecRanking td.gx-seta')) && !(await p.$('#pe-grupo')));
