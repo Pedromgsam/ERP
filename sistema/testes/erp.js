@@ -204,7 +204,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.evaluate((id) => ERP_EDITAR('clientes:' + id), idBeta);
     await p.waitForSelector('#gs-raiz .janela', { timeout: 8000 }); await p.waitForTimeout(250);
     ok('editar cliente abre o formulário do Gestão', await p.isVisible('#gs-raiz [name=cpf_cnpj]'));
-    await p.fill('#gs-raiz [name=age_mg]', '1.300,00');
+    await p.click('#gs-raiz [data-cli-aba=sit]'); await p.fill('#gs-raiz [name=age_mg]', '1.300,00');
     await salvarGs(p, '#btn-salvar-cli');
     await nav(p, 'resumo'); await p.waitForTimeout(800);
     ok('painel recalcula após editar cliente (R$ 3.000,00)', /3\.000,00/.test(await p.evaluate(() => document.getElementById('execKpis').innerHTML)));
