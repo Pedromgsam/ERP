@@ -61,7 +61,7 @@ function _acAbrir(k){
           +'<div class="acx-parc-v">'+_faFT(F.v(a))+'</div>'
           +'<div class="acx-sub">'+(F.pago(a)?'✓ paga'+(a.dataPag?' em '+esc(a.dataPag):''):(st==='r'?'venceu ':'vence ')+esc(a.vencimento||'—'))+'</div>'
           // Backup 27: emissão do boleto/PIX (quando e quem)
-          +'<div class="acx-parc-lin"><span>Boleto / PIX</span>'+((a.emitidaEm||/sim|emitid/i.test(a.emissao||''))?'<b title="'+esc(a.emitidaPor?'por '+a.emitidaPor:'')+'">✓ emitido'+(a.emitidaEm?' '+esc(a.emitidaEm.slice(0,5)):'')+'</b>':(F.pago(a)?'<span>—</span>':'<b style="color:var(--amber-d)">a emitir</b>'))+'</div>'
+          +'<div class="acx-parc-lin"><span>Boleto / PIX</span>'+((a.emitidaEm||/sim|emitid/i.test(a.emissao||''))?'<b title="'+esc(a.emitidaPor?'por '+a.emitidaPor:'')+'">Boleto emitido'+(a.emitidaEm?' em '+esc(a.emitidaEm):'')+'</b>':(F.pago(a)?'<span>—</span>':'<b style="color:var(--amber-d)">a emitir</b>'))+'</div>'
           +'<div class="acx-parc-bt">'+(F.pago(a)?'':'<button type="button" class="btn btn-o btn-mini" data-emitir="'+a._id+'">'+((a.emitidaEm||/sim|emitid/i.test(a.emissao||''))?'✎ Emissão':'🧾 Emitir boleto')+'</button><button type="button" class="btn-m ac-bt-pagar" data-ac-pagar="'+a._id+'">✓ Lançar pagamento</button>')
           +'<button type="button" class="btn-m acx-link" data-ac-det="'+a._id+'">Detalhe</button></div></div>'; }).join('')+'</div></div>' });
   j.querySelectorAll('[data-ac-pagar]').forEach(function(b){ b.onclick=function(){ GS.fecharJanela(j); _acPagar(b.dataset.acPagar,b); }; });

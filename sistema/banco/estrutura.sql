@@ -5839,3 +5839,125 @@ begin
 end $$;
 revoke all on function public.enviar_guias_email(uuid, uuid, jsonb, text, text, uuid[], text) from public, anon;
 grant execute on function public.enviar_guias_email(uuid, uuid, jsonb, text, text, uuid[], text) to authenticated;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- Backup 29 — Início: cartão "Prejuízo" (créditos baixados como perda, todos os meses) nos Honorários
+-- ═══════════════════════════════════════════════════════════════════
+create or replace function public.resumo_financeiro(p_empresa text default null, p_de date default null, p_ate date default null)
+returns jsonb language sql stable security invoker set search_path = public as $$
+  with per as (
+    select coalesce(p_de, date_trunc('month', current_date)::date) as de,
+           coalesce(p_ate, (date_trunc('month', current_date) + interval '1 month - 1 day')::date) as ate
+  ), l as (
+    select l.empresa, l.tipo, l.pago, l.perda, l.vencimento, l.data_pagamento,
+           case when l.redutor then -l.valor else l.valor end as v
+      from public.lancamentos l
+     where p_empresa is null or l.empresa = p_empresa
+  ), t as (
+    select e.empresa,
+      coalesce(sum(l.v) filter (where l.tipo = 'receita' and l.pago and l.data_pagamento between per.de and per.ate), 0) as recebido,
+      count(*)          filter (where l.tipo = 'receita' and l.pago and l.data_pagamento between per.de and per.ate) as n_recebido,
+      coalesce(sum(l.v) filter (where l.tipo = 'receita' and not l.pago and not l.perda and l.vencimento between greatest(per.de, current_date) and per.ate), 0) as a_receber,
+      count(*)          filter (where l.tipo = 'receita' and not l.pago and not l.perda and l.vencimento between greatest(per.de, current_date) and per.ate) as n_a_receber,
+      coalesce(sum(l.v) filter (where l.tipo = 'receita' and not l.pago and not l.perda and l.vencimento < current_date), 0) as em_atraso,
+      count(*)          filter (where l.tipo = 'receita' and not l.pago and not l.perda and l.vencimento < current_date) as n_em_atraso,
+      coalesce(sum(l.v) filter (where l.tipo = 'despesa' and not l.pago and not l.perda and l.vencimento between greatest(per.de, current_date) and per.ate), 0) as a_pagar,
+      count(*)          filter (where l.tipo = 'despesa' and not l.pago and not l.perda and l.vencimento between greatest(per.de, current_date) and per.ate) as n_a_pagar,
+      coalesce(sum(l.v) filter (where l.tipo = 'receita' and l.perda), 0) as prejuizo,
+      count(*)          filter (where l.tipo = 'receita' and l.perda) as n_prejuizo
+    from (select unnest(array['escritorio','contabilidade']) as empresa) e
+    cross join per
+    left join l on l.empresa = e.empresa
+    where p_empresa is null or e.empresa = p_empresa
+    group by e.empresa
+  )
+  select coalesce(jsonb_object_agg(empresa, to_jsonb(t) - 'empresa'), '{}'::jsonb) from t;
+$$;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- Backup 29 — Guias por empresa: PDFs anexados SEM guardar (vão só no e-mail) + e-mails de teste com a pausa ligada
+-- ═══════════════════════════════════════════════════════════════════
+drop function if exists public.enviar_guias_email(uuid, uuid, jsonb, text, text, uuid[], text);
+create or replace function public.enviar_guias_email(p_cliente uuid, p_grupo uuid, p_itens jsonb, p_assunto text, p_texto text,
+  p_docs uuid[] default '{}', p_para text default null, p_arquivos jsonb default null) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare c record; para text; nome text; anexo jsonb; it jsonb; html text; v_conta text; n int := 0; lista jsonb;
+begin
+  if not public.pode('juridico', 'editar') then raise exception 'permission denied: sem acesso para enviar guias.'; end if;
+  if coalesce(jsonb_array_length(p_itens), 0) = 0 then raise exception 'Escolha ao menos uma guia.'; end if;
+  if coalesce(trim(p_para), '') <> '' then para := trim(p_para); nome := '';
+  else select * into c from public.contato_do_cliente(p_cliente, p_grupo, 'guia'); para := c.email; nome := c.nome; end if;
+  if coalesce(para, '') = '' then raise exception 'Este cliente não tem e-mail para guias: cadastre em Clientes → ficha → Contatos (ou informe o e-mail aqui).'; end if;
+  -- Backup 29: os PDFs escolhidos na tela vêm aqui (p_arquivos: [{arquivo, mime, b64}]) e NÃO ficam guardados:
+  -- a função de e-mail apaga o conteúdo do anexo assim que o e-mail sai (fica só no e-mail enviado)
+  select coalesce(jsonb_agg(jsonb_build_object('tipo', 'arquivo', 'caminho', dc.caminho, 'arquivo', dc.nome, 'mime', dc.mime)), '[]') into lista
+    from public.documentos dc where dc.id = any (coalesce(p_docs, '{}'));
+  select lista || coalesce(jsonb_agg(jsonb_build_object('tipo', 'bin', 'arquivo', a->>'arquivo', 'mime', coalesce(a->>'mime', 'application/pdf'), 'b64', a->>'b64')), '[]') into lista
+    from jsonb_array_elements(coalesce(p_arquivos, '[]')) a where coalesce(a->>'b64', '') <> '';
+  anexo := case when jsonb_array_length(lista) > 0 then jsonb_build_object('tipo', 'lista', 'itens', lista) end;
+  v_conta := public.conta_email(p_cliente, null);
+  perform set_config('erp.conta_email', v_conta, true);
+  html := public.email_cliente_html(coalesce(nullif(trim(p_assunto), ''), 'Guias para pagamento'), '-',
+    '<p style="margin:0 0 10px">' || replace(public.esc_html(coalesce(p_texto, '')), E'\n', '<br>') || '</p>', p_itens, false);
+  perform set_config('erp.conta_email', '', true);
+  insert into public.email_fila (usuario_id, para, assunto, html, tipo, referencia, anexo, conta)
+  values (auth.uid(), para, coalesce(nullif(trim(p_assunto), ''), 'Guias para pagamento'), html, 'cliente', 'guias:' || gen_random_uuid(), anexo, v_conta);
+  for it in select * from jsonb_array_elements(p_itens) loop
+    if it->>'tabela' not in ('parcelas', 'acordos') then continue; end if;
+    perform public.registrar_emissao(it->>'tabela', (it->>'id')::uuid, true, null, false);
+    insert into public.automacoes_log (chave, ref, descricao, cliente_id)
+    values (case when it->>'tabela' = 'parcelas' then 'email_lp' else 'email_la' end, case when it->>'tabela' = 'parcelas' then 'email_lp:' else 'email_la:' end || (it->>'id'),
+            coalesce(nullif(trim(p_assunto), ''), 'Guias para pagamento') || ' → ' || para, p_cliente);
+    n := n + 1;
+  end loop;
+  return jsonb_build_object('para', para, 'itens', n, 'anexos', jsonb_array_length(lista), 'conta', v_conta);
+end $$;
+revoke all on function public.enviar_guias_email(uuid, uuid, jsonb, text, text, uuid[], text, jsonb) from public, anon;
+grant execute on function public.enviar_guias_email(uuid, uuid, jsonb, text, text, uuid[], text, jsonb) to authenticated;
+
+-- e-mails de teste: saem mesmo com o envio pausado (para testar sem mandar nada aos clientes)
+insert into public.configuracoes (chave, valor) values ('emails_teste', '"pedromgsam@gmail.com, advocaciapedrocastro@gmail.com"'::jsonb) on conflict (chave) do nothing;
+create or replace function public.eh_email_teste(p_para text) returns boolean
+language sql stable security definer set search_path = public as $$
+  select coalesce(trim(p_para), '') <> '' and not exists (
+    select 1 from regexp_split_to_table(lower(p_para), '\s*[,;]\s*') d
+     where trim(d) <> '' and trim(d) <> all (select trim(x) from regexp_split_to_table(lower(coalesce((select valor #>> '{}' from public.configuracoes where chave = 'emails_teste'), '')), '\s*[,;]\s*') x));
+$$;
+create or replace function public.email_fila_reter() returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if new.status = 'pendente' and coalesce(new.tipo, '') <> 'teste' and coalesce(current_setting('erp.liberar_email', true), '') <> '1'
+     and (tg_op = 'INSERT' or old.status is distinct from 'pendente') and public.emails_pausados()
+     and not public.eh_email_teste(new.para) then
+    new.status := 'retido';
+  end if;
+  return new;
+end $$;
+create or replace function public.salvar_emails_teste(p text) returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not public.eh_admin() then raise exception 'Só o administrador muda os e-mails de teste.'; end if;
+  insert into public.configuracoes (chave, valor) values ('emails_teste', to_jsonb(coalesce(p, ''))) on conflict (chave) do update set valor = excluded.valor;
+end $$;
+revoke all on function public.salvar_emails_teste(text) from public, anon;
+grant execute on function public.salvar_emails_teste(text) to authenticated;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- Backup 29 — Rotina: histórico de alterações do passivo das empresas (lido do histórico geral)
+-- ═══════════════════════════════════════════════════════════════════
+create or replace function public.historico_passivo(p_cliente uuid default null, p_limite int default 300)
+returns table (quando timestamptz, quem text, cliente_id uuid, cliente text, campo text, antes text, depois text)
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not (public.eh_equipe() and public.pode('clientes')) then raise exception 'permission denied: sem acesso aos clientes.'; end if;
+  return query
+  select h.quando, coalesce(nullif(pf.nome, ''), pf.email, ''), h.registro_id, coalesce(h.depois->>'nome', h.antes->>'nome', ''), k.campo,
+         h.antes->>k.campo, h.depois->>k.campo
+    from public.historico h
+    cross join unnest(array['rfb','rfb_negociada','pgfn','pgfn_negociada','age_mg','age_mg_negociada','sefaz_mg','ceat_trt3','em_operacao','procuracao','certificado','capag']) as k(campo)
+    left join public.perfis pf on pf.id = h.usuario
+   where h.tabela = 'clientes' and h.acao = 'UPDATE' and (p_cliente is null or h.registro_id = p_cliente)
+     and (h.antes->k.campo) is distinct from (h.depois->k.campo)
+   order by h.quando desc
+   limit greatest(coalesce(p_limite, 300), 1);
+end $$;
+revoke all on function public.historico_passivo(uuid, int) from public, anon;
+grant execute on function public.historico_passivo(uuid, int) to authenticated;

@@ -8,7 +8,7 @@
 // limite de 3 consultas por minuto; com token, sem limite) e CNPJá (open.cnpja.com, grátis com limite).
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const VERSAO = '2026-10-28';
+const VERSAO = '2026-10-29';
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-erp-segredo',
@@ -29,7 +29,9 @@ export function normalizar(provedor, j) {
       cnae_principal: limpa(j.atividade_principal && j.atividade_principal[0] && j.atividade_principal[0].text), porte: limpa(j.porte), data_abertura: iso(j.abertura),
       endereco: [limpa(j.logradouro) + (j.numero ? ', ' + limpa(j.numero) : ''), limpa(j.complemento), limpa(j.bairro)].filter(Boolean).join(' - '),
       cidade: limpa(j.municipio), estado: limpa(j.uf), cep: String(j.cep || '').replace(/\D/g, ''),
-      socios: (j.qsa || []).map((x) => ({ nome: limpa(x.nome), qualificacao: limpa(x.qual), doc: '' })).filter((x) => x.nome) };
+      socios: (j.qsa || []).map((x) => ({ nome: limpa(x.nome), qualificacao: limpa(x.qual), doc: '' })).filter((x) => x.nome),
+      email: limpa(j.email).toLowerCase(), telefone: limpa(j.telefone).split('/')[0].trim(), natureza_juridica: limpa(j.natureza_juridica),
+      simples: j.simples ? !!j.simples.optante : null, mei: j.simei ? !!j.simei.optante : null };
   }
   if (provedor === 'cnpja') {
     const a = j.address || {}, c = j.company || {};
@@ -37,14 +39,18 @@ export function normalizar(provedor, j) {
       cnae_principal: limpa(j.mainActivity && j.mainActivity.text), porte: limpa(c.size && c.size.text), data_abertura: iso(j.founded),
       endereco: [limpa(a.street) + (a.number ? ', ' + limpa(a.number) : ''), limpa(a.details), limpa(a.district)].filter(Boolean).join(' - '),
       cidade: limpa(a.city), estado: limpa(a.state), cep: String(a.zip || '').replace(/\D/g, ''),
-      socios: (c.members || []).map((x) => ({ nome: limpa(x.person && x.person.name), qualificacao: limpa(x.role && x.role.text), doc: String((x.person && x.person.taxId) || '').replace(/[^\d*]/g, '') })).filter((x) => x.nome) };
+      socios: (c.members || []).map((x) => ({ nome: limpa(x.person && x.person.name), qualificacao: limpa(x.role && x.role.text), doc: String((x.person && x.person.taxId) || '').replace(/[^\d*]/g, '') })).filter((x) => x.nome),
+      email: limpa(((j.emails || [])[0] || {}).address).toLowerCase(), telefone: (((j.phones || [])[0]) ? limpa(j.phones[0].area) + limpa(j.phones[0].number) : ''),
+      natureza_juridica: limpa(c.nature && c.nature.text), simples: c.simples ? !!c.simples.optant : null, mei: c.simei ? !!c.simei.optant : null };
   }
   // BrasilAPI
   return { razao_social: limpa(j.razao_social), nome_fantasia: limpa(j.nome_fantasia), situacao_cadastral: limpa(j.descricao_situacao_cadastral).toUpperCase(),
     data_situacao: iso(j.data_situacao_cadastral), cnae_principal: limpa(j.cnae_fiscal_descricao), porte: limpa(j.porte || j.descricao_porte), data_abertura: iso(j.data_inicio_atividade),
     endereco: [[limpa(j.descricao_tipo_de_logradouro), limpa(j.logradouro)].filter(Boolean).join(' ') + (j.numero ? ', ' + limpa(j.numero) : ''), limpa(j.complemento), limpa(j.bairro)].filter(Boolean).join(' - '),
     cidade: limpa(j.municipio), estado: limpa(j.uf), cep: String(j.cep || '').replace(/\D/g, ''),
-    socios: (j.qsa || []).map((x) => ({ nome: limpa(x.nome_socio), qualificacao: limpa(x.qualificacao_socio), doc: String(x.cnpj_cpf_do_socio || '').replace(/[^\d*]/g, '') })).filter((x) => x.nome) };
+    socios: (j.qsa || []).map((x) => ({ nome: limpa(x.nome_socio), qualificacao: limpa(x.qualificacao_socio), doc: String(x.cnpj_cpf_do_socio || '').replace(/[^\d*]/g, '') })).filter((x) => x.nome),
+    email: limpa(j.email).toLowerCase(), telefone: limpa(j.ddd_telefone_1), natureza_juridica: limpa(j.natureza_juridica),
+    simples: j.opcao_pelo_simples == null ? null : !!j.opcao_pelo_simples, mei: j.opcao_pelo_mei == null ? null : !!j.opcao_pelo_mei };
 }
 function url(provedor, cnpj, token, bases) {
   if (provedor === 'receitaws') return (bases.receitaws || 'https://receitaws.com.br/v1/cnpj/') + cnpj + (token ? '/days/1' : '');

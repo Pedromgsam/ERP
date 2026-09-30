@@ -33,15 +33,17 @@ TELAS.inicio = async function () {
   const totais = await q(sb.rpc('resumo_financeiro', { p_de: ini, p_ate: fim })).catch(() => resumoFinanceiroNoNavegador(ini, fim, h));
   const ateFim = 'de hoje até ' + dataBR(fim).slice(0, 5);
   // cada cartão abre o relatório completo (tabela com as mesmas ações do Financeiro + CSV)
-  const clic = (emp, k, html) => html.replace('<div class="kpi ', '<div role="button" tabindex="0" title="Clique para ver a lista completa" data-ini-rel="' + emp + '|' + k + '" class="kpi kpi-clica ');
-  // Backup 20: ordem recebido → a receber → a pagar → em atraso; recebido em verde, atraso em vermelho; o mês no título
+  // Backup 29: o mesmo cartão do Financeiro → Jurídico (Recebido · A receber · A pagar · Em atraso · Prejuízo); clique abre a lista completa
+  const card = (emp, k, rot, v, sub, cls, vc) => '<div class="kc ' + cls + ' kpi-clica" role="button" tabindex="0" title="Clique para ver a lista completa" data-ini-rel="' + emp + '|' + k + '">' +
+    '<div class="kl">' + esc(rot) + '</div><div class="kv ' + (vc || '') + '">' + v + '</div><div class="ks">' + esc(sub) + '</div></div>';
   const mes = nomeMes(new Date());
   const linha = (emp, titulo) => { const t = totais[emp] || {};
-    return '<div class="kpis-titulo ini-fin-tit">' + titulo + ' <span class="ini-mes">' + esc(mes) + '</span></div><div class="kpis ini-fin">' +
-    clic(emp, 'recebido', kpi('Recebido no mês', brl(t.recebido || 0), 'verde', plural(t.n_recebido || 0, 'recebimento', 'recebimentos'))) +
-    clic(emp, 'a_receber', kpi('A receber', brl(t.a_receber || 0), '', (t.n_a_receber || 0) + ' em aberto · ' + ateFim)) +
-    clic(emp, 'a_pagar', kpi('A pagar', brl(t.a_pagar || 0), '', plural(t.n_a_pagar || 0, 'conta', 'contas') + ' · ' + ateFim)) +
-    clic(emp, 'em_atraso', kpi('Em atraso', brl(t.em_atraso || 0), 'vermelho', plural(t.n_em_atraso || 0, 'vencido', 'vencidos') + ' · todos os meses')) +
+    return '<div class="kpis-titulo ini-fin-tit">' + titulo + ' <span class="ini-mes">' + esc(mes) + '</span></div><div class="kpi-grid ini-fin">' +
+    card(emp, 'recebido', 'Recebido', brl(t.recebido || 0), plural(t.n_recebido || 0, 'recebimento no mês', 'recebimentos no mês'), 'cg', 'dg') +
+    card(emp, 'a_receber', 'A receber', brl(t.a_receber || 0), (t.n_a_receber || 0) + ' em aberto · ' + ateFim, 'cb', 'db') +
+    card(emp, 'a_pagar', 'A pagar', brl(t.a_pagar || 0), plural(t.n_a_pagar || 0, 'conta', 'contas') + ' · ' + ateFim, 'ca', '') +
+    card(emp, 'em_atraso', 'Em atraso', brl(t.em_atraso || 0), plural(t.n_em_atraso || 0, 'vencido', 'vencidos') + ' · todos os meses', 'cr', (t.em_atraso || 0) > 0 ? 'dr' : '') +
+    card(emp, 'prejuizo', 'Prejuízo', brl(t.prejuizo || 0), plural(t.n_prejuizo || 0, 'baixa', 'baixas') + ' · todos os meses', 'cx', (t.prejuizo || 0) > 0 ? 'dr' : '') +
     '</div>'; };
   const verJur = pode('financeiro_juridico'), verCont = pode('financeiro_contab');
   $('conteudo').innerHTML =
@@ -71,7 +73,8 @@ async function relatorioHonorarios(emp, tipo, ini, fim) {
     recebido: [() => base().eq('tipo', 'receita').eq('pago', true).gte('data_pagamento', ini).lte('data_pagamento', fim).order('data_pagamento'), 'Recebido no mês', 'recebidos'],
     a_receber: [() => base().eq('tipo', 'receita').eq('pago', false).eq('perda', false).gte('vencimento', h).lte('vencimento', fim).order('vencimento'), 'A receber até ' + dataBR(fim)],
     em_atraso: [() => base().eq('tipo', 'receita').eq('pago', false).eq('perda', false).lt('vencimento', h).order('vencimento'), 'Em atraso (todos os meses)'],
-    a_pagar: [() => base().eq('tipo', 'despesa').eq('pago', false).gte('vencimento', h).lte('vencimento', fim).order('vencimento'), 'A pagar até ' + dataBR(fim), 'despesas']
+    a_pagar: [() => base().eq('tipo', 'despesa').eq('pago', false).gte('vencimento', h).lte('vencimento', fim).order('vencimento'), 'A pagar até ' + dataBR(fim), 'despesas'],
+    prejuizo: [() => base().eq('tipo', 'receita').eq('perda', true).order('vencimento'), 'Prejuízo (créditos baixados como perda)', 'prejuizo']
   }[tipo];
   const lista = await buscarTodos(Q[0]);
   const total = soma(lista, (l) => l.redutor ? -l.valor : l.valor);
