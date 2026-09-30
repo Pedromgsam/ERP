@@ -855,7 +855,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       await p.click('#acVisao [data-v=grupo]'); await p.waitForTimeout(300);
       return sem && com; })());
     ok('Acordos: sem "Saldo por devedor" e sem "Vencimentos dos próximos 30 dias"', !(await p.isVisible('#acDevedorLista')) && !(await p.isVisible('#acProx30')));
-    ok('Acordos: tabela de vencidos com altura mínima (10 linhas)', await p.evaluate(() => document.querySelector('#acordTabVencidos .tw').getBoundingClientRect().height >= 400));
+    ok('Acordos: tabela de vencidos com altura mínima de 5 linhas (sem sobrar espaço em branco)', await p.evaluate(() => { const h = document.querySelector('#acordTabVencidos .tw').getBoundingClientRect().height; return h >= 250 && h < 400; }));
     ok('PIX copia e cola saiu (sem botão e sem a função no banco)', !(await p.$('[data-pix]')) && sql("select count(*) from pg_proc where proname in ('pix_copia_cola','crc16_ccitt')") === '0');
     ok('Acordos: sem "Progresso por acordo"; A Pagar sem a coluna Situação; Saldo por devedor em lista', !(await p.isVisible('#acordProgressList')) &&
       !(await p.$$eval('#acordTabPagar thead th', (l) => l.map((t) => t.textContent))).includes('Situação'));
