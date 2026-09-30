@@ -366,3 +366,10 @@ O SQL cria o "Excluir usuário".
 - **Administração → Usuários:** botão **🗑 Excluir** (só administrador; não exclui a si mesmo nem o último administrador; o que a pessoa
   lançou continua gravado).
 - **Modo escuro:** grafite em vez de preto puro, com separação entre fundo, cartão e cabeçalho das tabelas.
+
+## Backup 24 — Início e Painel (sem SQL novo)
+Ordem: **1) Merge  2) Ctrl+Shift+R**. O banco não mudou.
+- **Início:** "guias de parcelamento a emitir" saiu do cartão de Lembretes e virou um destaque ao lado de **avisos não lidos** e **tarefas
+  suas atrasadas**. Clique nele para ver a lista e marcar "Guia emitida".
+- **Painel Executivo:** saíram os gráficos "Passivo total por grupo" e "Distribuição por órgão".
+- Prompt para o novo chat "ERP Automação": `sistema/PROMPT-AUTOMACAO.md`.

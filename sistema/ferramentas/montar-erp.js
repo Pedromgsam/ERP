@@ -517,6 +517,8 @@ trocar("function pDate(v){", "// rótulo de gráfico em várias linhas (palavras
 trocar("<td>'+_faSelo(f.grupo||'—')+'</td>", "<td>'+esc(f.grupo||'—')+'</td>", 3);
 trocar("        +'<td>'+_faSelo(_fcQuem(f))+'</td>'", "        +'<td>'+esc(_fcQuem(f))+'</td>'", 1);
 trocar("  return '<span class=\"fa-pessoa\" style=\"background:'+t+'26;color:'+RAMPA_AZUL[0]+'\">'+esc(nome)+'</span>';\n}", "  return '<span class=\"gx-nome-txt\">'+esc(nome)+'</span>';\n}", 1);
+// Backup 24: Painel sem "Passivo total por grupo" e "Distribuição por órgão" (a pedido); o bloco fica escondido para o código do ERP seguir achando os ids
+trocar('  <div class="crow c2">\n    <div class="cc">\n      <div class="cc-hd">\n        <div><div class="cc-t" id="resGrupoTitle">', '  <div class="crow c2 res-graficos" hidden aria-hidden="true" style="display:none">\n    <div class="cc">\n      <div class="cc-hd">\n        <div><div class="cc-t" id="resGrupoTitle">', 1);
 // Financeiro → Análise → Em atraso: linhas com ✓ Baixa e ✎ (viram a tabela padrão de pagamento) e triângulo vermelho no título
 trocar('<div class="cc-t">⚠ Em atraso</div>', '<div class="cc-t">Em atraso</div>', 2);   // Backup 23: sem triângulo
 // Backup 22: o mesmo triângulo vermelho nas abas "Vencidos" de Acordos e Parcelamentos (no lugar da bolinha 🔴)

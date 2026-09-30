@@ -83,7 +83,11 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
-- Última entrega: **Backup 23**. SQL: `excluir_usuario(p_perfil)` (admin; não a si mesmo nem o último admin; apaga auth.users → perfis em
+- Última entrega: **Backup 24** (sem SQL). Início: o destaque `guias` voltou para a faixa de `cardMural` (lista `.ini-guias` com `data-guia-ok`),
+  o cartão de Lembretes ficou só com lembretes. Painel: `.res-graficos` (cResGrupos/cResDonut) escondido (ids mantidos para o JS do ERP).
+  Próximo passo: chat "ERP Automação" com o prompt `sistema/PROMPT-AUTOMACAO.md` (cadastro robusto com contatos por setor, fluxo
+  Lead→Reunião→Contrato→Assinatura→Financeiro→E-mails, delegar e validar, simplificar).
+- Backup 23 (base). SQL: `excluir_usuario(p_perfil)` (admin; não a si mesmo nem o último admin; apaga auth.users → perfis em
   cascata). Início: `cardMural` = só a faixa de destaques; `cardLembretes` (cartão próprio, `#ini-lembretes`: guias, lembretes ≤7 dias/sem prazo/
   fixos e "Mais adiante"), `detalheLembrete`, `botoesLembrete` (`.lemb-fixo.on`); `dadosLembretes` devolve vis/futuros/todos. Selo da pessoa:
   pílula 11 px, 88 px, contorno `color-mix` (design.css); `_faSelo` não é usado para grupo/cliente (montar-erp). Sem `.alerta-tri`. Painel:
