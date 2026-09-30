@@ -1153,7 +1153,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     { // contrato novo "aguardando assinatura": não lança nada; "✓ Marcar como assinado" lança as parcelas
       await nav(p, 'contratos'); await p.waitForTimeout(900);
       await p.click('#panel-contratos button:has-text("Novo contrato")'); await p.waitForSelector('#gs-raiz #f-ctr'); await p.waitForTimeout(300);
-      await p.selectOption('#gs-raiz [name=cliente_id]', { label: 'Beta Serviços Ltda' }).catch(() => {});
+      await p.selectOption('#gs-raiz [name=cliente_id]', { label: 'Beta Serviços Ltda · Grupo Beta' });
       await p.click('#gs-raiz #ctr-mod [data-v=pontual]'); await p.fill('#gs-raiz [name=descricao]', 'Contrato B25 aguardando');
       await p.fill('#gs-raiz [name=valor_total]', '3.000,00'); await p.fill('#gs-raiz [name=num_parcelas]', '3');
       await p.click('#gs-raiz #ctr-assin [data-v="Aguardando assinatura"]'); await salvarGs(p, '#btn-salvar-ctr'); await p.waitForTimeout(800);
@@ -1162,7 +1162,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       const idC = sql("select id from contratos where descricao='Contrato B25 aguardando'");
       await p.evaluate((id) => GS.detalheContrato(id), idC); await p.waitForSelector('#gs-raiz #ctr-assinar'); await p.waitForTimeout(300);
       ok('ficha do contrato mostra "Aguardando a assinatura" com 📄 Gerar contrato', /Aguardando a assinatura/.test(await p.textContent('#gs-raiz #ctr-assinatura')) && !!(await p.$('#gs-raiz #ctr-gerar')));
-      p.once('dialog', (d) => d.accept()); await p.click('#gs-raiz #ctr-assinar'); await p.waitForTimeout(2000);
+      await p.click('#gs-raiz #ctr-assinar'); await p.waitForTimeout(2000);
       ok('"✓ Marcar como assinado" lança as 3 parcelas e ativa o contrato', sql("select status||'|'||(assinado_em is not null) from contratos where id='" + idC + "'") === 'Ativo|true' &&
         sql("select count(*) from lancamentos where contrato_id='" + idC + "'") === '3');
       await p.keyboard.press('Escape'); await p.waitForTimeout(200); await p.keyboard.press('Escape'); await p.waitForTimeout(200); }
