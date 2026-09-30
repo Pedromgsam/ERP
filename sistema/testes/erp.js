@@ -188,6 +188,13 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.fill('#f-lanc [name=grupo]', 'Grupo Beta'); await p.fill('#f-lanc [name=categoria]', 'Êxito');
     await salvarGs(p, '#btn-salvar-lanc');
     ok('nova receita gravada', sql("select count(*) from lancamentos where categoria='Êxito' and valor=2500") === '1');
+    // Backup 29: despesa "Distribuição de lucros" pede só o sócio
+    await p.evaluate(() => GS.formLancamento({ tipo: 'despesa', empresa: 'contabilidade' }, () => {})); await p.waitForSelector('#f-lanc [name=categoria]');
+    await p.selectOption('#f-lanc [name=categoria]', 'Distribuição de lucros'); await p.waitForTimeout(200);
+    ok('Distribuição de lucros: some grupo/cliente/fornecedor e aparece "Sócio que recebeu"', !(await p.isVisible('#f-lanc [name=grupo]')) && !(await p.isVisible('#f-lanc [name=favorecido]')) && await p.isVisible('#f-lanc [name=socio]'));
+    await p.selectOption('#f-lanc [name=socio]', 'Pedro'); await p.fill('#f-lanc [name=valor]', '5.000,00');
+    await p.click('#btn-salvar-lanc'); await p.waitForTimeout(1500);
+    ok('Distribuição de lucros gravada com o sócio', sql("select favorecido||'|'||empresa||'|'||tipo from lancamentos where categoria='Distribuição de lucros' and valor=5000") === 'Pedro|contabilidade|despesa');
     await lancar(p, 2);
     ok('comissão abre já marcada como redutor', await p.isChecked('#f-lanc [name=redutor]'));
     await p.fill('#f-lanc [name=descricao]', 'Comissão parceiro'); await p.fill('#f-lanc [name=valor]', '300');
@@ -1233,6 +1240,14 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.waitForTimeout(1500);
     ok('Enviar por empresa: as parcelas enviadas saem do quadro', !/Parcela 78/.test(await p.textContent('#parcGuias')));
     sql("delete from parcelas where numero in ('77','78')");
+
+    // Backup 29: Relatório em PDF refeito (⋯ → Relatório em PDF)
+    await p.click('#gs-hd .gs-bt-mais'); await p.click('#gs-hd [data-acao=pdf]'); await p.waitForSelector('#gs-raiz #rp-gerar');
+    { const [pop] = await Promise.all([p.waitForEvent('popup'), p.click('#gs-raiz #rp-gerar')]);
+      await pop.waitForSelector('main .kpis', { timeout: 15000 }).catch(() => {});
+      const t = await pop.textContent('body').catch(() => '');
+      ok('Relatório em PDF: novo layout com números, passivo, parcelamentos e processos', /Passivo em aberto/.test(t) && /Passivo tributário por empresa/.test(t) && /Parcelamentos/.test(t) && /Processos judiciais/.test(t) && /Salvar em PDF/.test(t), t.slice(0, 200));
+      await pop.close(); }
 
     // ── sair ──
     await p.evaluate(() => acLogout()); await p.waitForTimeout(800);

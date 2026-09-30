@@ -5961,3 +5961,86 @@ begin
 end $$;
 revoke all on function public.historico_passivo(uuid, int) from public, anon;
 grant execute on function public.historico_passivo(uuid, int) to authenticated;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- Backup 29 — dados para pagamento com banco, agência e conta separados; mensalidades geradas 6 meses à frente
+-- ═══════════════════════════════════════════════════════════════════
+create or replace function public.email_cliente_html(p_titulo text, p_nome text, p_texto text, p_itens jsonb default '[]', p_pagar boolean default false, p_fecho text default '')
+returns text language plpgsql stable security definer set search_path = public as $$
+declare d jsonb; itens text := ''; tot numeric := 0; i jsonb; pag text := '';
+begin
+  -- Backup 28: dados de quem cobra (Contabilidade ou escritório), escolhidos por email_cliente_enviar
+  if coalesce(current_setting('erp.conta_email', true), '') = 'contabilidade' then
+    select valor into d from public.configuracoes where chave = 'dados_pagamento_contab';
+  end if;
+  if d is null or d = '{}'::jsonb then select valor into d from public.configuracoes where chave = 'dados_pagamento'; end if;
+  d := coalesce(d, '{}');
+  for i in select * from jsonb_array_elements(coalesce(p_itens, '[]')) loop
+    itens := itens || '<tr><td style="padding:10px 12px;border-bottom:1px solid #EEF0F5">' || public.esc_html(i->>'descricao') || '</td>'
+      || '<td style="padding:10px 12px;border-bottom:1px solid #EEF0F5;white-space:nowrap">' || coalesce(to_char((i->>'vencimento')::date, 'DD/MM/YYYY'), '') || '</td>'
+      || '<td style="padding:10px 12px;border-bottom:1px solid #EEF0F5;text-align:right;white-space:nowrap;font-weight:bold">' || public.brl_texto((i->>'valor')::numeric) || '</td></tr>';
+    tot := tot + coalesce((i->>'valor')::numeric, 0);
+  end loop;
+  if itens <> '' then
+    itens := '<table role="presentation" style="width:100%;border-collapse:collapse;margin:14px 0;font-size:14px;border:1px solid #E5E7EB;border-radius:10px">'
+      || '<tr style="background:#F7F8FB;color:#5B6472;font-size:11px;text-transform:uppercase;letter-spacing:.06em"><td style="padding:9px 12px">Descrição</td><td style="padding:9px 12px">Vencimento</td><td style="padding:9px 12px;text-align:right">Valor</td></tr>'
+      || itens || case when jsonb_array_length(p_itens) > 1 then '<tr><td colspan="2" style="padding:10px 12px;font-weight:bold">Total</td><td style="padding:10px 12px;text-align:right;font-weight:bold;color:#1B2A4A">' || public.brl_texto(tot) || '</td></tr>' else '' end
+      || '</table>';
+  end if;
+  if p_pagar and (coalesce(d->>'pix', '') <> '' or coalesce(d->>'banco', '') <> '' or coalesce(d->>'conta', '') <> '') then
+    pag := '<div style="background:#F5EDD6;border-left:4px solid #C9A84C;border-radius:10px;padding:12px 14px;margin:14px 0;font-size:13.5px"><b style="color:#1B2A4A">Como pagar</b><br>'
+      || case when coalesce(d->>'pix', '') <> '' then 'PIX: <b>' || public.esc_html(d->>'pix') || '</b>' || coalesce(' · ' || nullif(public.esc_html(d->>'titular'), ''), '') || '<br>' else '' end
+      || case when coalesce(d->>'banco', '') <> '' or coalesce(d->>'conta', '') <> '' then public.esc_html(concat_ws(' · ', nullif(d->>'banco', ''),
+           'Agência ' || nullif(d->>'agencia', ''), 'Conta ' || nullif(d->>'conta', ''))) || '<br>' else '' end
+      || 'Depois de pagar, responda este e-mail com o comprovante.</div>';
+  end if;
+  return '<div style="font-family:Arial,Helvetica,sans-serif;background:#F0F2F7;padding:24px 12px">'
+    || '<div style="max-width:620px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;border:1px solid #E5E7EB">'
+    || '<div style="background:#1B2A4A;padding:20px 24px;border-bottom:3px solid #C9A84C">'
+    ||   '<div style="color:#C9A84C;font-family:Georgia,serif;font-size:20px;font-weight:bold">Araújo &amp; Castro</div>'
+    ||   '<div style="color:#CBD5E1;font-size:11px;letter-spacing:.14em;text-transform:uppercase;margin-top:2px">Advocacia · Contabilidade · Consultoria</div></div>'
+    || '<div style="padding:22px 24px;color:#1F2937;font-size:14.5px;line-height:1.6">'
+    ||   '<div style="font-size:18px;font-weight:bold;color:#1B2A4A;margin-bottom:10px">' || public.esc_html(p_titulo) || '</div>'
+    ||   case when p_nome = '-' then '' else '<p style="margin:0 0 10px">Olá' || coalesce(', ' || public.esc_html(nullif(p_nome, '')), '') || '!</p>' end
+    ||   p_texto || itens || pag
+    ||   case when p_fecho = '-' then '' else
+           coalesce(nullif(p_fecho, ''), '<p style="margin:14px 0 0">Qualquer dúvida, é só responder este e-mail' || case when coalesce(d->>'whatsapp', '') <> '' then ' ou chamar no WhatsApp ' || public.esc_html(d->>'whatsapp') else '' end || '.</p>')
+           || '<p style="margin:16px 0 0">Atenciosamente,<br><b>' || public.esc_html(coalesce(nullif(d->>'assinatura', ''), 'Equipe Araújo & Castro')) || '</b></p>' end || '</div>'
+    || '<div style="padding:12px 24px;background:#F7F8FB;border-top:1px solid #E5E7EB;color:#6B7280;font-size:11.5px">Mensagem automática do sistema do escritório. Se já resolveu, por favor desconsidere.</div>'
+    || '</div></div>';
+end $$;
+create or replace function public.gerar_mensalidades(p_contrato uuid default null, p_ate date default null) returns int
+language plpgsql security definer set search_path = public as $$
+declare c public.contratos; comp date; fim date; venc date; g uuid; resp text; n int := 0; k int; sm_falta boolean;
+begin
+  for c in select * from public.contratos where modalidade = 'consultoria' and status <> 'Aguardando assinatura' and (p_contrato is null or id = p_contrato) loop
+    select grupo_id, responsavel into g, resp from public.clientes where id = c.cliente_id;
+    if c.rescindido_em is not null then
+      delete from public.lancamentos where contrato_id = c.id and chave_recorrencia is not null and not pago
+         and competencia >= date_trunc('month', c.rescindido_em)::date;
+    end if;
+    if c.status in ('Cancelado') then continue; end if;
+    comp := date_trunc('month', coalesce(c.inicio_competencia, c.data_contrato))::date;
+    fim := date_trunc('month', coalesce(p_ate, (current_date + interval '6 months')::date))::date;
+    if c.rescindido_em is not null then fim := least(fim, (date_trunc('month', c.rescindido_em) - interval '1 month')::date); end if;
+    while comp <= fim loop
+      venc := make_date(extract(year from comp + interval '1 month')::int, extract(month from comp + interval '1 month')::int, c.dia_vencimento);
+      sm_falta := c.forma_valor = 'salario_minimo' and not exists (select 1 from public.salarios_minimos where ano = extract(year from comp)::int);
+      insert into public.lancamentos (empresa, tipo, descricao, categoria, cliente_id, contrato_id, grupo_id, responsavel, referencia,
+                                      competencia, vencimento, valor, chave_recorrencia, obs)
+      values ('escritorio', 'receita', c.descricao || ' — competência ' || to_char(comp, 'MM/YYYY'), 'Consultoria mensal', c.cliente_id, c.id, g,
+              coalesce(nullif(c.responsavel, ''), resp, ''), to_char(comp, 'MM/YYYY'), comp, venc, greatest(public.valor_competencia(c, comp), 0.01),
+              'rec:' || c.id || ':' || to_char(comp, 'YYYY-MM'),
+              case when sm_falta then 'Salário mínimo de ' || extract(year from comp)::int || ' ainda não cadastrado: valor provisório, reajusta sozinho.' else '' end)
+      on conflict (chave_recorrencia) where chave_recorrencia is not null do nothing;
+      get diagnostics k = row_count; n := n + k;
+      comp := (comp + interval '1 month')::date;
+    end loop;
+    update public.lancamentos l set valor = greatest(public.valor_competencia(c, l.competencia), 0.01),
+           obs = case when c.forma_valor = 'salario_minimo' and not exists (select 1 from public.salarios_minimos where ano = extract(year from l.competencia)::int)
+                      then l.obs else regexp_replace(l.obs, 'Salário mínimo de \d{4} ainda não cadastrado: valor provisório, reajusta sozinho\.', '') end
+     where l.contrato_id = c.id and l.chave_recorrencia is not null and not l.pago
+       and l.valor is distinct from greatest(public.valor_competencia(c, l.competencia), 0.01);
+  end loop;
+  return n;
+end $$;

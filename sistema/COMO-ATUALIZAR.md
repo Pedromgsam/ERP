@@ -547,3 +547,40 @@ essa conta e com esses dados; os demais, pelo e-mail e dados do escritório (adv
 automáticas em tabela. **CRM:** na ficha do lead, **💼 Proposta**, **📜 Contrato**, **🎥 Meet** (cria sala) e **🗓 Agenda** (evento pronto no
 Google Agenda); na reunião, "Criar sala no Meet" e "Google Agenda". **Financeiro → Contabilidade:** comparativos por cliente e por fornecedor
 com as mesmas colunas e **linha de Total**.
+
+## Backup 29 — cartões iguais, guias por empresa sem guardar anexo, e-mails de teste, Rotina e relatório novo (tem SQL e 2 funções)
+Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) publicar as funções `erp-emails` e `erp-cnpj`
+(Verify JWT desligado)  4) Ctrl+Shift+R**.
+
+**Início e Financeiro → Jurídico:** os mesmos cartões (Recebido · A receber · A pagar · Em atraso · Prejuízo), com valores inteiros;
+no Financeiro fica também o Ticket médio. No Início o "Recebido" é sempre o mês corrente; no Financeiro segue o filtro.
+
+**Parcelamentos e Acordos:**
+- Quadros "**Parcelamentos para emitir**" e "**Acordos para emitir**". O que já foi **enviado ao cliente sai do quadro**.
+- **✉ Enviar por empresa** com visual novo: empresas à esquerda; à direita o e-mail/WhatsApp, o assunto, o texto no modelo das antigas
+  "Notificações" ("Prezados, seguem as guias…") e um cartão por parcela com o **valor editável**; **📎 Anexar os PDFs**; embaixo, lado a lado,
+  **💬 WhatsApp** e **✉ Enviar e-mail**. Os PDFs **vão só no e-mail**: não ficam guardados no Supabase (depois que o e-mail sai, fica só o nome do arquivo).
+- Na emissão: "Guia emitida em 27/08/2029". Na lista por grupo, coluna **Guias** ("Há guias a emitir" / "Falta emitir a guia").
+- Saiu o botão "Notificar clientes".
+
+**E-mails:**
+- **🧪 E-mails de teste** (Central de e-mails, logo abaixo da pausa): os endereços dessa lista **saem mesmo com o envio pausado**. Para
+  testar: deixe a pausa ligada, use o cliente "TESTE E-MAIL" (pedromgsam@gmail.com) e mande o que quiser — nada vai para os clientes.
+- Configuração: **Escritório** e **Contabilidade** com os mesmos campos; **Banco, Agência e Conta** separados.
+- "Quem recebe o quê": **Honorários**, **Parcelamentos**, Acordos, **Recibo de honorário**, Contratos, **Reuniões**.
+- A Central saiu do "⋯" (fica no menu **E-mails**).
+
+**Clientes:** botão **🔎 Buscar dados** ao lado do CNPJ (não busca sozinho). Ele troca tudo pelo que está na Receita (nome, endereço, situação,
+sócio-administrador, tipo societário, regime Simples, e-mail e telefone quando houver) — trocar o CNPJ e buscar de novo **apaga o sócio antigo**.
+E-mails e telefones em blocos mais claros.
+
+**Rotina:** Sim verde / Não vermelho; CAPAG nas cores (A/B verde, C amarelo, D/Omisso vermelho); "Certificado" Sim/Não e **Senha GOV**
+(sem a validade); **🕘 Histórico do passivo** (geral e por empresa: quem mudou, quando, de quanto para quanto); Processos separados por grupo e
+com **+ Processo**; aba "Parcelamentos e acordos para emitir"; **Minhas tarefas** em Recorrentes (voltam sozinhas), Com validação, Únicas e
+"Para eu validar", com **+ Tarefa recorrente**.
+
+**Tabelas:** em todas, a linha de títulos fica **fixa no topo** e aparecem **todas as linhas** (sem "Pág. 1 de 5").
+
+**Contratos:** mensalidades geradas **6 meses à frente**. **Contabilidade → despesa:** lista de tipos; **Distribuição de lucros** pede só o sócio.
+
+**Relatório em PDF** (⋯ → Relatório em PDF): refeito — escolha o grupo (ou a carteira toda) e as seções; abre a prévia com **Salvar em PDF**.

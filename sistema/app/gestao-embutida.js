@@ -115,10 +115,10 @@ const PERFIS_EMAIL = [['padrao', 'Padrão', 'lembrete antes do vencimento, cobra
 // Backup 26: setor do contato e "recebe o quê" (os e-mails automáticos usam isso para escolher o destinatário)
 const SETORES_CONTATO = [['geral', 'Geral'], ['financeiro', 'Financeiro'], ['fiscal', 'Fiscal'], ['rh', 'RH / Depto. pessoal'], ['socio', 'Sócio / decisor'],
   ['juridico', 'Jurídico'], ['contador', 'Contador externo']];
-const RECEBE_EMAIL = [['cobranca', 'Cobranças e lembretes de honorários'], ['recibo', 'Recibos'], ['guia', 'Guias de parcelamento'],
-  ['acordo', 'Avisos de acordo'], ['contrato', 'Contratos, propostas e boas-vindas'], ['convite', 'Convites de reunião']];
+const RECEBE_EMAIL = [['cobranca', 'Honorários (lembretes e atrasos)'], ['recibo', 'Recibo de honorário'], ['guia', 'Parcelamentos (guias)'],
+  ['acordo', 'Acordos'], ['contrato', 'Contratos, propostas e boas-vindas'], ['convite', 'Reuniões (convites)']];
 const ORIGENS_CLIENTE = ['Indicação', 'Site', 'Instagram', 'Google', 'Cliente antigo', 'Evento', 'CRM', 'Outro'];
-const RECEBE_CURTO = { cobranca: 'Cobranças', recibo: 'Recibos', guia: 'Guias', acordo: 'Acordos', contrato: 'Contratos', convite: 'Convites' };
+const RECEBE_CURTO = { cobranca: 'Honorários', recibo: 'Recibo de honorário', guia: 'Parcelamentos', acordo: 'Acordos', contrato: 'Contratos', convite: 'Reuniões' };
 const TIPOS_EMAIL = [['lembrete', 'Lembrete antes do vencimento'], ['vencimento', 'Aviso no dia do vencimento'], ['cobranca', 'Cobrança de atraso'],
   ['recibo', 'Recibo / pagamento recebido'], ['parcelamento', 'Guia de parcelamento'], ['acordo', 'Parcela de acordo'],
   ['boas_vindas', 'Boas-vindas (contrato assinado)'], ['convite', 'Convite de reunião']];
@@ -1658,7 +1658,7 @@ function barrasPessoa(mapa) {
 // ───────────────────────────── formulário ──────────────────────────
 const CATEGORIAS = {
   receita: ['Consultoria', 'Fixo', 'Êxito', 'Execução', 'Comissão', 'Contabilidade', 'Honorários', 'Reembolso'],
-  despesa: ['Sistema/Software', 'Folha de Pagamento', 'Comissão', 'Aluguel', 'Impostos', 'Custas processuais', 'Marketing', 'Outros']
+  despesa: ['Distribuição de lucros', 'Pró-labore', 'Folha de Pagamento', 'Aluguel', 'Água / luz / internet', 'Sistema/Software', 'Impostos', 'Comissão', 'Custas processuais', 'Marketing', 'Material de escritório', 'Outros']
 };
 
 function formLancamento(l, depois) {
@@ -1678,8 +1678,13 @@ function formLancamento(l, depois) {
       campo('Cliente (empresa do grupo)', '<select name="cliente_id">' + opcoesClientes(l.cliente_id) + '</select>') +
       (tipo === 'despesa' ? campo('Fornecedor / favorecido', '<input name="favorecido" value="' + esc(l.favorecido || '') + '">') : '') +
       campo('Pessoa responsável', '<input name="responsavel" list="lanc-pessoas" value="' + esc(l.responsavel || '') + '">' + datalistPessoas('lanc-pessoas')) +
-      campo('Categoria / tipo', '<input name="categoria" list="lanc-cat" value="' + esc(l.categoria || '') + '"><datalist id="lanc-cat">' +
-        CATEGORIAS[tipo].map((c) => '<option value="' + esc(c) + '">').join('') + '</datalist>') +
+      // Backup 29: na despesa, a categoria é uma lista; "Distribuição de lucros" pede só o sócio (os campos que não se aplicam somem)
+      (tipo === 'despesa'
+        ? campo('Tipo de despesa', '<select name="categoria">' + ['', ...CATEGORIAS.despesa, ...(l.categoria && !CATEGORIAS.despesa.includes(l.categoria) ? [l.categoria] : [])]
+            .map((c) => '<option value="' + esc(c) + '"' + ((l.categoria || '') === c ? ' selected' : '') + '>' + (c ? esc(c) : '— escolha —') + '</option>').join('') + '</select>') +
+          campo('Sócio que recebeu', selectPessoa('socio', /^distribui/i.test(l.categoria || '') ? l.favorecido : '', '— escolha o sócio —'), 'lanc-socio')
+        : campo('Categoria / tipo', '<input name="categoria" list="lanc-cat" value="' + esc(l.categoria || '') + '"><datalist id="lanc-cat">' +
+          CATEGORIAS[tipo].map((c) => '<option value="' + esc(c) + '">').join('') + '</datalist>')) +
       (tipo === 'receita' ? campo('Área do serviço', selectServico(l.servico || '')) : '') +
       campo('Referência', '<input name="referencia" placeholder="Ex.: 0,7 salário" value="' + esc(l.referencia || '') + '">') +
       campo('Situação da cobrança', '<input name="cobranca" list="lanc-cob" placeholder="Ex.: Cobrado, Emitir guia" value="' + esc(l.cobranca || '') + '"><datalist id="lanc-cob">' +
@@ -1712,6 +1717,14 @@ function formLancamento(l, depois) {
       { titulo: 'Comprovantes e guias', vazio: 'Nenhum arquivo. Envie o comprovante de pagamento ou a guia.' }).catch((e) => console.error(e));
   }
   f.pago.onchange = () => j.querySelector('#bloco-pag').classList.toggle('escondido', !f.pago.checked);
+  const ehLucro = () => tipo === 'despesa' && /^distribui/i.test(f.categoria.value);
+  const ajustarLucro = () => {
+    const sim = ehLucro();
+    j.querySelectorAll('.lanc-socio').forEach((x) => x.classList.toggle('escondido', !sim));
+    ['grupo', 'cliente_id', 'favorecido', 'referencia', 'cobranca', 'chave_pix'].forEach((n) => { const c = f[n] && f[n].closest('.campo'); if (c) c.classList.toggle('escondido', sim); });
+    if (sim && !f.descricao.value.trim()) f.descricao.value = 'Distribuição de lucros' + (f.socio.value ? ' — ' + f.socio.value : '');
+  };
+  if (tipo === 'despesa') { f.categoria.onchange = ajustarLucro; f.socio.onchange = () => { if (/^Distribuição de lucros/.test(f.descricao.value) || !f.descricao.value.trim()) f.descricao.value = 'Distribuição de lucros' + (f.socio.value ? ' — ' + f.socio.value : ''); }; ajustarLucro(); }
   j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
   f.onsubmit = (ev) => { ev.preventDefault(); j.querySelector('#btn-salvar-lanc').click(); };
   const apos = depois || recarregar;
@@ -1721,11 +1734,13 @@ function formLancamento(l, depois) {
     if (!f.descricao.value.trim()) throw new Error('Preencha a descrição.');
     if (!(valor > 0)) throw new Error('Informe um valor maior que zero (ex.: 1.500,00).');
     if (!f.vencimento.value) throw new Error('Informe o vencimento.');
-    const grupo_id = await grupoPorNome(f.grupo.value);
+    if (tipo === 'despesa' && /^distribui/i.test(f.categoria.value) && !f.socio.value) throw new Error('Escolha o sócio que recebeu a distribuição de lucros.');
+    const lucro = tipo === 'despesa' && /^distribui/i.test(f.categoria.value);
+    const grupo_id = lucro ? null : await grupoPorNome(f.grupo.value);
     const dados = {
       tipo, empresa: f.empresa.value, descricao: f.descricao.value.trim(), valor, vencimento: f.vencimento.value,
-      grupo_id, cliente_id: f.cliente_id.value || null, categoria: f.categoria.value.trim(), servico: f.servico ? f.servico.value : (l.servico || ''),
-      favorecido: f.favorecido ? f.favorecido.value.trim() : (l.favorecido || ''),
+      grupo_id, cliente_id: lucro ? null : (f.cliente_id.value || null), categoria: f.categoria.value.trim(), servico: f.servico ? f.servico.value : (l.servico || ''),
+      favorecido: lucro ? f.socio.value : f.favorecido ? f.favorecido.value.trim() : (l.favorecido || ''),
       responsavel: f.responsavel.value.trim(), referencia: f.referencia.value.trim(),
       cobranca: f.pago.checked ? '' : f.cobranca.value.trim(), chave_pix: f.chave_pix.value.trim(),
       pago: f.pago.checked,
@@ -3309,6 +3324,23 @@ function fmtHist(v, campo) {
 // ─────────────────────────── E-MAIL ──────────────────────────────
 // Configuração dos avisos por e-mail: o serviço (Gmail do escritório, outro SMTP ou Resend),
 // o teste e a fila. A senha vai direto para o banco (config_privada) e nunca volta para a tela.
+// Backup 29: dados para pagamento no MESMO formato para o escritório e a Contabilidade; banco, agência e conta separados
+const CAMPOS_PAG = ['pix', 'titular', 'banco', 'agencia', 'conta', 'whatsapp', 'assinatura'];
+function formPagamento(id, rotPix, rotAss) {
+  return '<form id="' + id + '" class="grade g3">' + campo('Chave PIX' + (rotPix || ''), '<input name="pix" placeholder="CNPJ, e-mail ou telefone">') + campo('Titular da conta', '<input name="titular">', 'dois') +
+    campo('Banco', '<input name="banco" placeholder="Ex.: Sicoob">') + campo('Agência', '<input name="agencia" inputmode="numeric" placeholder="0000">') + campo('Conta', '<input name="conta" placeholder="00000-0">') +
+    campo('WhatsApp para dúvidas', '<input name="whatsapp" data-mascara="tel" placeholder="(37) 9 0000-0000">') + campo('Assinatura dos e-mails', '<input name="assinatura" placeholder="' + (rotAss || 'Equipe Araújo & Castro') + '">', 'dois') + '</form>';
+}
+async function carregarPagamento(form, chave) {
+  const r = await q(sb.from('configuracoes').select('valor').eq('chave', chave).maybeSingle()).catch(() => null), v = (r && r.valor) || {};
+  // dados antigos com "Banco / agência / conta" num campo só continuam aparecendo no campo Banco
+  CAMPOS_PAG.forEach((k) => { if (form[k]) form[k].value = v[k] || ''; });
+  mascararCampos(form);
+}
+async function salvarPagamento(form, chave) {
+  const v = {}; CAMPOS_PAG.forEach((k) => { v[k] = form[k].value.trim(); });
+  await q(sb.from('configuracoes').upsert({ chave, valor: v }, { onConflict: 'chave' }));
+}
 async function admEmail(corpo) {
   const [st, fila] = await Promise.all([
     q(sb.rpc('status_config_email')).catch(() => ({})),
@@ -3328,15 +3360,16 @@ async function admEmail(corpo) {
     campo('Endereço do sistema (botão "Abrir no ERP")', '<input name="url" value="' + esc(location.origin) + '">', 'inteiro') +
     '</form>' +
     '<div class="acoes" style="margin-top:12px"><button class="btn btn-p" id="email-salvar">Salvar</button><button class="btn btn-o" id="email-teste">Enviar e-mail de teste</button>' +
-    '<button class="btn btn-o" id="email-diag">🩺 Verificar funções</button><button class="btn btn-o" id="email-agora">Enviar fila agora</button><button class="btn btn-o" id="email-resumo">Mandar resumo do dia agora</button></div>' +
+    '<button class="btn btn-o" id="email-diag" title="Confere se as funções do Supabase estão publicadas (erp-emails, erp-publicacoes, erp-cnpj, erp-agenda)">🩺 Verificar funções</button>' +
+    '<button class="btn btn-o" id="email-agora" title="A fila é a lista de e-mails esperando para sair; a rotina envia sozinha a cada 5 minutos. Este botão manda agora.">Enviar fila agora</button>' +
+    '<button class="btn btn-o" id="email-resumo" title="Resumo do dia = e-mail interno para cada pessoa da equipe com as tarefas e prazos dela (sai sozinho às 7h45 nos dias úteis). Não vai para cliente.">Mandar resumo do dia agora</button></div>' +
+    '<p class="sub" style="margin-top:8px"><b>Enviar fila agora:</b> manda já o que está esperando (a rotina manda sozinha a cada 5 min). <b>Resumo do dia:</b> e-mail interno para a equipe com as tarefas e prazos de cada um — não vai para cliente.</p>' +
     (st.configurado_em ? '<p class="sub" style="margin-top:8px">Configurado em ' + dataHoraBR(st.configurado_em) + '.</p>' : '') +
     '</div></div>' +
     '<div class="card"><div class="card-hd">Como configurar (uma vez)</div><div class="card-bd" id="email-ajuda"></div></div></div>' +
     // e-mails ao cliente: dados do quadro "Como pagar" e prévia de cada modelo
-    '<div class="card"><div class="card-hd">✉ E-mails ao cliente — dados para pagamento e modelos<span class="sub" style="margin-left:auto;font-weight:400">aparecem nas cobranças e lembretes</span></div><div class="card-bd">' +
-      '<form id="f-pag" class="grade">' + campo('Chave PIX do escritório', '<input name="pix" placeholder="CNPJ, e-mail ou telefone">') + campo('Titular da conta', '<input name="titular">') +
-      campo('Banco / agência / conta (opcional)', '<input name="banco" placeholder="Ex.: Sicoob · ag 0000 · cc 00000-0">') + campo('WhatsApp para dúvidas (opcional)', '<input name="whatsapp" placeholder="(31) 90000-0000">') +
-      campo('Assinatura dos e-mails', '<input name="assinatura" placeholder="Equipe Araújo & Castro">', 'inteiro') + '</form>' +
+    '<div class="card"><div class="card-hd">⚖ Escritório (Jurídico) — dados para pagamento<span class="sub" style="margin-left:auto;font-weight:400">aparecem nos e-mails dos clientes do escritório</span></div><div class="card-bd">' +
+      formPagamento('f-pag', ' do escritório', 'Equipe Araújo & Castro') +
       '<div class="acoes" style="margin-top:10px;flex-wrap:wrap"><button class="btn btn-p" id="pag-salvar">Salvar</button><span class="sub" style="align-self:center">Ver modelo:</span>' +
       [['lembrete', 'Lembrete'], ['cobranca', 'Cobrança'], ['acordo', 'Acordo'], ['parcelamento', 'Parcelamento'], ['recebido', 'Pagamento recebido']].map(([k, r]) => '<button class="btn btn-o btn-mini" data-previa="' + k + '">' + r + '</button>').join('') +
       '</div><p class="sub" style="margin-top:8px">Os e-mails ao cliente vão para os contatos marcados em "Recebe por e-mail" ou, se ninguém estiver marcado, para o contato do setor certo (veja Central de e-mails → Quem recebe o quê). Sem e-mail cadastrado, nada é enviado. Liga/desliga cada um em Automações.</p></div></div>' +
@@ -3348,8 +3381,7 @@ async function admEmail(corpo) {
       campo('Senha de app / senha', '<input name="senha" type="password" autocomplete="new-password" placeholder="deixe vazio para manter">') +
       campo('Servidor SMTP (só "Outro e-mail")', '<input name="host" placeholder="smtp.hostinger.com">') + campo('Porta', '<input name="porta" inputmode="numeric" value="465">') +
       campo('Nome do remetente', '<input name="remetente" placeholder="Contabilidade Araújo & Castro">') + '</form>' +
-      '<form id="f-pag-ct" class="grade" style="margin-top:10px">' + campo('Chave PIX da Contabilidade', '<input name="pix">') + campo('Titular da conta', '<input name="titular">') +
-      campo('Banco / agência / conta', '<input name="banco">') + campo('WhatsApp para dúvidas', '<input name="whatsapp" data-mascara="tel">') + campo('Assinatura dos e-mails', '<input name="assinatura" placeholder="Equipe da Contabilidade">', 'inteiro') + '</form>' +
+      '<div class="secao" style="margin-top:14px">Dados para pagamento da Contabilidade</div>' + formPagamento('f-pag-ct', ' da Contabilidade', 'Equipe da Contabilidade') +
       '<div class="acoes" style="margin-top:10px"><button class="btn btn-p" id="ct-salvar">Salvar Contabilidade</button><span class="sub" id="ct-status"></span></div></div></div>' +
     '<div class="kpis">' + kpi('Na fila', String(st.pendentes || 0), '', 'saem a cada 5 minutos') + kpi('Enviados em 7 dias', String(st.enviados_7d || 0), 'verde', '') +
     kpi('Com erro', String(st.erros || 0), st.erros ? 'vermelho' : '', 'veja o motivo abaixo') + '</div>' +
@@ -3360,24 +3392,22 @@ async function admEmail(corpo) {
   const f = $('f-email');
   f.provedor.value = prov;
   const fp = $('f-pag');
-  q(sb.from('configuracoes').select('valor').eq('chave', 'dados_pagamento').maybeSingle()).then((r) => { const v = (r && r.valor) || {}; ['pix', 'titular', 'banco', 'whatsapp', 'assinatura'].forEach((k) => { fp[k].value = v[k] || ''; }); }).catch(() => {});
-  const fct = $('f-email-ct'), fpct = $('f-pag-ct'), CAMPOS_PAG = ['pix', 'titular', 'banco', 'whatsapp', 'assinatura'];
+  carregarPagamento(fp, 'dados_pagamento');
+  const fct = $('f-email-ct'), fpct = $('f-pag-ct');
   q(sb.rpc('status_config_email_conta', { p_conta: 'contabilidade' })).then((c) => { c = c || {}; ['usuario', 'host', 'remetente'].forEach((k) => { fct[k].value = c[k] || ''; });
     fct.provedor.value = c.provedor || 'gmail'; fct.porta.value = c.porta || 465; $('ct-status').textContent = c.tem_senha ? '✓ conta configurada' : 'conta ainda não configurada'; }).catch(() => {});
-  q(sb.from('configuracoes').select('valor').eq('chave', 'dados_pagamento_contab').maybeSingle()).then((r) => { const v = (r && r.valor) || {}; CAMPOS_PAG.forEach((k) => { fpct[k].value = v[k] || ''; }); }).catch(() => {});
+  carregarPagamento(fpct, 'dados_pagamento_contab');
   $('ct-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
     if (fct.usuario.value.trim()) {
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(fct.usuario.value.trim())) throw new Error('E-mail da Contabilidade inválido.');
       await q(sb.rpc('salvar_config_email_conta', { p_conta: 'contabilidade', p: { provedor: fct.provedor.value, usuario: fct.usuario.value.trim(), senha: fct.senha.value.replace(/\s+/g, fct.provedor.value === 'gmail' ? '' : ' ').trim(),
         host: fct.host.value.trim(), porta: Number(fct.porta.value) || 465, remetente: fct.remetente.value.trim() } }));
     }
-    const v = {}; CAMPOS_PAG.forEach((k) => { v[k] = fpct[k].value.trim(); });
-    await q(sb.from('configuracoes').upsert({ chave: 'dados_pagamento_contab', valor: v }, { onConflict: 'chave' }));
+    await salvarPagamento(fpct, 'dados_pagamento_contab');
     aviso('✓ Dados da Contabilidade salvos.'); fct.senha.value = '';
   });
   $('pag-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
-    const v = {}; ['pix', 'titular', 'banco', 'whatsapp', 'assinatura'].forEach((k) => { v[k] = fp[k].value.trim(); });
-    await q(sb.from('configuracoes').upsert({ chave: 'dados_pagamento', valor: v }, { onConflict: 'chave' }));
+    await salvarPagamento(fp, 'dados_pagamento');
     aviso('✓ Dados para pagamento salvos: já valem nos próximos e-mails.');
   });
   corpo.querySelectorAll('[data-previa]').forEach((b) => b.onclick = () => comBotao(b, async () => {
@@ -7330,10 +7360,11 @@ async function abaEmailsCliente(alvo, cl) {
 }
 
 // ═══ Backup 26: CONTROLE POR CLIENTE — o que cada cliente recebe, para qual e-mail, quem é o responsável, modelo e histórico ═══
-const TIPOS_CONTROLE = [['cobranca', 'Cobranças', 'hon_lembrete', 'lembrete antes do vencimento, vence hoje e 1º/2º/3º aviso de atraso'],
-  ['guia', 'Guias', 'parc_guia', 'guia do parcelamento e parcelas em atraso'], ['acordo', 'Acordos', 'aco_lembrete', 'lembrete e atraso da parcela do acordo'],
-  ['recibo', 'Recibos', 'recibo', 'ao dar baixa, com o PDF do recibo'], ['contrato', 'Contratos', 'boas_vindas', 'boas-vindas na assinatura, propostas'],
-  ['convite', 'Convites', 'convite', 'convite de reunião (quando marcado na reunião)']];
+// Backup 29: nomes mais claros — Honorários, Parcelamentos, Recibo de honorário, Reuniões (as chaves internas não mudam)
+const TIPOS_CONTROLE = [['cobranca', 'Honorários', 'hon_lembrete', 'lembrete antes do vencimento, vence hoje e 1º/2º/3º aviso de atraso dos honorários'],
+  ['guia', 'Parcelamentos', 'parc_guia', 'guias dos parcelamentos e parcelas em atraso'], ['acordo', 'Acordos', 'aco_lembrete', 'lembrete e atraso da parcela do acordo'],
+  ['recibo', 'Recibo de honorário', 'recibo', 'ao dar baixa no honorário, com o PDF do recibo'], ['contrato', 'Contratos', 'boas_vindas', 'boas-vindas na assinatura, propostas'],
+  ['convite', 'Reuniões', 'convite', 'convite de reunião (quando marcado na reunião)']];
 let _emCtrl = [];
 async function controleEmails(alvo) {
   const admin = E.perfil && E.perfil.papel === 'admin';
@@ -7960,8 +7991,129 @@ async function rotinaTarefas(el) {
   }));
 }
 
+'use strict';
+// ═══════════════════════════════════════════════════════════════════
+// Relatório em PDF (Backup 29) — refeito do zero no desenho novo.
+// Escolhe o grupo (ou todos) e as seções; abre a prévia numa aba com o botão "Salvar em PDF".
+// Lê direto do banco: passivo das empresas, parcelamentos, acordos, processos, vencimentos e honorários.
+// ═══════════════════════════════════════════════════════════════════
+const SECOES_PDF = [['passivo', 'Passivo tributário por empresa', true], ['parcelamentos', 'Parcelamentos', true], ['acordos', 'Acordos', true],
+  ['processos', 'Processos judiciais', true], ['vencimentos', 'Vencimentos dos próximos 30 dias', true], ['honorarios', 'Honorários (a receber e em atraso)', false]];
+
+function janelaRelatorioPDF() {
+  const j = abrirJanela({ titulo: '📄 Relatório em PDF',
+    corpo: '<div class="grade">' + campo('Grupo', '<select id="rp-grupo"><option value="">Todos os grupos (carteira inteira)</option>' + E.grupos.map((g) => '<option value="' + g.id + '">' + esc(g.nome) + '</option>').join('') + '</select>', 'inteiro') +
+      '<div class="inteiro"><div class="secao">O que entra no relatório</div><div class="rp-secoes">' + SECOES_PDF.map(([k, r, on]) =>
+        '<label class="check"><input type="checkbox" data-rp="' + k + '"' + (on ? ' checked' : '') + '> ' + r + '</label>').join('') + '</div></div>' +
+      '<div class="dica inteiro">Abre a prévia numa aba nova. Lá, clique em <b>Salvar em PDF</b> (ou Ctrl+P → "Salvar como PDF").</div></div>',
+    rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="rp-gerar">📄 Gerar relatório</button></div>' });
+  j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
+  j.querySelector('#rp-gerar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    const w = window.open('', '_blank');
+    if (!w) throw new Error('O navegador bloqueou a aba nova: permita pop-ups para este site e tente de novo.');
+    w.document.write('<p style="font-family:sans-serif;padding:30px">Montando o relatório…</p>');
+    const grupo = j.querySelector('#rp-grupo').value, sec = {};
+    j.querySelectorAll('[data-rp]').forEach((c) => { sec[c.dataset.rp] = c.checked; });
+    try { const html = await montarRelatorioPDF(grupo, sec); w.document.open(); w.document.write(html); w.document.close(); fecharJanela(j); }
+    catch (e) { w.close(); throw e; }
+  });
+  return j;
+}
+
+async function montarRelatorioPDF(grupoId, sec) {
+  await carregarCadastros();
+  const h = hojeISO(), lim30 = somarDias(h, 30), g = E.grupos.find((x) => x.id === grupoId);
+  const doGrupo = (qq) => (grupoId ? qq.eq('grupo_id', grupoId) : qq);
+  const [parcs, acs, procs, lancs] = await Promise.all([
+    sec.parcelamentos || sec.vencimentos ? buscarTodos(() => doGrupo(sb.from('parcelamentos').select('id, empresa, natureza, local, numero, total_parcelas, valor_ultima_parcela, grupo_id, grupos(nome), parcelas(numero, vencimento, pago)'))).catch(() => []) : [],
+    sec.acordos || sec.vencimentos ? buscarTodos(() => doGrupo(sb.from('acordos').select('id, devedor, credor, processo, parcela, total_parcelas, valor, vencimento, pago, grupo_id'))).catch(() => []) : [],
+    sec.processos ? buscarTodos(() => doGrupo(sb.from('processos').select('numero, natureza, competencia, autor, reu, valor, status, ultima_movimentacao, ultima_movimentacao_em, grupos(nome)'))).catch(() => []) : [],
+    sec.honorarios ? buscarTodos(() => doGrupo(sb.from('lancamentos').select('descricao, valor, vencimento, empresa, redutor, grupos(nome), clientes(nome)').eq('tipo', 'receita').eq('pago', false).eq('perda', false))).catch(() => []) : []
+  ]);
+  const cli = E.clientes.filter((c) => (!grupoId || c.grupo_id === grupoId) && c.tipo !== 'Inativo');
+  const n = (v) => Number(v) || 0, R = (v) => (n(v) ? brl(v) : '—');
+  const aberto = (c) => n(c.rfb) + n(c.pgfn) + n(c.age_mg) + n(c.sefaz_mg), neg = (c) => n(c.rfb_negociada) + n(c.pgfn_negociada) + n(c.age_mg_negociada);
+  const totAb = cli.reduce((s, c) => s + aberto(c), 0), totNeg = cli.reduce((s, c) => s + neg(c), 0);
+  // parcelamentos: pagas, atraso, próxima
+  const P = parcs.map((p) => { const ps = p.parcelas || [], ab = ps.filter((x) => !x.pago).sort((a, b) => String(a.vencimento).localeCompare(String(b.vencimento)));
+    return Object.assign(p, { pagas: ps.filter((x) => x.pago).length, atr: ab.filter((x) => x.vencimento < h).length, prox: ab.find((x) => x.vencimento >= h) || null, abertas: ab }); })
+    .filter((p) => p.abertas.length);
+  // acordos: agrupados por devedor × credor × processo
+  const AG = {}; acs.forEach((a) => { const k = [a.devedor, a.credor, a.processo].join('|'); (AG[k] = AG[k] || { a, l: [] }).l.push(a); });
+  const A = Object.values(AG).map((x) => { const ab = x.l.filter((y) => !y.pago).sort((a, b) => String(a.vencimento).localeCompare(String(b.vencimento)));
+    return { a: x.a, pagas: x.l.length - ab.length, total: x.l.length, saldo: ab.reduce((s, y) => s + n(y.valor), 0), atr: ab.filter((y) => y.vencimento < h).length, prox: ab.find((y) => y.vencimento >= h) || null }; })
+    .filter((x) => x.saldo > 0);
+  const venc = [].concat(
+    P.flatMap((p) => p.abertas.filter((x) => x.vencimento <= lim30).map((x) => ({ d: x.vencimento, tipo: 'Parcelamento', quem: p.empresa, det: [p.local, p.natureza].filter(Boolean).join(' — ') + ' · parcela ' + x.numero + (p.total_parcelas ? '/' + p.total_parcelas : ''), v: n(p.valor_ultima_parcela) }))),
+    acs.filter((a) => !a.pago && a.vencimento <= lim30).map((a) => ({ d: a.vencimento, tipo: 'Acordo', quem: a.devedor, det: 'deve a ' + (a.credor || '—') + ' · parcela ' + (a.parcela || '') + (a.total_parcelas ? '/' + a.total_parcelas : ''), v: n(a.valor) })))
+    .sort((a, b) => String(a.d).localeCompare(String(b.d)));
+  const atrParc = P.reduce((s, p) => s + p.atr, 0), atrAc = A.reduce((s, x) => s + x.atr, 0);
+  const tab = (cab, linhas, dir, total) => '<table><thead><tr>' + cab.map((c, i) => '<th' + (dir && dir.includes(i) ? ' class="r"' : '') + '>' + c + '</th>').join('') + '</tr></thead><tbody>' +
+    (linhas.length ? linhas.map((l) => '<tr>' + l.map((v, i) => '<td' + (dir && dir.includes(i) ? ' class="r"' : '') + '>' + v + '</td>').join('') + '</tr>').join('') : '<tr><td colspan="' + cab.length + '" class="vazio">Nada a mostrar.</td></tr>') +
+    (total ? '<tr class="tot">' + total.map((v, i) => '<td' + (dir && dir.includes(i) ? ' class="r"' : '') + '>' + v + '</td>').join('') + '</tr>' : '') + '</tbody></table>';
+  const pill = (t, c) => '<span class="p ' + c + '">' + esc(t) + '</span>';
+  const capag = (v) => v ? pill(v, { A: 'ok', B: 'ok', C: 'at', D: 'rv', OMISSO: 'rv' }[String(v).toUpperCase()] || 'nx') : '—';
+  const S = [];
+  if (sec.passivo) S.push(['Passivo tributário por empresa', cli.length + ' empresa(s) ativa(s)', tab(['Empresa', 'CNPJ', 'RFB', 'PGFN', 'AGE/MG', 'SEFAZ/MG', 'Negociado', 'CAPAG'],
+    cli.sort((a, b) => aberto(b) - aberto(a)).map((c) => ['<b>' + esc(c.nome) + '</b>' + (!grupoId && c.grupos ? '<div class="s">' + esc(c.grupos.nome) + '</div>' : ''), esc(mascaraDoc(c.cpf_cnpj) || '—'), R(c.rfb), R(c.pgfn), R(c.age_mg), R(c.sefaz_mg), R(neg(c)), capag(c.capag)]),
+    [2, 3, 4, 5, 6], ['<b>Total</b>', '', R(cli.reduce((s, c) => s + n(c.rfb), 0)), R(cli.reduce((s, c) => s + n(c.pgfn), 0)), R(cli.reduce((s, c) => s + n(c.age_mg), 0)), R(cli.reduce((s, c) => s + n(c.sefaz_mg), 0)), R(totNeg), ''])]);
+  if (sec.parcelamentos) S.push(['Parcelamentos', P.length + ' em andamento' + (atrParc ? ' · ' + atrParc + ' parcela(s) em atraso' : ''), tab(['Empresa', 'Órgão / natureza', 'Nº', 'Pagas', 'Próxima parcela', 'Situação'],
+    P.map((p) => ['<b>' + esc(p.empresa || '—') + '</b>', esc([p.local, p.natureza].filter(Boolean).join(' — ') || '—'), esc(p.numero || '—'), p.pagas + ' de ' + (p.total_parcelas || (p.parcelas || []).length),
+      p.prox ? dataBR(p.prox.vencimento) + ' · ' + R(p.valor_ultima_parcela) : '—', p.atr ? pill(p.atr + ' em atraso' + (p.atr >= 2 ? ' — risco' : ''), 'rv') : pill('Em dia', 'ok')]), [])]);
+  if (sec.acordos) S.push(['Acordos', A.length + ' em andamento' + (atrAc ? ' · ' + atrAc + ' parcela(s) em atraso' : ''), tab(['Devedor', 'Credor', 'Processo', 'Pagas', 'Saldo', 'Próxima', 'Situação'],
+    A.map((x) => ['<b>' + esc(x.a.devedor || '—') + '</b>', esc(x.a.credor || '—'), esc(x.a.processo || '—'), x.pagas + ' de ' + x.total, R(x.saldo), x.prox ? dataBR(x.prox.vencimento) + ' · ' + R(x.prox.valor) : '—',
+      x.atr ? pill(x.atr + ' em atraso', 'rv') : pill('Em dia', 'ok')]), [4], ['<b>Total</b>', '', '', '', R(A.reduce((s, x) => s + x.saldo, 0)), '', ''])]);
+  if (sec.processos) S.push(['Processos judiciais', procs.length + ' processo(s)', tab(['Processo', 'Natureza', 'Competência', 'Partes', 'Valor da causa', 'Última movimentação'],
+    procs.map((p) => ['<b class="m">' + esc(p.numero) + '</b>' + (!grupoId && p.grupos ? '<div class="s">' + esc(p.grupos.nome) + '</div>' : ''), esc(p.natureza || '—'), esc(p.competencia || '—'),
+      esc([p.autor, p.reu].filter(Boolean).join(' × ') || '—'), R(p.valor), p.ultima_movimentacao ? esc(p.ultima_movimentacao) + (p.ultima_movimentacao_em ? '<div class="s">' + dataBR(p.ultima_movimentacao_em) + '</div>' : '') : '<span class="s">—</span>']),
+    [4], ['<b>Total</b>', '', '', '', R(procs.reduce((s, p) => s + n(p.valor), 0)), ''])]);
+  if (sec.vencimentos) S.push(['Vencimentos dos próximos 30 dias', 'inclui o que já venceu e não foi pago', tab(['Vencimento', 'Tipo', 'Empresa / devedor', 'Detalhe', 'Valor'],
+    venc.map((x) => [(x.d < h ? '<b class="rv-t">' : '<b>') + dataBR(x.d) + '</b>', esc(x.tipo), esc(x.quem || '—'), esc(x.det), R(x.v)]), [4], ['<b>Total</b>', '', '', '', R(venc.reduce((s, x) => s + x.v, 0))])]);
+  if (sec.honorarios) { const atr = lancs.filter((l) => l.vencimento < h), s2 = (l) => l.reduce((s, x) => s + (x.redutor ? -n(x.valor) : n(x.valor)), 0);
+    S.push(['Honorários', 'a receber ' + brl(s2(lancs)) + ' · em atraso ' + brl(s2(atr)), tab(['Vencimento', 'Quem', 'Descrição', 'Empresa', 'Valor'],
+      lancs.sort((a, b) => String(a.vencimento).localeCompare(String(b.vencimento))).map((l) => [(l.vencimento < h ? '<b class="rv-t">' : '<b>') + dataBR(l.vencimento) + '</b>', esc((l.grupos && l.grupos.nome) || (l.clientes && l.clientes.nome) || '—'),
+        esc(l.descricao || ''), l.empresa === 'contabilidade' ? 'Contabilidade' : 'Jurídico', R(l.redutor ? -l.valor : l.valor)]), [4], ['<b>Total</b>', '', '', '', R(s2(lancs))])]); }
+  const kpis = [['Passivo em aberto', brl(totAb), cli.length + ' empresa(s)', 'rv'], ['Negociado', brl(totNeg), 'parcelado ou em acordo', 'az'],
+    ['Parcelamentos', String(P.length), atrParc ? atrParc + ' parcela(s) em atraso' : 'todos em dia', atrParc ? 'rv' : 'ok'], ['Acordos', String(A.length), 'saldo ' + brl(A.reduce((s, x) => s + x.saldo, 0)), atrAc ? 'at' : 'ok'],
+    ['Processos', String(procs.length || '—'), sec.processos ? 'valor ' + brl(procs.reduce((s, p) => s + n(p.valor), 0)) : 'não incluído', 'az']];
+  const titulo = 'Relatório — ' + (g ? g.nome : 'Carteira completa') + ' — ' + dataBR(h).replace(/\//g, '-');
+  return '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + esc(titulo) + '</title>' +
+    '<style>' + CSS_RELATORIO + '</style></head><body>' +
+    '<div class="barra no-print"><span>Prévia do relatório</span><button onclick="window.print()">Salvar em PDF</button></div>' +
+    '<main><header class="cab"><div><div class="marca">Araújo &amp; Castro</div><div class="sub-m">Advocacia · Contabilidade · Consultoria</div></div>' +
+      '<div class="cab-d"><div class="t">' + esc(g ? g.nome : 'Carteira completa') + '</div><div>Relatório gerado em ' + dataHoraBR(new Date().toISOString()) + '</div></div></header>' +
+    '<section class="kpis">' + kpis.map(([l, v, s, c]) => '<div class="kpi"><div class="kl"><i class="' + c + '"></i>' + l + '</div><div class="kv">' + v + '</div><div class="ks">' + esc(s) + '</div></div>').join('') + '</section>' +
+    S.map(([t, d, corpo]) => '<section class="sec"><h2>' + esc(t) + '<small>' + esc(d) + '</small></h2>' + corpo + '</section>').join('') +
+    '<footer>Relatório do sistema do escritório Araújo &amp; Castro · dados de ' + dataBR(h) + ' · uso interno e do cliente</footer></main>' +
+    '</body></html>';
+}
+
+// cores fixas (o PDF sai igual no modo claro ou escuro da tela)
+const CSS_RELATORIO = [
+  '@page{size:A4;margin:12mm 11mm}',
+  '*{box-sizing:border-box}body{margin:0;background:#EEF1F6;font-family:"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:#1F2937;font-size:11.5px;-webkit-print-color-adjust:exact;print-color-adjust:exact}',
+  '.barra{position:sticky;top:0;display:flex;justify-content:space-between;align-items:center;padding:10px 18px;background:#1B2A4A;color:#fff;z-index:5}',
+  '.barra button{background:#C9A84C;color:#1B2A4A;border:0;border-radius:8px;padding:8px 16px;font-weight:700;cursor:pointer}',
+  'main{max-width:1000px;margin:18px auto;background:#fff;padding:26px 30px;border-radius:12px;box-shadow:0 2px 14px rgba(0,0,0,.08)}',
+  '.cab{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #C9A84C;padding-bottom:12px;margin-bottom:16px}',
+  '.marca{font-family:Georgia,serif;font-size:22px;font-weight:700;color:#1B2A4A}.sub-m{font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:#6B7280;margin-top:2px}',
+  '.cab-d{text-align:right;color:#6B7280;font-size:10.5px}.cab-d .t{font-size:16px;font-weight:700;color:#1B2A4A;text-transform:uppercase;margin-bottom:2px}',
+  '.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:18px}',
+  '.kpi{border:1px solid #E5E7EB;border-radius:10px;padding:9px 11px;break-inside:avoid}.kl{font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6B7280;display:flex;align-items:center;gap:5px}',
+  '.kl i{width:7px;height:7px;border-radius:50%;display:inline-block;background:#9CA3AF}.kl i.rv{background:#B42318}.kl i.ok{background:#1E7B45}.kl i.at{background:#B7791F}.kl i.az{background:#2E4C81}',
+  '.kv{font-size:15px;font-weight:700;color:#1B2A4A;margin-top:3px}.ks{font-size:9.5px;color:#6B7280;margin-top:1px}',
+  '.sec{margin-top:16px}h2{font-size:13px;color:#1B2A4A;margin:0 0 7px;display:flex;align-items:baseline;gap:8px;break-after:avoid}h2 small{font-size:10px;font-weight:400;color:#6B7280}',
+  'table{width:100%;border-collapse:collapse;font-size:10.5px}thead{display:table-header-group}th{background:#F3F5F9;color:#374151;text-align:left;font-size:9px;letter-spacing:.05em;text-transform:uppercase;padding:6px 7px;border-bottom:1px solid #D9DEE7}',
+  'td{padding:6px 7px;border-bottom:1px solid #EEF0F4;vertical-align:top}tr{break-inside:avoid}.r{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}',
+  'tr.tot td{border-top:2px solid #1B2A4A;border-bottom:0;font-weight:700;background:#FAFBFD}.vazio{color:#9CA3AF;text-align:center;padding:12px}',
+  '.s{font-size:9.5px;color:#6B7280;margin-top:1px}.m{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:10px}.rv-t{color:#B42318}',
+  '.p{display:inline-block;padding:1px 8px;border-radius:99px;font-size:9.5px;font-weight:700;border:1px solid}.p.ok{background:#E8F5EC;color:#1E7B45;border-color:#B7DFC3}.p.rv{background:#FDECEA;color:#B42318;border-color:#F4C2BC}.p.at{background:#FFF6E0;color:#8A5A00;border-color:#F0D9A0}.p.nx{background:#F3F4F6;color:#6B7280;border-color:#E5E7EB}',
+  'footer{margin-top:22px;padding-top:8px;border-top:1px solid #E5E7EB;font-size:9px;color:#9CA3AF;text-align:center}',
+  '@media print{body{background:#fff}.no-print{display:none!important}main{box-shadow:none;margin:0;max-width:none;padding:0;border-radius:0}}'
+].join('\n');
+
 // toda gravação confirmada aparece também no rodapé do ERP
 const _avisoOrig = aviso;
 aviso = function (msg, erro) { _avisoOrig(msg, erro); if (!erro && window.ERP_EDITOR && /^✓/.test(msg)) window.ERP_EDITOR.gravou(String(msg).replace(/^✓\s*/, '')); };
-window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, invalidarCadastros, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo, perguntarBaixa, detalheContrato, ICONE_AVISO, conciliarOfx, abrirTarefa, detalheLancamento, edicaoLancamentos, janelaModelosEmail, janelaAutoEmails, janelaGeradores, formReuniao, janelaDelegar, abrirGeradorContrato, cardGuias, emitirParcela, janelaMovimentacao };
+window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, invalidarCadastros, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo, perguntarBaixa, detalheContrato, ICONE_AVISO, conciliarOfx, abrirTarefa, detalheLancamento, edicaoLancamentos, janelaModelosEmail, janelaAutoEmails, janelaGeradores, formReuniao, janelaDelegar, abrirGeradorContrato, cardGuias, emitirParcela, janelaMovimentacao, janelaRelatorioPDF };
 })();

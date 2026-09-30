@@ -83,7 +83,20 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
-- Última entrega: **Backup 28** (SQL + funções erp-emails e erp-cnpj). Menu: **Rotina** (`telas-rotina.js`, `TELAS.rotina`: passivo editável
+- Última entrega: **Backup 29** (SQL + funções erp-emails e erp-cnpj). Início (`telas-painel.js`, `.kpi-grid.ini-fin` com `.kc`) e Financeiro→Jurídico
+  (trocar em montar-erp) com os mesmos 5 cartões (Recebido·A receber·A pagar·Em atraso·Prejuízo; `resumo_financeiro` devolve `prejuizo`). Guias
+  (`telas-guias.js`): quadros "Parcelamentos/Acordos para emitir", enviados (`email_em`) saem do quadro, `janelaGuiasEmpresa` novo (`.ge-*`, `textoGuias`,
+  `descricaoGuia`), anexos inline `p_arquivos [{arquivo,mime,b64}]` em `enviar_guias_email` (8 parâmetros) → `anexo {tipo:'lista', itens}`; erp-emails
+  troca o anexo por `{tipo:'enviado', arquivos}` depois de enviar. `janelaEmissao` sem upload ao Storage. Lista por grupo com coluna `.lg-cg` (Guias).
+  E-mails de teste: `configuracoes.emails_teste`, `eh_email_teste`, `email_fila_reter` deixa passar, `salvar_emails_teste`, faixa `.em-teste`.
+  Pagamento: `formPagamento`/`CAMPOS_PAG` (banco, agencia, conta) em telas-admin; `email_cliente_html` monta "Banco · Agência · Conta".
+  Colunas "Quem recebe": Honorários/Parcelamentos/Recibo de honorário/Reuniões (`TIPOS_CONTROLE`, `RECEBE_*`). Clientes: `#cli-buscar` (erp-cnpj
+  `previa` devolve email/telefone/natureza_juridica/simples/mei; a busca sobrescreve). Rotina: `corSel` (.rt-verde/.rt-vermelho/.rt-amarelo), Senha GOV,
+  `historico_passivo()` + `janelaHistoricoPassivo`, processos por grupo + `#rt-novo-proc`, tarefas em seções (recorrentes/validação/únicas/para validar).
+  Tabelas: `PAGINA_TABELA`/`PG` = 1e9 (sem páginas) e thead sticky em `.tw/.tabela-wrap` (max-height). `gerar_mensalidades` 6 meses. Despesa com lista e
+  "Distribuição de lucros" (campo `socio` → favorecido). Relatório em PDF: `telas-relatorio.js` (`janelaRelatorioPDF`, ⋯ → Relatório em PDF).
+  `estrutura.sql` = 6046 linhas.
+- Backup 28 (base) (SQL + funções erp-emails e erp-cnpj). Menu: **Rotina** (`telas-rotina.js`, `TELAS.rotina`: passivo editável
   com `cliente_certificado` [validade/senha, RLS editar clientes], processos com `processo_movimentacoes` + gatilho `processo_mov_aplica` →
   `processos.ultima_movimentacao/_em`, guias, financeiro, minhas tarefas; `janelaMovimentacao` no GS e no popup de Processos) e **E-mails**
   (saiu da Administração). Máscaras ao digitar no nucleo.js (`tipoMascara`: `data-mascara="brl|tel"`, inputmode decimal + name `valor*`,
@@ -99,7 +112,7 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
   `navigator.share`/wa.me); `_lgFaltaEmitir`/`_lgTagGuia` (item `guias`). Alertas: `.al-blocos` por setor, rotinas em `.al-rot-tab`. Documentos:
   pastas por grupo (`details.doc-pasta`). CRM: `.op-integra` (proposta, contrato, Meet, agenda), `linkAgendaGoogle`. Contabilidade:
   `_fcTabelaComp` (colgroup fixo + Total). Cliente de teste: `banco/cliente-teste-email.sql`. Tabelas de lançamentos do Financeiro: iguais
-  ao B26 (conferido) — perguntar ao usuário qual versão ele quer. `estrutura.sql` = 5841 linhas.
+  ao B26 (conferido) — perguntar ao usuário qual versão ele quer.
 - Backup 27 (base) (SQL + função erp-emails). Início: sem subtítulo e sem as tabelas "Atrasados" (`cardAtraso` saiu),
   Honorários antes de `#ini-fila`; destaque único `tarefas` (atrasadas ou fatal ≤7 d; atalho `atencao` em Tarefas) e `aguias` (boletos de
   acordo a emitir); `janelaTodosLembretes` (fixados/próximos/mais adiante/concluídos 90 d); fila: `.fila-com-atr` (atrasadas à esquerda em

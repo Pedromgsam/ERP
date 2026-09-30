@@ -822,3 +822,6 @@ select.rt-in.rt-amarelo{background:var(--amber-lt);color:var(--amber-d);border-c
 .rt-tsec-tit{display:flex;align-items:center;gap:8px;font:700 13.5px var(--font-ui);color:var(--ink);margin:4px 0 8px}
 .rt-tsec-tit .sub{font-weight:400;font-size:12px}
 .rt-ttab td{vertical-align:middle}
+/* Backup 29 — janela do Relatório em PDF */
+.rp-secoes{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px}
+@media(max-width:600px){.rp-secoes{grid-template-columns:1fr}}

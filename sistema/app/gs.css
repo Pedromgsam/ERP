@@ -807,6 +807,9 @@
 .gs .rt-tsec-tit{display:flex;align-items:center;gap:8px;font:700 13.5px var(--font-ui);color:var(--ink);margin:4px 0 8px}
 .gs .rt-tsec-tit .sub{font-weight:400;font-size:12px}
 .gs .rt-ttab td{vertical-align:middle}
+.gs .rp-secoes{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px}
+@media(max-width:600px){.gs .rp-secoes{grid-template-columns:1fr}
+}
 /* cores do ERP, tamanhos do Gestão */
 .gs{background:none!important;min-height:0!important}
 .gs .duas-col>*,.gs .card{min-width:0}

@@ -49,10 +49,10 @@
 <link rel="stylesheet" href="editor.css?v=7747e46f">
 <link rel="stylesheet" href="erp-telas.css?v=9687b172">
 <script src="editor.js?v=15c9111e" defer></script>
-<script src="erp-telas.js?v=3d7e8b0a" defer></script>
-<link rel="stylesheet" href="gs.css?v=30bb032d">
+<script src="erp-telas.js?v=837a0d90" defer></script>
+<link rel="stylesheet" href="gs.css?v=fad12230">
 <script src="importador.js?v=4fb0d655" defer></script>
-<script src="gestao-embutida.js?v=a2578dca" defer></script>
+<script src="gestao-embutida.js?v=31038165" defer></script>
 <script>
 
 
@@ -1617,7 +1617,7 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
 </style>
 <link rel="stylesheet" href="tokens.css?v=1263585f">
 <link rel="stylesheet" href="tema-escuro.css?v=09e344f4">
-<link rel="stylesheet" href="design.css?v=2d493079">
+<link rel="stylesheet" href="design.css?v=041f7849">
 <script>try{if(localStorage.getItem("erp_tema")==="escuro")document.documentElement.setAttribute("data-tema","escuro")}catch(e){}</script>
 </head>
 <body>
@@ -7018,11 +7018,11 @@ function _fcPintarCorpo(){
     .sort(function(a,b){ return (pDate(a.f.vencimento)||0)-(pDate(b.f.vencimento)||0); });
   el.innerHTML =
     '<div class="kpi-grid fc-kpis5" style="margin-bottom:14px">'
-  +   kC('Recebido',_faFT(_fcSoma(rec)),rec.length+' lançamento(s)','cg','dg')
-  +   kC('A receber',_faFT(_fcSoma(aRec)),aRec.length+' em aberto','cb','db')
-  +   kC('Pago',_faFT(_fcSoma(pag)),pag.length+' despesa(s)','cr','')
-  +   kC('A pagar',_faFT(_fcSoma(aPag)),aPag.length+' em aberto','ca','')
-  +   kC('Em atraso',_faFT(_fcSoma(vR)+_fcSoma(vP)),_faFT(_fcSoma(vR))+' a receber<br>'+_faFT(_fcSoma(vP))+' a pagar','cr',(vR.length||vP.length)?'dr':'')
+  +   kC('Recebido',fF(_fcSoma(rec)),rec.length+' lançamento(s)','cg','dg')
+  +   kC('A receber',fF(_fcSoma(aRec)),aRec.length+' em aberto','cb','db')
+  +   kC('Pago',fF(_fcSoma(pag)),pag.length+' despesa(s)','cr','')
+  +   kC('A pagar',fF(_fcSoma(aPag)),aPag.length+' em aberto','ca','')
+  +   kC('Em atraso',fF(_fcSoma(vR)+_fcSoma(vP)),fF(_fcSoma(vR))+' a receber<br>'+fF(_fcSoma(vP))+' a pagar','cr',(vR.length||vP.length)?'dr':'')
   + '</div>'
   + '<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t">Recebido × pago mês a mês</div>'
   +   '<div class="cc-d">verde = recebido · vermelho = pago (despesas) · passe o mouse na coluna para ver o saldo do mês</div></div></div>'

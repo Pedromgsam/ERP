@@ -131,7 +131,7 @@
       abertos.forEach(fecharMenu); fecharMais();
       if (alvo.id === 'gs-sair' || alvo.classList.contains('gs-sair')) { if (typeof window.acLogout === 'function') window.acLogout(); }
       else if (alvo.dataset.acao === 'atualizar') { if (typeof window._dbCacheClear === 'function') window._dbCacheClear(); ED.recarregar(); }
-      else if (alvo.dataset.acao === 'pdf') ir('relatorio');
+      else if (alvo.dataset.acao === 'pdf') { if (GS() && GS().janelaRelatorioPDF) GS().carregarCadastros().then(() => GS().janelaRelatorioPDF()); else ir('relatorio'); }   // Backup 29: relatório novo
       else if (alvo.dataset.acao === 'aprovacoes') ir('aprovacoes');
       else if (alvo.dataset.acao === 'meunome') pedirMeuNome(false);
       else if (alvo.dataset.acao === 'cobrancas') abrirCentralEmails('');
