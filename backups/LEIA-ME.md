@@ -28,6 +28,9 @@ versão foi ao ar**. O número cresce a cada entrega.
 | 20 | Padrão único: lembretes no lugar do recado (sem prazo, fixo, destaque), tabelas de pagamento iguais com baixa em lote e PIX copia e cola, Painel/Processos como Clientes (grupo + ▸ detalhe), filtros e bordas iguais, telas sem cartão de título |
 | 21 | Ajustes finos: lembretes como lista de "a fazer", Atrasados abre o detalhe, Painel/Processos por grupo como Clientes (ficha volta a abrir), processo em janela, Publicações por tribunal, Acordos (saldo por devedor em ranking, sem "Progresso"), régua de dias verde/azul/amarelo/vermelho |
 | 22 | Padronização: régua única nas tabelas (vencimento e valor em negrito, selo da pessoa igual, "✓ Baixa"/"✎", triângulo de atraso), Parcelamentos no modelo de Acordos, Acordos com próximos 30 dias, sem PIX, teste de padronização |
+| 23 | Ajustes e modo escuro: excluir usuário, cartão de Lembretes próprio, selo da pessoa menor, Parcelamentos por grupo recolhido, modo escuro grafite |
+| 24 | Início e Painel: guias de volta na faixa de destaques, Lembretes só com lembretes, Painel sem os gráficos de grupo e órgão |
+| 25 | Do primeiro contato ao financeiro: contrato aguardando assinatura (financeiro e onboarding só na assinatura), gerador preenchido pelo CRM, contatos por setor e Central "Quem recebe o quê", reunião com convite, linha do tempo única, delegar e validar, lista de simplificação |
 | 23 | Lembretes em cartão próprio com detalhe e "Fixado", selo "Quem" sutil, sem triângulo, Painel com negociado na rosca, Parcelamentos por grupo com filtros e janela de detalhe, excluir usuário, modo escuro grafite |
 | 24 | Guias de parcelamento junto de avisos e tarefas no Início; Painel sem os gráficos por grupo e por órgão; prompt do chat "ERP Automação" |
 

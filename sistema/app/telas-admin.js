@@ -615,7 +615,7 @@ async function admEmail(corpo) {
       campo('Assinatura dos e-mails', '<input name="assinatura" placeholder="Equipe Araújo & Castro">', 'inteiro') + '</form>' +
       '<div class="acoes" style="margin-top:10px;flex-wrap:wrap"><button class="btn btn-p" id="pag-salvar">Salvar</button><span class="sub" style="align-self:center">Ver modelo:</span>' +
       [['lembrete', 'Lembrete'], ['cobranca', 'Cobrança'], ['acordo', 'Acordo'], ['parcelamento', 'Parcelamento'], ['recebido', 'Pagamento recebido']].map(([k, r]) => '<button class="btn btn-o btn-mini" data-previa="' + k + '">' + r + '</button>').join('') +
-      '</div><p class="sub" style="margin-top:8px">Os e-mails ao cliente vão para o contato com a finalidade certa (financeiro nas cobranças; jurídico nos acordos) — cadastre em Clientes → ficha → Contatos. Sem e-mail cadastrado, nada é enviado. Liga/desliga cada um em Automações.</p></div></div>' +
+      '</div><p class="sub" style="margin-top:8px">Os e-mails ao cliente vão para os contatos marcados em "Recebe por e-mail" ou, se ninguém estiver marcado, para o contato do setor certo (veja Central de e-mails → Quem recebe o quê). Sem e-mail cadastrado, nada é enviado. Liga/desliga cada um em Automações.</p></div></div>' +
     '<div class="kpis">' + kpi('Na fila', String(st.pendentes || 0), '', 'saem a cada 5 minutos') + kpi('Enviados em 7 dias', String(st.enviados_7d || 0), 'verde', '') +
     kpi('Com erro', String(st.erros || 0), st.erros ? 'vermelho' : '', 'veja o motivo abaixo') + '</div>' +
     '<div class="card"><div class="card-hd">Últimos e-mails</div>' + (fila.length ? '<div class="tabela-wrap"><table><thead><tr><th>Quando</th><th>Para</th><th>Assunto</th><th>Situação</th></tr></thead><tbody>' +

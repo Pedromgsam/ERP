@@ -201,7 +201,7 @@ TELAS.tarefas = async function () {
   $('conteudo').innerHTML =
     '<div class="titulo-pag"><div><h1>Tarefas</h1><p>Prazos, fluxos e acompanhamento do escritório</p></div>' +
     '<div class="acoes"><button class="btn btn-o" id="tf-regras">⚡ Automações</button><button class="btn btn-o" id="tf-modelos">Modelos de fluxo</button><button class="btn btn-o" id="tf-feriados">Feriados</button><button class="btn btn-o" id="tf-agenda" title="Prazos fatais e audiências no seu Google Agenda">📅 Google Agenda</button>' +
-    '<button class="btn btn-o" id="tf-fluxo">+ Novo fluxo</button><button class="btn btn-p" id="tf-nova">+ Nova tarefa</button></div></div>' +
+    '<button class="btn btn-o" id="tf-delegar" title="Delegar uma sequência de passos (ex.: lead completo) com validação">👥 Delegar</button><button class="btn btn-o" id="tf-fluxo">+ Novo fluxo</button><button class="btn btn-p" id="tf-nova">+ Nova tarefa</button></div></div>' +
     '<div class="tf-rapida"><input id="tf-rapida" autocomplete="off" placeholder="⚡ Criação rápida: “Protocolar defesa amanhã @Emanuelle !alta” e Enter" aria-label="Criação rápida de tarefa">' +
       '<div id="tf-rapida-prev" class="tf-rapida-prev"></div></div>' +
     '<div class="abas" id="tf-abas">' + [['abertas', 'Em aberto'], ['concluidas', '✓ Concluídas'], ['excluidas', '🗑 Excluídas']]
@@ -219,6 +219,7 @@ TELAS.tarefas = async function () {
   ligarCriacaoRapida();
   $('tf-fluxo').onclick = () => formNovoFluxo(() => TELAS.tarefas());
   $('tf-modelos').onclick = () => janelaModelos();
+  $('tf-delegar').onclick = () => janelaDelegar({}, () => TELAS.tarefas());
   $('tf-regras').onclick = () => irParaTela('automacoes');
   $('tf-feriados').onclick = () => janelaFeriados();
   $('tf-agenda').onclick = () => janelaAgenda();
@@ -506,13 +507,16 @@ async function validarDependencia(t, novoStatus) {
 // Concluir · Encaminhar · + Subtarefa · Editar (o formulário completo).
 const ORIGEM_REGRA = { onb: 'Automação: contrato novo (onboarding)', proc: 'Automação: processo novo', cert: 'Automação: certidão vencendo', doc: 'Automação: documento vencendo',
   parc: 'Automação: parcela de parcelamento', aco: 'Automação: parcela de acordo', cob: 'Automação: cobrança de honorário', anexo: 'Automação: contrato sem anexo',
-  procur: 'Automação: processo sem procuração', pub: 'Automação: publicação', esc: 'Automação: escalada de atraso' };
+  procur: 'Automação: processo sem procuração', pub: 'Automação: publicação', esc: 'Automação: escalada de atraso',
+  reuniao: 'Reunião agendada', deleg: 'Delegação (sequência de passos)', 'crm-contrato': 'CRM: contrato fechado' };
 async function abrirTarefa(t, depois) {
   if (!t) return;
   if (typeof t === 'string') t = (await q(sb.from('tarefas').select('*').eq('id', t)))[0];
   if (!t) return aviso('Tarefa não encontrada (pode ter sido excluída).', true);
   await equipe().catch(() => []);
-  const [subs] = await Promise.all([q(sb.from('tarefas').select('*').eq('tarefa_pai_id', t.id).order('prazo', { nullsFirst: false })).catch(() => [])]);
+  const [subs, coms] = await Promise.all([q(sb.from('tarefas').select('*').eq('tarefa_pai_id', t.id).order('prazo', { nullsFirst: false })).catch(() => []),
+    q(sb.from('comentarios').select('texto, criado_em').eq('tarefa_id', t.id).order('criado_em', { ascending: false }).limit(8)).catch(() => [])]);
+  const souRevisor = t.status === 'revisao' && (E.perfil.papel === 'admin' || (t.revisor && primeiroNome(t.revisor) === primeiroNome(E.perfil.nome || '')));
   const pr = PRIORIDADE[t.prioridade] || [t.prioridade || '—', 'neutro'];
   const ck = Array.isArray(t.checklist) ? t.checklist : [];
   const origem = t.chave_regra ? (ORIGEM_REGRA[String(t.chave_regra).split(':')[0]] || 'Automação') : t.fluxo_id ? 'Fluxo de trabalho' : 'Criada à mão';
@@ -539,11 +543,17 @@ async function abrirTarefa(t, depois) {
         ck.map((c) => '<div class="tf-ck' + (c.feito ? ' feito' : '') + '">' + (c.feito ? '☑' : '☐') + ' ' + esc(c.texto) + '</div>').join('') + '</div>' : '') +
       (subs.length ? '<div class="tf-bloco"><div class="secao">Subtarefas</div><div class="lista-ficha">' + subs.map((x) => '<div class="item-ficha clicavel' + (tarefaFechada(x) ? ' feita' : '') + '" data-ficha-sub="' + x.id + '"><div><b>' + esc(x.titulo) + '</b> ' + seloPrazo(x) +
         '<div class="sub">' + (x.prazo ? 'até ' + dataBR(x.prazo) : 'sem prazo') + ' · ' + esc(x.responsavel || '—') + ' · ' + esc(STATUS_TAREFA[x.status]) + '</div></div></div>').join('') + '</div></div>' : '') +
+      (coms.length ? '<div class="tf-bloco"><div class="secao">Comentários</div>' + coms.map((c) => '<div class="tf-com"><span class="sub">' + dataHoraBR(c.criado_em) + '</span> ' + esc(c.texto) + '</div>').join('') + '</div>' : '') +
+      (t.status === 'aguardando' && t.depende_de ? '<div class="dica" style="margin-top:10px">⏳ Este passo começa quando o anterior for concluído' + (t.exige_revisao ? '' : ' (e aprovado, se precisar de validação)') + '.</div>' : '') +
       '</div>',
     rodape: '<button class="btn btn-o" type="button" id="tf-f-editar">✎ Editar</button><div class="acoes">' +
       (fechada ? '' : (t.recorrencia && t.prazo ? '<button class="btn btn-o" type="button" id="tf-f-pular" title="Esta vez não precisa: a tarefa passa para a próxima data">⏭ Pular esta vez</button>' : '') +
         '<button class="btn btn-o" type="button" id="tf-f-sub">+ Subtarefa</button><button class="btn btn-o" type="button" id="tf-f-enc">↪ Encaminhar</button>' +
-        '<button class="btn btn-v" type="button" id="tf-f-ok">✓ Concluir</button>') + '</div>' });
+        (souRevisor ? '<button class="btn btn-x" type="button" id="tf-f-devolver">↩ Devolver</button><button class="btn btn-v" type="button" id="tf-f-aprovar">✓ Aprovar</button>'
+          : '<button class="btn btn-v" type="button" id="tf-f-ok">✓ Concluir</button>')) + '</div>' });
+  const bAp = j.querySelector('#tf-f-aprovar'), bDv = j.querySelector('#tf-f-devolver');
+  if (bAp) bAp.onclick = () => comBotao(bAp, async () => { await q(sb.rpc('tarefa_validar', { p_tarefa: t.id, p_aprovar: true, p_comentario: '' })); aviso('✓ Aprovado: o próximo passo foi liberado.'); fecharJanela(j); await (depois || recarregar)(); });
+  if (bDv) bDv.onclick = () => janelaDevolver(t, async () => { fecharJanela(j); await (depois || recarregar)(); });
   const depois2 = async () => { await (depois || recarregar)(); };
   j.querySelector('#tf-f-editar').onclick = () => { fecharJanela(j); formTarefa(t, depois); };
   j.querySelectorAll('[data-ficha-sub]').forEach((d) => d.onclick = () => { fecharJanela(j); abrirTarefa(subs.find((x) => x.id === d.dataset.fichaSub), depois); });
@@ -1058,4 +1068,68 @@ function vistaSemana(alvo) {
         aviso('✓ "' + t.titulo + '" remarcada para ' + dataBR(cl.dataset.dia) + '.'); vistaSemana(alvo);
       }); });
   });
+}
+
+// ═══ Backup 25: DELEGAR e VALIDAR ═══
+// devolver com comentário (volta para quem fez, com aviso)
+function janelaDevolver(t, depois) {
+  const k = abrirJanela({ titulo: '↩ Devolver para ajuste', corpo: '<p class="sub" style="margin-bottom:8px">' + esc(t.titulo) + ' — volta para <b>' + esc(t.responsavel || '—') + '</b>, que recebe um aviso com o seu comentário.</p>' +
+      '<div class="grade">' + campo('O que precisa ser ajustado <span class="obrig">*</span>', '<textarea name="coment" maxlength="1500" placeholder="Ex.: faltou a cláusula de êxito; conferir o CNPJ"></textarea>', 'inteiro') + '</div>',
+    rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Voltar</button><button class="btn btn-x" type="button" id="tf-dev-ok">Devolver</button></div>' });
+  k.querySelector('[data-cancelar]').onclick = () => fecharJanela(k);
+  k.querySelector('#tf-dev-ok').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    const c = k.querySelector('[name=coment]').value.trim();
+    if (!c) throw new Error('Escreva o que precisa ser ajustado.');
+    await q(sb.rpc('tarefa_validar', { p_tarefa: t.id, p_aprovar: false, p_comentario: c }));
+    aviso('↩ Devolvido para ' + (t.responsavel || 'a pessoa') + '.'); fecharJanela(k); if (depois) await depois();
+  });
+}
+// delegar uma sequência de passos (ex.: "Lead completo": cadastrar → reunião → contrato com validação → enviar)
+async function janelaDelegar(o, depois) {
+  o = o || {};
+  const modelos = await q(sb.from('modelos_fluxo').select('nome, descricao, itens, sequencial').order('nome')).catch(() => []);
+  const seq = modelos.filter((m) => m.sequencial);
+  if (!seq.length) return aviso('Nenhum modelo de sequência. Rode o SQL mais recente no Supabase.', true);
+  const eu = (E.perfil && E.perfil.nome) || '';
+  const j = abrirJanela({ titulo: '👥 Delegar passos', larga: true,
+    corpo: '<form id="f-deleg" class="grade">' +
+      campo('Sequência', '<select name="modelo">' + seq.map((m) => '<option value="' + esc(m.nome) + '">' + esc(m.nome) + '</option>').join('') + '</select>', 'inteiro') +
+      '<div class="inteiro" id="deleg-passos"></div>' +
+      campo('Para quem <span class="obrig">*</span>', selectPessoa('pessoa', o.pessoa || '', '— escolha —')) +
+      campo('Quem valida', selectPessoa('revisor', eu, '— eu —')) +
+      campo('Cliente (se já cadastrado)', '<select name="cliente_id">' + opcoesClientes(o.cliente_id || '') + '</select>', 'inteiro') +
+      campo('Recado (opcional)', '<textarea name="obs" maxlength="1500" placeholder="Ex.: Empresa X é lead; o contato é o João (financeiro)">' + esc(o.obs || '') + '</textarea>', 'inteiro') + '</form>',
+    rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="deleg-ok">Delegar</button></div>' });
+  const f = j.querySelector('#f-deleg');
+  const passos = () => { const m = seq.find((x) => x.nome === f.modelo.value) || seq[0];
+    j.querySelector('#deleg-passos').innerHTML = '<div class="dica">' + esc(m.descricao || '') + '<ol style="margin:6px 0 0 18px">' + (m.itens || []).map((it) =>
+      '<li>' + esc(it.titulo) + ' <span class="sub">(' + plural(it.dias || 1, 'dia útil', 'dias úteis') + ')</span>' + (it.validar ? ' <span class="pill hoje">passa pela validação</span>' : '') + '</li>').join('') + '</ol>' +
+      '<div class="sub" style="margin-top:6px">Cada passo só começa quando o anterior termina. O passo com validação vai para você aprovar ou devolver com comentário.</div></div>'; };
+  f.modelo.onchange = passos; passos();
+  j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
+  j.querySelector('#deleg-ok').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    if (!f.pessoa.value) throw new Error('Escolha para quem delegar.');
+    await q(sb.rpc('delegar_sequencia', { p_modelo: f.modelo.value, p_pessoa: f.pessoa.value, p_revisor: f.revisor.value || eu, p_cliente: f.cliente_id.value || null,
+      p_oportunidade: o.oportunidade_id || null, p_nome: null, p_obs: f.obs.value.trim() }));
+    aviso('✓ Delegado para ' + f.pessoa.value + ': o 1º passo já está na fila dele(a).'); fecharJanela(j); if (depois) await depois();
+  });
+}
+// Início: "Aguardando minha validação"
+async function cardValidacoes() {
+  const l = await q(sb.rpc('minhas_validacoes')).catch(() => []);
+  if (!l.length) return { html: '', ligar: () => {} };
+  return { html: '<div class="card ini-valid"><div class="card-hd">✅ Aguardando minha validação <span class="pill hoje">' + l.length + '</span>' +
+      '<span class="sub" style="margin-left:8px">aprove para liberar o próximo passo, ou devolva com comentário</span></div><div class="card-bd"><div class="lista-ficha">' +
+      l.map((t) => '<div class="item-ficha"><div class="clicavel" data-val-abrir="' + t.id + '"><b>' + esc(t.titulo) + '</b><div class="sub">' +
+        esc([t.cliente, t.fluxo].filter(Boolean).join(' · ')) + (t.prazo ? ' · prazo ' + dataBR(t.prazo) : '') + '</div></div>' +
+        '<div class="acoes">' + pillPessoa(t.responsavel) + '<button class="btn btn-x btn-mini" type="button" data-val-dev="' + t.id + '">↩ Devolver</button>' +
+        '<button class="btn btn-v btn-mini" type="button" data-val-ok="' + t.id + '">✓ Aprovar</button></div></div>').join('') + '</div></div></div>',
+    ligar: (el) => {
+      const recarregarCard = async () => { const c = await cardValidacoes(); el.innerHTML = c.html; c.ligar(el); };
+      el.querySelectorAll('[data-val-ok]').forEach((b) => b.onclick = () => comBotao(b, async () => {
+        await q(sb.rpc('tarefa_validar', { p_tarefa: b.dataset.valOk, p_aprovar: true, p_comentario: '' })); aviso('✓ Aprovado: o próximo passo foi liberado.'); await recarregarCard(); }));
+      el.querySelectorAll('[data-val-dev]').forEach((b) => b.onclick = () => janelaDevolver(l.find((x) => x.id === b.dataset.valDev), recarregarCard));
+      el.querySelectorAll('[data-val-abrir]').forEach((d) => d.onclick = async () => {
+        const t = (await q(sb.from('tarefas').select('*').eq('id', d.dataset.valAbrir)))[0]; if (t) abrirTarefa(t, recarregarCard); });
+    } };
 }

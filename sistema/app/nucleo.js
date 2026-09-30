@@ -104,9 +104,18 @@ function selectServico(valor) {
 const PERFIS_EMAIL = [['padrao', 'Padrão', 'lembrete antes do vencimento, cobrança depois do atraso e recibo'],
   ['vencimento', 'Só no vencimento', 'um aviso no dia do vencimento e o recibo; sem lembrete antes nem cobrança'],
   ['nunca', 'Não enviar financeiro', 'nenhum e-mail de honorários (clientes importantes); guias de parcelamento e acordos continuam'],
+  ['nada', 'Não enviar nenhum e-mail', 'o cliente não recebe nenhum e-mail automático (nem guias, acordos ou boas-vindas)'],
   ['personalizado', 'Personalizado', 'você marca cada tipo de e-mail']];
+// Backup 25: setor do contato e "recebe o quê" (os e-mails automáticos usam isso para escolher o destinatário)
+const SETORES_CONTATO = [['geral', 'Geral'], ['financeiro', 'Financeiro'], ['fiscal', 'Fiscal'], ['rh', 'RH / Depto. pessoal'], ['socio', 'Sócio / decisor'],
+  ['juridico', 'Jurídico'], ['contador', 'Contador externo']];
+const RECEBE_EMAIL = [['cobranca', 'Cobranças e lembretes de honorários'], ['recibo', 'Recibos'], ['guia', 'Guias de parcelamento'],
+  ['acordo', 'Avisos de acordo'], ['contrato', 'Contratos, propostas e boas-vindas'], ['convite', 'Convites de reunião']];
+const ORIGENS_CLIENTE = ['Indicação', 'Site', 'Instagram', 'Google', 'Cliente antigo', 'Evento', 'CRM', 'Outro'];
+const RECEBE_CURTO = { cobranca: 'Cobranças', recibo: 'Recibos', guia: 'Guias', acordo: 'Acordos', contrato: 'Contratos', convite: 'Convites' };
 const TIPOS_EMAIL = [['lembrete', 'Lembrete antes do vencimento'], ['vencimento', 'Aviso no dia do vencimento'], ['cobranca', 'Cobrança de atraso'],
-  ['recibo', 'Recibo / pagamento recebido'], ['parcelamento', 'Guia de parcelamento'], ['acordo', 'Parcela de acordo']];
+  ['recibo', 'Recibo / pagamento recebido'], ['parcelamento', 'Guia de parcelamento'], ['acordo', 'Parcela de acordo'],
+  ['boas_vindas', 'Boas-vindas (contrato assinado)'], ['convite', 'Convite de reunião']];
 // modelo que já escolhe "Clientes que vê"
 const MODELOS_AREA = { 'Adm. da Contabilidade': 'contabil' };
 // Nível "Propor" (rascunho): a pessoa preenche normalmente, mas nada vale até alguém que edita aprovar.

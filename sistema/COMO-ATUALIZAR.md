@@ -373,3 +373,73 @@ Ordem: **1) Merge  2) Ctrl+Shift+R**. O banco não mudou.
   suas atrasadas**. Clique nele para ver a lista e marcar "Guia emitida".
 - **Painel Executivo:** saíram os gráficos "Passivo total por grupo" e "Distribuição por órgão".
 - Prompt para o novo chat "ERP Automação": `sistema/PROMPT-AUTOMACAO.md`.
+
+## Backup 25 — do primeiro contato ao financeiro (tem SQL e 3 funções novas)
+Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) publicar as funções `erp-emails`, `erp-cnpj` e `erp-agenda`
+(Verify JWT desligado)  4) Ctrl+Shift+R**.
+
+**Contrato e assinatura**
+- O **"Fechou"** do CRM cria o cliente e o contrato **aguardando assinatura**. Nessa hora **não** entra parcela no Financeiro e **não**
+  sai e-mail de cobrança.
+- Na ficha da oportunidade: **📄 Gerar contrato**. O gerador abre já com o cliente, os sócios e os **valores** combinados. A minuta fica
+  guardada no contrato.
+- Quando o cliente assinar: **Contratos → abrir o contrato → ✓ Marcar como assinado** e anexe o PDF. Mover o lead para "Contrato
+  assinado" no CRM faz a mesma coisa. Nesse momento o sistema:
+  1. lança as parcelas ou mensalidades;
+  2. cria o onboarding;
+  3. avisa a equipe;
+  4. registra na linha do tempo;
+  5. manda o e-mail de boas-vindas, se estiver ligado em ⚡ Automações. Ele vem **desligado**.
+- Contrato novo pela tela Contratos: escolha "Já está assinado" (lança agora, como antes) ou "Aguardando assinatura".
+
+**Contatos por setor e e-mails**
+- Na ficha do cliente → **Contatos**: cada contato tem **Setor** (Financeiro, Fiscal, RH, Sócio, Jurídico, Contador externo, Geral) e
+  **Recebe por e-mail** (Cobranças, Recibos, Guias, Acordos, Contratos, Convites).
+- Para quem vai cada e-mail:
+  1. vai para quem está marcado para aquele tipo (se forem vários, vai para todos);
+  2. se ninguém estiver marcado, vai para o setor padrão: cobrança e recibo → Financeiro, guia → Fiscal, contrato e convite → Sócio;
+  3. se não houver contato do setor, vai para o contato Geral;
+  4. por último, vai para o e-mail do cadastro.
+- **Central de e-mails → 📨 Quem recebe o quê:** uma linha por cliente, com o responsável, o perfil e o destino de cada tipo de e-mail.
+  - Clique no cliente para marcar os contatos de cada tipo, ver o modelo (como o e-mail sai) e o histórico do que já foi enviado.
+  - O filtro **"Só com e-mail faltando"** mostra quem está sem destino.
+  - Em cima da tabela você escolhe o setor padrão de cada tipo.
+- Perfil novo: **"Não enviar nenhum e-mail"**.
+- A fila "A enviar hoje" mostra **Quem** (o responsável) e de onde veio o destinatário.
+- Cobrança de atraso: um aviso por vez (1º → 2º → 3º). Quem nunca foi avisado recebe o 1º, e não pula direto para o 2º.
+- O recibo mostra o valor no formato brasileiro (R$ 1.500,00).
+
+**Cadastro**
+- O formulário do cliente agora é dividido em seções: Identificação, Classificação, Contato principal, Endereço, Situação, Passivo e Observações.
+- **Origem** é uma lista (Indicação, Site, Instagram…) e há o campo **"Indicado por"**.
+- CPF/CNPJ repetido: o sistema avisa na hora e pergunta se quer cadastrar mesmo assim.
+- O e-mail do cadastro vira o contato **Geral** sozinho. Os clientes que já existem também ganharam esse contato.
+- Os **sócios** do cartão CNPJ entram sozinhos em "Sócios e vínculos". Para isso, a função `erp-cnpj` precisa estar publicada.
+
+**Reunião**
+- No CRM (ficha do lead) ou na ficha do cliente: **📅 Reunião**. Informe a data, a hora, o local ou link e os participantes, e escolha
+  "Enviar convite ao cliente: Não/Sim".
+- A reunião vira tarefa de cada participante e aparece no Google Agenda de quem assinou a agenda (função `erp-agenda`).
+- O lead vai para "Diagnóstico agendado".
+- O convite leva um arquivo que o cliente clica para salvar na agenda dele. **Com a pausa de e-mails ligada, o convite fica retido.**
+- Ficha do cliente: botão **🎯 Virar lead**, para abrir uma oportunidade nova de um cliente que já existe.
+
+**Linha do tempo**
+- A ficha do cliente → **Linha do tempo** junta, numa lista só: contatos, reuniões, CRM, contratos (criado e assinado), pagamentos,
+  e-mails enviados, tarefas, documentos e mudanças no cadastro.
+- Há um filtro por tipo acima da lista.
+
+**Delegar e validar**
+- **Tarefas → 👥 Delegar** ou, no CRM, **👥 Delegar**: escolha a sequência "Lead completo" e a pessoa. Os passos são:
+  1. cadastrar;
+  2. agendar a reunião;
+  3. preparar o contrato (este passo passa pela sua validação);
+  4. enviar ao cliente.
+- Cada passo só começa quando o anterior termina. A pessoa recebe o aviso "Pode começar".
+- **Início → ✅ Aguardando minha validação:** **✓ Aprovar** libera o próximo passo. **↩ Devolver** volta para a pessoa com o seu comentário.
+- Na ficha da tarefa em revisão aparecem os mesmos dois botões.
+- "Depende de" agora trava de verdade: não dá para concluir antes do passo anterior.
+
+**Simplificar**
+- A lista com a sugestão manter / simplificar / remover está em `sistema/SIMPLIFICACAO-SUGESTOES.md`. Nada foi removido: responda
+  com os números que aprovar.

@@ -109,9 +109,18 @@ function selectServico(valor) {
 const PERFIS_EMAIL = [['padrao', 'Padrão', 'lembrete antes do vencimento, cobrança depois do atraso e recibo'],
   ['vencimento', 'Só no vencimento', 'um aviso no dia do vencimento e o recibo; sem lembrete antes nem cobrança'],
   ['nunca', 'Não enviar financeiro', 'nenhum e-mail de honorários (clientes importantes); guias de parcelamento e acordos continuam'],
+  ['nada', 'Não enviar nenhum e-mail', 'o cliente não recebe nenhum e-mail automático (nem guias, acordos ou boas-vindas)'],
   ['personalizado', 'Personalizado', 'você marca cada tipo de e-mail']];
+// Backup 25: setor do contato e "recebe o quê" (os e-mails automáticos usam isso para escolher o destinatário)
+const SETORES_CONTATO = [['geral', 'Geral'], ['financeiro', 'Financeiro'], ['fiscal', 'Fiscal'], ['rh', 'RH / Depto. pessoal'], ['socio', 'Sócio / decisor'],
+  ['juridico', 'Jurídico'], ['contador', 'Contador externo']];
+const RECEBE_EMAIL = [['cobranca', 'Cobranças e lembretes de honorários'], ['recibo', 'Recibos'], ['guia', 'Guias de parcelamento'],
+  ['acordo', 'Avisos de acordo'], ['contrato', 'Contratos, propostas e boas-vindas'], ['convite', 'Convites de reunião']];
+const ORIGENS_CLIENTE = ['Indicação', 'Site', 'Instagram', 'Google', 'Cliente antigo', 'Evento', 'CRM', 'Outro'];
+const RECEBE_CURTO = { cobranca: 'Cobranças', recibo: 'Recibos', guia: 'Guias', acordo: 'Acordos', contrato: 'Contratos', convite: 'Convites' };
 const TIPOS_EMAIL = [['lembrete', 'Lembrete antes do vencimento'], ['vencimento', 'Aviso no dia do vencimento'], ['cobranca', 'Cobrança de atraso'],
-  ['recibo', 'Recibo / pagamento recebido'], ['parcelamento', 'Guia de parcelamento'], ['acordo', 'Parcela de acordo']];
+  ['recibo', 'Recibo / pagamento recebido'], ['parcelamento', 'Guia de parcelamento'], ['acordo', 'Parcela de acordo'],
+  ['boas_vindas', 'Boas-vindas (contrato assinado)'], ['convite', 'Convite de reunião']];
 // modelo que já escolhe "Clientes que vê"
 const MODELOS_AREA = { 'Adm. da Contabilidade': 'contabil' };
 // Nível "Propor" (rascunho): a pessoa preenche normalmente, mas nada vale até alguém que edita aprovar.
@@ -867,7 +876,7 @@ TELAS.inicio = async function () {
   $('conteudo').innerHTML =
     '<div class="titulo-pag"><div><h1>Olá, ' + esc(primeiroNomeUsuario()) + '</h1>' +
     '<p>Resumo de ' + esc(mes) + ' · para lançar receita, despesa ou contrato use <b>+ Lançar</b> na barra de cima</p></div></div>' +
-    '<div id="ini-mural"></div><div id="ini-lembretes"></div><div id="ini-resumo"></div><div id="ini-aprov"></div><div id="ini-fila"></div>' +
+    '<div id="ini-mural"></div><div id="ini-valid"></div><div id="ini-lembretes"></div><div id="ini-resumo"></div><div id="ini-aprov"></div><div id="ini-fila"></div>' +
     (verJur ? linha('escritorio', '💼 Honorários Jurídico') : '') + (verCont ? linha('contabilidade', '🧮 Honorários Contabilidade') : '') +
     // Backup 22: Jurídico e Contabilidade lado a lado (a pedido)
     (verJur || verCont ? '<div class="' + (verJur && verCont ? 'duas-col' : '') + ' ini-atraso">' +
@@ -877,6 +886,7 @@ TELAS.inicio = async function () {
   cardLembretes().catch((e) => console.error(e));
   cardResumoEscritorio().catch((e) => console.error(e));
   if (typeof buscaPubAutomatica === 'function') buscaPubAutomatica().catch(() => {});
+  if (typeof cardValidacoes === 'function') cardValidacoes().then((c) => { const el = $('ini-valid'); if (el) { el.innerHTML = c.html; c.ligar(el); } }).catch((e) => console.error(e));
   if (typeof cardAprovacoes === 'function') cardAprovacoes().then((x) => { const el = $('ini-aprov'); if (el) el.innerHTML = x; }).catch((e) => console.error(e));
   if (typeof cardMinhaFila === 'function') cardMinhaFila().then((c) => { const el = $('ini-fila'); if (el) { el.innerHTML = c.html; c.ligar(el); } }).catch((e) => console.error(e));
   ligarAcoesLancamentos($('conteudo'));
@@ -2033,23 +2043,37 @@ async function formCliente(cl, depois) {
     titulo: novo ? 'Novo cliente' : cl.nome, larga: true,
     corpo:
       '<form id="f-cli" class="grade g3">' + resumo +
-      secao('📋 Cadastro') +
+      secao('📋 Identificação') +
       campo('Nome / Razão social <span class="obrig">*</span>', '<input name="nome" required maxlength="200" value="' + esc(cl.nome || '') + '">', 'dois') +
-      campo('CPF/CNPJ', '<input name="cpf_cnpj" inputmode="numeric" maxlength="18" value="' + esc(mascaraDoc(cl.cpf_cnpj)) + '">') +
+      campo('CPF/CNPJ', '<input name="cpf_cnpj" inputmode="numeric" maxlength="18" value="' + esc(mascaraDoc(cl.cpf_cnpj)) + '"><div class="sub" id="cli-doc-aviso"></div>') +
+      campo('Tipo societário', selectOpcoes('tipo_societario', ['LTDA', 'S.A', 'MEI', 'EI', 'PF'], cl.tipo_societario)) +
+      campo('Sócio-administrador', '<input name="socio_admin" value="' + esc(cl.socio_admin || '') + '">', 'dois') +
+      (novo ? '<div class="dica inteiro">Com CNPJ, ao salvar o sistema consulta a Receita e preenche razão social, endereço, situação e os <b>sócios</b>. Os contatos por setor (financeiro, fiscal, RH…) ficam na ficha → <b>Contatos</b>.</div>' : '') +
+      secao('🗂 Classificação') +
       campo('Grupo', '<input name="grupo" list="cli-grupos" placeholder="Digite ou escolha" value="' + esc(cl.grupos ? cl.grupos.nome : nomeGrupo(cl.grupo_id)) + '">' + datalistGrupos('cli-grupos')) +
       campo('Tipo', '<select name="tipo">' + [['Consultoria', 'Consultoria'], ['Demanda', 'Serviço pontual'], ['Inativo', 'Inativo']].map(([t, r]) => '<option value="' + t + '"' + (cl.tipo === t ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>') +
       campo('Área do cliente', '<select name="area">' + AREAS.filter(([v]) => minhasAreas() === 'ambos' || v === minhasAreas() || v === (cl.area || '')).map(([v, r]) =>
         '<option value="' + v + '"' + ((cl.area || (novo ? minhasAreas() : 'ambos')) === v ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>') +
       campo('Responsável', '<input name="responsavel" list="cli-pessoas" value="' + esc(cl.responsavel || '') + '">' + datalistPessoas('cli-pessoas')) +
-      campo('Sócio-administrador', '<input name="socio_admin" value="' + esc(cl.socio_admin || '') + '">', 'dois') +
-      campo('Tipo societário', selectOpcoes('tipo_societario', ['LTDA', 'S.A', 'MEI', 'EI', 'PF'], cl.tipo_societario)) +
+      campo('Origem', '<select name="origem">' + ['', ...ORIGENS_CLIENTE, ...(cl.origem && !ORIGENS_CLIENTE.includes(cl.origem) ? [cl.origem] : [])].map((o) =>
+        '<option value="' + esc(o) + '"' + ((cl.origem || '') === o ? ' selected' : '') + '>' + (o ? esc(o) : '—') + '</option>').join('') + '</select>') +
+      campo('Indicado por', '<input name="indicado_por" maxlength="200" placeholder="Quem indicou (quando a origem é Indicação)" value="' + esc(cl.indicado_por || '') + '">') +
+      campo('Regime tributário', selectOpcoes('regime_tributario', ['PF', 'SN', 'LP', 'LR', 'BAIXADA'], cl.regime_tributario)) +
+      secao('📞 Contato principal') +
+      campo('E-mail', '<input name="email" type="email" value="' + esc(cl.email || '') + '">') +
+      campo('Telefone / WhatsApp', '<input name="telefone" inputmode="tel" value="' + esc(cl.telefone || '') + '">') +
+      campo('E-mails automáticos', '<select name="perfil_email" title="Quais e-mails automáticos este cliente recebe">' + PERFIS_EMAIL.map(([v, r]) =>
+        '<option value="' + v + '"' + ((cl.perfil_email || 'padrao') === v ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>') +
+      secao('📍 Endereço') +
+      campo('Endereço', '<input name="endereco" value="' + esc(cl.endereco || '') + '">') +
+      campo('Cidade', '<input name="cidade" value="' + esc(cl.cidade || '') + '">') +
+      campo('UF', '<input name="estado" maxlength="2" style="text-transform:uppercase" value="' + esc(cl.estado || '') + '">') +
       secao('🏛 Situação') +
       campo('Em operação', selectSimNao('em_operacao', cl.em_operacao)) +
       campo('Procuração', selectSimNao('procuracao', cl.procuracao)) +
       campo('Certificado', selectSimNao('certificado', cl.certificado)) +
       campo('Cadastro regular', selectSimNao('cadastro_regular', cl.cadastro_regular)) +
       campo('CAPAG', selectOpcoes('capag', ['A', 'B', 'C', 'D', 'Omisso'], cl.capag)) +
-      campo('Regime tributário', selectOpcoes('regime_tributario', ['PF', 'SN', 'LP', 'LR', 'BAIXADA'], cl.regime_tributario)) +
       campo('Situação cadastral', selectOpcoes('situacao_cadastral', ['ATIVA', 'SUSPENSA', 'INAPTA', 'BAIXADA', 'NULA'], cl.situacao_cadastral)) +
       secao('💰 Passivo tributário') +
       campoValor('RFB', 'rfb', cl.rfb) + campoValor('RFB negociada', 'rfb_negociada', cl.rfb_negociada) +
@@ -2057,15 +2081,7 @@ async function formCliente(cl, depois) {
       campoValor('AGE/MG', 'age_mg', cl.age_mg) + campoValor('AGE/MG negociada', 'age_mg_negociada', cl.age_mg_negociada) +
       campoValor('SEFAZ/MG', 'sefaz_mg', cl.sefaz_mg) +
       campo('CEAT (TRT-3) — processos', '<input name="ceat_trt3" type="number" min="0" value="' + esc(cl.ceat_trt3 == null ? '' : cl.ceat_trt3) + '">') +
-      secao('📞 Contato') +
-      campo('E-mail', '<input name="email" type="email" value="' + esc(cl.email || '') + '">') +
-      campo('Telefone / WhatsApp', '<input name="telefone" inputmode="tel" value="' + esc(cl.telefone || '') + '">') +
-      campo('E-mails de cobrança', '<select name="perfil_email" title="Quais e-mails automáticos de honorários este cliente recebe">' + PERFIS_EMAIL.map(([v, r]) =>
-        '<option value="' + v + '"' + ((cl.perfil_email || 'padrao') === v ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>') +
-      campo('Endereço', '<input name="endereco" value="' + esc(cl.endereco || '') + '">') +
-      campo('Cidade', '<input name="cidade" value="' + esc(cl.cidade || '') + '">') +
-      campo('UF', '<input name="estado" maxlength="2" style="text-transform:uppercase" value="' + esc(cl.estado || '') + '">') +
-      campo('Origem', '<input name="origem" value="' + esc(cl.origem || '') + '">') +
+      secao('📝 Observações') +
       campo('Observação interna', '<textarea name="obs" maxlength="4000">' + esc(cl.obs || '') + '</textarea>', 'inteiro') +
       (cl.historico_cadastral ? campo('Histórico cadastral', '<textarea name="historico_cadastral" maxlength="4000">' + esc(cl.historico_cadastral) + '</textarea>', 'inteiro') : '') +
       '</form>',
@@ -2076,7 +2092,15 @@ async function formCliente(cl, depois) {
       '<button class="btn btn-p" id="btn-salvar-cli" type="button">Salvar</button></div>'
   });
   const f = j.querySelector('#f-cli');
-  f.cpf_cnpj.onblur = () => { f.cpf_cnpj.value = mascaraDoc(f.cpf_cnpj.value); };
+  // Backup 25: avisa na hora se o CPF/CNPJ já está cadastrado
+  let repetidos = [];
+  const conferirDoc = async () => {
+    const d = soDigitos(f.cpf_cnpj.value), el = j.querySelector('#cli-doc-aviso'); repetidos = [];
+    if (d.length < 11) { el.innerHTML = ''; return; }
+    repetidos = await q(sb.rpc('clientes_mesmo_documento', { p_doc: d, p_ignorar: cl.id || null })).catch(() => []);
+    el.innerHTML = repetidos.length ? '<span class="pill vencido">já cadastrado</span> ' + repetidos.map((x) => esc(x.nome) + (x.grupo ? ' (' + esc(x.grupo) + ')' : '')).join(', ') : '';
+  };
+  f.cpf_cnpj.onblur = () => { f.cpf_cnpj.value = mascaraDoc(f.cpf_cnpj.value); conferirDoc(); };
   j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
   const apos = async () => { await carregarCadastros(true); if (depois) depois(); else await recarregar(); };
   const bc = j.querySelector('#btn-ctr-cli');
@@ -2084,6 +2108,8 @@ async function formCliente(cl, depois) {
 
   j.querySelector('#btn-salvar-cli').onclick = (ev) => comBotao(ev.currentTarget, async () => {
     if (!f.nome.value.trim()) throw new Error('Preencha o nome.');
+    if (soDigitos(f.cpf_cnpj.value) !== soDigitos(cl.cpf_cnpj || '')) await conferirDoc();
+    if (repetidos.length && !confirm('Já existe cliente com este CPF/CNPJ: ' + repetidos.map((x) => x.nome).join(', ') + '.\n\nCadastrar mesmo assim?')) return;
     const num = (n) => { const t = f[n].value.trim(); if (!t) return null; const v = lerValor(t); if (isNaN(v)) throw new Error('Valor inválido em ' + n.toUpperCase().replace(/_/g, ' ') + '.'); return v; };
     const grupo_id = await grupoPorNome(f.grupo.value);
     const dados = {
@@ -2096,7 +2122,7 @@ async function formCliente(cl, depois) {
       age_mg: num('age_mg'), age_mg_negociada: num('age_mg_negociada'), sefaz_mg: num('sefaz_mg'),
       ceat_trt3: f.ceat_trt3.value === '' ? null : Number(f.ceat_trt3.value),
       email: f.email.value.trim(), telefone: f.telefone.value.trim(), endereco: f.endereco.value.trim(), perfil_email: f.perfil_email.value,
-      cidade: f.cidade.value.trim(), estado: f.estado.value.trim().toUpperCase(), origem: f.origem.value.trim(),
+      cidade: f.cidade.value.trim(), estado: f.estado.value.trim().toUpperCase(), origem: f.origem.value.trim(), indicado_por: f.indicado_por.value.trim(),
       obs: f.obs.value.trim()
     };
     if (f.historico_cadastral) dados.historico_cadastral = f.historico_cadastral.value.trim();
@@ -2125,7 +2151,7 @@ TELAS.contratos = async function () {
   $('conteudo').innerHTML =
     '<div class="titulo-pag"><div><h1>Contratos</h1><p>Consultoria mensal (fixo ou em salários mínimos) ou serviço pontual · os valores entram sozinhos em Honorários Jurídico</p></div>' +
     '<div class="acoes"><button class="btn btn-o" id="ctr-sm">Salário mínimo</button><button class="btn btn-p" data-novo="contrato">+ Novo contrato</button></div></div>' +
-    '<div class="filtros"><div class="segmento" id="ctr-status">' + [['Ativo', 'Ativos'], ['Encerrado', 'Encerrados'], ['Cancelado', 'Cancelados'], ['todos', 'Todos']]
+    '<div class="filtros"><div class="segmento" id="ctr-status">' + [['Ativo', 'Ativos'], ['Aguardando assinatura', 'Aguardando assinatura'], ['Encerrado', 'Encerrados'], ['Cancelado', 'Cancelados'], ['todos', 'Todos']]
       .map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<input class="busca" id="ctr-busca" placeholder="Buscar cliente ou descrição" autocomplete="off"></div><div id="ctr-corpo"></div>';
   $('ctr-status').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.status = b.dataset.v; pintarContratos(true); } };
@@ -2169,7 +2195,7 @@ async function pintarContratos(buscar) {
         '<td class="num mono valor-rec" data-ord="' + recebido + '">' + brl(recebido) + '</td>' +
         '<td>' + parc.filter((p) => p.pago).length + '/' + parc.length + '</td>' +
         '<td>' + ((c.documentos || []).length ? '<span class="pill pago" title="Contrato anexado">📎 ' + c.documentos.length + '</span>' : '<span class="pill hoje" title="Anexe o contrato assinado no detalhe">sem anexo</span>') + '</td>' +
-        '<td>' + (atraso ? '<span class="pill vencido">Parcela em atraso</span>' : '<span class="pill ' + (c.status === 'Ativo' ? 'aberto' : 'neutro') + '">' + esc(c.status) + '</span>') + '</td></tr>';
+        '<td>' + (atraso ? '<span class="pill vencido">Parcela em atraso</span>' : '<span class="pill ' + (c.status === 'Ativo' ? 'aberto' : c.status === 'Aguardando assinatura' ? 'hoje' : 'neutro') + '">' + esc(c.status) + '</span>') + '</td></tr>';
     }).join('') + '</tbody></table></div>'
     : vazio('Nenhum contrato' + (F.status !== 'todos' ? ' com essa situação' : '') + ' — cadastre um contrato e o sistema gera os lançamentos.', '+ Novo contrato', '[data-novo=contrato]')) + '</div>';
   $('ctr-corpo').querySelectorAll('[data-ctr]').forEach((tr) => tr.onclick = () => detalheContrato(tr.dataset.ctr));
@@ -2227,7 +2253,10 @@ function formContrato(ct) {
           campo('1º vencimento', '<input name="primeiro_vencimento" type="date" value="' + somarDias(hojeISO(), 30) + '">') +
           '<div class="dica inteiro" id="ctr-previa">Informe o valor para ver as parcelas.</div>'
         : '<div class="dica inteiro">Valor e parcelas já foram lançados em Honorários Jurídico. Para ajustar uma parcela, use o botão Editar dela.</div>') + '</div>' +
-      (novo ? '' : campo('Situação', '<select name="status">' + ['Ativo', 'Encerrado', 'Cancelado'].map((st) => '<option' + (ct.status === st ? ' selected' : '') + '>' + st + '</option>').join('') + '</select>')) +
+      (novo ? '<div class="inteiro"><div class="segmento" id="ctr-assin">' + [['Ativo', '✓ Já está assinado (lança o financeiro agora)'], ['Aguardando assinatura', '⏳ Aguardando assinatura (lança só quando assinar)']]
+          .map(([v, r], i) => '<button type="button" data-v="' + v + '"' + (i === 0 ? ' class="ativo"' : '') + '>' + r + '</button>').join('') + '</div></div>'
+        : campo('Situação', '<select name="status">' + (ct.status === 'Aguardando assinatura' ? ['Aguardando assinatura', 'Ativo', 'Cancelado'] : ['Ativo', 'Encerrado', 'Cancelado'])
+          .map((st) => '<option value="' + st + '"' + (ct.status === st ? ' selected' : '') + '>' + (st === 'Ativo' && ct.status === 'Aguardando assinatura' ? 'Ativo (assinado: lança o financeiro)' : st) + '</option>').join('') + '</select>')) +
       campo('Observação', '<textarea name="obs" maxlength="2000">' + esc(ct.obs || '') + '</textarea>', 'inteiro') +
       '<div class="dica inteiro">Depois de salvar, anexe o contrato assinado no detalhe do contrato (Documentos do contrato).</div>' +
       '</form>',
@@ -2246,7 +2275,9 @@ function formContrato(ct) {
       if (novoCli) { sel.value = novoCli.id; sel.dispatchEvent(new Event('change')); aviso('✓ Cliente cadastrado e escolhido no contrato.'); }
     });
   };
-  let modalidade = mod, formaValor = forma, sm = [];
+  let modalidade = mod, formaValor = forma, sm = [], situacao = 'Ativo';
+  const segAssin = j.querySelector('#ctr-assin');
+  if (segAssin) segAssin.onclick = (ev) => { const b = ev.target.closest('button'); if (!b) return; situacao = b.dataset.v; segAssin.querySelectorAll('button').forEach((x) => x.classList.toggle('ativo', x === b)); };
   q(sb.from('salarios_minimos').select('*').order('ano', { ascending: false })).then((x) => { sm = x; previaRec(); }).catch(() => {});
   const previaRec = () => {
     const el = j.querySelector('#ctr-previa-rec'); if (!el) return;
@@ -2312,9 +2343,11 @@ function formContrato(ct) {
         if (v > 0 && !f.primeiro_vencimento.value) throw new Error('Informe o 1º vencimento.');
         Object.assign(dados, { valor_total: v, num_parcelas: n, primeiro_vencimento: v > 0 ? f.primeiro_vencimento.value : null });
       }
+      dados.status = situacao;
       const criado = await q(sb.from('contratos').insert(dados).select().single());
       if (modalidade === 'pontual' && dados.valor_total > 0 && cli) await q(sb.from('lancamentos').update({ grupo_id: cli.grupo_id, responsavel: cli.responsavel || '' }).eq('contrato_id', criado.id));
-      aviso(modalidade === 'consultoria' ? '✓ Contrato de consultoria criado: mensalidades lançadas em Honorários Jurídico.' :
+      if (situacao === 'Aguardando assinatura') aviso('✓ Contrato criado aguardando assinatura: o financeiro é lançado quando você marcar "✓ Assinado".');
+      else aviso(modalidade === 'consultoria' ? '✓ Contrato de consultoria criado: mensalidades lançadas em Honorários Jurídico.' :
         dados.valor_total > 0 ? '✓ Contrato criado e ' + dados.num_parcelas + ' parcela(s) lançada(s) em Honorários Jurídico.' : '✓ Contrato criado.');
     } else {
       dados.status = f.status.value;
@@ -2396,6 +2429,9 @@ async function _detalheContrato(id) {
   const j = abrirJanela({
     titulo: '📄 Ficha do contrato — ' + ct.descricao, larga: true,
     corpo:
+      (ct.status === 'Aguardando assinatura' ? '<div class="faixa-aprov tem" id="ctr-assinatura"><span class="faixa-ic" aria-hidden="true">⏳</span><div><b>Aguardando a assinatura do cliente</b>' +
+        '<div class="sub">O financeiro, o onboarding e o aviso à equipe acontecem quando você marcar como assinado. Anexe o PDF assinado em "Documentos do contrato", abaixo.</div></div>' +
+        '<div class="acoes"><button class="btn btn-o" type="button" id="ctr-gerar">📄 Gerar contrato</button><button class="btn btn-p" type="button" id="ctr-assinar">✓ Marcar como assinado</button></div></div>' : '') +
       '<div class="ctr-ficha">' + ficha.map(([r, v]) => '<div><span>' + r + '</span><b>' + (/^</.test(v) ? v : esc(v)) + '</b></div>').join('') + '</div>' +
       '<div class="ctr-barra" title="Recebido × previsto"><div style="width:' + pctRec + '%"></div></div><div class="sub" style="margin:-4px 0 12px">' + pctRec + '% do previsto já recebido</div>' +
       '<div class="kpis" style="margin-bottom:12px">' +
@@ -2416,6 +2452,14 @@ async function _detalheContrato(id) {
   });
   const reabrir = async () => { fecharJanela(j); await detalheContrato(id); };
   ligarAcoesLancamentos(j, reabrir);
+  const btAssinar = j.querySelector('#ctr-assinar');
+  if (btAssinar) btAssinar.onclick = () => comBotao(btAssinar, async () => {
+    if (!confirm('Marcar o contrato como assinado? O sistema lança o financeiro, cria o onboarding e avisa a equipe.')) return;
+    const r = await q(sb.rpc('contrato_assinar', { p_contrato: id, p_data: null }));
+    aviso('✓ Contrato assinado: ' + plural((r && r.lancamentos) || 0, 'lançamento', 'lançamentos') + ' no financeiro.'); await reabrir();
+  });
+  const btGerar = j.querySelector('#ctr-gerar');
+  if (btGerar) btGerar.onclick = () => abrirGeradorContrato(ct.cliente_id, id);
   blocoDocumentos(j.querySelector('#ctr-docs'), { contrato_id: id, cliente_id: ct.cliente_id, grupo_id: ct.clientes && ct.clientes.grupo_id, tipo: 'contrato' },
     { titulo: 'Documentos do contrato', vazio: 'Nenhum documento. Envie aqui o contrato assinado, a proposta e os aditivos.' }).catch((e) => console.error(e));
   j.querySelector('#btn-editar-ctr').onclick = () => formContrato(ct);
@@ -3209,7 +3253,7 @@ async function admEmail(corpo) {
       campo('Assinatura dos e-mails', '<input name="assinatura" placeholder="Equipe Araújo & Castro">', 'inteiro') + '</form>' +
       '<div class="acoes" style="margin-top:10px;flex-wrap:wrap"><button class="btn btn-p" id="pag-salvar">Salvar</button><span class="sub" style="align-self:center">Ver modelo:</span>' +
       [['lembrete', 'Lembrete'], ['cobranca', 'Cobrança'], ['acordo', 'Acordo'], ['parcelamento', 'Parcelamento'], ['recebido', 'Pagamento recebido']].map(([k, r]) => '<button class="btn btn-o btn-mini" data-previa="' + k + '">' + r + '</button>').join('') +
-      '</div><p class="sub" style="margin-top:8px">Os e-mails ao cliente vão para o contato com a finalidade certa (financeiro nas cobranças; jurídico nos acordos) — cadastre em Clientes → ficha → Contatos. Sem e-mail cadastrado, nada é enviado. Liga/desliga cada um em Automações.</p></div></div>' +
+      '</div><p class="sub" style="margin-top:8px">Os e-mails ao cliente vão para os contatos marcados em "Recebe por e-mail" ou, se ninguém estiver marcado, para o contato do setor certo (veja Central de e-mails → Quem recebe o quê). Sem e-mail cadastrado, nada é enviado. Liga/desliga cada um em Automações.</p></div></div>' +
     '<div class="kpis">' + kpi('Na fila', String(st.pendentes || 0), '', 'saem a cada 5 minutos') + kpi('Enviados em 7 dias', String(st.enviados_7d || 0), 'verde', '') +
     kpi('Com erro', String(st.erros || 0), st.erros ? 'vermelho' : '', 'veja o motivo abaixo') + '</div>' +
     '<div class="card"><div class="card-hd">Últimos e-mails</div>' + (fila.length ? '<div class="tabela-wrap"><table><thead><tr><th>Quando</th><th>Para</th><th>Assunto</th><th>Situação</th></tr></thead><tbody>' +
@@ -3556,7 +3600,7 @@ TELAS.tarefas = async function () {
   $('conteudo').innerHTML =
     '<div class="titulo-pag"><div><h1>Tarefas</h1><p>Prazos, fluxos e acompanhamento do escritório</p></div>' +
     '<div class="acoes"><button class="btn btn-o" id="tf-regras">⚡ Automações</button><button class="btn btn-o" id="tf-modelos">Modelos de fluxo</button><button class="btn btn-o" id="tf-feriados">Feriados</button><button class="btn btn-o" id="tf-agenda" title="Prazos fatais e audiências no seu Google Agenda">📅 Google Agenda</button>' +
-    '<button class="btn btn-o" id="tf-fluxo">+ Novo fluxo</button><button class="btn btn-p" id="tf-nova">+ Nova tarefa</button></div></div>' +
+    '<button class="btn btn-o" id="tf-delegar" title="Delegar uma sequência de passos (ex.: lead completo) com validação">👥 Delegar</button><button class="btn btn-o" id="tf-fluxo">+ Novo fluxo</button><button class="btn btn-p" id="tf-nova">+ Nova tarefa</button></div></div>' +
     '<div class="tf-rapida"><input id="tf-rapida" autocomplete="off" placeholder="⚡ Criação rápida: “Protocolar defesa amanhã @Emanuelle !alta” e Enter" aria-label="Criação rápida de tarefa">' +
       '<div id="tf-rapida-prev" class="tf-rapida-prev"></div></div>' +
     '<div class="abas" id="tf-abas">' + [['abertas', 'Em aberto'], ['concluidas', '✓ Concluídas'], ['excluidas', '🗑 Excluídas']]
@@ -3574,6 +3618,7 @@ TELAS.tarefas = async function () {
   ligarCriacaoRapida();
   $('tf-fluxo').onclick = () => formNovoFluxo(() => TELAS.tarefas());
   $('tf-modelos').onclick = () => janelaModelos();
+  $('tf-delegar').onclick = () => janelaDelegar({}, () => TELAS.tarefas());
   $('tf-regras').onclick = () => irParaTela('automacoes');
   $('tf-feriados').onclick = () => janelaFeriados();
   $('tf-agenda').onclick = () => janelaAgenda();
@@ -3861,13 +3906,16 @@ async function validarDependencia(t, novoStatus) {
 // Concluir · Encaminhar · + Subtarefa · Editar (o formulário completo).
 const ORIGEM_REGRA = { onb: 'Automação: contrato novo (onboarding)', proc: 'Automação: processo novo', cert: 'Automação: certidão vencendo', doc: 'Automação: documento vencendo',
   parc: 'Automação: parcela de parcelamento', aco: 'Automação: parcela de acordo', cob: 'Automação: cobrança de honorário', anexo: 'Automação: contrato sem anexo',
-  procur: 'Automação: processo sem procuração', pub: 'Automação: publicação', esc: 'Automação: escalada de atraso' };
+  procur: 'Automação: processo sem procuração', pub: 'Automação: publicação', esc: 'Automação: escalada de atraso',
+  reuniao: 'Reunião agendada', deleg: 'Delegação (sequência de passos)', 'crm-contrato': 'CRM: contrato fechado' };
 async function abrirTarefa(t, depois) {
   if (!t) return;
   if (typeof t === 'string') t = (await q(sb.from('tarefas').select('*').eq('id', t)))[0];
   if (!t) return aviso('Tarefa não encontrada (pode ter sido excluída).', true);
   await equipe().catch(() => []);
-  const [subs] = await Promise.all([q(sb.from('tarefas').select('*').eq('tarefa_pai_id', t.id).order('prazo', { nullsFirst: false })).catch(() => [])]);
+  const [subs, coms] = await Promise.all([q(sb.from('tarefas').select('*').eq('tarefa_pai_id', t.id).order('prazo', { nullsFirst: false })).catch(() => []),
+    q(sb.from('comentarios').select('texto, criado_em').eq('tarefa_id', t.id).order('criado_em', { ascending: false }).limit(8)).catch(() => [])]);
+  const souRevisor = t.status === 'revisao' && (E.perfil.papel === 'admin' || (t.revisor && primeiroNome(t.revisor) === primeiroNome(E.perfil.nome || '')));
   const pr = PRIORIDADE[t.prioridade] || [t.prioridade || '—', 'neutro'];
   const ck = Array.isArray(t.checklist) ? t.checklist : [];
   const origem = t.chave_regra ? (ORIGEM_REGRA[String(t.chave_regra).split(':')[0]] || 'Automação') : t.fluxo_id ? 'Fluxo de trabalho' : 'Criada à mão';
@@ -3894,11 +3942,17 @@ async function abrirTarefa(t, depois) {
         ck.map((c) => '<div class="tf-ck' + (c.feito ? ' feito' : '') + '">' + (c.feito ? '☑' : '☐') + ' ' + esc(c.texto) + '</div>').join('') + '</div>' : '') +
       (subs.length ? '<div class="tf-bloco"><div class="secao">Subtarefas</div><div class="lista-ficha">' + subs.map((x) => '<div class="item-ficha clicavel' + (tarefaFechada(x) ? ' feita' : '') + '" data-ficha-sub="' + x.id + '"><div><b>' + esc(x.titulo) + '</b> ' + seloPrazo(x) +
         '<div class="sub">' + (x.prazo ? 'até ' + dataBR(x.prazo) : 'sem prazo') + ' · ' + esc(x.responsavel || '—') + ' · ' + esc(STATUS_TAREFA[x.status]) + '</div></div></div>').join('') + '</div></div>' : '') +
+      (coms.length ? '<div class="tf-bloco"><div class="secao">Comentários</div>' + coms.map((c) => '<div class="tf-com"><span class="sub">' + dataHoraBR(c.criado_em) + '</span> ' + esc(c.texto) + '</div>').join('') + '</div>' : '') +
+      (t.status === 'aguardando' && t.depende_de ? '<div class="dica" style="margin-top:10px">⏳ Este passo começa quando o anterior for concluído' + (t.exige_revisao ? '' : ' (e aprovado, se precisar de validação)') + '.</div>' : '') +
       '</div>',
     rodape: '<button class="btn btn-o" type="button" id="tf-f-editar">✎ Editar</button><div class="acoes">' +
       (fechada ? '' : (t.recorrencia && t.prazo ? '<button class="btn btn-o" type="button" id="tf-f-pular" title="Esta vez não precisa: a tarefa passa para a próxima data">⏭ Pular esta vez</button>' : '') +
         '<button class="btn btn-o" type="button" id="tf-f-sub">+ Subtarefa</button><button class="btn btn-o" type="button" id="tf-f-enc">↪ Encaminhar</button>' +
-        '<button class="btn btn-v" type="button" id="tf-f-ok">✓ Concluir</button>') + '</div>' });
+        (souRevisor ? '<button class="btn btn-x" type="button" id="tf-f-devolver">↩ Devolver</button><button class="btn btn-v" type="button" id="tf-f-aprovar">✓ Aprovar</button>'
+          : '<button class="btn btn-v" type="button" id="tf-f-ok">✓ Concluir</button>')) + '</div>' });
+  const bAp = j.querySelector('#tf-f-aprovar'), bDv = j.querySelector('#tf-f-devolver');
+  if (bAp) bAp.onclick = () => comBotao(bAp, async () => { await q(sb.rpc('tarefa_validar', { p_tarefa: t.id, p_aprovar: true, p_comentario: '' })); aviso('✓ Aprovado: o próximo passo foi liberado.'); fecharJanela(j); await (depois || recarregar)(); });
+  if (bDv) bDv.onclick = () => janelaDevolver(t, async () => { fecharJanela(j); await (depois || recarregar)(); });
   const depois2 = async () => { await (depois || recarregar)(); };
   j.querySelector('#tf-f-editar').onclick = () => { fecharJanela(j); formTarefa(t, depois); };
   j.querySelectorAll('[data-ficha-sub]').forEach((d) => d.onclick = () => { fecharJanela(j); abrirTarefa(subs.find((x) => x.id === d.dataset.fichaSub), depois); });
@@ -4415,6 +4469,70 @@ function vistaSemana(alvo) {
   });
 }
 
+// ═══ Backup 25: DELEGAR e VALIDAR ═══
+// devolver com comentário (volta para quem fez, com aviso)
+function janelaDevolver(t, depois) {
+  const k = abrirJanela({ titulo: '↩ Devolver para ajuste', corpo: '<p class="sub" style="margin-bottom:8px">' + esc(t.titulo) + ' — volta para <b>' + esc(t.responsavel || '—') + '</b>, que recebe um aviso com o seu comentário.</p>' +
+      '<div class="grade">' + campo('O que precisa ser ajustado <span class="obrig">*</span>', '<textarea name="coment" maxlength="1500" placeholder="Ex.: faltou a cláusula de êxito; conferir o CNPJ"></textarea>', 'inteiro') + '</div>',
+    rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Voltar</button><button class="btn btn-x" type="button" id="tf-dev-ok">Devolver</button></div>' });
+  k.querySelector('[data-cancelar]').onclick = () => fecharJanela(k);
+  k.querySelector('#tf-dev-ok').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    const c = k.querySelector('[name=coment]').value.trim();
+    if (!c) throw new Error('Escreva o que precisa ser ajustado.');
+    await q(sb.rpc('tarefa_validar', { p_tarefa: t.id, p_aprovar: false, p_comentario: c }));
+    aviso('↩ Devolvido para ' + (t.responsavel || 'a pessoa') + '.'); fecharJanela(k); if (depois) await depois();
+  });
+}
+// delegar uma sequência de passos (ex.: "Lead completo": cadastrar → reunião → contrato com validação → enviar)
+async function janelaDelegar(o, depois) {
+  o = o || {};
+  const modelos = await q(sb.from('modelos_fluxo').select('nome, descricao, itens, sequencial').order('nome')).catch(() => []);
+  const seq = modelos.filter((m) => m.sequencial);
+  if (!seq.length) return aviso('Nenhum modelo de sequência. Rode o SQL mais recente no Supabase.', true);
+  const eu = (E.perfil && E.perfil.nome) || '';
+  const j = abrirJanela({ titulo: '👥 Delegar passos', larga: true,
+    corpo: '<form id="f-deleg" class="grade">' +
+      campo('Sequência', '<select name="modelo">' + seq.map((m) => '<option value="' + esc(m.nome) + '">' + esc(m.nome) + '</option>').join('') + '</select>', 'inteiro') +
+      '<div class="inteiro" id="deleg-passos"></div>' +
+      campo('Para quem <span class="obrig">*</span>', selectPessoa('pessoa', o.pessoa || '', '— escolha —')) +
+      campo('Quem valida', selectPessoa('revisor', eu, '— eu —')) +
+      campo('Cliente (se já cadastrado)', '<select name="cliente_id">' + opcoesClientes(o.cliente_id || '') + '</select>', 'inteiro') +
+      campo('Recado (opcional)', '<textarea name="obs" maxlength="1500" placeholder="Ex.: Empresa X é lead; o contato é o João (financeiro)">' + esc(o.obs || '') + '</textarea>', 'inteiro') + '</form>',
+    rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="deleg-ok">Delegar</button></div>' });
+  const f = j.querySelector('#f-deleg');
+  const passos = () => { const m = seq.find((x) => x.nome === f.modelo.value) || seq[0];
+    j.querySelector('#deleg-passos').innerHTML = '<div class="dica">' + esc(m.descricao || '') + '<ol style="margin:6px 0 0 18px">' + (m.itens || []).map((it) =>
+      '<li>' + esc(it.titulo) + ' <span class="sub">(' + plural(it.dias || 1, 'dia útil', 'dias úteis') + ')</span>' + (it.validar ? ' <span class="pill hoje">passa pela validação</span>' : '') + '</li>').join('') + '</ol>' +
+      '<div class="sub" style="margin-top:6px">Cada passo só começa quando o anterior termina. O passo com validação vai para você aprovar ou devolver com comentário.</div></div>'; };
+  f.modelo.onchange = passos; passos();
+  j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
+  j.querySelector('#deleg-ok').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    if (!f.pessoa.value) throw new Error('Escolha para quem delegar.');
+    await q(sb.rpc('delegar_sequencia', { p_modelo: f.modelo.value, p_pessoa: f.pessoa.value, p_revisor: f.revisor.value || eu, p_cliente: f.cliente_id.value || null,
+      p_oportunidade: o.oportunidade_id || null, p_nome: null, p_obs: f.obs.value.trim() }));
+    aviso('✓ Delegado para ' + f.pessoa.value + ': o 1º passo já está na fila dele(a).'); fecharJanela(j); if (depois) await depois();
+  });
+}
+// Início: "Aguardando minha validação"
+async function cardValidacoes() {
+  const l = await q(sb.rpc('minhas_validacoes')).catch(() => []);
+  if (!l.length) return { html: '', ligar: () => {} };
+  return { html: '<div class="card ini-valid"><div class="card-hd">✅ Aguardando minha validação <span class="pill hoje">' + l.length + '</span>' +
+      '<span class="sub" style="margin-left:8px">aprove para liberar o próximo passo, ou devolva com comentário</span></div><div class="card-bd"><div class="lista-ficha">' +
+      l.map((t) => '<div class="item-ficha"><div class="clicavel" data-val-abrir="' + t.id + '"><b>' + esc(t.titulo) + '</b><div class="sub">' +
+        esc([t.cliente, t.fluxo].filter(Boolean).join(' · ')) + (t.prazo ? ' · prazo ' + dataBR(t.prazo) : '') + '</div></div>' +
+        '<div class="acoes">' + pillPessoa(t.responsavel) + '<button class="btn btn-x btn-mini" type="button" data-val-dev="' + t.id + '">↩ Devolver</button>' +
+        '<button class="btn btn-v btn-mini" type="button" data-val-ok="' + t.id + '">✓ Aprovar</button></div></div>').join('') + '</div></div></div>',
+    ligar: (el) => {
+      const recarregarCard = async () => { const c = await cardValidacoes(); el.innerHTML = c.html; c.ligar(el); };
+      el.querySelectorAll('[data-val-ok]').forEach((b) => b.onclick = () => comBotao(b, async () => {
+        await q(sb.rpc('tarefa_validar', { p_tarefa: b.dataset.valOk, p_aprovar: true, p_comentario: '' })); aviso('✓ Aprovado: o próximo passo foi liberado.'); await recarregarCard(); }));
+      el.querySelectorAll('[data-val-dev]').forEach((b) => b.onclick = () => janelaDevolver(l.find((x) => x.id === b.dataset.valDev), recarregarCard));
+      el.querySelectorAll('[data-val-abrir]').forEach((d) => d.onclick = async () => {
+        const t = (await q(sb.from('tarefas').select('*').eq('id', d.dataset.valAbrir)))[0]; if (t) abrirTarefa(t, recarregarCard); });
+    } };
+}
+
 'use strict';
 // ═══════════════════════════════════════════════════════════════════
 // Documentos — arquivos guardados no Storage privado do Supabase
@@ -4621,6 +4739,10 @@ function janelaGeradores(clienteId) {
         '<div><b>' + rot + '</b><div class="sub">' + d + '</div></div><span class="sub">abrir ↗</span></a>').join('') + '</div>' });
   return j;
 }
+// Backup 25: gerador de contrato já com o cliente e os valores do contrato (o documento fica ligado ao contrato)
+function abrirGeradorContrato(clienteId, contratoId) {
+  window.open('geradores/contrato-procuracao.html?cliente=' + encodeURIComponent(clienteId || '') + (contratoId ? '&contrato=' + encodeURIComponent(contratoId) : ''), '_blank', 'noopener');
+}
 
 'use strict';
 // ═══════════════════════════════════════════════════════════════════
@@ -4632,15 +4754,16 @@ const ABAS_FICHA = [['resumo', 'Resumo'], ['contatos', 'Contatos'], ['enderecos'
   ['tarefas', 'Tarefas'], ['documentos', 'Documentos'], ['linha', 'Linha do tempo'], ['fiscal', 'Dados fiscais'], ['receita', 'Cartão CNPJ'], ['pgfn', 'PGFN'], ['emails', '✉ E-mails'], ['evolucao', '📈 Evolução']];
 
 // Sub-cadastros editáveis da ficha (mesmo formulário para todos)
-const FINALIDADES = [['geral', 'Geral'], ['financeiro', 'Financeiro'], ['juridico', 'Jurídico'], ['socio', 'Sócio / decisor'], ['contador', 'Contador'],
-  ['cobranca', 'Cobrança'], ['marketing', 'Marketing']];
+const FINALIDADES = SETORES_CONTATO;
 const SUBLISTAS = {
-  contatos: { tabela: 'contatos', titulo: 'Contatos', um: 'contato', vazio: 'Nenhum contato. Cadastre aqui financeiro, jurídico, contador, sócios…',
-    campos: [['nome', 'Nome', 'texto', 1], ['cargo', 'Cargo / função'], ['finalidade', 'Finalidade', FINALIDADES], ['email', 'E-mail', 'email'],
-      ['telefone', 'Telefone'], ['whatsapp', 'Este telefone tem WhatsApp', 'check'], ['recebe_boletos', 'Recebe boletos e cobranças', 'check'],
-      ['recebe_notificacoes', 'Recebe avisos do escritório', 'check'], ['preferencia', 'Preferência de contato (ex.: só WhatsApp, após 14h)'], ['obs', 'Observação', 'area']],
+  contatos: { tabela: 'contatos', titulo: 'Contatos', um: 'contato', vazio: 'Nenhum contato. Cadastre aqui financeiro, fiscal, RH, sócios, contador…',
+    dica: 'Os e-mails automáticos vão para quem está marcado em <b>"Recebe por e-mail"</b>. Se ninguém estiver marcado, vão para o contato do setor certo ' +
+      '(cobrança e recibo → Financeiro · guia → Fiscal · contrato e convite → Sócio), depois para o contato Geral e, por último, para o e-mail do cadastro.',
+    campos: [['nome', 'Nome', 'texto', 1], ['cargo', 'Cargo / função'], ['finalidade', 'Setor', FINALIDADES], ['email', 'E-mail', 'email'],
+      ['telefone', 'Telefone / WhatsApp'], ['whatsapp', 'Este telefone tem WhatsApp', 'check'], ['recebe', 'Recebe por e-mail', 'multi', RECEBE_EMAIL],
+      ['preferencia', 'Preferência de contato (ex.: só WhatsApp, após 14h)'], ['obs', 'Observação', 'area']],
     linha: (x) => '<b>' + esc(x.nome || '—') + '</b>' + (x.cargo ? ' · ' + esc(x.cargo) : '') + ' <span class="pill neutro">' + esc(rotuloPar(FINALIDADES, x.finalidade)) + '</span>' +
-      (x.recebe_boletos ? ' <span class="pill aberto">boletos</span>' : '') + (x.recebe_notificacoes ? ' <span class="pill aberto">avisos</span>' : '') +
+      (x.recebe || []).map((k) => ' <span class="pill aberto">' + esc(RECEBE_CURTO[k] || k) + '</span>').join('') +
       '<div class="sub">' + [x.email ? '<a href="mailto:' + esc(x.email) + '">' + esc(x.email) + '</a>' : '', x.telefone ? esc(x.telefone) + (x.whatsapp ? ' ' + linkWhats(x.telefone, 'WhatsApp') : '') : '', esc(x.preferencia || '')].filter(Boolean).join(' · ') + '</div>' },
   enderecos: { tabela: 'enderecos', titulo: 'Endereços', um: 'endereço', vazio: 'Nenhum endereço além do cadastro principal.',
     campos: [['tipo', 'Tipo', [['sede', 'Sede'], ['correspondencia', 'Correspondência'], ['cobranca', 'Cobrança'], ['filial', 'Filial'], ['residencial', 'Residencial']]],
@@ -4679,8 +4802,10 @@ function linkWhats(tel, texto) {
 
 function formSubitem(cfg, item, clienteId, depois) {
   const novo = !item.id;
-  const html = cfg.campos.map(([k, rot, tipo, inteiro]) => {
+  const html = (cfg.dica ? '<div class="dica inteiro">' + cfg.dica + '</div>' : '') + cfg.campos.map(([k, rot, tipo, inteiro]) => {
     const v = item[k];
+    if (tipo === 'multi') return '<fieldset class="inteiro sub-multi"><legend>' + rot + '</legend>' + inteiro.map(([val, r]) =>
+      '<label class="check"><input type="checkbox" name="' + k + '" value="' + val + '"' + ((v || []).includes(val) ? ' checked' : '') + '> ' + r + '</label>').join('') + '</fieldset>';
     if (Array.isArray(tipo)) return campo(rot, selectPares(k, tipo, v == null ? tipo[0][0] : v));
     if (tipo === 'check') return '<label class="check inteiro"><input type="checkbox" name="' + k + '"' + (v ? ' checked' : '') + '> ' + rot + '</label>';
     if (tipo === 'area') return campo(rot, '<textarea name="' + k + '" maxlength="2000">' + esc(v || '') + '</textarea>', 'inteiro');
@@ -4698,12 +4823,13 @@ function formSubitem(cfg, item, clienteId, depois) {
     const dados = { cliente_id: clienteId };
     cfg.campos.forEach(([k, , tipo]) => {
       const el = f.elements[k];
-      if (tipo === 'check') dados[k] = el.checked;
+      if (tipo === 'multi') dados[k] = [...f.querySelectorAll('[name="' + k + '"]:checked')].map((x) => x.value);
+      else if (tipo === 'check') dados[k] = el.checked;
       else if (tipo === 'data') dados[k] = el.value || null;
       else if (tipo === 'numero') { const n = el.value.trim() ? lerValor(el.value) : null; if (Number.isNaN(n)) throw new Error('Número inválido em "' + cfg.campos.find((c) => c[0] === k)[1] + '".'); dados[k] = n; }
       else dados[k] = el.value.trim();
     });
-    const obrig = cfg.campos.find((c) => c[3]);
+    const obrig = cfg.campos.find((c) => c[3] === 1);
     if (obrig && !dados[obrig[0]]) throw new Error('Preencha "' + obrig[1] + '".');
     if (novo) await q(sb.from(cfg.tabela).insert(dados)); else await q(sb.from(cfg.tabela).update(dados).eq('id', item.id));
     aviso('✓ ' + cfg.um.charAt(0).toUpperCase() + cfg.um.slice(1) + (novo ? ' incluído(a).' : ' atualizado(a).')); fecharJanela(j); await depois();
@@ -4746,6 +4872,8 @@ async function abrirFicha(id, aba) {
       '<div class="ficha-atalhos">' +
       '<button class="btn btn-o btn-mini" id="fc-tarefa">+ Tarefa</button><button class="btn btn-o btn-mini" id="fc-lanc">+ Lançamento</button>' +
       '<button class="btn btn-o btn-mini" id="fc-ger" title="Contrato, procuração, petição… já com os dados deste cliente">📄 Gerar</button><button class="btn btn-o btn-mini" id="fc-doc">+ Documento</button><button class="btn btn-o btn-mini" id="fc-int">+ Interação</button>' +
+      (pode('crm', 'editar') ? '<button class="btn btn-o btn-mini" id="fc-lead" title="Nova oportunidade no CRM para este cliente (novo serviço)">🎯 Virar lead</button>' +
+        '<button class="btn btn-o btn-mini" id="fc-reuniao" title="Agenda reunião com o cliente: tarefa para os participantes e convite opcional">📅 Reunião</button>' : '') +
       (pode('crm', 'editar') ? '<button class="btn btn-o btn-mini" id="fc-indic" title="Oportunidade nova no CRM com origem = indicação deste cliente">🤝 Indicação</button>' : '') +
       (tel ? '<a class="btn btn-o btn-mini" target="_blank" rel="noopener" href="https://wa.me/' + (soDigitos(tel).length <= 11 ? '55' : '') + soDigitos(tel) + '">WhatsApp</a>' : '') +
       (mail ? '<a class="btn btn-o btn-mini" href="mailto:' + esc(mail) + '">E-mail</a>' : '') +
@@ -4771,6 +4899,11 @@ async function abrirFicha(id, aba) {
   j.querySelector('#fc-int').onclick = () => formInteracao(cl, () => mostrar('linha'));
   j.querySelector('#fc-etq').onclick = () => janelaEtiquetas(cl, etq, reabrir);
   j.querySelector('#fc-ger').onclick = () => janelaGeradores(cl.id);
+  const lead = j.querySelector('#fc-lead');
+  if (lead) lead.onclick = async () => { if (!E._crmEtapas) E._crmEtapas = await q(sb.from('crm_etapas').select('*').order('ordem')).catch(() => []);
+    formOportunidade({ cliente_id: cl.id, responsavel: cl.responsavel, origem: 'Cliente antigo' }, () => aviso('✓ Oportunidade criada no CRM para ' + cl.nome + '.')); };
+  const reuC = j.querySelector('#fc-reuniao');
+  if (reuC) reuC.onclick = () => formReuniao({ cliente_id: cl.id, titulo: 'Reunião — ' + cl.nome, participantes: cl.responsavel }, () => mostrar('linha'));
   const ind = j.querySelector('#fc-indic');
   if (ind) ind.onclick = async () => { if (!E._crmEtapas) E._crmEtapas = await q(sb.from('crm_etapas').select('*').order('ordem')).catch(() => []);
     formOportunidade({ origem: 'Indicação de cliente', indicado_por: cl.nome, responsavel: cl.responsavel }, () => aviso('✓ Prospecto indicado por ' + cl.nome + ' criado no CRM.')); };
@@ -4902,35 +5035,54 @@ const ABA_FICHA = {
   documentos: (alvo, cl) => blocoDocumentos(alvo, { cliente_id: cl.id, grupo_id: cl.grupo_id }, { vazio: 'Nenhum documento. Envie contrato social, procuração, documentos pessoais…' }),
   emails: (alvo, cl) => abaEmailsCliente(alvo, cl),
   async linha(alvo, cl) {
-    const [ints, ctrs, lanc, ts, docs, hist, crm] = await Promise.all([
+    const [ints, ctrs, lanc, ts, docs, hist, crm, reus, mails] = await Promise.all([
       q(sb.from('interacoes').select('*').eq('cliente_id', cl.id)),
-      q(sb.from('contratos').select('id, descricao, data_contrato').eq('cliente_id', cl.id)),
+      q(sb.from('contratos').select('id, descricao, data_contrato, status, assinado_em').eq('cliente_id', cl.id)),
       q(sb.from('lancamentos').select('descricao, valor, redutor, data_pagamento, vencimento').eq('cliente_id', cl.id).eq('pago', true).order('data_pagamento', { ascending: false }).limit(60)),
       q(sb.from('tarefas').select('titulo, concluida_em, status').or('cliente_id.eq.' + cl.id + (cl.grupo_id ? ',grupo_id.eq.' + cl.grupo_id : '')).eq('status', 'concluida').not('concluida_em', 'is', null)),
       q(sb.from('documentos').select('nome, tipo, criado_em').eq('cliente_id', cl.id)),
       q(sb.from('historico').select('acao, quando, antes, depois').eq('tabela', 'clientes').eq('registro_id', cl.id).order('quando', { ascending: false }).limit(30)).catch(() => []),
       // atividades do CRM (inclusive as de antes de virar cliente)
-      pode('crm') ? q(sb.from('crm_atividades').select('tipo, quando, resumo, crm_oportunidades!inner(titulo, cliente_id)').eq('crm_oportunidades.cliente_id', cl.id)).catch(() => []) : []
+      pode('crm') ? q(sb.from('crm_atividades').select('tipo, quando, resumo, crm_oportunidades!inner(titulo, cliente_id)').eq('crm_oportunidades.cliente_id', cl.id)).catch(() => []) : [],
+      // Backup 25: reuniões e e-mails enviados também entram na linha do tempo
+      q(sb.from('reunioes').select('titulo, inicio, local, status, participantes').eq('cliente_id', cl.id)).catch(() => []),
+      q(sb.rpc('emails_do_cliente', { p_cliente: cl.id })).catch(() => [])
     ]);
     const ev = [];
-    ints.filter((i) => !(crm.length && /^\[CRM\]/.test(i.resumo || ''))).forEach((i) => ev.push([i.quando, '💬', rotuloInteracao(i.tipo), i.resumo, i]));
-    crm.forEach((a) => ev.push([a.quando, '🎯', 'CRM · ' + rotuloInteracao(a.tipo), (a.crm_oportunidades ? a.crm_oportunidades.titulo + ': ' : '') + a.resumo]));
-    ctrs.forEach((c) => ev.push([c.data_contrato + 'T12:00:00', '📄', 'Contrato', c.descricao]));
-    lanc.forEach((l) => ev.push([(l.data_pagamento || l.vencimento) + 'T12:00:00', '💰', 'Pagamento', l.descricao + ' — ' + brl(vl(l))]));
-    ts.forEach((t) => ev.push([t.concluida_em, '✓', 'Tarefa concluída', t.titulo]));
-    docs.forEach((d) => ev.push([d.criado_em, '📎', 'Documento', d.nome + ' (' + nomeTipoDoc(d.tipo) + ')']));
+    // [quando, ícone, título, texto, item, categoria]
+    ints.filter((i) => !(crm.length && /^\[CRM\]/.test(i.resumo || '')) && !(reus.length && /^Reunião agendada:/.test(i.resumo || '')))
+      .forEach((i) => ev.push([i.quando, '💬', rotuloInteracao(i.tipo), i.resumo, i, /^Contrato /.test(i.resumo || '') ? 'contratos' : 'contatos']));
+    crm.forEach((a) => ev.push([a.quando, '🎯', 'CRM · ' + rotuloInteracao(a.tipo), (a.crm_oportunidades ? a.crm_oportunidades.titulo + ': ' : '') + a.resumo, null, 'contatos']));
+    reus.forEach((r) => ev.push([r.inicio, '📅', 'Reunião' + (r.status === 'cancelada' ? ' (cancelada)' : ''), r.titulo + (r.local ? ' — ' + r.local : '') + (r.participantes ? ' · ' + r.participantes : ''), null, 'contatos']));
+    ctrs.forEach((c) => { ev.push([c.data_contrato + 'T12:00:00', '📄', 'Contrato' + (c.status === 'Aguardando assinatura' ? ' (aguardando assinatura)' : ''), c.descricao, null, 'contratos']);
+      if (c.assinado_em) ev.push([c.assinado_em + 'T12:00:01', '✍', 'Contrato assinado', c.descricao, null, 'contratos']); });
+    lanc.forEach((l) => ev.push([(l.data_pagamento || l.vencimento) + 'T12:00:00', '💰', 'Pagamento', l.descricao + ' — ' + brl(vl(l)), null, 'financeiro']));
+    (mails || []).forEach((m) => ev.push([m.quando, '✉', 'E-mail · ' + (m.tipo || ''), m.assunto + ' → ' + m.para + (m.status === 'erro' ? ' (erro)' : m.status === 'retido' ? ' (retido pela pausa)' : ''), null, 'emails']));
+    ts.forEach((t) => ev.push([t.concluida_em, '✓', 'Tarefa concluída', t.titulo, null, 'tarefas']));
+    docs.forEach((d) => ev.push([d.criado_em, '📎', 'Documento', d.nome + ' (' + nomeTipoDoc(d.tipo) + ')', null, 'documentos']));
     hist.forEach((x) => {
-      if (x.acao === 'INSERT') ev.push([x.quando, '＋', 'Cadastro criado', '']);
+      if (x.acao === 'INSERT') ev.push([x.quando, '＋', 'Cadastro criado', '', null, 'cadastro']);
       else if (x.acao === 'UPDATE' && x.antes && x.depois) {
         const mud = Object.keys(x.depois).filter((k) => !/atualizado_em|criado/.test(k) && JSON.stringify(x.antes[k]) !== JSON.stringify(x.depois[k]));
-        if (mud.length) ev.push([x.quando, '✎', 'Cadastro alterado', mud.join(', ')]);
+        if (mud.length) ev.push([x.quando, '✎', 'Cadastro alterado', mud.join(', '), null, 'cadastro']);
       }
     });
     ev.sort((a, b) => String(b[0]).localeCompare(String(a[0])));
-    alvo.innerHTML = '<div class="titulo-pag" style="margin-bottom:8px"><div><b>Linha do tempo</b> <span class="sub">' + ev.length + ' evento(s)</span></div>' +
+    const CATS = [['', 'Tudo'], ['contatos', 'Contatos e reuniões'], ['contratos', 'Contratos'], ['financeiro', 'Financeiro'], ['emails', 'E-mails'], ['tarefas', 'Tarefas'], ['documentos', 'Documentos'], ['cadastro', 'Cadastro']];
+    const presentes = new Set(ev.map((e) => e[5]));
+    let cat = '';
+    const pintarLt = () => {
+      const vis = ev.filter((e) => !cat || e[5] === cat);
+      alvo.querySelector('#fc-lt').innerHTML = vis.length ? '<div class="linha-tempo">' + vis.map(([q_, ic, tit, txt]) => '<div class="lt-item"><span class="lt-ic">' + ic + '</span><div><b>' + esc(tit) + '</b> <span class="sub">' + quandoBR(q_) + '</span>' +
+        (txt ? '<div>' + esc(txt) + '</div>' : '') + '</div></div>').join('') + '</div>' : '<div class="vazio">Nada registrado ainda.</div>';
+      alvo.querySelectorAll('#fc-lt-cat button').forEach((b) => b.classList.toggle('ativo', b.dataset.v === cat));
+    };
+    alvo.innerHTML = '<div class="titulo-pag" style="margin-bottom:8px"><div><b>Linha do tempo</b> <span class="sub">' + ev.length + ' evento(s) · do primeiro contato ao financeiro</span></div>' +
       '<div class="acoes"><button class="btn btn-o btn-mini" id="fc-int2">+ Registrar interação</button></div></div>' +
-      (ev.length ? '<div class="linha-tempo">' + ev.map(([q_, ic, tit, txt]) => '<div class="lt-item"><span class="lt-ic">' + ic + '</span><div><b>' + esc(tit) + '</b> <span class="sub">' + quandoBR(q_) + '</span>' +
-        (txt ? '<div>' + esc(txt) + '</div>' : '') + '</div></div>').join('') + '</div>' : '<div class="vazio">Nada registrado ainda.</div>');
+      (ev.length ? '<div class="segmento" id="fc-lt-cat" style="margin-bottom:10px">' + CATS.filter(([v]) => !v || presentes.has(v)).map(([v, r]) => '<button type="button" data-v="' + v + '">' + r + '</button>').join('') + '</div>' : '') +
+      '<div id="fc-lt"></div>';
+    const segLt = alvo.querySelector('#fc-lt-cat'); if (segLt) segLt.onclick = (evt) => { const b = evt.target.closest('button'); if (b) { cat = b.dataset.v; pintarLt(); } };
+    pintarLt();
     alvo.querySelector('#fc-int2').onclick = () => formInteracao(cl, () => ABA_FICHA.linha(alvo, cl));
   },
   async fiscal(alvo, cl) {
@@ -5144,7 +5296,7 @@ function crmFinalizadas(alvo, tipo) {
   const ops = filtrarOps().filter((o) => etapaDe(o.etapa_id).final === tipo)
     .sort((a, b) => String(b.assinado_em || b.ganho_em || b.perdido_em || b.atualizado_em).localeCompare(String(a.assinado_em || a.ganho_em || a.perdido_em || a.atualizado_em)));
   alvo.innerHTML = '<div class="dica" style="margin-bottom:12px">' + (tipo === 'ganho'
-      ? '<b>Contrato assinado</b> = o cliente assinou. Antes disso ele passa por <b>Contrato fechado</b> (disse sim: o sistema já criou cadastro, contrato e onboarding) e <b>Aguardando assinatura</b>.'
+      ? '<b>Contrato assinado</b> = o cliente assinou: o financeiro e o onboarding foram lançados nessa hora. Antes disso ele passa por <b>Aguardando assinatura</b> (disse sim: cadastro e contrato criados, sem financeiro).'
       : '<b>Lead perdido</b> = não fechou (preço, prazo, foi para concorrente, desistiu, sem retorno…). O motivo alimenta o relatório de perdas no Painel.') + '</div>' +
     '<div class="card">' + (ops.length ? '<div class="tabela-wrap"><table class="ordenavel"><thead><tr><th>Oportunidade</th><th data-tipo="num">Valor</th><th>Responsável</th><th data-tipo="data">' +
       (tipo === 'ganho' ? 'Assinado em' : 'Perdido em') + '</th>' + (tipo === 'perdido' ? '<th>Motivo</th>' : '<th>Área do serviço</th>') + '</tr></thead><tbody>' +
@@ -5352,12 +5504,16 @@ async function fichaOportunidade(id, aba) {
       '<div class="ficha-atalhos">' + (aberta && !o.ganho_em ? '<button class="btn btn-v btn-mini" id="op-ganhou" title="O cliente disse SIM: cria cadastro, contrato e onboarding">✓ Contrato fechado</button>' : '') +
       (aberta && o.ganho_em ? '<button class="btn btn-v btn-mini" id="op-assinado" title="O cliente assinou o contrato: sai do painel">✍ Contrato assinado</button>' : '') +
       (aberta ? '<button class="btn btn-x btn-mini" id="op-perdeu" title="Não fechou (preço, prazo, concorrente, desistiu, sem retorno)">✗ Lead perdido</button>' : '') +
+      (aberta ? '<button class="btn btn-o btn-mini" id="op-delegar" title="Delegar a um colaborador: cadastrar, agendar a reunião e preparar o contrato (com a sua validação)">👥 Delegar</button>' : '') +
+      (aberta ? '<button class="btn btn-o btn-mini" id="op-reuniao" title="Agenda a reunião: tarefa para cada participante, agenda e convite opcional ao cliente">📅 Reunião</button>' : '') +
       (aberta && mailOp(o) ? '<button class="btn btn-o btn-mini" id="op-follow" title="E-mail pronto de acompanhamento da proposta">✉ Follow-up</button>' : '') +
       (tel ? '<a class="btn btn-o btn-mini" target="_blank" rel="noopener" href="' + linkWa(tel) + '">WhatsApp</a>' : '') +
       (mailOp(o) ? '<a class="btn btn-o btn-mini" href="mailto:' + esc(mailOp(o)) + '">E-mail</a>' : '') +
       '<button class="btn btn-p btn-mini" id="op-editar">Editar</button></div></div>' +
       (e.final === 'perdido' && o.motivo_perda ? '<div class="dica" style="margin-bottom:10px">Perdida: ' + esc(o.motivo_perda) + '</div>' : '') +
-      (o.contrato_id ? '<div class="dica" style="margin-bottom:10px">Contrato criado. <a href="#" id="op-ver-cli">Abrir a ficha do cliente</a></div>' : '') +
+      (o.contrato_id ? '<div class="dica" style="margin-bottom:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">' + (e.final === 'ganho' ? 'Contrato assinado.' : 'Contrato criado, <b>aguardando assinatura</b>.') +
+        ' <a href="#" id="op-ver-cli">Abrir a ficha do cliente</a><span style="margin-left:auto;display:flex;gap:6px"><button class="btn btn-o btn-mini" type="button" id="op-gerar">📄 Gerar contrato</button>' +
+        '<button class="btn btn-o btn-mini" type="button" id="op-ver-ctr">Abrir o contrato</button></span></div>' : '') +
       '<div class="abas" id="op-abas">' + [['dados', 'Resumo'], ['atividades', 'Atividades'], ['propostas', 'Propostas'], ['documentos', 'Documentos']].map(([k, r]) => '<button data-aba="' + k + '">' + r + '</button>').join('') + '</div>' +
       '<div id="op-corpo" class="ficha-corpo"></div>' });
   j.querySelector('.janela').classList.add('ficha');
@@ -5378,15 +5534,22 @@ async function fichaOportunidade(id, aba) {
     aviso('✍ Contrato assinado! A oportunidade foi para a aba "Contratos assinados".'); fecharJanela(j); await recarregarCrm();
   });
   const fu = j.querySelector('#op-follow'); if (fu) fu.onclick = () => janelaFollowup(o);
+  const dlg = j.querySelector('#op-delegar'); if (dlg) dlg.onclick = () => janelaDelegar({ oportunidade_id: o.id, cliente_id: o.cliente_id, obs: nomeOp(o) + (o.prospecto_telefone ? ' · ' + o.prospecto_telefone : '') + (o.prospecto_email ? ' · ' + o.prospecto_email : '') });
+  const reu = j.querySelector('#op-reuniao'); if (reu) reu.onclick = () => formReuniao({ oportunidade_id: o.id, cliente_id: o.cliente_id }, () => reabrir('atividades'));
   const p = j.querySelector('#op-perdeu'); if (p) p.onclick = () => janelaPerder(o, () => { fecharJanela(j); });
   const vc = j.querySelector('#op-ver-cli'); if (vc) vc.onclick = (ev) => { ev.preventDefault(); abrirFicha(o.cliente_id); };
+  const vg = j.querySelector('#op-gerar'); if (vg) vg.onclick = () => abrirGeradorContrato(o.cliente_id, o.contrato_id);
+  const vct = j.querySelector('#op-ver-ctr'); if (vct) vct.onclick = () => detalheContrato(o.contrato_id);
   await mostrar(aba || 'dados');
   return j;
 }
 async function opAtividades(alvo, o, repinta) {
-  const at = await q(sb.from('crm_atividades').select('*').eq('oportunidade_id', o.id).order('quando', { ascending: false }));
+  const [at, reus] = await Promise.all([q(sb.from('crm_atividades').select('*').eq('oportunidade_id', o.id).order('quando', { ascending: false })),
+    q(sb.from('reunioes').select('*').eq('oportunidade_id', o.id).order('inicio', { ascending: false })).catch(() => [])]);
   const agora = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-  alvo.innerHTML = '<form id="f-at" class="grade" style="margin-bottom:12px">' + campo('Tipo', selectPares('tipo', TIPOS_ATIV, 'ligacao')) +
+  alvo.innerHTML = '<div class="titulo-pag" style="margin-bottom:6px"><div><b>Reuniões</b> <span class="sub">' + reus.length + '</span></div><div class="acoes"><button type="button" class="btn btn-o btn-mini" id="at-reuniao">📅 Agendar reunião</button></div></div>' +
+    htmlReunioes(reus) + '<div class="secao" style="margin-top:14px">Registrar atividade</div>' +
+    '<form id="f-at" class="grade" style="margin-bottom:12px">' + campo('Tipo', selectPares('tipo', TIPOS_ATIV, 'ligacao')) +
     campo('Quando', '<input type="datetime-local" name="quando" value="' + agora + '">') +
     campo('O que foi tratado / o que fazer', '<textarea name="resumo" maxlength="3000" placeholder="Ex.: enviou o relatório da PGFN; retornar na sexta"></textarea>', 'inteiro') +
     '<div class="inteiro acoes"><button type="button" class="btn btn-p btn-mini" id="at-salvar">Registrar</button><span class="sub">Data futura vira tarefa na fila do responsável.</span></div></form>' +
@@ -5394,6 +5557,8 @@ async function opAtividades(alvo, o, repinta) {
       esc(rotuloPar(TIPOS_ATIV, a.tipo)) + '</b> <span class="sub">' + quandoBR(a.quando) + (a.feita ? '' : ' · agendada') + '</span><div>' + esc(a.resumo) + '</div></div></div>').join('') + '</div>'
       : '<div class="vazio">Nenhuma atividade ainda.</div>');
   const f = alvo.querySelector('#f-at');
+  alvo.querySelector('#at-reuniao').onclick = () => formReuniao({ oportunidade_id: o.id, cliente_id: o.cliente_id }, repinta);
+  alvo.querySelectorAll('[data-reu]').forEach((d) => d.onclick = () => formReuniao(reus.find((x) => x.id === d.dataset.reu), repinta));
   alvo.querySelector('#at-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
     if (!f.resumo.value.trim()) throw new Error('Escreva o que foi tratado.');
     const quando = f.quando.value ? new Date(f.quando.value) : new Date(), futura = quando > new Date(Date.now() + 60000);
@@ -5562,7 +5727,8 @@ async function janelaGanhar(o, depois, etapaDestino) {
   const parcelas = (() => { const m = itens.map((i) => /(\d+)\s*(x|parcelas?)/i.exec(i.forma || '')).find(Boolean); return m ? +m[1] : 1; })();
   const j = abrirJanela({ titulo: '✓ Contrato fechado — ' + o.titulo, larga: true,
     corpo: '<div class="dica" style="margin-bottom:10px">O cliente disse <b>sim</b>. Confira os dados: ao confirmar, o sistema cria ' + (cli ? '' : 'o <b>cliente</b> (com os dados do contato' + (o.prospecto_doc ? ' e consulta o cartão CNPJ' : '') + '), ') +
-        'o <b>contrato</b> ' + (pr ? '(a partir da proposta v' + pr.versao + ')' : '') + ', o <b>onboarding</b> e a tarefa <b>"Enviar contrato para assinatura"</b>. A oportunidade vai para "Contrato fechado"' + (etapaDestino ? ' e depois para a etapa escolhida' : '') + '.</div>' +
+        'o <b>contrato aguardando assinatura</b> ' + (pr ? '(a partir da proposta v' + pr.versao + ')' : '') + ' e a tarefa <b>"Enviar contrato para assinatura"</b>. ' +
+        '<b>O financeiro e o onboarding só entram quando o contrato for assinado.</b> Depois, use <b>📄 Gerar contrato</b> na ficha: o gerador abre já preenchido.</div>' +
       '<form id="f-gan" class="grade">' +
       (cli ? '<div class="inteiro dica">Cliente: <b>' + esc(cli.nome) + '</b></div>' :
         campo('Nome do cliente <span class="obrig">*</span>', '<input name="cliente_nome" value="' + esc(o.prospecto_empresa || o.prospecto_nome || '') + '">') +
@@ -5583,7 +5749,7 @@ async function janelaGanhar(o, depois, etapaDestino) {
         campo('Dia do vencimento', '<input name="dia_vencimento" type="number" min="1" max="28" value="10">') +
         campo('1ª competência', '<input name="inicio_competencia" type="month" value="' + hojeISO().slice(0, 7) + '">') + '</div>' +
       campo('Responsável', '<input name="responsavel" list="gan-pessoas" value="' + esc(o.responsavel || '') + '">' + datalistPessoas('gan-pessoas')) +
-      '<label class="check inteiro"><input type="checkbox" name="criar_fluxo" checked> Criar o fluxo "Onboarding de cliente" (tarefas com prazos em dias úteis)</label></form>',
+      '<label class="check inteiro"><input type="checkbox" name="criar_fluxo" checked> Na assinatura, criar o fluxo "Onboarding de cliente" (tarefas com prazos em dias úteis)</label></form>',
     rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-v" type="button" id="btn-ganhar">Confirmar — Contrato fechado</button></div>' });
   const f = j.querySelector('#f-gan');
   const modo = () => { const c = f.modalidade.value === 'consultoria'; j.querySelector('#gan-pontual').classList.toggle('escondido', c); j.querySelector('#gan-consult').classList.toggle('escondido', !c); };
@@ -5605,7 +5771,7 @@ async function janelaGanhar(o, depois, etapaDestino) {
     if (etapaDestino) await q(sb.from('crm_oportunidades').update({ etapa_id: etapaDestino }).eq('id', o.id));
     // cliente novo com CNPJ: busca o cartão CNPJ na hora (se a função estiver publicada)
     if (!cli && soDigitos(p.cpf_cnpj).length === 14 && r && r.cliente_id) chamarFuncao('erp-cnpj', { cliente_id: r.cliente_id, auto: true }).catch(() => {});
-    aviso('✓ Contrato fechado! Cliente, contrato' + (p.criar_fluxo ? ', onboarding' : '') + ' e a tarefa "Enviar contrato para assinatura" criados.');
+    aviso('✓ Contrato fechado: contrato aguardando assinatura e a tarefa "Enviar contrato para assinatura" criados. Gere o contrato em 📄 Gerar contrato.');
     fecharJanela(j); if (depois) depois(r);
     await carregarCadastros(true); await recarregarCrm();
   });
@@ -5713,6 +5879,70 @@ async function janelaModelosProposta() {
       htmlProposta({ prospecto_empresa: 'Empresa Exemplo Ltda' }, { versao: 1, titulo: m.nome, texto: m.texto, itens: (m.itens || []).map((i) => Object.assign({}, i, { valor: i.valor || 1000 })), validade: somarDias(hojeISO(), 15) }) + '</body></html>');
     w.document.close();
   });
+}
+
+// ═══ Backup 25: REUNIÃO a partir do lead (ou da ficha do cliente) ═══
+// Vira tarefa de cada participante, cai na agenda (Google Agenda assinado), entra nas atividades do CRM e na linha do tempo.
+// Convite por e-mail ao cliente só quando marcado "Sim" (e só sai com a pausa de e-mails desligada).
+async function formReuniao(r, depois) {
+  r = r || {};
+  const novo = !r.id;
+  const o = r.oportunidade_id ? (await q(sb.from('crm_oportunidades').select('id, titulo, cliente_id, prospecto_email, prospecto_nome, responsavel').eq('id', r.oportunidade_id)))[0] : null;
+  const cli = r.cliente_id || (o && o.cliente_id) || null;
+  const ini = r.inicio ? new Date(r.inicio) : (() => { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(10, 0, 0, 0); return d; })();
+  const pad = (n) => String(n).padStart(2, '0');
+  const dataLocal = ini.getFullYear() + '-' + pad(ini.getMonth() + 1) + '-' + pad(ini.getDate()), horaLocal = pad(ini.getHours()) + ':' + pad(ini.getMinutes());
+  let destino = '';
+  if (cli) { const c = E.clientes.find((x) => x.id === cli); destino = c ? 'o contato de "Convites" de ' + c.nome + ' (ou o setor Sócio / contato Geral)' : ''; }
+  else if (o && o.prospecto_email) destino = o.prospecto_email;
+  const j = abrirJanela({ titulo: novo ? '📅 Agendar reunião' : '📅 Reunião', larga: true,
+    corpo: '<form id="f-reu" class="grade">' +
+      campo('Assunto <span class="obrig">*</span>', '<input name="titulo" maxlength="200" value="' + esc(r.titulo || (o ? 'Reunião de diagnóstico — ' + o.titulo : 'Reunião')) + '">', 'inteiro') +
+      campo('Data <span class="obrig">*</span>', '<input name="data" type="date" value="' + dataLocal + '">') +
+      campo('Hora <span class="obrig">*</span>', '<input name="hora" type="time" value="' + horaLocal + '">') +
+      campo('Duração', '<select name="duracao_min">' + [[30, '30 min'], [60, '1 hora'], [90, '1h30'], [120, '2 horas']].map(([v, t]) => '<option value="' + v + '"' + (Number(r.duracao_min || 60) === v ? ' selected' : '') + '>' + t + '</option>').join('') + '</select>') +
+      campo('Local ou link', '<input name="local" maxlength="300" placeholder="Ex.: escritório, ou o link do Meet/Zoom" value="' + esc(r.local || '') + '">', 'inteiro') +
+      '<div class="inteiro"><div class="secao">Participantes do escritório</div>' + campoParticipantes(r.participantes || (o && o.responsavel) || (E.perfil && E.perfil.nome) || '') + '</div>' +
+      '<div class="inteiro"><div class="secao">Enviar convite por e-mail ao cliente?</div><div class="segmento" id="reu-convite">' +
+        [['nao', 'Não'], ['sim', 'Sim, enviar o convite']].map(([v, t]) => '<button type="button" data-v="' + v + '"' + ((r.convite ? 'sim' : 'nao') === v ? ' class="ativo"' : '') + '>' + t + '</button>').join('') + '</div>' +
+        '<div class="grade" id="reu-conv-det" style="margin-top:8px">' +
+          campo('E-mail do convite (opcional)', '<input name="convite_para" type="email" placeholder="' + esc(destino || 'e-mail do cliente') + '" value="' + esc(r.convite_para || '') + '">', 'inteiro') +
+          '<div class="dica inteiro">Vazio = vai para ' + esc(destino || 'o e-mail do lead') + '. O convite leva o arquivo para o cliente salvar na agenda. <b>Com a pausa de e-mails ligada, ele fica retido.</b></div></div></div>' +
+      campo('Observação', '<textarea name="obs" maxlength="2000">' + esc(r.obs || '') + '</textarea>', 'inteiro') + '</form>',
+    rodape: (!novo ? '<button class="btn btn-x" type="button" id="reu-cancelar">Cancelar reunião</button>' : '<span></span>') +
+      '<div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Fechar</button><button class="btn btn-p" type="button" id="reu-salvar">' + (novo ? 'Agendar' : 'Salvar') + '</button></div>' });
+  const f = j.querySelector('#f-reu');
+  let convite = !!r.convite;
+  const seg = j.querySelector('#reu-convite');
+  const mostrarConv = () => { seg.querySelectorAll('button').forEach((b) => b.classList.toggle('ativo', (b.dataset.v === 'sim') === convite)); j.querySelector('#reu-conv-det').classList.toggle('escondido', !convite); };
+  seg.onclick = (ev) => { const b = ev.target.closest('button'); if (b) { convite = b.dataset.v === 'sim'; mostrarConv(); } };
+  mostrarConv();
+  j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
+  j.querySelector('#reu-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    if (!f.titulo.value.trim()) throw new Error('Informe o assunto da reunião.');
+    if (!f.data.value || !f.hora.value) throw new Error('Informe a data e a hora.');
+    const part = lerParticipantes(j);
+    if (!part) throw new Error('Marque pelo menos um participante do escritório.');
+    const dados = { titulo: f.titulo.value.trim(), inicio: new Date(f.data.value + 'T' + f.hora.value + ':00').toISOString(), duracao_min: Number(f.duracao_min.value) || 60,
+      local: f.local.value.trim(), participantes: part, convite, convite_para: convite ? f.convite_para.value.trim() : '', obs: f.obs.value.trim(),
+      oportunidade_id: r.oportunidade_id || null, cliente_id: cli };
+    if (novo) await q(sb.from('reunioes').insert(dados)); else await q(sb.from('reunioes').update(dados).eq('id', r.id));
+    aviso('✓ Reunião ' + (novo ? 'agendada' : 'atualizada') + ': tarefa para ' + part + (convite ? ' e convite ao cliente na fila de e-mails.' : '.'));
+    fecharJanela(j); if (depois) await depois();
+  });
+  const bc = j.querySelector('#reu-cancelar');
+  if (bc) bc.onclick = () => comBotao(bc, async () => {
+    if (!confirm('Cancelar esta reunião? As tarefas dos participantes são canceladas.')) return;
+    await q(sb.from('reunioes').update({ status: 'cancelada' }).eq('id', r.id)); aviso('Reunião cancelada.'); fecharJanela(j); if (depois) await depois();
+  });
+}
+// lista de reuniões (ficha do lead e do cliente)
+function htmlReunioes(lista) {
+  if (!lista.length) return '<div class="sub">Nenhuma reunião agendada.</div>';
+  return '<div class="lista-ficha">' + lista.map((x) => '<div class="item-ficha clicavel" data-reu="' + x.id + '"><div><b>' + esc(x.titulo) + '</b>' +
+    ' <span class="pill ' + (x.status === 'cancelada' ? 'neutro' : new Date(x.inicio) < new Date() ? 'pago' : 'aberto') + '">' + (x.status === 'cancelada' ? 'cancelada' : dataHoraBR(x.inicio)) + '</span>' +
+    (x.convite ? ' <span class="pill ' + (x.convite_enviado_em ? 'pago' : 'hoje') + '">' + (x.convite_enviado_em ? '✉ convite enviado' : '✉ convite na fila') + '</span>' : '') +
+    '<div class="sub">' + esc([x.local, x.participantes].filter(Boolean).join(' · ')) + '</div></div></div>').join('') + '</div>';
 }
 
 'use strict';
@@ -6424,9 +6654,9 @@ const GRUPOS_AUTOMACAO = [
 // prefixo gravado no registro → automação
 const PREFIXO_AUTOMACAO = { onb: 'contrato_onboarding', proc: 'processo_novo', cert: 'certidao_vencendo', doc: 'certidao_vencendo', parc: 'parcela_parcelamento',
   aco: 'parcela_acordo', cob: 'cobrar_honorario', anexo: 'contrato_anexo', procur: 'processo_procuracao', pagamento_conclui: 'pagamento_conclui', pub: 'publicacao_tarefa',
-  cliente_novo_cnpj: 'cliente_novo_cnpj', email_lp: 'email_lembrete_parcelamento', email_lh: 'email_lembrete_honorario', email_ch: 'email_cobranca_honorario', email_la: 'email_lembrete_acordo', email_pr: 'email_pagamento_recebido', email_vh: 'email_lembrete_honorario', 'crm-parada': 'crm_parada', 'crm-follow': 'crm_followup' };
+  cliente_novo_cnpj: 'cliente_novo_cnpj', email_lp: 'email_lembrete_parcelamento', email_lh: 'email_lembrete_honorario', email_ch: 'email_cobranca_honorario', email_la: 'email_lembrete_acordo', email_pr: 'email_pagamento_recebido', email_vh: 'email_lembrete_honorario', 'crm-parada': 'crm_parada', 'crm-follow': 'crm_followup', email_bv: 'email_boas_vindas' };
 // automações que não usam "N dias"
-const SEM_DIAS = ['pagamento_conclui', 'cliente_novo_cnpj', 'email_pagamento_recebido'];
+const SEM_DIAS = ['pagamento_conclui', 'cliente_novo_cnpj', 'email_pagamento_recebido', 'email_boas_vindas'];
 // automações de tarefa que não criam tarefa nova (não têm responsável)
 const SEM_RESP = ['pagamento_conclui', 'escalar_atraso'];
 
@@ -6719,10 +6949,10 @@ async function conciliarOfx(empresa) {
 // Modelos editáveis (Administração → E-mails) e o automático por tipo.
 // ═══════════════════════════════════════════════════════════════════
 const TIPOS_CENTRAL_EM = [['', 'Todos'], ['honorarios', 'Honorários'], ['parcelamentos', 'Parcelamentos'], ['acordos', 'Acordos'], ['recibos', 'Recibos']];
-const ROT_TIPO_EMAIL = { honorarios: 'Honorários', parcelamentos: 'Parcelamento', acordos: 'Acordo', recibos: 'Recibo', propostas: 'Proposta' };
+const ROT_TIPO_EMAIL = { honorarios: 'Honorários', parcelamentos: 'Parcelamento', acordos: 'Acordo', recibos: 'Recibo', propostas: 'Proposta', contratos: 'Boas-vindas', convites: 'Convite' };
 const SIT_EMAIL = [['hoje', 'A enviar hoje'], ['enviados', 'Enviados'], ['erro', 'Com erro'], ['retidos', 'Retidos (pausa)']];
 // Backup 19: tudo de e-mail num lugar só — cada área é uma aba da Central
-const AREAS_EMAIL = [['fila', '📬 Enviar e acompanhar'], ['clientes', '📨 Quem recebe (por cliente)'], ['config', '⚙ Configuração do envio', true], ['avisos', '🔔 Meus avisos por e-mail']];
+const AREAS_EMAIL = [['fila', '📬 Enviar e acompanhar'], ['clientes', '📨 Quem recebe o quê (por cliente)'], ['config', '⚙ Configuração do envio', true], ['avisos', '🔔 Meus avisos por e-mail']];
 
 TELAS.emails = async function () {
   E.em = Object.assign({ sit: 'hoje', tipo: '', busca: '', area: 'fila' }, E.em || {});
@@ -6751,7 +6981,7 @@ TELAS.emails = async function () {
 async function pintarAreaEmail() {
   const F = E.em, alvo = $('em-area-corpo'); if (!alvo) return;
   document.querySelectorAll('#em-area button').forEach((b) => b.classList.toggle('ativo', b.dataset.area === F.area));
-  if (F.area === 'clientes') { E.adm = E.adm || {}; return admClientesEmail(alvo); }
+  if (F.area === 'clientes') return controleEmails(alvo);
   if (F.area === 'config') { E.adm = E.adm || {}; return admEmail(alvo); }
   if (F.area === 'avisos') { alvo.innerHTML = '<div class="card"><div class="card-bd"><p class="sub" style="margin-bottom:10px">Avisos internos que <b>você</b> recebe por e-mail (resumo do dia, menções, tarefas…).</p>' +
       '<button class="btn btn-o" type="button" id="em-meus">🔔 Escolher meus avisos por e-mail</button></div></div>'; $('em-meus').onclick = () => janelaMeusAvisos(); return; }
@@ -6810,18 +7040,18 @@ function pintarEmails() {
     html += '<div class="card"><div class="card-hd">📬 A enviar hoje <span class="pill neutro">' + lista.length + '</span>' +
       (envia.length ? '<span style="margin-left:auto;display:flex;gap:6px"><label class="check" style="font-size:12.5px"><input type="checkbox" id="em-todos"> marcar todos</label>' +
         '<button class="btn btn-p btn-mini" id="em-enviar-sel">Enviar selecionados</button></span>' : '') + '</div>' +
-      (lista.length ? '<div class="tabela-wrap"><table><thead><tr><th class="sem-ordem"></th><th>Tipo</th><th>Cliente</th><th>Assunto</th><th>E-mail de destino</th><th class="num">Valor</th><th>Situação</th><th></th></tr></thead><tbody>' +
+      (lista.length ? '<div class="tabela-wrap"><table><thead><tr><th class="sem-ordem"></th><th>Tipo</th><th>Cliente</th><th>Quem</th><th>Assunto</th><th>E-mail de destino</th><th class="num">Valor</th><th>Situação</th><th></th></tr></thead><tbody>' +
         lista.map((x) => '<tr class="clicavel" data-em-ref="' + esc(x.ref) + '" title="Clique para ver a prévia"><td>' + (x.bloqueio ? '' : '<input type="checkbox" data-em-sel="' + esc(x.ref) + '" aria-label="Selecionar">') + '</td>' +
           '<td><span class="pill aberto">' + esc(ROT_TIPO_EMAIL[x.tipo] || x.tipo) + '</span></td><td><b>' + esc(x.cliente || '—') + '</b>' + (x.grupo && x.grupo !== x.cliente ? '<div class="sub">' + esc(x.grupo) + '</div>' : '') + '</td>' +
-          '<td>' + esc(x.assunto) + '</td><td>' + destinoEmail(x) + '</td>' +
+          '<td>' + pillPessoa(x.responsavel) + '</td><td>' + esc(x.assunto) + '</td><td>' + destinoEmail(x) + '</td>' +
           '<td class="num mono">' + (Number(x.total) ? brl(x.total) : '—') + '</td>' +
           '<td>' + (x.bloqueio ? '<span class="pill neutro" title="Não vai sair">' + esc(x.bloqueio) + '</span>' : '<span class="pill pago">' + (x.auto ? 'sai no horário' : 'pronto') + '</span>') + '</td>' +
           '<td class="acoes-l">' + (x.bloqueio ? '' : '<button class="btn btn-v btn-mini" data-em-agora="' + esc(x.ref) + '">Enviar agora</button> ') + '<button class="btn btn-o btn-mini" data-em-pular="' + esc(x.ref) + '">Pular este</button></td></tr>').join('') +
         '</tbody></table></div>' : vazio('Nada para enviar hoje. 👏')) + '</div>';
   } else {
-    html += '<div class="card">' + (lista.length ? '<div class="tabela-wrap"><table class="ordenavel"><thead><tr><th data-tipo="data">Quando</th><th>Tipo</th><th>Cliente</th><th>Assunto</th><th>E-mail de destino</th><th>Situação</th><th></th></tr></thead><tbody>' +
+    html += '<div class="card">' + (lista.length ? '<div class="tabela-wrap"><table class="ordenavel"><thead><tr><th data-tipo="data">Quando</th><th>Tipo</th><th>Cliente</th><th>Quem</th><th>Assunto</th><th>E-mail de destino</th><th>Situação</th><th></th></tr></thead><tbody>' +
       lista.map((x) => '<tr class="clicavel" data-em-ref="' + esc(x.ref || x.id) + '"><td class="mono" data-ord="' + esc(x.quando) + '">' + dataHoraBR(x.quando) + '</td>' +
-        '<td><span class="pill aberto">' + esc(ROT_TIPO_EMAIL[x.tipo] || x.tipo) + '</span>' + (x.anexo ? ' 📎' : '') + '</td><td>' + esc(x.cliente || '—') + '</td><td>' + esc(x.assunto) + '</td><td>' + esc(x.para) + '</td>' +
+        '<td><span class="pill aberto">' + esc(ROT_TIPO_EMAIL[x.tipo] || x.tipo) + '</span>' + (x.anexo ? ' 📎' : '') + '</td><td>' + esc(x.cliente || '—') + '</td><td>' + pillPessoa(x.responsavel || '') + '</td><td>' + esc(x.assunto) + '</td><td>' + esc(x.para) + '</td>' +
         '<td>' + (x.status === 'erro' ? '<span class="pill vencido" title="' + esc(x.erro) + '">erro</span><div class="sub">' + esc(String(x.erro || '').slice(0, 80)) + '</div>' : x.status === 'enviado' ? '<span class="pill pago">enviado</span>' : '<span class="pill hoje">na fila</span>') + '</td>' +
         '<td class="acoes-l">' + (x.status === 'erro' ? '<button class="btn btn-o btn-mini" data-em-de-novo="' + x.id + '">Tentar de novo</button>' : '') + '</td></tr>').join('') +
       '</tbody></table></div>' : vazio(F.sit === 'erro' ? 'Nenhum e-mail com erro. 👏' : 'Nenhum e-mail enviado nos últimos 120 dias.')) + '</div>';
@@ -6845,10 +7075,12 @@ function pintarEmails() {
   }));
 }
 // "E-mail de destino": o endereço e de qual contato ele veio (empresas podem ter vários e-mails)
-const ROT_FINALIDADE = { financeiro: 'contato financeiro', cobranca: 'contato financeiro', juridico: 'contato jurídico', contabil: 'contato contábil' };
+// Backup 25: de onde veio o destinatário — marcado para este tipo, contato do setor, contato geral ou e-mail do cadastro
+const ORIGEM_DESTINO = { marcado: 'marcado para receber', setor: 'contato do setor', geral: 'contato geral', cadastro: 'e-mail do cadastro' };
+const rotSetor = (k) => (SETORES_CONTATO.find((x) => x[0] === k) || [k, k || ''])[1];
 function destinoEmail(x) {
   if (!x.para) return '<span class="sub">— sem e-mail —</span><div class="sub">cadastre em Clientes → ficha → Contatos</div>';
-  const de = x.contato ? esc(x.contato) + ' · ' + esc(ROT_FINALIDADE[x.finalidade] || 'contato') : 'e-mail do cadastro';
+  const de = x.origem === 'cadastro' || (!x.contato && !x.setor) ? 'e-mail do cadastro' : [x.contato ? esc(x.contato) : '', x.setor ? esc(rotSetor(x.setor)) : '', esc(ORIGEM_DESTINO[x.origem] || '')].filter(Boolean).join(' · ');
   return '<span class="em-para">' + esc(x.para) + '</span><div class="sub" title="Quem recebe: o contato marcado com a finalidade deste e-mail (Clientes → ficha → Contatos)">' + de + '</div>';
 }
 async function previaEmail(ref) {
@@ -6932,8 +7164,137 @@ async function abaEmailsCliente(alvo, cl) {
   alvo.querySelectorAll('[data-em-id]').forEach((tr) => tr.onclick = () => previaEmail(tr.dataset.emId).catch((e) => aviso(erroAmigavel(e), true)));
 }
 
+// ═══ Backup 25: CONTROLE POR CLIENTE — o que cada cliente recebe, para qual e-mail, quem é o responsável, modelo e histórico ═══
+const TIPOS_CONTROLE = [['cobranca', 'Cobranças', 'hon_lembrete', 'lembrete antes do vencimento, vence hoje e 1º/2º/3º aviso de atraso'],
+  ['guia', 'Guias', 'parc_guia', 'guia do parcelamento e parcelas em atraso'], ['acordo', 'Acordos', 'aco_lembrete', 'lembrete e atraso da parcela do acordo'],
+  ['recibo', 'Recibos', 'recibo', 'ao dar baixa, com o PDF do recibo'], ['contrato', 'Contratos', 'boas_vindas', 'boas-vindas na assinatura, propostas'],
+  ['convite', 'Convites', 'convite', 'convite de reunião (quando marcado na reunião)']];
+let _emCtrl = [];
+async function controleEmails(alvo) {
+  const admin = E.perfil && E.perfil.papel === 'admin';
+  E.emc = Object.assign({ busca: '', perfil: '', resp: '', problema: false }, E.emc || {});
+  const F = E.emc;
+  alvo.innerHTML = '<div class="carregando">Carregando…</div>';
+  const [lista, dest] = await Promise.all([q(sb.rpc('emails_controle')), q(sb.from('configuracoes').select('valor').eq('chave', 'emails_destino').maybeSingle()).catch(() => null)]);
+  _emCtrl = lista || [];
+  const mapa = (dest && dest.valor) || {};
+  const resps = [...new Set(_emCtrl.map((c) => c.responsavel).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  alvo.innerHTML =
+    '<div class="card"><div class="card-hd">📨 Quem recebe o quê</div><div class="card-bd">' +
+      '<p class="sub" style="margin-bottom:10px">Cada linha é um cliente: se ele recebe cada tipo de e-mail, <b>para qual endereço vai</b> e quem é o responsável. ' +
+      'Clique no cliente para escolher os contatos de cada tipo, ver o modelo (como o e-mail sai) e o histórico do que já foi enviado. Nada sai com a pausa ligada.</p>' +
+      '<div class="emc-destinos"><b>Quando ninguém está marcado, cada tipo vai para o setor:</b>' +
+      TIPOS_CONTROLE.map(([k, r]) => '<label>' + r + ' → <select class="busca sel" data-emc-dest="' + k + '"' + (admin ? '' : ' disabled') + '>' +
+        SETORES_CONTATO.map(([v, rs]) => '<option value="' + v + '"' + ((mapa[k] || 'financeiro') === v ? ' selected' : '') + '>' + rs + '</option>').join('') + '</select></label>').join('') +
+      '<span class="sub">depois: contato Geral e, por último, o e-mail do cadastro.</span></div></div></div>' +
+    '<div class="filtros" id="emc-filtros"><input class="busca" id="emc-busca" placeholder="Buscar cliente ou grupo" autocomplete="off" value="' + esc(F.busca) + '">' +
+      '<select class="busca sel" id="emc-perfil"><option value="">Todos os perfis</option>' + PERFIS_EMAIL.map(([v, r]) => '<option value="' + v + '"' + (F.perfil === v ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>' +
+      '<select class="busca sel" id="emc-resp"><option value="">Todos os responsáveis</option>' + resps.map((r) => '<option' + (F.resp === r ? ' selected' : '') + '>' + esc(r) + '</option>').join('') + '</select>' +
+      '<label class="check"><input type="checkbox" id="emc-prob"' + (F.problema ? ' checked' : '') + '> Só com e-mail faltando</label>' +
+      '<span class="sub" id="emc-sel" style="align-self:center"></span>' +
+      '<select class="busca sel" id="emc-lote"><option value="">Perfil aos marcados…</option>' + PERFIS_EMAIL.filter((x) => x[0] !== 'personalizado').map(([v, r]) => '<option value="' + v + '">' + r + '</option>').join('') + '</select></div>' +
+    '<div class="card"><div id="emc-tab"></div></div>';
+  const celula = (t) => {
+    if (!t || !t.recebe) return '<span class="pill neutro" title="O perfil de e-mail do cliente não manda este tipo">não recebe</span>';
+    if (!t.para) return '<span class="pill vencido" title="Cadastre um contato com e-mail na ficha do cliente">sem e-mail</span>';
+    const mails = String(t.para).split(/,\s*/);
+    return '<span class="em-para" title="' + esc(t.para) + '">' + esc(mails[0]) + (mails.length > 1 ? ' <b>+' + (mails.length - 1) + '</b>' : '') + '</span>' +
+      '<div class="sub">' + esc([t.contato, t.origem === 'cadastro' ? 'cadastro' : rotSetor(t.setor)].filter(Boolean).join(' · ')) + '</div>';
+  };
+  const pintar = () => {
+    const b = normalizar(F.busca);
+    const vis = _emCtrl.filter((c) => (!F.perfil || (c.perfil || 'padrao') === F.perfil) && (!F.resp || c.responsavel === F.resp) &&
+      (!b || normalizar(c.nome + ' ' + (c.grupo || '')).includes(b)) && (!F.problema || TIPOS_CONTROLE.some(([k]) => c.tipos[k] && c.tipos[k].recebe && !c.tipos[k].para)));
+    $('emc-tab').innerHTML = vis.length ? '<div class="tabela-wrap"><table class="ordenavel emc-tab"><thead><tr><th class="sem-ordem"><input type="checkbox" id="emc-todos" aria-label="Marcar todos"></th>' +
+      '<th>Cliente</th><th>Quem</th><th>Perfil</th>' + TIPOS_CONTROLE.map(([, r, , d]) => '<th title="' + esc(d) + '">' + r + '</th>').join('') + '<th data-tipo="data">Último envio</th></tr></thead><tbody>' +
+      vis.map((c) => '<tr class="clicavel" data-emc="' + c.id + '"><td><input type="checkbox" data-emc-x="' + c.id + '" aria-label="Marcar ' + esc(c.nome) + '"></td>' +
+        '<td><b>' + esc(c.nome) + '</b>' + (c.grupo && c.grupo !== c.nome ? '<div class="sub">' + esc(c.grupo) + '</div>' : '') + '</td><td>' + pillPessoa(c.responsavel) + '</td>' +
+        '<td><select class="busca sel cem-perfil-sel" data-cem="' + c.id + '" aria-label="Perfil de ' + esc(c.nome) + '">' + PERFIS_EMAIL.map(([v, r]) => '<option value="' + v + '"' + ((c.perfil || 'padrao') === v ? ' selected' : '') + '>' + r + '</option>').join('') + '</select></td>' +
+        TIPOS_CONTROLE.map(([k]) => '<td>' + celula(c.tipos[k]) + '</td>').join('') +
+        '<td data-ord="' + esc(c.ultimo ? c.ultimo.quando : '') + '">' + (c.ultimo ? '<span class="sub">' + dataHoraBR(c.ultimo.quando) + '</span><div class="sub" title="' + esc(c.ultimo.descricao) + '">' + esc(String(c.ultimo.descricao).slice(0, 60)) + '</div>' : '<span class="sub">—</span>') +
+        (c.enviados30 ? '<div class="sub">' + plural(c.enviados30, 'e-mail', 'e-mails') + ' em 30 dias</div>' : '') + '</td></tr>').join('') + '</tbody></table></div>'
+      : vazio('Nenhum cliente neste filtro.');
+    const marcados = () => [...alvo.querySelectorAll('[data-emc-x]:checked')].map((x) => x.dataset.emcX);
+    const conta = () => { const n = marcados().length; $('emc-sel').textContent = n ? n + ' marcado(s)' : ''; };
+    const todos = $('emc-todos'); if (todos) todos.onchange = () => { alvo.querySelectorAll('[data-emc-x]').forEach((x) => { x.checked = todos.checked; }); conta(); };
+    alvo.querySelectorAll('[data-emc-x]').forEach((x) => x.onchange = conta);
+    alvo.querySelectorAll('tr[data-emc]').forEach((tr) => tr.onclick = (ev) => { if (ev.target.closest('input, select, label, button')) return; janelaControleCliente(tr.dataset.emc, () => controleEmails(alvo)); });
+    alvo.querySelectorAll('[data-cem]').forEach((sel) => sel.onchange = () => comBotao(sel, async () => {
+      if (sel.value === 'personalizado') {
+        await q(sb.rpc('salvar_perfil_email', { p_ids: [sel.dataset.cem], p_perfil: 'personalizado', p_tipos: null }));
+        _emCtrl = (await q(sb.rpc('emails_controle'))) || [];
+        await janelaControleCliente(sel.dataset.cem, () => controleEmails(alvo)); return;
+      }
+      await q(sb.rpc('salvar_perfil_email', { p_ids: [sel.dataset.cem], p_perfil: sel.value, p_tipos: null }));
+      aviso('✓ Perfil de e-mail atualizado.'); await carregarCadastros(true); await controleEmails(alvo);
+    }));
+  };
+  $('emc-lote').onchange = (ev) => comBotao(ev.target, async () => {
+    const v = ev.target.value, ids = [...alvo.querySelectorAll('[data-emc-x]:checked')].map((x) => x.dataset.emcX); ev.target.value = '';
+    if (!v) return; if (!ids.length) throw new Error('Marque os clientes na primeira coluna.');
+    const n = await q(sb.rpc('salvar_perfil_email', { p_ids: ids, p_perfil: v, p_tipos: null }));
+    aviso('✓ ' + n + ' cliente(s) com o perfil atualizado.'); await carregarCadastros(true); await controleEmails(alvo);
+  });
+  alvo.querySelectorAll('[data-emc-dest]').forEach((sel) => sel.onchange = () => comBotao(sel, async () => {
+    await q(sb.rpc('salvar_destinos_email', { p: { [sel.dataset.emcDest]: sel.value } }));
+    aviso('✓ Destino padrão salvo.'); await controleEmails(alvo);
+  }));
+  let tb; $('emc-busca').oninput = (ev) => { clearTimeout(tb); tb = setTimeout(() => { F.busca = ev.target.value; pintar(); }, 250); };
+  $('emc-perfil').onchange = (ev) => { F.perfil = ev.target.value; pintar(); };
+  $('emc-resp').onchange = (ev) => { F.resp = ev.target.value; pintar(); };
+  $('emc-prob').onchange = (ev) => { F.problema = ev.target.checked; pintar(); };
+  pintar();
+}
+// detalhe de um cliente: tipo a tipo (recebe? para quem? quais contatos?), modelo de cada e-mail e histórico
+async function janelaControleCliente(id, depois) {
+  const c = _emCtrl.find((x) => x.id === id) || ((await q(sb.rpc('emails_controle'))) || []).find((x) => x.id === id);
+  if (!c) return aviso('Cliente não encontrado.', true);
+  const [contatos, cli, modelos] = await Promise.all([q(sb.from('contatos').select('id, nome, finalidade, email, recebe').eq('cliente_id', id).order('criado_em')),
+    q(sb.from('clientes').select('perfil_email, emails_tipos').eq('id', id).single()), q(sb.from('emails_modelos').select('chave, nome, assunto, texto')).catch(() => [])]);
+  const pers = cli.perfil_email === 'personalizado', tip = cli.emails_tipos || {};
+  const PERM = { cobranca: ['lembrete', 'vencimento', 'cobranca'], guia: ['parcelamento'], acordo: ['acordo'], recibo: ['recibo'], contrato: ['boas_vindas'], convite: ['convite'] };
+  const comEmail = contatos.filter((x) => x.email);
+  const j = abrirJanela({ titulo: '📨 E-mails de ' + c.nome, larga: true,
+    corpo: '<div class="ficha-selos" style="margin-bottom:10px">' + pillPessoa(c.responsavel) + ' <span class="pill neutro">Perfil: ' + esc((PERFIS_EMAIL.find((p) => p[0] === (c.perfil || 'padrao')) || PERFIS_EMAIL[0])[1]) + '</span></div>' +
+      (comEmail.length ? '' : '<div class="dica" style="margin-bottom:10px">Este cliente não tem contato com e-mail. Cadastre em <b>Clientes → ficha → Contatos</b> (com o setor e o que cada um recebe).</div>') +
+      '<div class="tabela-wrap"><table class="emc-det"><thead><tr><th>Tipo de e-mail</th><th>Recebe?</th><th>Vai para</th><th>Contatos que recebem este tipo</th><th></th></tr></thead><tbody>' +
+      TIPOS_CONTROLE.map(([k, r, mod, d]) => { const t = c.tipos[k] || {};
+        return '<tr><td><b>' + r + '</b><div class="sub">' + esc(d) + '</div></td>' +
+          '<td>' + (pers ? PERM[k].map((pk) => '<label class="check"><input type="checkbox" data-emc-tipo="' + pk + '"' + ((tip[pk] != null ? tip[pk] : pk !== 'vencimento') ? ' checked' : '') + '> ' + esc((TIPOS_EMAIL.find((x) => x[0] === pk) || [pk, pk])[1]) + '</label>').join('')
+            : t.recebe ? '<span class="pill pago">sim</span>' : '<span class="pill neutro">não</span>') + '</td>' +
+          '<td>' + (t.para ? '<span class="em-para">' + esc(t.para) + '</span><div class="sub">' + esc(ORIGEM_DESTINO[t.origem] || '') + '</div>' : '<span class="pill vencido">sem e-mail</span>') + '</td>' +
+          '<td>' + (comEmail.length ? comEmail.map((ct) => '<label class="check"><input type="checkbox" data-emc-ct="' + ct.id + '" data-k="' + k + '"' + ((ct.recebe || []).includes(k) ? ' checked' : '') + '> ' +
+              esc(ct.nome || ct.email) + ' <span class="sub">' + esc(rotSetor(ct.finalidade)) + '</span></label>').join('') : '<span class="sub">—</span>') + '</td>' +
+          '<td>' + (modelos.some((m) => m.chave === mod) ? '<button class="btn btn-o btn-mini" type="button" data-emc-modelo="' + mod + '">Ver modelo</button>' : '') + '</td></tr>'; }).join('') +
+      '</tbody></table></div>' +
+      '<p class="sub" style="margin:8px 0 14px">Marcar um contato num tipo faz <b>só ele(s)</b> receber aquele tipo. Sem ninguém marcado, vale o setor padrão (lá em cima, na lista).' +
+        (pers ? ' Perfil <b>Personalizado</b>: as caixinhas de "Recebe?" valem para este cliente.' : ' Para escolher tipo a tipo o que ele recebe, mude o perfil para <b>Personalizado</b>.') + '</p>' +
+      '<div class="secao">Histórico de e-mails</div><div id="emc-hist"><div class="carregando">Carregando…</div></div>',
+    rodape: '<button class="btn btn-o" type="button" id="emc-ficha">Abrir a ficha (Contatos)</button><div class="acoes">' + (pers ? '<button class="btn btn-p" type="button" id="emc-salvar-tipos">Salvar o que recebe</button>' : '') + '</div>' });
+  let mudou = false;
+  j._aoFechar = () => { if (mudou && depois) depois(); };
+  j.querySelectorAll('[data-emc-ct]').forEach((x) => x.onchange = () => comBotao(x, async () => {
+    await q(sb.rpc('contato_recebe', { p_contato: x.dataset.emcCt, p_tipo: x.dataset.k, p_recebe: x.checked })); mudou = true;
+    aviso('✓ ' + (x.checked ? 'Passa a receber' : 'Deixa de receber') + ' ' + (RECEBE_CURTO[x.dataset.k] || '').toLowerCase() + '.');
+  }));
+  j.querySelectorAll('[data-emc-modelo]').forEach((b) => b.onclick = () => comBotao(b, async () => {
+    const m = modelos.find((x) => x.chave === b.dataset.emcModelo);
+    const html = await q(sb.rpc('previa_email_modelo', { p_assunto: m.assunto, p_html: m.texto }));
+    const k = abrirJanela({ titulo: '✉ Modelo — ' + m.nome, larga: true, corpo: '<div class="sub" style="margin-bottom:8px">Assunto: <b>' + esc(m.assunto) + '</b> · os campos entre chaves são trocados pelos dados de verdade. Para mudar o texto: ✎ Modelos.</div><iframe class="em-previa" sandbox="" title="Prévia do modelo"></iframe>' });
+    k.querySelector('iframe').srcdoc = html;
+  }));
+  const bs = j.querySelector('#emc-salvar-tipos');
+  if (bs) bs.onclick = () => comBotao(bs, async () => {
+    const tipos = Object.assign({}, tip); j.querySelectorAll('[data-emc-tipo]').forEach((x) => { tipos[x.dataset.emcTipo] = x.checked; });
+    await q(sb.rpc('salvar_perfil_email', { p_ids: [id], p_perfil: 'personalizado', p_tipos: tipos })); mudou = true;
+    aviso('✓ O que ' + c.nome + ' recebe foi salvo.'); fecharJanela(j);
+  });
+  j.querySelector('#emc-ficha').onclick = () => { fecharJanela(j); abrirFicha(id, 'contatos'); };
+  abaEmailsCliente(j.querySelector('#emc-hist'), { id }).catch((e) => { j.querySelector('#emc-hist').innerHTML = '<div class="vazio">' + esc(erroAmigavel(e)) + '</div>'; });
+}
+
 // toda gravação confirmada aparece também no rodapé do ERP
 const _avisoOrig = aviso;
 aviso = function (msg, erro) { _avisoOrig(msg, erro); if (!erro && window.ERP_EDITOR && /^✓/.test(msg)) window.ERP_EDITOR.gravou(String(msg).replace(/^✓\s*/, '')); };
-window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, invalidarCadastros, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo, perguntarBaixa, detalheContrato, ICONE_AVISO, conciliarOfx, abrirTarefa, detalheLancamento, edicaoLancamentos, janelaModelosEmail, janelaAutoEmails, janelaGeradores };
+window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, invalidarCadastros, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo, perguntarBaixa, detalheContrato, ICONE_AVISO, conciliarOfx, abrirTarefa, detalheLancamento, edicaoLancamentos, janelaModelosEmail, janelaAutoEmails, janelaGeradores, formReuniao, janelaDelegar, abrirGeradorContrato };
 })();

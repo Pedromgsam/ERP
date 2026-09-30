@@ -248,10 +248,20 @@ select public.crm_ganhar((select id from crm_oportunidades where titulo='Holding
   '{"cliente_nome":"Holding Teste Ltda","cpf_cnpj":"11222333000181","grupo":"Grupo Holding","descricao":"Holding familiar","valor_total":30000,"num_parcelas":3,"primeiro_vencimento":"2026-11-10","responsavel":"Pedro","criar_fluxo":true}');
 commit;
 select pg_temp.ok((select count(*) from clientes where nome='Holding Teste Ltda' and origem='CRM')=1,'Ganhou: cria o cliente (mesmo sem a função Clientes)');
-select pg_temp.ok((select count(*) from lancamentos l join contratos c on c.id=l.contrato_id where c.descricao='Holding familiar')=3,'Ganhou: contrato com 3 parcelas');
-select pg_temp.ok((select count(*) from tarefas t join fluxos f on f.id=t.fluxo_id where f.nome like 'Onboarding — Holding Teste%')=7,'Ganhou: fluxo de onboarding com etapas e subtarefas');
-select pg_temp.ok((select count(*) from tarefas where titulo like 'Onboarding: Holding Teste%')=0,'Ganhou: regra de onboarding não duplica o fluxo');
-select pg_temp.ok((select e.nome from crm_oportunidades o join crm_etapas e on e.id=o.etapa_id where o.titulo='Holding Família Teste')='Contrato fechado' and (select ganho_em is not null from crm_oportunidades where titulo='Holding Família Teste'),'oportunidade vai para Contrato fechado');
+-- Backup 25: o "Fechou" cria o contrato aguardando assinatura; o financeiro e o onboarding entram na assinatura
+select pg_temp.ok((select status from contratos where descricao='Holding familiar')='Aguardando assinatura','Ganhou: contrato nasce aguardando assinatura');
+select pg_temp.ok((select count(*) from lancamentos l join contratos c on c.id=l.contrato_id where c.descricao='Holding familiar')=0,'Ganhou: sem financeiro antes da assinatura');
+select pg_temp.ok((select count(*) from fluxos where nome like 'Onboarding — Holding Teste%')=0,'Ganhou: onboarding espera a assinatura');
+select pg_temp.ok((select count(*) from tarefas where chave_regra like 'anexo:%' and titulo like '%Holding familiar%')=1,'Ganhou: tarefa "anexar contrato assinado"');
+begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-00000000000b');
+select public.contrato_assinar((select id from contratos where descricao='Holding familiar'), null);
+commit;
+select pg_temp.ok((select count(*) from lancamentos l join contratos c on c.id=l.contrato_id where c.descricao='Holding familiar')=3,'Assinado: contrato com 3 parcelas');
+select pg_temp.ok((select count(*) from tarefas t join fluxos f on f.id=t.fluxo_id where f.nome like 'Onboarding — Holding Teste%')=7,'Assinado: fluxo de onboarding com etapas e subtarefas');
+select pg_temp.ok((select count(*) from tarefas where titulo like 'Onboarding: Holding Teste%')=0,'Assinado: regra de onboarding não duplica o fluxo');
+select pg_temp.ok((select e.final from crm_oportunidades o join crm_etapas e on e.id=o.etapa_id where o.titulo='Holding Família Teste')='ganho','Assinado: oportunidade vai para "Contrato assinado"');
+select pg_temp.ok((select count(*) from notificacoes n join perfis p on p.id=n.usuario_id where p.email='admin@teste' and n.titulo like 'Contrato assinado%')=1,'Assinado: equipe é avisada');
+select pg_temp.ok((select ganho_em is not null from crm_oportunidades where titulo='Holding Família Teste'),'oportunidade fica marcada como ganha');
 insert into crm_oportunidades(titulo, prospecto_nome, etapa_id) select 'Consulta perdida', 'Fulano', id from crm_etapas where ordem = 2;
 do $$ begin
   perform public.crm_perder((select id from crm_oportunidades where titulo='Consulta perdida'), '', false);

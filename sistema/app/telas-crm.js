@@ -67,7 +67,7 @@ function crmFinalizadas(alvo, tipo) {
   const ops = filtrarOps().filter((o) => etapaDe(o.etapa_id).final === tipo)
     .sort((a, b) => String(b.assinado_em || b.ganho_em || b.perdido_em || b.atualizado_em).localeCompare(String(a.assinado_em || a.ganho_em || a.perdido_em || a.atualizado_em)));
   alvo.innerHTML = '<div class="dica" style="margin-bottom:12px">' + (tipo === 'ganho'
-      ? '<b>Contrato assinado</b> = o cliente assinou. Antes disso ele passa por <b>Contrato fechado</b> (disse sim: o sistema já criou cadastro, contrato e onboarding) e <b>Aguardando assinatura</b>.'
+      ? '<b>Contrato assinado</b> = o cliente assinou: o financeiro e o onboarding foram lançados nessa hora. Antes disso ele passa por <b>Aguardando assinatura</b> (disse sim: cadastro e contrato criados, sem financeiro).'
       : '<b>Lead perdido</b> = não fechou (preço, prazo, foi para concorrente, desistiu, sem retorno…). O motivo alimenta o relatório de perdas no Painel.') + '</div>' +
     '<div class="card">' + (ops.length ? '<div class="tabela-wrap"><table class="ordenavel"><thead><tr><th>Oportunidade</th><th data-tipo="num">Valor</th><th>Responsável</th><th data-tipo="data">' +
       (tipo === 'ganho' ? 'Assinado em' : 'Perdido em') + '</th>' + (tipo === 'perdido' ? '<th>Motivo</th>' : '<th>Área do serviço</th>') + '</tr></thead><tbody>' +
@@ -275,12 +275,16 @@ async function fichaOportunidade(id, aba) {
       '<div class="ficha-atalhos">' + (aberta && !o.ganho_em ? '<button class="btn btn-v btn-mini" id="op-ganhou" title="O cliente disse SIM: cria cadastro, contrato e onboarding">✓ Contrato fechado</button>' : '') +
       (aberta && o.ganho_em ? '<button class="btn btn-v btn-mini" id="op-assinado" title="O cliente assinou o contrato: sai do painel">✍ Contrato assinado</button>' : '') +
       (aberta ? '<button class="btn btn-x btn-mini" id="op-perdeu" title="Não fechou (preço, prazo, concorrente, desistiu, sem retorno)">✗ Lead perdido</button>' : '') +
+      (aberta ? '<button class="btn btn-o btn-mini" id="op-delegar" title="Delegar a um colaborador: cadastrar, agendar a reunião e preparar o contrato (com a sua validação)">👥 Delegar</button>' : '') +
+      (aberta ? '<button class="btn btn-o btn-mini" id="op-reuniao" title="Agenda a reunião: tarefa para cada participante, agenda e convite opcional ao cliente">📅 Reunião</button>' : '') +
       (aberta && mailOp(o) ? '<button class="btn btn-o btn-mini" id="op-follow" title="E-mail pronto de acompanhamento da proposta">✉ Follow-up</button>' : '') +
       (tel ? '<a class="btn btn-o btn-mini" target="_blank" rel="noopener" href="' + linkWa(tel) + '">WhatsApp</a>' : '') +
       (mailOp(o) ? '<a class="btn btn-o btn-mini" href="mailto:' + esc(mailOp(o)) + '">E-mail</a>' : '') +
       '<button class="btn btn-p btn-mini" id="op-editar">Editar</button></div></div>' +
       (e.final === 'perdido' && o.motivo_perda ? '<div class="dica" style="margin-bottom:10px">Perdida: ' + esc(o.motivo_perda) + '</div>' : '') +
-      (o.contrato_id ? '<div class="dica" style="margin-bottom:10px">Contrato criado. <a href="#" id="op-ver-cli">Abrir a ficha do cliente</a></div>' : '') +
+      (o.contrato_id ? '<div class="dica" style="margin-bottom:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">' + (e.final === 'ganho' ? 'Contrato assinado.' : 'Contrato criado, <b>aguardando assinatura</b>.') +
+        ' <a href="#" id="op-ver-cli">Abrir a ficha do cliente</a><span style="margin-left:auto;display:flex;gap:6px"><button class="btn btn-o btn-mini" type="button" id="op-gerar">📄 Gerar contrato</button>' +
+        '<button class="btn btn-o btn-mini" type="button" id="op-ver-ctr">Abrir o contrato</button></span></div>' : '') +
       '<div class="abas" id="op-abas">' + [['dados', 'Resumo'], ['atividades', 'Atividades'], ['propostas', 'Propostas'], ['documentos', 'Documentos']].map(([k, r]) => '<button data-aba="' + k + '">' + r + '</button>').join('') + '</div>' +
       '<div id="op-corpo" class="ficha-corpo"></div>' });
   j.querySelector('.janela').classList.add('ficha');
@@ -301,15 +305,22 @@ async function fichaOportunidade(id, aba) {
     aviso('✍ Contrato assinado! A oportunidade foi para a aba "Contratos assinados".'); fecharJanela(j); await recarregarCrm();
   });
   const fu = j.querySelector('#op-follow'); if (fu) fu.onclick = () => janelaFollowup(o);
+  const dlg = j.querySelector('#op-delegar'); if (dlg) dlg.onclick = () => janelaDelegar({ oportunidade_id: o.id, cliente_id: o.cliente_id, obs: nomeOp(o) + (o.prospecto_telefone ? ' · ' + o.prospecto_telefone : '') + (o.prospecto_email ? ' · ' + o.prospecto_email : '') });
+  const reu = j.querySelector('#op-reuniao'); if (reu) reu.onclick = () => formReuniao({ oportunidade_id: o.id, cliente_id: o.cliente_id }, () => reabrir('atividades'));
   const p = j.querySelector('#op-perdeu'); if (p) p.onclick = () => janelaPerder(o, () => { fecharJanela(j); });
   const vc = j.querySelector('#op-ver-cli'); if (vc) vc.onclick = (ev) => { ev.preventDefault(); abrirFicha(o.cliente_id); };
+  const vg = j.querySelector('#op-gerar'); if (vg) vg.onclick = () => abrirGeradorContrato(o.cliente_id, o.contrato_id);
+  const vct = j.querySelector('#op-ver-ctr'); if (vct) vct.onclick = () => detalheContrato(o.contrato_id);
   await mostrar(aba || 'dados');
   return j;
 }
 async function opAtividades(alvo, o, repinta) {
-  const at = await q(sb.from('crm_atividades').select('*').eq('oportunidade_id', o.id).order('quando', { ascending: false }));
+  const [at, reus] = await Promise.all([q(sb.from('crm_atividades').select('*').eq('oportunidade_id', o.id).order('quando', { ascending: false })),
+    q(sb.from('reunioes').select('*').eq('oportunidade_id', o.id).order('inicio', { ascending: false })).catch(() => [])]);
   const agora = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-  alvo.innerHTML = '<form id="f-at" class="grade" style="margin-bottom:12px">' + campo('Tipo', selectPares('tipo', TIPOS_ATIV, 'ligacao')) +
+  alvo.innerHTML = '<div class="titulo-pag" style="margin-bottom:6px"><div><b>Reuniões</b> <span class="sub">' + reus.length + '</span></div><div class="acoes"><button type="button" class="btn btn-o btn-mini" id="at-reuniao">📅 Agendar reunião</button></div></div>' +
+    htmlReunioes(reus) + '<div class="secao" style="margin-top:14px">Registrar atividade</div>' +
+    '<form id="f-at" class="grade" style="margin-bottom:12px">' + campo('Tipo', selectPares('tipo', TIPOS_ATIV, 'ligacao')) +
     campo('Quando', '<input type="datetime-local" name="quando" value="' + agora + '">') +
     campo('O que foi tratado / o que fazer', '<textarea name="resumo" maxlength="3000" placeholder="Ex.: enviou o relatório da PGFN; retornar na sexta"></textarea>', 'inteiro') +
     '<div class="inteiro acoes"><button type="button" class="btn btn-p btn-mini" id="at-salvar">Registrar</button><span class="sub">Data futura vira tarefa na fila do responsável.</span></div></form>' +
@@ -317,6 +328,8 @@ async function opAtividades(alvo, o, repinta) {
       esc(rotuloPar(TIPOS_ATIV, a.tipo)) + '</b> <span class="sub">' + quandoBR(a.quando) + (a.feita ? '' : ' · agendada') + '</span><div>' + esc(a.resumo) + '</div></div></div>').join('') + '</div>'
       : '<div class="vazio">Nenhuma atividade ainda.</div>');
   const f = alvo.querySelector('#f-at');
+  alvo.querySelector('#at-reuniao').onclick = () => formReuniao({ oportunidade_id: o.id, cliente_id: o.cliente_id }, repinta);
+  alvo.querySelectorAll('[data-reu]').forEach((d) => d.onclick = () => formReuniao(reus.find((x) => x.id === d.dataset.reu), repinta));
   alvo.querySelector('#at-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
     if (!f.resumo.value.trim()) throw new Error('Escreva o que foi tratado.');
     const quando = f.quando.value ? new Date(f.quando.value) : new Date(), futura = quando > new Date(Date.now() + 60000);
@@ -485,7 +498,8 @@ async function janelaGanhar(o, depois, etapaDestino) {
   const parcelas = (() => { const m = itens.map((i) => /(\d+)\s*(x|parcelas?)/i.exec(i.forma || '')).find(Boolean); return m ? +m[1] : 1; })();
   const j = abrirJanela({ titulo: '✓ Contrato fechado — ' + o.titulo, larga: true,
     corpo: '<div class="dica" style="margin-bottom:10px">O cliente disse <b>sim</b>. Confira os dados: ao confirmar, o sistema cria ' + (cli ? '' : 'o <b>cliente</b> (com os dados do contato' + (o.prospecto_doc ? ' e consulta o cartão CNPJ' : '') + '), ') +
-        'o <b>contrato</b> ' + (pr ? '(a partir da proposta v' + pr.versao + ')' : '') + ', o <b>onboarding</b> e a tarefa <b>"Enviar contrato para assinatura"</b>. A oportunidade vai para "Contrato fechado"' + (etapaDestino ? ' e depois para a etapa escolhida' : '') + '.</div>' +
+        'o <b>contrato aguardando assinatura</b> ' + (pr ? '(a partir da proposta v' + pr.versao + ')' : '') + ' e a tarefa <b>"Enviar contrato para assinatura"</b>. ' +
+        '<b>O financeiro e o onboarding só entram quando o contrato for assinado.</b> Depois, use <b>📄 Gerar contrato</b> na ficha: o gerador abre já preenchido.</div>' +
       '<form id="f-gan" class="grade">' +
       (cli ? '<div class="inteiro dica">Cliente: <b>' + esc(cli.nome) + '</b></div>' :
         campo('Nome do cliente <span class="obrig">*</span>', '<input name="cliente_nome" value="' + esc(o.prospecto_empresa || o.prospecto_nome || '') + '">') +
@@ -506,7 +520,7 @@ async function janelaGanhar(o, depois, etapaDestino) {
         campo('Dia do vencimento', '<input name="dia_vencimento" type="number" min="1" max="28" value="10">') +
         campo('1ª competência', '<input name="inicio_competencia" type="month" value="' + hojeISO().slice(0, 7) + '">') + '</div>' +
       campo('Responsável', '<input name="responsavel" list="gan-pessoas" value="' + esc(o.responsavel || '') + '">' + datalistPessoas('gan-pessoas')) +
-      '<label class="check inteiro"><input type="checkbox" name="criar_fluxo" checked> Criar o fluxo "Onboarding de cliente" (tarefas com prazos em dias úteis)</label></form>',
+      '<label class="check inteiro"><input type="checkbox" name="criar_fluxo" checked> Na assinatura, criar o fluxo "Onboarding de cliente" (tarefas com prazos em dias úteis)</label></form>',
     rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-v" type="button" id="btn-ganhar">Confirmar — Contrato fechado</button></div>' });
   const f = j.querySelector('#f-gan');
   const modo = () => { const c = f.modalidade.value === 'consultoria'; j.querySelector('#gan-pontual').classList.toggle('escondido', c); j.querySelector('#gan-consult').classList.toggle('escondido', !c); };
@@ -528,7 +542,7 @@ async function janelaGanhar(o, depois, etapaDestino) {
     if (etapaDestino) await q(sb.from('crm_oportunidades').update({ etapa_id: etapaDestino }).eq('id', o.id));
     // cliente novo com CNPJ: busca o cartão CNPJ na hora (se a função estiver publicada)
     if (!cli && soDigitos(p.cpf_cnpj).length === 14 && r && r.cliente_id) chamarFuncao('erp-cnpj', { cliente_id: r.cliente_id, auto: true }).catch(() => {});
-    aviso('✓ Contrato fechado! Cliente, contrato' + (p.criar_fluxo ? ', onboarding' : '') + ' e a tarefa "Enviar contrato para assinatura" criados.');
+    aviso('✓ Contrato fechado: contrato aguardando assinatura e a tarefa "Enviar contrato para assinatura" criados. Gere o contrato em 📄 Gerar contrato.');
     fecharJanela(j); if (depois) depois(r);
     await carregarCadastros(true); await recarregarCrm();
   });
@@ -636,4 +650,68 @@ async function janelaModelosProposta() {
       htmlProposta({ prospecto_empresa: 'Empresa Exemplo Ltda' }, { versao: 1, titulo: m.nome, texto: m.texto, itens: (m.itens || []).map((i) => Object.assign({}, i, { valor: i.valor || 1000 })), validade: somarDias(hojeISO(), 15) }) + '</body></html>');
     w.document.close();
   });
+}
+
+// ═══ Backup 25: REUNIÃO a partir do lead (ou da ficha do cliente) ═══
+// Vira tarefa de cada participante, cai na agenda (Google Agenda assinado), entra nas atividades do CRM e na linha do tempo.
+// Convite por e-mail ao cliente só quando marcado "Sim" (e só sai com a pausa de e-mails desligada).
+async function formReuniao(r, depois) {
+  r = r || {};
+  const novo = !r.id;
+  const o = r.oportunidade_id ? (await q(sb.from('crm_oportunidades').select('id, titulo, cliente_id, prospecto_email, prospecto_nome, responsavel').eq('id', r.oportunidade_id)))[0] : null;
+  const cli = r.cliente_id || (o && o.cliente_id) || null;
+  const ini = r.inicio ? new Date(r.inicio) : (() => { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(10, 0, 0, 0); return d; })();
+  const pad = (n) => String(n).padStart(2, '0');
+  const dataLocal = ini.getFullYear() + '-' + pad(ini.getMonth() + 1) + '-' + pad(ini.getDate()), horaLocal = pad(ini.getHours()) + ':' + pad(ini.getMinutes());
+  let destino = '';
+  if (cli) { const c = E.clientes.find((x) => x.id === cli); destino = c ? 'o contato de "Convites" de ' + c.nome + ' (ou o setor Sócio / contato Geral)' : ''; }
+  else if (o && o.prospecto_email) destino = o.prospecto_email;
+  const j = abrirJanela({ titulo: novo ? '📅 Agendar reunião' : '📅 Reunião', larga: true,
+    corpo: '<form id="f-reu" class="grade">' +
+      campo('Assunto <span class="obrig">*</span>', '<input name="titulo" maxlength="200" value="' + esc(r.titulo || (o ? 'Reunião de diagnóstico — ' + o.titulo : 'Reunião')) + '">', 'inteiro') +
+      campo('Data <span class="obrig">*</span>', '<input name="data" type="date" value="' + dataLocal + '">') +
+      campo('Hora <span class="obrig">*</span>', '<input name="hora" type="time" value="' + horaLocal + '">') +
+      campo('Duração', '<select name="duracao_min">' + [[30, '30 min'], [60, '1 hora'], [90, '1h30'], [120, '2 horas']].map(([v, t]) => '<option value="' + v + '"' + (Number(r.duracao_min || 60) === v ? ' selected' : '') + '>' + t + '</option>').join('') + '</select>') +
+      campo('Local ou link', '<input name="local" maxlength="300" placeholder="Ex.: escritório, ou o link do Meet/Zoom" value="' + esc(r.local || '') + '">', 'inteiro') +
+      '<div class="inteiro"><div class="secao">Participantes do escritório</div>' + campoParticipantes(r.participantes || (o && o.responsavel) || (E.perfil && E.perfil.nome) || '') + '</div>' +
+      '<div class="inteiro"><div class="secao">Enviar convite por e-mail ao cliente?</div><div class="segmento" id="reu-convite">' +
+        [['nao', 'Não'], ['sim', 'Sim, enviar o convite']].map(([v, t]) => '<button type="button" data-v="' + v + '"' + ((r.convite ? 'sim' : 'nao') === v ? ' class="ativo"' : '') + '>' + t + '</button>').join('') + '</div>' +
+        '<div class="grade" id="reu-conv-det" style="margin-top:8px">' +
+          campo('E-mail do convite (opcional)', '<input name="convite_para" type="email" placeholder="' + esc(destino || 'e-mail do cliente') + '" value="' + esc(r.convite_para || '') + '">', 'inteiro') +
+          '<div class="dica inteiro">Vazio = vai para ' + esc(destino || 'o e-mail do lead') + '. O convite leva o arquivo para o cliente salvar na agenda. <b>Com a pausa de e-mails ligada, ele fica retido.</b></div></div></div>' +
+      campo('Observação', '<textarea name="obs" maxlength="2000">' + esc(r.obs || '') + '</textarea>', 'inteiro') + '</form>',
+    rodape: (!novo ? '<button class="btn btn-x" type="button" id="reu-cancelar">Cancelar reunião</button>' : '<span></span>') +
+      '<div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Fechar</button><button class="btn btn-p" type="button" id="reu-salvar">' + (novo ? 'Agendar' : 'Salvar') + '</button></div>' });
+  const f = j.querySelector('#f-reu');
+  let convite = !!r.convite;
+  const seg = j.querySelector('#reu-convite');
+  const mostrarConv = () => { seg.querySelectorAll('button').forEach((b) => b.classList.toggle('ativo', (b.dataset.v === 'sim') === convite)); j.querySelector('#reu-conv-det').classList.toggle('escondido', !convite); };
+  seg.onclick = (ev) => { const b = ev.target.closest('button'); if (b) { convite = b.dataset.v === 'sim'; mostrarConv(); } };
+  mostrarConv();
+  j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
+  j.querySelector('#reu-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    if (!f.titulo.value.trim()) throw new Error('Informe o assunto da reunião.');
+    if (!f.data.value || !f.hora.value) throw new Error('Informe a data e a hora.');
+    const part = lerParticipantes(j);
+    if (!part) throw new Error('Marque pelo menos um participante do escritório.');
+    const dados = { titulo: f.titulo.value.trim(), inicio: new Date(f.data.value + 'T' + f.hora.value + ':00').toISOString(), duracao_min: Number(f.duracao_min.value) || 60,
+      local: f.local.value.trim(), participantes: part, convite, convite_para: convite ? f.convite_para.value.trim() : '', obs: f.obs.value.trim(),
+      oportunidade_id: r.oportunidade_id || null, cliente_id: cli };
+    if (novo) await q(sb.from('reunioes').insert(dados)); else await q(sb.from('reunioes').update(dados).eq('id', r.id));
+    aviso('✓ Reunião ' + (novo ? 'agendada' : 'atualizada') + ': tarefa para ' + part + (convite ? ' e convite ao cliente na fila de e-mails.' : '.'));
+    fecharJanela(j); if (depois) await depois();
+  });
+  const bc = j.querySelector('#reu-cancelar');
+  if (bc) bc.onclick = () => comBotao(bc, async () => {
+    if (!confirm('Cancelar esta reunião? As tarefas dos participantes são canceladas.')) return;
+    await q(sb.from('reunioes').update({ status: 'cancelada' }).eq('id', r.id)); aviso('Reunião cancelada.'); fecharJanela(j); if (depois) await depois();
+  });
+}
+// lista de reuniões (ficha do lead e do cliente)
+function htmlReunioes(lista) {
+  if (!lista.length) return '<div class="sub">Nenhuma reunião agendada.</div>';
+  return '<div class="lista-ficha">' + lista.map((x) => '<div class="item-ficha clicavel" data-reu="' + x.id + '"><div><b>' + esc(x.titulo) + '</b>' +
+    ' <span class="pill ' + (x.status === 'cancelada' ? 'neutro' : new Date(x.inicio) < new Date() ? 'pago' : 'aberto') + '">' + (x.status === 'cancelada' ? 'cancelada' : dataHoraBR(x.inicio)) + '</span>' +
+    (x.convite ? ' <span class="pill ' + (x.convite_enviado_em ? 'pago' : 'hoje') + '">' + (x.convite_enviado_em ? '✉ convite enviado' : '✉ convite na fila') + '</span>' : '') +
+    '<div class="sub">' + esc([x.local, x.participantes].filter(Boolean).join(' · ')) + '</div></div></div>').join('') + '</div>';
 }

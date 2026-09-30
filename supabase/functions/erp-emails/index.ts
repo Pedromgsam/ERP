@@ -7,12 +7,13 @@
 //   "teste"  → põe um e-mail de teste para o admin e envia
 //   "resumo" → monta o resumo do dia de cada pessoa e envia
 // E-mail com anexo {tipo:'recibo', dados} (Recebido → recibo): o PDF do recibo é montado aqui, sem biblioteca.
+// Backup 25: anexo {tipo:'ics', arquivo, conteudo} (convite de reunião) e vários destinatários em "para" (separados por vírgula).
 // Quem pode chamar: a rotina do banco (cabeçalho x-erp-segredo) ou um administrador logado.
 // A senha do Gmail/SMTP/Resend fica no banco (config_privada) — nunca no site.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import nodemailer from 'npm:nodemailer@6.9.14';
 
-const VERSAO = '2026-10-01';
+const VERSAO = '2026-10-05';
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-erp-segredo',
@@ -78,7 +79,12 @@ export function pdfRecibo(d) {
   return bytes;
 }
 function base64(bytes) { let s = ''; for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]); return btoa(s); }
+// "a@x.com, b@y.com" → ['a@x.com', 'b@y.com']
+const destinos = (para) => String(para || '').split(/[,;]\s*/).map((x) => x.trim()).filter(Boolean);
 function anexos(msg) {
+  if (msg.anexo && msg.anexo.tipo === 'ics' && msg.anexo.conteudo) {
+    return [{ filename: String(msg.anexo.arquivo || 'convite.ics').replace(/[\\/:*?"<>|]/g, '-'), content: base64(new TextEncoder().encode(String(msg.anexo.conteudo))), tipo: 'text/calendar' }];
+  }
   if (!msg.anexo || msg.anexo.tipo !== 'recibo' || !msg.anexo.dados) return [];
   return [{ filename: String(msg.anexo.arquivo || 'Recibo.pdf').replace(/[\\/:*?"<>|]/g, '-'), content: base64(pdfRecibo(msg.anexo.dados)) }];
 }
@@ -90,7 +96,7 @@ async function enviarUm(cfg, msg, mailer) {
     const r = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: 'Bearer ' + cfg.senha, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: de, to: [msg.para], subject: msg.assunto, html: msg.html, reply_to: cfg.responder || undefined, attachments: anexos(msg).length ? anexos(msg) : undefined })
+      body: JSON.stringify({ from: de, to: destinos(msg.para), subject: msg.assunto, html: msg.html, reply_to: cfg.responder || undefined, attachments: anexos(msg).length ? anexos(msg).map((a) => ({ filename: a.filename, content: a.content })) : undefined })
     });
     if (!r.ok) throw new Error('Resend recusou (' + r.status + '): ' + (await r.text()).slice(0, 300));
     return;
@@ -99,8 +105,8 @@ async function enviarUm(cfg, msg, mailer) {
   const host = cfg.provedor === 'gmail' ? 'smtp.gmail.com' : cfg.host;
   const porta = Number(cfg.provedor === 'gmail' ? 465 : cfg.porta || 465);
   const t = mailer.createTransport({ host, port: porta, secure: porta === 465, auth: { user: cfg.usuario, pass: cfg.senha } });
-  await t.sendMail({ from: de, to: msg.para, subject: msg.assunto, html: msg.html, replyTo: cfg.responder || undefined,
-    attachments: anexos(msg).map((a) => ({ filename: a.filename, content: a.content, encoding: 'base64', contentType: 'application/pdf' })) });
+  await t.sendMail({ from: de, to: destinos(msg.para).join(', '), subject: msg.assunto, html: msg.html, replyTo: cfg.responder || undefined,
+    attachments: anexos(msg).map((a) => ({ filename: a.filename, content: a.content, encoding: 'base64', contentType: a.tipo || 'application/pdf' })) });
 }
 
 async function processarFila(db, mailer) {

@@ -581,3 +581,16 @@ body.gx-barra-topo .pcx-abre{font-size:18px;color:var(--text3)}
 .pcd .acx-info{margin:0 0 10px;padding:8px 10px;border-radius:var(--r-ctl);background:var(--surface2)}
 /* Backup 24: lista de guias abre logo abaixo da faixa de destaques */
 body.gx-barra-topo .gs .ini-guias{margin:0 0 var(--sp-3)}
+/* ═══ Backup 25: fluxo cliente → financeiro, contatos por setor e controle dos e-mails ═══ */
+.sub-multi{border:1px solid var(--border);border-radius:var(--r-ctl);padding:8px 12px 10px;display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:4px 14px}
+.sub-multi legend{padding:0 6px;font-size:12px;font-weight:600;color:var(--text2)}
+.emc-destinos{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;font-size:13px;color:var(--text2)}
+.emc-destinos label{display:inline-flex;gap:6px;align-items:center;white-space:nowrap}
+.emc-destinos .sel{min-width:0;padding:4px 8px}
+.emc-tab td .em-para,.emc-det td .em-para{font-size:12.5px;word-break:break-all}
+.emc-tab td{vertical-align:top}
+.emc-det td{vertical-align:top}
+.emc-det td .check{display:flex;margin:2px 0}
+.tf-com{padding:4px 0;border-bottom:1px dashed var(--border);font-size:13px}
+.ini-valid .item-ficha{align-items:center}
+.ini-valid .acoes{display:flex;gap:6px;align-items:center;flex-wrap:wrap}

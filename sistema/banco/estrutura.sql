@@ -1023,6 +1023,10 @@ begin
     if exists (select 1 from jsonb_array_elements(coalesce(new.checklist, '[]')) e where coalesce((e->>'feito')::boolean, false) = false) then
       raise exception 'Conclua todos os itens do checklist antes de concluir a tarefa.';
     end if;
+    -- Backup 25: "depende de" trava — o passo anterior precisa estar concluído (e aprovado, se tiver revisão)
+    if new.depende_de is not null and exists (select 1 from public.tarefas d where d.id = new.depende_de and d.status not in ('concluida', 'cancelada')) then
+      raise exception 'Esta tarefa depende de "%": conclua (ou aprove) aquela antes.', (select titulo from public.tarefas where id = new.depende_de);
+    end if;
     if new.exige_anexo and tg_op = 'UPDATE' and not exists (select 1 from public.documentos d where d.tarefa_id = new.id and not d.arquivado) then
       raise exception 'Esta tarefa exige um documento anexado (ex.: protocolo) antes de ser concluída.';
     end if;
@@ -3009,6 +3013,7 @@ insert into public.configuracoes (chave, valor) values ('dados_pagamento', '{"pi
 on conflict (chave) do nothing;
 
 -- e-mail certo para cada assunto: contato com a FINALIDADE pedida (financeiro, juridico…), depois quem recebe boletos/avisos, depois o do cadastro
+drop function if exists public.contato_do_cliente(uuid, uuid, text);  -- Backup 25 mudou o retorno (setor/origem)
 create or replace function public.contato_do_cliente(p_cliente uuid, p_grupo uuid, p_finalidade text default 'financeiro')
 returns table (email text, nome text)
 language sql stable security definer set search_path = public as $$
@@ -4016,7 +4021,7 @@ begin
               and not exists (select 1 from public.automacoes_log g where g.ref = 'email_lhi:' || l.id)
             group by l.cliente_id, l.grupo_id loop
     select * into m from public.modelo_email('hon_lembrete', jsonb_build_object('vencimento', to_char(x.venc, 'DD/MM/YYYY')));
-    return query select 'honorarios'::text, 'email_lh'::text, 'email_lh:' || md5(x.ids), x.cli, x.grp, 'financeiro'::text, m.assunto, m.texto, x.its, true, x.mk, x.venc;
+    return query select 'honorarios'::text, 'email_lh'::text, 'email_lh:' || md5(x.ids), x.cli, x.grp, 'cobranca'::text, m.assunto, m.texto, x.its, true, x.mk, x.venc;
   end loop;
   -- honorários: vence hoje (perfil "Só no vencimento")
   for x in select l.cliente_id cli, l.grupo_id grp, min(l.vencimento) venc, array_agg('email_vhi:' || l.id order by l.id) mk, string_agg(l.id::text, ',' order by l.id) ids,
@@ -4027,7 +4032,7 @@ begin
               and public.pode_email(l.cliente_id, l.grupo_id, 'vencimento') and public.perfil_email_de(l.cliente_id, l.grupo_id) <> 'padrao'
             group by l.cliente_id, l.grupo_id loop
     select * into m from public.modelo_email('hon_hoje', '{}');
-    return query select 'honorarios'::text, 'email_vh'::text, 'email_vh:' || md5(x.ids), x.cli, x.grp, 'financeiro'::text, m.assunto, m.texto, x.its, true, x.mk, x.venc;
+    return query select 'honorarios'::text, 'email_vh'::text, 'email_vh:' || md5(x.ids), x.cli, x.grp, 'cobranca'::text, m.assunto, m.texto, x.its, true, x.mk, x.venc;
   end loop;
   -- honorários em atraso: 1º, 2º e 3º aviso (um e-mail por cliente e nível, com todos os que estão em aberto)
   for k in 1..3 loop
@@ -4035,11 +4040,14 @@ begin
                     array_agg(case when k = 1 then 'email_ch:' else 'email_ch' || k || ':' end || l.id order by l.id) mk, string_agg(l.id::text, ',' order by l.id) ids
                from public.lancamentos l where l.tipo = 'receita' and not l.redutor and not l.pago and not coalesce(l.perda, false)
                 and current_date - l.vencimento >= case k when 1 then t1 when 2 then t2 else t3 end
-                and (k = 3 or current_date - l.vencimento < case k when 1 then t2 else t3 end)
-                and not exists (select 1 from public.automacoes_log g where g.ref = case when k = 1 then 'email_ch:' else 'email_ch' || k || ':' end || l.id)
+                -- Backup 25: um aviso por vez (1º → 2º → 3º), com o intervalo entre eles; quem nunca foi avisado recebe o 1º (não pula para o 2º)
+                and not exists (select 1 from public.automacoes_log g where g.ref in (select pf || l.id from unnest(case k when 1 then array['email_ch:', 'email_ch2:', 'email_ch3:']
+                                                                                                                  when 2 then array['email_ch2:', 'email_ch3:'] else array['email_ch3:'] end) pf))
+                and (k = 1 or exists (select 1 from public.automacoes_log g where g.ref = case k when 2 then 'email_ch:' else 'email_ch2:' end || l.id
+                                        and g.quando <= now() - make_interval(days => greatest(case k when 2 then t2 - t1 else t3 - t2 end, 1))))
               group by l.cliente_id, l.grupo_id loop
       select * into m from public.modelo_email('hon_atraso' || k, '{}');
-      return query select 'honorarios'::text, 'email_ch'::text, 'email_ch' || k || 'c:' || md5(x.ids), x.cli, x.grp, 'financeiro'::text, m.assunto, m.texto,
+      return query select 'honorarios'::text, 'email_ch'::text, 'email_ch' || k || 'c:' || md5(x.ids), x.cli, x.grp, 'cobranca'::text, m.assunto, m.texto,
         (select jsonb_agg(jsonb_build_object('descricao', o.descricao || coalesce(' (' || nullif(o.referencia, '') || ')', ''), 'vencimento', o.vencimento, 'valor', o.valor) order by o.vencimento)
            from public.lancamentos o where o.tipo = 'receita' and not o.redutor and not o.pago and not coalesce(o.perda, false) and o.vencimento < current_date
             and ((x.cli is not null and o.cliente_id = x.cli) or (x.cli is null and o.grupo_id = x.grp))), true, x.mk, x.venc;
@@ -4054,7 +4062,7 @@ begin
               and not exists (select 1 from public.automacoes_log g where g.ref = 'email_lp:' || pa.id) loop
     select * into m from public.modelo_email('parc_guia', jsonb_build_object('parcela', coalesce(x.numero, '') || coalesce('/' || x.total_parcelas, ''), 'natureza', trim(both ' ·' from coalesce(x.natureza, '') || coalesce(' · ' || nullif(x.local, ''), '')),
       'numero', coalesce(' (nº ' || nullif(x.parc_num, '') || ')', ''), 'empresa', coalesce(x.empresa, ''), 'vencimento', to_char(x.vencimento, 'DD/MM/YYYY')));
-    return query select 'parcelamentos'::text, 'email_lp'::text, 'email_lp:' || x.id, x.cli, x.grupo_id, 'financeiro'::text, m.assunto, m.texto,
+    return query select 'parcelamentos'::text, 'email_lp'::text, 'email_lp:' || x.id, x.cli, x.grupo_id, 'guia'::text, m.assunto, m.texto,
       case when coalesce(x.valor_ultima_parcela, 0) > 0 then jsonb_build_array(jsonb_build_object('descricao', 'Parcela ' || coalesce(x.numero, ''), 'vencimento', x.vencimento, 'valor', x.valor_ultima_parcela)) else '[]'::jsonb end,
       false, '{}'::text[], x.vencimento;
   end loop;
@@ -4069,7 +4077,7 @@ begin
              where not exists (select 1 from public.automacoes_log g where g.ref = 'email_pa:' || z.id || ':' || z.n) loop
       select * into m from public.modelo_email('parc_atraso', jsonb_build_object('atrasadas', x.n, 'natureza', trim(both ' ·' from coalesce(x.natureza, '') || coalesce(' · ' || nullif(x.local, ''), '')),
         'numero', coalesce(' (nº ' || nullif(x.parc_num, '') || ')', ''), 'empresa', coalesce(x.empresa, '')));
-      return query select 'parcelamentos'::text, 'email_lp'::text, 'email_pa:' || x.id || ':' || x.n, x.cli, x.grupo_id, 'financeiro'::text, m.assunto, m.texto, '[]'::jsonb, false, '{}'::text[], x.venc;
+      return query select 'parcelamentos'::text, 'email_lp'::text, 'email_pa:' || x.id || ':' || x.n, x.cli, x.grupo_id, 'guia'::text, m.assunto, m.texto, '[]'::jsonb, false, '{}'::text[], x.venc;
     end loop;
   end if;
   -- acordos: lembrete (até N dias antes; cada parcela uma vez) e atraso (N dias depois do vencimento)
@@ -4082,7 +4090,7 @@ begin
     select * into m from public.modelo_email(case when x.atrasada then 'aco_atraso' else 'aco_lembrete' end, jsonb_build_object('parcela', coalesce(x.parcela, '') || coalesce('/' || nullif(x.total_parcelas, ''), ''),
       'credor', coalesce(x.credor, ''), 'processo', coalesce(x.processo, ''), 'vencimento', to_char(x.vencimento, 'DD/MM/YYYY'),
       'pix', case when coalesce(x.pix, '') <> '' then ' — PIX do credor: ' || x.pix else '' end || case when coalesce(x.banco, '') <> '' then ' — ' || x.banco else '' end));
-    return query select 'acordos'::text, 'email_la'::text, case when x.atrasada then 'email_aa:' else 'email_la:' end || x.id, x.cli, x.grupo_id, 'juridico'::text, m.assunto, m.texto,
+    return query select 'acordos'::text, 'email_la'::text, case when x.atrasada then 'email_aa:' else 'email_la:' end || x.id, x.cli, x.grupo_id, 'acordo'::text, m.assunto, m.texto,
       jsonb_build_array(jsonb_build_object('descricao', 'Parcela ' || coalesce(x.parcela, '') || coalesce('/' || nullif(x.total_parcelas, ''), ''), 'vencimento', x.vencimento, 'valor', x.valor)), false, '{}'::text[], x.vencimento;
   end loop;
 end $$;
@@ -4158,7 +4166,7 @@ begin
   select coalesce(cl.nome, g.nome, l.favorecido, 'cliente'), coalesce(nullif(cl.cpf_cnpj, ''), '') into quem, doc
     from (select 1) z left join public.clientes cl on cl.id = l.cliente_id left join public.grupos g on g.id = l.grupo_id;
   return jsonb_build_object('emitente', em->>'nome', 'qualif', coalesce(em->>'qualif', ''), 'oab', coalesce(em->>'oab', ''), 'local', coalesce(em->>'local', ''),
-    'pagador', quem, 'doc', doc, 'valor', l.valor, 'valor_txt', 'R$ ' || to_char(l.valor, 'FM999G999G990D00'), 'extenso', public.valor_extenso(l.valor),
+    'pagador', quem, 'doc', doc, 'valor', l.valor, 'valor_txt', public.brl_texto(l.valor), 'extenso', public.valor_extenso(l.valor),
     'referente', l.descricao || coalesce(' (' || nullif(l.referencia, '') || ')', ''), 'data', to_char(coalesce(l.data_pagamento, current_date), 'DD/MM/YYYY'),
     'data_extenso', extract(day from coalesce(l.data_pagamento, current_date))::int || ' de ' ||
       (array['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'])[extract(month from coalesce(l.data_pagamento, current_date))::int] ||
@@ -4181,7 +4189,7 @@ begin
   if exists (select 1 from public.regras_tarefas where chave = 'email_pagamento_recebido' and ligada) then
     r := public.recibo_dados(new.id);
     select * into m from public.modelo_email('recibo', jsonb_build_object('valor', r->>'valor_txt', 'extenso', r->>'extenso', 'data_pagamento', r->>'data'));
-    perform public.email_cliente_enviar('email_pr', 'email_pr:' || new.id, new.cliente_id, new.grupo_id, 'financeiro', m.assunto, m.texto,
+    perform public.email_cliente_enviar('email_pr', 'email_pr:' || new.id, new.cliente_id, new.grupo_id, 'recibo', m.assunto, m.texto,
       jsonb_build_array(jsonb_build_object('descricao', new.descricao || coalesce(' (' || nullif(new.referencia, '') || ')', ''), 'vencimento', new.vencimento, 'valor', new.valor)), false,
       jsonb_build_object('tipo', 'recibo', 'arquivo', 'Recibo ' || (r->>'numero') || '.pdf', 'dados', r));
   end if;
@@ -4337,6 +4345,7 @@ begin
     union select email from public.contatos where cliente_id = p_cliente and email <> '') z;
   return coalesce((select jsonb_agg(jsonb_build_object('id', f.id, 'quando', coalesce(f.enviado_em, f.criado_em), 'assunto', f.assunto, 'para', f.para, 'status', f.status, 'erro', f.erro,
       'anexo', f.anexo is not null, 'tipo', case when f.referencia like 'email_pr:%' then 'Recibo' when f.referencia ~ '^email_(lp|pa)' then 'Parcelamento' when f.referencia ~ '^email_(la|aa)' then 'Acordo'
+      when f.referencia like 'email_bv:%' then 'Boas-vindas' when f.referencia like 'email_cv:%' then 'Convite de reunião'
       when f.tipo = 'proposta' then 'Proposta' when f.referencia like 'email_%' then 'Honorários' else 'Mensagem' end) order by f.criado_em desc)
     from public.email_fila f where f.tipo in ('cliente', 'proposta')
      and (f.referencia in (select ref from public.automacoes_log where cliente_id = p_cliente) or lower(f.para) = any(coalesce(mails, '{}')))), '[]');
@@ -4663,3 +4672,852 @@ begin
 end $$;
 revoke all on function public.excluir_usuario(uuid) from public, anon;
 grant execute on function public.excluir_usuario(uuid) to authenticated;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- Backup 25 — FLUXO CLIENTE → FINANCEIRO (etapa 0: correções)
+--   · contrato novo pode nascer "Aguardando assinatura": não lança parcelas nem mensalidades
+--   · ao virar "Ativo" (assinado): lança o financeiro, cria o onboarding, avisa a equipe, move o CRM
+--     para "Contrato assinado", registra na linha do tempo e manda as boas-vindas (se ligado)
+--   · o "Fechou" do CRM cria o contrato aguardando assinatura (financeiro e onboarding só na assinatura)
+--   · recibo com valor no formato brasileiro (R$ 1.500,00) · "depende de" trava a conclusão
+-- ═══════════════════════════════════════════════════════════════════
+alter table public.contratos drop constraint if exists contratos_status_check;
+alter table public.contratos add constraint contratos_status_check check (status in ('Aguardando assinatura','Ativo','Encerrado','Cancelado'));
+alter table public.contratos add column if not exists assinado_em date;
+alter table public.contratos add column if not exists onboarding_pendente boolean not null default false;
+
+-- lança as parcelas de um contrato pontual (uma vez só: se já tem parcela, não repete)
+create or replace function public.lancar_parcelas_contrato(p_contrato uuid) returns int
+language plpgsql security definer set search_path = public as $$
+declare c public.contratos; i int; base numeric(14,2); v numeric(14,2); g uuid;
+begin
+  select * into c from public.contratos where id = p_contrato;
+  if not found or c.valor_total <= 0 or c.primeiro_vencimento is null then return 0; end if;
+  if coalesce(c.modalidade, 'pontual') = 'consultoria' then return 0; end if;
+  if exists (select 1 from public.lancamentos where contrato_id = c.id and chave_recorrencia is null and parcela is not null) then return 0; end if;
+  select grupo_id into g from public.clientes where id = c.cliente_id;
+  base := trunc(c.valor_total / c.num_parcelas, 2);
+  for i in 1..c.num_parcelas loop
+    v := case when i = c.num_parcelas then c.valor_total - base * (c.num_parcelas - 1) else base end;
+    insert into public.lancamentos (empresa, tipo, descricao, categoria, cliente_id, contrato_id, grupo_id, responsavel, referencia,
+                                    parcela, total_parcelas, vencimento, valor)
+    values ('escritorio', 'receita', c.descricao || case when c.num_parcelas > 1 then ' — parcela ' || i || '/' || c.num_parcelas else '' end,
+            'Honorários', c.cliente_id, c.id, g, c.responsavel, case when c.num_parcelas > 1 then i || '/' || c.num_parcelas else '' end,
+            i, c.num_parcelas, (c.primeiro_vencimento + make_interval(months => i - 1))::date, v);
+  end loop;
+  return c.num_parcelas;
+end $$;
+revoke all on function public.lancar_parcelas_contrato(uuid) from public, anon, authenticated;
+
+create or replace function public.gerar_parcelas_contrato() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if new.status = 'Aguardando assinatura' then return new; end if;
+  perform public.lancar_parcelas_contrato(new.id);
+  return new;
+end $$;
+drop trigger if exists gerar_parcelas on public.contratos;
+create trigger gerar_parcelas after insert on public.contratos for each row execute function public.gerar_parcelas_contrato();
+
+-- regras "na hora" do contrato novo: aguardando assinatura só ganha a tarefa de anexar (o resto vem na assinatura)
+create or replace function public.regra_contrato_novo() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare rg record; cl record; ck jsonb;
+begin
+  if current_setting('erp.sem_regra_onboarding', true) = '1' or new.status = 'Aguardando assinatura' then return null; end if;
+  select * into rg from public.regras_tarefas where chave = 'contrato_onboarding' and ligada;
+  if not found then return null; end if;
+  select * into cl from public.clientes where id = new.cliente_id;
+  select coalesce(jsonb_agg(jsonb_build_object('texto', i->>'titulo', 'feito', false)), '[]') into ck
+    from public.modelos_fluxo m, jsonb_array_elements(m.itens) i where m.nome = 'Onboarding de cliente';
+  perform public.tarefa_da_regra('onb:' || new.id, 'Onboarding: ' || coalesce(cl.nome, new.descricao),
+    coalesce(nullif(rg.responsavel, ''), nullif(new.responsavel, ''), cl.responsavel),
+    public.somar_uteis(current_date, rg.dias), new.cliente_id, cl.grupo_id, new.id, ck, 'Contrato: ' || new.descricao);
+  return null;
+end $$;
+
+-- "anexar o contrato assinado" também para o contrato que vem do CRM
+create or replace function public.regra_contrato_anexo() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare rg record; cl record;
+begin
+  select * into rg from public.regras_tarefas where chave = 'contrato_anexo' and ligada;
+  if not found then return null; end if;
+  if exists (select 1 from public.documentos d where d.contrato_id = new.id and d.tipo = 'contrato' and d.mime <> 'text/html') then return null; end if;
+  select * into cl from public.clientes where id = new.cliente_id;
+  perform public.tarefa_da_regra('anexo:' || new.id, 'Anexar o contrato assinado — ' || new.descricao || coalesce(' (' || cl.nome || ')', ''),
+    coalesce(nullif(rg.responsavel, ''), nullif(new.responsavel, ''), cl.responsavel), public.somar_uteis(coalesce(new.data_contrato, current_date), rg.dias),
+    new.cliente_id, cl.grupo_id, new.id, '[]',
+    case when new.status = 'Aguardando assinatura'
+         then 'Quando o cliente assinar: Contratos → abrir o contrato → "✓ Marcar como assinado" e anexe o PDF. O financeiro é lançado nessa hora.'
+         else 'Envie o PDF assinado em Contratos → abrir o contrato → Documentos. A tarefa se conclui sozinha.' end);
+  return null;
+end $$;
+
+-- documento ligado ao contrato → conclui "anexar contrato" (a minuta gerada pelo gerador, em HTML, não conta)
+create or replace function public.anexo_conclui_tarefa() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare n int;
+begin
+  if new.contrato_id is null or coalesce(new.mime, '') = 'text/html' then return null; end if;
+  update public.tarefas set status = 'concluida', checklist = (select coalesce(jsonb_agg(i || '{"feito":true}'::jsonb), '[]'::jsonb) from jsonb_array_elements(checklist) i)
+   where chave_regra = 'anexo:' || new.contrato_id and status not in ('concluida','cancelada');
+  get diagnostics n = row_count;
+  if n > 0 then insert into public.automacoes_log (chave, ref, descricao, cliente_id) values ('anexo', 'anexo-ok:' || new.contrato_id, 'Contrato anexado: tarefa concluída sozinha', new.cliente_id); end if;
+  return null;
+end $$;
+
+-- mensalidades: contrato aguardando assinatura não gera nada
+create or replace function public.gerar_mensalidades(p_contrato uuid default null, p_ate date default null) returns int
+language plpgsql security definer set search_path = public as $$
+declare c public.contratos; comp date; fim date; venc date; g uuid; resp text; n int := 0; k int; sm_falta boolean;
+begin
+  for c in select * from public.contratos where modalidade = 'consultoria' and status <> 'Aguardando assinatura' and (p_contrato is null or id = p_contrato) loop
+    select grupo_id, responsavel into g, resp from public.clientes where id = c.cliente_id;
+    if c.rescindido_em is not null then
+      delete from public.lancamentos where contrato_id = c.id and chave_recorrencia is not null and not pago
+         and competencia >= date_trunc('month', c.rescindido_em)::date;
+    end if;
+    if c.status in ('Cancelado') then continue; end if;
+    comp := date_trunc('month', coalesce(c.inicio_competencia, c.data_contrato))::date;
+    fim := date_trunc('month', coalesce(p_ate, (current_date + interval '2 months')::date))::date;
+    if c.rescindido_em is not null then fim := least(fim, (date_trunc('month', c.rescindido_em) - interval '1 month')::date); end if;
+    while comp <= fim loop
+      venc := make_date(extract(year from comp + interval '1 month')::int, extract(month from comp + interval '1 month')::int, c.dia_vencimento);
+      sm_falta := c.forma_valor = 'salario_minimo' and not exists (select 1 from public.salarios_minimos where ano = extract(year from comp)::int);
+      insert into public.lancamentos (empresa, tipo, descricao, categoria, cliente_id, contrato_id, grupo_id, responsavel, referencia,
+                                      competencia, vencimento, valor, chave_recorrencia, obs)
+      values ('escritorio', 'receita', c.descricao || ' — competência ' || to_char(comp, 'MM/YYYY'), 'Consultoria mensal', c.cliente_id, c.id, g,
+              coalesce(nullif(c.responsavel, ''), resp, ''), to_char(comp, 'MM/YYYY'), comp, venc, greatest(public.valor_competencia(c, comp), 0.01),
+              'rec:' || c.id || ':' || to_char(comp, 'YYYY-MM'),
+              case when sm_falta then 'Salário mínimo de ' || extract(year from comp)::int || ' ainda não cadastrado: valor provisório, reajusta sozinho.' else '' end)
+      on conflict (chave_recorrencia) where chave_recorrencia is not null do nothing;
+      get diagnostics k = row_count; n := n + k;
+      comp := (comp + interval '1 month')::date;
+    end loop;
+    update public.lancamentos l set valor = greatest(public.valor_competencia(c, l.competencia), 0.01),
+           obs = case when c.forma_valor = 'salario_minimo' and not exists (select 1 from public.salarios_minimos where ano = extract(year from l.competencia)::int)
+                      then l.obs else regexp_replace(l.obs, 'Salário mínimo de \d{4} ainda não cadastrado: valor provisório, reajusta sozinho\.', '') end
+     where l.contrato_id = c.id and l.chave_recorrencia is not null and not l.pago
+       and l.valor is distinct from greatest(public.valor_competencia(c, l.competencia), 0.01);
+  end loop;
+  return n;
+end $$;
+
+-- boas-vindas (desligado de fábrica; só sai com a pausa desligada e a regra ligada)
+insert into public.regras_tarefas (chave, nome, descricao, ligada, dias, grupo) values
+  ('email_boas_vindas', 'E-mail ao cliente: boas-vindas na assinatura', 'Quando o contrato é marcado como assinado, manda o e-mail de boas-vindas ao contato de "Contratos" do cliente', false, 0, 'cliente_email')
+on conflict (chave) do nothing;
+insert into public.emails_modelos (chave, tipo, nome, assunto, texto, ordem) values
+  ('boas_vindas', 'contratos', 'Boas-vindas (contrato assinado)', 'Seja bem-vindo(a) ao Araújo & Castro',
+   '<p style="margin:0">Seja bem-vindo(a)! Seu contrato de <b>{servico}</b> está ativo. Seu responsável aqui no escritório é <b>{responsavel}</b>.{vencimento}</p><p style="margin:10px 0 0">Em breve enviaremos a lista de documentos. Qualquer dúvida, é só responder este e-mail.</p>', 11)
+on conflict (chave) do nothing;
+
+-- contrato assinado: tudo o que depende da assinatura acontece aqui
+create or replace function public.contrato_antes_status() returns trigger
+language plpgsql as $$
+begin
+  if new.status = 'Ativo' and old.status = 'Aguardando assinatura' then new.assinado_em := coalesce(new.assinado_em, current_date); end if;
+  if new.status = 'Aguardando assinatura' and old.status is distinct from 'Aguardando assinatura' then new.assinado_em := null; end if;
+  return new;
+end $$;
+drop trigger if exists contrato_antes_status on public.contratos;
+create trigger contrato_antes_status before update of status on public.contratos for each row execute function public.contrato_antes_status();
+
+create or replace function public.contrato_assinado() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare cl record; rg record; ck jsonb; m record; resp text; primeira date;
+begin
+  if not (new.status = 'Ativo' and old.status = 'Aguardando assinatura') then return null; end if;
+  select * into cl from public.clientes where id = new.cliente_id;
+  resp := coalesce(nullif(new.responsavel, ''), cl.responsavel, '');
+  -- 1) financeiro (a consultoria gera as mensalidades pelo gatilho contrato_recorrente)
+  perform public.lancar_parcelas_contrato(new.id);
+  if new.modalidade = 'consultoria' then perform public.gerar_mensalidades(new.id); end if;
+  -- 2) onboarding: fluxo completo (quando veio do CRM) ou a tarefa da regra
+  if new.onboarding_pendente then
+    perform public.criar_fluxo_modelo('Onboarding de cliente', public.somar_uteis(current_date, 15), new.cliente_id, cl.grupo_id, resp, 'Onboarding — ' || coalesce(cl.nome, new.descricao));
+    update public.contratos set onboarding_pendente = false where id = new.id;
+  else
+    select * into rg from public.regras_tarefas where chave = 'contrato_onboarding' and ligada;
+    if found then
+      select coalesce(jsonb_agg(jsonb_build_object('texto', i->>'titulo', 'feito', false)), '[]') into ck
+        from public.modelos_fluxo mf, jsonb_array_elements(mf.itens) i where mf.nome = 'Onboarding de cliente';
+      perform public.tarefa_da_regra('onb:' || new.id, 'Onboarding: ' || coalesce(cl.nome, new.descricao), coalesce(nullif(rg.responsavel, ''), resp),
+        public.somar_uteis(current_date, rg.dias), new.cliente_id, cl.grupo_id, new.id, ck, 'Contrato: ' || new.descricao);
+    end if;
+  end if;
+  -- 3) avisa a equipe
+  insert into public.notificacoes (usuario_id, tipo, titulo, detalhe, link)
+  select p.id, 'financeiro', 'Contrato assinado: ' || coalesce(cl.nome, ''), new.descricao || ' — financeiro lançado', 'contratos'
+    from public.perfis p where p.papel in ('admin', 'equipe') and p.id is distinct from auth.uid();
+  -- 4) CRM e linha do tempo
+  update public.crm_oportunidades set etapa_id = (select id from public.crm_etapas where final = 'ganho' order by ordem limit 1)
+   where contrato_id = new.id and etapa_id is distinct from (select id from public.crm_etapas where final = 'ganho' order by ordem limit 1);
+  insert into public.interacoes (cliente_id, tipo, resumo) values (new.cliente_id, 'anotacao', 'Contrato assinado: ' || new.descricao);
+  -- 5) boas-vindas
+  if coalesce((select ligada from public.regras_tarefas where chave = 'email_boas_vindas'), false) then
+    select min(vencimento) into primeira from public.lancamentos where contrato_id = new.id and not pago;
+    select * into m from public.modelo_email('boas_vindas', jsonb_build_object('servico', coalesce(nullif(new.servico, ''), new.descricao),
+      'responsavel', coalesce(nullif(resp, ''), 'a nossa equipe'),
+      'vencimento', case when primeira is not null then ' O primeiro vencimento é em <b>' || to_char(primeira, 'DD/MM/YYYY') || '</b>.' else '' end));
+    perform public.email_cliente_enviar('email_bv', 'email_bv:' || new.id, new.cliente_id, cl.grupo_id, 'contrato', m.assunto, m.texto, '[]'::jsonb, false);
+  end if;
+  return null;
+end $$;
+drop trigger if exists contrato_assinado on public.contratos;
+create trigger contrato_assinado after update of status on public.contratos for each row execute function public.contrato_assinado();
+
+-- botão "✓ Marcar como assinado"
+create or replace function public.contrato_assinar(p_contrato uuid, p_data date default null) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare c public.contratos; n int;
+begin
+  if not public.pode('contratos', 'editar') then raise exception 'Sem a função Contratos (editar).'; end if;
+  select * into c from public.contratos where id = p_contrato;
+  if not found then raise exception 'Contrato não encontrado.'; end if;
+  if c.status <> 'Aguardando assinatura' then raise exception 'Este contrato não está aguardando assinatura (situação: %).', c.status; end if;
+  update public.contratos set status = 'Ativo', assinado_em = coalesce(p_data, current_date) where id = p_contrato;
+  select count(*) into n from public.lancamentos where contrato_id = p_contrato;
+  return jsonb_build_object('lancamentos', n);
+end $$;
+revoke all on function public.contrato_assinar(uuid, date) from public, anon;
+grant execute on function public.contrato_assinar(uuid, date) to authenticated;
+
+-- mover o lead para "Contrato assinado" assina o contrato ligado (se estiver aguardando)
+create or replace function public.crm_assina_contrato() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if new.contrato_id is not null and new.etapa_id is distinct from old.etapa_id
+     and exists (select 1 from public.crm_etapas where id = new.etapa_id and final = 'ganho') then
+    update public.contratos set status = 'Ativo' where id = new.contrato_id and status = 'Aguardando assinatura';
+  end if;
+  return null;
+end $$;
+drop trigger if exists crm_assina_contrato on public.crm_oportunidades;
+create trigger crm_assina_contrato after update of etapa_id on public.crm_oportunidades for each row execute function public.crm_assina_contrato();
+
+-- "Fechou": cliente (se novo) + contrato AGUARDANDO ASSINATURA; financeiro e onboarding só na assinatura
+create or replace function public.crm_ganhar(p_op uuid, p jsonb) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare o record; cli uuid; grp uuid; ctr uuid; resp text; etp uuid; consult boolean; nome_cli text;
+begin
+  if not public.pode('crm', 'editar') then raise exception 'Sem a função CRM (editar).'; end if;
+  select * into o from public.crm_oportunidades where id = p_op;
+  if not found then raise exception 'Oportunidade não encontrada.'; end if;
+  resp := coalesce(nullif(p->>'responsavel', ''), o.responsavel);
+  cli := coalesce(nullif(p->>'cliente_id', '')::uuid, o.cliente_id);
+  consult := coalesce(p->>'modalidade', '') = 'consultoria';
+  if cli is null then
+    if coalesce(p->>'cliente_nome', '') = '' then raise exception 'Informe o nome do cliente.'; end if;
+    if coalesce(p->>'grupo', '') <> '' then
+      select id into grp from public.grupos where lower(nome) = lower(p->>'grupo') limit 1;
+      if grp is null then insert into public.grupos (nome) values (p->>'grupo') returning id into grp; end if;
+    end if;
+    insert into public.clientes (nome, cpf_cnpj, email, telefone, grupo_id, responsavel, tipo, origem)
+    values (p->>'cliente_nome', coalesce(nullif(p->>'cpf_cnpj', ''), o.prospecto_doc, ''), coalesce(nullif(p->>'email', ''), o.prospecto_email, ''),
+            coalesce(nullif(p->>'telefone', ''), o.prospecto_telefone, ''), grp, coalesce(resp, ''), case when consult then 'Consultoria' else 'Demanda' end,
+            coalesce(nullif(o.origem, ''), 'CRM'))
+    returning id into cli;
+    -- quem indicou (etapa 2); a coluna nasce mais abaixo no arquivo, por isso o update separado
+    begin execute 'update public.clientes set indicado_por = $1 where id = $2' using coalesce(o.indicado_por, ''), cli; exception when undefined_column then null; end;
+  else
+    select grupo_id into grp from public.clientes where id = cli;
+  end if;
+  select nome into nome_cli from public.clientes where id = cli;
+  if consult or coalesce((p->>'valor_total')::numeric, 0) > 0 or coalesce(p->>'descricao', '') <> '' then
+    insert into public.contratos (cliente_id, descricao, valor_total, num_parcelas, primeiro_vencimento, percentual_exito, responsavel, servico,
+                                  modalidade, valor_mensal, dia_vencimento, inicio_competencia, status, onboarding_pendente)
+    values (cli, coalesce(nullif(p->>'descricao', ''), o.titulo), case when consult then 0 else coalesce((p->>'valor_total')::numeric, 0) end,
+            case when consult then 1 else greatest(1, coalesce((p->>'num_parcelas')::int, 1)) end,
+            case when consult then null else nullif(p->>'primeiro_vencimento', '')::date end, nullif(p->>'percentual_exito', '')::numeric, coalesce(resp, ''),
+            coalesce(nullif(p->>'servico', ''), o.servico, ''), case when consult then 'consultoria' else 'pontual' end,
+            case when consult then nullif(p->>'valor_mensal', '')::numeric end, coalesce(nullif(p->>'dia_vencimento', '')::int, 10),
+            case when consult then date_trunc('month', coalesce(nullif(p->>'inicio_competencia', '')::date, current_date))::date end,
+            'Aguardando assinatura', coalesce((p->>'criar_fluxo')::boolean, true))
+    returning id into ctr;
+  end if;
+  perform public.tarefa_da_regra('crm-contrato:' || p_op, 'Enviar contrato para assinatura — ' || nome_cli,
+    resp, public.somar_uteis(current_date, 2), cli, grp, ctr, '[]'::jsonb,
+    'Oportunidade do CRM: ' || o.titulo || '. Gere o contrato (CRM → ficha → "📄 Gerar contrato") e envie ao cliente. Quando ele assinar, marque "✓ Assinado".', '', 'alta');
+  insert into public.interacoes (cliente_id, tipo, resumo) values (cli, 'anotacao', 'Contrato fechado pelo CRM (aguardando assinatura): ' || o.titulo);
+  update public.crm_propostas set status = 'aceita' where id = (select id from public.crm_propostas where oportunidade_id = p_op order by versao desc limit 1);
+  update public.documentos set cliente_id = cli, grupo_id = grp, contrato_id = coalesce(ctr, contrato_id) where oportunidade_id = p_op;
+  select id into etp from public.crm_etapas where nome = 'Contrato fechado' limit 1;
+  if etp is null then select id into etp from public.crm_etapas where final = 'ganho' order by ordem limit 1; end if;
+  update public.crm_oportunidades set etapa_id = etp, probabilidade = 90, ganho_em = now(), perdido_em = null, cliente_id = cli, contrato_id = ctr,
+         servico = coalesce(nullif(p->>'servico', ''), servico) where id = p_op;
+  return jsonb_build_object('cliente_id', cli, 'contrato_id', ctr, 'fluxo_id', null);
+end $$;
+revoke all on function public.crm_ganhar(uuid, jsonb) from anon;
+grant execute on function public.crm_ganhar(uuid, jsonb) to authenticated;
+
+-- recibo: valor no formato brasileiro, qualquer que seja o idioma do servidor
+create or replace function public.brl_texto(v numeric) returns text language sql immutable as $$
+  select 'R$ ' || replace(replace(replace(to_char(coalesce(v, 0), 'FM999,999,990.00'), ',', '#'), '.', ','), '#', '.');
+$$;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- Backup 25 — etapa 1: CONTATOS POR SETOR e CONTROLE DOS E-MAILS
+--   · setores: geral, financeiro, fiscal, rh, socio, juridico, contador ("cobrança" vira financeiro; "marketing" vira geral)
+--   · "recebe o quê" por contato (contatos.recebe): cobranca, recibo, guia, acordo, contrato, convite
+--   · para onde vai cada tipo quando ninguém está marcado: configuracoes.emails_destino (tipo → setor)
+--   · vários contatos marcados para o mesmo tipo → o e-mail vai para todos (separados por vírgula)
+--   · perfil novo "Não enviar nenhum e-mail" (nada)
+-- ═══════════════════════════════════════════════════════════════════
+alter table public.contatos add column if not exists recebe text[] not null default '{}';
+update public.contatos set finalidade = 'financeiro' where finalidade = 'cobranca';
+update public.contatos set finalidade = 'geral' where finalidade not in ('geral','financeiro','fiscal','rh','socio','juridico','contador');
+do $$ begin
+  if not exists (select 1 from public.configuracoes where chave = 'b25_recebe_migrado') then
+    update public.contatos set recebe = (case when recebe_boletos then array['cobranca','recibo'] else '{}' end)
+                                     || (case when recebe_notificacoes then array['guia','acordo'] else '{}' end)
+     where recebe = '{}' and (recebe_boletos or recebe_notificacoes);
+    insert into public.configuracoes (chave, valor) values ('b25_recebe_migrado', 'true'::jsonb) on conflict (chave) do nothing;
+  end if;
+end $$;
+-- as caixinhas antigas continuam coerentes (telas e importações antigas ainda escrevem nelas)
+create or replace function public.contato_recebe_sync() returns trigger language plpgsql as $$
+begin
+  if new.finalidade = 'cobranca' then new.finalidade := 'financeiro'; end if;
+  if tg_op = 'INSERT' and new.recebe = '{}' and (new.recebe_boletos or new.recebe_notificacoes) then
+    new.recebe := (case when new.recebe_boletos then array['cobranca','recibo'] else '{}' end) || (case when new.recebe_notificacoes then array['guia','acordo'] else '{}' end);
+  elsif tg_op = 'UPDATE' and new.recebe is not distinct from old.recebe
+        and (new.recebe_boletos is distinct from old.recebe_boletos or new.recebe_notificacoes is distinct from old.recebe_notificacoes) then
+    new.recebe := array(select distinct x from unnest(new.recebe) x where x not in ('cobranca','recibo','guia','acordo'))
+                  || (case when new.recebe_boletos then array['cobranca','recibo'] else '{}' end) || (case when new.recebe_notificacoes then array['guia','acordo'] else '{}' end);
+  end if;
+  new.recebe := array(select distinct x from unnest(coalesce(new.recebe, '{}')) x where x in ('cobranca','recibo','guia','acordo','contrato','convite') order by 1);
+  new.recebe_boletos := new.recebe && array['cobranca','recibo'];
+  new.recebe_notificacoes := new.recebe && array['guia','acordo','contrato','convite'];
+  return new;
+end $$;
+drop trigger if exists contato_recebe_sync on public.contatos;
+create trigger contato_recebe_sync before insert or update on public.contatos for each row execute function public.contato_recebe_sync();
+
+insert into public.configuracoes (chave, valor) values
+  ('emails_destino', '{"cobranca":"financeiro","recibo":"financeiro","guia":"fiscal","acordo":"financeiro","contrato":"socio","convite":"socio"}'::jsonb)
+on conflict (chave) do nothing;
+create or replace function public.salvar_destinos_email(p jsonb) returns jsonb language plpgsql security definer set search_path = public as $$
+declare k text;
+begin
+  if not public.eh_admin() then raise exception 'Só o administrador muda para qual setor vai cada e-mail.'; end if;
+  for k in select jsonb_object_keys(p) loop
+    if k not in ('cobranca','recibo','guia','acordo','contrato','convite') or (p->>k) not in ('geral','financeiro','fiscal','rh','socio','juridico','contador') then
+      raise exception 'Tipo ou setor inválido: % → %', k, p->>k;
+    end if;
+  end loop;
+  insert into public.configuracoes (chave, valor, atualizado_em) values ('emails_destino', p, now())
+    on conflict (chave) do update set valor = public.configuracoes.valor || excluded.valor, atualizado_em = now();
+  return (select valor from public.configuracoes where chave = 'emails_destino');
+end $$;
+revoke all on function public.salvar_destinos_email(jsonb) from public, anon;
+grant execute on function public.salvar_destinos_email(jsonb) to authenticated;
+
+-- nome antigo (finalidade) → tipo de e-mail
+create or replace function public.tipo_destino_email(p text) returns text language sql immutable as $$
+  select case when p in ('financeiro','cobranca','lembrete','vencimento') then 'cobranca' when p in ('juridico','acordo') then 'acordo'
+              when p in ('guia','parcelamento') then 'guia' when p in ('recibo') then 'recibo' when p in ('contrato','boas_vindas','proposta') then 'contrato'
+              when p in ('convite','reuniao') then 'convite' else 'cobranca' end;
+$$;
+
+-- quem recebe: 1) contatos marcados para o tipo (todos)  2) contatos do setor do tipo  3) contato "geral"  4) e-mail do cadastro
+--              (sem cliente: o mesmo nos clientes do grupo)
+drop function if exists public.contato_do_cliente(uuid, uuid, text);
+create or replace function public.contato_do_cliente(p_cliente uuid, p_grupo uuid, p_finalidade text default 'cobranca')
+returns table (email text, nome text, setor text, origem text)
+language plpgsql stable security definer set search_path = public as $$
+declare t text := public.tipo_destino_email(p_finalidade);
+        st text := coalesce((select valor->>public.tipo_destino_email(p_finalidade) from public.configuracoes where chave = 'emails_destino'), 'financeiro');
+        ids uuid[];
+begin
+  ids := case when p_cliente is not null then array[p_cliente]
+              else array(select id from public.clientes where grupo_id = p_grupo and tipo <> 'Inativo' order by criado_em) end;
+  if ids is null or cardinality(ids) = 0 then return; end if;
+  return query select string_agg(distinct lower(c.email), ', '), min(nullif(split_part(btrim(c.nome), ' ', 1), '')), min(c.finalidade), 'marcado'::text
+    from public.contatos c where c.cliente_id = any(ids) and c.email <> '' and c.recebe @> array[t] having count(*) > 0;
+  if found then return; end if;
+  return query select string_agg(distinct lower(c.email), ', '), min(nullif(split_part(btrim(c.nome), ' ', 1), '')), st, 'setor'::text
+    from public.contatos c where c.cliente_id = any(ids) and c.email <> '' and c.finalidade = st having count(*) > 0;
+  if found then return; end if;
+  return query select c.email, nullif(split_part(btrim(c.nome), ' ', 1), ''), 'geral'::text, 'geral'::text
+    from public.contatos c where c.cliente_id = any(ids) and c.email <> '' and c.finalidade = 'geral' order by c.criado_em limit 1;
+  if found then return; end if;
+  return query select cl.email, null::text, ''::text, 'cadastro'::text from public.clientes cl where cl.id = any(ids) and cl.email <> '' order by cl.criado_em limit 1;
+end $$;
+revoke all on function public.contato_do_cliente(uuid, uuid, text) from public, anon, authenticated;
+create or replace function public.email_do_cliente(p_cliente uuid, p_grupo uuid) returns text
+language sql stable security definer set search_path = public as $$
+  select email from public.contato_do_cliente(p_cliente, p_grupo, 'cobranca');
+$$;
+revoke all on function public.email_do_cliente(uuid, uuid) from public, anon, authenticated;
+
+-- perfil "nada" + tipos novos (boas-vindas, convite, contrato)
+alter table public.clientes drop constraint if exists clientes_perfil_email_ck;
+alter table public.clientes add constraint clientes_perfil_email_ck check (perfil_email in ('padrao','nunca','vencimento','personalizado','nada'));
+create or replace function public.pode_email(p_cliente uuid, p_grupo uuid, p_tipo text) returns boolean
+language plpgsql stable security definer set search_path = public as $$
+declare pf text := public.perfil_email_de(p_cliente, p_grupo); t jsonb;
+begin
+  if pf = 'nada' then return false; end if;
+  if pf = 'personalizado' then
+    select emails_tipos into t from public.clientes where id = p_cliente;
+    if t is null then select emails_tipos into t from public.clientes where grupo_id = p_grupo and perfil_email = 'personalizado' limit 1; end if;
+    return coalesce((t->>p_tipo)::boolean, p_tipo <> 'vencimento');
+  end if;
+  if p_tipo in ('boas_vindas','convite','contrato') then return true; end if;
+  if pf = 'nunca' then return p_tipo not in ('lembrete','vencimento','cobranca','recibo'); end if;
+  if pf = 'vencimento' then return p_tipo not in ('lembrete','cobranca'); end if;
+  return p_tipo <> 'vencimento';
+end $$;
+revoke all on function public.pode_email(uuid, uuid, text) from public, anon, authenticated;
+create or replace function public.perfil_email_de(p_cliente uuid, p_grupo uuid) returns text
+language sql stable security definer set search_path = public as $$
+  select coalesce((select perfil_email from public.clientes where id = p_cliente),
+                  (select perfil_email from public.clientes where grupo_id = p_grupo and perfil_email <> 'padrao'
+                    order by case perfil_email when 'nada' then 0 when 'nunca' then 1 when 'vencimento' then 2 else 3 end limit 1), 'padrao');
+$$;
+revoke all on function public.perfil_email_de(uuid, uuid) from public, anon, authenticated;
+create or replace function public.salvar_perfil_email(p_ids uuid[], p_perfil text, p_tipos jsonb default null) returns int
+language plpgsql security definer set search_path = public as $$
+declare n int;
+begin
+  if not public.pode_central_emails() and not public.pode('clientes', 'editar') then raise exception 'permission denied'; end if;
+  if p_perfil not in ('padrao','nunca','vencimento','personalizado','nada') then raise exception 'Perfil de e-mail inválido.'; end if;
+  update public.clientes set perfil_email = p_perfil, emails_tipos = coalesce(p_tipos, emails_tipos) where id = any(p_ids);
+  get diagnostics n = row_count;
+  return n;
+end $$;
+revoke all on function public.salvar_perfil_email(uuid[], text, jsonb) from public, anon;
+grant execute on function public.salvar_perfil_email(uuid[], text, jsonb) to authenticated;
+
+-- envio: perfil do cliente, contato do tipo certo (um ou vários), nunca example.com, uma vez só por "ref"
+create or replace function public.email_cliente_enviar(p_regra text, p_ref text, p_cliente uuid, p_grupo uuid, p_finalidade text,
+  p_assunto text, p_texto text, p_itens jsonb default '[]', p_pagar boolean default false, p_anexo jsonb default null) returns boolean
+language plpgsql security definer set search_path = public as $$
+declare c record; tipo text;
+begin
+  if exists (select 1 from public.automacoes_log where ref = p_ref) then return false; end if;
+  tipo := case p_regra when 'email_lh' then 'lembrete' when 'email_vh' then 'vencimento' when 'email_ch' then 'cobranca'
+                       when 'email_pr' then 'recibo' when 'email_lp' then 'parcelamento' when 'email_la' then 'acordo'
+                       when 'email_bv' then 'boas_vindas' when 'email_cv' then 'convite' end;
+  if tipo is not null and not public.pode_email(p_cliente, p_grupo, tipo) then
+    insert into public.automacoes_log (chave, ref, descricao, cliente_id)
+    values (p_regra, p_ref, 'Não enviado (perfil de e-mail do cliente): ' || p_assunto, p_cliente);
+    return false;
+  end if;
+  select * into c from public.contato_do_cliente(p_cliente, p_grupo, p_finalidade);
+  if c.email is null or c.email = '' then return false; end if;
+  if c.email ~* '(@|\.)example\.com(,|$)' then
+    insert into public.automacoes_log (chave, ref, descricao, cliente_id) values (p_regra, p_ref, 'Demonstração (não enviado): ' || p_assunto, p_cliente);
+    return false;
+  end if;
+  insert into public.email_fila (usuario_id, para, assunto, html, tipo, referencia, anexo)
+  values (null, c.email, p_assunto, public.email_cliente_html(p_assunto, c.nome, p_texto, p_itens, p_pagar), 'cliente', p_ref, p_anexo);
+  insert into public.automacoes_log (chave, ref, descricao, cliente_id) values (p_regra, p_ref, p_assunto || ' → ' || c.email, p_cliente);
+  return true;
+end $$;
+revoke all on function public.email_cliente_enviar(text, text, uuid, uuid, text, text, text, jsonb, boolean, jsonb) from public, anon, authenticated;
+
+-- ── Controle por cliente: o que cada cliente recebe, para qual e-mail, quem é o responsável e o último envio ──
+create or replace function public.emails_controle() returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+declare r jsonb;
+begin
+  if not public.pode_central_emails() then raise exception 'permission denied: sem acesso à Central de e-mails.'; end if;
+  select coalesce(jsonb_agg(jsonb_build_object('id', cl.id, 'nome', cl.nome, 'grupo', g.nome, 'responsavel', cl.responsavel, 'perfil', cl.perfil_email, 'area', cl.area,
+           'tipos', (select jsonb_object_agg(tt.k, jsonb_build_object('recebe', public.pode_email(cl.id, cl.grupo_id, tt.perm), 'para', ct.email, 'contato', ct.nome, 'setor', ct.setor, 'origem', ct.origem))
+                       from (values ('cobranca', 'cobranca'), ('recibo', 'recibo'), ('guia', 'parcelamento'), ('acordo', 'acordo'), ('contrato', 'boas_vindas'), ('convite', 'convite')) tt(k, perm)
+                       left join lateral (select * from public.contato_do_cliente(cl.id, cl.grupo_id, tt.k) limit 1) ct on true),
+           'ultimo', (select jsonb_build_object('quando', a.quando, 'descricao', a.descricao) from public.automacoes_log a
+                       where a.cliente_id = cl.id and a.chave like 'email_%' order by a.quando desc limit 1),
+           'enviados30', (select count(*) from public.automacoes_log a where a.cliente_id = cl.id and a.chave like 'email_%' and a.descricao like '%→%' and a.quando > now() - interval '30 days'))
+         order by coalesce(g.nome, cl.nome), cl.nome), '[]') into r
+    from public.clientes cl left join public.grupos g on g.id = cl.grupo_id
+   where cl.tipo <> 'Inativo';
+  return r;
+end $$;
+revoke all on function public.emails_controle() from public, anon;
+grant execute on function public.emails_controle() to authenticated;
+
+-- marca/desmarca "recebe" de um contato (a partir da Central ou da ficha)
+create or replace function public.contato_recebe(p_contato uuid, p_tipo text, p_recebe boolean) returns text[]
+language plpgsql security definer set search_path = public as $$
+declare r text[];
+begin
+  if not (public.pode('clientes', 'editar') or public.pode_central_emails()) then raise exception 'permission denied'; end if;
+  if p_tipo not in ('cobranca','recibo','guia','acordo','contrato','convite') then raise exception 'Tipo de e-mail inválido.'; end if;
+  update public.contatos set recebe = case when p_recebe then array(select distinct x from unnest(recebe || array[p_tipo]) x) else array_remove(recebe, p_tipo) end
+   where id = p_contato returning recebe into r;
+  return r;
+end $$;
+revoke all on function public.contato_recebe(uuid, text, boolean) from public, anon;
+grant execute on function public.contato_recebe(uuid, text, boolean) to authenticated;
+
+-- a fila mostra o responsável do cliente e de onde veio o destinatário (marcado, setor, geral, cadastro)
+create or replace function public.emails_central(p_situacao text default 'hoje') returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+declare r jsonb;
+begin
+  if not public.pode_central_emails() then raise exception 'permission denied: sem acesso à Central de e-mails.'; end if;
+  if p_situacao = 'hoje' then
+    select coalesce(jsonb_agg(jsonb_build_object('ref', x.ref, 'tipo', x.tipo, 'assunto', x.assunto, 'vence', x.vence, 'cliente', coalesce(cl.nome, g.nome, '—'), 'grupo', g.nome,
+             'cliente_id', cl.id, 'responsavel', coalesce(cl.responsavel, ''),
+             'para', ct.email, 'contato', ct.nome, 'finalidade', x.finalidade, 'setor', ct.setor, 'origem', ct.origem, 'auto', public.email_tipo_auto(x.tipo),
+             'bloqueio', case when x.tipo <> 'honorarios' and x.tipo <> 'recibos' and not public.pode_email(x.cliente_id, x.grupo_id, case x.regra when 'email_lp' then 'parcelamento' else 'acordo' end) then 'perfil do cliente'
+                              when x.tipo = 'honorarios' and not public.pode_email(x.cliente_id, x.grupo_id, case x.regra when 'email_lh' then 'lembrete' when 'email_vh' then 'vencimento' else 'cobranca' end) then 'perfil do cliente'
+                              when coalesce(ct.email, '') = '' then 'sem e-mail cadastrado'
+                              when ct.email ~* '(@|\.)example\.com(,|$)' then 'demonstração' else '' end,
+             'total', (select coalesce(sum((i->>'valor')::numeric), 0) from jsonb_array_elements(x.itens) i)) order by x.tipo, coalesce(cl.nome, g.nome)), '[]')
+      into r
+      from public.emails_pendentes() x left join public.clientes cl on cl.id = x.cliente_id left join public.grupos g on g.id = coalesce(x.grupo_id, cl.grupo_id)
+      left join lateral (select * from public.contato_do_cliente(x.cliente_id, x.grupo_id, x.finalidade) limit 1) ct on true;
+  else
+    select coalesce(jsonb_agg(jsonb_build_object('id', f.id, 'para', f.para, 'assunto', f.assunto, 'status', f.status, 'erro', f.erro, 'quando', coalesce(f.enviado_em, f.criado_em),
+             'ref', f.referencia, 'anexo', f.anexo is not null, 'tipo', case when f.referencia like 'email_pr:%' then 'recibos' when f.referencia ~ '^email_(lp|pa)' then 'parcelamentos'
+             when f.referencia ~ '^email_(la|aa)' then 'acordos' when f.referencia like 'email_bv:%' then 'contratos' when f.referencia like 'email_cv:%' then 'convites'
+             when f.tipo = 'proposta' then 'propostas' else 'honorarios' end,
+             'cliente', a.nome, 'responsavel', a.responsavel)
+             order by coalesce(f.enviado_em, f.criado_em) desc), '[]') into r
+      from (select * from public.email_fila where tipo in ('cliente', 'proposta') and criado_em > now() - interval '120 days'
+               and (case when p_situacao = 'erro' then status = 'erro' else status in ('enviado', 'pendente') end) order by criado_em desc limit 300) f
+      left join lateral (select cl.nome, cl.responsavel from public.automacoes_log al join public.clientes cl on cl.id = al.cliente_id
+                          where al.ref = f.referencia and f.referencia <> '' limit 1) a on true;
+  end if;
+  return r;
+end $$;
+revoke all on function public.emails_central(text) from public, anon;
+grant execute on function public.emails_central(text) to authenticated;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- Backup 25 — etapa 2: CADASTRO ORGANIZADO
+--   · "indicado por" (origem = Indicação) · aviso de CPF/CNPJ repetido · e-mail do cadastro vira o contato "Geral"
+--   · sócios do cartão CNPJ entram sozinhos em "Sócios e vínculos" (sem apagar os que já existem)
+-- ═══════════════════════════════════════════════════════════════════
+alter table public.clientes add column if not exists indicado_por text not null default '';
+
+-- clientes com o mesmo CPF/CNPJ (só os que a pessoa vê)
+create or replace function public.clientes_mesmo_documento(p_doc text, p_ignorar uuid default null)
+returns table (id uuid, nome text, grupo text, tipo text) language sql stable set search_path = public as $$
+  select c.id, c.nome, g.nome, c.tipo from public.clientes c left join public.grupos g on g.id = c.grupo_id
+   where length(regexp_replace(coalesce(p_doc, ''), '\D', '', 'g')) >= 11
+     and regexp_replace(c.cpf_cnpj, '\D', '', 'g') = regexp_replace(p_doc, '\D', '', 'g')
+     and c.id is distinct from p_ignorar
+   order by c.criado_em limit 5;
+$$;
+revoke all on function public.clientes_mesmo_documento(text, uuid) from public, anon;
+grant execute on function public.clientes_mesmo_documento(text, uuid) to authenticated;
+
+-- e-mail/telefone do cadastro → contato "Geral" (um só; acompanha a troca do e-mail)
+create or replace function public.cliente_contato_geral() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare ct uuid;
+begin
+  if coalesce(btrim(new.email), '') = '' then return null; end if;
+  if tg_op = 'UPDATE' and new.email is not distinct from old.email and new.telefone is not distinct from old.telefone then return null; end if;
+  if exists (select 1 from public.contatos where cliente_id = new.id and lower(email) = lower(btrim(new.email))) then
+    if tg_op = 'UPDATE' and new.telefone is distinct from old.telefone then
+      update public.contatos set telefone = new.telefone where cliente_id = new.id and lower(email) = lower(btrim(new.email)) and origem_cadastro;
+    end if;
+    return null;
+  end if;
+  if tg_op = 'UPDATE' then
+    select id into ct from public.contatos where cliente_id = new.id and origem_cadastro and lower(email) = lower(btrim(coalesce(old.email, ''))) limit 1;
+  end if;
+  if ct is not null then update public.contatos set email = btrim(new.email), telefone = new.telefone where id = ct;
+  else insert into public.contatos (cliente_id, nome, cargo, finalidade, email, telefone, origem_cadastro)
+       values (new.id, 'Contato principal', '', 'geral', btrim(new.email), coalesce(new.telefone, ''), true);
+  end if;
+  return null;
+end $$;
+alter table public.contatos add column if not exists origem_cadastro boolean not null default false;
+drop trigger if exists cliente_contato_geral on public.clientes;
+create trigger cliente_contato_geral after insert or update of email, telefone on public.clientes for each row execute function public.cliente_contato_geral();
+-- uma vez: clientes que já têm e-mail no cadastro e nenhum contato com ele
+insert into public.contatos (cliente_id, nome, finalidade, email, telefone, origem_cadastro)
+select c.id, 'Contato principal', 'geral', btrim(c.email), coalesce(c.telefone, ''), true
+  from public.clientes c
+ where coalesce(btrim(c.email), '') <> '' and c.email !~* 'example\.com'
+   and not exists (select 1 from public.contatos x where x.cliente_id = c.id and lower(x.email) = lower(btrim(c.email)));
+
+-- sócios do cartão CNPJ → "Sócios e vínculos"
+create or replace function public.cliente_socios_cnpj() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare s jsonb;
+begin
+  if new.cnpj_dados is null or jsonb_typeof(new.cnpj_dados->'socios') <> 'array' then return null; end if;
+  if tg_op = 'UPDATE' and new.cnpj_dados is not distinct from old.cnpj_dados then return null; end if;
+  for s in select * from jsonb_array_elements(new.cnpj_dados->'socios') loop
+    if coalesce(s->>'nome', '') <> '' and not exists (select 1 from public.vinculos_societarios v where v.cliente_id = new.id and lower(btrim(v.nome)) = lower(btrim(s->>'nome'))) then
+      insert into public.vinculos_societarios (cliente_id, nome, cpf_cnpj, qualificacao, obs)
+      values (new.id, s->>'nome', coalesce(s->>'doc', ''), coalesce(s->>'qualificacao', ''), 'Do cartão CNPJ (Receita)');
+    end if;
+  end loop;
+  if coalesce(new.socio_admin, '') = '' then
+    update public.clientes set socio_admin = (select s2->>'nome' from jsonb_array_elements(new.cnpj_dados->'socios') s2 where s2->>'qualificacao' ~* 'administr' limit 1)
+     where id = new.id and exists (select 1 from jsonb_array_elements(new.cnpj_dados->'socios') s2 where s2->>'qualificacao' ~* 'administr');
+  end if;
+  return null;
+end $$;
+drop trigger if exists cliente_socios_cnpj on public.clientes;
+create trigger cliente_socios_cnpj after insert or update of cnpj_dados on public.clientes for each row execute function public.cliente_socios_cnpj();
+
+-- ═══════════════════════════════════════════════════════════════════
+-- Backup 25 — etapa 3: REUNIÃO a partir do lead
+--   · reunião com data, hora, duração, local/link e participantes (nomes da equipe)
+--   · vira tarefa de cada participante, cai na agenda (erp-agenda), entra nas atividades do CRM e na linha do tempo
+--   · convite por e-mail ao cliente SÓ quando marcado (e respeita a pausa dos e-mails), com o arquivo .ics para salvar na agenda
+-- ═══════════════════════════════════════════════════════════════════
+create table if not exists public.reunioes (
+  id uuid primary key default gen_random_uuid(),
+  oportunidade_id uuid references public.crm_oportunidades(id) on delete cascade,
+  cliente_id uuid references public.clientes(id) on delete set null,
+  titulo text not null check (btrim(titulo) <> ''),
+  inicio timestamptz not null,
+  duracao_min int not null default 60 check (duracao_min between 5 and 720),
+  local text not null default '',
+  participantes text not null default '',
+  convite boolean not null default false,
+  convite_para text not null default '',
+  convite_enviado_em timestamptz,
+  status text not null default 'agendada' check (status in ('agendada', 'realizada', 'cancelada')),
+  obs text not null default '',
+  criado_por uuid default auth.uid(), criado_em timestamptz not null default now(), atualizado_em timestamptz not null default now()
+);
+create index if not exists reunioes_inicio on public.reunioes (inicio);
+create index if not exists reunioes_cliente on public.reunioes (cliente_id);
+alter table public.reunioes enable row level security;
+revoke all on public.reunioes from anon;
+grant select, insert, update, delete on public.reunioes to authenticated;
+drop policy if exists reunioes_ver on public.reunioes;
+create policy reunioes_ver on public.reunioes for select to authenticated using (public.eh_equipe());
+drop policy if exists reunioes_gravar on public.reunioes;
+create policy reunioes_gravar on public.reunioes for all to authenticated
+  using (public.eh_equipe() and (public.pode('crm', 'editar') or public.pode('tarefas', 'editar') or public.pode('clientes', 'editar')))
+  with check (public.eh_equipe() and (public.pode('crm', 'editar') or public.pode('tarefas', 'editar') or public.pode('clientes', 'editar')));
+drop trigger if exists atualizado_reunioes on public.reunioes;
+create trigger atualizado_reunioes before update on public.reunioes for each row execute function public.marcar_atualizacao();
+
+insert into public.emails_modelos (chave, tipo, nome, assunto, texto, ordem) values
+  ('convite', 'reunioes', 'Convite de reunião', 'Convite: {titulo} — {data}',
+   '<p style="margin:0">Confirmamos a nossa reunião <b>{titulo}</b> em <b>{data}</b>{local}.</p><p style="margin:10px 0 0">O convite segue em anexo para você salvar na sua agenda. Se precisar remarcar, é só responder este e-mail.</p>', 12)
+on conflict (chave) do nothing;
+
+-- texto do .ics (convite para salvar na agenda)
+create or replace function public.ics_texto(t text) returns text language sql immutable as $$
+  select replace(replace(replace(replace(coalesce(t, ''), '\', '\\'), ';', '\;'), ',', '\,'), E'\n', '\n');
+$$;
+create or replace function public.reuniao_ics(r public.reunioes) returns text language sql stable as $$
+  select concat_ws(E'\r\n', 'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Araujo e Castro//ERP//PT-BR', 'METHOD:PUBLISH', 'BEGIN:VEVENT',
+    'UID:reuniao-' || r.id || '@erp-araujo-castro', 'DTSTAMP:' || to_char(now() at time zone 'UTC', 'YYYYMMDD"T"HH24MISS"Z"'),
+    'DTSTART:' || to_char(r.inicio at time zone 'UTC', 'YYYYMMDD"T"HH24MISS"Z"'),
+    'DTEND:' || to_char((r.inicio + make_interval(mins => r.duracao_min)) at time zone 'UTC', 'YYYYMMDD"T"HH24MISS"Z"'),
+    'SUMMARY:' || public.ics_texto(r.titulo || ' — Araújo & Castro'), 'LOCATION:' || public.ics_texto(r.local), 'END:VEVENT', 'END:VCALENDAR') || E'\r\n';
+$$;
+
+-- manda o convite (uma vez por data/hora: remarcou → convite novo). Sem cliente cadastrado, usa o e-mail do lead.
+create or replace function public.reuniao_enviar_convite(p_reuniao uuid) returns boolean
+language plpgsql security definer set search_path = public as $$
+declare r public.reunioes; o record; grp uuid; m record; v_ref text; v_para text; v_anexo jsonb; quando text;
+begin
+  select * into r from public.reunioes where id = p_reuniao;
+  if not found or not r.convite or r.status <> 'agendada' then return false; end if;
+  v_ref := 'email_cv:' || r.id || ':' || to_char(r.inicio at time zone 'UTC', 'YYYYMMDDHH24MI');
+  if exists (select 1 from public.automacoes_log where automacoes_log.ref = v_ref) then return false; end if;
+  select * into o from public.crm_oportunidades where id = r.oportunidade_id;
+  select grupo_id into grp from public.clientes where id = r.cliente_id;
+  quando := to_char(r.inicio at time zone 'America/Sao_Paulo', 'DD/MM/YYYY "às" HH24:MI');
+  select * into m from public.modelo_email('convite', jsonb_build_object('titulo', r.titulo, 'data', quando,
+    'local', case when btrim(r.local) <> '' then ' — ' || r.local else '' end));
+  v_anexo := jsonb_build_object('tipo', 'ics', 'arquivo', 'Reunião ' || to_char(r.inicio at time zone 'America/Sao_Paulo', 'DD-MM-YYYY') || '.ics', 'conteudo', public.reuniao_ics(r));
+  v_para := nullif(btrim(r.convite_para), '');
+  if v_para is null and r.cliente_id is not null then
+    if public.email_cliente_enviar('email_cv', v_ref, r.cliente_id, grp, 'convite', m.assunto, m.texto, '[]'::jsonb, false, v_anexo) then
+      update public.reunioes set convite_enviado_em = now() where id = r.id; return true;
+    end if;
+    return false;
+  end if;
+  v_para := coalesce(v_para, nullif(btrim(o.prospecto_email), ''));
+  if v_para is null then return false; end if;
+  if r.cliente_id is not null and not public.pode_email(r.cliente_id, grp, 'convite') then return false; end if;
+  insert into public.email_fila (usuario_id, para, assunto, html, tipo, referencia, anexo)
+  values (auth.uid(), v_para, m.assunto, public.email_cliente_html(m.assunto, nullif(split_part(btrim(coalesce(o.prospecto_nome, '')), ' ', 1), ''), m.texto, '[]', false), 'cliente', v_ref, v_anexo);
+  insert into public.automacoes_log (chave, ref, descricao, cliente_id) values ('email_cv', v_ref, m.assunto || ' → ' || v_para, r.cliente_id);
+  update public.reunioes set convite_enviado_em = now() where id = r.id;
+  return true;
+end $$;
+revoke all on function public.reuniao_enviar_convite(uuid) from public, anon, authenticated;
+
+create or replace function public.reuniao_automacoes() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare v_nome text; grp uuid; v_titulo text; etp record; o record;
+begin
+  select grupo_id into grp from public.clientes where id = new.cliente_id;
+  v_titulo := 'Reunião: ' || new.titulo || ' — ' || to_char(new.inicio at time zone 'America/Sao_Paulo', 'DD/MM HH24:MI');
+  if new.status = 'cancelada' then
+    update public.tarefas set status = 'cancelada' where chave_regra like 'reuniao:' || new.id || ':%' and status not in ('concluida', 'cancelada');
+    return null;
+  end if;
+  -- uma tarefa por participante (remarcou → a tarefa acompanha; saiu da lista → a tarefa dele é cancelada)
+  for v_nome in select distinct btrim(x) from unnest(string_to_array(new.participantes, ',')) x where btrim(x) <> '' loop
+    if exists (select 1 from public.tarefas where chave_regra = 'reuniao:' || new.id || ':' || lower(v_nome)) then
+      update public.tarefas set titulo = v_titulo, prazo = (new.inicio at time zone 'America/Sao_Paulo')::date, cliente_id = new.cliente_id,
+             descricao = 'Local/link: ' || coalesce(nullif(new.local, ''), '—') || E'\nParticipantes: ' || new.participantes || case when new.obs <> '' then E'\n' || new.obs else '' end
+       where chave_regra = 'reuniao:' || new.id || ':' || lower(v_nome) and status not in ('concluida', 'cancelada');
+    else
+      perform public.tarefa_da_regra('reuniao:' || new.id || ':' || lower(v_nome), v_titulo, v_nome, (new.inicio at time zone 'America/Sao_Paulo')::date,
+        new.cliente_id, grp, null, '[]'::jsonb,
+        'Local/link: ' || coalesce(nullif(new.local, ''), '—') || E'\nParticipantes: ' || new.participantes || case when new.obs <> '' then E'\n' || new.obs else '' end, '', 'alta');
+    end if;
+  end loop;
+  update public.tarefas set status = 'cancelada' where chave_regra like 'reuniao:' || new.id || ':%' and status not in ('concluida', 'cancelada')
+     and substr(chave_regra, length('reuniao:' || new.id || ':') + 1) not in (select lower(btrim(x)) from unnest(string_to_array(new.participantes, ',')) x);
+  if tg_op = 'INSERT' then
+    if new.oportunidade_id is not null then
+      insert into public.crm_atividades (oportunidade_id, tipo, quando, resumo, feita) values (new.oportunidade_id, 'reuniao', new.inicio, 'Reunião agendada: ' || new.titulo ||
+        case when new.local <> '' then ' (' || new.local || ')' else '' end, false);
+      -- lead nas primeiras etapas → "Diagnóstico agendado"
+      select * into o from public.crm_oportunidades where id = new.oportunidade_id;
+      select * into etp from public.crm_etapas where nome = 'Diagnóstico agendado' limit 1;
+      if etp.id is not null and coalesce((select ordem from public.crm_etapas where id = o.etapa_id), 0) < etp.ordem
+         and coalesce((select final from public.crm_etapas where id = o.etapa_id), '') = '' then
+        update public.crm_oportunidades set etapa_id = etp.id where id = o.id;
+      end if;
+    end if;
+    if new.cliente_id is not null then
+      insert into public.interacoes (cliente_id, tipo, quando, resumo) values (new.cliente_id, 'reuniao', new.inicio,
+        'Reunião agendada: ' || new.titulo || ' — ' || to_char(new.inicio at time zone 'America/Sao_Paulo', 'DD/MM/YYYY HH24:MI'));
+    end if;
+  end if;
+  if new.convite then perform public.reuniao_enviar_convite(new.id); end if;
+  return null;
+end $$;
+drop trigger if exists reuniao_automacoes on public.reunioes;
+create trigger reuniao_automacoes after insert or update of inicio, participantes, status, convite, local, titulo on public.reunioes
+  for each row execute function public.reuniao_automacoes();
+
+-- o lead virou cliente: as reuniões dele passam a ser do cliente (aparecem na ficha)
+create or replace function public.crm_reunioes_do_cliente() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if new.cliente_id is not null and new.cliente_id is distinct from old.cliente_id then
+    update public.reunioes set cliente_id = new.cliente_id where oportunidade_id = new.id and cliente_id is null;
+  end if;
+  return null;
+end $$;
+drop trigger if exists crm_reunioes_do_cliente on public.crm_oportunidades;
+create trigger crm_reunioes_do_cliente after update of cliente_id on public.crm_oportunidades for each row execute function public.crm_reunioes_do_cliente();
+
+-- ═══════════════════════════════════════════════════════════════════
+-- Backup 25 — etapa 7: DELEGAR E VALIDAR
+--   · sequência de passos para uma pessoa (modelo "Lead completo"): cada passo é uma tarefa com prazo;
+--     o próximo só começa quando o anterior termina (e é aprovado, se o passo pedir validação)
+--   · o passo com validação vai para "Aguardando revisão": quem valida aprova ou devolve com comentário
+--   · Início: cartão "Aguardando minha validação"
+-- ═══════════════════════════════════════════════════════════════════
+alter table public.modelos_fluxo add column if not exists sequencial boolean not null default false;
+insert into public.modelos_fluxo (nome, descricao, sequencial, itens)
+select 'Lead completo', 'Delegar: cadastrar, agendar a reunião e preparar o contrato (o contrato só vai ao cliente depois da validação)', true,
+  '[{"titulo":"Cadastrar o cliente (dados, sócios e contatos por setor)","dias":1},
+    {"titulo":"Agendar a reunião com o cliente","dias":2},
+    {"titulo":"Preparar o contrato (gerador) e guardar a minuta","dias":3,"validar":true},
+    {"titulo":"Enviar o contrato ao cliente para assinatura","dias":1}]'::jsonb
+where not exists (select 1 from public.modelos_fluxo where nome = 'Lead completo');
+
+-- cria a sequência: cada passo depende do anterior; só o primeiro começa "pendente", os demais "aguardando"
+create or replace function public.delegar_sequencia(p_modelo text, p_pessoa text, p_revisor text, p_cliente uuid default null,
+  p_oportunidade uuid default null, p_nome text default null, p_obs text default '') returns uuid
+language plpgsql security definer set search_path = public as $$
+declare m record; it jsonb; f uuid; ant uuid; t uuid; prazo date := current_date; grp uuid; n int := 0; alvo text; rev text;
+begin
+  if not public.pode('tarefas', 'editar') then raise exception 'Sem a função Tarefas (editar).'; end if;
+  if coalesce(btrim(p_pessoa), '') = '' then raise exception 'Escolha para quem delegar.'; end if;
+  select * into m from public.modelos_fluxo where nome = p_modelo limit 1;
+  if not found then raise exception 'Modelo "%" não encontrado.', p_modelo; end if;
+  select grupo_id into grp from public.clientes where id = p_cliente;
+  alvo := coalesce((select nome from public.clientes where id = p_cliente), (select coalesce(nullif(prospecto_empresa, ''), nullif(prospecto_nome, ''), titulo) from public.crm_oportunidades where id = p_oportunidade), '');
+  rev := coalesce(nullif(btrim(p_revisor), ''), (select nome from public.perfis where id = auth.uid()), '');
+  insert into public.fluxos (nome, cliente_id, grupo_id, modelo_id, responsavel, inicio, obs)
+  values (coalesce(nullif(p_nome, ''), m.nome || case when alvo <> '' then ' — ' || alvo else '' end), p_cliente, grp, m.id, p_pessoa, current_date, coalesce(p_obs, ''))
+  returning id into f;
+  for it in select * from jsonb_array_elements(m.itens) loop
+    n := n + 1;
+    prazo := public.somar_uteis(prazo, greatest(coalesce((it->>'dias')::int, 1), 0));
+    insert into public.tarefas (fluxo_id, cliente_id, grupo_id, titulo, responsavel, status, prioridade, inicio, prazo, descricao, depende_de, exige_revisao, revisor, ordem, chave_regra)
+    values (f, p_cliente, grp, (it->>'titulo') || case when alvo <> '' then ' — ' || alvo else '' end, p_pessoa, case when ant is null then 'pendente' else 'aguardando' end, 'media',
+            current_date, prazo, 'Passo ' || n || ' de ' || jsonb_array_length(m.itens) || ' (delegado).' || case when coalesce((it->>'validar')::boolean, false) then ' Ao terminar, vai para a validação de ' || rev || '.' else '' end ||
+              case when coalesce(p_obs, '') <> '' then E'\n' || p_obs else '' end,
+            ant, coalesce((it->>'validar')::boolean, false), case when coalesce((it->>'validar')::boolean, false) then rev else '' end, n,
+            case when p_oportunidade is not null then 'deleg:' || p_oportunidade || ':' || n end)
+    returning id into t;
+    ant := t;
+  end loop;
+  perform public.notificar_pessoa(p_pessoa, 'tarefa', 'Nova sequência para você: ' || coalesce(nullif(p_nome, ''), m.nome), coalesce(alvo, ''), 'tarefas');
+  return f;
+end $$;
+revoke all on function public.delegar_sequencia(text, text, text, uuid, uuid, text, text) from public, anon;
+grant execute on function public.delegar_sequencia(text, text, text, uuid, uuid, text, text) to authenticated;
+
+-- aviso a uma pessoa pelo nome (ignora quem não tem acesso)
+create or replace function public.notificar_pessoa(p_nome text, p_tipo text, p_titulo text, p_detalhe text, p_link text) returns void
+language plpgsql security definer set search_path = public as $$
+declare u uuid := public.usuario_por_nome(p_nome);
+begin
+  if u is not null and u is distinct from auth.uid() then
+    insert into public.notificacoes (usuario_id, tipo, titulo, detalhe, link) values (u, p_tipo, p_titulo, coalesce(p_detalhe, ''), coalesce(p_link, ''));
+  end if;
+end $$;
+revoke all on function public.notificar_pessoa(text, text, text, text, text) from public, anon, authenticated;
+
+-- passo concluído (aprovado) → libera o próximo e avisa quem faz
+create or replace function public.tarefa_libera_proxima() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare x record;
+begin
+  if new.status = 'concluida' and old.status is distinct from 'concluida' then
+    for x in update public.tarefas set status = 'pendente', inicio = current_date where depende_de = new.id and status = 'aguardando' returning titulo, responsavel loop
+      perform public.notificar_pessoa(x.responsavel, 'tarefa', 'Pode começar: ' || x.titulo, 'O passo anterior foi concluído' || case when new.exige_revisao then ' e aprovado' else '' end || '.', 'tarefas');
+    end loop;
+  end if;
+  return null;
+end $$;
+drop trigger if exists tarefa_libera_proxima on public.tarefas;
+create trigger tarefa_libera_proxima after update of status on public.tarefas for each row execute function public.tarefa_libera_proxima();
+
+-- aprovar / devolver com comentário (só quem valida ou o administrador)
+create or replace function public.tarefa_validar(p_tarefa uuid, p_aprovar boolean, p_comentario text default '') returns text
+language plpgsql security definer set search_path = public as $$
+declare t public.tarefas; eu text;
+begin
+  select * into t from public.tarefas where id = p_tarefa;
+  if not found then raise exception 'Tarefa não encontrada.'; end if;
+  if t.status <> 'revisao' then raise exception 'Esta tarefa não está aguardando validação.'; end if;
+  if not public.eh_admin() and public.usuario_por_nome(t.revisor) is distinct from auth.uid() then raise exception 'Só quem valida (%) ou o administrador.', t.revisor; end if;
+  select coalesce(nullif(nome, ''), email) into eu from public.perfis where id = auth.uid();
+  if p_aprovar then
+    update public.tarefas set status = 'concluida' where id = p_tarefa;
+    if coalesce(btrim(p_comentario), '') <> '' then insert into public.comentarios (tarefa_id, texto) values (p_tarefa, '✓ Aprovado: ' || btrim(p_comentario)); end if;
+    perform public.notificar_pessoa(t.responsavel, 'revisao', 'Aprovado: ' || t.titulo, coalesce(nullif(btrim(p_comentario), ''), 'Validado por ' || coalesce(eu, '')), 'tarefas');
+    return 'aprovada';
+  end if;
+  if coalesce(btrim(p_comentario), '') = '' then raise exception 'Escreva o que precisa ser ajustado.'; end if;
+  update public.tarefas set status = 'andamento' where id = p_tarefa;
+  insert into public.comentarios (tarefa_id, texto) values (p_tarefa, '↩ Devolvido: ' || btrim(p_comentario));
+  perform public.notificar_pessoa(t.responsavel, 'revisao', 'Devolvido para ajuste: ' || t.titulo, btrim(p_comentario), 'tarefas');
+  return 'devolvida';
+end $$;
+revoke all on function public.tarefa_validar(uuid, boolean, text) from public, anon;
+grant execute on function public.tarefa_validar(uuid, boolean, text) to authenticated;
+
+-- Início: o que está esperando a MINHA validação (tarefas em revisão + alterações propostas no modo rascunho)
+create or replace function public.minhas_validacoes() returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not public.eh_equipe() then return '[]'::jsonb; end if;
+  return coalesce((select jsonb_agg(jsonb_build_object('id', t.id, 'titulo', t.titulo, 'responsavel', t.responsavel, 'prazo', t.prazo, 'cliente', c.nome,
+             'desde', t.atualizado_em, 'fluxo', f.nome) order by t.atualizado_em)
+    from public.tarefas t left join public.clientes c on c.id = t.cliente_id left join public.fluxos f on f.id = t.fluxo_id
+   where t.status = 'revisao' and (public.usuario_por_nome(t.revisor) = auth.uid() or (public.eh_admin() and coalesce(btrim(t.revisor), '') = ''))), '[]'::jsonb);
+end $$;
+revoke all on function public.minhas_validacoes() from public, anon;
+grant execute on function public.minhas_validacoes() to authenticated;

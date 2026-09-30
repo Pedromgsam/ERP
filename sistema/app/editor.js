@@ -156,7 +156,7 @@
         { k: 'num_parcelas', rot: 'Nº de parcelas', tipo: 'num' },
         { k: 'primeiro_vencimento', rot: '1º vencimento', tipo: 'data' },
         { k: 'percentual_exito', rot: '% de êxito', tipo: 'num' },
-        { k: 'status', rot: 'Status', tipo: 'sel', ops: [['Ativo', 'Ativo'], ['Encerrado', 'Encerrado'], ['Cancelado', 'Cancelado']] },
+        { k: 'status', rot: 'Status', tipo: 'sel', ops: [['Ativo', 'Ativo'], ['Aguardando assinatura', 'Aguardando assinatura'], ['Encerrado', 'Encerrado'], ['Cancelado', 'Cancelado']] },
         { k: 'obs', rot: 'Observação', tipo: 'area' }
       ],
       antesDeGravar(d, reg) {

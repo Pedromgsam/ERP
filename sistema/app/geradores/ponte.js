@@ -73,7 +73,17 @@
       (G.enviarEmail ? '<button type="button" class="ponte-p" id="ponte-email">✉ Enviar pelo ERP</button>' : '') + '<span class="ponte-msg" id="ponte-msg"></span>';
     document.body.insertBefore(bar, document.body.firstChild);
     const cliUrl = new URLSearchParams(location.search).get('cliente');
-    const escolher = async (c) => { atual = c ? await dadosDoCliente(c) : null; if (atual && G.preencher) { G.preencher(atual, { por, marcar }); msg('✓ Dados de ' + atual.nome + ' preenchidos.'); } };
+    // Backup 25: aberto a partir de um contrato (CRM "Fechou" ou ficha do contrato) → valores do contrato e o documento fica ligado a ele
+    const ctrUrl = new URLSearchParams(location.search).get('contrato');
+    const contrato = ctrUrl ? (await q(sb.from('contratos').select('*').eq('id', ctrUrl)).catch(() => []))[0] : null;
+    const escolher = async (c) => {
+      atual = c ? await dadosDoCliente(c) : null;
+      if (atual && G.preencher) { G.preencher(atual, { por, marcar }); msg('✓ Dados de ' + atual.nome + ' preenchidos.'); }
+      if (atual && contrato && contrato.cliente_id === atual.id && G.preencherContrato) {
+        try { G.preencherContrato(contrato, { por, marcar }); msg('✓ Dados de ' + atual.nome + ' e valores do contrato preenchidos. Confira e clique em 📁 Guardar em Documentos.'); }
+        catch (e) { console.warn('[ponte] valores do contrato', e); }
+      }
+    };
     document.getElementById('ponte-preencher').onclick = async (ev) => {
       const nome = document.getElementById('ponte-cli').value.trim(), c = clientes.find((x) => x.nome === nome);
       if (!c) return msg('Escolha um cliente da lista.', true);
@@ -94,8 +104,9 @@
         const caminho = c.id + '/' + new Date().toISOString().slice(0, 7) + '/' + Date.now() + '-' + nomeArq.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Za-z0-9._-]+/g, '_').slice(-80);
         const up = await sb.storage.from('documentos').upload(caminho, new Blob([html], { type: 'text/html' }), { contentType: 'text/html', upsert: false });
         if (up.error) throw up.error;
-        await q(sb.from('documentos').insert({ nome: nomeArq, caminho, tamanho: html.length, mime: 'text/html', tipo: (typeof G.tipoDocumento === 'function' ? G.tipoDocumento() : G.tipoDocumento) || 'outro', cliente_id: c.id, grupo_id: c.grupo_id || null }));
-        msg('✓ Guardado em Documentos de ' + c.nome + '.');
+        await q(sb.from('documentos').insert({ nome: nomeArq, caminho, tamanho: html.length, mime: 'text/html', tipo: (typeof G.tipoDocumento === 'function' ? G.tipoDocumento() : G.tipoDocumento) || 'outro', cliente_id: c.id, grupo_id: c.grupo_id || null,
+          contrato_id: contrato && contrato.cliente_id === c.id ? contrato.id : null, obs: contrato ? 'Minuta gerada pelo gerador (antes da assinatura).' : '' }));
+        msg('✓ Guardado em Documentos de ' + c.nome + (contrato && contrato.cliente_id === c.id ? ' (no contrato)' : '') + '.');
       } catch (e) { msg('Não consegui guardar: ' + (e.message || e), true); }
       bg.disabled = false;
     };
