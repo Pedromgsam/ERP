@@ -73,7 +73,7 @@
       (G.enviarEmail ? '<button type="button" class="ponte-p" id="ponte-email">✉ Enviar pelo ERP</button>' : '') + '<span class="ponte-msg" id="ponte-msg"></span>';
     document.body.insertBefore(bar, document.body.firstChild);
     const cliUrl = new URLSearchParams(location.search).get('cliente');
-    // Backup 25: aberto a partir de um contrato (CRM "Fechou" ou ficha do contrato) → valores do contrato e o documento fica ligado a ele
+    // Backup 26: aberto a partir de um contrato (CRM "Fechou" ou ficha do contrato) → valores do contrato e o documento fica ligado a ele
     const ctrUrl = new URLSearchParams(location.search).get('contrato');
     const contrato = ctrUrl ? (await q(sb.from('contratos').select('*').eq('id', ctrUrl)).catch(() => []))[0] : null;
     const escolher = async (c) => {

@@ -1,4 +1,4 @@
--- Teste do fluxo completo (Backup 25): Cadastro → Lead → Reunião → Contrato → Assinatura → Financeiro → E-mails → Delegar/validar.
+-- Teste do fluxo completo (Backup 26): Cadastro → Lead → Reunião → Contrato → Assinatura → Financeiro → E-mails → Delegar/validar.
 -- Dados fictícios. Roda num banco novo (rodar-tudo.sh cria erp_fluxo). Mostra PASSA/FALHA de cada item e dá erro se algum falhar.
 create temp table r (n serial, ok boolean, nome text, obs text);
 create or replace function pg_temp.como(u text) returns void language plpgsql as $$

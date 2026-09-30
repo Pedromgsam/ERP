@@ -298,7 +298,7 @@ const ABA_FICHA = {
       q(sb.from('historico').select('acao, quando, antes, depois').eq('tabela', 'clientes').eq('registro_id', cl.id).order('quando', { ascending: false }).limit(30)).catch(() => []),
       // atividades do CRM (inclusive as de antes de virar cliente)
       pode('crm') ? q(sb.from('crm_atividades').select('tipo, quando, resumo, crm_oportunidades!inner(titulo, cliente_id)').eq('crm_oportunidades.cliente_id', cl.id)).catch(() => []) : [],
-      // Backup 25: reuniões e e-mails enviados também entram na linha do tempo
+      // Backup 26: reuniões e e-mails enviados também entram na linha do tempo
       q(sb.from('reunioes').select('titulo, inicio, local, status, participantes').eq('cliente_id', cl.id)).catch(() => []),
       q(sb.rpc('emails_do_cliente', { p_cliente: cl.id })).catch(() => [])
     ]);

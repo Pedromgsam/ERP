@@ -7,7 +7,7 @@
 //   "teste"  → põe um e-mail de teste para o admin e envia
 //   "resumo" → monta o resumo do dia de cada pessoa e envia
 // E-mail com anexo {tipo:'recibo', dados} (Recebido → recibo): o PDF do recibo é montado aqui, sem biblioteca.
-// Backup 25: anexo {tipo:'ics', arquivo, conteudo} (convite de reunião) e vários destinatários em "para" (separados por vírgula).
+// Backup 26: anexo {tipo:'ics', arquivo, conteudo} (convite de reunião) e vários destinatários em "para" (separados por vírgula).
 // Quem pode chamar: a rotina do banco (cabeçalho x-erp-segredo) ou um administrador logado.
 // A senha do Gmail/SMTP/Resend fica no banco (config_privada) — nunca no site.
 import { createClient } from 'npm:@supabase/supabase-js@2';

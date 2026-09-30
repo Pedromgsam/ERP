@@ -9,7 +9,7 @@ psql -h 127.0.0.1 -p ${PGPORT:-54329} -U postgres -q -c "drop database if exists
 psql -h 127.0.0.1 -p ${PGPORT:-54329} -U postgres -q -d erp_perm -f "$DIR/supabase-local.sql" >/dev/null 2>&1
 psql -h 127.0.0.1 -p ${PGPORT:-54329} -U postgres -q -d erp_perm -f "$DIR/../banco/estrutura.sql" >/dev/null 2>&1
 psql -h 127.0.0.1 -p ${PGPORT:-54329} -U postgres -q -d erp_perm -f "$DIR/permissoes.sql" 2>&1 | grep -oE "(PASSA|FALHOU).*" 
-# Backup 25: fluxo cliente → financeiro (cadastro, CRM, reunião, assinatura, e-mails, delegar/validar)
+# Backup 26: fluxo cliente → financeiro (cadastro, CRM, reunião, assinatura, e-mails, delegar/validar)
 psql -h 127.0.0.1 -p ${PGPORT:-54329} -U postgres -q -c "drop database if exists erp_fluxo with (force)" -c "create database erp_fluxo"
 psql -h 127.0.0.1 -p ${PGPORT:-54329} -U postgres -q -d erp_fluxo -f "$DIR/supabase-local.sql" >/dev/null 2>&1
 psql -h 127.0.0.1 -p ${PGPORT:-54329} -U postgres -q -d erp_fluxo -f "$DIR/../banco/estrutura.sql" >/dev/null 2>&1

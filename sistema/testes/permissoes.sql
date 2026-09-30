@@ -248,7 +248,7 @@ select public.crm_ganhar((select id from crm_oportunidades where titulo='Holding
   '{"cliente_nome":"Holding Teste Ltda","cpf_cnpj":"11222333000181","grupo":"Grupo Holding","descricao":"Holding familiar","valor_total":30000,"num_parcelas":3,"primeiro_vencimento":"2026-11-10","responsavel":"Pedro","criar_fluxo":true}');
 commit;
 select pg_temp.ok((select count(*) from clientes where nome='Holding Teste Ltda' and origem='CRM')=1,'Ganhou: cria o cliente (mesmo sem a função Clientes)');
--- Backup 25: o "Fechou" cria o contrato aguardando assinatura; o financeiro e o onboarding entram na assinatura
+-- Backup 26: o "Fechou" cria o contrato aguardando assinatura; o financeiro e o onboarding entram na assinatura
 select pg_temp.ok((select status from contratos where descricao='Holding familiar')='Aguardando assinatura','Ganhou: contrato nasce aguardando assinatura');
 select pg_temp.ok((select count(*) from lancamentos l join contratos c on c.id=l.contrato_id where c.descricao='Holding familiar')=0,'Ganhou: sem financeiro antes da assinatura');
 select pg_temp.ok((select count(*) from fluxos where nome like 'Onboarding — Holding Teste%')=0,'Ganhou: onboarding espera a assinatura');

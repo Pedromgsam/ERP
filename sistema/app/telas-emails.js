@@ -132,7 +132,7 @@ function pintarEmails() {
   }));
 }
 // "E-mail de destino": o endereço e de qual contato ele veio (empresas podem ter vários e-mails)
-// Backup 25: de onde veio o destinatário — marcado para este tipo, contato do setor, contato geral ou e-mail do cadastro
+// Backup 26: de onde veio o destinatário — marcado para este tipo, contato do setor, contato geral ou e-mail do cadastro
 const ORIGEM_DESTINO = { marcado: 'marcado para receber', setor: 'contato do setor', geral: 'contato geral', cadastro: 'e-mail do cadastro' };
 const rotSetor = (k) => (SETORES_CONTATO.find((x) => x[0] === k) || [k, k || ''])[1];
 function destinoEmail(x) {
@@ -221,7 +221,7 @@ async function abaEmailsCliente(alvo, cl) {
   alvo.querySelectorAll('[data-em-id]').forEach((tr) => tr.onclick = () => previaEmail(tr.dataset.emId).catch((e) => aviso(erroAmigavel(e), true)));
 }
 
-// ═══ Backup 25: CONTROLE POR CLIENTE — o que cada cliente recebe, para qual e-mail, quem é o responsável, modelo e histórico ═══
+// ═══ Backup 26: CONTROLE POR CLIENTE — o que cada cliente recebe, para qual e-mail, quem é o responsável, modelo e histórico ═══
 const TIPOS_CONTROLE = [['cobranca', 'Cobranças', 'hon_lembrete', 'lembrete antes do vencimento, vence hoje e 1º/2º/3º aviso de atraso'],
   ['guia', 'Guias', 'parc_guia', 'guia do parcelamento e parcelas em atraso'], ['acordo', 'Acordos', 'aco_lembrete', 'lembrete e atraso da parcela do acordo'],
   ['recibo', 'Recibos', 'recibo', 'ao dar baixa, com o PDF do recibo'], ['contrato', 'Contratos', 'boas_vindas', 'boas-vindas na assinatura, propostas'],

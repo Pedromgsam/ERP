@@ -1,5 +1,5 @@
 // erp-agenda — agenda de cada pessoa no formato iCalendar (.ics), para assinar no Google Agenda.
-// GET /functions/v1/erp-agenda?t=<link secreto da pessoa>  → prazos fatais, audiências e reuniões (Backup 25) dela.
+// GET /functions/v1/erp-agenda?t=<link secreto da pessoa>  → prazos fatais, audiências e reuniões (Backup 26) dela.
 // O link sai de "Tarefas → 📅 Google Agenda" (RPC meu_link_agenda) e pode ser trocado a qualquer hora.
 // Publicar com "Verify JWT" DESLIGADO (o Google não manda login; quem autoriza é o link secreto).
 import { createClient } from 'npm:@supabase/supabase-js@2';
@@ -51,7 +51,7 @@ export async function tratar(req, db) {
         'BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + icsTexto(titulo), 'TRIGGER:-P1D', 'END:VALARM', 'END:VEVENT'].map(dobrar).join('\r\n'));
     }
   }
-  // Backup 25: reuniões marcadas no CRM (com hora), para cada participante
+  // Backup 26: reuniões marcadas no CRM (com hora), para cada participante
   const { data: reunioes } = await db.from('reunioes').select('id, titulo, inicio, duracao_min, local, participantes, status, clientes(nome)')
     .eq('status', 'agendada').gte('inicio', new Date(Date.now() - 30 * 864e5).toISOString());
   const utc = (d) => new Date(d).toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');

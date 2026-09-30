@@ -24,7 +24,7 @@ const GERADORES = [
       "    try { if (typeof renderContrato === 'function') renderContrato(); } catch (e) {} },\n" +
       "  preencher: function (c, f) { " + preencherPessoa('ctte', 'Wpp') + " " + preencherPessoa('out', 'Telefone') + "\n" +
       "    try { renderContrato(); } catch (e) {} try { renderProcuracao(); } catch (e) {} },\n" +
-      // Backup 25: valores do contrato do ERP (serviço pontual → Valor Fixo à vista/parcelado; consultoria → mensalidade)
+      // Backup 26: valores do contrato do ERP (serviço pontual → Valor Fixo à vista/parcelado; consultoria → mensalidade)
       "  preencherContrato: function (ct, f) { var md = function (v) { return Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); };\n" +
       "    var MES = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];\n" +
       "    if (ct.modalidade === 'consultoria') { f.marcar('tipoServico', 'consultoria');\n" +

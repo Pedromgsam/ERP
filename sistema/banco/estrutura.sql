@@ -1023,7 +1023,7 @@ begin
     if exists (select 1 from jsonb_array_elements(coalesce(new.checklist, '[]')) e where coalesce((e->>'feito')::boolean, false) = false) then
       raise exception 'Conclua todos os itens do checklist antes de concluir a tarefa.';
     end if;
-    -- Backup 25: "depende de" trava — o passo anterior precisa estar concluído (e aprovado, se tiver revisão)
+    -- Backup 26: "depende de" trava — o passo anterior precisa estar concluído (e aprovado, se tiver revisão)
     if new.depende_de is not null and exists (select 1 from public.tarefas d where d.id = new.depende_de and d.status not in ('concluida', 'cancelada')) then
       raise exception 'Esta tarefa depende de "%": conclua (ou aprove) aquela antes.', (select titulo from public.tarefas where id = new.depende_de);
     end if;
@@ -3013,7 +3013,7 @@ insert into public.configuracoes (chave, valor) values ('dados_pagamento', '{"pi
 on conflict (chave) do nothing;
 
 -- e-mail certo para cada assunto: contato com a FINALIDADE pedida (financeiro, juridico…), depois quem recebe boletos/avisos, depois o do cadastro
-drop function if exists public.contato_do_cliente(uuid, uuid, text);  -- Backup 25 mudou o retorno (setor/origem)
+drop function if exists public.contato_do_cliente(uuid, uuid, text);  -- Backup 26 mudou o retorno (setor/origem)
 create or replace function public.contato_do_cliente(p_cliente uuid, p_grupo uuid, p_finalidade text default 'financeiro')
 returns table (email text, nome text)
 language sql stable security definer set search_path = public as $$
@@ -4040,7 +4040,7 @@ begin
                     array_agg(case when k = 1 then 'email_ch:' else 'email_ch' || k || ':' end || l.id order by l.id) mk, string_agg(l.id::text, ',' order by l.id) ids
                from public.lancamentos l where l.tipo = 'receita' and not l.redutor and not l.pago and not coalesce(l.perda, false)
                 and current_date - l.vencimento >= case k when 1 then t1 when 2 then t2 else t3 end
-                -- Backup 25: um aviso por vez (1º → 2º → 3º), com o intervalo entre eles; quem nunca foi avisado recebe o 1º (não pula para o 2º)
+                -- Backup 26: um aviso por vez (1º → 2º → 3º), com o intervalo entre eles; quem nunca foi avisado recebe o 1º (não pula para o 2º)
                 and not exists (select 1 from public.automacoes_log g where g.ref in (select pf || l.id from unnest(case k when 1 then array['email_ch:', 'email_ch2:', 'email_ch3:']
                                                                                                                   when 2 then array['email_ch2:', 'email_ch3:'] else array['email_ch3:'] end) pf))
                 and (k = 1 or exists (select 1 from public.automacoes_log g where g.ref = case k when 2 then 'email_ch:' else 'email_ch2:' end || l.id
@@ -4673,8 +4673,11 @@ end $$;
 revoke all on function public.excluir_usuario(uuid) from public, anon;
 grant execute on function public.excluir_usuario(uuid) to authenticated;
 
+-- ═══ Backup 25: quem emite as guias de cada parcelamento ═══
+-- true (padrão) = o escritório emite (entra no aviso "guias a emitir" do Início); false = o próprio cliente emite.
+alter table public.parcelamentos add column if not exists emitimos_guia boolean not null default true;
 -- ═══════════════════════════════════════════════════════════════════
--- Backup 25 — FLUXO CLIENTE → FINANCEIRO (etapa 0: correções)
+-- Backup 26 — FLUXO CLIENTE → FINANCEIRO (etapa 0: correções)
 --   · contrato novo pode nascer "Aguardando assinatura": não lança parcelas nem mensalidades
 --   · ao virar "Ativo" (assinado): lança o financeiro, cria o onboarding, avisa a equipe, move o CRM
 --     para "Contrato assinado", registra na linha do tempo e manda as boas-vindas (se ligado)
@@ -4958,7 +4961,7 @@ create or replace function public.brl_texto(v numeric) returns text language sql
 $$;
 
 -- ═══════════════════════════════════════════════════════════════════
--- Backup 25 — etapa 1: CONTATOS POR SETOR e CONTROLE DOS E-MAILS
+-- Backup 26 — etapa 1: CONTATOS POR SETOR e CONTROLE DOS E-MAILS
 --   · setores: geral, financeiro, fiscal, rh, socio, juridico, contador ("cobrança" vira financeiro; "marketing" vira geral)
 --   · "recebe o quê" por contato (contatos.recebe): cobranca, recibo, guia, acordo, contrato, convite
 --   · para onde vai cada tipo quando ninguém está marcado: configuracoes.emails_destino (tipo → setor)
@@ -5190,7 +5193,7 @@ revoke all on function public.emails_central(text) from public, anon;
 grant execute on function public.emails_central(text) to authenticated;
 
 -- ═══════════════════════════════════════════════════════════════════
--- Backup 25 — etapa 2: CADASTRO ORGANIZADO
+-- Backup 26 — etapa 2: CADASTRO ORGANIZADO
 --   · "indicado por" (origem = Indicação) · aviso de CPF/CNPJ repetido · e-mail do cadastro vira o contato "Geral"
 --   · sócios do cartão CNPJ entram sozinhos em "Sócios e vínculos" (sem apagar os que já existem)
 -- ═══════════════════════════════════════════════════════════════════
@@ -5263,7 +5266,7 @@ drop trigger if exists cliente_socios_cnpj on public.clientes;
 create trigger cliente_socios_cnpj after insert or update of cnpj_dados on public.clientes for each row execute function public.cliente_socios_cnpj();
 
 -- ═══════════════════════════════════════════════════════════════════
--- Backup 25 — etapa 3: REUNIÃO a partir do lead
+-- Backup 26 — etapa 3: REUNIÃO a partir do lead
 --   · reunião com data, hora, duração, local/link e participantes (nomes da equipe)
 --   · vira tarefa de cada participante, cai na agenda (erp-agenda), entra nas atividades do CRM e na linha do tempo
 --   · convite por e-mail ao cliente SÓ quando marcado (e respeita a pausa dos e-mails), com o arquivo .ics para salvar na agenda
@@ -5409,7 +5412,7 @@ drop trigger if exists crm_reunioes_do_cliente on public.crm_oportunidades;
 create trigger crm_reunioes_do_cliente after update of cliente_id on public.crm_oportunidades for each row execute function public.crm_reunioes_do_cliente();
 
 -- ═══════════════════════════════════════════════════════════════════
--- Backup 25 — etapa 7: DELEGAR E VALIDAR
+-- Backup 26 — etapa 7: DELEGAR E VALIDAR
 --   · sequência de passos para uma pessoa (modelo "Lead completo"): cada passo é uma tarefa com prazo;
 --     o próximo só começa quando o anterior termina (e é aprovado, se o passo pedir validação)
 --   · o passo com validação vai para "Aguardando revisão": quem valida aprova ou devolve com comentário

@@ -83,7 +83,7 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
-- Última entrega: **Backup 25** (SQL + funções erp-emails, erp-cnpj, erp-agenda). Fluxo cliente → financeiro:
+- Última entrega: **Backup 26** (SQL + funções erp-emails, erp-cnpj, erp-agenda). Fluxo cliente → financeiro:
   contrato `status='Aguardando assinatura'` (não lança nada; `lancar_parcelas_contrato`, `gerar_mensalidades` pula) → `contrato_assinar(id)` ou lead em
   etapa final 'ganho' (`crm_assina_contrato`) → gatilho `contrato_assinado` (parcelas/mensalidades, onboarding via `onboarding_pendente`, notificação,
   CRM, interação, boas-vindas `email_bv` se a regra `email_boas_vindas` — desligada — estiver ligada). `crm_ganhar` cria o contrato aguardando.
@@ -99,9 +99,15 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
   `delegar_sequencia`, status `aguardando` → `tarefa_libera_proxima`, `tarefa_validar(id, aprovar, comentário)`, `minhas_validacoes()` → `cardValidacoes`
   (#ini-valid no Início), `janelaDelegar`/`janelaDevolver` (telas-tarefas.js); `depende_de` trava no banco. Teste novo `testes/fluxo.sql` (no rodar-tudo).
   Lista para aprovar: `sistema/SIMPLIFICACAO-SUGESTOES.md` (nada removido).
+- Backup 25 (base). SQL: `parcelamentos.emitimos_guia` (padrão true; false = o cliente emite; o aviso de guias do Início só
+  conta os true). **Lista por grupo única** para Parcelamentos e Acordos: `remendos/lista-grupos-b25.js` (`_lgRender`, `_lgProx` = soma das
+  parcelas do mês da próxima, `_lgSit` = "N em atraso" + risco quando o item tem ≥2), injetado antes do remendo de acordos. Parcelamentos:
+  itens montados em `renderParcAnalise`, filtro `_parcF.guia`, janela `_parcAbrir` com "Guias deste parcelamento" (`window.SB` update).
+  Acordos: `_acVisao`, `_acGrpAbertos`, `_acAbrir(k)` (janela `.pcd`), atraso inclui o dia. CSS `.lg-*` no fim do design.css; `#alertParc`,
+  `#alertAcordos` e `.pa-nota` escondidos; Início com 5 tamanhos (teste em padrao.js).
 - Backup 24 (base, sem SQL). Início: o destaque `guias` voltou para a faixa de `cardMural` (lista `.ini-guias` com `data-guia-ok`),
   o cartão de Lembretes ficou só com lembretes. Painel: `.res-graficos` (cResGrupos/cResDonut) escondido (ids mantidos para o JS do ERP).
-  (O prompt `sistema/PROMPT-AUTOMACAO.md` foi executado no Backup 25.)
+  (O prompt `sistema/PROMPT-AUTOMACAO.md` foi executado no Backup 26.)
 - Backup 23 (base). SQL: `excluir_usuario(p_perfil)` (admin; não a si mesmo nem o último admin; apaga auth.users → perfis em
   cascata). Início: `cardMural` = só a faixa de destaques; `cardLembretes` (cartão próprio, `#ini-lembretes`: guias, lembretes ≤7 dias/sem prazo/
   fixos e "Mais adiante"), `detalheLembrete`, `botoesLembrete` (`.lemb-fixo.on`); `dadosLembretes` devolve vis/futuros/todos. Selo da pessoa:

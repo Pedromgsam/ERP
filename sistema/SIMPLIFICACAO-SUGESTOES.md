@@ -1,4 +1,4 @@
-# Sugestões para simplificar o ERP (Backup 25)
+# Sugestões para simplificar o ERP (Backup 26)
 
 Esta é a lista pedida na **Etapa 4**. **Nada foi removido.** Cada linha traz uma sugestão: **manter**, **simplificar** ou **remover**.
 Para aprovar, responda com os números. Exemplo: "aprovo 3, 5 e 9; o 7 fica".

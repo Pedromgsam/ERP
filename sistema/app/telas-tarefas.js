@@ -1070,7 +1070,7 @@ function vistaSemana(alvo) {
   });
 }
 
-// ═══ Backup 25: DELEGAR e VALIDAR ═══
+// ═══ Backup 26: DELEGAR e VALIDAR ═══
 // devolver com comentário (volta para quem fez, com aviso)
 function janelaDevolver(t, depois) {
   const k = abrirJanela({ titulo: '↩ Devolver para ajuste', corpo: '<p class="sub" style="margin-bottom:8px">' + esc(t.titulo) + ' — volta para <b>' + esc(t.responsavel || '—') + '</b>, que recebe um aviso com o seu comentário.</p>' +

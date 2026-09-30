@@ -374,7 +374,22 @@ Ordem: **1) Merge  2) Ctrl+Shift+R**. O banco não mudou.
 - **Painel Executivo:** saíram os gráficos "Passivo total por grupo" e "Distribuição por órgão".
 - Prompt para o novo chat "ERP Automação": `sistema/PROMPT-AUTOMACAO.md`.
 
-## Backup 25 — do primeiro contato ao financeiro (tem SQL e 3 funções novas)
+## Backup 25 — Parcelamentos e Acordos por grupo, guias por parcelamento (tem SQL)
+Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+Shift+R**. Nenhuma função do Supabase mudou.
+O SQL cria o campo "quem emite as guias" em cada parcelamento.
+- **Parcelamentos e Acordos — mesma lista, por grupo:** de início só os grupos; clique no grupo para ver os parcelamentos/acordos dele
+  (recuados, cada um num cartão, com um fio à esquerda). Sem barra de progresso: **"147 de 410 parcelas pagas"** e, embaixo,
+  **"Quitado R$ 149 mil · falta R$ 103 mil"**.
+  - **Próxima parcela do grupo** = soma de todas as parcelas que vencem no mês da próxima (ex.: "R$ 1.840 · 2 parcelas em out/2026").
+  - **Situação** = nº de parcelas em atraso (o dia do vencimento já conta).
+  - **Risco de rescisão** só quando **um mesmo** parcelamento/acordo tem **2 ou mais** parcelas em atraso (20 atrasadas, uma em cada, não é risco).
+  - Clicar no parcelamento ou no acordo abre o **detalhamento numa janela** (resumo, parcelas, "Lançar pagamento").
+- **Guias:** em Parcelamentos → abrir o parcelamento → **"Guias deste parcelamento: Nós emitimos / O cliente emite"**. Só os "nós emitimos"
+  entram no aviso "guias a emitir" do Início. Filtro **"Guias"** na lista e a etiqueta "guia: cliente" na linha.
+- Saíram o selo vermelho do topo (Parcelamentos e Acordos) e as notas em itálico ao lado dos títulos.
+- Acordos: tabelas Vencidos / A pagar / Pago com altura mínima de 5 linhas (antes 10).
+- Início: só 5 tamanhos de letra (11 · 12 · 13 · 14 · 20) — conferido pelo teste de padronização.
+## Backup 26 — do primeiro contato ao financeiro (tem SQL e 3 funções novas)
 Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) publicar as funções `erp-emails`, `erp-cnpj` e `erp-agenda`
 (Verify JWT desligado)  4) Ctrl+Shift+R**.
 

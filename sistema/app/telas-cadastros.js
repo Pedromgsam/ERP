@@ -222,7 +222,7 @@ async function formCliente(cl, depois) {
       '<button class="btn btn-p" id="btn-salvar-cli" type="button">Salvar</button></div>'
   });
   const f = j.querySelector('#f-cli');
-  // Backup 25: avisa na hora se o CPF/CNPJ já está cadastrado
+  // Backup 26: avisa na hora se o CPF/CNPJ já está cadastrado
   let repetidos = [];
   const conferirDoc = async () => {
     const d = soDigitos(f.cpf_cnpj.value), el = j.querySelector('#cli-doc-aviso'); repetidos = [];

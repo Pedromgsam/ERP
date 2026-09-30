@@ -106,7 +106,7 @@ const PERFIS_EMAIL = [['padrao', 'Padrão', 'lembrete antes do vencimento, cobra
   ['nunca', 'Não enviar financeiro', 'nenhum e-mail de honorários (clientes importantes); guias de parcelamento e acordos continuam'],
   ['nada', 'Não enviar nenhum e-mail', 'o cliente não recebe nenhum e-mail automático (nem guias, acordos ou boas-vindas)'],
   ['personalizado', 'Personalizado', 'você marca cada tipo de e-mail']];
-// Backup 25: setor do contato e "recebe o quê" (os e-mails automáticos usam isso para escolher o destinatário)
+// Backup 26: setor do contato e "recebe o quê" (os e-mails automáticos usam isso para escolher o destinatário)
 const SETORES_CONTATO = [['geral', 'Geral'], ['financeiro', 'Financeiro'], ['fiscal', 'Fiscal'], ['rh', 'RH / Depto. pessoal'], ['socio', 'Sócio / decisor'],
   ['juridico', 'Jurídico'], ['contador', 'Contador externo']];
 const RECEBE_EMAIL = [['cobranca', 'Cobranças e lembretes de honorários'], ['recibo', 'Recibos'], ['guia', 'Guias de parcelamento'],

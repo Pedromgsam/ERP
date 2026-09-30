@@ -111,7 +111,7 @@ const PERFIS_EMAIL = [['padrao', 'Padrão', 'lembrete antes do vencimento, cobra
   ['nunca', 'Não enviar financeiro', 'nenhum e-mail de honorários (clientes importantes); guias de parcelamento e acordos continuam'],
   ['nada', 'Não enviar nenhum e-mail', 'o cliente não recebe nenhum e-mail automático (nem guias, acordos ou boas-vindas)'],
   ['personalizado', 'Personalizado', 'você marca cada tipo de e-mail']];
-// Backup 25: setor do contato e "recebe o quê" (os e-mails automáticos usam isso para escolher o destinatário)
+// Backup 26: setor do contato e "recebe o quê" (os e-mails automáticos usam isso para escolher o destinatário)
 const SETORES_CONTATO = [['geral', 'Geral'], ['financeiro', 'Financeiro'], ['fiscal', 'Fiscal'], ['rh', 'RH / Depto. pessoal'], ['socio', 'Sócio / decisor'],
   ['juridico', 'Jurídico'], ['contador', 'Contador externo']];
 const RECEBE_EMAIL = [['cobranca', 'Cobranças e lembretes de honorários'], ['recibo', 'Recibos'], ['guia', 'Guias de parcelamento'],
@@ -1083,7 +1083,7 @@ async function dadosLembretes() {
   const rg = await q(sb.from('regras_tarefas').select('ligada, dias').eq('chave', 'parcela_parcelamento').maybeSingle()).catch(() => null);
   const dias = rg && rg.dias != null ? rg.dias : 5, guiasLigado = !rg || rg.ligada;
   const [guias, meus] = await Promise.all([
-    jur && guiasLigado ? q(sb.from('parcelas').select('id, numero, vencimento, emissao, parcelamentos(empresa, natureza, numero, total_parcelas, grupo_id)')
+    jur && guiasLigado ? q(sb.from('parcelas').select('id, numero, vencimento, emissao, parcelamentos(empresa, natureza, numero, total_parcelas, grupo_id, emitimos_guia)')
       .eq('pago', false).lte('vencimento', somarDias(h, dias)).order('vencimento')).catch(() => []) : [],
     q(sb.from('lembretes').select('*').is('feito_em', null).order('dia', { nullsFirst: true })).catch(() => [])
   ]);
@@ -1092,7 +1092,8 @@ async function dadosLembretes() {
     .sort((a, b) => (b.fixo - a.fixo) || ((a.dia ? 1 : 0) - (b.dia ? 1 : 0)) || String(a.dia || '').localeCompare(String(b.dia || '')));
   // Backup 23: o lembrete com data distante não "some" — fica em "Mais adiante" até faltar 7 dias
   const vis = meu.filter((l) => l.fixo || !l.dia || l.dia <= lim), futuros = meu.filter((l) => !(l.fixo || !l.dia || l.dia <= lim));
-  return { dias, semGuia: guias.filter((g) => !/sim|emitid/i.test(g.emissao || '')), vis, futuros, todos: meu };
+  // Backup 25: só as guias dos parcelamentos em que NÓS emitimos (Parcelamentos → abrir o parcelamento → "Guias deste parcelamento")
+  return { dias, semGuia: guias.filter((g) => !/sim|emitid/i.test(g.emissao || '') && !(g.parcelamentos && g.parcelamentos.emitimos_guia === false)), vis, futuros, todos: meu };
 }
 // Backup 23: o Início volta a ter dois blocos separados — a faixa de DESTAQUES (avisos, tarefas atrasadas, prazos fatais, CRM)
 // e o cartão próprio de LEMBRETES (com as guias de parcelamento), como era antes do Backup 19.
@@ -2092,7 +2093,7 @@ async function formCliente(cl, depois) {
       '<button class="btn btn-p" id="btn-salvar-cli" type="button">Salvar</button></div>'
   });
   const f = j.querySelector('#f-cli');
-  // Backup 25: avisa na hora se o CPF/CNPJ já está cadastrado
+  // Backup 26: avisa na hora se o CPF/CNPJ já está cadastrado
   let repetidos = [];
   const conferirDoc = async () => {
     const d = soDigitos(f.cpf_cnpj.value), el = j.querySelector('#cli-doc-aviso'); repetidos = [];
@@ -4469,7 +4470,7 @@ function vistaSemana(alvo) {
   });
 }
 
-// ═══ Backup 25: DELEGAR e VALIDAR ═══
+// ═══ Backup 26: DELEGAR e VALIDAR ═══
 // devolver com comentário (volta para quem fez, com aviso)
 function janelaDevolver(t, depois) {
   const k = abrirJanela({ titulo: '↩ Devolver para ajuste', corpo: '<p class="sub" style="margin-bottom:8px">' + esc(t.titulo) + ' — volta para <b>' + esc(t.responsavel || '—') + '</b>, que recebe um aviso com o seu comentário.</p>' +
@@ -4739,7 +4740,7 @@ function janelaGeradores(clienteId) {
         '<div><b>' + rot + '</b><div class="sub">' + d + '</div></div><span class="sub">abrir ↗</span></a>').join('') + '</div>' });
   return j;
 }
-// Backup 25: gerador de contrato já com o cliente e os valores do contrato (o documento fica ligado ao contrato)
+// Backup 26: gerador de contrato já com o cliente e os valores do contrato (o documento fica ligado ao contrato)
 function abrirGeradorContrato(clienteId, contratoId) {
   window.open('geradores/contrato-procuracao.html?cliente=' + encodeURIComponent(clienteId || '') + (contratoId ? '&contrato=' + encodeURIComponent(contratoId) : ''), '_blank', 'noopener');
 }
@@ -5044,7 +5045,7 @@ const ABA_FICHA = {
       q(sb.from('historico').select('acao, quando, antes, depois').eq('tabela', 'clientes').eq('registro_id', cl.id).order('quando', { ascending: false }).limit(30)).catch(() => []),
       // atividades do CRM (inclusive as de antes de virar cliente)
       pode('crm') ? q(sb.from('crm_atividades').select('tipo, quando, resumo, crm_oportunidades!inner(titulo, cliente_id)').eq('crm_oportunidades.cliente_id', cl.id)).catch(() => []) : [],
-      // Backup 25: reuniões e e-mails enviados também entram na linha do tempo
+      // Backup 26: reuniões e e-mails enviados também entram na linha do tempo
       q(sb.from('reunioes').select('titulo, inicio, local, status, participantes').eq('cliente_id', cl.id)).catch(() => []),
       q(sb.rpc('emails_do_cliente', { p_cliente: cl.id })).catch(() => [])
     ]);
@@ -5881,7 +5882,7 @@ async function janelaModelosProposta() {
   });
 }
 
-// ═══ Backup 25: REUNIÃO a partir do lead (ou da ficha do cliente) ═══
+// ═══ Backup 26: REUNIÃO a partir do lead (ou da ficha do cliente) ═══
 // Vira tarefa de cada participante, cai na agenda (Google Agenda assinado), entra nas atividades do CRM e na linha do tempo.
 // Convite por e-mail ao cliente só quando marcado "Sim" (e só sai com a pausa de e-mails desligada).
 async function formReuniao(r, depois) {
@@ -7075,7 +7076,7 @@ function pintarEmails() {
   }));
 }
 // "E-mail de destino": o endereço e de qual contato ele veio (empresas podem ter vários e-mails)
-// Backup 25: de onde veio o destinatário — marcado para este tipo, contato do setor, contato geral ou e-mail do cadastro
+// Backup 26: de onde veio o destinatário — marcado para este tipo, contato do setor, contato geral ou e-mail do cadastro
 const ORIGEM_DESTINO = { marcado: 'marcado para receber', setor: 'contato do setor', geral: 'contato geral', cadastro: 'e-mail do cadastro' };
 const rotSetor = (k) => (SETORES_CONTATO.find((x) => x[0] === k) || [k, k || ''])[1];
 function destinoEmail(x) {
@@ -7164,7 +7165,7 @@ async function abaEmailsCliente(alvo, cl) {
   alvo.querySelectorAll('[data-em-id]').forEach((tr) => tr.onclick = () => previaEmail(tr.dataset.emId).catch((e) => aviso(erroAmigavel(e), true)));
 }
 
-// ═══ Backup 25: CONTROLE POR CLIENTE — o que cada cliente recebe, para qual e-mail, quem é o responsável, modelo e histórico ═══
+// ═══ Backup 26: CONTROLE POR CLIENTE — o que cada cliente recebe, para qual e-mail, quem é o responsável, modelo e histórico ═══
 const TIPOS_CONTROLE = [['cobranca', 'Cobranças', 'hon_lembrete', 'lembrete antes do vencimento, vence hoje e 1º/2º/3º aviso de atraso'],
   ['guia', 'Guias', 'parc_guia', 'guia do parcelamento e parcelas em atraso'], ['acordo', 'Acordos', 'aco_lembrete', 'lembrete e atraso da parcela do acordo'],
   ['recibo', 'Recibos', 'recibo', 'ao dar baixa, com o PDF do recibo'], ['contrato', 'Contratos', 'boas_vindas', 'boas-vindas na assinatura, propostas'],
