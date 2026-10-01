@@ -887,3 +887,53 @@ tr.rt-det > td{background:var(--surface2);padding:8px 14px 12px 28px}
 .rt-det-tab{width:auto;min-width:520px;border-collapse:collapse;font-size:12.5px}
 .rt-det-tab th{background:transparent!important;color:var(--text3)!important;font:700 10.5px var(--font-ui);text-transform:uppercase;letter-spacing:.05em;text-align:left;padding:4px 10px;position:static!important}
 .rt-det-tab td{padding:4px 10px;border-top:1px solid var(--line)}
+/* ── Backup 34: Controle dos parcelamentos/acordos — Emissão e Pagamento por mês, cabeçalho fixo no alto da página ── */
+.rt-ctl-card{overflow:visible!important}
+.rt-ctl-wrap{border:1px solid var(--border);border-radius:var(--radius-sm,10px);background:var(--surface);overflow:visible}
+.rt-ctl{width:100%;border-collapse:separate;border-spacing:0;font-size:13px}
+.rt-ctl > thead th{position:sticky;top:var(--hh,56px);z-index:4;background:var(--surface2);border-bottom:1px solid var(--border-strong);padding:7px 6px;font:700 11px var(--font-ui);letter-spacing:.04em;text-transform:uppercase;color:var(--text3);text-align:left;white-space:nowrap}
+.rt-ctl > thead th:first-child{border-top-left-radius:var(--radius-sm,10px)}
+.rt-ctl > thead th:last-child{border-top-right-radius:var(--radius-sm,10px)}
+.rt-ctl td{padding:6px;border-bottom:1px solid var(--line);vertical-align:middle}
+.rt-ctl .rt-c-emit{width:42px;text-align:center;padding:6px 2px}
+.rt-ctl .rt-c-item{min-width:210px}
+.rt-ctl td.rt-emp{min-width:210px;max-width:300px;cursor:pointer}
+.rt-ctl td.rt-emp b{font-weight:600}
+.rt-ctl .rt-c-mes{width:78px;text-align:center;padding:5px 3px}
+.rt-ctl th.rt-c-mes{text-align:center}
+.rt-ctl .rt-c-mes.rt-mes-atual{background:color-mix(in srgb,var(--amber-lt) 70%,transparent)}
+.rt-ctl th.rt-c-mes.rt-mes-atual{box-shadow:inset 0 -3px 0 var(--amber);background:var(--surface2)}
+.rt-ep-hd{display:grid;grid-template-columns:1fr 1fr;margin-top:3px;font:600 9.5px var(--font-ui);letter-spacing:.02em;color:var(--text3);text-transform:none}
+.rt-ep{display:grid;grid-template-columns:1fr 1fr;gap:4px;justify-items:center;margin:1px 0}
+.rt-ctl .rt-c-conf{width:130px}
+.rt-ctl tr.gx-grp td{background:var(--surface2);padding:7px 8px}
+.rt-chave-mini span{width:28px;height:16px}
+.rt-chave-mini span::after{width:12px;height:12px}
+.rt-chave-mini input:checked + span::after{left:14px}
+.rt-e,.rt-p{display:inline-flex;align-items:center;justify-content:center;width:26px;height:24px;border-radius:6px;border:1px solid var(--border);background:var(--surface);font:700 12.5px var(--font-ui);color:var(--text3);padding:0;line-height:1}
+button.rt-e,button.rt-p{cursor:pointer}
+button.rt-e:hover,button.rt-p:hover{border-color:var(--primario)}
+.rt-e-nao{color:var(--amber-d);border-color:var(--amber-border);background:var(--amber-lt)}
+.rt-e-ok{color:var(--green-d);border-color:var(--green-bd);background:var(--green-lt)}
+.rt-e-ok.rt-e-reemit{box-shadow:inset 0 -2px 0 var(--red)}
+.rt-e-sel{color:var(--on-cor);background:var(--primario);border-color:var(--primario)}
+.rt-e-cli{border-style:dashed;color:var(--text3);background:transparent}
+.rt-e-vazio{border-color:transparent;background:transparent}
+.rt-p-ok{color:var(--on-cor);background:var(--green);border-color:var(--green)}
+.rt-p-atr{color:var(--on-cor);background:var(--red);border-color:var(--red)}
+.rt-p-ab{color:var(--text3)}
+.rt-leg .rt-e,.rt-leg .rt-p{width:20px;height:18px;font-size:11px;vertical-align:middle}
+.rt-selbar{position:sticky;bottom:12px;z-index:5;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:12px;padding:10px 14px;border-radius:var(--radius-sm,10px);background:var(--surface);border:1.5px solid var(--primario);box-shadow:var(--shadow-md)}
+.rt-selbar[hidden]{display:none}
+.rt-selbar .acoes{display:flex;gap:8px;align-items:center}
+.rt-sel-atr{color:var(--red-d);font-weight:600}
+.rt-vbox{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--border-strong);border-radius:6px;padding:0 6px;background:var(--surface)}
+.rt-vbox span{color:var(--text3);font-size:12px}
+.rt-vbox input{width:96px;border:0;outline:0;background:transparent;padding:4px 0;text-align:right;font:600 13px var(--font-ui);color:var(--ink)}
+.ge-it.ge-venc{grid-template-columns:22px minmax(0,1fr) 150px 150px}
+.ge-it-d input{height:36px;border:1px solid var(--border-strong);border-radius:8px;padding:0 8px;font:600 13px var(--font-ui);color:var(--ink);background:var(--surface)}
+@media (max-width:1180px){.rt-ctl-wrap{overflow-x:auto}.rt-ctl > thead th{top:0}}
+.rt-ctl .rt-det-tab thead th{position:static}
+/* ── Backup 34: Central de Documentos dentro do ERP ── */
+.doc-central-topo{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:0 0 8px}
+.doc-central{display:block;width:100%;height:calc(100vh - var(--hh,56px) - 96px);min-height:560px;border:1px solid var(--border);border-radius:var(--radius-sm,10px);background:var(--surface)}

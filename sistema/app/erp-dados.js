@@ -90,6 +90,9 @@ window.ERP_COLS_CLIENTE = 'id,grupo_id,nome,cpf_cnpj,tipo,responsavel,email,tele
       if (!x.pago && x.vencimento && x.vencimento >= hIso && !prox) prox = x.vencimento;
     });
     const pagas = ord.filter((x) => x.pago).length;
+    // Backup 34: valor de cada parcela = o lançado nela; sem lançamento, vale o último lançado antes dela; sem nenhum, o "valor da última parcela"
+    let ultimoLancado = null;
+    ord.forEach((x) => { if (x.valor != null && Number(x.valor) > 0) ultimoLancado = Number(x.valor); x._valorEf = ultimoLancado != null ? ultimoLancado : num(pa.valor_ultima_parcela); x._lancado = x.valor != null && Number(x.valor) > 0; });
     return {
       _id: pa.id, _t: 'parcelamentos', aba: pa.aba || '', empresa: pa.empresa, cnpj: doc(pa.cnpj), local: pa.local || '',
       natureza: pa.natureza || '', numero: pa.numero || '', totalParcelas: pa.total_parcelas || 0, parcelasPagas: pagas,
@@ -99,7 +102,8 @@ window.ERP_COLS_CLIENTE = 'id,grupo_id,nome,cpf_cnpj,tipo,responsavel,email,tele
       parcelas: ord.filter((x) => !x.vencimento || (x.vencimento >= iIso && x.vencimento <= fIso))
         .map((x) => ({ _id: x.id, _t: 'parcelas', _pai: pa.id, numero: x.numero, vencimento: br(x.vencimento), pagamento: x.pago ? 'SIM' : '', status: status(x),
           // Backup 27: emissão da guia (data, quem, PDF guardado)
-          emissao: x.emissao || '', emitidaEm: br(x.emitida_em), emitidaPor: x.emitida_por || '', guiaDoc: x.guia_doc || '' }))
+          emissao: x.emissao || '', emitidaEm: br(x.emitida_em), emitidaPor: x.emitida_por || '', guiaDoc: x.guia_doc || '',
+          valor: x._valorEf, valorLancado: x._lancado, reenvioEm: x.reenvio_em || '', reenvioValor: num(x.reenvio_valor) }))
     };
   }
   function acordo(a, gNome) {
@@ -154,10 +158,10 @@ window.ERP_COLS_CLIENTE = 'id,grupo_id,nome,cpf_cnpj,tipo,responsavel,email,tele
     async baseDados() { const G = await grupos(); return (await todos(() => sb.from('clientes').select(window.ERP_COLS_CLIENTE).order('nome'))).map((c) => baseDados(c, G[c.grupo_id])); },
     async processos() { const G = await grupos(); return (await todos(() => sb.from('processos').select('*').order('criado_em'))).map((p) => processo(p, G[p.grupo_id])); },
     async parcelamentos() {
-      const [pas, parc] = await Promise.all([todos(() => sb.from('parcelamentos').select('*').order('criado_em')),
-                                             todos(() => sb.from('parcelas').select('*').order('vencimento'))]);
+      const [pas, parc, G] = await Promise.all([todos(() => sb.from('parcelamentos').select('*').order('criado_em')),
+                                             todos(() => sb.from('parcelas').select('*').order('vencimento')), grupos()]);
       const porParc = {}; parc.forEach((x) => { (porParc[x.parcelamento_id] = porParc[x.parcelamento_id] || []).push(x); });
-      return pas.map((pa) => parcelamento(pa, porParc[pa.id] || []));
+      return pas.map((pa) => Object.assign(parcelamento(pa, porParc[pa.id] || []), { grupoNome: G[pa.grupo_id] || '' }));
     },
     async acordos() { const G = await grupos(); return (await todos(() => sb.from('acordos').select('*').order('vencimento'))).map((a) => acordo(a, G[a.grupo_id])); },
     async financeiro() { const G = await grupos(); return (await todos(() => sb.from('lancamentos').select('*, contratos(descricao)').eq('empresa', 'escritorio').order('vencimento'))).map((l) => { guardarLanc(l, G); return financeiro(l, G[l.grupo_id]); }); },

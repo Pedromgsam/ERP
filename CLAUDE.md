@@ -83,7 +83,16 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
-- Última entrega: **Backup 33** (só SQL). Guias (`telas-guias.js`): `htmlGuiasPorGrupo` = grade `.gd-tab` (`--gd-cols`; cab, `.gd-g-hd`, `.gd-emp-hd`,
+- Última entrega: **Backup 34** (só SQL). Parcelamentos/Acordos sem emissão: `_guiasNoTopo` só remove `#parcGuias/#acGuias`; `_lgRender` (lista-grupos-b25.js)
+  = `.lg-min` (Grupo › itens; um grupo só → Empresa › itens via `item.empresa/tituloEmp/subEmp`), `_lgGuiaDiscreta`, `_lgParcTabela(l, tabela)` (lista de parcelas
+  do detalhamento: Parcela·Vencimento·Valor·Situação + `.lg-em` emitida/não/cliente) e `_lgFicha` (dados da planilha); `_lgDuas`/`_lgTagGuia` saíram.
+  `parcelas.valor` = valor lançado (erp-dados: `valor` efetivo herda o último lançado, `valorLancado`; `grupoNome` do grupo_id); `lancar_valor_parcela(id, valor)`;
+  `enviar_guias_email` grava `parcelas.valor` (não no reenvio) e atualiza `valor_ultima_parcela`. Rotina: aba `guias` saiu; `rotinaControle` = `.rt-ctl` (thead sticky
+  `top:var(--hh)`, `.rt-ep` Emis./Pag., `[data-sel]` → `_rtSel` → `#rt-selbar` → `janelaGuiasEmpresa`; `[data-pag]` baixa; `[data-valor]` no detalhe).
+  Composer: parcela vencida ganha `.ge-novo-venc` e vai com `reenvio:true`. Central no ERP: painel `gerador` (`TELAS.gerador`, iframe `?embutido=1`,
+  `.dc-embutido` esconde a barra), `abrirCentral(url, ev)`, links `a[href^="documentos/index.html"]` interceptados; Ctrl/⌘/meio = aba nova (menu: `#painel`);
+  vercel.json com `SAMEORIGIN`/`frame-ancestors 'self'`.
+- Backup 33 (base) (só SQL). Guias (`telas-guias.js`): `htmlGuiasPorGrupo` = grade `.gd-tab` (`--gd-cols`; cab, `.gd-g-hd`, `.gd-emp-hd`,
   `.gd-it`); aba Vencidas inclui enviadas até o pago; `janelaReenvio` (`#rv-*`, item `reenvio:true` em `enviar_guias_email` → `parcelas/acordos.reenvio_em,
   reenvio_venc, reenvio_valor, reenvios`); `dataLocal`, `fimDoMesGuia` (`fimDoMes` já existe no nucleo). Lista por grupo: `_lgTagGuia` (Nós/Cliente),
   `_lgDuas`/`_lgRenderDuas` (`.lg2-*`, localStorage `erp_lg_duas`). Rotina: `PARES_PASSIVO` (`.rt-par`/`.rt-neg`), `janelaSenhaGov`, faixas 15/30 dias,

@@ -618,7 +618,7 @@ async function _detalheContrato(id) {
     aviso('✓ Contrato assinado: ' + plural((r && r.lancamentos) || 0, 'lançamento', 'lançamentos') + ' no financeiro.'); await reabrir();
   });
   const btGerar = j.querySelector('#ctr-gerar');
-  if (btGerar) btGerar.onclick = () => abrirGeradorContrato(ct.cliente_id, id);
+  if (btGerar) btGerar.onclick = (ev) => abrirGeradorContrato(ct.cliente_id, id, ev);
   blocoDocumentos(j.querySelector('#ctr-docs'), { contrato_id: id, cliente_id: ct.cliente_id, grupo_id: ct.clientes && ct.clientes.grupo_id, tipo: 'contrato' },
     { titulo: 'Documentos do contrato', vazio: 'Nenhum documento. Envie aqui o contrato assinado, a proposta e os aditivos.' }).catch((e) => console.error(e));
   j.querySelector('#btn-editar-ctr').onclick = () => formContrato(ct);

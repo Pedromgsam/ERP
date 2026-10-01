@@ -99,3 +99,5 @@ body:not(.dc-pronto) .dc-area{opacity:.5}
 @media (max-width:760px){.dc-corpo-app{grid-template-columns:minmax(0,1fr)}.dc-lado{flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--border);padding:8px}
   .dc-menu-g{display:flex;align-items:center;gap:4px}.dc-menu-g h4{display:none}.dc-mod,.dc-vis{width:auto;white-space:nowrap}.dc-lado-pe{margin:0;border:0;padding:0;display:flex;gap:4px}
   .dc-grade{grid-template-columns:1fr}.dc-campo.meia{grid-column:1/-1}.dc-topo .dc-eu{display:none}}
+/* Backup 34: aberta dentro do ERP (iframe) — sem a barra própria */
+.dc-embutido .dc-topo{display:none}

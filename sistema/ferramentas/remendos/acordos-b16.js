@@ -27,13 +27,13 @@ function _acordosAnalise(ac){
     .sort(function(x,y){ return y.atr-x.atr || y.falta-x.falta; });
   // Backup 25: a mesma lista por grupo de Parcelamentos (_lgRender): grupo → acordos do grupo; clicar no acordo abre o detalhamento numa janela
   _acLISTA=lista; _acFns={v:v,pago:pago,atrasada:atrasada};
-  var itens=lista.map(function(g){ return {k:g.k, grupo:g.a.grupo||'Sem grupo', titulo:g.a.devedor||'—', pagas:g.pagas, total:g.l.length, pago:g.pago, falta:g.falta, atr:g.atr, concluido:g.falta<=0,
+  var itens=lista.map(function(g){ return {k:g.k, grupo:g.a.grupo||'Sem grupo', titulo:g.a.devedor||'—', empresa:g.a.devedor||'—', tituloEmp:'deve a '+(g.a.credor||'—'), subEmp:g.a.processo?esc(g.a.processo):'', pagas:g.pagas, total:g.l.length, pago:g.pago, falta:g.falta, atr:g.atr, concluido:g.falta<=0,
     atrV:soma(g.l.filter(atrasada)),
     guias:_lgFaltaEmitir(g.l, function(a){ return !!a.emitidaEm||/sim|emitid/i.test(a.emissao||''); }, pago),
     sub:'deve a <b>'+esc(g.a.credor||'—')+'</b>'+(g.a.processo?' · '+esc(g.a.processo):'')+(_acVisao==='lista'&&g.a.grupo?' · '+esc(g.a.grupo):''),
     abertas:g.l.filter(function(a){ return !pago(a); }).map(function(a){ return {d:pDate(a.vencimento), v:v(a)}; })}; });
   var vis=_acVisSeg();
-  var linhas=_lgRender({itens:itens, porGrupo:true, abertos:_acGrpAbertos, fnGrupo:'_acAbrirGrupo', fnItem:'_acAbrir', rotulo:'acordo', cab:'Grupo / acordo'});
+  var linhas=_lgRender({itens:itens, porEmpresa:!!(typeof FILTROS!=='undefined'&&FILTROS.grupo), porGrupo:true, abertos:_acGrpAbertos, fnGrupo:'_acAbrirGrupo', fnItem:'_acAbrir', rotulo:'acordo', cab:'Grupo / acordo'});
   el.innerHTML=exBloco('exAcSit','Situação dos acordos',
     '<div class="kpi-grid" style="margin-bottom:14px">'
    + kC('Já pago',_faFT(soma(ac.filter(pago))),ac.filter(pago).length+' parcela(s)','cg','dg')
@@ -41,7 +41,7 @@ function _acordosAnalise(ac){
    + kC('Vence este mês',_faFT(soma(ac.filter(noMes))),ac.filter(noMes).length+' parcela(s) até '+fimMes.toLocaleDateString('pt-BR').slice(0,5),'cb','')
    + kC('Em atraso',_faFT(soma(ac.filter(atrasada))),ac.filter(atrasada).length+' parcela(s) vencida(s)','cr',ac.some(atrasada)?'dr':'')
    + '</div>'
-   + '<div class="gx-tab-topo"><div class="pa-sub">Acordos em andamento</div><div class="pcx-ctl">'+_lgBotaoDuas()+vis+_acCaixaTodos()+'</div></div>'
+   + '<div class="gx-tab-topo"><div class="pa-sub">Acordos em andamento</div><div class="pcx-ctl">'+vis+_acCaixaTodos()+'</div></div>'
    + linhas);
 }
 var _acVisao='grupo', _acGrpAbertos={}, _acLISTA=[], _acFns=null;
@@ -57,17 +57,11 @@ function _acAbrir(k){
       +'<div class="pcd-kpis">'+kp('Parcelas pagas',g.pagas+' de '+g.l.length)+kp('Já pago',_faFT(g.pago),'verde')+kp('Falta pagar',_faFT(g.falta))
         +kp('Próxima parcela',g.prox?esc(g.prox.vencimento||'—'):'—')+(g.atr?kp('Em atraso',g.atr+' parcela'+(g.atr>1?'s':''),'vermelho'):'')+'</div>'
       +(g.a.responsavel||g.l[0].pix||g.l[0].banco?'<div class="acx-info">'+[g.a.responsavel?'Responsável: <b>'+esc(g.a.responsavel)+'</b>':'',g.l[0].pix?'PIX: <b>'+esc(g.l[0].pix)+'</b>':'',g.l[0].banco?'Banco: <b>'+esc(g.l[0].banco)+'</b>':''].filter(Boolean).join(' · ')+'</div>':'')
-      +'<div class="pcd-tit">Parcelas</div><div class="acx-parcs">'+g.l.map(function(a){ var st=F.pago(a)?'p':F.atrasada(a)?'r':'a';
-        return '<div class="acx-parc acx-parc-'+st+'"><div class="acx-parc-n">Parcela '+esc(a.parcela||'?')+(a.totalParc?'/'+esc(a.totalParc):'')+'</div>'
-          +'<div class="acx-parc-v">'+_faFT(F.v(a))+'</div>'
-          +'<div class="acx-sub">'+(F.pago(a)?'✓ paga'+(a.dataPag?' em '+esc(a.dataPag):''):(st==='r'?'venceu ':'vence ')+esc(a.vencimento||'—'))+'</div>'
-          // Backup 27: emissão do boleto/PIX (quando e quem)
-          +'<div class="acx-parc-lin"><span>Boleto / PIX</span>'+((a.emitidaEm||/sim|emitid/i.test(a.emissao||''))?'<b title="'+esc(a.emitidaPor?'por '+a.emitidaPor:'')+'">Boleto emitido'+(a.emitidaEm?' em '+esc(a.emitidaEm):'')+'</b>':(F.pago(a)?'<span>—</span>':'<b style="color:var(--amber-d)">a emitir</b>'))+'</div>'
-          +'<div class="acx-parc-bt">'+(F.pago(a)?'':'<button type="button" class="btn btn-o btn-mini" data-emitir="'+a._id+'">'+((a.emitidaEm||/sim|emitid/i.test(a.emissao||''))?'✎ Emissão':'🧾 Emitir boleto')+'</button><button type="button" class="btn-m ac-bt-pagar" data-ac-pagar="'+a._id+'">✓ Lançar pagamento</button>')
-          +'<button type="button" class="btn-m acx-link" data-ac-det="'+a._id+'">Detalhe</button></div></div>'; }).join('')+'</div></div>' });
+      +'<div class="pcd-tit">Parcelas</div>'+_lgParcTabela(g.l.map(function(a){ return {id:a._id, rot:(a.parcela||'?')+(a.totalParc?'/'+a.totalParc:''), venc:a.vencimento, valor:F.v(a),
+          pago:F.pago(a), dataPag:a.dataPag, emitida:!!a.emitidaEm||/sim|emitid/i.test(a.emissao||''), emitidaEm:a.emitidaEm}; }),'acordos')+'</div>' });
+  j.querySelectorAll('[data-lg-pagar]').forEach(function(b){ b.onclick=function(){ GS.fecharJanela(j); _acPagar(b.dataset.lgPagar,b); }; });
   j.querySelectorAll('[data-ac-pagar]').forEach(function(b){ b.onclick=function(){ GS.fecharJanela(j); _acPagar(b.dataset.acPagar,b); }; });
   j.querySelectorAll('[data-ac-det]').forEach(function(b){ b.onclick=function(){ GS.fecharJanela(j); _acDetalhe(b.dataset.acDet); }; });
-  j.querySelectorAll('[data-emitir]').forEach(function(b){ b.onclick=function(){ GS.fecharJanela(j); GS.emitirParcela('acordos', b.dataset.emitir, function(){ setTimeout(function(){ _acAbrir(k); }, 900); }); }; });
 }
 // ═══ Backup 21 ═══
 // Dias até o vencimento, a mesma régua em todo o ERP: vencido (inclui o próprio dia) vermelho · <3 amarelo · <10 azul · ≥10 verde

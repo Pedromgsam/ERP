@@ -6458,3 +6458,81 @@ begin
 end $$;
 revoke all on function public.evolucao_passivo(uuid, int) from public, anon;
 grant execute on function public.evolucao_passivo(uuid, int) to authenticated;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- Backup 34 — guias saem de Parcelamentos/Acordos e passam a ser emitidas pela Rotina (controle por mês: emissão e pagamento).
+-- parcelas.valor = valor lançado daquela parcela (vazio = vale o último lançado antes dela; sem nenhum = valor_ultima_parcela).
+-- ═══════════════════════════════════════════════════════════════════
+alter table public.parcelas add column if not exists valor numeric(14,2);
+create or replace function public.enviar_guias_email(p_cliente uuid, p_grupo uuid, p_itens jsonb, p_assunto text, p_texto text,
+  p_docs uuid[] default '{}', p_para text default null, p_arquivos jsonb default null) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare c record; para text; anexo jsonb; it jsonb; html text; v_conta text; n int := 0; lista jsonb; v_ref text; v_status text; tab text;
+begin
+  if not public.pode('juridico', 'editar') then raise exception 'permission denied: sem acesso para enviar guias.'; end if;
+  if coalesce(jsonb_array_length(p_itens), 0) = 0 then raise exception 'Escolha ao menos uma guia.'; end if;
+  tab := coalesce(p_itens->0->>'tabela', 'parcelas');
+  if coalesce(trim(p_para), '') <> '' then para := trim(p_para);
+  else select * into c from public.contato_do_cliente(p_cliente, p_grupo, case when tab = 'acordos' then 'acordo' else 'guia' end); para := c.email; end if;
+  if coalesce(para, '') = '' then raise exception 'Não há e-mail para enviar: digite o e-mail no campo "Para" (ou cadastre em Clientes → ficha → Contatos).'; end if;
+  -- os PDFs escolhidos na tela (p_arquivos: [{arquivo, mime, b64}]) NÃO ficam guardados: a função de e-mail apaga o conteúdo assim que o e-mail sai
+  select coalesce(jsonb_agg(jsonb_build_object('tipo', 'arquivo', 'caminho', dc.caminho, 'arquivo', dc.nome, 'mime', dc.mime)), '[]') into lista
+    from public.documentos dc where dc.id = any (coalesce(p_docs, '{}'));
+  select lista || coalesce(jsonb_agg(jsonb_build_object('tipo', 'bin', 'arquivo', a->>'arquivo', 'mime', coalesce(a->>'mime', 'application/pdf'), 'b64', a->>'b64')), '[]') into lista
+    from jsonb_array_elements(coalesce(p_arquivos, '[]')) a where coalesce(a->>'b64', '') <> '';
+  anexo := case when jsonb_array_length(lista) > 0 then jsonb_build_object('tipo', 'lista', 'itens', lista) end;
+  v_conta := public.conta_email(p_cliente, null);
+  perform set_config('erp.conta_email', v_conta, true);
+  html := public.email_cliente_html(coalesce(nullif(trim(p_assunto), ''), 'Guias para pagamento'), '-',
+    '<p style="margin:0 0 10px">' || replace(public.esc_html(coalesce(p_texto, '')), E'\n', '<br>') || '</p>', p_itens, false);
+  perform set_config('erp.conta_email', '', true);
+  v_ref := 'guias:' || gen_random_uuid();
+  insert into public.email_fila (usuario_id, para, assunto, html, tipo, referencia, anexo, conta)
+  values (auth.uid(), para, coalesce(nullif(trim(p_assunto), ''), 'Guias para pagamento'), html, 'cliente', v_ref, anexo, v_conta)
+  returning status into v_status;
+  for it in select * from jsonb_array_elements(p_itens) loop
+    if it->>'tabela' not in ('parcelas', 'acordos') then continue; end if;
+    perform public.registrar_emissao(it->>'tabela', (it->>'id')::uuid, true, null, false);
+    if it->>'tabela' = 'parcelas' then update public.parcelas set email_ref = v_ref where id = (it->>'id')::uuid;
+    else update public.acordos set email_ref = v_ref where id = (it->>'id')::uuid; end if;
+    -- Backup 34: o valor digitado no envio é o "valor lançado" da parcela (a Rotina e a Situação usam; os meses seguintes herdam o último lançado)
+    if it->>'tabela' = 'parcelas' and coalesce(it->>'reenvio', '') <> 'true' and coalesce(nullif(it->>'valor', '')::numeric, 0) > 0 then
+      update public.parcelas set valor = (it->>'valor')::numeric where id = (it->>'id')::uuid;
+      update public.parcelamentos pa set valor_ultima_parcela = x.valor
+        from (select p2.parcelamento_id, p2.valor from public.parcelas p2
+               where p2.parcelamento_id = (select parcelamento_id from public.parcelas where id = (it->>'id')::uuid) and p2.valor is not null
+               order by p2.vencimento desc nulls last limit 1) x
+       where pa.id = x.parcelamento_id;
+    end if;
+    -- Backup 33: reenvio da guia de parcela vencida (nova data e valor atualizado pelo órgão, com SELIC)
+    if coalesce(it->>'reenvio', '') = 'true' then
+      if it->>'tabela' = 'parcelas' then
+        update public.parcelas set reenvio_em = now(), reenvio_venc = nullif(it->>'vencimento', '')::date, reenvio_valor = nullif(it->>'valor', '')::numeric, reenvios = coalesce(reenvios, 0) + 1 where id = (it->>'id')::uuid;
+      else
+        update public.acordos set reenvio_em = now(), reenvio_venc = nullif(it->>'vencimento', '')::date, reenvio_valor = nullif(it->>'valor', '')::numeric, reenvios = coalesce(reenvios, 0) + 1 where id = (it->>'id')::uuid;
+      end if;
+    end if;
+    insert into public.automacoes_log (chave, ref, descricao, cliente_id)
+    values (case when it->>'tabela' = 'parcelas' then 'email_lp' else 'email_la' end, case when it->>'tabela' = 'parcelas' then 'email_lp:' else 'email_la:' end || (it->>'id'),
+            coalesce(nullif(trim(p_assunto), ''), 'Guias para pagamento') || ' → ' || para, p_cliente);
+    n := n + 1;
+  end loop;
+  return jsonb_build_object('para', para, 'itens', n, 'anexos', jsonb_array_length(lista), 'conta', v_conta, 'status', v_status);
+end $$;
+revoke all on function public.enviar_guias_email(uuid, uuid, jsonb, text, text, uuid[], text, jsonb) from public, anon;
+grant execute on function public.enviar_guias_email(uuid, uuid, jsonb, text, text, uuid[], text, jsonb) to authenticated;
+
+-- valor lançado direto na Rotina (sem enviar e-mail)
+create or replace function public.lancar_valor_parcela(p_id uuid, p_valor numeric) returns void
+language plpgsql security definer set search_path = public as $$
+declare v_pa uuid;
+begin
+  if not public.pode('juridico', 'editar') then raise exception 'permission denied: sem acesso para alterar parcelas.'; end if;
+  update public.parcelas set valor = case when coalesce(p_valor, 0) > 0 then round(p_valor, 2) end, atualizado_em = now() where id = p_id returning parcelamento_id into v_pa;
+  if v_pa is null then raise exception 'Parcela não encontrada.'; end if;
+  update public.parcelamentos pa set valor_ultima_parcela = x.valor, atualizado_em = now()
+    from (select valor from public.parcelas where parcelamento_id = v_pa and valor is not null order by vencimento desc nulls last limit 1) x
+   where pa.id = v_pa;
+end $$;
+revoke all on function public.lancar_valor_parcela(uuid, numeric) from public, anon;
+grant execute on function public.lancar_valor_parcela(uuid, numeric) to authenticated;
