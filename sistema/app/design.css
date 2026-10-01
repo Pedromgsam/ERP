@@ -776,3 +776,73 @@ body.gx-barra-topo details.doc-pasta{border:1.5px solid var(--primario)!importan
 .gd-g .gd-venc-d b{font-size:13px}
 .gd-g .gd-val{font-size:13px}
 @media (max-width:900px){.gd-g .gd-it{grid-template-columns:1fr auto}}
+/* ═══ Backup 33 — guias em COLUNAS fixas: A data · B grupo/empresa/parcela · C atraso · D valor · E situação · F ações (nas três abas) ═══ */
+.gd-tab{--gd-cols:88px minmax(0,1fr) 200px 120px 250px 176px}
+.gd-tab .gd-row{display:grid;grid-template-columns:var(--gd-cols);gap:10px;align-items:center}
+.gd-tab .gd-cab{padding:0 12px 4px;font:700 10.5px var(--font-ui);letter-spacing:.06em;text-transform:uppercase;color:var(--text3)}
+.gd-tab .gd-dir{text-align:right;justify-content:flex-end}
+.gd-tab .gd-g-hd{padding:8px 12px}
+.gd-tab .gd-g-hd > .gd-g-nome{grid-column:1 / span 2;display:flex;align-items:center;gap:10px;min-width:0}
+.gd-tab .gd-g-nome b{font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink)}
+.gd-tab .gd-g-tot{margin-left:0}
+.gd-tab .gd-emp-hd{padding:6px 10px 2px}
+.gd-tab .gd-emp-nome{grid-column:1 / span 2;min-width:0}
+.gd-tab .gd-emp-nome b{font-size:13px;text-transform:uppercase;color:var(--ink)}
+.gd-tab .gd-emp-hd .btn{margin-left:0}
+.gd-tab .gd-it{padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface)}
+.gd-tab .gd-it .gd-quem{font-size:12.5px;color:var(--text2);overflow:hidden;text-overflow:ellipsis}
+.gd-tab .gd-atr{display:flex}
+.gd-tab .gd-val{display:flex;flex-direction:column;align-items:flex-end;font-size:13px}
+.gd-tab .gd-val small{font-weight:600;color:var(--amber-d);font-size:11.5px}
+.gd-tab .gd-st{display:flex;flex-wrap:wrap;gap:4px}
+.gd-tab .gd-ac{display:flex;gap:6px;justify-content:flex-end;flex-wrap:nowrap}
+.gd-tab .gd-g-corpo{gap:6px}
+@media (max-width:1100px){.gd-tab{--gd-cols:76px minmax(0,1fr) 150px 104px 190px 150px}}
+@media (max-width:900px){.gd-tab .gd-cab{display:none}.gd-tab .gd-row{grid-template-columns:1fr auto}.gd-tab .gd-g-hd > .gd-g-nome,.gd-tab .gd-emp-nome{grid-column:1}
+  .gd-tab .gd-row > :empty{display:none}.gd-tab .gd-st,.gd-tab .gd-ac,.gd-tab .gd-atr{grid-column:1/-1;justify-content:flex-start}}
+/* mesmas margens laterais em todas as linhas (cabeçalho, grupo, empresa e parcela) para as colunas caírem no mesmo lugar */
+.gd-tab .gd-cab{padding:0 22.5px 4px}
+.gd-tab .gd-g-hd{padding:8px 21px}
+.gd-tab .gd-g-corpo{padding:6px 10px 10px}
+.gd-tab .gd-emp-hd{padding:6px 11px 2px}
+.gd-tab .gd-it{padding:6px 10px}
+#gs-raiz .campo input[type=date]{height:38px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);color:var(--text);font:inherit}
+/* ═══ Backup 33 — Situação: quem emite as guias + visão em 2 colunas (teste) ═══ */
+.lg-guia-cli,.lg-guia-nos{display:inline-block;padding:2px 8px;border-radius:99px;font-size:11.5px;font-weight:600;white-space:nowrap;border:1px solid var(--border-strong);color:var(--text2);background:var(--surface2)}
+.lg-guia-nos{color:var(--green-d);background:var(--green-lt);border-color:var(--green-bd)}
+.lg-bt-duas.ativo{background:var(--blue-lt);border-color:var(--blue-bd)}
+.lg-duas{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(300px,1fr);gap:14px;align-items:start}
+.lg2-esq,.lg2-dir{border:1px solid var(--border);border-radius:var(--card-r);background:var(--surface);overflow:hidden}
+.lg2-l{display:grid;grid-template-columns:minmax(0,1fr) 150px 92px 100px 100px;gap:10px;align-items:center;padding:9px 14px;border-top:1px solid var(--line);cursor:pointer}
+.lg2-l:hover{background:var(--hover)}
+.lg2-hd{cursor:default;border-top:0;background:var(--surface2);font:700 10.5px var(--font-ui);letter-spacing:.06em;text-transform:uppercase;color:var(--text3)}
+.lg2-hd:hover{background:var(--surface2)}
+.lg2-num{text-align:right;font-variant-numeric:tabular-nums;font-size:13px}
+.lg2-g{border-top:1px solid var(--line)}
+.lg2-g > .lg2-gl{border-top:0}
+.lg2-aberto{border:1.5px solid var(--primario);border-radius:10px;margin:6px}
+.lg2-aberto > .lg2-gl{background:var(--blue-lt)}
+.lg2-filho{padding-left:30px;background:var(--surface2)}
+.lg2-dir-hd{padding:10px 14px;font-weight:700;color:var(--red-d);background:var(--red-lt);border-bottom:1px solid var(--red-bd);display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.lg2-a{display:grid;grid-template-columns:minmax(0,1fr) auto 100px;gap:10px;align-items:center;padding:9px 14px;border-top:1px solid var(--line);cursor:pointer}
+.lg2-a:first-of-type{border-top:0}
+.lg2-a:hover{background:var(--hover)}
+@media (max-width:1100px){.lg-duas{grid-template-columns:1fr}}
+@media (max-width:700px){.lg2-l{grid-template-columns:minmax(0,1fr) 90px}.lg2-l > :nth-child(n+3){display:none}}
+.lg-bt-duas{border:1px solid var(--border-strong);border-radius:8px;padding:5px 11px;background:var(--surface);font:600 12.5px var(--font-ui);color:var(--ink);cursor:pointer;margin-right:8px}
+.lg-bt-duas:hover{background:var(--hover)}
+.lg2-l{grid-template-columns:minmax(0,1fr) 150px 110px 100px 100px}
+/* Backup 33: tabelas da Rotina sem altura máxima — a página rola, não o quadro */
+body.gx-barra-topo .tabela-wrap.rt-sem-altura{max-height:none;overflow-x:auto;overflow-y:visible}
+/* ── Backup 33: Evolução do passivo (Painel Executivo) ── */
+#execEvolWrap{margin-top:var(--sp-4,16px)}
+#execEvolWrap .evo-h{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+#execEvolWrap .evo-ctl{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+body.gx-barra-topo #execEvolWrap select.fsel{height:34px;border:1px solid var(--border-strong)!important;border-radius:var(--r-ctl)!important;background-color:var(--surface)!important;color:var(--ink)!important;font:13px var(--font-ui)!important;padding:6px 28px 6px 10px!important;max-width:240px}
+#execEvolWrap .evo-resumo{display:flex;gap:18px;flex-wrap:wrap;font-size:13px;color:var(--text2);margin:10px 0 4px}
+#execEvolWrap .evo-resumo b{color:var(--ink);font-size:15px}
+#execEvolWrap .evo-sobe{color:var(--red)}
+#execEvolWrap .evo-desce{color:var(--green)}
+#execEvolWrap .evo-cb{height:300px;position:relative}
+#execEvolWrap .evo-nota{font-size:11.5px;color:var(--text3);margin-top:6px}
+@media (max-width:600px){#execEvolWrap .evo-cb{height:240px}}

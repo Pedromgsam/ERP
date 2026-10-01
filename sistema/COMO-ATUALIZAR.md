@@ -661,3 +661,30 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
 
 O gerador antigo de **contrato e procuração** saiu dos menus (o arquivo continua no site só como consulta). Petição, solicitação de documentos,
 proposta e modelos de e-mail continuam em ⋯ → Documentos → "Outros geradores".
+
+## Backup 33 — guias em tabela, reenvio da guia vencida, Rotina enxuta, alertas de conferência, e-mails em modo teste e evolução do passivo (tem SQL)
+Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+Shift+R**. Nenhuma Edge Function mudou.
+
+**Parcelamentos e Acordos — quadro de guias:**
+- "A emitir", "Emitidas" e "Vencidas" viraram uma tabela alinhada: Vencimento · Grupo/empresa/parcela · Atraso · Valor · Situação.
+- **Vencidas** mostra as parcelas vencidas e não pagas **mesmo depois de enviadas**, até alguém marcar **✓ Pago**.
+  O botão **↻ Reenviar** pede o novo vencimento e o valor atualizado (com SELIC/multa, tirado do portal), anexa a guia nova e manda o e-mail
+  "Guia atualizada". A parcela guarda o reenvio ("↻ reenviada dd/mm · vence dd/mm" e "→ novo valor").
+- Situação: indicador **✓ Nós emitimos / 👤 Cliente emite** em cada item e no grupo; botão **◫ Em 2 colunas** (esquerda: grupo, emitimos,
+  pagas, quitado, falta; direita: só o que está em atraso).
+
+**Rotina:**
+- Datas no horário de Brasília. Conferência: até 15 dias verde, 16–30 amarelo, mais de 30 vermelho.
+- Passivo: tabela mais estreita (RFB/PGFN/AGE com o negociado na mesma célula); Senha GOV saiu da tabela (botão 🔑 abre a janela).
+- Processos: "Conferido em" logo depois do número.
+- Controle dos parcelamentos: "Nós emitimos?" na 1ª coluna; 8 meses (5 para trás, o atual, 2 à frente); clique no nome abre as parcelas;
+  a tabela vai até o fim sem barra de rolagem por dentro. Nova aba **Controle dos acordos** (mesma planilha).
+- **Alertas de conferência** (Automações → grupo Tarefas): "Rotina: lembrar de conferir" (toda semana, tarefa para quem faz a Rotina com o que
+  passou de 15 dias sem conferir) e "Rotina: responsável confere o estagiário" (toda semana, resumo de quantas conferências e por quem).
+  **Escolha a pessoa de cada um em "Responsável"** (Automações).
+
+**E-mails em modo teste:** o SQL (uma vez só) liga a pausa, deixa passar só **pedromgsam@gmail.com** e desliga as rotinas de e-mail ao cliente.
+Para voltar ao normal: Automações → ligar as rotinas de e-mail; E-mails → desligar a pausa e apagar a lista de teste.
+
+**Painel Executivo:** cartão **Evolução do passivo** (linhas, mês a mês): escolha o grupo, "Total" ou "Por empresa", 6/12/24 meses.
+O valor de cada mês vem do histórico de alterações do cadastro.

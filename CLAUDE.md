@@ -83,7 +83,16 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
-- Última entrega: **Backup 32** (só SQL). **Central de Documentos** em `sistema/app/documentos/` (página à parte, mesmo login): `modelos.js`
+- Última entrega: **Backup 33** (só SQL). Guias (`telas-guias.js`): `htmlGuiasPorGrupo` = grade `.gd-tab` (`--gd-cols`; cab, `.gd-g-hd`, `.gd-emp-hd`,
+  `.gd-it`); aba Vencidas inclui enviadas até o pago; `janelaReenvio` (`#rv-*`, item `reenvio:true` em `enviar_guias_email` → `parcelas/acordos.reenvio_em,
+  reenvio_venc, reenvio_valor, reenvios`); `dataLocal`, `fimDoMesGuia` (`fimDoMes` já existe no nucleo). Lista por grupo: `_lgTagGuia` (Nós/Cliente),
+  `_lgDuas`/`_lgRenderDuas` (`.lg2-*`, localStorage `erp_lg_duas`). Rotina: `PARES_PASSIVO` (`.rt-par`/`.rt-neg`), `janelaSenhaGov`, faixas 15/30 dias,
+  `rotinaControle(el, 'parcelas'|'acordos')` (8 meses, `E.rt.mesIni_*`, `.rt-abre`/`.rt-det`, `.rt-sem-altura`), aba `acs`. SQL: `rodar_regras_rotina()`
+  (regras `rotina_conferir` / `rotina_supervisao`, chaves `rot-conf:`/`rot-sup:` + semana ISO; chamada em `rodar_regras_extras`), modo teste de e-mails
+  uma vez (`configuracoes.b33_modo_teste_emails` guarda as regras desligadas; `preparar-banco.sh`/`rodar-tudo.sh` religam nos testes),
+  `passivo_json`, `evolucao_passivo(p_grupo, p_meses)` (reconstrói pelo `historico`) → `evolucaoPassivo`/`evoDesenhar` (erp-telas.js, `#execEvolWrap`,
+  `#cEvoPassivo`, no gancho do `renderExecRanking`).
+- Backup 32 (base) (só SQL). **Central de Documentos** em `sistema/app/documentos/` (página à parte, mesmo login): `modelos.js`
   (`window.MODELOS_DOC`: campos + `montar(d, h, B)` → blocos; marcação `**negrito**`, `__itálico__`, faltando = `h.V()` → ⟦⟧ amarelo),
   `motor.js` (formulário, prévia A4, busca de cliente → `dadosCliente`, `salvar` em `documentos_gerados`, número `proximo_numero_documento`
   (REC aaaa/nnnn), histórico, "Ajustar texto" → `lerEditados`, PDF = janela de impressão com thead/tfoot e logo/banda fixas, Word = `vendor/docx.js`

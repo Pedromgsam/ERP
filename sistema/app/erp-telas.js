@@ -401,7 +401,7 @@
   function instalarGanchos() {
     botoesCobranca();
     // Backup 20: Painel (Empresas do grupo) e Processos no padrão de Clientes — redesenha junto com a tabela do ERP
-    [['renderExecRanking', padraoEmpresas], ['renderProcTbl', padraoProcessos],
+    [['renderExecRanking', () => { padraoEmpresas(); evolucaoPassivo(); }], ['renderProcTbl', padraoProcessos],
      ['renderAcordos', () => acoesNaSituacao('panel-acordos', 'exAcSit'), () => devolverAoBanner('panel-acordos')],
      ['renderParcelamentos', () => acoesNaSituacao('panel-parcelamentos', 'exParcSit'), () => devolverAoBanner('panel-parcelamentos')],
      ['renderParcAnalise', () => acoesNaSituacao('panel-parcelamentos', 'exParcSit'), () => devolverAoBanner('panel-parcelamentos')]].forEach(([nome, fn, antes]) => {
@@ -715,6 +715,82 @@
       });
     });
   }
+  // ═══════ Backup 33: EVOLUÇÃO DO PASSIVO mês a mês (linhas, "tipo cotação do dólar") ═══════
+  // Cartão no Painel Executivo, antes de "Empresas do grupo". Dados: evolucao_passivo (SQL), lidos uma vez e filtrados aqui.
+  // Grupo: "Todos" ou um grupo. Visão: "Total" (uma linha) ou "Por empresa" (uma linha por empresa; em "Todos", uma por grupo).
+  const EVO_CORES = ['#5873C1', '#2D7C75', '#AD6833', '#9A79D2', '#B74373', '#358452', '#C26464', '#3294AC', '#73A034'];
+  const _evo = { dados: null, grupo: '', visao: 'total', meses: 12, ch: null, carregando: false };
+  const evoMoeda = (v) => 'R$ ' + (Number(v) || 0).toLocaleString('pt-BR', { maximumFractionDigits: 0 });
+  const evoCurta = (v) => { const n = Math.abs(v); return n >= 1e6 ? 'R$ ' + (v / 1e6).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' mi' : n >= 1e3 ? 'R$ ' + (v / 1e3).toLocaleString('pt-BR', { maximumFractionDigits: 0 }) + ' mil' : evoMoeda(v); };
+  const evoMes = (iso) => { const [a, m] = String(iso).split('-'); return ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'][Number(m) - 1] + '/' + a.slice(2); };
+  function evolucaoPassivo() {
+    const rk = document.getElementById('execRankWrap'); if (!rk || ehCliente() || !window.SB) return;
+    let card = document.getElementById('execEvolWrap');
+    if (!card) {
+      card = document.createElement('div'); card.id = 'execEvolWrap'; card.className = 'cc evo-card';
+      card.innerHTML = '<div class="cc-h evo-h"><div><div class="cc-t">Evolução do passivo</div><div class="cc-d" id="evo-sub">Mês a mês — soma de RFB, PGFN, SEFAZ e AGE/MG (em aberto + negociado)</div></div>' +
+        '<div class="evo-ctl"><select class="fsel" id="evo-grupo" autocomplete="off"><option value="">Todos os grupos</option></select>' +
+        '<div class="segmento gx-seg-cli" id="evo-visao"><button type="button" data-v="total" class="ativo">Total</button><button type="button" data-v="emp">Por empresa</button></div>' +
+        '<select class="fsel" id="evo-meses" autocomplete="off"><option value="6">6 meses</option><option value="12" selected>12 meses</option><option value="24">24 meses</option></select></div></div>' +
+        '<div class="evo-resumo" id="evo-resumo"></div><div class="cb evo-cb"><canvas id="cEvoPassivo"></canvas></div>' +
+        '<div class="evo-nota">O valor de cada mês é o que estava cadastrado no último dia do mês (vem do histórico de alterações). Antes do primeiro registro, a linha repete o valor mais antigo conhecido.</div>';
+      rk.parentElement.insertBefore(card, rk);
+      card.querySelector('#evo-grupo').onchange = (ev) => { _evo.grupo = ev.target.value; evoDesenhar(); };
+      card.querySelector('#evo-visao').onclick = (ev) => { const b = ev.target.closest('button'); if (!b) return; _evo.visao = b.dataset.v; card.querySelectorAll('#evo-visao button').forEach((x) => x.classList.toggle('ativo', x === b)); evoDesenhar(); };
+      card.querySelector('#evo-meses').onchange = (ev) => { _evo.meses = Number(ev.target.value); _evo.dados = null; evolucaoPassivo(); };
+    }
+    if (_evo.dados) return evoDesenhar();
+    if (_evo.carregando) return;
+    _evo.carregando = true;
+    window.SB.rpc('evolucao_passivo', { p_grupo: null, p_meses: _evo.meses }).then(({ data, error }) => {
+      _evo.carregando = false;
+      if (error) { const r = document.getElementById('evo-resumo'); if (r) r.textContent = 'Não foi possível ler a evolução: ' + error.message; return; }
+      _evo.dados = data || [];
+      const sel = document.getElementById('evo-grupo'), gs = {};
+      _evo.dados.forEach((x) => { gs[x.grupo_id] = x.grupo; });
+      if (sel) sel.innerHTML = '<option value="">Todos os grupos</option>' + Object.keys(gs).sort((a, b) => gs[a].localeCompare(gs[b], 'pt-BR'))
+        .map((id) => '<option value="' + id + '"' + (id === _evo.grupo ? ' selected' : '') + '>' + esc(gs[id]) + '</option>').join('');
+      evoDesenhar();
+    });
+  }
+  function evoDesenhar() {
+    const cv = document.getElementById('cEvoPassivo'); if (!cv || !_evo.dados || !window.Chart) return;
+    const linhas = _evo.dados.filter((x) => !_evo.grupo || x.grupo_id === _evo.grupo);
+    const meses = [...new Set(_evo.dados.map((x) => x.mes))].sort();
+    const chave = _evo.visao === 'total' ? () => 'Total' : _evo.grupo ? (x) => x.cliente : (x) => x.grupo;
+    const series = {};
+    linhas.forEach((x) => { const k = chave(x); (series[k] = series[k] || {})[x.mes] = (series[k][x.mes] || 0) + (Number(x.total) || 0); });
+    let nomes = Object.keys(series);
+    // mais de 9 linhas não se lê: fica com as 8 maiores e junta o resto em "Outras"
+    const ult = meses[meses.length - 1];
+    nomes.sort((a, b) => (series[b][ult] || 0) - (series[a][ult] || 0));
+    if (nomes.length > 9) {
+      const resto = nomes.slice(8), outras = {};
+      resto.forEach((n) => meses.forEach((m) => { outras[m] = (outras[m] || 0) + (series[n][m] || 0); }));
+      nomes = nomes.slice(0, 8).concat('Outras'); series.Outras = outras;
+    }
+    const ds = nomes.map((n, i) => {
+      const cor = n === 'Total' ? '#16294B' : n === 'Outras' ? '#8A93A6' : EVO_CORES[i % EVO_CORES.length];
+      return { label: n, data: meses.map((m) => series[n][m] || 0), borderColor: cor, backgroundColor: cor, borderWidth: n === 'Total' ? 2.5 : 2,
+        pointRadius: 2.5, pointHoverRadius: 5, tension: 0.25, fill: false };
+    });
+    // resumo: variação do primeiro ao último mês (total do recorte)
+    const tot = (m) => linhas.filter((x) => x.mes === m).reduce((s, x) => s + (Number(x.total) || 0), 0);
+    const ini = tot(meses[0]), fim = tot(ult), dif = fim - ini, pct = ini ? (dif / ini) * 100 : 0;
+    const r = document.getElementById('evo-resumo');
+    if (r) r.innerHTML = '<span><b>' + evoMoeda(fim) + '</b> hoje</span><span class="' + (dif > 0 ? 'evo-sobe' : dif < 0 ? 'evo-desce' : '') + '">' +
+      (dif > 0 ? '▲ ' : dif < 0 ? '▼ ' : '') + evoMoeda(Math.abs(dif)) + (ini ? ' (' + pct.toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + '%)' : '') +
+      ' desde ' + evoMes(meses[0]) + '</span>';
+    const cfg = { type: 'line', data: { labels: meses.map(evoMes), datasets: ds },
+      options: { responsive: true, maintainAspectRatio: false, animation: false, interaction: { mode: 'index', intersect: false },
+        plugins: { legend: { display: ds.length > 1, position: 'bottom', labels: { boxWidth: 12, boxHeight: 2 } },
+          tooltip: { callbacks: { label: (c) => ' ' + c.dataset.label + ': ' + evoMoeda(c.parsed.y) } } },
+        scales: { y: { ticks: { callback: (v) => evoCurta(v) }, grid: {} }, x: { grid: { display: false } } } } };
+    if (_evo.ch) _evo.ch.destroy();
+    _evo.ch = new Chart(cv, cfg);
+  }
+  window.ERP_EVOLUCAO_PASSIVO = () => { _evo.dados = null; evolucaoPassivo(); };
+
   // ═══════ Backup 31: CONTORNO AZUL de cada grupo nas tabelas agrupadas (Painel, Processos, Rotina, Clientes…) ═══════
   // a linha do grupo (tr.gx-grp / tr.cli-grp) abre o bloco; as linhas até o próximo grupo ficam dentro do contorno (design.css: .gc-*)
   function contornarGrupos() {

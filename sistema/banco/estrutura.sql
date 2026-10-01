@@ -6281,3 +6281,180 @@ begin
 end $$;
 revoke all on function public.salvar_documentos_escritorio(jsonb) from public, anon;
 grant execute on function public.salvar_documentos_escritorio(jsonb) to authenticated;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- Backup 33 — Guias vencidas: reenviar a mesma parcela com nova data e valor atualizado (SELIC do órgão) e guardar o histórico;
+-- e-mails em modo de teste (uma vez); alertas de conferência da Rotina; evolução do passivo
+-- ═══════════════════════════════════════════════════════════════════
+alter table public.parcelas add column if not exists reenvio_em timestamptz;
+alter table public.parcelas add column if not exists reenvio_venc date;
+alter table public.parcelas add column if not exists reenvio_valor numeric(14,2);
+alter table public.parcelas add column if not exists reenvios int not null default 0;
+alter table public.acordos add column if not exists reenvio_em timestamptz;
+alter table public.acordos add column if not exists reenvio_venc date;
+alter table public.acordos add column if not exists reenvio_valor numeric(14,2);
+alter table public.acordos add column if not exists reenvios int not null default 0;
+
+create or replace function public.enviar_guias_email(p_cliente uuid, p_grupo uuid, p_itens jsonb, p_assunto text, p_texto text,
+  p_docs uuid[] default '{}', p_para text default null, p_arquivos jsonb default null) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare c record; para text; anexo jsonb; it jsonb; html text; v_conta text; n int := 0; lista jsonb; v_ref text; v_status text; tab text;
+begin
+  if not public.pode('juridico', 'editar') then raise exception 'permission denied: sem acesso para enviar guias.'; end if;
+  if coalesce(jsonb_array_length(p_itens), 0) = 0 then raise exception 'Escolha ao menos uma guia.'; end if;
+  tab := coalesce(p_itens->0->>'tabela', 'parcelas');
+  if coalesce(trim(p_para), '') <> '' then para := trim(p_para);
+  else select * into c from public.contato_do_cliente(p_cliente, p_grupo, case when tab = 'acordos' then 'acordo' else 'guia' end); para := c.email; end if;
+  if coalesce(para, '') = '' then raise exception 'Não há e-mail para enviar: digite o e-mail no campo "Para" (ou cadastre em Clientes → ficha → Contatos).'; end if;
+  -- os PDFs escolhidos na tela (p_arquivos: [{arquivo, mime, b64}]) NÃO ficam guardados: a função de e-mail apaga o conteúdo assim que o e-mail sai
+  select coalesce(jsonb_agg(jsonb_build_object('tipo', 'arquivo', 'caminho', dc.caminho, 'arquivo', dc.nome, 'mime', dc.mime)), '[]') into lista
+    from public.documentos dc where dc.id = any (coalesce(p_docs, '{}'));
+  select lista || coalesce(jsonb_agg(jsonb_build_object('tipo', 'bin', 'arquivo', a->>'arquivo', 'mime', coalesce(a->>'mime', 'application/pdf'), 'b64', a->>'b64')), '[]') into lista
+    from jsonb_array_elements(coalesce(p_arquivos, '[]')) a where coalesce(a->>'b64', '') <> '';
+  anexo := case when jsonb_array_length(lista) > 0 then jsonb_build_object('tipo', 'lista', 'itens', lista) end;
+  v_conta := public.conta_email(p_cliente, null);
+  perform set_config('erp.conta_email', v_conta, true);
+  html := public.email_cliente_html(coalesce(nullif(trim(p_assunto), ''), 'Guias para pagamento'), '-',
+    '<p style="margin:0 0 10px">' || replace(public.esc_html(coalesce(p_texto, '')), E'\n', '<br>') || '</p>', p_itens, false);
+  perform set_config('erp.conta_email', '', true);
+  v_ref := 'guias:' || gen_random_uuid();
+  insert into public.email_fila (usuario_id, para, assunto, html, tipo, referencia, anexo, conta)
+  values (auth.uid(), para, coalesce(nullif(trim(p_assunto), ''), 'Guias para pagamento'), html, 'cliente', v_ref, anexo, v_conta)
+  returning status into v_status;
+  for it in select * from jsonb_array_elements(p_itens) loop
+    if it->>'tabela' not in ('parcelas', 'acordos') then continue; end if;
+    perform public.registrar_emissao(it->>'tabela', (it->>'id')::uuid, true, null, false);
+    if it->>'tabela' = 'parcelas' then update public.parcelas set email_ref = v_ref where id = (it->>'id')::uuid;
+    else update public.acordos set email_ref = v_ref where id = (it->>'id')::uuid; end if;
+    -- Backup 33: reenvio da guia de parcela vencida (nova data e valor atualizado pelo órgão, com SELIC)
+    if coalesce(it->>'reenvio', '') = 'true' then
+      if it->>'tabela' = 'parcelas' then
+        update public.parcelas set reenvio_em = now(), reenvio_venc = nullif(it->>'vencimento', '')::date, reenvio_valor = nullif(it->>'valor', '')::numeric, reenvios = coalesce(reenvios, 0) + 1 where id = (it->>'id')::uuid;
+      else
+        update public.acordos set reenvio_em = now(), reenvio_venc = nullif(it->>'vencimento', '')::date, reenvio_valor = nullif(it->>'valor', '')::numeric, reenvios = coalesce(reenvios, 0) + 1 where id = (it->>'id')::uuid;
+      end if;
+    end if;
+    insert into public.automacoes_log (chave, ref, descricao, cliente_id)
+    values (case when it->>'tabela' = 'parcelas' then 'email_lp' else 'email_la' end, case when it->>'tabela' = 'parcelas' then 'email_lp:' else 'email_la:' end || (it->>'id'),
+            coalesce(nullif(trim(p_assunto), ''), 'Guias para pagamento') || ' → ' || para, p_cliente);
+    n := n + 1;
+  end loop;
+  return jsonb_build_object('para', para, 'itens', n, 'anexos', jsonb_array_length(lista), 'conta', v_conta, 'status', v_status);
+end $$;
+revoke all on function public.enviar_guias_email(uuid, uuid, jsonb, text, text, uuid[], text, jsonb) from public, anon;
+grant execute on function public.enviar_guias_email(uuid, uuid, jsonb, text, text, uuid[], text, jsonb) to authenticated;
+
+-- ── Backup 33: alertas da conferência da Rotina — lembra o estagiário (o que passou do prazo sem conferir) e o responsável por ele
+-- (resumo da semana: quantas conferências, por quem, e o que segue atrasado). Uma tarefa por semana para cada um (a chave tem a semana).
+insert into public.regras_tarefas (chave, nome, descricao, ligada, dias, grupo) values
+  ('rotina_conferir', 'Rotina: lembrar de conferir', 'Toda semana, se houver empresa (passivo), processo ou parcelamento sem conferência há mais de N dias, cria tarefa para quem faz a Rotina (escolha a pessoa em "Responsável")', true, 15, 'tarefas'),
+  ('rotina_supervisao', 'Rotina: responsável confere o estagiário', 'Toda semana cria uma tarefa para o responsável verificar a Rotina: quantas conferências foram feitas na semana, por quem, e o que segue atrasado (escolha a pessoa em "Responsável")', true, 7, 'tarefas')
+on conflict (chave) do nothing;
+create or replace function public.rodar_regras_rotina() returns int
+language plpgsql security definer set search_path = public as $$
+declare rg record; n int := 0; semana text := to_char(current_date, 'IYYY-IW'); c_pas int; c_par int; c_pro int; feitas int; quem text;
+begin
+  select * into rg from public.regras_tarefas where chave = 'rotina_conferir' and ligada;
+  if found then
+    select count(*) into c_pas from public.clientes cl where coalesce(cl.tipo, '') <> 'Inativo'
+       and not exists (select 1 from public.rotina_conferencias r where r.area = 'passivo' and r.registro_id = cl.id and r.quando > now() - make_interval(days => rg.dias));
+    select count(*) into c_par from public.parcelamentos pa where exists (select 1 from public.parcelas x where x.parcelamento_id = pa.id and not x.pago)
+       and not exists (select 1 from public.rotina_conferencias r where r.area = 'parcelamentos' and r.registro_id = pa.id and r.quando > now() - make_interval(days => rg.dias));
+    select count(*) into c_pro from public.processos pr where coalesce(pr.carteira, '') <> 'Prospecção' and coalesce(pr.status, '') !~* 'arquiv|extint|prescrit'
+       and (pr.ultima_movimentacao_em is null or pr.ultima_movimentacao_em < current_date - rg.dias);
+    if c_pas + c_par + c_pro > 0 and public.tarefa_da_regra('rot-conf:' || semana,
+         'Conferir a Rotina: ' || concat_ws(' · ', case when c_pas > 0 then c_pas || ' empresa(s) do passivo' end, case when c_pro > 0 then c_pro || ' processo(s)' end,
+           case when c_par > 0 then c_par || ' parcelamento(s)' end) || ' sem conferência há mais de ' || rg.dias || ' dias',
+         rg.responsavel, public.somar_uteis(current_date, 2), null, null, null,
+         jsonb_build_array(jsonb_build_object('texto', 'Passivo e cadastro: ' || c_pas || ' empresa(s) — clique ✓ em cada uma depois de conferir', 'feito', c_pas = 0),
+                           jsonb_build_object('texto', 'Processos: ' || c_pro || ' — "✓ Sem novidade" ou "+ Registrar"', 'feito', c_pro = 0),
+                           jsonb_build_object('texto', 'Controle dos parcelamentos: ' || c_par || ' — ✓ na coluna Conferência', 'feito', c_par = 0)),
+         'Menu Rotina. O que passou de ' || rg.dias || ' dias sem conferir fica amarelo; mais de 30, vermelho.') then n := n + 1; end if;
+  end if;
+  select * into rg from public.regras_tarefas where chave = 'rotina_supervisao' and ligada;
+  if found then
+    select count(*), string_agg(distinct nullif(r.quem, ''), ', ') into feitas, quem from public.rotina_conferencias r where r.quando > now() - make_interval(days => rg.dias);
+    select count(*) into c_pas from public.clientes cl where coalesce(cl.tipo, '') <> 'Inativo'
+       and not exists (select 1 from public.rotina_conferencias r where r.area = 'passivo' and r.registro_id = cl.id and r.quando > now() - interval '30 days');
+    if public.tarefa_da_regra('rot-sup:' || semana, 'Verificar a Rotina da semana: ' || feitas || ' conferência(s)' || coalesce(' por ' || quem, '') ||
+           case when c_pas > 0 then ' · ' || c_pas || ' empresa(s) há mais de 30 dias sem conferir' else '' end,
+         rg.responsavel, public.somar_uteis(current_date, 3), null, null, null, '[]'::jsonb,
+         'Abra o menu Rotina: a coluna "Conferência" mostra quem conferiu e quando (✓ = conferiu sem mudar; ✎ = alterou). Vermelho = mais de 30 dias.') then n := n + 1; end if;
+  end if;
+  return n;
+end $$;
+revoke all on function public.rodar_regras_rotina() from public, anon, authenticated;
+create or replace function public.rodar_regras_extras() returns int
+language plpgsql security definer set search_path = public as $$
+declare rg record; x record; n int := 0;
+begin
+  select * into rg from public.regras_tarefas where chave = 'crm_parada' and ligada;
+  if found then
+    for x in select o.id, o.titulo, o.responsavel, o.cliente_id, o.etapa_id, e.nome etapa, e.dias_alerta
+               from public.crm_oportunidades o join public.crm_etapas e on e.id = o.etapa_id
+              where e.final = '' and e.dias_alerta is not null and o.etapa_desde < now() - make_interval(days => e.dias_alerta) loop
+      if public.tarefa_da_regra('crm-parada:' || x.id || ':' || x.etapa_id, 'CRM parado há mais de ' || x.dias_alerta || ' dia(s) em "' || x.etapa || '" — ' || x.titulo,
+           x.responsavel, public.somar_uteis(current_date, 1), x.cliente_id, null, null, '[]'::jsonb, 'Avance a oportunidade no CRM ou registre o próximo passo.') then n := n + 1; end if;
+    end loop;
+  end if;
+  select * into rg from public.regras_tarefas where chave = 'crm_followup' and ligada;
+  if found then
+    for x in select pr.id, pr.titulo, pr.versao, o.titulo op, o.responsavel, o.cliente_id from public.crm_propostas pr join public.crm_oportunidades o on o.id = pr.oportunidade_id
+               join public.crm_etapas e on e.id = o.etapa_id
+              where pr.status = 'enviada' and pr.enviada_em < now() - make_interval(days => rg.dias) and e.final = '' loop
+      if public.tarefa_da_regra('crm-follow:' || x.id, 'Follow-up da proposta — ' || x.op, x.responsavel, current_date, x.cliente_id, null, null, '[]'::jsonb,
+           'Proposta v' || x.versao || ' enviada há mais de ' || rg.dias || ' dias sem resposta. Na ficha da oportunidade: "✉ Follow-up" envia o e-mail pronto.') then n := n + 1; end if;
+    end loop;
+  end if;
+  n := n + public.rodar_regras_rotina();   -- Backup 33: lembretes de conferência da Rotina
+  return n;
+end $$;
+revoke all on function public.rodar_regras_extras() from public, anon, authenticated;
+
+-- ── Backup 33: e-mails em MODO TESTE (uma vez só). Pausa todos os e-mails, deixa passar apenas pedromgsam@gmail.com e desliga as
+-- rotinas de e-mail ao cliente. As regras que estavam ligadas ficam guardadas em configuracoes.b33_modo_teste_emails (para religar depois:
+-- Automações → ligar uma a uma, ou rodar o update do comentário abaixo). Rodar o SQL de novo NÃO repete (a marca já existe).
+do $$
+begin
+  if not exists (select 1 from public.configuracoes where chave = 'b33_modo_teste_emails') then
+    insert into public.configuracoes (chave, valor)
+      select 'b33_modo_teste_emails', coalesce(jsonb_agg(chave), '[]'::jsonb) from public.regras_tarefas where grupo = 'cliente_email' and ligada;
+    update public.regras_tarefas set ligada = false, atualizado_em = now() where grupo = 'cliente_email' and ligada;
+    insert into public.configuracoes (chave, valor) values ('emails_pausados', 'true'::jsonb) on conflict (chave) do update set valor = 'true'::jsonb;
+    insert into public.configuracoes (chave, valor) values ('emails_teste', '"pedromgsam@gmail.com"'::jsonb) on conflict (chave) do update set valor = excluded.valor;
+  end if;
+end $$;
+-- Para voltar ao normal depois dos testes:
+--   update public.regras_tarefas set ligada = true where chave in (select jsonb_array_elements_text(valor) from public.configuracoes where chave = 'b33_modo_teste_emails');
+--   e em E-mails → desligar a pausa.
+
+-- ── Backup 33: evolução do passivo mês a mês (gráfico de linhas do Painel). Reconstrói o valor de cada empresa no fim de cada mês
+-- a partir do histórico de alterações: o valor no fim do mês = o "antes" da primeira alteração depois daquele dia (sem alteração = valor de hoje).
+create or replace function public.passivo_json(j jsonb) returns numeric language sql immutable as $$
+  select coalesce((j->>'rfb')::numeric,0) + coalesce((j->>'rfb_negociada')::numeric,0) + coalesce((j->>'pgfn')::numeric,0) + coalesce((j->>'pgfn_negociada')::numeric,0)
+       + coalesce((j->>'sefaz_mg')::numeric,0) + coalesce((j->>'age_mg')::numeric,0) + coalesce((j->>'age_mg_negociada')::numeric,0) $$;
+create or replace function public.evolucao_passivo(p_grupo uuid default null, p_meses int default 12)
+returns table (mes date, cliente_id uuid, cliente text, grupo_id uuid, grupo text, total numeric)
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not (public.eh_equipe() and (public.pode('clientes') or public.pode('relatorios') or public.pode('juridico'))) then
+    raise exception 'permission denied: sem acesso ao passivo.'; end if;
+  return query
+  with meses as (
+    select (date_trunc('month', current_date) - make_interval(months => k))::date as m,
+           least(now(), (date_trunc('month', current_date) - make_interval(months => k - 1))) as corte
+      from generate_series(0, least(greatest(coalesce(p_meses, 12), 2), 60) - 1) k
+  )
+  select ms.m, c.id, c.nome, g.id, g.nome,
+         coalesce((select public.passivo_json(h.antes) from public.historico h
+                              where h.tabela = 'clientes' and h.acao = 'UPDATE' and h.registro_id = c.id and h.quando > ms.corte
+                                and public.passivo_json(h.antes) is distinct from public.passivo_json(h.depois)
+                              order by h.quando limit 1), public.passivo_do_cliente(c))
+    from public.clientes c
+    join public.grupos g on g.id = c.grupo_id
+    cross join meses ms
+   where coalesce(c.tipo, '') <> 'Inativo' and (p_grupo is null or c.grupo_id = p_grupo)
+   order by 1, 5, 3;
+end $$;
+revoke all on function public.evolucao_passivo(uuid, int) from public, anon;
+grant execute on function public.evolucao_passivo(uuid, int) to authenticated;

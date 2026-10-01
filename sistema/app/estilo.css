@@ -867,3 +867,23 @@ select.rt-in.rt-amarelo{background:var(--amber-lt);color:var(--amber-d);border-c
 .rt-chave input:focus-visible + span{outline:2px solid var(--primario);outline-offset:2px}
 .rt-chave small{font-size:12px;color:var(--text2)}
 .pill.atr-leve{background:color-mix(in srgb,var(--red) 10%,transparent);color:var(--red-d);border-color:color-mix(in srgb,var(--red) 22%,transparent)}
+/* Backup 33: Rotina cabe na tela (sem rolar para o lado nem para baixo dentro do quadro) */
+.rt-grade.rt-pas table,.rt-grade.rt-parcs table{min-width:0;width:100%}
+.rt-grade.rt-pas .rt-emp{min-width:170px;max-width:230px}
+.rt-grade.rt-pas .rt-in{min-width:0}
+.rt-grade.rt-pas .rt-valor{min-width:0;width:132px}
+.rt-grade.rt-pas select.rt-in{width:86px}
+.rt-grade.rt-pas .rt-int{width:56px}
+.rt-par{white-space:nowrap}
+.rt-par .rt-valor{display:block;margin:1px 0}
+.rt-par .rt-neg{font-size:12px;color:var(--text2);background:var(--surface2)}
+.rt-grade th small{display:block;font-weight:500;font-size:9.5px;letter-spacing:0;text-transform:none;opacity:.8}
+.rt-grade .rt-cf-txt{min-width:130px}
+.rt-abre{cursor:pointer}
+.rt-abre:hover b{text-decoration:underline}
+.rt-seta{display:inline-block;width:12px;color:var(--text3)}
+tr.rt-aberto > td{background:var(--blue-lt)}
+tr.rt-det > td{background:var(--surface2);padding:8px 14px 12px 28px}
+.rt-det-tab{width:auto;min-width:520px;border-collapse:collapse;font-size:12.5px}
+.rt-det-tab th{background:transparent!important;color:var(--text3)!important;font:700 10.5px var(--font-ui);text-transform:uppercase;letter-spacing:.05em;text-align:left;padding:4px 10px;position:static!important}
+.rt-det-tab td{padding:4px 10px;border-top:1px solid var(--line)}

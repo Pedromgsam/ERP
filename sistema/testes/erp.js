@@ -1262,8 +1262,21 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.click('#rt-parc-corpo .rt-chave >> nth=0'); await p.waitForTimeout(1500);
     ok('Controle dos parcelamentos: desligar "Nós emitimos?" marca que o cliente emite', sql("select emitimos_guia from parcelamentos where id='" + idEmit + "'") === 'f' &&
       sql("select count(*) from rotina_conferencias where area='parcelamentos' and alterou") === '1');
-    ok('Controle dos parcelamentos: planilha com 6 meses e as parcelas', (await p.$$('#rt-corpo thead th.rt-mes')).length === 6 && (await p.$$('#rt-parc-corpo .rt-pc')).length > 0);
+    ok('Controle dos parcelamentos: planilha com 8 meses (5 para trás, o atual e 2 à frente) e as parcelas', (await p.$$('#rt-corpo thead th.rt-mes')).length === 8 && (await p.$$('#rt-parc-corpo .rt-pc')).length > 0);
     sql("update parcelamentos set emitimos_guia = true where id='" + idEmit + "'");
+    // Backup 33: clicar no parcelamento abre as parcelas; aba de acordos; senha GOV em janela (fora da tabela)
+    await p.click('#rt-parc-corpo .rt-abre >> nth=0'); await p.waitForTimeout(800);
+    ok('Controle dos parcelamentos: clicar no nome abre as parcelas', await p.isVisible('#rt-parc-corpo tr.rt-det'));
+    await p.click('#rt-abas [data-rt-aba=acs]'); await p.waitForTimeout(2000);
+    ok('Rotina: aba "Controle dos acordos" com a planilha por mês', (await p.$$('#rt-corpo thead th.rt-mes')).length === 8);
+    await p.click('#rt-abas [data-rt-aba=passivo]').catch(() => {}); await p.waitForSelector('#rt-pas-corpo [data-senha]', { timeout: 10000 }).catch(() => {});
+    ok('Rotina: passivo sem a coluna Senha GOV (fica no botão 🔑)', (await p.$$('#rt-pas-corpo [data-senha]')).length > 0 && !/Senha GOV/.test(await p.textContent('#rt-corpo thead')));
+
+    // Backup 33: Painel Executivo — evolução do passivo em linhas (total ou por empresa)
+    await p.evaluate(() => nav(null, 'resumo')); await p.waitForTimeout(2500);
+    ok('Painel: gráfico de linhas "Evolução do passivo"', await p.evaluate(() => { const c = document.getElementById('cEvoPassivo'); const ch = c && window.Chart && Chart.getChart(c); return !!ch && ch.config.type === 'line' && ch.data.labels.length === 12; }));
+    await p.click('#evo-visao [data-v=emp]'); await p.waitForTimeout(500);
+    ok('Painel: "Por empresa" desenha uma linha por grupo/empresa', await p.evaluate(() => Chart.getChart(document.getElementById('cEvoPassivo')).data.datasets.length >= 2));
 
     // Backup 29: Relatório em PDF refeito (⋯ → Relatório em PDF)
     await p.click('#gs-hd .gs-bt-mais'); await p.click('#gs-hd [data-acao=pdf]'); await p.waitForSelector('#gs-raiz #rp-gerar');

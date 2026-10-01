@@ -283,6 +283,17 @@ reset role;
 select pg_temp.ok((select not emitimos_guia from parcelamentos where id = '50000000-0000-0000-0000-000000000001'), '13.4 gravado no parcelamento');
 update parcelamentos set emitimos_guia = true where id = '50000000-0000-0000-0000-000000000001';
 
+-- ═══ 14. Backup 33: reenvio de guia vencida, modo teste dos e-mails, alertas da Rotina ═══
+select pg_temp.como('00000000-0000-0000-0000-00000000000b');
+set role authenticated;
+select pg_temp.ok((select enviar_guias_email('10000000-0000-0000-0000-000000000001', null, '[{"tabela":"parcelas","id":"70000000-0000-0000-0000-000000000001","descricao":"Parcela 8","vencimento":"2030-04-30","valor":512.40,"reenvio":true}]',
+  'Guia atualizada da Padaria', 'Segue a guia atualizada.', '{}', 'outro@cliente.teste') ? 'status'), '14.1 reenviar a guia vencida (valor atualizado)');
+reset role;
+select pg_temp.ok((select reenvios = 1 and reenvio_venc = '2030-04-30' and reenvio_valor = 512.40 and reenvio_em is not null from parcelas where id = '70000000-0000-0000-0000-000000000001'), '14.2 o reenvio fica registrado na parcela (novo vencimento e valor)');
+select pg_temp.ok((select jsonb_typeof(valor) = 'array' and valor ? 'email_cobranca_honorario' from configuracoes where chave = 'b33_modo_teste_emails'), '14.3 o modo teste dos e-mails guardou as rotinas que estavam ligadas');
+select pg_temp.ok(rodar_regras_rotina() >= 0 and exists (select 1 from tarefas where chave_regra like 'rot-sup:%'), '14.4 a Rotina cria a tarefa semanal do responsável');
+select pg_temp.ok(rodar_regras_rotina() = 0, '14.5 não repete a tarefa na mesma semana');
+
 -- ═══ RESUMO ═══
 select case when ok then 'PASSA ' else 'FALHA ' end || nome || case when not ok and obs <> '' then '  → ' || obs else '' end from r order by n;
 do $$ declare n int; begin

@@ -13,6 +13,8 @@ psql -h 127.0.0.1 -p ${PGPORT:-54329} -U postgres -q -d erp_perm -f "$DIR/permis
 psql -h 127.0.0.1 -p ${PGPORT:-54329} -U postgres -q -c "drop database if exists erp_fluxo with (force)" -c "create database erp_fluxo"
 psql -h 127.0.0.1 -p ${PGPORT:-54329} -U postgres -q -d erp_fluxo -f "$DIR/supabase-local.sql" >/dev/null 2>&1
 psql -h 127.0.0.1 -p ${PGPORT:-54329} -U postgres -q -d erp_fluxo -f "$DIR/../banco/estrutura.sql" >/dev/null 2>&1
+# o modo teste de e-mails (Backup 33) desliga as rotinas de e-mail ao cliente: aqui elas voltam como estavam
+psql -h 127.0.0.1 -p ${PGPORT:-54329} -U postgres -q -d erp_fluxo -c "update regras_tarefas set ligada=true where chave in (select jsonb_array_elements_text(valor) from configuracoes where chave='b33_modo_teste_emails')" >/dev/null
 if ! psql -h 127.0.0.1 -p ${PGPORT:-54329} -U postgres -q -At -v ON_ERROR_STOP=1 -d erp_fluxo -f "$DIR/fluxo.sql" > /tmp/erp-fluxo.out 2>&1; then
   grep -E "FALHA|ERROR|FALHOU" /tmp/erp-fluxo.out; exit 1
 fi

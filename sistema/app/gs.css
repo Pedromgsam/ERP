@@ -850,6 +850,25 @@
 .gs .rt-chave input:focus-visible + span{outline:2px solid var(--primario);outline-offset:2px}
 .gs .rt-chave small{font-size:12px;color:var(--text2)}
 .gs .pill.atr-leve{background:color-mix(in srgb,var(--red) 10%,transparent);color:var(--red-d);border-color:color-mix(in srgb,var(--red) 22%,transparent)}
+.gs .rt-grade.rt-pas table,.gs .rt-grade.rt-parcs table{min-width:0;width:100%}
+.gs .rt-grade.rt-pas .rt-emp{min-width:170px;max-width:230px}
+.gs .rt-grade.rt-pas .rt-in{min-width:0}
+.gs .rt-grade.rt-pas .rt-valor{min-width:0;width:132px}
+.gs .rt-grade.rt-pas select.rt-in{width:86px}
+.gs .rt-grade.rt-pas .rt-int{width:56px}
+.gs .rt-par{white-space:nowrap}
+.gs .rt-par .rt-valor{display:block;margin:1px 0}
+.gs .rt-par .rt-neg{font-size:12px;color:var(--text2);background:var(--surface2)}
+.gs .rt-grade th small{display:block;font-weight:500;font-size:9.5px;letter-spacing:0;text-transform:none;opacity:.8}
+.gs .rt-grade .rt-cf-txt{min-width:130px}
+.gs .rt-abre{cursor:pointer}
+.gs .rt-abre:hover b{text-decoration:underline}
+.gs .rt-seta{display:inline-block;width:12px;color:var(--text3)}
+.gs tr.rt-aberto > td{background:var(--blue-lt)}
+.gs tr.rt-det > td{background:var(--surface2);padding:8px 14px 12px 28px}
+.gs .rt-det-tab{width:auto;min-width:520px;border-collapse:collapse;font-size:12.5px}
+.gs .rt-det-tab th{background:transparent!important;color:var(--text3)!important;font:700 10.5px var(--font-ui);text-transform:uppercase;letter-spacing:.05em;text-align:left;padding:4px 10px;position:static!important}
+.gs .rt-det-tab td{padding:4px 10px;border-top:1px solid var(--line)}
 /* cores do ERP, tamanhos do Gestão */
 .gs{background:none!important;min-height:0!important}
 .gs .duas-col>*,.gs .card{min-width:0}
