@@ -502,6 +502,8 @@
   }
 
   // ══════════ início ══════════
+  // Backup 34: dentro do ERP (iframe) a Central esconde a barra própria — o ERP já tem a dele
+  if (window.self !== window.top) document.documentElement.classList.add('dc-embutido');
   async function iniciar() {
     if (!sb) return bloqueio('O ERP não está configurado neste endereço.');
     const { data: s } = await sb.auth.getSession();
@@ -536,7 +538,7 @@
     await preencherDaUrl().catch((e) => aviso(e.message, true));
     document.body.classList.add('dc-pronto');
   }
-  function bloqueio(msg) { $('#dc-area').innerHTML = '<section class="dc-hist"><p class="dc-vazio"><b>' + esc(msg) + '</b><br><br><a class="dc-bt dc-prim" href="../index.html">Entrar no ERP</a></p></section>'; document.body.classList.add('dc-pronto'); }
+  function bloqueio(msg) { $('#dc-area').innerHTML = '<section class="dc-hist"><p class="dc-vazio"><b>' + esc(msg) + '</b><br><br><a class="dc-bt dc-prim" href="../index.html" target="_top">Entrar no ERP</a></p></section>'; document.body.classList.add('dc-pronto'); }
 
   // para os testes (sem expor dados): os mesmos cálculos que o documento usa
   window.DOCS = { extenso: dinheiroExtenso, numExtenso, dataExtenso, estado: () => E, blocos: () => blocosAtuais(), faltas: () => contarFaltas(blocosAtuais()) };

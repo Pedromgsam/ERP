@@ -688,3 +688,26 @@ Para voltar ao normal: Automações → ligar as rotinas de e-mail; E-mails → 
 
 **Painel Executivo:** cartão **Evolução do passivo** (linhas, mês a mês): escolha o grupo, "Total" ou "Por empresa", 6/12/24 meses.
 O valor de cada mês vem do histórico de alterações do cadastro.
+
+## Backup 34 — guias emitidas pela Rotina (Emissão e Pagamento por mês), Situação dos parcelamentos enxuta e Central de Documentos dentro do ERP (tem SQL)
+Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+Shift+R**. Nenhuma Edge Function mudou.
+
+**Parcelamentos e Acordos (só para enxergar):**
+- Saíram os quadros "Parcelamentos para emitir" e "Acordos para emitir" (e a aba "para emitir" da Rotina).
+- "Situação": Grupo › parcelamentos (com um grupo filtrado: Empresa › parcelamentos), linhas da mesma largura, sem "quem emite".
+  Um aviso discreto "· 🧾 N guias a emitir" aparece embaixo do nome quando há guia vencendo em até 15 dias sem emissão.
+- Clique no parcelamento: a ficha com os dados da planilha (devedor, CPF/CNPJ, órgão, natureza, nº, total de parcelas, valor da parcela,
+  valor residual, guias) e as parcelas em lista: Parcela · Vencimento · Valor · Situação (paga/vencida/a vencer + emitida/não emitida/"não emitimos").
+
+**Rotina → Controle dos parcelamentos (e dos acordos) — a emissão é feita aqui:**
+1. Cada mês tem duas casinhas: **Emis.** (○ a emitir · ✓ emitida) e **Pag.** (✓ paga · ! vencida · ○ a vencer).
+2. Clique na casinha **Emis.** dos meses que vai emitir (fica azul). Embaixo aparece a barra **✉ Enviar por empresa**.
+3. A janela de envio é a mesma de antes (mesmo e-mail, mesmas cores). Confira/edite o **valor** de cada parcela, anexe os PDFs e envie.
+   Ao enviar, a parcela fica marcada como **emitida** sozinha, e o valor digitado vira o "valor lançado" daquele mês.
+4. Parcela vencida sem pagamento: marque de novo no mês seguinte → a janela pede o **novo vencimento** e o **valor atualizado** (reemissão).
+5. Clique em **Pag.** para dar baixa. Clique no nome do parcelamento para ver todas as parcelas e **editar o valor** de qualquer mês
+   (mês sem valor = vale o último valor lançado antes dele).
+6. O cabeçalho dos meses fica parado no alto quando você rola a página. "Emit.?" (1ª coluna) = o escritório emite a guia.
+
+**Central de Documentos dentro do ERP:** menu **Documentos → Gerar documento** (ou ⋯ → Documentos, contrato, recibo do Financeiro).
+**Ctrl + clique** (ou botão do meio do mouse) em qualquer item do menu ou link de documento abre numa aba nova.

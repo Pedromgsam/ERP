@@ -26,7 +26,7 @@
     { id: 'contratos', rot: 'Contratos', equipe: true, func: 'contratos' },
     { id: 'clientes', rot: 'Clientes', equipe: true, func: 'clientes' },
     { id: 'crm', rot: 'CRM', equipe: true, func: 'crm' },
-    { id: 'documentos', rot: 'Documentos', equipe: true, func: 'documentos' },
+    { rot: 'Documentos', equipe: true, itens: [['documentos', 'Arquivos dos clientes', 'documentos'], ['gerador', 'Gerar documento (procuração, contrato, recibo…)', 'documentos']] },   // Backup 34: Central dentro do ERP
     { id: 'tarefas', rot: 'Tarefas', equipe: true },
     { id: 'alertas', rot: 'Alertas', equipe: true },
     { id: 'rotina', rot: 'Rotina', equipe: true },   // Backup 28: o lugar do estagiário (substitui as planilhas)
@@ -36,7 +36,7 @@
   // Cobranças, avisos e recibos (antiga "Notificações"): fora da barra; abre pelo botão ✉ de cada tela e pelo ⋯
   const FUNC_EXTRA = { notificacoes: 'clientes' };   // a Central de e-mails confere o acesso no banco
   // painéis novos → tela do Gestão que desenha nele
-  const TELAS_GS = { hoje: 'inicio', contratos: 'contratos', clientes: 'clientes', crm: 'crm', publicacoes: 'publicacoes', documentos: 'documentos', tarefas: 'tarefas', alertas: 'alertas', automacoes: 'automacoes', aprovacoes: 'aprovacoes', emails: 'emails', rotina: 'rotina', admin: 'admin' };
+  const TELAS_GS = { hoje: 'inicio', contratos: 'contratos', clientes: 'clientes', crm: 'crm', publicacoes: 'publicacoes', documentos: 'documentos', gerador: 'gerador', tarefas: 'tarefas', alertas: 'alertas', automacoes: 'automacoes', aprovacoes: 'aprovacoes', emails: 'emails', rotina: 'rotina', admin: 'admin' };
 
   // "+ Lançar": formulários do Gestão onde existem; os demais, do editor do ERP
   const empresaAtual = () => (_painel === 'financeiroContab' ? 'contabilidade' : 'escritorio');
@@ -118,6 +118,8 @@
       .map((x) => '<button type="button" data-baixo="' + x[0] + '"' + (x[3] ? ' class="gx-so-equipe"' : '') + '><span>' + x[1] + '</span>' + x[2] + '</button>').join('');
     document.body.appendChild(bn);
 
+    // botão do meio do mouse num item do menu = aba nova (Backup 34)
+    document.addEventListener('auxclick', (e) => { const b = e.button === 1 && e.target.closest && e.target.closest('#gs-hd [data-ir]'); if (b) { e.preventDefault(); window.open(location.pathname + '#' + b.dataset.ir, '_blank', 'noopener'); } });
     document.addEventListener('click', (e) => {
       const alvo = e.target.closest && e.target.closest('[data-ir],[data-grupo],.tn-lancar-bt,[data-lancar],[data-baixo],[data-acao],#gs-sair,.gs-sair');
       const abertos = document.querySelectorAll('.tn-grupo.on,.tn-lancar.on');
@@ -137,6 +139,7 @@
       else if (alvo.dataset.acao === 'cobrancas') abrirCentralEmails('');
       else if (alvo.dataset.acao === 'geradores') { if (GS()) GS().janelaGeradores(); }
       else if (alvo.dataset.acao === 'avisos') { if (GS()) GS().janelaMeusAvisos().catch((er) => aviso(erroAmigavel(er), true)); }
+      else if (alvo.dataset.ir && (e.ctrlKey || e.metaKey || e.shiftKey)) window.open(location.pathname + '#' + alvo.dataset.ir, '_blank', 'noopener');   // Backup 34: Ctrl + clique = aba nova
       else if (alvo.dataset.ir) ir(alvo.dataset.ir);
       else if (alvo.dataset.lancar !== undefined) LANCAR[+alvo.dataset.lancar][1]();
       else if (alvo.dataset.baixo === 'mais') abrirMais();

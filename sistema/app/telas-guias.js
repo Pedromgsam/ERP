@@ -325,7 +325,8 @@ async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
               '<b>' + esc(tabela === 'parcelas' ? 'Parcelamento ' + [p.local, p.natureza].filter(Boolean).join(' — ') : 'Acordo' + (x.processo ? ' — processo ' + x.processo : '')) + '</b>' +
               '<span>' + (tabela === 'parcelas' ? (p.numero ? 'Nº do parcelamento: <b>' + esc(p.numero) + '</b> · ' : '') : 'Partes: <b>' + esc(x.devedor || '—') + ' × ' + esc(x.credor || '—') + '</b> · ') +
               'Parcela <b>' + esc(parcDe(x)) + '</b> · Vencimento <b>' + dataBR(x.vencimento) + '</b></span></span>' +
-            '<span class="ge-it-v"><small>Valor da guia</small><span class="ge-vbox"><span class="ge-rs">R$</span><input class="ge-valor" data-mascara="nenhuma" inputmode="decimal" value="' + (x.valor ? valorParaCampo(x.valor) : '') + '" placeholder="0,00" aria-label="Valor"></span></span></label>'; }).join('') + '</div>' +
+            (x.vencimento < hojeISO() ? '<span class="ge-it-v ge-it-d"><small>Novo vencimento</small><input type="date" class="ge-novo-venc" value="' + fimDoMesGuia(hojeISO()) + '" aria-label="Novo vencimento da guia atualizada"></span>' : '') +
+            '<span class="ge-it-v"><small>' + (x.vencimento < hojeISO() ? 'Valor atualizado' : 'Valor da guia') + '</small><span class="ge-vbox"><span class="ge-rs">R$</span><input class="ge-valor" data-mascara="nenhuma" inputmode="decimal" value="' + (x.valor ? valorParaCampo(x.valor) : '') + '" placeholder="0,00" aria-label="Valor"></span></span></label>'; }).join('') + '</div>' +
         '<div class="ge-fecho">Os arquivos seguem anexos. Depois de pagar, por favor nos envie o comprovante.</div></div>' +
       '<div class="ge-anexos"><label class="ge-drop"><input type="file" id="ge-arqs" accept=".pdf,image/*" multiple hidden><span>📎 <b>Anexar os PDFs</b> das ' + nome + '</span><small>vão só no e-mail — não ficam guardados no sistema</small></label><div class="ge-chips" id="ge-chips"></div></div>';
     $j('#ge-arqs').onchange = () => { arquivos = arquivos.concat([...$j('#ge-arqs').files]); $j('#ge-arqs').value = ''; pintarChips(); };
@@ -339,7 +340,8 @@ async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
     j.querySelectorAll('[data-tira]').forEach((b) => b.onclick = () => { arquivos.splice(+b.dataset.tira, 1); pintarChips(); }); };
   const marcados = () => [...j.querySelectorAll('.ge-it')].filter((l) => l.querySelector('input[type=checkbox]').checked).map((l) => {
     const x = atual().itens.find((y) => y.id === l.dataset.ge), v = lerValor(l.querySelector('.ge-valor').value);
-    return Object.assign({}, x, { _valor: isNaN(v) ? 0 : v });
+    const dv = l.querySelector(".ge-novo-venc");   // Backup 34: parcela vencida → reemissão com novo vencimento e valor atualizado
+    return Object.assign({}, x, { _valor: isNaN(v) ? 0 : v, _venc: dv ? dv.value : null });
   });
   const total = () => { const m = marcados(); $j('#ge-tot').innerHTML = m.length ? plural(m.length, 'parcela', 'parcelas') + ' · total <b>' + brl(m.reduce((s2, x) => s2 + x._valor, 0)) + '</b>' : 'Nenhuma parcela marcada'; };
   $j('#ge-emps').onclick = (ev) => { const b = ev.target.closest('[data-ge-emp]'); if (!b) return; atualK = b.dataset.geEmp; pintarEmps(); pintarMsg(); };
@@ -357,10 +359,13 @@ async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
     const its = marcados(), e = atual(); if (!its.length) throw new Error('Marque ao menos uma parcela.');
     if (!$j('#ge-para').value.trim()) throw new Error('Digite o e-mail do cliente no campo "Para".');
     if (its.some((i) => !(i._valor > 0))) throw new Error('Confira o valor de todas as parcelas marcadas.');
+    if (its.some((i) => i._venc !== null && i._venc !== undefined && (!i._venc || i._venc < hojeISO()))) throw new Error('Confira o novo vencimento da guia atualizada (hoje ou depois).');
     if (arquivos.reduce((s2, f) => s2 + f.size, 0) > LIMITE_ANEXOS) throw new Error('Os PDFs somam mais de 15 MB: envie em dois e-mails.');
     const arqs = []; for (const f of arquivos) arqs.push(await lerArquivoB64(f));
     const r = await q(sb.rpc('enviar_guias_email', { p_cliente: e.cli || null, p_grupo: e.grupo || null,
-      p_itens: its.map((i) => ({ tabela, id: i.id, descricao: descricaoGuia(tabela, i), vencimento: i.vencimento, valor: i._valor })),
+      p_itens: its.map((i) => i._venc
+        ? { tabela, id: i.id, descricao: descricaoGuia(tabela, i).replace(/^⚠ VENCIDA — /, '↻ Guia atualizada — ') + ' (vencia em ' + dataBR(i.vencimento) + ')', vencimento: i._venc, valor: i._valor, reenvio: true }
+        : { tabela, id: i.id, descricao: descricaoGuia(tabela, i), vencimento: i.vencimento, valor: i._valor }),
       p_assunto: $j('#ge-assunto').value.trim(), p_texto: $j('#ge-texto').value.trim() + '\n\nOs arquivos seguem anexos.', p_docs: its.map((i) => i.guia_doc).filter(Boolean),
       p_para: $j('#ge-para').value.trim() || null, p_arquivos: arqs }));
     aviso('✓ ' + plural(r.itens, 'parcela', 'parcelas') + (r.anexos ? ' e ' + plural(r.anexos, 'anexo', 'anexos') : '') + ': ' + msgEnvio(r) + ' As parcelas enviadas saíram do quadro.', r.status === 'retido');

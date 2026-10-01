@@ -28,74 +28,65 @@ function _lgFaltaEmitir(lista, emitida, paga){
   var h=new Date(); h.setHours(0,0,0,0); var lim=new Date(h.getTime()+15*864e5);
   return (lista||[]).filter(function(pa){ var d=pDate(pa.vencimento); return !paga(pa) && !emitida(pa) && d && d<=lim; }).length;
 }
-// Backup 33: quem emite fica à vista — "👤 Cliente emite" / "✓ Nós emitimos" (no grupo: quantos de cada)
-function _lgTagGuia(n, grupo, emit){
-  if(!grupo && emit===false) return '<span class="lg-guia-cli" title="As guias deste parcelamento são emitidas pelo próprio cliente">👤 Cliente emite</span>';
-  if(!n){
-    if(grupo && emit) return '<span class="lg-guia-nos">'+(emit.nos?'✓ Nós: '+emit.nos:'')+(emit.nos&&emit.cli?' · ':'')+(emit.cli?'👤 Cliente: '+emit.cli:'')+'</span>';
-    return emit===true?'<span class="lg-guia-nos" title="O escritório emite as guias">✓ Nós emitimos</span>':'<span class="lg-guia-ok">—</span>';
-  }
-  return '<span class="lg-guia" title="'+(grupo?'Há parcelas deste grupo sem a guia emitida (vencem em até 15 dias)':'Parcela vencendo em até 15 dias sem a guia emitida')+'">🧾 '+(grupo?'Há guias a emitir':(n>1?'Faltam '+n+' guias':'Falta emitir a guia'))+'</span>';
-}
-function _lgEmit(l){ var nos=l.filter(function(x){ return x.emitimos===true; }).length, cli=l.filter(function(x){ return x.emitimos===false; }).length; return (nos||cli)?{nos:nos,cli:cli}:null; }
-// Backup 33: visão em 2 colunas (teste) — à esquerda grupo › item com quem emite, parcelas pagas, quitado e o que falta; à direita só o que está em atraso
-var _lgDuas=false; try{ _lgDuas=localStorage.getItem('erp_lg_duas')==='1'; }catch(e){}
-function _lgAlternarDuas(){ _lgDuas=!_lgDuas; try{ localStorage.setItem('erp_lg_duas',_lgDuas?'1':'0'); }catch(e){}
-  if(typeof renderParcAnalise==='function') renderParcAnalise(); if(typeof renderAcordos==='function') renderAcordos(); }
-function _lgBotaoDuas(){ return '<button type="button" class="btn btn-o btn-mini lg-bt-duas'+(_lgDuas?' ativo':'')+'" onclick="_lgAlternarDuas()" title="Visão de teste: situação à esquerda e só os atrasados à direita">'+(_lgDuas?'☰ Uma coluna':'⧉ 2 colunas (teste)')+'</button>'; }
-function _lgRenderDuas(o){
-  var G={}; o.itens.forEach(function(x){ (G[x.grupo]=G[x.grupo]||[]).push(x); });
-  var gs=Object.keys(G).sort(function(a,b){ return a.localeCompare(b,'pt-BR'); });
-  var lin=function(x,filho){ return '<div class="lg2-l'+(filho?' lg2-filho':'')+'" role="button" tabindex="0" onclick="'+o.fnItem+'(\''+_lgEsc(x.k)+'\')" title="Abrir o detalhamento">'
-    +'<div class="lg2-c1"><div class="lg-nome">'+esc(x.titulo)+'</div><div class="lg-sub">'+x.sub+'</div></div>'
-    +'<div>'+_lgTagGuia(x.guias,false,x.emitimos)+'</div><div class="lg2-num"><b class="lg-verde">'+x.pagas+'</b> de '+(x.total||'?')+'</div>'
-    +'<div class="lg2-num lg-verde">'+_lgFmtV(x.pago)+'</div><div class="lg2-num"><b>'+_lgFmtV(x.falta)+'</b></div></div>'; };
-  var esq=gs.map(function(g){ var l=G[g], ab=!!o.abertos[g], soma=function(f){ return l.reduce(function(s,x){ return s+(Number(x[f])||0); },0); };
-    return '<div class="lg2-g'+(ab?' lg2-aberto':'')+'"><div class="lg2-l lg2-gl" role="button" tabindex="0" onclick="'+o.fnGrupo+'(\''+_lgEsc(g)+'\')">'
-      +'<div class="lg2-c1"><div class="lg-gnome"><span class="lg-seta">'+(ab?'▾':'▸')+'</span>'+esc(g)+'</div><div class="lg-sub">'+l.length+' '+o.rotulo+(l.length>1?'s':'')+'</div></div>'
-      +'<div>'+_lgTagGuia(soma('guias'),true,_lgEmit(l))+'</div><div class="lg2-num"><b class="lg-verde">'+soma('pagas')+'</b> de '+soma('total')+'</div>'
-      +'<div class="lg2-num lg-verde">'+_lgFmtV(soma('pago'))+'</div><div class="lg2-num"><b>'+_lgFmtV(soma('falta'))+'</b></div></div>'
-      +(ab?l.map(function(x){ return lin(x,true); }).join(''):'')+'</div>'; }).join('');
-  var atr=o.itens.filter(function(x){ return x.atr>0; }).sort(function(a,b){ return b.atr-a.atr || (b.atrV||0)-(a.atrV||0); });
-  var dir=atr.length?atr.map(function(x){ return '<div class="lg2-a" role="button" tabindex="0" onclick="'+o.fnItem+'(\''+_lgEsc(x.k)+'\')" title="Abrir o detalhamento">'
-      +'<div><div class="lg-nome">'+esc(x.titulo)+'</div><div class="lg-sub">'+esc(x.grupo)+'</div></div>'
-      +'<div>'+_lgSit(x.atr,x.atr>=2,false)+'</div><div class="lg2-num"><b>'+(x.atrV?_lgFmtV(x.atrV):'—')+'</b><div class="lg-sub">em atraso</div></div></div>'; }).join('')
-    :'<div class="pa-ok">Nenhum '+o.rotulo+' em atraso. 👏</div>';
-  return '<div class="lg-duas"><div class="lg2-esq"><div class="lg2-l lg2-hd"><span>'+o.cab+'</span><span>Guias</span><span class="lg2-num">Parcelas pagas</span><span class="lg2-num">Quitado</span><span class="lg2-num">Falta</span></div>'+esq+'</div>'
-    +'<div class="lg2-dir"><div class="lg2-dir-hd">⏰ Em atraso <span class="lg-sub">'+atr.length+' '+o.rotulo+(atr.length===1?'':'s')+(atr.some(function(x){ return x.atr>=2; })?' · '+atr.filter(function(x){ return x.atr>=2; }).length+' com risco de rescisão':'')+'</span></div>'+dir+'</div></div>';
+// Backup 34: "Situação" só para enxergar — sem quem emite; guias a emitir num aviso discreto embaixo do nome
+function _lgGuiaDiscreta(n, grupo){
+  if(!n) return '';
+  return ' <span class="lg-guia-d" title="'+(grupo?'Há parcelas deste grupo sem a guia emitida (vencem em até 15 dias) — emitir pela Rotina → Controle':'Parcela vencendo em até 15 dias sem a guia emitida — emitir pela Rotina → Controle')+'">· 🧾 '+(n>1?n+' guias a emitir':'1 guia a emitir')+'</span>';
 }
 function _lgEsc(t){ return String(t).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;'); }
-// o: {itens, porGrupo, abertos (obj), fnGrupo (nome da função global que abre/fecha o grupo), fnItem (nome da função que abre o item),
-//     rotulo ('parcelamento'|'acordo'), cab (título da 1ª coluna)}
+// o: {itens, porGrupo, abertos (obj), fnGrupo, fnItem, rotulo ('parcelamento'|'acordo'), cab}
+// Backup 34: a subdivisão natural é Grupo › itens; com um grupo só na tela (filtro de grupo), vira Empresa › itens (item.empresa).
+// Linhas de mesma largura (sem recuo), colunas: nome · parcelas pagas (quitado/falta) · próxima parcela · situação.
 function _lgRender(o){
-  if(_lgDuas) return _lgRenderDuas(o);
-  var linhaItem=function(x,sub){
+  if(!o.itens.length) return '<div class="lg"><div class="pa-ok">Nada com esses filtros.</div></div>';
+  // só quando há um grupo FILTRADO (o filtro do topo ou o da própria lista)
+  var umGrupo=!!o.porEmpresa && o.itens.some(function(x){ return x.empresa; });
+  var linhaItem=function(x){
     var p=_lgProx(x.abertas);
-    return '<div class="lg-i'+(sub?' lg-filho':'')+(x.atr?' lg-atr':'')+'" role="button" tabindex="0" onclick="'+o.fnItem+'(\''+_lgEsc(x.k)+'\')" onkeydown="if(event.key===\'Enter\')'+o.fnItem+'(\''+_lgEsc(x.k)+'\')" title="Abrir o detalhamento">'
-      +'<div class="lg-c1"><div class="lg-nome">'+esc(x.titulo)+'</div><div class="lg-sub">'+x.sub+'</div></div>'
-      +'<div class="lg-cg">'+_lgTagGuia(x.guias,false,x.emitimos)+'</div>'
+    return '<div class="lg-i lg-filho'+(x.atr?' lg-atr':'')+'" role="button" tabindex="0" onclick="'+o.fnItem+'(\''+_lgEsc(x.k)+'\')" onkeydown="if(event.key===\'Enter\')'+o.fnItem+'(\''+_lgEsc(x.k)+'\')" title="Abrir o detalhamento">'
+      +'<div class="lg-c1"><div class="lg-nome">'+esc(umGrupo&&x.tituloEmp?x.tituloEmp:x.titulo)+'</div><div class="lg-sub">'+(umGrupo&&x.subEmp!=null?x.subEmp:x.sub)+_lgGuiaDiscreta(x.guias,false)+'</div></div>'
       +'<div class="lg-c2">'+_lgPag(x.pagas,x.total,x.pago,x.falta)+'</div>'
       +'<div class="lg-c3">'+(p?'<div class="lg-val">'+_lgFmtV(p.v)+'</div><div class="lg-sub">vence '+p.d.toLocaleDateString('pt-BR')+'</div>':'<div class="lg-val">—</div><div class="lg-sub">'+(x.atr?'só vencidas':'sem próxima')+'</div>')+'</div>'
       +'<div class="lg-c4">'+_lgSit(x.atr,x.atr>=2,x.concluido)+'</div><div class="lg-c5" aria-hidden="true">›</div></div>'; };
-  var corpo;
-  if(!o.itens.length) corpo='<div class="pa-ok">Nada com esses filtros.</div>';
-  else if(o.porGrupo){
-    var G={}; o.itens.forEach(function(x){ (G[x.grupo]=G[x.grupo]||[]).push(x); });
-    var atrG=function(g){ return G[g].reduce(function(s,x){ return s+x.atr; },0); };
-    var gs=Object.keys(G).sort(function(a,b){ return (atrG(b)>0)-(atrG(a)>0) || a.localeCompare(b,'pt-BR'); });
-    corpo=gs.map(function(g){
-      var l=G[g].slice().sort(function(a,b){ return String(a.titulo).localeCompare(String(b.titulo),'pt-BR'); }), ab=!!o.abertos[g];
-      var soma=function(f){ return l.reduce(function(s,x){ return s+(Number(x[f])||0); },0); };
-      var atr=soma('atr'), risco=l.some(function(x){ return x.atr>=2; });
-      var p=_lgProx([].concat.apply([],l.map(function(x){ return x.abertas; })));
-      return '<div class="lg-g'+(ab?' lg-g-aberto':'')+(atr?' lg-atr':'')+'">'
-        +'<div class="lg-gl" role="button" tabindex="0" aria-expanded="'+ab+'" onclick="'+o.fnGrupo+'(\''+_lgEsc(g)+'\')" onkeydown="if(event.key===\'Enter\')'+o.fnGrupo+'(\''+_lgEsc(g)+'\')" title="'+(ab?'Recolher':'Ver os '+o.rotulo+'s do grupo')+'">'
-        +'<div class="lg-c1"><div class="lg-gnome"><span class="lg-seta" aria-hidden="true">'+(ab?'▾':'▸')+'</span>'+esc(g)+'</div><div class="lg-sub">'+l.length+' '+o.rotulo+(l.length>1?'s':'')+'</div></div>'
-        +'<div class="lg-cg">'+_lgTagGuia(soma('guias'),true,_lgEmit(l))+'</div>'
-        +'<div class="lg-c2">'+_lgPag(soma('pagas'),soma('total'),soma('pago'),soma('falta'))+'</div>'
-        +'<div class="lg-c3">'+(p?'<div class="lg-val">'+_lgFmtV(p.v)+'</div><div class="lg-sub">'+(p.n>1?p.n+' parcelas em '+p.mes:'vence '+p.d.toLocaleDateString('pt-BR'))+'</div>':'<div class="lg-val">—</div>')+'</div>'
-        +'<div class="lg-c4">'+_lgSit(atr,risco,false)+'</div><div class="lg-c5" aria-hidden="true"></div></div>'
-        +(ab?'<div class="lg-filhos"><div class="lg-filhos-tit">'+l.length+' '+o.rotulo+(l.length>1?'s':'')+' de '+esc(g)+' · clique para ver as parcelas</div>'+l.map(function(x){ return linhaItem(x,true); }).join('')+'</div>':'')+'</div>'; }).join('');
-  } else corpo=o.itens.slice().sort(function(a,b){ return b.atr-a.atr || String(a.titulo).localeCompare(String(b.titulo),'pt-BR'); }).map(function(x){ return '<div class="lg-solto">'+linhaItem(x,false)+'</div>'; }).join('');
-  return '<div class="lg"><div class="lg-hd"><span>'+o.cab+'</span><span>Guias</span><span>Parcelas pagas</span><span>Próxima parcela</span><span>Situação</span><span></span></div>'+corpo+'</div>';
+  var chave=umGrupo?function(x){ return x.empresa||x.titulo; }:function(x){ return x.grupo; };
+  var G={}; o.itens.forEach(function(x){ (G[chave(x)]=G[chave(x)]||[]).push(x); });
+  var atrG=function(g){ return G[g].reduce(function(s,x){ return s+x.atr; },0); };
+  var gs=Object.keys(G).sort(function(a,b){ return (atrG(b)>0)-(atrG(a)>0) || a.localeCompare(b,'pt-BR'); });
+  var corpo=gs.map(function(g){
+    var l=G[g].slice().sort(function(a,b){ return b.atr-a.atr || String(a.titulo+a.sub).localeCompare(String(b.titulo+b.sub),'pt-BR'); }), ab=!!o.abertos[g];
+    var soma=function(f){ return l.reduce(function(s,x){ return s+(Number(x[f])||0); },0); };
+    var atr=soma('atr'), risco=l.some(function(x){ return x.atr>=2; });
+    var p=_lgProx([].concat.apply([],l.map(function(x){ return x.abertas; })));
+    return '<div class="lg-g'+(ab?' lg-g-aberto':'')+(atr?' lg-atr':'')+'">'
+      +'<div class="lg-gl" role="button" tabindex="0" aria-expanded="'+ab+'" onclick="'+o.fnGrupo+'(\''+_lgEsc(g)+'\')" onkeydown="if(event.key===\'Enter\')'+o.fnGrupo+'(\''+_lgEsc(g)+'\')" title="'+(ab?'Recolher':'Ver os '+o.rotulo+'s')+'">'
+      +'<div class="lg-c1"><div class="lg-gnome"><span class="lg-seta" aria-hidden="true">'+(ab?'▾':'▸')+'</span>'+esc(g)+'</div><div class="lg-sub">'+l.length+' '+o.rotulo+(l.length>1?'s':'')+_lgGuiaDiscreta(soma('guias'),true)+'</div></div>'
+      +'<div class="lg-c2">'+_lgPag(soma('pagas'),soma('total'),soma('pago'),soma('falta'))+'</div>'
+      +'<div class="lg-c3">'+(p?'<div class="lg-val">'+_lgFmtV(p.v)+'</div><div class="lg-sub">'+(p.n>1?p.n+' parcelas em '+p.mes:'vence '+p.d.toLocaleDateString('pt-BR'))+'</div>':'<div class="lg-val">—</div>')+'</div>'
+      +'<div class="lg-c4">'+_lgSit(atr,risco,false)+'</div><div class="lg-c5" aria-hidden="true"></div></div>'
+      +(ab?'<div class="lg-filhos">'+l.map(linhaItem).join('')+'</div>':'')+'</div>'; }).join('');
+  return '<div class="lg lg-min"><div class="lg-hd"><span>'+(umGrupo?'Empresa / '+o.rotulo:o.cab)+'</span><span>Parcelas pagas</span><span>Próxima parcela</span><span>Situação</span><span></span></div>'+corpo+'</div>';
+}
+// Backup 34: parcelas do detalhamento (Parcelamentos e Acordos) em LISTA — igual a "Vencidos — URGENTE":
+// Parcela · Vencimento · Valor · Situação (pagamento + guia emitida / não emitida / o cliente emite)
+// l: [{id, rot, venc (dd/mm/aaaa), valor, lancado, pago, dataPag, emitida, emitidaEm, cliente}]
+function _lgParcTabela(l, tabela){
+  var h=new Date(); h.setHours(0,0,0,0);
+  var nome=tabela==='parcelas'?'Guia':'Boleto';
+  return '<div class="tw lg-parc-tw" data-sem-pagina><table class="lg-parc-tab"><thead><tr><th>Parcela</th><th>Vencimento</th><th>Valor</th><th>Situação</th><th></th></tr></thead><tbody>'
+    +l.map(function(x){ var d=pDate(x.venc), n=d?Math.round((d-h)/864e5):null;
+      var pag=x.pago?'<span class="pill pago">✓ Paga'+(x.dataPag?' em '+esc(x.dataPag):'')+'</span>'
+        :(n!==null&&n<=0?'<span class="pill vencido">'+(n===0?'Vence hoje':'Vencida há '+Math.abs(n)+' d')+'</span>':'<span class="pill aberto">A vencer</span>');
+      var em=x.cliente?'<span class="lg-em lg-em-cli" title="As guias deste parcelamento são emitidas pelo próprio cliente">Não emitimos</span>'
+        :x.emitida?'<span class="lg-em lg-em-ok" title="'+esc(x.emitidaEm?nome+' emitid'+(nome==='Guia'?'a':'o')+' em '+x.emitidaEm:'')+'">✓ Emitid'+(nome==='Guia'?'a':'o')+(x.emitidaEm?' '+esc(String(x.emitidaEm).slice(0,5)):'')+'</span>'
+        :(x.pago?'':'<span class="lg-em lg-em-nao">Não emitid'+(nome==='Guia'?'a':'o')+'</span>');
+      return '<tr class="'+(x.pago?'lg-pt-pago':n!==null&&n<=0?'lg-pt-atr':'')+'"><td>'+esc(x.rot||'?')+'</td><td>'+esc(x.venc||'—')+'</td>'
+        +'<td title="'+(x.lancado===false?'Valor não lançado nesta parcela: vale o último lançado':'')+'">'+_lgFmtV(Number(x.valor)||0)+(x.lancado===false?'<span class="lg-pt-est">*</span>':'')+'</td>'
+        +'<td><div class="lg-pt-sit">'+pag+em+'</div></td>'
+        +'<td class="lg-pt-ac">'+(x.pago?'':'<button type="button" class="btn-m ac-bt-pagar" data-lg-pagar="'+x.id+'" title="Lançar o pagamento desta parcela">✓ Pago</button>')+'</td></tr>'; }).join('')
+    +'</tbody></table></div>'
+    +(l.some(function(x){ return x.lancado===false; })?'<div class="lg-pt-nota">* valor ainda não lançado nesta parcela — vale o último valor lançado (o valor muda todo mês).</div>':'');
+}
+// cabeçalho do detalhamento com os dados da planilha (devedor, CPF/CNPJ, órgão, natureza, nº…)
+function _lgFicha(campos){
+  return '<div class="lg-ficha">'+campos.filter(function(c){ return c&&c[1]!==''&&c[1]!=null; }).map(function(c){ return '<div><span>'+c[0]+'</span><b>'+c[1]+'</b></div>'; }).join('')+'</div>';
 }

@@ -846,3 +846,33 @@ body.gx-barra-topo #execEvolWrap select.fsel{height:34px;border:1px solid var(--
 #execEvolWrap .evo-cb{height:300px;position:relative}
 #execEvolWrap .evo-nota{font-size:11.5px;color:var(--text3);margin-top:6px}
 @media (max-width:600px){#execEvolWrap .evo-cb{height:240px}}
+/* ── Backup 34: Situação dos parcelamentos/acordos minimalista — linhas de mesma largura (como era "Parcelamentos para emitir") ── */
+@media(min-width:901px){body.gx-barra-topo .lg-min :is(.lg-hd,.lg-gl,.lg-i){grid-template-columns:minmax(0,1fr) 240px 190px 230px 20px}}
+body.gx-barra-topo .lg-min .lg-hd > span:nth-child(4){text-align:left}
+body.gx-barra-topo .lg-min .lg-hd > span:nth-child(5){text-align:left}
+body.gx-barra-topo .lg-min .lg-g-aberto > .lg-filhos{padding:0;background:var(--surface)}
+body.gx-barra-topo .lg-min .lg-filhos::before{display:none}
+body.gx-barra-topo .lg-min .lg-filho{margin:0;border:0;border-top:1px solid var(--line);border-radius:0}
+body.gx-barra-topo .lg-min .lg-filho .lg-c1{padding-left:26px}
+body.gx-barra-topo .lg-min .lg-gl,body.gx-barra-topo .lg-min .lg-i{padding:10px 16px}
+.lg-guia-d{color:var(--text3);font-weight:500;white-space:nowrap}
+body.gx-barra-topo .lg-min .lg-st-r{background:var(--red-lt);color:var(--red-d);border:1px solid var(--red-bd)}
+body.gx-barra-topo .lg-min .lg-st-risco{background:var(--red);color:var(--on-cor);border:1px solid var(--red)}
+/* detalhamento: ficha da planilha + parcelas em lista */
+.lg-ficha{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px 18px;padding:12px 14px;margin:10px 0 12px;border:1px solid var(--border);border-radius:var(--r-ctl);background:var(--surface2)}
+.lg-ficha > div > span:first-child{display:block;font:600 10.5px var(--font-ui);letter-spacing:.05em;text-transform:uppercase;color:var(--text3)}
+.lg-ficha b{font:600 13px var(--font-ui);color:var(--ink)}
+.lg-ficha small{color:var(--text3);font-weight:500}
+.lg-parc-tw{max-height:none!important}
+.lg-parc-tab td{font-size:13px;vertical-align:middle}
+.lg-parc-tab .lg-pt-sit{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.lg-parc-tab tr.lg-pt-pago td{color:var(--text3)}
+.lg-parc-tab tr.lg-pt-atr td:first-child{box-shadow:inset 3px 0 0 var(--red)}
+.lg-parc-tab .lg-pt-ac{text-align:right;white-space:nowrap}
+.lg-pt-est{color:var(--text3);margin-left:2px}
+.lg-pt-nota{font-size:11.5px;color:var(--text3);margin-top:6px}
+.lg-em{display:inline-block;padding:2px 8px;border-radius:999px;font:600 11px var(--font-ui);border:1px solid var(--border);white-space:nowrap}
+.lg-em-ok{background:var(--green-lt);color:var(--green-d);border-color:var(--green-bd)}
+.lg-em-nao{background:var(--amber-lt);color:var(--amber-d);border-color:var(--amber-border)}
+.lg-em-cli{background:var(--surface2);color:var(--text2)}
+@media(min-width:901px){body.gx-barra-topo .lg-min .lg-c4{align-items:flex-start}}

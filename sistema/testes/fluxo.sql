@@ -294,6 +294,21 @@ select pg_temp.ok((select jsonb_typeof(valor) = 'array' and valor ? 'email_cobra
 select pg_temp.ok(rodar_regras_rotina() >= 0 and exists (select 1 from tarefas where chave_regra like 'rot-sup:%'), '14.4 a Rotina cria a tarefa semanal do responsável');
 select pg_temp.ok(rodar_regras_rotina() = 0, '14.5 não repete a tarefa na mesma semana');
 
+-- ═══ 15. Backup 34: valor lançado da parcela (envio pela Rotina e edição direta) ═══
+select pg_temp.como('00000000-0000-0000-0000-00000000000b');
+set role authenticated;
+select pg_temp.ok((select enviar_guias_email('10000000-0000-0000-0000-000000000001', null, '[{"tabela":"parcelas","id":"70000000-0000-0000-0000-000000000001","descricao":"Parcela 8","vencimento":"2030-03-10","valor":777.70}]',
+  'Guia 8 (valor novo)', 'Segue a guia.', '{}', 'outro@cliente.teste') ? 'status'), '15.1 enviar a guia com o valor do mês');
+reset role;
+select pg_temp.ok((select valor = 777.70 from parcelas where id = '70000000-0000-0000-0000-000000000001'), '15.2 o valor digitado vira o valor lançado da parcela');
+select pg_temp.ok((select pa.valor_ultima_parcela = (select x.valor from parcelas x where x.parcelamento_id = pa.id and x.valor is not null order by x.vencimento desc limit 1)
+  from parcelamentos pa where pa.id = (select parcelamento_id from parcelas where id = '70000000-0000-0000-0000-000000000001')), '15.3 o parcelamento passa a usar o último valor lançado (o de vencimento mais recente)');
+select pg_temp.como('00000000-0000-0000-0000-00000000000b');
+set role authenticated;
+select lancar_valor_parcela('70000000-0000-0000-0000-000000000001', null);
+reset role;
+select pg_temp.ok((select valor is null from parcelas where id = '70000000-0000-0000-0000-000000000001'), '15.4 apagar o valor lançado volta a herdar o último');
+
 -- ═══ RESUMO ═══
 select case when ok then 'PASSA ' else 'FALHA ' end || nome || case when not ok and obs <> '' then '  → ' || obs else '' end from r order by n;
 do $$ declare n int; begin

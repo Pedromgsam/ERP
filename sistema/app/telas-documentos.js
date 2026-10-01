@@ -212,17 +212,42 @@ const GERADORES_DOC = [['peticao.html', '⚖ Petição', 'inicial, contestação
   ['propostas.html', '💼 Proposta (apresentação)', 'proposta comercial em páginas, com a marca'],
   ['modelos-email.html', '✉ Modelos de E-mail (implantação)', 'e-mails do processo de implantação, enviados pelo ERP']];
 const urlCentral = (modelo, clienteId) => 'documentos/index.html' + (modelo ? '?modelo=' + modelo + (clienteId ? '&cliente=' + encodeURIComponent(clienteId) : '') : '');
+// Backup 34: a Central abre DENTRO do ERP (Documentos → Gerar documento). Ctrl/⌘ + clique (ou botão do meio) abre numa aba nova.
+const abaNova = (ev) => !!ev && (ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.button === 1);
+let _centralUrl = 'documentos/index.html';
+function abrirCentral(url, ev) {
+  url = url || 'documentos/index.html';
+  if (abaNova(ev)) { window.open(url, '_blank', 'noopener'); return; }
+  _centralUrl = url;
+  const jn = $('janelas'); if (jn) [...jn.children].forEach((f) => fecharJanela(f));   // sai das janelas abertas (ficha, lançamento…) e vai para a Central
+  if (typeof window.nav === 'function' && document.getElementById('panel-gerador')) window.nav(null, 'gerador');
+  else if (typeof TELAS.gerador === 'function' && $('conteudo')) TELAS.gerador();
+  else window.open(url, '_blank', 'noopener');
+}
+TELAS.gerador = async function () {
+  const url = _centralUrl + (_centralUrl.includes('?') ? '&' : '?') + 'embutido=1';
+  $('conteudo').innerHTML = '<div class="doc-central-topo"><span class="sub">Central de Documentos — procuração, substabelecimento, contrato, recibo, declaração e acordo</span>' +
+    '<a class="btn btn-o btn-mini" href="' + esc(_centralUrl) + '" target="_blank" rel="noopener" title="Abrir numa aba nova (ou Ctrl + clique em qualquer link de documento)">Abrir em nova aba ↗</a></div>' +
+    '<iframe class="doc-central" id="doc-central" title="Central de Documentos" src="' + esc(url) + '"></iframe>';
+  _centralUrl = 'documentos/index.html';   // da próxima vez (pelo menu), abre a Central limpa
+};
+// links para a Central (recibo do Financeiro, janelas…): clique comum abre dentro do ERP; Ctrl/⌘/meio abre aba nova (padrão do navegador)
+document.addEventListener('click', (ev) => {
+  const a = ev.target.closest && ev.target.closest('a[href^="documentos/index.html"]');
+  if (!a || abaNova(ev) || a.closest('.doc-central-topo')) return;
+  ev.preventDefault(); abrirCentral(a.getAttribute('href'), ev);
+});
 function janelaGeradores(clienteId) {
   const j = abrirJanela({ titulo: '📄 Documentos', larga: true,
-    corpo: '<p class="sub" style="margin-bottom:10px">Abre a <b>Central de Documentos</b> numa aba nova' + (clienteId ? ', já com este cliente' : '') + '. Lá você preenche, vê a folha pronta, salva (fica no histórico) e baixa em <b>PDF</b> ou <b>Word</b>.</p>' +
-      '<div class="lista-ficha">' + MODELOS_CENTRAL.map(([m, rot, d]) => '<a class="item-ficha clicavel ger-link" target="_blank" rel="noopener" href="' + urlCentral(m, clienteId) + '">' +
-        '<div><b>' + rot + '</b><div class="sub">' + d + '</div></div><span class="sub">abrir ↗</span></a>').join('') +
-        '<a class="item-ficha clicavel ger-link" target="_blank" rel="noopener" href="documentos/index.html"><div><b>🗂 Histórico de documentos</b><div class="sub">tudo o que já foi gerado e salvo</div></div><span class="sub">abrir ↗</span></a></div>' +
+    corpo: '<p class="sub" style="margin-bottom:10px">Abre a <b>Central de Documentos</b> aqui no ERP' + (clienteId ? ', já com este cliente' : '') + ' (<b>Ctrl + clique</b> abre numa aba nova). Lá você preenche, vê a folha pronta, salva (fica no histórico) e baixa em <b>PDF</b> ou <b>Word</b>.</p>' +
+      '<div class="lista-ficha">' + MODELOS_CENTRAL.map(([m, rot, d]) => '<a class="item-ficha clicavel ger-link" href="' + urlCentral(m, clienteId) + '">' +
+        '<div><b>' + rot + '</b><div class="sub">' + d + '</div></div><span class="sub">abrir ›</span></a>').join('') +
+        '<a class="item-ficha clicavel ger-link" href="documentos/index.html"><div><b>🗂 Histórico de documentos</b><div class="sub">tudo o que já foi gerado e salvo</div></div><span class="sub">abrir ›</span></a></div>' +
       '<div class="gx-det-tit" style="margin-top:14px">Outros geradores</div><div class="lista-ficha">' + GERADORES_DOC.map(([arq, rot, d]) => '<a class="item-ficha clicavel ger-link" target="_blank" rel="noopener" href="geradores/' + arq + (clienteId ? '?cliente=' + encodeURIComponent(clienteId) : '') + '">' +
         '<div><b>' + rot + '</b><div class="sub">' + d + '</div></div><span class="sub">abrir ↗</span></a>').join('') + '</div>' });
   return j;
 }
 // Backup 26: gerador de contrato já com o cliente e os valores do contrato (o documento fica ligado ao contrato)
-function abrirGeradorContrato(clienteId, contratoId) {
-  window.open('documentos/index.html?modelo=contrato' + (clienteId ? '&cliente=' + encodeURIComponent(clienteId) : '') + (contratoId ? '&contrato=' + encodeURIComponent(contratoId) : ''), '_blank', 'noopener');
+function abrirGeradorContrato(clienteId, contratoId, ev) {
+  abrirCentral('documentos/index.html?modelo=contrato' + (clienteId ? '&cliente=' + encodeURIComponent(clienteId) : '') + (contratoId ? '&contrato=' + encodeURIComponent(contratoId) : ''), ev);
 }
