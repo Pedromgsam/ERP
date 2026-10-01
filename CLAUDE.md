@@ -83,7 +83,14 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
-- Última entrega: **Backup 30** (só SQL). Guias (`telas-guias.js`): `parcelas/acordos.email_ref` (ref do e-mail em `email_fila`), `emissao_emails`
+- Última entrega: **Backup 31** (só SQL). `contornarGrupos()` (erp-telas.js, no observer) marca `gc-ini/gc-in/gc-fim` nas linhas de `tr.gx-grp`/
+  `tr.cli-grp` → contorno azul (design.css); `.lg-g` e `details.doc-pasta` com borda azul. Processos: `_procEntidades(lista, g, val)` (montar-erp) troca a
+  tabela Grupo por "Entidade / sócio" com grupo filtrado. Rotina: `rotina_conferencias` + `conferir_rotina(area, ids, alterou)` + `rotina_situacao(area)`
+  (área passivo|parcelamentos; alteração = `historico`), `celulaConferencia`/`situacaoRotina`; Processos `[data-sem-nov]` (mov `sem_novidade`) e
+  `celulaConfProc`; aba `parcs` = `rotinaParcelamentos` (chave `.rt-chave` → `parcelamentos_emitimos(ids, bool)`, grupo `[data-g-emit]`, planilha 6 meses
+  `.rt-pc-*`, `E.rt.mesIni`, `janelaParcelaPlanilha`). Guias: `htmlGuiasPorGrupo` (`.gd-g`, `_guiaGrpAberto`, `[data-gd-grp]`, `[data-gd-emp]` → composer
+  da empresa, atraso por parcelamento uma vez, `chaveParcGuia`). Versão anterior: zip do Backup 30.
+- Backup 30 (base) (só SQL). Guias (`telas-guias.js`): `parcelas/acordos.email_ref` (ref do e-mail em `email_fila`), `emissao_emails`
   devolve `{id:{em,status,para,erro}}` (status da fila; sem linha → automacoes_log), `guiaEnviada` (pendente/retido/enviado saem do quadro;
   erro/cancelado voltam a "falta enviar"), `ST_EMAIL`, faixa `.gd-fila` (retidos → `nav(null,'emails')`). `guia_destino(cli, grp, tabela)` →
   `preencherDestino` preenche `#ge-para`/`#gd-para` (amarelo `.ge-sem-email` se vazio). `janelaEmissao` envia sempre por `enviar_guias_email`

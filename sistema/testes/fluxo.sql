@@ -273,6 +273,16 @@ select pg_temp.ok((select emissao_emails('parcelas', array['70000000-0000-0000-0
 select pg_temp.ok((select emissao_emails('parcelas', array['60000000-0000-0000-0000-000000000001'::uuid])->'60000000-0000-0000-0000-000000000001'->>'status') in ('pendente', 'retido'), '12.5 guias do envio por empresa aparecem com a situação da fila');
 reset role;
 
+-- ═══ 13. Backup 31: conferência da Rotina e "nós emitimos?" ═══
+select pg_temp.como('00000000-0000-0000-0000-00000000000b');
+set role authenticated;
+select pg_temp.ok(conferir_rotina('parcelamentos', array['50000000-0000-0000-0000-000000000001'::uuid], false) = 1, '13.1 "✓ Conferido" registra a conferência');
+select pg_temp.ok((select conferido_por <> '' and not conferido_alterou from rotina_situacao('parcelamentos') where registro_id = '50000000-0000-0000-0000-000000000001'), '13.2 a tela sabe quem conferiu e que não mudou nada');
+select pg_temp.ok(parcelamentos_emitimos(array['50000000-0000-0000-0000-000000000001'::uuid], false) = 1, '13.3 marcar que o cliente emite a guia');
+reset role;
+select pg_temp.ok((select not emitimos_guia from parcelamentos where id = '50000000-0000-0000-0000-000000000001'), '13.4 gravado no parcelamento');
+update parcelamentos set emitimos_guia = true where id = '50000000-0000-0000-0000-000000000001';
+
 -- ═══ RESUMO ═══
 select case when ok then 'PASSA ' else 'FALHA ' end || nome || case when not ok and obs <> '' then '  → ' || obs else '' end from r order by n;
 do $$ declare n int; begin

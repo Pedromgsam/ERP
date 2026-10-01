@@ -6121,3 +6121,78 @@ language sql stable security definer set search_path = public as $$
 $$;
 revoke all on function public.emissao_emails(text, uuid[]) from public, anon;
 grant execute on function public.emissao_emails(text, uuid[]) to authenticated;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- Backup 31 — Rotina: "✓ Conferido" (mesmo sem alterar) + última alteração por empresa/parcelamento;
+-- parcelamentos: marcar "nós emitimos a guia" por parcelamento ou pelo grupo inteiro
+-- ═══════════════════════════════════════════════════════════════════
+create table if not exists public.rotina_conferencias (
+  id bigint generated always as identity primary key,
+  area text not null check (area in ('passivo', 'parcelamentos')),
+  registro_id uuid not null,
+  alterou boolean not null default false,
+  usuario_id uuid default auth.uid(),
+  quem text not null default '',
+  quando timestamptz not null default now()
+);
+create index if not exists rotina_conferencias_reg on public.rotina_conferencias (area, registro_id, quando desc);
+alter table public.rotina_conferencias enable row level security;
+revoke all on public.rotina_conferencias from anon;
+revoke insert, update, delete on public.rotina_conferencias from authenticated;
+grant select on public.rotina_conferencias to authenticated;
+drop policy if exists rotina_conferencias_ver on public.rotina_conferencias;
+create policy rotina_conferencias_ver on public.rotina_conferencias for select to authenticated using (public.eh_equipe());
+
+-- registra que a pessoa foi até a linha (alterou = salvou mudança; false = conferiu e o dado continua certo)
+create or replace function public.conferir_rotina(p_area text, p_ids uuid[], p_alterou boolean default false) returns int
+language plpgsql security definer set search_path = public as $$
+declare quem text; n int;
+begin
+  if p_area = 'passivo' and not public.pode('clientes', 'editar') then raise exception 'permission denied: sem acesso para conferir o passivo.'; end if;
+  if p_area = 'parcelamentos' and not public.pode('juridico', 'editar') then raise exception 'permission denied: sem acesso para conferir parcelamentos.'; end if;
+  if p_area not in ('passivo', 'parcelamentos') then raise exception 'Área inválida.'; end if;
+  select coalesce(nullif(nome, ''), email, '') into quem from public.perfis where id = auth.uid();
+  insert into public.rotina_conferencias (area, registro_id, alterou, quem)
+  select p_area, x, coalesce(p_alterou, false), coalesce(quem, '') from unnest(coalesce(p_ids, '{}')) x;
+  get diagnostics n = row_count;
+  return n;
+end $$;
+revoke all on function public.conferir_rotina(text, uuid[], boolean) from public, anon;
+grant execute on function public.conferir_rotina(text, uuid[], boolean) to authenticated;
+
+-- por linha: quando foi conferida por último (e por quem, e se mudou algo) e quando o dado mudou por último (histórico)
+create or replace function public.rotina_situacao(p_area text)
+returns table (registro_id uuid, conferido_em timestamptz, conferido_por text, conferido_alterou boolean, alterado_em timestamptz, alterado_por text)
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not public.eh_equipe() then raise exception 'permission denied'; end if;
+  return query
+  with conf as (
+    select distinct on (c.registro_id) c.registro_id, c.quando, c.quem, c.alterou
+      from public.rotina_conferencias c where c.area = p_area order by c.registro_id, c.quando desc
+  ), alt as (
+    select distinct on (h.registro_id) h.registro_id, h.quando, coalesce(nullif(pf.nome, ''), pf.email, '') quem
+      from public.historico h left join public.perfis pf on pf.id = h.usuario
+     where h.acao = 'UPDATE' and h.tabela = case when p_area = 'passivo' then 'clientes' else 'parcelamentos' end
+       and (p_area <> 'passivo' or exists (select 1 from unnest(array['rfb','rfb_negociada','pgfn','pgfn_negociada','age_mg','age_mg_negociada','sefaz_mg','ceat_trt3','em_operacao','procuracao','certificado','capag']) k
+                                            where (h.antes->k) is distinct from (h.depois->k)))
+     order by h.registro_id, h.quando desc
+  )
+  select coalesce(conf.registro_id, alt.registro_id), conf.quando, conf.quem, conf.alterou, alt.quando, alt.quem
+    from conf full join alt on alt.registro_id = conf.registro_id;
+end $$;
+revoke all on function public.rotina_situacao(text) from public, anon;
+grant execute on function public.rotina_situacao(text) to authenticated;
+
+-- "nós emitimos a guia?" para vários parcelamentos de uma vez (um parcelamento ou o grupo inteiro)
+create or replace function public.parcelamentos_emitimos(p_ids uuid[], p_emitimos boolean) returns int
+language plpgsql security definer set search_path = public as $$
+declare n int;
+begin
+  if not public.pode('juridico', 'editar') then raise exception 'permission denied: sem acesso para alterar parcelamentos.'; end if;
+  update public.parcelamentos set emitimos_guia = coalesce(p_emitimos, true) where id = any (coalesce(p_ids, '{}')) and emitimos_guia is distinct from coalesce(p_emitimos, true);
+  get diagnostics n = row_count;
+  return n;
+end $$;
+revoke all on function public.parcelamentos_emitimos(uuid[], boolean) from public, anon;
+grant execute on function public.parcelamentos_emitimos(uuid[], boolean) to authenticated;

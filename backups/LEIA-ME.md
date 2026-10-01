@@ -36,6 +36,7 @@ versão foi ao ar**. O número cresce a cada entrega.
 | 28 | Rotina do estagiário (passivo, certificado, acompanhamento de processos, guias), e-mail e dados de pagamento por empresa, várias guias num e-mail (valores editáveis, PDFs, WhatsApp), cadastro de cliente em abas com CNPJ na hora, máscaras R$/telefone, contratos com vigência, Alertas em blocos, Documentos por grupo, CRM com Meet/agenda |
 | 29 | Início e Financeiro com os mesmos cartões (Prejuízo), envio de guias por empresa com visual novo e anexo só no e-mail, e-mails de teste com a pausa ligada, cadastro com "Buscar dados", Rotina (cores, senha GOV, histórico do passivo, tarefas recorrentes), tabelas sem páginas e com títulos fixos, relatório em PDF novo |
 | 30 | Guias: e-mail do cliente já preenchido na emissão e no envio por empresa, empresas por grupo, caixa de valor nova, texto neutro (PF/PJ), situação real do e-mail (fila, retido, enviado, falhou); Contabilidade com os cartões do Jurídico |
+| 31 | Contorno azul nos grupos, Processos com entidades do grupo filtrado, Rotina com "✓ Conferido" e última alteração, controle dos parcelamentos (nós emitimos? + planilha por mês), guias para emitir em blocos por grupo › empresa |
 
 ## Como baixar um backup
 No GitHub, abra a pasta `backups`, clique no arquivo e depois em **Download** (ícone de seta, à direita).

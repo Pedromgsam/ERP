@@ -605,3 +605,28 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
 **Para os e-mails saírem de verdade:** (1) a função `erp-emails` publicada (Supabase → Edge Functions; Verify JWT desligado);
 (2) a conta de e-mail configurada (E-mails → Configuração); (3) a **pausa** desligada — ou o destinatário na lista de **🧪 e-mails de teste**;
 retidos saem em **E-mails → Fila → Liberar**.
+
+## Backup 31 — contorno azul nos grupos, conferência na Rotina, controle dos parcelamentos e guias em blocos (tem SQL, nenhuma função)
+Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+Shift+R**.
+
+**Geral:** cada grupo das tabelas agrupadas (Painel Executivo, Processos, Rotina, Clientes por grupo, Parcelamentos/Acordos) fica dentro de
+um **contorno azul**.
+
+**Jurídico → Processos:** escolhendo **um grupo** no filtro de cima, a tabela "Grupo" da análise vira **"Entidade / sócio"**: cada empresa ou sócio
+do grupo com o número de processos e o valor (a entidade é a parte — réu ou autor — que é cliente do grupo).
+
+**Rotina:**
+- **Passivo e cadastro:** coluna **Conferência** logo depois da empresa: "✓ conferido dd/mm · quem" ou "✎ alterado dd/mm", e a data da última
+  alteração ("alt."). O botão **✓** registra que a pessoa foi até a linha e o dado continua certo (sem mudar nada). Salvar alterações registra
+  "alterado". Mais de 30 dias sem conferir fica amarelo; nunca conferido, vermelho.
+- **Processos:** botão **✓ Sem novidade** (um clique) e a coluna "Conferido em" mostra quem conferiu e se foi "sem novidade" ou "com alteração".
+- Aba nova **📋 Controle dos parcelamentos:** grupo › parcelamento com a chave **"Nós emitimos?"** (por parcelamento) e, na linha do grupo,
+  **"Nós emitimos: todas do grupo / nenhuma"**. Ao lado, a **planilha por mês** (6 meses, ‹ › para andar): ✓ paga · E guia emitida · • a emitir ·
+  ! vencida sem pagamento — clique na parcela para emitir, desmarcar a emissão ou dar baixa. Também tem a conferência (✓) por parcelamento.
+
+**Parcelamentos/Acordos para emitir:** em **blocos por grupo** (clique no grupo para abrir; se houver um só, já abre), dentro de cada grupo as
+empresas com o botão **🧾 Emitir** (abre o e-mail com as guias daquela empresa) e as parcelas com a legenda de sempre ("Parcela 2/85 · FGTS ·
+Caixa · nº …"). Atraso por parcelamento, discreto: "1 em atraso" (rosa) ou "2 em atraso · risco de rescisão" (vermelho). "✉ Enviar por empresa"
+continua no alto, à direita. Linhas mais baixas (quadro menor).
+
+**Versão anterior guardada:** `backups/Backup 30 - Guias com destinatario unico, situacao do e-mail e empresas por grupo.zip` (antes destas mudanças).
