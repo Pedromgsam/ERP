@@ -50,9 +50,9 @@
 <link rel="stylesheet" href="erp-telas.css?v=9687b172">
 <script src="editor.js?v=15c9111e" defer></script>
 <script src="erp-telas.js?v=837a0d90" defer></script>
-<link rel="stylesheet" href="gs.css?v=fad12230">
+<link rel="stylesheet" href="gs.css?v=930a519f">
 <script src="importador.js?v=4fb0d655" defer></script>
-<script src="gestao-embutida.js?v=31038165" defer></script>
+<script src="gestao-embutida.js?v=31fe1c51" defer></script>
 <script>
 
 
@@ -1617,7 +1617,7 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
 </style>
 <link rel="stylesheet" href="tokens.css?v=1263585f">
 <link rel="stylesheet" href="tema-escuro.css?v=09e344f4">
-<link rel="stylesheet" href="design.css?v=041f7849">
+<link rel="stylesheet" href="design.css?v=da4fb071">
 <script>try{if(localStorage.getItem("erp_tema")==="escuro")document.documentElement.setAttribute("data-tema","escuro")}catch(e){}</script>
 </head>
 <body>
@@ -7017,12 +7017,12 @@ function _fcPintarCorpo(){
   var atraso=vR.map(function(f){ return {f:f,t:'r'}; }).concat(vP.map(function(f){ return {f:f,t:'d'}; }))
     .sort(function(a,b){ return (pDate(a.f.vencimento)||0)-(pDate(b.f.vencimento)||0); });
   el.innerHTML =
-    '<div class="kpi-grid fc-kpis5" style="margin-bottom:14px">'
-  +   kC('Recebido',fF(_fcSoma(rec)),rec.length+' lançamento(s)','cg','dg')
+    '<div class="kpi-grid fc-kpis5">'
+  +   kC('Recebido',fF(_fcSoma(rec)),rec.length+' recebimento(s) no período','cg','dg')
   +   kC('A receber',fF(_fcSoma(aRec)),aRec.length+' em aberto','cb','db')
-  +   kC('Pago',fF(_fcSoma(pag)),pag.length+' despesa(s)','cr','')
-  +   kC('A pagar',fF(_fcSoma(aPag)),aPag.length+' em aberto','ca','')
-  +   kC('Em atraso',fF(_fcSoma(vR)+_fcSoma(vP)),fF(_fcSoma(vR))+' a receber<br>'+fF(_fcSoma(vP))+' a pagar','cr',(vR.length||vP.length)?'dr':'')
+  +   kC('Pago',fF(_fcSoma(pag)),pag.length+' despesa(s) paga(s)','cr','')
+  +   kC('A pagar',fF(_fcSoma(aPag)),aPag.length+' conta(s) em aberto','ca','')
+  +   kC('Em atraso',fF(_fcSoma(vR)+_fcSoma(vP)),(vR.length+vP.length)+' vencido(s)','cr',(vR.length||vP.length)?'dr':'')
   + '</div>'
   + '<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t">Recebido × pago mês a mês</div>'
   +   '<div class="cc-d">verde = recebido · vermelho = pago (despesas) · passe o mouse na coluna para ver o saldo do mês</div></div></div>'

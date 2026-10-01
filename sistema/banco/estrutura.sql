@@ -6044,3 +6044,80 @@ begin
   end loop;
   return n;
 end $$;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- Backup 30 — Guias: a parcela guarda QUAL e-mail levou a guia (email_ref) e a tela mostra a situação real do e-mail
+-- (na fila · retido pela pausa · enviado · erro). Destinatário igual na janela de emissão e no "Enviar por empresa".
+-- ═══════════════════════════════════════════════════════════════════
+alter table public.parcelas add column if not exists email_ref text not null default '';
+alter table public.acordos add column if not exists email_ref text not null default '';
+
+-- para quem vai o e-mail das guias deste cliente/grupo (a tela já mostra preenchido no campo "Para")
+create or replace function public.guia_destino(p_cliente uuid, p_grupo uuid, p_tabela text default 'parcelas') returns text
+language sql stable security definer set search_path = public as $$
+  select case when public.pode('juridico') then
+    (select email from public.contato_do_cliente(p_cliente, p_grupo, case when p_tabela = 'acordos' then 'acordo' else 'guia' end) limit 1) end;
+$$;
+revoke all on function public.guia_destino(uuid, uuid, text) from public, anon;
+grant execute on function public.guia_destino(uuid, uuid, text) to authenticated;
+
+create or replace function public.enviar_guias_email(p_cliente uuid, p_grupo uuid, p_itens jsonb, p_assunto text, p_texto text,
+  p_docs uuid[] default '{}', p_para text default null, p_arquivos jsonb default null) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare c record; para text; anexo jsonb; it jsonb; html text; v_conta text; n int := 0; lista jsonb; v_ref text; v_status text; tab text;
+begin
+  if not public.pode('juridico', 'editar') then raise exception 'permission denied: sem acesso para enviar guias.'; end if;
+  if coalesce(jsonb_array_length(p_itens), 0) = 0 then raise exception 'Escolha ao menos uma guia.'; end if;
+  tab := coalesce(p_itens->0->>'tabela', 'parcelas');
+  if coalesce(trim(p_para), '') <> '' then para := trim(p_para);
+  else select * into c from public.contato_do_cliente(p_cliente, p_grupo, case when tab = 'acordos' then 'acordo' else 'guia' end); para := c.email; end if;
+  if coalesce(para, '') = '' then raise exception 'Não há e-mail para enviar: digite o e-mail no campo "Para" (ou cadastre em Clientes → ficha → Contatos).'; end if;
+  -- os PDFs escolhidos na tela (p_arquivos: [{arquivo, mime, b64}]) NÃO ficam guardados: a função de e-mail apaga o conteúdo assim que o e-mail sai
+  select coalesce(jsonb_agg(jsonb_build_object('tipo', 'arquivo', 'caminho', dc.caminho, 'arquivo', dc.nome, 'mime', dc.mime)), '[]') into lista
+    from public.documentos dc where dc.id = any (coalesce(p_docs, '{}'));
+  select lista || coalesce(jsonb_agg(jsonb_build_object('tipo', 'bin', 'arquivo', a->>'arquivo', 'mime', coalesce(a->>'mime', 'application/pdf'), 'b64', a->>'b64')), '[]') into lista
+    from jsonb_array_elements(coalesce(p_arquivos, '[]')) a where coalesce(a->>'b64', '') <> '';
+  anexo := case when jsonb_array_length(lista) > 0 then jsonb_build_object('tipo', 'lista', 'itens', lista) end;
+  v_conta := public.conta_email(p_cliente, null);
+  perform set_config('erp.conta_email', v_conta, true);
+  html := public.email_cliente_html(coalesce(nullif(trim(p_assunto), ''), 'Guias para pagamento'), '-',
+    '<p style="margin:0 0 10px">' || replace(public.esc_html(coalesce(p_texto, '')), E'\n', '<br>') || '</p>', p_itens, false);
+  perform set_config('erp.conta_email', '', true);
+  v_ref := 'guias:' || gen_random_uuid();
+  insert into public.email_fila (usuario_id, para, assunto, html, tipo, referencia, anexo, conta)
+  values (auth.uid(), para, coalesce(nullif(trim(p_assunto), ''), 'Guias para pagamento'), html, 'cliente', v_ref, anexo, v_conta)
+  returning status into v_status;
+  for it in select * from jsonb_array_elements(p_itens) loop
+    if it->>'tabela' not in ('parcelas', 'acordos') then continue; end if;
+    perform public.registrar_emissao(it->>'tabela', (it->>'id')::uuid, true, null, false);
+    if it->>'tabela' = 'parcelas' then update public.parcelas set email_ref = v_ref where id = (it->>'id')::uuid;
+    else update public.acordos set email_ref = v_ref where id = (it->>'id')::uuid; end if;
+    insert into public.automacoes_log (chave, ref, descricao, cliente_id)
+    values (case when it->>'tabela' = 'parcelas' then 'email_lp' else 'email_la' end, case when it->>'tabela' = 'parcelas' then 'email_lp:' else 'email_la:' end || (it->>'id'),
+            coalesce(nullif(trim(p_assunto), ''), 'Guias para pagamento') || ' → ' || para, p_cliente);
+    n := n + 1;
+  end loop;
+  return jsonb_build_object('para', para, 'itens', n, 'anexos', jsonb_array_length(lista), 'conta', v_conta, 'status', v_status);
+end $$;
+revoke all on function public.enviar_guias_email(uuid, uuid, jsonb, text, text, uuid[], text, jsonb) from public, anon;
+grant execute on function public.enviar_guias_email(uuid, uuid, jsonb, text, text, uuid[], text, jsonb) to authenticated;
+
+-- situação do e-mail de cada parcela: {id: {em, status, para, erro}} — status vem da fila de e-mails
+-- (pendente = na fila · retido = pausa ligada · enviado · erro · cancelado = descartado). Sem linha na fila: o registro antigo (enviado).
+create or replace function public.emissao_emails(p_tabela text, p_ids uuid[]) returns jsonb
+language sql stable security definer set search_path = public as $$
+  with alvo as (
+    select x.id, coalesce(nullif(case when p_tabela = 'parcelas' then (select email_ref from public.parcelas where id = x.id) else (select email_ref from public.acordos where id = x.id) end, ''),
+                          case when p_tabela = 'parcelas' then 'email_lp:' else 'email_la:' end || x.id::text) ref,
+           case when p_tabela = 'parcelas' then 'email_lp:' else 'email_la:' end || x.id::text ref_log
+      from unnest(p_ids) x(id) where public.pode('juridico')
+  ), sit as (
+    select a.id, f.criado_em, f.enviado_em, f.status, f.para, f.erro,
+           (select max(g.quando) from public.automacoes_log g where g.ref = a.ref_log and g.descricao like '%→%') log_em
+      from alvo a left join lateral (select * from public.email_fila e where e.referencia = a.ref order by e.criado_em desc limit 1) f on true
+  )
+  select coalesce(jsonb_object_agg(id::text, jsonb_build_object('em', coalesce(enviado_em, criado_em, log_em), 'status', coalesce(status, 'enviado'), 'para', coalesce(para, ''), 'erro', coalesce(erro, ''))), '{}'::jsonb)
+    from sit where status is not null or log_em is not null;
+$$;
+revoke all on function public.emissao_emails(text, uuid[]) from public, anon;
+grant execute on function public.emissao_emails(text, uuid[]) to authenticated;

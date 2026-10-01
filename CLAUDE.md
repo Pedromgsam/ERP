@@ -83,7 +83,14 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
-- Última entrega: **Backup 29** (SQL + funções erp-emails e erp-cnpj). Início (`telas-painel.js`, `.kpi-grid.ini-fin` com `.kc`) e Financeiro→Jurídico
+- Última entrega: **Backup 30** (só SQL). Guias (`telas-guias.js`): `parcelas/acordos.email_ref` (ref do e-mail em `email_fila`), `emissao_emails`
+  devolve `{id:{em,status,para,erro}}` (status da fila; sem linha → automacoes_log), `guiaEnviada` (pendente/retido/enviado saem do quadro;
+  erro/cancelado voltam a "falta enviar"), `ST_EMAIL`, faixa `.gd-fila` (retidos → `nav(null,'emails')`). `guia_destino(cli, grp, tabela)` →
+  `preencherDestino` preenche `#ge-para`/`#gd-para` (amarelo `.ge-sem-email` se vazio). `janelaEmissao` envia sempre por `enviar_guias_email`
+  (devolve `status`; `msgEnvio`), valor em `.ge-vbox`/`.ge-rs` (`data-mascara="nenhuma"`, formata no blur). Composer: empresas por grupo
+  (`.ge-grp`), texto "em nome de" (neutro PF/PJ). Contabilidade: `.kpi-grid.fc-kpis5` (5 colunas, subtítulo em 1 linha). Maquete aguardando
+  aprovação: `sistema/prototipos/guias-em-blocos-b30.png` (blocos grupo › empresa, passos Emitir › Enviar › Pago).
+- Backup 29 (base) (SQL + funções erp-emails e erp-cnpj). Início (`telas-painel.js`, `.kpi-grid.ini-fin` com `.kc`) e Financeiro→Jurídico
   (trocar em montar-erp) com os mesmos 5 cartões (Recebido·A receber·A pagar·Em atraso·Prejuízo; `resumo_financeiro` devolve `prejuizo`). Guias
   (`telas-guias.js`): quadros "Parcelamentos/Acordos para emitir", enviados (`email_em`) saem do quadro, `janelaGuiasEmpresa` novo (`.ge-*`, `textoGuias`,
   `descricaoGuia`), anexos inline `p_arquivos [{arquivo,mime,b64}]` em `enviar_guias_email` (8 parâmetros) → `anexo {tipo:'lista', itens}`; erp-emails
@@ -95,7 +102,7 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
   `historico_passivo()` + `janelaHistoricoPassivo`, processos por grupo + `#rt-novo-proc`, tarefas em seções (recorrentes/validação/únicas/para validar).
   Tabelas: `PAGINA_TABELA`/`PG` = 1e9 (sem páginas) e thead sticky em `.tw/.tabela-wrap` (max-height). `gerar_mensalidades` 6 meses. Despesa com lista e
   "Distribuição de lucros" (campo `socio` → favorecido). Relatório em PDF: `telas-relatorio.js` (`janelaRelatorioPDF`, ⋯ → Relatório em PDF).
-  `estrutura.sql` = 6046 linhas.
+  `estrutura.sql` = 6046 linhas (B29).
 - Backup 28 (base) (SQL + funções erp-emails e erp-cnpj). Menu: **Rotina** (`telas-rotina.js`, `TELAS.rotina`: passivo editável
   com `cliente_certificado` [validade/senha, RLS editar clientes], processos com `processo_movimentacoes` + gatilho `processo_mov_aplica` →
   `processos.ultima_movimentacao/_em`, guias, financeiro, minhas tarefas; `janelaMovimentacao` no GS e no popup de Processos) e **E-mails**

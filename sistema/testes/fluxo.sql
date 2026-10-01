@@ -255,6 +255,24 @@ select pg_temp.ok((select count(*) from email_fila where referencia = 'teste-b28
   '11.6 com o PIX e a assinatura da Contabilidade', (select conta from email_fila where referencia = 'teste-b28-contab'));
 select pg_temp.ok((select count(*) from email_fila where referencia = 'email_lp:50000000-0000-0000-0000-000000000002' and html not like '%pix-da-contabilidade%') = 1, '11.7 cliente do escritório continua com os dados do escritório');
 
+-- ═══ 12. Backup 30: a parcela guarda o e-mail que levou a guia e a tela vê a situação real (fila · retido · enviado · erro) ═══
+insert into parcelas (id, parcelamento_id, numero, vencimento) values ('70000000-0000-0000-0000-000000000001', '50000000-0000-0000-0000-000000000001', '8', current_date + 6);
+update configuracoes set valor = 'true'::jsonb where chave = 'emails_pausados';
+select pg_temp.como('00000000-0000-0000-0000-00000000000b');
+set role authenticated;
+select pg_temp.ok(guia_destino('10000000-0000-0000-0000-000000000001', null, 'parcelas') like '%fabio@padaria.teste%', '12.1 a tela já sabe o e-mail cadastrado para as guias', coalesce(guia_destino('10000000-0000-0000-0000-000000000001', null, 'parcelas'), '(nada)'));
+select pg_temp.ok((select enviar_guias_email('10000000-0000-0000-0000-000000000001', null, '[{"tabela":"parcelas","id":"70000000-0000-0000-0000-000000000001","descricao":"Parcela 8","vencimento":"2030-03-10","valor":500}]',
+  'Guia 8 da Padaria', 'Seguem as guias.', '{}', 'outro@cliente.teste')->>'status') = 'retido', '12.2 com a pausa ligada, o envio avisa que ficou RETIDO');
+select pg_temp.ok((select emissao_emails('parcelas', array['70000000-0000-0000-0000-000000000001'::uuid])->'70000000-0000-0000-0000-000000000001'->>'status') = 'retido', '12.3 a tela vê o e-mail da guia como retido');
+reset role;
+update configuracoes set valor = 'false'::jsonb where chave = 'emails_pausados';
+update email_fila set status = 'erro', erro = 'caixa cheia' where assunto = 'Guia 8 da Padaria';
+select pg_temp.como('00000000-0000-0000-0000-00000000000b');
+set role authenticated;
+select pg_temp.ok((select emissao_emails('parcelas', array['70000000-0000-0000-0000-000000000001'::uuid])->'70000000-0000-0000-0000-000000000001'->>'erro') = 'caixa cheia', '12.4 se o e-mail falhar, a tela mostra o erro (a guia volta para "falta enviar")');
+select pg_temp.ok((select emissao_emails('parcelas', array['60000000-0000-0000-0000-000000000001'::uuid])->'60000000-0000-0000-0000-000000000001'->>'status') in ('pendente', 'retido'), '12.5 guias do envio por empresa aparecem com a situação da fila');
+reset role;
+
 -- ═══ RESUMO ═══
 select case when ok then 'PASSA ' else 'FALHA ' end || nome || case when not ok and obs <> '' then '  → ' || obs else '' end from r order by n;
 do $$ declare n int; begin

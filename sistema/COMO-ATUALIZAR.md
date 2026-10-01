@@ -584,3 +584,24 @@ com **+ Processo**; aba "Parcelamentos e acordos para emitir"; **Minhas tarefas*
 **Contratos:** mensalidades geradas **6 meses à frente**. **Contabilidade → despesa:** lista de tipos; **Distribuição de lucros** pede só o sócio.
 
 **Relatório em PDF** (⋯ → Relatório em PDF): refeito — escolha o grupo (ou a carteira toda) e as seções; abre a prévia com **Salvar em PDF**.
+
+## Backup 30 — guias: destinatário único, situação real do e-mail, empresas por grupo (tem SQL, nenhuma função nova)
+Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+Shift+R**. Nenhuma Edge Function mudou
+(mas a `erp-emails` precisa estar **publicada** para qualquer e-mail sair — veja abaixo).
+
+**Financeiro → Contabilidade:** os 5 cartões no mesmo desenho dos do Jurídico (uma linha de subtítulo, mesma altura).
+
+**Parcelamentos e Acordos:**
+- **✉ Enviar por empresa:** empresas organizadas por **grupo** (BETA › empresas da BETA; CARIRI › empresas da CARIRI); o campo **Para** já vem
+  com o e-mail cadastrado (contato marcado "Parcelamentos"/"Acordos", senão o do setor, o geral ou o do cadastro) — se não houver, fica amarelo
+  para digitar; **valor da guia** numa caixa "R$ | 1.840,22" alinhada; texto neutro para PF e PJ: "Seguem as guias do parcelamento **em nome de** …".
+- **Janela da guia (🧾 Emitir / ✎):** o mesmo campo **Para** e o mesmo envio do "Enviar por empresa" (com ou sem PDF). O botão diz
+  "Marcar emitida e enviar e-mail" quando a caixa de envio está marcada. Não aparece mais "o cliente não tem e-mail cadastrado" se o e-mail foi digitado.
+- **Situação real do e-mail:** a parcela guarda qual e-mail levou a guia. No quadro: "✉ na fila", "⏸ retido (pausa)", "✉ enviado",
+  "⚠ e-mail falhou". Na fila/retido/enviado → sai do quadro; **falhou ou descartado → volta para "Emitidas — falta enviar"**. Quando há e-mails
+  de guias retidos pela pausa, aparece uma faixa amarela com o botão **Abrir E-mails → Fila**.
+- Exemplo visual (ainda não feito) das guias em blocos grupo › empresa: `sistema/prototipos/guias-em-blocos-b30.png`.
+
+**Para os e-mails saírem de verdade:** (1) a função `erp-emails` publicada (Supabase → Edge Functions; Verify JWT desligado);
+(2) a conta de e-mail configurada (E-mails → Configuração); (3) a **pausa** desligada — ou o destinatário na lista de **🧪 e-mails de teste**;
+retidos saem em **E-mails → Fila → Liberar**.
