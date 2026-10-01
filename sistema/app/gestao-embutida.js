@@ -1799,7 +1799,9 @@ async function detalheLancamento(id) {
         lin('Contrato', l.contratos ? esc(l.contratos.descricao) + (l.contratos.modalidade === 'consultoria' ? ' <span class="sub">(consultoria mensal)</span>' : '') : '') +
       '</div>' + (l.obs ? '<div class="tf-bloco"><div class="secao">Observação</div><div class="tf-texto">' + esc(l.obs).replace(/\n/g, '<br>') + '</div></div>' : '') + '</div>',
     rodape: '<span>' + (l.contrato_id ? '<button class="btn btn-o btn-mini" type="button" id="dl-ctr">Abrir contrato</button> ' : '') +
-        (l.cliente_id ? '<button class="btn btn-o btn-mini" type="button" id="dl-cli">Ficha do cliente</button>' : '') + '</span>' +
+        (l.cliente_id ? '<button class="btn btn-o btn-mini" type="button" id="dl-cli">Ficha do cliente</button>' : '') +
+        // Backup 32: recibo já preenchido na Central de Documentos (valor, data, forma e cliente)
+        (l.pago && l.tipo === 'receita' ? ' <a class="btn btn-o btn-mini" id="dl-recibo" target="_blank" rel="noopener" href="documentos/index.html?lancamento=' + encodeURIComponent(l.id) + '">📄 Recibo</a>' : '') + '</span>' +
       '<div class="acoes"><button class="btn btn-o" type="button" data-editar="' + l.id + '">✎ Editar</button>' +
       (!l.pago && !l.perda ? '<button class="btn btn-v" type="button" data-pagar="' + l.id + '">✓ ' + (l.tipo === 'despesa' && !l.redutor ? 'Pago' : 'Recebido') + '</button>' : '') + '</div>' });
   ligarAcoesLancamentos(j, async () => { fecharJanela(j); if (window.ERP_RECARREGAR) window.ERP_RECARREGAR(); else await recarregar(); });
@@ -4876,22 +4878,29 @@ async function pintarDocumentos(buscar) {
 }
 
 // ─────────── Geradores de documentos (Backup 16) ───────────
-// Páginas separadas (só carregam quando abertas). Com cliente, já abrem preenchidas.
-const GERADORES_DOC = [['contrato-procuracao.html', '📜 Contrato e Procuração', 'contrato de honorários e procuração, com os dados do cliente'],
-  ['peticao.html', '⚖ Petição', 'inicial, contestação, manifestação, embargos, exceção — com cliente e processo'],
+// Backup 32: a Central de Documentos (documentos/) substitui o gerador antigo de contrato e procuração.
+// Os outros geradores (petição, solicitação, proposta, e-mails) continuam como antes, mais abaixo na janela.
+const MODELOS_CENTRAL = [['procuracao', '📜 Procuração', 'ad judicia et extra, com a finalidade em destaque'], ['substabelecimento', '🔁 Substabelecimento', 'com ou sem reserva'],
+  ['contrato', '🤝 Contrato de honorários', 'fixo, parcelado, salário mínimo, mensal e êxito'], ['recibo', '🧾 Recibo', 'numerado, com valor por extenso'],
+  ['declaracao', '✍️ Declaração', 'hipossuficiência, residência ou texto livre'], ['acordo', '⚖️ Acordo entre partes', 'quitação de dívida, com ou sem processo']];
+const GERADORES_DOC = [['peticao.html', '⚖ Petição', 'inicial, contestação, manifestação, embargos, exceção — com cliente e processo'],
   ['solicitacao-documentos.html', '📋 Solicitação de Documentos', 'lista do que o cliente precisa enviar'],
   ['propostas.html', '💼 Proposta (apresentação)', 'proposta comercial em páginas, com a marca'],
   ['modelos-email.html', '✉ Modelos de E-mail (implantação)', 'e-mails do processo de implantação, enviados pelo ERP']];
+const urlCentral = (modelo, clienteId) => 'documentos/index.html' + (modelo ? '?modelo=' + modelo + (clienteId ? '&cliente=' + encodeURIComponent(clienteId) : '') : '');
 function janelaGeradores(clienteId) {
-  const j = abrirJanela({ titulo: '📄 Geradores de documentos', larga: true,
-    corpo: '<p class="sub" style="margin-bottom:10px">Abre numa aba nova. Escolha o cliente na barra de cima do gerador e clique em <b>Preencher</b>; ao final, <b>📁 Guardar em Documentos</b> salva na pasta do cliente.</p>' +
-      '<div class="lista-ficha">' + GERADORES_DOC.map(([arq, rot, d]) => '<a class="item-ficha clicavel ger-link" target="_blank" rel="noopener" href="geradores/' + arq + (clienteId ? '?cliente=' + encodeURIComponent(clienteId) : '') + '">' +
+  const j = abrirJanela({ titulo: '📄 Documentos', larga: true,
+    corpo: '<p class="sub" style="margin-bottom:10px">Abre a <b>Central de Documentos</b> numa aba nova' + (clienteId ? ', já com este cliente' : '') + '. Lá você preenche, vê a folha pronta, salva (fica no histórico) e baixa em <b>PDF</b> ou <b>Word</b>.</p>' +
+      '<div class="lista-ficha">' + MODELOS_CENTRAL.map(([m, rot, d]) => '<a class="item-ficha clicavel ger-link" target="_blank" rel="noopener" href="' + urlCentral(m, clienteId) + '">' +
+        '<div><b>' + rot + '</b><div class="sub">' + d + '</div></div><span class="sub">abrir ↗</span></a>').join('') +
+        '<a class="item-ficha clicavel ger-link" target="_blank" rel="noopener" href="documentos/index.html"><div><b>🗂 Histórico de documentos</b><div class="sub">tudo o que já foi gerado e salvo</div></div><span class="sub">abrir ↗</span></a></div>' +
+      '<div class="gx-det-tit" style="margin-top:14px">Outros geradores</div><div class="lista-ficha">' + GERADORES_DOC.map(([arq, rot, d]) => '<a class="item-ficha clicavel ger-link" target="_blank" rel="noopener" href="geradores/' + arq + (clienteId ? '?cliente=' + encodeURIComponent(clienteId) : '') + '">' +
         '<div><b>' + rot + '</b><div class="sub">' + d + '</div></div><span class="sub">abrir ↗</span></a>').join('') + '</div>' });
   return j;
 }
 // Backup 26: gerador de contrato já com o cliente e os valores do contrato (o documento fica ligado ao contrato)
 function abrirGeradorContrato(clienteId, contratoId) {
-  window.open('geradores/contrato-procuracao.html?cliente=' + encodeURIComponent(clienteId || '') + (contratoId ? '&contrato=' + encodeURIComponent(contratoId) : ''), '_blank', 'noopener');
+  window.open('documentos/index.html?modelo=contrato' + (clienteId ? '&cliente=' + encodeURIComponent(clienteId) : '') + (contratoId ? '&contrato=' + encodeURIComponent(contratoId) : ''), '_blank', 'noopener');
 }
 
 'use strict';
@@ -5697,7 +5706,7 @@ async function fichaOportunidade(id, aba) {
   const vg = j.querySelector('#op-gerar'); if (vg) vg.onclick = () => abrirGeradorContrato(o.cliente_id, o.contrato_id);
   const vct = j.querySelector('#op-ver-ctr'); if (vct) vct.onclick = () => detalheContrato(o.contrato_id);
   j.querySelector('#op-int-prop').onclick = () => { mostrar('propostas'); window.open('geradores/propostas.html' + (o.cliente_id ? '?cliente=' + encodeURIComponent(o.cliente_id) : ''), '_blank', 'noopener'); };
-  j.querySelector('#op-int-ctr').onclick = () => (o.cliente_id ? abrirGeradorContrato(o.cliente_id, o.contrato_id) : window.open('geradores/contrato-procuracao.html', '_blank', 'noopener'));
+  j.querySelector('#op-int-ctr').onclick = () => (o.cliente_id ? abrirGeradorContrato(o.cliente_id, o.contrato_id) : window.open('documentos/index.html?modelo=contrato', '_blank', 'noopener'));
   j.querySelector('#op-int-meet').onclick = () => window.open('https://meet.google.com/new', '_blank', 'noopener');
   j.querySelector('#op-int-agenda').onclick = () => { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(10, 0, 0, 0); window.open(linkAgendaGoogle({ titulo: 'Reunião — ' + o.titulo, inicio: d, duracao_min: 60, detalhe: nomeOp(o) + (mailOp(o) ? ' · ' + mailOp(o) : '') }), '_blank', 'noopener'); };
   await mostrar(aba || 'dados');
@@ -7557,24 +7566,50 @@ async function cardGuias(tabela, el) {
       '<button type="button" class="btn btn-o btn-mini" data-gd-fila>Abrir E-mails → Fila</button></div>' : '') +
     '<div class="segmento gd-abas">' + ABAS_GUIA.map(([k, r]) => '<button type="button" data-gd-aba="' + k + '" class="' + (aba === k ? 'ativo' : '') + '">' + r +
         ' <span class="pill ' + (k === 'vencidas' && grupos[k].length ? 'vencido' : k === 'emitir' && grupos[k].length ? 'hoje' : 'neutro') + '">' + grupos[k].length + '</span></button>').join('') + '</div>' +
-    (lista.length ? '<div class="gd-lista">' + lista.map((x) => '<div class="gd-it' + (x.vencimento < h ? ' gd-venc' : '') + '">' +
-        '<div class="gd-venc-d"><b>' + dataBR(x.vencimento).slice(0, 5) + '</b>' + dias(x.vencimento) + '</div>' +
-        '<div class="gd-quem"><b>' + esc(x.quem || '—') + '</b><div class="sub">Parcela ' + esc(x.parcela) + (x.detalhe ? ' · ' + esc(x.detalhe) : '') + '</div></div>' +
-        '<div class="gd-val">' + (x.valor ? brl(x.valor) : '—') + '</div>' +
-        '<div class="gd-st">' + seloEmissao(x, nome) + '</div>' +
-        '<div class="gd-ac">' + (emitida(x) ? (x.guia_doc ? '<button type="button" class="btn btn-o btn-mini" data-gd-ver="' + x.guia_doc + '">📄 Ver</button>' : '') +
-            '<button type="button" class="btn btn-o btn-mini" data-gd-emitir="' + x.id + '">✎</button>'
-          : '<button type="button" class="btn btn-p btn-mini" data-gd-emitir="' + x.id + '">🧾 Emitir</button>') +
-          '<button type="button" class="btn btn-v btn-mini" data-gd-pago="' + x.id + '" title="Conferiu que o cliente pagou">✓ Pago</button></div></div>').join('') + '</div>'
+    (lista.length ? htmlGuiasPorGrupo(tabela, lista, TODOS, nome, dias, h)
       : '<div class="sub" style="padding:8px 2px">' + ({ emitir: 'Nada a emitir agora. 👏', emitidas: 'Nenhuma ' + nome + ' emitida aguardando envio.', vencidas: 'Nenhuma parcela vencida sem pagamento. 👏' })[aba] + '</div>') +
     '</div></div>';
   const bf = el.querySelector('[data-gd-fila]'); if (bf) bf.onclick = () => { if (typeof window.nav === 'function') window.nav(null, 'emails'); };
   el.querySelector('[data-gd-min]').onclick = () => { _guiaMin[tabela] = !_guiaMin[tabela]; try { localStorage.setItem('erp_guias_min', JSON.stringify(_guiaMin)); } catch (e) { /* ok */ } cardGuias(tabela, el); };
   const be = el.querySelector('[data-gd-empresa]'); if (be) be.onclick = () => janelaGuiasEmpresa(tabela, L, null, () => cardGuias(tabela, el));
+  el.querySelectorAll('[data-gd-grp]').forEach((b) => b.onclick = () => { const k = tabela + '|' + b.dataset.gdGrp; _guiaGrpAberto[k] = !_guiaGrpAberto[k]; cardGuias(tabela, el); });
+  el.querySelectorAll('[data-gd-emp]').forEach((b) => b.onclick = () => janelaGuiasEmpresa(tabela, L, b.dataset.gdEmp, () => cardGuias(tabela, el)));
   el.querySelectorAll('[data-gd-aba]').forEach((b) => b.onclick = () => { _guiaAba[tabela] = b.dataset.gdAba; cardGuias(tabela, el); });
   el.querySelectorAll('[data-gd-emitir]').forEach((b) => b.onclick = () => janelaEmissao(tabela, L.find((x) => x.id === b.dataset.gdEmitir), () => cardGuias(tabela, el)));
   el.querySelectorAll('[data-gd-ver]').forEach((b) => b.onclick = () => comBotao(b, async () => { const d = (await q(sb.from('documentos').select('*').eq('id', b.dataset.gdVer)))[0]; if (d) await abrirDocumento(d); }));
   el.querySelectorAll('[data-gd-pago]').forEach((b) => b.onclick = () => { if (window.ERP_EDITOR && window.ERP_EDITOR.baixaRapida) window.ERP_EDITOR.baixaRapida(tabela, b.dataset.gdPago); });
+}
+// Backup 31: o quadro em blocos — GRUPO (clique abre) › empresa (botão "Emitir" = e-mail com as guias dela) › parcelas
+const _guiaGrpAberto = {};
+const chaveParcGuia = (tabela, x) => tabela === 'parcelas' ? (x.parcelamentos && x.parcelamentos.id) || x.parcelamento_id || x.id : [x.devedor, x.credor, x.processo].join('|');
+function htmlGuiasPorGrupo(tabela, lista, TODOS, nome, dias, h) {
+  // parcelas vencidas sem pagamento por parcelamento/acordo (todas, não só as da aba): 1 = rosa, 2 ou mais = risco de rescisão
+  const atr = {}; TODOS.forEach((x) => { if (x.vencimento < h) { const k = chaveParcGuia(tabela, x); atr[k] = (atr[k] || 0) + 1; } });
+  const grs = {};
+  lista.forEach((x) => { const gid = x.grupo_id || ''; const g = (grs[gid] = grs[gid] || { gid, nome: nomeGrupo(gid) || 'Sem grupo', emps: {} });
+    const k = chaveEmpresaGuia(x); (g.emps[k] = g.emps[k] || { k, nome: x.quem || '—', itens: [] }).itens.push(x); });
+  const G = Object.values(grs).sort((a, b) => (a.nome === 'Sem grupo') - (b.nome === 'Sem grupo') || a.nome.localeCompare(b.nome, 'pt-BR'));
+  const unico = G.length === 1, mostrado = {};
+  return '<div class="gd-grupos">' + G.map((g) => {
+    const its = Object.values(g.emps).flatMap((e) => e.itens), aberto = unico || !!_guiaGrpAberto[tabela + '|' + g.gid];
+    const venc = its.filter((x) => x.vencimento < h).length, tot = its.reduce((s2, x) => s2 + (Number(x.valor) || 0), 0);
+    return '<div class="gd-g' + (aberto ? ' gd-g-aberto' : '') + '"><button type="button" class="gd-g-hd" data-gd-grp="' + esc(g.gid) + '" aria-expanded="' + aberto + '">' +
+        '<span class="gd-g-seta">' + (aberto ? '▾' : '▸') + '</span><b>' + esc(g.nome) + '</b><span class="sub">' + plural(Object.keys(g.emps).length, 'empresa', 'empresas') + ' · ' + plural(its.length, nome, nome === 'guia' ? 'guias' : 'boletos') + '</span>' +
+        (venc ? '<span class="pill atr-leve">' + venc + ' vencida' + (venc > 1 ? 's' : '') + '</span>' : '') + '<span class="gd-g-tot">' + (tot ? brl(tot) : '') + '</span></button>' +
+      (aberto ? '<div class="gd-g-corpo">' + Object.values(g.emps).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')).map((e) =>
+        '<div class="gd-emp"><div class="gd-emp-hd"><b>' + esc(e.nome) + '</b><button type="button" class="btn btn-p btn-mini" data-gd-emp="' + esc(e.k) + '" title="Abre o e-mail com ' + (e.itens.length > 1 ? 'as ' + e.itens.length + ' guias' : 'a guia') + ' desta empresa: anexe os PDFs e envie">🧾 Emitir</button></div>' +
+          e.itens.map((x) => { const kp = chaveParcGuia(tabela, x), n = atr[kp] && !mostrado[kp] ? atr[kp] : 0; mostrado[kp] = true;   // uma vez por parcelamento
+            return '<div class="gd-it' + (x.vencimento < h ? ' gd-venc' : '') + '">' +
+              '<div class="gd-venc-d"><b>' + dataBR(x.vencimento).slice(0, 5) + '</b>' + dias(x.vencimento) + '</div>' +
+              '<div class="gd-quem"><span>Parcela ' + esc(x.parcela) + (x.detalhe ? ' · ' + esc(x.detalhe) : '') + '</span>' +
+                (n ? ' <span class="pill ' + (n >= 2 ? 'vencido' : 'atr-leve') + '">' + n + ' em atraso' + (n >= 2 ? ' · risco de rescisão' : '') + '</span>' : '') + '</div>' +
+              '<div class="gd-val">' + (x.valor ? brl(x.valor) : '—') + '</div>' +
+              '<div class="gd-st">' + seloEmissao(x, nome) + '</div>' +
+              '<div class="gd-ac">' + (emitida(x) ? (x.guia_doc ? '<button type="button" class="btn btn-o btn-mini" data-gd-ver="' + x.guia_doc + '">📄</button>' : '') +
+                  '<button type="button" class="btn btn-o btn-mini" data-gd-emitir="' + x.id + '" title="Emissão / enviar esta guia">✎</button>'
+                : '<button type="button" class="btn btn-o btn-mini" data-gd-emitir="' + x.id + '" title="Emitir só esta guia">Só esta</button>') +
+                '<button type="button" class="btn btn-v btn-mini" data-gd-pago="' + x.id + '" title="Conferiu que o cliente pagou">✓ Pago</button></div></div>'; }).join('') + '</div>').join('') + '</div>' : '') + '</div>';
+  }).join('') + '</div>';
 }
 function seloEmissao(x, nome) {
   return (emitida(x) ? '<span class="pill pago" title="' + esc(x.emitida_por ? 'por ' + x.emitida_por : '') + '">' + (nome === 'guia' ? 'Guia emitida' : 'Boleto emitido') + (x.emitida_em ? ' em ' + dataBR(x.emitida_em) : '') + '</span>'
@@ -7790,7 +7825,7 @@ async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
 //  3) Guias de parcelamentos e boletos de acordos (emitir → enviar → conferir o pagamento).
 //  4) Financeiro do escritório (atalhos) e 5) Minhas tarefas.
 // ═══════════════════════════════════════════════════════════════════
-const ABAS_ROTINA = [['passivo', '🏛 Passivo e cadastro'], ['processos', '⚖ Processos'], ['guias', '🧾 Parcelamentos e acordos para emitir'], ['financeiro', '💰 Financeiro'], ['tarefas', '✓ Minhas tarefas']];
+const ABAS_ROTINA = [['passivo', '🏛 Passivo e cadastro'], ['processos', '⚖ Processos'], ['guias', '🧾 Parcelamentos e acordos para emitir'], ['parcs', '📋 Controle dos parcelamentos'], ['financeiro', '💰 Financeiro'], ['tarefas', '✓ Minhas tarefas']];
 const TIPOS_MOV = [['movimentacao', 'Movimentação'], ['decisao', 'Decisão relevante'], ['valor', 'Mudança de valor'], ['procuracao', 'Procuração juntada'], ['sem_novidade', 'Conferido — sem novidade']];
 const COLS_PASSIVO = [['rfb', 'RFB'], ['rfb_negociada', 'RFB negociada'], ['pgfn', 'PGFN'], ['pgfn_negociada', 'PGFN negociada'], ['age_mg', 'AGE/MG'], ['age_mg_negociada', 'AGE/MG negociada']];
 const CAPAG_OPCOES = ['', 'A', 'B', 'C', 'D', 'Omisso'];
@@ -7809,7 +7844,7 @@ async function pintarRotina() {
   document.querySelectorAll('#rt-abas button').forEach((b) => b.classList.toggle('ativo', b.dataset.rtAba === E.rt.aba));
   const el = $('rt-corpo'); if (!el) return;
   el.innerHTML = '<div class="sub" style="padding:10px">Carregando…</div>';
-  try { await ({ passivo: rotinaPassivo, processos: rotinaProcessos, guias: rotinaGuias, financeiro: rotinaFinanceiro, tarefas: rotinaTarefas })[E.rt.aba](el); }
+  try { await ({ passivo: rotinaPassivo, processos: rotinaProcessos, guias: rotinaGuias, parcs: rotinaParcelamentos, financeiro: rotinaFinanceiro, tarefas: rotinaTarefas })[E.rt.aba](el); }
   catch (e) { console.error(e); el.innerHTML = '<div class="card"><div class="card-bd msg-erro">' + esc(erroAmigavel(e)) + '</div></div>'; }
 }
 function filtroRotina(extra) {
@@ -7834,11 +7869,12 @@ async function rotinaPassivo(el) {
   const certs = await q(sb.from('cliente_certificado').select('cliente_id, validade, senha, atualizado_por, atualizado_em')).catch(() => null);
   const C = {}; (certs || []).forEach((c) => { C[c.cliente_id] = c; });
   const podeCert = certs !== null;
+  const SIT = await situacaoRotina('passivo');
   el.innerHTML = '<div class="card"><div class="card-hd">🏛 Passivo e cadastro das empresas<span class="sub">edite direto na tabela · valores em R$ · as linhas alteradas ficam marcadas até você salvar</span></div>' +
     '<div class="card-bd">' + filtroRotina('<select class="busca" id="rt-filtro" autocomplete="off">' + [['', 'Todas as empresas'], ['cert', 'Sem certificado'], ['proc', 'Sem procuração'], ['capag', 'Sem CAPAG']]
       .map(([v, r]) => '<option value="' + v + '"' + (v === E.rt.filtro ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>' +
       '<span class="rt-salvar-box"><button type="button" class="btn btn-o" id="rt-hist">🕘 Histórico do passivo</button><span class="sub" id="rt-alt"></span><button type="button" class="btn btn-p" id="rt-salvar" disabled>Salvar alterações</button></span>') +
-    '<div class="tabela-wrap rt-grade" data-sem-pagina><table><thead><tr><th>Empresa</th>' + COLS_PASSIVO.map((c) => '<th class="rt-num">' + c[1] + '</th>').join('') +
+    '<div class="tabela-wrap rt-grade" data-sem-pagina><table><thead><tr><th>Empresa</th><th>Conferência</th>' + COLS_PASSIVO.map((c) => '<th class="rt-num">' + c[1] + '</th>').join('') +
       '<th class="rt-num">CEAT</th><th>Em operação</th><th>Procuração</th><th>Certificado</th>' + (podeCert ? '<th>Senha GOV</th>' : '') + '<th>CAPAG</th></tr></thead><tbody id="rt-pas-corpo"></tbody></table></div>' +
     (podeCert ? '<div class="dica" style="margin-top:10px">🔒 A senha GOV fica numa tabela separada: só quem pode <b>editar clientes</b> vê. Não copie a senha para e-mail ou WhatsApp.</div>' : '') + '</div></div>';
   const alterados = new Map();
@@ -7852,8 +7888,9 @@ async function rotinaPassivo(el) {
     let grp = null;
     $('rt-pas-corpo').innerHTML = L.length ? L.map((c) => {
       const g = c.grupos ? c.grupos.nome : 'Sem grupo', ct = C[c.id] || {};
-      const cab = g !== grp ? (grp = g, '<tr class="gx-grp"><td colspan="' + (COLS_PASSIVO.length + 7 + (podeCert ? 1 : 0)) + '">' + esc(g) + '</td></tr>') : '';
+      const cab = g !== grp ? (grp = g, '<tr class="gx-grp"><td colspan="' + (COLS_PASSIVO.length + 8 + (podeCert ? 1 : 0)) + '">' + esc(g) + '</td></tr>') : '';
       return cab + '<tr data-id="' + c.id + '"' + (alterados.has(c.id) ? ' class="rt-alterado"' : '') + '><td class="rt-emp"><b>' + esc(c.nome) + '</b><div class="sub">' + esc(mascaraDoc(c.cpf_cnpj) || '') + ' <button type="button" class="rt-hist-bt" data-hist="' + c.id + '" title="Histórico de alterações desta empresa">🕘</button></div></td>' +
+        '<td>' + celulaConferencia(SIT[c.id], c.id) + '</td>' +
         COLS_PASSIVO.map(([k]) => '<td><input class="rt-in rt-valor" data-mascara="brl" data-c="' + k + '" inputmode="decimal" value="' + (c[k] != null && c[k] !== '' ? 'R$ ' + valorParaCampo(c[k]) : '') + '"></td>').join('') +
         '<td><input class="rt-in rt-int" data-c="ceat_trt3" inputmode="numeric" value="' + (c.ceat_trt3 == null ? '' : esc(c.ceat_trt3)) + '"></td>' +
         '<td>' + simNaoSel('em_operacao', c.em_operacao) + '</td><td>' + simNaoSel('procuracao', c.procuracao) + '</td>' +
@@ -7873,6 +7910,11 @@ async function rotinaPassivo(el) {
   };
   $('rt-pas-corpo').onclick = (ev) => {
     const h2 = ev.target.closest('[data-hist]'); if (h2) return janelaHistoricoPassivo(h2.dataset.hist);
+    const cf = ev.target.closest('[data-conferir]'); if (cf) return comBotao(cf, async () => {
+      if (alterados.has(cf.dataset.conferir)) throw new Error('Esta linha tem alteração: clique em "Salvar alterações".');
+      await q(sb.rpc('conferir_rotina', { p_area: 'passivo', p_ids: [cf.dataset.conferir], p_alterou: false }));
+      SIT[cf.dataset.conferir] = Object.assign({}, SIT[cf.dataset.conferir], { conferido_em: new Date().toISOString(), conferido_por: E.perfil ? E.perfil.nome : '', conferido_alterou: false });
+      cf.closest('td').innerHTML = celulaConferencia(SIT[cf.dataset.conferir], cf.dataset.conferir); });
     const b = ev.target.closest('[data-ver-senha]'); if (!b) return; const i = b.previousElementSibling; i.type = i.type === 'password' ? 'text' : 'password'; };
   $('rt-hist').onclick = () => janelaHistoricoPassivo(null);
   $('rt-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
@@ -7893,10 +7935,27 @@ async function rotinaPassivo(el) {
       }
       n++;
     }
+    if (alterados.size) await q(sb.rpc('conferir_rotina', { p_area: 'passivo', p_ids: [...alterados.keys()], p_alterou: true })).catch(() => null);
     alterados.clear(); aviso('✓ ' + plural(n, 'empresa atualizada', 'empresas atualizadas') + '.');
     await carregarCadastros(true); await rotinaPassivo(el);
   });
   ligarFiltroRotina(el, pintar); pintar(); contar();
+}
+
+// Backup 31: conferência da linha — "✓ Conferido" mesmo quando nada mudou (mostra onde o estagiário parou e se esqueceu algo)
+async function situacaoRotina(area) {
+  const L = await q(sb.rpc('rotina_situacao', { p_area: area })).catch(() => []);
+  const m = {}; (L || []).forEach((x) => { m[x.registro_id] = x; }); return m;
+}
+const diasDesde = (ts) => ts ? Math.floor((Date.now() - new Date(ts).getTime()) / 864e5) : null;
+function celulaConferencia(x, id) {
+  x = x || {};
+  const d = diasDesde(x.conferido_em), cls = d == null ? 'rt-cf-nunca' : d > 30 ? 'rt-cf-velho' : 'rt-cf-ok';
+  const alt = x.alterado_em ? 'Última alteração: ' + dataHoraBR(x.alterado_em) + (x.alterado_por ? ' por ' + x.alterado_por : '') : 'Sem alteração registrada';
+  return '<div class="rt-cf ' + cls + '" title="' + esc(alt) + '"><span class="rt-cf-txt">' +
+      (x.conferido_em ? (x.conferido_alterou ? '✎ alterado ' : '✓ conferido ') + dataBR(String(x.conferido_em).slice(0, 10)) + '<small>' + esc(x.conferido_por || '') + (d > 30 ? ' · há ' + d + ' d' : '') + '</small>' : 'nunca conferido') +
+      (x.alterado_em ? '<small class="rt-cf-alt">alt. ' + dataBR(String(x.alterado_em).slice(0, 10)) + '</small>' : '') + '</span>' +
+    '<button type="button" class="btn btn-o btn-mini" data-conferir="' + id + '" title="Fui até esta linha e os dados continuam certos">✓</button></div>';
 }
 
 // Backup 29: histórico de alterações do passivo (quem mudou, quando, de quanto para quanto)
@@ -7914,6 +7973,9 @@ async function janelaHistoricoPassivo(clienteId) {
 // ── 2) Processos: acompanhamento (o que está há mais tempo sem conferir vem primeiro) ──
 async function rotinaProcessos(el) {
   const P = await q(sb.from('processos').select('id, numero, grupo_id, natureza, competencia, autor, reu, valor, procuracao, obs, atualizacao, ultima_movimentacao, ultima_movimentacao_em, grupos(nome)').limit(5000));
+  // Backup 31: a última conferência de cada processo (quem, quando e se mudou algo ou foi "sem novidade")
+  const ULT = {}; (await q(sb.from('processo_movimentacoes').select('processo_id, tipo, quem, criado_em').order('criado_em', { ascending: false }).limit(10000)).catch(() => []))
+    .forEach((m) => { if (!ULT[m.processo_id]) ULT[m.processo_id] = m; });
   el.innerHTML = '<div class="card"><div class="card-hd">⚖ Acompanhamento dos processos<span class="sub">confira no tribunal e registre: movimentação, decisão relevante, mudança de valor ou procuração</span>' +
       '<button type="button" class="btn btn-p btn-mini" id="rt-novo-proc" style="margin-left:auto">+ Processo</button></div>' +
     '<div class="card-bd">' + filtroRotina('<select class="busca" id="rt-filtro" autocomplete="off">' + [['', 'Todos'], ['30', 'Sem conferir há 30 dias ou mais'], ['proc', 'Sem procuração']]
@@ -7929,16 +7991,27 @@ async function rotinaProcessos(el) {
     $('rt-proc-corpo').innerHTML = L.length ? L.map((p) => { const g = p.grupos ? p.grupos.nome : 'Sem grupo';
       return (g !== grp ? (grp = g, '<tr class="gx-grp"><td colspan="7">' + esc(g) + ' <span class="sub">' + plural(L.filter((z) => (z.grupos ? z.grupos.nome : 'Sem grupo') === g).length, 'processo', 'processos') + '</span></td></tr>') : '') + '<tr><td><b class="mono">' + esc(p.numero) + '</b><div class="sub">' + esc((p.grupos ? p.grupos.nome : '') + (p.reu ? ' · ' + p.reu : '')) + '</div></td>' +
       '<td>' + esc(p.natureza || '—') + '</td><td class="rt-mov">' + (p.ultima_movimentacao ? esc(p.ultima_movimentacao) : '<span class="sub">nada registrado</span>') + '</td>' +
-      '<td>' + (p.ultima_movimentacao_em ? dataBR(p.ultima_movimentacao_em) : '<span class="pill vencido">nunca</span>') + '</td>' +
+      '<td>' + celulaConfProc(p, ULT[p.id]) + '</td>' +
       '<td><span class="pill ' + (p.procuracao ? 'pago' : 'vencido') + '">' + (p.procuracao ? 'Sim' : 'Não') + '</span></td>' +
       '<td class="rt-num">' + (p.valor ? brl(p.valor) : '—') + '</td>' +
-      '<td class="acoes-l"><button type="button" class="btn btn-p btn-mini" data-mov="' + p.id + '">+ Registrar</button></td></tr>'; }).join('')
+      '<td class="acoes-l"><button type="button" class="btn btn-o btn-mini" data-sem-nov="' + p.id + '" title="Conferi no tribunal e não há novidade">✓ Sem novidade</button><button type="button" class="btn btn-p btn-mini" data-mov="' + p.id + '">+ Registrar</button></td></tr>'; }).join('')
       : '<tr><td colspan="7">' + vazio('Nenhum processo com esses filtros.') + '</td></tr>';
   };
-  $('rt-proc-corpo').onclick = (ev) => { const b = ev.target.closest('[data-mov]'); if (b) janelaMovimentacao(b.dataset.mov, () => rotinaProcessos(el)); };
+  $('rt-proc-corpo').onclick = (ev) => {
+    const sn = ev.target.closest('[data-sem-nov]');
+    if (sn) return comBotao(sn, async () => {
+      await q(sb.from('processo_movimentacoes').insert({ processo_id: sn.dataset.semNov, data: hojeISO(), tipo: 'sem_novidade', descricao: 'Conferido — sem novidade' }).select('id'));
+      aviso('✓ Conferência registrada (sem novidade).'); await rotinaProcessos(el); });
+    const b = ev.target.closest('[data-mov]'); if (b) janelaMovimentacao(b.dataset.mov, () => rotinaProcessos(el)); };
   // processo novo: o mesmo formulário de Jurídico → Processos (+ Lançar → Processo)
   $('rt-novo-proc').onclick = () => { if (window.ERP_EDITOR && window.ERP_EDITOR.abrirFormulario) window.ERP_EDITOR.abrirFormulario('processos', null, { carteira: 'Ativo', status: 'Em andamento' }); else aviso('Use + Lançar → Processo.', true); };
   ligarFiltroRotina(el, pintar); pintar();
+}
+function celulaConfProc(p, m) {
+  if (!p.ultima_movimentacao_em) return '<span class="pill vencido">nunca</span>';
+  const d = Math.floor((new Date(hojeISO() + 'T12:00:00') - new Date(p.ultima_movimentacao_em + 'T12:00:00')) / 864e5);
+  return '<div class="rt-cf ' + (d > 30 ? 'rt-cf-velho' : 'rt-cf-ok') + '"><span class="rt-cf-txt">' + (m && m.tipo !== 'sem_novidade' ? '✎ ' : '✓ ') + dataBR(p.ultima_movimentacao_em) +
+    '<small>' + esc(m ? (m.quem || '') + (m.tipo === 'sem_novidade' ? ' · sem novidade' : ' · com alteração') : '') + (d > 30 ? ' · há ' + d + ' d' : '') + '</small></span></div>';
 }
 // janela "Registrar movimentação" (também no detalhe do processo, em Jurídico → Processos)
 async function janelaMovimentacao(processoId, depois) {
@@ -7977,6 +8050,87 @@ async function janelaMovimentacao(processoId, depois) {
 async function rotinaGuias(el) {
   el.innerHTML = '<div class="rt-duas"><div id="rt-guias-p" class="gs"></div><div id="rt-guias-a" class="gs"></div></div>';
   await Promise.all([cardGuias('parcelas', $('rt-guias-p')), cardGuias('acordos', $('rt-guias-a'))]);
+}
+
+// ── 3b) Backup 31: controle dos parcelamentos — "nós emitimos a guia?" (por parcelamento ou pelo grupo) + planilha das parcelas por mês ──
+const MESES_CURTOS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+async function rotinaParcelamentos(el) {
+  E.rt.mesIni = E.rt.mesIni == null ? -2 : E.rt.mesIni;      // primeiro mês da planilha, relativo ao mês atual
+  const h = hojeISO(), base = new Date(h.slice(0, 7) + '-01T12:00:00');
+  const mes = (k) => { const d = new Date(base); d.setMonth(d.getMonth() + k); return d.toISOString().slice(0, 7); };
+  const MS = [0, 1, 2, 3, 4, 5].map((i) => mes(E.rt.mesIni + i));
+  const [PA, PC, SIT] = await Promise.all([
+    q(sb.from('parcelamentos').select('id, empresa, cnpj, local, natureza, numero, total_parcelas, valor_ultima_parcela, grupo_id, emitimos_guia').limit(5000)),
+    q(sb.from('parcelas').select('id, parcelamento_id, numero, vencimento, pago, emitida_em, emissao').gte('vencimento', MS[0] + '-01').lt('vencimento', mes(E.rt.mesIni + 6) + '-01').limit(20000)),
+    situacaoRotina('parcelamentos')]);
+  const atrasoPorParc = {};
+  (await q(sb.from('parcelas').select('parcelamento_id').eq('pago', false).lt('vencimento', h).limit(20000)).catch(() => [])).forEach((x) => { atrasoPorParc[x.parcelamento_id] = (atrasoPorParc[x.parcelamento_id] || 0) + 1; });
+  const cel = {}; PC.forEach((x) => { (cel[x.parcelamento_id + '|' + x.vencimento.slice(0, 7)] = cel[x.parcelamento_id + '|' + x.vencimento.slice(0, 7)] || []).push(x); });
+  const gnome = (id) => nomeGrupo(id) || 'Sem grupo';
+  el.innerHTML = '<div class="card"><div class="card-hd">📋 Controle dos parcelamentos<span class="sub">marque se o escritório emite a guia · a planilha mostra cada parcela por mês: clique para marcar emitida ou paga</span></div>' +
+    '<div class="card-bd">' + filtroRotina('<select class="busca" id="rt-filtro" autocomplete="off">' + [['', 'Todos os parcelamentos'], ['nos', 'Só os que nós emitimos'], ['cli', 'Só os que o cliente emite'], ['atr', 'Com parcela em atraso']]
+        .map(([v, r]) => '<option value="' + v + '"' + (v === E.rt.filtro ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>' +
+        '<span class="rt-meses"><button type="button" class="btn btn-o btn-mini" data-mes="-1" aria-label="Meses anteriores">‹</button><b>' + MESES_CURTOS[+MS[0].slice(5) - 1] + '/' + MS[0].slice(2, 4) + ' – ' + MESES_CURTOS[+MS[5].slice(5) - 1] + '/' + MS[5].slice(2, 4) + '</b><button type="button" class="btn btn-o btn-mini" data-mes="1" aria-label="Próximos meses">›</button></span>') +
+      '<div class="rt-leg"><span class="rt-pc rt-pc-pago">✓</span> paga <span class="rt-pc rt-pc-emit">E</span> guia emitida <span class="rt-pc rt-pc-aemitir">•</span> a emitir <span class="rt-pc rt-pc-cli">•</span> cliente emite <span class="rt-pc rt-pc-atr">!</span> vencida sem pagamento</div>' +
+      '<div class="tabela-wrap rt-grade rt-parcs" data-sem-pagina><table><thead><tr><th>Parcelamento</th><th>Nós emitimos?</th>' +
+        MS.map((m) => '<th class="rt-mes' + (m === h.slice(0, 7) ? ' rt-mes-atual' : '') + '">' + MESES_CURTOS[+m.slice(5) - 1] + '/' + m.slice(2, 4) + '</th>').join('') + '<th>Conferência</th></tr></thead><tbody id="rt-parc-corpo"></tbody></table></div></div></div>';
+  const corpo = $('rt-parc-corpo');
+  const pintar = () => {
+    const b = normalizar(E.rt.busca), dig = soDigitos(E.rt.busca);
+    const L = PA.filter((p) => (!E.rt.grupo || p.grupo_id === E.rt.grupo) && (!b || normalizar([p.empresa, p.natureza, p.local, p.numero, gnome(p.grupo_id)].join(' ')).includes(b) || (dig.length >= 3 && soDigitos(p.cnpj).includes(dig))) &&
+        (E.rt.filtro !== 'nos' || p.emitimos_guia !== false) && (E.rt.filtro !== 'cli' || p.emitimos_guia === false) && (E.rt.filtro !== 'atr' || atrasoPorParc[p.id]))
+      .sort((x, y) => (gnome(x.grupo_id) === 'Sem grupo') - (gnome(y.grupo_id) === 'Sem grupo') || gnome(x.grupo_id).localeCompare(gnome(y.grupo_id), 'pt-BR') || String(x.empresa).localeCompare(String(y.empresa), 'pt-BR'));
+    let grp = null;
+    corpo.innerHTML = L.length ? L.map((p) => {
+      const g = gnome(p.grupo_id), doG = L.filter((z) => gnome(z.grupo_id) === g), nos = p.emitimos_guia !== false, atr = atrasoPorParc[p.id] || 0;
+      const cab = g !== grp ? (grp = g, '<tr class="gx-grp"><td colspan="' + (MS.length + 3) + '"><span class="rt-g-nome">' + esc(g) + '</span> <span class="sub">' + plural(doG.length, 'parcelamento', 'parcelamentos') + '</span>' +
+        '<span class="rt-g-ac">Nós emitimos: <button type="button" class="btn btn-o btn-mini" data-g-emit="' + esc(p.grupo_id || '') + '" data-v="1">todas do grupo</button><button type="button" class="btn btn-o btn-mini" data-g-emit="' + esc(p.grupo_id || '') + '" data-v="0">nenhuma</button></span></td></tr>') : '';
+      return cab + '<tr data-pc="' + p.id + '"><td class="rt-emp"><b>' + esc(p.empresa || '—') + '</b><div class="sub">' + esc([p.total_parcelas ? p.total_parcelas + ' parcelas' : '', p.natureza, p.local, p.numero ? 'nº ' + p.numero : ''].filter(Boolean).join(' · ')) +
+          (atr ? ' <span class="pill ' + (atr >= 2 ? 'vencido' : 'atr-leve') + '">' + atr + ' em atraso' + (atr >= 2 ? ' · risco de rescisão' : '') + '</span>' : '') + '</div></td>' +
+        '<td><label class="rt-chave" title="Ligado = o escritório emite a guia e ela entra em &quot;Parcelamentos para emitir&quot;"><input type="checkbox" data-emit="' + p.id + '"' + (nos ? ' checked' : '') + '><span></span><small>' + (nos ? 'Sim' : 'Não, o cliente') + '</small></label></td>' +
+        MS.map((m) => '<td class="rt-mes">' + (cel[p.id + '|' + m] || []).map((x) => {
+          const st = x.pago ? 'pago' : x.vencimento < h ? 'atr' : (x.emitida_em || /sim|emitid/i.test(x.emissao || '')) ? 'emit' : nos ? 'aemitir' : 'cli';
+          return '<button type="button" class="rt-pc rt-pc-' + st + '" data-parcela="' + x.id + '" title="Parcela ' + esc(x.numero || '') + ' · vence ' + dataBR(x.vencimento) + ' · ' + ({ pago: 'paga', atr: 'vencida sem pagamento', emit: 'guia emitida' + (x.emitida_em ? ' em ' + dataBR(x.emitida_em) : ''), aemitir: 'guia a emitir', cli: 'o cliente emite' })[st] + '">' +
+            ({ pago: '✓', atr: '!', emit: 'E', aemitir: '•', cli: '•' })[st] + '<small>' + esc(x.numero || '') + '</small></button>'; }).join('') + '</td>').join('') +
+        '<td>' + celulaConferencia(SIT[p.id], p.id) + '</td></tr>';
+    }).join('') : '<tr><td colspan="' + (MS.length + 3) + '">' + vazio('Nenhum parcelamento com esses filtros.') + '</td></tr>';
+  };
+  const emitimos = async (ids, v) => { await q(sb.rpc('parcelamentos_emitimos', { p_ids: ids, p_emitimos: v }));
+    await q(sb.rpc('conferir_rotina', { p_area: 'parcelamentos', p_ids: ids, p_alterou: true })).catch(() => null);
+    PA.forEach((p) => { if (ids.includes(p.id)) p.emitimos_guia = v; });
+    ids.forEach((id) => { SIT[id] = Object.assign({}, SIT[id], { conferido_em: new Date().toISOString(), conferido_por: E.perfil ? E.perfil.nome : '', conferido_alterou: true }); });
+    if (window.ERP_RECARREGAR) window.ERP_RECARREGAR(); pintar(); };
+  corpo.onchange = (ev) => { const c = ev.target.closest('[data-emit]'); if (!c) return;
+    emitimos([c.dataset.emit], c.checked).then(() => aviso(c.checked ? '✓ O escritório emite a guia deste parcelamento.' : '✓ Marcado: o cliente emite a guia (sai de "Parcelamentos para emitir").'), (e) => { aviso(erroAmigavel(e), true); pintar(); }); };
+  corpo.onclick = (ev) => {
+    const ge = ev.target.closest('[data-g-emit]');
+    if (ge) return comBotao(ge, async () => { const v = ge.dataset.v === '1', ids = PA.filter((p) => (p.grupo_id || '') === ge.dataset.gEmit).map((p) => p.id);
+      if (!confirm((v ? 'Marcar que o escritório emite as guias de ' : 'Marcar que o CLIENTE emite as guias de ') + plural(ids.length, 'parcelamento', 'parcelamentos') + ' deste grupo?')) return;
+      await emitimos(ids, v); aviso('✓ ' + plural(ids.length, 'parcelamento atualizado', 'parcelamentos atualizados') + '.'); });
+    const cf = ev.target.closest('[data-conferir]');
+    if (cf) return comBotao(cf, async () => { await q(sb.rpc('conferir_rotina', { p_area: 'parcelamentos', p_ids: [cf.dataset.conferir], p_alterou: false }));
+      SIT[cf.dataset.conferir] = Object.assign({}, SIT[cf.dataset.conferir], { conferido_em: new Date().toISOString(), conferido_por: E.perfil ? E.perfil.nome : '', conferido_alterou: false });
+      cf.closest('td').innerHTML = celulaConferencia(SIT[cf.dataset.conferir], cf.dataset.conferir); });
+    const pc = ev.target.closest('[data-parcela]'); if (pc) janelaParcelaPlanilha(PC.find((x) => x.id === pc.dataset.parcela), PA.find((p) => p.id === pc.closest('tr').dataset.pc), () => rotinaParcelamentos(el));
+  };
+  el.querySelectorAll('[data-mes]').forEach((b) => b.onclick = () => { E.rt.mesIni += 3 * Number(b.dataset.mes); rotinaParcelamentos(el); });
+  ligarFiltroRotina(el, pintar); pintar();
+}
+// clique numa parcela da planilha: emitir (janela das guias), desmarcar emissão ou dar baixa (pago)
+function janelaParcelaPlanilha(x, p, depois) {
+  if (!x) return;
+  const emit = !!x.emitida_em || /sim|emitid/i.test(x.emissao || '');
+  const j = abrirJanela({ titulo: (p ? p.empresa : 'Parcela') + ' — parcela ' + (x.numero || ''),
+    corpo: '<div class="sub" style="margin-bottom:10px">' + esc(p ? [p.natureza, p.local, p.numero ? 'nº ' + p.numero : ''].filter(Boolean).join(' · ') : '') + '</div>' +
+      '<div class="gd-jan-hd"><div class="gd-jan-v"><span>Vencimento</span><b>' + dataBR(x.vencimento) + '</b></div><div class="gd-jan-v"><span>Situação</span><b>' + (x.pago ? 'Paga' : x.vencimento < hojeISO() ? 'Vencida sem pagamento' : emit ? 'Guia emitida' : 'Guia a emitir') + '</b></div></div>',
+    rodape: '<span></span><div class="acoes">' + (x.pago ? '' : (emit ? '<button type="button" class="btn btn-o" data-pp="desf">Desmarcar emissão</button>' : '<button type="button" class="btn btn-p" data-pp="emitir">🧾 Emitir guia</button>') +
+      '<button type="button" class="btn btn-v" data-pp="pago">✓ Pago</button>') + '<button type="button" class="btn btn-o" data-cancelar>Fechar</button></div>' });
+  j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
+  j.querySelectorAll('[data-pp]').forEach((b) => b.onclick = () => comBotao(b, async () => {
+    if (b.dataset.pp === 'emitir') { fecharJanela(j); return emitirParcela('parcelas', x.id, depois); }
+    if (b.dataset.pp === 'desf') { await q(sb.rpc('registrar_emissao', { p_tabela: 'parcelas', p_id: x.id, p_emitida: false, p_doc: null, p_enviar: false })); fecharJanela(j); aviso('Emissão desmarcada.'); return depois(); }
+    if (window.ERP_EDITOR && window.ERP_EDITOR.baixaRapida) { fecharJanela(j); await window.ERP_EDITOR.baixaRapida('parcelas', x.id); setTimeout(depois, 1500); }
+  }));
 }
 
 // ── 4) Financeiro do escritório: atalhos ──

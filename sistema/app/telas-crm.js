@@ -318,7 +318,7 @@ async function fichaOportunidade(id, aba) {
   const vg = j.querySelector('#op-gerar'); if (vg) vg.onclick = () => abrirGeradorContrato(o.cliente_id, o.contrato_id);
   const vct = j.querySelector('#op-ver-ctr'); if (vct) vct.onclick = () => detalheContrato(o.contrato_id);
   j.querySelector('#op-int-prop').onclick = () => { mostrar('propostas'); window.open('geradores/propostas.html' + (o.cliente_id ? '?cliente=' + encodeURIComponent(o.cliente_id) : ''), '_blank', 'noopener'); };
-  j.querySelector('#op-int-ctr').onclick = () => (o.cliente_id ? abrirGeradorContrato(o.cliente_id, o.contrato_id) : window.open('geradores/contrato-procuracao.html', '_blank', 'noopener'));
+  j.querySelector('#op-int-ctr').onclick = () => (o.cliente_id ? abrirGeradorContrato(o.cliente_id, o.contrato_id) : window.open('documentos/index.html?modelo=contrato', '_blank', 'noopener'));
   j.querySelector('#op-int-meet').onclick = () => window.open('https://meet.google.com/new', '_blank', 'noopener');
   j.querySelector('#op-int-agenda').onclick = () => { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(10, 0, 0, 0); window.open(linkAgendaGoogle({ titulo: 'Reunião — ' + o.titulo, inicio: d, duracao_min: 60, detalhe: nomeOp(o) + (mailOp(o) ? ' · ' + mailOp(o) : '') }), '_blank', 'noopener'); };
   await mostrar(aba || 'dados');

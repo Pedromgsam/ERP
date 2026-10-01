@@ -93,7 +93,7 @@
       '<div class="tn-menu tn-menu-dir" role="menu">' + LANCAR.map((x, i) => '<button type="button" role="menuitem" data-lancar="' + i + '">' + esc(x[0]) + '</button>').join('') + '</div></div>' +
       '<div class="hd-usuario"><button type="button" id="gs-tema" title="Modo escuro / claro" aria-label="Alternar modo escuro" aria-pressed="false">◐</button><button type="button" id="gs-sino" class="gx-so-equipe" title="Avisos: prazos, menções e vencimentos" aria-label="Avisos">🔔<span id="gs-sino-n" hidden></span></button><span id="gs-nome"></span>' +
       '<div class="tn-grupo tn-mais-acoes"><button type="button" class="tn-abre gs-bt-mais" data-grupo="acoes" title="Atualizar dados e relatório em PDF" aria-label="Mais ações" aria-haspopup="true" aria-expanded="false">⋯</button>' +
-      '<div class="tn-menu tn-menu-dir" role="menu"><button type="button" data-acao="atualizar">↻ Atualizar dados</button><button type="button" data-acao="pdf" class="gx-so-equipe">📄 Relatório em PDF</button><button type="button" data-acao="geradores" class="gx-so-equipe">📄 Geradores de documentos</button><button type="button" data-acao="meunome">👤 Meu nome</button><button type="button" data-acao="aprovacoes" class="gx-so-equipe">📝 Aprovações (rascunhos)</button></div></div>' +
+      '<div class="tn-menu tn-menu-dir" role="menu"><button type="button" data-acao="atualizar">↻ Atualizar dados</button><button type="button" data-acao="pdf" class="gx-so-equipe">📄 Relatório em PDF</button><button type="button" data-acao="geradores" class="gx-so-equipe">📄 Documentos (procuração, contrato, recibo…)</button><button type="button" data-acao="meunome">👤 Meu nome</button><button type="button" data-acao="aprovacoes" class="gx-so-equipe">📝 Aprovações (rascunhos)</button></div></div>' +
       '<button type="button" id="gs-sair">Sair</button></div>';
     document.body.insertBefore(hd, document.body.firstChild);
     const btTema = document.getElementById('gs-tema');
@@ -715,11 +715,27 @@
       });
     });
   }
+  // ═══════ Backup 31: CONTORNO AZUL de cada grupo nas tabelas agrupadas (Painel, Processos, Rotina, Clientes…) ═══════
+  // a linha do grupo (tr.gx-grp / tr.cli-grp) abre o bloco; as linhas até o próximo grupo ficam dentro do contorno (design.css: .gc-*)
+  function contornarGrupos() {
+    document.querySelectorAll('tbody').forEach((tb) => {
+      const linhas = [...tb.children]; if (!linhas.some((tr) => tr.matches('tr.gx-grp, tr.cli-grp'))) return;
+      let dentro = false, ult = null;
+      linhas.forEach((tr) => {
+        tr.classList.remove('gc-ini', 'gc-in', 'gc-fim');   // o observador só olha filhos (childList): trocar classe não o dispara de novo
+        if (tr.hidden || tr.style.display === 'none') return;
+        if (tr.matches('tr.gx-grp, tr.cli-grp')) { if (ult) ult.classList.add('gc-fim'); tr.classList.add('gc-ini'); dentro = true; ult = tr; return; }
+        if (dentro) { tr.classList.add('gc-in'); ult = tr; }
+      });
+      if (ult) ult.classList.add('gc-fim');
+    });
+  }
   let _agendado = false;
   new MutationObserver(() => {
     if (_agendado) return; _agendado = true;
     requestAnimationFrame(() => { _agendado = false; try { converterTabelas(); } catch (e) { console.warn('[ERP] tabela Gestão:', e); }
-      try { marcarColunas(); } catch (e) { console.warn('[ERP] régua das tabelas:', e); } });
+      try { marcarColunas(); } catch (e) { console.warn('[ERP] régua das tabelas:', e); }
+      try { contornarGrupos(); } catch (e) { console.warn('[ERP] contorno dos grupos:', e); } });
   }).observe(document.documentElement, { childList: true, subtree: true });
 
   // ═════════════════ nova senha (link do e-mail) ═════════════════

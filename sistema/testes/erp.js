@@ -1236,6 +1236,10 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.evaluate(() => ERP_RECARREGAR()); await nav(p, 'parcelamentos'); await p.waitForTimeout(2000);
     await p.waitForSelector('#parcGuias [data-gd-empresa]', { timeout: 8000 }).catch(() => {});
     ok('Parcelamentos: quadro "Parcelamentos para emitir" com "Enviar por empresa"', /Parcelamentos para emitir/.test(await p.textContent('#parcGuias')) && !!(await p.$('#parcGuias [data-gd-empresa]')));
+    { await p.click('#parcGuias [data-gd-aba=emitir]'); await p.waitForTimeout(1200);
+      const temBloco = !!(await p.$('#parcGuias .gd-g .gd-g-hd'));
+      if (temBloco && !(await p.$('#parcGuias .gd-g [data-gd-emp]'))) { await p.click('#parcGuias .gd-g-hd >> nth=0'); await p.waitForTimeout(1200); }
+      ok('Parcelamentos para emitir: em blocos por grupo (clique abre), com "🧾 Emitir" por empresa', temBloco && !!(await p.$('#parcGuias .gd-g [data-gd-emp]'))); }
     await p.click('#parcGuias [data-gd-empresa]'); await p.waitForSelector('#gs-raiz .ge-janela'); await p.waitForTimeout(400);
     ok('Enviar por empresa: texto "Prezados," e WhatsApp ao lado de Enviar e-mail', /Prezados,/.test(await p.inputValue('#ge-texto')) && await p.evaluate(() => { const a = document.querySelector('#ge-zap'), b = document.querySelector('#ge-enviar'); return a && b && a.parentElement === b.parentElement; }));
     ok('Enviar por empresa: empresas agrupadas por grupo e texto neutro ("em nome de")', (await p.$$('#gs-raiz .ge-grp .ge-emp')).length > 0 && /em nome de /.test(await p.inputValue('#ge-texto')));
@@ -1248,6 +1252,18 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.waitForTimeout(1500);
     ok('Enviar por empresa: as parcelas enviadas saem do quadro', !/Parcela 78/.test(await p.textContent('#parcGuias')));
     sql("delete from parcelas where numero in ('77','78')");
+
+    // Backup 31: Rotina — "✓ Conferido" mesmo sem alterar; controle dos parcelamentos ("nós emitimos?" e planilha por mês)
+    await p.evaluate(() => nav(null, 'rotina')); await p.waitForSelector('#rt-pas-corpo [data-conferir]', { timeout: 10000 }); await p.waitForTimeout(500);
+    await p.click('#rt-pas-corpo [data-conferir] >> nth=0'); await p.waitForTimeout(1200);
+    ok('Rotina: "✓" registra a conferência da empresa (quem e quando), sem alterar nada', sql("select count(*) from rotina_conferencias where area='passivo' and not alterou") === '1' && /conferido/.test(await p.textContent('#rt-pas-corpo')));
+    await p.click('#rt-abas [data-rt-aba=parcs]'); await p.waitForSelector('#rt-parc-corpo [data-emit]', { timeout: 10000 }); await p.waitForTimeout(400);
+    const idEmit = await p.getAttribute('#rt-parc-corpo [data-emit] >> nth=0', 'data-emit');
+    await p.click('#rt-parc-corpo .rt-chave >> nth=0'); await p.waitForTimeout(1500);
+    ok('Controle dos parcelamentos: desligar "Nós emitimos?" marca que o cliente emite', sql("select emitimos_guia from parcelamentos where id='" + idEmit + "'") === 'f' &&
+      sql("select count(*) from rotina_conferencias where area='parcelamentos' and alterou") === '1');
+    ok('Controle dos parcelamentos: planilha com 6 meses e as parcelas', (await p.$$('#rt-corpo thead th.rt-mes')).length === 6 && (await p.$$('#rt-parc-corpo .rt-pc')).length > 0);
+    sql("update parcelamentos set emitimos_guia = true where id='" + idEmit + "'");
 
     // Backup 29: Relatório em PDF refeito (⋯ → Relatório em PDF)
     await p.click('#gs-hd .gs-bt-mais'); await p.click('#gs-hd [data-acao=pdf]'); await p.waitForSelector('#gs-raiz #rp-gerar');

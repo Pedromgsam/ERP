@@ -117,6 +117,25 @@ trocar("var vencidos=aberto.filter(function(f){ var d=_fcData(f); return d&&d<ho
   "var vencidos=" + semPeriodo('_FC', '_fcFiltrar', '[L.abaAberto]') + ".filter(function(f){ var d=pDate(f.vencimento); return d&&d<hoje; });", 1);
 trocar("  +   kC('Vencido',_faFT(vVenc),vencidos.length+' lançamento(s)','cr',vVenc>0?'dr':'')",
   "  +   kC('Em atraso',_faFT(vVenc),vencidos.length+' vencido(s) · todos os meses','cr',vVenc>0?'dr':'')", 2);
+// Backup 31: Processos → com UM grupo no filtro, a tabela "Grupo" vira "Entidade / sócio": cada empresa ou sócio do grupo com seus processos e valor
+trocar("   +'<div class=\"crow c3\">'+agrupa('grupo','Grupo')",
+  "   +'<div class=\"crow c3\">'+(g?_procEntidades(lista,g,val):agrupa('grupo','Grupo'))", 1);
+trocar("function renderProcAnalise(){",
+  "function renderProcAnalise(){\n  // Backup 31: entidade do processo = a parte (réu ou autor) que é cliente do grupo; sem cadastro, o réu\n" +
+  "  window._procEntidades=window._procEntidades||function(lista,g,val){\n" +
+  "    var norm=function(x){ return String(x||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]/g,''); };\n" +
+  "    var cad=(DB.baseDados||[]).filter(function(r){ return r.grupo===g; }), m={};\n" +
+  "    var achar=function(nome){ var n=norm(nome); if(!n) return null; return cad.find(function(r){ var c=norm(r.nome); return c && (c===n || n.indexOf(c)>=0 || c.indexOf(n)>=0); })||null; };\n" +
+  "    cad.forEach(function(r){ m[r.nome]={n:0,v:0,tipo:r.socioAdmin?'Empresa':''}; });\n" +
+  "    lista.forEach(function(p){ var r=achar(p.reu)||achar(p.autor), k=r?r.nome:(String(p.reu||p.autor||'').trim()||'Parte não informada');\n" +
+  "      if(!m[k]) m[k]={n:0,v:0}; m[k].n++; m[k].v+=val(p); });\n" +
+  "    var ks=Object.keys(m).filter(function(k){ return m[k].n>0; }).sort(function(a,b){ return m[b].v-m[a].v || m[b].n-m[a].n; });\n" +
+  "    return '<div><div class=\"tw\"><table data-proc-ent><thead><tr><th title=\"Empresas e sócios de '+esc(g)+'\">Entidade / sócio</th>'\n" +
+  "      +'<th style=\"text-align:right\">Processos</th><th style=\"text-align:right\">Valor</th></tr></thead><tbody>'\n" +
+  "      + ks.map(function(k){ return '<tr><td><strong>'+esc(k)+'</strong></td><td class=\"mono\" style=\"text-align:right\">'+m[k].n+'</td>'\n" +
+  "          +'<td class=\"mono\" style=\"text-align:right\">'+(m[k].v?_faFT(m[k].v):'—')+'</td></tr>'; }).join('')\n" +
+  "      + '</tbody></table></div></div>';\n" +
+  "  };", 1);
 // Backup 29: tabelas mostram TODOS os registros (sem "Pág. 1 de 5"); o rodapé fica só com o total
 trocar("const PG = 25;", "const PG = 1e9;   // Backup 29: sem páginas — todas as linhas", 1);
 trocar("  el.innerHTML=`<button class=\"pg-b\" onclick=\"(${onChange.toString()})(${pg-1})\" ${pg<=1?'disabled':''}>‹</button>\n    <span class=\"pg-i\">Pág. ${pg} de ${tPg} · ${fI(total)} registros</span>\n    <button class=\"pg-b\" onclick=\"(${onChange.toString()})(${pg+1})\" ${pg>=tPg?'disabled':''}>›</button>`;",
@@ -657,6 +676,20 @@ console.log('gestao-embutida.js e gs.css gerados');
 }
 console.log('index.html gerado: ' + trocas + ' ajustes, ' + Math.round(s.length / 1024) + ' KB');
 
+
+// 15b. Central de Documentos (Backup 32): mesma regra do carimbo (?v=) na página documentos/index.html (troca o carimbo antigo)
+{
+  const crypto = require('crypto'), pg = path.join(APP, 'documentos', 'index.html');
+  if (fs.existsSync(pg)) {
+    let h = fs.readFileSync(pg, 'utf8'), n = 0;
+    h = h.replace(/((?:src|href)=")((?:\.\.\/)?(?:vendor\/)?[\w.-]+\.(?:js|css))(?:\?v=\w+)?(")/g, (m, a2, f, z) => {
+      const real = path.join(APP, 'documentos', f);
+      if (/config\.js$/.test(f) || !fs.existsSync(real)) return a2 + f + z;
+      n++; return a2 + f + '?v=' + crypto.createHash('sha1').update(fs.readFileSync(real)).digest('hex').slice(0, 8) + z;
+    });
+    fs.writeFileSync(pg, h); console.log('documentos/index.html: carimbo em ' + n + ' arquivos');
+  }
+}
 
 // 16. Geradores de documentos (Backup 16): páginas separadas em app/geradores/, com a ponte do ERP
 require('./montar-geradores').montar();

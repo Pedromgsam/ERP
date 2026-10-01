@@ -6121,3 +6121,163 @@ language sql stable security definer set search_path = public as $$
 $$;
 revoke all on function public.emissao_emails(text, uuid[]) from public, anon;
 grant execute on function public.emissao_emails(text, uuid[]) to authenticated;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- Backup 31 — Rotina: "✓ Conferido" (mesmo sem alterar) + última alteração por empresa/parcelamento;
+-- parcelamentos: marcar "nós emitimos a guia" por parcelamento ou pelo grupo inteiro
+-- ═══════════════════════════════════════════════════════════════════
+create table if not exists public.rotina_conferencias (
+  id bigint generated always as identity primary key,
+  area text not null check (area in ('passivo', 'parcelamentos')),
+  registro_id uuid not null,
+  alterou boolean not null default false,
+  usuario_id uuid default auth.uid(),
+  quem text not null default '',
+  quando timestamptz not null default now()
+);
+create index if not exists rotina_conferencias_reg on public.rotina_conferencias (area, registro_id, quando desc);
+alter table public.rotina_conferencias enable row level security;
+revoke all on public.rotina_conferencias from anon;
+revoke insert, update, delete on public.rotina_conferencias from authenticated;
+grant select on public.rotina_conferencias to authenticated;
+drop policy if exists rotina_conferencias_ver on public.rotina_conferencias;
+create policy rotina_conferencias_ver on public.rotina_conferencias for select to authenticated using (public.eh_equipe());
+
+-- registra que a pessoa foi até a linha (alterou = salvou mudança; false = conferiu e o dado continua certo)
+create or replace function public.conferir_rotina(p_area text, p_ids uuid[], p_alterou boolean default false) returns int
+language plpgsql security definer set search_path = public as $$
+declare quem text; n int;
+begin
+  if p_area = 'passivo' and not public.pode('clientes', 'editar') then raise exception 'permission denied: sem acesso para conferir o passivo.'; end if;
+  if p_area = 'parcelamentos' and not public.pode('juridico', 'editar') then raise exception 'permission denied: sem acesso para conferir parcelamentos.'; end if;
+  if p_area not in ('passivo', 'parcelamentos') then raise exception 'Área inválida.'; end if;
+  select coalesce(nullif(nome, ''), email, '') into quem from public.perfis where id = auth.uid();
+  insert into public.rotina_conferencias (area, registro_id, alterou, quem)
+  select p_area, x, coalesce(p_alterou, false), coalesce(quem, '') from unnest(coalesce(p_ids, '{}')) x;
+  get diagnostics n = row_count;
+  return n;
+end $$;
+revoke all on function public.conferir_rotina(text, uuid[], boolean) from public, anon;
+grant execute on function public.conferir_rotina(text, uuid[], boolean) to authenticated;
+
+-- por linha: quando foi conferida por último (e por quem, e se mudou algo) e quando o dado mudou por último (histórico)
+create or replace function public.rotina_situacao(p_area text)
+returns table (registro_id uuid, conferido_em timestamptz, conferido_por text, conferido_alterou boolean, alterado_em timestamptz, alterado_por text)
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not public.eh_equipe() then raise exception 'permission denied'; end if;
+  return query
+  with conf as (
+    select distinct on (c.registro_id) c.registro_id, c.quando, c.quem, c.alterou
+      from public.rotina_conferencias c where c.area = p_area order by c.registro_id, c.quando desc
+  ), alt as (
+    select distinct on (h.registro_id) h.registro_id, h.quando, coalesce(nullif(pf.nome, ''), pf.email, '') quem
+      from public.historico h left join public.perfis pf on pf.id = h.usuario
+     where h.acao = 'UPDATE' and h.tabela = case when p_area = 'passivo' then 'clientes' else 'parcelamentos' end
+       and (p_area <> 'passivo' or exists (select 1 from unnest(array['rfb','rfb_negociada','pgfn','pgfn_negociada','age_mg','age_mg_negociada','sefaz_mg','ceat_trt3','em_operacao','procuracao','certificado','capag']) k
+                                            where (h.antes->k) is distinct from (h.depois->k)))
+     order by h.registro_id, h.quando desc
+  )
+  select coalesce(conf.registro_id, alt.registro_id), conf.quando, conf.quem, conf.alterou, alt.quando, alt.quem
+    from conf full join alt on alt.registro_id = conf.registro_id;
+end $$;
+revoke all on function public.rotina_situacao(text) from public, anon;
+grant execute on function public.rotina_situacao(text) to authenticated;
+
+-- "nós emitimos a guia?" para vários parcelamentos de uma vez (um parcelamento ou o grupo inteiro)
+create or replace function public.parcelamentos_emitimos(p_ids uuid[], p_emitimos boolean) returns int
+language plpgsql security definer set search_path = public as $$
+declare n int;
+begin
+  if not public.pode('juridico', 'editar') then raise exception 'permission denied: sem acesso para alterar parcelamentos.'; end if;
+  update public.parcelamentos set emitimos_guia = coalesce(p_emitimos, true) where id = any (coalesce(p_ids, '{}')) and emitimos_guia is distinct from coalesce(p_emitimos, true);
+  get diagnostics n = row_count;
+  return n;
+end $$;
+revoke all on function public.parcelamentos_emitimos(uuid[], boolean) from public, anon;
+grant execute on function public.parcelamentos_emitimos(uuid[], boolean) to authenticated;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- Backup 32 — Central de Documentos (sistema à parte em /documentos): procuração, substabelecimento, contrato de honorários,
+-- recibo, declaração e acordo. Guarda o que foi preenchido (para reabrir/duplicar) e o texto final; numeração por tipo e ano.
+-- ═══════════════════════════════════════════════════════════════════
+create table if not exists public.documentos_gerados (
+  id uuid primary key default gen_random_uuid(),
+  modelo text not null,
+  numero text not null default '',
+  titulo text not null default '',
+  cliente_id uuid references public.clientes(id) on delete set null,
+  grupo_id uuid references public.grupos(id) on delete set null,
+  dados jsonb not null default '{}',
+  html text not null default '',
+  editado boolean not null default false,
+  criado_por uuid default auth.uid(),
+  autor text not null default '',
+  criado_em timestamptz not null default now(),
+  atualizado_em timestamptz not null default now()
+);
+create index if not exists documentos_gerados_cli on public.documentos_gerados (cliente_id, criado_em desc);
+create index if not exists documentos_gerados_mod on public.documentos_gerados (modelo, criado_em desc);
+alter table public.documentos_gerados enable row level security;
+revoke all on public.documentos_gerados from anon;
+grant select, insert, update, delete on public.documentos_gerados to authenticated;
+drop policy if exists documentos_gerados_ver on public.documentos_gerados;
+create policy documentos_gerados_ver on public.documentos_gerados for select to authenticated using (public.eh_equipe());
+drop policy if exists documentos_gerados_criar on public.documentos_gerados;
+create policy documentos_gerados_criar on public.documentos_gerados for insert to authenticated with check (public.eh_equipe());
+drop policy if exists documentos_gerados_editar on public.documentos_gerados;
+create policy documentos_gerados_editar on public.documentos_gerados for update to authenticated using (public.eh_equipe()) with check (public.eh_equipe());
+drop policy if exists documentos_gerados_apagar on public.documentos_gerados;
+create policy documentos_gerados_apagar on public.documentos_gerados for delete to authenticated using (public.eh_admin() or criado_por = auth.uid());
+create or replace function public.documentos_gerados_carimbo() returns trigger language plpgsql set search_path = public as $$
+begin
+  new.atualizado_em := now();
+  if tg_op = 'INSERT' and coalesce(new.autor, '') = '' then
+    select coalesce(nullif(nome, ''), email, '') into new.autor from public.perfis where id = auth.uid();
+  end if;
+  return new;
+end $$;
+drop trigger if exists documentos_gerados_carimbo on public.documentos_gerados;
+create trigger documentos_gerados_carimbo before insert or update on public.documentos_gerados for each row execute function public.documentos_gerados_carimbo();
+
+-- numeração por tipo e ano (REC 2026/0001): só avança quando o documento é salvo
+create table if not exists public.documentos_numeracao (
+  modelo text not null, ano int not null, ultimo int not null default 0, primary key (modelo, ano));
+alter table public.documentos_numeracao enable row level security;
+revoke all on public.documentos_numeracao from anon, authenticated;
+grant select on public.documentos_numeracao to authenticated;          -- leitura (o backup lê todas as tabelas); gravar, só pela função
+drop policy if exists documentos_numeracao_ver on public.documentos_numeracao;
+create policy documentos_numeracao_ver on public.documentos_numeracao for select to authenticated using (public.eh_equipe());
+create or replace function public.proximo_numero_documento(p_modelo text) returns text
+language plpgsql security definer set search_path = public as $$
+declare a int := extract(year from now())::int; n int;
+begin
+  if not public.eh_equipe() then raise exception 'permission denied'; end if;
+  insert into public.documentos_numeracao (modelo, ano, ultimo) values (p_modelo, a, 1)
+  on conflict (modelo, ano) do update set ultimo = public.documentos_numeracao.ultimo + 1
+  returning ultimo into n;
+  return a || '/' || lpad(n::text, 4, '0');
+end $$;
+revoke all on function public.proximo_numero_documento(text) from public, anon;
+grant execute on function public.proximo_numero_documento(text) to authenticated;
+
+-- advogados e dados do escritório usados nos documentos (editáveis na Central de Documentos → Escritório)
+insert into public.configuracoes (chave, valor) values ('documentos_escritorio', jsonb_build_object(
+  'cidade', 'Santo Antônio do Monte/MG',
+  'foro', 'Santo Antônio do Monte/MG',
+  'email', 'araujocastroadvocacia@gmail.com',
+  'advogados', jsonb_build_array(
+    jsonb_build_object('id', 'pedro', 'nome', 'Pedro Henrique de Oliveira Castro', 'oab', 'OAB/MG 228.471', 'nacionalidade', 'brasileiro', 'estado_civil', '', 'genero', 'm',
+      'endereco', 'Rua Araucária, n. 231, Coronel Luciano, Lagoa da Prata/MG, CEP 35.591-218', 'telefone', '(37) 99868-4323', 'email', 'araujocastroadvocacia@gmail.com', 'cpf', '', 'pix', '', 'banco', ''),
+    jsonb_build_object('id', 'emanuelle', 'nome', 'Emanuelle Oliveira Araujo', 'oab', 'OAB/MG 240.369', 'nacionalidade', 'brasileira', 'estado_civil', '', 'genero', 'f',
+      'endereco', 'Rua Sebastião Gontijo, n. 66, Centro, Santo Antônio do Monte/MG, CEP 35.560-000', 'telefone', '(37) 99856-4020', 'email', 'araujocastroadvocacia@gmail.com', 'cpf', '', 'pix', '', 'banco', ''),
+    jsonb_build_object('id', 'adriana', 'nome', 'Adriana Fátima Araujo Borges', 'oab', 'OAB/MG 123.438', 'nacionalidade', 'brasileira', 'estado_civil', '', 'genero', 'f',
+      'endereco', 'Rua Sebastião Gontijo, n. 66, Centro, Santo Antônio do Monte/MG, CEP 35.560-000', 'telefone', '(37) 99828-9996', 'email', 'araujocastroadvocacia@gmail.com', 'cpf', '', 'pix', '', 'banco', ''))))
+on conflict (chave) do nothing;
+create or replace function public.salvar_documentos_escritorio(p jsonb) returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not public.eh_admin() then raise exception 'Só o administrador altera os dados do escritório.'; end if;
+  insert into public.configuracoes (chave, valor) values ('documentos_escritorio', p) on conflict (chave) do update set valor = excluded.valor;
+end $$;
+revoke all on function public.salvar_documentos_escritorio(jsonb) from public, anon;
+grant execute on function public.salvar_documentos_escritorio(jsonb) to authenticated;

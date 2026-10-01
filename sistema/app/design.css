@@ -742,3 +742,37 @@ body.gx-barra-topo .janela :is(.tw,.tabela-wrap){max-height:60vh}
 .gd-jan-v .ge-vbox{width:170px;letter-spacing:0;text-transform:none}
 .gd-jan-v .ge-rs{font-size:12px;letter-spacing:0}
 #gs-raiz .gd-jan-v{gap:4px}
+/* ═══ Backup 31 — contorno azul em volta de cada grupo (tabelas agrupadas: Painel, Processos, Rotina, Clientes; listas por grupo) ═══ */
+body.gx-barra-topo :is(tr.gc-ini,tr.gc-in) > td:first-child{box-shadow:inset 2px 0 0 var(--primario)!important}
+body.gx-barra-topo :is(tr.gc-ini,tr.gc-in) > td:last-child{box-shadow:inset -2px 0 0 var(--primario)!important}
+body.gx-barra-topo tr.gc-ini > td{border-top:2px solid var(--primario)!important}
+body.gx-barra-topo tr.gc-ini > td:only-child{box-shadow:inset 2px 0 0 var(--primario),inset -2px 0 0 var(--primario)!important}
+body.gx-barra-topo tr.gc-fim > td{border-bottom:2px solid var(--primario)!important}
+body.gx-barra-topo tr.gc-ini > td{background:var(--blue-lt)!important}
+body.gx-barra-topo tr.gc-ini + tr > td{border-top:0}
+body.gx-barra-topo tr.gc-fim + tr.gc-ini > td{border-top-width:2px}
+body.gx-barra-topo table:has(tr.gc-ini){border-collapse:separate;border-spacing:0}
+body.gx-barra-topo .lg-g{border:1.5px solid var(--primario);border-radius:var(--card-r);margin:6px 6px;overflow:hidden}
+body.gx-barra-topo details.doc-pasta{border:1.5px solid var(--primario)!important;border-radius:var(--card-r)}
+/* ═══ Backup 31 — "Parcelamentos/Acordos para emitir" em blocos: grupo (contorno azul, clique abre) › empresa (🧾 Emitir) › parcelas; mais compacto ═══ */
+.gd-card .card-bd{padding-top:10px}
+.gd-abas{margin-bottom:8px}
+.gd-grupos{display:flex;flex-direction:column;gap:6px}
+.gd-g{border:1.5px solid var(--primario);border-radius:10px;overflow:hidden;background:var(--surface)}
+.gd-g-hd{display:flex;align-items:center;gap:10px;width:100%;padding:8px 12px;border:0;background:var(--surface);cursor:pointer;font:inherit;color:var(--ink);text-align:left}
+.gd-g-hd:hover{background:var(--surface2)}
+.gd-g-aberto > .gd-g-hd{background:var(--blue-lt);border-bottom:1px solid var(--border)}
+.gd-g-hd b{font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink)}
+.gd-g-seta{width:18px;color:var(--ink)}
+.gd-g-tot{margin-left:auto;font-weight:700;font-variant-numeric:tabular-nums}
+.gd-g-hd:focus-visible{outline:2px solid var(--primario);outline-offset:-2px}
+.gd-g-corpo{padding:6px 10px 10px;display:flex;flex-direction:column;gap:8px}
+.gd-emp{display:flex;flex-direction:column;gap:4px}
+.gd-emp-hd{display:flex;align-items:center;gap:10px;padding:4px 2px 0}
+.gd-emp-hd b{font-size:13px;text-transform:uppercase;color:var(--ink)}
+.gd-emp-hd .btn{margin-left:auto}
+.gd-g .gd-it{padding:6px 10px;gap:10px;border-radius:8px;grid-template-columns:88px minmax(0,1fr) 110px minmax(150px,auto) auto}
+.gd-g .gd-quem{font-size:12.5px;color:var(--text2)}
+.gd-g .gd-venc-d b{font-size:13px}
+.gd-g .gd-val{font-size:13px}
+@media (max-width:900px){.gd-g .gd-it{grid-template-columns:1fr auto}}

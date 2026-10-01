@@ -605,3 +605,59 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
 **Para os e-mails saírem de verdade:** (1) a função `erp-emails` publicada (Supabase → Edge Functions; Verify JWT desligado);
 (2) a conta de e-mail configurada (E-mails → Configuração); (3) a **pausa** desligada — ou o destinatário na lista de **🧪 e-mails de teste**;
 retidos saem em **E-mails → Fila → Liberar**.
+
+## Backup 31 — contorno azul nos grupos, conferência na Rotina, controle dos parcelamentos e guias em blocos (tem SQL, nenhuma função)
+Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+Shift+R**.
+
+**Geral:** cada grupo das tabelas agrupadas (Painel Executivo, Processos, Rotina, Clientes por grupo, Parcelamentos/Acordos) fica dentro de
+um **contorno azul**.
+
+**Jurídico → Processos:** escolhendo **um grupo** no filtro de cima, a tabela "Grupo" da análise vira **"Entidade / sócio"**: cada empresa ou sócio
+do grupo com o número de processos e o valor (a entidade é a parte — réu ou autor — que é cliente do grupo).
+
+**Rotina:**
+- **Passivo e cadastro:** coluna **Conferência** logo depois da empresa: "✓ conferido dd/mm · quem" ou "✎ alterado dd/mm", e a data da última
+  alteração ("alt."). O botão **✓** registra que a pessoa foi até a linha e o dado continua certo (sem mudar nada). Salvar alterações registra
+  "alterado". Mais de 30 dias sem conferir fica amarelo; nunca conferido, vermelho.
+- **Processos:** botão **✓ Sem novidade** (um clique) e a coluna "Conferido em" mostra quem conferiu e se foi "sem novidade" ou "com alteração".
+- Aba nova **📋 Controle dos parcelamentos:** grupo › parcelamento com a chave **"Nós emitimos?"** (por parcelamento) e, na linha do grupo,
+  **"Nós emitimos: todas do grupo / nenhuma"**. Ao lado, a **planilha por mês** (6 meses, ‹ › para andar): ✓ paga · E guia emitida · • a emitir ·
+  ! vencida sem pagamento — clique na parcela para emitir, desmarcar a emissão ou dar baixa. Também tem a conferência (✓) por parcelamento.
+
+**Parcelamentos/Acordos para emitir:** em **blocos por grupo** (clique no grupo para abrir; se houver um só, já abre), dentro de cada grupo as
+empresas com o botão **🧾 Emitir** (abre o e-mail com as guias daquela empresa) e as parcelas com a legenda de sempre ("Parcela 2/85 · FGTS ·
+Caixa · nº …"). Atraso por parcelamento, discreto: "1 em atraso" (rosa) ou "2 em atraso · risco de rescisão" (vermelho). "✉ Enviar por empresa"
+continua no alto, à direita. Linhas mais baixas (quadro menor).
+
+**Versão anterior guardada:** `backups/Backup 30 - Guias com destinatario unico, situacao do e-mail e empresas por grupo.zip` (antes destas mudanças).
+
+## Backup 32 — Central de Documentos (feita do zero): procuração, substabelecimento, contrato, recibo, declaração e acordo (tem SQL)
+Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+Shift+R**. Nenhuma Edge Function mudou.
+
+**Onde fica:** ERP → **⋯ → 📄 Documentos** (ou a ficha do cliente → Documentos; contrato e CRM → "Gerar contrato"; Financeiro → recebimento →
+**📄 Recibo**). Abre numa aba à parte: `.../documentos/` — mesmo login do ERP.
+
+**Como usa:**
+1. À esquerda, escolha o modelo: **Procuração, Substabelecimento, Contrato de honorários, Recibo, Declaração, Acordo entre partes**.
+2. No formulário, **🔎 Buscar cliente cadastrado**: puxa razão social/nome, CPF/CNPJ, endereço e sócio-administrador. Confira e complete.
+3. À direita, a **folha A4 ao vivo** (logo no alto, banda institucional no rodapé, Times New Roman, cláusulas no padrão do escritório).
+   O que falta preencher aparece em **amarelo** e o contador "N campos a preencher" fica no alto.
+4. **✎ Ajustar texto** para escrever direto na folha (Ctrl+B = negrito). **💾 Salvar** guarda no **Histórico** (recibo ganha número:
+   REC 2026/0001, 0002…). **⎙ PDF** abre a página para "Salvar em PDF"; **⬇ Word** baixa o .docx com a logo e o rodapé.
+5. **🗂 Histórico**: buscar, **Abrir**, **Duplicar** (faz outro igual; recibo ganha número novo) e apagar.
+6. **🏛 Escritório** (só administrador): nome/OAB/endereço profissional dos advogados, CNPJ e razão social (recibos), cidade e foro padrão.
+
+**Modelos:**
+- **Procuração:** ad judicia et extra com os poderes especiais padrão; finalidade em negrito no fim (processo, Receita/PGFN/SEFAZ, processo
+  administrativo, Junta/cartórios, ampla ou texto livre); poderes extras opcionais; um ou mais advogados.
+- **Substabelecimento:** com ou sem reserva; do escritório para outro advogado ou recebido.
+- **Contrato de honorários:** objeto + atividades + exclusão padrão + ressalva; honorários combináveis (fixo, entrada + parcelas, salários mínimos,
+  mensalidade, êxito com a base definida); rescisão, obrigações e disposições gerais fixas; Anexo I (tabela por matéria) opcional; testemunhas.
+  Vindo de um contrato do ERP, já traz valor, parcelas, mensalidade e % de êxito.
+- **Recibo:** numerado, valor por extenso, quem paga, quem recebe (escritório ou advogado), forma e data. Vindo do Financeiro, já preenchido.
+- **Declaração:** hipossuficiência (justiça gratuita), residência ou texto livre.
+- **Acordo entre partes:** credor/devedor (ou outro par), dívida, valor do acordo (mostra o desconto), à vista ou parcelado, dados bancários,
+  inadimplemento com multa e execução, quitação (e homologação nos autos quando houver processo), assinaturas lado a lado.
+
+O gerador antigo de **contrato e procuração** saiu dos menus (o arquivo continua no site só como consulta). Petição, solicitação de documentos,
+proposta e modelos de e-mail continuam em ⋯ → Documentos → "Outros geradores".
