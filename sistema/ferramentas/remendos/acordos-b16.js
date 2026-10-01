@@ -35,12 +35,8 @@ function _acordosAnalise(ac){
   var vis=_acVisSeg();
   var linhas=_lgRender({itens:itens, porEmpresa:!!(typeof FILTROS!=='undefined'&&FILTROS.grupo), porGrupo:true, abertos:_acGrpAbertos, fnGrupo:'_acAbrirGrupo', fnItem:'_acAbrir', rotulo:'acordo', cab:'Grupo / acordo'});
   el.innerHTML=exBloco('exAcSit','Situação dos acordos',
-    '<div class="kpi-grid" style="margin-bottom:14px">'
-   + kC('Já pago',_faFT(soma(ac.filter(pago))),ac.filter(pago).length+' parcela(s)','cg','dg')
-   + kC('Falta pagar',_faFT(soma(ac.filter(function(a){return !pago(a);}))),lista.filter(function(g){return g.falta>0;}).length+' acordo(s) em aberto','ca','')
-   + kC('Vence este mês',_faFT(soma(ac.filter(noMes))),ac.filter(noMes).length+' parcela(s) até '+fimMes.toLocaleDateString('pt-BR').slice(0,5),'cb','')
-   + kC('Em atraso',_faFT(soma(ac.filter(atrasada))),ac.filter(atrasada).length+' parcela(s) vencida(s)','cr',ac.some(atrasada)?'dr':'')
-   + '</div>'
+    '<div class="lg-resumo"><span>Já pago <b class="lg-verde">'+_faFT(soma(ac.filter(pago)))+'</b></span><span>Falta <b>'+_faFT(soma(ac.filter(function(a){return !pago(a);})))+'</b></span>'
+   + '<span>Vence este mês <b>'+_faFT(soma(ac.filter(noMes)))+'</b></span><span>Em atraso <b'+(ac.some(atrasada)?' class="lg-vermelho"':'')+'>'+_faFT(soma(ac.filter(atrasada)))+'</b> <small>'+ac.filter(atrasada).length+' parcela(s)</small></span></div>'
    + '<div class="gx-tab-topo"><div class="pa-sub">Acordos em andamento</div><div class="pcx-ctl">'+vis+_acCaixaTodos()+'</div></div>'
    + linhas);
 }
@@ -52,11 +48,12 @@ function _acAbrir(k){
   var g=_acLISTA.find(function(x){ return x.k===k; }); if(!g||!window.GS||!GS.abrirJanela) return;
   var F=_acFns, kp=function(r,val,c){ return '<div class="pcd-kpi'+(c?' '+c:'')+'"><span>'+r+'</span><b>'+val+'</b></div>'; };
   var j=GS.abrirJanela({ titulo:'Acordo — '+(g.a.devedor||''), larga:true,
-    corpo:'<div class="pcd"><div class="pcd-hd"><div><div class="pcd-emp">'+esc(g.a.devedor||'—')+'</div><div class="sub">deve a <b>'+esc(g.a.credor||'—')+'</b>'+(g.a.processo?' · processo '+esc(g.a.processo):'')+(g.a.grupo?' · '+esc(g.a.grupo):'')+'</div></div>'
-      +'<div>'+_lgSit(g.atr,g.atr>=2,g.falta<=0)+'</div></div>'
-      +'<div class="pcd-kpis">'+kp('Parcelas pagas',g.pagas+' de '+g.l.length)+kp('Já pago',_faFT(g.pago),'verde')+kp('Falta pagar',_faFT(g.falta))
-        +kp('Próxima parcela',g.prox?esc(g.prox.vencimento||'—'):'—')+(g.atr?kp('Em atraso',g.atr+' parcela'+(g.atr>1?'s':''),'vermelho'):'')+'</div>'
-      +(g.a.responsavel||g.l[0].pix||g.l[0].banco?'<div class="acx-info">'+[g.a.responsavel?'Responsável: <b>'+esc(g.a.responsavel)+'</b>':'',g.l[0].pix?'PIX: <b>'+esc(g.l[0].pix)+'</b>':'',g.l[0].banco?'Banco: <b>'+esc(g.l[0].banco)+'</b>':''].filter(Boolean).join(' · ')+'</div>':'')
+    // Backup 35: dados em grade alinhada (mesmo desenho do parcelamento) e 5 números do mesmo tamanho
+    corpo:'<div class="pcd"><div class="pcd-hd"><div><div class="pcd-emp">'+esc(g.a.devedor||'—')+'</div><div class="sub">'+esc(g.a.grupo||'')+'</div></div><div>'+_lgSit(g.atr,g.atr>=2,g.falta<=0)+'</div></div>'
+      +_lgFicha([['Devedor',esc(g.a.devedor||'—')],['Credor',esc(g.a.credor||'—')],['Processo',esc(g.a.processo||'')],['Grupo',esc(g.a.grupo||'')],
+         ['Responsável',esc(g.a.responsavel||'')],['PIX',esc(g.l[0].pix||'')],['Banco',esc(g.l[0].banco||'')]])
+      +'<div class="pcd-kpis pcd-kpis5">'+kp('Parcelas pagas',g.pagas+' de '+g.l.length)+kp('Já pago',_faFT(g.pago),'verde')+kp('Falta pagar',_faFT(g.falta))
+        +kp('Próxima parcela',g.prox?esc(g.prox.vencimento||'—'):'—')+kp('Em atraso',g.atr?g.atr+' parcela'+(g.atr>1?'s':''):'nenhuma',g.atr?'vermelho':'')+'</div>'
       +'<div class="pcd-tit">Parcelas</div>'+_lgParcTabela(g.l.map(function(a){ return {id:a._id, rot:(a.parcela||'?')+(a.totalParc?'/'+a.totalParc:''), venc:a.vencimento, valor:F.v(a),
           pago:F.pago(a), dataPag:a.dataPag, emitida:!!a.emitidaEm||/sim|emitid/i.test(a.emissao||''), emitidaEm:a.emitidaEm}; }),'acordos')+'</div>' });
   j.querySelectorAll('[data-lg-pagar]').forEach(function(b){ b.onclick=function(){ GS.fecharJanela(j); _acPagar(b.dataset.lgPagar,b); }; });

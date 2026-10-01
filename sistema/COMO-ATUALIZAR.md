@@ -711,3 +711,22 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
 
 **Central de Documentos dentro do ERP:** menu **Documentos → Gerar documento** (ou ⋯ → Documentos, contrato, recibo do Financeiro).
 **Ctrl + clique** (ou botão do meio do mouse) em qualquer item do menu ou link de documento abre numa aba nova.
+
+## Backup 35 — mais simples: cartões por grupo, Acordos em uma aba, planilha de parcelamentos (teste), evolução por grupo, processos com movimentações (tem SQL)
+Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+Shift+R**. Nenhuma Edge Function mudou.
+
+- **Painel Executivo:** "Evolução do passivo" com uma linha por grupo; com um grupo no filtro do topo, uma linha por empresa; "Tudo junto" soma numa linha.
+  As tabelas agrupadas (Painel, Clientes, Processos…) ganham o contorno completo do grupo (dos dois lados).
+- **Processos:** a janela do processo mostra as 3 últimas movimentações e "Valor da causa … · atualizado em dd/mm/aaaa" (data própria do valor).
+- **Parcelamentos e Acordos — Situação:** os números viram uma faixa só e a lista vira **cartões por grupo** (com grupo filtrado: por empresa).
+  Clique no cartão → os itens abrem logo abaixo; clique no item → a ficha (dados alinhados) e as parcelas com **＋ Lançar pagamento**.
+- **Acordos:** uma aba só **A pagar** (vencidas + a vencer, até alguém dar o pagamento) com Grupo e Responsável, botão **🧾 Boleto** em cada parcela e
+  caixinhas para marcar várias e **✉ Enviar por empresa**. A aba "Pago" continua.
+- **Rotina → Controle dos parcelamentos:** os quadradinhos agora dizem **Emitiu / Pagou**, há um passo a passo no alto e o **valor residual** de cada parcelamento.
+- **Rotina → 🧪 Planilha de parcelamentos (teste):** igual à planilha do escritório (uma aba por grupo, um bloco por parcelamento com Nome, CPF/CNPJ,
+  Local, Natureza, Nº, Total, Pagas, Valor da última parcela, Valor residual, Emitimos, Obs. e a lista Parcela · Vencimento · Emissão · Pagamento).
+  Botão **🧾 Emitir guias — em atraso + vencem neste mês** abre o envio por empresa. Se não gostar, é só pedir para apagar.
+- **Publicações:** filtro por advogado em botões (nomes das OABs cadastradas em Monitoramento); número do tribunal legível no botão escuro.
+- **Gerar documento:** os modelos ficam numa barra no alto (o formulário ganha espaço). O PDF já sai com logo e rodapé em todas as páginas.
+- **E-mails:** tela mais simples — uma faixa com a pausa e os e-mails de teste, 3 abas (E-mails · Quem recebe · Ajustes) e "Meus avisos" no alto.
+- **Geral:** cartões, títulos e números um pouco menores.

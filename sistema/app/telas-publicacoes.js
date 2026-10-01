@@ -37,9 +37,11 @@ TELAS.publicacoes = async function () {
     '<div class="acoes"><button class="btn btn-o" id="pub-oabs">⚙ Monitoramento (OABs e clientes)</button><button class="btn btn-o" id="pub-nav" title="Busca direto do seu computador — use se o servidor não conseguir falar com o CNJ">🌐 Buscar pelo navegador</button><button class="btn btn-p" id="pub-buscar">↻ Buscar agora</button></div></div>' +
     '<div class="filtros"><div class="segmento" id="pub-st">' + [['nova', 'Novas'], ['lida', 'Lidas'], ['tratada', 'Tratadas'], ['descartada', 'Descartadas'], ['', 'Todas']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<select class="busca sel" id="pub-dias"><option value="7">Últimos 7 dias</option><option value="30">Últimos 30 dias</option><option value="90">Últimos 90 dias</option><option value="">Todo o período</option></select>' +
-    '<select class="busca sel" id="pub-adv"><option value="">Todos os advogados</option></select>' +
+
     '<input class="busca" id="pub-busca" placeholder="Buscar no texto, processo ou parte" autocomplete="off"></div>' +
     // Backup 21: tribunais como filtro de botões — só os que têm publicação pendente (nova ou lida) no período
+    // Backup 35: filtro por advogado (os nomes cadastrados em Monitoramento → OABs) em botões, como os tribunais
+    '<div class="filtros pub-trib-linha"><div class="segmento" id="pub-advs" role="group" aria-label="Advogado"></div></div>' +
     '<div class="filtros pub-trib-linha"><div class="segmento" id="pub-trib" role="group" aria-label="Tribunal"></div></div><div id="pub-corpo"><div class="carregando">Carregando…</div></div>';
   $('pub-oabs').onclick = () => janelaOabs();
   $('pub-buscar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
@@ -53,7 +55,8 @@ TELAS.publicacoes = async function () {
   $('pub-nav').onclick = (ev) => comBotao(ev.currentTarget, async () => { await buscarPubNoNavegador(); await TELAS.publicacoes(); });
   $('pub-st').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.status = b.dataset.v; pintarPublicacoes(); } };
   $('pub-trib').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.tribunal = b.dataset.v; pintarPublicacoes(); } };
-  [['pub-dias', 'dias'], ['pub-adv', 'adv']].forEach(([id, k]) => { $(id).onchange = (ev) => { F[k] = ev.target.value; if (k === 'dias') carregarPublicacoes(); else pintarPublicacoes(); }; });
+  $('pub-dias').onchange = (ev) => { F.dias = ev.target.value; carregarPublicacoes(); };
+  $('pub-advs').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.adv = b.dataset.v; pintarPublicacoes(); } };
   $('pub-dias').value = F.dias; $('pub-busca').value = F.busca;
   let t; $('pub-busca').oninput = (ev) => { clearTimeout(t); t = setTimeout(() => { F.busca = ev.target.value; pintarPublicacoes(); }, 250); };
   q(sb.from('configuracoes').select('valor').eq('chave', 'publicacoes_ultima').maybeSingle()).then((u) => {
@@ -81,7 +84,8 @@ async function carregarPublicacoes() {
   E._pubs = await buscarTodos(() => { let c = sb.from('publicacoes').select('id, data_disponibilizacao, tribunal, orgao, tipo, processo, processo_numero, classe, texto, link, destinatarios, polos:bruto->destinatarios, advogados, oab_numero, oab_uf, advogado, parte_monitorada, processo_id, status, tarefa_id')
     .order('data_disponibilizacao', { ascending: false, nullsFirst: false }); if (F.dias) c = c.gte('data_disponibilizacao', somarDias(hojeISO(), -Number(F.dias))); return c; });
   const opts = (id, vals, rot) => { const s = $(id); if (!s) return; const v = s.value; s.innerHTML = '<option value="">' + rot + '</option>' + [...new Set(vals.filter(Boolean))].sort().map((x) => '<option>' + esc(x) + '</option>').join(''); s.value = v; };
-  opts('pub-adv', E._pubs.map((p) => p.advogado), 'Todos os advogados');
+  void opts;
+  E._pubAdvs = await q(sb.from('oabs_monitoradas').select('advogado')).then((l) => l.map((o) => o.advogado)).catch(() => []);
   pintarPublicacoes();
 }
 function pintarPublicacoes() {
@@ -97,7 +101,15 @@ function pintarPublicacoes() {
   if (st) { st.parentNode.hidden = !tribs.length;
     st.innerHTML = '<button type="button" data-v="" class="' + (F.tribunal ? '' : 'ativo') + '">Todos os tribunais</button>' +
       tribs.map((t) => '<button type="button" data-v="' + esc(t) + '" class="' + (F.tribunal === t ? 'ativo' : '') + '" title="' + pend[t] + ' pendente(s)">' + esc(t) + ' <span class="seg-n">' + pend[t] + '</span></button>').join(''); }
-  const lista = todas.filter((p) => (!F.status || p.status === F.status) && (!F.adv || p.advogado === F.adv) && (!F.tribunal || p.tribunal === F.tribunal) &&
+  const pn = (n) => normalizar(String(n || '').trim().split(/\s+/)[0] || '');
+  const doAdv = (p, n) => { const k = pn(n); return !!k && (pn(p.advogado) === k || normalizar(p.advogados || '').split(/[;,]/).some((x) => pn(x) === k)); };
+  const nomesAdv = [...new Set((E._pubAdvs || []).concat(todas.map((p) => p.advogado)).filter(Boolean).map((n) => String(n).trim().split(/\s+/)[0]))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  if (F.adv && !nomesAdv.includes(F.adv)) F.adv = '';
+  const sa = $('pub-advs');
+  if (sa) { sa.parentNode.hidden = !nomesAdv.length;
+    sa.innerHTML = '<button type="button" data-v="" class="' + (F.adv ? '' : 'ativo') + '">Todos os advogados</button>' + nomesAdv.map((n) => { const c = todas.filter((p) => (p.status === 'nova' || p.status === 'lida') && doAdv(p, n)).length;
+      return '<button type="button" data-v="' + esc(n) + '" class="' + (F.adv === n ? 'ativo' : '') + '">' + esc(n) + (c ? ' <span class="seg-n">' + c + '</span>' : '') + '</button>'; }).join(''); }
+  const lista = todas.filter((p) => (!F.status || p.status === F.status) && (!F.adv || doAdv(p, F.adv)) && (!F.tribunal || p.tribunal === F.tribunal) &&
     (!b || normalizar(p.texto + ' ' + p.processo + ' ' + p.destinatarios + ' ' + p.orgao).includes(b)));
   const conta = (s) => todas.filter((p) => p.status === s).length;
   $('pub-corpo').innerHTML = '<div class="kpis">' + kpi('Novas', String(conta('nova')), conta('nova') ? 'ambar' : 'verde', 'ainda não lidas') + kpi('Lidas', String(conta('lida')), '', 'sem tarefa ainda') +

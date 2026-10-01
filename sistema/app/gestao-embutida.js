@@ -6191,9 +6191,11 @@ TELAS.publicacoes = async function () {
     '<div class="acoes"><button class="btn btn-o" id="pub-oabs">⚙ Monitoramento (OABs e clientes)</button><button class="btn btn-o" id="pub-nav" title="Busca direto do seu computador — use se o servidor não conseguir falar com o CNJ">🌐 Buscar pelo navegador</button><button class="btn btn-p" id="pub-buscar">↻ Buscar agora</button></div></div>' +
     '<div class="filtros"><div class="segmento" id="pub-st">' + [['nova', 'Novas'], ['lida', 'Lidas'], ['tratada', 'Tratadas'], ['descartada', 'Descartadas'], ['', 'Todas']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<select class="busca sel" id="pub-dias"><option value="7">Últimos 7 dias</option><option value="30">Últimos 30 dias</option><option value="90">Últimos 90 dias</option><option value="">Todo o período</option></select>' +
-    '<select class="busca sel" id="pub-adv"><option value="">Todos os advogados</option></select>' +
+
     '<input class="busca" id="pub-busca" placeholder="Buscar no texto, processo ou parte" autocomplete="off"></div>' +
     // Backup 21: tribunais como filtro de botões — só os que têm publicação pendente (nova ou lida) no período
+    // Backup 35: filtro por advogado (os nomes cadastrados em Monitoramento → OABs) em botões, como os tribunais
+    '<div class="filtros pub-trib-linha"><div class="segmento" id="pub-advs" role="group" aria-label="Advogado"></div></div>' +
     '<div class="filtros pub-trib-linha"><div class="segmento" id="pub-trib" role="group" aria-label="Tribunal"></div></div><div id="pub-corpo"><div class="carregando">Carregando…</div></div>';
   $('pub-oabs').onclick = () => janelaOabs();
   $('pub-buscar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
@@ -6207,7 +6209,8 @@ TELAS.publicacoes = async function () {
   $('pub-nav').onclick = (ev) => comBotao(ev.currentTarget, async () => { await buscarPubNoNavegador(); await TELAS.publicacoes(); });
   $('pub-st').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.status = b.dataset.v; pintarPublicacoes(); } };
   $('pub-trib').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.tribunal = b.dataset.v; pintarPublicacoes(); } };
-  [['pub-dias', 'dias'], ['pub-adv', 'adv']].forEach(([id, k]) => { $(id).onchange = (ev) => { F[k] = ev.target.value; if (k === 'dias') carregarPublicacoes(); else pintarPublicacoes(); }; });
+  $('pub-dias').onchange = (ev) => { F.dias = ev.target.value; carregarPublicacoes(); };
+  $('pub-advs').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.adv = b.dataset.v; pintarPublicacoes(); } };
   $('pub-dias').value = F.dias; $('pub-busca').value = F.busca;
   let t; $('pub-busca').oninput = (ev) => { clearTimeout(t); t = setTimeout(() => { F.busca = ev.target.value; pintarPublicacoes(); }, 250); };
   q(sb.from('configuracoes').select('valor').eq('chave', 'publicacoes_ultima').maybeSingle()).then((u) => {
@@ -6235,7 +6238,8 @@ async function carregarPublicacoes() {
   E._pubs = await buscarTodos(() => { let c = sb.from('publicacoes').select('id, data_disponibilizacao, tribunal, orgao, tipo, processo, processo_numero, classe, texto, link, destinatarios, polos:bruto->destinatarios, advogados, oab_numero, oab_uf, advogado, parte_monitorada, processo_id, status, tarefa_id')
     .order('data_disponibilizacao', { ascending: false, nullsFirst: false }); if (F.dias) c = c.gte('data_disponibilizacao', somarDias(hojeISO(), -Number(F.dias))); return c; });
   const opts = (id, vals, rot) => { const s = $(id); if (!s) return; const v = s.value; s.innerHTML = '<option value="">' + rot + '</option>' + [...new Set(vals.filter(Boolean))].sort().map((x) => '<option>' + esc(x) + '</option>').join(''); s.value = v; };
-  opts('pub-adv', E._pubs.map((p) => p.advogado), 'Todos os advogados');
+  void opts;
+  E._pubAdvs = await q(sb.from('oabs_monitoradas').select('advogado')).then((l) => l.map((o) => o.advogado)).catch(() => []);
   pintarPublicacoes();
 }
 function pintarPublicacoes() {
@@ -6251,7 +6255,15 @@ function pintarPublicacoes() {
   if (st) { st.parentNode.hidden = !tribs.length;
     st.innerHTML = '<button type="button" data-v="" class="' + (F.tribunal ? '' : 'ativo') + '">Todos os tribunais</button>' +
       tribs.map((t) => '<button type="button" data-v="' + esc(t) + '" class="' + (F.tribunal === t ? 'ativo' : '') + '" title="' + pend[t] + ' pendente(s)">' + esc(t) + ' <span class="seg-n">' + pend[t] + '</span></button>').join(''); }
-  const lista = todas.filter((p) => (!F.status || p.status === F.status) && (!F.adv || p.advogado === F.adv) && (!F.tribunal || p.tribunal === F.tribunal) &&
+  const pn = (n) => normalizar(String(n || '').trim().split(/\s+/)[0] || '');
+  const doAdv = (p, n) => { const k = pn(n); return !!k && (pn(p.advogado) === k || normalizar(p.advogados || '').split(/[;,]/).some((x) => pn(x) === k)); };
+  const nomesAdv = [...new Set((E._pubAdvs || []).concat(todas.map((p) => p.advogado)).filter(Boolean).map((n) => String(n).trim().split(/\s+/)[0]))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  if (F.adv && !nomesAdv.includes(F.adv)) F.adv = '';
+  const sa = $('pub-advs');
+  if (sa) { sa.parentNode.hidden = !nomesAdv.length;
+    sa.innerHTML = '<button type="button" data-v="" class="' + (F.adv ? '' : 'ativo') + '">Todos os advogados</button>' + nomesAdv.map((n) => { const c = todas.filter((p) => (p.status === 'nova' || p.status === 'lida') && doAdv(p, n)).length;
+      return '<button type="button" data-v="' + esc(n) + '" class="' + (F.adv === n ? 'ativo' : '') + '">' + esc(n) + (c ? ' <span class="seg-n">' + c + '</span>' : '') + '</button>'; }).join(''); }
+  const lista = todas.filter((p) => (!F.status || p.status === F.status) && (!F.adv || doAdv(p, F.adv)) && (!F.tribunal || p.tribunal === F.tribunal) &&
     (!b || normalizar(p.texto + ' ' + p.processo + ' ' + p.destinatarios + ' ' + p.orgao).includes(b)));
   const conta = (s) => todas.filter((p) => p.status === s).length;
   $('pub-corpo').innerHTML = '<div class="kpis">' + kpi('Novas', String(conta('nova')), conta('nova') ? 'ambar' : 'verde', 'ainda não lidas') + kpi('Lidas', String(conta('lida')), '', 'sem tarefa ainda') +
@@ -7174,7 +7186,8 @@ const TIPOS_CENTRAL_EM = [['', 'Todos'], ['honorarios', 'Honorários'], ['parcel
 const ROT_TIPO_EMAIL = { honorarios: 'Honorários', parcelamentos: 'Parcelamento', acordos: 'Acordo', recibos: 'Recibo', propostas: 'Proposta', contratos: 'Boas-vindas', convites: 'Convite' };
 const SIT_EMAIL = [['hoje', 'A enviar hoje'], ['enviados', 'Enviados'], ['erro', 'Com erro'], ['retidos', 'Retidos (pausa)']];
 // Backup 19: tudo de e-mail num lugar só — cada área é uma aba da Central
-const AREAS_EMAIL = [['fila', '📬 Enviar e acompanhar'], ['clientes', '📨 Quem recebe o quê (por cliente)'], ['config', '⚙ Configuração do envio', true], ['avisos', '🔔 Meus avisos por e-mail']];
+// Backup 35: mais simples — 3 abas (E-mails · Quem recebe · Ajustes); pausa e e-mails de teste numa faixa só
+const AREAS_EMAIL = [['fila', '📬 E-mails'], ['clientes', '📨 Quem recebe'], ['config', '⚙ Ajustes', true]];
 
 TELAS.emails = async function () {
   E.em = Object.assign({ sit: 'hoje', tipo: '', busca: '', area: 'fila' }, E.em || {});
@@ -7183,15 +7196,12 @@ TELAS.emails = async function () {
   const pausado = await q(sb.rpc('emails_pausados')).catch(() => false);
   const emTeste = await q(sb.from('configuracoes').select('valor').eq('chave', 'emails_teste').maybeSingle()).then((r) => (r && r.valor) || '').catch(() => '');
   $('conteudo').innerHTML =
-    '<div class="titulo-pag"><div><h1>Central de e-mails</h1><p>Tudo de e-mail num lugar só: o que sai, o que já foi, quem recebe, modelos e configuração</p></div>' +
-    '<div class="acoes">' + (admin ? '<button class="btn btn-o" id="em-auto">⚙ Automático e horário</button><button class="btn btn-o" id="em-modelos">✎ Modelos</button>' : '') + '</div></div>' +
-    '<div class="faixa-aprov' + (pausado ? ' tem' : '') + '" id="em-pausa"><span class="faixa-ic" aria-hidden="true">' + (pausado ? '⏸' : '▶') + '</span><div><b>' +
-      (pausado ? 'Envio de e-mails PAUSADO — nada sai do sistema.' : 'Envio de e-mails ligado.') + '</b><div class="sub">' +
-      (pausado ? 'Os e-mails novos ficam em "Retidos (pausa)": dá para liberar um a um ou descartar. O e-mail de teste da Configuração sai sempre.' : 'Os e-mails da fila saem em até 5 minutos.') + '</div></div>' +
-      (admin ? '<button class="btn ' + (pausado ? 'btn-p' : 'btn-o') + '" id="em-pausar" data-pausar="' + (pausado ? '0' : '1') + '">' + (pausado ? '▶ Liberar o envio' : '⏸ Pausar o envio') + '</button>' : '') + '</div>' +
-    // Backup 29: modo teste — com a pausa ligada, só os e-mails desta lista saem (para testar sem mandar nada aos clientes)
-    '<div class="em-teste"><span class="em-teste-ic" aria-hidden="true">🧪</span><div class="em-teste-txt"><b>E-mails de teste</b><div class="sub">Saem mesmo com o envio pausado. Use para testar: cadastre um cliente com um destes e-mails (ex.: o cliente "TESTE E-MAIL") e mande o que quiser.</div></div>' +
-      '<input id="em-teste-lista" value="' + esc(emTeste) + '" placeholder="seu@email.com, outro@email.com"' + (admin ? '' : ' disabled') + '>' + (admin ? '<button class="btn btn-o" id="em-teste-salvar">Salvar</button>' : '') + '</div>' +
+    '<div class="titulo-pag"><div><h1>E-mails</h1></div>' +
+    '<div class="acoes"><button class="btn btn-o" id="em-meus" type="button">🔔 Meus avisos</button>' + (admin ? '<button class="btn btn-o" id="em-modelos">✎ Modelos</button><button class="btn btn-o" id="em-auto">⚙ Automático</button>' : '') + '</div></div>' +
+    '<div class="em-faixa' + (pausado ? ' em-faixa-pausa' : '') + '" id="em-pausa"><span class="em-faixa-ic" aria-hidden="true">' + (pausado ? '⏸' : '▶') + '</span>' +
+      '<div class="em-faixa-txt"><b>' + (pausado ? 'Envio PAUSADO' : 'Envio ligado') + '</b><span class="sub">' + (pausado ? ' · nada sai, só para os e-mails de teste:' : ' · sai em até 5 minutos') + '</span></div>' +
+      (pausado || admin ? '<input id="em-teste-lista" value="' + esc(emTeste) + '" placeholder="e-mails de teste (separados por vírgula)" title="Estes e-mails recebem mesmo com o envio pausado"' + (admin ? '' : ' disabled') + '>' + (admin ? '<button class="btn btn-o btn-mini" id="em-teste-salvar">Salvar</button>' : '') : '') +
+      (admin ? '<button class="btn btn-mini ' + (pausado ? 'btn-p' : 'btn-o') + '" id="em-pausar" data-pausar="' + (pausado ? '0' : '1') + '">' + (pausado ? '▶ Liberar o envio' : '⏸ Pausar') + '</button>' : '') + '</div>' +
     '<div class="segmento" id="em-area" style="margin-bottom:14px">' + AREAS_EMAIL.filter((a) => !a[2] || admin).map(([v, r]) => '<button data-area="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<div id="em-area-corpo"></div>';
   if ($('em-teste-salvar')) $('em-teste-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
@@ -7199,6 +7209,7 @@ TELAS.emails = async function () {
   });
   $('em-area').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.area = b.dataset.area; pintarAreaEmail(); } };
   if ($('em-auto')) $('em-auto').onclick = () => janelaAutoEmails();
+  $('em-meus').onclick = () => janelaMeusAvisos();
   if ($('em-modelos')) $('em-modelos').onclick = () => janelaModelosEmail();
   if ($('em-pausar')) $('em-pausar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
     const pausar = ev.currentTarget.dataset.pausar === '1';
@@ -7212,8 +7223,7 @@ async function pintarAreaEmail() {
   document.querySelectorAll('#em-area button').forEach((b) => b.classList.toggle('ativo', b.dataset.area === F.area));
   if (F.area === 'clientes') return controleEmails(alvo);
   if (F.area === 'config') { E.adm = E.adm || {}; return admEmail(alvo); }
-  if (F.area === 'avisos') { alvo.innerHTML = '<div class="card"><div class="card-bd"><p class="sub" style="margin-bottom:10px">Avisos internos que <b>você</b> recebe por e-mail (resumo do dia, menções, tarefas…).</p>' +
-      '<button class="btn btn-o" type="button" id="em-meus">🔔 Escolher meus avisos por e-mail</button></div></div>'; $('em-meus').onclick = () => janelaMeusAvisos(); return; }
+  if (F.area === 'avisos') F.area = 'fila';
   alvo.innerHTML = '<div class="abas" id="em-sit">' + SIT_EMAIL.map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<div class="filtros"><div class="segmento" id="em-tipo">' + TIPOS_CENTRAL_EM.map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<input class="busca" id="em-busca" placeholder="Buscar cliente, grupo ou assunto" autocomplete="off"></div>' +
@@ -7898,6 +7908,17 @@ async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
   });
   return j;
 }
+// Backup 35: Acordos → aba "A pagar": marcar as parcelas e "✉ Enviar por empresa" (mesma janela/e-mail das guias)
+async function enviarAcordosSelecionados(ids, depois) {
+  if (!ids || !ids.length) return aviso('Marque ao menos uma parcela.', true);
+  if (!E.clientes.length) await carregarCadastros();
+  const L = (await q(sb.from('acordos').select('id, parcela, total_parcelas, vencimento, valor, pago, emissao, emitida_em, emitida_por, guia_doc, devedor, credor, processo, grupo_id, pix, banco').in('id', ids)))
+    .filter((x) => !x.pago)
+    .map((x) => Object.assign(x, { quem: x.devedor, detalhe: 'deve a ' + (x.credor || '—') + (x.processo ? ' · ' + x.processo : ''), email_em: null,
+      parcela: (x.parcela || '?') + (x.total_parcelas ? '/' + x.total_parcelas : ''), valor: Number(x.valor) || 0,
+      cliente_id: (E.clientes.find((c) => c.grupo_id === x.grupo_id && primeiroNome(c.nome) === primeiroNome(x.devedor)) || {}).id || null }));
+  return janelaGuiasEmpresa('acordos', L, null, depois);
+}
 
 'use strict';
 // ═══════════════════════════════════════════════════════════════════
@@ -7909,7 +7930,7 @@ async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
 //  3) Guias de parcelamentos e boletos de acordos (emitir → enviar → conferir o pagamento).
 //  4) Financeiro do escritório (atalhos) e 5) Minhas tarefas.
 // ═══════════════════════════════════════════════════════════════════
-const ABAS_ROTINA = [['passivo', '🏛 Passivo e cadastro'], ['processos', '⚖ Processos'], ['parcs', '📋 Controle dos parcelamentos'], ['acs', '📋 Controle dos acordos'], ['financeiro', '💰 Financeiro'], ['tarefas', '✓ Minhas tarefas']];
+const ABAS_ROTINA = [['passivo', '🏛 Passivo e cadastro'], ['processos', '⚖ Processos'], ['parcs', '📋 Controle dos parcelamentos'], ['acs', '📋 Controle dos acordos'], ['planilha', '🧪 Planilha de parcelamentos (teste)'], ['financeiro', '💰 Financeiro'], ['tarefas', '✓ Minhas tarefas']];
 const TIPOS_MOV = [['movimentacao', 'Movimentação'], ['decisao', 'Decisão relevante'], ['valor', 'Mudança de valor'], ['procuracao', 'Procuração juntada'], ['sem_novidade', 'Conferido — sem novidade']];
 const PARES_PASSIVO = [['rfb', 'RFB'], ['pgfn', 'PGFN'], ['age_mg', 'AGE/MG']];
 const COLS_PASSIVO = [['rfb', 'RFB'], ['rfb_negociada', 'RFB negociada'], ['pgfn', 'PGFN'], ['pgfn_negociada', 'PGFN negociada'], ['age_mg', 'AGE/MG'], ['age_mg_negociada', 'AGE/MG negociada']];
@@ -7930,7 +7951,7 @@ async function pintarRotina() {
   document.querySelectorAll('#rt-abas button').forEach((b) => b.classList.toggle('ativo', b.dataset.rtAba === E.rt.aba));
   const el = $('rt-corpo'); if (!el) return;
   el.innerHTML = '<div class="sub" style="padding:10px">Carregando…</div>';
-  try { await ({ passivo: rotinaPassivo, processos: rotinaProcessos, parcs: rotinaParcelamentos, acs: rotinaAcordos, financeiro: rotinaFinanceiro, tarefas: rotinaTarefas })[E.rt.aba](el); }
+  try { await ({ passivo: rotinaPassivo, processos: rotinaProcessos, parcs: rotinaParcelamentos, acs: rotinaAcordos, planilha: rotinaPlanilha, financeiro: rotinaFinanceiro, tarefas: rotinaTarefas })[E.rt.aba](el); }
   catch (e) { console.error(e); el.innerHTML = '<div class="card"><div class="card-bd msg-erro">' + esc(erroAmigavel(e)) + '</div></div>'; }
 }
 function filtroRotina(extra) {
@@ -8181,7 +8202,10 @@ async function rotinaControle(el, tipo) {
       return Object.assign(x, { item: p.id, rot: (x.numero || '?') + (p.total_parcelas ? '/' + p.total_parcelas : ''), valorEf: ult[p.id] != null ? ult[p.id] : Number(p.valor_ultima_parcela) || 0,
         lancado: x.valor != null && Number(x.valor) > 0, parcelamentos: p, quem: p.empresa, grupo_id: p.grupo_id,
         cliente_id: (E.clientes.find((c) => (soDigitos(p.cnpj) && soDigitos(c.cpf_cnpj) === soDigitos(p.cnpj)) || c.nome === p.empresa) || {}).id || null }); });
-    IT = PA.map((p) => ({ id: p.id, grupo_id: p.grupo_id, titulo: p.empresa || '—', sub: [p.local, p.natureza, p.numero ? 'nº ' + p.numero : ''].filter(Boolean).join(' · '),
+    // Backup 35: valor residual = valor da última parcela lançada × parcelas que faltam
+    const residual = (p) => { const ps = P2.filter((x) => x.parcelamento_id === p.id), pagas = ps.filter((x) => x.pago).length, tot = Number(p.total_parcelas) || ps.length;
+      return { falta: Math.max(0, tot - pagas), v: (Number(p.valor_ultima_parcela) || 0) * Math.max(0, tot - pagas) }; };
+    IT = PA.map((p) => ({ id: p.id, grupo_id: p.grupo_id, titulo: p.empresa || '—', resid: residual(p), sub: [p.local, p.natureza, p.numero ? 'nº ' + p.numero : ''].filter(Boolean).join(' · '),
       busca: [p.empresa, p.natureza, p.local, p.numero, p.cnpj].join(' '), nos: p.emitimos_guia !== false, p }));
   } else {
     const A = await q(sb.from('acordos').select('id, parcela, total_parcelas, vencimento, valor, pago, emissao, emitida_em, reenvio_em, reenvio_valor, devedor, credor, processo, grupo_id, pix, banco, guia_doc').order('vencimento').limit(50000));
@@ -8205,10 +8229,12 @@ async function rotinaControle(el, tipo) {
         .map(([v, r]) => '<option value="' + v + '"' + (v === E.rt.filtro ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>' +
         '<span class="rt-meses"><button type="button" class="btn btn-o btn-mini" data-mes="-1" aria-label="Meses anteriores">‹</button><b>' + rotMes(MS[0]) + ' – ' + rotMes(MS[7]) + '</b><button type="button" class="btn btn-o btn-mini" data-mes="1" aria-label="Próximos meses">›</button>' +
           (E.rt[chaveMes] !== -5 ? '<button type="button" class="btn btn-o btn-mini" data-mes="0">hoje</button>' : '') + '</span>') +
+      '<ol class="rt-passos"><li>Em cada mês há 2 quadradinhos: <b>Emitiu</b> (esquerda) e <b>Pagou</b> (direita).</li><li>Clique no <b>○ laranja</b> de "Emitiu" das parcelas que vai emitir — ficam <b>azuis</b>.</li>' +
+        '<li>Clique em <b>✉ Enviar por empresa</b> (barra que aparece embaixo): confira o valor, anexe as guias e envie. A parcela fica <b>✓ emitida</b> sozinha.</li></ol>' +
       '<div class="rt-leg"><b>Emissão:</b> <span class="rt-e rt-e-nao">○</span> a emitir <span class="rt-e rt-e-ok">✓</span> emitida <span class="rt-e rt-e-sel">✓</span> marcada para enviar' + (parc ? ' <span class="rt-e rt-e-cli">–</span> o cliente emite' : '') +
         ' &nbsp; <b>Pagamento:</b> <span class="rt-p rt-p-ok">✓</span> paga <span class="rt-p rt-p-atr">!</span> vencida <span class="rt-p rt-p-ab">○</span> a vencer</div>' +
       '<div class="rt-ctl-wrap" data-sem-pagina><table class="rt-ctl"><thead><tr>' + (parc ? '<th class="rt-c-emit" title="O escritório emite a guia deste parcelamento?">Emit.?</th>' : '') + '<th class="rt-c-item">' + (parc ? 'Parcelamento' : 'Acordo') + '</th>' +
-        MS.map((m) => '<th class="rt-c-mes' + (m === h.slice(0, 7) ? ' rt-mes-atual' : '') + '"><div>' + rotMes(m) + '</div><div class="rt-ep-hd"><span>Emis.</span><span>Pag.</span></div></th>').join('') + (parc ? '<th class="rt-c-conf">Conferência</th>' : '') + '</tr></thead><tbody id="rt-parc-corpo"></tbody></table></div>' +
+        MS.map((m) => '<th class="rt-c-mes' + (m === h.slice(0, 7) ? ' rt-mes-atual' : '') + '"><div>' + rotMes(m) + '</div><div class="rt-ep-hd"><span>Emitiu</span><span>Pagou</span></div></th>').join('') + (parc ? '<th class="rt-c-conf">Conferência</th>' : '') + '</tr></thead><tbody id="rt-parc-corpo"></tbody></table></div>' +
       '<div class="rt-selbar" id="rt-selbar" hidden></div></div></div>';
   const corpo = $('rt-parc-corpo');
   const tip = (x) => 'Parcela ' + (x.rot || '') + ' · vence ' + dataBR(x.vencimento) + ' · ' + brl(x.valorEf) + (x.lancado ? '' : ' (último valor lançado)') + (emitidaRt(x) ? ' · emitida' + (x.emitida_em ? ' em ' + dataBR(x.emitida_em) : '') : '') + (x.reenvio_em ? ' · reenviada em ' + dataLocal(x.reenvio_em) : '');
@@ -8246,7 +8272,8 @@ async function rotinaControle(el, tipo) {
       return cab + '<tr data-pc="' + esc(p.id) + '"' + (ab ? ' class="rt-aberto"' : '') + '>' +
         (parc ? '<td class="rt-c-emit"><label class="rt-chave rt-chave-mini" title="' + (p.nos ? 'O escritório emite a guia (desligue se o cliente emite)' : 'O cliente emite a guia (ligue se o escritório emite)') + '"><input type="checkbox" data-emit="' + p.id + '"' + (p.nos ? ' checked' : '') + ' aria-label="Nós emitimos a guia"><span></span></label></td>' : '') +
         '<td class="rt-emp rt-abre" data-abre="' + esc(p.id) + '" role="button" tabindex="0" title="Ver todas as parcelas (e editar o valor)"><b><span class="rt-seta">' + (ab ? '▾' : '▸') + '</span> ' + esc(p.titulo) + '</b><div class="sub">' + esc(p.sub) +
-          (atr ? ' <span class="pill ' + (atr >= 2 ? 'vencido' : 'atr-leve') + '">' + atr + ' em atraso</span>' : '') + '</div></td>' +
+          (atr ? ' <span class="pill ' + (atr >= 2 ? 'vencido' : 'atr-leve') + '">' + atr + ' em atraso</span>' : '') + '</div>' +
+          (p.resid ? '<div class="rt-resid" title="Valor da última parcela × ' + p.resid.falta + ' parcelas que faltam">Residual <b>' + brl(p.resid.v) + '</b> <span class="sub">(' + p.resid.falta + ' faltam)</span></div>' : '') + '</td>' +
         MS.map((m) => '<td class="rt-c-mes' + (m === h.slice(0, 7) ? ' rt-mes-atual' : '') + '">' + (cel[p.id + '|' + m] || []).map((x) => '<div class="rt-ep">' + btEmis(x, p) + btPag(x) + '</div>').join('') + '</td>').join('') +
         (parc ? '<td class="rt-c-conf">' + celulaConferencia(SIT[p.id], p.id) + '</td>' : '') + '</tr>' + (ab ? detalhe(p) : '');
     }).join('') : '<tr><td colspan="' + ncol + '">' + vazio('Nenhum ' + nomeItem + ' com esses filtros.') + '</td></tr>';
@@ -8288,6 +8315,84 @@ async function rotinaControle(el, tipo) {
   };
   el.querySelectorAll('[data-mes]').forEach((b) => b.onclick = () => { E.rt[chaveMes] = Number(b.dataset.mes) === 0 ? -5 : E.rt[chaveMes] + 3 * Number(b.dataset.mes); rotinaControle(el, tipo); });
   ligarFiltroRotina(el, pintar); pintar();
+}
+
+// ── 3c) Backup 35 (TESTE): "Planilha de parcelamentos" — igual à planilha do escritório: uma aba por GRUPO e um bloco por
+// parcelamento (Nome, CPF/CNPJ, Local, Natureza, Nº, Total, Pagas, Valor da última parcela, Valor residual, Emitimos, observação) com a
+// lista PARCELA · VENCIMENTO · EMISSÃO · PAGAMENTO. Botão "Emitir guias": as em atraso + as que vencem neste mês (como no ERP antigo).
+async function rotinaPlanilha(el) {
+  if (!E.clientes.length) await carregarCadastros();
+  const h = hojeISO(), fimMes = fimDoMesGuia(h);
+  const [PA, P2] = await Promise.all([
+    q(sb.from('parcelamentos').select('id, empresa, cnpj, local, natureza, numero, total_parcelas, valor_ultima_parcela, grupo_id, emitimos_guia, obs').limit(5000)),
+    q(sb.from('parcelas').select('id, parcelamento_id, numero, vencimento, pago, emitida_em, emissao, valor, guia_doc').order('vencimento').limit(50000))]);
+  const porPa = {}; P2.forEach((x) => { (porPa[x.parcelamento_id] = porPa[x.parcelamento_id] || []).push(x); });
+  const gnome = (id) => nomeGrupo(id) || 'Sem grupo';
+  const grupos = [...new Set(PA.map((p) => gnome(p.grupo_id)))].sort((a, b) => (a === 'Sem grupo') - (b === 'Sem grupo') || a.localeCompare(b, 'pt-BR'));
+  E.rt.plGrupo = grupos.includes(E.rt.plGrupo) ? E.rt.plGrupo : grupos[0];
+  const emit = (x) => !!x.emitida_em || /sim|emitid/i.test(x.emissao || '');
+  // "a emitir agora" = não paga, nós emitimos, sem emissão e vencendo até o fim do mês (vencidas entram de novo: reemissão)
+  const aEmitir = (p) => p.emitimos_guia === false ? [] : (porPa[p.id] || []).filter((x) => !x.pago && x.vencimento && x.vencimento <= fimMes && (!emit(x) || x.vencimento < h));
+  const nGrupo = (g) => PA.filter((p) => gnome(p.grupo_id) === g).reduce((s2, p) => s2 + aEmitir(p).length, 0);
+  const pintar = () => {
+    const L = PA.filter((p) => gnome(p.grupo_id) === E.rt.plGrupo).sort((a, b) => String(a.empresa).localeCompare(String(b.empresa), 'pt-BR') || String(a.natureza).localeCompare(String(b.natureza), 'pt-BR'));
+    const nE = L.reduce((s2, p) => s2 + aEmitir(p).length, 0);
+    el.innerHTML = '<div class="card pl-card"><div class="card-hd">🧪 Planilha de parcelamentos <span class="pill hoje">teste</span><span class="sub">igual à planilha: uma aba por grupo, um bloco por parcelamento · clique em EMISSÃO ou PAGAMENTO para marcar</span></div>' +
+      '<div class="card-bd"><div class="pl-abas" role="tablist">' + grupos.map((g) => { const n = nGrupo(g);
+        return '<button type="button" role="tab" class="pl-aba' + (g === E.rt.plGrupo ? ' ativo' : '') + '" data-pl-g="' + esc(g) + '">' + esc(g) + (n ? ' <span class="pl-n">' + n + '</span>' : '') + '</button>'; }).join('') + '</div>' +
+      '<div class="pl-barra"><span class="sub">' + plural(L.length, 'parcelamento', 'parcelamentos') + ' em ' + esc(E.rt.plGrupo || '—') + '</span>' +
+        '<button type="button" class="btn btn-p" id="pl-emitir"' + (nE ? '' : ' disabled') + '>🧾 Emitir guias — em atraso + vencem neste mês' + (nE ? ' (' + nE + ')' : '') + '</button></div>' +
+      '<div class="pl-blocos">' + L.map((p) => {
+        const ps = porPa[p.id] || [], pagas = ps.filter((x) => x.pago).length, tot = Number(p.total_parcelas) || ps.length, v = Number(p.valor_ultima_parcela) || 0;
+        const resid = v * Math.max(0, tot - pagas), cli = p.emitimos_guia === false;
+        return '<section class="pl-bloco" data-pl-pa="' + p.id + '"><table class="pl-hd"><tbody>' +
+          [['Nome', esc(p.empresa || '—')], ['CPF/CNPJ', esc(mascaraDoc(p.cnpj) || '—')], ['Local', esc(p.local || '—')], ['Natureza', esc(p.natureza || '—')], ['Nº', esc(p.numero || '—')],
+           ['Total de parcelas', tot || '—'], ['Parcelas pagas', pagas],
+           ['Valor última parcela', '<span class="rt-vbox"><span>R$</span><input data-pl-v="' + p.id + '" data-mascara="nenhuma" inputmode="decimal" value="' + (v ? valorParaCampo(v) : '') + '" aria-label="Valor da última parcela"></span>'],
+           ['Valor residual', '<b>' + brl(resid) + '</b>']].map(([k, val]) => '<tr><th>' + k + '</th><td>' + val + '</td></tr>').join('') +
+          '<tr><th>Guias</th><td><label class="rt-chave rt-chave-mini"><input type="checkbox" data-pl-emit="' + p.id + '"' + (cli ? '' : ' checked') + '><span></span><small>' + (cli ? 'Não emitimos' : 'Emitimos') + '</small></label></td></tr>' +
+          '<tr><th>Obs.</th><td><input class="pl-obs" data-pl-obs="' + p.id + '" value="' + esc(p.obs || '') + '" placeholder="ex.: emitimos 3 de uma vez; enviar por WhatsApp"></td></tr></tbody></table>' +
+          '<div class="pl-lista"><table class="pl-tab"><thead><tr><th>Parcela</th><th>Vencimento</th><th>Emissão</th><th>Pagamento</th></tr></thead><tbody>' +
+          ps.map((x) => { const at = !x.pago && x.vencimento < h, mes = x.vencimento && x.vencimento.slice(0, 7) === h.slice(0, 7);
+            return '<tr class="' + (x.pago ? 'pl-pago' : at ? 'pl-atr' : mes ? 'pl-mes' : '') + '"' + (mes ? ' data-pl-mes' : '') + '><td>' + esc(x.numero || '') + '</td><td>' + dataBR(x.vencimento) + '</td>' +
+              '<td><button type="button" class="pl-sn' + (emit(x) ? ' sim' : '') + '" data-pl-e="' + x.id + '"' + (cli ? ' disabled title="O cliente emite"' : '') + '>' + (emit(x) ? 'SIM' : cli ? '–' : '') + '</button></td>' +
+              '<td><button type="button" class="pl-sn' + (x.pago ? ' sim' : at ? ' nao' : '') + '" data-pl-p="' + x.id + '"' + (x.pago ? ' disabled' : '') + '>' + (x.pago ? 'SIM' : at ? 'NÃO' : '') + '</button></td></tr>'; }).join('') +
+          '</tbody></table></div></section>'; }).join('') + (L.length ? '' : vazio('Nenhum parcelamento neste grupo.')) + '</div></div></div>';
+    // a lista de cada bloco já abre no mês atual
+    el.querySelectorAll('.pl-lista').forEach((d) => { const r = d.querySelector('[data-pl-mes]') || d.querySelector('tr.pl-atr'); if (r) d.scrollTop = Math.max(0, r.offsetTop - 70); });
+  };
+  const recarregar = () => rotinaPlanilha(el);
+  el.onclick = (ev) => {
+    const ab = ev.target.closest('[data-pl-g]'); if (ab) { E.rt.plGrupo = ab.dataset.plG; return pintar(); }
+    const be = ev.target.closest('[data-pl-e]');
+    if (be) return comBotao(be, async () => { const x = P2.find((y) => y.id === be.dataset.plE), novo = !emit(x);
+      await q(sb.rpc('registrar_emissao', { p_tabela: 'parcelas', p_id: x.id, p_emitida: novo, p_doc: null, p_enviar: false }));
+      x.emitida_em = novo ? h : null; x.emissao = novo ? 'SIM' : ''; pintar(); });
+    const bp = ev.target.closest('[data-pl-p]');
+    if (bp && window.ERP_EDITOR && window.ERP_EDITOR.baixaRapida) return Promise.resolve(window.ERP_EDITOR.baixaRapida('parcelas', bp.dataset.plP)).then(() => setTimeout(recarregar, 1500));
+    if (ev.target.closest('#pl-emitir')) {
+      const its = PA.filter((p) => gnome(p.grupo_id) === E.rt.plGrupo).flatMap((p) => aEmitir(p).map((x) => {
+        const ult = (porPa[p.id] || []).filter((y) => y.valor != null && y.vencimento <= x.vencimento).slice(-1)[0];
+        return Object.assign({}, x, { parcelamentos: p, quem: p.empresa, grupo_id: p.grupo_id, email_em: null, parcela: (x.numero || '?') + (p.total_parcelas ? '/' + p.total_parcelas : ''),
+          valor: x.valor != null ? Number(x.valor) : ult ? Number(ult.valor) : Number(p.valor_ultima_parcela) || 0, detalhe: [p.natureza, p.local].filter(Boolean).join(' · '),
+          cliente_id: (E.clientes.find((c) => (soDigitos(p.cnpj) && soDigitos(c.cpf_cnpj) === soDigitos(p.cnpj)) || c.nome === p.empresa) || {}).id || null }); }));
+      if (its.length) janelaGuiasEmpresa('parcelas', its, null, recarregar);
+    }
+  };
+  el.onchange = (ev) => {
+    const c = ev.target.closest('[data-pl-emit]');
+    if (c) q(sb.rpc('parcelamentos_emitimos', { p_ids: [c.dataset.plEmit], p_emitimos: c.checked })).then(() => { PA.find((p) => p.id === c.dataset.plEmit).emitimos_guia = c.checked; pintar(); }, (e) => aviso(erroAmigavel(e), true));
+  };
+  el.addEventListener('focusout', (ev) => {
+    const iv = ev.target.closest('[data-pl-v]'), io = ev.target.closest('[data-pl-obs]');
+    if (iv) { const v = iv.value.trim() ? lerValor(iv.value) : null; const p = PA.find((y) => y.id === iv.dataset.plV);
+      if (v != null && isNaN(v)) return aviso('Valor inválido.', true);
+      if ((v || null) === (Number(p.valor_ultima_parcela) || null)) return;
+      q(sb.from('parcelamentos').update({ valor_ultima_parcela: v }).eq('id', p.id)).then(() => { p.valor_ultima_parcela = v; aviso('✓ Valor da última parcela gravado.'); pintar(); }, (e) => aviso(erroAmigavel(e), true)); }
+    if (io) { const p = PA.find((y) => y.id === io.dataset.plObs); if ((p.obs || '') === io.value) return;
+      q(sb.from('parcelamentos').update({ obs: io.value }).eq('id', p.id)).then(() => { p.obs = io.value; aviso('✓ Observação gravada.'); }, (e) => aviso(erroAmigavel(e), true)); }
+  });
+  pintar();
 }
 
 // ── 4) Financeiro do escritório: atalhos ──
@@ -8471,5 +8576,5 @@ const CSS_RELATORIO = [
 // toda gravação confirmada aparece também no rodapé do ERP
 const _avisoOrig = aviso;
 aviso = function (msg, erro) { _avisoOrig(msg, erro); if (!erro && window.ERP_EDITOR && /^✓/.test(msg)) window.ERP_EDITOR.gravou(String(msg).replace(/^✓\s*/, '')); };
-window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, invalidarCadastros, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo, perguntarBaixa, detalheContrato, ICONE_AVISO, conciliarOfx, abrirTarefa, detalheLancamento, edicaoLancamentos, janelaModelosEmail, janelaAutoEmails, janelaGeradores, formReuniao, janelaDelegar, abrirGeradorContrato, cardGuias, emitirParcela, janelaMovimentacao, janelaRelatorioPDF };
+window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, invalidarCadastros, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo, perguntarBaixa, detalheContrato, ICONE_AVISO, conciliarOfx, abrirTarefa, detalheLancamento, edicaoLancamentos, janelaModelosEmail, janelaAutoEmails, janelaGeradores, formReuniao, janelaDelegar, abrirGeradorContrato, cardGuias, emitirParcela, enviarAcordosSelecionados, janelaMovimentacao, janelaRelatorioPDF };
 })();

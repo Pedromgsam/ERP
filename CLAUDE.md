@@ -83,7 +83,16 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
-- Última entrega: **Backup 34** (só SQL). Parcelamentos/Acordos sem emissão: `_guiasNoTopo` só remove `#parcGuias/#acGuias`; `_lgRender` (lista-grupos-b25.js)
+- Última entrega: **Backup 35** (só SQL). `_lgRender` = cartões `.lg-cards`/`.lg-card` (grid dense; aberto → `.lg-painel` full-width com `.lg-hd` + `.lg-filho`),
+  `o.porEmpresa` (FILTROS.grupo ou `_parcF.grupo`) → cartões por empresa; KPIs viraram `.lg-resumo`; popups com `_lgFicha` + `.pcd-kpis5`; `_lgParcTabela` com colgroup e
+  `.lg-bt-pagar` ("＋ Lançar pagamento", `[data-lg-pagar]`). Acordos: `remendos/acordos-b35.js` (injetado antes de `sortAcordosVenc`) redefine `setAcordTab` e
+  `renderAcordosVencTbl` = aba única "A pagar" (`.ac-ap`, `[data-ac-sel]`/`_acSel`/`#acSelBarra`, `[data-ac-guia]` → `GS.emitirParcela`, `GS.enviarAcordosSelecionados`
+  em telas-guias.js); botão `data-atab=pagar` escondido. Evolução: sempre por grupo, `FILTROS.grupo` → por empresa, `#evo-visao` linhas|total. `contornarGrupos` marca
+  `td.gc-l/gc-r` (1ª/última célula visível). Processos: `processos.valor_em` (gatilho `processo_valor_em` + mov tipo valor), popup carrega 3 de `processo_movimentacoes`
+  (`.gx-mov`). Rotina: `rotinaPlanilha` (aba `planilha`, `.pl-*`, `E.rt.plGrupo`), controle com `.rt-passos` e `.rt-resid`. Publicações: `#pub-advs` (primeiro nome,
+  `_pubAdvs` de `oabs_monitoradas`). E-mails: `.em-faixa` + áreas fila/clientes/config, `#em-meus` no topo. Central: modelos em barra no alto (central.css ≥761px).
+  Densidade menor no fim do design.css.
+- Backup 34 (base) (só SQL). Parcelamentos/Acordos sem emissão: `_guiasNoTopo` só remove `#parcGuias/#acGuias`; `_lgRender` (lista-grupos-b25.js)
   = `.lg-min` (Grupo › itens; um grupo só → Empresa › itens via `item.empresa/tituloEmp/subEmp`), `_lgGuiaDiscreta`, `_lgParcTabela(l, tabela)` (lista de parcelas
   do detalhamento: Parcela·Vencimento·Valor·Situação + `.lg-em` emitida/não/cliente) e `_lgFicha` (dados da planilha); `_lgDuas`/`_lgTagGuia` saíram.
   `parcelas.valor` = valor lançado (erp-dados: `valor` efetivo herda o último lançado, `valorLancado`; `grupoNome` do grupo_id); `lancar_valor_parcela(id, valor)`;

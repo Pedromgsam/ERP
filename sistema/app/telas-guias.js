@@ -373,3 +373,14 @@ async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
   });
   return j;
 }
+// Backup 35: Acordos → aba "A pagar": marcar as parcelas e "✉ Enviar por empresa" (mesma janela/e-mail das guias)
+async function enviarAcordosSelecionados(ids, depois) {
+  if (!ids || !ids.length) return aviso('Marque ao menos uma parcela.', true);
+  if (!E.clientes.length) await carregarCadastros();
+  const L = (await q(sb.from('acordos').select('id, parcela, total_parcelas, vencimento, valor, pago, emissao, emitida_em, emitida_por, guia_doc, devedor, credor, processo, grupo_id, pix, banco').in('id', ids)))
+    .filter((x) => !x.pago)
+    .map((x) => Object.assign(x, { quem: x.devedor, detalhe: 'deve a ' + (x.credor || '—') + (x.processo ? ' · ' + x.processo : ''), email_em: null,
+      parcela: (x.parcela || '?') + (x.total_parcelas ? '/' + x.total_parcelas : ''), valor: Number(x.valor) || 0,
+      cliente_id: (E.clientes.find((c) => c.grupo_id === x.grupo_id && primeiroNome(c.nome) === primeiroNome(x.devedor)) || {}).id || null }));
+  return janelaGuiasEmpresa('acordos', L, null, depois);
+}

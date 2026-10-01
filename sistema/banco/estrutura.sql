@@ -6536,3 +6536,38 @@ begin
 end $$;
 revoke all on function public.lancar_valor_parcela(uuid, numeric) from public, anon;
 grant execute on function public.lancar_valor_parcela(uuid, numeric) to authenticated;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- Backup 35 — Processos: data da última atualização do VALOR DA CAUSA (diferente da última movimentação)
+-- ═══════════════════════════════════════════════════════════════════
+alter table public.processos add column if not exists valor_em date;
+update public.processos p set valor_em = m.data
+  from (select distinct on (processo_id) processo_id, data from public.processo_movimentacoes where tipo = 'valor' order by processo_id, data desc) m
+ where m.processo_id = p.id and p.valor_em is null;
+create or replace function public.processo_valor_em() returns trigger
+language plpgsql as $$
+begin
+  if tg_op = 'INSERT' then
+    if new.valor is not null and new.valor_em is null then new.valor_em := current_date; end if;
+  elsif new.valor is distinct from old.valor and new.valor_em is not distinct from old.valor_em then
+    new.valor_em := current_date;
+  end if;
+  return new;
+end $$;
+drop trigger if exists processo_valor_em on public.processos;
+create trigger processo_valor_em before insert or update of valor on public.processos for each row execute function public.processo_valor_em();
+-- a movimentação "Mudança de valor" grava a data dela como a data do valor
+create or replace function public.processo_mov_aplica() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if coalesce(new.quem, '') = '' then select coalesce(nullif(nome, ''), email) into new.quem from public.perfis where id = auth.uid(); new.quem := coalesce(new.quem, ''); end if;
+  update public.processos set
+    ultima_movimentacao = case when new.tipo = 'sem_novidade' then coalesce(nullif(ultima_movimentacao, ''), 'Conferido: sem novidade') else left(new.descricao, 500) end,
+    ultima_movimentacao_em = greatest(coalesce(ultima_movimentacao_em, new.data), new.data),
+    atualizacao = new.data,
+    valor = case when new.tipo = 'valor' and new.valor_novo is not null then new.valor_novo else valor end,
+    valor_em = case when new.tipo = 'valor' and new.valor_novo is not null then new.data else valor_em end,
+    procuracao = case when new.tipo = 'procuracao' then true else procuracao end
+   where id = new.processo_id;
+  return new;
+end $$;

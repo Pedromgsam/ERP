@@ -101,3 +101,15 @@ body:not(.dc-pronto) .dc-area{opacity:.5}
   .dc-grade{grid-template-columns:1fr}.dc-campo.meia{grid-column:1/-1}.dc-topo .dc-eu{display:none}}
 /* Backup 34: aberta dentro do ERP (iframe) — sem a barra própria */
 .dc-embutido .dc-topo{display:none}
+/* Backup 35: modelos numa barra no ALTO (Procurações · Contratos · Financeiro · Outros) — o formulário ganha a largura toda */
+@media (min-width:761px){
+  .dc-corpo-app{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
+  .dc-lado{flex-direction:row;align-items:center;gap:6px 18px;padding:8px 14px;border-right:0;border-bottom:1px solid var(--border);overflow-x:auto;overflow-y:hidden}
+  #dc-menu{display:flex;gap:6px 18px;align-items:center}
+  .dc-menu-g{display:flex;align-items:center;gap:4px}
+  .dc-menu-g h4{margin:0 4px 0 0;font-size:10px;white-space:nowrap}
+  .dc-mod,.dc-vis{width:auto;padding:5px 10px;gap:6px;white-space:nowrap}
+  .dc-mod.ativo,.dc-vis.ativo{box-shadow:inset 0 -2px 0 var(--primario)}
+  .dc-lado-pe{margin:0 0 0 auto;border-top:0;padding-top:0;display:flex;gap:4px;border-left:1px solid var(--line);padding-left:12px}
+  .dc-area{grid-template-columns:minmax(380px,520px) minmax(0,1fr)}
+}

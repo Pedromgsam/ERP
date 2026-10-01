@@ -74,7 +74,8 @@ window.ERP_COLS_CLIENTE = 'id,grupo_id,nome,cpf_cnpj,tipo,responsavel,email,tele
       autor: p.autor || '', reu: p.reu || '', dataDistrib: br(p.data_distribuicao), valor: num(p.valor), atualizacao: br(p.atualizacao),
       procuracao: sn(p.procuracao), outroAdv: sn(p.outro_advogado), arquivamento: arq, statusOriginal: st,
       dataArqProv: br(p.data_arq_provisorio), prescricao: p.prescricao || '', obs: p.obs || '',
-      ultimaMov: p.ultima_movimentacao || '', ultimaMovEm: br(p.ultima_movimentacao_em)   // Backup 28
+      ultimaMov: p.ultima_movimentacao || '', ultimaMovEm: br(p.ultima_movimentacao_em),   // Backup 28
+      valorEm: br(p.valor_em)   // Backup 35: quando o valor da causa foi atualizado
     };
   }
   function parcelamento(pa, parcelas) {

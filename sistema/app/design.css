@@ -485,7 +485,7 @@ body.gx-barra-topo :is(#finContent,#finCContent) .cc-hd > div:last-child{display
 .gs .pub-trib-linha{margin-top:-4px}
 .gs .pub-trib-linha[hidden]{display:none}
 .gs .segmento .seg-n{display:inline-block;min-width:18px;padding:0 5px;margin-left:4px;border-radius:99px;background:var(--surface2);color:var(--text2);font-size:11px;font-weight:700}
-.gs .segmento button.ativo .seg-n{background:transparent;box-shadow:inset 0 0 0 1px currentColor;color:inherit}
+.gs .segmento button.ativo .seg-n{background:var(--surface);color:var(--primario);box-shadow:none}   /* Backup 35: número legível no botão escuro */
 
 /* ═══ Backup 22 — RÉGUA ÚNICA (vale para todas as telas; as colunas são marcadas pelo título em erp-telas.js › marcarColunas) ═══ */
 /* célula 13 px · linha de baixo (sócio, descrição, "Mensal"…) cinza 12 px · cabeçalho 11 px azul-marinho */
@@ -743,8 +743,9 @@ body.gx-barra-topo .janela :is(.tw,.tabela-wrap){max-height:60vh}
 .gd-jan-v .ge-rs{font-size:12px;letter-spacing:0}
 #gs-raiz .gd-jan-v{gap:4px}
 /* ═══ Backup 31 — contorno azul em volta de cada grupo (tabelas agrupadas: Painel, Processos, Rotina, Clientes; listas por grupo) ═══ */
-body.gx-barra-topo :is(tr.gc-ini,tr.gc-in) > td:first-child{box-shadow:inset 2px 0 0 var(--primario)!important}
-body.gx-barra-topo :is(tr.gc-ini,tr.gc-in) > td:last-child{box-shadow:inset -2px 0 0 var(--primario)!important}
+body.gx-barra-topo :is(tr.gc-ini,tr.gc-in,tr.gc-fim) > td.gc-l{box-shadow:inset 2px 0 0 var(--primario)!important}
+body.gx-barra-topo :is(tr.gc-ini,tr.gc-in,tr.gc-fim) > td.gc-r{box-shadow:inset -2px 0 0 var(--primario)!important}
+body.gx-barra-topo :is(tr.gc-ini,tr.gc-in,tr.gc-fim) > td.gc-l.gc-r{box-shadow:inset 2px 0 0 var(--primario),inset -2px 0 0 var(--primario)!important}
 body.gx-barra-topo tr.gc-ini > td{border-top:2px solid var(--primario)!important}
 body.gx-barra-topo tr.gc-ini > td:only-child{box-shadow:inset 2px 0 0 var(--primario),inset -2px 0 0 var(--primario)!important}
 body.gx-barra-topo tr.gc-fim > td{border-bottom:2px solid var(--primario)!important}
@@ -876,3 +877,63 @@ body.gx-barra-topo .lg-min .lg-st-risco{background:var(--red);color:var(--on-cor
 .lg-em-nao{background:var(--amber-lt);color:var(--amber-d);border-color:var(--amber-border)}
 .lg-em-cli{background:var(--surface2);color:var(--text2)}
 @media(min-width:901px){body.gx-barra-topo .lg-min .lg-c4{align-items:flex-start}}
+/* ── Backup 35: últimas movimentações do processo ── */
+.gx-movs{display:flex;flex-direction:column;gap:6px}
+.gx-mov{display:grid;grid-template-columns:84px 104px minmax(0,1fr);gap:8px;align-items:baseline;font-size:13px}
+.gx-mov-d{font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
+.gx-mov-t{font:600 11px var(--font-ui);color:var(--text2);background:var(--surface2);border:1px solid var(--border);border-radius:999px;padding:1px 8px;justify-self:start}
+/* ── Backup 35: Situação em CARTÕES por grupo (Parcelamentos e Acordos) ── */
+body.gx-barra-topo .lg.lg-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));grid-auto-flow:row dense;gap:12px;border:0;background:transparent;overflow:visible}
+body.gx-barra-topo .lg-cards .lg-card{display:flex;flex-direction:column;gap:6px;padding:12px 14px;border:1px solid var(--border);border-radius:var(--card-r-sm,10px);background:var(--surface);cursor:pointer;box-shadow:none;transition:border-color .12s,box-shadow .12s}
+body.gx-barra-topo .lg-cards .lg-card:hover{border-color:var(--primario)}
+body.gx-barra-topo .lg-cards .lg-card.lg-card-atr{box-shadow:inset 3px 0 0 var(--red-bd)}
+body.gx-barra-topo .lg-cards .lg-card.lg-card-risco{box-shadow:inset 3px 0 0 var(--red)}
+body.gx-barra-topo .lg-cards .lg-card.lg-g-aberto{border:1.5px solid var(--primario);background:var(--blue-lt)}
+.lg-card-hd{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.lg-card-hd .lg-gnome{font:700 13px var(--font-ui);color:var(--ink);text-transform:uppercase;letter-spacing:.02em;line-height:1.3}
+.lg-card-hd .lg-st{flex:none;font-size:10.5px}
+.lg-card-sub,.lg-card-prox{font-size:12px;color:var(--text3)}
+.lg-card-prox b{color:var(--text2)}
+.lg-card-bar{height:5px;border-radius:99px;background:var(--surface3,var(--line));overflow:hidden}
+.lg-card-bar span{display:block;height:100%;background:var(--green);border-radius:99px}
+.lg-card-num{display:flex;justify-content:space-between;font-size:12.5px;color:var(--text2)}
+body.gx-barra-topo .lg-cards .lg-painel{grid-column:1/-1;border:1.5px solid var(--primario);border-radius:var(--card-r-sm,10px);background:var(--surface);overflow:hidden}
+.lg-painel-tit{padding:10px 16px;font:700 13px var(--font-ui);color:var(--ink);text-transform:uppercase;border-bottom:1px solid var(--line)}
+.lg-painel-tit .lg-sub{text-transform:none;font-weight:500}
+body.gx-barra-topo .lg-cards .lg-painel .lg-filhos{padding:0;background:var(--surface)}
+body.gx-barra-topo .lg-cards .lg-painel .lg-filho .lg-c1{padding-left:0}
+.lg-resumo{display:flex;flex-wrap:wrap;gap:6px 22px;align-items:baseline;padding:10px 14px;margin:0 0 12px;border:1px solid var(--border);border-radius:var(--card-r-sm,10px);background:var(--surface2);font-size:12.5px;color:var(--text3)}
+.lg-resumo b{font:700 15px var(--font-ui);color:var(--ink);margin-left:4px}
+.lg-resumo b.lg-verde{color:var(--green)}
+.lg-resumo b.lg-vermelho{color:var(--red)}
+.pcd-kpis.pcd-kpis5{grid-template-columns:repeat(5,minmax(0,1fr))}
+@media(max-width:760px){.pcd-kpis.pcd-kpis5{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.lg-parc-tab{table-layout:fixed;width:100%}
+.lg-parc-tab td.lg-pt-ac{text-align:right}
+.lg-bt-pagar{color:var(--green-d)!important;border-color:var(--green-bd)!important;background:var(--green-lt)!important;font-weight:600}
+.lg-bt-pagar:hover{background:var(--green)!important;color:var(--on-cor)!important}
+.lg-ficha{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media(max-width:760px){.lg-ficha{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* ── Backup 35: Acordos → aba única "A pagar" ── */
+.ac-ap .ac-ck{width:34px;text-align:center}
+.ac-ap tr.ac-ap-venc td{background:color-mix(in srgb,var(--red-lt) 55%,transparent)}
+.ac-ap .ac-ap-ac{text-align:right;white-space:nowrap}
+.ac-resp{display:inline-block;padding:2px 10px;border-radius:999px;background:var(--amber-lt);color:var(--amber-d);font:600 11.5px var(--font-ui)}
+.ac-selbar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 12px;margin:0 0 8px;border:1px dashed var(--border-strong);border-radius:var(--r-ctl);background:var(--surface2)}
+.ac-selbar .acoes{display:flex;gap:6px}
+.ac-bt-boleto{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border:1px solid var(--border-strong);border-radius:var(--r-ctl);background:var(--surface);color:var(--ink);font:600 12px var(--font-ui);cursor:pointer;white-space:nowrap}
+.ac-bt-boleto:hover{border-color:var(--primario);background:var(--hover)}
+.ac-bt-boleto.ac-bt-prim{background:var(--primario);border-color:var(--primario);color:var(--on-cor)}
+body.gx-barra-topo .ac-ap td,body.gx-barra-topo .ac-ap th{padding-left:8px!important;padding-right:8px!important}
+body.gx-barra-topo .ac-ap td.mono{white-space:nowrap}
+/* ── Backup 35: densidade — um pouco menor em tudo (cartões, títulos e números), sem mudar o desenho ── */
+@media(min-width:901px){
+  body.gx-barra-topo .cc{padding:18px 20px!important}
+  body.gx-barra-topo .panel:not(#panel-hoje) .gs .card-bd{padding:14px 16px}
+  body.gx-barra-topo .panel:not(#panel-hoje) .gs .titulo-pag h1{font-size:19px!important}
+  body.gx-barra-topo .panel:not(#panel-hoje) .gs .titulo-pag p{font-size:12.5px}
+  body.gx-barra-topo .panel:not(#panel-hoje) .kv{font-size:clamp(14px,1.25vw,18px)!important}
+  body.gx-barra-topo .panel:not(#panel-hoje) .gs .kpi-v{font-size:clamp(14px,1.25vw,18px)!important}
+  body.gx-barra-topo .panel:not(#panel-hoje) .gs .kpi{padding:12px 14px}
+  body.gx-barra-topo .cc-t{font-size:13px}
+}

@@ -52,19 +52,23 @@ function _lgRender(o){
   var G={}; o.itens.forEach(function(x){ (G[chave(x)]=G[chave(x)]||[]).push(x); });
   var atrG=function(g){ return G[g].reduce(function(s,x){ return s+x.atr; },0); };
   var gs=Object.keys(G).sort(function(a,b){ return (atrG(b)>0)-(atrG(a)>0) || a.localeCompare(b,'pt-BR'); });
-  var corpo=gs.map(function(g){
+  // Backup 35: CARTÕES por grupo (com grupo filtrado: por empresa) — informação mínima; clicar abre logo abaixo a lista dos itens
+  var cards=gs.map(function(g){
     var l=G[g].slice().sort(function(a,b){ return b.atr-a.atr || String(a.titulo+a.sub).localeCompare(String(b.titulo+b.sub),'pt-BR'); }), ab=!!o.abertos[g];
     var soma=function(f){ return l.reduce(function(s,x){ return s+(Number(x[f])||0); },0); };
-    var atr=soma('atr'), risco=l.some(function(x){ return x.atr>=2; });
+    var atr=soma('atr'), risco=l.some(function(x){ return x.atr>=2; }), pg=soma('pagas'), tot=soma('total'), pc=tot?Math.round(pg/tot*100):0;
     var p=_lgProx([].concat.apply([],l.map(function(x){ return x.abertas; })));
-    return '<div class="lg-g'+(ab?' lg-g-aberto':'')+(atr?' lg-atr':'')+'">'
-      +'<div class="lg-gl" role="button" tabindex="0" aria-expanded="'+ab+'" onclick="'+o.fnGrupo+'(\''+_lgEsc(g)+'\')" onkeydown="if(event.key===\'Enter\')'+o.fnGrupo+'(\''+_lgEsc(g)+'\')" title="'+(ab?'Recolher':'Ver os '+o.rotulo+'s')+'">'
-      +'<div class="lg-c1"><div class="lg-gnome"><span class="lg-seta" aria-hidden="true">'+(ab?'▾':'▸')+'</span>'+esc(g)+'</div><div class="lg-sub">'+l.length+' '+o.rotulo+(l.length>1?'s':'')+_lgGuiaDiscreta(soma('guias'),true)+'</div></div>'
-      +'<div class="lg-c2">'+_lgPag(soma('pagas'),soma('total'),soma('pago'),soma('falta'))+'</div>'
-      +'<div class="lg-c3">'+(p?'<div class="lg-val">'+_lgFmtV(p.v)+'</div><div class="lg-sub">'+(p.n>1?p.n+' parcelas em '+p.mes:'vence '+p.d.toLocaleDateString('pt-BR'))+'</div>':'<div class="lg-val">—</div>')+'</div>'
-      +'<div class="lg-c4">'+_lgSit(atr,risco,false)+'</div><div class="lg-c5" aria-hidden="true"></div></div>'
-      +(ab?'<div class="lg-filhos">'+l.map(linhaItem).join('')+'</div>':'')+'</div>'; }).join('');
-  return '<div class="lg lg-min"><div class="lg-hd"><span>'+(umGrupo?'Empresa / '+o.rotulo:o.cab)+'</span><span>Parcelas pagas</span><span>Próxima parcela</span><span>Situação</span><span></span></div>'+corpo+'</div>';
+    var card='<div class="lg-card'+(ab?' lg-g-aberto':'')+(atr?(risco?' lg-card-risco':' lg-card-atr'):'')+'" role="button" tabindex="0" aria-expanded="'+ab+'" onclick="'+o.fnGrupo+'(\''+_lgEsc(g)+'\')" onkeydown="if(event.key===\'Enter\')'+o.fnGrupo+'(\''+_lgEsc(g)+'\')" title="'+(ab?'Recolher':'Ver os '+o.rotulo+'s')+'">'
+      +'<div class="lg-card-hd"><span class="lg-gnome">'+esc(g)+'</span>'+_lgSit(atr,risco,false)+'</div>'
+      +'<div class="lg-card-sub">'+l.length+' '+o.rotulo+(l.length>1?'s':'')+_lgGuiaDiscreta(soma('guias'),true)+'</div>'
+      +'<div class="lg-card-bar" title="'+pg+' de '+tot+' parcelas pagas"><span style="width:'+pc+'%"></span></div>'
+      +'<div class="lg-card-num"><span><b class="lg-verde">'+pg+'</b> de '+tot+' pagas</span><span>falta <b>'+_lgFmtV(soma('falta'))+'</b></span></div>'
+      +'<div class="lg-card-prox">'+(p?'Próxima: <b>'+_lgFmtV(p.v)+'</b> · '+(p.n>1?p.n+' em '+p.mes:p.d.toLocaleDateString('pt-BR')):'Sem próxima parcela')+'</div></div>';
+    var painel=ab?'<div class="lg-painel"><div class="lg-painel-tit">'+esc(g)+' <span class="lg-sub">· '+l.length+' '+o.rotulo+(l.length>1?'s':'')+' · clique para ver as parcelas</span></div>'
+      +'<div class="lg-hd"><span>'+(umGrupo?o.rotulo.charAt(0).toUpperCase()+o.rotulo.slice(1):'Empresa / '+o.rotulo)+'</span><span>Parcelas pagas</span><span>Próxima parcela</span><span>Situação</span><span></span></div>'
+      +'<div class="lg-filhos">'+l.map(linhaItem).join('')+'</div></div>':'';
+    return card+painel; }).join('');
+  return '<div class="lg lg-min lg-cards">'+cards+'</div>';
 }
 // Backup 34: parcelas do detalhamento (Parcelamentos e Acordos) em LISTA — igual a "Vencidos — URGENTE":
 // Parcela · Vencimento · Valor · Situação (pagamento + guia emitida / não emitida / o cliente emite)
@@ -72,7 +76,7 @@ function _lgRender(o){
 function _lgParcTabela(l, tabela){
   var h=new Date(); h.setHours(0,0,0,0);
   var nome=tabela==='parcelas'?'Guia':'Boleto';
-  return '<div class="tw lg-parc-tw" data-sem-pagina><table class="lg-parc-tab"><thead><tr><th>Parcela</th><th>Vencimento</th><th>Valor</th><th>Situação</th><th></th></tr></thead><tbody>'
+  return '<div class="tw lg-parc-tw" data-sem-pagina><table class="lg-parc-tab"><colgroup><col style="width:90px"><col style="width:120px"><col style="width:140px"><col><col style="width:170px"></colgroup><thead><tr><th>Parcela</th><th>Vencimento</th><th>Valor</th><th>Situação</th><th></th></tr></thead><tbody>'
     +l.map(function(x){ var d=pDate(x.venc), n=d?Math.round((d-h)/864e5):null;
       var pag=x.pago?'<span class="pill pago">✓ Paga'+(x.dataPag?' em '+esc(x.dataPag):'')+'</span>'
         :(n!==null&&n<=0?'<span class="pill vencido">'+(n===0?'Vence hoje':'Vencida há '+Math.abs(n)+' d')+'</span>':'<span class="pill aberto">A vencer</span>');
@@ -82,7 +86,7 @@ function _lgParcTabela(l, tabela){
       return '<tr class="'+(x.pago?'lg-pt-pago':n!==null&&n<=0?'lg-pt-atr':'')+'"><td>'+esc(x.rot||'?')+'</td><td>'+esc(x.venc||'—')+'</td>'
         +'<td title="'+(x.lancado===false?'Valor não lançado nesta parcela: vale o último lançado':'')+'">'+_lgFmtV(Number(x.valor)||0)+(x.lancado===false?'<span class="lg-pt-est">*</span>':'')+'</td>'
         +'<td><div class="lg-pt-sit">'+pag+em+'</div></td>'
-        +'<td class="lg-pt-ac">'+(x.pago?'':'<button type="button" class="btn-m ac-bt-pagar" data-lg-pagar="'+x.id+'" title="Lançar o pagamento desta parcela">✓ Pago</button>')+'</td></tr>'; }).join('')
+        +'<td class="lg-pt-ac">'+(x.pago?'':'<button type="button" class="btn btn-o btn-mini lg-bt-pagar" data-lg-pagar="'+x.id+'" title="Lançar o pagamento desta parcela">＋ Lançar pagamento</button>')+'</td></tr>'; }).join('')
     +'</tbody></table></div>'
     +(l.some(function(x){ return x.lancado===false; })?'<div class="lg-pt-nota">* valor ainda não lançado nesta parcela — vale o último valor lançado (o valor muda todo mês).</div>':'');
 }

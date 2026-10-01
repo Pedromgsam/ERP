@@ -9,7 +9,8 @@ const TIPOS_CENTRAL_EM = [['', 'Todos'], ['honorarios', 'Honorários'], ['parcel
 const ROT_TIPO_EMAIL = { honorarios: 'Honorários', parcelamentos: 'Parcelamento', acordos: 'Acordo', recibos: 'Recibo', propostas: 'Proposta', contratos: 'Boas-vindas', convites: 'Convite' };
 const SIT_EMAIL = [['hoje', 'A enviar hoje'], ['enviados', 'Enviados'], ['erro', 'Com erro'], ['retidos', 'Retidos (pausa)']];
 // Backup 19: tudo de e-mail num lugar só — cada área é uma aba da Central
-const AREAS_EMAIL = [['fila', '📬 Enviar e acompanhar'], ['clientes', '📨 Quem recebe o quê (por cliente)'], ['config', '⚙ Configuração do envio', true], ['avisos', '🔔 Meus avisos por e-mail']];
+// Backup 35: mais simples — 3 abas (E-mails · Quem recebe · Ajustes); pausa e e-mails de teste numa faixa só
+const AREAS_EMAIL = [['fila', '📬 E-mails'], ['clientes', '📨 Quem recebe'], ['config', '⚙ Ajustes', true]];
 
 TELAS.emails = async function () {
   E.em = Object.assign({ sit: 'hoje', tipo: '', busca: '', area: 'fila' }, E.em || {});
@@ -18,15 +19,12 @@ TELAS.emails = async function () {
   const pausado = await q(sb.rpc('emails_pausados')).catch(() => false);
   const emTeste = await q(sb.from('configuracoes').select('valor').eq('chave', 'emails_teste').maybeSingle()).then((r) => (r && r.valor) || '').catch(() => '');
   $('conteudo').innerHTML =
-    '<div class="titulo-pag"><div><h1>Central de e-mails</h1><p>Tudo de e-mail num lugar só: o que sai, o que já foi, quem recebe, modelos e configuração</p></div>' +
-    '<div class="acoes">' + (admin ? '<button class="btn btn-o" id="em-auto">⚙ Automático e horário</button><button class="btn btn-o" id="em-modelos">✎ Modelos</button>' : '') + '</div></div>' +
-    '<div class="faixa-aprov' + (pausado ? ' tem' : '') + '" id="em-pausa"><span class="faixa-ic" aria-hidden="true">' + (pausado ? '⏸' : '▶') + '</span><div><b>' +
-      (pausado ? 'Envio de e-mails PAUSADO — nada sai do sistema.' : 'Envio de e-mails ligado.') + '</b><div class="sub">' +
-      (pausado ? 'Os e-mails novos ficam em "Retidos (pausa)": dá para liberar um a um ou descartar. O e-mail de teste da Configuração sai sempre.' : 'Os e-mails da fila saem em até 5 minutos.') + '</div></div>' +
-      (admin ? '<button class="btn ' + (pausado ? 'btn-p' : 'btn-o') + '" id="em-pausar" data-pausar="' + (pausado ? '0' : '1') + '">' + (pausado ? '▶ Liberar o envio' : '⏸ Pausar o envio') + '</button>' : '') + '</div>' +
-    // Backup 29: modo teste — com a pausa ligada, só os e-mails desta lista saem (para testar sem mandar nada aos clientes)
-    '<div class="em-teste"><span class="em-teste-ic" aria-hidden="true">🧪</span><div class="em-teste-txt"><b>E-mails de teste</b><div class="sub">Saem mesmo com o envio pausado. Use para testar: cadastre um cliente com um destes e-mails (ex.: o cliente "TESTE E-MAIL") e mande o que quiser.</div></div>' +
-      '<input id="em-teste-lista" value="' + esc(emTeste) + '" placeholder="seu@email.com, outro@email.com"' + (admin ? '' : ' disabled') + '>' + (admin ? '<button class="btn btn-o" id="em-teste-salvar">Salvar</button>' : '') + '</div>' +
+    '<div class="titulo-pag"><div><h1>E-mails</h1></div>' +
+    '<div class="acoes"><button class="btn btn-o" id="em-meus" type="button">🔔 Meus avisos</button>' + (admin ? '<button class="btn btn-o" id="em-modelos">✎ Modelos</button><button class="btn btn-o" id="em-auto">⚙ Automático</button>' : '') + '</div></div>' +
+    '<div class="em-faixa' + (pausado ? ' em-faixa-pausa' : '') + '" id="em-pausa"><span class="em-faixa-ic" aria-hidden="true">' + (pausado ? '⏸' : '▶') + '</span>' +
+      '<div class="em-faixa-txt"><b>' + (pausado ? 'Envio PAUSADO' : 'Envio ligado') + '</b><span class="sub">' + (pausado ? ' · nada sai, só para os e-mails de teste:' : ' · sai em até 5 minutos') + '</span></div>' +
+      (pausado || admin ? '<input id="em-teste-lista" value="' + esc(emTeste) + '" placeholder="e-mails de teste (separados por vírgula)" title="Estes e-mails recebem mesmo com o envio pausado"' + (admin ? '' : ' disabled') + '>' + (admin ? '<button class="btn btn-o btn-mini" id="em-teste-salvar">Salvar</button>' : '') : '') +
+      (admin ? '<button class="btn btn-mini ' + (pausado ? 'btn-p' : 'btn-o') + '" id="em-pausar" data-pausar="' + (pausado ? '0' : '1') + '">' + (pausado ? '▶ Liberar o envio' : '⏸ Pausar') + '</button>' : '') + '</div>' +
     '<div class="segmento" id="em-area" style="margin-bottom:14px">' + AREAS_EMAIL.filter((a) => !a[2] || admin).map(([v, r]) => '<button data-area="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<div id="em-area-corpo"></div>';
   if ($('em-teste-salvar')) $('em-teste-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
@@ -34,6 +32,7 @@ TELAS.emails = async function () {
   });
   $('em-area').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.area = b.dataset.area; pintarAreaEmail(); } };
   if ($('em-auto')) $('em-auto').onclick = () => janelaAutoEmails();
+  $('em-meus').onclick = () => janelaMeusAvisos();
   if ($('em-modelos')) $('em-modelos').onclick = () => janelaModelosEmail();
   if ($('em-pausar')) $('em-pausar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
     const pausar = ev.currentTarget.dataset.pausar === '1';
@@ -47,8 +46,7 @@ async function pintarAreaEmail() {
   document.querySelectorAll('#em-area button').forEach((b) => b.classList.toggle('ativo', b.dataset.area === F.area));
   if (F.area === 'clientes') return controleEmails(alvo);
   if (F.area === 'config') { E.adm = E.adm || {}; return admEmail(alvo); }
-  if (F.area === 'avisos') { alvo.innerHTML = '<div class="card"><div class="card-bd"><p class="sub" style="margin-bottom:10px">Avisos internos que <b>você</b> recebe por e-mail (resumo do dia, menções, tarefas…).</p>' +
-      '<button class="btn btn-o" type="button" id="em-meus">🔔 Escolher meus avisos por e-mail</button></div></div>'; $('em-meus').onclick = () => janelaMeusAvisos(); return; }
+  if (F.area === 'avisos') F.area = 'fila';
   alvo.innerHTML = '<div class="abas" id="em-sit">' + SIT_EMAIL.map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<div class="filtros"><div class="segmento" id="em-tipo">' + TIPOS_CENTRAL_EM.map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<input class="busca" id="em-busca" placeholder="Buscar cliente, grupo ou assunto" autocomplete="off"></div>' +
