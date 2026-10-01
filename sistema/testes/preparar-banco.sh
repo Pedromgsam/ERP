@@ -13,4 +13,6 @@ $P -d erp -c "insert into auth.users(email,senha_teste,raw_user_meta_data) value
   update perfis set papel='equipe', funcoes='{\"financeiro_juridico\":\"editar\",\"financeiro_contab\":\"editar\",\"contratos\":\"editar\",\"clientes\":\"editar\",\"juridico\":\"editar\",\"tarefas\":\"editar\",\"documentos\":\"editar\",\"crm\":\"editar\",\"relatorios\":\"editar\"}' where email='equipe@teste';" >/dev/null
 # os testes enviam e-mails de mentira: a pausa do Backup 19 fica desligada aqui (tem teste próprio em emails.test.js)
 $P -d erp -c "update configuracoes set valor='false'::jsonb where chave='emails_pausados'" >/dev/null
+# o modo teste do Backup 33 desliga as rotinas de e-mail ao cliente: nos testes elas voltam como estavam
+$P -d erp -c "update regras_tarefas set ligada=true where chave in (select jsonb_array_elements_text(valor) from configuracoes where chave='b33_modo_teste_emails')" >/dev/null
 pkill -USR1 -x postgrest 2>/dev/null || true   # PostgREST relê a estrutura

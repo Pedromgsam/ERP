@@ -75,9 +75,10 @@ function renderParcAnalise(){
   // Backup 25: a lista por grupo é a mesma de Acordos (_lgRender, remendos/lista-grupos-b25.js)
   var itens=L.map(function(x){ var p=x.p, v=Number(p.valorUltimaParcela)||0;
     return {k:x.k, grupo:x.g, titulo:p.empresa||'—', pagas:x.pg, total:x.tot, pago:x.n.pago, falta:x.n.falta, atr:x.atr, concluido:_parcConcluido(p),
+      emitimos:p.emitimosGuia!==false, atrV:x.atr*v,
       guias:p.emitimosGuia===false?0:_lgFaltaEmitir(p.parcelas, function(pa){ return !!pa.emitidaEm||/sim|emitid/i.test(pa.emissao||''); }, function(pa){ return String(pa.pagamento||'').toUpperCase()==='SIM'; }),
       sub:[p.local||p.orgao||'',p.natureza||'',p.numero?'nº '+p.numero:''].filter(Boolean).map(esc).join(' · ')+(_parcVisao==='lista'?' · '+esc(x.g):'')
-        +(p.emitimosGuia===false?' <span class="lg-tag" title="As guias deste parcelamento são emitidas pelo cliente">guia: cliente</span>':''),
+,
       abertas:(p.parcelas||[]).filter(function(pa){ return String(pa.pagamento||'').toUpperCase()!=='SIM'; }).map(function(pa){ return {d:pDate(pa.vencimento), v:Number(pa.valor)||v}; })}; });
   var corpo=_lgRender({itens:itens, porGrupo:!_parcF.grupo, abertos:_parcGrpAbertos, fnGrupo:'_parcAbrirGrupo', fnItem:'_parcAbrir', rotulo:'parcelamento', cab:'Grupo / parcelamento'});
   var grupos=[...new Set(TODOS.map(function(x){return x.g;}))].sort(function(a,b){return a.localeCompare(b,'pt-BR');});
@@ -96,7 +97,7 @@ function renderParcAnalise(){
    +  kC('Sai por mês',_faFT(totMes),lista.length+' parcelamento'+(lista.length>1?'s':'')+(_parcTodos?'':' em andamento'),'cb','')
    +  kC('Em atraso',_faFT(vAtr),comAtr.length+' parcelamento'+(comAtr.length===1?'':'s')+' com parcela vencida','cr',comAtr.length?'dr':'')
    +'</div>'
-   +'<div class="gx-tab-topo"><div class="pa-sub">Parcelamentos em andamento</div><div class="pcx-ctl">'+vis+cx+'</div></div>'
+   +'<div class="gx-tab-topo"><div class="pa-sub">Parcelamentos em andamento</div><div class="pcx-ctl">'+_lgBotaoDuas()+vis+cx+'</div></div>'
    +filtros
    +corpo);
 }
