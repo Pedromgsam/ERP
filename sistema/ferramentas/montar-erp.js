@@ -677,5 +677,19 @@ console.log('gestao-embutida.js e gs.css gerados');
 console.log('index.html gerado: ' + trocas + ' ajustes, ' + Math.round(s.length / 1024) + ' KB');
 
 
+// 15b. Central de Documentos (Backup 32): mesma regra do carimbo (?v=) na página documentos/index.html (troca o carimbo antigo)
+{
+  const crypto = require('crypto'), pg = path.join(APP, 'documentos', 'index.html');
+  if (fs.existsSync(pg)) {
+    let h = fs.readFileSync(pg, 'utf8'), n = 0;
+    h = h.replace(/((?:src|href)=")((?:\.\.\/)?(?:vendor\/)?[\w.-]+\.(?:js|css))(?:\?v=\w+)?(")/g, (m, a2, f, z) => {
+      const real = path.join(APP, 'documentos', f);
+      if (/config\.js$/.test(f) || !fs.existsSync(real)) return a2 + f + z;
+      n++; return a2 + f + '?v=' + crypto.createHash('sha1').update(fs.readFileSync(real)).digest('hex').slice(0, 8) + z;
+    });
+    fs.writeFileSync(pg, h); console.log('documentos/index.html: carimbo em ' + n + ' arquivos');
+  }
+}
+
 // 16. Geradores de documentos (Backup 16): páginas separadas em app/geradores/, com a ponte do ERP
 require('./montar-geradores').montar();

@@ -6196,3 +6196,88 @@ begin
 end $$;
 revoke all on function public.parcelamentos_emitimos(uuid[], boolean) from public, anon;
 grant execute on function public.parcelamentos_emitimos(uuid[], boolean) to authenticated;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- Backup 32 — Central de Documentos (sistema à parte em /documentos): procuração, substabelecimento, contrato de honorários,
+-- recibo, declaração e acordo. Guarda o que foi preenchido (para reabrir/duplicar) e o texto final; numeração por tipo e ano.
+-- ═══════════════════════════════════════════════════════════════════
+create table if not exists public.documentos_gerados (
+  id uuid primary key default gen_random_uuid(),
+  modelo text not null,
+  numero text not null default '',
+  titulo text not null default '',
+  cliente_id uuid references public.clientes(id) on delete set null,
+  grupo_id uuid references public.grupos(id) on delete set null,
+  dados jsonb not null default '{}',
+  html text not null default '',
+  editado boolean not null default false,
+  criado_por uuid default auth.uid(),
+  autor text not null default '',
+  criado_em timestamptz not null default now(),
+  atualizado_em timestamptz not null default now()
+);
+create index if not exists documentos_gerados_cli on public.documentos_gerados (cliente_id, criado_em desc);
+create index if not exists documentos_gerados_mod on public.documentos_gerados (modelo, criado_em desc);
+alter table public.documentos_gerados enable row level security;
+revoke all on public.documentos_gerados from anon;
+grant select, insert, update, delete on public.documentos_gerados to authenticated;
+drop policy if exists documentos_gerados_ver on public.documentos_gerados;
+create policy documentos_gerados_ver on public.documentos_gerados for select to authenticated using (public.eh_equipe());
+drop policy if exists documentos_gerados_criar on public.documentos_gerados;
+create policy documentos_gerados_criar on public.documentos_gerados for insert to authenticated with check (public.eh_equipe());
+drop policy if exists documentos_gerados_editar on public.documentos_gerados;
+create policy documentos_gerados_editar on public.documentos_gerados for update to authenticated using (public.eh_equipe()) with check (public.eh_equipe());
+drop policy if exists documentos_gerados_apagar on public.documentos_gerados;
+create policy documentos_gerados_apagar on public.documentos_gerados for delete to authenticated using (public.eh_admin() or criado_por = auth.uid());
+create or replace function public.documentos_gerados_carimbo() returns trigger language plpgsql set search_path = public as $$
+begin
+  new.atualizado_em := now();
+  if tg_op = 'INSERT' and coalesce(new.autor, '') = '' then
+    select coalesce(nullif(nome, ''), email, '') into new.autor from public.perfis where id = auth.uid();
+  end if;
+  return new;
+end $$;
+drop trigger if exists documentos_gerados_carimbo on public.documentos_gerados;
+create trigger documentos_gerados_carimbo before insert or update on public.documentos_gerados for each row execute function public.documentos_gerados_carimbo();
+
+-- numeração por tipo e ano (REC 2026/0001): só avança quando o documento é salvo
+create table if not exists public.documentos_numeracao (
+  modelo text not null, ano int not null, ultimo int not null default 0, primary key (modelo, ano));
+alter table public.documentos_numeracao enable row level security;
+revoke all on public.documentos_numeracao from anon, authenticated;
+grant select on public.documentos_numeracao to authenticated;          -- leitura (o backup lê todas as tabelas); gravar, só pela função
+drop policy if exists documentos_numeracao_ver on public.documentos_numeracao;
+create policy documentos_numeracao_ver on public.documentos_numeracao for select to authenticated using (public.eh_equipe());
+create or replace function public.proximo_numero_documento(p_modelo text) returns text
+language plpgsql security definer set search_path = public as $$
+declare a int := extract(year from now())::int; n int;
+begin
+  if not public.eh_equipe() then raise exception 'permission denied'; end if;
+  insert into public.documentos_numeracao (modelo, ano, ultimo) values (p_modelo, a, 1)
+  on conflict (modelo, ano) do update set ultimo = public.documentos_numeracao.ultimo + 1
+  returning ultimo into n;
+  return a || '/' || lpad(n::text, 4, '0');
+end $$;
+revoke all on function public.proximo_numero_documento(text) from public, anon;
+grant execute on function public.proximo_numero_documento(text) to authenticated;
+
+-- advogados e dados do escritório usados nos documentos (editáveis na Central de Documentos → Escritório)
+insert into public.configuracoes (chave, valor) values ('documentos_escritorio', jsonb_build_object(
+  'cidade', 'Santo Antônio do Monte/MG',
+  'foro', 'Santo Antônio do Monte/MG',
+  'email', 'araujocastroadvocacia@gmail.com',
+  'advogados', jsonb_build_array(
+    jsonb_build_object('id', 'pedro', 'nome', 'Pedro Henrique de Oliveira Castro', 'oab', 'OAB/MG 228.471', 'nacionalidade', 'brasileiro', 'estado_civil', '', 'genero', 'm',
+      'endereco', 'Rua Araucária, n. 231, Coronel Luciano, Lagoa da Prata/MG, CEP 35.591-218', 'telefone', '(37) 99868-4323', 'email', 'araujocastroadvocacia@gmail.com', 'cpf', '', 'pix', '', 'banco', ''),
+    jsonb_build_object('id', 'emanuelle', 'nome', 'Emanuelle Oliveira Araujo', 'oab', 'OAB/MG 240.369', 'nacionalidade', 'brasileira', 'estado_civil', '', 'genero', 'f',
+      'endereco', 'Rua Sebastião Gontijo, n. 66, Centro, Santo Antônio do Monte/MG, CEP 35.560-000', 'telefone', '(37) 99856-4020', 'email', 'araujocastroadvocacia@gmail.com', 'cpf', '', 'pix', '', 'banco', ''),
+    jsonb_build_object('id', 'adriana', 'nome', 'Adriana Fátima Araujo Borges', 'oab', 'OAB/MG 123.438', 'nacionalidade', 'brasileira', 'estado_civil', '', 'genero', 'f',
+      'endereco', 'Rua Sebastião Gontijo, n. 66, Centro, Santo Antônio do Monte/MG, CEP 35.560-000', 'telefone', '(37) 99828-9996', 'email', 'araujocastroadvocacia@gmail.com', 'cpf', '', 'pix', '', 'banco', ''))))
+on conflict (chave) do nothing;
+create or replace function public.salvar_documentos_escritorio(p jsonb) returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not public.eh_admin() then raise exception 'Só o administrador altera os dados do escritório.'; end if;
+  insert into public.configuracoes (chave, valor) values ('documentos_escritorio', p) on conflict (chave) do update set valor = excluded.valor;
+end $$;
+revoke all on function public.salvar_documentos_escritorio(jsonb) from public, anon;
+grant execute on function public.salvar_documentos_escritorio(jsonb) to authenticated;

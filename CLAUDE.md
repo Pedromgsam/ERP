@@ -83,7 +83,16 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
-- Última entrega: **Backup 31** (só SQL). `contornarGrupos()` (erp-telas.js, no observer) marca `gc-ini/gc-in/gc-fim` nas linhas de `tr.gx-grp`/
+- Última entrega: **Backup 32** (só SQL). **Central de Documentos** em `sistema/app/documentos/` (página à parte, mesmo login): `modelos.js`
+  (`window.MODELOS_DOC`: campos + `montar(d, h, B)` → blocos; marcação `**negrito**`, `__itálico__`, faltando = `h.V()` → ⟦⟧ amarelo),
+  `motor.js` (formulário, prévia A4, busca de cliente → `dadosCliente`, `salvar` em `documentos_gerados`, número `proximo_numero_documento`
+  (REC aaaa/nnnn), histórico, "Ajustar texto" → `lerEditados`, PDF = janela de impressão com thead/tfoot e logo/banda fixas, Word = `vendor/docx.js`
+  sob demanda, nome de arquivo sem acento), `central.css` (tela) e `documento.css` (folha/impressão). Entradas: `?modelo=&cliente=`, `&contrato=`,
+  `?lancamento=` (recibo), `?doc=`. Dados do escritório/advogados: `configuracoes.documentos_escritorio` (`salvar_documentos_escritorio`, admin).
+  ERP: `janelaGeradores` (telas-documentos.js) lista os modelos da Central + "Outros geradores"; `abrirGeradorContrato` → Central; recibo no
+  `detalheLancamento`. Carimbo ?v= da página no montar-erp (15b). Teste `testes/documentos.js` (no rodar-tudo). Imagens: `img/recibo-cabecalho.png`
+  (logo) e `img/rodape-documento.png` (banda).
+- Backup 31 (base) (só SQL). `contornarGrupos()` (erp-telas.js, no observer) marca `gc-ini/gc-in/gc-fim` nas linhas de `tr.gx-grp`/
   `tr.cli-grp` → contorno azul (design.css); `.lg-g` e `details.doc-pasta` com borda azul. Processos: `_procEntidades(lista, g, val)` (montar-erp) troca a
   tabela Grupo por "Entidade / sócio" com grupo filtrado. Rotina: `rotina_conferencias` + `conferir_rotina(area, ids, alterou)` + `rotina_situacao(area)`
   (área passivo|parcelamentos; alteração = `historico`), `celulaConferencia`/`situacaoRotina`; Processos `[data-sem-nov]` (mov `sem_novidade`) e

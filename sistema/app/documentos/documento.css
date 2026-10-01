@@ -1,0 +1,53 @@
+/* Central de Documentos (Backup 32) — a FOLHA: prévia A4 na tela e impressão (PDF). Família A do escritório:
+   Times New Roman 12, margens 3 cm (3,5 cm embaixo), logo no cabeçalho e a banda institucional no rodapé. */
+.dc-papel{width:794px;min-height:1123px;margin:0 auto;background:#fff;color:#000;box-shadow:0 6px 24px rgba(0,0,0,.14);display:flex;flex-direction:column;border-radius:2px}
+.dc-cab{display:block;width:100%;height:auto}
+.dc-rod{display:block;width:100%;height:auto;margin-top:auto}
+.dc-papel .dc-corpo{padding:28px 113px 60px}
+.dc-corpo{font:16px/1.5 'Times New Roman',Times,serif;color:#000}
+.dc-tit{font:700 16px 'Times New Roman',Times,serif;text-align:center;margin:12px 0 38px;letter-spacing:.02em}
+.dc-p{margin:0 0 10px;text-align:justify;line-height:1.5}
+.dc-c{text-align:center}
+.dc-fecho{margin-top:22px;break-after:avoid;page-break-after:avoid}
+.dc-recibo{display:flex;justify-content:space-between;align-items:center;border:1.5px solid #1F3864;border-radius:6px;padding:10px 16px;margin:0 0 24px}
+.dc-recibo span{font-size:14px;color:#1F3864;font-weight:700}
+.dc-recibo b{font-size:20px;color:#1F3864}
+.dc-bloco{text-align:center;margin:0 0 12px;line-height:1.4}
+.dc-tab{width:100%;border-collapse:collapse;margin:6px 0 12px;font-size:14px}
+.dc-tab th{background:#1F3864;color:#fff;text-align:left;padding:5px 8px;border:1px solid #1F3864}
+.dc-tab td{border:1px solid #9AA6B8;padding:5px 8px}
+.dc-tab td.dc-num{text-align:right;white-space:nowrap}
+.dc-assin{margin-top:8px;break-inside:avoid;page-break-inside:avoid}
+.dc-assin-l{display:grid;gap:30px;margin-bottom:16px;break-inside:avoid;page-break-inside:avoid}
+.dc-assin-c{text-align:center;display:flex;flex-direction:column;align-items:center;gap:1px;padding-top:34px}
+.dc-assin-c small{font-size:13px;margin-bottom:-14px;color:#333}
+.dc-linha{width:88%;border-top:1px solid #000;margin-bottom:4px}
+.dc-assin-c b{font-size:15px;line-height:1.3}
+.dc-assin-c span{font-size:14px}
+.dc-quebra{border-top:1px dashed #9AA6B8;margin:26px 0;text-align:center;line-height:0}
+.dc-quebra span{background:#fff;padding:0 8px;font:11px Arial,sans-serif;color:#7A8494}
+.falta{background:#FFF1A8;color:#6B4E00;border-radius:3px;padding:0 3px;font-family:Arial,sans-serif;font-size:.82em;font-weight:700;outline:1px dashed #C9A20A}
+[contenteditable="true"]{outline:1px dashed #9AA6B8;outline-offset:3px;border-radius:2px}
+[contenteditable="true"]:focus{outline:2px solid #2E5EAA}
+/* impressão (janela "Salvar em PDF"): cabeçalho e rodapé repetem em todas as páginas; o thead/tfoot reservam o espaço */
+.dc-impressao{margin:0;background:#fff}
+.dc-barra-imp{position:sticky;top:0;display:flex;gap:12px;align-items:center;justify-content:space-between;padding:10px 16px;background:#1B2A4A;color:#fff;font:14px Arial,sans-serif;z-index:5}
+.dc-barra-imp button{background:#C9A84C;color:#1B2A4A;border:0;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer}
+.dc-pagina{width:100%;border-collapse:collapse}
+.dc-pagina > tbody > tr > td{padding:0 30mm}
+.dc-esp-cab{height:30mm}
+.dc-esp-rod{height:35mm}
+.dc-cab-fixo,.dc-rod-fixo{display:none}
+@page{size:A4;margin:0}
+@media print{
+  .no-print{display:none!important}
+  .dc-cab-fixo{display:block;position:fixed;top:0;left:0;width:100%}
+  .dc-rod-fixo{display:block;position:fixed;bottom:0;left:0;width:100%}
+  .dc-impressao .dc-corpo{font-size:12pt}
+  .dc-impressao .dc-tit{font-size:12pt}
+  .dc-impressao .dc-quebra{border:0;margin:0;break-after:page;page-break-after:always}
+  .dc-impressao .dc-quebra span{display:none}
+  .dc-recibo,.dc-tab th{print-color-adjust:exact;-webkit-print-color-adjust:exact}
+  .dc-tab tr{break-inside:avoid}
+  .falta{background:none;outline:0;color:#000}
+}

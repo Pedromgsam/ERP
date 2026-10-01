@@ -630,3 +630,34 @@ Caixa · nº …"). Atraso por parcelamento, discreto: "1 em atraso" (rosa) ou "
 continua no alto, à direita. Linhas mais baixas (quadro menor).
 
 **Versão anterior guardada:** `backups/Backup 30 - Guias com destinatario unico, situacao do e-mail e empresas por grupo.zip` (antes destas mudanças).
+
+## Backup 32 — Central de Documentos (feita do zero): procuração, substabelecimento, contrato, recibo, declaração e acordo (tem SQL)
+Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+Shift+R**. Nenhuma Edge Function mudou.
+
+**Onde fica:** ERP → **⋯ → 📄 Documentos** (ou a ficha do cliente → Documentos; contrato e CRM → "Gerar contrato"; Financeiro → recebimento →
+**📄 Recibo**). Abre numa aba à parte: `.../documentos/` — mesmo login do ERP.
+
+**Como usa:**
+1. À esquerda, escolha o modelo: **Procuração, Substabelecimento, Contrato de honorários, Recibo, Declaração, Acordo entre partes**.
+2. No formulário, **🔎 Buscar cliente cadastrado**: puxa razão social/nome, CPF/CNPJ, endereço e sócio-administrador. Confira e complete.
+3. À direita, a **folha A4 ao vivo** (logo no alto, banda institucional no rodapé, Times New Roman, cláusulas no padrão do escritório).
+   O que falta preencher aparece em **amarelo** e o contador "N campos a preencher" fica no alto.
+4. **✎ Ajustar texto** para escrever direto na folha (Ctrl+B = negrito). **💾 Salvar** guarda no **Histórico** (recibo ganha número:
+   REC 2026/0001, 0002…). **⎙ PDF** abre a página para "Salvar em PDF"; **⬇ Word** baixa o .docx com a logo e o rodapé.
+5. **🗂 Histórico**: buscar, **Abrir**, **Duplicar** (faz outro igual; recibo ganha número novo) e apagar.
+6. **🏛 Escritório** (só administrador): nome/OAB/endereço profissional dos advogados, CNPJ e razão social (recibos), cidade e foro padrão.
+
+**Modelos:**
+- **Procuração:** ad judicia et extra com os poderes especiais padrão; finalidade em negrito no fim (processo, Receita/PGFN/SEFAZ, processo
+  administrativo, Junta/cartórios, ampla ou texto livre); poderes extras opcionais; um ou mais advogados.
+- **Substabelecimento:** com ou sem reserva; do escritório para outro advogado ou recebido.
+- **Contrato de honorários:** objeto + atividades + exclusão padrão + ressalva; honorários combináveis (fixo, entrada + parcelas, salários mínimos,
+  mensalidade, êxito com a base definida); rescisão, obrigações e disposições gerais fixas; Anexo I (tabela por matéria) opcional; testemunhas.
+  Vindo de um contrato do ERP, já traz valor, parcelas, mensalidade e % de êxito.
+- **Recibo:** numerado, valor por extenso, quem paga, quem recebe (escritório ou advogado), forma e data. Vindo do Financeiro, já preenchido.
+- **Declaração:** hipossuficiência (justiça gratuita), residência ou texto livre.
+- **Acordo entre partes:** credor/devedor (ou outro par), dívida, valor do acordo (mostra o desconto), à vista ou parcelado, dados bancários,
+  inadimplemento com multa e execução, quitação (e homologação nos autos quando houver processo), assinaturas lado a lado.
+
+O gerador antigo de **contrato e procuração** saiu dos menus (o arquivo continua no site só como consulta). Petição, solicitação de documentos,
+proposta e modelos de e-mail continuam em ⋯ → Documentos → "Outros geradores".

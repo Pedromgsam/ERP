@@ -1799,7 +1799,9 @@ async function detalheLancamento(id) {
         lin('Contrato', l.contratos ? esc(l.contratos.descricao) + (l.contratos.modalidade === 'consultoria' ? ' <span class="sub">(consultoria mensal)</span>' : '') : '') +
       '</div>' + (l.obs ? '<div class="tf-bloco"><div class="secao">Observação</div><div class="tf-texto">' + esc(l.obs).replace(/\n/g, '<br>') + '</div></div>' : '') + '</div>',
     rodape: '<span>' + (l.contrato_id ? '<button class="btn btn-o btn-mini" type="button" id="dl-ctr">Abrir contrato</button> ' : '') +
-        (l.cliente_id ? '<button class="btn btn-o btn-mini" type="button" id="dl-cli">Ficha do cliente</button>' : '') + '</span>' +
+        (l.cliente_id ? '<button class="btn btn-o btn-mini" type="button" id="dl-cli">Ficha do cliente</button>' : '') +
+        // Backup 32: recibo já preenchido na Central de Documentos (valor, data, forma e cliente)
+        (l.pago && l.tipo === 'receita' ? ' <a class="btn btn-o btn-mini" id="dl-recibo" target="_blank" rel="noopener" href="documentos/index.html?lancamento=' + encodeURIComponent(l.id) + '">📄 Recibo</a>' : '') + '</span>' +
       '<div class="acoes"><button class="btn btn-o" type="button" data-editar="' + l.id + '">✎ Editar</button>' +
       (!l.pago && !l.perda ? '<button class="btn btn-v" type="button" data-pagar="' + l.id + '">✓ ' + (l.tipo === 'despesa' && !l.redutor ? 'Pago' : 'Recebido') + '</button>' : '') + '</div>' });
   ligarAcoesLancamentos(j, async () => { fecharJanela(j); if (window.ERP_RECARREGAR) window.ERP_RECARREGAR(); else await recarregar(); });
@@ -4876,22 +4878,29 @@ async function pintarDocumentos(buscar) {
 }
 
 // ─────────── Geradores de documentos (Backup 16) ───────────
-// Páginas separadas (só carregam quando abertas). Com cliente, já abrem preenchidas.
-const GERADORES_DOC = [['contrato-procuracao.html', '📜 Contrato e Procuração', 'contrato de honorários e procuração, com os dados do cliente'],
-  ['peticao.html', '⚖ Petição', 'inicial, contestação, manifestação, embargos, exceção — com cliente e processo'],
+// Backup 32: a Central de Documentos (documentos/) substitui o gerador antigo de contrato e procuração.
+// Os outros geradores (petição, solicitação, proposta, e-mails) continuam como antes, mais abaixo na janela.
+const MODELOS_CENTRAL = [['procuracao', '📜 Procuração', 'ad judicia et extra, com a finalidade em destaque'], ['substabelecimento', '🔁 Substabelecimento', 'com ou sem reserva'],
+  ['contrato', '🤝 Contrato de honorários', 'fixo, parcelado, salário mínimo, mensal e êxito'], ['recibo', '🧾 Recibo', 'numerado, com valor por extenso'],
+  ['declaracao', '✍️ Declaração', 'hipossuficiência, residência ou texto livre'], ['acordo', '⚖️ Acordo entre partes', 'quitação de dívida, com ou sem processo']];
+const GERADORES_DOC = [['peticao.html', '⚖ Petição', 'inicial, contestação, manifestação, embargos, exceção — com cliente e processo'],
   ['solicitacao-documentos.html', '📋 Solicitação de Documentos', 'lista do que o cliente precisa enviar'],
   ['propostas.html', '💼 Proposta (apresentação)', 'proposta comercial em páginas, com a marca'],
   ['modelos-email.html', '✉ Modelos de E-mail (implantação)', 'e-mails do processo de implantação, enviados pelo ERP']];
+const urlCentral = (modelo, clienteId) => 'documentos/index.html' + (modelo ? '?modelo=' + modelo + (clienteId ? '&cliente=' + encodeURIComponent(clienteId) : '') : '');
 function janelaGeradores(clienteId) {
-  const j = abrirJanela({ titulo: '📄 Geradores de documentos', larga: true,
-    corpo: '<p class="sub" style="margin-bottom:10px">Abre numa aba nova. Escolha o cliente na barra de cima do gerador e clique em <b>Preencher</b>; ao final, <b>📁 Guardar em Documentos</b> salva na pasta do cliente.</p>' +
-      '<div class="lista-ficha">' + GERADORES_DOC.map(([arq, rot, d]) => '<a class="item-ficha clicavel ger-link" target="_blank" rel="noopener" href="geradores/' + arq + (clienteId ? '?cliente=' + encodeURIComponent(clienteId) : '') + '">' +
+  const j = abrirJanela({ titulo: '📄 Documentos', larga: true,
+    corpo: '<p class="sub" style="margin-bottom:10px">Abre a <b>Central de Documentos</b> numa aba nova' + (clienteId ? ', já com este cliente' : '') + '. Lá você preenche, vê a folha pronta, salva (fica no histórico) e baixa em <b>PDF</b> ou <b>Word</b>.</p>' +
+      '<div class="lista-ficha">' + MODELOS_CENTRAL.map(([m, rot, d]) => '<a class="item-ficha clicavel ger-link" target="_blank" rel="noopener" href="' + urlCentral(m, clienteId) + '">' +
+        '<div><b>' + rot + '</b><div class="sub">' + d + '</div></div><span class="sub">abrir ↗</span></a>').join('') +
+        '<a class="item-ficha clicavel ger-link" target="_blank" rel="noopener" href="documentos/index.html"><div><b>🗂 Histórico de documentos</b><div class="sub">tudo o que já foi gerado e salvo</div></div><span class="sub">abrir ↗</span></a></div>' +
+      '<div class="gx-det-tit" style="margin-top:14px">Outros geradores</div><div class="lista-ficha">' + GERADORES_DOC.map(([arq, rot, d]) => '<a class="item-ficha clicavel ger-link" target="_blank" rel="noopener" href="geradores/' + arq + (clienteId ? '?cliente=' + encodeURIComponent(clienteId) : '') + '">' +
         '<div><b>' + rot + '</b><div class="sub">' + d + '</div></div><span class="sub">abrir ↗</span></a>').join('') + '</div>' });
   return j;
 }
 // Backup 26: gerador de contrato já com o cliente e os valores do contrato (o documento fica ligado ao contrato)
 function abrirGeradorContrato(clienteId, contratoId) {
-  window.open('geradores/contrato-procuracao.html?cliente=' + encodeURIComponent(clienteId || '') + (contratoId ? '&contrato=' + encodeURIComponent(contratoId) : ''), '_blank', 'noopener');
+  window.open('documentos/index.html?modelo=contrato' + (clienteId ? '&cliente=' + encodeURIComponent(clienteId) : '') + (contratoId ? '&contrato=' + encodeURIComponent(contratoId) : ''), '_blank', 'noopener');
 }
 
 'use strict';
@@ -5697,7 +5706,7 @@ async function fichaOportunidade(id, aba) {
   const vg = j.querySelector('#op-gerar'); if (vg) vg.onclick = () => abrirGeradorContrato(o.cliente_id, o.contrato_id);
   const vct = j.querySelector('#op-ver-ctr'); if (vct) vct.onclick = () => detalheContrato(o.contrato_id);
   j.querySelector('#op-int-prop').onclick = () => { mostrar('propostas'); window.open('geradores/propostas.html' + (o.cliente_id ? '?cliente=' + encodeURIComponent(o.cliente_id) : ''), '_blank', 'noopener'); };
-  j.querySelector('#op-int-ctr').onclick = () => (o.cliente_id ? abrirGeradorContrato(o.cliente_id, o.contrato_id) : window.open('geradores/contrato-procuracao.html', '_blank', 'noopener'));
+  j.querySelector('#op-int-ctr').onclick = () => (o.cliente_id ? abrirGeradorContrato(o.cliente_id, o.contrato_id) : window.open('documentos/index.html?modelo=contrato', '_blank', 'noopener'));
   j.querySelector('#op-int-meet').onclick = () => window.open('https://meet.google.com/new', '_blank', 'noopener');
   j.querySelector('#op-int-agenda').onclick = () => { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(10, 0, 0, 0); window.open(linkAgendaGoogle({ titulo: 'Reunião — ' + o.titulo, inicio: d, duracao_min: 60, detalhe: nomeOp(o) + (mailOp(o) ? ' · ' + mailOp(o) : '') }), '_blank', 'noopener'); };
   await mostrar(aba || 'dados');
