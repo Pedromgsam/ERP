@@ -566,6 +566,10 @@ trocar('  <div class="crow c2">\n    <div class="cc">\n      <div class="cc-hd">
 trocar('<div class="cc-t">⚠ Em atraso</div>', '<div class="cc-t">Em atraso</div>', 2);   // Backup 23: sem triângulo
 // Backup 22: o mesmo triângulo vermelho nas abas "Vencidos" de Acordos e Parcelamentos (no lugar da bolinha 🔴)
 trocar('>🔴 Vencidos — URGENTE</button>', '>Vencidos — URGENTE</button>', 2);
+// Backup 35: Acordos com UMA aba "A pagar" (vencidas + a vencer) e "Pago"; a aba antiga "A Pagar" some
+trocar('function sortAcordosVenc(c){', fs.readFileSync(path.join(__dirname, 'remendos', 'acordos-b35.js'), 'utf8') + 'function sortAcordosVenc(c){', 1);
+trocar(`<button class="tb-btn active" data-atab="vencidos" onclick="setAcordTab('vencidos',this)">Vencidos — URGENTE</button>`, `<button class="tb-btn active" data-atab="vencidos" onclick="setAcordTab('vencidos',this)">A pagar</button>`, 1);
+trocar(`<button class="tb-btn"        data-atab="pagar"    onclick="setAcordTab('pagar',this)">📅 A Pagar</button>`, `<button class="tb-btn"        data-atab="pagar"    onclick="setAcordTab('pagar',this)" hidden>📅 A Pagar</button>`, 1);
 // Backup 28: Processos → tabelas por Tribunal e por Natureza sem negrito no nome
 trocar("          return '<tr><td><strong>'+esc(k)+'</strong></td>'", "          return '<tr><td>'+esc(k)+'</td>'", 1);
 // 13. Cores de tokens.css (fonte única) depois do CSS do ERP; modo escuro lembrado neste aparelho.
@@ -616,7 +620,7 @@ const bundle = "'use strict';\n// GERADO por sistema/ferramentas/montar-erp.js �
   [nuc, graf, ler('telas-painel.js'), ler('telas-financeiro.js'), ler('telas-cadastros.js'), ler('telas-admin.js'), ler('telas-tarefas.js'), ler('telas-documentos.js'), ler('telas-cliente360.js'), ler('telas-crm.js'), ler('telas-publicacoes.js'), ler('telas-acordos.js'), ler('telas-alertas.js'), ler('telas-automacoes.js'), ler('telas-aprovacoes.js'), ler('telas-ofx.js'), ler('telas-emails.js'), ler('telas-guias.js'), ler('telas-rotina.js'), ler('telas-relatorio.js')].join('\n') +
   "\n// toda gravação confirmada aparece também no rodapé do ERP\nconst _avisoOrig = aviso;\n" +
   "aviso = function (msg, erro) { _avisoOrig(msg, erro); if (!erro && window.ERP_EDITOR && /^✓/.test(msg)) window.ERP_EDITOR.gravou(String(msg).replace(/^✓\\s*/, '')); };\n" +
-  "window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, invalidarCadastros, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo, perguntarBaixa, detalheContrato, ICONE_AVISO, conciliarOfx, abrirTarefa, detalheLancamento, edicaoLancamentos, janelaModelosEmail, janelaAutoEmails, janelaGeradores, formReuniao, janelaDelegar, abrirGeradorContrato, cardGuias, emitirParcela, janelaMovimentacao, janelaRelatorioPDF };\n})();\n";
+  "window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, invalidarCadastros, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo, perguntarBaixa, detalheContrato, ICONE_AVISO, conciliarOfx, abrirTarefa, detalheLancamento, edicaoLancamentos, janelaModelosEmail, janelaAutoEmails, janelaGeradores, formReuniao, janelaDelegar, abrirGeradorContrato, cardGuias, emitirParcela, enviarAcordosSelecionados, janelaMovimentacao, janelaRelatorioPDF };\n})();\n";
 fs.writeFileSync(path.join(APP, 'gestao-embutida.js'), bundle);
 
 // CSS do Gestão só dentro de .gs (as telas do Gestão) e #gs-hd (barra superior)

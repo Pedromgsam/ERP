@@ -937,3 +937,53 @@ button.rt-e:hover,button.rt-p:hover{border-color:var(--primario)}
 /* ── Backup 34: Central de Documentos dentro do ERP ── */
 .doc-central-topo{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:0 0 8px}
 .doc-central{display:block;width:100%;height:calc(100vh - var(--hh,56px) - 96px);min-height:560px;border:1px solid var(--border);border-radius:var(--radius-sm,10px);background:var(--surface)}
+/* ── Backup 35 (teste): Planilha de parcelamentos — abas por grupo, blocos por parcelamento ── */
+.pl-abas{display:flex;flex-wrap:wrap;gap:4px;border-bottom:2px solid var(--border);margin-bottom:10px}
+.pl-aba{border:1px solid var(--border);border-bottom:0;border-radius:8px 8px 0 0;background:var(--surface2);padding:6px 12px;font:600 12.5px var(--font-ui);color:var(--text2);cursor:pointer}
+.pl-aba.ativo{background:var(--primario);border-color:var(--primario);color:var(--on-cor)}
+.pl-n{display:inline-block;min-width:18px;padding:0 5px;border-radius:99px;background:var(--amber);color:var(--on-cor);font-size:11px;text-align:center}
+.pl-barra{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:0 0 10px}
+.pl-blocos{display:flex;gap:12px;overflow-x:auto;padding-bottom:8px;align-items:flex-start}
+.pl-bloco{flex:0 0 270px;border:1px solid var(--border-strong);border-radius:10px;background:var(--surface);overflow:hidden}
+.pl-hd{width:100%;border-collapse:collapse;font-size:12px}
+.pl-hd th{text-align:left;font-weight:600;color:var(--text3);padding:4px 8px;width:42%;background:var(--surface2);border-bottom:1px solid var(--line)}
+.pl-hd td{padding:4px 8px;border-bottom:1px solid var(--line);color:var(--ink);font-weight:600;word-break:break-word}
+.pl-hd .rt-vbox input{width:90px}
+.pl-obs{width:100%;border:1px solid var(--border);border-radius:6px;padding:3px 6px;font:12px var(--font-ui);background:var(--surface);color:var(--ink)}
+.pl-lista{max-height:330px;overflow-y:auto;border-top:2px solid var(--primario)}
+.pl-tab{width:100%;border-collapse:collapse;font-size:12px}
+.pl-tab thead th{position:sticky;top:0;background:var(--primario);color:var(--on-cor);font:700 10.5px var(--font-ui);padding:5px 6px;text-align:center}
+.pl-tab td{padding:3px 6px;border-bottom:1px solid var(--line);text-align:center}
+.pl-tab tr.pl-pago td{color:var(--text3)}
+.pl-tab tr.pl-atr td{background:var(--red-lt)}
+.pl-tab tr.pl-mes td{background:var(--amber-lt);font-weight:600}
+.pl-sn{min-width:44px;height:22px;border:1px dashed var(--border-strong);border-radius:5px;background:transparent;font:700 11px var(--font-ui);color:var(--text3);cursor:pointer}
+.pl-sn.sim{border:1px solid var(--green-bd);background:var(--green-lt);color:var(--green-d)}
+.pl-sn.nao{border:1px solid var(--red);background:var(--red);color:var(--on-cor)}
+.pl-sn:disabled{cursor:default}
+.rt-ep-hd{font-size:10.5px!important;font-weight:700!important;color:var(--text2)!important}
+.rt-passos{margin:4px 0 8px 18px;padding:0;font-size:12.5px;color:var(--text2);display:flex;flex-wrap:wrap;gap:4px 24px}
+.rt-passos li{margin:0}
+.rt-resid{font-size:12px;color:var(--text3);margin-top:2px}
+.rt-resid b{color:var(--ink)}
+.rt-e,.rt-p{width:28px;height:26px;font-size:13.5px}
+.rt-ep-hd{font-size:10.5px!important;font-weight:700!important;color:var(--text2)!important}
+.rt-passos{margin:4px 0 8px 18px;padding:0;font-size:12.5px;color:var(--text2);display:flex;flex-wrap:wrap;gap:4px 24px}
+.rt-passos li{margin:0}
+.rt-resid{font-size:12px;color:var(--text3);margin-top:2px}
+.rt-resid b{color:var(--ink)}
+.rt-e,.rt-p{width:28px;height:26px;font-size:13.5px}
+.pl-bloco{flex:0 0 320px}
+.pl-hd th{background:var(--surface2)!important;color:var(--text3)!important;text-transform:none!important;letter-spacing:0!important;font:600 12px var(--font-ui)!important;padding:4px 8px!important;width:46%}
+.pl-hd td{font-size:12.5px}
+.pl-hd .rt-vbox{white-space:nowrap}
+.pl-hd .rt-vbox input{width:100px}
+.pl-tab thead th{padding:5px 4px!important;font-size:10px!important}
+.rt-ctl .rt-c-mes{width:86px}
+.rt-ep-hd{gap:4px;font-size:10px!important}
+/* ── Backup 35: E-mails — uma faixa só (pausa + e-mails de teste) ── */
+.em-faixa{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 12px;margin:0 0 12px;border:1px solid var(--border);border-radius:10px;background:var(--surface)}
+.em-faixa.em-faixa-pausa{border-color:var(--amber-border);background:var(--amber-lt)}
+.em-faixa-ic{font-size:16px}
+.em-faixa-txt{flex:0 1 auto}
+.em-faixa #em-teste-lista{flex:1 1 260px;min-width:200px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:8px;font:13px var(--font-ui);background:var(--surface);color:var(--ink)}

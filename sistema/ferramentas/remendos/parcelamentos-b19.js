@@ -87,12 +87,9 @@ function renderParcAnalise(){
     +'<div class="segmento gx-seg-cli" id="parcFSit">'+[['','Todas'],['atraso','Em atraso'],['risco','Risco de rescisão'],['dia','Em dia']].map(function(o){ return '<button type="button" class="'+(_parcF.sit===o[0]?'ativo':'')+'" onclick="_parcFiltro(\'sit\',\''+o[0]+'\')">'+o[1]+'</button>'; }).join('')+'</div>'
     +'<span class="sub">'+L.length+' de '+TODOS.length+'</span></div>';
   el.innerHTML=exBloco('exParcSit','Situação dos parcelamentos',
-    '<div class="kpi-grid" style="margin-bottom:14px">'
-   +  kC('Já quitado',_faFT(totPago),'parcelas pagas','cg','dg')
-   +  kC('Falta pagar',_faFT(totFalta),'saldo residual','ca','')
-   +  kC('Sai por mês',_faFT(totMes),lista.length+' parcelamento'+(lista.length>1?'s':'')+(_parcTodos?'':' em andamento'),'cb','')
-   +  kC('Em atraso',_faFT(vAtr),comAtr.length+' parcelamento'+(comAtr.length===1?'':'s')+' com parcela vencida','cr',comAtr.length?'dr':'')
-   +'</div>'
+    // Backup 35: os 4 números viram uma faixa só (menos poluído)
+    '<div class="lg-resumo"><span>Quitado <b class="lg-verde">'+_faFT(totPago)+'</b></span><span>Falta <b>'+_faFT(totFalta)+'</b></span><span>Sai por mês <b>'+_faFT(totMes)+'</b></span>'
+   +'<span>Em atraso <b'+(vAtr?' class="lg-vermelho"':'')+'>'+_faFT(vAtr)+'</b> <small>'+comAtr.length+' parcelamento'+(comAtr.length===1?'':'s')+'</small></span></div>'
    +'<div class="gx-tab-topo"><div class="pa-sub">Parcelamentos em andamento</div><div class="pcx-ctl">'+vis+cx+'</div></div>'
    +filtros
    +corpo);
@@ -119,8 +116,8 @@ function _parcAbrir(k){
       +_lgFicha([['Devedor',esc(p.empresa||'—')],['CPF/CNPJ',esc(p.cnpj||'')],['Órgão / local',esc(p.local||p.orgao||'')],['Natureza',esc(p.natureza||'')],['Nº do parcelamento',esc(p.numero||'')],
          ['Total de parcelas',p.totalParcelas||''],['Valor da parcela',_faFT(Number(p.valorUltimaParcela)||0)+(ult?' <small>(lançado em '+esc(String(ult.vencimento||'').slice(3))+')</small>':'')],
          ['Valor residual',p.residual?_faFT(Number(p.residual)):''],['Guias',cli?'<span class="lg-em lg-em-cli">Não emitimos — o cliente emite</span>':'Nós emitimos']])
-      +'<div class="pcd-kpis">'+kp('Parcelas pagas',x.pg+' de '+(x.tot||'?')+' ('+x.pc+'%)')+kp('Já quitado',_faFT(x.n.pago),'verde')+kp('Falta pagar',_faFT(x.n.falta))
-        +kp('Próxima parcela',x.prox?esc(x.prox.vencimento||'—'):'—')+(x.atr?kp('Em atraso',x.atr+' parcela'+(x.atr>1?'s':''),'vermelho'):'')+'</div>'
+      +'<div class="pcd-kpis pcd-kpis5">'+kp('Parcelas pagas',x.pg+' de '+(x.tot||'?')+' ('+x.pc+'%)')+kp('Já quitado',_faFT(x.n.pago),'verde')+kp('Falta pagar',_faFT(x.n.falta))
+        +kp('Próxima parcela',x.prox?esc(x.prox.vencimento||'—'):'—')+kp('Em atraso',x.atr?x.atr+' parcela'+(x.atr>1?'s':''):'nenhuma',x.atr?'vermelho':'')+'</div>'
       +'<div class="pcd-tit">Parcelas</div>'+_lgParcTabela(linhas,'parcelas')+'</div>' });
   j.querySelectorAll('[data-lg-pagar]').forEach(function(b){ b.onclick=function(){ GS.fecharJanela(j); _parcBaixa(b.dataset.lgPagar,b); }; });
 }
