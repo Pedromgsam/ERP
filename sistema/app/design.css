@@ -734,3 +734,11 @@ body.gx-barra-topo :is(.tw,.tabela-wrap){max-height:calc(100vh - 150px);overflow
 body.gx-barra-topo :is(.tw,.tabela-wrap) > table > thead th{position:sticky;top:0;z-index:3}
 body.gx-barra-topo .janela :is(.tw,.tabela-wrap){max-height:60vh}
 @media(max-width:600px){body.gx-barra-topo :is(.tw,.tabela-wrap){max-height:none}}
+/* Backup 30: Financeiro → Contabilidade com a mesma fileira de cartões do Jurídico (5 iguais, uma linha de subtítulo) */
+.kpi-grid.fc-kpis5{grid-template-columns:repeat(5,minmax(0,1fr));margin-bottom:14px}
+.kpi-grid.fc-kpis5 .ks{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:900px){.kpi-grid.fc-kpis5{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* Backup 30: valor da guia na janela de emissão = a mesma caixa "R$ | valor" do Enviar por empresa */
+.gd-jan-v .ge-vbox{width:170px;letter-spacing:0;text-transform:none}
+.gd-jan-v .ge-rs{font-size:12px;letter-spacing:0}
+#gs-raiz .gd-jan-v{gap:4px}

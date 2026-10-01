@@ -1225,6 +1225,12 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('Guias: "Marcar como emitida" grava a data e quem emitiu', sql("select (emitida_em = current_date)::text || '|' || (emitida_por <> '')::text || '|' || emissao from parcelas where numero='77'") === 'true|true|SIM');
     await p.click('#parcGuias [data-gd-aba=emitidas]'); await p.waitForTimeout(1200);
     ok('Guias: a parcela passa para "Emitidas — falta enviar" com "Guia emitida em dd/mm/aaaa"', /Parcela 77/.test(await p.textContent('#parcGuias')) && /Guia emitida em \d{2}\/\d{2}\/\d{4}/.test(await p.textContent('#parcGuias')));
+    // Backup 30: "Emitidas — falta enviar" → ✎ → campo "Para" → o e-mail sai e a guia deixa o quadro
+    await p.click('#parcGuias .gd-it:has-text("Parcela 77") [data-gd-emitir]'); await p.waitForSelector('#gs-raiz #gd-para'); await p.waitForTimeout(600);
+    ok('Janela de emissão: campo "Para" visível e o botão diz que vai enviar', await p.isVisible('#gs-raiz #gd-para') && /enviar e-mail/i.test(await p.textContent('#gs-raiz #gd-ok')));
+    await p.fill('#gs-raiz #gd-para', 'guia77@teste.com'); await p.click('#gs-raiz #gd-ok'); await p.waitForTimeout(2500);
+    ok('Janela de emissão: o e-mail vai para o "Para" e a guia sai de "falta enviar"', sql("select count(*) from email_fila where para='guia77@teste.com'") === '1' &&
+      sql("select count(*) from parcelas where numero='77' and email_ref like 'guias:%'") === '1' && !/Parcela 77/.test(await p.textContent('#parcGuias')));
     // Backup 29: várias guias da empresa num e-mail só, com o PDF anexado na tela (não fica guardado) — e as enviadas saem do quadro
     sql("insert into parcelas(parcelamento_id,numero,vencimento,pago) select parcelamento_id,'78',current_date+4,false from parcelas where numero='77' limit 1");
     await p.evaluate(() => ERP_RECARREGAR()); await nav(p, 'parcelamentos'); await p.waitForTimeout(2000);
@@ -1232,6 +1238,8 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('Parcelamentos: quadro "Parcelamentos para emitir" com "Enviar por empresa"', /Parcelamentos para emitir/.test(await p.textContent('#parcGuias')) && !!(await p.$('#parcGuias [data-gd-empresa]')));
     await p.click('#parcGuias [data-gd-empresa]'); await p.waitForSelector('#gs-raiz .ge-janela'); await p.waitForTimeout(400);
     ok('Enviar por empresa: texto "Prezados," e WhatsApp ao lado de Enviar e-mail', /Prezados,/.test(await p.inputValue('#ge-texto')) && await p.evaluate(() => { const a = document.querySelector('#ge-zap'), b = document.querySelector('#ge-enviar'); return a && b && a.parentElement === b.parentElement; }));
+    ok('Enviar por empresa: empresas agrupadas por grupo e texto neutro ("em nome de")', (await p.$$('#gs-raiz .ge-grp .ge-emp')).length > 0 && /em nome de /.test(await p.inputValue('#ge-texto')));
+    ok('Enviar por empresa: valor da guia na caixa "R$"', await p.isVisible('#gs-raiz .ge-vbox .ge-rs'));
     await p.fill('#gs-raiz #ge-para', 'guias@teste.com');
     await p.setInputFiles('#gs-raiz #ge-arqs', { name: 'guia78.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 teste') });
     await p.click('#gs-raiz #ge-enviar'); await p.waitForTimeout(2500);
