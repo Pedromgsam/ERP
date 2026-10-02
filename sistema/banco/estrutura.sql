@@ -6571,3 +6571,60 @@ begin
    where id = new.processo_id;
   return new;
 end $$;
+
+-- ═══════════════════════════════════════════════════════════════════
+-- Backup 36 — Evolução do passivo: antes de a empresa ter o passivo lançado pela primeira vez, o mês fica SEM VALOR (null) e não "zero"
+-- (era isso que fazia a linha cair a 0 nos meses antigos: o cadastro existia, mas o passivo ainda não tinha sido digitado).
+-- ═══════════════════════════════════════════════════════════════════
+create or replace function public.evolucao_passivo(p_grupo uuid default null, p_meses int default 12)
+returns table (mes date, cliente_id uuid, cliente text, grupo_id uuid, grupo text, total numeric)
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not (public.eh_equipe() and (public.pode('clientes') or public.pode('relatorios') or public.pode('juridico'))) then
+    raise exception 'permission denied: sem acesso ao passivo.'; end if;
+  return query
+  with meses as (
+    select (date_trunc('month', current_date) - make_interval(months => k))::date as m,
+           least(now(), (date_trunc('month', current_date) - make_interval(months => k - 1))) as corte
+      from generate_series(0, least(greatest(coalesce(p_meses, 12), 2), 60) - 1) k
+  ), primeiro as (
+    -- quando o passivo apareceu pela primeira vez (inclusão já com valor ou a primeira alteração que deixou o total > 0)
+    select h.registro_id, min(h.quando) as quando from public.historico h
+     where h.tabela = 'clientes' and h.acao in ('INSERT', 'UPDATE') and public.passivo_json(h.depois) > 0
+       and (h.acao = 'INSERT' or public.passivo_json(h.antes) = 0)
+     group by h.registro_id
+  )
+  select ms.m, c.id, c.nome, g.id, g.nome,
+         case when pr.quando is not null and pr.quando > ms.corte then null
+              else coalesce((select public.passivo_json(h.antes) from public.historico h
+                              where h.tabela = 'clientes' and h.acao = 'UPDATE' and h.registro_id = c.id and h.quando > ms.corte
+                                and public.passivo_json(h.antes) is distinct from public.passivo_json(h.depois)
+                              order by h.quando limit 1), public.passivo_do_cliente(c)) end
+    from public.clientes c
+    join public.grupos g on g.id = c.grupo_id
+    cross join meses ms
+    left join primeiro pr on pr.registro_id = c.id
+   where coalesce(c.tipo, '') <> 'Inativo' and (p_grupo is null or c.grupo_id = p_grupo)
+   order by 1, 5, 3;
+end $$;
+revoke all on function public.evolucao_passivo(uuid, int) from public, anon;
+grant execute on function public.evolucao_passivo(uuid, int) to authenticated;
+-- Backup 36: prévia do e-mail das guias/boletos exatamente como o cliente recebe (mesmo HTML do envio)
+create or replace function public.previa_guias_email(p_cliente uuid, p_itens jsonb, p_assunto text, p_texto text) returns text
+language plpgsql stable security definer set search_path = public as $$
+declare h text; v_conta text;
+begin
+  if not public.pode('juridico') then raise exception 'permission denied: sem acesso.'; end if;
+  v_conta := public.conta_email(p_cliente, null);
+  perform set_config('erp.conta_email', v_conta, true);
+  h := public.email_cliente_html(coalesce(nullif(trim(p_assunto), ''), 'Guias para pagamento'), '-',
+    '<p style="margin:0 0 10px">' || replace(public.esc_html(coalesce(p_texto, '')), E'\n', '<br>') || '</p>', p_itens, false);
+  perform set_config('erp.conta_email', '', true);
+  return h;
+end $$;
+revoke all on function public.previa_guias_email(uuid, jsonb, text, text) from public, anon;
+grant execute on function public.previa_guias_email(uuid, jsonb, text, text) to authenticated;
+-- Backup 36: compromissos na agenda do Início (reunião, audiência, compromisso, ligação) — ficam em tarefas, com tipo e hora
+alter table public.tarefas add column if not exists tipo_agenda text not null default '';
+alter table public.tarefas add column if not exists hora time;
+alter table public.tarefas add column if not exists local text not null default '';

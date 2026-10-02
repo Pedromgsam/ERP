@@ -83,7 +83,18 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
-- Última entrega: **Backup 35** (só SQL). `_lgRender` = cartões `.lg-cards`/`.lg-card` (grid dense; aberto → `.lg-painel` full-width com `.lg-hd` + `.lg-filho`),
+- Última entrega: **Backup 36** (só SQL). Início: `janelaAgendar` (telas-tarefas.js; `tarefas.tipo_agenda/hora/local`, `TIPOS_AGENDA`, `classeAgenda`, `legendaAgenda`,
+  `[data-agendar]`, `[data-ag-dia]`, `.cal-tf.ag-*`). Painel: `_evo.visao='total'` padrão; `evolucao_passivo` devolve null antes do 1º passivo (CTE `primeiro`) e o JS corta
+  os meses iniciais sem dado; contorno com `td.gc-l::before/gc-r::after`. Processos: `.gx-movs`/`.gx-mov` (cartões). `_lgRender`: cartões maiores, `.lg-card-ab`
+  "aberto", painel `.lg-painel-tit` + tabela `.lg-t`/`.lg-t-lin` (Pagas·Falta·A pagar este mês·Situação), `_lgEsteMes` = vencidas + do mês; um cartão só abre sozinho;
+  `_lgParcTabela` com Emissão/Pagamento separados; `_lgConfirmaPag` (confirm) antes de "Lançar pagamento". Acordos: sem Responsável, `.ac-c-grp` estreito,
+  "🧾 Emitir" → `GS.enviarAcordosSelecionados`; composer com `#ge-previa` → RPC `previa_guias_email`. Rotina: `rotinaControle` = um `.rt-ch` por parcela/mês
+  (`[data-cel]`, estados rt-ch-emitir/sel/emit/atr/ok/cli) + menu `#rt-pop` (`[data-sel]`, `[data-pag]` com confirm, `[data-abre]`); `rotinaPlanilha` em grade
+  `.pl-blocos`, cabeçalho `.pl-cab` + `.pl-kpis`, lista inteira (sem `.pl-lista`) + linhas `pl-prev` (previstas até o total), `#pl-emitir` sempre ativo.
+  Publicações: contadores por recorte (`semSt/semTrib/semAdv`, `.seg-n` em todos os botões). Documentos (Central): `.dc-topo-vis` (Histórico/⚙ Configurações;
+  embutido → vai para `.dc-lado`), seções em cartões, select ≤6 opções/advogado/recebedor/tratamento → `.dc-seg` (radio), `[data-hoje]`, `desenharEscritorio` =
+  Configurações (`.dc-conf`, `.dc-advs`). E-mails → Quem recebe: `controleEmails` com `.emc-tab2` (sinais `.emc-s-*`), `#emc-prob`, `#emc-perfis`, regra em `details.emc-regra`.
+- Backup 35 (base) (só SQL). `_lgRender` = cartões `.lg-cards`/`.lg-card` (grid dense; aberto → `.lg-painel` full-width com `.lg-hd` + `.lg-filho`),
   `o.porEmpresa` (FILTROS.grupo ou `_parcF.grupo`) → cartões por empresa; KPIs viraram `.lg-resumo`; popups com `_lgFicha` + `.pcd-kpis5`; `_lgParcTabela` com colgroup e
   `.lg-bt-pagar` ("＋ Lançar pagamento", `[data-lg-pagar]`). Acordos: `remendos/acordos-b35.js` (injetado antes de `sortAcordosVenc`) redefine `setAcordTab` e
   `renderAcordosVencTbl` = aba única "A pagar" (`.ac-ap`, `[data-ac-sel]`/`_acSel`/`#acSelBarra`, `[data-ac-guia]` → `GS.emitirParcela`, `GS.enviarAcordosSelecionados`

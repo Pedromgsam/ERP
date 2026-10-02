@@ -119,7 +119,7 @@ function _parcAbrir(k){
       +'<div class="pcd-kpis pcd-kpis5">'+kp('Parcelas pagas',x.pg+' de '+(x.tot||'?')+' ('+x.pc+'%)')+kp('Já quitado',_faFT(x.n.pago),'verde')+kp('Falta pagar',_faFT(x.n.falta))
         +kp('Próxima parcela',x.prox?esc(x.prox.vencimento||'—'):'—')+kp('Em atraso',x.atr?x.atr+' parcela'+(x.atr>1?'s':''):'nenhuma',x.atr?'vermelho':'')+'</div>'
       +'<div class="pcd-tit">Parcelas</div>'+_lgParcTabela(linhas,'parcelas')+'</div>' });
-  j.querySelectorAll('[data-lg-pagar]').forEach(function(b){ b.onclick=function(){ GS.fecharJanela(j); _parcBaixa(b.dataset.lgPagar,b); }; });
+  j.querySelectorAll('[data-lg-pagar]').forEach(function(b){ b.onclick=function(){ if(!_lgConfirmaPag(b)) return; GS.fecharJanela(j); _parcBaixa(b.dataset.lgPagar,b); }; });
 }
 // (o "Progresso por parcelamento" antigo, escondido, ainda chama esta função)
 function _parcDetalhe(p){

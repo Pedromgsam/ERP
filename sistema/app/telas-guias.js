@@ -264,7 +264,8 @@ function descricaoGuia(tabela, x) {
   const venc = x.vencimento < hojeISO() ? '⚠ VENCIDA — ' : '';
   if (tabela === 'parcelas') { const p = x.parcelamentos || {};
     return venc + 'Parcelamento ' + [p.local, p.natureza].filter(Boolean).join(' — ') + (p.numero ? ' · nº ' + p.numero : '') + ' · Parcela ' + parcDe(x); }
-  return venc + 'Acordo' + (x.processo ? ' — processo ' + x.processo : '') + ' · Parcela ' + parcDe(x) + ' · ' + (x.devedor || '') + ' × ' + (x.credor || '');
+  return venc + 'Acordo' + (x.processo ? ' — processo ' + x.processo : '') + ' · Parcela ' + parcDe(x) + ' · ' + (x.devedor || '') + ' × ' + (x.credor || '') +
+    (x.pix ? ' · PIX: ' + x.pix : '') + (x.banco ? ' · ' + x.banco : '');
 }
 // o texto (e-mail e WhatsApp) no modelo das antigas Notificações do ERP, um pouco melhorado
 function textoGuias(tabela, empresa, itens) {
@@ -278,7 +279,7 @@ function textoGuias(tabela, empresa, itens) {
       return (x.vencimento < hojeISO() ? '⚠ GUIA VENCIDA\n' : '') + '*Parcelamento ' + [p.local, p.natureza].filter(Boolean).join(' — ') + '*' + (p.numero ? '\nNº do parcelamento: ' + p.numero : '') +
         '\nParcela: ' + parcDe(x) + ' | Vencimento: ' + dataBR(x.vencimento) + '\nValor: ' + (v ? brl(v) : '[preencher]'); }
     return (x.vencimento < hojeISO() ? '⚠ PARCELA VENCIDA\n' : '') + '*Acordo' + (x.processo ? ' — processo ' + x.processo : '') + '*\nPartes: ' + (x.devedor || '—') + ' × ' + (x.credor || '—') +
-      '\nParcela: ' + parcDe(x) + ' | Vencimento: ' + dataBR(x.vencimento) + '\nValor: ' + (v ? brl(v) : '[preencher]') + (x.pix ? '\nPIX do credor: ' + x.pix : '');
+      '\nParcela: ' + parcDe(x) + ' | Vencimento: ' + dataBR(x.vencimento) + '\nValor: ' + (v ? brl(v) : '[preencher]') + (x.pix ? '\nPIX: ' + x.pix : '') + (x.banco ? '\nBanco: ' + x.banco : '');
   });
   const tot = itens.reduce((s2, x) => s2 + (Number(x._valor != null ? x._valor : x.valor) || 0), 0);
   return { intro, email: intro + '\n\nOs arquivos seguem anexos.',
@@ -298,6 +299,7 @@ async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
   const j = abrirJanela({ titulo: '✉ Enviar ' + nome + ' por empresa', larga: true,
     corpo: '<div class="ge"><aside class="ge-emps" id="ge-emps"></aside><section class="ge-msg" id="ge-msg"></section></div>',
     rodape: '<span class="ge-tot" id="ge-tot"></span><div class="acoes ge-acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button>' +
+      '<button type="button" class="btn btn-o" id="ge-previa" title="Ver o e-mail exatamente como o cliente vai receber">👁 Prévia do e-mail</button>' +
       '<button type="button" class="btn btn-v" id="ge-zap">💬 WhatsApp</button><button class="btn btn-p" type="button" id="ge-enviar">✉ Enviar e-mail</button></div>' });
   j.querySelector('.janela').classList.add('ge-janela');
   const $j = (sel) => j.querySelector(sel);
@@ -328,7 +330,7 @@ async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
             (x.vencimento < hojeISO() ? '<span class="ge-it-v ge-it-d"><small>Novo vencimento</small><input type="date" class="ge-novo-venc" value="' + fimDoMesGuia(hojeISO()) + '" aria-label="Novo vencimento da guia atualizada"></span>' : '') +
             '<span class="ge-it-v"><small>' + (x.vencimento < hojeISO() ? 'Valor atualizado' : 'Valor da guia') + '</small><span class="ge-vbox"><span class="ge-rs">R$</span><input class="ge-valor" data-mascara="nenhuma" inputmode="decimal" value="' + (x.valor ? valorParaCampo(x.valor) : '') + '" placeholder="0,00" aria-label="Valor"></span></span></label>'; }).join('') + '</div>' +
         '<div class="ge-fecho">Os arquivos seguem anexos. Depois de pagar, por favor nos envie o comprovante.</div></div>' +
-      '<div class="ge-anexos"><label class="ge-drop"><input type="file" id="ge-arqs" accept=".pdf,image/*" multiple hidden><span>📎 <b>Anexar os PDFs</b> das ' + nome + '</span><small>vão só no e-mail — não ficam guardados no sistema</small></label><div class="ge-chips" id="ge-chips"></div></div>';
+      '<div class="ge-anexos"><label class="ge-drop"><input type="file" id="ge-arqs" accept=".pdf,image/*" multiple hidden><span>📎 <b>Anexar os PDFs</b> ' + (tabela === 'acordos' ? 'dos boletos' : 'das guias') + '</span><small>vão só no e-mail — não ficam guardados no sistema</small></label><div class="ge-chips" id="ge-chips"></div></div>';
     $j('#ge-arqs').onchange = () => { arquivos = arquivos.concat([...$j('#ge-arqs').files]); $j('#ge-arqs').value = ''; pintarChips(); };
     j.querySelectorAll('.ge-it input').forEach((i) => i.addEventListener('input', total));
     j.querySelectorAll('.ge-it input[type=checkbox]').forEach((i) => i.addEventListener('change', total));
@@ -354,6 +356,14 @@ async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
     const tel = soDigitos($j('#ge-tel').value);
     window.open('https://wa.me/' + (tel ? (tel.length <= 11 ? '55' : '') + tel : '') + '?text=' + encodeURIComponent(txt), '_blank', 'noopener');
     if (arquivos.length) aviso('No computador o WhatsApp não recebe anexo por link: arraste os PDFs para a conversa que abriu.');
+  });
+  $j('#ge-previa').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    const its = marcados(), e = atual(); if (!its.length) throw new Error('Marque ao menos uma parcela.');
+    const html = await q(sb.rpc('previa_guias_email', { p_cliente: e.cli || null,
+      p_itens: its.map((i) => ({ tabela, id: i.id, descricao: descricaoGuia(tabela, i), vencimento: i._venc || i.vencimento, valor: i._valor })),
+      p_assunto: $j('#ge-assunto').value.trim(), p_texto: $j('#ge-texto').value.trim() + '\n\nOs arquivos seguem anexos.' }));
+    const pj = abrirJanela({ titulo: '👁 ' + ($j('#ge-assunto').value.trim() || 'Prévia do e-mail'), larga: true, corpo: '<iframe class="ge-previa" title="Prévia do e-mail" sandbox></iframe>' });
+    pj.querySelector('.ge-previa').srcdoc = html;
   });
   $j('#ge-enviar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
     const its = marcados(), e = atual(); if (!its.length) throw new Error('Marque ao menos uma parcela.');

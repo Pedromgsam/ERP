@@ -36,7 +36,7 @@ const ALFA = sql("select id from clientes where nome ilike 'alfa com%' limit 1")
     await p.click('.dc-chip:has-text("Emanuelle")'); await p.waitForTimeout(300);
     t = await texto();
     ok('procuração: dois advogados = "procuradores" e as duas OAB', /seus bastantes procuradores/.test(t) && /228\.471/.test(t) && /240\.369/.test(t));
-    await p.selectOption('#f-finalidade', 'processo'); await p.waitForTimeout(300);
+    await p.check('[name="f-finalidade"][value=processo]', { force: true }); await p.waitForTimeout(300);
     ok('procuração: finalidade "processo" pede o número', (await p.$$('#dc-corpo .falta')).length === 1 && await p.isVisible('#f-processo'));
     await p.fill('#f-processo', '5000001-11.2024.8.13.0024'); await p.waitForTimeout(300);
     ok('procuração: completa (sem campo a preencher)', await p.evaluate(() => DOCS.faltas()) === 0 && /completo/.test(await p.textContent('#dc-status')));
@@ -93,7 +93,7 @@ const ALFA = sql("select id from clientes where nome ilike 'alfa com%' limit 1")
     ok('substabelecimento: sem reserva, do escritório para o outro advogado, com os autos', /SUBSTABELECIMENTO/.test(t) && /sem reserva de poderes/.test(t) && /ADVOGADO FICTÍCIO DE TESTE/.test(t) && /Autos n\. 1234567/.test(t) && /OAB\/MG sob o n\. 999\.999/.test(t), t.slice(0, 400));
     await abrir('?modelo=declaracao');
     await p.click('[data-busca-cli] >> nth=0'); await p.click('label:has-text("Pessoa física")'); await p.waitForTimeout(200);
-    await p.fill('#f-declarante-nome', 'Maria Fictícia de Teste'); await p.fill('#f-declarante-doc', '12345678909'); await p.selectOption('#f-declarante-genero', 'f'); await p.waitForTimeout(300);
+    await p.fill('#f-declarante-nome', 'Maria Fictícia de Teste'); await p.fill('#f-declarante-doc', '12345678909'); await p.check('[name="f-declarante-genero"][value=f]', { force: true }); await p.waitForTimeout(300);
     t = await texto();
     ok('declaração de hipossuficiência (pessoa física, feminino)', /DECLARAÇÃO DE HIPOSSUFICIÊNCIA ECONÔMICA/.test(t) && /brasileira/.test(t) && /inscrita no CPF sob o n\. 123\.456\.789-09/.test(t) && /gratuidade da justiça/.test(t), t.slice(0, 400));
     await abrir('?modelo=acordo');
@@ -107,7 +107,7 @@ const ALFA = sql("select id from clientes where nome ilike 'alfa com%' limit 1")
     // ── 6) escritório: dados dos advogados (admin) ──
     await p.click('[data-vista=escritorio]'); await p.waitForSelector('#dc-e-salvar');
     await p.fill('[data-e="cnpj"]', '12.345.678/0001-90'); await p.click('#dc-e-salvar'); await p.waitForTimeout(1200);
-    ok('Escritório: o administrador salva o CNPJ que vai nos recibos', sql("select valor->>'cnpj' from configuracoes where chave='documentos_escritorio'") === '12.345.678/0001-90');
+    ok('Configurações: o administrador salva o CNPJ que vai nos recibos', sql("select valor->>'cnpj' from configuracoes where chave='documentos_escritorio'") === '12.345.678/0001-90');
 
     // ── 7) celular ──
     const m = await (await b.newContext({ viewport: { width: 390, height: 800 } })).newPage();

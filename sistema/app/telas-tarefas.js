@@ -107,11 +107,51 @@ function salvarPrefFila() {
   if (E.perfil) E.perfil.preferencias = Object.assign({}, E.perfil.preferencias || {}, { fila: v });
   sb.rpc('salvar_preferencia', { p_chave: 'fila', p_valor: v }).then(() => {}, () => {});
 }
+// Backup 36: compromissos na agenda (tarefas com tipo_agenda + hora) — cor por tipo e legenda
+const TIPOS_AGENDA = [['reuniao', 'Reunião', '🤝'], ['audiencia', 'Audiência', '⚖'], ['compromisso', 'Compromisso', '📌'], ['ligacao', 'Ligação', '📞']];
+const legendaAgenda = () => '<div class="ag-leg">' + TIPOS_AGENDA.map(([k, r]) => '<span><i class="ag-cor ag-' + k + '"></i>' + r + '</span>').join('') +
+  '<span><i class="ag-cor ag-tarefa"></i>Tarefa</span><span><i class="ag-cor ag-atrasada"></i>Atrasada</span><span><i class="ag-cor ag-fatal"></i>Prazo fatal</span></div>';
+function janelaAgendar(dataIni, depois) {
+  const pessoas = pessoasEscritorio();
+  const j = abrirJanela({ titulo: '📅 Agendar na minha agenda',
+    corpo: '<form id="f-ag" class="grade">' +
+      '<div class="campo" style="grid-column:1/-1"><span>Tipo</span><div class="segmento ag-tipos" id="ag-tipo">' + TIPOS_AGENDA.map(([k, r, ic], i) => '<button type="button" data-v="' + k + '"' + (i ? '' : ' class="ativo"') + '>' + ic + ' ' + r + '</button>').join('') + '</div></div>' +
+      campo('O quê', '<input name="titulo" required placeholder="ex.: Reunião com o cliente sobre o parcelamento">', 'ag-toda') +
+      campo('Dia', '<input type="date" name="prazo" required value="' + (dataIni || hojeISO()) + '">') + campo('Hora', '<input type="time" name="hora" value="09:00">') +
+      campo('Local ou link', '<input name="local" placeholder="escritório, Google Meet…">', 'ag-toda') +
+      '<div class="campo" style="grid-column:1/-1"><span>Quem participa</span><div class="ag-pessoas">' + (pessoas.length ? pessoas : [meuNome()]).filter(Boolean).map((n) =>
+        '<label class="ag-p"><input type="checkbox" name="part" value="' + esc(n) + '"' + (primeiroNome(n) === primeiroNome(meuNome()) ? ' checked' : '') + '><span>' + esc(primeiroNome(n)) + '</span></label>').join('') + '</div></div>' +
+      campo('Cliente (opcional)', '<select name="cliente_id"><option value="">—</option>' + E.clientes.map((c) => '<option value="' + c.id + '">' + esc(c.nome) + '</option>').join('') + '</select>', 'ag-toda') +
+      campo('Observação', '<textarea name="descricao" rows="2"></textarea>', 'ag-toda') + '</form>',
+    rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="ag-ok">Agendar</button></div>' });
+  let tipo = 'reuniao';
+  j.querySelector('#ag-tipo').onclick = (ev) => { const b = ev.target.closest('[data-v]'); if (!b) return; tipo = b.dataset.v; j.querySelectorAll('#ag-tipo button').forEach((x) => x.classList.toggle('ativo', x === b)); };
+  j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
+  j.querySelector('#ag-ok').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    const f = j.querySelector('#f-ag');
+    if (!f.titulo.value.trim()) throw new Error('Escreva o que é o compromisso.');
+    if (!f.prazo.value) throw new Error('Escolha o dia.');
+    const parts = [...f.querySelectorAll('[name=part]:checked')].map((x) => x.value);
+    const resp = parts.find((n) => primeiroNome(n) === primeiroNome(meuNome())) || parts[0] || meuNome();
+    await q(sb.from('tarefas').insert({ titulo: f.titulo.value.trim(), prazo: f.prazo.value, hora: f.hora.value || null, tipo_agenda: tipo, local: f.local.value.trim(),
+      responsavel: resp, participantes: parts.filter((n) => n !== resp).join(', '), cliente_id: f.cliente_id.value || null,
+      grupo_id: (E.clientes.find((c) => c.id === f.cliente_id.value) || {}).grupo_id || null, descricao: f.descricao.value.trim(), prioridade: 'media', status: 'pendente' }));
+    fecharJanela(j); aviso('✓ Agendado para ' + dataBR(f.prazo.value) + (f.hora.value ? ' às ' + f.hora.value : '') + '.'); if (depois) depois();
+  });
+}
+function classeAgenda(t, d) {
+  const h = hojeISO();
+  if (t.prazo_fatal === d) return 'ag-fatal';
+  if (t.tipo_agenda) return 'ag-' + t.tipo_agenda;
+  if (/^reuniao:/.test(t.chave_regra || '')) return 'ag-reuniao';   // reuniões marcadas pelo CRM
+  return t.prazo && t.prazo < h ? 'ag-atrasada' : 'ag-tarefa';
+}
+const horaAg = (t) => (t.hora ? String(t.hora).slice(0, 5) + ' ' : '');
 function calendarioFila(lista) {
   const h = hojeISO(), ref = FILA.ref || h, d0 = new Date(ref + 'T12:00:00');
-  const doDia = (d) => lista.filter((t) => t.prazo === d || t.prazo_fatal === d);
-  const item = (t, d) => '<button type="button" class="cal-tf' + (t.prazo_fatal === d ? ' fatal' : '') + (t.prazo && t.prazo < h ? ' atrasada' : '') + '" data-fila="' + t.id + '" title="' + esc(t.titulo) + '">' +
-    (t.prazo_fatal === d ? '⚑ ' : '') + esc(t.titulo) + '</button>';
+  const doDia = (d) => lista.filter((t) => t.prazo === d || t.prazo_fatal === d).sort((a, b) => String(a.hora || '99').localeCompare(String(b.hora || '99')));
+  const item = (t, d) => '<button type="button" class="cal-tf ' + classeAgenda(t, d) + '" data-fila="' + t.id + '" title="' + esc(horaAg(t) + t.titulo + (t.local ? ' · ' + t.local : '')) + '">' +
+    (t.prazo_fatal === d ? '⚑ ' : '') + (t.hora ? '<b>' + horaAg(t) + '</b>' : '') + esc(t.titulo) + '</button>';
   let titulo, corpo;
   if (FILA.vista === 'dia') {
     titulo = d0.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' });
@@ -122,7 +162,7 @@ function calendarioFila(lista) {
     const ini = new Date(d0); ini.setDate(d0.getDate() - d0.getDay());
     const dias = [...Array(7)].map((_, k) => { const x = new Date(ini); x.setDate(ini.getDate() + k); return iso(x); });
     titulo = 'Semana de ' + dataBR(dias[0]).slice(0, 5) + ' a ' + dataBR(dias[6]).slice(0, 5);
-    corpo = '<div class="fila-semana">' + dias.map((d) => '<div class="fila-sem-dia' + (d === h ? ' cal-hoje' : '') + '"><div class="cal-num">' +
+    corpo = '<div class="fila-semana">' + dias.map((d) => '<div class="fila-sem-dia' + (d === h ? ' cal-hoje' : '') + '" data-ag-dia="' + d + '"><div class="cal-num">' +
       new Date(d + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit' }) + '</div>' + doDia(d).map((t) => item(t, d)).join('') + '</div>').join('') + '</div>';
   } else {
     const a = d0.getFullYear(), m = d0.getMonth(), primeiro = new Date(a, m, 1), n = new Date(a, m + 1, 0).getDate();
@@ -130,7 +170,7 @@ function calendarioFila(lista) {
     let c = '<div class="calendario">' + ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((x) => '<div class="cal-sem">' + x + '</div>').join('') + '<div class="cal-dia vazio-dia"></div>'.repeat(primeiro.getDay());
     for (let k = 1; k <= n; k++) {
       const d = iso(new Date(a, m, k)), l = doDia(d);
-      c += '<div class="cal-dia' + (d === h ? ' cal-hoje' : '') + '"><div class="cal-num">' + k + '</div>' + l.slice(0, 3).map((t) => item(t, d)).join('') + (l.length > 3 ? '<div class="sub">+ ' + (l.length - 3) + '</div>' : '') + '</div>';
+      c += '<div class="cal-dia' + (d === h ? ' cal-hoje' : '') + '" data-ag-dia="' + d + '" title="Clique no espaço vazio para agendar neste dia"><div class="cal-num">' + k + '</div>' + l.slice(0, 3).map((t) => item(t, d)).join('') + (l.length > 3 ? '<div class="sub">+ ' + (l.length - 3) + '</div>' : '') + '</div>';
     }
     // Backup 27: completa a última semana com dias vazios (igual aos dias antes do dia 1, sem o cinza do fundo)
     const resto = (7 - ((primeiro.getDay() + n) % 7)) % 7;
@@ -142,7 +182,8 @@ function calendarioFila(lista) {
     (atr.length ? atr.map((t) => '<button type="button" class="fila-atr-it" data-fila="' + t.id + '" title="' + esc(t.titulo) + '"><b>' + esc(t.titulo) + '</b><span class="sub">prazo ' + dataBR(t.prazo) + ' · ' + plural(-diasAte(t.prazo), 'dia', 'dias') + ' de atraso</span></button>').join('')
       : '<div class="sub">Nenhuma atrasada. 🎉</div>') + '</aside>';
   return '<div class="fila-com-atr">' + lado + '<div class="fila-cal-area"><div class="fila-cal-nav"><button type="button" class="btn btn-o btn-mini" data-fila-nav="-1" aria-label="Anterior">‹</button><b>' + esc(titulo) + '</b>' +
-    '<button type="button" class="btn btn-o btn-mini" data-fila-nav="1" aria-label="Próximo">›</button><button type="button" class="btn btn-o btn-mini" data-fila-nav="0">Hoje</button></div>' + corpo + '</div></div>';
+    '<button type="button" class="btn btn-o btn-mini" data-fila-nav="1" aria-label="Próximo">›</button><button type="button" class="btn btn-o btn-mini" data-fila-nav="0">Hoje</button>' +
+    '<button type="button" class="btn btn-p btn-mini ag-bt" data-agendar>+ Agendar</button></div>' + corpo + legendaAgenda() + '</div></div>';
 }
 async function cardMinhaFila() {
   if (!FILA.lida) { const p = (E.perfil && E.perfil.preferencias && E.perfil.preferencias.fila) || {}; if (p.vista) FILA.vista = p.vista; FILA.min = !!p.min; FILA.lida = true; }
@@ -154,7 +195,7 @@ async function cardMinhaFila() {
       '<div class="segmento ini-fila-vista" role="group" aria-label="Ver como">' + VISTAS_FILA.map(([v, r]) => '<button type="button" data-fila-vista="' + v + '"' + (FILA.vista === v ? ' class="ativo"' : '') + '>' + r + '</button>').join('') + '</div>' +
       '<button type="button" class="btn btn-o btn-mini ini-fila-min" data-fila-min aria-expanded="' + !FILA.min + '">' + (FILA.min ? '▸ Mostrar' : '▾ Minimizar') + '</button></div>' +
     (FILA.min ? '' : '<div class="card-bd">' + (FILA.vista !== 'lista' ? calendarioFila(todas) :
-    (minhas.length ? '<div class="lista-ficha fila-compacta">' + minhas.map((t) => '<div class="item-ficha clicavel" data-fila="' + t.id + '"><div>' + bolinha(t) + ' <b>' + esc(t.titulo) + '</b>' + seloPrazo(t) +
+    (minhas.length ? '<div class="lista-ficha fila-compacta">' + minhas.map((t) => '<div class="item-ficha clicavel" data-fila="' + t.id + '"><div>' + bolinha(t) + (t.tipo_agenda ? ' <i class="ag-cor ag-' + t.tipo_agenda + '"></i>' : '') + ' <b>' + (t.hora ? horaAg(t) : '') + esc(t.titulo) + '</b>' + seloPrazo(t) +
       '<div class="sub">' + (t.prazo ? 'prazo ' + dataBR(t.prazo) : 'sem prazo') + (t.prazo_fatal ? ' · ⚑ fatal ' + dataBR(t.prazo_fatal) : '') + (t.status === 'revisao' ? ' · aguardando revisão' : '') +
       (nomeCliente(t.cliente_id) || nomeGrupo(t.grupo_id) ? ' · ' + esc(nomeCliente(t.cliente_id) || nomeGrupo(t.grupo_id)) : '') + '</div></div>' +
       '<span class="pill ' + (PRIORIDADE[t.prioridade] || ['', 'neutro'])[1] + '">' + esc((PRIORIDADE[t.prioridade] || [t.prioridade])[0]) + '</span></div>').join('') + '</div>' +
@@ -166,6 +207,8 @@ async function cardMinhaFila() {
     const bm = raiz.querySelector('[data-fila-min]'); if (bm) bm.onclick = () => { FILA.min = !FILA.min; salvarPrefFila(); repinta(raiz); };
     const bt = raiz.querySelector('[data-fila-toda]'); if (bt) bt.onclick = () => { FILA.toda = !FILA.toda; repinta(raiz); };
     raiz.querySelectorAll('[data-fila-vista]').forEach((b) => b.onclick = () => { FILA.vista = b.dataset.filaVista; FILA.min = false; FILA.ref = null; salvarPrefFila(); repinta(raiz); });
+    raiz.querySelectorAll('[data-agendar]').forEach((b) => b.onclick = () => janelaAgendar(FILA.vista === 'dia' ? (FILA.ref || hojeISO()) : hojeISO(), () => repinta(raiz)));
+    raiz.querySelectorAll('[data-ag-dia]').forEach((d) => d.addEventListener('click', (ev) => { if (ev.target.closest('[data-fila]')) return; janelaAgendar(d.dataset.agDia, () => repinta(raiz)); }));
     raiz.querySelectorAll('[data-fila-nav]').forEach((b) => b.onclick = () => {
       const n = +b.dataset.filaNav, d = new Date((FILA.ref || hojeISO()) + 'T12:00:00');
       if (!n) FILA.ref = null;

@@ -1,5 +1,5 @@
 // ═══ Backup 35 — Acordos: UMA aba "A pagar" (tudo o que venceu ou vai vencer e ainda não foi pago), como na planilha ═══
-// Colunas: ☐ · Grupo · Responsável · Processo · Devedor · Credor · Parcela · Valor · Vencimento · Prazo · Situação · ação.
+// Colunas: ☐ · Grupo · Processo · Devedor · Credor · Parcela · Valor · Vencimento · Prazo · Situação · ação.
 // Marcar parcelas → "✉ Enviar por empresa" (o mesmo e-mail das guias); "🧾 Gerar boleto" emite uma parcela; paga vai para a aba "Pago".
 var _acSel={};
 function setAcordTab(tab, btn){
@@ -21,7 +21,7 @@ function renderAcordosVencTbl(){
     .sort(function(a,b){ return (pDate(a.vencimento)||new Date(0))-(pDate(b.vencimento)||new Date(0)); });
   var tab=document.querySelector('#acordTabVencidos table'); if(!tab) return;
   tab.classList.add('ac-ap');
-  tab.querySelector('thead').innerHTML='<tr><th class="ac-ck"><input type="checkbox" id="acSelTodos" aria-label="Marcar todas"></th><th>Grupo</th><th>Responsável</th><th>Processo</th><th>Devedor</th><th>Credor</th>'
+  tab.querySelector('thead').innerHTML='<tr><th class="ac-ck"><input type="checkbox" id="acSelTodos" aria-label="Marcar todas"></th><th class="ac-c-grp">Grupo</th><th>Processo</th><th>Devedor</th><th>Credor</th>'
     +'<th>Parcela</th><th>Valor</th><th>Vencimento</th><th>Prazo</th><th>Situação</th><th></th></tr>';
   var cnt=$('acordVencCount'); if(cnt) cnt.textContent='· '+fI(rows.length)+' parcela(s) a pagar';
   var pg=$('pagAcordosVenc'); if(pg) pg.innerHTML='';
@@ -30,18 +30,19 @@ function renderAcordosVencTbl(){
     var dv=pDate(a.vencimento), dias=dv?Math.round((dv-hoje)/864e5):null, venc=dias!==null&&dias<=0;
     var emit=!!a.emitidaEm||/sim|emitid/i.test(a.emissao||'');
     return '<tr data-gx="'+_gx(a)+'"'+(venc?' class="ac-ap-venc"':'')+'><td class="ac-ck"><input type="checkbox" data-ac-sel="'+a._id+'"'+(_acSel[a._id]?' checked':'')+' aria-label="Marcar"></td>'
-      +'<td>'+esc(a.grupo||'—')+'</td><td>'+(a.responsavel?'<span class="ac-resp">'+esc(a.responsavel)+'</span>':'—')+'</td>'
+      +'<td class="ac-c-grp" title="'+esc(a.grupo||'')+'">'+esc(a.grupo||'—')+'</td>'
       +'<td class="mono" style="font-size:11.5px">'+esc(a.processo||'—')+'</td><td>'+esc(a.devedor||'—')+'</td><td>'+esc(a.credor||'—')+'</td>'
       +'<td class="mono">'+esc(a.parcela||'—')+' de '+esc(a.totalParc||'—')+'</td><td class="mono"><strong>'+fF(a.valor||0)+'</strong></td>'
       +'<td class="mono">'+esc(a.vencimento||'—')+'</td>'
       +'<td class="mono"><span class="'+(dias===null?'':_diasCls(dias))+'">'+(dias===null?'—':dias<0?Math.abs(dias)+' d atraso':dias===0?'vence hoje':dias+' dias')+'</span></td>'
       +'<td><span class="lg-st '+(venc?'lg-st-r':'lg-st-g')+'">'+(venc?'Vencido':'OK')+'</span>'+(emit?' <span class="lg-em lg-em-ok" title="'+esc(a.emitidaEm?'emitido em '+a.emitidaEm:'')+'">✓ emitido</span>':'')+'</td>'
-      +'<td class="ac-ap-ac"><button type="button" class="ac-bt-boleto" data-ac-guia="'+a._id+'" title="Emitir o boleto/guia desta parcela e enviar ao cliente">🧾 '+(emit?'Reemitir':'Boleto')+'</button></td></tr>';
-  }).join(''):'<tr><td colspan="12">'+emp('Nenhuma parcela a pagar — tudo em dia! ✅')+'</td></tr>';
+      +'<td class="ac-ap-ac"><button type="button" class="ac-bt-boleto" data-ac-guia="'+a._id+'" title="Emitir o boleto/guia desta parcela e enviar ao cliente">🧾 '+(emit?'Reemitir':'Emitir')+'</button></td></tr>';
+  }).join(''):'<tr><td colspan="11">'+emp('Nenhuma parcela a pagar — tudo em dia! ✅')+'</td></tr>';
   _acBarraSel();
   el.onchange=function(ev){ var c=ev.target.closest('[data-ac-sel]'); if(!c) return; if(c.checked) _acSel[c.dataset.acSel]=1; else delete _acSel[c.dataset.acSel]; _acBarraSel(); };
   el.onclick=function(ev){ var b=ev.target.closest('[data-ac-guia]'); if(!b) return; ev.stopPropagation();
-    if(window.GS&&GS.emitirParcela) GS.emitirParcela('acordos', b.dataset.acGuia, function(){ if(window.ERP_RECARREGAR) window.ERP_RECARREGAR(); }); };
+    // Backup 36: emitir = a janela de envio (e-mail ou WhatsApp) já com esta parcela
+    if(window.GS&&GS.enviarAcordosSelecionados) GS.enviarAcordosSelecionados([b.dataset.acGuia], function(){ if(window.ERP_RECARREGAR) window.ERP_RECARREGAR(); }); };
   var tt=$('acSelTodos'); if(tt) tt.onchange=function(){ rows.forEach(function(a){ if(tt.checked) _acSel[a._id]=1; else delete _acSel[a._id]; }); renderAcordosVencTbl(); };
 }
 function _acBarraSel(){
@@ -50,7 +51,7 @@ function _acBarraSel(){
   if(!box) return;
   var ids=Object.keys(_acSel);
   box.innerHTML=ids.length?'<span><b>'+ids.length+' parcela'+(ids.length>1?'s':'')+' marcada'+(ids.length>1?'s':'')+'</b></span><span class="acoes"><button type="button" class="ac-bt-boleto" id="acSelLimpar">Desmarcar</button><button type="button" class="ac-bt-boleto ac-bt-prim" id="acSelEnviar">✉ Enviar por empresa</button></span>'
-    :'<span class="sub">Marque as parcelas para enviar os boletos por empresa (ou use 🧾 Gerar boleto na linha).</span>';
+    :'<span class="sub">Marque as parcelas para enviar os boletos por empresa (ou use 🧾 Emitir na linha).</span>';
   var l=$('acSelLimpar'); if(l) l.onclick=function(){ _acSel={}; renderAcordosVencTbl(); };
   var e=$('acSelEnviar'); if(e) e.onclick=function(){ if(window.GS&&GS.enviarAcordosSelecionados) GS.enviarAcordosSelecionados(ids, function(){ _acSel={}; if(window.ERP_RECARREGAR) window.ERP_RECARREGAR(); }); };
 }

@@ -937,3 +937,58 @@ body.gx-barra-topo .ac-ap td.mono{white-space:nowrap}
   body.gx-barra-topo .panel:not(#panel-hoje) .gs .kpi{padding:12px 14px}
   body.gx-barra-topo .cc-t{font-size:13px}
 }
+/* ── Backup 36: linha lateral do grupo CONTÍNUA — desenhada por cima da borda entre as linhas (antes ficava um risquinho branco) ── */
+body.gx-barra-topo :is(tr.gc-ini,tr.gc-in,tr.gc-fim) > td:is(.gc-l,.gc-r){position:relative;box-shadow:none!important;overflow:visible!important}
+body.gx-barra-topo :is(tr.gc-ini,tr.gc-in,tr.gc-fim) > td.gc-l::before,
+body.gx-barra-topo :is(tr.gc-ini,tr.gc-in,tr.gc-fim) > td.gc-r::after{content:'';position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--primario);pointer-events:none;z-index:1}
+body.gx-barra-topo :is(tr.gc-ini,tr.gc-in,tr.gc-fim) > td.gc-l::before{left:0}
+body.gx-barra-topo :is(tr.gc-ini,tr.gc-in,tr.gc-fim) > td.gc-r::after{right:0}
+/* ── Backup 36: últimas movimentações em cartões separados ── */
+.gx-movs{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.gx-mov{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border:1px solid var(--border);border-left:3px solid var(--primario);border-radius:var(--r-ctl);background:var(--surface);font-size:13px}
+.gx-mov-cab{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.gx-mov-d{font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
+.gx-mov-x{color:var(--text2);line-height:1.45}
+.gx-mov-q{font-size:11.5px;color:var(--text3)}
+/* ── Backup 36: cartões maiores e mais limpos; aberto bem marcado; lista do grupo em tabela simples ── */
+body.gx-barra-topo .lg.lg-cards{grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px}
+body.gx-barra-topo .lg-cards .lg-card{gap:9px;padding:16px 18px;min-height:190px}
+.lg-card-hd .lg-gnome{font-size:14px}
+.lg-card-ab{flex:none;font:600 11px var(--font-ui);color:var(--text3)}
+body.gx-barra-topo .lg-cards .lg-card.lg-g-aberto{border:2px solid var(--primario);background:var(--surface);box-shadow:0 0 0 3px var(--blue-lt),inset 0 4px 0 var(--primario)!important}
+body.gx-barra-topo .lg-cards .lg-card.lg-g-aberto .lg-card-ab{color:var(--primario)}
+.lg-card-sit{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}
+.lg-card-sit .lg-st{white-space:normal;line-height:1.3}
+.lg-card-lin{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:12.5px;color:var(--text3)}
+.lg-card-lin b{color:var(--ink);font-size:13.5px}
+.lg-card-lin .lg-sub{font-size:11.5px}
+body.gx-barra-topo .lg-cards .lg-painel{border:2px solid var(--primario);border-radius:var(--card-r-sm,10px)}
+.lg-painel-tit{display:flex;align-items:baseline;gap:10px;padding:12px 16px;background:var(--blue-lt);text-transform:none}
+.lg-painel-tit b{text-transform:uppercase;font-size:13px}
+.lg-fechar{margin-left:auto;border:0;background:transparent;font-size:14px;color:var(--text3);cursor:pointer}
+.lg-t{width:100%;border-collapse:collapse;table-layout:fixed;font-size:13px}
+.lg-t th{text-align:left;padding:8px 14px;font:700 10.5px var(--font-ui);letter-spacing:.05em;text-transform:uppercase;color:var(--text3);background:var(--surface2)!important;border-bottom:1px solid var(--border)}
+.lg-t td{padding:10px 14px;border-bottom:1px solid var(--line);vertical-align:middle}
+.lg-t tr.lg-t-lin{cursor:pointer}
+.lg-t tr.lg-t-lin:hover td{background:var(--hover)}
+.lg-t tr.lg-atr td:first-child{box-shadow:inset 3px 0 0 var(--red)}
+.lg-t .lg-t-num{text-align:right;font-weight:600;white-space:nowrap}
+.lg-t .lg-t-seta{color:var(--text3);text-align:center}
+.lg-t-pag{display:flex;flex-direction:column;gap:4px}
+.lg-t .lg-st{white-space:normal}
+.lg-parc-tab .lg-t-num{text-align:right}
+.lg-em-atr{background:var(--red-lt);color:var(--red-d);border-color:var(--red-bd)}
+body.gx-barra-topo .ac-ap .ac-c-grp{max-width:120px;width:120px;white-space:normal;font-size:12px}
+.lg-card-lin.lg-card-mes{flex-direction:column;align-items:flex-start;gap:2px;padding-top:6px;border-top:1px dashed var(--line)}
+.lg-card-lin.lg-card-mes > span:last-child{font-size:13px}
+/* Backup 36: modo escuro — azul de texto legível (o --primario escuro some no fundo grafite) */
+html[data-tema="escuro"] body.gx-barra-topo .lg-g-aberto .lg-gnome,html[data-tema="escuro"] body.gx-barra-topo .lg-cards .lg-card.lg-g-aberto .lg-card-ab,
+html[data-tema="escuro"] .gs .segmento button.ativo .seg-n,html[data-tema="escuro"] .rt-ch-emit,html[data-tema="escuro"] .lg-painel-tit{color:var(--blue-d)}
+/* Backup 36: celular — a tabela do cartão aberto fica com Empresa · Situação (o resto está no cartão e no detalhe) */
+@media (max-width:600px){
+  .lg-t{table-layout:auto}
+  .lg-t col{width:auto!important}
+  .lg-t th:nth-child(2),.lg-t td:nth-child(2),.lg-t th:nth-child(3),.lg-t td:nth-child(3),.lg-t th:nth-child(4),.lg-t td:nth-child(4),.lg-t th:nth-child(6),.lg-t td:nth-child(6){display:none}
+  .lg-t td{overflow-wrap:anywhere}
+  .lg-t th,.lg-t td{padding:8px 8px}
+}

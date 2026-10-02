@@ -3649,11 +3649,51 @@ function salvarPrefFila() {
   if (E.perfil) E.perfil.preferencias = Object.assign({}, E.perfil.preferencias || {}, { fila: v });
   sb.rpc('salvar_preferencia', { p_chave: 'fila', p_valor: v }).then(() => {}, () => {});
 }
+// Backup 36: compromissos na agenda (tarefas com tipo_agenda + hora) — cor por tipo e legenda
+const TIPOS_AGENDA = [['reuniao', 'Reunião', '🤝'], ['audiencia', 'Audiência', '⚖'], ['compromisso', 'Compromisso', '📌'], ['ligacao', 'Ligação', '📞']];
+const legendaAgenda = () => '<div class="ag-leg">' + TIPOS_AGENDA.map(([k, r]) => '<span><i class="ag-cor ag-' + k + '"></i>' + r + '</span>').join('') +
+  '<span><i class="ag-cor ag-tarefa"></i>Tarefa</span><span><i class="ag-cor ag-atrasada"></i>Atrasada</span><span><i class="ag-cor ag-fatal"></i>Prazo fatal</span></div>';
+function janelaAgendar(dataIni, depois) {
+  const pessoas = pessoasEscritorio();
+  const j = abrirJanela({ titulo: '📅 Agendar na minha agenda',
+    corpo: '<form id="f-ag" class="grade">' +
+      '<div class="campo" style="grid-column:1/-1"><span>Tipo</span><div class="segmento ag-tipos" id="ag-tipo">' + TIPOS_AGENDA.map(([k, r, ic], i) => '<button type="button" data-v="' + k + '"' + (i ? '' : ' class="ativo"') + '>' + ic + ' ' + r + '</button>').join('') + '</div></div>' +
+      campo('O quê', '<input name="titulo" required placeholder="ex.: Reunião com o cliente sobre o parcelamento">', 'ag-toda') +
+      campo('Dia', '<input type="date" name="prazo" required value="' + (dataIni || hojeISO()) + '">') + campo('Hora', '<input type="time" name="hora" value="09:00">') +
+      campo('Local ou link', '<input name="local" placeholder="escritório, Google Meet…">', 'ag-toda') +
+      '<div class="campo" style="grid-column:1/-1"><span>Quem participa</span><div class="ag-pessoas">' + (pessoas.length ? pessoas : [meuNome()]).filter(Boolean).map((n) =>
+        '<label class="ag-p"><input type="checkbox" name="part" value="' + esc(n) + '"' + (primeiroNome(n) === primeiroNome(meuNome()) ? ' checked' : '') + '><span>' + esc(primeiroNome(n)) + '</span></label>').join('') + '</div></div>' +
+      campo('Cliente (opcional)', '<select name="cliente_id"><option value="">—</option>' + E.clientes.map((c) => '<option value="' + c.id + '">' + esc(c.nome) + '</option>').join('') + '</select>', 'ag-toda') +
+      campo('Observação', '<textarea name="descricao" rows="2"></textarea>', 'ag-toda') + '</form>',
+    rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="ag-ok">Agendar</button></div>' });
+  let tipo = 'reuniao';
+  j.querySelector('#ag-tipo').onclick = (ev) => { const b = ev.target.closest('[data-v]'); if (!b) return; tipo = b.dataset.v; j.querySelectorAll('#ag-tipo button').forEach((x) => x.classList.toggle('ativo', x === b)); };
+  j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
+  j.querySelector('#ag-ok').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    const f = j.querySelector('#f-ag');
+    if (!f.titulo.value.trim()) throw new Error('Escreva o que é o compromisso.');
+    if (!f.prazo.value) throw new Error('Escolha o dia.');
+    const parts = [...f.querySelectorAll('[name=part]:checked')].map((x) => x.value);
+    const resp = parts.find((n) => primeiroNome(n) === primeiroNome(meuNome())) || parts[0] || meuNome();
+    await q(sb.from('tarefas').insert({ titulo: f.titulo.value.trim(), prazo: f.prazo.value, hora: f.hora.value || null, tipo_agenda: tipo, local: f.local.value.trim(),
+      responsavel: resp, participantes: parts.filter((n) => n !== resp).join(', '), cliente_id: f.cliente_id.value || null,
+      grupo_id: (E.clientes.find((c) => c.id === f.cliente_id.value) || {}).grupo_id || null, descricao: f.descricao.value.trim(), prioridade: 'media', status: 'pendente' }));
+    fecharJanela(j); aviso('✓ Agendado para ' + dataBR(f.prazo.value) + (f.hora.value ? ' às ' + f.hora.value : '') + '.'); if (depois) depois();
+  });
+}
+function classeAgenda(t, d) {
+  const h = hojeISO();
+  if (t.prazo_fatal === d) return 'ag-fatal';
+  if (t.tipo_agenda) return 'ag-' + t.tipo_agenda;
+  if (/^reuniao:/.test(t.chave_regra || '')) return 'ag-reuniao';   // reuniões marcadas pelo CRM
+  return t.prazo && t.prazo < h ? 'ag-atrasada' : 'ag-tarefa';
+}
+const horaAg = (t) => (t.hora ? String(t.hora).slice(0, 5) + ' ' : '');
 function calendarioFila(lista) {
   const h = hojeISO(), ref = FILA.ref || h, d0 = new Date(ref + 'T12:00:00');
-  const doDia = (d) => lista.filter((t) => t.prazo === d || t.prazo_fatal === d);
-  const item = (t, d) => '<button type="button" class="cal-tf' + (t.prazo_fatal === d ? ' fatal' : '') + (t.prazo && t.prazo < h ? ' atrasada' : '') + '" data-fila="' + t.id + '" title="' + esc(t.titulo) + '">' +
-    (t.prazo_fatal === d ? '⚑ ' : '') + esc(t.titulo) + '</button>';
+  const doDia = (d) => lista.filter((t) => t.prazo === d || t.prazo_fatal === d).sort((a, b) => String(a.hora || '99').localeCompare(String(b.hora || '99')));
+  const item = (t, d) => '<button type="button" class="cal-tf ' + classeAgenda(t, d) + '" data-fila="' + t.id + '" title="' + esc(horaAg(t) + t.titulo + (t.local ? ' · ' + t.local : '')) + '">' +
+    (t.prazo_fatal === d ? '⚑ ' : '') + (t.hora ? '<b>' + horaAg(t) + '</b>' : '') + esc(t.titulo) + '</button>';
   let titulo, corpo;
   if (FILA.vista === 'dia') {
     titulo = d0.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' });
@@ -3664,7 +3704,7 @@ function calendarioFila(lista) {
     const ini = new Date(d0); ini.setDate(d0.getDate() - d0.getDay());
     const dias = [...Array(7)].map((_, k) => { const x = new Date(ini); x.setDate(ini.getDate() + k); return iso(x); });
     titulo = 'Semana de ' + dataBR(dias[0]).slice(0, 5) + ' a ' + dataBR(dias[6]).slice(0, 5);
-    corpo = '<div class="fila-semana">' + dias.map((d) => '<div class="fila-sem-dia' + (d === h ? ' cal-hoje' : '') + '"><div class="cal-num">' +
+    corpo = '<div class="fila-semana">' + dias.map((d) => '<div class="fila-sem-dia' + (d === h ? ' cal-hoje' : '') + '" data-ag-dia="' + d + '"><div class="cal-num">' +
       new Date(d + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit' }) + '</div>' + doDia(d).map((t) => item(t, d)).join('') + '</div>').join('') + '</div>';
   } else {
     const a = d0.getFullYear(), m = d0.getMonth(), primeiro = new Date(a, m, 1), n = new Date(a, m + 1, 0).getDate();
@@ -3672,7 +3712,7 @@ function calendarioFila(lista) {
     let c = '<div class="calendario">' + ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((x) => '<div class="cal-sem">' + x + '</div>').join('') + '<div class="cal-dia vazio-dia"></div>'.repeat(primeiro.getDay());
     for (let k = 1; k <= n; k++) {
       const d = iso(new Date(a, m, k)), l = doDia(d);
-      c += '<div class="cal-dia' + (d === h ? ' cal-hoje' : '') + '"><div class="cal-num">' + k + '</div>' + l.slice(0, 3).map((t) => item(t, d)).join('') + (l.length > 3 ? '<div class="sub">+ ' + (l.length - 3) + '</div>' : '') + '</div>';
+      c += '<div class="cal-dia' + (d === h ? ' cal-hoje' : '') + '" data-ag-dia="' + d + '" title="Clique no espaço vazio para agendar neste dia"><div class="cal-num">' + k + '</div>' + l.slice(0, 3).map((t) => item(t, d)).join('') + (l.length > 3 ? '<div class="sub">+ ' + (l.length - 3) + '</div>' : '') + '</div>';
     }
     // Backup 27: completa a última semana com dias vazios (igual aos dias antes do dia 1, sem o cinza do fundo)
     const resto = (7 - ((primeiro.getDay() + n) % 7)) % 7;
@@ -3684,7 +3724,8 @@ function calendarioFila(lista) {
     (atr.length ? atr.map((t) => '<button type="button" class="fila-atr-it" data-fila="' + t.id + '" title="' + esc(t.titulo) + '"><b>' + esc(t.titulo) + '</b><span class="sub">prazo ' + dataBR(t.prazo) + ' · ' + plural(-diasAte(t.prazo), 'dia', 'dias') + ' de atraso</span></button>').join('')
       : '<div class="sub">Nenhuma atrasada. 🎉</div>') + '</aside>';
   return '<div class="fila-com-atr">' + lado + '<div class="fila-cal-area"><div class="fila-cal-nav"><button type="button" class="btn btn-o btn-mini" data-fila-nav="-1" aria-label="Anterior">‹</button><b>' + esc(titulo) + '</b>' +
-    '<button type="button" class="btn btn-o btn-mini" data-fila-nav="1" aria-label="Próximo">›</button><button type="button" class="btn btn-o btn-mini" data-fila-nav="0">Hoje</button></div>' + corpo + '</div></div>';
+    '<button type="button" class="btn btn-o btn-mini" data-fila-nav="1" aria-label="Próximo">›</button><button type="button" class="btn btn-o btn-mini" data-fila-nav="0">Hoje</button>' +
+    '<button type="button" class="btn btn-p btn-mini ag-bt" data-agendar>+ Agendar</button></div>' + corpo + legendaAgenda() + '</div></div>';
 }
 async function cardMinhaFila() {
   if (!FILA.lida) { const p = (E.perfil && E.perfil.preferencias && E.perfil.preferencias.fila) || {}; if (p.vista) FILA.vista = p.vista; FILA.min = !!p.min; FILA.lida = true; }
@@ -3696,7 +3737,7 @@ async function cardMinhaFila() {
       '<div class="segmento ini-fila-vista" role="group" aria-label="Ver como">' + VISTAS_FILA.map(([v, r]) => '<button type="button" data-fila-vista="' + v + '"' + (FILA.vista === v ? ' class="ativo"' : '') + '>' + r + '</button>').join('') + '</div>' +
       '<button type="button" class="btn btn-o btn-mini ini-fila-min" data-fila-min aria-expanded="' + !FILA.min + '">' + (FILA.min ? '▸ Mostrar' : '▾ Minimizar') + '</button></div>' +
     (FILA.min ? '' : '<div class="card-bd">' + (FILA.vista !== 'lista' ? calendarioFila(todas) :
-    (minhas.length ? '<div class="lista-ficha fila-compacta">' + minhas.map((t) => '<div class="item-ficha clicavel" data-fila="' + t.id + '"><div>' + bolinha(t) + ' <b>' + esc(t.titulo) + '</b>' + seloPrazo(t) +
+    (minhas.length ? '<div class="lista-ficha fila-compacta">' + minhas.map((t) => '<div class="item-ficha clicavel" data-fila="' + t.id + '"><div>' + bolinha(t) + (t.tipo_agenda ? ' <i class="ag-cor ag-' + t.tipo_agenda + '"></i>' : '') + ' <b>' + (t.hora ? horaAg(t) : '') + esc(t.titulo) + '</b>' + seloPrazo(t) +
       '<div class="sub">' + (t.prazo ? 'prazo ' + dataBR(t.prazo) : 'sem prazo') + (t.prazo_fatal ? ' · ⚑ fatal ' + dataBR(t.prazo_fatal) : '') + (t.status === 'revisao' ? ' · aguardando revisão' : '') +
       (nomeCliente(t.cliente_id) || nomeGrupo(t.grupo_id) ? ' · ' + esc(nomeCliente(t.cliente_id) || nomeGrupo(t.grupo_id)) : '') + '</div></div>' +
       '<span class="pill ' + (PRIORIDADE[t.prioridade] || ['', 'neutro'])[1] + '">' + esc((PRIORIDADE[t.prioridade] || [t.prioridade])[0]) + '</span></div>').join('') + '</div>' +
@@ -3708,6 +3749,8 @@ async function cardMinhaFila() {
     const bm = raiz.querySelector('[data-fila-min]'); if (bm) bm.onclick = () => { FILA.min = !FILA.min; salvarPrefFila(); repinta(raiz); };
     const bt = raiz.querySelector('[data-fila-toda]'); if (bt) bt.onclick = () => { FILA.toda = !FILA.toda; repinta(raiz); };
     raiz.querySelectorAll('[data-fila-vista]').forEach((b) => b.onclick = () => { FILA.vista = b.dataset.filaVista; FILA.min = false; FILA.ref = null; salvarPrefFila(); repinta(raiz); });
+    raiz.querySelectorAll('[data-agendar]').forEach((b) => b.onclick = () => janelaAgendar(FILA.vista === 'dia' ? (FILA.ref || hojeISO()) : hojeISO(), () => repinta(raiz)));
+    raiz.querySelectorAll('[data-ag-dia]').forEach((d) => d.addEventListener('click', (ev) => { if (ev.target.closest('[data-fila]')) return; janelaAgendar(d.dataset.agDia, () => repinta(raiz)); }));
     raiz.querySelectorAll('[data-fila-nav]').forEach((b) => b.onclick = () => {
       const n = +b.dataset.filaNav, d = new Date((FILA.ref || hojeISO()) + 'T12:00:00');
       if (!n) FILA.ref = null;
@@ -6245,27 +6288,34 @@ async function carregarPublicacoes() {
 function pintarPublicacoes() {
   const F = E.pub, b = normalizar(F.busca);
   if (!$('pub-corpo')) return;
-  document.querySelectorAll('#pub-st button').forEach((x) => x.classList.toggle('ativo', x.dataset.v === F.status));
   const todas = E._pubs || [];
-  // tribunais com publicação pendente (nova/lida): quando todas forem tratadas/descartadas ou saírem do período, o botão some
-  const pend = {}; todas.filter((p) => (p.status === 'nova' || p.status === 'lida') && p.tribunal).forEach((p) => { pend[p.tribunal] = (pend[p.tribunal] || 0) + 1; });
+  // Backup 36: cada contador mostra exatamente o que aparece ao clicar nele — vale o recorte dos OUTROS filtros
+  // (situação × advogado × tribunal × busca). Ex.: 61 no total, 5 tratadas → Novas 56 · Tratadas 5 · Todas 61.
+  const pn = (n) => normalizar(String(n || '').trim().split(/\s+/)[0] || '');
+  const doAdv = (p, n) => { const k = pn(n); return !!k && (pn(p.advogado) === k || normalizar(p.advogados || '').split(/[;,]/).some((x) => pn(x) === k)); };
+  const okSt = (p) => !F.status || p.status === F.status, okAdv = (p) => !F.adv || doAdv(p, F.adv), okTrib = (p) => !F.tribunal || p.tribunal === F.tribunal;
+  const okBusca = (p) => !b || normalizar(p.texto + ' ' + p.processo + ' ' + p.destinatarios + ' ' + p.orgao).includes(b);
+  const semSt = todas.filter((p) => okAdv(p) && okTrib(p) && okBusca(p));
+  document.querySelectorAll('#pub-st button').forEach((x) => { x.classList.toggle('ativo', x.dataset.v === F.status);
+    const n = semSt.filter((p) => !x.dataset.v || p.status === x.dataset.v).length;
+    x.innerHTML = esc(x.dataset.rot || (x.dataset.rot = x.textContent)) + ' <span class="seg-n">' + n + '</span>'; });
+  const semTrib = todas.filter((p) => okSt(p) && okAdv(p) && okBusca(p));
+  const pend = {}; semTrib.filter((p) => p.tribunal).forEach((p) => { pend[p.tribunal] = (pend[p.tribunal] || 0) + 1; });
   const tribs = Object.keys(pend).sort((a, b) => a.localeCompare(b, 'pt-BR'));
   if (F.tribunal && !pend[F.tribunal]) F.tribunal = '';
   const st = $('pub-trib');
   if (st) { st.parentNode.hidden = !tribs.length;
-    st.innerHTML = '<button type="button" data-v="" class="' + (F.tribunal ? '' : 'ativo') + '">Todos os tribunais</button>' +
-      tribs.map((t) => '<button type="button" data-v="' + esc(t) + '" class="' + (F.tribunal === t ? 'ativo' : '') + '" title="' + pend[t] + ' pendente(s)">' + esc(t) + ' <span class="seg-n">' + pend[t] + '</span></button>').join(''); }
-  const pn = (n) => normalizar(String(n || '').trim().split(/\s+/)[0] || '');
-  const doAdv = (p, n) => { const k = pn(n); return !!k && (pn(p.advogado) === k || normalizar(p.advogados || '').split(/[;,]/).some((x) => pn(x) === k)); };
+    st.innerHTML = '<button type="button" data-v="" class="' + (F.tribunal ? '' : 'ativo') + '">Todos os tribunais <span class="seg-n">' + semTrib.length + '</span></button>' +
+      tribs.map((t) => '<button type="button" data-v="' + esc(t) + '" class="' + (F.tribunal === t ? 'ativo' : '') + '">' + esc(t) + ' <span class="seg-n">' + pend[t] + '</span></button>').join(''); }
   const nomesAdv = [...new Set((E._pubAdvs || []).concat(todas.map((p) => p.advogado)).filter(Boolean).map((n) => String(n).trim().split(/\s+/)[0]))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
   if (F.adv && !nomesAdv.includes(F.adv)) F.adv = '';
+  const semAdv = todas.filter((p) => okSt(p) && okTrib(p) && okBusca(p));
   const sa = $('pub-advs');
   if (sa) { sa.parentNode.hidden = !nomesAdv.length;
-    sa.innerHTML = '<button type="button" data-v="" class="' + (F.adv ? '' : 'ativo') + '">Todos os advogados</button>' + nomesAdv.map((n) => { const c = todas.filter((p) => (p.status === 'nova' || p.status === 'lida') && doAdv(p, n)).length;
-      return '<button type="button" data-v="' + esc(n) + '" class="' + (F.adv === n ? 'ativo' : '') + '">' + esc(n) + (c ? ' <span class="seg-n">' + c + '</span>' : '') + '</button>'; }).join(''); }
-  const lista = todas.filter((p) => (!F.status || p.status === F.status) && (!F.adv || doAdv(p, F.adv)) && (!F.tribunal || p.tribunal === F.tribunal) &&
-    (!b || normalizar(p.texto + ' ' + p.processo + ' ' + p.destinatarios + ' ' + p.orgao).includes(b)));
-  const conta = (s) => todas.filter((p) => p.status === s).length;
+    sa.innerHTML = '<button type="button" data-v="" class="' + (F.adv ? '' : 'ativo') + '">Todos os advogados <span class="seg-n">' + semAdv.length + '</span></button>' + nomesAdv.map((n) => { const c = semAdv.filter((p) => doAdv(p, n)).length;
+      return '<button type="button" data-v="' + esc(n) + '" class="' + (F.adv === n ? 'ativo' : '') + '">' + esc(n) + ' <span class="seg-n">' + c + '</span></button>'; }).join(''); }
+  const lista = todas.filter((p) => okSt(p) && okAdv(p) && okTrib(p) && okBusca(p));
+  const conta = (s) => semSt.filter((p) => p.status === s).length;
   $('pub-corpo').innerHTML = '<div class="kpis">' + kpi('Novas', String(conta('nova')), conta('nova') ? 'ambar' : 'verde', 'ainda não lidas') + kpi('Lidas', String(conta('lida')), '', 'sem tarefa ainda') +
     kpi('Tratadas', String(conta('tratada')), 'verde', 'com tarefa criada') + '</div>' +
     (lista.length ? lista.map((p) => '<div class="card pub-card' + (p.status === 'nova' ? ' pub-nova' : '') + '" data-pub="' + p.id + '"><div class="card-bd">' +
@@ -7411,53 +7461,49 @@ const TIPOS_CONTROLE = [['cobranca', 'Honorários', 'hon_lembrete', 'lembrete an
   ['convite', 'Reuniões', 'convite', 'convite de reunião (quando marcado na reunião)']];
 let _emCtrl = [];
 async function controleEmails(alvo) {
+  // Backup 36: mais simples — uma linha por cliente com um sinal por tipo (✓ recebe · ⚠ sem e-mail · — não recebe) e o e-mail principal;
+  // a regra geral (setor quando ninguém está marcado) fica recolhida; clique no cliente para escolher contatos e ver o histórico
   const admin = E.perfil && E.perfil.papel === 'admin';
-  E.emc = Object.assign({ busca: '', perfil: '', resp: '', problema: false }, E.emc || {});
+  E.emc = Object.assign({ busca: '', perfil: '', problema: false }, E.emc || {});
   const F = E.emc;
   alvo.innerHTML = '<div class="carregando">Carregando…</div>';
   const [lista, dest] = await Promise.all([q(sb.rpc('emails_controle')), q(sb.from('configuracoes').select('valor').eq('chave', 'emails_destino').maybeSingle()).catch(() => null)]);
   _emCtrl = lista || [];
   const mapa = (dest && dest.valor) || {};
-  const resps = [...new Set(_emCtrl.map((c) => c.responsavel).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  const falta = (c) => TIPOS_CONTROLE.some(([k]) => c.tipos[k] && c.tipos[k].recebe && !c.tipos[k].para);
+  const nFalta = _emCtrl.filter(falta).length;
   alvo.innerHTML =
-    '<div class="card"><div class="card-hd">📨 Quem recebe o quê</div><div class="card-bd">' +
-      '<p class="sub" style="margin-bottom:10px">Cada linha é um cliente: se ele recebe cada tipo de e-mail, <b>para qual endereço vai</b> e quem é o responsável. ' +
-      'Clique no cliente para escolher os contatos de cada tipo, ver o modelo (como o e-mail sai) e o histórico do que já foi enviado. Nada sai com a pausa ligada.</p>' +
-      '<div class="emc-destinos"><b>Quando ninguém está marcado, cada tipo vai para o setor:</b>' +
+    '<div class="emc-topo"><div class="emc-resumo"><div class="emc-n"><b>' + _emCtrl.length + '</b><span>clientes</span></div>' +
+      '<button type="button" class="emc-n' + (nFalta ? ' emc-n-ruim' : ' emc-n-ok') + (F.problema ? ' ativo' : '') + '" id="emc-prob" aria-pressed="' + F.problema + '"><b>' + nFalta + '</b><span>' + (nFalta ? 'com e-mail faltando — ver' : 'com e-mail faltando') + '</span></button></div>' +
+      '<div class="emc-leg"><span class="emc-s emc-s-ok">✓</span> recebe <span class="emc-s emc-s-falta">!</span> recebe, mas sem e-mail <span class="emc-s emc-s-nao">–</span> não recebe · <b>clique no cliente</b> para escolher quem recebe cada tipo</div></div>' +
+    '<div class="filtros" id="emc-filtros"><input class="busca" id="emc-busca" placeholder="Buscar cliente ou grupo" autocomplete="off" value="' + esc(F.busca) + '">' +
+      '<div class="segmento" id="emc-perfis"><button type="button" data-v="">Todos</button>' + PERFIS_EMAIL.map(([v, r]) => '<button type="button" data-v="' + v + '">' + esc(r) + '</button>').join('') + '</div></div>' +
+    '<div class="card"><div id="emc-tab"></div></div>' +
+    '<details class="emc-regra"><summary>⚙ Regra geral: para qual setor vai cada tipo quando ninguém está marcado</summary><div class="emc-destinos">' +
       TIPOS_CONTROLE.map(([k, r]) => '<label>' + r + ' → <select class="busca sel" data-emc-dest="' + k + '"' + (admin ? '' : ' disabled') + '>' +
         SETORES_CONTATO.map(([v, rs]) => '<option value="' + v + '"' + ((mapa[k] || 'financeiro') === v ? ' selected' : '') + '>' + rs + '</option>').join('') + '</select></label>').join('') +
-      '<span class="sub">depois: contato Geral e, por último, o e-mail do cadastro.</span></div></div></div>' +
-    '<div class="filtros" id="emc-filtros"><input class="busca" id="emc-busca" placeholder="Buscar cliente ou grupo" autocomplete="off" value="' + esc(F.busca) + '">' +
-      '<select class="busca sel" id="emc-perfil"><option value="">Todos os perfis</option>' + PERFIS_EMAIL.map(([v, r]) => '<option value="' + v + '"' + (F.perfil === v ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>' +
-      '<select class="busca sel" id="emc-resp"><option value="">Todos os responsáveis</option>' + resps.map((r) => '<option' + (F.resp === r ? ' selected' : '') + '>' + esc(r) + '</option>').join('') + '</select>' +
-      '<label class="check"><input type="checkbox" id="emc-prob"' + (F.problema ? ' checked' : '') + '> Só com e-mail faltando</label>' +
-      '<span class="sub" id="emc-sel" style="align-self:center"></span>' +
-      '<select class="busca sel" id="emc-lote"><option value="">Perfil aos marcados…</option>' + PERFIS_EMAIL.filter((x) => x[0] !== 'personalizado').map(([v, r]) => '<option value="' + v + '">' + r + '</option>').join('') + '</select></div>' +
-    '<div class="card"><div id="emc-tab"></div></div>';
-  const celula = (t) => {
-    if (!t || !t.recebe) return '<span class="pill neutro" title="O perfil de e-mail do cliente não manda este tipo">não recebe</span>';
-    if (!t.para) return '<span class="pill vencido" title="Cadastre um contato com e-mail na ficha do cliente">sem e-mail</span>';
-    const mails = String(t.para).split(/,\s*/);
-    return '<span class="em-para" title="' + esc(t.para) + '">' + esc(mails[0]) + (mails.length > 1 ? ' <b>+' + (mails.length - 1) + '</b>' : '') + '</span>' +
-      '<div class="sub">' + esc([t.contato, t.origem === 'cadastro' ? 'cadastro' : rotSetor(t.setor)].filter(Boolean).join(' · ')) + '</div>';
+      '<span class="sub">Sem contato nesse setor: vai para o contato Geral e, por último, para o e-mail do cadastro.</span></div></details>';
+  const sinal = (t, r) => {
+    if (!t || !t.recebe) return '<span class="emc-s emc-s-nao" title="' + esc(r) + ': não recebe (perfil do cliente)">–</span>';
+    if (!t.para) return '<span class="emc-s emc-s-falta" title="' + esc(r) + ': recebe, mas não há e-mail — cadastre um contato">!</span>';
+    return '<span class="emc-s emc-s-ok" title="' + esc(r + ': ' + t.para) + '">✓</span>';
   };
+  const principal = (c) => { const n = {}; TIPOS_CONTROLE.forEach(([k]) => { const t = c.tipos[k]; if (t && t.recebe && t.para) String(t.para).split(/,\s*/).forEach((m) => { n[m] = (n[m] || 0) + 1; }); });
+    const L = Object.keys(n).sort((x, y) => n[y] - n[x]); return L; };
   const pintar = () => {
     const b = normalizar(F.busca);
-    const vis = _emCtrl.filter((c) => (!F.perfil || (c.perfil || 'padrao') === F.perfil) && (!F.resp || c.responsavel === F.resp) &&
-      (!b || normalizar(c.nome + ' ' + (c.grupo || '')).includes(b)) && (!F.problema || TIPOS_CONTROLE.some(([k]) => c.tipos[k] && c.tipos[k].recebe && !c.tipos[k].para)));
-    $('emc-tab').innerHTML = vis.length ? '<div class="tabela-wrap"><table class="ordenavel emc-tab"><thead><tr><th class="sem-ordem"><input type="checkbox" id="emc-todos" aria-label="Marcar todos"></th>' +
-      '<th>Cliente</th><th>Quem</th><th>Perfil</th>' + TIPOS_CONTROLE.map(([, r, , d]) => '<th title="' + esc(d) + '">' + r + '</th>').join('') + '<th data-tipo="data">Último envio</th></tr></thead><tbody>' +
-      vis.map((c) => '<tr class="clicavel" data-emc="' + c.id + '"><td><input type="checkbox" data-emc-x="' + c.id + '" aria-label="Marcar ' + esc(c.nome) + '"></td>' +
-        '<td><b>' + esc(c.nome) + '</b>' + (c.grupo && c.grupo !== c.nome ? '<div class="sub">' + esc(c.grupo) + '</div>' : '') + '</td><td>' + pillPessoa(c.responsavel) + '</td>' +
-        '<td><select class="busca sel cem-perfil-sel" data-cem="' + c.id + '" aria-label="Perfil de ' + esc(c.nome) + '">' + PERFIS_EMAIL.map(([v, r]) => '<option value="' + v + '"' + ((c.perfil || 'padrao') === v ? ' selected' : '') + '>' + r + '</option>').join('') + '</select></td>' +
-        TIPOS_CONTROLE.map(([k]) => '<td>' + celula(c.tipos[k]) + '</td>').join('') +
-        '<td data-ord="' + esc(c.ultimo ? c.ultimo.quando : '') + '">' + (c.ultimo ? '<span class="sub">' + dataHoraBR(c.ultimo.quando) + '</span><div class="sub" title="' + esc(c.ultimo.descricao) + '">' + esc(String(c.ultimo.descricao).slice(0, 60)) + '</div>' : '<span class="sub">—</span>') +
-        (c.enviados30 ? '<div class="sub">' + plural(c.enviados30, 'e-mail', 'e-mails') + ' em 30 dias</div>' : '') + '</td></tr>').join('') + '</tbody></table></div>'
-      : vazio('Nenhum cliente neste filtro.');
-    const marcados = () => [...alvo.querySelectorAll('[data-emc-x]:checked')].map((x) => x.dataset.emcX);
-    const conta = () => { const n = marcados().length; $('emc-sel').textContent = n ? n + ' marcado(s)' : ''; };
-    const todos = $('emc-todos'); if (todos) todos.onchange = () => { alvo.querySelectorAll('[data-emc-x]').forEach((x) => { x.checked = todos.checked; }); conta(); };
-    alvo.querySelectorAll('[data-emc-x]').forEach((x) => x.onchange = conta);
+    alvo.querySelectorAll('#emc-perfis button').forEach((x) => x.classList.toggle('ativo', x.dataset.v === F.perfil));
+    const pb = $('emc-prob'); if (pb) { pb.classList.toggle('ativo', F.problema); pb.setAttribute('aria-pressed', F.problema); }
+    const vis = _emCtrl.filter((c) => (!F.perfil || (c.perfil || 'padrao') === F.perfil) && (!b || normalizar(c.nome + ' ' + (c.grupo || '')).includes(b)) && (!F.problema || falta(c)));
+    $('emc-tab').innerHTML = vis.length ? '<div class="tabela-wrap"><table class="ordenavel emc-tab emc-tab2"><thead><tr>' +
+      '<th>Cliente</th><th>Vai para</th>' + TIPOS_CONTROLE.map(([, r, , d]) => '<th class="emc-c-t" title="' + esc(d) + '">' + r + '</th>').join('') + '<th>Perfil</th></tr></thead><tbody>' +
+      vis.map((c) => { const em = principal(c);
+        return '<tr class="clicavel' + (falta(c) ? ' emc-ruim' : '') + '" data-emc="' + c.id + '">' +
+        '<td><b>' + esc(c.nome) + '</b>' + (c.grupo && c.grupo !== c.nome ? '<div class="sub">' + esc(c.grupo) + '</div>' : '') + '</td>' +
+        '<td>' + (em.length ? '<span class="em-para" title="' + esc(em.join(', ')) + '">' + esc(em[0]) + '</span>' + (em.length > 1 ? ' <span class="sub">+' + (em.length - 1) + '</span>' : '') : '<span class="pill vencido">sem e-mail</span>') + '</td>' +
+        TIPOS_CONTROLE.map(([k, r]) => '<td class="emc-c-t">' + sinal(c.tipos[k], r) + '</td>').join('') +
+        '<td><select class="busca sel cem-perfil-sel" data-cem="' + c.id + '" aria-label="Perfil de ' + esc(c.nome) + '">' + PERFIS_EMAIL.map(([v, r]) => '<option value="' + v + '"' + ((c.perfil || 'padrao') === v ? ' selected' : '') + '>' + r + '</option>').join('') + '</select></td></tr>'; }).join('') + '</tbody></table></div>'
+      : vazio(F.problema ? 'Nenhum cliente com e-mail faltando. 👍' : 'Nenhum cliente neste filtro.');
     alvo.querySelectorAll('tr[data-emc]').forEach((tr) => tr.onclick = (ev) => { if (ev.target.closest('input, select, label, button')) return; janelaControleCliente(tr.dataset.emc, () => controleEmails(alvo)); });
     alvo.querySelectorAll('[data-cem]').forEach((sel) => sel.onchange = () => comBotao(sel, async () => {
       if (sel.value === 'personalizado') {
@@ -7469,20 +7515,13 @@ async function controleEmails(alvo) {
       aviso('✓ Perfil de e-mail atualizado.'); await carregarCadastros(true); await controleEmails(alvo);
     }));
   };
-  $('emc-lote').onchange = (ev) => comBotao(ev.target, async () => {
-    const v = ev.target.value, ids = [...alvo.querySelectorAll('[data-emc-x]:checked')].map((x) => x.dataset.emcX); ev.target.value = '';
-    if (!v) return; if (!ids.length) throw new Error('Marque os clientes na primeira coluna.');
-    const n = await q(sb.rpc('salvar_perfil_email', { p_ids: ids, p_perfil: v, p_tipos: null }));
-    aviso('✓ ' + n + ' cliente(s) com o perfil atualizado.'); await carregarCadastros(true); await controleEmails(alvo);
-  });
   alvo.querySelectorAll('[data-emc-dest]').forEach((sel) => sel.onchange = () => comBotao(sel, async () => {
     await q(sb.rpc('salvar_destinos_email', { p: { [sel.dataset.emcDest]: sel.value } }));
-    aviso('✓ Destino padrão salvo.'); await controleEmails(alvo);
+    aviso('✓ Regra geral salva.'); await controleEmails(alvo);
   }));
   let tb; $('emc-busca').oninput = (ev) => { clearTimeout(tb); tb = setTimeout(() => { F.busca = ev.target.value; pintar(); }, 250); };
-  $('emc-perfil').onchange = (ev) => { F.perfil = ev.target.value; pintar(); };
-  $('emc-resp').onchange = (ev) => { F.resp = ev.target.value; pintar(); };
-  $('emc-prob').onchange = (ev) => { F.problema = ev.target.checked; pintar(); };
+  $('emc-perfis').onclick = (ev) => { const x = ev.target.closest('button'); if (x) { F.perfil = x.dataset.v; pintar(); } };
+  $('emc-prob').onclick = () => { F.problema = !F.problema; pintar(); };
   pintar();
 }
 // detalhe de um cliente: tipo a tipo (recebe? para quem? quais contatos?), modelo de cada e-mail e histórico
@@ -7507,7 +7546,7 @@ async function janelaControleCliente(id, depois) {
               esc(ct.nome || ct.email) + ' <span class="sub">' + esc(rotSetor(ct.finalidade)) + '</span></label>').join('') : '<span class="sub">—</span>') + '</td>' +
           '<td>' + (modelos.some((m) => m.chave === mod) ? '<button class="btn btn-o btn-mini" type="button" data-emc-modelo="' + mod + '">Ver modelo</button>' : '') + '</td></tr>'; }).join('') +
       '</tbody></table></div>' +
-      '<p class="sub" style="margin:8px 0 14px">Marcar um contato num tipo faz <b>só ele(s)</b> receber aquele tipo. Sem ninguém marcado, vale o setor padrão (lá em cima, na lista).' +
+      '<p class="sub" style="margin:8px 0 14px">Marcar um contato num tipo faz <b>só ele(s)</b> receber aquele tipo. Sem ninguém marcado, vale a regra geral (embaixo da lista).' +
         (pers ? ' Perfil <b>Personalizado</b>: as caixinhas de "Recebe?" valem para este cliente.' : ' Para escolher tipo a tipo o que ele recebe, mude o perfil para <b>Personalizado</b>.') + '</p>' +
       '<div class="secao">Histórico de e-mails</div><div id="emc-hist"><div class="carregando">Carregando…</div></div>',
     rodape: '<button class="btn btn-o" type="button" id="emc-ficha">Abrir a ficha (Contatos)</button><div class="acoes">' + (pers ? '<button class="btn btn-p" type="button" id="emc-salvar-tipos">Salvar o que recebe</button>' : '') + '</div>' });
@@ -7799,7 +7838,8 @@ function descricaoGuia(tabela, x) {
   const venc = x.vencimento < hojeISO() ? '⚠ VENCIDA — ' : '';
   if (tabela === 'parcelas') { const p = x.parcelamentos || {};
     return venc + 'Parcelamento ' + [p.local, p.natureza].filter(Boolean).join(' — ') + (p.numero ? ' · nº ' + p.numero : '') + ' · Parcela ' + parcDe(x); }
-  return venc + 'Acordo' + (x.processo ? ' — processo ' + x.processo : '') + ' · Parcela ' + parcDe(x) + ' · ' + (x.devedor || '') + ' × ' + (x.credor || '');
+  return venc + 'Acordo' + (x.processo ? ' — processo ' + x.processo : '') + ' · Parcela ' + parcDe(x) + ' · ' + (x.devedor || '') + ' × ' + (x.credor || '') +
+    (x.pix ? ' · PIX: ' + x.pix : '') + (x.banco ? ' · ' + x.banco : '');
 }
 // o texto (e-mail e WhatsApp) no modelo das antigas Notificações do ERP, um pouco melhorado
 function textoGuias(tabela, empresa, itens) {
@@ -7813,7 +7853,7 @@ function textoGuias(tabela, empresa, itens) {
       return (x.vencimento < hojeISO() ? '⚠ GUIA VENCIDA\n' : '') + '*Parcelamento ' + [p.local, p.natureza].filter(Boolean).join(' — ') + '*' + (p.numero ? '\nNº do parcelamento: ' + p.numero : '') +
         '\nParcela: ' + parcDe(x) + ' | Vencimento: ' + dataBR(x.vencimento) + '\nValor: ' + (v ? brl(v) : '[preencher]'); }
     return (x.vencimento < hojeISO() ? '⚠ PARCELA VENCIDA\n' : '') + '*Acordo' + (x.processo ? ' — processo ' + x.processo : '') + '*\nPartes: ' + (x.devedor || '—') + ' × ' + (x.credor || '—') +
-      '\nParcela: ' + parcDe(x) + ' | Vencimento: ' + dataBR(x.vencimento) + '\nValor: ' + (v ? brl(v) : '[preencher]') + (x.pix ? '\nPIX do credor: ' + x.pix : '');
+      '\nParcela: ' + parcDe(x) + ' | Vencimento: ' + dataBR(x.vencimento) + '\nValor: ' + (v ? brl(v) : '[preencher]') + (x.pix ? '\nPIX: ' + x.pix : '') + (x.banco ? '\nBanco: ' + x.banco : '');
   });
   const tot = itens.reduce((s2, x) => s2 + (Number(x._valor != null ? x._valor : x.valor) || 0), 0);
   return { intro, email: intro + '\n\nOs arquivos seguem anexos.',
@@ -7833,6 +7873,7 @@ async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
   const j = abrirJanela({ titulo: '✉ Enviar ' + nome + ' por empresa', larga: true,
     corpo: '<div class="ge"><aside class="ge-emps" id="ge-emps"></aside><section class="ge-msg" id="ge-msg"></section></div>',
     rodape: '<span class="ge-tot" id="ge-tot"></span><div class="acoes ge-acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button>' +
+      '<button type="button" class="btn btn-o" id="ge-previa" title="Ver o e-mail exatamente como o cliente vai receber">👁 Prévia do e-mail</button>' +
       '<button type="button" class="btn btn-v" id="ge-zap">💬 WhatsApp</button><button class="btn btn-p" type="button" id="ge-enviar">✉ Enviar e-mail</button></div>' });
   j.querySelector('.janela').classList.add('ge-janela');
   const $j = (sel) => j.querySelector(sel);
@@ -7863,7 +7904,7 @@ async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
             (x.vencimento < hojeISO() ? '<span class="ge-it-v ge-it-d"><small>Novo vencimento</small><input type="date" class="ge-novo-venc" value="' + fimDoMesGuia(hojeISO()) + '" aria-label="Novo vencimento da guia atualizada"></span>' : '') +
             '<span class="ge-it-v"><small>' + (x.vencimento < hojeISO() ? 'Valor atualizado' : 'Valor da guia') + '</small><span class="ge-vbox"><span class="ge-rs">R$</span><input class="ge-valor" data-mascara="nenhuma" inputmode="decimal" value="' + (x.valor ? valorParaCampo(x.valor) : '') + '" placeholder="0,00" aria-label="Valor"></span></span></label>'; }).join('') + '</div>' +
         '<div class="ge-fecho">Os arquivos seguem anexos. Depois de pagar, por favor nos envie o comprovante.</div></div>' +
-      '<div class="ge-anexos"><label class="ge-drop"><input type="file" id="ge-arqs" accept=".pdf,image/*" multiple hidden><span>📎 <b>Anexar os PDFs</b> das ' + nome + '</span><small>vão só no e-mail — não ficam guardados no sistema</small></label><div class="ge-chips" id="ge-chips"></div></div>';
+      '<div class="ge-anexos"><label class="ge-drop"><input type="file" id="ge-arqs" accept=".pdf,image/*" multiple hidden><span>📎 <b>Anexar os PDFs</b> ' + (tabela === 'acordos' ? 'dos boletos' : 'das guias') + '</span><small>vão só no e-mail — não ficam guardados no sistema</small></label><div class="ge-chips" id="ge-chips"></div></div>';
     $j('#ge-arqs').onchange = () => { arquivos = arquivos.concat([...$j('#ge-arqs').files]); $j('#ge-arqs').value = ''; pintarChips(); };
     j.querySelectorAll('.ge-it input').forEach((i) => i.addEventListener('input', total));
     j.querySelectorAll('.ge-it input[type=checkbox]').forEach((i) => i.addEventListener('change', total));
@@ -7889,6 +7930,14 @@ async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
     const tel = soDigitos($j('#ge-tel').value);
     window.open('https://wa.me/' + (tel ? (tel.length <= 11 ? '55' : '') + tel : '') + '?text=' + encodeURIComponent(txt), '_blank', 'noopener');
     if (arquivos.length) aviso('No computador o WhatsApp não recebe anexo por link: arraste os PDFs para a conversa que abriu.');
+  });
+  $j('#ge-previa').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    const its = marcados(), e = atual(); if (!its.length) throw new Error('Marque ao menos uma parcela.');
+    const html = await q(sb.rpc('previa_guias_email', { p_cliente: e.cli || null,
+      p_itens: its.map((i) => ({ tabela, id: i.id, descricao: descricaoGuia(tabela, i), vencimento: i._venc || i.vencimento, valor: i._valor })),
+      p_assunto: $j('#ge-assunto').value.trim(), p_texto: $j('#ge-texto').value.trim() + '\n\nOs arquivos seguem anexos.' }));
+    const pj = abrirJanela({ titulo: '👁 ' + ($j('#ge-assunto').value.trim() || 'Prévia do e-mail'), larga: true, corpo: '<iframe class="ge-previa" title="Prévia do e-mail" sandbox></iframe>' });
+    pj.querySelector('.ge-previa').srcdoc = html;
   });
   $j('#ge-enviar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
     const its = marcados(), e = atual(); if (!its.length) throw new Error('Marque ao menos uma parcela.');
@@ -8221,37 +8270,55 @@ async function rotinaControle(el, tipo) {
     const m = String(x.vencimento || '').slice(0, 7); if (MS.includes(m)) (cel[x.item + '|' + m] = cel[x.item + '|' + m] || []).push(x); });
   [...SEL].forEach((id) => { if (!porId[id] || porId[id].pago) SEL.delete(id); });
   const gnome = (id) => nomeGrupo(id) || 'Sem grupo';
-  const nomeItem = parc ? 'parcelamento' : 'acordo', ncol = MS.length + (parc ? 3 : 1), doc = parc ? 'guia' : 'boleto';
+  const nomeItem = parc ? 'parcelamento' : 'acordo', ncol = MS.length + (parc ? 3 : 1);
   const rotMes = (m) => MESES_CURTOS[+m.slice(5) - 1] + '/' + m.slice(2, 4);
+  const fimMes = fimDoMesISO(h);
   el.innerHTML = '<div class="card rt-ctl-card"><div class="card-hd">📋 Controle ' + (parc ? 'dos parcelamentos' : 'dos acordos') +
-      '<span class="sub">marque as parcelas que vai emitir e clique em ✉ Enviar por empresa · ✓ no Pagamento dá baixa</span></div>' +
+      '<span class="sub">um quadrinho por parcela em cada mês · clique no quadrinho para agir</span></div>' +
     '<div class="card-bd">' + filtroRotina('<select class="busca" id="rt-filtro" autocomplete="off">' + (parc ? [['', 'Todos os parcelamentos'], ['nos', 'Só os que nós emitimos'], ['cli', 'Só os que o cliente emite'], ['atr', 'Com parcela em atraso']] : [['', 'Todos os acordos'], ['atr', 'Com parcela em atraso']])
         .map(([v, r]) => '<option value="' + v + '"' + (v === E.rt.filtro ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>' +
         '<span class="rt-meses"><button type="button" class="btn btn-o btn-mini" data-mes="-1" aria-label="Meses anteriores">‹</button><b>' + rotMes(MS[0]) + ' – ' + rotMes(MS[7]) + '</b><button type="button" class="btn btn-o btn-mini" data-mes="1" aria-label="Próximos meses">›</button>' +
           (E.rt[chaveMes] !== -5 ? '<button type="button" class="btn btn-o btn-mini" data-mes="0">hoje</button>' : '') + '</span>') +
-      '<ol class="rt-passos"><li>Em cada mês há 2 quadradinhos: <b>Emitiu</b> (esquerda) e <b>Pagou</b> (direita).</li><li>Clique no <b>○ laranja</b> de "Emitiu" das parcelas que vai emitir — ficam <b>azuis</b>.</li>' +
-        '<li>Clique em <b>✉ Enviar por empresa</b> (barra que aparece embaixo): confira o valor, anexe as guias e envie. A parcela fica <b>✓ emitida</b> sozinha.</li></ol>' +
-      '<div class="rt-leg"><b>Emissão:</b> <span class="rt-e rt-e-nao">○</span> a emitir <span class="rt-e rt-e-ok">✓</span> emitida <span class="rt-e rt-e-sel">✓</span> marcada para enviar' + (parc ? ' <span class="rt-e rt-e-cli">–</span> o cliente emite' : '') +
-        ' &nbsp; <b>Pagamento:</b> <span class="rt-p rt-p-ok">✓</span> paga <span class="rt-p rt-p-atr">!</span> vencida <span class="rt-p rt-p-ab">○</span> a vencer</div>' +
-      '<div class="rt-ctl-wrap" data-sem-pagina><table class="rt-ctl"><thead><tr>' + (parc ? '<th class="rt-c-emit" title="O escritório emite a guia deste parcelamento?">Emit.?</th>' : '') + '<th class="rt-c-item">' + (parc ? 'Parcelamento' : 'Acordo') + '</th>' +
-        MS.map((m) => '<th class="rt-c-mes' + (m === h.slice(0, 7) ? ' rt-mes-atual' : '') + '"><div>' + rotMes(m) + '</div><div class="rt-ep-hd"><span>Emitiu</span><span>Pagou</span></div></th>').join('') + (parc ? '<th class="rt-c-conf">Conferência</th>' : '') + '</tr></thead><tbody id="rt-parc-corpo"></tbody></table></div>' +
+      '<div class="rt-leg2"><span class="rt-leg2-txt"><span class="rt-leg2-t">Como usar:</span> clique no quadrinho → <b>Marcar para enviar</b> → <b>✉ Enviar por empresa</b> (barra de baixo). A parcela fica <b>Emitida</b> sozinha.</span>' +
+        '<span class="rt-leg2-cores"><span class="rt-ch rt-ch-emitir">Emitir</span><span class="rt-ch rt-ch-sel">✉ Marcada</span><span class="rt-ch rt-ch-emit">Emitida</span><span class="rt-ch rt-ch-atr">Vencida</span><span class="rt-ch rt-ch-ok">✓ Paga</span><span class="rt-ch">A vencer</span>' + (parc ? '<span class="rt-ch rt-ch-cli">Cliente emite</span>' : '') + '</span></div>' +
+      '<div class="rt-ctl-wrap" data-sem-pagina><table class="rt-ctl rt-ctl2"><thead><tr>' + (parc ? '<th class="rt-c-emit" title="O escritório emite a guia deste parcelamento?">Nós<br>emitimos</th>' : '') + '<th class="rt-c-item">' + (parc ? 'Parcelamento' : 'Acordo') + '</th>' +
+        MS.map((m) => '<th class="rt-c-mes' + (m === h.slice(0, 7) ? ' rt-mes-atual' : '') + '">' + rotMes(m) + (m === h.slice(0, 7) ? '<small>este mês</small>' : '') + '</th>').join('') + (parc ? '<th class="rt-c-conf">Conferência</th>' : '') + '</tr></thead><tbody id="rt-parc-corpo"></tbody></table></div>' +
+      '<div class="rt-pop" id="rt-pop" hidden></div>' +
       '<div class="rt-selbar" id="rt-selbar" hidden></div></div></div>';
-  const corpo = $('rt-parc-corpo');
-  const tip = (x) => 'Parcela ' + (x.rot || '') + ' · vence ' + dataBR(x.vencimento) + ' · ' + brl(x.valorEf) + (x.lancado ? '' : ' (último valor lançado)') + (emitidaRt(x) ? ' · emitida' + (x.emitida_em ? ' em ' + dataBR(x.emitida_em) : '') : '') + (x.reenvio_em ? ' · reenviada em ' + dataLocal(x.reenvio_em) : '');
-  const btEmis = (x, it) => {
-    if (!it.nos) return '<span class="rt-e rt-e-cli" title="O cliente emite esta guia">–</span>';
-    const em = emitidaRt(x), sel = SEL.has(x.id);
-    if (x.pago) return '<span class="rt-e ' + (em ? 'rt-e-ok' : 'rt-e-vazio') + '" title="' + esc(tip(x)) + '">' + (em ? '✓' : '·') + '</span>';
-    return '<button type="button" class="rt-e ' + (sel ? 'rt-e-sel' : em ? 'rt-e-ok' : 'rt-e-nao') + (x.vencimento < h && em ? ' rt-e-reemit' : '') + '" data-sel="' + x.id + '" aria-pressed="' + sel + '" title="' + esc(tip(x)) + (sel ? ' · marcada para enviar' : ' · clique para marcar e enviar') + '">' + (sel || em ? '✓' : '○') + '</button>';
+  const corpo = $('rt-parc-corpo'), pop = $('rt-pop');
+  // estado de cada parcela → [classe, rótulo, linha de baixo]
+  const estado = (x, it) => {
+    const em = emitidaRt(x), venc = x.vencimento < h, dEm = x.emitida_em ? dataBR(x.emitida_em).slice(0, 5) : '';
+    if (x.pago) return ['rt-ch-ok', '✓ Paga', em ? 'emitida' + (dEm ? ' ' + dEm : '') : ''];
+    if (!it.nos) return [venc ? 'rt-ch-atr rt-ch-cli' : 'rt-ch-cli', venc ? 'Vencida' : 'A vencer', 'cliente emite'];
+    if (SEL.has(x.id)) return ['rt-ch-sel', '✉ Marcada', 'para enviar'];
+    if (venc) return ['rt-ch-atr', 'Vencida', em ? 'reemitir' : 'não emitida'];
+    if (em) return ['rt-ch-emit', 'Emitida', dEm];
+    if (x.vencimento <= fimMes) return ['rt-ch-emitir', 'Emitir', 'vence ' + dataBR(x.vencimento).slice(0, 5)];
+    return ['', 'A vencer', 'vence ' + dataBR(x.vencimento).slice(0, 5)];
   };
-  const btPag = (x) => x.pago ? '<span class="rt-p rt-p-ok" title="Paga">✓</span>'
-    : '<button type="button" class="rt-p ' + (x.vencimento < h ? 'rt-p-atr' : 'rt-p-ab') + '" data-pag="' + x.id + '" title="' + (x.vencimento < h ? 'Vencida sem pagamento' : 'A vencer') + ' · clique para lançar o pagamento">' + (x.vencimento < h ? '!' : '○') + '</button>';
-  const detalhe = (it) => '<tr class="rt-det"><td colspan="' + ncol + '"><table class="rt-det-tab"><thead><tr><th>Parcela</th><th>Vencimento</th><th>Valor</th><th>Emissão</th><th>Pagamento</th><th>Reenviada</th></tr></thead><tbody>' +
+  const chip = (x, it) => { const [c, r, s] = estado(x, it);
+    return '<button type="button" class="rt-ch ' + c + '" data-cel="' + x.id + '" title="Parcela ' + esc(x.rot) + ' · ' + brl(x.valorEf) + ' · clique para agir"><span>' + r + '</span>' + (s ? '<small>' + esc(s) + '</small>' : '') + '</button>'; };
+  const fecharPop = () => { pop.hidden = true; pop.innerHTML = ''; };
+  const abrirPop = (b) => {
+    const x = porId[b.dataset.cel], it = IT.find((p) => p.id === x.item) || {}, [c, r] = estado(x, it), sel = SEL.has(x.id);
+    pop.innerHTML = '<div class="rt-pop-hd"><b>' + esc(it.titulo || x.quem || '') + '</b><button type="button" class="rt-pop-x" data-pop-fechar aria-label="Fechar">✕</button></div>' +
+      '<div class="rt-pop-info">Parcela <b>' + esc(x.rot) + '</b> · vence <b>' + dataBR(x.vencimento) + '</b><br>Valor <b>' + brl(x.valorEf) + '</b>' + (x.lancado ? '' : ' <span class="sub">(último lançado)</span>') +
+        '<br><span class="rt-ch ' + c + '">' + r + '</span>' + (emitidaRt(x) ? ' <span class="sub">emitida' + (x.emitida_em ? ' em ' + dataBR(x.emitida_em) : '') + '</span>' : '') + (x.reenvio_em ? ' <span class="sub">· reenviada ' + dataLocal(x.reenvio_em) + '</span>' : '') + '</div>' +
+      '<div class="rt-pop-acoes">' +
+        (!x.pago && it.nos ? '<button type="button" class="btn ' + (sel ? 'btn-o' : 'btn-p') + '" data-sel="' + x.id + '">' + (sel ? '✕ Desmarcar' : '✉ Marcar para enviar') + '</button>' : '') +
+        (!x.pago ? '<button type="button" class="btn btn-o" data-pag="' + x.id + '">💲 Lançar pagamento</button>' : '') +
+        '<button type="button" class="btn btn-o" data-abre="' + esc(x.item) + '">' + (parc ? '✎ Ver parcelas e editar valor' : '☰ Ver todas as parcelas') + '</button></div>';
+    pop.hidden = false;
+    const wr = el.querySelector('.rt-ctl-card').getBoundingClientRect(), rb = b.getBoundingClientRect();
+    pop.style.top = (rb.bottom - wr.top + 6) + 'px';
+    pop.style.left = Math.max(8, Math.min(rb.left - wr.left - 120, wr.width - 300)) + 'px';
+  };
+  const detalhe = (it) => '<tr class="rt-det"><td colspan="' + ncol + '"><table class="rt-det-tab"><thead><tr><th>Parcela</th><th>Vencimento</th><th>Valor</th><th>Situação</th><th>Reenviada</th></tr></thead><tbody>' +
     (porItem[it.id] || []).slice().sort((a, b) => String(a.vencimento).localeCompare(String(b.vencimento))).map((x) =>
       '<tr><td>' + esc(x.rot || '—') + '</td><td>' + dataBR(x.vencimento) + '</td>' +
       '<td>' + (parc ? '<span class="rt-vbox"><span>R$</span><input class="rt-valor-p" data-valor="' + x.id + '" data-mascara="nenhuma" inputmode="decimal" value="' + (x.lancado ? valorParaCampo(x.valor) : '') + '" placeholder="' + valorParaCampo(x.valorEf) + '" aria-label="Valor da parcela ' + esc(x.rot) + '" title="Valor lançado nesta parcela (vazio = vale o último lançado)"></span>' : brl(x.valorEf)) + '</td>' +
-      '<td>' + btEmis(x, it) + ' <small>' + (emitidaRt(x) ? (x.emitida_em ? dataBR(x.emitida_em) : 'emitida') : it.nos ? '' : 'cliente') + '</small></td>' +
-      '<td>' + btPag(x) + '</td><td>' + (x.reenvio_em ? dataLocal(x.reenvio_em) + (x.reenvio_valor ? ' · ' + brl(x.reenvio_valor) : '') : '—') + '</td></tr>').join('') + '</tbody></table></td></tr>';
+      '<td>' + chip(x, it) + '</td><td>' + (x.reenvio_em ? dataLocal(x.reenvio_em) + (x.reenvio_valor ? ' · ' + brl(x.reenvio_valor) : '') : '—') + '</td></tr>').join('') + '</tbody></table></td></tr>';
   const pintarSel = () => {
     const bar = $('rt-selbar'); if (!bar) return;
     const L = [...SEL].map((id) => porId[id]).filter(Boolean);
@@ -8261,6 +8328,7 @@ async function rotinaControle(el, tipo) {
       '<span class="acoes"><button type="button" class="btn btn-o btn-mini" data-sel-limpar>Desmarcar</button><button type="button" class="btn btn-p" data-sel-enviar>✉ Enviar por empresa</button></span>';
   };
   const pintar = () => {
+    fecharPop();
     const b = normalizar(E.rt.busca), dig = soDigitos(E.rt.busca);
     const L = IT.filter((p) => (!E.rt.grupo || p.grupo_id === E.rt.grupo) && (!b || normalizar(p.busca + ' ' + gnome(p.grupo_id)).includes(b) || (dig.length >= 3 && soDigitos(p.busca).includes(dig))) &&
         (E.rt.filtro !== 'nos' || p.nos) && (E.rt.filtro !== 'cli' || !p.nos) && (E.rt.filtro !== 'atr' || atrasos[p.id]))
@@ -8268,13 +8336,13 @@ async function rotinaControle(el, tipo) {
     let grp = null;
     corpo.innerHTML = L.length ? L.map((p) => {
       const g = gnome(p.grupo_id), doG = L.filter((z) => gnome(z.grupo_id) === g), atr = atrasos[p.id] || 0, ab = !!_rtAberto[tipo + p.id];
-      const cab = g !== grp ? (grp = g, '<tr class="gx-grp"><td colspan="' + ncol + '"><span class="rt-g-nome">' + esc(g) + '</span> <span class="sub">' + plural(doG.length, nomeItem, nomeItem + 's') + '</span></td></tr>') : '';
+      const cab = g !== grp ? (grp = g, '<tr class="gx-grp rt-grp"><td colspan="' + ncol + '"><span class="rt-g-nome">' + esc(g) + '</span> <span class="sub">' + plural(doG.length, nomeItem, nomeItem + 's') + '</span></td></tr>') : '';
       return cab + '<tr data-pc="' + esc(p.id) + '"' + (ab ? ' class="rt-aberto"' : '') + '>' +
         (parc ? '<td class="rt-c-emit"><label class="rt-chave rt-chave-mini" title="' + (p.nos ? 'O escritório emite a guia (desligue se o cliente emite)' : 'O cliente emite a guia (ligue se o escritório emite)') + '"><input type="checkbox" data-emit="' + p.id + '"' + (p.nos ? ' checked' : '') + ' aria-label="Nós emitimos a guia"><span></span></label></td>' : '') +
-        '<td class="rt-emp rt-abre" data-abre="' + esc(p.id) + '" role="button" tabindex="0" title="Ver todas as parcelas (e editar o valor)"><b><span class="rt-seta">' + (ab ? '▾' : '▸') + '</span> ' + esc(p.titulo) + '</b><div class="sub">' + esc(p.sub) +
-          (atr ? ' <span class="pill ' + (atr >= 2 ? 'vencido' : 'atr-leve') + '">' + atr + ' em atraso</span>' : '') + '</div>' +
-          (p.resid ? '<div class="rt-resid" title="Valor da última parcela × ' + p.resid.falta + ' parcelas que faltam">Residual <b>' + brl(p.resid.v) + '</b> <span class="sub">(' + p.resid.falta + ' faltam)</span></div>' : '') + '</td>' +
-        MS.map((m) => '<td class="rt-c-mes' + (m === h.slice(0, 7) ? ' rt-mes-atual' : '') + '">' + (cel[p.id + '|' + m] || []).map((x) => '<div class="rt-ep">' + btEmis(x, p) + btPag(x) + '</div>').join('') + '</td>').join('') +
+        '<td class="rt-emp rt-abre" data-abre="' + esc(p.id) + '" role="button" tabindex="0" title="Ver todas as parcelas (e editar o valor)"><div class="rt-emp-l1"><span class="rt-seta">' + (ab ? '▾' : '▸') + '</span><b>' + esc(p.titulo) + '</b></div>' +
+          (atr ? '<div class="rt-emp-pill"><span class="pill ' + (atr >= 2 ? 'vencido' : 'atr-leve') + '">' + atr + ' em atraso</span></div>' : '') + '<div class="sub">' + esc(p.sub) + '</div>' +
+          (p.resid ? '<div class="rt-resid" title="Valor da última parcela × ' + p.resid.falta + ' parcelas que faltam">Residual <b>' + brl(p.resid.v) + '</b> · ' + plural(p.resid.falta, 'falta 1', 'faltam ' + p.resid.falta).replace(/^\d+ /, '') + '</div>' : '') + '</td>' +
+        MS.map((m) => '<td class="rt-c-mes' + (m === h.slice(0, 7) ? ' rt-mes-atual' : '') + '">' + ((cel[p.id + '|' + m] || []).map((x) => chip(x, p)).join('') || '<span class="rt-ch-vazio">—</span>') + '</td>').join('') +
         (parc ? '<td class="rt-c-conf">' + celulaConferencia(SIT[p.id], p.id) + '</td>' : '') + '</tr>' + (ab ? detalhe(p) : '');
     }).join('') : '<tr><td colspan="' + ncol + '">' + vazio('Nenhum ' + nomeItem + ' com esses filtros.') + '</td></tr>';
     pintarSel();
@@ -8293,15 +8361,26 @@ async function rotinaControle(el, tipo) {
     if (v != null && isNaN(v)) { aviso('Valor inválido.', true); return; }
     if ((v || null) === (x.lancado ? Number(x.valor) : null)) return;
     q(sb.rpc('lancar_valor_parcela', { p_id: x.id, p_valor: v })).then(() => { aviso('✓ Valor da parcela ' + x.rot + ' gravado.'); if (window.ERP_RECARREGAR) window.ERP_RECARREGAR(); rotinaControle(el, tipo); }, (e) => aviso(erroAmigavel(e), true)); });
+  const acao = (ev) => {
+    if (ev.target.closest('[data-pop-fechar]')) { fecharPop(); return true; }
+    const sl = ev.target.closest('[data-sel]');
+    if (sl) { const id = sl.dataset.sel; if (SEL.has(id)) SEL.delete(id); else SEL.add(id); pintar(); return true; }
+    const pg = ev.target.closest('[data-pag]');
+    if (pg) { const x = porId[pg.dataset.pag]; fecharPop();
+      if (!confirm('Lançar o pagamento da parcela ' + (x ? x.rot + ' (' + brl(x.valorEf) + ', vence ' + dataBR(x.vencimento) + ')' : '') + '?')) return true;
+      if (window.ERP_EDITOR && window.ERP_EDITOR.baixaRapida) Promise.resolve(window.ERP_EDITOR.baixaRapida(tipo, pg.dataset.pag)).then(() => setTimeout(() => rotinaControle(el, tipo), 1500)); return true; }
+    return false;
+  };
+  pop.onclick = (ev) => { if (acao(ev)) return; const ab = ev.target.closest('[data-abre]'); if (ab) { _rtAberto[tipo + ab.dataset.abre] = true; pintar(); } };
+  if (!el._rtFora) { el._rtFora = true; document.addEventListener('mousedown', (ev) => { const p2 = document.getElementById('rt-pop'); if (p2 && !p2.hidden && !ev.target.closest('#rt-pop, [data-cel]')) { p2.hidden = true; } });
+    document.addEventListener('keydown', (ev) => { const p2 = document.getElementById('rt-pop'); if (ev.key === 'Escape' && p2 && !p2.hidden) p2.hidden = true; }); }
   corpo.onclick = (ev) => {
+    const ch = ev.target.closest('[data-cel]');
+    if (ch) { if (!pop.hidden && pop.dataset.de === ch.dataset.cel) { fecharPop(); return; } pop.dataset.de = ch.dataset.cel; abrirPop(ch); return; }
     const cf = ev.target.closest('[data-conferir]');
     if (cf) return comBotao(cf, async () => { await q(sb.rpc('conferir_rotina', { p_area: 'parcelamentos', p_ids: [cf.dataset.conferir], p_alterou: false }));
       SIT[cf.dataset.conferir] = Object.assign({}, SIT[cf.dataset.conferir], { conferido_em: new Date().toISOString(), conferido_por: E.perfil ? E.perfil.nome : '', conferido_alterou: false });
       cf.closest('td').innerHTML = celulaConferencia(SIT[cf.dataset.conferir], cf.dataset.conferir); });
-    const sl = ev.target.closest('[data-sel]');
-    if (sl) { const id = sl.dataset.sel; if (SEL.has(id)) SEL.delete(id); else SEL.add(id); pintar(); return; }
-    const pg = ev.target.closest('[data-pag]');
-    if (pg) { if (window.ERP_EDITOR && window.ERP_EDITOR.baixaRapida) Promise.resolve(window.ERP_EDITOR.baixaRapida(tipo, pg.dataset.pag)).then(() => setTimeout(() => rotinaControle(el, tipo), 1500)); return; }
     const ab = ev.target.closest('[data-abre]'); if (ab && !ev.target.closest('input')) { _rtAberto[tipo + ab.dataset.abre] = !_rtAberto[tipo + ab.dataset.abre]; pintar(); }
   };
   corpo.onkeydown = (ev) => { if (ev.key === 'Enter' && ev.target.matches('[data-abre]')) ev.target.click(); if (ev.key === 'Enter' && ev.target.matches('[data-valor]')) ev.target.blur(); };
@@ -8333,33 +8412,40 @@ async function rotinaPlanilha(el) {
   const emit = (x) => !!x.emitida_em || /sim|emitid/i.test(x.emissao || '');
   // "a emitir agora" = não paga, nós emitimos, sem emissão e vencendo até o fim do mês (vencidas entram de novo: reemissão)
   const aEmitir = (p) => p.emitimos_guia === false ? [] : (porPa[p.id] || []).filter((x) => !x.pago && x.vencimento && x.vencimento <= fimMes && (!emit(x) || x.vencimento < h));
+  // parcelas que ainda não foram lançadas: completa a lista até a última (mês a mês, a partir da última lançada)
+  const prevista = (ps, tot) => { const u = ps[ps.length - 1], n0 = u ? Number(u.numero) : 0; if (!u || !n0 || !u.vencimento || !(tot > n0)) return [];
+    const out = []; for (let n = n0 + 1; n <= Math.min(tot, n0 + 240); n++) { const d = new Date(u.vencimento + 'T12:00:00'), dia = d.getDate(); d.setDate(1); d.setMonth(d.getMonth() + (n - n0));
+      d.setDate(Math.min(dia, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate())); out.push({ n, v: d.toISOString().slice(0, 10) }); } return out; };
   const nGrupo = (g) => PA.filter((p) => gnome(p.grupo_id) === g).reduce((s2, p) => s2 + aEmitir(p).length, 0);
   const pintar = () => {
     const L = PA.filter((p) => gnome(p.grupo_id) === E.rt.plGrupo).sort((a, b) => String(a.empresa).localeCompare(String(b.empresa), 'pt-BR') || String(a.natureza).localeCompare(String(b.natureza), 'pt-BR'));
     const nE = L.reduce((s2, p) => s2 + aEmitir(p).length, 0);
-    el.innerHTML = '<div class="card pl-card"><div class="card-hd">🧪 Planilha de parcelamentos <span class="pill hoje">teste</span><span class="sub">igual à planilha: uma aba por grupo, um bloco por parcelamento · clique em EMISSÃO ou PAGAMENTO para marcar</span></div>' +
+    el.innerHTML = '<div class="card pl-card"><div class="card-hd">🧪 Planilha de parcelamentos <span class="pill hoje">teste</span><span class="sub">uma aba por grupo, um bloco por parcelamento · clique em EMISSÃO ou PAGAMENTO para marcar</span></div>' +
       '<div class="card-bd"><div class="pl-abas" role="tablist">' + grupos.map((g) => { const n = nGrupo(g);
-        return '<button type="button" role="tab" class="pl-aba' + (g === E.rt.plGrupo ? ' ativo' : '') + '" data-pl-g="' + esc(g) + '">' + esc(g) + (n ? ' <span class="pl-n">' + n + '</span>' : '') + '</button>'; }).join('') + '</div>' +
-      '<div class="pl-barra"><span class="sub">' + plural(L.length, 'parcelamento', 'parcelamentos') + ' em ' + esc(E.rt.plGrupo || '—') + '</span>' +
-        '<button type="button" class="btn btn-p" id="pl-emitir"' + (nE ? '' : ' disabled') + '>🧾 Emitir guias — em atraso + vencem neste mês' + (nE ? ' (' + nE + ')' : '') + '</button></div>' +
+        return '<button type="button" role="tab" class="pl-aba' + (g === E.rt.plGrupo ? ' ativo' : '') + '" data-pl-g="' + esc(g) + '">' + esc(g) + (n ? ' <span class="pl-n" title="Guias a emitir">' + n + '</span>' : '') + '</button>'; }).join('') + '</div>' +
+      '<div class="pl-barra"><span class="sub">' + plural(L.length, 'parcelamento', 'parcelamentos') + ' em <b>' + esc(E.rt.plGrupo || '—') + '</b> · ' + (nE ? plural(nE, 'guia a emitir', 'guias a emitir') + ' (em atraso + vencem neste mês)' : 'nenhuma guia a emitir agora') + '</span>' +
+        '<button type="button" class="btn btn-p" id="pl-emitir">🧾 Emitir guias — em atraso + vencem neste mês' + (nE ? ' (' + nE + ')' : '') + '</button></div>' +
       '<div class="pl-blocos">' + L.map((p) => {
-        const ps = porPa[p.id] || [], pagas = ps.filter((x) => x.pago).length, tot = Number(p.total_parcelas) || ps.length, v = Number(p.valor_ultima_parcela) || 0;
-        const resid = v * Math.max(0, tot - pagas), cli = p.emitimos_guia === false;
-        return '<section class="pl-bloco" data-pl-pa="' + p.id + '"><table class="pl-hd"><tbody>' +
-          [['Nome', esc(p.empresa || '—')], ['CPF/CNPJ', esc(mascaraDoc(p.cnpj) || '—')], ['Local', esc(p.local || '—')], ['Natureza', esc(p.natureza || '—')], ['Nº', esc(p.numero || '—')],
-           ['Total de parcelas', tot || '—'], ['Parcelas pagas', pagas],
-           ['Valor última parcela', '<span class="rt-vbox"><span>R$</span><input data-pl-v="' + p.id + '" data-mascara="nenhuma" inputmode="decimal" value="' + (v ? valorParaCampo(v) : '') + '" aria-label="Valor da última parcela"></span>'],
-           ['Valor residual', '<b>' + brl(resid) + '</b>']].map(([k, val]) => '<tr><th>' + k + '</th><td>' + val + '</td></tr>').join('') +
-          '<tr><th>Guias</th><td><label class="rt-chave rt-chave-mini"><input type="checkbox" data-pl-emit="' + p.id + '"' + (cli ? '' : ' checked') + '><span></span><small>' + (cli ? 'Não emitimos' : 'Emitimos') + '</small></label></td></tr>' +
-          '<tr><th>Obs.</th><td><input class="pl-obs" data-pl-obs="' + p.id + '" value="' + esc(p.obs || '') + '" placeholder="ex.: emitimos 3 de uma vez; enviar por WhatsApp"></td></tr></tbody></table>' +
-          '<div class="pl-lista"><table class="pl-tab"><thead><tr><th>Parcela</th><th>Vencimento</th><th>Emissão</th><th>Pagamento</th></tr></thead><tbody>' +
+        const ps = (porPa[p.id] || []).slice().sort((x, y) => String(x.vencimento).localeCompare(String(y.vencimento))), pagas = ps.filter((x) => x.pago).length, tot = Number(p.total_parcelas) || ps.length, v = Number(p.valor_ultima_parcela) || 0;
+        const resid = v * Math.max(0, tot - pagas), cli = p.emitimos_guia === false, atr = ps.filter((x) => !x.pago && x.vencimento < h).length, nAe = aEmitir(p).length;
+        const pct = tot ? Math.round(100 * pagas / tot) : 0;
+        return '<section class="pl-bloco" data-pl-pa="' + p.id + '">' +
+          '<div class="pl-cab"><div class="pl-cab-nome">' + esc(p.empresa || '—') + '</div>' +
+            '<div class="pl-cab-doc">' + esc(mascaraDoc(p.cnpj) || 'sem CPF/CNPJ') + '</div>' +
+            '<div class="pl-cab-tags">' + [p.local, p.natureza].filter(Boolean).map((z) => '<span class="pl-tag">' + esc(z) + '</span>').join('') + (p.numero ? '<span class="pl-tag pl-tag-n">nº ' + esc(p.numero) + '</span>' : '') + '</div>' +
+            '<div class="pl-prog"><div class="pl-prog-bar"><span style="width:' + pct + '%"></span></div><span><b>' + pagas + '</b> de ' + (tot || '—') + ' pagas' + (atr ? ' · <b class="pl-atr-t">' + atr + ' em atraso</b>' : '') + '</span></div>' +
+            '<div class="pl-kpis"><div><small>Última parcela</small><span class="rt-vbox"><span>R$</span><input data-pl-v="' + p.id + '" data-mascara="nenhuma" inputmode="decimal" value="' + (v ? valorParaCampo(v) : '') + '" aria-label="Valor da última parcela"></span></div>' +
+              '<div><small>Valor residual</small><b>' + brl(resid) + '</b></div></div>' +
+            '<div class="pl-cab-pe"><label class="rt-chave rt-chave-mini"><input type="checkbox" data-pl-emit="' + p.id + '"' + (cli ? '' : ' checked') + '><span></span><small>' + (cli ? 'O cliente emite as guias' : 'Nós emitimos as guias') + '</small></label>' +
+              (nAe ? '<span class="pill hoje">' + plural(nAe, 'a emitir', 'a emitir') + '</span>' : '') + '</div>' +
+            '<input class="pl-obs" data-pl-obs="' + p.id + '" value="' + esc(p.obs || '') + '" placeholder="Observação (ex.: enviar por WhatsApp)" aria-label="Observação"></div>' +
+          (ps.length ? '<table class="pl-tab"><thead><tr><th>Parcela</th><th>Vencimento</th><th>Emissão</th><th>Pagamento</th></tr></thead><tbody>' +
           ps.map((x) => { const at = !x.pago && x.vencimento < h, mes = x.vencimento && x.vencimento.slice(0, 7) === h.slice(0, 7);
-            return '<tr class="' + (x.pago ? 'pl-pago' : at ? 'pl-atr' : mes ? 'pl-mes' : '') + '"' + (mes ? ' data-pl-mes' : '') + '><td>' + esc(x.numero || '') + '</td><td>' + dataBR(x.vencimento) + '</td>' +
-              '<td><button type="button" class="pl-sn' + (emit(x) ? ' sim' : '') + '" data-pl-e="' + x.id + '"' + (cli ? ' disabled title="O cliente emite"' : '') + '>' + (emit(x) ? 'SIM' : cli ? '–' : '') + '</button></td>' +
-              '<td><button type="button" class="pl-sn' + (x.pago ? ' sim' : at ? ' nao' : '') + '" data-pl-p="' + x.id + '"' + (x.pago ? ' disabled' : '') + '>' + (x.pago ? 'SIM' : at ? 'NÃO' : '') + '</button></td></tr>'; }).join('') +
-          '</tbody></table></div></section>'; }).join('') + (L.length ? '' : vazio('Nenhum parcelamento neste grupo.')) + '</div></div></div>';
-    // a lista de cada bloco já abre no mês atual
-    el.querySelectorAll('.pl-lista').forEach((d) => { const r = d.querySelector('[data-pl-mes]') || d.querySelector('tr.pl-atr'); if (r) d.scrollTop = Math.max(0, r.offsetTop - 70); });
+            return '<tr class="' + (x.pago ? 'pl-pago' : at ? 'pl-atr' : mes ? 'pl-mes' : '') + '"><td>' + esc(x.numero || '') + '</td><td>' + dataBR(x.vencimento) + '</td>' +
+              '<td><button type="button" class="pl-sn' + (emit(x) ? ' sim' : '') + '" data-pl-e="' + x.id + '"' + (cli ? ' disabled title="O cliente emite"' : ' title="Clique para marcar/desmarcar a emissão"') + '>' + (emit(x) ? 'SIM' : cli ? '–' : '') + '</button></td>' +
+              '<td><button type="button" class="pl-sn' + (x.pago ? ' sim' : at ? ' nao' : '') + '" data-pl-p="' + x.id + '"' + (x.pago ? ' disabled' : ' title="Clique para lançar o pagamento"') + '>' + (x.pago ? 'SIM' : at ? 'NÃO' : '') + '</button></td></tr>'; }).join('') +
+          prevista(ps, tot).map((r) => '<tr class="pl-prev" title="Parcela ainda não lançada no sistema (data prevista)"><td>' + r.n + '</td><td>' + dataBR(r.v) + '</td><td colspan="2">prevista</td></tr>').join('') +
+          '</tbody></table>' : '<div class="pl-sem">Nenhuma parcela lançada neste parcelamento.</div>') + '</section>'; }).join('') + (L.length ? '' : vazio('Nenhum parcelamento neste grupo.')) + '</div></div></div>';
   };
   const recarregar = () => rotinaPlanilha(el);
   el.onclick = (ev) => {
@@ -8369,6 +8455,7 @@ async function rotinaPlanilha(el) {
       await q(sb.rpc('registrar_emissao', { p_tabela: 'parcelas', p_id: x.id, p_emitida: novo, p_doc: null, p_enviar: false }));
       x.emitida_em = novo ? h : null; x.emissao = novo ? 'SIM' : ''; pintar(); });
     const bp = ev.target.closest('[data-pl-p]');
+    if (bp && !confirm('Lançar o pagamento desta parcela?')) return;
     if (bp && window.ERP_EDITOR && window.ERP_EDITOR.baixaRapida) return Promise.resolve(window.ERP_EDITOR.baixaRapida('parcelas', bp.dataset.plP)).then(() => setTimeout(recarregar, 1500));
     if (ev.target.closest('#pl-emitir')) {
       const its = PA.filter((p) => gnome(p.grupo_id) === E.rt.plGrupo).flatMap((p) => aEmitir(p).map((x) => {
@@ -8377,6 +8464,7 @@ async function rotinaPlanilha(el) {
           valor: x.valor != null ? Number(x.valor) : ult ? Number(ult.valor) : Number(p.valor_ultima_parcela) || 0, detalhe: [p.natureza, p.local].filter(Boolean).join(' · '),
           cliente_id: (E.clientes.find((c) => (soDigitos(p.cnpj) && soDigitos(c.cpf_cnpj) === soDigitos(p.cnpj)) || c.nome === p.empresa) || {}).id || null }); }));
       if (its.length) janelaGuiasEmpresa('parcelas', its, null, recarregar);
+      else aviso('Nenhuma guia a emitir em ' + (E.rt.plGrupo || 'este grupo') + ': não há parcela em atraso nem vencendo neste mês (que o escritório emita).');
     }
   };
   el.onchange = (ev) => {
