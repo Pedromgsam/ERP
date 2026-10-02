@@ -712,6 +712,29 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
 **Central de Documentos dentro do ERP:** menu **Documentos → Gerar documento** (ou ⋯ → Documentos, contrato, recibo do Financeiro).
 **Ctrl + clique** (ou botão do meio do mouse) em qualquer item do menu ou link de documento abre numa aba nova.
 
+## Backup 36 — agenda no Início, cartões mais claros, Rotina refeita, Documentos e E-mails no visual do ERP (tem SQL)
+Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+Shift+R**. Nenhuma Edge Function mudou.
+
+- **Início — agenda:** botão **+ Agendar** (ou clique num dia vazio do calendário) para marcar reunião, audiência, compromisso ou ligação, com hora, local e
+  quem participa. Legenda de cores embaixo do calendário (tarefa, atrasada, prazo fatal, reunião, audiência, compromisso, ligação).
+- **Painel Executivo:** a evolução do passivo abre em **Tudo junto**; os meses antes do primeiro lançamento não aparecem mais (era isso que fazia a linha
+  "cair para zero" perto de outubro). Contorno do grupo nas tabelas contínuo, sem falhas.
+- **Processos:** as últimas movimentações aparecem em cartõezinhos separados (data, tipo, texto e quem lançou).
+- **Parcelamentos e Acordos — Situação:** cartões maiores e mais arejados; o cartão aberto fica com borda azul e "aberto ▲"; ao abrir aparece uma
+  tabela limpa (Empresa · Pagas · Falta · A pagar este mês · Situação). "A pagar este mês" = **vencidas + as do mês**. Com grupo e empresa no filtro,
+  já aparecem os cartões da empresa. No detalhamento, colunas separadas **Emissão** e **Pagamento**; "Lançar pagamento" pede confirmação.
+- **Acordos:** sem a coluna Responsável, Grupo mais estreito, botão **🧾 Emitir** (abre o envio com e-mail e WhatsApp: "Acordo · parcela · valor · PIX")
+  e **👁 Prévia do e-mail** (igual ao módulo E-mails).
+- **Rotina → Controle dos parcelamentos:** um quadrinho por parcela em cada mês (**Emitir · Emitida · Vencida · ✓ Paga · A vencer · Cliente emite**).
+  Clique no quadrinho → menu: **Marcar para enviar**, **Lançar pagamento** (com confirmação) e **Ver parcelas / editar valor**.
+- **Rotina → Planilha (teste):** blocos lado a lado que descem até a última parcela (as que ainda não estão lançadas aparecem como "prevista"), cabeçalho
+  em cartão e o botão **Emitir guias — em atraso + vencem neste mês** sempre clicável (avisa quando não há nada a emitir).
+- **Publicações:** os números dos filtros batem (ex.: 61 no total, 5 tratadas → Novas 56 · Tratadas 5 · Todas 61), também nos advogados e tribunais.
+- **Documentos:** visual do ERP (seções em cartões, botões no lugar de listas curtas, "Hoje" nas datas), barra de modelos sem rolar para o lado,
+  **Histórico** e **⚙ Configurações** (antigo "Escritório", agora em cartões: escritório + um cartão por advogado) no alto.
+- **E-mails → Quem recebe:** uma linha por cliente com um sinal por tipo (✓ recebe · ! sem e-mail · – não recebe), o e-mail principal e o perfil;
+  contador "com e-mail faltando"; a regra geral por setor fica recolhida embaixo. Clique no cliente para escolher os contatos de cada tipo.
+
 ## Backup 35 — mais simples: cartões por grupo, Acordos em uma aba, planilha de parcelamentos (teste), evolução por grupo, processos com movimentações (tem SQL)
 Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+Shift+R**. Nenhuma Edge Function mudou.
 

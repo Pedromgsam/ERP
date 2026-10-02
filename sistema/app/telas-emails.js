@@ -234,53 +234,49 @@ const TIPOS_CONTROLE = [['cobranca', 'Honorários', 'hon_lembrete', 'lembrete an
   ['convite', 'Reuniões', 'convite', 'convite de reunião (quando marcado na reunião)']];
 let _emCtrl = [];
 async function controleEmails(alvo) {
+  // Backup 36: mais simples — uma linha por cliente com um sinal por tipo (✓ recebe · ⚠ sem e-mail · — não recebe) e o e-mail principal;
+  // a regra geral (setor quando ninguém está marcado) fica recolhida; clique no cliente para escolher contatos e ver o histórico
   const admin = E.perfil && E.perfil.papel === 'admin';
-  E.emc = Object.assign({ busca: '', perfil: '', resp: '', problema: false }, E.emc || {});
+  E.emc = Object.assign({ busca: '', perfil: '', problema: false }, E.emc || {});
   const F = E.emc;
   alvo.innerHTML = '<div class="carregando">Carregando…</div>';
   const [lista, dest] = await Promise.all([q(sb.rpc('emails_controle')), q(sb.from('configuracoes').select('valor').eq('chave', 'emails_destino').maybeSingle()).catch(() => null)]);
   _emCtrl = lista || [];
   const mapa = (dest && dest.valor) || {};
-  const resps = [...new Set(_emCtrl.map((c) => c.responsavel).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  const falta = (c) => TIPOS_CONTROLE.some(([k]) => c.tipos[k] && c.tipos[k].recebe && !c.tipos[k].para);
+  const nFalta = _emCtrl.filter(falta).length;
   alvo.innerHTML =
-    '<div class="card"><div class="card-hd">📨 Quem recebe o quê</div><div class="card-bd">' +
-      '<p class="sub" style="margin-bottom:10px">Cada linha é um cliente: se ele recebe cada tipo de e-mail, <b>para qual endereço vai</b> e quem é o responsável. ' +
-      'Clique no cliente para escolher os contatos de cada tipo, ver o modelo (como o e-mail sai) e o histórico do que já foi enviado. Nada sai com a pausa ligada.</p>' +
-      '<div class="emc-destinos"><b>Quando ninguém está marcado, cada tipo vai para o setor:</b>' +
+    '<div class="emc-topo"><div class="emc-resumo"><div class="emc-n"><b>' + _emCtrl.length + '</b><span>clientes</span></div>' +
+      '<button type="button" class="emc-n' + (nFalta ? ' emc-n-ruim' : ' emc-n-ok') + (F.problema ? ' ativo' : '') + '" id="emc-prob" aria-pressed="' + F.problema + '"><b>' + nFalta + '</b><span>' + (nFalta ? 'com e-mail faltando — ver' : 'com e-mail faltando') + '</span></button></div>' +
+      '<div class="emc-leg"><span class="emc-s emc-s-ok">✓</span> recebe <span class="emc-s emc-s-falta">!</span> recebe, mas sem e-mail <span class="emc-s emc-s-nao">–</span> não recebe · <b>clique no cliente</b> para escolher quem recebe cada tipo</div></div>' +
+    '<div class="filtros" id="emc-filtros"><input class="busca" id="emc-busca" placeholder="Buscar cliente ou grupo" autocomplete="off" value="' + esc(F.busca) + '">' +
+      '<div class="segmento" id="emc-perfis"><button type="button" data-v="">Todos</button>' + PERFIS_EMAIL.map(([v, r]) => '<button type="button" data-v="' + v + '">' + esc(r) + '</button>').join('') + '</div></div>' +
+    '<div class="card"><div id="emc-tab"></div></div>' +
+    '<details class="emc-regra"><summary>⚙ Regra geral: para qual setor vai cada tipo quando ninguém está marcado</summary><div class="emc-destinos">' +
       TIPOS_CONTROLE.map(([k, r]) => '<label>' + r + ' → <select class="busca sel" data-emc-dest="' + k + '"' + (admin ? '' : ' disabled') + '>' +
         SETORES_CONTATO.map(([v, rs]) => '<option value="' + v + '"' + ((mapa[k] || 'financeiro') === v ? ' selected' : '') + '>' + rs + '</option>').join('') + '</select></label>').join('') +
-      '<span class="sub">depois: contato Geral e, por último, o e-mail do cadastro.</span></div></div></div>' +
-    '<div class="filtros" id="emc-filtros"><input class="busca" id="emc-busca" placeholder="Buscar cliente ou grupo" autocomplete="off" value="' + esc(F.busca) + '">' +
-      '<select class="busca sel" id="emc-perfil"><option value="">Todos os perfis</option>' + PERFIS_EMAIL.map(([v, r]) => '<option value="' + v + '"' + (F.perfil === v ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>' +
-      '<select class="busca sel" id="emc-resp"><option value="">Todos os responsáveis</option>' + resps.map((r) => '<option' + (F.resp === r ? ' selected' : '') + '>' + esc(r) + '</option>').join('') + '</select>' +
-      '<label class="check"><input type="checkbox" id="emc-prob"' + (F.problema ? ' checked' : '') + '> Só com e-mail faltando</label>' +
-      '<span class="sub" id="emc-sel" style="align-self:center"></span>' +
-      '<select class="busca sel" id="emc-lote"><option value="">Perfil aos marcados…</option>' + PERFIS_EMAIL.filter((x) => x[0] !== 'personalizado').map(([v, r]) => '<option value="' + v + '">' + r + '</option>').join('') + '</select></div>' +
-    '<div class="card"><div id="emc-tab"></div></div>';
-  const celula = (t) => {
-    if (!t || !t.recebe) return '<span class="pill neutro" title="O perfil de e-mail do cliente não manda este tipo">não recebe</span>';
-    if (!t.para) return '<span class="pill vencido" title="Cadastre um contato com e-mail na ficha do cliente">sem e-mail</span>';
-    const mails = String(t.para).split(/,\s*/);
-    return '<span class="em-para" title="' + esc(t.para) + '">' + esc(mails[0]) + (mails.length > 1 ? ' <b>+' + (mails.length - 1) + '</b>' : '') + '</span>' +
-      '<div class="sub">' + esc([t.contato, t.origem === 'cadastro' ? 'cadastro' : rotSetor(t.setor)].filter(Boolean).join(' · ')) + '</div>';
+      '<span class="sub">Sem contato nesse setor: vai para o contato Geral e, por último, para o e-mail do cadastro.</span></div></details>';
+  const sinal = (t, r) => {
+    if (!t || !t.recebe) return '<span class="emc-s emc-s-nao" title="' + esc(r) + ': não recebe (perfil do cliente)">–</span>';
+    if (!t.para) return '<span class="emc-s emc-s-falta" title="' + esc(r) + ': recebe, mas não há e-mail — cadastre um contato">!</span>';
+    return '<span class="emc-s emc-s-ok" title="' + esc(r + ': ' + t.para) + '">✓</span>';
   };
+  const principal = (c) => { const n = {}; TIPOS_CONTROLE.forEach(([k]) => { const t = c.tipos[k]; if (t && t.recebe && t.para) String(t.para).split(/,\s*/).forEach((m) => { n[m] = (n[m] || 0) + 1; }); });
+    const L = Object.keys(n).sort((x, y) => n[y] - n[x]); return L; };
   const pintar = () => {
     const b = normalizar(F.busca);
-    const vis = _emCtrl.filter((c) => (!F.perfil || (c.perfil || 'padrao') === F.perfil) && (!F.resp || c.responsavel === F.resp) &&
-      (!b || normalizar(c.nome + ' ' + (c.grupo || '')).includes(b)) && (!F.problema || TIPOS_CONTROLE.some(([k]) => c.tipos[k] && c.tipos[k].recebe && !c.tipos[k].para)));
-    $('emc-tab').innerHTML = vis.length ? '<div class="tabela-wrap"><table class="ordenavel emc-tab"><thead><tr><th class="sem-ordem"><input type="checkbox" id="emc-todos" aria-label="Marcar todos"></th>' +
-      '<th>Cliente</th><th>Quem</th><th>Perfil</th>' + TIPOS_CONTROLE.map(([, r, , d]) => '<th title="' + esc(d) + '">' + r + '</th>').join('') + '<th data-tipo="data">Último envio</th></tr></thead><tbody>' +
-      vis.map((c) => '<tr class="clicavel" data-emc="' + c.id + '"><td><input type="checkbox" data-emc-x="' + c.id + '" aria-label="Marcar ' + esc(c.nome) + '"></td>' +
-        '<td><b>' + esc(c.nome) + '</b>' + (c.grupo && c.grupo !== c.nome ? '<div class="sub">' + esc(c.grupo) + '</div>' : '') + '</td><td>' + pillPessoa(c.responsavel) + '</td>' +
-        '<td><select class="busca sel cem-perfil-sel" data-cem="' + c.id + '" aria-label="Perfil de ' + esc(c.nome) + '">' + PERFIS_EMAIL.map(([v, r]) => '<option value="' + v + '"' + ((c.perfil || 'padrao') === v ? ' selected' : '') + '>' + r + '</option>').join('') + '</select></td>' +
-        TIPOS_CONTROLE.map(([k]) => '<td>' + celula(c.tipos[k]) + '</td>').join('') +
-        '<td data-ord="' + esc(c.ultimo ? c.ultimo.quando : '') + '">' + (c.ultimo ? '<span class="sub">' + dataHoraBR(c.ultimo.quando) + '</span><div class="sub" title="' + esc(c.ultimo.descricao) + '">' + esc(String(c.ultimo.descricao).slice(0, 60)) + '</div>' : '<span class="sub">—</span>') +
-        (c.enviados30 ? '<div class="sub">' + plural(c.enviados30, 'e-mail', 'e-mails') + ' em 30 dias</div>' : '') + '</td></tr>').join('') + '</tbody></table></div>'
-      : vazio('Nenhum cliente neste filtro.');
-    const marcados = () => [...alvo.querySelectorAll('[data-emc-x]:checked')].map((x) => x.dataset.emcX);
-    const conta = () => { const n = marcados().length; $('emc-sel').textContent = n ? n + ' marcado(s)' : ''; };
-    const todos = $('emc-todos'); if (todos) todos.onchange = () => { alvo.querySelectorAll('[data-emc-x]').forEach((x) => { x.checked = todos.checked; }); conta(); };
-    alvo.querySelectorAll('[data-emc-x]').forEach((x) => x.onchange = conta);
+    alvo.querySelectorAll('#emc-perfis button').forEach((x) => x.classList.toggle('ativo', x.dataset.v === F.perfil));
+    const pb = $('emc-prob'); if (pb) { pb.classList.toggle('ativo', F.problema); pb.setAttribute('aria-pressed', F.problema); }
+    const vis = _emCtrl.filter((c) => (!F.perfil || (c.perfil || 'padrao') === F.perfil) && (!b || normalizar(c.nome + ' ' + (c.grupo || '')).includes(b)) && (!F.problema || falta(c)));
+    $('emc-tab').innerHTML = vis.length ? '<div class="tabela-wrap"><table class="ordenavel emc-tab emc-tab2"><thead><tr>' +
+      '<th>Cliente</th><th>Vai para</th>' + TIPOS_CONTROLE.map(([, r, , d]) => '<th class="emc-c-t" title="' + esc(d) + '">' + r + '</th>').join('') + '<th>Perfil</th></tr></thead><tbody>' +
+      vis.map((c) => { const em = principal(c);
+        return '<tr class="clicavel' + (falta(c) ? ' emc-ruim' : '') + '" data-emc="' + c.id + '">' +
+        '<td><b>' + esc(c.nome) + '</b>' + (c.grupo && c.grupo !== c.nome ? '<div class="sub">' + esc(c.grupo) + '</div>' : '') + '</td>' +
+        '<td>' + (em.length ? '<span class="em-para" title="' + esc(em.join(', ')) + '">' + esc(em[0]) + '</span>' + (em.length > 1 ? ' <span class="sub">+' + (em.length - 1) + '</span>' : '') : '<span class="pill vencido">sem e-mail</span>') + '</td>' +
+        TIPOS_CONTROLE.map(([k, r]) => '<td class="emc-c-t">' + sinal(c.tipos[k], r) + '</td>').join('') +
+        '<td><select class="busca sel cem-perfil-sel" data-cem="' + c.id + '" aria-label="Perfil de ' + esc(c.nome) + '">' + PERFIS_EMAIL.map(([v, r]) => '<option value="' + v + '"' + ((c.perfil || 'padrao') === v ? ' selected' : '') + '>' + r + '</option>').join('') + '</select></td></tr>'; }).join('') + '</tbody></table></div>'
+      : vazio(F.problema ? 'Nenhum cliente com e-mail faltando. 👍' : 'Nenhum cliente neste filtro.');
     alvo.querySelectorAll('tr[data-emc]').forEach((tr) => tr.onclick = (ev) => { if (ev.target.closest('input, select, label, button')) return; janelaControleCliente(tr.dataset.emc, () => controleEmails(alvo)); });
     alvo.querySelectorAll('[data-cem]').forEach((sel) => sel.onchange = () => comBotao(sel, async () => {
       if (sel.value === 'personalizado') {
@@ -292,20 +288,13 @@ async function controleEmails(alvo) {
       aviso('✓ Perfil de e-mail atualizado.'); await carregarCadastros(true); await controleEmails(alvo);
     }));
   };
-  $('emc-lote').onchange = (ev) => comBotao(ev.target, async () => {
-    const v = ev.target.value, ids = [...alvo.querySelectorAll('[data-emc-x]:checked')].map((x) => x.dataset.emcX); ev.target.value = '';
-    if (!v) return; if (!ids.length) throw new Error('Marque os clientes na primeira coluna.');
-    const n = await q(sb.rpc('salvar_perfil_email', { p_ids: ids, p_perfil: v, p_tipos: null }));
-    aviso('✓ ' + n + ' cliente(s) com o perfil atualizado.'); await carregarCadastros(true); await controleEmails(alvo);
-  });
   alvo.querySelectorAll('[data-emc-dest]').forEach((sel) => sel.onchange = () => comBotao(sel, async () => {
     await q(sb.rpc('salvar_destinos_email', { p: { [sel.dataset.emcDest]: sel.value } }));
-    aviso('✓ Destino padrão salvo.'); await controleEmails(alvo);
+    aviso('✓ Regra geral salva.'); await controleEmails(alvo);
   }));
   let tb; $('emc-busca').oninput = (ev) => { clearTimeout(tb); tb = setTimeout(() => { F.busca = ev.target.value; pintar(); }, 250); };
-  $('emc-perfil').onchange = (ev) => { F.perfil = ev.target.value; pintar(); };
-  $('emc-resp').onchange = (ev) => { F.resp = ev.target.value; pintar(); };
-  $('emc-prob').onchange = (ev) => { F.problema = ev.target.checked; pintar(); };
+  $('emc-perfis').onclick = (ev) => { const x = ev.target.closest('button'); if (x) { F.perfil = x.dataset.v; pintar(); } };
+  $('emc-prob').onclick = () => { F.problema = !F.problema; pintar(); };
   pintar();
 }
 // detalhe de um cliente: tipo a tipo (recebe? para quem? quais contatos?), modelo de cada e-mail e histórico
@@ -330,7 +319,7 @@ async function janelaControleCliente(id, depois) {
               esc(ct.nome || ct.email) + ' <span class="sub">' + esc(rotSetor(ct.finalidade)) + '</span></label>').join('') : '<span class="sub">—</span>') + '</td>' +
           '<td>' + (modelos.some((m) => m.chave === mod) ? '<button class="btn btn-o btn-mini" type="button" data-emc-modelo="' + mod + '">Ver modelo</button>' : '') + '</td></tr>'; }).join('') +
       '</tbody></table></div>' +
-      '<p class="sub" style="margin:8px 0 14px">Marcar um contato num tipo faz <b>só ele(s)</b> receber aquele tipo. Sem ninguém marcado, vale o setor padrão (lá em cima, na lista).' +
+      '<p class="sub" style="margin:8px 0 14px">Marcar um contato num tipo faz <b>só ele(s)</b> receber aquele tipo. Sem ninguém marcado, vale a regra geral (embaixo da lista).' +
         (pers ? ' Perfil <b>Personalizado</b>: as caixinhas de "Recebe?" valem para este cliente.' : ' Para escolher tipo a tipo o que ele recebe, mude o perfil para <b>Personalizado</b>.') + '</p>' +
       '<div class="secao">Histórico de e-mails</div><div id="emc-hist"><div class="carregando">Carregando…</div></div>',
     rodape: '<button class="btn btn-o" type="button" id="emc-ficha">Abrir a ficha (Contatos)</button><div class="acoes">' + (pers ? '<button class="btn btn-p" type="button" id="emc-salvar-tipos">Salvar o que recebe</button>' : '') + '</div>' });

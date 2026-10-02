@@ -203,20 +203,24 @@
     const v = E.dados[c.id], id = 'f-' + c.id, dica = c.dica ? '<small class="dc-dica">' + esc(c.dica) + '</small>' : '';
     const rot = '<label for="' + id + '">' + esc(c.rotulo) + '</label>';
     const caixa = (inner, cls) => '<div class="dc-campo' + (c.meia ? ' meia' : '') + (cls ? ' ' + cls : '') + '" data-campo="' + c.id + '">' + inner + dica + '</div>';
+    // Backup 36: escolhas curtas viram botões (sem abrir lista)
+    const seg = (ops) => caixa('<span class="dc-rot">' + esc(c.rotulo) + '</span><div class="dc-seg">' + ops.map(([o, r]) => '<label><input type="radio" name="' + id + '" data-k="' + c.id + '" value="' + esc(o) + '"' + (String(v == null ? '' : v) === String(o) ? ' checked' : '') + '><span>' + esc(r) + '</span></label>').join('') + '</div>');
     switch (c.tipo) {
       case 'texto': case 'cliente-nome': return caixa(rot + '<input id="' + id + '" data-k="' + c.id + '" value="' + esc(v) + '"' + (c.tipo === 'cliente-nome' ? ' list="dc-lista-cli"' : '') + '>');
       case 'area': return caixa(rot + '<textarea id="' + id + '" data-k="' + c.id + '" rows="3">' + esc(v) + '</textarea>');
       case 'valor': return caixa(rot + '<div class="dc-rs"><span>R$</span><input id="' + id + '" data-k="' + c.id + '" inputmode="decimal" value="' + esc(v) + '" placeholder="0,00"></div>');
-      case 'data': return caixa(rot + '<input id="' + id + '" type="date" data-k="' + c.id + '" value="' + esc(v) + '">');
+      case 'data': return caixa(rot + '<div class="dc-data"><input id="' + id + '" type="date" data-k="' + c.id + '" value="' + esc(v) + '"><button type="button" class="dc-bt dc-mini" data-hoje="' + id + '">Hoje</button></div>');
       case 'mes': return caixa(rot + '<input id="' + id + '" type="month" data-k="' + c.id + '" value="' + esc(v) + '">');
       case 'inteiro': case 'decimal': return caixa(rot + '<input id="' + id + '" data-k="' + c.id + '" inputmode="' + (c.tipo === 'inteiro' ? 'numeric' : 'decimal') + '" value="' + esc(v) + '">');
-      case 'select': return caixa(rot + '<select id="' + id + '" data-k="' + c.id + '">' + c.opcoes.map(([o, r]) => '<option value="' + o + '"' + (String(v) === o ? ' selected' : '') + '>' + esc(r) + '</option>').join('') + '</select>');
+      case 'select': if (c.opcoes.length <= 6) return seg(c.opcoes); return caixa(rot + '<select id="' + id + '" data-k="' + c.id + '">' + c.opcoes.map(([o, r]) => '<option value="' + o + '"' + (String(v) === o ? ' selected' : '') + '>' + esc(r) + '</option>').join('') + '</select>');
       case 'radio': return caixa('<span class="dc-rot">' + esc(c.rotulo) + '</span><div class="dc-seg">' + c.opcoes.map(([o, r]) => '<label><input type="radio" name="' + id + '" data-k="' + c.id + '" value="' + o + '"' + (v === o ? ' checked' : '') + '><span>' + esc(r) + '</span></label>').join('') + '</div>');
       case 'check': return caixa('<label class="dc-chk"><input type="checkbox" data-k="' + c.id + '"' + (v ? ' checked' : '') + '><span>' + esc(c.rotulo) + '</span></label>');
       case 'checks': return caixa('<span class="dc-rot">' + esc(c.rotulo) + '</span><div class="dc-chips">' + c.opcoes.map(([o, r]) => '<label class="dc-chip"><input type="checkbox" data-k="' + c.id + '" data-multi value="' + o + '"' + ((v || []).includes(o) ? ' checked' : '') + '><span>' + esc(r) + '</span></label>').join('') + '</div>');
       case 'advogados': return caixa('<span class="dc-rot">' + esc(c.rotulo) + '</span><div class="dc-chips">' + (ESC.advogados || []).map((a) => '<label class="dc-chip"><input type="checkbox" data-k="' + c.id + '" data-multi value="' + a.id + '"' + ((v || []).includes(a.id) ? ' checked' : '') + '><span>' + esc(a.nome.split(' ')[0]) + ' <small>' + esc(a.oab) + '</small></span></label>').join('') + '</div>');
-      case 'advogado': return caixa(rot + '<select id="' + id + '" data-k="' + c.id + '">' + (c.vazio ? '<option value="">— nenhum —</option>' : '') + (ESC.advogados || []).map((a) => '<option value="' + a.id + '"' + (v === a.id ? ' selected' : '') + '>' + esc(a.nome + ' · ' + a.oab) + '</option>').join('') + '</select>');
-      case 'recebedor': return caixa(rot + '<select id="' + id + '" data-k="' + c.id + '"><option value="escritorio"' + (v === 'escritorio' ? ' selected' : '') + '>' + esc(ESC.razao || 'Araújo & Castro Advocacia e Consultoria') + ' (escritório)</option>' +
+      case 'advogado': return seg((c.vazio ? [['', 'Nenhum']] : []).concat((ESC.advogados || []).map((a) => [a.id, a.nome.split(' ')[0] + ' · ' + a.oab.replace(/^OAB\/?/, 'OAB ')])));
+      case 'advogado-lista': return caixa(rot + '<select id="' + id + '" data-k="' + c.id + '">' + (c.vazio ? '<option value="">— nenhum —</option>' : '') + (ESC.advogados || []).map((a) => '<option value="' + a.id + '"' + (v === a.id ? ' selected' : '') + '>' + esc(a.nome + ' · ' + a.oab) + '</option>').join('') + '</select>');
+      case 'recebedor': return seg([['escritorio', 'Escritório']].concat((ESC.advogados || []).map((a) => [a.id, a.nome.split(' ').slice(0, 1).join(' ')])));
+      case 'recebedor-lista': return caixa(rot + '<select id="' + id + '" data-k="' + c.id + '"><option value="escritorio"' + (v === 'escritorio' ? ' selected' : '') + '>' + esc(ESC.razao || 'Araújo & Castro Advocacia e Consultoria') + ' (escritório)</option>' +
         (ESC.advogados || []).map((a) => '<option value="' + a.id + '"' + (v === a.id ? ' selected' : '') + '>' + esc(a.nome) + '</option>').join('') + '</select>');
       case 'tabela': return caixa('<span class="dc-rot">' + esc(c.rotulo) + '</span><table class="dc-ftab"><thead><tr>' + c.colunas.map((x) => '<th>' + esc(x) + '</th>').join('') + '<th></th></tr></thead><tbody>' +
         (v || []).map((r, i) => '<tr>' + c.colunas.map((x, j) => '<td><input data-k="' + c.id + '" data-tab="' + i + ',' + j + '" value="' + esc(r[j] || '') + '"' + (j ? ' inputmode="decimal" placeholder="R$"' : '') + '></td>').join('') +
@@ -227,7 +231,8 @@
   }
   function htmlParte(c, p) {
     const k = c.id, f = (n, r, extra, cls) => '<div class="dc-campo' + (cls ? ' ' + cls : '') + '"><label for="f-' + k + '-' + n + '">' + r + '</label><input id="f-' + k + '-' + n + '" data-k="' + k + '" data-sub="' + n + '" value="' + esc(p[n] || '') + '"' + (extra || '') + '></div>';
-    const sel = (n, r, ops, cls) => '<div class="dc-campo' + (cls ? ' ' + cls : '') + '"><label for="f-' + k + '-' + n + '">' + r + '</label><select id="f-' + k + '-' + n + '" data-k="' + k + '" data-sub="' + n + '">' + ops.map(([o, t]) => '<option value="' + o + '"' + ((p[n] || '') === o ? ' selected' : '') + '>' + t + '</option>').join('') + '</select></div>';
+    const sel = (n, r, ops, cls) => '<div class="dc-campo' + (cls ? ' ' + cls : '') + '"><span class="dc-rot">' + r + '</span><div class="dc-seg">' + ops.map(([o, t2]) => '<label><input type="radio" name="f-' + k + '-' + n + '" data-k="' + k + '" data-sub="' + n + '" value="' + o + '"' + ((p[n] || 'm') === o ? ' checked' : '') + '><span>' + t2 + '</span></label>').join('') + '</div></div>';
+    const selLista = (n, r, ops, cls) => '<div class="dc-campo' + (cls ? ' ' + cls : '') + '"><label for="f-' + k + '-' + n + '">' + r + '</label><select id="f-' + k + '-' + n + '" data-k="' + k + '" data-sub="' + n + '">' + ops.map(([o, t]) => '<option value="' + o + '"' + ((p[n] || '') === o ? ' selected' : '') + '>' + t + '</option>').join('') + '</select></div>';
     const pj = p.tipo === 'pj';
     return '<fieldset class="dc-parte" data-campo="' + k + '"><legend>' + esc(c.rotulo) + '</legend>' +
       '<div class="dc-busca-cli"><input type="search" placeholder="🔎 Buscar cliente cadastrado (nome ou CPF/CNPJ)…" data-busca-cli="' + k + '" aria-label="Buscar cliente"><div class="dc-sug" hidden></div></div>' +
@@ -237,7 +242,7 @@
       (pj ? '' : sel('genero', 'Tratamento', [['m', 'masculino'], ['f', 'feminino']], 'meia')) +
       (c.simples ? '' : (pj ? '' : f('nacionalidade', 'Nacionalidade', ' placeholder="' + (p.genero === 'f' ? 'brasileira' : 'brasileiro') + '"', 'meia') + f('estado_civil', 'Estado civil', '', 'meia') + f('profissao', 'Profissão', '', 'larga')) +
         f('endereco', pj ? 'Sede (endereço completo)' : 'Endereço completo', ' placeholder="Rua, n., bairro, cidade/UF, CEP"', 'larga') +
-        (pj ? f('rep_nome', 'Sócio-administrador', '', 'larga') + f('rep_doc', 'CPF do sócio', ' inputmode="numeric"', 'meia') + sel('rep_genero', 'Tratamento', [['m', 'sócio-administrador'], ['f', 'sócia-administradora']], 'meia') : '')) +
+        (pj ? f('rep_nome', 'Sócio-administrador', '', 'larga') + f('rep_doc', 'CPF do sócio', ' inputmode="numeric"', 'meia') + sel('rep_genero', 'Tratamento', [['m', 'sócio-administrador'], ['f', 'sócia-administradora']], 'larga') : '')) +
       '</div></fieldset>';
   }
   function desenharCampos() {
@@ -455,19 +460,22 @@
 
   // ══════════ escritório (advogados e dados que entram nos documentos) ══════════
   function desenharEscritorio() {
-    const campo = (k, r, v, extra) => '<div class="dc-campo"><label>' + r + '</label><input data-e="' + k + '" value="' + esc(v || '') + '"' + (extra || '') + (E.admin ? '' : ' disabled') + '></div>';
-    $('#dc-area').innerHTML = '<section class="dc-hist"><div class="dc-hist-hd"><h2>🏛 Escritório e advogados</h2><span class="dc-dica">' + (E.admin ? 'O que estiver aqui entra nos documentos (qualificação, OAB, endereço profissional, foro).' : 'Só o administrador altera estes dados.') + '</span></div>' +
-      '<div class="dc-grade dc-esc">' + campo('razao', 'Razão social (recibos do escritório)', ESC.razao || 'Araújo & Castro Advocacia e Consultoria') + campo('cnpj', 'CNPJ do escritório', ESC.cnpj) +
-        campo('cidade', 'Cidade padrão dos documentos', ESC.cidade) + campo('foro', 'Foro dos contratos', ESC.foro) + campo('email', 'E-mail profissional', ESC.email) + '</div>' +
-      (ESC.advogados || []).map((a, i) => '<fieldset class="dc-parte"><legend>' + esc(a.nome) + '</legend><div class="dc-grade">' +
-        ['nome:Nome completo', 'oab:OAB (ex.: OAB/MG 228.471)', 'endereco:Endereço profissional', 'telefone:Telefone', 'cpf:CPF (recibos)', 'nacionalidade:Nacionalidade'].map((x) => { const [k, r] = x.split(':'); return campo(i + '.' + k, r, a[k]); }).join('') +
-        '<div class="dc-campo"><label>Tratamento</label><select data-e="' + i + '.genero"' + (E.admin ? '' : ' disabled') + '><option value="m"' + (a.genero !== 'f' ? ' selected' : '') + '>advogado</option><option value="f"' + (a.genero === 'f' ? ' selected' : '') + '>advogada</option></select></div></div></fieldset>').join('') +
-      (E.admin ? '<div class="dc-acoes"><button type="button" class="dc-bt dc-prim" id="dc-e-salvar">💾 Salvar dados do escritório</button></div>' : '') + '</section>';
+    const dis = E.admin ? '' : ' disabled';
+    const campo = (k, r, v, cls, extra) => '<div class="dc-campo' + (cls ? ' ' + cls : '') + '"><label for="e-' + k + '">' + r + '</label><input id="e-' + k + '" data-e="' + k + '" value="' + esc(v || '') + '"' + (extra || '') + dis + '></div>';
+    const CAMPOS_ADV = [['nome', 'Nome completo', ''], ['oab', 'OAB', 'meia', ' placeholder="OAB/MG 228.471"'], ['cpf', 'CPF (para recibos)', 'meia'], ['telefone', 'Telefone', 'meia'], ['nacionalidade', 'Nacionalidade', 'meia'], ['endereco', 'Endereço profissional', '']];
+    $('#dc-area').innerHTML = '<section class="dc-hist dc-conf"><div class="dc-conf-hd"><div><h2>⚙ Configurações</h2><p>O que estiver aqui entra sozinho nos documentos: qualificação, OAB, endereço profissional, cidade e foro.' + (E.admin ? '' : ' <b>Só o administrador altera.</b>') + '</p></div>' +
+        (E.admin ? '<button type="button" class="dc-bt dc-prim" id="dc-e-salvar">💾 Salvar configurações</button>' : '') + '</div>' +
+      '<div class="dc-card"><h3>🏛 Escritório</h3><div class="dc-grade">' + campo('razao', 'Razão social (aparece nos recibos)', ESC.razao || 'Araújo & Castro Advocacia e Consultoria') + campo('cnpj', 'CNPJ', ESC.cnpj, 'meia') +
+        campo('email', 'E-mail profissional', ESC.email, 'meia') + campo('cidade', 'Cidade dos documentos', ESC.cidade, 'meia') + campo('foro', 'Foro dos contratos', ESC.foro, 'meia') + '</div></div>' +
+      '<h3 class="dc-conf-sub">👤 Advogados</h3><div class="dc-advs">' +
+      (ESC.advogados || []).map((a, i) => '<div class="dc-card dc-adv"><div class="dc-adv-hd"><span class="dc-adv-ic">' + esc((a.nome || '?').trim()[0] || '?') + '</span><div><b>' + esc(a.nome) + '</b><small>' + esc(a.oab || '') + '</small></div></div><div class="dc-grade">' +
+        CAMPOS_ADV.map(([k, r, cls, extra]) => campo(i + '.' + k, r, a[k], cls, extra)).join('') +
+        '<div class="dc-campo"><span class="dc-rot">Tratamento</span><div class="dc-seg">' + [['m', 'Advogado'], ['f', 'Advogada']].map(([o, r]) => '<label><input type="radio" name="e-' + i + '-genero" data-e="' + i + '.genero" value="' + o + '"' + ((a.genero === 'f' ? 'f' : 'm') === o ? ' checked' : '') + dis + '><span>' + r + '</span></label>').join('') + '</div></div></div></div>').join('') + '</div></section>';
     const b = $('#dc-e-salvar'); if (!b) return;
     b.onclick = () => comBotao(b, async () => {
       const novo = JSON.parse(JSON.stringify(ESC));
-      $$('[data-e]').forEach((el) => { const [i, k] = el.dataset.e.split('.'); if (k) novo.advogados[Number(i)][k] = el.value.trim(); else novo[i] = el.value.trim(); });
-      await q(sb.rpc('salvar_documentos_escritorio', { p: novo })); Object.assign(ESC, novo); aviso('✓ Dados do escritório salvos.');
+      $$('[data-e]').forEach((el) => { if (el.type === 'radio' && !el.checked) return; const [i, k] = el.dataset.e.split('.'); if (k) novo.advogados[Number(i)][k] = el.value.trim(); else novo[i] = el.value.trim(); });
+      await q(sb.rpc('salvar_documentos_escritorio', { p: novo })); Object.assign(ESC, novo); aviso('✓ Configurações salvas.'); desenharEscritorio();
     });
   }
 
@@ -503,7 +511,8 @@
 
   // ══════════ início ══════════
   // Backup 34: dentro do ERP (iframe) a Central esconde a barra própria — o ERP já tem a dele
-  if (window.self !== window.top) document.documentElement.classList.add('dc-embutido');
+  // dentro do ERP a barra escura some; Histórico e Configurações vão para a ponta da barra de modelos
+  if (window.self !== window.top) { document.documentElement.classList.add('dc-embutido'); const v = document.querySelector('.dc-topo-vis'), l = document.querySelector('.dc-lado'); if (v && l) l.appendChild(v); }
   async function iniciar() {
     if (!sb) return bloqueio('O ERP não está configurado neste endereço.');
     const { data: s } = await sb.auth.getSession();
@@ -529,6 +538,7 @@
     area.addEventListener('click', (ev) => {
       const c = ev.target.closest('[data-cli]'); if (c) { const k = c.closest('.dc-parte').dataset.campo; escolherCliente(k, c.dataset.cli); return; }
       const dv = ev.target.closest('[data-desvincula]'); if (dv) { const p = E.dados[dv.dataset.desvincula] || {}; delete p.cliente_id; delete p.grupo_id; desenharCampos(); return; }
+      const hj = ev.target.closest('[data-hoje]'); if (hj) { const i = document.getElementById(hj.dataset.hoje); if (i) { i.value = hojeISO(); i.dispatchEvent(new Event('change', { bubbles: true })); } return; }
       const tm = ev.target.closest('[data-tab-mais]'); if (tm) { const k = tm.dataset.tabMais; E.dados[k] = (E.dados[k] || []).concat([['', '', '']]); desenharCampos(); prever(); return; }
       const tt = ev.target.closest('[data-tab-tira]'); if (tt) { const [k, i] = tt.dataset.tabTira.split(','); E.dados[k] = (E.dados[k] || []).filter((x, j) => j !== Number(i)); desenharCampos(); prever(); return; }
       if (!ev.target.closest('.dc-busca-cli')) $$('.dc-sug').forEach((x) => { x.hidden = true; });

@@ -554,8 +554,11 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       await p.textContent('#gs-raiz #aviso'));
     ok('publicação liga ao processo cadastrado e avisa a advogada', sql("select count(*) from publicacoes where processo_id is not null") === '1' &&
       sql("select count(*) from notificacoes n join perfis pf on pf.id=n.usuario_id where pf.email='equipe@teste' and n.tipo='publicacao'") === '2');
-    ok('Publicações: filtro por tribunal só com os tribunais de publicações pendentes', (await p.$$('#pub-trib button[data-v]:not([data-v=""])')).length >= 1 &&
-      await p.evaluate(() => [...document.querySelectorAll('#pub-trib button[data-v]')].filter((b) => b.dataset.v).every((b) => (window.GS.E._pubs || []).some((x) => x.tribunal === b.dataset.v && /nova|lida/.test(x.status)))));
+    ok('Publicações: filtro por tribunal só com os tribunais da situação escolhida', (await p.$$('#pub-trib button[data-v]:not([data-v=""])')).length >= 1 &&
+      await p.evaluate(() => [...document.querySelectorAll('#pub-trib button[data-v]')].filter((b) => b.dataset.v).every((b) => (window.GS.E._pubs || []).some((x) => x.tribunal === b.dataset.v && x.status === window.GS.E.pub.status))));
+    ok('Publicações: contadores batem (Todas = Novas + Lidas + Tratadas + Descartadas; o número do botão = itens ao clicar)', await p.evaluate(() => {
+      const n = (v) => Number((document.querySelector('#pub-st button[data-v="' + v + '"] .seg-n') || {}).textContent);
+      return n('') === n('nova') + n('lida') + n('tratada') + n('descartada') && n('nova') === document.querySelectorAll('#pub-corpo .pub-card').length; }));
     ok('texto sem HTML e com as palavras importantes destacadas', sql("select count(*) from publicacoes where texto like '%<p>%'") === '0' && (await p.$$('#pub-corpo mark')).length > 0);
     await p.click('#pub-buscar'); await p.waitForTimeout(2500);
     ok('buscar de novo não duplica', sql("select count(*) from publicacoes") === '2');
@@ -825,14 +828,16 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('Parcelamentos: sem "Saldo residual por empresa" e sem "Progresso por parcelamento" separado', !(await p.$('#cParcResidual')) && !(await p.isVisible('#parcProgressList')));
     // Backup 25: lista por grupo (a mesma de Acordos), sem barra de progresso
     ok('Parcelamentos: "Parcelamentos em andamento" por grupo, com "N de M parcelas pagas" e sem barra', /Grupo Alfa/.test(await p.textContent('#parcAnalise .lg')) &&
-      /\d+ de \d+ pagas/.test(await p.textContent("#parcAnalise .lg")) && !(await p.$('#parcAnalise .lg .acx-bar')), await p.textContent('#parcAnalise .lg').catch(() => 'sem .lg'));
-    ok('Parcelamentos: de início só os grupos (sem os parcelamentos abertos)', (await p.$$('#parcAnalise .lg-card')).length >= 1 && !(await p.$('#parcAnalise .lg-filho')));
-    await p.click('#parcAnalise .lg-card'); await p.waitForTimeout(500);
-    ok('Parcelamentos: situação em cartões por grupo; clicar no cartão abre os parcelamentos logo abaixo', (await p.$$('#parcAnalise .lg-filhos .lg-filho')).length >= 1);
-    await p.click('#parcAnalise .lg-filho'); await p.waitForTimeout(600);
+      /Pagas\s*\d+ de \d+/.test(await p.textContent("#parcAnalise .lg")) && !(await p.$('#parcAnalise .lg .acx-bar')), await p.textContent('#parcAnalise .lg').catch(() => 'sem .lg'));
+    ok('Parcelamentos: de início só os grupos (sem os parcelamentos abertos)', (await p.$$('#parcAnalise .lg-card')).length >= 1 && !(await p.$('#parcAnalise .lg-t-lin')) || (await p.$$('#parcAnalise .lg-card')).length === 1);
+    if (!(await p.$('#parcAnalise .lg-t-lin'))) { await p.click('#parcAnalise .lg-card'); await p.waitForTimeout(500); }
+    ok('Parcelamentos: situação em cartões por grupo; clicar no cartão abre a tabela dos parcelamentos logo abaixo (cartão marcado "aberto")', (await p.$$('#parcAnalise .lg-painel .lg-t-lin')).length >= 1 && !!(await p.$('#parcAnalise .lg-card[aria-expanded=true]')));
+    ok('Parcelamentos: cartão mostra "A pagar este mês" (vencidas + do mês)', /A pagar este mês/.test(await p.textContent('#parcAnalise .lg-card')));
+    await p.click('#parcAnalise .lg-t-lin'); await p.waitForTimeout(600);
     ok('Parcelamentos: clicar no parcelamento abre o detalhamento numa janela, com as parcelas e "Lançar pagamento"', /Parcelamento/.test(await p.textContent('#janelas .janela-hd').catch(() => '')) && !!(await p.$('#janelas .pcd [data-lg-pagar]')));
     ok('Parcelamentos: o detalhamento traz a ficha da planilha (devedor, órgão, natureza, nº) e as parcelas em lista com a situação da guia', !!(await p.$('#janelas .pcd .lg-ficha')) &&
       /Devedor/.test(await p.textContent('#janelas .lg-ficha')) && (await p.$$('#janelas .lg-parc-tab tbody tr')).length >= 1 && !!(await p.$('#janelas .lg-parc-tab .lg-em')));
+    ok('Parcelamentos: detalhamento com colunas separadas "Emissão" e "Pagamento"', /Emissão/.test(await p.textContent('#janelas .lg-parc-tab thead')) && /Pagamento/.test(await p.textContent('#janelas .lg-parc-tab thead')));
     sql("update parcelamentos set emitimos_guia=true");
     await p.evaluate(() => { while (document.querySelector('#janelas .fundo')) window.GS.fecharJanela(); });
     await p.selectOption('#parcFGrupo', { index: 1 }); await p.waitForTimeout(400);
@@ -848,8 +853,8 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('Acordos: "Situação dos acordos" com a tabela "Acordos em andamento" (sem "Por credor" e sem o gráfico de atraso)', /Situação dos acordos/.test(await p.textContent('#acAnalise')) && /Acordos em andamento/.test(await p.textContent('#acAnalise')) &&
       !/Por credor/.test(await p.textContent('#acAnalise')) && !(await p.$('#cAcordAtraso')));
     { const pg0 = Number(sql("select count(*) from acordos where pago"));
-      ok('Acordos: por grupo, de início só os grupos', (await p.$$('#acAnalise .lg-card')).length >= 1 && !(await p.$('#acAnalise .lg-filho')));
-      await p.click('#acAnalise .lg-card'); await p.waitForTimeout(400); await p.click('#acAnalise .lg-filho'); await p.waitForTimeout(500);
+      ok('Acordos: por grupo, de início só os grupos', (await p.$$('#acAnalise .lg-card')).length >= 1 && !(await p.$('#acAnalise .lg-t-lin')) || (await p.$$('#acAnalise .lg-card')).length === 1);
+      if (!(await p.$('#acAnalise .lg-t-lin'))) { await p.click('#acAnalise .lg-card'); await p.waitForTimeout(400); } await p.click('#acAnalise .lg-t-lin'); await p.waitForTimeout(500);
       ok('Acordos: clicar no acordo abre o detalhamento com "Lançar pagamento"', !!(await p.$('#janelas .pcd [data-lg-pagar]')));
       await p.click('#janelas .pcd [data-lg-pagar]'); await p.waitForSelector('#gs-raiz .janela-baixa, #gs-raiz [data-bx-ok]'); await p.click('#gs-raiz [data-bx-ok]'); await p.waitForTimeout(2500);
       ok('Acordos: "Lançar pagamento" dá baixa na parcela', Number(sql("select count(*) from acordos where pago")) === pg0 + 1); }
@@ -867,8 +872,8 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('PIX copia e cola saiu (sem botão e sem a função no banco)', !(await p.$('[data-pix]')) && sql("select count(*) from pg_proc where proname in ('pix_copia_cola','crc16_ccitt')") === '0');
     ok('Acordos: sem "Progresso por acordo"; uma aba só "A pagar" (vencidas + a vencer) com Grupo e Responsável', !(await p.isVisible('#acordProgressList')) &&
       !(await p.isVisible('#acordTabBar [data-atab=pagar]')) && /A pagar/.test(await p.textContent('#acordTabBar')) &&
-      (await p.$$eval('#acordTabVencidos thead th', (l) => l.map((t) => t.textContent))).join('|').includes('Grupo|Responsável'));
-    ok('Acordos: cada parcela a pagar tem "🧾 Boleto" e dá para marcar e enviar por empresa', !!(await p.$('#tblAcordosVencBody [data-ac-guia]')) && !!(await p.$('#tblAcordosVencBody [data-ac-sel]')));
+      (await p.$$eval('#acordTabVencidos thead th', (l) => l.map((t) => t.textContent))).join('|').includes('Grupo|Processo') && !(await p.textContent('#acordTabVencidos thead')).includes('Responsável'));
+    ok('Acordos: cada parcela a pagar tem "🧾 Emitir" e dá para marcar e enviar por empresa', !!(await p.$('#tblAcordosVencBody [data-ac-guia]')) && !!(await p.$('#tblAcordosVencBody [data-ac-sel]')));
     await p.check('#tblAcordosVencBody [data-ac-sel] >> nth=0'); await p.waitForTimeout(300);
     ok('Acordos: marcar a parcela mostra "✉ Enviar por empresa"', await p.isVisible('#acSelEnviar'));
     await p.click('#acSelEnviar'); await p.waitForSelector('#gs-raiz .ge-janela', { timeout: 8000 }).catch(() => {});
@@ -1006,6 +1011,13 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.click('#panel-hoje [data-fila-vista=semana]'); await p.waitForTimeout(1200);
     ok('Início: fila vira calendário semanal e a escolha fica guardada', !!(await p.$('#panel-hoje .fila-semana')) &&
       sql("select preferencias->'fila'->>'vista' from perfis where email='pedro@teste'") === 'semana', sql("select preferencias::text from perfis where email='pedro@teste'"));
+    // Backup 36: agendar compromisso direto na agenda + legenda de cores
+    ok('Início: agenda com "+ Agendar" e legenda de cores', !!(await p.$('#panel-hoje [data-agendar]')) && !!(await p.$('#panel-hoje .ag-leg')));
+    await p.click('#panel-hoje [data-agendar]'); await p.waitForSelector('#gs-raiz #f-ag');
+    await p.click('#gs-raiz #ag-tipo [data-v=audiencia]'); await p.fill('#gs-raiz #f-ag [name=titulo]', 'Audiência de teste B36'); await p.fill('#gs-raiz #f-ag [name=hora]', '14:30');
+    await p.click('#gs-raiz #ag-ok'); await p.waitForTimeout(1500);
+    ok('Início: "Agendar" grava o compromisso (tipo, hora) na agenda', sql("select tipo_agenda||' '||to_char(hora,'HH24:MI') from tarefas where titulo='Audiência de teste B36'") === 'audiencia 14:30' &&
+      /Audiência de teste B36/.test(await p.textContent('#panel-hoje .ini-fila')));
     await p.click('#panel-hoje [data-fila-vista=lista]'); await p.waitForTimeout(800);
     ok('Início: fila mostra no máximo 5 de cara', (await p.$$('#panel-hoje .ini-fila .fila-item, #panel-hoje .ini-fila tbody tr')).length <= 5);
     ok('Início: sem "+ Receita/+ Despesa/+ Contrato" (o "+ Lançar" faz isso)', !/\+ Receita|\+ Despesa|\+ Contrato/.test(await p.textContent('#panel-hoje')));
@@ -1240,14 +1252,22 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     const pa77 = sql("select parcelamento_id from parcelas where numero='77'"), vu77 = sql("select coalesce(valor_ultima_parcela::text,'null') from parcelamentos where id='" + pa77 + "'");
     const id77 = sql("select id from parcelas where numero='77'"), id78 = sql("select id from parcelas where numero='78'"), id79 = sql("select id from parcelas where numero='79'");
     await p.evaluate(() => nav(null, 'rotina')); await p.waitForSelector('#rt-abas'); await p.click('#rt-abas [data-rt-aba=parcs]');
-    await p.waitForSelector('#rt-parc-corpo [data-sel="' + id77 + '"]', { timeout: 10000 }); await p.waitForTimeout(300);
-    ok('Controle dos parcelamentos: cada mês com Emissão e Pagamento', (await p.$$('#rt-corpo thead .rt-ep-hd')).length === 8 && (await p.$$('#rt-parc-corpo .rt-ep')).length > 0);
+    await p.waitForSelector('#rt-parc-corpo [data-cel="' + id77 + '"]', { timeout: 10000 }); await p.waitForTimeout(300);
+    ok('Controle dos parcelamentos: um quadrinho por parcela em cada mês (Emitir / Emitida / Vencida / Paga)', (await p.$$('#rt-corpo thead th.rt-c-mes')).length === 8 && (await p.$$('#rt-parc-corpo .rt-ch')).length > 0);
+    // marcar = clicar no quadrinho → menu → "Marcar para enviar"
+    const marcarRt = async (id) => { await p.click('#rt-parc-corpo tr[data-pc] [data-cel="' + id + '"] >> nth=0'); await p.waitForSelector('#rt-pop:not([hidden]) [data-sel]'); await p.click('#rt-pop [data-sel]'); await p.waitForTimeout(250); };
+    await p.click('#rt-parc-corpo tr[data-pc] [data-cel="' + id77 + '"] >> nth=0'); await p.waitForSelector('#rt-pop:not([hidden])');
+    ok('Controle: clicar no quadrinho abre o menu (marcar para enviar, lançar pagamento, ver parcelas)', !!(await p.$('#rt-pop [data-sel]')) && !!(await p.$('#rt-pop [data-pag]')) && !!(await p.$('#rt-pop [data-abre]')));
+    await p.keyboard.press('Escape'); await p.waitForTimeout(200);
     ok('Controle dos parcelamentos: cabeçalho fixo no alto da página', await p.evaluate(() => getComputedStyle(document.querySelector('.rt-ctl > thead th')).position === 'sticky'));
-    await p.click('#rt-parc-corpo [data-sel="' + id77 + '"]'); await p.click('#rt-parc-corpo [data-sel="' + id78 + '"]'); await p.waitForTimeout(300);
+    await marcarRt(id77); await marcarRt(id78);
     ok('Controle: marcar as parcelas mostra a barra "Enviar por empresa"', await p.isVisible('#rt-selbar [data-sel-enviar]') && /2 parcelas marcadas/.test(await p.textContent('#rt-selbar')));
     await p.click('#rt-selbar [data-sel-enviar]'); await p.waitForSelector('#gs-raiz .ge-janela'); await p.waitForTimeout(500);
     ok('Enviar por empresa: texto "Prezados," e WhatsApp ao lado de Enviar e-mail', /Prezados,/.test(await p.inputValue('#ge-texto')) && await p.evaluate(() => { const a = document.querySelector('#ge-zap'), b = document.querySelector('#ge-enviar'); return a && b && a.parentElement === b.parentElement; }));
     ok('Enviar por empresa: empresas agrupadas por grupo e texto neutro ("em nome de")', (await p.$$('#gs-raiz .ge-grp .ge-emp')).length > 0 && /em nome de /.test(await p.inputValue('#ge-texto')));
+    await p.click('#gs-raiz #ge-previa'); await p.waitForSelector('#gs-raiz iframe.ge-previa', { timeout: 8000 }).catch(() => {});
+    ok('Enviar por empresa: "Prévia do e-mail" mostra o e-mail com a marca (igual ao módulo E-mails)', /<html|<table|<div/i.test(await p.evaluate(() => (document.querySelector('#gs-raiz iframe.ge-previa') || {}).srcdoc || '')));
+    await p.evaluate(() => { const f = document.querySelector('#gs-raiz iframe.ge-previa'); const j = f && f.closest('.janela'); const x = j && j.querySelector('.janela-x, [data-fechar]'); if (x) x.click(); }); await p.waitForTimeout(300);
     ok('Enviar por empresa: só as parcelas marcadas, com o valor editável na caixa "R$"', (await p.$$('#gs-raiz .ge-it')).length === 2 && await p.isVisible('#gs-raiz .ge-vbox .ge-rs'));
     await p.fill('#gs-raiz #ge-para', 'guias@teste.com');
     await p.fill('#gs-raiz .ge-it[data-ge="' + id77 + '"] .ge-valor', '1.234,56');
@@ -1257,15 +1277,15 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       sql("select count(*) from documentos where nome='guia78.pdf'") === '0');
     ok('Enviar por empresa: as parcelas ficam marcadas como emitidas (Emissão ✓) e o valor digitado vira o valor lançado', sql("select count(*) from parcelas where numero in ('77','78') and emitida_em = current_date and email_ref like 'guias:%'") === '2' &&
       sql("select valor from parcelas where numero='77'") === '1234.56');
-    await p.waitForSelector('#rt-parc-corpo [data-sel="' + id77 + '"].rt-e-ok', { timeout: 8000 }).catch(() => {});
-    ok('Controle: depois do envio a Emissão do mês fica ✓ (e a marcação some)', !!(await p.$('#rt-parc-corpo [data-sel="' + id77 + '"].rt-e-ok')) && !(await p.isVisible('#rt-selbar [data-sel-enviar]')));
+    await p.waitForSelector('#rt-parc-corpo [data-cel="' + id77 + '"].rt-ch-emit, #rt-parc-corpo [data-cel="' + id77 + '"].rt-ch-atr', { timeout: 8000 }).catch(() => {});
+    ok('Controle: depois do envio a parcela fica "Emitida" (e a marcação some)', !!(await p.$('#rt-parc-corpo [data-cel="' + id77 + '"]:is(.rt-ch-emit, .rt-ch-atr):not(.rt-ch-sel)')) && !(await p.isVisible('#rt-selbar [data-sel-enviar]')));
     // vencida sem pagamento: marcar de novo → nova data e valor atualizado (reemissão)
-    await p.click('#rt-parc-corpo [data-sel="' + id79 + '"]'); await p.click('#rt-selbar [data-sel-enviar]'); await p.waitForSelector('#gs-raiz .ge-janela'); await p.waitForTimeout(500);
+    await marcarRt(id79); await p.click('#rt-selbar [data-sel-enviar]'); await p.waitForSelector('#gs-raiz .ge-janela'); await p.waitForTimeout(500);
     ok('Reemissão: a parcela vencida pede o novo vencimento', await p.isVisible('#gs-raiz .ge-novo-venc'));
     await p.fill('#gs-raiz #ge-para', 'guias@teste.com'); await p.fill('#gs-raiz .ge-valor', '999,90'); await p.click('#gs-raiz #ge-enviar'); await p.waitForTimeout(2500);
     ok('Reemissão: grava o reenvio (novo vencimento e valor atualizado) sem mudar o valor lançado', sql("select (reenvio_venc >= current_date)::text || '|' || reenvio_valor || '|' || coalesce(valor::text,'-') from parcelas where numero='79'") === 'true|999.90|-');
     // valor da parcela editável no detalhe
-    await p.click('#rt-parc-corpo tr[data-pc]:has([data-sel="' + id78 + '"]) .rt-abre'); await p.waitForSelector('#rt-parc-corpo [data-valor="' + id78 + '"]');
+    await p.click('#rt-parc-corpo tr[data-pc]:has([data-cel="' + id78 + '"]) .rt-abre'); await p.waitForSelector('#rt-parc-corpo [data-valor="' + id78 + '"]');
     await p.fill('#rt-parc-corpo [data-valor="' + id78 + '"]', '2.000,00'); await p.press('#rt-parc-corpo [data-valor="' + id78 + '"]', 'Enter'); await p.waitForTimeout(1500);
     ok('Controle: o valor da parcela é editável (grava e atualiza o valor da parcela do parcelamento)', sql("select valor from parcelas where numero='78'") === '2000.00');
     sql("delete from parcelas where numero in ('77','78','79')");
@@ -1281,7 +1301,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.click('#rt-parc-corpo .rt-chave >> nth=0'); await p.waitForTimeout(1500);
     ok('Controle dos parcelamentos: desligar "Nós emitimos?" marca que o cliente emite', sql("select emitimos_guia from parcelamentos where id='" + idEmit + "'") === 'f' &&
       sql("select count(*) from rotina_conferencias where area='parcelamentos' and alterou") === '1');
-    ok('Controle dos parcelamentos: planilha com 8 meses (5 para trás, o atual e 2 à frente) e as parcelas', (await p.$$('#rt-corpo thead th.rt-c-mes')).length === 8 && (await p.$$('#rt-parc-corpo .rt-ep')).length > 0);
+    ok('Controle dos parcelamentos: planilha com 8 meses (5 para trás, o atual e 2 à frente) e as parcelas', (await p.$$('#rt-corpo thead th.rt-c-mes')).length === 8 && (await p.$$('#rt-parc-corpo .rt-ch')).length > 0);
     sql("update parcelamentos set emitimos_guia = true where id='" + idEmit + "'");
     // Backup 33: clicar no parcelamento abre as parcelas; aba de acordos; senha GOV em janela (fora da tabela)
     { const antes = (await p.$$('#rt-parc-corpo tr.rt-det')).length;
@@ -1294,7 +1314,10 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
 
     // Backup 33: Painel Executivo — evolução do passivo em linhas (total ou por empresa)
     await p.evaluate(() => nav(null, 'resumo')); await p.waitForTimeout(2500);
-    ok('Painel: gráfico de linhas "Evolução do passivo"', await p.evaluate(() => { const c = document.getElementById('cEvoPassivo'); const ch = c && window.Chart && Chart.getChart(c); return !!ch && ch.config.type === 'line' && ch.data.labels.length === 12; }));
+    ok('Painel: gráfico de linhas "Evolução do passivo"', await p.evaluate(() => { const c = document.getElementById('cEvoPassivo'); const ch = c && window.Chart && Chart.getChart(c); return !!ch && ch.config.type === 'line' && ch.data.labels.length >= 2 && ch.data.labels.length <= 12; }));
+    ok('Painel: evolução abre em "Tudo junto" (uma linha só)', await p.evaluate(() => Chart.getChart(document.getElementById('cEvoPassivo')).data.datasets.length === 1));
+    ok('Painel: evolução sem os meses antes do primeiro lançamento (nada de cair para zero)', await p.evaluate(() => Chart.getChart(document.getElementById('cEvoPassivo')).data.datasets[0].data[0] != null));
+    await p.click('#evo-visao [data-v=linhas]'); await p.waitForTimeout(500);
     ok('Painel: evolução com uma linha por grupo', await p.evaluate(() => Chart.getChart(document.getElementById('cEvoPassivo')).data.datasets.length === Number(document.querySelectorAll('#execRankWrap tr.gx-grp').length || 2) || Chart.getChart(document.getElementById('cEvoPassivo')).data.datasets.length >= 2));
     await p.click('#evo-visao [data-v=total]'); await p.waitForTimeout(500);
     ok('Painel: "Tudo junto" soma numa linha só', await p.evaluate(() => Chart.getChart(document.getElementById('cEvoPassivo')).data.datasets.length === 1));
@@ -1311,6 +1334,11 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       await p.click('#rt-corpo [data-pl-e="' + id + '"]'); await p.waitForTimeout(1200);
       ok('Planilha: clicar em EMISSÃO marca a guia como emitida', sql("select emitida_em is not null from parcelas where id='" + id + "'") === 't');
       await p.click('#rt-corpo [data-pl-e="' + id + '"]'); await p.waitForTimeout(1200); }
+    ok('Planilha: "Emitir guias" sempre clicável e a lista de parcelas vai até a última (sem rolagem dentro do bloco)', !(await p.$('#rt-corpo #pl-emitir[disabled]')) && !(await p.$('#rt-corpo .pl-lista')) &&
+      await p.evaluate(() => [...document.querySelectorAll('#rt-corpo .pl-bloco')].every((b) => b.scrollHeight <= b.clientHeight + 2)));
+    await p.click('#rt-corpo #pl-emitir'); await p.waitForTimeout(800);
+    ok('Planilha: clicar em "Emitir guias" abre o envio por empresa (ou avisa que não há guia a emitir)', !!(await p.$('#gs-raiz .ge-janela')) || /Nenhuma guia a emitir/.test(await p.textContent('body')));
+    await p.evaluate(() => document.querySelectorAll('#gs-raiz .janela [data-fechar], #gs-raiz .janela .janela-x').forEach((b) => b.click())).catch(() => {}); await p.waitForTimeout(300);
     ok('Controle dos parcelamentos: mostra o valor residual de cada parcelamento', await (async () => { await p.click('#rt-abas [data-rt-aba=parcs]'); await p.waitForSelector('#rt-parc-corpo .rt-resid', { timeout: 8000 }).catch(() => {}); return !!(await p.$('#rt-parc-corpo .rt-resid')); })());
 
     // Backup 35: Processos — últimas 3 movimentações e a data em que o valor da causa foi atualizado

@@ -6,27 +6,27 @@
 <title>Documentos — Araújo & Castro</title>
 <link rel="icon" href="../img/logo-login.png">
 <link rel="stylesheet" href="../tokens.css?v=1263585f">
-<link rel="stylesheet" href="central.css?v=258a4d4e">
+<link rel="stylesheet" href="central.css?v=d48e192b">
 <link rel="stylesheet" href="documento.css?v=da12f804">
 <script src="../vendor/supabase.js?v=16aeff36"></script>
 <script src="../config.js"></script>
 <script src="modelos.js?v=b08e2ab1" defer></script>
-<script src="motor.js?v=8bc69b27" defer></script>
+<script src="motor.js?v=20c5b716" defer></script>
 </head>
 <body>
 <header class="dc-topo">
   <h1>Araújo &amp; Castro <span>· Documentos</span></h1>
   <span class="dc-esp"></span>
+  <div class="dc-topo-vis">
+    <button type="button" class="dc-vis" data-vista="historico"><span>🗂</span><b>Histórico</b></button>
+    <button type="button" class="dc-vis" data-vista="escritorio"><span>⚙</span><b>Configurações</b></button>
+  </div>
   <span class="dc-eu" id="dc-eu"></span>
   <a href="../index.html">← Voltar ao ERP</a>
 </header>
 <div class="dc-corpo-app">
   <nav class="dc-lado" aria-label="Modelos">
     <div id="dc-menu"></div>
-    <div class="dc-lado-pe">
-      <button type="button" class="dc-vis" data-vista="historico"><span>🗂</span><b>Histórico</b></button>
-      <button type="button" class="dc-vis" data-vista="escritorio"><span>🏛</span><b>Escritório</b></button>
-    </div>
   </nav>
   <main class="dc-area" id="dc-area"><p class="dc-vazio">Carregando…</p></main>
 </div>

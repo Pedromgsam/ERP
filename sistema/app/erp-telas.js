@@ -383,8 +383,8 @@
         if (box && p._id && window.SB) window.SB.from('processo_movimentacoes').select('data, tipo, descricao, valor_novo, quem').eq('processo_id', p._id).order('data', { ascending: false }).order('criado_em', { ascending: false }).limit(3)
           .then(({ data }) => { if (!data || !data.length) return;
             const TIPO = { movimentacao: 'Movimentação', decisao: 'Decisão', valor: 'Valor', procuracao: 'Procuração', sem_novidade: 'Sem novidade' };
-            box.innerHTML = data.map((m) => '<div class="gx-mov"><span class="gx-mov-d">' + escH(String(m.data).split('-').reverse().join('/')) + '</span><span class="gx-mov-t">' + escH(TIPO[m.tipo] || m.tipo) + '</span>' +
-              '<span class="gx-mov-x">' + escH(m.descricao || (m.tipo === 'sem_novidade' ? 'Conferido — sem novidade' : '')) + (m.valor_novo ? ' · novo valor ' + fBRL(m.valor_novo) : '') + (m.quem ? ' <span class="sub">— ' + escH(m.quem) + '</span>' : '') + '</span></div>').join(''); });
+            box.innerHTML = data.map((m) => '<div class="gx-mov"><div class="gx-mov-cab"><span class="gx-mov-d">' + escH(String(m.data).split('-').reverse().join('/')) + '</span><span class="gx-mov-t">' + escH(TIPO[m.tipo] || m.tipo) + '</span></div>' +
+              '<div class="gx-mov-x">' + escH(m.descricao || (m.tipo === 'sem_novidade' ? 'Conferido — sem novidade' : '')) + (m.valor_novo ? ' · novo valor ' + fBRL(m.valor_novo) : '') + '</div>' + (m.quem ? '<div class="gx-mov-q">por ' + escH(m.quem) + '</div>' : '') + '</div>').join(''); });
         j.querySelector('[data-pr-mov]').onclick = () => { GS().fecharJanela(j); if (GS().janelaMovimentacao) GS().janelaMovimentacao(p._id, () => { if (window.ERP_RECARREGAR) window.ERP_RECARREGAR(); }); };
         j.querySelector('[data-pr-editar]').onclick = () => { GS().fecharJanela(j); if (window.ERP_EDITAR) window.ERP_EDITAR(tr.dataset.gx); }; } });
     function tbody_det(tr) { return tb._gxDet(tr); }
@@ -729,7 +729,7 @@
   // Cartão no Painel Executivo, antes de "Empresas do grupo". Dados: evolucao_passivo (SQL), lidos uma vez e filtrados aqui.
   // Grupo: "Todos" ou um grupo. Visão: "Total" (uma linha) ou "Por empresa" (uma linha por empresa; em "Todos", uma por grupo).
   const EVO_CORES = ['#5873C1', '#2D7C75', '#AD6833', '#9A79D2', '#B74373', '#358452', '#C26464', '#3294AC', '#73A034'];
-  const _evo = { dados: null, visao: 'linhas', meses: 12, ch: null, carregando: false };
+  const _evo = { dados: null, visao: 'total', meses: 12, ch: null, carregando: false };
   const evoMoeda = (v) => 'R$ ' + (Number(v) || 0).toLocaleString('pt-BR', { maximumFractionDigits: 0 });
   const evoCurta = (v) => { const n = Math.abs(v); return n >= 1e6 ? 'R$ ' + (v / 1e6).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' mi' : n >= 1e3 ? 'R$ ' + (v / 1e3).toLocaleString('pt-BR', { maximumFractionDigits: 0 }) + ' mil' : evoMoeda(v); };
   const evoMes = (iso) => { const [a, m] = String(iso).split('-'); return ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'][Number(m) - 1] + '/' + a.slice(2); };
@@ -742,7 +742,7 @@
     if (!card) {
       card = document.createElement('div'); card.id = 'execEvolWrap'; card.className = 'cc evo-card';
       card.innerHTML = '<div class="cc-h evo-h"><div><div class="cc-t">Evolução do passivo</div><div class="cc-d" id="evo-sub"></div></div>' +
-        '<div class="evo-ctl"><div class="segmento gx-seg-cli" id="evo-visao"><button type="button" data-v="linhas" class="ativo" id="evo-bt-linhas">Uma linha por grupo</button><button type="button" data-v="total">Tudo junto</button></div>' +
+        '<div class="evo-ctl"><div class="segmento gx-seg-cli" id="evo-visao"><button type="button" data-v="total" class="ativo">Tudo junto</button><button type="button" data-v="linhas" id="evo-bt-linhas">Uma linha por grupo</button></div>' +
         '<select class="fsel" id="evo-meses" autocomplete="off"><option value="6">6 meses</option><option value="12" selected>12 meses</option><option value="24">24 meses</option></select></div></div>' +
         '<div class="evo-resumo" id="evo-resumo"></div><div class="cb evo-cb"><canvas id="cEvoPassivo"></canvas></div>' +
         '<div class="evo-nota">Soma de RFB, PGFN, SEFAZ e AGE/MG (em aberto + negociado). O valor de cada mês é o que estava cadastrado no último dia do mês. Para ver as empresas de um grupo, escolha o grupo no filtro do topo.</div>';
@@ -763,20 +763,23 @@
     const cv = document.getElementById('cEvoPassivo'); if (!cv || !_evo.dados || !window.Chart) return;
     const gf = evoGrupoFiltro();
     const linhas = _evo.dados.filter((x) => !gf || x.grupo === gf);
-    const meses = [...new Set(_evo.dados.map((x) => x.mes))].sort();
+    // Backup 36: meses sem passivo lançado ainda (null) ficam de fora; o gráfico começa no 1º mês com dado
+    let meses = [...new Set(_evo.dados.map((x) => x.mes))].sort();
+    const comDado = new Set(linhas.filter((x) => x.total != null).map((x) => x.mes));
+    while (meses.length > 2 && !comDado.has(meses[0])) meses.shift();
     const bt = document.getElementById('evo-bt-linhas'); if (bt) bt.textContent = gf ? 'Uma linha por empresa' : 'Uma linha por grupo';
     const sub = document.getElementById('evo-sub'); if (sub) sub.textContent = gf ? 'Empresas do grupo ' + gf + ', mês a mês' : 'Grupos, mês a mês';
     const chave = _evo.visao === 'total' ? () => (gf || 'Todos os grupos') : gf ? (x) => x.cliente : (x) => x.grupo;
     const series = {};
-    linhas.forEach((x) => { const k = chave(x); (series[k] = series[k] || {})[x.mes] = (series[k][x.mes] || 0) + (Number(x.total) || 0); });
+    linhas.forEach((x) => { if (x.total == null) return; const k = chave(x); (series[k] = series[k] || {})[x.mes] = (series[k][x.mes] || 0) + (Number(x.total) || 0); });
     const ult = meses[meses.length - 1];
     const nomes = Object.keys(series).sort((a, b) => (series[b][ult] || 0) - (series[a][ult] || 0));
     const ds = nomes.map((n, i) => {
       const cor = nomes.length === 1 ? '#16294B' : EVO_CORES[i % EVO_CORES.length];
-      return { label: n, data: meses.map((m) => series[n][m] || 0), borderColor: cor, backgroundColor: cor, borderWidth: nomes.length === 1 ? 2.5 : 2,
+      return { label: n, data: meses.map((m) => (series[n][m] == null ? null : series[n][m])), spanGaps: true, borderColor: cor, backgroundColor: cor, borderWidth: nomes.length === 1 ? 2.5 : 2,
         pointRadius: 2, pointHoverRadius: 5, tension: 0.25, fill: false };
     });
-    const tot = (m) => linhas.filter((x) => x.mes === m).reduce((s, x) => s + (Number(x.total) || 0), 0);
+    const tot = (m) => linhas.filter((x) => x.mes === m && x.total != null).reduce((s, x) => s + (Number(x.total) || 0), 0);
     const ini = tot(meses[0]), fim = tot(ult), dif = fim - ini, pct = ini ? (dif / ini) * 100 : 0;
     const r = document.getElementById('evo-resumo');
     if (r) r.innerHTML = '<span><b>' + evoMoeda(fim) + '</b> hoje' + (gf ? ' · ' + esc(gf) : '') + '</span><span class="' + (dif > 0 ? 'evo-sobe' : dif < 0 ? 'evo-desce' : '') + '">' +

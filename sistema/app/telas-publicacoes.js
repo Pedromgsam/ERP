@@ -91,27 +91,34 @@ async function carregarPublicacoes() {
 function pintarPublicacoes() {
   const F = E.pub, b = normalizar(F.busca);
   if (!$('pub-corpo')) return;
-  document.querySelectorAll('#pub-st button').forEach((x) => x.classList.toggle('ativo', x.dataset.v === F.status));
   const todas = E._pubs || [];
-  // tribunais com publicação pendente (nova/lida): quando todas forem tratadas/descartadas ou saírem do período, o botão some
-  const pend = {}; todas.filter((p) => (p.status === 'nova' || p.status === 'lida') && p.tribunal).forEach((p) => { pend[p.tribunal] = (pend[p.tribunal] || 0) + 1; });
+  // Backup 36: cada contador mostra exatamente o que aparece ao clicar nele — vale o recorte dos OUTROS filtros
+  // (situação × advogado × tribunal × busca). Ex.: 61 no total, 5 tratadas → Novas 56 · Tratadas 5 · Todas 61.
+  const pn = (n) => normalizar(String(n || '').trim().split(/\s+/)[0] || '');
+  const doAdv = (p, n) => { const k = pn(n); return !!k && (pn(p.advogado) === k || normalizar(p.advogados || '').split(/[;,]/).some((x) => pn(x) === k)); };
+  const okSt = (p) => !F.status || p.status === F.status, okAdv = (p) => !F.adv || doAdv(p, F.adv), okTrib = (p) => !F.tribunal || p.tribunal === F.tribunal;
+  const okBusca = (p) => !b || normalizar(p.texto + ' ' + p.processo + ' ' + p.destinatarios + ' ' + p.orgao).includes(b);
+  const semSt = todas.filter((p) => okAdv(p) && okTrib(p) && okBusca(p));
+  document.querySelectorAll('#pub-st button').forEach((x) => { x.classList.toggle('ativo', x.dataset.v === F.status);
+    const n = semSt.filter((p) => !x.dataset.v || p.status === x.dataset.v).length;
+    x.innerHTML = esc(x.dataset.rot || (x.dataset.rot = x.textContent)) + ' <span class="seg-n">' + n + '</span>'; });
+  const semTrib = todas.filter((p) => okSt(p) && okAdv(p) && okBusca(p));
+  const pend = {}; semTrib.filter((p) => p.tribunal).forEach((p) => { pend[p.tribunal] = (pend[p.tribunal] || 0) + 1; });
   const tribs = Object.keys(pend).sort((a, b) => a.localeCompare(b, 'pt-BR'));
   if (F.tribunal && !pend[F.tribunal]) F.tribunal = '';
   const st = $('pub-trib');
   if (st) { st.parentNode.hidden = !tribs.length;
-    st.innerHTML = '<button type="button" data-v="" class="' + (F.tribunal ? '' : 'ativo') + '">Todos os tribunais</button>' +
-      tribs.map((t) => '<button type="button" data-v="' + esc(t) + '" class="' + (F.tribunal === t ? 'ativo' : '') + '" title="' + pend[t] + ' pendente(s)">' + esc(t) + ' <span class="seg-n">' + pend[t] + '</span></button>').join(''); }
-  const pn = (n) => normalizar(String(n || '').trim().split(/\s+/)[0] || '');
-  const doAdv = (p, n) => { const k = pn(n); return !!k && (pn(p.advogado) === k || normalizar(p.advogados || '').split(/[;,]/).some((x) => pn(x) === k)); };
+    st.innerHTML = '<button type="button" data-v="" class="' + (F.tribunal ? '' : 'ativo') + '">Todos os tribunais <span class="seg-n">' + semTrib.length + '</span></button>' +
+      tribs.map((t) => '<button type="button" data-v="' + esc(t) + '" class="' + (F.tribunal === t ? 'ativo' : '') + '">' + esc(t) + ' <span class="seg-n">' + pend[t] + '</span></button>').join(''); }
   const nomesAdv = [...new Set((E._pubAdvs || []).concat(todas.map((p) => p.advogado)).filter(Boolean).map((n) => String(n).trim().split(/\s+/)[0]))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
   if (F.adv && !nomesAdv.includes(F.adv)) F.adv = '';
+  const semAdv = todas.filter((p) => okSt(p) && okTrib(p) && okBusca(p));
   const sa = $('pub-advs');
   if (sa) { sa.parentNode.hidden = !nomesAdv.length;
-    sa.innerHTML = '<button type="button" data-v="" class="' + (F.adv ? '' : 'ativo') + '">Todos os advogados</button>' + nomesAdv.map((n) => { const c = todas.filter((p) => (p.status === 'nova' || p.status === 'lida') && doAdv(p, n)).length;
-      return '<button type="button" data-v="' + esc(n) + '" class="' + (F.adv === n ? 'ativo' : '') + '">' + esc(n) + (c ? ' <span class="seg-n">' + c + '</span>' : '') + '</button>'; }).join(''); }
-  const lista = todas.filter((p) => (!F.status || p.status === F.status) && (!F.adv || doAdv(p, F.adv)) && (!F.tribunal || p.tribunal === F.tribunal) &&
-    (!b || normalizar(p.texto + ' ' + p.processo + ' ' + p.destinatarios + ' ' + p.orgao).includes(b)));
-  const conta = (s) => todas.filter((p) => p.status === s).length;
+    sa.innerHTML = '<button type="button" data-v="" class="' + (F.adv ? '' : 'ativo') + '">Todos os advogados <span class="seg-n">' + semAdv.length + '</span></button>' + nomesAdv.map((n) => { const c = semAdv.filter((p) => doAdv(p, n)).length;
+      return '<button type="button" data-v="' + esc(n) + '" class="' + (F.adv === n ? 'ativo' : '') + '">' + esc(n) + ' <span class="seg-n">' + c + '</span></button>'; }).join(''); }
+  const lista = todas.filter((p) => okSt(p) && okAdv(p) && okTrib(p) && okBusca(p));
+  const conta = (s) => semSt.filter((p) => p.status === s).length;
   $('pub-corpo').innerHTML = '<div class="kpis">' + kpi('Novas', String(conta('nova')), conta('nova') ? 'ambar' : 'verde', 'ainda não lidas') + kpi('Lidas', String(conta('lida')), '', 'sem tarefa ainda') +
     kpi('Tratadas', String(conta('tratada')), 'verde', 'com tarefa criada') + '</div>' +
     (lista.length ? lista.map((p) => '<div class="card pub-card' + (p.status === 'nova' ? ' pub-nova' : '') + '" data-pub="' + p.id + '"><div class="card-bd">' +

@@ -56,7 +56,7 @@ function _acAbrir(k){
         +kp('Próxima parcela',g.prox?esc(g.prox.vencimento||'—'):'—')+kp('Em atraso',g.atr?g.atr+' parcela'+(g.atr>1?'s':''):'nenhuma',g.atr?'vermelho':'')+'</div>'
       +'<div class="pcd-tit">Parcelas</div>'+_lgParcTabela(g.l.map(function(a){ return {id:a._id, rot:(a.parcela||'?')+(a.totalParc?'/'+a.totalParc:''), venc:a.vencimento, valor:F.v(a),
           pago:F.pago(a), dataPag:a.dataPag, emitida:!!a.emitidaEm||/sim|emitid/i.test(a.emissao||''), emitidaEm:a.emitidaEm}; }),'acordos')+'</div>' });
-  j.querySelectorAll('[data-lg-pagar]').forEach(function(b){ b.onclick=function(){ GS.fecharJanela(j); _acPagar(b.dataset.lgPagar,b); }; });
+  j.querySelectorAll('[data-lg-pagar]').forEach(function(b){ b.onclick=function(){ if(!_lgConfirmaPag(b)) return; GS.fecharJanela(j); _acPagar(b.dataset.lgPagar,b); }; });
   j.querySelectorAll('[data-ac-pagar]').forEach(function(b){ b.onclick=function(){ GS.fecharJanela(j); _acPagar(b.dataset.acPagar,b); }; });
   j.querySelectorAll('[data-ac-det]').forEach(function(b){ b.onclick=function(){ GS.fecharJanela(j); _acDetalhe(b.dataset.acDet); }; });
 }
