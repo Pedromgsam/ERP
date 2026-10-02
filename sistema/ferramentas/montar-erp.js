@@ -592,6 +592,28 @@ trocar("kC('Prejuízo',fF(vPrej),prejuizo.length+' baixa(s)','cx',vPrej>0?'dr':'
 trocar("  +   kC('Em atraso',fF(vVenc),vencidos.length+' vencido(s)','cr',vVenc>0?'dr':'')", "  +   kC('Em atraso',fF(vVenc),vencidos.length+' vencido(s) · todos os meses','cr',vVenc>0?'dr':'')", 1);
 // Backup 37: Financeiro → Análise sem a tabela "Em atraso" (a mesma informação já está na aba A Receber e no cartão Em atraso)
 trocar("  + (vencidos.length?'<div class=\"cc\" style=\"margin-bottom:14px\"><div class=\"cc-hd\"><div><div class=\"cc-t\">Em atraso</div>", "  + (false&&vencidos.length?'<div class=\"cc\" style=\"margin-bottom:14px\"><div class=\"cc-hd\"><div><div class=\"cc-t\">Em atraso</div>", 2);
+// Backup 39: Painel → Empresas do grupo sem CEAT e sem CAPAG; coluna Grupo mais estreita (o espaço vai para o nome)
+trocar(`          <th style="width:52px;cursor:pointer" onclick="sortExecRank('ceat')"   class="s">CEAT</th>\n`, '', 1);
+trocar(`\n          <th style="width:58px;cursor:pointer" onclick="sortExecRank('capag')"  class="s">CAPAG</th>`, '', 1);
+trocar("      <td class=\"mono\" style=\"font-size:12.5px;text-align:center\">${r.ceat>0?r.ceat:'-'}</td>\n", '', 1);
+trocar("      <td style=\"text-align:center\">${cBadge(r.capag)}</td>\n", '', 1);
+trocar("`<tr><td colspan=\"11\">${emp()}</td></tr>`", "`<tr><td colspan=\"9\">${emp()}</td></tr>`", 1);
+trocar(`<th id="thExecGrupo" class="s" onclick="sortExecRank('grupo')" style="cursor:pointer;min-width:150px">Grupo</th>`, `<th id="thExecGrupo" class="s" onclick="sortExecRank('grupo')" style="cursor:pointer;width:120px">Grupo</th>`, 1);
+// Backup 39: Processos → filtro "Todos" junto de Ativos · Arquivados provisoriamente · Extintos (marca os três)
+trocar(`onclick="procToggleChip('Extinto')">Extintos</span>`, `onclick="procToggleChip('Extinto')">Extintos</span>\n        <span class="chip" id="chipProcTodos" onclick="procTodosChips()">Todos</span>`, 1);
+trocar("function procToggleChip(val){", "function procTodosChips(){\n  if(_procChips.size===3) _procChips=new Set(['Ativo']); else _procChips=new Set(['Ativo','Arquivado','Extinto']);\n  _procPintarChips(); renderProcTbl();\n}\nfunction procToggleChip(val){", 1);
+trocar("  _applyChip('chipProcExtinto','Extinto',_procChips.has('Extinto'));\n}", "  _applyChip('chipProcExtinto','Extinto',_procChips.has('Extinto'));\n  _applyChip('chipProcTodos','Ativo',_procChips.size===3);\n}", 1);
+trocar(`data-atab="pago"     onclick="setAcordTab('pago',this)">✓ Pago</button>`, `data-atab="pago"     onclick="setAcordTab('pago',this)">Pago</button>`, 1);
+// Backup 39: Contabilidade → "QUEM FEZ" (como no Jurídico), por enquanto só "Contabilidade"; o recorte por cliente sai (o grupo vem do filtro do topo)
+trocar(`  + '<div class="fa-lin"><span class="fa-lbl">'+esc(L.tituloQuem)+'</span>'
+  +   '<button class="fa-chip" id="fcQuemTodos" onclick="fcQuemTodos()">Todos</button>'
+  +   pessoas.map(function(p){
+        return '<button class="fa-chip fa-chip-p" data-quem="'+esc(p)+'" onclick="fcQuem(\\''+esc(p).replace(/'/g,"\\\\'")+'\\')">'+esc(p)+'</button>';
+      }).join('')
+  +   '<span class="fa-dica">clique em mais de um para somar</span>'`,
+  `  + '<div class="fa-lin"><span class="fa-lbl">Quem fez</span>'
+  +   '<button class="fa-chip on fc-quem-contab" type="button" aria-pressed="true" title="Por enquanto só a Contabilidade lança aqui">Contabilidade</button>'`, 1);
+trocar(`<option value="">Todos ('+esc(L.tituloRecorte.toLowerCase())+')</option>'`, `<option value="">Todos os tipos</option>'`, 1);
 // 13. Cores de tokens.css (fonte única) depois do CSS do ERP; modo escuro lembrado neste aparelho.
 trocar('\n</head>\n', '\n<link rel="stylesheet" href="tokens.css">\n<link rel="stylesheet" href="tema-escuro.css">\n<link rel="stylesheet" href="design.css">\n' +
   '<script>try{if(localStorage.getItem("erp_tema")==="escuro")document.documentElement.setAttribute("data-tema","escuro")}catch(e){}</script>\n</head>\n', 1);

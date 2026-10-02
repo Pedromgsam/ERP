@@ -589,6 +589,8 @@
     document.querySelectorAll('tr[data-gx]:not([data-gx=""]):not([data-gx-ok])').forEach((tr) => {
       tr.setAttribute('data-gx-ok', '1');
       if (!tr.lastElementChild) return;
+      // Backup 39: Painel (Empresas do grupo) e Processos sem a coluna ✎ — a linha abre o detalhe e o "Editar" fica lá dentro
+      if (tr.closest('#tblExecRanking, #tblProcBody')) return;
       // coluna própria para as ações (a caneta não fica mais junto da Situação)
       const tabela = tr.closest('table'), cab = tabela && tabela.querySelector('thead tr:last-child');
       if (cab && !cab.querySelector('.gx-th-acoes')) { const th = document.createElement('th'); th.className = 'gx-th-acoes'; th.setAttribute('aria-label', 'Ações'); cab.appendChild(th); }

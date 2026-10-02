@@ -326,7 +326,7 @@ async function pintarContratos(buscar) {
   }
   const h = hojeISO();
   $('ctr-corpo').innerHTML = '<div class="card">' + (lista.length ?
-    '<div class="tabela-wrap"><table class="ordenavel ctr-tab"><thead><tr><th>Cliente</th><th>Contrato</th><th>Tipo</th><th data-tipo="data">Data</th><th class="num">Valor</th><th class="num">Recebido</th><th>Parcelas</th><th>Anexo</th><th>Situação</th><th>Financeiro</th></tr></thead><tbody>' +
+    '<div class="tabela-wrap"><table class="ordenavel ctr-tab"><thead><tr><th>Cliente</th><th>Contrato</th><th>Tipo</th><th data-tipo="data">Data</th><th class="num">Valor</th><th class="num">Recebido</th><th>Financeiro</th><th>Situação</th></tr></thead><tbody>' +
     lista.map((c) => {
       const parc = c.lancamentos || [];
       const recebido = soma(parc.filter((p) => p.pago), (p) => p.valor);
@@ -338,10 +338,9 @@ async function pintarContratos(buscar) {
         '<td class="mono" data-ord="' + c.data_contrato + '">' + dataBR(c.data_contrato) + (c.rescindido_em ? '<div class="sub">rescindido ' + dataBR(c.rescindido_em) + '</div>' : '') + '</td>' +
         '<td class="num mono" data-ord="' + (c.modalidade === 'consultoria' ? (c.valor_mensal || 0) : c.valor_total) + '">' + valorContratoTexto(c) + '</td>' +
         '<td class="num mono valor-rec" data-ord="' + recebido + '">' + brl(recebido) + '</td>' +
-        '<td>' + parc.filter((p) => p.pago).length + '/' + parc.length + '</td>' +
-        '<td>' + ((c.documentos || []).length ? '<span class="pill pago" title="Contrato anexado">📎 ' + c.documentos.length + '</span>' : '<span class="pill hoje" title="Anexe o contrato assinado no detalhe">sem anexo</span>') + '</td>' +
-        '<td>' + pillSituacaoCtr(c) + '</td>' +
-        '<td>' + (atraso ? '<span class="pill vencido">Parcela em atraso</span>' : parc.length ? '<span class="pill pago">Em dia</span>' : '<span class="pill neutro">—</span>') + '</td></tr>';
+        // Backup 39: sem as colunas Parcelas e Anexo (ficam no detalhe); Financeiro antes de Situação
+        '<td>' + (atraso ? '<span class="pill vencido">Parcela em atraso</span>' : parc.length ? '<span class="pill pago">Em dia</span>' : '<span class="pill neutro">—</span>') + '</td>' +
+        '<td>' + pillSituacaoCtr(c) + '</td></tr>';
     }).join('') + '</tbody></table></div>'
     : vazio('Nenhum contrato' + (F.status !== 'todos' ? ' com essa situação' : '') + ' — cadastre um contrato e o sistema gera os lançamentos.', '+ Novo contrato', '[data-novo=contrato]')) + '</div>';
   $('ctr-corpo').querySelectorAll('[data-ctr]').forEach((tr) => tr.onclick = () => detalheContrato(tr.dataset.ctr));

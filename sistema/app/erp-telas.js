@@ -22,7 +22,6 @@
     { sec: 'Principal' },
     { id: 'hoje', rot: 'Início', ic: 'inicio', equipe: true },
     { id: 'tarefas', rot: 'Tarefas', ic: 'tarefas', equipe: true },
-    { id: 'rotina', rot: 'Rotina', ic: 'rotina', equipe: true },   // Backup 28: o lugar do estagiário (substitui as planilhas)
     { id: 'alertas', rot: 'Alertas', ic: 'alertas', equipe: true },
     { sec: 'Módulos' },
     { id: 'resumo', rot: 'Painel Executivo', ic: 'painel', func: 'relatorios' },
@@ -33,6 +32,7 @@
     { id: 'clientes', rot: 'Clientes', ic: 'clientes', equipe: true, func: 'clientes' },
     { id: 'crm', rot: 'CRM', ic: 'crm', equipe: true, func: 'crm' },
     { rot: 'Documentos', ic: 'documentos', equipe: true, itens: [['documentos', 'Arquivos dos clientes', 'documentos'], ['gerador', 'Gerar documento', 'documentos']] },   // Backup 34: Central dentro do ERP
+    { id: 'rotina', rot: 'Rotina', ic: 'rotina', equipe: true },   // Backup 28: o lugar do estagiário; Backup 39: em Módulos, abaixo de Documentos
     { sec: 'Sistema', admin: true },
     { id: 'admin', rot: 'Administração', ic: 'admin', admin: true }
   ];
@@ -115,7 +115,7 @@
     // barra lateral: marca, seções, itens com ícone; submódulos abrem logo abaixo (linha fina à esquerda); "encolher" no pé
     const lado = document.createElement('aside');
     lado.id = 'gs-lado'; lado.className = 'gs';
-    lado.innerHTML = '<div class="gl-marca"><span class="gl-logo">A&amp;C</span><span class="gl-nome">Araújo &amp; Castro<small>Advocacia e Contabilidade</small></span></div>' +
+    lado.innerHTML = '<div class="gl-marca"><span class="gl-nome">Araújo &amp; Castro<small>Advocacia e Contabilidade</small></span></div>' +
       '<nav id="tn" aria-label="Menu principal">' + MENU.map((m, i) => m.sec ? '<div class="tn-sec' + itemCls(m) + '">' + esc(m.sec) + '</div>'
         : !m.itens ? '<button type="button" class="tn-it' + itemCls(m) + '" data-ir="' + m.id + '" title="' + esc(m.rot) + '">' + icone(m.ic) + '<span class="tn-rot">' + esc(m.rot) + '</span></button>'
         : '<div class="tn-grupo' + itemCls(m) + '"><button type="button" class="tn-it tn-abre" data-grupo="' + i + '" aria-expanded="false" title="' + esc(m.rot) + '">' + icone(m.ic) + '<span class="tn-rot">' + esc(m.rot) + '</span>' + icone('seta').replace('tn-ic', 'tn-ic tn-seta') + '</button>' +
@@ -339,13 +339,13 @@
     const d = document.createElement('div'); d.id = 'pe-filtros'; d.className = 'gx-filtros-cli';
     d.innerHTML = '' +   // Backup 28: sem "Por grupo / Lista" (sempre por grupo)
       seg('pe-tipo', [['ativos', 'Ativos'], ['Consultoria', 'Consultoria'], ['Demanda', 'Serviço pontual'], ['Inativo', 'Inativos'], ['todos', 'Todos']], F.tipo) +
-      '<select class="fsel" id="pe-area" aria-label="Área"><option value="">Todas as áreas</option><option value="juridico">Jurídico</option><option value="contabil">Contabilidade</option></select>' +
+      seg('pe-area', [['', 'Todas as áreas'], ['juridico', 'Jurídico'], ['contabil', 'Contabilidade']], F.area || '') +   // Backup 39: mesmo estilo de Ativos/Consultoria
 
       '<input type="text" class="fsel" id="pe-busca" placeholder="Buscar nome, grupo, sócio ou CPF/CNPJ" autocomplete="off">';
     hd.appendChild(d);
     const re = () => { if (typeof window.renderExecRanking === 'function') window.renderExecRanking(); };
     d.querySelector('#pe-tipo').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.tipo = b.dataset.v; d.querySelectorAll('#pe-tipo button').forEach((x) => x.classList.toggle('ativo', x === b)); re(); } };
-    d.querySelector('#pe-area').onchange = (ev) => { F.area = ev.target.value; re(); };
+    d.querySelector('#pe-area').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.area = b.dataset.v; d.querySelectorAll('#pe-area button').forEach((x) => x.classList.toggle('ativo', x === b)); re(); } };
     let t; d.querySelector('#pe-busca').oninput = (ev) => { clearTimeout(t); t = setTimeout(() => { F.busca = ev.target.value; re(); }, 250); };
   }
   function padraoEmpresas() {
@@ -724,7 +724,7 @@
   // Cartão no Painel Executivo, antes de "Empresas do grupo". Dados: evolucao_passivo (SQL), lidos uma vez e filtrados aqui.
   // Grupo: "Todos" ou um grupo. Visão: "Total" (uma linha) ou "Por empresa" (uma linha por empresa; em "Todos", uma por grupo).
   const EVO_CORES = ['#5873C1', '#2D7C75', '#AD6833', '#9A79D2', '#B74373', '#358452', '#C26464', '#3294AC', '#73A034'];
-  const _evo = { dados: null, visao: 'total', meses: 12, ch: null, carregando: false };
+  const _evo = { dados: null, visao: 'total', meses: 6, ch: null, carregando: false };
   const evoMoeda = (v) => 'R$ ' + (Number(v) || 0).toLocaleString('pt-BR', { maximumFractionDigits: 0 });
   const evoCurta = (v) => { const n = Math.abs(v); return n >= 1e6 ? 'R$ ' + (v / 1e6).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' mi' : n >= 1e3 ? 'R$ ' + (v / 1e3).toLocaleString('pt-BR', { maximumFractionDigits: 0 }) + ' mil' : evoMoeda(v); };
   const evoMes = (iso) => { const [a, m] = String(iso).split('-'); return ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'][Number(m) - 1] + '/' + a.slice(2); };
@@ -738,7 +738,7 @@
       card = document.createElement('div'); card.id = 'execEvolWrap'; card.className = 'cc evo-card';
       card.innerHTML = '<div class="cc-h evo-h"><div><div class="cc-t">Evolução do passivo</div><div class="cc-d" id="evo-sub"></div></div>' +
         '<div class="evo-ctl"><div class="segmento gx-seg-cli" id="evo-visao"><button type="button" data-v="total" class="ativo">Tudo junto</button><button type="button" data-v="linhas" id="evo-bt-linhas">Uma linha por grupo</button></div>' +
-        '<select class="fsel" id="evo-meses" autocomplete="off"><option value="6">6 meses</option><option value="12" selected>12 meses</option><option value="24">24 meses</option></select></div></div>' +
+        '<select class="fsel" id="evo-meses" autocomplete="off"><option value="6" selected>6 meses</option><option value="12">12 meses</option><option value="24">24 meses</option></select></div></div>' +
         '<div class="evo-resumo" id="evo-resumo"></div><div class="cb evo-cb"><canvas id="cEvoPassivo"></canvas></div>' +
         '<div class="evo-nota">Soma de RFB, PGFN, SEFAZ e AGE/MG (em aberto + negociado). O valor de cada mês é o que estava cadastrado no último dia do mês. Para ver as empresas de um grupo, escolha o grupo no filtro do topo.</div>';
       rk.parentElement.insertBefore(card, rk);

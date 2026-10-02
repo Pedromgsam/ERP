@@ -9,7 +9,7 @@ const r = []; const ok = (n, c, extra) => { r.push([n, !!c]); if (!c && extra !=
 // o que é medido: [nome, seletor, propriedades que têm de ser iguais em todas as telas]
 const TAB = ':is(.tw,.tabela-wrap,.gx-tab-gs) table:not(.gx-leg):not(.massa)';
 const REGRAS = [
-  ['selo da pessoa', ':is(.pill.pill-pessoa,.fa-pessoa)', ['fontSize', 'fontWeight', 'width', 'borderRadius']],
+  ['selo da pessoa', ':is(.pill.pill-pessoa,.fa-pessoa)', ['fontSize', 'fontWeight', 'borderRadius']],
   ['vencimento', 'td.col-venc', ['fontSize', 'fontWeight']],
   ['valor', 'td.col-valor', ['fontSize', 'fontWeight', 'color', 'textAlign']],
   ['dias / atraso', 'td.col-dias', ['fontSize']],
@@ -61,7 +61,7 @@ const TELAS = [['hoje'], ['resumo'], ['processos'], ['parcelamentos'], ['parcela
     ok('vencimento em negrito', tem('vencimento', /fontWeight=700/));
     ok('valor em negrito, preto e à direita', tem('valor', /fontWeight=700/) && tem('valor', /textAlign=right/));
     ok('nomes de cliente/empresa em CAIXA ALTA sem negrito', tem('nome de cliente/empresa', /fontWeight=400 textTransform=uppercase/));
-    ok('selo da pessoa sutil (11 px) e com a mesma largura', tem('selo da pessoa', /fontSize=11px fontWeight=600 width=88px/));
+    ok('selo da pessoa como no ERP original (11 px, negrito, do tamanho do nome)', tem('selo da pessoa', /fontSize=11px fontWeight=700/));
     ok('linha de baixo com 12 px', tem('linha de baixo (sócio, descrição…)', /fontSize=12px/));
     ok('nenhum botão PIX nas tabelas', await p.evaluate(() => !document.querySelector('[data-pix]')));
     await p.evaluate(() => nav(null, 'hoje')); await p.waitForTimeout(1500);

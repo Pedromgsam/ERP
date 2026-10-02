@@ -507,9 +507,10 @@ body.gx-barra-topo td.col-nome :is(b,strong){font-weight:400!important}
 body.gx-barra-topo td.col-nome :is(.sub,.er-socio,small){text-transform:none}
 /* selo da pessoa (Backup 23): sutil, no mesmo desenho da pílula de prioridade — redondo, 11 px, contorno leve na cor da pessoa;
    mesma largura para todos (cabe "Emanuelle") */
-body.gx-barra-topo :is(.gs .pill.pill-pessoa,.fa-pessoa){display:inline-block;width:88px;min-width:88px;box-sizing:border-box;text-align:center;
-  border:1px solid color-mix(in srgb,currentColor 28%,transparent)!important;border-radius:var(--r-pill)!important;
-  padding:2px 6px!important;font:600 11px/1.5 var(--font-ui)!important;letter-spacing:.01em!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-shadow:none!important;vertical-align:middle}
+/* Backup 39: volta o selo do ERP original (Pedro · Emanuelle · Escritório): do tamanho do nome, sem contorno, em negrito */
+body.gx-barra-topo :is(.gs .pill.pill-pessoa,.fa-pessoa){display:inline-block;width:auto;min-width:0;box-sizing:border-box;text-align:center;
+  border:0!important;border-radius:20px!important;
+  padding:2px 9px!important;font:700 11px/1.5 var(--font-ui)!important;letter-spacing:.01em!important;white-space:nowrap;box-shadow:none!important;vertical-align:middle}
 /* botões da linha: "✓ Baixa" e "✎" do mesmo tamanho em todas as tabelas */
 body.gx-barra-topo td :is(.gx-la-bx,[data-pagar].btn-mini){font:700 12px var(--font-ui)!important;padding:4px 10px!important;border-radius:var(--r-ctl)!important}
 body.gx-barra-topo td :is(.gx-la-ed,.btn-ed){font:600 13px var(--font-ui)!important;padding:3px 9px!important;border-radius:var(--r-ctl)!important;min-width:30px}
@@ -712,7 +713,7 @@ body.gx-barra-topo .gs select:not([multiple]):not([size]):focus{outline:none;bor
 .lg-guia{display:inline-block;margin-top:4px;padding:2px 8px;border-radius:99px;font-size:11.5px;font-weight:600;background:var(--amber-l);color:var(--amber-d);border:1px solid var(--amber);white-space:nowrap}
 .lg-c4{display:flex;flex-direction:column;align-items:flex-start;gap:2px}
 /* Backup 28: Comparativo por cliente × por fornecedor com as mesmas colunas e linha de total */
-table.fc-comp{table-layout:fixed;width:100%}
+table.fc-comp{table-layout:auto;width:100%}
 table.fc-comp td:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 table.fc-comp tr.fc-comp-tot td{border-top:2px solid var(--border-strong);background:var(--surface2)}
 
@@ -1043,10 +1044,11 @@ body.gx-barra-topo :is(.tw,.tabela-wrap,.gx-tab-gs) thead th{border-bottom:1px s
 /* ═══ Backup 38 — BARRA LATERAL e respiro no padrão dos prints (ROMPEX), em azul ═══
    lateral fixa (240 px; "encolher" → só ícones), barra de cima branca com o nome da tela,
    conteúdo centralizado com margem dos dois lados (não encosta nas bordas). */
-body.gx-barra-topo{--sw:240px;--hh:56px;--conteudo:1360px;--gut:32px}
+/* Backup 39: a margem dos lados é a MESMA com a lateral aberta ou encolhida — encolher só alarga o conteúdo */
+body.gx-barra-topo{--sw:240px;--hh:56px;--conteudo:1360px;--gut:max(32px,calc((100vw - 240px - var(--conteudo)) / 2))}
 body.gx-barra-topo.gx-lado-min{--sw:68px}
 body.gx-barra-topo #main{margin-left:var(--sw)!important;padding-left:var(--gut)!important;padding-right:var(--gut)!important;transition:margin-left .18s}
-body.gx-barra-topo #main > .panel{max-width:var(--conteudo);margin-left:auto!important;margin-right:auto!important}
+body.gx-barra-topo #main > .panel{max-width:none;margin-left:0!important;margin-right:0!important}
 #gs-lado{position:fixed;top:0;left:0;bottom:0;width:var(--sw);z-index:1250;background:var(--lado-bg)!important;min-height:0!important;color:var(--lado-fg);display:flex;flex-direction:column;
   font-family:var(--font-ui);transition:width .18s;overflow:hidden}
 #gs-lado .gl-marca{display:flex;align-items:center;gap:10px;height:72px;padding:0 18px;border-bottom:1px solid var(--lado-linha);flex-shrink:0}
@@ -1099,8 +1101,8 @@ body.gx-barra-topo #gs-hd #gs-nome{background:var(--surface)!important;border:1p
 body.gx-barra-topo #gs-hd #gs-sessao{color:var(--text3)!important}
 body.gx-barra-topo #gs-hd #gs-sessao.gs-sessao-fim{color:var(--red-d)!important}
 /* filtro flutuante do ERP e linha do Painel acompanham a borda do conteúdo */
-body.gx-barra-topo #fb{right:max(var(--gut),calc((100vw - var(--sw) - var(--conteudo)) / 2 + var(--gut) - 8px))!important}
-body.gx-barra-topo #gx-linha-painel{left:max(calc(var(--sw) + var(--gut)),calc(var(--sw) + (100vw - var(--sw) - var(--conteudo)) / 2 + var(--gut) - 8px))!important}
+body.gx-barra-topo #fb{right:var(--gut)!important}
+body.gx-barra-topo #gx-linha-painel{left:calc(var(--sw) + var(--gut))!important}
 /* celular e tablet: sem lateral (menu de baixo, como antes) */
 @media (max-width:1100px){
   body.gx-barra-topo{--sw:0px!important;--gut:16px}
@@ -1119,3 +1121,24 @@ body.gx-barra-topo .ini-res-ic{width:34px;height:34px;border:1px solid var(--bor
 body.gx-barra-topo .ini-res.vermelho .ini-res-ic{color:var(--red)}
 body.gx-barra-topo .ini-res.ambar .ini-res-ic{color:var(--amber)}
 .kpi-grid.fc-kpis6 .ks{white-space:normal!important}
+/* Backup 39: ficha — "Editar cadastro" no canto de cima, em destaque */
+.gs .ficha-topo,.ficha-topo{position:relative}
+.ficha-bt-editar{position:absolute;top:0;right:0;z-index:2}
+.ficha-topo .ficha-id{padding-right:170px}
+/* Backup 39: Painel → Empresas do grupo: grupo mais estreito, nome sem sublinhado, a linha toda abre a ficha */
+body.gx-barra-topo #tblExecRanking .er-grupo{max-width:112px!important}
+body.gx-barra-topo #tblExecRanking .er-nome,body.gx-barra-topo #tblExecRanking .er-nome:hover,body.gx-barra-topo #tblExecRanking .lnk:hover{text-decoration:none!important;border-bottom:0!important}
+body.gx-barra-topo #tblExecRanking tr.gx-linha-exp{cursor:pointer}
+/* Backup 39: Processos — a tabela cabe abaixo do filtro suspenso (o cabeçalho não fica por trás dele ao descer a página);
+   Grupo e Competência mais estreitos, o espaço vai para Autor/Réu */
+body.gx-barra-topo #panel-processos .tw.scr,body.gx-barra-topo #execRankWrap .tw.scr{max-height:calc(100vh - 160px)!important}
+body.gx-barra-topo #panel-processos table:has(#tblProcBody){table-layout:auto}
+body.gx-barra-topo #panel-processos table:has(#tblProcBody) > thead th:nth-child(2){width:112px}
+body.gx-barra-topo #tblProcBody > tr:not(.gx-grp):not(.gx-det) > td:nth-child(2){max-width:112px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+body.gx-barra-topo #panel-processos table:has(#tblProcBody) > thead th:nth-child(4){width:116px}
+body.gx-barra-topo #tblProcBody > tr:not(.gx-grp):not(.gx-det) > td:nth-child(4){max-width:116px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Backup 39: Acordos — "A pagar / Pago" no mesmo desenho dos filtros de prazo (Todas · Vencidas · 5 dias…) */
+body.gx-barra-topo #acordTabBar{display:inline-flex!important;gap:2px!important;border:1px solid var(--border-strong)!important;border-radius:var(--r-ctl);padding:2px;background:var(--surface);margin-bottom:12px!important}
+body.gx-barra-topo #acordTabBar .tb-btn{background:none!important;border:0!important;box-shadow:none!important;padding:5px 14px!important;border-radius:var(--radius-xs)!important;font:500 12.5px var(--font-ui)!important;color:var(--text2)!important;margin:0!important}
+body.gx-barra-topo #acordTabBar .tb-btn:hover{background:var(--surface3)!important}
+body.gx-barra-topo #acordTabBar .tb-btn.active{background:var(--selecao)!important;color:var(--on-selecao)!important}

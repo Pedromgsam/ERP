@@ -280,7 +280,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await salvarGs(p, '#btn-salvar-ctr');
     ok('consultoria em salário mínimo lança uma mensalidade por competência (paga no mês seguinte)',
       sql("select string_agg(referencia||'>'||to_char(vencimento,'MM/YYYY')||'='||valor, ',' order by competencia) from lancamentos l join contratos c on c.id=l.contrato_id where c.descricao='Consultoria mensal Alfa' and l.competencia <= '2026-09-01'") === '08/2026>09/2026=1621.00,09/2026>10/2026=1621.00');
-    ok('lista de contratos mostra tipo, valor mensal e falta de anexo', /Consultoria/.test(await p.textContent('#panel-contratos')) && /salários?\/mês/.test(await p.textContent('#panel-contratos')) && /sem anexo/.test(await p.textContent('#panel-contratos')));
+    ok('lista de contratos mostra tipo e valor mensal (Backup 39: sem as colunas Parcelas e Anexo; Financeiro antes de Situação)', /Consultoria/.test(await p.textContent('#panel-contratos')) && /salários?\/mês/.test(await p.textContent('#panel-contratos')) && !/sem anexo/.test(await p.textContent('#panel-contratos')) && /Financeiro\s*Situação/.test(await p.textContent('#panel-contratos .ctr-tab thead')));
     ok('contrato novo gerou a tarefa de onboarding com o checklist do modelo', sql("select count(*)||'|'||max(jsonb_array_length(checklist)) from tarefas where titulo='Onboarding: Beta Serviços Ltda'") === '1|4');
     // êxito: a regra fica no contrato; só vira lançamento quando acontece (% × X informado)
     await p.click('#panel-contratos button:has-text("Novo contrato")'); await p.waitForSelector('#gs-raiz #ctr-mod'); await p.waitForTimeout(250);
@@ -393,12 +393,12 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       sql("select count(*) from notificacoes n join perfis p on p.id=n.usuario_id where p.email='equipe@teste' and n.tipo='revisao'") === '1');
     // horas: ▶ e ■
     await p.click('#tf-vista [data-v=lista]'); await p.click('#tf-abas [data-aba=abertas]'); await p.click('#tf-atalho [data-v=""]'); await p.waitForTimeout(600);
-    await p.click('#tf-vista-corpo tr[data-abrir-t]:has-text("Revisão do sócio") [data-editar-t]'); await p.waitForSelector('#tf-crono'); await p.waitForTimeout(300);
+    await p.click('#tf-vista-corpo tr[data-abrir-t]:has-text("Revisão do sócio") td:nth-child(2)'); await p.waitForSelector('#tf-f-editar'); await p.click('#tf-f-editar'); await p.waitForSelector('#tf-crono'); await p.waitForTimeout(300);
     await p.click('#tf-crono'); await p.waitForTimeout(800); await p.click('#tf-crono'); await p.waitForTimeout(800);
     ok('▶/■ registra horas na tarefa', sql("select count(*) from tarefa_tempos where fim is not null") === '1');
     await p.keyboard.press('Escape');
     // regras automáticas: a Central continua (Administração → Automações); Backup 38: sem botão em Tarefas e sem sino
-    ok('Tarefas sem o botão ⚡ Automações e barra sem o sino de avisos', !(await p.$('#tf-regras')) && !(await p.$('#gs-sino')));
+    ok('Tarefas sem o botão ⚡ Automações e barra sem o sino de avisos; lista sem ✎', !(await p.$('#tf-vista-corpo [data-editar-t]')) && !(await p.$('#tf-regras')) && !(await p.$('#gs-sino')));
     await nav(p, 'automacoes'); await p.waitForSelector('#panel-automacoes #au-rodar'); await p.waitForTimeout(500);
     ok('Central de automações lista as automações e as rotinas', (await p.$$('#panel-automacoes [data-au-lig]')).length === Number(sql("select count(*) from regras_tarefas")) && /Rotinas agendadas/.test(await p.textContent('#panel-automacoes')));
     await p.click('#panel-automacoes #au-rodar'); await p.waitForTimeout(1500);
@@ -1066,7 +1066,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     sql("insert into tarefas(titulo,responsavel,status) values ('Tarefa B15 excluir','Pedro','pendente')");
     await p.evaluate(() => { GS.E.tf = null; }); await nav(p, 'tarefas'); await p.waitForTimeout(1500);
     await p.click('#tf-vista [data-v=lista]'); await p.click('#tf-abas [data-aba=abertas]'); await p.fill('#tf-busca', 'Tarefa B15'); await p.waitForTimeout(800);
-    await p.click('#panel-tarefas [data-editar-t="' + sql("select id from tarefas where titulo='Tarefa B15 excluir'") + '"]'); await p.waitForSelector('#btn-excluir-tf');
+    await p.click('#panel-tarefas [data-abrir-t="' + sql("select id from tarefas where titulo='Tarefa B15 excluir'") + '"] td:nth-child(2)'); await p.waitForSelector('#tf-f-editar'); await p.click('#tf-f-editar'); await p.waitForSelector('#btn-excluir-tf');
     await p.click('#btn-excluir-tf'); await p.waitForTimeout(1500);
     ok('Tarefas: excluir vai para a aba "Excluídas" (não apaga)', sql("select status from tarefas where titulo='Tarefa B15 excluir'") === 'cancelada' && !/Tarefa B15 excluir/.test(await p.textContent('#tf-corpo')));
     await p.click('#tf-abas [data-aba=excluidas]'); await p.waitForTimeout(500);
@@ -1309,7 +1309,8 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       await p.evaluate(() => nav(null, 'rotina')); await p.waitForSelector('#rt-abas'); await p.click('#rt-abas [data-rt-aba=passivo]'); await p.waitForSelector('#rt-pas-corpo tr[data-id]', { timeout: 10000 }).catch(() => {});
       ok('Rotina: passivo sem a coluna "Em operação"', !/Em operação/.test(await p.textContent('#rt-corpo thead')));
       await p.evaluate(() => nav(null, 'resumo')); await p.waitForTimeout(2000);
-      ok('Painel: coluna "Em operação" logo antes da CAPAG; situação sem caixa alta', /Em operação\s*CAPAG/.test((await p.$$eval('#execRankHead th', (l) => l.map((x) => x.textContent.trim()))).join(' ')) &&
+      const thsPe = (await p.$$eval('#execRankHead th', (l) => l.map((x) => x.textContent.trim()))).join(' ');
+      ok('Painel: "Em operação" presente, sem CEAT e sem CAPAG (B39); situação sem caixa alta', /Em operação/.test(thsPe) && !/CAPAG|CEAT/.test(thsPe) &&
         await p.evaluate(() => [...document.querySelectorAll('#tblExecRanking td.er-sit .tag')].every((x) => x.textContent === '—' || x.textContent !== x.textContent.toUpperCase())));
       // contador da sessão na barra de cima (só cai por inatividade)
       ok('Barra de cima: contador discreto da sessão', /⏱\d+′/.test(await p.textContent('#gs-sessao')));

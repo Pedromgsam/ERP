@@ -6821,3 +6821,7 @@ end $$;
 drop trigger if exists email_fila_redirecionar on public.email_fila;
 drop trigger if exists email_fila_desviar on public.email_fila;
 create trigger email_fila_desviar before insert on public.email_fila for each row execute function public.email_fila_redirecionar();
+
+-- ═══════════════════════════════ Backup 39 ═══════════════════════════════
+-- Agenda: "com quem" em texto livre quando a reunião não é com um cliente cadastrado
+alter table public.tarefas add column if not exists com_quem text not null default '';

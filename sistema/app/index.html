@@ -48,11 +48,11 @@
 <script src="erp-dados.js?v=9a3e7433"></script>
 <link rel="stylesheet" href="editor.css?v=7747e46f">
 <link rel="stylesheet" href="erp-telas.css?v=22ce828d">
-<script src="editor.js?v=cf6a9f3e" defer></script>
-<script src="erp-telas.js?v=bf4e7bcd" defer></script>
-<link rel="stylesheet" href="gs.css?v=6cf36f38">
+<script src="editor.js?v=a07834af" defer></script>
+<script src="erp-telas.js?v=6854e0b1" defer></script>
+<link rel="stylesheet" href="gs.css?v=64778c6a">
 <script src="importador.js?v=4fb0d655" defer></script>
-<script src="gestao-embutida.js?v=6dc2b2a0" defer></script>
+<script src="gestao-embutida.js?v=85a73554" defer></script>
 <script>
 
 
@@ -1617,7 +1617,7 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
 </style>
 <link rel="stylesheet" href="tokens.css?v=8726569d">
 <link rel="stylesheet" href="tema-escuro.css?v=09e344f4">
-<link rel="stylesheet" href="design.css?v=68086b3e">
+<link rel="stylesheet" href="design.css?v=7be4db59">
 <script>try{if(localStorage.getItem("erp_tema")==="escuro")document.documentElement.setAttribute("data-tema","escuro")}catch(e){}</script>
 </head>
 <body>
@@ -1902,16 +1902,14 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
     <div class="tw scr" style="max-height:960px;min-height:420px;overflow-y:auto">
       <table style="table-layout:auto;width:100%;min-width:100%">
         <thead><tr id="execRankHead">
-          <th id="thExecGrupo" class="s" onclick="sortExecRank('grupo')" style="cursor:pointer;min-width:150px">Grupo</th>
+          <th id="thExecGrupo" class="s" onclick="sortExecRank('grupo')" style="cursor:pointer;width:120px">Grupo</th>
           <th class="s" onclick="sortExecRank('nome')" style="cursor:pointer">Entidade / Sócio</th>
           <th style="min-width:130px;width:130px">CPF/CNPJ</th>
           <th style="width:88px;cursor:pointer" onclick="sortExecRank('rfb')"    class="s">RFB</th>
           <th style="width:88px;cursor:pointer" onclick="sortExecRank('pgfn')"   class="s">PGFN</th>
           <th style="width:88px;cursor:pointer" onclick="sortExecRank('age')"    class="s">AGE/MG</th>
-          <th style="width:52px;cursor:pointer" onclick="sortExecRank('ceat')"   class="s">CEAT</th>
           <th style="width:95px;cursor:pointer" onclick="sortExecRank('total')"  class="s">Total</th>
           <th style="width:96px">Em operação</th>
-          <th style="width:58px;cursor:pointer" onclick="sortExecRank('capag')"  class="s">CAPAG</th>
           <th>Situação</th>
         </tr></thead>
         <tbody id="tblExecRanking"></tbody>
@@ -1978,6 +1976,7 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
         <span class="chip" id="chipProcAtivo"    style="color:#166534;border-color:rgba(22,101,52,.35);background:rgba(22,101,52,.10)" onclick="procToggleChip('Ativo')">Ativos</span>
         <span class="chip" id="chipProcArquivado" style="color:var(--text2);border-color:rgba(55,65,81,.35);background:rgba(55,65,81,.10)" onclick="procToggleChip('Arquivado')">Arquivados provisoriamente</span>
         <span class="chip" id="chipProcExtinto" style="color:var(--violet);border-color:rgba(124,58,237,.35);background:rgba(124,58,237,.10)" onclick="procToggleChip('Extinto')">Extintos</span>
+        <span class="chip" id="chipProcTodos" onclick="procTodosChips()">Todos</span>
         <div style="width:1px;height:20px;background:var(--border);margin:0 2px"></div>
         <select class="fsel" id="fProcComp"   onchange="renderProcTbl()"><option value="">Todas competências</option></select>
         <select class="fsel" id="fProcNat"    onchange="renderProcTbl()"><option value="">Todas naturezas</option></select>
@@ -2130,7 +2129,7 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
     <div id="acordTabBar" style="display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:12px">
       <button class="tb-btn active" data-atab="vencidos" onclick="setAcordTab('vencidos',this)">A pagar</button>
       <button class="tb-btn"        data-atab="pagar"    onclick="setAcordTab('pagar',this)" hidden>📅 A Pagar</button>
-      <button class="tb-btn"        data-atab="pago"     onclick="setAcordTab('pago',this)">✓ Pago</button>
+      <button class="tb-btn"        data-atab="pago"     onclick="setAcordTab('pago',this)">Pago</button>
     </div>
 
     <!-- ABA: Vencidos — URGENTE -->
@@ -3857,13 +3856,11 @@ function renderExecRanking(){
       <td class="mono" style="font-size:12.5px">${cellRfb}</td>
       <td class="mono" style="font-size:12.5px">${cellPgfn}</td>
       <td class="mono" style="font-size:12.5px">${cellAge}</td>
-      <td class="mono" style="font-size:12.5px;text-align:center">${r.ceat>0?r.ceat:'-'}</td>
       <td class="mono">${totVal>0?`<strong>${fF(totVal)}</strong>`:'<span style="color:var(--text4)">—</span>'}</td>
       <td style="text-align:center" class="er-op">${/^sim$/i.test(r.emOperacao||'')?'<span class="tag tg">Sim</span>':/^n[aã]o$/i.test(r.emOperacao||'')?'<span class="tag tr">Não</span>':'<span style="color:var(--text4)">—</span>'}</td>
-      <td style="text-align:center">${cBadge(r.capag)}</td>
       <td class="er-sit"><span class="tag ${sC(r)}" style="font-size:10.5px">${String(r.sitCadastral||'—').toLowerCase().replace(/^./,function(c){return c.toUpperCase();})}</span></td>
     </tr>`;
-  }).join(''):`<tr><td colspan="11">${emp()}</td></tr>`;
+  }).join(''):`<tr><td colspan="9">${emp()}</td></tr>`;
 }
 function sortExecRank(c){
   if(_execRankSort.col===c)_execRankSort.asc=!_execRankSort.asc;
@@ -6966,12 +6963,8 @@ function _fcEsqueleto(){
   var recortes=[...new Set(LadoAberto.map(_fcRecorteVal).filter(function(x){return x&&x!=='—';}))].sort();
   return ''
   + '<div class="cc" id="fcBar" style="margin-bottom:14px">'
-  + '<div class="fa-lin"><span class="fa-lbl">'+esc(L.tituloQuem)+'</span>'
-  +   '<button class="fa-chip" id="fcQuemTodos" onclick="fcQuemTodos()">Todos</button>'
-  +   pessoas.map(function(p){
-        return '<button class="fa-chip fa-chip-p" data-quem="'+esc(p)+'" onclick="fcQuem(\''+esc(p).replace(/'/g,"\\'")+'\')">'+esc(p)+'</button>';
-      }).join('')
-  +   '<span class="fa-dica">clique em mais de um para somar</span>'
+  + '<div class="fa-lin"><span class="fa-lbl">Quem fez</span>'
+  +   '<button class="fa-chip on fc-quem-contab" type="button" aria-pressed="true" title="Por enquanto só a Contabilidade lança aqui">Contabilidade</button>'
   + '</div>'
   + '<div class="fa-lin"><span class="fa-lbl">Período</span>'
   +   _FC_PRESETS.map(function(p){
@@ -7000,7 +6993,7 @@ function _fcEsqueleto(){
   +   '<span class="fa-msg" id="fcMsg"></span>'
   + '</div>'
   + '<div class="fa-lin"><span class="fa-lbl">Recorte</span>'
-  +   '<select class="fsel" id="fcRecorteSel" onchange="fcCampo(\'recorte\',this.value)"><option value="">Todos ('+esc(L.tituloRecorte.toLowerCase())+')</option>'
+  +   '<select class="fsel" id="fcRecorteSel" onchange="fcCampo(\'recorte\',this.value)"><option value="">Todos os tipos</option>'
   +     recortes.map(function(t){return '<option value="'+esc(t)+'">'+esc(t)+'</option>';}).join('')+'</select>'
   +   '<span class="fa-sep"></span>'
   +   '<button class="fa-chip" onclick="fcCSV()">⤓ CSV</button>'
@@ -7211,7 +7204,11 @@ function _fcTabelaComp(html){
     +'<td class="mono" style="text-align:right">'+(t.f?'100%':'—')+'</td><td class="mono" style="text-align:right">'+t.n+'</td>'
     +'<td class="mono" style="text-align:right">'+(t.n?_faFT(t.f/t.n):'—')+'</td><td class="mono" style="text-align:right;font-weight:700">'+(t.ab?_faFT(t.ab):'—')+'</td>'
     +'<td class="mono" style="text-align:right">—</td></tr>';
-  return html.replace('<div class="tw"><table>','<div class="tw fc-comp-wrap" data-sem-pagina><table class="fc-comp"><colgroup><col style="width:32%"><col style="width:15%"><col style="width:8%"><col style="width:8%"><col style="width:13%"><col style="width:14%"><col style="width:10%"></colgroup>')
+  // Backup 39: colunas distribuídas como no "Comparativo por pessoa" do Jurídico (sem a 1ª coluna enorme);
+  // linhas sem o fundo cinza; recebido em verde (clientes) e pago em vermelho (fornecedores)
+  html = html.replace(/<tr style="background:[^"]*">/g, '<tr>');
+  if (pagar) html = html.split('color:var(--green-d);font-weight:600').join('color:var(--red-d);font-weight:600');
+  return html.replace('<div class="tw"><table>','<div class="tw fc-comp-wrap" data-sem-pagina><table class="fc-comp">')
     .replace(/<\/tbody><\/table><\/div>$/, tot+'</tbody></table></div>');
 }
 function _fcTabelaPessoas(pessoas){
@@ -8285,6 +8282,11 @@ function _procPintarChips(){
   _applyChip('chipProcAtivo','Ativo',_procChips.has('Ativo'));
   _applyChip('chipProcArquivado','Arquivado',_procChips.has('Arquivado'));
   _applyChip('chipProcExtinto','Extinto',_procChips.has('Extinto'));
+  _applyChip('chipProcTodos','Ativo',_procChips.size===3);
+}
+function procTodosChips(){
+  if(_procChips.size===3) _procChips=new Set(['Ativo']); else _procChips=new Set(['Ativo','Arquivado','Extinto']);
+  _procPintarChips(); renderProcTbl();
 }
 function procToggleChip(val){
   if(_procChips.has(val)) _procChips.delete(val); else _procChips.add(val);

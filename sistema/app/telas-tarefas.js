@@ -11,6 +11,8 @@ const tarefaFechada = (t) => t.status === 'concluida' || t.status === 'cancelada
 
 // ─────────────── pessoas, feriados e dias úteis ───────────────
 function primeiroNome(s) { return normalizar(String(s || '').trim().split(/\s+/)[0]); }
+// Backup 39: primeiro nome para mostrar na tela, com a inicial maiúscula (Pedro, Emanuelle, Adriana…)
+function nomeCurto(s) { const p = String(s || '').trim().split(/\s+/)[0] || ''; return p.charAt(0).toLocaleUpperCase('pt-BR') + p.slice(1).toLocaleLowerCase('pt-BR'); }
 function meuNome() { return (E.perfil && E.perfil.nome) || ''; }
 function ehMinha(t) {
   const eu = primeiroNome(meuNome());
@@ -124,8 +126,9 @@ function janelaAgendar(dataIni, depois) {
       campo('Dia', '<input type="date" name="prazo" required value="' + (dataIni || hojeISO()) + '">') + campo('Hora', '<input type="time" name="hora" value="09:00">') +
       campo('Local ou link', '<input name="local" placeholder="escritório, Google Meet…">', 'ag-toda') +
       '<div class="campo" style="grid-column:1/-1"><span>Quem participa</span><div class="ag-pessoas">' + (pessoas.length ? pessoas : [meuNome()]).filter(Boolean).map((n) =>
-        '<label class="ag-p"><input type="checkbox" name="part" value="' + esc(n) + '"' + (primeiroNome(n) === primeiroNome(meuNome()) ? ' checked' : '') + '><span>' + esc(primeiroNome(n)) + '</span></label>').join('') + '</div></div>' +
-      campo('Cliente (opcional)', '<select name="cliente_id"><option value="">—</option>' + E.clientes.map((c) => '<option value="' + c.id + '">' + esc(c.nome) + '</option>').join('') + '</select>', 'ag-toda') +
+        '<label class="ag-p"><input type="checkbox" name="part" value="' + esc(n) + '"' + (primeiroNome(n) === primeiroNome(meuNome()) ? ' checked' : '') + '><span>' + esc(nomeCurto(n)) + '</span></label>').join('') + '</div></div>' +
+      // Backup 39: cliente cadastrado (escolhe na lista) OU texto livre (ex.: "Dr. Fulano, contador da empresa X")
+      campo('Com quem (opcional)', '<input name="com" list="ag-clis" autocomplete="off" placeholder="Cliente cadastrado ou qualquer nome"><datalist id="ag-clis">' + E.clientes.map((c) => '<option value="' + esc(c.nome) + '">').join('') + '</datalist>', 'ag-toda') +
       campo('Observação', '<textarea name="descricao" rows="2"></textarea>', 'ag-toda') + '</form>',
     rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="ag-ok">Agendar</button></div>' });
   let tipo = 'reuniao';
@@ -137,9 +140,10 @@ function janelaAgendar(dataIni, depois) {
     if (!f.prazo.value) throw new Error('Escolha o dia.');
     const parts = [...f.querySelectorAll('[name=part]:checked')].map((x) => x.value);
     const resp = parts.find((n) => primeiroNome(n) === primeiroNome(meuNome())) || parts[0] || meuNome();
+    const com = f.com.value.trim(), cli = E.clientes.find((c) => normalizar(c.nome) === normalizar(com));
     await q(sb.from('tarefas').insert({ titulo: f.titulo.value.trim(), prazo: f.prazo.value, hora: f.hora.value || null, tipo_agenda: tipo, local: f.local.value.trim(),
-      responsavel: resp, participantes: parts.filter((n) => n !== resp).join(', '), cliente_id: f.cliente_id.value || null,
-      grupo_id: (E.clientes.find((c) => c.id === f.cliente_id.value) || {}).grupo_id || null, descricao: f.descricao.value.trim(), prioridade: 'media', status: 'pendente' }));
+      responsavel: resp, participantes: parts.filter((n) => n !== resp).join(', '), cliente_id: cli ? cli.id : null, com_quem: cli ? '' : com,
+      grupo_id: cli ? cli.grupo_id || null : null, descricao: f.descricao.value.trim(), prioridade: 'media', status: 'pendente' }));
     fecharJanela(j); aviso('✓ Agendado para ' + dataBR(f.prazo.value) + (f.hora.value ? ' às ' + f.hora.value : '') + '.'); if (depois) depois();
   });
 }
@@ -152,6 +156,12 @@ function classeAgenda(t, d) {
   return t.prazo && t.prazo < h ? 'ag-atrasada' : 'ag-tarefa';
 }
 const horaAg = (t) => (t.hora ? String(t.hora).slice(0, 5) + ' ' : '');
+// Backup 39: o quadro "Atrasadas" é um só — Início (agenda) e Tarefas (Minha semana e Calendário)
+function quadroAtrasadas(atr) {
+  return '<aside class="fila-atrasadas"><div class="fila-atr-tit">⏰ Atrasadas <span class="pill ' + (atr.length ? 'vencido' : 'pago') + '">' + atr.length + '</span></div>' +
+    (atr.length ? atr.map((t) => '<button type="button" class="fila-atr-it" data-fila="' + t.id + '" title="' + esc(t.titulo) + '"><b>' + esc(t.titulo) + '</b><span class="sub">prazo ' + dataBR(t.prazo) + ' · ' + plural(-diasAte(t.prazo), 'dia', 'dias') + ' de atraso</span></button>').join('')
+      : '<div class="sub">Nenhuma atrasada. 🎉</div>') + '</aside>';
+}
 function calendarioFila(lista) {
   const h = hojeISO(), ref = FILA.ref || h, d0 = new Date(ref + 'T12:00:00');
   const doDia = (d) => lista.filter((t) => t.prazo === d || t.prazo_fatal === d).sort((a, b) => String(a.hora || '99').localeCompare(String(b.hora || '99')));
@@ -162,7 +172,7 @@ function calendarioFila(lista) {
     titulo = d0.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' });
     const l = doDia(ref);
     corpo = l.length ? '<div class="lista-ficha">' + l.map((t) => '<div class="item-ficha clicavel" data-fila="' + t.id + '"><div>' + bolinha(t) + ' <b>' + esc(t.titulo) + '</b>' + seloFatal(t) +
-      '<div class="sub">' + esc(nomeCliente(t.cliente_id) || nomeGrupo(t.grupo_id) || '') + '</div></div></div>').join('') + '</div>' : '<div class="sub">Nada com prazo neste dia.</div>';
+      '<div class="sub">' + esc(quemTarefa(t) || '') + '</div></div></div>').join('') + '</div>' : '<div class="sub">Nada com prazo neste dia.</div>';
   } else if (FILA.vista === 'semana') {
     const ini = new Date(d0); ini.setDate(d0.getDate() - d0.getDay());
     const dias = [...Array(7)].map((_, k) => { const x = new Date(ini); x.setDate(ini.getDate() + k); return iso(x); });
@@ -182,16 +192,13 @@ function calendarioFila(lista) {
     corpo = c + '<div class="cal-dia vazio-dia"></div>'.repeat(resto) + '</div>';
   }
   // Backup 27: à esquerda, as tarefas atrasadas (não aparecem na semana/dia/mês que você está vendo)
-  const atr = lista.filter((t) => t.prazo && t.prazo < h).sort((a, b) => a.prazo.localeCompare(b.prazo));
-  const lado = '<aside class="fila-atrasadas"><div class="fila-atr-tit">⏰ Atrasadas <span class="pill ' + (atr.length ? 'vencido' : 'pago') + '">' + atr.length + '</span></div>' +
-    (atr.length ? atr.map((t) => '<button type="button" class="fila-atr-it" data-fila="' + t.id + '" title="' + esc(t.titulo) + '"><b>' + esc(t.titulo) + '</b><span class="sub">prazo ' + dataBR(t.prazo) + ' · ' + plural(-diasAte(t.prazo), 'dia', 'dias') + ' de atraso</span></button>').join('')
-      : '<div class="sub">Nenhuma atrasada. 🎉</div>') + '</aside>';
+  const lado = quadroAtrasadas(lista.filter((t) => t.prazo && t.prazo < h).sort((a, b) => a.prazo.localeCompare(b.prazo)));
   return '<div class="fila-com-atr">' + lado + '<div class="fila-cal-area"><div class="fila-cal-nav"><button type="button" class="btn btn-o btn-mini" data-fila-nav="-1" aria-label="Anterior">‹</button><b>' + esc(titulo) + '</b>' +
     '<button type="button" class="btn btn-o btn-mini" data-fila-nav="1" aria-label="Próximo">›</button><button type="button" class="btn btn-o btn-mini" data-fila-nav="0">Hoje</button>' +
     '<button type="button" class="btn btn-p btn-mini ag-bt" data-agendar>+ Agendar</button></div>' + corpo + legendaAgenda() + '</div></div>';
 }
 async function cardMinhaFila() {
-  if (!FILA.lida) { const p = (E.perfil && E.perfil.preferencias && E.perfil.preferencias.fila) || {}; if (p.vista) FILA.vista = p.vista; FILA.min = !!p.min; FILA.quem = p.quem || ''; FILA.lida = true; }
+  if (!FILA.lida) { const p = (E.perfil && E.perfil.preferencias && E.perfil.preferencias.fila) || {}; if (p.vista) FILA.vista = p.vista; FILA.min = false; FILA.quem = p.quem || ''; FILA.lida = true; }
   if (!ehAdminFila()) FILA.quem = '';
   await feriados();
   await equipe().catch(() => []);
@@ -204,11 +211,11 @@ async function cardMinhaFila() {
     pessoasEscritorio().filter((n) => primeiroNome(n) !== primeiroNome(meuNome())).map((n) => '<option' + (FILA.quem === n ? ' selected' : '') + '>' + esc(n) + '</option>').join('') + '</select>' : '';
   const html = '<div class="card ini-fila' + (FILA.min ? ' minimizada' : '') + '"><div class="card-hd">📋 Minha fila de trabalho ' + '<span class="sub">' + plural(todas.length, 'aberta', 'abertas') + ' · ' + rotQuem + '</span>' + selQuem +
       '<div class="segmento ini-fila-vista" role="group" aria-label="Ver como">' + VISTAS_FILA.map(([v, r]) => '<button type="button" data-fila-vista="' + v + '"' + (FILA.vista === v ? ' class="ativo"' : '') + '>' + r + '</button>').join('') + '</div>' +
-      '<button type="button" class="btn btn-o btn-mini ini-fila-min" data-fila-min aria-expanded="' + !FILA.min + '">' + (FILA.min ? '▸ Mostrar' : '▾ Minimizar') + '</button></div>' +
+      '</div>' +   // Backup 39: sem "Minimizar" 
     (FILA.min ? '' : '<div class="card-bd">' + (FILA.vista !== 'lista' ? calendarioFila(naAgenda) :
     (minhas.length ? '<div class="lista-ficha fila-compacta">' + minhas.map((t) => '<div class="item-ficha clicavel" data-fila="' + t.id + '"><div>' + bolinha(t) + (t.tipo_agenda ? ' <i class="ag-cor ag-' + t.tipo_agenda + '"></i>' : '') + ' <b>' + (t.hora ? horaAg(t) : '') + esc(t.titulo) + '</b>' + seloPrazo(t) +
       '<div class="sub">' + (t.prazo ? 'prazo ' + dataBR(t.prazo) : 'sem prazo') + (t.prazo_fatal ? ' · ⚑ fatal ' + dataBR(t.prazo_fatal) : '') + (t.status === 'revisao' ? ' · aguardando revisão' : '') +
-      (nomeCliente(t.cliente_id) || nomeGrupo(t.grupo_id) ? ' · ' + esc(nomeCliente(t.cliente_id) || nomeGrupo(t.grupo_id)) : '') + '</div></div>' +
+      (quemTarefa(t) ? ' · ' + esc(quemTarefa(t)) : '') + '</div></div>' +
       '<span class="pill ' + (PRIORIDADE[t.prioridade] || ['', 'neutro'])[1] + '">' + esc((PRIORIDADE[t.prioridade] || [t.prioridade])[0]) + '</span></div>').join('') + '</div>' +
       (todas.length > 5 ? '<div class="ini-fila-mais"><button type="button" class="btn btn-o btn-mini" data-fila-toda>' + (FILA.toda ? '▴ Mostrar só as 5 primeiras' : '▾ Ver todas (' + todas.length + ')') + '</button></div>' : '')
       : '<div class="sub">' + (FILA.quem ? 'Nenhuma tarefa aberta.' : 'Nenhuma tarefa com você.') + ' 🎉</div>')) + '</div>') + '</div>';
@@ -217,7 +224,6 @@ async function cardMinhaFila() {
     raiz.querySelectorAll('[data-fila]').forEach((d) => d.onclick = () => {
       abrirTarefa(ts.find((t) => t.id === d.dataset.fila), () => irPara(E.tela)); });
     const sq = raiz.querySelector('[data-fila-quem]'); if (sq) sq.onchange = () => { FILA.quem = sq.value; salvarPrefFila(); repinta(raiz); };
-    const bm = raiz.querySelector('[data-fila-min]'); if (bm) bm.onclick = () => { FILA.min = !FILA.min; salvarPrefFila(); repinta(raiz); };
     const bt = raiz.querySelector('[data-fila-toda]'); if (bt) bt.onclick = () => { FILA.toda = !FILA.toda; repinta(raiz); };
     raiz.querySelectorAll('[data-fila-vista]').forEach((b) => b.onclick = () => { FILA.vista = b.dataset.filaVista; FILA.min = false; FILA.ref = null; salvarPrefFila(); repinta(raiz); });
     raiz.querySelectorAll('[data-agendar]').forEach((b) => b.onclick = () => janelaAgendar(FILA.vista === 'dia' ? (FILA.ref || hojeISO()) : hojeISO(), () => repinta(raiz)));
@@ -253,6 +259,8 @@ function seloFatal(t) {
   const falta = u == null ? '' : u < 0 ? ' · vencido' : u === 0 ? ' · hoje!' : ' · faltam ' + u + ' dia(s) útil(eis)';
   return ' <span class="pill ' + (tarefaFechada(t) ? 'neutro' : d <= 2 ? 'vencido' : 'cobranca') + '" title="Prazo fatal (contagem em dias úteis, com os feriados cadastrados)">⚑ ' + dataBR(t.prazo_fatal) + falta + '</span>';
 }
+// Backup 39: cliente, grupo ou o "com quem" livre da agenda
+function quemTarefa(t) { return nomeCliente(t.cliente_id) || nomeGrupo(t.grupo_id) || (t.com_quem || ''); }
 function nomeCliente(id) { const c = E.clientes.find((x) => x.id === id); return c ? c.nome : ''; }
 
 // ─────────────────────────── tela ───────────────────────────
@@ -267,7 +275,8 @@ TELAS.tarefas = async function () {
     '<button class="btn btn-o" id="tf-delegar" title="Delegar uma sequência de passos (ex.: lead completo) com validação">👥 Delegar</button><button class="btn btn-o" id="tf-fluxo">+ Novo fluxo</button><button class="btn btn-p" id="tf-nova">+ Nova tarefa</button></div></div>' +
     '<div class="tf-rapida"><input id="tf-rapida" autocomplete="off" placeholder="⚡ Criação rápida: “Protocolar defesa amanhã @Emanuelle !alta” e Enter" aria-label="Criação rápida de tarefa">' +
       '<div id="tf-rapida-prev" class="tf-rapida-prev"></div></div>' +
-    '<div class="abas" id="tf-abas">' + [['abertas', 'Em aberto'], ['concluidas', '✓ Concluídas'], ['excluidas', '🗑 Excluídas']]
+    // Backup 39: Em aberto / Concluídas / Excluídas no mesmo estilo de Lista / Minha semana / Quadro
+    '<div class="segmento tf-abas-seg" id="tf-abas">' + [['abertas', 'Em aberto'], ['concluidas', 'Concluídas'], ['excluidas', 'Excluídas']]
       .map(([v, r]) => '<button data-aba="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<div class="filtros">' +
     '<div class="segmento" id="tf-vista">' + [['lista', 'Lista'], ['semana', 'Minha semana'], ['kanban', 'Quadro'], ['calendario', 'Calendário'], ['fluxos', 'Fluxos'], ['relatorio', 'Relatório']]
@@ -381,8 +390,7 @@ function vistaLista(alvo) {
       '<td class="mono" data-ord="' + esc(t.prazo || '9999') + '">' + dataBR(t.prazo) + seloPrazo(t) + '</td>' +
       '<td class="acoes-l">' + (t.status === 'cancelada'
         ? '<button class="btn btn-o btn-mini" data-restaurar-t="' + t.id + '">↩ Restaurar</button>' + ((E.perfil || {}).papel === 'admin' ? ' <button class="btn btn-x btn-mini" data-apagar-t="' + t.id + '">Excluir de vez</button>' : '')
-        : (tarefaFechada(t) ? '' : '<button class="btn btn-v btn-mini" data-concluir="' + t.id + '">✓ Concluir</button> ') +
-      '<button class="btn btn-o btn-mini btn-ed" data-editar-t="' + t.id + '" title="Editar" aria-label="Editar">✎</button>') + '</td></tr>' +
+        : (tarefaFechada(t) ? '' : '<button class="btn btn-v btn-mini" data-concluir="' + t.id + '">✓ Concluir</button>')) + '</td></tr>' +   // Backup 39: sem ✎ (editar fica no detalhe)
       filhas.filter((f) => ids.has(f.id)).map((f) => linha(f, nivel + 1)).join('');
   };
   alvo.innerHTML = '<div class="card">' + (raizes.length ? '<div class="tabela-wrap"><table><thead><tr><th>Grupo</th><th>Tarefa</th><th>Pessoa</th><th>Prioridade</th><th>Status</th><th data-tipo="data">Prazo</th><th class="sem-ordem"></th></tr></thead><tbody>' +
@@ -397,7 +405,7 @@ function vistaKanban(alvo) {
     const cs = lista.filter((t) => t.status === s);
     return '<div class="kb-col" data-status="' + s + '"><div class="kb-tit">' + STATUS_TAREFA[s] + ' <span class="sub">' + cs.length + '</span></div>' +
       cs.map((t) => '<div class="kb-card" draggable="true" data-id="' + t.id + '">' + bolinha(t) + ' <b>' + esc(t.titulo) + '</b>' +
-        '<div class="sub">' + esc(nomeCliente(t.cliente_id) || nomeGrupo(t.grupo_id) || '') + '</div>' +
+        '<div class="sub">' + esc(quemTarefa(t) || '') + '</div>' +
         '<div class="kb-rod">' + pillPessoa(t.responsavel) + (t.prazo ? ' <span class="sub mono">' + dataBR(t.prazo) + '</span>' : '') + seloPrazo(t) + seloFatal(t) + '</div>' +
         barraProgresso(progresso(t, (E._tarefas || []).filter((x) => x.tarefa_pai_id === t.id))) + '</div>').join('') +
       '</div>';
@@ -426,25 +434,20 @@ function vistaKanban(alvo) {
 
 // ── Calendário do mês (prazo interno e ⚑ prazo fatal) ──
 async function vistaCalendario(alvo) {
-  const F = E.tf, fer = await feriados();
-  const [a, m] = F.mes.split('-').map(Number), ini = new Date(a, m - 1, 1), dias = new Date(a, m, 0).getDate();
-  const lista = filtrarTarefas(), h = hojeISO();
-  let html = '<div class="card"><div class="card-hd"><button class="btn btn-o btn-mini" id="cal-ant">‹</button><span>' +
-    ini.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }) + '</span><button class="btn btn-o btn-mini" id="cal-prox">›</button></div>' +
-    '<div class="calendario">' + ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((d) => '<div class="cal-sem">' + d + '</div>').join('') +
-    '<div class="cal-dia vazio-dia"></div>'.repeat(ini.getDay());
-  for (let d = 1; d <= dias; d++) {
-    const iso_ = F.mes + '-' + String(d).padStart(2, '0');
-    const doDia = lista.filter((t) => t.prazo === iso_ || t.prazo_fatal === iso_);
-    html += '<div class="cal-dia' + (iso_ === h ? ' cal-hoje' : '') + (!diaUtil(iso_, fer) ? ' cal-folga' : '') + '"><div class="cal-num">' + d + '</div>' +
-      doDia.slice(0, 4).map((t) => '<button class="cal-tf' + (t.prazo_fatal === iso_ ? ' fatal' : '') + (tarefaFechada(t) ? ' feita' : t.prazo && t.prazo < h ? ' atrasada' : '') +
-        '" data-editar-t="' + t.id + '" title="' + esc(t.titulo) + '">' + (t.prazo_fatal === iso_ ? '⚑ ' : '') + esc(t.titulo) + '</button>').join('') +
-      (doDia.length > 4 ? '<div class="sub">+ ' + (doDia.length - 4) + '</div>' : '') + '</div>';
-  }
-  alvo.innerHTML = html + '</div></div>';
-  const mudar = (n) => { const d = new Date(a, m - 1 + n, 1); F.mes = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); pintarTarefas(); };
-  $('cal-ant').onclick = () => mudar(-1); $('cal-prox').onclick = () => mudar(1);
-  ligarLinhasTarefa(alvo);
+  // Backup 39: o MESMO calendário do Início (quadro Atrasadas, cores da legenda, sem cinza depois do último dia); clicar abre o detalhe
+  const F = E.tf; await feriados();
+  const salvo = { vista: FILA.vista, ref: FILA.ref };
+  FILA.vista = 'mes'; FILA.ref = F.mes + '-01';
+  const lista = filtrarTarefas();
+  alvo.innerHTML = '<div class="card ini-fila tf-cal"><div class="card-bd">' + calendarioFila(lista) + '</div></div>';
+  FILA.vista = salvo.vista; FILA.ref = salvo.ref;
+  const [a, m] = F.mes.split('-').map(Number);
+  alvo.querySelectorAll('[data-fila-nav]').forEach((b) => b.onclick = () => {
+    const n = +b.dataset.filaNav, d = n ? new Date(a, m - 1 + n, 1) : new Date();
+    F.mes = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); pintarTarefas(); });
+  alvo.querySelectorAll('[data-fila]').forEach((d) => d.onclick = () => abrirTarefa(E._tarefas.find((t) => t.id === d.dataset.fila), recarregarTarefas));
+  alvo.querySelectorAll('[data-agendar]').forEach((b) => b.onclick = () => janelaAgendar(hojeISO(), recarregarTarefas));
+  alvo.querySelectorAll('[data-ag-dia]').forEach((d) => d.addEventListener('click', (ev) => { if (ev.target.closest('[data-fila]')) return; janelaAgendar(d.dataset.agDia, recarregarTarefas); }));
 }
 
 // ── Fluxos: andamento e linha do tempo (Gantt simples) ──
@@ -503,7 +506,7 @@ function vistaRelatorio(alvo) {
   const fatais = ts.filter((t) => !tarefaFechada(t) && t.prazo_fatal && t.prazo_fatal <= somarDias(h, 30)).sort((a, b) => a.prazo_fatal.localeCompare(b.prazo_fatal));
   // por cliente no mês: concluídas no prazo × com atraso; e as abertas atrasadas
   const porCli = {};
-  ts.forEach((t) => { const k = nomeCliente(t.cliente_id) || nomeGrupo(t.grupo_id); if (!k) return; const c = porCli[k] = porCli[k] || { concl: 0, noPrazo: 0, atrasoConcl: 0, abertasAtr: 0 };
+  ts.forEach((t) => { const k = quemTarefa(t); if (!k) return; const c = porCli[k] = porCli[k] || { concl: 0, noPrazo: 0, atrasoConcl: 0, abertasAtr: 0 };
     if (t.status === 'concluida' && String(t.concluida_em || '').slice(0, 7) === mes) { c.concl++; if (!t.prazo || String(t.concluida_em).slice(0, 10) <= t.prazo) c.noPrazo++; else c.atrasoConcl++; }
     if (!tarefaFechada(t) && t.prazo && t.prazo < h) c.abertasAtr++; });
   const cliLinhas = Object.entries(porCli).filter(([, c]) => c.concl || c.abertasAtr).sort((a, b) => b[1].abertasAtr - a[1].abertasAtr || b[1].concl - a[1].concl);
@@ -533,7 +536,7 @@ function vistaRelatorio(alvo) {
     '<div class="card"><div class="card-hd">Prazos fatais nos próximos 30 dias (e vencidos)</div>' +
     (fatais.length ? '<div class="tabela-wrap"><table><thead><tr><th>Prazo fatal</th><th>Tarefa</th><th>Cliente / grupo</th><th>Pessoa</th><th>Status</th></tr></thead><tbody>' +
       fatais.map((t) => '<tr class="clicavel" data-editar-t="' + t.id + '"><td class="mono">' + dataBR(t.prazo_fatal) + (t.prazo_fatal < h ? ' <span class="pill vencido">vencido</span>' : '') + '</td><td><b>' + esc(t.titulo) + '</b></td>' +
-        '<td>' + esc(nomeCliente(t.cliente_id) || nomeGrupo(t.grupo_id) || '—') + '</td><td>' + pillPessoa(t.responsavel) + '</td><td>' + esc(STATUS_TAREFA[t.status] || t.status) + '</td></tr>').join('') +
+        '<td>' + esc(quemTarefa(t) || '—') + '</td><td>' + pillPessoa(t.responsavel) + '</td><td>' + esc(STATUS_TAREFA[t.status] || t.status) + '</td></tr>').join('') +
       '</tbody></table></div>' : '<div class="vazio">Nenhum prazo fatal nos próximos 30 dias.</div>') + '</div>';
   ligarLinhasTarefa(alvo);
   horasGastasPorPessoa(alvo).catch(() => {});
@@ -593,7 +596,7 @@ async function abrirTarefa(t, depois) {
       '<div class="tf-grade">' +
         linha('Prazo', t.prazo ? dataBR(t.prazo) : '<span class="sub">sem prazo</span>') +
         linha('Prazo fatal', t.prazo_fatal ? '<b>' + dataBR(t.prazo_fatal) + '</b>' : '') +
-        linha('Cliente', esc(nomeCliente(t.cliente_id) || nomeGrupo(t.grupo_id) || '')) +
+        linha('Cliente', esc(quemTarefa(t) || '')) +
         linha('Responsável', pillPessoa(t.responsavel)) +
         linha('Participantes', String(t.participantes || '').split(',').map((x) => x.trim()).filter(Boolean).map(pillPessoa).join(' ')) +
         linha('Revisor', t.exige_revisao || t.revisor ? pillPessoa(t.revisor) : '') +
@@ -1090,19 +1093,24 @@ function vistaSemana(alvo) {
   const base = new Date((F.semana || h) + 'T12:00:00'); base.setDate(base.getDate() - ((base.getDay() + 6) % 7));
   const seg = iso(base), dias = [0, 1, 2, 3, 4].map((i) => somarDias(seg, i)), sex = dias[4];
   const quem = F.resp || '';
-  const doDono = (t) => !tarefaFechada(t) && (quem ? primeiroNome(t.responsavel) === primeiroNome(quem) : ehMinha(t));
-  const ts = (E._tarefas || []).filter(doDono);
-  const atrasadas = ts.filter((t) => t.prazo && t.prazo < seg && seg <= h), semData = ts.filter((t) => !t.prazo);
+  // Backup 39: respeita a aba (Em aberto / Concluídas / Excluídas) — antes "Concluídas" ainda mostrava as abertas
+  const doDono = (t) => (quem ? primeiroNome(t.responsavel) === primeiroNome(quem) : ehMinha(t));
+  const ts = filtrarTarefas().filter(doDono);
+  const abertasAba = F.aba === 'abertas';
+  const atrasadas = abertasAba ? ts.filter((t) => t.prazo && t.prazo < h).sort((a, b) => a.prazo.localeCompare(b.prazo)) : [], semData = ts.filter((t) => !t.prazo);
   const cartao = (t) => '<div class="sm-card" draggable="true" data-sm="' + t.id + '"><b>' + esc(t.titulo) + '</b>' + seloFatal(t) +
-    '<div class="sub">' + esc(nomeCliente(t.cliente_id) || nomeGrupo(t.grupo_id) || '') + (t.estimativa_horas ? ' · ' + String(t.estimativa_horas).replace('.', ',') + ' h' : '') + '</div></div>';
+    '<div class="sub">' + esc(quemTarefa(t) || '') + (t.estimativa_horas ? ' · ' + String(t.estimativa_horas).replace('.', ',') + ' h' : '') + '</div></div>';
   const col = (rot, data, lista, cls) => '<div class="sm-col' + (cls ? ' ' + cls : '') + '" data-dia="' + (data || '') + '"><div class="sm-tit">' + rot + ' <span class="sub">' + lista.length + '</span></div>' + lista.map(cartao).join('') + '</div>';
   alvo.innerHTML = '<div class="fila-cal-nav"><button type="button" class="btn btn-o btn-mini" data-sm-nav="-7">‹</button><b>Semana de ' + dataBR(seg).slice(0, 5) + ' a ' + dataBR(sex).slice(0, 5) +
       (quem ? ' — ' + esc(quem) : ' — minhas tarefas') + '</b><button type="button" class="btn btn-o btn-mini" data-sm-nav="7">›</button><button type="button" class="btn btn-o btn-mini" data-sm-nav="0">Esta semana</button></div>' +
-    '<div class="sm-grade">' + (atrasadas.length ? col('⚠ Atrasadas', '', atrasadas, 'sm-atr') : '') +
+    // Backup 39: "Atrasadas" no MESMO quadro do Início (⏰, número em vermelho, contorno vermelho e "prazo · N dias de atraso")
+    (abertasAba ? '<div class="fila-com-atr sm-com-atr">' + quadroAtrasadas(atrasadas) : '<div>') +
+    '<div class="sm-grade">' +
     dias.map((d, i) => col(['Seg', 'Ter', 'Qua', 'Qui', 'Sex'][i] + ' ' + dataBR(d).slice(0, 5), d, ts.filter((t) => t.prazo === d), d === h ? 'sm-hoje' : '')).join('') +
-    (semData.length ? col('Sem data', 'sem', semData, 'sm-sem') : '') + '</div>' +
+    (semData.length ? col('Sem data', 'sem', semData, 'sm-sem') : '') + '</div></div>' +
     '<p class="sub" style="margin-top:8px">Arraste a tarefa para outro dia para remarcar o prazo. Para ver a semana de outra pessoa, escolha a pessoa no filtro acima.</p>';
   alvo.querySelectorAll('[data-sm-nav]').forEach((b) => b.onclick = () => { F.semana = +b.dataset.smNav ? somarDias(seg, +b.dataset.smNav) : null; vistaSemana(alvo); });
+  alvo.querySelectorAll('.fila-atrasadas [data-fila]').forEach((b) => b.onclick = () => abrirTarefa(E._tarefas.find((t) => t.id === b.dataset.fila), recarregarTarefas));
   let arr = null;
   alvo.querySelectorAll('.sm-card').forEach((c) => {
     c.addEventListener('dragstart', (ev) => { arr = c.dataset.sm; ev.dataTransfer.setData('text/plain', arr); c.classList.add('arrastando'); });

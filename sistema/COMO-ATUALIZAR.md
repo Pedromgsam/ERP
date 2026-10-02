@@ -712,6 +712,28 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
 **Central de Documentos dentro do ERP:** menu **Documentos → Gerar documento** (ou ⋯ → Documentos, contrato, recibo do Financeiro).
 **Ctrl + clique** (ou botão do meio do mouse) em qualquer item do menu ou link de documento abre numa aba nova.
 
+## Backup 39 — ajustes de visual: lateral, Início, Tarefas, Painel, Processos, Acordos, Contabilidade e Contratos (tem SQL)
+Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+Shift+R**. Nenhuma Edge Function mudou.
+Para voltar ao visual anterior: o zip do **Backup 38** (pasta `backups/`) é a versão completa de antes.
+
+- **Barra lateral:** saiu o "A&C" (fica "Araújo & Castro / Advocacia e Contabilidade"). Ao encolher, o conteúdo cresce e as margens dos dois lados
+  continuam iguais. **Rotina** foi para Módulos, logo abaixo de Documentos.
+- **Início:** calendário com a altura fixa do mês também em Semana/Dia (os dias da semana esticam); sem "minimizar"; "Agendar" com nomes com inicial
+  maiúscula e campo "Com quem" de texto livre (se o texto for um cliente, liga ao cliente; senão fica gravado em `tarefas.com_quem`).
+  "Publicações para ler" conta só as do advogado que está logado.
+- **Tarefas:** abas Em aberto / Concluídas / Excluídas no mesmo estilo de Lista / Minha semana / Quadro; Minha semana respeita a aba e tem o
+  quadro "⏰ Atrasadas" igual ao do Início; calendário igual ao do Início (sem cinza depois do último dia); clicar abre o detalhe (botão Editar
+  dentro dele); sem a caneta na lista.
+- **Painel executivo:** Evolução abre em 6 meses; filtro de área em botões; Empresas do grupo sem CEAT, CAPAG e coluna de edição, coluna Grupo
+  menor, sem sublinhado; clicar na linha abre a ficha, com "✎ Editar cadastro" em destaque no canto superior direito.
+- **Processos:** chip "Todos"; sem botão de edição; cabeçalho não fica embaixo do filtro flutuante; colunas Grupo e Competência mais estreitas.
+- **Acordos:** "A pagar / Pago" no estilo dos filtros de prazo.
+- **Contabilidade:** linha "QUEM FEZ" (Contabilidade); comparativos com as colunas distribuídas como no Jurídico e cores corrigidas
+  (a pagar em vermelho, sem faixas coloridas nas linhas).
+- **Contratos:** saíram as colunas Parcelas e Anexo; Financeiro vem antes de Situação.
+- **Selo da pessoa** voltou ao formato do ERP original (pílula do tamanho do nome).
+- **SQL:** `tarefas.com_quem` (texto livre do Agendar).
+
 ## Backup 38 — barra lateral no padrão dos prints, Início enxuto, sem avisos, sem módulo E-mails, tarefas só manuais (tem SQL)
 Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+Shift+R**. Nenhuma Edge Function mudou.
 Para voltar ao visual anterior: o zip do **Backup 37** (pasta `backups/`) é a versão completa de antes.
