@@ -663,8 +663,9 @@ label.ofx-it{cursor:pointer}
 .lemb-sec{margin-bottom:16px}
 .lemb-sec .secao{margin-bottom:6px}
 /* Minha fila (Backup 27): atrasadas à esquerda do calendário; lista compacta */
-.fila-com-atr{display:grid;grid-template-columns:230px minmax(0,1fr);gap:14px;align-items:start}
-.fila-atrasadas{border:1px solid var(--border);border-radius:10px;background:var(--surface2);padding:10px;display:flex;flex-direction:column;gap:6px;max-height:520px;overflow:auto}
+/* Backup 38: "Atrasadas" com a MESMA altura do calendário (rola por dentro se tiver muitas) */
+.fila-com-atr{display:grid;grid-template-columns:240px minmax(0,1fr);gap:14px;align-items:stretch}
+.fila-atrasadas{border:1px solid var(--border);border-radius:10px;background:var(--surface2);padding:10px;display:flex;flex-direction:column;gap:6px;height:0;min-height:100%;overflow:auto;box-sizing:border-box}
 .fila-atr-tit{display:flex;align-items:center;gap:6px;font:700 12px var(--font-ui);text-transform:uppercase;letter-spacing:.05em;color:var(--text2)}
 .fila-atr-it{display:flex;flex-direction:column;align-items:flex-start;gap:1px;text-align:left;border:1px solid var(--border);border-left:3px solid var(--red);border-radius:8px;background:var(--surface);padding:6px 8px;cursor:pointer;font:inherit;color:var(--ink)}
 .fila-atr-it b{font-size:13px;font-weight:600;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
@@ -674,7 +675,7 @@ label.ofx-it{cursor:pointer}
 .fila-compacta .item-ficha{padding:6px 10px;font-size:13px}
 .fila-compacta .item-ficha .sub{font-size:12px}
 .fila-compacta{gap:4px}
-@media (max-width:900px){.fila-com-atr{grid-template-columns:1fr}.fila-atrasadas{max-height:none}}
+@media (max-width:900px){.fila-com-atr{grid-template-columns:1fr}.fila-atrasadas{height:auto;min-height:0;max-height:none}}
 /* Publicações (Backup 28): identificação no topo — Processo / Autor / Réu — Advogado */
 .pub-id{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin:8px 0;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-left:3px solid var(--primario);border-radius:8px}
 .pub-id-txt{display:flex;flex-direction:column;gap:2px;font-size:13px;color:var(--ink);line-height:1.45}
@@ -1150,7 +1151,7 @@ button.pl-dt{cursor:pointer}
 /* Backup 37: agenda — lembretes e vencimentos; o que entra na agenda */
 .cal-tf.ag-lembrete,.ag-cor.ag-lembrete{background:var(--amber-lt);color:var(--amber-d);border-left:3px solid var(--amber)}
 .cal-tf.ag-venc,.ag-cor.ag-venc{background:var(--surface);color:var(--text2);border:1px dashed var(--border-strong)}
-.ag-fontes{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--line);font-size:12px}
+/* Backup 38: escolha de fontes da agenda saiu */ .ag-fontes{display:none;display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--line);font-size:12px}
 .ag-fonte{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border:1px solid var(--border);border-radius:99px;cursor:pointer;color:var(--text2)}
 .ag-fonte:has(input:checked){background:var(--primario);border-color:var(--primario);color:var(--on-cor)}
 .ag-fonte input{margin:0;accent-color:var(--on-cor)}
@@ -1166,3 +1167,5 @@ button.pl-dt{cursor:pointer}
 .cert-lido:empty{display:none}
 .cert-lido.cert-ok{background:var(--green-lt);border:1px solid var(--green-bd);color:var(--green-d)}
 .cert-lido.cert-erro{background:var(--red-lt);border:1px solid var(--red-bd);color:var(--red-d)}
+
+.ini-fila-quem{margin-left:8px;font:500 12.5px var(--font-ui);padding:5px 28px 5px 10px;border:1px solid var(--border);border-radius:8px;background-color:var(--surface);color:var(--ink)}

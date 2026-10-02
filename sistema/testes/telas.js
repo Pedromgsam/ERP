@@ -45,7 +45,7 @@ const r = []; const ok = (n, c) => r.push([n, !!c]);
     ok('senha errada mostra mensagem clara', /E-mail ou senha incorretos/.test(await texto(p, '#login-msg')));
     await entrar(p, 'pedro@teste');
     const ini = await texto(p);
-    ok('Início com as duas empresas', /Olá, Pedro/.test(ini) && /Honorários Jurídico/.test(ini) && /Contabilidade/.test(ini));
+    ok('Início enxuto (Backup 38: sem os cartões de Honorários)', /Olá, Pedro/.test(ini) && !/Honorários Jurídico/.test(ini));
     ok('menu com Painel, Honorários e Administração', await p.isVisible('#menu [data-tela=painel]') && await p.isVisible('#menu [data-tela=admin]'));
 
     // cliente manual com passivo
@@ -213,7 +213,7 @@ const r = []; const ok = (n, c) => r.push([n, !!c]);
     await menu(p, 'clientes');
     ok('lista de clientes sem ▸ e com a coluna Área', (await p.locator('.cli-seta').count()) === 0 && /Área/.test(await p.textContent('.cli-tabela thead')));
     await p.click('[data-cli]'); await esperar(p, 1000);
-    ok('clicar no cliente abre a ficha 360°', (await p.locator('.janela.ficha #fc-abas button').count()) === 16);
+    ok('clicar no cliente abre a ficha 360°', (await p.locator('.janela.ficha #fc-abas button').count()) === 15);   // Backup 38: aba E-mails saiu
     await p.click('#fc-editar'); await esperar(p, 800);
     ok('equipe não tem botão excluir cliente', (await p.locator('#btn-excluir-cli').count()) === 0);
     await p.context().close();

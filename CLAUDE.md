@@ -83,7 +83,16 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
-- Última entrega: **Backup 37** (só SQL). **Supabase devolve no máx. 1000 linhas**: listas grandes usam `buscarTodos` (nucleo.js; `order('id')` + range,
+- Última entrega: **Backup 38** (só SQL). Menu = barra LATERAL `#gs-lado` (erp-telas.js: `MENU` com `{sec}` e `ic`, `ICONES`/`icone()`, `#tn` dentro da lateral,
+  `.tn-grupo.on` = submenu aberto, `destacar` abre o grupo da tela; `#gs-encolher` → `body.gx-lado-min`, localStorage `erp_lado_min`); `#gs-hd` = barra branca
+  (`#gs-tela-nome`, + Lançar, tema, ⋯, sessão, nome, Sair). CSS no bloco "Backup 38" do design.css (`--sw`, `--conteudo` 1360, `--gut`); tokens `--lado-*`, `--topo-*`,
+  `--primario` azul. Sino/avisos saíram (sem `atualizarSino`/`gx-pop-avisos`). Início = `ini-valid/ini-lembretes/ini-resumo/ini-aprov/ini-fila` (sem honorários, sem
+  `cardMural`). Agenda: só tarefas, `FILA.quem` (admin; `[data-fila-quem]`, salvo em `preferencias.fila.quem`), `.fila-atrasadas` com a altura do calendário.
+  SQL: gatilho `tarefa_so_manual` (tarefa com `chave_regra` ≠ `reuniao:` não grava se `configuracoes.tarefas_automaticas` ≠ true; as abertas canceladas 1× —
+  `b38_tarefas_auto`), `email_fila_redirecionar` (gatilho `email_fila_desviar`, roda antes do `email_fila_reter`; `configuracoes.email_redirecionar`,
+  `email_fila.para_original`). Testes religam as duas coisas (`preparar-banco.sh`, `rodar-tudo.sh`; fluxo.sql 38.x testa o desligado). Módulo E-mails sem
+  menu/painel (telas-emails.js continua no bundle, sem entrada). Financeiro: Prejuízo/Em atraso de todos os meses; Contabilidade com `fc-kpis6` e sem tabela Em atraso.
+- Backup 37 (base) (só SQL). **Supabase devolve no máx. 1000 linhas**: listas grandes usam `buscarTodos` (nucleo.js; `order('id')` + range,
   cai sem desempate se a tabela não tem `id`) e `todos()` do erp-dados ordena por id; o PostgREST de teste tem `db-max-rows = 1000`. Guias: `GS.gerarGuias(tabela,
   {grupo_id, empresa, itens, ids, proximas})` (telas-guias.js) → `janelaGuiasEmpresa`; botões `.lg-bt-guias-geral`/`.lg-bt-guias`/`.lg-bt-gu` → `_lgGuias` (lista-grupos-b25.js,
   `o.tabela`). `acordos.forma_pagamento` boleto|pix (gatilhos `acordo_forma_propaga*`), `textoGuias`/`parcOrd`/`fechoGuias`, `guias_texto_html` (caixa "Como pagar") usada

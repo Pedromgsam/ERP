@@ -6776,3 +6776,48 @@ begin
 end $$;
 drop trigger if exists parcela_data_pagamento on public.parcelas;
 create trigger parcela_data_pagamento before update of pago on public.parcelas for each row execute function public.parcela_data_pagamento();
+
+-- ═══════════════════════════════ Backup 38 ═══════════════════════════════
+-- 1) Tarefas: só as que a equipe lança. Tarefa automática (com chave de regra: documento vencendo, publicação, CRM parado,
+--    conferência da rotina…) não é mais criada. Reunião marcada pela própria equipe (chave "reuniao:") continua.
+--    Para voltar: update configuracoes set valor = 'true' where chave = 'tarefas_automaticas';
+insert into public.configuracoes (chave, valor) values ('tarefas_automaticas', 'false'::jsonb) on conflict (chave) do nothing;
+create or replace function public.tarefa_so_manual() returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if new.chave_regra is not null and new.chave_regra not like 'reuniao:%'
+     and coalesce((select valor from public.configuracoes where chave = 'tarefas_automaticas'), 'false'::jsonb) <> 'true'::jsonb then
+    return null;   -- não grava (sem erro): a regra segue rodando para e-mails e alertas, só não vira tarefa
+  end if;
+  return new;
+end $$;
+drop trigger if exists tarefa_so_manual on public.tarefas;
+create trigger tarefa_so_manual before insert on public.tarefas for each row execute function public.tarefa_so_manual();
+-- uma vez só: as tarefas automáticas que estavam abertas são canceladas (continuam no histórico; dá para reabrir)
+do $$
+begin
+  if not exists (select 1 from public.configuracoes where chave = 'b38_tarefas_auto') then
+    update public.tarefas set status = 'cancelada'
+     where chave_regra is not null and chave_regra not like 'reuniao:%' and status not in ('concluida', 'cancelada');
+    insert into public.configuracoes (chave, valor) values ('b38_tarefas_auto', to_jsonb(now()));
+  end if;
+end $$;
+
+-- 2) E-mails: módulo fora da tela; até segunda ordem TODO e-mail vai para um endereço só (configuracoes.email_redirecionar).
+--    O destinatário original fica em email_fila.para_original e aparece no assunto: "[para fulano@cliente.com] …".
+--    Para voltar ao normal: update configuracoes set valor = '""' where chave = 'email_redirecionar';
+alter table public.email_fila add column if not exists para_original text not null default '';
+insert into public.configuracoes (chave, valor) values ('email_redirecionar', '"pedromgsam@gmail.com"'::jsonb) on conflict (chave) do nothing;
+create or replace function public.email_fila_redirecionar() returns trigger language plpgsql security definer set search_path = public as $$
+declare alvo text := btrim(coalesce((select valor #>> '{}' from public.configuracoes where chave = 'email_redirecionar'), ''));
+begin
+  if alvo <> '' and lower(btrim(coalesce(new.para, ''))) <> lower(alvo) then
+    new.para_original := coalesce(new.para, '');
+    new.para := alvo;
+    new.assunto := '[para ' || left(new.para_original, 120) || '] ' || coalesce(new.assunto, '');
+  end if;
+  return new;
+end $$;
+-- o nome começa com "d" para rodar ANTES do email_fila_reter (os gatilhos rodam em ordem alfabética): o endereço único é de teste, não fica retido
+drop trigger if exists email_fila_redirecionar on public.email_fila;
+drop trigger if exists email_fila_desviar on public.email_fila;
+create trigger email_fila_desviar before insert on public.email_fila for each row execute function public.email_fila_redirecionar();

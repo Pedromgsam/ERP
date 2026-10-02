@@ -586,6 +586,10 @@ trocar(`function _acResetTimer() {
   clearTimeout(_acInactivityTimer);
   try { if (window.AC_SESSION && Date.now() - (window._acUltGrav || 0) > 20000) { window._acUltGrav = Date.now(); window.AC_SESSION.expira = Date.now() + AC_SESSION_TTL; sessionStorage.setItem(AC_SESSION_KEY, JSON.stringify(window.AC_SESSION)); } } catch (e) {}
   window._acUltAtiv = Date.now();`, 1);
+// Backup 38: Prejuízo do Financeiro → Jurídico soma TODOS os meses (como o Em atraso e o cartão do Início), não só o período escolhido
+trocar("  var prejuizo= _faFiltrar(['Prejuízo']);", "  var prejuizo= window._semPeriodo(_FA,function(){ return _faFiltrar(['Prejuízo']); });", 1);
+trocar("kC('Prejuízo',fF(vPrej),prejuizo.length+' baixa(s)','cx',vPrej>0?'dr':'')", "kC('Prejuízo',fF(vPrej),prejuizo.length+' baixa(s) · todos os meses','cx',vPrej>0?'dr':'')", 1);
+trocar("  +   kC('Em atraso',fF(vVenc),vencidos.length+' vencido(s)','cr',vVenc>0?'dr':'')", "  +   kC('Em atraso',fF(vVenc),vencidos.length+' vencido(s) · todos os meses','cr',vVenc>0?'dr':'')", 1);
 // Backup 37: Financeiro → Análise sem a tabela "Em atraso" (a mesma informação já está na aba A Receber e no cartão Em atraso)
 trocar("  + (vencidos.length?'<div class=\"cc\" style=\"margin-bottom:14px\"><div class=\"cc-hd\"><div><div class=\"cc-t\">Em atraso</div>", "  + (false&&vencidos.length?'<div class=\"cc\" style=\"margin-bottom:14px\"><div class=\"cc-hd\"><div><div class=\"cc-t\">Em atraso</div>", 2);
 // 13. Cores de tokens.css (fonte única) depois do CSS do ERP; modo escuro lembrado neste aparelho.

@@ -28,8 +28,8 @@ body.gx-barra-topo .panel{gap:var(--sp-5)}
 #gs-hd .tn-menu button,#gs-hd .hd-usuario .tn-menu button{border-radius:var(--radius-xs)!important;color:var(--text)!important;font-weight:500!important;font-size:var(--fs-sm)!important;padding:8px 12px!important}
 #gs-hd .tn-menu button:hover,#gs-hd .tn-menu button.ativo,#gs-hd .hd-usuario .tn-menu button:hover{background:var(--surface3)!important;color:var(--ink)!important}
 /* filtro flutuante do ERP e menu de baixo (celular): mesma cor da barra */
-body.gx-barra-topo #fb{background:var(--bar-bg);border-color:var(--bar-borda);box-shadow:var(--shadow-md)}
-body.gx-barra-topo #fbPop,body.gx-barra-topo #fbPop::before{background:var(--bar-bg)}
+body.gx-barra-topo #fb{background:var(--lado-bg);border-color:var(--bar-borda);box-shadow:var(--shadow-md)}
+body.gx-barra-topo #fbPop,body.gx-barra-topo #fbPop::before{background:var(--lado-bg)}
 #tn-baixo{background:var(--bar-bg)!important;box-shadow:none!important;border-top:1px solid var(--bar-borda)}
 .tn-mais-caixa{border-radius:var(--card-r) var(--card-r) 0 0}
 
@@ -1039,3 +1039,83 @@ body.gx-barra-topo .kc .ks,body.gx-barra-topo .gs .kpi .kpi-s{order:3;margin-top
 body.gx-barra-topo .kc > :not(.kv):not(.kl):not(.ks){order:4}
 /* tabelas: cabeçalho claro com linha fina embaixo */
 body.gx-barra-topo :is(.tw,.tabela-wrap,.gx-tab-gs) thead th{border-bottom:1px solid var(--border)!important;font-weight:600!important;letter-spacing:.06em}
+
+/* ═══ Backup 38 — BARRA LATERAL e respiro no padrão dos prints (ROMPEX), em azul ═══
+   lateral fixa (240 px; "encolher" → só ícones), barra de cima branca com o nome da tela,
+   conteúdo centralizado com margem dos dois lados (não encosta nas bordas). */
+body.gx-barra-topo{--sw:240px;--hh:56px;--conteudo:1360px;--gut:32px}
+body.gx-barra-topo.gx-lado-min{--sw:68px}
+body.gx-barra-topo #main{margin-left:var(--sw)!important;padding-left:var(--gut)!important;padding-right:var(--gut)!important;transition:margin-left .18s}
+body.gx-barra-topo #main > .panel{max-width:var(--conteudo);margin-left:auto!important;margin-right:auto!important}
+#gs-lado{position:fixed;top:0;left:0;bottom:0;width:var(--sw);z-index:1250;background:var(--lado-bg)!important;min-height:0!important;color:var(--lado-fg);display:flex;flex-direction:column;
+  font-family:var(--font-ui);transition:width .18s;overflow:hidden}
+#gs-lado .gl-marca{display:flex;align-items:center;gap:10px;height:72px;padding:0 18px;border-bottom:1px solid var(--lado-linha);flex-shrink:0}
+#gs-lado .gl-logo{width:34px;height:34px;border-radius:9px;background:var(--lado-ativo-bg);color:var(--lado-ativo-fg);display:grid;place-items:center;font:800 13px var(--font-ui);letter-spacing:-.03em;flex-shrink:0}
+#gs-lado .gl-nome{font:800 16px var(--font-ui);letter-spacing:-.01em;line-height:1.1;white-space:nowrap;color:var(--lado-fg)}
+#gs-lado .gl-nome small{display:block;font:500 10.5px var(--font-ui);letter-spacing:0;color:var(--lado-sec);margin-top:3px}
+#gs-lado #tn{flex:1;overflow-y:auto;overflow-x:hidden;padding:10px 10px 16px;display:flex;flex-direction:column;gap:2px}
+#gs-lado .tn-sec{font:700 10.5px var(--font-ui);letter-spacing:.09em;text-transform:uppercase;color:var(--lado-sec);padding:16px 10px 6px;white-space:nowrap}
+#gs-lado .tn-sec:first-child{padding-top:8px}
+#gs-lado .tn-it{display:flex;align-items:center;gap:10px;width:100%;background:none;border:0;border-radius:8px;padding:8px 10px;color:var(--lado-fg-2);
+  font:600 13.5px var(--font-ui);text-align:left;cursor:pointer;white-space:nowrap;box-shadow:none}
+#gs-lado .tn-it:hover{background:var(--lado-hover);color:var(--lado-fg)}
+#gs-lado .tn-ic{flex-shrink:0;opacity:.95}
+#gs-lado .tn-rot{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+#gs-lado .tn-seta{margin-left:auto;width:14px;height:14px;transition:transform .15s;opacity:.7}
+#gs-lado .tn-grupo{display:block;position:static}
+#gs-lado .tn-grupo.on > .tn-abre .tn-seta{transform:rotate(180deg)}
+#gs-lado .tn-it.ativo,#gs-lado .tn-grupo.ativo > .tn-abre{background:var(--lado-ativo-bg);color:var(--lado-ativo-fg)}
+#gs-lado .tn-menu{display:none;margin:4px 0 6px 21px;padding-left:10px;border-left:1px solid var(--lado-linha)}
+#gs-lado .tn-grupo.on > .tn-menu{display:flex;flex-direction:column;gap:2px}
+#gs-lado .tn-menu button{display:block;width:100%;background:none;border:0;border-radius:8px;padding:7px 10px;text-align:left;color:var(--lado-fg-2);font:600 13px var(--font-ui);cursor:pointer;white-space:nowrap}
+#gs-lado .tn-menu button:hover{background:var(--lado-hover);color:var(--lado-fg)}
+#gs-lado .tn-menu button.ativo{background:var(--lado-ativo-bg);color:var(--lado-ativo-fg)}
+#gs-lado #gs-encolher{display:flex;align-items:center;gap:8px;background:none;border:0;border-top:1px solid var(--lado-linha);color:var(--lado-sec);font:500 12.5px var(--font-ui);padding:12px 20px;cursor:pointer;text-align:left}
+#gs-lado #gs-encolher:hover{color:var(--lado-fg)}
+/* encolhida: só ícones; o grupo abre o submenu flutuando ao lado */
+body.gx-lado-min #gs-lado{overflow:visible}
+body.gx-lado-min #gs-lado .gl-nome,body.gx-lado-min #gs-lado .tn-rot,body.gx-lado-min #gs-lado .tn-sec,body.gx-lado-min #gs-lado .tn-seta{display:none}
+body.gx-lado-min #gs-lado .gl-marca{padding:0 17px}
+body.gx-lado-min #gs-lado #tn{overflow:visible}
+body.gx-lado-min #gs-lado .tn-it{justify-content:center;padding:10px 0}
+body.gx-lado-min #gs-lado .tn-sec{display:block;height:1px;padding:0;margin:8px 6px;background:var(--lado-linha);font-size:0}
+body.gx-lado-min #gs-lado .tn-grupo{position:relative}
+body.gx-lado-min #gs-lado .tn-grupo.on > .tn-menu{position:absolute;left:calc(100% + 8px);top:0;margin:0;padding:6px;border:1px solid var(--border);border-radius:12px;background:var(--surface);box-shadow:var(--shadow-lg);min-width:200px;z-index:5}
+body.gx-lado-min #gs-lado .tn-grupo.on > .tn-menu button{color:var(--text)}
+body.gx-lado-min #gs-lado .tn-grupo.on > .tn-menu button:hover,body.gx-lado-min #gs-lado .tn-grupo.on > .tn-menu button.ativo{background:var(--surface3);color:var(--ink)}
+body.gx-lado-min #gs-lado #gs-encolher{justify-content:center;padding:12px 0}
+body.gx-lado-min #gs-lado #gs-encolher svg{transform:rotate(180deg)}
+/* barra de cima: branca, nome da tela à esquerda, ações à direita */
+body.gx-barra-topo #gs-hd{left:var(--sw)!important;background:var(--topo-bg)!important;color:var(--text)!important;border-bottom:1px solid var(--topo-borda)!important;padding:0 24px!important;gap:10px!important;transition:left .18s}
+body.gx-barra-topo #gs-hd #gs-tela-nome{display:block!important;flex:1;min-width:0;color:var(--ink)!important;font:700 13.5px var(--font-ui)!important}
+body.gx-barra-topo #gs-hd .tn-lancar-bt{background:var(--primario)!important;color:var(--on-primario)!important;border-radius:8px!important;font:600 13px var(--font-ui)!important;padding:8px 14px!important}
+body.gx-barra-topo #gs-hd .tn-lancar-bt:hover{background:var(--primario-hover)!important}
+body.gx-barra-topo #gs-hd .hd-usuario{display:flex;align-items:center;gap:8px}
+body.gx-barra-topo #gs-hd .hd-usuario > button,body.gx-barra-topo #gs-hd #gs-tema,body.gx-barra-topo #gs-hd .gs-bt-mais{width:34px;height:34px;padding:0!important;display:grid;place-items:center;
+  border:1px solid var(--border)!important;border-radius:8px!important;background:var(--surface)!important;color:var(--text2)!important}
+body.gx-barra-topo #gs-hd .hd-usuario > button:hover,body.gx-barra-topo #gs-hd #gs-tema:hover,body.gx-barra-topo #gs-hd .gs-bt-mais:hover{background:var(--surface3)!important;color:var(--ink)!important}
+body.gx-barra-topo #gs-hd #gs-sair{width:auto;padding:0 12px!important;font:600 12.5px var(--font-ui)}
+body.gx-barra-topo #gs-hd #gs-nome{background:var(--surface)!important;border:1px solid var(--border);color:var(--ink)!important;font:600 13px var(--font-ui);padding:6px 12px;border-radius:10px}
+body.gx-barra-topo #gs-hd #gs-sessao{color:var(--text3)!important}
+body.gx-barra-topo #gs-hd #gs-sessao.gs-sessao-fim{color:var(--red-d)!important}
+/* filtro flutuante do ERP e linha do Painel acompanham a borda do conteúdo */
+body.gx-barra-topo #fb{right:max(var(--gut),calc((100vw - var(--sw) - var(--conteudo)) / 2 + var(--gut) - 8px))!important}
+body.gx-barra-topo #gx-linha-painel{left:max(calc(var(--sw) + var(--gut)),calc(var(--sw) + (100vw - var(--sw) - var(--conteudo)) / 2 + var(--gut) - 8px))!important}
+/* celular e tablet: sem lateral (menu de baixo, como antes) */
+@media (max-width:1100px){
+  body.gx-barra-topo{--sw:0px!important;--gut:16px}
+  #gs-lado{display:none!important}
+  body.gx-barra-topo #gs-hd{left:0!important}
+  body.gx-barra-topo #gs-hd .tn-lancar,body.gx-barra-topo #gs-hd .tn-mais-acoes{display:none!important}
+}
+.kpi-grid.fc-kpis6{grid-template-columns:repeat(6,minmax(0,1fr))}
+@media(max-width:1300px){.kpi-grid.fc-kpis6{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:900px){.kpi-grid.fc-kpis6{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* Backup 38: Resumo do escritório no desenho dos prints — ícone num quadradinho, linha fina de cor no topo, número grande */
+body.gx-barra-topo .ini-res{border-left:1px solid var(--border)!important;border-top:2px solid var(--primario)!important;padding:16px!important;gap:4px!important}
+body.gx-barra-topo .ini-res.vermelho{border-top-color:var(--red)!important}
+body.gx-barra-topo .ini-res.ambar{border-top-color:var(--amber)!important}
+body.gx-barra-topo .ini-res-ic{width:34px;height:34px;border:1px solid var(--border);border-radius:9px;display:grid;place-items:center;color:var(--primario);background:var(--surface);margin-bottom:8px}
+body.gx-barra-topo .ini-res.vermelho .ini-res-ic{color:var(--red)}
+body.gx-barra-topo .ini-res.ambar .ini-res-ic{color:var(--amber)}
+.kpi-grid.fc-kpis6 .ks{white-space:normal!important}
