@@ -6628,3 +6628,151 @@ grant execute on function public.previa_guias_email(uuid, jsonb, text, text) to 
 alter table public.tarefas add column if not exists tipo_agenda text not null default '';
 alter table public.tarefas add column if not exists hora time;
 alter table public.tarefas add column if not exists local text not null default '';
+
+-- ═══════════════════════════════════════════════════════════════════
+-- Backup 37 — acordos com forma de pagamento (boleto ou PIX), e-mail das guias no padrão "Honorários em aberto",
+-- certificado digital (arquivo + senha + validade lida do arquivo) e a busca de publicações pela web registrada
+-- ═══════════════════════════════════════════════════════════════════
+alter table public.acordos add column if not exists forma_pagamento text not null default 'boleto';
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname = 'acordos_forma_pagamento_check') then
+    alter table public.acordos add constraint acordos_forma_pagamento_check check (forma_pagamento in ('boleto', 'pix'));
+  end if;
+end $$;
+-- mudar a forma numa parcela muda o acordo inteiro (mesmo processo, devedor e credor); parcela nova herda a forma do acordo
+create or replace function public.acordo_forma_propaga() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if pg_trigger_depth() > 1 then return new; end if;
+  if tg_op = 'INSERT' then
+    select a.forma_pagamento into new.forma_pagamento from public.acordos a
+     where a.id <> new.id and coalesce(a.processo, '') = coalesce(new.processo, '') and coalesce(a.devedor, '') = coalesce(new.devedor, '') and coalesce(a.credor, '') = coalesce(new.credor, '')
+       and a.forma_pagamento <> 'boleto' limit 1;
+    new.forma_pagamento := coalesce(new.forma_pagamento, 'boleto');
+  end if;
+  return new;
+end $$;
+drop trigger if exists acordo_forma_propaga on public.acordos;
+create trigger acordo_forma_propaga before insert on public.acordos for each row execute function public.acordo_forma_propaga();
+create or replace function public.acordo_forma_propaga_depois() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if pg_trigger_depth() > 1 or new.forma_pagamento is not distinct from old.forma_pagamento then return null; end if;
+  update public.acordos set forma_pagamento = new.forma_pagamento
+   where id <> new.id and coalesce(processo, '') = coalesce(new.processo, '') and coalesce(devedor, '') = coalesce(new.devedor, '') and coalesce(credor, '') = coalesce(new.credor, '');
+  return null;
+end $$;
+drop trigger if exists acordo_forma_propaga_depois on public.acordos;
+create trigger acordo_forma_propaga_depois after update of forma_pagamento on public.acordos for each row execute function public.acordo_forma_propaga_depois();
+
+-- texto do e-mail das guias: parágrafos (linha em branco = parágrafo novo) e, se algum item tem PIX, o quadro "Como pagar"
+create or replace function public.guias_texto_html(p_texto text, p_itens jsonb) returns text
+language plpgsql immutable set search_path = public as $$
+declare h text; pix text;
+begin
+  h := '<p style="margin:0 0 10px">' || replace(replace(public.esc_html(btrim(coalesce(p_texto, ''))), E'\n\n', '</p><p style="margin:0 0 10px">'), E'\n', '<br>') || '</p>';
+  select string_agg(distinct 'PIX: <b>' || public.esc_html(i->>'pix') || '</b>' || coalesce(' · ' || nullif(public.esc_html(i->>'banco'), ''), ''), '<br>') into pix
+    from jsonb_array_elements(coalesce(p_itens, '[]')) i where coalesce(i->>'pix', '') <> '';
+  if pix is not null then
+    h := h || '<div style="background:#F5EDD6;border-left:4px solid #C9A84C;border-radius:10px;padding:12px 14px;margin:14px 0;font-size:13.5px"><b style="color:#1B2A4A">Como pagar</b><br>'
+      || pix || '<br>Depois de pagar, responda este e-mail com o comprovante.</div>';
+  end if;
+  return h;
+end $$;
+
+create or replace function public.enviar_guias_email(p_cliente uuid, p_grupo uuid, p_itens jsonb, p_assunto text, p_texto text,
+  p_docs uuid[] default '{}', p_para text default null, p_arquivos jsonb default null) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare c record; para text; anexo jsonb; it jsonb; html text; v_conta text; n int := 0; lista jsonb; v_ref text; v_status text; tab text;
+begin
+  if not public.pode('juridico', 'editar') then raise exception 'permission denied: sem acesso para enviar guias.'; end if;
+  if coalesce(jsonb_array_length(p_itens), 0) = 0 then raise exception 'Escolha ao menos uma guia.'; end if;
+  tab := coalesce(p_itens->0->>'tabela', 'parcelas');
+  if coalesce(trim(p_para), '') <> '' then para := trim(p_para);
+  else select * into c from public.contato_do_cliente(p_cliente, p_grupo, case when tab = 'acordos' then 'acordo' else 'guia' end); para := c.email; end if;
+  if coalesce(para, '') = '' then raise exception 'Não há e-mail para enviar: digite o e-mail no campo "Para" (ou cadastre em Clientes → ficha → Contatos).'; end if;
+  -- os PDFs escolhidos na tela (p_arquivos: [{arquivo, mime, b64}]) NÃO ficam guardados: a função de e-mail apaga o conteúdo assim que o e-mail sai
+  select coalesce(jsonb_agg(jsonb_build_object('tipo', 'arquivo', 'caminho', dc.caminho, 'arquivo', dc.nome, 'mime', dc.mime)), '[]') into lista
+    from public.documentos dc where dc.id = any (coalesce(p_docs, '{}'));
+  select lista || coalesce(jsonb_agg(jsonb_build_object('tipo', 'bin', 'arquivo', a->>'arquivo', 'mime', coalesce(a->>'mime', 'application/pdf'), 'b64', a->>'b64')), '[]') into lista
+    from jsonb_array_elements(coalesce(p_arquivos, '[]')) a where coalesce(a->>'b64', '') <> '';
+  anexo := case when jsonb_array_length(lista) > 0 then jsonb_build_object('tipo', 'lista', 'itens', lista) end;
+  v_conta := public.conta_email(p_cliente, null);
+  perform set_config('erp.conta_email', v_conta, true);
+  -- Backup 37: o mesmo desenho do e-mail "Honorários em aberto" (parágrafos, tabela e o quadro "Como pagar" quando há PIX)
+  html := public.email_cliente_html(coalesce(nullif(trim(p_assunto), ''), 'Guias para pagamento'), '-', public.guias_texto_html(p_texto, p_itens), p_itens, false);
+  perform set_config('erp.conta_email', '', true);
+  v_ref := 'guias:' || gen_random_uuid();
+  insert into public.email_fila (usuario_id, para, assunto, html, tipo, referencia, anexo, conta)
+  values (auth.uid(), para, coalesce(nullif(trim(p_assunto), ''), 'Guias para pagamento'), html, 'cliente', v_ref, anexo, v_conta)
+  returning status into v_status;
+  for it in select * from jsonb_array_elements(p_itens) loop
+    if it->>'tabela' not in ('parcelas', 'acordos') then continue; end if;
+    perform public.registrar_emissao(it->>'tabela', (it->>'id')::uuid, true, null, false);
+    if it->>'tabela' = 'parcelas' then update public.parcelas set email_ref = v_ref where id = (it->>'id')::uuid;
+    else update public.acordos set email_ref = v_ref where id = (it->>'id')::uuid; end if;
+    -- Backup 34: o valor digitado no envio é o "valor lançado" da parcela (a Rotina e a Situação usam; os meses seguintes herdam o último lançado)
+    if it->>'tabela' = 'parcelas' and coalesce(it->>'reenvio', '') <> 'true' and coalesce(nullif(it->>'valor', '')::numeric, 0) > 0 then
+      update public.parcelas set valor = (it->>'valor')::numeric where id = (it->>'id')::uuid;
+      update public.parcelamentos pa set valor_ultima_parcela = x.valor
+        from (select p2.parcelamento_id, p2.valor from public.parcelas p2
+               where p2.parcelamento_id = (select parcelamento_id from public.parcelas where id = (it->>'id')::uuid) and p2.valor is not null
+               order by p2.vencimento desc nulls last limit 1) x
+       where pa.id = x.parcelamento_id;
+    end if;
+    -- Backup 33: reenvio da guia de parcela vencida (nova data e valor atualizado pelo órgão, com SELIC)
+    if coalesce(it->>'reenvio', '') = 'true' then
+      if it->>'tabela' = 'parcelas' then
+        update public.parcelas set reenvio_em = now(), reenvio_venc = nullif(it->>'vencimento', '')::date, reenvio_valor = nullif(it->>'valor', '')::numeric, reenvios = coalesce(reenvios, 0) + 1 where id = (it->>'id')::uuid;
+      else
+        update public.acordos set reenvio_em = now(), reenvio_venc = nullif(it->>'vencimento', '')::date, reenvio_valor = nullif(it->>'valor', '')::numeric, reenvios = coalesce(reenvios, 0) + 1 where id = (it->>'id')::uuid;
+      end if;
+    end if;
+    insert into public.automacoes_log (chave, ref, descricao, cliente_id)
+    values (case when it->>'tabela' = 'parcelas' then 'email_lp' else 'email_la' end, case when it->>'tabela' = 'parcelas' then 'email_lp:' else 'email_la:' end || (it->>'id'),
+            coalesce(nullif(trim(p_assunto), ''), 'Guias para pagamento') || ' → ' || para, p_cliente);
+    n := n + 1;
+  end loop;
+  return jsonb_build_object('para', para, 'itens', n, 'anexos', jsonb_array_length(lista), 'conta', v_conta, 'status', v_status);
+end $$;
+revoke all on function public.enviar_guias_email(uuid, uuid, jsonb, text, text, uuid[], text, jsonb) from public, anon;
+grant execute on function public.enviar_guias_email(uuid, uuid, jsonb, text, text, uuid[], text, jsonb) to authenticated;
+create or replace function public.previa_guias_email(p_cliente uuid, p_itens jsonb, p_assunto text, p_texto text) returns text
+language plpgsql stable security definer set search_path = public as $$
+declare h text; v_conta text;
+begin
+  if not public.pode('juridico') then raise exception 'permission denied: sem acesso.'; end if;
+  v_conta := public.conta_email(p_cliente, null);
+  perform set_config('erp.conta_email', v_conta, true);
+  h := public.email_cliente_html(coalesce(nullif(trim(p_assunto), ''), 'Guias para pagamento'), '-', public.guias_texto_html(p_texto, p_itens), p_itens, false);
+  perform set_config('erp.conta_email', '', true);
+  return h;
+end $$;
+
+-- certificado digital: o arquivo (.pfx) fica em Documentos (tipo "certificado"); a senha e a validade lida do arquivo ficam aqui
+alter table public.cliente_certificado add column if not exists documento_id uuid references public.documentos(id) on delete set null;
+alter table public.cliente_certificado add column if not exists titular text not null default '';
+alter table public.cliente_certificado add column if not exists emissor text not null default '';
+
+-- a busca de publicações feita pelo navegador (web) fica registrada como a do servidor (Alertas → Rotinas)
+create or replace function public.registrar_busca_publicacoes(p_lidas int, p_novas int, p_erros jsonb default '[]') returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.pode('juridico') then raise exception 'permission denied: sem acesso.'; end if;
+  insert into public.configuracoes (chave, valor) values ('publicacoes_ultima', jsonb_build_object('quando', now(), 'lidas', coalesce(p_lidas, 0), 'novas', coalesce(p_novas, 0),
+    'erros', coalesce(p_erros, '[]'), 'via', 'web'))
+  on conflict (chave) do update set valor = excluded.valor;
+end $$;
+revoke all on function public.registrar_busca_publicacoes(int, int, jsonb) from public, anon;
+grant execute on function public.registrar_busca_publicacoes(int, int, jsonb) to authenticated;
+-- data do pagamento da parcela do parcelamento (a planilha da Rotina mostra a data; a baixa preenche sozinha com hoje)
+alter table public.parcelas add column if not exists data_pagamento date;
+create or replace function public.parcela_data_pagamento() returns trigger
+language plpgsql set search_path = public as $$
+begin
+  if new.pago and not coalesce(old.pago, false) and new.data_pagamento is null then new.data_pagamento := current_date; end if;
+  if not new.pago then new.data_pagamento := null; end if;
+  return new;
+end $$;
+drop trigger if exists parcela_data_pagamento on public.parcelas;
+create trigger parcela_data_pagamento before update of pago on public.parcelas for each row execute function public.parcela_data_pagamento();

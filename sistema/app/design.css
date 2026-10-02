@@ -251,8 +251,7 @@ body.gx-barra-topo #tblExecRanking .er-grupo{background:none!important;border:0!
 body.gx-barra-topo .tw td:has(.er-grupo){min-width:0;width:auto}
 body.gx-barra-topo #tblExecRanking .er-nome,body.gx-barra-topo #tblExecRanking .er-socio,body.gx-barra-topo #tblExecRanking .er-socio b{text-transform:uppercase!important;font-weight:400!important}
 body.gx-barra-topo #tblExecRanking .capag.capag-O{text-transform:none!important}
-body.gx-barra-topo #tblExecRanking td:nth-child(11) .tag{display:inline-block!important;text-transform:lowercase!important}
-body.gx-barra-topo #tblExecRanking td:nth-child(11) .tag::first-letter{text-transform:uppercase}
+body.gx-barra-topo #tblExecRanking td.er-sit .tag,body.gx-barra-topo #tblExecRanking td.er-op .tag{display:inline-block!important;text-transform:none!important;letter-spacing:0!important}
 /* Clientes: nomes em CAIXA ALTA, sem negrito */
 body.gx-barra-topo .gs .cli-tabela .cli-nome,body.gx-barra-topo .gs .cli-tabela .cli-socio,body.gx-barra-topo .gs .cli-tabela .cli-grupo,body.gx-barra-topo .gs .cli-tabela tr.cli-grp td{text-transform:uppercase;letter-spacing:.01em}
 body.gx-barra-topo .gs .cli-tabela .cli-nome{font-weight:400;color:var(--ink)}
@@ -988,7 +987,55 @@ html[data-tema="escuro"] .gs .segmento button.ativo .seg-n,html[data-tema="escur
 @media (max-width:600px){
   .lg-t{table-layout:auto}
   .lg-t col{width:auto!important}
-  .lg-t th:nth-child(2),.lg-t td:nth-child(2),.lg-t th:nth-child(3),.lg-t td:nth-child(3),.lg-t th:nth-child(4),.lg-t td:nth-child(4),.lg-t th:nth-child(6),.lg-t td:nth-child(6){display:none}
+  .lg-t th:nth-child(2),.lg-t td:nth-child(2),.lg-t th:nth-child(3),.lg-t td:nth-child(3),.lg-t th:nth-child(4),.lg-t td:nth-child(4),.lg-t th:nth-child(7),.lg-t td:nth-child(7){display:none}
   .lg-t td{overflow-wrap:anywhere}
+  /* Backup 37: com a coluna Guias, a tabela fica presa à largura do celular (a situação quebra linha) */
+  .lg-t{table-layout:fixed;width:100%}
+  .lg-t col:nth-child(6){width:40px!important}
+  .lg-t td:nth-child(5) *{white-space:normal!important;max-width:100%}
+  .lg-bt-guias{white-space:normal;max-width:100%;text-align:left}
+  .lg-painel-tit{flex-wrap:wrap}
+  .lg-painel-tit .lg-bt-guias{margin-left:0}
+  .lg-topo-guias{justify-content:flex-start!important}
   .lg-t th,.lg-t td{padding:8px 8px}
 }
+/* Backup 37: "Gerar guias" nos cartões de Parcelamentos e Acordos */
+.lg-topo-guias{display:flex;justify-content:flex-end;margin:-2px 0 8px}
+.lg-bt-guias{border:1px solid var(--border);background:var(--surface);color:var(--blue);border-radius:8px;padding:5px 11px;font:600 12px var(--font-ui);cursor:pointer;white-space:nowrap}
+.lg-bt-guias:hover{border-color:var(--primario);background:var(--blue-lt)}
+.lg-painel-tit .lg-bt-guias{margin-left:auto}
+.lg-bt-gu{border:1px solid var(--border);background:var(--surface);border-radius:6px;width:30px;height:26px;cursor:pointer;font-size:13px}
+.lg-bt-gu:hover{border-color:var(--primario);background:var(--blue-lt)}
+.lg-t .lg-t-gu{text-align:center;padding-left:4px;padding-right:4px}
+.ge-forma{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:99px;background:var(--green-lt);border:1px solid var(--green-bd);color:var(--green-d);font:700 10.5px var(--font-ui);vertical-align:middle}
+.ge-forma-b{background:var(--surface2);border-color:var(--border);color:var(--text2)}
+.ac-emit-par{display:inline-flex;align-items:center;gap:6px;flex-wrap:nowrap}
+.ac-prazo{flex-wrap:wrap}
+.ac-prazo-ate{display:inline-flex;align-items:center;gap:4px;padding:0 8px;font-size:12px;color:var(--text2)}
+.ac-prazo-ate.ativo{color:var(--primario);font-weight:700}
+.ac-prazo-ate input{border:1px solid var(--border);border-radius:6px;padding:2px 4px;font:12px var(--font-ui);background:var(--surface);color:var(--ink)}
+#fAcordVencGrupo,#fAcordVencDev,#fAcordPgGrupo,#fAcordPgDev,#fAcordGrupo,#fAcordDev{display:none!important}
+/* Backup 37: grupo vem do filtro suspenso do topo — os seletores "Todos grupos" repetidos nas abas saíram */
+#fFinGrupo,#fRecGrupo,#fPrejGrupo,#faGrupoSel{display:none!important}
+/* Backup 37: Financeiro → A receber / Recebidos / Prejuízo com linhas mais baixas */
+:is(#panel-financeiro,#panel-financeiroContab) .tw tbody td{padding-top:6px!important;padding-bottom:6px!important}
+:is(#panel-financeiro,#panel-financeiroContab) .tw tbody td .btn-mini,:is(#panel-financeiro,#panel-financeiroContab) .tw tbody td :is(.btn-baixa,.btn-ed){min-height:0;padding-top:2px;padding-bottom:2px}
+/* Backup 37: Painel Executivo × Clientes com a MESMA letra — grupo e nome em caixa alta, 13 px, mesmo espaçamento; grupo numa linha só */
+body.gx-barra-topo #tblExecRanking .er-grupo{text-transform:uppercase!important;letter-spacing:.01em!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;max-width:170px!important;color:var(--ink)!important}
+body.gx-barra-topo #tblExecRanking .er-nome,body.gx-barra-topo #tblExecRanking .er-socio{letter-spacing:.01em!important}
+body.gx-barra-topo #tblExecRanking td{padding-top:9px;padding-bottom:9px}
+body.gx-barra-topo #tblExecRanking td:has(.er-grupo){padding-right:16px!important;vertical-align:middle!important}
+body.gx-barra-topo #tblExecRanking .er-grupo{max-width:160px!important;vertical-align:middle}
+/* ═══ Backup 37 — padrão visual dos prints (letra, tamanhos, cartões), em AZUL ═══
+   títulos firmes e grandes; cartões com faixa fina de cor no topo; número em destaque com o rótulo embaixo (sem caixa alta);
+   tabelas com cabeçalho claro (tokens --th-*) e linhas com respiro. */
+body.gx-barra-topo .titulo-pag h1,body.gx-barra-topo .gs .titulo-pag h1{font-size:24px!important;font-weight:700!important;letter-spacing:-.02em!important;color:var(--ink)!important}
+body.gx-barra-topo .titulo-pag p{font-size:14px!important;color:var(--text3)!important}
+body.gx-barra-topo :is(.kc,.gs .kpi){border-top:2px solid color-mix(in srgb,var(--kc) 70%,var(--primario))!important;border-radius:12px!important;display:flex;flex-direction:column}
+body.gx-barra-topo .kc .kv,body.gx-barra-topo .gs .kpi .kpi-v{order:1;font-size:24px!important;line-height:1.15}
+body.gx-barra-topo #panel-hoje .kc .kv{font-size:20px!important} /* Início: mesmo tamanho do "Olá" e dos números do resumo */
+body.gx-barra-topo .kc .kl,body.gx-barra-topo .gs .kpi .kpi-l{order:2;margin:6px 0 0!important;text-transform:none!important;letter-spacing:0!important;font-size:13px!important;font-weight:500!important;color:var(--text2)!important}
+body.gx-barra-topo .kc .ks,body.gx-barra-topo .gs .kpi .kpi-s{order:3;margin-top:2px}
+body.gx-barra-topo .kc > :not(.kv):not(.kl):not(.ks){order:4}
+/* tabelas: cabeçalho claro com linha fina embaixo */
+body.gx-barra-topo :is(.tw,.tabela-wrap,.gx-tab-gs) thead th{border-bottom:1px solid var(--border)!important;font-weight:600!important;letter-spacing:.06em}

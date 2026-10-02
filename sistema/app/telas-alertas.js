@@ -22,8 +22,8 @@ TELAS.alertas = async function () {
     podeJur ? buscarTodos(() => sb.from('processos').select('id, numero, natureza, grupo_id, valor')).catch(nada) : [],
     podeFin ? buscarTodos(() => sb.from('lancamentos').select('id, descricao, valor, redutor, vencimento, grupo_id, empresa, obs').eq('tipo', 'receita').eq('pago', false).eq('perda', false)).catch(nada) : [],
     pode('contratos') ? q(sb.from('contratos').select('id, descricao, status, cliente_id, documentos(id)').eq('status', 'Ativo')).catch(nada) : [],
-    q(sb.from('certidoes').select('id, orgao, validade, cliente_id').lte('validade', somarDias(h, 15))).catch(nada),
-    q(sb.from('documentos').select('id, nome, validade, cliente_id').eq('arquivado', false).lte('validade', somarDias(h, 15))).catch(nada),
+    q(sb.from('cliente_certificado').select('cliente_id, validade').lte('validade', somarDias(h, 30))).catch(nada),
+    [],
     q(sb.from('tarefas').select('id, titulo, prazo, prazo_fatal, responsavel').not('status', 'in', '(concluida,cancelada)')).catch(nada),
     q(sb.from('cnpj_execucoes').select('*').order('inicio', { ascending: false }).limit(10)).catch(nada),
     E.perfil && E.perfil.papel === 'admin' ? q(sb.from('email_fila').select('id, para, assunto, erro, criado_em').eq('status', 'erro').order('criado_em', { ascending: false }).limit(50)).catch(nada) : [],
@@ -49,18 +49,13 @@ TELAS.alertas = async function () {
   const omisso = cls.filter((c) => /omisso/i.test(c.capag || ''));
   add('Cadastro', 'CAPAG omisso', String(omisso.length), 'entidade(s) que não entregaram a declaração', omisso.length ? 'critico' : 'ok',
     { titulo: 'CAPAG omisso', colunas: colCli, linhas: omisso.map(linhaCli), ids: omisso.map((c) => c.id) });
-  const capD = cls.filter((c) => /^d$/i.test(String(c.capag || '').trim()));
-  add('Cadastro', 'CAPAG D', String(capD.length), 'menor capacidade de pagamento', capD.length ? 'atencao' : 'ok',
-    { titulo: 'CAPAG D', colunas: colCli, linhas: capD.map(linhaCli), ids: capD.map((c) => c.id) });
-  const irreg = cls.filter((c) => pj(c) && c.situacao_cadastral && !/^ativa$/i.test(c.situacao_cadastral.trim()));
-  add('Cadastro', 'Situação cadastral irregular', String(irreg.length), 'inapta, suspensa ou baixada na Receita', irreg.length ? 'critico' : 'ok',
+  // Backup 37: BAIXADA não é irregular (a empresa encerrou por vontade própria) — conta só inapta, suspensa, nula…
+  const irreg = cls.filter((c) => pj(c) && c.situacao_cadastral && !/^(ativa|baixada)$/i.test(c.situacao_cadastral.trim()));
+  add('Cadastro', 'Situação cadastral irregular', String(irreg.length), 'inapta, suspensa ou nula na Receita (baixada não conta)', irreg.length ? 'critico' : 'ok',
     { titulo: 'Situação cadastral diferente de ATIVA', colunas: colCli.concat(['Situação']), linhas: irreg.map((c) => linhaCli(c).concat([c.situacao_cadastral])), ids: irreg.map((c) => c.id) });
   const semResp = ativos.filter((c) => !c.responsavel);
   add('Cadastro', 'Sem responsável', String(semResp.length), 'entidade(s) ativas sem pessoa responsável', semResp.length ? 'atencao' : 'ok',
     { titulo: 'Entidades sem responsável', colunas: colCli, linhas: semResp.map(linhaCli), ids: semResp.map((c) => c.id) });
-  const semCont = ativos.filter((c) => !c.email && !c.telefone && !comContato.has(c.id));
-  add('Cadastro', 'Sem contato', String(semCont.length), 'sem e-mail, telefone ou contato cadastrado', semCont.length ? 'atencao' : 'ok',
-    { titulo: 'Entidades sem contato', colunas: colCli, linhas: semCont.map(linhaCli), ids: semCont.map((c) => c.id) });
   // ── Jurídico ──
   if (podeJur) {
     add('Jurídico', 'Publicações novas', String(pubs.length), 'no Diário de Justiça, ainda não lidas', pubs.length ? 'atencao' : 'ok',
@@ -89,12 +84,10 @@ TELAS.alertas = async function () {
       { titulo: 'Contratos ativos sem anexo', colunas: ['Contrato', 'Cliente'], linhas: semAnexo.map((c) => [c.descricao, nomeCliente(c.cliente_id)]), tela: 'contratos' });
   }
   // ── Documentos e tarefas ──
-  const certV = certs.filter((c) => c.validade);
-  add('Documentos', 'Certidões vencendo', String(certV.length), 'vencidas ou nos próximos 15 dias', certV.some((c) => c.validade < h) ? 'critico' : certV.length ? 'atencao' : 'ok',
-    { titulo: 'Certidões vencidas ou vencendo', colunas: ['Validade', 'Órgão', 'Cliente'], linhas: certV.map((c) => [dataBR(c.validade), c.orgao, nomeCliente(c.cliente_id)]) });
-  const docV = docs.filter((d) => d.validade);
-  add('Documentos', 'Documentos vencendo', String(docV.length), 'vencidos ou nos próximos 15 dias', docV.some((d) => d.validade < h) ? 'critico' : docV.length ? 'atencao' : 'ok',
-    { titulo: 'Documentos vencidos ou vencendo', colunas: ['Validade', 'Documento', 'Cliente'], linhas: docV.map((d) => [dataBR(d.validade), d.nome, nomeCliente(d.cliente_id)]), tela: 'documentos' });
+  // Backup 37: em Documentos fica só o CERTIFICADO DIGITAL vencendo (validade lida do arquivo .pfx em Documentos → 🔐 Certificado digital)
+  const certDig = certs.filter((c) => c.validade);
+  add('Documentos', 'Certificado digital vencendo', String(certDig.length), 'vencidos ou nos próximos 30 dias', certDig.some((c) => c.validade < h) ? 'critico' : certDig.length ? 'atencao' : 'ok',
+    { titulo: 'Certificados digitais vencidos ou vencendo', colunas: ['Validade', 'Empresa', 'Grupo'], linhas: certDig.sort((a, b) => a.validade.localeCompare(b.validade)).map((c) => [dataBR(c.validade), nomeCliente(c.cliente_id), nomeGrupo((E.clientes.find((x) => x.id === c.cliente_id) || {}).grupo_id) || '—']), tela: 'documentos' });
   const tAtr = tarefas.filter((t) => t.prazo && t.prazo < h), tFat = tarefas.filter((t) => t.prazo_fatal && t.prazo_fatal <= somarDias(h, 7));
   add('Tarefas', 'Tarefas atrasadas', String(tAtr.length), 'todas as pessoas', tAtr.length ? 'critico' : 'ok',
     { titulo: 'Tarefas atrasadas', colunas: ['Prazo', 'Tarefa', 'Pessoa'], linhas: tAtr.sort((a, b) => a.prazo.localeCompare(b.prazo)).map((t) => [dataBR(t.prazo), t.titulo, t.responsavel]), tela: 'tarefas' });
@@ -116,15 +109,11 @@ TELAS.alertas = async function () {
   }
   if (emails.length || (E.perfil && E.perfil.papel === 'admin')) add('Rotinas', 'E-mails com erro', String(emails.length), 'não saíram depois de 3 tentativas', emails.length ? 'critico' : 'ok',
     { titulo: 'E-mails com erro', colunas: ['Quando', 'Para', 'Assunto', 'Erro'], linhas: emails.map((m) => [quandoRodou(m.criado_em), m.para, m.assunto, m.erro]) });
-  if (podeJur) add('Rotinas', 'Busca de publicações', ultPub && ultPub.valor ? quandoCurto(ultPub.valor.quando) : 'nunca rodou',
+  // Backup 37: a busca é feita pela WEB (navegador, 1× por dia ao abrir o ERP, ou "Buscar pelo navegador")
+  if (podeJur) add('Rotinas', 'Busca de publicações (web)', ultPub && ultPub.valor ? quandoCurto(ultPub.valor.quando) : 'nunca rodou',
     ultPub && ultPub.valor ? ultPub.valor.novas + ' nova(s) · ' + ((ultPub.valor.erros || []).length ? '⚠ ' + ultPub.valor.erros[0] : 'sem erro') : 'cadastre as OABs em Publicações',
     !ultPub || !ultPub.valor ? 'atencao' : (ultPub.valor.erros || []).length ? 'critico' : 'ok', { tela: 'publicacoes' });
-  // PGFN pelos dados abertos (gratuito, sem SERPRO): o admin importa o arquivo público
-  if (E.perfil && E.perfil.papel === 'admin') {
-    const ua = await q(sb.from('configuracoes').select('valor').eq('chave', 'pgfn_abertos_ultima').maybeSingle()).catch(() => null);
-    add('Rotinas', 'PGFN — dados abertos (grátis)', ua && ua.valor ? quandoCurto(ua.valor.quando) : 'nunca importado', ua && ua.valor ? ua.valor.clientes + ' cliente(s) atualizado(s)' + (ua.valor.referencia ? ' · ' + ua.valor.referencia : '') : 'clique para importar o arquivo público da PGFN',
-      ua && ua.valor ? 'ok' : 'info', { pgfnAbertos: true });
-  }
+  // Backup 37: a PGFN por arquivo (dados abertos, importado à mão) saiu dos Alertas
   // Central de e-mails: automático por tipo (clicar abre a configuração; admin)
   const cfgEm = await q(sb.rpc('config_emails')).catch(() => null);
   if (cfgEm && E.perfil && E.perfil.papel === 'admin') {

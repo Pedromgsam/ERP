@@ -179,7 +179,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.evaluate(() => { const b = [...document.querySelectorAll('#panel-financeiro button')].find((x) => /Análise/.test(x.textContent)); if (b) b.click(); });
     await p.waitForTimeout(1200);
     const an = await p.textContent('#faCorpo');
-    ok('Em atraso conta todos os meses, mesmo com "Este ano"', /Em atraso/.test(an) && /400/.test(an) && /Atraso antigo/.test(an), an.replace(/\s+/g, ' ').slice(0, 300));
+    ok('Em atraso conta todos os meses, mesmo com "Este ano"', /Em atraso/.test(an) && /400/.test(an) /* Backup 37: a tabela "Em atraso" saiu; o cartão continua somando */, an.replace(/\s+/g, ' ').slice(0, 300));
 
     // ── + Lançar: formulários do Gestão ──
     await lancar(p, 0);
@@ -534,10 +534,8 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('Contrato assinado: lança as 2 parcelas, cria o onboarding e avisa a equipe', sql("select count(*) from lancamentos l join contratos c on c.id=l.contrato_id join clientes cl on cl.id=c.cliente_id where cl.nome='Empresa Prospect Ltda'") === '2' &&
       sql("select c.status from contratos c join clientes cl on cl.id=c.cliente_id where cl.nome='Empresa Prospect Ltda'") === 'Ativo' &&
       sql("select count(*) from fluxos where nome like 'Onboarding — Empresa Prospect%'") === '1' && Number(sql("select count(*) from notificacoes where titulo like 'Contrato assinado:%Empresa Prospect%'")) >= 1);
-    await p.click('#cr-vista [data-v=painel]'); await p.waitForTimeout(800);
-    ok('painel do CRM: fechados no mês, valor por área e quem mais indica', /Fechados no mês/.test(await p.textContent('#cr-corpo')) && /R\$\s12\.000,00/.test(await p.textContent('#cr-corpo')) &&
-      /Quem mais indica/.test(await p.textContent('#cr-corpo')) && /Novas no mês/.test(await p.textContent('#cr-corpo')));
-    await p.click('#cr-vista [data-v=funil]'); await p.waitForTimeout(300);
+    // Backup 37: sem "Painel" no CRM; abas e responsáveis no mesmo filtro escuro dos outros
+    ok('CRM: sem "Painel"; abas e responsáveis como botões de filtro', !(await p.$('#cr-vista [data-v=painel]')) && !!(await p.$('#cr-abas.segmento')) && (await p.$$('#cr-resp-seg button')).length >= 2);
     await foto(p, 'crm-painel');
 
     // ── Publicações: OAB monitorada → busca → tarefa com prazo em dias úteis ──
@@ -840,12 +838,17 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('Parcelamentos: detalhamento com colunas separadas "Emissão" e "Pagamento"', /Emissão/.test(await p.textContent('#janelas .lg-parc-tab thead')) && /Pagamento/.test(await p.textContent('#janelas .lg-parc-tab thead')));
     sql("update parcelamentos set emitimos_guia=true");
     await p.evaluate(() => { while (document.querySelector('#janelas .fundo')) window.GS.fecharJanela(); });
-    await p.selectOption('#parcFGrupo', { index: 1 }); await p.waitForTimeout(400);
+    await p.evaluate(() => { FILTROS.grupo = 'Grupo Alfa'; renderParcAnalise(); }); await p.waitForTimeout(400);
     ok('Parcelamentos: com um grupo filtrado os cartões são por empresa', /alfa com/i.test(await p.textContent('#parcAnalise .lg-card .lg-gnome')));
     await p.click('#parcFSit button:has-text("Em dia")'); await p.waitForTimeout(400);
     ok('Parcelamentos: filtros de grupo e situação', /de \d+/.test(await p.textContent('#parcAnalise .pcx-filtros')) && !!(await p.$('#parcFSit button.ativo')));
-    await p.click('#parcFSit button:has-text("Todas")'); await p.selectOption('#parcFGrupo', ''); await p.waitForTimeout(400);
+    await p.click('#parcFSit button:has-text("Todas")'); await p.evaluate(() => { FILTROS.grupo = ''; renderParcAnalise(); }); await p.waitForTimeout(400);
     ok('Parcelamentos: sem "Por grupo / Lista" (sempre por grupo) e "N de M" em verde', !(await p.$('#parcVisao')) && !!(await p.$('#parcAnalise .lg-card')) && !!(await p.$('#parcAnalise .lg-verde')));
+    // Backup 37: "Gerar guias" geral (e por grupo/linha) abre o envio por empresa; sem o seletor "Todos os grupos" (vem do filtro do topo)
+    ok('Parcelamentos: botão "Gerar guias" geral e sem o seletor de grupo repetido', !!(await p.$('#parcAnalise .lg-bt-guias-geral')) && !(await p.$('#parcFGrupo')));
+    await p.click('#parcAnalise .lg-bt-guias-geral'); await p.waitForTimeout(2500);
+    ok('Parcelamentos: "Gerar guias" abre a janela de envio por empresa (ou avisa que não há o que emitir)', !!(await p.$('#gs-raiz .ge-janela')) || /Nenhuma|Nada em atraso/.test(await p.textContent('body')));
+    await p.evaluate(() => { while (document.querySelector('#janelas .fundo')) window.GS.fecharJanela(); });
     await p.waitForTimeout(800);
     ok('Parcelamentos: sem o quadro "Parcelamentos para emitir" (Backup 34: a emissão é na Rotina) e sem "quem emite" na situação', !(await p.$('#parcGuias')) && !/Nós emitimos|Cliente emite/.test(await p.textContent('#parcAnalise')));
     ok('Parcelamentos e Acordos: sem o selo vermelho do topo e sem a nota em itálico', !(await p.isVisible('#alertParc')) && !(await p.isVisible('#panel-parcelamentos .pa-nota')));
@@ -880,6 +883,23 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('Acordos: "Enviar por empresa" abre a janela de envio dos boletos', await p.isVisible('#gs-raiz .ge-janela'));
     await p.evaluate(() => { while (document.querySelector('#janelas .fundo')) window.GS.fecharJanela(); });
     await p.click('#acSelLimpar').catch(() => {});
+    // Backup 37: filtros de prazo (vencidas · 5/10/15/30 dias · até) e sem "Situação"; "✓ emitido" ao lado do Emitir
+    ok('Acordos: tabela "A pagar" sem a coluna Situação, com filtros de prazo e sem os seletores de grupo/devedor', !(await p.textContent('#acordTabVencidos thead')).includes('Situação') &&
+      (await p.$$('#acPrazoBar [data-prazo]')).length === 6 && !!(await p.$('#acPrazoAte')) && !(await p.isVisible('#fAcordVencGrupo')) && !(await p.isVisible('#fAcordVencDev')));
+    await p.click('#acPrazoBar [data-prazo=venc]'); await p.waitForTimeout(400);
+    ok('Acordos: filtro "Vencidas" mostra só o que já venceu', await p.evaluate(() => [...document.querySelectorAll('#tblAcordosVencBody tr[data-gx]')].every((tr) => /atraso|hoje/.test(tr.textContent))));
+    await p.click('#acPrazoBar [data-prazo=""]'); await p.waitForTimeout(300);
+    // forma de pagamento: PIX = mensagem objetiva (Bom dia/Boa tarde, Processo | Parcela, Partes, Vencimento, Valor, PIX), sem "Seguem"
+    { const idPix = sql("select id from acordos where not pago order by vencimento limit 1");
+      sql("update acordos set forma_pagamento='pix', pix='chave-pix@teste.com' where id='" + idPix + "'");
+      ok('Acordos: forma de pagamento vale para o acordo inteiro (mesmo processo, devedor e credor)', sql("select count(distinct forma_pagamento) from acordos a where (processo,devedor,credor)=(select processo,devedor,credor from acordos where id='" + idPix + "')") === '1');
+      await p.evaluate((id) => window.GS.enviarAcordosSelecionados([id]), idPix); await p.waitForSelector('#gs-raiz .ge-janela', { timeout: 8000 }).catch(() => {});
+      ok('Acordo por PIX: texto objetivo (saudação, sem "Seguem") e a chave PIX no item', /^(Bom dia|Boa tarde|Boa noite)!/.test(await p.inputValue('#ge-texto')) && !/Seguem/.test(await p.inputValue('#ge-texto')) &&
+        /chave-pix@teste\.com/.test(await p.textContent('#gs-raiz .ge-itens')) && /Depois de pagar/.test(await p.textContent('#gs-raiz .ge-fecho')));
+      await p.evaluate(() => { while (document.querySelector('#janelas .fundo')) window.GS.fecharJanela(); });
+      ok('E-mail das guias no padrão "Honorários em aberto": parágrafos e quadro "Como pagar" com o PIX', /Como pagar/.test(sql("select public.guias_texto_html('Bom dia!" + "\n\n" + "Teste', '[{\"pix\":\"chave-pix@teste.com\"}]')")) &&
+        /<\/p><p/.test(sql("select public.guias_texto_html('a" + "\n\n" + "b', '[]')")));
+      sql("update acordos set forma_pagamento='boleto' where (processo,devedor,credor)=(select processo,devedor,credor from acordos where id='" + idPix + "')"); }
     await nav(p, 'financeiroContab'); await p.waitForTimeout(1500);
     ok('Contabilidade: Análise sem "Maiores clientes" e sem a lista de lançamentos', !/Maiores clientes/.test(await p.textContent('#panel-financeiroContab')) && !(await p.$('#fcLancTbl')));
     ok('Contabilidade: Análise única (sem os cartões Recebimentos/Pagamentos) com comparativo por cliente e por fornecedor', !(await p.$('#fcLadoBar')) &&
@@ -891,6 +911,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('Composição de Caixa aparece (gráficos não somem)', await p.evaluate(() => { const c = document.querySelector('#cFcCaixaSaldo'); return !!c && c.offsetParent !== null; }));
     sql("delete from lancamentos where descricao='Caixa teste'");
     await nav(p, 'financeiro'); await p.waitForTimeout(1000);
+    ok('Financeiro: Análise sem a tabela "Em atraso" (já está em A receber)', !(await p.evaluate(() => [...document.querySelectorAll('#panel-financeiro .cc-t')].some((x) => /^Em atraso$/.test(x.textContent.trim())))));
     // Central de e-mails ao cliente (Backup 16)
     sql("insert into clientes(nome,email) values ('Central Atraso Ltda','atraso@central.test'),('Central Lembrete Ltda','lembrete@central.test')");
     sql("insert into lancamentos(empresa,tipo,descricao,cliente_id,vencimento,valor) select 'escritorio','receita','Hon central atraso',id,current_date-3,700 from clientes where nome='Central Atraso Ltda'");
@@ -1018,6 +1039,10 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.click('#gs-raiz #ag-ok'); await p.waitForTimeout(1500);
     ok('Início: "Agendar" grava o compromisso (tipo, hora) na agenda', sql("select tipo_agenda||' '||to_char(hora,'HH24:MI') from tarefas where titulo='Audiência de teste B36'") === 'audiencia 14:30' &&
       /Audiência de teste B36/.test(await p.textContent('#panel-hoje .ini-fila')));
+    // Backup 37: o que entra na agenda é escolha da pessoa (fica salvo)
+    ok('Início: agenda com "Mostrar na agenda" (tarefas, compromissos, lembretes, vencimentos)', (await p.$$('#panel-hoje [data-ag-fonte]')).length === 4);
+    await p.click('#panel-hoje .ag-fonte:has([data-ag-fonte=vencimentos])'); await p.waitForTimeout(1500);
+    ok('Início: a escolha do que entra na agenda fica salva na pessoa', sql("select preferencias->'fila'->'fontes'->>'vencimentos' from perfis where email='pedro@teste'") === 'true');
     await p.click('#panel-hoje [data-fila-vista=lista]'); await p.waitForTimeout(800);
     ok('Início: fila mostra no máximo 5 de cara', (await p.$$('#panel-hoje .ini-fila .fila-item, #panel-hoje .ini-fila tbody tr')).length <= 5);
     ok('Início: sem "+ Receita/+ Despesa/+ Contrato" (o "+ Lançar" faz isso)', !/\+ Receita|\+ Despesa|\+ Contrato/.test(await p.textContent('#panel-hoje')));
@@ -1082,7 +1107,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('CRM: ficha abre em "Resumo" (visualização), com botão Editar', await p.evaluate(() => document.querySelector('#op-abas .ativo').dataset.aba === 'dados') && !!(await p.$('#op-editar')));
     await p.keyboard.press('Escape'); await p.waitForTimeout(300); await p.click('#cr-abas [data-aba=andamento]'); await p.waitForTimeout(300);
     // Backup 16: cadastro rápido, ligação em 1 clique, lead perdido com motivo fixo, regras (parada, follow-up), follow-up por e-mail
-    await p.click('#cr-rapido'); await p.waitForSelector('#f-rap'); await p.fill('#f-rap [name=nome]', 'Rápido Teste B16'); await p.fill('#f-rap [name=tel]', '31 99999-0000');
+    await p.click('#cr-rapido'); await p.waitForSelector('#f-rap'); await p.waitForTimeout(500); await p.fill('#f-rap [name=nome]', 'Rápido Teste B16'); await p.fill('#f-rap [name=tel]', '31 99999-0000');
     await p.fill('#f-rap [name=interesse]', 'Holding'); await p.click('#rap-salvar'); await p.waitForTimeout(1500);
     ok('CRM: cadastro rápido entra em "Novo contato"', sql("select e.nome from crm_oportunidades o join crm_etapas e on e.id=o.etapa_id where o.prospecto_nome='Rápido Teste B16'") === 'Novo contato' &&
       !!(await p.$('#panel-crm .cr-card:has-text("Rápido Teste B16")')));
@@ -1174,19 +1199,10 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       await g.close();
       const semLogin = await (await b.newContext()).newPage(); await semLogin.goto(BASE + '/geradores/propostas.html'); await semLogin.waitForTimeout(1500);
       ok('Gerador sem login: bloqueia a página', await semLogin.isVisible('#ponte-bloqueio')); await semLogin.close(); }
-    // PGFN pelos dados abertos (arquivo público, lido no navegador)
-    { sql("update clientes set cpf_cnpj='11222333000181' where nome='Alfa Comércio Ltda'");
-      const arq = require('path').join(require('os').tmpdir(), 'arquivo_lai_SIDA_MG.csv');
-      require('fs').writeFileSync(arq, 'CPF_CNPJ;TIPO_PESSOA;TIPO_DEVEDOR;NOME_DEVEDOR;UF_DEVEDOR;UNIDADE_RESPONSAVEL;NUMERO_INSCRICAO;TIPO_SITUACAO_INSCRICAO;SITUACAO_INSCRICAO;RECEITA_PRINCIPAL;DATA_INSCRICAO;INDICADOR_AJUIZADO;VALOR_CONSOLIDADO\n' +
-        '11.222.333/0001-81;Pessoa jurídica;PRINCIPAL;ALFA COMERCIO LTDA;MG;PRFN;10 6 25 000123-45;Em cobrança;ATIVA EM COBRANCA;IRPJ;10/03/2025;SIM;15000.50\n' +
-        '11.222.333/0001-81;Pessoa jurídica;PRINCIPAL;ALFA COMERCIO LTDA;MG;PRFN;10 6 25 000999-01;Benefício Fiscal;ATIVA EM COBRANCA - PARCELADA;COFINS;11/04/2025;NAO;2000.00\n' +
-        '99.999.999/0001-99;Pessoa jurídica;PRINCIPAL;OUTRA EMPRESA;MG;PRFN;10 6 25 000777-77;Em cobrança;ATIVA;IRPJ;01/01/2025;NAO;999.00\n');
-      await nav(p, 'alertas'); await p.waitForTimeout(2500);
-      await p.click('#panel-alertas [data-al]:has-text("PGFN — dados abertos")'); await p.waitForSelector('#pa-arq', { state: 'attached' });
-      await p.setInputFiles('#pa-arq', arq); await p.click('#pa-ler'); await p.waitForTimeout(3000);
-      ok('PGFN (dados abertos): lê o arquivo, separa só os clientes e atualiza PGFN / negociada', sql("select pgfn||'|'||pgfn_negociada from clientes where nome='Alfa Comércio Ltda'") === '15000.50|2000.00' &&
-        sql("select count(*) from pgfn_inscricoes where fonte='dados_abertos'") === '2', await p.textContent('#pa-prog'));
-      await p.keyboard.press('Escape'); }
+    // Backup 37: Alertas mais enxutos — sem PGFN por arquivo, sem "Sem contato" e "CAPAG D"; em Documentos só o certificado digital
+    { await nav(p, 'alertas'); await p.waitForTimeout(2500); const tx = await p.textContent('#panel-alertas');
+      ok('Alertas: sem PGFN por arquivo, "Sem contato", "CAPAG D" e "Documentos vencendo"; com "Certificado digital vencendo" e busca de publicações (web)',
+        !/PGFN — dados abertos|Sem contato|CAPAG D\b|Documentos vencendo|Certidões vencendo/.test(tx) && /Certificado digital vencendo/.test(tx) && /Busca de publicações \(web\)/.test(tx), tx.slice(0, 400)); }
 
     // ── Backup 26: fluxo cliente → financeiro (cliques reais) ──
     { // contrato novo "aguardando assinatura": não lança nada; "✓ Marcar como assinado" lança as parcelas
@@ -1365,6 +1381,53 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       ok('Relatório em PDF: novo layout com números, passivo, parcelamentos e processos', /Passivo em aberto/.test(t) && /Passivo tributário por empresa/.test(t) && /Parcelamentos/.test(t) && /Processos judiciais/.test(t) && /Salvar em PDF/.test(t), t.slice(0, 200));
       await pop.close(); }
 
+    // ── Backup 37 ──
+    { // Rotina: passivo sem "Em operação"; Painel com "Em operação" antes da CAPAG
+      await p.evaluate(() => nav(null, 'rotina')); await p.waitForSelector('#rt-abas'); await p.click('#rt-abas [data-rt-aba=passivo]'); await p.waitForSelector('#rt-pas-corpo tr[data-id]', { timeout: 10000 }).catch(() => {});
+      ok('Rotina: passivo sem a coluna "Em operação"', !/Em operação/.test(await p.textContent('#rt-corpo thead')));
+      await p.evaluate(() => nav(null, 'resumo')); await p.waitForTimeout(2000);
+      ok('Painel: coluna "Em operação" logo antes da CAPAG; situação sem caixa alta', /Em operação\s*CAPAG/.test((await p.$$eval('#execRankHead th', (l) => l.map((x) => x.textContent.trim()))).join(' ')) &&
+        await p.evaluate(() => [...document.querySelectorAll('#tblExecRanking td.er-sit .tag')].every((x) => x.textContent === '—' || x.textContent !== x.textContent.toUpperCase())));
+      // contador da sessão na barra de cima (só cai por inatividade)
+      ok('Barra de cima: contador discreto da sessão', /⏱\d+′/.test(await p.textContent('#gs-sessao')));
+    }
+    { // Controle dos parcelamentos com MAIS de 1000 parcelas (o Supabase devolve 1000 por vez): o mês atual tem que aparecer
+      const pid = 'e0000000-0000-0000-0000-000000000037';
+      sql("insert into parcelamentos(id, empresa, total_parcelas, valor_ultima_parcela) values ('" + pid + "','EMPRESA MIL PARCELAS',1200,10) on conflict do nothing");
+      sql("insert into parcelas(parcelamento_id, numero, vencimento, pago) select '" + pid + "', g, date '1990-01-10' + g, true from generate_series(1,1150) g");
+      sql("insert into parcelas(parcelamento_id, numero, vencimento, pago) values ('" + pid + "', 1151, current_date + 3, false)");
+      await p.evaluate(() => nav(null, 'rotina')); await p.waitForSelector('#rt-abas'); await p.click('#rt-abas [data-rt-aba=parcs]');
+      await p.waitForSelector('#rt-parc-corpo tr[data-pc="' + pid + '"]', { timeout: 15000 }).catch(() => {});
+      ok('Controle dos parcelamentos: com mais de 1000 parcelas no banco o mês atual aparece (busca em páginas)', !!(await p.$('#rt-parc-corpo tr[data-pc="' + pid + '"] td.rt-mes-atual .rt-ch')));
+      sql("delete from parcelamentos where id='" + pid + "'");
+      // Controle dos acordos: "Ver todas as parcelas" abre a mesma ficha do módulo Acordos
+      await p.click('#rt-abas [data-rt-aba=acs]'); await p.waitForSelector('#rt-parc-corpo [data-cel]', { timeout: 10000 }).catch(() => {});
+      if (await p.$('#rt-parc-corpo [data-cel]')) { await p.click('#rt-parc-corpo [data-cel] >> nth=0'); await p.waitForSelector('#rt-pop:not([hidden]) [data-abre]');
+        await p.click('#rt-pop [data-abre]'); await p.waitForTimeout(1500);
+        ok('Controle dos acordos: "Ver todas as parcelas" abre a ficha do acordo (igual ao módulo Acordos)', /Todas as parcelas deste acordo/.test(await p.textContent('#gs-raiz').catch(() => '')));
+        await p.evaluate(() => { while (document.querySelector('#janelas .fundo')) window.GS.fecharJanela(); }); }
+      // Processos: valor atual ao lado do valor novo
+      const prc = sql("select id from processos order by criado_em limit 1");
+      if (prc) { await p.evaluate((id) => window.GS.janelaMovimentacao(id), prc); await p.waitForSelector('#mov-form'); await p.selectOption('#mov-form [name=tipo]', 'valor');
+        ok('Processos: ao lançar valor novo, o valor atual da causa aparece ao lado', await p.isVisible('#gs-raiz .mov-vatual') && /Valor atual da causa/.test(await p.textContent('#gs-raiz .mov-vatual')));
+        await p.evaluate(() => { while (document.querySelector('#janelas .fundo')) window.GS.fecharJanela(); }); }
+    }
+    { // Documentos: certificado digital (.pfx + senha) — a validade é lida do arquivo; enviar direto na barra do grupo
+      const os = require('os'), pth = require('path'), { execSync } = require('child_process'), dir = require('fs').mkdtempSync(pth.join(os.tmpdir(), 'cert-'));
+      execSync('openssl req -x509 -newkey rsa:2048 -keyout ' + dir + '/k.pem -out ' + dir + '/c.pem -days 500 -nodes -subj "/CN=EMPRESA TESTE CERTIFICADO" 2>/dev/null && openssl pkcs12 -export -out ' + dir + '/cert.pfx -inkey ' + dir + '/k.pem -in ' + dir + '/c.pem -passout pass:segredo1 2>/dev/null');
+      await nav(p, 'documentos'); await p.waitForTimeout(1500);
+      await p.click('#doc-cert'); await p.waitForSelector('#f-cert');
+      const cid = sql("select id from clientes where nome='Alfa Comércio Ltda'");
+      await p.selectOption('#f-cert [name=cliente_id]', cid); await p.setInputFiles('#cert-arq', dir + '/cert.pfx');
+      await p.fill('#f-cert [name=senha]', 'errada'); await p.waitForTimeout(1500);
+      ok('Certificado: senha errada é avisada', /Senha incorreta/.test(await p.textContent('#cert-lido')));
+      await p.fill('#f-cert [name=senha]', 'segredo1'); await p.waitForTimeout(1500);
+      ok('Certificado: com a senha certa o sistema lê a validade do arquivo', /Certificado lido/.test(await p.textContent('#cert-lido')) && /^\d{4}-\d{2}-\d{2}$/.test(await p.inputValue('#f-cert [name=validade]')));
+      await p.click('#cert-ok'); await p.waitForTimeout(2500);
+      ok('Certificado: salvo com senha, validade e o arquivo em Documentos (tipo certificado)', sql("select (validade > current_date)::text||'|'||senha||'|'||(documento_id is not null)::text from cliente_certificado where cliente_id='" + cid + "'") === 'true|segredo1|true' &&
+        sql("select count(*) from documentos where tipo='certificado' and cliente_id='" + cid + "'") === '1');
+      ok('Documentos: cada grupo tem "+ Enviar" e "🔐 Certificado" na própria barra', (await p.$$('#doc-corpo [data-pasta-enviar]')).length >= 1 && (await p.$$('#doc-corpo [data-pasta-cert]')).length >= 1);
+    }
     // ── sair ──
     await p.evaluate(() => acLogout()); await p.waitForTimeout(800);
     ok('sair encerra a sessão do Supabase', await p.evaluate(async () => !(await SB.auth.getSession()).data.session));

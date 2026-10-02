@@ -45,7 +45,7 @@
   --primario:#1B2A4A;--primario-hover:#243659;--on-primario:#FFFFFF;
   --selecao:#1B2A4A;--on-selecao:#FFFFFF;
   /* cabeçalho das tabelas (Backup 19: volta ao azul-marinho, texto branco) */
-  --th-bg:#1B2A4A;--th-fg:#FFFFFF;--th-fg-2:rgba(255,255,255,.72);
+  --th-bg:#F6F8FB;--th-fg:#5B6576;--th-fg-2:#7A8494;   /* Backup 37: cabeçalho de tabela claro (padrão dos prints), texto cinza */
 
   /* gráficos (o canvas não entende var(): o JS lê estes valores na hora de desenhar) */
   --chart-1:#2F5FAE;--chart-2:#2E8C6A;--chart-3:#C0873A;--chart-4:#8266C4;--chart-5:#B85C5C;--chart-6:#3E8FA8;--chart-7:#8A8F99;--chart-8:#B8A04E;

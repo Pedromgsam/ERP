@@ -83,7 +83,17 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
-- Última entrega: **Backup 36** (só SQL). Início: `janelaAgendar` (telas-tarefas.js; `tarefas.tipo_agenda/hora/local`, `TIPOS_AGENDA`, `classeAgenda`, `legendaAgenda`,
+- Última entrega: **Backup 37** (só SQL). **Supabase devolve no máx. 1000 linhas**: listas grandes usam `buscarTodos` (nucleo.js; `order('id')` + range,
+  cai sem desempate se a tabela não tem `id`) e `todos()` do erp-dados ordena por id; o PostgREST de teste tem `db-max-rows = 1000`. Guias: `GS.gerarGuias(tabela,
+  {grupo_id, empresa, itens, ids, proximas})` (telas-guias.js) → `janelaGuiasEmpresa`; botões `.lg-bt-guias-geral`/`.lg-bt-guias`/`.lg-bt-gu` → `_lgGuias` (lista-grupos-b25.js,
+  `o.tabela`). `acordos.forma_pagamento` boleto|pix (gatilhos `acordo_forma_propaga*`), `textoGuias`/`parcOrd`/`fechoGuias`, `guias_texto_html` (caixa "Como pagar") usada
+  por `enviar_guias_email`/`previa_guias_email`. Acordos: `_acPrazo` (`#acPrazoBar`, `#acPrazoAte`), `.ac-emit-par`; selects grupo/devedor escondidos (design.css).
+  Certificado: `vendor/forge.min.js` (node-forge, sob demanda) → `lerCertificado`/`janelaCertificado` (telas-documentos.js), `cliente_certificado.documento_id/titular/emissor`,
+  pasta com `[data-pasta-enviar]`/`[data-pasta-cert]`; alerta "Certificado digital vencendo" (telas-alertas.js). Sessão: `AC_SESSION_TTL` 60 min deslizante (`_acResetTimer`),
+  `#gs-sessao` (⏱N′). Agenda: `FONTES_AGENDA`/`fontesAgenda`/`extrasAgenda` (`preferencias.fila.fontes`). `parcelas.data_pagamento` (gatilho). `registrar_busca_publicacoes`.
+  Painel `.er-op`/`.er-sit`; Financeiro sem "Em atraso" (`false&&` no montar-erp); CRM sem painel, `#cr-resp-seg`. Planilha da Rotina: `[data-pl-gx]`, `[data-pl-gpa]`,
+  `[data-pl-gemp]`. Tokens: `--th-bg` claro; títulos 24 px; `.kc` com número em cima (bloco B37 no fim do design.css).
+- Backup 36 (base) (só SQL). Início: `janelaAgendar` (telas-tarefas.js; `tarefas.tipo_agenda/hora/local`, `TIPOS_AGENDA`, `classeAgenda`, `legendaAgenda`,
   `[data-agendar]`, `[data-ag-dia]`, `.cal-tf.ag-*`). Painel: `_evo.visao='total'` padrão; `evolucao_passivo` devolve null antes do 1º passivo (CTE `primeiro`) e o JS corta
   os meses iniciais sem dado; contorno com `td.gc-l::before/gc-r::after`. Processos: `.gx-movs`/`.gx-mov` (cartões). `_lgRender`: cartões maiores, `.lg-card-ab`
   "aberto", painel `.lg-painel-tit` + tabela `.lg-t`/`.lg-t-lin` (Pagas·Falta·A pagar este mês·Situação), `_lgEsteMes` = vencidas + do mês; um cartão só abre sozinho;

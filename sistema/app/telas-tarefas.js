@@ -100,17 +100,37 @@ function ordenarFila(lista) {
 // Fila do Início: 5 primeiras + "Ver todas"; ou em calendário (mês, semana ou dia). A escolha fica salva na pessoa
 // (perfis.preferencias.fila) e vale no próximo acesso, em qualquer computador. Cobrança de honorário atrasado não entra
 // (já aparece em "Atrasados", logo abaixo).
-const FILA = { toda: false, min: false, vista: 'lista', ref: null, lida: false };
+const FILA = { toda: false, min: false, vista: 'lista', ref: null, lida: false, fontes: null };
+// Backup 37: o que entra na agenda (calendário) — cada pessoa escolhe; fica salvo junto da vista
+const FONTES_AGENDA = [['tarefas', 'Tarefas'], ['compromissos', 'Compromissos'], ['lembretes', 'Lembretes'], ['vencimentos', 'Vencimentos (honorários, guias e acordos)']];
+const fontesAgenda = () => Object.assign({ tarefas: true, compromissos: true, lembretes: true, vencimentos: false }, FILA.fontes || {});
 const VISTAS_FILA = [['lista', 'Lista'], ['mes', 'Mês'], ['semana', 'Semana'], ['dia', 'Dia']];
 function salvarPrefFila() {
-  const v = { vista: FILA.vista, min: FILA.min };
+  const v = { vista: FILA.vista, min: FILA.min, fontes: fontesAgenda() };
   if (E.perfil) E.perfil.preferencias = Object.assign({}, E.perfil.preferencias || {}, { fila: v });
   sb.rpc('salvar_preferencia', { p_chave: 'fila', p_valor: v }).then(() => {}, () => {});
 }
 // Backup 36: compromissos na agenda (tarefas com tipo_agenda + hora) — cor por tipo e legenda
 const TIPOS_AGENDA = [['reuniao', 'Reunião', '🤝'], ['audiencia', 'Audiência', '⚖'], ['compromisso', 'Compromisso', '📌'], ['ligacao', 'Ligação', '📞']];
 const legendaAgenda = () => '<div class="ag-leg">' + TIPOS_AGENDA.map(([k, r]) => '<span><i class="ag-cor ag-' + k + '"></i>' + r + '</span>').join('') +
-  '<span><i class="ag-cor ag-tarefa"></i>Tarefa</span><span><i class="ag-cor ag-atrasada"></i>Atrasada</span><span><i class="ag-cor ag-fatal"></i>Prazo fatal</span></div>';
+  '<span><i class="ag-cor ag-tarefa"></i>Tarefa</span><span><i class="ag-cor ag-atrasada"></i>Atrasada</span><span><i class="ag-cor ag-fatal"></i>Prazo fatal</span>' +
+  '<span><i class="ag-cor ag-lembrete"></i>Lembrete</span><span><i class="ag-cor ag-venc"></i>Vencimento</span></div>' +
+  // Backup 37: o que entra na agenda (salvo por pessoa)
+  '<div class="ag-fontes"><span class="sub">Mostrar na agenda:</span>' + FONTES_AGENDA.map(([k, r]) => '<label class="ag-fonte"><input type="checkbox" data-ag-fonte="' + k + '"' + (fontesAgenda()[k] ? ' checked' : '') + '><span>' + r + '</span></label>').join('') + '</div>';
+// Backup 37: lembretes (com dia) e vencimentos (honorários a receber, guias de parcelamento a emitir e parcelas de acordo) na agenda
+async function extrasAgenda(FA) {
+  const ref = FILA.ref || hojeISO(), de = somarDias(ref, -45), ate = somarDias(ref, 45), out = [];
+  const [lb, ln, pc, ac] = await Promise.all([
+    FA.lembretes ? q(sb.from('lembretes').select('*').is('feito_em', null).gte('dia', de).lte('dia', ate)).catch(() => []) : [],
+    FA.vencimentos && pode('financeiro_juridico') ? q(sb.from('lancamentos').select('id, descricao, valor, vencimento').eq('tipo', 'receita').eq('pago', false).gte('vencimento', de).lte('vencimento', ate).limit(1000)).catch(() => []) : [],
+    FA.vencimentos && pode('juridico') ? q(sb.from('parcelas').select('id, numero, vencimento, parcelamentos(empresa, emitimos_guia)').eq('pago', false).gte('vencimento', de).lte('vencimento', ate).limit(1000)).catch(() => []) : [],
+    FA.vencimentos && pode('juridico') ? q(sb.from('acordos').select('id, parcela, vencimento, valor, devedor').eq('pago', false).gte('vencimento', de).lte('vencimento', ate).limit(1000)).catch(() => []) : []]);
+  lb.forEach((l) => out.push({ id: 'lb:' + l.id, prazo: l.dia, titulo: '🔔 ' + l.texto, _cls: 'ag-lembrete', _lemb: l }));
+  ln.forEach((x) => out.push({ id: 'ln:' + x.id, prazo: x.vencimento, titulo: '💰 ' + x.descricao + ' · ' + brl(x.valor), _cls: 'ag-venc', _tela: 'financeiro' }));
+  pc.filter((x) => x.parcelamentos && x.parcelamentos.emitimos_guia !== false).forEach((x) => out.push({ id: 'pc:' + x.id, prazo: x.vencimento, titulo: '🧾 Guia ' + x.parcelamentos.empresa + ' (parc. ' + (x.numero || '?') + ')', _cls: 'ag-venc', _tela: 'parcelamentos' }));
+  ac.forEach((x) => out.push({ id: 'ac:' + x.id, prazo: x.vencimento, titulo: '⚖ Acordo ' + (x.devedor || '') + ' · ' + brl(x.valor), _cls: 'ag-venc', _tela: 'acordos' }));
+  return out;
+}
 function janelaAgendar(dataIni, depois) {
   const pessoas = pessoasEscritorio();
   const j = abrirJanela({ titulo: '📅 Agendar na minha agenda',
@@ -141,6 +161,7 @@ function janelaAgendar(dataIni, depois) {
 }
 function classeAgenda(t, d) {
   const h = hojeISO();
+  if (t._cls) return t._cls;
   if (t.prazo_fatal === d) return 'ag-fatal';
   if (t.tipo_agenda) return 'ag-' + t.tipo_agenda;
   if (/^reuniao:/.test(t.chave_regra || '')) return 'ag-reuniao';   // reuniões marcadas pelo CRM
@@ -177,7 +198,7 @@ function calendarioFila(lista) {
     corpo = c + '<div class="cal-dia vazio-dia"></div>'.repeat(resto) + '</div>';
   }
   // Backup 27: à esquerda, as tarefas atrasadas (não aparecem na semana/dia/mês que você está vendo)
-  const atr = lista.filter((t) => t.prazo && t.prazo < h).sort((a, b) => a.prazo.localeCompare(b.prazo));
+  const atr = lista.filter((t) => t.prazo && t.prazo < h && !t._cls).sort((a, b) => a.prazo.localeCompare(b.prazo));
   const lado = '<aside class="fila-atrasadas"><div class="fila-atr-tit">⏰ Atrasadas <span class="pill ' + (atr.length ? 'vencido' : 'pago') + '">' + atr.length + '</span></div>' +
     (atr.length ? atr.map((t) => '<button type="button" class="fila-atr-it" data-fila="' + t.id + '" title="' + esc(t.titulo) + '"><b>' + esc(t.titulo) + '</b><span class="sub">prazo ' + dataBR(t.prazo) + ' · ' + plural(-diasAte(t.prazo), 'dia', 'dias') + ' de atraso</span></button>').join('')
       : '<div class="sub">Nenhuma atrasada. 🎉</div>') + '</aside>';
@@ -186,15 +207,18 @@ function calendarioFila(lista) {
     '<button type="button" class="btn btn-p btn-mini ag-bt" data-agendar>+ Agendar</button></div>' + corpo + legendaAgenda() + '</div></div>';
 }
 async function cardMinhaFila() {
-  if (!FILA.lida) { const p = (E.perfil && E.perfil.preferencias && E.perfil.preferencias.fila) || {}; if (p.vista) FILA.vista = p.vista; FILA.min = !!p.min; FILA.lida = true; }
+  if (!FILA.lida) { const p = (E.perfil && E.perfil.preferencias && E.perfil.preferencias.fila) || {}; if (p.vista) FILA.vista = p.vista; FILA.min = !!p.min; FILA.fontes = p.fontes || null; FILA.lida = true; }
   await feriados();
   await equipe().catch(() => []);
   const ts = await q(sb.from('tarefas').select('*').not('status', 'in', '(concluida,cancelada)')).catch(() => []);
   const todas = ordenarFila(ts.filter((t) => ehMinha(t) && !/^(cob|parc|aco):/.test(t.chave_regra || ''))), minhas = FILA.toda ? todas : todas.slice(0, 5);
+  const FA = fontesAgenda(), ehComp = (t) => !!t.tipo_agenda || /^reuniao:/.test(t.chave_regra || '');
+  const naAgenda = todas.filter((t) => (ehComp(t) ? FA.compromissos : FA.tarefas));
+  const extras = FILA.vista !== 'lista' && !FILA.min ? await extrasAgenda(FA) : [];
   const html = '<div class="card ini-fila' + (FILA.min ? ' minimizada' : '') + '"><div class="card-hd">📋 Minha fila de trabalho ' + '<span class="sub">' + plural(todas.length, 'aberta', 'abertas') + ' · suas</span>' +
       '<div class="segmento ini-fila-vista" role="group" aria-label="Ver como">' + VISTAS_FILA.map(([v, r]) => '<button type="button" data-fila-vista="' + v + '"' + (FILA.vista === v ? ' class="ativo"' : '') + '>' + r + '</button>').join('') + '</div>' +
       '<button type="button" class="btn btn-o btn-mini ini-fila-min" data-fila-min aria-expanded="' + !FILA.min + '">' + (FILA.min ? '▸ Mostrar' : '▾ Minimizar') + '</button></div>' +
-    (FILA.min ? '' : '<div class="card-bd">' + (FILA.vista !== 'lista' ? calendarioFila(todas) :
+    (FILA.min ? '' : '<div class="card-bd">' + (FILA.vista !== 'lista' ? calendarioFila(naAgenda.concat(extras)) :
     (minhas.length ? '<div class="lista-ficha fila-compacta">' + minhas.map((t) => '<div class="item-ficha clicavel" data-fila="' + t.id + '"><div>' + bolinha(t) + (t.tipo_agenda ? ' <i class="ag-cor ag-' + t.tipo_agenda + '"></i>' : '') + ' <b>' + (t.hora ? horaAg(t) : '') + esc(t.titulo) + '</b>' + seloPrazo(t) +
       '<div class="sub">' + (t.prazo ? 'prazo ' + dataBR(t.prazo) : 'sem prazo') + (t.prazo_fatal ? ' · ⚑ fatal ' + dataBR(t.prazo_fatal) : '') + (t.status === 'revisao' ? ' · aguardando revisão' : '') +
       (nomeCliente(t.cliente_id) || nomeGrupo(t.grupo_id) ? ' · ' + esc(nomeCliente(t.cliente_id) || nomeGrupo(t.grupo_id)) : '') + '</div></div>' +
@@ -203,7 +227,11 @@ async function cardMinhaFila() {
       : '<div class="sub">Nenhuma tarefa com você. 🎉</div>')) + '</div>') + '</div>';
   const repinta = async (raiz) => { const c = await cardMinhaFila(); raiz.innerHTML = c.html; c.ligar(raiz); };
   return { html, ligar: (raiz) => {
-    raiz.querySelectorAll('[data-fila]').forEach((d) => d.onclick = () => abrirTarefa(ts.find((t) => t.id === d.dataset.fila), () => irPara(E.tela)));
+    raiz.querySelectorAll('[data-fila]').forEach((d) => d.onclick = () => {
+      const x = extras.find((e) => e.id === d.dataset.fila);
+      if (x) { if (x._lemb && typeof detalheLembrete === 'function') return detalheLembrete(x._lemb); if (x._tela) return irPara(x._tela); return; }
+      abrirTarefa(ts.find((t) => t.id === d.dataset.fila), () => irPara(E.tela)); });
+    raiz.querySelectorAll('[data-ag-fonte]').forEach((c) => c.onchange = () => { FILA.fontes = Object.assign(fontesAgenda(), { [c.dataset.agFonte]: c.checked }); salvarPrefFila(); repinta(raiz); });
     const bm = raiz.querySelector('[data-fila-min]'); if (bm) bm.onclick = () => { FILA.min = !FILA.min; salvarPrefFila(); repinta(raiz); };
     const bt = raiz.querySelector('[data-fila-toda]'); if (bt) bt.onclick = () => { FILA.toda = !FILA.toda; repinta(raiz); };
     raiz.querySelectorAll('[data-fila-vista]').forEach((b) => b.onclick = () => { FILA.vista = b.dataset.filaVista; FILA.min = false; FILA.ref = null; salvarPrefFila(); repinta(raiz); });

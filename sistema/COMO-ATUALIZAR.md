@@ -712,6 +712,33 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
 **Central de Documentos dentro do ERP:** menu **Documentos → Gerar documento** (ou ⋯ → Documentos, contrato, recibo do Financeiro).
 **Ctrl + clique** (ou botão do meio do mouse) em qualquer item do menu ou link de documento abre numa aba nova.
 
+## Backup 37 — gerar guias com expansão, forma de pagamento dos acordos, certificado digital, sessão por inatividade, visual novo (tem SQL)
+Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+Shift+R**. Nenhuma Edge Function mudou.
+
+- **Início — agenda:** embaixo do calendário, marque o que aparece nele: **Tarefas, Compromissos, Lembretes, Vencimentos** (honorários, guias e acordos).
+  A escolha fica salva para você.
+- **Painel Executivo:** coluna **Em operação** antes da CAPAG; situação (Ativa, Baixada…) sem caixa alta. Clientes e Painel usam o mesmo tamanho de letra (13 px).
+- **Parcelamentos e Acordos:** botão **🧾 Gerar guias** em três lugares: geral (todos os grupos do filtro), dentro do grupo aberto (só aquela empresa/grupo) e em
+  cada linha. Abre a janela de envio por empresa com vencimento e valor atualizado. Se não houver nada vencido nem do mês, pergunta se quer emitir as próximas.
+  O seletor "Todos os grupos" saiu (use o filtro do alto, à direita).
+- **Acordos:** filtros **Vencidas · 5 · 10 · 15 · 30 dias · até [data]** na tabela de baixo; sem "Situação"; o "✓ emitido" fica ao lado do Emitir.
+  No cadastro do acordo: **Forma de pagamento — Boleto ou PIX** (vale para todas as parcelas daquele acordo). O e-mail sai no formato pedido
+  (PIX: "Processo | Parcela 8ª de 40 / Partes / Vencimento / Valor / PIX"; boleto: "Seguem as parcelas de acordos da X…" com o boleto anexo).
+- **Financeiro:** sem a tabela "Em atraso" (o cartão continua); linhas de A receber/Recebidos mais baixas.
+- **CRM:** sem "Painel"; abas (Em andamento, Ganhos…) no mesmo estilo escuro dos outros filtros; **Responsáveis** como filtro.
+- **Documentos:** cada grupo tem **+ Enviar** e **🔐 Certificado** na própria barra. O certificado (.pfx/.p12) é lido no seu navegador com a senha:
+  o sistema mostra **titular e validade** e guarda a senha (só a equipe vê). Alerta "Certificado digital vencendo" 30 dias antes.
+- **Sessão:** só sai depois de **60 minutos sem uso** (cada clique/tecla recomeça). Contador discreto na barra de cima (⏱58′).
+- **Central de Documentos:** sem o título "📜 Procuração…" na coluna da esquerda, que ficou mais larga.
+- **Alertas:** saíram Sem contato, CAPAG D, Documentos vencendo e a leitura de arquivo da PGFN; situação irregular não conta Baixada;
+  "Busca de publicações (web)" mostra a última busca feita pelo navegador.
+- **Rotina:** Passivo sem "Em operação" e CAPAG sem cortar "OMISSO"; Processos mostra o **valor atual** ao lado do novo; **Controle dos parcelamentos voltou a
+  funcionar** (o Supabase entrega no máximo 1000 linhas por vez — agora o sistema busca em páginas); "Ver todas as parcelas" do acordo abre a mesma ficha
+  de Acordos; **Planilha** = lista Nº · Vencimento · Emissão · Pagamento com as datas, alinhada, com **🧾 Emitir** também nas futuras (da parcela, do parcelamento
+  ou da empresa).
+- **E-mails de guias:** no mesmo padrão visual de "Honorários em aberto" (parágrafos + caixa "Como pagar" com o PIX).
+- **Visual:** cabeçalho das tabelas claro, títulos maiores, cartões com o número em cima e linha de cor no alto (inspirado nos prints, em azul).
+
 ## Backup 36 — agenda no Início, cartões mais claros, Rotina refeita, Documentos e E-mails no visual do ERP (tem SQL)
 Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+Shift+R**. Nenhuma Edge Function mudou.
 

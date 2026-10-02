@@ -572,6 +572,22 @@ trocar(`<button class="tb-btn active" data-atab="vencidos" onclick="setAcordTab(
 trocar(`<button class="tb-btn"        data-atab="pagar"    onclick="setAcordTab('pagar',this)">📅 A Pagar</button>`, `<button class="tb-btn"        data-atab="pagar"    onclick="setAcordTab('pagar',this)" hidden>📅 A Pagar</button>`, 1);
 // Backup 28: Processos → tabelas por Tribunal e por Natureza sem negrito no nome
 trocar("          return '<tr><td><strong>'+esc(k)+'</strong></td>'", "          return '<tr><td>'+esc(k)+'</td>'", 1);
+// Backup 37: Painel Executivo — coluna "Em operação" antes da CAPAG e Situação escrita normal (Ativa, Baixada — nunca em caixa alta)
+trocar(`          <th style="width:58px;cursor:pointer" onclick="sortExecRank('capag')"  class="s">CAPAG</th>`,
+  `          <th style="width:96px">Em operação</th>\n          <th style="width:58px;cursor:pointer" onclick="sortExecRank('capag')"  class="s">CAPAG</th>`, 1);
+trocar("      <td style=\"text-align:center\">${cBadge(r.capag)}</td>\n      <td><span class=\"tag ${sC(r)}\" style=\"font-size:10.5px\">${r.sitCadastral||'—'}</span></td>",
+  "      <td style=\"text-align:center\" class=\"er-op\">${/^sim$/i.test(r.emOperacao||'')?'<span class=\"tag tg\">Sim</span>':/^n[aã]o$/i.test(r.emOperacao||'')?'<span class=\"tag tr\">Não</span>':'<span style=\"color:var(--text4)\">—</span>'}</td>\n      <td style=\"text-align:center\">${cBadge(r.capag)}</td>\n      <td class=\"er-sit\"><span class=\"tag ${sC(r)}\" style=\"font-size:10.5px\">${String(r.sitCadastral||'—').toLowerCase().replace(/^./,function(c){return c.toUpperCase();})}</span></td>", 1);
+trocar("  }).join(''):`<tr><td colspan=\"10\">${emp()}</td></tr>`;\n}\nfunction sortExecRank(c){", "  }).join(''):`<tr><td colspan=\"11\">${emp()}</td></tr>`;\n}\nfunction sortExecRank(c){", 1);
+// Backup 37: a sessão só cai por INATIVIDADE (60 min sem mexer). Antes o prazo contava do login e não renovava com o uso —
+// por isso "depois de um tempo desconecta" mesmo usando. Agora cada clique/tecla empurra o prazo (salvo a cada 20 s) e a barra de cima mostra o contador.
+trocar("const AC_SESSION_TTL  = 30 * 60 * 1000;", "const AC_SESSION_TTL  = 60 * 60 * 1000;", 1);
+trocar(`function _acResetTimer() {
+  clearTimeout(_acInactivityTimer);`, `function _acResetTimer() {
+  clearTimeout(_acInactivityTimer);
+  try { if (window.AC_SESSION && Date.now() - (window._acUltGrav || 0) > 20000) { window._acUltGrav = Date.now(); window.AC_SESSION.expira = Date.now() + AC_SESSION_TTL; sessionStorage.setItem(AC_SESSION_KEY, JSON.stringify(window.AC_SESSION)); } } catch (e) {}
+  window._acUltAtiv = Date.now();`, 1);
+// Backup 37: Financeiro → Análise sem a tabela "Em atraso" (a mesma informação já está na aba A Receber e no cartão Em atraso)
+trocar("  + (vencidos.length?'<div class=\"cc\" style=\"margin-bottom:14px\"><div class=\"cc-hd\"><div><div class=\"cc-t\">Em atraso</div>", "  + (false&&vencidos.length?'<div class=\"cc\" style=\"margin-bottom:14px\"><div class=\"cc-hd\"><div><div class=\"cc-t\">Em atraso</div>", 2);
 // 13. Cores de tokens.css (fonte única) depois do CSS do ERP; modo escuro lembrado neste aparelho.
 trocar('\n</head>\n', '\n<link rel="stylesheet" href="tokens.css">\n<link rel="stylesheet" href="tema-escuro.css">\n<link rel="stylesheet" href="design.css">\n' +
   '<script>try{if(localStorage.getItem("erp_tema")==="escuro")document.documentElement.setAttribute("data-tema","escuro")}catch(e){}</script>\n</head>\n', 1);
@@ -620,7 +636,7 @@ const bundle = "'use strict';\n// GERADO por sistema/ferramentas/montar-erp.js �
   [nuc, graf, ler('telas-painel.js'), ler('telas-financeiro.js'), ler('telas-cadastros.js'), ler('telas-admin.js'), ler('telas-tarefas.js'), ler('telas-documentos.js'), ler('telas-cliente360.js'), ler('telas-crm.js'), ler('telas-publicacoes.js'), ler('telas-acordos.js'), ler('telas-alertas.js'), ler('telas-automacoes.js'), ler('telas-aprovacoes.js'), ler('telas-ofx.js'), ler('telas-emails.js'), ler('telas-guias.js'), ler('telas-rotina.js'), ler('telas-relatorio.js')].join('\n') +
   "\n// toda gravação confirmada aparece também no rodapé do ERP\nconst _avisoOrig = aviso;\n" +
   "aviso = function (msg, erro) { _avisoOrig(msg, erro); if (!erro && window.ERP_EDITOR && /^✓/.test(msg)) window.ERP_EDITOR.gravou(String(msg).replace(/^✓\\s*/, '')); };\n" +
-  "window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, invalidarCadastros, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo, perguntarBaixa, detalheContrato, ICONE_AVISO, conciliarOfx, abrirTarefa, detalheLancamento, edicaoLancamentos, janelaModelosEmail, janelaAutoEmails, janelaGeradores, formReuniao, janelaDelegar, abrirGeradorContrato, cardGuias, emitirParcela, enviarAcordosSelecionados, janelaMovimentacao, janelaRelatorioPDF };\n})();\n";
+  "window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, invalidarCadastros, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo, perguntarBaixa, detalheContrato, ICONE_AVISO, conciliarOfx, abrirTarefa, detalheLancamento, edicaoLancamentos, janelaModelosEmail, janelaAutoEmails, janelaGeradores, formReuniao, janelaDelegar, abrirGeradorContrato, cardGuias, emitirParcela, enviarAcordosSelecionados, gerarGuias, janelaMovimentacao, janelaRelatorioPDF };\n})();\n";
 fs.writeFileSync(path.join(APP, 'gestao-embutida.js'), bundle);
 
 // CSS do Gestão só dentro de .gs (as telas do Gestão) e #gs-hd (barra superior)

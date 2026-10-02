@@ -332,9 +332,14 @@ async function q(consulta) {
 }
 // O Supabase devolve no máximo 1.000 linhas por pedido: busca em páginas.
 async function buscarTodos(montar, porPagina) {
-  const n = porPagina || 1000, todos = [];
+  const n = porPagina || 1000, todos = []; let semId = false;
   for (let de = 0; ; de += n) {
-    const pag = await q(montar().range(de, de + n - 1));
+    // Backup 37: o Supabase devolve no máximo 1000 linhas por vez; o 'id' no fim da ordem evita pular/repetir linhas entre as páginas
+    // (tabela sem coluna id — ex.: configuracoes — segue sem o desempate)
+    let pag;
+    if (semId) pag = await q(montar().range(de, de + n - 1));
+    else { try { pag = await q(montar().order('id').range(de, de + n - 1)); }
+      catch (e) { if (!/42703|column .*id.* does not exist|id.*não existe/i.test(String(e && (e.code || e.message || e)))) throw e; semId = true; pag = await q(montar().range(de, de + n - 1)); } }
     todos.push(...pag);
     if (pag.length < n) return todos;
   }
@@ -3642,17 +3647,37 @@ function ordenarFila(lista) {
 // Fila do Início: 5 primeiras + "Ver todas"; ou em calendário (mês, semana ou dia). A escolha fica salva na pessoa
 // (perfis.preferencias.fila) e vale no próximo acesso, em qualquer computador. Cobrança de honorário atrasado não entra
 // (já aparece em "Atrasados", logo abaixo).
-const FILA = { toda: false, min: false, vista: 'lista', ref: null, lida: false };
+const FILA = { toda: false, min: false, vista: 'lista', ref: null, lida: false, fontes: null };
+// Backup 37: o que entra na agenda (calendário) — cada pessoa escolhe; fica salvo junto da vista
+const FONTES_AGENDA = [['tarefas', 'Tarefas'], ['compromissos', 'Compromissos'], ['lembretes', 'Lembretes'], ['vencimentos', 'Vencimentos (honorários, guias e acordos)']];
+const fontesAgenda = () => Object.assign({ tarefas: true, compromissos: true, lembretes: true, vencimentos: false }, FILA.fontes || {});
 const VISTAS_FILA = [['lista', 'Lista'], ['mes', 'Mês'], ['semana', 'Semana'], ['dia', 'Dia']];
 function salvarPrefFila() {
-  const v = { vista: FILA.vista, min: FILA.min };
+  const v = { vista: FILA.vista, min: FILA.min, fontes: fontesAgenda() };
   if (E.perfil) E.perfil.preferencias = Object.assign({}, E.perfil.preferencias || {}, { fila: v });
   sb.rpc('salvar_preferencia', { p_chave: 'fila', p_valor: v }).then(() => {}, () => {});
 }
 // Backup 36: compromissos na agenda (tarefas com tipo_agenda + hora) — cor por tipo e legenda
 const TIPOS_AGENDA = [['reuniao', 'Reunião', '🤝'], ['audiencia', 'Audiência', '⚖'], ['compromisso', 'Compromisso', '📌'], ['ligacao', 'Ligação', '📞']];
 const legendaAgenda = () => '<div class="ag-leg">' + TIPOS_AGENDA.map(([k, r]) => '<span><i class="ag-cor ag-' + k + '"></i>' + r + '</span>').join('') +
-  '<span><i class="ag-cor ag-tarefa"></i>Tarefa</span><span><i class="ag-cor ag-atrasada"></i>Atrasada</span><span><i class="ag-cor ag-fatal"></i>Prazo fatal</span></div>';
+  '<span><i class="ag-cor ag-tarefa"></i>Tarefa</span><span><i class="ag-cor ag-atrasada"></i>Atrasada</span><span><i class="ag-cor ag-fatal"></i>Prazo fatal</span>' +
+  '<span><i class="ag-cor ag-lembrete"></i>Lembrete</span><span><i class="ag-cor ag-venc"></i>Vencimento</span></div>' +
+  // Backup 37: o que entra na agenda (salvo por pessoa)
+  '<div class="ag-fontes"><span class="sub">Mostrar na agenda:</span>' + FONTES_AGENDA.map(([k, r]) => '<label class="ag-fonte"><input type="checkbox" data-ag-fonte="' + k + '"' + (fontesAgenda()[k] ? ' checked' : '') + '><span>' + r + '</span></label>').join('') + '</div>';
+// Backup 37: lembretes (com dia) e vencimentos (honorários a receber, guias de parcelamento a emitir e parcelas de acordo) na agenda
+async function extrasAgenda(FA) {
+  const ref = FILA.ref || hojeISO(), de = somarDias(ref, -45), ate = somarDias(ref, 45), out = [];
+  const [lb, ln, pc, ac] = await Promise.all([
+    FA.lembretes ? q(sb.from('lembretes').select('*').is('feito_em', null).gte('dia', de).lte('dia', ate)).catch(() => []) : [],
+    FA.vencimentos && pode('financeiro_juridico') ? q(sb.from('lancamentos').select('id, descricao, valor, vencimento').eq('tipo', 'receita').eq('pago', false).gte('vencimento', de).lte('vencimento', ate).limit(1000)).catch(() => []) : [],
+    FA.vencimentos && pode('juridico') ? q(sb.from('parcelas').select('id, numero, vencimento, parcelamentos(empresa, emitimos_guia)').eq('pago', false).gte('vencimento', de).lte('vencimento', ate).limit(1000)).catch(() => []) : [],
+    FA.vencimentos && pode('juridico') ? q(sb.from('acordos').select('id, parcela, vencimento, valor, devedor').eq('pago', false).gte('vencimento', de).lte('vencimento', ate).limit(1000)).catch(() => []) : []]);
+  lb.forEach((l) => out.push({ id: 'lb:' + l.id, prazo: l.dia, titulo: '🔔 ' + l.texto, _cls: 'ag-lembrete', _lemb: l }));
+  ln.forEach((x) => out.push({ id: 'ln:' + x.id, prazo: x.vencimento, titulo: '💰 ' + x.descricao + ' · ' + brl(x.valor), _cls: 'ag-venc', _tela: 'financeiro' }));
+  pc.filter((x) => x.parcelamentos && x.parcelamentos.emitimos_guia !== false).forEach((x) => out.push({ id: 'pc:' + x.id, prazo: x.vencimento, titulo: '🧾 Guia ' + x.parcelamentos.empresa + ' (parc. ' + (x.numero || '?') + ')', _cls: 'ag-venc', _tela: 'parcelamentos' }));
+  ac.forEach((x) => out.push({ id: 'ac:' + x.id, prazo: x.vencimento, titulo: '⚖ Acordo ' + (x.devedor || '') + ' · ' + brl(x.valor), _cls: 'ag-venc', _tela: 'acordos' }));
+  return out;
+}
 function janelaAgendar(dataIni, depois) {
   const pessoas = pessoasEscritorio();
   const j = abrirJanela({ titulo: '📅 Agendar na minha agenda',
@@ -3683,6 +3708,7 @@ function janelaAgendar(dataIni, depois) {
 }
 function classeAgenda(t, d) {
   const h = hojeISO();
+  if (t._cls) return t._cls;
   if (t.prazo_fatal === d) return 'ag-fatal';
   if (t.tipo_agenda) return 'ag-' + t.tipo_agenda;
   if (/^reuniao:/.test(t.chave_regra || '')) return 'ag-reuniao';   // reuniões marcadas pelo CRM
@@ -3719,7 +3745,7 @@ function calendarioFila(lista) {
     corpo = c + '<div class="cal-dia vazio-dia"></div>'.repeat(resto) + '</div>';
   }
   // Backup 27: à esquerda, as tarefas atrasadas (não aparecem na semana/dia/mês que você está vendo)
-  const atr = lista.filter((t) => t.prazo && t.prazo < h).sort((a, b) => a.prazo.localeCompare(b.prazo));
+  const atr = lista.filter((t) => t.prazo && t.prazo < h && !t._cls).sort((a, b) => a.prazo.localeCompare(b.prazo));
   const lado = '<aside class="fila-atrasadas"><div class="fila-atr-tit">⏰ Atrasadas <span class="pill ' + (atr.length ? 'vencido' : 'pago') + '">' + atr.length + '</span></div>' +
     (atr.length ? atr.map((t) => '<button type="button" class="fila-atr-it" data-fila="' + t.id + '" title="' + esc(t.titulo) + '"><b>' + esc(t.titulo) + '</b><span class="sub">prazo ' + dataBR(t.prazo) + ' · ' + plural(-diasAte(t.prazo), 'dia', 'dias') + ' de atraso</span></button>').join('')
       : '<div class="sub">Nenhuma atrasada. 🎉</div>') + '</aside>';
@@ -3728,15 +3754,18 @@ function calendarioFila(lista) {
     '<button type="button" class="btn btn-p btn-mini ag-bt" data-agendar>+ Agendar</button></div>' + corpo + legendaAgenda() + '</div></div>';
 }
 async function cardMinhaFila() {
-  if (!FILA.lida) { const p = (E.perfil && E.perfil.preferencias && E.perfil.preferencias.fila) || {}; if (p.vista) FILA.vista = p.vista; FILA.min = !!p.min; FILA.lida = true; }
+  if (!FILA.lida) { const p = (E.perfil && E.perfil.preferencias && E.perfil.preferencias.fila) || {}; if (p.vista) FILA.vista = p.vista; FILA.min = !!p.min; FILA.fontes = p.fontes || null; FILA.lida = true; }
   await feriados();
   await equipe().catch(() => []);
   const ts = await q(sb.from('tarefas').select('*').not('status', 'in', '(concluida,cancelada)')).catch(() => []);
   const todas = ordenarFila(ts.filter((t) => ehMinha(t) && !/^(cob|parc|aco):/.test(t.chave_regra || ''))), minhas = FILA.toda ? todas : todas.slice(0, 5);
+  const FA = fontesAgenda(), ehComp = (t) => !!t.tipo_agenda || /^reuniao:/.test(t.chave_regra || '');
+  const naAgenda = todas.filter((t) => (ehComp(t) ? FA.compromissos : FA.tarefas));
+  const extras = FILA.vista !== 'lista' && !FILA.min ? await extrasAgenda(FA) : [];
   const html = '<div class="card ini-fila' + (FILA.min ? ' minimizada' : '') + '"><div class="card-hd">📋 Minha fila de trabalho ' + '<span class="sub">' + plural(todas.length, 'aberta', 'abertas') + ' · suas</span>' +
       '<div class="segmento ini-fila-vista" role="group" aria-label="Ver como">' + VISTAS_FILA.map(([v, r]) => '<button type="button" data-fila-vista="' + v + '"' + (FILA.vista === v ? ' class="ativo"' : '') + '>' + r + '</button>').join('') + '</div>' +
       '<button type="button" class="btn btn-o btn-mini ini-fila-min" data-fila-min aria-expanded="' + !FILA.min + '">' + (FILA.min ? '▸ Mostrar' : '▾ Minimizar') + '</button></div>' +
-    (FILA.min ? '' : '<div class="card-bd">' + (FILA.vista !== 'lista' ? calendarioFila(todas) :
+    (FILA.min ? '' : '<div class="card-bd">' + (FILA.vista !== 'lista' ? calendarioFila(naAgenda.concat(extras)) :
     (minhas.length ? '<div class="lista-ficha fila-compacta">' + minhas.map((t) => '<div class="item-ficha clicavel" data-fila="' + t.id + '"><div>' + bolinha(t) + (t.tipo_agenda ? ' <i class="ag-cor ag-' + t.tipo_agenda + '"></i>' : '') + ' <b>' + (t.hora ? horaAg(t) : '') + esc(t.titulo) + '</b>' + seloPrazo(t) +
       '<div class="sub">' + (t.prazo ? 'prazo ' + dataBR(t.prazo) : 'sem prazo') + (t.prazo_fatal ? ' · ⚑ fatal ' + dataBR(t.prazo_fatal) : '') + (t.status === 'revisao' ? ' · aguardando revisão' : '') +
       (nomeCliente(t.cliente_id) || nomeGrupo(t.grupo_id) ? ' · ' + esc(nomeCliente(t.cliente_id) || nomeGrupo(t.grupo_id)) : '') + '</div></div>' +
@@ -3745,7 +3774,11 @@ async function cardMinhaFila() {
       : '<div class="sub">Nenhuma tarefa com você. 🎉</div>')) + '</div>') + '</div>';
   const repinta = async (raiz) => { const c = await cardMinhaFila(); raiz.innerHTML = c.html; c.ligar(raiz); };
   return { html, ligar: (raiz) => {
-    raiz.querySelectorAll('[data-fila]').forEach((d) => d.onclick = () => abrirTarefa(ts.find((t) => t.id === d.dataset.fila), () => irPara(E.tela)));
+    raiz.querySelectorAll('[data-fila]').forEach((d) => d.onclick = () => {
+      const x = extras.find((e) => e.id === d.dataset.fila);
+      if (x) { if (x._lemb && typeof detalheLembrete === 'function') return detalheLembrete(x._lemb); if (x._tela) return irPara(x._tela); return; }
+      abrirTarefa(ts.find((t) => t.id === d.dataset.fila), () => irPara(E.tela)); });
+    raiz.querySelectorAll('[data-ag-fonte]').forEach((c) => c.onchange = () => { FILA.fontes = Object.assign(fontesAgenda(), { [c.dataset.agFonte]: c.checked }); salvarPrefFila(); repinta(raiz); });
     const bm = raiz.querySelector('[data-fila-min]'); if (bm) bm.onclick = () => { FILA.min = !FILA.min; salvarPrefFila(); repinta(raiz); };
     const bt = raiz.querySelector('[data-fila-toda]'); if (bt) bt.onclick = () => { FILA.toda = !FILA.toda; repinta(raiz); };
     raiz.querySelectorAll('[data-fila-vista]').forEach((b) => b.onclick = () => { FILA.vista = b.dataset.filaVista; FILA.min = false; FILA.ref = null; salvarPrefFila(); repinta(raiz); });
@@ -4725,7 +4758,7 @@ async function cardValidacoes() {
 // ═══════════════════════════════════════════════════════════════════
 const TIPOS_DOC = [['contrato', 'Contrato'], ['procuracao', 'Procuração'], ['proposta', 'Proposta'], ['pessoal', 'Documento pessoal'],
   ['societario', 'Societário'], ['certidao', 'Certidão'], ['guia', 'Guia / boleto'], ['comprovante', 'Comprovante de pagamento'],
-  ['peticao', 'Petição / peça'], ['outro', 'Outro']];
+  ['peticao', 'Petição / peça'], ['certificado', 'Certificado digital'], ['outro', 'Outro']];
 const nomeTipoDoc = (t) => (TIPOS_DOC.find((x) => x[0] === t) || [t, t])[1];
 const LIMITE_MB = 20;
 const BUCKET = 'documentos';
@@ -4777,7 +4810,8 @@ function janelaEnviarDocumento(vinculo, depois, titulo) {
       '<div class="sub" id="doc-lista">PDF, imagens, Word ou Excel · até ' + LIMITE_MB + ' MB cada</div></div>' +
       campo('Tipo', '<select name="tipo">' + TIPOS_DOC.map(([v, r]) => '<option value="' + v + '"' + ((vinculo.tipo || 'outro') === v ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>') +
       campo('Validade (se houver)', '<input name="validade" type="date">') +
-      (vinculo.cliente_id || vinculo.contrato_id || vinculo.lancamento_id ? '' : campo('Cliente', '<select name="cliente_id">' + opcoesClientes('') + '</select>', 'inteiro')) +
+      (vinculo.cliente_id || vinculo.contrato_id || vinculo.lancamento_id ? '' : campo(vinculo.grupo_id ? 'Empresa do grupo (opcional)' : 'Cliente', '<select name="cliente_id">' +
+        (vinculo.grupo_id ? '<option value="">— o grupo todo —</option>' + E.clientes.filter((c) => c.grupo_id === vinculo.grupo_id).map((c) => '<option value="' + c.id + '">' + esc(c.nome) + '</option>').join('') : opcoesClientes('')) + '</select>', 'inteiro')) +
       campo('Etiquetas', '<input name="etiquetas" placeholder="ex.: 2026, original assinado">') +
       campo('Observação', '<textarea name="obs" maxlength="1000"></textarea>', 'inteiro') + '</form>',
     rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="btn-enviar-doc">Enviar</button></div>'
@@ -4869,7 +4903,7 @@ TELAS.documentos = async function () {
   await carregarCadastros();
   $('conteudo').innerHTML =
     '<div class="titulo-pag"><div><h1>Documentos</h1><p>Contratos, procurações, certidões, comprovantes e demais arquivos — guardados com acesso restrito</p></div>' +
-    '<div class="acoes"><button class="btn btn-o" id="doc-ger">📄 Gerar documento</button><button class="btn btn-p" id="doc-novo">+ Enviar documento</button></div></div>' +
+    '<div class="acoes"><button class="btn btn-o" id="doc-ger">📄 Gerar documento</button><button class="btn btn-o" id="doc-cert" title="Arquivo .pfx/.p12 + senha; o sistema lê a validade">🔐 Certificado digital</button><button class="btn btn-p" id="doc-novo">+ Enviar documento</button></div></div>' +
     '<div class="filtros">' +
     '<div class="segmento" id="doc-sit">' + [['ativos', 'Ativos'], ['vencendo', 'Vencendo / vencidos'], ['arquivados', 'Arquivados']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<select class="busca sel" id="doc-tipo"><option value="">Todos os tipos</option>' + TIPOS_DOC.map(([v, r]) => '<option value="' + v + '">' + r + '</option>').join('') + '</select>' +
@@ -4880,6 +4914,7 @@ TELAS.documentos = async function () {
   $('doc-tipo').value = F.tipo; $('doc-cli').value = F.cliente; $('doc-grupo').value = F.grupo || ''; $('doc-busca').value = F.busca;
   $('doc-novo').onclick = () => janelaEnviarDocumento({}, () => TELAS.documentos());
   $('doc-ger').onclick = () => janelaGeradores($('doc-cli').value || '');
+  $('doc-cert').onclick = () => janelaCertificado({ cliente_id: F.cliente || '', grupo_id: F.grupo || '' }, () => pintarDocumentos());
   $('doc-sit').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.situacao = b.dataset.v; pintarDocumentos(); } };
   $('doc-tipo').onchange = (ev) => { F.tipo = ev.target.value; pintarDocumentos(); };
   $('doc-cli').onchange = (ev) => { F.cliente = ev.target.value; pintarDocumentos(false); };
@@ -4912,11 +4947,18 @@ async function pintarDocumentos(buscar) {
   F.abertos = F.abertos || {};
   const aberto = (k) => ks.length === 1 || !!F.grupo || !!b || !!F.abertos[k];
   $('doc-corpo').innerHTML = lista.length ? '<div class="doc-pastas">' + ks.map((k) => '<details class="card doc-pasta" data-pasta="' + esc(k) + '"' + (aberto(k) ? ' open' : '') + '><summary><span class="doc-pasta-ic" aria-hidden="true">📁</span><b>' + esc(nomeG(k)) + '</b>' +
-      '<span class="sub">' + plural(G[k].length, 'documento', 'documentos') + (G[k].some((d) => d.validade && d.validade <= lim) ? ' · <span class="pill vencido">vencendo</span>' : '') + '</span></summary>' +
+      '<span class="sub">' + plural(G[k].length, 'documento', 'documentos') + (G[k].some((d) => d.validade && d.validade <= lim) ? ' · <span class="pill vencido">vencendo</span>' : '') + '</span>' +
+      // Backup 37: enviar direto para este grupo (sem abrir a pasta) e o certificado digital
+      '<span class="doc-pasta-ac"><button type="button" class="btn btn-o btn-mini" data-pasta-cert="' + esc(k) + '" title="Certificado digital de uma empresa deste grupo">🔐 Certificado</button>' +
+      '<button type="button" class="btn btn-p btn-mini" data-pasta-enviar="' + esc(k) + '" title="Enviar documento já para este grupo">+ Enviar</button></span></summary>' +
       (aberto(k) ? tabelaDocumentos(G[k], { vazio: '' }) : '') + '</details>').join('') + '</div>'
     : '<div class="card">' + tabelaDocumentos([], { vazio: 'Nenhum documento neste recorte.' }) + '</div>';
   // a tabela só é montada quando a pasta abre (pasta fechada não carrega nada)
   $('doc-corpo').querySelectorAll('details[data-pasta]').forEach((d) => d.addEventListener('toggle', () => { const k = d.dataset.pasta; if (d.open === aberto(k)) return; F.abertos[k] = d.open; pintarDocumentos(false); }));
+  $('doc-corpo').querySelectorAll('[data-pasta-enviar]').forEach((b) => b.onclick = (ev) => { ev.preventDefault(); ev.stopPropagation();
+    janelaEnviarDocumento({ grupo_id: b.dataset.pastaEnviar || undefined }, () => pintarDocumentos(), '+ Enviar documento — ' + nomeG(b.dataset.pastaEnviar)); });
+  $('doc-corpo').querySelectorAll('[data-pasta-cert]').forEach((b) => b.onclick = (ev) => { ev.preventDefault(); ev.stopPropagation();
+    janelaCertificado({ grupo_id: b.dataset.pastaCert || '' }, () => pintarDocumentos()); });
   ligarDocumentos($('doc-corpo'), lista, () => pintarDocumentos());
 }
 
@@ -4969,6 +5011,79 @@ function janelaGeradores(clienteId) {
 // Backup 26: gerador de contrato já com o cliente e os valores do contrato (o documento fica ligado ao contrato)
 function abrirGeradorContrato(clienteId, contratoId, ev) {
   abrirCentral('documentos/index.html?modelo=contrato' + (clienteId ? '&cliente=' + encodeURIComponent(clienteId) : '') + (contratoId ? '&contrato=' + encodeURIComponent(contratoId) : ''), ev);
+}
+
+// ═══ Backup 37: Certificado digital — o arquivo (.pfx/.p12) fica em Documentos; a senha e a validade (lida do arquivo) na ficha do certificado.
+// A leitura é feita aqui no navegador (biblioteca node-forge, gratuita, carregada só quando abre esta janela): o arquivo não sai do computador
+// para ser lido — só é guardado no Storage privado, como qualquer documento.
+function carregarForge() {
+  if (window.forge) return Promise.resolve(window.forge);
+  return new Promise((ok, falha) => { const s = document.createElement('script'); s.src = 'vendor/forge.min.js'; s.onload = () => ok(window.forge); s.onerror = () => falha(new Error('Não consegui carregar o leitor de certificado.')); document.head.appendChild(s); });
+}
+async function lerCertificado(arquivo, senha) {
+  const forge = await carregarForge();
+  const u = new Uint8Array(await arquivo.arrayBuffer()); let bin = '';
+  for (let i = 0; i < u.length; i += 8192) bin += String.fromCharCode.apply(null, u.subarray(i, i + 8192));
+  let p12;
+  try { p12 = forge.pkcs12.pkcs12FromAsn1(forge.asn1.fromDer(bin), senha || ''); }
+  catch (e) { throw new Error(/password|mac|Invalid/i.test(e.message || '') ? 'Senha incorreta para este certificado.' : 'Arquivo não é um certificado .pfx/.p12 válido.'); }
+  const bags = (p12.getBags({ bagType: forge.pki.oids.certBag })[forge.pki.oids.certBag] || []).map((b) => b.cert).filter(Boolean);
+  if (!bags.length) throw new Error('Não achei o certificado dentro do arquivo.');
+  // o certificado da empresa é o que NÃO é autoridade certificadora (e, entre os que sobram, o que vence primeiro)
+  const ehCA = (c) => { const bc = c.getExtension && c.getExtension('basicConstraints'); return !!(bc && bc.cA); };
+  const c = (bags.filter((x) => !ehCA(x)).length ? bags.filter((x) => !ehCA(x)) : bags).sort((a, b) => a.validity.notAfter - b.validity.notAfter)[0];
+  const campo = (attrs, n) => ((attrs.find((a) => a.shortName === n || a.name === n) || {}).value || '');
+  const iso = (d) => new Date(d.getTime() - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10);
+  return { validade: iso(c.validity.notAfter), inicio: iso(c.validity.notBefore), titular: campo(c.subject.attributes, 'CN'), emissor: campo(c.issuer.attributes, 'CN') || campo(c.issuer.attributes, 'O') };
+}
+async function janelaCertificado(vinculo, depois) {
+  if (!E.clientes.length) await carregarCadastros();
+  const lista = E.clientes.filter((c) => !vinculo.grupo_id || c.grupo_id === vinculo.grupo_id);
+  const j = abrirJanela({ titulo: '🔐 Certificado digital' + (vinculo.grupo_id ? ' — ' + (nomeGrupo(vinculo.grupo_id) || '') : ''), larga: true,
+    corpo: '<form id="f-cert" class="grade" autocomplete="off">' +
+      campo('Empresa', '<select name="cliente_id" required><option value="">— escolha —</option>' + lista.map((c) => '<option value="' + c.id + '"' + (c.id === vinculo.cliente_id ? ' selected' : '') + '>' + esc(c.nome) + (c.cpf_cnpj ? ' · ' + esc(mascaraDoc(c.cpf_cnpj)) : '') + '</option>').join('') + '</select>', 'inteiro') +
+      '<div class="inteiro cert-atual" id="cert-atual"></div>' +
+      '<div class="inteiro solta-arq" id="cert-solta"><b>Arraste o arquivo do certificado (.pfx ou .p12)</b> ou <label class="btn btn-o btn-mini" style="cursor:pointer">escolha<input type="file" id="cert-arq" accept=".pfx,.p12,application/x-pkcs12" hidden></label><div class="sub" id="cert-nome">nenhum arquivo</div></div>' +
+      campo('Senha do certificado', '<span class="cert-senha"><input name="senha" type="password" autocomplete="new-password" placeholder="a senha do arquivo"><button type="button" class="btn btn-o btn-mini" id="cert-ver" aria-label="Mostrar a senha">👁</button></span>') +
+      campo('Validade (lida do arquivo)', '<input name="validade" type="date">') +
+      '<div class="inteiro cert-lido" id="cert-lido"></div></form>',
+    rodape: '<span class="sub">A senha fica guardada com acesso restrito (quem edita clientes).</span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="cert-ok">Salvar certificado</button></div>' });
+  const f = j.querySelector('#f-cert'), lido = j.querySelector('#cert-lido');
+  let arquivo = null, info = null;
+  const mostrarAtual = async () => { const box = j.querySelector('#cert-atual'); box.innerHTML = ''; if (!f.cliente_id.value) return;
+    const [c] = await q(sb.from('cliente_certificado').select('validade, titular, emissor, senha, atualizado_por, atualizado_em').eq('cliente_id', f.cliente_id.value)).catch(() => []);
+    if (!c) { box.innerHTML = '<span class="sub">Esta empresa ainda não tem certificado cadastrado.</span>'; return; }
+    box.innerHTML = 'Certificado atual: ' + (c.validade ? 'vence em <b>' + dataBR(c.validade) + '</b>' + selo_validade(c.validade) : 'sem validade') + (c.titular ? ' · ' + esc(c.titular) : '') +
+      '<div class="sub">atualizado ' + (c.atualizado_em ? dataLocal(c.atualizado_em) : '') + (c.atualizado_por ? ' por ' + esc(c.atualizado_por) : '') + (c.senha ? ' · <button type="button" class="dc-link btn-link" id="cert-copiar">copiar a senha</button>' : '') + '</div>';
+    const cp = box.querySelector('#cert-copiar'); if (cp) cp.onclick = () => { navigator.clipboard.writeText(c.senha).then(() => aviso('✓ Senha copiada.'), () => aviso('Não consegui copiar.', true)); }; };
+  const tentarLer = async () => { info = null; lido.innerHTML = ''; if (!arquivo) return;
+    if (!f.senha.value) { lido.innerHTML = '<span class="sub">Digite a senha para o sistema ler a validade.</span>'; return; }
+    try { info = await lerCertificado(arquivo, f.senha.value); f.validade.value = info.validade;
+      lido.innerHTML = '✓ Certificado lido: <b>' + esc(info.titular || '—') + '</b> · válido de ' + dataBR(info.inicio) + ' até <b>' + dataBR(info.validade) + '</b>' + (info.emissor ? '<div class="sub">emitido por ' + esc(info.emissor) + '</div>' : '');
+      lido.className = 'inteiro cert-lido cert-ok'; }
+    catch (e) { lido.innerHTML = '⚠ ' + esc(e.message); lido.className = 'inteiro cert-lido cert-erro'; } };
+  let tl; f.senha.addEventListener('input', () => { clearTimeout(tl); tl = setTimeout(tentarLer, 400); });
+  j.querySelector('#cert-ver').onclick = () => { f.senha.type = f.senha.type === 'password' ? 'text' : 'password'; };
+  const escolher = (a) => { arquivo = a || null; j.querySelector('#cert-nome').textContent = arquivo ? arquivo.name + ' (' + tamanhoLegivel(arquivo.size) + ')' : 'nenhum arquivo'; tentarLer(); };
+  j.querySelector('#cert-arq').onchange = (ev) => escolher(ev.target.files[0]);
+  const solta = j.querySelector('#cert-solta');
+  ['dragenter', 'dragover'].forEach((e) => solta.addEventListener(e, (ev) => { ev.preventDefault(); solta.classList.add('sobre'); }));
+  ['dragleave', 'drop'].forEach((e) => solta.addEventListener(e, (ev) => { ev.preventDefault(); solta.classList.remove('sobre'); }));
+  solta.addEventListener('drop', (ev) => escolher((ev.dataTransfer.files || [])[0]));
+  f.cliente_id.onchange = mostrarAtual; mostrarAtual();
+  j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
+  j.querySelector('#cert-ok').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    const cli = E.clientes.find((c) => c.id === f.cliente_id.value); if (!cli) throw new Error('Escolha a empresa.');
+    if (!arquivo && !f.validade.value) throw new Error('Escolha o arquivo do certificado (ou ao menos informe a validade).');
+    if (arquivo && !info) throw new Error('Não consegui ler o certificado: confira a senha.');
+    let doc = null;
+    if (arquivo) doc = await enviarDocumento(arquivo, { cliente_id: cli.id, grupo_id: cli.grupo_id || undefined, tipo: 'certificado' },
+      { nome: 'Certificado digital — ' + cli.nome + (arquivo.name.match(/\.(pfx|p12)$/i) || ['.pfx'])[0].toLowerCase(), validade: f.validade.value || null, obs: info && info.titular ? 'Titular: ' + info.titular : '' });
+    await q(sb.from('cliente_certificado').upsert(Object.assign({ cliente_id: cli.id, validade: f.validade.value || null, senha: f.senha.value || '' },
+      doc ? { documento_id: doc.id } : {}, info ? { titular: info.titular || '', emissor: info.emissor || '' } : {})).select('cliente_id'));
+    aviso('✓ Certificado de ' + cli.nome + ' salvo' + (f.validade.value ? ' — vence em ' + dataBR(f.validade.value) : '') + '.'); fecharJanela(j); if (depois) await depois();
+  });
+  return j;
 }
 
 'use strict';
@@ -5480,10 +5595,11 @@ TELAS.crm = async function () {
     '<div class="acoes"><button class="btn btn-o" id="cr-etapas" title="Prazo de cada etapa (depois dele vira tarefa) e o que cada uma significa">⚙ Etapas</button><button class="btn btn-o" id="cr-modelos">Modelos de proposta</button>' +
     '<button class="btn btn-o" id="cr-rapido" title="Só nome, telefone e interesse">⚡ Cadastro rápido</button><button class="btn btn-p" id="cr-nova">+ Nova oportunidade</button></div></div>' +
     // abas: no painel ficam só as oportunidades em andamento; ganhas (contrato assinado) e perdidas (cancelado) têm aba própria
-    '<div class="abas" id="cr-abas">' + [['andamento', 'Em andamento'], ['ganho', '✍ Contratos assinados'], ['perdido', '✗ Leads perdidos']]
+    // Backup 37: as abas usam o MESMO filtro escuro dos outros (simetria); "Painel" saiu; responsáveis viram botões
+    '<div class="filtros cr-filtros"><div class="segmento" id="cr-abas">' + [['andamento', 'Em andamento'], ['ganho', '✍ Contratos assinados'], ['perdido', '✗ Leads perdidos']]
       .map(([v, r]) => '<button data-aba="' + v + '">' + r + '</button>').join('') + '</div>' +
-    '<div class="filtros"><div class="segmento" id="cr-vista">' + [['funil', 'Funil'], ['lista', 'Lista'], ['painel', 'Painel']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
-    '<select class="busca sel" id="cr-resp"><option value="">Todos os responsáveis</option>' + Object.keys(PESSOA).map((p) => '<option>' + p + '</option>').join('') + '</select>' +
+    '<div class="segmento" id="cr-vista">' + [['funil', 'Funil'], ['lista', 'Lista']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div></div>' +
+    '<div class="filtros"><div class="segmento" id="cr-resp-seg"><button data-r="">Todos</button>' + Object.keys(PESSOA).map((p) => '<button data-r="' + esc(p) + '">' + esc(p) + '</button>').join('') + '</div>' +
     '<select class="busca sel" id="cr-origem"><option value="">Todas as origens</option>' + ORIGENS_CRM.map((o) => '<option>' + esc(o) + '</option>').join('') + '</select>' +
     '<input class="busca" id="cr-busca" placeholder="Buscar nome, empresa, CNPJ ou telefone" autocomplete="off"></div>' +
     '<div id="cr-corpo"><div class="carregando">Carregando…</div></div>';
@@ -5493,7 +5609,8 @@ TELAS.crm = async function () {
   $('cr-etapas').onclick = () => janelaEtapasCrm();
   $('cr-vista').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.vista = b.dataset.v; pintarCrm(); } };
   $('cr-abas').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.aba = b.dataset.aba; pintarCrm(); } };
-  [['cr-resp', 'resp'], ['cr-origem', 'origem']].forEach(([id, k]) => { $(id).value = F[k]; $(id).onchange = (ev) => { F[k] = ev.target.value; pintarCrm(); }; });
+  $('cr-resp-seg').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.resp = b.dataset.r; pintarCrm(); } };
+  [['cr-origem', 'origem']].forEach(([id, k]) => { $(id).value = F[k]; $(id).onchange = (ev) => { F[k] = ev.target.value; pintarCrm(); }; });
   $('cr-busca').value = F.busca;
   let t; $('cr-busca').oninput = (ev) => { clearTimeout(t); t = setTimeout(() => { F.busca = ev.target.value; pintarCrm(); }, 250); };
   await recarregarCrm(true);
@@ -5513,10 +5630,12 @@ function pintarCrm() {
   if (!$('cr-corpo')) return;
   const F = E.crm;
   document.querySelectorAll('#cr-abas button').forEach((b) => b.classList.toggle('ativo', b.dataset.aba === F.aba));
+  if (F.vista === 'painel') F.vista = 'funil';
   document.querySelectorAll('#cr-vista button').forEach((b) => b.classList.toggle('ativo', b.dataset.v === F.vista));
+  document.querySelectorAll('#cr-resp-seg button').forEach((b) => b.classList.toggle('ativo', b.dataset.r === (F.resp || '')));
   if ($('cr-vista')) $('cr-vista').hidden = F.aba !== 'andamento';
   if (F.aba !== 'andamento') return crmFinalizadas($('cr-corpo'), F.aba);
-  ({ funil: crmFunil, lista: crmLista, painel: crmPainel })[F.vista]($('cr-corpo'));
+  ({ funil: crmFunil, lista: crmLista })[F.vista]($('cr-corpo'));
 }
 // Ganhos (contrato assinado) e Perdidos (não fechou): lista própria, fora do painel do dia a dia
 function crmFinalizadas(alvo, tipo) {
@@ -6464,6 +6583,8 @@ async function buscarPubNoNavegador(op) {
       if (certos.length) { const ins = await q(sb.from('publicacoes').upsert(certos.map((it) => normalizarPub(it, oab, parte)), { onConflict: 'id_origem', ignoreDuplicates: true }).select('id')); novas += (ins || []).length; }
     } catch (e) { erros.push((oab ? 'OAB ' + oab.numero : parte) + ': ' + (/fetch|network|Failed/i.test(e.message) ? 'o navegador não conseguiu acessar o CNJ (bloqueio do site do CNJ)' : e.message)); }
   }
+  // Backup 37: a busca pela web fica registrada (Alertas → Rotinas → "Busca de publicações (web)")
+  await q(sb.rpc('registrar_busca_publicacoes', { p_lidas: lidas, p_novas: novas, p_erros: erros })).catch(() => null);
   if (!op.silencioso) aviso('✓ Busca pelo navegador: ' + lidas + ' lida(s), ' + novas + ' nova(s).' + (erros.length ? ' Atenção: ' + erros[0] : ''), !!erros.length);
   return novas;
 }
@@ -6551,8 +6672,8 @@ TELAS.alertas = async function () {
     podeJur ? buscarTodos(() => sb.from('processos').select('id, numero, natureza, grupo_id, valor')).catch(nada) : [],
     podeFin ? buscarTodos(() => sb.from('lancamentos').select('id, descricao, valor, redutor, vencimento, grupo_id, empresa, obs').eq('tipo', 'receita').eq('pago', false).eq('perda', false)).catch(nada) : [],
     pode('contratos') ? q(sb.from('contratos').select('id, descricao, status, cliente_id, documentos(id)').eq('status', 'Ativo')).catch(nada) : [],
-    q(sb.from('certidoes').select('id, orgao, validade, cliente_id').lte('validade', somarDias(h, 15))).catch(nada),
-    q(sb.from('documentos').select('id, nome, validade, cliente_id').eq('arquivado', false).lte('validade', somarDias(h, 15))).catch(nada),
+    q(sb.from('cliente_certificado').select('cliente_id, validade').lte('validade', somarDias(h, 30))).catch(nada),
+    [],
     q(sb.from('tarefas').select('id, titulo, prazo, prazo_fatal, responsavel').not('status', 'in', '(concluida,cancelada)')).catch(nada),
     q(sb.from('cnpj_execucoes').select('*').order('inicio', { ascending: false }).limit(10)).catch(nada),
     E.perfil && E.perfil.papel === 'admin' ? q(sb.from('email_fila').select('id, para, assunto, erro, criado_em').eq('status', 'erro').order('criado_em', { ascending: false }).limit(50)).catch(nada) : [],
@@ -6578,18 +6699,13 @@ TELAS.alertas = async function () {
   const omisso = cls.filter((c) => /omisso/i.test(c.capag || ''));
   add('Cadastro', 'CAPAG omisso', String(omisso.length), 'entidade(s) que não entregaram a declaração', omisso.length ? 'critico' : 'ok',
     { titulo: 'CAPAG omisso', colunas: colCli, linhas: omisso.map(linhaCli), ids: omisso.map((c) => c.id) });
-  const capD = cls.filter((c) => /^d$/i.test(String(c.capag || '').trim()));
-  add('Cadastro', 'CAPAG D', String(capD.length), 'menor capacidade de pagamento', capD.length ? 'atencao' : 'ok',
-    { titulo: 'CAPAG D', colunas: colCli, linhas: capD.map(linhaCli), ids: capD.map((c) => c.id) });
-  const irreg = cls.filter((c) => pj(c) && c.situacao_cadastral && !/^ativa$/i.test(c.situacao_cadastral.trim()));
-  add('Cadastro', 'Situação cadastral irregular', String(irreg.length), 'inapta, suspensa ou baixada na Receita', irreg.length ? 'critico' : 'ok',
+  // Backup 37: BAIXADA não é irregular (a empresa encerrou por vontade própria) — conta só inapta, suspensa, nula…
+  const irreg = cls.filter((c) => pj(c) && c.situacao_cadastral && !/^(ativa|baixada)$/i.test(c.situacao_cadastral.trim()));
+  add('Cadastro', 'Situação cadastral irregular', String(irreg.length), 'inapta, suspensa ou nula na Receita (baixada não conta)', irreg.length ? 'critico' : 'ok',
     { titulo: 'Situação cadastral diferente de ATIVA', colunas: colCli.concat(['Situação']), linhas: irreg.map((c) => linhaCli(c).concat([c.situacao_cadastral])), ids: irreg.map((c) => c.id) });
   const semResp = ativos.filter((c) => !c.responsavel);
   add('Cadastro', 'Sem responsável', String(semResp.length), 'entidade(s) ativas sem pessoa responsável', semResp.length ? 'atencao' : 'ok',
     { titulo: 'Entidades sem responsável', colunas: colCli, linhas: semResp.map(linhaCli), ids: semResp.map((c) => c.id) });
-  const semCont = ativos.filter((c) => !c.email && !c.telefone && !comContato.has(c.id));
-  add('Cadastro', 'Sem contato', String(semCont.length), 'sem e-mail, telefone ou contato cadastrado', semCont.length ? 'atencao' : 'ok',
-    { titulo: 'Entidades sem contato', colunas: colCli, linhas: semCont.map(linhaCli), ids: semCont.map((c) => c.id) });
   // ── Jurídico ──
   if (podeJur) {
     add('Jurídico', 'Publicações novas', String(pubs.length), 'no Diário de Justiça, ainda não lidas', pubs.length ? 'atencao' : 'ok',
@@ -6618,12 +6734,10 @@ TELAS.alertas = async function () {
       { titulo: 'Contratos ativos sem anexo', colunas: ['Contrato', 'Cliente'], linhas: semAnexo.map((c) => [c.descricao, nomeCliente(c.cliente_id)]), tela: 'contratos' });
   }
   // ── Documentos e tarefas ──
-  const certV = certs.filter((c) => c.validade);
-  add('Documentos', 'Certidões vencendo', String(certV.length), 'vencidas ou nos próximos 15 dias', certV.some((c) => c.validade < h) ? 'critico' : certV.length ? 'atencao' : 'ok',
-    { titulo: 'Certidões vencidas ou vencendo', colunas: ['Validade', 'Órgão', 'Cliente'], linhas: certV.map((c) => [dataBR(c.validade), c.orgao, nomeCliente(c.cliente_id)]) });
-  const docV = docs.filter((d) => d.validade);
-  add('Documentos', 'Documentos vencendo', String(docV.length), 'vencidos ou nos próximos 15 dias', docV.some((d) => d.validade < h) ? 'critico' : docV.length ? 'atencao' : 'ok',
-    { titulo: 'Documentos vencidos ou vencendo', colunas: ['Validade', 'Documento', 'Cliente'], linhas: docV.map((d) => [dataBR(d.validade), d.nome, nomeCliente(d.cliente_id)]), tela: 'documentos' });
+  // Backup 37: em Documentos fica só o CERTIFICADO DIGITAL vencendo (validade lida do arquivo .pfx em Documentos → 🔐 Certificado digital)
+  const certDig = certs.filter((c) => c.validade);
+  add('Documentos', 'Certificado digital vencendo', String(certDig.length), 'vencidos ou nos próximos 30 dias', certDig.some((c) => c.validade < h) ? 'critico' : certDig.length ? 'atencao' : 'ok',
+    { titulo: 'Certificados digitais vencidos ou vencendo', colunas: ['Validade', 'Empresa', 'Grupo'], linhas: certDig.sort((a, b) => a.validade.localeCompare(b.validade)).map((c) => [dataBR(c.validade), nomeCliente(c.cliente_id), nomeGrupo((E.clientes.find((x) => x.id === c.cliente_id) || {}).grupo_id) || '—']), tela: 'documentos' });
   const tAtr = tarefas.filter((t) => t.prazo && t.prazo < h), tFat = tarefas.filter((t) => t.prazo_fatal && t.prazo_fatal <= somarDias(h, 7));
   add('Tarefas', 'Tarefas atrasadas', String(tAtr.length), 'todas as pessoas', tAtr.length ? 'critico' : 'ok',
     { titulo: 'Tarefas atrasadas', colunas: ['Prazo', 'Tarefa', 'Pessoa'], linhas: tAtr.sort((a, b) => a.prazo.localeCompare(b.prazo)).map((t) => [dataBR(t.prazo), t.titulo, t.responsavel]), tela: 'tarefas' });
@@ -6645,15 +6759,11 @@ TELAS.alertas = async function () {
   }
   if (emails.length || (E.perfil && E.perfil.papel === 'admin')) add('Rotinas', 'E-mails com erro', String(emails.length), 'não saíram depois de 3 tentativas', emails.length ? 'critico' : 'ok',
     { titulo: 'E-mails com erro', colunas: ['Quando', 'Para', 'Assunto', 'Erro'], linhas: emails.map((m) => [quandoRodou(m.criado_em), m.para, m.assunto, m.erro]) });
-  if (podeJur) add('Rotinas', 'Busca de publicações', ultPub && ultPub.valor ? quandoCurto(ultPub.valor.quando) : 'nunca rodou',
+  // Backup 37: a busca é feita pela WEB (navegador, 1× por dia ao abrir o ERP, ou "Buscar pelo navegador")
+  if (podeJur) add('Rotinas', 'Busca de publicações (web)', ultPub && ultPub.valor ? quandoCurto(ultPub.valor.quando) : 'nunca rodou',
     ultPub && ultPub.valor ? ultPub.valor.novas + ' nova(s) · ' + ((ultPub.valor.erros || []).length ? '⚠ ' + ultPub.valor.erros[0] : 'sem erro') : 'cadastre as OABs em Publicações',
     !ultPub || !ultPub.valor ? 'atencao' : (ultPub.valor.erros || []).length ? 'critico' : 'ok', { tela: 'publicacoes' });
-  // PGFN pelos dados abertos (gratuito, sem SERPRO): o admin importa o arquivo público
-  if (E.perfil && E.perfil.papel === 'admin') {
-    const ua = await q(sb.from('configuracoes').select('valor').eq('chave', 'pgfn_abertos_ultima').maybeSingle()).catch(() => null);
-    add('Rotinas', 'PGFN — dados abertos (grátis)', ua && ua.valor ? quandoCurto(ua.valor.quando) : 'nunca importado', ua && ua.valor ? ua.valor.clientes + ' cliente(s) atualizado(s)' + (ua.valor.referencia ? ' · ' + ua.valor.referencia : '') : 'clique para importar o arquivo público da PGFN',
-      ua && ua.valor ? 'ok' : 'info', { pgfnAbertos: true });
-  }
+  // Backup 37: a PGFN por arquivo (dados abertos, importado à mão) saiu dos Alertas
   // Central de e-mails: automático por tipo (clicar abre a configuração; admin)
   const cfgEm = await q(sb.rpc('config_emails')).catch(() => null);
   if (cfgEm && E.perfil && E.perfil.papel === 'admin') {
@@ -7592,16 +7702,16 @@ async function dadosGuias(tabela) {
   const lim = somarDias(hojeISO(), GUIA_DIAS);
   let L;
   if (tabela === 'parcelas') {
-    L = (await q(sb.from('parcelas').select('id, numero, vencimento, pago, emissao, emitida_em, emitida_por, guia_doc, reenvio_em, reenvio_venc, reenvio_valor, reenvios, parcelamentos(id, empresa, natureza, local, numero, total_parcelas, valor_ultima_parcela, grupo_id, emitimos_guia, cnpj)')
-      .eq('pago', false).lte('vencimento', lim).order('vencimento')).catch(() => []))
+    L = (await buscarTodos(() => sb.from('parcelas').select('id, numero, vencimento, pago, emissao, emitida_em, emitida_por, guia_doc, reenvio_em, reenvio_venc, reenvio_valor, reenvios, parcelamentos(id, empresa, natureza, local, numero, total_parcelas, valor_ultima_parcela, grupo_id, emitimos_guia, cnpj)')
+      .eq('pago', false).lte('vencimento', lim).order('vencimento').order('id')).catch(() => []))
       .filter((x) => x.parcelamentos && x.parcelamentos.emitimos_guia !== false)
       .map((x) => { const p = x.parcelamentos;
         return Object.assign(x, { quem: p.empresa, detalhe: [p.natureza, p.local, p.numero ? 'nº ' + p.numero : ''].filter(Boolean).join(' · '),
           parcela: (x.numero || '?') + (p.total_parcelas ? '/' + p.total_parcelas : ''), valor: Number(p.valor_ultima_parcela) || 0, grupo_id: p.grupo_id,
           cliente_id: (E.clientes.find((c) => (soDigitos(p.cnpj) && soDigitos(c.cpf_cnpj) === soDigitos(p.cnpj)) || c.nome === p.empresa) || {}).id || null }); });
   } else {
-    L = (await q(sb.from('acordos').select('id, parcela, total_parcelas, vencimento, valor, pago, emissao, emitida_em, emitida_por, guia_doc, reenvio_em, reenvio_venc, reenvio_valor, reenvios, devedor, credor, processo, grupo_id, pix, banco')
-      .eq('pago', false).lte('vencimento', lim).order('vencimento')).catch(() => []))
+    L = (await buscarTodos(() => sb.from('acordos').select('id, parcela, total_parcelas, vencimento, valor, pago, emissao, emitida_em, emitida_por, guia_doc, reenvio_em, reenvio_venc, reenvio_valor, reenvios, devedor, credor, processo, grupo_id, pix, banco, forma_pagamento')
+      .eq('pago', false).lte('vencimento', lim).order('vencimento').order('id')).catch(() => []))
       .map((x) => Object.assign(x, { quem: x.devedor, detalhe: 'deve a ' + (x.credor || '—') + (x.processo ? ' · ' + x.processo : ''),
         parcela: (x.parcela || '?') + (x.total_parcelas ? '/' + x.total_parcelas : ''), valor: Number(x.valor) || 0,
         cliente_id: (E.clientes.find((c) => c.grupo_id === x.grupo_id && primeiroNome(c.nome) === primeiroNome(x.devedor)) || {}).id || null }));
@@ -7838,26 +7948,34 @@ function descricaoGuia(tabela, x) {
   const venc = x.vencimento < hojeISO() ? '⚠ VENCIDA — ' : '';
   if (tabela === 'parcelas') { const p = x.parcelamentos || {};
     return venc + 'Parcelamento ' + [p.local, p.natureza].filter(Boolean).join(' — ') + (p.numero ? ' · nº ' + p.numero : '') + ' · Parcela ' + parcDe(x); }
-  return venc + 'Acordo' + (x.processo ? ' — processo ' + x.processo : '') + ' · Parcela ' + parcDe(x) + ' · ' + (x.devedor || '') + ' × ' + (x.credor || '') +
-    (x.pix ? ' · PIX: ' + x.pix : '') + (x.banco ? ' · ' + x.banco : '');
+  return venc + 'Processo ' + (x.processo || '—') + ' · ' + parcOrd(x) + ' · ' + (x.devedor || '') + ' × ' + (x.credor || '');
 }
-// o texto (e-mail e WhatsApp) no modelo das antigas Notificações do ERP, um pouco melhorado
+// Backup 37: "8ª parcela de 40"; saudação pela hora; acordo pago por PIX ou por boleto (campo "Forma de pagamento" do acordo)
+const parcOrd = (x) => { const [n, t] = String(x.parcela || '').split('/'); return (/^\d+$/.test(n || '') ? n + 'ª parcela' : 'Parcela ' + (n || '?')) + (t ? ' de ' + t : ''); };
+const saudacaoGuia = () => { const hh = new Date().getHours(); return hh < 12 ? 'Bom dia!' : hh < 18 ? 'Boa tarde!' : 'Boa noite!'; };
+const ehPixGuia = (tabela, x) => tabela === 'acordos' && x.forma_pagamento === 'pix';
+const fechoGuias = (tabela, itens) => tabela === 'parcelas' ? 'Os arquivos seguem anexos. Depois de pagar, por favor nos envie o comprovante.'
+  : itens.every((x) => ehPixGuia(tabela, x)) ? 'Depois de pagar, por favor nos envie o comprovante.'
+  : itens.some((x) => ehPixGuia(tabela, x)) ? 'Os boletos seguem anexos (as parcelas por PIX têm a chave acima). Depois de pagar, por favor nos envie o comprovante.'
+  : (itens.length > 1 ? 'Os boletos seguem anexos.' : 'O boleto segue anexo.') + ' Depois de pagar, por favor nos envie o comprovante.';
+// o texto (e-mail e WhatsApp). Parcelamentos: modelo das antigas Notificações. Acordos (Backup 37): objetivo, como o escritório escreve
 function textoGuias(tabela, empresa, itens) {
   const vencida = itens.some((x) => x.vencimento < hojeISO());
-  const intro = tabela === 'parcelas'
-    ? 'Prezados,\n\nSeguem as guias ' + (itens.length > 1 ? 'dos parcelamentos' : 'do parcelamento') + ' em nome de ' + empresa + (vencida ? '.\nAtenção: há guia vencida — veja abaixo.' : ', com vencimento próximo.') + '\nAntes de pagar, confirme se a guia já não foi paga, para evitar pagamento em duplicidade.'
-    : 'Prezados,\n\nSeguem ' + (itens.length > 1 ? 'as parcelas dos acordos' : 'a parcela do acordo') + ' em nome de ' + empresa + (vencida ? '.\nAtenção: há parcela em atraso — veja abaixo.' : ', com vencimento próximo.') + '\nAntes de efetuar o pagamento, confirme se a parcela já não foi quitada, para evitar duplicidade.';
-  const blocos = itens.map((x) => {
-    const v = x._valor != null ? x._valor : x.valor;
-    if (tabela === 'parcelas') { const p = x.parcelamentos || {};
+  const valorDe = (x) => { const v = x._valor != null ? x._valor : x.valor; return v ? brl(v) : '[preencher]'; };
+  const tot = itens.reduce((s2, x) => s2 + (Number(x._valor != null ? x._valor : x.valor) || 0), 0), fecho = fechoGuias(tabela, itens);
+  if (tabela === 'parcelas') {
+    const intro = 'Prezados,\n\nSeguem as guias ' + (itens.length > 1 ? 'dos parcelamentos' : 'do parcelamento') + ' em nome de ' + empresa + (vencida ? '.\nAtenção: há guia vencida — veja abaixo.' : ', com vencimento próximo.') + '\nAntes de pagar, confirme se a guia já não foi paga, para evitar pagamento em duplicidade.';
+    const blocos = itens.map((x) => { const p = x.parcelamentos || {};
       return (x.vencimento < hojeISO() ? '⚠ GUIA VENCIDA\n' : '') + '*Parcelamento ' + [p.local, p.natureza].filter(Boolean).join(' — ') + '*' + (p.numero ? '\nNº do parcelamento: ' + p.numero : '') +
-        '\nParcela: ' + parcDe(x) + ' | Vencimento: ' + dataBR(x.vencimento) + '\nValor: ' + (v ? brl(v) : '[preencher]'); }
-    return (x.vencimento < hojeISO() ? '⚠ PARCELA VENCIDA\n' : '') + '*Acordo' + (x.processo ? ' — processo ' + x.processo : '') + '*\nPartes: ' + (x.devedor || '—') + ' × ' + (x.credor || '—') +
-      '\nParcela: ' + parcDe(x) + ' | Vencimento: ' + dataBR(x.vencimento) + '\nValor: ' + (v ? brl(v) : '[preencher]') + (x.pix ? '\nPIX: ' + x.pix : '') + (x.banco ? '\nBanco: ' + x.banco : '');
-  });
-  const tot = itens.reduce((s2, x) => s2 + (Number(x._valor != null ? x._valor : x.valor) || 0), 0);
-  return { intro, email: intro + '\n\nOs arquivos seguem anexos.',
-    zap: intro + '\n\n' + blocos.join('\n\n') + (itens.length > 1 ? '\n\n*Total: ' + brl(tot) + '*' : '') + '\n\nOs arquivos seguem anexos. Depois de pagar, por favor nos envie o comprovante.' };
+        '\nParcela: ' + parcDe(x) + ' | Vencimento: ' + dataBR(x.vencimento) + '\nValor: ' + valorDe(x); });
+    return { intro, fecho, email: intro + '\n\n' + fecho, zap: intro + '\n\n' + blocos.join('\n\n') + (itens.length > 1 ? '\n\n*Total: ' + brl(tot) + '*' : '') + '\n\n' + fecho };
+  }
+  const soPix = itens.every((x) => ehPixGuia(tabela, x));
+  const intro = saudacaoGuia() + (soPix ? '' : '\n\nSeguem as parcelas de acordos da ' + empresa + ' com vencimento neste mês ou em atraso.');
+  const blocos = itens.map((x) => (x.vencimento < hojeISO() ? '⚠ PARCELA EM ATRASO\n' : '') + 'Processo: ' + (x.processo || '—') + ' | Parcela: ' + parcOrd(x) +
+    '\nPartes: ' + (x.devedor || '—') + ' × ' + (x.credor || '—') + '\nVencimento: ' + dataBR(x._venc || x.vencimento) + '\nValor: ' + valorDe(x) +
+    (ehPixGuia(tabela, x) ? '\nPIX: ' + (x.pix || '[chave PIX]') + (x.banco ? '\nBanco: ' + x.banco : '') : ''));
+  return { intro, fecho, email: intro + '\n\n' + fecho, zap: intro + '\n\n' + blocos.join('\n\n') + (itens.length > 1 ? '\n\nTotal: ' + brl(tot) : '') + '\n\n' + fecho };
 }
 async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
   if (!E.clientes.length) await carregarCadastros();
@@ -7870,13 +7988,14 @@ async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
   if (!lista.length) return aviso('Nenhuma parcela em aberto para enviar.', true);
   const nome = tabela === 'parcelas' ? 'guias' : 'boletos';
   let atualK = chaveIni && emp[chaveIni] ? chaveIni : lista[0].k, arquivos = [];
-  const j = abrirJanela({ titulo: '✉ Enviar ' + nome + ' por empresa', larga: true,
+  const j = abrirJanela({ titulo: tabela === 'parcelas' ? '✉ Enviar guias por empresa' : '✉ Enviar parcelas de acordo por empresa', larga: true,
     corpo: '<div class="ge"><aside class="ge-emps" id="ge-emps"></aside><section class="ge-msg" id="ge-msg"></section></div>',
     rodape: '<span class="ge-tot" id="ge-tot"></span><div class="acoes ge-acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button>' +
       '<button type="button" class="btn btn-o" id="ge-previa" title="Ver o e-mail exatamente como o cliente vai receber">👁 Prévia do e-mail</button>' +
       '<button type="button" class="btn btn-v" id="ge-zap">💬 WhatsApp</button><button class="btn btn-p" type="button" id="ge-enviar">✉ Enviar e-mail</button></div>' });
   j.querySelector('.janela').classList.add('ge-janela');
   const $j = (sel) => j.querySelector(sel);
+  const pixItem = (i) => ehPixGuia(tabela, i) && i.pix ? { pix: i.pix, banco: i.banco || '' } : {};
   const atual = () => emp[atualK];
   const pintarEmps = () => {
     const grs = []; lista.forEach((e) => { const g = grs[grs.length - 1]; if (g && g.k === e.gid) g.emps.push(e); else grs.push({ k: e.gid, nome: e.gnome || 'Sem grupo', emps: [e] }); });
@@ -7893,17 +8012,18 @@ async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
       '<div class="ge-cab"><div><div class="ge-emp-nome">' + esc(e.nome) + '</div><div class="sub">' + esc([mascaraDoc(c.cpf_cnpj), e.gnome].filter(Boolean).join(' · ')) + '</div></div></div>' +
       '<div class="ge-dest"><label class="campo"><span>✉ E-mail (para)</span><input id="ge-para" type="text" autocomplete="off" placeholder="procurando o e-mail cadastrado…"></label>' +
         '<label class="campo"><span>💬 WhatsApp</span><input id="ge-tel" data-mascara="tel" inputmode="tel" value="' + esc(c.telefone || '') + '" placeholder="(37) 9 9999-9999"></label>' +
-        '<label class="campo ge-ass"><span>Assunto</span><input id="ge-assunto" value="' + esc((tabela === 'parcelas' ? 'Guias de parcelamento' : 'Boletos de acordo') + ' — ' + e.nome) + '"></label></div>' +
+        '<label class="campo ge-ass"><span>Assunto</span><input id="ge-assunto" value="' + esc((tabela === 'parcelas' ? 'Guias de parcelamento' : e.itens.every((x) => ehPixGuia(tabela, x)) ? 'Parcela de acordo' : 'Boletos de acordo') + ' — ' + e.nome) + '"></label></div>' +
       '<div class="ge-papel"><textarea id="ge-texto" rows="5">' + esc(t.intro) + '</textarea>' +
         '<div class="ge-itens">' + e.itens.map((x) => { const p = x.parcelamentos || {};
           return '<label class="ge-it' + (x.vencimento < hojeISO() ? ' ge-venc' : '') + '" data-ge="' + x.id + '"><input type="checkbox" checked aria-label="Incluir">' +
             '<span class="ge-it-txt">' + (x.vencimento < hojeISO() ? '<span class="ge-alerta">⚠ ' + (tabela === 'parcelas' ? 'GUIA VENCIDA' : 'PARCELA VENCIDA') + '</span>' : '') +
-              '<b>' + esc(tabela === 'parcelas' ? 'Parcelamento ' + [p.local, p.natureza].filter(Boolean).join(' — ') : 'Acordo' + (x.processo ? ' — processo ' + x.processo : '')) + '</b>' +
-              '<span>' + (tabela === 'parcelas' ? (p.numero ? 'Nº do parcelamento: <b>' + esc(p.numero) + '</b> · ' : '') : 'Partes: <b>' + esc(x.devedor || '—') + ' × ' + esc(x.credor || '—') + '</b> · ') +
-              'Parcela <b>' + esc(parcDe(x)) + '</b> · Vencimento <b>' + dataBR(x.vencimento) + '</b></span></span>' +
+              '<b>' + esc(tabela === 'parcelas' ? 'Parcelamento ' + [p.local, p.natureza].filter(Boolean).join(' — ') : 'Processo ' + (x.processo || '—') + ' · ' + parcOrd(x)) + '</b>' +
+              (ehPixGuia(tabela, x) ? ' <span class="ge-forma">PIX</span>' : tabela === 'acordos' ? ' <span class="ge-forma ge-forma-b">boleto</span>' : '') +
+              '<span>' + (tabela === 'parcelas' ? (p.numero ? 'Nº do parcelamento: <b>' + esc(p.numero) + '</b> · Parcela <b>' + esc(parcDe(x)) + '</b> · ' : 'Parcela <b>' + esc(parcDe(x)) + '</b> · ') : 'Partes: <b>' + esc(x.devedor || '—') + ' × ' + esc(x.credor || '—') + '</b> · ') +
+              'Vencimento <b>' + dataBR(x.vencimento) + '</b>' + (ehPixGuia(tabela, x) ? ' · PIX <b>' + esc(x.pix || '—') + '</b>' : '') + '</span></span>' +
             (x.vencimento < hojeISO() ? '<span class="ge-it-v ge-it-d"><small>Novo vencimento</small><input type="date" class="ge-novo-venc" value="' + fimDoMesGuia(hojeISO()) + '" aria-label="Novo vencimento da guia atualizada"></span>' : '') +
             '<span class="ge-it-v"><small>' + (x.vencimento < hojeISO() ? 'Valor atualizado' : 'Valor da guia') + '</small><span class="ge-vbox"><span class="ge-rs">R$</span><input class="ge-valor" data-mascara="nenhuma" inputmode="decimal" value="' + (x.valor ? valorParaCampo(x.valor) : '') + '" placeholder="0,00" aria-label="Valor"></span></span></label>'; }).join('') + '</div>' +
-        '<div class="ge-fecho">Os arquivos seguem anexos. Depois de pagar, por favor nos envie o comprovante.</div></div>' +
+        '<div class="ge-fecho">' + esc(t.fecho) + '</div></div>' +
       '<div class="ge-anexos"><label class="ge-drop"><input type="file" id="ge-arqs" accept=".pdf,image/*" multiple hidden><span>📎 <b>Anexar os PDFs</b> ' + (tabela === 'acordos' ? 'dos boletos' : 'das guias') + '</span><small>vão só no e-mail — não ficam guardados no sistema</small></label><div class="ge-chips" id="ge-chips"></div></div>';
     $j('#ge-arqs').onchange = () => { arquivos = arquivos.concat([...$j('#ge-arqs').files]); $j('#ge-arqs').value = ''; pintarChips(); };
     j.querySelectorAll('.ge-it input').forEach((i) => i.addEventListener('input', total));
@@ -7934,8 +8054,8 @@ async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
   $j('#ge-previa').onclick = (ev) => comBotao(ev.currentTarget, async () => {
     const its = marcados(), e = atual(); if (!its.length) throw new Error('Marque ao menos uma parcela.');
     const html = await q(sb.rpc('previa_guias_email', { p_cliente: e.cli || null,
-      p_itens: its.map((i) => ({ tabela, id: i.id, descricao: descricaoGuia(tabela, i), vencimento: i._venc || i.vencimento, valor: i._valor })),
-      p_assunto: $j('#ge-assunto').value.trim(), p_texto: $j('#ge-texto').value.trim() + '\n\nOs arquivos seguem anexos.' }));
+      p_itens: its.map((i) => Object.assign({ tabela, id: i.id, descricao: descricaoGuia(tabela, i), vencimento: i._venc || i.vencimento, valor: i._valor }, pixItem(i))),
+      p_assunto: $j('#ge-assunto').value.trim(), p_texto: $j('#ge-texto').value.trim() + '\n\n' + fechoGuias(tabela, its) }));
     const pj = abrirJanela({ titulo: '👁 ' + ($j('#ge-assunto').value.trim() || 'Prévia do e-mail'), larga: true, corpo: '<iframe class="ge-previa" title="Prévia do e-mail" sandbox></iframe>' });
     pj.querySelector('.ge-previa').srcdoc = html;
   });
@@ -7947,10 +8067,10 @@ async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
     if (arquivos.reduce((s2, f) => s2 + f.size, 0) > LIMITE_ANEXOS) throw new Error('Os PDFs somam mais de 15 MB: envie em dois e-mails.');
     const arqs = []; for (const f of arquivos) arqs.push(await lerArquivoB64(f));
     const r = await q(sb.rpc('enviar_guias_email', { p_cliente: e.cli || null, p_grupo: e.grupo || null,
-      p_itens: its.map((i) => i._venc
+      p_itens: its.map((i) => Object.assign(i._venc
         ? { tabela, id: i.id, descricao: descricaoGuia(tabela, i).replace(/^⚠ VENCIDA — /, '↻ Guia atualizada — ') + ' (vencia em ' + dataBR(i.vencimento) + ')', vencimento: i._venc, valor: i._valor, reenvio: true }
-        : { tabela, id: i.id, descricao: descricaoGuia(tabela, i), vencimento: i.vencimento, valor: i._valor }),
-      p_assunto: $j('#ge-assunto').value.trim(), p_texto: $j('#ge-texto').value.trim() + '\n\nOs arquivos seguem anexos.', p_docs: its.map((i) => i.guia_doc).filter(Boolean),
+        : { tabela, id: i.id, descricao: descricaoGuia(tabela, i), vencimento: i.vencimento, valor: i._valor }, pixItem(i))),
+      p_assunto: $j('#ge-assunto').value.trim(), p_texto: $j('#ge-texto').value.trim() + '\n\n' + fechoGuias(tabela, its), p_docs: its.map((i) => i.guia_doc).filter(Boolean),
       p_para: $j('#ge-para').value.trim() || null, p_arquivos: arqs }));
     aviso('✓ ' + plural(r.itens, 'parcela', 'parcelas') + (r.anexos ? ' e ' + plural(r.anexos, 'anexo', 'anexos') : '') + ': ' + msgEnvio(r) + ' As parcelas enviadas saíram do quadro.', r.status === 'retido');
     fecharJanela(j); if (depois) await depois(); if (window.ERP_RECARREGAR) window.ERP_RECARREGAR();
@@ -7961,12 +8081,53 @@ async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
 async function enviarAcordosSelecionados(ids, depois) {
   if (!ids || !ids.length) return aviso('Marque ao menos uma parcela.', true);
   if (!E.clientes.length) await carregarCadastros();
-  const L = (await q(sb.from('acordos').select('id, parcela, total_parcelas, vencimento, valor, pago, emissao, emitida_em, emitida_por, guia_doc, devedor, credor, processo, grupo_id, pix, banco').in('id', ids)))
+  const L = (await q(sb.from('acordos').select('id, parcela, total_parcelas, vencimento, valor, pago, emissao, emitida_em, emitida_por, guia_doc, devedor, credor, processo, grupo_id, pix, banco, forma_pagamento').in('id', ids)))
     .filter((x) => !x.pago)
     .map((x) => Object.assign(x, { quem: x.devedor, detalhe: 'deve a ' + (x.credor || '—') + (x.processo ? ' · ' + x.processo : ''), email_em: null,
       parcela: (x.parcela || '?') + (x.total_parcelas ? '/' + x.total_parcelas : ''), valor: Number(x.valor) || 0,
       cliente_id: (E.clientes.find((c) => c.grupo_id === x.grupo_id && primeiroNome(c.nome) === primeiroNome(x.devedor)) || {}).id || null }));
   return janelaGuiasEmpresa('acordos', L, null, depois);
+}
+
+// ═══ Backup 37: "🧾 Gerar guias" — abre o envio por empresa (a tela que expande com vencimento e valor atualizado) já com as parcelas a emitir:
+// em atraso + as que vencem neste mês. alcance: {} = tudo · {grupo_id} · {empresa} · {itens: ids de parcelamento ou chaves de acordo}.
+// proximas: true → se o parcelamento/acordo não tem nada a emitir agora, entra a PRÓXIMA parcela (mesmo futura).
+const chaveAcordoGuia = (a) => [a.grupo_id || '', a.devedor || '', a.credor || '', a.processo || ''].join('|');
+async function gerarGuias(tabela, alcance, depois) {
+  alcance = alcance || {};
+  if (!E.clientes.length) await carregarCadastros();
+  const h = hojeISO(), fim = fimDoMesGuia(h), parc = tabela === 'parcelas';
+  const cliDe = (doc, nome, grp) => (E.clientes.find((c) => (soDigitos(doc) && soDigitos(c.cpf_cnpj) === soDigitos(doc)) || (grp ? c.grupo_id === grp && primeiroNome(c.nome) === primeiroNome(nome) : c.nome === nome)) || {}).id || null;
+  let base;
+  if (parc) {
+    base = (await buscarTodos(() => { let c = sb.from('parcelas').select('id, parcelamento_id, numero, vencimento, pago, emissao, emitida_em, guia_doc, valor, parcelamentos!inner(id, empresa, natureza, local, numero, total_parcelas, valor_ultima_parcela, grupo_id, cnpj, emitimos_guia)').eq('pago', false);
+      if (alcance.grupo_id) c = c.eq('parcelamentos.grupo_id', alcance.grupo_id);
+      if (alcance.empresa) c = c.eq('parcelamentos.empresa', alcance.empresa);
+      if (alcance.itens) c = c.in('parcelamento_id', alcance.itens);
+      if (alcance.ids) c = c.in('id', alcance.ids);
+      return c.order('vencimento').order('id'); })).filter((x) => x.parcelamentos && (alcance.ids || x.parcelamentos.emitimos_guia !== false));
+    base.forEach((x) => { const p = x.parcelamentos;
+      Object.assign(x, { _k: p.id, quem: p.empresa, grupo_id: p.grupo_id, email_em: null, parcela: (x.numero || '?') + (p.total_parcelas ? '/' + p.total_parcelas : ''),
+        valor: Number(x.valor) > 0 ? Number(x.valor) : Number(p.valor_ultima_parcela) || 0, detalhe: [p.natureza, p.local].filter(Boolean).join(' · '), cliente_id: cliDe(p.cnpj, p.empresa) }); });
+  } else {
+    base = (await buscarTodos(() => { let c = sb.from('acordos').select('id, parcela, total_parcelas, vencimento, valor, pago, emissao, emitida_em, emitida_por, guia_doc, devedor, credor, processo, grupo_id, pix, banco, forma_pagamento').eq('pago', false);
+      if (alcance.grupo_id) c = c.eq('grupo_id', alcance.grupo_id);
+      if (alcance.empresa) c = c.eq('devedor', alcance.empresa);
+      return c.order('vencimento').order('id'); }));
+    if (alcance.itens) base = base.filter((a) => alcance.itens.includes(chaveAcordoGuia(a)) || alcance.itens.includes([a.processo || '', a.devedor || '', a.credor || ''].join('|')));
+    base.forEach((x) => Object.assign(x, { _k: chaveAcordoGuia(x), quem: x.devedor, email_em: null, detalhe: 'deve a ' + (x.credor || '—') + (x.processo ? ' · ' + x.processo : ''),
+      parcela: (x.parcela || '?') + (x.total_parcelas ? '/' + x.total_parcelas : ''), valor: Number(x.valor) || 0, cliente_id: cliDe('', x.devedor, x.grupo_id) }));
+  }
+  let L = alcance.ids ? base : base.filter((x) => x.vencimento && x.vencimento <= fim);   // parcelas escolhidas: vale até a futura
+  if (alcance.proximas) { const tem = new Set(L.map((x) => x._k)), prox = {};
+    base.forEach((x) => { if (!tem.has(x._k) && !prox[x._k]) prox[x._k] = x; });
+    L = L.concat(Object.values(prox)); }
+  if (!L.length) {
+    if (base.length && !alcance.proximas && confirm('Nada em atraso nem vencendo neste mês.\n\nEmitir a PRÓXIMA parcela ' + (parc ? 'de cada parcelamento' : 'de cada acordo') + ' deste recorte?'))
+      return gerarGuias(tabela, Object.assign({}, alcance, { proximas: true }), depois);
+    return aviso(base.length ? 'Nenhuma guia escolhida.' : 'Nenhuma parcela em aberto neste recorte' + (parc ? ' (que o escritório emita).' : '.'), !base.length);
+  }
+  return janelaGuiasEmpresa(tabela, L, null, depois);
 }
 
 'use strict';
@@ -8032,7 +8193,7 @@ async function rotinaPassivo(el) {
       '<span class="rt-salvar-box"><button type="button" class="btn btn-o" id="rt-hist">🕘 Histórico do passivo</button><span class="sub" id="rt-alt"></span><button type="button" class="btn btn-p" id="rt-salvar" disabled>Salvar alterações</button></span>') +
     // Backup 33: tabela cabe na tela — cada órgão numa coluna só (em aberto em cima, negociada embaixo); a senha GOV saiu da conferência (fica no 🔑)
     '<div class="tabela-wrap rt-grade rt-pas rt-sem-altura" data-sem-pagina><table><thead><tr><th>Empresa</th><th>Conferência</th>' + PARES_PASSIVO.map(([k, r]) => '<th class="rt-num">' + r + '<small>em aberto · negociada</small></th>').join('') +
-      '<th class="rt-num">CEAT</th><th>Em operação</th><th>Procuração</th><th>Certificado</th><th>CAPAG</th></tr></thead><tbody id="rt-pas-corpo"></tbody></table></div>' + '</div></div>';
+      '<th class="rt-num">CEAT</th><th>Procuração</th><th>Certificado</th><th>CAPAG</th></tr></thead><tbody id="rt-pas-corpo"></tbody></table></div>' + '</div></div>';
   const alterados = new Map();
   const pintar = () => {
     const b = normalizar(E.rt.busca), dig = soDigitos(E.rt.busca), lim = somarDias(hojeISO(), 30);
@@ -8044,14 +8205,14 @@ async function rotinaPassivo(el) {
     let grp = null;
     $('rt-pas-corpo').innerHTML = L.length ? L.map((c) => {
       const g = c.grupos ? c.grupos.nome : 'Sem grupo', ct = C[c.id] || {};
-      const cab = g !== grp ? (grp = g, '<tr class="gx-grp"><td colspan="' + (PARES_PASSIVO.length + 7) + '">' + esc(g) + '</td></tr>') : '';
+      const cab = g !== grp ? (grp = g, '<tr class="gx-grp"><td colspan="' + (PARES_PASSIVO.length + 6) + '">' + esc(g) + '</td></tr>') : '';
       return cab + '<tr data-id="' + c.id + '"' + (alterados.has(c.id) ? ' class="rt-alterado"' : '') + '><td class="rt-emp"><b>' + esc(c.nome) + '</b><div class="sub">' + esc(mascaraDoc(c.cpf_cnpj) || '') + ' <button type="button" class="rt-hist-bt" data-hist="' + c.id + '" title="Histórico de alterações desta empresa">🕘</button>' + (podeCert ? '<button type="button" class="rt-hist-bt" data-senha="' + c.id + '" title="Senha GOV (só quem pode editar clientes vê)">🔑</button>' : '') + '</div></td>' +
         '<td>' + celulaConferencia(SIT[c.id], c.id) + '</td>' +
         PARES_PASSIVO.map(([k, r]) => '<td class="rt-par">' + [k, k + '_negociada'].map((kk, i) => '<input class="rt-in rt-valor' + (i ? ' rt-neg' : '') + '" data-mascara="brl" data-c="' + kk + '" inputmode="decimal" aria-label="' + r + (i ? ' negociada' : ' em aberto') + '" placeholder="' + (i ? 'negociada' : 'em aberto') + '" value="' + (c[kk] != null && c[kk] !== '' ? 'R$ ' + valorParaCampo(c[kk]) : '') + '">').join('') + '</td>').join('') +
         '<td><input class="rt-in rt-int" data-c="ceat_trt3" inputmode="numeric" value="' + (c.ceat_trt3 == null ? '' : esc(c.ceat_trt3)) + '"></td>' +
-        '<td>' + simNaoSel('em_operacao', c.em_operacao) + '</td><td>' + simNaoSel('procuracao', c.procuracao) + '</td>' +
+        '<td>' + simNaoSel('procuracao', c.procuracao) + '</td>' +
         '<td>' + simNaoSel('certificado', c.certificado) + '</td>' +
-        '<td><select class="rt-in rt-sn" data-c="capag">' + CAPAG_OPCOES.map((v) => '<option value="' + v + '"' + ((c.capag || '') === v ? ' selected' : '') + '>' + (v || '—') + '</option>').join('') + '</select></td></tr>';
+        '<td class="rt-c-capag"><select class="rt-in rt-sn rt-capag" data-c="capag">' + CAPAG_OPCOES.map((v) => '<option value="' + v + '"' + ((c.capag || '') === v ? ' selected' : '') + '>' + (v || '—') + '</option>').join('') + '</select></td></tr>';
     }).join('') : '<tr><td colspan="12">' + vazio('Nenhuma empresa com esses filtros.') + '</td></tr>';
     $('rt-pas-corpo').querySelectorAll('select.rt-sn').forEach(corSel);
   };
@@ -8144,9 +8305,9 @@ async function janelaHistoricoPassivo(clienteId) {
 
 // ── 2) Processos: acompanhamento (o que está há mais tempo sem conferir vem primeiro) ──
 async function rotinaProcessos(el) {
-  const P = await q(sb.from('processos').select('id, numero, grupo_id, natureza, competencia, autor, reu, valor, procuracao, obs, atualizacao, ultima_movimentacao, ultima_movimentacao_em, grupos(nome)').limit(5000));
+  const P = await buscarTodos(() => sb.from('processos').select('id, numero, grupo_id, natureza, competencia, autor, reu, valor, procuracao, obs, atualizacao, ultima_movimentacao, ultima_movimentacao_em, grupos(nome)').order('id'));
   // Backup 31: a última conferência de cada processo (quem, quando e se mudou algo ou foi "sem novidade")
-  const ULT = {}; (await q(sb.from('processo_movimentacoes').select('processo_id, tipo, quem, criado_em').order('criado_em', { ascending: false }).limit(10000)).catch(() => []))
+  const ULT = {}; (await buscarTodos(() => sb.from('processo_movimentacoes').select('processo_id, tipo, quem, criado_em').order('criado_em', { ascending: false }).order('id')).catch(() => []))
     .forEach((m) => { if (!ULT[m.processo_id]) ULT[m.processo_id] = m; });
   el.innerHTML = '<div class="card"><div class="card-hd">⚖ Acompanhamento dos processos<span class="sub">confira no tribunal e registre: movimentação, decisão relevante, mudança de valor ou procuração</span>' +
       '<button type="button" class="btn btn-p btn-mini" id="rt-novo-proc" style="margin-left:auto">+ Processo</button></div>' +
@@ -8196,7 +8357,9 @@ async function janelaMovimentacao(processoId, depois) {
       campo('Data', '<input name="data" value="' + dataBR(hojeISO()) + '" placeholder="dd/mm/aaaa">') +
       campo('O que aconteceu', '<select name="tipo">' + TIPOS_MOV.map(([v, r]) => '<option value="' + v + '">' + r + '</option>').join('') + '</select>') +
       campo('Descrição', '<textarea name="descricao" rows="3" placeholder="Ex.: Juntada de petição; sentença de procedência; valor atualizado pela contadoria…"></textarea>', 'inteiro') +
-      campo('Valor novo', '<input name="valor" data-mascara="brl" inputmode="decimal" placeholder="' + (p.valor ? 'hoje: ' + brl(p.valor) : 'R$ 0,00') + '">', 'mov-valor') +
+      // Backup 37: o valor atual fica ao lado, como referência
+      '<div class="mov-valor mov-valores inteiro"><div class="mov-vatual"><span>Valor atual da causa</span><b>' + (p.valor ? brl(p.valor) : '—') + '</b></div>' +
+        campo('Valor novo', '<input name="valor" data-mascara="brl" inputmode="decimal" placeholder="R$ 0,00">') + '</div>' +
       '</form>' +
       '<div class="mov-hist"><div class="gx-det-tit">Histórico' + (p.grupos ? ' · ' + esc(p.grupos.nome) : '') + '</div>' +
       (H.length ? H.map((m) => '<div class="mov-it"><span class="mov-d">' + dataBR(m.data) + '</span><span class="pill neutro">' + esc(rot[m.tipo] || m.tipo) + '</span><span class="mov-t">' +
@@ -8239,8 +8402,8 @@ async function rotinaControle(el, tipo) {
   let IT, PC, SIT = {};
   if (parc) {
     const [PA, P2, S2] = await Promise.all([
-      q(sb.from('parcelamentos').select('id, empresa, cnpj, local, natureza, numero, total_parcelas, valor_ultima_parcela, grupo_id, emitimos_guia').limit(5000)),
-      q(sb.from('parcelas').select('id, parcelamento_id, numero, vencimento, pago, emitida_em, emissao, reenvio_em, reenvio_valor, valor, guia_doc').order('vencimento').limit(50000)),
+      buscarTodos(() => sb.from('parcelamentos').select('id, empresa, cnpj, local, natureza, numero, total_parcelas, valor_ultima_parcela, grupo_id, emitimos_guia').order('id')),
+      buscarTodos(() => sb.from('parcelas').select('id, parcelamento_id, numero, vencimento, pago, emitida_em, emissao, reenvio_em, reenvio_valor, valor, guia_doc').order('vencimento').order('id')),
       situacaoRotina('parcelamentos')]);
     SIT = S2;
     const porId = {}; PA.forEach((p) => { porId[p.id] = p; });
@@ -8257,7 +8420,7 @@ async function rotinaControle(el, tipo) {
     IT = PA.map((p) => ({ id: p.id, grupo_id: p.grupo_id, titulo: p.empresa || '—', resid: residual(p), sub: [p.local, p.natureza, p.numero ? 'nº ' + p.numero : ''].filter(Boolean).join(' · '),
       busca: [p.empresa, p.natureza, p.local, p.numero, p.cnpj].join(' '), nos: p.emitimos_guia !== false, p }));
   } else {
-    const A = await q(sb.from('acordos').select('id, parcela, total_parcelas, vencimento, valor, pago, emissao, emitida_em, reenvio_em, reenvio_valor, devedor, credor, processo, grupo_id, pix, banco, guia_doc').order('vencimento').limit(50000));
+    const A = await buscarTodos(() => sb.from('acordos').select('id, parcela, total_parcelas, vencimento, valor, pago, emissao, emitida_em, reenvio_em, reenvio_valor, devedor, credor, processo, grupo_id, pix, banco, forma_pagamento, guia_doc').order('vencimento').order('id'));
     const M = {};
     A.forEach((a) => { const k = [a.grupo_id || '', a.devedor || '', a.credor || '', a.processo || ''].join('|');
       (M[k] = M[k] || { id: k, grupo_id: a.grupo_id, titulo: a.devedor || '—', sub: 'deve a ' + (a.credor || '—') + (a.processo ? ' · ' + a.processo : ''), busca: [a.devedor, a.credor, a.processo].join(' '), nos: true, l: [] }).l.push(a);
@@ -8371,7 +8534,10 @@ async function rotinaControle(el, tipo) {
       if (window.ERP_EDITOR && window.ERP_EDITOR.baixaRapida) Promise.resolve(window.ERP_EDITOR.baixaRapida(tipo, pg.dataset.pag)).then(() => setTimeout(() => rotinaControle(el, tipo), 1500)); return true; }
     return false;
   };
-  pop.onclick = (ev) => { if (acao(ev)) return; const ab = ev.target.closest('[data-abre]'); if (ab) { _rtAberto[tipo + ab.dataset.abre] = true; pintar(); } };
+  pop.onclick = (ev) => { if (acao(ev)) return; const ab = ev.target.closest('[data-abre]'); if (!ab) return;
+    // Backup 37: nos acordos abre a MESMA ficha do módulo Acordos (todas as parcelas, baixa, editar)
+    if (!parc) { const id = pop.dataset.de; fecharPop(); return detalheAcordo(id); }
+    _rtAberto[tipo + ab.dataset.abre] = true; pintar(); };
   if (!el._rtFora) { el._rtFora = true; document.addEventListener('mousedown', (ev) => { const p2 = document.getElementById('rt-pop'); if (p2 && !p2.hidden && !ev.target.closest('#rt-pop, [data-cel]')) { p2.hidden = true; } });
     document.addEventListener('keydown', (ev) => { const p2 = document.getElementById('rt-pop'); if (ev.key === 'Escape' && p2 && !p2.hidden) p2.hidden = true; }); }
   corpo.onclick = (ev) => {
@@ -8403,8 +8569,8 @@ async function rotinaPlanilha(el) {
   if (!E.clientes.length) await carregarCadastros();
   const h = hojeISO(), fimMes = fimDoMesGuia(h);
   const [PA, P2] = await Promise.all([
-    q(sb.from('parcelamentos').select('id, empresa, cnpj, local, natureza, numero, total_parcelas, valor_ultima_parcela, grupo_id, emitimos_guia, obs').limit(5000)),
-    q(sb.from('parcelas').select('id, parcelamento_id, numero, vencimento, pago, emitida_em, emissao, valor, guia_doc').order('vencimento').limit(50000))]);
+    buscarTodos(() => sb.from('parcelamentos').select('id, empresa, cnpj, local, natureza, numero, total_parcelas, valor_ultima_parcela, grupo_id, emitimos_guia, obs').order('id')),
+    buscarTodos(() => sb.from('parcelas').select('id, parcelamento_id, numero, vencimento, pago, data_pagamento, emitida_em, emissao, valor, guia_doc').order('vencimento').order('id'))]);
   const porPa = {}; P2.forEach((x) => { (porPa[x.parcelamento_id] = porPa[x.parcelamento_id] || []).push(x); });
   const gnome = (id) => nomeGrupo(id) || 'Sem grupo';
   const grupos = [...new Set(PA.map((p) => gnome(p.grupo_id)))].sort((a, b) => (a === 'Sem grupo') - (b === 'Sem grupo') || a.localeCompare(b, 'pt-BR'));
@@ -8438,13 +8604,21 @@ async function rotinaPlanilha(el) {
               '<div><small>Valor residual</small><b>' + brl(resid) + '</b></div></div>' +
             '<div class="pl-cab-pe"><label class="rt-chave rt-chave-mini"><input type="checkbox" data-pl-emit="' + p.id + '"' + (cli ? '' : ' checked') + '><span></span><small>' + (cli ? 'O cliente emite as guias' : 'Nós emitimos as guias') + '</small></label>' +
               (nAe ? '<span class="pill hoje">' + plural(nAe, 'a emitir', 'a emitir') + '</span>' : '') + '</div>' +
-            '<input class="pl-obs" data-pl-obs="' + p.id + '" value="' + esc(p.obs || '') + '" placeholder="Observação (ex.: enviar por WhatsApp)" aria-label="Observação"></div>' +
-          (ps.length ? '<table class="pl-tab"><thead><tr><th>Parcela</th><th>Vencimento</th><th>Emissão</th><th>Pagamento</th></tr></thead><tbody>' +
-          ps.map((x) => { const at = !x.pago && x.vencimento < h, mes = x.vencimento && x.vencimento.slice(0, 7) === h.slice(0, 7);
+            '<input class="pl-obs" data-pl-obs="' + p.id + '" value="' + esc(p.obs || '') + '" placeholder="Observação (ex.: enviar por WhatsApp)" aria-label="Observação">' +
+            // Backup 37: emitir mesmo parcela futura — deste parcelamento ou de todos os parcelamentos da empresa
+            (cli ? '' : '<div class="pl-cab-bts"><button type="button" class="btn btn-o btn-mini" data-pl-gpa="' + p.id + '" title="Em atraso + do mês; se não houver, a próxima parcela">🧾 Emitir deste parcelamento</button>' +
+              '<button type="button" class="btn btn-o btn-mini" data-pl-gemp="' + esc(p.empresa || '') + '" title="Todos os parcelamentos desta empresa">🧾 Todos da empresa</button></div>') + '</div>' +
+          (ps.length ? '<table class="pl-tab"><colgroup><col style="width:12%"><col style="width:28%"><col style="width:30%"><col style="width:30%"></colgroup><thead><tr><th title="Parcela">Nº</th><th>Vencimento</th><th>Emissão</th><th>Pagamento</th></tr></thead><tbody>' +
+          ps.map((x) => { const at = !x.pago && x.vencimento < h, mes = x.vencimento && x.vencimento.slice(0, 7) === h.slice(0, 7), em = emit(x);
+            const curta = (d) => { const s = dataBR(d); return s.slice(0, 6) + s.slice(8); }, dEm = x.emitida_em ? curta(x.emitida_em) : em ? 'emitida' : '';
             return '<tr class="' + (x.pago ? 'pl-pago' : at ? 'pl-atr' : mes ? 'pl-mes' : '') + '"><td>' + esc(x.numero || '') + '</td><td>' + dataBR(x.vencimento) + '</td>' +
-              '<td><button type="button" class="pl-sn' + (emit(x) ? ' sim' : '') + '" data-pl-e="' + x.id + '"' + (cli ? ' disabled title="O cliente emite"' : ' title="Clique para marcar/desmarcar a emissão"') + '>' + (emit(x) ? 'SIM' : cli ? '–' : '') + '</button></td>' +
-              '<td><button type="button" class="pl-sn' + (x.pago ? ' sim' : at ? ' nao' : '') + '" data-pl-p="' + x.id + '"' + (x.pago ? ' disabled' : ' title="Clique para lançar o pagamento"') + '>' + (x.pago ? 'SIM' : at ? 'NÃO' : '') + '</button></td></tr>'; }).join('') +
-          prevista(ps, tot).map((r) => '<tr class="pl-prev" title="Parcela ainda não lançada no sistema (data prevista)"><td>' + r.n + '</td><td>' + dataBR(r.v) + '</td><td colspan="2">prevista</td></tr>').join('') +
+              '<td>' + (cli ? '<span class="pl-dt pl-dt-cli" title="O cliente emite">cliente</span>'
+                : em ? '<button type="button" class="pl-dt pl-dt-ok" data-pl-e="' + x.id + '" title="Emitida' + (x.emitida_em ? ' em ' + dataBR(x.emitida_em) : '') + ' · clique para desmarcar">✓ ' + esc(dEm) + '</button>'
+                : x.pago ? '<span class="pl-dt">—</span>'
+                : '<span class="pl-em2"><button type="button" class="pl-dt pl-dt-emitir" data-pl-gx="' + x.id + '" title="Abrir o envio com esta guia (vale parcela futura)">🧾 Emitir</button><button type="button" class="pl-dt-mk" data-pl-e="' + x.id + '" title="Só marcar como emitida (sem enviar)">✓</button></span>') + '</td>' +
+              '<td>' + (x.pago ? '<span class="pl-dt pl-dt-ok" title="Paga">✓ ' + (x.data_pagamento ? curta(x.data_pagamento) : 'paga') + '</span>'
+                : '<button type="button" class="pl-dt ' + (at ? 'pl-dt-atr' : 'pl-dt-ab') + '" data-pl-p="' + x.id + '" title="Clique para lançar o pagamento">' + (at ? 'em atraso' : 'a vencer') + '</button>') + '</td></tr>'; }).join('') +
+          prevista(ps, tot).map((r) => '<tr class="pl-prev" title="Parcela ainda não lançada no sistema (data prevista)"><td>' + r.n + '</td><td>' + dataBR(r.v) + '</td><td>—</td><td>prevista</td></tr>').join('') +
           '</tbody></table>' : '<div class="pl-sem">Nenhuma parcela lançada neste parcelamento.</div>') + '</section>'; }).join('') + (L.length ? '' : vazio('Nenhum parcelamento neste grupo.')) + '</div></div></div>';
   };
   const recarregar = () => rotinaPlanilha(el);
@@ -8454,10 +8628,16 @@ async function rotinaPlanilha(el) {
     if (be) return comBotao(be, async () => { const x = P2.find((y) => y.id === be.dataset.plE), novo = !emit(x);
       await q(sb.rpc('registrar_emissao', { p_tabela: 'parcelas', p_id: x.id, p_emitida: novo, p_doc: null, p_enviar: false }));
       x.emitida_em = novo ? h : null; x.emissao = novo ? 'SIM' : ''; pintar(); });
+    // Backup 37: emitir pelo mesmo envio dos outros módulos (vale parcela futura)
+    const gx = ev.target.closest('[data-pl-gx]'); if (gx) return gerarGuias('parcelas', { ids: [gx.dataset.plGx] }, recarregar);
+    const gpa = ev.target.closest('[data-pl-gpa]'); if (gpa) return gerarGuias('parcelas', { itens: [gpa.dataset.plGpa], proximas: true }, recarregar);
+    const gemp = ev.target.closest('[data-pl-gemp]'); if (gemp) return gerarGuias('parcelas', { empresa: gemp.dataset.plGemp, proximas: true }, recarregar);
     const bp = ev.target.closest('[data-pl-p]');
     if (bp && !confirm('Lançar o pagamento desta parcela?')) return;
     if (bp && window.ERP_EDITOR && window.ERP_EDITOR.baixaRapida) return Promise.resolve(window.ERP_EDITOR.baixaRapida('parcelas', bp.dataset.plP)).then(() => setTimeout(recarregar, 1500));
     if (ev.target.closest('#pl-emitir')) {
+      const gid = (PA.find((p) => gnome(p.grupo_id) === E.rt.plGrupo) || {}).grupo_id;
+      if (gid) return gerarGuias('parcelas', { grupo_id: gid }, recarregar);
       const its = PA.filter((p) => gnome(p.grupo_id) === E.rt.plGrupo).flatMap((p) => aEmitir(p).map((x) => {
         const ult = (porPa[p.id] || []).filter((y) => y.valor != null && y.vencimento <= x.vencimento).slice(-1)[0];
         return Object.assign({}, x, { parcelamentos: p, quem: p.empresa, grupo_id: p.grupo_id, email_em: null, parcela: (x.numero || '?') + (p.total_parcelas ? '/' + p.total_parcelas : ''),
@@ -8664,5 +8844,5 @@ const CSS_RELATORIO = [
 // toda gravação confirmada aparece também no rodapé do ERP
 const _avisoOrig = aviso;
 aviso = function (msg, erro) { _avisoOrig(msg, erro); if (!erro && window.ERP_EDITOR && /^✓/.test(msg)) window.ERP_EDITOR.gravou(String(msg).replace(/^✓\s*/, '')); };
-window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, invalidarCadastros, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo, perguntarBaixa, detalheContrato, ICONE_AVISO, conciliarOfx, abrirTarefa, detalheLancamento, edicaoLancamentos, janelaModelosEmail, janelaAutoEmails, janelaGeradores, formReuniao, janelaDelegar, abrirGeradorContrato, cardGuias, emitirParcela, enviarAcordosSelecionados, janelaMovimentacao, janelaRelatorioPDF };
+window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, invalidarCadastros, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo, perguntarBaixa, detalheContrato, ICONE_AVISO, conciliarOfx, abrirTarefa, detalheLancamento, edicaoLancamentos, janelaModelosEmail, janelaAutoEmails, janelaGeradores, formReuniao, janelaDelegar, abrirGeradorContrato, cardGuias, emitirParcela, enviarAcordosSelecionados, gerarGuias, janelaMovimentacao, janelaRelatorioPDF };
 })();
