@@ -120,7 +120,9 @@
         { k: 'data_pagamento', rot: 'Data do pagamento', tipo: 'data' },
         { k: 'comprovante_processo', rot: 'Comprovante anexado ao processo', tipo: 'bool' },
         { k: 'comprovante_id', rot: 'ID do comprovante no processo', tipo: 'texto', dica: 'ex.: ID do documento no PJe' },
-        { k: 'pix', rot: 'PIX', tipo: 'texto' }, { k: 'banco', rot: 'Banco', tipo: 'texto' },
+        // Backup 37: como o cliente paga este acordo — muda o texto do e-mail/WhatsApp (PIX = mensagem objetiva com a chave; boleto = anexo)
+        { k: 'forma_pagamento', rot: 'Forma de pagamento', tipo: 'sel', ops: [['boleto', 'Boleto (anexo)'], ['pix', 'PIX / transferência']], dica: 'vale para todas as parcelas deste acordo' },
+        { k: 'pix', rot: 'Chave PIX / dados para transferência', tipo: 'texto' }, { k: 'banco', rot: 'Banco', tipo: 'texto' },
         { k: 'obs', rot: 'Observação', tipo: 'area' }
       ],
       baixa: true,

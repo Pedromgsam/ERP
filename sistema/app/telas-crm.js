@@ -24,10 +24,11 @@ TELAS.crm = async function () {
     '<div class="acoes"><button class="btn btn-o" id="cr-etapas" title="Prazo de cada etapa (depois dele vira tarefa) e o que cada uma significa">⚙ Etapas</button><button class="btn btn-o" id="cr-modelos">Modelos de proposta</button>' +
     '<button class="btn btn-o" id="cr-rapido" title="Só nome, telefone e interesse">⚡ Cadastro rápido</button><button class="btn btn-p" id="cr-nova">+ Nova oportunidade</button></div></div>' +
     // abas: no painel ficam só as oportunidades em andamento; ganhas (contrato assinado) e perdidas (cancelado) têm aba própria
-    '<div class="abas" id="cr-abas">' + [['andamento', 'Em andamento'], ['ganho', '✍ Contratos assinados'], ['perdido', '✗ Leads perdidos']]
+    // Backup 37: as abas usam o MESMO filtro escuro dos outros (simetria); "Painel" saiu; responsáveis viram botões
+    '<div class="filtros cr-filtros"><div class="segmento" id="cr-abas">' + [['andamento', 'Em andamento'], ['ganho', '✍ Contratos assinados'], ['perdido', '✗ Leads perdidos']]
       .map(([v, r]) => '<button data-aba="' + v + '">' + r + '</button>').join('') + '</div>' +
-    '<div class="filtros"><div class="segmento" id="cr-vista">' + [['funil', 'Funil'], ['lista', 'Lista'], ['painel', 'Painel']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
-    '<select class="busca sel" id="cr-resp"><option value="">Todos os responsáveis</option>' + Object.keys(PESSOA).map((p) => '<option>' + p + '</option>').join('') + '</select>' +
+    '<div class="segmento" id="cr-vista">' + [['funil', 'Funil'], ['lista', 'Lista']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div></div>' +
+    '<div class="filtros"><div class="segmento" id="cr-resp-seg"><button data-r="">Todos</button>' + Object.keys(PESSOA).map((p) => '<button data-r="' + esc(p) + '">' + esc(p) + '</button>').join('') + '</div>' +
     '<select class="busca sel" id="cr-origem"><option value="">Todas as origens</option>' + ORIGENS_CRM.map((o) => '<option>' + esc(o) + '</option>').join('') + '</select>' +
     '<input class="busca" id="cr-busca" placeholder="Buscar nome, empresa, CNPJ ou telefone" autocomplete="off"></div>' +
     '<div id="cr-corpo"><div class="carregando">Carregando…</div></div>';
@@ -37,7 +38,8 @@ TELAS.crm = async function () {
   $('cr-etapas').onclick = () => janelaEtapasCrm();
   $('cr-vista').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.vista = b.dataset.v; pintarCrm(); } };
   $('cr-abas').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.aba = b.dataset.aba; pintarCrm(); } };
-  [['cr-resp', 'resp'], ['cr-origem', 'origem']].forEach(([id, k]) => { $(id).value = F[k]; $(id).onchange = (ev) => { F[k] = ev.target.value; pintarCrm(); }; });
+  $('cr-resp-seg').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.resp = b.dataset.r; pintarCrm(); } };
+  [['cr-origem', 'origem']].forEach(([id, k]) => { $(id).value = F[k]; $(id).onchange = (ev) => { F[k] = ev.target.value; pintarCrm(); }; });
   $('cr-busca').value = F.busca;
   let t; $('cr-busca').oninput = (ev) => { clearTimeout(t); t = setTimeout(() => { F.busca = ev.target.value; pintarCrm(); }, 250); };
   await recarregarCrm(true);
@@ -57,10 +59,12 @@ function pintarCrm() {
   if (!$('cr-corpo')) return;
   const F = E.crm;
   document.querySelectorAll('#cr-abas button').forEach((b) => b.classList.toggle('ativo', b.dataset.aba === F.aba));
+  if (F.vista === 'painel') F.vista = 'funil';
   document.querySelectorAll('#cr-vista button').forEach((b) => b.classList.toggle('ativo', b.dataset.v === F.vista));
+  document.querySelectorAll('#cr-resp-seg button').forEach((b) => b.classList.toggle('ativo', b.dataset.r === (F.resp || '')));
   if ($('cr-vista')) $('cr-vista').hidden = F.aba !== 'andamento';
   if (F.aba !== 'andamento') return crmFinalizadas($('cr-corpo'), F.aba);
-  ({ funil: crmFunil, lista: crmLista, painel: crmPainel })[F.vista]($('cr-corpo'));
+  ({ funil: crmFunil, lista: crmLista })[F.vista]($('cr-corpo'));
 }
 // Ganhos (contrato assinado) e Perdidos (não fechou): lista própria, fora do painel do dia a dia
 function crmFinalizadas(alvo, tipo) {

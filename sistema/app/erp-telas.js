@@ -94,8 +94,13 @@
       '<div class="hd-usuario"><button type="button" id="gs-tema" title="Modo escuro / claro" aria-label="Alternar modo escuro" aria-pressed="false">◐</button><button type="button" id="gs-sino" class="gx-so-equipe" title="Avisos: prazos, menções e vencimentos" aria-label="Avisos">🔔<span id="gs-sino-n" hidden></span></button><span id="gs-nome"></span>' +
       '<div class="tn-grupo tn-mais-acoes"><button type="button" class="tn-abre gs-bt-mais" data-grupo="acoes" title="Atualizar dados e relatório em PDF" aria-label="Mais ações" aria-haspopup="true" aria-expanded="false">⋯</button>' +
       '<div class="tn-menu tn-menu-dir" role="menu"><button type="button" data-acao="atualizar">↻ Atualizar dados</button><button type="button" data-acao="pdf" class="gx-so-equipe">📄 Relatório em PDF</button><button type="button" data-acao="geradores" class="gx-so-equipe">📄 Documentos (procuração, contrato, recibo…)</button><button type="button" data-acao="meunome">👤 Meu nome</button><button type="button" data-acao="aprovacoes" class="gx-so-equipe">📝 Aprovações (rascunhos)</button></div></div>' +
-      '<button type="button" id="gs-sair">Sair</button></div>';
+      '<span id="gs-sessao" title="Tempo até sair sozinho por falta de uso (cada clique ou tecla recomeça a contagem)" aria-live="off"></span><button type="button" id="gs-sair">Sair</button></div>';
     document.body.insertBefore(hd, document.body.firstChild);
+    // Backup 37: contador discreto da sessão (60 min sem uso → sai). Fica vermelho nos últimos 5 minutos.
+    const sessao = document.getElementById('gs-sessao');
+    const pintarSessao = () => { const s = window.AC_SESSION; if (!s || !s.expira) { sessao.textContent = ''; return; }
+      const min = Math.max(0, Math.ceil((s.expira - Date.now()) / 60000)); sessao.textContent = '⏱' + min + '′'; sessao.classList.toggle('gs-sessao-fim', min <= 5); };
+    pintarSessao(); setInterval(pintarSessao, 15000); document.addEventListener('click', () => setTimeout(pintarSessao, 50), { passive: true });
     const btTema = document.getElementById('gs-tema');
     const marcarTema = () => btTema.setAttribute('aria-pressed', temaEscuro() ? 'true' : 'false');
     marcarTema();

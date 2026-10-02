@@ -267,6 +267,8 @@ async function buscarPubNoNavegador(op) {
       if (certos.length) { const ins = await q(sb.from('publicacoes').upsert(certos.map((it) => normalizarPub(it, oab, parte)), { onConflict: 'id_origem', ignoreDuplicates: true }).select('id')); novas += (ins || []).length; }
     } catch (e) { erros.push((oab ? 'OAB ' + oab.numero : parte) + ': ' + (/fetch|network|Failed/i.test(e.message) ? 'o navegador não conseguiu acessar o CNJ (bloqueio do site do CNJ)' : e.message)); }
   }
+  // Backup 37: a busca pela web fica registrada (Alertas → Rotinas → "Busca de publicações (web)")
+  await q(sb.rpc('registrar_busca_publicacoes', { p_lidas: lidas, p_novas: novas, p_erros: erros })).catch(() => null);
   if (!op.silencioso) aviso('✓ Busca pelo navegador: ' + lidas + ' lida(s), ' + novas + ' nova(s).' + (erros.length ? ' Atenção: ' + erros[0] : ''), !!erros.length);
   return novas;
 }

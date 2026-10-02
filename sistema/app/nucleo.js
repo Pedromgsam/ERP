@@ -327,9 +327,14 @@ async function q(consulta) {
 }
 // O Supabase devolve no máximo 1.000 linhas por pedido: busca em páginas.
 async function buscarTodos(montar, porPagina) {
-  const n = porPagina || 1000, todos = [];
+  const n = porPagina || 1000, todos = []; let semId = false;
   for (let de = 0; ; de += n) {
-    const pag = await q(montar().range(de, de + n - 1));
+    // Backup 37: o Supabase devolve no máximo 1000 linhas por vez; o 'id' no fim da ordem evita pular/repetir linhas entre as páginas
+    // (tabela sem coluna id — ex.: configuracoes — segue sem o desempate)
+    let pag;
+    if (semId) pag = await q(montar().range(de, de + n - 1));
+    else { try { pag = await q(montar().order('id').range(de, de + n - 1)); }
+      catch (e) { if (!/42703|column .*id.* does not exist|id.*não existe/i.test(String(e && (e.code || e.message || e)))) throw e; semId = true; pag = await q(montar().range(de, de + n - 1)); } }
     todos.push(...pag);
     if (pag.length < n) return todos;
   }

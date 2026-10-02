@@ -6,7 +6,7 @@
 // ═══════════════════════════════════════════════════════════════════
 const TIPOS_DOC = [['contrato', 'Contrato'], ['procuracao', 'Procuração'], ['proposta', 'Proposta'], ['pessoal', 'Documento pessoal'],
   ['societario', 'Societário'], ['certidao', 'Certidão'], ['guia', 'Guia / boleto'], ['comprovante', 'Comprovante de pagamento'],
-  ['peticao', 'Petição / peça'], ['outro', 'Outro']];
+  ['peticao', 'Petição / peça'], ['certificado', 'Certificado digital'], ['outro', 'Outro']];
 const nomeTipoDoc = (t) => (TIPOS_DOC.find((x) => x[0] === t) || [t, t])[1];
 const LIMITE_MB = 20;
 const BUCKET = 'documentos';
@@ -58,7 +58,8 @@ function janelaEnviarDocumento(vinculo, depois, titulo) {
       '<div class="sub" id="doc-lista">PDF, imagens, Word ou Excel · até ' + LIMITE_MB + ' MB cada</div></div>' +
       campo('Tipo', '<select name="tipo">' + TIPOS_DOC.map(([v, r]) => '<option value="' + v + '"' + ((vinculo.tipo || 'outro') === v ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>') +
       campo('Validade (se houver)', '<input name="validade" type="date">') +
-      (vinculo.cliente_id || vinculo.contrato_id || vinculo.lancamento_id ? '' : campo('Cliente', '<select name="cliente_id">' + opcoesClientes('') + '</select>', 'inteiro')) +
+      (vinculo.cliente_id || vinculo.contrato_id || vinculo.lancamento_id ? '' : campo(vinculo.grupo_id ? 'Empresa do grupo (opcional)' : 'Cliente', '<select name="cliente_id">' +
+        (vinculo.grupo_id ? '<option value="">— o grupo todo —</option>' + E.clientes.filter((c) => c.grupo_id === vinculo.grupo_id).map((c) => '<option value="' + c.id + '">' + esc(c.nome) + '</option>').join('') : opcoesClientes('')) + '</select>', 'inteiro')) +
       campo('Etiquetas', '<input name="etiquetas" placeholder="ex.: 2026, original assinado">') +
       campo('Observação', '<textarea name="obs" maxlength="1000"></textarea>', 'inteiro') + '</form>',
     rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="btn-enviar-doc">Enviar</button></div>'
@@ -150,7 +151,7 @@ TELAS.documentos = async function () {
   await carregarCadastros();
   $('conteudo').innerHTML =
     '<div class="titulo-pag"><div><h1>Documentos</h1><p>Contratos, procurações, certidões, comprovantes e demais arquivos — guardados com acesso restrito</p></div>' +
-    '<div class="acoes"><button class="btn btn-o" id="doc-ger">📄 Gerar documento</button><button class="btn btn-p" id="doc-novo">+ Enviar documento</button></div></div>' +
+    '<div class="acoes"><button class="btn btn-o" id="doc-ger">📄 Gerar documento</button><button class="btn btn-o" id="doc-cert" title="Arquivo .pfx/.p12 + senha; o sistema lê a validade">🔐 Certificado digital</button><button class="btn btn-p" id="doc-novo">+ Enviar documento</button></div></div>' +
     '<div class="filtros">' +
     '<div class="segmento" id="doc-sit">' + [['ativos', 'Ativos'], ['vencendo', 'Vencendo / vencidos'], ['arquivados', 'Arquivados']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<select class="busca sel" id="doc-tipo"><option value="">Todos os tipos</option>' + TIPOS_DOC.map(([v, r]) => '<option value="' + v + '">' + r + '</option>').join('') + '</select>' +
@@ -161,6 +162,7 @@ TELAS.documentos = async function () {
   $('doc-tipo').value = F.tipo; $('doc-cli').value = F.cliente; $('doc-grupo').value = F.grupo || ''; $('doc-busca').value = F.busca;
   $('doc-novo').onclick = () => janelaEnviarDocumento({}, () => TELAS.documentos());
   $('doc-ger').onclick = () => janelaGeradores($('doc-cli').value || '');
+  $('doc-cert').onclick = () => janelaCertificado({ cliente_id: F.cliente || '', grupo_id: F.grupo || '' }, () => pintarDocumentos());
   $('doc-sit').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.situacao = b.dataset.v; pintarDocumentos(); } };
   $('doc-tipo').onchange = (ev) => { F.tipo = ev.target.value; pintarDocumentos(); };
   $('doc-cli').onchange = (ev) => { F.cliente = ev.target.value; pintarDocumentos(false); };
@@ -193,11 +195,18 @@ async function pintarDocumentos(buscar) {
   F.abertos = F.abertos || {};
   const aberto = (k) => ks.length === 1 || !!F.grupo || !!b || !!F.abertos[k];
   $('doc-corpo').innerHTML = lista.length ? '<div class="doc-pastas">' + ks.map((k) => '<details class="card doc-pasta" data-pasta="' + esc(k) + '"' + (aberto(k) ? ' open' : '') + '><summary><span class="doc-pasta-ic" aria-hidden="true">📁</span><b>' + esc(nomeG(k)) + '</b>' +
-      '<span class="sub">' + plural(G[k].length, 'documento', 'documentos') + (G[k].some((d) => d.validade && d.validade <= lim) ? ' · <span class="pill vencido">vencendo</span>' : '') + '</span></summary>' +
+      '<span class="sub">' + plural(G[k].length, 'documento', 'documentos') + (G[k].some((d) => d.validade && d.validade <= lim) ? ' · <span class="pill vencido">vencendo</span>' : '') + '</span>' +
+      // Backup 37: enviar direto para este grupo (sem abrir a pasta) e o certificado digital
+      '<span class="doc-pasta-ac"><button type="button" class="btn btn-o btn-mini" data-pasta-cert="' + esc(k) + '" title="Certificado digital de uma empresa deste grupo">🔐 Certificado</button>' +
+      '<button type="button" class="btn btn-p btn-mini" data-pasta-enviar="' + esc(k) + '" title="Enviar documento já para este grupo">+ Enviar</button></span></summary>' +
       (aberto(k) ? tabelaDocumentos(G[k], { vazio: '' }) : '') + '</details>').join('') + '</div>'
     : '<div class="card">' + tabelaDocumentos([], { vazio: 'Nenhum documento neste recorte.' }) + '</div>';
   // a tabela só é montada quando a pasta abre (pasta fechada não carrega nada)
   $('doc-corpo').querySelectorAll('details[data-pasta]').forEach((d) => d.addEventListener('toggle', () => { const k = d.dataset.pasta; if (d.open === aberto(k)) return; F.abertos[k] = d.open; pintarDocumentos(false); }));
+  $('doc-corpo').querySelectorAll('[data-pasta-enviar]').forEach((b) => b.onclick = (ev) => { ev.preventDefault(); ev.stopPropagation();
+    janelaEnviarDocumento({ grupo_id: b.dataset.pastaEnviar || undefined }, () => pintarDocumentos(), '+ Enviar documento — ' + nomeG(b.dataset.pastaEnviar)); });
+  $('doc-corpo').querySelectorAll('[data-pasta-cert]').forEach((b) => b.onclick = (ev) => { ev.preventDefault(); ev.stopPropagation();
+    janelaCertificado({ grupo_id: b.dataset.pastaCert || '' }, () => pintarDocumentos()); });
   ligarDocumentos($('doc-corpo'), lista, () => pintarDocumentos());
 }
 
@@ -250,4 +259,77 @@ function janelaGeradores(clienteId) {
 // Backup 26: gerador de contrato já com o cliente e os valores do contrato (o documento fica ligado ao contrato)
 function abrirGeradorContrato(clienteId, contratoId, ev) {
   abrirCentral('documentos/index.html?modelo=contrato' + (clienteId ? '&cliente=' + encodeURIComponent(clienteId) : '') + (contratoId ? '&contrato=' + encodeURIComponent(contratoId) : ''), ev);
+}
+
+// ═══ Backup 37: Certificado digital — o arquivo (.pfx/.p12) fica em Documentos; a senha e a validade (lida do arquivo) na ficha do certificado.
+// A leitura é feita aqui no navegador (biblioteca node-forge, gratuita, carregada só quando abre esta janela): o arquivo não sai do computador
+// para ser lido — só é guardado no Storage privado, como qualquer documento.
+function carregarForge() {
+  if (window.forge) return Promise.resolve(window.forge);
+  return new Promise((ok, falha) => { const s = document.createElement('script'); s.src = 'vendor/forge.min.js'; s.onload = () => ok(window.forge); s.onerror = () => falha(new Error('Não consegui carregar o leitor de certificado.')); document.head.appendChild(s); });
+}
+async function lerCertificado(arquivo, senha) {
+  const forge = await carregarForge();
+  const u = new Uint8Array(await arquivo.arrayBuffer()); let bin = '';
+  for (let i = 0; i < u.length; i += 8192) bin += String.fromCharCode.apply(null, u.subarray(i, i + 8192));
+  let p12;
+  try { p12 = forge.pkcs12.pkcs12FromAsn1(forge.asn1.fromDer(bin), senha || ''); }
+  catch (e) { throw new Error(/password|mac|Invalid/i.test(e.message || '') ? 'Senha incorreta para este certificado.' : 'Arquivo não é um certificado .pfx/.p12 válido.'); }
+  const bags = (p12.getBags({ bagType: forge.pki.oids.certBag })[forge.pki.oids.certBag] || []).map((b) => b.cert).filter(Boolean);
+  if (!bags.length) throw new Error('Não achei o certificado dentro do arquivo.');
+  // o certificado da empresa é o que NÃO é autoridade certificadora (e, entre os que sobram, o que vence primeiro)
+  const ehCA = (c) => { const bc = c.getExtension && c.getExtension('basicConstraints'); return !!(bc && bc.cA); };
+  const c = (bags.filter((x) => !ehCA(x)).length ? bags.filter((x) => !ehCA(x)) : bags).sort((a, b) => a.validity.notAfter - b.validity.notAfter)[0];
+  const campo = (attrs, n) => ((attrs.find((a) => a.shortName === n || a.name === n) || {}).value || '');
+  const iso = (d) => new Date(d.getTime() - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10);
+  return { validade: iso(c.validity.notAfter), inicio: iso(c.validity.notBefore), titular: campo(c.subject.attributes, 'CN'), emissor: campo(c.issuer.attributes, 'CN') || campo(c.issuer.attributes, 'O') };
+}
+async function janelaCertificado(vinculo, depois) {
+  if (!E.clientes.length) await carregarCadastros();
+  const lista = E.clientes.filter((c) => !vinculo.grupo_id || c.grupo_id === vinculo.grupo_id);
+  const j = abrirJanela({ titulo: '🔐 Certificado digital' + (vinculo.grupo_id ? ' — ' + (nomeGrupo(vinculo.grupo_id) || '') : ''), larga: true,
+    corpo: '<form id="f-cert" class="grade" autocomplete="off">' +
+      campo('Empresa', '<select name="cliente_id" required><option value="">— escolha —</option>' + lista.map((c) => '<option value="' + c.id + '"' + (c.id === vinculo.cliente_id ? ' selected' : '') + '>' + esc(c.nome) + (c.cpf_cnpj ? ' · ' + esc(mascaraDoc(c.cpf_cnpj)) : '') + '</option>').join('') + '</select>', 'inteiro') +
+      '<div class="inteiro cert-atual" id="cert-atual"></div>' +
+      '<div class="inteiro solta-arq" id="cert-solta"><b>Arraste o arquivo do certificado (.pfx ou .p12)</b> ou <label class="btn btn-o btn-mini" style="cursor:pointer">escolha<input type="file" id="cert-arq" accept=".pfx,.p12,application/x-pkcs12" hidden></label><div class="sub" id="cert-nome">nenhum arquivo</div></div>' +
+      campo('Senha do certificado', '<span class="cert-senha"><input name="senha" type="password" autocomplete="new-password" placeholder="a senha do arquivo"><button type="button" class="btn btn-o btn-mini" id="cert-ver" aria-label="Mostrar a senha">👁</button></span>') +
+      campo('Validade (lida do arquivo)', '<input name="validade" type="date">') +
+      '<div class="inteiro cert-lido" id="cert-lido"></div></form>',
+    rodape: '<span class="sub">A senha fica guardada com acesso restrito (quem edita clientes).</span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="cert-ok">Salvar certificado</button></div>' });
+  const f = j.querySelector('#f-cert'), lido = j.querySelector('#cert-lido');
+  let arquivo = null, info = null;
+  const mostrarAtual = async () => { const box = j.querySelector('#cert-atual'); box.innerHTML = ''; if (!f.cliente_id.value) return;
+    const [c] = await q(sb.from('cliente_certificado').select('validade, titular, emissor, senha, atualizado_por, atualizado_em').eq('cliente_id', f.cliente_id.value)).catch(() => []);
+    if (!c) { box.innerHTML = '<span class="sub">Esta empresa ainda não tem certificado cadastrado.</span>'; return; }
+    box.innerHTML = 'Certificado atual: ' + (c.validade ? 'vence em <b>' + dataBR(c.validade) + '</b>' + selo_validade(c.validade) : 'sem validade') + (c.titular ? ' · ' + esc(c.titular) : '') +
+      '<div class="sub">atualizado ' + (c.atualizado_em ? dataLocal(c.atualizado_em) : '') + (c.atualizado_por ? ' por ' + esc(c.atualizado_por) : '') + (c.senha ? ' · <button type="button" class="dc-link btn-link" id="cert-copiar">copiar a senha</button>' : '') + '</div>';
+    const cp = box.querySelector('#cert-copiar'); if (cp) cp.onclick = () => { navigator.clipboard.writeText(c.senha).then(() => aviso('✓ Senha copiada.'), () => aviso('Não consegui copiar.', true)); }; };
+  const tentarLer = async () => { info = null; lido.innerHTML = ''; if (!arquivo) return;
+    if (!f.senha.value) { lido.innerHTML = '<span class="sub">Digite a senha para o sistema ler a validade.</span>'; return; }
+    try { info = await lerCertificado(arquivo, f.senha.value); f.validade.value = info.validade;
+      lido.innerHTML = '✓ Certificado lido: <b>' + esc(info.titular || '—') + '</b> · válido de ' + dataBR(info.inicio) + ' até <b>' + dataBR(info.validade) + '</b>' + (info.emissor ? '<div class="sub">emitido por ' + esc(info.emissor) + '</div>' : '');
+      lido.className = 'inteiro cert-lido cert-ok'; }
+    catch (e) { lido.innerHTML = '⚠ ' + esc(e.message); lido.className = 'inteiro cert-lido cert-erro'; } };
+  let tl; f.senha.addEventListener('input', () => { clearTimeout(tl); tl = setTimeout(tentarLer, 400); });
+  j.querySelector('#cert-ver').onclick = () => { f.senha.type = f.senha.type === 'password' ? 'text' : 'password'; };
+  const escolher = (a) => { arquivo = a || null; j.querySelector('#cert-nome').textContent = arquivo ? arquivo.name + ' (' + tamanhoLegivel(arquivo.size) + ')' : 'nenhum arquivo'; tentarLer(); };
+  j.querySelector('#cert-arq').onchange = (ev) => escolher(ev.target.files[0]);
+  const solta = j.querySelector('#cert-solta');
+  ['dragenter', 'dragover'].forEach((e) => solta.addEventListener(e, (ev) => { ev.preventDefault(); solta.classList.add('sobre'); }));
+  ['dragleave', 'drop'].forEach((e) => solta.addEventListener(e, (ev) => { ev.preventDefault(); solta.classList.remove('sobre'); }));
+  solta.addEventListener('drop', (ev) => escolher((ev.dataTransfer.files || [])[0]));
+  f.cliente_id.onchange = mostrarAtual; mostrarAtual();
+  j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
+  j.querySelector('#cert-ok').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    const cli = E.clientes.find((c) => c.id === f.cliente_id.value); if (!cli) throw new Error('Escolha a empresa.');
+    if (!arquivo && !f.validade.value) throw new Error('Escolha o arquivo do certificado (ou ao menos informe a validade).');
+    if (arquivo && !info) throw new Error('Não consegui ler o certificado: confira a senha.');
+    let doc = null;
+    if (arquivo) doc = await enviarDocumento(arquivo, { cliente_id: cli.id, grupo_id: cli.grupo_id || undefined, tipo: 'certificado' },
+      { nome: 'Certificado digital — ' + cli.nome + (arquivo.name.match(/\.(pfx|p12)$/i) || ['.pfx'])[0].toLowerCase(), validade: f.validade.value || null, obs: info && info.titular ? 'Titular: ' + info.titular : '' });
+    await q(sb.from('cliente_certificado').upsert(Object.assign({ cliente_id: cli.id, validade: f.validade.value || null, senha: f.senha.value || '' },
+      doc ? { documento_id: doc.id } : {}, info ? { titular: info.titular || '', emissor: info.emissor || '' } : {})).select('cliente_id'));
+    aviso('✓ Certificado de ' + cli.nome + ' salvo' + (f.validade.value ? ' — vence em ' + dataBR(f.validade.value) : '') + '.'); fecharJanela(j); if (depois) await depois();
+  });
+  return j;
 }

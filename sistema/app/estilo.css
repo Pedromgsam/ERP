@@ -1116,3 +1116,53 @@ button.emc-n{cursor:pointer}
 .emc-regra{margin-top:12px;border:1px solid var(--border);border-radius:12px;background:var(--surface);padding:10px 14px}
 .emc-regra summary{cursor:pointer;font-weight:600;color:var(--text2)}
 .emc-regra[open] summary{margin-bottom:10px}
+/* ── Backup 37: Rotina → Passivo — CAPAG cabe "Omisso" sem cortar ── */
+.rt-grade.rt-pas td.rt-c-capag{min-width:112px}
+.rt-grade.rt-pas select.rt-in.rt-capag{width:108px;padding-left:8px;padding-right:24px;text-overflow:clip}
+.mov-valores{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:end;grid-column:1/-1}
+.mov-valores[hidden]{display:none}
+.mov-vatual{display:flex;flex-direction:column;gap:4px;padding:8px 12px;border:1px dashed var(--border-strong);border-radius:8px;background:var(--surface2)}
+.mov-vatual span{font-size:12px;color:var(--text3);font-weight:600}
+.mov-vatual b{font-size:15px;color:var(--ink)}
+/* ── Backup 37: Planilha — Emissão e Pagamento com data, botões alinhados ── */
+.pl-tab{table-layout:fixed}
+.pl-tab td{vertical-align:middle}
+.pl-dt{display:inline-flex;align-items:center;justify-content:center;gap:3px;width:100%;min-height:24px;padding:2px 6px;border:1px solid transparent;border-radius:6px;background:transparent;font:600 11.5px var(--font-ui);color:var(--text3);white-space:nowrap}
+button.pl-dt{cursor:pointer}
+.pl-dt-ok{background:var(--green-lt);border-color:var(--green-bd);color:var(--green-d)}
+.pl-dt-atr{background:var(--red);border-color:var(--red);color:var(--on-cor)}
+.pl-dt-ab{border:1px dashed var(--border-strong)}
+.pl-dt-emitir{border-color:var(--amber-border);background:var(--amber-lt);color:var(--amber-d)}
+.pl-dt-cli{font-weight:500;font-style:italic}
+.pl-em2{display:flex;gap:3px}
+.pl-em2 .pl-dt{flex:1}
+.pl-dt-mk{flex:none;width:24px;min-height:24px;border:1px dashed var(--border-strong);border-radius:6px;background:transparent;color:var(--text3);cursor:pointer;font-size:11px}
+.pl-cab-bts{display:flex;gap:6px;flex-wrap:wrap}
+.pl-cab-bts .btn{flex:1;justify-content:center}
+.ge-forma{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:99px;background:var(--green-lt);border:1px solid var(--green-bd);color:var(--green-d);font:700 10.5px var(--font-ui);vertical-align:middle}
+.ge-forma-b{background:var(--surface2);border-color:var(--border);color:var(--text2)}
+.ac-emit-par{display:inline-flex;align-items:center;gap:6px;flex-wrap:nowrap}
+.ac-prazo{flex-wrap:wrap}
+.ac-prazo-ate{display:inline-flex;align-items:center;gap:4px;padding:0 8px;font-size:12px;color:var(--text2)}
+.ac-prazo-ate.ativo{color:var(--primario);font-weight:700}
+.ac-prazo-ate input{border:1px solid var(--border);border-radius:6px;padding:2px 4px;font:12px var(--font-ui);background:var(--surface);color:var(--ink)}
+.ge-it-txt > .ge-forma{display:inline-block!important;width:auto!important;margin:0 0 0 6px}
+/* Backup 37: agenda — lembretes e vencimentos; o que entra na agenda */
+.cal-tf.ag-lembrete,.ag-cor.ag-lembrete{background:var(--amber-lt);color:var(--amber-d);border-left:3px solid var(--amber)}
+.cal-tf.ag-venc,.ag-cor.ag-venc{background:var(--surface);color:var(--text2);border:1px dashed var(--border-strong)}
+.ag-fontes{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-top:8px;padding-top:8px;border-top:1px dashed var(--line);font-size:12px}
+.ag-fonte{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border:1px solid var(--border);border-radius:99px;cursor:pointer;color:var(--text2)}
+.ag-fonte:has(input:checked){background:var(--primario);border-color:var(--primario);color:var(--on-cor)}
+.ag-fonte input{margin:0;accent-color:var(--on-cor)}
+/* Backup 37: Documentos — enviar na barra do grupo e certificado digital */
+.doc-pasta > summary{display:flex;align-items:center;gap:10px}
+.doc-pasta-ac{margin-left:auto;display:inline-flex;gap:6px}
+@media (max-width:600px){details.doc-pasta>summary{flex-wrap:wrap}.doc-pasta-ac{margin-left:0;width:100%;flex-wrap:wrap}}
+.cert-atual{padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);font-size:13px}
+.cert-atual:empty{display:none}
+.cert-senha{display:flex;gap:6px}
+.cert-senha input{flex:1}
+.cert-lido{font-size:13px;padding:10px 12px;border-radius:10px}
+.cert-lido:empty{display:none}
+.cert-lido.cert-ok{background:var(--green-lt);border:1px solid var(--green-bd);color:var(--green-d)}
+.cert-lido.cert-erro{background:var(--red-lt);border:1px solid var(--red-bd);color:var(--red-d)}

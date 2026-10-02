@@ -422,3 +422,7 @@ body.gx-barra-topo .gs table td.num{font-size:13px}
 /* Backup 27: tabelas sem a seta (Painel abre a ficha; Processos abre a janela) — a coluna fica escondida, não some */
 body.gx-barra-topo table.gx-sem-seta th.gx-th-seta,body.gx-barra-topo table.gx-sem-seta td.gx-seta{display:none!important}
 #tblExecRanking tr.gx-linha-exp{cursor:pointer}
+/* Backup 37: contador da sessão na barra de cima (discreto) */
+#gs-sessao{font:500 11px var(--font-ui);color:var(--on-cor-2);white-space:nowrap;margin:0 2px;font-variant-numeric:tabular-nums}
+#gs-sessao.gs-sessao-fim{color:var(--red-lt);font-weight:700}
+@media (max-width:900px){#gs-sessao{display:none}}

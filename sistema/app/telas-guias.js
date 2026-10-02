@@ -18,16 +18,16 @@ async function dadosGuias(tabela) {
   const lim = somarDias(hojeISO(), GUIA_DIAS);
   let L;
   if (tabela === 'parcelas') {
-    L = (await q(sb.from('parcelas').select('id, numero, vencimento, pago, emissao, emitida_em, emitida_por, guia_doc, reenvio_em, reenvio_venc, reenvio_valor, reenvios, parcelamentos(id, empresa, natureza, local, numero, total_parcelas, valor_ultima_parcela, grupo_id, emitimos_guia, cnpj)')
-      .eq('pago', false).lte('vencimento', lim).order('vencimento')).catch(() => []))
+    L = (await buscarTodos(() => sb.from('parcelas').select('id, numero, vencimento, pago, emissao, emitida_em, emitida_por, guia_doc, reenvio_em, reenvio_venc, reenvio_valor, reenvios, parcelamentos(id, empresa, natureza, local, numero, total_parcelas, valor_ultima_parcela, grupo_id, emitimos_guia, cnpj)')
+      .eq('pago', false).lte('vencimento', lim).order('vencimento').order('id')).catch(() => []))
       .filter((x) => x.parcelamentos && x.parcelamentos.emitimos_guia !== false)
       .map((x) => { const p = x.parcelamentos;
         return Object.assign(x, { quem: p.empresa, detalhe: [p.natureza, p.local, p.numero ? 'nº ' + p.numero : ''].filter(Boolean).join(' · '),
           parcela: (x.numero || '?') + (p.total_parcelas ? '/' + p.total_parcelas : ''), valor: Number(p.valor_ultima_parcela) || 0, grupo_id: p.grupo_id,
           cliente_id: (E.clientes.find((c) => (soDigitos(p.cnpj) && soDigitos(c.cpf_cnpj) === soDigitos(p.cnpj)) || c.nome === p.empresa) || {}).id || null }); });
   } else {
-    L = (await q(sb.from('acordos').select('id, parcela, total_parcelas, vencimento, valor, pago, emissao, emitida_em, emitida_por, guia_doc, reenvio_em, reenvio_venc, reenvio_valor, reenvios, devedor, credor, processo, grupo_id, pix, banco')
-      .eq('pago', false).lte('vencimento', lim).order('vencimento')).catch(() => []))
+    L = (await buscarTodos(() => sb.from('acordos').select('id, parcela, total_parcelas, vencimento, valor, pago, emissao, emitida_em, emitida_por, guia_doc, reenvio_em, reenvio_venc, reenvio_valor, reenvios, devedor, credor, processo, grupo_id, pix, banco, forma_pagamento')
+      .eq('pago', false).lte('vencimento', lim).order('vencimento').order('id')).catch(() => []))
       .map((x) => Object.assign(x, { quem: x.devedor, detalhe: 'deve a ' + (x.credor || '—') + (x.processo ? ' · ' + x.processo : ''),
         parcela: (x.parcela || '?') + (x.total_parcelas ? '/' + x.total_parcelas : ''), valor: Number(x.valor) || 0,
         cliente_id: (E.clientes.find((c) => c.grupo_id === x.grupo_id && primeiroNome(c.nome) === primeiroNome(x.devedor)) || {}).id || null }));
@@ -264,26 +264,34 @@ function descricaoGuia(tabela, x) {
   const venc = x.vencimento < hojeISO() ? '⚠ VENCIDA — ' : '';
   if (tabela === 'parcelas') { const p = x.parcelamentos || {};
     return venc + 'Parcelamento ' + [p.local, p.natureza].filter(Boolean).join(' — ') + (p.numero ? ' · nº ' + p.numero : '') + ' · Parcela ' + parcDe(x); }
-  return venc + 'Acordo' + (x.processo ? ' — processo ' + x.processo : '') + ' · Parcela ' + parcDe(x) + ' · ' + (x.devedor || '') + ' × ' + (x.credor || '') +
-    (x.pix ? ' · PIX: ' + x.pix : '') + (x.banco ? ' · ' + x.banco : '');
+  return venc + 'Processo ' + (x.processo || '—') + ' · ' + parcOrd(x) + ' · ' + (x.devedor || '') + ' × ' + (x.credor || '');
 }
-// o texto (e-mail e WhatsApp) no modelo das antigas Notificações do ERP, um pouco melhorado
+// Backup 37: "8ª parcela de 40"; saudação pela hora; acordo pago por PIX ou por boleto (campo "Forma de pagamento" do acordo)
+const parcOrd = (x) => { const [n, t] = String(x.parcela || '').split('/'); return (/^\d+$/.test(n || '') ? n + 'ª parcela' : 'Parcela ' + (n || '?')) + (t ? ' de ' + t : ''); };
+const saudacaoGuia = () => { const hh = new Date().getHours(); return hh < 12 ? 'Bom dia!' : hh < 18 ? 'Boa tarde!' : 'Boa noite!'; };
+const ehPixGuia = (tabela, x) => tabela === 'acordos' && x.forma_pagamento === 'pix';
+const fechoGuias = (tabela, itens) => tabela === 'parcelas' ? 'Os arquivos seguem anexos. Depois de pagar, por favor nos envie o comprovante.'
+  : itens.every((x) => ehPixGuia(tabela, x)) ? 'Depois de pagar, por favor nos envie o comprovante.'
+  : itens.some((x) => ehPixGuia(tabela, x)) ? 'Os boletos seguem anexos (as parcelas por PIX têm a chave acima). Depois de pagar, por favor nos envie o comprovante.'
+  : (itens.length > 1 ? 'Os boletos seguem anexos.' : 'O boleto segue anexo.') + ' Depois de pagar, por favor nos envie o comprovante.';
+// o texto (e-mail e WhatsApp). Parcelamentos: modelo das antigas Notificações. Acordos (Backup 37): objetivo, como o escritório escreve
 function textoGuias(tabela, empresa, itens) {
   const vencida = itens.some((x) => x.vencimento < hojeISO());
-  const intro = tabela === 'parcelas'
-    ? 'Prezados,\n\nSeguem as guias ' + (itens.length > 1 ? 'dos parcelamentos' : 'do parcelamento') + ' em nome de ' + empresa + (vencida ? '.\nAtenção: há guia vencida — veja abaixo.' : ', com vencimento próximo.') + '\nAntes de pagar, confirme se a guia já não foi paga, para evitar pagamento em duplicidade.'
-    : 'Prezados,\n\nSeguem ' + (itens.length > 1 ? 'as parcelas dos acordos' : 'a parcela do acordo') + ' em nome de ' + empresa + (vencida ? '.\nAtenção: há parcela em atraso — veja abaixo.' : ', com vencimento próximo.') + '\nAntes de efetuar o pagamento, confirme se a parcela já não foi quitada, para evitar duplicidade.';
-  const blocos = itens.map((x) => {
-    const v = x._valor != null ? x._valor : x.valor;
-    if (tabela === 'parcelas') { const p = x.parcelamentos || {};
+  const valorDe = (x) => { const v = x._valor != null ? x._valor : x.valor; return v ? brl(v) : '[preencher]'; };
+  const tot = itens.reduce((s2, x) => s2 + (Number(x._valor != null ? x._valor : x.valor) || 0), 0), fecho = fechoGuias(tabela, itens);
+  if (tabela === 'parcelas') {
+    const intro = 'Prezados,\n\nSeguem as guias ' + (itens.length > 1 ? 'dos parcelamentos' : 'do parcelamento') + ' em nome de ' + empresa + (vencida ? '.\nAtenção: há guia vencida — veja abaixo.' : ', com vencimento próximo.') + '\nAntes de pagar, confirme se a guia já não foi paga, para evitar pagamento em duplicidade.';
+    const blocos = itens.map((x) => { const p = x.parcelamentos || {};
       return (x.vencimento < hojeISO() ? '⚠ GUIA VENCIDA\n' : '') + '*Parcelamento ' + [p.local, p.natureza].filter(Boolean).join(' — ') + '*' + (p.numero ? '\nNº do parcelamento: ' + p.numero : '') +
-        '\nParcela: ' + parcDe(x) + ' | Vencimento: ' + dataBR(x.vencimento) + '\nValor: ' + (v ? brl(v) : '[preencher]'); }
-    return (x.vencimento < hojeISO() ? '⚠ PARCELA VENCIDA\n' : '') + '*Acordo' + (x.processo ? ' — processo ' + x.processo : '') + '*\nPartes: ' + (x.devedor || '—') + ' × ' + (x.credor || '—') +
-      '\nParcela: ' + parcDe(x) + ' | Vencimento: ' + dataBR(x.vencimento) + '\nValor: ' + (v ? brl(v) : '[preencher]') + (x.pix ? '\nPIX: ' + x.pix : '') + (x.banco ? '\nBanco: ' + x.banco : '');
-  });
-  const tot = itens.reduce((s2, x) => s2 + (Number(x._valor != null ? x._valor : x.valor) || 0), 0);
-  return { intro, email: intro + '\n\nOs arquivos seguem anexos.',
-    zap: intro + '\n\n' + blocos.join('\n\n') + (itens.length > 1 ? '\n\n*Total: ' + brl(tot) + '*' : '') + '\n\nOs arquivos seguem anexos. Depois de pagar, por favor nos envie o comprovante.' };
+        '\nParcela: ' + parcDe(x) + ' | Vencimento: ' + dataBR(x.vencimento) + '\nValor: ' + valorDe(x); });
+    return { intro, fecho, email: intro + '\n\n' + fecho, zap: intro + '\n\n' + blocos.join('\n\n') + (itens.length > 1 ? '\n\n*Total: ' + brl(tot) + '*' : '') + '\n\n' + fecho };
+  }
+  const soPix = itens.every((x) => ehPixGuia(tabela, x));
+  const intro = saudacaoGuia() + (soPix ? '' : '\n\nSeguem as parcelas de acordos da ' + empresa + ' com vencimento neste mês ou em atraso.');
+  const blocos = itens.map((x) => (x.vencimento < hojeISO() ? '⚠ PARCELA EM ATRASO\n' : '') + 'Processo: ' + (x.processo || '—') + ' | Parcela: ' + parcOrd(x) +
+    '\nPartes: ' + (x.devedor || '—') + ' × ' + (x.credor || '—') + '\nVencimento: ' + dataBR(x._venc || x.vencimento) + '\nValor: ' + valorDe(x) +
+    (ehPixGuia(tabela, x) ? '\nPIX: ' + (x.pix || '[chave PIX]') + (x.banco ? '\nBanco: ' + x.banco : '') : ''));
+  return { intro, fecho, email: intro + '\n\n' + fecho, zap: intro + '\n\n' + blocos.join('\n\n') + (itens.length > 1 ? '\n\nTotal: ' + brl(tot) : '') + '\n\n' + fecho };
 }
 async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
   if (!E.clientes.length) await carregarCadastros();
@@ -296,13 +304,14 @@ async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
   if (!lista.length) return aviso('Nenhuma parcela em aberto para enviar.', true);
   const nome = tabela === 'parcelas' ? 'guias' : 'boletos';
   let atualK = chaveIni && emp[chaveIni] ? chaveIni : lista[0].k, arquivos = [];
-  const j = abrirJanela({ titulo: '✉ Enviar ' + nome + ' por empresa', larga: true,
+  const j = abrirJanela({ titulo: tabela === 'parcelas' ? '✉ Enviar guias por empresa' : '✉ Enviar parcelas de acordo por empresa', larga: true,
     corpo: '<div class="ge"><aside class="ge-emps" id="ge-emps"></aside><section class="ge-msg" id="ge-msg"></section></div>',
     rodape: '<span class="ge-tot" id="ge-tot"></span><div class="acoes ge-acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button>' +
       '<button type="button" class="btn btn-o" id="ge-previa" title="Ver o e-mail exatamente como o cliente vai receber">👁 Prévia do e-mail</button>' +
       '<button type="button" class="btn btn-v" id="ge-zap">💬 WhatsApp</button><button class="btn btn-p" type="button" id="ge-enviar">✉ Enviar e-mail</button></div>' });
   j.querySelector('.janela').classList.add('ge-janela');
   const $j = (sel) => j.querySelector(sel);
+  const pixItem = (i) => ehPixGuia(tabela, i) && i.pix ? { pix: i.pix, banco: i.banco || '' } : {};
   const atual = () => emp[atualK];
   const pintarEmps = () => {
     const grs = []; lista.forEach((e) => { const g = grs[grs.length - 1]; if (g && g.k === e.gid) g.emps.push(e); else grs.push({ k: e.gid, nome: e.gnome || 'Sem grupo', emps: [e] }); });
@@ -319,17 +328,18 @@ async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
       '<div class="ge-cab"><div><div class="ge-emp-nome">' + esc(e.nome) + '</div><div class="sub">' + esc([mascaraDoc(c.cpf_cnpj), e.gnome].filter(Boolean).join(' · ')) + '</div></div></div>' +
       '<div class="ge-dest"><label class="campo"><span>✉ E-mail (para)</span><input id="ge-para" type="text" autocomplete="off" placeholder="procurando o e-mail cadastrado…"></label>' +
         '<label class="campo"><span>💬 WhatsApp</span><input id="ge-tel" data-mascara="tel" inputmode="tel" value="' + esc(c.telefone || '') + '" placeholder="(37) 9 9999-9999"></label>' +
-        '<label class="campo ge-ass"><span>Assunto</span><input id="ge-assunto" value="' + esc((tabela === 'parcelas' ? 'Guias de parcelamento' : 'Boletos de acordo') + ' — ' + e.nome) + '"></label></div>' +
+        '<label class="campo ge-ass"><span>Assunto</span><input id="ge-assunto" value="' + esc((tabela === 'parcelas' ? 'Guias de parcelamento' : e.itens.every((x) => ehPixGuia(tabela, x)) ? 'Parcela de acordo' : 'Boletos de acordo') + ' — ' + e.nome) + '"></label></div>' +
       '<div class="ge-papel"><textarea id="ge-texto" rows="5">' + esc(t.intro) + '</textarea>' +
         '<div class="ge-itens">' + e.itens.map((x) => { const p = x.parcelamentos || {};
           return '<label class="ge-it' + (x.vencimento < hojeISO() ? ' ge-venc' : '') + '" data-ge="' + x.id + '"><input type="checkbox" checked aria-label="Incluir">' +
             '<span class="ge-it-txt">' + (x.vencimento < hojeISO() ? '<span class="ge-alerta">⚠ ' + (tabela === 'parcelas' ? 'GUIA VENCIDA' : 'PARCELA VENCIDA') + '</span>' : '') +
-              '<b>' + esc(tabela === 'parcelas' ? 'Parcelamento ' + [p.local, p.natureza].filter(Boolean).join(' — ') : 'Acordo' + (x.processo ? ' — processo ' + x.processo : '')) + '</b>' +
-              '<span>' + (tabela === 'parcelas' ? (p.numero ? 'Nº do parcelamento: <b>' + esc(p.numero) + '</b> · ' : '') : 'Partes: <b>' + esc(x.devedor || '—') + ' × ' + esc(x.credor || '—') + '</b> · ') +
-              'Parcela <b>' + esc(parcDe(x)) + '</b> · Vencimento <b>' + dataBR(x.vencimento) + '</b></span></span>' +
+              '<b>' + esc(tabela === 'parcelas' ? 'Parcelamento ' + [p.local, p.natureza].filter(Boolean).join(' — ') : 'Processo ' + (x.processo || '—') + ' · ' + parcOrd(x)) + '</b>' +
+              (ehPixGuia(tabela, x) ? ' <span class="ge-forma">PIX</span>' : tabela === 'acordos' ? ' <span class="ge-forma ge-forma-b">boleto</span>' : '') +
+              '<span>' + (tabela === 'parcelas' ? (p.numero ? 'Nº do parcelamento: <b>' + esc(p.numero) + '</b> · Parcela <b>' + esc(parcDe(x)) + '</b> · ' : 'Parcela <b>' + esc(parcDe(x)) + '</b> · ') : 'Partes: <b>' + esc(x.devedor || '—') + ' × ' + esc(x.credor || '—') + '</b> · ') +
+              'Vencimento <b>' + dataBR(x.vencimento) + '</b>' + (ehPixGuia(tabela, x) ? ' · PIX <b>' + esc(x.pix || '—') + '</b>' : '') + '</span></span>' +
             (x.vencimento < hojeISO() ? '<span class="ge-it-v ge-it-d"><small>Novo vencimento</small><input type="date" class="ge-novo-venc" value="' + fimDoMesGuia(hojeISO()) + '" aria-label="Novo vencimento da guia atualizada"></span>' : '') +
             '<span class="ge-it-v"><small>' + (x.vencimento < hojeISO() ? 'Valor atualizado' : 'Valor da guia') + '</small><span class="ge-vbox"><span class="ge-rs">R$</span><input class="ge-valor" data-mascara="nenhuma" inputmode="decimal" value="' + (x.valor ? valorParaCampo(x.valor) : '') + '" placeholder="0,00" aria-label="Valor"></span></span></label>'; }).join('') + '</div>' +
-        '<div class="ge-fecho">Os arquivos seguem anexos. Depois de pagar, por favor nos envie o comprovante.</div></div>' +
+        '<div class="ge-fecho">' + esc(t.fecho) + '</div></div>' +
       '<div class="ge-anexos"><label class="ge-drop"><input type="file" id="ge-arqs" accept=".pdf,image/*" multiple hidden><span>📎 <b>Anexar os PDFs</b> ' + (tabela === 'acordos' ? 'dos boletos' : 'das guias') + '</span><small>vão só no e-mail — não ficam guardados no sistema</small></label><div class="ge-chips" id="ge-chips"></div></div>';
     $j('#ge-arqs').onchange = () => { arquivos = arquivos.concat([...$j('#ge-arqs').files]); $j('#ge-arqs').value = ''; pintarChips(); };
     j.querySelectorAll('.ge-it input').forEach((i) => i.addEventListener('input', total));
@@ -360,8 +370,8 @@ async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
   $j('#ge-previa').onclick = (ev) => comBotao(ev.currentTarget, async () => {
     const its = marcados(), e = atual(); if (!its.length) throw new Error('Marque ao menos uma parcela.');
     const html = await q(sb.rpc('previa_guias_email', { p_cliente: e.cli || null,
-      p_itens: its.map((i) => ({ tabela, id: i.id, descricao: descricaoGuia(tabela, i), vencimento: i._venc || i.vencimento, valor: i._valor })),
-      p_assunto: $j('#ge-assunto').value.trim(), p_texto: $j('#ge-texto').value.trim() + '\n\nOs arquivos seguem anexos.' }));
+      p_itens: its.map((i) => Object.assign({ tabela, id: i.id, descricao: descricaoGuia(tabela, i), vencimento: i._venc || i.vencimento, valor: i._valor }, pixItem(i))),
+      p_assunto: $j('#ge-assunto').value.trim(), p_texto: $j('#ge-texto').value.trim() + '\n\n' + fechoGuias(tabela, its) }));
     const pj = abrirJanela({ titulo: '👁 ' + ($j('#ge-assunto').value.trim() || 'Prévia do e-mail'), larga: true, corpo: '<iframe class="ge-previa" title="Prévia do e-mail" sandbox></iframe>' });
     pj.querySelector('.ge-previa').srcdoc = html;
   });
@@ -373,10 +383,10 @@ async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
     if (arquivos.reduce((s2, f) => s2 + f.size, 0) > LIMITE_ANEXOS) throw new Error('Os PDFs somam mais de 15 MB: envie em dois e-mails.');
     const arqs = []; for (const f of arquivos) arqs.push(await lerArquivoB64(f));
     const r = await q(sb.rpc('enviar_guias_email', { p_cliente: e.cli || null, p_grupo: e.grupo || null,
-      p_itens: its.map((i) => i._venc
+      p_itens: its.map((i) => Object.assign(i._venc
         ? { tabela, id: i.id, descricao: descricaoGuia(tabela, i).replace(/^⚠ VENCIDA — /, '↻ Guia atualizada — ') + ' (vencia em ' + dataBR(i.vencimento) + ')', vencimento: i._venc, valor: i._valor, reenvio: true }
-        : { tabela, id: i.id, descricao: descricaoGuia(tabela, i), vencimento: i.vencimento, valor: i._valor }),
-      p_assunto: $j('#ge-assunto').value.trim(), p_texto: $j('#ge-texto').value.trim() + '\n\nOs arquivos seguem anexos.', p_docs: its.map((i) => i.guia_doc).filter(Boolean),
+        : { tabela, id: i.id, descricao: descricaoGuia(tabela, i), vencimento: i.vencimento, valor: i._valor }, pixItem(i))),
+      p_assunto: $j('#ge-assunto').value.trim(), p_texto: $j('#ge-texto').value.trim() + '\n\n' + fechoGuias(tabela, its), p_docs: its.map((i) => i.guia_doc).filter(Boolean),
       p_para: $j('#ge-para').value.trim() || null, p_arquivos: arqs }));
     aviso('✓ ' + plural(r.itens, 'parcela', 'parcelas') + (r.anexos ? ' e ' + plural(r.anexos, 'anexo', 'anexos') : '') + ': ' + msgEnvio(r) + ' As parcelas enviadas saíram do quadro.', r.status === 'retido');
     fecharJanela(j); if (depois) await depois(); if (window.ERP_RECARREGAR) window.ERP_RECARREGAR();
@@ -387,10 +397,51 @@ async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
 async function enviarAcordosSelecionados(ids, depois) {
   if (!ids || !ids.length) return aviso('Marque ao menos uma parcela.', true);
   if (!E.clientes.length) await carregarCadastros();
-  const L = (await q(sb.from('acordos').select('id, parcela, total_parcelas, vencimento, valor, pago, emissao, emitida_em, emitida_por, guia_doc, devedor, credor, processo, grupo_id, pix, banco').in('id', ids)))
+  const L = (await q(sb.from('acordos').select('id, parcela, total_parcelas, vencimento, valor, pago, emissao, emitida_em, emitida_por, guia_doc, devedor, credor, processo, grupo_id, pix, banco, forma_pagamento').in('id', ids)))
     .filter((x) => !x.pago)
     .map((x) => Object.assign(x, { quem: x.devedor, detalhe: 'deve a ' + (x.credor || '—') + (x.processo ? ' · ' + x.processo : ''), email_em: null,
       parcela: (x.parcela || '?') + (x.total_parcelas ? '/' + x.total_parcelas : ''), valor: Number(x.valor) || 0,
       cliente_id: (E.clientes.find((c) => c.grupo_id === x.grupo_id && primeiroNome(c.nome) === primeiroNome(x.devedor)) || {}).id || null }));
   return janelaGuiasEmpresa('acordos', L, null, depois);
+}
+
+// ═══ Backup 37: "🧾 Gerar guias" — abre o envio por empresa (a tela que expande com vencimento e valor atualizado) já com as parcelas a emitir:
+// em atraso + as que vencem neste mês. alcance: {} = tudo · {grupo_id} · {empresa} · {itens: ids de parcelamento ou chaves de acordo}.
+// proximas: true → se o parcelamento/acordo não tem nada a emitir agora, entra a PRÓXIMA parcela (mesmo futura).
+const chaveAcordoGuia = (a) => [a.grupo_id || '', a.devedor || '', a.credor || '', a.processo || ''].join('|');
+async function gerarGuias(tabela, alcance, depois) {
+  alcance = alcance || {};
+  if (!E.clientes.length) await carregarCadastros();
+  const h = hojeISO(), fim = fimDoMesGuia(h), parc = tabela === 'parcelas';
+  const cliDe = (doc, nome, grp) => (E.clientes.find((c) => (soDigitos(doc) && soDigitos(c.cpf_cnpj) === soDigitos(doc)) || (grp ? c.grupo_id === grp && primeiroNome(c.nome) === primeiroNome(nome) : c.nome === nome)) || {}).id || null;
+  let base;
+  if (parc) {
+    base = (await buscarTodos(() => { let c = sb.from('parcelas').select('id, parcelamento_id, numero, vencimento, pago, emissao, emitida_em, guia_doc, valor, parcelamentos!inner(id, empresa, natureza, local, numero, total_parcelas, valor_ultima_parcela, grupo_id, cnpj, emitimos_guia)').eq('pago', false);
+      if (alcance.grupo_id) c = c.eq('parcelamentos.grupo_id', alcance.grupo_id);
+      if (alcance.empresa) c = c.eq('parcelamentos.empresa', alcance.empresa);
+      if (alcance.itens) c = c.in('parcelamento_id', alcance.itens);
+      if (alcance.ids) c = c.in('id', alcance.ids);
+      return c.order('vencimento').order('id'); })).filter((x) => x.parcelamentos && (alcance.ids || x.parcelamentos.emitimos_guia !== false));
+    base.forEach((x) => { const p = x.parcelamentos;
+      Object.assign(x, { _k: p.id, quem: p.empresa, grupo_id: p.grupo_id, email_em: null, parcela: (x.numero || '?') + (p.total_parcelas ? '/' + p.total_parcelas : ''),
+        valor: Number(x.valor) > 0 ? Number(x.valor) : Number(p.valor_ultima_parcela) || 0, detalhe: [p.natureza, p.local].filter(Boolean).join(' · '), cliente_id: cliDe(p.cnpj, p.empresa) }); });
+  } else {
+    base = (await buscarTodos(() => { let c = sb.from('acordos').select('id, parcela, total_parcelas, vencimento, valor, pago, emissao, emitida_em, emitida_por, guia_doc, devedor, credor, processo, grupo_id, pix, banco, forma_pagamento').eq('pago', false);
+      if (alcance.grupo_id) c = c.eq('grupo_id', alcance.grupo_id);
+      if (alcance.empresa) c = c.eq('devedor', alcance.empresa);
+      return c.order('vencimento').order('id'); }));
+    if (alcance.itens) base = base.filter((a) => alcance.itens.includes(chaveAcordoGuia(a)) || alcance.itens.includes([a.processo || '', a.devedor || '', a.credor || ''].join('|')));
+    base.forEach((x) => Object.assign(x, { _k: chaveAcordoGuia(x), quem: x.devedor, email_em: null, detalhe: 'deve a ' + (x.credor || '—') + (x.processo ? ' · ' + x.processo : ''),
+      parcela: (x.parcela || '?') + (x.total_parcelas ? '/' + x.total_parcelas : ''), valor: Number(x.valor) || 0, cliente_id: cliDe('', x.devedor, x.grupo_id) }));
+  }
+  let L = alcance.ids ? base : base.filter((x) => x.vencimento && x.vencimento <= fim);   // parcelas escolhidas: vale até a futura
+  if (alcance.proximas) { const tem = new Set(L.map((x) => x._k)), prox = {};
+    base.forEach((x) => { if (!tem.has(x._k) && !prox[x._k]) prox[x._k] = x; });
+    L = L.concat(Object.values(prox)); }
+  if (!L.length) {
+    if (base.length && !alcance.proximas && confirm('Nada em atraso nem vencendo neste mês.\n\nEmitir a PRÓXIMA parcela ' + (parc ? 'de cada parcelamento' : 'de cada acordo') + ' deste recorte?'))
+      return gerarGuias(tabela, Object.assign({}, alcance, { proximas: true }), depois);
+    return aviso(base.length ? 'Nenhuma guia escolhida.' : 'Nenhuma parcela em aberto neste recorte' + (parc ? ' (que o escritório emita).' : '.'), !base.length);
+  }
+  return janelaGuiasEmpresa(tabela, L, null, depois);
 }

@@ -184,3 +184,6 @@ body:not(.dc-pronto) .dc-area{opacity:.5}
   .dc-embutido .dc-mod,.dc-embutido .dc-lado .dc-vis{padding:5px 10px;font-size:12.5px}
   .dc-embutido .dc-topo-vis{flex:none}
 }
+/* Backup 37: coluna do formulário um pouco mais larga */
+@media (min-width:761px){.dc-area{grid-template-columns:minmax(440px,600px) minmax(0,1fr)}}
+.dc-form > form > .dc-sec:first-child{margin-top:0}

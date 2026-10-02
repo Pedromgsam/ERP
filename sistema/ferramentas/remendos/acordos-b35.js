@@ -1,7 +1,24 @@
 // ═══ Backup 35 — Acordos: UMA aba "A pagar" (tudo o que venceu ou vai vencer e ainda não foi pago), como na planilha ═══
 // Colunas: ☐ · Grupo · Processo · Devedor · Credor · Parcela · Valor · Vencimento · Prazo · Situação · ação.
 // Marcar parcelas → "✉ Enviar por empresa" (o mesmo e-mail das guias); "🧾 Gerar boleto" emite uma parcela; paga vai para a aba "Pago".
-var _acSel={};
+var _acSel={}, _acPrazo='', _acPrazoAte='';
+// Backup 37: filtro de prazo da aba "A pagar" — vencidas · próximos 5/10/15/30 dias · até uma data (aberto)
+function _acPrazoBarra(){
+  var bus=$('busAcordVenc'); if(!bus) return;
+  var bar=$('acPrazoBar');
+  if(!bar){ bar=document.createElement('div'); bar.id='acPrazoBar'; bar.className='segmento gx-seg-cli ac-prazo'; bus.parentNode.insertBefore(bar,bus); }
+  var ops=[['','Todas'],['venc','Vencidas'],['5','5 dias'],['10','10 dias'],['15','15 dias'],['30','30 dias']];
+  bar.innerHTML=ops.map(function(o){ return '<button type="button" data-prazo="'+o[0]+'" class="'+(_acPrazo===o[0]?'ativo':'')+'">'+o[1]+'</button>'; }).join('')
+    +'<label class="ac-prazo-ate'+(_acPrazo==='ate'?' ativo':'')+'" title="Vencimento até esta data (filtro aberto)">até <input type="date" id="acPrazoAte" value="'+esc(_acPrazoAte)+'"></label>';
+  bar.onclick=function(ev){ var b=ev.target.closest('[data-prazo]'); if(!b) return; _acPrazo=b.dataset.prazo; renderAcordosVencTbl(); };
+  var ate=$('acPrazoAte'); if(ate) ate.onchange=function(){ _acPrazoAte=ate.value; _acPrazo=ate.value?'ate':''; renderAcordosVencTbl(); };
+}
+function _acPassaPrazo(dias, dv){
+  if(!_acPrazo) return true;
+  if(_acPrazo==='venc') return dias!==null&&dias<=0;
+  if(_acPrazo==='ate'){ if(!_acPrazoAte) return true; return !!dv&&dv<=new Date(_acPrazoAte+'T23:59:59'); }
+  return dias!==null&&dias<=Number(_acPrazo);   // inclui as vencidas: "o que vence nos próximos N dias" + o que já venceu
+}
 function setAcordTab(tab, btn){
   if(tab==='pagar') tab='vencidos';
   document.querySelectorAll('#acordTabBar .tb-btn').forEach(function(b){ b.classList.toggle('active', b.dataset.atab===(tab==='vencidos'?'vencidos':tab)); });
@@ -11,18 +28,20 @@ function setAcordTab(tab, btn){
   if(tab==='vencidos') renderAcordosVencTbl(); else renderAcordosPgTbl();
 }
 function renderAcordosVencTbl(){
-  var fD=($('fAcordVencDev')||{}).value||'', fG=($('fAcordVencGrupo')||{}).value||'', bus=(($('busAcordVenc')||{}).value||'').toLowerCase();
+  // Backup 37: grupo/devedor vêm só do filtro suspenso do topo (os seletores daqui saíram)
+  var bus=(($('busAcordVenc')||{}).value||'').toLowerCase();
   var hoje=new Date(); hoje.setHours(0,0,0,0);
+  _acPrazoBarra();
   var rows=filtrarAcordos().filter(function(a){
     if(a.situacao==='Pago') return false;
-    if(fD&&a.devedor!==fD) return false; if(fG&&a.grupo!==fG) return false;
+    var dv0=pDate(a.vencimento); if(!_acPassaPrazo(dv0?Math.round((dv0-hoje)/864e5):null, dv0)) return false;
     if(bus&&![a.devedor,a.credor,a.processo,a.grupo,a.responsavel].some(function(x){ return String(x||'').toLowerCase().indexOf(bus)>=0; })) return false;
     return true; })
     .sort(function(a,b){ return (pDate(a.vencimento)||new Date(0))-(pDate(b.vencimento)||new Date(0)); });
   var tab=document.querySelector('#acordTabVencidos table'); if(!tab) return;
   tab.classList.add('ac-ap');
   tab.querySelector('thead').innerHTML='<tr><th class="ac-ck"><input type="checkbox" id="acSelTodos" aria-label="Marcar todas"></th><th class="ac-c-grp">Grupo</th><th>Processo</th><th>Devedor</th><th>Credor</th>'
-    +'<th>Parcela</th><th>Valor</th><th>Vencimento</th><th>Prazo</th><th>Situação</th><th></th></tr>';
+    +'<th>Parcela</th><th>Valor</th><th>Vencimento</th><th>Prazo</th><th class="ac-c-acao">Emissão</th></tr>';
   var cnt=$('acordVencCount'); if(cnt) cnt.textContent='· '+fI(rows.length)+' parcela(s) a pagar';
   var pg=$('pagAcordosVenc'); if(pg) pg.innerHTML='';
   var el=$('tblAcordosVencBody'); if(!el) return;
@@ -35,9 +54,10 @@ function renderAcordosVencTbl(){
       +'<td class="mono">'+esc(a.parcela||'—')+' de '+esc(a.totalParc||'—')+'</td><td class="mono"><strong>'+fF(a.valor||0)+'</strong></td>'
       +'<td class="mono">'+esc(a.vencimento||'—')+'</td>'
       +'<td class="mono"><span class="'+(dias===null?'':_diasCls(dias))+'">'+(dias===null?'—':dias<0?Math.abs(dias)+' d atraso':dias===0?'vence hoje':dias+' dias')+'</span></td>'
-      +'<td><span class="lg-st '+(venc?'lg-st-r':'lg-st-g')+'">'+(venc?'Vencido':'OK')+'</span>'+(emit?' <span class="lg-em lg-em-ok" title="'+esc(a.emitidaEm?'emitido em '+a.emitidaEm:'')+'">✓ emitido</span>':'')+'</td>'
-      +'<td class="ac-ap-ac"><button type="button" class="ac-bt-boleto" data-ac-guia="'+a._id+'" title="Emitir o boleto/guia desta parcela e enviar ao cliente">🧾 '+(emit?'Reemitir':'Emitir')+'</button></td></tr>';
-  }).join(''):'<tr><td colspan="11">'+emp('Nenhuma parcela a pagar — tudo em dia! ✅')+'</td></tr>';
+      // Backup 37: sem "Situação" (o prazo já diz); "✓ emitido" fica colado no botão Emitir
+      +'<td class="ac-ap-ac ac-c-acao"><span class="ac-emit-par"><button type="button" class="ac-bt-boleto" data-ac-guia="'+a._id+'" title="Emitir o boleto (ou a cobrança por PIX) desta parcela e enviar ao cliente">🧾 '+(emit?'Reemitir':'Emitir')+'</button>'
+        +(emit?'<span class="lg-em lg-em-ok" title="'+esc(a.emitidaEm?'emitido em '+a.emitidaEm:'')+'">✓ emitido'+(a.emitidaEm?' '+esc(String(a.emitidaEm).slice(0,5)):'')+'</span>':'')+(a.formaPag==='pix'?'<span class="ge-forma">PIX</span>':'')+'</span></td></tr>';
+  }).join(''):'<tr><td colspan="10">'+emp('Nenhuma parcela a pagar — tudo em dia! ✅')+'</td></tr>';
   _acBarraSel();
   el.onchange=function(ev){ var c=ev.target.closest('[data-ac-sel]'); if(!c) return; if(c.checked) _acSel[c.dataset.acSel]=1; else delete _acSel[c.dataset.acSel]; _acBarraSel(); };
   el.onclick=function(ev){ var b=ev.target.closest('[data-ac-guia]'); if(!b) return; ev.stopPropagation();

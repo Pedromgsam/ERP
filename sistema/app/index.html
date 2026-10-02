@@ -45,14 +45,14 @@
 <script src="vendor/chart.umd.js?v=3402f6de" defer></script>
 <script src="vendor/supabase.js?v=16aeff36"></script>
 <script src="config.js"></script>
-<script src="erp-dados.js?v=5cab09b7"></script>
+<script src="erp-dados.js?v=9a3e7433"></script>
 <link rel="stylesheet" href="editor.css?v=7747e46f">
-<link rel="stylesheet" href="erp-telas.css?v=9687b172">
-<script src="editor.js?v=15c9111e" defer></script>
-<script src="erp-telas.js?v=91f51c0d" defer></script>
-<link rel="stylesheet" href="gs.css?v=94c9ee30">
+<link rel="stylesheet" href="erp-telas.css?v=22ce828d">
+<script src="editor.js?v=cf6a9f3e" defer></script>
+<script src="erp-telas.js?v=2be5b329" defer></script>
+<link rel="stylesheet" href="gs.css?v=6d2ee50d">
 <script src="importador.js?v=4fb0d655" defer></script>
-<script src="gestao-embutida.js?v=e86522ea" defer></script>
+<script src="gestao-embutida.js?v=2af1dc28" defer></script>
 <script>
 
 
@@ -1615,9 +1615,9 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
 .ep-val:focus{border-bottom-color:var(--navy);background:#FFF8E1}
 .ep-val::placeholder{color:var(--text4);font-weight:400}
 </style>
-<link rel="stylesheet" href="tokens.css?v=1263585f">
+<link rel="stylesheet" href="tokens.css?v=485f2b1b">
 <link rel="stylesheet" href="tema-escuro.css?v=09e344f4">
-<link rel="stylesheet" href="design.css?v=ea322608">
+<link rel="stylesheet" href="design.css?v=00d6e0cf">
 <script>try{if(localStorage.getItem("erp_tema")==="escuro")document.documentElement.setAttribute("data-tema","escuro")}catch(e){}</script>
 </head>
 <body>
@@ -1910,6 +1910,7 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
           <th style="width:88px;cursor:pointer" onclick="sortExecRank('age')"    class="s">AGE/MG</th>
           <th style="width:52px;cursor:pointer" onclick="sortExecRank('ceat')"   class="s">CEAT</th>
           <th style="width:95px;cursor:pointer" onclick="sortExecRank('total')"  class="s">Total</th>
+          <th style="width:96px">Em operação</th>
           <th style="width:58px;cursor:pointer" onclick="sortExecRank('capag')"  class="s">CAPAG</th>
           <th>Situação</th>
         </tr></thead>
@@ -3858,10 +3859,11 @@ function renderExecRanking(){
       <td class="mono" style="font-size:12.5px">${cellAge}</td>
       <td class="mono" style="font-size:12.5px;text-align:center">${r.ceat>0?r.ceat:'-'}</td>
       <td class="mono">${totVal>0?`<strong>${fF(totVal)}</strong>`:'<span style="color:var(--text4)">—</span>'}</td>
+      <td style="text-align:center" class="er-op">${/^sim$/i.test(r.emOperacao||'')?'<span class="tag tg">Sim</span>':/^n[aã]o$/i.test(r.emOperacao||'')?'<span class="tag tr">Não</span>':'<span style="color:var(--text4)">—</span>'}</td>
       <td style="text-align:center">${cBadge(r.capag)}</td>
-      <td><span class="tag ${sC(r)}" style="font-size:10.5px">${r.sitCadastral||'—'}</span></td>
+      <td class="er-sit"><span class="tag ${sC(r)}" style="font-size:10.5px">${String(r.sitCadastral||'—').toLowerCase().replace(/^./,function(c){return c.toUpperCase();})}</span></td>
     </tr>`;
-  }).join(''):`<tr><td colspan="10">${emp()}</td></tr>`;
+  }).join(''):`<tr><td colspan="11">${emp()}</td></tr>`;
 }
 function sortExecRank(c){
   if(_execRankSort.col===c)_execRankSort.asc=!_execRankSort.asc;
@@ -4501,11 +4503,11 @@ function renderParcAnalise(){
       guias:p.emitimosGuia===false?0:_lgFaltaEmitir(p.parcelas, function(pa){ return !!pa.emitidaEm||/sim|emitid/i.test(pa.emissao||''); }, function(pa){ return String(pa.pagamento||'').toUpperCase()==='SIM'; }),
       sub:[p.local||p.orgao||'',p.natureza||'',p.numero?'nº '+p.numero:''].filter(Boolean).map(esc).join(' · '),
       abertas:(p.parcelas||[]).filter(function(pa){ return String(pa.pagamento||'').toUpperCase()!=='SIM'; }).map(function(pa){ return {d:pDate(pa.vencimento), v:Number(pa.valor)||v}; })}; });
-  var corpo=_lgRender({itens:itens, porEmpresa:!!(_parcF.grupo||(typeof FILTROS!=='undefined'&&FILTROS.grupo)), porGrupo:!_parcF.grupo, abertos:_parcGrpAbertos, fnGrupo:'_parcAbrirGrupo', fnItem:'_parcAbrir', rotulo:'parcelamento', cab:'Grupo / parcelamento'});
+  var corpo=_lgRender({itens:itens, porEmpresa:!!(typeof FILTROS!=='undefined'&&FILTROS.grupo), porGrupo:true, abertos:_parcGrpAbertos, fnGrupo:'_parcAbrirGrupo', fnItem:'_parcAbrir', rotulo:'parcelamento', tabela:'parcelas', cab:'Grupo / parcelamento'});
   var grupos=[...new Set(TODOS.map(function(x){return x.g;}))].sort(function(a,b){return a.localeCompare(b,'pt-BR');});
   var sel=function(id,k,ops){ return '<select class="fsel" id="'+id+'" aria-label="'+ops[0][1]+'" onchange="_parcFiltro(\''+k+'\',this.value)">'+ops.map(function(o){ return '<option value="'+esc(o[0])+'"'+(_parcF[k]===o[0]?' selected':'')+'>'+esc(o[1])+'</option>'; }).join('')+'</select>'; };
   var filtros='<div class="pcx-filtros">'
-    +sel('parcFGrupo','grupo',[['','Todos os grupos']].concat(grupos.map(function(g){return [g,g];})))
+    // Backup 37: sem "Todos os grupos" aqui — o grupo/empresa vêm do filtro suspenso do topo (canto superior direito)
     +'<div class="segmento gx-seg-cli" id="parcFSit">'+[['','Todas'],['atraso','Em atraso'],['risco','Risco de rescisão'],['dia','Em dia']].map(function(o){ return '<button type="button" class="'+(_parcF.sit===o[0]?'ativo':'')+'" onclick="_parcFiltro(\'sit\',\''+o[0]+'\')">'+o[1]+'</button>'; }).join('')+'</div>'
     +'<span class="sub">'+L.length+' de '+TODOS.length+'</span></div>';
   el.innerHTML=exBloco('exParcSit','Situação dos parcelamentos',
@@ -4873,7 +4875,8 @@ function _lgRender(o){
       +'<td><div class="lg-t-pag"><span><b class="lg-verde">'+x.pagas+'</b> de '+(x.total||'?')+'</span><span class="lg-card-bar"><span style="width:'+pc+'%"></span></span></div></td>'
       +'<td class="lg-t-num">'+_lgFmtV(x.falta)+'</td>'
       +'<td>'+_lgEsteMesTxt(m)+'</td>'
-      +'<td>'+_lgSit(x.atr,x.atr>=2,x.concluido)+(x.guias?_lgGuiaDiscreta(x.guias,false):'')+'</td><td class="lg-t-seta">›</td></tr>'; };
+      +'<td>'+_lgSit(x.atr,x.atr>=2,x.concluido)+(x.guias?_lgGuiaDiscreta(x.guias,false):'')+'</td>'
+      +'<td class="lg-t-gu">'+(o.tabela&&!x.concluido?'<button type="button" class="lg-bt-gu" onclick="_lgGuias(event,\''+o.tabela+'\',\'item\',\''+_lgEsc(x.k)+'\')" title="Gerar as guias deste '+o.rotulo+' (em atraso + do mês; se não houver, a próxima)">🧾</button>':'')+'</td><td class="lg-t-seta">›</td></tr>'; };
   var cards=gs.map(function(g){
     var l=G[g].slice().sort(function(a,b){ return b.atr-a.atr || String(a.titulo+a.sub).localeCompare(String(b.titulo+b.sub),'pt-BR'); }), ab=sozinho||!!o.abertos[g];
     var soma=function(f){ return l.reduce(function(s,x){ return s+(Number(x[f])||0); },0); };
@@ -4887,12 +4890,27 @@ function _lgRender(o){
       +'<div class="lg-card-lin"><span>Falta pagar</span><b>'+_lgFmtV(soma('falta'))+'</b></div>'
       +'<div class="lg-card-lin lg-card-mes" title="Parcelas vencidas sem pagamento + as que vencem até o fim deste mês"><span>A pagar este mês</span><span>'+_lgEsteMesTxt(m)+'</span></div></div>';
     var painel=ab?'<div class="lg-painel"><div class="lg-painel-tit"><b>'+esc(g)+'</b><span class="lg-sub">'+l.length+' '+o.rotulo+(l.length>1?'s':'')+' · clique na linha para ver as parcelas</span>'
+      +(o.tabela?'<button type="button" class="lg-bt-guias" onclick="_lgGuias(event,\''+o.tabela+'\',\''+(umGrupo?'empresa':'grupo')+'\',\''+_lgEsc(g)+'\')" title="Abre o envio já com as parcelas em atraso e as que vencem neste mês">🧾 Gerar guias '+(umGrupo?'desta empresa':'deste grupo')+'</button>':'')
       +(sozinho?'':'<button type="button" class="lg-fechar" onclick="'+o.fnGrupo+'(\''+_lgEsc(g)+'\')" aria-label="Fechar">✕</button>')+'</div>'
-      +'<table class="lg-t"><colgroup><col><col style="width:150px"><col style="width:130px"><col style="width:210px"><col style="width:230px"><col style="width:28px"></colgroup>'
-      +'<thead><tr><th>'+(umGrupo?o.rotulo.charAt(0).toUpperCase()+o.rotulo.slice(1):'Empresa / '+o.rotulo)+'</th><th>Pagas</th><th class="lg-t-num">Falta</th><th>A pagar este mês</th><th>Situação</th><th></th></tr></thead>'
+      +'<table class="lg-t"><colgroup><col><col style="width:150px"><col style="width:130px"><col style="width:210px"><col style="width:230px"><col style="width:44px"><col style="width:28px"></colgroup>'
+      +'<thead><tr><th>'+(umGrupo?o.rotulo.charAt(0).toUpperCase()+o.rotulo.slice(1):'Empresa / '+o.rotulo)+'</th><th>Pagas</th><th class="lg-t-num">Falta</th><th>A pagar este mês</th><th>Situação</th><th class="lg-t-gu" title="Gerar guias">Guias</th><th></th></tr></thead>'
       +'<tbody>'+l.map(linhaItem).join('')+'</tbody></table></div>':'';
     return card+painel; }).join('');
-  return '<div class="lg lg-min lg-cards">'+cards+'</div>';
+  return (o.tabela?'<div class="lg-topo-guias"><button type="button" class="lg-bt-guias lg-bt-guias-geral" onclick="_lgGuias(event,\''+o.tabela+'\',\'tudo\',\'\')" title="Abre o envio com todas as empresas: parcelas em atraso + as que vencem neste mês">🧾 Gerar guias — em atraso + vencem neste mês</button></div>':'')
+    +'<div class="lg lg-min lg-cards">'+cards+'</div>';
+}
+// Backup 37: "Gerar guias" — geral (respeita o grupo/empresa do filtro do topo), do grupo, da empresa ou de um item (parcelamento/acordo)
+function _lgGuias(ev, tabela, escopo, chave){
+  if(ev){ ev.stopPropagation(); ev.preventDefault(); }
+  if(!window.GS||!GS.gerarGuias) return;
+  var gid=function(nome){ var g=(GS.E.grupos||[]).find(function(x){ return x.nome===nome; }); return g?g.id:null; };
+  var F=typeof FILTROS!=='undefined'?FILTROS:{}, a={};
+  if(escopo==='tudo'){ if(F.grupo&&gid(F.grupo)) a.grupo_id=gid(F.grupo); if(F.empresa) a.empresa=F.empresa; }
+  else if(escopo==='grupo'){ var id=gid(chave); if(id) a.grupo_id=id; else return alert('Grupo sem cadastro: use "Gerar guias" geral.'); }
+  else if(escopo==='empresa') a.empresa=chave;
+  else a.itens=[tabela==='parcelas'?String(chave).split('|')[0]:chave];
+  if(escopo==='item') a.proximas=true;
+  GS.gerarGuias(tabela, a, function(){ if(window.ERP_RECARREGAR) window.ERP_RECARREGAR(); });
 }
 // Backup 34: parcelas do detalhamento (Parcelamentos e Acordos) em LISTA — igual a "Vencidos — URGENTE":
 // Parcela · Vencimento · Valor · Situação (pagamento + guia emitida / não emitida / o cliente emite)
@@ -4957,7 +4975,7 @@ function _acordosAnalise(ac){
     sub:'deve a <b>'+esc(g.a.credor||'—')+'</b>'+(g.a.processo?' · '+esc(g.a.processo):'')+(_acVisao==='lista'&&g.a.grupo?' · '+esc(g.a.grupo):''),
     abertas:g.l.filter(function(a){ return !pago(a); }).map(function(a){ return {d:pDate(a.vencimento), v:v(a)}; })}; });
   var vis=_acVisSeg();
-  var linhas=_lgRender({itens:itens, porEmpresa:!!(typeof FILTROS!=='undefined'&&FILTROS.grupo), porGrupo:true, abertos:_acGrpAbertos, fnGrupo:'_acAbrirGrupo', fnItem:'_acAbrir', rotulo:'acordo', cab:'Grupo / acordo'});
+  var linhas=_lgRender({itens:itens, porEmpresa:!!(typeof FILTROS!=='undefined'&&FILTROS.grupo), porGrupo:true, abertos:_acGrpAbertos, fnGrupo:'_acAbrirGrupo', fnItem:'_acAbrir', rotulo:'acordo', tabela:'acordos', cab:'Grupo / acordo'});
   el.innerHTML=exBloco('exAcSit','Situação dos acordos',
     '<div class="lg-resumo"><span>Já pago <b class="lg-verde">'+_faFT(soma(ac.filter(pago)))+'</b></span><span>Falta <b>'+_faFT(soma(ac.filter(function(a){return !pago(a);})))+'</b></span>'
    + '<span>Vence este mês <b>'+_faFT(soma(ac.filter(noMes)))+'</b></span><span>Em atraso <b'+(ac.some(atrasada)?' class="lg-vermelho"':'')+'>'+_faFT(soma(ac.filter(atrasada)))+'</b> <small>'+ac.filter(atrasada).length+' parcela(s)</small></span></div>'
@@ -5226,7 +5244,24 @@ function renderAcordosVencTbl(){
 // ═══ Backup 35 — Acordos: UMA aba "A pagar" (tudo o que venceu ou vai vencer e ainda não foi pago), como na planilha ═══
 // Colunas: ☐ · Grupo · Processo · Devedor · Credor · Parcela · Valor · Vencimento · Prazo · Situação · ação.
 // Marcar parcelas → "✉ Enviar por empresa" (o mesmo e-mail das guias); "🧾 Gerar boleto" emite uma parcela; paga vai para a aba "Pago".
-var _acSel={};
+var _acSel={}, _acPrazo='', _acPrazoAte='';
+// Backup 37: filtro de prazo da aba "A pagar" — vencidas · próximos 5/10/15/30 dias · até uma data (aberto)
+function _acPrazoBarra(){
+  var bus=$('busAcordVenc'); if(!bus) return;
+  var bar=$('acPrazoBar');
+  if(!bar){ bar=document.createElement('div'); bar.id='acPrazoBar'; bar.className='segmento gx-seg-cli ac-prazo'; bus.parentNode.insertBefore(bar,bus); }
+  var ops=[['','Todas'],['venc','Vencidas'],['5','5 dias'],['10','10 dias'],['15','15 dias'],['30','30 dias']];
+  bar.innerHTML=ops.map(function(o){ return '<button type="button" data-prazo="'+o[0]+'" class="'+(_acPrazo===o[0]?'ativo':'')+'">'+o[1]+'</button>'; }).join('')
+    +'<label class="ac-prazo-ate'+(_acPrazo==='ate'?' ativo':'')+'" title="Vencimento até esta data (filtro aberto)">até <input type="date" id="acPrazoAte" value="'+esc(_acPrazoAte)+'"></label>';
+  bar.onclick=function(ev){ var b=ev.target.closest('[data-prazo]'); if(!b) return; _acPrazo=b.dataset.prazo; renderAcordosVencTbl(); };
+  var ate=$('acPrazoAte'); if(ate) ate.onchange=function(){ _acPrazoAte=ate.value; _acPrazo=ate.value?'ate':''; renderAcordosVencTbl(); };
+}
+function _acPassaPrazo(dias, dv){
+  if(!_acPrazo) return true;
+  if(_acPrazo==='venc') return dias!==null&&dias<=0;
+  if(_acPrazo==='ate'){ if(!_acPrazoAte) return true; return !!dv&&dv<=new Date(_acPrazoAte+'T23:59:59'); }
+  return dias!==null&&dias<=Number(_acPrazo);   // inclui as vencidas: "o que vence nos próximos N dias" + o que já venceu
+}
 function setAcordTab(tab, btn){
   if(tab==='pagar') tab='vencidos';
   document.querySelectorAll('#acordTabBar .tb-btn').forEach(function(b){ b.classList.toggle('active', b.dataset.atab===(tab==='vencidos'?'vencidos':tab)); });
@@ -5236,18 +5271,20 @@ function setAcordTab(tab, btn){
   if(tab==='vencidos') renderAcordosVencTbl(); else renderAcordosPgTbl();
 }
 function renderAcordosVencTbl(){
-  var fD=($('fAcordVencDev')||{}).value||'', fG=($('fAcordVencGrupo')||{}).value||'', bus=(($('busAcordVenc')||{}).value||'').toLowerCase();
+  // Backup 37: grupo/devedor vêm só do filtro suspenso do topo (os seletores daqui saíram)
+  var bus=(($('busAcordVenc')||{}).value||'').toLowerCase();
   var hoje=new Date(); hoje.setHours(0,0,0,0);
+  _acPrazoBarra();
   var rows=filtrarAcordos().filter(function(a){
     if(a.situacao==='Pago') return false;
-    if(fD&&a.devedor!==fD) return false; if(fG&&a.grupo!==fG) return false;
+    var dv0=pDate(a.vencimento); if(!_acPassaPrazo(dv0?Math.round((dv0-hoje)/864e5):null, dv0)) return false;
     if(bus&&![a.devedor,a.credor,a.processo,a.grupo,a.responsavel].some(function(x){ return String(x||'').toLowerCase().indexOf(bus)>=0; })) return false;
     return true; })
     .sort(function(a,b){ return (pDate(a.vencimento)||new Date(0))-(pDate(b.vencimento)||new Date(0)); });
   var tab=document.querySelector('#acordTabVencidos table'); if(!tab) return;
   tab.classList.add('ac-ap');
   tab.querySelector('thead').innerHTML='<tr><th class="ac-ck"><input type="checkbox" id="acSelTodos" aria-label="Marcar todas"></th><th class="ac-c-grp">Grupo</th><th>Processo</th><th>Devedor</th><th>Credor</th>'
-    +'<th>Parcela</th><th>Valor</th><th>Vencimento</th><th>Prazo</th><th>Situação</th><th></th></tr>';
+    +'<th>Parcela</th><th>Valor</th><th>Vencimento</th><th>Prazo</th><th class="ac-c-acao">Emissão</th></tr>';
   var cnt=$('acordVencCount'); if(cnt) cnt.textContent='· '+fI(rows.length)+' parcela(s) a pagar';
   var pg=$('pagAcordosVenc'); if(pg) pg.innerHTML='';
   var el=$('tblAcordosVencBody'); if(!el) return;
@@ -5260,9 +5297,10 @@ function renderAcordosVencTbl(){
       +'<td class="mono">'+esc(a.parcela||'—')+' de '+esc(a.totalParc||'—')+'</td><td class="mono"><strong>'+fF(a.valor||0)+'</strong></td>'
       +'<td class="mono">'+esc(a.vencimento||'—')+'</td>'
       +'<td class="mono"><span class="'+(dias===null?'':_diasCls(dias))+'">'+(dias===null?'—':dias<0?Math.abs(dias)+' d atraso':dias===0?'vence hoje':dias+' dias')+'</span></td>'
-      +'<td><span class="lg-st '+(venc?'lg-st-r':'lg-st-g')+'">'+(venc?'Vencido':'OK')+'</span>'+(emit?' <span class="lg-em lg-em-ok" title="'+esc(a.emitidaEm?'emitido em '+a.emitidaEm:'')+'">✓ emitido</span>':'')+'</td>'
-      +'<td class="ac-ap-ac"><button type="button" class="ac-bt-boleto" data-ac-guia="'+a._id+'" title="Emitir o boleto/guia desta parcela e enviar ao cliente">🧾 '+(emit?'Reemitir':'Emitir')+'</button></td></tr>';
-  }).join(''):'<tr><td colspan="11">'+emp('Nenhuma parcela a pagar — tudo em dia! ✅')+'</td></tr>';
+      // Backup 37: sem "Situação" (o prazo já diz); "✓ emitido" fica colado no botão Emitir
+      +'<td class="ac-ap-ac ac-c-acao"><span class="ac-emit-par"><button type="button" class="ac-bt-boleto" data-ac-guia="'+a._id+'" title="Emitir o boleto (ou a cobrança por PIX) desta parcela e enviar ao cliente">🧾 '+(emit?'Reemitir':'Emitir')+'</button>'
+        +(emit?'<span class="lg-em lg-em-ok" title="'+esc(a.emitidaEm?'emitido em '+a.emitidaEm:'')+'">✓ emitido'+(a.emitidaEm?' '+esc(String(a.emitidaEm).slice(0,5)):'')+'</span>':'')+(a.formaPag==='pix'?'<span class="ge-forma">PIX</span>':'')+'</span></td></tr>';
+  }).join(''):'<tr><td colspan="10">'+emp('Nenhuma parcela a pagar — tudo em dia! ✅')+'</td></tr>';
   _acBarraSel();
   el.onchange=function(ev){ var c=ev.target.closest('[data-ac-sel]'); if(!c) return; if(c.checked) _acSel[c.dataset.acSel]=1; else delete _acSel[c.dataset.acSel]; _acBarraSel(); };
   el.onclick=function(ev){ var b=ev.target.closest('[data-ac-guia]'); if(!b) return; ev.stopPropagation();
@@ -5847,7 +5885,7 @@ function _faPintarCorpo(){
   +     '<div class="cc-d">10 primeiros por valor recebido</div></div></div>'
   +     '<div class="cb" style="height:240px"><canvas id="cFaGrupo"></canvas></div></div>'
   + '</div>'
-  + (vencidos.length?'<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t">Em atraso</div><div class="cc-d">todos os meses · mesmos recortes de pessoa, tipo e grupo</div></div></div>'+_faTabelaAtraso(vencidos.slice().sort(function(a,b){return (pDate(a.vencimento)||0)-(pDate(b.vencimento)||0);}))+'</div>':'');
+  + (false&&vencidos.length?'<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t">Em atraso</div><div class="cc-d">todos os meses · mesmos recortes de pessoa, tipo e grupo</div></div></div>'+_faTabelaAtraso(vencidos.slice().sort(function(a,b){return (pDate(a.vencimento)||0)-(pDate(b.vencimento)||0);}))+'</div>':'');
 
   _faGraficos(receita);
 }
@@ -7036,7 +7074,7 @@ function _fcPintarCorpoAntigo(){
   + '<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t">Comparativo por '+esc(L.tituloQuem.toLowerCase())+'</div>'
   +   '<div class="cc-d">mesmo período e mesmos recortes acima</div></div></div>'
   +   _fcTabelaPessoas(_fcPessoas()) + '</div>'
-  + (vencidos.length?'<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t">Em atraso</div><div class="cc-d">todos os meses · mesmos recortes</div></div></div>'+_fcTabelaDetalhe(vencidos)+'</div>':'');
+  + (false&&vencidos.length?'<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t">Em atraso</div><div class="cc-d">todos os meses · mesmos recortes</div></div></div>'+_fcTabelaDetalhe(vencidos)+'</div>':'');
 
   _fcGraficos(fechado);
 }
@@ -9267,7 +9305,7 @@ document.addEventListener('click',e=>{
 
 const AC_SESSION_KEY  = 'ac_auth_v1';
 const AC_RATE_KEY     = 'ac_rate_v1';
-const AC_SESSION_TTL  = 30 * 60 * 1000;
+const AC_SESSION_TTL  = 60 * 60 * 1000;
 const AC_MAX_ATTEMPTS = 5;
 const AC_LOCKOUT_MS   = 15 * 60 * 1000;
 let   _acInactivityTimer = null;
@@ -9352,6 +9390,8 @@ function _acLimparSessao() {
 
 function _acResetTimer() {
   clearTimeout(_acInactivityTimer);
+  try { if (window.AC_SESSION && Date.now() - (window._acUltGrav || 0) > 20000) { window._acUltGrav = Date.now(); window.AC_SESSION.expira = Date.now() + AC_SESSION_TTL; sessionStorage.setItem(AC_SESSION_KEY, JSON.stringify(window.AC_SESSION)); } } catch (e) {}
+  window._acUltAtiv = Date.now();
   _acInactivityTimer = setTimeout(() => {
     toast('⏰ Sessão expirada por inatividade.');
     acLogout();

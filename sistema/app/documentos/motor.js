@@ -182,7 +182,8 @@
     if (E.vista === 'escritorio') return desenharEscritorio();
     const m = E.modelo;
     $('#dc-area').innerHTML =
-      '<section class="dc-form" aria-label="Formulário"><div class="dc-form-hd"><span class="dc-ic">' + m.icone + '</span><div><h2>' + esc(m.nome) + '</h2><p>' + esc(m.descricao) + '</p></div></div>' +
+      // Backup 37: sem o cabeçalho "📜 Procuração · …" — o modelo já está marcado na barra de cima
+      '<section class="dc-form" aria-label="Formulário — ' + esc(m.nome) + '">' +
         '<form id="dc-campos" autocomplete="off" novalidate></form></section>' +
       '<section class="dc-prev" aria-label="Prévia do documento"><div class="dc-barra">' +
         '<span class="dc-status" id="dc-status"></span>' +

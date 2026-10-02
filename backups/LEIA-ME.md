@@ -42,6 +42,7 @@ versão foi ao ar**. O número cresce a cada entrega.
 | 34 | Guias emitidas pela Rotina (Emissão e Pagamento por mês, marcar meses → Enviar por empresa, valor editável, reemissão da vencida), Situação dos parcelamentos/acordos enxuta com ficha da planilha e parcelas em lista, Central de Documentos dentro do ERP (Ctrl+clique = aba nova) |
 | 35 | Mais simples: Situação em cartões por grupo, Acordos com uma aba "A pagar" (grupo, responsável, boleto, enviar por empresa), planilha de parcelamentos (teste), evolução do passivo por grupo, processos com 3 movimentações e data do valor, filtro de advogados, e-mails simplificados |
 | 36 | Agenda no Início (+ Agendar, legenda), evolução "Tudo junto" sem o zero, cartões de Situação mais claros (Emissão/Pagamento, confirmação), Acordos com Emitir + WhatsApp + prévia, Rotina com um quadrinho por parcela, planilha até a última parcela, contadores das Publicações, Documentos e "Quem recebe" no visual do ERP |
+| 37 | Gerar guias com expansão (geral, grupo, linha), Acordos com filtros de prazo e forma de pagamento (PIX/boleto) no e-mail, certificado digital com senha e validade lida do arquivo, sessão sai só após 60 min sem uso (contador), Controle dos parcelamentos corrigido (limite de 1000 linhas), planilha em lista, agenda escolhe o que mostra, CRM/Alertas/Financeiro enxutos, visual inspirado nos prints |
 
 ## Como baixar um backup
 No GitHub, abra a pasta `backups`, clique no arquivo e depois em **Download** (ícone de seta, à direita).

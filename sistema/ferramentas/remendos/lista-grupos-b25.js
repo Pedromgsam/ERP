@@ -66,7 +66,8 @@ function _lgRender(o){
       +'<td><div class="lg-t-pag"><span><b class="lg-verde">'+x.pagas+'</b> de '+(x.total||'?')+'</span><span class="lg-card-bar"><span style="width:'+pc+'%"></span></span></div></td>'
       +'<td class="lg-t-num">'+_lgFmtV(x.falta)+'</td>'
       +'<td>'+_lgEsteMesTxt(m)+'</td>'
-      +'<td>'+_lgSit(x.atr,x.atr>=2,x.concluido)+(x.guias?_lgGuiaDiscreta(x.guias,false):'')+'</td><td class="lg-t-seta">›</td></tr>'; };
+      +'<td>'+_lgSit(x.atr,x.atr>=2,x.concluido)+(x.guias?_lgGuiaDiscreta(x.guias,false):'')+'</td>'
+      +'<td class="lg-t-gu">'+(o.tabela&&!x.concluido?'<button type="button" class="lg-bt-gu" onclick="_lgGuias(event,\''+o.tabela+'\',\'item\',\''+_lgEsc(x.k)+'\')" title="Gerar as guias deste '+o.rotulo+' (em atraso + do mês; se não houver, a próxima)">🧾</button>':'')+'</td><td class="lg-t-seta">›</td></tr>'; };
   var cards=gs.map(function(g){
     var l=G[g].slice().sort(function(a,b){ return b.atr-a.atr || String(a.titulo+a.sub).localeCompare(String(b.titulo+b.sub),'pt-BR'); }), ab=sozinho||!!o.abertos[g];
     var soma=function(f){ return l.reduce(function(s,x){ return s+(Number(x[f])||0); },0); };
@@ -80,12 +81,27 @@ function _lgRender(o){
       +'<div class="lg-card-lin"><span>Falta pagar</span><b>'+_lgFmtV(soma('falta'))+'</b></div>'
       +'<div class="lg-card-lin lg-card-mes" title="Parcelas vencidas sem pagamento + as que vencem até o fim deste mês"><span>A pagar este mês</span><span>'+_lgEsteMesTxt(m)+'</span></div></div>';
     var painel=ab?'<div class="lg-painel"><div class="lg-painel-tit"><b>'+esc(g)+'</b><span class="lg-sub">'+l.length+' '+o.rotulo+(l.length>1?'s':'')+' · clique na linha para ver as parcelas</span>'
+      +(o.tabela?'<button type="button" class="lg-bt-guias" onclick="_lgGuias(event,\''+o.tabela+'\',\''+(umGrupo?'empresa':'grupo')+'\',\''+_lgEsc(g)+'\')" title="Abre o envio já com as parcelas em atraso e as que vencem neste mês">🧾 Gerar guias '+(umGrupo?'desta empresa':'deste grupo')+'</button>':'')
       +(sozinho?'':'<button type="button" class="lg-fechar" onclick="'+o.fnGrupo+'(\''+_lgEsc(g)+'\')" aria-label="Fechar">✕</button>')+'</div>'
-      +'<table class="lg-t"><colgroup><col><col style="width:150px"><col style="width:130px"><col style="width:210px"><col style="width:230px"><col style="width:28px"></colgroup>'
-      +'<thead><tr><th>'+(umGrupo?o.rotulo.charAt(0).toUpperCase()+o.rotulo.slice(1):'Empresa / '+o.rotulo)+'</th><th>Pagas</th><th class="lg-t-num">Falta</th><th>A pagar este mês</th><th>Situação</th><th></th></tr></thead>'
+      +'<table class="lg-t"><colgroup><col><col style="width:150px"><col style="width:130px"><col style="width:210px"><col style="width:230px"><col style="width:44px"><col style="width:28px"></colgroup>'
+      +'<thead><tr><th>'+(umGrupo?o.rotulo.charAt(0).toUpperCase()+o.rotulo.slice(1):'Empresa / '+o.rotulo)+'</th><th>Pagas</th><th class="lg-t-num">Falta</th><th>A pagar este mês</th><th>Situação</th><th class="lg-t-gu" title="Gerar guias">Guias</th><th></th></tr></thead>'
       +'<tbody>'+l.map(linhaItem).join('')+'</tbody></table></div>':'';
     return card+painel; }).join('');
-  return '<div class="lg lg-min lg-cards">'+cards+'</div>';
+  return (o.tabela?'<div class="lg-topo-guias"><button type="button" class="lg-bt-guias lg-bt-guias-geral" onclick="_lgGuias(event,\''+o.tabela+'\',\'tudo\',\'\')" title="Abre o envio com todas as empresas: parcelas em atraso + as que vencem neste mês">🧾 Gerar guias — em atraso + vencem neste mês</button></div>':'')
+    +'<div class="lg lg-min lg-cards">'+cards+'</div>';
+}
+// Backup 37: "Gerar guias" — geral (respeita o grupo/empresa do filtro do topo), do grupo, da empresa ou de um item (parcelamento/acordo)
+function _lgGuias(ev, tabela, escopo, chave){
+  if(ev){ ev.stopPropagation(); ev.preventDefault(); }
+  if(!window.GS||!GS.gerarGuias) return;
+  var gid=function(nome){ var g=(GS.E.grupos||[]).find(function(x){ return x.nome===nome; }); return g?g.id:null; };
+  var F=typeof FILTROS!=='undefined'?FILTROS:{}, a={};
+  if(escopo==='tudo'){ if(F.grupo&&gid(F.grupo)) a.grupo_id=gid(F.grupo); if(F.empresa) a.empresa=F.empresa; }
+  else if(escopo==='grupo'){ var id=gid(chave); if(id) a.grupo_id=id; else return alert('Grupo sem cadastro: use "Gerar guias" geral.'); }
+  else if(escopo==='empresa') a.empresa=chave;
+  else a.itens=[tabela==='parcelas'?String(chave).split('|')[0]:chave];
+  if(escopo==='item') a.proximas=true;
+  GS.gerarGuias(tabela, a, function(){ if(window.ERP_RECARREGAR) window.ERP_RECARREGAR(); });
 }
 // Backup 34: parcelas do detalhamento (Parcelamentos e Acordos) em LISTA — igual a "Vencidos — URGENTE":
 // Parcela · Vencimento · Valor · Situação (pagamento + guia emitida / não emitida / o cliente emite)
