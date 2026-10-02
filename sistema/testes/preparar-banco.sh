@@ -15,4 +15,7 @@ $P -d erp -c "insert into auth.users(email,senha_teste,raw_user_meta_data) value
 $P -d erp -c "update configuracoes set valor='false'::jsonb where chave='emails_pausados'" >/dev/null
 # o modo teste do Backup 33 desliga as rotinas de e-mail ao cliente: nos testes elas voltam como estavam
 $P -d erp -c "update regras_tarefas set ligada=true where chave in (select jsonb_array_elements_text(valor) from configuracoes where chave='b33_modo_teste_emails')" >/dev/null
+# Backup 38: no sistema as tarefas automáticas e o e-mail para os clientes estão desligados (tudo vai para um endereço só);
+# aqui voltam a funcionar para os testes antigos continuarem valendo (o desligado tem teste próprio no fluxo.sql)
+$P -d erp -c "update configuracoes set valor='true'::jsonb where chave='tarefas_automaticas'; update configuracoes set valor='\"\"'::jsonb where chave='email_redirecionar'" >/dev/null
 pkill -USR1 -x postgrest 2>/dev/null || true   # PostgREST relê a estrutura

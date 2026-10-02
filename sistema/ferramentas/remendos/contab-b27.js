@@ -26,12 +26,14 @@ function _fcPintarCorpo(){
   var atraso=vR.map(function(f){ return {f:f,t:'r'}; }).concat(vP.map(function(f){ return {f:f,t:'d'}; }))
     .sort(function(a,b){ return (pDate(a.f.vencimento)||0)-(pDate(b.f.vencimento)||0); });
   el.innerHTML =
-    '<div class="kpi-grid fc-kpis5">'
+    '<div class="kpi-grid fc-kpis5 fc-kpis6">'
   +   kC('Recebido',fF(_fcSoma(rec)),rec.length+' recebimento(s) no período','cg','dg')
   +   kC('A receber',fF(_fcSoma(aRec)),aRec.length+' em aberto','cb','db')
   +   kC('Pago',fF(_fcSoma(pag)),pag.length+' despesa(s) paga(s)','cr','')
   +   kC('A pagar',fF(_fcSoma(aPag)),aPag.length+' conta(s) em aberto','ca','')
-  +   kC('Em atraso',fF(_fcSoma(vR)+_fcSoma(vP)),(vR.length+vP.length)+' vencido(s)','cr',(vR.length||vP.length)?'dr':'')
+  +   kC('Em atraso',fF(_fcSoma(vR)+_fcSoma(vP)),(vR.length+vP.length)+' vencido(s) · todos os meses','cr',(vR.length||vP.length)?'dr':'')
+  +   (function(){ var pj=window._semPeriodo(_FC,function(){ return _fcFiltrar(['Prejuízo']); });   // Backup 38: prejuízo de todos os meses (igual ao Início)
+        return kC('Prejuízo',fF(_fcSoma(pj)),pj.length+' baixa(s) · todos os meses','cx',pj.length?'dr':''); })()
   + '</div>'
   + '<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t">Recebido × pago mês a mês</div>'
   +   '<div class="cc-d">verde = recebido · vermelho = pago (despesas) · passe o mouse na coluna para ver o saldo do mês</div></div></div>'
@@ -41,7 +43,7 @@ function _fcPintarCorpo(){
   +   _fcComLado('receber', function(){ return _fcTabelaComp(_fcTabelaPessoas(_fcPessoas())); }) + '</div>'
   + '<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t">Comparativo por fornecedor</div><div class="cc-d">despesas · mesmo período</div></div></div>'
   +   _fcComLado('pagar', function(){ return _fcTabelaComp(_fcTabelaPessoas(_fcPessoas())).replace('<th style="text-align:right">Recebido</th>','<th style="text-align:right">Pago</th>').replace('<th style="text-align:right">A receber</th>','<th style="text-align:right">A pagar</th>').replace(/color:var\(--green-d\);font-weight:600/g,'color:var(--red-d);font-weight:600'); }) + '</div>'
-  + (atraso.length?'<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t">Em atraso</div><div class="cc-d">receitas e despesas vencidas · todos os meses</div></div></div>'+_fcTabelaAtraso(atraso)+'</div>':'');
+  + (false&&atraso.length?'<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t">Em atraso</div><div class="cc-d">receitas e despesas vencidas · todos os meses</div></div></div>'+_fcTabelaAtraso(atraso)+'</div>':'');
   _fcGraficosB27(rec, pag);
 }
 function _fcTabelaAtraso(L){

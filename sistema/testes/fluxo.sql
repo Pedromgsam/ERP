@@ -12,6 +12,18 @@ insert into auth.users (id,email,raw_user_meta_data) values
  ('00000000-0000-0000-0000-00000000000b','estagiario@teste','{"nome":"Bruno Estagiário"}');
 update perfis set papel='equipe', funcoes='{"clientes":"editar","contratos":"editar","crm":"editar","tarefas":"editar","documentos":"editar","financeiro_juridico":"editar"}' where email='estagiario@teste';
 update configuracoes set valor='false'::jsonb where chave='emails_pausados';
+-- Backup 38: começa testando o que está DESLIGADO no sistema (tarefa automática e e-mail ao cliente); depois religa para os testes antigos
+select pg_temp.ok((select valor = 'false'::jsonb from configuracoes where chave = 'tarefas_automaticas'), '38.1 tarefas automáticas vêm desligadas');
+insert into tarefas (chave_regra, titulo, responsavel, status) values ('doc:teste-b38', 'Documento vencendo (automática)', 'Pedro', 'pendente');
+select pg_temp.ok(not exists (select 1 from tarefas where chave_regra = 'doc:teste-b38'), '38.2 tarefa automática (com chave de regra) não é criada');
+insert into tarefas (titulo, responsavel, status) values ('Tarefa lançada à mão B38', 'Pedro', 'pendente');
+select pg_temp.ok(exists (select 1 from tarefas where titulo = 'Tarefa lançada à mão B38'), '38.3 tarefa lançada pela equipe continua normal');
+insert into email_fila (para, assunto, html, tipo) values ('cliente@empresa-teste.local', 'Assunto B38', '<p>oi</p>', 'manual');
+select pg_temp.ok((select para = 'pedromgsam@gmail.com' and para_original = 'cliente@empresa-teste.local' and assunto like '[para cliente@empresa-teste.local] %' and status = 'pendente'
+  from email_fila where assunto like '%Assunto B38'), '38.4 todo e-mail vai para pedromgsam@gmail.com (original no assunto e em para_original)');
+delete from email_fila where assunto like '%Assunto B38'; delete from tarefas where titulo = 'Tarefa lançada à mão B38';
+update configuracoes set valor = 'true'::jsonb where chave = 'tarefas_automaticas';
+update configuracoes set valor = '""'::jsonb where chave = 'email_redirecionar';
 update regras_tarefas set ligada = true where grupo = 'cliente_email';
 
 -- ═══ 1. CADASTRO ═══

@@ -116,7 +116,7 @@ TELAS.alertas = async function () {
   // Backup 37: a PGFN por arquivo (dados abertos, importado à mão) saiu dos Alertas
   // Central de e-mails: automático por tipo (clicar abre a configuração; admin)
   const cfgEm = await q(sb.rpc('config_emails')).catch(() => null);
-  if (cfgEm && E.perfil && E.perfil.papel === 'admin') {
+  if (false && cfgEm && E.perfil && E.perfil.papel === 'admin') {   // Backup 38: módulo E-mails saiu
     const ligados = ['honorarios', 'parcelamentos', 'acordos', 'recibos'].filter((k) => cfgEm[k]);
     add('Rotinas', 'E-mails automáticos ao cliente', ligados.length + ' de 4 ligados', (cfgEm.hora ? 'envio às ' + cfgEm.hora : 'envio junto das regras (7h)') + ' · clique para configurar', ligados.length ? 'ok' : 'info', { emailsAuto: true });
   }

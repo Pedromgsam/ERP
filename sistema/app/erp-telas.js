@@ -17,26 +17,47 @@
   const dadosERP = () => (typeof DB !== 'undefined' ? DB : {});
 
   // ═════════════════════════ MENU ═════════════════════════
+  // Backup 38: barra LATERAL (padrão ROMPEX) — seções Principal · Módulos · Sistema; submódulos abrem embaixo do item
   const MENU = [
-    { id: 'hoje', rot: 'Início', equipe: true },
-    { id: 'resumo', rot: 'Painel Executivo', func: 'relatorios' },
-    { rot: 'Jurídico', itens: [['processos', 'Processos', 'juridico'], ['parcelamentos', 'Parcelamentos', 'juridico'], ['publicacoes', 'Publicações', 'juridico']] },
-    { id: 'acordos', rot: 'Acordos', func: 'juridico' },
-    { rot: 'Financeiro', equipe: true, itens: [['financeiro', 'Jurídico', 'financeiro_juridico'], ['financeiroContab', 'Contabilidade', 'financeiro_contab']] },
-    { id: 'contratos', rot: 'Contratos', equipe: true, func: 'contratos' },
-    { id: 'clientes', rot: 'Clientes', equipe: true, func: 'clientes' },
-    { id: 'crm', rot: 'CRM', equipe: true, func: 'crm' },
-    { rot: 'Documentos', equipe: true, itens: [['documentos', 'Arquivos dos clientes', 'documentos'], ['gerador', 'Gerar documento (procuração, contrato, recibo…)', 'documentos']] },   // Backup 34: Central dentro do ERP
-    { id: 'tarefas', rot: 'Tarefas', equipe: true },
-    { id: 'alertas', rot: 'Alertas', equipe: true },
-    { id: 'rotina', rot: 'Rotina', equipe: true },   // Backup 28: o lugar do estagiário (substitui as planilhas)
-    { id: 'emails', rot: 'E-mails', equipe: true },  // Backup 28: fora da Administração
-    { id: 'admin', rot: 'Administração', admin: true }
+    { sec: 'Principal' },
+    { id: 'hoje', rot: 'Início', ic: 'inicio', equipe: true },
+    { id: 'tarefas', rot: 'Tarefas', ic: 'tarefas', equipe: true },
+    { id: 'rotina', rot: 'Rotina', ic: 'rotina', equipe: true },   // Backup 28: o lugar do estagiário (substitui as planilhas)
+    { id: 'alertas', rot: 'Alertas', ic: 'alertas', equipe: true },
+    { sec: 'Módulos' },
+    { id: 'resumo', rot: 'Painel Executivo', ic: 'painel', func: 'relatorios' },
+    { rot: 'Jurídico', ic: 'juridico', itens: [['processos', 'Processos', 'juridico'], ['parcelamentos', 'Parcelamentos', 'juridico'], ['publicacoes', 'Publicações', 'juridico']] },
+    { id: 'acordos', rot: 'Acordos', ic: 'acordos', func: 'juridico' },
+    { rot: 'Financeiro', ic: 'financeiro', equipe: true, itens: [['financeiro', 'Jurídico', 'financeiro_juridico'], ['financeiroContab', 'Contabilidade', 'financeiro_contab']] },
+    { id: 'contratos', rot: 'Contratos', ic: 'contratos', equipe: true, func: 'contratos' },
+    { id: 'clientes', rot: 'Clientes', ic: 'clientes', equipe: true, func: 'clientes' },
+    { id: 'crm', rot: 'CRM', ic: 'crm', equipe: true, func: 'crm' },
+    { rot: 'Documentos', ic: 'documentos', equipe: true, itens: [['documentos', 'Arquivos dos clientes', 'documentos'], ['gerador', 'Gerar documento', 'documentos']] },   // Backup 34: Central dentro do ERP
+    { sec: 'Sistema', admin: true },
+    { id: 'admin', rot: 'Administração', ic: 'admin', admin: true }
   ];
+  // ícones de traço fino (estilo dos prints): 16 px, cor do texto
+  const ICONES = {
+    inicio: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+    tarefas: '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
+    rotina: '<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M9 14l2 2 4-4"/>',
+    alertas: '<path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/>',
+    painel: '<path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 6-6"/>',
+    juridico: '<path d="M12 3v18M5 21h14M3 7h18"/><path d="M6 7l-3 7a3 3 0 0 0 6 0zM18 7l-3 7a3 3 0 0 0 6 0z"/>',
+    acordos: '<path d="M8 12l3 3 5-5"/><circle cx="12" cy="12" r="9"/>',
+    financeiro: '<rect x="2" y="6" width="20" height="13" rx="2"/><path d="M2 10h20M16 15h2"/>',
+    contratos: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/>',
+    clientes: '<circle cx="9" cy="8" r="4"/><path d="M2 21a7 7 0 0 1 14 0"/><path d="M16 4a4 4 0 0 1 0 8M22 21a7 7 0 0 0-4-6.3"/>',
+    crm: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
+    documentos: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+    admin: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+    seta: '<path d="M6 9l6 6 6-6"/>', encolher: '<path d="M15 18l-6-6 6-6"/>'
+  };
+  const icone = (k) => '<svg class="tn-ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICONES[k] || '') + '</svg>';
   // Cobranças, avisos e recibos (antiga "Notificações"): fora da barra; abre pelo botão ✉ de cada tela e pelo ⋯
   const FUNC_EXTRA = { notificacoes: 'clientes' };   // a Central de e-mails confere o acesso no banco
   // painéis novos → tela do Gestão que desenha nele
-  const TELAS_GS = { hoje: 'inicio', contratos: 'contratos', clientes: 'clientes', crm: 'crm', publicacoes: 'publicacoes', documentos: 'documentos', gerador: 'gerador', tarefas: 'tarefas', alertas: 'alertas', automacoes: 'automacoes', aprovacoes: 'aprovacoes', emails: 'emails', rotina: 'rotina', admin: 'admin' };
+  const TELAS_GS = { hoje: 'inicio', contratos: 'contratos', clientes: 'clientes', crm: 'crm', publicacoes: 'publicacoes', documentos: 'documentos', gerador: 'gerador', tarefas: 'tarefas', alertas: 'alertas', automacoes: 'automacoes', aprovacoes: 'aprovacoes', rotina: 'rotina', admin: 'admin' };
 
   // "+ Lançar": formulários do Gestão onde existem; os demais, do editor do ERP
   const empresaAtual = () => (_painel === 'financeiroContab' ? 'contabilidade' : 'escritorio');
@@ -68,7 +89,7 @@
   }
   function aplicarFuncoes() {
     if (ehCliente()) return;
-    document.querySelectorAll('#gs-hd [data-ir], #tn-baixo [data-baixo]').forEach((b) => { const id = b.dataset.ir || b.dataset.baixo; b.classList.toggle('gx-sem-funcao', !permitido(FUNC_TELA[id])); });
+    document.querySelectorAll('#gs-lado [data-ir], #tn-baixo [data-baixo]').forEach((b) => { const id = b.dataset.ir || b.dataset.baixo; b.classList.toggle('gx-sem-funcao', !permitido(FUNC_TELA[id])); });
     document.querySelectorAll('#gs-hd [data-lancar]').forEach((b) => b.classList.toggle('gx-sem-funcao', !permitido(LANCAR[+b.dataset.lancar][2], 'editar')));
     document.querySelectorAll('#tn .tn-grupo').forEach((g) => { const its = g.querySelectorAll('.tn-menu [data-ir]'); if (its.length) g.classList.toggle('gx-sem-funcao', [...its].every((x) => x.classList.contains('gx-sem-funcao'))); });
     const lc = document.querySelector('#gs-hd .tn-lancar'); if (lc) lc.classList.toggle('gx-sem-funcao', [...document.querySelectorAll('#gs-hd [data-lancar]')].every((x) => x.classList.contains('gx-sem-funcao')));
@@ -82,19 +103,27 @@
     const hd = document.createElement('header');
     hd.id = 'gs-hd'; hd.className = 'gs';
     const itemCls = (m) => (m.equipe ? ' gx-so-equipe' : '') + (m.admin ? ' gx-so-admin' : '');
+    // Backup 38: barra de cima branca = nome da tela à esquerda; + Lançar, tema, ⋯, sessão, pessoa e Sair à direita (sem o sino de avisos)
     hd.innerHTML =
-      '<span id="gs-tela-nome"></span><nav id="tn" aria-label="Menu principal">' + MENU.map((m, i) => !m.itens
-        ? '<button type="button" class="tn-it' + itemCls(m) + '" data-ir="' + m.id + '">' + esc(m.rot) + '</button>'
-        : '<div class="tn-grupo' + itemCls(m) + '"><button type="button" class="tn-it tn-abre" data-grupo="' + i + '" aria-haspopup="true" aria-expanded="false">' + esc(m.rot) + ' <span class="tn-seta">▾</span></button>' +
-          '<div class="tn-menu" role="menu">' + m.itens.map((x) => '<button type="button" role="menuitem" data-ir="' + x[0] + '">' + esc(x[1]) + '</button>').join('') + '</div></div>').join('') +
-      '</nav>' +
-      
+      '<span id="gs-tela-nome"></span>' +
       '<div class="tn-lancar gx-so-equipe"><button type="button" class="tn-lancar-bt" aria-haspopup="true" aria-expanded="false">+ Lançar</button>' +
       '<div class="tn-menu tn-menu-dir" role="menu">' + LANCAR.map((x, i) => '<button type="button" role="menuitem" data-lancar="' + i + '">' + esc(x[0]) + '</button>').join('') + '</div></div>' +
-      '<div class="hd-usuario"><button type="button" id="gs-tema" title="Modo escuro / claro" aria-label="Alternar modo escuro" aria-pressed="false">◐</button><button type="button" id="gs-sino" class="gx-so-equipe" title="Avisos: prazos, menções e vencimentos" aria-label="Avisos">🔔<span id="gs-sino-n" hidden></span></button><span id="gs-nome"></span>' +
+      '<div class="hd-usuario"><button type="button" id="gs-tema" title="Modo escuro / claro" aria-label="Alternar modo escuro" aria-pressed="false">◐</button>' +
       '<div class="tn-grupo tn-mais-acoes"><button type="button" class="tn-abre gs-bt-mais" data-grupo="acoes" title="Atualizar dados e relatório em PDF" aria-label="Mais ações" aria-haspopup="true" aria-expanded="false">⋯</button>' +
-      '<div class="tn-menu tn-menu-dir" role="menu"><button type="button" data-acao="atualizar">↻ Atualizar dados</button><button type="button" data-acao="pdf" class="gx-so-equipe">📄 Relatório em PDF</button><button type="button" data-acao="geradores" class="gx-so-equipe">📄 Documentos (procuração, contrato, recibo…)</button><button type="button" data-acao="meunome">👤 Meu nome</button><button type="button" data-acao="aprovacoes" class="gx-so-equipe">📝 Aprovações (rascunhos)</button></div></div>' +
-      '<span id="gs-sessao" title="Tempo até sair sozinho por falta de uso (cada clique ou tecla recomeça a contagem)" aria-live="off"></span><button type="button" id="gs-sair">Sair</button></div>';
+      '<div class="tn-menu tn-menu-dir" role="menu"><button type="button" data-acao="atualizar">↻ Atualizar dados</button><button type="button" data-acao="pdf" class="gx-so-equipe">📄 Relatório em PDF</button><button type="button" data-acao="meunome">👤 Meu nome</button><button type="button" data-acao="aprovacoes" class="gx-so-equipe">📝 Aprovações (rascunhos)</button></div></div>' +
+      '<span id="gs-sessao" title="Tempo até sair sozinho por falta de uso (cada clique ou tecla recomeça a contagem)" aria-live="off"></span><span id="gs-nome"></span><button type="button" id="gs-sair">Sair</button></div>';
+    // barra lateral: marca, seções, itens com ícone; submódulos abrem logo abaixo (linha fina à esquerda); "encolher" no pé
+    const lado = document.createElement('aside');
+    lado.id = 'gs-lado'; lado.className = 'gs';
+    lado.innerHTML = '<div class="gl-marca"><span class="gl-logo">A&amp;C</span><span class="gl-nome">Araújo &amp; Castro<small>Advocacia e Contabilidade</small></span></div>' +
+      '<nav id="tn" aria-label="Menu principal">' + MENU.map((m, i) => m.sec ? '<div class="tn-sec' + itemCls(m) + '">' + esc(m.sec) + '</div>'
+        : !m.itens ? '<button type="button" class="tn-it' + itemCls(m) + '" data-ir="' + m.id + '" title="' + esc(m.rot) + '">' + icone(m.ic) + '<span class="tn-rot">' + esc(m.rot) + '</span></button>'
+        : '<div class="tn-grupo' + itemCls(m) + '"><button type="button" class="tn-it tn-abre" data-grupo="' + i + '" aria-expanded="false" title="' + esc(m.rot) + '">' + icone(m.ic) + '<span class="tn-rot">' + esc(m.rot) + '</span>' + icone('seta').replace('tn-ic', 'tn-ic tn-seta') + '</button>' +
+          '<div class="tn-menu" role="menu">' + m.itens.map((x) => '<button type="button" role="menuitem" data-ir="' + x[0] + '">' + esc(x[1]) + '</button>').join('') + '</div></div>').join('') +
+      '</nav><button type="button" id="gs-encolher" title="Encolher / abrir a barra" aria-label="Encolher ou abrir a barra lateral">' + icone('encolher') + '<span class="tn-rot">encolher</span></button>';
+    document.body.insertBefore(lado, document.body.firstChild);
+    try { if (localStorage.getItem('erp_lado_min') === '1') document.body.classList.add('gx-lado-min'); } catch (e) { /* sem armazenamento: começa aberta */ }
+    document.getElementById('gs-encolher').onclick = () => { const min = document.body.classList.toggle('gx-lado-min'); try { localStorage.setItem('erp_lado_min', min ? '1' : '0'); } catch (e) { /* vale só agora */ } };
     document.body.insertBefore(hd, document.body.firstChild);
     // Backup 37: contador discreto da sessão (60 min sem uso → sai). Fica vermelho nos últimos 5 minutos.
     const sessao = document.getElementById('gs-sessao');
@@ -111,11 +140,6 @@
       marcarTema();
       if (window.Chart && Chart.instances) Object.values(Chart.instances).forEach((c) => { try { c.update('none'); } catch (e) { /* gráfico já desmontado */ } });
     };
-    document.getElementById('gs-sino').onclick = async () => {
-      if (!GS()) return;
-      try { await GS().carregarCadastros(); await GS().abrirAlertas(null, atualizarSino); } catch (e) { aviso(erroAmigavel(e), true); }
-    };
-
     // celular: menu inferior + "Mais"
     const bn = document.createElement('nav');
     bn.id = 'tn-baixo'; bn.setAttribute('aria-label', 'Menu');
@@ -124,11 +148,18 @@
     document.body.appendChild(bn);
 
     // botão do meio do mouse num item do menu = aba nova (Backup 34)
-    document.addEventListener('auxclick', (e) => { const b = e.button === 1 && e.target.closest && e.target.closest('#gs-hd [data-ir]'); if (b) { e.preventDefault(); window.open(location.pathname + '#' + b.dataset.ir, '_blank', 'noopener'); } });
+    document.addEventListener('auxclick', (e) => { const b = e.button === 1 && e.target.closest && e.target.closest('#gs-lado [data-ir]'); if (b) { e.preventDefault(); window.open(location.pathname + '#' + b.dataset.ir, '_blank', 'noopener'); } });
     document.addEventListener('click', (e) => {
       const alvo = e.target.closest && e.target.closest('[data-ir],[data-grupo],.tn-lancar-bt,[data-lancar],[data-baixo],[data-acao],#gs-sair,.gs-sair');
-      const abertos = document.querySelectorAll('.tn-grupo.on,.tn-lancar.on');
-      if (!alvo) { abertos.forEach(fecharMenu); return; }
+      // menus suspensos só na barra de cima; na lateral os grupos abrem/fecham e ficam como estão
+      const abertos = document.querySelectorAll('#gs-hd .tn-grupo.on,#gs-hd .tn-lancar.on');
+      if (alvo && alvo.dataset.grupo !== undefined && alvo.closest('#gs-lado')) {
+        const g = alvo.parentElement; const abrir = !g.classList.contains('on');
+        if (document.body.classList.contains('gx-lado-min')) { document.querySelectorAll('#gs-lado .tn-grupo.on').forEach(fecharMenu); }
+        g.classList.toggle('on', abrir); alvo.setAttribute('aria-expanded', abrir ? 'true' : 'false');
+        return;
+      }
+      if (!alvo) { abertos.forEach(fecharMenu); if (document.body.classList.contains('gx-lado-min') && !e.target.closest('#gs-lado')) document.querySelectorAll('#gs-lado .tn-grupo.on').forEach(fecharMenu); return; }
       if (alvo.dataset.grupo !== undefined || alvo.classList.contains('tn-lancar-bt')) {
         const g = alvo.parentElement; const abrir = !g.classList.contains('on');
         abertos.forEach(fecharMenu);
@@ -141,9 +172,7 @@
       else if (alvo.dataset.acao === 'pdf') { if (GS() && GS().janelaRelatorioPDF) GS().carregarCadastros().then(() => GS().janelaRelatorioPDF()); else ir('relatorio'); }   // Backup 29: relatório novo
       else if (alvo.dataset.acao === 'aprovacoes') ir('aprovacoes');
       else if (alvo.dataset.acao === 'meunome') pedirMeuNome(false);
-      else if (alvo.dataset.acao === 'cobrancas') abrirCentralEmails('');
       else if (alvo.dataset.acao === 'geradores') { if (GS()) GS().janelaGeradores(); }
-      else if (alvo.dataset.acao === 'avisos') { if (GS()) GS().janelaMeusAvisos().catch((er) => aviso(erroAmigavel(er), true)); }
       else if (alvo.dataset.ir && (e.ctrlKey || e.metaKey || e.shiftKey)) window.open(location.pathname + '#' + alvo.dataset.ir, '_blank', 'noopener');   // Backup 34: Ctrl + clique = aba nova
       else if (alvo.dataset.ir) ir(alvo.dataset.ir);
       else if (alvo.dataset.lancar !== undefined) LANCAR[+alvo.dataset.lancar][1]();
@@ -151,7 +180,7 @@
       else if (alvo.dataset.baixo === 'lancar') abrirMais(true);
       else if (alvo.dataset.baixo) ir(alvo.dataset.baixo);
     });
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { document.querySelectorAll('.tn-grupo.on,.tn-lancar.on').forEach(fecharMenu); fecharMais(); } });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { document.querySelectorAll('#gs-hd .tn-grupo.on,#gs-hd .tn-lancar.on').forEach(fecharMenu); fecharMais(); } });
 
     // Painel Executivo (Backup 15): sem o cartão de título; entidades, grupos e "Atualizado" ficam na linha dos filtros, à esquerda
     if (!document.getElementById('gx-linha-painel')) {
@@ -183,9 +212,9 @@
     f.id = 'tn-mais';
     const cls = (m) => (m.equipe ? ' class="gx-so-equipe"' : m.admin ? ' class="gx-so-admin"' : '');
     const itens = soLancar ? '<div class="tn-mais-tit">Lançar</div>' + LANCAR.map((x, i) => '<button type="button" data-lancar="' + i + '">+ ' + esc(x[0]) + '</button>').join('')
-      : MENU.map((m) => !m.itens ? '<button type="button"' + cls(m) + ' data-ir="' + m.id + '">' + esc(m.rot) + '</button>'
+      : MENU.filter((m) => !m.sec).map((m) => !m.itens ? '<button type="button"' + cls(m) + ' data-ir="' + m.id + '">' + esc(m.rot) + '</button>'
         : '<div class="tn-mais-tit' + (m.equipe ? ' gx-so-equipe' : '') + '">' + esc(m.rot) + '</div>' + m.itens.map((x) => '<button type="button"' + cls(m) + ' data-ir="' + x[0] + '">' + esc(x[1]) + '</button>').join('')).join('')
-        + '<button type="button" data-acao="atualizar">↻ Atualizar dados</button><button type="button" data-acao="cobrancas">✉ Central de e-mails</button><button type="button" class="gs-sair">Sair</button>';
+        + '<button type="button" data-acao="atualizar">↻ Atualizar dados</button><button type="button" class="gs-sair">Sair</button>';
     f.innerHTML = '<div class="tn-mais-caixa">' + itens + '<button type="button" class="tn-mais-fechar" data-fechar>Fechar</button></div>';
     f.querySelectorAll('[data-ir]').forEach((b) => { if (!permitido(FUNC_TELA[b.dataset.ir])) b.remove(); });
     f.querySelectorAll('[data-lancar]').forEach((b) => { if (!permitido(LANCAR[+b.dataset.lancar][2], 'editar')) b.remove(); });
@@ -222,15 +251,12 @@
   function destacar(id) {
     const tn = document.getElementById('gs-tela-nome'); if (tn) tn.textContent = nomeTela(id);
     document.querySelectorAll('#tn [data-ir], #tn-baixo [data-baixo]').forEach((b) => b.classList.toggle('ativo', b.dataset.ir === id || b.dataset.baixo === id));
-    document.querySelectorAll('#tn .tn-grupo').forEach((g) => g.classList.toggle('ativo', !!g.querySelector('[data-ir="' + id + '"]')));
+    // o grupo da tela aberta fica aberto na lateral (como "Fiscal" nos prints); os outros ficam como a pessoa deixou
+    document.querySelectorAll('#tn .tn-grupo').forEach((g) => { const tem = !!g.querySelector('[data-ir="' + id + '"]'); g.classList.toggle('ativo', tem);
+      if (tem && !document.body.classList.contains('gx-lado-min')) { g.classList.add('on'); const b = g.querySelector('.tn-abre'); if (b) b.setAttribute('aria-expanded', 'true'); } });
   }
   // ✉ dentro de cada tela: abre "Cobranças, avisos e recibos" já na aba certa
   let _abaCobranca = 'hon';
-  function abrirCentralEmails(tipo) {
-    if (GS()) GS().E.em = Object.assign(GS().E.em || {}, { sit: 'hoje', tipo: tipo || '', area: 'fila' });
-    if (_painel === 'emails') { desenharGS('emails'); return; }
-    ir('emails');
-  }
   function abrirCobrancas(aba) {
     _abaCobranca = aba || 'hon';
     if (_painel !== 'notificacoes') { ir('notificacoes'); return; }
@@ -242,11 +268,12 @@
       .forEach(([pid, aba, rot, recibo]) => {
         const ban = document.querySelector('#' + pid + ' .mod-banner'); if (!ban || document.querySelector('#' + pid + ' .gx-cobrar')) return;
         const d = document.createElement('div'); d.className = 'gx-cobrar gx-so-equipe';
-        d.innerHTML = '<button type="button" data-cob="' + aba + '">' + rot + '</button>' + (recibo ? '<button type="button" data-cob="rec">🧾 Recibo</button>' +
+        // Backup 38: "✉ Cobrar clientes" saiu com o módulo E-mails; ficam Recibo, Conciliar extrato e Editar em tabela
+        d.innerHTML = (recibo ? '<button type="button" data-cob="rec">🧾 Recibo</button>' +
           '<button type="button" data-ofx="' + (pid === 'panel-financeiroContab' ? 'contabilidade' : 'escritorio') + '" title="Dar baixa pelos créditos do extrato do banco (arquivo OFX)">🏦 Conciliar extrato</button>' +
           '<button type="button" data-massa-lanc="' + (pid === 'panel-financeiroContab' ? 'contabilidade' : 'escritorio') + '" title="Completar vários lançamentos de uma vez (área do serviço, descrição…) na tela ou por planilha">✎ Editar em tabela</button>' : '');
         // ✉ Cobrar/Notificar → Central de e-mails já filtrada; 🧾 Recibo (manual) continua na tela antiga
-        d.querySelectorAll('[data-cob]').forEach((b) => b.onclick = () => (b.dataset.cob === 'rec' ? abrirCobrancas('rec') : abrirCentralEmails({ hon: 'honorarios', parc: 'parcelamentos', acord: 'acordos' }[b.dataset.cob] || '')));
+        d.querySelectorAll('[data-cob]').forEach((b) => b.onclick = () => abrirCobrancas('rec'));
         d.querySelectorAll('[data-ofx]').forEach((b) => b.onclick = () => { if (GS() && GS().conciliarOfx) GS().conciliarOfx(b.dataset.ofx); });
         d.querySelectorAll('[data-massa-lanc]').forEach((b) => b.onclick = () => { if (GS() && GS().edicaoLancamentos) GS().edicaoLancamentos(b.dataset.massaLanc); });
         ban.appendChild(d);
@@ -637,44 +664,7 @@
   new MutationObserver(() => { clearTimeout(_rotT); _rotT = setTimeout(() => rotularTabelas(), 120); }).observe(document.documentElement, { childList: true, subtree: true });
   document.addEventListener('DOMContentLoaded', ajustarGraficos); window.addEventListener('load', ajustarGraficos); ajustarGraficos();
 
-  // sino: número de avisos (notificações + prazos calculados), atualizado a cada 5 minutos
-  let _sinoT;
-  async function atualizarSino() {
-    const n = document.getElementById('gs-sino-n');
-    if (!n || !GS() || ehCliente()) return;
-    try {
-      GS().E.perfil = window.ERP_EU || GS().E.perfil;
-      // regras automáticas de tarefas: no máximo a cada 6 horas por navegador (o agendador do banco também roda de manhã)
-      let ult = 0; try { ult = +localStorage.getItem('erp-regras-ultima') || 0; } catch (e) { /* sem armazenamento */ }
-      if (Date.now() - ult > 6 * 3600 * 1000) {
-        try { localStorage.setItem('erp-regras-ultima', String(Date.now())); } catch (e) { /* sem armazenamento */ }
-        await window.SB.rpc('rodar_regras_tarefas').then(() => {}, () => {});
-      }
-      const c = await GS().contarAlertas();
-      n.hidden = !c.total; n.textContent = c.total > 99 ? '99+' : String(c.total);
-      n.classList.toggle('alto', c.altos > 0);
-      mostrarAvisosNovos(c.lista || []);
-    } catch (e) { console.warn('[ERP] avisos:', e); }
-  }
-  // ao abrir o sistema (e quando chega assunto novo): cartão no canto com os avisos não lidos mais importantes
-  const _vistos = new Set();
-  function mostrarAvisosNovos(lista) {
-    const novos = lista.filter((a) => !_vistos.has(a.chave || a.notif)); lista.forEach((a) => _vistos.add(a.chave || a.notif));
-    if (!novos.length || document.getElementById('gx-pop-avisos')) return;
-    const ICO = (GS() && GS().ICONE_AVISO) || {};
-    const d = document.createElement('div'); d.id = 'gx-pop-avisos'; d.setAttribute('role', 'status');
-    d.innerHTML = '<div class="gx-pop-hd"><b>🔔 ' + novos.length + ' aviso(s) novo(s)</b><button type="button" class="gx-pop-x" aria-label="Fechar">✕</button></div>' +
-      novos.slice(0, 4).map((a) => '<div class="gx-pop-it nivel-' + a.nivel + '"><span>' + (ICO[a.tipo] || '•') + '</span><div><b>' + esc(a.titulo) + '</b><div>' + esc(a.detalhe || '') + '</div></div></div>').join('') +
-      (novos.length > 4 ? '<div class="gx-pop-mais">+ ' + (novos.length - 4) + ' outro(s)</div>' : '') +
-      '<button type="button" class="gx-pop-abrir">Abrir a caixa de avisos</button>';
-    document.body.appendChild(d);
-    requestAnimationFrame(() => d.classList.add('on'));
-    const fechar = () => { d.classList.remove('on'); setTimeout(() => d.remove(), 300); };
-    d.querySelector('.gx-pop-x').onclick = fechar;
-    d.querySelector('.gx-pop-abrir').onclick = () => { fechar(); document.getElementById('gs-sino').click(); };
-    setTimeout(fechar, 14000);
-  }
-  document.addEventListener('erp:perfil', () => { clearInterval(_sinoT); setTimeout(atualizarSino, 1500); _sinoT = setInterval(atualizarSino, 5 * 60 * 1000); });
+  // Backup 38: sem avisos (sino, cartão no canto e caixa de avisos saíram a pedido do escritório)
 
   // ═══════ Honorários: tabelas de lançamentos no formato do Gestão ═══════
   // O ERP continua filtrando, ordenando e paginando; a tabela dele fica escondida

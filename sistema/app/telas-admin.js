@@ -28,7 +28,7 @@ TELAS.admin = async function () {
 async function pintarAdmin() {
   // Backup 19: as telas de e-mail moraram para a Central de e-mails (abas) — lá o "atualizar" redesenha a aba aberta
   if (!$('adm-corpo') && $('em-area-corpo')) return pintarAreaEmail();
-  if (E.adm.aba === 'email' || E.adm.aba === 'clientes_email') { E.em = Object.assign(E.em || {}, { area: E.adm.aba === 'email' ? 'config' : 'clientes' }); E.adm.aba = 'usuarios'; return irParaTela('emails'); }
+  if (E.adm.aba === 'email' || E.adm.aba === 'clientes_email') E.adm.aba = 'usuarios';   // Backup 38: módulo E-mails saiu
   document.querySelectorAll('#adm-abas button').forEach((b) => b.classList.toggle('ativo', b.dataset.aba === E.adm.aba));
   const corpo = $('adm-corpo');
   corpo.innerHTML = '<div class="carregando">Carregando…</div>';

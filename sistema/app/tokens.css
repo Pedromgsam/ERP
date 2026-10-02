@@ -29,10 +29,10 @@
   --sem-preto:#111827;
 
   /* superfícies e texto (cinzas neutros, sem puxar para o azul) */
-  --bg:#F5F6F8;--surface:#FFFFFF;--surface2:#F9FAFB;--surface3:#F1F2F4;--white:#FFFFFF;--hover:#F7F8FA;
-  --ink:#1B2A4A;                 /* títulos e números (navy como texto) */
-  --text:#1F2937;--text2:#3F4653;--text3:#5B6270;--text4:#636A77;
-  --border:rgba(17,24,39,.08);--border-strong:rgba(17,24,39,.14);--line:#ECEEF1;
+  --bg:#F4F5F6;--surface:#FFFFFF;--surface2:#F9FAFA;--surface3:#F1F3F4;--white:#FFFFFF;--hover:#F6F7F8;
+  --ink:#1D2329;                 /* Backup 38: títulos e números quase pretos (como nos prints) */
+  --text:#1F2429;--text2:#454C53;--text3:#5E666D;--text4:#646C73;
+  --border:#E3E6E8;--border-strong:#D3D7DA;--line:#ECEEF0;
   --overlay:rgba(17,24,39,.4);
   --foco:0 0 0 3px rgba(46,94,170,.28);
 
@@ -42,8 +42,13 @@
 
   /* barra superior, botão principal e seleção */
   --bar-bg:#1B2A4A;--bar-borda:rgba(255,255,255,.06);
-  --primario:#1B2A4A;--primario-hover:#243659;--on-primario:#FFFFFF;
-  --selecao:#1B2A4A;--on-selecao:#FFFFFF;
+  /* Backup 38: cores dos prints (ROMPEX) com o azul no lugar do verde e sem o azul-marinho nos botões */
+  --primario:#2F5FAE;--primario-hover:#2A5299;--on-primario:#FFFFFF;
+  --selecao:#2F5FAE;--on-selecao:#FFFFFF;
+  /* barra lateral: azul da marca (troque só --lado-bg para mudar o tom) */
+  --lado-bg:#1F4F8F;--lado-fg:#FFFFFF;--lado-fg-2:rgba(255,255,255,.86);--lado-sec:rgba(255,255,255,.62);--lado-linha:rgba(255,255,255,.18);
+  --lado-ativo-bg:#FFFFFF;--lado-ativo-fg:#1F4F8F;--lado-hover:rgba(255,255,255,.1);
+  --topo-bg:#FFFFFF;--topo-borda:#E3E6E8;
   /* cabeçalho das tabelas (Backup 19: volta ao azul-marinho, texto branco) */
   --th-bg:#F6F8FB;--th-fg:#5B6576;--th-fg-2:#7A8494;   /* Backup 37: cabeçalho de tabela claro (padrão dos prints), texto cinza */
 
@@ -93,6 +98,8 @@ html[data-tema="escuro"]{
   --primario:#3566B8;--primario-hover:#4174C6;--on-primario:#FFFFFF;
   --selecao:#3566B8;--on-selecao:#FFFFFF;
   --th-bg:#262C38;--th-fg:#E8ECF2;--th-fg-2:rgba(232,236,242,.72);
+  --lado-bg:#171A20;--lado-fg:#EEF0F4;--lado-fg-2:rgba(238,240,244,.8);--lado-sec:rgba(238,240,244,.5);--lado-linha:rgba(255,255,255,.1);
+  --lado-ativo-bg:#2A2F38;--lado-ativo-fg:#A3BFEA;--lado-hover:rgba(255,255,255,.06);--topo-bg:#1C1F26;--topo-borda:#2B2F37;
   --chart-1:#6E97DB;--chart-2:#55B08F;--chart-3:#D6A25C;--chart-4:#A08AD9;--chart-5:#D98080;--chart-6:#62AFC6;--chart-7:#8E8E96;--chart-8:#CDB66A;
   --chart-rampa-1:#A9C1EC;--chart-rampa-2:#7CA3E0;--chart-rampa-3:#5A83C8;--chart-rampa-4:#3D62A2;--chart-rampa-5:#284574;
   --chart-texto:#9AA2AE;--chart-grade:rgba(255,255,255,.07);--chart-borda:#1C1F26;

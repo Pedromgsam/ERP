@@ -100,37 +100,21 @@ function ordenarFila(lista) {
 // Fila do Início: 5 primeiras + "Ver todas"; ou em calendário (mês, semana ou dia). A escolha fica salva na pessoa
 // (perfis.preferencias.fila) e vale no próximo acesso, em qualquer computador. Cobrança de honorário atrasado não entra
 // (já aparece em "Atrasados", logo abaixo).
-const FILA = { toda: false, min: false, vista: 'lista', ref: null, lida: false, fontes: null };
-// Backup 37: o que entra na agenda (calendário) — cada pessoa escolhe; fica salvo junto da vista
-const FONTES_AGENDA = [['tarefas', 'Tarefas'], ['compromissos', 'Compromissos'], ['lembretes', 'Lembretes'], ['vencimentos', 'Vencimentos (honorários, guias e acordos)']];
-const fontesAgenda = () => Object.assign({ tarefas: true, compromissos: true, lembretes: true, vencimentos: false }, FILA.fontes || {});
+const FILA = { toda: false, min: false, vista: 'lista', ref: null, lida: false, quem: '' };
+// Backup 38: a agenda mostra SÓ o que está em Tarefas (tarefas e compromissos lançados pela equipe).
+// O administrador escolhe de quem ver: só as suas, todos, ou uma pessoa; os demais veem só as suas.
+const ehAdminFila = () => !!(E.perfil && E.perfil.papel === 'admin');
 const VISTAS_FILA = [['lista', 'Lista'], ['mes', 'Mês'], ['semana', 'Semana'], ['dia', 'Dia']];
 function salvarPrefFila() {
-  const v = { vista: FILA.vista, min: FILA.min, fontes: fontesAgenda() };
+  const v = { vista: FILA.vista, min: FILA.min, quem: FILA.quem || '' };
   if (E.perfil) E.perfil.preferencias = Object.assign({}, E.perfil.preferencias || {}, { fila: v });
   sb.rpc('salvar_preferencia', { p_chave: 'fila', p_valor: v }).then(() => {}, () => {});
 }
 // Backup 36: compromissos na agenda (tarefas com tipo_agenda + hora) — cor por tipo e legenda
 const TIPOS_AGENDA = [['reuniao', 'Reunião', '🤝'], ['audiencia', 'Audiência', '⚖'], ['compromisso', 'Compromisso', '📌'], ['ligacao', 'Ligação', '📞']];
-const legendaAgenda = () => '<div class="ag-leg">' + TIPOS_AGENDA.map(([k, r]) => '<span><i class="ag-cor ag-' + k + '"></i>' + r + '</span>').join('') +
-  '<span><i class="ag-cor ag-tarefa"></i>Tarefa</span><span><i class="ag-cor ag-atrasada"></i>Atrasada</span><span><i class="ag-cor ag-fatal"></i>Prazo fatal</span>' +
-  '<span><i class="ag-cor ag-lembrete"></i>Lembrete</span><span><i class="ag-cor ag-venc"></i>Vencimento</span></div>' +
-  // Backup 37: o que entra na agenda (salvo por pessoa)
-  '<div class="ag-fontes"><span class="sub">Mostrar na agenda:</span>' + FONTES_AGENDA.map(([k, r]) => '<label class="ag-fonte"><input type="checkbox" data-ag-fonte="' + k + '"' + (fontesAgenda()[k] ? ' checked' : '') + '><span>' + r + '</span></label>').join('') + '</div>';
-// Backup 37: lembretes (com dia) e vencimentos (honorários a receber, guias de parcelamento a emitir e parcelas de acordo) na agenda
-async function extrasAgenda(FA) {
-  const ref = FILA.ref || hojeISO(), de = somarDias(ref, -45), ate = somarDias(ref, 45), out = [];
-  const [lb, ln, pc, ac] = await Promise.all([
-    FA.lembretes ? q(sb.from('lembretes').select('*').is('feito_em', null).gte('dia', de).lte('dia', ate)).catch(() => []) : [],
-    FA.vencimentos && pode('financeiro_juridico') ? q(sb.from('lancamentos').select('id, descricao, valor, vencimento').eq('tipo', 'receita').eq('pago', false).gte('vencimento', de).lte('vencimento', ate).limit(1000)).catch(() => []) : [],
-    FA.vencimentos && pode('juridico') ? q(sb.from('parcelas').select('id, numero, vencimento, parcelamentos(empresa, emitimos_guia)').eq('pago', false).gte('vencimento', de).lte('vencimento', ate).limit(1000)).catch(() => []) : [],
-    FA.vencimentos && pode('juridico') ? q(sb.from('acordos').select('id, parcela, vencimento, valor, devedor').eq('pago', false).gte('vencimento', de).lte('vencimento', ate).limit(1000)).catch(() => []) : []]);
-  lb.forEach((l) => out.push({ id: 'lb:' + l.id, prazo: l.dia, titulo: '🔔 ' + l.texto, _cls: 'ag-lembrete', _lemb: l }));
-  ln.forEach((x) => out.push({ id: 'ln:' + x.id, prazo: x.vencimento, titulo: '💰 ' + x.descricao + ' · ' + brl(x.valor), _cls: 'ag-venc', _tela: 'financeiro' }));
-  pc.filter((x) => x.parcelamentos && x.parcelamentos.emitimos_guia !== false).forEach((x) => out.push({ id: 'pc:' + x.id, prazo: x.vencimento, titulo: '🧾 Guia ' + x.parcelamentos.empresa + ' (parc. ' + (x.numero || '?') + ')', _cls: 'ag-venc', _tela: 'parcelamentos' }));
-  ac.forEach((x) => out.push({ id: 'ac:' + x.id, prazo: x.vencimento, titulo: '⚖ Acordo ' + (x.devedor || '') + ' · ' + brl(x.valor), _cls: 'ag-venc', _tela: 'acordos' }));
-  return out;
-}
+// legenda curta: compromissos (reunião, audiência, compromisso), tarefa e atrasada; ⚑ = prazo fatal
+const legendaAgenda = () => '<div class="ag-leg">' + TIPOS_AGENDA.filter(([k]) => k !== 'ligacao').map(([k, r]) => '<span><i class="ag-cor ag-' + k + '"></i>' + r + '</span>').join('') +
+  '<span><i class="ag-cor ag-tarefa"></i>Tarefa</span><span><i class="ag-cor ag-atrasada"></i>Atrasada</span><span>⚑ Prazo fatal</span></div>';
 function janelaAgendar(dataIni, depois) {
   const pessoas = pessoasEscritorio();
   const j = abrirJanela({ titulo: '📅 Agendar na minha agenda',
@@ -163,7 +147,7 @@ function classeAgenda(t, d) {
   const h = hojeISO();
   if (t._cls) return t._cls;
   if (t.prazo_fatal === d) return 'ag-fatal';
-  if (t.tipo_agenda) return 'ag-' + t.tipo_agenda;
+  if (t.tipo_agenda) return 'ag-' + (t.tipo_agenda === 'ligacao' ? 'compromisso' : t.tipo_agenda);   // Backup 38: ligação entra como compromisso (legenda curta)
   if (/^reuniao:/.test(t.chave_regra || '')) return 'ag-reuniao';   // reuniões marcadas pelo CRM
   return t.prazo && t.prazo < h ? 'ag-atrasada' : 'ag-tarefa';
 }
@@ -198,7 +182,7 @@ function calendarioFila(lista) {
     corpo = c + '<div class="cal-dia vazio-dia"></div>'.repeat(resto) + '</div>';
   }
   // Backup 27: à esquerda, as tarefas atrasadas (não aparecem na semana/dia/mês que você está vendo)
-  const atr = lista.filter((t) => t.prazo && t.prazo < h && !t._cls).sort((a, b) => a.prazo.localeCompare(b.prazo));
+  const atr = lista.filter((t) => t.prazo && t.prazo < h).sort((a, b) => a.prazo.localeCompare(b.prazo));
   const lado = '<aside class="fila-atrasadas"><div class="fila-atr-tit">⏰ Atrasadas <span class="pill ' + (atr.length ? 'vencido' : 'pago') + '">' + atr.length + '</span></div>' +
     (atr.length ? atr.map((t) => '<button type="button" class="fila-atr-it" data-fila="' + t.id + '" title="' + esc(t.titulo) + '"><b>' + esc(t.titulo) + '</b><span class="sub">prazo ' + dataBR(t.prazo) + ' · ' + plural(-diasAte(t.prazo), 'dia', 'dias') + ' de atraso</span></button>').join('')
       : '<div class="sub">Nenhuma atrasada. 🎉</div>') + '</aside>';
@@ -207,31 +191,32 @@ function calendarioFila(lista) {
     '<button type="button" class="btn btn-p btn-mini ag-bt" data-agendar>+ Agendar</button></div>' + corpo + legendaAgenda() + '</div></div>';
 }
 async function cardMinhaFila() {
-  if (!FILA.lida) { const p = (E.perfil && E.perfil.preferencias && E.perfil.preferencias.fila) || {}; if (p.vista) FILA.vista = p.vista; FILA.min = !!p.min; FILA.fontes = p.fontes || null; FILA.lida = true; }
+  if (!FILA.lida) { const p = (E.perfil && E.perfil.preferencias && E.perfil.preferencias.fila) || {}; if (p.vista) FILA.vista = p.vista; FILA.min = !!p.min; FILA.quem = p.quem || ''; FILA.lida = true; }
+  if (!ehAdminFila()) FILA.quem = '';
   await feriados();
   await equipe().catch(() => []);
   const ts = await q(sb.from('tarefas').select('*').not('status', 'in', '(concluida,cancelada)')).catch(() => []);
-  const todas = ordenarFila(ts.filter((t) => ehMinha(t) && !/^(cob|parc|aco):/.test(t.chave_regra || ''))), minhas = FILA.toda ? todas : todas.slice(0, 5);
-  const FA = fontesAgenda(), ehComp = (t) => !!t.tipo_agenda || /^reuniao:/.test(t.chave_regra || '');
-  const naAgenda = todas.filter((t) => (ehComp(t) ? FA.compromissos : FA.tarefas));
-  const extras = FILA.vista !== 'lista' && !FILA.min ? await extrasAgenda(FA) : [];
-  const html = '<div class="card ini-fila' + (FILA.min ? ' minimizada' : '') + '"><div class="card-hd">📋 Minha fila de trabalho ' + '<span class="sub">' + plural(todas.length, 'aberta', 'abertas') + ' · suas</span>' +
+  const daPessoa = (t) => (FILA.quem === 'todos' ? true : FILA.quem ? [t.responsavel].concat(String(t.participantes || '').split(',')).some((n) => primeiroNome(n) === primeiroNome(FILA.quem)) : ehMinha(t));
+  const todas = ordenarFila(ts.filter((t) => daPessoa(t) && !/^(cob|parc|aco):/.test(t.chave_regra || ''))), minhas = FILA.toda ? todas : todas.slice(0, 5);
+  const naAgenda = todas;
+  const rotQuem = FILA.quem === 'todos' ? 'de todos' : FILA.quem ? 'de ' + primeiroNome(FILA.quem) : 'suas';
+  const selQuem = ehAdminFila() ? '<select class="ini-fila-quem" data-fila-quem aria-label="De quem ver as tarefas"><option value="">Só as minhas</option><option value="todos"' + (FILA.quem === 'todos' ? ' selected' : '') + '>Todos</option>' +
+    pessoasEscritorio().filter((n) => primeiroNome(n) !== primeiroNome(meuNome())).map((n) => '<option' + (FILA.quem === n ? ' selected' : '') + '>' + esc(n) + '</option>').join('') + '</select>' : '';
+  const html = '<div class="card ini-fila' + (FILA.min ? ' minimizada' : '') + '"><div class="card-hd">📋 Minha fila de trabalho ' + '<span class="sub">' + plural(todas.length, 'aberta', 'abertas') + ' · ' + rotQuem + '</span>' + selQuem +
       '<div class="segmento ini-fila-vista" role="group" aria-label="Ver como">' + VISTAS_FILA.map(([v, r]) => '<button type="button" data-fila-vista="' + v + '"' + (FILA.vista === v ? ' class="ativo"' : '') + '>' + r + '</button>').join('') + '</div>' +
       '<button type="button" class="btn btn-o btn-mini ini-fila-min" data-fila-min aria-expanded="' + !FILA.min + '">' + (FILA.min ? '▸ Mostrar' : '▾ Minimizar') + '</button></div>' +
-    (FILA.min ? '' : '<div class="card-bd">' + (FILA.vista !== 'lista' ? calendarioFila(naAgenda.concat(extras)) :
+    (FILA.min ? '' : '<div class="card-bd">' + (FILA.vista !== 'lista' ? calendarioFila(naAgenda) :
     (minhas.length ? '<div class="lista-ficha fila-compacta">' + minhas.map((t) => '<div class="item-ficha clicavel" data-fila="' + t.id + '"><div>' + bolinha(t) + (t.tipo_agenda ? ' <i class="ag-cor ag-' + t.tipo_agenda + '"></i>' : '') + ' <b>' + (t.hora ? horaAg(t) : '') + esc(t.titulo) + '</b>' + seloPrazo(t) +
       '<div class="sub">' + (t.prazo ? 'prazo ' + dataBR(t.prazo) : 'sem prazo') + (t.prazo_fatal ? ' · ⚑ fatal ' + dataBR(t.prazo_fatal) : '') + (t.status === 'revisao' ? ' · aguardando revisão' : '') +
       (nomeCliente(t.cliente_id) || nomeGrupo(t.grupo_id) ? ' · ' + esc(nomeCliente(t.cliente_id) || nomeGrupo(t.grupo_id)) : '') + '</div></div>' +
       '<span class="pill ' + (PRIORIDADE[t.prioridade] || ['', 'neutro'])[1] + '">' + esc((PRIORIDADE[t.prioridade] || [t.prioridade])[0]) + '</span></div>').join('') + '</div>' +
       (todas.length > 5 ? '<div class="ini-fila-mais"><button type="button" class="btn btn-o btn-mini" data-fila-toda>' + (FILA.toda ? '▴ Mostrar só as 5 primeiras' : '▾ Ver todas (' + todas.length + ')') + '</button></div>' : '')
-      : '<div class="sub">Nenhuma tarefa com você. 🎉</div>')) + '</div>') + '</div>';
+      : '<div class="sub">' + (FILA.quem ? 'Nenhuma tarefa aberta.' : 'Nenhuma tarefa com você.') + ' 🎉</div>')) + '</div>') + '</div>';
   const repinta = async (raiz) => { const c = await cardMinhaFila(); raiz.innerHTML = c.html; c.ligar(raiz); };
   return { html, ligar: (raiz) => {
     raiz.querySelectorAll('[data-fila]').forEach((d) => d.onclick = () => {
-      const x = extras.find((e) => e.id === d.dataset.fila);
-      if (x) { if (x._lemb && typeof detalheLembrete === 'function') return detalheLembrete(x._lemb); if (x._tela) return irPara(x._tela); return; }
       abrirTarefa(ts.find((t) => t.id === d.dataset.fila), () => irPara(E.tela)); });
-    raiz.querySelectorAll('[data-ag-fonte]').forEach((c) => c.onchange = () => { FILA.fontes = Object.assign(fontesAgenda(), { [c.dataset.agFonte]: c.checked }); salvarPrefFila(); repinta(raiz); });
+    const sq = raiz.querySelector('[data-fila-quem]'); if (sq) sq.onchange = () => { FILA.quem = sq.value; salvarPrefFila(); repinta(raiz); };
     const bm = raiz.querySelector('[data-fila-min]'); if (bm) bm.onclick = () => { FILA.min = !FILA.min; salvarPrefFila(); repinta(raiz); };
     const bt = raiz.querySelector('[data-fila-toda]'); if (bt) bt.onclick = () => { FILA.toda = !FILA.toda; repinta(raiz); };
     raiz.querySelectorAll('[data-fila-vista]').forEach((b) => b.onclick = () => { FILA.vista = b.dataset.filaVista; FILA.min = false; FILA.ref = null; salvarPrefFila(); repinta(raiz); });
@@ -278,7 +263,7 @@ TELAS.tarefas = async function () {
   F.aba = F.aba || 'abertas'; if (F.atalho === 'abertas' || F.atalho === 'concluidas') F.atalho = '';
   $('conteudo').innerHTML =
     '<div class="titulo-pag"><div><h1>Tarefas</h1><p>Prazos, fluxos e acompanhamento do escritório</p></div>' +
-    '<div class="acoes"><button class="btn btn-o" id="tf-regras">⚡ Automações</button><button class="btn btn-o" id="tf-modelos">Modelos de fluxo</button><button class="btn btn-o" id="tf-feriados">Feriados</button><button class="btn btn-o" id="tf-agenda" title="Prazos fatais e audiências no seu Google Agenda">📅 Google Agenda</button>' +
+    '<div class="acoes"><button class="btn btn-o" id="tf-modelos">Modelos de fluxo</button><button class="btn btn-o" id="tf-feriados">Feriados</button><button class="btn btn-o" id="tf-agenda" title="Prazos fatais e audiências no seu Google Agenda">📅 Google Agenda</button>' +
     '<button class="btn btn-o" id="tf-delegar" title="Delegar uma sequência de passos (ex.: lead completo) com validação">👥 Delegar</button><button class="btn btn-o" id="tf-fluxo">+ Novo fluxo</button><button class="btn btn-p" id="tf-nova">+ Nova tarefa</button></div></div>' +
     '<div class="tf-rapida"><input id="tf-rapida" autocomplete="off" placeholder="⚡ Criação rápida: “Protocolar defesa amanhã @Emanuelle !alta” e Enter" aria-label="Criação rápida de tarefa">' +
       '<div id="tf-rapida-prev" class="tf-rapida-prev"></div></div>' +
@@ -298,7 +283,6 @@ TELAS.tarefas = async function () {
   $('tf-fluxo').onclick = () => formNovoFluxo(() => TELAS.tarefas());
   $('tf-modelos').onclick = () => janelaModelos();
   $('tf-delegar').onclick = () => janelaDelegar({}, () => TELAS.tarefas());
-  $('tf-regras').onclick = () => irParaTela('automacoes');
   $('tf-feriados').onclick = () => janelaFeriados();
   $('tf-agenda').onclick = () => janelaAgenda();
   $('tf-vista').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.vista = b.dataset.v; pintarTarefas(); } };

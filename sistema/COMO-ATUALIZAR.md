@@ -712,6 +712,28 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
 **Central de Documentos dentro do ERP:** menu **Documentos → Gerar documento** (ou ⋯ → Documentos, contrato, recibo do Financeiro).
 **Ctrl + clique** (ou botão do meio do mouse) em qualquer item do menu ou link de documento abre numa aba nova.
 
+## Backup 38 — barra lateral no padrão dos prints, Início enxuto, sem avisos, sem módulo E-mails, tarefas só manuais (tem SQL)
+Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+Shift+R**. Nenhuma Edge Function mudou.
+Para voltar ao visual anterior: o zip do **Backup 37** (pasta `backups/`) é a versão completa de antes.
+
+- **Barra lateral** (como nos prints): Principal (Início, Tarefas, Rotina, Alertas) · Módulos (Painel, Jurídico ▾, Acordos, Financeiro ▾, Contratos,
+  Clientes, CRM, Documentos ▾) · Sistema (Administração). O grupo da tela aberta fica aberto; "‹ encolher" deixa só os ícones (fica salvo).
+  Barra de cima branca com o nome da tela, + Lançar, tema, ⋯, tempo da sessão, seu nome e Sair. Conteúdo centralizado, com margem dos dois lados.
+- **Cores dos prints** (fundo cinza-claro, cartões brancos com borda fina, títulos quase pretos), com o **azul** no lugar do verde e sem o azul-marinho
+  nos botões. O tom da lateral está num lugar só (`--lado-bg` em tokens.css).
+- **Início:** só Olá, Lembretes, Resumo do escritório (ícones de traço fino) e a agenda/fila. Saíram os cartões de Honorários e a faixa
+  "avisos / tarefas pedem atenção / guias / boletos".
+- **Agenda:** mostra só o que está em **Tarefas**; legenda curta (Reunião · Audiência · Compromisso · Tarefa · Atrasada · ⚑ Prazo fatal); "Atrasadas"
+  com a mesma altura do calendário; o **administrador** escolhe "Só as minhas / Todos / uma pessoa" (estagiário vê só as suas).
+- **Tarefas:** só as que vocês lançam. Tarefa automática (documento vencendo, publicação, CRM parado, conferência…) não é mais criada e as abertas
+  foram canceladas uma vez (continuam no histórico). Para religar: `update configuracoes set valor='true' where chave='tarefas_automaticas';`
+- **Avisos:** o sino, o cartão que aparecia no canto e a caixa de avisos saíram.
+- **Financeiro:** "Prejuízo" e "Em atraso" somam **todos os meses** (Jurídico e Contabilidade). Contabilidade ganhou o cartão Prejuízo e perdeu a
+  tabela "Em atraso" que ainda aparecia.
+- **E-mails:** o módulo saiu do menu (e o botão "✉ Cobrar clientes", a aba E-mails da ficha e o cartão de e-mails automáticos dos Alertas).
+  **Todo e-mail vai para pedromgsam@gmail.com**, com o destinatário original no assunto: "[para fulano@cliente.com] …".
+  Para voltar ao normal: `update configuracoes set valor='""' where chave='email_redirecionar';`
+
 ## Backup 37 — gerar guias com expansão, forma de pagamento dos acordos, certificado digital, sessão por inatividade, visual novo (tem SQL)
 Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+Shift+R**. Nenhuma Edge Function mudou.
 
