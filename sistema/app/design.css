@@ -1045,7 +1045,7 @@ body.gx-barra-topo :is(.tw,.tabela-wrap,.gx-tab-gs) thead th{border-bottom:1px s
    lateral fixa (240 px; "encolher" → só ícones), barra de cima branca com o nome da tela,
    conteúdo centralizado com margem dos dois lados (não encosta nas bordas). */
 /* Backup 39: a margem dos lados é a MESMA com a lateral aberta ou encolhida — encolher só alarga o conteúdo */
-body.gx-barra-topo{--sw:240px;--hh:56px;--conteudo:1360px;--gut:max(32px,calc((100vw - 240px - var(--conteudo)) / 2))}
+body.gx-barra-topo{--sw:240px;--hh:56px;--conteudo:1440px;--gut:max(20px,calc((100vw - 240px - var(--conteudo)) / 2))}   /* Backup 43: margens um pouco menores (eram 32px / 1360px) */
 body.gx-barra-topo.gx-lado-min{--sw:68px}
 body.gx-barra-topo #main{margin-left:var(--sw)!important;padding-left:var(--gut)!important;padding-right:var(--gut)!important;transition:margin-left .18s}
 body.gx-barra-topo #main > .panel{max-width:none;margin-left:0!important;margin-right:0!important}
@@ -1225,7 +1225,7 @@ body.gx-barra-topo .gs .janela-rp{position:static;flex:none}
 .gs .nt-vals{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px}
 .gs .nt-vals label{display:flex;flex-direction:column;gap:3px}
 .gs .nt-txt{width:100%;font:13px/1.55 var(--font-ui);padding:10px 12px;border:1px solid var(--border);border-radius:var(--r-ctl);background:var(--surface2);resize:vertical}
-.gs .nt-env-l{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 170px;gap:8px;margin:10px 0}
+.gs .nt-env-l{display:grid;grid-template-columns:minmax(0,1fr) 170px;gap:8px;margin:10px 0}
 .gs .nt-bts{justify-content:flex-end;flex-wrap:wrap}
 @media (max-width:700px){.gs .nt-env-l{grid-template-columns:1fr}.gs .nt-it{grid-template-columns:auto 1fr}.gs .nt-it .nt-desc,.gs .nt-it .nt-venc-d{grid-column:2}}
 /* Backup 42: Passivo com a Conferência no fim — tudo cabe na largura (sem rolar para o lado) */
@@ -1244,27 +1244,6 @@ body.gx-barra-topo .gs .janela-rp{position:static;flex:none}
 .gs .rt-pas .rt-cf{display:flex;flex-direction:row-reverse;justify-content:flex-end;align-items:center;gap:6px;min-width:0}
 .gs .rt-pas .rt-cf .rt-cf-txt{white-space:normal;font-size:12px;line-height:1.3;min-width:0}
 .gs .rt-pas .rt-cf .btn{flex:0 0 auto}
-/* ═══ Backup 42: menu na barra de cima; lateral estreita (largura de "encolhida") sem ícones, com as seções da tela aberta ═══ */
-@media (min-width:1101px){body.gx-barra-topo.gx-menu-topo{--sw:68px;--gut:max(24px,calc((100vw - 68px - var(--conteudo)) / 2))}}
-body.gx-menu-topo #gs-hd #gs-tela-nome{display:none!important}
-body.gx-menu-topo #gs-hd #tn{display:flex!important;align-items:center;justify-content:flex-start;gap:1px;flex:1;min-width:0;padding:0!important;margin:0!important;overflow:visible!important;background:none!important;height:auto!important}
-body.gx-menu-topo #gs-hd #tn .tn-sec{display:none}
-body.gx-menu-topo #gs-hd #tn .tn-ic:not(.tn-seta){display:none}
-body.gx-menu-topo #gs-hd #tn .tn-it{display:inline-flex!important;align-items:center;gap:3px;width:auto!important;padding:7px 6px!important;border:0!important;border-radius:8px!important;background:none!important;color:var(--text2)!important;font:500 13px var(--font-ui)!important;white-space:nowrap;cursor:pointer;justify-content:flex-start!important}
-body.gx-menu-topo #gs-hd #tn .tn-it:hover{background:var(--surface3)!important;color:var(--ink)!important}
-body.gx-menu-topo #gs-hd #tn .tn-it.ativo,body.gx-menu-topo #gs-hd #tn .tn-grupo.ativo > .tn-it{background:var(--blue-lt)!important;color:var(--primario)!important;font-weight:600!important}
-body.gx-menu-topo #gs-hd #tn .tn-seta{width:12px;height:12px}
-body.gx-menu-topo #gs-hd #tn .tn-grupo{position:relative}
-body.gx-menu-topo #gs-hd #tn .tn-grupo.on > .tn-it .tn-seta{transform:rotate(180deg)}
-body.gx-menu-topo #gs-hd #tn .tn-rot{display:inline}
-body.gx-menu-topo #gs-lado .gl-marca{min-height:var(--hh)}
-body.gx-menu-topo #gs-lado .gl-nome{display:none}
-body.gx-menu-topo #gl-sub{display:flex;flex-direction:column;gap:4px;padding:10px 6px}
-body.gx-menu-topo #gl-sub button{background:none;border:0;border-radius:8px;padding:9px 2px;color:var(--lado-fg);font:600 10.5px/1.3 var(--font-ui);text-align:center;cursor:pointer;word-break:normal;overflow-wrap:normal}
-body.gx-menu-topo #gl-sub button:hover{background:var(--lado-hover,rgba(255,255,255,.08))}
-body.gx-menu-topo #gl-sub button.ativo{background:var(--lado-ativo-bg,rgba(255,255,255,.14));color:var(--lado-ativo-fg,var(--on-cor))}
-@media (max-width:1100px){body.gx-menu-topo #gs-hd #tn{display:none!important}}
-body.gx-barra-topo.gx-menu-topo #gs-hd{padding:0 14px!important;gap:8px!important}
 body.gx-barra-topo #tblExecRanking td.er-sit{width:130px}
 body.gx-barra-topo #tblExecRanking td.mono{width:1%}
 /* Backup 42: proposta com prévia ao vivo ao lado do formulário */
@@ -1277,5 +1256,4 @@ body.gx-barra-topo #tblExecRanking td.mono{width:1%}
 .gx-la .gx-la-cb{font:600 12px var(--font-ui);padding:4px 9px;border-radius:var(--r-ctl);border:1px solid var(--green-bd);background:var(--green-lt);color:var(--green-d);cursor:pointer;white-space:nowrap;margin-right:4px}
 .gx-la .gx-la-cb:hover{border-color:var(--green)}
 .gs td.acoes-l:has(.gx-cobrar){white-space:nowrap}
-/* o menu de cima respeita o que cada pessoa pode ver (as regras gerais perdiam para o display do item) */
-body.gx-menu-topo #gs-hd #tn .gx-sem-funcao,body.modo-cliente #gs-hd #tn .gx-so-equipe,body:not(.gx-admin) #gs-hd #tn .gx-so-admin{display:none!important}
+.gs .gx-cobrar.gx-cobrado{border-color:var(--green-bd);color:var(--green-d);background:var(--green-lt)}

@@ -183,7 +183,7 @@ async function chamarFuncao(nome, corpo) {
     r = await fetch(String(CFG.url).replace(/\/$/, '') + '/functions/v1/' + nome, { method: 'POST',
       headers: { 'Content-Type': 'application/json', apikey: CFG.chave, Authorization: 'Bearer ' + (sessao ? sessao.access_token : CFG.chave) },
       body: JSON.stringify(corpo || {}) });
-  } catch (e) { throw new Error('Não consegui falar com a função "' + nome + '" (sem internet ou bloqueio do navegador).'); }
+  } catch (e) { throw new Error('Não consegui falar com a função "' + nome + '". As causas mais comuns: (1) ela não está publicada no Supabase com esse nome exato; (2) a opção "Verify JWT" dela está LIGADA (tem que ficar desligada); (3) sem internet.'); }
   const txt = await r.text(); let js = null;
   try { js = JSON.parse(txt); } catch (e) { /* resposta sem JSON */ }
   if (r.ok) return js || {};
@@ -199,7 +199,12 @@ async function chamarFuncao(nome, corpo) {
 async function enviarEmailAgora(ref, para) {
   let d;
   try { d = await chamarFuncao('erp-emails', { acao: 'enviar', ref: ref || undefined }); }
-  catch (e) { return { ok: false, msg: 'o e-mail ficou na fila e NÃO saiu: ' + e.message }; }
+  catch (e) {
+    // Backup 43: o navegador não alcançou a função → pede ao servidor (banco) para chamar a função por dentro, sem passar pelo navegador
+    const viaServidor = await q(sb.rpc('disparar_envio_emails')).catch(() => false);
+    return { ok: false, msg: 'o e-mail ficou na fila. ' + (viaServidor ? 'O navegador não alcançou a função de e-mail, então pedi ao servidor para enviar — confira em alguns segundos em Administração → E-mail. '
+      : '') + 'Motivo: ' + e.message + ' Veja Administração → E-mail → "O e-mail está saindo?".' };
+  }
   const it = d && d.item;
   if (it && it.status === 'enviado') return { ok: true, msg: 'e-mail enviado para ' + (it.para || para || '') + '.' };
   if (d && d.aviso) return { ok: false, msg: 'o e-mail ficou na fila e NÃO saiu: ' + d.aviso };
@@ -1624,7 +1629,10 @@ async function cobrarWhatsApp(id) {
       campo('Mensagem', '<textarea id="cb-txt" rows="6">' + esc(textoCobranca(l)) + '</textarea>', 'inteiro') +
       '<p class="sub inteiro">Ao copiar ou abrir o WhatsApp, o lançamento fica marcado como <b>COBRADO</b>.</p></div>',
     rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Fechar</button><button class="btn btn-o" type="button" id="cb-copiar">📋 Copiar</button><button class="btn btn-v" type="button" id="cb-zap">💬 Abrir WhatsApp</button></div>' });
-  const marcar = () => q(sb.from('lancamentos').update({ cobranca: 'Cobrado' }).eq('id', id)).then(() => { if (window.ERP_RECARREGAR) window.ERP_RECARREGAR(); }).catch(() => {});
+  // Backup 43: marca "Cobrado" só nesta linha (antes recarregava todos os dados do sistema — era isso que demorava)
+  const marcar = () => q(sb.from('lancamentos').update({ cobranca: 'Cobrado' }).eq('id', id).select('id')).then(() => {
+    document.querySelectorAll('[data-cobrar="' + id + '"]').forEach((b) => { b.textContent = '✓ Cobrado'; b.classList.add('gx-cobrado'); });
+  }).catch((e) => aviso(erroAmigavel(e), true));
   j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
   j.querySelector('#cb-copiar').onclick = (ev) => comBotao(ev.currentTarget, async () => { await copiarTexto(j.querySelector('#cb-txt').value); aviso('✓ Texto copiado — cole no WhatsApp.'); marcar(); });
   j.querySelector('#cb-zap').onclick = () => { const tel = soDigitos(j.querySelector('#cb-tel').value);
@@ -6718,19 +6726,7 @@ async function preencherDestino(campo, cli, grp, tabela) {
   if (!campo.isConnected) return;
   if (!campo.value) campo.value = para;
   campo.placeholder = para ? '' : 'sem e-mail cadastrado — digite aqui (ex.: financeiro@empresa.com.br)';
-  campo.closest('.campo').classList.toggle('ge-sem-email', !para);
-}
-// Backup 42: e-mails cadastrados da empresa (contatos com setor + e-mail do cadastro) para a lista "Para"
-async function emailsDaEmpresa(cli, grupo) {
-  const ids = cli ? [cli] : E.clientes.filter((c) => grupo && c.grupo_id === grupo).map((c) => c.id);
-  if (!ids.length) return [];
-  const cs = await q(sb.from('contatos').select('cliente_id, nome, finalidade, email').in('cliente_id', ids)).catch(() => []);
-  const rot = (k) => (SETORES_CONTATO.find((s) => s[0] === k) || [k, k || 'Geral'])[1];
-  const out = [], visto = {};
-  const por = (r, m) => String(m || '').split(/[,;]\s*/).map((x) => x.trim()).filter((x) => /@/.test(x)).forEach((x) => { if (!visto[x.toLowerCase()]) { visto[x.toLowerCase()] = 1; out.push([r, x]); } });
-  cs.forEach((c) => por(rot(c.finalidade) + (c.nome ? ' (' + c.nome + ')' : '') + (ids.length > 1 ? ' — ' + ((E.clientes.find((y) => y.id === c.cliente_id) || {}).nome || '') : ''), c.email));
-  ids.forEach((id) => { const c = E.clientes.find((y) => y.id === id); if (c) por('Cadastro' + (ids.length > 1 ? ' — ' + c.nome : ''), c.email); });
-  return out;
+  const cx = campo.closest('.campo'); if (cx) cx.classList.toggle('ge-sem-email', !para);
 }
 let _emailTeste;
 async function emailDeTeste() {
@@ -6932,8 +6928,7 @@ async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
     arquivos = [];
     $j('#ge-msg').innerHTML =
       '<div class="ge-cab"><div><div class="ge-emp-nome">' + esc(e.nome) + '</div><div class="sub">' + esc([mascaraDoc(c.cpf_cnpj), e.gnome].filter(Boolean).join(' · ')) + '</div></div></div>' +
-      '<div class="ge-dest"><label class="campo ge-para-campo"><span>✉ E-mail (para)</span><select id="ge-para-sel" aria-label="E-mails cadastrados da empresa"><option value="">— e-mails da empresa —</option></select>' +
-        '<input id="ge-para" type="text" autocomplete="off" placeholder="escolha acima ou digite o e-mail"><small class="sub" id="ge-teste"></small></label>' +
+      '<div class="ge-dest"><label class="campo"><span>✉ E-mail (para)</span><input id="ge-para" type="text" autocomplete="off" placeholder="procurando o e-mail cadastrado…"><small class="sub" id="ge-teste"></small></label>' +
         '<label class="campo"><span>💬 WhatsApp</span><input id="ge-tel" data-mascara="tel" inputmode="tel" value="' + esc(c.telefone || '') + '" placeholder="(37) 9 9999-9999"></label>' +
         '<label class="campo ge-ass"><span>Assunto</span><input id="ge-assunto" value="' + esc((tabela === 'parcelas' ? 'Guias de parcelamento' : e.itens.every((x) => ehPixGuia(tabela, x)) ? 'Parcela de acordo' : 'Boletos de acordo') + ' — ' + e.nome) + '"></label></div>' +
       '<div class="ge-papel"><textarea id="ge-texto" rows="5">' + esc(t.intro) + '</textarea>' +
@@ -6953,9 +6948,6 @@ async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
     j.querySelectorAll('.ge-it input[type=checkbox]').forEach((i) => i.addEventListener('change', total));
     j.querySelectorAll('.ge-valor').forEach((i) => i.addEventListener('blur', () => { const v = lerValor(i.value); i.value = v ? valorParaCampo(v) : ''; total(); }));
     preencherDestino($j('#ge-para'), e.cli, e.grupo, tabela);
-    emailsDaEmpresa(e.cli, e.gid).then((ls) => { const s = $j('#ge-para-sel'); if (!s || !s.isConnected) return;
-      s.innerHTML = '<option value="">' + (ls.length ? '— e-mails da empresa (' + ls.length + ') —' : '— nenhum e-mail cadastrado —') + '</option>' + ls.map(([r, m]) => '<option value="' + esc(m) + '">' + esc(r + ': ' + m) + '</option>').join('');
-      s.onchange = () => { if (s.value) $j('#ge-para').value = s.value; }; });
     emailDeTeste().then((m) => { const x = $j('#ge-teste'); if (x && m) x.textContent = 'Modo teste: por enquanto todo e-mail chega só em ' + m + '.'; });
     pintarChips(); total();
   };
@@ -7072,7 +7064,7 @@ async function gerarGuias(tabela, alcance, depois) {
 //  3) Guias de parcelamentos e boletos de acordos (emitir → enviar → conferir o pagamento).
 //  4) Financeiro do escritório (atalhos) e 5) Minhas tarefas.
 // ═══════════════════════════════════════════════════════════════════
-const ABAS_ROTINA = [['passivo', '🏛 Passivo e cadastro'], ['processos', '⚖ Processos'], ['planilha', '📋 Planilha de parcelamentos'], ['acs', '🤝 Acordos'], ['financeiro', '💰 Financeiro'], ['tarefas', '✓ Minhas tarefas']];
+const ABAS_ROTINA = [['passivo', '🏛 Passivo e cadastro'], ['processos', '⚖ Processos'], ['planilha', '📋 Planilha de parcelamentos'], ['guias', '📨 Enviar guias do mês'], ['acs', '🤝 Acordos'], ['financeiro', '💰 Financeiro'], ['tarefas', '✓ Minhas tarefas']];
 const TIPOS_MOV = [['movimentacao', 'Movimentação'], ['decisao', 'Decisão relevante'], ['valor', 'Mudança de valor'], ['procuracao', 'Procuração juntada'], ['sem_novidade', 'Conferido — sem novidade']];
 const PARES_PASSIVO = [['rfb', 'RFB'], ['pgfn', 'PGFN'], ['age_mg', 'AGE/MG']];
 const COLS_PASSIVO = [['rfb', 'RFB'], ['rfb_negociada', 'RFB negociada'], ['pgfn', 'PGFN'], ['pgfn_negociada', 'PGFN negociada'], ['age_mg', 'AGE/MG'], ['age_mg_negociada', 'AGE/MG negociada']];
@@ -7080,7 +7072,7 @@ const CAPAG_OPCOES = ['', 'A', 'B', 'C', 'D', 'Omisso'];
 
 TELAS.rotina = async function () {
   E.rt = Object.assign({ aba: 'passivo', busca: '', grupo: '', filtro: '' }, E.rt || {});
-  if (E.rt.aba === 'guias' || E.rt.aba === 'parcs' || E.rt.aba === 'acs') E.rt.aba = 'planilha';   // Backup 42: o Controle saiu
+  if (E.rt.aba === 'parcs' || E.rt.aba === 'acs') E.rt.aba = 'planilha';   // Backup 42: o Controle saiu
   if (!E.clientes.length) await carregarCadastros();
   $('conteudo').innerHTML =
     '<div class="titulo-pag"><div><h1>Rotina</h1><p>Tudo o que era atualizado nas planilhas, num lugar só — o que você grava aqui aparece no Painel, nos Processos e no Financeiro</p></div></div>' +
@@ -7096,7 +7088,7 @@ async function pintarRotina() {
   document.querySelectorAll('#rt-abas button').forEach((b) => b.classList.toggle('ativo', b.dataset.rtAba === E.rt.aba));
   const el = $('rt-corpo'); if (!el) return;
   el.innerHTML = '<div class="sub" style="padding:10px">Carregando…</div>';
-  try { await ({ passivo: rotinaPassivo, processos: rotinaProcessos, planilha: rotinaPlanilha, financeiro: rotinaFinanceiro, tarefas: rotinaTarefas })[E.rt.aba](el); }
+  try { await ({ passivo: rotinaPassivo, processos: rotinaProcessos, planilha: rotinaPlanilha, guias: rotinaEnviarGuias, financeiro: rotinaFinanceiro, tarefas: rotinaTarefas })[E.rt.aba](el); }
   catch (e) { console.error(e); el.innerHTML = '<div class="card"><div class="card-bd msg-erro">' + esc(erroAmigavel(e)) + '</div></div>'; }
 }
 function filtroRotina(extra) {
@@ -7325,7 +7317,7 @@ async function janelaMovimentacao(processoId, depois) {
   return j;
 }
 
-// ── 3) Backup 42: PLANILHA DE PARCELAMENTOS — igual à antiga "Notificações → Parcelamento": guias vencidas ou que vencem neste mês,
+// ── 3) Backup 42/43: ENVIAR GUIAS DO MÊS (aba própria desde o B43) — igual à antiga "Notificações → Parcelamento": guias vencidas ou que vencem neste mês,
 // por empresa; marque, gere a mensagem (texto idêntico ao das Notificações), confira o valor e envie (copiar, WhatsApp ou e-mail).
 // "Controle dos parcelamentos" saiu; "Acordos" abre a própria tela de Acordos (a mesma, sem repetir código).
 const _plSel = new Set();
@@ -7335,7 +7327,7 @@ function textoNotifParcelas(empresa, itens) {   // o texto das antigas Notifica�
       '\nNº do Parcelamento: ' + (g.p.numero || '—') + '\nParcela: ' + (g.numero || '?') + ' de ' + (g.p.total_parcelas || '?') + ' | Vencimento: ' + (g.vencimento ? g.vencimento.slice(5, 7) + '/' + g.vencimento.slice(0, 4) : '—') +
       '\nNº da Guia: ' + (g.numero || '—') + '\nValor: ' + brl(g._valor || 0)).join('');
 }
-async function rotinaPlanilha(el) {
+async function rotinaEnviarGuias(el) {
   if (!E.clientes.length) await carregarCadastros();
   const h = hojeISO(), fimMes = fimDoMesGuia(h);
   const [PA, P2] = await Promise.all([
@@ -7350,7 +7342,7 @@ async function rotinaPlanilha(el) {
       _valor: x.valor != null && Number(x.valor) > 0 ? Number(x.valor) : ult[p.id] != null ? ult[p.id] : Number(p.valor_ultima_parcela) || 0,
       cliente_id: (E.clientes.find((c) => (soDigitos(p.cnpj) && soDigitos(c.cpf_cnpj) === soDigitos(p.cnpj)) || c.nome === p.empresa) || {}).id || null })); });
   const empK = (g) => g.p.empresa || '—';
-  el.innerHTML = '<div class="card nt-card"><div class="card-hd">📋 Planilha de parcelamentos<span class="sub">guias vencidas ou que vencem neste mês · marque, gere a mensagem e envie</span></div><div class="card-bd">' +
+  el.innerHTML = '<div class="card nt-card"><div class="card-hd">📨 Enviar guias do mês<span class="sub">guias vencidas ou que vencem neste mês · marque, gere a mensagem e envie</span></div><div class="card-bd">' +
     filtroRotina('<span class="nt-acoes"><span class="sub" id="nt-cnt"></span><button type="button" class="btn btn-p" id="nt-gerar" disabled>📨 Gerar mensagem</button></span>') +
     '<div class="nt-legenda"><span><i class="nt-d nt-d-v"></i>Vencida</span><span><i class="nt-d nt-d-m"></i>Vence este mês</span><span><i class="nt-d nt-d-e"></i>Enviada</span></div>' +
     '<div id="nt-sel"></div><div id="nt-out" hidden></div></div></div>';
@@ -7388,15 +7380,12 @@ async function rotinaPlanilha(el) {
         return '<section class="nt-msg" data-k="' + k + '"><div class="nt-msg-hd"><b>' + esc(e.nome) + '</b><span class="sub">' + plural(e.itens.length, 'guia', 'guias') + '</span></div>' +
           '<div class="nt-vals">' + e.itens.map((g) => '<label><small>Parcela ' + esc(g.numero || '?') + ' · ' + esc(g.p.natureza || '') + '</small><span class="rt-vbox"><span>R$</span><input data-nt-v="' + g.id + '" data-mascara="nenhuma" inputmode="decimal" value="' + (g._valor ? valorParaCampo(g._valor) : '') + '" aria-label="Valor da guia"></span></label>').join('') + '</div>' +
           '<textarea class="nt-txt" rows="12">' + esc(textoNotifParcelas(e.nome, e.itens)) + '</textarea>' +
-          '<div class="nt-env-l"><select class="nt-para-sel" aria-label="E-mails da empresa"><option value="">— e-mails da empresa —</option></select><input class="nt-para" placeholder="e-mail (escolha ao lado ou digite)" value="' + esc(c.email || '') + '">' +
+          '<div class="nt-env-l"><input class="nt-para" placeholder="e-mail do cliente" value="' + esc(c.email || '') + '">' +
             '<input class="nt-tel" data-mascara="tel" inputmode="tel" placeholder="WhatsApp" value="' + esc(c.telefone || '') + '"></div>' +
           '<div class="acoes nt-bts"><button type="button" class="btn btn-o" data-nt-copiar>📋 Copiar</button><button type="button" class="btn btn-v" data-nt-zap>💬 WhatsApp</button>' +
             '<button type="button" class="btn btn-p" data-nt-email>✉ Enviar e-mail</button><button type="button" class="btn btn-o" data-nt-marcar title="Use depois de copiar ou mandar pelo WhatsApp">✓ Marcar como enviada</button></div></section>'; }).join('');
     const E2 = Object.values(emps);
-    out.querySelectorAll('.nt-msg').forEach((s) => { const e = E2[+s.dataset.k];
-      emailsDaEmpresa(e.cli, e.grupo).then((ls) => { const sel = s.querySelector('.nt-para-sel');
-        sel.innerHTML = '<option value="">' + (ls.length ? '— e-mails da empresa (' + ls.length + ') —' : '— nenhum e-mail cadastrado —') + '</option>' + ls.map(([r, m]) => '<option value="' + esc(m) + '">' + esc(r + ': ' + m) + '</option>').join('');
-        sel.onchange = () => { if (sel.value) s.querySelector('.nt-para').value = sel.value; }; }); });
+    out.querySelectorAll('.nt-msg').forEach((s) => { const e = E2[+s.dataset.k]; preencherDestino(s.querySelector('.nt-para'), e.cli, e.grupo, 'parcelas'); });
     out.oninput = (ev) => { const iv = ev.target.closest('[data-nt-v]'); if (!iv) return; const s = iv.closest('.nt-msg'), e = E2[+s.dataset.k];
       const g = e.itens.find((y) => y.id === iv.dataset.ntV), v = lerValor(iv.value); g._valor = isNaN(v) ? 0 : v;
       s.querySelector('.nt-txt').value = textoNotifParcelas(e.nome, e.itens); };
@@ -7424,6 +7413,107 @@ async function rotinaPlanilha(el) {
   ligarFiltroRotina(el, pintar); pintar();
 }
 
+
+// ── 3c) Backup 35/43: "Planilha de parcelamentos" (voltou no Backup 43; deixou de ser teste) — igual à planilha do escritório: uma aba por GRUPO e um bloco por
+// parcelamento (Nome, CPF/CNPJ, Local, Natureza, Nº, Total, Pagas, Valor da última parcela, Valor residual, Emitimos, observação) com a
+// lista PARCELA · VENCIMENTO · EMISSÃO · PAGAMENTO. Botão "Emitir guias": as em atraso + as que vencem neste mês (como no ERP antigo).
+async function rotinaPlanilha(el) {
+  if (!E.clientes.length) await carregarCadastros();
+  const h = hojeISO(), fimMes = fimDoMesGuia(h);
+  const [PA, P2] = await Promise.all([
+    buscarTodos(() => sb.from('parcelamentos').select('id, empresa, cnpj, local, natureza, numero, total_parcelas, valor_ultima_parcela, grupo_id, emitimos_guia, obs').order('id')),
+    buscarTodos(() => sb.from('parcelas').select('id, parcelamento_id, numero, vencimento, pago, data_pagamento, emitida_em, emissao, valor, guia_doc').order('vencimento').order('id'))]);
+  const porPa = {}; P2.forEach((x) => { (porPa[x.parcelamento_id] = porPa[x.parcelamento_id] || []).push(x); });
+  const gnome = (id) => nomeGrupo(id) || 'Sem grupo';
+  const grupos = [...new Set(PA.map((p) => gnome(p.grupo_id)))].sort((a, b) => (a === 'Sem grupo') - (b === 'Sem grupo') || a.localeCompare(b, 'pt-BR'));
+  E.rt.plGrupo = grupos.includes(E.rt.plGrupo) ? E.rt.plGrupo : grupos[0];
+  const emit = (x) => !!x.emitida_em || /sim|emitid/i.test(x.emissao || '');
+  // "a emitir agora" = não paga, nós emitimos, sem emissão e vencendo até o fim do mês (vencidas entram de novo: reemissão)
+  const aEmitir = (p) => p.emitimos_guia === false ? [] : (porPa[p.id] || []).filter((x) => !x.pago && x.vencimento && x.vencimento <= fimMes && (!emit(x) || x.vencimento < h));
+  // parcelas que ainda não foram lançadas: completa a lista até a última (mês a mês, a partir da última lançada)
+  const prevista = (ps, tot) => { const u = ps[ps.length - 1], n0 = u ? Number(u.numero) : 0; if (!u || !n0 || !u.vencimento || !(tot > n0)) return [];
+    const out = []; for (let n = n0 + 1; n <= Math.min(tot, n0 + 240); n++) { const d = new Date(u.vencimento + 'T12:00:00'), dia = d.getDate(); d.setDate(1); d.setMonth(d.getMonth() + (n - n0));
+      d.setDate(Math.min(dia, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate())); out.push({ n, v: d.toISOString().slice(0, 10) }); } return out; };
+  const nGrupo = (g) => PA.filter((p) => gnome(p.grupo_id) === g).reduce((s2, p) => s2 + aEmitir(p).length, 0);
+  const pintar = () => {
+    const L = PA.filter((p) => gnome(p.grupo_id) === E.rt.plGrupo).sort((a, b) => String(a.empresa).localeCompare(String(b.empresa), 'pt-BR') || String(a.natureza).localeCompare(String(b.natureza), 'pt-BR'));
+    const nE = L.reduce((s2, p) => s2 + aEmitir(p).length, 0);
+    el.innerHTML = '<div class="card pl-card"><div class="card-hd">📋 Planilha de parcelamentos<span class="sub">uma aba por grupo, um bloco por parcelamento · clique em EMISSÃO ou PAGAMENTO para marcar</span></div>' +
+      '<div class="card-bd"><div class="pl-abas" role="tablist">' + grupos.map((g) => { const n = nGrupo(g);
+        return '<button type="button" role="tab" class="pl-aba' + (g === E.rt.plGrupo ? ' ativo' : '') + '" data-pl-g="' + esc(g) + '">' + esc(g) + (n ? ' <span class="pl-n" title="Guias a emitir">' + n + '</span>' : '') + '</button>'; }).join('') + '</div>' +
+      '<div class="pl-barra"><span class="sub">' + plural(L.length, 'parcelamento', 'parcelamentos') + ' em <b>' + esc(E.rt.plGrupo || '—') + '</b> · ' + (nE ? plural(nE, 'guia a emitir', 'guias a emitir') + ' (em atraso + vencem neste mês)' : 'nenhuma guia a emitir agora') + '</span>' +
+        '<button type="button" class="btn btn-p" id="pl-emitir">🧾 Emitir guias — em atraso + vencem neste mês' + (nE ? ' (' + nE + ')' : '') + '</button></div>' +
+      '<div class="pl-blocos">' + L.map((p) => {
+        const ps = (porPa[p.id] || []).slice().sort((x, y) => String(x.vencimento).localeCompare(String(y.vencimento))), pagas = ps.filter((x) => x.pago).length, tot = Number(p.total_parcelas) || ps.length, v = Number(p.valor_ultima_parcela) || 0;
+        const resid = v * Math.max(0, tot - pagas), cli = p.emitimos_guia === false, atr = ps.filter((x) => !x.pago && x.vencimento < h).length, nAe = aEmitir(p).length;
+        const pct = tot ? Math.round(100 * pagas / tot) : 0;
+        return '<section class="pl-bloco" data-pl-pa="' + p.id + '">' +
+          '<div class="pl-cab"><div class="pl-cab-nome">' + esc(p.empresa || '—') + '</div>' +
+            '<div class="pl-cab-doc">' + esc(mascaraDoc(p.cnpj) || 'sem CPF/CNPJ') + '</div>' +
+            '<div class="pl-cab-tags">' + [p.local, p.natureza].filter(Boolean).map((z) => '<span class="pl-tag">' + esc(z) + '</span>').join('') + (p.numero ? '<span class="pl-tag pl-tag-n">nº ' + esc(p.numero) + '</span>' : '') + '</div>' +
+            '<div class="pl-prog"><div class="pl-prog-bar"><span style="width:' + pct + '%"></span></div><span><b>' + pagas + '</b> de ' + (tot || '—') + ' pagas' + (atr ? ' · <b class="pl-atr-t">' + atr + ' em atraso</b>' : '') + '</span></div>' +
+            '<div class="pl-kpis"><div><small>Última parcela</small><span class="rt-vbox"><span>R$</span><input data-pl-v="' + p.id + '" data-mascara="nenhuma" inputmode="decimal" value="' + (v ? valorParaCampo(v) : '') + '" aria-label="Valor da última parcela"></span></div>' +
+              '<div><small>Valor residual</small><b>' + brl(resid) + '</b></div></div>' +
+            '<div class="pl-cab-pe"><label class="rt-chave rt-chave-mini"><input type="checkbox" data-pl-emit="' + p.id + '"' + (cli ? '' : ' checked') + '><span></span><small>' + (cli ? 'O cliente emite as guias' : 'Nós emitimos as guias') + '</small></label>' +
+              (nAe ? '<span class="pill hoje">' + plural(nAe, 'a emitir', 'a emitir') + '</span>' : '') + '</div>' +
+            '<input class="pl-obs" data-pl-obs="' + p.id + '" value="' + esc(p.obs || '') + '" placeholder="Observação (ex.: enviar por WhatsApp)" aria-label="Observação">' +
+            // Backup 37: emitir mesmo parcela futura — deste parcelamento ou de todos os parcelamentos da empresa
+            (cli ? '' : '<div class="pl-cab-bts"><button type="button" class="btn btn-o btn-mini" data-pl-gpa="' + p.id + '" title="Em atraso + do mês; se não houver, a próxima parcela">🧾 Emitir deste parcelamento</button>' +
+              '<button type="button" class="btn btn-o btn-mini" data-pl-gemp="' + esc(p.empresa || '') + '" title="Todos os parcelamentos desta empresa">🧾 Todos da empresa</button></div>') + '</div>' +
+          (ps.length ? '<table class="pl-tab"><colgroup><col style="width:12%"><col style="width:28%"><col style="width:30%"><col style="width:30%"></colgroup><thead><tr><th title="Parcela">Nº</th><th>Vencimento</th><th>Emissão</th><th>Pagamento</th></tr></thead><tbody>' +
+          ps.map((x) => { const at = !x.pago && x.vencimento < h, mes = x.vencimento && x.vencimento.slice(0, 7) === h.slice(0, 7), em = emit(x);
+            const curta = (d) => { const s = dataBR(d); return s.slice(0, 6) + s.slice(8); }, dEm = x.emitida_em ? curta(x.emitida_em) : em ? 'emitida' : '';
+            return '<tr class="' + (x.pago ? 'pl-pago' : at ? 'pl-atr' : mes ? 'pl-mes' : '') + '"><td>' + esc(x.numero || '') + '</td><td>' + dataBR(x.vencimento) + '</td>' +
+              '<td>' + (cli ? '<span class="pl-dt pl-dt-cli" title="O cliente emite">cliente</span>'
+                : em ? '<button type="button" class="pl-dt pl-dt-ok" data-pl-e="' + x.id + '" title="Emitida' + (x.emitida_em ? ' em ' + dataBR(x.emitida_em) : '') + ' · clique para desmarcar">✓ ' + esc(dEm) + '</button>'
+                : x.pago ? '<span class="pl-dt">—</span>'
+                : '<span class="pl-em2"><button type="button" class="pl-dt pl-dt-emitir" data-pl-gx="' + x.id + '" title="Abrir o envio com esta guia (vale parcela futura)">🧾 Emitir</button><button type="button" class="pl-dt-mk" data-pl-e="' + x.id + '" title="Só marcar como emitida (sem enviar)">✓</button></span>') + '</td>' +
+              '<td>' + (x.pago ? '<span class="pl-dt pl-dt-ok" title="Paga">✓ ' + (x.data_pagamento ? curta(x.data_pagamento) : 'paga') + '</span>'
+                : '<button type="button" class="pl-dt ' + (at ? 'pl-dt-atr' : 'pl-dt-ab') + '" data-pl-p="' + x.id + '" title="Clique para lançar o pagamento">' + (at ? 'em atraso' : 'a vencer') + '</button>') + '</td></tr>'; }).join('') +
+          prevista(ps, tot).map((r) => '<tr class="pl-prev" title="Parcela ainda não lançada no sistema (data prevista)"><td>' + r.n + '</td><td>' + dataBR(r.v) + '</td><td>—</td><td>prevista</td></tr>').join('') +
+          '</tbody></table>' : '<div class="pl-sem">Nenhuma parcela lançada neste parcelamento.</div>') + '</section>'; }).join('') + (L.length ? '' : vazio('Nenhum parcelamento neste grupo.')) + '</div></div></div>';
+  };
+  const recarregar = () => rotinaPlanilha(el);
+  el.onclick = (ev) => {
+    const ab = ev.target.closest('[data-pl-g]'); if (ab) { E.rt.plGrupo = ab.dataset.plG; return pintar(); }
+    const be = ev.target.closest('[data-pl-e]');
+    if (be) return comBotao(be, async () => { const x = P2.find((y) => y.id === be.dataset.plE), novo = !emit(x);
+      await q(sb.rpc('registrar_emissao', { p_tabela: 'parcelas', p_id: x.id, p_emitida: novo, p_doc: null, p_enviar: false }));
+      x.emitida_em = novo ? h : null; x.emissao = novo ? 'SIM' : ''; pintar(); });
+    // Backup 37: emitir pelo mesmo envio dos outros módulos (vale parcela futura)
+    const gx = ev.target.closest('[data-pl-gx]'); if (gx) return gerarGuias('parcelas', { ids: [gx.dataset.plGx] }, recarregar);
+    const gpa = ev.target.closest('[data-pl-gpa]'); if (gpa) return gerarGuias('parcelas', { itens: [gpa.dataset.plGpa], proximas: true }, recarregar);
+    const gemp = ev.target.closest('[data-pl-gemp]'); if (gemp) return gerarGuias('parcelas', { empresa: gemp.dataset.plGemp, proximas: true }, recarregar);
+    const bp = ev.target.closest('[data-pl-p]');
+    if (bp && !confirm('Lançar o pagamento desta parcela?')) return;
+    if (bp && window.ERP_EDITOR && window.ERP_EDITOR.baixaRapida) return Promise.resolve(window.ERP_EDITOR.baixaRapida('parcelas', bp.dataset.plP)).then(() => setTimeout(recarregar, 1500));
+    if (ev.target.closest('#pl-emitir')) {
+      const gid = (PA.find((p) => gnome(p.grupo_id) === E.rt.plGrupo) || {}).grupo_id;
+      if (gid) return gerarGuias('parcelas', { grupo_id: gid }, recarregar);
+      const its = PA.filter((p) => gnome(p.grupo_id) === E.rt.plGrupo).flatMap((p) => aEmitir(p).map((x) => {
+        const ult = (porPa[p.id] || []).filter((y) => y.valor != null && y.vencimento <= x.vencimento).slice(-1)[0];
+        return Object.assign({}, x, { parcelamentos: p, quem: p.empresa, grupo_id: p.grupo_id, email_em: null, parcela: (x.numero || '?') + (p.total_parcelas ? '/' + p.total_parcelas : ''),
+          valor: x.valor != null ? Number(x.valor) : ult ? Number(ult.valor) : Number(p.valor_ultima_parcela) || 0, detalhe: [p.natureza, p.local].filter(Boolean).join(' · '),
+          cliente_id: (E.clientes.find((c) => (soDigitos(p.cnpj) && soDigitos(c.cpf_cnpj) === soDigitos(p.cnpj)) || c.nome === p.empresa) || {}).id || null }); }));
+      if (its.length) janelaGuiasEmpresa('parcelas', its, null, recarregar);
+      else aviso('Nenhuma guia a emitir em ' + (E.rt.plGrupo || 'este grupo') + ': não há parcela em atraso nem vencendo neste mês (que o escritório emita).');
+    }
+  };
+  el.onchange = (ev) => {
+    const c = ev.target.closest('[data-pl-emit]');
+    if (c) q(sb.rpc('parcelamentos_emitimos', { p_ids: [c.dataset.plEmit], p_emitimos: c.checked })).then(() => { PA.find((p) => p.id === c.dataset.plEmit).emitimos_guia = c.checked; pintar(); }, (e) => aviso(erroAmigavel(e), true));
+  };
+  el.addEventListener('focusout', (ev) => {
+    const iv = ev.target.closest('[data-pl-v]'), io = ev.target.closest('[data-pl-obs]');
+    if (iv) { const v = iv.value.trim() ? lerValor(iv.value) : null; const p = PA.find((y) => y.id === iv.dataset.plV);
+      if (v != null && isNaN(v)) return aviso('Valor inválido.', true);
+      if ((v || null) === (Number(p.valor_ultima_parcela) || null)) return;
+      q(sb.from('parcelamentos').update({ valor_ultima_parcela: v }).eq('id', p.id)).then(() => { p.valor_ultima_parcela = v; aviso('✓ Valor da última parcela gravado.'); pintar(); }, (e) => aviso(erroAmigavel(e), true)); }
+    if (io) { const p = PA.find((y) => y.id === io.dataset.plObs); if ((p.obs || '') === io.value) return;
+      q(sb.from('parcelamentos').update({ obs: io.value }).eq('id', p.id)).then(() => { p.obs = io.value; aviso('✓ Observação gravada.'); }, (e) => aviso(erroAmigavel(e), true)); }
+  });
+  pintar();
+}
 
 // ── 4) Financeiro do escritório: atalhos ──
 async function rotinaFinanceiro(el) {
