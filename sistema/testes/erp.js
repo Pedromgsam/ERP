@@ -88,7 +88,8 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await carregado(p);
     ok('entra com e-mail e senha do Supabase', await p.evaluate(() => window.AC_SESSION && window.AC_SESSION.nivel === 'admin'));
     await p.waitForTimeout(1200);
-    ok('Backup 38: menu na barra LATERAL (sem o cabeçalho antigo do ERP)', await p.isVisible('#gs-lado #tn') && !(await p.$('#gs-hd #tn')) && !(await p.isVisible('#sb')) && !(await p.isVisible('#hd')) && await p.isVisible('.tn-lancar-bt'));
+    ok('Backup 42: menu na barra de CIMA e lateral estreita sem ícones', await p.isVisible('#gs-hd #tn') && !(await p.$('#gs-lado #tn')) && !(await p.isVisible('#sb')) && !(await p.isVisible('#hd')) && await p.isVisible('.tn-lancar-bt') &&
+      await p.evaluate(() => document.getElementById('gs-lado').getBoundingClientRect().width <= 70 && ![...document.querySelectorAll('#gs-hd #tn .tn-ic:not(.tn-seta)')].some((s) => s.getBoundingClientRect().width > 0)));
     ok('barra mostra entidades e grupos', /3/.test(await p.textContent('#gs-n-ent')) && /2/.test(await p.textContent('#gs-n-grp')));
     // menus suspensos: clicar como uma pessoa e conferir que o item aparece de verdade (não escondido atrás da tela)
     for (const g of ['Jurídico', 'Financeiro']) {
@@ -97,9 +98,11 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       ok('menu ' + g + ' abre e mostra os itens na tela', visivel);
       await p.click('#panel-hoje .titulo-pag h1').catch(() => p.mouse.click(5, 5)); await p.waitForTimeout(150);
     }
+    await p.click('#tn .tn-abre:has-text("Financeiro")'); await p.waitForTimeout(200);   // Backup 42: menu suspenso na barra de cima
     await p.click('#tn .tn-grupo:has-text("Financeiro") [data-ir=financeiro]');
     await p.waitForTimeout(800);
     ok('clicar em Financeiro › Jurídico abre os Honorários', await p.isVisible('#panel-financeiro'));
+    ok('lateral mostra as seções do módulo aberto (Jurídico · Contabilidade)', (await p.$$eval('#gl-sub button', (l) => l.map((b) => b.textContent))).join('|') === 'Jurídico|Contabi- lidade');
     ok('barra sem o texto "Araujo & Castro"', !/Araujo/.test(await p.textContent('#gs-hd')));
     await p.click('.gs-bt-mais'); await p.waitForTimeout(200);
     ok('⋯ sem o link do Gestão antigo e sem a Central de e-mails (fica no menu E-mails); com Meu nome', !(await p.$('#gs-hd [data-acao=gestao]')) && !(await p.$('#gs-hd [data-acao=cobrancas]')) && await p.isVisible('#gs-hd [data-acao=meunome]'));
@@ -482,6 +485,8 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.click('#op-abas [data-aba=propostas]'); await p.waitForSelector('#pr-nova'); await p.click('#pr-nova');
     await p.click('[data-mod]:has-text("Consultoria tributária mensal")'); await p.waitForSelector('#f-pr'); await p.waitForTimeout(300);
     await p.fill('#pr-itens input[data-c=valor]', '1.500,00'); await p.dispatchEvent('#pr-itens input[data-c=valor]', 'change'); await p.waitForTimeout(200);
+    await p.waitForTimeout(700);
+    ok('Backup 42: proposta com prévia ao vivo (atualiza enquanto preenche)', /R\$\s?1\.500,00/.test(await p.evaluate(() => (document.querySelector('#pr-previa') || {}).srcdoc || '')));
     await p.click('#pr-guardar'); await p.waitForTimeout(2500);
     ok('proposta do modelo, com valor, guardada nos Documentos', sql("select (itens->0->>'valor')||'|'||(documento_id is not null) from crm_propostas") === '1500|true' &&
       sql("select count(*) from documentos where oportunidade_id is not null and tipo='proposta'") === '1');
@@ -749,7 +754,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('modo escuro continua depois de recarregar', await p.evaluate(() => document.documentElement.dataset.tema === 'escuro'));
     await p.click('#gs-tema'); await p.waitForTimeout(300);
     ok('◐ volta ao modo claro', await p.evaluate(() => !document.documentElement.dataset.tema && localStorage.getItem('erp_tema') === 'claro'));
-    ok('botões só com ícone têm nome para leitor de tela', await p.evaluate(() => ['#gs-tema', '.gs-bt-mais', '#gs-encolher'].every((q) => (document.querySelector(q) || {}).getAttribute && document.querySelector(q).getAttribute('aria-label'))));
+    ok('botões só com ícone têm nome para leitor de tela', await p.evaluate(() => ['#gs-tema', '.gs-bt-mais'].every((q) => (document.querySelector(q) || {}).getAttribute && document.querySelector(q).getAttribute('aria-label'))));
     sql("insert into tarefas(titulo,responsavel,prazo) select 'Tarefa em massa '||g,'Pedro',current_date+30+g from generate_series(1,130) g");
     await nav(p, 'tarefas'); await p.waitForTimeout(1800);
     ok('tabela longa mostra todas as linhas (sem "Mostrar mais")', !(await p.$('#panel-tarefas .pag-rodape')) && await p.evaluate(() => !document.querySelector('#panel-tarefas .pag-oculta') && [...document.querySelectorAll('#panel-tarefas tbody tr')].filter((r) => r.offsetParent).length > 100));
@@ -854,7 +859,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       ok('Acordos: forma de pagamento vale para o acordo inteiro (mesmo processo, devedor e credor)', sql("select count(distinct forma_pagamento) from acordos a where (processo,devedor,credor)=(select processo,devedor,credor from acordos where id='" + idPix + "')") === '1');
       await p.evaluate((id) => window.GS.enviarAcordosSelecionados([id]), idPix); await p.waitForSelector('#gs-raiz .ge-janela', { timeout: 8000 }).catch(() => {});
       ok('Acordo por PIX: texto objetivo (saudação, sem "Seguem") e a chave PIX no item', /^(Bom dia|Boa tarde|Boa noite)!/.test(await p.inputValue('#ge-texto')) && !/Seguem/.test(await p.inputValue('#ge-texto')) &&
-        /chave-pix@teste\.com/.test(await p.textContent('#gs-raiz .ge-itens')) && /Depois de pagar/.test(await p.textContent('#gs-raiz .ge-fecho')));
+        /chave-pix@teste\.com/.test(await p.textContent('#gs-raiz .ge-itens')) && !/Depois de pagar/.test(await p.textContent('#gs-raiz .ge-msg')) && !(await p.isVisible('#gs-raiz .ge-anexos')));
       await p.evaluate(() => { while (document.querySelector('#janelas .fundo')) window.GS.fecharJanela(); });
       ok('E-mail das guias no padrão "Honorários em aberto": parágrafos e quadro "Como pagar" com o PIX', /Como pagar/.test(sql("select public.guias_texto_html('Bom dia!" + "\n\n" + "Teste', '[{\"pix\":\"chave-pix@teste.com\"}]')")) &&
         /<\/p><p/.test(sql("select public.guias_texto_html('a" + "\n\n" + "b', '[]')")));
@@ -1131,70 +1136,53 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       await nav(p, 'hoje'); await p.waitForSelector('#ini-valid [data-val-ok]'); await p.click('#ini-valid [data-val-ok]'); await p.waitForTimeout(1500);
       ok('Aprovar libera o próximo passo (enviar o contrato)', sql("select t.status from tarefas t join fluxos f on f.id=t.fluxo_id where f.nome like 'Lead completo%' and t.ordem=4") === 'pendente'); }
 
-    // ── Backup 34: emissão pela Rotina → Controle dos parcelamentos: marcar os meses (Emissão) e "✉ Enviar por empresa" ──
+    // ── Backup 34/42: envio das guias por empresa (o mesmo do módulo Parcelamentos; o "Controle" da Rotina saiu no Backup 42) ──
+    sql("insert into config_privada(chave,valor) values ('email','{\"provedor\":\"gmail\",\"usuario\":\"escritorio@teste.com\",\"senha\":\"senhadeapp1234567\"}') on conflict (chave) do update set valor=excluded.valor");   // Backup 42: serviço de envio configurado (o carteiro é de mentira)
     sql("insert into parcelas(parcelamento_id,numero,vencimento,pago) select id,'77',current_date+2,false from parcelamentos where emitimos_guia order by criado_em limit 1");
     sql("insert into parcelas(parcelamento_id,numero,vencimento,pago) select parcelamento_id,'78',current_date+4,false from parcelas where numero='77' limit 1");
     sql("insert into parcelas(parcelamento_id,numero,vencimento,pago) select parcelamento_id,'79',current_date-10,false from parcelas where numero='77' limit 1");
     const pa77 = sql("select parcelamento_id from parcelas where numero='77'"), vu77 = sql("select coalesce(valor_ultima_parcela::text,'null') from parcelamentos where id='" + pa77 + "'");
     const id77 = sql("select id from parcelas where numero='77'"), id78 = sql("select id from parcelas where numero='78'"), id79 = sql("select id from parcelas where numero='79'");
-    await p.evaluate(() => nav(null, 'rotina')); await p.waitForSelector('#rt-abas'); await p.click('#rt-abas [data-rt-aba=parcs]');
-    await p.waitForSelector('#rt-parc-corpo [data-cel="' + id77 + '"]', { timeout: 10000 }); await p.waitForTimeout(300);
-    ok('Controle dos parcelamentos: um quadrinho por parcela em cada mês (Emitir / Emitida / Vencida / Paga)', (await p.$$('#rt-corpo thead th.rt-c-mes')).length === 8 && (await p.$$('#rt-parc-corpo .rt-ch')).length > 0);
-    // marcar = clicar no quadrinho → menu → "Marcar para enviar"
-    const marcarRt = async (id) => { await p.click('#rt-parc-corpo tr[data-pc] [data-cel="' + id + '"] >> nth=0'); await p.waitForSelector('#rt-pop:not([hidden]) [data-sel]'); await p.click('#rt-pop [data-sel]'); await p.waitForTimeout(250); };
-    await p.click('#rt-parc-corpo tr[data-pc] [data-cel="' + id77 + '"] >> nth=0'); await p.waitForSelector('#rt-pop:not([hidden])');
-    ok('Controle: clicar no quadrinho abre o menu (marcar para enviar, lançar pagamento, ver parcelas)', !!(await p.$('#rt-pop [data-sel]')) && !!(await p.$('#rt-pop [data-pag]')) && !!(await p.$('#rt-pop [data-abre]')));
-    await p.keyboard.press('Escape'); await p.waitForTimeout(200);
-    ok('Controle dos parcelamentos: cabeçalho fixo no alto da página', await p.evaluate(() => getComputedStyle(document.querySelector('.rt-ctl > thead th')).position === 'sticky'));
-    await marcarRt(id77); await marcarRt(id78);
-    ok('Controle: marcar as parcelas mostra a barra "Enviar por empresa"', await p.isVisible('#rt-selbar [data-sel-enviar]') && /2 parcelas marcadas/.test(await p.textContent('#rt-selbar')));
-    await p.click('#rt-selbar [data-sel-enviar]'); await p.waitForSelector('#gs-raiz .ge-janela'); await p.waitForTimeout(500);
-    ok('Enviar por empresa: texto "Prezados," e WhatsApp ao lado de Enviar e-mail', /Prezados,/.test(await p.inputValue('#ge-texto')) && await p.evaluate(() => { const a = document.querySelector('#ge-zap'), b = document.querySelector('#ge-enviar'); return a && b && a.parentElement === b.parentElement; }));
-    ok('Enviar por empresa: empresas agrupadas por grupo e texto neutro ("em nome de")', (await p.$$('#gs-raiz .ge-grp .ge-emp')).length > 0 && /em nome de /.test(await p.inputValue('#ge-texto')));
+    await p.evaluate((ids) => window.GS.gerarGuias('parcelas', { ids }), [id77, id78]); await p.waitForSelector('#gs-raiz .ge-janela'); await p.waitForTimeout(500);
+    ok('Enviar por empresa: texto das antigas Notificações e WhatsApp ao lado de Enviar e-mail', /Prezados,\n\nSeguem as guias dos parcelamentos da /.test(await p.inputValue('#ge-texto')) && await p.evaluate(() => { const a = document.querySelector('#ge-zap'), b = document.querySelector('#ge-enviar'); return a && b && a.parentElement === b.parentElement; }));
+    ok('Enviar por empresa: empresas agrupadas por grupo, com "Copiar texto" e a lista de e-mails da empresa', (await p.$$('#gs-raiz .ge-grp .ge-emp')).length > 0 && !!(await p.$('#gs-raiz #ge-copiar')) && !!(await p.$('#gs-raiz #ge-para-sel')));
     await p.click('#gs-raiz #ge-previa'); await p.waitForSelector('#gs-raiz iframe.ge-previa', { timeout: 8000 }).catch(() => {});
-    ok('Enviar por empresa: "Prévia do e-mail" mostra o e-mail com a marca (igual ao módulo E-mails)', /<html|<table|<div/i.test(await p.evaluate(() => (document.querySelector('#gs-raiz iframe.ge-previa') || {}).srcdoc || '')));
+    ok('Enviar por empresa: "Prévia do e-mail" mostra o e-mail com a marca', /<html|<table|<div/i.test(await p.evaluate(() => (document.querySelector('#gs-raiz iframe.ge-previa') || {}).srcdoc || '')));
     await p.evaluate(() => { const f = document.querySelector('#gs-raiz iframe.ge-previa'); const j = f && f.closest('.janela'); const x = j && j.querySelector('.janela-x, [data-fechar]'); if (x) x.click(); }); await p.waitForTimeout(300);
-    ok('Enviar por empresa: só as parcelas marcadas, com o valor editável na caixa "R$"', (await p.$$('#gs-raiz .ge-it')).length === 2 && await p.isVisible('#gs-raiz .ge-vbox .ge-rs'));
+    ok('Enviar por empresa: só as parcelas escolhidas, com o valor editável na caixa "R$"', (await p.$$('#gs-raiz .ge-it')).length === 2 && await p.isVisible('#gs-raiz .ge-vbox .ge-rs'));
     await p.fill('#gs-raiz #ge-para', 'guias@teste.com');
     await p.fill('#gs-raiz .ge-it[data-ge="' + id77 + '"] .ge-valor', '1.234,56');
     await p.setInputFiles('#gs-raiz #ge-arqs', { name: 'guia78.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 teste') });
-    await p.click('#gs-raiz #ge-enviar'); await p.waitForTimeout(2500);
-    ok('Enviar por empresa: um e-mail com as parcelas e o PDF anexado (vai no e-mail, não no Storage)', sql("select count(*) from email_fila where para='guias@teste.com' and anexo->'itens'->0->>'arquivo'='guia78.pdf' and coalesce(anexo->'itens'->0->>'b64','') <> ''") === '1' &&
+    await p.click('#gs-raiz #ge-enviar'); await p.waitForTimeout(3000);
+    ok('Enviar por empresa: um e-mail com as parcelas e o PDF anexado (vai no e-mail, não no Storage)', sql("select count(*) from email_fila where para='guias@teste.com' and anexo::text like '%guia78.pdf%'") === '1' &&
       sql("select count(*) from documentos where nome='guia78.pdf'") === '0');
-    ok('Enviar por empresa: as parcelas ficam marcadas como emitidas (Emissão ✓) e o valor digitado vira o valor lançado', sql("select count(*) from parcelas where numero in ('77','78') and emitida_em = current_date and email_ref like 'guias:%'") === '2' &&
+    { const st = sql("select status||' '||coalesce(erro,'') from email_fila where para='guias@teste.com'"), av = await p.textContent('#gs-raiz #aviso').catch(() => '');
+      ok('Backup 42: o e-mail sai NA HORA (sem esperar a rotina) e a tela diz "enviado"', /^enviado/.test(st) && /enviado para guias@teste\.com/.test(av), st + ' | ' + av); }
+    ok('Enviar por empresa: as parcelas ficam marcadas como emitidas e o valor digitado vira o valor lançado', sql("select count(*) from parcelas where numero in ('77','78') and emitida_em = current_date and email_ref like 'guias:%'") === '2' &&
       sql("select valor from parcelas where numero='77'") === '1234.56');
-    await p.waitForSelector('#rt-parc-corpo [data-cel="' + id77 + '"].rt-ch-emit, #rt-parc-corpo [data-cel="' + id77 + '"].rt-ch-atr', { timeout: 8000 }).catch(() => {});
-    ok('Controle: depois do envio a parcela fica "Emitida" (e a marcação some)', !!(await p.$('#rt-parc-corpo [data-cel="' + id77 + '"]:is(.rt-ch-emit, .rt-ch-atr):not(.rt-ch-sel)')) && !(await p.isVisible('#rt-selbar [data-sel-enviar]')));
-    // vencida sem pagamento: marcar de novo → nova data e valor atualizado (reemissão)
-    await marcarRt(id79); await p.click('#rt-selbar [data-sel-enviar]'); await p.waitForSelector('#gs-raiz .ge-janela'); await p.waitForTimeout(500);
-    ok('Reemissão: a parcela vencida pede o novo vencimento', await p.isVisible('#gs-raiz .ge-novo-venc'));
+    // vencida sem pagamento → nova data e valor atualizado (reemissão; só parcelamento)
+    await p.evaluate((ids) => window.GS.gerarGuias('parcelas', { ids }), [id79]); await p.waitForSelector('#gs-raiz .ge-janela'); await p.waitForTimeout(500);
+    ok('Reemissão: a guia vencida pede o novo vencimento', await p.isVisible('#gs-raiz .ge-novo-venc'));
     await p.fill('#gs-raiz #ge-para', 'guias@teste.com'); await p.fill('#gs-raiz .ge-valor', '999,90'); await p.click('#gs-raiz #ge-enviar'); await p.waitForTimeout(2500);
     ok('Reemissão: grava o reenvio (novo vencimento e valor atualizado) sem mudar o valor lançado', sql("select (reenvio_venc >= current_date)::text || '|' || reenvio_valor || '|' || coalesce(valor::text,'-') from parcelas where numero='79'") === 'true|999.90|-');
-    // valor da parcela editável no detalhe
-    await p.click('#rt-parc-corpo tr[data-pc]:has([data-cel="' + id78 + '"]) .rt-abre'); await p.waitForSelector('#rt-parc-corpo [data-valor="' + id78 + '"]');
-    await p.fill('#rt-parc-corpo [data-valor="' + id78 + '"]', '2.000,00'); await p.press('#rt-parc-corpo [data-valor="' + id78 + '"]', 'Enter'); await p.waitForTimeout(1500);
-    ok('Controle: o valor da parcela é editável (grava e atualiza o valor da parcela do parcelamento)', sql("select valor from parcelas where numero='78'") === '2000.00');
     sql("delete from parcelas where numero in ('77','78','79')");
     sql("update parcelamentos set valor_ultima_parcela = " + vu77 + " where id='" + pa77 + "'");
+    sql("delete from config_privada where chave='email'");
 
-    // Backup 31: Rotina — "✓ Conferido" mesmo sem alterar; controle dos parcelamentos ("nós emitimos?" e planilha por mês)
+    // Backup 31/42: Rotina — o ✓ no fim da linha registra a conferência; com alteração, salva a linha
     await p.evaluate(() => nav(null, 'rotina')); await p.waitForSelector('#rt-abas'); await p.click('#rt-abas [data-rt-aba=passivo]');
     await p.waitForSelector('#rt-pas-corpo [data-conferir]', { timeout: 10000 }); await p.waitForTimeout(500);
+    ok('Rotina: Conferência é a última coluna, sem contorno azul nem relógio nas empresas', /Conferência/.test(await p.textContent('#rt-corpo thead th:last-child')) && !(await p.$('#rt-pas-corpo tr.gx-grp')) && !(await p.$('#rt-pas-corpo [data-hist]')));
     await p.click('#rt-pas-corpo [data-conferir] >> nth=0'); await p.waitForTimeout(1200);
     ok('Rotina: "✓" registra a conferência da empresa (quem e quando), sem alterar nada', sql("select count(*) from rotina_conferencias where area='passivo' and not alterou") === '1' && /conferido/.test(await p.textContent('#rt-pas-corpo')));
-    await p.click('#rt-abas [data-rt-aba=parcs]'); await p.waitForSelector('#rt-parc-corpo [data-emit]', { timeout: 10000 }); await p.waitForTimeout(400);
-    const idEmit = await p.getAttribute('#rt-parc-corpo [data-emit] >> nth=0', 'data-emit');
-    await p.click('#rt-parc-corpo .rt-chave >> nth=0'); await p.waitForTimeout(1500);
-    ok('Controle dos parcelamentos: desligar "Nós emitimos?" marca que o cliente emite', sql("select emitimos_guia from parcelamentos where id='" + idEmit + "'") === 'f' &&
-      sql("select count(*) from rotina_conferencias where area='parcelamentos' and alterou") === '1');
-    ok('Controle dos parcelamentos: planilha com 8 meses (5 para trás, o atual e 2 à frente) e as parcelas', (await p.$$('#rt-corpo thead th.rt-c-mes')).length === 8 && (await p.$$('#rt-parc-corpo .rt-ch')).length > 0);
-    sql("update parcelamentos set emitimos_guia = true where id='" + idEmit + "'");
-    // Backup 33: clicar no parcelamento abre as parcelas; aba de acordos; senha GOV em janela (fora da tabela)
-    { const antes = (await p.$$('#rt-parc-corpo tr.rt-det')).length;
-      await p.click('#rt-parc-corpo .rt-abre >> nth=0'); await p.waitForTimeout(800);
-      ok('Controle dos parcelamentos: clicar no nome abre/fecha as parcelas', (await p.$$('#rt-parc-corpo tr.rt-det')).length !== antes); }
-    await p.click('#rt-abas [data-rt-aba=acs]'); await p.waitForTimeout(2000);
-    ok('Rotina: aba "Controle dos acordos" com a planilha por mês', (await p.$$('#rt-corpo thead th.rt-c-mes')).length === 8);
+    { const tr = '#rt-pas-corpo tr[data-id] >> nth=1', cid = await p.getAttribute(tr, 'data-id');
+      await p.fill('#rt-pas-corpo tr[data-id="' + cid + '"] [data-c=ceat_trt3]', '7'); await p.waitForTimeout(200);
+      await p.click('#rt-pas-corpo tr[data-id="' + cid + '"] [data-conferir]'); await p.waitForTimeout(1500);
+      ok('Rotina: "✓" numa linha alterada SALVA a linha (sem precisar de "Salvar alterações")', sql("select ceat_trt3 from clientes where id='" + cid + "'") === '7' &&
+        sql("select count(*) from rotina_conferencias where area='passivo' and alterou") === '1'); }
+    await p.click('#rt-abas [data-rt-aba=acs]'); await p.waitForTimeout(1500);
+    ok('Rotina: aba "Acordos" abre a própria tela de Acordos', await p.isVisible('#panel-acordos'));
+    await p.evaluate(() => nav(null, 'rotina')); await p.waitForSelector('#rt-abas'); await p.waitForTimeout(500);
     await p.click('#rt-abas [data-rt-aba=passivo]').catch(() => {}); await p.waitForSelector('#rt-pas-corpo [data-senha]', { timeout: 10000 }).catch(() => {});
     ok('Rotina: passivo sem a coluna Senha GOV (fica no botão 🔑)', (await p.$$('#rt-pas-corpo [data-senha]')).length > 0 && !/Senha GOV/.test(await p.textContent('#rt-corpo thead')));
 
@@ -1211,21 +1199,23 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('Painel: com um grupo no filtro do topo, uma linha por empresa do grupo', /empresa/.test(await p.textContent('#evo-bt-linhas')) && await p.evaluate(() => Chart.getChart(document.getElementById('cEvoPassivo')).data.datasets.every((d) => d.label !== 'Grupo Alfa')));
     await p.evaluate(() => { FILTROS.grupo = ''; renderExecRanking(); });
 
-    // Backup 35: Planilha de parcelamentos (teste) — abas por grupo, blocos por parcelamento e "Emitir guias"
-    await p.evaluate(() => nav(null, 'rotina')); await p.waitForSelector('#rt-abas'); await p.click('#rt-abas [data-rt-aba=planilha]');
-    await p.waitForSelector('#rt-corpo .pl-bloco', { timeout: 10000 }).catch(() => {});
-    ok('Rotina: "Planilha de parcelamentos" com abas por grupo e um bloco por parcelamento (valor residual e lista de parcelas)', (await p.$$('#rt-corpo .pl-aba')).length >= 1 &&
-      (await p.$$('#rt-corpo .pl-bloco')).length >= 1 && /Valor residual/.test(await p.textContent('#rt-corpo .pl-bloco')) && !!(await p.$('#rt-corpo #pl-emitir')));
-    { const id = await p.getAttribute('#rt-corpo [data-pl-e] >> nth=-1', 'data-pl-e');
-      await p.click('#rt-corpo [data-pl-e="' + id + '"]'); await p.waitForTimeout(1200);
-      ok('Planilha: clicar em EMISSÃO marca a guia como emitida', sql("select emitida_em is not null from parcelas where id='" + id + "'") === 't');
-      await p.click('#rt-corpo [data-pl-e="' + id + '"]'); await p.waitForTimeout(1200); }
-    ok('Planilha: "Emitir guias" sempre clicável e a lista de parcelas vai até a última (sem rolagem dentro do bloco)', !(await p.$('#rt-corpo #pl-emitir[disabled]')) && !(await p.$('#rt-corpo .pl-lista')) &&
-      await p.evaluate(() => [...document.querySelectorAll('#rt-corpo .pl-bloco')].every((b) => b.scrollHeight <= b.clientHeight + 2)));
-    await p.click('#rt-corpo #pl-emitir'); await p.waitForTimeout(800);
-    ok('Planilha: clicar em "Emitir guias" abre o envio por empresa (ou avisa que não há guia a emitir)', !!(await p.$('#gs-raiz .ge-janela')) || /Nenhuma guia a emitir/.test(await p.textContent('body')));
-    await p.evaluate(() => document.querySelectorAll('#gs-raiz .janela [data-fechar], #gs-raiz .janela .janela-x').forEach((b) => b.click())).catch(() => {}); await p.waitForTimeout(300);
-    ok('Controle dos parcelamentos: mostra o valor residual de cada parcelamento', await (async () => { await p.click('#rt-abas [data-rt-aba=parcs]'); await p.waitForSelector('#rt-parc-corpo .rt-resid', { timeout: 8000 }).catch(() => {}); return !!(await p.$('#rt-parc-corpo .rt-resid')); })());
+    // Backup 42: Planilha de parcelamentos = antigas Notificações → Parcelamento (empresa → guias; gerar a mensagem; enviar)
+    sql("insert into config_privada(chave,valor) values ('email','{\"provedor\":\"gmail\",\"usuario\":\"escritorio@teste.com\",\"senha\":\"senhadeapp1234567\"}') on conflict (chave) do update set valor=excluded.valor");   // Backup 42: serviço de envio configurado (o carteiro é de mentira)
+    sql("insert into parcelas(parcelamento_id,numero,vencimento,pago) select id,'88',current_date,false from parcelamentos where emitimos_guia order by criado_em limit 1");
+    { const id88 = sql("select id from parcelas where numero='88'");
+      await p.evaluate(() => nav(null, 'rotina')); await p.waitForSelector('#rt-abas'); await p.click('#rt-abas [data-rt-aba=planilha]');
+      await p.waitForSelector('#rt-corpo [data-nt="' + id88 + '"]', { timeout: 10000 }).catch(() => {});
+      ok('Planilha: empresas com as guias vencidas ou do mês, legenda e "Gerar mensagem" travado sem marcar', !!(await p.$('#rt-corpo [data-nt="' + id88 + '"]')) && await p.isVisible('#rt-corpo .nt-legenda') && !!(await p.$('#nt-gerar[disabled]')));
+      await p.check('#rt-corpo [data-nt="' + id88 + '"]'); await p.click('#nt-gerar'); await p.waitForSelector('#rt-corpo .nt-msg');
+      const txt = await p.inputValue('#rt-corpo .nt-txt');
+      ok('Planilha: mensagem com o texto das Notificações (Nº do Parcelamento, Parcela x de y | Vencimento mm/aaaa, Nº da Guia, Valor)', /^Prezados,\n\nSeguem as guias dos parcelamentos da .+ com vencimento neste mês\. Antes de pagar, confirme se a guia já não foi paga, para evitar duplicidade\./.test(txt) &&
+        /Nº do Parcelamento: /.test(txt) && /Parcela: 88 de .+ \| Vencimento: \d{2}\/\d{4}/.test(txt) && /Nº da Guia: 88/.test(txt) && /Valor: R\$/.test(txt), txt.slice(0, 300));
+      await p.fill('#rt-corpo [data-nt-v="' + id88 + '"]', '321,00'); await p.waitForTimeout(200);
+      ok('Planilha: mudar o valor reescreve o texto', /Valor: R\$\s?321,00/.test(await p.inputValue('#rt-corpo .nt-txt')));
+      await p.fill('#rt-corpo .nt-para', 'planilha@teste.com'); await p.click('#rt-corpo [data-nt-email]'); await p.waitForTimeout(3000);
+      ok('Planilha: "Enviar e-mail" manda na hora e marca a guia como emitida', sql("select status from email_fila where para='planilha@teste.com'") === 'enviado' && sql("select emitida_em is not null from parcelas where id='" + id88 + "'") === 't');
+      sql("delete from parcelas where id='" + id88 + "'"); }
+    sql("delete from config_privada where chave='email'");
 
     // Backup 35: Processos — últimas 3 movimentações e a data em que o valor da causa foi atualizado
     { const pid = sql("select id from processos order by criado_em limit 1");
@@ -1243,6 +1233,17 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await nav(p, 'publicacoes'); await p.waitForSelector('#pub-advs', { timeout: 8000 }).catch(() => {}); await p.waitForTimeout(800);
     ok('Publicações: filtro por advogado (botões com os nomes cadastrados nas OABs)', (await p.$$('#pub-advs button')).length >= 2);
 
+    // Backup 42: Financeiro → "💬 Cobrar" com texto simples para o WhatsApp
+    { const lid = sql("select id from lancamentos where tipo='receita' and not pago and not perda order by vencimento limit 1");
+      await p.evaluate((id) => window.GS.cobrarWhatsApp(id), lid); await p.waitForSelector('#cb-txt');
+      ok('Financeiro: "Cobrar" monta o texto "… Passando para lembrar dos honorários do mês de …, referente a …"', /^(Bom dia|Boa tarde|Boa noite)! Passando para lembrar dos honorários do mês de .+, referente /.test(await p.inputValue('#cb-txt')));
+      await p.click('#cb-copiar'); await p.waitForTimeout(1000);
+      ok('Financeiro: depois de copiar a cobrança, o lançamento fica "Cobrado"', sql("select cobranca from lancamentos where id='" + lid + "'") === 'Cobrado');
+      await p.evaluate(() => { while (document.querySelector('#janelas .fundo')) window.GS.fecharJanela(); }); }
+    // Backup 42: Administração → E-mail mostra o check-list do que falta para o e-mail sair
+    await nav(p, 'admin'); await p.waitForSelector('#adm-abas'); await p.click('#adm-abas [data-aba=email]'); await p.waitForSelector('#email-check-bd .lista-ficha', { timeout: 10000 }).catch(() => {});
+    { const tx = await p.textContent('#email-check-bd').catch(() => '');
+      ok('E-mail: check-list (serviço, função, envio automático, pausa, destino e último problema)', /1\. Serviço de envio/.test(tx) && /2\. Função erp-emails/.test(tx) && /Modo teste|clientes de verdade/.test(tx), tx.slice(0, 200)); }
     // Backup 41: ⋯ sem "Relatório em PDF"
     await p.click('#gs-hd .gs-bt-mais'); ok('Menu ⋯ sem Relatório em PDF e sem Aprovações', !(await p.$('#gs-hd [data-acao=pdf]')) && !(await p.$('#gs-hd [data-acao=aprovacoes]'))); await p.keyboard.press('Escape');
 
@@ -1257,21 +1258,16 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       // contador da sessão na barra de cima (só cai por inatividade)
       ok('Barra de cima: contador discreto da sessão', /⏱\d+′/.test(await p.textContent('#gs-sessao')));
     }
-    { // Controle dos parcelamentos com MAIS de 1000 parcelas (o Supabase devolve 1000 por vez): o mês atual tem que aparecer
+    { // Planilha com MAIS de 1000 parcelas (o Supabase devolve 1000 por vez): a guia do mês tem que aparecer
       const pid = 'e0000000-0000-0000-0000-000000000037';
       sql("insert into parcelamentos(id, empresa, total_parcelas, valor_ultima_parcela) values ('" + pid + "','EMPRESA MIL PARCELAS',1200,10) on conflict do nothing");
       sql("insert into parcelas(parcelamento_id, numero, vencimento, pago) select '" + pid + "', g, date '1990-01-10' + g, true from generate_series(1,1150) g");
-      sql("insert into parcelas(parcelamento_id, numero, vencimento, pago) values ('" + pid + "', 1151, current_date + 3, false)");
-      await p.evaluate(() => nav(null, 'rotina')); await p.waitForSelector('#rt-abas'); await p.click('#rt-abas [data-rt-aba=parcs]');
-      await p.waitForSelector('#rt-parc-corpo tr[data-pc="' + pid + '"]', { timeout: 15000 }).catch(() => {});
-      ok('Controle dos parcelamentos: com mais de 1000 parcelas no banco o mês atual aparece (busca em páginas)', !!(await p.$('#rt-parc-corpo tr[data-pc="' + pid + '"] td.rt-mes-atual .rt-ch')));
+      sql("insert into parcelas(parcelamento_id, numero, vencimento, pago) values ('" + pid + "', 1151, current_date, false)");
+      const id1151 = sql("select id from parcelas where parcelamento_id='" + pid + "' and numero='1151'");
+      await p.evaluate(() => nav(null, 'rotina')); await p.waitForSelector('#rt-abas'); await p.click('#rt-abas [data-rt-aba=planilha]');
+      await p.waitForSelector('#rt-corpo [data-nt="' + id1151 + '"]', { timeout: 15000 }).catch(() => {});
+      ok('Planilha: com mais de 1000 parcelas no banco a guia do mês aparece (busca em páginas)', !!(await p.$('#rt-corpo [data-nt="' + id1151 + '"]')));
       sql("delete from parcelamentos where id='" + pid + "'");
-      // Controle dos acordos: "Ver todas as parcelas" abre a mesma ficha do módulo Acordos
-      await p.click('#rt-abas [data-rt-aba=acs]'); await p.waitForSelector('#rt-parc-corpo [data-cel]', { timeout: 10000 }).catch(() => {});
-      if (await p.$('#rt-parc-corpo [data-cel]')) { await p.click('#rt-parc-corpo [data-cel] >> nth=0'); await p.waitForSelector('#rt-pop:not([hidden]) [data-abre]');
-        await p.click('#rt-pop [data-abre]'); await p.waitForTimeout(1500);
-        ok('Controle dos acordos: "Ver todas as parcelas" abre a ficha do acordo (igual ao módulo Acordos)', /Todas as parcelas deste acordo/.test(await p.textContent('#gs-raiz').catch(() => '')));
-        await p.evaluate(() => { while (document.querySelector('#janelas .fundo')) window.GS.fecharJanela(); }); }
       // Processos: valor atual ao lado do valor novo
       const prc = sql("select id from processos order by criado_em limit 1");
       if (prc) { await p.evaluate((id) => window.GS.janelaMovimentacao(id), prc); await p.waitForSelector('#mov-form'); await p.selectOption('#mov-form [name=tipo]', 'valor');

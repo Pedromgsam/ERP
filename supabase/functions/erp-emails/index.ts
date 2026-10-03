@@ -15,7 +15,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import nodemailer from 'npm:nodemailer@6.9.14';
 
-const VERSAO = '2026-10-29';
+const VERSAO = '2026-11-03';
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-erp-segredo',
@@ -116,7 +116,7 @@ async function enviarUm(cfg, msg, mailer) {
     attachments: anexos(msg).map((a) => ({ filename: a.filename, content: a.content, encoding: 'base64', contentType: a.tipo || 'application/pdf' })) });
 }
 
-async function processarFila(db, mailer) {
+async function processarFila(db, mailer, ref) {
   const cfg = await valor(db, 'email'), cfgContab = await valor(db, 'email_contab');
   if (!cfg || !cfg.usuario || !cfg.senha) return { enviados: 0, erros: 0, aviso: 'E-mail ainda não configurado em Administração → E-mail.' };
   // Backup 28: clientes da Contabilidade saem pela conta da Contabilidade (se estiver configurada)
@@ -126,8 +126,12 @@ async function processarFila(db, mailer) {
     if (eArq || !arq) throw new Error('Não consegui ler o anexo em Documentos: ' + ((eArq && eArq.message) || a.caminho));
     return { tipo: 'bin', arquivo: a.arquivo, mime: a.mime || arq.type || 'application/pdf', b64: base64(new Uint8Array(await arq.arrayBuffer())) };
   };
-  const { data: fila, error } = await db.from('email_fila').select('*').eq('status', 'pendente').lt('tentativas', 3).order('criado_em').limit(40);
+  const { data: lote, error } = await db.from('email_fila').select('*').eq('status', 'pendente').lt('tentativas', 3).order('criado_em').limit(40);
   if (error) throw error;
+  // Backup 42: o e-mail que a pessoa acabou de mandar ("ref") passa na frente da fila
+  let fila = lote || [];
+  if (ref) { const { data: meu } = await db.from('email_fila').select('*').eq('referencia', String(ref)).eq('status', 'pendente');
+    fila = (meu || []).concat(fila.filter((m) => !(meu || []).some((x) => x.id === m.id))); }
   let enviados = 0, erros = 0, ultimoErro = '';
   for (const m of fila || []) {
     try {
@@ -152,7 +156,8 @@ async function processarFila(db, mailer) {
   return { enviados, erros, ultimoErro };
 }
 
-// quem chamou: a rotina (segredo) ou um administrador logado
+// quem chamou: a rotina (segredo), um administrador logado ou (Backup 42, só para "enviar") alguém da equipe —
+// assim o e-mail sai na hora em que a pessoa clica em Enviar, sem esperar a rotina de 5 minutos
 async function autorizado(req, db) {
   const seg = req.headers.get('x-erp-segredo');
   if (seg && seg === (await valor(db, 'segredo_funcoes'))) return { rotina: true };
@@ -161,7 +166,8 @@ async function autorizado(req, db) {
   const { data } = await db.auth.getUser(token);
   if (!data || !data.user) return null;
   const { data: p } = await db.from('perfis').select('id, email, nome, papel').eq('id', data.user.id).maybeSingle();
-  return p && p.papel === 'admin' ? { admin: p } : null;
+  if (p && p.papel === 'admin') return { admin: p };
+  return p && p.papel === 'equipe' ? { equipe: p } : null;
 }
 
 export async function tratar(req, db, mailer) {
@@ -172,6 +178,7 @@ export async function tratar(req, db, mailer) {
     const corpo = await req.json().catch(() => ({}));
     if (corpo.acao === 'ping') return resposta({ ok: true, versao: VERSAO });
     const acao = corpo.acao || 'enviar';
+    if (quem.equipe && acao !== 'enviar') return resposta({ erro: 'Só o administrador.' }, 403);
     if (acao === 'teste') {
       if (!quem.admin) return resposta({ erro: 'Só o administrador envia o teste.' }, 403);
       const para = corpo.para || quem.admin.email;
@@ -184,7 +191,13 @@ export async function tratar(req, db, mailer) {
       const { error } = await db.rpc('montar_resumos_diarios');
       if (error) throw error;
     }
-    return resposta(await processarFila(db, mailer));
+    const r = await processarFila(db, mailer, corpo.ref);
+    // Backup 42: com "ref", devolve a situação real daquele e-mail (enviado, erro e o motivo) para a tela mostrar
+    if (corpo.ref) {
+      const { data: m } = await db.from('email_fila').select('status, erro, para').eq('referencia', String(corpo.ref)).order('criado_em', { ascending: false }).limit(1).maybeSingle();
+      r.item = m || null;
+    }
+    return resposta(r);
   } catch (e) {
     return resposta({ erro: String((e && e.message) || e) }, 500);
   }

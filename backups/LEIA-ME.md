@@ -47,6 +47,7 @@ versão foi ao ar**. O número cresce a cada entrega.
 | 39 | Ajustes de visual: lateral sem "A&C" e margens iguais ao encolher, Rotina em Módulos, calendário de altura fixa, Tarefas com abas/atrasadas/calendário iguais ao Início, Painel e Processos mais limpos, Contabilidade com QUEM FEZ e comparativos corrigidos, Contratos sem Parcelas/Anexo |
 | 40 | Agenda com início/fim, campos por tipo e aviso antes; Tarefas com filtros em botões; Painel sem faixas de grupo; Acordos com Emitir/Baixa; conciliação OFX e "Editar em tabela" fora; Documentos com subpastas por empresa, certificado pelo "+ Enviar" e Excluir; geração de documentos como sistema à parte; propostas completas (Holding); modo noturno estilo GitHub |
 | 41 | Rotina rápida de novo (passivo e cadastro); removidos E-mails, Aprovação de rascunho, Relatório de tarefas, PGFN/SERPRO, geradores antigos, Relatório em PDF, Fotos mensais e "Editar em tabela" de Clientes; Painel com "Operação" sem sobreposição; Acordos sem caixinha e texto do PIX; tipo de documento em lista; propostas completas para todos os modelos |
+| 42 | E-mails saem na hora (só para pedromgsam@gmail.com) com check-list em Administração → E-mail; menu na barra de cima e lateral estreita; Acordos com Copiar/WhatsApp/E-mail e lista de e-mails da empresa; Rotina: ✓ no fim salva a linha, sem Controle, Planilha = antigas Notificações; Financeiro com 💬 Cobrar; proposta com prévia ao vivo |
 
 ## Como baixar um backup
 No GitHub, abra a pasta `backups`, clique no arquivo e depois em **Download** (ícone de seta, à direita).

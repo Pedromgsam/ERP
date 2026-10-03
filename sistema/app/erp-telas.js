@@ -24,7 +24,7 @@
     { id: 'tarefas', rot: 'Tarefas', ic: 'tarefas', equipe: true },
     { id: 'alertas', rot: 'Alertas', ic: 'alertas', equipe: true },
     { sec: 'Módulos' },
-    { id: 'resumo', rot: 'Painel Executivo', ic: 'painel', func: 'relatorios' },
+    { id: 'resumo', rot: 'Painel Executivo', curto: 'Painel', ic: 'painel', func: 'relatorios' },
     { rot: 'Jurídico', ic: 'juridico', itens: [['processos', 'Processos', 'juridico'], ['parcelamentos', 'Parcelamentos', 'juridico'], ['publicacoes', 'Publicações', 'juridico']] },
     { id: 'acordos', rot: 'Acordos', ic: 'acordos', func: 'juridico' },
     { rot: 'Financeiro', ic: 'financeiro', equipe: true, itens: [['financeiro', 'Jurídico', 'financeiro_juridico'], ['financeiroContab', 'Contabilidade', 'financeiro_contab']] },
@@ -90,7 +90,7 @@
   }
   function aplicarFuncoes() {
     if (ehCliente()) return;
-    document.querySelectorAll('#gs-lado [data-ir], #tn-baixo [data-baixo]').forEach((b) => { const id = b.dataset.ir || b.dataset.baixo; b.classList.toggle('gx-sem-funcao', !permitido(FUNC_TELA[id])); });
+    document.querySelectorAll('#tn [data-ir], #gs-lado [data-ir], #tn-baixo [data-baixo]').forEach((b) => { const id = b.dataset.ir || b.dataset.baixo; b.classList.toggle('gx-sem-funcao', !permitido(FUNC_TELA[id])); });
     document.querySelectorAll('#gs-hd [data-lancar]').forEach((b) => b.classList.toggle('gx-sem-funcao', !permitido(LANCAR[+b.dataset.lancar][2], 'editar')));
     document.querySelectorAll('#tn .tn-grupo').forEach((g) => { const its = g.querySelectorAll('.tn-menu [data-ir]'); if (its.length) g.classList.toggle('gx-sem-funcao', [...its].every((x) => x.classList.contains('gx-sem-funcao'))); });
     const lc = document.querySelector('#gs-hd .tn-lancar'); if (lc) lc.classList.toggle('gx-sem-funcao', [...document.querySelectorAll('#gs-hd [data-lancar]')].every((x) => x.classList.contains('gx-sem-funcao')));
@@ -118,14 +118,18 @@
     lado.id = 'gs-lado'; lado.className = 'gs';
     lado.innerHTML = '<div class="gl-marca"><span class="gl-nome">Araújo &amp; Castro<small>Advocacia e Contabilidade</small></span></div>' +
       '<nav id="tn" aria-label="Menu principal">' + MENU.map((m, i) => m.sec ? '<div class="tn-sec' + itemCls(m) + '">' + esc(m.sec) + '</div>'
-        : !m.itens ? '<button type="button" class="tn-it' + itemCls(m) + '" data-ir="' + m.id + '" title="' + esc(m.rot) + '">' + icone(m.ic) + '<span class="tn-rot">' + esc(m.rot) + '</span></button>'
+        : !m.itens ? '<button type="button" class="tn-it' + itemCls(m) + '" data-ir="' + m.id + '" title="' + esc(m.rot) + '">' + icone(m.ic) + '<span class="tn-rot">' + esc(m.curto || m.rot) + '</span></button>'
         : '<div class="tn-grupo' + itemCls(m) + '"><button type="button" class="tn-it tn-abre" data-grupo="' + i + '" aria-expanded="false" title="' + esc(m.rot) + '">' + icone(m.ic) + '<span class="tn-rot">' + esc(m.rot) + '</span>' + icone('seta').replace('tn-ic', 'tn-ic tn-seta') + '</button>' +
           '<div class="tn-menu" role="menu">' + m.itens.map((x) => '<button type="button" role="menuitem" data-ir="' + x[0] + '">' + esc(x[1]) + '</button>').join('') + '</div></div>').join('') +
       '</nav><button type="button" id="gs-encolher" title="Encolher / abrir a barra" aria-label="Encolher ou abrir a barra lateral">' + icone('encolher') + '<span class="tn-rot">encolher</span></button>';
     document.body.insertBefore(lado, document.body.firstChild);
-    try { if (localStorage.getItem('erp_lado_min') === '1') document.body.classList.add('gx-lado-min'); } catch (e) { /* sem armazenamento: começa aberta */ }
-    document.getElementById('gs-encolher').onclick = () => { const min = document.body.classList.toggle('gx-lado-min'); try { localStorage.setItem('erp_lado_min', min ? '1' : '0'); } catch (e) { /* vale só agora */ } };
     document.body.insertBefore(hd, document.body.firstChild);
+    // Backup 42: o menu vai para a barra de cima (ganha espaço na largura); a lateral fica estreita (largura de "encolhida"), sem ícones,
+    // com as seções da tela aberta (ex.: Jurídico → Processos · Parcelamentos · Publicações)
+    document.body.classList.add('gx-menu-topo'); document.body.classList.remove('gx-lado-min');
+    hd.insertBefore(lado.querySelector('#tn'), hd.querySelector('#gs-tela-nome').nextSibling);
+    lado.querySelector('#gs-encolher').remove();
+    const sub = document.createElement('nav'); sub.id = 'gl-sub'; sub.setAttribute('aria-label', 'Seções desta tela'); lado.appendChild(sub);
     // Backup 37: contador discreto da sessão (60 min sem uso → sai). Fica vermelho nos últimos 5 minutos.
     const sessao = document.getElementById('gs-sessao');
     const pintarSessao = () => { const s = window.AC_SESSION; if (!s || !s.expira) { sessao.textContent = ''; return; }
@@ -149,7 +153,7 @@
     document.body.appendChild(bn);
 
     // botão do meio do mouse num item do menu = aba nova (Backup 34)
-    document.addEventListener('auxclick', (e) => { const b = e.button === 1 && e.target.closest && e.target.closest('#gs-lado [data-ir]'); if (b) { e.preventDefault(); window.open(location.pathname + '#' + b.dataset.ir, '_blank', 'noopener'); } });
+    document.addEventListener('auxclick', (e) => { const b = e.button === 1 && e.target.closest && e.target.closest('#tn [data-ir], #gs-lado [data-ir]'); if (b) { e.preventDefault(); window.open(location.pathname + '#' + b.dataset.ir, '_blank', 'noopener'); } });
     document.addEventListener('click', (e) => {
       const alvo = e.target.closest && e.target.closest('[data-ir],[data-grupo],.tn-lancar-bt,[data-lancar],[data-baixo],[data-acao],#gs-sair,.gs-sair');
       // menus suspensos só na barra de cima; na lateral os grupos abrem/fecham e ficam como estão
@@ -246,12 +250,17 @@
     for (const m of MENU) { if (m.id === id) return m.rot; const x = (m.itens || []).find((i) => i[0] === id); if (x) return m.rot + ' · ' + x[1]; }
     return { automacoes: 'Automações', notificacoes: 'Tela antiga de cobranças' }[id] || '';
   }
+  const SUB_CURTO = { processos: 'Processos', parcelamentos: 'Parcela- mentos', publicacoes: 'Publica- ções', financeiro: 'Jurídico', financeiroContab: 'Contabi- lidade' };
   function destacar(id) {
     const tn = document.getElementById('gs-tela-nome'); if (tn) tn.textContent = nomeTela(id);
+    // Backup 42: lateral estreita = as seções do módulo aberto (só texto)
+    const sub = document.getElementById('gl-sub');
+    if (sub) { const m = MENU.find((x) => x.id === id || (x.itens || []).some((i) => i[0] === id));
+      sub.innerHTML = m && m.itens ? m.itens.map((i) => '<button type="button" data-ir="' + i[0] + '"' + (i[0] === id ? ' class="ativo"' : '') + ' title="' + esc(m.rot + ' · ' + i[1]) + '">' + esc(SUB_CURTO[i[0]] || i[1]) + '</button>').join('') : ''; }
     document.querySelectorAll('#tn [data-ir], #tn-baixo [data-baixo]').forEach((b) => b.classList.toggle('ativo', b.dataset.ir === id || b.dataset.baixo === id));
     // o grupo da tela aberta fica aberto na lateral (como "Fiscal" nos prints); os outros ficam como a pessoa deixou
     document.querySelectorAll('#tn .tn-grupo').forEach((g) => { const tem = !!g.querySelector('[data-ir="' + id + '"]'); g.classList.toggle('ativo', tem);
-      if (tem && !document.body.classList.contains('gx-lado-min')) { g.classList.add('on'); const b = g.querySelector('.tn-abre'); if (b) b.setAttribute('aria-expanded', 'true'); } });
+      if (tem && g.closest('#gs-lado') && !document.body.classList.contains('gx-lado-min')) { g.classList.add('on'); const b = g.querySelector('.tn-abre'); if (b) b.setAttribute('aria-expanded', 'true'); } });
   }
   // ✉ dentro de cada tela: abre "Cobranças, avisos e recibos" já na aba certa
   let _abaCobranca = 'hon';

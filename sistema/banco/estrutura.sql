@@ -5715,7 +5715,7 @@ begin
             coalesce(nullif(trim(p_assunto), ''), 'Guias para pagamento') || ' → ' || para, p_cliente);
     n := n + 1;
   end loop;
-  return jsonb_build_object('para', para, 'itens', n, 'anexos', jsonb_array_length(lista), 'conta', v_conta, 'status', v_status);
+  return jsonb_build_object('para', para, 'itens', n, 'anexos', jsonb_array_length(lista), 'conta', v_conta, 'status', v_status, 'ref', v_ref);
 end $$;
 revoke all on function public.enviar_guias_email(uuid, uuid, jsonb, text, text, uuid[], text, jsonb) from public, anon;
 grant execute on function public.enviar_guias_email(uuid, uuid, jsonb, text, text, uuid[], text, jsonb) to authenticated;
@@ -5957,7 +5957,7 @@ begin
             coalesce(nullif(trim(p_assunto), ''), 'Guias para pagamento') || ' → ' || para, p_cliente);
     n := n + 1;
   end loop;
-  return jsonb_build_object('para', para, 'itens', n, 'anexos', jsonb_array_length(lista), 'conta', v_conta, 'status', v_status);
+  return jsonb_build_object('para', para, 'itens', n, 'anexos', jsonb_array_length(lista), 'conta', v_conta, 'status', v_status, 'ref', v_ref);
 end $$;
 revoke all on function public.enviar_guias_email(uuid, uuid, jsonb, text, text, uuid[], text, jsonb) from public, anon;
 grant execute on function public.enviar_guias_email(uuid, uuid, jsonb, text, text, uuid[], text, jsonb) to authenticated;
@@ -6135,7 +6135,7 @@ begin
             coalesce(nullif(trim(p_assunto), ''), 'Guias para pagamento') || ' → ' || para, p_cliente);
     n := n + 1;
   end loop;
-  return jsonb_build_object('para', para, 'itens', n, 'anexos', jsonb_array_length(lista), 'conta', v_conta, 'status', v_status);
+  return jsonb_build_object('para', para, 'itens', n, 'anexos', jsonb_array_length(lista), 'conta', v_conta, 'status', v_status, 'ref', v_ref);
 end $$;
 revoke all on function public.enviar_guias_email(uuid, uuid, jsonb, text, text, uuid[], text, jsonb) from public, anon;
 grant execute on function public.enviar_guias_email(uuid, uuid, jsonb, text, text, uuid[], text, jsonb) to authenticated;
@@ -6351,7 +6351,7 @@ begin
             coalesce(nullif(trim(p_assunto), ''), 'Guias para pagamento') || ' → ' || para, p_cliente);
     n := n + 1;
   end loop;
-  return jsonb_build_object('para', para, 'itens', n, 'anexos', jsonb_array_length(lista), 'conta', v_conta, 'status', v_status);
+  return jsonb_build_object('para', para, 'itens', n, 'anexos', jsonb_array_length(lista), 'conta', v_conta, 'status', v_status, 'ref', v_ref);
 end $$;
 revoke all on function public.enviar_guias_email(uuid, uuid, jsonb, text, text, uuid[], text, jsonb) from public, anon;
 grant execute on function public.enviar_guias_email(uuid, uuid, jsonb, text, text, uuid[], text, jsonb) to authenticated;
@@ -6777,3 +6777,54 @@ $c$),
 $c$)
   ) v(n, t)
  where m.nome = v.n and coalesce(m.texto_completo, '') = '';
+
+-- ═══════════════════════════════ Backup 42 ═══════════════════════════════
+-- E-mails funcionando: todo e-mail já vai só para pedromgsam@gmail.com (email_redirecionar), então a pausa do Backup 19/33 sai.
+-- Uma vez só: desliga a pausa e descarta os e-mails antigos que estavam retidos (não saem de uma vez para ninguém).
+do $$
+begin
+  if not exists (select 1 from public.configuracoes where chave = 'b42_emails') then
+    insert into public.configuracoes (chave, valor) values ('b42_emails', 'true'::jsonb);
+    insert into public.configuracoes (chave, valor) values ('emails_pausados', 'false'::jsonb) on conflict (chave) do update set valor = 'false'::jsonb;
+    update public.email_fila set status = 'cancelado', erro = 'Descartado no Backup 42 (estava retido pela pausa antiga).' where status = 'retido';
+    insert into public.configuracoes (chave, valor) values ('email_redirecionar', '"pedromgsam@gmail.com"'::jsonb)
+      on conflict (chave) do update set valor = '"pedromgsam@gmail.com"'::jsonb;
+  end if;
+end $$;
+-- diagnóstico do e-mail (Administração → E-mail): o que falta para o e-mail sair, em linguagem simples
+create or replace function public.diagnostico_email() returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare c jsonb; v_cron boolean := false; v_net boolean; u record;
+begin
+  if not public.eh_admin() then raise exception 'Só o administrador.'; end if;
+  select valor into c from public.config_privada where chave = 'email';
+  v_net := exists (select 1 from pg_extension where extname = 'pg_net');
+  begin execute 'select exists (select 1 from cron.job where jobname = ''erp_enviar_emails'' and active)' into v_cron; exception when others then v_cron := false; end;
+  select status, erro, criado_em, para into u from public.email_fila where erro <> '' order by criado_em desc limit 1;
+  return jsonb_build_object(
+    'servico', coalesce(c->>'usuario', '') <> '' and coalesce(c->>'senha', '') <> '',
+    'provedor', coalesce(c->>'provedor', ''), 'usuario', coalesce(c->>'usuario', ''),
+    'rotina', v_cron and v_net,
+    'pausado', public.emails_pausados(),
+    'redirecionar', coalesce((select valor #>> '{}' from public.configuracoes where chave = 'email_redirecionar'), ''),
+    'pendentes', (select count(*) from public.email_fila where status = 'pendente'),
+    'retidos', (select count(*) from public.email_fila where status = 'retido'),
+    'enviados', (select count(*) from public.email_fila where status = 'enviado'),
+    'ultimo_envio', (select max(enviado_em) from public.email_fila where status = 'enviado'),
+    'ultimo_erro', case when u.erro is null then null else jsonb_build_object('erro', u.erro, 'em', u.criado_em, 'status', u.status) end);
+end $$;
+revoke all on function public.diagnostico_email() from public, anon;
+grant execute on function public.diagnostico_email() to authenticated;
+-- Acordos (Backup 42): o quadro "Como pagar" do PIX sem o pedido de comprovante
+create or replace function public.guias_texto_html(p_texto text, p_itens jsonb) returns text
+language plpgsql immutable set search_path = public as $$
+declare h text; pix text;
+begin
+  h := '<p style="margin:0 0 10px">' || replace(replace(public.esc_html(btrim(coalesce(p_texto, ''))), E'\n\n', '</p><p style="margin:0 0 10px">'), E'\n', '<br>') || '</p>';
+  select string_agg(distinct 'PIX: <b>' || public.esc_html(i->>'pix') || '</b>' || coalesce(' · ' || nullif(public.esc_html(i->>'banco'), ''), ''), '<br>') into pix
+    from jsonb_array_elements(coalesce(p_itens, '[]')) i where coalesce(i->>'pix', '') <> '';
+  if pix is not null then
+    h := h || '<div style="background:#F5EDD6;border-left:4px solid #C9A84C;border-radius:10px;padding:12px 14px;margin:14px 0;font-size:13.5px"><b style="color:#1B2A4A">Como pagar</b><br>' || pix || '</div>';
+  end if;
+  return h;
+end $$;

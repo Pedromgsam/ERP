@@ -707,6 +707,36 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
 **Central de Documentos dentro do ERP:** menu **Documentos → Gerar documento** (ou ⋯ → Documentos, contrato, recibo do Financeiro).
 **Ctrl + clique** (ou botão do meio do mouse) em qualquer item do menu ou link de documento abre numa aba nova.
 
+## Backup 42 — e-mails funcionando, menu em cima, Rotina mais simples, cobrança por WhatsApp e propostas com prévia (tem SQL e 1 função)
+Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Atualizar a função `erp-emails`  4) Ctrl+Shift+R**.
+Para voltar ao visual anterior: o zip do **Backup 41** (pasta `backups/`) é a versão completa de antes.
+
+**Atualizar a função erp-emails (obrigatório nesta versão):** Supabase → **Edge Functions** → `erp-emails` → **Code** (ou "Deploy a new version")
+→ apague tudo e cole o arquivo `supabase/functions/erp-emails/index.ts` do GitHub (botão **Raw** → Ctrl+A → Ctrl+C) → **Deploy**.
+Confira em Details que **Verify JWT** está **desligado**.
+
+**Depois, uma vez:** ERP → **Administração → E-mail**. No topo aparece "✉ O e-mail está saindo?" com 6 linhas. Tudo tem que ficar ✅ (o item 3 pode ficar ⚠️).
+Se o item 1 estiver ❌: preencha "Serviço de envio" (Gmail do escritório + **senha de app** de 16 letras) → Salvar → **Enviar e-mail de teste**.
+
+- **E-mails:** agora saem **na hora** em que você clica em Enviar (antes dependiam da rotina de 5 minutos, que podia não estar ligada) e a tela mostra o resultado real
+  ("✓ e-mail enviado" ou o motivo, em português: senha recusada pelo Gmail, função não publicada…). Por enquanto **todo e-mail chega só em pedromgsam@gmail.com**
+  (o destinatário original aparece no assunto). A pausa antiga saiu e os e-mails velhos que estavam retidos foram descartados (não saem de uma vez).
+- **Menu:** foi para a **barra de cima** (ganha espaço na largura). A lateral ficou estreita, sem ícones, mostrando as seções da tela aberta (ex.: Jurídico → Processos · Parcelamentos · Publicações).
+- **Acordos → Emitir:** a janela tem **📋 Copiar texto**, **💬 WhatsApp** e **✉ Enviar e-mail**; o campo "Para" tem a **lista dos e-mails da empresa** (Financeiro, RH…) e aceita digitar.
+  Texto do acordo sem "Depois de pagar, por favor nos envie o comprovante", sem novo vencimento e sem valor atualizado.
+- **Rotina:**
+  - **Passivo e cadastro:** sem o contorno/sublinhado azul dos grupos, sem o relógio; a **Conferência (✓) fica no fim da linha** — clicar no ✓ **salva aquela linha**
+    (com alteração = "alterado"; sem alteração = "conferido"). "Salvar alterações" continua para salvar várias de uma vez.
+  - **Processos:** sem o contorno azul.
+  - **Controle dos parcelamentos** saiu. **Acordos** abre a própria tela de Acordos (a mesma, sem duplicar).
+  - **Planilha de parcelamentos** (não é mais teste): igual à antiga **Notificações → Parcelamento** — empresas com as guias vencidas ou do mês; marque, clique em
+    **Gerar mensagem**, confira o valor e envie (Copiar, WhatsApp, E-mail ou "Marcar como enviada"). O texto é o mesmo das Notificações.
+- **Financeiro → A Receber:** botão **💬 Cobrar** em cada honorário: texto simples ("Bom dia! Passando para lembrar dos honorários do mês de …, referente a …") para o WhatsApp;
+  ao copiar ou abrir o WhatsApp o lançamento fica **COBRADO**.
+- **CRM:** a legenda do modelo aparece inteira; a proposta mostra uma **prévia ao vivo** ao lado enquanto você preenche.
+- **Painel:** coluna Entidade / sócio um pouco menor.
+- **SQL:** `diagnostico_email()`, pausa desligada (uma vez), `guias_texto_html` sem o pedido de comprovante, `enviar_guias_email` devolve a referência do e-mail.
+
 ## Backup 41 — mais leve: módulos sem uso removidos, Rotina rápida de novo, Painel e Acordos sem aperto, propostas completas para todos os modelos (tem SQL)
 Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+Shift+R**.
 Depois, uma vez: Supabase → **Edge Functions** → `erp-pgfn` → **Delete** (a função não é mais usada).

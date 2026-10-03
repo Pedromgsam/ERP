@@ -185,5 +185,5 @@ html[data-tema="escuro"] [style*="border-right:1px solid #E5E7EB"]{border-right:
 html[data-tema="escuro"] [style*="border:1px solid #E5E7EB"]{border:1px solid var(--line)!important}
 html[data-tema="escuro"] [style*="border-bottom:1px solid #E5E7EB"]{border-bottom:1px solid var(--line)!important}
 html[data-tema="escuro"] [style*="border-top:1px solid #9CA3AF"]{border-top:1px solid var(--line)!important}
-html[data-tema="escuro"] [style*="background:#C9A84C"]{background:#4d4a43!important}
 html[data-tema="escuro"] [style*="background:#EEF1F6"]{background:var(--surface2)!important}
+html[data-tema="escuro"] [style*="background:#C9A84C"]{background:#4d4a43!important}
