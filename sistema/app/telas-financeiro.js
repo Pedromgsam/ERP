@@ -460,7 +460,10 @@ async function cobrarWhatsApp(id) {
       campo('Mensagem', '<textarea id="cb-txt" rows="6">' + esc(textoCobranca(l)) + '</textarea>', 'inteiro') +
       '<p class="sub inteiro">Ao copiar ou abrir o WhatsApp, o lançamento fica marcado como <b>COBRADO</b>.</p></div>',
     rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Fechar</button><button class="btn btn-o" type="button" id="cb-copiar">📋 Copiar</button><button class="btn btn-v" type="button" id="cb-zap">💬 Abrir WhatsApp</button></div>' });
-  const marcar = () => q(sb.from('lancamentos').update({ cobranca: 'Cobrado' }).eq('id', id)).then(() => { if (window.ERP_RECARREGAR) window.ERP_RECARREGAR(); }).catch(() => {});
+  // Backup 43: marca "Cobrado" só nesta linha (antes recarregava todos os dados do sistema — era isso que demorava)
+  const marcar = () => q(sb.from('lancamentos').update({ cobranca: 'Cobrado' }).eq('id', id).select('id')).then(() => {
+    document.querySelectorAll('[data-cobrar="' + id + '"]').forEach((b) => { b.textContent = '✓ Cobrado'; b.classList.add('gx-cobrado'); });
+  }).catch((e) => aviso(erroAmigavel(e), true));
   j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
   j.querySelector('#cb-copiar').onclick = (ev) => comBotao(ev.currentTarget, async () => { await copiarTexto(j.querySelector('#cb-txt').value); aviso('✓ Texto copiado — cole no WhatsApp.'); marcar(); });
   j.querySelector('#cb-zap').onclick = () => { const tel = soDigitos(j.querySelector('#cb-tel').value);

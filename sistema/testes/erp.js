@@ -88,8 +88,8 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await carregado(p);
     ok('entra com e-mail e senha do Supabase', await p.evaluate(() => window.AC_SESSION && window.AC_SESSION.nivel === 'admin'));
     await p.waitForTimeout(1200);
-    ok('Backup 42: menu na barra de CIMA e lateral estreita sem ícones', await p.isVisible('#gs-hd #tn') && !(await p.$('#gs-lado #tn')) && !(await p.isVisible('#sb')) && !(await p.isVisible('#hd')) && await p.isVisible('.tn-lancar-bt') &&
-      await p.evaluate(() => document.getElementById('gs-lado').getBoundingClientRect().width <= 70 && ![...document.querySelectorAll('#gs-hd #tn .tn-ic:not(.tn-seta)')].some((s) => s.getBoundingClientRect().width > 0)));
+    ok('Backup 43: menu na barra LATERAL (voltou como no Backup 41)', await p.isVisible('#gs-lado #tn') && !(await p.$('#gs-hd #tn')) && !(await p.isVisible('#sb')) && !(await p.isVisible('#hd')) && await p.isVisible('.tn-lancar-bt'));
+    ok('Backup 43: margens laterais menores (20 px no mínimo, conteúdo até 1440 px)', await p.evaluate(() => getComputedStyle(document.body).getPropertyValue('--conteudo').trim() === '1440px'));
     ok('barra mostra entidades e grupos', /3/.test(await p.textContent('#gs-n-ent')) && /2/.test(await p.textContent('#gs-n-grp')));
     // menus suspensos: clicar como uma pessoa e conferir que o item aparece de verdade (não escondido atrás da tela)
     for (const g of ['Jurídico', 'Financeiro']) {
@@ -98,11 +98,9 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       ok('menu ' + g + ' abre e mostra os itens na tela', visivel);
       await p.click('#panel-hoje .titulo-pag h1').catch(() => p.mouse.click(5, 5)); await p.waitForTimeout(150);
     }
-    await p.click('#tn .tn-abre:has-text("Financeiro")'); await p.waitForTimeout(200);   // Backup 42: menu suspenso na barra de cima
     await p.click('#tn .tn-grupo:has-text("Financeiro") [data-ir=financeiro]');
     await p.waitForTimeout(800);
     ok('clicar em Financeiro › Jurídico abre os Honorários', await p.isVisible('#panel-financeiro'));
-    ok('lateral mostra as seções do módulo aberto (Jurídico · Contabilidade)', (await p.$$eval('#gl-sub button', (l) => l.map((b) => b.textContent))).join('|') === 'Jurídico|Contabi- lidade');
     ok('barra sem o texto "Araujo & Castro"', !/Araujo/.test(await p.textContent('#gs-hd')));
     await p.click('.gs-bt-mais'); await p.waitForTimeout(200);
     ok('⋯ sem o link do Gestão antigo e sem a Central de e-mails (fica no menu E-mails); com Meu nome', !(await p.$('#gs-hd [data-acao=gestao]')) && !(await p.$('#gs-hd [data-acao=cobrancas]')) && await p.isVisible('#gs-hd [data-acao=meunome]'));
@@ -754,7 +752,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('modo escuro continua depois de recarregar', await p.evaluate(() => document.documentElement.dataset.tema === 'escuro'));
     await p.click('#gs-tema'); await p.waitForTimeout(300);
     ok('◐ volta ao modo claro', await p.evaluate(() => !document.documentElement.dataset.tema && localStorage.getItem('erp_tema') === 'claro'));
-    ok('botões só com ícone têm nome para leitor de tela', await p.evaluate(() => ['#gs-tema', '.gs-bt-mais'].every((q) => (document.querySelector(q) || {}).getAttribute && document.querySelector(q).getAttribute('aria-label'))));
+    ok('botões só com ícone têm nome para leitor de tela', await p.evaluate(() => ['#gs-tema', '.gs-bt-mais', '#gs-encolher'].every((q) => (document.querySelector(q) || {}).getAttribute && document.querySelector(q).getAttribute('aria-label'))));
     sql("insert into tarefas(titulo,responsavel,prazo) select 'Tarefa em massa '||g,'Pedro',current_date+30+g from generate_series(1,130) g");
     await nav(p, 'tarefas'); await p.waitForTimeout(1800);
     ok('tabela longa mostra todas as linhas (sem "Mostrar mais")', !(await p.$('#panel-tarefas .pag-rodape')) && await p.evaluate(() => !document.querySelector('#panel-tarefas .pag-oculta') && [...document.querySelectorAll('#panel-tarefas tbody tr')].filter((r) => r.offsetParent).length > 100));
@@ -1145,7 +1143,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     const id77 = sql("select id from parcelas where numero='77'"), id78 = sql("select id from parcelas where numero='78'"), id79 = sql("select id from parcelas where numero='79'");
     await p.evaluate((ids) => window.GS.gerarGuias('parcelas', { ids }), [id77, id78]); await p.waitForSelector('#gs-raiz .ge-janela'); await p.waitForTimeout(500);
     ok('Enviar por empresa: texto das antigas Notificações e WhatsApp ao lado de Enviar e-mail', /Prezados,\n\nSeguem as guias dos parcelamentos da /.test(await p.inputValue('#ge-texto')) && await p.evaluate(() => { const a = document.querySelector('#ge-zap'), b = document.querySelector('#ge-enviar'); return a && b && a.parentElement === b.parentElement; }));
-    ok('Enviar por empresa: empresas agrupadas por grupo, com "Copiar texto" e a lista de e-mails da empresa', (await p.$$('#gs-raiz .ge-grp .ge-emp')).length > 0 && !!(await p.$('#gs-raiz #ge-copiar')) && !!(await p.$('#gs-raiz #ge-para-sel')));
+    ok('Enviar por empresa: empresas agrupadas por grupo, com "Copiar texto" e o e-mail já preenchido (sem lista para escolher)', (await p.$$('#gs-raiz .ge-grp .ge-emp')).length > 0 && !!(await p.$('#gs-raiz #ge-copiar')) && !(await p.$('#gs-raiz #ge-para-sel')) && await p.isVisible('#gs-raiz #ge-para'));
     await p.click('#gs-raiz #ge-previa'); await p.waitForSelector('#gs-raiz iframe.ge-previa', { timeout: 8000 }).catch(() => {});
     ok('Enviar por empresa: "Prévia do e-mail" mostra o e-mail com a marca', /<html|<table|<div/i.test(await p.evaluate(() => (document.querySelector('#gs-raiz iframe.ge-previa') || {}).srcdoc || '')));
     await p.evaluate(() => { const f = document.querySelector('#gs-raiz iframe.ge-previa'); const j = f && f.closest('.janela'); const x = j && j.querySelector('.janela-x, [data-fechar]'); if (x) x.click(); }); await p.waitForTimeout(300);
@@ -1199,11 +1197,20 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('Painel: com um grupo no filtro do topo, uma linha por empresa do grupo', /empresa/.test(await p.textContent('#evo-bt-linhas')) && await p.evaluate(() => Chart.getChart(document.getElementById('cEvoPassivo')).data.datasets.every((d) => d.label !== 'Grupo Alfa')));
     await p.evaluate(() => { FILTROS.grupo = ''; renderExecRanking(); });
 
+    // Backup 43: a Planilha de parcelamentos (preencher emissão, pagamento, valor da última parcela, observação) voltou
+    await p.evaluate(() => nav(null, 'rotina')); await p.waitForSelector('#rt-abas'); await p.click('#rt-abas [data-rt-aba=planilha]');
+    await p.waitForSelector('#rt-corpo .pl-bloco', { timeout: 10000 }).catch(() => {});
+    ok('Rotina: "Planilha de parcelamentos" de preencher voltou (abas por grupo, blocos, valor residual, Emitir guias)', (await p.$$('#rt-corpo .pl-aba')).length >= 1 &&
+      (await p.$$('#rt-corpo .pl-bloco')).length >= 1 && /Valor residual/.test(await p.textContent('#rt-corpo .pl-bloco')) && !!(await p.$('#rt-corpo #pl-emitir')) && !/teste/.test(await p.textContent('#rt-corpo .card-hd')));
+    { const id = await p.getAttribute('#rt-corpo [data-pl-e] >> nth=-1', 'data-pl-e');
+      await p.click('#rt-corpo [data-pl-e="' + id + '"]'); await p.waitForTimeout(1200);
+      ok('Planilha: clicar em EMISSÃO marca a guia como emitida', sql("select emitida_em is not null from parcelas where id='" + id + "'") === 't');
+      await p.click('#rt-corpo [data-pl-e="' + id + '"]'); await p.waitForTimeout(1200); }
     // Backup 42: Planilha de parcelamentos = antigas Notificações → Parcelamento (empresa → guias; gerar a mensagem; enviar)
     sql("insert into config_privada(chave,valor) values ('email','{\"provedor\":\"gmail\",\"usuario\":\"escritorio@teste.com\",\"senha\":\"senhadeapp1234567\"}') on conflict (chave) do update set valor=excluded.valor");   // Backup 42: serviço de envio configurado (o carteiro é de mentira)
     sql("insert into parcelas(parcelamento_id,numero,vencimento,pago) select id,'88',current_date,false from parcelamentos where emitimos_guia order by criado_em limit 1");
     { const id88 = sql("select id from parcelas where numero='88'");
-      await p.evaluate(() => nav(null, 'rotina')); await p.waitForSelector('#rt-abas'); await p.click('#rt-abas [data-rt-aba=planilha]');
+      await p.evaluate(() => nav(null, 'rotina')); await p.waitForSelector('#rt-abas'); await p.click('#rt-abas [data-rt-aba=guias]');
       await p.waitForSelector('#rt-corpo [data-nt="' + id88 + '"]', { timeout: 10000 }).catch(() => {});
       ok('Planilha: empresas com as guias vencidas ou do mês, legenda e "Gerar mensagem" travado sem marcar', !!(await p.$('#rt-corpo [data-nt="' + id88 + '"]')) && await p.isVisible('#rt-corpo .nt-legenda') && !!(await p.$('#nt-gerar[disabled]')));
       await p.check('#rt-corpo [data-nt="' + id88 + '"]'); await p.click('#nt-gerar'); await p.waitForSelector('#rt-corpo .nt-msg');
@@ -1237,7 +1244,9 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     { const lid = sql("select id from lancamentos where tipo='receita' and not pago and not perda order by vencimento limit 1");
       await p.evaluate((id) => window.GS.cobrarWhatsApp(id), lid); await p.waitForSelector('#cb-txt');
       ok('Financeiro: "Cobrar" monta o texto "… Passando para lembrar dos honorários do mês de …, referente a …"', /^(Bom dia|Boa tarde|Boa noite)! Passando para lembrar dos honorários do mês de .+, referente /.test(await p.inputValue('#cb-txt')));
+      await p.evaluate(() => { window.__recargas = 0; const ld = window.loadData; window.loadData = function () { window.__recargas++; return ld.apply(this, arguments); }; });
       await p.click('#cb-copiar'); await p.waitForTimeout(1000);
+      ok('Backup 43: "Cobrar" não recarrega o sistema inteiro (era o que demorava)', await p.evaluate(() => window.__recargas === 0));
       ok('Financeiro: depois de copiar a cobrança, o lançamento fica "Cobrado"', sql("select cobranca from lancamentos where id='" + lid + "'") === 'Cobrado');
       await p.evaluate(() => { while (document.querySelector('#janelas .fundo')) window.GS.fecharJanela(); }); }
     // Backup 42: Administração → E-mail mostra o check-list do que falta para o e-mail sair
@@ -1264,7 +1273,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       sql("insert into parcelas(parcelamento_id, numero, vencimento, pago) select '" + pid + "', g, date '1990-01-10' + g, true from generate_series(1,1150) g");
       sql("insert into parcelas(parcelamento_id, numero, vencimento, pago) values ('" + pid + "', 1151, current_date, false)");
       const id1151 = sql("select id from parcelas where parcelamento_id='" + pid + "' and numero='1151'");
-      await p.evaluate(() => nav(null, 'rotina')); await p.waitForSelector('#rt-abas'); await p.click('#rt-abas [data-rt-aba=planilha]');
+      await p.evaluate(() => nav(null, 'rotina')); await p.waitForSelector('#rt-abas'); await p.click('#rt-abas [data-rt-aba=guias]');
       await p.waitForSelector('#rt-corpo [data-nt="' + id1151 + '"]', { timeout: 15000 }).catch(() => {});
       ok('Planilha: com mais de 1000 parcelas no banco a guia do mês aparece (busca em páginas)', !!(await p.$('#rt-corpo [data-nt="' + id1151 + '"]')));
       sql("delete from parcelamentos where id='" + pid + "'");

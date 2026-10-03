@@ -178,7 +178,7 @@ async function chamarFuncao(nome, corpo) {
     r = await fetch(String(CFG.url).replace(/\/$/, '') + '/functions/v1/' + nome, { method: 'POST',
       headers: { 'Content-Type': 'application/json', apikey: CFG.chave, Authorization: 'Bearer ' + (sessao ? sessao.access_token : CFG.chave) },
       body: JSON.stringify(corpo || {}) });
-  } catch (e) { throw new Error('Não consegui falar com a função "' + nome + '" (sem internet ou bloqueio do navegador).'); }
+  } catch (e) { throw new Error('Não consegui falar com a função "' + nome + '". As causas mais comuns: (1) ela não está publicada no Supabase com esse nome exato; (2) a opção "Verify JWT" dela está LIGADA (tem que ficar desligada); (3) sem internet.'); }
   const txt = await r.text(); let js = null;
   try { js = JSON.parse(txt); } catch (e) { /* resposta sem JSON */ }
   if (r.ok) return js || {};
@@ -194,7 +194,12 @@ async function chamarFuncao(nome, corpo) {
 async function enviarEmailAgora(ref, para) {
   let d;
   try { d = await chamarFuncao('erp-emails', { acao: 'enviar', ref: ref || undefined }); }
-  catch (e) { return { ok: false, msg: 'o e-mail ficou na fila e NÃO saiu: ' + e.message }; }
+  catch (e) {
+    // Backup 43: o navegador não alcançou a função → pede ao servidor (banco) para chamar a função por dentro, sem passar pelo navegador
+    const viaServidor = await q(sb.rpc('disparar_envio_emails')).catch(() => false);
+    return { ok: false, msg: 'o e-mail ficou na fila. ' + (viaServidor ? 'O navegador não alcançou a função de e-mail, então pedi ao servidor para enviar — confira em alguns segundos em Administração → E-mail. '
+      : '') + 'Motivo: ' + e.message + ' Veja Administração → E-mail → "O e-mail está saindo?".' };
+  }
   const it = d && d.item;
   if (it && it.status === 'enviado') return { ok: true, msg: 'e-mail enviado para ' + (it.para || para || '') + '.' };
   if (d && d.aviso) return { ok: false, msg: 'o e-mail ficou na fila e NÃO saiu: ' + d.aviso };

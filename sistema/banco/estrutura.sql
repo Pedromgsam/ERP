@@ -6828,3 +6828,21 @@ begin
   end if;
   return h;
 end $$;
+
+-- ═══════════════════════════════ Backup 43 ═══════════════════════════════
+-- E-mails: quando o navegador não alcança a função erp-emails, o próprio banco chama a função por dentro (pg_net, com o segredo das rotinas)
+create or replace function public.disparar_envio_emails() returns boolean
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.eh_equipe() then raise exception 'Sem permissão.'; end if;
+  begin
+    execute $x$ select net.http_post(
+      url := (select valor #>> '{}' from public.config_privada where chave = 'url_projeto') || '/functions/v1/erp-emails',
+      headers := jsonb_build_object('Content-Type', 'application/json', 'x-erp-segredo', (select valor #>> '{}' from public.config_privada where chave = 'segredo_funcoes')),
+      body := '{"acao":"enviar"}'::jsonb) $x$;
+    return true;
+  exception when others then return false;   -- sem a extensão pg_net
+  end;
+end $$;
+revoke all on function public.disparar_envio_emails() from public, anon;
+grant execute on function public.disparar_envio_emails() to authenticated;

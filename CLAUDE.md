@@ -82,7 +82,11 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
-- Última entrega: **Backup 42** (SQL + função erp-emails). E-mails: `enviarEmailAgora(ref, para)` (nucleo.js) chama `erp-emails {acao:'enviar', ref}` logo depois de enfileirar
+- Última entrega: **Backup 43** (só SQL). Desfez o menu no topo: `erp-telas.js` = o do Backup 41 (lateral com ícones, `#gs-encolher`); margens `--conteudo:1440px`,
+  `--gut:max(20px,…)` (eram 1360/32). "Cobrar" (`cobrarWhatsApp`) sem `ERP_RECARREGAR` (troca o botão para "✓ Cobrado"). Guias/acordos sem `#ge-para-sel`/`emailsDaEmpresa`
+  (campo `#ge-para` pré-preenchido). `enviarEmailAgora`: se o fetch à função falha, chama RPC `disparar_envio_emails()` (pg_net + segredo) e explica (função não publicada /
+  Verify JWT ligado). Rotina: `rotinaPlanilha` do B35-41 voltou (aba `planilha`, `.pl-*`); a tela estilo Notificações virou `rotinaEnviarGuias` (aba `guias`).
+- Backup 42 (base) (SQL + função erp-emails). E-mails: `enviarEmailAgora(ref, para)` (nucleo.js) chama `erp-emails {acao:'enviar', ref}` logo depois de enfileirar
   (equipe pode chamar só 'enviar'; com `ref` a função devolve `item {status, erro, para}`), `explicarErroEmail`; `avisoEnvio` (telas-guias); `enviar_guias_email` devolve `ref`;
   `diagnostico_email()` + `checarEmail()` (Administração → E-mail, `#email-check`); B42 desliga `emails_pausados` e cancela retidos (flag `b42_emails`), redirect = pedromgsam.
   Menu no topo: `body.gx-menu-topo`, `#tn` movido para `#gs-hd`, lateral 68px com `#gl-sub` (seções do módulo, `SUB_CURTO`), `MENU[].curto`. Guias: `emailsDaEmpresa`, `#ge-para-sel`,

@@ -707,6 +707,25 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
 **Central de Documentos dentro do ERP:** menu **Documentos → Gerar documento** (ou ⋯ → Documentos, contrato, recibo do Financeiro).
 **Ctrl + clique** (ou botão do meio do mouse) em qualquer item do menu ou link de documento abre numa aba nova.
 
+## Backup 43 — menu de volta na lateral, "Cobrar" rápido, Planilha de parcelamentos de volta e e-mail com segunda via (tem SQL)
+Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+Shift+R**. Nenhuma função mudou nesta versão
+(mas a `erp-emails` do Backup 42 precisa estar publicada — veja abaixo).
+Para voltar à versão anterior: o zip do **Backup 42** (pasta `backups/`).
+
+- **Menu:** voltou a ser a barra **lateral** com ícones (igual ao Backup 41). Única diferença: as margens dos lados ficaram um pouco menores
+  (o conteúdo ganha largura nos módulos mais cheios).
+- **Lentidão:** medimos as duas versões — as telas abrem no mesmo tempo e com o mesmo número de chamadas ao servidor. O que demorava era o
+  **"💬 Cobrar"**: depois de copiar/abrir o WhatsApp ele recarregava todos os dados do sistema. Agora só troca o botão para "✓ Cobrado".
+- **Acordos → Emitir:** saiu a lista para escolher o e-mail; o campo vem preenchido (como antes) e pode ser alterado.
+- **E-mail "Não consegui falar com a função erp-emails":** o navegador não alcançou a função. As causas mais comuns:
+  1. a função **erp-emails** não foi publicada/atualizada (Supabase → Edge Functions → precisa existir com esse nome exato, versão do Backup 42);
+  2. **Verify JWT** ligado na função (tem que ficar **desligado**: abra a função → Details).
+  Agora, quando isso acontece, o sistema pede ao **servidor** (banco) para chamar a função por dentro (segunda via) e explica o motivo.
+  Confira tudo em **Administração → E-mail → "O e-mail está saindo?"**.
+- **Rotina:** a **Planilha de parcelamentos** (preencher emissão, pagamento, valor da última parcela, observação, "Nós emitimos") **voltou**.
+  A tela no formato das antigas Notificações ficou numa aba própria: **📨 Enviar guias do mês**.
+- **SQL:** função `disparar_envio_emails()` (a segunda via do e-mail, pelo pg_net).
+
 ## Backup 42 — e-mails funcionando, menu em cima, Rotina mais simples, cobrança por WhatsApp e propostas com prévia (tem SQL e 1 função)
 Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Atualizar a função `erp-emails`  4) Ctrl+Shift+R**.
 Para voltar ao visual anterior: o zip do **Backup 41** (pasta `backups/`) é a versão completa de antes.

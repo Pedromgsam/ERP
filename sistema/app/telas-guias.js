@@ -140,19 +140,7 @@ async function preencherDestino(campo, cli, grp, tabela) {
   if (!campo.isConnected) return;
   if (!campo.value) campo.value = para;
   campo.placeholder = para ? '' : 'sem e-mail cadastrado — digite aqui (ex.: financeiro@empresa.com.br)';
-  campo.closest('.campo').classList.toggle('ge-sem-email', !para);
-}
-// Backup 42: e-mails cadastrados da empresa (contatos com setor + e-mail do cadastro) para a lista "Para"
-async function emailsDaEmpresa(cli, grupo) {
-  const ids = cli ? [cli] : E.clientes.filter((c) => grupo && c.grupo_id === grupo).map((c) => c.id);
-  if (!ids.length) return [];
-  const cs = await q(sb.from('contatos').select('cliente_id, nome, finalidade, email').in('cliente_id', ids)).catch(() => []);
-  const rot = (k) => (SETORES_CONTATO.find((s) => s[0] === k) || [k, k || 'Geral'])[1];
-  const out = [], visto = {};
-  const por = (r, m) => String(m || '').split(/[,;]\s*/).map((x) => x.trim()).filter((x) => /@/.test(x)).forEach((x) => { if (!visto[x.toLowerCase()]) { visto[x.toLowerCase()] = 1; out.push([r, x]); } });
-  cs.forEach((c) => por(rot(c.finalidade) + (c.nome ? ' (' + c.nome + ')' : '') + (ids.length > 1 ? ' — ' + ((E.clientes.find((y) => y.id === c.cliente_id) || {}).nome || '') : ''), c.email));
-  ids.forEach((id) => { const c = E.clientes.find((y) => y.id === id); if (c) por('Cadastro' + (ids.length > 1 ? ' — ' + c.nome : ''), c.email); });
-  return out;
+  const cx = campo.closest('.campo'); if (cx) cx.classList.toggle('ge-sem-email', !para);
 }
 let _emailTeste;
 async function emailDeTeste() {
@@ -354,8 +342,7 @@ async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
     arquivos = [];
     $j('#ge-msg').innerHTML =
       '<div class="ge-cab"><div><div class="ge-emp-nome">' + esc(e.nome) + '</div><div class="sub">' + esc([mascaraDoc(c.cpf_cnpj), e.gnome].filter(Boolean).join(' · ')) + '</div></div></div>' +
-      '<div class="ge-dest"><label class="campo ge-para-campo"><span>✉ E-mail (para)</span><select id="ge-para-sel" aria-label="E-mails cadastrados da empresa"><option value="">— e-mails da empresa —</option></select>' +
-        '<input id="ge-para" type="text" autocomplete="off" placeholder="escolha acima ou digite o e-mail"><small class="sub" id="ge-teste"></small></label>' +
+      '<div class="ge-dest"><label class="campo"><span>✉ E-mail (para)</span><input id="ge-para" type="text" autocomplete="off" placeholder="procurando o e-mail cadastrado…"><small class="sub" id="ge-teste"></small></label>' +
         '<label class="campo"><span>💬 WhatsApp</span><input id="ge-tel" data-mascara="tel" inputmode="tel" value="' + esc(c.telefone || '') + '" placeholder="(37) 9 9999-9999"></label>' +
         '<label class="campo ge-ass"><span>Assunto</span><input id="ge-assunto" value="' + esc((tabela === 'parcelas' ? 'Guias de parcelamento' : e.itens.every((x) => ehPixGuia(tabela, x)) ? 'Parcela de acordo' : 'Boletos de acordo') + ' — ' + e.nome) + '"></label></div>' +
       '<div class="ge-papel"><textarea id="ge-texto" rows="5">' + esc(t.intro) + '</textarea>' +
@@ -375,9 +362,6 @@ async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
     j.querySelectorAll('.ge-it input[type=checkbox]').forEach((i) => i.addEventListener('change', total));
     j.querySelectorAll('.ge-valor').forEach((i) => i.addEventListener('blur', () => { const v = lerValor(i.value); i.value = v ? valorParaCampo(v) : ''; total(); }));
     preencherDestino($j('#ge-para'), e.cli, e.grupo, tabela);
-    emailsDaEmpresa(e.cli, e.gid).then((ls) => { const s = $j('#ge-para-sel'); if (!s || !s.isConnected) return;
-      s.innerHTML = '<option value="">' + (ls.length ? '— e-mails da empresa (' + ls.length + ') —' : '— nenhum e-mail cadastrado —') + '</option>' + ls.map(([r, m]) => '<option value="' + esc(m) + '">' + esc(r + ': ' + m) + '</option>').join('');
-      s.onchange = () => { if (s.value) $j('#ge-para').value = s.value; }; });
     emailDeTeste().then((m) => { const x = $j('#ge-teste'); if (x && m) x.textContent = 'Modo teste: por enquanto todo e-mail chega só em ' + m + '.'; });
     pintarChips(); total();
   };
