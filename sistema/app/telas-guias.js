@@ -142,10 +142,33 @@ async function preencherDestino(campo, cli, grp, tabela) {
   campo.placeholder = para ? '' : 'sem e-mail cadastrado — digite aqui (ex.: financeiro@empresa.com.br)';
   campo.closest('.campo').classList.toggle('ge-sem-email', !para);
 }
-// a mensagem depois de pôr o e-mail na fila, conforme a situação real (pausa ligada = retido)
-const msgEnvio = (r) => r && r.status === 'retido'
-  ? 'e-mail para ' + r.para + ' RETIDO: o envio de e-mails está pausado. Para sair, vá em E-mails → Fila → Liberar (ou desligue a pausa).'
-  : 'e-mail na fila para ' + (r && r.para) + ' (sai em até 5 minutos).';
+// Backup 42: e-mails cadastrados da empresa (contatos com setor + e-mail do cadastro) para a lista "Para"
+async function emailsDaEmpresa(cli, grupo) {
+  const ids = cli ? [cli] : E.clientes.filter((c) => grupo && c.grupo_id === grupo).map((c) => c.id);
+  if (!ids.length) return [];
+  const cs = await q(sb.from('contatos').select('cliente_id, nome, finalidade, email').in('cliente_id', ids)).catch(() => []);
+  const rot = (k) => (SETORES_CONTATO.find((s) => s[0] === k) || [k, k || 'Geral'])[1];
+  const out = [], visto = {};
+  const por = (r, m) => String(m || '').split(/[,;]\s*/).map((x) => x.trim()).filter((x) => /@/.test(x)).forEach((x) => { if (!visto[x.toLowerCase()]) { visto[x.toLowerCase()] = 1; out.push([r, x]); } });
+  cs.forEach((c) => por(rot(c.finalidade) + (c.nome ? ' (' + c.nome + ')' : '') + (ids.length > 1 ? ' — ' + ((E.clientes.find((y) => y.id === c.cliente_id) || {}).nome || '') : ''), c.email));
+  ids.forEach((id) => { const c = E.clientes.find((y) => y.id === id); if (c) por('Cadastro' + (ids.length > 1 ? ' — ' + c.nome : ''), c.email); });
+  return out;
+}
+let _emailTeste;
+async function emailDeTeste() {
+  if (_emailTeste === undefined) _emailTeste = ((await q(sb.from('configuracoes').select('valor').eq('chave', 'email_redirecionar')).catch(() => []))[0] || {}).valor || '';
+  return typeof _emailTeste === 'string' ? _emailTeste : '';
+}
+async function copiarTexto(txt) {
+  try { await navigator.clipboard.writeText(txt); }
+  catch (e) { const a = document.createElement('textarea'); a.value = txt; document.body.appendChild(a); a.select(); document.execCommand('copy'); a.remove(); }
+}
+// Backup 42: depois de pôr o e-mail na fila, manda na hora (enviarEmailAgora) e mostra o que aconteceu de verdade
+async function avisoEnvio(prefixo, r) {
+  const s = await enviarEmailAgora(r && r.ref, r && r.para);
+  aviso(prefixo + (s.ok ? '✓ ' : '⚠ ') + s.msg, !s.ok);
+  return s;
+}
 
 // janela de emissão: marcar como emitida e, se quiser, mandar ao cliente com o PDF (o PDF vai só no e-mail)
 async function janelaEmissao(tabela, x, depois) {
@@ -186,7 +209,7 @@ async function janelaEmissao(tabela, x, depois) {
         p_itens: [{ tabela, id: x.id, descricao: descricaoGuia(tabela, x), vencimento: x.vencimento, valor: v }],
         p_assunto: (tabela === 'parcelas' ? 'Guia de parcelamento' : 'Boleto de acordo') + ' — ' + (x.quem || ''), p_texto: textoGuias(tabela, x.quem || '', [x]).email,
         p_docs: x.guia_doc ? [x.guia_doc] : [], p_para: cPara.value.trim(), p_arquivos: arq ? [await lerArquivoB64(arq)] : [] }));
-      return fim('✓ ' + (tabela === 'parcelas' ? 'Guia emitida' : 'Boleto emitido') + ' e ' + msgEnvio(r));
+      await avisoEnvio((tabela === 'parcelas' ? 'Guia emitida' : 'Boleto emitido') + '. ', r); fecharJanela(j); if (depois) await depois(); if (window.ERP_RECARREGAR) window.ERP_RECARREGAR(); return;
     }
     await q(sb.rpc('registrar_emissao', { p_tabela: tabela, p_id: x.id, p_emitida: true, p_doc: null, p_enviar: false }));
     await fim('✓ ' + (tabela === 'parcelas' ? 'Guia emitida' : 'Boleto emitido') + ' em ' + dataBR(hojeISO()) + '. Ela fica em "Emitidas — falta enviar" até o e-mail sair.');
@@ -235,7 +258,7 @@ async function janelaReenvio(tabela, x, depois) {
       p_itens: [{ tabela, id: x.id, descricao: desc, vencimento: venc, valor: v, reenvio: true }],
       p_assunto: (tabela === 'parcelas' ? 'Guia atualizada (parcela em atraso)' : 'Boleto atualizado (parcela em atraso)') + ' — ' + (x.quem || ''), p_texto: texto,
       p_docs: [], p_para: cPara.value.trim(), p_arquivos: arq ? [await lerArquivoB64(arq)] : [] }));
-    aviso('↻ ' + (tabela === 'parcelas' ? 'Guia' : 'Boleto') + ' reenviado: ' + msgEnvio(r), r.status === 'retido'); fecharJanela(j);
+    await avisoEnvio('↻ ' + (tabela === 'parcelas' ? 'Guia' : 'Boleto') + ' reenviado. ', r); fecharJanela(j);
     if (depois) await depois(); if (window.ERP_RECARREGAR) window.ERP_RECARREGAR();
   });
   return j;
@@ -270,19 +293,22 @@ const parcOrd = (x) => { const [n, t] = String(x.parcela || '').split('/'); retu
 const saudacaoGuia = () => { const hh = new Date().getHours(); return hh < 12 ? 'Bom dia!' : hh < 18 ? 'Boa tarde!' : 'Boa noite!'; };
 const ehPixGuia = (tabela, x) => tabela === 'acordos' && x.forma_pagamento === 'pix';
 const fechoGuias = (tabela, itens) => tabela === 'parcelas' ? 'Os arquivos seguem anexos. Depois de pagar, por favor nos envie o comprovante.'
-  : itens.every((x) => ehPixGuia(tabela, x)) ? 'Depois de pagar, por favor nos envie o comprovante.'
-  : itens.some((x) => ehPixGuia(tabela, x)) ? 'Os boletos seguem anexos (as parcelas por PIX têm a chave acima). Depois de pagar, por favor nos envie o comprovante.'
-  : (itens.length > 1 ? 'Os boletos seguem anexos.' : 'O boleto segue anexo.') + ' Depois de pagar, por favor nos envie o comprovante.';
+  // Backup 42: acordo sem o pedido de comprovante; PIX sem fecho (não tem arquivo)
+  : itens.every((x) => ehPixGuia(tabela, x)) ? ''
+  : itens.some((x) => ehPixGuia(tabela, x)) ? 'Os boletos seguem anexos (as parcelas por PIX têm a chave acima).'
+  : (itens.length > 1 ? 'Os boletos seguem anexos.' : 'O boleto segue anexo.');
 // o texto (e-mail e WhatsApp). Parcelamentos: modelo das antigas Notificações. Acordos (Backup 37): objetivo, como o escritório escreve
 function textoGuias(tabela, empresa, itens) {
   const vencida = itens.some((x) => x.vencimento < hojeISO());
   const valorDe = (x) => { const v = x._valor != null ? x._valor : x.valor; return v ? brl(v) : '[preencher]'; };
   const tot = itens.reduce((s2, x) => s2 + (Number(x._valor != null ? x._valor : x.valor) || 0), 0), fecho = fechoGuias(tabela, itens);
   if (tabela === 'parcelas') {
-    const intro = 'Prezados,\n\nSeguem as guias ' + (itens.length > 1 ? 'dos parcelamentos' : 'do parcelamento') + ' em nome de ' + empresa + (vencida ? '.\nAtenção: há guia vencida — veja abaixo.' : ', com vencimento próximo.') + '\nAntes de pagar, confirme se a guia já não foi paga, para evitar pagamento em duplicidade.';
-    const blocos = itens.map((x) => { const p = x.parcelamentos || {};
-      return (x.vencimento < hojeISO() ? '⚠ GUIA VENCIDA\n' : '') + '*Parcelamento ' + [p.local, p.natureza].filter(Boolean).join(' — ') + '*' + (p.numero ? '\nNº do parcelamento: ' + p.numero : '') +
-        '\nParcela: ' + parcDe(x) + ' | Vencimento: ' + dataBR(x.vencimento) + '\nValor: ' + valorDe(x); });
+    // Backup 42: o texto das antigas Notificações → Parcelamento, palavra por palavra (o mesmo da Planilha da Rotina)
+    const intro = 'Prezados,\n\nSeguem as guias dos parcelamentos da ' + empresa + ' com vencimento neste mês. Antes de pagar, confirme se a guia já não foi paga, para evitar duplicidade.';
+    const blocos = itens.map((x) => { const p = x.parcelamentos || {}, [n, tt] = String(x.parcela || '').split('/'), v = x._venc || x.vencimento || '';
+      return (x.vencimento < hojeISO() ? '⚠︎ GUIA VENCIDA\n' : '') + 'Parcelamento ' + (p.local || p.natureza || '') + ' — Natureza: ' + (p.natureza || '—') +
+        '\nNº do Parcelamento: ' + (p.numero || '—') + '\nParcela: ' + (n || '?') + ' de ' + (tt || p.total_parcelas || '?') + ' | Vencimento: ' + (v ? v.slice(5, 7) + '/' + v.slice(0, 4) : '—') +
+        '\nNº da Guia: ' + (n || '—') + '\nValor: ' + valorDe(x); });
     return { intro, fecho, email: intro + '\n\n' + fecho, zap: intro + '\n\n' + blocos.join('\n\n') + (itens.length > 1 ? '\n\n*Total: ' + brl(tot) + '*' : '') + '\n\n' + fecho };
   }
   const soPix = itens.every((x) => ehPixGuia(tabela, x));
@@ -292,7 +318,7 @@ function textoGuias(tabela, empresa, itens) {
   const blocos = itens.map((x) => (x.vencimento < hojeISO() ? '⚠ PARCELA EM ATRASO\n' : '') + '*Acordo para pagamento*\nProcesso: ' + (x.processo || '—') + ' | Parcela: ' + parcOrd(x) +
     '\nPartes: ' + (x.devedor || '—') + ' × ' + (x.credor || '—') + '\nVencimento: ' + dataBR(x._venc || x.vencimento) + '\nValor: ' + valorDe(x) +
     (ehPixGuia(tabela, x) ? '\nPIX: ' + (x.pix || '[chave PIX]') + (x.banco ? '\nBanco: ' + x.banco : '') : ''));
-  return { intro, fecho, email: intro + '\n\n' + fecho, zap: intro + '\n\n' + blocos.join('\n\n') + (itens.length > 1 ? '\n\nTotal: ' + brl(tot) : '') + '\n\n' + fecho };
+  return { intro, fecho, email: intro + (fecho ? '\n\n' + fecho : ''), zap: intro + '\n\n' + blocos.join('\n\n') + (itens.length > 1 ? '\n\nTotal: ' + brl(tot) : '') + (fecho ? '\n\n' + fecho : '') };
 }
 async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
   if (!E.clientes.length) await carregarCadastros();
@@ -309,6 +335,7 @@ async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
     corpo: '<div class="ge"><aside class="ge-emps" id="ge-emps"></aside><section class="ge-msg" id="ge-msg"></section></div>',
     rodape: '<span class="ge-tot" id="ge-tot"></span><div class="acoes ge-acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button>' +
       '<button type="button" class="btn btn-o" id="ge-previa" title="Ver o e-mail exatamente como o cliente vai receber">👁 Prévia do e-mail</button>' +
+      '<button type="button" class="btn btn-o" id="ge-copiar" title="Copia o texto para você colar no WhatsApp">📋 Copiar texto</button>' +
       '<button type="button" class="btn btn-v" id="ge-zap">💬 WhatsApp</button><button class="btn btn-p" type="button" id="ge-enviar">✉ Enviar e-mail</button></div>' });
   j.querySelector('.janela').classList.add('ge-janela');
   const $j = (sel) => j.querySelector(sel);
@@ -327,7 +354,8 @@ async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
     arquivos = [];
     $j('#ge-msg').innerHTML =
       '<div class="ge-cab"><div><div class="ge-emp-nome">' + esc(e.nome) + '</div><div class="sub">' + esc([mascaraDoc(c.cpf_cnpj), e.gnome].filter(Boolean).join(' · ')) + '</div></div></div>' +
-      '<div class="ge-dest"><label class="campo"><span>✉ E-mail (para)</span><input id="ge-para" type="text" autocomplete="off" placeholder="procurando o e-mail cadastrado…"></label>' +
+      '<div class="ge-dest"><label class="campo ge-para-campo"><span>✉ E-mail (para)</span><select id="ge-para-sel" aria-label="E-mails cadastrados da empresa"><option value="">— e-mails da empresa —</option></select>' +
+        '<input id="ge-para" type="text" autocomplete="off" placeholder="escolha acima ou digite o e-mail"><small class="sub" id="ge-teste"></small></label>' +
         '<label class="campo"><span>💬 WhatsApp</span><input id="ge-tel" data-mascara="tel" inputmode="tel" value="' + esc(c.telefone || '') + '" placeholder="(37) 9 9999-9999"></label>' +
         '<label class="campo ge-ass"><span>Assunto</span><input id="ge-assunto" value="' + esc((tabela === 'parcelas' ? 'Guias de parcelamento' : e.itens.every((x) => ehPixGuia(tabela, x)) ? 'Parcela de acordo' : 'Boletos de acordo') + ' — ' + e.nome) + '"></label></div>' +
       '<div class="ge-papel"><textarea id="ge-texto" rows="5">' + esc(t.intro) + '</textarea>' +
@@ -338,8 +366,8 @@ async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
               (ehPixGuia(tabela, x) ? ' <span class="ge-forma">PIX</span>' : tabela === 'acordos' ? ' <span class="ge-forma ge-forma-b">boleto</span>' : '') +
               '<span>' + (tabela === 'parcelas' ? (p.numero ? 'Nº do parcelamento: <b>' + esc(p.numero) + '</b> · Parcela <b>' + esc(parcDe(x)) + '</b> · ' : 'Parcela <b>' + esc(parcDe(x)) + '</b> · ') : 'Partes: <b>' + esc(x.devedor || '—') + ' × ' + esc(x.credor || '—') + '</b> · ') +
               'Vencimento <b>' + dataBR(x.vencimento) + '</b>' + (ehPixGuia(tabela, x) ? ' · PIX <b>' + esc(x.pix || '—') + '</b>' : '') + '</span></span>' +
-            (x.vencimento < hojeISO() ? '<span class="ge-it-v ge-it-d"><small>Novo vencimento</small><input type="date" class="ge-novo-venc" value="' + fimDoMesGuia(hojeISO()) + '" aria-label="Novo vencimento da guia atualizada"></span>' : '') +
-            '<span class="ge-it-v"><small>' + (x.vencimento < hojeISO() ? 'Valor atualizado' : tabela === 'acordos' ? 'Valor da parcela' : 'Valor da guia') + '</small><span class="ge-vbox"><span class="ge-rs">R$</span><input class="ge-valor" data-mascara="nenhuma" inputmode="decimal" value="' + (x.valor ? valorParaCampo(x.valor) : '') + '" placeholder="0,00" aria-label="Valor"></span></span></label>'; }).join('') + '</div>' +
+            (tabela === 'parcelas' && x.vencimento < hojeISO() ? '<span class="ge-it-v ge-it-d"><small>Novo vencimento</small><input type="date" class="ge-novo-venc" value="' + fimDoMesGuia(hojeISO()) + '" aria-label="Novo vencimento da guia atualizada"></span>' : '') +
+            '<span class="ge-it-v"><small>' + (tabela === 'acordos' ? 'Valor da parcela' : x.vencimento < hojeISO() ? 'Valor atualizado' : 'Valor da guia') + '</small><span class="ge-vbox"><span class="ge-rs">R$</span><input class="ge-valor" data-mascara="nenhuma" inputmode="decimal" value="' + (x.valor ? valorParaCampo(x.valor) : '') + '" placeholder="0,00" aria-label="Valor"></span></span></label>'; }).join('') + '</div>' +
         '<div class="ge-fecho">' + esc(t.fecho) + '</div></div>' +
       '<div class="ge-anexos"' + (e.itens.every((x) => ehPixGuia(tabela, x)) ? ' hidden' : '') + '><label class="ge-drop"><input type="file" id="ge-arqs" accept=".pdf,image/*" multiple hidden><span>📎 <b>Anexar os PDFs</b> ' + (tabela === 'acordos' ? 'dos boletos' : 'das guias') + '</span><small>vão só no e-mail — não ficam guardados no sistema</small></label><div class="ge-chips" id="ge-chips"></div></div>';
     $j('#ge-arqs').onchange = () => { arquivos = arquivos.concat([...$j('#ge-arqs').files]); $j('#ge-arqs').value = ''; pintarChips(); };
@@ -347,6 +375,10 @@ async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
     j.querySelectorAll('.ge-it input[type=checkbox]').forEach((i) => i.addEventListener('change', total));
     j.querySelectorAll('.ge-valor').forEach((i) => i.addEventListener('blur', () => { const v = lerValor(i.value); i.value = v ? valorParaCampo(v) : ''; total(); }));
     preencherDestino($j('#ge-para'), e.cli, e.grupo, tabela);
+    emailsDaEmpresa(e.cli, e.gid).then((ls) => { const s = $j('#ge-para-sel'); if (!s || !s.isConnected) return;
+      s.innerHTML = '<option value="">' + (ls.length ? '— e-mails da empresa (' + ls.length + ') —' : '— nenhum e-mail cadastrado —') + '</option>' + ls.map(([r, m]) => '<option value="' + esc(m) + '">' + esc(r + ': ' + m) + '</option>').join('');
+      s.onchange = () => { if (s.value) $j('#ge-para').value = s.value; }; });
+    emailDeTeste().then((m) => { const x = $j('#ge-teste'); if (x && m) x.textContent = 'Modo teste: por enquanto todo e-mail chega só em ' + m + '.'; });
     pintarChips(); total();
   };
   const pintarChips = () => { $j('#ge-chips').innerHTML = arquivos.map((f, k) => '<span class="ge-chip">📄 ' + esc(f.name) + ' <small>' + Math.max(1, Math.round(f.size / 1024)) + ' KB</small><button type="button" data-tira="' + k + '" aria-label="Tirar">×</button></span>').join('');
@@ -367,6 +399,11 @@ async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
     const tel = soDigitos($j('#ge-tel').value);
     window.open('https://wa.me/' + (tel ? (tel.length <= 11 ? '55' : '') + tel : '') + '?text=' + encodeURIComponent(txt), '_blank', 'noopener');
     if (arquivos.length) aviso('No computador o WhatsApp não recebe anexo por link: arraste os PDFs para a conversa que abriu.');
+  });
+  $j('#ge-copiar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    const its = marcados(); if (!its.length) throw new Error('Marque ao menos uma parcela.');
+    const t = textoGuias(tabela, atual().nome, its), txt = $j('#ge-texto').value.trim() + t.zap.slice(t.intro.length);
+    await copiarTexto(txt); aviso('✓ Texto copiado — é só colar no WhatsApp.');
   });
   $j('#ge-previa').onclick = (ev) => comBotao(ev.currentTarget, async () => {
     const its = marcados(), e = atual(); if (!its.length) throw new Error('Marque ao menos uma parcela.');
@@ -389,7 +426,7 @@ async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
         : { tabela, id: i.id, descricao: descricaoGuia(tabela, i), vencimento: i.vencimento, valor: i._valor }, pixItem(i))),
       p_assunto: $j('#ge-assunto').value.trim(), p_texto: $j('#ge-texto').value.trim() + '\n\n' + fechoGuias(tabela, its), p_docs: its.map((i) => i.guia_doc).filter(Boolean),
       p_para: $j('#ge-para').value.trim() || null, p_arquivos: arqs }));
-    aviso('✓ ' + plural(r.itens, 'parcela', 'parcelas') + (r.anexos ? ' e ' + plural(r.anexos, 'anexo', 'anexos') : '') + ': ' + msgEnvio(r) + ' As parcelas enviadas saíram do quadro.', r.status === 'retido');
+    await avisoEnvio(plural(r.itens, 'parcela', 'parcelas') + (r.anexos ? ' e ' + plural(r.anexos, 'anexo', 'anexos') : '') + ': ', r);
     fecharJanela(j); if (depois) await depois(); if (window.ERP_RECARREGAR) window.ERP_RECARREGAR();
   });
   return j;

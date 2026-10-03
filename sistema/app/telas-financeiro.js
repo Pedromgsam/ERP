@@ -195,7 +195,8 @@ function tabelaLancamentos(lista, opc) {
         (comAtraso ? '<td data-ord="' + (l.pago || l.perda || !l.vencimento ? 99999 : diasAte(l.vencimento)) + '">' + (l.pago ? '<span class="pill pago">pago</span>' : l.perda ? pillSit(l) : celulaAtraso(l.vencimento, l)) + '</td>' : '') +
         '<td class="acoes-l">' +
         (l.pago ? '<button class="btn btn-o btn-mini" data-desfazer="' + l.id + '" title="Voltar para em aberto">↺</button> '
-                : l.perda ? '' : '<button class="btn btn-v btn-mini" data-pagar="' + l.id + '" title="Dar baixa — ' + (l.tipo === 'despesa' && !l.redutor ? 'pago' : 'recebido') + ' (pergunta a data)">✓ Baixa</button> ') +
+                : l.perda ? '' : (l.tipo === 'receita' && !l.redutor ? '<button class="btn btn-o btn-mini gx-cobrar" data-cobrar="' + l.id + '" title="Cobrar pelo WhatsApp (texto pronto)">💬 Cobrar</button> ' : '') +
+                  '<button class="btn btn-v btn-mini" data-pagar="' + l.id + '" title="Dar baixa — ' + (l.tipo === 'despesa' && !l.redutor ? 'pago' : 'recebido') + ' (pergunta a data)">✓ Baixa</button> ') +
         '<button class="btn btn-o btn-mini btn-ed" data-editar="' + l.id + '" title="Editar" aria-label="Editar">✎</button></td></tr>';
     }).join('') +
     '</tbody><tfoot><tr><td colspan="' + ((lote ? 1 : 0) + (compacta ? 0 : 2) + (comDesc ? 1 : 0)) + '">Total (' + lista.length + ')</td><td class="num mono">' +
@@ -224,6 +225,7 @@ function ligarAcoesLancamentos(raiz, depois) {
     if (ev.target.closest('button, a, input, select, label')) return;
     detalheLancamento(tr.dataset.lanc).catch((e) => aviso(erroAmigavel(e), true));
   }));
+  raiz.querySelectorAll('[data-cobrar]').forEach((b) => b.onclick = () => cobrarWhatsApp(b.dataset.cobrar));
   raiz.querySelectorAll('[data-pagar]').forEach((b) => b.onclick = () => comBotao(b, async () => {
     const l = await q(sb.from('lancamentos').select('descricao, valor, tipo, redutor').eq('id', b.dataset.pagar).single());
     const bx = await perguntarBaixa({ descricao: l.descricao, valor: l.valor, despesa: l.tipo === 'despesa' && !l.redutor });
@@ -439,6 +441,32 @@ function formLancamento(l, depois) {
 
 
 // Detalhe de um honorário/lançamento (clique na linha do Financeiro): o que é, de quem, contrato e ações
+// Backup 42: cobrança simples pelo WhatsApp — "Bom dia! Passando para lembrar dos honorários do mês tal, referente ao serviço tal."
+const MESES_EXT = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+function textoCobranca(l) {
+  const ref = String(l.competencia || l.vencimento || '').slice(0, 7), mes = ref ? MESES_EXT[+ref.slice(5, 7) - 1] + (ref.slice(0, 4) !== hojeISO().slice(0, 4) ? ' de ' + ref.slice(0, 4) : '') : '';
+  const oQue = (l.servico || l.descricao || 'honorários').replace(/^honor[aá]rios?\s*[—-]?\s*/i, '').trim();
+  const venc = l.vencimento ? (l.vencimento < hojeISO() ? ', que venceram em ' : ', com vencimento em ') + dataBR(l.vencimento) : '';
+  return saudacaoGuia() + ' Passando para lembrar dos honorários' + (mes ? ' do mês de ' + mes : '') + (oQue ? ', referente ' + (/^(a|à|ao|aos|às)\s/i.test(oQue) ? '' : 'a ') + oQue : '') +
+    ', no valor de ' + brl(l.valor || 0) + venc + '.\n\nQualquer dúvida, estou à disposição.';
+}
+async function cobrarWhatsApp(id) {
+  if (!E.clientes.length) await carregarCadastros();
+  const l = (await q(sb.from('lancamentos').select('id, descricao, servico, valor, vencimento, competencia, cliente_id, grupo_id, cobranca').eq('id', id)))[0];
+  if (!l) return aviso('Lançamento não encontrado.', true);
+  const c = E.clientes.find((x) => x.id === l.cliente_id) || {};
+  const j = abrirJanela({ titulo: '💬 Cobrar pelo WhatsApp' + (c.nome ? ' — ' + c.nome : ''),
+    corpo: '<div class="grade">' + campo('WhatsApp', '<input id="cb-tel" data-mascara="tel" inputmode="tel" value="' + esc(c.telefone || '') + '" placeholder="(37) 9 9999-9999">') +
+      campo('Mensagem', '<textarea id="cb-txt" rows="6">' + esc(textoCobranca(l)) + '</textarea>', 'inteiro') +
+      '<p class="sub inteiro">Ao copiar ou abrir o WhatsApp, o lançamento fica marcado como <b>COBRADO</b>.</p></div>',
+    rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Fechar</button><button class="btn btn-o" type="button" id="cb-copiar">📋 Copiar</button><button class="btn btn-v" type="button" id="cb-zap">💬 Abrir WhatsApp</button></div>' });
+  const marcar = () => q(sb.from('lancamentos').update({ cobranca: 'Cobrado' }).eq('id', id)).then(() => { if (window.ERP_RECARREGAR) window.ERP_RECARREGAR(); }).catch(() => {});
+  j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
+  j.querySelector('#cb-copiar').onclick = (ev) => comBotao(ev.currentTarget, async () => { await copiarTexto(j.querySelector('#cb-txt').value); aviso('✓ Texto copiado — cole no WhatsApp.'); marcar(); });
+  j.querySelector('#cb-zap').onclick = () => { const tel = soDigitos(j.querySelector('#cb-tel').value);
+    window.open('https://wa.me/' + (tel ? (tel.length <= 11 ? '55' : '') + tel : '') + '?text=' + encodeURIComponent(j.querySelector('#cb-txt').value), '_blank', 'noopener'); marcar(); };
+  return j;
+}
 async function detalheLancamento(id) {
   const l = (await q(sb.from('lancamentos').select('*, grupos(nome), clientes(nome), contratos(descricao, modalidade, servico)').eq('id', id)))[0];
   if (!l) return aviso('Lançamento não encontrado (pode ter sido excluído ou ser de outra área).', true);

@@ -189,6 +189,27 @@ async function chamarFuncao(nome, corpo) {
   if (r.status >= 500) throw new Error('A função "' + nome + '" existe, mas deu erro ao rodar (' + r.status + '): ' + det + '. Confira se o arquivo foi colado inteiro e publique de novo.');
   throw new Error('A função "' + nome + '" respondeu ' + r.status + ': ' + det);
 }
+// Backup 42: depois de pôr um e-mail na fila, manda JÁ (sem esperar a rotina de 5 min) e devolve a frase com o que aconteceu de verdade.
+// {ok, msg}: ok = saiu; senão msg diz o motivo (serviço não configurado, senha recusada pelo Gmail, função não publicada…)
+async function enviarEmailAgora(ref, para) {
+  let d;
+  try { d = await chamarFuncao('erp-emails', { acao: 'enviar', ref: ref || undefined }); }
+  catch (e) { return { ok: false, msg: 'o e-mail ficou na fila e NÃO saiu: ' + e.message }; }
+  const it = d && d.item;
+  if (it && it.status === 'enviado') return { ok: true, msg: 'e-mail enviado para ' + (it.para || para || '') + '.' };
+  if (d && d.aviso) return { ok: false, msg: 'o e-mail ficou na fila e NÃO saiu: ' + d.aviso };
+  if (it && it.status === 'retido') return { ok: false, msg: 'o e-mail ficou retido (envio pausado). Veja Administração → E-mail.' };
+  if (it && it.erro) return { ok: false, msg: 'o e-mail NÃO saiu: ' + explicarErroEmail(it.erro) + (it.status === 'pendente' ? ' (vai tentar de novo)' : '') };
+  return { ok: !it, msg: it ? 'e-mail na fila para ' + (it.para || para || '') + '.' : 'e-mail enviado.' };
+}
+// a mensagem técnica do Gmail/SMTP em português simples
+function explicarErroEmail(e) {
+  const s = String(e || '');
+  if (/535|Username and Password not accepted|Invalid login|BadCredentials/i.test(s)) return 'o Gmail recusou o login — use uma "senha de app" (16 letras) em Administração → E-mail, não a senha normal.';
+  if (/ETIMEDOUT|ECONNREFUSED|getaddrinfo|ENOTFOUND/i.test(s)) return 'não consegui falar com o servidor de e-mail (confira o servidor/porta em Administração → E-mail).';
+  if (/Resend recusou/i.test(s)) return s + ' — confira a chave e o domínio no Resend.';
+  return s;
+}
 // Diagnóstico: as funções estão publicadas e respondendo?
 async function verificarFuncoes() {
   const out = [];

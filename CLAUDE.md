@@ -82,7 +82,15 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
-- Última entrega: **Backup 41** (só SQL; apagar a função erp-pgfn no painel). Removidos: telas-emails.js, telas-aprovacoes.js (rascunho/`propor`; SQL converte
+- Última entrega: **Backup 42** (SQL + função erp-emails). E-mails: `enviarEmailAgora(ref, para)` (nucleo.js) chama `erp-emails {acao:'enviar', ref}` logo depois de enfileirar
+  (equipe pode chamar só 'enviar'; com `ref` a função devolve `item {status, erro, para}`), `explicarErroEmail`; `avisoEnvio` (telas-guias); `enviar_guias_email` devolve `ref`;
+  `diagnostico_email()` + `checarEmail()` (Administração → E-mail, `#email-check`); B42 desliga `emails_pausados` e cancela retidos (flag `b42_emails`), redirect = pedromgsam.
+  Menu no topo: `body.gx-menu-topo`, `#tn` movido para `#gs-hd`, lateral 68px com `#gl-sub` (seções do módulo, `SUB_CURTO`), `MENU[].curto`. Guias: `emailsDaEmpresa`, `#ge-para-sel`,
+  `#ge-copiar`, `copiarTexto`, `emailDeTeste`; acordo sem fecho de comprovante, sem novo venc./valor atualizado. Rotina: passivo `.rt-grp` (sem gx-grp/contorno), Conferência no fim
+  (`.rt-c-conf`, ✓ = `gravar` da linha), sem 🕘; `rotinaControle` apagado; aba `acs` → `nav('acordos')`; `rotinaPlanilha` nova (`.nt-*`, `_plSel`, `textoNotifParcelas` =
+  texto das antigas Notificações, também em `textoGuias` parcelas). Financeiro: `cobrarWhatsApp(id)` (GS; botão `[data-cobrar]` no A Receber e `data-la=cobrar` no _gx `:r`).
+  CRM: `.pr-janela` + `#pr-previa` (prévia ao vivo, debounce 450 ms); `.mp-a .sub` quebra linha.
+- Backup 41 (base) (só SQL; apagar a função erp-pgfn no painel). Removidos: telas-emails.js, telas-aprovacoes.js (rascunho/`propor`; SQL converte
   propor → editar/ver e dropa `rascunhos`), telas-relatorio.js, vista relatório de Tarefas, PGFN/SERPRO (`supabase/functions/erp-pgfn`, tabelas pgfn_*), `app/geradores/` +
   `montar-geradores.js`, fotos mensais (`fotos_mensais`), Clientes/Financeiro "Editar em tabela". Lentidão da Rotina: `contornarGrupos` com assinatura por tbody (`tb._gcSig`)
   — não mede `getComputedStyle` se as linhas não mudaram. Painel: `table-layout:auto`, "Operação" (trocar no montar-erp), padding 4px, `td:has(.er-nome)` min 104px!important

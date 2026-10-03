@@ -19,7 +19,9 @@ const tokenDe = (email) => jwt({ sub: sql("select id from perfis where email='" 
     let x = await chamar({}, {});
     ok('sem segredo nem login: recusa', x.status === 401);
     x = await chamar({}, { Authorization: 'Bearer ' + tokenDe('equipe@teste') });
-    ok('equipe (não admin) não dispara envio', x.status === 401);
+    ok('Backup 42: equipe pode mandar a fila na hora (só "enviar")', x.status === 200);
+    x = await chamar({ acao: 'teste' }, { Authorization: 'Bearer ' + tokenDe('equipe@teste') });
+    ok('equipe (não admin) não manda e-mail de teste nem resumo', x.status === 403);
     x = await chamar({}, segredo());
     ok('sem configuração: avisa para configurar', /não configurado/.test(x.json.aviso || ''), JSON.stringify(x.json));
     sql(`insert into config_privada(chave,valor) values ('email','{"provedor":"gmail","usuario":"escritorio@gmail.com","senha":"abcd efgh ijkl mnop","remetente":"ERP Araújo & Castro"}')

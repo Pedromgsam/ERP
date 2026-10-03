@@ -374,7 +374,8 @@ window.ERP_COLS_CLIENTE = 'id,grupo_id,nome,cpf_cnpj,tipo,responsavel,email,tele
   window._gx = (o) => {
     if (!o || !o._id) return '';
     const pago = o.pagamento === 'SIM' || o.situacao === 'Pago' || o.status === 'Pago';
-    return o._t + ':' + o._id + ':' + (o._pai || '') + ':' + (['lancamentos', 'acordos', 'parcelas'].includes(o._t) ? (pago ? 'p' : 'a') : '');
+    // Backup 42: 5ª parte "r" = honorário a receber (ganha o botão 💬 Cobrar)
+    return o._t + ':' + o._id + ':' + (o._pai || '') + ':' + (['lancamentos', 'acordos', 'parcelas'].includes(o._t) ? (pago ? 'p' : 'a') : '') + (o._t === 'lancamentos' && o.aba === 'A Receber' ? ':r' : '');
   };
   // "Em atraso" do Gestão: roda um filtro do ERP ignorando o período (de/até/preset), mantendo os demais recortes
   window._semPeriodo = function (st, fn) {

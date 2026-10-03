@@ -11,8 +11,9 @@ const ABAS_ADMIN = [
   { id: 'backup',   rot: '💾 Backup' },
   { id: 'historico', rot: '🕘 Histórico' },
   { id: 'acessos', rot: '🔐 Acessos' },
-  { id: 'automacoes', rot: '⚡ Automações' }
-  // Backup 28: E-mails saiu da Administração (menu de cima → E-mails)
+  { id: 'automacoes', rot: '⚡ Automações' },
+  // Backup 42: a aba E-mail voltou — é onde se configura o Gmail (senha de app), manda o teste e vê o que falta para o e-mail sair
+  { id: 'email', rot: '✉ E-mail' }
 ];
 
 TELAS.admin = async function () {
@@ -27,7 +28,7 @@ TELAS.admin = async function () {
 
 async function pintarAdmin() {
   // Backup 19: as telas de e-mail moraram para a Central de e-mails (abas) — lá o "atualizar" redesenha a aba aberta
-  if (E.adm.aba === 'email' || E.adm.aba === 'clientes_email') E.adm.aba = 'usuarios';   // Backup 38: módulo E-mails saiu
+  if (E.adm.aba === 'clientes_email') E.adm.aba = 'usuarios';   // Backup 38: módulo E-mails saiu (a aba E-mail da Administração voltou no Backup 42)
   document.querySelectorAll('#adm-abas button').forEach((b) => b.classList.toggle('ativo', b.dataset.aba === E.adm.aba));
   const corpo = $('adm-corpo');
   corpo.innerHTML = '<div class="carregando">Carregando…</div>';
@@ -607,7 +608,7 @@ async function admEmail(corpo) {
     q(sb.from('email_fila').select('para, assunto, status, erro, criado_em, enviado_em, tipo').order('criado_em', { ascending: false }).limit(30)).catch(() => [])
   ]);
   const prov = st.provedor || 'gmail';
-  corpo.innerHTML =
+  corpo.innerHTML = '<div class="card" id="email-check"><div class="card-hd">✉ O e-mail está saindo? <span class="sub" style="margin-left:auto;font-weight:400">confira de cima para baixo</span></div><div class="card-bd" id="email-check-bd"><span class="sub">verificando…</span></div></div>' +
     '<div class="duas-col"><div class="card"><div class="card-hd">Serviço de envio ' + (st.tem_senha ? '<span class="pill pago">configurado</span>' : '<span class="pill hoje">não configurado</span>') + '</div><div class="card-bd">' +
     '<form id="f-email" class="grade">' +
     campo('Serviço', '<select name="provedor"><option value="gmail">Gmail do escritório (sem custo)</option><option value="smtp">Outro e-mail (SMTP: Hostinger, Locaweb, Outlook…)</option><option value="resend">Resend (plano grátis com limite)</option></select>', 'inteiro') +
@@ -647,8 +648,8 @@ async function admEmail(corpo) {
     kpi('Com erro', String(st.erros || 0), st.erros ? 'vermelho' : '', 'veja o motivo abaixo') + '</div>' +
     '<div class="card"><div class="card-hd">Últimos e-mails</div>' + (fila.length ? '<div class="tabela-wrap"><table><thead><tr><th>Quando</th><th>Para</th><th>Assunto</th><th>Situação</th></tr></thead><tbody>' +
       fila.map((m) => '<tr><td class="mono">' + dataHoraBR(m.criado_em) + '</td><td>' + esc(m.para) + '</td><td>' + esc(m.assunto) + '</td><td>' +
-        '<span class="pill ' + ({ enviado: 'pago', pendente: 'aberto', erro: 'vencido', cancelado: 'neutro' }[m.status] || 'neutro') + '">' + esc(m.status) + '</span>' +
-        (m.erro ? '<div class="sub">' + esc(m.erro) + '</div>' : '') + '</td></tr>').join('') + '</tbody></table></div>' : '<div class="vazio">Nenhum e-mail ainda.</div>') + '</div>';
+        '<span class="pill ' + ({ enviado: 'pago', pendente: 'aberto', erro: 'vencido', cancelado: 'neutro', retido: 'hoje' }[m.status] || 'neutro') + '">' + esc(m.status) + '</span>' +
+        (m.erro ? '<div class="sub">' + esc(explicarErroEmail(m.erro)) + '</div>' : '') + '</td></tr>').join('') + '</tbody></table></div>' : '<div class="vazio">Nenhum e-mail ainda.</div>') + '</div>';
   const f = $('f-email');
   f.provedor.value = prov;
   const fp = $('f-pag');
@@ -709,9 +710,29 @@ async function admEmail(corpo) {
       '<p class="sub" style="margin-top:10px">Para publicar: Supabase → Edge Functions → Deploy a new function → Via Editor → nome exatamente como acima → cole o arquivo de <code>supabase/functions/NOME/index.ts</code> (botão Raw no GitHub) → Deploy → desligue "Verify JWT".</p>' });
     return j;
   });
+  checarEmail();
   $('email-teste').onclick = (ev) => comBotao(ev.currentTarget, () => chamar('teste', 'Teste enviado para o seu e-mail'));
   $('email-agora').onclick = (ev) => comBotao(ev.currentTarget, () => chamar('enviar', 'Fila enviada'));
   $('email-resumo').onclick = (ev) => comBotao(ev.currentTarget, () => chamar('resumo', 'Resumo do dia montado'));
+}
+
+// Backup 42: lista do que falta para o e-mail sair (serviço, função, rotina, pausa, destino e o último erro)
+async function checarEmail() {
+  const bd = $('email-check-bd'); if (!bd) return;
+  const d = await q(sb.rpc('diagnostico_email')).catch((e) => ({ falhou: e.message }));
+  let fn; try { const r = await chamarFuncao('erp-emails', { acao: 'ping' }); fn = [true, 'publicada' + (r.versao ? ' (versão ' + r.versao + ')' : ' — versão antiga: publique de novo')]; }
+  catch (e) { fn = [false, e.message]; }
+  if (!bd.isConnected) return;
+  if (d.falhou) { bd.innerHTML = '<div class="dica">Rode o SQL do Backup 42 no Supabase para ver o diagnóstico. (' + esc(d.falhou) + ')</div>'; return; }
+  const lin = (ok, tit, txt) => '<div class="item-ficha"><div><b>' + (ok === true ? '✅ ' : ok === false ? '❌ ' : '⚠️ ') + tit + '</b><div class="sub">' + txt + '</div></div></div>';
+  bd.innerHTML = '<div class="lista-ficha">' +
+    lin(d.servico, '1. Serviço de envio', d.servico ? 'Configurado: ' + esc(d.usuario) + ' (' + esc(d.provedor) + ').' : 'Falta configurar: preencha o quadro "Serviço de envio" abaixo (Gmail + senha de app) e clique em Salvar.') +
+    lin(fn[0], '2. Função erp-emails no Supabase', esc(fn[1])) +
+    lin(d.rotina ? true : null, '3. Envio automático (a cada 5 min)', d.rotina ? 'Ligado.' : 'Desligado — sem problema: o sistema manda na hora em que você clica em Enviar. Para ligar: Supabase → Database → Extensions → pg_cron e pg_net → rode o SQL de novo.') +
+    lin(!d.pausado, '4. Pausa', d.pausado ? 'Os e-mails estão PAUSADOS (ficam retidos).' : 'Sem pausa.') +
+    lin(null, '5. Destino', d.redirecionar ? 'Modo teste: todo e-mail vai só para <b>' + esc(d.redirecionar) + '</b> (o destinatário original aparece no assunto).' : 'Os e-mails vão para os clientes de verdade.') +
+    lin(d.ultimo_erro ? false : true, '6. Último problema', d.ultimo_erro ? esc(explicarErroEmail(d.ultimo_erro.erro)) + ' <span class="sub">(' + dataHoraBR(d.ultimo_erro.em) + ')</span>' : 'Nenhum erro registrado.' + (d.ultimo_envio ? ' Último e-mail enviado em ' + dataHoraBR(d.ultimo_envio) + '.' : '')) +
+    '</div><p class="sub" style="margin-top:8px">Depois de corrigir, clique em <b>Enviar e-mail de teste</b>: ele chega em ' + esc(d.redirecionar || 'seu e-mail') + ' em segundos.</p>';
 }
 
 // Cada pessoa escolhe o que quer receber por e-mail (⋯ → Meus avisos por e-mail)

@@ -8,7 +8,7 @@
 //  3) Guias de parcelamentos e boletos de acordos (emitir → enviar → conferir o pagamento).
 //  4) Financeiro do escritório (atalhos) e 5) Minhas tarefas.
 // ═══════════════════════════════════════════════════════════════════
-const ABAS_ROTINA = [['passivo', '🏛 Passivo e cadastro'], ['processos', '⚖ Processos'], ['parcs', '📋 Controle dos parcelamentos'], ['acs', '📋 Controle dos acordos'], ['planilha', '🧪 Planilha de parcelamentos (teste)'], ['financeiro', '💰 Financeiro'], ['tarefas', '✓ Minhas tarefas']];
+const ABAS_ROTINA = [['passivo', '🏛 Passivo e cadastro'], ['processos', '⚖ Processos'], ['planilha', '📋 Planilha de parcelamentos'], ['acs', '🤝 Acordos'], ['financeiro', '💰 Financeiro'], ['tarefas', '✓ Minhas tarefas']];
 const TIPOS_MOV = [['movimentacao', 'Movimentação'], ['decisao', 'Decisão relevante'], ['valor', 'Mudança de valor'], ['procuracao', 'Procuração juntada'], ['sem_novidade', 'Conferido — sem novidade']];
 const PARES_PASSIVO = [['rfb', 'RFB'], ['pgfn', 'PGFN'], ['age_mg', 'AGE/MG']];
 const COLS_PASSIVO = [['rfb', 'RFB'], ['rfb_negociada', 'RFB negociada'], ['pgfn', 'PGFN'], ['pgfn_negociada', 'PGFN negociada'], ['age_mg', 'AGE/MG'], ['age_mg_negociada', 'AGE/MG negociada']];
@@ -16,20 +16,23 @@ const CAPAG_OPCOES = ['', 'A', 'B', 'C', 'D', 'Omisso'];
 
 TELAS.rotina = async function () {
   E.rt = Object.assign({ aba: 'passivo', busca: '', grupo: '', filtro: '' }, E.rt || {});
-  if (E.rt.aba === 'guias') E.rt.aba = 'parcs';   // Backup 34: a aba "para emitir" saiu — a emissão é feita no Controle
+  if (E.rt.aba === 'guias' || E.rt.aba === 'parcs' || E.rt.aba === 'acs') E.rt.aba = 'planilha';   // Backup 42: o Controle saiu
   if (!E.clientes.length) await carregarCadastros();
   $('conteudo').innerHTML =
     '<div class="titulo-pag"><div><h1>Rotina</h1><p>Tudo o que era atualizado nas planilhas, num lugar só — o que você grava aqui aparece no Painel, nos Processos e no Financeiro</p></div></div>' +
     '<div class="segmento rt-abas" id="rt-abas" style="margin-bottom:14px">' + ABAS_ROTINA.map(([k, r]) => '<button type="button" data-rt-aba="' + k + '">' + r + '</button>').join('') + '</div>' +
     '<div id="rt-corpo"></div>';
-  $('rt-abas').onclick = (ev) => { const b = ev.target.closest('[data-rt-aba]'); if (b) { E.rt.aba = b.dataset.rtAba; pintarRotina(); } };
+  // Backup 42: "Acordos" abre a própria tela de Acordos (idêntica, sem repetir código)
+  $('rt-abas').onclick = (ev) => { const b = ev.target.closest('[data-rt-aba]'); if (!b) return;
+    if (b.dataset.rtAba === 'acs') { if (typeof window.nav === 'function') window.nav(null, 'acordos'); return; }
+    E.rt.aba = b.dataset.rtAba; pintarRotina(); };
   await pintarRotina();
 };
 async function pintarRotina() {
   document.querySelectorAll('#rt-abas button').forEach((b) => b.classList.toggle('ativo', b.dataset.rtAba === E.rt.aba));
   const el = $('rt-corpo'); if (!el) return;
   el.innerHTML = '<div class="sub" style="padding:10px">Carregando…</div>';
-  try { await ({ passivo: rotinaPassivo, processos: rotinaProcessos, parcs: rotinaParcelamentos, acs: rotinaAcordos, planilha: rotinaPlanilha, financeiro: rotinaFinanceiro, tarefas: rotinaTarefas })[E.rt.aba](el); }
+  try { await ({ passivo: rotinaPassivo, processos: rotinaProcessos, planilha: rotinaPlanilha, financeiro: rotinaFinanceiro, tarefas: rotinaTarefas })[E.rt.aba](el); }
   catch (e) { console.error(e); el.innerHTML = '<div class="card"><div class="card-bd msg-erro">' + esc(erroAmigavel(e)) + '</div></div>'; }
 }
 function filtroRotina(extra) {
@@ -60,8 +63,8 @@ async function rotinaPassivo(el) {
       .map(([v, r]) => '<option value="' + v + '"' + (v === E.rt.filtro ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>' +
       '<span class="rt-salvar-box"><button type="button" class="btn btn-o" id="rt-hist">🕘 Histórico do passivo</button><span class="sub" id="rt-alt"></span><button type="button" class="btn btn-p" id="rt-salvar" disabled>Salvar alterações</button></span>') +
     // Backup 33: tabela cabe na tela — cada órgão numa coluna só (em aberto em cima, negociada embaixo); a senha GOV saiu da conferência (fica no 🔑)
-    '<div class="tabela-wrap rt-grade rt-pas rt-sem-altura" data-sem-pagina><table><thead><tr><th>Empresa</th><th>Conferência</th>' + PARES_PASSIVO.map(([k, r]) => '<th class="rt-num">' + r + '<small>em aberto · negociada</small></th>').join('') +
-      '<th class="rt-num">CEAT</th><th>Procuração</th><th>Certificado</th><th>CAPAG</th></tr></thead><tbody id="rt-pas-corpo"></tbody></table></div>' + '</div></div>';
+    '<div class="tabela-wrap rt-grade rt-pas rt-sem-altura" data-sem-pagina><table><thead><tr><th>Empresa</th>' + PARES_PASSIVO.map(([k, r]) => '<th class="rt-num">' + r + '<small>em aberto · negociada</small></th>').join('') +
+      '<th class="rt-num">CEAT</th><th title="Procuração">Procur.</th><th title="Certificado digital">Certif.</th><th>CAPAG</th><th class="rt-c-conf">Conferência</th></tr></thead><tbody id="rt-pas-corpo"></tbody></table></div>' + '</div></div>';
   const alterados = new Map();
   const pintar = () => {
     const b = normalizar(E.rt.busca), dig = soDigitos(E.rt.busca), lim = somarDias(hojeISO(), 30);
@@ -73,14 +76,15 @@ async function rotinaPassivo(el) {
     let grp = null;
     $('rt-pas-corpo').innerHTML = L.length ? L.map((c) => {
       const g = c.grupos ? c.grupos.nome : 'Sem grupo', ct = C[c.id] || {};
-      const cab = g !== grp ? (grp = g, '<tr class="gx-grp"><td colspan="' + (PARES_PASSIVO.length + 6) + '">' + esc(g) + '</td></tr>') : '';
-      return cab + '<tr data-id="' + c.id + '"' + (alterados.has(c.id) ? ' class="rt-alterado"' : '') + '><td class="rt-emp"><b>' + esc(c.nome) + '</b><div class="sub">' + esc(mascaraDoc(c.cpf_cnpj) || '') + ' <button type="button" class="rt-hist-bt" data-hist="' + c.id + '" title="Histórico de alterações desta empresa">🕘</button>' + (podeCert ? '<button type="button" class="rt-hist-bt" data-senha="' + c.id + '" title="Senha GOV (só quem pode editar clientes vê)">🔑</button>' : '') + '</div></td>' +
-        '<td>' + celulaConferencia(SIT[c.id], c.id) + '</td>' +
+      // Backup 42: faixa do grupo simples (sem o contorno azul) e sem o relógio ao lado da empresa
+      const cab = g !== grp ? (grp = g, '<tr class="rt-grp"><td colspan="' + (PARES_PASSIVO.length + 6) + '">' + esc(g) + '</td></tr>') : '';
+      return cab + '<tr data-id="' + c.id + '"' + (alterados.has(c.id) ? ' class="rt-alterado"' : '') + '><td class="rt-emp"><b>' + esc(c.nome) + '</b><div class="sub">' + esc(mascaraDoc(c.cpf_cnpj) || '') + (podeCert ? ' <button type="button" class="rt-hist-bt" data-senha="' + c.id + '" title="Senha GOV (só quem pode editar clientes vê)">🔑</button>' : '') + '</div></td>' +
         PARES_PASSIVO.map(([k, r]) => '<td class="rt-par">' + [k, k + '_negociada'].map((kk, i) => '<input class="rt-in rt-valor' + (i ? ' rt-neg' : '') + '" data-mascara="brl" data-c="' + kk + '" inputmode="decimal" aria-label="' + r + (i ? ' negociada' : ' em aberto') + '" placeholder="' + (i ? 'negociada' : 'em aberto') + '" value="' + (c[kk] != null && c[kk] !== '' ? 'R$ ' + valorParaCampo(c[kk]) : '') + '">').join('') + '</td>').join('') +
         '<td><input class="rt-in rt-int" data-c="ceat_trt3" inputmode="numeric" value="' + (c.ceat_trt3 == null ? '' : esc(c.ceat_trt3)) + '"></td>' +
         '<td>' + simNaoSel('procuracao', c.procuracao) + '</td>' +
         '<td>' + simNaoSel('certificado', c.certificado) + '</td>' +
-        '<td class="rt-c-capag"><select class="rt-in rt-sn rt-capag" data-c="capag">' + CAPAG_OPCOES.map((v) => '<option value="' + v + '"' + ((c.capag || '') === v ? ' selected' : '') + '>' + (v || '—') + '</option>').join('') + '</select></td></tr>';
+        '<td class="rt-c-capag"><select class="rt-in rt-sn rt-capag" data-c="capag">' + CAPAG_OPCOES.map((v) => '<option value="' + v + '"' + ((c.capag || '') === v ? ' selected' : '') + '>' + (v || '—') + '</option>').join('') + '</select></td>' +
+        '<td class="rt-c-conf">' + celulaConferencia(SIT[c.id], c.id) + '</td></tr>';
     }).join('') : '<tr><td colspan="12">' + vazio('Nenhuma empresa com esses filtros.') + '</td></tr>';
     $('rt-pas-corpo').querySelectorAll('select.rt-sn').forEach(corSel);
   };
@@ -93,19 +97,20 @@ async function rotinaPassivo(el) {
     alterados.set(tr.dataset.id, a); tr.classList.add('rt-alterado'); contar();
   };
   $('rt-pas-corpo').onclick = (ev) => {
-    const h2 = ev.target.closest('[data-hist]'); if (h2) return janelaHistoricoPassivo(h2.dataset.hist);
     const ks = ev.target.closest('[data-senha]'); if (ks) return janelaSenhaGov(ks.dataset.senha, C);
+    // Backup 42: o ✓ da linha salva AQUELA linha — com alteração grava e marca "alterado"; sem alteração marca "conferido"
     const cf = ev.target.closest('[data-conferir]'); if (cf) return comBotao(cf, async () => {
-      if (alterados.has(cf.dataset.conferir)) throw new Error('Esta linha tem alteração: clique em "Salvar alterações".');
-      await q(sb.rpc('conferir_rotina', { p_area: 'passivo', p_ids: [cf.dataset.conferir], p_alterou: false }));
-      SIT[cf.dataset.conferir] = Object.assign({}, SIT[cf.dataset.conferir], { conferido_em: new Date().toISOString(), conferido_por: E.perfil ? E.perfil.nome : '', conferido_alterou: false });
-      cf.closest('td').innerHTML = celulaConferencia(SIT[cf.dataset.conferir], cf.dataset.conferir); });
+      const id = cf.dataset.conferir, a = alterados.get(id), mudou = !!a;
+      if (a) await gravar([id, a]);
+      await q(sb.rpc('conferir_rotina', { p_area: 'passivo', p_ids: [id], p_alterou: mudou }));
+      SIT[id] = Object.assign({}, SIT[id], { conferido_em: new Date().toISOString(), conferido_por: E.perfil ? E.perfil.nome : '', conferido_alterou: mudou }, mudou ? { alterado_em: new Date().toISOString() } : {});
+      if (mudou) { alterados.delete(id); cf.closest('tr').classList.remove('rt-alterado'); contar(); }
+      cf.closest('td').innerHTML = celulaConferencia(SIT[id], id);
+      aviso(mudou ? '✓ Linha salva.' : '✓ Conferido.'); });
     const b = ev.target.closest('[data-ver-senha]'); if (!b) return; const i = b.previousElementSibling; i.type = i.type === 'password' ? 'text' : 'password'; };
   $('rt-hist').onclick = () => janelaHistoricoPassivo(null);
-  $('rt-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
-    let n = 0;
-    // Backup 41: grava de 6 em 6 (antes, uma empresa por vez)
-    const gravar = async ([id, a]) => {
+  let n = 0;
+  const gravar = async ([id, a]) => {
       const up = {};
       Object.entries(a.cli).forEach(([k, v]) => {
         if (k === 'em_operacao' || k === 'procuracao' || k === 'certificado') up[k] = v === '' ? null : v === 'true';
@@ -114,6 +119,7 @@ async function rotinaPassivo(el) {
         else { const n2 = lerValor(v); if (isNaN(n2)) throw new Error('Valor inválido: ' + v); up[k] = v.trim() === '' ? null : n2; }
       });
       if (Object.keys(up).length) await q(sb.from('clientes').update(up).eq('id', id).select('id'));
+      const cl = E.clientes.find((x) => x.id === id); if (cl) Object.assign(cl, up);
       if (Object.keys(a.cert).length) {
         const atual = Object.assign({}, C[id] || {}), row = { cliente_id: id, validade: atual.validade || null, senha: atual.senha || '' };
         if ('senha' in a.cert) row.senha = a.cert.senha;
@@ -121,6 +127,9 @@ async function rotinaPassivo(el) {
       }
       n++;
     };
+  $('rt-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    n = 0;
+    // Backup 41: grava de 6 em 6 (antes, uma empresa por vez)
     const fila = [...alterados];
     for (let i = 0; i < fila.length; i += 6) await Promise.all(fila.slice(i, i + 6).map(gravar));
     if (alterados.size) await q(sb.rpc('conferir_rotina', { p_area: 'passivo', p_ids: [...alterados.keys()], p_alterou: true })).catch(() => null);
@@ -193,7 +202,7 @@ async function rotinaProcessos(el) {
       .sort((x, y) => String(x.grupos ? x.grupos.nome : '\uffff').localeCompare(String(y.grupos ? y.grupos.nome : '\uffff'), 'pt-BR') || String(x.ultima_movimentacao_em || '').localeCompare(String(y.ultima_movimentacao_em || '')));
     let grp = null;
     $('rt-proc-corpo').innerHTML = L.length ? L.map((p) => { const g = p.grupos ? p.grupos.nome : 'Sem grupo';
-      return (g !== grp ? (grp = g, '<tr class="gx-grp"><td colspan="7">' + esc(g) + ' <span class="sub">' + plural(L.filter((z) => (z.grupos ? z.grupos.nome : 'Sem grupo') === g).length, 'processo', 'processos') + '</span></td></tr>') : '') + '<tr><td><b class="mono">' + esc(p.numero) + '</b><div class="sub">' + esc((p.grupos ? p.grupos.nome : '') + (p.reu ? ' · ' + p.reu : '')) + '</div></td>' +
+      return (g !== grp ? (grp = g, '<tr class="rt-grp"><td colspan="7">' + esc(g) + ' <span class="sub">' + plural(L.filter((z) => (z.grupos ? z.grupos.nome : 'Sem grupo') === g).length, 'processo', 'processos') + '</span></td></tr>') : '') + '<tr><td><b class="mono">' + esc(p.numero) + '</b><div class="sub">' + esc((p.grupos ? p.grupos.nome : '') + (p.reu ? ' · ' + p.reu : '')) + '</div></td>' +
       '<td>' + celulaConfProc(p, ULT[p.id]) + '</td>' +
       '<td>' + esc(p.natureza || '—') + '</td><td class="rt-mov">' + (p.ultima_movimentacao ? esc(p.ultima_movimentacao) : '<span class="sub">nada registrado</span>') + '</td>' +
       '<td><span class="pill ' + (p.procuracao ? 'pago' : 'vencido') + '">' + (p.procuracao ? 'Sim' : 'Não') + '</span></td>' +
@@ -252,287 +261,105 @@ async function janelaMovimentacao(processoId, depois) {
   return j;
 }
 
-// ── 3) Guias ──
-// ── 3) Backup 31/33/34: CONTROLE dos parcelamentos e dos acordos — planilha por mês (5 meses atrás, o atual e 2 à frente).
-// Backup 34: cada mês tem EMISSÃO e PAGAMENTO. A emissão é feita AQUI: marque as parcelas (meses) e clique em "Enviar por empresa"
-// (a mesma janela/e-mail de sempre); ao enviar, a parcela fica marcada como emitida. Vencida sem pagamento pode ser marcada de novo
-// no mês seguinte (reemissão com valor atualizado). O valor de cada parcela é editável (o mês sem valor herda o último lançado).
-const MESES_CURTOS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
-const _rtAberto = {};
-const _rtSel = { parcelas: new Set(), acordos: new Set() };
-const rotinaParcelamentos = (el) => rotinaControle(el, 'parcelas');
-const rotinaAcordos = (el) => rotinaControle(el, 'acordos');
-const emitidaRt = (x) => !!x.emitida_em || /sim|emitid/i.test(x.emissao || '');
-async function rotinaControle(el, tipo) {
-  const parc = tipo === 'parcelas', chaveMes = 'mesIni_' + tipo, SEL = _rtSel[tipo];
-  E.rt[chaveMes] = E.rt[chaveMes] == null ? -5 : E.rt[chaveMes];
-  const h = hojeISO(), base = new Date(h.slice(0, 7) + '-01T12:00:00');
-  const mes = (k) => { const d = new Date(base); d.setMonth(d.getMonth() + k); return d.toISOString().slice(0, 7); };
-  const MS = [0, 1, 2, 3, 4, 5, 6, 7].map((i) => mes(E.rt[chaveMes] + i));
-  if (!E.clientes.length) await carregarCadastros();
-  let IT, PC, SIT = {};
-  if (parc) {
-    const [PA, P2, S2] = await Promise.all([
-      buscarTodos(() => sb.from('parcelamentos').select('id, empresa, cnpj, local, natureza, numero, total_parcelas, valor_ultima_parcela, grupo_id, emitimos_guia').order('id')),
-      buscarTodos(() => sb.from('parcelas').select('id, parcelamento_id, numero, vencimento, pago, emitida_em, emissao, reenvio_em, reenvio_valor, valor, guia_doc').order('vencimento').order('id')),
-      situacaoRotina('parcelamentos')]);
-    SIT = S2;
-    const porId = {}; PA.forEach((p) => { porId[p.id] = p; });
-    // valor de cada parcela: o lançado; sem lançamento, o último lançado antes dela; sem nenhum, o "valor da última parcela"
-    const ult = {};
-    PC = P2.filter((x) => porId[x.parcelamento_id]).map((x) => { const p = porId[x.parcelamento_id];
-      if (x.valor != null && Number(x.valor) > 0) ult[p.id] = Number(x.valor);
-      return Object.assign(x, { item: p.id, rot: (x.numero || '?') + (p.total_parcelas ? '/' + p.total_parcelas : ''), valorEf: ult[p.id] != null ? ult[p.id] : Number(p.valor_ultima_parcela) || 0,
-        lancado: x.valor != null && Number(x.valor) > 0, parcelamentos: p, quem: p.empresa, grupo_id: p.grupo_id,
-        cliente_id: (E.clientes.find((c) => (soDigitos(p.cnpj) && soDigitos(c.cpf_cnpj) === soDigitos(p.cnpj)) || c.nome === p.empresa) || {}).id || null }); });
-    // Backup 35: valor residual = valor da última parcela lançada × parcelas que faltam
-    const residual = (p) => { const ps = P2.filter((x) => x.parcelamento_id === p.id), pagas = ps.filter((x) => x.pago).length, tot = Number(p.total_parcelas) || ps.length;
-      return { falta: Math.max(0, tot - pagas), v: (Number(p.valor_ultima_parcela) || 0) * Math.max(0, tot - pagas) }; };
-    IT = PA.map((p) => ({ id: p.id, grupo_id: p.grupo_id, titulo: p.empresa || '—', resid: residual(p), sub: [p.local, p.natureza, p.numero ? 'nº ' + p.numero : ''].filter(Boolean).join(' · '),
-      busca: [p.empresa, p.natureza, p.local, p.numero, p.cnpj].join(' '), nos: p.emitimos_guia !== false, p }));
-  } else {
-    const A = await buscarTodos(() => sb.from('acordos').select('id, parcela, total_parcelas, vencimento, valor, pago, emissao, emitida_em, reenvio_em, reenvio_valor, devedor, credor, processo, grupo_id, pix, banco, forma_pagamento, guia_doc').order('vencimento').order('id'));
-    const M = {};
-    A.forEach((a) => { const k = [a.grupo_id || '', a.devedor || '', a.credor || '', a.processo || ''].join('|');
-      (M[k] = M[k] || { id: k, grupo_id: a.grupo_id, titulo: a.devedor || '—', sub: 'deve a ' + (a.credor || '—') + (a.processo ? ' · ' + a.processo : ''), busca: [a.devedor, a.credor, a.processo].join(' '), nos: true, l: [] }).l.push(a);
-      Object.assign(a, { item: k, rot: String(a.parcela || '?') + (a.total_parcelas ? '/' + a.total_parcelas : ''), valorEf: Number(a.valor) || 0, lancado: true, quem: a.devedor,
-        cliente_id: (E.clientes.find((c) => c.grupo_id === a.grupo_id && primeiroNome(c.nome) === primeiroNome(a.devedor)) || {}).id || null }); });
-    IT = Object.values(M); PC = A;
-  }
-  const atrasos = {}, porItem = {}, cel = {}, porId = {};
-  PC.forEach((x) => { porId[x.id] = x; (porItem[x.item] = porItem[x.item] || []).push(x); if (!x.pago && x.vencimento < h) atrasos[x.item] = (atrasos[x.item] || 0) + 1;
-    const m = String(x.vencimento || '').slice(0, 7); if (MS.includes(m)) (cel[x.item + '|' + m] = cel[x.item + '|' + m] || []).push(x); });
-  [...SEL].forEach((id) => { if (!porId[id] || porId[id].pago) SEL.delete(id); });
-  const gnome = (id) => nomeGrupo(id) || 'Sem grupo';
-  const nomeItem = parc ? 'parcelamento' : 'acordo', ncol = MS.length + (parc ? 3 : 1);
-  const rotMes = (m) => MESES_CURTOS[+m.slice(5) - 1] + '/' + m.slice(2, 4);
-  const fimMes = fimDoMesISO(h);
-  el.innerHTML = '<div class="card rt-ctl-card"><div class="card-hd">📋 Controle ' + (parc ? 'dos parcelamentos' : 'dos acordos') +
-      '<span class="sub">um quadrinho por parcela em cada mês · clique no quadrinho para agir</span></div>' +
-    '<div class="card-bd">' + filtroRotina('<select class="busca" id="rt-filtro" autocomplete="off">' + (parc ? [['', 'Todos os parcelamentos'], ['nos', 'Só os que nós emitimos'], ['cli', 'Só os que o cliente emite'], ['atr', 'Com parcela em atraso']] : [['', 'Todos os acordos'], ['atr', 'Com parcela em atraso']])
-        .map(([v, r]) => '<option value="' + v + '"' + (v === E.rt.filtro ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>' +
-        '<span class="rt-meses"><button type="button" class="btn btn-o btn-mini" data-mes="-1" aria-label="Meses anteriores">‹</button><b>' + rotMes(MS[0]) + ' – ' + rotMes(MS[7]) + '</b><button type="button" class="btn btn-o btn-mini" data-mes="1" aria-label="Próximos meses">›</button>' +
-          (E.rt[chaveMes] !== -5 ? '<button type="button" class="btn btn-o btn-mini" data-mes="0">hoje</button>' : '') + '</span>') +
-      '<div class="rt-leg2"><span class="rt-leg2-txt"><span class="rt-leg2-t">Como usar:</span> clique no quadrinho → <b>Marcar para enviar</b> → <b>✉ Enviar por empresa</b> (barra de baixo). A parcela fica <b>Emitida</b> sozinha.</span>' +
-        '<span class="rt-leg2-cores"><span class="rt-ch rt-ch-emitir">Emitir</span><span class="rt-ch rt-ch-sel">✉ Marcada</span><span class="rt-ch rt-ch-emit">Emitida</span><span class="rt-ch rt-ch-atr">Vencida</span><span class="rt-ch rt-ch-ok">✓ Paga</span><span class="rt-ch">A vencer</span>' + (parc ? '<span class="rt-ch rt-ch-cli">Cliente emite</span>' : '') + '</span></div>' +
-      '<div class="rt-ctl-wrap" data-sem-pagina><table class="rt-ctl rt-ctl2"><thead><tr>' + (parc ? '<th class="rt-c-emit" title="O escritório emite a guia deste parcelamento?">Nós<br>emitimos</th>' : '') + '<th class="rt-c-item">' + (parc ? 'Parcelamento' : 'Acordo') + '</th>' +
-        MS.map((m) => '<th class="rt-c-mes' + (m === h.slice(0, 7) ? ' rt-mes-atual' : '') + '">' + rotMes(m) + (m === h.slice(0, 7) ? '<small>este mês</small>' : '') + '</th>').join('') + (parc ? '<th class="rt-c-conf">Conferência</th>' : '') + '</tr></thead><tbody id="rt-parc-corpo"></tbody></table></div>' +
-      '<div class="rt-pop" id="rt-pop" hidden></div>' +
-      '<div class="rt-selbar" id="rt-selbar" hidden></div></div></div>';
-  const corpo = $('rt-parc-corpo'), pop = $('rt-pop');
-  // estado de cada parcela → [classe, rótulo, linha de baixo]
-  const estado = (x, it) => {
-    const em = emitidaRt(x), venc = x.vencimento < h, dEm = x.emitida_em ? dataBR(x.emitida_em).slice(0, 5) : '';
-    if (x.pago) return ['rt-ch-ok', '✓ Paga', em ? 'emitida' + (dEm ? ' ' + dEm : '') : ''];
-    if (!it.nos) return [venc ? 'rt-ch-atr rt-ch-cli' : 'rt-ch-cli', venc ? 'Vencida' : 'A vencer', 'cliente emite'];
-    if (SEL.has(x.id)) return ['rt-ch-sel', '✉ Marcada', 'para enviar'];
-    if (venc) return ['rt-ch-atr', 'Vencida', em ? 'reemitir' : 'não emitida'];
-    if (em) return ['rt-ch-emit', 'Emitida', dEm];
-    if (x.vencimento <= fimMes) return ['rt-ch-emitir', 'Emitir', 'vence ' + dataBR(x.vencimento).slice(0, 5)];
-    return ['', 'A vencer', 'vence ' + dataBR(x.vencimento).slice(0, 5)];
-  };
-  const chip = (x, it) => { const [c, r, s] = estado(x, it);
-    return '<button type="button" class="rt-ch ' + c + '" data-cel="' + x.id + '" title="Parcela ' + esc(x.rot) + ' · ' + brl(x.valorEf) + ' · clique para agir"><span>' + r + '</span>' + (s ? '<small>' + esc(s) + '</small>' : '') + '</button>'; };
-  const fecharPop = () => { pop.hidden = true; pop.innerHTML = ''; };
-  const abrirPop = (b) => {
-    const x = porId[b.dataset.cel], it = IT.find((p) => p.id === x.item) || {}, [c, r] = estado(x, it), sel = SEL.has(x.id);
-    pop.innerHTML = '<div class="rt-pop-hd"><b>' + esc(it.titulo || x.quem || '') + '</b><button type="button" class="rt-pop-x" data-pop-fechar aria-label="Fechar">✕</button></div>' +
-      '<div class="rt-pop-info">Parcela <b>' + esc(x.rot) + '</b> · vence <b>' + dataBR(x.vencimento) + '</b><br>Valor <b>' + brl(x.valorEf) + '</b>' + (x.lancado ? '' : ' <span class="sub">(último lançado)</span>') +
-        '<br><span class="rt-ch ' + c + '">' + r + '</span>' + (emitidaRt(x) ? ' <span class="sub">emitida' + (x.emitida_em ? ' em ' + dataBR(x.emitida_em) : '') + '</span>' : '') + (x.reenvio_em ? ' <span class="sub">· reenviada ' + dataLocal(x.reenvio_em) + '</span>' : '') + '</div>' +
-      '<div class="rt-pop-acoes">' +
-        (!x.pago && it.nos ? '<button type="button" class="btn ' + (sel ? 'btn-o' : 'btn-p') + '" data-sel="' + x.id + '">' + (sel ? '✕ Desmarcar' : '✉ Marcar para enviar') + '</button>' : '') +
-        (!x.pago ? '<button type="button" class="btn btn-o" data-pag="' + x.id + '">💲 Lançar pagamento</button>' : '') +
-        '<button type="button" class="btn btn-o" data-abre="' + esc(x.item) + '">' + (parc ? '✎ Ver parcelas e editar valor' : '☰ Ver todas as parcelas') + '</button></div>';
-    pop.hidden = false;
-    const wr = el.querySelector('.rt-ctl-card').getBoundingClientRect(), rb = b.getBoundingClientRect();
-    pop.style.top = (rb.bottom - wr.top + 6) + 'px';
-    pop.style.left = Math.max(8, Math.min(rb.left - wr.left - 120, wr.width - 300)) + 'px';
-  };
-  const detalhe = (it) => '<tr class="rt-det"><td colspan="' + ncol + '"><table class="rt-det-tab"><thead><tr><th>Parcela</th><th>Vencimento</th><th>Valor</th><th>Situação</th><th>Reenviada</th></tr></thead><tbody>' +
-    (porItem[it.id] || []).slice().sort((a, b) => String(a.vencimento).localeCompare(String(b.vencimento))).map((x) =>
-      '<tr><td>' + esc(x.rot || '—') + '</td><td>' + dataBR(x.vencimento) + '</td>' +
-      '<td>' + (parc ? '<span class="rt-vbox"><span>R$</span><input class="rt-valor-p" data-valor="' + x.id + '" data-mascara="nenhuma" inputmode="decimal" value="' + (x.lancado ? valorParaCampo(x.valor) : '') + '" placeholder="' + valorParaCampo(x.valorEf) + '" aria-label="Valor da parcela ' + esc(x.rot) + '" title="Valor lançado nesta parcela (vazio = vale o último lançado)"></span>' : brl(x.valorEf)) + '</td>' +
-      '<td>' + chip(x, it) + '</td><td>' + (x.reenvio_em ? dataLocal(x.reenvio_em) + (x.reenvio_valor ? ' · ' + brl(x.reenvio_valor) : '') : '—') + '</td></tr>').join('') + '</tbody></table></td></tr>';
-  const pintarSel = () => {
-    const bar = $('rt-selbar'); if (!bar) return;
-    const L = [...SEL].map((id) => porId[id]).filter(Boolean);
-    bar.hidden = !L.length;
-    if (L.length) bar.innerHTML = '<span><b>' + plural(L.length, 'parcela marcada', 'parcelas marcadas') + '</b> · ' + plural(new Set(L.map((x) => x.cliente_id || x.quem)).size, 'empresa', 'empresas') + ' · total ' + brl(L.reduce((s2, x) => s2 + (x.valorEf || 0), 0)) +
-      (L.some((x) => x.vencimento < h) ? ' · <span class="rt-sel-atr">inclui vencida (reemissão com valor atualizado)</span>' : '') + '</span>' +
-      '<span class="acoes"><button type="button" class="btn btn-o btn-mini" data-sel-limpar>Desmarcar</button><button type="button" class="btn btn-p" data-sel-enviar>✉ Enviar por empresa</button></span>';
-  };
-  const pintar = () => {
-    fecharPop();
-    const b = normalizar(E.rt.busca), dig = soDigitos(E.rt.busca);
-    const L = IT.filter((p) => (!E.rt.grupo || p.grupo_id === E.rt.grupo) && (!b || normalizar(p.busca + ' ' + gnome(p.grupo_id)).includes(b) || (dig.length >= 3 && soDigitos(p.busca).includes(dig))) &&
-        (E.rt.filtro !== 'nos' || p.nos) && (E.rt.filtro !== 'cli' || !p.nos) && (E.rt.filtro !== 'atr' || atrasos[p.id]))
-      .sort((x, y) => (gnome(x.grupo_id) === 'Sem grupo') - (gnome(y.grupo_id) === 'Sem grupo') || gnome(x.grupo_id).localeCompare(gnome(y.grupo_id), 'pt-BR') || String(x.titulo).localeCompare(String(y.titulo), 'pt-BR'));
-    let grp = null;
-    corpo.innerHTML = L.length ? L.map((p) => {
-      const g = gnome(p.grupo_id), doG = L.filter((z) => gnome(z.grupo_id) === g), atr = atrasos[p.id] || 0, ab = !!_rtAberto[tipo + p.id];
-      const cab = g !== grp ? (grp = g, '<tr class="gx-grp rt-grp"><td colspan="' + ncol + '"><span class="rt-g-nome">' + esc(g) + '</span> <span class="sub">' + plural(doG.length, nomeItem, nomeItem + 's') + '</span></td></tr>') : '';
-      return cab + '<tr data-pc="' + esc(p.id) + '"' + (ab ? ' class="rt-aberto"' : '') + '>' +
-        (parc ? '<td class="rt-c-emit"><label class="rt-chave rt-chave-mini" title="' + (p.nos ? 'O escritório emite a guia (desligue se o cliente emite)' : 'O cliente emite a guia (ligue se o escritório emite)') + '"><input type="checkbox" data-emit="' + p.id + '"' + (p.nos ? ' checked' : '') + ' aria-label="Nós emitimos a guia"><span></span></label></td>' : '') +
-        '<td class="rt-emp rt-abre" data-abre="' + esc(p.id) + '" role="button" tabindex="0" title="Ver todas as parcelas (e editar o valor)"><div class="rt-emp-l1"><span class="rt-seta">' + (ab ? '▾' : '▸') + '</span><b>' + esc(p.titulo) + '</b></div>' +
-          (atr ? '<div class="rt-emp-pill"><span class="pill ' + (atr >= 2 ? 'vencido' : 'atr-leve') + '">' + atr + ' em atraso</span></div>' : '') + '<div class="sub">' + esc(p.sub) + '</div>' +
-          (p.resid ? '<div class="rt-resid" title="Valor da última parcela × ' + p.resid.falta + ' parcelas que faltam">Residual <b>' + brl(p.resid.v) + '</b> · ' + plural(p.resid.falta, 'falta 1', 'faltam ' + p.resid.falta).replace(/^\d+ /, '') + '</div>' : '') + '</td>' +
-        MS.map((m) => '<td class="rt-c-mes' + (m === h.slice(0, 7) ? ' rt-mes-atual' : '') + '">' + ((cel[p.id + '|' + m] || []).map((x) => chip(x, p)).join('') || '<span class="rt-ch-vazio">—</span>') + '</td>').join('') +
-        (parc ? '<td class="rt-c-conf">' + celulaConferencia(SIT[p.id], p.id) + '</td>' : '') + '</tr>' + (ab ? detalhe(p) : '');
-    }).join('') : '<tr><td colspan="' + ncol + '">' + vazio('Nenhum ' + nomeItem + ' com esses filtros.') + '</td></tr>';
-    pintarSel();
-  };
-  const emitimos = async (ids, v) => { await q(sb.rpc('parcelamentos_emitimos', { p_ids: ids, p_emitimos: v }));
-    await q(sb.rpc('conferir_rotina', { p_area: 'parcelamentos', p_ids: ids, p_alterou: true })).catch(() => null);
-    IT.forEach((p) => { if (ids.includes(p.id)) p.nos = v; });
-    if (!v) PC.forEach((x) => { if (ids.includes(x.item)) SEL.delete(x.id); });
-    ids.forEach((id) => { SIT[id] = Object.assign({}, SIT[id], { conferido_em: new Date().toISOString(), conferido_por: E.perfil ? E.perfil.nome : '', conferido_alterou: true }); });
-    if (window.ERP_RECARREGAR) window.ERP_RECARREGAR(); pintar(); };
-  corpo.onchange = (ev) => { const c = ev.target.closest('[data-emit]'); if (!c) return;
-    emitimos([c.dataset.emit], c.checked).then(() => aviso(c.checked ? '✓ O escritório emite a guia deste parcelamento.' : '✓ Marcado: o cliente emite a guia.'), (e) => { aviso(erroAmigavel(e), true); pintar(); }); };
-  // valor da parcela (só parcelamentos): grava ao sair do campo
-  corpo.addEventListener('focusout', (ev) => { const i = ev.target.closest('[data-valor]'); if (!i) return;
-    const x = porId[i.dataset.valor], v = i.value.trim() ? lerValor(i.value) : null;
-    if (v != null && isNaN(v)) { aviso('Valor inválido.', true); return; }
-    if ((v || null) === (x.lancado ? Number(x.valor) : null)) return;
-    q(sb.rpc('lancar_valor_parcela', { p_id: x.id, p_valor: v })).then(() => { aviso('✓ Valor da parcela ' + x.rot + ' gravado.'); if (window.ERP_RECARREGAR) window.ERP_RECARREGAR(); rotinaControle(el, tipo); }, (e) => aviso(erroAmigavel(e), true)); });
-  const acao = (ev) => {
-    if (ev.target.closest('[data-pop-fechar]')) { fecharPop(); return true; }
-    const sl = ev.target.closest('[data-sel]');
-    if (sl) { const id = sl.dataset.sel; if (SEL.has(id)) SEL.delete(id); else SEL.add(id); pintar(); return true; }
-    const pg = ev.target.closest('[data-pag]');
-    if (pg) { const x = porId[pg.dataset.pag]; fecharPop();
-      if (!confirm('Lançar o pagamento da parcela ' + (x ? x.rot + ' (' + brl(x.valorEf) + ', vence ' + dataBR(x.vencimento) + ')' : '') + '?')) return true;
-      if (window.ERP_EDITOR && window.ERP_EDITOR.baixaRapida) Promise.resolve(window.ERP_EDITOR.baixaRapida(tipo, pg.dataset.pag)).then(() => setTimeout(() => rotinaControle(el, tipo), 1500)); return true; }
-    return false;
-  };
-  pop.onclick = (ev) => { if (acao(ev)) return; const ab = ev.target.closest('[data-abre]'); if (!ab) return;
-    // Backup 37: nos acordos abre a MESMA ficha do módulo Acordos (todas as parcelas, baixa, editar)
-    if (!parc) { const id = pop.dataset.de; fecharPop(); return detalheAcordo(id); }
-    _rtAberto[tipo + ab.dataset.abre] = true; pintar(); };
-  if (!el._rtFora) { el._rtFora = true; document.addEventListener('mousedown', (ev) => { const p2 = document.getElementById('rt-pop'); if (p2 && !p2.hidden && !ev.target.closest('#rt-pop, [data-cel]')) { p2.hidden = true; } });
-    document.addEventListener('keydown', (ev) => { const p2 = document.getElementById('rt-pop'); if (ev.key === 'Escape' && p2 && !p2.hidden) p2.hidden = true; }); }
-  corpo.onclick = (ev) => {
-    const ch = ev.target.closest('[data-cel]');
-    if (ch) { if (!pop.hidden && pop.dataset.de === ch.dataset.cel) { fecharPop(); return; } pop.dataset.de = ch.dataset.cel; abrirPop(ch); return; }
-    const cf = ev.target.closest('[data-conferir]');
-    if (cf) return comBotao(cf, async () => { await q(sb.rpc('conferir_rotina', { p_area: 'parcelamentos', p_ids: [cf.dataset.conferir], p_alterou: false }));
-      SIT[cf.dataset.conferir] = Object.assign({}, SIT[cf.dataset.conferir], { conferido_em: new Date().toISOString(), conferido_por: E.perfil ? E.perfil.nome : '', conferido_alterou: false });
-      cf.closest('td').innerHTML = celulaConferencia(SIT[cf.dataset.conferir], cf.dataset.conferir); });
-    const ab = ev.target.closest('[data-abre]'); if (ab && !ev.target.closest('input')) { _rtAberto[tipo + ab.dataset.abre] = !_rtAberto[tipo + ab.dataset.abre]; pintar(); }
-  };
-  corpo.onkeydown = (ev) => { if (ev.key === 'Enter' && ev.target.matches('[data-abre]')) ev.target.click(); if (ev.key === 'Enter' && ev.target.matches('[data-valor]')) ev.target.blur(); };
-  $('rt-selbar').onclick = (ev) => {
-    if (ev.target.closest('[data-sel-limpar]')) { SEL.clear(); pintar(); return; }
-    if (!ev.target.closest('[data-sel-enviar]')) return;
-    const L = [...SEL].map((id) => porId[id]).filter(Boolean).map((x) => Object.assign({}, x, { valor: x.valorEf, parcela: x.rot, email_em: null,
-      detalhe: parc ? [x.parcelamentos.natureza, x.parcelamentos.local].filter(Boolean).join(' · ') : 'deve a ' + (x.credor || '—') }));
-    if (!L.length) return;
-    janelaGuiasEmpresa(tipo, L, null, async () => { L.forEach((x) => SEL.delete(x.id)); await rotinaControle(el, tipo); });
-  };
-  el.querySelectorAll('[data-mes]').forEach((b) => b.onclick = () => { E.rt[chaveMes] = Number(b.dataset.mes) === 0 ? -5 : E.rt[chaveMes] + 3 * Number(b.dataset.mes); rotinaControle(el, tipo); });
-  ligarFiltroRotina(el, pintar); pintar();
+// ── 3) Backup 42: PLANILHA DE PARCELAMENTOS — igual à antiga "Notificações → Parcelamento": guias vencidas ou que vencem neste mês,
+// por empresa; marque, gere a mensagem (texto idêntico ao das Notificações), confira o valor e envie (copiar, WhatsApp ou e-mail).
+// "Controle dos parcelamentos" saiu; "Acordos" abre a própria tela de Acordos (a mesma, sem repetir código).
+const _plSel = new Set();
+function textoNotifParcelas(empresa, itens) {   // o texto das antigas Notificações, palavra por palavra
+  return 'Prezados,\n\nSeguem as guias dos parcelamentos da ' + empresa + ' com vencimento neste mês. Antes de pagar, confirme se a guia já não foi paga, para evitar duplicidade.' +
+    itens.map((g) => '\n\n' + (g.vencida ? '⚠︎ GUIA VENCIDA\n' : '') + 'Parcelamento ' + (g.p.local || g.p.natureza || '') + ' — Natureza: ' + (g.p.natureza || '—') +
+      '\nNº do Parcelamento: ' + (g.p.numero || '—') + '\nParcela: ' + (g.numero || '?') + ' de ' + (g.p.total_parcelas || '?') + ' | Vencimento: ' + (g.vencimento ? g.vencimento.slice(5, 7) + '/' + g.vencimento.slice(0, 4) : '—') +
+      '\nNº da Guia: ' + (g.numero || '—') + '\nValor: ' + brl(g._valor || 0)).join('');
 }
-
-// ── 3c) Backup 35 (TESTE): "Planilha de parcelamentos" — igual à planilha do escritório: uma aba por GRUPO e um bloco por
-// parcelamento (Nome, CPF/CNPJ, Local, Natureza, Nº, Total, Pagas, Valor da última parcela, Valor residual, Emitimos, observação) com a
-// lista PARCELA · VENCIMENTO · EMISSÃO · PAGAMENTO. Botão "Emitir guias": as em atraso + as que vencem neste mês (como no ERP antigo).
 async function rotinaPlanilha(el) {
   if (!E.clientes.length) await carregarCadastros();
   const h = hojeISO(), fimMes = fimDoMesGuia(h);
   const [PA, P2] = await Promise.all([
-    buscarTodos(() => sb.from('parcelamentos').select('id, empresa, cnpj, local, natureza, numero, total_parcelas, valor_ultima_parcela, grupo_id, emitimos_guia, obs').order('id')),
-    buscarTodos(() => sb.from('parcelas').select('id, parcelamento_id, numero, vencimento, pago, data_pagamento, emitida_em, emissao, valor, guia_doc').order('vencimento').order('id'))]);
-  const porPa = {}; P2.forEach((x) => { (porPa[x.parcelamento_id] = porPa[x.parcelamento_id] || []).push(x); });
-  const gnome = (id) => nomeGrupo(id) || 'Sem grupo';
-  const grupos = [...new Set(PA.map((p) => gnome(p.grupo_id)))].sort((a, b) => (a === 'Sem grupo') - (b === 'Sem grupo') || a.localeCompare(b, 'pt-BR'));
-  E.rt.plGrupo = grupos.includes(E.rt.plGrupo) ? E.rt.plGrupo : grupos[0];
-  const emit = (x) => !!x.emitida_em || /sim|emitid/i.test(x.emissao || '');
-  // "a emitir agora" = não paga, nós emitimos, sem emissão e vencendo até o fim do mês (vencidas entram de novo: reemissão)
-  const aEmitir = (p) => p.emitimos_guia === false ? [] : (porPa[p.id] || []).filter((x) => !x.pago && x.vencimento && x.vencimento <= fimMes && (!emit(x) || x.vencimento < h));
-  // parcelas que ainda não foram lançadas: completa a lista até a última (mês a mês, a partir da última lançada)
-  const prevista = (ps, tot) => { const u = ps[ps.length - 1], n0 = u ? Number(u.numero) : 0; if (!u || !n0 || !u.vencimento || !(tot > n0)) return [];
-    const out = []; for (let n = n0 + 1; n <= Math.min(tot, n0 + 240); n++) { const d = new Date(u.vencimento + 'T12:00:00'), dia = d.getDate(); d.setDate(1); d.setMonth(d.getMonth() + (n - n0));
-      d.setDate(Math.min(dia, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate())); out.push({ n, v: d.toISOString().slice(0, 10) }); } return out; };
-  const nGrupo = (g) => PA.filter((p) => gnome(p.grupo_id) === g).reduce((s2, p) => s2 + aEmitir(p).length, 0);
+    buscarTodos(() => sb.from('parcelamentos').select('id, empresa, cnpj, local, natureza, numero, total_parcelas, valor_ultima_parcela, grupo_id, emitimos_guia').order('id')),
+    buscarTodos(() => sb.from('parcelas').select('id, parcelamento_id, numero, vencimento, pago, emitida_em, emissao, email_ref, valor, guia_doc').order('vencimento').order('id'))]);
+  const porId = {}; PA.forEach((p) => { porId[p.id] = p; });
+  const ult = {}, G = [];
+  P2.forEach((x) => { const p = porId[x.parcelamento_id]; if (!p) return;
+    if (x.valor != null && Number(x.valor) > 0) ult[p.id] = Number(x.valor);
+    if (x.pago || p.emitimos_guia === false || !x.vencimento || x.vencimento > fimMes) return;
+    G.push(Object.assign(x, { p, vencida: x.vencimento < h, enviada: !!x.emitida_em || /sim|emitid/i.test(x.emissao || ''),
+      _valor: x.valor != null && Number(x.valor) > 0 ? Number(x.valor) : ult[p.id] != null ? ult[p.id] : Number(p.valor_ultima_parcela) || 0,
+      cliente_id: (E.clientes.find((c) => (soDigitos(p.cnpj) && soDigitos(c.cpf_cnpj) === soDigitos(p.cnpj)) || c.nome === p.empresa) || {}).id || null })); });
+  const empK = (g) => g.p.empresa || '—';
+  el.innerHTML = '<div class="card nt-card"><div class="card-hd">📋 Planilha de parcelamentos<span class="sub">guias vencidas ou que vencem neste mês · marque, gere a mensagem e envie</span></div><div class="card-bd">' +
+    filtroRotina('<span class="nt-acoes"><span class="sub" id="nt-cnt"></span><button type="button" class="btn btn-p" id="nt-gerar" disabled>📨 Gerar mensagem</button></span>') +
+    '<div class="nt-legenda"><span><i class="nt-d nt-d-v"></i>Vencida</span><span><i class="nt-d nt-d-m"></i>Vence este mês</span><span><i class="nt-d nt-d-e"></i>Enviada</span></div>' +
+    '<div id="nt-sel"></div><div id="nt-out" hidden></div></div></div>';
+  const visiveis = () => { const b = normalizar(E.rt.busca), dig = soDigitos(E.rt.busca);
+    return G.filter((g) => (!E.rt.grupo || g.p.grupo_id === E.rt.grupo) && (!b || normalizar([g.p.empresa, g.p.natureza, g.p.local, g.p.numero].join(' ')).includes(b) || (dig.length >= 3 && soDigitos(g.p.cnpj).includes(dig)))); };
+  const contar = () => { const n = [..._plSel].filter((id) => G.some((g) => g.id === id)).length;
+    $('nt-cnt').textContent = n ? plural(n, 'guia marcada', 'guias marcadas') : 'Nenhuma guia marcada.'; $('nt-gerar').disabled = !n; };
   const pintar = () => {
-    const L = PA.filter((p) => gnome(p.grupo_id) === E.rt.plGrupo).sort((a, b) => String(a.empresa).localeCompare(String(b.empresa), 'pt-BR') || String(a.natureza).localeCompare(String(b.natureza), 'pt-BR'));
-    const nE = L.reduce((s2, p) => s2 + aEmitir(p).length, 0);
-    el.innerHTML = '<div class="card pl-card"><div class="card-hd">🧪 Planilha de parcelamentos <span class="pill hoje">teste</span><span class="sub">uma aba por grupo, um bloco por parcelamento · clique em EMISSÃO ou PAGAMENTO para marcar</span></div>' +
-      '<div class="card-bd"><div class="pl-abas" role="tablist">' + grupos.map((g) => { const n = nGrupo(g);
-        return '<button type="button" role="tab" class="pl-aba' + (g === E.rt.plGrupo ? ' ativo' : '') + '" data-pl-g="' + esc(g) + '">' + esc(g) + (n ? ' <span class="pl-n" title="Guias a emitir">' + n + '</span>' : '') + '</button>'; }).join('') + '</div>' +
-      '<div class="pl-barra"><span class="sub">' + plural(L.length, 'parcelamento', 'parcelamentos') + ' em <b>' + esc(E.rt.plGrupo || '—') + '</b> · ' + (nE ? plural(nE, 'guia a emitir', 'guias a emitir') + ' (em atraso + vencem neste mês)' : 'nenhuma guia a emitir agora') + '</span>' +
-        '<button type="button" class="btn btn-p" id="pl-emitir">🧾 Emitir guias — em atraso + vencem neste mês' + (nE ? ' (' + nE + ')' : '') + '</button></div>' +
-      '<div class="pl-blocos">' + L.map((p) => {
-        const ps = (porPa[p.id] || []).slice().sort((x, y) => String(x.vencimento).localeCompare(String(y.vencimento))), pagas = ps.filter((x) => x.pago).length, tot = Number(p.total_parcelas) || ps.length, v = Number(p.valor_ultima_parcela) || 0;
-        const resid = v * Math.max(0, tot - pagas), cli = p.emitimos_guia === false, atr = ps.filter((x) => !x.pago && x.vencimento < h).length, nAe = aEmitir(p).length;
-        const pct = tot ? Math.round(100 * pagas / tot) : 0;
-        return '<section class="pl-bloco" data-pl-pa="' + p.id + '">' +
-          '<div class="pl-cab"><div class="pl-cab-nome">' + esc(p.empresa || '—') + '</div>' +
-            '<div class="pl-cab-doc">' + esc(mascaraDoc(p.cnpj) || 'sem CPF/CNPJ') + '</div>' +
-            '<div class="pl-cab-tags">' + [p.local, p.natureza].filter(Boolean).map((z) => '<span class="pl-tag">' + esc(z) + '</span>').join('') + (p.numero ? '<span class="pl-tag pl-tag-n">nº ' + esc(p.numero) + '</span>' : '') + '</div>' +
-            '<div class="pl-prog"><div class="pl-prog-bar"><span style="width:' + pct + '%"></span></div><span><b>' + pagas + '</b> de ' + (tot || '—') + ' pagas' + (atr ? ' · <b class="pl-atr-t">' + atr + ' em atraso</b>' : '') + '</span></div>' +
-            '<div class="pl-kpis"><div><small>Última parcela</small><span class="rt-vbox"><span>R$</span><input data-pl-v="' + p.id + '" data-mascara="nenhuma" inputmode="decimal" value="' + (v ? valorParaCampo(v) : '') + '" aria-label="Valor da última parcela"></span></div>' +
-              '<div><small>Valor residual</small><b>' + brl(resid) + '</b></div></div>' +
-            '<div class="pl-cab-pe"><label class="rt-chave rt-chave-mini"><input type="checkbox" data-pl-emit="' + p.id + '"' + (cli ? '' : ' checked') + '><span></span><small>' + (cli ? 'O cliente emite as guias' : 'Nós emitimos as guias') + '</small></label>' +
-              (nAe ? '<span class="pill hoje">' + plural(nAe, 'a emitir', 'a emitir') + '</span>' : '') + '</div>' +
-            '<input class="pl-obs" data-pl-obs="' + p.id + '" value="' + esc(p.obs || '') + '" placeholder="Observação (ex.: enviar por WhatsApp)" aria-label="Observação">' +
-            // Backup 37: emitir mesmo parcela futura — deste parcelamento ou de todos os parcelamentos da empresa
-            (cli ? '' : '<div class="pl-cab-bts"><button type="button" class="btn btn-o btn-mini" data-pl-gpa="' + p.id + '" title="Em atraso + do mês; se não houver, a próxima parcela">🧾 Emitir deste parcelamento</button>' +
-              '<button type="button" class="btn btn-o btn-mini" data-pl-gemp="' + esc(p.empresa || '') + '" title="Todos os parcelamentos desta empresa">🧾 Todos da empresa</button></div>') + '</div>' +
-          (ps.length ? '<table class="pl-tab"><colgroup><col style="width:12%"><col style="width:28%"><col style="width:30%"><col style="width:30%"></colgroup><thead><tr><th title="Parcela">Nº</th><th>Vencimento</th><th>Emissão</th><th>Pagamento</th></tr></thead><tbody>' +
-          ps.map((x) => { const at = !x.pago && x.vencimento < h, mes = x.vencimento && x.vencimento.slice(0, 7) === h.slice(0, 7), em = emit(x);
-            const curta = (d) => { const s = dataBR(d); return s.slice(0, 6) + s.slice(8); }, dEm = x.emitida_em ? curta(x.emitida_em) : em ? 'emitida' : '';
-            return '<tr class="' + (x.pago ? 'pl-pago' : at ? 'pl-atr' : mes ? 'pl-mes' : '') + '"><td>' + esc(x.numero || '') + '</td><td>' + dataBR(x.vencimento) + '</td>' +
-              '<td>' + (cli ? '<span class="pl-dt pl-dt-cli" title="O cliente emite">cliente</span>'
-                : em ? '<button type="button" class="pl-dt pl-dt-ok" data-pl-e="' + x.id + '" title="Emitida' + (x.emitida_em ? ' em ' + dataBR(x.emitida_em) : '') + ' · clique para desmarcar">✓ ' + esc(dEm) + '</button>'
-                : x.pago ? '<span class="pl-dt">—</span>'
-                : '<span class="pl-em2"><button type="button" class="pl-dt pl-dt-emitir" data-pl-gx="' + x.id + '" title="Abrir o envio com esta guia (vale parcela futura)">🧾 Emitir</button><button type="button" class="pl-dt-mk" data-pl-e="' + x.id + '" title="Só marcar como emitida (sem enviar)">✓</button></span>') + '</td>' +
-              '<td>' + (x.pago ? '<span class="pl-dt pl-dt-ok" title="Paga">✓ ' + (x.data_pagamento ? curta(x.data_pagamento) : 'paga') + '</span>'
-                : '<button type="button" class="pl-dt ' + (at ? 'pl-dt-atr' : 'pl-dt-ab') + '" data-pl-p="' + x.id + '" title="Clique para lançar o pagamento">' + (at ? 'em atraso' : 'a vencer') + '</button>') + '</td></tr>'; }).join('') +
-          prevista(ps, tot).map((r) => '<tr class="pl-prev" title="Parcela ainda não lançada no sistema (data prevista)"><td>' + r.n + '</td><td>' + dataBR(r.v) + '</td><td>—</td><td>prevista</td></tr>').join('') +
-          '</tbody></table>' : '<div class="pl-sem">Nenhuma parcela lançada neste parcelamento.</div>') + '</section>'; }).join('') + (L.length ? '' : vazio('Nenhum parcelamento neste grupo.')) + '</div></div></div>';
+    const L = visiveis(), emps = {};
+    L.forEach((g) => { (emps[empK(g)] = emps[empK(g)] || { nome: empK(g), gnome: nomeGrupo(g.p.grupo_id) || 'Sem grupo', itens: [] }).itens.push(g); });
+    const lista = Object.values(emps).sort((a, b) => (a.gnome === 'Sem grupo') - (b.gnome === 'Sem grupo') || a.gnome.localeCompare(b.gnome, 'pt-BR') || a.nome.localeCompare(b.nome, 'pt-BR'));
+    let grp = null;
+    $('nt-sel').innerHTML = lista.length ? lista.map((e) => { const todas = e.itens.every((g) => _plSel.has(g.id));
+      return (e.gnome !== grp ? (grp = e.gnome, '<div class="nt-grp">' + esc(e.gnome) + '</div>') : '') +
+        '<section class="nt-emp"><label class="nt-emp-hd"><input type="checkbox" data-nt-emp="' + esc(e.nome) + '"' + (todas ? ' checked' : '') + '><b>' + esc(e.nome) + '</b><span class="sub">' + plural(e.itens.length, 'guia', 'guias') + '</span>' +
+          (e.itens.some((g) => g.vencida && !g.enviada) ? '<span class="pill vencido">vencida</span>' : '') + '</label>' +
+        e.itens.map((g) => '<label class="nt-it ' + (g.enviada ? 'nt-env' : g.vencida ? 'nt-venc' : 'nt-mes') + '"><input type="checkbox" data-nt="' + g.id + '"' + (_plSel.has(g.id) ? ' checked' : '') + '>' +
+          '<span class="nt-pill">' + (g.enviada ? '✓ Enviada' : g.vencida ? '⚠ Vencida' : '📅 Este mês') + '</span>' +
+          '<span class="nt-desc"><b>Parcelamento ' + esc(g.p.local || g.p.natureza || '') + '</b> — ' + esc(g.p.natureza || '—') + ' <span class="sub">· parcela ' + esc(g.numero || '?') + ' de ' + esc(g.p.total_parcelas || '?') + (g.p.numero ? ' · nº ' + esc(g.p.numero) : '') + '</span></span>' +
+          '<span class="nt-venc-d">Venc. ' + dataBR(g.vencimento) + '</span></label>').join('') + '</section>'; }).join('')
+      : vazio('Nenhuma guia vencida ou vencendo neste mês' + (E.rt.grupo || E.rt.busca ? ' com esses filtros' : '') + '. ✅');
+    contar();
   };
-  const recarregar = () => rotinaPlanilha(el);
-  el.onclick = (ev) => {
-    const ab = ev.target.closest('[data-pl-g]'); if (ab) { E.rt.plGrupo = ab.dataset.plG; return pintar(); }
-    const be = ev.target.closest('[data-pl-e]');
-    if (be) return comBotao(be, async () => { const x = P2.find((y) => y.id === be.dataset.plE), novo = !emit(x);
-      await q(sb.rpc('registrar_emissao', { p_tabela: 'parcelas', p_id: x.id, p_emitida: novo, p_doc: null, p_enviar: false }));
-      x.emitida_em = novo ? h : null; x.emissao = novo ? 'SIM' : ''; pintar(); });
-    // Backup 37: emitir pelo mesmo envio dos outros módulos (vale parcela futura)
-    const gx = ev.target.closest('[data-pl-gx]'); if (gx) return gerarGuias('parcelas', { ids: [gx.dataset.plGx] }, recarregar);
-    const gpa = ev.target.closest('[data-pl-gpa]'); if (gpa) return gerarGuias('parcelas', { itens: [gpa.dataset.plGpa], proximas: true }, recarregar);
-    const gemp = ev.target.closest('[data-pl-gemp]'); if (gemp) return gerarGuias('parcelas', { empresa: gemp.dataset.plGemp, proximas: true }, recarregar);
-    const bp = ev.target.closest('[data-pl-p]');
-    if (bp && !confirm('Lançar o pagamento desta parcela?')) return;
-    if (bp && window.ERP_EDITOR && window.ERP_EDITOR.baixaRapida) return Promise.resolve(window.ERP_EDITOR.baixaRapida('parcelas', bp.dataset.plP)).then(() => setTimeout(recarregar, 1500));
-    if (ev.target.closest('#pl-emitir')) {
-      const gid = (PA.find((p) => gnome(p.grupo_id) === E.rt.plGrupo) || {}).grupo_id;
-      if (gid) return gerarGuias('parcelas', { grupo_id: gid }, recarregar);
-      const its = PA.filter((p) => gnome(p.grupo_id) === E.rt.plGrupo).flatMap((p) => aEmitir(p).map((x) => {
-        const ult = (porPa[p.id] || []).filter((y) => y.valor != null && y.vencimento <= x.vencimento).slice(-1)[0];
-        return Object.assign({}, x, { parcelamentos: p, quem: p.empresa, grupo_id: p.grupo_id, email_em: null, parcela: (x.numero || '?') + (p.total_parcelas ? '/' + p.total_parcelas : ''),
-          valor: x.valor != null ? Number(x.valor) : ult ? Number(ult.valor) : Number(p.valor_ultima_parcela) || 0, detalhe: [p.natureza, p.local].filter(Boolean).join(' · '),
-          cliente_id: (E.clientes.find((c) => (soDigitos(p.cnpj) && soDigitos(c.cpf_cnpj) === soDigitos(p.cnpj)) || c.nome === p.empresa) || {}).id || null }); }));
-      if (its.length) janelaGuiasEmpresa('parcelas', its, null, recarregar);
-      else aviso('Nenhuma guia a emitir em ' + (E.rt.plGrupo || 'este grupo') + ': não há parcela em atraso nem vencendo neste mês (que o escritório emita).');
-    }
+  $('nt-sel').onchange = (ev) => {
+    const c = ev.target.closest('[data-nt]'); if (c) { if (c.checked) _plSel.add(c.dataset.nt); else _plSel.delete(c.dataset.nt); return pintar(); }
+    const ce = ev.target.closest('[data-nt-emp]'); if (ce) { visiveis().filter((g) => empK(g) === ce.dataset.ntEmp).forEach((g) => { if (ce.checked) _plSel.add(g.id); else _plSel.delete(g.id); }); pintar(); }
   };
-  el.onchange = (ev) => {
-    const c = ev.target.closest('[data-pl-emit]');
-    if (c) q(sb.rpc('parcelamentos_emitimos', { p_ids: [c.dataset.plEmit], p_emitimos: c.checked })).then(() => { PA.find((p) => p.id === c.dataset.plEmit).emitimos_guia = c.checked; pintar(); }, (e) => aviso(erroAmigavel(e), true));
+  // mensagens geradas: uma por empresa, com o valor de cada guia editável, e os botões copiar / WhatsApp / e-mail / marcar como enviada
+  const gerar = () => {
+    const its = G.filter((g) => _plSel.has(g.id)), emps = {};
+    its.forEach((g) => { (emps[empK(g)] = emps[empK(g)] || { nome: empK(g), cli: g.cliente_id, grupo: g.p.grupo_id, itens: [] }).itens.push(g); });
+    const out = $('nt-out'); out.hidden = false; $('nt-sel').hidden = true; el.querySelector('.rt-filtros').hidden = true; el.querySelector('.nt-legenda').hidden = true;
+    out.innerHTML = '<div class="nt-out-hd"><b>📨 Mensagens geradas</b><button type="button" class="btn btn-o" id="nt-voltar">← Voltar à seleção</button></div>' +
+      Object.values(emps).map((e, k) => { const c = E.clientes.find((y) => y.id === e.cli) || {};
+        return '<section class="nt-msg" data-k="' + k + '"><div class="nt-msg-hd"><b>' + esc(e.nome) + '</b><span class="sub">' + plural(e.itens.length, 'guia', 'guias') + '</span></div>' +
+          '<div class="nt-vals">' + e.itens.map((g) => '<label><small>Parcela ' + esc(g.numero || '?') + ' · ' + esc(g.p.natureza || '') + '</small><span class="rt-vbox"><span>R$</span><input data-nt-v="' + g.id + '" data-mascara="nenhuma" inputmode="decimal" value="' + (g._valor ? valorParaCampo(g._valor) : '') + '" aria-label="Valor da guia"></span></label>').join('') + '</div>' +
+          '<textarea class="nt-txt" rows="12">' + esc(textoNotifParcelas(e.nome, e.itens)) + '</textarea>' +
+          '<div class="nt-env-l"><select class="nt-para-sel" aria-label="E-mails da empresa"><option value="">— e-mails da empresa —</option></select><input class="nt-para" placeholder="e-mail (escolha ao lado ou digite)" value="' + esc(c.email || '') + '">' +
+            '<input class="nt-tel" data-mascara="tel" inputmode="tel" placeholder="WhatsApp" value="' + esc(c.telefone || '') + '"></div>' +
+          '<div class="acoes nt-bts"><button type="button" class="btn btn-o" data-nt-copiar>📋 Copiar</button><button type="button" class="btn btn-v" data-nt-zap>💬 WhatsApp</button>' +
+            '<button type="button" class="btn btn-p" data-nt-email>✉ Enviar e-mail</button><button type="button" class="btn btn-o" data-nt-marcar title="Use depois de copiar ou mandar pelo WhatsApp">✓ Marcar como enviada</button></div></section>'; }).join('');
+    const E2 = Object.values(emps);
+    out.querySelectorAll('.nt-msg').forEach((s) => { const e = E2[+s.dataset.k];
+      emailsDaEmpresa(e.cli, e.grupo).then((ls) => { const sel = s.querySelector('.nt-para-sel');
+        sel.innerHTML = '<option value="">' + (ls.length ? '— e-mails da empresa (' + ls.length + ') —' : '— nenhum e-mail cadastrado —') + '</option>' + ls.map(([r, m]) => '<option value="' + esc(m) + '">' + esc(r + ': ' + m) + '</option>').join('');
+        sel.onchange = () => { if (sel.value) s.querySelector('.nt-para').value = sel.value; }; }); });
+    out.oninput = (ev) => { const iv = ev.target.closest('[data-nt-v]'); if (!iv) return; const s = iv.closest('.nt-msg'), e = E2[+s.dataset.k];
+      const g = e.itens.find((y) => y.id === iv.dataset.ntV), v = lerValor(iv.value); g._valor = isNaN(v) ? 0 : v;
+      s.querySelector('.nt-txt').value = textoNotifParcelas(e.nome, e.itens); };
+    out.onclick = (ev) => {
+      if (ev.target.closest('#nt-voltar')) { out.hidden = true; $('nt-sel').hidden = false; el.querySelector('.rt-filtros').hidden = false; el.querySelector('.nt-legenda').hidden = false; return pintar(); }
+      const s = ev.target.closest('.nt-msg'); if (!s) return; const e = E2[+s.dataset.k], txt = s.querySelector('.nt-txt').value;
+      const marcar = async () => { for (const g of e.itens) await q(sb.rpc('registrar_emissao', { p_tabela: 'parcelas', p_id: g.id, p_emitida: true, p_doc: null, p_enviar: false }));
+        e.itens.forEach((g) => { g.enviada = true; _plSel.delete(g.id); }); s.classList.add('nt-feita'); };
+      const b = ev.target.closest('button'); if (!b) return;
+      if (b.matches('[data-nt-copiar]')) return comBotao(b, async () => { await copiarTexto(txt); aviso('✓ Texto copiado — cole no WhatsApp ou no e-mail. Depois clique em "Marcar como enviada".'); });
+      if (b.matches('[data-nt-zap]')) { const tel = soDigitos(s.querySelector('.nt-tel').value);
+        window.open('https://wa.me/' + (tel ? (tel.length <= 11 ? '55' : '') + tel : '') + '?text=' + encodeURIComponent(txt), '_blank', 'noopener'); return; }
+      if (b.matches('[data-nt-marcar]')) return comBotao(b, async () => { await marcar(); aviso('✓ ' + plural(e.itens.length, 'guia marcada', 'guias marcadas') + ' como enviada.'); });
+      if (b.matches('[data-nt-email]')) return comBotao(b, async () => {
+        const para = s.querySelector('.nt-para').value.trim(); if (!para) throw new Error('Escolha ou digite o e-mail.');
+        if (e.itens.some((g) => !(g._valor > 0))) throw new Error('Confira o valor de todas as guias.');
+        const r = await q(sb.rpc('enviar_guias_email', { p_cliente: e.cli || null, p_grupo: e.grupo || null,
+          p_itens: e.itens.map((g) => ({ tabela: 'parcelas', id: g.id, descricao: descricaoGuia('parcelas', Object.assign({}, g, { parcelamentos: g.p, parcela: (g.numero || '?') + '/' + (g.p.total_parcelas || '') })), vencimento: g.vencimento, valor: g._valor })),
+          p_assunto: 'Guias de parcelamento — ' + e.nome, p_texto: txt, p_docs: [], p_para: para, p_arquivos: [] }));
+        e.itens.forEach((g) => { g.enviada = true; _plSel.delete(g.id); }); s.classList.add('nt-feita');
+        await avisoEnvio('', r); });
+    };
   };
-  el.addEventListener('focusout', (ev) => {
-    const iv = ev.target.closest('[data-pl-v]'), io = ev.target.closest('[data-pl-obs]');
-    if (iv) { const v = iv.value.trim() ? lerValor(iv.value) : null; const p = PA.find((y) => y.id === iv.dataset.plV);
-      if (v != null && isNaN(v)) return aviso('Valor inválido.', true);
-      if ((v || null) === (Number(p.valor_ultima_parcela) || null)) return;
-      q(sb.from('parcelamentos').update({ valor_ultima_parcela: v }).eq('id', p.id)).then(() => { p.valor_ultima_parcela = v; aviso('✓ Valor da última parcela gravado.'); pintar(); }, (e) => aviso(erroAmigavel(e), true)); }
-    if (io) { const p = PA.find((y) => y.id === io.dataset.plObs); if ((p.obs || '') === io.value) return;
-      q(sb.from('parcelamentos').update({ obs: io.value }).eq('id', p.id)).then(() => { p.obs = io.value; aviso('✓ Observação gravada.'); }, (e) => aviso(erroAmigavel(e), true)); }
-  });
-  pintar();
+  $('nt-gerar').onclick = gerar;
+  ligarFiltroRotina(el, pintar); pintar();
 }
+
 
 // ── 4) Financeiro do escritório: atalhos ──
 async function rotinaFinanceiro(el) {

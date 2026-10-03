@@ -447,7 +447,9 @@ function editorProposta(o, p, repinta) {
       '<div class="pr-texto" id="pr-texto" contenteditable="true">' + (p.texto || '') + '</div></div>' +
       '<div class="inteiro" id="pr-completo-box"' + ((p.formato || 'simplificada') === 'completa' ? '' : ' hidden') + '><div class="secao">Detalhamento do serviço <span class="sub">— entra só na versão completa</span></div>' +
       '<div class="pr-texto pr-completo" id="pr-completo" contenteditable="true">' + (p.texto_completo || '<h3>Escopo</h3><ul><li></li></ul><h3>Prazo</h3><p></p><h3>Documentos necessários</h3><ul><li></li></ul>') + '</div></div>' +
-      '<div class="inteiro"><div class="secao">Valores</div><div id="pr-itens"></div><button type="button" class="btn btn-o btn-mini" id="pr-add">+ Item</button></div></form>',
+      '<div class="inteiro"><div class="secao">Valores</div><div id="pr-itens"></div><button type="button" class="btn btn-o btn-mini" id="pr-add">+ Item</button></div></form>' +
+      // Backup 42: prévia ao vivo — a proposta como o cliente vai ver, redesenhada enquanto você digita (leve: só depois de uma pausa na digitação)
+      '<aside class="pr-ao-vivo"><div class="secao">👁 Prévia ao vivo</div><iframe id="pr-previa" title="Prévia da proposta" sandbox></iframe></aside>',
     rodape: '<div class="acoes"><button class="btn btn-o" type="button" id="pr-pdf">Ver / salvar PDF</button><button class="btn btn-o" type="button" id="pr-guardar">Guardar nos Documentos</button>' +
       '<button class="btn btn-o" type="button" id="pr-email">Enviar por e-mail</button>' + (o.prospecto_telefone ? '<button class="btn btn-o" type="button" id="pr-zap">WhatsApp</button>' : '') + '</div>' +
       '<div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Fechar</button><button class="btn btn-p" type="button" id="pr-salvar">Salvar</button></div>' });
@@ -464,6 +466,10 @@ function editorProposta(o, p, repinta) {
     j.querySelectorAll('#pr-itens [data-x]').forEach((b) => b.onclick = () => { itens.splice(+b.dataset.x, 1); pintarItens(); });
   };
   pintarItens();
+  j.querySelector('.janela').classList.add('pr-janela');
+  let tPrev; const previa = () => { clearTimeout(tPrev); tPrev = setTimeout(() => { const fr = j.querySelector('#pr-previa'); if (fr && fr.isConnected) fr.srcdoc = '<!doctype html><html><body style="margin:0;background:#EEF1F6;padding:10px">' + htmlProposta(o, atual()) + '</body></html>'; }, 450); };
+  j.querySelector('#f-pr').addEventListener('input', previa); j.querySelector('#f-pr').addEventListener('change', previa); j.querySelector('#f-pr').addEventListener('click', previa);
+  setTimeout(previa, 0);
   j.querySelector('#pr-add').onclick = () => { itens.push({ servico: '', forma: '', valor: 0 }); pintarItens(); };
   j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
   const atual = () => Object.assign({}, p, { titulo: f.titulo.value.trim(), validade: f.validade.value || null, texto: limparHtml(j.querySelector('#pr-texto').innerHTML), itens,
@@ -497,7 +503,8 @@ function editorProposta(o, p, repinta) {
     const para = prompt('Enviar a proposta para qual e-mail?', o.prospecto_email || (o.cliente_id && (E.clientes.find((c) => c.id === o.cliente_id) || {}).email) || '');
     if (!para) return;
     await q(sb.rpc('crm_enviar_proposta', { p_proposta: p.id, p_para: para.trim(), p_html: htmlProposta(o, d) }));
-    aviso('✓ Proposta na fila de e-mails para ' + para.trim() + ' (sai em até 5 minutos).'); fecharJanela(j); await repinta();
+    const s = await enviarEmailAgora(null, para.trim());   // Backup 42: sai na hora
+    aviso('Proposta: ' + (s.ok ? '✓ ' : '⚠ ') + s.msg, !s.ok); fecharJanela(j); await repinta();
   });
   const zap = j.querySelector('#pr-zap');
   if (zap) zap.onclick = () => {

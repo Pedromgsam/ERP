@@ -592,10 +592,11 @@
       const tabela = tr.closest('table'), cab = tabela && tabela.querySelector('thead tr:last-child');
       if (cab && !cab.querySelector('.gx-th-acoes')) { const th = document.createElement('th'); th.className = 'gx-th-acoes'; th.setAttribute('aria-label', 'Ações'); cab.appendChild(th); }
       const ultima = document.createElement('td'); ultima.className = 'gx-td-acoes'; tr.appendChild(ultima);
-      const [t, , , sit] = tr.dataset.gx.split(':');
+      const [t, , , sit, rec] = tr.dataset.gx.split(':');
       const span = document.createElement('span');
       span.className = 'gx-la';
-      span.innerHTML = (sit === 'a' ? '<button type="button" class="gx-la-bx" data-la="baixa" title="Dar baixa (pago hoje)">✓ Baixa</button>' : '')
+      span.innerHTML = (sit === 'a' && rec === 'r' ? '<button type="button" class="gx-la-cb" data-la="cobrar" title="Cobrar pelo WhatsApp (texto pronto)">💬 Cobrar</button>' : '')
+        + (sit === 'a' ? '<button type="button" class="gx-la-bx" data-la="baixa" title="Dar baixa (pago hoje)">✓ Baixa</button>' : '')
         + '<button type="button" class="gx-la-ed" data-la="editar" title="Editar" aria-label="Editar">✎</button>';
       void t;
       ultima.appendChild(span);
@@ -612,6 +613,7 @@
     e.stopPropagation(); e.preventDefault();
     const [t, id] = b.closest('tr').dataset.gx.split(':');
     if (b.dataset.la === 'editar') editarPorMarca(b.closest('tr').dataset.gx);
+    else if (b.dataset.la === 'cobrar') { if (window.GS && window.GS.cobrarWhatsApp) window.GS.cobrarWhatsApp(id); }
     else { const txt = b.textContent; b.disabled = true; b.textContent = '…'; baixaRapida(t, id).finally(() => { if (b.isConnected) { b.disabled = false; b.textContent = txt; } }); }
   }, true);
   // clicar numa parcela de acordo abre o detalhe (o que é, todas as parcelas, ações)

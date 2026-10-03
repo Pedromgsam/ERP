@@ -1152,7 +1152,7 @@ body.gx-barra-topo table:has(> #tblExecRanking) th{white-space:nowrap!important}
 body.gx-barra-topo #tblExecRanking td:has(.er-grupo){width:80px!important;max-width:80px!important;min-width:0!important}
 body.gx-barra-topo #tblExecRanking .er-grupo{white-space:normal!important;overflow:visible!important;text-overflow:clip!important;overflow-wrap:normal!important;word-break:normal!important;
   hyphens:none!important;max-width:none!important;width:auto!important;display:inline!important;line-height:1.35}
-body.gx-barra-topo #tblExecRanking td:has(.er-nome){min-width:104px!important;white-space:normal!important}
+body.gx-barra-topo #tblExecRanking td:has(.er-nome){min-width:104px!important;width:200px;max-width:230px;white-space:normal!important}
 body.gx-barra-topo #tblExecRanking td.mono,body.gx-barra-topo #tblExecRanking td.mono strong{white-space:nowrap}
 body.gx-barra-topo #tblExecRanking td:nth-child(4){white-space:nowrap}
 /* Backup 40: Acordos → A pagar — colunas redistribuídas e dois botões simples (Emitir/Emitido · Baixa) */
@@ -1189,6 +1189,93 @@ body.gx-barra-topo .gs .janela-rp{position:static;flex:none}
 .gs .mp-lista{display:flex;flex-direction:column;gap:6px}
 .gs .mp-linha{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;gap:8px;align-items:center;padding:10px 12px;border:1px solid var(--border);border-radius:var(--r-ctl);background:var(--surface)}
 .gs .mp-linha .mp-a{min-width:0}
-.gs .mp-linha .mp-a .sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gs .mp-linha .mp-a .sub{white-space:normal;line-height:1.4}
 .gs .mp-linha .btn{white-space:nowrap}
 @media (max-width:600px){.gs .mp-linha{grid-template-columns:1fr 1fr 1fr}.gs .mp-linha .mp-a{grid-column:1 / -1}}
+/* Backup 42: selo "boleto/PIX" do envio no tamanho do texto; e-mails da empresa acima do campo */
+.gs .ge-it-txt .ge-forma{align-self:flex-start;width:auto}
+.gs .ge-para-campo select{margin-bottom:6px}
+/* Backup 42: Rotina (Passivo e Processos) — faixa do grupo simples, sem contorno nem sublinhado azul; Conferência no fim da linha */
+.gs tr.rt-grp td{background:var(--surface3);color:var(--text2);font-weight:700;font-size:12px;letter-spacing:.03em;text-transform:uppercase;padding:7px 10px;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.gs .rt-pas td.rt-c-conf,.gs .rt-pas th.rt-c-conf{width:150px;min-width:150px}
+/* Backup 42: Rotina → Planilha de parcelamentos (formato das antigas Notificações) */
+.gs .nt-acoes{margin-left:auto;display:flex;align-items:center;gap:10px}
+.gs .nt-legenda{display:flex;gap:16px;margin:10px 0 12px;font-size:12px;color:var(--text3)}
+.gs .nt-legenda span{display:inline-flex;align-items:center;gap:6px}
+.gs .nt-d{width:11px;height:11px;border-radius:3px;border:1.5px solid;display:inline-block}
+.gs .nt-d-v{background:var(--red-lt);border-color:var(--red)}.gs .nt-d-m{background:var(--amber-lt);border-color:var(--amber)}.gs .nt-d-e{background:var(--green-lt);border-color:var(--green)}
+.gs .nt-grp{margin:16px 0 6px;font-size:11.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text3)}
+.gs .nt-emp{border:1px solid var(--border);border-radius:var(--card-r-sm);background:var(--surface);margin-bottom:10px;overflow:hidden}
+.gs .nt-emp-hd{display:flex;align-items:center;gap:10px;padding:11px 14px;background:var(--surface2);border-bottom:1px solid var(--border);cursor:pointer}
+.gs .nt-emp-hd b{font-size:14px;color:var(--ink)}
+.gs .nt-it{display:grid;grid-template-columns:auto auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:9px 14px;border-bottom:1px solid var(--line);cursor:pointer}
+.gs .nt-it:last-child{border-bottom:0}
+.gs .nt-it.nt-venc{background:color-mix(in srgb,var(--red-lt) 70%,transparent)}
+.gs .nt-it.nt-env{background:color-mix(in srgb,var(--green-lt) 70%,transparent)}
+.gs .nt-pill{font-size:11px;font-weight:700;padding:2px 8px;border-radius:var(--r-pill);border:1px solid;white-space:nowrap}
+.gs .nt-venc .nt-pill{color:var(--red);border-color:var(--red-bd);background:var(--red-lt)}
+.gs .nt-mes .nt-pill{color:var(--amber-d,var(--amber));border-color:var(--amber);background:var(--amber-lt)}
+.gs .nt-env .nt-pill{color:var(--green);border-color:var(--green-bd);background:var(--green-lt)}
+.gs .nt-venc-d{font-size:12px;color:var(--text3);white-space:nowrap}
+.gs .nt-out-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.gs .nt-msg{border:1px solid var(--border);border-radius:var(--card-r-sm);padding:14px;margin-bottom:14px;background:var(--surface)}
+.gs .nt-msg.nt-feita{border-color:var(--green-bd);background:color-mix(in srgb,var(--green-lt) 50%,var(--surface))}
+.gs .nt-msg-hd{display:flex;align-items:baseline;gap:10px;margin-bottom:10px}
+.gs .nt-msg-hd b{font-size:15px;color:var(--ink)}
+.gs .nt-vals{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px}
+.gs .nt-vals label{display:flex;flex-direction:column;gap:3px}
+.gs .nt-txt{width:100%;font:13px/1.55 var(--font-ui);padding:10px 12px;border:1px solid var(--border);border-radius:var(--r-ctl);background:var(--surface2);resize:vertical}
+.gs .nt-env-l{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 170px;gap:8px;margin:10px 0}
+.gs .nt-bts{justify-content:flex-end;flex-wrap:wrap}
+@media (max-width:700px){.gs .nt-env-l{grid-template-columns:1fr}.gs .nt-it{grid-template-columns:auto 1fr}.gs .nt-it .nt-desc,.gs .nt-it .nt-venc-d{grid-column:2}}
+/* Backup 42: Passivo com a Conferência no fim — tudo cabe na largura (sem rolar para o lado) */
+.gs .rt-pas table{table-layout:fixed;width:100%}
+.gs .rt-pas th:nth-child(1){width:auto}
+.gs .rt-pas th:nth-child(2),.gs .rt-pas th:nth-child(3),.gs .rt-pas th:nth-child(4){width:122px}
+.gs .rt-pas th:nth-child(5){width:58px}
+.gs .rt-pas th:nth-child(6),.gs .rt-pas th:nth-child(7){width:84px}
+.gs .rt-pas th:nth-child(8){width:104px}
+.gs .rt-pas td.rt-c-conf,.gs .rt-pas th.rt-c-conf{width:128px;min-width:0}
+.gs .rt-pas td,.gs .rt-pas th{padding-left:5px!important;padding-right:5px!important}
+.gs .rt-pas .rt-in{width:100%;min-width:0;box-sizing:border-box}
+.gs .nt-env-l select,.gs .nt-env-l input{height:36px;padding:6px 10px;border:1px solid var(--border-strong);border-radius:var(--r-ctl);font:13px var(--font-ui);background:var(--surface);color:var(--text);min-width:0}
+.gs .rt-pas thead th{letter-spacing:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gs .rt-pas .rt-valor{padding-left:6px;padding-right:6px}
+.gs .rt-pas .rt-cf{display:flex;flex-direction:row-reverse;justify-content:flex-end;align-items:center;gap:6px;min-width:0}
+.gs .rt-pas .rt-cf .rt-cf-txt{white-space:normal;font-size:12px;line-height:1.3;min-width:0}
+.gs .rt-pas .rt-cf .btn{flex:0 0 auto}
+/* ═══ Backup 42: menu na barra de cima; lateral estreita (largura de "encolhida") sem ícones, com as seções da tela aberta ═══ */
+@media (min-width:1101px){body.gx-barra-topo.gx-menu-topo{--sw:68px;--gut:max(24px,calc((100vw - 68px - var(--conteudo)) / 2))}}
+body.gx-menu-topo #gs-hd #gs-tela-nome{display:none!important}
+body.gx-menu-topo #gs-hd #tn{display:flex!important;align-items:center;justify-content:flex-start;gap:1px;flex:1;min-width:0;padding:0!important;margin:0!important;overflow:visible!important;background:none!important;height:auto!important}
+body.gx-menu-topo #gs-hd #tn .tn-sec{display:none}
+body.gx-menu-topo #gs-hd #tn .tn-ic:not(.tn-seta){display:none}
+body.gx-menu-topo #gs-hd #tn .tn-it{display:inline-flex!important;align-items:center;gap:3px;width:auto!important;padding:7px 6px!important;border:0!important;border-radius:8px!important;background:none!important;color:var(--text2)!important;font:500 13px var(--font-ui)!important;white-space:nowrap;cursor:pointer;justify-content:flex-start!important}
+body.gx-menu-topo #gs-hd #tn .tn-it:hover{background:var(--surface3)!important;color:var(--ink)!important}
+body.gx-menu-topo #gs-hd #tn .tn-it.ativo,body.gx-menu-topo #gs-hd #tn .tn-grupo.ativo > .tn-it{background:var(--blue-lt)!important;color:var(--primario)!important;font-weight:600!important}
+body.gx-menu-topo #gs-hd #tn .tn-seta{width:12px;height:12px}
+body.gx-menu-topo #gs-hd #tn .tn-grupo{position:relative}
+body.gx-menu-topo #gs-hd #tn .tn-grupo.on > .tn-it .tn-seta{transform:rotate(180deg)}
+body.gx-menu-topo #gs-hd #tn .tn-rot{display:inline}
+body.gx-menu-topo #gs-lado .gl-marca{min-height:var(--hh)}
+body.gx-menu-topo #gs-lado .gl-nome{display:none}
+body.gx-menu-topo #gl-sub{display:flex;flex-direction:column;gap:4px;padding:10px 6px}
+body.gx-menu-topo #gl-sub button{background:none;border:0;border-radius:8px;padding:9px 2px;color:var(--lado-fg);font:600 10.5px/1.3 var(--font-ui);text-align:center;cursor:pointer;word-break:normal;overflow-wrap:normal}
+body.gx-menu-topo #gl-sub button:hover{background:var(--lado-hover,rgba(255,255,255,.08))}
+body.gx-menu-topo #gl-sub button.ativo{background:var(--lado-ativo-bg,rgba(255,255,255,.14));color:var(--lado-ativo-fg,var(--on-cor))}
+@media (max-width:1100px){body.gx-menu-topo #gs-hd #tn{display:none!important}}
+body.gx-barra-topo.gx-menu-topo #gs-hd{padding:0 14px!important;gap:8px!important}
+body.gx-barra-topo #tblExecRanking td.er-sit{width:130px}
+body.gx-barra-topo #tblExecRanking td.mono{width:1%}
+/* Backup 42: proposta com prévia ao vivo ao lado do formulário */
+.gs .janela.pr-janela{max-width:min(1320px,96vw)!important;width:96vw}
+.gs .pr-janela .janela-bd{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:start}
+.gs .pr-ao-vivo{position:sticky;top:0}
+.gs .pr-ao-vivo iframe{width:100%;height:68vh;border:1px solid var(--border);border-radius:var(--r-ctl);background:#EEF1F6}
+@media (max-width:1000px){.gs .pr-janela .janela-bd{grid-template-columns:1fr}.gs .pr-ao-vivo iframe{height:50vh}}
+/* Backup 42: botão "💬 Cobrar" nas linhas a receber */
+.gx-la .gx-la-cb{font:600 12px var(--font-ui);padding:4px 9px;border-radius:var(--r-ctl);border:1px solid var(--green-bd);background:var(--green-lt);color:var(--green-d);cursor:pointer;white-space:nowrap;margin-right:4px}
+.gx-la .gx-la-cb:hover{border-color:var(--green)}
+.gs td.acoes-l:has(.gx-cobrar){white-space:nowrap}
+/* o menu de cima respeita o que cada pessoa pode ver (as regras gerais perdiam para o display do item) */
+body.gx-menu-topo #gs-hd #tn .gx-sem-funcao,body.modo-cliente #gs-hd #tn .gx-so-equipe,body:not(.gx-admin) #gs-hd #tn .gx-so-admin{display:none!important}
