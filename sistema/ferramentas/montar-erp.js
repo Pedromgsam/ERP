@@ -648,6 +648,9 @@ trocar(`  var c=_FA_PESSOA[String(nome||'').trim()];
     for(var _k in _FA_PESSOA) if(_n(_k)===_n(nome)){ c=_FA_PESSOA[_k]; break; } }
   if(c) return c;`);
 
+// Backup 41: Painel → "Em operação" vira "Operação" (cabe numa linha)
+trocar(`<th style="width:96px">Em operação</th>`, `<th style="width:84px">Operação</th>`);
+
 // 13. Cores de tokens.css (fonte única) depois do CSS do ERP; modo escuro lembrado neste aparelho.
 trocar('\n</head>\n', '\n<link rel="stylesheet" href="tokens.css">\n<link rel="stylesheet" href="tema-escuro.css">\n<link rel="stylesheet" href="design.css">\n' +
   '<script>try{if(localStorage.getItem("erp_tema")==="escuro")document.documentElement.setAttribute("data-tema","escuro")}catch(e){}</script>\n</head>\n', 1);
@@ -693,10 +696,10 @@ let graf = ler('graficos.js').replace("document.addEventListener('DOMContentLoad
 const bundle = "'use strict';\n// GERADO por sistema/ferramentas/montar-erp.js — não edite; edite os arquivos do Gestão.\n(function () {\n" +
   "const _raiz = document.createElement('div'); _raiz.id = 'gs-raiz'; _raiz.className = 'gs';\n" +
   "_raiz.innerHTML = '<div id=\"janelas\"></div><div id=\"aviso\"></div>'; document.body.appendChild(_raiz);\n" +
-  [nuc, graf, ler('telas-painel.js'), ler('telas-financeiro.js'), ler('telas-cadastros.js'), ler('telas-admin.js'), ler('telas-tarefas.js'), ler('telas-documentos.js'), ler('telas-cliente360.js'), ler('telas-crm.js'), ler('telas-publicacoes.js'), ler('telas-acordos.js'), ler('telas-alertas.js'), ler('telas-automacoes.js'), ler('telas-aprovacoes.js'), ler('telas-emails.js'), ler('telas-guias.js'), ler('telas-rotina.js'), ler('telas-relatorio.js')].join('\n') +
+  [nuc, graf, ler('telas-painel.js'), ler('telas-financeiro.js'), ler('telas-cadastros.js'), ler('telas-admin.js'), ler('telas-tarefas.js'), ler('telas-documentos.js'), ler('telas-cliente360.js'), ler('telas-crm.js'), ler('telas-publicacoes.js'), ler('telas-acordos.js'), ler('telas-alertas.js'), ler('telas-automacoes.js'), ler('telas-guias.js'), ler('telas-rotina.js')].join('\n') +
   "\n// toda gravação confirmada aparece também no rodapé do ERP\nconst _avisoOrig = aviso;\n" +
   "aviso = function (msg, erro) { _avisoOrig(msg, erro); if (!erro && window.ERP_EDITOR && /^✓/.test(msg)) window.ERP_EDITOR.gravou(String(msg).replace(/^✓\\s*/, '')); };\n" +
-  "window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, invalidarCadastros, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo, perguntarBaixa, detalheContrato, ICONE_AVISO, abrirTarefa, detalheLancamento, edicaoLancamentos, janelaModelosEmail, janelaAutoEmails, janelaGeradores, formReuniao, janelaDelegar, abrirGeradorContrato, cardGuias, emitirParcela, enviarAcordosSelecionados, gerarGuias, janelaMovimentacao, janelaRelatorioPDF };\n})();\n";
+  "window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, invalidarCadastros, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo, perguntarBaixa, detalheContrato, ICONE_AVISO, abrirTarefa, detalheLancamento, formReuniao, janelaDelegar, abrirGeradorContrato, cardGuias, emitirParcela, enviarAcordosSelecionados, gerarGuias, janelaMovimentacao };\n})();\n";
 fs.writeFileSync(path.join(APP, 'gestao-embutida.js'), bundle);
 
 // CSS do Gestão só dentro de .gs (as telas do Gestão) e #gs-hd (barra superior)
@@ -771,5 +774,4 @@ console.log('index.html gerado: ' + trocas + ' ajustes, ' + Math.round(s.length 
   }
 }
 
-// 16. Geradores de documentos (Backup 16): páginas separadas em app/geradores/, com a ponte do ERP
-require('./montar-geradores').montar();
+// 16. (Backup 41: os geradores antigos — petição, solicitação, proposta, modelos de e-mail — saíram; fica a Central em app/documentos/)

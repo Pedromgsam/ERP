@@ -376,7 +376,7 @@ TELAS.tarefas = async function () {
     '<div class="segmento tf-abas-seg" id="tf-abas">' + [['abertas', 'Em aberto'], ['concluidas', 'Concluídas'], ['excluidas', 'Excluídas']]
       .map(([v, r]) => '<button data-aba="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<div class="filtros">' +
-    '<div class="segmento" id="tf-vista">' + [['lista', 'Lista'], ['semana', 'Minha semana'], ['kanban', 'Quadro'], ['calendario', 'Calendário'], ['fluxos', 'Fluxos'], ['relatorio', 'Relatório']]
+    '<div class="segmento" id="tf-vista">' + [['lista', 'Lista'], ['semana', 'Minha semana'], ['kanban', 'Quadro'], ['calendario', 'Calendário'], ['fluxos', 'Fluxos']]
       .map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<div class="segmento" id="tf-atalho">' + [['', 'Todas'], ['minhas', 'Minhas'], ['hoje', 'Hoje'], ['atrasadas', 'Atrasadas'], ['7', '7 dias']].concat(F.atalho === 'atencao' ? [['atencao', 'Pedem atenção']] : [])
       .map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
@@ -434,7 +434,7 @@ function pintarTarefas() {
   document.querySelectorAll('#tf-abas button').forEach((b) => b.classList.toggle('ativo', b.dataset.aba === F.aba));
   document.querySelectorAll('#tf-resp button').forEach((b) => b.classList.toggle('ativo', b.dataset.v === (F.resp || '')));
   document.querySelectorAll('#tf-pri button').forEach((b) => b.classList.toggle('ativo', b.dataset.v === (F.pri || '')));
-  $('tf-atalho').style.display = F.vista === 'fluxos' || F.vista === 'relatorio' || F.aba !== 'abertas' ? 'none' : '';
+  $('tf-atalho').style.display = F.vista === 'fluxos' || F.aba !== 'abertas' ? 'none' : '';
   const todas = E._tarefas || [];
   const abertas = todas.filter((t) => !tarefaFechada(t));
   const atrasadas = abertas.filter((t) => t.prazo && t.prazo < h).length;
@@ -444,8 +444,9 @@ function pintarTarefas() {
     kpi('Atrasadas', String(atrasadas), atrasadas ? 'vermelho' : 'verde', 'todas as pessoas') +
     kpi('Prazos fatais em 7 dias', String(fatais), fatais ? 'ambar' : '', 'tarefas com prazo fatal marcado') +
     kpi('Concluídas no mês', String(todas.filter((t) => t.status === 'concluida' && String(t.concluida_em || '').slice(0, 7) === h.slice(0, 7)).length), 'verde', '') + '</div>';
-  const V = { lista: vistaLista, semana: vistaSemana, kanban: vistaKanban, calendario: vistaCalendario, fluxos: vistaFluxos, relatorio: vistaRelatorio };
+  const V = { lista: vistaLista, semana: vistaSemana, kanban: vistaKanban, calendario: vistaCalendario, fluxos: vistaFluxos };
   $('tf-corpo').innerHTML = kpis + '<div id="tf-vista-corpo"></div>';
+  if (!V[F.vista]) F.vista = 'lista';
   V[F.vista]($('tf-vista-corpo'));
 }
 const recarregarTarefas = () => TELAS.tarefas();
@@ -590,77 +591,6 @@ async function horasGastasPorPessoa(alvo) {
 }
 function diasEntre(a, b) { return Math.round((new Date(b + 'T12:00:00') - new Date(a + 'T12:00:00')) / 86400000); }
 
-// ── Relatório: por pessoa, prazos fatais, exportação ──
-function vistaRelatorio(alvo) {
-  const ts = E._tarefas || [], h = hojeISO(), mes = E.tf.mesRel || h.slice(0, 7);
-  const pessoas = [...new Set(Object.keys(PESSOA).concat(ts.map((t) => t.responsavel).filter(Boolean)))];
-  const linhas = pessoas.map((p) => {
-    const d = ts.filter((t) => t.responsavel === p), ab = d.filter((t) => !tarefaFechada(t));
-    const concl = d.filter((t) => t.status === 'concluida' && String(t.concluida_em || '').slice(0, 7) === mes);
-    const noPrazo = concl.filter((t) => !t.prazo || String(t.concluida_em).slice(0, 10) <= t.prazo).length;
-    return { p, abertas: ab.length, atrasadas: ab.filter((t) => t.prazo && t.prazo < h).length, concl: concl.length,
-      noPrazo: concl.length ? Math.round(noPrazo / concl.length * 100) : null, horas: soma(ab, (t) => t.estimativa_horas) };
-  }).filter((l) => l.abertas || l.concl);
-  const concl = ts.filter((t) => t.status === 'concluida' && t.concluida_em);
-  const medio = concl.length ? soma(concl, (t) => (new Date(t.concluida_em) - new Date(t.criado_em)) / 86400000) / concl.length : null;
-  const fatConcl = concl.filter((t) => t.prazo_fatal), fatOk = fatConcl.filter((t) => String(t.concluida_em).slice(0, 10) <= t.prazo_fatal).length;
-  const fatais = ts.filter((t) => !tarefaFechada(t) && t.prazo_fatal && t.prazo_fatal <= somarDias(h, 30)).sort((a, b) => a.prazo_fatal.localeCompare(b.prazo_fatal));
-  // por cliente no mês: concluídas no prazo × com atraso; e as abertas atrasadas
-  const porCli = {};
-  ts.forEach((t) => { const k = quemTarefa(t); if (!k) return; const c = porCli[k] = porCli[k] || { concl: 0, noPrazo: 0, atrasoConcl: 0, abertasAtr: 0 };
-    if (t.status === 'concluida' && String(t.concluida_em || '').slice(0, 7) === mes) { c.concl++; if (!t.prazo || String(t.concluida_em).slice(0, 10) <= t.prazo) c.noPrazo++; else c.atrasoConcl++; }
-    if (!tarefaFechada(t) && t.prazo && t.prazo < h) c.abertasAtr++; });
-  const cliLinhas = Object.entries(porCli).filter(([, c]) => c.concl || c.abertasAtr).sort((a, b) => b[1].abertasAtr - a[1].abertasAtr || b[1].concl - a[1].concl);
-  // carga da semana: horas estimadas (abertas com prazo até sexta) × horas disponíveis de cada pessoa
-  const sexta = somarDias(h, (5 - new Date(h + 'T12:00:00').getDay() + 7) % 7), cap = E._cargaHoras || {};
-  const carga = pessoasEscritorio().map((p) => { const d = ts.filter((t) => !tarefaFechada(t) && primeiroNome(t.responsavel) === primeiroNome(p) && t.prazo && t.prazo <= sexta);
-    return { p, n: d.length, horas: soma(d, (t) => t.estimativa_horas), cap: Number(cap[primeiroNome(p)] || 40) }; }).filter((c) => c.n);
-  const meses = [...Array(12)].map((_, i) => { const d = new Date(h + 'T12:00:00'); d.setDate(1); d.setMonth(d.getMonth() - i); return iso(d).slice(0, 7); });
-  alvo.innerHTML = '<div class="filtros" style="margin-bottom:10px"><label class="sub">Mês do relatório <select class="busca sel" id="tf-mes-rel">' + meses.map((m) => '<option value="' + m + '"' + (m === mes ? ' selected' : '') + '>' + nomeMes(new Date(m + '-01T12:00:00')) + '</option>').join('') + '</select></label></div>' +
-    '<div class="kpis">' + kpi('Tempo médio de conclusão', medio == null ? '—' : String(Math.round(medio * 10) / 10).replace('.', ',') + ' dia(s)', '', concl.length + ' concluída(s)') +
-    kpi('Prazos fatais cumpridos', fatConcl.length ? Math.round(fatOk / fatConcl.length * 100) + '%' : '—', fatConcl.length && fatOk < fatConcl.length ? 'vermelho' : 'verde', fatOk + ' de ' + fatConcl.length + ' · meta 100%') + '</div>' +
-    '<div class="card"><div class="card-hd">Por pessoa <button class="btn btn-o btn-mini" id="tf-csv">Baixar planilha (CSV)</button></div>' +
-    '<div class="tabela-wrap"><table class="ordenavel"><thead><tr><th>Pessoa</th><th data-tipo="num">Abertas</th><th data-tipo="num">Atrasadas</th><th data-tipo="num">Concluídas no mês</th><th data-tipo="num">% no prazo</th><th data-tipo="num">Horas estimadas (abertas)</th><th data-tipo="num">Horas gastas no mês</th></tr></thead><tbody>' +
-    (linhas.map((l) => '<tr><td>' + pillPessoa(l.p) + '</td><td class="mono">' + l.abertas + '</td><td class="mono">' + (l.atrasadas ? '<b style="color:var(--red)">' + l.atrasadas + '</b>' : '0') + '</td>' +
-      '<td class="mono">' + l.concl + '</td><td class="mono">' + (l.noPrazo == null ? '—' : l.noPrazo + '%') + '</td><td class="mono">' + (l.horas ? String(l.horas).replace('.', ',') : '—') + '</td><td class="mono" data-gasto="' + esc(l.p) + '">—</td></tr>').join('') ||
-      '<tr><td colspan="7" class="sub">Nenhuma tarefa.</td></tr>') + '</tbody></table></div></div>' +
-    '<div class="card"><div class="card-hd">Por cliente — ' + esc(nomeMes(new Date(mes + '-01T12:00:00'))) + '</div>' + (cliLinhas.length ? '<div class="tabela-wrap"><table class="ordenavel"><thead><tr><th>Cliente / grupo</th>' +
-      '<th data-tipo="num">Concluídas</th><th data-tipo="num">No prazo</th><th data-tipo="num">Com atraso</th><th data-tipo="num">Abertas atrasadas hoje</th></tr></thead><tbody>' +
-      cliLinhas.map(([k, c]) => '<tr><td><b>' + esc(k) + '</b></td><td class="mono">' + c.concl + '</td><td class="mono">' + c.noPrazo + '</td><td class="mono">' + (c.atrasoConcl ? '<b style="color:var(--red)">' + c.atrasoConcl + '</b>' : '0') + '</td>' +
-        '<td class="mono">' + (c.abertasAtr ? '<b style="color:var(--red)">' + c.abertasAtr + '</b>' : '0') + '</td></tr>').join('') + '</tbody></table></div>' : '<div class="vazio">Nada no mês.</div>') + '</div>' +
-    '<div class="card"><div class="card-hd">⚖ Carga da semana (até ' + dataBR(sexta).slice(0, 5) + ')' + ((E.perfil || {}).papel === 'admin' ? ' <button class="btn btn-o btn-mini" id="tf-cap">Horas disponíveis</button>' : '') + '</div>' +
-      (carga.length ? '<div class="card-bd">' + carga.map((c) => { const pc = c.cap ? Math.min(100, Math.round(c.horas / c.cap * 100)) : 0;
-        return '<div class="carga-lin"><div class="carga-nome">' + pillPessoa(c.p) + '</div><div class="carga-bar"><div class="carga-in' + (c.horas > c.cap ? ' acima' : pc > 80 ? ' alta' : '') + '" style="width:' + pc + '%"></div></div>' +
-          '<div class="carga-num mono">' + String(c.horas).replace('.', ',') + ' / ' + c.cap + ' h · ' + c.n + ' tarefa(s)</div></div>'; }).join('') +
-        '<p class="sub">Horas estimadas das tarefas abertas com prazo até sexta × horas disponíveis na semana. Tarefa sem estimativa conta 0 h — preencha "Estimativa (h)" para a carga ficar fiel.</p></div>'
-        : '<div class="vazio">Ninguém com tarefa para esta semana.</div>') + '</div>' +
-    '<div class="card"><div class="card-hd">Prazos fatais nos próximos 30 dias (e vencidos)</div>' +
-    (fatais.length ? '<div class="tabela-wrap"><table><thead><tr><th>Prazo fatal</th><th>Tarefa</th><th>Cliente / grupo</th><th>Pessoa</th><th>Status</th></tr></thead><tbody>' +
-      fatais.map((t) => '<tr class="clicavel" data-editar-t="' + t.id + '"><td class="mono">' + dataBR(t.prazo_fatal) + (t.prazo_fatal < h ? ' <span class="pill vencido">vencido</span>' : '') + '</td><td><b>' + esc(t.titulo) + '</b></td>' +
-        '<td>' + esc(quemTarefa(t) || '—') + '</td><td>' + pillPessoa(t.responsavel) + '</td><td>' + esc(STATUS_TAREFA[t.status] || t.status) + '</td></tr>').join('') +
-      '</tbody></table></div>' : '<div class="vazio">Nenhum prazo fatal nos próximos 30 dias.</div>') + '</div>';
-  ligarLinhasTarefa(alvo);
-  horasGastasPorPessoa(alvo).catch(() => {});
-  $('tf-mes-rel').onchange = (ev) => { E.tf.mesRel = ev.target.value; vistaRelatorio(alvo); };
-  if (!E._cargaHoras) q(sb.from('configuracoes').select('valor').eq('chave', 'carga_horas').maybeSingle()).then((r) => { E._cargaHoras = (r && r.valor) || {}; if (carga.length) vistaRelatorio(alvo); }).catch(() => { E._cargaHoras = {}; });
-  const bc = $('tf-cap'); if (bc) bc.onclick = () => {
-    const k = abrirJanela({ titulo: 'Horas disponíveis por semana',
-      corpo: '<div class="grade">' + pessoasEscritorio().map((p) => campo(esc(p), '<input type="number" min="0" max="80" data-cap="' + esc(primeiroNome(p)) + '" value="' + (cap[primeiroNome(p)] || 40) + '">')).join('') + '</div>' +
-        '<p class="sub">Ex.: estagiário de meio período = 20.</p>', rodape: '<span></span><button class="btn btn-p" type="button" id="cap-ok">Salvar</button>' });
-    k.querySelector('#cap-ok').onclick = (ev) => comBotao(ev.currentTarget, async () => {
-      const v = {}; k.querySelectorAll('[data-cap]').forEach((i) => { v[i.dataset.cap] = Math.max(0, parseInt(i.value, 10) || 0); });
-      await q(sb.from('configuracoes').upsert({ chave: 'carga_horas', valor: v }, { onConflict: 'chave' })); E._cargaHoras = v;
-      aviso('✓ Horas salvas.'); fecharJanela(k); vistaRelatorio(alvo);
-    });
-  };
-  $('tf-csv').onclick = () => {
-    const cab = ['Tarefa', 'Status', 'Pessoa', 'Prazo', 'Prazo fatal', 'Cliente', 'Grupo', 'Prioridade', 'Etiquetas', 'Concluída em'];
-    const lin = filtrarTarefas().map((t) => [t.titulo, STATUS_TAREFA[t.status] || t.status, t.responsavel, dataBR(t.prazo), t.prazo_fatal ? dataBR(t.prazo_fatal) : '',
-      nomeCliente(t.cliente_id), nomeGrupo(t.grupo_id), (PRIORIDADE[t.prioridade] || [t.prioridade])[0], t.etiquetas, t.concluida_em ? dataBR(t.concluida_em) : '']);
-    const csv = [cab].concat(lin).map((l) => l.map((c) => '"' + String(c == null ? '' : c).replace(/"/g, '""') + '"').join(';')).join('\r\n');
-    baixarArquivo('tarefas-' + hojeISO() + '.csv', '﻿' + csv, 'text/csv;charset=utf-8');
-  };
-}
 
 // ─────────────────────────── formulário ───────────────────────────
 function selectPares(nome, pares, v) {

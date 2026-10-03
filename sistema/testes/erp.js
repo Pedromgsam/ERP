@@ -323,7 +323,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('Clientes: coluna Área (Jurídico / Contábil / Jurídico e contábil), sem ▸', /Área/.test(await p.textContent('#panel-clientes .cli-tabela thead')) && (await p.$$('#panel-clientes .cli-seta')).length === 0);
     await p.click('#panel-clientes tr[data-cli]:has-text("Alfa Comércio Ltda")'); await p.waitForSelector('.janela.ficha #fc-abas'); await p.waitForTimeout(1200);
     ok('clicar no cliente abre a ficha completa (sem expandir para baixo)', (await p.$$('#panel-clientes tr.cli-det')).length === 0);
-    ok('ficha do cliente abre com 15 abas e resumo', (await p.$$('.janela.ficha #fc-abas button')).length === 15 && /A receber/.test(await p.textContent('#fc-corpo')));
+    ok('ficha do cliente abre com 13 abas e resumo', (await p.$$('.janela.ficha #fc-abas button')).length === 13 && /A receber/.test(await p.textContent('#fc-corpo')));
     await foto(p, 'ficha');
     await p.click('#fc-abas [data-aba=contatos]'); await p.waitForSelector('[data-novo-sub]'); await p.click('[data-novo-sub]');
     await p.waitForSelector('#f-sub'); await p.waitForTimeout(250);
@@ -342,7 +342,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.click('#fc-abas [data-aba=documentos]'); await p.waitForSelector('[data-enviar-doc]'); await p.click('[data-enviar-doc]');
     await p.waitForSelector('#doc-arq', { state: 'attached' });
     await p.setInputFiles('#doc-arq', { name: 'contrato-social.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 ficticio') });
-    await p.click('#doc-tipos [data-v=societario]'); await p.click('#btn-enviar-doc'); await p.waitForTimeout(2000);
+    await p.selectOption('#f-doc [name=tipo]', 'societario'); await p.click('#btn-enviar-doc'); await p.waitForTimeout(2000);
     ok('documento vai para o armazenamento privado e fica ligado ao cliente', sql("select d.nome||'|'||d.tipo||'|'||c.nome from documentos d join clientes c on c.id=d.cliente_id") === 'contrato-social.pdf|societario|Alfa Comércio Ltda' &&
       (await (await p.request.get(BASE + '/__teste/arquivos')).json()).includes('documentos/' + sql('select caminho from documentos')));
     const [pedido] = await Promise.all([p.context().waitForEvent('request', (q) => /\/storage\/v1\/object\/sign\/.*token=/.test(q.url())), p.click('#fc-corpo [data-abrir-doc]')]);
@@ -369,8 +369,8 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('fluxo cria etapas e subtarefas', sql("select count(*) from tarefas where fluxo_id is not null") === '7' && sql("select count(*) from tarefas where tarefa_pai_id is not null") === '2');
     ok('prazos em dias úteis pulam fim de semana e feriado (12/10)', sql("select prazo from tarefas where titulo='Minuta da defesa'") === '2026-10-09' && sql("select prazo_fatal from tarefas where titulo='Protocolo'") === '2026-10-16');
     ok('responsável do fluxo recebe aviso', sql("select count(*) from notificacoes n join perfis p on p.id=n.usuario_id where p.email='equipe@teste'") === '1');
-    for (const v of ['kanban', 'calendario', 'fluxos', 'relatorio']) { await p.click('#tf-vista [data-v=' + v + ']'); await p.waitForTimeout(500); }
-    ok('vistas Quadro, Calendário, Fluxos e Relatório', await p.isVisible('#tf-csv') && /Adriana/.test(await p.textContent('#tf-vista-corpo')));
+    for (const v of ['kanban', 'calendario', 'fluxos']) { await p.click('#tf-vista [data-v=' + v + ']'); await p.waitForTimeout(500); }
+    ok('vistas Quadro, Calendário e Fluxos; sem Relatório (Backup 41)', !(await p.$('#tf-vista [data-v=relatorio]')) && /execução fiscal/i.test(await p.textContent('#tf-vista-corpo')));
     await p.click('#tf-vista [data-v=fluxos]'); await p.waitForTimeout(500);
     ok('fluxo com linha do tempo', (await p.$$('#tf-vista-corpo .gantt-lin')).length === 7);
     await foto(p, 'fluxos');
@@ -431,29 +431,21 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await nav(p, 'admin'); await p.waitForTimeout(1500);
     await p.click('#adm-abas [data-aba=usuarios]'); await p.waitForTimeout(1200);
     await p.click('[data-funcoes="' + sql("select id from perfis where email='equipe@teste'") + '"]'); await p.waitForSelector('.grade-funcoes'); await p.waitForTimeout(250);
-    await p.click('[data-modelo-acesso="Estagiário (rascunho)"]'); await p.click('.gf-areas [data-v=juridico]'); await p.click('#btn-salvar-func'); await p.waitForTimeout(1500);
-    ok('admin escolhe as funções com um modelo pronto (estagiário em rascunho)', sql("select funcoes->>'juridico'||'|'||coalesce(funcoes->>'financeiro_juridico','-') from perfis where email='equipe@teste'") === 'propor|-');
+    await p.click('[data-modelo-acesso="Estagiário"]'); await p.click('.gf-areas [data-v=juridico]'); await p.click('#btn-salvar-func'); await p.waitForTimeout(1500);
+    ok('admin escolhe as funções com um modelo pronto (estagiário) — sem a opção Rascunho', sql("select funcoes->>'juridico'||'|'||coalesce(funcoes->>'financeiro_juridico','-') from perfis where email='equipe@teste'") === 'editar|-' &&
+      !(await p.$('.grade-funcoes [data-v=propor]')));
     ok('admin escolhe quais clientes a pessoa vê (só Jurídico)', sql("select areas from perfis where email='equipe@teste'") === 'juridico');
-    // ── estagiário: altera como rascunho; outra pessoa aprova ──
+    // ── Backup 41: estagiário grava direto (o rascunho/aprovação saiu) ──
     sql("update clientes set area='contabil' where nome=(select nome from clientes order by nome desc limit 1)");
-    const cliR = sql("select id from clientes where area<>'contabil' order by nome limit 1"), telAntes = sql("select telefone from clientes where id='" + cliR + "'");
+    const cliR = sql("select id from clientes where area<>'contabil' order by nome limit 1");
     const pe = await pagina();
     await entrar(pe, 'equipe@teste'); await carregado(pe); await pe.waitForTimeout(1500);
     ok('só Jurídico: não recebe cliente só da Contabilidade', await pe.evaluate(async () => { await GS.carregarCadastros(true); return GS.E.clientes.every((c) => c.area !== 'contabil') && GS.E.clientes.length > 0; }));
-    ok('modo rascunho avisado no Início', /modo rascunho/.test(await pe.textContent('#panel-hoje')));
     await pe.evaluate((id) => GS.formCliente(GS.E.clientes.find((c) => c.id === id)), cliR); await pe.waitForSelector('#f-cli');
     await pe.click('[data-cli-aba=contato]'); await pe.fill('#f-cli [name=telefone]', '31 3333-0000'); await pe.click('#btn-salvar-cli'); await pe.waitForTimeout(1500);
-    const avR = await pe.textContent('#gs-raiz #aviso');
-    ok('estagiário salva: vai para aprovação (não grava direto)', /aprovação/.test(avR) && sql("select telefone from clientes where id='" + cliR + "'") === telAntes &&
-      sql("select count(*) from rascunhos where status='pendente' and tabela='clientes'") === '1', avR + ' | ' + sql("select count(*) from rascunhos"));
+    ok('estagiário salva direto (sem aprovação)', sql("select telefone from clientes where id='" + cliR + "'") === '(31) 3333-0000');
     await pe.close();
-    await nav(p, 'hoje'); await p.waitForTimeout(1500);
-    ok('Início avisa quem aprova', /aguardando sua aprovação/.test(await p.textContent('#panel-hoje')));
-    await p.click('#panel-hoje [data-ir-aprovacoes]'); await p.waitForSelector('#panel-aprovacoes [data-aprovar]', { timeout: 8000 });
-    ok('Aprovações mostra antes → depois', /\(31\) 3333-0000/.test(await p.textContent('#panel-aprovacoes .ap-item')));
-    await foto(p, 'aprovacoes');
-    await p.click('#panel-aprovacoes [data-aprovar]'); await p.waitForTimeout(2000);
-    ok('aprovado: a alteração passa a valer', sql("select telefone from clientes where id='" + cliR + "'") === '(31) 3333-0000' && sql("select status from rascunhos limit 1") === 'aprovado');
+    ok('sem tela de Aprovações', !(await p.$('#panel-aprovacoes')) && !(await p.$('[data-acao=aprovacoes]')));
     sql("update perfis set areas='ambos' where email='equipe@teste'"); sql("update clientes set area='ambos'");
     sql("update perfis set funcoes='{\"financeiro_juridico\":\"editar\",\"financeiro_contab\":\"editar\",\"contratos\":\"editar\",\"clientes\":\"editar\",\"juridico\":\"editar\",\"tarefas\":\"editar\",\"documentos\":\"editar\",\"crm\":\"editar\",\"relatorios\":\"editar\"}' where email='equipe@teste'");
     const pf = await pagina();
@@ -845,13 +837,11 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('Acordos: sem "Progresso por acordo"; uma aba só "A pagar" (vencidas + a vencer) com Grupo e Responsável', !(await p.isVisible('#acordProgressList')) &&
       !(await p.isVisible('#acordTabBar [data-atab=pagar]')) && /A pagar/.test(await p.textContent('#acordTabBar')) &&
       (await p.$$eval('#acordTabVencidos thead th', (l) => l.map((t) => t.textContent))).join('|').includes('Grupo|Processo') && !(await p.textContent('#acordTabVencidos thead')).includes('Responsável'));
-    ok('Acordos: cada parcela a pagar tem "🧾 Emitir" e dá para marcar e enviar por empresa', !!(await p.$('#tblAcordosVencBody [data-ac-guia]')) && !!(await p.$('#tblAcordosVencBody [data-ac-sel]')));
-    await p.check('#tblAcordosVencBody [data-ac-sel] >> nth=0'); await p.waitForTimeout(300);
-    ok('Acordos: marcar a parcela mostra "✉ Enviar por empresa"', await p.isVisible('#acSelEnviar'));
-    await p.click('#acSelEnviar'); await p.waitForSelector('#gs-raiz .ge-janela', { timeout: 8000 }).catch(() => {});
-    ok('Acordos: "Enviar por empresa" abre a janela de envio dos boletos', await p.isVisible('#gs-raiz .ge-janela'));
+    // Backup 41: sem a caixinha de marcar — cada linha tem "Emitir", que abre a janela de envio
+    ok('Acordos: cada parcela a pagar tem "Emitir" e não tem mais a caixinha de marcar', !!(await p.$('#tblAcordosVencBody [data-ac-guia]')) && !(await p.$('#tblAcordosVencBody [data-ac-sel]')) && !(await p.$('#acSelTodos')));
+    await p.click('#tblAcordosVencBody [data-ac-guia] >> nth=0'); await p.waitForSelector('#gs-raiz .ge-janela', { timeout: 8000 }).catch(() => {});
+    ok('Acordos: "Emitir" abre a janela de envio', await p.isVisible('#gs-raiz .ge-janela'));
     await p.evaluate(() => { while (document.querySelector('#janelas .fundo')) window.GS.fecharJanela(); });
-    await p.click('#acSelLimpar').catch(() => {});
     // Backup 37: filtros de prazo (vencidas · 5/10/15/30 dias · até) e sem "Situação"; "✓ emitido" ao lado do Emitir
     ok('Acordos: tabela "A pagar" sem a coluna Situação, com filtros de prazo e sem os seletores de grupo/devedor', !(await p.textContent('#acordTabVencidos thead')).includes('Situação') &&
       (await p.$$('#acPrazoBar [data-prazo]')).length === 6 && !!(await p.$('#acPrazoAte')) && !(await p.isVisible('#fAcordVencGrupo')) && !(await p.isVisible('#fAcordVencDev')));
@@ -894,8 +884,8 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     // demonstração
     await nav(p, 'admin'); await p.waitForTimeout(1200);
     await p.click('#adm-abas [data-aba=importar]'); await p.waitForSelector('#demo-carregar'); await p.click('#demo-carregar'); await p.waitForTimeout(3000);
-    ok('Administração: carregar a demonstração (clientes, contratos, CRM, tarefas, rascunho)', sql("select count(*) from clientes where nome like '%Horizonte%' or chave_importacao like 'demo:%'") === '6' &&
-      Number(sql("select count(*) from crm_oportunidades where titulo like 'DEMO%'")) === 3 && sql("select count(*) from rascunhos where resumo like '%(demonstração)%'") === '1');
+    ok('Administração: carregar a demonstração (clientes, contratos, CRM, tarefas)', sql("select count(*) from clientes where nome like '%Horizonte%' or chave_importacao like 'demo:%'") === '6' &&
+      Number(sql("select count(*) from crm_oportunidades where titulo like 'DEMO%'")) === 3);
     await p.click('#demo-apagar'); await p.waitForTimeout(3000);
     ok('Administração: apagar a demonstração não deixa rastro', sql("select count(*) from clientes where chave_importacao like 'demo:%'") === '0' && sql("select count(*) from grupos where nome like 'DEMO%'") === '0');
 
@@ -911,12 +901,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.goBack(); await p.waitForTimeout(1200);
     ok('botão "voltar" do navegador volta para a tela anterior', /#clientes$/.test(p.url()) && await p.isVisible('#panel-clientes'), p.url());
     ok('Clientes abre agrupado por grupo', (await p.$$('#panel-clientes tr.cli-grp')).length >= 1);
-    // editar em tabela (passivo)
-    await p.click('#cli-massa'); await p.waitForSelector('table.massa');
-    { const nome = await p.$eval('table.massa tr[data-i="0"] [data-k=nome]', (x) => x.value);
-      await p.fill('table.massa tr[data-i="0"] [data-k=pgfn]', '7.777,00'); await p.dispatchEvent('table.massa tr[data-i="0"] [data-k=pgfn]', 'input');
-      await salvarGs(p, '#massa-salvar');
-      ok('Editar em tabela: grava só a linha alterada', sql("select pgfn from clientes where nome=" + "'" + nome.replace(/'/g, "''") + "'") === '7777.00'); }
+    ok('Clientes: sem "Editar em tabela" (Backup 41)', !(await p.$('#cli-massa')));
     await p.evaluate(() => { if (window.ERP_EDITOR) window.ERP_EDITOR.gravou('teste do rodapé'); }); await p.waitForTimeout(500);
     { const on0 = await p.evaluate(() => document.getElementById('gx-rodape').classList.contains('on')); await p.waitForTimeout(8600);
       ok('rodapé "Última gravação" some sozinho', on0 && !(await p.evaluate(() => document.getElementById('gx-rodape').classList.contains('on')))); }
@@ -930,24 +915,10 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     // Backup 40: conciliação de extrato (OFX) e "Editar em tabela" saíram do Financeiro
     await nav(p, 'financeiro'); await p.waitForTimeout(1200);
     ok('Financeiro: sem "Conciliar extrato" e sem "Editar em tabela"', !(await p.$('#panel-financeiro [data-ofx]')) && !(await p.$('#panel-financeiro [data-massa-lanc]')) && !(await p.evaluate(() => !!(window.GS && window.GS.conciliarOfx))));
-    // PGFN (API do SERPRO imitada no servidor de teste)
-    sql("insert into config_privada(chave,valor) values ('api_pgfn','{\"ligada\":true,\"frequencia\":\"diaria\",\"consumer_key\":\"chave-teste\",\"consumer_secret\":\"segredo-teste\",\"token_url\":\"http://127.0.0.1:8090/__teste/serpro/token\",\"base_url\":\"http://127.0.0.1:8090/__teste/serpro\"}') on conflict (chave) do update set valor=excluded.valor");
-    sql("insert into clientes(nome,cpf_cnpj,tipo) values ('PGFN Teste Ltda','99111222000133','Consultoria')");
-    { const r = await p.evaluate(async () => { const s = (await SB.auth.getSession()).data.session;
-        return (await fetch('/functions/v1/erp-pgfn', { method: 'POST', headers: { authorization: 'Bearer ' + s.access_token, 'content-type': 'application/json' }, body: '{"acao":"rodar"}' })).json(); });
-      ok('PGFN: consulta o CNPJ, separa por origem e atualiza PGFN / PGFN negociada', !r.erro && sql("select pgfn||'|'||pgfn_negociada from clientes where nome='PGFN Teste Ltda'") === '112345.67|250000.50' &&
-        sql("select string_agg(natureza, ',' order by natureza) from pgfn_inscricoes") === 'FGTS,Simples Nacional,Tributária', JSON.stringify(r)); }
+    // Backup 41: PGFN pela API do SERPRO e "fotos mensais" removidas (o cliente de teste continua, com os valores direto no cadastro)
+    sql("insert into clientes(nome,cpf_cnpj,tipo,pgfn,pgfn_negociada) values ('PGFN Teste Ltda','99111222000133','Consultoria',112345.67,250000.50)");
     await p.evaluate(() => GS.carregarCadastros(true));
-    await p.evaluate(() => GS.abrirFicha(GS.E.clientes.find((c) => c.nome === 'PGFN Teste Ltda').id, 'pgfn')); await p.waitForTimeout(1500);
-    ok('ficha do cliente: aba PGFN com as CDAs', /10 5 26 000001-01/.test(await p.textContent('#fc-corpo')) && /Parcelada \/ negociada/.test(await p.textContent('#fc-corpo')));
-    await p.keyboard.press('Escape'); await p.waitForTimeout(200);
-    // evolução (foto mensal)
-    { const cli = sql("select id from clientes where nome='Alfa Comércio Ltda'");
-      sql("select public.tirar_fotos_mensais((current_date - interval '1 month')::date)");
-      sql("update clientes set rfb = coalesce(rfb,0) + 1000 where id='" + cli + "'");
-      await p.evaluate((id) => GS.abrirFicha(id, 'evolucao'), cli); await p.waitForTimeout(1500);
-      ok('ficha do cliente: Evolução compara com o mês passado ("devia X, hoje deve Y")', /devia R\$/.test(await p.textContent('.ev-frase')) && /\+R\$\s?1\.000,00/.test(await p.textContent('.ev-frase')));
-      await p.keyboard.press('Escape'); await p.waitForTimeout(200); }
+    ok('Sem PGFN/SERPRO e sem Evolução (foto mensal) na ficha', sql("select count(*) from pg_tables where tablename in ('pgfn_inscricoes','fotos_mensais','rascunhos')") === '0');
     await nav(p, 'admin'); await p.waitForTimeout(1200);
     await p.click('#adm-abas [data-aba=usuarios]'); await p.waitForTimeout(1200);
     ok('Usuários: os 4 acessos combinados aparecem com "Criar conta"', (await p.$$('[data-prev]')).length === 4);
@@ -1087,9 +1058,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     { const idS = sql("select id from tarefas where titulo='Semana B16'"), p0 = sql("select prazo::text from tarefas where titulo='Semana B16'");
       await p.evaluate((id) => GS.abrirTarefa(id), idS); await p.waitForSelector('#tf-f-pular'); await p.click('#tf-f-pular'); await p.waitForTimeout(1500);
       ok('Tarefa recorrente: "Pular esta vez" passa para o mês seguinte sem concluir', sql("select status||'|'||(prazo = ('" + p0 + "'::date + interval '1 month')::date)::text from tarefas where titulo='Semana B16'") === 'pendente|true'); }
-    await p.click('#tf-vista [data-v=relatorio]'); await p.waitForTimeout(800);
-    ok('Tarefas: relatório com mês, por cliente e carga da semana', !!(await p.$('#tf-mes-rel')) && /Por cliente/.test(await p.textContent('#tf-corpo')) && /Carga da semana/.test(await p.textContent('#tf-corpo')));
-    await p.click('#tf-vista [data-v=lista]');
+    ok('Tarefas: sem a vista Relatório (Backup 41)', !(await p.$('#tf-vista [data-v=relatorio]')));
     // Alertas: virar tarefa com subtarefas
     await nav(p, 'alertas'); await p.waitForTimeout(2500);
     { let bt = null;
@@ -1109,21 +1078,8 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('Documentos: "Gerar documentos ↗" abre o sistema numa aba nova; sem "Gerar documento" no menu', await p.getAttribute('#doc-ger', 'target') === '_blank' &&
       /documentos\/index\.html/.test(await p.getAttribute('#doc-ger', 'href')) && !(await p.$('#tn [data-ir=gerador]')));
 
-    // Geradores de documentos (páginas separadas, com a ponte do ERP)
-    { const g = await p.context().newPage(); g.on('dialog', (d) => d.accept());
-      g.on('pageerror', (e) => erros.push('gerador: ' + e.message));
-      await g.goto(BASE + '/geradores/peticao.html'); await g.waitForSelector('#ponte'); await g.waitForTimeout(800);
-      await g.fill('#ponte-cli', 'Alfa Comércio Ltda'); await g.click('#ponte-preencher'); await g.waitForTimeout(1500);
-      ok('Gerador de petição: exige login, puxa o cliente do banco e monta a peça', /ALFA COM[EÉ]RCIO LTDA/i.test(await g.textContent('#folha')) && /Nestes termos/.test(await g.textContent('#folha')));
-      await g.click('#ponte-guardar'); await g.waitForTimeout(2000);
-      ok('Gerador: "Guardar em Documentos" salva na pasta do cliente', sql("select count(*) from documentos d join clientes c on c.id=d.cliente_id where c.nome='Alfa Comércio Ltda' and d.tipo='peticao'") === '1', await g.textContent('#ponte-msg'));
-      await g.goto(BASE + '/geradores/contrato-procuracao.html'); await g.waitForSelector('#ponte'); await g.waitForTimeout(800);
-      ok('Gerador de contrato: contas bancárias fora do arquivo público', !/SICOOB \(756\)',ag:'4113'/.test(await g.content()) && /var BANCOS=\{\}/.test(await g.content()));
-      await g.fill('#ponte-cli', 'Alfa Comércio Ltda'); await g.click('#ponte-preencher'); await g.waitForTimeout(1200);
-      ok('Gerador de contrato: preenche o contratante com os dados do cliente', /alfa com[eé]rcio/i.test(await g.inputValue('#ctteRazao').catch(() => '')) || /alfa com[eé]rcio/i.test(await g.inputValue('#ctteNome').catch(() => '')));
-      await g.close();
-      const semLogin = await (await b.newContext()).newPage(); await semLogin.goto(BASE + '/geradores/propostas.html'); await semLogin.waitForTimeout(1500);
-      ok('Gerador sem login: bloqueia a página', await semLogin.isVisible('#ponte-bloqueio')); await semLogin.close(); }
+    // Backup 41: geradores antigos removidos
+    ok('Geradores antigos saíram do site', (await p.request.get(BASE + '/geradores/peticao.html')).status() === 404);
     // Backup 37: Alertas mais enxutos — sem PGFN por arquivo, sem "Sem contato" e "CAPAG D"; em Documentos só o certificado digital
     { await nav(p, 'alertas'); await p.waitForTimeout(2500); const tx = await p.textContent('#panel-alertas');
       ok('Alertas: sem PGFN por arquivo, "Sem contato", "CAPAG D" e "Documentos vencendo"; com "Certificado digital vencendo" e busca de publicações (web)',
@@ -1287,13 +1243,8 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await nav(p, 'publicacoes'); await p.waitForSelector('#pub-advs', { timeout: 8000 }).catch(() => {}); await p.waitForTimeout(800);
     ok('Publicações: filtro por advogado (botões com os nomes cadastrados nas OABs)', (await p.$$('#pub-advs button')).length >= 2);
 
-    // Backup 29: Relatório em PDF refeito (⋯ → Relatório em PDF)
-    await p.click('#gs-hd .gs-bt-mais'); await p.click('#gs-hd [data-acao=pdf]'); await p.waitForSelector('#gs-raiz #rp-gerar');
-    { const [pop] = await Promise.all([p.waitForEvent('popup'), p.click('#gs-raiz #rp-gerar')]);
-      await pop.waitForSelector('main .kpis', { timeout: 15000 }).catch(() => {});
-      const t = await pop.textContent('body').catch(() => '');
-      ok('Relatório em PDF: novo layout com números, passivo, parcelamentos e processos', /Passivo em aberto/.test(t) && /Passivo tributário por empresa/.test(t) && /Parcelamentos/.test(t) && /Processos judiciais/.test(t) && /Salvar em PDF/.test(t), t.slice(0, 200));
-      await pop.close(); }
+    // Backup 41: ⋯ sem "Relatório em PDF"
+    await p.click('#gs-hd .gs-bt-mais'); ok('Menu ⋯ sem Relatório em PDF e sem Aprovações', !(await p.$('#gs-hd [data-acao=pdf]')) && !(await p.$('#gs-hd [data-acao=aprovacoes]'))); await p.keyboard.press('Escape');
 
     // ── Backup 37 ──
     { // Rotina: passivo sem "Em operação"; Painel com "Em operação" antes da CAPAG
@@ -1301,7 +1252,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       ok('Rotina: passivo sem a coluna "Em operação"', !/Em operação/.test(await p.textContent('#rt-corpo thead')));
       await p.evaluate(() => nav(null, 'resumo')); await p.waitForTimeout(2000);
       const thsPe = (await p.$$eval('#execRankHead th', (l) => l.map((x) => x.textContent.trim()))).join(' ');
-      ok('Painel: "Em operação" presente, sem CEAT e sem CAPAG (B39); situação sem caixa alta', /Em operação/.test(thsPe) && !/CAPAG|CEAT/.test(thsPe) &&
+      ok('Painel: "Operação" presente (B41), sem CEAT e sem CAPAG; situação sem caixa alta', /Operação/.test(thsPe) && !/Em operação/.test(thsPe) && !/CAPAG|CEAT/.test(thsPe) &&
         await p.evaluate(() => [...document.querySelectorAll('#tblExecRanking td.er-sit .tag')].every((x) => x.textContent === '—' || x.textContent !== x.textContent.toUpperCase())));
       // contador da sessão na barra de cima (só cai por inatividade)
       ok('Barra de cima: contador discreto da sessão', /⏱\d+′/.test(await p.textContent('#gs-sessao')));
@@ -1333,7 +1284,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       await nav(p, 'documentos'); await p.waitForTimeout(1500);
       // Backup 40: o certificado entra pelo "+ Enviar documento" (tipo Certificado digital)
       await p.click('#doc-novo'); await p.waitForSelector('#f-doc');
-      await p.click('#doc-tipos [data-v=certificado]');
+      await p.selectOption('#f-doc [name=tipo]', 'certificado');
       const cid = sql("select id from clientes where nome='Alfa Comércio Ltda'");
       await p.selectOption('#f-doc [name=cliente_id]', cid); await p.setInputFiles('#doc-arq', dir + '/cert.pfx');
       await p.fill('#f-doc [name=senha]', 'errada'); await p.waitForTimeout(1500);

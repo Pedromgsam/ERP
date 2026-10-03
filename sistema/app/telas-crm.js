@@ -642,8 +642,11 @@ async function janelaEtapasCrm() {
 async function janelaModelosProposta() {
   const ms = await q(sb.from('crm_modelos_proposta').select('*').order('nome'));
   const j = abrirJanela({ titulo: 'Modelos de proposta', larga: true,
-    corpo: '<div class="lista-ficha">' + ms.map((m) => '<div class="item-ficha"><div><b>' + esc(m.nome) + '</b><div class="sub">' + (m.itens || []).map((i) => esc(i.servico)).join(' · ') + '</div></div>' +
-      '<span><button class="btn btn-o btn-mini" data-mp-ver="' + m.id + '">👁 Simplificada</button> ' + (m.texto_completo ? '<button class="btn btn-o btn-mini" data-mp-ver="' + m.id + '" data-completa="1">👁 Completa</button> ' : '') + '<button class="btn btn-o btn-mini" data-mp="' + m.id + '">Editar</button></span></div>').join('') + '</div>',
+    // Backup 41: uma linha por modelo, em 4 colunas fixas — A (nome e itens) · B Simplificada · C Completa · D Editar
+    corpo: '<div class="mp-lista">' + ms.map((m) => '<div class="mp-linha"><div class="mp-a"><b>' + esc(m.nome) + '</b><div class="sub">' + (m.itens || []).map((i) => esc(i.servico)).join(' · ') + '</div></div>' +
+      '<button class="btn btn-o btn-mini" data-mp-ver="' + m.id + '">👁 Simplificada</button>' +
+      (m.texto_completo ? '<button class="btn btn-o btn-mini" data-mp-ver="' + m.id + '" data-completa="1">👁 Completa</button>' : '<button class="btn btn-o btn-mini" disabled title="Sem detalhamento: clique em Editar e escreva a versão completa">👁 Completa</button>') +
+      '<button class="btn btn-o btn-mini" data-mp="' + m.id + '">Editar</button></div>').join('') + '</div>',
     rodape: '<span></span><button class="btn btn-p" type="button" id="mp-novo">+ Novo modelo</button>' });
   const editar = (m) => {
     m = m || { nome: '', texto: '<p>Prezado(a) {cliente},</p><p></p><p>Esta proposta vale até {validade}.</p>', itens: [] };

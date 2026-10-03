@@ -17,14 +17,13 @@ TELAS.inicio = async function () {
   // Fica: Olá, Lembretes, Resumo do escritório e a fila/agenda de tarefas.
   $('conteudo').innerHTML =
     '<div class="titulo-pag"><div><h1>Olá, ' + esc(primeiroNomeUsuario()) + '</h1></div></div>' +
-    '<div id="ini-valid"></div><div id="ini-lembretes"></div><div id="ini-resumo"></div><div id="ini-aprov"></div>' +
+    '<div id="ini-valid"></div><div id="ini-lembretes"></div><div id="ini-resumo"></div>' +
     '<div id="ini-fila"></div>';
   cardLembretes().catch((e) => console.error(e));
   cardResumoEscritorio().catch((e) => console.error(e));
   if (typeof buscaPubAutomatica === 'function') buscaPubAutomatica().catch(() => {});
   if (typeof vigiarAgenda === 'function') vigiarAgenda();   // Backup 40: aviso antes dos compromissos
   if (typeof cardValidacoes === 'function') cardValidacoes().then((c) => { const el = $('ini-valid'); if (el) { el.innerHTML = c.html; c.ligar(el); } }).catch((e) => console.error(e));
-  if (typeof cardAprovacoes === 'function') cardAprovacoes().then((x) => { const el = $('ini-aprov'); if (el) el.innerHTML = x; }).catch((e) => console.error(e));
   if (typeof cardMinhaFila === 'function') cardMinhaFila().then((c) => { const el = $('ini-fila'); if (el) { el.innerHTML = c.html; c.ligar(el); } }).catch((e) => console.error(e));
 };
 

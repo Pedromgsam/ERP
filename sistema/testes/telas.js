@@ -213,7 +213,7 @@ const r = []; const ok = (n, c) => r.push([n, !!c]);
     await menu(p, 'clientes');
     ok('lista de clientes sem ▸ e com a coluna Área', (await p.locator('.cli-seta').count()) === 0 && /Área/.test(await p.textContent('.cli-tabela thead')));
     await p.click('[data-cli]'); await esperar(p, 1000);
-    ok('clicar no cliente abre a ficha 360°', (await p.locator('.janela.ficha #fc-abas button').count()) === 15);   // Backup 38: aba E-mails saiu
+    ok('clicar no cliente abre a ficha 360°', (await p.locator('.janela.ficha #fc-abas button').count()) === 13);   // Backup 41: Evolução e PGFN saíram
     await p.click('#fc-editar'); await esperar(p, 800);
     ok('equipe não tem botão excluir cliente', (await p.locator('#btn-excluir-cli').count()) === 0);
     await p.context().close();

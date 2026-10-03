@@ -30,11 +30,11 @@ Lido automaticamente no início de cada conversa. Mantenha atualizado a cada ent
 ## Infraestrutura
 - Supabase: `https://kukpiyqwtaeuvkvfrjjm.supabase.co` (Postgres, Auth, Storage privado "documentos", pg_cron, pg_net).
 - Vercel publica `sistema/app/` (headers em `sistema/app/vercel.json`).
-- Edge Functions (`supabase/functions/`), nomes exatos: **erp-emails**, **erp-publicacoes**, **erp-cnpj**, **erp-agenda**, **erp-backup**, **erp-pgfn**.
+- Edge Functions (`supabase/functions/`), nomes exatos: **erp-emails**, **erp-publicacoes**, **erp-cnpj**, **erp-agenda**, **erp-backup** (erp-pgfn saiu no Backup 41).
   Todas aceitam `{acao:'ping'}` e têm `const VERSAO`. Autenticação: header `x-erp-segredo`
   (`config_privada.segredo_funcoes`, usado pelo cron) ou JWT de admin.
 - Rotinas (pg_cron, UTC): e-mails, publicações, regras de tarefas, `erp_mensalidades` (09:30),
-  `erp_cnpj` (09:00 = 6h de Brasília), `erp_pgfn` (09:15), `erp_fotos_mensais` (dia 1, 10:00).
+  `erp_cnpj` (09:00 = 6h de Brasília), `erp_avisos_agenda` (5 min).
 
 ## Arquitetura do front (`sistema/app/`)
 - `index.html` = ERP. **Gerado** a partir de `#Sistemas/2 - ERP/ERP.html` + remendos em
@@ -78,12 +78,17 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - **Automação nova:** linha em `regras_tarefas` (chave, nome, descrição, `grupo` tarefas|cliente_email|integracao, `ligada`, `dias`) +
   gatilho/trecho em `rodar_regras_tarefas`; tarefas via `tarefa_da_regra` (registra em `automacoes_log` pelo prefixo da chave),
   e-mail ao cliente via `email_ao_cliente` (nunca repete o mesmo `ref`). Mapear o prefixo em `PREFIXO_AUTOMACAO` (telas-automacoes.js).
-- **Gravação nova em tabela de cadastro:** passa pelo `sb.from()` normal — o modo rascunho intercepta sozinho (tabelas em
-  `TABELAS_RASCUNHO` no nucleo.js e `funcao_da_tabela` no SQL). Baixa (pago) sempre via `perguntarBaixa`.
+- **Gravação nova em tabela de cadastro:** `sb.from()` normal (o modo rascunho saiu no Backup 41). Baixa (pago) sempre via `perguntarBaixa`.
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
-- Última entrega: **Backup 40** (só SQL). Agenda: `janelaAgendar` (async; pessoas = `equipe()` ativas; tipos reuniao/audiencia/compromisso, `.ag-form[data-tipo]`, `TIPOS_AUDIENCIA`,
+- Última entrega: **Backup 41** (só SQL; apagar a função erp-pgfn no painel). Removidos: telas-emails.js, telas-aprovacoes.js (rascunho/`propor`; SQL converte
+  propor → editar/ver e dropa `rascunhos`), telas-relatorio.js, vista relatório de Tarefas, PGFN/SERPRO (`supabase/functions/erp-pgfn`, tabelas pgfn_*), `app/geradores/` +
+  `montar-geradores.js`, fotos mensais (`fotos_mensais`), Clientes/Financeiro "Editar em tabela". Lentidão da Rotina: `contornarGrupos` com assinatura por tbody (`tb._gcSig`)
+  — não mede `getComputedStyle` se as linhas não mudaram. Painel: `table-layout:auto`, "Operação" (trocar no montar-erp), padding 4px, `td:has(.er-nome)` min 104px!important
+  (o inline 170px vencia) — cabe em 1366 px. Acordos A pagar sem `.ac-ck` (9 colunas, `.ac-c-proc`). PIX: `textoGuias` "Acordo para pagamento", `.ge-anexos` hidden só PIX.
+  Documentos: `<select name="tipo">` + `porTipo()` (testes usam `selectOption('#f-doc [name=tipo]')`). CRM: `texto_completo` dos 8 modelos (SQL no fim), `.mp-lista/.mp-linha` (grid A·B·C·D).
+- Backup 40 (base) (só SQL). Agenda: `janelaAgendar` (async; pessoas = `equipe()` ativas; tipos reuniao/audiencia/compromisso, `.ag-form[data-tipo]`, `TIPOS_AUDIENCIA`,
   `processos_vinculados` = nº do processo; `hora_fim`, `conflitosAgenda`, `horaFaixa`, `AVISOS_AGENDA` → `tarefas.aviso_min`; `vigiarAgenda()` (aviso na tela, localStorage `erp_avisos_ag`)
   + SQL `avisos_agenda()` (cron `erp_avisos_agenda`, notificação → e-mail) e gatilho `tarefa_aviso_reset`). Tarefas: `#tf-resp`/`#tf-pri` em `.segmento` (`pessoasFiltro`; pessoa = resp. ou
   participante), `.tf-sem` (Minha semana em cartão 600px), `ag-feita` (riscada). Painel: `tabelaPadrao({semDivisao})`, larguras `table:has(> #tblExecRanking)` (bloco B40 do design.css).

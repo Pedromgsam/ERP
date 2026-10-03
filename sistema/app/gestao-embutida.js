@@ -90,14 +90,14 @@ const FUNCOES = [
   ['tarefas', 'Tarefas', 'Tarefas de todos, fluxos e modelos (as próprias tarefas todos vêem)'],
   ['documentos', 'Documentos', 'Enviar e abrir documentos'],
   ['crm', 'CRM', 'Oportunidades, propostas e funil'],
-  ['relatorios', 'Relatórios', 'Painel Executivo e relatórios em PDF']
+  ['relatorios', 'Relatórios', 'Painel Executivo']
 ];
 const MODELOS_ACESSO = {
   'Sócio (tudo)': Object.fromEntries(FUNCOES.map((f) => [f[0], 'editar'])),
   'Financeiro': { financeiro_juridico: 'editar', financeiro_contab: 'editar', contratos: 'editar', clientes: 'ver', documentos: 'editar', relatorios: 'ver' },
   'Jurídico': { juridico: 'editar', clientes: 'editar', tarefas: 'editar', documentos: 'editar', contratos: 'ver' },
   'Atendimento / Comercial': { crm: 'editar', clientes: 'editar', contratos: 'ver', documentos: 'editar', tarefas: 'ver' },
-  'Estagiário (rascunho)': { juridico: 'propor', clientes: 'propor', tarefas: 'ver', documentos: 'ver', contratos: 'ver' },
+  'Estagiário': { juridico: 'editar', clientes: 'editar', tarefas: 'editar', documentos: 'ver', contratos: 'ver' },
   'Adm. da Contabilidade': { financeiro_contab: 'editar', clientes: 'editar', contratos: 'editar', documentos: 'editar', tarefas: 'editar', relatorios: 'ver' }
 };
 // Área do serviço (gráfico "Recebido por tipo de serviço"). A consultoria mensal continua sendo a regra de recorrência do contrato.
@@ -124,8 +124,6 @@ const TIPOS_EMAIL = [['lembrete', 'Lembrete antes do vencimento'], ['vencimento'
   ['boas_vindas', 'Boas-vindas (contrato assinado)'], ['convite', 'Convite de reunião']];
 // modelo que já escolhe "Clientes que vê"
 const MODELOS_AREA = { 'Adm. da Contabilidade': 'contabil' };
-// Nível "Propor" (rascunho): a pessoa preenche normalmente, mas nada vale até alguém que edita aprovar.
-const FUNCOES_PROPOR = ['financeiro_juridico', 'financeiro_contab', 'contratos', 'clientes', 'juridico'];
 // Área do cliente e áreas que cada usuário vê
 const AREAS = [['juridico', 'Jurídico'], ['contabil', 'Contabilidade'], ['ambos', 'Jurídico + Contabilidade']];
 function rotArea(a) { return (AREAS.find((x) => x[0] === (a || 'ambos')) || AREAS[2])[1]; }
@@ -140,26 +138,20 @@ function pode(f, nivel, perfil) {
   if (p.papel === 'admin') return true;
   if (p.papel !== 'equipe') return false;
   const v = (p.funcoes || {})[f], n = nivel || 'ver';
-  if (v === 'propor') return n !== 'aprovar';          // vê e preenche; a gravação vira rascunho
   return v === 'editar' || (v === 'ver' && n === 'ver');
-}
-// esta pessoa trabalha em modo rascunho nesta função?
-function emRascunho(f, perfil) {
-  const p = perfil || E.perfil || window.ERP_EU || {};
-  return p.papel === 'equipe' && (p.funcoes || {})[f] === 'propor';
 }
 function resumoFuncoes(p) {
   if (p.papel === 'admin') return 'tudo';
   const f = p.funcoes || {}, ks = FUNCOES.filter((x) => f[x[0]]);
   if (ks.length === FUNCOES.length && ks.every((x) => f[x[0]] === 'editar')) return 'tudo';
-  return ks.map((x) => x[1].replace('Financeiro — ', 'Fin. ') + (f[x[0]] === 'ver' ? ' (ver)' : f[x[0]] === 'propor' ? ' (rascunho)' : '')).join(' · ') + (p.areas && p.areas !== 'ambos' ? ' · só ' + rotArea(p.areas) : '') || 'nenhuma';
+  return ks.map((x) => x[1].replace('Financeiro — ', 'Fin. ') + (f[x[0]] === 'ver' ? ' (ver)' : '')).join(' · ') + (p.areas && p.areas !== 'ambos' ? ' · só ' + rotArea(p.areas) : '') || 'nenhuma';
 }
 // grade de funções (Nenhum / Ver / Editar) com os modelos prontos
 function gradeFuncoes(funcoes) {
   funcoes = funcoes || {};
   return '<div class="modelos-acesso">' + Object.keys(MODELOS_ACESSO).map((m) => '<button type="button" class="btn btn-o btn-mini" data-modelo-acesso="' + esc(m) + '">' + esc(m) + '</button>').join('') + '</div>' +
     '<div class="grade-funcoes">' + FUNCOES.map(([k, rot, desc]) => '<div class="gf-lin"><div><b>' + rot + '</b><div class="sub">' + desc + '</div></div><div class="segmento gf-niveis" data-funcao="' + k + '">' +
-      [['', 'Nenhum'], ['ver', 'Ver']].concat(FUNCOES_PROPOR.includes(k) ? [['propor', 'Rascunho']] : [], [['editar', 'Editar']]).map(([v, r]) => '<button type="button" data-v="' + v + '" class="' + ((funcoes[k] || '') === v ? 'ativo' : '') + '">' + r + '</button>').join('') + '</div></div>').join('') + '</div>';
+      [['', 'Nenhum'], ['ver', 'Ver'], ['editar', 'Editar']].map(([v, r]) => '<button type="button" data-v="' + v + '" class="' + ((funcoes[k] || '') === v ? 'ativo' : '') + '">' + r + '</button>').join('') + '</div></div>').join('') + '</div>';
 }
 // quais clientes a pessoa vê: só do Jurídico, só da Contabilidade ou os dois (clientes "Jurídico + Contabilidade" todos veem)
 function gradeAreas(areas) {
@@ -295,7 +287,6 @@ function pillPessoa(n) {
 // ─────────────────────────── avisos e erros ────────────────────────
 let _avisoT;
 function aviso(msg, erro) {
-  if (/^📝/.test(String(msg))) erro = false;              // rascunho enviado: não é erro
   const a = $('aviso');
   a.textContent = msg;
   a.className = 'mostrar' + (erro ? ' erro' : '');
@@ -312,7 +303,6 @@ function marcarGravacao() {
 }
 
 function erroAmigavel(e) {
-  if (e && e.rascunho) return e.message;
   const m = String((e && (e.message || e.error_description)) || e || '');
   if (/Invalid login credentials/i.test(m)) return 'E-mail ou senha incorretos.';
   if (/Email not confirmed/i.test(m)) return 'E-mail ainda não confirmado. Peça ao administrador para confirmar o usuário.';
@@ -354,91 +344,11 @@ async function comBotao(btn, fn) {
   if (btn) btn.disabled = true;
   try { await fn(); }
   catch (e) {
-    if (e && e.rascunho) { const j = btn && btn.closest && btn.closest('.fundo'); if (j) fecharJanela(j); aviso(e.message); return; }
     console.error(e); aviso(erroAmigavel(e), true);
   }
   finally { if (btn) btn.disabled = false; }
 }
 
-// ═════════════ RASCUNHO (nível "Propor" das funções de acesso) ═════════════
-// Quem tem "Rascunho" numa função usa as telas normalmente; na hora de gravar, em vez de
-// alterar o banco, a alteração vai para public.rascunhos (RPC propor_alteracao) e só vale
-// depois que alguém que edita aquela área aprovar (tela Aprovações). O banco garante a regra:
-// sem "Editar", a gravação direta é recusada pela RLS.
-const TABELAS_RASCUNHO = { clientes: 'clientes', contatos: 'clientes', enderecos: 'clientes', contas_bancarias: 'clientes', vinculos_societarios: 'clientes',
-  interacoes: 'clientes', certidoes: 'clientes', cliente_etiquetas: 'clientes', contratos: 'contratos',
-  processos: 'juridico', parcelamentos: 'juridico', parcelas: 'juridico', acordos: 'juridico', lancamentos: '*fin' };
-const NOME_TAB_RASC = { clientes: 'cliente', contatos: 'contato', enderecos: 'endereço', contas_bancarias: 'conta bancária', vinculos_societarios: 'vínculo societário',
-  interacoes: 'interação', certidoes: 'certidão', cliente_etiquetas: 'etiqueta', contratos: 'contrato', processos: 'processo', parcelamentos: 'parcelamento',
-  parcelas: 'parcela', acordos: 'acordo', lancamentos: 'lançamento' };
-function funcaoDaGravacao(t, dados, filtros) {
-  const f = TABELAS_RASCUNHO[t];
-  if (f !== '*fin') return f;
-  const um = Array.isArray(dados) ? dados[0] : dados;
-  const emp = (um && um.empresa) || (filtros.id && window.ERP_LANC && window.ERP_LANC[filtros.id] && window.ERP_LANC[filtros.id].empresa) || '';
-  if (emp) return emp === 'contabilidade' ? 'financeiro_contab' : 'financeiro_juridico';
-  return emRascunho('financeiro_juridico') ? 'financeiro_juridico' : 'financeiro_contab';
-}
-function resumoRascunho(t, op, dados, filtros) {
-  const um = (Array.isArray(dados) ? dados[0] : dados) || {};
-  const nome = um.nome || um.descricao || um.titulo || um.numero || um.processo || '';
-  const campos = op === 'alterar' ? Object.keys(um).filter((k) => !/^(id|atualizado_em)$/.test(k)).length : 0;
-  return ({ incluir: 'Incluir ', alterar: 'Alterar ', excluir: 'Excluir ' }[op]) + (NOME_TAB_RASC[t] || t) + (nome ? ': ' + nome : '') +
-    (op === 'alterar' && !nome ? ' (' + campos + ' campo(s))' : '') + (Array.isArray(dados) && dados.length > 1 ? ' (+' + (dados.length - 1) + ')' : '');
-}
-function envolverRascunho(cli) {
-  if (!cli || cli._rascunho) return cli;
-  cli._rascunho = true;
-  const fromOriginal = cli.from.bind(cli);
-  cli.from = (t) => {
-    const real = fromOriginal(t);
-    if (!TABELAS_RASCUNHO[t]) return real;
-    return new Proxy(real, { get(alvo, k) {
-      if (!['insert', 'update', 'upsert', 'delete'].includes(k)) { const v = alvo[k]; return typeof v === 'function' ? v.bind(alvo) : v; }
-      return (dados, opcoes) => construtorGravacao(real, t, k, dados, opcoes);
-    } });
-  };
-  return cli;
-}
-// grava o encadeamento (.eq, .select, .single…) e decide no fim: grava direto ou vira rascunho
-function construtorGravacao(real, t, metodo, dados, opcoes) {
-  const cadeia = [], filtros = {};
-  const eu = {
-    then(ok, falha) { return executar().then(ok, falha); },
-    catch(falha) { return executar().catch(falha); }
-  };
-  ['eq', 'in', 'match', 'select', 'single', 'maybeSingle', 'order', 'limit', 'neq', 'is', 'not', 'gte', 'lte', 'lt', 'gt', 'filter', 'contains', 'range', 'throwOnError'].forEach((m) => {
-    eu[m] = (...a) => { cadeia.push([m, a]);
-      if (m === 'eq') filtros[a[0]] = a[1]; else if (m === 'in') filtros[a[0]] = a[1]; else if (m === 'match') Object.assign(filtros, a[0]);
-      else if (!['select', 'single', 'maybeSingle', 'order', 'limit', 'throwOnError'].includes(m)) filtros._outro = true;
-      return eu; };
-  });
-  let _p = null;
-  function executar() {
-    if (_p) return _p;
-    const d = metodo === 'delete' ? null : dados;
-    if (metodo === 'upsert' && d && !Array.isArray(d) && d.id) filtros.id = d.id;
-    const f = funcaoDaGravacao(t, d, filtros);
-    if (!emRascunho(f) || filtros._outro) {
-      let b = metodo === 'delete' ? real.delete(opcoes) : real[metodo](dados, opcoes);
-      cadeia.forEach(([m, a]) => { b = b[m](...a); });
-      return (_p = Promise.resolve(b));
-    }
-    const op = metodo === 'insert' || (metodo === 'upsert' && !filtros.id) ? 'incluir' : metodo === 'delete' ? 'excluir' : 'alterar';
-    const semId = Object.assign({}, filtros);
-    return (_p = sb.rpc('propor_alteracao', { p_tabela: t, p_operacao: op, p_filtros: op === 'incluir' ? {} : semId, p_dados: d || {}, p_resumo: resumoRascunho(t, op, d, filtros) })
-      .then(({ error }) => {
-        if (error) return { data: null, error };
-        const e = new Error('📝 Enviado para aprovação: só vale depois que alguém que edita esta área aprovar (veja em Aprovações).');
-        e.rascunho = true;
-        document.dispatchEvent(new CustomEvent('erp:rascunho'));
-        return { data: null, error: e };
-      }));
-  }
-  return eu;
-}
-envolverRascunho(sb);
-if (window.SB && window.SB !== sb) envolverRascunho(window.SB);
 
 // Carrega um script sob demanda (ex.: a biblioteca de Excel, só quando usada).
 const _scripts = {};
@@ -916,14 +826,13 @@ TELAS.inicio = async function () {
   // Fica: Olá, Lembretes, Resumo do escritório e a fila/agenda de tarefas.
   $('conteudo').innerHTML =
     '<div class="titulo-pag"><div><h1>Olá, ' + esc(primeiroNomeUsuario()) + '</h1></div></div>' +
-    '<div id="ini-valid"></div><div id="ini-lembretes"></div><div id="ini-resumo"></div><div id="ini-aprov"></div>' +
+    '<div id="ini-valid"></div><div id="ini-lembretes"></div><div id="ini-resumo"></div>' +
     '<div id="ini-fila"></div>';
   cardLembretes().catch((e) => console.error(e));
   cardResumoEscritorio().catch((e) => console.error(e));
   if (typeof buscaPubAutomatica === 'function') buscaPubAutomatica().catch(() => {});
   if (typeof vigiarAgenda === 'function') vigiarAgenda();   // Backup 40: aviso antes dos compromissos
   if (typeof cardValidacoes === 'function') cardValidacoes().then((c) => { const el = $('ini-valid'); if (el) { el.innerHTML = c.html; c.ligar(el); } }).catch((e) => console.error(e));
-  if (typeof cardAprovacoes === 'function') cardAprovacoes().then((x) => { const el = $('ini-aprov'); if (el) el.innerHTML = x; }).catch((e) => console.error(e));
   if (typeof cardMinhaFila === 'function') cardMinhaFila().then((c) => { const el = $('ini-fila'); if (el) { el.innerHTML = c.html; c.ligar(el); } }).catch((e) => console.error(e));
 };
 
@@ -1701,137 +1610,6 @@ async function detalheLancamento(id) {
   return j;
 }
 
-// ─────────── Editar em tabela / por planilha (Backup 16) ───────────
-// Para completar dados importados sem detalhe (área do serviço, descrição, tipo, pessoa, datas…):
-// edita na tela (Tab/Enter/colar do Excel) ou baixa a planilha, ajusta no Excel e envia de volta.
-// A coluna "id" liga cada linha ao lançamento; só o que mudou é gravado.
-const COLS_LANC = [
-  ['vencimento', 'Vencimento', 'data'], ['descricao', 'Descrição', 'texto'], ['categoria', 'Tipo', 'texto'], ['servico', 'Área do serviço', 'area'],
-  ['referencia', 'Referência', 'texto'], ['valor', 'Valor', 'valor'], ['responsavel', 'Pessoa', 'texto'], ['pago', 'Pago', 'simnao'],
-  ['data_pagamento', 'Pago em', 'data'], ['obs', 'Observação', 'texto']];
-const txtLanc = (l, k, t) => { const v = l[k];
-  if (t === 'simnao') return v ? 'Sim' : 'Não';
-  if (v == null || v === '') return '';
-  if (t === 'valor') return Number(v).toFixed(2).replace('.', ',');
-  if (t === 'data') return dataBR(v);
-  return String(v); };
-function lerCelLanc(k, t, v, rot) {
-  v = String(v == null ? '' : v).trim();
-  if (t === 'simnao') return /^(s|sim|x|true|1|pago)$/i.test(v);
-  if (t === 'valor') { const n = lerValor(v.replace(/^R\$\s*/, '')); if (!v || isNaN(n)) throw new Error(rot + ': valor inválido ("' + v + '").'); return n; }
-  if (t === 'data') { if (!v) return null; const d = /^\d{4}-\d{2}-\d{2}/.test(v) ? { iso: v.slice(0, 10) } : lerDataBR(v); if (!d) throw new Error(rot + ': data inválida ("' + v + '"), use dd/mm/aaaa.'); return d.iso; }
-  if (t === 'area') { if (!v) return ''; const a = AREAS_SERVICO.find((x) => normalizar(x) === normalizar(v)); if (!a) throw new Error(rot + ': área "' + v + '" não existe (use ' + AREAS_SERVICO.join(', ') + ').'); return a; }
-  if (k === 'descricao' && !v) throw new Error(rot + ': a descrição não pode ficar vazia.');
-  return v;
-}
-async function edicaoLancamentos(empresa) {
-  const nomeEmp = empresa === 'contabilidade' ? 'Contabilidade' : 'Jurídico';
-  const todos = await buscarTodos(() => sb.from('lancamentos').select('*, grupos(nome), clientes(nome)').eq('empresa', empresa).order('vencimento', { ascending: false }));
-  const EST = { filtro: 'sem_area', busca: '' };
-  const j = abrirJanela({ titulo: '✎ Editar em tabela — Financeiro ' + nomeEmp, larga: true,
-    corpo: '<div class="dica" style="margin-bottom:10px">Para completar o que veio da planilha sem detalhe. Clique numa célula e digite (<b>Tab</b> anda para a direita, <b>Enter</b> para baixo, pode <b>colar do Excel</b>). ' +
-        'Ou use <b>⬇ Baixar planilha</b>, ajuste no Excel (não mexa na coluna <b>id</b>) e <b>⬆ Enviar planilha</b>. Só o que mudou é gravado.</div>' +
-      '<div class="filtros" style="margin-bottom:8px"><select class="busca sel" id="ml-filtro"><option value="sem_area">Sem área do serviço</option><option value="receitas">Todas as receitas</option>' +
-        '<option value="todos">Tudo (receitas e despesas)</option></select><input class="busca" id="ml-busca" placeholder="Buscar grupo, cliente ou descrição" autocomplete="off">' +
-        '<span class="sub" id="ml-qtd"></span></div><div id="ml-grade"></div>',
-    rodape: '<span><button class="btn btn-o" type="button" id="ml-baixar">⬇ Baixar planilha</button> <label class="btn btn-o" style="cursor:pointer">⬆ Enviar planilha<input type="file" id="ml-arq" accept=".xlsx" hidden></label></span>' +
-      '<div class="acoes"><span class="sub" id="ml-conta">Nenhuma alteração</span><button class="btn btn-p" type="button" id="ml-salvar">Salvar alterações</button></div>' });
-  j.querySelector('.janela').classList.add('janela-massa', 'janela-cheia');
-  let lista = [];
-  const filtrar = () => { const b = normalizar(EST.busca);
-    return todos.filter((l) => (EST.filtro === 'todos' || l.tipo === 'receita') && (EST.filtro !== 'sem_area' || !l.servico) &&
-      (!b || normalizar([(l.grupos || {}).nome, (l.clientes || {}).nome, l.favorecido, l.descricao].join(' ')).includes(b))).slice(0, 400); };
-  const cel = (i, c) => j.querySelector('tr[data-i="' + i + '"] [data-c="' + c + '"]');
-  const marcar = (el) => { const l = lista[+el.closest('tr').dataset.i], [k, , t] = COLS_LANC[+el.dataset.c];
-    el.closest('td').classList.toggle('mudou', el.value.trim() !== txtLanc(l, k, t));
-    const n = new Set([...j.querySelectorAll('td.mudou')].map((td) => td.parentElement.dataset.i)).size;
-    j.querySelector('#ml-conta').textContent = n ? n + ' linha(s) alterada(s)' : 'Nenhuma alteração'; };
-  const pintar = () => {
-    if (j.querySelector('td.mudou') && !confirm('Há alterações não salvas nesta lista. Trocar o filtro e perder essas alterações?')) return;
-    lista = filtrar();
-    j.querySelector('#ml-qtd').textContent = lista.length + (lista.length === 400 ? '+ (mostrando 400 — use a busca)' : '') + ' lançamento(s)';
-    j.querySelector('#ml-grade').innerHTML = lista.length ? '<div class="tabela-wrap massa-wrap"><table class="massa"><thead><tr><th>Grupo / cliente</th>' +
-      COLS_LANC.map(([, r, t]) => '<th' + (t === 'valor' ? ' class="num"' : '') + '>' + r + '</th>').join('') + '</tr></thead><tbody>' +
-      lista.map((l, i) => '<tr data-i="' + i + '"><td class="sub">' + esc((l.grupos && l.grupos.nome) || (l.clientes && l.clientes.nome) || l.favorecido || '—') + '</td>' +
-        COLS_LANC.map(([k, , t], jx) => '<td>' + (t === 'area' ? '<select data-k="' + k + '" data-c="' + jx + '"><option value=""></option>' + AREAS_SERVICO.map((a) => '<option' + (l.servico === a ? ' selected' : '') + '>' + a + '</option>').join('') + '</select>'
-          : t === 'simnao' ? '<select data-k="' + k + '" data-c="' + jx + '"><option' + (l.pago ? '' : ' selected') + '>Não</option><option' + (l.pago ? ' selected' : '') + '>Sim</option></select>'
-          : '<input data-k="' + k + '" data-c="' + jx + '" value="' + esc(txtLanc(l, k, t)) + '"' + (t === 'valor' ? ' inputmode="decimal" class="num"' : t === 'data' ? ' placeholder="dd/mm/aaaa" class="mono"' : '') + '>') + '</td>').join('') + '</tr>').join('') +
-      '</tbody></table></div>' : vazio('Nada neste filtro. 👏');
-    j.querySelector('#ml-conta').textContent = 'Nenhuma alteração';
-    j.querySelectorAll('[data-k]').forEach((el) => {
-      el.oninput = el.onchange = () => marcar(el);
-      el.onkeydown = (ev) => { if (ev.key !== 'Enter' || el.tagName === 'SELECT') return; ev.preventDefault(); const p = cel(+el.closest('tr').dataset.i + 1, +el.dataset.c); if (p) p.focus(); };
-      el.onpaste = (ev) => {
-        const dado = (ev.clipboardData || window.clipboardData).getData('text'); if (!/[\t\n]/.test(dado)) return;
-        ev.preventDefault(); const i0 = +el.closest('tr').dataset.i, c0 = +el.dataset.c;
-        dado.replace(/\r/g, '').replace(/\n$/, '').split('\n').forEach((lin, di) => lin.split('\t').forEach((v, dc) => {
-          const alvo = cel(i0 + di, c0 + dc); if (!alvo) return;
-          if (alvo.tagName === 'SELECT') { const o = [...alvo.options].find((x) => normalizar(x.value || x.text) === normalizar(v.trim())); if (o) alvo.value = o.value || o.text; }
-          else alvo.value = v.trim();
-          marcar(alvo); }));
-      };
-    });
-  };
-  j.querySelector('#ml-filtro').onchange = (ev) => { EST.filtro = ev.target.value; pintar(); };
-  let t0; j.querySelector('#ml-busca').oninput = (ev) => { clearTimeout(t0); t0 = setTimeout(() => { EST.busca = ev.target.value; pintar(); }, 300); };
-  pintar();
-  const gravar = async (mudancas) => {
-    let ok = 0, rasc = 0;
-    for (const [l, d] of mudancas) {
-      if ('pago' in d && d.pago && !d.data_pagamento && !l.data_pagamento) d.data_pagamento = hojeISO();
-      if ('pago' in d && !d.pago) d.data_pagamento = null;
-      const { error } = await sb.from('lancamentos').update(d).eq('id', l.id);
-      if (error && error.rascunho) rasc++; else if (error) throw new Error((l.descricao || 'lançamento') + ': ' + erroAmigavel(error)); else ok++;
-    }
-    return { ok, rasc };
-  };
-  const fim = async (r) => { fecharJanela(j);
-    aviso(r.rasc ? '📝 ' + r.rasc + ' alteração(ões) enviada(s) para aprovação' + (r.ok ? ' e ' + r.ok + ' gravada(s)' : '') + '.' : '✓ ' + r.ok + ' lançamento(s) atualizado(s).');
-    if (typeof recarregar === 'function') await recarregar(); };
-  j.querySelector('#ml-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
-    const linhas = [...new Set([...j.querySelectorAll('td.mudou')].map((td) => +td.parentElement.dataset.i))];
-    if (!linhas.length) throw new Error('Nada foi alterado.');
-    const mud = linhas.map((i) => { const l = lista[i], d = {};
-      j.querySelectorAll('tr[data-i="' + i + '"] td.mudou [data-k]').forEach((el) => { const [k, r, t] = COLS_LANC[+el.dataset.c]; d[k] = lerCelLanc(k, t, el.value, r + ' de "' + (l.descricao || '') + '"'); });
-      return [l, d]; });
-    await fim(await gravar(mud));
-  });
-  j.querySelector('#ml-baixar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
-    await carregarScript('vendor/exceljs.min.js');
-    const wb = new window.ExcelJS.Workbook(), ws = wb.addWorksheet('Lançamentos');
-    ws.addRow(['id', 'Grupo / cliente', 'Receita/Despesa'].concat(COLS_LANC.map((c) => c[1]))).font = { bold: true };
-    todos.forEach((l) => ws.addRow([l.id, (l.grupos && l.grupos.nome) || (l.clientes && l.clientes.nome) || l.favorecido || '', l.tipo === 'despesa' ? 'Despesa' : 'Receita']
-      .concat(COLS_LANC.map(([k, , t]) => t === 'valor' ? Number(l[k]) || 0 : txtLanc(l, k, t)))));
-    ws.views = [{ state: 'frozen', ySplit: 1 }]; ws.getColumn(1).hidden = false; ws.getColumn(1).width = 12;
-    [2, 5, 13].forEach((c) => { ws.getColumn(c).width = 34; }); [4, 6, 7, 9, 10, 11, 12].forEach((c) => { ws.getColumn(c).width = 15; });
-    const ls = wb.addWorksheet('Áreas do serviço'); AREAS_SERVICO.forEach((a) => ls.addRow([a]));
-    const buf = await wb.xlsx.writeBuffer();
-    baixarArquivo('Lancamentos ' + nomeEmp + ' ' + hojeISO() + '.xlsx', new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
-  });
-  j.querySelector('#ml-arq').onchange = (ev) => comBotao(null, async () => {
-    const arq = ev.target.files[0]; if (!arq) return;
-    await carregarScript('vendor/exceljs.min.js');
-    const wb = new window.ExcelJS.Workbook(); await wb.xlsx.load(await arq.arrayBuffer());
-    const ws = wb.worksheets[0], cab = (ws.getRow(1).values || []).map((v) => String(v || '').trim());
-    const ci = (rot) => cab.findIndex((x) => normalizar(x) === normalizar(rot));
-    if (ci('id') < 0) throw new Error('A planilha precisa da coluna "id" (use a planilha baixada aqui).');
-    const porId = {}; todos.forEach((l) => { porId[l.id] = l; });
-    const mud = []; let ign = 0;
-    ws.eachRow((row, n) => { if (n === 1) return;
-      const cv = (i) => { const x = row.getCell(i).value; return x && typeof x === 'object' && x.result !== undefined ? x.result : x instanceof Date ? x.toISOString().slice(0, 10) : x; };
-      const l = porId[String(cv(ci('id')) || '').trim()]; if (!l) { ign++; return; }
-      const d = {};
-      COLS_LANC.forEach(([k, r, t]) => { const c = ci(r); if (c < 0) return;
-        const bruto = cv(c), novo = lerCelLanc(k, t, t === 'valor' && typeof bruto === 'number' ? String(bruto).replace('.', ',') : bruto, r + ' (linha ' + n + ')');
-        const atual = t === 'simnao' ? !!l[k] : t === 'valor' ? Number(l[k]) || 0 : (l[k] == null ? (t === 'data' ? null : '') : l[k]);
-        if (t === 'valor' ? Math.abs(novo - atual) > 0.004 : String(novo == null ? '' : novo) !== String(atual == null ? '' : atual)) d[k] = novo; });
-      if (Object.keys(d).length) mud.push([l, d]); });
-    ev.target.value = '';
-    if (!mud.length) return aviso('Nenhuma diferença encontrada na planilha' + (ign ? ' (' + ign + ' linha(s) sem id conhecido foram ignoradas)' : '') + '.');
-    if (!confirm(mud.length + ' lançamento(s) serão atualizados a partir da planilha' + (ign ? ' (' + ign + ' linha(s) ignoradas: id desconhecido)' : '') + '. Continuar?')) return;
-    await fim(await gravar(mud));
-  });
-}
 
 'use strict';
 // ═══════════════════════════════════════════════════════════════════
@@ -1865,7 +1643,6 @@ TELAS.clientes = async function () {
     '<select class="busca sel" id="cli-grupo" autocomplete="off"><option value="">Todos os grupos</option>' +
     E.grupos.map((g) => '<option value="' + g.id + '">' + esc(g.nome) + '</option>').join('') + '</select>' +
     '<input class="busca" id="cli-busca" placeholder="Buscar nome, grupo, responsável ou CPF/CNPJ" autocomplete="off">' +
-    '<button class="btn btn-o" type="button" id="cli-massa" title="Editar passivo, CEAT e CAPAG de vários clientes numa tabela (aceita colar do Excel)">✎ Editar em tabela</button>' +
     '</div><div id="cli-corpo"></div>';
   $('cli-tipo').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { C.tipo = b.dataset.v; pintarClientes(); } };
   $('cli-visao').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { C.visao = b.dataset.v; pintarClientes(); } };
@@ -1873,7 +1650,6 @@ TELAS.clientes = async function () {
   if ($('cli-area')) $('cli-area').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { C.area = b.dataset.v; pintarClientes(); } };
   let t;
   $('cli-busca').oninput = (ev) => { clearTimeout(t); t = setTimeout(() => { C.busca = ev.target.value; pintarClientes(); }, 250); };
-  $('cli-massa').onclick = () => edicaoEmMassa(E.cli.ultima || []);
   ligarBotoesNovo($('conteudo'));
   pintarClientes();
 };
@@ -2559,69 +2335,6 @@ function formExito(ct, depois) {
 }
 
 
-// ─────────── Editar em tabela (vários clientes de uma vez) ───────────
-// Tab/Enter andam entre as células; colar do Excel preenche a partir da célula; o que mudou fica destacado.
-// Salvar grava só as linhas alteradas. Quem está em modo rascunho gera uma proposta por linha (Aprovações).
-const COLS_MASSA = [['nome', 'Nome', 'texto'], ['rfb', 'RFB', 'valor'], ['rfb_negociada', 'RFB neg.', 'valor'], ['pgfn', 'PGFN', 'valor'], ['pgfn_negociada', 'PGFN neg.', 'valor'],
-  ['age_mg', 'AGE/MG', 'valor'], ['age_mg_negociada', 'AGE neg.', 'valor'], ['sefaz_mg', 'SEFAZ/MG', 'valor'], ['ceat_trt3', 'CEAT', 'int'], ['capag', 'CAPAG', 'capag']];
-const CAPAGS = ['', 'A', 'B', 'C', 'D', 'Omisso'];
-function edicaoEmMassa(lista) {
-  if (!lista.length) return aviso('Nenhum cliente na lista: mude o filtro.', true);
-  if (lista.length > 300) return aviso('São ' + lista.length + ' clientes: filtre por grupo ou tipo (até 300 por vez).', true);
-  const txt = (c, k, t) => c[k] == null || c[k] === '' ? '' : t === 'valor' ? String(Number(c[k]).toFixed(2)).replace('.', ',') : String(c[k]);
-  const j = abrirJanela({ titulo: 'Editar em tabela — ' + lista.length + ' cliente(s)', larga: true,
-    corpo: '<div class="dica" style="margin-bottom:10px">Clique numa célula e digite. <b>Tab</b> vai para a direita, <b>Enter</b> para baixo. Pode <b>colar do Excel</b> (várias linhas e colunas) a partir da célula escolhida. ' +
-      'Valores em reais (ex.: 12500,00). Só as linhas alteradas são gravadas.</div>' +
-      '<div class="tabela-wrap massa-wrap"><table class="massa"><thead><tr><th>Grupo</th>' + COLS_MASSA.map(([, r, t]) => '<th' + (t === 'valor' || t === 'int' ? ' class="num"' : '') + '>' + r + '</th>').join('') + '</tr></thead><tbody>' +
-      lista.map((c, i) => '<tr data-i="' + i + '"><td class="sub">' + esc(c.grupos ? c.grupos.nome : '') + '</td>' + COLS_MASSA.map(([k, , t], jx) =>
-        '<td>' + (t === 'capag' ? '<select data-k="' + k + '" data-c="' + jx + '">' + CAPAGS.map((v) => '<option' + ((c[k] || '') === v ? ' selected' : '') + '>' + v + '</option>').join('') + '</select>'
-          : '<input data-k="' + k + '" data-c="' + jx + '" value="' + esc(txt(c, k, t)) + '"' + (t !== 'texto' ? ' inputmode="decimal" class="num"' : '') + ' aria-label="' + esc(c.nome) + ' — ' + k + '">') + '</td>').join('') + '</tr>').join('') +
-      '</tbody></table></div>',
-    rodape: '<span class="sub" id="massa-conta">Nenhuma alteração</span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="massa-salvar">Salvar alterações</button></div>' });
-  j.querySelector('.janela').classList.add('janela-massa');
-  const cel = (i, c) => j.querySelector('tr[data-i="' + i + '"] [data-c="' + c + '"]');
-  const marcar = (el) => { const c = lista[+el.closest('tr').dataset.i], [k, , t] = COLS_MASSA[+el.dataset.c];
-    el.closest('td').classList.toggle('mudou', el.value.trim() !== txt(c, k, t));
-    const n = new Set([...j.querySelectorAll('td.mudou')].map((td) => td.parentElement.dataset.i)).size;
-    j.querySelector('#massa-conta').textContent = n ? n + ' linha(s) alterada(s)' : 'Nenhuma alteração'; };
-  j.querySelectorAll('[data-k]').forEach((el) => {
-    el.oninput = el.onchange = () => marcar(el);
-    el.onkeydown = (ev) => {
-      if (ev.key !== 'Enter' || el.tagName === 'SELECT') return;
-      ev.preventDefault(); const p = cel(+el.closest('tr').dataset.i + 1, +el.dataset.c); if (p) p.focus();
-    };
-    el.onpaste = (ev) => {
-      const dado = (ev.clipboardData || window.clipboardData).getData('text');
-      if (!/[\t\n]/.test(dado)) return;
-      ev.preventDefault();
-      const i0 = +el.closest('tr').dataset.i, c0 = +el.dataset.c;
-      dado.replace(/\r/g, '').replace(/\n$/, '').split('\n').forEach((lin, di) => lin.split('\t').forEach((v, dc) => {
-        const alvo = cel(i0 + di, c0 + dc); if (!alvo) return;
-        alvo.value = alvo.tagName === 'SELECT' ? (CAPAGS.find((x) => x.toLowerCase() === v.trim().toLowerCase()) || alvo.value) : v.trim().replace(/^R\$\s*/, ''); marcar(alvo);
-      }));
-    };
-  });
-  j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
-  j.querySelector('#massa-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
-    const linhas = [...new Set([...j.querySelectorAll('td.mudou')].map((td) => +td.parentElement.dataset.i))];
-    if (!linhas.length) throw new Error('Nada foi alterado.');
-    const pacotes = linhas.map((i) => { const c = lista[i], d = {};
-      j.querySelectorAll('tr[data-i="' + i + '"] td.mudou [data-k]').forEach((el) => { const [k, r, t] = COLS_MASSA[+el.dataset.c], v = el.value.trim();
-        if (t === 'texto') { if (!v) throw new Error('O nome não pode ficar vazio (' + c.nome + ').'); d[k] = v; }
-        else if (t === 'capag') d[k] = v;
-        else if (t === 'int') { if (v && !/^\d+$/.test(v)) throw new Error(r + ' de ' + c.nome + ': use só números.'); d[k] = v ? Number(v) : null; }
-        else { const n = v ? lerValor(v) : null; if (v && isNaN(n)) throw new Error(r + ' de ' + c.nome + ': valor inválido ("' + v + '").'); d[k] = n; } });
-      return [c, d]; });
-    let ok = 0, rasc = 0;
-    for (const [c, d] of pacotes) {
-      const { error } = await sb.from('clientes').update(d).eq('id', c.id);
-      if (error && error.rascunho) rasc++; else if (error) throw new Error(c.nome + ': ' + erroAmigavel(error)); else ok++;
-    }
-    await carregarCadastros(true); fecharJanela(j);
-    aviso(rasc ? '📝 ' + rasc + ' alteração(ões) enviada(s) para aprovação' + (ok ? ' e ' + ok + ' gravada(s)' : '') + '.' : '✓ ' + ok + ' cliente(s) atualizado(s).');
-    if (E.tela === 'clientes') pintarClientes(); else await recarregar();
-  });
-}
 
 'use strict';
 // ═══════════════════════════════════════════════════════════════════
@@ -2652,7 +2365,6 @@ TELAS.admin = async function () {
 
 async function pintarAdmin() {
   // Backup 19: as telas de e-mail moraram para a Central de e-mails (abas) — lá o "atualizar" redesenha a aba aberta
-  if (!$('adm-corpo') && $('em-area-corpo')) return pintarAreaEmail();
   if (E.adm.aba === 'email' || E.adm.aba === 'clientes_email') E.adm.aba = 'usuarios';   // Backup 38: módulo E-mails saiu
   document.querySelectorAll('#adm-abas button').forEach((b) => b.classList.toggle('ativo', b.dataset.aba === E.adm.aba));
   const corpo = $('adm-corpo');
@@ -2838,7 +2550,7 @@ async function admImportar(corpo) {
     // demonstração: dados fictícios ligados entre si (clientes, contratos, CRM, documentos, tarefas, acordos…)
     '<div class="card"><div class="card-hd">🧪 Dados de demonstração<span class="sub" style="margin-left:auto;font-weight:400">para testar antes de importar as planilhas de verdade</span></div><div class="card-bd">' +
     '<p style="margin-bottom:10px">Cria 3 grupos e 6 clientes <b>fictícios</b> (nomes começam com <b>DEMO ·</b>), com contatos, contratos (mensal, salário mínimo, pontual e êxito), honorários pagos e em atraso, ' +
-    'processos, parcelamento com parcelas, acordo, tarefas, oportunidades no CRM, documentos, certidões e um <b>rascunho de estagiário</b> esperando aprovação. E-mails dos exemplos usam o domínio <b>example.com</b> (não chegam a ninguém).</p>' +
+    'processos, parcelamento com parcelas, acordo, tarefas, oportunidades no CRM, documentos, certidões. E-mails dos exemplos usam o domínio <b>example.com</b> (não chegam a ninguém).</p>' +
     '<div class="acoes"><button class="btn btn-p" id="demo-carregar">Carregar demonstração</button><button class="btn btn-x" id="demo-apagar">Apagar demonstração</button></div>' +
     '<p class="sub" style="margin-top:8px">Carregar de novo apaga a demonstração anterior e cria outra (datas sempre a partir de hoje). Nada que você cadastrou é tocado.</p></div></div>';
   $('imp-arquivos').onchange = (ev) => lerArquivosImportacao(Array.from(ev.target.files));
@@ -3802,7 +3514,7 @@ TELAS.tarefas = async function () {
     '<div class="segmento tf-abas-seg" id="tf-abas">' + [['abertas', 'Em aberto'], ['concluidas', 'Concluídas'], ['excluidas', 'Excluídas']]
       .map(([v, r]) => '<button data-aba="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<div class="filtros">' +
-    '<div class="segmento" id="tf-vista">' + [['lista', 'Lista'], ['semana', 'Minha semana'], ['kanban', 'Quadro'], ['calendario', 'Calendário'], ['fluxos', 'Fluxos'], ['relatorio', 'Relatório']]
+    '<div class="segmento" id="tf-vista">' + [['lista', 'Lista'], ['semana', 'Minha semana'], ['kanban', 'Quadro'], ['calendario', 'Calendário'], ['fluxos', 'Fluxos']]
       .map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<div class="segmento" id="tf-atalho">' + [['', 'Todas'], ['minhas', 'Minhas'], ['hoje', 'Hoje'], ['atrasadas', 'Atrasadas'], ['7', '7 dias']].concat(F.atalho === 'atencao' ? [['atencao', 'Pedem atenção']] : [])
       .map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
@@ -3860,7 +3572,7 @@ function pintarTarefas() {
   document.querySelectorAll('#tf-abas button').forEach((b) => b.classList.toggle('ativo', b.dataset.aba === F.aba));
   document.querySelectorAll('#tf-resp button').forEach((b) => b.classList.toggle('ativo', b.dataset.v === (F.resp || '')));
   document.querySelectorAll('#tf-pri button').forEach((b) => b.classList.toggle('ativo', b.dataset.v === (F.pri || '')));
-  $('tf-atalho').style.display = F.vista === 'fluxos' || F.vista === 'relatorio' || F.aba !== 'abertas' ? 'none' : '';
+  $('tf-atalho').style.display = F.vista === 'fluxos' || F.aba !== 'abertas' ? 'none' : '';
   const todas = E._tarefas || [];
   const abertas = todas.filter((t) => !tarefaFechada(t));
   const atrasadas = abertas.filter((t) => t.prazo && t.prazo < h).length;
@@ -3870,8 +3582,9 @@ function pintarTarefas() {
     kpi('Atrasadas', String(atrasadas), atrasadas ? 'vermelho' : 'verde', 'todas as pessoas') +
     kpi('Prazos fatais em 7 dias', String(fatais), fatais ? 'ambar' : '', 'tarefas com prazo fatal marcado') +
     kpi('Concluídas no mês', String(todas.filter((t) => t.status === 'concluida' && String(t.concluida_em || '').slice(0, 7) === h.slice(0, 7)).length), 'verde', '') + '</div>';
-  const V = { lista: vistaLista, semana: vistaSemana, kanban: vistaKanban, calendario: vistaCalendario, fluxos: vistaFluxos, relatorio: vistaRelatorio };
+  const V = { lista: vistaLista, semana: vistaSemana, kanban: vistaKanban, calendario: vistaCalendario, fluxos: vistaFluxos };
   $('tf-corpo').innerHTML = kpis + '<div id="tf-vista-corpo"></div>';
+  if (!V[F.vista]) F.vista = 'lista';
   V[F.vista]($('tf-vista-corpo'));
 }
 const recarregarTarefas = () => TELAS.tarefas();
@@ -4016,77 +3729,6 @@ async function horasGastasPorPessoa(alvo) {
 }
 function diasEntre(a, b) { return Math.round((new Date(b + 'T12:00:00') - new Date(a + 'T12:00:00')) / 86400000); }
 
-// ── Relatório: por pessoa, prazos fatais, exportação ──
-function vistaRelatorio(alvo) {
-  const ts = E._tarefas || [], h = hojeISO(), mes = E.tf.mesRel || h.slice(0, 7);
-  const pessoas = [...new Set(Object.keys(PESSOA).concat(ts.map((t) => t.responsavel).filter(Boolean)))];
-  const linhas = pessoas.map((p) => {
-    const d = ts.filter((t) => t.responsavel === p), ab = d.filter((t) => !tarefaFechada(t));
-    const concl = d.filter((t) => t.status === 'concluida' && String(t.concluida_em || '').slice(0, 7) === mes);
-    const noPrazo = concl.filter((t) => !t.prazo || String(t.concluida_em).slice(0, 10) <= t.prazo).length;
-    return { p, abertas: ab.length, atrasadas: ab.filter((t) => t.prazo && t.prazo < h).length, concl: concl.length,
-      noPrazo: concl.length ? Math.round(noPrazo / concl.length * 100) : null, horas: soma(ab, (t) => t.estimativa_horas) };
-  }).filter((l) => l.abertas || l.concl);
-  const concl = ts.filter((t) => t.status === 'concluida' && t.concluida_em);
-  const medio = concl.length ? soma(concl, (t) => (new Date(t.concluida_em) - new Date(t.criado_em)) / 86400000) / concl.length : null;
-  const fatConcl = concl.filter((t) => t.prazo_fatal), fatOk = fatConcl.filter((t) => String(t.concluida_em).slice(0, 10) <= t.prazo_fatal).length;
-  const fatais = ts.filter((t) => !tarefaFechada(t) && t.prazo_fatal && t.prazo_fatal <= somarDias(h, 30)).sort((a, b) => a.prazo_fatal.localeCompare(b.prazo_fatal));
-  // por cliente no mês: concluídas no prazo × com atraso; e as abertas atrasadas
-  const porCli = {};
-  ts.forEach((t) => { const k = quemTarefa(t); if (!k) return; const c = porCli[k] = porCli[k] || { concl: 0, noPrazo: 0, atrasoConcl: 0, abertasAtr: 0 };
-    if (t.status === 'concluida' && String(t.concluida_em || '').slice(0, 7) === mes) { c.concl++; if (!t.prazo || String(t.concluida_em).slice(0, 10) <= t.prazo) c.noPrazo++; else c.atrasoConcl++; }
-    if (!tarefaFechada(t) && t.prazo && t.prazo < h) c.abertasAtr++; });
-  const cliLinhas = Object.entries(porCli).filter(([, c]) => c.concl || c.abertasAtr).sort((a, b) => b[1].abertasAtr - a[1].abertasAtr || b[1].concl - a[1].concl);
-  // carga da semana: horas estimadas (abertas com prazo até sexta) × horas disponíveis de cada pessoa
-  const sexta = somarDias(h, (5 - new Date(h + 'T12:00:00').getDay() + 7) % 7), cap = E._cargaHoras || {};
-  const carga = pessoasEscritorio().map((p) => { const d = ts.filter((t) => !tarefaFechada(t) && primeiroNome(t.responsavel) === primeiroNome(p) && t.prazo && t.prazo <= sexta);
-    return { p, n: d.length, horas: soma(d, (t) => t.estimativa_horas), cap: Number(cap[primeiroNome(p)] || 40) }; }).filter((c) => c.n);
-  const meses = [...Array(12)].map((_, i) => { const d = new Date(h + 'T12:00:00'); d.setDate(1); d.setMonth(d.getMonth() - i); return iso(d).slice(0, 7); });
-  alvo.innerHTML = '<div class="filtros" style="margin-bottom:10px"><label class="sub">Mês do relatório <select class="busca sel" id="tf-mes-rel">' + meses.map((m) => '<option value="' + m + '"' + (m === mes ? ' selected' : '') + '>' + nomeMes(new Date(m + '-01T12:00:00')) + '</option>').join('') + '</select></label></div>' +
-    '<div class="kpis">' + kpi('Tempo médio de conclusão', medio == null ? '—' : String(Math.round(medio * 10) / 10).replace('.', ',') + ' dia(s)', '', concl.length + ' concluída(s)') +
-    kpi('Prazos fatais cumpridos', fatConcl.length ? Math.round(fatOk / fatConcl.length * 100) + '%' : '—', fatConcl.length && fatOk < fatConcl.length ? 'vermelho' : 'verde', fatOk + ' de ' + fatConcl.length + ' · meta 100%') + '</div>' +
-    '<div class="card"><div class="card-hd">Por pessoa <button class="btn btn-o btn-mini" id="tf-csv">Baixar planilha (CSV)</button></div>' +
-    '<div class="tabela-wrap"><table class="ordenavel"><thead><tr><th>Pessoa</th><th data-tipo="num">Abertas</th><th data-tipo="num">Atrasadas</th><th data-tipo="num">Concluídas no mês</th><th data-tipo="num">% no prazo</th><th data-tipo="num">Horas estimadas (abertas)</th><th data-tipo="num">Horas gastas no mês</th></tr></thead><tbody>' +
-    (linhas.map((l) => '<tr><td>' + pillPessoa(l.p) + '</td><td class="mono">' + l.abertas + '</td><td class="mono">' + (l.atrasadas ? '<b style="color:var(--red)">' + l.atrasadas + '</b>' : '0') + '</td>' +
-      '<td class="mono">' + l.concl + '</td><td class="mono">' + (l.noPrazo == null ? '—' : l.noPrazo + '%') + '</td><td class="mono">' + (l.horas ? String(l.horas).replace('.', ',') : '—') + '</td><td class="mono" data-gasto="' + esc(l.p) + '">—</td></tr>').join('') ||
-      '<tr><td colspan="7" class="sub">Nenhuma tarefa.</td></tr>') + '</tbody></table></div></div>' +
-    '<div class="card"><div class="card-hd">Por cliente — ' + esc(nomeMes(new Date(mes + '-01T12:00:00'))) + '</div>' + (cliLinhas.length ? '<div class="tabela-wrap"><table class="ordenavel"><thead><tr><th>Cliente / grupo</th>' +
-      '<th data-tipo="num">Concluídas</th><th data-tipo="num">No prazo</th><th data-tipo="num">Com atraso</th><th data-tipo="num">Abertas atrasadas hoje</th></tr></thead><tbody>' +
-      cliLinhas.map(([k, c]) => '<tr><td><b>' + esc(k) + '</b></td><td class="mono">' + c.concl + '</td><td class="mono">' + c.noPrazo + '</td><td class="mono">' + (c.atrasoConcl ? '<b style="color:var(--red)">' + c.atrasoConcl + '</b>' : '0') + '</td>' +
-        '<td class="mono">' + (c.abertasAtr ? '<b style="color:var(--red)">' + c.abertasAtr + '</b>' : '0') + '</td></tr>').join('') + '</tbody></table></div>' : '<div class="vazio">Nada no mês.</div>') + '</div>' +
-    '<div class="card"><div class="card-hd">⚖ Carga da semana (até ' + dataBR(sexta).slice(0, 5) + ')' + ((E.perfil || {}).papel === 'admin' ? ' <button class="btn btn-o btn-mini" id="tf-cap">Horas disponíveis</button>' : '') + '</div>' +
-      (carga.length ? '<div class="card-bd">' + carga.map((c) => { const pc = c.cap ? Math.min(100, Math.round(c.horas / c.cap * 100)) : 0;
-        return '<div class="carga-lin"><div class="carga-nome">' + pillPessoa(c.p) + '</div><div class="carga-bar"><div class="carga-in' + (c.horas > c.cap ? ' acima' : pc > 80 ? ' alta' : '') + '" style="width:' + pc + '%"></div></div>' +
-          '<div class="carga-num mono">' + String(c.horas).replace('.', ',') + ' / ' + c.cap + ' h · ' + c.n + ' tarefa(s)</div></div>'; }).join('') +
-        '<p class="sub">Horas estimadas das tarefas abertas com prazo até sexta × horas disponíveis na semana. Tarefa sem estimativa conta 0 h — preencha "Estimativa (h)" para a carga ficar fiel.</p></div>'
-        : '<div class="vazio">Ninguém com tarefa para esta semana.</div>') + '</div>' +
-    '<div class="card"><div class="card-hd">Prazos fatais nos próximos 30 dias (e vencidos)</div>' +
-    (fatais.length ? '<div class="tabela-wrap"><table><thead><tr><th>Prazo fatal</th><th>Tarefa</th><th>Cliente / grupo</th><th>Pessoa</th><th>Status</th></tr></thead><tbody>' +
-      fatais.map((t) => '<tr class="clicavel" data-editar-t="' + t.id + '"><td class="mono">' + dataBR(t.prazo_fatal) + (t.prazo_fatal < h ? ' <span class="pill vencido">vencido</span>' : '') + '</td><td><b>' + esc(t.titulo) + '</b></td>' +
-        '<td>' + esc(quemTarefa(t) || '—') + '</td><td>' + pillPessoa(t.responsavel) + '</td><td>' + esc(STATUS_TAREFA[t.status] || t.status) + '</td></tr>').join('') +
-      '</tbody></table></div>' : '<div class="vazio">Nenhum prazo fatal nos próximos 30 dias.</div>') + '</div>';
-  ligarLinhasTarefa(alvo);
-  horasGastasPorPessoa(alvo).catch(() => {});
-  $('tf-mes-rel').onchange = (ev) => { E.tf.mesRel = ev.target.value; vistaRelatorio(alvo); };
-  if (!E._cargaHoras) q(sb.from('configuracoes').select('valor').eq('chave', 'carga_horas').maybeSingle()).then((r) => { E._cargaHoras = (r && r.valor) || {}; if (carga.length) vistaRelatorio(alvo); }).catch(() => { E._cargaHoras = {}; });
-  const bc = $('tf-cap'); if (bc) bc.onclick = () => {
-    const k = abrirJanela({ titulo: 'Horas disponíveis por semana',
-      corpo: '<div class="grade">' + pessoasEscritorio().map((p) => campo(esc(p), '<input type="number" min="0" max="80" data-cap="' + esc(primeiroNome(p)) + '" value="' + (cap[primeiroNome(p)] || 40) + '">')).join('') + '</div>' +
-        '<p class="sub">Ex.: estagiário de meio período = 20.</p>', rodape: '<span></span><button class="btn btn-p" type="button" id="cap-ok">Salvar</button>' });
-    k.querySelector('#cap-ok').onclick = (ev) => comBotao(ev.currentTarget, async () => {
-      const v = {}; k.querySelectorAll('[data-cap]').forEach((i) => { v[i.dataset.cap] = Math.max(0, parseInt(i.value, 10) || 0); });
-      await q(sb.from('configuracoes').upsert({ chave: 'carga_horas', valor: v }, { onConflict: 'chave' })); E._cargaHoras = v;
-      aviso('✓ Horas salvas.'); fecharJanela(k); vistaRelatorio(alvo);
-    });
-  };
-  $('tf-csv').onclick = () => {
-    const cab = ['Tarefa', 'Status', 'Pessoa', 'Prazo', 'Prazo fatal', 'Cliente', 'Grupo', 'Prioridade', 'Etiquetas', 'Concluída em'];
-    const lin = filtrarTarefas().map((t) => [t.titulo, STATUS_TAREFA[t.status] || t.status, t.responsavel, dataBR(t.prazo), t.prazo_fatal ? dataBR(t.prazo_fatal) : '',
-      nomeCliente(t.cliente_id), nomeGrupo(t.grupo_id), (PRIORIDADE[t.prioridade] || [t.prioridade])[0], t.etiquetas, t.concluida_em ? dataBR(t.concluida_em) : '']);
-    const csv = [cab].concat(lin).map((l) => l.map((c) => '"' + String(c == null ? '' : c).replace(/"/g, '""') + '"').join(';')).join('\r\n');
-    baixarArquivo('tarefas-' + hojeISO() + '.csv', '﻿' + csv, 'text/csv;charset=utf-8');
-  };
-}
 
 // ─────────────────────────── formulário ───────────────────────────
 function selectPares(nome, pares, v) {
@@ -4787,7 +4429,8 @@ function janelaEnviarDocumento(vinculo, depois, titulo) {
   const j = abrirJanela({
     titulo: titulo || 'Enviar documento', larga: true,
     corpo: '<form id="f-doc" class="grade doc-envio" data-tipo="' + tipo0 + '" autocomplete="off">' +
-      '<div class="campo inteiro"><span>Tipo de documento</span><div class="segmento doc-tipos" id="doc-tipos">' + TIPOS_DOC.map(([v, r]) => '<button type="button" data-v="' + v + '"' + (v === tipo0 ? ' class="ativo"' : '') + '>' + r + '</button>').join('') + '</div></div>' +
+      // Backup 41: o tipo voltou a ser uma lista suspensa
+      campo('Tipo de documento', '<select name="tipo" id="doc-tipo-sel">' + TIPOS_DOC.map(([v, r]) => '<option value="' + v + '"' + (v === tipo0 ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>', 'inteiro') +
       '<div class="inteiro solta-arq" id="doc-solta"><b>Arraste os arquivos aqui</b> ou <label class="btn btn-o btn-mini" style="cursor:pointer">escolha<input type="file" id="doc-arq" multiple hidden></label>' +
       '<div class="sub" id="doc-lista">PDF, imagens, Word ou Excel · até ' + LIMITE_MB + ' MB cada</div></div>' +
       (vinculo.cliente_id || vinculo.contrato_id || vinculo.lancamento_id ? '' : campo(vinculo.grupo_id ? 'Empresa do grupo' : 'Cliente', '<select name="cliente_id">' +
@@ -4810,14 +4453,14 @@ function janelaEnviarDocumento(vinculo, depois, titulo) {
       lido.className = 'inteiro cert-lido doc-so-cert cert-ok'; }
     catch (e) { lido.innerHTML = '⚠ ' + esc(e.message); lido.className = 'inteiro cert-lido doc-so-cert cert-erro'; } };
   const mostrar = () => { lista.textContent = arquivos.length ? arquivos.map((a) => a.name + ' (' + tamanhoLegivel(a.size) + ')').join(' · ') : 'Nenhum arquivo escolhido'; tentarLer(); };
-  j.querySelector('#doc-tipos').onclick = (ev) => { const b = ev.target.closest('[data-v]'); if (!b) return; tipo = b.dataset.v; f.dataset.tipo = tipo;
-    j.querySelectorAll('#doc-tipos button').forEach((x) => x.classList.toggle('ativo', x === b)); tentarLer(); };
+  const porTipo = (v) => { tipo = v; f.dataset.tipo = v; if (f.tipo.value !== v) f.tipo.value = v; tentarLer(); };
+  f.tipo.onchange = () => porTipo(f.tipo.value);
   let tl; f.senha.addEventListener('input', () => { clearTimeout(tl); tl = setTimeout(tentarLer, 400); });
   j.querySelector('#cert-ver').onclick = () => { f.senha.type = f.senha.type === 'password' ? 'text' : 'password'; };
-  j.querySelector('#doc-arq').onchange = (ev) => { arquivos = Array.from(ev.target.files); if (arquivos.some((a) => /\.(pfx|p12)$/i.test(a.name)) && !ehCert()) j.querySelector('#doc-tipos [data-v=certificado]').click(); mostrar(); };
+  j.querySelector('#doc-arq').onchange = (ev) => { arquivos = Array.from(ev.target.files); if (arquivos.some((a) => /\.(pfx|p12)$/i.test(a.name)) && !ehCert()) porTipo('certificado'); mostrar(); };
   ['dragenter', 'dragover'].forEach((e) => solta.addEventListener(e, (ev) => { ev.preventDefault(); solta.classList.add('sobre'); }));
   ['dragleave', 'drop'].forEach((e) => solta.addEventListener(e, (ev) => { ev.preventDefault(); solta.classList.remove('sobre'); }));
-  solta.addEventListener('drop', (ev) => { arquivos = Array.from(ev.dataTransfer.files || []); if (arquivos.some((a) => /\.(pfx|p12)$/i.test(a.name)) && !ehCert()) j.querySelector('#doc-tipos [data-v=certificado]').click(); mostrar(); });
+  solta.addEventListener('drop', (ev) => { arquivos = Array.from(ev.dataTransfer.files || []); if (arquivos.some((a) => /\.(pfx|p12)$/i.test(a.name)) && !ehCert()) porTipo('certificado'); mostrar(); });
   j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
   j.querySelector('#btn-enviar-doc').onclick = (ev) => comBotao(ev.currentTarget, async () => {
     if (!arquivos.length) throw new Error('Escolha pelo menos um arquivo.');
@@ -4987,26 +4630,8 @@ async function pintarDocumentos(buscar) {
 // ─────────── Geradores de documentos (Backup 16) ───────────
 // Backup 32: a Central de Documentos (documentos/) substitui o gerador antigo de contrato e procuração.
 // Os outros geradores (petição, solicitação, proposta, e-mails) continuam como antes, mais abaixo na janela.
-const MODELOS_CENTRAL = [['procuracao', '📜 Procuração', 'ad judicia et extra, com a finalidade em destaque'], ['substabelecimento', '🔁 Substabelecimento', 'com ou sem reserva'],
-  ['contrato', '🤝 Contrato de honorários', 'fixo, parcelado, salário mínimo, mensal e êxito'], ['recibo', '🧾 Recibo', 'numerado, com valor por extenso'],
-  ['declaracao', '✍️ Declaração', 'hipossuficiência, residência ou texto livre'], ['acordo', '⚖️ Acordo entre partes', 'quitação de dívida, com ou sem processo']];
-const GERADORES_DOC = [['peticao.html', '⚖ Petição', 'inicial, contestação, manifestação, embargos, exceção — com cliente e processo'],
-  ['solicitacao-documentos.html', '📋 Solicitação de Documentos', 'lista do que o cliente precisa enviar'],
-  ['propostas.html', '💼 Proposta (apresentação)', 'proposta comercial em páginas, com a marca'],
-  ['modelos-email.html', '✉ Modelos de E-mail (implantação)', 'e-mails do processo de implantação, enviados pelo ERP']];
-const urlCentral = (modelo, clienteId) => 'documentos/index.html' + (modelo ? '?modelo=' + modelo + (clienteId ? '&cliente=' + encodeURIComponent(clienteId) : '') : '');
 // Backup 40: a geração de documentos é um sistema à parte — sempre abre numa aba nova (não fica mais dentro do ERP)
 function abrirCentral(url) { window.open(url || 'documentos/index.html', '_blank', 'noopener'); }
-function janelaGeradores(clienteId) {
-  const j = abrirJanela({ titulo: '📄 Documentos', larga: true,
-    corpo: '<p class="sub" style="margin-bottom:10px">Abre o <b>sistema de documentos</b> numa aba nova' + (clienteId ? ', já com este cliente' : '') + '. Lá você preenche, vê a folha pronta, salva (fica no histórico) e baixa em <b>PDF</b> ou <b>Word</b>.</p>' +
-      '<div class="lista-ficha">' + MODELOS_CENTRAL.map(([m, rot, d]) => '<a class="item-ficha clicavel ger-link" target="_blank" rel="noopener" href="' + urlCentral(m, clienteId) + '">' +
-        '<div><b>' + rot + '</b><div class="sub">' + d + '</div></div><span class="sub">abrir ›</span></a>').join('') +
-        '<a class="item-ficha clicavel ger-link" target="_blank" rel="noopener" href="documentos/index.html"><div><b>🗂 Histórico de documentos</b><div class="sub">tudo o que já foi gerado e salvo</div></div><span class="sub">abrir ›</span></a></div>' +
-      '<div class="gx-det-tit" style="margin-top:14px">Outros geradores</div><div class="lista-ficha">' + GERADORES_DOC.map(([arq, rot, d]) => '<a class="item-ficha clicavel ger-link" target="_blank" rel="noopener" href="geradores/' + arq + (clienteId ? '?cliente=' + encodeURIComponent(clienteId) : '') + '">' +
-        '<div><b>' + rot + '</b><div class="sub">' + d + '</div></div><span class="sub">abrir ↗</span></a>').join('') + '</div>' });
-  return j;
-}
 // Backup 26: gerador de contrato já com o cliente e os valores do contrato (o documento fica ligado ao contrato)
 function abrirGeradorContrato(clienteId, contratoId) {
   abrirCentral('documentos/index.html?modelo=contrato' + (clienteId ? '&cliente=' + encodeURIComponent(clienteId) : '') + (contratoId ? '&contrato=' + encodeURIComponent(contratoId) : ''));
@@ -5048,7 +4673,7 @@ async function janelaCertificado(vinculo, depois) {
 // ═══════════════════════════════════════════════════════════════════
 const ABAS_FICHA = [['resumo', 'Resumo'], ['contatos', 'Contatos'], ['enderecos', 'Endereços'], ['contas', 'Contas bancárias'],
   ['socios', 'Sócios e vínculos'], ['processos', 'Processos'], ['contratos', 'Contratos'], ['financeiro', 'Financeiro'],
-  ['tarefas', 'Tarefas'], ['documentos', 'Documentos'], ['linha', 'Linha do tempo'], ['fiscal', 'Dados fiscais'], ['receita', 'Cartão CNPJ'], ['pgfn', 'PGFN'], ['evolucao', '📈 Evolução']];
+  ['tarefas', 'Tarefas'], ['documentos', 'Documentos'], ['linha', 'Linha do tempo'], ['fiscal', 'Dados fiscais'], ['receita', 'Cartão CNPJ']];
 
 // Sub-cadastros editáveis da ficha (mesmo formulário para todos)
 const FINALIDADES = SETORES_CONTATO;
@@ -5330,7 +4955,6 @@ const ABA_FICHA = {
     alvo.querySelectorAll('[data-editar-tf]').forEach((b) => b.onclick = () => formTarefa(ts.find((t) => t.id === b.dataset.editarTf), repinta));
   },
   documentos: (alvo, cl) => blocoDocumentos(alvo, { cliente_id: cl.id, grupo_id: cl.grupo_id }, { vazio: 'Nenhum documento. Envie contrato social, procuração, documentos pessoais…' }),
-  emails: (alvo, cl) => abaEmailsCliente(alvo, cl),
   async linha(alvo, cl) {
     const [ints, ctrs, lanc, ts, docs, hist, crm, reus, mails] = await Promise.all([
       q(sb.from('interacoes').select('*').eq('cliente_id', cl.id)),
@@ -5433,96 +5057,6 @@ function quandoBR(v) {
   if (isNaN(d)) return dataBR(v);
   return d.toLocaleDateString('pt-BR') + (/T12:00:00$/.test(v) ? '' : ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
 }
-
-
-// ─────────── 📈 Evolução: "devia X, hoje deve Y" — foto mensal do grupo × agora ───────────
-const ORG_FOTO = [['rfb', 'Receita Federal'], ['pgfn', 'PGFN'], ['age_mg', 'AGE/MG'], ['sefaz_mg', 'SEFAZ/MG']];
-function mesBR(iso) { return String(iso || '').slice(5, 7) + '/' + String(iso || '').slice(0, 4); }
-function variacao(antes, depois) {
-  const d = (Number(depois) || 0) - (Number(antes) || 0);
-  if (!d) return '<span class="sub">igual</span>';
-  const pc = Number(antes) ? ' (' + (d > 0 ? '+' : '') + (d / Number(antes) * 100).toFixed(1).replace('.', ',') + '%)' : '';
-  return '<span class="' + (d > 0 ? 'ev-pior' : 'ev-melhor') + '">' + (d > 0 ? '▲ +' : '▼ −') + brl(Math.abs(d)).replace('R$ ', 'R$ ') + pc + '</span>';
-}
-ABA_FICHA.evolucao = async function (alvo, cl) {
-  if (!cl.grupo_id) { alvo.innerHTML = vazio('Este cliente não está em um grupo: o histórico é guardado por grupo.'); return; }
-  const [fotos, agora] = await Promise.all([
-    q(sb.from('fotos_mensais').select('mes, dados, tirada_em').eq('grupo_id', cl.grupo_id).order('mes', { ascending: false })).catch(() => []),
-    q(sb.rpc('foto_do_grupo', { p_grupo: cl.grupo_id }))
-  ]);
-  const mesAtual = hojeISO().slice(0, 7);
-  const antigas = fotos.filter((f) => f.mes.slice(0, 7) < mesAtual);
-  const admin = E.perfil && E.perfil.papel === 'admin';
-  if (!antigas.length) {
-    alvo.innerHTML = '<div class="dica" style="margin-bottom:12px">O histórico deste grupo começou em <b>' + (fotos.length ? mesBR(fotos[fotos.length - 1].mes) : mesBR(hojeISO())) + '</b>. ' +
-      'Todo dia 1º o sistema guarda uma "foto" (passivo, CAPAG, processos, parcelamentos e acordos). O comparativo aparece a partir do mês que vem.</div>' + fotoResumo(agora, 'Hoje');
-    return;
-  }
-  const E2 = E.ev = E.ev || {};
-  const escolhido = antigas.find((f) => f.mes === E2.mes) || antigas.find((f) => f.mes.slice(0, 7) <= somarDias(hojeISO(), -30).slice(0, 7)) || antigas[0];
-  const a = escolhido.dados || {}, h = agora || {};
-  const pa = (a.passivo || {}), ph = (h.passivo || {});
-  const nomeG = nomeGrupo(cl.grupo_id);
-  // processos: novos = ativos hoje que não existiam; encerrados = estavam ativos e hoje estão encerrados (ou sumiram)
-  const atA = new Set(a.processos_ativos || []), atH = new Set(h.processos_ativos || []), encH = new Set(h.processos_encerrados || []);
-  const todosA = new Set([...(a.processos_ativos || []), ...(a.processos_encerrados || [])]);
-  const novos = [...atH].filter((n) => !todosA.has(n)), encerrados = [...atA].filter((n) => !atH.has(n));
-  const empA = {}; (a.empresas || []).forEach((e) => { empA[e.id] = e; });
-  const capagMudou = (h.empresas || []).filter((e) => empA[e.id] && (empA[e.id].capag || '') !== (e.capag || ''));
-  const frase = 'Em ' + mesBR(escolhido.mes) + ' o grupo ' + esc(nomeG) + ' devia <b>' + brl(pa.total) + '</b>; hoje deve <b>' + brl(ph.total) + '</b> ' + variacao(pa.total, ph.total) + '. ' +
-    'Tinha <b>' + atA.size + '</b> processo(s) em andamento: <b>' + encerrados.length + '</b> encerrado(s) desde então e <b>' + novos.length + '</b> novo(s)' +
-    (capagMudou.length ? '. CAPAG mudou em ' + capagMudou.map((e) => esc(e.nome) + ' (' + esc(empA[e.id].capag || '—') + ' → ' + esc(e.capag || '—') + ')').join(', ') : '') + '.';
-  alvo.innerHTML =
-    '<div class="filtros" style="margin-bottom:10px"><label class="sub" for="ev-mes" style="align-self:center">Comparar hoje com</label><select class="busca sel" id="ev-mes">' +
-      antigas.map((f) => '<option value="' + f.mes + '"' + (f.mes === escolhido.mes ? ' selected' : '') + '>' + mesBR(f.mes) + '</option>').join('') + '</select>' +
-      (admin ? '<button class="btn btn-o btn-mini" id="ev-foto" title="Grava a foto deste mês de todos os grupos (a rotina faz isso sozinha todo dia 1º)">📸 Atualizar foto do mês</button>' : '') + '</div>' +
-    '<div class="ev-frase">' + frase + '</div>' +
-    '<div class="duas-col"><div class="card"><div class="card-hd">Passivo por órgão</div><div class="tabela-wrap"><table><thead><tr><th>Órgão</th><th class="num">' + mesBR(escolhido.mes) + '</th><th class="num">Hoje</th><th class="num">Diferença</th></tr></thead><tbody>' +
-      ORG_FOTO.map(([k, r]) => '<tr><td>' + r + '</td><td class="num mono">' + brl(pa[k]) + '</td><td class="num mono">' + brl(ph[k]) + '</td><td class="num">' + variacao(pa[k], ph[k]) + '</td></tr>').join('') +
-      '</tbody><tfoot><tr><td>Total</td><td class="num mono">' + brl(pa.total) + '</td><td class="num mono">' + brl(ph.total) + '</td><td class="num">' + variacao(pa.total, ph.total) + '</td></tr></tfoot></table></div></div>' +
-    '<div class="card"><div class="card-hd">Empresas do grupo</div><div class="tabela-wrap"><table><thead><tr><th>Empresa</th><th>CAPAG</th><th class="num">' + mesBR(escolhido.mes) + '</th><th class="num">Hoje</th></tr></thead><tbody>' +
-      (h.empresas || []).map((e) => { const x = empA[e.id]; return '<tr><td><b>' + esc(e.nome) + '</b>' + (x ? '' : ' <span class="pill aberto">nova</span>') + '</td><td>' +
-        (x && (x.capag || '') !== (e.capag || '') ? pillCapag(x.capag || '—') + ' → ' + pillCapag(e.capag || '—') : e.capag ? pillCapag(e.capag) : '<span class="sub">—</span>') + '</td>' +
-        '<td class="num mono">' + (x ? brl(x.total) : '—') + '</td><td class="num mono">' + brl(e.total) + '</td></tr>'; }).join('') +
-      '</tbody></table></div></div></div>' +
-    '<div class="duas-col"><div class="card"><div class="card-hd">Processos novos <span class="pill aberto">' + novos.length + '</span></div><div class="card-bd">' +
-      (novos.length ? novos.map((n) => '<div class="mono">' + esc(n) + '</div>').join('') : '<span class="sub">Nenhum.</span>') + '</div></div>' +
-    '<div class="card"><div class="card-hd">Processos encerrados <span class="pill pago">' + encerrados.length + '</span></div><div class="card-bd">' +
-      (encerrados.length ? encerrados.map((n) => '<div class="mono">' + esc(n) + (encH.has(n) ? '' : ' <span class="sub">(saiu do cadastro)</span>') + '</div>').join('') : '<span class="sub">Nenhum.</span>') + '</div></div></div>' +
-    '<div class="sub">Parcelamentos: ' + (a.parcelamentos || 0) + ' → ' + (h.parcelamentos || 0) + ' · Acordos em aberto: ' + (a.acordos_abertos || 0) + ' → ' + (h.acordos_abertos || 0) +
-      ' (' + brl(a.acordos_saldo) + ' → ' + brl(h.acordos_saldo) + ')</div>';
-  $('ev-mes').onchange = (ev) => { E2.mes = ev.target.value; ABA_FICHA.evolucao(alvo, cl); };
-  const bf = $('ev-foto'); if (bf) bf.onclick = () => comBotao(bf, async () => { const n = await q(sb.rpc('tirar_fotos_mensais')); aviso('✓ Foto do mês atualizada (' + n + ' grupo(s)).'); });
-};
-function fotoResumo(f, rot) {
-  const p = (f && f.passivo) || {};
-  return '<div class="kpis">' + kpi('Passivo — ' + rot, brl(p.total), 'ambar', ORG_FOTO.filter(([k]) => Number(p[k])).map(([k, r]) => r + ' ' + brl(p[k])).join(' · ') || 'sem débitos') +
-    kpi('Processos em andamento', String((f && f.processos_ativos || []).length), '', (f && f.processos_encerrados || []).length + ' encerrado(s)') +
-    kpi('Parcelamentos', String((f && f.parcelamentos) || 0), '', '') + kpi('Acordos em aberto', String((f && f.acordos_abertos) || 0), '', brl(f && f.acordos_saldo)) + '</div>';
-}
-
-// ─────────── PGFN: inscrições em dívida ativa (API SERPRO, rotina erp-pgfn) ───────────
-ABA_FICHA.pgfn = async function (alvo, cl) {
-  const [ins, st] = await Promise.all([
-    q(sb.from('pgfn_inscricoes').select('*').eq('cliente_id', cl.id).order('valor', { ascending: false })).catch(() => []),
-    q(sb.rpc('status_config_pgfn')).catch(() => ({}))
-  ]);
-  if (!ins.length) {
-    alvo.innerHTML = vazio(st && st.ligada && st.tem_chave ? 'Nenhuma inscrição em dívida ativa encontrada para este CNPJ na última consulta.' :
-      'A consulta automática da PGFN ainda não está ligada. Depois de contratar a API "Consulta Dívida Ativa" do SERPRO, salve a chave em Alertas → PGFN.');
-    return;
-  }
-  const porNat = {}; ins.forEach((x) => { const k = x.natureza || 'Outras'; porNat[k] = porNat[k] || { n: 0, v: 0, parc: 0 }; porNat[k].n++; porNat[k].v += Number(x.valor) || 0; if (x.parcelada) porNat[k].parc += Number(x.valor) || 0; });
-  const tot = soma(ins, (x) => x.valor), parc = soma(ins.filter((x) => x.parcelada), (x) => x.valor);
-  alvo.innerHTML = '<div class="kpis">' + kpi('Dívida ativa (PGFN)', brl(tot), 'ambar', ins.length + ' inscrição(ões)') + kpi('Parcelada / negociada', brl(parc), 'verde', ins.filter((x) => x.parcelada).length + ' inscrição(ões)') +
-    kpi('Em cobrança', brl(tot - parc), tot - parc ? 'vermelho' : '', 'sem parcelamento') + '</div>' +
-    '<div class="card"><div class="card-hd">Por origem</div><div class="tabela-wrap"><table><thead><tr><th>Origem</th><th class="num">Inscrições</th><th class="num">Parcelado</th><th class="num">Total</th></tr></thead><tbody>' +
-      Object.keys(porNat).sort((a, b) => porNat[b].v - porNat[a].v).map((k) => '<tr><td><b>' + esc(k) + '</b></td><td class="num">' + porNat[k].n + '</td><td class="num mono">' + brl(porNat[k].parc) + '</td><td class="num mono">' + brl(porNat[k].v) + '</td></tr>').join('') + '</tbody></table></div></div>' +
-    '<div class="card"><div class="card-hd">Inscrições (CDAs)</div><div class="tabela-wrap"><table class="ordenavel"><thead><tr><th>Nº da inscrição</th><th>Origem</th><th>Receita</th><th>Situação</th><th data-tipo="data">Inscrita em</th><th class="num">Valor</th></tr></thead><tbody>' +
-      ins.map((x) => '<tr><td class="mono">' + esc(x.inscricao) + '</td><td>' + esc(x.natureza) + '</td><td>' + esc(x.receita) + '</td><td>' + (x.parcelada ? '<span class="pill pago">' : '<span class="pill hoje">') + esc(x.situacao || (x.parcelada ? 'Parcelada' : 'Em cobrança')) + '</span></td>' +
-        '<td class="mono" data-ord="' + esc(x.data_inscricao || '') + '">' + dataBR(x.data_inscricao) + '</td><td class="num mono" data-ord="' + x.valor + '">' + brl(x.valor) + '</td></tr>').join('') + '</tbody></table></div>' +
-      '<div class="sub" style="padding:8px 12px">Atualizado em ' + dataHoraBR(ins[0].atualizado_em) + ' pela consulta automática.</div></div>';
-};
 
 'use strict';
 // ═══════════════════════════════════════════════════════════════════
@@ -6168,8 +5702,11 @@ async function janelaEtapasCrm() {
 async function janelaModelosProposta() {
   const ms = await q(sb.from('crm_modelos_proposta').select('*').order('nome'));
   const j = abrirJanela({ titulo: 'Modelos de proposta', larga: true,
-    corpo: '<div class="lista-ficha">' + ms.map((m) => '<div class="item-ficha"><div><b>' + esc(m.nome) + '</b><div class="sub">' + (m.itens || []).map((i) => esc(i.servico)).join(' · ') + '</div></div>' +
-      '<span><button class="btn btn-o btn-mini" data-mp-ver="' + m.id + '">👁 Simplificada</button> ' + (m.texto_completo ? '<button class="btn btn-o btn-mini" data-mp-ver="' + m.id + '" data-completa="1">👁 Completa</button> ' : '') + '<button class="btn btn-o btn-mini" data-mp="' + m.id + '">Editar</button></span></div>').join('') + '</div>',
+    // Backup 41: uma linha por modelo, em 4 colunas fixas — A (nome e itens) · B Simplificada · C Completa · D Editar
+    corpo: '<div class="mp-lista">' + ms.map((m) => '<div class="mp-linha"><div class="mp-a"><b>' + esc(m.nome) + '</b><div class="sub">' + (m.itens || []).map((i) => esc(i.servico)).join(' · ') + '</div></div>' +
+      '<button class="btn btn-o btn-mini" data-mp-ver="' + m.id + '">👁 Simplificada</button>' +
+      (m.texto_completo ? '<button class="btn btn-o btn-mini" data-mp-ver="' + m.id + '" data-completa="1">👁 Completa</button>' : '<button class="btn btn-o btn-mini" disabled title="Sem detalhamento: clique em Editar e escreva a versão completa">👁 Completa</button>') +
+      '<button class="btn btn-o btn-mini" data-mp="' + m.id + '">Editar</button></div>').join('') + '</div>',
     rodape: '<span></span><button class="btn btn-p" type="button" id="mp-novo">+ Novo modelo</button>' });
   const editar = (m) => {
     m = m || { nome: '', texto: '<p>Prezado(a) {cliente},</p><p></p><p>Esta proposta vale até {validade}.</p>', itens: [] };
@@ -6711,15 +6248,6 @@ TELAS.alertas = async function () {
   const cnpjNivel = !ult ? 'atencao' : ult.status === 'erro' ? 'critico' : !rodouHoje && new Date() > hoje6 ? 'critico' : ult.status === 'parcial' ? 'atencao' : 'ok';
   add('Rotinas', 'Cartão CNPJ (6h)', !ult ? 'nunca rodou' : rodouHoje ? '✓ hoje ' + new Date(ult.inicio).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '⚠ ' + new Date(ult.inicio).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
     ult ? ult.mensagem || ult.status : 'publique a função erp-cnpj e ligue o agendador', cnpjNivel, { cnpj: true });
-  // PGFN (dívida ativa, API paga do SERPRO): só aparece depois de configurada, ou para o admin configurar
-  const pgfnCfg = await q(sb.rpc('status_config_pgfn')).catch(() => null) || {};
-  const pgfnEx = pgfnCfg.tem_chave ? await q(sb.from('pgfn_execucoes').select('*').order('inicio', { ascending: false }).limit(10)).catch(nada) : [];
-  if (pgfnCfg.tem_chave) {   // sem SERPRO contratado o cartão fica escondido (decisão do escritório)
-    const u = pgfnEx[0];
-    add('Rotinas', 'PGFN — dívida ativa', !pgfnCfg.tem_chave ? 'não contratada' : !pgfnCfg.ligada ? 'desligada' : u ? quandoCurto(u.inicio) : 'nunca rodou',
-      !pgfnCfg.tem_chave ? 'API paga do SERPRO: clique para ver como ligar' : u ? u.mensagem || u.status : 'frequência: ' + (pgfnCfg.frequencia || 'diaria'),
-      !pgfnCfg.tem_chave ? 'info' : u && u.status === 'erro' ? 'critico' : u && u.status === 'parcial' ? 'atencao' : 'ok', { pgfn: true });
-  }
   if (emails.length || (E.perfil && E.perfil.papel === 'admin')) add('Rotinas', 'E-mails com erro', String(emails.length), 'não saíram depois de 3 tentativas', emails.length ? 'critico' : 'ok',
     { titulo: 'E-mails com erro', colunas: ['Quando', 'Para', 'Assunto', 'Erro'], linhas: emails.map((m) => [quandoRodou(m.criado_em), m.para, m.assunto, m.erro]) });
   // Backup 37: a busca é feita pela WEB (navegador, 1× por dia ao abrir o ERP, ou "Buscar pelo navegador")
@@ -6727,12 +6255,6 @@ TELAS.alertas = async function () {
     ultPub && ultPub.valor ? ultPub.valor.novas + ' nova(s) · ' + ((ultPub.valor.erros || []).length ? '⚠ ' + ultPub.valor.erros[0] : 'sem erro') : 'cadastre as OABs em Publicações',
     !ultPub || !ultPub.valor ? 'atencao' : (ultPub.valor.erros || []).length ? 'critico' : 'ok', { tela: 'publicacoes' });
   // Backup 37: a PGFN por arquivo (dados abertos, importado à mão) saiu dos Alertas
-  // Central de e-mails: automático por tipo (clicar abre a configuração; admin)
-  const cfgEm = await q(sb.rpc('config_emails')).catch(() => null);
-  if (false && cfgEm && E.perfil && E.perfil.papel === 'admin') {   // Backup 38: módulo E-mails saiu
-    const ligados = ['honorarios', 'parcelamentos', 'acordos', 'recibos'].filter((k) => cfgEm[k]);
-    add('Rotinas', 'E-mails automáticos ao cliente', ligados.length + ' de 4 ligados', (cfgEm.hora ? 'envio às ' + cfgEm.hora : 'envio junto das regras (7h)') + ' · clique para configurar', ligados.length ? 'ok' : 'info', { emailsAuto: true });
-  }
   add('Rotinas', 'Regras de tarefas', ultReg && ultReg.valor ? quandoCurto(ultReg.valor.quando) : 'nunca rodou', ultReg && ultReg.valor ? ultReg.valor.criadas + ' criada(s) na última execução' : '',
     ultReg && ultReg.valor ? 'ok' : 'info', { tela: 'tarefas' });
   // saúde do sistema e backup semanal (só o administrador)
@@ -6789,7 +6311,7 @@ TELAS.alertas = async function () {
     $('al-corpo').querySelectorAll('[data-al-setor]').forEach((x) => x.classList.toggle('ativo', x === b));
     $('al-corpo').querySelectorAll('.al-linha,.al-chip,.al-bloco').forEach((l) => { l.hidden = !!b.dataset.alSetor && l.dataset.setor !== b.dataset.alSetor; });
   });
-  $('al-corpo').querySelectorAll('[data-al]').forEach((b) => b.onclick = () => { const a = A[+b.dataset.al]; if (a.rel.cnpj) janelaCnpj(cnpj); else if (a.rel.emailsAuto) janelaAutoEmails(); else if (a.rel.pgfnAbertos) janelaPgfnAbertos(); else if (a.rel.pgfn) janelaPgfn(pgfnEx); else if (a.rel.saude) janelaSaude(a.rel.saude); else if (a.rel.backup) irTelaAlerta('admin', 'backup'); else relatorioAlerta(a); });
+  $('al-corpo').querySelectorAll('[data-al]').forEach((b) => b.onclick = () => { const a = A[+b.dataset.al]; if (a.rel.cnpj) janelaCnpj(cnpj); else if (a.rel.saude) janelaSaude(a.rel.saude); else if (a.rel.backup) irTelaAlerta('admin', 'backup'); else relatorioAlerta(a); });
 };
 
 function quandoCurto(v) {
@@ -6851,38 +6373,6 @@ async function janelaVirarTarefa(titulo, r) {
   });
 }
 
-// PGFN: chave do SERPRO (só admin), frequência, ligar/desligar, consultar agora e o que mudou
-async function janelaPgfn(execs) {
-  const cfg = await q(sb.rpc('status_config_pgfn')).catch(() => ({})) || {};
-  const admin = E.perfil && E.perfil.papel === 'admin', ult = execs[0], mud = ((ult && ult.relatorio) || []).filter((x) => x.antes), err = ((ult && ult.relatorio) || []).filter((x) => x.erro);
-  const j = abrirJanela({ titulo: 'PGFN — dívida ativa (API do SERPRO)', larga: true,
-    corpo: '<div class="dica" style="margin-bottom:10px">Consulta cada CNPJ na <b>API "Consulta Dívida Ativa" do SERPRO</b> e atualiza sozinho os campos <b>PGFN</b> (em cobrança) e <b>PGFN negociada</b> (parcelada). ' +
-        'Na ficha do cliente, a aba <b>PGFN</b> mostra cada inscrição (CDA), a origem (tributária, previdenciária, FGTS, Simples) e se está parcelada. ' +
-        '<b>É pago por consulta</b> (tabela na Loja SERPRO): consulta diária de 100 CNPJs são cerca de 2.200 consultas/mês. Semanal ou mensal custa bem menos.</div>' +
-      (ult ? '<div class="dica" style="margin-bottom:10px"><b>Última execução:</b> ' + quandoRodou(ult.inicio) + ' · ' + esc(ult.mensagem || ult.status) + '</div>' : '') +
-      (mud.length ? '<div class="secao">Mudanças na última consulta (' + mud.length + ')</div><div class="tabela-wrap"><table><thead><tr><th>Empresa</th><th class="num">PGFN antes</th><th class="num">agora</th><th class="num">Negociada antes</th><th class="num">agora</th></tr></thead><tbody>' +
-        mud.map((x) => '<tr><td><b>' + esc(x.nome) + '</b></td><td class="num mono">' + brl(x.antes[0]) + '</td><td class="num mono"><b>' + brl(x.depois[0]) + '</b></td><td class="num mono">' + brl(x.antes[1]) + '</td><td class="num mono"><b>' + brl(x.depois[1]) + '</b></td></tr>').join('') + '</tbody></table></div>' : '') +
-      (err.length ? '<div class="secao">Erros (' + err.length + ')</div><div class="lista-ficha">' + err.map((x) => '<div class="item-ficha"><div><b>' + esc(x.nome) + '</b><div class="sub">' + esc(x.erro) + '</div></div></div>').join('') + '</div>' : '') +
-      (admin ? '<div class="secao">Configuração</div><form class="grade" id="f-pgfn">' +
-        campo('Consumer key (área do cliente SERPRO)', '<input name="ck" autocomplete="off" placeholder="' + (cfg.tem_chave ? '•••• (deixe vazio para manter)' : 'cole aqui') + '">') +
-        campo('Consumer secret', '<input name="cs" type="password" autocomplete="new-password" placeholder="' + (cfg.tem_chave ? '•••• (deixe vazio para manter)' : 'cole aqui') + '">') +
-        campo('Frequência', selectPares('frequencia', [['diaria', 'Todo dia (6h15)'], ['semanal', 'Toda segunda-feira'], ['mensal', 'Todo dia 1º']], cfg.frequencia || 'diaria')) +
-        '<label class="check" style="align-self:end"><input type="checkbox" name="ligada"' + (cfg.ligada ? ' checked' : '') + '> Rotina ligada</label></form>' : ''),
-    rodape: '<span></span><div class="acoes">' + (admin ? '<button class="btn btn-o" type="button" id="pgfn-salvar">Salvar</button><button class="btn btn-p" type="button" id="pgfn-agora"' + (cfg.tem_chave ? '' : ' disabled') + '>↻ Consultar agora</button>' : '') + '</div>' });
-  const sv = j.querySelector('#pgfn-salvar');
-  if (sv) sv.onclick = () => comBotao(sv, async () => {
-    const f = j.querySelector('#f-pgfn');
-    await q(sb.rpc('salvar_config_pgfn', { p: { consumer_key: f.ck.value.trim(), consumer_secret: f.cs.value.trim(), frequencia: f.frequencia.value, ligada: f.ligada.checked } }));
-    aviso('✓ PGFN: configuração salva.'); fecharJanela(j); await TELAS.alertas();
-  });
-  const ag = j.querySelector('#pgfn-agora');
-  if (ag) ag.onclick = () => comBotao(ag, async () => {
-    const r = await chamarFuncao('erp-pgfn', { acao: 'rodar' });
-    if (r && r.erro) throw new Error(r.erro);
-    aviso('✓ PGFN: ' + ((r && r.mensagem) || 'feito') + '.'); fecharJanela(j); await carregarCadastros(true); await TELAS.alertas();
-  });
-}
-
 // Cartão CNPJ: última execução, o que mudou, erros, histórico e a API usada
 async function janelaCnpj(execs) {
   const cfg = await q(sb.rpc('status_config_cnpj')).catch(() => ({})) || {};
@@ -6920,81 +6410,6 @@ async function janelaCnpj(execs) {
 }
 
 
-// ─────────── PGFN pelos dados abertos (Backup 16) ───────────
-// A PGFN publica, de graça, a lista de todos os devedores inscritos em dívida ativa (atualizada a cada trimestre).
-// Não existe consulta gratuita "por CNPJ" em tempo real (essa é a API paga do SERPRO): aqui o arquivo é lido
-// no próprio navegador, linha a linha, e só os CPFs/CNPJs dos clientes são aproveitados.
-async function janelaPgfnAbertos() {
-  await carregarCadastros();
-  const j = abrirJanela({ titulo: 'PGFN — dados abertos (gratuito)', larga: true,
-    corpo: '<ol class="passos"><li>Abra <a href="https://www.gov.br/pgfn/pt-br/assuntos/divida-ativa-da-uniao/transparencia-fiscal-1/dados-abertos" target="_blank" rel="noopener">gov.br/pgfn → Dados abertos</a> e baixe os arquivos da <b>Dívida Ativa</b> (Não previdenciário, Previdenciário e FGTS) do trimestre mais recente.</li>' +
-      '<li><b>Mais atual (atualiza com frequência):</b> no site <a href="https://www.dividaaberta.pgfn.gov.br/consultar-devedores" target="_blank" rel="noopener">Dívida Aberta</a>, pesquise (por nome, CNPJ ou por estado/município), clique em <b>Exportar (CSV)</b> e escolha esse arquivo abaixo — o ERP entende os dois formatos. Nesse caso <b>não</b> marque "Zerar".</li>' +
-      '<li>Descompacte (botão direito → Extrair tudo). Dentro há arquivos <b>.csv</b> (às vezes um por estado).</li><li>Escolha abaixo os .csv (pode marcar vários) e clique em <b>Ler e atualizar</b>. Arquivos grandes levam alguns minutos; a tela mostra o andamento.</li></ol>' +
-      '<div class="grade"><div class="campo inteiro"><span>Arquivos .csv da PGFN</span><input type="file" id="pa-arq" accept=".csv,.txt" multiple></div>' +
-      '<label class="check inteiro"><input type="checkbox" id="pa-zerar"> Zerar a PGFN dos clientes com CPF/CNPJ que <b>não</b> aparecem nos arquivos (use só se importou todos os arquivos do trimestre)</label></div>' +
-      '<div id="pa-prog" class="dica" style="margin-top:10px">Nada lido ainda.</div>',
-    rodape: '<span class="sub">Custo: zero. Dados abertos: trimestral · Dívida Aberta (CSV do site): atualização frequente.</span><button class="btn btn-p" type="button" id="pa-ler">Ler e atualizar</button>' });
-  j.querySelector('#pa-ler').onclick = (ev) => comBotao(ev.currentTarget, async () => {
-    const arqs = [...j.querySelector('#pa-arq').files]; if (!arqs.length) throw new Error('Escolha pelo menos um arquivo .csv.');
-    const porDoc = {}; E.clientes.forEach((c) => { const d = soDigitos(c.cpf_cnpj); if (d.length === 11 || d.length === 14) porDoc[d] = c; });
-    const achados = {}; const prog = j.querySelector('#pa-prog');
-    let linhas = 0;
-    for (const arq of arqs) {
-      const natArq = /previd/i.test(arq.name) ? 'Previdenciária' : /fgts/i.test(arq.name) ? 'FGTS' : 'Tributária';
-      const r = await lerCsvPgfn(arq, (lin) => {
-        const d = soDigitos(lin.CPF_CNPJ); const c = porDoc[d]; if (!c) return;
-        const sit = [lin.TIPO_SITUACAO_INSCRICAO, lin.SITUACAO_INSCRICAO].filter(Boolean).join(' — ');
-        const v = String(lin.VALOR_CONSOLIDADO || '0'); const valor = /,/.test(v) ? lerValor(v) : parseFloat(v) || 0;
-        const dt = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(lin.DATA_INSCRICAO || '');
-        (achados[c.id] = achados[c.id] || []).push({ inscricao: lin.NUMERO_INSCRICAO, natureza: /simples/i.test(lin.RECEITA_PRINCIPAL || '') ? 'Simples Nacional' : natArq,
-          receita: lin.RECEITA_PRINCIPAL || '', situacao: sit, parcelada: /benef|parcel|negoci|transa/i.test(sit), valor, data: dt ? dt[3] + '-' + dt[2] + '-' + dt[1] : (lin.DATA_INSCRICAO || '').slice(0, 10) });
-      }, (n) => { prog.textContent = arq.name + ': ' + (linhas + n).toLocaleString('pt-BR') + ' linhas lidas · ' + Object.keys(achados).length + ' cliente(s) encontrado(s)…'; });
-      linhas += r;
-    }
-    const lote = Object.entries(achados).map(([cliente_id, inscricoes]) => ({ cliente_id, inscricoes }));
-    if (j.querySelector('#pa-zerar').checked) Object.values(porDoc).forEach((c) => { if (!achados[c.id]) lote.push({ cliente_id: c.id, inscricoes: [] }); });
-    if (!lote.length) { prog.textContent = linhas.toLocaleString('pt-BR') + ' linhas lidas. Nenhum cliente encontrado nos arquivos.'; return; }
-    for (let i = 0; i < lote.length; i += 50) await q(sb.rpc('pgfn_importar_abertos', { p: lote.slice(i, i + 50), p_referencia: arqs.map((a) => a.name).join(', ').slice(0, 120) }));
-    await carregarCadastros(true);
-    prog.innerHTML = '✓ ' + linhas.toLocaleString('pt-BR') + ' linhas lidas · <b>' + Object.keys(achados).length + '</b> cliente(s) com inscrição · PGFN e PGFN negociada atualizados. A ficha do cliente → aba PGFN mostra cada inscrição.';
-    aviso('✓ PGFN atualizada pelos dados abertos.');
-  });
-}
-// lê o CSV em partes (arquivos de centenas de MB) e chama "cada" para cada linha como objeto {COLUNA: valor}
-// aceita o arquivo dos dados abertos (CPF_CNPJ, VALOR_CONSOLIDADO…) e o CSV exportado no site "Dívida Aberta"
-// (colunas com nomes por extenso, ex.: "CPF/CNPJ", "Nº Inscrição", "Valor Consolidado", "Situação")
-function cabecalhoPgfn(c) {
-  const t = c.replace(/^"|"$/g, '').trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_|_$/g, '');
-  if (/^(CPF|CNPJ)/.test(t) || t === 'DOCUMENTO') return 'CPF_CNPJ';
-  if (/DATA.*INSCRI/.test(t)) return 'DATA_INSCRICAO';
-  if (/^(N|NUM|NUMERO|NO)_?INSCRI/.test(t) || t === 'INSCRICAO') return 'NUMERO_INSCRICAO';
-  if (/^VALOR/.test(t)) return 'VALOR_CONSOLIDADO';
-  if (/^TIPO_SITUA/.test(t)) return 'TIPO_SITUACAO_INSCRICAO';
-  if (/SITUA/.test(t)) return 'SITUACAO_INSCRICAO';
-  if (/RECEITA/.test(t)) return 'RECEITA_PRINCIPAL';
-  return t;
-}
-async function lerCsvPgfn(arq, cada, andamento) {
-  const leitor = arq.stream().getReader();
-  let dec = new TextDecoder('utf-8'), resto = '', cab = null, sep = ';', n = 0, primeiro = true;
-  for (;;) {
-    const { value, done } = await leitor.read();
-    if (value && primeiro) { primeiro = false; const t = new TextDecoder('utf-8').decode(value.slice(0, 4096)); if (t.includes('�')) dec = new TextDecoder('iso-8859-1'); }
-    const txt = resto + (value ? dec.decode(value, { stream: true }) : dec.decode());
-    const partes = txt.split(/\r?\n/); resto = done ? '' : partes.pop();
-    for (const l of partes) {
-      if (!l.trim()) continue;
-      if (!cab) { sep = (l.match(/;/g) || []).length >= (l.match(/,/g) || []).length ? ';' : ','; cab = l.split(sep).map((c) => cabecalhoPgfn(c)); continue; }
-      const cols = l.split(sep).map((c) => c.replace(/^"|"$/g, '').trim()), o = {};
-      cab.forEach((c, i) => { o[c] = cols[i]; }); cada(o); n++;
-    }
-    if (andamento && n % 50000 < 5000) andamento(n);
-    if (done) break;
-  }
-  if (!cab || !cab.includes('CPF_CNPJ')) throw new Error('"' + arq.name + '" não parece o arquivo da PGFN (falta a coluna CPF_CNPJ).');
-  andamento && andamento(n);
-  return n;
-}
 
 'use strict';
 // ═══════════════════════════════════════════════════════════════════
@@ -7086,440 +6501,6 @@ TELAS.automacoes = async function () {
 
 'use strict';
 // ═══════════════════════════════════════════════════════════════════
-// Aprovações — alterações feitas em modo "Rascunho" (estagiários).
-// Quem edita a área vê o que mudou (antes → depois) e aprova ou recusa;
-// quem propôs acompanha as próprias. Nada vale antes da aprovação.
-// ═══════════════════════════════════════════════════════════════════
-const ROT_CAMPO = { nome: 'Nome', cpf_cnpj: 'CPF/CNPJ', area: 'Área', tipo: 'Tipo', responsavel: 'Responsável', email: 'E-mail', telefone: 'Telefone', obs: 'Observação',
-  descricao: 'Descrição', valor: 'Valor', vencimento: 'Vencimento', pago: 'Pago', data_pagamento: 'Data do pagamento', processo: 'Processo', numero: 'Número',
-  status: 'Situação', grupo_id: 'Grupo', cliente_id: 'Cliente', comprovante_processo: 'Comprovante no processo', comprovante_id: 'ID do comprovante', servico: 'Área do serviço', perfil_email: 'E-mails de cobrança' };
-function valorCampo(k, v) {
-  if (v == null || v === '') return '<span class="sub">—</span>';
-  if (typeof v === 'boolean') return v ? 'Sim' : 'Não';
-  if (k === 'grupo_id') return esc(nomeGrupo(v) || v);
-  if (k === 'cliente_id') { const c = E.clientes.find((x) => x.id === v); return esc(c ? c.nome : v); }
-  if (k === 'area') return esc(rotArea(v));
-  if (/^(valor|rfb|pgfn|sefaz_mg|age_mg)/.test(k) && !isNaN(Number(v))) return brl(v);
-  if (/^\d{4}-\d{2}-\d{2}$/.test(String(v))) return dataBR(v);
-  return esc(typeof v === 'object' ? JSON.stringify(v) : v);
-}
-// antes → depois, só do que muda
-function diferencas(r) {
-  const d = Array.isArray(r.dados) ? r.dados[0] || {} : r.dados || {}, a = r.antes || {};
-  if (r.operacao === 'excluir') return '<div class="ap-dif"><span class="pill vencido">Excluir</span> ' + esc(a.nome || a.descricao || a.processo || a.numero || 'registro') + '</div>';
-  const ks = Object.keys(d).filter((k) => !/^(id|atualizado_em|criado_em|criado_por)$/.test(k) && (r.operacao === 'incluir' ? d[k] != null && d[k] !== '' : JSON.stringify(d[k]) !== JSON.stringify(a[k])));
-  if (!ks.length) return '<div class="sub">Sem mudança de conteúdo.</div>';
-  return '<table class="ap-tab"><tbody>' + ks.slice(0, 14).map((k) => '<tr><th>' + esc(ROT_CAMPO[k] || k.replace(/_/g, ' ')) + '</th>' +
-    (r.operacao === 'alterar' ? '<td class="ap-antes">' + valorCampo(k, a[k]) + '</td><td class="ap-seta">→</td>' : '') + '<td class="ap-depois">' + valorCampo(k, d[k]) + '</td></tr>').join('') +
-    (ks.length > 14 ? '<tr><td colspan="4" class="sub">+ ' + (ks.length - 14) + ' campo(s)</td></tr>' : '') + '</tbody></table>';
-}
-
-TELAS.aprovacoes = async function () {
-  await carregarCadastros();
-  const lista = await q(sb.from('rascunhos').select('*').order('criado_em', { ascending: false }).limit(200)).catch(() => []);
-  const eu = E.perfil.id, pend = lista.filter((r) => r.status === 'pendente');
-  const paraMim = pend.filter((r) => r.autor !== eu && pode(r.funcao, 'aprovar'));
-  const minhas = lista.filter((r) => r.autor === eu);
-  const outras = lista.filter((r) => r.status !== 'pendente' && r.autor !== eu).slice(0, 30);
-  const SIT = { pendente: ['hoje', 'Aguardando'], aprovado: ['pago', 'Aprovado'], recusado: ['vencido', 'Recusado'], cancelado: ['neutro', 'Cancelado'] };
-  const cartao = (r, acoes) => '<div class="ap-item" data-rasc="' + r.id + '"><div class="ap-hd"><div><b>' + esc(r.resumo || r.tabela) + '</b>' +
-      '<div class="sub">' + esc(r.autor_nome || 'alguém') + ' · ' + dataHoraBR(r.criado_em) + (r.revisor_nome ? ' · ' + (r.status === 'aprovado' ? 'aprovado' : 'decidido') + ' por ' + esc(r.revisor_nome) : '') + '</div></div>' +
-      '<span class="pill ' + SIT[r.status][0] + '">' + SIT[r.status][1] + '</span></div>' + diferencas(r) +
-      (r.motivo ? '<div class="dica" style="margin-top:8px">Motivo: ' + esc(r.motivo) + '</div>' : '') +
-      (acoes ? '<div class="ap-acoes">' + acoes + '</div>' : '') + '</div>';
-  $('conteudo').innerHTML =
-    '<div class="titulo-pag"><div><h1>Aprovações</h1><p>Alterações feitas em modo rascunho: só valem depois que alguém que edita a área aprovar</p></div></div>' +
-    '<div class="kpis">' + kpi('Para você aprovar', String(paraMim.length), paraMim.length ? 'ambar' : 'verde', paraMim.length ? 'aguardando decisão' : 'nada pendente') +
-      kpi('Suas propostas pendentes', String(minhas.filter((r) => r.status === 'pendente').length), '', 'enviadas por você') +
-      kpi('Aprovadas em 30 dias', String(lista.filter((r) => r.status === 'aprovado' && Date.now() - new Date(r.decidido_em) < 30 * 864e5).length), 'verde', 'já valendo no sistema') + '</div>' +
-    (paraMim.length || !minhas.length ? '<div class="card"><div class="card-hd">📝 Aguardando sua aprovação<span class="pill neutro">' + paraMim.length + '</span></div><div class="ap-lista">' +
-      (paraMim.length ? paraMim.map((r) => cartao(r, '<button class="btn btn-o btn-mini" data-recusar="' + r.id + '">Recusar</button><button class="btn btn-v btn-mini" data-aprovar="' + r.id + '">✓ Aprovar</button>')).join('')
-        : vazio('Nada aguardando aprovação. Quem tem o nível "Rascunho" nas Funções envia as alterações para cá.')) + '</div></div>' : '') +
-    (minhas.length ? '<div class="card"><div class="card-hd">🗂 Minhas propostas</div><div class="ap-lista">' +
-      minhas.slice(0, 40).map((r) => cartao(r, r.status === 'pendente' ? '<button class="btn btn-o btn-mini" data-cancelar-rasc="' + r.id + '">Desistir</button>' : '')).join('') + '</div></div>' : '') +
-    (outras.length ? blocoRecolhivel('ap-hist', '🧾 Decididas recentemente (' + outras.length + ')', '<div class="ap-lista">' + outras.map((r) => cartao(r)).join('') + '</div>') : '');
-  const depois = async (msg) => { aviso(msg); await carregarCadastros(true); if (window.ERP_RECARREGAR) window.ERP_RECARREGAR(); else await TELAS.aprovacoes(); };
-  $('conteudo').querySelectorAll('[data-aprovar]').forEach((b) => b.onclick = () => comBotao(b, async () => {
-    await q(sb.rpc('aprovar_rascunho', { p_id: b.dataset.aprovar })); await depois('✓ Aprovado: a alteração já vale no sistema.');
-  }));
-  $('conteudo').querySelectorAll('[data-recusar]').forEach((b) => b.onclick = () => {
-    const j = abrirJanela({ titulo: 'Recusar alteração', corpo: campo('Motivo (a pessoa recebe o aviso)', '<textarea name="motivo" maxlength="500" placeholder="Ex.: o CNPJ está errado; confira na procuração"></textarea>', 'inteiro'),
-      rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Voltar</button><button class="btn btn-x" type="button" id="ap-recusar">Recusar</button></div>' });
-    j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
-    j.querySelector('#ap-recusar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
-      await q(sb.rpc('recusar_rascunho', { p_id: b.dataset.recusar, p_motivo: j.querySelector('[name=motivo]').value.trim() }));
-      fecharJanela(j); aviso('Alteração recusada. A pessoa foi avisada.'); await TELAS.aprovacoes();
-    });
-  });
-  $('conteudo').querySelectorAll('[data-cancelar-rasc]').forEach((b) => b.onclick = () => comBotao(b, async () => {
-    await q(sb.rpc('recusar_rascunho', { p_id: b.dataset.cancelarRasc, p_motivo: '' })); aviso('Proposta cancelada.'); await TELAS.aprovacoes();
-  }));
-};
-
-// Início: aviso de aprovações pendentes (quem aprova) e das próprias propostas (quem está em rascunho)
-async function cardAprovacoes() {
-  const temRascunho = FUNCOES_PROPOR.some((f) => emRascunho(f));
-  const podeAprovar = E.perfil.papel === 'admin' || FUNCOES_PROPOR.some((f) => pode(f, 'aprovar'));
-  if (!temRascunho && !podeAprovar) return '';
-  const pend = await q(sb.from('rascunhos').select('id, autor, funcao').eq('status', 'pendente')).catch(() => []);
-  const paraMim = pend.filter((r) => r.autor !== E.perfil.id && pode(r.funcao, 'aprovar')).length, minhas = pend.filter((r) => r.autor === E.perfil.id).length;
-  if (!paraMim && !temRascunho) return '';
-  return '<div class="faixa-aprov' + (paraMim ? ' tem' : '') + '"><span class="faixa-ic" aria-hidden="true">📝</span><div>' +
-    (paraMim ? '<b>' + paraMim + ' alteração(ões) aguardando sua aprovação</b><div class="sub">Feitas em modo rascunho: só valem depois que você aprovar.</div>'
-      : '<b>Você está em modo rascunho</b><div class="sub">O que você salvar vai para aprovação' + (minhas ? ' · ' + minhas + ' aguardando' : '') + '.</div>') +
-    '</div><button class="btn btn-o btn-mini" data-ir-aprovacoes>Abrir Aprovações</button></div>';
-}
-document.addEventListener('click', (ev) => { if (ev.target.closest && ev.target.closest('[data-ir-aprovacoes]')) irParaTela('aprovacoes'); });
-
-'use strict';
-// ═══════════════════════════════════════════════════════════════════
-// Central de e-mails ao cliente (Backup 16): honorários, parcelamentos,
-// acordos e recibos numa tela só. "A enviar hoje" mostra o que a rotina
-// vai mandar (com prévia); dá para enviar agora, pular ou enviar vários.
-// Modelos editáveis (Administração → E-mails) e o automático por tipo.
-// ═══════════════════════════════════════════════════════════════════
-const TIPOS_CENTRAL_EM = [['', 'Todos'], ['honorarios', 'Honorários'], ['parcelamentos', 'Parcelamentos'], ['acordos', 'Acordos'], ['recibos', 'Recibos']];
-const ROT_TIPO_EMAIL = { honorarios: 'Honorários', parcelamentos: 'Parcelamento', acordos: 'Acordo', recibos: 'Recibo', propostas: 'Proposta', contratos: 'Boas-vindas', convites: 'Convite' };
-const SIT_EMAIL = [['hoje', 'A enviar hoje'], ['enviados', 'Enviados'], ['erro', 'Com erro'], ['retidos', 'Retidos (pausa)']];
-// Backup 19: tudo de e-mail num lugar só — cada área é uma aba da Central
-// Backup 35: mais simples — 3 abas (E-mails · Quem recebe · Ajustes); pausa e e-mails de teste numa faixa só
-const AREAS_EMAIL = [['fila', '📬 E-mails'], ['clientes', '📨 Quem recebe'], ['config', '⚙ Ajustes', true]];
-
-TELAS.emails = async function () {
-  E.em = Object.assign({ sit: 'hoje', tipo: '', busca: '', area: 'fila' }, E.em || {});
-  const F = E.em;
-  const admin = E.perfil && E.perfil.papel === 'admin';
-  const pausado = await q(sb.rpc('emails_pausados')).catch(() => false);
-  const emTeste = await q(sb.from('configuracoes').select('valor').eq('chave', 'emails_teste').maybeSingle()).then((r) => (r && r.valor) || '').catch(() => '');
-  $('conteudo').innerHTML =
-    '<div class="titulo-pag"><div><h1>E-mails</h1></div>' +
-    '<div class="acoes"><button class="btn btn-o" id="em-meus" type="button">🔔 Meus avisos</button>' + (admin ? '<button class="btn btn-o" id="em-modelos">✎ Modelos</button><button class="btn btn-o" id="em-auto">⚙ Automático</button>' : '') + '</div></div>' +
-    '<div class="em-faixa' + (pausado ? ' em-faixa-pausa' : '') + '" id="em-pausa"><span class="em-faixa-ic" aria-hidden="true">' + (pausado ? '⏸' : '▶') + '</span>' +
-      '<div class="em-faixa-txt"><b>' + (pausado ? 'Envio PAUSADO' : 'Envio ligado') + '</b><span class="sub">' + (pausado ? ' · nada sai, só para os e-mails de teste:' : ' · sai em até 5 minutos') + '</span></div>' +
-      (pausado || admin ? '<input id="em-teste-lista" value="' + esc(emTeste) + '" placeholder="e-mails de teste (separados por vírgula)" title="Estes e-mails recebem mesmo com o envio pausado"' + (admin ? '' : ' disabled') + '>' + (admin ? '<button class="btn btn-o btn-mini" id="em-teste-salvar">Salvar</button>' : '') : '') +
-      (admin ? '<button class="btn btn-mini ' + (pausado ? 'btn-p' : 'btn-o') + '" id="em-pausar" data-pausar="' + (pausado ? '0' : '1') + '">' + (pausado ? '▶ Liberar o envio' : '⏸ Pausar') + '</button>' : '') + '</div>' +
-    '<div class="segmento" id="em-area" style="margin-bottom:14px">' + AREAS_EMAIL.filter((a) => !a[2] || admin).map(([v, r]) => '<button data-area="' + v + '">' + r + '</button>').join('') + '</div>' +
-    '<div id="em-area-corpo"></div>';
-  if ($('em-teste-salvar')) $('em-teste-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
-    await q(sb.rpc('salvar_emails_teste', { p: $('em-teste-lista').value.trim() })); aviso('✓ E-mails de teste salvos: saem mesmo com a pausa ligada.');
-  });
-  $('em-area').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.area = b.dataset.area; pintarAreaEmail(); } };
-  if ($('em-auto')) $('em-auto').onclick = () => janelaAutoEmails();
-  $('em-meus').onclick = () => janelaMeusAvisos();
-  if ($('em-modelos')) $('em-modelos').onclick = () => janelaModelosEmail();
-  if ($('em-pausar')) $('em-pausar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
-    const pausar = ev.currentTarget.dataset.pausar === '1';
-    if (!pausar && !confirm('Liberar o envio? Os e-mails automáticos voltam a sair (os que já estão retidos continuam retidos até você liberar cada um).')) return;
-    await q(sb.rpc('pausar_emails', { p_pausar: pausar })); aviso(pausar ? '⏸ Envio de e-mails pausado.' : '▶ Envio de e-mails liberado.'); await TELAS.emails();
-  });
-  await pintarAreaEmail();
-};
-async function pintarAreaEmail() {
-  const F = E.em, alvo = $('em-area-corpo'); if (!alvo) return;
-  document.querySelectorAll('#em-area button').forEach((b) => b.classList.toggle('ativo', b.dataset.area === F.area));
-  if (F.area === 'clientes') return controleEmails(alvo);
-  if (F.area === 'config') { E.adm = E.adm || {}; return admEmail(alvo); }
-  if (F.area === 'avisos') F.area = 'fila';
-  alvo.innerHTML = '<div class="abas" id="em-sit">' + SIT_EMAIL.map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
-    '<div class="filtros"><div class="segmento" id="em-tipo">' + TIPOS_CENTRAL_EM.map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
-    '<input class="busca" id="em-busca" placeholder="Buscar cliente, grupo ou assunto" autocomplete="off"></div>' +
-    '<div id="em-corpo"><div class="carregando">Carregando…</div></div>';
-  $('em-sit').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.sit = b.dataset.v; carregarEmails(); } };
-  $('em-tipo').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.tipo = b.dataset.v; pintarEmails(); } };
-  $('em-busca').value = F.busca;
-  let t; $('em-busca').oninput = (ev) => { clearTimeout(t); t = setTimeout(() => { F.busca = ev.target.value; pintarEmails(); }, 250); };
-  await carregarEmails();
-}
-let _emLista = [], _emCfg = {};
-async function carregarEmails() {
-  const F = E.em;
-  if ($('em-corpo')) $('em-corpo').innerHTML = '<div class="carregando">Carregando…</div>';
-  [_emLista, _emCfg] = await Promise.all([F.sit === 'retidos'
-    ? q(sb.from('email_fila').select('id, para, assunto, tipo, criado_em').eq('status', 'retido').order('criado_em', { ascending: false }).limit(500)).then((l) => l.map((x) => ({ id: x.id, para: x.para, assunto: x.assunto, quando: x.criado_em, tipo_fila: x.tipo, status: 'retido' })))
-    : q(sb.rpc('emails_central', { p_situacao: F.sit })), q(sb.rpc('config_emails')).catch(() => ({}))]);
-  pintarEmails();
-}
-function pintarEmails() {
-  const F = E.em, alvo = $('em-corpo'); if (!alvo) return;
-  document.querySelectorAll('#em-sit button').forEach((b) => b.classList.toggle('ativo', b.dataset.v === F.sit));
-  document.querySelectorAll('#em-tipo button').forEach((b) => b.classList.toggle('ativo', b.dataset.v === F.tipo));
-  const b = normalizar(F.busca);
-  const lista = (_emLista || []).filter((x) => (!F.tipo || x.tipo === F.tipo) && (!b || normalizar([x.cliente, x.grupo, x.assunto, x.para].join(' ')).includes(b)));
-  const autoTxt = ['honorarios', 'parcelamentos', 'acordos', 'recibos'].map((k) => '<span class="pill ' + (_emCfg[k] ? 'pago' : 'neutro') + '">' + ROT_TIPO_EMAIL[k] + ': ' + (_emCfg[k] ? 'automático' : 'manual') + '</span>').join(' ');
-  let html = '<div class="dica" style="margin-bottom:12px">' + autoTxt + (_emCfg.hora ? ' · envio às <b>' + esc(_emCfg.hora) + '</b>' : ' · envio junto da rotina das 7h') +
-    '<br><span class="sub">No automático, a lista "A enviar hoje" sai sozinha no horário. Em manual, nada sai até você clicar em "Enviar".</span></div>';
-  if (F.sit === 'retidos') {
-    const ret = (_emLista || []).filter((x) => !b || normalizar([x.assunto, x.para].join(' ')).includes(b));
-    alvo.innerHTML = '<div class="card"><div class="card-hd">⏸ Retidos pela pausa <span class="pill neutro">' + ret.length + '</span>' +
-      (ret.length ? '<span style="margin-left:auto;display:flex;gap:6px"><label class="check" style="font-size:12.5px"><input type="checkbox" id="em-todos"> marcar todos</label>' +
-        '<button class="btn btn-o btn-mini" id="em-desc-sel">Descartar marcados</button><button class="btn btn-p btn-mini" id="em-lib-sel">Enviar marcados</button></span>' : '') + '</div>' +
-      (ret.length ? '<div class="tabela-wrap"><table><thead><tr><th class="sem-ordem"></th><th>Quando</th><th>Tipo</th><th>Assunto</th><th>Para</th></tr></thead><tbody>' +
-        ret.map((x) => '<tr class="clicavel" data-em-ref="' + x.id + '"><td><input type="checkbox" data-em-ret="' + x.id + '" aria-label="Marcar"></td><td class="mono">' + dataHoraBR(x.quando) + '</td>' +
-          '<td>' + esc(x.tipo_fila || '—') + '</td><td>' + esc(x.assunto) + '</td><td>' + esc(x.para) + '</td></tr>').join('') + '</tbody></table></div>'
-        : vazio('Nenhum e-mail retido.')) + '</div>';
-    alvo.querySelectorAll('tr[data-em-ref]').forEach((tr) => tr.onclick = (ev) => { if (ev.target.closest('input, label')) return; previaEmail(tr.dataset.emRef); });
-    const todosR = $('em-todos'); if (todosR) todosR.onchange = () => alvo.querySelectorAll('[data-em-ret]').forEach((c) => { c.checked = todosR.checked; });
-    const acao = (tipo, bt) => comBotao(bt, async () => {
-      const ids = [...alvo.querySelectorAll('[data-em-ret]:checked')].map((c) => c.dataset.emRet);
-      if (!ids.length) throw new Error('Marque pelo menos um e-mail.');
-      if (!confirm(tipo === 'liberar' ? 'Enviar de verdade os ' + ids.length + ' e-mail(s) marcados?' : 'Descartar os ' + ids.length + ' e-mail(s) marcados? Eles não serão enviados.')) return;
-      const n = await q(sb.rpc('emails_retidos_acao', { p_ids: ids, p_acao: tipo }));
-      aviso(tipo === 'liberar' ? '✓ ' + n + ' e-mail(s) liberado(s): saem em até 5 minutos.' : n + ' e-mail(s) descartado(s).'); await carregarEmails();
-    });
-    if ($('em-lib-sel')) $('em-lib-sel').onclick = (ev) => acao('liberar', ev.currentTarget);
-    if ($('em-desc-sel')) $('em-desc-sel').onclick = (ev) => acao('descartar', ev.currentTarget);
-    return;
-  }
-  if (F.sit === 'hoje') {
-    const envia = lista.filter((x) => !x.bloqueio);
-    html += '<div class="card"><div class="card-hd">📬 A enviar hoje <span class="pill neutro">' + lista.length + '</span>' +
-      (envia.length ? '<span style="margin-left:auto;display:flex;gap:6px"><label class="check" style="font-size:12.5px"><input type="checkbox" id="em-todos"> marcar todos</label>' +
-        '<button class="btn btn-p btn-mini" id="em-enviar-sel">Enviar selecionados</button></span>' : '') + '</div>' +
-      (lista.length ? '<div class="tabela-wrap"><table><thead><tr><th class="sem-ordem"></th><th>Tipo</th><th>Cliente</th><th>Quem</th><th>Assunto</th><th>E-mail de destino</th><th class="num">Valor</th><th>Situação</th><th></th></tr></thead><tbody>' +
-        lista.map((x) => '<tr class="clicavel" data-em-ref="' + esc(x.ref) + '" title="Clique para ver a prévia"><td>' + (x.bloqueio ? '' : '<input type="checkbox" data-em-sel="' + esc(x.ref) + '" aria-label="Selecionar">') + '</td>' +
-          '<td><span class="pill aberto">' + esc(ROT_TIPO_EMAIL[x.tipo] || x.tipo) + '</span></td><td><b>' + esc(x.cliente || '—') + '</b>' + (x.grupo && x.grupo !== x.cliente ? '<div class="sub">' + esc(x.grupo) + '</div>' : '') + '</td>' +
-          '<td>' + pillPessoa(x.responsavel) + '</td><td>' + esc(x.assunto) + '</td><td>' + destinoEmail(x) + '</td>' +
-          '<td class="num mono">' + (Number(x.total) ? brl(x.total) : '—') + '</td>' +
-          '<td>' + (x.bloqueio ? '<span class="pill neutro" title="Não vai sair">' + esc(x.bloqueio) + '</span>' : '<span class="pill pago">' + (x.auto ? 'sai no horário' : 'pronto') + '</span>') + '</td>' +
-          '<td class="acoes-l">' + (x.bloqueio ? '' : '<button class="btn btn-v btn-mini" data-em-agora="' + esc(x.ref) + '">Enviar agora</button> ') + '<button class="btn btn-o btn-mini" data-em-pular="' + esc(x.ref) + '">Pular este</button></td></tr>').join('') +
-        '</tbody></table></div>' : vazio('Nada para enviar hoje. 👏')) + '</div>';
-  } else {
-    html += '<div class="card">' + (lista.length ? '<div class="tabela-wrap"><table class="ordenavel"><thead><tr><th data-tipo="data">Quando</th><th>Tipo</th><th>Cliente</th><th>Quem</th><th>Assunto</th><th>E-mail de destino</th><th>Situação</th><th></th></tr></thead><tbody>' +
-      lista.map((x) => '<tr class="clicavel" data-em-ref="' + esc(x.ref || x.id) + '"><td class="mono" data-ord="' + esc(x.quando) + '">' + dataHoraBR(x.quando) + '</td>' +
-        '<td><span class="pill aberto">' + esc(ROT_TIPO_EMAIL[x.tipo] || x.tipo) + '</span>' + (x.anexo ? ' 📎' : '') + '</td><td>' + esc(x.cliente || '—') + '</td><td>' + pillPessoa(x.responsavel || '') + '</td><td>' + esc(x.assunto) + '</td><td>' + esc(x.para) + '</td>' +
-        '<td>' + (x.status === 'erro' ? '<span class="pill vencido" title="' + esc(x.erro) + '">erro</span><div class="sub">' + esc(String(x.erro || '').slice(0, 80)) + '</div>' : x.status === 'enviado' ? '<span class="pill pago">enviado</span>' : '<span class="pill hoje">na fila</span>') + '</td>' +
-        '<td class="acoes-l">' + (x.status === 'erro' ? '<button class="btn btn-o btn-mini" data-em-de-novo="' + x.id + '">Tentar de novo</button>' : '') + '</td></tr>').join('') +
-      '</tbody></table></div>' : vazio(F.sit === 'erro' ? 'Nenhum e-mail com erro. 👏' : 'Nenhum e-mail enviado nos últimos 120 dias.')) + '</div>';
-  }
-  alvo.innerHTML = html;
-  alvo.querySelectorAll('tr[data-em-ref]').forEach((tr) => tr.onclick = (ev) => { if (ev.target.closest('button, input, label')) return; previaEmail(tr.dataset.emRef); });
-  const todos = $('em-todos'); if (todos) todos.onchange = () => alvo.querySelectorAll('[data-em-sel]').forEach((c) => { c.checked = todos.checked; });
-  const env = async (refs, bt) => comBotao(bt, async () => {
-    if (!refs.length) throw new Error('Marque pelo menos um e-mail.');
-    const n = await q(sb.rpc('emails_central_enviar', { p_refs: refs }));
-    aviso('✓ ' + n + ' e-mail(s) na fila de envio (saem em até 5 minutos).'); await carregarEmails();
-  });
-  alvo.querySelectorAll('[data-em-agora]').forEach((bt) => bt.onclick = () => env([bt.dataset.emAgora], bt));
-  const sel = $('em-enviar-sel'); if (sel) sel.onclick = () => env([...alvo.querySelectorAll('[data-em-sel]:checked')].map((c) => c.dataset.emSel), sel);
-  alvo.querySelectorAll('[data-em-pular]').forEach((bt) => bt.onclick = () => comBotao(bt, async () => {
-    if (!confirm('Pular este e-mail? Ele não será enviado (nem pela rotina automática).')) return;
-    await q(sb.rpc('emails_central_pular', { p_refs: [bt.dataset.emPular] })); aviso('E-mail pulado.'); await carregarEmails();
-  }));
-  alvo.querySelectorAll('[data-em-de-novo]').forEach((bt) => bt.onclick = () => comBotao(bt, async () => {
-    await q(sb.rpc('email_reenviar', { p_id: bt.dataset.emDeNovo })); aviso('✓ Voltou para a fila: sai na próxima rodada (até 5 minutos).'); await carregarEmails();
-  }));
-}
-// "E-mail de destino": o endereço e de qual contato ele veio (empresas podem ter vários e-mails)
-// Backup 26: de onde veio o destinatário — marcado para este tipo, contato do setor, contato geral ou e-mail do cadastro
-const ORIGEM_DESTINO = { marcado: 'marcado para receber', setor: 'contato do setor', geral: 'contato geral', cadastro: 'e-mail do cadastro' };
-const rotSetor = (k) => (SETORES_CONTATO.find((x) => x[0] === k) || [k, k || ''])[1];
-function destinoEmail(x) {
-  if (!x.para) return '<span class="sub">— sem e-mail —</span><div class="sub">cadastre em Clientes → ficha → Contatos</div>';
-  const de = x.origem === 'cadastro' || (!x.contato && !x.setor) ? 'e-mail do cadastro' : [x.contato ? esc(x.contato) : '', x.setor ? esc(rotSetor(x.setor)) : '', esc(ORIGEM_DESTINO[x.origem] || '')].filter(Boolean).join(' · ');
-  return '<span class="em-para">' + esc(x.para) + '</span><div class="sub" title="Quem recebe: o contato marcado com a finalidade deste e-mail (Clientes → ficha → Contatos)">' + de + '</div>';
-}
-async function previaEmail(ref) {
-  const p = await q(sb.rpc('emails_central_previa', { p_ref: ref }));
-  if (!p) return aviso('Prévia indisponível.', true);
-  const j = abrirJanela({ titulo: '✉ ' + p.assunto, larga: true,
-    corpo: '<div class="sub" style="margin-bottom:8px">Para: <b>' + esc(p.para || '— sem e-mail —') + '</b></div><iframe class="em-previa" sandbox="" title="Prévia do e-mail"></iframe>' });
-  j.querySelector('iframe').srcdoc = p.html;
-}
-// ⚙ automático por tipo, horário e os intervalos dos avisos
-async function janelaAutoEmails() {
-  const c = await q(sb.rpc('config_emails'));
-  const lig = (k, r, d) => '<label class="check em-lig"><input type="checkbox" name="' + k + '"' + (c[k] ? ' checked' : '') + '> <b>' + r + '</b> <span class="sub">' + d + '</span></label>';
-  const j = abrirJanela({ titulo: '⚙ E-mails automáticos', larga: true,
-    corpo: '<form id="f-emauto" class="grade">' +
-      '<div class="inteiro">' + lig('honorarios', 'Honorários', 'lembrete, vence hoje e 1º/2º/3º aviso de atraso') + lig('parcelamentos', 'Parcelamentos', 'guia do mês e aviso de parcelas em atraso') +
-        lig('acordos', 'Acordos', 'lembrete da parcela e aviso de atraso') + lig('recibos', 'Recibos', 'ao marcar "Recebido", com o PDF do recibo') + '</div>' +
-      campo('Horário do envio (Brasília)', '<input name="hora" type="time" value="' + esc(c.hora || '') + '">') +
-      campo('Lembrete de honorários: dias antes', '<input name="lembrete_dias" type="number" min="1" max="30" value="' + c.lembrete_dias + '">') +
-      campo('1º aviso de atraso (dias)', '<input name="a1" type="number" min="1" value="' + c.atraso[0] + '">') +
-      campo('2º aviso (dias)', '<input name="a2" type="number" min="2" value="' + c.atraso[1] + '">') +
-      campo('3º aviso (dias)', '<input name="a3" type="number" min="3" value="' + c.atraso[2] + '">') +
-      campo('Guia do parcelamento: dias antes', '<input name="parc_dias" type="number" min="0" max="30" value="' + c.parc_dias + '">') +
-      campo('Parcela do acordo: dias antes', '<input name="aco_dias" type="number" min="0" max="30" value="' + c.aco_dias + '">') +
-      campo('Acordo em atraso: avisar após (dias)', '<input name="aco_atraso_dias" type="number" min="0" max="60" value="' + c.aco_atraso_dias + '">') + '</form>' +
-      '<p class="sub">Horário vazio = os e-mails saem junto da rotina das 7h (dias úteis). O perfil de e-mail de cada cliente continua valendo.</p>',
-    rodape: '<span></span><button class="btn btn-p" type="button" id="emauto-salvar">Salvar</button>' });
-  const f = j.querySelector('#f-emauto');
-  j.querySelector('#emauto-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
-    const n = (k) => parseInt(f[k].value, 10) || 0;
-    await q(sb.rpc('salvar_config_emails', { p: { honorarios: f.honorarios.checked, parcelamentos: f.parcelamentos.checked, acordos: f.acordos.checked, recibos: f.recibos.checked,
-      hora: f.hora.value || '', lembrete_dias: n('lembrete_dias'), atraso: [n('a1'), n('a2'), n('a3')], parc_dias: n('parc_dias'), aco_dias: n('aco_dias'), aco_atraso_dias: n('aco_atraso_dias') } }));
-    aviso('✓ Configuração dos e-mails salva.'); fecharJanela(j); if ($('em-corpo')) await carregarEmails();
-  });
-}
-// ✎ modelos (texto e assunto de cada e-mail)
-async function janelaModelosEmail() {
-  const ms = await q(sb.from('emails_modelos').select('*').order('ordem'));
-  const j = abrirJanela({ titulo: '✎ Modelos dos e-mails ao cliente', larga: true,
-    corpo: '<div class="dica" style="margin-bottom:10px">Os campos entre chaves são trocados sozinhos: {vencimento}, {parcela}, {credor}, {processo}, {empresa}, {natureza}, {numero}, {atrasadas}, {pix}, {valor}, {extenso}, {data_pagamento}. ' +
-      'A saudação ("Olá, Fulano"), a tabela de valores e a assinatura com a marca do escritório entram automaticamente.</div>' +
-      '<div class="lista-ficha">' + ms.map((m) => '<div class="item-ficha"><div><b>' + esc(m.nome) + '</b><div class="sub">' + esc(m.assunto) + '</div></div><button class="btn btn-o btn-mini" data-emm="' + m.chave + '">Editar</button></div>').join('') + '</div>' });
-  j.querySelectorAll('[data-emm]').forEach((b) => b.onclick = () => {
-    const m = ms.find((x) => x.chave === b.dataset.emm);
-    const k = abrirJanela({ titulo: 'Modelo — ' + m.nome, larga: true,
-      corpo: '<form id="f-emm" class="grade">' + campo('Assunto', '<input name="assunto" maxlength="200" value="' + esc(m.assunto) + '">', 'inteiro') +
-        '<div class="inteiro em-manual"><div><div class="secao">Texto</div><div class="pr-texto" id="emm-texto" contenteditable="true">' + m.texto + '</div></div>' +
-        '<div><div class="secao">Como o cliente recebe <span class="sub">(com dados de exemplo)</span></div><iframe id="emm-previa" class="em-previa" sandbox="" title="Prévia"></iframe></div></div></form>',
-      rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="emm-salvar">Salvar</button></div>' });
-    k.querySelector('.janela').classList.add('janela-rel');
-    const EXEMPLO = { vencimento: '10/10/2026', parcela: '4/6', credor: 'Fornecedor Exemplo S.A.', processo: '0000000-00.2025.8.13.0000', empresa: 'Empresa Exemplo Ltda',
-      natureza: 'Transação tributária · PGFN', numero: '12345', atrasadas: '2', pix: 'pix@escritorio.com.br', valor: 'R$ 4.500,00', extenso: 'quatro mil e quinhentos reais', data_pagamento: '28/09/2026' };
-    let tPv; const pv = () => { clearTimeout(tPv); tPv = setTimeout(async () => {
-      const troca = (t) => String(t).replace(/\{(\w+)\}/g, (x, c) => EXEMPLO[c] || x);
-      const r = await sb.rpc('previa_email_modelo', { p_assunto: troca(k.querySelector('[name=assunto]').value), p_html: troca(limparHtmlEmail(k.querySelector('#emm-texto').innerHTML)) });
-      if (!r.error) k.querySelector('#emm-previa').srcdoc = r.data || ''; }, 350); };
-    k.querySelector('#emm-texto').addEventListener('input', pv); k.querySelector('[name=assunto]').addEventListener('input', pv); pv();
-    k.querySelector('[data-cancelar]').onclick = () => fecharJanela(k);
-    k.querySelector('#emm-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
-      const f = k.querySelector('#f-emm'), txt = limparHtmlEmail(k.querySelector('#emm-texto').innerHTML);
-      if (!f.assunto.value.trim() || !txt.trim()) throw new Error('Assunto e texto não podem ficar vazios.');
-      await q(sb.from('emails_modelos').update({ assunto: f.assunto.value.trim(), texto: txt }).eq('chave', m.chave));
-      aviso('✓ Modelo salvo.'); fecharJanela(k); fecharJanela(j); janelaModelosEmail();
-    });
-  });
-}
-function limparHtmlEmail(h) {
-  const d = document.createElement('div'); d.innerHTML = h;
-  d.querySelectorAll('script,style,iframe,object,embed,link,meta,img').forEach((x) => x.remove());
-  d.querySelectorAll('*').forEach((x) => [...x.attributes].forEach((a) => { if (a.name !== 'style' || /url\(|expression/i.test(a.value)) x.removeAttribute(a.name); }));
-  return d.innerHTML;
-}
-// aba "E-mails" da ficha do cliente
-async function abaEmailsCliente(alvo, cl) {
-  const l = await q(sb.rpc('emails_do_cliente', { p_cliente: cl.id }));
-  alvo.innerHTML = '<div class="titulo-pag" style="margin-bottom:8px"><div><b>E-mails enviados</b> <span class="sub">' + l.length + '</span></div></div>' +
-    (l.length ? '<div class="tabela-wrap"><table class="ordenavel"><thead><tr><th data-tipo="data">Quando</th><th>Tipo</th><th>Assunto</th><th>Para</th><th>Situação</th></tr></thead><tbody>' +
-      l.map((x) => '<tr class="clicavel" data-em-id="' + x.id + '"><td class="mono" data-ord="' + esc(x.quando) + '">' + dataHoraBR(x.quando) + '</td><td>' + esc(x.tipo) + (x.anexo ? ' 📎' : '') + '</td><td>' + esc(x.assunto) + '</td><td>' + esc(x.para) + '</td>' +
-        '<td>' + (x.status === 'erro' ? '<span class="pill vencido" title="' + esc(x.erro) + '">erro</span>' : x.status === 'enviado' ? '<span class="pill pago">entregue ao servidor</span>' : '<span class="pill hoje">na fila</span>') + '</td></tr>').join('') +
-      '</tbody></table></div>' : vazio('Nenhum e-mail enviado a este cliente.'));
-  alvo.querySelectorAll('[data-em-id]').forEach((tr) => tr.onclick = () => previaEmail(tr.dataset.emId).catch((e) => aviso(erroAmigavel(e), true)));
-}
-
-// ═══ Backup 26: CONTROLE POR CLIENTE — o que cada cliente recebe, para qual e-mail, quem é o responsável, modelo e histórico ═══
-// Backup 29: nomes mais claros — Honorários, Parcelamentos, Recibo de honorário, Reuniões (as chaves internas não mudam)
-const TIPOS_CONTROLE = [['cobranca', 'Honorários', 'hon_lembrete', 'lembrete antes do vencimento, vence hoje e 1º/2º/3º aviso de atraso dos honorários'],
-  ['guia', 'Parcelamentos', 'parc_guia', 'guias dos parcelamentos e parcelas em atraso'], ['acordo', 'Acordos', 'aco_lembrete', 'lembrete e atraso da parcela do acordo'],
-  ['recibo', 'Recibo de honorário', 'recibo', 'ao dar baixa no honorário, com o PDF do recibo'], ['contrato', 'Contratos', 'boas_vindas', 'boas-vindas na assinatura, propostas'],
-  ['convite', 'Reuniões', 'convite', 'convite de reunião (quando marcado na reunião)']];
-let _emCtrl = [];
-async function controleEmails(alvo) {
-  // Backup 36: mais simples — uma linha por cliente com um sinal por tipo (✓ recebe · ⚠ sem e-mail · — não recebe) e o e-mail principal;
-  // a regra geral (setor quando ninguém está marcado) fica recolhida; clique no cliente para escolher contatos e ver o histórico
-  const admin = E.perfil && E.perfil.papel === 'admin';
-  E.emc = Object.assign({ busca: '', perfil: '', problema: false }, E.emc || {});
-  const F = E.emc;
-  alvo.innerHTML = '<div class="carregando">Carregando…</div>';
-  const [lista, dest] = await Promise.all([q(sb.rpc('emails_controle')), q(sb.from('configuracoes').select('valor').eq('chave', 'emails_destino').maybeSingle()).catch(() => null)]);
-  _emCtrl = lista || [];
-  const mapa = (dest && dest.valor) || {};
-  const falta = (c) => TIPOS_CONTROLE.some(([k]) => c.tipos[k] && c.tipos[k].recebe && !c.tipos[k].para);
-  const nFalta = _emCtrl.filter(falta).length;
-  alvo.innerHTML =
-    '<div class="emc-topo"><div class="emc-resumo"><div class="emc-n"><b>' + _emCtrl.length + '</b><span>clientes</span></div>' +
-      '<button type="button" class="emc-n' + (nFalta ? ' emc-n-ruim' : ' emc-n-ok') + (F.problema ? ' ativo' : '') + '" id="emc-prob" aria-pressed="' + F.problema + '"><b>' + nFalta + '</b><span>' + (nFalta ? 'com e-mail faltando — ver' : 'com e-mail faltando') + '</span></button></div>' +
-      '<div class="emc-leg"><span class="emc-s emc-s-ok">✓</span> recebe <span class="emc-s emc-s-falta">!</span> recebe, mas sem e-mail <span class="emc-s emc-s-nao">–</span> não recebe · <b>clique no cliente</b> para escolher quem recebe cada tipo</div></div>' +
-    '<div class="filtros" id="emc-filtros"><input class="busca" id="emc-busca" placeholder="Buscar cliente ou grupo" autocomplete="off" value="' + esc(F.busca) + '">' +
-      '<div class="segmento" id="emc-perfis"><button type="button" data-v="">Todos</button>' + PERFIS_EMAIL.map(([v, r]) => '<button type="button" data-v="' + v + '">' + esc(r) + '</button>').join('') + '</div></div>' +
-    '<div class="card"><div id="emc-tab"></div></div>' +
-    '<details class="emc-regra"><summary>⚙ Regra geral: para qual setor vai cada tipo quando ninguém está marcado</summary><div class="emc-destinos">' +
-      TIPOS_CONTROLE.map(([k, r]) => '<label>' + r + ' → <select class="busca sel" data-emc-dest="' + k + '"' + (admin ? '' : ' disabled') + '>' +
-        SETORES_CONTATO.map(([v, rs]) => '<option value="' + v + '"' + ((mapa[k] || 'financeiro') === v ? ' selected' : '') + '>' + rs + '</option>').join('') + '</select></label>').join('') +
-      '<span class="sub">Sem contato nesse setor: vai para o contato Geral e, por último, para o e-mail do cadastro.</span></div></details>';
-  const sinal = (t, r) => {
-    if (!t || !t.recebe) return '<span class="emc-s emc-s-nao" title="' + esc(r) + ': não recebe (perfil do cliente)">–</span>';
-    if (!t.para) return '<span class="emc-s emc-s-falta" title="' + esc(r) + ': recebe, mas não há e-mail — cadastre um contato">!</span>';
-    return '<span class="emc-s emc-s-ok" title="' + esc(r + ': ' + t.para) + '">✓</span>';
-  };
-  const principal = (c) => { const n = {}; TIPOS_CONTROLE.forEach(([k]) => { const t = c.tipos[k]; if (t && t.recebe && t.para) String(t.para).split(/,\s*/).forEach((m) => { n[m] = (n[m] || 0) + 1; }); });
-    const L = Object.keys(n).sort((x, y) => n[y] - n[x]); return L; };
-  const pintar = () => {
-    const b = normalizar(F.busca);
-    alvo.querySelectorAll('#emc-perfis button').forEach((x) => x.classList.toggle('ativo', x.dataset.v === F.perfil));
-    const pb = $('emc-prob'); if (pb) { pb.classList.toggle('ativo', F.problema); pb.setAttribute('aria-pressed', F.problema); }
-    const vis = _emCtrl.filter((c) => (!F.perfil || (c.perfil || 'padrao') === F.perfil) && (!b || normalizar(c.nome + ' ' + (c.grupo || '')).includes(b)) && (!F.problema || falta(c)));
-    $('emc-tab').innerHTML = vis.length ? '<div class="tabela-wrap"><table class="ordenavel emc-tab emc-tab2"><thead><tr>' +
-      '<th>Cliente</th><th>Vai para</th>' + TIPOS_CONTROLE.map(([, r, , d]) => '<th class="emc-c-t" title="' + esc(d) + '">' + r + '</th>').join('') + '<th>Perfil</th></tr></thead><tbody>' +
-      vis.map((c) => { const em = principal(c);
-        return '<tr class="clicavel' + (falta(c) ? ' emc-ruim' : '') + '" data-emc="' + c.id + '">' +
-        '<td><b>' + esc(c.nome) + '</b>' + (c.grupo && c.grupo !== c.nome ? '<div class="sub">' + esc(c.grupo) + '</div>' : '') + '</td>' +
-        '<td>' + (em.length ? '<span class="em-para" title="' + esc(em.join(', ')) + '">' + esc(em[0]) + '</span>' + (em.length > 1 ? ' <span class="sub">+' + (em.length - 1) + '</span>' : '') : '<span class="pill vencido">sem e-mail</span>') + '</td>' +
-        TIPOS_CONTROLE.map(([k, r]) => '<td class="emc-c-t">' + sinal(c.tipos[k], r) + '</td>').join('') +
-        '<td><select class="busca sel cem-perfil-sel" data-cem="' + c.id + '" aria-label="Perfil de ' + esc(c.nome) + '">' + PERFIS_EMAIL.map(([v, r]) => '<option value="' + v + '"' + ((c.perfil || 'padrao') === v ? ' selected' : '') + '>' + r + '</option>').join('') + '</select></td></tr>'; }).join('') + '</tbody></table></div>'
-      : vazio(F.problema ? 'Nenhum cliente com e-mail faltando. 👍' : 'Nenhum cliente neste filtro.');
-    alvo.querySelectorAll('tr[data-emc]').forEach((tr) => tr.onclick = (ev) => { if (ev.target.closest('input, select, label, button')) return; janelaControleCliente(tr.dataset.emc, () => controleEmails(alvo)); });
-    alvo.querySelectorAll('[data-cem]').forEach((sel) => sel.onchange = () => comBotao(sel, async () => {
-      if (sel.value === 'personalizado') {
-        await q(sb.rpc('salvar_perfil_email', { p_ids: [sel.dataset.cem], p_perfil: 'personalizado', p_tipos: null }));
-        _emCtrl = (await q(sb.rpc('emails_controle'))) || [];
-        await janelaControleCliente(sel.dataset.cem, () => controleEmails(alvo)); return;
-      }
-      await q(sb.rpc('salvar_perfil_email', { p_ids: [sel.dataset.cem], p_perfil: sel.value, p_tipos: null }));
-      aviso('✓ Perfil de e-mail atualizado.'); await carregarCadastros(true); await controleEmails(alvo);
-    }));
-  };
-  alvo.querySelectorAll('[data-emc-dest]').forEach((sel) => sel.onchange = () => comBotao(sel, async () => {
-    await q(sb.rpc('salvar_destinos_email', { p: { [sel.dataset.emcDest]: sel.value } }));
-    aviso('✓ Regra geral salva.'); await controleEmails(alvo);
-  }));
-  let tb; $('emc-busca').oninput = (ev) => { clearTimeout(tb); tb = setTimeout(() => { F.busca = ev.target.value; pintar(); }, 250); };
-  $('emc-perfis').onclick = (ev) => { const x = ev.target.closest('button'); if (x) { F.perfil = x.dataset.v; pintar(); } };
-  $('emc-prob').onclick = () => { F.problema = !F.problema; pintar(); };
-  pintar();
-}
-// detalhe de um cliente: tipo a tipo (recebe? para quem? quais contatos?), modelo de cada e-mail e histórico
-async function janelaControleCliente(id, depois) {
-  const c = _emCtrl.find((x) => x.id === id) || ((await q(sb.rpc('emails_controle'))) || []).find((x) => x.id === id);
-  if (!c) return aviso('Cliente não encontrado.', true);
-  const [contatos, cli, modelos] = await Promise.all([q(sb.from('contatos').select('id, nome, finalidade, email, recebe').eq('cliente_id', id).order('criado_em')),
-    q(sb.from('clientes').select('perfil_email, emails_tipos').eq('id', id).single()), q(sb.from('emails_modelos').select('chave, nome, assunto, texto')).catch(() => [])]);
-  const pers = cli.perfil_email === 'personalizado', tip = cli.emails_tipos || {};
-  const PERM = { cobranca: ['lembrete', 'vencimento', 'cobranca'], guia: ['parcelamento'], acordo: ['acordo'], recibo: ['recibo'], contrato: ['boas_vindas'], convite: ['convite'] };
-  const comEmail = contatos.filter((x) => x.email);
-  const j = abrirJanela({ titulo: '📨 E-mails de ' + c.nome, larga: true,
-    corpo: '<div class="ficha-selos" style="margin-bottom:10px">' + pillPessoa(c.responsavel) + ' <span class="pill neutro">Perfil: ' + esc((PERFIS_EMAIL.find((p) => p[0] === (c.perfil || 'padrao')) || PERFIS_EMAIL[0])[1]) + '</span></div>' +
-      (comEmail.length ? '' : '<div class="dica" style="margin-bottom:10px">Este cliente não tem contato com e-mail. Cadastre em <b>Clientes → ficha → Contatos</b> (com o setor e o que cada um recebe).</div>') +
-      '<div class="tabela-wrap"><table class="emc-det"><thead><tr><th>Tipo de e-mail</th><th>Recebe?</th><th>Vai para</th><th>Contatos que recebem este tipo</th><th></th></tr></thead><tbody>' +
-      TIPOS_CONTROLE.map(([k, r, mod, d]) => { const t = c.tipos[k] || {};
-        return '<tr><td><b>' + r + '</b><div class="sub">' + esc(d) + '</div></td>' +
-          '<td>' + (pers ? PERM[k].map((pk) => '<label class="check"><input type="checkbox" data-emc-tipo="' + pk + '"' + ((tip[pk] != null ? tip[pk] : pk !== 'vencimento') ? ' checked' : '') + '> ' + esc((TIPOS_EMAIL.find((x) => x[0] === pk) || [pk, pk])[1]) + '</label>').join('')
-            : t.recebe ? '<span class="pill pago">sim</span>' : '<span class="pill neutro">não</span>') + '</td>' +
-          '<td>' + (t.para ? '<span class="em-para">' + esc(t.para) + '</span><div class="sub">' + esc(ORIGEM_DESTINO[t.origem] || '') + '</div>' : '<span class="pill vencido">sem e-mail</span>') + '</td>' +
-          '<td>' + (comEmail.length ? comEmail.map((ct) => '<label class="check"><input type="checkbox" data-emc-ct="' + ct.id + '" data-k="' + k + '"' + ((ct.recebe || []).includes(k) ? ' checked' : '') + '> ' +
-              esc(ct.nome || ct.email) + ' <span class="sub">' + esc(rotSetor(ct.finalidade)) + '</span></label>').join('') : '<span class="sub">—</span>') + '</td>' +
-          '<td>' + (modelos.some((m) => m.chave === mod) ? '<button class="btn btn-o btn-mini" type="button" data-emc-modelo="' + mod + '">Ver modelo</button>' : '') + '</td></tr>'; }).join('') +
-      '</tbody></table></div>' +
-      '<p class="sub" style="margin:8px 0 14px">Marcar um contato num tipo faz <b>só ele(s)</b> receber aquele tipo. Sem ninguém marcado, vale a regra geral (embaixo da lista).' +
-        (pers ? ' Perfil <b>Personalizado</b>: as caixinhas de "Recebe?" valem para este cliente.' : ' Para escolher tipo a tipo o que ele recebe, mude o perfil para <b>Personalizado</b>.') + '</p>' +
-      '<div class="secao">Histórico de e-mails</div><div id="emc-hist"><div class="carregando">Carregando…</div></div>',
-    rodape: '<button class="btn btn-o" type="button" id="emc-ficha">Abrir a ficha (Contatos)</button><div class="acoes">' + (pers ? '<button class="btn btn-p" type="button" id="emc-salvar-tipos">Salvar o que recebe</button>' : '') + '</div>' });
-  let mudou = false;
-  j._aoFechar = () => { if (mudou && depois) depois(); };
-  j.querySelectorAll('[data-emc-ct]').forEach((x) => x.onchange = () => comBotao(x, async () => {
-    await q(sb.rpc('contato_recebe', { p_contato: x.dataset.emcCt, p_tipo: x.dataset.k, p_recebe: x.checked })); mudou = true;
-    aviso('✓ ' + (x.checked ? 'Passa a receber' : 'Deixa de receber') + ' ' + (RECEBE_CURTO[x.dataset.k] || '').toLowerCase() + '.');
-  }));
-  j.querySelectorAll('[data-emc-modelo]').forEach((b) => b.onclick = () => comBotao(b, async () => {
-    const m = modelos.find((x) => x.chave === b.dataset.emcModelo);
-    const html = await q(sb.rpc('previa_email_modelo', { p_assunto: m.assunto, p_html: m.texto }));
-    const k = abrirJanela({ titulo: '✉ Modelo — ' + m.nome, larga: true, corpo: '<div class="sub" style="margin-bottom:8px">Assunto: <b>' + esc(m.assunto) + '</b> · os campos entre chaves são trocados pelos dados de verdade. Para mudar o texto: ✎ Modelos.</div><iframe class="em-previa" sandbox="" title="Prévia do modelo"></iframe>' });
-    k.querySelector('iframe').srcdoc = html;
-  }));
-  const bs = j.querySelector('#emc-salvar-tipos');
-  if (bs) bs.onclick = () => comBotao(bs, async () => {
-    const tipos = Object.assign({}, tip); j.querySelectorAll('[data-emc-tipo]').forEach((x) => { tipos[x.dataset.emcTipo] = x.checked; });
-    await q(sb.rpc('salvar_perfil_email', { p_ids: [id], p_perfil: 'personalizado', p_tipos: tipos })); mudou = true;
-    aviso('✓ O que ' + c.nome + ' recebe foi salvo.'); fecharJanela(j);
-  });
-  j.querySelector('#emc-ficha').onclick = () => { fecharJanela(j); abrirFicha(id, 'contatos'); };
-  abaEmailsCliente(j.querySelector('#emc-hist'), { id }).catch((e) => { j.querySelector('#emc-hist').innerHTML = '<div class="vazio">' + esc(erroAmigavel(e)) + '</div>'; });
-}
-
-'use strict';
-// ═══════════════════════════════════════════════════════════════════
 // Guias (Backup 27) — emissão das guias de PARCELAMENTOS e dos boletos/PIX de ACORDOS,
 // pensada para o estagiário: 1) emitir  2) marcar "emitida" (data e quem, com o PDF guardado)
 // 3) mandar ao cliente por e-mail (a guia vai anexa)  4) conferir o pagamento (✓ Pago).
@@ -7590,7 +6571,6 @@ async function cardGuias(tabela, el) {
     (lista.length ? htmlGuiasPorGrupo(tabela, lista, TODOS, nome, dias, h, aba)
       : '<div class="sub" style="padding:8px 2px">' + ({ emitir: 'Nada a emitir agora. 👏', emitidas: 'Nenhuma ' + nome + ' emitida aguardando envio.', vencidas: 'Nenhuma parcela vencida sem pagamento. 👏' })[aba] + '</div>') +
     '</div></div>';
-  const bf = el.querySelector('[data-gd-fila]'); if (bf) bf.onclick = () => { if (typeof window.nav === 'function') window.nav(null, 'emails'); };
   el.querySelector('[data-gd-min]').onclick = () => { _guiaMin[tabela] = !_guiaMin[tabela]; try { localStorage.setItem('erp_guias_min', JSON.stringify(_guiaMin)); } catch (e) { /* ok */ } cardGuias(tabela, el); };
   const be = el.querySelector('[data-gd-empresa]'); if (be) be.onclick = () => janelaGuiasEmpresa(tabela, L, null, () => cardGuias(tabela, el));
   el.querySelectorAll('[data-gd-grp]').forEach((b) => b.onclick = () => { const k = tabela + '|' + b.dataset.gdGrp; _guiaGrpAberto[k] = !_guiaGrpAberto[k]; cardGuias(tabela, el); });
@@ -7807,8 +6787,10 @@ function textoGuias(tabela, empresa, itens) {
     return { intro, fecho, email: intro + '\n\n' + fecho, zap: intro + '\n\n' + blocos.join('\n\n') + (itens.length > 1 ? '\n\n*Total: ' + brl(tot) + '*' : '') + '\n\n' + fecho };
   }
   const soPix = itens.every((x) => ehPixGuia(tabela, x));
-  const intro = saudacaoGuia() + (soPix ? '' : '\n\nSeguem as parcelas de acordos da ' + empresa + ' com vencimento neste mês ou em atraso.');
-  const blocos = itens.map((x) => (x.vencimento < hojeISO() ? '⚠ PARCELA EM ATRASO\n' : '') + 'Processo: ' + (x.processo || '—') + ' | Parcela: ' + parcOrd(x) +
+  // Backup 41: PIX não tem guia nem boleto — o texto é só "Acordo para pagamento", com processo, partes, vencimento, valor e a chave
+  const intro = saudacaoGuia() + (soPix ? '\n\nAcordo para pagamento' + (itens.length > 1 ? 's' : '') + ' — ' + empresa + ':'
+    : '\n\nSeguem as parcelas de acordos da ' + empresa + ' com vencimento neste mês ou em atraso.');
+  const blocos = itens.map((x) => (x.vencimento < hojeISO() ? '⚠ PARCELA EM ATRASO\n' : '') + '*Acordo para pagamento*\nProcesso: ' + (x.processo || '—') + ' | Parcela: ' + parcOrd(x) +
     '\nPartes: ' + (x.devedor || '—') + ' × ' + (x.credor || '—') + '\nVencimento: ' + dataBR(x._venc || x.vencimento) + '\nValor: ' + valorDe(x) +
     (ehPixGuia(tabela, x) ? '\nPIX: ' + (x.pix || '[chave PIX]') + (x.banco ? '\nBanco: ' + x.banco : '') : ''));
   return { intro, fecho, email: intro + '\n\n' + fecho, zap: intro + '\n\n' + blocos.join('\n\n') + (itens.length > 1 ? '\n\nTotal: ' + brl(tot) : '') + '\n\n' + fecho };
@@ -7858,9 +6840,9 @@ async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
               '<span>' + (tabela === 'parcelas' ? (p.numero ? 'Nº do parcelamento: <b>' + esc(p.numero) + '</b> · Parcela <b>' + esc(parcDe(x)) + '</b> · ' : 'Parcela <b>' + esc(parcDe(x)) + '</b> · ') : 'Partes: <b>' + esc(x.devedor || '—') + ' × ' + esc(x.credor || '—') + '</b> · ') +
               'Vencimento <b>' + dataBR(x.vencimento) + '</b>' + (ehPixGuia(tabela, x) ? ' · PIX <b>' + esc(x.pix || '—') + '</b>' : '') + '</span></span>' +
             (x.vencimento < hojeISO() ? '<span class="ge-it-v ge-it-d"><small>Novo vencimento</small><input type="date" class="ge-novo-venc" value="' + fimDoMesGuia(hojeISO()) + '" aria-label="Novo vencimento da guia atualizada"></span>' : '') +
-            '<span class="ge-it-v"><small>' + (x.vencimento < hojeISO() ? 'Valor atualizado' : 'Valor da guia') + '</small><span class="ge-vbox"><span class="ge-rs">R$</span><input class="ge-valor" data-mascara="nenhuma" inputmode="decimal" value="' + (x.valor ? valorParaCampo(x.valor) : '') + '" placeholder="0,00" aria-label="Valor"></span></span></label>'; }).join('') + '</div>' +
+            '<span class="ge-it-v"><small>' + (x.vencimento < hojeISO() ? 'Valor atualizado' : tabela === 'acordos' ? 'Valor da parcela' : 'Valor da guia') + '</small><span class="ge-vbox"><span class="ge-rs">R$</span><input class="ge-valor" data-mascara="nenhuma" inputmode="decimal" value="' + (x.valor ? valorParaCampo(x.valor) : '') + '" placeholder="0,00" aria-label="Valor"></span></span></label>'; }).join('') + '</div>' +
         '<div class="ge-fecho">' + esc(t.fecho) + '</div></div>' +
-      '<div class="ge-anexos"><label class="ge-drop"><input type="file" id="ge-arqs" accept=".pdf,image/*" multiple hidden><span>📎 <b>Anexar os PDFs</b> ' + (tabela === 'acordos' ? 'dos boletos' : 'das guias') + '</span><small>vão só no e-mail — não ficam guardados no sistema</small></label><div class="ge-chips" id="ge-chips"></div></div>';
+      '<div class="ge-anexos"' + (e.itens.every((x) => ehPixGuia(tabela, x)) ? ' hidden' : '') + '><label class="ge-drop"><input type="file" id="ge-arqs" accept=".pdf,image/*" multiple hidden><span>📎 <b>Anexar os PDFs</b> ' + (tabela === 'acordos' ? 'dos boletos' : 'das guias') + '</span><small>vão só no e-mail — não ficam guardados no sistema</small></label><div class="ge-chips" id="ge-chips"></div></div>';
     $j('#ge-arqs').onchange = () => { arquivos = arquivos.concat([...$j('#ge-arqs').files]); $j('#ge-arqs').value = ''; pintarChips(); };
     j.querySelectorAll('.ge-it input').forEach((i) => i.addEventListener('input', total));
     j.querySelectorAll('.ge-it input[type=checkbox]').forEach((i) => i.addEventListener('change', total));
@@ -8072,7 +7054,8 @@ async function rotinaPassivo(el) {
   $('rt-hist').onclick = () => janelaHistoricoPassivo(null);
   $('rt-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
     let n = 0;
-    for (const [id, a] of alterados) {
+    // Backup 41: grava de 6 em 6 (antes, uma empresa por vez)
+    const gravar = async ([id, a]) => {
       const up = {};
       Object.entries(a.cli).forEach(([k, v]) => {
         if (k === 'em_operacao' || k === 'procuracao' || k === 'certificado') up[k] = v === '' ? null : v === 'true';
@@ -8087,7 +7070,9 @@ async function rotinaPassivo(el) {
         await q(sb.from('cliente_certificado').upsert(row).select('cliente_id'));
       }
       n++;
-    }
+    };
+    const fila = [...alterados];
+    for (let i = 0; i < fila.length; i += 6) await Promise.all(fila.slice(i, i + 6).map(gravar));
     if (alterados.size) await q(sb.rpc('conferir_rotina', { p_area: 'passivo', p_ids: [...alterados.keys()], p_alterou: true })).catch(() => null);
     alterados.clear(); aviso('✓ ' + plural(n, 'empresa atualizada', 'empresas atualizadas') + '.');
     await carregarCadastros(true); await rotinaPassivo(el);
@@ -8556,129 +7541,8 @@ async function rotinaTarefas(el) {
   }));
 }
 
-'use strict';
-// ═══════════════════════════════════════════════════════════════════
-// Relatório em PDF (Backup 29) — refeito do zero no desenho novo.
-// Escolhe o grupo (ou todos) e as seções; abre a prévia numa aba com o botão "Salvar em PDF".
-// Lê direto do banco: passivo das empresas, parcelamentos, acordos, processos, vencimentos e honorários.
-// ═══════════════════════════════════════════════════════════════════
-const SECOES_PDF = [['passivo', 'Passivo tributário por empresa', true], ['parcelamentos', 'Parcelamentos', true], ['acordos', 'Acordos', true],
-  ['processos', 'Processos judiciais', true], ['vencimentos', 'Vencimentos dos próximos 30 dias', true], ['honorarios', 'Honorários (a receber e em atraso)', false]];
-
-function janelaRelatorioPDF() {
-  const j = abrirJanela({ titulo: '📄 Relatório em PDF',
-    corpo: '<div class="grade">' + campo('Grupo', '<select id="rp-grupo"><option value="">Todos os grupos (carteira inteira)</option>' + E.grupos.map((g) => '<option value="' + g.id + '">' + esc(g.nome) + '</option>').join('') + '</select>', 'inteiro') +
-      '<div class="inteiro"><div class="secao">O que entra no relatório</div><div class="rp-secoes">' + SECOES_PDF.map(([k, r, on]) =>
-        '<label class="check"><input type="checkbox" data-rp="' + k + '"' + (on ? ' checked' : '') + '> ' + r + '</label>').join('') + '</div></div>' +
-      '<div class="dica inteiro">Abre a prévia numa aba nova. Lá, clique em <b>Salvar em PDF</b> (ou Ctrl+P → "Salvar como PDF").</div></div>',
-    rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="rp-gerar">📄 Gerar relatório</button></div>' });
-  j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
-  j.querySelector('#rp-gerar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
-    const w = window.open('', '_blank');
-    if (!w) throw new Error('O navegador bloqueou a aba nova: permita pop-ups para este site e tente de novo.');
-    w.document.write('<p style="font-family:sans-serif;padding:30px">Montando o relatório…</p>');
-    const grupo = j.querySelector('#rp-grupo').value, sec = {};
-    j.querySelectorAll('[data-rp]').forEach((c) => { sec[c.dataset.rp] = c.checked; });
-    try { const html = await montarRelatorioPDF(grupo, sec); w.document.open(); w.document.write(html); w.document.close(); fecharJanela(j); }
-    catch (e) { w.close(); throw e; }
-  });
-  return j;
-}
-
-async function montarRelatorioPDF(grupoId, sec) {
-  await carregarCadastros();
-  const h = hojeISO(), lim30 = somarDias(h, 30), g = E.grupos.find((x) => x.id === grupoId);
-  const doGrupo = (qq) => (grupoId ? qq.eq('grupo_id', grupoId) : qq);
-  const [parcs, acs, procs, lancs] = await Promise.all([
-    sec.parcelamentos || sec.vencimentos ? buscarTodos(() => doGrupo(sb.from('parcelamentos').select('id, empresa, natureza, local, numero, total_parcelas, valor_ultima_parcela, grupo_id, grupos(nome), parcelas(numero, vencimento, pago)'))).catch(() => []) : [],
-    sec.acordos || sec.vencimentos ? buscarTodos(() => doGrupo(sb.from('acordos').select('id, devedor, credor, processo, parcela, total_parcelas, valor, vencimento, pago, grupo_id'))).catch(() => []) : [],
-    sec.processos ? buscarTodos(() => doGrupo(sb.from('processos').select('numero, natureza, competencia, autor, reu, valor, status, ultima_movimentacao, ultima_movimentacao_em, grupos(nome)'))).catch(() => []) : [],
-    sec.honorarios ? buscarTodos(() => doGrupo(sb.from('lancamentos').select('descricao, valor, vencimento, empresa, redutor, grupos(nome), clientes(nome)').eq('tipo', 'receita').eq('pago', false).eq('perda', false))).catch(() => []) : []
-  ]);
-  const cli = E.clientes.filter((c) => (!grupoId || c.grupo_id === grupoId) && c.tipo !== 'Inativo');
-  const n = (v) => Number(v) || 0, R = (v) => (n(v) ? brl(v) : '—');
-  const aberto = (c) => n(c.rfb) + n(c.pgfn) + n(c.age_mg) + n(c.sefaz_mg), neg = (c) => n(c.rfb_negociada) + n(c.pgfn_negociada) + n(c.age_mg_negociada);
-  const totAb = cli.reduce((s, c) => s + aberto(c), 0), totNeg = cli.reduce((s, c) => s + neg(c), 0);
-  // parcelamentos: pagas, atraso, próxima
-  const P = parcs.map((p) => { const ps = p.parcelas || [], ab = ps.filter((x) => !x.pago).sort((a, b) => String(a.vencimento).localeCompare(String(b.vencimento)));
-    return Object.assign(p, { pagas: ps.filter((x) => x.pago).length, atr: ab.filter((x) => x.vencimento < h).length, prox: ab.find((x) => x.vencimento >= h) || null, abertas: ab }); })
-    .filter((p) => p.abertas.length);
-  // acordos: agrupados por devedor × credor × processo
-  const AG = {}; acs.forEach((a) => { const k = [a.devedor, a.credor, a.processo].join('|'); (AG[k] = AG[k] || { a, l: [] }).l.push(a); });
-  const A = Object.values(AG).map((x) => { const ab = x.l.filter((y) => !y.pago).sort((a, b) => String(a.vencimento).localeCompare(String(b.vencimento)));
-    return { a: x.a, pagas: x.l.length - ab.length, total: x.l.length, saldo: ab.reduce((s, y) => s + n(y.valor), 0), atr: ab.filter((y) => y.vencimento < h).length, prox: ab.find((y) => y.vencimento >= h) || null }; })
-    .filter((x) => x.saldo > 0);
-  const venc = [].concat(
-    P.flatMap((p) => p.abertas.filter((x) => x.vencimento <= lim30).map((x) => ({ d: x.vencimento, tipo: 'Parcelamento', quem: p.empresa, det: [p.local, p.natureza].filter(Boolean).join(' — ') + ' · parcela ' + x.numero + (p.total_parcelas ? '/' + p.total_parcelas : ''), v: n(p.valor_ultima_parcela) }))),
-    acs.filter((a) => !a.pago && a.vencimento <= lim30).map((a) => ({ d: a.vencimento, tipo: 'Acordo', quem: a.devedor, det: 'deve a ' + (a.credor || '—') + ' · parcela ' + (a.parcela || '') + (a.total_parcelas ? '/' + a.total_parcelas : ''), v: n(a.valor) })))
-    .sort((a, b) => String(a.d).localeCompare(String(b.d)));
-  const atrParc = P.reduce((s, p) => s + p.atr, 0), atrAc = A.reduce((s, x) => s + x.atr, 0);
-  const tab = (cab, linhas, dir, total) => '<table><thead><tr>' + cab.map((c, i) => '<th' + (dir && dir.includes(i) ? ' class="r"' : '') + '>' + c + '</th>').join('') + '</tr></thead><tbody>' +
-    (linhas.length ? linhas.map((l) => '<tr>' + l.map((v, i) => '<td' + (dir && dir.includes(i) ? ' class="r"' : '') + '>' + v + '</td>').join('') + '</tr>').join('') : '<tr><td colspan="' + cab.length + '" class="vazio">Nada a mostrar.</td></tr>') +
-    (total ? '<tr class="tot">' + total.map((v, i) => '<td' + (dir && dir.includes(i) ? ' class="r"' : '') + '>' + v + '</td>').join('') + '</tr>' : '') + '</tbody></table>';
-  const pill = (t, c) => '<span class="p ' + c + '">' + esc(t) + '</span>';
-  const capag = (v) => v ? pill(v, { A: 'ok', B: 'ok', C: 'at', D: 'rv', OMISSO: 'rv' }[String(v).toUpperCase()] || 'nx') : '—';
-  const S = [];
-  if (sec.passivo) S.push(['Passivo tributário por empresa', cli.length + ' empresa(s) ativa(s)', tab(['Empresa', 'CNPJ', 'RFB', 'PGFN', 'AGE/MG', 'SEFAZ/MG', 'Negociado', 'CAPAG'],
-    cli.sort((a, b) => aberto(b) - aberto(a)).map((c) => ['<b>' + esc(c.nome) + '</b>' + (!grupoId && c.grupos ? '<div class="s">' + esc(c.grupos.nome) + '</div>' : ''), esc(mascaraDoc(c.cpf_cnpj) || '—'), R(c.rfb), R(c.pgfn), R(c.age_mg), R(c.sefaz_mg), R(neg(c)), capag(c.capag)]),
-    [2, 3, 4, 5, 6], ['<b>Total</b>', '', R(cli.reduce((s, c) => s + n(c.rfb), 0)), R(cli.reduce((s, c) => s + n(c.pgfn), 0)), R(cli.reduce((s, c) => s + n(c.age_mg), 0)), R(cli.reduce((s, c) => s + n(c.sefaz_mg), 0)), R(totNeg), ''])]);
-  if (sec.parcelamentos) S.push(['Parcelamentos', P.length + ' em andamento' + (atrParc ? ' · ' + atrParc + ' parcela(s) em atraso' : ''), tab(['Empresa', 'Órgão / natureza', 'Nº', 'Pagas', 'Próxima parcela', 'Situação'],
-    P.map((p) => ['<b>' + esc(p.empresa || '—') + '</b>', esc([p.local, p.natureza].filter(Boolean).join(' — ') || '—'), esc(p.numero || '—'), p.pagas + ' de ' + (p.total_parcelas || (p.parcelas || []).length),
-      p.prox ? dataBR(p.prox.vencimento) + ' · ' + R(p.valor_ultima_parcela) : '—', p.atr ? pill(p.atr + ' em atraso' + (p.atr >= 2 ? ' — risco' : ''), 'rv') : pill('Em dia', 'ok')]), [])]);
-  if (sec.acordos) S.push(['Acordos', A.length + ' em andamento' + (atrAc ? ' · ' + atrAc + ' parcela(s) em atraso' : ''), tab(['Devedor', 'Credor', 'Processo', 'Pagas', 'Saldo', 'Próxima', 'Situação'],
-    A.map((x) => ['<b>' + esc(x.a.devedor || '—') + '</b>', esc(x.a.credor || '—'), esc(x.a.processo || '—'), x.pagas + ' de ' + x.total, R(x.saldo), x.prox ? dataBR(x.prox.vencimento) + ' · ' + R(x.prox.valor) : '—',
-      x.atr ? pill(x.atr + ' em atraso', 'rv') : pill('Em dia', 'ok')]), [4], ['<b>Total</b>', '', '', '', R(A.reduce((s, x) => s + x.saldo, 0)), '', ''])]);
-  if (sec.processos) S.push(['Processos judiciais', procs.length + ' processo(s)', tab(['Processo', 'Natureza', 'Competência', 'Partes', 'Valor da causa', 'Última movimentação'],
-    procs.map((p) => ['<b class="m">' + esc(p.numero) + '</b>' + (!grupoId && p.grupos ? '<div class="s">' + esc(p.grupos.nome) + '</div>' : ''), esc(p.natureza || '—'), esc(p.competencia || '—'),
-      esc([p.autor, p.reu].filter(Boolean).join(' × ') || '—'), R(p.valor), p.ultima_movimentacao ? esc(p.ultima_movimentacao) + (p.ultima_movimentacao_em ? '<div class="s">' + dataBR(p.ultima_movimentacao_em) + '</div>' : '') : '<span class="s">—</span>']),
-    [4], ['<b>Total</b>', '', '', '', R(procs.reduce((s, p) => s + n(p.valor), 0)), ''])]);
-  if (sec.vencimentos) S.push(['Vencimentos dos próximos 30 dias', 'inclui o que já venceu e não foi pago', tab(['Vencimento', 'Tipo', 'Empresa / devedor', 'Detalhe', 'Valor'],
-    venc.map((x) => [(x.d < h ? '<b class="rv-t">' : '<b>') + dataBR(x.d) + '</b>', esc(x.tipo), esc(x.quem || '—'), esc(x.det), R(x.v)]), [4], ['<b>Total</b>', '', '', '', R(venc.reduce((s, x) => s + x.v, 0))])]);
-  if (sec.honorarios) { const atr = lancs.filter((l) => l.vencimento < h), s2 = (l) => l.reduce((s, x) => s + (x.redutor ? -n(x.valor) : n(x.valor)), 0);
-    S.push(['Honorários', 'a receber ' + brl(s2(lancs)) + ' · em atraso ' + brl(s2(atr)), tab(['Vencimento', 'Quem', 'Descrição', 'Empresa', 'Valor'],
-      lancs.sort((a, b) => String(a.vencimento).localeCompare(String(b.vencimento))).map((l) => [(l.vencimento < h ? '<b class="rv-t">' : '<b>') + dataBR(l.vencimento) + '</b>', esc((l.grupos && l.grupos.nome) || (l.clientes && l.clientes.nome) || '—'),
-        esc(l.descricao || ''), l.empresa === 'contabilidade' ? 'Contabilidade' : 'Jurídico', R(l.redutor ? -l.valor : l.valor)]), [4], ['<b>Total</b>', '', '', '', R(s2(lancs))])]); }
-  const kpis = [['Passivo em aberto', brl(totAb), cli.length + ' empresa(s)', 'rv'], ['Negociado', brl(totNeg), 'parcelado ou em acordo', 'az'],
-    ['Parcelamentos', String(P.length), atrParc ? atrParc + ' parcela(s) em atraso' : 'todos em dia', atrParc ? 'rv' : 'ok'], ['Acordos', String(A.length), 'saldo ' + brl(A.reduce((s, x) => s + x.saldo, 0)), atrAc ? 'at' : 'ok'],
-    ['Processos', String(procs.length || '—'), sec.processos ? 'valor ' + brl(procs.reduce((s, p) => s + n(p.valor), 0)) : 'não incluído', 'az']];
-  const titulo = 'Relatório — ' + (g ? g.nome : 'Carteira completa') + ' — ' + dataBR(h).replace(/\//g, '-');
-  return '<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + esc(titulo) + '</title>' +
-    '<style>' + CSS_RELATORIO + '</style></head><body>' +
-    '<div class="barra no-print"><span>Prévia do relatório</span><button onclick="window.print()">Salvar em PDF</button></div>' +
-    '<main><header class="cab"><div><div class="marca">Araújo &amp; Castro</div><div class="sub-m">Advocacia · Contabilidade · Consultoria</div></div>' +
-      '<div class="cab-d"><div class="t">' + esc(g ? g.nome : 'Carteira completa') + '</div><div>Relatório gerado em ' + dataHoraBR(new Date().toISOString()) + '</div></div></header>' +
-    '<section class="kpis">' + kpis.map(([l, v, s, c]) => '<div class="kpi"><div class="kl"><i class="' + c + '"></i>' + l + '</div><div class="kv">' + v + '</div><div class="ks">' + esc(s) + '</div></div>').join('') + '</section>' +
-    S.map(([t, d, corpo]) => '<section class="sec"><h2>' + esc(t) + '<small>' + esc(d) + '</small></h2>' + corpo + '</section>').join('') +
-    '<footer>Relatório do sistema do escritório Araújo &amp; Castro · dados de ' + dataBR(h) + ' · uso interno e do cliente</footer></main>' +
-    '</body></html>';
-}
-
-// cores fixas (o PDF sai igual no modo claro ou escuro da tela)
-const CSS_RELATORIO = [
-  '@page{size:A4;margin:12mm 11mm}',
-  '*{box-sizing:border-box}body{margin:0;background:#EEF1F6;font-family:"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:#1F2937;font-size:11.5px;-webkit-print-color-adjust:exact;print-color-adjust:exact}',
-  '.barra{position:sticky;top:0;display:flex;justify-content:space-between;align-items:center;padding:10px 18px;background:#1B2A4A;color:#fff;z-index:5}',
-  '.barra button{background:#C9A84C;color:#1B2A4A;border:0;border-radius:8px;padding:8px 16px;font-weight:700;cursor:pointer}',
-  'main{max-width:1000px;margin:18px auto;background:#fff;padding:26px 30px;border-radius:12px;box-shadow:0 2px 14px rgba(0,0,0,.08)}',
-  '.cab{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #C9A84C;padding-bottom:12px;margin-bottom:16px}',
-  '.marca{font-family:Georgia,serif;font-size:22px;font-weight:700;color:#1B2A4A}.sub-m{font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:#6B7280;margin-top:2px}',
-  '.cab-d{text-align:right;color:#6B7280;font-size:10.5px}.cab-d .t{font-size:16px;font-weight:700;color:#1B2A4A;text-transform:uppercase;margin-bottom:2px}',
-  '.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:18px}',
-  '.kpi{border:1px solid #E5E7EB;border-radius:10px;padding:9px 11px;break-inside:avoid}.kl{font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6B7280;display:flex;align-items:center;gap:5px}',
-  '.kl i{width:7px;height:7px;border-radius:50%;display:inline-block;background:#9CA3AF}.kl i.rv{background:#B42318}.kl i.ok{background:#1E7B45}.kl i.at{background:#B7791F}.kl i.az{background:#2E4C81}',
-  '.kv{font-size:15px;font-weight:700;color:#1B2A4A;margin-top:3px}.ks{font-size:9.5px;color:#6B7280;margin-top:1px}',
-  '.sec{margin-top:16px}h2{font-size:13px;color:#1B2A4A;margin:0 0 7px;display:flex;align-items:baseline;gap:8px;break-after:avoid}h2 small{font-size:10px;font-weight:400;color:#6B7280}',
-  'table{width:100%;border-collapse:collapse;font-size:10.5px}thead{display:table-header-group}th{background:#F3F5F9;color:#374151;text-align:left;font-size:9px;letter-spacing:.05em;text-transform:uppercase;padding:6px 7px;border-bottom:1px solid #D9DEE7}',
-  'td{padding:6px 7px;border-bottom:1px solid #EEF0F4;vertical-align:top}tr{break-inside:avoid}.r{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}',
-  'tr.tot td{border-top:2px solid #1B2A4A;border-bottom:0;font-weight:700;background:#FAFBFD}.vazio{color:#9CA3AF;text-align:center;padding:12px}',
-  '.s{font-size:9.5px;color:#6B7280;margin-top:1px}.m{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:10px}.rv-t{color:#B42318}',
-  '.p{display:inline-block;padding:1px 8px;border-radius:99px;font-size:9.5px;font-weight:700;border:1px solid}.p.ok{background:#E8F5EC;color:#1E7B45;border-color:#B7DFC3}.p.rv{background:#FDECEA;color:#B42318;border-color:#F4C2BC}.p.at{background:#FFF6E0;color:#8A5A00;border-color:#F0D9A0}.p.nx{background:#F3F4F6;color:#6B7280;border-color:#E5E7EB}',
-  'footer{margin-top:22px;padding-top:8px;border-top:1px solid #E5E7EB;font-size:9px;color:#9CA3AF;text-align:center}',
-  '@media print{body{background:#fff}.no-print{display:none!important}main{box-shadow:none;margin:0;max-width:none;padding:0;border-radius:0}}'
-].join('\n');
-
 // toda gravação confirmada aparece também no rodapé do ERP
 const _avisoOrig = aviso;
 aviso = function (msg, erro) { _avisoOrig(msg, erro); if (!erro && window.ERP_EDITOR && /^✓/.test(msg)) window.ERP_EDITOR.gravou(String(msg).replace(/^✓\s*/, '')); };
-window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, invalidarCadastros, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo, perguntarBaixa, detalheContrato, ICONE_AVISO, abrirTarefa, detalheLancamento, edicaoLancamentos, janelaModelosEmail, janelaAutoEmails, janelaGeradores, formReuniao, janelaDelegar, abrirGeradorContrato, cardGuias, emitirParcela, enviarAcordosSelecionados, gerarGuias, janelaMovimentacao, janelaRelatorioPDF };
+window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, invalidarCadastros, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo, perguntarBaixa, detalheContrato, ICONE_AVISO, abrirTarefa, detalheLancamento, formReuniao, janelaDelegar, abrirGeradorContrato, cardGuias, emitirParcela, enviarAcordosSelecionados, gerarGuias, janelaMovimentacao };
 })();

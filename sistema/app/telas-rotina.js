@@ -104,7 +104,8 @@ async function rotinaPassivo(el) {
   $('rt-hist').onclick = () => janelaHistoricoPassivo(null);
   $('rt-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
     let n = 0;
-    for (const [id, a] of alterados) {
+    // Backup 41: grava de 6 em 6 (antes, uma empresa por vez)
+    const gravar = async ([id, a]) => {
       const up = {};
       Object.entries(a.cli).forEach(([k, v]) => {
         if (k === 'em_operacao' || k === 'procuracao' || k === 'certificado') up[k] = v === '' ? null : v === 'true';
@@ -119,7 +120,9 @@ async function rotinaPassivo(el) {
         await q(sb.from('cliente_certificado').upsert(row).select('cliente_id'));
       }
       n++;
-    }
+    };
+    const fila = [...alterados];
+    for (let i = 0; i < fila.length; i += 6) await Promise.all(fila.slice(i, i + 6).map(gravar));
     if (alterados.size) await q(sb.rpc('conferir_rotina', { p_area: 'passivo', p_ids: [...alterados.keys()], p_alterou: true })).catch(() => null);
     alterados.clear(); aviso('✓ ' + plural(n, 'empresa atualizada', 'empresas atualizadas') + '.');
     await carregarCadastros(true); await rotinaPassivo(el);

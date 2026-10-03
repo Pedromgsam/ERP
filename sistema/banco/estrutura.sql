@@ -2554,200 +2554,17 @@ begin
   end loop;
 end $$;
 
--- ─────────── nível "Propor" (estagiário): altera como rascunho, alguém valida ───────────
--- pode(f,'propor') = pode sugerir; pode(f,'editar') = grava direto e aprova rascunhos.
+-- pode(f,'ver') = pode ver; pode(f,'editar') = grava. (Backup 41: o nível "Propor"/rascunho saiu.)
 create or replace function public.pode(f text, nivel text default 'ver') returns boolean
 language sql stable security definer set search_path = public as $$
   select coalesce((
     select case when p.papel = 'admin' then true
                 when p.papel <> 'equipe' then false
                 when coalesce(p.funcoes->>f, '') = 'editar' then true
-                when coalesce(p.funcoes->>f, '') = 'propor' then nivel in ('ver','propor')
                 when coalesce(p.funcoes->>f, '') = 'ver' then nivel = 'ver'
                 else false end
       from public.perfis p where p.id = auth.uid()), false);
 $$;
-
-create table if not exists public.rascunhos (
-  id           uuid primary key default gen_random_uuid(),
-  tabela       text not null,
-  operacao     text not null check (operacao in ('incluir','alterar','excluir')),
-  filtros      jsonb not null default '{}'::jsonb,     -- quais linhas (ex.: {"id": "..."})
-  dados        jsonb not null default '{}'::jsonb,     -- o que muda / o registro novo
-  antes        jsonb,                                  -- como estava (para mostrar a diferença)
-  resumo       text not null default '',
-  funcao       text not null,
-  autor        uuid default auth.uid() references public.perfis(id) on delete set null,
-  autor_nome   text not null default '',
-  criado_em    timestamptz not null default now(),
-  status       text not null default 'pendente' check (status in ('pendente','aprovado','recusado','cancelado')),
-  revisor      uuid references public.perfis(id) on delete set null,
-  revisor_nome text not null default '',
-  decidido_em  timestamptz,
-  motivo       text not null default ''
-);
-create index if not exists rascunhos_status on public.rascunhos (status, criado_em desc);
-alter table public.rascunhos enable row level security;
-revoke all on public.rascunhos from anon;
-grant select on public.rascunhos to authenticated;
-drop policy if exists rascunhos_ver on public.rascunhos;
-create policy rascunhos_ver on public.rascunhos for select to authenticated
-  using (autor = auth.uid() or public.pode(funcao, 'editar'));
-
--- tabelas que aceitam rascunho → função de acesso que decide
-create or replace function public.funcao_da_tabela(p_tabela text, p_empresa text) returns text
-language sql immutable as $$
-  select case
-    when p_tabela in ('clientes','contatos','enderecos','contas_bancarias','vinculos_societarios','interacoes','certidoes','cliente_etiquetas') then 'clientes'
-    when p_tabela = 'contratos' then 'contratos'
-    when p_tabela in ('processos','parcelamentos','parcelas','acordos') then 'juridico'
-    when p_tabela = 'lancamentos' then case when p_empresa = 'contabilidade' then 'financeiro_contab' else 'financeiro_juridico' end
-    else null end;
-$$;
-
--- "where" seguro a partir dos filtros {coluna: valor | [valores]}
-create or replace function public.rascunho_where(p_tabela text, p_filtros jsonb) returns text
-language plpgsql stable set search_path = public as $$
-declare k text; v jsonb; w text := '';
-begin
-  for k, v in select * from jsonb_each(coalesce(p_filtros, '{}')) loop
-    if not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = p_tabela and column_name = k) then
-      raise exception 'Campo desconhecido: %', k;
-    end if;
-    w := w || case when w = '' then '' else ' and ' end ||
-      case when jsonb_typeof(v) = 'array' then format('%I::text = any (%L::text[])', k, array(select jsonb_array_elements_text(v)))
-           else format('%I::text = %L', k, v #>> '{}') end;
-  end loop;
-  if w = '' then raise exception 'Rascunho sem indicação de qual registro alterar.'; end if;
-  return w;
-end $$;
-
-create or replace function public.avisar_aprovadores(p_funcao text, p_titulo text, p_detalhe text) returns void
-language sql security definer set search_path = public as $$
-  insert into public.notificacoes (usuario_id, tipo, titulo, detalhe, link)
-  select p.id, 'rascunho', p_titulo, p_detalhe, 'aprovacoes' from public.perfis p
-   where p.id <> coalesce(auth.uid(), '00000000-0000-0000-0000-000000000000'::uuid)
-     and (p.papel = 'admin' or (p.papel = 'equipe' and p.funcoes->>p_funcao = 'editar'));
-$$;
-revoke all on function public.avisar_aprovadores(text, text, text) from public, anon, authenticated;
-
--- o rascunho mexe só em clientes da área de quem está logado?
-create or replace function public.rascunho_na_area(p_tabela text, p_antes jsonb, p_dados jsonb) returns boolean
-language plpgsql stable security definer set search_path = public as $$
-declare x jsonb;
-begin
-  foreach x in array array[coalesce(p_antes, '{}'::jsonb)] || array(select case when jsonb_typeof(p_dados) = 'array' then e else p_dados end
-      from jsonb_array_elements(case when jsonb_typeof(p_dados) = 'array' then p_dados else '[null]'::jsonb end) e) loop
-    if x is null then continue; end if;
-    if p_tabela = 'clientes' and x ? 'area' and not public.ve_area(x->>'area') then return false; end if;
-    if x ? 'cliente_id' and nullif(x->>'cliente_id', '') is not null and not public.ve_cliente((x->>'cliente_id')::uuid) then return false; end if;
-  end loop;
-  return true;
-end $$;
-revoke all on function public.rascunho_na_area(text, jsonb, jsonb) from public, anon;
-
--- estagiário (nível Propor) envia a alteração; nada muda até alguém aprovar
-create or replace function public.propor_alteracao(p_tabela text, p_operacao text, p_filtros jsonb, p_dados jsonb, p_resumo text default '')
-returns uuid language plpgsql security definer set search_path = public as $$
-declare f text; emp text; ant jsonb; novo uuid; nome text;
-begin
-  emp := coalesce(p_dados->>'empresa', case when p_tabela = 'lancamentos' and p_filtros ? 'id'
-           then (select empresa from public.lancamentos where id::text = p_filtros->>'id') end);
-  f := public.funcao_da_tabela(p_tabela, emp);
-  if f is null then raise exception 'Este tipo de registro não aceita rascunho.'; end if;
-  if not public.pode(f, 'propor') then raise exception 'permission denied: sem acesso para propor alterações aqui.'; end if;
-  if p_operacao not in ('incluir','alterar','excluir') then raise exception 'Operação inválida.'; end if;
-  if p_operacao <> 'incluir' then
-    perform public.rascunho_where(p_tabela, p_filtros);          -- valida os filtros
-    if p_filtros ? 'id' then
-      execute format('select to_jsonb(t) from public.%I t where id::text = $1', p_tabela) into ant using p_filtros->>'id';
-    end if;
-  end if;
-  -- nada de outra área (nem o "antes" de um cliente que a pessoa não vê)
-  if not public.rascunho_na_area(p_tabela, ant, p_dados) then raise exception 'permission denied: cliente de outra área.'; end if;
-  select nullif(p.nome, '') into nome from public.perfis p where p.id = auth.uid();
-  insert into public.rascunhos (tabela, operacao, filtros, dados, antes, resumo, funcao, autor_nome)
-  values (p_tabela, p_operacao, coalesce(p_filtros, '{}'), coalesce(p_dados, '{}'), ant, left(coalesce(p_resumo, ''), 300), f, coalesce(nome, ''))
-  returning id into novo;
-  perform public.avisar_aprovadores(f, 'Alteração aguardando aprovação',
-    coalesce(nome, 'Alguém') || ' propôs: ' || coalesce(nullif(p_resumo, ''), p_operacao || ' em ' || p_tabela));
-  return novo;
-end $$;
-revoke all on function public.propor_alteracao(text, text, jsonb, jsonb, text) from public, anon;
-grant execute on function public.propor_alteracao(text, text, jsonb, jsonb, text) to authenticated;
-
--- quem pode editar aquela função aprova: a alteração é aplicada exatamente como proposta
-create or replace function public.aprovar_rascunho(p_id uuid) returns void
-language plpgsql security definer set search_path = public as $$
-declare r public.rascunhos; cols text; w text; n int := 0; linha jsonb; k int;
-begin
-  select * into r from public.rascunhos where id = p_id for update;
-  if r.id is null or r.status <> 'pendente' then raise exception 'Este rascunho não está mais pendente.'; end if;
-  if not public.pode(r.funcao, 'editar') then raise exception 'permission denied: só quem edita esta área aprova.'; end if;
-  if r.autor = auth.uid() and not public.eh_admin() then raise exception 'Outra pessoa precisa aprovar a sua própria alteração.'; end if;
-  if r.operacao = 'excluir' and r.tabela in ('clientes','contratos','processos','parcelamentos','acordos') and not public.eh_admin() then
-    raise exception 'permission denied: só o administrador aprova exclusões deste tipo.';
-  end if;
-  if not public.rascunho_na_area(r.tabela, r.antes, r.dados) then
-    raise exception 'permission denied: cliente de outra área.';
-  end if;
-  -- lançamento que muda de empresa: quem aprova precisa editar as duas
-  if r.tabela = 'lancamentos' and jsonb_typeof(r.dados) = 'object' and r.dados ? 'empresa'
-     and not public.pode(public.funcao_da_tabela('lancamentos', r.dados->>'empresa'), 'editar') then
-    raise exception 'permission denied: sem acesso ao financeiro de destino.';
-  end if;
-  if r.operacao = 'incluir' then
-    for linha in select case when jsonb_typeof(r.dados) = 'array' then e else r.dados end
-                   from jsonb_array_elements(case when jsonb_typeof(r.dados) = 'array' then r.dados else '[null]'::jsonb end) e loop
-      select string_agg(quote_ident(c.column_name), ',') into cols from information_schema.columns c
-       where c.table_schema = 'public' and c.table_name = r.tabela and linha ? c.column_name and c.column_name not in ('criado_por','criado_em','atualizado_em');
-      if cols is null then raise exception 'Rascunho vazio.'; end if;
-      execute format('insert into public.%I (%s) select %s from jsonb_populate_record(null::public.%I, $1)', r.tabela, cols, cols, r.tabela) using linha;
-      n := n + 1;
-    end loop;
-  else
-    w := public.rascunho_where(r.tabela, r.filtros);
-    if r.operacao = 'alterar' then
-      select string_agg(quote_ident(c.column_name), ',') into cols from information_schema.columns c
-       where c.table_schema = 'public' and c.table_name = r.tabela and r.dados ? c.column_name and c.column_name not in ('id','criado_por','criado_em','atualizado_em');
-      if cols is null then raise exception 'Rascunho vazio.'; end if;
-      execute format('update public.%I set (%s) = (select %s from jsonb_populate_record(null::public.%I, $1)) where %s', r.tabela, cols, cols, r.tabela, w) using r.dados;
-    else
-      execute format('delete from public.%I where %s', r.tabela, w);
-    end if;
-    get diagnostics n = row_count;
-    if n = 0 then raise exception 'O registro não existe mais (foi apagado ou alterado por outra pessoa).'; end if;
-  end if;
-  update public.rascunhos set status = 'aprovado', revisor = auth.uid(), decidido_em = now(),
-         revisor_nome = coalesce((select nome from public.perfis where id = auth.uid()), '') where id = p_id;
-  if r.autor is not null then
-    insert into public.notificacoes (usuario_id, tipo, titulo, detalhe, link)
-    values (r.autor, 'rascunho', 'Sua alteração foi aprovada', coalesce(nullif(r.resumo, ''), r.tabela), 'aprovacoes');
-  end if;
-end $$;
-revoke all on function public.aprovar_rascunho(uuid) from public, anon;
-grant execute on function public.aprovar_rascunho(uuid) to authenticated;
-
-create or replace function public.recusar_rascunho(p_id uuid, p_motivo text default '') returns void
-language plpgsql security definer set search_path = public as $$
-declare r public.rascunhos;
-begin
-  select * into r from public.rascunhos where id = p_id for update;
-  if r.id is null or r.status <> 'pendente' then raise exception 'Este rascunho não está mais pendente.'; end if;
-  if r.autor = auth.uid() then   -- o próprio autor desiste
-    update public.rascunhos set status = 'cancelado', decidido_em = now() where id = p_id;
-    return;
-  end if;
-  if not public.pode(r.funcao, 'editar') then raise exception 'permission denied: só quem edita esta área recusa.'; end if;
-  update public.rascunhos set status = 'recusado', revisor = auth.uid(), decidido_em = now(), motivo = left(coalesce(p_motivo, ''), 500),
-         revisor_nome = coalesce((select nome from public.perfis where id = auth.uid()), '') where id = p_id;
-  if r.autor is not null then
-    insert into public.notificacoes (usuario_id, tipo, titulo, detalhe, link)
-    values (r.autor, 'rascunho', 'Sua alteração foi recusada', coalesce(nullif(r.resumo, ''), r.tabela) || case when coalesce(p_motivo, '') <> '' then ' — motivo: ' || p_motivo else '' end, 'aprovacoes');
-  end if;
-end $$;
-revoke all on function public.recusar_rascunho(uuid, text) from public, anon;
-grant execute on function public.recusar_rascunho(uuid, text) to authenticated;
 
 -- ─────────── êxito: como foi combinado + registros (vira lançamento só quando acontece) ───────────
 alter table public.contratos add column if not exists exito_base text;
@@ -2868,7 +2685,6 @@ begin
   if not public.eh_admin() then raise exception 'permission denied: só o administrador.'; end if;
   select coalesce(array_agg(id), '{}') into gs from public.grupos where nome like 'DEMO · %';
   select coalesce(array_agg(id), '{}') into cs from public.clientes where grupo_id = any(gs) or chave_importacao like 'demo:%';
-  delete from public.rascunhos where resumo like '%(demonstração)%';
   -- e-mails e registros de automação dos exemplos (example.com nunca recebe nada)
   delete from public.automacoes_log where cliente_id = any(cs) or descricao like '%example.com%';
   delete from public.email_fila where para like '%example.com';
@@ -2995,10 +2811,6 @@ begin
   insert into public.documentos (cliente_id, grupo_id, contrato_id, tipo, nome, caminho, validade, obs) values
     (ct, gh, k1, 'contrato', 'DEMO · Contrato de consultoria (exemplo).pdf', 'demo/contrato-horizonte.pdf', null, 'Exemplo sem arquivo'),
     (sa, gs, null, 'certidao', 'DEMO · Alvará de funcionamento (exemplo).pdf', 'demo/alvara-serraverde.pdf', h + 7, 'Exemplo sem arquivo');
-  -- rascunho de estagiário esperando aprovação (para ver a tela Aprovações)
-  insert into public.rascunhos (tabela, operacao, filtros, dados, antes, resumo, funcao, autor_nome)
-    values ('clientes', 'alterar', jsonb_build_object('id', ct), '{"telefone":"(31) 3333-0000","email":"novo@horizonte.example.com"}',
-            (select to_jsonb(c) from public.clientes c where id = ct), 'Alterar cliente: Horizonte Transportes Ltda (demonstração)', 'clientes', 'Estagiário (demonstração)');
   -- tarefas automáticas antigas dos contratos de exemplo ficam concluídas (senão a demonstração nasce "atrasada")
   update public.tarefas set status = 'concluida', checklist = (select coalesce(jsonb_agg(it || '{"feito":true}'::jsonb), '[]'::jsonb) from jsonb_array_elements(checklist) it)
    where chave_regra is not null and prazo < h - 7 and status not in ('concluida','cancelada') and (cliente_id in (ct, cl, sa, sc, cm, mp) or contrato_id in (k1, k2, k3, k4));
@@ -3383,7 +3195,7 @@ insert into public.usuarios_previstos (email, nome, papel, funcoes, areas, model
   ('emanuellearaujoadvocacia@gmail.com', 'Emanuelle', 'admin', '{}', 'ambos', 'Administrador'),
   ('adriana_f_araujo@hotmail.com', 'Adriana', 'admin', '{}', 'ambos', 'Administrador'),
   ('joaovitordeoliveiramarques2007@gmail.com', 'João Vitor', 'equipe',
-   '{"juridico":"propor","clientes":"propor","financeiro_contab":"propor","tarefas":"ver","documentos":"ver","contratos":"ver"}', 'ambos', 'Estagiário (rascunho)'),
+   '{"juridico":"editar","clientes":"editar","financeiro_contab":"ver","tarefas":"editar","documentos":"ver","contratos":"ver"}', 'ambos', 'Estagiário'),
   ('ederpsique@gmail.com', 'Éder', 'equipe',
    '{"financeiro_contab":"editar","clientes":"editar","contratos":"editar","documentos":"editar","tarefas":"editar","relatorios":"ver"}', 'contabil', 'Administrador da Contabilidade')
 on conflict (email) do nothing;
@@ -3421,154 +3233,15 @@ end $$;
 drop trigger if exists processo_status_em on public.processos;
 create trigger processo_status_em before insert or update of status on public.processos for each row execute function public.processo_status_em();
 
--- ─────────── histórico: uma "foto" por grupo e por mês ───────────
--- passivo (RFB, PGFN, SEFAZ, AGE), CAPAG de cada empresa, processos ativos/encerrados, parcelamentos e acordos.
--- Tirada no dia 1 pela rotina e ao rodar este SQL (mês corrente). O comparativo aparece a partir da 2ª foto.
-create table if not exists public.fotos_mensais (
-  grupo_id uuid not null references public.grupos(id) on delete cascade,
-  mes      date not null,                      -- 1º dia do mês
-  dados    jsonb not null default '{}',
-  tirada_em timestamptz not null default now(),
-  primary key (grupo_id, mes)
-);
-alter table public.fotos_mensais enable row level security;
-revoke all on public.fotos_mensais from anon;
-grant select on public.fotos_mensais to authenticated;
-drop policy if exists fotos_mensais_ver on public.fotos_mensais;
-create policy fotos_mensais_ver on public.fotos_mensais for select to authenticated using (public.pode('relatorios') or public.pode('juridico') or public.pode('clientes'));
-
 create or replace function public.processo_encerrado(st text) returns boolean
 language sql immutable as $$ select coalesce(st, '') ~* '(arquiv|extint|baixad|encerrad|transitad)'; $$;
 
--- a "foto" de um grupo (a mesma usada no comparativo "agora × mês X"). security invoker: cada pessoa vê o que pode ver
+-- passivo total de uma empresa (soma dos órgãos)
 create or replace function public.passivo_do_cliente(c public.clientes) returns numeric
 language sql immutable as $$
   select coalesce(c.rfb,0) + coalesce(c.rfb_negociada,0) + coalesce(c.pgfn,0) + coalesce(c.pgfn_negociada,0) + coalesce(c.sefaz_mg,0) + coalesce(c.age_mg,0) + coalesce(c.age_mg_negociada,0);
 $$;
-create or replace function public.foto_do_grupo(p_grupo uuid) returns jsonb
-language sql stable set search_path = public as $$
-  select jsonb_build_object(
-      'passivo', jsonb_build_object(
-         -- dívida inteira do órgão (em aberto + negociada)
-         'rfb', coalesce(sum(coalesce(c.rfb,0) + coalesce(c.rfb_negociada,0)), 0), 'pgfn', coalesce(sum(coalesce(c.pgfn,0) + coalesce(c.pgfn_negociada,0)), 0),
-         'sefaz_mg', coalesce(sum(c.sefaz_mg), 0), 'age_mg', coalesce(sum(coalesce(c.age_mg,0) + coalesce(c.age_mg_negociada,0)), 0),
-         'total', coalesce(sum(public.passivo_do_cliente(c)), 0)),
-      'empresas', coalesce(jsonb_agg(jsonb_build_object('id', c.id, 'nome', c.nome, 'capag', c.capag,
-         'total', public.passivo_do_cliente(c)) order by c.nome) filter (where c.id is not null), '[]'),
-      'processos_ativos', (select coalesce(jsonb_agg(p.numero order by p.numero), '[]') from public.processos p where p.grupo_id = p_grupo and not public.processo_encerrado(p.status)),
-      'processos_encerrados', (select coalesce(jsonb_agg(p.numero order by p.numero), '[]') from public.processos p where p.grupo_id = p_grupo and public.processo_encerrado(p.status)),
-      'parcelamentos', (select count(*) from public.parcelamentos p where p.grupo_id = p_grupo),
-      'acordos_abertos', (select count(*) from public.acordos a where a.grupo_id = p_grupo and not a.pago),
-      'acordos_saldo', (select coalesce(sum(a.valor), 0) from public.acordos a where a.grupo_id = p_grupo and not a.pago))
-    from public.grupos g left join public.clientes c on c.grupo_id = g.id and c.tipo <> 'Inativo'
-   where g.id = p_grupo;
-$$;
-revoke all on function public.foto_do_grupo(uuid) from public, anon;
-grant execute on function public.foto_do_grupo(uuid) to authenticated;
 
-create or replace function public.tirar_fotos_mensais(p_mes date default null) returns int
-language plpgsql security definer set search_path = public as $$
-declare m date := date_trunc('month', coalesce(p_mes, current_date))::date; n int;
-begin
-  if auth.uid() is not null and not public.eh_admin() then raise exception 'permission denied: só o administrador.'; end if;
-  insert into public.fotos_mensais (grupo_id, mes, dados, tirada_em)
-  select g.id, m, public.foto_do_grupo(g.id), now() from public.grupos g
-  on conflict (grupo_id, mes) do update set dados = excluded.dados, tirada_em = now();
-  get diagnostics n = row_count;
-  return n;
-end $$;
-revoke all on function public.tirar_fotos_mensais(date) from public, anon;
-grant execute on function public.tirar_fotos_mensais(date) to authenticated;
--- a primeira foto (mês corrente) sai agora; depois, dia 1 às 7h (Brasília)
-do $$
-begin
-  if not exists (select 1 from public.fotos_mensais where mes = date_trunc('month', current_date)::date) then
-    perform public.tirar_fotos_mensais();
-  end if;
-end $$;
-do $$
-begin
-  perform cron.unschedule(jobid) from cron.job where jobname = 'erp_fotos_mensais';
-  perform cron.schedule('erp_fotos_mensais', '0 10 1 * *', $cron$ select public.tirar_fotos_mensais() $cron$);
-exception when others then
-  raise notice 'Agendador indisponível: a foto mensal pode ser tirada pelo botão na ficha do cliente.';
-end $$;
-
--- ─────────── PGFN: inscrições em dívida ativa (API "Consulta Dívida Ativa" do SERPRO) ───────────
--- Função "erp-pgfn" consulta cada CNPJ e grava aqui; o ERP mostra o total (campo PGFN / PGFN negociada)
--- e a ficha do cliente abre por origem e por CDA. Só roda depois que o escritório contratar e salvar a chave.
-create table if not exists public.pgfn_inscricoes (
-  cliente_id  uuid not null references public.clientes(id) on delete cascade,
-  inscricao   text not null,
-  natureza    text not null default '',          -- Tributária, Previdenciária, FGTS, Simples Nacional, Multa…
-  receita     text not null default '',
-  situacao    text not null default '',
-  parcelada   boolean not null default false,
-  valor       numeric(16,2) not null default 0,
-  data_inscricao date,
-  atualizado_em timestamptz not null default now(),
-  primary key (cliente_id, inscricao)
-);
-alter table public.pgfn_inscricoes enable row level security;
-revoke all on public.pgfn_inscricoes from anon;
-grant select on public.pgfn_inscricoes to authenticated;
-drop policy if exists pgfn_ver on public.pgfn_inscricoes;
-create policy pgfn_ver on public.pgfn_inscricoes for select to authenticated using (public.pode('clientes') and public.ve_cliente(cliente_id));
-create table if not exists public.pgfn_execucoes (
-  id uuid primary key default gen_random_uuid(),
-  inicio timestamptz not null default now(), fim timestamptz,
-  status text not null default 'rodando' check (status in ('rodando','ok','parcial','erro','pulado')),
-  origem text not null default 'rotina',
-  total int not null default 0, consultados int not null default 0, alterados int not null default 0, erros int not null default 0,
-  relatorio jsonb not null default '[]', mensagem text not null default ''
-);
-alter table public.pgfn_execucoes enable row level security;
-revoke all on public.pgfn_execucoes from anon;
-grant select on public.pgfn_execucoes to authenticated;
-drop policy if exists pgfn_exec_ver on public.pgfn_execucoes;
-create policy pgfn_exec_ver on public.pgfn_execucoes for select to authenticated using (public.eh_equipe());
-do $$
-begin
-  if exists (select 1 from pg_roles where rolname = 'service_role') then
-    execute 'grant select, insert, update, delete on public.pgfn_inscricoes, public.pgfn_execucoes to service_role';
-  end if;
-end $$;
--- chave do SERPRO (consumer key/secret): só no banco privado; frequência: diaria | semanal | mensal
-insert into public.config_privada (chave, valor) values ('api_pgfn', '{"ligada":false,"frequencia":"diaria","consumer_key":"","consumer_secret":""}') on conflict (chave) do nothing;
-create or replace function public.salvar_config_pgfn(p jsonb) returns void
-language plpgsql security definer set search_path = public as $$
-declare atual jsonb;
-begin
-  if not public.eh_admin() then raise exception 'Só o administrador.'; end if;
-  select valor into atual from public.config_privada where chave = 'api_pgfn';
-  atual := coalesce(atual, '{}');
-  if coalesce(p->>'consumer_key', '') = '' then p := p || jsonb_build_object('consumer_key', coalesce(atual->>'consumer_key', '')); end if;
-  if coalesce(p->>'consumer_secret', '') = '' then p := p || jsonb_build_object('consumer_secret', coalesce(atual->>'consumer_secret', '')); end if;
-  if coalesce(p->>'frequencia', '') not in ('diaria','semanal','mensal') then p := p || '{"frequencia":"diaria"}'; end if;
-  insert into public.config_privada (chave, valor) values ('api_pgfn', atual || p) on conflict (chave) do update set valor = excluded.valor, atualizado_em = now();
-end $$;
-create or replace function public.status_config_pgfn() returns jsonb
-language sql security definer set search_path = public as $$
-  select case when public.eh_equipe() then coalesce((select (valor - 'consumer_key' - 'consumer_secret')
-     || jsonb_build_object('tem_chave', coalesce(valor->>'consumer_key', '') <> '' and coalesce(valor->>'consumer_secret', '') <> '')
-     from public.config_privada where chave = 'api_pgfn'), '{}') end;
-$$;
-revoke all on function public.salvar_config_pgfn(jsonb) from public, anon;
-revoke all on function public.status_config_pgfn() from public, anon;
-grant execute on function public.salvar_config_pgfn(jsonb), public.status_config_pgfn() to authenticated;
--- todo dia às 6h15 (Brasília); a própria função pula quando a frequência escolhida não é hoje
-do $$
-begin
-  perform cron.unschedule(jobid) from cron.job where jobname = 'erp_pgfn';
-  perform cron.schedule('erp_pgfn', '15 9 * * *', $cron$
-    select net.http_post(
-      url := (select valor #>> '{}' from public.config_privada where chave = 'url_projeto') || '/functions/v1/erp-pgfn',
-      headers := jsonb_build_object('Content-Type', 'application/json', 'x-erp-segredo', (select valor #>> '{}' from public.config_privada where chave = 'segredo_funcoes')),
-      body := '{"acao":"rodar"}'::jsonb)
-  $cron$);
-exception when others then
-  raise notice 'Agendador indisponível: use o botão "Consultar agora" em Alertas → PGFN.';
-end $$;
 
 -- ═══════════════════════════════════════════════════════════════════
 -- v21 (Backup 15) — preferências de tela por usuário, mural do Início,
@@ -4350,35 +4023,6 @@ begin
 exception when others then null;
 end $$;
 
--- ═══════════════════════════════════════════════════════════════════════
--- v22 (Backup 16) — PGFN pelos DADOS ABERTOS (gratuito, sem SERPRO): o admin baixa o arquivo público da PGFN,
--- o navegador lê e separa só os CPFs/CNPJs dos clientes, e esta função grava (substitui) as inscrições deles.
--- ═══════════════════════════════════════════════════════════════════════
-alter table public.pgfn_inscricoes add column if not exists fonte text not null default 'serpro';
-create or replace function public.pgfn_importar_abertos(p jsonb, p_referencia text default '') returns jsonb
-language plpgsql security definer set search_path = public as $$
-declare x jsonb; cli uuid; n int := 0; ins int := 0;
-begin
-  if not public.eh_admin() then raise exception 'permission denied: só o administrador importa.'; end if;
-  for x in select * from jsonb_array_elements(coalesce(p, '[]')) loop
-    cli := (x->>'cliente_id')::uuid;
-    delete from public.pgfn_inscricoes where cliente_id = cli;
-    insert into public.pgfn_inscricoes (cliente_id, inscricao, natureza, receita, situacao, parcelada, valor, data_inscricao, fonte)
-    select cli, i->>'inscricao', coalesce(i->>'natureza', ''), coalesce(i->>'receita', ''), coalesce(i->>'situacao', ''), coalesce((i->>'parcelada')::boolean, false),
-           coalesce((i->>'valor')::numeric, 0), nullif(i->>'data', '')::date, 'dados_abertos'
-      from jsonb_array_elements(coalesce(x->'inscricoes', '[]')) i
-    on conflict (cliente_id, inscricao) do update set valor = excluded.valor, situacao = excluded.situacao, parcelada = excluded.parcelada, atualizado_em = now(), fonte = 'dados_abertos';
-    get diagnostics ins = row_count;
-    update public.clientes set pgfn = coalesce((select sum(valor) from public.pgfn_inscricoes where cliente_id = cli and not parcelada), 0),
-                               pgfn_negociada = coalesce((select sum(valor) from public.pgfn_inscricoes where cliente_id = cli and parcelada), 0) where id = cli;
-    n := n + 1;
-  end loop;
-  insert into public.configuracoes (chave, valor) values ('pgfn_abertos_ultima', jsonb_build_object('quando', now(), 'clientes', n, 'referencia', p_referencia))
-  on conflict (chave) do update set valor = excluded.valor, atualizado_em = now();
-  return jsonb_build_object('clientes', n);
-end $$;
-revoke all on function public.pgfn_importar_abertos(jsonb, text) from public, anon;
-grant execute on function public.pgfn_importar_abertos(jsonb, text) to authenticated;
 
 -- ═══════════════════════════════════════════════════════════════════
 -- v23 (Backup 17) — CRM: 8 etapas em andamento (4 em cima, 4 embaixo) com "Follow-up da proposta"
@@ -6909,3 +6553,227 @@ update public.crm_modelos_proposta
    set itens = '[{"servico":"Estudo de viabilidade e planejamento","valor":0,"forma":"sem custo — antes da contratação"},{"servico":"Constituição da holding (contrato social, Junta e CNPJ)","valor":0,"forma":"na assinatura"},{"servico":"Integralização e transferência dos bens","valor":0,"forma":"por bem integralizado"},{"servico":"Operacionalização (contratos de locação) e doação de quotas","valor":0,"forma":"na conclusão"}]'::jsonb
  where nome = 'Holding e planejamento patrimonial'
    and itens = '[{"servico":"Estudo e planejamento","valor":0,"forma":"na assinatura"},{"servico":"Constituição e integralização","valor":0,"forma":"na conclusão"}]'::jsonb;
+
+-- ═══════════════════════════════ Backup 41 ═══════════════════════════════
+-- Aprovação de rascunho removida: quem estava em "Rascunho" passa a "Editar" (Jurídico/Clientes/Contratos/Tarefas) ou "Ver" (financeiro)
+update public.perfis set funcoes = (select coalesce(jsonb_object_agg(k, case when v = '"propor"'::jsonb then (case when k like 'financeiro%' then '"ver"' else '"editar"' end)::jsonb else v end), '{}'::jsonb) from jsonb_each(funcoes) e(k, v))
+ where funcoes::text like '%"propor"%';
+update public.usuarios_previstos set funcoes = (select coalesce(jsonb_object_agg(k, case when v = '"propor"'::jsonb then (case when k like 'financeiro%' then '"ver"' else '"editar"' end)::jsonb else v end), '{}'::jsonb) from jsonb_each(funcoes) e(k, v)),
+       modelo = replace(modelo, 'Estagiário (rascunho)', 'Estagiário')
+ where funcoes::text like '%"propor"%';
+drop function if exists public.propor_alteracao(text, text, jsonb, jsonb, text);
+drop function if exists public.aprovar_rascunho(uuid);
+drop function if exists public.recusar_rascunho(uuid, text);
+drop function if exists public.rascunho_where(text, jsonb);
+drop function if exists public.rascunho_na_area(text, jsonb, jsonb);
+drop function if exists public.avisar_aprovadores(text, text, text);
+drop function if exists public.funcao_da_tabela(text, text);
+drop table if exists public.rascunhos;
+-- PGFN pela API do SERPRO (e a importação dos dados abertos) removidas; os valores de PGFN do passivo continuam em clientes
+do $$ begin perform cron.unschedule(jobid) from cron.job where jobname in ('erp_pgfn', 'erp_fotos_mensais'); exception when others then null; end $$;
+drop function if exists public.salvar_config_pgfn(jsonb);
+drop function if exists public.status_config_pgfn();
+drop function if exists public.pgfn_importar_abertos(jsonb, text);
+drop table if exists public.pgfn_inscricoes;
+drop table if exists public.pgfn_execucoes;
+delete from public.config_privada where chave = 'api_pgfn';
+delete from public.configuracoes where chave = 'pgfn_abertos_ultima';
+-- "Fotos mensais" removidas (eram cópias dos valores do passivo no dia 1 de cada mês); a evolução usa o histórico de alterações
+drop function if exists public.tirar_fotos_mensais(date);
+drop function if exists public.foto_do_grupo(uuid);
+drop table if exists public.fotos_mensais;
+-- CRM: todos os modelos de proposta com a versão "Completa" (só preenche quando o detalhamento está vazio — não apaga o que o escritório já escreveu)
+update public.crm_modelos_proposta m set texto_completo = v.t
+  from (values
+  ('Consultoria tributária mensal', $c$
+<h3>1. O objetivo</h3>
+<p>Ter um time tributário acompanhando a empresa todo mês: o passivo fiscal sob controle, as obrigações em dia e uma resposta rápida sempre que surgir uma dúvida, uma notificação ou uma oportunidade de economia.</p>
+<h3>2. O que está incluído</h3>
+<ul>
+<li><b>Acompanhamento do passivo</b> — conferência mensal dos débitos na Receita Federal, PGFN, Estado e Município, com o relatório da situação de cada empresa do grupo.</li>
+<li><b>Parcelamentos em dia</b> — controle das parcelas e das guias, com aviso antes do vencimento.</li>
+<li><b>Certidões</b> — emissão e acompanhamento das certidões negativas (ou positivas com efeito de negativa).</li>
+<li><b>Dúvidas do dia a dia</b> — atendimento por e-mail, telefone ou WhatsApp sobre tributação de operações, notas, contratos e mudanças na lei.</li>
+<li><b>Notificações e intimações</b> — análise e orientação sobre a resposta, com prazo.</li>
+<li><b>Reunião periódica</b> — apresentação da situação fiscal e das oportunidades encontradas.</li>
+</ul>
+<h3>3. O que não está incluído</h3>
+<ul>
+<li>Defesa em processos administrativos ou judiciais e execuções fiscais (contratadas à parte, com proposta própria).</li>
+<li>Contabilidade e folha de pagamento.</li>
+<li>Taxas, tributos e custas, pagos diretamente pela empresa.</li>
+</ul>
+<h3>4. Prazo e vigência</h3>
+<p>Contrato mensal, por prazo indeterminado, com reajuste anual. Pode ser encerrado por qualquer das partes com aviso prévio de 30 dias.</p>
+<h3>5. Documentos que vamos pedir</h3>
+<ul>
+<li>Procuração eletrônica (e-CAC) e acesso aos portais do Estado e do Município.</li>
+<li>Contrato social atualizado e certificado digital da empresa.</li>
+<li>Últimas declarações entregues e a relação dos parcelamentos em andamento.</li>
+</ul>
+<h3>6. Com franqueza</h3>
+<p>Consultoria não substitui a contabilidade: depende das informações que a empresa e o contador nos passam. Quanto antes a dúvida chega, mais barata é a solução.</p>
+$c$),
+  ('Defesa em execução fiscal', $c$
+<h3>1. O objetivo</h3>
+<p>Defender a empresa (e os sócios, quando incluídos) na execução fiscal, buscando reduzir ou extinguir a cobrança e proteger o patrimônio e as contas contra bloqueios.</p>
+<h3>2. O que está incluído</h3>
+<table style="width:100%;border-collapse:collapse;font-size:13px;margin:6px 0 14px">
+<tr><th style="text-align:left;padding:8px 10px;background:#1B2A4A;color:#fff;width:26%">Etapa</th><th style="text-align:left;padding:8px 10px;background:#1B2A4A;color:#fff">O que fazemos</th></tr>
+<tr><td style="padding:8px 10px;border-bottom:1px solid #E5E7EB"><b>1. Análise</b></td><td style="padding:8px 10px;border-bottom:1px solid #E5E7EB">Leitura do processo e da CDA; conferência de prescrição, decadência, nulidades e erros de cálculo; estratégia definida com o cliente.</td></tr>
+<tr><td style="padding:8px 10px;border-bottom:1px solid #E5E7EB;background:#F8FAFC"><b>2. Defesa</b></td><td style="padding:8px 10px;border-bottom:1px solid #E5E7EB;background:#F8FAFC">Exceção de pré-executividade ou embargos à execução, conforme o caso; pedidos para liberar valores bloqueados quando cabível.</td></tr>
+<tr><td style="padding:8px 10px;border-bottom:1px solid #E5E7EB"><b>3. Acompanhamento</b></td><td style="padding:8px 10px;border-bottom:1px solid #E5E7EB">Manifestações, audiências e despachos até a decisão de primeira instância, com aviso ao cliente a cada movimentação importante.</td></tr>
+<tr><td style="padding:8px 10px;border-bottom:1px solid #E5E7EB;background:#F8FAFC"><b>4. Alternativas</b></td><td style="padding:8px 10px;border-bottom:1px solid #E5E7EB;background:#F8FAFC">Quando for melhor negociar, simulação de transação ou parcelamento para encerrar a cobrança.</td></tr>
+</table>
+<h3>3. O que não está incluído</h3>
+<ul>
+<li>Recursos ao Tribunal e aos Tribunais Superiores (proposta à parte, se necessários).</li>
+<li>Custas, garantia do juízo (depósito, seguro ou fiança) e perícias.</li>
+</ul>
+<h3>4. Prazo</h3>
+<p>A defesa é apresentada dentro do prazo legal contado da citação ou da garantia. A duração do processo depende do Judiciário e costuma levar de meses a alguns anos.</p>
+<h3>5. Documentos que vamos pedir</h3>
+<ul>
+<li>Cópia da citação ou do bloqueio e o número do processo.</li>
+<li>Contrato social, documentos dos sócios e procuração.</li>
+<li>Declarações e comprovantes de pagamento do período cobrado.</li>
+</ul>
+<h3>6. Com franqueza</h3>
+<p>Nem toda execução tem defesa: quando o débito é devido e não há falha na cobrança, dizemos isso e indicamos o caminho mais barato para encerrar (transação ou parcelamento).</p>
+$c$),
+  ('Parcelamento / transação tributária', $c$
+<h3>1. O objetivo</h3>
+<p>Regularizar os débitos da empresa pela modalidade que mais reduz o valor e cabe no caixa, e voltar a ter certidão para operar, contratar e participar de licitações.</p>
+<h3>2. O que está incluído</h3>
+<ul>
+<li><b>Levantamento</b> — todos os débitos na Receita Federal, PGFN, Estado e Município, por empresa do grupo.</li>
+<li><b>Simulação</b> — comparativo das modalidades abertas (parcelamento comum, transação por adesão, transação individual), com descontos, entrada e valor das parcelas.</li>
+<li><b>Adesão</b> — pedido no portal do órgão e emissão das primeiras guias.</li>
+<li><b>Certidão</b> — emissão da certidão positiva com efeito de negativa depois da adesão.</li>
+</ul>
+<h3>3. O que não está incluído</h3>
+<ul>
+<li>Emissão mensal das guias depois da adesão (pode ser feita na consultoria mensal).</li>
+<li>Defesa judicial ou administrativa dos débitos.</li>
+</ul>
+<h3>4. Prazo</h3>
+<p>Cerca de <b>duas a três semanas</b> do recebimento dos acessos até a adesão, dependendo da abertura das modalidades e da quantidade de órgãos envolvidos.</p>
+<h3>5. Documentos que vamos pedir</h3>
+<ul>
+<li>Procuração eletrônica (e-CAC) e certificado digital.</li>
+<li>Acesso aos portais do Estado e do Município.</li>
+<li>Demonstrativos de faturamento recentes (exigidos em algumas transações).</li>
+</ul>
+<h3>6. Com franqueza</h3>
+<p>Atrasar parcelas pode levar à exclusão do acordo e à volta da cobrança integral. O parcelamento só resolve se couber no caixa — por isso simulamos antes de aderir.</p>
+$c$),
+  ('Planejamento tributário', $c$
+<h3>1. O objetivo</h3>
+<p>Descobrir qual regime e qual organização da empresa pagam menos tributo dentro da lei, com segurança, e implantar a mudança sem sobressaltos.</p>
+<h3>2. O que está incluído</h3>
+<table style="width:100%;border-collapse:collapse;font-size:13px;margin:6px 0 14px">
+<tr><th style="text-align:left;padding:8px 10px;background:#1B2A4A;color:#fff;width:26%">Fase</th><th style="text-align:left;padding:8px 10px;background:#1B2A4A;color:#fff">O que fazemos</th></tr>
+<tr><td style="padding:8px 10px;border-bottom:1px solid #E5E7EB"><b>1. Diagnóstico</b></td><td style="padding:8px 10px;border-bottom:1px solid #E5E7EB">Levantamento do faturamento, folha, despesas e operações dos últimos 12 meses; leitura do regime atual.</td></tr>
+<tr><td style="padding:8px 10px;border-bottom:1px solid #E5E7EB;background:#F8FAFC"><b>2. Simulação</b></td><td style="padding:8px 10px;border-bottom:1px solid #E5E7EB;background:#F8FAFC">Comparativo entre Simples Nacional, Lucro Presumido e Lucro Real, com a economia estimada em reais e os riscos de cada um.</td></tr>
+<tr><td style="padding:8px 10px;border-bottom:1px solid #E5E7EB"><b>3. Recomendação</b></td><td style="padding:8px 10px;border-bottom:1px solid #E5E7EB">Relatório final com o caminho indicado e o passo a passo; reunião de apresentação dos resultados.</td></tr>
+<tr><td style="padding:8px 10px;border-bottom:1px solid #E5E7EB;background:#F8FAFC"><b>4. Implantação</b></td><td style="padding:8px 10px;border-bottom:1px solid #E5E7EB;background:#F8FAFC">Orientação ao contador e acompanhamento da mudança no início do exercício.</td></tr>
+</table>
+<h3>3. O que não está incluído</h3>
+<ul>
+<li>Contabilidade e entrega das obrigações mensais.</li>
+<li>Alterações societárias, reorganizações e holding (proposta à parte, se recomendadas).</li>
+</ul>
+<h3>4. Prazo</h3>
+<p>Cerca de <b>quatro semanas</b> a partir do recebimento dos dados. A troca de regime, em regra, só vale a partir de janeiro — por isso o ideal é começar no segundo semestre.</p>
+<h3>5. Documentos que vamos pedir</h3>
+<ul>
+<li>Balancetes ou DRE dos últimos 12 meses e as últimas declarações entregues.</li>
+<li>Relatório de faturamento por produto/serviço e resumo da folha.</li>
+<li>Contrato social atualizado.</li>
+</ul>
+<h3>6. Com franqueza</h3>
+<p>Às vezes o regime atual já é o melhor — e isso também é resultado: a empresa passa a ter certeza de que não paga a mais.</p>
+$c$),
+  ('Inventário e planejamento sucessório', $c$
+<h3>1. O objetivo</h3>
+<p>Concluir a partilha dos bens com o menor custo e no menor prazo possível, e orientar a família para que a próxima sucessão seja mais simples.</p>
+<h3>2. O que está incluído</h3>
+<table style="width:100%;border-collapse:collapse;font-size:13px;margin:6px 0 14px">
+<tr><th style="text-align:left;padding:8px 10px;background:#1B2A4A;color:#fff;width:26%">Etapa</th><th style="text-align:left;padding:8px 10px;background:#1B2A4A;color:#fff">O que fazemos</th></tr>
+<tr><td style="padding:8px 10px;border-bottom:1px solid #E5E7EB"><b>1. Levantamento</b></td><td style="padding:8px 10px;border-bottom:1px solid #E5E7EB">Bens, dívidas, herdeiros e documentos; definição do caminho — extrajudicial (cartório, mais rápido, quando todos concordam) ou judicial.</td></tr>
+<tr><td style="padding:8px 10px;border-bottom:1px solid #E5E7EB;background:#F8FAFC"><b>2. Imposto</b></td><td style="padding:8px 10px;border-bottom:1px solid #E5E7EB;background:#F8FAFC">Declaração e cálculo do ITCD, emissão das guias e conferência dos valores atribuídos aos bens.</td></tr>
+<tr><td style="padding:8px 10px;border-bottom:1px solid #E5E7EB"><b>3. Partilha</b></td><td style="padding:8px 10px;border-bottom:1px solid #E5E7EB">Minuta da partilha, acompanhamento no cartório ou no processo até a escritura ou o formal de partilha.</td></tr>
+<tr><td style="padding:8px 10px;border-bottom:1px solid #E5E7EB;background:#F8FAFC"><b>4. Registro</b></td><td style="padding:8px 10px;border-bottom:1px solid #E5E7EB;background:#F8FAFC">Orientação para o registro dos imóveis, a transferência de veículos e a liberação de saldos bancários.</td></tr>
+</table>
+<h3>3. O que não está incluído</h3>
+<ul>
+<li>ITCD, emolumentos de cartório, custas judiciais, certidões e avaliações — pagos diretamente pelos herdeiros.</li>
+<li>Disputas entre herdeiros que exijam ações próprias (proposta à parte).</li>
+</ul>
+<h3>4. Prazo</h3>
+<p>No cartório, cerca de <b>dois a quatro meses</b> depois de reunidos os documentos; no Judiciário, depende do andamento do processo. Atenção à multa do ITCD quando o inventário não é aberto no prazo legal.</p>
+<h3>5. Documentos que vamos pedir</h3>
+<ul>
+<li>Certidão de óbito; documentos pessoais, certidões de casamento ou nascimento de todos os herdeiros.</li>
+<li>Matrículas atualizadas dos imóveis, documentos dos veículos, extratos bancários e de investimentos na data do óbito.</li>
+<li>Certidões negativas de débitos em nome do falecido.</li>
+</ul>
+<h3>6. Com franqueza</h3>
+<p>O inventário extrajudicial só é possível quando todos os herdeiros concordam. Planejar a sucessão em vida (doação com reserva de usufruto ou holding) costuma sair mais barato do que o inventário.</p>
+$c$),
+  ('Defesa trabalhista', $c$
+<h3>1. O objetivo</h3>
+<p>Defender a empresa na reclamação trabalhista, reduzir o risco de condenação e, quando for vantajoso, buscar um acordo em bases justas.</p>
+<h3>2. O que está incluído</h3>
+<ul>
+<li><b>Análise</b> — leitura da inicial, dos documentos do contrato de trabalho e estimativa do risco por pedido.</li>
+<li><b>Contestação</b> — elaboração da defesa com os documentos e a indicação das testemunhas.</li>
+<li><b>Audiências</b> — preparo do preposto e das testemunhas; participação nas audiências de conciliação e de instrução.</li>
+<li><b>Acordo</b> — negociação quando o cálculo mostrar que é a melhor saída.</li>
+<li><b>Acompanhamento</b> — até a sentença de primeira instância, com aviso a cada movimentação importante.</li>
+</ul>
+<h3>3. O que não está incluído</h3>
+<ul>
+<li>Recursos ao Tribunal Regional e ao TST (proposta à parte, se necessários).</li>
+<li>Depósito recursal, custas, perícias e cálculos de liquidação por contador.</li>
+</ul>
+<h3>4. Prazo</h3>
+<p>A defesa é entregue até a audiência inicial. Na primeira instância, o processo costuma durar de seis meses a um ano.</p>
+<h3>5. Documentos que vamos pedir</h3>
+<ul>
+<li>Contrato de trabalho, fichas de registro, holerites e recibos de férias e 13º.</li>
+<li>Controles de ponto, termo de rescisão e comprovantes de pagamento.</li>
+<li>Contrato social e carta de preposição.</li>
+</ul>
+<h3>6. Com franqueza</h3>
+<p>Na Justiça do Trabalho, o documento que a empresa não tem costuma pesar contra ela. Quanto mais completa a documentação, melhor a defesa.</p>
+$c$),
+  ('Abertura e regularização de empresa', $c$
+<h3>1. O objetivo</h3>
+<p>Colocar a empresa para funcionar (ou deixá-la em ordem) com o tipo societário e o regime tributário certos desde o início, evitando custo e retrabalho depois.</p>
+<h3>2. O que está incluído</h3>
+<table style="width:100%;border-collapse:collapse;font-size:13px;margin:6px 0 14px">
+<tr><th style="text-align:left;padding:8px 10px;background:#1B2A4A;color:#fff;width:26%">Etapa</th><th style="text-align:left;padding:8px 10px;background:#1B2A4A;color:#fff">O que fazemos</th></tr>
+<tr><td style="padding:8px 10px;border-bottom:1px solid #E5E7EB"><b>1. Planejamento</b></td><td style="padding:8px 10px;border-bottom:1px solid #E5E7EB">Escolha do tipo societário, das atividades (CNAE) e do regime tributário; regras entre os sócios.</td></tr>
+<tr><td style="padding:8px 10px;border-bottom:1px solid #E5E7EB;background:#F8FAFC"><b>2. Contrato</b></td><td style="padding:8px 10px;border-bottom:1px solid #E5E7EB;background:#F8FAFC">Elaboração do contrato social (ou da alteração) e registro na Junta Comercial.</td></tr>
+<tr><td style="padding:8px 10px;border-bottom:1px solid #E5E7EB"><b>3. Inscrições</b></td><td style="padding:8px 10px;border-bottom:1px solid #E5E7EB">CNPJ, inscrição estadual e municipal, alvará e licenças necessárias à atividade.</td></tr>
+<tr><td style="padding:8px 10px;border-bottom:1px solid #E5E7EB;background:#F8FAFC"><b>4. Regularização</b></td><td style="padding:8px 10px;border-bottom:1px solid #E5E7EB;background:#F8FAFC">Para empresas já abertas: conferência de pendências cadastrais e fiscais e o plano para resolvê-las.</td></tr>
+</table>
+<h3>3. O que não está incluído</h3>
+<ul>
+<li>Taxas da Junta, da Prefeitura e de licenças; certificado digital.</li>
+<li>Contabilidade mensal e parcelamento de débitos antigos (propostas à parte).</li>
+</ul>
+<h3>4. Prazo</h3>
+<p>Em geral, <b>duas a quatro semanas</b>, conforme a exigência de licenças e a fila dos órgãos.</p>
+<h3>5. Documentos que vamos pedir</h3>
+<ul>
+<li>Documentos pessoais e comprovante de endereço dos sócios.</li>
+<li>Endereço da empresa com o IPTU ou contrato de locação.</li>
+<li>Para regularização: contrato social atual, CNPJ e acessos aos portais.</li>
+</ul>
+<h3>6. Com franqueza</h3>
+<p>O regime escolhido na abertura define quanto a empresa vai pagar de tributo no primeiro ano — vale decidir com os números na mesa.</p>
+$c$)
+  ) v(n, t)
+ where m.nome = v.n and coalesce(m.texto_completo, '') = '';

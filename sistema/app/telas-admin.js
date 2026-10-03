@@ -27,7 +27,6 @@ TELAS.admin = async function () {
 
 async function pintarAdmin() {
   // Backup 19: as telas de e-mail moraram para a Central de e-mails (abas) — lá o "atualizar" redesenha a aba aberta
-  if (!$('adm-corpo') && $('em-area-corpo')) return pintarAreaEmail();
   if (E.adm.aba === 'email' || E.adm.aba === 'clientes_email') E.adm.aba = 'usuarios';   // Backup 38: módulo E-mails saiu
   document.querySelectorAll('#adm-abas button').forEach((b) => b.classList.toggle('ativo', b.dataset.aba === E.adm.aba));
   const corpo = $('adm-corpo');
@@ -213,7 +212,7 @@ async function admImportar(corpo) {
     // demonstração: dados fictícios ligados entre si (clientes, contratos, CRM, documentos, tarefas, acordos…)
     '<div class="card"><div class="card-hd">🧪 Dados de demonstração<span class="sub" style="margin-left:auto;font-weight:400">para testar antes de importar as planilhas de verdade</span></div><div class="card-bd">' +
     '<p style="margin-bottom:10px">Cria 3 grupos e 6 clientes <b>fictícios</b> (nomes começam com <b>DEMO ·</b>), com contatos, contratos (mensal, salário mínimo, pontual e êxito), honorários pagos e em atraso, ' +
-    'processos, parcelamento com parcelas, acordo, tarefas, oportunidades no CRM, documentos, certidões e um <b>rascunho de estagiário</b> esperando aprovação. E-mails dos exemplos usam o domínio <b>example.com</b> (não chegam a ninguém).</p>' +
+    'processos, parcelamento com parcelas, acordo, tarefas, oportunidades no CRM, documentos, certidões. E-mails dos exemplos usam o domínio <b>example.com</b> (não chegam a ninguém).</p>' +
     '<div class="acoes"><button class="btn btn-p" id="demo-carregar">Carregar demonstração</button><button class="btn btn-x" id="demo-apagar">Apagar demonstração</button></div>' +
     '<p class="sub" style="margin-top:8px">Carregar de novo apaga a demonstração anterior e cria outra (datas sempre a partir de hoje). Nada que você cadastrou é tocado.</p></div></div>';
   $('imp-arquivos').onchange = (ev) => lerArquivosImportacao(Array.from(ev.target.files));

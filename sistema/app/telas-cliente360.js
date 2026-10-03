@@ -5,7 +5,7 @@
 // ═══════════════════════════════════════════════════════════════════
 const ABAS_FICHA = [['resumo', 'Resumo'], ['contatos', 'Contatos'], ['enderecos', 'Endereços'], ['contas', 'Contas bancárias'],
   ['socios', 'Sócios e vínculos'], ['processos', 'Processos'], ['contratos', 'Contratos'], ['financeiro', 'Financeiro'],
-  ['tarefas', 'Tarefas'], ['documentos', 'Documentos'], ['linha', 'Linha do tempo'], ['fiscal', 'Dados fiscais'], ['receita', 'Cartão CNPJ'], ['pgfn', 'PGFN'], ['evolucao', '📈 Evolução']];
+  ['tarefas', 'Tarefas'], ['documentos', 'Documentos'], ['linha', 'Linha do tempo'], ['fiscal', 'Dados fiscais'], ['receita', 'Cartão CNPJ']];
 
 // Sub-cadastros editáveis da ficha (mesmo formulário para todos)
 const FINALIDADES = SETORES_CONTATO;
@@ -287,7 +287,6 @@ const ABA_FICHA = {
     alvo.querySelectorAll('[data-editar-tf]').forEach((b) => b.onclick = () => formTarefa(ts.find((t) => t.id === b.dataset.editarTf), repinta));
   },
   documentos: (alvo, cl) => blocoDocumentos(alvo, { cliente_id: cl.id, grupo_id: cl.grupo_id }, { vazio: 'Nenhum documento. Envie contrato social, procuração, documentos pessoais…' }),
-  emails: (alvo, cl) => abaEmailsCliente(alvo, cl),
   async linha(alvo, cl) {
     const [ints, ctrs, lanc, ts, docs, hist, crm, reus, mails] = await Promise.all([
       q(sb.from('interacoes').select('*').eq('cliente_id', cl.id)),
@@ -390,93 +389,3 @@ function quandoBR(v) {
   if (isNaN(d)) return dataBR(v);
   return d.toLocaleDateString('pt-BR') + (/T12:00:00$/.test(v) ? '' : ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
 }
-
-
-// ─────────── 📈 Evolução: "devia X, hoje deve Y" — foto mensal do grupo × agora ───────────
-const ORG_FOTO = [['rfb', 'Receita Federal'], ['pgfn', 'PGFN'], ['age_mg', 'AGE/MG'], ['sefaz_mg', 'SEFAZ/MG']];
-function mesBR(iso) { return String(iso || '').slice(5, 7) + '/' + String(iso || '').slice(0, 4); }
-function variacao(antes, depois) {
-  const d = (Number(depois) || 0) - (Number(antes) || 0);
-  if (!d) return '<span class="sub">igual</span>';
-  const pc = Number(antes) ? ' (' + (d > 0 ? '+' : '') + (d / Number(antes) * 100).toFixed(1).replace('.', ',') + '%)' : '';
-  return '<span class="' + (d > 0 ? 'ev-pior' : 'ev-melhor') + '">' + (d > 0 ? '▲ +' : '▼ −') + brl(Math.abs(d)).replace('R$ ', 'R$ ') + pc + '</span>';
-}
-ABA_FICHA.evolucao = async function (alvo, cl) {
-  if (!cl.grupo_id) { alvo.innerHTML = vazio('Este cliente não está em um grupo: o histórico é guardado por grupo.'); return; }
-  const [fotos, agora] = await Promise.all([
-    q(sb.from('fotos_mensais').select('mes, dados, tirada_em').eq('grupo_id', cl.grupo_id).order('mes', { ascending: false })).catch(() => []),
-    q(sb.rpc('foto_do_grupo', { p_grupo: cl.grupo_id }))
-  ]);
-  const mesAtual = hojeISO().slice(0, 7);
-  const antigas = fotos.filter((f) => f.mes.slice(0, 7) < mesAtual);
-  const admin = E.perfil && E.perfil.papel === 'admin';
-  if (!antigas.length) {
-    alvo.innerHTML = '<div class="dica" style="margin-bottom:12px">O histórico deste grupo começou em <b>' + (fotos.length ? mesBR(fotos[fotos.length - 1].mes) : mesBR(hojeISO())) + '</b>. ' +
-      'Todo dia 1º o sistema guarda uma "foto" (passivo, CAPAG, processos, parcelamentos e acordos). O comparativo aparece a partir do mês que vem.</div>' + fotoResumo(agora, 'Hoje');
-    return;
-  }
-  const E2 = E.ev = E.ev || {};
-  const escolhido = antigas.find((f) => f.mes === E2.mes) || antigas.find((f) => f.mes.slice(0, 7) <= somarDias(hojeISO(), -30).slice(0, 7)) || antigas[0];
-  const a = escolhido.dados || {}, h = agora || {};
-  const pa = (a.passivo || {}), ph = (h.passivo || {});
-  const nomeG = nomeGrupo(cl.grupo_id);
-  // processos: novos = ativos hoje que não existiam; encerrados = estavam ativos e hoje estão encerrados (ou sumiram)
-  const atA = new Set(a.processos_ativos || []), atH = new Set(h.processos_ativos || []), encH = new Set(h.processos_encerrados || []);
-  const todosA = new Set([...(a.processos_ativos || []), ...(a.processos_encerrados || [])]);
-  const novos = [...atH].filter((n) => !todosA.has(n)), encerrados = [...atA].filter((n) => !atH.has(n));
-  const empA = {}; (a.empresas || []).forEach((e) => { empA[e.id] = e; });
-  const capagMudou = (h.empresas || []).filter((e) => empA[e.id] && (empA[e.id].capag || '') !== (e.capag || ''));
-  const frase = 'Em ' + mesBR(escolhido.mes) + ' o grupo ' + esc(nomeG) + ' devia <b>' + brl(pa.total) + '</b>; hoje deve <b>' + brl(ph.total) + '</b> ' + variacao(pa.total, ph.total) + '. ' +
-    'Tinha <b>' + atA.size + '</b> processo(s) em andamento: <b>' + encerrados.length + '</b> encerrado(s) desde então e <b>' + novos.length + '</b> novo(s)' +
-    (capagMudou.length ? '. CAPAG mudou em ' + capagMudou.map((e) => esc(e.nome) + ' (' + esc(empA[e.id].capag || '—') + ' → ' + esc(e.capag || '—') + ')').join(', ') : '') + '.';
-  alvo.innerHTML =
-    '<div class="filtros" style="margin-bottom:10px"><label class="sub" for="ev-mes" style="align-self:center">Comparar hoje com</label><select class="busca sel" id="ev-mes">' +
-      antigas.map((f) => '<option value="' + f.mes + '"' + (f.mes === escolhido.mes ? ' selected' : '') + '>' + mesBR(f.mes) + '</option>').join('') + '</select>' +
-      (admin ? '<button class="btn btn-o btn-mini" id="ev-foto" title="Grava a foto deste mês de todos os grupos (a rotina faz isso sozinha todo dia 1º)">📸 Atualizar foto do mês</button>' : '') + '</div>' +
-    '<div class="ev-frase">' + frase + '</div>' +
-    '<div class="duas-col"><div class="card"><div class="card-hd">Passivo por órgão</div><div class="tabela-wrap"><table><thead><tr><th>Órgão</th><th class="num">' + mesBR(escolhido.mes) + '</th><th class="num">Hoje</th><th class="num">Diferença</th></tr></thead><tbody>' +
-      ORG_FOTO.map(([k, r]) => '<tr><td>' + r + '</td><td class="num mono">' + brl(pa[k]) + '</td><td class="num mono">' + brl(ph[k]) + '</td><td class="num">' + variacao(pa[k], ph[k]) + '</td></tr>').join('') +
-      '</tbody><tfoot><tr><td>Total</td><td class="num mono">' + brl(pa.total) + '</td><td class="num mono">' + brl(ph.total) + '</td><td class="num">' + variacao(pa.total, ph.total) + '</td></tr></tfoot></table></div></div>' +
-    '<div class="card"><div class="card-hd">Empresas do grupo</div><div class="tabela-wrap"><table><thead><tr><th>Empresa</th><th>CAPAG</th><th class="num">' + mesBR(escolhido.mes) + '</th><th class="num">Hoje</th></tr></thead><tbody>' +
-      (h.empresas || []).map((e) => { const x = empA[e.id]; return '<tr><td><b>' + esc(e.nome) + '</b>' + (x ? '' : ' <span class="pill aberto">nova</span>') + '</td><td>' +
-        (x && (x.capag || '') !== (e.capag || '') ? pillCapag(x.capag || '—') + ' → ' + pillCapag(e.capag || '—') : e.capag ? pillCapag(e.capag) : '<span class="sub">—</span>') + '</td>' +
-        '<td class="num mono">' + (x ? brl(x.total) : '—') + '</td><td class="num mono">' + brl(e.total) + '</td></tr>'; }).join('') +
-      '</tbody></table></div></div></div>' +
-    '<div class="duas-col"><div class="card"><div class="card-hd">Processos novos <span class="pill aberto">' + novos.length + '</span></div><div class="card-bd">' +
-      (novos.length ? novos.map((n) => '<div class="mono">' + esc(n) + '</div>').join('') : '<span class="sub">Nenhum.</span>') + '</div></div>' +
-    '<div class="card"><div class="card-hd">Processos encerrados <span class="pill pago">' + encerrados.length + '</span></div><div class="card-bd">' +
-      (encerrados.length ? encerrados.map((n) => '<div class="mono">' + esc(n) + (encH.has(n) ? '' : ' <span class="sub">(saiu do cadastro)</span>') + '</div>').join('') : '<span class="sub">Nenhum.</span>') + '</div></div></div>' +
-    '<div class="sub">Parcelamentos: ' + (a.parcelamentos || 0) + ' → ' + (h.parcelamentos || 0) + ' · Acordos em aberto: ' + (a.acordos_abertos || 0) + ' → ' + (h.acordos_abertos || 0) +
-      ' (' + brl(a.acordos_saldo) + ' → ' + brl(h.acordos_saldo) + ')</div>';
-  $('ev-mes').onchange = (ev) => { E2.mes = ev.target.value; ABA_FICHA.evolucao(alvo, cl); };
-  const bf = $('ev-foto'); if (bf) bf.onclick = () => comBotao(bf, async () => { const n = await q(sb.rpc('tirar_fotos_mensais')); aviso('✓ Foto do mês atualizada (' + n + ' grupo(s)).'); });
-};
-function fotoResumo(f, rot) {
-  const p = (f && f.passivo) || {};
-  return '<div class="kpis">' + kpi('Passivo — ' + rot, brl(p.total), 'ambar', ORG_FOTO.filter(([k]) => Number(p[k])).map(([k, r]) => r + ' ' + brl(p[k])).join(' · ') || 'sem débitos') +
-    kpi('Processos em andamento', String((f && f.processos_ativos || []).length), '', (f && f.processos_encerrados || []).length + ' encerrado(s)') +
-    kpi('Parcelamentos', String((f && f.parcelamentos) || 0), '', '') + kpi('Acordos em aberto', String((f && f.acordos_abertos) || 0), '', brl(f && f.acordos_saldo)) + '</div>';
-}
-
-// ─────────── PGFN: inscrições em dívida ativa (API SERPRO, rotina erp-pgfn) ───────────
-ABA_FICHA.pgfn = async function (alvo, cl) {
-  const [ins, st] = await Promise.all([
-    q(sb.from('pgfn_inscricoes').select('*').eq('cliente_id', cl.id).order('valor', { ascending: false })).catch(() => []),
-    q(sb.rpc('status_config_pgfn')).catch(() => ({}))
-  ]);
-  if (!ins.length) {
-    alvo.innerHTML = vazio(st && st.ligada && st.tem_chave ? 'Nenhuma inscrição em dívida ativa encontrada para este CNPJ na última consulta.' :
-      'A consulta automática da PGFN ainda não está ligada. Depois de contratar a API "Consulta Dívida Ativa" do SERPRO, salve a chave em Alertas → PGFN.');
-    return;
-  }
-  const porNat = {}; ins.forEach((x) => { const k = x.natureza || 'Outras'; porNat[k] = porNat[k] || { n: 0, v: 0, parc: 0 }; porNat[k].n++; porNat[k].v += Number(x.valor) || 0; if (x.parcelada) porNat[k].parc += Number(x.valor) || 0; });
-  const tot = soma(ins, (x) => x.valor), parc = soma(ins.filter((x) => x.parcelada), (x) => x.valor);
-  alvo.innerHTML = '<div class="kpis">' + kpi('Dívida ativa (PGFN)', brl(tot), 'ambar', ins.length + ' inscrição(ões)') + kpi('Parcelada / negociada', brl(parc), 'verde', ins.filter((x) => x.parcelada).length + ' inscrição(ões)') +
-    kpi('Em cobrança', brl(tot - parc), tot - parc ? 'vermelho' : '', 'sem parcelamento') + '</div>' +
-    '<div class="card"><div class="card-hd">Por origem</div><div class="tabela-wrap"><table><thead><tr><th>Origem</th><th class="num">Inscrições</th><th class="num">Parcelado</th><th class="num">Total</th></tr></thead><tbody>' +
-      Object.keys(porNat).sort((a, b) => porNat[b].v - porNat[a].v).map((k) => '<tr><td><b>' + esc(k) + '</b></td><td class="num">' + porNat[k].n + '</td><td class="num mono">' + brl(porNat[k].parc) + '</td><td class="num mono">' + brl(porNat[k].v) + '</td></tr>').join('') + '</tbody></table></div></div>' +
-    '<div class="card"><div class="card-hd">Inscrições (CDAs)</div><div class="tabela-wrap"><table class="ordenavel"><thead><tr><th>Nº da inscrição</th><th>Origem</th><th>Receita</th><th>Situação</th><th data-tipo="data">Inscrita em</th><th class="num">Valor</th></tr></thead><tbody>' +
-      ins.map((x) => '<tr><td class="mono">' + esc(x.inscricao) + '</td><td>' + esc(x.natureza) + '</td><td>' + esc(x.receita) + '</td><td>' + (x.parcelada ? '<span class="pill pago">' : '<span class="pill hoje">') + esc(x.situacao || (x.parcelada ? 'Parcelada' : 'Em cobrança')) + '</span></td>' +
-        '<td class="mono" data-ord="' + esc(x.data_inscricao || '') + '">' + dataBR(x.data_inscricao) + '</td><td class="num mono" data-ord="' + x.valor + '">' + brl(x.valor) + '</td></tr>').join('') + '</tbody></table></div>' +
-      '<div class="sub" style="padding:8px 12px">Atualizado em ' + dataHoraBR(ins[0].atualizado_em) + ' pela consulta automática.</div></div>';
-};

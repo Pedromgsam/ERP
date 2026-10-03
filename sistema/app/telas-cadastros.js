@@ -30,7 +30,6 @@ TELAS.clientes = async function () {
     '<select class="busca sel" id="cli-grupo" autocomplete="off"><option value="">Todos os grupos</option>' +
     E.grupos.map((g) => '<option value="' + g.id + '">' + esc(g.nome) + '</option>').join('') + '</select>' +
     '<input class="busca" id="cli-busca" placeholder="Buscar nome, grupo, responsável ou CPF/CNPJ" autocomplete="off">' +
-    '<button class="btn btn-o" type="button" id="cli-massa" title="Editar passivo, CEAT e CAPAG de vários clientes numa tabela (aceita colar do Excel)">✎ Editar em tabela</button>' +
     '</div><div id="cli-corpo"></div>';
   $('cli-tipo').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { C.tipo = b.dataset.v; pintarClientes(); } };
   $('cli-visao').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { C.visao = b.dataset.v; pintarClientes(); } };
@@ -38,7 +37,6 @@ TELAS.clientes = async function () {
   if ($('cli-area')) $('cli-area').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { C.area = b.dataset.v; pintarClientes(); } };
   let t;
   $('cli-busca').oninput = (ev) => { clearTimeout(t); t = setTimeout(() => { C.busca = ev.target.value; pintarClientes(); }, 250); };
-  $('cli-massa').onclick = () => edicaoEmMassa(E.cli.ultima || []);
   ligarBotoesNovo($('conteudo'));
   pintarClientes();
 };
@@ -724,66 +722,3 @@ function formExito(ct, depois) {
 }
 
 
-// ─────────── Editar em tabela (vários clientes de uma vez) ───────────
-// Tab/Enter andam entre as células; colar do Excel preenche a partir da célula; o que mudou fica destacado.
-// Salvar grava só as linhas alteradas. Quem está em modo rascunho gera uma proposta por linha (Aprovações).
-const COLS_MASSA = [['nome', 'Nome', 'texto'], ['rfb', 'RFB', 'valor'], ['rfb_negociada', 'RFB neg.', 'valor'], ['pgfn', 'PGFN', 'valor'], ['pgfn_negociada', 'PGFN neg.', 'valor'],
-  ['age_mg', 'AGE/MG', 'valor'], ['age_mg_negociada', 'AGE neg.', 'valor'], ['sefaz_mg', 'SEFAZ/MG', 'valor'], ['ceat_trt3', 'CEAT', 'int'], ['capag', 'CAPAG', 'capag']];
-const CAPAGS = ['', 'A', 'B', 'C', 'D', 'Omisso'];
-function edicaoEmMassa(lista) {
-  if (!lista.length) return aviso('Nenhum cliente na lista: mude o filtro.', true);
-  if (lista.length > 300) return aviso('São ' + lista.length + ' clientes: filtre por grupo ou tipo (até 300 por vez).', true);
-  const txt = (c, k, t) => c[k] == null || c[k] === '' ? '' : t === 'valor' ? String(Number(c[k]).toFixed(2)).replace('.', ',') : String(c[k]);
-  const j = abrirJanela({ titulo: 'Editar em tabela — ' + lista.length + ' cliente(s)', larga: true,
-    corpo: '<div class="dica" style="margin-bottom:10px">Clique numa célula e digite. <b>Tab</b> vai para a direita, <b>Enter</b> para baixo. Pode <b>colar do Excel</b> (várias linhas e colunas) a partir da célula escolhida. ' +
-      'Valores em reais (ex.: 12500,00). Só as linhas alteradas são gravadas.</div>' +
-      '<div class="tabela-wrap massa-wrap"><table class="massa"><thead><tr><th>Grupo</th>' + COLS_MASSA.map(([, r, t]) => '<th' + (t === 'valor' || t === 'int' ? ' class="num"' : '') + '>' + r + '</th>').join('') + '</tr></thead><tbody>' +
-      lista.map((c, i) => '<tr data-i="' + i + '"><td class="sub">' + esc(c.grupos ? c.grupos.nome : '') + '</td>' + COLS_MASSA.map(([k, , t], jx) =>
-        '<td>' + (t === 'capag' ? '<select data-k="' + k + '" data-c="' + jx + '">' + CAPAGS.map((v) => '<option' + ((c[k] || '') === v ? ' selected' : '') + '>' + v + '</option>').join('') + '</select>'
-          : '<input data-k="' + k + '" data-c="' + jx + '" value="' + esc(txt(c, k, t)) + '"' + (t !== 'texto' ? ' inputmode="decimal" class="num"' : '') + ' aria-label="' + esc(c.nome) + ' — ' + k + '">') + '</td>').join('') + '</tr>').join('') +
-      '</tbody></table></div>',
-    rodape: '<span class="sub" id="massa-conta">Nenhuma alteração</span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="massa-salvar">Salvar alterações</button></div>' });
-  j.querySelector('.janela').classList.add('janela-massa');
-  const cel = (i, c) => j.querySelector('tr[data-i="' + i + '"] [data-c="' + c + '"]');
-  const marcar = (el) => { const c = lista[+el.closest('tr').dataset.i], [k, , t] = COLS_MASSA[+el.dataset.c];
-    el.closest('td').classList.toggle('mudou', el.value.trim() !== txt(c, k, t));
-    const n = new Set([...j.querySelectorAll('td.mudou')].map((td) => td.parentElement.dataset.i)).size;
-    j.querySelector('#massa-conta').textContent = n ? n + ' linha(s) alterada(s)' : 'Nenhuma alteração'; };
-  j.querySelectorAll('[data-k]').forEach((el) => {
-    el.oninput = el.onchange = () => marcar(el);
-    el.onkeydown = (ev) => {
-      if (ev.key !== 'Enter' || el.tagName === 'SELECT') return;
-      ev.preventDefault(); const p = cel(+el.closest('tr').dataset.i + 1, +el.dataset.c); if (p) p.focus();
-    };
-    el.onpaste = (ev) => {
-      const dado = (ev.clipboardData || window.clipboardData).getData('text');
-      if (!/[\t\n]/.test(dado)) return;
-      ev.preventDefault();
-      const i0 = +el.closest('tr').dataset.i, c0 = +el.dataset.c;
-      dado.replace(/\r/g, '').replace(/\n$/, '').split('\n').forEach((lin, di) => lin.split('\t').forEach((v, dc) => {
-        const alvo = cel(i0 + di, c0 + dc); if (!alvo) return;
-        alvo.value = alvo.tagName === 'SELECT' ? (CAPAGS.find((x) => x.toLowerCase() === v.trim().toLowerCase()) || alvo.value) : v.trim().replace(/^R\$\s*/, ''); marcar(alvo);
-      }));
-    };
-  });
-  j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
-  j.querySelector('#massa-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
-    const linhas = [...new Set([...j.querySelectorAll('td.mudou')].map((td) => +td.parentElement.dataset.i))];
-    if (!linhas.length) throw new Error('Nada foi alterado.');
-    const pacotes = linhas.map((i) => { const c = lista[i], d = {};
-      j.querySelectorAll('tr[data-i="' + i + '"] td.mudou [data-k]').forEach((el) => { const [k, r, t] = COLS_MASSA[+el.dataset.c], v = el.value.trim();
-        if (t === 'texto') { if (!v) throw new Error('O nome não pode ficar vazio (' + c.nome + ').'); d[k] = v; }
-        else if (t === 'capag') d[k] = v;
-        else if (t === 'int') { if (v && !/^\d+$/.test(v)) throw new Error(r + ' de ' + c.nome + ': use só números.'); d[k] = v ? Number(v) : null; }
-        else { const n = v ? lerValor(v) : null; if (v && isNaN(n)) throw new Error(r + ' de ' + c.nome + ': valor inválido ("' + v + '").'); d[k] = n; } });
-      return [c, d]; });
-    let ok = 0, rasc = 0;
-    for (const [c, d] of pacotes) {
-      const { error } = await sb.from('clientes').update(d).eq('id', c.id);
-      if (error && error.rascunho) rasc++; else if (error) throw new Error(c.nome + ': ' + erroAmigavel(error)); else ok++;
-    }
-    await carregarCadastros(true); fecharJanela(j);
-    aviso(rasc ? '📝 ' + rasc + ' alteração(ões) enviada(s) para aprovação' + (ok ? ' e ' + ok + ' gravada(s)' : '') + '.' : '✓ ' + ok + ' cliente(s) atualizado(s).');
-    if (E.tela === 'clientes') pintarClientes(); else await recarregar();
-  });
-}
