@@ -31,7 +31,7 @@
     { id: 'contratos', rot: 'Contratos', ic: 'contratos', equipe: true, func: 'contratos' },
     { id: 'clientes', rot: 'Clientes', ic: 'clientes', equipe: true, func: 'clientes' },
     { id: 'crm', rot: 'CRM', ic: 'crm', equipe: true, func: 'crm' },
-    { rot: 'Documentos', ic: 'documentos', equipe: true, itens: [['documentos', 'Arquivos dos clientes', 'documentos'], ['gerador', 'Gerar documento', 'documentos']] },   // Backup 34: Central dentro do ERP
+    { id: 'documentos', rot: 'Documentos', ic: 'documentos', equipe: true, func: 'documentos' },   // Backup 40: a geração de documentos é um sistema à parte (botão "Gerar documentos ↗" na tela)
     { id: 'rotina', rot: 'Rotina', ic: 'rotina', equipe: true },   // Backup 28: o lugar do estagiário; Backup 39: em Módulos, abaixo de Documentos
     { sec: 'Sistema', admin: true },
     { id: 'admin', rot: 'Administração', ic: 'admin', admin: true }
@@ -51,13 +51,14 @@
     crm: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
     documentos: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
     admin: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+    recibo: '<path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 7h6M9 11h6M9 15h4"/>',
     seta: '<path d="M6 9l6 6 6-6"/>', encolher: '<path d="M15 18l-6-6 6-6"/>'
   };
   const icone = (k) => '<svg class="tn-ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICONES[k] || '') + '</svg>';
   // Cobranças, avisos e recibos (antiga "Notificações"): fora da barra; abre pelo botão ✉ de cada tela e pelo ⋯
   const FUNC_EXTRA = { notificacoes: 'clientes' };   // a Central de e-mails confere o acesso no banco
   // painéis novos → tela do Gestão que desenha nele
-  const TELAS_GS = { hoje: 'inicio', contratos: 'contratos', clientes: 'clientes', crm: 'crm', publicacoes: 'publicacoes', documentos: 'documentos', gerador: 'gerador', tarefas: 'tarefas', alertas: 'alertas', automacoes: 'automacoes', aprovacoes: 'aprovacoes', rotina: 'rotina', admin: 'admin' };
+  const TELAS_GS = { hoje: 'inicio', contratos: 'contratos', clientes: 'clientes', crm: 'crm', publicacoes: 'publicacoes', documentos: 'documentos', tarefas: 'tarefas', alertas: 'alertas', automacoes: 'automacoes', aprovacoes: 'aprovacoes', rotina: 'rotina', admin: 'admin' };
 
   // "+ Lançar": formulários do Gestão onde existem; os demais, do editor do ERP
   const empresaAtual = () => (_painel === 'financeiroContab' ? 'contabilidade' : 'escritorio');
@@ -172,7 +173,6 @@
       else if (alvo.dataset.acao === 'pdf') { if (GS() && GS().janelaRelatorioPDF) GS().carregarCadastros().then(() => GS().janelaRelatorioPDF()); else ir('relatorio'); }   // Backup 29: relatório novo
       else if (alvo.dataset.acao === 'aprovacoes') ir('aprovacoes');
       else if (alvo.dataset.acao === 'meunome') pedirMeuNome(false);
-      else if (alvo.dataset.acao === 'geradores') { if (GS()) GS().janelaGeradores(); }
       else if (alvo.dataset.ir && (e.ctrlKey || e.metaKey || e.shiftKey)) window.open(location.pathname + '#' + alvo.dataset.ir, '_blank', 'noopener');   // Backup 34: Ctrl + clique = aba nova
       else if (alvo.dataset.ir) ir(alvo.dataset.ir);
       else if (alvo.dataset.lancar !== undefined) LANCAR[+alvo.dataset.lancar][1]();
@@ -268,14 +268,9 @@
       .forEach(([pid, aba, rot, recibo]) => {
         const ban = document.querySelector('#' + pid + ' .mod-banner'); if (!ban || document.querySelector('#' + pid + ' .gx-cobrar')) return;
         const d = document.createElement('div'); d.className = 'gx-cobrar gx-so-equipe';
-        // Backup 38: "✉ Cobrar clientes" saiu com o módulo E-mails; ficam Recibo, Conciliar extrato e Editar em tabela
-        d.innerHTML = (recibo ? '<button type="button" data-cob="rec">🧾 Recibo</button>' +
-          '<button type="button" data-ofx="' + (pid === 'panel-financeiroContab' ? 'contabilidade' : 'escritorio') + '" title="Dar baixa pelos créditos do extrato do banco (arquivo OFX)">🏦 Conciliar extrato</button>' +
-          '<button type="button" data-massa-lanc="' + (pid === 'panel-financeiroContab' ? 'contabilidade' : 'escritorio') + '" title="Completar vários lançamentos de uma vez (área do serviço, descrição…) na tela ou por planilha">✎ Editar em tabela</button>' : '');
-        // ✉ Cobrar/Notificar → Central de e-mails já filtrada; 🧾 Recibo (manual) continua na tela antiga
+        // Backup 40: fica só o Recibo (Conciliar extrato e Editar em tabela saíram); ícone de traço no lugar do emoji
+        d.innerHTML = (recibo ? '<button type="button" data-cob="rec">' + icone('recibo') + 'Recibo</button>' : '');
         d.querySelectorAll('[data-cob]').forEach((b) => b.onclick = () => abrirCobrancas('rec'));
-        d.querySelectorAll('[data-ofx]').forEach((b) => b.onclick = () => { if (GS() && GS().conciliarOfx) GS().conciliarOfx(b.dataset.ofx); });
-        d.querySelectorAll('[data-massa-lanc]').forEach((b) => b.onclick = () => { if (GS() && GS().edicaoLancamentos) GS().edicaoLancamentos(b.dataset.massaLanc); });
         ban.appendChild(d);
       });
   }
@@ -303,7 +298,9 @@
       tr.hidden = o.filtro ? !o.filtro(tr) : false;
     });
     const vazia = tbody.querySelector(':scope > tr:not([data-gx]) td[colspan]'); if (vazia) vazia.colSpan = 50;
-    if (_pad[o.chave].visao === 'grupo') {
+    if (_pad[o.chave].visao === 'grupo' && o.semDivisao) {   // Backup 40: ordena por grupo, sem a faixa "GRUPO X · N cadastros" nem o contorno
+      linhas.slice().sort((a, b) => (o.grupo(a) || '￿').localeCompare(o.grupo(b) || '￿', 'pt-BR')).forEach((tr) => tbody.appendChild(tr));
+    } else if (_pad[o.chave].visao === 'grupo') {
       const ord = linhas.slice().sort((a, b) => (o.grupo(a) || '￿').localeCompare(o.grupo(b) || '￿', 'pt-BR'));
       ord.forEach((tr) => tbody.appendChild(tr));
       const vis = ord.filter((tr) => !tr.hidden); let ult = null;
@@ -357,7 +354,7 @@
     // valor negociado: "18k neg." (sem caixa alta)
     tb.querySelectorAll('.tag.tv[title]').forEach((tg) => { const v = Number(String(tg.title).replace(/[^\d,]/g, '').replace(',', '.')); if (v) tg.textContent = kNeg(v) + ' neg.'; });
     tb.querySelectorAll('.er-grupo[onclick], .er-nome[onclick]').forEach((x) => { x.removeAttribute('onclick'); x.title = 'Abrir a ficha completa'; });
-    tabelaPadrao(tb, { chave: 'emp', um: 'cadastro', varios: 'cadastros', semSeta: true,
+    tabelaPadrao(tb, { chave: 'emp', um: 'cadastro', varios: 'cadastros', semSeta: true, semDivisao: true,
       clique: (tr) => { const r = regDe(B, tr) || {}; if (r._id && GS() && GS().abrirFicha) Promise.resolve(GS().carregarCadastros()).then(() => GS().abrirFicha(r._id)); },
       grupo: (tr) => (regDe(B, tr) || {}).grupo || '',
       filtro: (tr) => { const r = regDe(B, tr); if (!r) return true; const c = cli.find((x) => x.id === r._id) || {};

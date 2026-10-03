@@ -41,7 +41,7 @@ function renderAcordosVencTbl(){
   var tab=document.querySelector('#acordTabVencidos table'); if(!tab) return;
   tab.classList.add('ac-ap');
   tab.querySelector('thead').innerHTML='<tr><th class="ac-ck"><input type="checkbox" id="acSelTodos" aria-label="Marcar todas"></th><th class="ac-c-grp">Grupo</th><th>Processo</th><th>Devedor</th><th>Credor</th>'
-    +'<th>Parcela</th><th>Valor</th><th>Vencimento</th><th>Prazo</th><th class="ac-c-acao">Emissão</th></tr>';
+    +'<th>Parcela</th><th>Valor</th><th>Vencimento</th><th>Prazo</th><th class="ac-c-acao"></th></tr>';
   var cnt=$('acordVencCount'); if(cnt) cnt.textContent='· '+fI(rows.length)+' parcela(s) a pagar';
   var pg=$('pagAcordosVenc'); if(pg) pg.innerHTML='';
   var el=$('tblAcordosVencBody'); if(!el) return;
@@ -54,9 +54,9 @@ function renderAcordosVencTbl(){
       +'<td class="mono">'+esc(a.parcela||'—')+' de '+esc(a.totalParc||'—')+'</td><td class="mono"><strong>'+fF(a.valor||0)+'</strong></td>'
       +'<td class="mono">'+esc(a.vencimento||'—')+'</td>'
       +'<td class="mono"><span class="'+(dias===null?'':_diasCls(dias))+'">'+(dias===null?'—':dias<0?Math.abs(dias)+' d atraso':dias===0?'vence hoje':dias+' dias')+'</span></td>'
-      // Backup 37: sem "Situação" (o prazo já diz); "✓ emitido" fica colado no botão Emitir
-      +'<td class="ac-ap-ac ac-c-acao"><span class="ac-emit-par"><button type="button" class="ac-bt-boleto" data-ac-guia="'+a._id+'" title="Emitir o boleto (ou a cobrança por PIX) desta parcela e enviar ao cliente">🧾 '+(emit?'Reemitir':'Emitir')+'</button>'
-        +(emit?'<span class="lg-em lg-em-ok" title="'+esc(a.emitidaEm?'emitido em '+a.emitidaEm:'')+'">✓ emitido'+(a.emitidaEm?' '+esc(String(a.emitidaEm).slice(0,5)):'')+'</span>':'')+(a.formaPag==='pix'?'<span class="ge-forma">PIX</span>':'')+'</span></td></tr>';
+      // Backup 40: dois botões simples — "Emitir" (vira "Emitido" depois de emitida; clicar de novo reemite) e "Baixa"; sem a caneta
+      +'<td class="ac-ap-ac ac-c-acao"><span class="ac-acoes"><button type="button" class="ac-bt-emitir'+(emit?' ac-emitido':'')+'" data-ac-guia="'+a._id+'" title="'+(emit?esc('Emitido'+(a.emitidaEm?' em '+a.emitidaEm:'')+' — clique para emitir de novo'):'Emitir o boleto (ou a cobrança por PIX) e enviar ao cliente')+'">'+(emit?'✓ Emitido':'Emitir')+'</button>'
+        +'<button type="button" class="gx-la-bx ac-bt-baixa" data-la="baixa" title="Dar baixa (pago) — pede confirmação">Baixa</button></span></td></tr>';
   }).join(''):'<tr><td colspan="10">'+emp('Nenhuma parcela a pagar — tudo em dia! ✅')+'</td></tr>';
   _acBarraSel();
   el.onchange=function(ev){ var c=ev.target.closest('[data-ac-sel]'); if(!c) return; if(c.checked) _acSel[c.dataset.acSel]=1; else delete _acSel[c.dataset.acSel]; _acBarraSel(); };
@@ -71,7 +71,7 @@ function _acBarraSel(){
   if(!box) return;
   var ids=Object.keys(_acSel);
   box.innerHTML=ids.length?'<span><b>'+ids.length+' parcela'+(ids.length>1?'s':'')+' marcada'+(ids.length>1?'s':'')+'</b></span><span class="acoes"><button type="button" class="ac-bt-boleto" id="acSelLimpar">Desmarcar</button><button type="button" class="ac-bt-boleto ac-bt-prim" id="acSelEnviar">✉ Enviar por empresa</button></span>'
-    :'<span class="sub">Marque as parcelas para enviar os boletos por empresa (ou use 🧾 Emitir na linha).</span>';
+    :'<span class="sub">Marque as parcelas para enviar os boletos por empresa (ou use Emitir na linha).</span>';
   var l=$('acSelLimpar'); if(l) l.onclick=function(){ _acSel={}; renderAcordosVencTbl(); };
   var e=$('acSelEnviar'); if(e) e.onclick=function(){ if(window.GS&&GS.enviarAcordosSelecionados) GS.enviarAcordosSelecionados(ids, function(){ _acSel={}; if(window.ERP_RECARREGAR) window.ERP_RECARREGAR(); }); };
 }

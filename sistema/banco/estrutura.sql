@@ -3494,32 +3494,6 @@ exception when others then
   raise notice 'Agendador indisponível: a foto mensal pode ser tirada pelo botão na ficha do cliente.';
 end $$;
 
--- ─────────── extrato bancário (OFX do Sicoob): créditos já tratados ───────────
-create table if not exists public.extrato_itens (
-  fitid        text primary key,                -- identificador do banco (não importa duas vezes)
-  empresa      text not null default 'escritorio' check (empresa in ('escritorio','contabilidade')),
-  data         date not null,
-  valor        numeric(14,2) not null,
-  nome         text not null default '',
-  memo         text not null default '',
-  situacao     text not null default 'baixado' check (situacao in ('baixado','ignorado')),
-  lancamento_id uuid references public.lancamentos(id) on delete set null,
-  tratado_por  uuid default auth.uid(),
-  tratado_em   timestamptz not null default now()
-);
-alter table public.extrato_itens enable row level security;
-revoke all on public.extrato_itens from anon;
-grant select, insert, update on public.extrato_itens to authenticated;
-drop policy if exists extrato_ver on public.extrato_itens;
-create policy extrato_ver on public.extrato_itens for select to authenticated
-  using (public.pode(case when empresa = 'contabilidade' then 'financeiro_contab' else 'financeiro_juridico' end));
-drop policy if exists extrato_gravar on public.extrato_itens;
-create policy extrato_gravar on public.extrato_itens for insert to authenticated
-  with check (public.pode(case when empresa = 'contabilidade' then 'financeiro_contab' else 'financeiro_juridico' end, 'editar'));
-drop policy if exists extrato_mudar on public.extrato_itens;
-create policy extrato_mudar on public.extrato_itens for update to authenticated
-  using (public.pode(case when empresa = 'contabilidade' then 'financeiro_contab' else 'financeiro_juridico' end, 'editar'));
-
 -- ─────────── PGFN: inscrições em dívida ativa (API "Consulta Dívida Ativa" do SERPRO) ───────────
 -- Função "erp-pgfn" consulta cada CNPJ e grava aqui; o ERP mostra o total (campo PGFN / PGFN negociada)
 -- e a ficha do cliente abre por origem e por CDA. Só roda depois que o escritório contratar e salvar a chave.
@@ -6825,3 +6799,113 @@ create trigger email_fila_desviar before insert on public.email_fila for each ro
 -- ═══════════════════════════════ Backup 39 ═══════════════════════════════
 -- Agenda: "com quem" em texto livre quando a reunião não é com um cliente cadastrado
 alter table public.tarefas add column if not exists com_quem text not null default '';
+
+-- ═══════════════════════════════ Backup 40 ═══════════════════════════════
+-- Agenda: horário de fim (sem sobreposição), aviso antes do compromisso e "Ligação" sai dos tipos
+alter table public.tarefas add column if not exists hora_fim time;
+alter table public.tarefas add column if not exists aviso_min int;
+alter table public.tarefas add column if not exists aviso_em timestamptz;
+update public.tarefas set tipo_agenda = 'compromisso' where tipo_agenda = 'ligacao';
+-- aviso: notificação para o responsável e cada participante (a notificação já vira e-mail para a pessoa)
+create or replace function public.avisos_agenda() returns int
+language plpgsql security definer set search_path = public as $$
+declare t record; pnome text; uid uuid; n int := 0; ini timestamptz; rot text;
+begin
+  for t in select * from public.tarefas
+            where aviso_min is not null and aviso_em is null and prazo is not null
+              and status not in ('concluida', 'cancelada') and prazo between current_date - 1 and current_date + 3 loop
+    ini := ((t.prazo + coalesce(t.hora, time '08:00')) at time zone 'America/Sao_Paulo');
+    continue when ini - make_interval(mins => t.aviso_min) > now() or ini < now() - interval '1 hour';
+    rot := case t.tipo_agenda when 'reuniao' then 'Reunião' when 'audiencia' then 'Audiência' when 'compromisso' then 'Compromisso' else 'Tarefa' end;
+    for pnome in select distinct lower(split_part(btrim(x), ' ', 1)) from unnest(array[t.responsavel] || string_to_array(coalesce(t.participantes, ''), ',')) x where btrim(coalesce(x, '')) <> '' loop
+      uid := (select p.id from public.perfis p where p.papel in ('admin', 'equipe') and lower(split_part(btrim(p.nome), ' ', 1)) = pnome limit 1);
+      if uid is not null then
+        insert into public.notificacoes (usuario_id, tipo, titulo, detalhe)
+        values (uid, 'agenda', '🔔 ' || rot || ' ' || to_char(t.prazo, 'DD/MM') || coalesce(' às ' || to_char(t.hora, 'HH24:MI'), '') || ': ' || t.titulo,
+                concat_ws(' · ', nullif(coalesce(t.local, ''), ''), nullif(coalesce(t.processos_vinculados, ''), '')));
+        n := n + 1;
+      end if;
+    end loop;
+    update public.tarefas set aviso_em = now() where id = t.id;
+  end loop;
+  return n;
+end $$;
+revoke all on function public.avisos_agenda() from public, anon, authenticated;
+-- se mudar dia, hora ou antecedência, o aviso volta a valer
+create or replace function public.tarefa_aviso_reset() returns trigger language plpgsql as $$
+begin
+  if new.prazo is distinct from old.prazo or new.hora is distinct from old.hora or new.aviso_min is distinct from old.aviso_min then new.aviso_em := null; end if;
+  return new;
+end $$;
+drop trigger if exists tarefa_aviso_reset on public.tarefas;
+create trigger tarefa_aviso_reset before update on public.tarefas for each row execute function public.tarefa_aviso_reset();
+do $$
+begin
+  perform cron.unschedule(jobid) from cron.job where jobname = 'erp_avisos_agenda';
+  perform cron.schedule('erp_avisos_agenda', '*/5 * * * *', 'select public.avisos_agenda()');
+exception when others then
+  raise notice 'Agendador indisponível: os avisos da agenda aparecem só na tela de quem está com o ERP aberto.';
+end $$;
+-- Conciliação de extrato (OFX) saiu do sistema: a tabela de controle dos créditos já tratados não é mais usada
+drop table if exists public.extrato_itens;
+-- Documentos: "Arquivar" virou "Excluir" (com confirmação na tela) — quem edita Documentos pode apagar o registro e o arquivo
+drop policy if exists documentos_excluir on public.documentos;
+create policy documentos_excluir on public.documentos for delete to authenticated
+  using (public.pode('documentos','editar') or (oportunidade_id is not null and public.pode('crm','editar')));
+do $$
+begin
+  if exists (select 1 from information_schema.schemata where schema_name = 'storage') then
+    execute 'drop policy if exists documentos_apagar on storage.objects';
+    execute 'create policy documentos_apagar on storage.objects for delete to authenticated using (bucket_id = ''documentos'' and public.pode(''documentos'',''editar''))';
+  end if;
+exception when others then
+  raise notice 'Sem permissão em storage.objects: só o administrador apaga o arquivo; o registro sai da lista mesmo assim.';
+end $$;
+-- CRM: proposta "simplificada" (texto curto, como sempre foi) ou "completa" (detalha o serviço — escopo, fases, prazo, documentos)
+alter table public.crm_modelos_proposta add column if not exists texto_completo text not null default '';
+alter table public.crm_propostas add column if not exists texto_completo text not null default '';
+alter table public.crm_propostas add column if not exists formato text not null default 'simplificada';
+-- modelo de Holding: versão completa a partir do material de apresentação do escritório (só preenche se estiver vazio)
+update public.crm_modelos_proposta set texto_completo = $h$
+<h3>1. Por que uma holding</h3>
+<p>Todo patrimônio enfrenta quatro problemas: o <b>inventário</b> (anos de processo, com ITCMD, custas e honorários de uma vez, no fim), o <b>imposto sobre a renda dos bens</b> (aluguel na pessoa física é tributado em até 27,5%), o <b>risco de perder o patrimônio</b> (dívida da operação alcança os bens do mesmo CNPJ) e a <b>falta de um comando</b> (patrimônio espalhado em vários nomes e empresas). A holding é uma empresa criada para ser, estrategicamente, a dona do patrimônio — e é essa titularidade que resolve os quatro.</p>
+<h3>2. As quatro finalidades</h3>
+<ul>
+<li><b>Sucessão</b> — transferência das quotas aos herdeiros em vida, com os instituidores mantendo o controle e a renda (usufruto vitalício, administração reservada, incomunicabilidade e reversão).</li>
+<li><b>Tributária</b> — o aluguel passa a ser recebido pela empresa, com carga de 11,33% a 14,53% sobre a receita, no lugar de até 27,5% do IRPF; e, para empresas do Lucro Real, vira despesa dedutível.</li>
+<li><b>Proteção</b> — o que corre risco fica separado do que é patrimônio; o contrato traz cláusulas que impedem a venda ou a partilha indesejada.</li>
+<li><b>Controle familiar</b> — uma controladora centraliza a decisão: um só contrato define quem administra e o que ninguém pode fazer sozinho.</li>
+</ul>
+<h3>3. O que está incluído — as cinco fases</h3>
+<table style="width:100%;border-collapse:collapse;font-size:13px;margin:6px 0 14px">
+<tr><th style="text-align:left;padding:8px 10px;background:#1B2A4A;color:#fff;width:26%">Fase</th><th style="text-align:left;padding:8px 10px;background:#1B2A4A;color:#fff">O que fazemos</th></tr>
+<tr><td style="padding:8px 10px;border-bottom:1px solid #E5E7EB"><b>1. Estudo</b><br><span style="color:#6B7280">sem custo</span></td><td style="padding:8px 10px;border-bottom:1px solid #E5E7EB">Levantamento dos bens, do regime das empresas e do objetivo dos sócios; simulação da carga tributária e do custo de cada etapa; parecer dizendo se compensa.</td></tr>
+<tr><td style="padding:8px 10px;border-bottom:1px solid #E5E7EB;background:#F8FAFC"><b>2. Constituição</b></td><td style="padding:8px 10px;border-bottom:1px solid #E5E7EB;background:#F8FAFC">Contrato social com as regras acordadas; registro na Junta Comercial e CNPJ; indicação da contabilidade; abertura da conta bancária da holding.</td></tr>
+<tr><td style="padding:8px 10px;border-bottom:1px solid #E5E7EB"><b>3. Patrimônio</b></td><td style="padding:8px 10px;border-bottom:1px solid #E5E7EB">Integralização dos bens no capital social; recolhimento do ITBI ou pedido de imunidade; transferência nas matrículas (Cartório de Registro de Imóveis) e dos veículos e maquinário nos órgãos competentes.</td></tr>
+<tr><td style="padding:8px 10px;border-bottom:1px solid #E5E7EB;background:#F8FAFC"><b>4. Operacionalização</b></td><td style="padding:8px 10px;border-bottom:1px solid #E5E7EB;background:#F8FAFC">Contratos de locação de imóveis, veículos, maquinário, marca e propriedade industrial, a valor de mercado; controle contábil e fiscal das locações; distribuição de lucros e pró-labore.</td></tr>
+<tr><td style="padding:8px 10px;border-bottom:1px solid #E5E7EB"><b>5. Manutenção</b></td><td style="padding:8px 10px;border-bottom:1px solid #E5E7EB">Transferência das quotas aos beneficiários, com usufruto e cláusulas; atos societários do exercício; revisão periódica da estrutura e das regras.</td></tr>
+</table>
+<h3>4. O que não está incluído</h3>
+<ul>
+<li>ITBI, ITCMD, emolumentos de cartório, taxas da Junta Comercial e laudos de avaliação exigidos pelo Município — pagos diretamente pelo cliente.</li>
+<li>Contabilidade mensal da holding (pode ser contratada à parte).</li>
+<li>Defesa em processos ou execuções já existentes.</li>
+</ul>
+<h3>5. Prazo</h3>
+<p>Cerca de <b>dez semanas</b>, do primeiro documento recebido até o último bem registrado em nome da holding: estudo (semanas 1–2), contrato e registro (3–5), transferência dos bens (5–9), quotas e ajustes (9–10). Os prazos variam conforme a entrega dos documentos, a exigência de laudo pelo Município e a fila dos cartórios.</p>
+<h3>6. Documentos que vamos pedir</h3>
+<ul>
+<li><b>De cada pessoa:</b> identidade e CPF dos sócios; certidão de casamento e pacto antenupcial, se houver; comprovante de endereço; declarações de Imposto de Renda dos cinco últimos anos.</li>
+<li><b>Do patrimônio:</b> matrículas atualizadas de cada imóvel; IPTU ou ITR com o valor venal; contrato social das empresas do grupo; relação dos demais bens a integralizar.</li>
+<li><b>Da regularidade:</b> certidões negativas federal, estadual e municipal; certidões de distribuição cível e trabalhista dos sócios; certidão de ônus reais de cada matrícula.</li>
+</ul>
+<h3>7. Com franqueza</h3>
+<p>A holding <b>não apaga dívida que já existe</b> (transferir bens para fugir de credor é fraude), <b>não isenta do ITCMD</b> (muda o momento e o planejamento), não compensa em todo caso (fora do Lucro Real a parte tributária costuma não fechar) e não é "montar e esquecer": é uma empresa, com contabilidade e obrigações mensais. Quando o caso não comporta holding, dizemos isso antes de qualquer contratação.</p>
+<h3>8. Quem conduz</h3>
+<p><b>Pedro Castro</b> (tributário) · <b>Emanuelle Araújo</b> (imobiliário e empresarial) · <b>Adriana Araújo</b> (sucessório) — áreas tributária, societária e imobiliária num único time, que é o que uma holding exige.</p>
+$h$
+where nome = 'Holding e planejamento patrimonial' and coalesce(texto_completo, '') = '';
+update public.crm_modelos_proposta
+   set itens = '[{"servico":"Estudo de viabilidade e planejamento","valor":0,"forma":"sem custo — antes da contratação"},{"servico":"Constituição da holding (contrato social, Junta e CNPJ)","valor":0,"forma":"na assinatura"},{"servico":"Integralização e transferência dos bens","valor":0,"forma":"por bem integralizado"},{"servico":"Operacionalização (contratos de locação) e doação de quotas","valor":0,"forma":"na conclusão"}]'::jsonb
+ where nome = 'Holding e planejamento patrimonial'
+   and itens = '[{"servico":"Estudo e planejamento","valor":0,"forma":"na assinatura"},{"servico":"Constituição e integralização","valor":0,"forma":"na conclusão"}]'::jsonb;

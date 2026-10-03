@@ -25,24 +25,19 @@ TELAS.clientes = async function () {
     '<div class="segmento" id="cli-visao" title="Como mostrar a lista">' + [['grupo', 'Por grupo'], ['lista', 'Lista']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<div class="segmento" id="cli-tipo">' + [['ativos', 'Ativos'], ['Consultoria', 'Consultoria'], ['Demanda', 'Serviço pontual'], ['Inativo', 'Inativos'], ['todos', 'Todos']]
       .map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
-    (minhasAreas() === 'ambos' ? '<select class="busca sel" id="cli-area" aria-label="Área" style="max-width:190px"><option value="">Todas as áreas</option><option value="juridico">Jurídico</option><option value="contabil">Contabilidade</option></select>' : '') +
+    // Backup 40: área em botões, como Ativos/Consultoria
+    (minhasAreas() === 'ambos' ? '<div class="segmento" id="cli-area" aria-label="Área">' + [['', 'Todas as áreas'], ['juridico', 'Jurídico'], ['contabil', 'Contabilidade']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' : '') +
     '<select class="busca sel" id="cli-grupo" autocomplete="off"><option value="">Todos os grupos</option>' +
     E.grupos.map((g) => '<option value="' + g.id + '">' + esc(g.nome) + '</option>').join('') + '</select>' +
     '<input class="busca" id="cli-busca" placeholder="Buscar nome, grupo, responsável ou CPF/CNPJ" autocomplete="off">' +
-    '<button class="btn btn-o" type="button" id="cli-relatorio" title="Lista filtrada com todos os campos, em tabela e CSV">⬇ Relatório</button>' +
     '<button class="btn btn-o" type="button" id="cli-massa" title="Editar passivo, CEAT e CAPAG de vários clientes numa tabela (aceita colar do Excel)">✎ Editar em tabela</button>' +
     '</div><div id="cli-corpo"></div>';
   $('cli-tipo').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { C.tipo = b.dataset.v; pintarClientes(); } };
   $('cli-visao').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { C.visao = b.dataset.v; pintarClientes(); } };
   $('cli-grupo').onchange = (ev) => { C.grupo = ev.target.value; pintarClientes(); };
-  if ($('cli-area')) { $('cli-area').value = C.area || ''; $('cli-area').onchange = (ev) => { C.area = ev.target.value; pintarClientes(); }; }
+  if ($('cli-area')) $('cli-area').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { C.area = b.dataset.v; pintarClientes(); } };
   let t;
   $('cli-busca').oninput = (ev) => { clearTimeout(t); t = setTimeout(() => { C.busca = ev.target.value; pintarClientes(); }, 250); };
-  $('cli-relatorio').onclick = () => { const l = E.cli.ultima || [];
-    relatorioTabela({ titulo: 'Clientes', ids: l.map((c) => c.id),
-      colunas: ['Grupo', 'Nome', 'CPF/CNPJ', 'Área', 'Tipo', 'Responsável', 'E-mail', 'Telefone', 'Cidade/UF', 'Procuração', 'Certificado', 'CAPAG', 'Situação cadastral'],
-      linhas: l.map((c) => [c.grupos ? c.grupos.nome : '', c.nome, mascaraDoc(c.cpf_cnpj), rotArea(c.area), c.tipo === 'Demanda' ? 'Serviço pontual' : c.tipo, c.responsavel, c.email, c.telefone,
-        [c.cidade, c.estado].filter(Boolean).join('/'), c.procuracao === true ? 'Sim' : c.procuracao === false ? 'Não' : '', c.certificado === true ? 'Sim' : c.certificado === false ? 'Não' : '', c.capag, c.situacao_cadastral]) }); };
   $('cli-massa').onclick = () => edicaoEmMassa(E.cli.ultima || []);
   ligarBotoesNovo($('conteudo'));
   pintarClientes();
@@ -52,6 +47,7 @@ function pintarClientes() {
   const C = E.cli, b = normalizar(C.busca), bd = soDigitos(C.busca);
   document.querySelectorAll('#cli-tipo button').forEach((x) => x.classList.toggle('ativo', x.dataset.v === C.tipo));
   document.querySelectorAll('#cli-visao button').forEach((x) => x.classList.toggle('ativo', x.dataset.v === (C.visao || 'grupo')));
+  document.querySelectorAll('#cli-area button').forEach((x) => x.classList.toggle('ativo', x.dataset.v === (C.area || '')));
   if (document.activeElement !== $('cli-grupo')) $('cli-grupo').value = C.grupo;
   if (document.activeElement !== $('cli-busca')) $('cli-busca').value = C.busca;
   const lista = E.clientes.filter((c) => {
@@ -589,7 +585,7 @@ async function _detalheContrato(id) {
     corpo:
       (ct.status === 'Aguardando assinatura' ? '<div class="faixa-aprov tem" id="ctr-assinatura"><span class="faixa-ic" aria-hidden="true">⏳</span><div><b>Aguardando a assinatura do cliente</b>' +
         '<div class="sub">O financeiro, o onboarding e o aviso à equipe acontecem quando você marcar como assinado. Anexe o PDF assinado em "Documentos do contrato", abaixo.</div></div>' +
-        '<div class="acoes"><button class="btn btn-o" type="button" id="ctr-gerar">📄 Gerar contrato</button><button class="btn btn-p" type="button" id="ctr-assinar">✓ Marcar como assinado</button></div></div>' : '') +
+        '<div class="acoes"><button class="btn btn-p" type="button" id="ctr-assinar">✓ Marcar como assinado</button></div></div>' : '') +
       '<div class="ctr-ficha">' + ficha.map(([r, v]) => '<div><span>' + r + '</span><b>' + (/^</.test(v) ? v : esc(v)) + '</b></div>').join('') + '</div>' +
       (ct.modalidade === 'consultoria' ? '' : '<div class="ctr-barra" title="Recebido × previsto"><div style="width:' + pctRec + '%"></div></div><div class="sub" style="margin:-4px 0 12px">' + pctRec + '% do previsto já recebido</div>') +
       '<div class="kpis" style="margin-bottom:12px">' +
@@ -616,8 +612,6 @@ async function _detalheContrato(id) {
     const r = await q(sb.rpc('contrato_assinar', { p_contrato: id, p_data: null }));
     aviso('✓ Contrato assinado: ' + plural((r && r.lancamentos) || 0, 'lançamento', 'lançamentos') + ' no financeiro.'); await reabrir();
   });
-  const btGerar = j.querySelector('#ctr-gerar');
-  if (btGerar) btGerar.onclick = (ev) => abrirGeradorContrato(ct.cliente_id, id, ev);
   blocoDocumentos(j.querySelector('#ctr-docs'), { contrato_id: id, cliente_id: ct.cliente_id, grupo_id: ct.clientes && ct.clientes.grupo_id, tipo: 'contrato' },
     { titulo: 'Documentos do contrato', vazio: 'Nenhum documento. Envie aqui o contrato assinado, a proposta e os aditivos.' }).catch((e) => console.error(e));
   j.querySelector('#btn-editar-ctr').onclick = () => formContrato(ct);

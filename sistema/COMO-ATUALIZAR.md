@@ -712,6 +712,34 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
 **Central de Documentos dentro do ERP:** menu **Documentos → Gerar documento** (ou ⋯ → Documentos, contrato, recibo do Financeiro).
 **Ctrl + clique** (ou botão do meio do mouse) em qualquer item do menu ou link de documento abre numa aba nova.
 
+## Backup 40 — agenda com horário e aviso, Documentos com subpastas, propostas completas, conciliação fora e modo noturno estilo GitHub (tem SQL)
+Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+Shift+R**. Nenhuma Edge Function mudou.
+Para voltar ao visual anterior: o zip do **Backup 39** (pasta `backups/`) é a versão completa de antes.
+
+- **Agendar (Início e Tarefas):** quem participa = só as pessoas cadastradas e ativas (Administração → Usuários); "Ligação" saiu. Cada tipo pede o que precisa:
+  **Audiência** exige o nº do processo (lista dos processos cadastrados), tipo de audiência e formato; **Reunião** pede assunto, local/link e com quem;
+  **Compromisso** pede o quê e o local. Horário com **início e fim** (o fim acompanha o início + 1 h) e aviso se o horário **choca** com outro compromisso
+  das mesmas pessoas. **Avisar antes** (15 min, 30 min, 1 h, 2 h, 1 dia, 2 dias): aparece na tela de quem está com o ERP aberto (e no aviso do navegador,
+  se liberado) e vira notificação + e-mail pela rotina `erp_avisos_agenda` (a cada 5 minutos).
+- **Tarefas:** abas Em aberto/Concluídas/Excluídas num botão compacto; Pessoa (responsável ou participante) e Prioridade em botões; Minha semana na altura do
+  calendário; no calendário as concluídas aparecem riscadas.
+- **Painel:** Empresas do grupo sem as faixas/contornos de grupo, coluna Grupo estreita (quebra só entre palavras) e mais espaço para Entidade / sócio.
+- **Publicações:** opção "Últimos 15 dias".
+- **Acordos → A pagar:** sem a caneta; botões simples **Emitir** (vira "✓ Emitido") e **Baixa** (pede confirmação); colunas redistribuídas.
+- **Conciliação de extrato (OFX):** removida por completo (botão, tela e tabela `extrato_itens`). **Financeiro:** sem "Editar em tabela"; emojis trocados por ícones de traço.
+- **Clientes:** área em botões; sem "Relatório"; coluna Grupo menor; cores de Pedro/Emanuelle/Escritório reconhecidas mesmo com sobrenome ou em maiúsculas (vale para o sistema todo).
+- **Contratos:** os botões "Excluir · Editar" ficam presos ao pé da janela (vale para todas as janelas).
+- **Documentos:** "+ Enviar" com o tipo em botões; **Certificado digital** entra por ele (pede a senha, lê a validade do arquivo); o botão "Certificado" separado saiu;
+  "+ Enviar" encostado à direita; **subpastas por empresa** dentro de cada grupo; **Excluir** (com confirmação) no lugar de "Arquivar"; "Arquivados" virou "Versões anteriores".
+- **Gerar documentos:** saiu de dentro do ERP — um botão só, **"Gerar documentos ↗"** em Documentos, que abre o sistema numa aba nova. Saíram os atalhos de geração no CRM,
+  no contrato, na ficha do cliente e no recibo do lançamento.
+- **CRM → Propostas:** escolha **Simplificada** (como sempre) ou **Completa** (com o detalhamento do serviço). O modelo **Holding e planejamento patrimonial** ganhou a versão completa
+  (finalidades, cinco fases, o que não está incluído, prazo, documentos e "com franqueza").
+- **Modo noturno:** fundo quase preto e cartões um tom acima, no estilo GitHub/Supabase.
+- **Confirmação** antes de excluir feriado (as demais exclusões e baixas já pediam).
+- **SQL:** `tarefas.hora_fim`, `aviso_min`, `aviso_em`, função `avisos_agenda()` + gatilho `tarefa_aviso_reset` + cron `erp_avisos_agenda`; `crm_modelos_proposta.texto_completo`,
+  `crm_propostas.texto_completo/formato`; política de exclusão de documentos; `drop table extrato_itens`.
+
 ## Backup 39 — ajustes de visual: lateral, Início, Tarefas, Painel, Processos, Acordos, Contabilidade e Contratos (tem SQL)
 Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+Shift+R**. Nenhuma Edge Function mudou.
 Para voltar ao visual anterior: o zip do **Backup 38** (pasta `backups/`) é a versão completa de antes.

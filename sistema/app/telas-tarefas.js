@@ -113,49 +113,142 @@ function salvarPrefFila() {
   sb.rpc('salvar_preferencia', { p_chave: 'fila', p_valor: v }).then(() => {}, () => {});
 }
 // Backup 36: compromissos na agenda (tarefas com tipo_agenda + hora) — cor por tipo e legenda
-const TIPOS_AGENDA = [['reuniao', 'Reunião', '🤝'], ['audiencia', 'Audiência', '⚖'], ['compromisso', 'Compromisso', '📌'], ['ligacao', 'Ligação', '📞']];
+const TIPOS_AGENDA = [['reuniao', 'Reunião', '🤝'], ['audiencia', 'Audiência', '⚖'], ['compromisso', 'Compromisso', '📌']];   // Backup 40: sem Ligação
 // legenda curta: compromissos (reunião, audiência, compromisso), tarefa e atrasada; ⚑ = prazo fatal
-const legendaAgenda = () => '<div class="ag-leg">' + TIPOS_AGENDA.filter(([k]) => k !== 'ligacao').map(([k, r]) => '<span><i class="ag-cor ag-' + k + '"></i>' + r + '</span>').join('') +
-  '<span><i class="ag-cor ag-tarefa"></i>Tarefa</span><span><i class="ag-cor ag-atrasada"></i>Atrasada</span><span>⚑ Prazo fatal</span></div>';
-function janelaAgendar(dataIni, depois) {
-  const pessoas = pessoasEscritorio();
-  const j = abrirJanela({ titulo: '📅 Agendar na minha agenda',
-    corpo: '<form id="f-ag" class="grade">' +
+const legendaAgenda = () => '<div class="ag-leg">' + TIPOS_AGENDA.map(([k, r]) => '<span><i class="ag-cor ag-' + k + '"></i>' + r + '</span>').join('') +
+  '<span><i class="ag-cor ag-tarefa"></i>Tarefa</span><span><i class="ag-cor ag-atrasada"></i>Atrasada</span><span><i class="ag-cor ag-feita"></i>Concluída</span><span>⚑ Prazo fatal</span></div>';
+// Backup 40: aviso antes do compromisso (vira notificação + e-mail para quem participa; e um aviso na tela de quem está com o ERP aberto)
+const AVISOS_AGENDA = [['', 'Não avisar'], ['15', '15 min antes'], ['30', '30 min antes'], ['60', '1 hora antes'], ['120', '2 horas antes'], ['1440', '1 dia antes'], ['2880', '2 dias antes']];
+const TIPOS_AUDIENCIA = ['Conciliação', 'Instrução e julgamento', 'Una', 'Mediação', 'Justificação', 'Outra'];
+// hora "HH:MM" → minutos; fim padrão = início + 1 h
+const minHora = (h) => { const m = String(h || '').match(/^(\d{1,2}):(\d{2})/); return m ? +m[1] * 60 + +m[2] : null; };
+const horaFaixa = (t) => (t.hora ? String(t.hora).slice(0, 5) + (t.hora_fim ? '–' + String(t.hora_fim).slice(0, 5) : '') : '');
+// quem se sobrepõe: mesmas pessoas, mesmo dia, horários que se cruzam
+async function conflitosAgenda(dia, ini, fim, pessoas, ignorar) {
+  const a = minHora(ini); if (a == null) return [];
+  const b = minHora(fim) != null && minHora(fim) > a ? minHora(fim) : a + 60;
+  const ts = await q(sb.from('tarefas').select('id, titulo, hora, hora_fim, responsavel, participantes').eq('prazo', dia).not('hora', 'is', null).not('status', 'in', '(concluida,cancelada)')).catch(() => []);
+  const nomes = pessoas.map(primeiroNome);
+  return ts.filter((t) => t.id !== ignorar).filter((t) => {
+    const x = minHora(t.hora), y = minHora(t.hora_fim) != null && minHora(t.hora_fim) > x ? minHora(t.hora_fim) : x + 60;
+    const deles = [t.responsavel].concat(String(t.participantes || '').split(',')).map(primeiroNome).filter(Boolean);
+    return x < b && a < y && deles.some((n) => nomes.includes(n));
+  });
+}
+async function janelaAgendar(dataIni, depois) {
+  // Backup 40: só quem está CADASTRADO e ativo (Administração → Usuários); descadastrou, sai da lista
+  const eq = await equipe().catch(() => []);
+  const pessoas = [...new Set(eq.map((u) => String(u.nome || '').trim()).filter(Boolean))];
+  if (!pessoas.some((n) => primeiroNome(n) === primeiroNome(meuNome()))) pessoas.unshift(meuNome());
+  const procs = await q(sb.from('processos').select('numero, autor, reu').order('numero').limit(1000)).catch(() => []);
+  const j = abrirJanela({ titulo: '📅 Agendar', larga: true,
+    corpo: '<form id="f-ag" class="grade ag-form" data-tipo="reuniao">' +
       '<div class="campo" style="grid-column:1/-1"><span>Tipo</span><div class="segmento ag-tipos" id="ag-tipo">' + TIPOS_AGENDA.map(([k, r, ic], i) => '<button type="button" data-v="' + k + '"' + (i ? '' : ' class="ativo"') + '>' + ic + ' ' + r + '</button>').join('') + '</div></div>' +
-      campo('O quê', '<input name="titulo" required placeholder="ex.: Reunião com o cliente sobre o parcelamento">', 'ag-toda') +
-      campo('Dia', '<input type="date" name="prazo" required value="' + (dataIni || hojeISO()) + '">') + campo('Hora', '<input type="time" name="hora" value="09:00">') +
-      campo('Local ou link', '<input name="local" placeholder="escritório, Google Meet…">', 'ag-toda') +
-      '<div class="campo" style="grid-column:1/-1"><span>Quem participa</span><div class="ag-pessoas">' + (pessoas.length ? pessoas : [meuNome()]).filter(Boolean).map((n) =>
+      // Audiência: processo, tipo, vara e se é virtual
+      '<label class="campo ag-so-aud ag-toda"><span>Número do processo *</span><input name="processo" list="ag-procs" autocomplete="off" placeholder="0000000-00.0000.0.00.0000"><datalist id="ag-procs">' +
+        procs.map((p) => '<option value="' + esc(p.numero) + '">' + esc([p.autor, p.reu].filter(Boolean).join(' × ')) + '</option>').join('') + '</datalist></label>' +
+      '<label class="campo ag-so-aud"><span>Tipo de audiência</span><select name="tipo_aud">' + TIPOS_AUDIENCIA.map((x) => '<option>' + x + '</option>').join('') + '</select></label>' +
+      '<label class="campo ag-so-aud"><span>Formato</span><select name="formato"><option value="presencial">Presencial</option><option value="virtual">Virtual (link)</option><option value="hibrida">Híbrida</option></select></label>' +
+      '<label class="campo ag-toda"><span class="ag-rot-titulo">Assunto *</span><input name="titulo" placeholder="ex.: Reunião sobre o parcelamento"></label>' +
+      '<label class="campo"><span>Dia *</span><input type="date" name="prazo" required value="' + (dataIni || hojeISO()) + '"></label>' +
+      '<div class="campo ag-horas"><span>Horário</span><div class="ag-hh"><input type="time" name="hora" value="09:00" aria-label="Início"><span class="sub">até</span><input type="time" name="hora_fim" value="10:00" aria-label="Fim"></div></div>' +
+      '<div class="ag-conflito ag-toda" id="ag-conflito" hidden></div>' +
+      '<label class="campo ag-toda"><span class="ag-rot-local">Local ou link</span><input name="local" placeholder="escritório, Google Meet…"></label>' +
+      '<div class="campo ag-toda"><span>Quem participa</span><div class="ag-pessoas">' + pessoas.map((n) =>
         '<label class="ag-p"><input type="checkbox" name="part" value="' + esc(n) + '"' + (primeiroNome(n) === primeiroNome(meuNome()) ? ' checked' : '') + '><span>' + esc(nomeCurto(n)) + '</span></label>').join('') + '</div></div>' +
-      // Backup 39: cliente cadastrado (escolhe na lista) OU texto livre (ex.: "Dr. Fulano, contador da empresa X")
-      campo('Com quem (opcional)', '<input name="com" list="ag-clis" autocomplete="off" placeholder="Cliente cadastrado ou qualquer nome"><datalist id="ag-clis">' + E.clientes.map((c) => '<option value="' + esc(c.nome) + '">').join('') + '</datalist>', 'ag-toda') +
-      campo('Observação', '<textarea name="descricao" rows="2"></textarea>', 'ag-toda') + '</form>',
+      // cliente cadastrado (escolhe na lista) OU texto livre (ex.: "Dr. Fulano, contador da empresa X")
+      '<label class="campo ag-toda ag-nao-comp"><span class="ag-rot-com">Com quem (cliente ou qualquer nome)</span><input name="com" list="ag-clis" autocomplete="off" placeholder="Cliente cadastrado ou texto livre"><datalist id="ag-clis">' + E.clientes.map((c) => '<option value="' + esc(c.nome) + '">').join('') + '</datalist></label>' +
+      '<label class="campo"><span>Avisar</span><select name="aviso">' + AVISOS_AGENDA.map(([v, r]) => '<option value="' + v + '"' + (v === '30' ? ' selected' : '') + '>' + r + '</option>').join('') + '</select></label>' +
+      '<label class="campo ag-toda"><span>Observação</span><textarea name="descricao" rows="2"></textarea></label></form>',
     rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="ag-ok">Agendar</button></div>' });
+  const f = j.querySelector('#f-ag');
   let tipo = 'reuniao';
-  j.querySelector('#ag-tipo').onclick = (ev) => { const b = ev.target.closest('[data-v]'); if (!b) return; tipo = b.dataset.v; j.querySelectorAll('#ag-tipo button').forEach((x) => x.classList.toggle('ativo', x === b)); };
+  const ROT = { reuniao: ['Assunto *', 'Local ou link', 'Com quem (cliente ou qualquer nome)', 'ex.: Reunião sobre o parcelamento', 'escritório, Google Meet…'],
+    audiencia: ['Descrição (opcional)', 'Vara / juízo, ou link da sala virtual', 'Cliente (parte que representamos)', 'se vazio: "Audiência de conciliação — nº do processo"', 'ex.: 2ª Vara Cível de Belo Horizonte'],
+    compromisso: ['O quê *', 'Local', 'Com quem (opcional)', 'ex.: Cartório, banco, perícia…', 'endereço'] };
+  const pintarTipo = () => {
+    f.dataset.tipo = tipo;
+    const r = ROT[tipo];
+    f.querySelector('.ag-rot-titulo').textContent = r[0]; f.querySelector('.ag-rot-local').textContent = r[1]; f.querySelector('.ag-rot-com').textContent = r[2];
+    f.titulo.placeholder = r[3]; f.local.placeholder = r[4];
+  };
+  j.querySelector('#ag-tipo').onclick = (ev) => { const b = ev.target.closest('[data-v]'); if (!b) return; tipo = b.dataset.v; j.querySelectorAll('#ag-tipo button').forEach((x) => x.classList.toggle('ativo', x === b)); pintarTipo(); };
+  // fim acompanha o início (1 h depois) até a pessoa mexer no fim
+  let fimMexido = false;
+  f.hora_fim.oninput = () => { fimMexido = true; };
+  f.hora.oninput = () => { if (!fimMexido && minHora(f.hora.value) != null) { const m = Math.min(minHora(f.hora.value) + 60, 23 * 60 + 59); f.hora_fim.value = String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); } };
+  // processo escolhido → cliente sugerido (autor) se "com quem" estiver vazio
+  f.processo.onchange = () => { const p = procs.find((x) => x.numero === f.processo.value.trim()); if (p && !f.com.value) f.com.value = p.autor || ''; };
+  // aviso de sobreposição (não impede, só mostra)
+  const verConflito = async () => {
+    const parts = [...f.querySelectorAll('[name=part]:checked')].map((x) => x.value);
+    const c = f.prazo.value && f.hora.value ? await conflitosAgenda(f.prazo.value, f.hora.value, f.hora_fim.value, parts) : [];
+    const el = j.querySelector('#ag-conflito'); el.hidden = !c.length;
+    el.innerHTML = c.length ? '⚠ Choca com: ' + c.map((x) => '<b>' + esc(horaFaixa(x)) + '</b> ' + esc(x.titulo) + ' (' + esc([x.responsavel].concat(String(x.participantes || '').split(',')).map(nomeCurto).filter(Boolean).join(', ')) + ')').join(' · ') : '';
+    return c;
+  };
+  ['prazo', 'hora', 'hora_fim'].forEach((n) => f[n].addEventListener('change', verConflito));
+  f.querySelectorAll('[name=part]').forEach((x) => x.addEventListener('change', verConflito));
+  verConflito();
   j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
   j.querySelector('#ag-ok').onclick = (ev) => comBotao(ev.currentTarget, async () => {
-    const f = j.querySelector('#f-ag');
-    if (!f.titulo.value.trim()) throw new Error('Escreva o que é o compromisso.');
+    const proc = f.processo.value.trim();
+    let titulo = f.titulo.value.trim();
+    if (tipo === 'audiencia') {
+      if (!proc) throw new Error('Audiência: informe o número do processo.');
+      if (!titulo) titulo = 'Audiência de ' + f.tipo_aud.value.toLowerCase() + ' — ' + proc;
+    } else if (!titulo) throw new Error(tipo === 'reuniao' ? 'Escreva o assunto da reunião.' : 'Escreva o que é o compromisso.');
     if (!f.prazo.value) throw new Error('Escolha o dia.');
+    if (f.hora.value && f.hora_fim.value && minHora(f.hora_fim.value) <= minHora(f.hora.value)) throw new Error('O fim tem que ser depois do início.');
     const parts = [...f.querySelectorAll('[name=part]:checked')].map((x) => x.value);
-    const resp = parts.find((n) => primeiroNome(n) === primeiroNome(meuNome())) || parts[0] || meuNome();
-    const com = f.com.value.trim(), cli = E.clientes.find((c) => normalizar(c.nome) === normalizar(com));
-    await q(sb.from('tarefas').insert({ titulo: f.titulo.value.trim(), prazo: f.prazo.value, hora: f.hora.value || null, tipo_agenda: tipo, local: f.local.value.trim(),
+    if (!parts.length) throw new Error('Marque quem participa.');
+    const c = await verConflito();
+    if (c.length && !confirm('Este horário choca com ' + plural(c.length, 'compromisso', 'compromissos') + ' de quem participa. Agendar mesmo assim?')) return;
+    const resp = parts.find((n) => primeiroNome(n) === primeiroNome(meuNome())) || parts[0];
+    const com = f.com.value.trim(), cli = E.clientes.find((x) => normalizar(x.nome) === normalizar(com));
+    const local = f.local.value.trim();
+    const obs = [tipo === 'audiencia' ? 'Audiência: ' + f.tipo_aud.value + ' · ' + ({ presencial: 'Presencial', virtual: 'Virtual', hibrida: 'Híbrida' }[f.formato.value]) : '', f.descricao.value.trim()].filter(Boolean).join('\n');
+    await q(sb.from('tarefas').insert({ titulo, prazo: f.prazo.value, hora: f.hora.value || null, hora_fim: f.hora.value && f.hora_fim.value ? f.hora_fim.value : null,
+      tipo_agenda: tipo, local, processos_vinculados: tipo === 'audiencia' ? proc : '', aviso_min: f.aviso.value ? +f.aviso.value : null,
       responsavel: resp, participantes: parts.filter((n) => n !== resp).join(', '), cliente_id: cli ? cli.id : null, com_quem: cli ? '' : com,
-      grupo_id: cli ? cli.grupo_id || null : null, descricao: f.descricao.value.trim(), prioridade: 'media', status: 'pendente' }));
+      grupo_id: cli ? cli.grupo_id || null : null, descricao: obs, prioridade: tipo === 'audiencia' ? 'alta' : 'media', status: 'pendente' }));
+    try { if (f.aviso.value && window.Notification && Notification.permission === 'default') Notification.requestPermission(); } catch (e) { /* navegador sem aviso */ }
     fecharJanela(j); aviso('✓ Agendado para ' + dataBR(f.prazo.value) + (f.hora.value ? ' às ' + f.hora.value : '') + '.'); if (depois) depois();
   });
+}
+// Backup 40: aviso na tela de quem está com o ERP aberto (o e-mail sai pelo banco, rotina avisos_agenda)
+let _vigiaAg = null;
+function vigiarAgenda() {
+  if (_vigiaAg) return;
+  const ver = async () => {
+    if (!E.perfil) return;
+    const h = hojeISO(), am = iso(new Date(Date.now() + 2 * 864e5));
+    const ts = await q(sb.from('tarefas').select('id, titulo, prazo, hora, hora_fim, local, aviso_min, responsavel, participantes').gte('prazo', h).lte('prazo', am)
+      .not('aviso_min', 'is', null).not('hora', 'is', null).not('status', 'in', '(concluida,cancelada)')).catch(() => []);
+    let vistos = {}; try { vistos = JSON.parse(localStorage.getItem('erp_avisos_ag') || '{}'); } catch (e) { /* sem armazenamento */ }
+    const agora = Date.now();
+    ts.filter((t) => ehMinha(t) || String(t.participantes || '').split(',').some((n) => primeiroNome(n) === primeiroNome(meuNome()))).forEach((t) => {
+      const ini = new Date(t.prazo + 'T' + String(t.hora).slice(0, 5) + ':00').getTime();
+      if (vistos[t.id] || agora < ini - t.aviso_min * 6e4 || agora > ini) return;
+      vistos[t.id] = 1;
+      const txt = horaFaixa(t) + ' · ' + t.titulo + (t.local ? ' · ' + t.local : '');
+      aviso('🔔 ' + (t.prazo === h ? 'Hoje' : dataBR(t.prazo)) + ' ' + txt);
+      try { if (window.Notification && Notification.permission === 'granted') new Notification('Agenda — ' + t.titulo, { body: txt }); } catch (e) { /* navegador sem aviso */ }
+    });
+    try { localStorage.setItem('erp_avisos_ag', JSON.stringify(vistos)); } catch (e) { /* sem armazenamento */ }
+  };
+  ver(); _vigiaAg = setInterval(ver, 60000);
 }
 function classeAgenda(t, d) {
   const h = hojeISO();
   if (t._cls) return t._cls;
   if (t.prazo_fatal === d) return 'ag-fatal';
-  if (t.tipo_agenda) return 'ag-' + (t.tipo_agenda === 'ligacao' ? 'compromisso' : t.tipo_agenda);   // Backup 38: ligação entra como compromisso (legenda curta)
+  if (tarefaFechada(t)) return 'ag-feita';   // Backup 40: concluída fica riscada
+  if (t.tipo_agenda) return 'ag-' + (t.tipo_agenda === 'ligacao' ? 'compromisso' : t.tipo_agenda);
   if (/^reuniao:/.test(t.chave_regra || '')) return 'ag-reuniao';   // reuniões marcadas pelo CRM
   return t.prazo && t.prazo < h ? 'ag-atrasada' : 'ag-tarefa';
 }
-const horaAg = (t) => (t.hora ? String(t.hora).slice(0, 5) + ' ' : '');
+const horaAg = (t) => (t.hora ? horaFaixa(t) + ' ' : '');
 // Backup 39: o quadro "Atrasadas" é um só — Início (agenda) e Tarefas (Minha semana e Calendário)
 function quadroAtrasadas(atr) {
   return '<aside class="fila-atrasadas"><div class="fila-atr-tit">⏰ Atrasadas <span class="pill ' + (atr.length ? 'vencido' : 'pago') + '">' + atr.length + '</span></div>' +
@@ -192,7 +285,7 @@ function calendarioFila(lista) {
     corpo = c + '<div class="cal-dia vazio-dia"></div>'.repeat(resto) + '</div>';
   }
   // Backup 27: à esquerda, as tarefas atrasadas (não aparecem na semana/dia/mês que você está vendo)
-  const lado = quadroAtrasadas(lista.filter((t) => t.prazo && t.prazo < h).sort((a, b) => a.prazo.localeCompare(b.prazo)));
+  const lado = quadroAtrasadas(lista.filter((t) => t.prazo && t.prazo < h && !tarefaFechada(t)).sort((a, b) => a.prazo.localeCompare(b.prazo)));
   return '<div class="fila-com-atr">' + lado + '<div class="fila-cal-area"><div class="fila-cal-nav"><button type="button" class="btn btn-o btn-mini" data-fila-nav="-1" aria-label="Anterior">‹</button><b>' + esc(titulo) + '</b>' +
     '<button type="button" class="btn btn-o btn-mini" data-fila-nav="1" aria-label="Próximo">›</button><button type="button" class="btn btn-o btn-mini" data-fila-nav="0">Hoje</button>' +
     '<button type="button" class="btn btn-p btn-mini ag-bt" data-agendar>+ Agendar</button></div>' + corpo + legendaAgenda() + '</div></div>';
@@ -260,11 +353,15 @@ function seloFatal(t) {
   return ' <span class="pill ' + (tarefaFechada(t) ? 'neutro' : d <= 2 ? 'vencido' : 'cobranca') + '" title="Prazo fatal (contagem em dias úteis, com os feriados cadastrados)">⚑ ' + dataBR(t.prazo_fatal) + falta + '</span>';
 }
 // Backup 39: cliente, grupo ou o "com quem" livre da agenda
+// pessoas dos filtros: quem está cadastrado (Administração → Usuários); sem cadastro ainda, as de sempre
+function pessoasFiltro() { const eq = (E._equipe || []).map((u) => String(u.nome || '').trim()).filter(Boolean); return eq.length ? [...new Set(eq)] : Object.keys(PESSOA); }
 function quemTarefa(t) { return nomeCliente(t.cliente_id) || nomeGrupo(t.grupo_id) || (t.com_quem || ''); }
 function nomeCliente(id) { const c = E.clientes.find((x) => x.id === id); return c ? c.nome : ''; }
 
 // ─────────────────────────── tela ───────────────────────────
 TELAS.tarefas = async function () {
+  await equipe().catch(() => []);
+  vigiarAgenda();
   E.tf = E.tf || { vista: 'lista', atalho: '', resp: '', pri: '', busca: '', mes: hojeISO().slice(0, 7) };
   const F = E.tf;
   // abas: o painel mostra só o que está em aberto; concluídas e excluídas ficam separadas
@@ -283,8 +380,9 @@ TELAS.tarefas = async function () {
       .map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<div class="segmento" id="tf-atalho">' + [['', 'Todas'], ['minhas', 'Minhas'], ['hoje', 'Hoje'], ['atrasadas', 'Atrasadas'], ['7', '7 dias']].concat(F.atalho === 'atencao' ? [['atencao', 'Pedem atenção']] : [])
       .map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
-    '<select class="busca sel" id="tf-resp"><option value="">Todas as pessoas</option>' + Object.keys(PESSOA).map((p) => '<option>' + p + '</option>').join('') + '</select>' +
-    '<select class="busca sel" id="tf-pri"><option value="">Todas as prioridades</option><option value="alta">Alta</option><option value="media">Média</option><option value="baixa">Baixa</option></select>' +
+    // Backup 40: pessoa e prioridade em botões (como Todas/Minhas/Hoje); pessoa = responsável OU participante
+    '<div class="segmento" id="tf-resp" aria-label="Pessoa">' + [['', 'Todas as pessoas']].concat(pessoasFiltro().map((p) => [p, nomeCurto(p)])).map(([v, r]) => '<button data-v="' + esc(v) + '">' + esc(r) + '</button>').join('') + '</div>' +
+    '<div class="segmento" id="tf-pri" aria-label="Prioridade">' + [['', 'Todas as prioridades'], ['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<input class="busca" id="tf-busca" placeholder="Buscar tarefa, cliente, processo ou etiqueta" autocomplete="off">' +
     '</div><div id="tf-corpo"><div class="carregando">Carregando…</div></div>';
   $('tf-nova').onclick = () => formTarefa({}, () => TELAS.tarefas());
@@ -297,7 +395,7 @@ TELAS.tarefas = async function () {
   $('tf-vista').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.vista = b.dataset.v; pintarTarefas(); } };
   $('tf-abas').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.aba = b.dataset.aba; pintarTarefas(); } };
   $('tf-atalho').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.atalho = b.dataset.v; pintarTarefas(); } };
-  [['tf-resp', 'resp'], ['tf-pri', 'pri']].forEach(([id, k]) => { $(id).value = F[k]; $(id).onchange = (ev) => { F[k] = ev.target.value; pintarTarefas(); }; });
+  [['tf-resp', 'resp'], ['tf-pri', 'pri']].forEach(([id, k]) => { $(id).onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F[k] = b.dataset.v; pintarTarefas(); } }; });
   $('tf-busca').value = F.busca;
   let t; $('tf-busca').oninput = (ev) => { clearTimeout(t); t = setTimeout(() => { F.busca = ev.target.value; pintarTarefas(); }, 250); };
   const [ts, fl] = await Promise.all([
@@ -322,7 +420,7 @@ function filtrarTarefas() {
     if (a === '7' && (tarefaFechada(t) || !t.prazo || t.prazo > somarDias(h, 7))) return false;
     // "pedem atenção" (destaque do Início): minhas atrasadas ou com prazo fatal em até 7 dias
     if (a === 'atencao' && (tarefaFechada(t) || !ehMinha(t) || !((t.prazo && t.prazo < h) || (t.prazo_fatal && t.prazo_fatal <= somarDias(h, 7))))) return false;
-    if (F.resp && t.responsavel !== F.resp) return false;
+    if (F.resp && ![t.responsavel].concat(String(t.participantes || '').split(',')).some((n) => primeiroNome(n) === primeiroNome(F.resp))) return false;
     if (F.pri && t.prioridade !== F.pri) return false;
     if (b && !normalizar(t.titulo + ' ' + t.processos_vinculados + ' ' + nomeGrupo(t.grupo_id) + ' ' + nomeCliente(t.cliente_id) + ' ' + t.etiquetas + ' ' + t.descricao).includes(b)) return false;
     return true;
@@ -334,6 +432,8 @@ function pintarTarefas() {
   document.querySelectorAll('#tf-vista button').forEach((b) => b.classList.toggle('ativo', b.dataset.v === F.vista));
   document.querySelectorAll('#tf-atalho button').forEach((b) => b.classList.toggle('ativo', b.dataset.v === F.atalho));
   document.querySelectorAll('#tf-abas button').forEach((b) => b.classList.toggle('ativo', b.dataset.aba === F.aba));
+  document.querySelectorAll('#tf-resp button').forEach((b) => b.classList.toggle('ativo', b.dataset.v === (F.resp || '')));
+  document.querySelectorAll('#tf-pri button').forEach((b) => b.classList.toggle('ativo', b.dataset.v === (F.pri || '')));
   $('tf-atalho').style.display = F.vista === 'fluxos' || F.vista === 'relatorio' || F.aba !== 'abertas' ? 'none' : '';
   const todas = E._tarefas || [];
   const abertas = todas.filter((t) => !tarefaFechada(t));
@@ -438,7 +538,8 @@ async function vistaCalendario(alvo) {
   const F = E.tf; await feriados();
   const salvo = { vista: FILA.vista, ref: FILA.ref };
   FILA.vista = 'mes'; FILA.ref = F.mes + '-01';
-  const lista = filtrarTarefas();
+  // Backup 40: em "Em aberto" as concluídas do mês também aparecem, riscadas
+  const pre = F.mes + '-', lista = filtrarTarefas().concat(F.aba === 'abertas' ? (E._tarefas || []).filter((t) => t.status === 'concluida' && String(t.prazo || '').startsWith(pre)) : []);
   alvo.innerHTML = '<div class="card ini-fila tf-cal"><div class="card-bd">' + calendarioFila(lista) + '</div></div>';
   FILA.vista = salvo.vista; FILA.ref = salvo.ref;
   const [a, m] = F.mes.split('-').map(Number);
@@ -594,7 +695,10 @@ async function abrirTarefa(t, depois) {
       '<div class="tf-ficha-hd"><h3>' + bolinha(t) + ' ' + esc(t.titulo) + '</h3><div class="tf-selos"><span class="pill ' + (fechada ? 'pago' : t.status === 'revisao' ? 'hoje' : 'neutro') + '">' +
         esc(STATUS_TAREFA[t.status] || t.status) + '</span> <span class="pill ' + pr[1] + '">' + esc(pr[0]) + '</span>' + seloPrazo(t) + seloFatal(t) + '</div></div>' +
       '<div class="tf-grade">' +
-        linha('Prazo', t.prazo ? dataBR(t.prazo) : '<span class="sub">sem prazo</span>') +
+        linha(t.tipo_agenda ? 'Dia' : 'Prazo', t.prazo ? dataBR(t.prazo) + (t.hora ? ' · <b>' + esc(horaFaixa(t)) + '</b>' : '') : '<span class="sub">sem prazo</span>') +
+        linha('Tipo', t.tipo_agenda ? esc((TIPOS_AGENDA.find(([k]) => k === t.tipo_agenda) || [, t.tipo_agenda])[1]) : '') +
+        linha('Local', esc(t.local || '')) +
+        linha('Aviso', t.aviso_min ? esc((AVISOS_AGENDA.find(([v]) => +v === t.aviso_min) || [, t.aviso_min + ' min antes'])[1]) + (t.aviso_em ? ' <span class="sub">· enviado</span>' : '') : '') +
         linha('Prazo fatal', t.prazo_fatal ? '<b>' + dataBR(t.prazo_fatal) + '</b>' : '') +
         linha('Cliente', esc(quemTarefa(t) || '')) +
         linha('Responsável', pillPessoa(t.responsavel)) +
@@ -942,6 +1046,7 @@ async function janelaFeriados() {
   });
   j.querySelectorAll('[data-fer]').forEach((b) => b.onclick = () => comBotao(b, async () => {
     const [data, abr, local] = b.dataset.fer.split('|');
+    if (!confirm('Excluir o feriado de ' + dataBR(data) + '?')) return;
     const r = await q(sb.from('feriados').delete().eq('data', data).eq('abrangencia', abr).eq('local', local).select());
     if (!r.length) throw new Error('Só o administrador pode excluir este registro.');
     E._feriados = null; aviso('Feriado excluído.'); fecharJanela(j); janelaFeriados();
@@ -1094,21 +1199,22 @@ function vistaSemana(alvo) {
   const seg = iso(base), dias = [0, 1, 2, 3, 4].map((i) => somarDias(seg, i)), sex = dias[4];
   const quem = F.resp || '';
   // Backup 39: respeita a aba (Em aberto / Concluídas / Excluídas) — antes "Concluídas" ainda mostrava as abertas
-  const doDono = (t) => (quem ? primeiroNome(t.responsavel) === primeiroNome(quem) : ehMinha(t));
+  const doDono = (t) => (quem ? true : ehMinha(t));   // com pessoa escolhida, o filtro de cima já separou (responsável ou participante)
   const ts = filtrarTarefas().filter(doDono);
   const abertasAba = F.aba === 'abertas';
   const atrasadas = abertasAba ? ts.filter((t) => t.prazo && t.prazo < h).sort((a, b) => a.prazo.localeCompare(b.prazo)) : [], semData = ts.filter((t) => !t.prazo);
   const cartao = (t) => '<div class="sm-card" draggable="true" data-sm="' + t.id + '"><b>' + esc(t.titulo) + '</b>' + seloFatal(t) +
     '<div class="sub">' + esc(quemTarefa(t) || '') + (t.estimativa_horas ? ' · ' + String(t.estimativa_horas).replace('.', ',') + ' h' : '') + '</div></div>';
   const col = (rot, data, lista, cls) => '<div class="sm-col' + (cls ? ' ' + cls : '') + '" data-dia="' + (data || '') + '"><div class="sm-tit">' + rot + ' <span class="sub">' + lista.length + '</span></div>' + lista.map(cartao).join('') + '</div>';
-  alvo.innerHTML = '<div class="fila-cal-nav"><button type="button" class="btn btn-o btn-mini" data-sm-nav="-7">‹</button><b>Semana de ' + dataBR(seg).slice(0, 5) + ' a ' + dataBR(sex).slice(0, 5) +
+  // Backup 40: dentro do mesmo cartão do calendário, com a mesma altura
+  alvo.innerHTML = '<div class="card ini-fila tf-cal tf-sem"><div class="card-bd"><div class="fila-cal-nav"><button type="button" class="btn btn-o btn-mini" data-sm-nav="-7">‹</button><b>Semana de ' + dataBR(seg).slice(0, 5) + ' a ' + dataBR(sex).slice(0, 5) +
       (quem ? ' — ' + esc(quem) : ' — minhas tarefas') + '</b><button type="button" class="btn btn-o btn-mini" data-sm-nav="7">›</button><button type="button" class="btn btn-o btn-mini" data-sm-nav="0">Esta semana</button></div>' +
     // Backup 39: "Atrasadas" no MESMO quadro do Início (⏰, número em vermelho, contorno vermelho e "prazo · N dias de atraso")
     (abertasAba ? '<div class="fila-com-atr sm-com-atr">' + quadroAtrasadas(atrasadas) : '<div>') +
     '<div class="sm-grade">' +
     dias.map((d, i) => col(['Seg', 'Ter', 'Qua', 'Qui', 'Sex'][i] + ' ' + dataBR(d).slice(0, 5), d, ts.filter((t) => t.prazo === d), d === h ? 'sm-hoje' : '')).join('') +
     (semData.length ? col('Sem data', 'sem', semData, 'sm-sem') : '') + '</div></div>' +
-    '<p class="sub" style="margin-top:8px">Arraste a tarefa para outro dia para remarcar o prazo. Para ver a semana de outra pessoa, escolha a pessoa no filtro acima.</p>';
+    '<p class="sub" style="margin-top:8px">Arraste a tarefa para outro dia para remarcar o prazo. Para ver a semana de outra pessoa, escolha a pessoa no filtro acima.</p></div></div>';
   alvo.querySelectorAll('[data-sm-nav]').forEach((b) => b.onclick = () => { F.semana = +b.dataset.smNav ? somarDias(seg, +b.dataset.smNav) : null; vistaSemana(alvo); });
   alvo.querySelectorAll('.fila-atrasadas [data-fila]').forEach((b) => b.onclick = () => abrirTarefa(E._tarefas.find((t) => t.id === b.dataset.fila), recarregarTarefas));
   let arr = null;

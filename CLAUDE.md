@@ -83,7 +83,16 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
-- Última entrega: **Backup 39** (só SQL). `tarefas.com_quem` (Agendar com texto livre, `quemTarefa(t)`, `nomeCurto`); `quadroAtrasadas` compartilhado (Início e Minha semana);
+- Última entrega: **Backup 40** (só SQL). Agenda: `janelaAgendar` (async; pessoas = `equipe()` ativas; tipos reuniao/audiencia/compromisso, `.ag-form[data-tipo]`, `TIPOS_AUDIENCIA`,
+  `processos_vinculados` = nº do processo; `hora_fim`, `conflitosAgenda`, `horaFaixa`, `AVISOS_AGENDA` → `tarefas.aviso_min`; `vigiarAgenda()` (aviso na tela, localStorage `erp_avisos_ag`)
+  + SQL `avisos_agenda()` (cron `erp_avisos_agenda`, notificação → e-mail) e gatilho `tarefa_aviso_reset`). Tarefas: `#tf-resp`/`#tf-pri` em `.segmento` (`pessoasFiltro`; pessoa = resp. ou
+  participante), `.tf-sem` (Minha semana em cartão 600px), `ag-feita` (riscada). Painel: `tabelaPadrao({semDivisao})`, larguras `table:has(> #tblExecRanking)` (bloco B40 do design.css).
+  Acordos: `.ac-bt-emitir`/`.ac-emitido` + `.ac-bt-baixa` (editor.js pula `#tblAcordosVencBody`). OFX removido (`telas-ofx.js` apagado, `drop table extrato_itens`). Financeiro: `IC40`
+  (ícones no montar-erp), sem "Editar em tabela". `corPessoa` e `_faCor` por primeiro nome sem acento. Janelas `.gs .janela` em flex (rodapé fixo no pé). Documentos: `janelaEnviarDocumento`
+  com `#doc-tipos` e certificado (lerCertificado), `excluirDocumento` (política `documentos_excluir`/`documentos_apagar` = pode documentos editar), subpastas `.doc-sub` (`F.subAbertas`),
+  `janelaCertificado` = atalho. Geração de documentos fora do ERP: `abrirCentral` = aba nova, menu Documentos item único, `#doc-ger` link; sem atalhos no CRM/contrato/ficha/recibo.
+  CRM: `crm_propostas.formato` (simplificada|completa) + `texto_completo` (também em `crm_modelos_proposta`); `htmlProposta` junta o detalhamento. Escuro = paleta GitHub (tokens.css + tema-escuro.js).
+- Backup 39 (base) (só SQL). `tarefas.com_quem` (Agendar com texto livre, `quemTarefa(t)`, `nomeCurto`); `quadroAtrasadas` compartilhado (Início e Minha semana);
   `vistaCalendario` reusa `calendarioFila` (`.tf-cal`); abas `#tf-abas` em `.segmento`; detalhe com `#tf-f-editar` (lista sem ✎). Painel: `_evo` 6 meses, `pe-area` em seg,
   Empresas sem CEAT/CAPAG/✎ (`marcarLinhas` pula `#tblExecRanking`/`#tblProcBody`), ficha com `.ficha-bt-editar` (#fc-editar). Processos: `chipProcTodos`. Margens
   constantes (`--gut` no design.css, bloco B39). Contab: `.fc-quem-contab`, `_fcTabelaComp` sem colgroup. Contratos sem Parcelas/Anexo. Selo da pessoa = pílula original.

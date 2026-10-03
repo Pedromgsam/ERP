@@ -342,7 +342,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.click('#fc-abas [data-aba=documentos]'); await p.waitForSelector('[data-enviar-doc]'); await p.click('[data-enviar-doc]');
     await p.waitForSelector('#doc-arq', { state: 'attached' });
     await p.setInputFiles('#doc-arq', { name: 'contrato-social.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 ficticio') });
-    await p.selectOption('#f-doc [name=tipo]', 'societario'); await p.click('#btn-enviar-doc'); await p.waitForTimeout(2000);
+    await p.click('#doc-tipos [data-v=societario]'); await p.click('#btn-enviar-doc'); await p.waitForTimeout(2000);
     ok('documento vai para o armazenamento privado e fica ligado ao cliente', sql("select d.nome||'|'||d.tipo||'|'||c.nome from documentos d join clientes c on c.id=d.cliente_id") === 'contrato-social.pdf|societario|Alfa Comércio Ltda' &&
       (await (await p.request.get(BASE + '/__teste/arquivos')).json()).includes('documentos/' + sql('select caminho from documentos')));
     const [pedido] = await Promise.all([p.context().waitForEvent('request', (q) => /\/storage\/v1\/object\/sign\/.*token=/.test(q.url())), p.click('#fc-corpo [data-abrir-doc]')]);
@@ -651,9 +651,8 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
 
     // ── simplificação: relatório padrão também em Clientes ──
     await nav(p, 'clientes'); await p.waitForTimeout(1200);
-    await p.click('#cli-relatorio'); await p.waitForSelector('#gs-raiz .janela [data-rel-csv]'); await p.waitForTimeout(300);
-    ok('Clientes: relatório da lista filtrada com CSV', /Clientes \(\d+\)/.test(await p.textContent('#gs-raiz .janela h2')) && (await p.$$('#gs-raiz .janela tbody tr')).length === Number(sql("select count(*) from clientes where tipo <> 'Inativo'")));
-    await p.keyboard.press('Escape'); await p.waitForTimeout(200);
+    // Backup 40: "Relatório" saiu de Clientes; a área virou botões
+    ok('Clientes: sem o botão Relatório e com a área em botões', !(await p.$('#cli-relatorio')) && (await p.$$('#cli-area button')).length === 3);
 
     // ── Google Agenda: link .ics por pessoa ──
     sql("insert into tarefas(titulo,responsavel,prazo) values ('Audiência de instrução — Alfa','Pedro',current_date+9), ('Audiência de outra pessoa','Adriana',current_date+9)");
@@ -928,19 +927,9 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('Parcelamentos: sem o botão "Notificar clientes" (o envio é pelo quadro de guias)', !/Notificar clientes/.test(await p.textContent('#panel-parcelamentos')));
     await nav(p, 'processos'); await p.waitForTimeout(1200);
     ok('Processos: volta a abrir a tela do Backup 13 (sem a tela nova)', /#processos$/.test(p.url()) && await p.isVisible('#panel-processos') && !!(await p.$('#tblProcBody')) && !(await p.$('#panel-processosNovo')));
-    // conciliação OFX
-    { const g = sql("select id from grupos where nome='Grupo Alfa'");
-      sql("insert into lancamentos(empresa,tipo,descricao,grupo_id,vencimento,valor) values ('escritorio','receita','OFX B14'," + "'" + g + "',current_date-2,1234.56)");
-      const arq = require('path').join(require('os').tmpdir(), 'extrato-b14.ofx');
-      require('fs').writeFileSync(arq, '<OFX><BANKTRANLIST><STMTTRN><TRNTYPE>CREDIT<DTPOSTED>' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '120000<TRNAMT>1234.56<FITID>B14-1<NAME>PIX ALFA COMERCIO</STMTTRN>' +
-        '<STMTTRN><TRNTYPE>CREDIT<DTPOSTED>20260901<TRNAMT>9.99<FITID>B14-2<NAME>DESCONHECIDO</STMTTRN></BANKTRANLIST></OFX>');
-      await nav(p, 'financeiro'); await p.waitForTimeout(1200);
-      await p.click('#panel-financeiro [data-ofx]'); await p.waitForSelector('#ofx-arq', { state: 'attached' });
-      await p.setInputFiles('#ofx-arq', arq); await p.waitForTimeout(1500);
-      ok('OFX: identifica pelo valor e pelo nome; o resto fica para decidir', (await p.$$('[data-ofx-ok]')).length === 1 && (await p.$$('[data-ofx-esc]')).length === 1);
-      await p.selectOption('[data-ofx-esc]', 'ignorar'); await salvarGs(p, '#ofx-gravar');
-      ok('OFX: baixa com a data do banco e não repete a entrada', sql("select pago::text||'|'||(data_pagamento=current_date)::text from lancamentos where descricao='OFX B14'") === 'true|true' &&
-        sql("select string_agg(situacao, ',' order by fitid) from extrato_itens where fitid like 'B14-%'") === 'baixado,ignorado'); }
+    // Backup 40: conciliação de extrato (OFX) e "Editar em tabela" saíram do Financeiro
+    await nav(p, 'financeiro'); await p.waitForTimeout(1200);
+    ok('Financeiro: sem "Conciliar extrato" e sem "Editar em tabela"', !(await p.$('#panel-financeiro [data-ofx]')) && !(await p.$('#panel-financeiro [data-massa-lanc]')) && !(await p.evaluate(() => !!(window.GS && window.GS.conciliarOfx))));
     // PGFN (API do SERPRO imitada no servidor de teste)
     sql("insert into config_privada(chave,valor) values ('api_pgfn','{\"ligada\":true,\"frequencia\":\"diaria\",\"consumer_key\":\"chave-teste\",\"consumer_secret\":\"segredo-teste\",\"token_url\":\"http://127.0.0.1:8090/__teste/serpro/token\",\"base_url\":\"http://127.0.0.1:8090/__teste/serpro\"}') on conflict (chave) do update set valor=excluded.valor");
     sql("insert into clientes(nome,cpf_cnpj,tipo) values ('PGFN Teste Ltda','99111222000133','Consultoria')");
@@ -972,8 +961,16 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     // Backup 36: agendar compromisso direto na agenda + legenda de cores
     ok('Início: agenda com "+ Agendar" e legenda de cores', !!(await p.$('#panel-hoje [data-agendar]')) && !!(await p.$('#panel-hoje .ag-leg')));
     await p.click('#panel-hoje [data-agendar]'); await p.waitForSelector('#gs-raiz #f-ag');
+    // Backup 40: só pessoas cadastradas; audiência exige o nº do processo; início e fim; aviso antes
+    { const cad = sql("select string_agg(nome, '|') from perfis where papel in ('admin','equipe')").split('|');
+      ok('Agendar: quem participa = só as pessoas cadastradas (sem a lista fixa)', await p.evaluate((c) => [...document.querySelectorAll('#gs-raiz #f-ag [name=part]')].every((x) => c.includes(x.value)), cad) &&
+      !(await p.$('#gs-raiz #ag-tipo [data-v=ligacao]'))); }
     await p.click('#gs-raiz #ag-tipo [data-v=audiencia]'); await p.fill('#gs-raiz #f-ag [name=titulo]', 'Audiência de teste B36'); await p.fill('#gs-raiz #f-ag [name=hora]', '14:30');
+    await p.click('#gs-raiz #ag-ok'); await p.waitForTimeout(800);
+    ok('Agendar: audiência sem nº do processo não grava', sql("select count(*) from tarefas where titulo='Audiência de teste B36'") === '0' && !!(await p.$('#gs-raiz #f-ag')));
+    await p.fill('#gs-raiz #f-ag [name=processo]', '5003355-46.2020.8.13.0372');
     await p.click('#gs-raiz #ag-ok'); await p.waitForTimeout(1500);
+    ok('Agendar: grava processo, início/fim (fim = início + 1 h) e o aviso de 30 min', sql("select processos_vinculados||'|'||to_char(hora_fim,'HH24:MI')||'|'||aviso_min from tarefas where titulo='Audiência de teste B36'") === '5003355-46.2020.8.13.0372|15:30|30');
     ok('Início: "Agendar" grava o compromisso (tipo, hora) na agenda', sql("select tipo_agenda||' '||to_char(hora,'HH24:MI') from tarefas where titulo='Audiência de teste B36'") === 'audiencia 14:30' &&
       /Audiência de teste B36/.test(await p.textContent('#panel-hoje .ini-fila')));
     // Backup 38: agenda só com o que está em Tarefas, legenda curta, sem a escolha de fontes; admin escolhe de quem ver
@@ -1007,8 +1004,9 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('Painel: sem a faixa "Painel Executivo" e com "Atualizado" na linha do filtro', !(await p.isVisible('#panel-resumo > .mod-banner')) && await p.isVisible('#gx-linha-painel'));
     ok('Painel: contadores rolam com a página (não ficam presos no topo)', await p.evaluate(() => getComputedStyle(document.getElementById('gx-linha-painel')).position !== 'fixed'));
     ok('Painel: sem "Por grupo / Lista" e sem "Mostrar mais" (todas as linhas)', !(await p.$('#pe-visao')) && !(await p.isVisible('#panel-resumo .pag-rodape')));
-    { const grps = await p.$$eval('#tblExecRanking tr.gx-grp', (l) => l.map((t) => t.textContent));
-      ok('Painel → Empresas do grupo: separado por grupo como em Clientes ("Grupo Alfa 2 cadastros")', grps.some((t) => /Grupo Alfa\s*2 cadastros/.test(t)) && grps.some((t) => /Grupo Beta\s*1 cadastro/.test(t)), grps.join(' | ')); }
+    { const grupos = await p.$$eval('#tblExecRanking tr.gx-linha-exp:not([hidden])', (l) => l.map((t) => (t.querySelector('.er-grupo') || {}).textContent || ''));
+      // Backup 40: sem as faixas "GRUPO X · N cadastros" (e sem o contorno); as linhas continuam em ordem de grupo
+      ok('Painel → Empresas do grupo: sem faixas de grupo, linhas em ordem de grupo', !(await p.$('#tblExecRanking tr.gx-grp')) && grupos.every((g, i) => grupos.indexOf(g) === i || grupos[i - 1] === g), grupos.join(' | ')); }
     ok('Painel: sem a seta de expandir e sem o filtro de grupo (fica só no filtro de cima)', !(await p.isVisible('#tblExecRanking td.gx-seta')) && !(await p.$('#pe-grupo')));
     await p.click('#tblExecRanking tr.gx-linha-exp:has-text("Alfa Comércio") .er-grupo'); await p.waitForTimeout(400);
     await p.waitForFunction(() => [...document.querySelectorAll('#janelas .janela h2')].some((h) => /Alfa Comércio/i.test(h.textContent)), null, { timeout: 8000 }).catch(() => {});
@@ -1107,16 +1105,9 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await nav(p, 'documentos'); await p.waitForTimeout(1500);
     ok('Documentos: filtros por grupo e atalhos por tipo (Procuração)', !!(await p.$('#doc-grupo')) && /Procuração/.test(await p.textContent('#doc-chips')));
     ok('"Jur + Cont" virou "Jurídico + Contábil"', await p.evaluate(() => !/Jur \+ Cont/.test(document.body.innerText)));
-    // Backup 34: Central de Documentos DENTRO do ERP (Documentos → Gerar documento); Ctrl + clique abre numa aba nova
-    await p.click('#tn [data-ir=gerador]');   // Backup 38: na lateral o grupo da tela aberta já fica aberto
-    for (let k = 0; k < 20 && !p.frames().some((f) => /documentos\/index\.html/.test(f.url())); k++) await p.waitForTimeout(400);
-    await p.waitForTimeout(1500);
-    { const fr = p.frames().find((f) => /documentos\/index\.html/.test(f.url()));
-      ok('Documentos → Gerar documento: a Central abre dentro do ERP (sem a barra própria)', !!fr && await fr.evaluate(() => document.documentElement.classList.contains('dc-embutido') && /Procuração/.test(document.body.innerText))); }
-    { const [nova] = await Promise.all([p.context().waitForEvent('page'), p.click('#tn [data-ir=gerador]', { modifiers: ['Control'] })]);
-      await nova.waitForLoadState().catch(() => {}); ok('Ctrl + clique no menu abre a tela numa aba nova', /#gerador$/.test(nova.url())); await nova.close(); }
-    await p.evaluate(() => GS.janelaGeradores()); await p.waitForSelector('#gs-raiz .ger-link'); await p.click('#gs-raiz .ger-link >> nth=0'); await p.waitForTimeout(2000);
-    ok('Janela de documentos: clicar no modelo abre a Central dentro do ERP, já no modelo', p.frames().some((f) => /documentos\/index\.html\?modelo=procuracao/.test(f.url())) && !(await p.$('#gs-raiz .ger-link')));
+    // Backup 40: a geração de documentos é um sistema à parte — um botão só, que abre numa aba nova
+    ok('Documentos: "Gerar documentos ↗" abre o sistema numa aba nova; sem "Gerar documento" no menu', await p.getAttribute('#doc-ger', 'target') === '_blank' &&
+      /documentos\/index\.html/.test(await p.getAttribute('#doc-ger', 'href')) && !(await p.$('#tn [data-ir=gerador]')));
 
     // Geradores de documentos (páginas separadas, com a ponte do ERP)
     { const g = await p.context().newPage(); g.on('dialog', (d) => d.accept());
@@ -1150,7 +1141,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
         sql("select count(*) from lancamentos l join contratos c on c.id=l.contrato_id where c.descricao='Contrato B25 aguardando'") === '0');
       const idC = sql("select id from contratos where descricao='Contrato B25 aguardando'");
       await p.evaluate((id) => GS.detalheContrato(id), idC); await p.waitForSelector('#gs-raiz #ctr-assinar'); await p.waitForTimeout(300);
-      ok('ficha do contrato mostra "Aguardando a assinatura" com 📄 Gerar contrato', /Aguardando a assinatura/.test(await p.textContent('#gs-raiz #ctr-assinatura')) && !!(await p.$('#gs-raiz #ctr-gerar')));
+      ok('ficha do contrato mostra "Aguardando a assinatura" (sem atalho para o gerador — Backup 40)', /Aguardando a assinatura/.test(await p.textContent('#gs-raiz #ctr-assinatura')) && !(await p.$('#gs-raiz #ctr-gerar')));
       await p.click('#gs-raiz #ctr-assinar'); await p.waitForTimeout(2000);
       ok('"✓ Marcar como assinado" lança as 3 parcelas e ativa o contrato', sql("select status||'|'||(assinado_em is not null) from contratos where id='" + idC + "'") === 'Ativo|true' &&
         sql("select count(*) from lancamentos where contrato_id='" + idC + "'") === '3');
@@ -1340,17 +1331,27 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       const os = require('os'), pth = require('path'), { execSync } = require('child_process'), dir = require('fs').mkdtempSync(pth.join(os.tmpdir(), 'cert-'));
       execSync('openssl req -x509 -newkey rsa:2048 -keyout ' + dir + '/k.pem -out ' + dir + '/c.pem -days 500 -nodes -subj "/CN=EMPRESA TESTE CERTIFICADO" 2>/dev/null && openssl pkcs12 -export -out ' + dir + '/cert.pfx -inkey ' + dir + '/k.pem -in ' + dir + '/c.pem -passout pass:segredo1 2>/dev/null');
       await nav(p, 'documentos'); await p.waitForTimeout(1500);
-      await p.click('#doc-cert'); await p.waitForSelector('#f-cert');
+      // Backup 40: o certificado entra pelo "+ Enviar documento" (tipo Certificado digital)
+      await p.click('#doc-novo'); await p.waitForSelector('#f-doc');
+      await p.click('#doc-tipos [data-v=certificado]');
       const cid = sql("select id from clientes where nome='Alfa Comércio Ltda'");
-      await p.selectOption('#f-cert [name=cliente_id]', cid); await p.setInputFiles('#cert-arq', dir + '/cert.pfx');
-      await p.fill('#f-cert [name=senha]', 'errada'); await p.waitForTimeout(1500);
+      await p.selectOption('#f-doc [name=cliente_id]', cid); await p.setInputFiles('#doc-arq', dir + '/cert.pfx');
+      await p.fill('#f-doc [name=senha]', 'errada'); await p.waitForTimeout(1500);
       ok('Certificado: senha errada é avisada', /Senha incorreta/.test(await p.textContent('#cert-lido')));
-      await p.fill('#f-cert [name=senha]', 'segredo1'); await p.waitForTimeout(1500);
-      ok('Certificado: com a senha certa o sistema lê a validade do arquivo', /Certificado lido/.test(await p.textContent('#cert-lido')) && /^\d{4}-\d{2}-\d{2}$/.test(await p.inputValue('#f-cert [name=validade]')));
-      await p.click('#cert-ok'); await p.waitForTimeout(2500);
+      await p.fill('#f-doc [name=senha]', 'segredo1'); await p.waitForTimeout(1500);
+      ok('Certificado: com a senha certa o sistema lê a validade do arquivo', /Certificado lido/.test(await p.textContent('#cert-lido')) && /^\d{4}-\d{2}-\d{2}$/.test(await p.inputValue('#f-doc [name=validade]')));
+      await p.click('#btn-enviar-doc'); await p.waitForTimeout(2500);
       ok('Certificado: salvo com senha, validade e o arquivo em Documentos (tipo certificado)', sql("select (validade > current_date)::text||'|'||senha||'|'||(documento_id is not null)::text from cliente_certificado where cliente_id='" + cid + "'") === 'true|segredo1|true' &&
         sql("select count(*) from documentos where tipo='certificado' and cliente_id='" + cid + "'") === '1');
-      ok('Documentos: cada grupo tem "+ Enviar" e "🔐 Certificado" na própria barra', (await p.$$('#doc-corpo [data-pasta-enviar]')).length >= 1 && (await p.$$('#doc-corpo [data-pasta-cert]')).length >= 1);
+      ok('Documentos: "+ Enviar" na barra do grupo, sem botão "Certificado" separado', (await p.$$('#doc-corpo [data-pasta-enviar]')).length >= 1 && !(await p.$('#doc-corpo [data-pasta-cert]')) && !(await p.$('#doc-cert')));
+      // subpastas por empresa e "Excluir" (com confirmação) no lugar de "Arquivar"
+      { const g = sql("select grupo_id from clientes where id='" + cid + "'");
+        if (!(await p.$('#doc-corpo details[data-pasta="' + g + '"][open]'))) { await p.click('#doc-corpo details[data-pasta="' + g + '"] > summary'); await p.waitForTimeout(800); }
+        ok('Documentos: dentro do grupo, uma subpasta por empresa', (await p.$$('#doc-corpo details[data-pasta="' + g + '"] details.doc-sub')).length >= 1);
+        if (!(await p.$('#doc-corpo details.doc-sub[data-sub="' + g + '|' + cid + '"][open]'))) { await p.click('#doc-corpo details.doc-sub[data-sub="' + g + '|' + cid + '"] > summary'); await p.waitForTimeout(800); }
+        const did = sql("select id from documentos where tipo='certificado' and cliente_id='" + cid + "'");
+        await p.click('#doc-corpo [data-excluir-doc="' + did + '"]'); await p.waitForTimeout(1500);
+        ok('Documentos: "Excluir" pede confirmação e apaga o documento', sql("select count(*) from documentos where id='" + did + "'") === '0' && !(await p.$('#doc-corpo [data-arquivar-doc]'))); }
     }
     // ── sair ──
     await p.evaluate(() => acLogout()); await p.waitForTimeout(800);

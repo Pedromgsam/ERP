@@ -143,7 +143,7 @@ insert into contatos(cliente_id,nome,finalidade,email) select id,'Contato Financ
 select pg_temp.ok((select count(*) from contatos)=1,'equipe cadastra contato do cliente');
 insert into documentos(cliente_id,nome,caminho) select id,'Contrato social.pdf','x/1.pdf' from clientes where nome='Cliente Ficha Teste';
 delete from documentos;
-select pg_temp.ok((select count(*) from documentos)=1,'equipe não exclui documento (só arquiva)');
+select pg_temp.ok((select count(*) from documentos)=0,'Backup 40: quem edita Documentos exclui documento (a tela pede confirmação)');
 insert into tarefas(titulo,prazo,recorrencia,checklist) values ('Apurar tributos','2026-10-20','mensal','[{"texto":"Conferir notas","feito":false}]');
 do $$ begin
   update tarefas set status='concluida' where titulo='Apurar tributos';
@@ -530,15 +530,6 @@ insert into auth.users (id,email) values ('00000000-0000-0000-0000-0000000000e1'
 select pg_temp.ok((select papel||'|'||areas||'|'||(funcoes->>'financeiro_contab') from perfis where email='ederpsique@gmail.com')='equipe|contabil|editar' and not exists (select 1 from usuarios_previstos where email='ederpsique@gmail.com'),
   'Éder nasce como Adm. da Contabilidade (só clientes da contabilidade)');
 delete from auth.users where email='ederpsique@gmail.com';
--- extrato (OFX): só quem edita o financeiro daquela empresa
-begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-0000000000d1');
-do $$ begin
-  insert into extrato_itens(fitid,empresa,data,valor) values ('X1','escritorio',current_date,10);
-  raise exception 'FALHOU: sem financeiro gravou extrato';
-exception when others then
-  if sqlerrm like 'FALHOU%' then raise; end if; raise notice 'PASSA: extrato só quem edita o financeiro';
-end $$;
-commit;
 insert into grupos(nome) values ('Grupo Foto Teste') on conflict do nothing;
 select public.tirar_fotos_mensais();
 select pg_temp.ok((select count(*) from fotos_mensais where mes=date_trunc('month',current_date)::date) >= 1,'foto mensal do passivo por grupo');
