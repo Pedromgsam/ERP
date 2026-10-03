@@ -6,6 +6,7 @@
 //   "enviar" → envia os pendentes (a rotina chama a cada 5 min; o admin pelo botão "Enviar agora")
 //   "teste"  → põe um e-mail de teste para o admin e envia
 //   "resumo" → monta o resumo do dia de cada pessoa e envia
+//   "rascunho" (Backup 44, com "ref") → em vez de enviar, guarda o e-mail na pasta Rascunhos do Gmail (IMAP, mesma senha de app)
 // E-mail com anexo {tipo:'recibo', dados} (Recebido → recibo): o PDF do recibo é montado aqui, sem biblioteca.
 // Backup 26: anexo {tipo:'ics', arquivo, conteudo} (convite de reunião) e vários destinatários em "para" (separados por vírgula).
 // Backup 28: anexo {tipo:'arquivos', lista:[{caminho, arquivo}]} (várias guias num e-mail só) e remetente por empresa:
@@ -15,7 +16,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import nodemailer from 'npm:nodemailer@6.9.14';
 
-const VERSAO = '2026-11-03';
+const VERSAO = '2026-10-04';
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-erp-segredo',
@@ -112,8 +113,98 @@ async function enviarUm(cfg, msg, mailer) {
   const host = cfg.provedor === 'gmail' ? 'smtp.gmail.com' : cfg.host;
   const porta = Number(cfg.provedor === 'gmail' ? 465 : cfg.porta || 465);
   const t = mailer.createTransport({ host, port: porta, secure: porta === 465, auth: { user: cfg.usuario, pass: cfg.senha } });
-  await t.sendMail({ from: de, to: destinos(msg.para).join(', '), subject: msg.assunto, html: msg.html, replyTo: cfg.responder || undefined,
-    attachments: anexos(msg).map((a) => ({ filename: a.filename, content: a.content, encoding: 'base64', contentType: a.tipo || 'application/pdf' })) });
+  await t.sendMail(opcoesEmail(cfg, msg));
+}
+function opcoesEmail(cfg, msg) {
+  const de = (cfg.remetente ? '"' + String(cfg.remetente).replace(/"/g, '') + '" ' : '') + '<' + cfg.usuario + '>';
+  return { from: de, to: destinos(msg.para).join(', '), subject: msg.assunto, html: msg.html, replyTo: cfg.responder || undefined,
+    attachments: anexos(msg).map((a) => ({ filename: a.filename, content: a.content, encoding: 'base64', contentType: a.tipo || 'application/pdf' })) };
+}
+
+// ─────────── Backup 44: rascunho no Gmail (IMAP APPEND na pasta Rascunhos) ───────────
+// conectar(host, porta) devolve { read(Uint8Array) → n|null, write(Uint8Array) → n, close() } — no Supabase é Deno.connectTls.
+// raw = a mensagem pronta (RFC 822), montada pelo próprio nodemailer.
+export async function imapRascunho(cfg, raw, conectar) {
+  const host = cfg.provedor === 'gmail' ? 'imap.gmail.com' : (cfg.imap || String(cfg.host || '').replace(/^smtp\./i, 'imap.'));
+  if (!host) throw new Error('Não sei o servidor IMAP desta conta de e-mail.');
+  const con = await conectar(host, 993);
+  const enc = new TextEncoder(), dec = new TextDecoder(), pedaco = new Uint8Array(65536);
+  let buf = '';
+  const escrever = async (b) => { let i = 0; while (i < b.length) i += await con.write(b.subarray(i)); };
+  const linha = async () => {
+    for (;;) {
+      const k = buf.indexOf('\r\n');
+      if (k >= 0) { const l = buf.slice(0, k); buf = buf.slice(k + 2); return l; }
+      const n = await con.read(pedaco);
+      if (n === null) throw new Error('o servidor de e-mail fechou a conexão');
+      buf += dec.decode(pedaco.subarray(0, n), { stream: true });
+    }
+  };
+  const ate = async (tag, oque) => {   // lê até a resposta com a etiqueta; erro se não for OK
+    const lidas = [];
+    for (;;) { const l = await linha(); lidas.push(l); if (l.startsWith(tag + ' ')) { if (!/^\S+ OK/i.test(l)) throw new Error(oque + ' (' + l.slice(tag.length + 1) + ')'); return lidas; } }
+  };
+  const aspas = (t) => '"' + String(t).replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"';
+  let pasta = '"[Gmail]/Drafts"';
+  try {
+    await linha();   // "* OK ... ready"
+    await escrever(enc.encode('a1 LOGIN ' + aspas(cfg.usuario) + ' ' + aspas(cfg.senha) + '\r\n'));
+    await ate('a1', 'o Gmail recusou o login (use a senha de app de 16 letras)');
+    await escrever(enc.encode('a2 LIST "" "*"\r\n'));
+    const l = (await ate('a2', 'não consegui ler as pastas')).find((x) => /^\* LIST \([^)]*\\Drafts/i.test(x));
+    const m = l && l.match(/("(?:[^"\\]|\\.)*"|[^\s"]+)\s*$/);
+    if (m) pasta = m[1].charAt(0) === '"' ? m[1] : aspas(m[1]);
+    await escrever(enc.encode('a3 APPEND ' + pasta + ' (\\Draft \\Seen) {' + raw.length + '}\r\n'));
+    const c = await linha();
+    if (c.charAt(0) !== '+') throw new Error('o Gmail não aceitou o rascunho (' + c + ')');
+    await escrever(raw); await escrever(enc.encode('\r\n'));
+    await ate('a3', 'o Gmail não guardou o rascunho');
+    await escrever(enc.encode('a4 LOGOUT\r\n'));
+  } finally { try { con.close(); } catch (e) { /* já fechou */ } }
+  return pasta.replace(/^"|"$/g, '');
+}
+
+async function baixarAnexo(db, a) {
+  const { data: arq, error: eArq } = await db.storage.from('documentos').download(a.caminho);
+  if (eArq || !arq) throw new Error('Não consegui ler o anexo em Documentos: ' + ((eArq && eArq.message) || a.caminho));
+  return { tipo: 'bin', arquivo: a.arquivo, mime: a.mime || arq.type || 'application/pdf', b64: base64(new Uint8Array(await arq.arrayBuffer())) };
+}
+async function prepararAnexo(db, m) {
+  const baixar = (a) => baixarAnexo(db, a);
+  // Backup 27: anexo que está no Storage ("documentos") — baixa antes de enviar
+  if (m.anexo && m.anexo.tipo === 'arquivo' && m.anexo.caminho) m.anexo = await baixar(m.anexo);
+  if (m.anexo && m.anexo.tipo === 'arquivos') m.anexo = { tipo: 'lista', itens: await Promise.all((m.anexo.lista || []).filter((a) => a && a.caminho).map(baixar)) };
+  // Backup 29: lista mista — PDFs que vieram direto da tela (bin, não ficam guardados) e arquivos de Documentos
+  if (m.anexo && m.anexo.tipo === 'lista') m.anexo = { tipo: 'lista', itens: await Promise.all((m.anexo.itens || []).map((a) => (a && a.tipo === 'arquivo' && a.caminho ? baixar(a) : a))) };
+}
+// o PDF anexado na tela não fica guardado: depois de enviar, só o nome do arquivo fica no registro
+const semArquivo = (a) => (a && (a.tipo === 'lista' || a.tipo === 'bin') ? { tipo: 'enviado', arquivos: (a.tipo === 'lista' ? a.itens : [a]).map((x) => x && x.arquivo).filter(Boolean) } : undefined);
+
+// Backup 44: os e-mails marcados como "rascunho" (status 'rascunho') daquela ref vão para a pasta Rascunhos do Gmail
+async function salvarRascunhos(db, mailer, ref, gaveta) {
+  const cfg = await valor(db, 'email'), cfgContab = await valor(db, 'email_contab');
+  if (!cfg || !cfg.usuario || !cfg.senha) return { rascunhos: 0, erros: 0, aviso: 'E-mail ainda não configurado em Administração → E-mail.' };
+  const contaDe = (m) => (m.conta === 'contabilidade' && cfgContab && cfgContab.usuario && cfgContab.senha ? cfgContab : cfg);
+  const { data: fila, error } = await db.from('email_fila').select('*').eq('referencia', String(ref)).eq('status', 'rascunho');
+  if (error) throw error;
+  let rascunhos = 0, erros = 0, ultimoErro = '', pasta = '';
+  for (const m of fila || []) {
+    try {
+      const c = contaDe(m);
+      if (c.provedor === 'resend') throw new Error('O rascunho só funciona com Gmail ou SMTP (o Resend não tem caixa de rascunhos).');
+      await prepararAnexo(db, m);
+      const info = await mailer.createTransport({ streamTransport: true, buffer: true, newline: 'windows' }).sendMail(opcoesEmail(c, m));
+      pasta = await gaveta(c, info.message);
+      const limpo = semArquivo(m.anexo);
+      await db.from('email_fila').update(Object.assign({ status: 'rascunho_salvo', enviado_em: new Date().toISOString(), erro: '' }, limpo ? { anexo: limpo } : {})).eq('id', m.id);
+      rascunhos++;
+    } catch (e) {
+      ultimoErro = String((e && e.message) || e).slice(0, 500);
+      await db.from('email_fila').update({ tentativas: (m.tentativas || 0) + 1, erro: ultimoErro }).eq('id', m.id);
+      erros++;
+    }
+  }
+  return { rascunhos, erros, ultimoErro, pasta };
 }
 
 async function processarFila(db, mailer, ref) {
@@ -121,11 +212,6 @@ async function processarFila(db, mailer, ref) {
   if (!cfg || !cfg.usuario || !cfg.senha) return { enviados: 0, erros: 0, aviso: 'E-mail ainda não configurado em Administração → E-mail.' };
   // Backup 28: clientes da Contabilidade saem pela conta da Contabilidade (se estiver configurada)
   const contaDe = (m) => (m.conta === 'contabilidade' && cfgContab && cfgContab.usuario && cfgContab.senha ? cfgContab : cfg);
-  const baixar = async (a) => {
-    const { data: arq, error: eArq } = await db.storage.from('documentos').download(a.caminho);
-    if (eArq || !arq) throw new Error('Não consegui ler o anexo em Documentos: ' + ((eArq && eArq.message) || a.caminho));
-    return { tipo: 'bin', arquivo: a.arquivo, mime: a.mime || arq.type || 'application/pdf', b64: base64(new Uint8Array(await arq.arrayBuffer())) };
-  };
   const { data: lote, error } = await db.from('email_fila').select('*').eq('status', 'pendente').lt('tentativas', 3).order('criado_em').limit(40);
   if (error) throw error;
   // Backup 42: o e-mail que a pessoa acabou de mandar ("ref") passa na frente da fila
@@ -135,14 +221,8 @@ async function processarFila(db, mailer, ref) {
   let enviados = 0, erros = 0, ultimoErro = '';
   for (const m of fila || []) {
     try {
-      // Backup 27: anexo que está no Storage ("documentos") — baixa antes de enviar
-      if (m.anexo && m.anexo.tipo === 'arquivo' && m.anexo.caminho) m.anexo = await baixar(m.anexo);
-      if (m.anexo && m.anexo.tipo === 'arquivos') m.anexo = { tipo: 'lista', itens: await Promise.all((m.anexo.lista || []).filter((a) => a && a.caminho).map(baixar)) };
-      // Backup 29: lista mista — PDFs que vieram direto da tela (bin, não ficam guardados) e arquivos de Documentos
-      if (m.anexo && m.anexo.tipo === 'lista') m.anexo = { tipo: 'lista', itens: await Promise.all((m.anexo.itens || []).map((a) => (a && a.tipo === 'arquivo' && a.caminho ? baixar(a) : a))) };
+      await prepararAnexo(db, m);
       await enviarUm(contaDe(m), m, mailer);
-      // o PDF anexado na tela não fica guardado: depois de enviar, só o nome do arquivo fica no registro
-      const semArquivo = (a) => (a && (a.tipo === 'lista' || a.tipo === 'bin') ? { tipo: 'enviado', arquivos: (a.tipo === 'lista' ? a.itens : [a]).map((x) => x && x.arquivo).filter(Boolean) } : undefined);
       const limpo = semArquivo(m.anexo);
       await db.from('email_fila').update(Object.assign({ status: 'enviado', enviado_em: new Date().toISOString(), erro: '' }, limpo ? { anexo: limpo } : {})).eq('id', m.id);
       enviados++;
@@ -170,7 +250,7 @@ async function autorizado(req, db) {
   return p && p.papel === 'equipe' ? { equipe: p } : null;
 }
 
-export async function tratar(req, db, mailer) {
+export async function tratar(req, db, mailer, gaveta) {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   try {
     const quem = await autorizado(req, db);
@@ -178,7 +258,14 @@ export async function tratar(req, db, mailer) {
     const corpo = await req.json().catch(() => ({}));
     if (corpo.acao === 'ping') return resposta({ ok: true, versao: VERSAO });
     const acao = corpo.acao || 'enviar';
-    if (quem.equipe && acao !== 'enviar') return resposta({ erro: 'Só o administrador.' }, 403);
+    if (quem.equipe && acao !== 'enviar' && acao !== 'rascunho') return resposta({ erro: 'Só o administrador.' }, 403);
+    if (acao === 'rascunho') {
+      if (!corpo.ref) return resposta({ erro: 'Falta a referência do e-mail.' }, 400);
+      const r = await salvarRascunhos(db, mailer, corpo.ref, gaveta || ((c, raw) => imapRascunho(c, raw, (h, p) => Deno.connectTls({ hostname: h, port: p }))));
+      const { data: m } = await db.from('email_fila').select('status, erro, para').eq('referencia', String(corpo.ref)).order('criado_em', { ascending: false }).limit(1).maybeSingle();
+      r.item = m || null;
+      return resposta(r);
+    }
     if (acao === 'teste') {
       if (!quem.admin) return resposta({ erro: 'Só o administrador envia o teste.' }, 403);
       const para = corpo.para || quem.admin.email;

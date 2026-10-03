@@ -40,8 +40,8 @@ async function dadosGuias(tabela) {
   return L;
 }
 // já saiu (ou está saindo) para o cliente: na fila, retido pela pausa ou enviado. Erro/descartado volta para "falta enviar".
-const guiaEnviada = (x) => !!x.email_em && !/erro|cancelado/.test(x.email_st || '');
-const ST_EMAIL = { pendente: ['aberto', '✉ na fila'], retido: ['hoje', '⏸ retido (pausa)'], enviado: ['pago', '✉ enviado'], erro: ['vencido', '⚠ e-mail falhou'], cancelado: ['neutro', 'e-mail descartado'] };
+const guiaEnviada = (x) => !!x.email_em && !/erro|cancelado|^rascunho$/.test(x.email_st || '');   // Backup 44: rascunho não salvo volta para "falta enviar"
+const ST_EMAIL = { pendente: ['aberto', '✉ na fila'], retido: ['hoje', '⏸ retido (pausa)'], enviado: ['pago', '✉ enviado'], erro: ['vencido', '⚠ e-mail falhou'], cancelado: ['neutro', 'e-mail descartado'], rascunho: ['vencido', '📝 rascunho não salvo'], rascunho_salvo: ['pago', '📝 rascunho no Gmail'] };
 
 // quadro no alto de Parcelamentos / Acordos
 // Backup 29: "Parcelamentos para emitir" / "Acordos para emitir"; o que já foi ENVIADO ao cliente sai do quadro (evita confusão)
@@ -153,7 +153,7 @@ async function copiarTexto(txt) {
 }
 // Backup 42: depois de pôr o e-mail na fila, manda na hora (enviarEmailAgora) e mostra o que aconteceu de verdade
 async function avisoEnvio(prefixo, r) {
-  const s = await enviarEmailAgora(r && r.ref, r && r.para);
+  const s = r && r.status === 'rascunho' ? await salvarRascunhoAgora(r.ref) : await enviarEmailAgora(r && r.ref, r && r.para);
   aviso(prefixo + (s.ok ? '✓ ' : '⚠ ') + s.msg, !s.ok);
   return s;
 }
@@ -324,7 +324,9 @@ async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
     rodape: '<span class="ge-tot" id="ge-tot"></span><div class="acoes ge-acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button>' +
       '<button type="button" class="btn btn-o" id="ge-previa" title="Ver o e-mail exatamente como o cliente vai receber">👁 Prévia do e-mail</button>' +
       '<button type="button" class="btn btn-o" id="ge-copiar" title="Copia o texto para você colar no WhatsApp">📋 Copiar texto</button>' +
-      '<button type="button" class="btn btn-v" id="ge-zap">💬 WhatsApp</button><button class="btn btn-p" type="button" id="ge-enviar">✉ Enviar e-mail</button></div>' });
+      '<button type="button" class="btn btn-v" id="ge-zap">💬 WhatsApp</button>' +
+      '<button type="button" class="btn btn-o" id="ge-rascunho" title="Guarda o e-mail pronto (com os anexos) na pasta Rascunhos do seu Gmail, para você conferir e enviar de lá">📝 Rascunho no Gmail</button>' +
+      '<button class="btn btn-p" type="button" id="ge-enviar">✉ Enviar e-mail</button></div>' });
   j.querySelector('.janela').classList.add('ge-janela');
   const $j = (sel) => j.querySelector(sel);
   const pixItem = (i) => ehPixGuia(tabela, i) && i.pix ? { pix: i.pix, banco: i.banco || '' } : {};
@@ -397,14 +399,14 @@ async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
     const pj = abrirJanela({ titulo: '👁 ' + ($j('#ge-assunto').value.trim() || 'Prévia do e-mail'), larga: true, corpo: '<iframe class="ge-previa" title="Prévia do e-mail" sandbox></iframe>' });
     pj.querySelector('.ge-previa').srcdoc = html;
   });
-  $j('#ge-enviar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+  const mandar = (rascunho) => async () => {
     const its = marcados(), e = atual(); if (!its.length) throw new Error('Marque ao menos uma parcela.');
     if (!$j('#ge-para').value.trim()) throw new Error('Digite o e-mail do cliente no campo "Para".');
     if (its.some((i) => !(i._valor > 0))) throw new Error('Confira o valor de todas as parcelas marcadas.');
     if (its.some((i) => i._venc !== null && i._venc !== undefined && (!i._venc || i._venc < hojeISO()))) throw new Error('Confira o novo vencimento da guia atualizada (hoje ou depois).');
     if (arquivos.reduce((s2, f) => s2 + f.size, 0) > LIMITE_ANEXOS) throw new Error('Os PDFs somam mais de 15 MB: envie em dois e-mails.');
     const arqs = []; for (const f of arquivos) arqs.push(await lerArquivoB64(f));
-    const r = await q(sb.rpc('enviar_guias_email', { p_cliente: e.cli || null, p_grupo: e.grupo || null,
+    const r = await q(sb.rpc(rascunho ? 'salvar_guias_rascunho' : 'enviar_guias_email', { p_cliente: e.cli || null, p_grupo: e.grupo || null,
       p_itens: its.map((i) => Object.assign(i._venc
         ? { tabela, id: i.id, descricao: descricaoGuia(tabela, i).replace(/^⚠ VENCIDA — /, '↻ Guia atualizada — ') + ' (vencia em ' + dataBR(i.vencimento) + ')', vencimento: i._venc, valor: i._valor, reenvio: true }
         : { tabela, id: i.id, descricao: descricaoGuia(tabela, i), vencimento: i.vencimento, valor: i._valor }, pixItem(i))),
@@ -412,7 +414,9 @@ async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
       p_para: $j('#ge-para').value.trim() || null, p_arquivos: arqs }));
     await avisoEnvio(plural(r.itens, 'parcela', 'parcelas') + (r.anexos ? ' e ' + plural(r.anexos, 'anexo', 'anexos') : '') + ': ', r);
     fecharJanela(j); if (depois) await depois(); if (window.ERP_RECARREGAR) window.ERP_RECARREGAR();
-  });
+  };
+  $j('#ge-enviar').onclick = (ev) => comBotao(ev.currentTarget, mandar(false));
+  $j('#ge-rascunho').onclick = (ev) => comBotao(ev.currentTarget, mandar(true));
   return j;
 }
 // Backup 35: Acordos → aba "A pagar": marcar as parcelas e "✉ Enviar por empresa" (mesma janela/e-mail das guias)

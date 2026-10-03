@@ -165,6 +165,7 @@ http.createServer((req, res) => {
     }
     if (u.pathname === '/__teste/djen-pedidos') return json(res, 200, PEDIDOS_DJEN);
     if (u.pathname === '/__teste/cartas') return json(res, 200, FUNCAO ? FUNCAO.cartas.map((c) => ({ to: c.to, subject: c.subject })) : []);
+    if (u.pathname === '/__teste/rascunhos') return json(res, 200, FUNCAO ? FUNCAO.rascunhos.map((c) => ({ pasta: c.pasta, host: c.host, raw: c.raw })) : []);
     if (u.pathname.startsWith('/rest/v1/')) {
       const alvo = PGRST + u.pathname.replace('/rest/v1', '') + u.search;
       const h = Object.assign({}, req.headers); delete h.host; delete h['content-length'];

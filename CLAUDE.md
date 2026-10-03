@@ -82,7 +82,12 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
-- Última entrega: **Backup 43** (só SQL). Desfez o menu no topo: `erp-telas.js` = o do Backup 41 (lateral com ícones, `#gs-encolher`); margens `--conteudo:1440px`,
+- Última entrega: **Backup 44** (SQL + função erp-emails). Lateral `--sw:204px` (design.css, linha do `body.gx-barra-topo`). Painel: bloco "Backup 44" no fim do design.css
+  (larguras em % por `th:nth-child`, Grupo 9%, Operação/Situação centralizadas). E-mail: o slug da função do usuário era `super-worker` (renomear não muda o endereço) —
+  `chamarFuncao` explica. Rascunho no Gmail: `salvar_guias_rascunho` (SQL, status `rascunho` → `rascunho_salvo`), `erp-emails {acao:'rascunho', ref}` → `imapRascunho(cfg, raw,
+  conectar)` (IMAP APPEND na pasta \Drafts; raw pelo nodemailer `streamTransport`), `tratar(req, db, mailer, gaveta)`; front `salvarRascunhoAgora` (nucleo), `#ge-rascunho`,
+  `[data-nt-rasc]`, `avisoEnvio` decide pelo `r.status`. Testes: IMAP falso em `funcao-emails.js`, `/__teste/rascunhos`.
+- Backup 43 (base) (só SQL). Desfez o menu no topo: `erp-telas.js` = o do Backup 41 (lateral com ícones, `#gs-encolher`); margens `--conteudo:1440px`,
   `--gut:max(20px,…)` (eram 1360/32). "Cobrar" (`cobrarWhatsApp`) sem `ERP_RECARREGAR` (troca o botão para "✓ Cobrado"). Guias/acordos sem `#ge-para-sel`/`emailsDaEmpresa`
   (campo `#ge-para` pré-preenchido). `enviarEmailAgora`: se o fetch à função falha, chama RPC `disparar_envio_emails()` (pg_net + segredo) e explica (função não publicada /
   Verify JWT ligado). Rotina: `rotinaPlanilha` do B35-41 voltou (aba `planilha`, `.pl-*`); a tela estilo Notificações virou `rotinaEnviarGuias` (aba `guias`).

@@ -183,12 +183,13 @@ async function chamarFuncao(nome, corpo) {
     r = await fetch(String(CFG.url).replace(/\/$/, '') + '/functions/v1/' + nome, { method: 'POST',
       headers: { 'Content-Type': 'application/json', apikey: CFG.chave, Authorization: 'Bearer ' + (sessao ? sessao.access_token : CFG.chave) },
       body: JSON.stringify(corpo || {}) });
-  } catch (e) { throw new Error('Não consegui falar com a função "' + nome + '". As causas mais comuns: (1) ela não está publicada no Supabase com esse nome exato; (2) a opção "Verify JWT" dela está LIGADA (tem que ficar desligada); (3) sem internet.'); }
+  } catch (e) { throw new Error('Não consegui falar com a função "' + nome + '". No Supabase, o endereço da função (aparece embaixo do nome dela) tem que terminar em /functions/v1/' + nome +
+    ' — se terminar em outra palavra (ex.: /super-worker), mudar o nome não adianta: crie uma função NOVA com o nome ' + nome + ' e cole o código nela. Outras causas: "Verify JWT" ligado (tem que ficar desligado) ou sem internet.'); }
   const txt = await r.text(); let js = null;
   try { js = JSON.parse(txt); } catch (e) { /* resposta sem JSON */ }
   if (r.ok) return js || {};
   const det = (js && (js.erro || js.message || js.msg || js.error)) || txt.slice(0, 200);
-  if (r.status === 404) throw new Error('A função "' + nome + '" não foi encontrada no Supabase. Em Edge Functions, o nome tem que ser exatamente "' + nome + '" (tudo minúsculo). Se ela foi criada com outro nome, crie de novo com o nome certo.');
+  if (r.status === 404) throw new Error('A função "' + nome + '" não foi encontrada no Supabase: o endereço dela tem que terminar em /functions/v1/' + nome + '. Se ela foi criada com outro nome (o endereço não muda quando se renomeia), crie uma função nova chamada ' + nome + '.');
   if ((r.status === 401 || r.status === 403) && !(js && js.erro)) throw new Error('O Supabase recusou a chamada da função "' + nome + '": abra a função no Supabase → Details e desligue "Verify JWT" (Enforce JWT verification). Detalhe: ' + det);
   if (js && js.erro) throw new Error(js.erro);
   if (r.status >= 500) throw new Error('A função "' + nome + '" existe, mas deu erro ao rodar (' + r.status + '): ' + det + '. Confira se o arquivo foi colado inteiro e publique de novo.');
@@ -211,6 +212,16 @@ async function enviarEmailAgora(ref, para) {
   if (it && it.status === 'retido') return { ok: false, msg: 'o e-mail ficou retido (envio pausado). Veja Administração → E-mail.' };
   if (it && it.erro) return { ok: false, msg: 'o e-mail NÃO saiu: ' + explicarErroEmail(it.erro) + (it.status === 'pendente' ? ' (vai tentar de novo)' : '') };
   return { ok: !it, msg: it ? 'e-mail na fila para ' + (it.para || para || '') + '.' : 'e-mail enviado.' };
+}
+// Backup 44: o e-mail já está na fila com status 'rascunho' → a função grava na pasta Rascunhos do Gmail (não envia)
+async function salvarRascunhoAgora(ref) {
+  let d;
+  try { d = await chamarFuncao('erp-emails', { acao: 'rascunho', ref }); }
+  catch (e) { return { ok: false, msg: 'o rascunho NÃO foi salvo. ' + e.message }; }
+  if (d && d.aviso) return { ok: false, msg: 'o rascunho NÃO foi salvo: ' + d.aviso };
+  const it = d && d.item;
+  if (it && it.status === 'rascunho_salvo') return { ok: true, msg: 'rascunho salvo no Gmail' + (d.pasta ? ' (pasta ' + d.pasta + ')' : '') + ' — abra o Gmail, confira e clique em Enviar.' };
+  return { ok: false, msg: 'o rascunho NÃO foi salvo: ' + explicarErroEmail((it && it.erro) || d.ultimoErro || 'motivo desconhecido') };
 }
 // a mensagem técnica do Gmail/SMTP em português simples
 function explicarErroEmail(e) {
@@ -3043,7 +3054,7 @@ async function admEmail(corpo) {
     kpi('Com erro', String(st.erros || 0), st.erros ? 'vermelho' : '', 'veja o motivo abaixo') + '</div>' +
     '<div class="card"><div class="card-hd">Últimos e-mails</div>' + (fila.length ? '<div class="tabela-wrap"><table><thead><tr><th>Quando</th><th>Para</th><th>Assunto</th><th>Situação</th></tr></thead><tbody>' +
       fila.map((m) => '<tr><td class="mono">' + dataHoraBR(m.criado_em) + '</td><td>' + esc(m.para) + '</td><td>' + esc(m.assunto) + '</td><td>' +
-        '<span class="pill ' + ({ enviado: 'pago', pendente: 'aberto', erro: 'vencido', cancelado: 'neutro', retido: 'hoje' }[m.status] || 'neutro') + '">' + esc(m.status) + '</span>' +
+        '<span class="pill ' + ({ enviado: 'pago', pendente: 'aberto', erro: 'vencido', cancelado: 'neutro', retido: 'hoje', rascunho: 'vencido', rascunho_salvo: 'pago' }[m.status] || 'neutro') + '">' + esc(m.status) + '</span>' +
         (m.erro ? '<div class="sub">' + esc(explicarErroEmail(m.erro)) + '</div>' : '') + '</td></tr>').join('') + '</tbody></table></div>' : '<div class="vazio">Nenhum e-mail ainda.</div>') + '</div>';
   const f = $('f-email');
   f.provedor.value = prov;
@@ -6626,8 +6637,8 @@ async function dadosGuias(tabela) {
   return L;
 }
 // já saiu (ou está saindo) para o cliente: na fila, retido pela pausa ou enviado. Erro/descartado volta para "falta enviar".
-const guiaEnviada = (x) => !!x.email_em && !/erro|cancelado/.test(x.email_st || '');
-const ST_EMAIL = { pendente: ['aberto', '✉ na fila'], retido: ['hoje', '⏸ retido (pausa)'], enviado: ['pago', '✉ enviado'], erro: ['vencido', '⚠ e-mail falhou'], cancelado: ['neutro', 'e-mail descartado'] };
+const guiaEnviada = (x) => !!x.email_em && !/erro|cancelado|^rascunho$/.test(x.email_st || '');   // Backup 44: rascunho não salvo volta para "falta enviar"
+const ST_EMAIL = { pendente: ['aberto', '✉ na fila'], retido: ['hoje', '⏸ retido (pausa)'], enviado: ['pago', '✉ enviado'], erro: ['vencido', '⚠ e-mail falhou'], cancelado: ['neutro', 'e-mail descartado'], rascunho: ['vencido', '📝 rascunho não salvo'], rascunho_salvo: ['pago', '📝 rascunho no Gmail'] };
 
 // quadro no alto de Parcelamentos / Acordos
 // Backup 29: "Parcelamentos para emitir" / "Acordos para emitir"; o que já foi ENVIADO ao cliente sai do quadro (evita confusão)
@@ -6739,7 +6750,7 @@ async function copiarTexto(txt) {
 }
 // Backup 42: depois de pôr o e-mail na fila, manda na hora (enviarEmailAgora) e mostra o que aconteceu de verdade
 async function avisoEnvio(prefixo, r) {
-  const s = await enviarEmailAgora(r && r.ref, r && r.para);
+  const s = r && r.status === 'rascunho' ? await salvarRascunhoAgora(r.ref) : await enviarEmailAgora(r && r.ref, r && r.para);
   aviso(prefixo + (s.ok ? '✓ ' : '⚠ ') + s.msg, !s.ok);
   return s;
 }
@@ -6910,7 +6921,9 @@ async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
     rodape: '<span class="ge-tot" id="ge-tot"></span><div class="acoes ge-acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button>' +
       '<button type="button" class="btn btn-o" id="ge-previa" title="Ver o e-mail exatamente como o cliente vai receber">👁 Prévia do e-mail</button>' +
       '<button type="button" class="btn btn-o" id="ge-copiar" title="Copia o texto para você colar no WhatsApp">📋 Copiar texto</button>' +
-      '<button type="button" class="btn btn-v" id="ge-zap">💬 WhatsApp</button><button class="btn btn-p" type="button" id="ge-enviar">✉ Enviar e-mail</button></div>' });
+      '<button type="button" class="btn btn-v" id="ge-zap">💬 WhatsApp</button>' +
+      '<button type="button" class="btn btn-o" id="ge-rascunho" title="Guarda o e-mail pronto (com os anexos) na pasta Rascunhos do seu Gmail, para você conferir e enviar de lá">📝 Rascunho no Gmail</button>' +
+      '<button class="btn btn-p" type="button" id="ge-enviar">✉ Enviar e-mail</button></div>' });
   j.querySelector('.janela').classList.add('ge-janela');
   const $j = (sel) => j.querySelector(sel);
   const pixItem = (i) => ehPixGuia(tabela, i) && i.pix ? { pix: i.pix, banco: i.banco || '' } : {};
@@ -6983,14 +6996,14 @@ async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
     const pj = abrirJanela({ titulo: '👁 ' + ($j('#ge-assunto').value.trim() || 'Prévia do e-mail'), larga: true, corpo: '<iframe class="ge-previa" title="Prévia do e-mail" sandbox></iframe>' });
     pj.querySelector('.ge-previa').srcdoc = html;
   });
-  $j('#ge-enviar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+  const mandar = (rascunho) => async () => {
     const its = marcados(), e = atual(); if (!its.length) throw new Error('Marque ao menos uma parcela.');
     if (!$j('#ge-para').value.trim()) throw new Error('Digite o e-mail do cliente no campo "Para".');
     if (its.some((i) => !(i._valor > 0))) throw new Error('Confira o valor de todas as parcelas marcadas.');
     if (its.some((i) => i._venc !== null && i._venc !== undefined && (!i._venc || i._venc < hojeISO()))) throw new Error('Confira o novo vencimento da guia atualizada (hoje ou depois).');
     if (arquivos.reduce((s2, f) => s2 + f.size, 0) > LIMITE_ANEXOS) throw new Error('Os PDFs somam mais de 15 MB: envie em dois e-mails.');
     const arqs = []; for (const f of arquivos) arqs.push(await lerArquivoB64(f));
-    const r = await q(sb.rpc('enviar_guias_email', { p_cliente: e.cli || null, p_grupo: e.grupo || null,
+    const r = await q(sb.rpc(rascunho ? 'salvar_guias_rascunho' : 'enviar_guias_email', { p_cliente: e.cli || null, p_grupo: e.grupo || null,
       p_itens: its.map((i) => Object.assign(i._venc
         ? { tabela, id: i.id, descricao: descricaoGuia(tabela, i).replace(/^⚠ VENCIDA — /, '↻ Guia atualizada — ') + ' (vencia em ' + dataBR(i.vencimento) + ')', vencimento: i._venc, valor: i._valor, reenvio: true }
         : { tabela, id: i.id, descricao: descricaoGuia(tabela, i), vencimento: i.vencimento, valor: i._valor }, pixItem(i))),
@@ -6998,7 +7011,9 @@ async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
       p_para: $j('#ge-para').value.trim() || null, p_arquivos: arqs }));
     await avisoEnvio(plural(r.itens, 'parcela', 'parcelas') + (r.anexos ? ' e ' + plural(r.anexos, 'anexo', 'anexos') : '') + ': ', r);
     fecharJanela(j); if (depois) await depois(); if (window.ERP_RECARREGAR) window.ERP_RECARREGAR();
-  });
+  };
+  $j('#ge-enviar').onclick = (ev) => comBotao(ev.currentTarget, mandar(false));
+  $j('#ge-rascunho').onclick = (ev) => comBotao(ev.currentTarget, mandar(true));
   return j;
 }
 // Backup 35: Acordos → aba "A pagar": marcar as parcelas e "✉ Enviar por empresa" (mesma janela/e-mail das guias)
@@ -7383,6 +7398,7 @@ async function rotinaEnviarGuias(el) {
           '<div class="nt-env-l"><input class="nt-para" placeholder="e-mail do cliente" value="' + esc(c.email || '') + '">' +
             '<input class="nt-tel" data-mascara="tel" inputmode="tel" placeholder="WhatsApp" value="' + esc(c.telefone || '') + '"></div>' +
           '<div class="acoes nt-bts"><button type="button" class="btn btn-o" data-nt-copiar>📋 Copiar</button><button type="button" class="btn btn-v" data-nt-zap>💬 WhatsApp</button>' +
+            '<button type="button" class="btn btn-o" data-nt-rasc title="Guarda o e-mail pronto na pasta Rascunhos do seu Gmail">📝 Rascunho no Gmail</button>' +
             '<button type="button" class="btn btn-p" data-nt-email>✉ Enviar e-mail</button><button type="button" class="btn btn-o" data-nt-marcar title="Use depois de copiar ou mandar pelo WhatsApp">✓ Marcar como enviada</button></div></section>'; }).join('');
     const E2 = Object.values(emps);
     out.querySelectorAll('.nt-msg').forEach((s) => { const e = E2[+s.dataset.k]; preencherDestino(s.querySelector('.nt-para'), e.cli, e.grupo, 'parcelas'); });
@@ -7399,10 +7415,10 @@ async function rotinaEnviarGuias(el) {
       if (b.matches('[data-nt-zap]')) { const tel = soDigitos(s.querySelector('.nt-tel').value);
         window.open('https://wa.me/' + (tel ? (tel.length <= 11 ? '55' : '') + tel : '') + '?text=' + encodeURIComponent(txt), '_blank', 'noopener'); return; }
       if (b.matches('[data-nt-marcar]')) return comBotao(b, async () => { await marcar(); aviso('✓ ' + plural(e.itens.length, 'guia marcada', 'guias marcadas') + ' como enviada.'); });
-      if (b.matches('[data-nt-email]')) return comBotao(b, async () => {
+      if (b.matches('[data-nt-email],[data-nt-rasc]')) return comBotao(b, async () => {
         const para = s.querySelector('.nt-para').value.trim(); if (!para) throw new Error('Escolha ou digite o e-mail.');
         if (e.itens.some((g) => !(g._valor > 0))) throw new Error('Confira o valor de todas as guias.');
-        const r = await q(sb.rpc('enviar_guias_email', { p_cliente: e.cli || null, p_grupo: e.grupo || null,
+        const r = await q(sb.rpc(b.matches('[data-nt-rasc]') ? 'salvar_guias_rascunho' : 'enviar_guias_email', { p_cliente: e.cli || null, p_grupo: e.grupo || null,
           p_itens: e.itens.map((g) => ({ tabela: 'parcelas', id: g.id, descricao: descricaoGuia('parcelas', Object.assign({}, g, { parcelamentos: g.p, parcela: (g.numero || '?') + '/' + (g.p.total_parcelas || '') })), vencimento: g.vencimento, valor: g._valor })),
           p_assunto: 'Guias de parcelamento — ' + e.nome, p_texto: txt, p_docs: [], p_para: para, p_arquivos: [] }));
         e.itens.forEach((g) => { g.enviada = true; _plSel.delete(g.id); }); s.classList.add('nt-feita');
