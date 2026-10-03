@@ -98,15 +98,6 @@ TELAS.alertas = async function () {
   const cnpjNivel = !ult ? 'atencao' : ult.status === 'erro' ? 'critico' : !rodouHoje && new Date() > hoje6 ? 'critico' : ult.status === 'parcial' ? 'atencao' : 'ok';
   add('Rotinas', 'Cartão CNPJ (6h)', !ult ? 'nunca rodou' : rodouHoje ? '✓ hoje ' + new Date(ult.inicio).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '⚠ ' + new Date(ult.inicio).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
     ult ? ult.mensagem || ult.status : 'publique a função erp-cnpj e ligue o agendador', cnpjNivel, { cnpj: true });
-  // PGFN (dívida ativa, API paga do SERPRO): só aparece depois de configurada, ou para o admin configurar
-  const pgfnCfg = await q(sb.rpc('status_config_pgfn')).catch(() => null) || {};
-  const pgfnEx = pgfnCfg.tem_chave ? await q(sb.from('pgfn_execucoes').select('*').order('inicio', { ascending: false }).limit(10)).catch(nada) : [];
-  if (pgfnCfg.tem_chave) {   // sem SERPRO contratado o cartão fica escondido (decisão do escritório)
-    const u = pgfnEx[0];
-    add('Rotinas', 'PGFN — dívida ativa', !pgfnCfg.tem_chave ? 'não contratada' : !pgfnCfg.ligada ? 'desligada' : u ? quandoCurto(u.inicio) : 'nunca rodou',
-      !pgfnCfg.tem_chave ? 'API paga do SERPRO: clique para ver como ligar' : u ? u.mensagem || u.status : 'frequência: ' + (pgfnCfg.frequencia || 'diaria'),
-      !pgfnCfg.tem_chave ? 'info' : u && u.status === 'erro' ? 'critico' : u && u.status === 'parcial' ? 'atencao' : 'ok', { pgfn: true });
-  }
   if (emails.length || (E.perfil && E.perfil.papel === 'admin')) add('Rotinas', 'E-mails com erro', String(emails.length), 'não saíram depois de 3 tentativas', emails.length ? 'critico' : 'ok',
     { titulo: 'E-mails com erro', colunas: ['Quando', 'Para', 'Assunto', 'Erro'], linhas: emails.map((m) => [quandoRodou(m.criado_em), m.para, m.assunto, m.erro]) });
   // Backup 37: a busca é feita pela WEB (navegador, 1× por dia ao abrir o ERP, ou "Buscar pelo navegador")
@@ -114,12 +105,6 @@ TELAS.alertas = async function () {
     ultPub && ultPub.valor ? ultPub.valor.novas + ' nova(s) · ' + ((ultPub.valor.erros || []).length ? '⚠ ' + ultPub.valor.erros[0] : 'sem erro') : 'cadastre as OABs em Publicações',
     !ultPub || !ultPub.valor ? 'atencao' : (ultPub.valor.erros || []).length ? 'critico' : 'ok', { tela: 'publicacoes' });
   // Backup 37: a PGFN por arquivo (dados abertos, importado à mão) saiu dos Alertas
-  // Central de e-mails: automático por tipo (clicar abre a configuração; admin)
-  const cfgEm = await q(sb.rpc('config_emails')).catch(() => null);
-  if (false && cfgEm && E.perfil && E.perfil.papel === 'admin') {   // Backup 38: módulo E-mails saiu
-    const ligados = ['honorarios', 'parcelamentos', 'acordos', 'recibos'].filter((k) => cfgEm[k]);
-    add('Rotinas', 'E-mails automáticos ao cliente', ligados.length + ' de 4 ligados', (cfgEm.hora ? 'envio às ' + cfgEm.hora : 'envio junto das regras (7h)') + ' · clique para configurar', ligados.length ? 'ok' : 'info', { emailsAuto: true });
-  }
   add('Rotinas', 'Regras de tarefas', ultReg && ultReg.valor ? quandoCurto(ultReg.valor.quando) : 'nunca rodou', ultReg && ultReg.valor ? ultReg.valor.criadas + ' criada(s) na última execução' : '',
     ultReg && ultReg.valor ? 'ok' : 'info', { tela: 'tarefas' });
   // saúde do sistema e backup semanal (só o administrador)
@@ -176,7 +161,7 @@ TELAS.alertas = async function () {
     $('al-corpo').querySelectorAll('[data-al-setor]').forEach((x) => x.classList.toggle('ativo', x === b));
     $('al-corpo').querySelectorAll('.al-linha,.al-chip,.al-bloco').forEach((l) => { l.hidden = !!b.dataset.alSetor && l.dataset.setor !== b.dataset.alSetor; });
   });
-  $('al-corpo').querySelectorAll('[data-al]').forEach((b) => b.onclick = () => { const a = A[+b.dataset.al]; if (a.rel.cnpj) janelaCnpj(cnpj); else if (a.rel.emailsAuto) janelaAutoEmails(); else if (a.rel.pgfnAbertos) janelaPgfnAbertos(); else if (a.rel.pgfn) janelaPgfn(pgfnEx); else if (a.rel.saude) janelaSaude(a.rel.saude); else if (a.rel.backup) irTelaAlerta('admin', 'backup'); else relatorioAlerta(a); });
+  $('al-corpo').querySelectorAll('[data-al]').forEach((b) => b.onclick = () => { const a = A[+b.dataset.al]; if (a.rel.cnpj) janelaCnpj(cnpj); else if (a.rel.saude) janelaSaude(a.rel.saude); else if (a.rel.backup) irTelaAlerta('admin', 'backup'); else relatorioAlerta(a); });
 };
 
 function quandoCurto(v) {
@@ -238,38 +223,6 @@ async function janelaVirarTarefa(titulo, r) {
   });
 }
 
-// PGFN: chave do SERPRO (só admin), frequência, ligar/desligar, consultar agora e o que mudou
-async function janelaPgfn(execs) {
-  const cfg = await q(sb.rpc('status_config_pgfn')).catch(() => ({})) || {};
-  const admin = E.perfil && E.perfil.papel === 'admin', ult = execs[0], mud = ((ult && ult.relatorio) || []).filter((x) => x.antes), err = ((ult && ult.relatorio) || []).filter((x) => x.erro);
-  const j = abrirJanela({ titulo: 'PGFN — dívida ativa (API do SERPRO)', larga: true,
-    corpo: '<div class="dica" style="margin-bottom:10px">Consulta cada CNPJ na <b>API "Consulta Dívida Ativa" do SERPRO</b> e atualiza sozinho os campos <b>PGFN</b> (em cobrança) e <b>PGFN negociada</b> (parcelada). ' +
-        'Na ficha do cliente, a aba <b>PGFN</b> mostra cada inscrição (CDA), a origem (tributária, previdenciária, FGTS, Simples) e se está parcelada. ' +
-        '<b>É pago por consulta</b> (tabela na Loja SERPRO): consulta diária de 100 CNPJs são cerca de 2.200 consultas/mês. Semanal ou mensal custa bem menos.</div>' +
-      (ult ? '<div class="dica" style="margin-bottom:10px"><b>Última execução:</b> ' + quandoRodou(ult.inicio) + ' · ' + esc(ult.mensagem || ult.status) + '</div>' : '') +
-      (mud.length ? '<div class="secao">Mudanças na última consulta (' + mud.length + ')</div><div class="tabela-wrap"><table><thead><tr><th>Empresa</th><th class="num">PGFN antes</th><th class="num">agora</th><th class="num">Negociada antes</th><th class="num">agora</th></tr></thead><tbody>' +
-        mud.map((x) => '<tr><td><b>' + esc(x.nome) + '</b></td><td class="num mono">' + brl(x.antes[0]) + '</td><td class="num mono"><b>' + brl(x.depois[0]) + '</b></td><td class="num mono">' + brl(x.antes[1]) + '</td><td class="num mono"><b>' + brl(x.depois[1]) + '</b></td></tr>').join('') + '</tbody></table></div>' : '') +
-      (err.length ? '<div class="secao">Erros (' + err.length + ')</div><div class="lista-ficha">' + err.map((x) => '<div class="item-ficha"><div><b>' + esc(x.nome) + '</b><div class="sub">' + esc(x.erro) + '</div></div></div>').join('') + '</div>' : '') +
-      (admin ? '<div class="secao">Configuração</div><form class="grade" id="f-pgfn">' +
-        campo('Consumer key (área do cliente SERPRO)', '<input name="ck" autocomplete="off" placeholder="' + (cfg.tem_chave ? '•••• (deixe vazio para manter)' : 'cole aqui') + '">') +
-        campo('Consumer secret', '<input name="cs" type="password" autocomplete="new-password" placeholder="' + (cfg.tem_chave ? '•••• (deixe vazio para manter)' : 'cole aqui') + '">') +
-        campo('Frequência', selectPares('frequencia', [['diaria', 'Todo dia (6h15)'], ['semanal', 'Toda segunda-feira'], ['mensal', 'Todo dia 1º']], cfg.frequencia || 'diaria')) +
-        '<label class="check" style="align-self:end"><input type="checkbox" name="ligada"' + (cfg.ligada ? ' checked' : '') + '> Rotina ligada</label></form>' : ''),
-    rodape: '<span></span><div class="acoes">' + (admin ? '<button class="btn btn-o" type="button" id="pgfn-salvar">Salvar</button><button class="btn btn-p" type="button" id="pgfn-agora"' + (cfg.tem_chave ? '' : ' disabled') + '>↻ Consultar agora</button>' : '') + '</div>' });
-  const sv = j.querySelector('#pgfn-salvar');
-  if (sv) sv.onclick = () => comBotao(sv, async () => {
-    const f = j.querySelector('#f-pgfn');
-    await q(sb.rpc('salvar_config_pgfn', { p: { consumer_key: f.ck.value.trim(), consumer_secret: f.cs.value.trim(), frequencia: f.frequencia.value, ligada: f.ligada.checked } }));
-    aviso('✓ PGFN: configuração salva.'); fecharJanela(j); await TELAS.alertas();
-  });
-  const ag = j.querySelector('#pgfn-agora');
-  if (ag) ag.onclick = () => comBotao(ag, async () => {
-    const r = await chamarFuncao('erp-pgfn', { acao: 'rodar' });
-    if (r && r.erro) throw new Error(r.erro);
-    aviso('✓ PGFN: ' + ((r && r.mensagem) || 'feito') + '.'); fecharJanela(j); await carregarCadastros(true); await TELAS.alertas();
-  });
-}
-
 // Cartão CNPJ: última execução, o que mudou, erros, histórico e a API usada
 async function janelaCnpj(execs) {
   const cfg = await q(sb.rpc('status_config_cnpj')).catch(() => ({})) || {};
@@ -307,78 +260,3 @@ async function janelaCnpj(execs) {
 }
 
 
-// ─────────── PGFN pelos dados abertos (Backup 16) ───────────
-// A PGFN publica, de graça, a lista de todos os devedores inscritos em dívida ativa (atualizada a cada trimestre).
-// Não existe consulta gratuita "por CNPJ" em tempo real (essa é a API paga do SERPRO): aqui o arquivo é lido
-// no próprio navegador, linha a linha, e só os CPFs/CNPJs dos clientes são aproveitados.
-async function janelaPgfnAbertos() {
-  await carregarCadastros();
-  const j = abrirJanela({ titulo: 'PGFN — dados abertos (gratuito)', larga: true,
-    corpo: '<ol class="passos"><li>Abra <a href="https://www.gov.br/pgfn/pt-br/assuntos/divida-ativa-da-uniao/transparencia-fiscal-1/dados-abertos" target="_blank" rel="noopener">gov.br/pgfn → Dados abertos</a> e baixe os arquivos da <b>Dívida Ativa</b> (Não previdenciário, Previdenciário e FGTS) do trimestre mais recente.</li>' +
-      '<li><b>Mais atual (atualiza com frequência):</b> no site <a href="https://www.dividaaberta.pgfn.gov.br/consultar-devedores" target="_blank" rel="noopener">Dívida Aberta</a>, pesquise (por nome, CNPJ ou por estado/município), clique em <b>Exportar (CSV)</b> e escolha esse arquivo abaixo — o ERP entende os dois formatos. Nesse caso <b>não</b> marque "Zerar".</li>' +
-      '<li>Descompacte (botão direito → Extrair tudo). Dentro há arquivos <b>.csv</b> (às vezes um por estado).</li><li>Escolha abaixo os .csv (pode marcar vários) e clique em <b>Ler e atualizar</b>. Arquivos grandes levam alguns minutos; a tela mostra o andamento.</li></ol>' +
-      '<div class="grade"><div class="campo inteiro"><span>Arquivos .csv da PGFN</span><input type="file" id="pa-arq" accept=".csv,.txt" multiple></div>' +
-      '<label class="check inteiro"><input type="checkbox" id="pa-zerar"> Zerar a PGFN dos clientes com CPF/CNPJ que <b>não</b> aparecem nos arquivos (use só se importou todos os arquivos do trimestre)</label></div>' +
-      '<div id="pa-prog" class="dica" style="margin-top:10px">Nada lido ainda.</div>',
-    rodape: '<span class="sub">Custo: zero. Dados abertos: trimestral · Dívida Aberta (CSV do site): atualização frequente.</span><button class="btn btn-p" type="button" id="pa-ler">Ler e atualizar</button>' });
-  j.querySelector('#pa-ler').onclick = (ev) => comBotao(ev.currentTarget, async () => {
-    const arqs = [...j.querySelector('#pa-arq').files]; if (!arqs.length) throw new Error('Escolha pelo menos um arquivo .csv.');
-    const porDoc = {}; E.clientes.forEach((c) => { const d = soDigitos(c.cpf_cnpj); if (d.length === 11 || d.length === 14) porDoc[d] = c; });
-    const achados = {}; const prog = j.querySelector('#pa-prog');
-    let linhas = 0;
-    for (const arq of arqs) {
-      const natArq = /previd/i.test(arq.name) ? 'Previdenciária' : /fgts/i.test(arq.name) ? 'FGTS' : 'Tributária';
-      const r = await lerCsvPgfn(arq, (lin) => {
-        const d = soDigitos(lin.CPF_CNPJ); const c = porDoc[d]; if (!c) return;
-        const sit = [lin.TIPO_SITUACAO_INSCRICAO, lin.SITUACAO_INSCRICAO].filter(Boolean).join(' — ');
-        const v = String(lin.VALOR_CONSOLIDADO || '0'); const valor = /,/.test(v) ? lerValor(v) : parseFloat(v) || 0;
-        const dt = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(lin.DATA_INSCRICAO || '');
-        (achados[c.id] = achados[c.id] || []).push({ inscricao: lin.NUMERO_INSCRICAO, natureza: /simples/i.test(lin.RECEITA_PRINCIPAL || '') ? 'Simples Nacional' : natArq,
-          receita: lin.RECEITA_PRINCIPAL || '', situacao: sit, parcelada: /benef|parcel|negoci|transa/i.test(sit), valor, data: dt ? dt[3] + '-' + dt[2] + '-' + dt[1] : (lin.DATA_INSCRICAO || '').slice(0, 10) });
-      }, (n) => { prog.textContent = arq.name + ': ' + (linhas + n).toLocaleString('pt-BR') + ' linhas lidas · ' + Object.keys(achados).length + ' cliente(s) encontrado(s)…'; });
-      linhas += r;
-    }
-    const lote = Object.entries(achados).map(([cliente_id, inscricoes]) => ({ cliente_id, inscricoes }));
-    if (j.querySelector('#pa-zerar').checked) Object.values(porDoc).forEach((c) => { if (!achados[c.id]) lote.push({ cliente_id: c.id, inscricoes: [] }); });
-    if (!lote.length) { prog.textContent = linhas.toLocaleString('pt-BR') + ' linhas lidas. Nenhum cliente encontrado nos arquivos.'; return; }
-    for (let i = 0; i < lote.length; i += 50) await q(sb.rpc('pgfn_importar_abertos', { p: lote.slice(i, i + 50), p_referencia: arqs.map((a) => a.name).join(', ').slice(0, 120) }));
-    await carregarCadastros(true);
-    prog.innerHTML = '✓ ' + linhas.toLocaleString('pt-BR') + ' linhas lidas · <b>' + Object.keys(achados).length + '</b> cliente(s) com inscrição · PGFN e PGFN negociada atualizados. A ficha do cliente → aba PGFN mostra cada inscrição.';
-    aviso('✓ PGFN atualizada pelos dados abertos.');
-  });
-}
-// lê o CSV em partes (arquivos de centenas de MB) e chama "cada" para cada linha como objeto {COLUNA: valor}
-// aceita o arquivo dos dados abertos (CPF_CNPJ, VALOR_CONSOLIDADO…) e o CSV exportado no site "Dívida Aberta"
-// (colunas com nomes por extenso, ex.: "CPF/CNPJ", "Nº Inscrição", "Valor Consolidado", "Situação")
-function cabecalhoPgfn(c) {
-  const t = c.replace(/^"|"$/g, '').trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_|_$/g, '');
-  if (/^(CPF|CNPJ)/.test(t) || t === 'DOCUMENTO') return 'CPF_CNPJ';
-  if (/DATA.*INSCRI/.test(t)) return 'DATA_INSCRICAO';
-  if (/^(N|NUM|NUMERO|NO)_?INSCRI/.test(t) || t === 'INSCRICAO') return 'NUMERO_INSCRICAO';
-  if (/^VALOR/.test(t)) return 'VALOR_CONSOLIDADO';
-  if (/^TIPO_SITUA/.test(t)) return 'TIPO_SITUACAO_INSCRICAO';
-  if (/SITUA/.test(t)) return 'SITUACAO_INSCRICAO';
-  if (/RECEITA/.test(t)) return 'RECEITA_PRINCIPAL';
-  return t;
-}
-async function lerCsvPgfn(arq, cada, andamento) {
-  const leitor = arq.stream().getReader();
-  let dec = new TextDecoder('utf-8'), resto = '', cab = null, sep = ';', n = 0, primeiro = true;
-  for (;;) {
-    const { value, done } = await leitor.read();
-    if (value && primeiro) { primeiro = false; const t = new TextDecoder('utf-8').decode(value.slice(0, 4096)); if (t.includes('�')) dec = new TextDecoder('iso-8859-1'); }
-    const txt = resto + (value ? dec.decode(value, { stream: true }) : dec.decode());
-    const partes = txt.split(/\r?\n/); resto = done ? '' : partes.pop();
-    for (const l of partes) {
-      if (!l.trim()) continue;
-      if (!cab) { sep = (l.match(/;/g) || []).length >= (l.match(/,/g) || []).length ? ';' : ','; cab = l.split(sep).map((c) => cabecalhoPgfn(c)); continue; }
-      const cols = l.split(sep).map((c) => c.replace(/^"|"$/g, '').trim()), o = {};
-      cab.forEach((c, i) => { o[c] = cols[i]; }); cada(o); n++;
-    }
-    if (andamento && n % 50000 < 5000) andamento(n);
-    if (done) break;
-  }
-  if (!cab || !cab.includes('CPF_CNPJ')) throw new Error('"' + arq.name + '" não parece o arquivo da PGFN (falta a coluna CPF_CNPJ).');
-  andamento && andamento(n);
-  return n;
-}

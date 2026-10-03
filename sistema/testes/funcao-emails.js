@@ -30,10 +30,6 @@ function carregarCnpj(base) {
   const { ctx, servico } = carregarFuncao(base, 'erp-cnpj');
   return { tratar: (req) => ctx.tratar(req, servico, fetch, async () => {}), ctx };
 }
-function carregarPgfn(base) {
-  const { ctx, servico } = carregarFuncao(base, 'erp-pgfn');
-  return { tratar: (req) => ctx.tratar(req, servico, fetch, async () => {}), ctx };
-}
 function carregarAgenda(base) {
   const { ctx, servico } = carregarFuncao(base, 'erp-agenda');
   return { tratar: (req) => ctx.tratar(req, servico), ctx };
@@ -42,4 +38,4 @@ function carregarBackup(base) {
   const { ctx, servico } = carregarFuncao(base, 'erp-backup');
   return { tratar: (req) => ctx.tratar(req, servico), ctx };
 }
-module.exports = { carregar, carregarPublicacoes, carregarCnpj, carregarPgfn, carregarAgenda, carregarBackup, jwt };
+module.exports = { carregar, carregarPublicacoes, carregarCnpj, carregarAgenda, carregarBackup, jwt };

@@ -40,7 +40,7 @@ function renderAcordosVencTbl(){
     .sort(function(a,b){ return (pDate(a.vencimento)||new Date(0))-(pDate(b.vencimento)||new Date(0)); });
   var tab=document.querySelector('#acordTabVencidos table'); if(!tab) return;
   tab.classList.add('ac-ap');
-  tab.querySelector('thead').innerHTML='<tr><th class="ac-ck"><input type="checkbox" id="acSelTodos" aria-label="Marcar todas"></th><th class="ac-c-grp">Grupo</th><th>Processo</th><th>Devedor</th><th>Credor</th>'
+  tab.querySelector('thead').innerHTML='<tr><th class="ac-c-grp">Grupo</th><th>Processo</th><th>Devedor</th><th>Credor</th>'
     +'<th>Parcela</th><th>Valor</th><th>Vencimento</th><th>Prazo</th><th class="ac-c-acao"></th></tr>';
   var cnt=$('acordVencCount'); if(cnt) cnt.textContent='· '+fI(rows.length)+' parcela(s) a pagar';
   var pg=$('pagAcordosVenc'); if(pg) pg.innerHTML='';
@@ -48,22 +48,21 @@ function renderAcordosVencTbl(){
   el.innerHTML=rows.length?rows.map(function(a){
     var dv=pDate(a.vencimento), dias=dv?Math.round((dv-hoje)/864e5):null, venc=dias!==null&&dias<=0;
     var emit=!!a.emitidaEm||/sim|emitid/i.test(a.emissao||'');
-    return '<tr data-gx="'+_gx(a)+'"'+(venc?' class="ac-ap-venc"':'')+'><td class="ac-ck"><input type="checkbox" data-ac-sel="'+a._id+'"'+(_acSel[a._id]?' checked':'')+' aria-label="Marcar"></td>'
+    // Backup 41: sem a caixinha de marcar (o envio é pelo botão Emitir de cada linha)
+    return '<tr data-gx="'+_gx(a)+'"'+(venc?' class="ac-ap-venc"':'')+'>'
       +'<td class="ac-c-grp" title="'+esc(a.grupo||'')+'">'+esc(a.grupo||'—')+'</td>'
-      +'<td class="mono" style="font-size:11.5px">'+esc(a.processo||'—')+'</td><td>'+esc(a.devedor||'—')+'</td><td>'+esc(a.credor||'—')+'</td>'
+      +'<td class="mono ac-c-proc">'+esc(a.processo||'—')+'</td><td>'+esc(a.devedor||'—')+'</td><td>'+esc(a.credor||'—')+'</td>'
       +'<td class="mono">'+esc(a.parcela||'—')+' de '+esc(a.totalParc||'—')+'</td><td class="mono"><strong>'+fF(a.valor||0)+'</strong></td>'
       +'<td class="mono">'+esc(a.vencimento||'—')+'</td>'
       +'<td class="mono"><span class="'+(dias===null?'':_diasCls(dias))+'">'+(dias===null?'—':dias<0?Math.abs(dias)+' d atraso':dias===0?'vence hoje':dias+' dias')+'</span></td>'
       // Backup 40: dois botões simples — "Emitir" (vira "Emitido" depois de emitida; clicar de novo reemite) e "Baixa"; sem a caneta
       +'<td class="ac-ap-ac ac-c-acao"><span class="ac-acoes"><button type="button" class="ac-bt-emitir'+(emit?' ac-emitido':'')+'" data-ac-guia="'+a._id+'" title="'+(emit?esc('Emitido'+(a.emitidaEm?' em '+a.emitidaEm:'')+' — clique para emitir de novo'):'Emitir o boleto (ou a cobrança por PIX) e enviar ao cliente')+'">'+(emit?'✓ Emitido':'Emitir')+'</button>'
         +'<button type="button" class="gx-la-bx ac-bt-baixa" data-la="baixa" title="Dar baixa (pago) — pede confirmação">Baixa</button></span></td></tr>';
-  }).join(''):'<tr><td colspan="10">'+emp('Nenhuma parcela a pagar — tudo em dia! ✅')+'</td></tr>';
-  _acBarraSel();
-  el.onchange=function(ev){ var c=ev.target.closest('[data-ac-sel]'); if(!c) return; if(c.checked) _acSel[c.dataset.acSel]=1; else delete _acSel[c.dataset.acSel]; _acBarraSel(); };
+  }).join(''):'<tr><td colspan="9">'+emp('Nenhuma parcela a pagar — tudo em dia! ✅')+'</td></tr>';
+  var bx=$('acSelBarra'); if(bx) bx.remove();
   el.onclick=function(ev){ var b=ev.target.closest('[data-ac-guia]'); if(!b) return; ev.stopPropagation();
     // Backup 36: emitir = a janela de envio (e-mail ou WhatsApp) já com esta parcela
     if(window.GS&&GS.enviarAcordosSelecionados) GS.enviarAcordosSelecionados([b.dataset.acGuia], function(){ if(window.ERP_RECARREGAR) window.ERP_RECARREGAR(); }); };
-  var tt=$('acSelTodos'); if(tt) tt.onchange=function(){ rows.forEach(function(a){ if(tt.checked) _acSel[a._id]=1; else delete _acSel[a._id]; }); renderAcordosVencTbl(); };
 }
 function _acBarraSel(){
   var box=$('acSelBarra'), w=document.querySelector('#acordTabVencidos .tw');

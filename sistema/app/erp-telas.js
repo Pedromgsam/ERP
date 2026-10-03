@@ -58,7 +58,7 @@
   // Cobranças, avisos e recibos (antiga "Notificações"): fora da barra; abre pelo botão ✉ de cada tela e pelo ⋯
   const FUNC_EXTRA = { notificacoes: 'clientes' };   // a Central de e-mails confere o acesso no banco
   // painéis novos → tela do Gestão que desenha nele
-  const TELAS_GS = { hoje: 'inicio', contratos: 'contratos', clientes: 'clientes', crm: 'crm', publicacoes: 'publicacoes', documentos: 'documentos', tarefas: 'tarefas', alertas: 'alertas', automacoes: 'automacoes', aprovacoes: 'aprovacoes', rotina: 'rotina', admin: 'admin' };
+  const TELAS_GS = { hoje: 'inicio', contratos: 'contratos', clientes: 'clientes', crm: 'crm', publicacoes: 'publicacoes', documentos: 'documentos', tarefas: 'tarefas', alertas: 'alertas', automacoes: 'automacoes', rotina: 'rotina', admin: 'admin' };
 
   // "+ Lançar": formulários do Gestão onde existem; os demais, do editor do ERP
   const empresaAtual = () => (_painel === 'financeiroContab' ? 'contabilidade' : 'escritorio');
@@ -111,7 +111,7 @@
       '<div class="tn-menu tn-menu-dir" role="menu">' + LANCAR.map((x, i) => '<button type="button" role="menuitem" data-lancar="' + i + '">' + esc(x[0]) + '</button>').join('') + '</div></div>' +
       '<div class="hd-usuario"><button type="button" id="gs-tema" title="Modo escuro / claro" aria-label="Alternar modo escuro" aria-pressed="false">◐</button>' +
       '<div class="tn-grupo tn-mais-acoes"><button type="button" class="tn-abre gs-bt-mais" data-grupo="acoes" title="Atualizar dados e relatório em PDF" aria-label="Mais ações" aria-haspopup="true" aria-expanded="false">⋯</button>' +
-      '<div class="tn-menu tn-menu-dir" role="menu"><button type="button" data-acao="atualizar">↻ Atualizar dados</button><button type="button" data-acao="pdf" class="gx-so-equipe">📄 Relatório em PDF</button><button type="button" data-acao="meunome">👤 Meu nome</button><button type="button" data-acao="aprovacoes" class="gx-so-equipe">📝 Aprovações (rascunhos)</button></div></div>' +
+      '<div class="tn-menu tn-menu-dir" role="menu"><button type="button" data-acao="atualizar">↻ Atualizar dados</button><button type="button" data-acao="meunome">👤 Meu nome</button></div></div>' +
       '<span id="gs-sessao" title="Tempo até sair sozinho por falta de uso (cada clique ou tecla recomeça a contagem)" aria-live="off"></span><span id="gs-nome"></span><button type="button" id="gs-sair">Sair</button></div>';
     // barra lateral: marca, seções, itens com ícone; submódulos abrem logo abaixo (linha fina à esquerda); "encolher" no pé
     const lado = document.createElement('aside');
@@ -170,8 +170,6 @@
       abertos.forEach(fecharMenu); fecharMais();
       if (alvo.id === 'gs-sair' || alvo.classList.contains('gs-sair')) { if (typeof window.acLogout === 'function') window.acLogout(); }
       else if (alvo.dataset.acao === 'atualizar') { if (typeof window._dbCacheClear === 'function') window._dbCacheClear(); ED.recarregar(); }
-      else if (alvo.dataset.acao === 'pdf') { if (GS() && GS().janelaRelatorioPDF) GS().carregarCadastros().then(() => GS().janelaRelatorioPDF()); else ir('relatorio'); }   // Backup 29: relatório novo
-      else if (alvo.dataset.acao === 'aprovacoes') ir('aprovacoes');
       else if (alvo.dataset.acao === 'meunome') pedirMeuNome(false);
       else if (alvo.dataset.ir && (e.ctrlKey || e.metaKey || e.shiftKey)) window.open(location.pathname + '#' + alvo.dataset.ir, '_blank', 'noopener');   // Backup 34: Ctrl + clique = aba nova
       else if (alvo.dataset.ir) ir(alvo.dataset.ir);
@@ -246,7 +244,7 @@
   let _painel = '', _voltando = false;
   function nomeTela(id) {
     for (const m of MENU) { if (m.id === id) return m.rot; const x = (m.itens || []).find((i) => i[0] === id); if (x) return m.rot + ' · ' + x[1]; }
-    return { automacoes: 'Automações', aprovacoes: 'Aprovações', notificacoes: 'Tela antiga de cobranças', emails: 'Central de e-mails' }[id] || '';
+    return { automacoes: 'Automações', notificacoes: 'Tela antiga de cobranças' }[id] || '';
   }
   function destacar(id) {
     const tn = document.getElementById('gs-tela-nome'); if (tn) tn.textContent = nomeTela(id);
@@ -789,15 +787,25 @@
   // ═══════ Backup 31: CONTORNO AZUL de cada grupo nas tabelas agrupadas (Painel, Processos, Rotina, Clientes…) ═══════
   // a linha do grupo (tr.gx-grp / tr.cli-grp) abre o bloco; as linhas até o próximo grupo ficam dentro do contorno (design.css: .gc-*)
   function contornarGrupos() {
+    // Backup 41: rápido — só refaz a tabela que mudou (assinatura das linhas) e mede UMA linha por tabela.
+    // Antes media cada célula de cada linha a cada tecla: com 400 empresas na Rotina, ~3 s por tecla.
     document.querySelectorAll('tbody').forEach((tb) => {
       const linhas = [...tb.children]; if (!linhas.some((tr) => tr.matches('tr.gx-grp, tr.cli-grp'))) return;
+      const sig = linhas.length + ':' + linhas.map((tr) => (tr.hidden || tr.style.display === 'none' ? 0 : 1)).join('');
+      if (tb._gcSig === sig) return;
+      tb._gcSig = sig;
+      // leitura (uma vez): quais colunas aparecem, olhando a primeira linha comum visível
+      const modelo = linhas.find((tr) => !tr.matches('tr.gx-grp, tr.cli-grp') && !tr.hidden && tr.children.length > 1);
+      const vis = modelo ? [...modelo.children].map((td, i) => (getComputedStyle(td).display !== 'none' ? i : -1)).filter((i) => i >= 0) : [];
+      const prim = vis.length ? vis[0] : 0, ult0 = vis.length ? vis[vis.length - 1] : 0;
+      // escrita
       let dentro = false, ult = null;
       linhas.forEach((tr) => {
-        tr.classList.remove('gc-ini', 'gc-in', 'gc-fim');   // o observador só olha filhos (childList): trocar classe não o dispara de novo
-        // Backup 35: a linha lateral vai na 1ª e na última célula VISÍVEIS (a coluna ▸ escondida deixava o lado esquerdo sem linha)
-        [...tr.children].forEach((td) => td.classList.remove('gc-l', 'gc-r'));
-        const vis = [...tr.children].filter((td) => td.offsetParent !== null || getComputedStyle(td).display !== 'none');
-        if (vis.length) { vis[0].classList.add('gc-l'); vis[vis.length - 1].classList.add('gc-r'); }
+        tr.classList.remove('gc-ini', 'gc-in', 'gc-fim');
+        const tds = tr.children;
+        for (let i = 0; i < tds.length; i++) tds[i].classList.remove('gc-l', 'gc-r');
+        if (tds.length === 1) tds[0].classList.add('gc-l', 'gc-r');
+        else if (tds.length) { (tds[prim] || tds[0]).classList.add('gc-l'); (tds[Math.min(ult0, tds.length - 1)] || tds[tds.length - 1]).classList.add('gc-r'); }
         if (tr.hidden || tr.style.display === 'none') return;
         if (tr.matches('tr.gx-grp, tr.cli-grp')) { if (ult) ult.classList.add('gc-fim'); tr.classList.add('gc-ini'); dentro = true; ult = tr; return; }
         if (dentro) { tr.classList.add('gc-in'); ult = tr; }

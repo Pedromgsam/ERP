@@ -16,7 +16,6 @@
   const aviso = (m) => { if (typeof window.toast === 'function') window.toast(m); else alert(m); };
   const ehCliente = () => !window.AC_SESSION || window.AC_SESSION.nivel === 'cliente';
   function erroAmigavel(e) {
-    if (e && e.rascunho) return e.message;
     const m = (e && (e.message || e.details)) || String(e);
     if (/row-level security|permission denied|42501/i.test(m)) return 'Seu usuário não tem permissão para isso.';
     if (/duplicate key|23505/i.test(m)) return 'Já existe um registro igual.';
@@ -338,7 +337,6 @@
           id && ajuste && ajuste.pago ? () => desfazerBaixa(tabela, id) : null);
         recarregar();
       } catch (e) {
-        if (e && e.rascunho) { fecharJanela(); aviso(e.message); gravou('Rascunho enviado para aprovação — ' + def.nome.toLowerCase()); return; }
         msg.textContent = '⚠ ' + erroAmigavel(e) + ' Nada foi perdido: corrija e tente de novo.';
         botoes.forEach((b) => { b.disabled = false; });
       }
@@ -354,7 +352,6 @@
     if (ex) ex.addEventListener('click', async () => {
       if (!confirm('Excluir este registro? Essa ação fica registrada no Histórico.')) return;
       const { data, error } = await sb.from(tabela).delete().eq('id', id).select('id');
-      if (error && error.rascunho) { fecharJanela(); aviso(error.message); return; }
       if (error) { msg.textContent = '⚠ ' + erroAmigavel(error); return; }
       if (!data || !data.length) { msg.textContent = '⚠ Só o administrador pode excluir este tipo de registro.'; return; }
       fecharJanela(); aviso('✓ Excluído.'); gravou('Excluiu ' + def.nome.toLowerCase() + ' — ' + rotuloReg(reg)); recarregar();
@@ -470,7 +467,7 @@
     const d = await perguntar(tabela, reg); if (!d) return;
     if (tabela === 'lancamentos') d.perda = false;
     const { data, error } = await sb.from(tabela).update(d).eq('id', id).select().single();
-    if (error) return aviso((error.rascunho ? '' : '⚠ ') + erroAmigavel(error));
+    if (error) return aviso('⚠ ' + erroAmigavel(error));
     await carregarGrupos();
     aviso('✓ Baixa gravada (' + brData(d.data_pagamento || hojeISO()) + ').');
     gravou('Baixa — ' + ({ lancamentos: 'honorário', acordos: 'acordo', parcelas: 'parcela ' + (data.numero || '') }[tabela]) + (tabela !== 'parcelas' ? ' — ' + rotuloReg(data) : ''),

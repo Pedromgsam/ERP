@@ -363,7 +363,7 @@ insert into auth.users (id,email) values
  ('00000000-0000-0000-0000-0000000000d1','contab@teste'),
  ('00000000-0000-0000-0000-0000000000d2','estagiario@teste');
 update public.perfis set papel='equipe', areas='contabil', funcoes='{"clientes":"editar","contratos":"ver"}' where email='contab@teste';
-update public.perfis set papel='equipe', areas='juridico', funcoes='{"clientes":"propor","juridico":"propor"}' where email='estagiario@teste';
+update public.perfis set papel='equipe', areas='juridico', funcoes='{"clientes":"ver","juridico":"ver"}' where email='estagiario@teste';
 insert into clientes(nome,area) values ('Só Jurídico Ltda','juridico'),('Só Contábil Ltda','contabil'),('Das Duas Ltda','ambos');
 insert into contatos(cliente_id,nome) select id,'Contato Jur' from clientes where nome='Só Jurídico Ltda';
 begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-0000000000d1');
@@ -382,42 +382,13 @@ exception when insufficient_privilege then raise notice 'PASSA: não empurra cli
 end $$;
 commit;
 
--- estagiário: não grava direto; propõe; outro aprova; o autor não aprova a própria
-select set_config('teste.contabil', id::text, false) from clientes where nome='Só Contábil Ltda';
+-- Backup 41: sem rascunho — quem tem "Ver" não grava; quem tem "Editar" grava direto
+update public.perfis set funcoes='{"clientes":"ver","juridico":"ver"}' where email='estagiario@teste';
 begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-0000000000d2');
 update clientes set obs='direto' where nome='Das Duas Ltda';
-select pg_temp.ok((select obs from clientes where nome='Das Duas Ltda')<>'direto','estagiário não grava direto');
-select public.propor_alteracao('clientes','alterar',jsonb_build_object('id',(select id from clientes where nome='Das Duas Ltda')),'{"obs":"proposta","telefone":"31 9999"}','Obs do cliente');
-select public.propor_alteracao('clientes','incluir','{}','{"nome":"Cliente Proposto","area":"ambos"}','Novo cliente');
-select pg_temp.ok((select count(*) from rascunhos where status='pendente')=2,'estagiário vê as próprias propostas');
-do $$ begin
-  perform public.propor_alteracao('clientes','alterar',jsonb_build_object('id',current_setting('teste.contabil')),'{"obs":"x"}','');
-  raise exception 'FALHOU: propôs em cliente de outra área';
-exception when raise_exception then
-  if sqlerrm like 'FALHOU%' then raise; end if; raise notice 'PASSA: não propõe (nem espia) cliente de outra área';
-end $$;
-do $$ begin
-  perform public.aprovar_rascunho((select id from rascunhos limit 1));
-  raise exception 'FALHOU: estagiário aprovou';
-exception when raise_exception then
-  if sqlerrm like 'FALHOU%' then raise; end if; raise notice 'PASSA: estagiário não aprova';
-end $$;
-do $$ begin
-  perform public.propor_alteracao('lancamentos','incluir','{}','{"tipo":"receita","descricao":"x","vencimento":"2026-10-10","valor":1}','');
-  raise exception 'FALHOU: propôs sem função';
-exception when raise_exception then
-  if sqlerrm like 'FALHOU%' then raise; end if; raise notice 'PASSA: só propõe onde tem o nível Propor';
-end $$;
+select pg_temp.ok((select obs from clientes where nome='Das Duas Ltda')<>'direto','quem só vê não grava');
 commit;
-select pg_temp.ok((select count(*) from clientes where nome='Cliente Proposto')=0,'proposta não vale antes de aprovar');
-select pg_temp.ok((select count(*) from notificacoes n join perfis p on p.id=n.usuario_id where p.email='equipe@teste' and n.tipo='rascunho')=2,'quem edita recebe aviso da proposta');
-begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-00000000000b');
-select public.aprovar_rascunho(id) from rascunhos where resumo='Obs do cliente';
-select public.aprovar_rascunho(id) from rascunhos where resumo='Novo cliente';
-commit;
-select pg_temp.ok((select obs||'|'||telefone from clientes where nome='Das Duas Ltda')='proposta|31 9999','aprovado: alteração aplicada');
-select pg_temp.ok((select count(*) from clientes where nome='Cliente Proposto')=1,'aprovado: cliente novo criado');
-select pg_temp.ok((select count(*) from notificacoes n join perfis p on p.id=n.usuario_id where p.email='estagiario@teste' and n.titulo like '%aprovada%')=2,'autor é avisado da aprovação');
+select pg_temp.ok(not exists (select 1 from pg_proc where proname in ('propor_alteracao','aprovar_rascunho')),'rascunho/aprovação removidos do banco');
 
 -- êxito: só vira lançamento quando registrado; valor = % × X
 insert into contratos(cliente_id,descricao,valor_total,num_parcelas,percentual_exito,exito_base,exito_regra,modalidade)
@@ -514,13 +485,6 @@ commit;
 begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-00000000000b');
 select pg_temp.ok(public.salvar_perfil_email(array[(select id from clientes where nome='Perfil Venc Ltda')],'padrao',null)=1,'equipe muda o perfil de e-mail');
 select pg_temp.ok((select count(*) from usuarios_previstos)=0,'equipe não vê os acessos combinados');
-do $$ begin
-  perform public.tirar_fotos_mensais();
-  raise exception 'FALHOU: equipe tirou foto mensal';
-exception when raise_exception then
-  if sqlerrm like 'FALHOU%' then raise; end if; raise notice 'PASSA: foto mensal manual só o administrador';
-end $$;
-select pg_temp.ok((select count(*) from public.pgfn_execucoes) >= 0 and (public.status_config_pgfn() ? 'consumer_key') = false,'a chave do SERPRO nunca volta para a tela');
 commit;
 begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-00000000000a');
 select pg_temp.ok((select count(*) from usuarios_previstos)=4,'admin vê os 4 acessos combinados (Emanuelle, Adriana, João Vitor, Éder)');
@@ -530,9 +494,6 @@ insert into auth.users (id,email) values ('00000000-0000-0000-0000-0000000000e1'
 select pg_temp.ok((select papel||'|'||areas||'|'||(funcoes->>'financeiro_contab') from perfis where email='ederpsique@gmail.com')='equipe|contabil|editar' and not exists (select 1 from usuarios_previstos where email='ederpsique@gmail.com'),
   'Éder nasce como Adm. da Contabilidade (só clientes da contabilidade)');
 delete from auth.users where email='ederpsique@gmail.com';
-insert into grupos(nome) values ('Grupo Foto Teste') on conflict do nothing;
-select public.tirar_fotos_mensais();
-select pg_temp.ok((select count(*) from fotos_mensais where mes=date_trunc('month',current_date)::date) >= 1,'foto mensal do passivo por grupo');
 -- Backup 15: preferência da tela (fila do Início) e mural de recados
 begin; set local role authenticated; select pg_temp.como('00000000-0000-0000-0000-00000000000b');
 select public.salvar_preferencia('fila', '{"vista":"mes"}');

@@ -1143,33 +1143,30 @@ body.gx-barra-topo #acordTabBar .tb-btn{background:none!important;border:0!impor
 body.gx-barra-topo #acordTabBar .tb-btn:hover{background:var(--surface3)!important}
 body.gx-barra-topo #acordTabBar .tb-btn.active{background:var(--selecao)!important;color:var(--on-selecao)!important}
 
-/* ═══ Backup 40 ═══ Painel → Empresas do grupo: sem faixa de grupo, colunas redistribuídas (mais espaço para Entidade / sócio),
-   grupo estreito que quebra ENTRE palavras (nunca no meio) */
-body.gx-barra-topo table:has(> #tblExecRanking){table-layout:fixed!important;width:100%!important;min-width:0!important}
+/* ═══ Backup 41 ═══ Painel → Empresas do grupo: largura automática (nada se sobrepõe: cada coluna ocupa o que o número precisa);
+   Grupo estreito que quebra ENTRE palavras; Entidade / sócio é quem cede espaço (quebra em 2 linhas se preciso) */
+body.gx-barra-topo table:has(> #tblExecRanking){table-layout:auto!important;width:100%!important;min-width:0!important}
 body.gx-barra-topo table:has(> #tblExecRanking) th:nth-child(1){width:0!important;padding:0!important}
-body.gx-barra-topo table:has(> #tblExecRanking) th:nth-child(2){width:96px!important}
-body.gx-barra-topo table:has(> #tblExecRanking) th:nth-child(4){width:130px!important}
-body.gx-barra-topo table:has(> #tblExecRanking) th:nth-child(5),body.gx-barra-topo table:has(> #tblExecRanking) th:nth-child(6),
-body.gx-barra-topo table:has(> #tblExecRanking) th:nth-child(7){width:114px!important}
-body.gx-barra-topo table:has(> #tblExecRanking) th:nth-child(8){width:124px!important}
-body.gx-barra-topo table:has(> #tblExecRanking) th:nth-child(9){width:84px!important}
-body.gx-barra-topo table:has(> #tblExecRanking) th:nth-child(10){width:84px!important}
-body.gx-barra-topo table:has(> #tblExecRanking) th,body.gx-barra-topo #tblExecRanking td{padding-left:6px!important;padding-right:6px!important}
-body.gx-barra-topo #tblExecRanking td:has(.er-grupo){width:auto!important;min-width:0!important;padding-right:6px!important}
+body.gx-barra-topo table:has(> #tblExecRanking) th,body.gx-barra-topo #tblExecRanking td{padding-left:4px!important;padding-right:4px!important}
+body.gx-barra-topo table:has(> #tblExecRanking) th{white-space:nowrap!important}
+body.gx-barra-topo #tblExecRanking td:has(.er-grupo){width:80px!important;max-width:80px!important;min-width:0!important}
 body.gx-barra-topo #tblExecRanking .er-grupo{white-space:normal!important;overflow:visible!important;text-overflow:clip!important;overflow-wrap:normal!important;word-break:normal!important;
   hyphens:none!important;max-width:none!important;width:auto!important;display:inline!important;line-height:1.35}
-body.gx-barra-topo #tblExecRanking td.mono,body.gx-barra-topo #tblExecRanking td.mono strong{white-space:nowrap;letter-spacing:-.015em}
-body.gx-barra-topo table:has(> #tblExecRanking) th{white-space:normal!important;line-height:1.25}
+body.gx-barra-topo #tblExecRanking td:has(.er-nome){min-width:104px!important;white-space:normal!important}
+body.gx-barra-topo #tblExecRanking td.mono,body.gx-barra-topo #tblExecRanking td.mono strong{white-space:nowrap}
+body.gx-barra-topo #tblExecRanking td:nth-child(4){white-space:nowrap}
 /* Backup 40: Acordos → A pagar — colunas redistribuídas e dois botões simples (Emitir/Emitido · Baixa) */
 body.gx-barra-topo table.ac-ap{table-layout:fixed!important;width:100%!important}
-body.gx-barra-topo table.ac-ap th:nth-child(1){width:34px!important}
-body.gx-barra-topo table.ac-ap th:nth-child(2){width:96px!important}
-body.gx-barra-topo table.ac-ap th:nth-child(3){width:190px!important}
-body.gx-barra-topo table.ac-ap th:nth-child(6){width:74px!important}
-body.gx-barra-topo table.ac-ap th:nth-child(7){width:120px!important}
-body.gx-barra-topo table.ac-ap th:nth-child(8){width:100px!important}
-body.gx-barra-topo table.ac-ap th:nth-child(9){width:88px!important}
-body.gx-barra-topo table.ac-ap th:nth-child(10){width:150px!important}
+/* Backup 41: sem a caixinha — 9 colunas; processo e devedor podem usar 2 linhas */
+body.gx-barra-topo table.ac-ap th:nth-child(1){width:104px!important}
+body.gx-barra-topo table.ac-ap th:nth-child(2){width:150px!important}
+body.gx-barra-topo table.ac-ap th:nth-child(5){width:74px!important}
+body.gx-barra-topo table.ac-ap th:nth-child(6){width:112px!important}
+body.gx-barra-topo table.ac-ap th:nth-child(7){width:96px!important}
+body.gx-barra-topo table.ac-ap th:nth-child(8){width:92px!important}
+body.gx-barra-topo table.ac-ap th:nth-child(9){width:150px!important}
+body.gx-barra-topo table.ac-ap td.ac-c-proc{white-space:normal!important;word-break:break-all;line-height:1.35}
+body.gx-barra-topo table.ac-ap td:nth-child(3),body.gx-barra-topo table.ac-ap td:nth-child(4){white-space:normal!important;line-height:1.35}
 body.gx-barra-topo table.ac-ap td{overflow-wrap:normal;word-break:normal}
 body.gx-barra-topo table.ac-ap td.ac-c-grp{white-space:normal!important;overflow:visible!important;text-overflow:clip!important}
 .ac-acoes{display:inline-flex;gap:6px;justify-content:flex-end;width:100%}
@@ -1188,3 +1185,10 @@ body.gx-barra-topo .gs .janela-hd{flex:none}
 body.gx-barra-topo .gs .janela-bd{flex:1 1 auto;min-height:0;overflow-y:auto}
 body.gx-barra-topo .gs .janela-rp{position:static;flex:none}
 @media (max-width:600px){body.gx-barra-topo .gs .janela{max-height:100vh}}
+/* Backup 41: modelos de proposta — uma linha por modelo (A nome · B Simplificada · C Completa · D Editar) */
+.gs .mp-lista{display:flex;flex-direction:column;gap:6px}
+.gs .mp-linha{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;gap:8px;align-items:center;padding:10px 12px;border:1px solid var(--border);border-radius:var(--r-ctl);background:var(--surface)}
+.gs .mp-linha .mp-a{min-width:0}
+.gs .mp-linha .mp-a .sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gs .mp-linha .btn{white-space:nowrap}
+@media (max-width:600px){.gs .mp-linha{grid-template-columns:1fr 1fr 1fr}.gs .mp-linha .mp-a{grid-column:1 / -1}}

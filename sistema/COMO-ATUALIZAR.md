@@ -24,11 +24,11 @@ Os arquivos podem ser rodados quantas vezes quiser: não apagam nada.
 Se aparecer **ERROR** em vermelho: tire um print e mande antes de continuar.
 Enquanto o SQL não for rodado, o ERP mostra um aviso amarelo dizendo o que falta — o resto funciona.
 
-## 2b. Funções do Supabase — e-mails, publicações, cartão CNPJ, agenda, backup e PGFN
-Os avisos por e-mail, a busca de publicações, o cartão CNPJ, a agenda do Google, o backup semanal e a consulta da PGFN
-rodam em seis "funções" dentro do Supabase.
+## 2b. Funções do Supabase — e-mails, publicações, cartão CNPJ, agenda e backup
+Os avisos por e-mail, a busca de publicações, o cartão CNPJ, a agenda do Google, o backup semanal
+rodam em cinco "funções" dentro do Supabase.
 
-**Atenção ao nome:** tem que ser exatamente `erp-emails`, `erp-publicacoes`, `erp-cnpj`, `erp-agenda`, `erp-backup` e `erp-pgfn`,
+**Atenção ao nome:** tem que ser exatamente `erp-emails`, `erp-publicacoes`, `erp-cnpj`, `erp-agenda` e `erp-backup`,
 tudo em minúsculas e com hífen.
 Se o nome for outro (ex.: "ERP-email"), o ERP não encontra a função. Para conferir, vá em Administração → ✉ E-mail →
 **🩺 Verificar funções**. A tela mostra ✅ ou ❌ para cada uma e diz o que corrigir.
@@ -50,8 +50,7 @@ Isso é feito **uma vez**; depois só muda se uma pull request pedir.
 7. Repita os passos 1 a 5 com o nome **erp-cnpj** e o arquivo `supabase/functions/erp-cnpj/index.ts`.
 8. Repita os passos 1 a 5 com o nome **erp-agenda** e o arquivo `supabase/functions/erp-agenda/index.ts`.
 9. Repita os passos 1 a 5 com o nome **erp-backup** e o arquivo `supabase/functions/erp-backup/index.ts`.
-10. Repita os passos 1 a 5 com o nome **erp-pgfn** e o arquivo `supabase/functions/erp-pgfn/index.ts`
-    (Backup 14). Ela **não gasta nada** enquanto a chave do SERPRO não for salva (veja a seção PGFN abaixo).
+10. (Backup 41) A função **erp-pgfn** saiu: se ela ainda aparece na lista, abra-a e clique em **Delete**.
 
 **Configurar dentro do ERP:**
 - **E-mail:** Administração → **✉ E-mail** → escolha "Gmail do escritório", informe o e-mail e a **senha de app**
@@ -217,12 +216,8 @@ Se precisar dele de volta, basta voltar a publicação na Vercel (passo A acima)
   público da PGFN, descompactar, escolher os .csv). Atualiza PGFN e PGFN negociada de cada cliente e a aba PGFN da ficha. A PGFN publica
   esses dados a cada trimestre.
 
-## PGFN — dívida ativa pela API do SERPRO (paga)
-1. Contrate na Loja SERPRO a API **Consulta Dívida Ativa** (cobrança por consulta; confira a tabela antes).
-2. Na área do cliente SERPRO copie a **Consumer Key** e a **Consumer Secret**.
-3. Peça ao Claude para reexibir o cartão PGFN em Alertas (escondido desde o Backup 15 a seu pedido). Depois: **Alertas** → cartão **PGFN — dívida ativa** → cole as duas chaves → escolha a frequência
-   (todo dia, toda segunda ou todo dia 1º) → marque **Rotina ligada** → **Salvar** → **↻ Consultar agora**.
-4. O resultado atualiza os campos PGFN (em cobrança) e PGFN negociada (parcelada) e aparece na ficha do cliente → aba **PGFN**.
+## PGFN — dívida ativa pela API do SERPRO
+Removida no Backup 41 (a pedido). Os valores de PGFN continuam no passivo de cada cliente (Rotina → Passivo e cadastro).
 
 ## Backup 17 — o que mudou e onde clicar
 - **Início:** o Resumo mostra só o que pede ação (sem Processos): Publicações novas, Parcelamentos e Acordos (em atraso, com
@@ -711,6 +706,23 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
 
 **Central de Documentos dentro do ERP:** menu **Documentos → Gerar documento** (ou ⋯ → Documentos, contrato, recibo do Financeiro).
 **Ctrl + clique** (ou botão do meio do mouse) em qualquer item do menu ou link de documento abre numa aba nova.
+
+## Backup 41 — mais leve: módulos sem uso removidos, Rotina rápida de novo, Painel e Acordos sem aperto, propostas completas para todos os modelos (tem SQL)
+Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+Shift+R**.
+Depois, uma vez: Supabase → **Edge Functions** → `erp-pgfn` → **Delete** (a função não é mais usada).
+Para voltar ao visual anterior: o zip do **Backup 40** (pasta `backups/`) é a versão completa de antes.
+
+- **Rotina lenta (passivo e cadastro):** o contorno azul dos grupos media cada célula de todas as tabelas a cada tecla. Agora só refaz quando as linhas mudam
+  — digitar e salvar voltou a ser instantâneo (testado com 400 empresas). Salvar o passivo grava 6 linhas por vez.
+- **Removidos por completo:** módulo de E-mails (tela), Aprovação de rascunho (quem tinha "Rascunho" passou a "Editar"; no Financeiro, "Ver"),
+  Relatório de tarefas, PGFN pela API do SERPRO (e a função `erp-pgfn`), geradores antigos de documentos (petição, solicitação, proposta etc. — fica só a
+  Central de Documentos), Relatório em PDF do menu ⋯, Fotos mensais do passivo (a evolução usa o histórico de alterações) e "Editar em tabela" de Clientes.
+- **Painel:** "Em operação" virou **Operação**; tabela sem sobreposição (CNPJ, RFB, AGE e Total separados), Entidade / sócio um pouco mais estreita.
+- **Acordos → A pagar:** sem a caixinha de marcar à esquerda; processo, devedor e credor podem ocupar 2 linhas.
+- **Acordo por PIX:** o texto é "Acordo para pagamento" com processo, parcela, partes, vencimento, valor e a chave PIX — sem falar em guia/boleto, e sem o campo de anexar.
+- **Documentos → + Enviar:** o tipo de documento voltou a ser uma lista suspensa.
+- **CRM → Modelos de proposta:** todos os 8 modelos têm a versão **Completa**; cada modelo fica em uma linha (nome · Simplificada · Completa · Editar).
+- **SQL:** remove as tabelas/funções de rascunho, PGFN e fotos mensais e preenche o detalhamento dos modelos de proposta (só onde estiver vazio).
 
 ## Backup 40 — agenda com horário e aviso, Documentos com subpastas, propostas completas, conciliação fora e modo noturno estilo GitHub (tem SQL)
 Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+Shift+R**. Nenhuma Edge Function mudou.

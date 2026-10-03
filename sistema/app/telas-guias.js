@@ -70,7 +70,6 @@ async function cardGuias(tabela, el) {
     (lista.length ? htmlGuiasPorGrupo(tabela, lista, TODOS, nome, dias, h, aba)
       : '<div class="sub" style="padding:8px 2px">' + ({ emitir: 'Nada a emitir agora. 👏', emitidas: 'Nenhuma ' + nome + ' emitida aguardando envio.', vencidas: 'Nenhuma parcela vencida sem pagamento. 👏' })[aba] + '</div>') +
     '</div></div>';
-  const bf = el.querySelector('[data-gd-fila]'); if (bf) bf.onclick = () => { if (typeof window.nav === 'function') window.nav(null, 'emails'); };
   el.querySelector('[data-gd-min]').onclick = () => { _guiaMin[tabela] = !_guiaMin[tabela]; try { localStorage.setItem('erp_guias_min', JSON.stringify(_guiaMin)); } catch (e) { /* ok */ } cardGuias(tabela, el); };
   const be = el.querySelector('[data-gd-empresa]'); if (be) be.onclick = () => janelaGuiasEmpresa(tabela, L, null, () => cardGuias(tabela, el));
   el.querySelectorAll('[data-gd-grp]').forEach((b) => b.onclick = () => { const k = tabela + '|' + b.dataset.gdGrp; _guiaGrpAberto[k] = !_guiaGrpAberto[k]; cardGuias(tabela, el); });
@@ -287,8 +286,10 @@ function textoGuias(tabela, empresa, itens) {
     return { intro, fecho, email: intro + '\n\n' + fecho, zap: intro + '\n\n' + blocos.join('\n\n') + (itens.length > 1 ? '\n\n*Total: ' + brl(tot) + '*' : '') + '\n\n' + fecho };
   }
   const soPix = itens.every((x) => ehPixGuia(tabela, x));
-  const intro = saudacaoGuia() + (soPix ? '' : '\n\nSeguem as parcelas de acordos da ' + empresa + ' com vencimento neste mês ou em atraso.');
-  const blocos = itens.map((x) => (x.vencimento < hojeISO() ? '⚠ PARCELA EM ATRASO\n' : '') + 'Processo: ' + (x.processo || '—') + ' | Parcela: ' + parcOrd(x) +
+  // Backup 41: PIX não tem guia nem boleto — o texto é só "Acordo para pagamento", com processo, partes, vencimento, valor e a chave
+  const intro = saudacaoGuia() + (soPix ? '\n\nAcordo para pagamento' + (itens.length > 1 ? 's' : '') + ' — ' + empresa + ':'
+    : '\n\nSeguem as parcelas de acordos da ' + empresa + ' com vencimento neste mês ou em atraso.');
+  const blocos = itens.map((x) => (x.vencimento < hojeISO() ? '⚠ PARCELA EM ATRASO\n' : '') + '*Acordo para pagamento*\nProcesso: ' + (x.processo || '—') + ' | Parcela: ' + parcOrd(x) +
     '\nPartes: ' + (x.devedor || '—') + ' × ' + (x.credor || '—') + '\nVencimento: ' + dataBR(x._venc || x.vencimento) + '\nValor: ' + valorDe(x) +
     (ehPixGuia(tabela, x) ? '\nPIX: ' + (x.pix || '[chave PIX]') + (x.banco ? '\nBanco: ' + x.banco : '') : ''));
   return { intro, fecho, email: intro + '\n\n' + fecho, zap: intro + '\n\n' + blocos.join('\n\n') + (itens.length > 1 ? '\n\nTotal: ' + brl(tot) : '') + '\n\n' + fecho };
@@ -338,9 +339,9 @@ async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
               '<span>' + (tabela === 'parcelas' ? (p.numero ? 'Nº do parcelamento: <b>' + esc(p.numero) + '</b> · Parcela <b>' + esc(parcDe(x)) + '</b> · ' : 'Parcela <b>' + esc(parcDe(x)) + '</b> · ') : 'Partes: <b>' + esc(x.devedor || '—') + ' × ' + esc(x.credor || '—') + '</b> · ') +
               'Vencimento <b>' + dataBR(x.vencimento) + '</b>' + (ehPixGuia(tabela, x) ? ' · PIX <b>' + esc(x.pix || '—') + '</b>' : '') + '</span></span>' +
             (x.vencimento < hojeISO() ? '<span class="ge-it-v ge-it-d"><small>Novo vencimento</small><input type="date" class="ge-novo-venc" value="' + fimDoMesGuia(hojeISO()) + '" aria-label="Novo vencimento da guia atualizada"></span>' : '') +
-            '<span class="ge-it-v"><small>' + (x.vencimento < hojeISO() ? 'Valor atualizado' : 'Valor da guia') + '</small><span class="ge-vbox"><span class="ge-rs">R$</span><input class="ge-valor" data-mascara="nenhuma" inputmode="decimal" value="' + (x.valor ? valorParaCampo(x.valor) : '') + '" placeholder="0,00" aria-label="Valor"></span></span></label>'; }).join('') + '</div>' +
+            '<span class="ge-it-v"><small>' + (x.vencimento < hojeISO() ? 'Valor atualizado' : tabela === 'acordos' ? 'Valor da parcela' : 'Valor da guia') + '</small><span class="ge-vbox"><span class="ge-rs">R$</span><input class="ge-valor" data-mascara="nenhuma" inputmode="decimal" value="' + (x.valor ? valorParaCampo(x.valor) : '') + '" placeholder="0,00" aria-label="Valor"></span></span></label>'; }).join('') + '</div>' +
         '<div class="ge-fecho">' + esc(t.fecho) + '</div></div>' +
-      '<div class="ge-anexos"><label class="ge-drop"><input type="file" id="ge-arqs" accept=".pdf,image/*" multiple hidden><span>📎 <b>Anexar os PDFs</b> ' + (tabela === 'acordos' ? 'dos boletos' : 'das guias') + '</span><small>vão só no e-mail — não ficam guardados no sistema</small></label><div class="ge-chips" id="ge-chips"></div></div>';
+      '<div class="ge-anexos"' + (e.itens.every((x) => ehPixGuia(tabela, x)) ? ' hidden' : '') + '><label class="ge-drop"><input type="file" id="ge-arqs" accept=".pdf,image/*" multiple hidden><span>📎 <b>Anexar os PDFs</b> ' + (tabela === 'acordos' ? 'dos boletos' : 'das guias') + '</span><small>vão só no e-mail — não ficam guardados no sistema</small></label><div class="ge-chips" id="ge-chips"></div></div>';
     $j('#ge-arqs').onchange = () => { arquivos = arquivos.concat([...$j('#ge-arqs').files]); $j('#ge-arqs').value = ''; pintarChips(); };
     j.querySelectorAll('.ge-it input').forEach((i) => i.addEventListener('input', total));
     j.querySelectorAll('.ge-it input[type=checkbox]').forEach((i) => i.addEventListener('change', total));

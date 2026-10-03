@@ -58,7 +58,8 @@ function janelaEnviarDocumento(vinculo, depois, titulo) {
   const j = abrirJanela({
     titulo: titulo || 'Enviar documento', larga: true,
     corpo: '<form id="f-doc" class="grade doc-envio" data-tipo="' + tipo0 + '" autocomplete="off">' +
-      '<div class="campo inteiro"><span>Tipo de documento</span><div class="segmento doc-tipos" id="doc-tipos">' + TIPOS_DOC.map(([v, r]) => '<button type="button" data-v="' + v + '"' + (v === tipo0 ? ' class="ativo"' : '') + '>' + r + '</button>').join('') + '</div></div>' +
+      // Backup 41: o tipo voltou a ser uma lista suspensa
+      campo('Tipo de documento', '<select name="tipo" id="doc-tipo-sel">' + TIPOS_DOC.map(([v, r]) => '<option value="' + v + '"' + (v === tipo0 ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>', 'inteiro') +
       '<div class="inteiro solta-arq" id="doc-solta"><b>Arraste os arquivos aqui</b> ou <label class="btn btn-o btn-mini" style="cursor:pointer">escolha<input type="file" id="doc-arq" multiple hidden></label>' +
       '<div class="sub" id="doc-lista">PDF, imagens, Word ou Excel · até ' + LIMITE_MB + ' MB cada</div></div>' +
       (vinculo.cliente_id || vinculo.contrato_id || vinculo.lancamento_id ? '' : campo(vinculo.grupo_id ? 'Empresa do grupo' : 'Cliente', '<select name="cliente_id">' +
@@ -81,14 +82,14 @@ function janelaEnviarDocumento(vinculo, depois, titulo) {
       lido.className = 'inteiro cert-lido doc-so-cert cert-ok'; }
     catch (e) { lido.innerHTML = '⚠ ' + esc(e.message); lido.className = 'inteiro cert-lido doc-so-cert cert-erro'; } };
   const mostrar = () => { lista.textContent = arquivos.length ? arquivos.map((a) => a.name + ' (' + tamanhoLegivel(a.size) + ')').join(' · ') : 'Nenhum arquivo escolhido'; tentarLer(); };
-  j.querySelector('#doc-tipos').onclick = (ev) => { const b = ev.target.closest('[data-v]'); if (!b) return; tipo = b.dataset.v; f.dataset.tipo = tipo;
-    j.querySelectorAll('#doc-tipos button').forEach((x) => x.classList.toggle('ativo', x === b)); tentarLer(); };
+  const porTipo = (v) => { tipo = v; f.dataset.tipo = v; if (f.tipo.value !== v) f.tipo.value = v; tentarLer(); };
+  f.tipo.onchange = () => porTipo(f.tipo.value);
   let tl; f.senha.addEventListener('input', () => { clearTimeout(tl); tl = setTimeout(tentarLer, 400); });
   j.querySelector('#cert-ver').onclick = () => { f.senha.type = f.senha.type === 'password' ? 'text' : 'password'; };
-  j.querySelector('#doc-arq').onchange = (ev) => { arquivos = Array.from(ev.target.files); if (arquivos.some((a) => /\.(pfx|p12)$/i.test(a.name)) && !ehCert()) j.querySelector('#doc-tipos [data-v=certificado]').click(); mostrar(); };
+  j.querySelector('#doc-arq').onchange = (ev) => { arquivos = Array.from(ev.target.files); if (arquivos.some((a) => /\.(pfx|p12)$/i.test(a.name)) && !ehCert()) porTipo('certificado'); mostrar(); };
   ['dragenter', 'dragover'].forEach((e) => solta.addEventListener(e, (ev) => { ev.preventDefault(); solta.classList.add('sobre'); }));
   ['dragleave', 'drop'].forEach((e) => solta.addEventListener(e, (ev) => { ev.preventDefault(); solta.classList.remove('sobre'); }));
-  solta.addEventListener('drop', (ev) => { arquivos = Array.from(ev.dataTransfer.files || []); if (arquivos.some((a) => /\.(pfx|p12)$/i.test(a.name)) && !ehCert()) j.querySelector('#doc-tipos [data-v=certificado]').click(); mostrar(); });
+  solta.addEventListener('drop', (ev) => { arquivos = Array.from(ev.dataTransfer.files || []); if (arquivos.some((a) => /\.(pfx|p12)$/i.test(a.name)) && !ehCert()) porTipo('certificado'); mostrar(); });
   j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
   j.querySelector('#btn-enviar-doc').onclick = (ev) => comBotao(ev.currentTarget, async () => {
     if (!arquivos.length) throw new Error('Escolha pelo menos um arquivo.');
@@ -258,26 +259,8 @@ async function pintarDocumentos(buscar) {
 // ─────────── Geradores de documentos (Backup 16) ───────────
 // Backup 32: a Central de Documentos (documentos/) substitui o gerador antigo de contrato e procuração.
 // Os outros geradores (petição, solicitação, proposta, e-mails) continuam como antes, mais abaixo na janela.
-const MODELOS_CENTRAL = [['procuracao', '📜 Procuração', 'ad judicia et extra, com a finalidade em destaque'], ['substabelecimento', '🔁 Substabelecimento', 'com ou sem reserva'],
-  ['contrato', '🤝 Contrato de honorários', 'fixo, parcelado, salário mínimo, mensal e êxito'], ['recibo', '🧾 Recibo', 'numerado, com valor por extenso'],
-  ['declaracao', '✍️ Declaração', 'hipossuficiência, residência ou texto livre'], ['acordo', '⚖️ Acordo entre partes', 'quitação de dívida, com ou sem processo']];
-const GERADORES_DOC = [['peticao.html', '⚖ Petição', 'inicial, contestação, manifestação, embargos, exceção — com cliente e processo'],
-  ['solicitacao-documentos.html', '📋 Solicitação de Documentos', 'lista do que o cliente precisa enviar'],
-  ['propostas.html', '💼 Proposta (apresentação)', 'proposta comercial em páginas, com a marca'],
-  ['modelos-email.html', '✉ Modelos de E-mail (implantação)', 'e-mails do processo de implantação, enviados pelo ERP']];
-const urlCentral = (modelo, clienteId) => 'documentos/index.html' + (modelo ? '?modelo=' + modelo + (clienteId ? '&cliente=' + encodeURIComponent(clienteId) : '') : '');
 // Backup 40: a geração de documentos é um sistema à parte — sempre abre numa aba nova (não fica mais dentro do ERP)
 function abrirCentral(url) { window.open(url || 'documentos/index.html', '_blank', 'noopener'); }
-function janelaGeradores(clienteId) {
-  const j = abrirJanela({ titulo: '📄 Documentos', larga: true,
-    corpo: '<p class="sub" style="margin-bottom:10px">Abre o <b>sistema de documentos</b> numa aba nova' + (clienteId ? ', já com este cliente' : '') + '. Lá você preenche, vê a folha pronta, salva (fica no histórico) e baixa em <b>PDF</b> ou <b>Word</b>.</p>' +
-      '<div class="lista-ficha">' + MODELOS_CENTRAL.map(([m, rot, d]) => '<a class="item-ficha clicavel ger-link" target="_blank" rel="noopener" href="' + urlCentral(m, clienteId) + '">' +
-        '<div><b>' + rot + '</b><div class="sub">' + d + '</div></div><span class="sub">abrir ›</span></a>').join('') +
-        '<a class="item-ficha clicavel ger-link" target="_blank" rel="noopener" href="documentos/index.html"><div><b>🗂 Histórico de documentos</b><div class="sub">tudo o que já foi gerado e salvo</div></div><span class="sub">abrir ›</span></a></div>' +
-      '<div class="gx-det-tit" style="margin-top:14px">Outros geradores</div><div class="lista-ficha">' + GERADORES_DOC.map(([arq, rot, d]) => '<a class="item-ficha clicavel ger-link" target="_blank" rel="noopener" href="geradores/' + arq + (clienteId ? '?cliente=' + encodeURIComponent(clienteId) : '') + '">' +
-        '<div><b>' + rot + '</b><div class="sub">' + d + '</div></div><span class="sub">abrir ↗</span></a>').join('') + '</div>' });
-  return j;
-}
 // Backup 26: gerador de contrato já com o cliente e os valores do contrato (o documento fica ligado ao contrato)
 function abrirGeradorContrato(clienteId, contratoId) {
   abrirCentral('documentos/index.html?modelo=contrato' + (clienteId ? '&cliente=' + encodeURIComponent(clienteId) : '') + (contratoId ? '&contrato=' + encodeURIComponent(contratoId) : ''));
