@@ -1045,13 +1045,13 @@ body.gx-barra-topo :is(.tw,.tabela-wrap,.gx-tab-gs) thead th{border-bottom:1px s
    lateral fixa (240 px; "encolher" → só ícones), barra de cima branca com o nome da tela,
    conteúdo centralizado com margem dos dois lados (não encosta nas bordas). */
 /* Backup 39: a margem dos lados é a MESMA com a lateral aberta ou encolhida — encolher só alarga o conteúdo */
-body.gx-barra-topo{--sw:240px;--hh:56px;--conteudo:1440px;--gut:max(20px,calc((100vw - 240px - var(--conteudo)) / 2))}   /* Backup 43: margens um pouco menores (eram 32px / 1360px) */
+body.gx-barra-topo{--sw:204px;--hh:56px;--conteudo:1440px;--gut:max(20px,calc((100vw - 204px - var(--conteudo)) / 2))}   /* Backup 44: lateral mais estreita (era 240px); Backup 43: margens menores (eram 32px / 1360px) */
 body.gx-barra-topo.gx-lado-min{--sw:68px}
 body.gx-barra-topo #main{margin-left:var(--sw)!important;padding-left:var(--gut)!important;padding-right:var(--gut)!important;transition:margin-left .18s}
 body.gx-barra-topo #main > .panel{max-width:none;margin-left:0!important;margin-right:0!important}
 #gs-lado{position:fixed;top:0;left:0;bottom:0;width:var(--sw);z-index:1250;background:var(--lado-bg)!important;min-height:0!important;color:var(--lado-fg);display:flex;flex-direction:column;
   font-family:var(--font-ui);transition:width .18s;overflow:hidden}
-#gs-lado .gl-marca{display:flex;align-items:center;gap:10px;height:72px;padding:0 18px;border-bottom:1px solid var(--lado-linha);flex-shrink:0}
+#gs-lado .gl-marca{display:flex;align-items:center;gap:10px;height:72px;padding:0 16px;border-bottom:1px solid var(--lado-linha);flex-shrink:0}
 #gs-lado .gl-logo{width:34px;height:34px;border-radius:9px;background:var(--lado-ativo-bg);color:var(--lado-ativo-fg);display:grid;place-items:center;font:800 13px var(--font-ui);letter-spacing:-.03em;flex-shrink:0}
 #gs-lado .gl-nome{font:800 16px var(--font-ui);letter-spacing:-.01em;line-height:1.1;white-space:nowrap;color:var(--lado-fg)}
 #gs-lado .gl-nome small{display:block;font:500 10.5px var(--font-ui);letter-spacing:0;color:var(--lado-sec);margin-top:3px}
@@ -1257,3 +1257,18 @@ body.gx-barra-topo #tblExecRanking td.mono{width:1%}
 .gx-la .gx-la-cb:hover{border-color:var(--green)}
 .gs td.acoes-l:has(.gx-cobrar){white-space:nowrap}
 .gs .gx-cobrar.gx-cobrado{border-color:var(--green-bd);color:var(--green-d);background:var(--green-lt)}
+/* ═══ Backup 44: Painel Executivo — Grupo mais estreito e as colunas repartem a largura inteira (Situação vai até a borda) ═══ */
+body.gx-barra-topo table:has(> #tblExecRanking) th:nth-child(2){width:9%!important}
+body.gx-barra-topo table:has(> #tblExecRanking) th:nth-child(3){width:21%!important}
+body.gx-barra-topo table:has(> #tblExecRanking) th:nth-child(4){width:11%!important}
+body.gx-barra-topo table:has(> #tblExecRanking) th:nth-child(5),body.gx-barra-topo table:has(> #tblExecRanking) th:nth-child(6),
+body.gx-barra-topo table:has(> #tblExecRanking) th:nth-child(7){width:10.5%!important}
+body.gx-barra-topo table:has(> #tblExecRanking) th:nth-child(8){width:11%!important}
+body.gx-barra-topo table:has(> #tblExecRanking) th:nth-child(9),body.gx-barra-topo table:has(> #tblExecRanking) th:nth-child(10){width:8.25%!important;text-align:center!important}
+body.gx-barra-topo #tblExecRanking td:has(.er-grupo){width:auto!important;max-width:none!important}
+body.gx-barra-topo #tblExecRanking .er-grupo{max-width:none!important;font-size:12px!important}
+body.gx-barra-topo #tblExecRanking td:has(.er-nome){width:auto!important;max-width:none!important}
+body.gx-barra-topo #tblExecRanking td.er-sit,body.gx-barra-topo #tblExecRanking td.er-op{width:auto!important;text-align:center!important}
+body.gx-barra-topo #tblExecRanking td.mono{width:auto!important}
+body.gx-barra-topo table:has(> #tblExecRanking) th:nth-child(5),body.gx-barra-topo table:has(> #tblExecRanking) th:nth-child(6),body.gx-barra-topo table:has(> #tblExecRanking) th:nth-child(7),
+body.gx-barra-topo #tblExecRanking td:nth-child(5),body.gx-barra-topo #tblExecRanking td:nth-child(6),body.gx-barra-topo #tblExecRanking td:nth-child(7){padding-left:10px!important}

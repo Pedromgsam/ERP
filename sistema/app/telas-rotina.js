@@ -327,6 +327,7 @@ async function rotinaEnviarGuias(el) {
           '<div class="nt-env-l"><input class="nt-para" placeholder="e-mail do cliente" value="' + esc(c.email || '') + '">' +
             '<input class="nt-tel" data-mascara="tel" inputmode="tel" placeholder="WhatsApp" value="' + esc(c.telefone || '') + '"></div>' +
           '<div class="acoes nt-bts"><button type="button" class="btn btn-o" data-nt-copiar>📋 Copiar</button><button type="button" class="btn btn-v" data-nt-zap>💬 WhatsApp</button>' +
+            '<button type="button" class="btn btn-o" data-nt-rasc title="Guarda o e-mail pronto na pasta Rascunhos do seu Gmail">📝 Rascunho no Gmail</button>' +
             '<button type="button" class="btn btn-p" data-nt-email>✉ Enviar e-mail</button><button type="button" class="btn btn-o" data-nt-marcar title="Use depois de copiar ou mandar pelo WhatsApp">✓ Marcar como enviada</button></div></section>'; }).join('');
     const E2 = Object.values(emps);
     out.querySelectorAll('.nt-msg').forEach((s) => { const e = E2[+s.dataset.k]; preencherDestino(s.querySelector('.nt-para'), e.cli, e.grupo, 'parcelas'); });
@@ -343,10 +344,10 @@ async function rotinaEnviarGuias(el) {
       if (b.matches('[data-nt-zap]')) { const tel = soDigitos(s.querySelector('.nt-tel').value);
         window.open('https://wa.me/' + (tel ? (tel.length <= 11 ? '55' : '') + tel : '') + '?text=' + encodeURIComponent(txt), '_blank', 'noopener'); return; }
       if (b.matches('[data-nt-marcar]')) return comBotao(b, async () => { await marcar(); aviso('✓ ' + plural(e.itens.length, 'guia marcada', 'guias marcadas') + ' como enviada.'); });
-      if (b.matches('[data-nt-email]')) return comBotao(b, async () => {
+      if (b.matches('[data-nt-email],[data-nt-rasc]')) return comBotao(b, async () => {
         const para = s.querySelector('.nt-para').value.trim(); if (!para) throw new Error('Escolha ou digite o e-mail.');
         if (e.itens.some((g) => !(g._valor > 0))) throw new Error('Confira o valor de todas as guias.');
-        const r = await q(sb.rpc('enviar_guias_email', { p_cliente: e.cli || null, p_grupo: e.grupo || null,
+        const r = await q(sb.rpc(b.matches('[data-nt-rasc]') ? 'salvar_guias_rascunho' : 'enviar_guias_email', { p_cliente: e.cli || null, p_grupo: e.grupo || null,
           p_itens: e.itens.map((g) => ({ tabela: 'parcelas', id: g.id, descricao: descricaoGuia('parcelas', Object.assign({}, g, { parcelamentos: g.p, parcela: (g.numero || '?') + '/' + (g.p.total_parcelas || '') })), vencimento: g.vencimento, valor: g._valor })),
           p_assunto: 'Guias de parcelamento — ' + e.nome, p_texto: txt, p_docs: [], p_para: para, p_arquivos: [] }));
         e.itens.forEach((g) => { g.enviada = true; _plSel.delete(g.id); }); s.classList.add('nt-feita');

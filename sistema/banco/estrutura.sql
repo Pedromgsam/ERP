@@ -6846,3 +6846,21 @@ begin
 end $$;
 revoke all on function public.disparar_envio_emails() from public, anon;
 grant execute on function public.disparar_envio_emails() to authenticated;
+
+-- ═══════════════════════════════ Backup 44 ═══════════════════════════════
+-- "Salvar rascunho no Gmail": o e-mail das guias é montado igual, mas em vez de sair fica com status 'rascunho';
+-- a função erp-emails ({acao:'rascunho', ref}) grava na pasta Rascunhos do Gmail (IMAP) e marca 'rascunho_salvo'.
+alter table public.email_fila drop constraint if exists email_fila_status_check;
+alter table public.email_fila add constraint email_fila_status_check check (status in ('pendente','enviado','erro','cancelado','retido','rascunho','rascunho_salvo'));
+create or replace function public.salvar_guias_rascunho(p_cliente uuid, p_grupo uuid, p_itens jsonb, p_assunto text, p_texto text,
+  p_docs uuid[] default '{}', p_para text default null, p_arquivos jsonb default null) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare r jsonb;
+begin
+  -- mesma transação: o e-mail nunca fica "pendente" (a rotina de 5 min não o envia)
+  r := public.enviar_guias_email(p_cliente, p_grupo, p_itens, p_assunto, p_texto, p_docs, p_para, p_arquivos);
+  update public.email_fila set status = 'rascunho' where referencia = r->>'ref' and status in ('pendente', 'retido');
+  return r || jsonb_build_object('status', 'rascunho');
+end $$;
+revoke all on function public.salvar_guias_rascunho(uuid, uuid, jsonb, text, text, uuid[], text, jsonb) from public, anon;
+grant execute on function public.salvar_guias_rascunho(uuid, uuid, jsonb, text, text, uuid[], text, jsonb) to authenticated;

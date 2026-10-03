@@ -1163,7 +1163,15 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('Reemissão: a guia vencida pede o novo vencimento', await p.isVisible('#gs-raiz .ge-novo-venc'));
     await p.fill('#gs-raiz #ge-para', 'guias@teste.com'); await p.fill('#gs-raiz .ge-valor', '999,90'); await p.click('#gs-raiz #ge-enviar'); await p.waitForTimeout(2500);
     ok('Reemissão: grava o reenvio (novo vencimento e valor atualizado) sem mudar o valor lançado', sql("select (reenvio_venc >= current_date)::text || '|' || reenvio_valor || '|' || coalesce(valor::text,'-') from parcelas where numero='79'") === 'true|999.90|-');
-    sql("delete from parcelas where numero in ('77','78','79')");
+    // Backup 44: "📝 Rascunho no Gmail" — o e-mail fica pronto na pasta Rascunhos (IMAP) e não sai
+    sql("insert into parcelas(parcelamento_id,numero,vencimento,pago) select parcelamento_id,'80',current_date+6,false from parcelas where numero='77' limit 1");
+    await p.evaluate((ids) => window.GS.gerarGuias('parcelas', { ids }), [sql("select id from parcelas where numero='80'")]); await p.waitForSelector('#gs-raiz .ge-janela'); await p.waitForTimeout(500);
+    await p.fill('#gs-raiz #ge-para', 'rascunho@teste.com'); await p.fill('#gs-raiz .ge-valor', '321,00'); await p.click('#gs-raiz #ge-rascunho'); await p.waitForTimeout(3000);
+    { const st = sql("select status from email_fila where para='rascunho@teste.com'"), av = await p.textContent('#gs-raiz #aviso').catch(() => '');
+      const rs = await (await fetch(BASE + '/__teste/rascunhos')).json();
+      ok('Backup 44: "Rascunho no Gmail" grava na pasta Rascunhos e não envia', st === 'rascunho_salvo' && rs.some((x) => /To: rascunho@teste\.com/.test(x.raw) && x.pasta === '[Gmail]/Rascunhos') &&
+        /rascunho salvo no Gmail/.test(av), st + ' | ' + av); }
+    sql("delete from parcelas where numero in ('77','78','79','80')");
     sql("update parcelamentos set valor_ultima_parcela = " + vu77 + " where id='" + pa77 + "'");
     sql("delete from config_privada where chave='email'");
 

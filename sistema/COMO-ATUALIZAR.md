@@ -707,6 +707,20 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
 **Central de Documentos dentro do ERP:** menu **Documentos → Gerar documento** (ou ⋯ → Documentos, contrato, recibo do Financeiro).
 **Ctrl + clique** (ou botão do meio do mouse) em qualquer item do menu ou link de documento abre numa aba nova.
 
+## Backup 44 — lateral mais estreita, Painel ocupando a largura toda e "Rascunho no Gmail" (tem SQL e função)
+Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) publicar a função erp-emails  4) Ctrl+Shift+R**.
+Para voltar à versão anterior: o zip do **Backup 43** (pasta `backups/`).
+
+- **Barra lateral:** 204 px (era 240 px) — o conteúdo ganha espaço.
+- **Painel Executivo:** coluna Grupo mais estreita; as colunas repartem a largura inteira (Situação vai até a borda; Operação e Situação centralizadas).
+- **E-mail não saía:** a função no Supabase tinha o endereço **/functions/v1/super-worker** (criada com outro nome e depois renomeada — renomear
+  NÃO muda o endereço). O ERP chama **/functions/v1/erp-emails**. Solução: criar uma função NOVA chamada `erp-emails`
+  (Edge Functions → Deploy a new function → Via Editor → nome `erp-emails` → colar `supabase/functions/erp-emails/index.ts` → Deploy →
+  Settings → Verify JWT desligado) e apagar a `super-worker`. A mensagem de erro do ERP agora explica isso.
+- **📝 Rascunho no Gmail** (Enviar guias por empresa / Acordos → Emitir e Rotina → Enviar guias do mês): monta o mesmo e-mail (com os anexos)
+  e grava na pasta **Rascunhos** do Gmail, pela mesma senha de app (IMAP, `imap.gmail.com:993`), sem enviar. SQL: status `rascunho`/`rascunho_salvo`
+  em `email_fila` e `salvar_guias_rascunho(...)` (mesmos 8 parâmetros de `enviar_guias_email`); função: `{acao:'rascunho', ref}` (`imapRascunho`).
+
 ## Backup 43 — menu de volta na lateral, "Cobrar" rápido, Planilha de parcelamentos de volta e e-mail com segunda via (tem SQL)
 Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+Shift+R**. Nenhuma função mudou nesta versão
 (mas a `erp-emails` do Backup 42 precisa estar publicada — veja abaixo).

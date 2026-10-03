@@ -178,12 +178,13 @@ async function chamarFuncao(nome, corpo) {
     r = await fetch(String(CFG.url).replace(/\/$/, '') + '/functions/v1/' + nome, { method: 'POST',
       headers: { 'Content-Type': 'application/json', apikey: CFG.chave, Authorization: 'Bearer ' + (sessao ? sessao.access_token : CFG.chave) },
       body: JSON.stringify(corpo || {}) });
-  } catch (e) { throw new Error('Não consegui falar com a função "' + nome + '". As causas mais comuns: (1) ela não está publicada no Supabase com esse nome exato; (2) a opção "Verify JWT" dela está LIGADA (tem que ficar desligada); (3) sem internet.'); }
+  } catch (e) { throw new Error('Não consegui falar com a função "' + nome + '". No Supabase, o endereço da função (aparece embaixo do nome dela) tem que terminar em /functions/v1/' + nome +
+    ' — se terminar em outra palavra (ex.: /super-worker), mudar o nome não adianta: crie uma função NOVA com o nome ' + nome + ' e cole o código nela. Outras causas: "Verify JWT" ligado (tem que ficar desligado) ou sem internet.'); }
   const txt = await r.text(); let js = null;
   try { js = JSON.parse(txt); } catch (e) { /* resposta sem JSON */ }
   if (r.ok) return js || {};
   const det = (js && (js.erro || js.message || js.msg || js.error)) || txt.slice(0, 200);
-  if (r.status === 404) throw new Error('A função "' + nome + '" não foi encontrada no Supabase. Em Edge Functions, o nome tem que ser exatamente "' + nome + '" (tudo minúsculo). Se ela foi criada com outro nome, crie de novo com o nome certo.');
+  if (r.status === 404) throw new Error('A função "' + nome + '" não foi encontrada no Supabase: o endereço dela tem que terminar em /functions/v1/' + nome + '. Se ela foi criada com outro nome (o endereço não muda quando se renomeia), crie uma função nova chamada ' + nome + '.');
   if ((r.status === 401 || r.status === 403) && !(js && js.erro)) throw new Error('O Supabase recusou a chamada da função "' + nome + '": abra a função no Supabase → Details e desligue "Verify JWT" (Enforce JWT verification). Detalhe: ' + det);
   if (js && js.erro) throw new Error(js.erro);
   if (r.status >= 500) throw new Error('A função "' + nome + '" existe, mas deu erro ao rodar (' + r.status + '): ' + det + '. Confira se o arquivo foi colado inteiro e publique de novo.');
@@ -206,6 +207,16 @@ async function enviarEmailAgora(ref, para) {
   if (it && it.status === 'retido') return { ok: false, msg: 'o e-mail ficou retido (envio pausado). Veja Administração → E-mail.' };
   if (it && it.erro) return { ok: false, msg: 'o e-mail NÃO saiu: ' + explicarErroEmail(it.erro) + (it.status === 'pendente' ? ' (vai tentar de novo)' : '') };
   return { ok: !it, msg: it ? 'e-mail na fila para ' + (it.para || para || '') + '.' : 'e-mail enviado.' };
+}
+// Backup 44: o e-mail já está na fila com status 'rascunho' → a função grava na pasta Rascunhos do Gmail (não envia)
+async function salvarRascunhoAgora(ref) {
+  let d;
+  try { d = await chamarFuncao('erp-emails', { acao: 'rascunho', ref }); }
+  catch (e) { return { ok: false, msg: 'o rascunho NÃO foi salvo. ' + e.message }; }
+  if (d && d.aviso) return { ok: false, msg: 'o rascunho NÃO foi salvo: ' + d.aviso };
+  const it = d && d.item;
+  if (it && it.status === 'rascunho_salvo') return { ok: true, msg: 'rascunho salvo no Gmail' + (d.pasta ? ' (pasta ' + d.pasta + ')' : '') + ' — abra o Gmail, confira e clique em Enviar.' };
+  return { ok: false, msg: 'o rascunho NÃO foi salvo: ' + explicarErroEmail((it && it.erro) || d.ultimoErro || 'motivo desconhecido') };
 }
 // a mensagem técnica do Gmail/SMTP em português simples
 function explicarErroEmail(e) {

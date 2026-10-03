@@ -66,6 +66,22 @@ const tokenDe = (email) => jwt({ sub: sql("select id from perfis where email='" 
     ok('resumo do dia com os prazos atrasados da pessoa', !!resumo && /Prazo vencido teste/.test(resumo.html) && /atrasada/.test(resumo.html));
     await chamar({ acao: 'resumo' }, { Authorization: 'Bearer ' + tokenDe('pedro@teste') });
     ok('resumo não duplica no mesmo dia', cartas.filter((c) => /Resumo do dia/.test(c.subject) && c.to === 'pedro@teste').length === 1);
+    // Backup 44: rascunho no Gmail (IMAP) — não envia, grava na pasta Rascunhos
+    const { rascunhos } = F;
+    sql("insert into email_fila(para,assunto,html,tipo,referencia,status) values ('cli@rasc.teste','Guias B44 rascunho','<p>Segue a guia</p>','cliente','guias:b44','rascunho')");
+    const nCartas = cartas.length;
+    x = await chamar({ acao: 'rascunho', ref: 'guias:b44' }, { Authorization: 'Bearer ' + tokenDe('equipe@teste') });
+    ok('Backup 44: rascunho vai para a pasta Rascunhos do Gmail (imap.gmail.com:993), sem enviar', x.status === 200 && x.json.rascunhos === 1 && rascunhos.length === 1 &&
+      rascunhos[0].host === 'imap.gmail.com' && rascunhos[0].porta === 993 && rascunhos[0].pasta === '[Gmail]/Rascunhos' && /Subject: Guias B44 rascunho/.test(rascunhos[0].raw) &&
+      /To: cli@rasc\.teste/.test(rascunhos[0].raw) && cartas.length === nCartas, JSON.stringify([x.json, rascunhos.length && rascunhos[0].pasta]));
+    ok('Backup 44: rascunho salvo fica marcado (e a rotina não o envia)', sql("select status from email_fila where referencia='guias:b44'") === 'rascunho_salvo' && x.json.item.status === 'rascunho_salvo');
+    await chamar({}, segredo());
+    ok('Backup 44: e-mail "rascunho" nunca sai pela rotina', !cartas.some((c) => c.subject === 'Guias B44 rascunho'));
+    estado.senhaImap = 'outra-senha';
+    sql("insert into email_fila(para,assunto,html,tipo,referencia,status) values ('cli@rasc.teste','Guias B44 senha','<p>x</p>','cliente','guias:b44b','rascunho')");
+    x = await chamar({ acao: 'rascunho', ref: 'guias:b44b' }, segredo());
+    ok('Backup 44: senha recusada pelo Gmail → explica e o rascunho fica pendente', x.json.erros === 1 && /recusou o login/.test(x.json.ultimoErro) && sql("select status from email_fila where referencia='guias:b44b'") === 'rascunho', JSON.stringify(x.json));
+    estado.senhaImap = null;
     // Resend
     sql(`update config_privada set valor='{"provedor":"resend","usuario":"avisos@escritorio.com.br","senha":"re_teste","remetente":"ERP"}' where chave='email'`);
     let pedido = null; ctx._fetch = async (url, o) => { pedido = { url, o }; return new Response('{"id":"1"}', { status: 200 }); };
