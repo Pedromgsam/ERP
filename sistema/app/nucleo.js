@@ -275,7 +275,12 @@ const PESSOA = {
   'João Vitor': { fundo: '#E9DDFB', marca: '#7C4DCC', texto: '#5B2E9E' },
   'Éder':       { fundo: '#D5F0EC', marca: '#2D8C7E', texto: '#1F6B60' }
 };
-function corPessoa(n) { return PESSOA[String(n || '').trim()] || { fundo: '#EEF1F7', marca: '#6B7280', texto: '#4B5563' }; }
+// Backup 40: reconhece a pessoa pelo primeiro nome, sem diferença de maiúscula/acento ("PEDRO", "Pedro Castro", "escritorio")
+const _semAc = (s) => String(s || '').trim().split(/\s+/)[0].normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+function corPessoa(n) {
+  const k = Object.keys(PESSOA).find((p) => p === String(n || '').trim()) || Object.keys(PESSOA).find((p) => _semAc(p) === _semAc(n));
+  return PESSOA[k] || { fundo: '#EEF1F7', marca: '#6B7280', texto: '#4B5563' };
+}
 function pillPessoa(n) {
   if (!n) return '<span class="sub">—</span>';
   const c = corPessoa(n);

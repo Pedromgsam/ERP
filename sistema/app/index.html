@@ -48,11 +48,11 @@
 <script src="erp-dados.js?v=9a3e7433"></script>
 <link rel="stylesheet" href="editor.css?v=7747e46f">
 <link rel="stylesheet" href="erp-telas.css?v=22ce828d">
-<script src="editor.js?v=a07834af" defer></script>
-<script src="erp-telas.js?v=6854e0b1" defer></script>
-<link rel="stylesheet" href="gs.css?v=64778c6a">
+<script src="editor.js?v=5eb51e5a" defer></script>
+<script src="erp-telas.js?v=21212629" defer></script>
+<link rel="stylesheet" href="gs.css?v=d626acf3">
 <script src="importador.js?v=4fb0d655" defer></script>
-<script src="gestao-embutida.js?v=85a73554" defer></script>
+<script src="gestao-embutida.js?v=7875a22c" defer></script>
 <script>
 
 
@@ -1615,9 +1615,9 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
 .ep-val:focus{border-bottom-color:var(--navy);background:#FFF8E1}
 .ep-val::placeholder{color:var(--text4);font-weight:400}
 </style>
-<link rel="stylesheet" href="tokens.css?v=8726569d">
-<link rel="stylesheet" href="tema-escuro.css?v=09e344f4">
-<link rel="stylesheet" href="design.css?v=7be4db59">
+<link rel="stylesheet" href="tokens.css?v=806c2a7c">
+<link rel="stylesheet" href="tema-escuro.css?v=61dd3800">
+<link rel="stylesheet" href="design.css?v=bad968b7">
 <script>try{if(localStorage.getItem("erp_tema")==="escuro")document.documentElement.setAttribute("data-tema","escuro")}catch(e){}</script>
 </head>
 <body>
@@ -2218,10 +2218,10 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
     <div id="alertFin" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"></div>
   </div>
   <div id="finTabBar" style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
-    <button class="fin-tab active" data-tab="analise"   onclick="setFinTab('analise',this)"  >📊 Análise</button>
-    <button class="fin-tab"        data-tab="receber"   onclick="setFinTab('receber',this)"  >📋 A Receber</button>
-    <button class="fin-tab"        data-tab="recebidos" onclick="setFinTab('recebidos',this)" >✅ Recebidos</button>
-    <button class="fin-tab"        data-tab="prejuizo"  onclick="setFinTab('prejuizo',this)"  >📉 Prejuízo / Créditos</button>
+    <button class="fin-tab active" data-tab="analise"   onclick="setFinTab('analise',this)"  ><svg class="fa-ic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M8 17V11M13 17V7M18 17v-4"/></svg>Análise</button>
+    <button class="fin-tab"        data-tab="receber"   onclick="setFinTab('receber',this)"  ><svg class="fa-ic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>A Receber</button>
+    <button class="fin-tab"        data-tab="recebidos" onclick="setFinTab('recebidos',this)" ><svg class="fa-ic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg>Recebidos</button>
+    <button class="fin-tab"        data-tab="prejuizo"  onclick="setFinTab('prejuizo',this)"  ><svg class="fa-ic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7l6 6 4-4 8 8"/><path d="M15 17h6v-6"/></svg>Prejuízo / Créditos</button>
   </div>
   <div id="finContent"></div>
 </section>
@@ -2237,13 +2237,13 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
     </div>
   </div>
   <div id="finCTabBar" style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
-    <button class="fin-tab active" data-tab="analise"  onclick="setFinCTab('analise',this)" >📊 Análise</button>
-    <button class="fin-tab"        data-tab="receber"  onclick="setFinCTab('receber',this)" >📥 A Receber</button>
-    <button class="fin-tab"        data-tab="receita"  onclick="setFinCTab('receita',this)" >💰 Receita</button>
-    <button class="fin-tab"        data-tab="apagar"   onclick="setFinCTab('apagar',this)"  >📤 A Pagar</button>
-    <button class="fin-tab"        data-tab="despesa"  onclick="setFinCTab('despesa',this)" >💸 Despesa</button>
-    <button class="fin-tab"        data-tab="caixa"    onclick="setFinCTab('caixa',this)"   >🏦 Composição de Caixa</button>
-    <button class="fin-tab"        data-tab="socios"   onclick="setFinCTab('socios',this)"  >🤝 Distribuição de Lucros</button>
+    <button class="fin-tab active" data-tab="analise"  onclick="setFinCTab('analise',this)" ><svg class="fa-ic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M8 17V11M13 17V7M18 17v-4"/></svg>Análise</button>
+    <button class="fin-tab"        data-tab="receber"  onclick="setFinCTab('receber',this)" ><svg class="fa-ic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>A Receber</button>
+    <button class="fin-tab"        data-tab="receita"  onclick="setFinCTab('receita',this)" ><svg class="fa-ic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>Receita</button>
+    <button class="fin-tab"        data-tab="apagar"   onclick="setFinCTab('apagar',this)"  ><svg class="fa-ic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21V9M7 14l5-5 5 5"/><path d="M4 7V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2"/></svg>A Pagar</button>
+    <button class="fin-tab"        data-tab="despesa"  onclick="setFinCTab('despesa',this)" ><svg class="fa-ic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></svg>Despesa</button>
+    <button class="fin-tab"        data-tab="caixa"    onclick="setFinCTab('caixa',this)"   ><svg class="fa-ic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="13" rx="2"/><path d="M2 10h20M16 15h2"/></svg>Composição de Caixa</button>
+    <button class="fin-tab"        data-tab="socios"   onclick="setFinCTab('socios',this)"  ><svg class="fa-ic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12A9 9 0 1 1 12 3v9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/></svg>Distribuição de Lucros</button>
   </div>
   <div id="finCContent"></div>
 </section>
@@ -5281,7 +5281,7 @@ function renderAcordosVencTbl(){
   var tab=document.querySelector('#acordTabVencidos table'); if(!tab) return;
   tab.classList.add('ac-ap');
   tab.querySelector('thead').innerHTML='<tr><th class="ac-ck"><input type="checkbox" id="acSelTodos" aria-label="Marcar todas"></th><th class="ac-c-grp">Grupo</th><th>Processo</th><th>Devedor</th><th>Credor</th>'
-    +'<th>Parcela</th><th>Valor</th><th>Vencimento</th><th>Prazo</th><th class="ac-c-acao">Emissão</th></tr>';
+    +'<th>Parcela</th><th>Valor</th><th>Vencimento</th><th>Prazo</th><th class="ac-c-acao"></th></tr>';
   var cnt=$('acordVencCount'); if(cnt) cnt.textContent='· '+fI(rows.length)+' parcela(s) a pagar';
   var pg=$('pagAcordosVenc'); if(pg) pg.innerHTML='';
   var el=$('tblAcordosVencBody'); if(!el) return;
@@ -5294,9 +5294,9 @@ function renderAcordosVencTbl(){
       +'<td class="mono">'+esc(a.parcela||'—')+' de '+esc(a.totalParc||'—')+'</td><td class="mono"><strong>'+fF(a.valor||0)+'</strong></td>'
       +'<td class="mono">'+esc(a.vencimento||'—')+'</td>'
       +'<td class="mono"><span class="'+(dias===null?'':_diasCls(dias))+'">'+(dias===null?'—':dias<0?Math.abs(dias)+' d atraso':dias===0?'vence hoje':dias+' dias')+'</span></td>'
-      // Backup 37: sem "Situação" (o prazo já diz); "✓ emitido" fica colado no botão Emitir
-      +'<td class="ac-ap-ac ac-c-acao"><span class="ac-emit-par"><button type="button" class="ac-bt-boleto" data-ac-guia="'+a._id+'" title="Emitir o boleto (ou a cobrança por PIX) desta parcela e enviar ao cliente">🧾 '+(emit?'Reemitir':'Emitir')+'</button>'
-        +(emit?'<span class="lg-em lg-em-ok" title="'+esc(a.emitidaEm?'emitido em '+a.emitidaEm:'')+'">✓ emitido'+(a.emitidaEm?' '+esc(String(a.emitidaEm).slice(0,5)):'')+'</span>':'')+(a.formaPag==='pix'?'<span class="ge-forma">PIX</span>':'')+'</span></td></tr>';
+      // Backup 40: dois botões simples — "Emitir" (vira "Emitido" depois de emitida; clicar de novo reemite) e "Baixa"; sem a caneta
+      +'<td class="ac-ap-ac ac-c-acao"><span class="ac-acoes"><button type="button" class="ac-bt-emitir'+(emit?' ac-emitido':'')+'" data-ac-guia="'+a._id+'" title="'+(emit?esc('Emitido'+(a.emitidaEm?' em '+a.emitidaEm:'')+' — clique para emitir de novo'):'Emitir o boleto (ou a cobrança por PIX) e enviar ao cliente')+'">'+(emit?'✓ Emitido':'Emitir')+'</button>'
+        +'<button type="button" class="gx-la-bx ac-bt-baixa" data-la="baixa" title="Dar baixa (pago) — pede confirmação">Baixa</button></span></td></tr>';
   }).join(''):'<tr><td colspan="10">'+emp('Nenhuma parcela a pagar — tudo em dia! ✅')+'</td></tr>';
   _acBarraSel();
   el.onchange=function(ev){ var c=ev.target.closest('[data-ac-sel]'); if(!c) return; if(c.checked) _acSel[c.dataset.acSel]=1; else delete _acSel[c.dataset.acSel]; _acBarraSel(); };
@@ -5311,7 +5311,7 @@ function _acBarraSel(){
   if(!box) return;
   var ids=Object.keys(_acSel);
   box.innerHTML=ids.length?'<span><b>'+ids.length+' parcela'+(ids.length>1?'s':'')+' marcada'+(ids.length>1?'s':'')+'</b></span><span class="acoes"><button type="button" class="ac-bt-boleto" id="acSelLimpar">Desmarcar</button><button type="button" class="ac-bt-boleto ac-bt-prim" id="acSelEnviar">✉ Enviar por empresa</button></span>'
-    :'<span class="sub">Marque as parcelas para enviar os boletos por empresa (ou use 🧾 Emitir na linha).</span>';
+    :'<span class="sub">Marque as parcelas para enviar os boletos por empresa (ou use Emitir na linha).</span>';
   var l=$('acSelLimpar'); if(l) l.onclick=function(){ _acSel={}; renderAcordosVencTbl(); };
   var e=$('acSelEnviar'); if(e) e.onclick=function(){ if(window.GS&&GS.enviarAcordosSelecionados) GS.enviarAcordosSelecionados(ids, function(){ _acSel={}; if(window.ERP_RECARREGAR) window.ERP_RECARREGAR(); }); };
 }
@@ -5777,13 +5777,13 @@ function _faEsqueleto(){
   +   '<span class="fa-dtwrap"><input type="text" class="fsel fa-dt" id="faDe" placeholder="dd/mm/aaaa"'
   +     ' maxlength="10" inputmode="numeric" autocomplete="off"'
   +     ' oninput="faMascara(this)" onkeydown="if(event.key===\'Enter\')faAplicarIntervalo()">'
-  +     '<button class="fa-cal" onclick="faCalendario(\'De\')" title="Abrir calendário">📅</button>'
+  +     '<button class="fa-cal" onclick="faCalendario(\'De\')" title="Abrir calendário"><svg class="fa-ic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></button>'
   +     '<input type="date" id="faCalDe" class="fa-oculto" onchange="faCalendarioEscolheu(\'De\')"></span>'
   +   '<span class="fa-ate">até</span>'
   +   '<span class="fa-dtwrap"><input type="text" class="fsel fa-dt" id="faAte" placeholder="dd/mm/aaaa"'
   +     ' maxlength="10" inputmode="numeric" autocomplete="off"'
   +     ' oninput="faMascara(this)" onkeydown="if(event.key===\'Enter\')faAplicarIntervalo()">'
-  +     '<button class="fa-cal" onclick="faCalendario(\'Ate\')" title="Abrir calendário">📅</button>'
+  +     '<button class="fa-cal" onclick="faCalendario(\'Ate\')" title="Abrir calendário"><svg class="fa-ic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></button>'
   +     '<input type="date" id="faCalAte" class="fa-oculto" onchange="faCalendarioEscolheu(\'Ate\')"></span>'
   +   '<button class="fa-chip fa-aplicar" onclick="faAplicarIntervalo()" title="Aplica o mês (mm/aaaa) ou o intervalo de datas">Aplicar</button>'
   +   '<span class="fa-ativo" id="faSelInfo" style="display:none"></span>'
@@ -6007,6 +6007,8 @@ var _FA_PESSOA={
 var _FA_NEUTRAS=['#1B2A4A','#6D28D9','#0F766E','#B91C1C','#0369A1','#4B5563'];
 function _faCor(nome){
   var c=_FA_PESSOA[String(nome||'').trim()];
+  if(!c){ var _n=function(s){ return String(s||'').trim().split(/s+/)[0].normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase(); };
+    for(var _k in _FA_PESSOA) if(_n(_k)===_n(nome)){ c=_FA_PESSOA[_k]; break; } }
   if(c) return c;
   var h=0, t=String(nome||'');
   for(var i=0;i<t.length;i++) h=(h*31+t.charCodeAt(i))|0;
@@ -6979,13 +6981,13 @@ function _fcEsqueleto(){
   +   '<span class="fa-dtwrap"><input type="text" class="fsel fa-dt" id="fcDe" placeholder="dd/mm/aaaa"'
   +     ' maxlength="10" inputmode="numeric" autocomplete="off"'
   +     ' oninput="fcMascara(this)" onkeydown="if(event.key===\'Enter\')fcAplicarIntervalo()">'
-  +     '<button class="fa-cal" onclick="fcCalendario(\'De\')" title="Abrir calendário">📅</button>'
+  +     '<button class="fa-cal" onclick="fcCalendario(\'De\')" title="Abrir calendário"><svg class="fa-ic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></button>'
   +     '<input type="date" id="fcCalDe" class="fa-oculto" onchange="fcCalendarioEscolheu(\'De\')"></span>'
   +   '<span class="fa-ate">até</span>'
   +   '<span class="fa-dtwrap"><input type="text" class="fsel fa-dt" id="fcAte" placeholder="dd/mm/aaaa"'
   +     ' maxlength="10" inputmode="numeric" autocomplete="off"'
   +     ' oninput="fcMascara(this)" onkeydown="if(event.key===\'Enter\')fcAplicarIntervalo()">'
-  +     '<button class="fa-cal" onclick="fcCalendario(\'Ate\')" title="Abrir calendário">📅</button>'
+  +     '<button class="fa-cal" onclick="fcCalendario(\'Ate\')" title="Abrir calendário"><svg class="fa-ic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></button>'
   +     '<input type="date" id="fcCalAte" class="fa-oculto" onchange="fcCalendarioEscolheu(\'Ate\')"></span>'
   +   '<button class="fa-chip fa-aplicar" onclick="fcAplicarIntervalo()" title="Aplica o mês (mm/aaaa) ou o intervalo de datas">Aplicar</button>'
   +   '<span class="fa-ativo" id="fcSelInfo" style="display:none"></span>'

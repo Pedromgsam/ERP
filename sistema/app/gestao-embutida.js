@@ -280,7 +280,12 @@ const PESSOA = {
   'João Vitor': { fundo: '#E9DDFB', marca: '#7C4DCC', texto: '#5B2E9E' },
   'Éder':       { fundo: '#D5F0EC', marca: '#2D8C7E', texto: '#1F6B60' }
 };
-function corPessoa(n) { return PESSOA[String(n || '').trim()] || { fundo: '#EEF1F7', marca: '#6B7280', texto: '#4B5563' }; }
+// Backup 40: reconhece a pessoa pelo primeiro nome, sem diferença de maiúscula/acento ("PEDRO", "Pedro Castro", "escritorio")
+const _semAc = (s) => String(s || '').trim().split(/\s+/)[0].normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+function corPessoa(n) {
+  const k = Object.keys(PESSOA).find((p) => p === String(n || '').trim()) || Object.keys(PESSOA).find((p) => _semAc(p) === _semAc(n));
+  return PESSOA[k] || { fundo: '#EEF1F7', marca: '#6B7280', texto: '#4B5563' };
+}
 function pillPessoa(n) {
   if (!n) return '<span class="sub">—</span>';
   const c = corPessoa(n);
@@ -916,6 +921,7 @@ TELAS.inicio = async function () {
   cardLembretes().catch((e) => console.error(e));
   cardResumoEscritorio().catch((e) => console.error(e));
   if (typeof buscaPubAutomatica === 'function') buscaPubAutomatica().catch(() => {});
+  if (typeof vigiarAgenda === 'function') vigiarAgenda();   // Backup 40: aviso antes dos compromissos
   if (typeof cardValidacoes === 'function') cardValidacoes().then((c) => { const el = $('ini-valid'); if (el) { el.innerHTML = c.html; c.ligar(el); } }).catch((e) => console.error(e));
   if (typeof cardAprovacoes === 'function') cardAprovacoes().then((x) => { const el = $('ini-aprov'); if (el) el.innerHTML = x; }).catch((e) => console.error(e));
   if (typeof cardMinhaFila === 'function') cardMinhaFila().then((c) => { const el = $('ini-fila'); if (el) { el.innerHTML = c.html; c.ligar(el); } }).catch((e) => console.error(e));
@@ -1686,7 +1692,7 @@ async function detalheLancamento(id) {
     rodape: '<span>' + (l.contrato_id ? '<button class="btn btn-o btn-mini" type="button" id="dl-ctr">Abrir contrato</button> ' : '') +
         (l.cliente_id ? '<button class="btn btn-o btn-mini" type="button" id="dl-cli">Ficha do cliente</button>' : '') +
         // Backup 32: recibo já preenchido na Central de Documentos (valor, data, forma e cliente)
-        (l.pago && l.tipo === 'receita' ? ' <a class="btn btn-o btn-mini" id="dl-recibo" target="_blank" rel="noopener" href="documentos/index.html?lancamento=' + encodeURIComponent(l.id) + '">📄 Recibo</a>' : '') + '</span>' +
+        '</span>' +
       '<div class="acoes"><button class="btn btn-o" type="button" data-editar="' + l.id + '">✎ Editar</button>' +
       (!l.pago && !l.perda ? '<button class="btn btn-v" type="button" data-pagar="' + l.id + '">✓ ' + (l.tipo === 'despesa' && !l.redutor ? 'Pago' : 'Recebido') + '</button>' : '') + '</div>' });
   ligarAcoesLancamentos(j, async () => { fecharJanela(j); if (window.ERP_RECARREGAR) window.ERP_RECARREGAR(); else await recarregar(); });
@@ -1854,24 +1860,19 @@ TELAS.clientes = async function () {
     '<div class="segmento" id="cli-visao" title="Como mostrar a lista">' + [['grupo', 'Por grupo'], ['lista', 'Lista']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<div class="segmento" id="cli-tipo">' + [['ativos', 'Ativos'], ['Consultoria', 'Consultoria'], ['Demanda', 'Serviço pontual'], ['Inativo', 'Inativos'], ['todos', 'Todos']]
       .map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
-    (minhasAreas() === 'ambos' ? '<select class="busca sel" id="cli-area" aria-label="Área" style="max-width:190px"><option value="">Todas as áreas</option><option value="juridico">Jurídico</option><option value="contabil">Contabilidade</option></select>' : '') +
+    // Backup 40: área em botões, como Ativos/Consultoria
+    (minhasAreas() === 'ambos' ? '<div class="segmento" id="cli-area" aria-label="Área">' + [['', 'Todas as áreas'], ['juridico', 'Jurídico'], ['contabil', 'Contabilidade']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' : '') +
     '<select class="busca sel" id="cli-grupo" autocomplete="off"><option value="">Todos os grupos</option>' +
     E.grupos.map((g) => '<option value="' + g.id + '">' + esc(g.nome) + '</option>').join('') + '</select>' +
     '<input class="busca" id="cli-busca" placeholder="Buscar nome, grupo, responsável ou CPF/CNPJ" autocomplete="off">' +
-    '<button class="btn btn-o" type="button" id="cli-relatorio" title="Lista filtrada com todos os campos, em tabela e CSV">⬇ Relatório</button>' +
     '<button class="btn btn-o" type="button" id="cli-massa" title="Editar passivo, CEAT e CAPAG de vários clientes numa tabela (aceita colar do Excel)">✎ Editar em tabela</button>' +
     '</div><div id="cli-corpo"></div>';
   $('cli-tipo').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { C.tipo = b.dataset.v; pintarClientes(); } };
   $('cli-visao').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { C.visao = b.dataset.v; pintarClientes(); } };
   $('cli-grupo').onchange = (ev) => { C.grupo = ev.target.value; pintarClientes(); };
-  if ($('cli-area')) { $('cli-area').value = C.area || ''; $('cli-area').onchange = (ev) => { C.area = ev.target.value; pintarClientes(); }; }
+  if ($('cli-area')) $('cli-area').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { C.area = b.dataset.v; pintarClientes(); } };
   let t;
   $('cli-busca').oninput = (ev) => { clearTimeout(t); t = setTimeout(() => { C.busca = ev.target.value; pintarClientes(); }, 250); };
-  $('cli-relatorio').onclick = () => { const l = E.cli.ultima || [];
-    relatorioTabela({ titulo: 'Clientes', ids: l.map((c) => c.id),
-      colunas: ['Grupo', 'Nome', 'CPF/CNPJ', 'Área', 'Tipo', 'Responsável', 'E-mail', 'Telefone', 'Cidade/UF', 'Procuração', 'Certificado', 'CAPAG', 'Situação cadastral'],
-      linhas: l.map((c) => [c.grupos ? c.grupos.nome : '', c.nome, mascaraDoc(c.cpf_cnpj), rotArea(c.area), c.tipo === 'Demanda' ? 'Serviço pontual' : c.tipo, c.responsavel, c.email, c.telefone,
-        [c.cidade, c.estado].filter(Boolean).join('/'), c.procuracao === true ? 'Sim' : c.procuracao === false ? 'Não' : '', c.certificado === true ? 'Sim' : c.certificado === false ? 'Não' : '', c.capag, c.situacao_cadastral]) }); };
   $('cli-massa').onclick = () => edicaoEmMassa(E.cli.ultima || []);
   ligarBotoesNovo($('conteudo'));
   pintarClientes();
@@ -1881,6 +1882,7 @@ function pintarClientes() {
   const C = E.cli, b = normalizar(C.busca), bd = soDigitos(C.busca);
   document.querySelectorAll('#cli-tipo button').forEach((x) => x.classList.toggle('ativo', x.dataset.v === C.tipo));
   document.querySelectorAll('#cli-visao button').forEach((x) => x.classList.toggle('ativo', x.dataset.v === (C.visao || 'grupo')));
+  document.querySelectorAll('#cli-area button').forEach((x) => x.classList.toggle('ativo', x.dataset.v === (C.area || '')));
   if (document.activeElement !== $('cli-grupo')) $('cli-grupo').value = C.grupo;
   if (document.activeElement !== $('cli-busca')) $('cli-busca').value = C.busca;
   const lista = E.clientes.filter((c) => {
@@ -2418,7 +2420,7 @@ async function _detalheContrato(id) {
     corpo:
       (ct.status === 'Aguardando assinatura' ? '<div class="faixa-aprov tem" id="ctr-assinatura"><span class="faixa-ic" aria-hidden="true">⏳</span><div><b>Aguardando a assinatura do cliente</b>' +
         '<div class="sub">O financeiro, o onboarding e o aviso à equipe acontecem quando você marcar como assinado. Anexe o PDF assinado em "Documentos do contrato", abaixo.</div></div>' +
-        '<div class="acoes"><button class="btn btn-o" type="button" id="ctr-gerar">📄 Gerar contrato</button><button class="btn btn-p" type="button" id="ctr-assinar">✓ Marcar como assinado</button></div></div>' : '') +
+        '<div class="acoes"><button class="btn btn-p" type="button" id="ctr-assinar">✓ Marcar como assinado</button></div></div>' : '') +
       '<div class="ctr-ficha">' + ficha.map(([r, v]) => '<div><span>' + r + '</span><b>' + (/^</.test(v) ? v : esc(v)) + '</b></div>').join('') + '</div>' +
       (ct.modalidade === 'consultoria' ? '' : '<div class="ctr-barra" title="Recebido × previsto"><div style="width:' + pctRec + '%"></div></div><div class="sub" style="margin:-4px 0 12px">' + pctRec + '% do previsto já recebido</div>') +
       '<div class="kpis" style="margin-bottom:12px">' +
@@ -2445,8 +2447,6 @@ async function _detalheContrato(id) {
     const r = await q(sb.rpc('contrato_assinar', { p_contrato: id, p_data: null }));
     aviso('✓ Contrato assinado: ' + plural((r && r.lancamentos) || 0, 'lançamento', 'lançamentos') + ' no financeiro.'); await reabrir();
   });
-  const btGerar = j.querySelector('#ctr-gerar');
-  if (btGerar) btGerar.onclick = (ev) => abrirGeradorContrato(ct.cliente_id, id, ev);
   blocoDocumentos(j.querySelector('#ctr-docs'), { contrato_id: id, cliente_id: ct.cliente_id, grupo_id: ct.clientes && ct.clientes.grupo_id, tipo: 'contrato' },
     { titulo: 'Documentos do contrato', vazio: 'Nenhum documento. Envie aqui o contrato assinado, a proposta e os aditivos.' }).catch((e) => console.error(e));
   j.querySelector('#btn-editar-ctr').onclick = () => formContrato(ct);
@@ -3539,49 +3539,142 @@ function salvarPrefFila() {
   sb.rpc('salvar_preferencia', { p_chave: 'fila', p_valor: v }).then(() => {}, () => {});
 }
 // Backup 36: compromissos na agenda (tarefas com tipo_agenda + hora) — cor por tipo e legenda
-const TIPOS_AGENDA = [['reuniao', 'Reunião', '🤝'], ['audiencia', 'Audiência', '⚖'], ['compromisso', 'Compromisso', '📌'], ['ligacao', 'Ligação', '📞']];
+const TIPOS_AGENDA = [['reuniao', 'Reunião', '🤝'], ['audiencia', 'Audiência', '⚖'], ['compromisso', 'Compromisso', '📌']];   // Backup 40: sem Ligação
 // legenda curta: compromissos (reunião, audiência, compromisso), tarefa e atrasada; ⚑ = prazo fatal
-const legendaAgenda = () => '<div class="ag-leg">' + TIPOS_AGENDA.filter(([k]) => k !== 'ligacao').map(([k, r]) => '<span><i class="ag-cor ag-' + k + '"></i>' + r + '</span>').join('') +
-  '<span><i class="ag-cor ag-tarefa"></i>Tarefa</span><span><i class="ag-cor ag-atrasada"></i>Atrasada</span><span>⚑ Prazo fatal</span></div>';
-function janelaAgendar(dataIni, depois) {
-  const pessoas = pessoasEscritorio();
-  const j = abrirJanela({ titulo: '📅 Agendar na minha agenda',
-    corpo: '<form id="f-ag" class="grade">' +
+const legendaAgenda = () => '<div class="ag-leg">' + TIPOS_AGENDA.map(([k, r]) => '<span><i class="ag-cor ag-' + k + '"></i>' + r + '</span>').join('') +
+  '<span><i class="ag-cor ag-tarefa"></i>Tarefa</span><span><i class="ag-cor ag-atrasada"></i>Atrasada</span><span><i class="ag-cor ag-feita"></i>Concluída</span><span>⚑ Prazo fatal</span></div>';
+// Backup 40: aviso antes do compromisso (vira notificação + e-mail para quem participa; e um aviso na tela de quem está com o ERP aberto)
+const AVISOS_AGENDA = [['', 'Não avisar'], ['15', '15 min antes'], ['30', '30 min antes'], ['60', '1 hora antes'], ['120', '2 horas antes'], ['1440', '1 dia antes'], ['2880', '2 dias antes']];
+const TIPOS_AUDIENCIA = ['Conciliação', 'Instrução e julgamento', 'Una', 'Mediação', 'Justificação', 'Outra'];
+// hora "HH:MM" → minutos; fim padrão = início + 1 h
+const minHora = (h) => { const m = String(h || '').match(/^(\d{1,2}):(\d{2})/); return m ? +m[1] * 60 + +m[2] : null; };
+const horaFaixa = (t) => (t.hora ? String(t.hora).slice(0, 5) + (t.hora_fim ? '–' + String(t.hora_fim).slice(0, 5) : '') : '');
+// quem se sobrepõe: mesmas pessoas, mesmo dia, horários que se cruzam
+async function conflitosAgenda(dia, ini, fim, pessoas, ignorar) {
+  const a = minHora(ini); if (a == null) return [];
+  const b = minHora(fim) != null && minHora(fim) > a ? minHora(fim) : a + 60;
+  const ts = await q(sb.from('tarefas').select('id, titulo, hora, hora_fim, responsavel, participantes').eq('prazo', dia).not('hora', 'is', null).not('status', 'in', '(concluida,cancelada)')).catch(() => []);
+  const nomes = pessoas.map(primeiroNome);
+  return ts.filter((t) => t.id !== ignorar).filter((t) => {
+    const x = minHora(t.hora), y = minHora(t.hora_fim) != null && minHora(t.hora_fim) > x ? minHora(t.hora_fim) : x + 60;
+    const deles = [t.responsavel].concat(String(t.participantes || '').split(',')).map(primeiroNome).filter(Boolean);
+    return x < b && a < y && deles.some((n) => nomes.includes(n));
+  });
+}
+async function janelaAgendar(dataIni, depois) {
+  // Backup 40: só quem está CADASTRADO e ativo (Administração → Usuários); descadastrou, sai da lista
+  const eq = await equipe().catch(() => []);
+  const pessoas = [...new Set(eq.map((u) => String(u.nome || '').trim()).filter(Boolean))];
+  if (!pessoas.some((n) => primeiroNome(n) === primeiroNome(meuNome()))) pessoas.unshift(meuNome());
+  const procs = await q(sb.from('processos').select('numero, autor, reu').order('numero').limit(1000)).catch(() => []);
+  const j = abrirJanela({ titulo: '📅 Agendar', larga: true,
+    corpo: '<form id="f-ag" class="grade ag-form" data-tipo="reuniao">' +
       '<div class="campo" style="grid-column:1/-1"><span>Tipo</span><div class="segmento ag-tipos" id="ag-tipo">' + TIPOS_AGENDA.map(([k, r, ic], i) => '<button type="button" data-v="' + k + '"' + (i ? '' : ' class="ativo"') + '>' + ic + ' ' + r + '</button>').join('') + '</div></div>' +
-      campo('O quê', '<input name="titulo" required placeholder="ex.: Reunião com o cliente sobre o parcelamento">', 'ag-toda') +
-      campo('Dia', '<input type="date" name="prazo" required value="' + (dataIni || hojeISO()) + '">') + campo('Hora', '<input type="time" name="hora" value="09:00">') +
-      campo('Local ou link', '<input name="local" placeholder="escritório, Google Meet…">', 'ag-toda') +
-      '<div class="campo" style="grid-column:1/-1"><span>Quem participa</span><div class="ag-pessoas">' + (pessoas.length ? pessoas : [meuNome()]).filter(Boolean).map((n) =>
+      // Audiência: processo, tipo, vara e se é virtual
+      '<label class="campo ag-so-aud ag-toda"><span>Número do processo *</span><input name="processo" list="ag-procs" autocomplete="off" placeholder="0000000-00.0000.0.00.0000"><datalist id="ag-procs">' +
+        procs.map((p) => '<option value="' + esc(p.numero) + '">' + esc([p.autor, p.reu].filter(Boolean).join(' × ')) + '</option>').join('') + '</datalist></label>' +
+      '<label class="campo ag-so-aud"><span>Tipo de audiência</span><select name="tipo_aud">' + TIPOS_AUDIENCIA.map((x) => '<option>' + x + '</option>').join('') + '</select></label>' +
+      '<label class="campo ag-so-aud"><span>Formato</span><select name="formato"><option value="presencial">Presencial</option><option value="virtual">Virtual (link)</option><option value="hibrida">Híbrida</option></select></label>' +
+      '<label class="campo ag-toda"><span class="ag-rot-titulo">Assunto *</span><input name="titulo" placeholder="ex.: Reunião sobre o parcelamento"></label>' +
+      '<label class="campo"><span>Dia *</span><input type="date" name="prazo" required value="' + (dataIni || hojeISO()) + '"></label>' +
+      '<div class="campo ag-horas"><span>Horário</span><div class="ag-hh"><input type="time" name="hora" value="09:00" aria-label="Início"><span class="sub">até</span><input type="time" name="hora_fim" value="10:00" aria-label="Fim"></div></div>' +
+      '<div class="ag-conflito ag-toda" id="ag-conflito" hidden></div>' +
+      '<label class="campo ag-toda"><span class="ag-rot-local">Local ou link</span><input name="local" placeholder="escritório, Google Meet…"></label>' +
+      '<div class="campo ag-toda"><span>Quem participa</span><div class="ag-pessoas">' + pessoas.map((n) =>
         '<label class="ag-p"><input type="checkbox" name="part" value="' + esc(n) + '"' + (primeiroNome(n) === primeiroNome(meuNome()) ? ' checked' : '') + '><span>' + esc(nomeCurto(n)) + '</span></label>').join('') + '</div></div>' +
-      // Backup 39: cliente cadastrado (escolhe na lista) OU texto livre (ex.: "Dr. Fulano, contador da empresa X")
-      campo('Com quem (opcional)', '<input name="com" list="ag-clis" autocomplete="off" placeholder="Cliente cadastrado ou qualquer nome"><datalist id="ag-clis">' + E.clientes.map((c) => '<option value="' + esc(c.nome) + '">').join('') + '</datalist>', 'ag-toda') +
-      campo('Observação', '<textarea name="descricao" rows="2"></textarea>', 'ag-toda') + '</form>',
+      // cliente cadastrado (escolhe na lista) OU texto livre (ex.: "Dr. Fulano, contador da empresa X")
+      '<label class="campo ag-toda ag-nao-comp"><span class="ag-rot-com">Com quem (cliente ou qualquer nome)</span><input name="com" list="ag-clis" autocomplete="off" placeholder="Cliente cadastrado ou texto livre"><datalist id="ag-clis">' + E.clientes.map((c) => '<option value="' + esc(c.nome) + '">').join('') + '</datalist></label>' +
+      '<label class="campo"><span>Avisar</span><select name="aviso">' + AVISOS_AGENDA.map(([v, r]) => '<option value="' + v + '"' + (v === '30' ? ' selected' : '') + '>' + r + '</option>').join('') + '</select></label>' +
+      '<label class="campo ag-toda"><span>Observação</span><textarea name="descricao" rows="2"></textarea></label></form>',
     rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="ag-ok">Agendar</button></div>' });
+  const f = j.querySelector('#f-ag');
   let tipo = 'reuniao';
-  j.querySelector('#ag-tipo').onclick = (ev) => { const b = ev.target.closest('[data-v]'); if (!b) return; tipo = b.dataset.v; j.querySelectorAll('#ag-tipo button').forEach((x) => x.classList.toggle('ativo', x === b)); };
+  const ROT = { reuniao: ['Assunto *', 'Local ou link', 'Com quem (cliente ou qualquer nome)', 'ex.: Reunião sobre o parcelamento', 'escritório, Google Meet…'],
+    audiencia: ['Descrição (opcional)', 'Vara / juízo, ou link da sala virtual', 'Cliente (parte que representamos)', 'se vazio: "Audiência de conciliação — nº do processo"', 'ex.: 2ª Vara Cível de Belo Horizonte'],
+    compromisso: ['O quê *', 'Local', 'Com quem (opcional)', 'ex.: Cartório, banco, perícia…', 'endereço'] };
+  const pintarTipo = () => {
+    f.dataset.tipo = tipo;
+    const r = ROT[tipo];
+    f.querySelector('.ag-rot-titulo').textContent = r[0]; f.querySelector('.ag-rot-local').textContent = r[1]; f.querySelector('.ag-rot-com').textContent = r[2];
+    f.titulo.placeholder = r[3]; f.local.placeholder = r[4];
+  };
+  j.querySelector('#ag-tipo').onclick = (ev) => { const b = ev.target.closest('[data-v]'); if (!b) return; tipo = b.dataset.v; j.querySelectorAll('#ag-tipo button').forEach((x) => x.classList.toggle('ativo', x === b)); pintarTipo(); };
+  // fim acompanha o início (1 h depois) até a pessoa mexer no fim
+  let fimMexido = false;
+  f.hora_fim.oninput = () => { fimMexido = true; };
+  f.hora.oninput = () => { if (!fimMexido && minHora(f.hora.value) != null) { const m = Math.min(minHora(f.hora.value) + 60, 23 * 60 + 59); f.hora_fim.value = String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); } };
+  // processo escolhido → cliente sugerido (autor) se "com quem" estiver vazio
+  f.processo.onchange = () => { const p = procs.find((x) => x.numero === f.processo.value.trim()); if (p && !f.com.value) f.com.value = p.autor || ''; };
+  // aviso de sobreposição (não impede, só mostra)
+  const verConflito = async () => {
+    const parts = [...f.querySelectorAll('[name=part]:checked')].map((x) => x.value);
+    const c = f.prazo.value && f.hora.value ? await conflitosAgenda(f.prazo.value, f.hora.value, f.hora_fim.value, parts) : [];
+    const el = j.querySelector('#ag-conflito'); el.hidden = !c.length;
+    el.innerHTML = c.length ? '⚠ Choca com: ' + c.map((x) => '<b>' + esc(horaFaixa(x)) + '</b> ' + esc(x.titulo) + ' (' + esc([x.responsavel].concat(String(x.participantes || '').split(',')).map(nomeCurto).filter(Boolean).join(', ')) + ')').join(' · ') : '';
+    return c;
+  };
+  ['prazo', 'hora', 'hora_fim'].forEach((n) => f[n].addEventListener('change', verConflito));
+  f.querySelectorAll('[name=part]').forEach((x) => x.addEventListener('change', verConflito));
+  verConflito();
   j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
   j.querySelector('#ag-ok').onclick = (ev) => comBotao(ev.currentTarget, async () => {
-    const f = j.querySelector('#f-ag');
-    if (!f.titulo.value.trim()) throw new Error('Escreva o que é o compromisso.');
+    const proc = f.processo.value.trim();
+    let titulo = f.titulo.value.trim();
+    if (tipo === 'audiencia') {
+      if (!proc) throw new Error('Audiência: informe o número do processo.');
+      if (!titulo) titulo = 'Audiência de ' + f.tipo_aud.value.toLowerCase() + ' — ' + proc;
+    } else if (!titulo) throw new Error(tipo === 'reuniao' ? 'Escreva o assunto da reunião.' : 'Escreva o que é o compromisso.');
     if (!f.prazo.value) throw new Error('Escolha o dia.');
+    if (f.hora.value && f.hora_fim.value && minHora(f.hora_fim.value) <= minHora(f.hora.value)) throw new Error('O fim tem que ser depois do início.');
     const parts = [...f.querySelectorAll('[name=part]:checked')].map((x) => x.value);
-    const resp = parts.find((n) => primeiroNome(n) === primeiroNome(meuNome())) || parts[0] || meuNome();
-    const com = f.com.value.trim(), cli = E.clientes.find((c) => normalizar(c.nome) === normalizar(com));
-    await q(sb.from('tarefas').insert({ titulo: f.titulo.value.trim(), prazo: f.prazo.value, hora: f.hora.value || null, tipo_agenda: tipo, local: f.local.value.trim(),
+    if (!parts.length) throw new Error('Marque quem participa.');
+    const c = await verConflito();
+    if (c.length && !confirm('Este horário choca com ' + plural(c.length, 'compromisso', 'compromissos') + ' de quem participa. Agendar mesmo assim?')) return;
+    const resp = parts.find((n) => primeiroNome(n) === primeiroNome(meuNome())) || parts[0];
+    const com = f.com.value.trim(), cli = E.clientes.find((x) => normalizar(x.nome) === normalizar(com));
+    const local = f.local.value.trim();
+    const obs = [tipo === 'audiencia' ? 'Audiência: ' + f.tipo_aud.value + ' · ' + ({ presencial: 'Presencial', virtual: 'Virtual', hibrida: 'Híbrida' }[f.formato.value]) : '', f.descricao.value.trim()].filter(Boolean).join('\n');
+    await q(sb.from('tarefas').insert({ titulo, prazo: f.prazo.value, hora: f.hora.value || null, hora_fim: f.hora.value && f.hora_fim.value ? f.hora_fim.value : null,
+      tipo_agenda: tipo, local, processos_vinculados: tipo === 'audiencia' ? proc : '', aviso_min: f.aviso.value ? +f.aviso.value : null,
       responsavel: resp, participantes: parts.filter((n) => n !== resp).join(', '), cliente_id: cli ? cli.id : null, com_quem: cli ? '' : com,
-      grupo_id: cli ? cli.grupo_id || null : null, descricao: f.descricao.value.trim(), prioridade: 'media', status: 'pendente' }));
+      grupo_id: cli ? cli.grupo_id || null : null, descricao: obs, prioridade: tipo === 'audiencia' ? 'alta' : 'media', status: 'pendente' }));
+    try { if (f.aviso.value && window.Notification && Notification.permission === 'default') Notification.requestPermission(); } catch (e) { /* navegador sem aviso */ }
     fecharJanela(j); aviso('✓ Agendado para ' + dataBR(f.prazo.value) + (f.hora.value ? ' às ' + f.hora.value : '') + '.'); if (depois) depois();
   });
+}
+// Backup 40: aviso na tela de quem está com o ERP aberto (o e-mail sai pelo banco, rotina avisos_agenda)
+let _vigiaAg = null;
+function vigiarAgenda() {
+  if (_vigiaAg) return;
+  const ver = async () => {
+    if (!E.perfil) return;
+    const h = hojeISO(), am = iso(new Date(Date.now() + 2 * 864e5));
+    const ts = await q(sb.from('tarefas').select('id, titulo, prazo, hora, hora_fim, local, aviso_min, responsavel, participantes').gte('prazo', h).lte('prazo', am)
+      .not('aviso_min', 'is', null).not('hora', 'is', null).not('status', 'in', '(concluida,cancelada)')).catch(() => []);
+    let vistos = {}; try { vistos = JSON.parse(localStorage.getItem('erp_avisos_ag') || '{}'); } catch (e) { /* sem armazenamento */ }
+    const agora = Date.now();
+    ts.filter((t) => ehMinha(t) || String(t.participantes || '').split(',').some((n) => primeiroNome(n) === primeiroNome(meuNome()))).forEach((t) => {
+      const ini = new Date(t.prazo + 'T' + String(t.hora).slice(0, 5) + ':00').getTime();
+      if (vistos[t.id] || agora < ini - t.aviso_min * 6e4 || agora > ini) return;
+      vistos[t.id] = 1;
+      const txt = horaFaixa(t) + ' · ' + t.titulo + (t.local ? ' · ' + t.local : '');
+      aviso('🔔 ' + (t.prazo === h ? 'Hoje' : dataBR(t.prazo)) + ' ' + txt);
+      try { if (window.Notification && Notification.permission === 'granted') new Notification('Agenda — ' + t.titulo, { body: txt }); } catch (e) { /* navegador sem aviso */ }
+    });
+    try { localStorage.setItem('erp_avisos_ag', JSON.stringify(vistos)); } catch (e) { /* sem armazenamento */ }
+  };
+  ver(); _vigiaAg = setInterval(ver, 60000);
 }
 function classeAgenda(t, d) {
   const h = hojeISO();
   if (t._cls) return t._cls;
   if (t.prazo_fatal === d) return 'ag-fatal';
-  if (t.tipo_agenda) return 'ag-' + (t.tipo_agenda === 'ligacao' ? 'compromisso' : t.tipo_agenda);   // Backup 38: ligação entra como compromisso (legenda curta)
+  if (tarefaFechada(t)) return 'ag-feita';   // Backup 40: concluída fica riscada
+  if (t.tipo_agenda) return 'ag-' + (t.tipo_agenda === 'ligacao' ? 'compromisso' : t.tipo_agenda);
   if (/^reuniao:/.test(t.chave_regra || '')) return 'ag-reuniao';   // reuniões marcadas pelo CRM
   return t.prazo && t.prazo < h ? 'ag-atrasada' : 'ag-tarefa';
 }
-const horaAg = (t) => (t.hora ? String(t.hora).slice(0, 5) + ' ' : '');
+const horaAg = (t) => (t.hora ? horaFaixa(t) + ' ' : '');
 // Backup 39: o quadro "Atrasadas" é um só — Início (agenda) e Tarefas (Minha semana e Calendário)
 function quadroAtrasadas(atr) {
   return '<aside class="fila-atrasadas"><div class="fila-atr-tit">⏰ Atrasadas <span class="pill ' + (atr.length ? 'vencido' : 'pago') + '">' + atr.length + '</span></div>' +
@@ -3618,7 +3711,7 @@ function calendarioFila(lista) {
     corpo = c + '<div class="cal-dia vazio-dia"></div>'.repeat(resto) + '</div>';
   }
   // Backup 27: à esquerda, as tarefas atrasadas (não aparecem na semana/dia/mês que você está vendo)
-  const lado = quadroAtrasadas(lista.filter((t) => t.prazo && t.prazo < h).sort((a, b) => a.prazo.localeCompare(b.prazo)));
+  const lado = quadroAtrasadas(lista.filter((t) => t.prazo && t.prazo < h && !tarefaFechada(t)).sort((a, b) => a.prazo.localeCompare(b.prazo)));
   return '<div class="fila-com-atr">' + lado + '<div class="fila-cal-area"><div class="fila-cal-nav"><button type="button" class="btn btn-o btn-mini" data-fila-nav="-1" aria-label="Anterior">‹</button><b>' + esc(titulo) + '</b>' +
     '<button type="button" class="btn btn-o btn-mini" data-fila-nav="1" aria-label="Próximo">›</button><button type="button" class="btn btn-o btn-mini" data-fila-nav="0">Hoje</button>' +
     '<button type="button" class="btn btn-p btn-mini ag-bt" data-agendar>+ Agendar</button></div>' + corpo + legendaAgenda() + '</div></div>';
@@ -3686,11 +3779,15 @@ function seloFatal(t) {
   return ' <span class="pill ' + (tarefaFechada(t) ? 'neutro' : d <= 2 ? 'vencido' : 'cobranca') + '" title="Prazo fatal (contagem em dias úteis, com os feriados cadastrados)">⚑ ' + dataBR(t.prazo_fatal) + falta + '</span>';
 }
 // Backup 39: cliente, grupo ou o "com quem" livre da agenda
+// pessoas dos filtros: quem está cadastrado (Administração → Usuários); sem cadastro ainda, as de sempre
+function pessoasFiltro() { const eq = (E._equipe || []).map((u) => String(u.nome || '').trim()).filter(Boolean); return eq.length ? [...new Set(eq)] : Object.keys(PESSOA); }
 function quemTarefa(t) { return nomeCliente(t.cliente_id) || nomeGrupo(t.grupo_id) || (t.com_quem || ''); }
 function nomeCliente(id) { const c = E.clientes.find((x) => x.id === id); return c ? c.nome : ''; }
 
 // ─────────────────────────── tela ───────────────────────────
 TELAS.tarefas = async function () {
+  await equipe().catch(() => []);
+  vigiarAgenda();
   E.tf = E.tf || { vista: 'lista', atalho: '', resp: '', pri: '', busca: '', mes: hojeISO().slice(0, 7) };
   const F = E.tf;
   // abas: o painel mostra só o que está em aberto; concluídas e excluídas ficam separadas
@@ -3709,8 +3806,9 @@ TELAS.tarefas = async function () {
       .map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<div class="segmento" id="tf-atalho">' + [['', 'Todas'], ['minhas', 'Minhas'], ['hoje', 'Hoje'], ['atrasadas', 'Atrasadas'], ['7', '7 dias']].concat(F.atalho === 'atencao' ? [['atencao', 'Pedem atenção']] : [])
       .map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
-    '<select class="busca sel" id="tf-resp"><option value="">Todas as pessoas</option>' + Object.keys(PESSOA).map((p) => '<option>' + p + '</option>').join('') + '</select>' +
-    '<select class="busca sel" id="tf-pri"><option value="">Todas as prioridades</option><option value="alta">Alta</option><option value="media">Média</option><option value="baixa">Baixa</option></select>' +
+    // Backup 40: pessoa e prioridade em botões (como Todas/Minhas/Hoje); pessoa = responsável OU participante
+    '<div class="segmento" id="tf-resp" aria-label="Pessoa">' + [['', 'Todas as pessoas']].concat(pessoasFiltro().map((p) => [p, nomeCurto(p)])).map(([v, r]) => '<button data-v="' + esc(v) + '">' + esc(r) + '</button>').join('') + '</div>' +
+    '<div class="segmento" id="tf-pri" aria-label="Prioridade">' + [['', 'Todas as prioridades'], ['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<input class="busca" id="tf-busca" placeholder="Buscar tarefa, cliente, processo ou etiqueta" autocomplete="off">' +
     '</div><div id="tf-corpo"><div class="carregando">Carregando…</div></div>';
   $('tf-nova').onclick = () => formTarefa({}, () => TELAS.tarefas());
@@ -3723,7 +3821,7 @@ TELAS.tarefas = async function () {
   $('tf-vista').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.vista = b.dataset.v; pintarTarefas(); } };
   $('tf-abas').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.aba = b.dataset.aba; pintarTarefas(); } };
   $('tf-atalho').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.atalho = b.dataset.v; pintarTarefas(); } };
-  [['tf-resp', 'resp'], ['tf-pri', 'pri']].forEach(([id, k]) => { $(id).value = F[k]; $(id).onchange = (ev) => { F[k] = ev.target.value; pintarTarefas(); }; });
+  [['tf-resp', 'resp'], ['tf-pri', 'pri']].forEach(([id, k]) => { $(id).onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F[k] = b.dataset.v; pintarTarefas(); } }; });
   $('tf-busca').value = F.busca;
   let t; $('tf-busca').oninput = (ev) => { clearTimeout(t); t = setTimeout(() => { F.busca = ev.target.value; pintarTarefas(); }, 250); };
   const [ts, fl] = await Promise.all([
@@ -3748,7 +3846,7 @@ function filtrarTarefas() {
     if (a === '7' && (tarefaFechada(t) || !t.prazo || t.prazo > somarDias(h, 7))) return false;
     // "pedem atenção" (destaque do Início): minhas atrasadas ou com prazo fatal em até 7 dias
     if (a === 'atencao' && (tarefaFechada(t) || !ehMinha(t) || !((t.prazo && t.prazo < h) || (t.prazo_fatal && t.prazo_fatal <= somarDias(h, 7))))) return false;
-    if (F.resp && t.responsavel !== F.resp) return false;
+    if (F.resp && ![t.responsavel].concat(String(t.participantes || '').split(',')).some((n) => primeiroNome(n) === primeiroNome(F.resp))) return false;
     if (F.pri && t.prioridade !== F.pri) return false;
     if (b && !normalizar(t.titulo + ' ' + t.processos_vinculados + ' ' + nomeGrupo(t.grupo_id) + ' ' + nomeCliente(t.cliente_id) + ' ' + t.etiquetas + ' ' + t.descricao).includes(b)) return false;
     return true;
@@ -3760,6 +3858,8 @@ function pintarTarefas() {
   document.querySelectorAll('#tf-vista button').forEach((b) => b.classList.toggle('ativo', b.dataset.v === F.vista));
   document.querySelectorAll('#tf-atalho button').forEach((b) => b.classList.toggle('ativo', b.dataset.v === F.atalho));
   document.querySelectorAll('#tf-abas button').forEach((b) => b.classList.toggle('ativo', b.dataset.aba === F.aba));
+  document.querySelectorAll('#tf-resp button').forEach((b) => b.classList.toggle('ativo', b.dataset.v === (F.resp || '')));
+  document.querySelectorAll('#tf-pri button').forEach((b) => b.classList.toggle('ativo', b.dataset.v === (F.pri || '')));
   $('tf-atalho').style.display = F.vista === 'fluxos' || F.vista === 'relatorio' || F.aba !== 'abertas' ? 'none' : '';
   const todas = E._tarefas || [];
   const abertas = todas.filter((t) => !tarefaFechada(t));
@@ -3864,7 +3964,8 @@ async function vistaCalendario(alvo) {
   const F = E.tf; await feriados();
   const salvo = { vista: FILA.vista, ref: FILA.ref };
   FILA.vista = 'mes'; FILA.ref = F.mes + '-01';
-  const lista = filtrarTarefas();
+  // Backup 40: em "Em aberto" as concluídas do mês também aparecem, riscadas
+  const pre = F.mes + '-', lista = filtrarTarefas().concat(F.aba === 'abertas' ? (E._tarefas || []).filter((t) => t.status === 'concluida' && String(t.prazo || '').startsWith(pre)) : []);
   alvo.innerHTML = '<div class="card ini-fila tf-cal"><div class="card-bd">' + calendarioFila(lista) + '</div></div>';
   FILA.vista = salvo.vista; FILA.ref = salvo.ref;
   const [a, m] = F.mes.split('-').map(Number);
@@ -4020,7 +4121,10 @@ async function abrirTarefa(t, depois) {
       '<div class="tf-ficha-hd"><h3>' + bolinha(t) + ' ' + esc(t.titulo) + '</h3><div class="tf-selos"><span class="pill ' + (fechada ? 'pago' : t.status === 'revisao' ? 'hoje' : 'neutro') + '">' +
         esc(STATUS_TAREFA[t.status] || t.status) + '</span> <span class="pill ' + pr[1] + '">' + esc(pr[0]) + '</span>' + seloPrazo(t) + seloFatal(t) + '</div></div>' +
       '<div class="tf-grade">' +
-        linha('Prazo', t.prazo ? dataBR(t.prazo) : '<span class="sub">sem prazo</span>') +
+        linha(t.tipo_agenda ? 'Dia' : 'Prazo', t.prazo ? dataBR(t.prazo) + (t.hora ? ' · <b>' + esc(horaFaixa(t)) + '</b>' : '') : '<span class="sub">sem prazo</span>') +
+        linha('Tipo', t.tipo_agenda ? esc((TIPOS_AGENDA.find(([k]) => k === t.tipo_agenda) || [, t.tipo_agenda])[1]) : '') +
+        linha('Local', esc(t.local || '')) +
+        linha('Aviso', t.aviso_min ? esc((AVISOS_AGENDA.find(([v]) => +v === t.aviso_min) || [, t.aviso_min + ' min antes'])[1]) + (t.aviso_em ? ' <span class="sub">· enviado</span>' : '') : '') +
         linha('Prazo fatal', t.prazo_fatal ? '<b>' + dataBR(t.prazo_fatal) + '</b>' : '') +
         linha('Cliente', esc(quemTarefa(t) || '')) +
         linha('Responsável', pillPessoa(t.responsavel)) +
@@ -4368,6 +4472,7 @@ async function janelaFeriados() {
   });
   j.querySelectorAll('[data-fer]').forEach((b) => b.onclick = () => comBotao(b, async () => {
     const [data, abr, local] = b.dataset.fer.split('|');
+    if (!confirm('Excluir o feriado de ' + dataBR(data) + '?')) return;
     const r = await q(sb.from('feriados').delete().eq('data', data).eq('abrangencia', abr).eq('local', local).select());
     if (!r.length) throw new Error('Só o administrador pode excluir este registro.');
     E._feriados = null; aviso('Feriado excluído.'); fecharJanela(j); janelaFeriados();
@@ -4520,21 +4625,22 @@ function vistaSemana(alvo) {
   const seg = iso(base), dias = [0, 1, 2, 3, 4].map((i) => somarDias(seg, i)), sex = dias[4];
   const quem = F.resp || '';
   // Backup 39: respeita a aba (Em aberto / Concluídas / Excluídas) — antes "Concluídas" ainda mostrava as abertas
-  const doDono = (t) => (quem ? primeiroNome(t.responsavel) === primeiroNome(quem) : ehMinha(t));
+  const doDono = (t) => (quem ? true : ehMinha(t));   // com pessoa escolhida, o filtro de cima já separou (responsável ou participante)
   const ts = filtrarTarefas().filter(doDono);
   const abertasAba = F.aba === 'abertas';
   const atrasadas = abertasAba ? ts.filter((t) => t.prazo && t.prazo < h).sort((a, b) => a.prazo.localeCompare(b.prazo)) : [], semData = ts.filter((t) => !t.prazo);
   const cartao = (t) => '<div class="sm-card" draggable="true" data-sm="' + t.id + '"><b>' + esc(t.titulo) + '</b>' + seloFatal(t) +
     '<div class="sub">' + esc(quemTarefa(t) || '') + (t.estimativa_horas ? ' · ' + String(t.estimativa_horas).replace('.', ',') + ' h' : '') + '</div></div>';
   const col = (rot, data, lista, cls) => '<div class="sm-col' + (cls ? ' ' + cls : '') + '" data-dia="' + (data || '') + '"><div class="sm-tit">' + rot + ' <span class="sub">' + lista.length + '</span></div>' + lista.map(cartao).join('') + '</div>';
-  alvo.innerHTML = '<div class="fila-cal-nav"><button type="button" class="btn btn-o btn-mini" data-sm-nav="-7">‹</button><b>Semana de ' + dataBR(seg).slice(0, 5) + ' a ' + dataBR(sex).slice(0, 5) +
+  // Backup 40: dentro do mesmo cartão do calendário, com a mesma altura
+  alvo.innerHTML = '<div class="card ini-fila tf-cal tf-sem"><div class="card-bd"><div class="fila-cal-nav"><button type="button" class="btn btn-o btn-mini" data-sm-nav="-7">‹</button><b>Semana de ' + dataBR(seg).slice(0, 5) + ' a ' + dataBR(sex).slice(0, 5) +
       (quem ? ' — ' + esc(quem) : ' — minhas tarefas') + '</b><button type="button" class="btn btn-o btn-mini" data-sm-nav="7">›</button><button type="button" class="btn btn-o btn-mini" data-sm-nav="0">Esta semana</button></div>' +
     // Backup 39: "Atrasadas" no MESMO quadro do Início (⏰, número em vermelho, contorno vermelho e "prazo · N dias de atraso")
     (abertasAba ? '<div class="fila-com-atr sm-com-atr">' + quadroAtrasadas(atrasadas) : '<div>') +
     '<div class="sm-grade">' +
     dias.map((d, i) => col(['Seg', 'Ter', 'Qua', 'Qui', 'Sex'][i] + ' ' + dataBR(d).slice(0, 5), d, ts.filter((t) => t.prazo === d), d === h ? 'sm-hoje' : '')).join('') +
     (semData.length ? col('Sem data', 'sem', semData, 'sm-sem') : '') + '</div></div>' +
-    '<p class="sub" style="margin-top:8px">Arraste a tarefa para outro dia para remarcar o prazo. Para ver a semana de outra pessoa, escolha a pessoa no filtro acima.</p>';
+    '<p class="sub" style="margin-top:8px">Arraste a tarefa para outro dia para remarcar o prazo. Para ver a semana de outra pessoa, escolha a pessoa no filtro acima.</p></div></div>';
   alvo.querySelectorAll('[data-sm-nav]').forEach((b) => b.onclick = () => { F.semana = +b.dataset.smNav ? somarDias(seg, +b.dataset.smNav) : null; vistaSemana(alvo); });
   alvo.querySelectorAll('.fila-atrasadas [data-fila]').forEach((b) => b.onclick = () => abrirTarefa(E._tarefas.find((t) => t.id === b.dataset.fila), recarregarTarefas));
   let arr = null;
@@ -4672,39 +4778,75 @@ async function abrirDocumento(doc) {
   document.body.appendChild(a); a.click(); a.remove();
 }
 
-// Janela de envio (arrastar ou escolher), já com o vínculo preenchido
+// Janela de envio (arrastar ou escolher), já com o vínculo preenchido.
+// Backup 40: o tipo é escolhido em botões; "Certificado digital" pede a senha, o sistema lê o arquivo e mostra a validade
+// (e guarda senha + validade na ficha do certificado da empresa). Não existe mais o botão "Certificado" separado.
 function janelaEnviarDocumento(vinculo, depois, titulo) {
+  const tipo0 = vinculo.tipo || 'outro';
+  const empresas = vinculo.grupo_id ? E.clientes.filter((c) => c.grupo_id === vinculo.grupo_id) : E.clientes;
   const j = abrirJanela({
     titulo: titulo || 'Enviar documento', larga: true,
-    corpo: '<form id="f-doc" class="grade">' +
+    corpo: '<form id="f-doc" class="grade doc-envio" data-tipo="' + tipo0 + '" autocomplete="off">' +
+      '<div class="campo inteiro"><span>Tipo de documento</span><div class="segmento doc-tipos" id="doc-tipos">' + TIPOS_DOC.map(([v, r]) => '<button type="button" data-v="' + v + '"' + (v === tipo0 ? ' class="ativo"' : '') + '>' + r + '</button>').join('') + '</div></div>' +
       '<div class="inteiro solta-arq" id="doc-solta"><b>Arraste os arquivos aqui</b> ou <label class="btn btn-o btn-mini" style="cursor:pointer">escolha<input type="file" id="doc-arq" multiple hidden></label>' +
       '<div class="sub" id="doc-lista">PDF, imagens, Word ou Excel · até ' + LIMITE_MB + ' MB cada</div></div>' +
-      campo('Tipo', '<select name="tipo">' + TIPOS_DOC.map(([v, r]) => '<option value="' + v + '"' + ((vinculo.tipo || 'outro') === v ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>') +
+      (vinculo.cliente_id || vinculo.contrato_id || vinculo.lancamento_id ? '' : campo(vinculo.grupo_id ? 'Empresa do grupo' : 'Cliente', '<select name="cliente_id">' +
+        (vinculo.grupo_id ? '<option value="">— o grupo todo —</option>' + empresas.map((c) => '<option value="' + c.id + '"' + (c.id === vinculo.empresa_id ? ' selected' : '') + '>' + esc(c.nome) + '</option>').join('') : opcoesClientes(vinculo.empresa_id || '')) + '</select>', 'inteiro')) +
+      '<label class="campo doc-so-cert"><span>Senha do certificado</span><span class="cert-senha"><input name="senha" type="password" autocomplete="new-password" placeholder="a senha do arquivo .pfx/.p12"><button type="button" class="btn btn-o btn-mini" id="cert-ver" aria-label="Mostrar a senha">👁</button></span></label>' +
       campo('Validade (se houver)', '<input name="validade" type="date">') +
-      (vinculo.cliente_id || vinculo.contrato_id || vinculo.lancamento_id ? '' : campo(vinculo.grupo_id ? 'Empresa do grupo (opcional)' : 'Cliente', '<select name="cliente_id">' +
-        (vinculo.grupo_id ? '<option value="">— o grupo todo —</option>' + E.clientes.filter((c) => c.grupo_id === vinculo.grupo_id).map((c) => '<option value="' + c.id + '">' + esc(c.nome) + '</option>').join('') : opcoesClientes('')) + '</select>', 'inteiro')) +
+      '<div class="inteiro cert-lido doc-so-cert" id="cert-lido"></div>' +
       campo('Etiquetas', '<input name="etiquetas" placeholder="ex.: 2026, original assinado">') +
       campo('Observação', '<textarea name="obs" maxlength="1000"></textarea>', 'inteiro') + '</form>',
     rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="btn-enviar-doc">Enviar</button></div>'
   });
-  let arquivos = [];
-  const f = j.querySelector('#f-doc'), lista = j.querySelector('#doc-lista'), solta = j.querySelector('#doc-solta');
-  const mostrar = () => { lista.textContent = arquivos.length ? arquivos.map((a) => a.name + ' (' + tamanhoLegivel(a.size) + ')').join(' · ') : 'Nenhum arquivo escolhido'; };
-  j.querySelector('#doc-arq').onchange = (ev) => { arquivos = Array.from(ev.target.files); mostrar(); };
+  let arquivos = [], info = null, tipo = tipo0;
+  const f = j.querySelector('#f-doc'), lista = j.querySelector('#doc-lista'), solta = j.querySelector('#doc-solta'), lido = j.querySelector('#cert-lido');
+  const ehCert = () => tipo === 'certificado';
+  const tentarLer = async () => { info = null; lido.innerHTML = ''; lido.className = 'inteiro cert-lido doc-so-cert';
+    if (!ehCert() || !arquivos.length) return;
+    if (!f.senha.value) { lido.innerHTML = '<span class="sub">Digite a senha: o sistema lê o arquivo e mostra a validade.</span>'; return; }
+    try { info = await lerCertificado(arquivos[0], f.senha.value); f.validade.value = info.validade;
+      lido.innerHTML = '✓ Certificado lido: <b>' + esc(info.titular || '—') + '</b> · válido de ' + dataBR(info.inicio) + ' até <b>' + dataBR(info.validade) + '</b>' + selo_validade(info.validade) + (info.emissor ? '<div class="sub">emitido por ' + esc(info.emissor) + '</div>' : '');
+      lido.className = 'inteiro cert-lido doc-so-cert cert-ok'; }
+    catch (e) { lido.innerHTML = '⚠ ' + esc(e.message); lido.className = 'inteiro cert-lido doc-so-cert cert-erro'; } };
+  const mostrar = () => { lista.textContent = arquivos.length ? arquivos.map((a) => a.name + ' (' + tamanhoLegivel(a.size) + ')').join(' · ') : 'Nenhum arquivo escolhido'; tentarLer(); };
+  j.querySelector('#doc-tipos').onclick = (ev) => { const b = ev.target.closest('[data-v]'); if (!b) return; tipo = b.dataset.v; f.dataset.tipo = tipo;
+    j.querySelectorAll('#doc-tipos button').forEach((x) => x.classList.toggle('ativo', x === b)); tentarLer(); };
+  let tl; f.senha.addEventListener('input', () => { clearTimeout(tl); tl = setTimeout(tentarLer, 400); });
+  j.querySelector('#cert-ver').onclick = () => { f.senha.type = f.senha.type === 'password' ? 'text' : 'password'; };
+  j.querySelector('#doc-arq').onchange = (ev) => { arquivos = Array.from(ev.target.files); if (arquivos.some((a) => /\.(pfx|p12)$/i.test(a.name)) && !ehCert()) j.querySelector('#doc-tipos [data-v=certificado]').click(); mostrar(); };
   ['dragenter', 'dragover'].forEach((e) => solta.addEventListener(e, (ev) => { ev.preventDefault(); solta.classList.add('sobre'); }));
   ['dragleave', 'drop'].forEach((e) => solta.addEventListener(e, (ev) => { ev.preventDefault(); solta.classList.remove('sobre'); }));
-  solta.addEventListener('drop', (ev) => { arquivos = Array.from(ev.dataTransfer.files || []); mostrar(); });
+  solta.addEventListener('drop', (ev) => { arquivos = Array.from(ev.dataTransfer.files || []); if (arquivos.some((a) => /\.(pfx|p12)$/i.test(a.name)) && !ehCert()) j.querySelector('#doc-tipos [data-v=certificado]').click(); mostrar(); });
   j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
   j.querySelector('#btn-enviar-doc').onclick = (ev) => comBotao(ev.currentTarget, async () => {
     if (!arquivos.length) throw new Error('Escolha pelo menos um arquivo.');
-    const extra = { tipo: f.tipo.value, validade: f.validade.value || null, etiquetas: f.etiquetas.value.trim(), obs: f.obs.value.trim() };
-    const vinc = Object.assign({}, vinculo);
+    const vinc = Object.assign({}, vinculo); delete vinc.empresa_id; delete vinc.tipo;
     if (f.cliente_id && f.cliente_id.value) vinc.cliente_id = f.cliente_id.value;
     if (vinc.cliente_id && !vinc.grupo_id) { const c = E.clientes.find((x) => x.id === vinc.cliente_id); if (c) vinc.grupo_id = c.grupo_id; }
+    if (ehCert()) {
+      const cli = E.clientes.find((c) => c.id === vinc.cliente_id); if (!cli) throw new Error('Certificado digital: escolha a empresa.');
+      if (!info) throw new Error('Não consegui ler o certificado: confira a senha.');
+      const a = arquivos[0];
+      const doc = await enviarDocumento(a, Object.assign(vinc, { tipo: 'certificado' }),
+        { nome: 'Certificado digital — ' + cli.nome + (a.name.match(/\.(pfx|p12)$/i) || ['.pfx'])[0].toLowerCase(), validade: f.validade.value || null, obs: info.titular ? 'Titular: ' + info.titular : '', etiquetas: f.etiquetas.value.trim() });
+      await q(sb.from('cliente_certificado').upsert({ cliente_id: cli.id, validade: f.validade.value || null, senha: f.senha.value || '', documento_id: doc.id, titular: info.titular || '', emissor: info.emissor || '' }).select('cliente_id'));
+      aviso('✓ Certificado de ' + cli.nome + ' salvo — vence em ' + dataBR(f.validade.value) + '.'); fecharJanela(j); if (depois) await depois();
+      return;
+    }
+    const extra = { tipo, validade: f.validade.value || null, etiquetas: f.etiquetas.value.trim(), obs: f.obs.value.trim() };
     for (const a of arquivos) await enviarDocumento(a, vinc, extra);
     aviso('✓ ' + arquivos.length + ' documento(s) enviado(s).'); fecharJanela(j); if (depois) await depois();
   });
   return j;
+}
+// apaga o documento (o arquivo e o registro) — sempre com confirmação
+async function excluirDocumento(doc) {
+  if (!doc) return false;
+  if (!confirm('Excluir "' + doc.nome + '"?\n\nO arquivo é apagado de vez e não pode ser recuperado.')) return false;
+  await q(sb.from('documentos').delete().eq('id', doc.id).select('id')).then((r) => { if (!r.length) throw new Error('Sem permissão para excluir este documento.'); });
+  if (doc.caminho) await sb.storage.from(BUCKET).remove([doc.caminho]).catch(() => {});
+  return true;
 }
 
 // Nova versão de um documento: guarda o novo arquivo e arquiva o anterior
@@ -4737,17 +4879,16 @@ function tabelaDocumentos(docs, opc) {
         '<td>' + esc(nomeTipoDoc(d.tipo)) + '</td>' + (opc.semCliente ? '' : '<td>' + esc(cli || (d.grupo_id ? nomeGrupo(d.grupo_id) : '—')) + '</td>') +
         '<td class="mono" data-ord="' + d.criado_em + '">' + dataBR(d.criado_em) + '</td><td>' + (d.validade ? selo_validade(d.validade) : '<span class="sub">—</span>') + '</td>' +
         '<td class="acoes-l"><button class="btn btn-p btn-mini" data-abrir-doc="' + d.id + '">Abrir</button> ' +
-        '<button class="btn btn-o btn-mini" data-versao-doc="' + d.id + '" title="Enviar nova versão">↑ Versão</button> ' +
-        '<button class="btn btn-o btn-mini" data-arquivar-doc="' + d.id + '" title="Tirar da lista (continua guardado)">Arquivar</button></td></tr>';
+        '<button class="btn btn-o btn-mini" data-versao-doc="' + d.id + '" title="Substituir por um arquivo novo — o anterior fica no histórico (Versões anteriores)">↑ Nova versão</button> ' +
+        '<button class="btn btn-x btn-mini" data-excluir-doc="' + d.id + '" title="Apagar o documento (pede confirmação)">Excluir</button></td></tr>';
     }).join('') + '</tbody></table></div>';
 }
 function ligarDocumentos(raiz, docs, depois) {
   raiz.querySelectorAll('[data-abrir-doc]').forEach((b) => b.onclick = () => comBotao(b, () => abrirDocumento(docs.find((d) => d.id === b.dataset.abrirDoc))));
   raiz.querySelectorAll('[data-versao-doc]').forEach((b) => b.onclick = () => janelaNovaVersao(docs.find((d) => d.id === b.dataset.versaoDoc), depois));
-  raiz.querySelectorAll('[data-arquivar-doc]').forEach((b) => b.onclick = () => comBotao(b, async () => {
-    if (!confirm('Arquivar este documento? Ele sai da lista, mas continua guardado.')) return;
-    await q(sb.from('documentos').update({ arquivado: true }).eq('id', b.dataset.arquivarDoc));
-    aviso('✓ Documento arquivado.'); if (depois) await depois();
+  raiz.querySelectorAll('[data-excluir-doc]').forEach((b) => b.onclick = () => comBotao(b, async () => {
+    if (!(await excluirDocumento(docs.find((d) => d.id === b.dataset.excluirDoc)))) return;
+    aviso('✓ Documento excluído.'); if (depois) await depois();
   }));
 }
 // Bloco pronto: título + botão Enviar + tabela, para um vínculo (cliente, contrato, lançamento…)
@@ -4774,9 +4915,9 @@ TELAS.documentos = async function () {
   await carregarCadastros();
   $('conteudo').innerHTML =
     '<div class="titulo-pag"><div><h1>Documentos</h1><p>Contratos, procurações, certidões, comprovantes e demais arquivos — guardados com acesso restrito</p></div>' +
-    '<div class="acoes"><button class="btn btn-o" id="doc-ger">📄 Gerar documento</button><button class="btn btn-o" id="doc-cert" title="Arquivo .pfx/.p12 + senha; o sistema lê a validade">🔐 Certificado digital</button><button class="btn btn-p" id="doc-novo">+ Enviar documento</button></div></div>' +
+    '<div class="acoes"><a class="btn btn-o" id="doc-ger" href="documentos/index.html" target="_blank" rel="noopener" title="Abre o sistema de geração de documentos numa aba nova">Gerar documentos ↗</a><button class="btn btn-p" id="doc-novo">+ Enviar documento</button></div></div>' +
     '<div class="filtros">' +
-    '<div class="segmento" id="doc-sit">' + [['ativos', 'Ativos'], ['vencendo', 'Vencendo / vencidos'], ['arquivados', 'Arquivados']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
+    '<div class="segmento" id="doc-sit">' + [['ativos', 'Ativos'], ['vencendo', 'Vencendo / vencidos'], ['arquivados', 'Versões anteriores']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<select class="busca sel" id="doc-tipo"><option value="">Todos os tipos</option>' + TIPOS_DOC.map(([v, r]) => '<option value="' + v + '">' + r + '</option>').join('') + '</select>' +
     '<select class="busca sel" id="doc-grupo"><option value="">Todos os grupos</option>' + (E.grupos || []).map((g) => '<option value="' + g.id + '">' + esc(g.nome) + '</option>').join('') + '</select>' +
     '<select class="busca sel" id="doc-cli"><option value="">Todos os clientes</option>' + E.clientes.map((c) => '<option value="' + c.id + '">' + esc(c.nome) + '</option>').join('') + '</select>' +
@@ -4784,8 +4925,6 @@ TELAS.documentos = async function () {
     '<div class="doc-chips" id="doc-chips"></div><div id="doc-corpo"><div class="carregando">Carregando…</div></div>';
   $('doc-tipo').value = F.tipo; $('doc-cli').value = F.cliente; $('doc-grupo').value = F.grupo || ''; $('doc-busca').value = F.busca;
   $('doc-novo').onclick = () => janelaEnviarDocumento({}, () => TELAS.documentos());
-  $('doc-ger').onclick = () => janelaGeradores($('doc-cli').value || '');
-  $('doc-cert').onclick = () => janelaCertificado({ cliente_id: F.cliente || '', grupo_id: F.grupo || '' }, () => pintarDocumentos());
   $('doc-sit').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.situacao = b.dataset.v; pintarDocumentos(); } };
   $('doc-tipo').onchange = (ev) => { F.tipo = ev.target.value; pintarDocumentos(); };
   $('doc-cli').onchange = (ev) => { F.cliente = ev.target.value; pintarDocumentos(false); };
@@ -4817,19 +4956,31 @@ async function pintarDocumentos(buscar) {
   const ks = Object.keys(G).sort((a, b2) => (a ? 0 : 1) - (b2 ? 0 : 1) || nomeG(a).localeCompare(nomeG(b2), 'pt-BR'));
   F.abertos = F.abertos || {};
   const aberto = (k) => ks.length === 1 || !!F.grupo || !!b || !!F.abertos[k];
+  // Backup 40: dentro de cada grupo, uma subpasta por empresa (e "Documentos do grupo" para o que não é de uma empresa só)
+  F.subAbertas = F.subAbertas || {};
+  const subpastas = (k, docs) => {
+    const S = {}; docs.forEach((d) => { const c = d.cliente_id || ''; (S[c] = S[c] || []).push(d); });
+    const cs = Object.keys(S).sort((x, y) => (x ? 1 : 0) - (y ? 1 : 0) || nomeCliente(x).localeCompare(nomeCliente(y), 'pt-BR'));
+    if (cs.length === 1 && !k) return tabelaDocumentos(docs, { vazio: '' });
+    return '<div class="doc-subpastas">' + cs.map((c) => { const sk = k + '|' + c, ab = !!b || cs.length === 1 || !!F.subAbertas[sk];
+      return '<details class="doc-sub" data-sub="' + esc(sk) + '"' + (ab ? ' open' : '') + '><summary><span class="doc-pasta-ic" aria-hidden="true">📂</span><b>' + esc(c ? nomeCliente(c) : 'Documentos do grupo') + '</b>' +
+        '<span class="sub">' + plural(S[c].length, 'documento', 'documentos') + '</span>' +
+        '<span class="doc-pasta-ac"><button type="button" class="btn btn-o btn-mini" data-sub-enviar="' + esc(k) + '|' + esc(c) + '" title="Enviar já para esta empresa">+ Enviar</button></span></summary>' +
+        (ab ? tabelaDocumentos(S[c], { vazio: '', semCliente: !!c }) : '') + '</details>'; }).join('') + '</div>';
+  };
   $('doc-corpo').innerHTML = lista.length ? '<div class="doc-pastas">' + ks.map((k) => '<details class="card doc-pasta" data-pasta="' + esc(k) + '"' + (aberto(k) ? ' open' : '') + '><summary><span class="doc-pasta-ic" aria-hidden="true">📁</span><b>' + esc(nomeG(k)) + '</b>' +
       '<span class="sub">' + plural(G[k].length, 'documento', 'documentos') + (G[k].some((d) => d.validade && d.validade <= lim) ? ' · <span class="pill vencido">vencendo</span>' : '') + '</span>' +
-      // Backup 37: enviar direto para este grupo (sem abrir a pasta) e o certificado digital
-      '<span class="doc-pasta-ac"><button type="button" class="btn btn-o btn-mini" data-pasta-cert="' + esc(k) + '" title="Certificado digital de uma empresa deste grupo">🔐 Certificado</button>' +
-      '<button type="button" class="btn btn-p btn-mini" data-pasta-enviar="' + esc(k) + '" title="Enviar documento já para este grupo">+ Enviar</button></span></summary>' +
-      (aberto(k) ? tabelaDocumentos(G[k], { vazio: '' }) : '') + '</details>').join('') + '</div>'
+      '<span class="doc-pasta-ac"><button type="button" class="btn btn-p btn-mini" data-pasta-enviar="' + esc(k) + '" title="Enviar documento já para este grupo">+ Enviar</button></span></summary>' +
+      (aberto(k) ? subpastas(k, G[k]) : '') + '</details>').join('') + '</div>'
     : '<div class="card">' + tabelaDocumentos([], { vazio: 'Nenhum documento neste recorte.' }) + '</div>';
   // a tabela só é montada quando a pasta abre (pasta fechada não carrega nada)
-  $('doc-corpo').querySelectorAll('details[data-pasta]').forEach((d) => d.addEventListener('toggle', () => { const k = d.dataset.pasta; if (d.open === aberto(k)) return; F.abertos[k] = d.open; pintarDocumentos(false); }));
+  $('doc-corpo').querySelectorAll('details[data-pasta]').forEach((d) => d.addEventListener('toggle', (ev) => { if (ev.target !== d) return; const k = d.dataset.pasta; if (d.open === aberto(k)) return; F.abertos[k] = d.open; pintarDocumentos(false); }));
+  $('doc-corpo').querySelectorAll('details[data-sub]').forEach((d) => d.addEventListener('toggle', (ev) => { ev.stopPropagation(); const k = d.dataset.sub; if (!!F.subAbertas[k] === d.open) return; F.subAbertas[k] = d.open; pintarDocumentos(false); }));
   $('doc-corpo').querySelectorAll('[data-pasta-enviar]').forEach((b) => b.onclick = (ev) => { ev.preventDefault(); ev.stopPropagation();
     janelaEnviarDocumento({ grupo_id: b.dataset.pastaEnviar || undefined }, () => pintarDocumentos(), '+ Enviar documento — ' + nomeG(b.dataset.pastaEnviar)); });
-  $('doc-corpo').querySelectorAll('[data-pasta-cert]').forEach((b) => b.onclick = (ev) => { ev.preventDefault(); ev.stopPropagation();
-    janelaCertificado({ grupo_id: b.dataset.pastaCert || '' }, () => pintarDocumentos()); });
+  $('doc-corpo').querySelectorAll('[data-sub-enviar]').forEach((b) => b.onclick = (ev) => { ev.preventDefault(); ev.stopPropagation();
+    const [g, c] = b.dataset.subEnviar.split('|');
+    janelaEnviarDocumento(c ? { cliente_id: c, grupo_id: g || undefined } : { grupo_id: g || undefined }, () => pintarDocumentos(), '+ Enviar documento — ' + (c ? nomeCliente(c) : nomeG(g))); });
   ligarDocumentos($('doc-corpo'), lista, () => pintarDocumentos());
 }
 
@@ -4844,44 +4995,21 @@ const GERADORES_DOC = [['peticao.html', '⚖ Petição', 'inicial, contestação
   ['propostas.html', '💼 Proposta (apresentação)', 'proposta comercial em páginas, com a marca'],
   ['modelos-email.html', '✉ Modelos de E-mail (implantação)', 'e-mails do processo de implantação, enviados pelo ERP']];
 const urlCentral = (modelo, clienteId) => 'documentos/index.html' + (modelo ? '?modelo=' + modelo + (clienteId ? '&cliente=' + encodeURIComponent(clienteId) : '') : '');
-// Backup 34: a Central abre DENTRO do ERP (Documentos → Gerar documento). Ctrl/⌘ + clique (ou botão do meio) abre numa aba nova.
-const abaNova = (ev) => !!ev && (ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.button === 1);
-let _centralUrl = 'documentos/index.html';
-function abrirCentral(url, ev) {
-  url = url || 'documentos/index.html';
-  if (abaNova(ev)) { window.open(url, '_blank', 'noopener'); return; }
-  _centralUrl = url;
-  const jn = $('janelas'); if (jn) [...jn.children].forEach((f) => fecharJanela(f));   // sai das janelas abertas (ficha, lançamento…) e vai para a Central
-  if (typeof window.nav === 'function' && document.getElementById('panel-gerador')) window.nav(null, 'gerador');
-  else if (typeof TELAS.gerador === 'function' && $('conteudo')) TELAS.gerador();
-  else window.open(url, '_blank', 'noopener');
-}
-TELAS.gerador = async function () {
-  const url = _centralUrl + (_centralUrl.includes('?') ? '&' : '?') + 'embutido=1';
-  $('conteudo').innerHTML = '<div class="doc-central-topo"><span class="sub">Central de Documentos — procuração, substabelecimento, contrato, recibo, declaração e acordo</span>' +
-    '<a class="btn btn-o btn-mini" href="' + esc(_centralUrl) + '" target="_blank" rel="noopener" title="Abrir numa aba nova (ou Ctrl + clique em qualquer link de documento)">Abrir em nova aba ↗</a></div>' +
-    '<iframe class="doc-central" id="doc-central" title="Central de Documentos" src="' + esc(url) + '"></iframe>';
-  _centralUrl = 'documentos/index.html';   // da próxima vez (pelo menu), abre a Central limpa
-};
-// links para a Central (recibo do Financeiro, janelas…): clique comum abre dentro do ERP; Ctrl/⌘/meio abre aba nova (padrão do navegador)
-document.addEventListener('click', (ev) => {
-  const a = ev.target.closest && ev.target.closest('a[href^="documentos/index.html"]');
-  if (!a || abaNova(ev) || a.closest('.doc-central-topo')) return;
-  ev.preventDefault(); abrirCentral(a.getAttribute('href'), ev);
-});
+// Backup 40: a geração de documentos é um sistema à parte — sempre abre numa aba nova (não fica mais dentro do ERP)
+function abrirCentral(url) { window.open(url || 'documentos/index.html', '_blank', 'noopener'); }
 function janelaGeradores(clienteId) {
   const j = abrirJanela({ titulo: '📄 Documentos', larga: true,
-    corpo: '<p class="sub" style="margin-bottom:10px">Abre a <b>Central de Documentos</b> aqui no ERP' + (clienteId ? ', já com este cliente' : '') + ' (<b>Ctrl + clique</b> abre numa aba nova). Lá você preenche, vê a folha pronta, salva (fica no histórico) e baixa em <b>PDF</b> ou <b>Word</b>.</p>' +
-      '<div class="lista-ficha">' + MODELOS_CENTRAL.map(([m, rot, d]) => '<a class="item-ficha clicavel ger-link" href="' + urlCentral(m, clienteId) + '">' +
+    corpo: '<p class="sub" style="margin-bottom:10px">Abre o <b>sistema de documentos</b> numa aba nova' + (clienteId ? ', já com este cliente' : '') + '. Lá você preenche, vê a folha pronta, salva (fica no histórico) e baixa em <b>PDF</b> ou <b>Word</b>.</p>' +
+      '<div class="lista-ficha">' + MODELOS_CENTRAL.map(([m, rot, d]) => '<a class="item-ficha clicavel ger-link" target="_blank" rel="noopener" href="' + urlCentral(m, clienteId) + '">' +
         '<div><b>' + rot + '</b><div class="sub">' + d + '</div></div><span class="sub">abrir ›</span></a>').join('') +
-        '<a class="item-ficha clicavel ger-link" href="documentos/index.html"><div><b>🗂 Histórico de documentos</b><div class="sub">tudo o que já foi gerado e salvo</div></div><span class="sub">abrir ›</span></a></div>' +
+        '<a class="item-ficha clicavel ger-link" target="_blank" rel="noopener" href="documentos/index.html"><div><b>🗂 Histórico de documentos</b><div class="sub">tudo o que já foi gerado e salvo</div></div><span class="sub">abrir ›</span></a></div>' +
       '<div class="gx-det-tit" style="margin-top:14px">Outros geradores</div><div class="lista-ficha">' + GERADORES_DOC.map(([arq, rot, d]) => '<a class="item-ficha clicavel ger-link" target="_blank" rel="noopener" href="geradores/' + arq + (clienteId ? '?cliente=' + encodeURIComponent(clienteId) : '') + '">' +
         '<div><b>' + rot + '</b><div class="sub">' + d + '</div></div><span class="sub">abrir ↗</span></a>').join('') + '</div>' });
   return j;
 }
 // Backup 26: gerador de contrato já com o cliente e os valores do contrato (o documento fica ligado ao contrato)
-function abrirGeradorContrato(clienteId, contratoId, ev) {
-  abrirCentral('documentos/index.html?modelo=contrato' + (clienteId ? '&cliente=' + encodeURIComponent(clienteId) : '') + (contratoId ? '&contrato=' + encodeURIComponent(contratoId) : ''), ev);
+function abrirGeradorContrato(clienteId, contratoId) {
+  abrirCentral('documentos/index.html?modelo=contrato' + (clienteId ? '&cliente=' + encodeURIComponent(clienteId) : '') + (contratoId ? '&contrato=' + encodeURIComponent(contratoId) : ''));
 }
 
 // ═══ Backup 37: Certificado digital — o arquivo (.pfx/.p12) fica em Documentos; a senha e a validade (lida do arquivo) na ficha do certificado.
@@ -4907,54 +5035,10 @@ async function lerCertificado(arquivo, senha) {
   const iso = (d) => new Date(d.getTime() - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10);
   return { validade: iso(c.validity.notAfter), inicio: iso(c.validity.notBefore), titular: campo(c.subject.attributes, 'CN'), emissor: campo(c.issuer.attributes, 'CN') || campo(c.issuer.attributes, 'O') };
 }
+// Backup 40: o certificado entra pelo "+ Enviar" (tipo Certificado digital); esta função fica para quem já chamava (alertas, ficha)
 async function janelaCertificado(vinculo, depois) {
   if (!E.clientes.length) await carregarCadastros();
-  const lista = E.clientes.filter((c) => !vinculo.grupo_id || c.grupo_id === vinculo.grupo_id);
-  const j = abrirJanela({ titulo: '🔐 Certificado digital' + (vinculo.grupo_id ? ' — ' + (nomeGrupo(vinculo.grupo_id) || '') : ''), larga: true,
-    corpo: '<form id="f-cert" class="grade" autocomplete="off">' +
-      campo('Empresa', '<select name="cliente_id" required><option value="">— escolha —</option>' + lista.map((c) => '<option value="' + c.id + '"' + (c.id === vinculo.cliente_id ? ' selected' : '') + '>' + esc(c.nome) + (c.cpf_cnpj ? ' · ' + esc(mascaraDoc(c.cpf_cnpj)) : '') + '</option>').join('') + '</select>', 'inteiro') +
-      '<div class="inteiro cert-atual" id="cert-atual"></div>' +
-      '<div class="inteiro solta-arq" id="cert-solta"><b>Arraste o arquivo do certificado (.pfx ou .p12)</b> ou <label class="btn btn-o btn-mini" style="cursor:pointer">escolha<input type="file" id="cert-arq" accept=".pfx,.p12,application/x-pkcs12" hidden></label><div class="sub" id="cert-nome">nenhum arquivo</div></div>' +
-      campo('Senha do certificado', '<span class="cert-senha"><input name="senha" type="password" autocomplete="new-password" placeholder="a senha do arquivo"><button type="button" class="btn btn-o btn-mini" id="cert-ver" aria-label="Mostrar a senha">👁</button></span>') +
-      campo('Validade (lida do arquivo)', '<input name="validade" type="date">') +
-      '<div class="inteiro cert-lido" id="cert-lido"></div></form>',
-    rodape: '<span class="sub">A senha fica guardada com acesso restrito (quem edita clientes).</span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="cert-ok">Salvar certificado</button></div>' });
-  const f = j.querySelector('#f-cert'), lido = j.querySelector('#cert-lido');
-  let arquivo = null, info = null;
-  const mostrarAtual = async () => { const box = j.querySelector('#cert-atual'); box.innerHTML = ''; if (!f.cliente_id.value) return;
-    const [c] = await q(sb.from('cliente_certificado').select('validade, titular, emissor, senha, atualizado_por, atualizado_em').eq('cliente_id', f.cliente_id.value)).catch(() => []);
-    if (!c) { box.innerHTML = '<span class="sub">Esta empresa ainda não tem certificado cadastrado.</span>'; return; }
-    box.innerHTML = 'Certificado atual: ' + (c.validade ? 'vence em <b>' + dataBR(c.validade) + '</b>' + selo_validade(c.validade) : 'sem validade') + (c.titular ? ' · ' + esc(c.titular) : '') +
-      '<div class="sub">atualizado ' + (c.atualizado_em ? dataLocal(c.atualizado_em) : '') + (c.atualizado_por ? ' por ' + esc(c.atualizado_por) : '') + (c.senha ? ' · <button type="button" class="dc-link btn-link" id="cert-copiar">copiar a senha</button>' : '') + '</div>';
-    const cp = box.querySelector('#cert-copiar'); if (cp) cp.onclick = () => { navigator.clipboard.writeText(c.senha).then(() => aviso('✓ Senha copiada.'), () => aviso('Não consegui copiar.', true)); }; };
-  const tentarLer = async () => { info = null; lido.innerHTML = ''; if (!arquivo) return;
-    if (!f.senha.value) { lido.innerHTML = '<span class="sub">Digite a senha para o sistema ler a validade.</span>'; return; }
-    try { info = await lerCertificado(arquivo, f.senha.value); f.validade.value = info.validade;
-      lido.innerHTML = '✓ Certificado lido: <b>' + esc(info.titular || '—') + '</b> · válido de ' + dataBR(info.inicio) + ' até <b>' + dataBR(info.validade) + '</b>' + (info.emissor ? '<div class="sub">emitido por ' + esc(info.emissor) + '</div>' : '');
-      lido.className = 'inteiro cert-lido cert-ok'; }
-    catch (e) { lido.innerHTML = '⚠ ' + esc(e.message); lido.className = 'inteiro cert-lido cert-erro'; } };
-  let tl; f.senha.addEventListener('input', () => { clearTimeout(tl); tl = setTimeout(tentarLer, 400); });
-  j.querySelector('#cert-ver').onclick = () => { f.senha.type = f.senha.type === 'password' ? 'text' : 'password'; };
-  const escolher = (a) => { arquivo = a || null; j.querySelector('#cert-nome').textContent = arquivo ? arquivo.name + ' (' + tamanhoLegivel(arquivo.size) + ')' : 'nenhum arquivo'; tentarLer(); };
-  j.querySelector('#cert-arq').onchange = (ev) => escolher(ev.target.files[0]);
-  const solta = j.querySelector('#cert-solta');
-  ['dragenter', 'dragover'].forEach((e) => solta.addEventListener(e, (ev) => { ev.preventDefault(); solta.classList.add('sobre'); }));
-  ['dragleave', 'drop'].forEach((e) => solta.addEventListener(e, (ev) => { ev.preventDefault(); solta.classList.remove('sobre'); }));
-  solta.addEventListener('drop', (ev) => escolher((ev.dataTransfer.files || [])[0]));
-  f.cliente_id.onchange = mostrarAtual; mostrarAtual();
-  j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
-  j.querySelector('#cert-ok').onclick = (ev) => comBotao(ev.currentTarget, async () => {
-    const cli = E.clientes.find((c) => c.id === f.cliente_id.value); if (!cli) throw new Error('Escolha a empresa.');
-    if (!arquivo && !f.validade.value) throw new Error('Escolha o arquivo do certificado (ou ao menos informe a validade).');
-    if (arquivo && !info) throw new Error('Não consegui ler o certificado: confira a senha.');
-    let doc = null;
-    if (arquivo) doc = await enviarDocumento(arquivo, { cliente_id: cli.id, grupo_id: cli.grupo_id || undefined, tipo: 'certificado' },
-      { nome: 'Certificado digital — ' + cli.nome + (arquivo.name.match(/\.(pfx|p12)$/i) || ['.pfx'])[0].toLowerCase(), validade: f.validade.value || null, obs: info && info.titular ? 'Titular: ' + info.titular : '' });
-    await q(sb.from('cliente_certificado').upsert(Object.assign({ cliente_id: cli.id, validade: f.validade.value || null, senha: f.senha.value || '' },
-      doc ? { documento_id: doc.id } : {}, info ? { titular: info.titular || '', emissor: info.emissor || '' } : {})).select('cliente_id'));
-    aviso('✓ Certificado de ' + cli.nome + ' salvo' + (f.validade.value ? ' — vence em ' + dataBR(f.validade.value) : '') + '.'); fecharJanela(j); if (depois) await depois();
-  });
-  return j;
+  return janelaEnviarDocumento({ grupo_id: vinculo.grupo_id || undefined, empresa_id: vinculo.cliente_id || undefined, tipo: 'certificado' }, depois, 'Enviar certificado digital');
 }
 
 'use strict';
@@ -5085,7 +5169,7 @@ async function abrirFicha(id, aba) {
       ' <button class="btn-etq" id="fc-etq" title="Etiquetas">+ etiqueta</button></div></div>' +
       '<div class="ficha-atalhos">' +
       '<button class="btn btn-o btn-mini" id="fc-tarefa">+ Tarefa</button><button class="btn btn-o btn-mini" id="fc-lanc">+ Lançamento</button>' +
-      '<button class="btn btn-o btn-mini" id="fc-ger" title="Contrato, procuração, petição… já com os dados deste cliente">📄 Gerar</button><button class="btn btn-o btn-mini" id="fc-doc">+ Documento</button><button class="btn btn-o btn-mini" id="fc-int">+ Interação</button>' +
+      '<button class="btn btn-o btn-mini" id="fc-doc">+ Documento</button><button class="btn btn-o btn-mini" id="fc-int">+ Interação</button>' +
       (pode('crm', 'editar') ? '<button class="btn btn-o btn-mini" id="fc-lead" title="Nova oportunidade no CRM para este cliente (novo serviço)">🎯 Virar lead</button>' +
         '<button class="btn btn-o btn-mini" id="fc-reuniao" title="Agenda reunião com o cliente: tarefa para os participantes e convite opcional">📅 Reunião</button>' : '') +
       (pode('crm', 'editar') ? '<button class="btn btn-o btn-mini" id="fc-indic" title="Oportunidade nova no CRM com origem = indicação deste cliente">🤝 Indicação</button>' : '') +
@@ -5112,7 +5196,6 @@ async function abrirFicha(id, aba) {
   j.querySelector('#fc-doc').onclick = () => janelaEnviarDocumento({ cliente_id: cl.id, grupo_id: cl.grupo_id }, () => mostrar('documentos'));
   j.querySelector('#fc-int').onclick = () => formInteracao(cl, () => mostrar('linha'));
   j.querySelector('#fc-etq').onclick = () => janelaEtiquetas(cl, etq, reabrir);
-  j.querySelector('#fc-ger').onclick = () => janelaGeradores(cl.id);
   const lead = j.querySelector('#fc-lead');
   if (lead) lead.onclick = async () => { if (!E._crmEtapas) E._crmEtapas = await q(sb.from('crm_etapas').select('*').order('ordem')).catch(() => []);
     formOportunidade({ cliente_id: cl.id, responsavel: cl.responsavel, origem: 'Cliente antigo' }, () => aviso('✓ Oportunidade criada no CRM para ' + cl.nome + '.')); };
@@ -5730,12 +5813,9 @@ async function fichaOportunidade(id, aba) {
       '<button class="btn btn-p btn-mini" id="op-editar">Editar</button></div></div>' +
       (e.final === 'perdido' && o.motivo_perda ? '<div class="dica" style="margin-bottom:10px">Perdida: ' + esc(o.motivo_perda) + '</div>' : '') +
       (o.contrato_id ? '<div class="dica" style="margin-bottom:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">' + (e.final === 'ganho' ? 'Contrato assinado.' : 'Contrato criado, <b>aguardando assinatura</b>.') +
-        ' <a href="#" id="op-ver-cli">Abrir a ficha do cliente</a><span style="margin-left:auto;display:flex;gap:6px"><button class="btn btn-o btn-mini" type="button" id="op-gerar">📄 Gerar contrato</button>' +
-        '<button class="btn btn-o btn-mini" type="button" id="op-ver-ctr">Abrir o contrato</button></span></div>' : '') +
-      // Backup 28: o CRM conversa com os outros módulos — proposta, contrato, sala no Meet e agenda
+        ' <a href="#" id="op-ver-cli">Abrir a ficha do cliente</a><span style="margin-left:auto;display:flex;gap:6px"><button class="btn btn-o btn-mini" type="button" id="op-ver-ctr">Abrir o contrato</button></span></div>' : '') +
+      // Backup 40: sem atalhos para os geradores de documentos (sistema à parte); ficam a sala no Meet e a agenda
       '<div class="op-integra"><span class="sub">Ferramentas:</span>' +
-        '<button class="btn btn-o btn-mini" type="button" id="op-int-prop" title="Proposta com a marca (aba Propostas) ou o gerador de apresentação">💼 Proposta</button>' +
-        '<button class="btn btn-o btn-mini" type="button" id="op-int-ctr" title="Gerador de contrato e procuração, já com o cliente">📜 Contrato</button>' +
         '<button class="btn btn-o btn-mini" type="button" id="op-int-meet" title="Cria uma sala nova no Google Meet (abre em outra aba; copie o link para a reunião)">🎥 Meet</button>' +
         '<button class="btn btn-o btn-mini" type="button" id="op-int-agenda" title="Abre o Google Agenda com o evento pronto para salvar">🗓 Agenda</button></div>' +
       '<div class="abas" id="op-abas">' + [['dados', 'Resumo'], ['atividades', 'Atividades'], ['propostas', 'Propostas'], ['documentos', 'Documentos']].map(([k, r]) => '<button data-aba="' + k + '">' + r + '</button>').join('') + '</div>' +
@@ -5762,10 +5842,7 @@ async function fichaOportunidade(id, aba) {
   const reu = j.querySelector('#op-reuniao'); if (reu) reu.onclick = () => formReuniao({ oportunidade_id: o.id, cliente_id: o.cliente_id }, () => reabrir('atividades'));
   const p = j.querySelector('#op-perdeu'); if (p) p.onclick = () => janelaPerder(o, () => { fecharJanela(j); });
   const vc = j.querySelector('#op-ver-cli'); if (vc) vc.onclick = (ev) => { ev.preventDefault(); abrirFicha(o.cliente_id); };
-  const vg = j.querySelector('#op-gerar'); if (vg) vg.onclick = (ev) => abrirGeradorContrato(o.cliente_id, o.contrato_id, ev);
   const vct = j.querySelector('#op-ver-ctr'); if (vct) vct.onclick = () => detalheContrato(o.contrato_id);
-  j.querySelector('#op-int-prop').onclick = () => { mostrar('propostas'); window.open('geradores/propostas.html' + (o.cliente_id ? '?cliente=' + encodeURIComponent(o.cliente_id) : ''), '_blank', 'noopener'); };
-  j.querySelector('#op-int-ctr').onclick = (ev) => (o.cliente_id ? abrirGeradorContrato(o.cliente_id, o.contrato_id, ev) : abrirCentral('documentos/index.html?modelo=contrato', ev));
   j.querySelector('#op-int-meet').onclick = () => window.open('https://meet.google.com/new', '_blank', 'noopener');
   j.querySelector('#op-int-agenda').onclick = () => { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(10, 0, 0, 0); window.open(linkAgendaGoogle({ titulo: 'Reunião — ' + o.titulo, inicio: d, duracao_min: 60, detalhe: nomeOp(o) + (mailOp(o) ? ' · ' + mailOp(o) : '') }), '_blank', 'noopener'); };
   await mostrar(aba || 'dados');
@@ -5825,19 +5902,25 @@ async function opPropostas(alvo, o, repinta) {
 async function novaProposta(o, ps, repinta) {
   const ms = await q(sb.from('crm_modelos_proposta').select('*').order('nome'));
   const j = abrirJanela({ titulo: 'Nova proposta — escolha o modelo',
-    corpo: '<div class="lista-ficha">' + ms.map((m) => '<div class="item-ficha clicavel" data-mod="' + m.id + '"><b>' + esc(m.nome) + '</b><span class="sub">' + (m.itens || []).length + ' item(ns)</span></div>').join('') +
+    corpo: '<div class="lista-ficha">' + ms.map((m) => '<div class="item-ficha clicavel" data-mod="' + m.id + '"><b>' + esc(m.nome) + '</b><span class="sub">' + (m.itens || []).length + ' item(ns)' + (m.texto_completo ? ' · tem versão completa' : '') + '</span></div>').join('') +
       (ps.length ? '<div class="item-ficha clicavel" data-mod="copia"><b>Copiar a última versão (v' + ps[0].versao + ')</b></div>' : '') +
       '<div class="item-ficha clicavel" data-mod=""><b>Em branco</b></div></div>' });
   j.querySelectorAll('[data-mod]').forEach((d) => d.onclick = () => {
     fecharJanela(j);
     const m = ms.find((x) => x.id === d.dataset.mod), ult = ps[0];
-    const base = d.dataset.mod === 'copia' ? { titulo: ult.titulo, texto: ult.texto, itens: ult.itens } : m ? { titulo: m.nome, texto: m.texto, itens: m.itens } : { titulo: 'Proposta de honorários', texto: '<p>Prezado(a) {cliente},</p><p></p>', itens: [] };
+    const base = d.dataset.mod === 'copia' ? { titulo: ult.titulo, texto: ult.texto, itens: ult.itens, texto_completo: ult.texto_completo || '', formato: ult.formato || 'simplificada' }
+      : m ? { titulo: m.nome, texto: m.texto, itens: m.itens, texto_completo: m.texto_completo || '', formato: 'simplificada' } : { titulo: 'Proposta de honorários', texto: '<p>Prezado(a) {cliente},</p><p></p>', itens: [], texto_completo: '', formato: 'simplificada' };
     editorProposta(o, Object.assign({ versao: (ult ? ult.versao : 0) + 1, validade: somarDias(hojeISO(), 15), status: 'rascunho' }, base), repinta);
   });
 }
 // Proposta com a marca do escritório (serve para PDF e e-mail: estilos embutidos e layout em tabelas)
 function htmlProposta(o, p) {
   const cli = nomeOp(o), total = soma(p.itens || [], (i) => i.valor), N = '#1B2A4A', D = '#C9A84C', T = '#374151', C = '#6B7280';
+  const trocar = (h) => String(h || '').split('{cliente}').join(esc(cli)).split('{validade}').join(p.validade ? dataBR(p.validade) : '—')
+    .split('{valor}').join(brl(total)).split('{parcelas}').join('')
+    .replace(/<h3>/g, '<h3 style="color:' + N + ';font-size:15px;margin:20px 0 6px;letter-spacing:.01em">').replace(/<ul>/g, '<ul style="margin:6px 0 12px;padding-left:20px">').replace(/<li>/g, '<li style="margin:3px 0">');
+  // Backup 40: "completa" = o texto de sempre + o detalhamento do serviço (escopo, fases, prazo, documentos)
+  const detalhe = p.formato === 'completa' && p.texto_completo ? '<div style="margin-top:8px;padding-top:4px;border-top:1px solid #E5E7EB">' + trocar(p.texto_completo) + '</div>' : '';
   const texto = String(p.texto || '').split('{cliente}').join(esc(cli)).split('{validade}').join(p.validade ? dataBR(p.validade) : '—')
     .split('{valor}').join(brl(total)).split('{parcelas}').join('')
     .replace(/<h3>/g, '<h3 style="color:' + N + ';font-size:15px;margin:20px 0 6px;letter-spacing:.01em">').replace(/<ul>/g, '<ul style="margin:6px 0 12px;padding-left:20px">').replace(/<li>/g, '<li style="margin:3px 0">');
@@ -5857,7 +5940,7 @@ function htmlProposta(o, p) {
       '<table role="presentation" style="width:100%;border-collapse:collapse;border:1px solid #E5E7EB;border-radius:8px;background:#F8FAFC"><tr>' +
         meta('Preparada para', esc(cli)) + meta('Data', dataBR(hojeISO())) + meta('Válida até', p.validade ? dataBR(p.validade) : '—') +
         '<td style="padding:10px 14px"><div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:' + C + '">Investimento</div><div style="font-size:13.5px;font-weight:bold;color:' + N + ';margin-top:2px">' + brl(total) + '</div></td></tr></table>' +
-      '<div style="margin-top:22px">' + texto + '</div>' +
+      '<div style="margin-top:22px">' + texto + detalhe + '</div>' +
       ((p.itens || []).length ? '<h3 style="color:' + N + ';font-size:15px;margin:24px 0 8px">Investimento</h3>' +
         '<table style="width:100%;border-collapse:collapse;font-size:13.5px"><thead><tr>' +
         '<th style="text-align:left;padding:10px 12px;background:' + N + ';color:#fff;font-weight:bold">Serviço</th><th style="text-align:left;padding:10px 12px;background:' + N + ';color:#fff;font-weight:bold">Forma de pagamento</th>' +
@@ -5885,13 +5968,19 @@ function editorProposta(o, p, repinta) {
   const j = abrirJanela({ titulo: 'Proposta v' + p.versao + ' — ' + nomeOp(o), larga: true,
     corpo: '<form id="f-pr" class="grade">' + campo('Título', '<input name="titulo" value="' + esc(p.titulo || '') + '">') +
       campo('Válida até', '<input name="validade" type="date" value="' + esc(p.validade || '') + '">') +
+      '<div class="campo inteiro"><span>Apresentação</span><div class="segmento" id="pr-formato">' + [['simplificada', 'Simplificada'], ['completa', 'Completa (detalha o serviço)']].map(([v, r]) => '<button type="button" data-v="' + v + '"' + ((p.formato || 'simplificada') === v ? ' class="ativo"' : '') + '>' + r + '</button>').join('') + '</div></div>' +
       '<div class="inteiro"><div class="secao">Texto <span class="sub">— clique e edite; {cliente} e {validade} são trocados sozinhos</span></div>' +
       '<div class="pr-texto" id="pr-texto" contenteditable="true">' + (p.texto || '') + '</div></div>' +
+      '<div class="inteiro" id="pr-completo-box"' + ((p.formato || 'simplificada') === 'completa' ? '' : ' hidden') + '><div class="secao">Detalhamento do serviço <span class="sub">— entra só na versão completa</span></div>' +
+      '<div class="pr-texto pr-completo" id="pr-completo" contenteditable="true">' + (p.texto_completo || '<h3>Escopo</h3><ul><li></li></ul><h3>Prazo</h3><p></p><h3>Documentos necessários</h3><ul><li></li></ul>') + '</div></div>' +
       '<div class="inteiro"><div class="secao">Valores</div><div id="pr-itens"></div><button type="button" class="btn btn-o btn-mini" id="pr-add">+ Item</button></div></form>',
     rodape: '<div class="acoes"><button class="btn btn-o" type="button" id="pr-pdf">Ver / salvar PDF</button><button class="btn btn-o" type="button" id="pr-guardar">Guardar nos Documentos</button>' +
       '<button class="btn btn-o" type="button" id="pr-email">Enviar por e-mail</button>' + (o.prospecto_telefone ? '<button class="btn btn-o" type="button" id="pr-zap">WhatsApp</button>' : '') + '</div>' +
       '<div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Fechar</button><button class="btn btn-p" type="button" id="pr-salvar">Salvar</button></div>' });
   const f = j.querySelector('#f-pr');
+  let formato = p.formato || 'simplificada';
+  j.querySelector('#pr-formato').onclick = (ev) => { const b = ev.target.closest('[data-v]'); if (!b) return; formato = b.dataset.v;
+    j.querySelectorAll('#pr-formato button').forEach((x) => x.classList.toggle('ativo', x === b)); j.querySelector('#pr-completo-box').hidden = formato !== 'completa'; };
   const pintarItens = () => {
     j.querySelector('#pr-itens').innerHTML = itens.map((i, k) => '<div class="pr-item"><input data-k="' + k + '" data-c="servico" placeholder="Serviço" value="' + esc(i.servico || '') + '">' +
       '<input data-k="' + k + '" data-c="forma" placeholder="Forma de pagamento" value="' + esc(i.forma || '') + '">' +
@@ -5903,9 +5992,10 @@ function editorProposta(o, p, repinta) {
   pintarItens();
   j.querySelector('#pr-add').onclick = () => { itens.push({ servico: '', forma: '', valor: 0 }); pintarItens(); };
   j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
-  const atual = () => Object.assign({}, p, { titulo: f.titulo.value.trim(), validade: f.validade.value || null, texto: limparHtml(j.querySelector('#pr-texto').innerHTML), itens });
+  const atual = () => Object.assign({}, p, { titulo: f.titulo.value.trim(), validade: f.validade.value || null, texto: limparHtml(j.querySelector('#pr-texto').innerHTML), itens,
+    formato, texto_completo: limparHtml(j.querySelector('#pr-completo').innerHTML) });
   const salvar = async () => {
-    const d = atual(), dados = { oportunidade_id: o.id, versao: d.versao, titulo: d.titulo, validade: d.validade, texto: d.texto, itens: d.itens };
+    const d = atual(), dados = { oportunidade_id: o.id, versao: d.versao, titulo: d.titulo, validade: d.validade, texto: d.texto, itens: d.itens, formato: d.formato, texto_completo: d.texto_completo };
     if (p.id) await q(sb.from('crm_propostas').update(dados).eq('id', p.id)); else { const n = await q(sb.from('crm_propostas').insert(dados).select().single()); p.id = n.id; p.status = n.status; }
     return d;
   };
@@ -6079,13 +6169,14 @@ async function janelaModelosProposta() {
   const ms = await q(sb.from('crm_modelos_proposta').select('*').order('nome'));
   const j = abrirJanela({ titulo: 'Modelos de proposta', larga: true,
     corpo: '<div class="lista-ficha">' + ms.map((m) => '<div class="item-ficha"><div><b>' + esc(m.nome) + '</b><div class="sub">' + (m.itens || []).map((i) => esc(i.servico)).join(' · ') + '</div></div>' +
-      '<span><button class="btn btn-o btn-mini" data-mp-ver="' + m.id + '">👁 Ver como fica</button> <button class="btn btn-o btn-mini" data-mp="' + m.id + '">Editar</button></span></div>').join('') + '</div>',
+      '<span><button class="btn btn-o btn-mini" data-mp-ver="' + m.id + '">👁 Simplificada</button> ' + (m.texto_completo ? '<button class="btn btn-o btn-mini" data-mp-ver="' + m.id + '" data-completa="1">👁 Completa</button> ' : '') + '<button class="btn btn-o btn-mini" data-mp="' + m.id + '">Editar</button></span></div>').join('') + '</div>',
     rodape: '<span></span><button class="btn btn-p" type="button" id="mp-novo">+ Novo modelo</button>' });
   const editar = (m) => {
     m = m || { nome: '', texto: '<p>Prezado(a) {cliente},</p><p></p><p>Esta proposta vale até {validade}.</p>', itens: [] };
     const k = abrirJanela({ titulo: m.id ? 'Editar modelo' : 'Novo modelo', larga: true,
       corpo: '<form class="grade" id="f-mp">' + campo('Nome', '<input name="nome" value="' + esc(m.nome) + '">', 'inteiro') +
-        '<div class="inteiro"><div class="secao">Texto</div><div class="pr-texto" id="mp-texto" contenteditable="true">' + m.texto + '</div></div>' +
+        '<div class="inteiro"><div class="secao">Texto (versão simplificada)</div><div class="pr-texto" id="mp-texto" contenteditable="true">' + m.texto + '</div></div>' +
+        '<div class="inteiro"><div class="secao">Detalhamento do serviço <span class="sub">— usado quando a proposta é "Completa" (escopo, fases, prazo, documentos)</span></div><div class="pr-texto pr-completo" id="mp-completo" contenteditable="true">' + (m.texto_completo || '') + '</div></div>' +
         campo('Itens (um por linha: serviço ; forma de pagamento ; valor)', '<textarea name="itens" rows="5">' + esc((m.itens || []).map((i) => [i.servico, i.forma || '', i.valor ? valorParaCampo(i.valor) : ''].join(' ; ')).join('\n')) + '</textarea>', 'inteiro') + '</form>',
       rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="mp-salvar">Salvar</button></div>' });
     const f = k.querySelector('#f-mp');
@@ -6093,7 +6184,7 @@ async function janelaModelosProposta() {
     k.querySelector('#mp-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
       if (!f.nome.value.trim()) throw new Error('Dê um nome ao modelo.');
       const itens = f.itens.value.split('\n').map((l) => l.split(';').map((x) => x.trim())).filter((x) => x[0]).map(([servico, forma, valor]) => ({ servico, forma: forma || '', valor: lerValor(valor || '') || 0 }));
-      const d = { nome: f.nome.value.trim(), texto: limparHtml(k.querySelector('#mp-texto').innerHTML), itens };
+      const d = { nome: f.nome.value.trim(), texto: limparHtml(k.querySelector('#mp-texto').innerHTML), texto_completo: limparHtml(k.querySelector('#mp-completo').innerHTML), itens };
       if (m.id) await q(sb.from('crm_modelos_proposta').update(d).eq('id', m.id)); else await q(sb.from('crm_modelos_proposta').insert(d));
       aviso('✓ Modelo salvo.'); fecharJanela(k); fecharJanela(j); janelaModelosProposta();
     });
@@ -6104,7 +6195,7 @@ async function janelaModelosProposta() {
     const m = ms.find((x) => x.id === b.dataset.mpVer), w = window.open('', '_blank');
     if (!w) return aviso('O navegador bloqueou a janela. Libere pop-ups para este site.', true);
     w.document.write('<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Modelo — ' + esc(m.nome) + '</title></head><body style="background:#EEF1F6;padding:20px">' +
-      htmlProposta({ prospecto_empresa: 'Empresa Exemplo Ltda' }, { versao: 1, titulo: m.nome, texto: m.texto, itens: (m.itens || []).map((i) => Object.assign({}, i, { valor: i.valor || 1000 })), validade: somarDias(hojeISO(), 15) }) + '</body></html>');
+      htmlProposta({ prospecto_empresa: 'Empresa Exemplo Ltda' }, { versao: 1, titulo: m.nome, texto: m.texto, texto_completo: m.texto_completo || '', formato: b.dataset.completa ? 'completa' : 'simplificada', itens: (m.itens || []).map((i) => Object.assign({}, i, { valor: i.valor || 1000 })), validade: somarDias(hojeISO(), 15) }) + '</body></html>');
     w.document.close();
   });
 }
@@ -6224,7 +6315,7 @@ TELAS.publicacoes = async function () {
     '<div class="titulo-pag"><div><h1>Publicações</h1><p id="pub-ult">Diário de Justiça Eletrônico Nacional · busca automática às 7h e 13h (dias úteis)</p></div>' +
     '<div class="acoes"><button class="btn btn-o" id="pub-oabs">⚙ Monitoramento (OABs e clientes)</button><button class="btn btn-o" id="pub-nav" title="Busca direto do seu computador — use se o servidor não conseguir falar com o CNJ">🌐 Buscar pelo navegador</button><button class="btn btn-p" id="pub-buscar">↻ Buscar agora</button></div></div>' +
     '<div class="filtros"><div class="segmento" id="pub-st">' + [['nova', 'Novas'], ['lida', 'Lidas'], ['tratada', 'Tratadas'], ['descartada', 'Descartadas'], ['', 'Todas']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
-    '<select class="busca sel" id="pub-dias"><option value="7">Últimos 7 dias</option><option value="30">Últimos 30 dias</option><option value="90">Últimos 90 dias</option><option value="">Todo o período</option></select>' +
+    '<select class="busca sel" id="pub-dias"><option value="7">Últimos 7 dias</option><option value="15">Últimos 15 dias</option><option value="30">Últimos 30 dias</option><option value="90">Últimos 90 dias</option><option value="">Todo o período</option></select>' +
 
     '<input class="busca" id="pub-busca" placeholder="Buscar no texto, processo ou parte" autocomplete="off"></div>' +
     // Backup 21: tribunais como filtro de botões — só os que têm publicação pendente (nova ou lida) no período
@@ -7079,133 +7170,6 @@ async function cardAprovacoes() {
     '</div><button class="btn btn-o btn-mini" data-ir-aprovacoes>Abrir Aprovações</button></div>';
 }
 document.addEventListener('click', (ev) => { if (ev.target.closest && ev.target.closest('[data-ir-aprovacoes]')) irParaTela('aprovacoes'); });
-
-'use strict';
-// ═══════════════════════════════════════════════════════════════════
-// Conciliar extrato (OFX do Sicoob ou de qualquer banco): lê o arquivo no
-// navegador, pega só as ENTRADAS e procura o honorário em aberto de mesmo
-// valor. Três grupos: identificados (marcados para baixa), em dúvida (escolher
-// entre os candidatos) e não identificados (o escritório escolhe à mão ou ignora).
-// A data do recebimento é a do banco. O FITID do banco evita tratar duas vezes.
-// ═══════════════════════════════════════════════════════════════════
-
-// OFX 1.x (SGML, tags sem fechamento) e 2.x (XML): uma entrada por <STMTTRN>
-function lerOfx(texto) {
-  const tag = (bloco, t) => { const m = new RegExp('<' + t + '>\\s*([^<\\r\\n]*)', 'i').exec(bloco); return m ? m[1].trim() : ''; };
-  return String(texto || '').split(/<STMTTRN>/i).slice(1).map((b) => {
-    const bloco = b.split(/<\/STMTTRN>/i)[0], d = tag(bloco, 'DTPOSTED');
-    return { fitid: tag(bloco, 'FITID'), tipo: tag(bloco, 'TRNTYPE').toUpperCase(), valor: Number(tag(bloco, 'TRNAMT').replace(',', '.')) || 0,
-      data: d.length >= 8 ? d.slice(0, 4) + '-' + d.slice(4, 6) + '-' + d.slice(6, 8) : '', nome: tag(bloco, 'NAME'), memo: tag(bloco, 'MEMO') };
-  }).filter((t) => t.valor > 0 && t.data && t.fitid);
-}
-// palavras "de verdade" do nome (tira LTDA, ME, PIX, TED…)
-const PALAVRAS_VAZIAS = /^(ltda|me|epp|eireli|sa|s\/a|pix|ted|doc|transf|transferencia|recebido|recebida|credito|cred|de|da|do|dos|das|e|pagamento|pag|ref|grupo|familia|holding|participacoes|comercio|servicos|industria|demo)$/;
-function palavras(s) { return normalizar(s).replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter((w) => w.length > 2 && !PALAVRAS_VAZIAS.test(w)); }
-function nomeBate(t, l) {
-  const doExtrato = new Set(palavras(t.nome + ' ' + t.memo)), dig = soDigitos(t.nome + ' ' + t.memo);
-  const cl = l.cliente_id ? E.clientes.find((c) => c.id === l.cliente_id) : null;
-  const doc = cl ? soDigitos(cl.cpf_cnpj) : '';
-  if (doc && doc.length >= 11 && dig.includes(doc)) return true;
-  const alvo = palavras([(l.clientes && l.clientes.nome) || '', (l.grupos && l.grupos.nome) || '', l.favorecido || '', cl ? cl.nome : ''].join(' '));
-  return alvo.some((w) => doExtrato.has(w));
-}
-function casar(entradas, abertos) {
-  const usados = new Set();
-  return entradas.map((t) => {
-    const mesmoValor = abertos.filter((l) => Math.abs(Number(l.valor) - t.valor) < 0.01);
-    const perto = mesmoValor.filter((l) => Math.abs(new Date(l.vencimento) - new Date(t.data)) <= 45 * 864e5);
-    const porNome = perto.filter((l) => nomeBate(t, l));
-    let certo = null, cands = [];
-    const dist = (l) => Math.abs(new Date(l.vencimento) - new Date(t.data)) / 864e5;
-    if (porNome.length === 1) certo = porNome[0];
-    else if (porNome.length > 1) {
-      // mesmo cliente com vários honorários iguais (mensalidade): fica o de vencimento mais perto, se for claramente o mais perto
-      const o = porNome.slice().sort((a, b) => dist(a) - dist(b));
-      if (dist(o[0]) <= 20 && dist(o[1]) - dist(o[0]) >= 7) certo = o[0]; else cands = o;
-    }
-    else if (perto.length === 1 && Math.abs(new Date(perto[0].vencimento) - new Date(t.data)) <= 10 * 864e5) cands = perto;
-    else cands = perto.length ? perto : mesmoValor;
-    if (certo && usados.has(certo.id)) { cands = [certo]; certo = null; }
-    if (certo) usados.add(certo.id);
-    return { t, certo, cands: cands.slice(0, 5) };
-  });
-}
-
-async function conciliarOfx(empresa) {
-  if (!pode(empresa === 'contabilidade' ? 'financeiro_contab' : 'financeiro_juridico', 'propor')) return aviso('Sem acesso ao financeiro desta área.', true);
-  await carregarCadastros();
-  const nomeEmp = empresa === 'contabilidade' ? 'Contabilidade' : 'Jurídico';
-  const j = abrirJanela({ titulo: '🏦 Conciliar extrato — ' + nomeEmp, larga: true,
-    corpo: '<div id="ofx-corpo"><ol class="passos"><li>No app ou internet banking do Sicoob: <b>Extrato → escolha o período → Exportar / Salvar em OFX</b>.</li>' +
-      '<li>Escolha o arquivo abaixo. Nada é gravado antes de você conferir.</li></ol>' +
-      '<label class="btn btn-p" style="cursor:pointer;margin-top:8px">Escolher arquivo .ofx<input type="file" id="ofx-arq" accept=".ofx,.OFX,.txt" hidden></label>' +
-      '<p class="sub" style="margin-top:8px">O arquivo é lido aqui no seu computador; só as entradas (créditos) são usadas.</p></div>',
-    rodape: '<span class="sub" id="ofx-resumo"></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Fechar</button><button class="btn btn-p" type="button" id="ofx-gravar" hidden>✓ Dar como recebidos os marcados</button></div>' });
-  j.querySelector('.janela').classList.add('janela-ofx');
-  j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
-  j.querySelector('#ofx-arq').onchange = async (ev) => {
-    const f = ev.target.files[0]; if (!f) return;
-    const buf = await f.arrayBuffer();
-    let txt = new TextDecoder('utf-8').decode(buf); if (/�/.test(txt)) txt = new TextDecoder('windows-1252').decode(buf);
-    const todas = lerOfx(txt);
-    if (!todas.length) return aviso('Nenhuma entrada encontrada no arquivo. Confira se é um extrato OFX.', true);
-    const [tratados, abertos] = await Promise.all([
-      q(sb.from('extrato_itens').select('fitid').in('fitid', todas.map((t) => t.fitid))).catch(() => []),
-      buscarTodos(() => sb.from('lancamentos').select('*, grupos(nome), clientes(nome)').eq('empresa', empresa).eq('tipo', 'receita').eq('pago', false).eq('perda', false).eq('redutor', false))
-    ]);
-    const ja = new Set(tratados.map((x) => x.fitid)), entradas = todas.filter((t) => !ja.has(t.fitid));
-    pintar(casar(entradas, abertos), abertos, todas.length - entradas.length);
-  };
-  const quem = (l) => (l.grupos && l.grupos.nome) || (l.clientes && l.clientes.nome) || l.favorecido || '';
-  const rotLanc = (l) => dataBR(l.vencimento) + ' · ' + quem(l) + ' · ' + l.descricao + ' · ' + brl(l.valor);
-  let itens = [];
-  function pintar(lista, abertos, repetidos) {
-    itens = lista;
-    const ok = lista.filter((x) => x.certo), duv = lista.filter((x) => !x.certo && x.cands.length), nao = lista.filter((x) => !x.certo && !x.cands.length);
-    const linhaT = (x) => '<div class="ofx-t"><b>' + brl(x.t.valor) + '</b> em ' + dataBR(x.t.data) + '<div class="sub">' + esc(x.t.nome || '—') + (x.t.memo ? ' · ' + esc(x.t.memo) : '') + '</div></div>';
-    const opcoes = (lst, marcado) => lst.map((l) => '<option value="' + l.id + '"' + (l.id === marcado ? ' selected' : '') + '>' + esc(rotLanc(l)) + '</option>').join('');
-    // não identificados: todos os abertos, os de valor mais parecido primeiro
-    const todosOrdenados = (v) => abertos.slice().sort((a, b) => Math.abs(a.valor - v) - Math.abs(b.valor - v)).slice(0, 60);
-    j.querySelector('#ofx-corpo').innerHTML =
-      (repetidos ? '<div class="dica" style="margin-bottom:10px">' + repetidos + ' entrada(s) deste arquivo já foram tratadas antes e ficaram de fora.</div>' : '') +
-      '<div class="secao">✓ Identificados (' + ok.length + ')</div>' + (ok.length ? '<div class="lista-ficha">' + ok.map((x) => { const i = lista.indexOf(x);
-        return '<label class="item-ficha ofx-it"><input type="checkbox" data-ofx-ok="' + i + '" checked>' + linhaT(x) + '<span class="ofx-seta">→</span><div class="ofx-l">' + esc(rotLanc(x.certo)) + '</div></label>'; }).join('') + '</div>'
-        : '<div class="sub" style="margin-bottom:8px">Nenhum com valor e nome batendo.</div>') +
-      '<div class="secao">? Em dúvida (' + duv.length + ') <span class="sub">— mesmo valor, mas o nome não bate ou há mais de um</span></div>' + (duv.length ? '<div class="lista-ficha">' + duv.map((x) => { const i = lista.indexOf(x);
-        return '<div class="item-ficha ofx-it">' + linhaT(x) + '<span class="ofx-seta">→</span><select class="busca sel ofx-sel" data-ofx-esc="' + i + '"><option value="">— deixar para depois —</option><option value="ignorar">Ignorar (não é honorário)</option>' + opcoes(x.cands) + '</select></div>'; }).join('') + '</div>'
-        : '<div class="sub" style="margin-bottom:8px">Nenhuma.</div>') +
-      '<div class="secao">✗ Não identificados (' + nao.length + ') <span class="sub">— escolha o honorário à mão, ignore ou deixe para depois</span></div>' + (nao.length ? '<div class="lista-ficha">' + nao.map((x) => { const i = lista.indexOf(x);
-        return '<div class="item-ficha ofx-it">' + linhaT(x) + '<span class="ofx-seta">→</span><select class="busca sel ofx-sel" data-ofx-esc="' + i + '"><option value="">— deixar para depois —</option><option value="ignorar">Ignorar (não é honorário)</option>' + opcoes(todosOrdenados(x.t.valor)) + '</select></div>'; }).join('') + '</div>'
-        : '<div class="sub">Nenhum.</div>');
-    j.querySelector('#ofx-gravar').hidden = !lista.length;
-    const conta = () => { const n = j.querySelectorAll('[data-ofx-ok]:checked').length + [...j.querySelectorAll('[data-ofx-esc]')].filter((s) => s.value && s.value !== 'ignorar').length;
-      j.querySelector('#ofx-resumo').textContent = lista.length + ' entrada(s) · ' + n + ' pagamento(s) para registrar'; };
-    j.querySelectorAll('[data-ofx-ok],[data-ofx-esc]').forEach((el) => { el.onchange = conta; });
-    conta();
-  }
-  j.querySelector('#ofx-gravar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
-    const escolhas = [];
-    j.querySelectorAll('[data-ofx-ok]:checked').forEach((c) => { const x = itens[+c.dataset.ofxOk]; escolhas.push([x.t, x.certo.id]); });
-    j.querySelectorAll('[data-ofx-esc]').forEach((s) => { if (s.value) escolhas.push([itens[+s.dataset.ofxEsc].t, s.value]); });
-    const lancs = escolhas.filter(([, id]) => id !== 'ignorar').map(([, id]) => id);
-    if (new Set(lancs).size !== lancs.length) throw new Error('O mesmo honorário foi escolhido para duas entradas do extrato. Corrija antes de gravar.');
-    if (!escolhas.length) throw new Error('Marque ou escolha pelo menos uma entrada.');
-    let baixas = 0, ign = 0, rasc = 0;
-    for (const [t, id] of escolhas) {
-      const reg = { fitid: t.fitid, empresa, data: t.data, valor: t.valor, nome: t.nome.slice(0, 200), memo: t.memo.slice(0, 300) };
-      if (id === 'ignorar') { await q(sb.from('extrato_itens').insert(Object.assign(reg, { situacao: 'ignorado' }))); ign++; continue; }
-      const { error } = await sb.from('lancamentos').update({ pago: true, data_pagamento: t.data, cobranca: '', perda: false }).eq('id', id);
-      if (error && error.rascunho) { rasc++; continue; }
-      if (error) throw new Error(erroAmigavel(error));
-      await q(sb.from('extrato_itens').insert(Object.assign(reg, { situacao: 'baixado', lancamento_id: id })));
-      baixas++;
-    }
-    fecharJanela(j);
-    aviso(rasc ? '📝 ' + rasc + ' pagamento(s) enviado(s) para aprovação' + (baixas ? '; ' + baixas + ' registrado(s)' : '') + '.'
-      : '✓ ' + baixas + ' pagamento(s) registrado(s) com a data do banco' + (ign ? ' · ' + ign + ' entrada(s) ignorada(s)' : '') + '.');
-    if (window.ERP_RECARREGAR) window.ERP_RECARREGAR(); else await recarregar();
-  });
-}
 
 'use strict';
 // ═══════════════════════════════════════════════════════════════════
@@ -8716,5 +8680,5 @@ const CSS_RELATORIO = [
 // toda gravação confirmada aparece também no rodapé do ERP
 const _avisoOrig = aviso;
 aviso = function (msg, erro) { _avisoOrig(msg, erro); if (!erro && window.ERP_EDITOR && /^✓/.test(msg)) window.ERP_EDITOR.gravou(String(msg).replace(/^✓\s*/, '')); };
-window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, invalidarCadastros, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo, perguntarBaixa, detalheContrato, ICONE_AVISO, conciliarOfx, abrirTarefa, detalheLancamento, edicaoLancamentos, janelaModelosEmail, janelaAutoEmails, janelaGeradores, formReuniao, janelaDelegar, abrirGeradorContrato, cardGuias, emitirParcela, enviarAcordosSelecionados, gerarGuias, janelaMovimentacao, janelaRelatorioPDF };
+window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, invalidarCadastros, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo, perguntarBaixa, detalheContrato, ICONE_AVISO, abrirTarefa, detalheLancamento, edicaoLancamentos, janelaModelosEmail, janelaAutoEmails, janelaGeradores, formReuniao, janelaDelegar, abrirGeradorContrato, cardGuias, emitirParcela, enviarAcordosSelecionados, gerarGuias, janelaMovimentacao, janelaRelatorioPDF };
 })();

@@ -1150,11 +1150,37 @@
 .gs .fila-cal-area > .ag-leg{margin-top:auto;padding-top:10px}
 .gs .fila-atr-it{border-left:3px solid var(--red)!important}
 .gs .sm-com-atr{margin-bottom:4px}
-.gs .tf-abas-seg{margin-bottom:10px}
+.gs .tf-abas-seg{margin-bottom:10px;display:inline-flex;width:auto}
 .gs .tf-cal .card-bd{padding-top:14px}
 .gs .sm-com-atr .sm-grade{grid-template-columns:none!important;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr)}
 @media (max-width:900px){.gs .sm-com-atr .sm-grade{grid-auto-flow:row;grid-template-columns:1fr!important}
 }
+.gs .tf-sem .sm-grade{min-height:600px;align-items:stretch}
+.gs .tf-sem .fila-com-atr > .fila-atrasadas{min-height:600px}
+.gs .tf-sem .sm-col{display:flex;flex-direction:column}
+.gs .cal-tf.ag-feita,.gs .ag-cor.ag-feita{text-decoration:line-through;opacity:.6}
+.gs .ag-cor.ag-feita{background:var(--border-strong)}
+.gs .cal-tf.ag-feita{background:var(--surface2);color:var(--text3)}
+.gs .ag-form .ag-so-aud{display:none}
+.gs .ag-form[data-tipo=audiencia] .ag-so-aud{display:flex}
+.gs .ag-form .ag-toda{grid-column:1/-1}
+.gs .ag-hh{display:flex;align-items:center;gap:8px}
+.gs .ag-hh input{flex:1;min-width:0;padding:9px 10px;border:1px solid var(--border-strong);border-radius:var(--r-ctl);font:inherit;font-size:14px;background:var(--surface);color:var(--text)}
+.gs .ag-conflito{background:var(--amber-lt);color:var(--amber-d);border-radius:8px;padding:8px 10px;font-size:12.5px}
+.gs .doc-pasta>summary::after{margin-left:8px}
+.gs .doc-pasta-ac{margin-left:auto}
+.gs .doc-subpastas{padding:4px 14px 14px;display:flex;flex-direction:column;gap:8px}
+.gs .doc-sub{border:1px solid var(--border);border-radius:10px;background:var(--surface)}
+.gs .doc-sub>summary{display:flex;align-items:center;gap:10px;padding:9px 12px;cursor:pointer;list-style:none;font-size:13.5px}
+.gs .doc-sub>summary::-webkit-details-marker{display:none}
+.gs .doc-sub>summary::after{content:'▸';margin-left:8px;color:var(--text3)}
+.gs .doc-sub[open]>summary::after{content:'▾'}
+.gs .doc-sub>.tabela-wrap{margin:0 10px 10px}
+.gs .doc-tipos{flex-wrap:wrap}
+.gs .doc-envio .doc-so-cert{display:none}
+.gs .doc-envio[data-tipo=certificado] .doc-so-cert{display:flex}
+.gs .doc-envio[data-tipo=certificado] .cert-lido.doc-so-cert{display:block}
+.gs .pr-completo{max-height:380px;overflow:auto}
 /* cores do ERP, tamanhos do Gestão */
 .gs{background:none!important;min-height:0!important}
 .gs .duas-col>*,.gs .card{min-width:0}

@@ -614,6 +614,40 @@ trocar(`  + '<div class="fa-lin"><span class="fa-lbl">'+esc(L.tituloQuem)+'</spa
   `  + '<div class="fa-lin"><span class="fa-lbl">Quem fez</span>'
   +   '<button class="fa-chip on fc-quem-contab" type="button" aria-pressed="true" title="Por enquanto só a Contabilidade lança aqui">Contabilidade</button>'`, 1);
 trocar(`<option value="">Todos ('+esc(L.tituloRecorte.toLowerCase())+')</option>'`, `<option value="">Todos os tipos</option>'`, 1);
+// Backup 40: Financeiro sem emojis — ícones de traço fino (como na barra lateral)
+const IC40 = (d) => '<svg class="fa-ic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + d + '</svg>';
+const IC40D = {
+  analise: '<path d="M3 3v18h18"/><path d="M8 17V11M13 17V7M18 17v-4"/>',
+  receber: '<path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>',
+  recebidos: '<circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/>',
+  prejuizo: '<path d="M3 7l6 6 4-4 8 8"/><path d="M15 17h6v-6"/>',
+  receita: '<circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/>',
+  apagar: '<path d="M12 21V9M7 14l5-5 5 5"/><path d="M4 7V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2"/>',
+  despesa: '<circle cx="12" cy="12" r="9"/><path d="M8 12h8"/>',
+  caixa: '<rect x="2" y="6" width="20" height="13" rx="2"/><path d="M2 10h20M16 15h2"/>',
+  socios: '<path d="M21 12A9 9 0 1 1 12 3v9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/>',
+  cal: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>'
+};
+trocar(`onclick="setFinTab('analise',this)"  >📊 Análise`, `onclick="setFinTab('analise',this)"  >` + IC40(IC40D.analise) + 'Análise');
+trocar(`onclick="setFinTab('receber',this)"  >📋 A Receber`, `onclick="setFinTab('receber',this)"  >` + IC40(IC40D.receber) + 'A Receber');
+trocar(`onclick="setFinTab('recebidos',this)" >✅ Recebidos`, `onclick="setFinTab('recebidos',this)" >` + IC40(IC40D.recebidos) + 'Recebidos');
+trocar(`onclick="setFinTab('prejuizo',this)"  >📉 Prejuízo / Créditos`, `onclick="setFinTab('prejuizo',this)"  >` + IC40(IC40D.prejuizo) + 'Prejuízo / Créditos');
+trocar(`onclick="setFinCTab('analise',this)" >📊 Análise`, `onclick="setFinCTab('analise',this)" >` + IC40(IC40D.analise) + 'Análise');
+trocar(`onclick="setFinCTab('receber',this)" >📥 A Receber`, `onclick="setFinCTab('receber',this)" >` + IC40(IC40D.receber) + 'A Receber');
+trocar(`onclick="setFinCTab('receita',this)" >💰 Receita`, `onclick="setFinCTab('receita',this)" >` + IC40(IC40D.receita) + 'Receita');
+trocar(`onclick="setFinCTab('apagar',this)"  >📤 A Pagar`, `onclick="setFinCTab('apagar',this)"  >` + IC40(IC40D.apagar) + 'A Pagar');
+trocar(`onclick="setFinCTab('despesa',this)" >💸 Despesa`, `onclick="setFinCTab('despesa',this)" >` + IC40(IC40D.despesa) + 'Despesa');
+trocar(`onclick="setFinCTab('caixa',this)"   >🏦 Composição de Caixa`, `onclick="setFinCTab('caixa',this)"   >` + IC40(IC40D.caixa) + 'Composição de Caixa');
+trocar(`onclick="setFinCTab('socios',this)"  >🤝 Distribuição de Lucros`, `onclick="setFinCTab('socios',this)"  >` + IC40(IC40D.socios) + 'Distribuição de Lucros');
+trocar(`title="Abrir calendário">📅</button>'`, `title="Abrir calendário">` + IC40(IC40D.cal).replace(/'/g, "\\'") + `</button>'`, 4);
+
+// Backup 40: cor da pessoa (Financeiro) reconhecida pelo primeiro nome, sem diferença de maiúscula/acento — igual ao resto do sistema
+trocar(`  var c=_FA_PESSOA[String(nome||'').trim()];
+  if(c) return c;`, `  var c=_FA_PESSOA[String(nome||'').trim()];
+  if(!c){ var _n=function(s){ return String(s||'').trim().split(/\s+/)[0].normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase(); };
+    for(var _k in _FA_PESSOA) if(_n(_k)===_n(nome)){ c=_FA_PESSOA[_k]; break; } }
+  if(c) return c;`);
+
 // 13. Cores de tokens.css (fonte única) depois do CSS do ERP; modo escuro lembrado neste aparelho.
 trocar('\n</head>\n', '\n<link rel="stylesheet" href="tokens.css">\n<link rel="stylesheet" href="tema-escuro.css">\n<link rel="stylesheet" href="design.css">\n' +
   '<script>try{if(localStorage.getItem("erp_tema")==="escuro")document.documentElement.setAttribute("data-tema","escuro")}catch(e){}</script>\n</head>\n', 1);
@@ -659,10 +693,10 @@ let graf = ler('graficos.js').replace("document.addEventListener('DOMContentLoad
 const bundle = "'use strict';\n// GERADO por sistema/ferramentas/montar-erp.js — não edite; edite os arquivos do Gestão.\n(function () {\n" +
   "const _raiz = document.createElement('div'); _raiz.id = 'gs-raiz'; _raiz.className = 'gs';\n" +
   "_raiz.innerHTML = '<div id=\"janelas\"></div><div id=\"aviso\"></div>'; document.body.appendChild(_raiz);\n" +
-  [nuc, graf, ler('telas-painel.js'), ler('telas-financeiro.js'), ler('telas-cadastros.js'), ler('telas-admin.js'), ler('telas-tarefas.js'), ler('telas-documentos.js'), ler('telas-cliente360.js'), ler('telas-crm.js'), ler('telas-publicacoes.js'), ler('telas-acordos.js'), ler('telas-alertas.js'), ler('telas-automacoes.js'), ler('telas-aprovacoes.js'), ler('telas-ofx.js'), ler('telas-emails.js'), ler('telas-guias.js'), ler('telas-rotina.js'), ler('telas-relatorio.js')].join('\n') +
+  [nuc, graf, ler('telas-painel.js'), ler('telas-financeiro.js'), ler('telas-cadastros.js'), ler('telas-admin.js'), ler('telas-tarefas.js'), ler('telas-documentos.js'), ler('telas-cliente360.js'), ler('telas-crm.js'), ler('telas-publicacoes.js'), ler('telas-acordos.js'), ler('telas-alertas.js'), ler('telas-automacoes.js'), ler('telas-aprovacoes.js'), ler('telas-emails.js'), ler('telas-guias.js'), ler('telas-rotina.js'), ler('telas-relatorio.js')].join('\n') +
   "\n// toda gravação confirmada aparece também no rodapé do ERP\nconst _avisoOrig = aviso;\n" +
   "aviso = function (msg, erro) { _avisoOrig(msg, erro); if (!erro && window.ERP_EDITOR && /^✓/.test(msg)) window.ERP_EDITOR.gravou(String(msg).replace(/^✓\\s*/, '')); };\n" +
-  "window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, invalidarCadastros, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo, perguntarBaixa, detalheContrato, ICONE_AVISO, conciliarOfx, abrirTarefa, detalheLancamento, edicaoLancamentos, janelaModelosEmail, janelaAutoEmails, janelaGeradores, formReuniao, janelaDelegar, abrirGeradorContrato, cardGuias, emitirParcela, enviarAcordosSelecionados, gerarGuias, janelaMovimentacao, janelaRelatorioPDF };\n})();\n";
+  "window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, invalidarCadastros, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo, perguntarBaixa, detalheContrato, ICONE_AVISO, abrirTarefa, detalheLancamento, edicaoLancamentos, janelaModelosEmail, janelaAutoEmails, janelaGeradores, formReuniao, janelaDelegar, abrirGeradorContrato, cardGuias, emitirParcela, enviarAcordosSelecionados, gerarGuias, janelaMovimentacao, janelaRelatorioPDF };\n})();\n";
 fs.writeFileSync(path.join(APP, 'gestao-embutida.js'), bundle);
 
 // CSS do Gestão só dentro de .gs (as telas do Gestão) e #gs-hd (barra superior)

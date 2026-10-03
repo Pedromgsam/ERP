@@ -287,12 +287,9 @@ async function fichaOportunidade(id, aba) {
       '<button class="btn btn-p btn-mini" id="op-editar">Editar</button></div></div>' +
       (e.final === 'perdido' && o.motivo_perda ? '<div class="dica" style="margin-bottom:10px">Perdida: ' + esc(o.motivo_perda) + '</div>' : '') +
       (o.contrato_id ? '<div class="dica" style="margin-bottom:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">' + (e.final === 'ganho' ? 'Contrato assinado.' : 'Contrato criado, <b>aguardando assinatura</b>.') +
-        ' <a href="#" id="op-ver-cli">Abrir a ficha do cliente</a><span style="margin-left:auto;display:flex;gap:6px"><button class="btn btn-o btn-mini" type="button" id="op-gerar">📄 Gerar contrato</button>' +
-        '<button class="btn btn-o btn-mini" type="button" id="op-ver-ctr">Abrir o contrato</button></span></div>' : '') +
-      // Backup 28: o CRM conversa com os outros módulos — proposta, contrato, sala no Meet e agenda
+        ' <a href="#" id="op-ver-cli">Abrir a ficha do cliente</a><span style="margin-left:auto;display:flex;gap:6px"><button class="btn btn-o btn-mini" type="button" id="op-ver-ctr">Abrir o contrato</button></span></div>' : '') +
+      // Backup 40: sem atalhos para os geradores de documentos (sistema à parte); ficam a sala no Meet e a agenda
       '<div class="op-integra"><span class="sub">Ferramentas:</span>' +
-        '<button class="btn btn-o btn-mini" type="button" id="op-int-prop" title="Proposta com a marca (aba Propostas) ou o gerador de apresentação">💼 Proposta</button>' +
-        '<button class="btn btn-o btn-mini" type="button" id="op-int-ctr" title="Gerador de contrato e procuração, já com o cliente">📜 Contrato</button>' +
         '<button class="btn btn-o btn-mini" type="button" id="op-int-meet" title="Cria uma sala nova no Google Meet (abre em outra aba; copie o link para a reunião)">🎥 Meet</button>' +
         '<button class="btn btn-o btn-mini" type="button" id="op-int-agenda" title="Abre o Google Agenda com o evento pronto para salvar">🗓 Agenda</button></div>' +
       '<div class="abas" id="op-abas">' + [['dados', 'Resumo'], ['atividades', 'Atividades'], ['propostas', 'Propostas'], ['documentos', 'Documentos']].map(([k, r]) => '<button data-aba="' + k + '">' + r + '</button>').join('') + '</div>' +
@@ -319,10 +316,7 @@ async function fichaOportunidade(id, aba) {
   const reu = j.querySelector('#op-reuniao'); if (reu) reu.onclick = () => formReuniao({ oportunidade_id: o.id, cliente_id: o.cliente_id }, () => reabrir('atividades'));
   const p = j.querySelector('#op-perdeu'); if (p) p.onclick = () => janelaPerder(o, () => { fecharJanela(j); });
   const vc = j.querySelector('#op-ver-cli'); if (vc) vc.onclick = (ev) => { ev.preventDefault(); abrirFicha(o.cliente_id); };
-  const vg = j.querySelector('#op-gerar'); if (vg) vg.onclick = (ev) => abrirGeradorContrato(o.cliente_id, o.contrato_id, ev);
   const vct = j.querySelector('#op-ver-ctr'); if (vct) vct.onclick = () => detalheContrato(o.contrato_id);
-  j.querySelector('#op-int-prop').onclick = () => { mostrar('propostas'); window.open('geradores/propostas.html' + (o.cliente_id ? '?cliente=' + encodeURIComponent(o.cliente_id) : ''), '_blank', 'noopener'); };
-  j.querySelector('#op-int-ctr').onclick = (ev) => (o.cliente_id ? abrirGeradorContrato(o.cliente_id, o.contrato_id, ev) : abrirCentral('documentos/index.html?modelo=contrato', ev));
   j.querySelector('#op-int-meet').onclick = () => window.open('https://meet.google.com/new', '_blank', 'noopener');
   j.querySelector('#op-int-agenda').onclick = () => { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(10, 0, 0, 0); window.open(linkAgendaGoogle({ titulo: 'Reunião — ' + o.titulo, inicio: d, duracao_min: 60, detalhe: nomeOp(o) + (mailOp(o) ? ' · ' + mailOp(o) : '') }), '_blank', 'noopener'); };
   await mostrar(aba || 'dados');
@@ -382,19 +376,25 @@ async function opPropostas(alvo, o, repinta) {
 async function novaProposta(o, ps, repinta) {
   const ms = await q(sb.from('crm_modelos_proposta').select('*').order('nome'));
   const j = abrirJanela({ titulo: 'Nova proposta — escolha o modelo',
-    corpo: '<div class="lista-ficha">' + ms.map((m) => '<div class="item-ficha clicavel" data-mod="' + m.id + '"><b>' + esc(m.nome) + '</b><span class="sub">' + (m.itens || []).length + ' item(ns)</span></div>').join('') +
+    corpo: '<div class="lista-ficha">' + ms.map((m) => '<div class="item-ficha clicavel" data-mod="' + m.id + '"><b>' + esc(m.nome) + '</b><span class="sub">' + (m.itens || []).length + ' item(ns)' + (m.texto_completo ? ' · tem versão completa' : '') + '</span></div>').join('') +
       (ps.length ? '<div class="item-ficha clicavel" data-mod="copia"><b>Copiar a última versão (v' + ps[0].versao + ')</b></div>' : '') +
       '<div class="item-ficha clicavel" data-mod=""><b>Em branco</b></div></div>' });
   j.querySelectorAll('[data-mod]').forEach((d) => d.onclick = () => {
     fecharJanela(j);
     const m = ms.find((x) => x.id === d.dataset.mod), ult = ps[0];
-    const base = d.dataset.mod === 'copia' ? { titulo: ult.titulo, texto: ult.texto, itens: ult.itens } : m ? { titulo: m.nome, texto: m.texto, itens: m.itens } : { titulo: 'Proposta de honorários', texto: '<p>Prezado(a) {cliente},</p><p></p>', itens: [] };
+    const base = d.dataset.mod === 'copia' ? { titulo: ult.titulo, texto: ult.texto, itens: ult.itens, texto_completo: ult.texto_completo || '', formato: ult.formato || 'simplificada' }
+      : m ? { titulo: m.nome, texto: m.texto, itens: m.itens, texto_completo: m.texto_completo || '', formato: 'simplificada' } : { titulo: 'Proposta de honorários', texto: '<p>Prezado(a) {cliente},</p><p></p>', itens: [], texto_completo: '', formato: 'simplificada' };
     editorProposta(o, Object.assign({ versao: (ult ? ult.versao : 0) + 1, validade: somarDias(hojeISO(), 15), status: 'rascunho' }, base), repinta);
   });
 }
 // Proposta com a marca do escritório (serve para PDF e e-mail: estilos embutidos e layout em tabelas)
 function htmlProposta(o, p) {
   const cli = nomeOp(o), total = soma(p.itens || [], (i) => i.valor), N = '#1B2A4A', D = '#C9A84C', T = '#374151', C = '#6B7280';
+  const trocar = (h) => String(h || '').split('{cliente}').join(esc(cli)).split('{validade}').join(p.validade ? dataBR(p.validade) : '—')
+    .split('{valor}').join(brl(total)).split('{parcelas}').join('')
+    .replace(/<h3>/g, '<h3 style="color:' + N + ';font-size:15px;margin:20px 0 6px;letter-spacing:.01em">').replace(/<ul>/g, '<ul style="margin:6px 0 12px;padding-left:20px">').replace(/<li>/g, '<li style="margin:3px 0">');
+  // Backup 40: "completa" = o texto de sempre + o detalhamento do serviço (escopo, fases, prazo, documentos)
+  const detalhe = p.formato === 'completa' && p.texto_completo ? '<div style="margin-top:8px;padding-top:4px;border-top:1px solid #E5E7EB">' + trocar(p.texto_completo) + '</div>' : '';
   const texto = String(p.texto || '').split('{cliente}').join(esc(cli)).split('{validade}').join(p.validade ? dataBR(p.validade) : '—')
     .split('{valor}').join(brl(total)).split('{parcelas}').join('')
     .replace(/<h3>/g, '<h3 style="color:' + N + ';font-size:15px;margin:20px 0 6px;letter-spacing:.01em">').replace(/<ul>/g, '<ul style="margin:6px 0 12px;padding-left:20px">').replace(/<li>/g, '<li style="margin:3px 0">');
@@ -414,7 +414,7 @@ function htmlProposta(o, p) {
       '<table role="presentation" style="width:100%;border-collapse:collapse;border:1px solid #E5E7EB;border-radius:8px;background:#F8FAFC"><tr>' +
         meta('Preparada para', esc(cli)) + meta('Data', dataBR(hojeISO())) + meta('Válida até', p.validade ? dataBR(p.validade) : '—') +
         '<td style="padding:10px 14px"><div style="font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:' + C + '">Investimento</div><div style="font-size:13.5px;font-weight:bold;color:' + N + ';margin-top:2px">' + brl(total) + '</div></td></tr></table>' +
-      '<div style="margin-top:22px">' + texto + '</div>' +
+      '<div style="margin-top:22px">' + texto + detalhe + '</div>' +
       ((p.itens || []).length ? '<h3 style="color:' + N + ';font-size:15px;margin:24px 0 8px">Investimento</h3>' +
         '<table style="width:100%;border-collapse:collapse;font-size:13.5px"><thead><tr>' +
         '<th style="text-align:left;padding:10px 12px;background:' + N + ';color:#fff;font-weight:bold">Serviço</th><th style="text-align:left;padding:10px 12px;background:' + N + ';color:#fff;font-weight:bold">Forma de pagamento</th>' +
@@ -442,13 +442,19 @@ function editorProposta(o, p, repinta) {
   const j = abrirJanela({ titulo: 'Proposta v' + p.versao + ' — ' + nomeOp(o), larga: true,
     corpo: '<form id="f-pr" class="grade">' + campo('Título', '<input name="titulo" value="' + esc(p.titulo || '') + '">') +
       campo('Válida até', '<input name="validade" type="date" value="' + esc(p.validade || '') + '">') +
+      '<div class="campo inteiro"><span>Apresentação</span><div class="segmento" id="pr-formato">' + [['simplificada', 'Simplificada'], ['completa', 'Completa (detalha o serviço)']].map(([v, r]) => '<button type="button" data-v="' + v + '"' + ((p.formato || 'simplificada') === v ? ' class="ativo"' : '') + '>' + r + '</button>').join('') + '</div></div>' +
       '<div class="inteiro"><div class="secao">Texto <span class="sub">— clique e edite; {cliente} e {validade} são trocados sozinhos</span></div>' +
       '<div class="pr-texto" id="pr-texto" contenteditable="true">' + (p.texto || '') + '</div></div>' +
+      '<div class="inteiro" id="pr-completo-box"' + ((p.formato || 'simplificada') === 'completa' ? '' : ' hidden') + '><div class="secao">Detalhamento do serviço <span class="sub">— entra só na versão completa</span></div>' +
+      '<div class="pr-texto pr-completo" id="pr-completo" contenteditable="true">' + (p.texto_completo || '<h3>Escopo</h3><ul><li></li></ul><h3>Prazo</h3><p></p><h3>Documentos necessários</h3><ul><li></li></ul>') + '</div></div>' +
       '<div class="inteiro"><div class="secao">Valores</div><div id="pr-itens"></div><button type="button" class="btn btn-o btn-mini" id="pr-add">+ Item</button></div></form>',
     rodape: '<div class="acoes"><button class="btn btn-o" type="button" id="pr-pdf">Ver / salvar PDF</button><button class="btn btn-o" type="button" id="pr-guardar">Guardar nos Documentos</button>' +
       '<button class="btn btn-o" type="button" id="pr-email">Enviar por e-mail</button>' + (o.prospecto_telefone ? '<button class="btn btn-o" type="button" id="pr-zap">WhatsApp</button>' : '') + '</div>' +
       '<div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Fechar</button><button class="btn btn-p" type="button" id="pr-salvar">Salvar</button></div>' });
   const f = j.querySelector('#f-pr');
+  let formato = p.formato || 'simplificada';
+  j.querySelector('#pr-formato').onclick = (ev) => { const b = ev.target.closest('[data-v]'); if (!b) return; formato = b.dataset.v;
+    j.querySelectorAll('#pr-formato button').forEach((x) => x.classList.toggle('ativo', x === b)); j.querySelector('#pr-completo-box').hidden = formato !== 'completa'; };
   const pintarItens = () => {
     j.querySelector('#pr-itens').innerHTML = itens.map((i, k) => '<div class="pr-item"><input data-k="' + k + '" data-c="servico" placeholder="Serviço" value="' + esc(i.servico || '') + '">' +
       '<input data-k="' + k + '" data-c="forma" placeholder="Forma de pagamento" value="' + esc(i.forma || '') + '">' +
@@ -460,9 +466,10 @@ function editorProposta(o, p, repinta) {
   pintarItens();
   j.querySelector('#pr-add').onclick = () => { itens.push({ servico: '', forma: '', valor: 0 }); pintarItens(); };
   j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
-  const atual = () => Object.assign({}, p, { titulo: f.titulo.value.trim(), validade: f.validade.value || null, texto: limparHtml(j.querySelector('#pr-texto').innerHTML), itens });
+  const atual = () => Object.assign({}, p, { titulo: f.titulo.value.trim(), validade: f.validade.value || null, texto: limparHtml(j.querySelector('#pr-texto').innerHTML), itens,
+    formato, texto_completo: limparHtml(j.querySelector('#pr-completo').innerHTML) });
   const salvar = async () => {
-    const d = atual(), dados = { oportunidade_id: o.id, versao: d.versao, titulo: d.titulo, validade: d.validade, texto: d.texto, itens: d.itens };
+    const d = atual(), dados = { oportunidade_id: o.id, versao: d.versao, titulo: d.titulo, validade: d.validade, texto: d.texto, itens: d.itens, formato: d.formato, texto_completo: d.texto_completo };
     if (p.id) await q(sb.from('crm_propostas').update(dados).eq('id', p.id)); else { const n = await q(sb.from('crm_propostas').insert(dados).select().single()); p.id = n.id; p.status = n.status; }
     return d;
   };
@@ -636,13 +643,14 @@ async function janelaModelosProposta() {
   const ms = await q(sb.from('crm_modelos_proposta').select('*').order('nome'));
   const j = abrirJanela({ titulo: 'Modelos de proposta', larga: true,
     corpo: '<div class="lista-ficha">' + ms.map((m) => '<div class="item-ficha"><div><b>' + esc(m.nome) + '</b><div class="sub">' + (m.itens || []).map((i) => esc(i.servico)).join(' · ') + '</div></div>' +
-      '<span><button class="btn btn-o btn-mini" data-mp-ver="' + m.id + '">👁 Ver como fica</button> <button class="btn btn-o btn-mini" data-mp="' + m.id + '">Editar</button></span></div>').join('') + '</div>',
+      '<span><button class="btn btn-o btn-mini" data-mp-ver="' + m.id + '">👁 Simplificada</button> ' + (m.texto_completo ? '<button class="btn btn-o btn-mini" data-mp-ver="' + m.id + '" data-completa="1">👁 Completa</button> ' : '') + '<button class="btn btn-o btn-mini" data-mp="' + m.id + '">Editar</button></span></div>').join('') + '</div>',
     rodape: '<span></span><button class="btn btn-p" type="button" id="mp-novo">+ Novo modelo</button>' });
   const editar = (m) => {
     m = m || { nome: '', texto: '<p>Prezado(a) {cliente},</p><p></p><p>Esta proposta vale até {validade}.</p>', itens: [] };
     const k = abrirJanela({ titulo: m.id ? 'Editar modelo' : 'Novo modelo', larga: true,
       corpo: '<form class="grade" id="f-mp">' + campo('Nome', '<input name="nome" value="' + esc(m.nome) + '">', 'inteiro') +
-        '<div class="inteiro"><div class="secao">Texto</div><div class="pr-texto" id="mp-texto" contenteditable="true">' + m.texto + '</div></div>' +
+        '<div class="inteiro"><div class="secao">Texto (versão simplificada)</div><div class="pr-texto" id="mp-texto" contenteditable="true">' + m.texto + '</div></div>' +
+        '<div class="inteiro"><div class="secao">Detalhamento do serviço <span class="sub">— usado quando a proposta é "Completa" (escopo, fases, prazo, documentos)</span></div><div class="pr-texto pr-completo" id="mp-completo" contenteditable="true">' + (m.texto_completo || '') + '</div></div>' +
         campo('Itens (um por linha: serviço ; forma de pagamento ; valor)', '<textarea name="itens" rows="5">' + esc((m.itens || []).map((i) => [i.servico, i.forma || '', i.valor ? valorParaCampo(i.valor) : ''].join(' ; ')).join('\n')) + '</textarea>', 'inteiro') + '</form>',
       rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="mp-salvar">Salvar</button></div>' });
     const f = k.querySelector('#f-mp');
@@ -650,7 +658,7 @@ async function janelaModelosProposta() {
     k.querySelector('#mp-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
       if (!f.nome.value.trim()) throw new Error('Dê um nome ao modelo.');
       const itens = f.itens.value.split('\n').map((l) => l.split(';').map((x) => x.trim())).filter((x) => x[0]).map(([servico, forma, valor]) => ({ servico, forma: forma || '', valor: lerValor(valor || '') || 0 }));
-      const d = { nome: f.nome.value.trim(), texto: limparHtml(k.querySelector('#mp-texto').innerHTML), itens };
+      const d = { nome: f.nome.value.trim(), texto: limparHtml(k.querySelector('#mp-texto').innerHTML), texto_completo: limparHtml(k.querySelector('#mp-completo').innerHTML), itens };
       if (m.id) await q(sb.from('crm_modelos_proposta').update(d).eq('id', m.id)); else await q(sb.from('crm_modelos_proposta').insert(d));
       aviso('✓ Modelo salvo.'); fecharJanela(k); fecharJanela(j); janelaModelosProposta();
     });
@@ -661,7 +669,7 @@ async function janelaModelosProposta() {
     const m = ms.find((x) => x.id === b.dataset.mpVer), w = window.open('', '_blank');
     if (!w) return aviso('O navegador bloqueou a janela. Libere pop-ups para este site.', true);
     w.document.write('<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Modelo — ' + esc(m.nome) + '</title></head><body style="background:#EEF1F6;padding:20px">' +
-      htmlProposta({ prospecto_empresa: 'Empresa Exemplo Ltda' }, { versao: 1, titulo: m.nome, texto: m.texto, itens: (m.itens || []).map((i) => Object.assign({}, i, { valor: i.valor || 1000 })), validade: somarDias(hojeISO(), 15) }) + '</body></html>');
+      htmlProposta({ prospecto_empresa: 'Empresa Exemplo Ltda' }, { versao: 1, titulo: m.nome, texto: m.texto, texto_completo: m.texto_completo || '', formato: b.dataset.completa ? 'completa' : 'simplificada', itens: (m.itens || []).map((i) => Object.assign({}, i, { valor: i.valor || 1000 })), validade: somarDias(hojeISO(), 15) }) + '</body></html>');
     w.document.close();
   });
 }
