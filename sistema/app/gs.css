@@ -1144,6 +1144,17 @@
 .gs .cert-lido.cert-ok{background:var(--green-lt);border:1px solid var(--green-bd);color:var(--green-d)}
 .gs .cert-lido.cert-erro{background:var(--red-lt);border:1px solid var(--red-bd);color:var(--red-d)}
 .gs .ini-fila-quem{margin-left:8px;font:500 12.5px var(--font-ui);padding:5px 28px 5px 10px;border:1px solid var(--border);border-radius:8px;background-color:var(--surface);color:var(--ink)}
+.gs .fila-cal-area{display:flex;flex-direction:column;min-height:600px}
+.gs .fila-cal-area > .fila-semana{flex:1;align-items:stretch}
+.gs .fila-cal-area > .lista-ficha,.gs .fila-cal-area > .sub{flex:1}
+.gs .fila-cal-area > .ag-leg{margin-top:auto;padding-top:10px}
+.gs .fila-atr-it{border-left:3px solid var(--red)!important}
+.gs .sm-com-atr{margin-bottom:4px}
+.gs .tf-abas-seg{margin-bottom:10px}
+.gs .tf-cal .card-bd{padding-top:14px}
+.gs .sm-com-atr .sm-grade{grid-template-columns:none!important;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr)}
+@media (max-width:900px){.gs .sm-com-atr .sm-grade{grid-auto-flow:row;grid-template-columns:1fr!important}
+}
 /* cores do ERP, tamanhos do Gestão */
 .gs{background:none!important;min-height:0!important}
 .gs .duas-col>*,.gs .card{min-width:0}

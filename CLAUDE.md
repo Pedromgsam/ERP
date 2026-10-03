@@ -83,7 +83,11 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
-- Última entrega: **Backup 38** (só SQL). Menu = barra LATERAL `#gs-lado` (erp-telas.js: `MENU` com `{sec}` e `ic`, `ICONES`/`icone()`, `#tn` dentro da lateral,
+- Última entrega: **Backup 39** (só SQL). `tarefas.com_quem` (Agendar com texto livre, `quemTarefa(t)`, `nomeCurto`); `quadroAtrasadas` compartilhado (Início e Minha semana);
+  `vistaCalendario` reusa `calendarioFila` (`.tf-cal`); abas `#tf-abas` em `.segmento`; detalhe com `#tf-f-editar` (lista sem ✎). Painel: `_evo` 6 meses, `pe-area` em seg,
+  Empresas sem CEAT/CAPAG/✎ (`marcarLinhas` pula `#tblExecRanking`/`#tblProcBody`), ficha com `.ficha-bt-editar` (#fc-editar). Processos: `chipProcTodos`. Margens
+  constantes (`--gut` no design.css, bloco B39). Contab: `.fc-quem-contab`, `_fcTabelaComp` sem colgroup. Contratos sem Parcelas/Anexo. Selo da pessoa = pílula original.
+- Backup 38 (base) (só SQL). Menu = barra LATERAL `#gs-lado` (erp-telas.js: `MENU` com `{sec}` e `ic`, `ICONES`/`icone()`, `#tn` dentro da lateral,
   `.tn-grupo.on` = submenu aberto, `destacar` abre o grupo da tela; `#gs-encolher` → `body.gx-lado-min`, localStorage `erp_lado_min`); `#gs-hd` = barra branca
   (`#gs-tela-nome`, + Lançar, tema, ⋯, sessão, nome, Sair). CSS no bloco "Backup 38" do design.css (`--sw`, `--conteudo` 1360, `--gut`); tokens `--lado-*`, `--topo-*`,
   `--primario` azul. Sino/avisos saíram (sem `atualizarSino`/`gx-pop-avisos`). Início = `ini-valid/ini-lembretes/ini-resumo/ini-aprov/ini-fila` (sem honorários, sem

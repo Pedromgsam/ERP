@@ -1169,3 +1169,18 @@ button.pl-dt{cursor:pointer}
 .cert-lido.cert-erro{background:var(--red-lt);border:1px solid var(--red-bd);color:var(--red-d)}
 
 .ini-fila-quem{margin-left:8px;font:500 12.5px var(--font-ui);padding:5px 28px 5px 10px;border:1px solid var(--border);border-radius:8px;background-color:var(--surface);color:var(--ink)}
+
+/* Backup 39: a agenda do Início tem sempre a altura do mês — semana e dia não encolhem o quadro (nem "Atrasadas");
+   na semana, os dias esticam até o fim */
+.fila-cal-area{display:flex;flex-direction:column;min-height:600px}
+.fila-cal-area > .fila-semana{flex:1;align-items:stretch}
+.fila-cal-area > .lista-ficha,.fila-cal-area > .sub{flex:1}
+.fila-cal-area > .ag-leg{margin-top:auto;padding-top:10px}
+/* Backup 39: cada atrasada com contorno vermelho à esquerda (Início e Tarefas) */
+.fila-atr-it{border-left:3px solid var(--red)!important}
+.sm-com-atr{margin-bottom:4px}
+.tf-abas-seg{margin-bottom:10px}
+.tf-cal .card-bd{padding-top:14px}
+/* Backup 39: Minha semana com o quadro "Atrasadas" à esquerda e os 5 dias numa linha só */
+.sm-com-atr .sm-grade{grid-template-columns:none!important;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr)}
+@media (max-width:900px){.sm-com-atr .sm-grade{grid-auto-flow:row;grid-template-columns:1fr!important}}

@@ -90,6 +90,10 @@ function _fcTabelaComp(html){
     +'<td class="mono" style="text-align:right">'+(t.f?'100%':'—')+'</td><td class="mono" style="text-align:right">'+t.n+'</td>'
     +'<td class="mono" style="text-align:right">'+(t.n?_faFT(t.f/t.n):'—')+'</td><td class="mono" style="text-align:right;font-weight:700">'+(t.ab?_faFT(t.ab):'—')+'</td>'
     +'<td class="mono" style="text-align:right">—</td></tr>';
-  return html.replace('<div class="tw"><table>','<div class="tw fc-comp-wrap" data-sem-pagina><table class="fc-comp"><colgroup><col style="width:32%"><col style="width:15%"><col style="width:8%"><col style="width:8%"><col style="width:13%"><col style="width:14%"><col style="width:10%"></colgroup>')
+  // Backup 39: colunas distribuídas como no "Comparativo por pessoa" do Jurídico (sem a 1ª coluna enorme);
+  // linhas sem o fundo cinza; recebido em verde (clientes) e pago em vermelho (fornecedores)
+  html = html.replace(/<tr style="background:[^"]*">/g, '<tr>');
+  if (pagar) html = html.split('color:var(--green-d);font-weight:600').join('color:var(--red-d);font-weight:600');
+  return html.replace('<div class="tw"><table>','<div class="tw fc-comp-wrap" data-sem-pagina><table class="fc-comp">')
     .replace(/<\/tbody><\/table><\/div>$/, tot+'</tbody></table></div>');
 }
