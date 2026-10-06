@@ -6969,3 +6969,44 @@ begin
   return new;
 end $$;
 -- ═══ fim do Backup 45 ═══
+
+-- ═══════════════════════════════ Backup 46 ═══════════════════════════════
+-- Documentos: link da pasta no Google Drive, no grupo e em cada empresa (aparece ao lado do nome da pasta)
+alter table public.grupos add column if not exists drive_url text not null default '';
+alter table public.clientes add column if not exists drive_url text not null default '';
+create or replace function public.salvar_link_drive(p_tipo text, p_id uuid, p_url text) returns void
+language plpgsql security definer set search_path = public as $$
+declare u text := btrim(coalesce(p_url, ''));
+begin
+  if not (public.pode('documentos', 'editar') or public.pode('clientes', 'editar')) then raise exception 'permission denied: sem acesso para editar Documentos.'; end if;
+  if u <> '' and u !~* '^https?://' then u := 'https://' || u; end if;
+  if p_tipo = 'grupo' then update public.grupos set drive_url = u where id = p_id;
+  elsif p_tipo = 'cliente' then update public.clientes set drive_url = u where id = p_id;
+  else raise exception 'Tipo inválido.'; end if;
+end $$;
+revoke all on function public.salvar_link_drive(text, uuid, text) from public, anon;
+grant execute on function public.salvar_link_drive(text, uuid, text) to authenticated;
+-- Automações: as regras que NUNCA foram usadas (nenhum registro no log, nenhuma tarefa e nenhum e-mail gerado por elas) saem da tela
+-- e ficam desligadas (uma vez só; num banco novo, sem histórico nenhum, nada é escondido)
+alter table public.regras_tarefas add column if not exists oculta boolean not null default false;
+do $$
+declare usados text[];
+begin
+  if exists (select 1 from public.configuracoes where chave = 'b46_automacoes') then return; end if;
+  if exists (select 1 from public.automacoes_log) or exists (select 1 from public.tarefas where coalesce(chave_regra, '') <> '') then
+    with mapa(prefixo, regra) as (values ('rot-conf','rotina_conferir'),('rot-sup','rotina_supervisao'),('onb','contrato_onboarding'),('proc','processo_novo'),
+           ('cert','certidao_vencendo'),('doc','certidao_vencendo'),('parc','parcela_parcelamento'),('aco','parcela_acordo'),('cob','cobrar_honorario'),
+           ('anexo','contrato_anexo'),('procur','processo_procuracao'),('pagamento_conclui','pagamento_conclui'),('pub','publicacao_tarefa'),
+           ('cliente_novo_cnpj','cliente_novo_cnpj'),('email_lp','email_lembrete_parcelamento'),('email_lh','email_lembrete_honorario'),
+           ('email_ch','email_cobranca_honorario'),('email_la','email_lembrete_acordo'),('email_pr','email_pagamento_recebido'),
+           ('email_vh','email_lembrete_honorario'),('crm-parada','crm_parada'),('crm-follow','crm_followup'),('email_bv','email_boas_vindas'),
+           ('email_ap','email_atraso_parcelamento'),('email_aa','email_atraso_acordo'),('escalar','escalar_atraso')),
+    pref as (select distinct split_part(chave, ':', 1) p from public.automacoes_log
+             union select distinct split_part(chave_regra, ':', 1) from public.tarefas where coalesce(chave_regra, '') <> ''
+             union select distinct split_part(referencia, ':', 1) from public.email_fila where coalesce(referencia, '') <> '')
+    select array_agg(distinct m.regra) into usados from mapa m join pref on pref.p = m.prefixo;
+    update public.regras_tarefas set oculta = true, ligada = false where not (chave = any (coalesce(usados, '{}')));
+  end if;
+  insert into public.configuracoes (chave, valor) values ('b46_automacoes', to_jsonb(coalesce(usados, '{}')));
+end $$;
+-- ═══ fim do Backup 46 ═══

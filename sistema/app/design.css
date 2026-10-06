@@ -1394,3 +1394,70 @@ body.gx-barra-topo table:has(> #tblExecRanking) th:nth-child(7){width:9%!importa
 body.gx-barra-topo table:has(> #tblExecRanking) th:nth-child(8){width:9.5%!important}
 body.gx-barra-topo table:has(> #tblExecRanking) th:nth-child(9),body.gx-barra-topo table:has(> #tblExecRanking) th:nth-child(10){width:9.5%!important}
 .gs .us-cargo{margin-top:4px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+/* ═══ Backup 46 ═══ */
+/* Início: Rotina com cor própria (laranja) e os filtros "Mostrar" na cor de cada tipo */
+.gs .cal-tf.ag-rotina{background:var(--orange-lt);color:var(--orange-d);border-left:3px solid var(--orange)}
+.gs .ag-cor.ag-rotina{background:var(--orange)}
+body .gs .fila-chips .fila-chip.fila-chip-reuniao.ativo{background:var(--blue)!important;border-color:var(--blue)!important;color:var(--on-cor)!important}
+body .gs .fila-chips .fila-chip.fila-chip-audiencia.ativo{background:var(--violet)!important;border-color:var(--violet)!important;color:var(--on-cor)!important}
+body .gs .fila-chips .fila-chip.fila-chip-compromisso.ativo{background:var(--green)!important;border-color:var(--green)!important;color:var(--on-cor)!important}
+body .gs .fila-chips .fila-chip.fila-chip-tarefa.ativo{background:var(--text2)!important;border-color:var(--text2)!important;color:var(--on-cor)!important}
+body .gs .fila-chips .fila-chip.fila-chip-rotina.ativo{background:var(--orange)!important;border-color:var(--orange)!important;color:var(--on-cor)!important}
+body .gs .fila-chips .fila-chip[data-fila-tipo="*"].ativo{background:var(--ink)!important;border-color:var(--ink)!important;color:var(--surface)!important}
+html[data-tema=escuro] body .gs .fila-chips .fila-chip[data-fila-tipo].ativo{color:var(--bg)!important}
+.gs .fila-chip.fila-chip-reuniao:not(.ativo){border-color:var(--blue-bd);color:var(--blue-d)}
+.gs .fila-chip.fila-chip-audiencia:not(.ativo){border-color:var(--violet-bd);color:var(--violet)}
+.gs .fila-chip.fila-chip-compromisso:not(.ativo){border-color:var(--green-bd);color:var(--green-d)}
+.gs .fila-chip.fila-chip-rotina:not(.ativo){border-color:var(--orange);color:var(--orange-d)}
+/* Painel: tudo centralizado, menos Entidade / sócio */
+body.gx-barra-topo table:has(> #tblExecRanking) th,body.gx-barra-topo #tblExecRanking td{text-align:center!important}
+body.gx-barra-topo table:has(> #tblExecRanking) th:nth-child(3),body.gx-barra-topo #tblExecRanking td:nth-child(3){text-align:left!important}
+body.gx-barra-topo #tblExecRanking .er-grupo{text-align:center!important}
+/* Rotina → Passivo: empresa maior; CAPAG e Conferência menores */
+.gs .rt-pas col.rt-w-emp{width:22%}.gs .rt-pas col.rt-w-org{width:12%}.gs .rt-pas col.rt-w-ceat{width:5%}
+.gs .rt-pas col.rt-w-sn{width:7.5%}.gs .rt-pas col.rt-w-capag{width:6.5%}.gs .rt-pas col.rt-w-conf{width:15.5%}
+.gs .rt-grade.rt-pas select.rt-in.rt-capag{padding-left:5px;padding-right:14px;background-position:right 2px center}
+.gs .rt-segs .rt-trib{width:auto;min-width:180px;flex:0 0 auto}
+/* Documentos: link do Google Drive ao lado do nome da pasta */
+.gs .doc-drive-box{display:inline-flex;align-items:center;gap:4px;margin-left:8px}
+.gs .doc-drive{font:600 12px var(--font-ui);color:var(--blue-d);background:var(--blue-lt);border:1px solid var(--blue-bd);border-radius:var(--r-pill);padding:2px 9px;text-decoration:none}
+.gs .doc-drive:hover{background:var(--blue);color:var(--on-cor)}
+.gs .doc-drive-ed{font:500 11.5px var(--font-ui);color:var(--text3);background:none;border:1px dashed var(--border-strong);border-radius:var(--r-pill);padding:1px 8px;cursor:pointer}
+.gs .doc-drive-ed:hover{color:var(--ink);border-color:var(--ink)}
+/* Rotina → Planilha: cada empresa numa linha, parcelamentos lado a lado; rola para o lado com a barra fixa no rodapé */
+.gs .pl-rolo{overflow-x:auto;overflow-y:visible;scrollbar-width:none;padding-bottom:6px}
+.gs .pl-rolo::-webkit-scrollbar{display:none}
+.gs .pl-linhas{display:flex;flex-direction:column;gap:14px;width:max-content;min-width:100%}
+.gs .pl-linha{display:flex;gap:14px;align-items:flex-start;content-visibility:auto;contain-intrinsic-size:auto 700px}
+.gs .pl-linha .pl-bloco{flex:0 0 340px!important;width:340px}
+.gs .pl-barra-x{position:sticky;bottom:0;z-index:5;height:16px;overflow-x:auto;overflow-y:hidden;background:var(--surface);border-top:1px solid var(--border);margin:8px -16px -16px;padding:0 16px}
+.gs .pl-barra-x > div{height:1px}
+.gs .pl-barra-x[hidden]{display:none}
+.gs .ep-excecao{font-size:12px;color:var(--text2);margin-right:6px}
+.gs .ep-tc{color:var(--text2);background:var(--surface2);border-color:var(--border-strong)}
+.gs .ep-out-ac{display:inline-flex;gap:8px;align-items:center}
+/* Usuários (B46): tabela só leitura + janela Editar */
+.gs .us-tab td{vertical-align:middle}
+.gs .us-tab .us-nome{font-weight:600}
+.gs .us-tab .us-func{max-width:340px;white-space:normal}
+.gs .us-acoes{white-space:nowrap}
+.us-ed-grade{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 14px;margin-bottom:12px}
+.us-ed-grade [hidden]{display:none!important}
+.us-ed-sec{border-top:1px solid var(--border);padding-top:12px;margin-top:4px}
+.us-ed-sec[hidden]{display:none!important}
+.us-ed-tit{font-weight:600;font-size:var(--fs-md);margin-bottom:6px}
+@media (max-width:600px){.us-ed-grade{grid-template-columns:1fr}}
+/* Atualizações (B46): linha do tempo das versões */
+.gs .atu-linha{list-style:none;margin:0;padding:0 0 0 18px;border-left:2px solid var(--border)}
+.gs .atu-v{position:relative;display:grid;grid-template-columns:170px 1fr;gap:14px;padding:12px 0 16px 14px;border-bottom:1px solid var(--line)}
+.gs .atu-v:last-child{border-bottom:0}
+.gs .atu-v::before{content:"";position:absolute;left:-25px;top:16px;width:12px;height:12px;border-radius:50%;background:var(--surface);border:2px solid var(--border-strong)}
+.gs .atu-v.atu-nova::before{background:var(--primario);border-color:var(--primario)}
+.gs .atu-marca{display:flex;flex-direction:column;gap:4px;align-items:flex-start}
+.gs .atu-num{font-weight:700;font-size:var(--fs-md)}
+.gs .atu-data{font-size:var(--fs-xs);color:var(--text3)}
+.gs .atu-itens{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px;font-size:var(--fs-sm);line-height:1.45}
+.gs .atu-mais{text-align:center;padding-top:12px}
+.gs .atu-mais[hidden]{display:none}
+.gs #atu-busca{min-width:260px}
+@media (max-width:600px){.gs .atu-v{grid-template-columns:1fr;gap:6px}}

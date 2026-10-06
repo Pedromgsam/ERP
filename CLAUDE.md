@@ -82,7 +82,16 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
-- Última entrega: **Backup 45** (só SQL; erp-emails = B44). Rotina: `rotinaEnviarGuias` = Notificações antigas (`.ep-*`, `_epSel`, `textoNotifParcelas` com `[VALOR:x]`, `epHtml`,
+- Última entrega: **Backup 46** (só SQL; erp-emails = B44). Agenda: `FILTRO_TIPOS_AG` na ordem reunião/audiência/compromisso/tarefa/rotina, chips `.fila-chip-<tipo>` (cores no
+  bloco "Backup 46" do design.css; `--orange` nos tokens), `ag-rotina`, concluídas dos últimos 60 dias (`ag-feita`), "De quem" = Todos + eu + outros, Lista 10 itens com `minHeight` = `FILA.altCal`.
+  Documentos: `grupos/clientes.drive_url` + RPC `salvar_link_drive(tipo,id,url)`, `linkDrive()` (`a.doc-drive`, `[data-drive-ed]`); `drive_url` em `ERP_COLS_CLIENTE`. Rotina: Processos `F.proc`/`F.conf`
+  arrays (vários filtros), `faixa(p)`, `select#rt-trib`; Planilha com todas as pagas, `.pl-linha` por empresa em `#pl-rolo` + `#pl-barra-x` (sticky, `ligarRolo`), pagamento via
+  `ERP_EDITOR.baixaRapida(t,id,{semRecarregar:true})` → `ERP_DADOS_SUJOS` (nav recarrega ao sair do GS); Enviar guias: `E.rt.epTodos`/`#ep-todos` (cliente emite, `.ep-tc`), `salvarCard`
+  (rascunho salvo → `registrar_emissao` + `lancar_valor_parcela`), `#ep-todos-rasc`. Automações: `regras_tarefas.oculta` (flag `b46_automacoes` esconde/desliga as nunca usadas; tela filtra).
+  Usuários: tabela `.us-tab` só leitura, `[data-us-ed]` → `formEditarUsuario` (`#us-nome`, `#us-papel`, `#us-cargo-sel`, `#us-rev-sel`, funções/grupos, `#us-salvar`); ✓/🔑/🗑 viraram ícones.
+  Atualizações: `telas-atualizacoes.js` (`TELAS.atualizacoes`, `.atu-*`) + `atualizacoes-dados.js` GERADO pelo montar-erp a partir de `backups/LEIA-ME.md` (datas do git) — atualize o LEIA-ME
+  ANTES de rodar o montar-erp. Reset: `banco/reset-para-uso-real.sql` (só o admin "Pedro%"; testado no rodar-tudo em erp_fluxo).
+- Backup 45 (base) (só SQL; erp-emails = B44). Rotina: `rotinaEnviarGuias` = Notificações antigas (`.ep-*`, `_epSel`, `textoNotifParcelas` com `[VALOR:x]`, `epHtml`,
   `epTextoAtual`, `epParaEdicao`; "Enviar e-mail" → RPC `rascunho_email_texto(cli, para, assunto, texto, arquivos)` + `salvarRascunhoAgora`; "Marcar enviado" → `registrar_emissao` +
   `lancar_valor_parcela`); `email_rascunho_destino_real(ref)` desfaz o desvio do modo teste nos rascunhos (também em `salvar_guias_rascunho`); constraint de `email_fila.status`
   (linha ~4192 e B44) inclui rascunho/rascunho_salvo. `rotinaPlanilha` sem envio, `bloco(p)`/`redesenharBloco`, `.pl-mais` (pagas antigas/previstas resumidas). Passivo: colgroup

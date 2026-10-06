@@ -707,6 +707,33 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
 **Central de Documentos dentro do ERP:** menu **Documentos → Gerar documento** (ou ⋯ → Documentos, contrato, recibo do Financeiro).
 **Ctrl + clique** (ou botão do meio do mouse) em qualquer item do menu ou link de documento abre numa aba nova.
 
+## Backup 46 — agenda colorida, Rotina (planilha lado a lado, rascunho = emitida), Usuários com "Editar", Atualizações e reset para uso real (tem SQL; nenhuma função nova)
+Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+Shift+R**. A função `erp-emails` continua a do Backup 44.
+Para voltar à versão anterior: o zip do **Backup 45** (pasta `backups/`).
+
+- **Início (agenda)**: "Mostrar" na ordem Tudo · Reuniões (azul) · Audiências (roxo) · Compromissos (verde) · Tarefas · Rotina (laranja, também na legenda), cada botão com a cor do tipo;
+  o que foi concluído aparece riscado; "De quem" = Todos, você, depois os outros (sem "Minhas"); a Lista tem a mesma altura do calendário (10 itens).
+- **Painel Executivo**: "Empresas do grupo" com tudo centralizado, menos Entidade/sócio.
+- **Documentos**: "+ link do Drive" na pasta do grupo e da empresa — o link 🔗 Drive aparece na frente do nome e abre numa aba nova (✎ troca ou tira).
+- **Rotina → Passivo**: empresa maior, CAPAG e Conferência menores. **Processos**: legenda curta (≤ 7 dias · 8–15 · 16–30 · +30 · Nunca), Tribunal em lista, vários filtros ao mesmo tempo.
+- **Rotina → Planilha**: "Pagamento" marca na hora; todas as parcelas pagas aparecem; parcelamentos da mesma empresa lado a lado, com a barra de rolagem fixa no pé.
+- **Rotina → Enviar guias do mês**: exceção "Incluir clientes que emitem as próprias guias"; quando o rascunho é salvo no Gmail a guia fica **emitida** (com a data) sozinha;
+  "✉ Salvar todos os rascunhos" faz isso para todos os cartões de uma vez.
+- **Automações**: as que nunca foram usadas saíram da tela (e ficam desligadas).
+- **Usuários**: a tabela só mostra; tudo (nome, acesso, cargo, revisor, funções, grupos do Portal) muda em **✎ Editar**. ✓ = liberar entrada, 🔑 = link de senha, 🗑 = excluir.
+- **Atualizações** (menu Principal, depois de Alertas): o que mudou em cada versão, a mais nova em cima, com busca.
+
+### Zerar o sistema para começar a usar de verdade (uma vez só)
+Arquivo `sistema/banco/reset-para-uso-real.sql`. Apaga todos os dados (clientes, grupos, processos, parcelamentos, acordos, lançamentos, contratos,
+tarefas, CRM, documentos, e-mails, histórico) e todos os usuários **menos o Pedro**. Mantém configurações, modelos, automações e senhas das integrações.
+1. **Antes**: Administração → 💾 Backup → baixe um backup (não dá para desfazer).
+2. Faça primeiro o Merge e rode o `estrutura.sql` (passo 2 acima).
+3. No GitHub abra `sistema/banco/reset-para-uso-real.sql` → **Raw** → Ctrl+A / Ctrl+C → Supabase → SQL Editor → New query → Ctrl+V → **Run** → "Run this query".
+   O certo é aparecer "Success". Se aparecer "PARADO", nada foi apagado (leia a mensagem).
+4. Os arquivos enviados ficam no Storage: Supabase → **Storage** → `documentos` → selecione tudo → **Delete** (se o SQL não conseguiu apagar).
+5. Ctrl+Shift+R no ERP → Administração → 📥 Importar planilhas → escolha cada planilha atualizada → **Substituir** → Importar.
+6. Recrie os usuários da equipe em Administração → Usuários → + Novo usuário.
+
 ## Backup 45 — Rotina (envio de guias igual ao antigo + rascunho no Gmail), agenda com filtros, cargos e revisor (tem SQL; função erp-emails igual à do Backup 44)
 Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+Shift+R**. A função `erp-emails` é a do Backup 44 (precisa estar publicada com o nome `erp-emails`).
 Para voltar à versão anterior: o zip do **Backup 44** (pasta `backups/`).

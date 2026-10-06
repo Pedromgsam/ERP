@@ -11,7 +11,8 @@ const TAB = ':is(.tw,.tabela-wrap,.gx-tab-gs) table:not(.gx-leg):not(.massa)';
 const REGRAS = [
   ['selo da pessoa', ':is(.pill.pill-pessoa,.fa-pessoa)', ['fontSize', 'fontWeight', 'borderRadius']],
   ['vencimento', 'td.col-venc', ['fontSize', 'fontWeight']],
-  ['valor', 'td.col-valor', ['fontSize', 'fontWeight', 'color', 'textAlign']],
+  ['valor', 'td.col-valor:not(#tblExecRanking td)',   // Backup 46: o Painel (Empresas do grupo) fica centralizado, a pedido
+  ['fontSize', 'fontWeight', 'color', 'textAlign']],
   ['dias / atraso', 'td.col-dias', ['fontSize']],
   ['nome de cliente/empresa', 'td.col-nome', ['fontSize', 'fontWeight', 'textTransform']],
   ['cabeçalho de tabela', TAB + ' > thead > tr > th', ['fontSize', 'fontWeight', 'backgroundColor', 'color', 'textTransform']],
