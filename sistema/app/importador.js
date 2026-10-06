@@ -496,7 +496,16 @@
     return { abas };
   }
 
-  const API = { importar, importarBase, importarFinanceiro, importarProcessos, importarParcelamentos, importarAcordos, importarTarefas, detectar, lerWorkbook, numero, dataISO, simNao, texto };
+  // grupos da planilha que ainda não existem — sem repetir o mesmo nome escrito de outro jeito
+  // (maiúsculas, espaços, acentos): o banco não aceita dois grupos com o mesmo nome (Backup 46)
+  function gruposFaltando(nomes, existentes) {
+    const vistos = new Set((existentes || []).map(norm)), out = [];
+    (nomes || []).forEach((n) => { const nome = String(n || '').replace(/\s+/g, ' ').trim(), k = norm(nome);
+      if (nome && !vistos.has(k)) { vistos.add(k); out.push(nome); } });
+    return out;
+  }
+
+  const API = { gruposFaltando, importar, importarBase, importarFinanceiro, importarProcessos, importarParcelamentos, importarAcordos, importarTarefas, detectar, lerWorkbook, numero, dataISO, simNao, texto };
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
   else raiz.IMPORTADOR = API;
 })(typeof window !== 'undefined' ? window : globalThis);

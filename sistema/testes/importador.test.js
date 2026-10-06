@@ -33,6 +33,7 @@ async function ler(arq) { const wb = new ExcelJS.Workbook(); await wb.xlsx.readF
   const eps = b.clientes.find((c) => /Épsilon/.test(c.nome));
   ok('Estado inválido ("Inativo") descartado; migração lida', eps.estado === '' && eps.data_migracao === '2026-06-04' && eps.historico_cadastral.startsWith('Situação'));
   ok('Cadastro Regular e SEFAZ na aba Demanda', b.clientes.find((c) => c.nome === 'Gama Têxtil LTDA').cadastro_regular === false && b.clientes.find((c) => c.nome === 'Gama Têxtil LTDA').sefaz_mg === 5000);
+  ok('grupos novos sem repetir o mesmo nome escrito de outro jeito (Backup 46)', JSON.stringify(IMP.gruposFaltando(['Grupo X', 'GRUPO X ', 'grupo  x', 'Grupo Ação', 'GRUPO ACAO', 'Alfa', ''], ['alfa'])) === '["Grupo X","Grupo Ação"]');
   ok('grupos coletados', ['Grupo Alfa', 'Grupo Beta', 'Gama', 'Épsilon'].every((g) => b.grupos.includes(g)));
 
   // financeiro do escritório

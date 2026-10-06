@@ -82,7 +82,9 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
-- Última entrega: **Backup 46** (só SQL; erp-emails = B44). Agenda: `FILTRO_TIPOS_AG` na ordem reunião/audiência/compromisso/tarefa/rotina, chips `.fila-chip-<tipo>` (cores no
+- Última entrega: **Backup 47** (sem SQL): importação — `IMPORTADOR.gruposFaltando(nomes, existentes)` (importador.js) tira repetidos pelo `norm` (caixa, espaços,
+  acentos) antes do insert em `grupos` (índice `grupos_nome_unico` = lower(btrim)); `idGrupo` em `gravarImportacao` compara com espaços colapsados.
+- Backup 46 (base) (só SQL; erp-emails = B44). Agenda: `FILTRO_TIPOS_AG` na ordem reunião/audiência/compromisso/tarefa/rotina, chips `.fila-chip-<tipo>` (cores no
   bloco "Backup 46" do design.css; `--orange` nos tokens), `ag-rotina`, concluídas dos últimos 60 dias (`ag-feita`), "De quem" = Todos + eu + outros, Lista 10 itens com `minHeight` = `FILA.altCal`.
   Documentos: `grupos/clientes.drive_url` + RPC `salvar_link_drive(tipo,id,url)`, `linkDrive()` (`a.doc-drive`, `[data-drive-ed]`); `drive_url` em `ERP_COLS_CLIENTE`. Rotina: Processos `F.proc`/`F.conf`
   arrays (vários filtros), `faixa(p)`, `select#rt-trib`; Planilha com todas as pagas, `.pl-linha` por empresa em `#pl-rolo` + `#pl-barra-x` (sticky, `ligarRolo`), pagamento via

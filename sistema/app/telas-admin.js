@@ -323,10 +323,11 @@ async function gravarImportacao() {
   // 1. grupos que ainda não existem
   prog.textContent = 'Criando grupos…';
   await carregarCadastros(true);
-  const faltam = [...new Set(validos.flatMap((r) => r.grupos))].filter((g) => !E.grupos.some((x) => normalizar(x.nome) === normalizar(g)));
+  const faltam = window.IMPORTADOR.gruposFaltando(validos.flatMap((r) => r.grupos), E.grupos.map((x) => x.nome));
   for (let i = 0; i < faltam.length; i += 200) await q(sb.from('grupos').insert(faltam.slice(i, i + 200).map((nome) => ({ nome }))));
   await carregarCadastros(true);
-  const idGrupo = (n) => { const g = n && E.grupos.find((x) => normalizar(x.nome) === normalizar(n)); return g ? g.id : null; };
+  const nG = (t) => normalizar(t).replace(/\s+/g, ' ').trim();
+  const idGrupo = (n) => { const g = n && E.grupos.find((x) => nG(x.nome) === nG(n)); return g ? g.id : null; };
   // 2. registros, em lotes
   const resultado = [];
   // parcelamentos: o grupo vem do cliente (mesmo CNPJ ou nome), como no ERP antigo; senão, o nome da aba
