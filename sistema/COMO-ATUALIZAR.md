@@ -707,6 +707,14 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
 **Central de Documentos dentro do ERP:** menu **Documentos → Gerar documento** (ou ⋯ → Documentos, contrato, recibo do Financeiro).
 **Ctrl + clique** (ou botão do meio do mouse) em qualquer item do menu ou link de documento abre numa aba nova.
 
+## Backup 47 — correção da importação (sem SQL)
+Ordem: **1) Merge  2) Ctrl+Shift+R**. Não tem SQL novo nem função nova.
+Para voltar à versão anterior: o zip do **Backup 46** (pasta `backups/`).
+
+- **Importar planilhas**: quando a planilha tinha o mesmo grupo escrito de dois jeitos (ex.: "Grupo Silva" e "GRUPO SILVA "), a importação parava em
+  "Criando grupos…" com o aviso "Já existe um grupo com esse nome". Agora o sistema junta os dois num grupo só e continua.
+  Se você usou **Substituir** e a importação parou, é só importar de novo (nada fica pela metade: o que faltou é gravado agora).
+
 ## Backup 46 — agenda colorida, Rotina (planilha lado a lado, rascunho = emitida), Usuários com "Editar", Atualizações e reset para uso real (tem SQL; nenhuma função nova)
 Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+Shift+R**. A função `erp-emails` continua a do Backup 44.
 Para voltar à versão anterior: o zip do **Backup 45** (pasta `backups/`).
