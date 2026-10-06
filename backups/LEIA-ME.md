@@ -50,6 +50,7 @@ versão foi ao ar**. O número cresce a cada entrega.
 | 42 | E-mails saem na hora (só para pedromgsam@gmail.com) com check-list em Administração → E-mail; menu na barra de cima e lateral estreita; Acordos com Copiar/WhatsApp/E-mail e lista de e-mails da empresa; Rotina: ✓ no fim salva a linha, sem Controle, Planilha = antigas Notificações; Financeiro com 💬 Cobrar; proposta com prévia ao vivo |
 | 43 | Menu de volta na lateral (margens um pouco menores); "Cobrar" sem recarregar tudo; Acordos com e-mail já preenchido (sem lista); e-mail com segunda via pelo servidor e motivo claro; Planilha de parcelamentos de volta + aba "Enviar guias do mês" |
 | 44 | Lateral mais estreita (204 px); Painel Executivo com as colunas na largura toda (Grupo menor); "📝 Rascunho no Gmail" nas guias/acordos; mensagem clara quando a função tem outro endereço (super-worker) |
+| 45 | Rotina: Enviar guias do mês igual ao antigo (Enviar e-mail = rascunho no Gmail com as guias), Planilha só conferência e rápida, Processos com tribunal e filtros, sem Financeiro; agenda com filtros, tarefa para outra pessoa e 2 avisos; cargos e revisor; Painel resumido; Acordos só rascunho |
 
 ## Como baixar um backup
 No GitHub, abra a pasta `backups`, clique no arquivo e depois em **Download** (ícone de seta, à direita).

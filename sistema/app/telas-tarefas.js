@@ -20,7 +20,8 @@ function ehMinha(t) {
   return primeiroNome(t.responsavel) === eu || String(t.participantes || '').split(',').some((p) => primeiroNome(p) === eu);
 }
 async function equipe() {
-  if (!E._equipe) E._equipe = await q(sb.rpc('equipe_nomes')).catch(() => []);
+  // Backup 45: com cargo e nível (hierarquia); se o SQL novo ainda não rodou, cai na lista antiga
+  if (!E._equipe) E._equipe = await q(sb.rpc('equipe_hierarquia')).catch(() => q(sb.rpc('equipe_nomes')).catch(() => []));
   return E._equipe;
 }
 async function usuarioPorNome(nome) {
@@ -102,13 +103,13 @@ function ordenarFila(lista) {
 // Fila do Início: 5 primeiras + "Ver todas"; ou em calendário (mês, semana ou dia). A escolha fica salva na pessoa
 // (perfis.preferencias.fila) e vale no próximo acesso, em qualquer computador. Cobrança de honorário atrasado não entra
 // (já aparece em "Atrasados", logo abaixo).
-const FILA = { toda: false, min: false, vista: 'lista', ref: null, lida: false, quem: '' };
+const FILA = { toda: false, min: false, vista: 'lista', ref: null, lida: false, quem: '', pessoas: null, tipos: null };
 // Backup 38: a agenda mostra SÓ o que está em Tarefas (tarefas e compromissos lançados pela equipe).
 // O administrador escolhe de quem ver: só as suas, todos, ou uma pessoa; os demais veem só as suas.
 const ehAdminFila = () => !!(E.perfil && E.perfil.papel === 'admin');
 const VISTAS_FILA = [['lista', 'Lista'], ['mes', 'Mês'], ['semana', 'Semana'], ['dia', 'Dia']];
 function salvarPrefFila() {
-  const v = { vista: FILA.vista, min: FILA.min, quem: FILA.quem || '' };
+  const v = { vista: FILA.vista, min: FILA.min, quem: FILA.quem || '', pessoas: FILA.pessoas || null, tipos: FILA.tipos || null };
   if (E.perfil) E.perfil.preferencias = Object.assign({}, E.perfil.preferencias || {}, { fila: v });
   sb.rpc('salvar_preferencia', { p_chave: 'fila', p_valor: v }).then(() => {}, () => {});
 }
@@ -117,6 +118,22 @@ const TIPOS_AGENDA = [['reuniao', 'Reunião', '🤝'], ['audiencia', 'Audiência
 // legenda curta: compromissos (reunião, audiência, compromisso), tarefa e atrasada; ⚑ = prazo fatal
 const legendaAgenda = () => '<div class="ag-leg">' + TIPOS_AGENDA.map(([k, r]) => '<span><i class="ag-cor ag-' + k + '"></i>' + r + '</span>').join('') +
   '<span><i class="ag-cor ag-tarefa"></i>Tarefa</span><span><i class="ag-cor ag-atrasada"></i>Atrasada</span><span><i class="ag-cor ag-feita"></i>Concluída</span><span>⚑ Prazo fatal</span></div>';
+// Backup 45: filtros da agenda (marca/desmarca) — tipo do item e de quem é (respeitando o cargo: ninguém vê a agenda de quem está acima)
+const FILTRO_TIPOS_AG = [['reuniao', 'Reuniões'], ['audiencia', 'Audiências'], ['compromisso', 'Compromissos'], ['tarefa', 'Tarefas'], ['rotina', 'Rotinas']];
+function tipoItemAgenda(t) {
+  if (t.tipo_agenda) return t.tipo_agenda === 'ligacao' ? 'compromisso' : t.tipo_agenda;
+  if (/^reuniao:/.test(t.chave_regra || '')) return 'reuniao';
+  return t.recorrencia || /^rot-/.test(t.chave_regra || '') ? 'rotina' : 'tarefa';
+}
+function nivelDe(u) { return u ? (u.nivel != null ? Number(u.nivel) : nivelCargo(u.cargo, u.papel)) : 2; }
+// quem eu posso ver/lançar: eu + quem está no mesmo nível ou abaixo (o administrador vê todos)
+function pessoasVisiveis() {
+  const eq = E._equipe || [], eu = eq.find((u) => primeiroNome(u.nome) === primeiroNome(meuNome()));
+  const meu = ehAdminFila() ? 99 : nivelDe(eu);
+  const nomes = eq.filter((u) => nivelDe(u) <= meu).map((u) => String(u.nome || '').trim()).filter(Boolean);
+  if (!nomes.some((n) => primeiroNome(n) === primeiroNome(meuNome())) && meuNome()) nomes.unshift(meuNome());
+  return [...new Set(nomes)].sort((a, b) => (primeiroNome(b) === primeiroNome(meuNome())) - (primeiroNome(a) === primeiroNome(meuNome())) || a.localeCompare(b, 'pt-BR'));
+}
 // Backup 40: aviso antes do compromisso (vira notificação + e-mail para quem participa; e um aviso na tela de quem está com o ERP aberto)
 const AVISOS_AGENDA = [['', 'Não avisar'], ['15', '15 min antes'], ['30', '30 min antes'], ['60', '1 hora antes'], ['120', '2 horas antes'], ['1440', '1 dia antes'], ['2880', '2 dias antes']];
 const TIPOS_AUDIENCIA = ['Conciliação', 'Instrução e julgamento', 'Una', 'Mediação', 'Justificação', 'Outra'];
@@ -141,9 +158,12 @@ async function janelaAgendar(dataIni, depois) {
   const pessoas = [...new Set(eq.map((u) => String(u.nome || '').trim()).filter(Boolean))];
   if (!pessoas.some((n) => primeiroNome(n) === primeiroNome(meuNome()))) pessoas.unshift(meuNome());
   const procs = await q(sb.from('processos').select('numero, autor, reu').order('numero').limit(1000)).catch(() => []);
+  // Backup 45: dá para lançar para outra pessoa (quem está no mesmo nível ou abaixo) e "Tarefa" é um tipo também
+  const podeVer = pessoasVisiveis();
   const j = abrirJanela({ titulo: '📅 Agendar', larga: true,
     corpo: '<form id="f-ag" class="grade ag-form" data-tipo="reuniao">' +
-      '<div class="campo" style="grid-column:1/-1"><span>Tipo</span><div class="segmento ag-tipos" id="ag-tipo">' + TIPOS_AGENDA.map(([k, r, ic], i) => '<button type="button" data-v="' + k + '"' + (i ? '' : ' class="ativo"') + '>' + ic + ' ' + r + '</button>').join('') + '</div></div>' +
+      '<div class="campo" style="grid-column:1/-1"><span>Tipo</span><div class="segmento ag-tipos" id="ag-tipo">' + TIPOS_AGENDA.concat([['tarefa', 'Tarefa', '✓']]).map(([k, r, ic], i) => '<button type="button" data-v="' + k + '"' + (i ? '' : ' class="ativo"') + '>' + ic + ' ' + r + '</button>').join('') + '</div></div>' +
+      '<label class="campo"><span>Responsável</span><select name="resp">' + podeVer.map((n) => '<option value="' + esc(n) + '"' + (primeiroNome(n) === primeiroNome(meuNome()) ? ' selected' : '') + '>' + esc(n) + (primeiroNome(n) === primeiroNome(meuNome()) ? ' (eu)' : '') + '</option>').join('') + '</select></label>' +
       // Audiência: processo, tipo, vara e se é virtual
       '<label class="campo ag-so-aud ag-toda"><span>Número do processo *</span><input name="processo" list="ag-procs" autocomplete="off" placeholder="0000000-00.0000.0.00.0000"><datalist id="ag-procs">' +
         procs.map((p) => '<option value="' + esc(p.numero) + '">' + esc([p.autor, p.reu].filter(Boolean).join(' × ')) + '</option>').join('') + '</datalist></label>' +
@@ -151,21 +171,23 @@ async function janelaAgendar(dataIni, depois) {
       '<label class="campo ag-so-aud"><span>Formato</span><select name="formato"><option value="presencial">Presencial</option><option value="virtual">Virtual (link)</option><option value="hibrida">Híbrida</option></select></label>' +
       '<label class="campo ag-toda"><span class="ag-rot-titulo">Assunto *</span><input name="titulo" placeholder="ex.: Reunião sobre o parcelamento"></label>' +
       '<label class="campo"><span>Dia *</span><input type="date" name="prazo" required value="' + (dataIni || hojeISO()) + '"></label>' +
-      '<div class="campo ag-horas"><span>Horário</span><div class="ag-hh"><input type="time" name="hora" value="09:00" aria-label="Início"><span class="sub">até</span><input type="time" name="hora_fim" value="10:00" aria-label="Fim"></div></div>' +
+      '<div class="campo ag-horas ag-nao-tarefa"><span>Horário</span><div class="ag-hh"><input type="time" name="hora" value="09:00" aria-label="Início"><span class="sub">até</span><input type="time" name="hora_fim" value="10:00" aria-label="Fim"></div></div>' +
       '<div class="ag-conflito ag-toda" id="ag-conflito" hidden></div>' +
       '<label class="campo ag-toda"><span class="ag-rot-local">Local ou link</span><input name="local" placeholder="escritório, Google Meet…"></label>' +
-      '<div class="campo ag-toda"><span>Quem participa</span><div class="ag-pessoas">' + pessoas.map((n) =>
-        '<label class="ag-p"><input type="checkbox" name="part" value="' + esc(n) + '"' + (primeiroNome(n) === primeiroNome(meuNome()) ? ' checked' : '') + '><span>' + esc(nomeCurto(n)) + '</span></label>').join('') + '</div></div>' +
+      '<div class="campo ag-toda"><span>Quem mais participa</span><div class="ag-pessoas">' + pessoas.map((n) =>
+        '<label class="ag-p"><input type="checkbox" name="part" value="' + esc(n) + '"><span>' + esc(nomeCurto(n)) + '</span></label>').join('') + '</div></div>' +
       // cliente cadastrado (escolhe na lista) OU texto livre (ex.: "Dr. Fulano, contador da empresa X")
       '<label class="campo ag-toda ag-nao-comp"><span class="ag-rot-com">Com quem (cliente ou qualquer nome)</span><input name="com" list="ag-clis" autocomplete="off" placeholder="Cliente cadastrado ou texto livre"><datalist id="ag-clis">' + E.clientes.map((c) => '<option value="' + esc(c.nome) + '">').join('') + '</datalist></label>' +
-      '<label class="campo"><span>Avisar</span><select name="aviso">' + AVISOS_AGENDA.map(([v, r]) => '<option value="' + v + '"' + (v === '30' ? ' selected' : '') + '>' + r + '</option>').join('') + '</select></label>' +
+      '<div class="campo ag-avisos"><span>Avisar</span><div class="ag-av2"><select name="aviso" aria-label="1º aviso">' + AVISOS_AGENDA.map(([v, r]) => '<option value="' + v + '"' + (v === '30' ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>' +
+        '<span class="sub">e</span><select name="aviso2" aria-label="2º aviso">' + AVISOS_AGENDA.map(([v, r]) => '<option value="' + v + '">' + (v ? r : 'sem 2º aviso') + '</option>').join('') + '</select></div></div>' +
       '<label class="campo ag-toda"><span>Observação</span><textarea name="descricao" rows="2"></textarea></label></form>',
     rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="ag-ok">Agendar</button></div>' });
   const f = j.querySelector('#f-ag');
   let tipo = 'reuniao';
   const ROT = { reuniao: ['Assunto *', 'Local ou link', 'Com quem (cliente ou qualquer nome)', 'ex.: Reunião sobre o parcelamento', 'escritório, Google Meet…'],
     audiencia: ['Descrição (opcional)', 'Vara / juízo, ou link da sala virtual', 'Cliente (parte que representamos)', 'se vazio: "Audiência de conciliação — nº do processo"', 'ex.: 2ª Vara Cível de Belo Horizonte'],
-    compromisso: ['O quê *', 'Local', 'Com quem (opcional)', 'ex.: Cartório, banco, perícia…', 'endereço'] };
+    compromisso: ['O quê *', 'Local', 'Com quem (opcional)', 'ex.: Cartório, banco, perícia…', 'endereço'],
+    tarefa: ['Tarefa *', 'Local (opcional)', 'Cliente (opcional)', 'ex.: Protocolar a defesa', ''] };
   const pintarTipo = () => {
     f.dataset.tipo = tipo;
     const r = ROT[tipo];
@@ -181,14 +203,15 @@ async function janelaAgendar(dataIni, depois) {
   f.processo.onchange = () => { const p = procs.find((x) => x.numero === f.processo.value.trim()); if (p && !f.com.value) f.com.value = p.autor || ''; };
   // aviso de sobreposição (não impede, só mostra)
   const verConflito = async () => {
-    const parts = [...f.querySelectorAll('[name=part]:checked')].map((x) => x.value);
-    const c = f.prazo.value && f.hora.value ? await conflitosAgenda(f.prazo.value, f.hora.value, f.hora_fim.value, parts) : [];
+    const parts = [f.resp.value].concat([...f.querySelectorAll('[name=part]:checked')].map((x) => x.value));
+    const c = f.dataset.tipo !== 'tarefa' && f.prazo.value && f.hora.value ? await conflitosAgenda(f.prazo.value, f.hora.value, f.hora_fim.value, parts) : [];
     const el = j.querySelector('#ag-conflito'); el.hidden = !c.length;
     el.innerHTML = c.length ? '⚠ Choca com: ' + c.map((x) => '<b>' + esc(horaFaixa(x)) + '</b> ' + esc(x.titulo) + ' (' + esc([x.responsavel].concat(String(x.participantes || '').split(',')).map(nomeCurto).filter(Boolean).join(', ')) + ')').join(' · ') : '';
     return c;
   };
   ['prazo', 'hora', 'hora_fim'].forEach((n) => f[n].addEventListener('change', verConflito));
   f.querySelectorAll('[name=part]').forEach((x) => x.addEventListener('change', verConflito));
+  f.resp.addEventListener('change', verConflito);
   verConflito();
   j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
   j.querySelector('#ag-ok').onclick = (ev) => comBotao(ev.currentTarget, async () => {
@@ -197,23 +220,24 @@ async function janelaAgendar(dataIni, depois) {
     if (tipo === 'audiencia') {
       if (!proc) throw new Error('Audiência: informe o número do processo.');
       if (!titulo) titulo = 'Audiência de ' + f.tipo_aud.value.toLowerCase() + ' — ' + proc;
-    } else if (!titulo) throw new Error(tipo === 'reuniao' ? 'Escreva o assunto da reunião.' : 'Escreva o que é o compromisso.');
+    } else if (!titulo) throw new Error(tipo === 'reuniao' ? 'Escreva o assunto da reunião.' : tipo === 'tarefa' ? 'Escreva a tarefa.' : 'Escreva o que é o compromisso.');
     if (!f.prazo.value) throw new Error('Escolha o dia.');
-    if (f.hora.value && f.hora_fim.value && minHora(f.hora_fim.value) <= minHora(f.hora.value)) throw new Error('O fim tem que ser depois do início.');
-    const parts = [...f.querySelectorAll('[name=part]:checked')].map((x) => x.value);
-    if (!parts.length) throw new Error('Marque quem participa.');
-    const c = await verConflito();
+    const semHora = tipo === 'tarefa';
+    if (!semHora && f.hora.value && f.hora_fim.value && minHora(f.hora_fim.value) <= minHora(f.hora.value)) throw new Error('O fim tem que ser depois do início.');
+    const resp = f.resp.value || meuNome();
+    const parts = [resp].concat([...f.querySelectorAll('[name=part]:checked')].map((x) => x.value).filter((n) => primeiroNome(n) !== primeiroNome(resp)));
+    const c = semHora ? [] : await verConflito();
     if (c.length && !confirm('Este horário choca com ' + plural(c.length, 'compromisso', 'compromissos') + ' de quem participa. Agendar mesmo assim?')) return;
-    const resp = parts.find((n) => primeiroNome(n) === primeiroNome(meuNome())) || parts[0];
     const com = f.com.value.trim(), cli = E.clientes.find((x) => normalizar(x.nome) === normalizar(com));
     const local = f.local.value.trim();
     const obs = [tipo === 'audiencia' ? 'Audiência: ' + f.tipo_aud.value + ' · ' + ({ presencial: 'Presencial', virtual: 'Virtual', hibrida: 'Híbrida' }[f.formato.value]) : '', f.descricao.value.trim()].filter(Boolean).join('\n');
-    await q(sb.from('tarefas').insert({ titulo, prazo: f.prazo.value, hora: f.hora.value || null, hora_fim: f.hora.value && f.hora_fim.value ? f.hora_fim.value : null,
-      tipo_agenda: tipo, local, processos_vinculados: tipo === 'audiencia' ? proc : '', aviso_min: f.aviso.value ? +f.aviso.value : null,
+    await q(sb.from('tarefas').insert({ titulo, prazo: f.prazo.value, hora: semHora ? null : f.hora.value || null, hora_fim: !semHora && f.hora.value && f.hora_fim.value ? f.hora_fim.value : null,
+      tipo_agenda: semHora ? '' : tipo, local, processos_vinculados: tipo === 'audiencia' ? proc : '', aviso_min: f.aviso.value ? +f.aviso.value : null,
+      aviso2_min: f.aviso2.value && f.aviso2.value !== f.aviso.value ? +f.aviso2.value : null,
       responsavel: resp, participantes: parts.filter((n) => n !== resp).join(', '), cliente_id: cli ? cli.id : null, com_quem: cli ? '' : com,
       grupo_id: cli ? cli.grupo_id || null : null, descricao: obs, prioridade: tipo === 'audiencia' ? 'alta' : 'media', status: 'pendente' }));
     try { if (f.aviso.value && window.Notification && Notification.permission === 'default') Notification.requestPermission(); } catch (e) { /* navegador sem aviso */ }
-    fecharJanela(j); aviso('✓ Agendado para ' + dataBR(f.prazo.value) + (f.hora.value ? ' às ' + f.hora.value : '') + '.'); if (depois) depois();
+    fecharJanela(j); aviso('✓ Agendado para ' + dataBR(f.prazo.value) + (!semHora && f.hora.value ? ' às ' + f.hora.value : '') + (primeiroNome(resp) !== primeiroNome(meuNome()) ? ' — com ' + nomeCurto(resp) : '') + '.'); if (depois) depois();
   });
 }
 // Backup 40: aviso na tela de quem está com o ERP aberto (o e-mail sai pelo banco, rotina avisos_agenda)
@@ -223,14 +247,16 @@ function vigiarAgenda() {
   const ver = async () => {
     if (!E.perfil) return;
     const h = hojeISO(), am = iso(new Date(Date.now() + 2 * 864e5));
-    const ts = await q(sb.from('tarefas').select('id, titulo, prazo, hora, hora_fim, local, aviso_min, responsavel, participantes').gte('prazo', h).lte('prazo', am)
-      .not('aviso_min', 'is', null).not('hora', 'is', null).not('status', 'in', '(concluida,cancelada)')).catch(() => []);
+    const ts = await q(sb.from('tarefas').select('id, titulo, prazo, hora, hora_fim, local, aviso_min, aviso2_min, responsavel, participantes').gte('prazo', h).lte('prazo', am)
+      .or('aviso_min.not.is.null,aviso2_min.not.is.null').not('hora', 'is', null).not('status', 'in', '(concluida,cancelada)')).catch(() => []);
     let vistos = {}; try { vistos = JSON.parse(localStorage.getItem('erp_avisos_ag') || '{}'); } catch (e) { /* sem armazenamento */ }
     const agora = Date.now();
     ts.filter((t) => ehMinha(t) || String(t.participantes || '').split(',').some((n) => primeiroNome(n) === primeiroNome(meuNome()))).forEach((t) => {
       const ini = new Date(t.prazo + 'T' + String(t.hora).slice(0, 5) + ':00').getTime();
-      if (vistos[t.id] || agora < ini - t.aviso_min * 6e4 || agora > ini) return;
-      vistos[t.id] = 1;
+      // Backup 45: dois avisos (cada um avisa uma vez)
+      const k = [[t.id, t.aviso_min], [t.id + ':2', t.aviso2_min]].find(([id, m]) => m != null && !vistos[id] && agora >= ini - m * 6e4 && agora <= ini);
+      if (!k) return;
+      vistos[k[0]] = 1;
       const txt = horaFaixa(t) + ' · ' + t.titulo + (t.local ? ' · ' + t.local : '');
       aviso('🔔 ' + (t.prazo === h ? 'Hoje' : dataBR(t.prazo)) + ' ' + txt);
       try { if (window.Notification && Notification.permission === 'granted') new Notification('Agenda — ' + t.titulo, { body: txt }); } catch (e) { /* navegador sem aviso */ }
@@ -291,21 +317,32 @@ function calendarioFila(lista) {
     '<button type="button" class="btn btn-p btn-mini ag-bt" data-agendar>+ Agendar</button></div>' + corpo + legendaAgenda() + '</div></div>';
 }
 async function cardMinhaFila() {
-  if (!FILA.lida) { const p = (E.perfil && E.perfil.preferencias && E.perfil.preferencias.fila) || {}; if (p.vista) FILA.vista = p.vista; FILA.min = false; FILA.quem = p.quem || ''; FILA.lida = true; }
-  if (!ehAdminFila()) FILA.quem = '';
+  if (!FILA.lida) { const p = (E.perfil && E.perfil.preferencias && E.perfil.preferencias.fila) || {}; if (p.vista) FILA.vista = p.vista; FILA.min = false; FILA.quem = p.quem || '';
+    FILA.pessoas = Array.isArray(p.pessoas) ? p.pessoas : null; FILA.tipos = Array.isArray(p.tipos) ? p.tipos : null; FILA.lida = true; }
   await feriados();
   await equipe().catch(() => []);
   const ts = await q(sb.from('tarefas').select('*').not('status', 'in', '(concluida,cancelada)')).catch(() => []);
-  const daPessoa = (t) => (FILA.quem === 'todos' ? true : FILA.quem ? [t.responsavel].concat(String(t.participantes || '').split(',')).some((n) => primeiroNome(n) === primeiroNome(FILA.quem)) : ehMinha(t));
-  const todas = ordenarFila(ts.filter((t) => daPessoa(t) && !/^(cob|parc|aco):/.test(t.chave_regra || ''))), minhas = FILA.toda ? todas : todas.slice(0, 5);
+  // Backup 45: filtros que se marcam/desmarcam — pessoas (eu + quem está no mesmo nível ou abaixo) e tipos (reunião, audiência, compromisso, tarefa, rotina).
+  // A tarefa aparece para o responsável, para quem participa e para quem valida (revisor).
+  const visiveis = pessoasVisiveis(), chave = (n) => primeiroNome(n), eu = chave(meuNome());
+  const okVis = new Set(visiveis.map(chave));
+  let sel = (FILA.pessoas || [eu]).filter((k) => okVis.has(k)); if (!sel.length) sel = [eu];
+  const tiposSel = new Set(FILA.tipos && FILA.tipos.length ? FILA.tipos : FILTRO_TIPOS_AG.map((x) => x[0]));
+  const daPessoa = (t) => [t.responsavel, t.revisor].concat(String(t.participantes || '').split(',')).some((n) => n && sel.includes(chave(n)));
+  const todas = ordenarFila(ts.filter((t) => daPessoa(t) && tiposSel.has(tipoItemAgenda(t)) && !/^(cob|parc|aco):/.test(t.chave_regra || ''))), minhas = FILA.toda ? todas : todas.slice(0, 5);
   const naAgenda = todas;
-  const rotQuem = FILA.quem === 'todos' ? 'de todos' : FILA.quem ? 'de ' + primeiroNome(FILA.quem) : 'suas';
-  const selQuem = ehAdminFila() ? '<select class="ini-fila-quem" data-fila-quem aria-label="De quem ver as tarefas"><option value="">Só as minhas</option><option value="todos"' + (FILA.quem === 'todos' ? ' selected' : '') + '>Todos</option>' +
-    pessoasEscritorio().filter((n) => primeiroNome(n) !== primeiroNome(meuNome())).map((n) => '<option' + (FILA.quem === n ? ' selected' : '') + '>' + esc(n) + '</option>').join('') + '</select>' : '';
-  const html = '<div class="card ini-fila' + (FILA.min ? ' minimizada' : '') + '"><div class="card-hd">📋 Minha fila de trabalho ' + '<span class="sub">' + plural(todas.length, 'aberta', 'abertas') + ' · ' + rotQuem + '</span>' + selQuem +
+  const rotQuem = sel.length === 1 && sel[0] === eu ? 'suas' : sel.length >= okVis.size && okVis.size > 1 ? 'de todos' : sel.map((k) => nomeCurto(visiveis.find((n) => chave(n) === k) || k)).join(', ');
+  const chip = (attr, v, rot, on) => '<button type="button" class="chip fila-chip' + (on ? ' ativo' : '') + '" ' + attr + '="' + esc(v) + '" aria-pressed="' + (on ? 'true' : 'false') + '">' + (on ? '✓ ' : '') + esc(rot) + '</button>';
+  const filtros = '<div class="fila-filtros">' +
+    '<div class="fila-chips" role="group" aria-label="Mostrar"><span class="fila-chips-rot">Mostrar</span>' + chip('data-fila-tipo', '*', 'Tudo', tiposSel.size === FILTRO_TIPOS_AG.length) +
+      FILTRO_TIPOS_AG.map(([k, r]) => chip('data-fila-tipo', k, r, tiposSel.has(k))).join('') + '</div>' +
+    (visiveis.length > 1 ? '<div class="fila-chips" role="group" aria-label="De quem"><span class="fila-chips-rot">De quem</span>' +
+      visiveis.map((n) => chip('data-fila-pes', chave(n), chave(n) === eu ? 'Minhas' : nomeCurto(n), sel.includes(chave(n)))).join('') +
+      chip('data-fila-pes', '*', 'Todos', sel.length >= okVis.size) + '</div>' : '') + '</div>';
+  const html = '<div class="card ini-fila' + (FILA.min ? ' minimizada' : '') + '"><div class="card-hd">📋 Minha fila de trabalho ' + '<span class="sub">' + plural(todas.length, 'aberta', 'abertas') + ' · ' + esc(rotQuem) + '</span>' +
       '<div class="segmento ini-fila-vista" role="group" aria-label="Ver como">' + VISTAS_FILA.map(([v, r]) => '<button type="button" data-fila-vista="' + v + '"' + (FILA.vista === v ? ' class="ativo"' : '') + '>' + r + '</button>').join('') + '</div>' +
       '</div>' +   // Backup 39: sem "Minimizar" 
-    (FILA.min ? '' : '<div class="card-bd">' + (FILA.vista !== 'lista' ? calendarioFila(naAgenda) :
+    (FILA.min ? '' : '<div class="card-bd">' + filtros + (FILA.vista !== 'lista' ? calendarioFila(naAgenda) :
     (minhas.length ? '<div class="lista-ficha fila-compacta">' + minhas.map((t) => '<div class="item-ficha clicavel" data-fila="' + t.id + '"><div>' + bolinha(t) + (t.tipo_agenda ? ' <i class="ag-cor ag-' + t.tipo_agenda + '"></i>' : '') + ' <b>' + (t.hora ? horaAg(t) : '') + esc(t.titulo) + '</b>' + seloPrazo(t) +
       '<div class="sub">' + (t.prazo ? 'prazo ' + dataBR(t.prazo) : 'sem prazo') + (t.prazo_fatal ? ' · ⚑ fatal ' + dataBR(t.prazo_fatal) : '') + (t.status === 'revisao' ? ' · aguardando revisão' : '') +
       (quemTarefa(t) ? ' · ' + esc(quemTarefa(t)) : '') + '</div></div>' +
@@ -316,7 +353,12 @@ async function cardMinhaFila() {
   return { html, ligar: (raiz) => {
     raiz.querySelectorAll('[data-fila]').forEach((d) => d.onclick = () => {
       abrirTarefa(ts.find((t) => t.id === d.dataset.fila), () => irPara(E.tela)); });
-    const sq = raiz.querySelector('[data-fila-quem]'); if (sq) sq.onchange = () => { FILA.quem = sq.value; salvarPrefFila(); repinta(raiz); };
+    raiz.querySelectorAll('[data-fila-tipo]').forEach((b) => b.onclick = () => { const v = b.dataset.filaTipo, todos = FILTRO_TIPOS_AG.map((x) => x[0]);
+      let t = new Set(tiposSel); if (v === '*') t = t.size === todos.length ? new Set() : new Set(todos); else if (t.has(v)) t.delete(v); else t.add(v);
+      FILA.tipos = t.size ? [...t] : []; if (!t.size) FILA.tipos = ['__nada']; salvarPrefFila(); repinta(raiz); });
+    raiz.querySelectorAll('[data-fila-pes]').forEach((b) => b.onclick = () => { const v = b.dataset.filaPes;
+      let p = new Set(sel); if (v === '*') p = p.size >= okVis.size ? new Set([eu]) : new Set(okVis); else if (p.has(v)) p.delete(v); else p.add(v);
+      FILA.pessoas = p.size ? [...p] : [eu]; salvarPrefFila(); repinta(raiz); });
     const bt = raiz.querySelector('[data-fila-toda]'); if (bt) bt.onclick = () => { FILA.toda = !FILA.toda; repinta(raiz); };
     raiz.querySelectorAll('[data-fila-vista]').forEach((b) => b.onclick = () => { FILA.vista = b.dataset.filaVista; FILA.min = false; FILA.ref = null; salvarPrefFila(); repinta(raiz); });
     raiz.querySelectorAll('[data-agendar]').forEach((b) => b.onclick = () => janelaAgendar(FILA.vista === 'dia' ? (FILA.ref || hojeISO()) : hojeISO(), () => repinta(raiz)));
@@ -628,7 +670,7 @@ async function abrirTarefa(t, depois) {
         linha(t.tipo_agenda ? 'Dia' : 'Prazo', t.prazo ? dataBR(t.prazo) + (t.hora ? ' · <b>' + esc(horaFaixa(t)) + '</b>' : '') : '<span class="sub">sem prazo</span>') +
         linha('Tipo', t.tipo_agenda ? esc((TIPOS_AGENDA.find(([k]) => k === t.tipo_agenda) || [, t.tipo_agenda])[1]) : '') +
         linha('Local', esc(t.local || '')) +
-        linha('Aviso', t.aviso_min ? esc((AVISOS_AGENDA.find(([v]) => +v === t.aviso_min) || [, t.aviso_min + ' min antes'])[1]) + (t.aviso_em ? ' <span class="sub">· enviado</span>' : '') : '') +
+        linha('Aviso', [[t.aviso_min, t.aviso_em], [t.aviso2_min, t.aviso2_em]].filter(([m]) => m != null).map(([m, em]) => esc((AVISOS_AGENDA.find(([v]) => +v === m) || [, m + ' min antes'])[1]) + (em ? ' <span class="sub">· enviado</span>' : '')).join(' e ')) +
         linha('Prazo fatal', t.prazo_fatal ? '<b>' + dataBR(t.prazo_fatal) + '</b>' : '') +
         linha('Cliente', esc(quemTarefa(t) || '')) +
         linha('Responsável', pillPessoa(t.responsavel)) +

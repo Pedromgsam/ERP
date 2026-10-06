@@ -599,7 +599,7 @@
     Object.values(o.scales || {}).forEach((sc) => { if (sc.border) sc.border.color = tok('chart-grade'); });
     o.animation = false;
     // Backup 19: "Recebido mês a mês" (cores de cada pessoa) volta às cores de antes — não troca pelos tokens
-    const corPropria = ch.canvas && /^(cFaMes|cFcMes)$/.test(ch.canvas.id);
+    const corPropria = ch.canvas && /^(cFaMes|cFcMes|cFcCaixaFluxo)$/.test(ch.canvas.id);
     if (!corPropria) (ch.data.datasets || []).forEach((ds) => {
       if (!('$gxBg' in ds)) { ds.$gxBg = ds.backgroundColor; ds.$gxBd = ds.borderColor; ds.$gxHv = ds.hoverBackgroundColor; }
       const cat = /doughnut|pie|polarArea/.test(ch.config.type), um = (c) => corDoToken(c, cat);
@@ -785,17 +785,17 @@
   window.ERP_EVOLUCAO_PASSIVO = () => { _evo.dados = null; evolucaoPassivo(); };
 
   // ═══════ Backup 31: CONTORNO AZUL de cada grupo nas tabelas agrupadas (Painel, Processos, Rotina, Clientes…) ═══════
-  // a linha do grupo (tr.gx-grp / tr.cli-grp) abre o bloco; as linhas até o próximo grupo ficam dentro do contorno (design.css: .gc-*)
+  // a linha do grupo (tr.gx-grp; Backup 45: Clientes saiu — faixa simples, como no Painel e na Rotina) abre o bloco; as linhas até o próximo grupo ficam dentro do contorno (design.css: .gc-*)
   function contornarGrupos() {
     // Backup 41: rápido — só refaz a tabela que mudou (assinatura das linhas) e mede UMA linha por tabela.
     // Antes media cada célula de cada linha a cada tecla: com 400 empresas na Rotina, ~3 s por tecla.
     document.querySelectorAll('tbody').forEach((tb) => {
-      const linhas = [...tb.children]; if (!linhas.some((tr) => tr.matches('tr.gx-grp, tr.cli-grp'))) return;
+      const linhas = [...tb.children]; if (!linhas.some((tr) => tr.matches('tr.gx-grp'))) return;
       const sig = linhas.length + ':' + linhas.map((tr) => (tr.hidden || tr.style.display === 'none' ? 0 : 1)).join('');
       if (tb._gcSig === sig) return;
       tb._gcSig = sig;
       // leitura (uma vez): quais colunas aparecem, olhando a primeira linha comum visível
-      const modelo = linhas.find((tr) => !tr.matches('tr.gx-grp, tr.cli-grp') && !tr.hidden && tr.children.length > 1);
+      const modelo = linhas.find((tr) => !tr.matches('tr.gx-grp') && !tr.hidden && tr.children.length > 1);
       const vis = modelo ? [...modelo.children].map((td, i) => (getComputedStyle(td).display !== 'none' ? i : -1)).filter((i) => i >= 0) : [];
       const prim = vis.length ? vis[0] : 0, ult0 = vis.length ? vis[vis.length - 1] : 0;
       // escrita
@@ -807,7 +807,7 @@
         if (tds.length === 1) tds[0].classList.add('gc-l', 'gc-r');
         else if (tds.length) { (tds[prim] || tds[0]).classList.add('gc-l'); (tds[Math.min(ult0, tds.length - 1)] || tds[tds.length - 1]).classList.add('gc-r'); }
         if (tr.hidden || tr.style.display === 'none') return;
-        if (tr.matches('tr.gx-grp, tr.cli-grp')) { if (ult) ult.classList.add('gc-fim'); tr.classList.add('gc-ini'); dentro = true; ult = tr; return; }
+        if (tr.matches('tr.gx-grp')) { if (ult) ult.classList.add('gc-fim'); tr.classList.add('gc-ini'); dentro = true; ult = tr; return; }
         if (dentro) { tr.classList.add('gc-in'); ult = tr; }
       });
       if (ult) ult.classList.add('gc-fim');

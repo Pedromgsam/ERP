@@ -82,7 +82,17 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
-- Última entrega: **Backup 44** (SQL + função erp-emails). Lateral `--sw:204px` (design.css, linha do `body.gx-barra-topo`). Painel: bloco "Backup 44" no fim do design.css
+- Última entrega: **Backup 45** (só SQL; erp-emails = B44). Rotina: `rotinaEnviarGuias` = Notificações antigas (`.ep-*`, `_epSel`, `textoNotifParcelas` com `[VALOR:x]`, `epHtml`,
+  `epTextoAtual`, `epParaEdicao`; "Enviar e-mail" → RPC `rascunho_email_texto(cli, para, assunto, texto, arquivos)` + `salvarRascunhoAgora`; "Marcar enviado" → `registrar_emissao` +
+  `lancar_valor_parcela`); `email_rascunho_destino_real(ref)` desfaz o desvio do modo teste nos rascunhos (também em `salvar_guias_rascunho`); constraint de `email_fila.status`
+  (linha ~4192 e B44) inclui rascunho/rascunho_salvo. `rotinaPlanilha` sem envio, `bloco(p)`/`redesenharBloco`, `.pl-mais` (pagas antigas/previstas resumidas). Passivo: colgroup
+  `.rt-w-*`, Enter/setas, `dCurta`. Processos: `tribunalProcesso` (CNJ J.TR), `E.rt.fp` (`.rt-segs`), `celulaConfProc` com ✓ → `janelaMovimentacao(id, depois, {conferir:true})`
+  (tipo em `.mov-tipos`, hidden `name=tipo`). Sem `rotinaFinanceiro`. Início: `FILA.pessoas`/`FILA.tipos` (prefs), `FILTRO_TIPOS_AG`, `tipoItemAgenda`, `pessoasVisiveis` (nível do cargo),
+  chips `[data-fila-tipo]`/`[data-fila-pes]` (sem `[data-fila-quem]`); `janelaAgendar` com tipo `tarefa`, `[name=resp]`, `[name=aviso2]`; SQL `tarefas.aviso2_min/aviso2_em`, `avisos_agenda` com 2 avisos.
+  Usuários: `perfis.cargo`, `perfis.revisor_id`, `nivel_cargo`, `equipe_hierarquia()`, gatilho `tarefa_revisor_padrao`; front `CARGOS`/`nivelCargo` (nucleo), botão `[data-cargo-ed]` → janela `#us-cargo-sel`/`#us-rev-sel` (na coluna Acesso, para a tabela caber). `_fK` (montar-erp) = R$ 80k / R$ 1,3M.
+  Painel: `.er-v` (fS resumido + title fF, no montar-erp). Acordos: `_lgGuias` some para `o.tabela==='acordos'`; `janelaGuiasEmpresa` com `soRascunho` (acordos). Contab: `cFcCaixaFluxo` com
+  `_faCorBarra` e fora do pluginTema. Clientes: `contornarGrupos` só `tr.gx-grp`.
+- Backup 44 (base) (SQL + função erp-emails). Lateral `--sw:204px` (design.css, linha do `body.gx-barra-topo`). Painel: bloco "Backup 44" no fim do design.css
   (larguras em % por `th:nth-child`, Grupo 9%, Operação/Situação centralizadas). E-mail: o slug da função do usuário era `super-worker` (renomear não muda o endereço) —
   `chamarFuncao` explica. Rascunho no Gmail: `salvar_guias_rascunho` (SQL, status `rascunho` → `rascunho_salvo`), `erp-emails {acao:'rascunho', ref}` → `imapRascunho(cfg, raw,
   conectar)` (IMAP APPEND na pasta \Drafts; raw pelo nodemailer `streamTransport`), `tratar(req, db, mailer, gaveta)`; front `salvarRascunhoAgora` (nucleo), `#ge-rascunho`,

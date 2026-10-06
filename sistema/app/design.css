@@ -1272,3 +1272,125 @@ body.gx-barra-topo #tblExecRanking td.er-sit,body.gx-barra-topo #tblExecRanking 
 body.gx-barra-topo #tblExecRanking td.mono{width:auto!important}
 body.gx-barra-topo table:has(> #tblExecRanking) th:nth-child(5),body.gx-barra-topo table:has(> #tblExecRanking) th:nth-child(6),body.gx-barra-topo table:has(> #tblExecRanking) th:nth-child(7),
 body.gx-barra-topo #tblExecRanking td:nth-child(5),body.gx-barra-topo #tblExecRanking td:nth-child(6),body.gx-barra-topo #tblExecRanking td:nth-child(7){padding-left:10px!important}
+/* ═══ Backup 45: Rotina ═══ */
+/* Passivo: larguras fixas — nome menor, valores inteiros, CAPAG estreita, conferência numa linha */
+.gs .rt-pas col.rt-w-emp{width:17%}.gs .rt-pas col.rt-w-org{width:12%}.gs .rt-pas col.rt-w-ceat{width:5%}
+.gs .rt-pas col.rt-w-sn{width:7.5%}.gs .rt-pas col.rt-w-capag{width:8.5%}.gs .rt-pas col.rt-w-conf{width:18.5%}
+.gs .rt-pas table th:nth-child(n){width:auto}
+.gs .rt-pas td.rt-c-conf,.gs .rt-pas th.rt-c-conf{width:auto;min-width:0}
+.gs .rt-grade.rt-pas .rt-valor,.gs .rt-grade.rt-pas select.rt-in,.gs .rt-grade.rt-pas .rt-int,.gs .rt-grade.rt-pas select.rt-in.rt-capag{width:100%;min-width:0}
+.gs .rt-grade.rt-pas td.rt-c-capag{min-width:0}
+.gs .rt-grade.rt-pas select.rt-in{padding-left:6px;padding-right:18px;background-position:right 4px center}
+.gs .rt-grade.rt-pas .rt-emp{min-width:0;max-width:none}
+.gs .rt-grade.rt-pas .rt-emp b{font-size:12.5px;overflow-wrap:anywhere}
+.gs .rt-grade.rt-pas .rt-valor{font-variant-numeric:tabular-nums;font-size:12.5px;text-align:right}
+.gs .rt-pas .rt-cf,.gs .rt-proc .rt-cf{display:flex;flex-direction:row;justify-content:space-between;align-items:center;gap:6px;min-width:0}
+.gs .rt-pas .rt-cf .rt-cf-txt,.gs .rt-proc .rt-cf .rt-cf-txt{min-width:0;white-space:nowrap;font-size:12px;line-height:1.35}
+.gs .rt-cf .rt-cf-txt small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Processos: mesma simetria do Passivo (conferência na última coluna) + filtros em azul */
+.gs .rt-proc table{table-layout:fixed;width:100%}
+.gs .rt-proc col.rt-w-pnum{width:20%}.gs .rt-proc col.rt-w-trib{width:8%}.gs .rt-proc col.rt-w-nat{width:12%}
+.gs .rt-proc col.rt-w-sn{width:9.5%}.gs .rt-proc col.rt-w-val{width:11%}.gs .rt-proc col.rt-w-conf{width:17%}
+.gs .rt-proc th{white-space:nowrap}
+.gs .rt-segs .segmento{width:auto;flex:0 0 auto;margin:0}
+.gs .rt-proc td{vertical-align:middle}
+.gs .rt-proc td.rt-mov{overflow-wrap:anywhere}
+.gs .rt-segs{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
+.gs .rt-seg button{font-size:12.5px;padding:5px 10px}
+.gs .rt-seg .seg-n{opacity:.7;font-size:11px;margin-left:2px}
+.gs .mov-tipos{display:flex;flex-wrap:wrap;margin-top:4px}
+.gs .mov-tipos button{font-size:13px}
+/* Planilha: linhas resumidas (pagas antigas e previstas) */
+.gs .pl-tab tr.pl-resumo td{padding:0!important;text-align:center}
+.gs .pl-mais{width:100%;background:var(--surface2);border:0;border-top:1px dashed var(--border);border-bottom:1px dashed var(--border);color:var(--text2);font:600 12px var(--font-ui);padding:6px 4px;cursor:pointer}
+.gs .pl-mais:hover{background:var(--hover);color:var(--ink)}
+.gs .pl-dt-mk2{background:var(--surface);border:1px dashed var(--border-strong);color:var(--text3)}
+/* Enviar guias do mês — o desenho das antigas Notificações (ERP antigo) */
+.gs .ep-topo{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 14px}
+.gs .ep-cnt{flex:1;font-size:12.5px;color:var(--text3);font-weight:500}
+.gs .ep-cnt strong{color:var(--navy)}
+.gs .ep-gen-btn{display:inline-flex;align-items:center;gap:5px;font:600 11.5px var(--font-ui);padding:6px 13px;border-radius:var(--radius-xs);border:0;cursor:pointer;background:var(--violet);color:var(--on-cor)}
+.gs .ep-gen-btn:disabled{opacity:.38;cursor:default}
+.gs .ep-atu-btn{font:600 11.5px var(--font-ui);padding:6px 12px;border-radius:var(--radius-xs);border:0;cursor:pointer;background:var(--text3);color:var(--on-cor)}
+.gs .ep-legenda{display:flex;gap:14px;margin-bottom:12px;flex-wrap:wrap}
+.gs .ep-leg{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;color:var(--text2);font-weight:500}
+.gs .ep-dot{display:inline-block;width:10px;height:10px;border-radius:3px;border:1.5px solid}
+.gs .ep-dot-v{background:var(--red-lt);border-color:var(--red)}.gs .ep-dot-m{background:var(--amber-lt);border-color:var(--amber)}.gs .ep-dot-e{background:var(--green-lt);border-color:var(--green)}
+.gs .ep-emp{border:1.5px solid var(--border);border-radius:var(--card-r-sm);margin-bottom:10px;overflow:hidden}
+.gs .ep-emp-hd{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--gray-lt);border-bottom:1px solid var(--border);cursor:pointer;user-select:none}
+.gs .ep-emp-hd:hover{background:var(--hover)}
+.gs .ep-emp-hd label{cursor:pointer;display:flex;align-items:center;gap:8px;flex:1;min-width:0}
+.gs .ep-emp-hd input,.gs .ep-row input{accent-color:var(--navy);width:15px;height:15px;flex-shrink:0}
+.gs .ep-emp-nome{font-size:13px;font-weight:700;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gs .ep-emp-meta{font-size:11px;color:var(--text3);white-space:nowrap;flex-shrink:0}
+.gs .ep-emp-arrow{font-size:10px;color:var(--text3);cursor:pointer;padding:5px 8px;border-radius:5px;flex-shrink:0}
+.gs .ep-emp-arrow:hover{background:var(--veu-2)}
+.gs .ep-row{display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid var(--border);font-size:12px;cursor:pointer}
+.gs .ep-row:last-child{border-bottom:0}
+.gs .ep-row:hover{background:var(--hover)}
+.gs .ep-row.ep-rv{background:var(--red-lt)}.gs .ep-row.ep-re{background:var(--green-lt)}
+.gs .ep-row label{cursor:pointer;display:flex;align-items:center;gap:8px;flex:1;min-width:0}
+.gs .ep-row-lbl{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink);font-weight:500}
+.gs .ep-row-venc{color:var(--text3);font-size:11px;white-space:nowrap;flex-shrink:0}
+.gs .ep-tag{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;border-radius:4px;padding:2px 7px;white-space:nowrap;border:1px solid;flex-shrink:0}
+.gs .ep-tv{color:var(--red-d);background:var(--red-lt);border-color:var(--red-bd)}
+.gs .ep-tm{color:var(--amber-d);background:var(--amber-lt);border-color:var(--amber-border)}
+.gs .ep-te{color:var(--green-d);background:var(--green-lt);border-color:var(--green-bd)}
+.gs .ep-vazio{padding:12px 14px;border-radius:var(--card-r-sm);background:var(--amber-lt);color:var(--amber-d);font-size:13px}
+.gs .ep-out-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px}
+.gs .ep-out-tit{font-size:13.5px;font-weight:700;color:var(--navy)}
+.gs .ep-grid{display:grid;gap:16px;grid-template-columns:1fr}
+.gs .ep-card{border:1.5px solid var(--border);border-radius:var(--card-r-sm);overflow:hidden}
+.gs .ep-card.ep-feito{border-color:var(--green-bd)}
+.gs .ep-card-hd2{display:flex;border-bottom:1px solid var(--border);background:var(--gray-lt)}
+.gs .ep-card-hcol{flex:1;min-width:0;padding:10px 15px}
+.gs .ep-card-hcol+.ep-card-hcol{border-left:1px solid var(--border)}
+.gs .ep-card-ch{font-size:10.5px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px}
+.gs .ep-card-ch.ep-ch-zap{color:var(--green)}
+.gs .ep-card-emp{font-size:13px;font-weight:700;color:var(--navy)}
+.gs .ep-card-assunto{font-size:12px;font-style:italic;color:var(--text2);margin-top:2px}
+.gs .ep-card-sub{font-size:11.5px;color:var(--text3);margin-top:2px;display:flex;align-items:center;gap:4px}
+.gs .ep-para{flex:1;min-width:0;border:0;border-bottom:1px dashed var(--border-strong);background:transparent;color:var(--blue);font:inherit;font-size:11.5px;padding:1px 2px}
+.gs .ep-para:focus{outline:0;border-bottom-color:var(--navy);background:var(--surface)}
+.gs .ep-zap-l{color:var(--green)}.gs .ep-nada{color:var(--text4)}
+.gs .ep-card-body{padding:15px;font-size:12.5px;line-height:1.8;color:var(--ink);white-space:pre-wrap;background:var(--surface)}
+.gs .ep-card-body .ep-alerta{color:var(--red-d)}
+.gs .ep-card-edit{width:100%;box-sizing:border-box;min-height:220px;padding:13px 15px;font:12.5px/1.8 var(--font-ui);color:var(--ink);border:0;border-top:2px solid var(--amber);background:var(--amber-lt);resize:vertical;outline:0}
+.gs .ep-val{display:inline-block;width:110px;padding:1px 6px;border:0;border-bottom:2px dashed var(--amber);background:transparent;font:700 12.5px var(--font-ui);color:var(--navy);outline:0}
+.gs .ep-val:focus{border-bottom-color:var(--navy);background:var(--amber-lt)}
+.gs .ep-anexos{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 15px;border-top:1px solid var(--border);background:var(--surface)}
+.gs .ep-anexar{display:inline-flex;align-items:center;gap:4px;cursor:pointer;font:600 11.5px var(--font-ui);color:var(--navy);border:1.5px dashed var(--border-strong);border-radius:5px;padding:4px 10px}
+.gs .ep-anexar:hover{border-color:var(--navy);background:var(--hover)}
+.gs .ep-chips{display:flex;gap:6px;flex-wrap:wrap}
+.gs .ep-anx-dica{font-size:11px;color:var(--text3)}
+.gs .ep-card-acts2{display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:10px 15px;border-top:1px solid var(--border);background:var(--gray-lt)}
+.gs .ep-act{display:inline-flex;align-items:center;gap:4px;font:600 11px var(--font-ui);padding:4px 10px;border-radius:5px;cursor:pointer;white-space:nowrap;border:1.5px solid}
+.gs .ep-a-edit{border-color:var(--amber);color:var(--amber-d);background:transparent}.gs .ep-a-edit:hover{background:var(--amber);color:var(--on-cor)}
+.gs .ep-a-copy{border-color:var(--navy);color:var(--navy);background:transparent}.gs .ep-a-copy:hover{background:var(--navy);color:var(--on-cor)}
+.gs .ep-a-mail{border-color:var(--navy);color:var(--on-cor);background:var(--navy)}.gs .ep-a-mail:hover{opacity:.85}
+.gs .ep-a-wpp2{border-color:var(--green);color:var(--on-cor);background:var(--green)}.gs .ep-a-wpp2:hover{opacity:.85}
+.gs .ep-a-sent{border-color:var(--green);color:var(--green);background:transparent}.gs .ep-a-sent:hover{background:var(--green);color:var(--on-cor)}
+.gs .ep-act:disabled{opacity:.45;cursor:default}
+@media (max-width:760px){.gs .ep-card-hd2{flex-direction:column}.gs .ep-card-hcol+.ep-card-hcol{border-left:0;border-top:1px solid var(--border)}}
+.gs .ep-topo[hidden],.gs .ep-legenda[hidden],.gs .rt-filtros[hidden],.gs .ep-card-body[hidden],.gs .ep-card-edit[hidden]{display:none!important}
+/* Backup 45: Clientes — faixa do grupo simples (sem o contorno azul), igual ao Painel e à Rotina */
+body.gx-barra-topo .gs .cli-tabela tr.cli-grp td{background:var(--surface3)!important;color:var(--text2)!important;font-weight:700;font-size:12px;letter-spacing:.03em;padding:7px 10px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);box-shadow:none!important}
+body.gx-barra-topo .gs .cli-tabela tr.gc-ini td,body.gx-barra-topo .gs .cli-tabela tr.gc-in td,body.gx-barra-topo .gs .cli-tabela tr.gc-fim td{box-shadow:none!important}
+/* Backup 45: Início — filtros da agenda (marca/desmarca) e os dois avisos do "Agendar" */
+.gs .fila-filtros{display:flex;flex-direction:column;gap:6px;margin:0 0 12px}
+.gs .fila-chips{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.gs .fila-chips-rot{font:700 11px var(--font-ui);color:var(--text3);text-transform:uppercase;letter-spacing:.04em;min-width:64px}
+.gs .fila-chip{font:600 12px var(--font-ui);padding:4px 11px;border-radius:var(--r-pill);border:1px solid var(--border-strong);background:var(--surface);color:var(--text2);cursor:pointer}
+.gs .fila-chip:hover{border-color:var(--selecao);color:var(--ink)}
+.gs .ag-av2{display:flex;align-items:center;gap:6px}
+.gs .ag-av2 select{flex:1;min-width:0}
+.gs .ag-form[data-tipo=tarefa] .ag-nao-tarefa{display:none}
+/* Backup 45: com os valores resumidos (R$ 80k) sobra espaço — Grupo e Entidade ganham um pouco */
+body.gx-barra-topo table:has(> #tblExecRanking) th:nth-child(2){width:11%!important}
+body.gx-barra-topo table:has(> #tblExecRanking) th:nth-child(3){width:22%!important}
+body.gx-barra-topo table:has(> #tblExecRanking) th:nth-child(4){width:11.5%!important}
+body.gx-barra-topo table:has(> #tblExecRanking) th:nth-child(5),body.gx-barra-topo table:has(> #tblExecRanking) th:nth-child(6),
+body.gx-barra-topo table:has(> #tblExecRanking) th:nth-child(7){width:9%!important}
+body.gx-barra-topo table:has(> #tblExecRanking) th:nth-child(8){width:9.5%!important}
+body.gx-barra-topo table:has(> #tblExecRanking) th:nth-child(9),body.gx-barra-topo table:has(> #tblExecRanking) th:nth-child(10){width:9.5%!important}
+.gs .us-cargo{margin-top:4px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}

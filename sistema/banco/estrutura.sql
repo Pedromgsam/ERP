@@ -4189,7 +4189,7 @@ grant execute on function public.registrar_aditivo(uuid, jsonb) to authenticated
 -- E: confirmar o e-mail de um usuário criado pelo admin (entra sem o link de confirmação).
 -- ═══════════════════════════════════════════════════════════════════
 alter table public.email_fila drop constraint if exists email_fila_status_check;
-alter table public.email_fila add constraint email_fila_status_check check (status in ('pendente','enviado','erro','cancelado','retido'));
+alter table public.email_fila add constraint email_fila_status_check check (status in ('pendente','enviado','erro','cancelado','retido','rascunho','rascunho_salvo'));
 do $$
 begin
   if not exists (select 1 from public.configuracoes where chave = 'emails_pausados') then
@@ -6864,3 +6864,108 @@ begin
 end $$;
 revoke all on function public.salvar_guias_rascunho(uuid, uuid, jsonb, text, text, uuid[], text, jsonb) from public, anon;
 grant execute on function public.salvar_guias_rascunho(uuid, uuid, jsonb, text, text, uuid[], text, jsonb) to authenticated;
+
+-- ═══════════════════════════════ Backup 45 ═══════════════════════════════
+-- Rotina → "Enviar guias do mês" (igual às antigas Notificações): o botão "Enviar e-mail" salva um RASCUNHO no Gmail com o TEXTO da mensagem
+-- (como o Apps Script fazia com GmailApp.createDraft) e os PDFs anexados na tela. O rascunho não sai sozinho, então vai com o e-mail
+-- verdadeiro do cliente (o desvio do modo teste — email_redirecionar — não vale para rascunho).
+create or replace function public.email_rascunho_destino_real(p_ref text) returns void
+language sql security definer set search_path = public as $$
+  update public.email_fila set para = para_original, assunto = regexp_replace(assunto, '^\[para [^]]*\] ', '')
+   where referencia = p_ref and status = 'rascunho' and coalesce(para_original, '') <> '';
+$$;
+revoke all on function public.email_rascunho_destino_real(text) from public, anon, authenticated;
+create or replace function public.rascunho_email_texto(p_cliente uuid, p_para text, p_assunto text, p_texto text, p_arquivos jsonb default null) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare v_ref text := 'rasc:' || gen_random_uuid(); lista jsonb; v_conta text; html text;
+begin
+  if not public.pode('juridico', 'editar') then raise exception 'permission denied: sem acesso para enviar guias.'; end if;
+  select coalesce(jsonb_agg(jsonb_build_object('tipo', 'bin', 'arquivo', a->>'arquivo', 'mime', coalesce(a->>'mime', 'application/pdf'), 'b64', a->>'b64')), '[]') into lista
+    from jsonb_array_elements(coalesce(p_arquivos, '[]')) a where coalesce(a->>'b64', '') <> '';
+  v_conta := public.conta_email(p_cliente, null);
+  html := '<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#222">' ||
+          replace(replace(replace(replace(coalesce(p_texto, ''), '&', '&amp;'), '<', '&lt;'), '>', '&gt;'), E'\n', '<br>') || '</div>';
+  insert into public.email_fila (usuario_id, para, assunto, html, tipo, referencia, anexo, conta, status)
+  values (auth.uid(), coalesce(trim(p_para), ''), coalesce(nullif(trim(p_assunto), ''), 'Guias de Parcelamento'), html, 'cliente', v_ref,
+          case when jsonb_array_length(lista) > 0 then jsonb_build_object('tipo', 'lista', 'itens', lista) end, v_conta, 'rascunho');
+  perform public.email_rascunho_destino_real(v_ref);
+  return jsonb_build_object('ref', v_ref, 'para', p_para, 'status', 'rascunho', 'anexos', jsonb_array_length(lista));
+end $$;
+revoke all on function public.rascunho_email_texto(uuid, text, text, text, jsonb) from public, anon;
+grant execute on function public.rascunho_email_texto(uuid, text, text, text, jsonb) to authenticated;
+-- o rascunho das guias/acordos (janela "Emitir") também vai com o e-mail real do cliente
+create or replace function public.salvar_guias_rascunho(p_cliente uuid, p_grupo uuid, p_itens jsonb, p_assunto text, p_texto text,
+  p_docs uuid[] default '{}', p_para text default null, p_arquivos jsonb default null) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare r jsonb;
+begin
+  r := public.enviar_guias_email(p_cliente, p_grupo, p_itens, p_assunto, p_texto, p_docs, p_para, p_arquivos);
+  update public.email_fila set status = 'rascunho' where referencia = r->>'ref' and status in ('pendente', 'retido');
+  perform public.email_rascunho_destino_real(r->>'ref');
+  return r || jsonb_build_object('status', 'rascunho');
+end $$;
+-- Usuários: cargo (hierarquia — quem está abaixo não vê a agenda de quem está acima) e revisor padrão (quem valida as tarefas da pessoa)
+alter table public.perfis add column if not exists cargo text not null default '';
+alter table public.perfis add column if not exists revisor_id uuid references public.perfis(id) on delete set null;
+create or replace function public.nivel_cargo(p_cargo text, p_papel text) returns int language sql immutable as $$
+  select case when p_papel = 'admin' and coalesce(p_cargo, '') = '' then 5
+              else case coalesce(p_cargo, '') when 'socio' then 5 when 'coordenador' then 4 when 'advogado' then 3 when 'contador' then 3
+                     when 'assistente' then 2 when 'estagiario' then 1 else 2 end end;
+$$;
+create or replace function public.equipe_hierarquia() returns table (id uuid, nome text, email text, papel text, cargo text, nivel int, revisor_id uuid)
+language sql stable security definer set search_path = public as $$
+  select p.id, p.nome, p.email, p.papel, p.cargo, public.nivel_cargo(p.cargo, p.papel), p.revisor_id
+    from public.perfis p where public.eh_equipe() and p.papel in ('admin','equipe') order by p.nome;
+$$;
+revoke all on function public.equipe_hierarquia() from public, anon;
+grant execute on function public.equipe_hierarquia() to authenticated;
+-- tarefa com validação e sem revisor: vai para o revisor padrão de quem é responsável
+create or replace function public.tarefa_revisor_padrao() returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if coalesce(new.exige_revisao, false) and coalesce(btrim(new.revisor), '') = '' and coalesce(btrim(new.responsavel), '') <> '' then
+    new.revisor := coalesce((select r.nome from public.perfis p join public.perfis r on r.id = p.revisor_id
+                              where p.papel in ('admin','equipe') and lower(split_part(btrim(p.nome), ' ', 1)) = lower(split_part(btrim(new.responsavel), ' ', 1)) limit 1), '');
+  end if;
+  return new;
+end $$;
+drop trigger if exists tarefa_revisor_padrao on public.tarefas;
+create trigger tarefa_revisor_padrao before insert or update of exige_revisao, revisor, responsavel on public.tarefas for each row execute function public.tarefa_revisor_padrao();
+-- Agenda: dois avisos (ex.: 1 dia antes + 30 min antes)
+alter table public.tarefas add column if not exists aviso2_min int;
+alter table public.tarefas add column if not exists aviso2_em timestamptz;
+create or replace function public.avisos_agenda() returns int
+language plpgsql security definer set search_path = public as $$
+declare t record; pnome text; uid uuid; n int := 0; ini timestamptz; rot text; k int; mins int; ja timestamptz;
+begin
+  for t in select * from public.tarefas
+            where ((aviso_min is not null and aviso_em is null) or (aviso2_min is not null and aviso2_em is null)) and prazo is not null
+              and status not in ('concluida', 'cancelada') and prazo between current_date - 1 and current_date + 3 loop
+    ini := ((t.prazo + coalesce(t.hora, time '08:00')) at time zone 'America/Sao_Paulo');
+    rot := case t.tipo_agenda when 'reuniao' then 'Reunião' when 'audiencia' then 'Audiência' when 'compromisso' then 'Compromisso' else 'Tarefa' end;
+    for k in 1..2 loop
+      mins := case k when 1 then t.aviso_min else t.aviso2_min end;
+      ja := case k when 1 then t.aviso_em else t.aviso2_em end;
+      continue when mins is null or ja is not null;
+      continue when ini - make_interval(mins => mins) > now() or ini < now() - interval '1 hour';
+      for pnome in select distinct lower(split_part(btrim(x), ' ', 1)) from unnest(array[t.responsavel] || string_to_array(coalesce(t.participantes, ''), ',')) x where btrim(coalesce(x, '')) <> '' loop
+        uid := (select p.id from public.perfis p where p.papel in ('admin', 'equipe') and lower(split_part(btrim(p.nome), ' ', 1)) = pnome limit 1);
+        if uid is not null then
+          insert into public.notificacoes (usuario_id, tipo, titulo, detalhe)
+          values (uid, 'agenda', '🔔 ' || rot || ' ' || to_char(t.prazo, 'DD/MM') || coalesce(' às ' || to_char(t.hora, 'HH24:MI'), '') || ': ' || t.titulo,
+                  concat_ws(' · ', nullif(coalesce(t.local, ''), ''), nullif(coalesce(t.processos_vinculados, ''), '')));
+          n := n + 1;
+        end if;
+      end loop;
+      if k = 1 then update public.tarefas set aviso_em = now() where id = t.id; else update public.tarefas set aviso2_em = now() where id = t.id; end if;
+    end loop;
+  end loop;
+  return n;
+end $$;
+revoke all on function public.avisos_agenda() from public, anon, authenticated;
+create or replace function public.tarefa_aviso_reset() returns trigger language plpgsql as $$
+begin
+  if new.prazo is distinct from old.prazo or new.hora is distinct from old.hora or new.aviso_min is distinct from old.aviso_min then new.aviso_em := null; end if;
+  if new.prazo is distinct from old.prazo or new.hora is distinct from old.hora or new.aviso2_min is distinct from old.aviso2_min then new.aviso2_em := null; end if;
+  return new;
+end $$;
+-- ═══ fim do Backup 45 ═══
