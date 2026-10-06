@@ -49,10 +49,10 @@
 <link rel="stylesheet" href="editor.css?v=7747e46f">
 <link rel="stylesheet" href="erp-telas.css?v=22ce828d">
 <script src="editor.js?v=7e839443" defer></script>
-<script src="erp-telas.js?v=a7f9cc07" defer></script>
+<script src="erp-telas.js?v=f00d7847" defer></script>
 <link rel="stylesheet" href="gs.css?v=d626acf3">
 <script src="importador.js?v=4fb0d655" defer></script>
-<script src="gestao-embutida.js?v=0bd5b39e" defer></script>
+<script src="gestao-embutida.js?v=2133e40d" defer></script>
 <script>
 
 
@@ -1617,7 +1617,7 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
 </style>
 <link rel="stylesheet" href="tokens.css?v=806c2a7c">
 <link rel="stylesheet" href="tema-escuro.css?v=3bec5b6a">
-<link rel="stylesheet" href="design.css?v=d1958723">
+<link rel="stylesheet" href="design.css?v=be1e1911">
 <script>try{if(localStorage.getItem("erp_tema")==="escuro")document.documentElement.setAttribute("data-tema","escuro")}catch(e){}</script>
 </head>
 <body>
@@ -3843,9 +3843,9 @@ function renderExecRanking(){
     const pgfnTot=(r.pgfn||0)+(r.pgfnNeg||0);
     const ageTot=(r.ageMG||0)+(r.ageMGNeg||0);
     const negTag=(val,label)=>val>0?`<br><span class="tag tv" style="font-size:9.5px" title="${fF(val)}">${fS(val)} ${label}</span>`:'';
-    const cellRfb =rfbTot >0?`${fF(r.rfb||0)}${negTag(r.rfbNeg||0,'neg.')}`:'-';
-    const cellPgfn=pgfnTot>0?`${fF(r.pgfn||0)}${negTag(r.pgfnNeg||0,'neg.')}`:'-';
-    const cellAge =ageTot >0?`${fF(r.ageMG||0)}${negTag(r.ageMGNeg||0,'neg.')}`:'-';
+    const cellRfb =rfbTot >0?`<span class="er-v" title="${fF(r.rfb||0)}">${_fK(r.rfb||0)}</span>${negTag(r.rfbNeg||0,'neg.')}`:'-';
+    const cellPgfn=pgfnTot>0?`<span class="er-v" title="${fF(r.pgfn||0)}">${_fK(r.pgfn||0)}</span>${negTag(r.pgfnNeg||0,'neg.')}`:'-';
+    const cellAge =ageTot >0?`<span class="er-v" title="${fF(r.ageMG||0)}">${_fK(r.ageMG||0)}</span>${negTag(r.ageMGNeg||0,'neg.')}`:'-';
     const totVal=tribAll(r);
     const temSocio=r.isPJ&&String(r.socioAdmin||'').trim().length>1&&r.socioAdmin!=='-';
     const socioLine=temSocio?`<div class="er-socio">Sócio: <b>${r.socioAdmin}</b></div>`:'';
@@ -3856,12 +3856,13 @@ function renderExecRanking(){
       <td class="mono" style="font-size:12.5px">${cellRfb}</td>
       <td class="mono" style="font-size:12.5px">${cellPgfn}</td>
       <td class="mono" style="font-size:12.5px">${cellAge}</td>
-      <td class="mono">${totVal>0?`<strong>${fF(totVal)}</strong>`:'<span style="color:var(--text4)">—</span>'}</td>
+      <td class="mono">${totVal>0?`<strong class="er-v" title="${fF(totVal)}">${_fK(totVal)}</strong>`:'<span style="color:var(--text4)">—</span>'}</td>
       <td style="text-align:center" class="er-op">${/^sim$/i.test(r.emOperacao||'')?'<span class="tag tg">Sim</span>':/^n[aã]o$/i.test(r.emOperacao||'')?'<span class="tag tr">Não</span>':'<span style="color:var(--text4)">—</span>'}</td>
       <td class="er-sit"><span class="tag ${sC(r)}" style="font-size:10.5px">${String(r.sitCadastral||'—').toLowerCase().replace(/^./,function(c){return c.toUpperCase();})}</span></td>
     </tr>`;
   }).join(''):`<tr><td colspan="9">${emp()}</td></tr>`;
 }
+function _fK(v){v=Number(v)||0;var a=Math.abs(v);if(a>=1e6)return'R$ '+(v/1e6).toFixed(1).replace('.',',')+'M';if(a>=1e3)return'R$ '+Math.round(v/1e3)+'k';return'R$ '+Math.round(v);}
 function sortExecRank(c){
   if(_execRankSort.col===c)_execRankSort.asc=!_execRankSort.asc;
   else _execRankSort={col:c,asc:(c==='nome'||c==='grupo')};
@@ -4873,7 +4874,7 @@ function _lgRender(o){
       +'<td class="lg-t-num">'+_lgFmtV(x.falta)+'</td>'
       +'<td>'+_lgEsteMesTxt(m)+'</td>'
       +'<td>'+_lgSit(x.atr,x.atr>=2,x.concluido)+(x.guias?_lgGuiaDiscreta(x.guias,false):'')+'</td>'
-      +'<td class="lg-t-gu">'+(o.tabela&&!x.concluido?'<button type="button" class="lg-bt-gu" onclick="_lgGuias(event,\''+o.tabela+'\',\'item\',\''+_lgEsc(x.k)+'\')" title="Gerar as guias deste '+o.rotulo+' (em atraso + do mês; se não houver, a próxima)">🧾</button>':'')+'</td><td class="lg-t-seta">›</td></tr>'; };
+      +'<td class="lg-t-gu">'+(o.tabela&&o.tabela!=='acordos'&&!x.concluido?'<button type="button" class="lg-bt-gu" onclick="_lgGuias(event,\''+o.tabela+'\',\'item\',\''+_lgEsc(x.k)+'\')" title="Gerar as guias deste '+o.rotulo+' (em atraso + do mês; se não houver, a próxima)">🧾</button>':'')+'</td><td class="lg-t-seta">›</td></tr>'; };
   var cards=gs.map(function(g){
     var l=G[g].slice().sort(function(a,b){ return b.atr-a.atr || String(a.titulo+a.sub).localeCompare(String(b.titulo+b.sub),'pt-BR'); }), ab=sozinho||!!o.abertos[g];
     var soma=function(f){ return l.reduce(function(s,x){ return s+(Number(x[f])||0); },0); };
@@ -4887,16 +4888,17 @@ function _lgRender(o){
       +'<div class="lg-card-lin"><span>Falta pagar</span><b>'+_lgFmtV(soma('falta'))+'</b></div>'
       +'<div class="lg-card-lin lg-card-mes" title="Parcelas vencidas sem pagamento + as que vencem até o fim deste mês"><span>A pagar este mês</span><span>'+_lgEsteMesTxt(m)+'</span></div></div>';
     var painel=ab?'<div class="lg-painel"><div class="lg-painel-tit"><b>'+esc(g)+'</b><span class="lg-sub">'+l.length+' '+o.rotulo+(l.length>1?'s':'')+' · clique na linha para ver as parcelas</span>'
-      +(o.tabela?'<button type="button" class="lg-bt-guias" onclick="_lgGuias(event,\''+o.tabela+'\',\''+(umGrupo?'empresa':'grupo')+'\',\''+_lgEsc(g)+'\')" title="Abre o envio já com as parcelas em atraso e as que vencem neste mês">🧾 Gerar guias '+(umGrupo?'desta empresa':'deste grupo')+'</button>':'')
+      +(o.tabela&&o.tabela!=='acordos'?'<button type="button" class="lg-bt-guias" onclick="_lgGuias(event,\''+o.tabela+'\',\''+(umGrupo?'empresa':'grupo')+'\',\''+_lgEsc(g)+'\')" title="Abre o envio já com as parcelas em atraso e as que vencem neste mês">🧾 Gerar guias '+(umGrupo?'desta empresa':'deste grupo')+'</button>':'')
       +(sozinho?'':'<button type="button" class="lg-fechar" onclick="'+o.fnGrupo+'(\''+_lgEsc(g)+'\')" aria-label="Fechar">✕</button>')+'</div>'
       +'<table class="lg-t"><colgroup><col><col style="width:150px"><col style="width:130px"><col style="width:210px"><col style="width:230px"><col style="width:44px"><col style="width:28px"></colgroup>'
       +'<thead><tr><th>'+(umGrupo?o.rotulo.charAt(0).toUpperCase()+o.rotulo.slice(1):'Empresa / '+o.rotulo)+'</th><th>Pagas</th><th class="lg-t-num">Falta</th><th>A pagar este mês</th><th>Situação</th><th class="lg-t-gu" title="Gerar guias">Guias</th><th></th></tr></thead>'
       +'<tbody>'+l.map(linhaItem).join('')+'</tbody></table></div>':'';
     return card+painel; }).join('');
-  return (o.tabela?'<div class="lg-topo-guias"><button type="button" class="lg-bt-guias lg-bt-guias-geral" onclick="_lgGuias(event,\''+o.tabela+'\',\'tudo\',\'\')" title="Abre o envio com todas as empresas: parcelas em atraso + as que vencem neste mês">🧾 Gerar guias — em atraso + vencem neste mês</button></div>':'')
+  return (o.tabela&&o.tabela!=='acordos'?'<div class="lg-topo-guias"><button type="button" class="lg-bt-guias lg-bt-guias-geral" onclick="_lgGuias(event,\''+o.tabela+'\',\'tudo\',\'\')" title="Abre o envio com todas as empresas: parcelas em atraso + as que vencem neste mês">🧾 Gerar guias — em atraso + vencem neste mês</button></div>':'')
     +'<div class="lg lg-min lg-cards">'+cards+'</div>';
 }
 // Backup 37: "Gerar guias" — geral (respeita o grupo/empresa do filtro do topo), do grupo, da empresa ou de um item (parcelamento/acordo)
+// Backup 45: Acordos não emitem pela "Situação dos acordos" (só pela aba A pagar → 🧾 Emitir)
 function _lgGuias(ev, tabela, escopo, chave){
   if(ev){ ev.stopPropagation(); ev.preventDefault(); }
   if(!window.GS||!GS.gerarGuias) return;
@@ -8074,10 +8076,10 @@ function _fcCaixaGraficos(meses){
     // pro que entra, rosé pro que sai, mesma mistura clara+fechada a 45%
     // (ver _faMistura/_FA_PESSOA) em vez do verde/vermelho escuro sólido.
     mCh('cFcCaixaFluxo',{type:'bar',data:{labels:labels,datasets:[
-      {label:'Receita', data:meses.map(function(m){return m.r;}), backgroundColor:_faMistura('#D4EDBC','#4E9A2F',.45), hoverBackgroundColor:'#4E9A2F',
+      {label:'Receita', data:meses.map(function(m){return m.r;}), backgroundColor:_faCorBarra('Pedro'), hoverBackgroundColor:_faCor('Pedro').marca,
         borderColor:'#ffffff', borderWidth:1, borderRadius:5, borderSkipped:false,
         barPercentage:1, categoryPercentage:.92},
-      {label:'Despesa', data:meses.map(function(m){return m.d;}), backgroundColor:_faMistura('#FFCFC9','#D2544A',.45), hoverBackgroundColor:'#D2544A',
+      {label:'Despesa', data:meses.map(function(m){return m.d;}), backgroundColor:_faCorBarra('Emanuelle'), hoverBackgroundColor:_faCor('Emanuelle').marca,
         borderColor:'#ffffff', borderWidth:1, borderRadius:5, borderSkipped:false,
         barPercentage:1, categoryPercentage:.92}
     ]},options:{responsive:true,maintainAspectRatio:false,animation:SEM_ANIM,

@@ -57,7 +57,11 @@ async function admUsuarios(corpo) {
     lista.map((p) => '<tr><td><input class="busca" style="min-width:160px" data-nome="' + p.id + '" value="' + esc(p.nome) + '"></td>' +
       '<td>' + esc(p.email) + '</td><td><select class="busca" style="min-width:150px" data-papel="' + p.id + '">' +
       PAPEIS.map(([v, r]) => '<option value="' + v + '"' + (p.papel === v ? ' selected' : '') + '>' + r + '</option>').join('') +
-      '</select></td><td>' + (p.papel === 'equipe'
+      '</select>' +
+      // Backup 45: cargo (hierarquia da agenda) e revisor padrão das tarefas — numa janelinha, para a tabela caber na tela
+      (p.papel === 'admin' || p.papel === 'equipe' ? '<div class="us-cargo"><span class="sub">' + esc((CARGOS.find((c) => c[0] === (p.cargo || '')) || CARGOS[0])[1].replace('— sem cargo —', 'sem cargo')) +
+        (p.revisor_id ? ' · revisor: ' + esc(((lista.find((r) => r.id === p.revisor_id) || {}).nome || '').split(' ')[0]) : '') + '</span> <button type="button" class="btn btn-o btn-mini" data-cargo-ed="' + p.id + '">Cargo e revisor</button></div>' : '') +
+      '</td><td>' + (p.papel === 'equipe'
         ? '<span class="sub">' + esc(resumoFuncoes(p)) + '</span> <button class="btn btn-o btn-mini" data-funcoes="' + p.id + '">Funções</button>'
         : p.papel === 'cliente'
         ? (gruposDe(p.id).map((g) => '<span class="pill neutro">' + esc(g) + '</span>').join(' ') || '<span class="pill vencido">nenhum</span>') +
@@ -69,7 +73,9 @@ async function admUsuarios(corpo) {
         (E.perfil && p.id === E.perfil.id ? '' : ' <button class="btn btn-x btn-mini" data-excluir-u="' + p.id + '" data-nome-u="' + esc(p.nome || p.email) + '" title="Apaga o acesso desta pessoa (o que ela lançou continua no sistema)">🗑 Excluir</button>') + '</td></tr>').join('') +
     '</tbody></table></div></div>' +
     '<div class="dica"><b>Administrador</b>: tudo, inclusive excluir, importar e liberar usuários. <b>Equipe</b>: só as <b>funções</b> marcadas (Financeiro, Contratos, Jurídico…), em Ver ou Editar; não exclui. ' +
-    '<b>Cliente</b>: só consulta, no Portal, os grupos escolhidos. <b>Inativo</b>: não entra.</div>';
+    '<b>Cliente</b>: só consulta, no Portal, os grupos escolhidos. <b>Inativo</b>: não entra. ' +
+    '<b>Cargo</b>: a hierarquia — na agenda do Início cada pessoa só vê a de quem está no mesmo nível ou abaixo (Sócio › Coordenador › Advogado/Contador › Assistente › Estagiário). ' +
+    '<b>Revisor</b>: quem valida as tarefas dessa pessoa quando a tarefa pede validação e ninguém foi escolhido.</div>';
   // Backup 23: excluir usuário (só administrador; não exclui a si mesmo nem o último administrador)
   corpo.querySelectorAll('[data-excluir-u]').forEach((b) => b.onclick = () => comBotao(b, async () => {
     if (!confirm('Excluir o usuário "' + b.dataset.nomeU + '"?\n\nA pessoa perde o acesso ao sistema. O que ela lançou (tarefas, honorários, histórico) continua gravado.\nNão dá para desfazer: para voltar, crie a conta de novo.')) return;
@@ -87,6 +93,19 @@ async function admUsuarios(corpo) {
       await pintarAdmin();
     } catch (e) { await pintarAdmin(); throw e; }
   }));
+  corpo.querySelectorAll('[data-cargo-ed]').forEach((b) => b.onclick = () => {
+    const p = lista.find((x) => x.id === b.dataset.cargoEd);
+    const j = abrirJanela({ titulo: 'Cargo e revisor — ' + (p.nome || p.email),
+      corpo: '<label class="campo"><span>Cargo (hierarquia)</span><select id="us-cargo-sel" data-cargo="' + p.id + '">' + CARGOS.map(([v, r]) => '<option value="' + v + '"' + ((p.cargo || '') === v ? ' selected' : '') + '>' + r + '</option>').join('') + '</select></label>' +
+        '<label class="campo" style="margin-top:10px"><span>Revisor padrão (valida as tarefas desta pessoa)</span><select id="us-rev-sel" data-revisor="' + p.id + '"><option value="">— ninguém —</option>' +
+          lista.filter((r) => r.id !== p.id && (r.papel === 'admin' || r.papel === 'equipe')).map((r) => '<option value="' + r.id + '"' + (p.revisor_id === r.id ? ' selected' : '') + '>' + esc(r.nome || r.email) + '</option>').join('') + '</select></label>' +
+        '<p class="sub" style="margin-top:10px">Na agenda do Início, cada pessoa só vê a de quem está no mesmo nível ou abaixo: Sócio › Coordenador › Advogado/Contador › Assistente › Estagiário. O administrador vê todos.</p>',
+      rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="us-cargo-ok">Salvar</button></div>' });
+    j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
+    j.querySelector('#us-cargo-ok').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+      await q(sb.from('perfis').update({ cargo: j.querySelector('#us-cargo-sel').value, revisor_id: j.querySelector('#us-rev-sel').value || null }).eq('id', p.id));
+      E._equipe = null; aviso('✓ Cargo e revisor de ' + (p.nome || p.email).split(' ')[0] + ' atualizados.'); fecharJanela(j); await pintarAdmin(); });
+  });
   corpo.querySelectorAll('[data-nome]').forEach((i) => i.onchange = () => comBotao(i, async () => {
     await q(sb.from('perfis').update({ nome: i.value.trim() }).eq('id', i.dataset.nome));
     if (E.perfil && i.dataset.nome === E.perfil.id) { E.perfil.nome = i.value.trim(); if ($('hd-nome')) $('hd-nome').textContent = E.perfil.nome;
@@ -111,7 +130,7 @@ async function admUsuarios(corpo) {
 }
 function formFuncoes(p) {
   const j = abrirJanela({ titulo: 'Funções de ' + (p.nome || p.email), larga: true,
-    corpo: '<p class="sub" style="margin-bottom:10px">Marque o que esta pessoa pode <b>ver</b> ou <b>editar</b>. Use um modelo pronto e ajuste. As próprias tarefas ela sempre vê. <b>Rascunho</b>: a pessoa preenche, mas só vale depois que alguém que edita aprovar.</p>' + gradeAreas(p.areas) + gradeFuncoes(p.funcoes),
+    corpo: '<p class="sub" style="margin-bottom:10px">Marque o que esta pessoa pode <b>ver</b> ou <b>editar</b>. Use um modelo pronto e ajuste. As próprias tarefas ela sempre vê.</p>' + gradeAreas(p.areas) + gradeFuncoes(p.funcoes),
     rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="btn-salvar-func">Salvar</button></div>' });
   ligarGradeFuncoes(j);
   j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);

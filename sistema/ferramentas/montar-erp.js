@@ -537,11 +537,16 @@ trocar('<div id="acDevedorLista"></div><div hidden aria-hidden="true"><canvas id
 // (a nova lista "Parcelamentos em andamento", na Situação, mostra o progresso e as parcelas de cada um)
 trocar('  <div class="cc">\n    <div class="cc-hd"><div><div class="cc-t">Saldo residual por empresa</div><div class="cc-d">gráfico e tabela lado a lado · 10 maiores</div></div></div>\n    <div class="gx-graf-tab"><div class="cb" style="height:260px"><canvas id="cParcResidual"></canvas></div><div id="cParcResidualTab"></div></div>\n  </div>\n', '', 1);
 trocar('  <div class="cc">\n    <div class="cc-hd" style="flex-wrap:wrap;gap:8px"><div><div class="cc-t">Progresso por parcelamento</div>', '  <div class="cc" hidden aria-hidden="true">\n    <div class="cc-hd" style="flex-wrap:wrap;gap:8px"><div><div class="cc-t">Progresso por parcelamento</div>', 1);
-// Backup 22: Painel → Empresas do grupo com o valor completo ("R$ 12.000,00"), como em todas as tabelas (o "18k neg." continua curto)
-trocar("const cellRfb =rfbTot >0?`${fT(r.rfb||0)}", "const cellRfb =rfbTot >0?`${fF(r.rfb||0)}", 1);
-trocar("const cellPgfn=pgfnTot>0?`${fT(r.pgfn||0)}", "const cellPgfn=pgfnTot>0?`${fF(r.pgfn||0)}", 1);
-trocar("const cellAge =ageTot >0?`${fT(r.ageMG||0)}", "const cellAge =ageTot >0?`${fF(r.ageMG||0)}", 1);
-trocar("<td class=\"mono\">${totVal>0?`<strong>${fT(totVal)}</strong>`", "<td class=\"mono\">${totVal>0?`<strong>${fF(totVal)}</strong>`", 1);
+// Backup 45: Painel → Empresas do grupo com o valor RESUMIDO como no ERP antigo ("R$ 3k", "R$ 20,0M"); o valor completo aparece ao passar o mouse
+trocar("const cellRfb =rfbTot >0?`${fT(r.rfb||0)}", "const cellRfb =rfbTot >0?`<span class=\"er-v\" title=\"${fF(r.rfb||0)}\">${_fK(r.rfb||0)}</span>", 1);
+trocar("const cellPgfn=pgfnTot>0?`${fT(r.pgfn||0)}", "const cellPgfn=pgfnTot>0?`<span class=\"er-v\" title=\"${fF(r.pgfn||0)}\">${_fK(r.pgfn||0)}</span>", 1);
+trocar("const cellAge =ageTot >0?`${fT(r.ageMG||0)}", "const cellAge =ageTot >0?`<span class=\"er-v\" title=\"${fF(r.ageMG||0)}\">${_fK(r.ageMG||0)}</span>", 1);
+trocar("<td class=\"mono\">${totVal>0?`<strong>${fT(totVal)}</strong>`", "<td class=\"mono\">${totVal>0?`<strong class=\"er-v\" title=\"${fF(totVal)}\">${_fK(totVal)}</strong>`", 1);
+// Backup 45: Contabilidade → Composição de Caixa com o MESMO verde/vermelho da Análise (_faCorBarra; o pluginTema não troca mais essas cores)
+trocar("{label:'Receita', data:meses.map(function(m){return m.r;}), backgroundColor:_faMistura('#D4EDBC','#4E9A2F',.45), hoverBackgroundColor:'#4E9A2F',",
+  "{label:'Receita', data:meses.map(function(m){return m.r;}), backgroundColor:_faCorBarra('Pedro'), hoverBackgroundColor:_faCor('Pedro').marca,", 1);
+trocar("{label:'Despesa', data:meses.map(function(m){return m.d;}), backgroundColor:_faMistura('#FFCFC9','#D2544A',.45), hoverBackgroundColor:'#D2544A',",
+  "{label:'Despesa', data:meses.map(function(m){return m.d;}), backgroundColor:_faCorBarra('Emanuelle'), hoverBackgroundColor:_faCor('Emanuelle').marca,", 1);
 // Backup 23: Painel — a rosca "Distribuição por órgão" e o gráfico por órgão de uma empresa passam a somar também o NEGOCIADO
 // (como o KPI "Passivo tributário total" e o gráfico por grupo); antes somavam só o em aberto e os totais não batiam.
 trocar("    valGr=ORGAOS_TRIB.map(k=>Number(row?row[k]:0)||0);", "    valGr=ORGAOS_TRIB.map(k=>_orgV(row,k));", 1);
@@ -578,6 +583,8 @@ trocar(`          <th style="width:58px;cursor:pointer" onclick="sortExecRank('c
 trocar("      <td style=\"text-align:center\">${cBadge(r.capag)}</td>\n      <td><span class=\"tag ${sC(r)}\" style=\"font-size:10.5px\">${r.sitCadastral||'—'}</span></td>",
   "      <td style=\"text-align:center\" class=\"er-op\">${/^sim$/i.test(r.emOperacao||'')?'<span class=\"tag tg\">Sim</span>':/^n[aã]o$/i.test(r.emOperacao||'')?'<span class=\"tag tr\">Não</span>':'<span style=\"color:var(--text4)\">—</span>'}</td>\n      <td style=\"text-align:center\">${cBadge(r.capag)}</td>\n      <td class=\"er-sit\"><span class=\"tag ${sC(r)}\" style=\"font-size:10.5px\">${String(r.sitCadastral||'—').toLowerCase().replace(/^./,function(c){return c.toUpperCase();})}</span></td>", 1);
 trocar("  }).join(''):`<tr><td colspan=\"10\">${emp()}</td></tr>`;\n}\nfunction sortExecRank(c){", "  }).join(''):`<tr><td colspan=\"11\">${emp()}</td></tr>`;\n}\nfunction sortExecRank(c){", 1);
+// Backup 45: formato curto do ERP antigo para a tabela do Painel: R$ 3k, R$ 20,0M
+trocar("function sortExecRank(c){", "function _fK(v){v=Number(v)||0;var a=Math.abs(v);if(a>=1e6)return'R$ '+(v/1e6).toFixed(1).replace('.',',')+'M';if(a>=1e3)return'R$ '+Math.round(v/1e3)+'k';return'R$ '+Math.round(v);}\nfunction sortExecRank(c){", 1);
 // Backup 37: a sessão só cai por INATIVIDADE (60 min sem mexer). Antes o prazo contava do login e não renovava com o uso —
 // por isso "depois de um tempo desconecta" mesmo usando. Agora cada clique/tecla empurra o prazo (salvo a cada 20 s) e a barra de cima mostra o contador.
 trocar("const AC_SESSION_TTL  = 30 * 60 * 1000;", "const AC_SESSION_TTL  = 60 * 60 * 1000;", 1);

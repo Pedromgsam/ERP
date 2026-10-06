@@ -93,8 +93,17 @@ const MODELOS_ACESSO = {
   'Jurídico': { juridico: 'editar', clientes: 'editar', tarefas: 'editar', documentos: 'editar', contratos: 'ver' },
   'Atendimento / Comercial': { crm: 'editar', clientes: 'editar', contratos: 'ver', documentos: 'editar', tarefas: 'ver' },
   'Estagiário': { juridico: 'editar', clientes: 'editar', tarefas: 'editar', documentos: 'ver', contratos: 'ver' },
-  'Adm. da Contabilidade': { financeiro_contab: 'editar', clientes: 'editar', contratos: 'editar', documentos: 'editar', tarefas: 'editar', relatorios: 'ver' }
+  'Adm. da Contabilidade': { financeiro_contab: 'editar', clientes: 'editar', contratos: 'editar', documentos: 'editar', tarefas: 'editar', relatorios: 'ver' },
+  // Backup 45: mais modelos prontos
+  'Coordenador(a) jurídico': { juridico: 'editar', clientes: 'editar', tarefas: 'editar', documentos: 'editar', contratos: 'ver', crm: 'ver', relatorios: 'ver' },
+  'Advogado(a)': { juridico: 'editar', clientes: 'editar', tarefas: 'ver', documentos: 'editar', contratos: 'ver' },
+  'Assistente administrativo': { clientes: 'editar', documentos: 'editar', tarefas: 'ver', contratos: 'ver', financeiro_juridico: 'ver' },
+  'Contador(a)': { financeiro_contab: 'editar', clientes: 'editar', documentos: 'editar', tarefas: 'ver', relatorios: 'ver' }
 };
+// Backup 45: cargo = hierarquia (5 = sócio … 1 = estagiário). Quem está abaixo não vê a agenda de quem está acima; o administrador vê tudo.
+const CARGOS = [['', '— sem cargo —', 2], ['socio', 'Sócio(a)', 5], ['coordenador', 'Coordenador(a)', 4], ['advogado', 'Advogado(a)', 3], ['contador', 'Contador(a)', 3],
+  ['assistente', 'Assistente / Analista', 2], ['estagiario', 'Estagiário(a)', 1]];
+const nivelCargo = (cargo, papel) => (papel === 'admin' && !cargo ? 5 : ((CARGOS.find((c) => c[0] === (cargo || '')) || CARGOS[0])[2]));
 // Área do serviço (gráfico "Recebido por tipo de serviço"). A consultoria mensal continua sendo a regra de recorrência do contrato.
 const AREAS_SERVICO = ['Tributário', 'Imobiliário', 'Empresarial', 'Sucessões', 'Família', 'Criminal', 'Trabalhista', 'Contratual', 'Cobrança', 'Consultoria'];
 function selectServico(valor) {

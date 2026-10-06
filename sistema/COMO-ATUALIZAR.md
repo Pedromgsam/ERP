@@ -707,6 +707,25 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
 **Central de Documentos dentro do ERP:** menu **Documentos → Gerar documento** (ou ⋯ → Documentos, contrato, recibo do Financeiro).
 **Ctrl + clique** (ou botão do meio do mouse) em qualquer item do menu ou link de documento abre numa aba nova.
 
+## Backup 45 — Rotina (envio de guias igual ao antigo + rascunho no Gmail), agenda com filtros, cargos e revisor (tem SQL; função erp-emails igual à do Backup 44)
+Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+Shift+R**. A função `erp-emails` é a do Backup 44 (precisa estar publicada com o nome `erp-emails`).
+Para voltar à versão anterior: o zip do **Backup 44** (pasta `backups/`).
+
+- **Rotina → Enviar guias do mês** (o meio oficial de envio): igual às antigas Notificações → Parcelamento (seleção por empresa, "📨 Gerar Notificação",
+  cartão E-mail × WhatsApp, ✏️ Editar · 📋 Copiar · ✉ Enviar e-mail · 💬 Enviar WhatsApp · ✉ Marcar enviado). **"✉ Enviar e-mail" salva um rascunho no Gmail**
+  (o configurado em Administração → E-mail) com o texto, o e-mail do cliente e as guias anexadas no próprio cartão (📎 Anexar guias). SQL: `rascunho_email_texto`.
+  O rascunho vai com o e-mail verdadeiro do cliente mesmo no modo teste (`email_rascunho_destino_real`). "Marcar enviado" registra a guia e o valor.
+- **Planilha de parcelamentos**: só conferência (sem botões de envio); pagas antigas e previstas resumidas numa linha ("ver"); só o bloco que muda é redesenhado (bem mais rápida).
+- **Passivo**: colunas mais equilibradas, Enter/↓/↑ descem e sobem na mesma coluna, conferência sem repetir "alterado".
+- **Processos**: Tribunal (lido do número CNJ), filtros em azul (procuração, tempo sem conferir, tribunal), conferência na última coluna; "Sem novidade" é a 1ª opção da janela do ✓.
+- **Sem a aba Financeiro na Rotina.**
+- **Início (agenda)**: filtros que se marcam/desmarcam — Mostrar (Reuniões, Audiências, Compromissos, Tarefas, Rotinas) e De quem (Minhas, cada pessoa, Todos), respeitando o cargo;
+  "+ Agendar" com tipo **Tarefa**, **Responsável** (lança para outra pessoa) e **dois avisos** (ex.: 1 dia + 30 min). A tarefa aparece também para quem valida (revisor).
+- **Usuários**: **Cargo** (Sócio › Coordenador › Advogado/Contador › Assistente › Estagiário — ninguém vê a agenda de quem está acima) e **Revisor** padrão; mais modelos de acesso.
+- **Painel Executivo**: valores resumidos (R$ 3k, R$ 20,0M), o completo ao passar o mouse. **Acordos**: sem emissão pela "Situação dos acordos"; o Emitir tem só "📝 Rascunho no Gmail".
+- **Contabilidade**: Composição de Caixa com o verde/vermelho da Análise. **Clientes**: faixa do grupo sem a borda azul.
+- **Correção**: rodar o SQL de novo com rascunhos na fila dava erro (regra antiga da situação do e-mail) — corrigido.
+
 ## Backup 44 — lateral mais estreita, Painel ocupando a largura toda e "Rascunho no Gmail" (tem SQL e função)
 Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) publicar a função erp-emails  4) Ctrl+Shift+R**.
 Para voltar à versão anterior: o zip do **Backup 43** (pasta `backups/`).

@@ -82,6 +82,9 @@ const tokenDe = (email) => jwt({ sub: sql("select id from perfis where email='" 
     x = await chamar({ acao: 'rascunho', ref: 'guias:b44b' }, segredo());
     ok('Backup 44: senha recusada pelo Gmail → explica e o rascunho fica pendente', x.json.erros === 1 && /recusou o login/.test(x.json.ultimoErro) && sql("select status from email_fila where referencia='guias:b44b'") === 'rascunho', JSON.stringify(x.json));
     estado.senhaImap = null;
+    // Backup 45: rodar o SQL de novo com rascunhos na fila não pode dar erro (a regra antiga da situação foi atualizada)
+    let reroda = true; try { execFileSync('psql', ['-h', '127.0.0.1', '-p', process.env.PGPORT || '54329', '-U', 'postgres', '-d', 'erp', '-q', '-v', 'ON_ERROR_STOP=1', '-f', path.join(__dirname, '..', 'banco', 'estrutura.sql')], { stdio: 'pipe' }); } catch (e) { reroda = String(e.stderr || e.message).slice(0, 300); }
+    ok('Backup 45: o SQL roda de novo mesmo com rascunhos na fila', reroda === true, reroda);
     // Resend
     sql(`update config_privada set valor='{"provedor":"resend","usuario":"avisos@escritorio.com.br","senha":"re_teste","remetente":"ERP"}' where chave='email'`);
     let pedido = null; ctx._fetch = async (url, o) => { pedido = { url, o }; return new Response('{"id":"1"}', { status: 200 }); };

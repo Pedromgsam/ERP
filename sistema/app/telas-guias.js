@@ -319,14 +319,18 @@ async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
   if (!lista.length) return aviso('Nenhuma parcela em aberto para enviar.', true);
   const nome = tabela === 'parcelas' ? 'guias' : 'boletos';
   let atualK = chaveIni && emp[chaveIni] ? chaveIni : lista[0].k, arquivos = [];
+  const soRascunho = tabela === 'acordos';
   const j = abrirJanela({ titulo: tabela === 'parcelas' ? '✉ Enviar guias por empresa' : '✉ Enviar parcelas de acordo por empresa', larga: true,
     corpo: '<div class="ge"><aside class="ge-emps" id="ge-emps"></aside><section class="ge-msg" id="ge-msg"></section></div>',
     rodape: '<span class="ge-tot" id="ge-tot"></span><div class="acoes ge-acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button>' +
-      '<button type="button" class="btn btn-o" id="ge-previa" title="Ver o e-mail exatamente como o cliente vai receber">👁 Prévia do e-mail</button>' +
+      // Backup 45: em Acordos o e-mail é só "Rascunho no Gmail" (sem prévia, sem WhatsApp, sem "Enviar e-mail")
+      (soRascunho ? '<button type="button" class="btn btn-o" id="ge-copiar" title="Copia o texto">📋 Copiar texto</button>' +
+        '<button type="button" class="btn btn-p" id="ge-rascunho" title="Guarda o e-mail pronto (com os anexos) na pasta Rascunhos do seu Gmail, já com o e-mail do cliente — confira e envie de lá">📝 Rascunho no Gmail</button></div>'
+      : '<button type="button" class="btn btn-o" id="ge-previa" title="Ver o e-mail exatamente como o cliente vai receber">👁 Prévia do e-mail</button>' +
       '<button type="button" class="btn btn-o" id="ge-copiar" title="Copia o texto para você colar no WhatsApp">📋 Copiar texto</button>' +
       '<button type="button" class="btn btn-v" id="ge-zap">💬 WhatsApp</button>' +
       '<button type="button" class="btn btn-o" id="ge-rascunho" title="Guarda o e-mail pronto (com os anexos) na pasta Rascunhos do seu Gmail, para você conferir e enviar de lá">📝 Rascunho no Gmail</button>' +
-      '<button class="btn btn-p" type="button" id="ge-enviar">✉ Enviar e-mail</button></div>' });
+      '<button class="btn btn-p" type="button" id="ge-enviar">✉ Enviar e-mail</button></div>') });
   j.querySelector('.janela').classList.add('ge-janela');
   const $j = (sel) => j.querySelector(sel);
   const pixItem = (i) => ehPixGuia(tabela, i) && i.pix ? { pix: i.pix, banco: i.banco || '' } : {};
@@ -345,7 +349,7 @@ async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
     $j('#ge-msg').innerHTML =
       '<div class="ge-cab"><div><div class="ge-emp-nome">' + esc(e.nome) + '</div><div class="sub">' + esc([mascaraDoc(c.cpf_cnpj), e.gnome].filter(Boolean).join(' · ')) + '</div></div></div>' +
       '<div class="ge-dest"><label class="campo"><span>✉ E-mail (para)</span><input id="ge-para" type="text" autocomplete="off" placeholder="procurando o e-mail cadastrado…"><small class="sub" id="ge-teste"></small></label>' +
-        '<label class="campo"><span>💬 WhatsApp</span><input id="ge-tel" data-mascara="tel" inputmode="tel" value="' + esc(c.telefone || '') + '" placeholder="(37) 9 9999-9999"></label>' +
+        (soRascunho ? '' : '<label class="campo"><span>💬 WhatsApp</span><input id="ge-tel" data-mascara="tel" inputmode="tel" value="' + esc(c.telefone || '') + '" placeholder="(37) 9 9999-9999"></label>') +
         '<label class="campo ge-ass"><span>Assunto</span><input id="ge-assunto" value="' + esc((tabela === 'parcelas' ? 'Guias de parcelamento' : e.itens.every((x) => ehPixGuia(tabela, x)) ? 'Parcela de acordo' : 'Boletos de acordo') + ' — ' + e.nome) + '"></label></div>' +
       '<div class="ge-papel"><textarea id="ge-texto" rows="5">' + esc(t.intro) + '</textarea>' +
         '<div class="ge-itens">' + e.itens.map((x) => { const p = x.parcelamentos || {};
@@ -378,7 +382,7 @@ async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
   $j('#ge-emps').onclick = (ev) => { const b = ev.target.closest('[data-ge-emp]'); if (!b) return; atualK = b.dataset.geEmp; pintarEmps(); pintarMsg(); };
   pintarEmps(); pintarMsg();
   j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
-  $j('#ge-zap').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+  if ($j('#ge-zap')) $j('#ge-zap').onclick = (ev) => comBotao(ev.currentTarget, async () => {
     const its = marcados(); if (!its.length) throw new Error('Marque ao menos uma parcela.');
     const t = textoGuias(tabela, atual().nome, its), txt = $j('#ge-texto').value.trim() + t.zap.slice(t.intro.length);
     if (arquivos.length && navigator.canShare && navigator.canShare({ files: arquivos })) { await navigator.share({ text: txt, files: arquivos }); return; }
@@ -391,7 +395,7 @@ async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
     const t = textoGuias(tabela, atual().nome, its), txt = $j('#ge-texto').value.trim() + t.zap.slice(t.intro.length);
     await copiarTexto(txt); aviso('✓ Texto copiado — é só colar no WhatsApp.');
   });
-  $j('#ge-previa').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+  if ($j('#ge-previa')) $j('#ge-previa').onclick = (ev) => comBotao(ev.currentTarget, async () => {
     const its = marcados(), e = atual(); if (!its.length) throw new Error('Marque ao menos uma parcela.');
     const html = await q(sb.rpc('previa_guias_email', { p_cliente: e.cli || null,
       p_itens: its.map((i) => Object.assign({ tabela, id: i.id, descricao: descricaoGuia(tabela, i), vencimento: i._venc || i.vencimento, valor: i._valor }, pixItem(i))),
@@ -415,7 +419,7 @@ async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
     await avisoEnvio(plural(r.itens, 'parcela', 'parcelas') + (r.anexos ? ' e ' + plural(r.anexos, 'anexo', 'anexos') : '') + ': ', r);
     fecharJanela(j); if (depois) await depois(); if (window.ERP_RECARREGAR) window.ERP_RECARREGAR();
   };
-  $j('#ge-enviar').onclick = (ev) => comBotao(ev.currentTarget, mandar(false));
+  if ($j('#ge-enviar')) $j('#ge-enviar').onclick = (ev) => comBotao(ev.currentTarget, mandar(false));
   $j('#ge-rascunho').onclick = (ev) => comBotao(ev.currentTarget, mandar(true));
   return j;
 }
