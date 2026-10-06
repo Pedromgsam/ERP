@@ -1404,6 +1404,7 @@ body .gs .fila-chips .fila-chip.fila-chip-compromisso.ativo{background:var(--gre
 body .gs .fila-chips .fila-chip.fila-chip-tarefa.ativo{background:var(--text2)!important;border-color:var(--text2)!important;color:var(--on-cor)!important}
 body .gs .fila-chips .fila-chip.fila-chip-rotina.ativo{background:var(--orange)!important;border-color:var(--orange)!important;color:var(--on-cor)!important}
 body .gs .fila-chips .fila-chip[data-fila-tipo="*"].ativo{background:var(--ink)!important;border-color:var(--ink)!important;color:var(--surface)!important}
+html[data-tema=escuro] body .gs .fila-chips .fila-chip[data-fila-tipo].ativo{color:var(--bg)!important}
 .gs .fila-chip.fila-chip-reuniao:not(.ativo){border-color:var(--blue-bd);color:var(--blue-d)}
 .gs .fila-chip.fila-chip-audiencia:not(.ativo){border-color:var(--violet-bd);color:var(--violet)}
 .gs .fila-chip.fila-chip-compromisso:not(.ativo){border-color:var(--green-bd);color:var(--green-d)}
