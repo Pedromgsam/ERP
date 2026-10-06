@@ -51,6 +51,7 @@ versão foi ao ar**. O número cresce a cada entrega.
 | 43 | Menu de volta na lateral (margens um pouco menores); "Cobrar" sem recarregar tudo; Acordos com e-mail já preenchido (sem lista); e-mail com segunda via pelo servidor e motivo claro; Planilha de parcelamentos de volta + aba "Enviar guias do mês" |
 | 44 | Lateral mais estreita (204 px); Painel Executivo com as colunas na largura toda (Grupo menor); "📝 Rascunho no Gmail" nas guias/acordos; mensagem clara quando a função tem outro endereço (super-worker) |
 | 45 | Rotina: Enviar guias do mês igual ao antigo (Enviar e-mail = rascunho no Gmail com as guias), Planilha só conferência e rápida, Processos com tribunal e filtros, sem Financeiro; agenda com filtros, tarefa para outra pessoa e 2 avisos; cargos e revisor; Painel resumido; Acordos só rascunho |
+| 46 | Agenda com as cores de cada tipo, concluídas riscadas e Lista do tamanho do calendário; Painel centralizado; link do Google Drive em Documentos; Rotina: Passivo com colunas ajustadas, Processos com vários filtros e tribunal em lista, Planilha com pagamento na hora e parcelamentos lado a lado, rascunho salvo = guia emitida (também em lote) e exceção para quem emite as próprias guias; Automações nunca usadas fora; Usuários com "Editar"; aba Atualizações; script para zerar e começar o uso real |
 
 ## Como baixar um backup
 No GitHub, abra a pasta `backups`, clique no arquivo e depois em **Download** (ícone de seta, à direita).

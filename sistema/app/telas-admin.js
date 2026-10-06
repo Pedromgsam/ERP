@@ -53,24 +53,20 @@ async function admUsuarios(corpo) {
         ' <span class="pill area-' + esc(v.areas) + '">' + esc(rotArea(v.areas)) + '</span><div class="sub">' + esc(v.email) + '</div></div>' +
         '<span><button class="btn btn-p btn-mini" data-prev="' + esc(v.email) + '">Criar conta</button> <button class="btn btn-o btn-mini" data-prev-x="' + esc(v.email) + '" title="Não criar">✕</button></span></div>').join('') +
       '</div><div class="sub" style="margin-top:8px">Clique em <b>Criar conta</b>, escolha uma senha provisória e passe para a pessoa (ou use depois o 🔑 Link de senha).</div></div></div>' : '') +
-    '<div class="card"><div class="tabela-wrap"><table class="ordenavel"><thead><tr><th>Nome</th><th>E-mail</th><th>Acesso</th><th>Funções / Grupos no Portal</th><th data-tipo="data">Desde</th><th class="sem-ordem"></th></tr></thead><tbody>' +
-    lista.map((p) => '<tr><td><input class="busca" style="min-width:160px" data-nome="' + p.id + '" value="' + esc(p.nome) + '"></td>' +
-      '<td>' + esc(p.email) + '</td><td><select class="busca" style="min-width:150px" data-papel="' + p.id + '">' +
-      PAPEIS.map(([v, r]) => '<option value="' + v + '"' + (p.papel === v ? ' selected' : '') + '>' + r + '</option>').join('') +
-      '</select>' +
-      // Backup 45: cargo (hierarquia da agenda) e revisor padrão das tarefas — numa janelinha, para a tabela caber na tela
-      (p.papel === 'admin' || p.papel === 'equipe' ? '<div class="us-cargo"><span class="sub">' + esc((CARGOS.find((c) => c[0] === (p.cargo || '')) || CARGOS[0])[1].replace('— sem cargo —', 'sem cargo')) +
-        (p.revisor_id ? ' · revisor: ' + esc(((lista.find((r) => r.id === p.revisor_id) || {}).nome || '').split(' ')[0]) : '') + '</span> <button type="button" class="btn btn-o btn-mini" data-cargo-ed="' + p.id + '">Cargo e revisor</button></div>' : '') +
-      '</td><td>' + (p.papel === 'equipe'
-        ? '<span class="sub">' + esc(resumoFuncoes(p)) + '</span> <button class="btn btn-o btn-mini" data-funcoes="' + p.id + '">Funções</button>'
-        : p.papel === 'cliente'
-        ? (gruposDe(p.id).map((g) => '<span class="pill neutro">' + esc(g) + '</span>').join(' ') || '<span class="pill vencido">nenhum</span>') +
-          ' <button class="btn btn-o btn-mini" data-grupos="' + p.id + '">Escolher</button>'
-        : '<span class="sub">—</span>') + '</td>' +
+    // Backup 46: a tabela só mostra; tudo (nome, acesso, cargo, revisor, funções, grupos do Portal) muda na janela "✎ Editar"
+    '<div class="card"><div class="tabela-wrap"><table class="ordenavel us-tab"><thead><tr><th>Nome</th><th>Acesso</th><th>Cargo · Revisor</th><th>Funções / Grupos no Portal</th><th data-tipo="data">Desde</th><th class="sem-ordem"></th></tr></thead><tbody>' +
+    lista.map((p) => '<tr data-us="' + p.id + '"><td><b class="us-nome">' + esc(p.nome || '—') + '</b><div class="sub">' + esc(p.email) + '</div></td>' +
+      '<td><span class="pill ' + (p.papel === 'inativo' ? 'vencido' : 'neutro') + '">' + esc((PAPEIS.find((x) => x[0] === p.papel) || [0, p.papel])[1]) + '</span></td>' +
+      '<td>' + (p.papel === 'admin' || p.papel === 'equipe' ? '<span class="sub">' + esc((CARGOS.find((c) => c[0] === (p.cargo || '')) || CARGOS[0])[1].replace('— sem cargo —', 'sem cargo')) +
+        (p.revisor_id ? ' · revisor: ' + esc(((lista.find((r) => r.id === p.revisor_id) || {}).nome || '').split(' ')[0]) : '') + '</span>' : '<span class="sub">—</span>') + '</td>' +
+      '<td class="us-func">' + (p.papel === 'equipe' ? '<span class="sub">' + esc(resumoFuncoes(p)) + '</span>'
+        : p.papel === 'cliente' ? (gruposDe(p.id).map((g) => '<span class="pill neutro">' + esc(g) + '</span>').join(' ') || '<span class="pill vencido">nenhum</span>')
+        : p.papel === 'admin' ? '<span class="sub">Tudo</span>' : '<span class="sub">—</span>') + '</td>' +
       '<td class="mono" data-ord="' + p.criado_em + '">' + dataBR(p.criado_em) + '</td>' +
-      '<td class="acoes-l"><button class="btn btn-o btn-mini" data-liberar="' + p.id + '" title="Confirma a conta sem depender do e-mail de confirmação: a pessoa entra com o e-mail e a senha provisória">✓ Liberar entrada</button> ' +
-        '<button class="btn btn-o btn-mini" data-senha="' + esc(p.email) + '" title="Envia por e-mail um link para a pessoa criar uma senha nova">🔑 Link de senha</button>' +
-        (E.perfil && p.id === E.perfil.id ? '' : ' <button class="btn btn-x btn-mini" data-excluir-u="' + p.id + '" data-nome-u="' + esc(p.nome || p.email) + '" title="Apaga o acesso desta pessoa (o que ela lançou continua no sistema)">🗑 Excluir</button>') + '</td></tr>').join('') +
+      '<td class="acoes-l us-acoes"><button class="btn btn-p btn-mini" data-us-ed="' + p.id + '">✎ Editar</button> ' +
+        '<button class="btn btn-o btn-mini" data-liberar="' + p.id + '" title="Liberar entrada: confirma a conta sem depender do e-mail de confirmação (a pessoa entra com o e-mail e a senha provisória)">✓</button> ' +
+        '<button class="btn btn-o btn-mini" data-senha="' + esc(p.email) + '" title="Link de senha: envia por e-mail um link para a pessoa criar uma senha nova">🔑</button>' +
+        (E.perfil && p.id === E.perfil.id ? '' : ' <button class="btn btn-x btn-mini" data-excluir-u="' + p.id + '" data-nome-u="' + esc(p.nome || p.email) + '" title="Excluir: apaga o acesso desta pessoa (o que ela lançou continua no sistema)">🗑</button>') + '</td></tr>').join('') +
     '</tbody></table></div></div>' +
     '<div class="dica"><b>Administrador</b>: tudo, inclusive excluir, importar e liberar usuários. <b>Equipe</b>: só as <b>funções</b> marcadas (Financeiro, Contratos, Jurídico…), em Ver ou Editar; não exclui. ' +
     '<b>Cliente</b>: só consulta, no Portal, os grupos escolhidos. <b>Inativo</b>: não entra. ' +
@@ -86,41 +82,13 @@ async function admUsuarios(corpo) {
     const ok = await q(sb.rpc('confirmar_email_usuario', { p_perfil: b.dataset.liberar }));
     aviso(ok ? '✓ Entrada liberada: a pessoa já entra com o e-mail e a senha provisória.' : 'Não foi possível confirmar por aqui: confirme em Supabase → Authentication → Users.', !ok);
   }));
-  corpo.querySelectorAll('[data-papel]').forEach((s) => s.onchange = () => comBotao(s, async () => {
-    try {
-      await q(sb.from('perfis').update({ papel: s.value }).eq('id', s.dataset.papel));
-      aviso('✓ Acesso atualizado.');
-      await pintarAdmin();
-    } catch (e) { await pintarAdmin(); throw e; }
-  }));
-  corpo.querySelectorAll('[data-cargo-ed]').forEach((b) => b.onclick = () => {
-    const p = lista.find((x) => x.id === b.dataset.cargoEd);
-    const j = abrirJanela({ titulo: 'Cargo e revisor — ' + (p.nome || p.email),
-      corpo: '<label class="campo"><span>Cargo (hierarquia)</span><select id="us-cargo-sel" data-cargo="' + p.id + '">' + CARGOS.map(([v, r]) => '<option value="' + v + '"' + ((p.cargo || '') === v ? ' selected' : '') + '>' + r + '</option>').join('') + '</select></label>' +
-        '<label class="campo" style="margin-top:10px"><span>Revisor padrão (valida as tarefas desta pessoa)</span><select id="us-rev-sel" data-revisor="' + p.id + '"><option value="">— ninguém —</option>' +
-          lista.filter((r) => r.id !== p.id && (r.papel === 'admin' || r.papel === 'equipe')).map((r) => '<option value="' + r.id + '"' + (p.revisor_id === r.id ? ' selected' : '') + '>' + esc(r.nome || r.email) + '</option>').join('') + '</select></label>' +
-        '<p class="sub" style="margin-top:10px">Na agenda do Início, cada pessoa só vê a de quem está no mesmo nível ou abaixo: Sócio › Coordenador › Advogado/Contador › Assistente › Estagiário. O administrador vê todos.</p>',
-      rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="us-cargo-ok">Salvar</button></div>' });
-    j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
-    j.querySelector('#us-cargo-ok').onclick = (ev) => comBotao(ev.currentTarget, async () => {
-      await q(sb.from('perfis').update({ cargo: j.querySelector('#us-cargo-sel').value, revisor_id: j.querySelector('#us-rev-sel').value || null }).eq('id', p.id));
-      E._equipe = null; aviso('✓ Cargo e revisor de ' + (p.nome || p.email).split(' ')[0] + ' atualizados.'); fecharJanela(j); await pintarAdmin(); });
-  });
-  corpo.querySelectorAll('[data-nome]').forEach((i) => i.onchange = () => comBotao(i, async () => {
-    await q(sb.from('perfis').update({ nome: i.value.trim() }).eq('id', i.dataset.nome));
-    if (E.perfil && i.dataset.nome === E.perfil.id) { E.perfil.nome = i.value.trim(); if ($('hd-nome')) $('hd-nome').textContent = E.perfil.nome;
-      if (window.ERP_EU) { window.ERP_EU.nome = E.perfil.nome; document.dispatchEvent(new CustomEvent('erp:perfil')); } }
-    aviso('✓ Nome atualizado.');
-  }));
+  corpo.querySelectorAll('[data-us-ed]').forEach((b) => b.onclick = () => formEditarUsuario(lista.find((x) => x.id === b.dataset.usEd), lista, vinculos.filter((v) => v.perfil_id === b.dataset.usEd).map((v) => v.grupo_id)));
   corpo.querySelectorAll('[data-senha]').forEach((b) => b.onclick = () => comBotao(b, async () => {
     if (!confirm('Enviar para ' + b.dataset.senha + ' um e-mail com link para criar uma senha nova?')) return;
     const { error } = await sb.auth.resetPasswordForEmail(b.dataset.senha, { redirectTo: location.origin + '/' });
     if (error) throw error;
     aviso('✓ Link enviado para ' + b.dataset.senha + '.');
   }));
-  corpo.querySelectorAll('[data-grupos]').forEach((b) => b.onclick = () =>
-    formGruposPortal(lista.find((p) => p.id === b.dataset.grupos), vinculos.filter((v) => v.perfil_id === b.dataset.grupos).map((v) => v.grupo_id)));
-  corpo.querySelectorAll('[data-funcoes]').forEach((b) => b.onclick = () => formFuncoes(lista.find((p) => p.id === b.dataset.funcoes)));
   $('us-novo').onclick = () => formNovoUsuario();
   corpo.querySelectorAll('[data-prev]').forEach((b) => b.onclick = () => formNovoUsuario(previstos.find((v) => v.email === b.dataset.prev)));
   corpo.querySelectorAll('[data-prev-x]').forEach((b) => b.onclick = () => comBotao(b, async () => {
@@ -128,15 +96,41 @@ async function admUsuarios(corpo) {
     await q(sb.from('usuarios_previstos').delete().eq('email', b.dataset.prevX)); await pintarAdmin();
   }));
 }
-function formFuncoes(p) {
-  const j = abrirJanela({ titulo: 'Funções de ' + (p.nome || p.email), larga: true,
-    corpo: '<p class="sub" style="margin-bottom:10px">Marque o que esta pessoa pode <b>ver</b> ou <b>editar</b>. Use um modelo pronto e ajuste. As próprias tarefas ela sempre vê.</p>' + gradeAreas(p.areas) + gradeFuncoes(p.funcoes),
-    rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="btn-salvar-func">Salvar</button></div>' });
-  ligarGradeFuncoes(j);
+// Backup 46: uma janela só para tudo o que se muda no usuário
+function formEditarUsuario(p, lista, grupos) {
+  const opc = (arr, sel) => arr.map(([v, r]) => '<option value="' + v + '"' + (sel === v ? ' selected' : '') + '>' + r + '</option>').join('');
+  const j = abrirJanela({ titulo: 'Editar — ' + (p.nome || p.email), larga: true,
+    corpo: '<div class="us-ed-grade">' +
+        '<label class="campo"><span>Nome</span><input id="us-nome" value="' + esc(p.nome || '') + '"></label>' +
+        '<label class="campo"><span>E-mail (não muda)</span><input value="' + esc(p.email) + '" disabled></label>' +
+        '<label class="campo"><span>Acesso</span><select id="us-papel">' + opc(PAPEIS, p.papel) + '</select></label>' +
+        '<label class="campo us-so-eq"><span>Cargo (hierarquia)</span><select id="us-cargo-sel">' + opc(CARGOS, p.cargo || '') + '</select></label>' +
+        '<label class="campo us-so-eq"><span>Revisor padrão (valida as tarefas desta pessoa)</span><select id="us-rev-sel"><option value="">— ninguém —</option>' +
+          lista.filter((r) => r.id !== p.id && (r.papel === 'admin' || r.papel === 'equipe')).map((r) => '<option value="' + r.id + '"' + (p.revisor_id === r.id ? ' selected' : '') + '>' + esc(r.nome || r.email) + '</option>').join('') + '</select></label>' +
+      '</div>' +
+      '<div class="us-ed-sec" data-us-sec="equipe"><div class="us-ed-tit">Funções</div><p class="sub" style="margin-bottom:10px">Marque o que esta pessoa pode <b>ver</b> ou <b>editar</b>. Use um modelo pronto e ajuste. As próprias tarefas ela sempre vê.</p>' +
+        gradeAreas(p.areas) + gradeFuncoes(p.funcoes) + '</div>' +
+      '<div class="us-ed-sec" data-us-sec="cliente"><div class="us-ed-tit">Grupos que vê no Portal</div>' + listaGruposMarcar(grupos) + '</div>' +
+      '<div class="us-ed-sec sub" data-us-sec="admin">O administrador vê e edita tudo, inclusive excluir, importar e liberar usuários.</div>' +
+      '<div class="us-ed-sec sub" data-us-sec="inativo">Inativo não entra no sistema.</div>' +
+      '<p class="sub" style="margin-top:10px">Na agenda do Início, cada pessoa só vê a de quem está no mesmo nível ou abaixo: Sócio › Coordenador › Advogado/Contador › Assistente › Estagiário. O administrador vê todos.</p>',
+    rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="us-salvar">Salvar</button></div>' });
+  ligarGradeFuncoes(j); ligarFiltroGrupos(j);
+  const papel = j.querySelector('#us-papel');
+  const mostrar = () => { j.querySelectorAll('[data-us-sec]').forEach((d) => { d.hidden = d.dataset.usSec !== papel.value; });
+    j.querySelectorAll('.us-so-eq').forEach((d) => { d.hidden = !(papel.value === 'admin' || papel.value === 'equipe'); }); };
+  papel.onchange = mostrar; mostrar();
   j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
-  j.querySelector('#btn-salvar-func').onclick = (ev) => comBotao(ev.currentTarget, async () => {
-    await q(sb.from('perfis').update({ funcoes: lerGradeFuncoes(j), areas: lerAreas(j) }).eq('id', p.id));
-    aviso('✓ Funções de ' + (p.nome || p.email).split(' ')[0] + ' atualizadas.'); fecharJanela(j); await pintarAdmin();
+  j.querySelector('#us-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    const v = papel.value, nome = j.querySelector('#us-nome').value.trim(), eq = v === 'admin' || v === 'equipe';
+    const dados = { nome, papel: v };
+    if (eq) { dados.cargo = j.querySelector('#us-cargo-sel').value; dados.revisor_id = j.querySelector('#us-rev-sel').value || null; }
+    if (v === 'equipe') { dados.funcoes = lerGradeFuncoes(j); dados.areas = lerAreas(j); }
+    await q(sb.from('perfis').update(dados).eq('id', p.id));
+    if (v === 'cliente') await salvarGruposPortal(p.id, [...j.querySelectorAll('.lista-grupos input:checked')].map((i) => i.value));
+    if (E.perfil && p.id === E.perfil.id) { E.perfil.nome = nome; if ($('hd-nome')) $('hd-nome').textContent = nome;
+      if (window.ERP_EU) { window.ERP_EU.nome = nome; document.dispatchEvent(new CustomEvent('erp:perfil')); } }
+    E._equipe = null; aviso('✓ ' + (nome || p.email).split(' ')[0] + ' atualizado.'); fecharJanela(j); await pintarAdmin();
   });
 }
 
@@ -152,17 +146,6 @@ function ligarFiltroGrupos(j) {
 async function salvarGruposPortal(perfilId, ids) {
   await q(sb.from('perfil_grupos').delete().eq('perfil_id', perfilId));
   if (ids.length) await q(sb.from('perfil_grupos').insert(ids.map((g) => ({ perfil_id: perfilId, grupo_id: g }))));
-}
-function formGruposPortal(p, marcados) {
-  const j = abrirJanela({ titulo: 'Grupos que ' + (p.nome || p.email) + ' vê no Portal',
-    corpo: listaGruposMarcar(marcados),
-    rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="btn-salvar-gp">Salvar</button></div>' });
-  ligarFiltroGrupos(j);
-  j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
-  j.querySelector('#btn-salvar-gp').onclick = (ev) => comBotao(ev.currentTarget, async () => {
-    await salvarGruposPortal(p.id, [...j.querySelectorAll('.lista-grupos input:checked')].map((i) => i.value));
-    aviso('✓ Grupos do Portal atualizados.'); fecharJanela(j); await pintarAdmin();
-  });
 }
 function formNovoUsuario(pre) {
   pre = pre || null;

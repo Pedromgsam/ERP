@@ -698,12 +698,25 @@ async function irPara(tela, alvo) {
 }
 function recarregar() { invalidarCadastros(); if (window.ERP_RECARREGAR) return window.ERP_RECARREGAR(); return irPara(E.tela); }
 `);
+// Backup 46: aba Atualizações — a tabela de backups/LEIA-ME.md vira window.ATUALIZACOES (data = commit "Backup N:" no git; o mais novo sem commit = hoje)
+{
+  const datas = {};
+  try { require('child_process').execSync('git log --format=%ad%x09%s --date=short', { cwd: path.join(APP, '..', '..') }).toString().split('\n')
+    .forEach((l) => { const m = /^(\d{4}-\d{2}-\d{2})\t[^\n]*?Backup (\d+)\b/i.exec(l); if (m && !datas[+m[2]]) datas[+m[2]] = m[1]; }); } catch (e) { /* sem git: fica sem data */ }
+  const hoje = new Date().toISOString().slice(0, 10);
+  const linhas = fs.readFileSync(path.join(APP, '..', '..', 'backups', 'LEIA-ME.md'), 'utf8').split('\n')
+    .map((l) => /^\|\s*(\d+)\s*\|\s*(.+?)\s*\|\s*$/.exec(l)).filter(Boolean);
+  const maior = Math.max(...linhas.map((m) => +m[1]));
+  const dados = linhas.map((m) => ({ n: +m[1], data: datas[+m[1]] || (+m[1] === maior ? hoje : ''),
+    itens: m[2].split(/;\s+/).map((t) => t.trim()).filter(Boolean).map((t) => t[0].toUpperCase() + t.slice(1)) }));
+  fs.writeFileSync(path.join(APP, 'atualizacoes-dados.js'), '// GERADO por sistema/ferramentas/montar-erp.js a partir de backups/LEIA-ME.md — não edite.\nwindow.ATUALIZACOES = ' + JSON.stringify(dados, null, 0) + ';\n');
+}
 let graf = ler('graficos.js').replace("document.addEventListener('DOMContentLoaded', () => document.body.appendChild(dica));",
   "(document.getElementById('gs-raiz') || document.body).appendChild(dica);");
 const bundle = "'use strict';\n// GERADO por sistema/ferramentas/montar-erp.js — não edite; edite os arquivos do Gestão.\n(function () {\n" +
   "const _raiz = document.createElement('div'); _raiz.id = 'gs-raiz'; _raiz.className = 'gs';\n" +
   "_raiz.innerHTML = '<div id=\"janelas\"></div><div id=\"aviso\"></div>'; document.body.appendChild(_raiz);\n" +
-  [nuc, graf, ler('telas-painel.js'), ler('telas-financeiro.js'), ler('telas-cadastros.js'), ler('telas-admin.js'), ler('telas-tarefas.js'), ler('telas-documentos.js'), ler('telas-cliente360.js'), ler('telas-crm.js'), ler('telas-publicacoes.js'), ler('telas-acordos.js'), ler('telas-alertas.js'), ler('telas-automacoes.js'), ler('telas-guias.js'), ler('telas-rotina.js')].join('\n') +
+  [nuc, graf, ler('telas-painel.js'), ler('telas-financeiro.js'), ler('telas-cadastros.js'), ler('telas-admin.js'), ler('telas-tarefas.js'), ler('telas-documentos.js'), ler('telas-cliente360.js'), ler('telas-crm.js'), ler('telas-publicacoes.js'), ler('telas-acordos.js'), ler('telas-alertas.js'), ler('atualizacoes-dados.js'), ler('telas-atualizacoes.js'), ler('telas-automacoes.js'), ler('telas-guias.js'), ler('telas-rotina.js')].join('\n') +
   "\n// toda gravação confirmada aparece também no rodapé do ERP\nconst _avisoOrig = aviso;\n" +
   "aviso = function (msg, erro) { _avisoOrig(msg, erro); if (!erro && window.ERP_EDITOR && /^✓/.test(msg)) window.ERP_EDITOR.gravou(String(msg).replace(/^✓\\s*/, '')); };\n" +
   "window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, invalidarCadastros, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo, perguntarBaixa, detalheContrato, ICONE_AVISO, abrirTarefa, detalheLancamento, formReuniao, janelaDelegar, abrirGeradorContrato, cardGuias, emitirParcela, enviarAcordosSelecionados, gerarGuias, janelaMovimentacao, cobrarWhatsApp };\n})();\n";

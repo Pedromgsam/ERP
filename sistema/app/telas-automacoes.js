@@ -22,7 +22,7 @@ const SEM_RESP = ['pagamento_conclui', 'escalar_atraso'];
 TELAS.automacoes = async function () {
   const admin = E.perfil && E.perfil.papel === 'admin';
   const [regras, cont, log, ultReg, ultPub, cnpj, backup, emails] = await Promise.all([
-    q(sb.from('regras_tarefas').select('*').order('nome')),
+    q(sb.from('regras_tarefas').select('*').eq('oculta', false).order('nome')),
     q(sb.rpc('resumo_automacoes')).catch(() => ({})),
     q(sb.from('automacoes_log').select('*').neq('chave', '_item').order('quando', { ascending: false }).limit(25)).catch(() => []),
     q(sb.from('configuracoes').select('valor').eq('chave', 'regras_tarefas_ultima').maybeSingle()).catch(() => null),

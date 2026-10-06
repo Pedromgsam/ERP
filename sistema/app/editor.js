@@ -461,7 +461,7 @@
     return GS.perguntarBaixa({ acordo: tabela === 'acordos', valor: reg && reg.valor, despesa: tabela === 'lancamentos' && reg && reg.tipo === 'despesa' && !reg.redutor,
       descricao: reg ? (tabela === 'acordos' ? 'Parcela ' + (reg.parcela || '') + (reg.total_parcelas ? '/' + reg.total_parcelas : '') + ' — ' + (reg.credor || reg.processo || '') : reg.descricao) : '' });
   }
-  async function baixaRapida(tabela, id) {
+  async function baixaRapida(tabela, id, opc) {
     let reg = null;
     if (tabela !== 'parcelas') { const r = await sb.from(tabela).select('*').eq('id', id).single(); if (r.error) return aviso('⚠ ' + erroAmigavel(r.error)); reg = r.data; }
     const d = await perguntar(tabela, reg); if (!d) return;
@@ -472,7 +472,10 @@
     aviso('✓ Baixa gravada (' + brData(d.data_pagamento || hojeISO()) + ').');
     gravou('Baixa — ' + ({ lancamentos: 'honorário', acordos: 'acordo', parcelas: 'parcela ' + (data.numero || '') }[tabela]) + (tabela !== 'parcelas' ? ' — ' + rotuloReg(data) : ''),
       () => desfazerBaixa(tabela, id));
+    // Backup 46: quem chama pode atualizar a própria tela (a Planilha marca na hora) e o resto recarrega depois
+    if (opc && opc.semRecarregar) { window.ERP_DADOS_SUJOS = true; return data; }
     recarregar();
+    return data;
   }
 
   // ─────────────── histórico de um registro (só admin) ───────────────

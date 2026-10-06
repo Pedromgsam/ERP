@@ -20,7 +20,7 @@
   --green:#1F7A48;--green-d:#1A6B3E;--green-lt:#EBF6EF;--green-bd:rgba(31,122,72,.22);
   --amber:#9A5A0B;--amber-d:#86500E;--amber-lt:#FBF4E6;--amber-border:rgba(154,90,11,.24);
   --red:#B73A3A;--red-d:#9E2F2F;--red-lt:#FBEEEE;--red-bd:rgba(183,58,58,.22);
-  --orange-d:#9A4515;--orange-lt:#FCF1E8;--orange-bd:rgba(154,69,21,.24);
+  --orange:#D97A2B;--orange-d:#9A4515;--orange-lt:#FCF1E8;--orange-bd:rgba(154,69,21,.24);
   --teal:#0F6E68;--teal-lt:#E7F5F3;--teal-bd:rgba(15,110,104,.24);
   --btn-verde:#1F7A48;          /* fundo de botão verde com texto branco (5:1 nos dois modos) */
   --blue:#2F5FAE;--blue-d:#2A5299;--blue-lt:#EDF2FA;--blue-bd:rgba(47,95,174,.22);
@@ -82,7 +82,7 @@ html[data-tema="escuro"]{
   --green:#3FB950;--green-d:#56D364;--green-lt:rgba(63,185,80,.13);--green-bd:rgba(63,185,80,.32);
   --amber:#D29922;--amber-d:#E3B341;--amber-lt:rgba(210,153,34,.13);--amber-border:rgba(210,153,34,.34);
   --red:#F85149;--red-d:#FF7B72;--red-lt:rgba(248,81,73,.12);--red-bd:rgba(248,81,73,.34);
-  --orange-d:#E8A57A;--orange-lt:rgba(232,165,122,.12);--orange-bd:rgba(232,165,122,.3);
+  --orange:#E8A57A;--orange-d:#E8A57A;--orange-lt:rgba(232,165,122,.12);--orange-bd:rgba(232,165,122,.3);
   --teal:#4DB6AC;--teal-lt:rgba(77,182,172,.12);--teal-bd:rgba(77,182,172,.3);
   --blue:#58A6FF;--blue-d:#79C0FF;--blue-lt:rgba(56,139,253,.13);--blue-bd:rgba(56,139,253,.36);
   --violet:#A371F7;--violet-d:#BC8CFF;--violet-lt:rgba(163,113,247,.13);--violet-bd:rgba(163,113,247,.34);

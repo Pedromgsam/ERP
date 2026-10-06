@@ -236,12 +236,13 @@ async function pintarDocumentos(buscar) {
     if (cs.length === 1 && !k) return tabelaDocumentos(docs, { vazio: '' });
     return '<div class="doc-subpastas">' + cs.map((c) => { const sk = k + '|' + c, ab = !!b || cs.length === 1 || !!F.subAbertas[sk];
       return '<details class="doc-sub" data-sub="' + esc(sk) + '"' + (ab ? ' open' : '') + '><summary><span class="doc-pasta-ic" aria-hidden="true">📂</span><b>' + esc(c ? nomeCliente(c) : 'Documentos do grupo') + '</b>' +
-        '<span class="sub">' + plural(S[c].length, 'documento', 'documentos') + '</span>' +
+        '<span class="sub">' + plural(S[c].length, 'documento', 'documentos') + '</span>' + (c ? linkDrive('cliente', c, (E.clientes.find((x) => x.id === c) || {}).drive_url) : '') +
         '<span class="doc-pasta-ac"><button type="button" class="btn btn-o btn-mini" data-sub-enviar="' + esc(k) + '|' + esc(c) + '" title="Enviar já para esta empresa">+ Enviar</button></span></summary>' +
         (ab ? tabelaDocumentos(S[c], { vazio: '', semCliente: !!c }) : '') + '</details>'; }).join('') + '</div>';
   };
   $('doc-corpo').innerHTML = lista.length ? '<div class="doc-pastas">' + ks.map((k) => '<details class="card doc-pasta" data-pasta="' + esc(k) + '"' + (aberto(k) ? ' open' : '') + '><summary><span class="doc-pasta-ic" aria-hidden="true">📁</span><b>' + esc(nomeG(k)) + '</b>' +
       '<span class="sub">' + plural(G[k].length, 'documento', 'documentos') + (G[k].some((d) => d.validade && d.validade <= lim) ? ' · <span class="pill vencido">vencendo</span>' : '') + '</span>' +
+      (k ? linkDrive('grupo', k, (E.grupos.find((g) => g.id === k) || {}).drive_url) : '') +
       '<span class="doc-pasta-ac"><button type="button" class="btn btn-p btn-mini" data-pasta-enviar="' + esc(k) + '" title="Enviar documento já para este grupo">+ Enviar</button></span></summary>' +
       (aberto(k) ? subpastas(k, G[k]) : '') + '</details>').join('') + '</div>'
     : '<div class="card">' + tabelaDocumentos([], { vazio: 'Nenhum documento neste recorte.' }) + '</div>';
@@ -253,7 +254,17 @@ async function pintarDocumentos(buscar) {
   $('doc-corpo').querySelectorAll('[data-sub-enviar]').forEach((b) => b.onclick = (ev) => { ev.preventDefault(); ev.stopPropagation();
     const [g, c] = b.dataset.subEnviar.split('|');
     janelaEnviarDocumento(c ? { cliente_id: c, grupo_id: g || undefined } : { grupo_id: g || undefined }, () => pintarDocumentos(), '+ Enviar documento — ' + (c ? nomeCliente(c) : nomeG(g))); });
+  // Backup 46: link da pasta no Google Drive — abre numa aba nova; ✎ grava/troca o link
+  $('doc-corpo').querySelectorAll('[data-drive-ed]').forEach((b) => b.onclick = (ev) => { ev.preventDefault(); ev.stopPropagation();
+    const [tipo, id] = b.dataset.driveEd.split('|'), atual = tipo === 'grupo' ? (E.grupos.find((g) => g.id === id) || {}).drive_url : (E.clientes.find((c) => c.id === id) || {}).drive_url;
+    const url = prompt('Cole o link da pasta no Google Drive (deixe vazio para tirar):', atual || ''); if (url === null) return;
+    q(sb.rpc('salvar_link_drive', { p_tipo: tipo, p_id: id, p_url: url })).then(async () => { await carregarCadastros(true); aviso(url.trim() ? '✓ Link do Drive gravado.' : '✓ Link do Drive tirado.'); pintarDocumentos(false); }, (e) => aviso(erroAmigavel(e), true)); });
+  $('doc-corpo').querySelectorAll('a.doc-drive').forEach((a) => a.addEventListener('click', (ev) => ev.stopPropagation()));
   ligarDocumentos($('doc-corpo'), lista, () => pintarDocumentos());
+}
+function linkDrive(tipo, id, url) {
+  return '<span class="doc-drive-box">' + (url ? '<a class="doc-drive" href="' + esc(url) + '" target="_blank" rel="noopener" title="Abrir a pasta no Google Drive (aba nova)">🔗 Drive</a>' : '') +
+    '<button type="button" class="doc-drive-ed" data-drive-ed="' + tipo + '|' + esc(id) + '" title="' + (url ? 'Trocar o link do Google Drive' : 'Colocar o link da pasta no Google Drive') + '">' + (url ? '✎' : '+ link do Drive') + '</button></span>';
 }
 
 // ─────────── Geradores de documentos (Backup 16) ───────────
