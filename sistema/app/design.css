@@ -1463,3 +1463,51 @@ body.gx-barra-topo #tblExecRanking td:nth-child(2),body.gx-barra-topo #tblExecRa
 .gs .atu-mais[hidden]{display:none}
 .gs #atu-busca{min-width:260px}
 @media (max-width:600px){.gs .atu-v{grid-template-columns:1fr;gap:6px}}
+/* ═══ Backup 49 ═══ */
+/* faixa do modo teste (administrador) */
+#gx-modo-teste{position:fixed;left:0;right:0;bottom:0;z-index:60;background:var(--amber-lt);color:var(--amber-d);border-top:1px solid var(--amber-border);padding:7px 16px;font-size:var(--fs-sm);text-align:center}
+#gx-modo-teste button{margin-left:10px;border:1px solid var(--amber-border);background:var(--surface);color:var(--text);border-radius:var(--r-pill);padding:2px 12px;font:600 var(--fs-xs) var(--font-ui);cursor:pointer}
+body.gx-com-teste{padding-bottom:38px}
+/* Clientes: chave ✉ Recebe e-mails */
+.gs .cli-email{cursor:pointer;border:1px solid transparent;font:600 11px var(--font-ui)}
+.gs .cli-email:hover{border-color:var(--border-strong)}
+.gs .cli-avancado{border:1px dashed var(--border);border-radius:var(--r-sm);padding:6px 10px}
+.gs .cli-avancado summary{cursor:pointer;color:var(--text3);font-size:var(--fs-sm)}
+/* Administração → E-mail */
+.gs .em-abas{margin-bottom:12px}
+.gs .em-filtros{margin-bottom:10px}
+.gs .em-rev-chave{display:inline-flex;align-items:center;gap:8px}
+.em-previa{width:100%;height:68vh;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface)}
+.gs .ep-pend{background:var(--amber-lt);border:1px solid var(--amber-border);border-radius:var(--r-sm);padding:10px 14px;margin:0 0 12px;font-size:var(--fs-sm);color:var(--text)}
+.gs .ep-pend ul{margin:6px 0 0;padding-left:18px}
+.gs .ep-pend[hidden]{display:none}
+/* Início: atalhos em uma linha fina (no lugar dos cartões do resumo) */
+.gs .ini-atalhos{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px}
+.gs .ini-at{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--border);border-radius:var(--r-pill);background:var(--surface);color:var(--text2);font:500 var(--fs-sm) var(--font-ui);cursor:pointer;white-space:nowrap}
+.gs .ini-at:hover{border-color:var(--selecao);color:var(--ink)}
+.gs .ini-at-ic{display:inline-flex;color:var(--text3)}
+.gs .ini-at-tit{font-weight:600;color:var(--text)}
+.gs .ini-at-num{color:var(--ink)}
+.gs .ini-at-sub{color:var(--text3);font-size:var(--fs-xs)}
+.gs .ini-at.vermelho{border-color:var(--red-bd);background:var(--red-lt)}
+.gs .ini-at.vermelho .ini-at-num{color:var(--red-d)}
+.gs .ini-at.ambar{border-color:var(--amber-border);background:var(--amber-lt)}
+.gs .ini-at.ambar .ini-at-num{color:var(--amber-d)}
+/* Tarefas (B49): abas junto do título, ⚙ com o menu, ⚡ criação rápida, separador nos chips */
+.gs .titulo-pag h1 + .tf-abas-seg{margin-top:8px}
+.gs .tf-bt-ic{min-width:38px;justify-content:center}
+.gs .tf-cfg-wrap{position:relative;display:inline-flex}
+.gs .tf-cfg-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:30;display:flex;flex-direction:column;gap:6px;padding:10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);box-shadow:var(--shadow-md);min-width:200px}
+.gs .tf-cfg-menu[hidden]{display:none}
+.gs .tf-cfg-menu .btn{justify-content:flex-start;width:100%}
+.gs .tf-rapida[hidden]{display:none}
+.gs .fila-chips-sep{width:1px;height:18px;background:var(--border-strong);margin:0 4px}
+.gs .tf-cal-vista{margin-bottom:10px}
+/* Painel: Evolução do passivo recolhível (fechada por padrão) */
+.evo-abrir{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.evo-abrir:focus-visible{outline:2px solid var(--selecao);outline-offset:2px;border-radius:4px}
+.evo-seta{display:inline-block;transition:transform .15s;color:var(--text3)}
+.evo-card:not(.evo-fechado) .evo-seta{transform:rotate(90deg)}
+.evo-card.evo-fechado .evo-ctl,.evo-card.evo-fechado .evo-resumo,.evo-card.evo-fechado .evo-cb,.evo-card.evo-fechado .evo-nota,.evo-card.evo-fechado #evo-sub{display:none}
+/* Painel no celular: o valor completo (não há "passar o mouse") */
+@media (max-width:600px){#tblExecRanking .er-v[title]{font-size:0}#tblExecRanking .er-v[title]::after{content:attr(title);font-size:12px}}

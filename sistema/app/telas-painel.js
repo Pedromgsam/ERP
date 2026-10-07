@@ -239,10 +239,12 @@ async function cardResumoEscritorio() {
     crm: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>', tarefas: '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>' };
   const icone = (k) => '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (IC[k] || '') + '</svg>';
   const sub = (l) => '<span class="ini-res-sub' + (l[0] && l[2] ? ' ' + l[2] : '') + '">' + (l[0] == null ? '' : '<b>' + l[0] + '</b> ') + esc(l[1]) + '</span>';
-  el.innerHTML = '<div class="kpis-titulo">🏠 Resumo do escritório</div><div class="ini-resumo">' + T.map((t) =>
-    '<button type="button" class="ini-res ' + t[6] + '" data-ini-ir="' + t[0] + '"' + (t[0] === 'tarefas' ? ' title="Tarefas do escritório: todas as tarefas abertas da equipe (a sua fila fica mais abaixo)."' : '') + '><span class="ini-res-ic" aria-hidden="true">' + icone(t[0]) + '</span>' +
-    '<span class="ini-res-tit">' + esc(t[2]) + '</span><b class="ini-res-num">' + t[3] + '</b><span class="ini-res-rot">' + esc(t[4]) + '</span>' +
-    (t[5].length ? '<span class="ini-res-subs">' + t[5].map(sub).join('') + '</span>' : '') + '</button>').join('') + '</div>';
+  // Backup 49: o resumo virou uma linha fina de atalhos (o detalhe está em cada módulo)
+  const resto = (t) => t[5].filter((l) => l[0] == null || l[0]).map((l) => (l[0] == null ? '' : l[0] + ' ') + l[1]).join(' · ');
+  el.innerHTML = '<div class="ini-atalhos" role="list" aria-label="Resumo do escritório">' + T.map((t) =>
+    '<button type="button" role="listitem" class="ini-at ' + t[6] + '" data-ini-ir="' + t[0] + '" title="' + esc(t[2] + ': ' + t[3] + ' ' + t[4] + (resto(t) ? ' · ' + resto(t) : '')) + '">' +
+    '<span class="ini-at-ic" aria-hidden="true">' + icone(t[0]) + '</span><span class="ini-at-tit">' + esc(t[2]) + '</span> <b class="ini-at-num">' + t[3] + '</b> <span class="ini-at-rot">' + esc(t[4]) + '</span>' +
+    (resto(t) ? '<span class="ini-at-sub"> · ' + esc(resto(t)) + '</span>' : '') + '</button>').join('') + '</div>';
   el.querySelectorAll('[data-ini-ir]').forEach((b) => b.onclick = () => {
     const k = b.dataset.iniIr;
     if (k === 'tarefas') E.tf = Object.assign(E.tf || {}, { aba: 'abertas', atalho: '' });

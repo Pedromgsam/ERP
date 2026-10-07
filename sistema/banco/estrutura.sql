@@ -7010,3 +7010,185 @@ begin
   insert into public.configuracoes (chave, valor) values ('b46_automacoes', to_jsonb(coalesce(usados, '{}')));
 end $$;
 -- ═══ fim do Backup 46 ═══
+
+-- ═══════════════════════════════ Backup 49 ═══════════════════════════════
+-- E-mails (1) — chave única por cliente: "Recebe e-mails do escritório: Sim / Não". Com "Não", NADA sai para ele
+-- (lembrete, cobrança, guia, acordo, recibo, convite, rascunho). Os detalhes antigos (perfil, contatos, setor) continuam valendo para quem recebe.
+alter table public.clientes add column if not exists recebe_email boolean not null default true;
+do $$ begin
+  if not exists (select 1 from public.configuracoes where chave = 'b49_recebe_email') then
+    update public.clientes set recebe_email = false where perfil_email = 'nunca';
+    insert into public.configuracoes (chave, valor) values ('b49_recebe_email', 'true');
+  end if;
+end $$;
+alter table public.email_fila add column if not exists cliente_id uuid references public.clientes(id) on delete set null;
+create index if not exists email_fila_cliente_idx on public.email_fila (cliente_id, criado_em desc);
+-- de quem é este endereço? (e-mail do cadastro ou de um contato do cliente; vários endereços separados por vírgula ou ponto e vírgula)
+create or replace function public.clientes_do_email(p_para text) returns uuid[]
+language sql stable security definer set search_path = public as $$
+  with e as (select distinct lower(btrim(x)) em from regexp_split_to_table(coalesce(p_para, ''), '[,;]') x where btrim(x) <> '')
+  select coalesce(array_agg(distinct id), '{}') from (
+    select c.id from public.clientes c join e on lower(btrim(c.email)) = e.em
+    union select k.cliente_id from public.contatos k join e on lower(btrim(k.email)) = e.em where k.cliente_id is not null) z;
+$$;
+revoke all on function public.clientes_do_email(text) from public, anon, authenticated;
+-- roda ANTES do desvio do modo teste ("a" < "d"): olha o endereço verdadeiro
+create or replace function public.email_fila_recebe() returns trigger language plpgsql security definer set search_path = public as $$
+declare ids uuid[]; bloq text;
+begin
+  if coalesce(new.tipo, '') <> 'cliente' then return new; end if;
+  ids := public.clientes_do_email(new.para);
+  if new.cliente_id is null and array_length(ids, 1) > 0 then new.cliente_id := ids[1]; end if;
+  select string_agg(nome, ', ') into bloq from public.clientes where (id = any(ids) or id = new.cliente_id) and not recebe_email;
+  if bloq is not null then
+    if new.usuario_id is not null then
+      raise exception 'Este cliente está marcado para NÃO receber e-mails (%). Para mandar, mude em Clientes → ✉ Recebe e-mails.', bloq;
+    end if;
+    new.status := 'cancelado'; new.erro := 'Cliente marcado para não receber e-mails';
+  end if;
+  return new;
+end $$;
+drop trigger if exists email_fila_a_recebe on public.email_fila;
+create trigger email_fila_a_recebe before insert on public.email_fila for each row execute function public.email_fila_recebe();
+-- as automações também perguntam antes de montar o e-mail
+create or replace function public.pode_email(p_cliente uuid, p_grupo uuid, p_tipo text) returns boolean
+language plpgsql stable security definer set search_path = public as $$
+declare pf text; t jsonb;
+begin
+  if p_cliente is not null and exists (select 1 from public.clientes where id = p_cliente and not recebe_email) then return false; end if;
+  if p_cliente is null and p_grupo is not null and exists (select 1 from public.clientes where grupo_id = p_grupo)
+     and not exists (select 1 from public.clientes where grupo_id = p_grupo and recebe_email) then return false; end if;
+  pf := public.perfil_email_de(p_cliente, p_grupo);
+  if pf = 'nunca' then return p_tipo not in ('lembrete','vencimento','cobranca','recibo'); end if;
+  if pf = 'vencimento' then return p_tipo not in ('lembrete','cobranca'); end if;
+  if pf = 'personalizado' then
+    select emails_tipos into t from public.clientes where id = p_cliente;
+    if t is null then
+      select emails_tipos into t from public.clientes where grupo_id = p_grupo and perfil_email = 'personalizado' limit 1;
+    end if;
+    return coalesce((t->>p_tipo)::boolean, p_tipo <> 'vencimento');
+  end if;
+  return p_tipo <> 'vencimento';
+end $$;
+revoke all on function public.pode_email(uuid, uuid, text) from public, anon, authenticated;
+-- marcar vários clientes de uma vez (Clientes → selecionar → ✉ Sim / Não)
+create or replace function public.clientes_recebe_email(p_ids uuid[], p_recebe boolean) returns int
+language plpgsql security definer set search_path = public as $$
+declare n int;
+begin
+  if not public.pode('clientes', 'editar') then raise exception 'permission denied: sem acesso para editar clientes.'; end if;
+  update public.clientes set recebe_email = p_recebe where id = any(coalesce(p_ids, '{}')) and recebe_email is distinct from p_recebe;
+  get diagnostics n = row_count;
+  return n;
+end $$;
+revoke all on function public.clientes_recebe_email(uuid[], boolean) from public, anon;
+grant execute on function public.clientes_recebe_email(uuid[], boolean) to authenticated;
+-- E-mails (2) — "Quem recebe": uma linha por cliente com o destino, a chave e o último e-mail
+create or replace function public.quem_recebe_emails() returns table (cliente_id uuid, grupo text, cliente text, area text, recebe boolean,
+  destino text, ultimo_em timestamptz, ultimo_assunto text, ultimo_status text)
+language sql stable security definer set search_path = public as $$
+  select c.id, coalesce(g.nome, ''), c.nome, coalesce(c.area, ''), c.recebe_email,
+         coalesce(nullif((select d.email from public.contato_do_cliente(c.id, c.grupo_id, 'cobranca') d limit 1), ''), nullif(btrim(c.email), ''), ''),
+         u.criado_em, u.assunto, u.status
+    from public.clientes c left join public.grupos g on g.id = c.grupo_id
+    left join lateral (select f.criado_em, f.assunto, f.status from public.email_fila f where f.cliente_id = c.id order by f.criado_em desc limit 1) u on true
+   where public.pode('clientes') and coalesce(c.tipo, '') <> 'Inativo'
+   order by g.nome nulls last, c.nome;
+$$;
+revoke all on function public.quem_recebe_emails() from public, anon;
+grant execute on function public.quem_recebe_emails() to authenticated;
+-- E-mails (3) — "Para revisar": com a chave ligada, os e-mails AUTOMÁTICOS ao cliente (das rotinas; sem usuário) esperam um clique
+insert into public.configuracoes (chave, valor) values ('emails_revisar', 'false'::jsonb) on conflict (chave) do nothing;
+create or replace function public.emails_revisar() returns boolean language sql stable security definer set search_path = public as $$
+  select coalesce((select (valor #>> '{}')::boolean from public.configuracoes where chave = 'emails_revisar'), false);
+$$;
+grant execute on function public.emails_revisar() to authenticated;
+create or replace function public.email_fila_reter() returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if new.status = 'pendente' and coalesce(new.tipo, '') <> 'teste' and coalesce(current_setting('erp.liberar_email', true), '') <> '1'
+     and (tg_op = 'INSERT' or old.status is distinct from 'pendente') then
+    if public.emails_pausados() and not public.eh_email_teste(new.para) then new.status := 'retido';
+    elsif new.tipo = 'cliente' and new.usuario_id is null and public.emails_revisar() then new.status := 'retido'; end if;
+  end if;
+  return new;
+end $$;
+create or replace function public.salvar_emails_revisar(p boolean) returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not public.eh_admin() then raise exception 'Só o administrador muda esta opção.'; end if;
+  insert into public.configuracoes (chave, valor) values ('emails_revisar', to_jsonb(coalesce(p, false))) on conflict (chave) do update set valor = excluded.valor;
+end $$;
+revoke all on function public.salvar_emails_revisar(boolean) from public, anon;
+grant execute on function public.salvar_emails_revisar(boolean) to authenticated;
+-- E-mails (6) — modo teste: o administrador vê a faixa e desliga por aqui (vazio = e-mails vão para o endereço verdadeiro)
+create or replace function public.modo_teste_email() returns text language sql stable security definer set search_path = public as $$
+  select case when public.eh_admin() then btrim(coalesce((select valor #>> '{}' from public.configuracoes where chave = 'email_redirecionar'), '')) else '' end;
+$$;
+grant execute on function public.modo_teste_email() to authenticated;
+create or replace function public.salvar_modo_teste_email(p text) returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not public.eh_admin() then raise exception 'Só o administrador muda o modo teste.'; end if;
+  insert into public.configuracoes (chave, valor) values ('email_redirecionar', to_jsonb(btrim(coalesce(p, '')))) on conflict (chave) do update set valor = excluded.valor;
+end $$;
+revoke all on function public.salvar_modo_teste_email(text) from public, anon;
+grant execute on function public.salvar_modo_teste_email(text) to authenticated;
+-- E-mails (4) — "Enviar guias do mês" (Rotina) no mesmo modelo bonito dos outros e-mails: cabeçalho com a marca, cada guia num quadro e o rodapé
+create or replace function public.texto_guias_rotina_html(p_texto text) returns text
+language plpgsql immutable set search_path = public as $$
+declare bl text; l text; caixa text; out text := '';
+begin
+  foreach bl in array regexp_split_to_array(btrim(coalesce(p_texto, '')), E'\n[ \t]*\n') loop
+    if btrim(bl) = '' then continue; end if;
+    if bl ~ '(Nº do Parcelamento|Parcela:|Nº da Guia:|Valor:)' then
+      caixa := '';
+      foreach l in array string_to_array(bl, E'\n') loop
+        l := public.esc_html(btrim(l));
+        if l = '' then continue; end if;
+        if l ~ '^⚠' then caixa := caixa || '<div style="color:#B42318;font-weight:bold;font-size:12px;letter-spacing:.04em;margin-bottom:4px">' || l || '</div>';
+        elsif l ~ '^Parcelamento ' then caixa := caixa || '<div style="font-weight:bold;color:#1B2A4A;font-size:15px;margin-bottom:6px">' || l || '</div>';
+        elsif l ~ '^Valor:' then caixa := caixa || '<div style="margin-top:6px;font-size:15px"><span style="color:#5B6472">Valor:</span> <b style="color:#1B2A4A">' || btrim(substr(l, 7)) || '</b></div>';
+        else caixa := caixa || '<div style="margin:2px 0">' || regexp_replace(l, '(Nº do Parcelamento:|Parcela:|Vencimento:|Nº da Guia:)', '<span style="color:#5B6472">\1</span>', 'g') || '</div>';
+        end if;
+      end loop;
+      out := out || '<div style="background:#F7F8FB;border:1px solid #E5E7EB;border-left:4px solid #1B2A4A;border-radius:10px;padding:12px 14px;margin:12px 0;font-size:14px">' || caixa || '</div>';
+    else
+      out := out || '<p style="margin:0 0 10px">' || replace(public.esc_html(btrim(bl)), E'\n', '<br>') || '</p>';
+    end if;
+  end loop;
+  return out;
+end $$;
+drop function if exists public.rascunho_email_texto(uuid, text, text, text, jsonb);
+create or replace function public.rascunho_email_texto(p_cliente uuid, p_para text, p_assunto text, p_texto text, p_arquivos jsonb default null) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare v_ref text := 'rasc:' || gen_random_uuid(); lista jsonb; v_conta text; html text; v_ass text := coalesce(nullif(trim(p_assunto), ''), 'Guias de Parcelamento');
+begin
+  if not public.pode('juridico', 'editar') then raise exception 'permission denied: sem acesso para enviar guias.'; end if;
+  if p_cliente is not null and exists (select 1 from public.clientes where id = p_cliente and not recebe_email) then
+    raise exception 'Este cliente está marcado para NÃO receber e-mails. Para mandar, mude em Clientes → ✉ Recebe e-mails.';
+  end if;
+  select coalesce(jsonb_agg(jsonb_build_object('tipo', 'bin', 'arquivo', a->>'arquivo', 'mime', coalesce(a->>'mime', 'application/pdf'), 'b64', a->>'b64')), '[]') into lista
+    from jsonb_array_elements(coalesce(p_arquivos, '[]')) a where coalesce(a->>'b64', '') <> '';
+  v_conta := public.conta_email(p_cliente, null);
+  perform set_config('erp.conta_email', v_conta, true);
+  html := public.email_cliente_html(v_ass, '-', public.texto_guias_rotina_html(p_texto), '[]', false);
+  perform set_config('erp.conta_email', '', true);
+  insert into public.email_fila (usuario_id, para, assunto, html, tipo, referencia, anexo, conta, status, cliente_id)
+  values (auth.uid(), coalesce(trim(p_para), ''), v_ass, html, 'cliente', v_ref,
+          case when jsonb_array_length(lista) > 0 then jsonb_build_object('tipo', 'lista', 'itens', lista) end, v_conta, 'rascunho', p_cliente);
+  perform public.email_rascunho_destino_real(v_ref);
+  return jsonb_build_object('ref', v_ref, 'para', p_para, 'status', 'rascunho', 'anexos', jsonb_array_length(lista));
+end $$;
+revoke all on function public.rascunho_email_texto(uuid, text, text, text, jsonb) from public, anon;
+grant execute on function public.rascunho_email_texto(uuid, text, text, text, jsonb) to authenticated;
+-- prévia do e-mail como o cliente vai ver (botão "👁 Prévia" do cartão)
+create or replace function public.previa_rascunho_texto(p_cliente uuid, p_assunto text, p_texto text) returns text
+language plpgsql stable security definer set search_path = public as $$
+declare h text;
+begin
+  if not public.pode('juridico') then raise exception 'permission denied: sem acesso.'; end if;
+  perform set_config('erp.conta_email', public.conta_email(p_cliente, null), true);
+  h := public.email_cliente_html(coalesce(nullif(trim(p_assunto), ''), 'Guias de Parcelamento'), '-', public.texto_guias_rotina_html(p_texto), '[]', false);
+  perform set_config('erp.conta_email', '', true);
+  return h;
+end $$;
+revoke all on function public.previa_rascunho_texto(uuid, text, text) from public, anon;
+grant execute on function public.previa_rascunho_texto(uuid, text, text) to authenticated;

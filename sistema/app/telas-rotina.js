@@ -8,7 +8,7 @@
 //  3) Guias de parcelamentos e boletos de acordos (emitir → enviar → conferir o pagamento).
 //  4) Financeiro do escritório (atalhos) e 5) Minhas tarefas.
 // ═══════════════════════════════════════════════════════════════════
-const ABAS_ROTINA = [['passivo', '🏛 Passivo e cadastro'], ['processos', '⚖ Processos'], ['planilha', '📋 Planilha de parcelamentos'], ['guias', '📨 Enviar guias do mês'], ['acs', '🤝 Acordos'], ['tarefas', '✓ Minhas tarefas']];
+const ABAS_ROTINA = [['passivo', 'Passivo'], ['processos', 'Processos'], ['guias', 'Guias do mês'], ['planilha', 'Planilha'], ['tarefas', 'Minhas tarefas']];   // Backup 49: nomes curtos, na ordem do mês; a aba Acordos saiu (o menu já tem Acordos)
 const TIPOS_MOV = [['sem_novidade', '✓ Sem novidade'], ['movimentacao', 'Movimentação'], ['decisao', 'Decisão relevante'], ['valor', 'Mudança de valor'], ['procuracao', 'Procuração juntada']];
 const PARES_PASSIVO = [['rfb', 'RFB'], ['pgfn', 'PGFN'], ['age_mg', 'AGE/MG']];
 const COLS_PASSIVO = [['rfb', 'RFB'], ['rfb_negociada', 'RFB negociada'], ['pgfn', 'PGFN'], ['pgfn_negociada', 'PGFN negociada'], ['age_mg', 'AGE/MG'], ['age_mg_negociada', 'AGE/MG negociada']];
@@ -275,7 +275,8 @@ async function janelaMovimentacao(processoId, depois, opc) {
       // Backup 45: escolha em botões; "Sem novidade" é a primeira opção (a conferência sem alteração)
       '<div class="campo inteiro"><span>O que aconteceu</span><input type="hidden" name="tipo" value="' + (opc && opc.conferir ? 'sem_novidade' : 'movimentacao') + '"><div class="segmento mov-tipos">' +
         TIPOS_MOV.map(([v, r]) => '<button type="button" data-tipo="' + v + '"' + ((opc && opc.conferir ? 'sem_novidade' : 'movimentacao') === v ? ' class="ativo"' : '') + '>' + r + '</button>').join('') + '</div></div>' +
-      campo('Descrição', '<textarea name="descricao" rows="3" placeholder="Ex.: Juntada de petição; sentença de procedência; valor atualizado pela contadoria…"></textarea>', 'inteiro') +
+      campo('Descrição <button type="button" class="btn btn-o btn-mini mov-buscar" id="mov-buscar" title="Puxa o resumo da publicação mais recente deste processo (DJEN)">🔎 Buscar movimentação</button>',
+        '<textarea name="descricao" rows="3" placeholder="Ex.: Juntada de petição; sentença de procedência; valor atualizado pela contadoria…"></textarea>', 'inteiro') +
       // Backup 37: o valor atual fica ao lado, como referência
       '<div class="mov-valor mov-valores inteiro"><div class="mov-vatual"><span>Valor atual da causa</span><b>' + (p.valor ? brl(p.valor) : '—') + '</b></div>' +
         campo('Valor novo', '<input name="valor" data-mascara="brl" inputmode="decimal" placeholder="R$ 0,00">') + '</div>' +
@@ -286,6 +287,17 @@ async function janelaMovimentacao(processoId, depois, opc) {
         : '<div class="sub">Nada registrado ainda.</div>') + '</div>',
     rodape: '<span class="sub">A "última movimentação" do processo é atualizada ao salvar.</span><div class="acoes"><button type="button" class="btn btn-p" data-mov-ok>Salvar</button></div>' });
   const f = j.querySelector('#mov-form'); mascaraData(f.data);
+  // Backup 49: a última publicação do mesmo número (já lida do DJEN) vira a descrição — é só conferir e salvar
+  j.querySelector('#mov-buscar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    const dig = soDigitos(p.numero);
+    const pubs = await q(sb.from('publicacoes').select('data_disponibilizacao, tipo, classe, texto, processo, processo_numero, processo_id').or('processo_id.eq.' + p.id + (dig ? ',processo_numero.eq.' + dig + ',processo.eq.' + p.numero : ''))
+      .order('data_disponibilizacao', { ascending: false }).limit(1)).catch(() => []);
+    if (!pubs.length) { aviso('Nenhuma publicação deste processo foi encontrada (Jurídico → Publicações).', true); return; }
+    const u = pubs[0], resumo = String(u.texto || '').replace(/\s+/g, ' ').trim();
+    f.descricao.value = [u.tipo || u.classe, resumo.length > 400 ? resumo.slice(0, 400) + '…' : resumo].filter(Boolean).join(' — ');
+    if (u.data_disponibilizacao) f.data.value = dataBR(u.data_disponibilizacao);
+    const bm = j.querySelector('.mov-tipos [data-tipo=movimentacao]'); if (bm) bm.click();
+    aviso('✓ Publicação de ' + dataBR(u.data_disponibilizacao) + ' trazida para a descrição — confira e salve.'); });
   const mostrarValor = () => { j.querySelector('.mov-valor').hidden = f.tipo.value !== 'valor'; };
   j.querySelector('.mov-tipos').onclick = (ev) => { const b = ev.target.closest('[data-tipo]'); if (!b) return; f.tipo.value = b.dataset.tipo;
     j.querySelectorAll('.mov-tipos button').forEach((x) => x.classList.toggle('ativo', x === b)); mostrarValor(); };
@@ -404,6 +416,8 @@ async function rotinaEnviarGuias(el) {
     out.innerHTML = '<div class="ep-out-hd"><div class="ep-out-tit">📨 Mensagens geradas</div><span class="ep-out-ac">' +
         (lista.length > 1 ? '<button type="button" class="btn btn-p btn-mini" id="ep-todos-rasc" title="Salva o rascunho no Gmail de todas as mensagens abaixo, uma por uma">✉ Salvar todos os rascunhos (' + lista.length + ')</button>' : '') +
         '<button type="button" class="btn btn-o btn-mini ep-voltar" id="ep-voltar">← Voltar à seleção</button></span></div>' +
+      // Backup 49: antes de salvar todos, o que ainda falta (sem e-mail, sem guia anexada, cliente que não recebe e-mails)
+      '<div class="ep-pend" id="ep-pend" hidden></div>' +
       '<div class="ep-grid">' + lista.map((e, k) => { const tit = 'Guias de Parcelamento — ' + e.emp, wnum = soDigitos(e.tel), env = e.its.every((g) => g.enviada);
         return '<div class="ep-card" data-k="' + k + '"><div class="ep-card-hd2">' +
           '<div class="ep-card-hcol"><div class="ep-card-ch">📧 E-mail</div><div class="ep-card-emp">' + esc(e.emp) + '</div>' +
@@ -417,10 +431,19 @@ async function rotinaEnviarGuias(el) {
           '<div class="ep-card-acts2">' +
             '<button type="button" class="ep-act ep-a-edit" data-ep-a="edit">✏️ Editar</button>' +
             '<button type="button" class="ep-act ep-a-copy" data-ep-a="copy">📋 Copiar</button>' +
+            '<button type="button" class="ep-act ep-a-prev" data-ep-a="prev" title="Ver o e-mail como o cliente vai receber">👁 Prévia</button>' +
             '<button type="button" class="ep-act ep-a-mail" data-ep-a="mail" title="Salva um rascunho no seu Gmail, já com o e-mail do cliente e as guias anexadas — confira no Gmail e clique em Enviar">✉ Enviar e-mail</button>' +
             '<button type="button" class="ep-act ep-a-wpp2" data-ep-a="zap"' + (wnum ? '' : ' disabled') + '>💬 Enviar WhatsApp</button>' +
             '<button type="button" class="ep-act ep-a-sent" data-ep-a="sent"' + (env ? ' disabled' : '') + '>' + (env ? '✓ Enviado' : '✉ Marcar enviado') + '</button></div></div>'; }).join('') + '</div>';
-    out.querySelectorAll('.ep-card').forEach((card) => { const e = lista[+card.dataset.k]; preencherDestino(card.querySelector('.ep-para'), e.cli, e.grupo, 'parcelas'); });
+    const pendencias = () => { const box = $('ep-pend'); if (!box) return; const P = [];
+      out.querySelectorAll('.ep-card:not(.ep-feito)').forEach((card) => { const e = lista[+card.dataset.k], c = E.clientes.find((y) => y.id === e.cli) || {};
+        if (c.recebe_email === false) P.push('<li><b>' + esc(e.emp) + '</b> — marcado para <b>não receber e-mails</b> (Clientes → ✉)</li>');
+        else if (!card.querySelector('.ep-para').value.trim()) P.push('<li><b>' + esc(e.emp) + '</b> — sem e-mail de destino</li>');
+        if (!e.arquivos.length) P.push('<li><b>' + esc(e.emp) + '</b> — nenhuma guia anexada</li>'); });
+      box.hidden = !P.length; box.innerHTML = P.length ? '<b>⚠ Pendências do envio (' + P.length + ')</b><ul>' + P.join('') + '</ul>' : ''; };
+    Promise.all([...out.querySelectorAll('.ep-card')].map((card) => { const e = lista[+card.dataset.k]; return Promise.resolve(preencherDestino(card.querySelector('.ep-para'), e.cli, e.grupo, 'parcelas')).catch(() => null); }))
+      .then(pendencias);
+    out.addEventListener('input', (ev) => { if (ev.target.closest('.ep-para')) pendencias(); });
     aviso('✓ ' + plural(lista.length, 'mensagem gerada', 'mensagens geradas') + '.');
     const chips = (card, e) => { card.querySelector('.ep-chips').innerHTML = e.arquivos.map((f, i) => '<span class="ge-chip">📄 ' + esc(f.name) + ' <small>' + Math.max(1, Math.round(f.size / 1024)) + ' KB</small><button type="button" data-ep-tira="' + i + '" aria-label="Tirar">×</button></span>').join(''); };
     // os valores digitados no texto voltam para cada guia (na ordem do texto)
@@ -446,22 +469,25 @@ async function rotinaEnviarGuias(el) {
     const valores = (card, e) => { const ins = [...card.querySelectorAll('.ep-card-body .ep-val')];
       if (ins.length === e.its.length) ins.forEach((i, n) => { const v = lerValor(i.value); e.its[n]._valor = isNaN(v) ? 0 : v; }); };
     out.onchange = (ev) => { const a = ev.target.closest('.ep-arqs'); if (!a) return; const card = a.closest('.ep-card'), e = lista[+card.dataset.k];
-      e.arquivos = e.arquivos.concat([...a.files]); a.value = ''; chips(card, e); };
+      e.arquivos = e.arquivos.concat([...a.files]); a.value = ''; chips(card, e); pendencias(); };
     out.addEventListener('focusout', (ev) => { const i = ev.target.closest('.ep-val'); if (!i || !i.value.trim()) return; const v = lerValor(i.value); i.value = isNaN(v) ? '' : valorParaCampo(v); });
     out.onclick = (ev) => {
       if (ev.target.closest('#ep-todos-rasc')) return comBotao(ev.target.closest('#ep-todos-rasc'), async () => {
         let ok = 0; const falhas = [];
         for (const card of out.querySelectorAll('.ep-card:not(.ep-feito)')) { const r = await salvarCard(card, lista[+card.dataset.k]); if (r.ok) ok++; else falhas.push(r.msg); }
+        pendencias();
         if (falhas.length) aviso('⚠ ' + plural(ok, 'rascunho salvo', 'rascunhos salvos') + '; ' + plural(falhas.length, 'falhou', 'falharam') + ': ' + falhas.join(' · '), true);
         else aviso('✓ ' + plural(ok, 'rascunho salvo', 'rascunhos salvos') + ' no Gmail e as guias marcadas como emitidas. Abra o Gmail → Rascunhos.'); });
       if (ev.target.closest('#ep-voltar')) { out.hidden = true; $('ep-sel').hidden = false; el.querySelector('.ep-topo').hidden = false; el.querySelector('.ep-legenda').hidden = false; el.querySelector('.rt-filtros').hidden = false; return pintar(); }
       const card = ev.target.closest('.ep-card'); if (!card) return; const e = lista[+card.dataset.k];
-      const tira = ev.target.closest('[data-ep-tira]'); if (tira) { e.arquivos.splice(+tira.dataset.epTira, 1); return chips(card, e); }
+      const tira = ev.target.closest('[data-ep-tira]'); if (tira) { e.arquivos.splice(+tira.dataset.epTira, 1); chips(card, e); return pendencias(); }
       const b = ev.target.closest('[data-ep-a]'); if (!b) return; const a = b.dataset.epA;
       if (a === 'edit') { const v = card.querySelector('.ep-card-body'), t = card.querySelector('.ep-card-edit');
         if (!t.hidden) { v.innerHTML = epHtml(t.value); v.hidden = false; t.hidden = true; b.textContent = '✏️ Editar'; }
         else { t.value = epParaEdicao(card); v.hidden = true; t.hidden = false; t.focus(); b.textContent = '✔ Concluir'; } return; }
       if (a === 'copy') return copiarTexto(epTextoAtual(card)).then(() => { const o = b.textContent; b.textContent = '✓ Copiado!'; setTimeout(() => { b.textContent = o; }, 2000); });
+      if (a === 'prev') return comBotao(b, async () => { const h = await q(sb.rpc('previa_rascunho_texto', { p_cliente: e.cli || null, p_assunto: 'Guias de Parcelamento — ' + e.emp, p_texto: epTextoAtual(card) }));
+        verEmailHtml('Guias de Parcelamento — ' + e.emp, h); });
       if (a === 'zap') { window.open('https://wa.me/55' + soDigitos(e.tel) + '?text=' + encodeURIComponent(epTextoAtual(card)), '_blank', 'noopener'); return; }
       if (a === 'sent') { if (!confirm('Confirmar envio para "' + e.emp + '"?')) return;
         return comBotao(b, async () => { valores(card, e);

@@ -20,7 +20,7 @@ TELAS.clientes = async function () {
   const C = E.cli;
   $('conteudo').innerHTML =
     '<div class="titulo-pag"><div><h1>Clientes</h1><p id="cli-conta"></p></div>' +
-    '<div class="acoes"><button class="btn btn-p" data-novo="cliente">+ Novo cliente</button></div></div>' +
+    '<div class="acoes"><button class="btn btn-o" id="cli-email-lote" title="Marcar vários clientes de uma vez: recebem ou não os e-mails do escritório">✉ Recebe e-mails…</button><button class="btn btn-p" data-novo="cliente">+ Novo cliente</button></div></div>' +
     '<div class="filtros">' +
     '<div class="segmento" id="cli-visao" title="Como mostrar a lista">' + [['grupo', 'Por grupo'], ['lista', 'Lista']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<div class="segmento" id="cli-tipo">' + [['ativos', 'Ativos'], ['Consultoria', 'Consultoria'], ['Demanda', 'Serviço pontual'], ['Inativo', 'Inativos'], ['todos', 'Todos']]
@@ -38,8 +38,35 @@ TELAS.clientes = async function () {
   let t;
   $('cli-busca').oninput = (ev) => { clearTimeout(t); t = setTimeout(() => { C.busca = ev.target.value; pintarClientes(); }, 250); };
   ligarBotoesNovo($('conteudo'));
+  $('cli-email-lote').onclick = () => janelaRecebeEmailLote(C.ultima || E.clientes);
   pintarClientes();
 };
+// Backup 49: a chave única "Recebe e-mails do escritório" (Sim/Não) — um clique na linha ou vários de uma vez
+function pillRecebeEmail(c) {
+  const on = c.recebe_email !== false;
+  return '<button type="button" class="pill cli-email ' + (on ? 'pago' : 'neutro') + '" data-cli-email="' + c.id + '" title="' + (on ? 'Recebe os e-mails do escritório — clique para NÃO receber' : 'NÃO recebe e-mails — clique para voltar a receber') + '">' + (on ? '✉ Sim' : '✕ Não') + '</button>';
+}
+async function trocarRecebeEmail(ids, recebe) {
+  await q(sb.rpc('clientes_recebe_email', { p_ids: ids, p_recebe: recebe }));
+  E.clientes.forEach((c) => { if (ids.includes(c.id)) c.recebe_email = recebe; });
+  aviso('✓ ' + plural(ids.length, 'cliente', 'clientes') + (recebe ? ' passa(m) a receber e-mails.' : ' não recebe(m) mais e-mails.'));
+}
+function janelaRecebeEmailLote(lista) {
+  const j = abrirJanela({ titulo: '✉ Quem recebe os e-mails do escritório', larga: true,
+    corpo: '<p class="sub" style="margin-bottom:10px">Marque os clientes e escolha <b>Recebem</b> ou <b>Não recebem</b>. Quem está em "Não" não recebe nada: lembretes, cobranças, guias, acordos, recibos e convites.</p>' +
+      '<label class="check" style="margin-bottom:6px"><input type="checkbox" id="rel-todos"> <b>Marcar todos (' + lista.length + ')</b></label>' +
+      '<div class="lista-grupos" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:4px 12px;max-height:380px;overflow-y:auto;border:1px solid var(--border-strong);border-radius:var(--r-sm);padding:10px">' +
+      lista.map((c) => '<label class="check"><input type="checkbox" value="' + c.id + '"> ' + esc(c.nome) + ' <span class="sub">' + (c.recebe_email === false ? '✕ não recebe' : '✉ recebe') + '</span></label>').join('') + '</div>',
+    rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-o" type="button" id="rel-nao">✕ Não recebem</button><button class="btn btn-p" type="button" id="rel-sim">✉ Recebem</button></div>' });
+  j.querySelector('#rel-todos').onchange = (ev) => j.querySelectorAll('.lista-grupos input').forEach((i) => { i.checked = ev.target.checked; });
+  j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
+  const ir = (recebe) => (ev) => comBotao(ev.currentTarget, async () => {
+    const ids = [...j.querySelectorAll('.lista-grupos input:checked')].map((i) => i.value);
+    if (!ids.length) { aviso('Marque ao menos um cliente.', true); return; }
+    await trocarRecebeEmail(ids, recebe); fecharJanela(j); pintarClientes();
+  });
+  j.querySelector('#rel-sim').onclick = ir(true); j.querySelector('#rel-nao').onclick = ir(false);
+}
 
 function pintarClientes() {
   const C = E.cli, b = normalizar(C.busca), bd = soDigitos(C.busca);
@@ -65,17 +92,20 @@ function pintarClientes() {
   $('cli-conta').textContent = lista.length + ' de ' + E.clientes.length + ' cadastro(s) · clique na linha para abrir a ficha completa';
   $('cli-corpo').innerHTML = '<div class="card">' + (lista.length ?
     '<div class="tabela-wrap"><table class="' + (porGrupo ? '' : 'ordenavel ') + 'cli-tabela"><thead><tr><th>Grupo</th><th>Nome</th><th>CPF/CNPJ</th><th>Área</th><th>Responsável</th>' +
-    '<th>Procuração</th><th>Certificado</th><th>Situação</th></tr></thead><tbody>' +
-    lista.map((c, i) => (porGrupo && (i === 0 || gn(lista[i - 1]) !== gn(c)) ? '<tr class="cli-grp"><td colspan="8">' + esc(gn(c) || 'Sem grupo') +
+    '<th>Procuração</th><th>Certificado</th><th>Situação</th><th title="Recebe os e-mails do escritório">E-mails</th></tr></thead><tbody>' +
+    lista.map((c, i) => (porGrupo && (i === 0 || gn(lista[i - 1]) !== gn(c)) ? '<tr class="cli-grp"><td colspan="9">' + esc(gn(c) || 'Sem grupo') +
         ' <span class="sub">' + plural(lista.filter((x) => gn(x) === gn(c)).length, 'cadastro', 'cadastros') + '</span></td></tr>' : '') + '<tr class="clicavel cli-linha" tabindex="0" data-cli="' + c.id + '" title="Abrir a ficha completa">' +
       '<td class="cli-grupo" title="' + esc(c.grupos ? c.grupos.nome : '') + '">' + esc(c.grupos ? c.grupos.nome : '—') + '</td>' +
       '<td><span class="cli-nome">' + esc(c.nome) + '</span>' + (c.socio_admin ? '<div class="sub cli-socio">' + esc(c.socio_admin) + '</div>' : '') + '</td>' +
       '<td class="mono">' + esc(mascaraDoc(c.cpf_cnpj) || '—') + '</td>' +
       '<td>' + pillAreaCli(c.area) + '</td>' +
       '<td>' + pillPessoa(c.responsavel) + '</td><td>' + pillSimNao(c.procuracao) + '</td><td>' + pillSimNao(c.certificado) + '</td>' +
-      '<td>' + pillSitCad(c.situacao_cadastral) + '</td></tr>').join('') +
+      '<td>' + pillSitCad(c.situacao_cadastral) + '</td><td>' + pillRecebeEmail(c) + '</td></tr>').join('') +
     '</tbody></table></div>'
     : (E.clientes.length ? vazio('Nenhum cliente neste recorte — mude o filtro ou a busca.') : vazio('Nenhum cliente ainda. Cadastre o primeiro ou importe a Base de Dados em Administração.', '+ Novo cliente', '[data-novo=cliente]'))) + '</div>';
+  $('cli-corpo').querySelectorAll('[data-cli-email]').forEach((b) => b.onclick = (ev) => { ev.stopPropagation();
+    const c = E.clientes.find((x) => x.id === b.dataset.cliEmail);
+    comBotao(b, async () => { await trocarRecebeEmail([c.id], c.recebe_email === false); b.outerHTML = pillRecebeEmail(c); pintarClientes(); }); });
   $('cli-corpo').querySelectorAll('tr[data-cli]').forEach((tr) => {
     tr.onclick = () => abrirFicha(tr.dataset.cli);
     tr.onkeydown = (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); abrirFicha(tr.dataset.cli); } };
@@ -152,8 +182,11 @@ async function formCliente(cl, depois) {
       aba('contato',
         '<div class="inteiro cli-bloco"><div class="cli-lista-tit"><span>E-mails</span><span class="sub">o principal é o do cadastro; os outros viram contatos do setor escolhido</span><button type="button" class="btn btn-o btn-mini" id="cli-mais-email">+ Adicionar e-mail</button></div><div id="cli-emails">' + linhaEmail(cl.email, true) + '</div></div>' +
         '<div class="inteiro cli-bloco"><div class="cli-lista-tit"><span>Telefones / WhatsApp</span><span class="sub">celular com 9 dígitos vira link de WhatsApp</span><button type="button" class="btn btn-o btn-mini" id="cli-mais-tel">+ Adicionar telefone</button></div><div id="cli-tels">' + linhaTel(cl.telefone, true) + '</div></div>' +
+        // Backup 49: a chave única; o perfil detalhado fica em "Avançado"
+        campo('✉ Recebe e-mails do escritório', '<select name="recebe_email"><option value="sim"' + (cl.recebe_email !== false ? ' selected' : '') + '>Sim</option><option value="nao"' + (cl.recebe_email === false ? ' selected' : '') + '>Não — não manda nada para este cliente</option></select>') +
+        '<details class="inteiro cli-avancado"><summary>Avançado: quais e-mails automáticos</summary>' +
         campo('E-mails automáticos', '<select name="perfil_email" title="Quais e-mails automáticos este cliente recebe">' + PERFIS_EMAIL.map(([v, r]) =>
-          '<option value="' + v + '"' + ((cl.perfil_email || 'padrao') === v ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>') +
+          '<option value="' + v + '"' + ((cl.perfil_email || 'padrao') === v ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>') + '</details>' +
         '<div class="dica dois">Os e-mails e telefones a mais viram <b>contatos</b> do cliente, com o setor escolhido (financeiro, fiscal, RH…): é por eles que o sistema sabe para quem mandar cobranças, guias e recibos (ficha → Contatos).</div>') +
       aba('end',
         campo('CEP', '<input name="cep" inputmode="numeric" maxlength="9" value="' + esc(cl.cep || '') + '">') +
@@ -252,7 +285,7 @@ async function formCliente(cl, depois) {
       rfb: num('rfb'), rfb_negociada: num('rfb_negociada'), pgfn: num('pgfn'), pgfn_negociada: num('pgfn_negociada'),
       age_mg: num('age_mg'), age_mg_negociada: num('age_mg_negociada'), sefaz_mg: num('sefaz_mg'),
       ceat_trt3: f.ceat_trt3.value === '' ? null : Number(f.ceat_trt3.value),
-      email: f.email.value.trim(), telefone: f.telefone.value.trim(), endereco: f.endereco.value.trim(), perfil_email: f.perfil_email.value, cep: soDigitos(f.cep.value),
+      email: f.email.value.trim(), telefone: f.telefone.value.trim(), endereco: f.endereco.value.trim(), perfil_email: f.perfil_email.value, recebe_email: f.recebe_email.value !== 'nao', cep: soDigitos(f.cep.value),
       cidade: f.cidade.value.trim(), estado: f.estado.value.trim().toUpperCase(), origem: f.origem.value.trim(), indicado_por: f.indicado_por.value.trim(),
       obs: f.obs.value.trim()
     };

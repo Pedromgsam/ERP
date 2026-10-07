@@ -551,6 +551,27 @@
     window.SB.rpc('registrar_acesso', { p_dispositivo: id, p_navegador: nomeAparelho() }).then(() => {}, () => {});
   });
 
+  // ═════ Backup 49: faixa do MODO TESTE (só o administrador vê): todos os e-mails estão indo para um endereço só ═════
+  async function faixaModoTeste() {
+    const velha = document.getElementById('gx-modo-teste');
+    if (window.ERP_PAPEL !== 'admin' || !window.SB) { if (velha) velha.remove(); return; }
+    const r = await window.SB.rpc('modo_teste_email'); const alvo = (r && !r.error && r.data) || '';
+    if (!alvo) { if (velha) velha.remove(); document.body.classList.remove('gx-com-teste'); return; }
+    const f = velha || document.createElement('div');
+    f.id = 'gx-modo-teste'; f.setAttribute('role', 'status');
+    f.innerHTML = '⚠ <b>Modo teste:</b> todos os e-mails vão para <b>' + alvo.replace(/[<>&"]/g, '') + '</b>, não para os clientes. <button type="button" id="gx-teste-off">Desligar modo teste</button>';
+    if (!velha) document.body.appendChild(f);
+    document.body.classList.add('gx-com-teste');
+    f.querySelector('#gx-teste-off').onclick = async () => {
+      if (!confirm('Desligar o modo teste?\n\nA partir de agora os e-mails vão para os clientes de verdade (só para quem está marcado "✉ Recebe e-mails").')) return;
+      const x = await window.SB.rpc('salvar_modo_teste_email', { p: '' });
+      if (x && x.error) { alert('Não deu certo: ' + x.error.message); return; }
+      faixaModoTeste();
+    };
+  }
+  window.ERP_FAIXA_TESTE = faixaModoTeste;
+  document.addEventListener('erp:perfil', () => setTimeout(faixaModoTeste, 300));
+
   // ═════ modo escuro nos gráficos: texto escuro vira claro, grade preta vira branca (e volta) ═════
   function temaEscuro() { return document.documentElement.getAttribute('data-tema') === 'escuro'; }
   window.ERP_TEMA_ESCURO = temaEscuro;
@@ -734,8 +755,9 @@
     const rk = document.getElementById('execRankWrap'); if (!rk || ehCliente() || !window.SB) return;
     let card = document.getElementById('execEvolWrap');
     if (!card) {
-      card = document.createElement('div'); card.id = 'execEvolWrap'; card.className = 'cc evo-card';
-      card.innerHTML = '<div class="cc-h evo-h"><div><div class="cc-t">Evolução do passivo</div><div class="cc-d" id="evo-sub"></div></div>' +
+      // Backup 49: recolhido por padrão (abre com um clique; só busca os dados quando abre)
+      card = document.createElement('div'); card.id = 'execEvolWrap'; card.className = 'cc evo-card' + (_evo.aberto ? '' : ' evo-fechado');
+      card.innerHTML = '<div class="cc-h evo-h"><div><button type="button" class="evo-abrir" id="evo-abrir" aria-expanded="' + (_evo.aberto ? 'true' : 'false') + '"><span class="evo-seta" aria-hidden="true">▸</span> <span class="cc-t">Evolução do passivo</span></button><div class="cc-d" id="evo-sub"></div></div>' +
         '<div class="evo-ctl"><div class="segmento gx-seg-cli" id="evo-visao"><button type="button" data-v="total" class="ativo">Tudo junto</button><button type="button" data-v="linhas" id="evo-bt-linhas">Uma linha por grupo</button></div>' +
         '<select class="fsel" id="evo-meses" autocomplete="off"><option value="6" selected>6 meses</option><option value="12">12 meses</option><option value="24">24 meses</option></select></div></div>' +
         '<div class="evo-resumo" id="evo-resumo"></div><div class="cb evo-cb"><canvas id="cEvoPassivo"></canvas></div>' +
@@ -743,7 +765,10 @@
       rk.parentElement.insertBefore(card, rk);
       card.querySelector('#evo-visao').onclick = (ev) => { const b = ev.target.closest('button'); if (!b) return; _evo.visao = b.dataset.v; card.querySelectorAll('#evo-visao button').forEach((x) => x.classList.toggle('ativo', x === b)); evoDesenhar(); };
       card.querySelector('#evo-meses').onchange = (ev) => { _evo.meses = Number(ev.target.value); _evo.dados = null; evolucaoPassivo(); };
+      card.querySelector('#evo-abrir').onclick = () => { _evo.aberto = !_evo.aberto; card.classList.toggle('evo-fechado', !_evo.aberto);
+        card.querySelector('#evo-abrir').setAttribute('aria-expanded', String(!!_evo.aberto)); if (_evo.aberto) evolucaoPassivo(); };
     }
+    if (!_evo.aberto) return;
     if (_evo.dados) return evoDesenhar();
     if (_evo.carregando) return;
     _evo.carregando = true;

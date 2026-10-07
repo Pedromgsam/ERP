@@ -605,7 +605,70 @@ async function salvarPagamento(form, chave) {
   const v = {}; CAMPOS_PAG.forEach((k) => { v[k] = form[k].value.trim(); });
   await q(sb.from('configuracoes').upsert({ chave, valor: v }, { onConflict: 'chave' }));
 }
+// Backup 49: E-mail em três partes — quem recebe, o que espera revisão e a configuração (o que já existia)
 async function admEmail(corpo) {
+  E.adm.emailAba = E.adm.emailAba || 'quem';
+  corpo.innerHTML = '<div class="segmento em-abas" id="em-abas">' + [['quem', 'Quem recebe'], ['revisar', 'Para revisar'], ['config', 'Configuração']]
+    .map(([v, r]) => '<button type="button" data-em-aba="' + v + '"' + (E.adm.emailAba === v ? ' class="ativo"' : '') + '>' + r + '</button>').join('') + '</div><div id="em-corpo"></div>';
+  corpo.querySelector('#em-abas').onclick = (ev) => { const b = ev.target.closest('[data-em-aba]'); if (b) { E.adm.emailAba = b.dataset.emAba; admEmail(corpo); } };
+  const alvo = corpo.querySelector('#em-corpo');
+  await ({ quem: admEmailQuem, revisar: admEmailRevisar, config: admEmailConfig })[E.adm.emailAba](alvo);
+}
+async function admEmailQuem(corpo) {
+  const linhas = await q(sb.rpc('quem_recebe_emails'));
+  E.adm.emFiltro = E.adm.emFiltro || '';
+  const F = { '': ['Todos', () => true], sim: ['Recebem', (r) => r.recebe], nao: ['Não recebem', (r) => !r.recebe], sem: ['Sem e-mail', (r) => r.recebe && !r.destino] };
+  const pinta = () => {
+    const ver = linhas.filter(F[E.adm.emFiltro][1]);
+    corpo.innerHTML = '<div class="fila-chips em-filtros" role="group" aria-label="Filtro">' + Object.entries(F).map(([k, [r, f]]) => chipFiltro('data-em-f', k || '*', r + ' (' + linhas.filter(f).length + ')', E.adm.emFiltro === k)).join('') + '</div>' +
+      '<div class="card"><div class="tabela-wrap"><table class="ordenavel em-quem"><thead><tr><th>Grupo</th><th>Cliente</th><th>E-mail de destino</th><th>Recebe</th><th data-tipo="data">Último e-mail</th></tr></thead><tbody>' +
+      (ver.length ? ver.map((r) => '<tr><td>' + esc(r.grupo || '—') + '</td><td>' + esc(r.cliente) + '</td>' +
+        '<td>' + (r.destino ? esc(r.destino) : '<span class="pill vencido">sem e-mail</span>') + '</td>' +
+        '<td>' + pillRecebeEmail({ id: r.cliente_id, recebe_email: r.recebe }) + '</td>' +
+        '<td data-ord="' + (r.ultimo_em || '') + '">' + (r.ultimo_em ? dataBR(r.ultimo_em) + ' <span class="sub">' + esc(r.ultimo_assunto || '') + '</span>' : '<span class="sub">—</span>') + '</td></tr>').join('')
+        : '<tr><td colspan="5">' + vazio('Ninguém neste filtro.') + '</td></tr>') + '</tbody></table></div></div>' +
+      '<div class="dica">Clique em <b>✉ Sim</b> / <b>✕ Não</b> para trocar. Quem está em "Não" não recebe nada do escritório (nem rascunho). <b>Sem e-mail</b> = vai receber, mas falta cadastrar o endereço (ficha → Contatos).</div>';
+    corpo.querySelectorAll('[data-em-f]').forEach((b) => b.onclick = () => { E.adm.emFiltro = b.dataset.emF === '*' ? '' : b.dataset.emF; pinta(); });
+    corpo.querySelectorAll('[data-cli-email]').forEach((b) => b.onclick = () => comBotao(b, async () => {
+      const r = linhas.find((x) => x.cliente_id === b.dataset.cliEmail); await trocarRecebeEmail([r.cliente_id], !r.recebe); r.recebe = !r.recebe;
+      const c = E.clientes.find((x) => x.id === r.cliente_id); if (c) c.recebe_email = r.recebe; pinta(); }));
+  };
+  pinta();
+}
+async function admEmailRevisar(corpo) {
+  const [ret, liga] = await Promise.all([
+    q(sb.from('email_fila').select('id, para, para_original, assunto, html, criado_em, tipo, usuario_id').eq('status', 'retido').order('criado_em', { ascending: false }).limit(300)).catch(() => []),
+    q(sb.rpc('emails_revisar')).catch(() => false)]);
+  corpo.innerHTML = '<div class="card"><div class="card-hd">Revisar antes de sair<span class="sub" style="margin-left:auto;font-weight:400">vale para os e-mails automáticos ao cliente (lembretes, cobranças, avisos)</span></div><div class="card-bd">' +
+    '<label class="au-chave em-rev-chave"><input type="checkbox" role="switch" id="em-revisar"' + (liga ? ' checked' : '') + '><span class="au-trilho" aria-hidden="true"></span> ' +
+      (liga ? '<b>Ligado:</b> os automáticos esperam aqui o seu clique.' : '<b>Desligado:</b> os automáticos saem sozinhos.') + '</label>' +
+    '<p class="sub" style="margin-top:6px">Os e-mails que você manda na hora (guias, acordos, rascunhos) não passam por aqui.</p></div></div>' +
+    '<div class="card"><div class="card-hd">Esperando revisão <span class="sub">' + ret.length + '</span>' +
+      (ret.length ? '<div class="acoes" style="margin-left:auto"><button class="btn btn-o btn-mini" id="em-desc-todos">Descartar todos</button><button class="btn btn-p btn-mini" id="em-env-todos">✉ Enviar todos (' + ret.length + ')</button></div>' : '') + '</div>' +
+    (ret.length ? '<div class="tabela-wrap"><table class="em-rev"><thead><tr><th>Para</th><th>Assunto</th><th data-tipo="data">Criado</th><th></th></tr></thead><tbody>' +
+      ret.map((m) => '<tr><td>' + esc(m.para_original || m.para) + '</td><td>' + esc(m.assunto) + '</td><td>' + dataBR(m.criado_em) + '</td>' +
+        '<td class="acoes-l"><button class="btn btn-o btn-mini" data-em-ver="' + m.id + '">👁 Ver</button> <button class="btn btn-p btn-mini" data-em-env="' + m.id + '">Enviar</button> <button class="btn btn-x btn-mini" data-em-desc="' + m.id + '" title="Não enviar">✕</button></td></tr>').join('') +
+      '</tbody></table></div>' : '<div class="card-bd">' + vazio('Nada esperando revisão.') + '</div>') + '</div>';
+  const acao = (ids, a) => async () => { const n = await q(sb.rpc('emails_retidos_acao', { p_ids: ids, p_acao: a }));
+    if (a === 'liberar' && n) await enviarEmailAgora(null).catch(() => null);
+    aviso('✓ ' + plural(n, 'e-mail', 'e-mails') + (a === 'liberar' ? ' liberado(s) para envio.' : ' descartado(s).')); await admEmailRevisar(corpo); };
+  corpo.querySelector('#em-revisar').onchange = (ev) => comBotao(ev.target, async () => { await q(sb.rpc('salvar_emails_revisar', { p: ev.target.checked })); await admEmailRevisar(corpo); });
+  const todos = ret.map((m) => m.id);
+  if (corpo.querySelector('#em-env-todos')) corpo.querySelector('#em-env-todos').onclick = (ev) => comBotao(ev.currentTarget, acao(todos, 'liberar'));
+  if (corpo.querySelector('#em-desc-todos')) corpo.querySelector('#em-desc-todos').onclick = (ev) => { if (confirm('Descartar os ' + todos.length + ' e-mails? Eles não serão enviados.')) comBotao(ev.currentTarget, acao(todos, 'descartar')); };
+  corpo.querySelectorAll('[data-em-env]').forEach((b) => b.onclick = () => comBotao(b, acao([b.dataset.emEnv], 'liberar')));
+  corpo.querySelectorAll('[data-em-desc]').forEach((b) => b.onclick = () => comBotao(b, acao([b.dataset.emDesc], 'descartar')));
+  corpo.querySelectorAll('[data-em-ver]').forEach((b) => b.onclick = () => { const m = ret.find((x) => x.id === b.dataset.emVer); verEmailHtml(m.assunto, m.html); });
+}
+// mostra o e-mail como o cliente vai ver
+function verEmailHtml(titulo, html) {
+  const j = abrirJanela({ titulo: '👁 ' + titulo, larga: true, corpo: '<iframe class="em-previa" sandbox="" title="Prévia do e-mail"></iframe>',
+    rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Fechar</button></div>' });
+  j.querySelector('iframe').srcdoc = html || '';
+  j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
+  return j;
+}
+async function admEmailConfig(corpo) {
   const [st, fila] = await Promise.all([
     q(sb.rpc('status_config_email')).catch(() => ({})),
     q(sb.from('email_fila').select('para, assunto, status, erro, criado_em, enviado_em, tipo').order('criado_em', { ascending: false }).limit(30)).catch(() => [])

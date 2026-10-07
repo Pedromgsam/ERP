@@ -107,7 +107,7 @@ const FILA = { toda: false, min: false, vista: 'lista', ref: null, lida: false, 
 // Backup 38: a agenda mostra SÓ o que está em Tarefas (tarefas e compromissos lançados pela equipe).
 // O administrador escolhe de quem ver: só as suas, todos, ou uma pessoa; os demais veem só as suas.
 const ehAdminFila = () => !!(E.perfil && E.perfil.papel === 'admin');
-const VISTAS_FILA = [['lista', 'Lista'], ['mes', 'Mês'], ['semana', 'Semana'], ['dia', 'Dia']];
+const VISTAS_FILA = [['lista', 'Lista'], ['mes', 'Mês']];   // Backup 49: Semana e Dia ficaram em Tarefas → Calendário
 function salvarPrefFila() {
   const v = { vista: FILA.vista, min: FILA.min, quem: FILA.quem || '', pessoas: FILA.pessoas || null, tipos: FILA.tipos || null };
   if (E.perfil) E.perfil.preferencias = Object.assign({}, E.perfil.preferencias || {}, { fila: v });
@@ -328,7 +328,7 @@ function calendarioFila(lista) {
     '<button type="button" class="btn btn-p btn-mini ag-bt" data-agendar>+ Agendar</button></div>' + corpo + legendaAgenda() + '</div></div>';
 }
 async function cardMinhaFila() {
-  if (!FILA.lida) { const p = (E.perfil && E.perfil.preferencias && E.perfil.preferencias.fila) || {}; if (p.vista) FILA.vista = p.vista; FILA.min = false; FILA.quem = p.quem || '';
+  if (!FILA.lida) { const p = (E.perfil && E.perfil.preferencias && E.perfil.preferencias.fila) || {}; if (p.vista) FILA.vista = p.vista === 'lista' ? 'lista' : 'mes'; FILA.min = false; FILA.quem = p.quem || '';
     FILA.pessoas = Array.isArray(p.pessoas) ? p.pessoas : null; FILA.tipos = Array.isArray(p.tipos) ? p.tipos : null; FILA.lida = true; }
   await feriados();
   await equipe().catch(() => []);
@@ -425,27 +425,33 @@ TELAS.tarefas = async function () {
   const F = E.tf;
   // abas: o painel mostra só o que está em aberto; concluídas e excluídas ficam separadas
   F.aba = F.aba || 'abertas'; if (F.atalho === 'abertas' || F.atalho === 'concluidas') F.atalho = '';
+  // Backup 49: Minha semana virou a vista Semana do Calendário; o Quadro saiu (repetia a Lista)
+  if (F.vista === 'semana') { F.vista = 'calendario'; F.calVista = 'semana'; }
+  if (F.vista === 'kanban') F.vista = 'lista';
+  if (F.atalho === 'minhas') F.atalho = '';
   $('conteudo').innerHTML =
-    '<div class="titulo-pag"><div><h1>Tarefas</h1><p>Prazos, fluxos e acompanhamento do escritório</p></div>' +
-    '<div class="acoes"><button class="btn btn-o" id="tf-modelos">Modelos de fluxo</button><button class="btn btn-o" id="tf-feriados">Feriados</button><button class="btn btn-o" id="tf-agenda" title="Prazos fatais e audiências no seu Google Agenda">📅 Google Agenda</button>' +
-    '<button class="btn btn-o" id="tf-delegar" title="Delegar uma sequência de passos (ex.: lead completo) com validação">👥 Delegar</button><button class="btn btn-o" id="tf-fluxo">+ Novo fluxo</button><button class="btn btn-p" id="tf-nova">+ Nova tarefa</button></div></div>' +
-    '<div class="tf-rapida"><input id="tf-rapida" autocomplete="off" placeholder="⚡ Criação rápida: “Protocolar defesa amanhã @Emanuelle !alta” e Enter" aria-label="Criação rápida de tarefa">' +
+    // Backup 49: abas junto do título; só "+ Nova tarefa" e "Delegar" à vista — o resto no ⚙; a criação rápida abre no ⚡
+    '<div class="titulo-pag"><div><h1>Tarefas</h1><div class="segmento tf-abas-seg" id="tf-abas">' + [['abertas', 'Em aberto'], ['concluidas', 'Concluídas'], ['excluidas', 'Excluídas']]
+      .map(([v, r]) => '<button data-aba="' + v + '">' + r + '</button>').join('') + '</div></div>' +
+    '<div class="acoes"><button class="btn btn-o tf-bt-ic" id="tf-rapida-bt" title="Criação rápida: escreva a tarefa numa linha (ex.: Protocolar defesa amanhã @Emanuelle !alta)" aria-expanded="false">⚡</button>' +
+    '<span class="tf-cfg-wrap"><button class="btn btn-o tf-bt-ic" id="tf-config" title="Configurar: modelos de fluxo, feriados, Google Agenda e novo fluxo" aria-expanded="false">⚙</button>' +
+      '<span class="tf-cfg-menu" id="tf-cfg-menu" hidden><button class="btn btn-o" id="tf-fluxo">+ Novo fluxo</button><button class="btn btn-o" id="tf-modelos">Modelos de fluxo</button>' +
+      '<button class="btn btn-o" id="tf-feriados">Feriados</button><button class="btn btn-o" id="tf-agenda" title="Prazos fatais e audiências no seu Google Agenda">📅 Google Agenda</button></span></span>' +
+    '<button class="btn btn-o" id="tf-delegar" title="Delegar uma sequência de passos (ex.: lead completo) com validação">👥 Delegar</button><button class="btn btn-p" id="tf-nova">+ Nova tarefa</button></div></div>' +
+    '<div class="tf-rapida" id="tf-rapida-box" hidden><input id="tf-rapida" autocomplete="off" placeholder="⚡ Criação rápida: “Protocolar defesa amanhã @Emanuelle !alta” e Enter" aria-label="Criação rápida de tarefa">' +
       '<div id="tf-rapida-prev" class="tf-rapida-prev"></div></div>' +
-    // Backup 39: Em aberto / Concluídas / Excluídas no mesmo estilo de Lista / Minha semana / Quadro
-    '<div class="segmento tf-abas-seg" id="tf-abas">' + [['abertas', 'Em aberto'], ['concluidas', 'Concluídas'], ['excluidas', 'Excluídas']]
-      .map(([v, r]) => '<button data-aba="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<div class="filtros">' +
-    '<div class="segmento" id="tf-vista">' + [['lista', 'Lista'], ['semana', 'Minha semana'], ['kanban', 'Quadro'], ['calendario', 'Calendário'], ['fluxos', 'Fluxos']]
+    '<div class="segmento" id="tf-vista">' + [['lista', 'Lista'], ['calendario', 'Calendário'], ['fluxos', 'Fluxos']]
       .map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
-    '<div class="segmento" id="tf-atalho">' + [['', 'Todas'], ['minhas', 'Minhas'], ['hoje', 'Hoje'], ['atrasadas', 'Atrasadas'], ['7', '7 dias']].concat(F.atalho === 'atencao' ? [['atencao', 'Pedem atenção']] : [])
-      .map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
-    // Backup 40: pessoa e prioridade em botões (como Todas/Minhas/Hoje); pessoa = responsável OU participante
-    '<div class="segmento" id="tf-pri" aria-label="Prioridade">' + [['', 'Todas as prioridades'], ['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<input class="busca" id="tf-busca" placeholder="Buscar tarefa, cliente, processo ou etiqueta" autocomplete="off">' +
-    // Backup 48: Mostrar (tipo) e De quem — os mesmos filtros e o mesmo desenho da agenda do Início
+    // Backup 48/49: Mostrar (tipo, prioridade e prazo) e De quem — o mesmo desenho da agenda do Início
     '</div><div class="fila-filtros tf-filtros" id="tf-chips"></div><div id="tf-corpo"><div class="carregando">Carregando…</div></div>';
   $('tf-nova').onclick = () => formTarefa({}, () => TELAS.tarefas());
   ligarCriacaoRapida();
+  $('tf-rapida-bt').onclick = () => { const bx = $('tf-rapida-box'); bx.hidden = !bx.hidden; $('tf-rapida-bt').setAttribute('aria-expanded', String(!bx.hidden)); if (!bx.hidden) $('tf-rapida').focus(); };
+  $('tf-config').onclick = (ev) => { ev.stopPropagation(); const m = $('tf-cfg-menu'); m.hidden = !m.hidden; $('tf-config').setAttribute('aria-expanded', String(!m.hidden)); };
+  if (!window._tfCfgDoc) { window._tfCfgDoc = true; document.addEventListener('click', (ev) => { const m = $('tf-cfg-menu'); if (m && !m.hidden && !ev.target.closest('.tf-cfg-wrap')) m.hidden = true; }); }
+  $('tf-cfg-menu').addEventListener('click', () => { setTimeout(() => { const m = $('tf-cfg-menu'); if (m) m.hidden = true; }, 0); });
   $('tf-fluxo').onclick = () => formNovoFluxo(() => TELAS.tarefas());
   $('tf-modelos').onclick = () => janelaModelos();
   $('tf-delegar').onclick = () => janelaDelegar({}, () => TELAS.tarefas());
@@ -453,10 +459,10 @@ TELAS.tarefas = async function () {
   $('tf-agenda').onclick = () => janelaAgenda();
   $('tf-vista').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.vista = b.dataset.v; pintarTarefas(); } };
   $('tf-abas').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.aba = b.dataset.aba; pintarTarefas(); } };
-  $('tf-atalho').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.atalho = b.dataset.v; pintarTarefas(); } };
-  $('tf-pri').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.pri = b.dataset.v; pintarTarefas(); } };
   $('tf-chips').onclick = (ev) => { const b = ev.target.closest('button'); if (!b) return;
     if (b.dataset.tfTipo != null) F.tipos = alternarFiltro(F.tipos || FILTRO_TIPOS_AG.map((x) => x[0]), b.dataset.tfTipo, FILTRO_TIPOS_AG.map((x) => x[0]));
+    else if (b.dataset.tfPri != null) F.pri = F.pri === b.dataset.tfPri ? '' : b.dataset.tfPri;
+    else if (b.dataset.tfPrazo != null) F.atalho = F.atalho === b.dataset.tfPrazo ? '' : b.dataset.tfPrazo;
     else { const todos = pessoasFiltro().map(primeiroNome); F.pessoas = alternarFiltro(F.pessoas && F.pessoas.length ? F.pessoas : todos, b.dataset.tfPes, todos); if (!F.pessoas.length) F.pessoas = [primeiroNome(meuNome())]; }
     pintarTarefas(); };
   $('tf-busca').value = F.busca;
@@ -494,18 +500,18 @@ function filtrarTarefas() {
 function pintarTarefas() {
   const F = E.tf, h = hojeISO();
   document.querySelectorAll('#tf-vista button').forEach((b) => b.classList.toggle('ativo', b.dataset.v === F.vista));
-  document.querySelectorAll('#tf-atalho button').forEach((b) => b.classList.toggle('ativo', b.dataset.v === F.atalho));
   document.querySelectorAll('#tf-abas button').forEach((b) => b.classList.toggle('ativo', b.dataset.aba === F.aba));
   // Backup 48: filtros em botões que se marcam/desmarcam (iguais aos da agenda do Início); pessoas: Todos, eu, depois os outros
   { const tipos = FILTRO_TIPOS_AG.map((x) => x[0]), tSel = new Set(F.tipos || tipos), eu = primeiroNome(meuNome());
     const pes = pessoasFiltro().slice().sort((a, b) => (primeiroNome(b) === eu) - (primeiroNome(a) === eu) || a.localeCompare(b, 'pt-BR'));
     const pSel = new Set(F.pessoas && F.pessoas.length ? F.pessoas : pes.map(primeiroNome)), todasP = pSel.size >= pes.length;
+    const prazos = [['hoje', 'Hoje'], ['atrasadas', 'Atrasadas'], ['7', '7 dias']].concat(F.atalho === 'atencao' ? [['atencao', 'Pedem atenção']] : []);
     $('tf-chips').innerHTML = '<div class="fila-chips" role="group" aria-label="Mostrar"><span class="fila-chips-rot">Mostrar</span>' +
-        chipFiltro('data-tf-tipo', '*', 'Tudo', tSel.size === tipos.length, true) + FILTRO_TIPOS_AG.map(([k, r]) => chipFiltro('data-tf-tipo', k, r, tSel.has(k), true)).join('') + '</div>' +
+        chipFiltro('data-tf-tipo', '*', 'Tudo', tSel.size === tipos.length, true) + FILTRO_TIPOS_AG.map(([k, r]) => chipFiltro('data-tf-tipo', k, r, tSel.has(k), true)).join('') +
+        '<span class="fila-chips-sep" aria-hidden="true"></span>' + [['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa']].map(([k, r]) => chipFiltro('data-tf-pri', k, r, F.pri === k)).join('') +
+        (F.aba === 'abertas' && F.vista !== 'fluxos' ? '<span class="fila-chips-sep" aria-hidden="true"></span>' + prazos.map(([k, r]) => chipFiltro('data-tf-prazo', k, r, F.atalho === k)).join('') : '') + '</div>' +
       (pes.length > 1 ? '<div class="fila-chips" role="group" aria-label="De quem"><span class="fila-chips-rot">De quem</span>' +
         chipFiltro('data-tf-pes', '*', 'Todos', todasP) + pes.map((n) => chipFiltro('data-tf-pes', primeiroNome(n), nomeCurto(n), pSel.has(primeiroNome(n)))).join('') + '</div>' : ''); }
-  document.querySelectorAll('#tf-pri button').forEach((b) => b.classList.toggle('ativo', b.dataset.v === (F.pri || '')));
-  $('tf-atalho').style.display = F.vista === 'fluxos' || F.aba !== 'abertas' ? 'none' : '';
   const todas = E._tarefas || [];
   const abertas = todas.filter((t) => !tarefaFechada(t));
   const atrasadas = abertas.filter((t) => t.prazo && t.prazo < h).length;
@@ -515,7 +521,7 @@ function pintarTarefas() {
     kpi('Atrasadas', String(atrasadas), atrasadas ? 'vermelho' : 'verde', 'todas as pessoas') +
     kpi('Prazos fatais em 7 dias', String(fatais), fatais ? 'ambar' : '', 'tarefas com prazo fatal marcado') +
     kpi('Concluídas no mês', String(todas.filter((t) => t.status === 'concluida' && String(t.concluida_em || '').slice(0, 7) === h.slice(0, 7)).length), 'verde', '') + '</div>';
-  const V = { lista: vistaLista, semana: vistaSemana, kanban: vistaKanban, calendario: vistaCalendario, fluxos: vistaFluxos };
+  const V = { lista: vistaLista, calendario: vistaCalendario, fluxos: vistaFluxos };
   $('tf-corpo').innerHTML = kpis + '<div id="tf-vista-corpo"></div>';
   if (!V[F.vista]) F.vista = 'lista';
   V[F.vista]($('tf-vista-corpo'));
@@ -605,18 +611,29 @@ function vistaKanban(alvo) {
 }
 
 // ── Calendário do mês (prazo interno e ⚑ prazo fatal) ──
-async function vistaCalendario(alvo) {
+async function vistaCalendario(raiz) {
+  // Backup 49: Calendário com Mês · Semana · Dia (a "Minha semana" de arrastar virou a Semana daqui; o Início ficou só com Lista e Mês)
+  const F = E.tf; F.calVista = F.calVista || 'mes';
+  raiz.innerHTML = '<div class="segmento tf-cal-vista" id="tf-cal-vista">' + [['mes', 'Mês'], ['semana', 'Semana'], ['dia', 'Dia']]
+    .map(([v, r]) => '<button type="button" data-cal-v="' + v + '"' + (F.calVista === v ? ' class="ativo"' : '') + '>' + r + '</button>').join('') + '</div><div id="tf-cal-corpo"></div>';
+  raiz.querySelector('#tf-cal-vista').onclick = (ev) => { const b = ev.target.closest('[data-cal-v]'); if (b) { F.calVista = b.dataset.calV; pintarTarefas(); } };
+  const alvo = raiz.querySelector('#tf-cal-corpo');
+  if (F.calVista === 'semana') return vistaSemana(alvo);
   // Backup 39: o MESMO calendário do Início (quadro Atrasadas, cores da legenda, sem cinza depois do último dia); clicar abre o detalhe
-  const F = E.tf; await feriados();
+  await feriados();
+  const dia = F.calVista === 'dia';
+  F.dia = F.dia || hojeISO();
   const salvo = { vista: FILA.vista, ref: FILA.ref };
-  FILA.vista = 'mes'; FILA.ref = F.mes + '-01';
+  FILA.vista = dia ? 'dia' : 'mes'; FILA.ref = dia ? F.dia : F.mes + '-01';
   // Backup 40: em "Em aberto" as concluídas do mês também aparecem, riscadas
-  const pre = F.mes + '-', lista = filtrarTarefas().concat(F.aba === 'abertas' ? (E._tarefas || []).filter((t) => t.status === 'concluida' && String(t.prazo || '').startsWith(pre)) : []);
+  const pre = dia ? F.dia : F.mes + '-', lista = filtrarTarefas().concat(F.aba === 'abertas' ? (E._tarefas || []).filter((t) => t.status === 'concluida' && String(t.prazo || '').startsWith(pre)) : []);
   alvo.innerHTML = '<div class="card ini-fila tf-cal"><div class="card-bd">' + calendarioFila(lista) + '</div></div>';
   FILA.vista = salvo.vista; FILA.ref = salvo.ref;
   const [a, m] = F.mes.split('-').map(Number);
   alvo.querySelectorAll('[data-fila-nav]').forEach((b) => b.onclick = () => {
-    const n = +b.dataset.filaNav, d = n ? new Date(a, m - 1 + n, 1) : new Date();
+    const n = +b.dataset.filaNav;
+    if (dia) { F.dia = n ? somarDias(F.dia, n) : hojeISO(); return pintarTarefas(); }
+    const d = n ? new Date(a, m - 1 + n, 1) : new Date();
     F.mes = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); pintarTarefas(); });
   alvo.querySelectorAll('[data-fila]').forEach((d) => d.onclick = () => abrirTarefa(E._tarefas.find((t) => t.id === d.dataset.fila), recarregarTarefas));
   alvo.querySelectorAll('[data-agendar]').forEach((b) => b.onclick = () => janelaAgendar(hojeISO(), recarregarTarefas));
