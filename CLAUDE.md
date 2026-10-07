@@ -97,6 +97,8 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
   `textoRepete`, `datasRegra` (cópia fiel; erp.js compara com o banco), `perguntarSerie` (`#tf-serie-esta`/`#tf-serie-prox`), `projecoesRecorrentes`. E1–E4: `admEmailConfig` em 3 `.em-passo`
   (`formConta`, Avançado `details.em-avancado`, `⋯ Ferramentas` `#em-ferr-menu`, `#email-testar`), aba `saida` = `admEmailSaida` (`FILTROS_SAIDA`, `[data-saida-f]`, `[data-em-tentar]` → `email_reenviar`);
   `admEmailRevisar` = filtro revisar. Tempos antes/depois no COMO-ATUALIZAR (Backup 51).
+  Próxima rodada: `sistema/SUGESTOES-B51.md` (C1–C7 pedidos: Início Semana/Mês, tirar Atualizações, quadros do tamanho do conteúdo, sem borda azul,
+  Buscar agora pelo navegador, código PIX na parcela do acordo, texto genérico sem "da Fulano"; P simetria; O/N/A/S) e prompt `sistema/PROMPT-BACKUP-52.md`.
 - Backup 50 (base) (SQL + função erp-agenda). Início: atalho `financeiro` em `cardResumoEscritorio` (lancamentos ≤ hoje+5); chips `.fila-chip.ativo` de uma cor
   (`--selecao`, sem as cores por tipo). erp-agenda (VERSAO 2026-10-08): todas as tarefas abertas com prazo/prazo_fatal do responsável OU participante, `TZID=America/Sao_Paulo` com hora.
   Tarefas: `pillStatusTarefa` (`.tf-st-<status>`), colunas Prazo + Dias (`celulaAtraso`), `.cal-pri-<prioridade>` no calendário. Cadastro de cliente sem `.cli-rapido`; `formCliente(cl, depois, abaInicial)`.
