@@ -1413,6 +1413,8 @@ html[data-tema=escuro] body .gs .fila-chips .fila-chip[data-fila-tipo].ativo{col
 body.gx-barra-topo table:has(> #tblExecRanking) th,body.gx-barra-topo #tblExecRanking td{text-align:center!important}
 body.gx-barra-topo table:has(> #tblExecRanking) th:nth-child(3),body.gx-barra-topo #tblExecRanking td:nth-child(3){text-align:left!important}
 body.gx-barra-topo #tblExecRanking .er-grupo{text-align:center!important}
+/* Backup 48: Grupo e CPF/CNPJ alinhados à esquerda (os títulos continuam centralizados) */
+body.gx-barra-topo #tblExecRanking td:nth-child(2),body.gx-barra-topo #tblExecRanking td:nth-child(4){text-align:left!important}
 /* Rotina → Passivo: empresa maior; CAPAG e Conferência menores */
 .gs .rt-pas col.rt-w-emp{width:22%}.gs .rt-pas col.rt-w-org{width:12%}.gs .rt-pas col.rt-w-ceat{width:5%}
 .gs .rt-pas col.rt-w-sn{width:7.5%}.gs .rt-pas col.rt-w-capag{width:6.5%}.gs .rt-pas col.rt-w-conf{width:15.5%}

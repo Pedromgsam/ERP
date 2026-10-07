@@ -82,7 +82,10 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
-- Última entrega: **Backup 47** (sem SQL): importação — `IMPORTADOR.gruposFaltando(nomes, existentes)` (importador.js) tira repetidos pelo `norm` (caixa, espaços,
+- Última entrega: **Backup 48** (sem SQL): Tarefas com `#tf-chips` (Mostrar `[data-tf-tipo]` + De quem `[data-tf-pes]`; `E.tf.tipos`/`E.tf.pessoas`, vazio = todos) usando
+  `chipFiltro(attr, v, rot, on, comCor)` e `alternarFiltro` (telas-tarefas.js, também no Início); `#tf-resp` saiu (Minha semana usa `F.pessoas`). Painel: td 2 e 4 do `#tblExecRanking` à esquerda.
+  Sugestões numeradas em `sistema/SUGESTOES-B48.md`; próximo prompt `sistema/PROMPT-BACKUP-49.md` (e-mails: chave única por cliente + modelo bonito nas guias).
+- Backup 47 (base) (sem SQL): importação — `IMPORTADOR.gruposFaltando(nomes, existentes)` (importador.js) tira repetidos pelo `norm` (caixa, espaços,
   acentos) antes do insert em `grupos` (índice `grupos_nome_unico` = lower(btrim)); `idGrupo` em `gravarImportacao` compara com espaços colapsados.
 - Backup 46 (base) (só SQL; erp-emails = B44). Agenda: `FILTRO_TIPOS_AG` na ordem reunião/audiência/compromisso/tarefa/rotina, chips `.fila-chip-<tipo>` (cores no
   bloco "Backup 46" do design.css; `--orange` nos tokens), `ag-rotina`, concluídas dos últimos 60 dias (`ag-feita`), "De quem" = Todos + eu + outros, Lista 10 itens com `minHeight` = `FILA.altCal`.

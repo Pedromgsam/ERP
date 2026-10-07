@@ -125,6 +125,16 @@ function tipoItemAgenda(t) {
   if (/^reuniao:/.test(t.chave_regra || '')) return 'reuniao';
   return t.recorrencia || /^rot-/.test(t.chave_regra || '') ? 'rotina' : 'tarefa';
 }
+// Backup 48: o mesmo botão de filtro no Início e em Tarefas (tipo = com a cor do tipo)
+function chipFiltro(attr, v, rot, on, comCor) {
+  return '<button type="button" class="chip fila-chip' + (comCor && v !== '*' ? ' fila-chip-' + v : '') + (on ? ' ativo' : '') + '" ' + attr + '="' + esc(v) + '" data-tipo-filtro="' + (comCor ? 'tipo' : 'pes') + '"' +
+    (comCor ? ' data-fila-tipo-v="' + esc(v) + '"' : '') + ' aria-pressed="' + (on ? 'true' : 'false') + '">' + (on ? '✓ ' : '') + esc(rot) + '</button>';
+}
+// marca/desmarca num conjunto; '*' = todos (ou nenhum, se já estavam todos)
+function alternarFiltro(atual, v, todos) {
+  let t = new Set(atual); if (v === '*') t = t.size >= todos.length ? new Set() : new Set(todos); else if (t.has(v)) t.delete(v); else t.add(v);
+  return [...t];
+}
 function nivelDe(u) { return u ? (u.nivel != null ? Number(u.nivel) : nivelCargo(u.cargo, u.papel)) : 2; }
 // quem eu posso ver/lançar: eu + quem está no mesmo nível ou abaixo (o administrador vê todos)
 function pessoasVisiveis() {
@@ -335,7 +345,7 @@ async function cardMinhaFila() {
   const todas = ordenarFila(ts.filter((t) => daPessoa(t) && tiposSel.has(tipoItemAgenda(t)) && !/^(cob|parc|aco):/.test(t.chave_regra || ''))), minhas = FILA.toda ? todas : todas.slice(0, 10);
   const naAgenda = todas.concat(feitas.filter((t) => daPessoa(t) && tiposSel.has(tipoItemAgenda(t))));
   const rotQuem = sel.length === 1 && sel[0] === eu ? 'suas' : sel.length >= okVis.size && okVis.size > 1 ? 'de todos' : sel.map((k) => nomeCurto(visiveis.find((n) => chave(n) === k) || k)).join(', ');
-  const chip = (attr, v, rot, on) => '<button type="button" class="chip fila-chip' + (attr === 'data-fila-tipo' && v !== '*' ? ' fila-chip-' + v : '') + (on ? ' ativo' : '') + '" ' + attr + '="' + esc(v) + '" aria-pressed="' + (on ? 'true' : 'false') + '">' + (on ? '✓ ' : '') + esc(rot) + '</button>';
+  const chip = (attr, v, rot, on) => chipFiltro(attr, v, rot, on, attr === 'data-fila-tipo');
   const filtros = '<div class="fila-filtros">' +
     '<div class="fila-chips" role="group" aria-label="Mostrar"><span class="fila-chips-rot">Mostrar</span>' + chip('data-fila-tipo', '*', 'Tudo', tiposSel.size === FILTRO_TIPOS_AG.length) +
       FILTRO_TIPOS_AG.map(([k, r]) => chip('data-fila-tipo', k, r, tiposSel.has(k))).join('') + '</div>' +
@@ -430,10 +440,10 @@ TELAS.tarefas = async function () {
     '<div class="segmento" id="tf-atalho">' + [['', 'Todas'], ['minhas', 'Minhas'], ['hoje', 'Hoje'], ['atrasadas', 'Atrasadas'], ['7', '7 dias']].concat(F.atalho === 'atencao' ? [['atencao', 'Pedem atenção']] : [])
       .map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     // Backup 40: pessoa e prioridade em botões (como Todas/Minhas/Hoje); pessoa = responsável OU participante
-    '<div class="segmento" id="tf-resp" aria-label="Pessoa">' + [['', 'Todas as pessoas']].concat(pessoasFiltro().map((p) => [p, nomeCurto(p)])).map(([v, r]) => '<button data-v="' + esc(v) + '">' + esc(r) + '</button>').join('') + '</div>' +
     '<div class="segmento" id="tf-pri" aria-label="Prioridade">' + [['', 'Todas as prioridades'], ['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<input class="busca" id="tf-busca" placeholder="Buscar tarefa, cliente, processo ou etiqueta" autocomplete="off">' +
-    '</div><div id="tf-corpo"><div class="carregando">Carregando…</div></div>';
+    // Backup 48: Mostrar (tipo) e De quem — os mesmos filtros e o mesmo desenho da agenda do Início
+    '</div><div class="fila-filtros tf-filtros" id="tf-chips"></div><div id="tf-corpo"><div class="carregando">Carregando…</div></div>';
   $('tf-nova').onclick = () => formTarefa({}, () => TELAS.tarefas());
   ligarCriacaoRapida();
   $('tf-fluxo').onclick = () => formNovoFluxo(() => TELAS.tarefas());
@@ -444,7 +454,11 @@ TELAS.tarefas = async function () {
   $('tf-vista').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.vista = b.dataset.v; pintarTarefas(); } };
   $('tf-abas').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.aba = b.dataset.aba; pintarTarefas(); } };
   $('tf-atalho').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.atalho = b.dataset.v; pintarTarefas(); } };
-  [['tf-resp', 'resp'], ['tf-pri', 'pri']].forEach(([id, k]) => { $(id).onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F[k] = b.dataset.v; pintarTarefas(); } }; });
+  $('tf-pri').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.pri = b.dataset.v; pintarTarefas(); } };
+  $('tf-chips').onclick = (ev) => { const b = ev.target.closest('button'); if (!b) return;
+    if (b.dataset.tfTipo != null) F.tipos = alternarFiltro(F.tipos || FILTRO_TIPOS_AG.map((x) => x[0]), b.dataset.tfTipo, FILTRO_TIPOS_AG.map((x) => x[0]));
+    else { const todos = pessoasFiltro().map(primeiroNome); F.pessoas = alternarFiltro(F.pessoas && F.pessoas.length ? F.pessoas : todos, b.dataset.tfPes, todos); if (!F.pessoas.length) F.pessoas = [primeiroNome(meuNome())]; }
+    pintarTarefas(); };
   $('tf-busca').value = F.busca;
   let t; $('tf-busca').oninput = (ev) => { clearTimeout(t); t = setTimeout(() => { F.busca = ev.target.value; pintarTarefas(); }, 250); };
   const [ts, fl] = await Promise.all([
@@ -469,7 +483,8 @@ function filtrarTarefas() {
     if (a === '7' && (tarefaFechada(t) || !t.prazo || t.prazo > somarDias(h, 7))) return false;
     // "pedem atenção" (destaque do Início): minhas atrasadas ou com prazo fatal em até 7 dias
     if (a === 'atencao' && (tarefaFechada(t) || !ehMinha(t) || !((t.prazo && t.prazo < h) || (t.prazo_fatal && t.prazo_fatal <= somarDias(h, 7))))) return false;
-    if (F.resp && ![t.responsavel].concat(String(t.participantes || '').split(',')).some((n) => primeiroNome(n) === primeiroNome(F.resp))) return false;
+    if (F.tipos && !F.tipos.includes(tipoItemAgenda(t))) return false;
+    if (F.pessoas && F.pessoas.length && ![t.responsavel, t.revisor].concat(String(t.participantes || '').split(',')).some((n) => n && F.pessoas.includes(primeiroNome(n)))) return false;
     if (F.pri && t.prioridade !== F.pri) return false;
     if (b && !normalizar(t.titulo + ' ' + t.processos_vinculados + ' ' + nomeGrupo(t.grupo_id) + ' ' + nomeCliente(t.cliente_id) + ' ' + t.etiquetas + ' ' + t.descricao).includes(b)) return false;
     return true;
@@ -481,7 +496,14 @@ function pintarTarefas() {
   document.querySelectorAll('#tf-vista button').forEach((b) => b.classList.toggle('ativo', b.dataset.v === F.vista));
   document.querySelectorAll('#tf-atalho button').forEach((b) => b.classList.toggle('ativo', b.dataset.v === F.atalho));
   document.querySelectorAll('#tf-abas button').forEach((b) => b.classList.toggle('ativo', b.dataset.aba === F.aba));
-  document.querySelectorAll('#tf-resp button').forEach((b) => b.classList.toggle('ativo', b.dataset.v === (F.resp || '')));
+  // Backup 48: filtros em botões que se marcam/desmarcam (iguais aos da agenda do Início); pessoas: Todos, eu, depois os outros
+  { const tipos = FILTRO_TIPOS_AG.map((x) => x[0]), tSel = new Set(F.tipos || tipos), eu = primeiroNome(meuNome());
+    const pes = pessoasFiltro().slice().sort((a, b) => (primeiroNome(b) === eu) - (primeiroNome(a) === eu) || a.localeCompare(b, 'pt-BR'));
+    const pSel = new Set(F.pessoas && F.pessoas.length ? F.pessoas : pes.map(primeiroNome)), todasP = pSel.size >= pes.length;
+    $('tf-chips').innerHTML = '<div class="fila-chips" role="group" aria-label="Mostrar"><span class="fila-chips-rot">Mostrar</span>' +
+        chipFiltro('data-tf-tipo', '*', 'Tudo', tSel.size === tipos.length, true) + FILTRO_TIPOS_AG.map(([k, r]) => chipFiltro('data-tf-tipo', k, r, tSel.has(k), true)).join('') + '</div>' +
+      (pes.length > 1 ? '<div class="fila-chips" role="group" aria-label="De quem"><span class="fila-chips-rot">De quem</span>' +
+        chipFiltro('data-tf-pes', '*', 'Todos', todasP) + pes.map((n) => chipFiltro('data-tf-pes', primeiroNome(n), nomeCurto(n), pSel.has(primeiroNome(n)))).join('') + '</div>' : ''); }
   document.querySelectorAll('#tf-pri button').forEach((b) => b.classList.toggle('ativo', b.dataset.v === (F.pri || '')));
   $('tf-atalho').style.display = F.vista === 'fluxos' || F.aba !== 'abertas' ? 'none' : '';
   const todas = E._tarefas || [];
@@ -1176,7 +1198,7 @@ function vistaSemana(alvo) {
   const F = E.tf, h = hojeISO();
   const base = new Date((F.semana || h) + 'T12:00:00'); base.setDate(base.getDate() - ((base.getDay() + 6) % 7));
   const seg = iso(base), dias = [0, 1, 2, 3, 4].map((i) => somarDias(seg, i)), sex = dias[4];
-  const quem = F.resp || '';
+  const quem = F.pessoas && F.pessoas.length ? 'escolhida' : '';
   // Backup 39: respeita a aba (Em aberto / Concluídas / Excluídas) — antes "Concluídas" ainda mostrava as abertas
   const doDono = (t) => (quem ? true : ehMinha(t));   // com pessoa escolhida, o filtro de cima já separou (responsável ou participante)
   const ts = filtrarTarefas().filter(doDono);
