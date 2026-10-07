@@ -89,8 +89,8 @@ const TELAS = [['hoje'], ['resumo'], ['processos'], ['parcelamentos'], ['parcela
     ok('linha de baixo com 12 px', tem('linha de baixo (sócio, descrição…)', /fontSize=12px/));
     ok('nenhum botão PIX nas tabelas', await p.evaluate(() => !document.querySelector('[data-pix]')));
     await p.evaluate(() => nav(null, 'hoje')); await p.waitForTimeout(1500);
-    { const tam = await p.evaluate(() => [...new Set([...document.querySelectorAll('#panel-hoje *')].filter((e) => e.offsetParent !== null && [...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())).map((e) => getComputedStyle(e).fontSize))]);
-      ok('Início com no máximo 5 tamanhos de letra', tam.length <= 5, tam.join(' ')); }
+    { const tam = await p.evaluate(() => [...new Set([...document.querySelectorAll('#panel-hoje *')].filter((e) => e.offsetParent !== null && [...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())).map((e) => getComputedStyle(e).fontSize + (/^1[1-4]px$|^20px$/.test(getComputedStyle(e).fontSize) ? '' : ' (' + e.tagName.toLowerCase() + '.' + String(e.className).split(' ')[0] + ')')))]);
+      ok('Início com no máximo 5 tamanhos de letra', new Set(tam.map((x) => x.split(' ')[0])).size <= 5, tam.join(' ')); }
     ok('sem triângulo vermelho nos títulos', await p.evaluate(() => !document.querySelector('.alerta-tri')));
     ok('sem erros de JavaScript', !erros.length, erros.join(' | '));
   } catch (e) { console.error(e); ok('sem exceção no teste', false); }

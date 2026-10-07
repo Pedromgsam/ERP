@@ -535,6 +535,9 @@
 .gs .ini-fila .ini-fila-min{margin-left:0}
 .gs .fila-cal-nav{display:flex;align-items:center;gap:8px;margin-bottom:10px}
 .gs .fila-cal-nav b{min-width:220px;text-align:center;color:var(--ink);text-transform:capitalize}
+@media (max-width:600px){.gs .fila-cal-nav{flex-wrap:wrap}
+.gs .fila-cal-nav b{min-width:0;flex:1}
+}
 .gs .fila-semana{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
 .gs .fila-sem-dia{border:1px solid var(--border);border-radius:10px;padding:6px;min-height:96px;display:flex;flex-direction:column;gap:4px;background:var(--surface)}
 .gs .fila-sem-dia .cal-num{font-size:11.5px;font-weight:700;color:var(--text2);text-transform:capitalize}
@@ -979,9 +982,10 @@
 .gs .ag-bt{margin-left:auto}
 .gs .cal-tf.ag-tarefa,.gs .ag-cor.ag-tarefa{background:var(--surface2);color:var(--text2);border:1px solid var(--border)}
 .gs .cal-tf.ag-atrasada,.gs .ag-cor.ag-atrasada{background:var(--red-lt);color:var(--red-d)}
-.gs .cal-tf.ag-fatal,.gs .ag-cor.ag-fatal{background:var(--red);color:var(--on-cor)}
+.gs .cal-tf.ag-fatal{background:var(--red-lt);color:var(--red-d);border-left:3px solid var(--red)}
+.gs .ag-cor.ag-fatal{background:var(--red);color:var(--on-cor)}
 .gs .cal-tf.ag-reuniao,.gs .ag-cor.ag-reuniao{background:var(--blue-lt);color:var(--blue-d);border-left:3px solid var(--blue)}
-.gs .cal-tf.ag-audiencia,.gs .ag-cor.ag-audiencia{background:var(--violet-lt);color:var(--violet);border-left:3px solid var(--violet)}
+.gs .cal-tf.ag-audiencia,.gs .ag-cor.ag-audiencia{background:var(--violet-lt);color:var(--violet-d);border-left:3px solid var(--violet)}
 .gs .cal-tf.ag-compromisso,.gs .ag-cor.ag-compromisso{background:var(--green-lt);color:var(--green-d);border-left:3px solid var(--green)}
 .gs .cal-tf.ag-ligacao,.gs .ag-cor.ag-ligacao{background:var(--amber-lt);color:var(--amber-d);border-left:3px solid var(--amber)}
 .gs .ag-cor.ag-reuniao{background:var(--blue)}

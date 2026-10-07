@@ -550,6 +550,7 @@ label.ofx-it{cursor:pointer}
 .ini-fila .ini-fila-min{margin-left:0}
 .fila-cal-nav{display:flex;align-items:center;gap:8px;margin-bottom:10px}
 .fila-cal-nav b{min-width:220px;text-align:center;color:var(--ink);text-transform:capitalize}
+@media (max-width:600px){.fila-cal-nav{flex-wrap:wrap}.fila-cal-nav b{min-width:0;flex:1}}
 .fila-semana{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
 .fila-sem-dia{border:1px solid var(--border);border-radius:10px;padding:6px;min-height:96px;display:flex;flex-direction:column;gap:4px;background:var(--surface)}
 .fila-sem-dia .cal-num{font-size:11.5px;font-weight:700;color:var(--text2);text-transform:capitalize}
@@ -1001,9 +1002,9 @@ button.rt-e:hover,button.rt-p:hover{border-color:var(--primario)}
 .ag-bt{margin-left:auto}
 .cal-tf.ag-tarefa,.ag-cor.ag-tarefa{background:var(--surface2);color:var(--text2);border:1px solid var(--border)}
 .cal-tf.ag-atrasada,.ag-cor.ag-atrasada{background:var(--red-lt);color:var(--red-d)}
-.cal-tf.ag-fatal,.ag-cor.ag-fatal{background:var(--red);color:var(--on-cor)}
+.cal-tf.ag-fatal{background:var(--red-lt);color:var(--red-d);border-left:3px solid var(--red)}.ag-cor.ag-fatal{background:var(--red);color:var(--on-cor)}
 .cal-tf.ag-reuniao,.ag-cor.ag-reuniao{background:var(--blue-lt);color:var(--blue-d);border-left:3px solid var(--blue)}
-.cal-tf.ag-audiencia,.ag-cor.ag-audiencia{background:var(--violet-lt);color:var(--violet);border-left:3px solid var(--violet)}
+.cal-tf.ag-audiencia,.ag-cor.ag-audiencia{background:var(--violet-lt);color:var(--violet-d);border-left:3px solid var(--violet)}
 .cal-tf.ag-compromisso,.ag-cor.ag-compromisso{background:var(--green-lt);color:var(--green-d);border-left:3px solid var(--green)}
 .cal-tf.ag-ligacao,.ag-cor.ag-ligacao{background:var(--amber-lt);color:var(--amber-d);border-left:3px solid var(--amber)}
 .ag-cor.ag-reuniao{background:var(--blue)}.ag-cor.ag-audiencia{background:var(--violet)}.ag-cor.ag-compromisso{background:var(--green)}.ag-cor.ag-ligacao{background:var(--amber)}
