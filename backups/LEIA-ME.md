@@ -55,6 +55,7 @@ versão foi ao ar**. O número cresce a cada entrega.
 | 47 | Importação: grupo escrito de dois jeitos na planilha (maiúsculas, espaços ou acentos) não trava mais com "Já existe um grupo com esse nome" |
 | 48 | Tarefas com os mesmos filtros do Início (Mostrar por tipo e De quem, com as cores); Painel com Grupo e CPF/CNPJ à esquerda; lista de sugestões de simplificação e prompt do próximo backup |
 | 49 | Simplificação geral (36 sugestões): chave "Recebe e-mails" por cliente, telas Quem recebe e Para revisar, e-mails das guias no modelo bonito com prévia, faixa do modo teste; Início com atalhos; Tarefas com ⚙ e ⚡; ficha do cliente em 7 abas e cadastro rápido; CRM em 5 etapas; Financeiro igual nas duas empresas (Perdas dentro de Recebidos), reajuste anual dos contratos, Cobrar por e-mail; Alertas, Automações, Publicações e Administração mais enxutos; filtros em chips e régua única |
+| 50 | Início com o financeiro que vence (a receber hoje e nos próximos dias) e filtros de uma cor só; Google Agenda mostra tudo; Tarefas com status colorido e Prazo/Dias separados; cadastro do cliente abre completo; Financeiro com botões alinhados, verde para receber e vermelho para pagar; E-mail → Quem recebe com ✎ para trocar o destino e clique no cliente; novas sugestões (Rotina e e-mail) |
 
 ## Como baixar um backup
 No GitHub, abra a pasta `backups`, clique no arquivo e depois em **Download** (ícone de seta, à direita).

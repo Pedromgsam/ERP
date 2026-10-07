@@ -1398,17 +1398,8 @@ body.gx-barra-topo table:has(> #tblExecRanking) th:nth-child(9),body.gx-barra-to
 /* Início: Rotina com cor própria (laranja) e os filtros "Mostrar" na cor de cada tipo */
 .gs .cal-tf.ag-rotina{background:var(--orange-lt);color:var(--orange-d);border-left:3px solid var(--orange)}
 .gs .ag-cor.ag-rotina{background:var(--orange)}
-body .gs .fila-chips .fila-chip.fila-chip-reuniao.ativo{background:var(--blue)!important;border-color:var(--blue)!important;color:var(--on-cor)!important}
-body .gs .fila-chips .fila-chip.fila-chip-audiencia.ativo{background:var(--violet)!important;border-color:var(--violet)!important;color:var(--on-cor)!important}
-body .gs .fila-chips .fila-chip.fila-chip-compromisso.ativo{background:var(--green)!important;border-color:var(--green)!important;color:var(--on-cor)!important}
-body .gs .fila-chips .fila-chip.fila-chip-tarefa.ativo{background:var(--text2)!important;border-color:var(--text2)!important;color:var(--on-cor)!important}
-body .gs .fila-chips .fila-chip.fila-chip-rotina.ativo{background:var(--orange)!important;border-color:var(--orange)!important;color:var(--on-cor)!important}
-body .gs .fila-chips .fila-chip[data-fila-tipo-v="*"].ativo{background:var(--ink)!important;border-color:var(--ink)!important;color:var(--surface)!important}
-html[data-tema=escuro] body .gs .fila-chips .fila-chip[data-tipo-filtro=tipo].ativo{color:var(--bg)!important}
-.gs .fila-chip.fila-chip-reuniao:not(.ativo){border-color:var(--blue-bd);color:var(--blue-d)}
-.gs .fila-chip.fila-chip-audiencia:not(.ativo){border-color:var(--violet-bd);color:var(--violet)}
-.gs .fila-chip.fila-chip-compromisso:not(.ativo){border-color:var(--green-bd);color:var(--green-d)}
-.gs .fila-chip.fila-chip-rotina:not(.ativo){border-color:var(--orange);color:var(--orange-d)}
+/* Backup 50: filtros (chips) com UMA cor só — ligado = azul de seleção, desligado = neutro (as cores por tipo ficam só nos itens do calendário) */
+body .gs .fila-chips .fila-chip.ativo{background:var(--selecao)!important;border-color:var(--selecao)!important;color:var(--on-selecao)!important}
 /* Painel: tudo centralizado, menos Entidade / sócio */
 body.gx-barra-topo table:has(> #tblExecRanking) th,body.gx-barra-topo #tblExecRanking td{text-align:center!important}
 body.gx-barra-topo table:has(> #tblExecRanking) th:nth-child(3),body.gx-barra-topo #tblExecRanking td:nth-child(3){text-align:left!important}
@@ -1516,7 +1507,7 @@ body.gx-com-teste{padding-bottom:38px}
 .fin-perdas-seg{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 12px}
 .fin-perdas-seg .fila-chips-rot{font:700 11px var(--font-ui);color:var(--text3);text-transform:uppercase;letter-spacing:.04em;min-width:64px}
 .fin-perdas-seg .fila-chip{font:600 12px var(--font-ui);padding:4px 11px;border-radius:var(--r-pill);border:1px solid var(--border-strong);background:var(--surface);color:var(--text2);cursor:pointer}
-.fin-perdas-seg .fila-chip.ativo{background:var(--ink);border-color:var(--ink);color:var(--surface)}
+.fin-perdas-seg .fila-chip.ativo{background:var(--selecao);border-color:var(--selecao);color:var(--on-selecao)}
 .fin-tab .fa-ic{display:none}
 /* Backup 49 (25): ficha do cliente — partes empilhadas dentro da mesma aba */
 .gs .ficha-parte:empty{display:none}
@@ -1546,3 +1537,32 @@ body.gx-barra-topo .gs .filtros .segmento{display:flex;flex-wrap:wrap;gap:6px;ba
 body.gx-barra-topo .gs .filtros .segmento button{border:1px solid var(--border-strong);border-radius:var(--r-pill);padding:4px 11px;font:600 12px var(--font-ui);background:var(--surface);color:var(--text2);min-height:0}
 /* Backup 49: atalhos do Início no celular — quebram a linha em vez de passar da tela */
 @media(max-width:600px){.gs .ini-at{white-space:normal;max-width:100%;flex-wrap:wrap;text-align:left}}
+/* ═══ Backup 50 ═══ */
+/* Tarefas: status com cor (pílula) e bolinha da prioridade no calendário */
+.gs .pill.tf-st-pendente{background:var(--blue-lt);color:var(--blue-d);border-color:var(--blue-bd)}
+.gs .pill.tf-st-andamento{background:var(--violet-lt);color:var(--violet-d);border-color:var(--violet-bd)}
+.gs .pill.tf-st-aguardando{background:var(--amber-lt);color:var(--amber-d);border-color:var(--amber-border)}
+.gs .pill.tf-st-revisao{background:var(--orange-lt);color:var(--orange-d);border-color:var(--orange-bd)}
+.gs .pill.tf-st-concluida{background:var(--green-lt);color:var(--green-d);border-color:var(--green-bd)}
+.gs .pill.tf-st-cancelada{background:var(--surface3);color:var(--text3);border-color:var(--border)}
+.gs .cal-pri{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:4px;vertical-align:middle;background:var(--amber)}
+.gs .cal-pri.cal-pri-alta{background:var(--red)}
+.gs .cal-pri.cal-pri-baixa{background:var(--green)}
+/* Financeiro: botões da linha (Cobrar · Baixa · ✎) numa linha só, mesma altura */
+body.gx-barra-topo td.acoes-l:has(.gx-cobrar,[data-pagar],.btn-ed){white-space:nowrap}
+body.gx-barra-topo td.acoes-l :is(.gx-cobrar,.btn-v.btn-mini,.btn-ed){vertical-align:middle;height:24px;display:inline-flex;align-items:center;margin:0 2px 0 0}
+/* Financeiro: a receber / recebidos em verde, a pagar / pagos em vermelho (valores e abas) */
+body.gx-barra-topo td.col-valor.valor-rec,body.gx-barra-topo td.col-valor.valor-rec :is(b,strong){color:var(--green-d)!important}
+body.gx-barra-topo td.col-valor.valor-desp,body.gx-barra-topo td.col-valor.valor-desp :is(b,strong){color:var(--red-d)!important}
+body.gx-barra-topo :is(#finTabBar,#finCTabBar) .fin-tab{--tc:var(--blue);--tl:var(--blue-lt);--td:var(--blue-d)}
+body.gx-barra-topo :is(#finTabBar,#finCTabBar) .fin-tab:is([data-tab=receber],[data-tab=recebidos],[data-tab=receita]){--tc:var(--green);--tl:var(--green-lt);--td:var(--green-d)}
+body.gx-barra-topo :is(#finTabBar,#finCTabBar) .fin-tab:is([data-tab=apagar],[data-tab=despesa]){--tc:var(--red);--tl:var(--red-lt);--td:var(--red-d)}
+body.gx-barra-topo :is(#finTabBar,#finCTabBar) .fin-tab[data-tab=socios]{--tc:var(--violet);--tl:var(--violet-lt);--td:var(--violet-d)}
+body.gx-barra-topo :is(#finTabBar,#finCTabBar) .fin-tab::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--tc);margin-right:7px;vertical-align:1px}
+body.gx-barra-topo :is(#finTabBar,#finCTabBar) .fin-tab.active{color:var(--td)!important;border-bottom-color:var(--tc)!important;background:var(--tl)!important;border-radius:var(--r-sm) var(--r-sm) 0 0!important}
+/* E-mail → Quem recebe: nome do cliente vira link para o cadastro */
+.gs button.lnk{background:none;border:0;padding:0;font:inherit;color:var(--primario);cursor:pointer;text-align:left}
+.gs button.lnk:hover{text-decoration:underline}
+.gs .em-quem td .btn-ed{margin-left:4px}
+/* atalhos do Início: o número/valor nunca quebra em duas linhas (nem no celular) */
+.gs :is(.ini-at-num,.ini-at-p){white-space:nowrap}

@@ -131,7 +131,7 @@ function campoValor(rotulo, nome, v) {
   return campo(rotulo, '<input name="' + nome + '" inputmode="decimal" data-mascara="brl" placeholder="R$ 0,00" value="' + (v == null || v === '' ? '' : 'R$ ' + esc(valorParaCampo(v))) + '">');
 }
 
-async function formCliente(cl, depois) {
+async function formCliente(cl, depois, abaInicial) {   // Backup 50: abaInicial (ex.: 'contato') abre direto naquela aba
   const novo = !cl;
   cl = cl || {};
   let resumo = '';
@@ -160,8 +160,7 @@ async function formCliente(cl, depois) {
     titulo: novo ? 'Novo cliente' : cl.nome, larga: true,
     corpo:
       '<form id="f-cli" class="grade g3 cli-form">' + resumo +
-      // Backup 49 (26): cliente novo abre no cadastro rápido (5 campos); "Mais dados" mostra as abas completas. Abas sem ícone.
-      (novo ? '<div class="inteiro cli-rapido-hd"><span class="sub">Cadastro rápido — o CNPJ preenche o resto sozinho.</span><button type="button" class="btn btn-o btn-mini" id="cli-mais-dados">Mais dados ▾</button></div>' : '') +
+      // Backup 50: o cadastro abre sempre completo (o cadastro rápido do Backup 49 saiu, a pedido). Abas sem ícone.
       '<div class="inteiro"><div class="segmento cli-abas" id="cli-abas" role="tablist">' + ABAS_CLI.map(([k, r], i) => '<button type="button" role="tab" data-cli-aba="' + k + '"' + (i ? '' : ' class="ativo"') + '>' + r.replace(/^\S+\s/, '') + '</button>').join('') + '</div></div>' +
       aba('id',
         campo('CPF/CNPJ', '<div class="cli-doc"><input name="cpf_cnpj" inputmode="numeric" maxlength="18" placeholder="00.000.000/0000-00" value="' + esc(mascaraDoc(cl.cpf_cnpj)) + '">' +
@@ -217,17 +216,9 @@ async function formCliente(cl, depois) {
       '<button class="btn btn-p" id="btn-salvar-cli" type="button">Salvar</button></div>'
   });
   const f = j.querySelector('#f-cli');
-  const sairRapido = () => { if (!f.classList.contains('cli-rapido')) return; f.classList.remove('cli-rapido'); const hd = j.querySelector('.cli-rapido-hd'); if (hd) hd.remove(); };
-  const irAba = (k) => { sairRapido(); j.querySelectorAll('[data-cli-aba]').forEach((b) => b.classList.toggle('ativo', b.dataset.cliAba === k)); j.querySelectorAll('.cli-aba').forEach((d) => { d.hidden = d.dataset.aba !== k; }); };
+  const irAba = (k) => { j.querySelectorAll('[data-cli-aba]').forEach((b) => b.classList.toggle('ativo', b.dataset.cliAba === k)); j.querySelectorAll('.cli-aba').forEach((d) => { d.hidden = d.dataset.aba !== k; }); };
   j.querySelector('#cli-abas').onclick = (ev) => { const b = ev.target.closest('[data-cli-aba]'); if (b) irAba(b.dataset.cliAba); };
-  if (novo) {
-    f.classList.add('cli-rapido');
-    j.querySelectorAll('.cli-aba').forEach((d) => { d.hidden = false; });
-    [f.cpf_cnpj, f.nome, f.grupo_sel].forEach((x) => x.closest('.campo').classList.add('cli-r'));
-    j.querySelector('#cli-cnpj-card').classList.add('cli-r');
-    j.querySelectorAll('.cli-bloco').forEach((x) => x.classList.add('cli-r'));
-    j.querySelector('#cli-mais-dados').onclick = () => irAba('id');
-  }
+  if (abaInicial) irAba(abaInicial);
   f.grupo_novo.onchange = () => { f.grupo.hidden = !f.grupo_novo.checked; f.grupo_sel.disabled = f.grupo_novo.checked; if (f.grupo_novo.checked) f.grupo.focus(); };
   j.querySelector('#cli-mais-email').onclick = () => { j.querySelector('#cli-emails').insertAdjacentHTML('beforeend', linhaEmail('', false)); j.querySelector('#cli-emails').lastElementChild.querySelector('input').focus(); };
   j.querySelector('#cli-mais-tel').onclick = () => { j.querySelector('#cli-tels').insertAdjacentHTML('beforeend', linhaTel('', false)); j.querySelector('#cli-tels').lastElementChild.querySelector('input').focus(); };

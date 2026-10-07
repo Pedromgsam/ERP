@@ -628,13 +628,33 @@ async function admEmailQuem(corpo) {
     const ver = linhas.filter(F[E.adm.emFiltro][1]);
     corpo.innerHTML = '<div class="fila-chips em-filtros" role="group" aria-label="Filtro">' + Object.entries(F).map(([k, [r, f]]) => chipFiltro('data-em-f', k || '*', r + ' (' + linhas.filter(f).length + ')', E.adm.emFiltro === k)).join('') + '</div>' +
       '<div class="card"><div class="tabela-wrap"><table class="ordenavel em-quem"><thead><tr><th>Grupo</th><th>Cliente</th><th>E-mail de destino</th><th>Recebe</th><th data-tipo="data">Último e-mail</th></tr></thead><tbody>' +
-      (ver.length ? ver.map((r) => '<tr><td>' + esc(r.grupo || '—') + '</td><td>' + esc(r.cliente) + '</td>' +
-        '<td>' + (r.destino ? esc(r.destino) : '<span class="pill vencido">sem e-mail</span>') + '</td>' +
+      // Backup 50: clicar no cliente abre o cadastro (aba Contatos); ✎ troca o e-mail de destino aqui mesmo
+      (ver.length ? ver.map((r) => '<tr><td>' + esc(r.grupo || '—') + '</td><td><button type="button" class="lnk em-cli" data-em-cli="' + r.cliente_id + '" title="Abrir o cadastro do cliente (contatos e e-mails)">' + esc(r.cliente) + '</button></td>' +
+        '<td><span class="em-dest">' + (r.destino ? esc(r.destino) : '<span class="pill vencido">sem e-mail</span>') + '</span>' +
+          ' <button type="button" class="btn btn-o btn-mini btn-ed" data-em-dest="' + r.cliente_id + '" title="Trocar o e-mail de destino" aria-label="Trocar o e-mail de destino de ' + esc(r.cliente) + '">✎</button></td>' +
         '<td>' + pillRecebeEmail({ id: r.cliente_id, recebe_email: r.recebe }) + '</td>' +
         '<td data-ord="' + (r.ultimo_em || '') + '">' + (r.ultimo_em ? dataBR(r.ultimo_em) + ' <span class="sub">' + esc(r.ultimo_assunto || '') + '</span>' : '<span class="sub">—</span>') + '</td></tr>').join('')
         : '<tr><td colspan="5">' + vazio('Ninguém neste filtro.') + '</td></tr>') + '</tbody></table></div></div>' +
-      '<div class="dica">Clique em <b>✉ Sim</b> / <b>✕ Não</b> para trocar. Quem está em "Não" não recebe nada do escritório (nem rascunho). <b>Sem e-mail</b> = vai receber, mas falta cadastrar o endereço (ficha → Contatos).</div>';
+      '<div class="dica">Clique em <b>✉ Sim</b> / <b>✕ Não</b> para trocar. Quem está em "Não" não recebe nada do escritório (nem rascunho). <b>✎</b> troca o e-mail de destino; clique no <b>nome do cliente</b> para abrir o cadastro completo (vários e-mails, setores).</div>';
     corpo.querySelectorAll('[data-em-f]').forEach((b) => b.onclick = () => { E.adm.emFiltro = b.dataset.emF === '*' ? '' : b.dataset.emF; pinta(); });
+    corpo.querySelectorAll('[data-em-cli]').forEach((b) => b.onclick = async () => {
+      if (!E.clientes.length) await carregarCadastros();
+      const cl = E.clientes.find((c) => c.id === b.dataset.emCli) || await q(sb.from('clientes').select('*').eq('id', b.dataset.emCli).single());
+      formCliente(cl, () => admEmailQuem(corpo), 'contato');
+    });
+    corpo.querySelectorAll('[data-em-dest]').forEach((b) => b.onclick = () => {
+      const r = linhas.find((x) => x.cliente_id === b.dataset.emDest);
+      const j = abrirJanela({ titulo: '✉ E-mail de destino — ' + r.cliente,
+        corpo: '<div class="grade">' + campo('E-mail que recebe cobranças, guias e recibos', '<input id="em-dest-in" type="email" value="' + esc(String(r.destino || '').split(',')[0].trim()) + '" placeholder="financeiro@empresa.com.br">', 'inteiro') +
+          '<p class="sub inteiro">Muda o endereço de onde ele vem hoje (contato marcado, contato do setor ou o e-mail do cadastro). Para vários e-mails ou setores diferentes, use "Abrir cadastro".</p></div>',
+        rodape: '<button class="btn btn-o" type="button" id="em-dest-cad">Abrir cadastro</button><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="em-dest-ok">Salvar</button></div>' });
+      j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
+      j.querySelector('#em-dest-cad').onclick = () => { fecharJanela(j); corpo.querySelector('[data-em-cli="' + r.cliente_id + '"]').click(); };
+      j.querySelector('#em-dest-ok').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+        r.destino = await q(sb.rpc('definir_email_destino', { p_cliente: r.cliente_id, p_email: j.querySelector('#em-dest-in').value }));
+        await carregarCadastros(true); fecharJanela(j); aviso('✓ E-mail de destino de ' + r.cliente + ': ' + r.destino); pinta();
+      });
+    });
     corpo.querySelectorAll('[data-cli-email]').forEach((b) => b.onclick = () => comBotao(b, async () => {
       const r = linhas.find((x) => x.cliente_id === b.dataset.cliEmail); await trocarRecebeEmail([r.cliente_id], !r.recebe); r.recebe = !r.recebe;
       const c = E.clientes.find((x) => x.id === r.cliente_id); if (c) c.recebe_email = r.recebe; pinta(); }));

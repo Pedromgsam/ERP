@@ -695,9 +695,6 @@
 }
 .gs .cli-form .cli-abas{flex-wrap:wrap;margin-bottom:4px}
 .gs .cli-aba[hidden]{display:none!important}
-.gs .cli-form.cli-rapido #cli-abas,.gs .cli-form.cli-rapido .cli-aba > :not(.cli-r){display:none!important}
-.gs .cli-form.cli-rapido .cli-aba{display:contents}
-.gs .cli-rapido-hd{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .gs .cli-lista-tit{display:flex;align-items:center;gap:10px;font-size:12px;font-weight:700;color:var(--text2);margin:4px 0 6px}
 .gs .cli-lin{display:grid;grid-template-columns:minmax(220px,1fr) 190px 64px;gap:8px;align-items:center;margin-bottom:6px}
 .gs .cli-lin .pill{justify-self:start}
