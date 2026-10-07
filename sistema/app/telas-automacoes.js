@@ -7,7 +7,7 @@
 // ═══════════════════════════════════════════════════════════════════
 const GRUPOS_AUTOMACAO = [
   ['tarefas', '🗂 Tarefas automáticas', 'Um lançamento cria (e conclui) tarefas sozinho, sem duplicar.'],
-  ['cliente_email', '✉ E-mails ao cliente', 'Vão pelo Gmail do escritório, para o contato financeiro. Começam desligados; nunca repetem a mesma cobrança.'],
+  ['cliente_email', '✉ E-mails automáticos', 'Tudo o que manda e-mail ao cliente. Respeitam a chave "Recebe e-mails" de cada cliente e nunca repetem a mesma cobrança.'],
   ['integracao', '🔗 Integrações', 'Consultas automáticas a serviços externos gratuitos.']
 ];
 // prefixo gravado no registro → automação
@@ -21,7 +21,7 @@ const SEM_RESP = ['pagamento_conclui', 'escalar_atraso'];
 
 TELAS.automacoes = async function () {
   const admin = E.perfil && E.perfil.papel === 'admin';
-  const [regras, cont, log, ultReg, ultPub, cnpj, backup, emails] = await Promise.all([
+  const [regras, cont, log, ultReg, ultPub, cnpj, backup, emails, revisar] = await Promise.all([
     q(sb.from('regras_tarefas').select('*').eq('oculta', false).order('nome')),
     q(sb.rpc('resumo_automacoes')).catch(() => ({})),
     q(sb.from('automacoes_log').select('*').neq('chave', '_item').order('quando', { ascending: false }).limit(25)).catch(() => []),
@@ -29,8 +29,11 @@ TELAS.automacoes = async function () {
     q(sb.from('configuracoes').select('valor').eq('chave', 'publicacoes_ultima').maybeSingle()).catch(() => null),
     q(sb.from('cnpj_execucoes').select('inicio, status, mensagem').order('inicio', { ascending: false }).limit(1)).catch(() => []),
     admin ? q(sb.from('backups_auto').select('criado_em, tamanho').order('criado_em', { ascending: false }).limit(1)).catch(() => []) : [],
-    admin ? q(sb.from('email_fila').select('status, criado_em').gte('criado_em', new Date(Date.now() - 7 * 864e5).toISOString())).catch(() => []) : []
+    admin ? q(sb.from('email_fila').select('status, criado_em').gte('criado_em', new Date(Date.now() - 7 * 864e5).toISOString())).catch(() => []) : [],
+    q(sb.rpc('emails_revisar')).catch(() => false)
   ]);
+  // Backup 49 (30): toda regra que manda e-mail ao cliente fica no bloco "E-mails automáticos"
+  const grupoDe = (r) => /^email_/.test(r.chave) || r.chave === 'crm_followup' ? 'cliente_email' : (r.grupo || 'tarefas');
   const porRegra = {};
   Object.entries(cont || {}).forEach(([pref, n]) => { const k = PREFIXO_AUTOMACAO[pref] || pref; porRegra[k] = (porRegra[k] || 0) + n; });
   const ligadas = regras.filter((r) => r.ligada).length, acoes = Object.values(porRegra).reduce((a, n) => a + n, 0);
@@ -54,8 +57,11 @@ TELAS.automacoes = async function () {
     '<div class="kpis">' + kpi('Ligadas', ligadas + ' de ' + regras.length, 'verde', 'automações ativas') + kpi('Ações em 30 dias', String(acoes), '', 'tarefas criadas/concluídas e e-mails') +
       kpi('E-mails ao cliente', String(envCli), envCli ? '' : 'ambar', 'enviados nos últimos 30 dias') +
       kpi('Última execução', ult(ultReg) ? quandoCurto(ult(ultReg).quando) : '—', '', ult(ultReg) ? ult(ultReg).criadas + ' novidade(s)' : 'as regras rodam todo dia útil de manhã') + '</div>' +
-    GRUPOS_AUTOMACAO.map(([g, tit, desc]) => { const rs = regras.filter((r) => (r.grupo || 'tarefas') === g); return rs.length ?
-      '<div class="card"><div class="card-hd">' + tit + '<span class="sub" style="margin-left:auto;font-weight:400">' + esc(desc) + '</span></div><div class="au-lista">' + rs.map(linha).join('') + '</div></div>' : ''; }).join('') +
+    GRUPOS_AUTOMACAO.map(([g, tit, desc]) => { const rs = regras.filter((r) => grupoDe(r) === g); return rs.length ?
+      '<div class="card' + (g === 'cliente_email' ? ' au-emails' : '') + '"><div class="card-hd">' + tit + '<span class="sub" style="margin-left:auto;font-weight:400">' + esc(desc) + '</span></div>' +
+      (g === 'cliente_email' ? '<div class="au-item au-geral"><label class="au-chave" title="' + (admin ? 'Ligar / desligar' : 'Só o administrador altera') + '"><input type="checkbox" role="switch" id="au-revisar"' + (revisar ? ' checked' : '') + (admin ? '' : ' disabled') + ' aria-label="Conferir antes de enviar"><span class="au-trilho" aria-hidden="true"></span></label>' +
+        '<div class="au-txt"><b>Conferir antes de enviar (chave geral)</b><div class="sub">Ligada: os e-mails automáticos ficam em Administração → E-mail → Para revisar até alguém clicar em "Enviar".</div></div></div>' : '') +
+      '<div class="au-lista">' + rs.map(linha).join('') + '</div></div>' : ''; }).join('') +
     '<div class="card"><div class="card-hd">⏱ Rotinas agendadas<span class="sub" style="margin-left:auto;font-weight:400">rodam sozinhas no Supabase; aqui dá para conferir e rodar agora</span></div><div class="au-lista">' +
       rotina('Regras e e-mails ao cliente', ult(ultReg) && ult(ultReg).quando, 'Dias úteis, 7h', ult(ultReg) ? 'ok' : 'atencao') +
       rotina('Busca de publicações (DJEN)', ult(ultPub) && ult(ultPub).quando, 'Dias úteis, 7h e 13h' + (ult(ultPub) ? ' · ' + ult(ultPub).novas + ' nova(s) na última' : ''), ult(ultPub) ? ((ult(ultPub).erros || []).length ? 'critico' : 'ok') : 'atencao',
@@ -80,6 +86,9 @@ TELAS.automacoes = async function () {
   $('conteudo').querySelectorAll('[data-au-dias]').forEach((c) => c.onchange = () => salvar(c.dataset.auDias, { dias: Math.max(0, parseInt(c.value, 10) || 0) }, 'Prazo atualizado.').catch((e) => aviso(erroAmigavel(e), true)));
   $('conteudo').querySelectorAll('[data-au-resp]').forEach((c) => c.onchange = () => salvar(c.dataset.auResp, { responsavel: c.value.trim() }, 'Responsável atualizado.').catch((e) => aviso(erroAmigavel(e), true)));
   $('conteudo').querySelectorAll('[data-cli]').forEach((tr) => tr.onclick = () => abrirFicha(tr.dataset.cli));
+  const rev = $('au-revisar');
+  if (rev) rev.onchange = async () => { try { await q(sb.rpc('salvar_emails_revisar', { p: rev.checked })); aviso(rev.checked ? '✓ E-mails automáticos vão esperar a conferência (Administração → E-mail → Para revisar).' : '✓ E-mails automáticos saem sem conferência.'); }
+    catch (e) { rev.checked = !rev.checked; aviso(erroAmigavel(e), true); } };
   $('au-rodar').onclick = (ev) => comBotao(ev.currentTarget, async () => { const n = await q(sb.rpc('rodar_regras_tarefas')); aviso('✓ Regras rodadas: ' + n + ' novidade(s).'); await TELAS.automacoes(); });
   $('conteudo').querySelectorAll('[data-au-fn]').forEach((b) => b.onclick = () => comBotao(b, async () => {
     const r = await chamarFuncao(b.dataset.auFn, { acao: 'rodar' }); aviso('✓ ' + (r.mensagem || 'Feito.')); await TELAS.automacoes();

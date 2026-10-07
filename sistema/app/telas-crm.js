@@ -25,7 +25,7 @@ TELAS.crm = async function () {
     '<button class="btn btn-o" id="cr-rapido" title="Só nome, telefone e interesse">⚡ Cadastro rápido</button><button class="btn btn-p" id="cr-nova">+ Nova oportunidade</button></div></div>' +
     // abas: no painel ficam só as oportunidades em andamento; ganhas (contrato assinado) e perdidas (cancelado) têm aba própria
     // Backup 37: as abas usam o MESMO filtro escuro dos outros (simetria); "Painel" saiu; responsáveis viram botões
-    '<div class="filtros cr-filtros"><div class="segmento" id="cr-abas">' + [['andamento', 'Em andamento'], ['ganho', '✍ Contratos assinados'], ['perdido', '✗ Leads perdidos']]
+    '<div class="filtros cr-filtros"><div class="segmento" id="cr-abas">' + [['andamento', 'Em andamento'], ['ganho', 'Contratos assinados'], ['perdido', 'Leads perdidos']]
       .map(([v, r]) => '<button data-aba="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<div class="segmento" id="cr-vista">' + [['funil', 'Funil'], ['lista', 'Lista']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div></div>' +
     '<div class="filtros"><div class="segmento" id="cr-resp-seg"><button data-r="">Todos</button>' + Object.keys(PESSOA).map((p) => '<button data-r="' + esc(p) + '">' + esc(p) + '</button>').join('') + '</div>' +

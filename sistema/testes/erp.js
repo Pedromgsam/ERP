@@ -436,7 +436,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('Usuários: 🗑 Excluir apaga o acesso da pessoa', sql("select count(*) from perfis where email='nova@teste.com'") === '0' && sql("select count(*) from auth.users where email='nova@teste.com'") === '0');
     ok('envia link de nova senha', (await (await p.request.get(BASE + '/__teste/recuperacoes')).json()).includes('novo@teste'));
     ok('Usuários (B46): a tabela só mostra (sem campos); muda tudo em ✎ Editar', !(await p.$('.us-tab select, .us-tab input')) && (await p.$$('.us-tab [data-us-ed]')).length >= 3);
-    await p.click('#adm-abas [data-aba=historico]'); await p.waitForTimeout(1500);
+    await p.click('#adm-mais-bt'); await p.click('#adm-abas [data-aba=historico]'); await p.waitForTimeout(1500);
     ok('histórico na Administração com filtros e detalhes', /Alterou/.test(await p.textContent('#adm-corpo')) && await p.isVisible('#hist-quem') && await p.isVisible('#hist-csv') && /Referência:/.test(await p.textContent('#adm-corpo')));
     await p.evaluate((id) => ERP_EDITAR('processos:' + id), sql("select id from processos limit 1")); await esperarJanela(p);
     await p.click('.gx-janela [data-a=historico]'); await p.waitForTimeout(1500);
@@ -573,7 +573,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     // ── Alertas: cartões por setor + cartão CNPJ (rotina das 6h) ──
     await nav(p, 'alertas'); await p.waitForSelector('#panel-alertas .al-card'); await p.waitForTimeout(500);
     { const t = await p.textContent('#panel-alertas');
-      ok('Alertas no menu, com procurações "x de N" e setores', await p.isVisible('#tn [data-ir=alertas]') && /Procurações[^]*?1 de \d+/.test(t) && /Jurídico/.test(t) && /Rotinas/.test(t), t.slice(0, 300)); }
+      ok('Alertas no menu, com procurações "x de N" e setores', await p.isVisible('#tn [data-ir=alertas]') && /Procurações[^]*?1 de \d+/.test(t) && /Rotinas/.test(t) && /Certidões vencendo/.test(t) && !/Publicações novas|Tarefas atrasadas|Honorários em atraso/.test(t), t.slice(0, 300)); }
     await p.click('#panel-alertas .al-card:has-text("Procurações")'); await p.waitForTimeout(500);
     ok('clicar no cartão abre o relatório (entidades sem procuração)', /Entidades sem procuração/.test(await p.textContent('.janela')) && /Beta Serviços/.test(await p.textContent('.janela')));
     await p.keyboard.press('Escape'); await p.waitForTimeout(250);
@@ -685,7 +685,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       const pn = await pagina(); await entrar(pn, 'pedro@teste'); await pn.waitForTimeout(4000); await pn.context().close();
       ok('entrar de um aparelho novo avisa a própria pessoa (notificação/e-mail)', Number(sql("select count(*) from notificacoes n join perfis p on p.id=n.usuario_id where p.email='pedro@teste' and n.tipo='acesso'")) === n0 + 1); }
     await nav(p, 'admin'); await p.waitForTimeout(1000);
-    await p.click('#adm-abas [data-aba=acessos]'); await p.waitForTimeout(1200);
+    await p.click('#adm-mais-bt'); await p.click('#adm-abas [data-aba=acessos]'); await p.waitForTimeout(1200);
     ok('Administração → Acessos lista quem entrou e marca aparelho novo', /Pedro/.test(await p.textContent('#adm-corpo')) && /aparelho novo/.test(await p.textContent('#adm-corpo')));
     sql("insert into backups_auto(criado_em,origem,caminho,tamanho) select now() - (g||' days')::interval,'rotina','antigo-'||g||'.json',10 from generate_series(8,15) g");
     await p.click('#adm-abas [data-aba=backup]'); await p.waitForSelector('#bk-agora'); await p.waitForTimeout(300);
@@ -1163,7 +1163,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     // Backup 37: Alertas mais enxutos — sem PGFN por arquivo, sem "Sem contato" e "CAPAG D"; em Documentos só o certificado digital
     { await nav(p, 'alertas'); await p.waitForTimeout(2500); const tx = await p.textContent('#panel-alertas');
       ok('Alertas: sem PGFN por arquivo, "Sem contato", "CAPAG D" e "Documentos vencendo"; com "Certificado digital vencendo" e busca de publicações (web)',
-        !/PGFN — dados abertos|Sem contato|CAPAG D\b|Documentos vencendo|Certidões vencendo/.test(tx) && /Certificado digital vencendo/.test(tx) && /Busca de publicações \(web\)/.test(tx), tx.slice(0, 400)); }
+        !/PGFN — dados abertos|Sem contato|CAPAG D\b|Documentos vencendo/.test(tx) && /Certificado digital vencendo/.test(tx) && /Busca de publicações \(web\)/.test(tx), tx.slice(0, 400)); }
 
     // ── Backup 26: fluxo cliente → financeiro (cliques reais) ──
     { // contrato novo "aguardando assinatura": não lança nada; "✓ Marcar como assinado" lança as parcelas
@@ -1459,6 +1459,47 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
         await p.click('#doc-corpo [data-excluir-doc="' + did + '"]'); await p.waitForTimeout(1500);
         ok('Documentos: "Excluir" pede confirmação e apaga o documento', sql("select count(*) from documentos where id='" + did + "'") === '0' && !(await p.$('#doc-corpo [data-arquivar-doc]'))); }
     }
+    // ── Backup 49: simplificação (e-mails, Administração, Financeiro, Contratos, CRM, Publicações) ──
+    { sql(`update configuracoes set valor='"pedromgsam@gmail.com"'::jsonb where chave='email_redirecionar'`);
+      await p.evaluate(() => window.ERP_FAIXA_TESTE()); await p.waitForSelector('#gx-modo-teste', { timeout: 5000 }).catch(() => {});
+      ok('B49: faixa amarela do modo teste para o administrador', /pedromgsam@gmail\.com/.test(await p.textContent('#gx-modo-teste').catch(() => '')));
+      await p.click('#gx-teste-off'); await p.waitForTimeout(1200);
+      ok('B49: "Desligar modo teste" desliga (com confirmação) e a faixa some', sql("select valor #>> '{}' from configuracoes where chave='email_redirecionar'") === '' && !(await p.$('#gx-modo-teste')));
+      await nav(p, 'admin'); await p.waitForSelector('#adm-abas'); await p.waitForTimeout(500);
+      ok('B49: Administração com Usuários · Importar · E-mail · Backup e "⋯ Mais" (sem Automações)', (await p.$$eval('#adm-abas > button[data-aba]', (b) => b.map((x) => x.textContent).join('|'))) === 'Usuários|Importar|E-mail|Backup' &&
+        !!(await p.$('#adm-mais-menu [data-aba=historico]')) && !(await p.$('#adm-abas [data-aba=automacoes]')));
+      await p.click('#adm-abas [data-aba=email]'); await p.waitForSelector('#em-abas'); await p.click('#em-abas [data-em-aba=quem]'); await p.waitForSelector('.em-quem'); await p.waitForTimeout(400);
+      ok('B49: E-mail → Quem recebe lista os clientes com a chave Sim/Não e os filtros', (await p.$$('.em-quem tbody [data-cli-email]')).length >= 1 && /Não recebem/.test(await p.textContent('.em-filtros')) && /Sem e-mail/.test(await p.textContent('.em-filtros')));
+      const cliQ = sql("select id from clientes where nome='Alfa Comércio Ltda'");
+      await p.click('.em-quem [data-cli-email="' + cliQ + '"]'); await p.waitForTimeout(1200);
+      ok('B49: clicar na chave muda para "Não recebe"', sql("select recebe_email from clientes where id='" + cliQ + "'") === 'f');
+      sql("update clientes set recebe_email=true where id='" + cliQ + "'");
+      await p.click('#em-abas [data-em-aba=revisar]'); await p.waitForSelector('#em-revisar'); await p.waitForTimeout(300);
+      ok('B49: E-mail → Para revisar com a chave "conferir antes de enviar"', !!(await p.$('#em-revisar')));
+      await nav(p, 'automacoes'); await p.waitForSelector('.au-emails'); await p.waitForTimeout(300);
+      ok('B49: Automações com o bloco "E-mails automáticos" e a chave geral', /E-mails automáticos/.test(await p.textContent('.au-emails')) && !!(await p.$('#au-revisar')));
+      // Financeiro: Perdas dentro de Recebidos
+      await nav(p, 'financeiro'); await p.evaluate(() => setFinTab('recebidos', document.querySelector('#finTabBar [data-tab=recebidos]'))); await p.waitForTimeout(800);
+      ok('B49: Financeiro sem a aba Prejuízo; "Perdas" é filtro dentro de Recebidos', !(await p.isVisible('#finTabBar [data-tab=prejuizo]')) && !!(await p.$('#fin-perdas-seg [data-fin-perdas="1"]')));
+      await p.click('#fin-perdas-seg [data-fin-perdas="1"]'); await p.waitForTimeout(800);
+      ok('B49: o filtro Perdas mostra o prejuízo e mantém Recebidos aceso', await p.evaluate(() => _finTab === 'prejuizo') && await p.evaluate(() => document.querySelector('#finTabBar [data-tab=recebidos]').classList.contains('active')) &&
+        !!(await p.$('#fin-perdas-seg [data-fin-perdas="1"].ativo')));
+      await nav(p, 'financeiroContab'); await p.waitForTimeout(1200);
+      ok('B49: Contabilidade com os mesmos 5 cartões do Jurídico', (await p.$$('#finCContent .kpi-grid.fc-kpis5 > *')).length === 5);
+      // Contratos: reajuste anual
+      const ctrR = sql("insert into contratos (cliente_id, descricao, modalidade, forma_valor, valor_mensal, data_contrato, inicio_vigencia, status) values ('" + cliQ + "', 'Consultoria B49 reajuste', 'consultoria', 'fixo', 1000, current_date - 360, current_date - 360, 'Ativo') returning id").split('\n')[0];
+      await nav(p, 'contratos'); await p.waitForSelector('#ctr-reaj', { timeout: 8000 }).catch(() => {});
+      ok('B49: Contratos avisa o reajuste anual 30 dias antes', /Consultoria B49 reajuste/.test(await p.textContent('#ctr-reaj').catch(() => '')));
+      await p.fill('#ctr-reaj tr[data-reaj="' + ctrR + '"] .ctr-reaj-pct', '10'); await p.click('#ctr-reaj [data-reaj-aplicar="' + ctrR + '"]'); await p.waitForTimeout(2000);
+      ok('B49: "Aplicar" registra o aditivo com o valor novo', sql("select valor_mensal from contratos where id='" + ctrR + "'") === '1100.00' && sql("select count(*) from contratos_aditivos where contrato_id='" + ctrR + "' and tipo='valor'") === '1');
+      // Publicações: abre em Novas + marcar todas como lidas
+      await nav(p, 'publicacoes'); await p.waitForSelector('#pub-todas-lidas'); await p.waitForTimeout(600);
+      ok('B49: Publicações abre em "Novas"', await p.evaluate(() => GS.E.pub.status === 'nova'));
+      await p.click('#pub-todas-lidas'); await p.waitForTimeout(1500);
+      ok('B49: "Marcar todas como lidas"', sql("select count(*) from publicacoes where status='nova'") === '0');
+      // Alertas sem o que já tem outro lugar
+      await nav(p, 'alertas'); await p.waitForTimeout(2500);
+      ok('B49: Alertas sem publicações, tarefas e honorários em atraso', !/Publicações novas|Tarefas atrasadas|Honorários em atraso/.test(await p.textContent('#panel-alertas'))); }
     // ── sair ──
     await p.evaluate(() => acLogout()); await p.waitForTimeout(800);
     ok('sair encerra a sessão do Supabase', await p.evaluate(async () => !(await SB.auth.getSession()).data.session));

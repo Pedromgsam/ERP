@@ -1094,10 +1094,12 @@ async function cardResumoEscritorio() {
     crm: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>', tarefas: '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>' };
   const icone = (k) => '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (IC[k] || '') + '</svg>';
   const sub = (l) => '<span class="ini-res-sub' + (l[0] && l[2] ? ' ' + l[2] : '') + '">' + (l[0] == null ? '' : '<b>' + l[0] + '</b> ') + esc(l[1]) + '</span>';
-  el.innerHTML = '<div class="kpis-titulo">🏠 Resumo do escritório</div><div class="ini-resumo">' + T.map((t) =>
-    '<button type="button" class="ini-res ' + t[6] + '" data-ini-ir="' + t[0] + '"' + (t[0] === 'tarefas' ? ' title="Tarefas do escritório: todas as tarefas abertas da equipe (a sua fila fica mais abaixo)."' : '') + '><span class="ini-res-ic" aria-hidden="true">' + icone(t[0]) + '</span>' +
-    '<span class="ini-res-tit">' + esc(t[2]) + '</span><b class="ini-res-num">' + t[3] + '</b><span class="ini-res-rot">' + esc(t[4]) + '</span>' +
-    (t[5].length ? '<span class="ini-res-subs">' + t[5].map(sub).join('') + '</span>' : '') + '</button>').join('') + '</div>';
+  // Backup 49: o resumo virou uma linha fina de atalhos (o detalhe está em cada módulo)
+  const resto = (t) => t[5].filter((l) => l[0] == null || l[0]).map((l) => (l[0] == null ? '' : l[0] + ' ') + l[1]).join(' · ');
+  el.innerHTML = '<div class="ini-atalhos" role="list" aria-label="Resumo do escritório">' + T.map((t) =>
+    '<button type="button" role="listitem" class="ini-at ' + t[6] + '" data-ini-ir="' + t[0] + '" title="' + esc(t[2] + ': ' + t[3] + ' ' + t[4] + (resto(t) ? ' · ' + resto(t) : '')) + '">' +
+    '<span class="ini-at-ic" aria-hidden="true">' + icone(t[0]) + '</span><span class="ini-at-tit">' + esc(t[2]) + '</span> <b class="ini-at-num">' + t[3] + '</b> <span class="ini-at-rot">' + esc(t[4]) + '</span>' +
+    (resto(t) ? '<span class="ini-at-sub"> · ' + esc(resto(t)) + '</span>' : '') + '</button>').join('') + '</div>';
   el.querySelectorAll('[data-ini-ir]').forEach((b) => b.onclick = () => {
     const k = b.dataset.iniIr;
     if (k === 'tarefas') E.tf = Object.assign(E.tf || {}, { aba: 'abertas', atalho: '' });
@@ -1199,12 +1201,12 @@ const EMPRESAS = {
   contabilidade: { tela: 'contabilidade', titulo: 'Honorários Contabilidade', sub: 'Financeiro da empresa de contabilidade · a receber, a pagar, receita e despesa' }
 };
 const ABAS_FIN = [
-  { id: 'analise',   rot: '📊 Análise' },
-  { id: 'areceber',  rot: '📋 A Receber' },
-  { id: 'recebidos', rot: '✅ Recebidos' },
-  { id: 'prejuizo',  rot: '📉 Prejuízo' },
-  { id: 'apagar',    rot: '📤 A Pagar' },
-  { id: 'despesas',  rot: '💸 Despesas pagas' }
+  { id: 'analise',   rot: 'Análise' },
+  { id: 'areceber',  rot: 'A Receber' },
+  { id: 'recebidos', rot: 'Recebidos' },
+  { id: 'prejuizo',  rot: 'Prejuízo' },
+  { id: 'apagar',    rot: 'A Pagar' },
+  { id: 'despesas',  rot: 'Despesas pagas' }
 ];
 // Abas que mostram "todos os meses" ao abrir; as demais abrem no mês atual.
 const ABRE_EM_TODOS = { areceber: true, apagar: true, prejuizo: true };
@@ -1644,11 +1646,34 @@ async function cobrarWhatsApp(id) {
   const l = (await q(sb.from('lancamentos').select('id, descricao, servico, valor, vencimento, competencia, cliente_id, grupo_id, cobranca').eq('id', id)))[0];
   if (!l) return aviso('Lançamento não encontrado.', true);
   const c = E.clientes.find((x) => x.id === l.cliente_id) || {};
-  const j = abrirJanela({ titulo: '💬 Cobrar pelo WhatsApp' + (c.nome ? ' — ' + c.nome : ''),
-    corpo: '<div class="grade">' + campo('WhatsApp', '<input id="cb-tel" data-mascara="tel" inputmode="tel" value="' + esc(c.telefone || '') + '" placeholder="(37) 9 9999-9999">') +
+  // Backup 49 (24): o mesmo botão cobra por WhatsApp OU por e-mail (modelo bonito; respeita a chave "Recebe e-mails" do cliente)
+  const naoRecebe = c.recebe_email === false;
+  const j = abrirJanela({ titulo: '💬 Cobrar' + (c.nome ? ' — ' + c.nome : ''),
+    corpo: '<div class="fila-chips cb-canal" role="group" aria-label="Como cobrar"><span class="fila-chips-rot">Por</span>' +
+        '<button type="button" class="fila-chip ativo" data-cb-canal="zap">WhatsApp</button><button type="button" class="fila-chip" data-cb-canal="email">E-mail</button></div>' +
+      '<div class="grade">' + campo('WhatsApp', '<input id="cb-tel" data-mascara="tel" inputmode="tel" value="' + esc(c.telefone || '') + '" placeholder="(37) 9 9999-9999">', 'cb-so-zap') +
+      campo('E-mail', '<input id="cb-para" type="email" placeholder="email@cliente.com.br"' + (naoRecebe ? ' disabled' : '') + '>', 'cb-so-email escondido') +
+      (naoRecebe ? '<div class="dica aviso-amarelo inteiro cb-so-email escondido">Este cliente está marcado para <b>não receber e-mails</b>. Para mandar, mude em Clientes → ✉ Recebe e-mails.</div>' : '') +
       campo('Mensagem', '<textarea id="cb-txt" rows="6">' + esc(textoCobranca(l)) + '</textarea>', 'inteiro') +
-      '<p class="sub inteiro">Ao copiar ou abrir o WhatsApp, o lançamento fica marcado como <b>COBRADO</b>.</p></div>',
-    rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Fechar</button><button class="btn btn-o" type="button" id="cb-copiar">📋 Copiar</button><button class="btn btn-v" type="button" id="cb-zap">💬 Abrir WhatsApp</button></div>' });
+      '<p class="sub inteiro">Ao copiar, abrir o WhatsApp ou enviar o e-mail, o lançamento fica marcado como <b>COBRADO</b>.</p></div>',
+    rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Fechar</button>' +
+      '<button class="btn btn-o cb-so-zap" type="button" id="cb-copiar">📋 Copiar</button><button class="btn btn-v cb-so-zap" type="button" id="cb-zap">💬 Abrir WhatsApp</button>' +
+      '<button class="btn btn-o cb-so-email escondido" type="button" id="cb-previa">👁 Prévia</button><button class="btn btn-p cb-so-email escondido" type="button" id="cb-email"' + (naoRecebe ? ' disabled' : '') + '>✉ Enviar e-mail</button></div>' });
+  let paraCarregado = false;
+  j.querySelector('.cb-canal').onclick = async (ev) => {
+    const b = ev.target.closest('[data-cb-canal]'); if (!b) return;
+    j.querySelectorAll('[data-cb-canal]').forEach((x) => x.classList.toggle('ativo', x === b));
+    const email = b.dataset.cbCanal === 'email';
+    j.querySelectorAll('.cb-so-zap').forEach((x) => x.classList.toggle('escondido', email));
+    j.querySelectorAll('.cb-so-email').forEach((x) => x.classList.toggle('escondido', !email));
+    if (email && !paraCarregado) { paraCarregado = true;
+      const m = await q(sb.rpc('cobranca_email_html', { p_lanc: id, p_texto: '' })).catch(() => null);
+      if (m && !j.querySelector('#cb-para').value) j.querySelector('#cb-para').value = m.para || ''; }
+  };
+  j.querySelector('#cb-previa').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    const m = await q(sb.rpc('cobranca_email_html', { p_lanc: id, p_texto: j.querySelector('#cb-txt').value }));
+    verEmailHtml(m.assunto, m.html);
+  });
   // Backup 43: marca "Cobrado" só nesta linha (antes recarregava todos os dados do sistema — era isso que demorava)
   const marcar = () => q(sb.from('lancamentos').update({ cobranca: 'Cobrado' }).eq('id', id).select('id')).then(() => {
     document.querySelectorAll('[data-cobrar="' + id + '"]').forEach((b) => { b.textContent = '✓ Cobrado'; b.classList.add('gx-cobrado'); });
@@ -1657,6 +1682,11 @@ async function cobrarWhatsApp(id) {
   j.querySelector('#cb-copiar').onclick = (ev) => comBotao(ev.currentTarget, async () => { await copiarTexto(j.querySelector('#cb-txt').value); aviso('✓ Texto copiado — cole no WhatsApp.'); marcar(); });
   j.querySelector('#cb-zap').onclick = () => { const tel = soDigitos(j.querySelector('#cb-tel').value);
     window.open('https://wa.me/' + (tel ? (tel.length <= 11 ? '55' : '') + tel : '') + '?text=' + encodeURIComponent(j.querySelector('#cb-txt').value), '_blank', 'noopener'); marcar(); };
+  j.querySelector('#cb-email').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    const r = await q(sb.rpc('cobrar_por_email', { p_lanc: id, p_para: j.querySelector('#cb-para').value.trim(), p_texto: j.querySelector('#cb-txt').value }));
+    document.querySelectorAll('[data-cobrar="' + id + '"]').forEach((b) => { b.textContent = '✓ Cobrado'; b.classList.add('gx-cobrado'); });
+    fecharJanela(j); const s2 = await enviarEmailAgora(r.ref, r.para); aviso('Cobrança: ' + (s2.ok ? '✓ ' : '⚠ ') + s2.msg, !s2.ok);
+  });
   return j;
 }
 async function detalheLancamento(id) {
@@ -1710,7 +1740,7 @@ TELAS.clientes = async function () {
   const C = E.cli;
   $('conteudo').innerHTML =
     '<div class="titulo-pag"><div><h1>Clientes</h1><p id="cli-conta"></p></div>' +
-    '<div class="acoes"><button class="btn btn-p" data-novo="cliente">+ Novo cliente</button></div></div>' +
+    '<div class="acoes"><button class="btn btn-o" id="cli-email-lote" title="Marcar vários clientes de uma vez: recebem ou não os e-mails do escritório">✉ Recebe e-mails…</button><button class="btn btn-p" data-novo="cliente">+ Novo cliente</button></div></div>' +
     '<div class="filtros">' +
     '<div class="segmento" id="cli-visao" title="Como mostrar a lista">' + [['grupo', 'Por grupo'], ['lista', 'Lista']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<div class="segmento" id="cli-tipo">' + [['ativos', 'Ativos'], ['Consultoria', 'Consultoria'], ['Demanda', 'Serviço pontual'], ['Inativo', 'Inativos'], ['todos', 'Todos']]
@@ -1728,8 +1758,35 @@ TELAS.clientes = async function () {
   let t;
   $('cli-busca').oninput = (ev) => { clearTimeout(t); t = setTimeout(() => { C.busca = ev.target.value; pintarClientes(); }, 250); };
   ligarBotoesNovo($('conteudo'));
+  $('cli-email-lote').onclick = () => janelaRecebeEmailLote(C.ultima || E.clientes);
   pintarClientes();
 };
+// Backup 49: a chave única "Recebe e-mails do escritório" (Sim/Não) — um clique na linha ou vários de uma vez
+function pillRecebeEmail(c) {
+  const on = c.recebe_email !== false;
+  return '<button type="button" class="pill cli-email ' + (on ? 'pago' : 'neutro') + '" data-cli-email="' + c.id + '" title="' + (on ? 'Recebe os e-mails do escritório — clique para NÃO receber' : 'NÃO recebe e-mails — clique para voltar a receber') + '">' + (on ? '✉ Sim' : '✕ Não') + '</button>';
+}
+async function trocarRecebeEmail(ids, recebe) {
+  await q(sb.rpc('clientes_recebe_email', { p_ids: ids, p_recebe: recebe }));
+  E.clientes.forEach((c) => { if (ids.includes(c.id)) c.recebe_email = recebe; });
+  aviso('✓ ' + plural(ids.length, 'cliente', 'clientes') + (recebe ? ' passa(m) a receber e-mails.' : ' não recebe(m) mais e-mails.'));
+}
+function janelaRecebeEmailLote(lista) {
+  const j = abrirJanela({ titulo: '✉ Quem recebe os e-mails do escritório', larga: true,
+    corpo: '<p class="sub" style="margin-bottom:10px">Marque os clientes e escolha <b>Recebem</b> ou <b>Não recebem</b>. Quem está em "Não" não recebe nada: lembretes, cobranças, guias, acordos, recibos e convites.</p>' +
+      '<label class="check" style="margin-bottom:6px"><input type="checkbox" id="rel-todos"> <b>Marcar todos (' + lista.length + ')</b></label>' +
+      '<div class="lista-grupos" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:4px 12px;max-height:380px;overflow-y:auto;border:1px solid var(--border-strong);border-radius:var(--r-sm);padding:10px">' +
+      lista.map((c) => '<label class="check"><input type="checkbox" value="' + c.id + '"> ' + esc(c.nome) + ' <span class="sub">' + (c.recebe_email === false ? '✕ não recebe' : '✉ recebe') + '</span></label>').join('') + '</div>',
+    rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-o" type="button" id="rel-nao">✕ Não recebem</button><button class="btn btn-p" type="button" id="rel-sim">✉ Recebem</button></div>' });
+  j.querySelector('#rel-todos').onchange = (ev) => j.querySelectorAll('.lista-grupos input').forEach((i) => { i.checked = ev.target.checked; });
+  j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
+  const ir = (recebe) => (ev) => comBotao(ev.currentTarget, async () => {
+    const ids = [...j.querySelectorAll('.lista-grupos input:checked')].map((i) => i.value);
+    if (!ids.length) { aviso('Marque ao menos um cliente.', true); return; }
+    await trocarRecebeEmail(ids, recebe); fecharJanela(j); pintarClientes();
+  });
+  j.querySelector('#rel-sim').onclick = ir(true); j.querySelector('#rel-nao').onclick = ir(false);
+}
 
 function pintarClientes() {
   const C = E.cli, b = normalizar(C.busca), bd = soDigitos(C.busca);
@@ -1755,17 +1812,20 @@ function pintarClientes() {
   $('cli-conta').textContent = lista.length + ' de ' + E.clientes.length + ' cadastro(s) · clique na linha para abrir a ficha completa';
   $('cli-corpo').innerHTML = '<div class="card">' + (lista.length ?
     '<div class="tabela-wrap"><table class="' + (porGrupo ? '' : 'ordenavel ') + 'cli-tabela"><thead><tr><th>Grupo</th><th>Nome</th><th>CPF/CNPJ</th><th>Área</th><th>Responsável</th>' +
-    '<th>Procuração</th><th>Certificado</th><th>Situação</th></tr></thead><tbody>' +
-    lista.map((c, i) => (porGrupo && (i === 0 || gn(lista[i - 1]) !== gn(c)) ? '<tr class="cli-grp"><td colspan="8">' + esc(gn(c) || 'Sem grupo') +
+    '<th>Procuração</th><th>Certificado</th><th>Situação</th><th title="Recebe os e-mails do escritório">E-mails</th></tr></thead><tbody>' +
+    lista.map((c, i) => (porGrupo && (i === 0 || gn(lista[i - 1]) !== gn(c)) ? '<tr class="cli-grp"><td colspan="9">' + esc(gn(c) || 'Sem grupo') +
         ' <span class="sub">' + plural(lista.filter((x) => gn(x) === gn(c)).length, 'cadastro', 'cadastros') + '</span></td></tr>' : '') + '<tr class="clicavel cli-linha" tabindex="0" data-cli="' + c.id + '" title="Abrir a ficha completa">' +
       '<td class="cli-grupo" title="' + esc(c.grupos ? c.grupos.nome : '') + '">' + esc(c.grupos ? c.grupos.nome : '—') + '</td>' +
       '<td><span class="cli-nome">' + esc(c.nome) + '</span>' + (c.socio_admin ? '<div class="sub cli-socio">' + esc(c.socio_admin) + '</div>' : '') + '</td>' +
       '<td class="mono">' + esc(mascaraDoc(c.cpf_cnpj) || '—') + '</td>' +
       '<td>' + pillAreaCli(c.area) + '</td>' +
       '<td>' + pillPessoa(c.responsavel) + '</td><td>' + pillSimNao(c.procuracao) + '</td><td>' + pillSimNao(c.certificado) + '</td>' +
-      '<td>' + pillSitCad(c.situacao_cadastral) + '</td></tr>').join('') +
+      '<td>' + pillSitCad(c.situacao_cadastral) + '</td><td>' + pillRecebeEmail(c) + '</td></tr>').join('') +
     '</tbody></table></div>'
     : (E.clientes.length ? vazio('Nenhum cliente neste recorte — mude o filtro ou a busca.') : vazio('Nenhum cliente ainda. Cadastre o primeiro ou importe a Base de Dados em Administração.', '+ Novo cliente', '[data-novo=cliente]'))) + '</div>';
+  $('cli-corpo').querySelectorAll('[data-cli-email]').forEach((b) => b.onclick = (ev) => { ev.stopPropagation();
+    const c = E.clientes.find((x) => x.id === b.dataset.cliEmail);
+    comBotao(b, async () => { await trocarRecebeEmail([c.id], c.recebe_email === false); b.outerHTML = pillRecebeEmail(c); pintarClientes(); }); });
   $('cli-corpo').querySelectorAll('tr[data-cli]').forEach((tr) => {
     tr.onclick = () => abrirFicha(tr.dataset.cli);
     tr.onkeydown = (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); abrirFicha(tr.dataset.cli); } };
@@ -1820,7 +1880,9 @@ async function formCliente(cl, depois) {
     titulo: novo ? 'Novo cliente' : cl.nome, larga: true,
     corpo:
       '<form id="f-cli" class="grade g3 cli-form">' + resumo +
-      '<div class="inteiro"><div class="segmento cli-abas" id="cli-abas" role="tablist">' + ABAS_CLI.map(([k, r], i) => '<button type="button" role="tab" data-cli-aba="' + k + '"' + (i ? '' : ' class="ativo"') + '>' + r + '</button>').join('') + '</div></div>' +
+      // Backup 49 (26): cliente novo abre no cadastro rápido (5 campos); "Mais dados" mostra as abas completas. Abas sem ícone.
+      (novo ? '<div class="inteiro cli-rapido-hd"><span class="sub">Cadastro rápido — o CNPJ preenche o resto sozinho.</span><button type="button" class="btn btn-o btn-mini" id="cli-mais-dados">Mais dados ▾</button></div>' : '') +
+      '<div class="inteiro"><div class="segmento cli-abas" id="cli-abas" role="tablist">' + ABAS_CLI.map(([k, r], i) => '<button type="button" role="tab" data-cli-aba="' + k + '"' + (i ? '' : ' class="ativo"') + '>' + r.replace(/^\S+\s/, '') + '</button>').join('') + '</div></div>' +
       aba('id',
         campo('CPF/CNPJ', '<div class="cli-doc"><input name="cpf_cnpj" inputmode="numeric" maxlength="18" placeholder="00.000.000/0000-00" value="' + esc(mascaraDoc(cl.cpf_cnpj)) + '">' +
           '<button type="button" class="btn btn-p" id="cli-buscar" title="Busca na Receita e preenche nome, endereço, situação, sócio, e-mail, telefone, tipo societário e regime">🔎 Buscar dados</button></div><div class="sub" id="cli-doc-aviso"></div>', 'dois') +
@@ -1842,8 +1904,11 @@ async function formCliente(cl, depois) {
       aba('contato',
         '<div class="inteiro cli-bloco"><div class="cli-lista-tit"><span>E-mails</span><span class="sub">o principal é o do cadastro; os outros viram contatos do setor escolhido</span><button type="button" class="btn btn-o btn-mini" id="cli-mais-email">+ Adicionar e-mail</button></div><div id="cli-emails">' + linhaEmail(cl.email, true) + '</div></div>' +
         '<div class="inteiro cli-bloco"><div class="cli-lista-tit"><span>Telefones / WhatsApp</span><span class="sub">celular com 9 dígitos vira link de WhatsApp</span><button type="button" class="btn btn-o btn-mini" id="cli-mais-tel">+ Adicionar telefone</button></div><div id="cli-tels">' + linhaTel(cl.telefone, true) + '</div></div>' +
+        // Backup 49: a chave única; o perfil detalhado fica em "Avançado"
+        campo('✉ Recebe e-mails do escritório', '<select name="recebe_email"><option value="sim"' + (cl.recebe_email !== false ? ' selected' : '') + '>Sim</option><option value="nao"' + (cl.recebe_email === false ? ' selected' : '') + '>Não — não manda nada para este cliente</option></select>') +
+        '<details class="inteiro cli-avancado"><summary>Avançado: quais e-mails automáticos</summary>' +
         campo('E-mails automáticos', '<select name="perfil_email" title="Quais e-mails automáticos este cliente recebe">' + PERFIS_EMAIL.map(([v, r]) =>
-          '<option value="' + v + '"' + ((cl.perfil_email || 'padrao') === v ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>') +
+          '<option value="' + v + '"' + ((cl.perfil_email || 'padrao') === v ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>') + '</details>' +
         '<div class="dica dois">Os e-mails e telefones a mais viram <b>contatos</b> do cliente, com o setor escolhido (financeiro, fiscal, RH…): é por eles que o sistema sabe para quem mandar cobranças, guias e recibos (ficha → Contatos).</div>') +
       aba('end',
         campo('CEP', '<input name="cep" inputmode="numeric" maxlength="9" value="' + esc(cl.cep || '') + '">') +
@@ -1872,8 +1937,17 @@ async function formCliente(cl, depois) {
       '<button class="btn btn-p" id="btn-salvar-cli" type="button">Salvar</button></div>'
   });
   const f = j.querySelector('#f-cli');
-  const irAba = (k) => { j.querySelectorAll('[data-cli-aba]').forEach((b) => b.classList.toggle('ativo', b.dataset.cliAba === k)); j.querySelectorAll('.cli-aba').forEach((d) => { d.hidden = d.dataset.aba !== k; }); };
+  const sairRapido = () => { if (!f.classList.contains('cli-rapido')) return; f.classList.remove('cli-rapido'); const hd = j.querySelector('.cli-rapido-hd'); if (hd) hd.remove(); };
+  const irAba = (k) => { sairRapido(); j.querySelectorAll('[data-cli-aba]').forEach((b) => b.classList.toggle('ativo', b.dataset.cliAba === k)); j.querySelectorAll('.cli-aba').forEach((d) => { d.hidden = d.dataset.aba !== k; }); };
   j.querySelector('#cli-abas').onclick = (ev) => { const b = ev.target.closest('[data-cli-aba]'); if (b) irAba(b.dataset.cliAba); };
+  if (novo) {
+    f.classList.add('cli-rapido');
+    j.querySelectorAll('.cli-aba').forEach((d) => { d.hidden = false; });
+    [f.cpf_cnpj, f.nome, f.grupo_sel].forEach((x) => x.closest('.campo').classList.add('cli-r'));
+    j.querySelector('#cli-cnpj-card').classList.add('cli-r');
+    j.querySelectorAll('.cli-bloco').forEach((x) => x.classList.add('cli-r'));
+    j.querySelector('#cli-mais-dados').onclick = () => irAba('id');
+  }
   f.grupo_novo.onchange = () => { f.grupo.hidden = !f.grupo_novo.checked; f.grupo_sel.disabled = f.grupo_novo.checked; if (f.grupo_novo.checked) f.grupo.focus(); };
   j.querySelector('#cli-mais-email').onclick = () => { j.querySelector('#cli-emails').insertAdjacentHTML('beforeend', linhaEmail('', false)); j.querySelector('#cli-emails').lastElementChild.querySelector('input').focus(); };
   j.querySelector('#cli-mais-tel').onclick = () => { j.querySelector('#cli-tels').insertAdjacentHTML('beforeend', linhaTel('', false)); j.querySelector('#cli-tels').lastElementChild.querySelector('input').focus(); };
@@ -1942,7 +2016,7 @@ async function formCliente(cl, depois) {
       rfb: num('rfb'), rfb_negociada: num('rfb_negociada'), pgfn: num('pgfn'), pgfn_negociada: num('pgfn_negociada'),
       age_mg: num('age_mg'), age_mg_negociada: num('age_mg_negociada'), sefaz_mg: num('sefaz_mg'),
       ceat_trt3: f.ceat_trt3.value === '' ? null : Number(f.ceat_trt3.value),
-      email: f.email.value.trim(), telefone: f.telefone.value.trim(), endereco: f.endereco.value.trim(), perfil_email: f.perfil_email.value, cep: soDigitos(f.cep.value),
+      email: f.email.value.trim(), telefone: f.telefone.value.trim(), endereco: f.endereco.value.trim(), perfil_email: f.perfil_email.value, recebe_email: f.recebe_email.value !== 'nao', cep: soDigitos(f.cep.value),
       cidade: f.cidade.value.trim(), estado: f.estado.value.trim().toUpperCase(), origem: f.origem.value.trim(), indicado_por: f.indicado_por.value.trim(),
       obs: f.obs.value.trim()
     };
@@ -1999,7 +2073,7 @@ async function pintarContratos(buscar) {
   document.querySelectorAll('#ctr-status button').forEach((x) => x.classList.toggle('ativo', x.dataset.v === F.status));
   if (document.activeElement !== $('ctr-busca')) $('ctr-busca').value = F.busca;
   if (buscar) {
-    let c = sb.from('contratos').select('*, clientes(nome, grupos(nome)), lancamentos(valor, pago, vencimento), documentos(id), exitos(id)').order('data_contrato', { ascending: false });
+    let c = sb.from('contratos').select('*, clientes(nome, grupos(nome)), lancamentos(valor, pago, vencimento), documentos(id), exitos(id), contratos_aditivos(tipo, data)').order('data_contrato', { ascending: false });
     if (F.status !== 'todos') c = c.eq('status', F.status);
     _contratos = await q(c);
   }
@@ -2009,7 +2083,8 @@ async function pintarContratos(buscar) {
     lista = lista.filter((c) => normalizar(c.descricao + ' ' + (c.clientes ? c.clientes.nome : '')).includes(b));
   }
   const h = hojeISO();
-  $('ctr-corpo').innerHTML = '<div class="card">' + (lista.length ?
+  const reaj = F.status === 'Ativo' || F.status === 'todos' ? reajustesProximos(_contratos) : [];
+  $('ctr-corpo').innerHTML = (reaj.length ? await cardReajustes(reaj) : '') + '<div class="card">' + (lista.length ?
     '<div class="tabela-wrap"><table class="ordenavel ctr-tab"><thead><tr><th>Cliente</th><th>Contrato</th><th>Tipo</th><th data-tipo="data">Data</th><th class="num">Valor</th><th class="num">Recebido</th><th>Financeiro</th><th>Situação</th></tr></thead><tbody>' +
     lista.map((c) => {
       const parc = c.lancamentos || [];
@@ -2028,6 +2103,62 @@ async function pintarContratos(buscar) {
     }).join('') + '</tbody></table></div>'
     : vazio('Nenhum contrato' + (F.status !== 'todos' ? ' com essa situação' : '') + ' — cadastre um contrato e o sistema gera os lançamentos.', '+ Novo contrato', '[data-novo=contrato]')) + '</div>';
   $('ctr-corpo').querySelectorAll('[data-ctr]').forEach((tr) => tr.onclick = () => detalheContrato(tr.dataset.ctr));
+  ligarReajustes(reaj);
+}
+
+// Backup 49 (23): reajuste anual — consultoria com valor FIXO cujo aniversário cai nos próximos 30 dias (ou passou há até 15)
+// e que ainda não teve aditivo de valor neste ciclo. O salário mínimo já reajusta sozinho e fica de fora.
+function aniversarioContrato(c, hoje) {
+  const base = c.inicio_vigencia || c.inicio_competencia || c.data_contrato; if (!base) return null;
+  const [a, m, d] = base.split('-').map(Number); const ano = hoje.getFullYear();
+  if (a >= ano + 1) return null;
+  let anv = new Date(ano, m - 1, Math.min(d, 28));
+  if ((anv - hoje) / 864e5 < -15) anv = new Date(ano + 1, m - 1, Math.min(d, 28));
+  if (anv.getFullYear() <= a) return null;          // ainda não completou um ano
+  return anv;
+}
+function reajustesProximos(lista) {
+  const hoje = new Date(hojeISO() + 'T00:00:00');
+  return lista.filter((c) => c.status === 'Ativo' && !c.rescindido_em && c.modalidade === 'consultoria' && c.forma_valor !== 'salario_minimo' && Number(c.valor_mensal) > 0)
+    .map((c) => { const anv = aniversarioContrato(c, hoje); return anv && { c, anv, dias: Math.round((anv - hoje) / 864e5) }; })
+    .filter((r) => r && r.dias <= 30 && !(r.c.contratos_aditivos || []).some((a) => a.tipo === 'valor' && (new Date(a.data + 'T00:00:00') - r.anv) / 864e5 > -45))
+    .sort((a, b) => a.dias - b.dias);
+}
+// índice padrão = variação do salário mínimo do ano (a pessoa pode trocar pelo IPCA/IGP-M antes de aplicar)
+async function indiceReajustePadrao() {
+  if (E._idxReaj != null) return E._idxReaj;
+  const sm = await sb.from('salarios_minimos').select('ano, valor').order('ano', { ascending: false }).limit(2).then((r) => r.data || [], () => []);
+  E._idxReaj = sm.length === 2 && Number(sm[1].valor) > 0 ? Math.round((Number(sm[0].valor) / Number(sm[1].valor) - 1) * 10000) / 100 : 5;
+  return E._idxReaj;
+}
+async function cardReajustes(reaj) {
+  const idx = await indiceReajustePadrao();
+  return '<div class="card ctr-reaj" id="ctr-reaj"><div class="card-hd">Reajuste anual nos próximos 30 dias <span class="pill hoje">' + reaj.length + '</span></div>' +
+    '<p class="sub">Consultorias com valor fixo fazendo aniversário. O % sugerido é a variação do salário mínimo do ano — troque pelo índice do contrato (IPCA, IGP-M) se for outro.</p>' +
+    '<div class="tabela-wrap"><table class="ctr-reaj-tab"><thead><tr><th>Cliente</th><th>Contrato</th><th>Aniversário</th><th class="num">Valor atual</th><th class="num">%</th><th class="num">Novo valor</th><th></th></tr></thead><tbody>' +
+    reaj.map(({ c, anv, dias }) => {
+      const novo = Math.round(Number(c.valor_mensal) * (1 + idx / 100) * 100) / 100;
+      return '<tr data-reaj="' + c.id + '"><td>' + esc(c.clientes ? c.clientes.nome : '—') + '</td><td>' + esc(c.descricao) + '</td>' +
+        '<td class="centro">' + dataBR(iso(anv)) + '<div class="sub">' + (dias < 0 ? 'há ' + plural(-dias, 'dia', 'dias') : dias === 0 ? 'hoje' : 'em ' + plural(dias, 'dia', 'dias')) + '</div></td>' +
+        '<td class="num mono">' + brl(c.valor_mensal) + '</td>' +
+        '<td class="num"><input class="ctr-reaj-pct" inputmode="decimal" data-mascara="nenhuma" value="' + String(idx).replace('.', ',') + '" aria-label="Percentual de reajuste"></td>' +
+        '<td class="num mono ctr-reaj-novo">' + brl(novo) + '</td>' +
+        '<td class="centro"><button class="btn btn-p btn-mini" data-reaj-aplicar="' + c.id + '">Aplicar</button></td></tr>';
+    }).join('') + '</tbody></table></div></div>';
+}
+function ligarReajustes(reaj) {
+  const box = $('ctr-reaj'); if (!box) return;
+  const novoValor = (tr) => { const c = reaj.find((r) => r.c.id === tr.dataset.reaj).c; return Math.round(Number(c.valor_mensal) * (1 + (lerValor(tr.querySelector('.ctr-reaj-pct').value) || 0) / 100) * 100) / 100; };
+  box.addEventListener('input', (ev) => { const tr = ev.target.closest('tr[data-reaj]'); if (tr) tr.querySelector('.ctr-reaj-novo').textContent = brl(novoValor(tr)); });
+  box.querySelectorAll('[data-reaj-aplicar]').forEach((b) => b.onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    const tr = b.closest('tr'); const r = reaj.find((x) => x.c.id === tr.dataset.reaj);
+    const pct = lerValor(tr.querySelector('.ctr-reaj-pct').value) || 0, v = novoValor(tr);
+    if (!(v > 0) || pct <= 0) throw new Error('Informe o % do reajuste.');
+    if (!confirm('Aplicar reajuste de ' + String(pct).replace('.', ',') + '% em "' + r.c.descricao + '"?\n\nNovo valor: ' + brl(v) + '/mês a partir de ' + dataBR(iso(r.anv)).slice(3) + '.')) return;
+    await q(sb.rpc('registrar_aditivo', { p_contrato: r.c.id, p: { tipo: 'valor', forma: 'fixo', valor_mensal: v, a_partir: iso(r.anv).slice(0, 7) + '-01',
+      descricao: 'Reajuste anual de ' + String(pct).replace('.', ',') + '% (de ' + brl(r.c.valor_mensal) + ' para ' + brl(v) + ')' } }));
+    aviso('✓ Reajuste aplicado — as mensalidades em aberto já estão com o valor novo.'); await pintarContratos(true);
+  }));
 }
 
 // Backup 28: situação do contrato (sem misturar com o financeiro, que tem coluna própria)
@@ -2420,31 +2551,37 @@ function formExito(ct, depois) {
 // de que cada gravação chegou ao servidor, com autor e horário.
 // ═══════════════════════════════════════════════════════════════════
 
+// Backup 49 (32): abas principais Usuários · Importar · E-mail · Backup; Histórico e Acessos (uso raro) ficam no "⋯ Mais".
+// Automações saiu daqui (tem menu próprio). Abas sem ícone.
 const ABAS_ADMIN = [
-  { id: 'usuarios', rot: '👤 Usuários' },
-  { id: 'importar', rot: '📥 Importar planilhas' },
-  { id: 'backup',   rot: '💾 Backup' },
-  { id: 'historico', rot: '🕘 Histórico' },
-  { id: 'acessos', rot: '🔐 Acessos' },
-  { id: 'automacoes', rot: '⚡ Automações' },
-  // Backup 42: a aba E-mail voltou — é onde se configura o Gmail (senha de app), manda o teste e vê o que falta para o e-mail sair
-  { id: 'email', rot: '✉ E-mail' }
+  { id: 'usuarios', rot: 'Usuários' },
+  { id: 'importar', rot: 'Importar' },
+  { id: 'email', rot: 'E-mail' },
+  { id: 'backup',   rot: 'Backup' }
 ];
+const ABAS_ADMIN_MAIS = [{ id: 'historico', rot: 'Histórico' }, { id: 'acessos', rot: 'Acessos' }];
 
 TELAS.admin = async function () {
   E.adm = E.adm || { aba: 'usuarios', tabela: '' };
   $('conteudo').innerHTML =
-    '<div class="titulo-pag"><div><h1>Administração</h1><p>Usuários, importação, backup e histórico de alterações</p></div></div>' +
-    '<div class="abas" id="adm-abas">' + ABAS_ADMIN.map((a) => '<button data-aba="' + a.id + '">' + a.rot + '</button>').join('') + '</div>' +
+    '<div class="titulo-pag"><div><h1>Administração</h1><p>Usuários, importação, e-mail e backup</p></div></div>' +
+    '<div class="abas" id="adm-abas">' + ABAS_ADMIN.map((a) => '<button data-aba="' + a.id + '">' + a.rot + '</button>').join('') +
+      '<span class="adm-mais"><button type="button" id="adm-mais-bt" aria-haspopup="true">⋯ Mais</button><span class="adm-mais-menu" id="adm-mais-menu">' +
+      ABAS_ADMIN_MAIS.map((a) => '<button data-aba="' + a.id + '">' + a.rot + '</button>').join('') + '</span></span></div>' +
     '<div id="adm-corpo"></div>';
-  $('adm-abas').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { E.adm.aba = b.dataset.aba; pintarAdmin(); } };
+  $('adm-abas').onclick = (ev) => { const b = ev.target.closest('button'); if (!b) return;
+    if (b.id === 'adm-mais-bt') { $('adm-abas').classList.toggle('mais-aberto'); return; }
+    $('adm-abas').classList.remove('mais-aberto'); E.adm.aba = b.dataset.aba; pintarAdmin(); };
   await pintarAdmin();
 };
 
 async function pintarAdmin() {
   // Backup 19: as telas de e-mail moraram para a Central de e-mails (abas) — lá o "atualizar" redesenha a aba aberta
   if (E.adm.aba === 'clientes_email') E.adm.aba = 'usuarios';   // Backup 38: módulo E-mails saiu (a aba E-mail da Administração voltou no Backup 42)
-  document.querySelectorAll('#adm-abas button').forEach((b) => b.classList.toggle('ativo', b.dataset.aba === E.adm.aba));
+  if (E.adm.aba === 'automacoes') E.adm.aba = 'usuarios';
+  document.querySelectorAll('#adm-abas button[data-aba]').forEach((b) => b.classList.toggle('ativo', b.dataset.aba === E.adm.aba));
+  const mais = $('adm-mais-bt'), noMais = ABAS_ADMIN_MAIS.find((a) => a.id === E.adm.aba);
+  if (mais) { mais.classList.toggle('ativo', !!noMais); mais.textContent = noMais ? '⋯ ' + noMais.rot : '⋯ Mais'; }
   const corpo = $('adm-corpo');
   corpo.innerHTML = '<div class="carregando">Carregando…</div>';
   try { await ({ usuarios: admUsuarios, importar: admImportar, backup: admBackup, historico: admHistorico, acessos: admAcessos, clientes_email: admClientesEmail, automacoes: () => { E.adm.aba = 'usuarios'; irParaTela('automacoes'); }, email: admEmail })[E.adm.aba](corpo); }
@@ -3020,7 +3157,70 @@ async function salvarPagamento(form, chave) {
   const v = {}; CAMPOS_PAG.forEach((k) => { v[k] = form[k].value.trim(); });
   await q(sb.from('configuracoes').upsert({ chave, valor: v }, { onConflict: 'chave' }));
 }
+// Backup 49: E-mail em três partes — quem recebe, o que espera revisão e a configuração (o que já existia)
 async function admEmail(corpo) {
+  E.adm.emailAba = E.adm.emailAba || 'quem';
+  corpo.innerHTML = '<div class="segmento em-abas" id="em-abas">' + [['quem', 'Quem recebe'], ['revisar', 'Para revisar'], ['config', 'Configuração']]
+    .map(([v, r]) => '<button type="button" data-em-aba="' + v + '"' + (E.adm.emailAba === v ? ' class="ativo"' : '') + '>' + r + '</button>').join('') + '</div><div id="em-corpo"></div>';
+  corpo.querySelector('#em-abas').onclick = (ev) => { const b = ev.target.closest('[data-em-aba]'); if (b) { E.adm.emailAba = b.dataset.emAba; admEmail(corpo); } };
+  const alvo = corpo.querySelector('#em-corpo');
+  await ({ quem: admEmailQuem, revisar: admEmailRevisar, config: admEmailConfig })[E.adm.emailAba](alvo);
+}
+async function admEmailQuem(corpo) {
+  const linhas = await q(sb.rpc('quem_recebe_emails'));
+  E.adm.emFiltro = E.adm.emFiltro || '';
+  const F = { '': ['Todos', () => true], sim: ['Recebem', (r) => r.recebe], nao: ['Não recebem', (r) => !r.recebe], sem: ['Sem e-mail', (r) => r.recebe && !r.destino] };
+  const pinta = () => {
+    const ver = linhas.filter(F[E.adm.emFiltro][1]);
+    corpo.innerHTML = '<div class="fila-chips em-filtros" role="group" aria-label="Filtro">' + Object.entries(F).map(([k, [r, f]]) => chipFiltro('data-em-f', k || '*', r + ' (' + linhas.filter(f).length + ')', E.adm.emFiltro === k)).join('') + '</div>' +
+      '<div class="card"><div class="tabela-wrap"><table class="ordenavel em-quem"><thead><tr><th>Grupo</th><th>Cliente</th><th>E-mail de destino</th><th>Recebe</th><th data-tipo="data">Último e-mail</th></tr></thead><tbody>' +
+      (ver.length ? ver.map((r) => '<tr><td>' + esc(r.grupo || '—') + '</td><td>' + esc(r.cliente) + '</td>' +
+        '<td>' + (r.destino ? esc(r.destino) : '<span class="pill vencido">sem e-mail</span>') + '</td>' +
+        '<td>' + pillRecebeEmail({ id: r.cliente_id, recebe_email: r.recebe }) + '</td>' +
+        '<td data-ord="' + (r.ultimo_em || '') + '">' + (r.ultimo_em ? dataBR(r.ultimo_em) + ' <span class="sub">' + esc(r.ultimo_assunto || '') + '</span>' : '<span class="sub">—</span>') + '</td></tr>').join('')
+        : '<tr><td colspan="5">' + vazio('Ninguém neste filtro.') + '</td></tr>') + '</tbody></table></div></div>' +
+      '<div class="dica">Clique em <b>✉ Sim</b> / <b>✕ Não</b> para trocar. Quem está em "Não" não recebe nada do escritório (nem rascunho). <b>Sem e-mail</b> = vai receber, mas falta cadastrar o endereço (ficha → Contatos).</div>';
+    corpo.querySelectorAll('[data-em-f]').forEach((b) => b.onclick = () => { E.adm.emFiltro = b.dataset.emF === '*' ? '' : b.dataset.emF; pinta(); });
+    corpo.querySelectorAll('[data-cli-email]').forEach((b) => b.onclick = () => comBotao(b, async () => {
+      const r = linhas.find((x) => x.cliente_id === b.dataset.cliEmail); await trocarRecebeEmail([r.cliente_id], !r.recebe); r.recebe = !r.recebe;
+      const c = E.clientes.find((x) => x.id === r.cliente_id); if (c) c.recebe_email = r.recebe; pinta(); }));
+  };
+  pinta();
+}
+async function admEmailRevisar(corpo) {
+  const [ret, liga] = await Promise.all([
+    q(sb.from('email_fila').select('id, para, para_original, assunto, html, criado_em, tipo, usuario_id').eq('status', 'retido').order('criado_em', { ascending: false }).limit(300)).catch(() => []),
+    q(sb.rpc('emails_revisar')).catch(() => false)]);
+  corpo.innerHTML = '<div class="card"><div class="card-hd">Revisar antes de sair<span class="sub" style="margin-left:auto;font-weight:400">vale para os e-mails automáticos ao cliente (lembretes, cobranças, avisos)</span></div><div class="card-bd">' +
+    '<label class="au-chave em-rev-chave"><input type="checkbox" role="switch" id="em-revisar"' + (liga ? ' checked' : '') + '><span class="au-trilho" aria-hidden="true"></span> ' +
+      (liga ? '<b>Ligado:</b> os automáticos esperam aqui o seu clique.' : '<b>Desligado:</b> os automáticos saem sozinhos.') + '</label>' +
+    '<p class="sub" style="margin-top:6px">Os e-mails que você manda na hora (guias, acordos, rascunhos) não passam por aqui.</p></div></div>' +
+    '<div class="card"><div class="card-hd">Esperando revisão <span class="sub">' + ret.length + '</span>' +
+      (ret.length ? '<div class="acoes" style="margin-left:auto"><button class="btn btn-o btn-mini" id="em-desc-todos">Descartar todos</button><button class="btn btn-p btn-mini" id="em-env-todos">✉ Enviar todos (' + ret.length + ')</button></div>' : '') + '</div>' +
+    (ret.length ? '<div class="tabela-wrap"><table class="em-rev"><thead><tr><th>Para</th><th>Assunto</th><th data-tipo="data">Criado</th><th></th></tr></thead><tbody>' +
+      ret.map((m) => '<tr><td>' + esc(m.para_original || m.para) + '</td><td>' + esc(m.assunto) + '</td><td>' + dataBR(m.criado_em) + '</td>' +
+        '<td class="acoes-l"><button class="btn btn-o btn-mini" data-em-ver="' + m.id + '">👁 Ver</button> <button class="btn btn-p btn-mini" data-em-env="' + m.id + '">Enviar</button> <button class="btn btn-x btn-mini" data-em-desc="' + m.id + '" title="Não enviar">✕</button></td></tr>').join('') +
+      '</tbody></table></div>' : '<div class="card-bd">' + vazio('Nada esperando revisão.') + '</div>') + '</div>';
+  const acao = (ids, a) => async () => { const n = await q(sb.rpc('emails_retidos_acao', { p_ids: ids, p_acao: a }));
+    if (a === 'liberar' && n) await enviarEmailAgora(null).catch(() => null);
+    aviso('✓ ' + plural(n, 'e-mail', 'e-mails') + (a === 'liberar' ? ' liberado(s) para envio.' : ' descartado(s).')); await admEmailRevisar(corpo); };
+  corpo.querySelector('#em-revisar').onchange = (ev) => comBotao(ev.target, async () => { await q(sb.rpc('salvar_emails_revisar', { p: ev.target.checked })); await admEmailRevisar(corpo); });
+  const todos = ret.map((m) => m.id);
+  if (corpo.querySelector('#em-env-todos')) corpo.querySelector('#em-env-todos').onclick = (ev) => comBotao(ev.currentTarget, acao(todos, 'liberar'));
+  if (corpo.querySelector('#em-desc-todos')) corpo.querySelector('#em-desc-todos').onclick = (ev) => { if (confirm('Descartar os ' + todos.length + ' e-mails? Eles não serão enviados.')) comBotao(ev.currentTarget, acao(todos, 'descartar')); };
+  corpo.querySelectorAll('[data-em-env]').forEach((b) => b.onclick = () => comBotao(b, acao([b.dataset.emEnv], 'liberar')));
+  corpo.querySelectorAll('[data-em-desc]').forEach((b) => b.onclick = () => comBotao(b, acao([b.dataset.emDesc], 'descartar')));
+  corpo.querySelectorAll('[data-em-ver]').forEach((b) => b.onclick = () => { const m = ret.find((x) => x.id === b.dataset.emVer); verEmailHtml(m.assunto, m.html); });
+}
+// mostra o e-mail como o cliente vai ver
+function verEmailHtml(titulo, html) {
+  const j = abrirJanela({ titulo: '👁 ' + titulo, larga: true, corpo: '<iframe class="em-previa" sandbox="" title="Prévia do e-mail"></iframe>',
+    rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Fechar</button></div>' });
+  j.querySelector('iframe').srcdoc = html || '';
+  j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
+  return j;
+}
+async function admEmailConfig(corpo) {
   const [st, fila] = await Promise.all([
     q(sb.rpc('status_config_email')).catch(() => ({})),
     q(sb.from('email_fila').select('para, assunto, status, erro, criado_em, enviado_em, tipo').order('criado_em', { ascending: false }).limit(30)).catch(() => [])
@@ -3346,7 +3546,7 @@ const FILA = { toda: false, min: false, vista: 'lista', ref: null, lida: false, 
 // Backup 38: a agenda mostra SÓ o que está em Tarefas (tarefas e compromissos lançados pela equipe).
 // O administrador escolhe de quem ver: só as suas, todos, ou uma pessoa; os demais veem só as suas.
 const ehAdminFila = () => !!(E.perfil && E.perfil.papel === 'admin');
-const VISTAS_FILA = [['lista', 'Lista'], ['mes', 'Mês'], ['semana', 'Semana'], ['dia', 'Dia']];
+const VISTAS_FILA = [['lista', 'Lista'], ['mes', 'Mês']];   // Backup 49: Semana e Dia ficaram em Tarefas → Calendário
 function salvarPrefFila() {
   const v = { vista: FILA.vista, min: FILA.min, quem: FILA.quem || '', pessoas: FILA.pessoas || null, tipos: FILA.tipos || null };
   if (E.perfil) E.perfil.preferencias = Object.assign({}, E.perfil.preferencias || {}, { fila: v });
@@ -3567,7 +3767,7 @@ function calendarioFila(lista) {
     '<button type="button" class="btn btn-p btn-mini ag-bt" data-agendar>+ Agendar</button></div>' + corpo + legendaAgenda() + '</div></div>';
 }
 async function cardMinhaFila() {
-  if (!FILA.lida) { const p = (E.perfil && E.perfil.preferencias && E.perfil.preferencias.fila) || {}; if (p.vista) FILA.vista = p.vista; FILA.min = false; FILA.quem = p.quem || '';
+  if (!FILA.lida) { const p = (E.perfil && E.perfil.preferencias && E.perfil.preferencias.fila) || {}; if (p.vista) FILA.vista = p.vista === 'lista' ? 'lista' : 'mes'; FILA.min = false; FILA.quem = p.quem || '';
     FILA.pessoas = Array.isArray(p.pessoas) ? p.pessoas : null; FILA.tipos = Array.isArray(p.tipos) ? p.tipos : null; FILA.lida = true; }
   await feriados();
   await equipe().catch(() => []);
@@ -3664,27 +3864,33 @@ TELAS.tarefas = async function () {
   const F = E.tf;
   // abas: o painel mostra só o que está em aberto; concluídas e excluídas ficam separadas
   F.aba = F.aba || 'abertas'; if (F.atalho === 'abertas' || F.atalho === 'concluidas') F.atalho = '';
+  // Backup 49: Minha semana virou a vista Semana do Calendário; o Quadro saiu (repetia a Lista)
+  if (F.vista === 'semana') { F.vista = 'calendario'; F.calVista = 'semana'; }
+  if (F.vista === 'kanban') F.vista = 'lista';
+  if (F.atalho === 'minhas') F.atalho = '';
   $('conteudo').innerHTML =
-    '<div class="titulo-pag"><div><h1>Tarefas</h1><p>Prazos, fluxos e acompanhamento do escritório</p></div>' +
-    '<div class="acoes"><button class="btn btn-o" id="tf-modelos">Modelos de fluxo</button><button class="btn btn-o" id="tf-feriados">Feriados</button><button class="btn btn-o" id="tf-agenda" title="Prazos fatais e audiências no seu Google Agenda">📅 Google Agenda</button>' +
-    '<button class="btn btn-o" id="tf-delegar" title="Delegar uma sequência de passos (ex.: lead completo) com validação">👥 Delegar</button><button class="btn btn-o" id="tf-fluxo">+ Novo fluxo</button><button class="btn btn-p" id="tf-nova">+ Nova tarefa</button></div></div>' +
-    '<div class="tf-rapida"><input id="tf-rapida" autocomplete="off" placeholder="⚡ Criação rápida: “Protocolar defesa amanhã @Emanuelle !alta” e Enter" aria-label="Criação rápida de tarefa">' +
+    // Backup 49: abas junto do título; só "+ Nova tarefa" e "Delegar" à vista — o resto no ⚙; a criação rápida abre no ⚡
+    '<div class="titulo-pag"><div><h1>Tarefas</h1><div class="segmento tf-abas-seg" id="tf-abas">' + [['abertas', 'Em aberto'], ['concluidas', 'Concluídas'], ['excluidas', 'Excluídas']]
+      .map(([v, r]) => '<button data-aba="' + v + '">' + r + '</button>').join('') + '</div></div>' +
+    '<div class="acoes"><button class="btn btn-o tf-bt-ic" id="tf-rapida-bt" title="Criação rápida: escreva a tarefa numa linha (ex.: Protocolar defesa amanhã @Emanuelle !alta)" aria-expanded="false">⚡</button>' +
+    '<span class="tf-cfg-wrap"><button class="btn btn-o tf-bt-ic" id="tf-config" title="Configurar: modelos de fluxo, feriados, Google Agenda e novo fluxo" aria-expanded="false">⚙</button>' +
+      '<span class="tf-cfg-menu" id="tf-cfg-menu" hidden><button class="btn btn-o" id="tf-fluxo">+ Novo fluxo</button><button class="btn btn-o" id="tf-modelos">Modelos de fluxo</button>' +
+      '<button class="btn btn-o" id="tf-feriados">Feriados</button><button class="btn btn-o" id="tf-agenda" title="Prazos fatais e audiências no seu Google Agenda">📅 Google Agenda</button></span></span>' +
+    '<button class="btn btn-o" id="tf-delegar" title="Delegar uma sequência de passos (ex.: lead completo) com validação">👥 Delegar</button><button class="btn btn-p" id="tf-nova">+ Nova tarefa</button></div></div>' +
+    '<div class="tf-rapida" id="tf-rapida-box" hidden><input id="tf-rapida" autocomplete="off" placeholder="⚡ Criação rápida: “Protocolar defesa amanhã @Emanuelle !alta” e Enter" aria-label="Criação rápida de tarefa">' +
       '<div id="tf-rapida-prev" class="tf-rapida-prev"></div></div>' +
-    // Backup 39: Em aberto / Concluídas / Excluídas no mesmo estilo de Lista / Minha semana / Quadro
-    '<div class="segmento tf-abas-seg" id="tf-abas">' + [['abertas', 'Em aberto'], ['concluidas', 'Concluídas'], ['excluidas', 'Excluídas']]
-      .map(([v, r]) => '<button data-aba="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<div class="filtros">' +
-    '<div class="segmento" id="tf-vista">' + [['lista', 'Lista'], ['semana', 'Minha semana'], ['kanban', 'Quadro'], ['calendario', 'Calendário'], ['fluxos', 'Fluxos']]
+    '<div class="segmento" id="tf-vista">' + [['lista', 'Lista'], ['calendario', 'Calendário'], ['fluxos', 'Fluxos']]
       .map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
-    '<div class="segmento" id="tf-atalho">' + [['', 'Todas'], ['minhas', 'Minhas'], ['hoje', 'Hoje'], ['atrasadas', 'Atrasadas'], ['7', '7 dias']].concat(F.atalho === 'atencao' ? [['atencao', 'Pedem atenção']] : [])
-      .map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
-    // Backup 40: pessoa e prioridade em botões (como Todas/Minhas/Hoje); pessoa = responsável OU participante
-    '<div class="segmento" id="tf-pri" aria-label="Prioridade">' + [['', 'Todas as prioridades'], ['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<input class="busca" id="tf-busca" placeholder="Buscar tarefa, cliente, processo ou etiqueta" autocomplete="off">' +
-    // Backup 48: Mostrar (tipo) e De quem — os mesmos filtros e o mesmo desenho da agenda do Início
+    // Backup 48/49: Mostrar (tipo, prioridade e prazo) e De quem — o mesmo desenho da agenda do Início
     '</div><div class="fila-filtros tf-filtros" id="tf-chips"></div><div id="tf-corpo"><div class="carregando">Carregando…</div></div>';
   $('tf-nova').onclick = () => formTarefa({}, () => TELAS.tarefas());
   ligarCriacaoRapida();
+  $('tf-rapida-bt').onclick = () => { const bx = $('tf-rapida-box'); bx.hidden = !bx.hidden; $('tf-rapida-bt').setAttribute('aria-expanded', String(!bx.hidden)); if (!bx.hidden) $('tf-rapida').focus(); };
+  $('tf-config').onclick = (ev) => { ev.stopPropagation(); const m = $('tf-cfg-menu'); m.hidden = !m.hidden; $('tf-config').setAttribute('aria-expanded', String(!m.hidden)); };
+  if (!window._tfCfgDoc) { window._tfCfgDoc = true; document.addEventListener('click', (ev) => { const m = $('tf-cfg-menu'); if (m && !m.hidden && !ev.target.closest('.tf-cfg-wrap')) m.hidden = true; }); }
+  $('tf-cfg-menu').addEventListener('click', () => { setTimeout(() => { const m = $('tf-cfg-menu'); if (m) m.hidden = true; }, 0); });
   $('tf-fluxo').onclick = () => formNovoFluxo(() => TELAS.tarefas());
   $('tf-modelos').onclick = () => janelaModelos();
   $('tf-delegar').onclick = () => janelaDelegar({}, () => TELAS.tarefas());
@@ -3692,10 +3898,10 @@ TELAS.tarefas = async function () {
   $('tf-agenda').onclick = () => janelaAgenda();
   $('tf-vista').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.vista = b.dataset.v; pintarTarefas(); } };
   $('tf-abas').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.aba = b.dataset.aba; pintarTarefas(); } };
-  $('tf-atalho').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.atalho = b.dataset.v; pintarTarefas(); } };
-  $('tf-pri').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.pri = b.dataset.v; pintarTarefas(); } };
   $('tf-chips').onclick = (ev) => { const b = ev.target.closest('button'); if (!b) return;
     if (b.dataset.tfTipo != null) F.tipos = alternarFiltro(F.tipos || FILTRO_TIPOS_AG.map((x) => x[0]), b.dataset.tfTipo, FILTRO_TIPOS_AG.map((x) => x[0]));
+    else if (b.dataset.tfPri != null) F.pri = F.pri === b.dataset.tfPri ? '' : b.dataset.tfPri;
+    else if (b.dataset.tfPrazo != null) F.atalho = F.atalho === b.dataset.tfPrazo ? '' : b.dataset.tfPrazo;
     else { const todos = pessoasFiltro().map(primeiroNome); F.pessoas = alternarFiltro(F.pessoas && F.pessoas.length ? F.pessoas : todos, b.dataset.tfPes, todos); if (!F.pessoas.length) F.pessoas = [primeiroNome(meuNome())]; }
     pintarTarefas(); };
   $('tf-busca').value = F.busca;
@@ -3733,18 +3939,18 @@ function filtrarTarefas() {
 function pintarTarefas() {
   const F = E.tf, h = hojeISO();
   document.querySelectorAll('#tf-vista button').forEach((b) => b.classList.toggle('ativo', b.dataset.v === F.vista));
-  document.querySelectorAll('#tf-atalho button').forEach((b) => b.classList.toggle('ativo', b.dataset.v === F.atalho));
   document.querySelectorAll('#tf-abas button').forEach((b) => b.classList.toggle('ativo', b.dataset.aba === F.aba));
   // Backup 48: filtros em botões que se marcam/desmarcam (iguais aos da agenda do Início); pessoas: Todos, eu, depois os outros
   { const tipos = FILTRO_TIPOS_AG.map((x) => x[0]), tSel = new Set(F.tipos || tipos), eu = primeiroNome(meuNome());
     const pes = pessoasFiltro().slice().sort((a, b) => (primeiroNome(b) === eu) - (primeiroNome(a) === eu) || a.localeCompare(b, 'pt-BR'));
     const pSel = new Set(F.pessoas && F.pessoas.length ? F.pessoas : pes.map(primeiroNome)), todasP = pSel.size >= pes.length;
+    const prazos = [['hoje', 'Hoje'], ['atrasadas', 'Atrasadas'], ['7', '7 dias']].concat(F.atalho === 'atencao' ? [['atencao', 'Pedem atenção']] : []);
     $('tf-chips').innerHTML = '<div class="fila-chips" role="group" aria-label="Mostrar"><span class="fila-chips-rot">Mostrar</span>' +
-        chipFiltro('data-tf-tipo', '*', 'Tudo', tSel.size === tipos.length, true) + FILTRO_TIPOS_AG.map(([k, r]) => chipFiltro('data-tf-tipo', k, r, tSel.has(k), true)).join('') + '</div>' +
+        chipFiltro('data-tf-tipo', '*', 'Tudo', tSel.size === tipos.length, true) + FILTRO_TIPOS_AG.map(([k, r]) => chipFiltro('data-tf-tipo', k, r, tSel.has(k), true)).join('') +
+        '<span class="fila-chips-sep" aria-hidden="true"></span>' + [['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa']].map(([k, r]) => chipFiltro('data-tf-pri', k, r, F.pri === k)).join('') +
+        (F.aba === 'abertas' && F.vista !== 'fluxos' ? '<span class="fila-chips-sep" aria-hidden="true"></span>' + prazos.map(([k, r]) => chipFiltro('data-tf-prazo', k, r, F.atalho === k)).join('') : '') + '</div>' +
       (pes.length > 1 ? '<div class="fila-chips" role="group" aria-label="De quem"><span class="fila-chips-rot">De quem</span>' +
         chipFiltro('data-tf-pes', '*', 'Todos', todasP) + pes.map((n) => chipFiltro('data-tf-pes', primeiroNome(n), nomeCurto(n), pSel.has(primeiroNome(n)))).join('') + '</div>' : ''); }
-  document.querySelectorAll('#tf-pri button').forEach((b) => b.classList.toggle('ativo', b.dataset.v === (F.pri || '')));
-  $('tf-atalho').style.display = F.vista === 'fluxos' || F.aba !== 'abertas' ? 'none' : '';
   const todas = E._tarefas || [];
   const abertas = todas.filter((t) => !tarefaFechada(t));
   const atrasadas = abertas.filter((t) => t.prazo && t.prazo < h).length;
@@ -3754,7 +3960,7 @@ function pintarTarefas() {
     kpi('Atrasadas', String(atrasadas), atrasadas ? 'vermelho' : 'verde', 'todas as pessoas') +
     kpi('Prazos fatais em 7 dias', String(fatais), fatais ? 'ambar' : '', 'tarefas com prazo fatal marcado') +
     kpi('Concluídas no mês', String(todas.filter((t) => t.status === 'concluida' && String(t.concluida_em || '').slice(0, 7) === h.slice(0, 7)).length), 'verde', '') + '</div>';
-  const V = { lista: vistaLista, semana: vistaSemana, kanban: vistaKanban, calendario: vistaCalendario, fluxos: vistaFluxos };
+  const V = { lista: vistaLista, calendario: vistaCalendario, fluxos: vistaFluxos };
   $('tf-corpo').innerHTML = kpis + '<div id="tf-vista-corpo"></div>';
   if (!V[F.vista]) F.vista = 'lista';
   V[F.vista]($('tf-vista-corpo'));
@@ -3844,18 +4050,29 @@ function vistaKanban(alvo) {
 }
 
 // ── Calendário do mês (prazo interno e ⚑ prazo fatal) ──
-async function vistaCalendario(alvo) {
+async function vistaCalendario(raiz) {
+  // Backup 49: Calendário com Mês · Semana · Dia (a "Minha semana" de arrastar virou a Semana daqui; o Início ficou só com Lista e Mês)
+  const F = E.tf; F.calVista = F.calVista || 'mes';
+  raiz.innerHTML = '<div class="segmento tf-cal-vista" id="tf-cal-vista">' + [['mes', 'Mês'], ['semana', 'Semana'], ['dia', 'Dia']]
+    .map(([v, r]) => '<button type="button" data-cal-v="' + v + '"' + (F.calVista === v ? ' class="ativo"' : '') + '>' + r + '</button>').join('') + '</div><div id="tf-cal-corpo"></div>';
+  raiz.querySelector('#tf-cal-vista').onclick = (ev) => { const b = ev.target.closest('[data-cal-v]'); if (b) { F.calVista = b.dataset.calV; pintarTarefas(); } };
+  const alvo = raiz.querySelector('#tf-cal-corpo');
+  if (F.calVista === 'semana') return vistaSemana(alvo);
   // Backup 39: o MESMO calendário do Início (quadro Atrasadas, cores da legenda, sem cinza depois do último dia); clicar abre o detalhe
-  const F = E.tf; await feriados();
+  await feriados();
+  const dia = F.calVista === 'dia';
+  F.dia = F.dia || hojeISO();
   const salvo = { vista: FILA.vista, ref: FILA.ref };
-  FILA.vista = 'mes'; FILA.ref = F.mes + '-01';
+  FILA.vista = dia ? 'dia' : 'mes'; FILA.ref = dia ? F.dia : F.mes + '-01';
   // Backup 40: em "Em aberto" as concluídas do mês também aparecem, riscadas
-  const pre = F.mes + '-', lista = filtrarTarefas().concat(F.aba === 'abertas' ? (E._tarefas || []).filter((t) => t.status === 'concluida' && String(t.prazo || '').startsWith(pre)) : []);
+  const pre = dia ? F.dia : F.mes + '-', lista = filtrarTarefas().concat(F.aba === 'abertas' ? (E._tarefas || []).filter((t) => t.status === 'concluida' && String(t.prazo || '').startsWith(pre)) : []);
   alvo.innerHTML = '<div class="card ini-fila tf-cal"><div class="card-bd">' + calendarioFila(lista) + '</div></div>';
   FILA.vista = salvo.vista; FILA.ref = salvo.ref;
   const [a, m] = F.mes.split('-').map(Number);
   alvo.querySelectorAll('[data-fila-nav]').forEach((b) => b.onclick = () => {
-    const n = +b.dataset.filaNav, d = n ? new Date(a, m - 1 + n, 1) : new Date();
+    const n = +b.dataset.filaNav;
+    if (dia) { F.dia = n ? somarDias(F.dia, n) : hojeISO(); return pintarTarefas(); }
+    const d = n ? new Date(a, m - 1 + n, 1) : new Date();
     F.mes = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); pintarTarefas(); });
   alvo.querySelectorAll('[data-fila]').forEach((d) => d.onclick = () => abrirTarefa(E._tarefas.find((t) => t.id === d.dataset.fila), recarregarTarefas));
   alvo.querySelectorAll('[data-agendar]').forEach((b) => b.onclick = () => janelaAgendar(hojeISO(), recarregarTarefas));
@@ -4732,7 +4949,7 @@ TELAS.documentos = async function () {
     '<div class="titulo-pag"><div><h1>Documentos</h1><p>Contratos, procurações, certidões, comprovantes e demais arquivos — guardados com acesso restrito</p></div>' +
     '<div class="acoes"><a class="btn btn-o" id="doc-ger" href="documentos/index.html" target="_blank" rel="noopener" title="Abre o sistema de geração de documentos numa aba nova">Gerar documentos ↗</a><button class="btn btn-p" id="doc-novo">+ Enviar documento</button></div></div>' +
     '<div class="filtros">' +
-    '<div class="segmento" id="doc-sit">' + [['ativos', 'Ativos'], ['vencendo', 'Vencendo / vencidos'], ['arquivados', 'Versões anteriores']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
+    '<div class="segmento" id="doc-sit">' + [['ativos', 'Ativos'], ['vencendo', 'Vencendo em 30 dias'], ['arquivados', 'Versões anteriores']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<select class="busca sel" id="doc-tipo"><option value="">Todos os tipos</option>' + TIPOS_DOC.map(([v, r]) => '<option value="' + v + '">' + r + '</option>').join('') + '</select>' +
     '<select class="busca sel" id="doc-grupo"><option value="">Todos os grupos</option>' + (E.grupos || []).map((g) => '<option value="' + g.id + '">' + esc(g.nome) + '</option>').join('') + '</select>' +
     '<select class="busca sel" id="doc-cli"><option value="">Todos os clientes</option>' + E.clientes.map((c) => '<option value="' + c.id + '">' + esc(c.nome) + '</option>').join('') + '</select>' +
@@ -4753,7 +4970,14 @@ async function pintarDocumentos(buscar) {
   const F = E.docs;
   document.querySelectorAll('#doc-sit button').forEach((b) => b.classList.toggle('ativo', b.dataset.v === F.situacao));
   if (buscar !== false) _docsTela = await buscarTodos(() => sb.from('documentos').select('*').order('criado_em', { ascending: false }));
-  const b = normalizar(F.busca), lim = somarDias(hojeISO(), 15);
+  const b = normalizar(F.busca), lim = somarDias(hojeISO(), 30);
+  // Backup 49 (28): selo do vencimento mais próximo (certidão, certificado…) direto na pasta e na subpasta
+  const seloPasta = (docs) => {
+    const v = docs.filter((d) => d.validade && d.validade <= lim).map((d) => d.validade).sort()[0]; if (!v) return '';
+    const dias = Math.round((new Date(v + 'T00:00:00') - new Date(hojeISO() + 'T00:00:00')) / 864e5), n = docs.filter((d) => d.validade && d.validade <= lim).length;
+    return ' <span class="pill ' + (dias < 0 ? 'vencido' : 'hoje') + ' doc-selo-venc" title="' + plural(n, 'documento vencendo', 'documentos vencendo') + ' em até 30 dias">' +
+      (dias < 0 ? 'vencido há ' + plural(-dias, 'dia', 'dias') : dias === 0 ? 'vence hoje' : 'vence em ' + plural(dias, 'dia', 'dias')) + '</span>';
+  };
   // grupo: o do documento ou o do cliente vinculado
   const grupoDe = (d) => d.grupo_id || ((E.clientes.find((c) => c.id === d.cliente_id) || {}).grupo_id) || '';
   const base = _docsTela.filter((d) => (F.situacao === 'arquivados' ? d.arquivado : !d.arquivado)
@@ -4779,12 +5003,12 @@ async function pintarDocumentos(buscar) {
     if (cs.length === 1 && !k) return tabelaDocumentos(docs, { vazio: '' });
     return '<div class="doc-subpastas">' + cs.map((c) => { const sk = k + '|' + c, ab = !!b || cs.length === 1 || !!F.subAbertas[sk];
       return '<details class="doc-sub" data-sub="' + esc(sk) + '"' + (ab ? ' open' : '') + '><summary><span class="doc-pasta-ic" aria-hidden="true">📂</span><b>' + esc(c ? nomeCliente(c) : 'Documentos do grupo') + '</b>' +
-        '<span class="sub">' + plural(S[c].length, 'documento', 'documentos') + '</span>' + (c ? linkDrive('cliente', c, (E.clientes.find((x) => x.id === c) || {}).drive_url) : '') +
+        '<span class="sub">' + plural(S[c].length, 'documento', 'documentos') + seloPasta(S[c]) + '</span>' + (c ? linkDrive('cliente', c, (E.clientes.find((x) => x.id === c) || {}).drive_url) : '') +
         '<span class="doc-pasta-ac"><button type="button" class="btn btn-o btn-mini" data-sub-enviar="' + esc(k) + '|' + esc(c) + '" title="Enviar já para esta empresa">+ Enviar</button></span></summary>' +
         (ab ? tabelaDocumentos(S[c], { vazio: '', semCliente: !!c }) : '') + '</details>'; }).join('') + '</div>';
   };
   $('doc-corpo').innerHTML = lista.length ? '<div class="doc-pastas">' + ks.map((k) => '<details class="card doc-pasta" data-pasta="' + esc(k) + '"' + (aberto(k) ? ' open' : '') + '><summary><span class="doc-pasta-ic" aria-hidden="true">📁</span><b>' + esc(nomeG(k)) + '</b>' +
-      '<span class="sub">' + plural(G[k].length, 'documento', 'documentos') + (G[k].some((d) => d.validade && d.validade <= lim) ? ' · <span class="pill vencido">vencendo</span>' : '') + '</span>' +
+      '<span class="sub">' + plural(G[k].length, 'documento', 'documentos') + seloPasta(G[k]) + '</span>' +
       (k ? linkDrive('grupo', k, (E.grupos.find((g) => g.id === k) || {}).drive_url) : '') +
       '<span class="doc-pasta-ac"><button type="button" class="btn btn-p btn-mini" data-pasta-enviar="' + esc(k) + '" title="Enviar documento já para este grupo">+ Enviar</button></span></summary>' +
       (aberto(k) ? subpastas(k, G[k]) : '') + '</details>').join('') + '</div>'
@@ -4854,9 +5078,13 @@ async function janelaCertificado(vinculo, depois) {
 // Ficha do cliente (visão 360°): tudo sobre o cliente numa janela só,
 // em abas. Clicar no cliente (tela Clientes) abre esta ficha.
 // ═══════════════════════════════════════════════════════════════════
-const ABAS_FICHA = [['resumo', 'Resumo'], ['contatos', 'Contatos'], ['enderecos', 'Endereços'], ['contas', 'Contas bancárias'],
-  ['socios', 'Sócios e vínculos'], ['processos', 'Processos'], ['contratos', 'Contratos'], ['financeiro', 'Financeiro'],
-  ['tarefas', 'Tarefas'], ['documentos', 'Documentos'], ['linha', 'Linha do tempo'], ['fiscal', 'Dados fiscais'], ['receita', 'Cartão CNPJ']];
+// Backup 49 (25): 7 abas — cada uma junta as partes antigas (as funções de ABA_FICHA continuam as mesmas, empilhadas)
+const ABAS_FICHA = [['resumo', 'Resumo'], ['contatos', 'Contatos e endereços'], ['socios', 'Sócios'], ['processos', 'Processos'],
+  ['financeiro', 'Financeiro e contratos'], ['documentos', 'Documentos'], ['historico', 'Histórico']];
+const PARTES_FICHA = { resumo: ['resumo', 'receita', 'fiscal'], contatos: ['contatos', 'enderecos', 'contas'], socios: ['socios'], processos: ['processos'],
+  financeiro: ['contratos', 'financeiro'], documentos: ['documentos'], historico: ['linha', 'tarefas'] };
+// nome antigo de aba (atalhos de outras telas) → aba nova
+const ABA_NOVA = { enderecos: 'contatos', contas: 'contatos', contratos: 'financeiro', tarefas: 'historico', linha: 'historico', fiscal: 'resumo', receita: 'resumo' };
 
 // Sub-cadastros editáveis da ficha (mesmo formulário para todos)
 const FINALIDADES = SETORES_CONTATO;
@@ -4974,7 +5202,7 @@ async function abrirFicha(id, aba) {
       '<div class="ficha-selos"><span class="pill ' + (cl.tipo === 'Inativo' ? 'neutro' : cl.tipo === 'Demanda' ? 'hoje' : 'aberto') + '">' + esc(cl.tipo === 'Demanda' ? 'Serviço pontual' : cl.tipo) + '</span> ' +
       pillPessoa(cl.responsavel) + ' ' + (cl.situacao_cadastral ? pillSitCad(cl.situacao_cadastral) + ' ' : '') + (cl.capag ? 'CAPAG ' + pillCapag(cl.capag) + ' ' : '') +
       etq.map((e) => e.etiquetas ? '<span class="pill" style="background:' + esc(e.etiquetas.cor) + '22;color:' + esc(e.etiquetas.cor) + '">' + esc(e.etiquetas.nome) + '</span>' : '').join(' ') +
-      ' <button class="btn-etq" id="fc-etq" title="Etiquetas">+ etiqueta</button></div></div>' +
+      ' ' + pillRecebeEmail(cl) + ' <button class="btn-etq" id="fc-etq" title="Etiquetas">+ etiqueta</button></div></div>' +
       '<div class="ficha-atalhos">' +
       '<button class="btn btn-o btn-mini" id="fc-tarefa">+ Tarefa</button><button class="btn btn-o btn-mini" id="fc-lanc">+ Lançamento</button>' +
       '<button class="btn btn-o btn-mini" id="fc-doc">+ Documento</button><button class="btn btn-o btn-mini" id="fc-int">+ Interação</button>' +
@@ -4988,13 +5216,18 @@ async function abrirFicha(id, aba) {
       '<div id="fc-corpo" class="ficha-corpo"></div>' });
   j.querySelector('.janela').classList.add('ficha');
   const corpo = j.querySelector('#fc-corpo');
-  let atual = aba || 'resumo';
+  let atual = ABA_NOVA[aba] || aba || 'resumo';
   const mostrar = async (k) => {
-    atual = k;
+    k = ABA_NOVA[k] || k; atual = k;
     j.querySelectorAll('#fc-abas button').forEach((b) => b.classList.toggle('ativo', b.dataset.aba === k));
     corpo.innerHTML = '<div class="carregando">Carregando…</div>';
-    try { await ABA_FICHA[k](corpo, cl, () => mostrar(atual)); }
-    catch (e) { console.error(e); corpo.innerHTML = '<div class="vazio">' + esc(erroAmigavel(e)) + '</div>'; }
+    const partes = PARTES_FICHA[k] || [k];
+    const caixas = partes.map((p) => { const d = document.createElement('div'); d.className = 'ficha-parte ficha-parte-' + p; return d; });
+    corpo.innerHTML = ''; caixas.forEach((d) => corpo.appendChild(d));
+    await Promise.all(partes.map(async (p, i) => {
+      try { await ABA_FICHA[p](caixas[i], cl, () => mostrar(atual)); }
+      catch (e) { console.error(e); caixas[i].innerHTML = '<div class="vazio">' + esc(erroAmigavel(e)) + '</div>'; }
+    }));
   };
   j.querySelector('#fc-abas').onclick = (ev) => { const b = ev.target.closest('button'); if (b) mostrar(b.dataset.aba); };
   const reabrir = async () => { await carregarCadastros(true); fecharJanela(j); await abrirFicha(id, atual); };
@@ -5004,6 +5237,9 @@ async function abrirFicha(id, aba) {
   j.querySelector('#fc-doc').onclick = () => janelaEnviarDocumento({ cliente_id: cl.id, grupo_id: cl.grupo_id }, () => mostrar('documentos'));
   j.querySelector('#fc-int').onclick = () => formInteracao(cl, () => mostrar('linha'));
   j.querySelector('#fc-etq').onclick = () => janelaEtiquetas(cl, etq, reabrir);
+  const fcMail = j.querySelector('[data-cli-email]');
+  if (fcMail) fcMail.onclick = () => comBotao(fcMail, async () => { await trocarRecebeEmail([cl.id], cl.recebe_email === false); fcMail.outerHTML = pillRecebeEmail(cl);
+    const n = j.querySelector('[data-cli-email]'); if (n) n.onclick = fcMail.onclick; });
   const lead = j.querySelector('#fc-lead');
   if (lead) lead.onclick = async () => { if (!E._crmEtapas) E._crmEtapas = await q(sb.from('crm_etapas').select('*').order('ordem')).catch(() => []);
     formOportunidade({ cliente_id: cl.id, responsavel: cl.responsavel, origem: 'Cliente antigo' }, () => aviso('✓ Oportunidade criada no CRM para ' + cl.nome + '.')); };
@@ -5205,7 +5441,7 @@ const ABA_FICHA = {
   },
   // Cartão CNPJ: o que a Receita diz hoje (atualização diária às 6h) e o histórico do que mudou
   async receita(alvo, cl, repinta) {
-    if (soDigitos(cl.cpf_cnpj).length !== 14) { alvo.innerHTML = vazio('O cartão CNPJ vale só para empresas (CNPJ com 14 dígitos).'); return; }
+    if (soDigitos(cl.cpf_cnpj).length !== 14) { alvo.innerHTML = ''; return; }   // Backup 49: no Resumo, pessoa física simplesmente não tem esta parte
     const [c, execs] = await Promise.all([
       q(sb.from('clientes').select('razao_social, nome_fantasia, situacao_cadastral, data_situacao, cnae_principal, porte, data_abertura, endereco, cidade, estado, cep, cnpj_atualizado_em').eq('id', cl.id).single()),
       q(sb.from('cnpj_execucoes').select('inicio, relatorio').filter('relatorio', 'cs', JSON.stringify([{ cliente_id: cl.id }])).order('inicio', { ascending: false }).limit(30)).catch(() => [])
@@ -5268,7 +5504,7 @@ TELAS.crm = async function () {
     '<button class="btn btn-o" id="cr-rapido" title="Só nome, telefone e interesse">⚡ Cadastro rápido</button><button class="btn btn-p" id="cr-nova">+ Nova oportunidade</button></div></div>' +
     // abas: no painel ficam só as oportunidades em andamento; ganhas (contrato assinado) e perdidas (cancelado) têm aba própria
     // Backup 37: as abas usam o MESMO filtro escuro dos outros (simetria); "Painel" saiu; responsáveis viram botões
-    '<div class="filtros cr-filtros"><div class="segmento" id="cr-abas">' + [['andamento', 'Em andamento'], ['ganho', '✍ Contratos assinados'], ['perdido', '✗ Leads perdidos']]
+    '<div class="filtros cr-filtros"><div class="segmento" id="cr-abas">' + [['andamento', 'Em andamento'], ['ganho', 'Contratos assinados'], ['perdido', 'Leads perdidos']]
       .map(([v, r]) => '<button data-aba="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<div class="segmento" id="cr-vista">' + [['funil', 'Funil'], ['lista', 'Lista']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div></div>' +
     '<div class="filtros"><div class="segmento" id="cr-resp-seg"><button data-r="">Todos</button>' + Object.keys(PESSOA).map((p) => '<button data-r="' + esc(p) + '">' + esc(p) + '</button>').join('') + '</div>' +
@@ -5341,25 +5577,27 @@ function cartaoOp(o, e, h) {
       '<button type="button" class="cr-at" data-ligacao="' + o.id + '" title="Registrar ligação (1 clique)" aria-label="Registrar ligação">📞</button>' +
       '<button type="button" class="cr-at cr-avancar" data-avancar="' + o.id + '" title="Avançar para a próxima etapa" aria-label="Avançar etapa">▸</button></span></div></div>';
 }
-function colunaCrm(e, ops, h) {
-  const cs = ops.filter((o) => o.etapa_id === e.id);
-  return '<div class="cr-col" data-etapa="' + e.id + '" title="' + esc(e.descricao || '') + '"><div class="cr-col-tit"><span>' + esc(e.nome) + '</span><span class="cr-col-n">' +
-    cs.length + '</span></div>' + (cs.length ? '<div class="cr-col-val">' + esc(brlCurto(soma(cs, (o) => o.valor_estimado))) + '</div>' : '') +
-    cs.map((o) => cartaoOp(o, e, h)).join('') +
+// Backup 49 (27): 5 etapas na tela — Contato · Diagnóstico · Proposta · Negociação · Fechado/Perdido (a faixa de baixo).
+// As etapas detalhadas continuam no banco (as automações dependem delas) e aparecem como selo no cartão.
+const GRUPOS_CRM = [['contato', 'Contato', /contato/i], ['diagnostico', 'Diagnóstico', /diagn/i], ['proposta', 'Proposta', /proposta|follow/i], ['negociacao', 'Negociação', /./]];
+function grupoEtapa(e) { return (GRUPOS_CRM.find((g) => g[2].test(e.nome || '')) || GRUPOS_CRM[3])[0]; }
+function colunaCrm(g, etapas, ops, h) {
+  const ids = new Set(etapas.map((e) => e.id)), cs = ops.filter((o) => ids.has(o.etapa_id)), varias = etapas.length > 1;
+  return '<div class="cr-col" data-etapa="' + (etapas[0] ? etapas[0].id : '') + '" data-grupo="' + g[0] + '" title="' + esc(etapas.map((e) => e.nome + (e.descricao ? ': ' + e.descricao : '')).join('\n')) + '">' +
+    '<div class="cr-col-tit"><span>' + g[1] + '</span><span class="cr-col-n">' + cs.length + '</span></div>' + (cs.length ? '<div class="cr-col-val">' + esc(brlCurto(soma(cs, (o) => o.valor_estimado))) + '</div>' : '') +
+    cs.map((o) => { const e = etapaDe(o.etapa_id); return cartaoOp(o, e, h).replace('<b>', (varias ? '<span class="cr-sub-etapa">' + esc(e.nome) + '</span>' : '') + '<b>'); }).join('') +
     (!cs.length ? '<div class="cr-vazia"><span class="cr-vazia-ic" aria-hidden="true">○</span>Nenhuma oportunidade<span class="sub">arraste um cartão para cá</span></div>' : '') + '</div>';
 }
-// Backup 17: "Em andamento" mostra só as etapas abertas — 4 em cima e 4 embaixo, todas do mesmo tamanho.
-// Contrato assinado e Lead perdido saem daqui (ficam nas abas); para mandar um cartão para lá, solte na faixa de baixo.
 function crmFunil(alvo) {
   const ops = filtrarOps(), h = hojeISO(), et = E._crmEtapas || [];
   const abertas = et.filter((e) => !e.final), fins = et.filter((e) => e.final);
-  const porLinha = Math.max(4, Math.ceil(abertas.length / 2)), cima = abertas.slice(0, porLinha), baixo = abertas.slice(porLinha);
-  alvo.innerHTML = '<div class="cr-linha" style="--n:' + porLinha + '">' + cima.map((e) => colunaCrm(e, ops, h)).join('') + '</div>' +
-    (baixo.length ? '<div class="cr-linha" style="--n:' + porLinha + '">' + baixo.map((e) => colunaCrm(e, ops, h)).join('') + '</div>' : '') +
+  const cols = GRUPOS_CRM.map((g) => [g, abertas.filter((e) => grupoEtapa(e) === g[0])]).filter(([, l]) => l.length);
+  alvo.innerHTML = '<div class="cr-linha" style="--n:' + cols.length + '">' + cols.map(([g, l]) => colunaCrm(g, l, ops, h)).join('') + '</div>' +
+    '<div class="cr-fins-tit">Fechado / Perdido</div>' +
     '<div class="cr-fins">' + fins.map((e) => '<div class="cr-solte cr-solte-' + e.final + '" data-etapa="' + e.id + '">' +
       (e.final === 'ganho' ? '✓ Solte aqui quando o cliente <b>assinar</b> — vai para a aba "Contratos assinados"' : '✕ Solte aqui quando <b>não fechar</b> — vai para a aba "Leads perdidos"') + '</div>').join('') + '</div>' +
-    '<p class="sub" style="margin-top:8px">Arraste o cartão para mudar a etapa (no celular, use ▸). <b>Contrato fechado</b> = o cliente disse sim (o sistema cria cadastro, contrato e onboarding). ' +
-    'Passe o mouse no nome da etapa para ver o que ela significa.</p>';
+    '<p class="sub" style="margin-top:8px">Arraste o cartão para mudar a etapa (no celular, use ▸, que também passa pelas etapas de dentro: Diagnóstico agendado → feito, Proposta enviada → follow-up, Negociação → Contrato fechado → Aguardando assinatura). ' +
+    '<b>Contrato fechado</b> = o cliente disse sim (o sistema cria cadastro, contrato e onboarding).</p>';
   let arrastando = null;
   alvo.querySelectorAll('.cr-card').forEach((c) => {
     c.addEventListener('dragstart', (ev) => { arrastando = c.dataset.op; ev.dataTransfer.setData('text/plain', c.dataset.op); c.classList.add('arrastando'); });
@@ -5386,6 +5624,7 @@ function crmFunil(alvo) {
 async function moverOp(opId, etapaId) {
   const o = E._crmOps.find((x) => x.id === opId), e = etapaDe(etapaId);
   if (!o || o.etapa_id === etapaId) return;
+  if (!e.final && !etapaDe(o.etapa_id).final && grupoEtapa(etapaDe(o.etapa_id)) === grupoEtapa(e)) return;   // Backup 49: solto na mesma coluna = não muda
   if (e.final === 'perdido') return janelaPerder(o);
   // "Contrato fechado" (ou pular direto para assinado) sem ter fechado ainda: primeiro cria cadastro e contrato
   if (!o.ganho_em && (e.nome === 'Contrato fechado' || e.final === 'ganho' || e.ordem > etapaFechado().ordem)) return janelaGanhar(o, null, e.final === 'ganho' || e.nome !== 'Contrato fechado' ? etapaId : null);
@@ -6037,10 +6276,10 @@ function destacar(texto) {
 
 TELAS.publicacoes = async function () {
   E.pub = E.pub || { status: 'nova', adv: '', tribunal: '', dias: '30', busca: '' };
-  const F = E.pub;
+  const F = E.pub; F.status = 'nova';   // Backup 49 (31): sempre abre em Novas
   $('conteudo').innerHTML =
     '<div class="titulo-pag"><div><h1>Publicações</h1><p id="pub-ult">Diário de Justiça Eletrônico Nacional · busca automática às 7h e 13h (dias úteis)</p></div>' +
-    '<div class="acoes"><button class="btn btn-o" id="pub-oabs">⚙ Monitoramento (OABs e clientes)</button><button class="btn btn-o" id="pub-nav" title="Busca direto do seu computador — use se o servidor não conseguir falar com o CNJ">🌐 Buscar pelo navegador</button><button class="btn btn-p" id="pub-buscar">↻ Buscar agora</button></div></div>' +
+    '<div class="acoes"><button class="btn btn-o" id="pub-todas-lidas" title="Marca como lidas todas as publicações novas">✓ Marcar todas como lidas</button><button class="btn btn-o" id="pub-oabs">⚙ Monitoramento (OABs e clientes)</button><button class="btn btn-o" id="pub-nav" title="Busca direto do seu computador — use se o servidor não conseguir falar com o CNJ">🌐 Buscar pelo navegador</button><button class="btn btn-p" id="pub-buscar">↻ Buscar agora</button></div></div>' +
     '<div class="filtros"><div class="segmento" id="pub-st">' + [['nova', 'Novas'], ['lida', 'Lidas'], ['tratada', 'Tratadas'], ['descartada', 'Descartadas'], ['', 'Todas']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<select class="busca sel" id="pub-dias"><option value="7">Últimos 7 dias</option><option value="15">Últimos 15 dias</option><option value="30">Últimos 30 dias</option><option value="90">Últimos 90 dias</option><option value="">Todo o período</option></select>' +
 
@@ -6050,6 +6289,11 @@ TELAS.publicacoes = async function () {
     '<div class="filtros pub-trib-linha"><div class="segmento" id="pub-advs" role="group" aria-label="Advogado"></div></div>' +
     '<div class="filtros pub-trib-linha"><div class="segmento" id="pub-trib" role="group" aria-label="Tribunal"></div></div><div id="pub-corpo"><div class="carregando">Carregando…</div></div>';
   $('pub-oabs').onclick = () => janelaOabs();
+  $('pub-todas-lidas').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    if (!confirm('Marcar TODAS as publicações novas como lidas?')) return;
+    const r = (await q(sb.from('publicacoes').update({ status: 'lida' }).eq('status', 'nova').select('id'))) || [];
+    aviso('✓ ' + plural(r.length, 'publicação marcada como lida', 'publicações marcadas como lidas') + '.'); await carregarPublicacoes();
+  });
   $('pub-buscar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
     const data = await chamarFuncao('erp-publicacoes', {});
     if (!data.oabs && !data.partes) throw new Error('Cadastre pelo menos uma OAB ou um cliente em "Monitoramento".');
@@ -6350,7 +6594,7 @@ const PROVEDORES_CNPJ = [['brasilapi', 'BrasilAPI (grátis, sem chave — recome
 let Alertas_emDiaAberto = false;
 TELAS.alertas = async function () {
   await carregarCadastros();
-  $('conteudo').innerHTML = '<div class="titulo-pag"><div><h1>Alertas</h1><p>O que precisa de atenção em cada setor · clique num cartão para ver o relatório</p></div>' +
+  $('conteudo').innerHTML = '<div class="titulo-pag"><div><h1>Alertas</h1><p>Só o que não aparece em outro lugar: cadastro incompleto, certidão e certificado vencendo, CNPJ irregular e as rotinas automáticas</p></div>' +
     '<div class="acoes"><button class="btn btn-o" id="al-atualizar">↻ Atualizar</button></div></div><div id="al-corpo"><div class="carregando">Montando os alertas…</div></div>';
   $('al-atualizar').onclick = () => TELAS.alertas();
   const h = hojeISO(), nada = () => [];
@@ -6363,7 +6607,7 @@ TELAS.alertas = async function () {
     podeFin ? buscarTodos(() => sb.from('lancamentos').select('id, descricao, valor, redutor, vencimento, grupo_id, empresa, obs').eq('tipo', 'receita').eq('pago', false).eq('perda', false)).catch(nada) : [],
     pode('contratos') ? q(sb.from('contratos').select('id, descricao, status, cliente_id, documentos(id)').eq('status', 'Ativo')).catch(nada) : [],
     q(sb.from('cliente_certificado').select('cliente_id, validade').lte('validade', somarDias(h, 30))).catch(nada),
-    [],
+    q(sb.from('certidoes').select('*').lte('validade', somarDias(h, 30))).catch(nada),
     q(sb.from('tarefas').select('id, titulo, prazo, prazo_fatal, responsavel').not('status', 'in', '(concluida,cancelada)')).catch(nada),
     q(sb.from('cnpj_execucoes').select('*').order('inicio', { ascending: false }).limit(10)).catch(nada),
     E.perfil && E.perfil.papel === 'admin' ? q(sb.from('email_fila').select('id, para, assunto, erro, criado_em').eq('status', 'erro').order('criado_em', { ascending: false }).limit(50)).catch(nada) : [],
@@ -6398,22 +6642,14 @@ TELAS.alertas = async function () {
     { titulo: 'Entidades sem responsável', colunas: colCli, linhas: semResp.map(linhaCli), ids: semResp.map((c) => c.id) });
   // ── Jurídico ──
   if (podeJur) {
-    add('Jurídico', 'Publicações novas', String(pubs.length), 'no Diário de Justiça, ainda não lidas', pubs.length ? 'atencao' : 'ok',
-      { titulo: 'Publicações novas', colunas: ['Data', 'Tribunal', 'Tipo', 'Processo', 'Advogado'], linhas: pubs.map((p) => [dataBR(p.data_disponibilizacao), p.tribunal, p.tipo, p.processo, p.advogado]), tela: 'publicacoes' });
-    add('Jurídico', 'Parcelamentos com parcela vencida', String(parcelas.length), 'dívida do cliente (não é financeiro do escritório)', parcelas.length ? 'critico' : 'ok',
-      { titulo: 'Parcelas de parcelamento vencidas', colunas: ['Vencimento', 'Empresa', 'Natureza', 'Parcela', 'Grupo'],
-        linhas: parcelas.map((x) => [dataBR(x.vencimento), x.parcelamentos ? x.parcelamentos.empresa : '—', x.parcelamentos ? x.parcelamentos.natureza : '', x.numero, x.parcelamentos ? nomeGrupo(x.parcelamentos.grupo_id) : '']), tela: 'parcelamentos' });
-    add('Jurídico', 'Acordos vencidos', String(acordos.length), (acordos.length ? brlCurto(soma(acordos, (a) => a.valor)) + ' · ' : '') + 'parcelas de acordos dos clientes com terceiros', acordos.length ? 'critico' : 'ok',
-      { titulo: 'Parcelas de acordo vencidas', colunas: ['Vencimento', 'Devedor', 'Credor', 'Parcela', 'Valor'], linhas: acordos.map((a) => [dataBR(a.vencimento), a.devedor, a.credor, a.parcela, brl(a.valor)]), tela: 'acordos' });
+    // Backup 49 (29): publicações, parcelas e acordos vencidos já aparecem no Início, na Rotina e nos próprios módulos — saíram daqui
     const semValor = procs.filter((p) => !(Number(p.valor) > 0));
     add('Jurídico', 'Processos sem valor da causa', String(semValor.length) + ' de ' + procs.length, 'complete para o Painel somar certo', semValor.length ? 'info' : 'ok',
       { titulo: 'Processos sem valor da causa', colunas: ['Número', 'Natureza', 'Grupo'], linhas: semValor.map((p) => [p.numero, p.natureza, nomeGrupo(p.grupo_id)]), tela: 'processos' });
   }
   // ── Financeiro ──
   if (podeFin) {
-    const atr = lancs.filter((l) => l.vencimento < h);
-    add('Financeiro', 'Honorários em atraso', atr.length ? brlCurto(soma(atr, vl)) : '0', atr.length + ' lançamento(s) vencido(s), todos os meses', atr.length ? 'critico' : 'ok',
-      { titulo: 'Honorários em atraso', colunas: ['Vencimento', 'Descrição', 'Grupo', 'Empresa', 'Valor'], linhas: atr.sort((a, b) => a.vencimento.localeCompare(b.vencimento)).map((l) => [dataBR(l.vencimento), l.descricao, nomeGrupo(l.grupo_id), l.empresa === 'contabilidade' ? 'Contabilidade' : 'Jurídico', brl(vl(l))]), tela: 'financeiro' });
+    // Backup 49 (29): honorários em atraso já estão no Financeiro e no Início
     const prov = lancs.filter((l) => /salário mínimo de \d{4} ainda não cadastrado/i.test(l.obs || ''));
     add('Financeiro', 'Mensalidades com salário mínimo provisório', String(prov.length), 'cadastre o salário mínimo do ano em Contratos', prov.length ? 'atencao' : 'ok',
       { titulo: 'Mensalidades aguardando o salário mínimo do ano', colunas: ['Vencimento', 'Descrição', 'Valor provisório'], linhas: prov.map((l) => [dataBR(l.vencimento), l.descricao, brl(l.valor)]), tela: 'contratos' });
@@ -6428,11 +6664,10 @@ TELAS.alertas = async function () {
   const certDig = certs.filter((c) => c.validade);
   add('Documentos', 'Certificado digital vencendo', String(certDig.length), 'vencidos ou nos próximos 30 dias', certDig.some((c) => c.validade < h) ? 'critico' : certDig.length ? 'atencao' : 'ok',
     { titulo: 'Certificados digitais vencidos ou vencendo', colunas: ['Validade', 'Empresa', 'Grupo'], linhas: certDig.sort((a, b) => a.validade.localeCompare(b.validade)).map((c) => [dataBR(c.validade), nomeCliente(c.cliente_id), nomeGrupo((E.clientes.find((x) => x.id === c.cliente_id) || {}).grupo_id) || '—']), tela: 'documentos' });
-  const tAtr = tarefas.filter((t) => t.prazo && t.prazo < h), tFat = tarefas.filter((t) => t.prazo_fatal && t.prazo_fatal <= somarDias(h, 7));
-  add('Tarefas', 'Tarefas atrasadas', String(tAtr.length), 'todas as pessoas', tAtr.length ? 'critico' : 'ok',
-    { titulo: 'Tarefas atrasadas', colunas: ['Prazo', 'Tarefa', 'Pessoa'], linhas: tAtr.sort((a, b) => a.prazo.localeCompare(b.prazo)).map((t) => [dataBR(t.prazo), t.titulo, t.responsavel]), tela: 'tarefas' });
-  add('Tarefas', 'Prazos fatais em 7 dias', String(tFat.length), 'inclui os já vencidos', tFat.some((t) => t.prazo_fatal < h) ? 'critico' : tFat.length ? 'atencao' : 'ok',
-    { titulo: 'Prazos fatais nos próximos 7 dias', colunas: ['Prazo fatal', 'Tarefa', 'Pessoa'], linhas: tFat.sort((a, b) => a.prazo_fatal.localeCompare(b.prazo_fatal)).map((t) => [dataBR(t.prazo_fatal), t.titulo, t.responsavel]), tela: 'tarefas' });
+  // Backup 49 (29): certidões vencendo (a validade é cadastrada na ficha → Resumo → Certidões); tarefas atrasadas saíram (estão no Início e em Tarefas)
+  const certid = docs.filter((c) => c.validade);
+  add('Documentos', 'Certidões vencendo', String(certid.length), 'vencidas ou nos próximos 30 dias', certid.some((c) => c.validade < h) ? 'critico' : certid.length ? 'atencao' : 'ok',
+    { titulo: 'Certidões vencidas ou vencendo', colunas: ['Validade', 'Certidão', 'Empresa', 'Grupo'], linhas: certid.sort((a, b) => a.validade.localeCompare(b.validade)).map((c) => [dataBR(c.validade), c.orgao || '—', nomeCliente(c.cliente_id), nomeGrupo((E.clientes.find((x) => x.id === c.cliente_id) || {}).grupo_id) || '—']), ids: certid.map((c) => c.cliente_id) });
   // ── Rotinas automáticas ──
   const ult = cnpj[0], hoje6 = new Date(h + 'T06:30:00'), rodouHoje = ult && new Date(ult.inicio) >= new Date(h + 'T00:00:00');
   const cnpjNivel = !ult ? 'atencao' : ult.status === 'erro' ? 'critico' : !rodouHoje && new Date() > hoje6 ? 'critico' : ult.status === 'parcial' ? 'atencao' : 'ok';
@@ -6602,7 +6837,7 @@ async function janelaCnpj(execs) {
 
 
 // GERADO por sistema/ferramentas/montar-erp.js a partir de backups/LEIA-ME.md — não edite.
-window.ATUALIZACOES = [{"n":1,"data":"","itens":["ERP online v2 — painel, honorários, importação, backup e histórico"]},{"n":2,"data":"","itens":["ERP original ligado ao Supabase — lançamentos e demais módulos"]},{"n":3,"data":"","itens":["Módulo com problema não derruba a tela"]},{"n":4,"data":"","itens":["ERP unificado — barra superior e telas novas"]},{"n":5,"data":"","itens":["Visual do Gestão — comissão como redutor"]},{"n":6,"data":"","itens":["Correção dos menus — histórico detalhado — prompt do ERP"]},{"n":7,"data":"2026-09-27","itens":["Ficha 360° do cliente, Documentos e Tarefas completas"]},{"n":8,"data":"2026-09-27","itens":["Design, acessos por função, e-mail, CRM, publicações e lógica das tarefas"]},{"n":9,"data":"2026-09-27","itens":["Alertas, Acordos autônomo, contratos de consultoria (salário mínimo), cartão CNPJ diário"]},{"n":10,"data":"2026-09-28","itens":["Design (cores únicas, modo escuro, celular), desempenho, Google Agenda, backup semanal, acessos"]},{"n":11,"data":"2026-09-28","itens":["Central de automações (cadeias e e-mails ao cliente), CNPJ novo com fontes reserva, caça-bugs visual"]},{"n":12,"data":"2026-09-28","itens":["Área do cliente e acesso por área, rascunho com aprovação, data do recebimento, comprovante do acordo, êxito nos contratos, visual moderno"]},{"n":13,"data":"2026-09-28","itens":["Início e avisos novos, telas do ERP ajustadas, Alertas dinâmico, Cobranças e e-mails com a marca, recibo por extenso, demonstração, Gestão fora do site"]},{"n":14,"data":"2026-09-28","itens":["Consertos, Início (fila, ficha da tarefa, relatórios), telas antigas enxutas, Processos em tela nova, e-mails por cliente, OFX, PGFN (API SERPRO), evolução do cliente, edição em tabela, usuários novos"]},{"n":15,"data":"2026-09-29","itens":["Início (fila de 5 com calendário salvo, mural), Painel sem faixa, Processos/Parcelamentos/Acordos de volta ao 13, área do serviço e detalhe no Financeiro, novo cliente no contrato, CRM em abas, filtros em Documentos, Tarefas em abas, alerta vira tarefa, prompts"]},{"n":16,"data":"2026-09-29","itens":["Início home (resumo + lembretes), Painel/Processos/Acordos/Financeiro ajustados, publicações por cliente, CRM completo, Central de e-mails (recibo em PDF), Tarefas (criação rápida, minha semana, carga), geradores de documentos + petição, PGFN grátis (dados abertos)"]},{"n":17,"data":"2026-09-29","itens":["Início só com o que pede ação, Painel igual a Processos, Acordos em cartões, CRM 8 quadros (Follow-up), e-mail de destino e prévia com a marca, partes Autor/Réu, PGFN Dívida Aberta (CSV), ficha do contrato com aditivos"]},{"n":18,"data":"2026-09-29","itens":["Design: cores sóbrias, cartão e tabela únicos, barra lisa, gráficos com a paleta do sistema, modo escuro preto"]},{"n":19,"data":"2026-09-29","itens":["Enxuto: e-mails pausados e tudo na Central, Início sem repetição (mural + lembretes), Parcelamentos por grupo e no modelo de Acordos, Painel/Clientes em caixa alta, Alertas limpo, cabeçalho azul"]},{"n":20,"data":"2026-09-29","itens":["Padrão único: lembretes no lugar do recado (sem prazo, fixo, destaque), tabelas de pagamento iguais com baixa em lote e PIX copia e cola, Painel/Processos como Clientes (grupo + ▸ detalhe), filtros e bordas iguais, telas sem cartão de título"]},{"n":21,"data":"2026-09-29","itens":["Ajustes finos: lembretes como lista de \"a fazer\", Atrasados abre o detalhe, Painel/Processos por grupo como Clientes (ficha volta a abrir), processo em janela, Publicações por tribunal, Acordos (saldo por devedor em ranking, sem \"Progresso\"), régua de dias verde/azul/amarelo/vermelho"]},{"n":22,"data":"2026-09-29","itens":["Padronização: régua única nas tabelas (vencimento e valor em negrito, selo da pessoa igual, \"✓ Baixa\"/\"✎\", triângulo de atraso), Parcelamentos no modelo de Acordos, Acordos com próximos 30 dias, sem PIX, teste de padronização"]},{"n":23,"data":"2026-09-30","itens":["Lembretes em cartão próprio com detalhe e \"Fixado\", selo \"Quem\" sutil, sem triângulo, Painel com negociado na rosca, Parcelamentos por grupo com filtros e janela de detalhe, excluir usuário, modo escuro grafite"]},{"n":24,"data":"2026-09-30","itens":["Guias de parcelamento junto de avisos e tarefas no Início","Painel sem os gráficos por grupo e por órgão","Prompt do chat \"ERP Automação\""]},{"n":25,"data":"2026-09-30","itens":["Parcelamentos e Acordos na mesma lista por grupo (sem barra, \"N de M parcelas pagas\", próxima parcela somada no mês, risco com 2+ no mesmo), guias por parcelamento, Início com 5 tamanhos de letra"]},{"n":26,"data":"2026-09-30","itens":["Do primeiro contato ao financeiro: contrato aguardando assinatura (financeiro e onboarding só na assinatura), gerador preenchido pelo CRM, contatos por setor e Central \"Quem recebe o quê\", reunião com convite, linha do tempo única, delegar e validar, lista de simplificação"]},{"n":27,"data":"2026-09-30","itens":["Início enxuto (sem Atrasados, lembretes \"Todos\", fila com atrasadas ao lado, avisos só do que importa), Painel abre a ficha, Processos sem legendas extras, Parcelamentos/Acordos com emissão de guias/boletos (PDF, e-mail com anexo, controle), Contabilidade com análise única"]},{"n":28,"data":"2026-09-30","itens":["Rotina do estagiário (passivo, certificado, acompanhamento de processos, guias), e-mail e dados de pagamento por empresa, várias guias num e-mail (valores editáveis, PDFs, WhatsApp), cadastro de cliente em abas com CNPJ na hora, máscaras R$/telefone, contratos com vigência, Alertas em blocos, Documentos por grupo, CRM com Meet/agenda"]},{"n":29,"data":"2026-09-30","itens":["Início e Financeiro com os mesmos cartões (Prejuízo), envio de guias por empresa com visual novo e anexo só no e-mail, e-mails de teste com a pausa ligada, cadastro com \"Buscar dados\", Rotina (cores, senha GOV, histórico do passivo, tarefas recorrentes), tabelas sem páginas e com títulos fixos, relatório em PDF novo"]},{"n":30,"data":"2026-10-01","itens":["Guias: e-mail do cliente já preenchido na emissão e no envio por empresa, empresas por grupo, caixa de valor nova, texto neutro (PF/PJ), situação real do e-mail (fila, retido, enviado, falhou)","Contabilidade com os cartões do Jurídico"]},{"n":31,"data":"2026-10-01","itens":["Contorno azul nos grupos, Processos com entidades do grupo filtrado, Rotina com \"✓ Conferido\" e última alteração, controle dos parcelamentos (nós emitimos? + planilha por mês), guias para emitir em blocos por grupo › empresa"]},{"n":32,"data":"2026-10-01","itens":["Central de Documentos feita do zero (procuração, substabelecimento, contrato de honorários, recibo numerado, declaração, acordo): cliente puxado do cadastro, folha A4 ao vivo, histórico, PDF e Word com logo e rodapé"]},{"n":33,"data":"2026-10-01","itens":["Guias em tabela alinhada + reenvio da guia vencida com valor atualizado, situação em 2 colunas, Rotina enxuta (8 meses, acordos, sem senha na tabela), alertas de conferência, e-mails em modo teste, gráfico de evolução do passivo"]},{"n":34,"data":"2026-10-01","itens":["Guias emitidas pela Rotina (Emissão e Pagamento por mês, marcar meses → Enviar por empresa, valor editável, reemissão da vencida), Situação dos parcelamentos/acordos enxuta com ficha da planilha e parcelas em lista, Central de Documentos dentro do ERP (Ctrl+clique = aba nova)"]},{"n":35,"data":"2026-10-01","itens":["Mais simples: Situação em cartões por grupo, Acordos com uma aba \"A pagar\" (grupo, responsável, boleto, enviar por empresa), planilha de parcelamentos (teste), evolução do passivo por grupo, processos com 3 movimentações e data do valor, filtro de advogados, e-mails simplificados"]},{"n":36,"data":"2026-10-02","itens":["Agenda no Início (+ Agendar, legenda), evolução \"Tudo junto\" sem o zero, cartões de Situação mais claros (Emissão/Pagamento, confirmação), Acordos com Emitir + WhatsApp + prévia, Rotina com um quadrinho por parcela, planilha até a última parcela, contadores das Publicações, Documentos e \"Quem recebe\" no visual do ERP"]},{"n":37,"data":"2026-10-02","itens":["Gerar guias com expansão (geral, grupo, linha), Acordos com filtros de prazo e forma de pagamento (PIX/boleto) no e-mail, certificado digital com senha e validade lida do arquivo, sessão sai só após 60 min sem uso (contador), Controle dos parcelamentos corrigido (limite de 1000 linhas), planilha em lista, agenda escolhe o que mostra, CRM/Alertas/Financeiro enxutos, visual inspirado nos prints"]},{"n":38,"data":"2026-10-02","itens":["Barra lateral e cores no padrão dos prints (em azul), Início enxuto (sem Honorários e sem avisos), agenda só com Tarefas e filtro de pessoa para o admin, tarefas só manuais, Prejuízo/Em atraso de todos os meses, módulo E-mails fora e todo e-mail para pedromgsam@gmail.com"]},{"n":39,"data":"2026-10-02","itens":["Ajustes de visual: lateral sem \"A&C\" e margens iguais ao encolher, Rotina em Módulos, calendário de altura fixa, Tarefas com abas/atrasadas/calendário iguais ao Início, Painel e Processos mais limpos, Contabilidade com QUEM FEZ e comparativos corrigidos, Contratos sem Parcelas/Anexo"]},{"n":40,"data":"2026-10-03","itens":["Agenda com início/fim, campos por tipo e aviso antes","Tarefas com filtros em botões","Painel sem faixas de grupo","Acordos com Emitir/Baixa","Conciliação OFX e \"Editar em tabela\" fora","Documentos com subpastas por empresa, certificado pelo \"+ Enviar\" e Excluir","Geração de documentos como sistema à parte","Propostas completas (Holding)","Modo noturno estilo GitHub"]},{"n":41,"data":"2026-10-03","itens":["Rotina rápida de novo (passivo e cadastro)","Removidos E-mails, Aprovação de rascunho, Relatório de tarefas, PGFN/SERPRO, geradores antigos, Relatório em PDF, Fotos mensais e \"Editar em tabela\" de Clientes","Painel com \"Operação\" sem sobreposição","Acordos sem caixinha e texto do PIX","Tipo de documento em lista","Propostas completas para todos os modelos"]},{"n":42,"data":"2026-10-03","itens":["E-mails saem na hora (só para pedromgsam@gmail.com) com check-list em Administração → E-mail","Menu na barra de cima e lateral estreita","Acordos com Copiar/WhatsApp/E-mail e lista de e-mails da empresa","Rotina: ✓ no fim salva a linha, sem Controle, Planilha = antigas Notificações","Financeiro com 💬 Cobrar","Proposta com prévia ao vivo"]},{"n":43,"data":"2026-10-03","itens":["Menu de volta na lateral (margens um pouco menores)","\"Cobrar\" sem recarregar tudo","Acordos com e-mail já preenchido (sem lista)","E-mail com segunda via pelo servidor e motivo claro","Planilha de parcelamentos de volta + aba \"Enviar guias do mês\""]},{"n":44,"data":"2026-10-03","itens":["Lateral mais estreita (204 px)","Painel Executivo com as colunas na largura toda (Grupo menor)","\"📝 Rascunho no Gmail\" nas guias/acordos","Mensagem clara quando a função tem outro endereço (super-worker)"]},{"n":45,"data":"2026-10-06","itens":["Rotina: Enviar guias do mês igual ao antigo (Enviar e-mail = rascunho no Gmail com as guias), Planilha só conferência e rápida, Processos com tribunal e filtros, sem Financeiro","Agenda com filtros, tarefa para outra pessoa e 2 avisos","Cargos e revisor","Painel resumido","Acordos só rascunho"]},{"n":46,"data":"2026-10-06","itens":["Agenda com as cores de cada tipo, concluídas riscadas e Lista do tamanho do calendário","Painel centralizado","Link do Google Drive em Documentos","Rotina: Passivo com colunas ajustadas, Processos com vários filtros e tribunal em lista, Planilha com pagamento na hora e parcelamentos lado a lado, rascunho salvo = guia emitida (também em lote) e exceção para quem emite as próprias guias","Automações nunca usadas fora","Usuários com \"Editar\"","Aba Atualizações","Script para zerar e começar o uso real"]},{"n":47,"data":"2026-10-06","itens":["Importação: grupo escrito de dois jeitos na planilha (maiúsculas, espaços ou acentos) não trava mais com \"Já existe um grupo com esse nome\""]},{"n":48,"data":"2026-10-07","itens":["Tarefas com os mesmos filtros do Início (Mostrar por tipo e De quem, com as cores)","Painel com Grupo e CPF/CNPJ à esquerda","Lista de sugestões de simplificação e prompt do próximo backup"]}];
+window.ATUALIZACOES = [{"n":1,"data":"","itens":["ERP online v2 — painel, honorários, importação, backup e histórico"]},{"n":2,"data":"","itens":["ERP original ligado ao Supabase — lançamentos e demais módulos"]},{"n":3,"data":"","itens":["Módulo com problema não derruba a tela"]},{"n":4,"data":"","itens":["ERP unificado — barra superior e telas novas"]},{"n":5,"data":"","itens":["Visual do Gestão — comissão como redutor"]},{"n":6,"data":"","itens":["Correção dos menus — histórico detalhado — prompt do ERP"]},{"n":7,"data":"2026-09-27","itens":["Ficha 360° do cliente, Documentos e Tarefas completas"]},{"n":8,"data":"2026-09-27","itens":["Design, acessos por função, e-mail, CRM, publicações e lógica das tarefas"]},{"n":9,"data":"2026-09-27","itens":["Alertas, Acordos autônomo, contratos de consultoria (salário mínimo), cartão CNPJ diário"]},{"n":10,"data":"2026-09-28","itens":["Design (cores únicas, modo escuro, celular), desempenho, Google Agenda, backup semanal, acessos"]},{"n":11,"data":"2026-09-28","itens":["Central de automações (cadeias e e-mails ao cliente), CNPJ novo com fontes reserva, caça-bugs visual"]},{"n":12,"data":"2026-09-28","itens":["Área do cliente e acesso por área, rascunho com aprovação, data do recebimento, comprovante do acordo, êxito nos contratos, visual moderno"]},{"n":13,"data":"2026-09-28","itens":["Início e avisos novos, telas do ERP ajustadas, Alertas dinâmico, Cobranças e e-mails com a marca, recibo por extenso, demonstração, Gestão fora do site"]},{"n":14,"data":"2026-09-28","itens":["Consertos, Início (fila, ficha da tarefa, relatórios), telas antigas enxutas, Processos em tela nova, e-mails por cliente, OFX, PGFN (API SERPRO), evolução do cliente, edição em tabela, usuários novos"]},{"n":15,"data":"2026-09-29","itens":["Início (fila de 5 com calendário salvo, mural), Painel sem faixa, Processos/Parcelamentos/Acordos de volta ao 13, área do serviço e detalhe no Financeiro, novo cliente no contrato, CRM em abas, filtros em Documentos, Tarefas em abas, alerta vira tarefa, prompts"]},{"n":16,"data":"2026-09-29","itens":["Início home (resumo + lembretes), Painel/Processos/Acordos/Financeiro ajustados, publicações por cliente, CRM completo, Central de e-mails (recibo em PDF), Tarefas (criação rápida, minha semana, carga), geradores de documentos + petição, PGFN grátis (dados abertos)"]},{"n":17,"data":"2026-09-29","itens":["Início só com o que pede ação, Painel igual a Processos, Acordos em cartões, CRM 8 quadros (Follow-up), e-mail de destino e prévia com a marca, partes Autor/Réu, PGFN Dívida Aberta (CSV), ficha do contrato com aditivos"]},{"n":18,"data":"2026-09-29","itens":["Design: cores sóbrias, cartão e tabela únicos, barra lisa, gráficos com a paleta do sistema, modo escuro preto"]},{"n":19,"data":"2026-09-29","itens":["Enxuto: e-mails pausados e tudo na Central, Início sem repetição (mural + lembretes), Parcelamentos por grupo e no modelo de Acordos, Painel/Clientes em caixa alta, Alertas limpo, cabeçalho azul"]},{"n":20,"data":"2026-09-29","itens":["Padrão único: lembretes no lugar do recado (sem prazo, fixo, destaque), tabelas de pagamento iguais com baixa em lote e PIX copia e cola, Painel/Processos como Clientes (grupo + ▸ detalhe), filtros e bordas iguais, telas sem cartão de título"]},{"n":21,"data":"2026-09-29","itens":["Ajustes finos: lembretes como lista de \"a fazer\", Atrasados abre o detalhe, Painel/Processos por grupo como Clientes (ficha volta a abrir), processo em janela, Publicações por tribunal, Acordos (saldo por devedor em ranking, sem \"Progresso\"), régua de dias verde/azul/amarelo/vermelho"]},{"n":22,"data":"2026-09-29","itens":["Padronização: régua única nas tabelas (vencimento e valor em negrito, selo da pessoa igual, \"✓ Baixa\"/\"✎\", triângulo de atraso), Parcelamentos no modelo de Acordos, Acordos com próximos 30 dias, sem PIX, teste de padronização"]},{"n":23,"data":"2026-09-30","itens":["Lembretes em cartão próprio com detalhe e \"Fixado\", selo \"Quem\" sutil, sem triângulo, Painel com negociado na rosca, Parcelamentos por grupo com filtros e janela de detalhe, excluir usuário, modo escuro grafite"]},{"n":24,"data":"2026-09-30","itens":["Guias de parcelamento junto de avisos e tarefas no Início","Painel sem os gráficos por grupo e por órgão","Prompt do chat \"ERP Automação\""]},{"n":25,"data":"2026-09-30","itens":["Parcelamentos e Acordos na mesma lista por grupo (sem barra, \"N de M parcelas pagas\", próxima parcela somada no mês, risco com 2+ no mesmo), guias por parcelamento, Início com 5 tamanhos de letra"]},{"n":26,"data":"2026-09-30","itens":["Do primeiro contato ao financeiro: contrato aguardando assinatura (financeiro e onboarding só na assinatura), gerador preenchido pelo CRM, contatos por setor e Central \"Quem recebe o quê\", reunião com convite, linha do tempo única, delegar e validar, lista de simplificação"]},{"n":27,"data":"2026-09-30","itens":["Início enxuto (sem Atrasados, lembretes \"Todos\", fila com atrasadas ao lado, avisos só do que importa), Painel abre a ficha, Processos sem legendas extras, Parcelamentos/Acordos com emissão de guias/boletos (PDF, e-mail com anexo, controle), Contabilidade com análise única"]},{"n":28,"data":"2026-09-30","itens":["Rotina do estagiário (passivo, certificado, acompanhamento de processos, guias), e-mail e dados de pagamento por empresa, várias guias num e-mail (valores editáveis, PDFs, WhatsApp), cadastro de cliente em abas com CNPJ na hora, máscaras R$/telefone, contratos com vigência, Alertas em blocos, Documentos por grupo, CRM com Meet/agenda"]},{"n":29,"data":"2026-09-30","itens":["Início e Financeiro com os mesmos cartões (Prejuízo), envio de guias por empresa com visual novo e anexo só no e-mail, e-mails de teste com a pausa ligada, cadastro com \"Buscar dados\", Rotina (cores, senha GOV, histórico do passivo, tarefas recorrentes), tabelas sem páginas e com títulos fixos, relatório em PDF novo"]},{"n":30,"data":"2026-10-01","itens":["Guias: e-mail do cliente já preenchido na emissão e no envio por empresa, empresas por grupo, caixa de valor nova, texto neutro (PF/PJ), situação real do e-mail (fila, retido, enviado, falhou)","Contabilidade com os cartões do Jurídico"]},{"n":31,"data":"2026-10-01","itens":["Contorno azul nos grupos, Processos com entidades do grupo filtrado, Rotina com \"✓ Conferido\" e última alteração, controle dos parcelamentos (nós emitimos? + planilha por mês), guias para emitir em blocos por grupo › empresa"]},{"n":32,"data":"2026-10-01","itens":["Central de Documentos feita do zero (procuração, substabelecimento, contrato de honorários, recibo numerado, declaração, acordo): cliente puxado do cadastro, folha A4 ao vivo, histórico, PDF e Word com logo e rodapé"]},{"n":33,"data":"2026-10-01","itens":["Guias em tabela alinhada + reenvio da guia vencida com valor atualizado, situação em 2 colunas, Rotina enxuta (8 meses, acordos, sem senha na tabela), alertas de conferência, e-mails em modo teste, gráfico de evolução do passivo"]},{"n":34,"data":"2026-10-01","itens":["Guias emitidas pela Rotina (Emissão e Pagamento por mês, marcar meses → Enviar por empresa, valor editável, reemissão da vencida), Situação dos parcelamentos/acordos enxuta com ficha da planilha e parcelas em lista, Central de Documentos dentro do ERP (Ctrl+clique = aba nova)"]},{"n":35,"data":"2026-10-01","itens":["Mais simples: Situação em cartões por grupo, Acordos com uma aba \"A pagar\" (grupo, responsável, boleto, enviar por empresa), planilha de parcelamentos (teste), evolução do passivo por grupo, processos com 3 movimentações e data do valor, filtro de advogados, e-mails simplificados"]},{"n":36,"data":"2026-10-02","itens":["Agenda no Início (+ Agendar, legenda), evolução \"Tudo junto\" sem o zero, cartões de Situação mais claros (Emissão/Pagamento, confirmação), Acordos com Emitir + WhatsApp + prévia, Rotina com um quadrinho por parcela, planilha até a última parcela, contadores das Publicações, Documentos e \"Quem recebe\" no visual do ERP"]},{"n":37,"data":"2026-10-02","itens":["Gerar guias com expansão (geral, grupo, linha), Acordos com filtros de prazo e forma de pagamento (PIX/boleto) no e-mail, certificado digital com senha e validade lida do arquivo, sessão sai só após 60 min sem uso (contador), Controle dos parcelamentos corrigido (limite de 1000 linhas), planilha em lista, agenda escolhe o que mostra, CRM/Alertas/Financeiro enxutos, visual inspirado nos prints"]},{"n":38,"data":"2026-10-02","itens":["Barra lateral e cores no padrão dos prints (em azul), Início enxuto (sem Honorários e sem avisos), agenda só com Tarefas e filtro de pessoa para o admin, tarefas só manuais, Prejuízo/Em atraso de todos os meses, módulo E-mails fora e todo e-mail para pedromgsam@gmail.com"]},{"n":39,"data":"2026-10-02","itens":["Ajustes de visual: lateral sem \"A&C\" e margens iguais ao encolher, Rotina em Módulos, calendário de altura fixa, Tarefas com abas/atrasadas/calendário iguais ao Início, Painel e Processos mais limpos, Contabilidade com QUEM FEZ e comparativos corrigidos, Contratos sem Parcelas/Anexo"]},{"n":40,"data":"2026-10-03","itens":["Agenda com início/fim, campos por tipo e aviso antes","Tarefas com filtros em botões","Painel sem faixas de grupo","Acordos com Emitir/Baixa","Conciliação OFX e \"Editar em tabela\" fora","Documentos com subpastas por empresa, certificado pelo \"+ Enviar\" e Excluir","Geração de documentos como sistema à parte","Propostas completas (Holding)","Modo noturno estilo GitHub"]},{"n":41,"data":"2026-10-03","itens":["Rotina rápida de novo (passivo e cadastro)","Removidos E-mails, Aprovação de rascunho, Relatório de tarefas, PGFN/SERPRO, geradores antigos, Relatório em PDF, Fotos mensais e \"Editar em tabela\" de Clientes","Painel com \"Operação\" sem sobreposição","Acordos sem caixinha e texto do PIX","Tipo de documento em lista","Propostas completas para todos os modelos"]},{"n":42,"data":"2026-10-03","itens":["E-mails saem na hora (só para pedromgsam@gmail.com) com check-list em Administração → E-mail","Menu na barra de cima e lateral estreita","Acordos com Copiar/WhatsApp/E-mail e lista de e-mails da empresa","Rotina: ✓ no fim salva a linha, sem Controle, Planilha = antigas Notificações","Financeiro com 💬 Cobrar","Proposta com prévia ao vivo"]},{"n":43,"data":"2026-10-03","itens":["Menu de volta na lateral (margens um pouco menores)","\"Cobrar\" sem recarregar tudo","Acordos com e-mail já preenchido (sem lista)","E-mail com segunda via pelo servidor e motivo claro","Planilha de parcelamentos de volta + aba \"Enviar guias do mês\""]},{"n":44,"data":"2026-10-03","itens":["Lateral mais estreita (204 px)","Painel Executivo com as colunas na largura toda (Grupo menor)","\"📝 Rascunho no Gmail\" nas guias/acordos","Mensagem clara quando a função tem outro endereço (super-worker)"]},{"n":45,"data":"2026-10-06","itens":["Rotina: Enviar guias do mês igual ao antigo (Enviar e-mail = rascunho no Gmail com as guias), Planilha só conferência e rápida, Processos com tribunal e filtros, sem Financeiro","Agenda com filtros, tarefa para outra pessoa e 2 avisos","Cargos e revisor","Painel resumido","Acordos só rascunho"]},{"n":46,"data":"2026-10-06","itens":["Agenda com as cores de cada tipo, concluídas riscadas e Lista do tamanho do calendário","Painel centralizado","Link do Google Drive em Documentos","Rotina: Passivo com colunas ajustadas, Processos com vários filtros e tribunal em lista, Planilha com pagamento na hora e parcelamentos lado a lado, rascunho salvo = guia emitida (também em lote) e exceção para quem emite as próprias guias","Automações nunca usadas fora","Usuários com \"Editar\"","Aba Atualizações","Script para zerar e começar o uso real"]},{"n":47,"data":"2026-10-06","itens":["Importação: grupo escrito de dois jeitos na planilha (maiúsculas, espaços ou acentos) não trava mais com \"Já existe um grupo com esse nome\""]},{"n":48,"data":"2026-10-07","itens":["Tarefas com os mesmos filtros do Início (Mostrar por tipo e De quem, com as cores)","Painel com Grupo e CPF/CNPJ à esquerda","Lista de sugestões de simplificação e prompt do próximo backup"]},{"n":49,"data":"2026-10-07","itens":["Simplificação geral (36 sugestões): chave \"Recebe e-mails\" por cliente, telas Quem recebe e Para revisar, e-mails das guias no modelo bonito com prévia, faixa do modo teste","Início com atalhos","Tarefas com ⚙ e ⚡","Ficha do cliente em 7 abas e cadastro rápido","CRM em 5 etapas","Financeiro igual nas duas empresas (Perdas dentro de Recebidos), reajuste anual dos contratos, Cobrar por e-mail","Alertas, Automações, Publicações e Administração mais enxutos","Filtros em chips e régua única"]}];
 
 'use strict';
 // ═══════════════════════════════════════════════════════════════════
@@ -6646,7 +6881,7 @@ TELAS.atualizacoes = async function () {
 // ═══════════════════════════════════════════════════════════════════
 const GRUPOS_AUTOMACAO = [
   ['tarefas', '🗂 Tarefas automáticas', 'Um lançamento cria (e conclui) tarefas sozinho, sem duplicar.'],
-  ['cliente_email', '✉ E-mails ao cliente', 'Vão pelo Gmail do escritório, para o contato financeiro. Começam desligados; nunca repetem a mesma cobrança.'],
+  ['cliente_email', '✉ E-mails automáticos', 'Tudo o que manda e-mail ao cliente. Respeitam a chave "Recebe e-mails" de cada cliente e nunca repetem a mesma cobrança.'],
   ['integracao', '🔗 Integrações', 'Consultas automáticas a serviços externos gratuitos.']
 ];
 // prefixo gravado no registro → automação
@@ -6660,7 +6895,7 @@ const SEM_RESP = ['pagamento_conclui', 'escalar_atraso'];
 
 TELAS.automacoes = async function () {
   const admin = E.perfil && E.perfil.papel === 'admin';
-  const [regras, cont, log, ultReg, ultPub, cnpj, backup, emails] = await Promise.all([
+  const [regras, cont, log, ultReg, ultPub, cnpj, backup, emails, revisar] = await Promise.all([
     q(sb.from('regras_tarefas').select('*').eq('oculta', false).order('nome')),
     q(sb.rpc('resumo_automacoes')).catch(() => ({})),
     q(sb.from('automacoes_log').select('*').neq('chave', '_item').order('quando', { ascending: false }).limit(25)).catch(() => []),
@@ -6668,8 +6903,11 @@ TELAS.automacoes = async function () {
     q(sb.from('configuracoes').select('valor').eq('chave', 'publicacoes_ultima').maybeSingle()).catch(() => null),
     q(sb.from('cnpj_execucoes').select('inicio, status, mensagem').order('inicio', { ascending: false }).limit(1)).catch(() => []),
     admin ? q(sb.from('backups_auto').select('criado_em, tamanho').order('criado_em', { ascending: false }).limit(1)).catch(() => []) : [],
-    admin ? q(sb.from('email_fila').select('status, criado_em').gte('criado_em', new Date(Date.now() - 7 * 864e5).toISOString())).catch(() => []) : []
+    admin ? q(sb.from('email_fila').select('status, criado_em').gte('criado_em', new Date(Date.now() - 7 * 864e5).toISOString())).catch(() => []) : [],
+    q(sb.rpc('emails_revisar')).catch(() => false)
   ]);
+  // Backup 49 (30): toda regra que manda e-mail ao cliente fica no bloco "E-mails automáticos"
+  const grupoDe = (r) => /^email_/.test(r.chave) || r.chave === 'crm_followup' ? 'cliente_email' : (r.grupo || 'tarefas');
   const porRegra = {};
   Object.entries(cont || {}).forEach(([pref, n]) => { const k = PREFIXO_AUTOMACAO[pref] || pref; porRegra[k] = (porRegra[k] || 0) + n; });
   const ligadas = regras.filter((r) => r.ligada).length, acoes = Object.values(porRegra).reduce((a, n) => a + n, 0);
@@ -6693,8 +6931,11 @@ TELAS.automacoes = async function () {
     '<div class="kpis">' + kpi('Ligadas', ligadas + ' de ' + regras.length, 'verde', 'automações ativas') + kpi('Ações em 30 dias', String(acoes), '', 'tarefas criadas/concluídas e e-mails') +
       kpi('E-mails ao cliente', String(envCli), envCli ? '' : 'ambar', 'enviados nos últimos 30 dias') +
       kpi('Última execução', ult(ultReg) ? quandoCurto(ult(ultReg).quando) : '—', '', ult(ultReg) ? ult(ultReg).criadas + ' novidade(s)' : 'as regras rodam todo dia útil de manhã') + '</div>' +
-    GRUPOS_AUTOMACAO.map(([g, tit, desc]) => { const rs = regras.filter((r) => (r.grupo || 'tarefas') === g); return rs.length ?
-      '<div class="card"><div class="card-hd">' + tit + '<span class="sub" style="margin-left:auto;font-weight:400">' + esc(desc) + '</span></div><div class="au-lista">' + rs.map(linha).join('') + '</div></div>' : ''; }).join('') +
+    GRUPOS_AUTOMACAO.map(([g, tit, desc]) => { const rs = regras.filter((r) => grupoDe(r) === g); return rs.length ?
+      '<div class="card' + (g === 'cliente_email' ? ' au-emails' : '') + '"><div class="card-hd">' + tit + '<span class="sub" style="margin-left:auto;font-weight:400">' + esc(desc) + '</span></div>' +
+      (g === 'cliente_email' ? '<div class="au-item au-geral"><label class="au-chave" title="' + (admin ? 'Ligar / desligar' : 'Só o administrador altera') + '"><input type="checkbox" role="switch" id="au-revisar"' + (revisar ? ' checked' : '') + (admin ? '' : ' disabled') + ' aria-label="Conferir antes de enviar"><span class="au-trilho" aria-hidden="true"></span></label>' +
+        '<div class="au-txt"><b>Conferir antes de enviar (chave geral)</b><div class="sub">Ligada: os e-mails automáticos ficam em Administração → E-mail → Para revisar até alguém clicar em "Enviar".</div></div></div>' : '') +
+      '<div class="au-lista">' + rs.map(linha).join('') + '</div></div>' : ''; }).join('') +
     '<div class="card"><div class="card-hd">⏱ Rotinas agendadas<span class="sub" style="margin-left:auto;font-weight:400">rodam sozinhas no Supabase; aqui dá para conferir e rodar agora</span></div><div class="au-lista">' +
       rotina('Regras e e-mails ao cliente', ult(ultReg) && ult(ultReg).quando, 'Dias úteis, 7h', ult(ultReg) ? 'ok' : 'atencao') +
       rotina('Busca de publicações (DJEN)', ult(ultPub) && ult(ultPub).quando, 'Dias úteis, 7h e 13h' + (ult(ultPub) ? ' · ' + ult(ultPub).novas + ' nova(s) na última' : ''), ult(ultPub) ? ((ult(ultPub).erros || []).length ? 'critico' : 'ok') : 'atencao',
@@ -6719,6 +6960,9 @@ TELAS.automacoes = async function () {
   $('conteudo').querySelectorAll('[data-au-dias]').forEach((c) => c.onchange = () => salvar(c.dataset.auDias, { dias: Math.max(0, parseInt(c.value, 10) || 0) }, 'Prazo atualizado.').catch((e) => aviso(erroAmigavel(e), true)));
   $('conteudo').querySelectorAll('[data-au-resp]').forEach((c) => c.onchange = () => salvar(c.dataset.auResp, { responsavel: c.value.trim() }, 'Responsável atualizado.').catch((e) => aviso(erroAmigavel(e), true)));
   $('conteudo').querySelectorAll('[data-cli]').forEach((tr) => tr.onclick = () => abrirFicha(tr.dataset.cli));
+  const rev = $('au-revisar');
+  if (rev) rev.onchange = async () => { try { await q(sb.rpc('salvar_emails_revisar', { p: rev.checked })); aviso(rev.checked ? '✓ E-mails automáticos vão esperar a conferência (Administração → E-mail → Para revisar).' : '✓ E-mails automáticos saem sem conferência.'); }
+    catch (e) { rev.checked = !rev.checked; aviso(erroAmigavel(e), true); } };
   $('au-rodar').onclick = (ev) => comBotao(ev.currentTarget, async () => { const n = await q(sb.rpc('rodar_regras_tarefas')); aviso('✓ Regras rodadas: ' + n + ' novidade(s).'); await TELAS.automacoes(); });
   $('conteudo').querySelectorAll('[data-au-fn]').forEach((b) => b.onclick = () => comBotao(b, async () => {
     const r = await chamarFuncao(b.dataset.auFn, { acao: 'rodar' }); aviso('✓ ' + (r.mensagem || 'Feito.')); await TELAS.automacoes();
@@ -6734,7 +6978,7 @@ TELAS.automacoes = async function () {
 // usada também nos cartões das parcelas do detalhamento.
 // ═══════════════════════════════════════════════════════════════════
 const GUIA_DIAS = 15;   // o quadro mostra o que vence até 15 dias à frente (e tudo o que já venceu sem pagamento)
-const ABAS_GUIA = [['emitir', '🧾 A emitir'], ['emitidas', '✓ Emitidas — falta enviar'], ['vencidas', '⏰ Vencidas sem pagamento']];
+const ABAS_GUIA = [['emitir', 'A emitir'], ['emitidas', 'Emitidas — falta enviar'], ['vencidas', 'Vencidas sem pagamento']];   // Backup 49: abas sem ícone
 const _guiaAba = { parcelas: 'emitir', acordos: 'emitir' };
 // Backup 28: quadro minimizável (lembra por navegador) e envio de várias guias da mesma empresa num e-mail/WhatsApp
 const _guiaMin = {};
@@ -7213,7 +7457,7 @@ async function gerarGuias(tabela, alcance, depois) {
 //  3) Guias de parcelamentos e boletos de acordos (emitir → enviar → conferir o pagamento).
 //  4) Financeiro do escritório (atalhos) e 5) Minhas tarefas.
 // ═══════════════════════════════════════════════════════════════════
-const ABAS_ROTINA = [['passivo', '🏛 Passivo e cadastro'], ['processos', '⚖ Processos'], ['planilha', '📋 Planilha de parcelamentos'], ['guias', '📨 Enviar guias do mês'], ['acs', '🤝 Acordos'], ['tarefas', '✓ Minhas tarefas']];
+const ABAS_ROTINA = [['passivo', 'Passivo'], ['processos', 'Processos'], ['guias', 'Guias do mês'], ['planilha', 'Planilha'], ['tarefas', 'Minhas tarefas']];   // Backup 49: nomes curtos, na ordem do mês; a aba Acordos saiu (o menu já tem Acordos)
 const TIPOS_MOV = [['sem_novidade', '✓ Sem novidade'], ['movimentacao', 'Movimentação'], ['decisao', 'Decisão relevante'], ['valor', 'Mudança de valor'], ['procuracao', 'Procuração juntada']];
 const PARES_PASSIVO = [['rfb', 'RFB'], ['pgfn', 'PGFN'], ['age_mg', 'AGE/MG']];
 const COLS_PASSIVO = [['rfb', 'RFB'], ['rfb_negociada', 'RFB negociada'], ['pgfn', 'PGFN'], ['pgfn_negociada', 'PGFN negociada'], ['age_mg', 'AGE/MG'], ['age_mg_negociada', 'AGE/MG negociada']];
@@ -7480,7 +7724,8 @@ async function janelaMovimentacao(processoId, depois, opc) {
       // Backup 45: escolha em botões; "Sem novidade" é a primeira opção (a conferência sem alteração)
       '<div class="campo inteiro"><span>O que aconteceu</span><input type="hidden" name="tipo" value="' + (opc && opc.conferir ? 'sem_novidade' : 'movimentacao') + '"><div class="segmento mov-tipos">' +
         TIPOS_MOV.map(([v, r]) => '<button type="button" data-tipo="' + v + '"' + ((opc && opc.conferir ? 'sem_novidade' : 'movimentacao') === v ? ' class="ativo"' : '') + '>' + r + '</button>').join('') + '</div></div>' +
-      campo('Descrição', '<textarea name="descricao" rows="3" placeholder="Ex.: Juntada de petição; sentença de procedência; valor atualizado pela contadoria…"></textarea>', 'inteiro') +
+      campo('Descrição <button type="button" class="btn btn-o btn-mini mov-buscar" id="mov-buscar" title="Puxa o resumo da publicação mais recente deste processo (DJEN)">🔎 Buscar movimentação</button>',
+        '<textarea name="descricao" rows="3" placeholder="Ex.: Juntada de petição; sentença de procedência; valor atualizado pela contadoria…"></textarea>', 'inteiro') +
       // Backup 37: o valor atual fica ao lado, como referência
       '<div class="mov-valor mov-valores inteiro"><div class="mov-vatual"><span>Valor atual da causa</span><b>' + (p.valor ? brl(p.valor) : '—') + '</b></div>' +
         campo('Valor novo', '<input name="valor" data-mascara="brl" inputmode="decimal" placeholder="R$ 0,00">') + '</div>' +
@@ -7491,6 +7736,17 @@ async function janelaMovimentacao(processoId, depois, opc) {
         : '<div class="sub">Nada registrado ainda.</div>') + '</div>',
     rodape: '<span class="sub">A "última movimentação" do processo é atualizada ao salvar.</span><div class="acoes"><button type="button" class="btn btn-p" data-mov-ok>Salvar</button></div>' });
   const f = j.querySelector('#mov-form'); mascaraData(f.data);
+  // Backup 49: a última publicação do mesmo número (já lida do DJEN) vira a descrição — é só conferir e salvar
+  j.querySelector('#mov-buscar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    const dig = soDigitos(p.numero);
+    const pubs = await q(sb.from('publicacoes').select('data_disponibilizacao, tipo, classe, texto, processo, processo_numero, processo_id').or('processo_id.eq.' + p.id + (dig ? ',processo_numero.eq.' + dig + ',processo.eq.' + p.numero : ''))
+      .order('data_disponibilizacao', { ascending: false }).limit(1)).catch(() => []);
+    if (!pubs.length) { aviso('Nenhuma publicação deste processo foi encontrada (Jurídico → Publicações).', true); return; }
+    const u = pubs[0], resumo = String(u.texto || '').replace(/\s+/g, ' ').trim();
+    f.descricao.value = [u.tipo || u.classe, resumo.length > 400 ? resumo.slice(0, 400) + '…' : resumo].filter(Boolean).join(' — ');
+    if (u.data_disponibilizacao) f.data.value = dataBR(u.data_disponibilizacao);
+    const bm = j.querySelector('.mov-tipos [data-tipo=movimentacao]'); if (bm) bm.click();
+    aviso('✓ Publicação de ' + dataBR(u.data_disponibilizacao) + ' trazida para a descrição — confira e salve.'); });
   const mostrarValor = () => { j.querySelector('.mov-valor').hidden = f.tipo.value !== 'valor'; };
   j.querySelector('.mov-tipos').onclick = (ev) => { const b = ev.target.closest('[data-tipo]'); if (!b) return; f.tipo.value = b.dataset.tipo;
     j.querySelectorAll('.mov-tipos button').forEach((x) => x.classList.toggle('ativo', x === b)); mostrarValor(); };
@@ -7609,6 +7865,8 @@ async function rotinaEnviarGuias(el) {
     out.innerHTML = '<div class="ep-out-hd"><div class="ep-out-tit">📨 Mensagens geradas</div><span class="ep-out-ac">' +
         (lista.length > 1 ? '<button type="button" class="btn btn-p btn-mini" id="ep-todos-rasc" title="Salva o rascunho no Gmail de todas as mensagens abaixo, uma por uma">✉ Salvar todos os rascunhos (' + lista.length + ')</button>' : '') +
         '<button type="button" class="btn btn-o btn-mini ep-voltar" id="ep-voltar">← Voltar à seleção</button></span></div>' +
+      // Backup 49: antes de salvar todos, o que ainda falta (sem e-mail, sem guia anexada, cliente que não recebe e-mails)
+      '<div class="ep-pend" id="ep-pend" hidden></div>' +
       '<div class="ep-grid">' + lista.map((e, k) => { const tit = 'Guias de Parcelamento — ' + e.emp, wnum = soDigitos(e.tel), env = e.its.every((g) => g.enviada);
         return '<div class="ep-card" data-k="' + k + '"><div class="ep-card-hd2">' +
           '<div class="ep-card-hcol"><div class="ep-card-ch">📧 E-mail</div><div class="ep-card-emp">' + esc(e.emp) + '</div>' +
@@ -7622,10 +7880,19 @@ async function rotinaEnviarGuias(el) {
           '<div class="ep-card-acts2">' +
             '<button type="button" class="ep-act ep-a-edit" data-ep-a="edit">✏️ Editar</button>' +
             '<button type="button" class="ep-act ep-a-copy" data-ep-a="copy">📋 Copiar</button>' +
+            '<button type="button" class="ep-act ep-a-prev" data-ep-a="prev" title="Ver o e-mail como o cliente vai receber">👁 Prévia</button>' +
             '<button type="button" class="ep-act ep-a-mail" data-ep-a="mail" title="Salva um rascunho no seu Gmail, já com o e-mail do cliente e as guias anexadas — confira no Gmail e clique em Enviar">✉ Enviar e-mail</button>' +
             '<button type="button" class="ep-act ep-a-wpp2" data-ep-a="zap"' + (wnum ? '' : ' disabled') + '>💬 Enviar WhatsApp</button>' +
             '<button type="button" class="ep-act ep-a-sent" data-ep-a="sent"' + (env ? ' disabled' : '') + '>' + (env ? '✓ Enviado' : '✉ Marcar enviado') + '</button></div></div>'; }).join('') + '</div>';
-    out.querySelectorAll('.ep-card').forEach((card) => { const e = lista[+card.dataset.k]; preencherDestino(card.querySelector('.ep-para'), e.cli, e.grupo, 'parcelas'); });
+    const pendencias = () => { const box = $('ep-pend'); if (!box) return; const P = [];
+      out.querySelectorAll('.ep-card:not(.ep-feito)').forEach((card) => { const e = lista[+card.dataset.k], c = E.clientes.find((y) => y.id === e.cli) || {};
+        if (c.recebe_email === false) P.push('<li><b>' + esc(e.emp) + '</b> — marcado para <b>não receber e-mails</b> (Clientes → ✉)</li>');
+        else if (!card.querySelector('.ep-para').value.trim()) P.push('<li><b>' + esc(e.emp) + '</b> — sem e-mail de destino</li>');
+        if (!e.arquivos.length) P.push('<li><b>' + esc(e.emp) + '</b> — nenhuma guia anexada</li>'); });
+      box.hidden = !P.length; box.innerHTML = P.length ? '<b>⚠ Pendências do envio (' + P.length + ')</b><ul>' + P.join('') + '</ul>' : ''; };
+    Promise.all([...out.querySelectorAll('.ep-card')].map((card) => { const e = lista[+card.dataset.k]; return Promise.resolve(preencherDestino(card.querySelector('.ep-para'), e.cli, e.grupo, 'parcelas')).catch(() => null); }))
+      .then(pendencias);
+    out.addEventListener('input', (ev) => { if (ev.target.closest('.ep-para')) pendencias(); });
     aviso('✓ ' + plural(lista.length, 'mensagem gerada', 'mensagens geradas') + '.');
     const chips = (card, e) => { card.querySelector('.ep-chips').innerHTML = e.arquivos.map((f, i) => '<span class="ge-chip">📄 ' + esc(f.name) + ' <small>' + Math.max(1, Math.round(f.size / 1024)) + ' KB</small><button type="button" data-ep-tira="' + i + '" aria-label="Tirar">×</button></span>').join(''); };
     // os valores digitados no texto voltam para cada guia (na ordem do texto)
@@ -7651,22 +7918,25 @@ async function rotinaEnviarGuias(el) {
     const valores = (card, e) => { const ins = [...card.querySelectorAll('.ep-card-body .ep-val')];
       if (ins.length === e.its.length) ins.forEach((i, n) => { const v = lerValor(i.value); e.its[n]._valor = isNaN(v) ? 0 : v; }); };
     out.onchange = (ev) => { const a = ev.target.closest('.ep-arqs'); if (!a) return; const card = a.closest('.ep-card'), e = lista[+card.dataset.k];
-      e.arquivos = e.arquivos.concat([...a.files]); a.value = ''; chips(card, e); };
+      e.arquivos = e.arquivos.concat([...a.files]); a.value = ''; chips(card, e); pendencias(); };
     out.addEventListener('focusout', (ev) => { const i = ev.target.closest('.ep-val'); if (!i || !i.value.trim()) return; const v = lerValor(i.value); i.value = isNaN(v) ? '' : valorParaCampo(v); });
     out.onclick = (ev) => {
       if (ev.target.closest('#ep-todos-rasc')) return comBotao(ev.target.closest('#ep-todos-rasc'), async () => {
         let ok = 0; const falhas = [];
         for (const card of out.querySelectorAll('.ep-card:not(.ep-feito)')) { const r = await salvarCard(card, lista[+card.dataset.k]); if (r.ok) ok++; else falhas.push(r.msg); }
+        pendencias();
         if (falhas.length) aviso('⚠ ' + plural(ok, 'rascunho salvo', 'rascunhos salvos') + '; ' + plural(falhas.length, 'falhou', 'falharam') + ': ' + falhas.join(' · '), true);
         else aviso('✓ ' + plural(ok, 'rascunho salvo', 'rascunhos salvos') + ' no Gmail e as guias marcadas como emitidas. Abra o Gmail → Rascunhos.'); });
       if (ev.target.closest('#ep-voltar')) { out.hidden = true; $('ep-sel').hidden = false; el.querySelector('.ep-topo').hidden = false; el.querySelector('.ep-legenda').hidden = false; el.querySelector('.rt-filtros').hidden = false; return pintar(); }
       const card = ev.target.closest('.ep-card'); if (!card) return; const e = lista[+card.dataset.k];
-      const tira = ev.target.closest('[data-ep-tira]'); if (tira) { e.arquivos.splice(+tira.dataset.epTira, 1); return chips(card, e); }
+      const tira = ev.target.closest('[data-ep-tira]'); if (tira) { e.arquivos.splice(+tira.dataset.epTira, 1); chips(card, e); return pendencias(); }
       const b = ev.target.closest('[data-ep-a]'); if (!b) return; const a = b.dataset.epA;
       if (a === 'edit') { const v = card.querySelector('.ep-card-body'), t = card.querySelector('.ep-card-edit');
         if (!t.hidden) { v.innerHTML = epHtml(t.value); v.hidden = false; t.hidden = true; b.textContent = '✏️ Editar'; }
         else { t.value = epParaEdicao(card); v.hidden = true; t.hidden = false; t.focus(); b.textContent = '✔ Concluir'; } return; }
       if (a === 'copy') return copiarTexto(epTextoAtual(card)).then(() => { const o = b.textContent; b.textContent = '✓ Copiado!'; setTimeout(() => { b.textContent = o; }, 2000); });
+      if (a === 'prev') return comBotao(b, async () => { const h = await q(sb.rpc('previa_rascunho_texto', { p_cliente: e.cli || null, p_assunto: 'Guias de Parcelamento — ' + e.emp, p_texto: epTextoAtual(card) }));
+        verEmailHtml('Guias de Parcelamento — ' + e.emp, h); });
       if (a === 'zap') { window.open('https://wa.me/55' + soDigitos(e.tel) + '?text=' + encodeURIComponent(epTextoAtual(card)), '_blank', 'noopener'); return; }
       if (a === 'sent') { if (!confirm('Confirmar envio para "' + e.emp + '"?')) return;
         return comBotao(b, async () => { valores(card, e);

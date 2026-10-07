@@ -5,31 +5,37 @@
 // de que cada gravação chegou ao servidor, com autor e horário.
 // ═══════════════════════════════════════════════════════════════════
 
+// Backup 49 (32): abas principais Usuários · Importar · E-mail · Backup; Histórico e Acessos (uso raro) ficam no "⋯ Mais".
+// Automações saiu daqui (tem menu próprio). Abas sem ícone.
 const ABAS_ADMIN = [
-  { id: 'usuarios', rot: '👤 Usuários' },
-  { id: 'importar', rot: '📥 Importar planilhas' },
-  { id: 'backup',   rot: '💾 Backup' },
-  { id: 'historico', rot: '🕘 Histórico' },
-  { id: 'acessos', rot: '🔐 Acessos' },
-  { id: 'automacoes', rot: '⚡ Automações' },
-  // Backup 42: a aba E-mail voltou — é onde se configura o Gmail (senha de app), manda o teste e vê o que falta para o e-mail sair
-  { id: 'email', rot: '✉ E-mail' }
+  { id: 'usuarios', rot: 'Usuários' },
+  { id: 'importar', rot: 'Importar' },
+  { id: 'email', rot: 'E-mail' },
+  { id: 'backup',   rot: 'Backup' }
 ];
+const ABAS_ADMIN_MAIS = [{ id: 'historico', rot: 'Histórico' }, { id: 'acessos', rot: 'Acessos' }];
 
 TELAS.admin = async function () {
   E.adm = E.adm || { aba: 'usuarios', tabela: '' };
   $('conteudo').innerHTML =
-    '<div class="titulo-pag"><div><h1>Administração</h1><p>Usuários, importação, backup e histórico de alterações</p></div></div>' +
-    '<div class="abas" id="adm-abas">' + ABAS_ADMIN.map((a) => '<button data-aba="' + a.id + '">' + a.rot + '</button>').join('') + '</div>' +
+    '<div class="titulo-pag"><div><h1>Administração</h1><p>Usuários, importação, e-mail e backup</p></div></div>' +
+    '<div class="abas" id="adm-abas">' + ABAS_ADMIN.map((a) => '<button data-aba="' + a.id + '">' + a.rot + '</button>').join('') +
+      '<span class="adm-mais"><button type="button" id="adm-mais-bt" aria-haspopup="true">⋯ Mais</button><span class="adm-mais-menu" id="adm-mais-menu">' +
+      ABAS_ADMIN_MAIS.map((a) => '<button data-aba="' + a.id + '">' + a.rot + '</button>').join('') + '</span></span></div>' +
     '<div id="adm-corpo"></div>';
-  $('adm-abas').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { E.adm.aba = b.dataset.aba; pintarAdmin(); } };
+  $('adm-abas').onclick = (ev) => { const b = ev.target.closest('button'); if (!b) return;
+    if (b.id === 'adm-mais-bt') { $('adm-abas').classList.toggle('mais-aberto'); return; }
+    $('adm-abas').classList.remove('mais-aberto'); E.adm.aba = b.dataset.aba; pintarAdmin(); };
   await pintarAdmin();
 };
 
 async function pintarAdmin() {
   // Backup 19: as telas de e-mail moraram para a Central de e-mails (abas) — lá o "atualizar" redesenha a aba aberta
   if (E.adm.aba === 'clientes_email') E.adm.aba = 'usuarios';   // Backup 38: módulo E-mails saiu (a aba E-mail da Administração voltou no Backup 42)
-  document.querySelectorAll('#adm-abas button').forEach((b) => b.classList.toggle('ativo', b.dataset.aba === E.adm.aba));
+  if (E.adm.aba === 'automacoes') E.adm.aba = 'usuarios';
+  document.querySelectorAll('#adm-abas button[data-aba]').forEach((b) => b.classList.toggle('ativo', b.dataset.aba === E.adm.aba));
+  const mais = $('adm-mais-bt'), noMais = ABAS_ADMIN_MAIS.find((a) => a.id === E.adm.aba);
+  if (mais) { mais.classList.toggle('ativo', !!noMais); mais.textContent = noMais ? '⋯ ' + noMais.rot : '⋯ Mais'; }
   const corpo = $('adm-corpo');
   corpo.innerHTML = '<div class="carregando">Carregando…</div>';
   try { await ({ usuarios: admUsuarios, importar: admImportar, backup: admBackup, historico: admHistorico, acessos: admAcessos, clientes_email: admClientesEmail, automacoes: () => { E.adm.aba = 'usuarios'; irParaTela('automacoes'); }, email: admEmail })[E.adm.aba](corpo); }

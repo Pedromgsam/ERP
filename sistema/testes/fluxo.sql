@@ -321,6 +321,35 @@ select lancar_valor_parcela('70000000-0000-0000-0000-000000000001', null);
 reset role;
 select pg_temp.ok((select valor is null from parcelas where id = '70000000-0000-0000-0000-000000000001'), '15.4 apagar o valor lançado volta a herdar o último');
 
+-- ═══ 49. Backup 49: chave "Recebe e-mails", Para revisar, Cobrar por e-mail, rascunho no modelo bonito ═══
+insert into lancamentos (id, tipo, descricao, cliente_id, vencimento, valor, empresa) values ('49000000-0000-0000-0000-000000000001', 'receita', 'Honorário B49', '10000000-0000-0000-0000-000000000001', current_date + 5, 300, 'escritorio');
+select pg_temp.como('00000000-0000-0000-0000-00000000000b');
+set role authenticated;
+select pg_temp.ok((select (cobranca_email_html('49000000-0000-0000-0000-000000000001', 'Olá, segue o lembrete.')->>'html') like '%Honorário B49%'), '49.1 a cobrança por e-mail usa o modelo bonito (quadro com o lançamento)');
+select pg_temp.ok((select cobrar_por_email('49000000-0000-0000-0000-000000000001', 'fin@cliente.teste', 'Olá!') ? 'ref'), '49.2 Cobrar → E-mail põe na fila');
+reset role;
+select pg_temp.ok((select cobranca = 'Cobrado' from lancamentos where id = '49000000-0000-0000-0000-000000000001'), '49.3 o lançamento fica COBRADO');
+select pg_temp.ok((select cliente_id = '10000000-0000-0000-0000-000000000001' from email_fila where referencia like 'email_cm:49000000-0000-0000-0000-000000000001:%' limit 1), '49.4 o e-mail fica ligado ao cliente');
+update clientes set recebe_email = false where id = '10000000-0000-0000-0000-000000000001';
+select pg_temp.como('00000000-0000-0000-0000-00000000000b');
+set role authenticated;
+do $$ begin perform cobrar_por_email('49000000-0000-0000-0000-000000000001', 'fin@cliente.teste', 'Olá!'); insert into pg_temp.r (nome, ok) values ('49.5 cliente com "Recebe e-mails = Não" bloqueia a cobrança', false);
+exception when others then insert into pg_temp.r (nome, ok) values ('49.5 cliente com "Recebe e-mails = Não" bloqueia a cobrança', sqlerrm like '%NÃO receber e-mails%'); end $$;
+do $$ begin perform rascunho_email_texto('10000000-0000-0000-0000-000000000001', 'x@cliente.teste', 'Guias', 'texto', null); insert into pg_temp.r (nome, ok) values ('49.6 o rascunho das guias também é bloqueado', false);
+exception when others then insert into pg_temp.r (nome, ok) values ('49.6 o rascunho das guias também é bloqueado', sqlerrm like '%NÃO receber e-mails%'); end $$;
+reset role;
+insert into email_fila (para, assunto, html, tipo, referencia, cliente_id) values ('fin@cliente.teste', 'Automático B49', '<p>oi</p>', 'cliente', 'b49-auto', '10000000-0000-0000-0000-000000000001');
+select pg_temp.ok((select status = 'cancelado' from email_fila where referencia = 'b49-auto'), '49.7 e-mail automático para quem não recebe é cancelado (não sai)');
+update clientes set recebe_email = true where id = '10000000-0000-0000-0000-000000000001';
+select pg_temp.ok((select recebe from quem_recebe_emails() where cliente_id = '10000000-0000-0000-0000-000000000001'), '49.8 com "Sim", o cliente volta a receber');
+update configuracoes set valor = 'true'::jsonb where chave = 'emails_revisar';
+insert into email_fila (para, assunto, html, tipo, referencia, cliente_id) values ('fin@cliente.teste', 'Automático revisar B49', '<p>oi</p>', 'cliente', 'b49-rev', '10000000-0000-0000-0000-000000000001');
+select pg_temp.ok((select status = 'retido' from email_fila where referencia = 'b49-rev'), '49.9 "Conferir antes de enviar" segura o e-mail automático em Para revisar');
+update configuracoes set valor = 'false'::jsonb where chave = 'emails_revisar';
+delete from email_fila where referencia in ('b49-auto', 'b49-rev');
+select pg_temp.ok((select count(*) > 0 from quem_recebe_emails()), '49.10 a tela "Quem recebe" lista os clientes');
+select pg_temp.ok(texto_guias_rotina_html('Nº do Parcelamento: 123' || chr(10) || 'Parcela: 2/10' || chr(10) || 'Vencimento: 10/11/2030') like '%Nº do Parcelamento:%', '49.11 o texto das guias vira quadro no e-mail');
+
 -- ═══ RESUMO ═══
 select case when ok then 'PASSA ' else 'FALHA ' end || nome || case when not ok and obs <> '' then '  → ' || obs else '' end from r order by n;
 do $$ declare n int; begin

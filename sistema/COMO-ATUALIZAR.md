@@ -707,6 +707,57 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
 **Central de Documentos dentro do ERP:** menu **Documentos → Gerar documento** (ou ⋯ → Documentos, contrato, recibo do Financeiro).
 **Ctrl + clique** (ou botão do meio do mouse) em qualquer item do menu ou link de documento abre numa aba nova.
 
+## Backup 49 — simplificação geral: as 36 sugestões aprovadas (tem SQL; nenhuma função nova)
+Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+Shift+R**. Nenhuma função do Supabase precisa ser publicada de novo.
+Para voltar à versão anterior: o zip do **Backup 48** (pasta `backups/`).
+
+**E-mails**
+- **✉ Recebe e-mails: Sim / Não**: uma chave por cliente. Ela aparece na lista de Clientes (coluna E-mails), na ficha e no cadastro.
+  Para mudar vários de uma vez: Clientes → **✉ Recebe e-mails…**.
+  - "Não" = nada sai para o cliente: lembretes, cobranças, guias, recibo, boas-vindas e rascunhos do Gmail.
+  - Quem tenta enviar vê o aviso na hora.
+  - O perfil detalhado ficou em "Avançado", fechado.
+- **Administração → E-mail** tem três abas:
+  - **Quem recebe**: uma linha por cliente, com destino, chave Sim/Não, último e-mail e o selo "sem e-mail". Filtros: Todos · Recebem · Não recebem · Sem e-mail.
+  - **Para revisar**: os e-mails automáticos esperam um clique ("Enviar todos" ou um por um, com 👁 prévia). Liga e desliga na chave do topo.
+  - **Configuração**: a tela antiga.
+- **Guias do mês** (Rotina) e **rascunho dos Acordos** saem no modelo bonito: logo, quadro de cada guia, "Como pagar" e rodapé. O texto do cartão continua igual.
+  - Use **👁 Prévia** para ver antes de enviar.
+  - O quadro **Pendências do envio** mostra: cliente sem e-mail, guia sem anexo e quem está marcado "não recebe".
+- **Faixa amarela do modo teste** (só para o administrador), com o botão **Desligar modo teste**.
+
+**Telas**
+- **Início**: o resumo virou uma linha de atalhos clicáveis. A agenda tem só **Lista** e **Mês** (Semana e Dia ficam em Tarefas → Calendário).
+- **Tarefas**:
+  - Botões: **+ Nova tarefa**, **⚡** (criação rápida), **👥 Delegar** e **⚙** (modelos, feriados, Google Agenda, novo fluxo).
+  - Duas linhas de filtro: **Mostrar** (tipos, prioridade e prazo) e **De quem**.
+  - Vistas: **Lista · Calendário (Mês/Semana/Dia) · Fluxos**.
+- **Painel**:
+  - O gráfico de evolução começa fechado (abre com um clique).
+  - No celular, os valores aparecem completos.
+- **Processos**: "🔎 Buscar movimentação" preenche com a publicação mais recente do mesmo processo.
+- **Parcelamentos**: fica só para consulta. Emitir, enviar e pagar são feitos na **Rotina**.
+- **Rotina**: abas Passivo · Processos · Guias do mês · Planilha · Minhas tarefas (a aba Acordos saiu).
+- **Acordos**: a "Situação dos acordos" virou um resumo fechado; a lista principal é a "A pagar".
+- **Financeiro**:
+  - Jurídico e Contabilidade com os mesmos 5 cartões e abas com os mesmos nomes, sem ícones.
+  - **Prejuízo** virou o filtro **Perdas** dentro de Recebidos.
+  - **💬 Cobrar** agora tem as opções WhatsApp e **E-mail**. O e-mail sai no modelo bonito e respeita a chave do cliente.
+- **Contratos**: o quadro **Reajuste anual nos próximos 30 dias** aparece para consultorias com valor fixo.
+  - O % sugerido é a variação do salário mínimo; troque se o índice for outro.
+  - **Aplicar** registra o aditivo e corrige as mensalidades em aberto.
+- **Ficha do cliente**: 7 abas: Resumo (com cartão CNPJ e dados fiscais) · Contatos e endereços · Sócios · Processos · Financeiro e contratos · Documentos · Histórico.
+- **Cliente novo**: abre no cadastro rápido (CPF/CNPJ, nome, grupo, e-mail, telefone). **Mais dados ▾** mostra o resto.
+- **CRM**: 4 colunas (Contato · Diagnóstico · Proposta · Negociação) + a faixa **Fechado / Perdido**. As etapas de dentro aparecem como selo no cartão.
+- **Documentos**: selo de vencimento na pasta e na subpasta, e filtro **Vencendo em 30 dias**.
+- **Alertas**: ficaram só cadastro incompleto, certidão e certificado vencendo, CNPJ irregular e as rotinas.
+- **Automações**: bloco **E-mails automáticos** com a chave geral "Conferir antes de enviar".
+- **Publicações**: abre sempre em **Novas**; há o botão **✓ Marcar todas como lidas**.
+- **Administração**: abas Usuários · Importar · E-mail · Backup. Histórico e Acessos ficam em **⋯ Mais**.
+- **Em todas as telas**:
+  - Filtros em chips e abas sem ícone.
+  - Datas, atraso e situação centralizados; valores à direita (o Painel continua como está).
+
 ## Backup 48 — Tarefas com os filtros do Início e Painel alinhado (sem SQL)
 Ordem: **1) Merge  2) Ctrl+Shift+R**. Não tem SQL novo nem função nova.
 Para voltar à versão anterior: o zip do **Backup 47** (pasta `backups/`).

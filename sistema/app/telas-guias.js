@@ -7,7 +7,7 @@
 // usada também nos cartões das parcelas do detalhamento.
 // ═══════════════════════════════════════════════════════════════════
 const GUIA_DIAS = 15;   // o quadro mostra o que vence até 15 dias à frente (e tudo o que já venceu sem pagamento)
-const ABAS_GUIA = [['emitir', '🧾 A emitir'], ['emitidas', '✓ Emitidas — falta enviar'], ['vencidas', '⏰ Vencidas sem pagamento']];
+const ABAS_GUIA = [['emitir', 'A emitir'], ['emitidas', 'Emitidas — falta enviar'], ['vencidas', 'Vencidas sem pagamento']];   // Backup 49: abas sem ícone
 const _guiaAba = { parcelas: 'emitir', acordos: 'emitir' };
 // Backup 28: quadro minimizável (lembra por navegador) e envio de várias guias da mesma empresa num e-mail/WhatsApp
 const _guiaMin = {};

@@ -720,7 +720,10 @@
     ['col-venc', /^(vencimento|venc\.?|pago em|data (de )?pagamento|data pag\.?|prazo)$/],
     ['col-valor', /^(valor|valor da causa|valor parcela|total|saldo|saldo devedor)$/],
     ['col-dias', /^(atraso|dias|dias de atraso)$/],
-    ['col-nome', /^(grupo|grupo \/ favorecido|devedor|credor|empresa|cliente|nome|entidade|entidade \/ socio)$/]];
+    ['col-nome', /^(grupo|grupo \/ favorecido|devedor|credor|empresa|cliente|nome|entidade|entidade \/ socio)$/],
+    // Backup 49 (36): datas e situação também têm lugar fixo (centralizadas)
+    ['col-data', /^(data|emissao|validade|desde|aniversario|quando|competencia|inicio|vigencia|criado em|enviado em|ultima movimentacao)$/],
+    ['col-sit', /^(situacao|status|financeiro|cobranca|situacao da cobranca)$/]];
   const normTit = (t) => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[▲▼↑↓⇅]/g, '').trim().toLowerCase();
   function marcarColunas() {
     document.querySelectorAll('.tw table, .tabela-wrap table, .gx-tab-gs table').forEach((t) => {

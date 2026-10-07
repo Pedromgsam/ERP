@@ -10,12 +10,12 @@ const EMPRESAS = {
   contabilidade: { tela: 'contabilidade', titulo: 'Honorários Contabilidade', sub: 'Financeiro da empresa de contabilidade · a receber, a pagar, receita e despesa' }
 };
 const ABAS_FIN = [
-  { id: 'analise',   rot: '📊 Análise' },
-  { id: 'areceber',  rot: '📋 A Receber' },
-  { id: 'recebidos', rot: '✅ Recebidos' },
-  { id: 'prejuizo',  rot: '📉 Prejuízo' },
-  { id: 'apagar',    rot: '📤 A Pagar' },
-  { id: 'despesas',  rot: '💸 Despesas pagas' }
+  { id: 'analise',   rot: 'Análise' },
+  { id: 'areceber',  rot: 'A Receber' },
+  { id: 'recebidos', rot: 'Recebidos' },
+  { id: 'prejuizo',  rot: 'Prejuízo' },
+  { id: 'apagar',    rot: 'A Pagar' },
+  { id: 'despesas',  rot: 'Despesas pagas' }
 ];
 // Abas que mostram "todos os meses" ao abrir; as demais abrem no mês atual.
 const ABRE_EM_TODOS = { areceber: true, apagar: true, prejuizo: true };

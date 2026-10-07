@@ -82,7 +82,19 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
-- Última entrega: **Backup 48** (sem SQL): Tarefas com `#tf-chips` (Mostrar `[data-tf-tipo]` + De quem `[data-tf-pes]`; `E.tf.tipos`/`E.tf.pessoas`, vazio = todos) usando
+- Última entrega: **Backup 49** (SQL; nenhuma função nova) — as 36 sugestões do `SUGESTOES-B48.md`. E-mails: `clientes.recebe_email` (chave única; `pillRecebeEmail`/`trocarRecebeEmail`/
+  `janelaRecebeEmailLote`, `#cli-email-lote`), `email_fila.cliente_id` + gatilho `email_fila_a_recebe` (`email_fila_recebe`: manual → exceção "NÃO receber e-mails", automático → cancelado),
+  `pode_email` olha a chave, `quem_recebe_emails()`, `emails_revisar` (+ `email_fila_reter` segura automáticos; `salvar_emails_revisar`), `modo_teste_email`/`salvar_modo_teste_email`
+  (faixa `#gx-modo-teste`, `ERP_FAIXA_TESTE`), `texto_guias_rotina_html` no `rascunho_email_texto` + `previa_rascunho_texto` (`[data-ep-a=prev]`, `verEmailHtml`), `#ep-pend`,
+  `cobranca_email_html`/`cobrar_por_email` (Cobrar → chips `.cb-canal` WhatsApp/E-mail). Admin: `ABAS_ADMIN` (usuarios/importar/email/backup) + `ABAS_ADMIN_MAIS` (`#adm-mais-bt`), E-mail com `#em-abas`
+  (quem/revisar/config). Início `.ini-atalhos`; fila só lista/mês. Tarefas: `#tf-config` ⚙ (`#tf-cfg-menu`), `#tf-rapida-bt` ⚡, vistas lista/calendario/fluxos, `#tf-cal-vista [data-cal-v]`.
+  Painel: evolução `evo-fechado`/`#evo-abrir`. Processos: `#mov-buscar`. Parcelamentos sem ações (lista-grupos-b25). Rotina `ABAS_ROTINA` sem acordos. Acordos `exAcSit` fechado.
+  Financeiro: abas sem ícone (montar-erp), aba prejuizo escondida → `_finSegPerdas` (`#fin-perdas-seg`), Contab `fc-kpis5` (sem "Pago"). Contratos: `reajustesProximos`/`cardReajustes` (`#ctr-reaj`,
+  `[data-reaj-aplicar]` → `registrar_aditivo`). Ficha: `ABAS_FICHA` 7 + `PARTES_FICHA`/`ABA_NOVA` (partes `.ficha-parte`). Cadastro: `.cli-rapido` (`.cli-r`, `#cli-mais-dados`).
+  CRM: `GRUPOS_CRM`/`grupoEtapa` (4 colunas `[data-grupo]` + faixa final; etapas do banco intactas). Documentos: `seloPasta`, "Vencendo em 30 dias". Alertas sem publicações/parcelas/acordos/
+  honorários/tarefas, com "Certidões vencendo". Automações: bloco `.au-emails` + `#au-revisar`. Publicações: abre em `nova`, `#pub-todas-lidas`. Régua: `col-data`/`col-sit` (REGUA) centralizados
+  (menos `#tblExecRanking`); `.filtros .segmento` em pílulas.
+- Backup 48 (base) (sem SQL): Tarefas com `#tf-chips` (Mostrar `[data-tf-tipo]` + De quem `[data-tf-pes]`; `E.tf.tipos`/`E.tf.pessoas`, vazio = todos) usando
   `chipFiltro(attr, v, rot, on, comCor)` e `alternarFiltro` (telas-tarefas.js, também no Início); `#tf-resp` saiu (Minha semana usa `F.pessoas`). Painel: td 2 e 4 do `#tblExecRanking` à esquerda.
   Sugestões numeradas em `sistema/SUGESTOES-B48.md`; próximo prompt `sistema/PROMPT-BACKUP-49.md` (e-mails: chave única por cliente + modelo bonito nas guias).
 - Backup 47 (base) (sem SQL): importação — `IMPORTADOR.gruposFaltando(nomes, existentes)` (importador.js) tira repetidos pelo `norm` (caixa, espaços,

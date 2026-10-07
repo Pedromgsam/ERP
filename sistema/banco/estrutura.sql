@@ -7017,7 +7017,7 @@ end $$;
 alter table public.clientes add column if not exists recebe_email boolean not null default true;
 do $$ begin
   if not exists (select 1 from public.configuracoes where chave = 'b49_recebe_email') then
-    update public.clientes set recebe_email = false where perfil_email = 'nunca';
+    update public.clientes set recebe_email = false where perfil_email = 'nada';   -- "Não enviar nenhum e-mail" = a chave em Não
     insert into public.configuracoes (chave, valor) values ('b49_recebe_email', 'true');
   end if;
 end $$;
@@ -7055,19 +7055,21 @@ create or replace function public.pode_email(p_cliente uuid, p_grupo uuid, p_tip
 language plpgsql stable security definer set search_path = public as $$
 declare pf text; t jsonb;
 begin
+  -- Backup 49: a chave "Recebe e-mails = Não" vence tudo (cliente, ou todos os clientes do grupo)
   if p_cliente is not null and exists (select 1 from public.clientes where id = p_cliente and not recebe_email) then return false; end if;
   if p_cliente is null and p_grupo is not null and exists (select 1 from public.clientes where grupo_id = p_grupo)
      and not exists (select 1 from public.clientes where grupo_id = p_grupo and recebe_email) then return false; end if;
+  -- daqui para baixo, igual ao Backup 26 (perfil detalhado, em "Avançado")
   pf := public.perfil_email_de(p_cliente, p_grupo);
-  if pf = 'nunca' then return p_tipo not in ('lembrete','vencimento','cobranca','recibo'); end if;
-  if pf = 'vencimento' then return p_tipo not in ('lembrete','cobranca'); end if;
+  if pf = 'nada' then return false; end if;
   if pf = 'personalizado' then
     select emails_tipos into t from public.clientes where id = p_cliente;
-    if t is null then
-      select emails_tipos into t from public.clientes where grupo_id = p_grupo and perfil_email = 'personalizado' limit 1;
-    end if;
+    if t is null then select emails_tipos into t from public.clientes where grupo_id = p_grupo and perfil_email = 'personalizado' limit 1; end if;
     return coalesce((t->>p_tipo)::boolean, p_tipo <> 'vencimento');
   end if;
+  if p_tipo in ('boas_vindas','convite','contrato') then return true; end if;
+  if pf = 'nunca' then return p_tipo not in ('lembrete','vencimento','cobranca','recibo'); end if;
+  if pf = 'vencimento' then return p_tipo not in ('lembrete','cobranca'); end if;
   return p_tipo <> 'vencimento';
 end $$;
 revoke all on function public.pode_email(uuid, uuid, text) from public, anon, authenticated;
@@ -7231,3 +7233,4 @@ begin
 end $$;
 revoke all on function public.cobrar_por_email(uuid, text, text) from public, anon;
 grant execute on function public.cobrar_por_email(uuid, text, text) to authenticated;
+-- ═══ fim do Backup 49 ═══
