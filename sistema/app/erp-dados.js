@@ -370,6 +370,12 @@ window.ERP_COLS_CLIENTE = 'id,grupo_id,nome,cpf_cnpj,tipo,responsavel,email,tele
 
   // Backup 51: lê só alguns módulos (ex.: 'parcelamentos'), no mesmo formato da carga do ERP — usado depois de uma baixa na Rotina
   window.ERP_LER_MODULOS = (lista) => ler(new URLSearchParams({ modulos: String(lista) }));
+  // Backup 52 (O3): relê SÓ alguns parcelamentos (o que mudou numa baixa), no formato do módulo "parcelamentos" — uma consulta só
+  window.ERP_LER_PARCELAMENTOS = async (ids) => {
+    const { data, error } = await sb.rpc('parcelamentos_json', { p_ids: ids }); if (error) throw error;
+    const G = await grupos();
+    return (data || []).map((pa) => Object.assign(parcelamento(pa, pa.parcelas || []), { grupoNome: G[pa.grupo_id] || '' }));
+  };
   // Recarrega os dados do ERP depois de uma gravação (usado pelo editor).
   window.ERP_RECARREGAR = function () { _gruposCache = null; _portal = null; if (typeof window.loadData === 'function') return window.loadData(true); };
   // Marca cada linha das tabelas do ERP com tabela:id (usado pelo botão ✎ Editar).

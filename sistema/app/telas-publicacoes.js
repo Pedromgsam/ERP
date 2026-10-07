@@ -2,7 +2,7 @@
 // ═══════════════════════════════════════════════════════════════════
 // Publicações — Diário de Justiça Eletrônico Nacional (API pública do CNJ).
 // A função "erp-publicacoes" busca pelas OABs cadastradas (7h e 13h, dias
-// úteis, ou pelo botão "Buscar agora"); aqui a equipe lê, cria a tarefa com
+// úteis, ou pelo botão "Buscar agora" — desde o Backup 52 pelo navegador); aqui a equipe lê, cria a tarefa com
 // prazo sugerido em dias úteis e marca como tratada.
 // ═══════════════════════════════════════════════════════════════════
 const PALAVRAS_PUB = ['intimação', 'intimada', 'intimado', 'prazo', 'sentença', 'audiência', 'citação', 'citado', 'citada', 'decisão', 'penhora', 'bloqueio'];
@@ -33,8 +33,8 @@ TELAS.publicacoes = async function () {
   E.pub = E.pub || { status: 'nova', adv: '', tribunal: '', dias: '30', busca: '' };
   const F = E.pub; F.status = 'nova';   // Backup 49 (31): sempre abre em Novas
   $('conteudo').innerHTML =
-    '<div class="titulo-pag"><div><h1>Publicações</h1><p id="pub-ult">Diário de Justiça Eletrônico Nacional · busca automática às 7h e 13h (dias úteis)</p></div>' +
-    '<div class="acoes"><button class="btn btn-o" id="pub-todas-lidas" title="Marca como lidas todas as publicações novas">✓ Marcar todas como lidas</button><button class="btn btn-o" id="pub-oabs">⚙ Monitoramento (OABs e clientes)</button><button class="btn btn-o" id="pub-nav" title="Busca direto do seu computador — use se o servidor não conseguir falar com o CNJ">🌐 Buscar pelo navegador</button><button class="btn btn-p" id="pub-buscar">↻ Buscar agora</button></div></div>' +
+    '<div class="titulo-pag"><div><h1>Publicações</h1><p id="pub-ult">Diário de Justiça Eletrônico Nacional · busca automática pelo navegador, 1× por dia ao abrir o ERP</p></div>' +
+    '<div class="acoes"><button class="btn btn-o" id="pub-todas-lidas" title="Marca como lidas todas as publicações novas">✓ Marcar todas como lidas</button><button class="btn btn-o" id="pub-oabs">⚙ Monitoramento (OABs e clientes)</button><button class="btn btn-p" id="pub-buscar" title="Busca no Diário do CNJ pelo seu navegador (se ele falhar, tenta pelo servidor)">↻ Buscar agora</button></div></div>' +
     '<div class="filtros"><div class="segmento" id="pub-st">' + [['nova', 'Novas'], ['lida', 'Lidas'], ['tratada', 'Tratadas'], ['descartada', 'Descartadas'], ['', 'Todas']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<select class="busca sel" id="pub-dias"><option value="7">Últimos 7 dias</option><option value="15">Últimos 15 dias</option><option value="30">Últimos 30 dias</option><option value="90">Últimos 90 dias</option><option value="">Todo o período</option></select>' +
 
@@ -49,15 +49,19 @@ TELAS.publicacoes = async function () {
     const r = (await q(sb.from('publicacoes').update({ status: 'lida' }).eq('status', 'nova').select('id'))) || [];
     aviso('✓ ' + plural(r.length, 'publicação marcada como lida', 'publicações marcadas como lidas') + '.'); await carregarPublicacoes();
   });
+  // Backup 52 (C5): "Buscar agora" busca PELO NAVEGADOR (o CNJ recusa o servidor do Supabase, que fica fora do Brasil);
+  // se o navegador não alcançar o CNJ, tenta a função erp-publicacoes como reserva e explica. O antigo "🌐 Buscar pelo navegador" virou este botão.
   $('pub-buscar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
-    const data = await chamarFuncao('erp-publicacoes', {});
-    if (!data.oabs && !data.partes) throw new Error('Cadastre pelo menos uma OAB ou um cliente em "Monitoramento".');
-    const erro = data.erros && data.erros.length ? data.erros[0] : '';
-    aviso('✓ Busca feita: ' + data.lidas + ' publicação(ões) lida(s), ' + data.novas + ' nova(s).' + (erro ? ' Atenção: ' + erro : ''), !!erro);
-    if (erro && /recusou|conexão|navegador/i.test(erro) && confirm('O servidor não conseguiu falar com o Diário do CNJ.\n\nBuscar agora pelo seu navegador?')) await buscarPubNoNavegador();
+    const r = await buscarPubNoNavegador({ silencioso: true, detalhe: true });
+    if (r.semMonitoramento) throw new Error('Cadastre pelo menos uma OAB ou um cliente em "Monitoramento".');
+    if (r.erros.length && !r.lidas) {
+      const data = await chamarFuncao('erp-publicacoes', {}).catch((e) => ({ erros: [e.message] }));
+      const erro = data.erros && data.erros.length ? data.erros[0] : '';
+      if (!erro) aviso('✓ Busca feita (pelo servidor, porque o navegador não alcançou o CNJ): ' + (data.lidas || 0) + ' publicação(ões) lida(s), ' + (data.novas || 0) + ' nova(s).');
+      else aviso('⚠ A busca não foi feita. Pelo navegador: ' + r.erros[0] + '. Pelo servidor: ' + erro + '. Tente de novo em alguns minutos.', true);
+    } else aviso('✓ Busca feita: ' + r.lidas + ' publicação(ões) lida(s), ' + r.novas + ' nova(s).' + (r.erros.length ? ' Atenção: ' + r.erros[0] : ''), !!r.erros.length);
     await TELAS.publicacoes();
   });
-  $('pub-nav').onclick = (ev) => comBotao(ev.currentTarget, async () => { await buscarPubNoNavegador(); await TELAS.publicacoes(); });
   $('pub-st').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.status = b.dataset.v; pintarPublicacoes(); } };
   $('pub-trib').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.tribunal = b.dataset.v; pintarPublicacoes(); } };
   $('pub-dias').onchange = (ev) => { F.dias = ev.target.value; carregarPublicacoes(); };
@@ -66,7 +70,7 @@ TELAS.publicacoes = async function () {
   let t; $('pub-busca').oninput = (ev) => { clearTimeout(t); t = setTimeout(() => { F.busca = ev.target.value; pintarPublicacoes(); }, 250); };
   q(sb.from('configuracoes').select('valor').eq('chave', 'publicacoes_ultima').maybeSingle()).then((u) => {
     if (u && u.valor && $('pub-ult')) $('pub-ult').textContent = 'Última busca: ' + quandoRodou(u.valor.quando) + ' · ' + u.valor.novas + ' nova(s) de ' + u.valor.lidas + ' lida(s)' +
-      (u.valor.erros && u.valor.erros.length ? ' · ⚠ ' + u.valor.erros[0] : '') + ' · automática às 7h e 13h (dias úteis)';
+      (u.valor.erros && u.valor.erros.length ? ' · ⚠ ' + u.valor.erros[0] : '') + ' · automática 1× por dia ao abrir o ERP';
   }).catch(() => {});
   await carregarPublicacoes();
 };
@@ -257,7 +261,7 @@ async function buscaPubAutomatica() {
 async function buscarPubNoNavegador(op) {
   op = op || {};
   const [os, ps] = await Promise.all([q(sb.from('oabs_monitoradas').select('*').eq('ativo', true)), q(sb.from('partes_monitoradas').select('*').eq('ativo', true)).catch(() => [])]);
-  if (!os.length && !ps.length) { if (op.silencioso) return 0; throw new Error('Cadastre pelo menos uma OAB ou um cliente em "Monitoramento".'); }
+  if (!os.length && !ps.length) { if (op.detalhe) return { lidas: 0, novas: 0, erros: [], semMonitoramento: true }; if (op.silencioso) return 0; throw new Error('Cadastre pelo menos uma OAB ou um cliente em "Monitoramento".'); }
   const de = somarDias(hojeISO(), -Number(E.pub && E.pub.dias ? Math.min(Number(E.pub.dias), 30) : 7)), ate = hojeISO();
   const alvos = os.map((o) => ['numeroOab=' + encodeURIComponent(soDigitos(o.numero)) + '&ufOab=' + encodeURIComponent(o.uf), o, '']).concat(ps.map((p) => ['nomeParte=' + encodeURIComponent(p.nome), null, p.nome]));
   let lidas = 0, novas = 0; const erros = [];
@@ -275,5 +279,5 @@ async function buscarPubNoNavegador(op) {
   // Backup 37: a busca pela web fica registrada (Alertas → Rotinas → "Busca de publicações (web)")
   await q(sb.rpc('registrar_busca_publicacoes', { p_lidas: lidas, p_novas: novas, p_erros: erros })).catch(() => null);
   if (!op.silencioso) aviso('✓ Busca pelo navegador: ' + lidas + ' lida(s), ' + novas + ' nova(s).' + (erros.length ? ' Atenção: ' + erros[0] : ''), !!erros.length);
-  return novas;
+  return op.detalhe ? { lidas, novas, erros } : novas;
 }

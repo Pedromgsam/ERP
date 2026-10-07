@@ -1,7 +1,8 @@
 # Sugestões — Backup 51 (foco: simetria, Início, Acordos com PIX e Publicações)
 
 Esta lista junta os pedidos novos com o que ficou das sugestões do Backup 50 (`SUGESTOES-B50.md`).
-**Nada daqui foi feito ainda.** Para aprovar, responda com os números. Exemplo: "aprovo C1 a C4, P1, P2 e N1; o resto fica para depois".
+**Feito no Backup 52:** C1 a C7, P1 a P5 e O1 a O3 (detalhes no `COMO-ATUALIZAR.md`, seção Backup 52). Os demais continuam como sugestão.
+Para aprovar, responda com os números. Exemplo: "aprovo C1 a C4, P1, P2 e N1; o resto fica para depois".
 O prompt pronto para o próximo chat está em `sistema/PROMPT-BACKUP-52.md`.
 
 **Regra de ouro (pedida por você):** o que muda num lugar vale para o ERP inteiro. Uma tela não pode ter um enfeite que as outras não têm.

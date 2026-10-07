@@ -23,7 +23,6 @@
     { id: 'hoje', rot: 'Início', ic: 'inicio', equipe: true },
     { id: 'tarefas', rot: 'Tarefas', ic: 'tarefas', equipe: true },
     { id: 'alertas', rot: 'Alertas', ic: 'alertas', equipe: true },
-    { id: 'atualizacoes', rot: 'Atualizações', ic: 'atualizacoes', equipe: true },   // Backup 46: o que mudou em cada versão (padrão ROMPEX)
     { sec: 'Módulos' },
     { id: 'resumo', rot: 'Painel Executivo', ic: 'painel', func: 'relatorios' },
     { rot: 'Jurídico', ic: 'juridico', itens: [['processos', 'Processos', 'juridico'], ['parcelamentos', 'Parcelamentos', 'juridico'], ['publicacoes', 'Publicações', 'juridico']] },
@@ -43,7 +42,6 @@
     tarefas: '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
     rotina: '<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M9 14l2 2 4-4"/>',
     alertas: '<path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/>',
-    atualizacoes: '<path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M12 7v5l3 2"/>',
     painel: '<path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 6-6"/>',
     juridico: '<path d="M12 3v18M5 21h14M3 7h18"/><path d="M6 7l-3 7a3 3 0 0 0 6 0zM18 7l-3 7a3 3 0 0 0 6 0z"/>',
     acordos: '<path d="M8 12l3 3 5-5"/><circle cx="12" cy="12" r="9"/>',
@@ -60,7 +58,7 @@
   // Cobranças, avisos e recibos (antiga "Notificações"): fora da barra; abre pelo botão ✉ de cada tela e pelo ⋯
   const FUNC_EXTRA = { notificacoes: 'clientes' };   // a Central de e-mails confere o acesso no banco
   // painéis novos → tela do Gestão que desenha nele
-  const TELAS_GS = { hoje: 'inicio', contratos: 'contratos', clientes: 'clientes', crm: 'crm', publicacoes: 'publicacoes', documentos: 'documentos', tarefas: 'tarefas', alertas: 'alertas', atualizacoes: 'atualizacoes', automacoes: 'automacoes', rotina: 'rotina', admin: 'admin' };
+  const TELAS_GS = { hoje: 'inicio', contratos: 'contratos', clientes: 'clientes', crm: 'crm', publicacoes: 'publicacoes', documentos: 'documentos', tarefas: 'tarefas', alertas: 'alertas', automacoes: 'automacoes', rotina: 'rotina', admin: 'admin' };
 
   // "+ Lançar": formulários do Gestão onde existem; os demais, do editor do ERP
   const empresaAtual = () => (_painel === 'financeiroContab' ? 'contabilidade' : 'escritorio');
@@ -477,13 +475,18 @@
         else if (history.state.tela !== id) history.pushState(est, '', '#' + id);
       }
       _painel = id; destacar(id);
+      // Backup 52 (O1): as telas novas que ficaram para trás são esvaziadas quando o navegador está livre (cada uma é desenhada de novo ao voltar);
+      // assim a página não carrega dezenas de milhares de elementos escondidos, que deixavam toda troca de tela mais lenta
+      clearTimeout(window._gxLimpa); window._gxLimpa = setTimeout(() => { document.querySelectorAll('.gs-area').forEach((a) => { if (a.firstChild && !a.closest('.panel.active')) a.textContent = ''; }); }, 1500);
       if (id) document.body.dataset.painel = id;
       document.body.classList.toggle('gx-tela-nova', !!TELAS_GS[id]);
       if (TELAS_GS[id]) desenharGS(id);
       // Backup 46: baixa feita na Rotina não recarrega tudo na hora; recarrega ao abrir uma tela do ERP antigo (Parcelamentos, Painel…)
       else if (window.ERP_DADOS_SUJOS && typeof window.ERP_RECARREGAR === 'function') { window.ERP_DADOS_SUJOS = false; window.ERP_SUJO = null; window.ERP_RECARREGAR(); }
       // Backup 51 (V5): baixa/emissão de parcela feita na Rotina → relê SÓ os parcelamentos (não o ERP inteiro)
-      else if (id === 'parcelamentos' && window.ERP_SUJO && window.ERP_SUJO.parcelamentos) { window.ERP_SUJO = null; recarregarModulos('parcelamentos'); }
+      else if (id === 'parcelamentos' && window.ERP_SUJO && window.ERP_SUJO.parcelamentos) { const ids = window.ERP_SUJO.parcelamentos; window.ERP_SUJO = null;
+        // Backup 52 (O3): sabendo QUAIS mudaram, relê só eles; senão, o módulo inteiro
+        if (Array.isArray(ids)) recarregarParcelamentos(ids); else recarregarModulos('parcelamentos'); }
       if (id === 'notificacoes') setTimeout(() => abrirCobrancas(_abaCobranca), 0);
     };
     // equipe entra no Início
@@ -526,6 +529,16 @@
     } catch (e) { console.warn('[ERP] recarregar ' + lista + ':', e.message); if (window.ERP_RECARREGAR) window.ERP_RECARREGAR(); }
   }
   window.ERP_RECARREGAR_MODULOS = recarregarModulos;
+  // Backup 52 (O3): troca no DB do ERP só os parcelamentos que mudaram e redesenha a tela aberta
+  async function recarregarParcelamentos(ids) {
+    try {
+      if (typeof window.ERP_LER_PARCELAMENTOS !== 'function' || typeof window._normParcelamentos !== 'function') return recarregarModulos('parcelamentos');
+      const novos = window._normParcelamentos(await window.ERP_LER_PARCELAMENTOS(ids)), db = dbERP();
+      if (!Array.isArray(db.parcelamentos)) return recarregarModulos('parcelamentos');
+      novos.forEach((n) => { const i = db.parcelamentos.findIndex((x) => x._id === n._id); if (i >= 0) db.parcelamentos[i] = n; else db.parcelamentos.push(n); });
+      try { window.applyFilters(); window.renderAll(); if (window.v16UpdateBadges) window.v16UpdateBadges(); } catch (e) { console.warn('[ERP] redesenho:', e.message); }
+    } catch (e) { console.warn('[ERP] recarregar parcelamentos:', e.message); recarregarModulos('parcelamentos'); }
+  }
   // nome na barra: o primeiro nome da pessoa (Administração → Usuários ou ⋯ → Meu nome), nunca o início do e-mail
   const nomeProvisorio = (eu) => !eu.nome || (eu.email && eu.nome === eu.email.split('@')[0]);
   function mostrarNome() {
@@ -838,39 +851,12 @@
 
   // ═══════ Backup 31: CONTORNO AZUL de cada grupo nas tabelas agrupadas (Painel, Processos, Rotina, Clientes…) ═══════
   // a linha do grupo (tr.gx-grp; Backup 45: Clientes saiu — faixa simples, como no Painel e na Rotina) abre o bloco; as linhas até o próximo grupo ficam dentro do contorno (design.css: .gc-*)
-  function contornarGrupos() {
-    // Backup 41: rápido — só refaz a tabela que mudou (assinatura das linhas) e mede UMA linha por tabela.
-    // Antes media cada célula de cada linha a cada tecla: com 400 empresas na Rotina, ~3 s por tecla.
-    document.querySelectorAll('tbody').forEach((tb) => {
-      const linhas = [...tb.children]; if (!linhas.some((tr) => tr.matches('tr.gx-grp'))) return;
-      const sig = linhas.length + ':' + linhas.map((tr) => (tr.hidden || tr.style.display === 'none' ? 0 : 1)).join('');
-      if (tb._gcSig === sig) return;
-      tb._gcSig = sig;
-      // leitura (uma vez): quais colunas aparecem, olhando a primeira linha comum visível
-      const modelo = linhas.find((tr) => !tr.matches('tr.gx-grp') && !tr.hidden && tr.children.length > 1);
-      const vis = modelo ? [...modelo.children].map((td, i) => (getComputedStyle(td).display !== 'none' ? i : -1)).filter((i) => i >= 0) : [];
-      const prim = vis.length ? vis[0] : 0, ult0 = vis.length ? vis[vis.length - 1] : 0;
-      // escrita
-      let dentro = false, ult = null;
-      linhas.forEach((tr) => {
-        tr.classList.remove('gc-ini', 'gc-in', 'gc-fim');
-        const tds = tr.children;
-        for (let i = 0; i < tds.length; i++) tds[i].classList.remove('gc-l', 'gc-r');
-        if (tds.length === 1) tds[0].classList.add('gc-l', 'gc-r');
-        else if (tds.length) { (tds[prim] || tds[0]).classList.add('gc-l'); (tds[Math.min(ult0, tds.length - 1)] || tds[tds.length - 1]).classList.add('gc-r'); }
-        if (tr.hidden || tr.style.display === 'none') return;
-        if (tr.matches('tr.gx-grp')) { if (ult) ult.classList.add('gc-fim'); tr.classList.add('gc-ini'); dentro = true; ult = tr; return; }
-        if (dentro) { tr.classList.add('gc-in'); ult = tr; }
-      });
-      if (ult) ult.classList.add('gc-fim');
-    });
-  }
   let _agendado = false;
   new MutationObserver(() => {
     if (_agendado) return; _agendado = true;
     requestAnimationFrame(() => { _agendado = false; try { converterTabelas(); } catch (e) { console.warn('[ERP] tabela Gestão:', e); }
       try { marcarColunas(); } catch (e) { console.warn('[ERP] régua das tabelas:', e); }
-      try { contornarGrupos(); } catch (e) { console.warn('[ERP] contorno dos grupos:', e); } });
+      /* Backup 52 (C4): sem contorno azul nos grupos (contornarGrupos não roda mais; o cabeçalho de grupo é a faixa cinza, igual em todo o ERP) */ });
   }).observe(document.documentElement, { childList: true, subtree: true });
 
   // ═════════════════ nova senha (link do e-mail) ═════════════════

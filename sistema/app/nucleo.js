@@ -276,11 +276,12 @@ function situacao(l) {
   if (l.vencimento === h) return 'hoje';
   return 'aberto';
 }
-const ROTULO_SIT = { pago: 'Pago', vencido: 'Em atraso', hoje: 'Vence hoje', aberto: 'Em aberto', perda: 'Prejuízo' };
+const ROTULO_SIT = { pago: 'Pago', vencido: 'Em atraso', hoje: 'Vence hoje', aberto: 'A vencer', perda: 'Prejuízo' };   // Backup 52 (P4): os mesmos textos de SITUACOES
+const SIT_DE_PILL = { pago: 'pago', vencido: 'atraso', hoje: 'hoje', aberto: 'avencer' };
 function pillSit(l) {
   const s = situacao(l);
   const rot = s === 'pago' && l.tipo === 'receita' ? 'Recebido' : ROTULO_SIT[s];
-  return '<span class="pill ' + s + '">' + rot + '</span>' +
+  return '<span class="pill ' + s + '"' + (SIT_DE_PILL[s] ? ' data-sit="' + SIT_DE_PILL[s] + '"' : '') + '>' + rot + '</span>' +
     (l.cobranca && !l.pago ? ' <span class="pill cobranca" title="Situação da cobrança">' + esc(l.cobranca) + '</span>' : '');
 }
 // CAPAG: todos os valores que a planilha traz — "Omisso" é o que mais importa ver.
@@ -327,6 +328,15 @@ function pillPessoa(n) {
 
 // ─────────────────────────── avisos e erros ────────────────────────
 let _avisoT;
+// Backup 52 (P4): situações com UM texto e UMA cor em todo o ERP (Parcelamentos, Acordos, Financeiro e Rotina).
+// As cores ficam no design.css ([data-sit=…]); quem desenha uma situação usa pillSituacao ou põe data-sit no elemento.
+const SITUACOES = { atraso: 'em atraso', hoje: 'vence hoje', avencer: 'a vencer', pago: 'pago', cliente: 'cliente emite' };
+function situacaoDe(vencimento, pago) { const h = hojeISO(); return pago ? 'pago' : !vencimento ? 'avencer' : vencimento < h ? 'atraso' : vencimento === h ? 'hoje' : 'avencer'; }
+function pillSituacao(k, texto) { return '<span class="pill pill-sit" data-sit="' + k + '">' + esc(texto || SITUACOES[k] || k) + '</span>'; }
+// Backup 52 (P2): o botão "↻ Atualizar" é um só em todo o ERP (mesmo estilo; fica à direita do cabeçalho do quadro)
+function botaoAtualizar(id, titulo) {
+  return '<button type="button" class="btn btn-o btn-mini bt-atualizar" id="' + id + '" title="' + esc(titulo || 'Busca tudo de novo no banco') + '">↻ Atualizar</button>';
+}
 function aviso(msg, erro) {
   const a = $('aviso');
   a.textContent = msg;
@@ -754,6 +764,8 @@ async function carregarCadastros(forcar) {
 // qualquer gravação (aviso "✓") ou recarga descarta a cópia e a próxima tela busca de novo.
 let _cadQuando = 0, _cadBusca = null;
 function invalidarCadastros() { _cadQuando = 0; }
+// Backup 52 (O1): a cópia ainda vale (menos de 60 s e nenhuma gravação desde então)?
+function cadastrosEmDia() { return !!_cadQuando && Date.now() - _cadQuando < 60000; }
 
 // ─────────────────────────── navegação ─────────────────────────────
 // Cada tela: TELAS.x = async function () {...}. Monta a própria barra de

@@ -453,8 +453,10 @@
     gravou('Baixa desfeita'); if (semRecarregar) marcarSujo(tabela); else recarregar();
   }
   // Backup 51 (V5): o que mudou fica marcado; ao abrir uma tela do ERP antigo, só esse módulo é lido de novo (parcelas → Parcelamentos)
-  function marcarSujo(tabela) {
-    if (tabela === 'parcelas') { window.ERP_SUJO = Object.assign({}, window.ERP_SUJO, { parcelamentos: true }); return; }
+  // Backup 52 (O3): guarda QUAL parcelamento mudou (a tela de Parcelamentos relê só ele); sem saber qual, relê o módulo inteiro
+  function marcarSujo(tabela, parcelamentoId) {
+    if (tabela === 'parcelas') { const s0 = window.ERP_SUJO || {}, at = s0.parcelamentos;
+      window.ERP_SUJO = Object.assign({}, s0, { parcelamentos: !parcelamentoId || at === true ? true : [...new Set((Array.isArray(at) ? at : []).concat([parcelamentoId]))] }); return; }
     window.ERP_DADOS_SUJOS = true;
   }
   // baixa direto na linha, sem abrir formulário
@@ -479,7 +481,7 @@
       (opc && opc.desfazer) || (() => desfazerBaixa(tabela, id, opc && opc.semRecarregar)), opc && opc.prazoDesfazer);
     // Backup 46: quem chama pode atualizar a própria tela (a Planilha marca na hora) e o resto recarrega depois.
     // Backup 51 (V5): parcela paga → só a tela de Parcelamentos fica "a atualizar" (recarrega só ela, quando for aberta)
-    if (opc && opc.semRecarregar) { marcarSujo(tabela); return data; }
+    if (opc && opc.semRecarregar) { marcarSujo(tabela, data && data.parcelamento_id); return data; }
     recarregar();
     return data;
   }

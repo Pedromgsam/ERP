@@ -29,6 +29,14 @@ insert into lancamentos(empresa, tipo, grupo_id, descricao, categoria, responsav
          (select id from grupos where nome = 'Grupo V' || lpad((1 + (l % 40))::text, 2, '0')), 'Lançamento fictício ' || l, 'Mensal', 'Pedro',
          current_date + (l % 400) - 300, 100 + l, l % 3 = 0
   from generate_series(1, 2000) l;
+-- Backup 52: 400 processos com 20 movimentações cada (8 mil), para medir Rotina → Processos
+insert into processos(grupo_id, carteira, advogado, numero, natureza, autor, reu, valor, status)
+  select (select id from grupos where nome = 'Grupo V' || lpad((1 + (k % 40))::text, 2, '0')), 'Ativo', 'Pedro',
+         lpad(k::text, 7, '0') || '-11.2024.8.13.0024', 'Execução fiscal', 'Estado de MG', 'Empresa Ficticia ' || lpad((1 + k % 500)::text, 3, '0') || ' Ltda', 1000 * k, 'Em andamento'
+  from generate_series(1, 400) k;
+insert into processo_movimentacoes(processo_id, data, tipo, descricao, quem)
+  select pr.id, current_date - (m * 7), case when m % 3 = 0 then 'sem_novidade' else 'movimentacao' end, 'Movimentação fictícia ' || m, 'Pedro'
+  from processos pr, generate_series(1, 20) m;
 analyze;
 `);
 const N = { pa: sql('select count(*) from parcelamentos'), pc: sql('select count(*) from parcelas'), la: sql('select count(*) from lancamentos'), cl: sql('select count(*) from clientes') };
@@ -63,6 +71,9 @@ console.log('Dados fictícios: ' + N.cl + ' clientes, ' + N.pa + ' parcelamentos
         pago: () => !document.querySelector('[data-pl-p="' + window.__alvo + '"]'),
         financeiro: () => { const t = document.querySelector('#panel-financeiro tbody tr'); return !!t && t.offsetParent !== null && !(document.getElementById('loadOverlay') || document.body).classList.contains('on'); },
         painel: () => { const t = document.querySelector('#tblExecRanking tr'); return !!t && t.offsetParent !== null; },
+        processos: () => { const t = document.querySelector('#rt-proc-corpo tr[data-pid]'); return !!t && t.offsetParent !== null; },
+        parcelamentos: () => { const pn = document.getElementById('panel-parcelamentos'); if (!pn || !pn.offsetParent) return false;
+          return (DB.parcelamentos || []).some((pa) => (pa.parcelas || []).some((x) => x._id === window.__alvo && x.pagamento === 'SIM')); },
         clientes: () => /\d/.test((document.getElementById('cli-conta') || {}).textContent || '') && !!document.querySelector('#panel-clientes tbody tr') };
       window.__medir = (acao, cond) => new Promise((ok, falha) => {
         const t0 = performance.now(), lim = t0 + 60000; acao();
@@ -93,6 +104,12 @@ console.log('Dados fictícios: ' + N.cl + ' clientes, ' + N.pa + ' parcelamentos
       await p.waitForTimeout(1500);
       ok('Pago gravou no banco (' + (i + 1) + 'ª)', sql("select pago from parcelas where id='" + id + "'") === 't');
       if (!i) await foto('pago');
+      // Backup 52: abrir Parcelamentos logo depois do Pago (até a parcela aparecer paga)
+      await abrir('Parcelamentos pós-Pago', 'parcelamentos', 'parcelamentos'); await p.waitForTimeout(300);
+      // Backup 52: Rotina → Processos (a Rotina abre direto na aba)
+      await irPara('rotina'); await p.waitForSelector('#rt-abas'); await p.click('#rt-abas [data-rt-aba=processos]');
+      await p.waitForSelector('#rt-proc-corpo tr[data-pid]', { timeout: 60000 }); await irPara('hoje'); await p.waitForTimeout(1200);
+      await abrir('Rotina → Processos', 'rotina', 'processos'); if (!i) await foto('processos'); await p.waitForTimeout(500);
       // telas do ERP
       await abrir('Financeiro', 'financeiro', 'financeiro'); await p.waitForTimeout(300);
       await abrir('Painel', 'resumo', 'painel'); await p.waitForTimeout(300);
@@ -106,6 +123,9 @@ console.log('Dados fictícios: ' + N.cl + ' clientes, ' + N.pa + ' parcelamentos
       ok('Velocidade: "Planilha" abre em menos de 1 s', med(T['Planilha']) < 1000, med(T['Planilha']));
       ok('Velocidade: trocar de grupo na Planilha em menos de 1 s', med(T['Trocar de grupo']) < 1000, med(T['Trocar de grupo']));
       ok('Velocidade: "Pago" responde em menos de 0,2 s', med(T['Pago']) < 200, med(T['Pago']));
+      ok('Velocidade (B52): Clientes abre em menos de 0,2 s', med(T['Clientes']) < 200, med(T['Clientes']));
+      ok('Velocidade (B52): Rotina → Processos abre em menos de 1 s', med(T['Rotina → Processos']) < 1000, med(T['Rotina → Processos']));
+      ok('Velocidade (B52): Parcelamentos depois de um Pago em menos de 1 s', med(T['Parcelamentos pós-Pago']) < 1000, med(T['Parcelamentos pós-Pago']));
     }
     ok('nenhum erro de JavaScript', !erros.length, erros.slice(0, 3));
   } catch (e) { console.error(e); r.push(['execução sem exceção', false]); }

@@ -17,8 +17,9 @@ function _lgProx(abertas){
 }
 // Backup 27: uma pílula só — "2 em atraso" (rosa) ou, com risco, "2 em atraso — risco de rescisão" (a pílula toda vermelha)
 function _lgSit(atr,risco,concluido){
-  if(atr) return '<span class="lg-st '+(risco?'lg-st-risco':'lg-st-r')+'"'+(risco?' title="Um parcelamento/acordo com 2 ou mais parcelas em atraso"':'')+'>'+atr+' em atraso'+(risco?' — risco de rescisão':'')+'</span>';
-  return concluido?'<span class="lg-st lg-st-x">Concluído</span>':'<span class="lg-st lg-st-g">Em dia</span>';
+  // Backup 52 (P4): data-sit = situação única do ERP (cores no design.css)
+  if(atr) return '<span class="lg-st '+(risco?'lg-st-risco':'lg-st-r')+'" data-sit="atraso"'+(risco?' title="Um parcelamento/acordo com 2 ou mais parcelas em atraso"':'')+'>'+atr+' em atraso'+(risco?' — risco de rescisão':'')+'</span>';
+  return concluido?'<span class="lg-st lg-st-x" data-sit="pago">Concluído</span>':'<span class="lg-st lg-st-g" data-sit="avencer">Em dia</span>';
 }
 function _lgPag(pagas,total,pago,falta){
   return '<div class="lg-pag"><b class="lg-verde">'+pagas+' de '+(total||'?')+'</b> parcelas pagas</div><div class="lg-sub">Quitado <b>'+_lgFmtV(pago)+'</b> · falta <b>'+_lgFmtV(falta)+'</b></div>';
@@ -114,9 +115,9 @@ function _lgParcTabela(l, tabela){
   return '<div class="tw lg-parc-tw" data-sem-pagina><table class="lg-parc-tab"><colgroup><col style="width:80px"><col style="width:110px"><col style="width:130px"><col style="width:150px"><col style="width:160px"><col></colgroup>'
     +'<thead><tr><th>Parcela</th><th>Vencimento</th><th class="lg-t-num">Valor</th><th>Emissão</th><th>Pagamento</th><th></th></tr></thead><tbody>'
     +l.map(function(x){ var d=pDate(x.venc), n=d?Math.round((d-h)/864e5):null;
-      var pag=x.pago?'<span class="lg-em lg-em-ok">✓ Paga'+(x.dataPag?' '+esc(String(x.dataPag).slice(0,5)):'')+'</span>'
-        :(n!==null&&n<=0?'<span class="lg-em lg-em-atr">'+(n===0?'Vence hoje':'Vencida há '+Math.abs(n)+' d')+'</span>':'<span class="lg-em lg-em-cli">A vencer</span>');
-      var em=x.cliente?'<span class="lg-em lg-em-cli" title="As guias deste parcelamento são emitidas pelo próprio cliente">Não emitimos</span>'
+      var pag=x.pago?'<span class="lg-em lg-em-ok" data-sit="pago">✓ Paga'+(x.dataPag?' '+esc(String(x.dataPag).slice(0,5)):'')+'</span>'
+        :(n!==null&&n<=0?'<span class="lg-em lg-em-atr" data-sit="'+(n===0?'hoje':'atraso')+'">'+(n===0?'Vence hoje':'Vencida há '+Math.abs(n)+' d')+'</span>':'<span class="lg-em lg-em-cli" data-sit="avencer">A vencer</span>');
+      var em=x.cliente?'<span class="lg-em lg-em-cli" data-sit="cliente" title="As guias deste parcelamento são emitidas pelo próprio cliente">Não emitimos</span>'
         :x.emitida?'<span class="lg-em lg-em-ok" title="'+esc(x.emitidaEm?nome+' emitid'+(fem?'a':'o')+' em '+x.emitidaEm:'')+'">✓ Emitid'+(fem?'a':'o')+(x.emitidaEm?' '+esc(String(x.emitidaEm).slice(0,5)):'')+'</span>'
         :(x.pago?'<span class="lg-sub">—</span>':'<span class="lg-em lg-em-nao">Não emitid'+(fem?'a':'o')+'</span>');
       return '<tr class="'+(x.pago?'lg-pt-pago':n!==null&&n<=0?'lg-pt-atr':'')+'"><td>'+esc(x.rot||'?')+'</td><td>'+esc(x.venc||'—')+'</td>'

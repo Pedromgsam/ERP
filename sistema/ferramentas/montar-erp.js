@@ -379,6 +379,9 @@ trocar("const fS = v => { v=Number(v)||0; if(v>=1e6)return'R$'+(v/1e6).toFixed(1
   "  else if(a>=1e4) t=Math.round(a/1e3).toLocaleString('pt-BR')+'\\u00A0mil';\n" +
   "  else t=a.toLocaleString('pt-BR',{maximumFractionDigits:0});\n" +
   "  return (neg?'−':'')+'R$\\u00A0'+t; }", 1);
+// Backup 52 (O1): trocar de tela fazia scrollIntoView (obriga o navegador a medir a página inteira na hora: ~250 ms com listas grandes).
+// Agora a página só volta ao topo no próximo quadro, sem medir antes de desenhar.
+trocar("    p.scrollIntoView({behavior:'smooth',block:'start'});", "    requestAnimationFrame(()=>window.scrollTo(0,0));", 1);
 // Backup 51: o Painel desenhava a tabela das empresas DUAS vezes (o pintor "resumo" já chama renderExecRanking logo depois de renderResumo)
 trocar("  setTimeout(renderExecRanking,0);\n}", "}", 1);
 // Backup 51: moeda com um formatador só (toLocaleString criava um formatador novo a cada número: ~200 ms para abrir o Painel com 500 empresas)
@@ -462,6 +465,9 @@ trocar("    const acento2=inadN>0?'var(--red)':pct2>=80?'var(--green-d)':pct2>=5
   "    return`<div class=\"pc-item${_ab?' pc-aberto':''}\" role=\"button\" tabindex=\"0\" aria-expanded=\"${_ab}\" title=\"Clique para ver as parcelas\" data-k=\"${esc(_k)}\" onclick=\"_parcToggle(this.dataset.k)\" onkeydown=\"if(event.key==='Enter')_parcToggle(this.dataset.k)\" style=\"border-left:4px solid ${acento2}\">", 1);
 trocar("      </div>\n    </div>`;\n  }).join('');\n\n  renderParcVencTbl();",
   "      </div>\n      ${_ab?'<div onclick=\"event.stopPropagation()\">'+_parcDetalhe(p)+'</div>':''}\n    </div>`;\n  }).join('');\n\n  renderParcVencTbl();", 1);
+// Backup 52 (O3): Parcelamentos desenhava as três abas (Vencidos, A vencer, Pago) de uma vez — com 15 mil parcelas, ~100 mil elementos escondidos
+// que deixavam o ERP inteiro lento. Agora só a aba aberta é desenhada (as outras, ao clicar nelas: setParcTab já chama a função de cada uma).
+trocar("  renderParcVencTbl();\n  renderParcTbl();\n  renderParcPagoTbl();\n}", "  if(_parcTab==='avencer') renderParcTbl(); else if(_parcTab==='pago') renderParcPagoTbl(); else renderParcVencTbl();\n}", 1);
 // tabelas: "Status" vira dias (Atraso nos vencidos; Dias nos a vencer), como em Acordos
 trocar('          <th class="s" onclick="sortParcVenc(4)">Vencimento</th>\n          <th>Status</th>', '          <th class="s" onclick="sortParcVenc(4)">Vencimento</th>\n          <th>Atraso</th>', 1);
 trocar('          <th class="s" onclick="sortParc(4)">Vencimento</th>\n          <th>Status</th>', '          <th class="s" onclick="sortParc(4)">Vencimento</th>\n          <th>Dias</th>', 1);
@@ -710,7 +716,8 @@ async function irPara(tela, alvo) {
   }
   if (!$('conteudo')) return;
   $('conteudo').innerHTML = '<div class="carregando">Carregando…</div>';
-  try { await carregarCadastros(); await TELAS[tela](); }
+  // Backup 52 (O1): com clientes e grupos já guardados, a tela abre NA HORA e a cópia é renovada por trás (antes, toda tela esperava a lista do banco)
+  try { if (!E.clientes.length) await carregarCadastros(); else if (!cadastrosEmDia()) carregarCadastros().catch(() => {}); await TELAS[tela](); }
   catch (e) {
     console.error(e);
     $('conteudo').innerHTML = '<div class="card"><div class="card-bd msg-erro">' + esc(erroAmigavel(e)) + '</div></div>';
@@ -718,25 +725,13 @@ async function irPara(tela, alvo) {
 }
 function recarregar() { invalidarCadastros(); if (window.ERP_RECARREGAR) return window.ERP_RECARREGAR(); return irPara(E.tela); }
 `);
-// Backup 46: aba Atualizações — a tabela de backups/LEIA-ME.md vira window.ATUALIZACOES (data = commit "Backup N:" no git; o mais novo sem commit = hoje)
-{
-  const datas = {};
-  try { require('child_process').execSync('git log --format=%ad%x09%s --date=short', { cwd: path.join(APP, '..', '..') }).toString().split('\n')
-    .forEach((l) => { const m = /^(\d{4}-\d{2}-\d{2})\t[^\n]*?Backup (\d+)\b/i.exec(l); if (m && !datas[+m[2]]) datas[+m[2]] = m[1]; }); } catch (e) { /* sem git: fica sem data */ }
-  const hoje = new Date().toISOString().slice(0, 10);
-  const linhas = fs.readFileSync(path.join(APP, '..', '..', 'backups', 'LEIA-ME.md'), 'utf8').split('\n')
-    .map((l) => /^\|\s*(\d+)\s*\|\s*(.+?)\s*\|\s*$/.exec(l)).filter(Boolean);
-  const maior = Math.max(...linhas.map((m) => +m[1]));
-  const dados = linhas.map((m) => ({ n: +m[1], data: datas[+m[1]] || (+m[1] === maior ? hoje : ''),
-    itens: m[2].split(/;\s+/).map((t) => t.trim()).filter(Boolean).map((t) => t[0].toUpperCase() + t.slice(1)) }));
-  fs.writeFileSync(path.join(APP, 'atualizacoes-dados.js'), '// GERADO por sistema/ferramentas/montar-erp.js a partir de backups/LEIA-ME.md — não edite.\nwindow.ATUALIZACOES = ' + JSON.stringify(dados, null, 0) + ';\n');
-}
+// Backup 52 (C2): a aba Atualizações saiu — o histórico das versões fica em backups/LEIA-ME.md (e no COMO-ATUALIZAR.md)
 let graf = ler('graficos.js').replace("document.addEventListener('DOMContentLoaded', () => document.body.appendChild(dica));",
   "(document.getElementById('gs-raiz') || document.body).appendChild(dica);");
 const bundle = "'use strict';\n// GERADO por sistema/ferramentas/montar-erp.js — não edite; edite os arquivos do Gestão.\n(function () {\n" +
   "const _raiz = document.createElement('div'); _raiz.id = 'gs-raiz'; _raiz.className = 'gs';\n" +
   "_raiz.innerHTML = '<div id=\"janelas\"></div><div id=\"aviso\"></div>'; document.body.appendChild(_raiz);\n" +
-  [nuc, graf, ler('telas-painel.js'), ler('telas-financeiro.js'), ler('telas-cadastros.js'), ler('telas-admin.js'), ler('telas-tarefas.js'), ler('telas-documentos.js'), ler('telas-cliente360.js'), ler('telas-crm.js'), ler('telas-publicacoes.js'), ler('telas-acordos.js'), ler('telas-alertas.js'), ler('atualizacoes-dados.js'), ler('telas-atualizacoes.js'), ler('telas-automacoes.js'), ler('telas-guias.js'), ler('telas-rotina.js')].join('\n') +
+  [nuc, graf, ler('telas-painel.js'), ler('telas-financeiro.js'), ler('telas-cadastros.js'), ler('telas-admin.js'), ler('telas-tarefas.js'), ler('telas-documentos.js'), ler('telas-cliente360.js'), ler('telas-crm.js'), ler('telas-publicacoes.js'), ler('telas-acordos.js'), ler('telas-alertas.js'), ler('telas-automacoes.js'), ler('telas-guias.js'), ler('telas-rotina.js')].join('\n') +
   "\n// toda gravação confirmada aparece também no rodapé do ERP\nconst _avisoOrig = aviso;\n" +
   "aviso = function (msg, erro) { _avisoOrig(msg, erro); if (!erro && window.ERP_EDITOR && /^✓/.test(msg)) window.ERP_EDITOR.gravou(String(msg).replace(/^✓\\s*/, '')); };\n" +
   "window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, invalidarCadastros, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo, perguntarBaixa, detalheContrato, ICONE_AVISO, abrirTarefa, detalheLancamento, formReuniao, janelaDelegar, abrirGeradorContrato, cardGuias, emitirParcela, enviarAcordosSelecionados, gerarGuias, janelaMovimentacao, cobrarWhatsApp, textoRegra, proximasDatas, regraDaTarefa, projecoesRecorrentes };\n})();\n";

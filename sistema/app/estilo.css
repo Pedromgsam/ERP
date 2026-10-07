@@ -286,7 +286,7 @@ tr.tf-feita td{opacity:.6}
 .cal-dia{background:var(--surface);min-height:92px;padding:4px;display:flex;flex-direction:column;gap:2px;min-width:0}
 .cal-dia.cal-folga{background:var(--surface2)}
 .cal-dia.cal-hoje{box-shadow:inset 0 0 0 2px var(--navy3)}
-.cal-num{font-size:11.5px;font-weight:700;color:var(--text2)}
+.cal-num{font-size:12px;font-weight:700;color:var(--text2)}
 .cal-tf{border:0;border-radius:6px;padding:2px 5px;font-size:11px;text-align:left;background:var(--blue-lt);color:var(--blue-d);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cal-tf.fatal{background:var(--red);color:var(--on-cor)}
 .cal-tf.atrasada{background:var(--red-lt);color:var(--red-d)}
@@ -550,9 +550,11 @@ label.ofx-it{cursor:pointer}
 .ini-fila .ini-fila-min{margin-left:0}
 .fila-cal-nav{display:flex;align-items:center;gap:8px;margin-bottom:10px}
 .fila-cal-nav b{min-width:220px;text-align:center;color:var(--ink);text-transform:capitalize}
+@media (max-width:600px){.fila-cal-nav{flex-wrap:wrap}.fila-cal-nav b{min-width:0;flex:1}}
+.tf-sem .fila-cal-nav b{text-transform:none}
 .fila-semana{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
 .fila-sem-dia{border:1px solid var(--border);border-radius:10px;padding:6px;min-height:96px;display:flex;flex-direction:column;gap:4px;background:var(--surface)}
-.fila-sem-dia .cal-num{font-size:11.5px;font-weight:700;color:var(--text2);text-transform:capitalize}
+.fila-sem-dia .cal-num{font-size:12px;font-weight:700;color:var(--text2);text-transform:capitalize}
 @media (max-width:760px){.fila-semana{grid-template-columns:1fr}.ini-fila .card-hd{flex-wrap:wrap}}
 /* mural do Início */
 .mural-lista{display:flex;flex-direction:column;gap:8px}
@@ -995,15 +997,15 @@ button.rt-e:hover,button.rt-p:hover{border-color:var(--primario)}
 .ag-pessoas{display:flex;flex-wrap:wrap;gap:6px}
 .ag-p{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border:1px solid var(--border);border-radius:999px;cursor:pointer;font-size:13px}
 .ag-p:has(input:checked){border-color:var(--primario);background:var(--blue-lt)}
-.ag-leg{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;font-size:11.5px;color:var(--text3)}
+.ag-leg{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;font-size:12px;color:var(--text3)}
 .ag-leg span{display:inline-flex;align-items:center;gap:5px}
 .ag-cor{display:inline-block;width:10px;height:10px;border-radius:3px;vertical-align:middle}
 .ag-bt{margin-left:auto}
 .cal-tf.ag-tarefa,.ag-cor.ag-tarefa{background:var(--surface2);color:var(--text2);border:1px solid var(--border)}
 .cal-tf.ag-atrasada,.ag-cor.ag-atrasada{background:var(--red-lt);color:var(--red-d)}
-.cal-tf.ag-fatal,.ag-cor.ag-fatal{background:var(--red);color:var(--on-cor)}
+.cal-tf.ag-fatal{background:var(--red-lt);color:var(--red-d);border-left:3px solid var(--red)}.ag-cor.ag-fatal{background:var(--red);color:var(--on-cor)}
 .cal-tf.ag-reuniao,.ag-cor.ag-reuniao{background:var(--blue-lt);color:var(--blue-d);border-left:3px solid var(--blue)}
-.cal-tf.ag-audiencia,.ag-cor.ag-audiencia{background:var(--violet-lt);color:var(--violet);border-left:3px solid var(--violet)}
+.cal-tf.ag-audiencia,.ag-cor.ag-audiencia{background:var(--violet-lt);color:var(--violet-d);border-left:3px solid var(--violet)}
 .cal-tf.ag-compromisso,.ag-cor.ag-compromisso{background:var(--green-lt);color:var(--green-d);border-left:3px solid var(--green)}
 .cal-tf.ag-ligacao,.ag-cor.ag-ligacao{background:var(--amber-lt);color:var(--amber-d);border-left:3px solid var(--amber)}
 .ag-cor.ag-reuniao{background:var(--blue)}.ag-cor.ag-audiencia{background:var(--violet)}.ag-cor.ag-compromisso{background:var(--green)}.ag-cor.ag-ligacao{background:var(--amber)}
@@ -1186,8 +1188,9 @@ button.pl-dt{cursor:pointer}
 @media (max-width:900px){.sm-com-atr .sm-grade{grid-auto-flow:row;grid-template-columns:1fr!important}}
 
 /* Backup 40: Minha semana com a altura do calendário (os dias esticam); concluída riscada no calendário */
-.tf-sem .sm-grade{min-height:600px;align-items:stretch}
-.tf-sem .fila-com-atr > .fila-atrasadas{min-height:600px}
+/* Backup 52 (C3): sem altura fixa — a semana acompanha o conteúdo (antes 600 px, sobrava espaço vazio com poucas tarefas) */
+.tf-sem .sm-grade{min-height:0;align-items:stretch}
+.tf-sem .fila-com-atr > .fila-atrasadas{min-height:100%}
 .tf-sem .sm-col{display:flex;flex-direction:column}
 .cal-tf.ag-feita,.ag-cor.ag-feita{text-decoration:line-through;opacity:.6}
 .ag-cor.ag-feita{background:var(--border-strong)}

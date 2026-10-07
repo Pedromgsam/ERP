@@ -16,7 +16,9 @@ async function consultarCnpjNovo(id, nome) {
 
 TELAS.clientes = async function () {
   E.cli = E.cli || { tipo: 'ativos', grupo: '', busca: '', area: '', visao: 'grupo' };
-  await carregarCadastros();
+  // Backup 52 (O1): com uma lista guardada, a tela aparece NA HORA e a lista é atualizada por trás (redesenha se algo mudou)
+  const porTras = E.clientes.length && !cadastrosEmDia();
+  if (!E.clientes.length) await carregarCadastros();
   const C = E.cli;
   $('conteudo').innerHTML =
     '<div class="titulo-pag"><div><h1>Clientes</h1><p id="cli-conta"></p></div>' +
@@ -40,6 +42,14 @@ TELAS.clientes = async function () {
   ligarBotoesNovo($('conteudo'));
   $('cli-email-lote').onclick = () => janelaRecebeEmailLote(C.ultima || E.clientes);
   pintarClientes();
+  if (porTras) {
+    const antes = E.clientes, assinatura = (L) => L.length + ':' + L.map((c) => c.id + (c.atualizado_em || '')).join('|');
+    carregarCadastros(true).then(() => {
+      if (!$('cli-conta') || E.tela !== 'clientes' || assinatura(antes) === assinatura(E.clientes)) return;
+      const g = $('cli-grupo'); if (g) g.innerHTML = '<option value="">Todos os grupos</option>' + E.grupos.map((x) => '<option value="' + x.id + '"' + (x.id === C.grupo ? ' selected' : '') + '>' + esc(x.nome) + '</option>').join('');
+      pintarClientes();
+    }).catch(() => {});
+  }
 };
 // Backup 49: a chave única "Recebe e-mails do escritório" (Sim/Não) — um clique na linha ou vários de uma vez
 function pillRecebeEmail(c) {
@@ -90,26 +100,31 @@ function pintarClientes() {
   if (porGrupo) lista.sort((a, x) => (gn(a) || '\uffff').localeCompare(gn(x) || '\uffff', 'pt-BR') || String(a.nome).localeCompare(String(x.nome), 'pt-BR'));
   C.ultima = lista;
   $('cli-conta').textContent = lista.length + ' de ' + E.clientes.length + ' cadastro(s) · clique na linha para abrir a ficha completa';
-  $('cli-corpo').innerHTML = '<div class="card">' + (lista.length ?
-    '<div class="tabela-wrap"><table class="' + (porGrupo ? '' : 'ordenavel ') + 'cli-tabela"><thead><tr><th>Grupo</th><th>Nome</th><th>CPF/CNPJ</th><th>Área</th><th>Responsável</th>' +
-    '<th>Procuração</th><th>Certificado</th><th>Situação</th><th title="Recebe os e-mails do escritório">E-mails</th></tr></thead><tbody>' +
-    lista.map((c, i) => (porGrupo && (i === 0 || gn(lista[i - 1]) !== gn(c)) ? '<tr class="cli-grp"><td colspan="9">' + esc(gn(c) || 'Sem grupo') +
+  const linhas = lista.map((c, i) => (porGrupo && (i === 0 || gn(lista[i - 1]) !== gn(c)) ? '<tr class="cli-grp"><td colspan="9">' + esc(gn(c) || 'Sem grupo') +
         ' <span class="sub">' + plural(lista.filter((x) => gn(x) === gn(c)).length, 'cadastro', 'cadastros') + '</span></td></tr>' : '') + '<tr class="clicavel cli-linha" tabindex="0" data-cli="' + c.id + '" title="Abrir a ficha completa">' +
       '<td class="cli-grupo" title="' + esc(c.grupos ? c.grupos.nome : '') + '">' + esc(c.grupos ? c.grupos.nome : '—') + '</td>' +
       '<td><span class="cli-nome">' + esc(c.nome) + '</span>' + (c.socio_admin ? '<div class="sub cli-socio">' + esc(c.socio_admin) + '</div>' : '') + '</td>' +
       '<td class="mono">' + esc(mascaraDoc(c.cpf_cnpj) || '—') + '</td>' +
       '<td>' + pillAreaCli(c.area) + '</td>' +
       '<td>' + pillPessoa(c.responsavel) + '</td><td>' + pillSimNao(c.procuracao) + '</td><td>' + pillSimNao(c.certificado) + '</td>' +
-      '<td>' + pillSitCad(c.situacao_cadastral) + '</td><td>' + pillRecebeEmail(c) + '</td></tr>').join('') +
-    '</tbody></table></div>'
+      '<td>' + pillSitCad(c.situacao_cadastral) + '</td><td>' + pillRecebeEmail(c) + '</td></tr>');
+  // Backup 52 (O1): primeiro as linhas que cabem na tela; o resto entra logo depois (a tela aparece na hora, mesmo com 500 clientes)
+  const PRIMEIRAS = 60, vez = (pintarClientes._vez = (pintarClientes._vez || 0) + 1);
+  $('cli-corpo').innerHTML = '<div class="card">' + (lista.length ?
+    '<div class="tabela-wrap"><table class="' + (porGrupo ? '' : 'ordenavel ') + 'cli-tabela"><thead><tr><th>Grupo</th><th>Nome</th><th>CPF/CNPJ</th><th>Área</th><th>Responsável</th>' +
+    '<th>Procuração</th><th>Certificado</th><th>Situação</th><th title="Recebe os e-mails do escritório">E-mails</th></tr></thead><tbody id="cli-tbody">' +
+    linhas.slice(0, PRIMEIRAS).join('') + '</tbody></table></div>'
     : (E.clientes.length ? vazio('Nenhum cliente neste recorte — mude o filtro ou a busca.') : vazio('Nenhum cliente ainda. Cadastre o primeiro ou importe a Base de Dados em Administração.', '+ Novo cliente', '[data-novo=cliente]'))) + '</div>';
-  $('cli-corpo').querySelectorAll('[data-cli-email]').forEach((b) => b.onclick = (ev) => { ev.stopPropagation();
-    const c = E.clientes.find((x) => x.id === b.dataset.cliEmail);
-    comBotao(b, async () => { await trocarRecebeEmail([c.id], c.recebe_email === false); b.outerHTML = pillRecebeEmail(c); pintarClientes(); }); });
-  $('cli-corpo').querySelectorAll('tr[data-cli]').forEach((tr) => {
-    tr.onclick = () => abrirFicha(tr.dataset.cli);
-    tr.onkeydown = (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); abrirFicha(tr.dataset.cli); } };
-  });
+  if (linhas.length > PRIMEIRAS) requestAnimationFrame(() => setTimeout(() => { const tb = $('cli-tbody');
+    if (tb && pintarClientes._vez === vez) tb.insertAdjacentHTML('beforeend', linhas.slice(PRIMEIRAS).join('')); }, 0));
+  // um ouvinte só para a lista inteira (vale também para as linhas que entram depois)
+  $('cli-corpo').onclick = (ev) => {
+    const b = ev.target.closest('[data-cli-email]');
+    if (b) { ev.stopPropagation(); const c = E.clientes.find((x) => x.id === b.dataset.cliEmail);
+      return comBotao(b, async () => { await trocarRecebeEmail([c.id], c.recebe_email === false); b.outerHTML = pillRecebeEmail(c); pintarClientes(); }); }
+    const tr = ev.target.closest('tr[data-cli]'); if (tr) abrirFicha(tr.dataset.cli);
+  };
+  $('cli-corpo').onkeydown = (ev) => { const tr = ev.target.closest('tr[data-cli]'); if (tr && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); abrirFicha(tr.dataset.cli); } };
 }
 
 // Backup 28: coluna Área (Jurídico · Contábil · Jurídico e contábil)
