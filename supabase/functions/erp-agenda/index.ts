@@ -5,7 +5,7 @@
 // Publicar com "Verify JWT" DESLIGADO (o Google não manda login; quem autoriza é o link secreto).
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const VERSAO = '2026-10-08';   // Backup 50: mostra TUDO da pessoa (tarefas, reuniões, audiências, compromissos, com hora quando houver)
+const VERSAO = '2026-10-09';   // Backup 51: + as próximas ocorrências (até 8) das tarefas que se repetem. Backup 50: mostra TUDO da pessoa
 
 const texto = (s, status) => new Response(s, { status: status || 200, headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Access-Control-Allow-Origin': '*' } });
 const primeiroNome = (s) => String(s || '').trim().split(/\s+/)[0].normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
@@ -58,6 +58,22 @@ export async function tratar(req, db) {
       ev.push(['BEGIN:VEVENT', 'UID:' + x.id + '-' + k + '@erp-araujo-castro', 'DTSTAMP:' + agora].concat(quando,
         ['SUMMARY:' + icsTexto(titulo), 'DESCRIPTION:' + icsTexto(desc), 'LOCATION:' + icsTexto(x.local || ''), hora ? 'TRANSP:OPAQUE' : 'TRANSP:TRANSPARENT',
         'BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + icsTexto(titulo), hora ? 'TRIGGER:-PT30M' : 'TRIGGER:-P1D', 'END:VALARM', 'END:VEVENT']).map(dobrar).join('\r\n'));
+    }
+  }
+  // Backup 51 (T2): as próximas ocorrências (até 8) das tarefas que se repetem — calculadas no banco (recorrencias_projecao), as mesmas do
+  // calendário do ERP. Não duplicam: começam depois da última tarefa que já existe; e não dependem de concluir a anterior.
+  const { data: proj } = await db.rpc('recorrencias_projecao', { p_n: 8 });
+  for (const s of proj || []) {
+    const minha = primeiroNome(s.responsavel) === eu || String(s.participantes || '').split(/[,;]/).some((n) => primeiroNome(n) === eu);
+    if (!minha) continue;
+    const tipo = s.tipo_agenda || 'tarefa';
+    for (const data of s.datas || []) {
+      const quando = s.hora
+        ? ['DTSTART;TZID=America/Sao_Paulo:' + dia(data) + 'T' + hhmm(s.hora), 'DTEND;TZID=America/Sao_Paulo:' + dia(data) + 'T' + hhmm(s.hora_fim || umaHoraDepois(s.hora))]
+        : ['DTSTART;VALUE=DATE:' + dia(data), 'DTEND;VALUE=DATE:' + diaSeguinte(data)];
+      ev.push(['BEGIN:VEVENT', 'UID:serie-' + s.serie + '-' + dia(data) + '@erp-araujo-castro', 'DTSTAMP:' + agora].concat(quando,
+        ['SUMMARY:' + icsTexto('↻ ' + (ROT[tipo] || '') + s.titulo), 'DESCRIPTION:' + icsTexto(['Tarefa que se repete (próxima ocorrência)', s.responsavel ? 'Responsável: ' + s.responsavel : '', s.descricao || ''].filter(Boolean).join('\n')),
+        'LOCATION:' + icsTexto(s.local || ''), s.hora ? 'TRANSP:OPAQUE' : 'TRANSP:TRANSPARENT', 'END:VEVENT']).map(dobrar).join('\r\n'));
     }
   }
   // Backup 26: reuniões marcadas no CRM (com hora), para cada participante

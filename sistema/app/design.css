@@ -1566,3 +1566,74 @@ body.gx-barra-topo :is(#finTabBar,#finCTabBar) .fin-tab.active{color:var(--td)!i
 .gs .em-quem td .btn-ed{margin-left:4px}
 /* atalhos do Início: o número/valor nunca quebra em duas linhas (nem no celular) */
 .gs :is(.ini-at-num,.ini-at-p){white-space:nowrap}
+
+/* ═══ Backup 51 ═══ */
+/* Rotina: placar do mês (R1) — quatro números clicáveis no alto */
+.gs .rt-placar{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:0 0 14px}
+.gs .rt-pl-it{display:flex;flex-direction:column;align-items:flex-start;gap:3px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--card-r);background:var(--surface);color:var(--text);font:inherit;text-align:left;cursor:pointer;min-width:0}
+.gs .rt-pl-it:hover{border-color:var(--primario);box-shadow:var(--shadow-sm)}
+.gs .rt-pl-n{font-size:13px;color:var(--text2)}
+.gs .rt-pl-n b{font-size:20px;color:var(--text);margin-right:2px}
+.gs .rt-pl-rot{font-size:12px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.gs .rt-pl-bar{display:block;width:100%;height:5px;border-radius:3px;background:var(--border);overflow:hidden}
+.gs .rt-pl-bar>span{display:block;height:100%;background:var(--amber)}
+.gs .rt-pl-ok .rt-pl-bar>span{background:var(--green)}
+.gs .rt-pl-ok .rt-pl-rot{color:var(--green-d)}
+@media (max-width:760px){.gs .rt-placar{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* esqueleto cinza enquanto os dados chegam (V3) */
+.gs .esq{display:inline-block;height:11px;min-width:24px;border-radius:6px;background:var(--bar-bg);animation:esq-pulsa 1.1s ease-in-out infinite;vertical-align:middle;margin:3px 6px 3px 0}
+.gs .esq-n{width:60px;height:18px}
+.gs .rt-esq .pl-cab{display:flex;flex-direction:column;gap:4px}
+.gs .rt-esq .esq-aba{display:inline-flex;width:110px}
+@keyframes esq-pulsa{0%,100%{opacity:1}50%{opacity:.45}}
+@media (prefers-reduced-motion:reduce){.gs .esq{animation:none}}
+/* Guias do mês: "Pago" no próprio cartão (R3) e a parcela da Planilha que abre o cartão */
+.gs .ep-pagos{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px 14px;border-top:1px dashed var(--border)}
+.gs .ep-pagos-rot{font-size:12px;color:var(--text2);font-weight:600}
+.gs .ep-pago{font:inherit;font-size:12px;padding:3px 9px;border-radius:999px;border:1px solid var(--green-bd);background:var(--surface);color:var(--green-d);cursor:pointer}
+.gs .ep-pago:hover:not(:disabled){background:var(--green-lt)}
+.gs .ep-pago.ep-pago-ok{background:var(--green-lt);cursor:default}
+.gs .pl-tab tr[data-pl-x]:not(.pl-pago) td:nth-child(-n+2){cursor:pointer;text-decoration:underline dotted var(--border-strong)}
+.gs .pl-barra{display:flex;align-items:center;gap:10px;justify-content:space-between}
+/* Passivo e Processos: conferir o grupo todo (R4) */
+.gs tr.rt-grp .rt-conf-grp{margin-left:12px;font-weight:500;text-transform:none;letter-spacing:0}
+/* Tarefas que se repetem (T1–T3): próximas ocorrências tracejadas no calendário, formulário "Repetir" */
+.gs .cal-tf.ag-prevista{background:var(--surface);color:var(--text2);border:1px dashed var(--orange);border-left:3px dashed var(--orange)}
+.gs .ag-cor.ag-prevista{background:var(--surface);border:1px dashed var(--orange)}
+.gs .tf-rep{display:flex;flex-direction:column;gap:8px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--card-r);background:var(--surface2)}
+.gs .tf-rep-linha{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:13px}
+.gs .tf-rep-linha[hidden],.gs .tf-rep [data-rep-modo][hidden]{display:none}
+.gs .tf-rep-rot{font-weight:600;min-width:64px}
+.gs .tf-rep input[type=number]{width:64px}
+.gs .tf-rep select,.gs .tf-rep input[type=date]{width:auto}
+.gs .tf-rep-dia{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border:1px solid var(--border);border-radius:999px;background:var(--surface);cursor:pointer;font-size:12px}
+.gs .tf-rep-dia:has(input:checked){background:var(--selecao);border-color:var(--primario);color:var(--primario)}
+.gs .tf-rep-dia input{margin:0}
+.gs .tf-rep-txt{font-size:13px;color:var(--text)}
+.gs .tf-rep-data{display:inline-block;padding:1px 6px;margin:2px 2px 0 0;border-radius:6px;background:var(--surface);border:1px solid var(--border);font-size:12px}
+.gs .tf-repete{white-space:normal}
+/* E-mail (E1–E4): configuração em 3 passos, "⋯ Ferramentas" e Caixa de saída */
+.gs .em-config-topo{display:flex;align-items:center;gap:10px;margin:0 0 10px}
+.gs .em-ferr{position:relative;margin-left:auto}
+.gs .em-ferr-menu{position:absolute;right:0;top:calc(100% + 4px);z-index:20;display:flex;flex-direction:column;min-width:240px;padding:6px;background:var(--surface);border:1px solid var(--border);border-radius:var(--card-r);box-shadow:var(--shadow-md)}
+.gs .em-ferr-menu[hidden]{display:none}
+.gs .em-ferr-menu button{font:inherit;font-size:13px;text-align:left;padding:7px 10px;border:0;border-radius:6px;background:none;color:var(--text);cursor:pointer}
+.gs .em-ferr-menu button:hover{background:var(--surface2)}
+.gs .em-passo-n{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;margin-right:8px;border-radius:50%;background:var(--primario);color:var(--on-cor);font-size:13px;font-weight:700}
+.gs .em-passo .card-hd .sub{margin-left:8px;font-weight:400}
+.gs .em-lado{gap:18px;align-items:start}
+.gs .em-lado .secao{margin:0 0 8px}
+.gs .em-lado .acoes{margin-top:10px}
+.gs .em-avancado{margin-top:4px;font-size:13px}
+.gs .em-avancado summary,.gs .em-ajuda summary{cursor:pointer;color:var(--text2)}
+.gs .em-ajuda{margin-top:14px}
+.gs .em-extra{margin-top:8px}
+.gs .em-modelos{margin-top:12px;flex-wrap:wrap;align-items:center}
+.gs .em-saida .card-hd{flex-wrap:wrap;gap:8px}
+.gs .em-saida-f{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+/* (B51) acabamento: cabeçalho dos passos, campos do "Repetir" no padrão dos outros campos */
+.gs .em-passo .card-hd{justify-content:flex-start}
+.gs .em-passo .card-hd .sub{margin-left:auto}
+.gs #email-testar{margin-bottom:10px}
+.gs .tf-rep :is(input[type=number],input[type=date],select){height:32px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);color:var(--text);font:inherit;font-size:13px}
+.gs .tf-rep select{padding-right:28px}

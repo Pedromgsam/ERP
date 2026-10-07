@@ -282,7 +282,11 @@
   const normH = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
   // o DB do ERP é um const do script principal: existe como nome global, mas NÃO como window.DB
   const dbERP = () => { try { return DB || {}; } catch (e) { return {}; } }; // eslint-disable-line no-undef
-  const regDe = (lista, tr) => { const id = (tr.dataset.gx || '').split(':')[1]; return (lista || []).find((x) => x._id === id); };
+  // Backup 51: índice por id (antes, cada linha procurava na lista inteira: 500 empresas = 250 mil comparações no Painel)
+  const _idxReg = new WeakMap();
+  const regDe = (lista, tr) => { const id = (tr.dataset.gx || '').split(':')[1]; if (!lista) return undefined;
+    let m = _idxReg.get(lista); if (!m || m.n !== lista.length) { m = new Map(); lista.forEach((x) => { if (!m.has(x._id)) m.set(x._id, x); }); m.n = lista.length; _idxReg.set(lista, m); }
+    return m.get(id); };
   function tabelaPadrao(tbody, o) {
     const table = tbody && tbody.closest('table'); if (!table) return;
     // Backup 27: sem a seta (Painel abre a ficha; Processos abre a janela) — a coluna continua no lugar, só escondida,
@@ -460,7 +464,10 @@
       if (id && !ehCliente() && !permitido(FUNC_TELA[id])) { aviso('Sem acesso a esta área. Peça ao administrador para liberar a função.', true); if (id !== 'hoje') return window.nav(null, 'hoje'); }
       // como no Gestão: cada tela abre sem o filtro da tela anterior
       if (id && _painel && id !== _painel && typeof window.resetarFiltros === 'function') {
-        try { window.resetarFiltros(); if (typeof window.applyFilters === 'function') window.applyFilters(); } catch (e) { console.warn('[ERP] limpar filtros:', e); }
+        // Backup 51: sem filtro nenhum ligado, não redesenha tudo de novo (a tela nova já desenha sem filtro)
+        let tinha = true;
+        try { tinha = Object.values(FILTROS || {}).some(Boolean) || ['fGrupo', 'fEmpresa', 'fTipoCliente', 'fResp', 'fSit', 'fOrgao', 'fCapag'].some((k) => (document.getElementById(k) || {}).value); } catch (e) { tinha = true; } // eslint-disable-line no-undef
+        try { window.resetarFiltros(); if (tinha && typeof window.applyFilters === 'function') window.applyFilters(); } catch (e) { console.warn('[ERP] limpar filtros:', e); }
       }
       navOrig.apply(this, arguments);
       // botão "voltar" do navegador: cada tela vira um passo do histórico (#tela)
@@ -474,7 +481,9 @@
       document.body.classList.toggle('gx-tela-nova', !!TELAS_GS[id]);
       if (TELAS_GS[id]) desenharGS(id);
       // Backup 46: baixa feita na Rotina não recarrega tudo na hora; recarrega ao abrir uma tela do ERP antigo (Parcelamentos, Painel…)
-      else if (window.ERP_DADOS_SUJOS && typeof window.ERP_RECARREGAR === 'function') { window.ERP_DADOS_SUJOS = false; window.ERP_RECARREGAR(); }
+      else if (window.ERP_DADOS_SUJOS && typeof window.ERP_RECARREGAR === 'function') { window.ERP_DADOS_SUJOS = false; window.ERP_SUJO = null; window.ERP_RECARREGAR(); }
+      // Backup 51 (V5): baixa/emissão de parcela feita na Rotina → relê SÓ os parcelamentos (não o ERP inteiro)
+      else if (id === 'parcelamentos' && window.ERP_SUJO && window.ERP_SUJO.parcelamentos) { window.ERP_SUJO = null; recarregarModulos('parcelamentos'); }
       if (id === 'notificacoes') setTimeout(() => abrirCobrancas(_abaCobranca), 0);
     };
     // equipe entra no Início
@@ -506,6 +515,17 @@
       return r;
     };
   }
+  // Backup 51: relê só os módulos pedidos (ex.: 'parcelamentos') e redesenha a tela aberta do ERP — no lugar do ERP_RECARREGAR completo
+  async function recarregarModulos(lista) {
+    try {
+      if (typeof window.ERP_LER_MODULOS !== 'function' || typeof window._aplicarEtapa2 !== 'function') { if (window.ERP_RECARREGAR) window.ERP_RECARREGAR(); return; }
+      const j = await window.ERP_LER_MODULOS(lista);
+      if (!j || j.erro || j._negado) throw new Error((j && j.erro) || 'falha ao ler ' + lista);
+      window._aplicarEtapa2(j);
+      try { window.applyFilters(); window.renderAll(); if (window.v16UpdateBadges) window.v16UpdateBadges(); } catch (e) { console.warn('[ERP] redesenho:', e.message); }
+    } catch (e) { console.warn('[ERP] recarregar ' + lista + ':', e.message); if (window.ERP_RECARREGAR) window.ERP_RECARREGAR(); }
+  }
+  window.ERP_RECARREGAR_MODULOS = recarregarModulos;
   // nome na barra: o primeiro nome da pessoa (Administração → Usuários ou ⋯ → Meu nome), nunca o início do e-mail
   const nomeProvisorio = (eu) => !eu.nome || (eu.email && eu.nome === eu.email.split('@')[0]);
   function mostrarNome() {

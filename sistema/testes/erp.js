@@ -1480,8 +1480,8 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       await p.click('.em-quem [data-cli-email="' + cliQ + '"]'); await p.waitForTimeout(1200);
       ok('B49: clicar na chave muda para "Não recebe"', sql("select recebe_email from clientes where id='" + cliQ + "'") === 'f');
       sql("update clientes set recebe_email=true where id='" + cliQ + "'");
-      await p.click('#em-abas [data-em-aba=revisar]'); await p.waitForSelector('#em-revisar'); await p.waitForTimeout(300);
-      ok('B49: E-mail → Para revisar com a chave "conferir antes de enviar"', !!(await p.$('#em-revisar')));
+      await p.click('#em-abas [data-em-aba=saida]'); await p.waitForSelector('#em-revisar'); await p.waitForTimeout(300);   // Backup 51: "Para revisar" é o 1º filtro da Caixa de saída
+      ok('B49: E-mail → Para revisar com a chave "conferir antes de enviar"', !!(await p.$('#em-revisar')) && !!(await p.$('[data-saida-f=revisar][aria-pressed=true]')));
       await nav(p, 'automacoes'); await p.waitForSelector('.au-emails'); await p.waitForTimeout(300);
       ok('B49: Automações com o bloco "E-mails automáticos" e a chave geral', /E-mails automáticos/.test(await p.textContent('.au-emails')) && !!(await p.$('#au-revisar')));
       // Financeiro: Perdas dentro de Recebidos
@@ -1524,6 +1524,151 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       await p.click('.em-quem [data-em-cli="' + cliQ + '"]'); await p.waitForSelector('#f-cli'); await p.waitForTimeout(400);
       ok('B50 Quem recebe: clicar no cliente abre o cadastro na aba Contatos', await p.isVisible('#f-cli [name=email]') && await p.evaluate(() => document.querySelector('[data-cli-aba=contato]').classList.contains('ativo')));
       await p.evaluate(() => { while (document.querySelector('#janelas .fundo')) GS.fecharJanela(); }); }
+    // ── Backup 51 ──
+    { const reqs = []; const ouvir = (q) => reqs.push(q.method() + ' ' + q.url().replace(/^.*\/rest\/v1\//, ''));
+      p.on('request', ouvir);
+      const dialogos = []; const contaDialogo = (d) => dialogos.push(d.message()); p.on('dialog', contaDialogo);
+      const paB = sql("select id from parcelamentos where empresa='Alfa Comércio Ltda' and numero='777'");
+      sql("update parcelas set pago=false, data_pagamento=null, emitida_em=null, emissao='' where parcelamento_id='" + paB + "' and numero in ('2','3')");
+      // V7: índices
+      ok('B51 V7: índices novos das consultas da Rotina', sql("select count(*) from pg_indexes where indexname in ('parcelas_pa_pago_venc','parcelas_abertas_venc','parcelamentos_grupo','tarefas_serie_prazo')") === '4');
+      // V1 + V3: Planilha abre com esqueleto e UMA consulta enxuta (sem baixar parcelas uma a uma)
+      await nav(p, 'hoje'); reqs.length = 0;
+      await p.evaluate(() => { GS.E.rt = Object.assign(GS.E.rt || {}, { aba: 'planilha' }); nav(null, 'rotina'); });
+      const esq = await p.evaluate(() => !!document.querySelector('#rt-corpo .rt-esq .esq'));
+      await p.waitForSelector('#rt-corpo .pl-card:not(.rt-esq) .pl-bloco', { timeout: 10000 });
+      ok('B51 V3: a Planilha aparece na hora com o esqueleto cinza no lugar dos números', esq);
+      ok('B51 V1: Planilha usa uma consulta só (rotina_parcelas_json), sem baixar a tabela de parcelas', reqs.filter((x) => /rpc\/rotina_parcelas_json/.test(x)).length === 1 && !reqs.some((x) => /^GET parcelas\?/.test(x)), reqs.join(' ; '));
+      ok('B51 V3: desenha só o grupo aberto', await p.evaluate(() => { const g = document.querySelector('.pl-aba.ativo').dataset.plG; return [...document.querySelectorAll('#rt-corpo .pl-bloco')].length > 0 && document.querySelectorAll('.pl-aba').length >= 1 && !!g; }));
+      // V2: trocar de aba não busca de novo; "↻ Atualizar" busca
+      reqs.length = 0;
+      await p.click('#rt-abas [data-rt-aba=guias]'); await p.waitForSelector('#rt-corpo .ep-tela:not(.rt-esq)');
+      await p.click('#rt-abas [data-rt-aba=planilha]'); await p.waitForSelector('#rt-corpo .pl-card:not(.rt-esq) .pl-bloco');
+      ok('B51 V2: trocar entre "Guias do mês" e "Planilha" não busca de novo', !reqs.some((x) => /rotina_parcelas_json/.test(x)), reqs.join(' ; '));
+      await p.click('#pl-atu'); await p.waitForTimeout(1200);
+      ok('B51 V2: "↻ Atualizar" busca tudo de novo', reqs.filter((x) => /rotina_parcelas_json/.test(x)).length === 1);
+      // R1: placar do mês
+      await p.waitForSelector('#rt-placar .rt-pl-it:not(.rt-pl-esq)', { timeout: 8000 }).catch(() => {});
+      ok('B51 R1: placar do mês com 4 números (guias, pagamentos, passivo, processos)', (await p.$$('#rt-placar .rt-pl-it')).length === 4 && /guias enviadas/.test(await p.textContent('#rt-placar')) && /processos conferidos/.test(await p.textContent('#rt-placar')));
+      // V4: Pago na hora, sem pergunta, com Desfazer
+      await p.click('.pl-aba[data-pl-g="Grupo Alfa"]').catch(() => {}); await p.waitForTimeout(300);
+      const id2 = sql("select id from parcelas where parcelamento_id='" + paB + "' and numero='2'");
+      dialogos.length = 0;
+      const mudou = await p.evaluate((id) => { document.querySelector('[data-pl-p="' + id + '"]').click(); return !document.querySelector('[data-pl-p="' + id + '"]'); }, id2);
+      await p.waitForTimeout(1500);
+      ok('B51 V4: "Pago" muda a tela no clique (sem a pergunta de confirmação) e grava por trás', mudou && !dialogos.length && sql("select pago from parcelas where id='" + id2 + "'") === 't', dialogos.join('|'));
+      ok('B51 V4: rodapé com "Desfazer"', await p.isVisible('#gx-rodape .gx-rod-bt'));
+      ok('B51 V5: depois da baixa, só Parcelamentos fica "a atualizar" (sem recarregar o ERP inteiro)', await p.evaluate(() => !!(window.ERP_SUJO && window.ERP_SUJO.parcelamentos) && !window.ERP_DADOS_SUJOS));
+      await p.click('#gx-rodape .gx-rod-bt'); await p.waitForTimeout(1500);
+      ok('B51 V4: "Desfazer" volta a parcela para em aberto (tela e banco)', sql("select pago from parcelas where id='" + id2 + "'") === 'f' && !!(await p.$('[data-pl-p="' + id2 + '"]')));
+      // V4: erro → a tela volta e mostra o motivo
+      await p.route(/\/rest\/v1\/parcelas/, (rota) => rota.request().method() === 'PATCH' ? rota.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ message: 'falha simulada B51' }) }) : rota.continue());
+      await p.click('[data-pl-p="' + id2 + '"]'); await p.waitForTimeout(1200);
+      ok('B51 V4: se der erro, a parcela volta ao estado anterior e o motivo aparece', !!(await p.$('[data-pl-p="' + id2 + '"]')) && /falha simulada B51/.test((await p.textContent('#toast').catch(() => '')) + (await p.textContent('#gs-raiz #aviso').catch(() => ''))) && sql("select pago from parcelas where id='" + id2 + "'") === 'f');
+      await p.unroute(/\/rest\/v1\/parcelas/);
+      // V4: Emitida na hora
+      const mudouE = await p.evaluate((id) => { const b = document.querySelector('[data-pl-e="' + id + '"]'); b.click(); const n = document.querySelector('[data-pl-e="' + id + '"]'); return n && /✓/.test(n.textContent); }, id2);
+      await p.waitForTimeout(1200);
+      ok('B51 V4: "Emitida" muda a tela no clique e grava por trás', mudouE && sql("select emitida_em is not null from parcelas where id='" + id2 + "'") === 't');
+      // V5: abrir o Painel não recarrega; abrir Parcelamentos relê só os parcelamentos
+      await p.evaluate((id) => document.querySelector('[data-pl-p="' + id + '"]').click(), id2); await p.waitForTimeout(1500);
+      reqs.length = 0; await nav(p, 'resumo'); await p.waitForTimeout(800);
+      const noPainel = reqs.slice();
+      await nav(p, 'parcelamentos'); await p.waitForTimeout(2500);
+      ok('B51 V5: abrir o Painel não recarrega nada; abrir Parcelamentos relê SÓ os parcelamentos (com a baixa)', !noPainel.some((x) => /^GET (clientes|processos|lancamentos|parcelas)\?/.test(x)) &&
+        reqs.some((x) => /^GET parcelas\?/.test(x)) && !reqs.some((x) => /^GET (clientes|processos|lancamentos)\?/.test(x)) &&
+        await p.evaluate(() => (DB.parcelamentos.find((x) => x.numero === '777') || {}).parcelasPagas >= 2), noPainel.join(' ; ') + ' || ' + reqs.join(' ; '));
+      sql("update parcelas set pago=false, data_pagamento=null, emitida_em=null, emissao='' where id='" + id2 + "'");
+      // R3: clicar na parcela da Planilha abre o mesmo cartão de envio; "Pago" no cartão depois do vencimento
+      await p.evaluate(() => { GS.E.rt.aba = 'planilha'; nav(null, 'rotina'); }); await p.waitForSelector('#rt-corpo .pl-card:not(.rt-esq) .pl-bloco');
+      await p.click('.pl-aba[data-pl-g="Grupo Alfa"]').catch(() => {}); await p.waitForTimeout(300);
+      await p.click('tr[data-pl-x="' + id2 + '"] td:nth-child(2)'); await p.waitForSelector('#rt-corpo .ep-card', { timeout: 8000 }).catch(() => {});
+      ok('B51 R3: clicar na parcela da Planilha abre o cartão de envio daquela guia', /Parcela: 2 de/.test(await p.textContent('#rt-corpo .ep-card-body').catch(() => '')) && await p.evaluate(() => GS.E.rt.aba === 'guias'));
+      await p.click('#rt-corpo [data-ep-pago="' + id2 + '"]'); await p.waitForTimeout(1500);
+      ok('B51 R3: depois do vencimento, o "Pago" fica no próprio cartão', sql("select pago from parcelas where id='" + id2 + "'") === 't' && /Paga/.test(await p.textContent('#rt-corpo [data-ep-pago="' + id2 + '"]')));
+      sql("update parcelas set pago=false, data_pagamento=null where id='" + id2 + "'");
+      // R4: conferir o grupo todo
+      await p.click('#rt-abas [data-rt-aba=passivo]'); await p.waitForSelector('#rt-pas-corpo [data-conf-grp]', { timeout: 10000 });
+      const nConf = Number(sql("select count(*) from rotina_conferencias where area='passivo' and not alterou"));
+      await p.click('#rt-pas-corpo tr.rt-grp:has-text("Grupo Alfa") [data-conf-grp]'); await p.waitForTimeout(1500);
+      ok('B51 R4: Passivo → "✓ Conferir o grupo todo" marca todas as empresas do grupo, sem alteração', Number(sql("select count(*) from rotina_conferencias where area='passivo' and not alterou")) >= nConf + 2 &&
+        sql("select count(distinct registro_id) from rotina_conferencias r join clientes c on c.id=r.registro_id join grupos g on g.id=c.grupo_id where g.nome='Grupo Alfa' and r.quando > now() - interval '1 minute'") === sql("select count(*) from clientes c join grupos g on g.id=c.grupo_id where g.nome='Grupo Alfa'"));
+      await p.click('#rt-abas [data-rt-aba=processos]'); await p.waitForSelector('#rt-proc-corpo [data-conf-pgrp]', { timeout: 10000 });
+      await p.click('#rt-proc-corpo [data-conf-pgrp] >> nth=0'); await p.waitForTimeout(2000);
+      ok('B51 R4: Processos → "✓ Conferir o grupo todo" registra "sem novidade" nos processos do grupo', Number(sql("select count(*) from processo_movimentacoes where tipo='sem_novidade' and criado_em > now() - interval '1 minute'")) >= 1);
+      // T1: regra de repetição no formulário (toda segunda)
+      await nav(p, 'tarefas'); await p.waitForTimeout(800);
+      await p.evaluate(() => GS.formTarefa({})); await p.waitForSelector('#tf-rep');
+      await p.fill('#f-tf [name=titulo]', 'Conferir caixa B51'); await p.selectOption('#f-tf [name=responsavel]', { label: 'Pedro Castro' }).catch(() => p.selectOption('#f-tf [name=responsavel]', { index: 1 }));
+      await p.selectOption('#tf-rep-tipo', 'semanal');
+      await p.evaluate(() => document.querySelectorAll('#tf-rep [data-rep-dia]').forEach((c) => { c.checked = c.dataset.repDia === '1'; c.dispatchEvent(new Event('change', { bubbles: true })); }));
+      await p.waitForTimeout(300);
+      const txtRep = await p.textContent('#tf-rep-txt');
+      ok('B51 T3: a regra aparece por extenso ("↻ toda segunda, a partir de …") com as próximas datas', /↻ toda segunda, a partir de \d{2}\/\d{2}/.test(txtRep) && /Próximas:/.test(txtRep), txtRep);
+      await p.click('#btn-salvar-tf'); await p.waitForTimeout(2000);
+      const prox1 = sql("select (recorrencia_proximas(jsonb_build_object('tipo','semanal','dias',jsonb_build_array(1),'inicio',current_date), current_date - 1, 1))[1]");
+      ok('B51 T1: "toda segunda" grava a regra (recorrencia_regra) e o prazo cai na segunda certa', sql("select recorrencia_regra->>'tipo'||'|'||(recorrencia_regra->'dias')::text||'|'||prazo||'|'||recorrencia from tarefas where titulo='Conferir caixa B51' order by prazo limit 1") === 'semanal|[1]|' + prox1 + '|regra');
+      // T1: a prévia do formulário dá as mesmas datas do banco (2× ao mês, 5º dia útil, última sexta, a cada 2 semanas, com feriado)
+      { const regras = [{ tipo: 'mensal_dias', dias: [5, 20], util: true }, { tipo: 'mensal', modo: 'util', n: 5 }, { tipo: 'mensal', modo: 'semana', ordem: -1, dow: 5 }, { tipo: 'semanal', dias: [1, 4], cada: 2 }, { tipo: 'anual', mes: 2, dia: 30 }, { tipo: 'mensal', modo: 'dia', dia: 31 }];
+        sql("insert into feriados(data,nome) values (current_date + 20, 'Feriado B51') on conflict do nothing");
+        await p.evaluate(() => { GS.E._feriados = null; });
+        const js = await p.evaluate(async (L) => { const h = new Date(); const ini = h.getFullYear() + '-' + String(h.getMonth() + 1).padStart(2, '0') + '-' + String(h.getDate()).padStart(2, '0');
+          const fs = await SB.from('feriados').select('data'); const fer = new Set((fs.data || []).map((f) => f.data));
+          return L.map((r) => GS.proximasDatas(Object.assign({ inicio: ini }, r), ini, 8, fer).join(',')); }, regras);
+        const sqlD = regras.map((r) => sql("select array_to_string(recorrencia_proximas('" + JSON.stringify(r) + "'::jsonb || jsonb_build_object('inicio', current_date), current_date, 8), ',')"));
+        ok('B51 T1: as datas da regra (2× ao mês com feriado, 5º dia útil, última sexta, a cada 2 semanas, 30/02, dia 31) são as mesmas na tela e no banco', JSON.stringify(js) === JSON.stringify(sqlD), JSON.stringify(js) + ' ≠ ' + JSON.stringify(sqlD));
+        ok('B51 T1: textos por extenso', await p.evaluate(() => [GS.textoRegra({ tipo: 'mensal_dias', dias: [5, 20] }), GS.textoRegra({ tipo: 'mensal', modo: 'util', n: 5 }), GS.textoRegra({ tipo: 'mensal', modo: 'semana', ordem: -1, dow: 5 }), GS.textoRegra({ tipo: 'semanal', dias: [1, 4], cada: 2 })].join('|')) ===
+          '2× ao mês, nos dias 5 e 20|todo mês no 5º dia útil|toda última sexta do mês|a cada 2 semanas, na segunda e quinta'); }
+      ok('B51 T1: as tarefas antigas (semanal/mensal/anual) continuam com a regra delas', await p.evaluate(() => GS.textoRegra(GS.regraDaTarefa({ recorrencia: 'mensal', prazo: '2026-03-15' })) === 'todo mês no dia 15, a partir de 15/03/2026'.replace('/2026', new Date().getFullYear() === 2026 ? '' : '/2026')));
+      // T2: as próximas ocorrências aparecem no calendário (tracejadas) e no Google Agenda, sem duplicar
+      const mesProj = sql("select to_char((d->'datas'->>0)::date, 'YYYY-MM') from jsonb_array_elements(recorrencias_projecao(8)) d where d->>'titulo'='Conferir caixa B51'");
+      await nav(p, 'tarefas'); await p.evaluate((m) => { GS.E.tf.vista = 'calendario'; GS.E.tf.calVista = 'mes'; GS.E.tf.mes = m; }, mesProj); await nav(p, 'tarefas'); await p.waitForTimeout(1500);
+      const nProj = sql("select jsonb_array_length(d->'datas') from jsonb_array_elements(recorrencias_projecao(8)) d where d->>'titulo'='Conferir caixa B51'");
+      ok('B51 T2: o banco projeta 8 próximas datas depois da última tarefa real (sem duplicar)', nProj === '8' &&
+        sql("select count(*) from jsonb_array_elements(recorrencias_projecao(8)) d, jsonb_array_elements_text(d->'datas') x where d->>'titulo'='Conferir caixa B51' and x::date in (select prazo from tarefas where titulo='Conferir caixa B51')") === '0');
+      ok('B51 T2: o calendário mostra as próximas ocorrências (tracejadas)', (await p.$$('#panel-tarefas .cal-tf.ag-prevista')).length >= 1);
+      { const tok = sql("select token from agenda_links where usuario_id=(select id from perfis where email='pedro@teste') limit 1");
+        const ics = tok ? await (await p.request.get(BASE + '/functions/v1/erp-agenda?t=' + tok)).text() : '';
+        ok('B51 T2: o Google Agenda (erp-agenda) recebe as próximas ocorrências', (ics.match(/UID:serie-/g) || []).length >= 8 && /↻ .*Conferir caixa B51/.test(ics), ics.slice(0, 200)); }
+      ok('B51 T2: concluir não é preciso — a ocorrência da semana nasce sozinha (rotina diária) e não repete', sql("select recorrencias_em_dia() >= 0") === 't' &&
+        sql("select count(*) = count(distinct prazo) from tarefas where titulo='Conferir caixa B51'") === 't');
+      // T3: editar → "só esta" / "esta e as próximas"
+      const tId = sql("select id from tarefas where titulo='Conferir caixa B51' order by prazo limit 1");
+      sql("select recorrencia_garantir(recorrencia_serie) from tarefas where id='" + tId + "'");
+      sql("insert into tarefas (titulo, responsavel, prazo, recorrencia, recorrencia_regra, recorrencia_serie) select titulo, responsavel, prazo + 7, 'regra', recorrencia_regra, recorrencia_serie from tarefas where id='" + tId + "' on conflict do nothing");
+      await p.evaluate((id) => GS.abrirTarefa(id), tId); await p.waitForSelector('#tf-f-editar'); await p.waitForTimeout(300);
+      ok('B51 T3: o detalhe da tarefa mostra a regra por extenso', /↻ toda segunda, a partir de/.test(await p.textContent('#gs-raiz .janela')));
+      await p.click('#tf-f-editar'); await p.waitForSelector('#f-tf'); await p.fill('#f-tf [name=titulo]', 'Conferir caixa B51 (nova)'); await p.click('#btn-salvar-tf');
+      await p.waitForSelector('#tf-serie-prox', { timeout: 5000 }).catch(() => {});
+      ok('B51 T3: ao editar, pergunta "só esta" ou "esta e as próximas"', !!(await p.$('#tf-serie-esta')) && !!(await p.$('#tf-serie-prox')));
+      await p.click('#tf-serie-prox'); await p.waitForTimeout(2000);
+      ok('B51 T3: "esta e as próximas" muda esta e as seguintes (cada uma com a própria data)', sql("select count(*) from tarefas where titulo='Conferir caixa B51 (nova)'") === sql("select count(*) from tarefas where recorrencia_serie=(select recorrencia_serie from tarefas where id='" + tId + "') and status not in ('concluida','cancelada')") &&
+        Number(sql("select count(*) from tarefas where titulo='Conferir caixa B51 (nova)'")) >= 2);
+      await p.evaluate((id) => GS.abrirTarefa(id), tId); await p.waitForSelector('#tf-f-editar'); await p.click('#tf-f-editar'); await p.waitForSelector('#f-tf');
+      await p.fill('#f-tf [name=titulo]', 'Só esta B51'); await p.click('#btn-salvar-tf'); await p.waitForSelector('#tf-serie-esta'); await p.click('#tf-serie-esta'); await p.waitForTimeout(1500);
+      ok('B51 T3: "só esta" muda só a tarefa aberta', sql("select count(*) from tarefas where titulo='Só esta B51'") === '1' && Number(sql("select count(*) from tarefas where titulo='Conferir caixa B51 (nova)'")) >= 1);
+      await p.evaluate(() => { while (document.querySelector('#janelas .fundo')) GS.fecharJanela(); });
+      // E1–E4: e-mail
+      await nav(p, 'admin'); await p.waitForSelector('#adm-abas'); await p.click('#adm-abas [data-aba=email]'); await p.waitForSelector('#em-abas'); await p.click('#em-abas [data-em-aba=config]'); await p.waitForSelector('.em-passo');
+      ok('B51 E1: Configuração em 3 passos (Contas que enviam · Dados para pagamento · Testar), Escritório e Contabilidade lado a lado', (await p.$$eval('.em-passo .card-hd', (l) => l.map((x) => x.textContent))).join('|').replace(/\s+/g, ' ').match(/1Contas que enviam.*\|2Dados para pagamento.*\|3Testar/) &&
+        !!(await p.$('.em-passo #f-email')) && !!(await p.$('.em-passo #f-email-ct')) && !!(await p.$('.em-passo #f-pag')) && !!(await p.$('.em-passo #f-pag-ct')));
+      ok('B51 E2: Gmail é o padrão; SMTP/Resend ficam no "Avançado" fechado', await p.evaluate(() => document.querySelector('#f-email [name=provedor]').value === 'gmail' && !document.querySelector('#f-email .em-avancado').open && !document.querySelector('#f-email [name=host]').offsetParent));
+      ok('B51 E3: botões técnicos dentro de "⋯ Ferramentas"', !(await p.isVisible('#email-diag')) && !(await p.isVisible('#email-agora')) && !(await p.isVisible('#email-resumo')));
+      await p.click('#em-ferr-bt'); ok('B51 E3: "⋯ Ferramentas" abre com Verificar funções, Enviar fila agora e Resumo do dia', await p.isVisible('#email-diag') && await p.isVisible('#email-agora') && await p.isVisible('#email-resumo'));
+      await p.click('#em-ferr-bt');
+      ok('B51 E1: "Testar" é um botão só e o check-list fica no passo 3', !!(await p.$('.em-passo #email-testar')) && !!(await p.$('.em-passo #email-check-bd')));
+      sql("insert into email_fila (para, assunto, html, status, erro, tipo, referencia) values ('erro.b51@teste.com', 'E-mail com erro B51', '<p>oi B51</p>', 'erro', 'Invalid login', 'manual', 'b51-erro')");
+      await p.click('#em-abas [data-em-aba=saida]'); await p.waitForSelector('.em-saida');
+      ok('B51 E4: Caixa de saída com os filtros Para revisar · Na fila · Enviados · Com erro', /Para revisar.*Na fila.*Enviados.*Com erro/.test((await p.textContent('.em-saida-f')).replace(/\s+/g, ' ')) && !!(await p.$('#em-revisar')));
+      await p.click('.em-saida-f [data-saida-f=erro]'); await p.waitForSelector('.em-saida-tab');
+      ok('B51 E4: "Com erro" lista o e-mail com 👁 prévia e "tentar de novo"', /E-mail com erro B51/.test(await p.textContent('.em-saida-tab')) && !!(await p.$('.em-saida-tab [data-em-tentar]')) && !!(await p.$('.em-saida-tab [data-em-ver]')));
+      await p.click('.em-saida-tab [data-em-ver]'); await p.waitForSelector('iframe.em-previa'); await p.waitForTimeout(300);
+      ok('B51 E4: 👁 mostra a prévia do e-mail', /oi B51/.test(await p.evaluate(() => document.querySelector('iframe.em-previa').srcdoc)));
+      await p.evaluate(() => { while (document.querySelector('#janelas .fundo')) GS.fecharJanela(); });
+      await p.click('.em-saida-tab [data-em-tentar]'); await p.waitForTimeout(2500);
+      ok('B51 E4: "tentar de novo" volta o e-mail para a fila (e tenta enviar)', sql("select status from email_fila where referencia='b51-erro'") !== 'erro', sql("select status||' '||erro from email_fila where referencia='b51-erro'"));
+      await foto(p, 'b51-email-saida');
+      p.off('request', ouvir); p.off('dialog', contaDialogo); }
     // ── sair ──
     await p.evaluate(() => acLogout()); await p.waitForTimeout(800);
     ok('sair encerra a sessão do Supabase', await p.evaluate(async () => !(await SB.auth.getSession()).data.session));

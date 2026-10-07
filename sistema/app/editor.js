@@ -429,7 +429,7 @@
   }
 
   // ─────────── rodapé "✓ Última gravação" (com Desfazer na baixa) ───────────
-  function gravou(texto, desfazer) {
+  function gravou(texto, desfazer, prazoDesfazer) {
     let el = document.getElementById('gx-rodape');
     if (!el) { el = document.createElement('div'); el.id = 'gx-rodape'; el.setAttribute('role', 'status'); document.body.appendChild(el); }
     const hora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
@@ -440,17 +440,22 @@
     if (b) b.onclick = async () => { b.disabled = true; await desfazer(); };
     el.querySelector('.gx-rod-x').onclick = () => el.classList.remove('on');
     // some sozinho (8 s; 15 s quando dá para desfazer); parado enquanto o mouse está em cima
-    const prazo = desfazer ? 15000 : 8000;
+    const prazo = desfazer ? (prazoDesfazer || 15000) : 8000;   // Backup 51: a Rotina usa 5 s (o "Desfazer" substituiu a pergunta de confirmação)
     const agendar = () => { clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('on'), prazo); };
     el.onmouseenter = () => clearTimeout(el._t);
     el.onmouseleave = agendar;
     agendar();
   }
-  async function desfazerBaixa(tabela, id) {
+  async function desfazerBaixa(tabela, id, semRecarregar) {
     const d = tabela === 'parcelas' ? { pago: false } : { pago: false, data_pagamento: null };
     const { error } = await sb.from(tabela).update(d).eq('id', id);
     if (error) return aviso('⚠ ' + erroAmigavel(error));
-    gravou('Baixa desfeita'); recarregar();
+    gravou('Baixa desfeita'); if (semRecarregar) marcarSujo(tabela); else recarregar();
+  }
+  // Backup 51 (V5): o que mudou fica marcado; ao abrir uma tela do ERP antigo, só esse módulo é lido de novo (parcelas → Parcelamentos)
+  function marcarSujo(tabela) {
+    if (tabela === 'parcelas') { window.ERP_SUJO = Object.assign({}, window.ERP_SUJO, { parcelamentos: true }); return; }
+    window.ERP_DADOS_SUJOS = true;
   }
   // baixa direto na linha, sem abrir formulário
   // data do recebimento (hoje, editável) e, no acordo, o comprovante juntado ao processo
@@ -468,12 +473,13 @@
     if (tabela === 'lancamentos') d.perda = false;
     const { data, error } = await sb.from(tabela).update(d).eq('id', id).select().single();
     if (error) return aviso('⚠ ' + erroAmigavel(error));
-    await carregarGrupos();
+    // Backup 51: sem o carregarGrupos() que rodava aqui antes de responder (a lista de grupos não muda com uma baixa)
     aviso('✓ Baixa gravada (' + brData(d.data_pagamento || hojeISO()) + ').');
     gravou('Baixa — ' + ({ lancamentos: 'honorário', acordos: 'acordo', parcelas: 'parcela ' + (data.numero || '') }[tabela]) + (tabela !== 'parcelas' ? ' — ' + rotuloReg(data) : ''),
-      () => desfazerBaixa(tabela, id));
-    // Backup 46: quem chama pode atualizar a própria tela (a Planilha marca na hora) e o resto recarrega depois
-    if (opc && opc.semRecarregar) { window.ERP_DADOS_SUJOS = true; return data; }
+      (opc && opc.desfazer) || (() => desfazerBaixa(tabela, id, opc && opc.semRecarregar)), opc && opc.prazoDesfazer);
+    // Backup 46: quem chama pode atualizar a própria tela (a Planilha marca na hora) e o resto recarrega depois.
+    // Backup 51 (V5): parcela paga → só a tela de Parcelamentos fica "a atualizar" (recarrega só ela, quando for aberta)
+    if (opc && opc.semRecarregar) { marcarSujo(tabela); return data; }
     recarregar();
     return data;
   }
@@ -651,5 +657,5 @@
     ['Tarefa', () => abrirFormulario('tarefas', null, { status: 'pendente', prioridade: 'media', inicio: hojeISO() })]
   ];
 
-  window.ERP_EDITOR = { abrirFormulario, abrirParcelamento, abrirTarefas, editarPorMarca, gravou, baixaRapida, verAlteracoes, rotuloReg, LANCAR, erroAmigavel, esc, hojeISO, brData, brValor, aviso, recarregar };
+  window.ERP_EDITOR = { abrirFormulario, abrirParcelamento, abrirTarefas, editarPorMarca, gravou, baixaRapida, marcarSujo, verAlteracoes, rotuloReg, LANCAR, erroAmigavel, esc, hojeISO, brData, brValor, aviso, recarregar };
 })();

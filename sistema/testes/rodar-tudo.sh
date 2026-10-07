@@ -42,3 +42,5 @@ node "$DIR/documentos.js"
 node "$DIR/visual.js"
 node "$DIR/padrao.js"
 node "$DIR/caca-bugs.js"
+# Backup 51: tempos com dados grandes (300 parcelamentos, 15 mil parcelas, 2 mil lançamentos, 500 clientes) — por último, porque recria o banco
+node "$DIR/velocidade.js"

@@ -119,7 +119,7 @@ function salvarPrefFila() {
 const TIPOS_AGENDA = [['reuniao', 'Reunião', '🤝'], ['audiencia', 'Audiência', '⚖'], ['compromisso', 'Compromisso', '📌']];   // Backup 40: sem Ligação
 // legenda curta: compromissos (reunião, audiência, compromisso), tarefa e atrasada; ⚑ = prazo fatal
 const legendaAgenda = () => '<div class="ag-leg">' + TIPOS_AGENDA.map(([k, r]) => '<span><i class="ag-cor ag-' + k + '"></i>' + r + '</span>').join('') +
-  '<span><i class="ag-cor ag-tarefa"></i>Tarefa</span><span><i class="ag-cor ag-rotina"></i>Rotina</span><span><i class="ag-cor ag-atrasada"></i>Atrasada</span><span><i class="ag-cor ag-feita"></i>Concluída</span><span>⚑ Prazo fatal</span></div>';
+  '<span><i class="ag-cor ag-tarefa"></i>Tarefa</span><span><i class="ag-cor ag-rotina"></i>Rotina</span><span><i class="ag-cor ag-atrasada"></i>Atrasada</span><span><i class="ag-cor ag-feita"></i>Concluída</span><span><i class="ag-cor ag-prevista"></i>Próxima (repete)</span><span>⚑ Prazo fatal</span></div>';
 // Backup 45: filtros da agenda (marca/desmarca) — tipo do item e de quem é (respeitando o cargo: ninguém vê a agenda de quem está acima)
 const FILTRO_TIPOS_AG = [['reuniao', 'Reuniões'], ['audiencia', 'Audiências'], ['compromisso', 'Compromissos'], ['tarefa', 'Tarefas'], ['rotina', 'Rotinas']];
 function tipoItemAgenda(t) {
@@ -297,7 +297,7 @@ function quadroAtrasadas(atr) {
 function calendarioFila(lista) {
   const h = hojeISO(), ref = FILA.ref || h, d0 = new Date(ref + 'T12:00:00');
   const doDia = (d) => lista.filter((t) => t.prazo === d || t.prazo_fatal === d).sort((a, b) => String(a.hora || '99').localeCompare(String(b.hora || '99')));
-  const item = (t, d) => '<button type="button" class="cal-tf ' + classeAgenda(t, d) + '" data-fila="' + t.id + '" title="' + esc(horaAg(t) + t.titulo + (t.local ? ' · ' + t.local : '') + ' · prioridade ' + ((PRIORIDADE[t.prioridade] || ['—'])[0]) + ' · ' + (STATUS_TAREFA[t.status] || '')) + '">' +
+  const item = (t, d) => '<button type="button" class="cal-tf ' + classeAgenda(t, d) + '" data-fila="' + t.id + '"' + (t._prev ? ' data-prevista="' + d + '"' : '') + ' title="' + esc(horaAg(t) + t.titulo + (t.local ? ' · ' + t.local : '') + (t._prev ? ' · próxima ocorrência (' + textoRepete(t) + ')' : ' · prioridade ' + ((PRIORIDADE[t.prioridade] || ['—'])[0]) + ' · ' + (STATUS_TAREFA[t.status] || ''))) + '">' +
     // Backup 50: bolinha da prioridade (vermelha alta, âmbar média, verde baixa) dentro do item do calendário
     '<span class="cal-pri cal-pri-' + esc(t.prioridade || 'media') + '" aria-hidden="true"></span>' +
     (t.prazo_fatal === d ? '⚑ ' : '') + (t.hora ? '<b>' + horaAg(t) + '</b>' : '') + esc(t.titulo) + '</button>';
@@ -347,7 +347,9 @@ async function cardMinhaFila() {
   const tiposSel = new Set(FILA.tipos && FILA.tipos.length ? FILA.tipos : FILTRO_TIPOS_AG.map((x) => x[0]));
   const daPessoa = (t) => [t.responsavel, t.revisor].concat(String(t.participantes || '').split(',')).some((n) => n && sel.includes(chave(n)));
   const todas = ordenarFila(ts.filter((t) => daPessoa(t) && tiposSel.has(tipoItemAgenda(t)) && !/^(cob|parc|aco):/.test(t.chave_regra || ''))), minhas = FILA.toda ? todas : todas.slice(0, 10);
-  const naAgenda = todas.concat(feitas.filter((t) => daPessoa(t) && tiposSel.has(tipoItemAgenda(t))));
+  // Backup 51 (T2): as próximas ocorrências das tarefas que se repetem já aparecem no calendário (tracejadas)
+  const proj = FILA.vista === 'lista' ? [] : await projecoesRecorrentes();
+  const naAgenda = todas.concat(feitas.filter((t) => daPessoa(t) && tiposSel.has(tipoItemAgenda(t))), proj.filter((t) => daPessoa(t) && tiposSel.has(tipoItemAgenda(t))));
   const rotQuem = sel.length === 1 && sel[0] === eu ? 'suas' : sel.length >= okVis.size && okVis.size > 1 ? 'de todos' : sel.map((k) => nomeCurto(visiveis.find((n) => chave(n) === k) || k)).join(', ');
   const chip = (attr, v, rot, on) => chipFiltro(attr, v, rot, on, attr === 'data-fila-tipo');
   const filtros = '<div class="fila-filtros">' +
@@ -566,7 +568,7 @@ function vistaLista(alvo) {
     const sub = [pai ? 'parte de: ' + pai : '', cli ? nomeCliente(t.cliente_id) : '', t.processos_vinculados, t.etiquetas].filter(Boolean).join(' · ');
     return '<tr class="clicavel' + (tarefaFechada(t) ? ' tf-feita' : '') + '" data-abrir-t="' + t.id + '"><td>' + (grupo ? esc(grupo) : '<span class="sub">—</span>') + '</td>' +
       '<td style="padding-left:' + (12 + nivel * 22) + 'px">' + bolinha(t) + ' ' + (nivel ? '<span class="sub">↳ </span>' : '') + esc(t.titulo) + seloFatal(t) +
-      (t.recorrencia ? ' <span class="pill neutro" title="Repete">↻ ' + esc(t.recorrencia) + '</span>' : '') + ' ' + barraProgresso(progresso(t, filhas)) +
+      (t.recorrencia ? ' <span class="pill neutro tf-repete" title="' + esc(textoRepete(t)) + '">' + esc(textoRepete(t)) + '</span>' : '') + ' ' + barraProgresso(progresso(t, filhas)) +
       (sub ? '<div class="sub">' + esc(sub) + '</div>' : '') + '</td>' +
       '<td>' + pillPessoa(t.responsavel) + '</td><td><span class="pill ' + pr[1] + '">' + esc(pr[0]) + '</span></td><td>' + pillStatusTarefa(t.status) + '</td>' +
       // Backup 50: Prazo e Dias em colunas separadas (como no Financeiro)
@@ -632,7 +634,10 @@ async function vistaCalendario(raiz) {
   const salvo = { vista: FILA.vista, ref: FILA.ref };
   FILA.vista = dia ? 'dia' : 'mes'; FILA.ref = dia ? F.dia : F.mes + '-01';
   // Backup 40: em "Em aberto" as concluídas do mês também aparecem, riscadas
-  const pre = dia ? F.dia : F.mes + '-', lista = filtrarTarefas().concat(F.aba === 'abertas' ? (E._tarefas || []).filter((t) => t.status === 'concluida' && String(t.prazo || '').startsWith(pre)) : []);
+  const filtradas = filtrarTarefas(), idsF = new Set(filtradas.map((t) => t.id));
+  // Backup 51 (T2): as próximas ocorrências (tracejadas) das tarefas que se repetem e estão na lista filtrada
+  const proj = F.aba === 'abertas' ? (await projecoesRecorrentes()).filter((x) => idsF.has(x.id)) : [];
+  const pre = dia ? F.dia : F.mes + '-', lista = filtradas.concat(F.aba === 'abertas' ? (E._tarefas || []).filter((t) => t.status === 'concluida' && String(t.prazo || '').startsWith(pre)) : [], proj);
   alvo.innerHTML = '<div class="card ini-fila tf-cal"><div class="card-bd">' + calendarioFila(lista) + '</div></div>';
   FILA.vista = salvo.vista; FILA.ref = salvo.ref;
   const [a, m] = F.mes.split('-').map(Number);
@@ -729,7 +734,7 @@ async function abrirTarefa(t, depois) {
         linha('Revisor', t.exige_revisao || t.revisor ? pillPessoa(t.revisor) : '') +
         linha('Processos', esc(t.processos_vinculados || '')) +
         linha('Origem', esc(origem)) +
-        linha('Repete', t.recorrencia ? esc(t.recorrencia) : '') +
+        linha('Repete', t.recorrencia ? '<span class="tf-repete">' + esc(textoRepete(t)) + '</span>' : '') +
       '</div>' +
       (t.descricao ? '<div class="tf-bloco"><div class="secao">O que fazer</div><div class="tf-texto">' + esc(t.descricao).replace(/\n/g, '<br>') + '</div></div>' : '') +
       (t.obs ? '<div class="tf-bloco"><div class="secao">Observação</div><div class="tf-texto">' + esc(t.obs).replace(/\n/g, '<br>') + '</div></div>' : '') +
@@ -753,6 +758,10 @@ async function abrirTarefa(t, depois) {
   j.querySelectorAll('[data-ficha-sub]').forEach((d) => d.onclick = () => { fecharJanela(j); abrirTarefa(subs.find((x) => x.id === d.dataset.fichaSub), depois); });
   const bp = j.querySelector('#tf-f-pular');
   if (bp) bp.onclick = () => comBotao(bp, async () => {
+    if (t.recorrencia_serie && t.recorrencia_regra) {   // Backup 51: na série, pular = cancelar só esta ocorrência
+      await q(sb.from('tarefas').update({ status: 'cancelada' }).eq('id', t.id));
+      await sb.from('comentarios').insert({ tarefa_id: t.id, texto: '⏭ Pulada a ocorrência de ' + dataBR(t.prazo) }).then(() => {}, () => {});
+      esquecerProjecoes(); aviso('⏭ Pulada. As próximas continuam (' + textoRepete(t) + ').'); fecharJanela(j); return depois2(); }
     const mais = (d) => { if (!d) return null; const x = new Date(d + 'T12:00:00');
       if (t.recorrencia === 'semanal') x.setDate(x.getDate() + 7); else if (t.recorrencia === 'mensal') x.setMonth(x.getMonth() + 1); else x.setFullYear(x.getFullYear() + 1); return iso(x); };
     const d = { prazo: mais(t.prazo), prazo_fatal: mais(t.prazo_fatal), checklist: (Array.isArray(t.checklist) ? t.checklist : []).map((c) => ({ texto: c.texto, feito: false })) };
@@ -787,6 +796,160 @@ async function abrirTarefa(t, depois) {
   return j;
 }
 
+// ═══ Backup 51 (T1–T3): regra de repetição — "toda segunda", "dias 5 e 20", "5º dia útil", "última sexta"… ═══
+// A regra fica em tarefas.recorrencia_regra (jsonb). As datas certas são calculadas no banco (recorrencia_datas) — aqui há uma cópia
+// fiel só para a prévia do formulário (o teste erp.js confere que as duas dão as mesmas datas).
+const DIAS_SEM_ISO = ['', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo'];
+const DIAS_SEM_CURTO = ['', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+const ORDENS_SEM = [[1, '1ª'], [2, '2ª'], [3, '3ª'], [4, '4ª'], [-1, 'última']];
+const TIPOS_REPETE = [['', 'Não repete'], ['semanal', 'Toda semana, nos dias…'], ['semanas', 'A cada N semanas'], ['mensal_dias', '2× ao mês, nos dias…'], ['mensal', 'Todo mês'], ['anual', 'Todo ano']];
+const isoDow = (d) => { const x = new Date(d + 'T12:00:00').getDay(); return x === 0 ? 7 : x; };
+const fimDoMesIso = (d) => { const x = new Date(d + 'T12:00:00'); return iso(new Date(x.getFullYear(), x.getMonth() + 1, 0)); };
+function listaE(a) { return a.length <= 1 ? (a[0] || '') : a.slice(0, -1).join(', ') + ' e ' + a[a.length - 1]; }
+// a regra "efetiva": a nova ou a antiga (semanal / mensal / anual a partir do prazo) — igual a regra_da_tarefa() do banco
+function regraDaTarefa(t) {
+  if (!t) return null;
+  if (t.recorrencia_regra && t.recorrencia_regra.tipo) return t.recorrencia_regra;
+  if (!t.prazo) return null;
+  const [, m, d] = t.prazo.split('-').map(Number);
+  if (t.recorrencia === 'semanal') return { tipo: 'semanal', dias: [isoDow(t.prazo)], inicio: t.prazo };
+  if (t.recorrencia === 'mensal') return { tipo: 'mensal', modo: 'dia', dia: d, inicio: t.prazo };
+  if (t.recorrencia === 'anual') return { tipo: 'anual', mes: m, dia: d, inicio: t.prazo };
+  return null;
+}
+// por extenso: "toda segunda, a partir de 13/10"
+function textoRegra(r) {
+  if (!r || !r.tipo) return '';
+  const dm = (d) => { const s = dataBR(d); return d && d.slice(0, 4) === hojeISO().slice(0, 4) ? s.slice(0, 5) : s; };
+  const toda = (dw) => (dw >= 6 ? 'todo ' : 'toda ');
+  const dias = (r.dias || []).map(Number).filter(Boolean).sort((a, b) => a - b);
+  let t = '';
+  if (r.tipo === 'semanal' && (Number(r.cada) || 1) > 1) t = 'a cada ' + r.cada + ' semanas, ' + (dias[0] >= 6 ? 'no ' : 'na ') + listaE(dias.map((x) => DIAS_SEM_ISO[x]));
+  else if (r.tipo === 'semanal') t = toda(dias[0]) + listaE(dias.map((x) => DIAS_SEM_ISO[x]));
+  else if (r.tipo === 'mensal_dias') t = dias.length + '× ao mês, nos dias ' + listaE(dias.map(String));
+  else if (r.tipo === 'mensal' && r.modo === 'util') t = 'todo mês no ' + (Number(r.n) || 1) + 'º dia útil';
+  else if (r.tipo === 'mensal' && r.modo === 'semana') { const dw = Number(r.dow) || 5, o = Number(r.ordem) || 1;
+    t = toda(dw) + (o === -1 ? (dw >= 6 ? 'último ' : 'última ') : (ORDENS_SEM.find(([k]) => k === o) || [, o + 'ª'])[1].replace('ª', dw >= 6 ? 'º' : 'ª') + ' ') + DIAS_SEM_ISO[dw] + ' do mês'; }
+  else if (r.tipo === 'mensal') t = 'todo mês no dia ' + (Number(r.dia) || 1);
+  else if (r.tipo === 'anual') t = 'todo ano em ' + String(Number(r.dia) || 1).padStart(2, '0') + '/' + String(Number(r.mes) || 1).padStart(2, '0');
+  if (r.inicio) t += ', a partir de ' + dm(r.inicio);
+  if (r.fim) t += ', até ' + dataBR(r.fim);
+  if (r.util) t += ' (se cair em feriado ou fim de semana, no dia útil seguinte)';
+  return t;
+}
+function textoRepete(t) { const r = regraDaTarefa(t); return r ? '↻ ' + textoRegra(r) : (t && t.recorrencia ? '↻ ' + t.recorrencia : ''); }
+// as datas da regra entre de e ate (cópia de recorrencia_datas do banco)
+function datasRegra(r, de, ate, fer) {
+  if (!r || !r.tipo || ate < de) return [];
+  fer = fer || E._feriados || new Set();
+  const ini = r.inicio || de, fim = r.fim || null, cada = Math.max(1, Number(r.cada) || 1), dias = (r.dias || []).map(Number);
+  const semana0 = somarDias(ini, -(isoDow(ini) - 1)), out = [];
+  const util = (d) => diaUtil(d, fer);
+  if (r.tipo === 'mensal' && r.modo === 'util') {
+    let m = (de > ini ? somarDias(de, -10) : ini).slice(0, 7) + '-01';
+    if (m < ini.slice(0, 7) + '-01') m = ini.slice(0, 7) + '-01';
+    for (let k = 0; k < 600 && m <= ate; k++) { let n = 0, d = m, achou = null; const f = fimDoMesIso(m);
+      while (d <= f) { if (util(d) && ++n === Math.max(1, Number(r.n) || 1)) { achou = d; break; } d = somarDias(d, 1); }
+      if (achou) out.push(achou); const x = new Date(m + 'T12:00:00'); x.setMonth(x.getMonth() + 1); m = iso(x); }
+  } else {
+    let d = somarDias(de, -10) > ini ? somarDias(de, -10) : ini;
+    for (let k = 0; k < 4000 && d <= ate; k++, d = somarDias(d, 1)) {
+      const ult = Number(fimDoMesIso(d).slice(8)), dia = Number(d.slice(8)), mes = Number(d.slice(5, 7)), dw = isoDow(d);
+      let ok = false;
+      if (r.tipo === 'semanal') ok = dias.includes(dw) && (Math.round((new Date(d + 'T12:00:00') - new Date(semana0 + 'T12:00:00')) / 864e5 / 7) % cada) === 0;
+      else if (r.tipo === 'mensal_dias') ok = dias.some((z) => Math.min(z, ult) === dia);
+      else if (r.tipo === 'mensal' && (r.modo || 'dia') === 'dia') ok = Math.min(Math.max(1, Number(r.dia) || 1), ult) === dia;
+      else if (r.tipo === 'mensal' && r.modo === 'semana') { const o = Number(r.ordem) || 1; ok = dw === (Number(r.dow) || 5) && (o === -1 ? dia + 7 > ult : Math.floor((dia - 1) / 7) + 1 === o); }
+      else if (r.tipo === 'anual') ok = mes === (Number(r.mes) || 1) && Math.min(Number(r.dia) || 1, ult) === dia;
+      if (ok && (!fim || d <= fim)) { let c = d; if (r.util) { for (let z = 0; z < 30 && !util(c); z++) c = somarDias(c, 1); } out.push(c); }
+    }
+  }
+  const lim = de > ini ? de : ini;
+  return [...new Set(out)].filter((z) => z >= lim && z <= ate).sort();
+}
+function proximasDatas(r, depois, n, fer) { return datasRegra(r, somarDias(depois, 1), somarDias(depois, 800), fer).slice(0, n || 8); }
+// T2: as próximas ocorrências (até 8 por série) para o calendário — vêm do banco (as mesmas do Google Agenda)
+let _projCache = null;
+function projecoesRecorrentes(forcar) {
+  if (forcar || !_projCache || Date.now() - _projCache.t > 30000) {
+    _projCache = { t: Date.now(), p: q(sb.rpc('recorrencias_projecao', { p_n: 8 })).then((L) => {
+      const out = []; (L || []).forEach((s) => (s.datas || []).forEach((d) => out.push({ id: s.tarefa_id, titulo: s.titulo, prazo: d, prioridade: s.prioridade, hora: s.hora, hora_fim: s.hora_fim,
+        tipo_agenda: s.tipo_agenda, local: s.local, responsavel: s.responsavel, participantes: s.participantes, revisor: s.revisor, chave_regra: s.chave_regra,
+        cliente_id: s.cliente_id, grupo_id: s.grupo_id, status: 'pendente', recorrencia: 'regra', recorrencia_regra: s.regra, _prev: true, _cls: 'ag-prevista' })));
+      return out; }).catch(() => []) };
+  }
+  return _projCache.p;
+}
+function esquecerProjecoes() { _projCache = null; }
+// formulário: o bloco "Repetir"
+function campoRepetir(t) {
+  const r = regraDaTarefa(t) || {}, tipo = r.tipo === 'semanal' && (Number(r.cada) || 1) > 1 ? 'semanas' : (r.tipo || '');
+  const dias = (r.dias || []).map(Number), base = t.prazo || hojeISO();
+  const md = r.tipo === 'mensal_dias' ? dias : [5, 20];
+  const sel = (id, pares, v) => '<select id="' + id + '">' + pares.map(([k, rot]) => '<option value="' + k + '"' + (String(k) === String(v) ? ' selected' : '') + '>' + rot + '</option>').join('') + '</select>';
+  const vis = (tipos) => ' data-rep-vis="' + tipos + '"';
+  return '<div class="inteiro tf-rep" id="tf-rep"><div class="tf-rep-linha"><span class="tf-rep-rot">Repetir</span>' + sel('tf-rep-tipo', TIPOS_REPETE, tipo) +
+      '<span' + vis('semanas') + '>a cada <input id="tf-rep-cada" type="number" min="2" max="12" value="' + (Number(r.cada) > 1 ? r.cada : 2) + '"> semanas</span></div>' +
+    '<div class="tf-rep-linha tf-rep-dias"' + vis('semanal semanas') + '>' + [1, 2, 3, 4, 5, 6, 7].map((k) => '<label class="tf-rep-dia"><input type="checkbox" data-rep-dia="' + k + '"' +
+      ((dias.length ? dias.includes(k) : isoDow(base) === k) ? ' checked' : '') + '>' + DIAS_SEM_CURTO[k] + '</label>').join('') + '</div>' +
+    '<div class="tf-rep-linha"' + vis('mensal_dias') + '>nos dias <input id="tf-rep-d1" type="number" min="1" max="31" value="' + (md[0] || 5) + '"> e <input id="tf-rep-d2" type="number" min="1" max="31" value="' + (md[1] || 20) + '"></div>' +
+    '<div class="tf-rep-linha"' + vis('mensal') + '>' + sel('tf-rep-modo', [['dia', 'no dia'], ['util', 'no dia útil nº'], ['semana', 'na']], r.modo || 'dia') +
+      '<input id="tf-rep-dia" type="number" min="1" max="31" data-rep-modo="dia" value="' + (r.tipo === 'mensal' && r.dia ? r.dia : Number(base.slice(8))) + '">' +
+      '<input id="tf-rep-n" type="number" min="1" max="23" data-rep-modo="util" value="' + (r.n || 5) + '">' +
+      '<span data-rep-modo="semana">' + sel('tf-rep-ordem', ORDENS_SEM, r.ordem || -1) + sel('tf-rep-dow', [1, 2, 3, 4, 5, 6, 7].map((k) => [k, DIAS_SEM_ISO[k]]), r.dow || 5) + ' do mês</span></div>' +
+    '<div class="tf-rep-linha"' + vis('anual') + '>em <input id="tf-rep-anual" type="date" value="' + (r.tipo === 'anual' ? base.slice(0, 4) + '-' + String(r.mes).padStart(2, '0') + '-' + String(r.dia).padStart(2, '0') : base) + '"></div>' +
+    '<div class="tf-rep-linha"' + vis('semanal semanas mensal_dias mensal anual') + '>a partir de <input id="tf-rep-ini" type="date" value="' + (r.inicio || base) + '"> até <input id="tf-rep-fim" type="date" value="' + (r.fim || '') + '" title="Deixe vazio para repetir sem fim"> <span class="sub">(fim opcional)</span></div>' +
+    '<label class="check tf-rep-linha"' + vis('semanal semanas mensal_dias mensal anual') + '><input type="checkbox" id="tf-rep-util"' + (r.util ? ' checked' : '') + '> Se cair em feriado ou fim de semana, passa para o dia útil seguinte</label>' +
+    '<div class="tf-rep-txt" id="tf-rep-txt" aria-live="polite"></div></div>';
+}
+function lerRepetir(j) {
+  const v = (id) => (j.querySelector('#' + id) || {}).value || '';
+  const tipo = v('tf-rep-tipo'); if (!tipo) return null;
+  const r = { tipo: tipo === 'semanas' ? 'semanal' : tipo };
+  if (tipo === 'semanal' || tipo === 'semanas') { r.dias = [...j.querySelectorAll('[data-rep-dia]:checked')].map((c) => Number(c.dataset.repDia)); if (tipo === 'semanas') r.cada = Math.max(2, Number(v('tf-rep-cada')) || 2); }
+  if (tipo === 'mensal_dias') r.dias = [...new Set([Number(v('tf-rep-d1')), Number(v('tf-rep-d2'))].filter((x) => x >= 1 && x <= 31))].sort((a, b) => a - b);
+  if (tipo === 'mensal') { r.modo = v('tf-rep-modo') || 'dia'; if (r.modo === 'dia') r.dia = Math.min(31, Math.max(1, Number(v('tf-rep-dia')) || 1));
+    if (r.modo === 'util') r.n = Math.min(23, Math.max(1, Number(v('tf-rep-n')) || 1)); if (r.modo === 'semana') { r.ordem = Number(v('tf-rep-ordem')) || -1; r.dow = Number(v('tf-rep-dow')) || 5; } }
+  if (tipo === 'anual') { const a = v('tf-rep-anual') || hojeISO(); r.mes = Number(a.slice(5, 7)); r.dia = Number(a.slice(8)); }
+  r.inicio = v('tf-rep-ini') || hojeISO();
+  if (v('tf-rep-fim')) r.fim = v('tf-rep-fim');
+  if ((j.querySelector('#tf-rep-util') || {}).checked) r.util = true;
+  return r;
+}
+function ligarRepetir(j, aoMudar) {
+  const box = j.querySelector('#tf-rep'); if (!box) return;
+  const pintar = () => {
+    const tipo = box.querySelector('#tf-rep-tipo').value, modo = box.querySelector('#tf-rep-modo').value;
+    box.querySelectorAll('[data-rep-vis]').forEach((x) => { x.hidden = !x.dataset.repVis.split(' ').includes(tipo); });
+    box.querySelectorAll('[data-rep-modo]').forEach((x) => { x.hidden = x.dataset.repModo !== modo; });
+    const r = lerRepetir(j), txt = box.querySelector('#tf-rep-txt');
+    if (!r) { txt.innerHTML = ''; return; }
+    if ((r.tipo === 'semanal' || r.tipo === 'mensal_dias') && !(r.dias || []).length) { txt.innerHTML = '<span class="msg-erro">Escolha pelo menos um dia.</span>'; return; }
+    const prox = proximasDatas(r, somarDias(r.inicio, -1), 6, E._feriados);
+    txt.innerHTML = '<b>' + esc(textoRepete({ recorrencia_regra: r })) + '</b><div class="sub">Próximas: ' + (prox.length ? prox.map((d) => '<span class="tf-rep-data">' + dataBR(d).slice(0, 5) + '</span>').join(' ') : 'nenhuma (confira o fim)') + '</div>';
+    if (aoMudar) aoMudar(r, prox);
+  };
+  box.addEventListener('change', () => { box._mexeu = true; pintar(); });
+  box.addEventListener('input', (ev) => { if (ev.target.type === 'number') { box._mexeu = true; pintar(); } });
+  feriados().then(pintar, pintar);
+  pintar();
+}
+// T3: editar uma tarefa de uma série → "só esta" ou "esta e as próximas"
+function perguntarSerie(mudouRegra) {
+  return new Promise((ok) => {
+    const j = abrirJanela({ titulo: '↻ Tarefa que se repete',
+      corpo: '<p>Esta tarefa faz parte de uma repetição. Onde aplicar a alteração?</p>' +
+        (mudouRegra ? '<p class="dica">A <b>regra de repetição</b> mudou: ela só vale em “esta e as próximas”.</p>' : ''),
+      rodape: '<button class="btn btn-o" type="button" data-cancelar>Cancelar</button><div class="acoes">' +
+        '<button class="btn btn-o" type="button" id="tf-serie-esta">Só esta</button><button class="btn btn-p" type="button" id="tf-serie-prox">Esta e as próximas</button></div>' });
+    let feito = false; const fim = (v) => { if (feito) return; feito = true; fecharJanela(j); ok(v); };
+    j._aoFechar = () => fim(null);
+    j.querySelector('[data-cancelar]').onclick = () => fim(null);
+    j.querySelector('#tf-serie-esta').onclick = () => fim('esta');
+    j.querySelector('#tf-serie-prox').onclick = () => fim('proximas');
+  });
+}
+
 function formTarefa(t, depois) {
   t = t || {};
   const novo = !t.id;
@@ -804,7 +967,6 @@ function formTarefa(t, depois) {
       campo('Início', '<input name="inicio" type="date" value="' + esc(t.inicio || (novo ? hojeISO() : '')) + '">') +
       campo('Prioridade', selectPares('prioridade', [['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa']], t.prioridade || 'media')) +
       campo('Status', selectPares('status', Object.entries(STATUS_TAREFA), t.status || 'pendente')) +
-      campo('Repetir', selectPares('recorrencia', [['', 'Não repete'], ['semanal', 'Toda semana'], ['mensal', 'Todo mês'], ['anual', 'Todo ano']], t.recorrencia || '')) +
       campo('Estimativa (horas)', '<input name="estimativa_horas" inputmode="decimal" value="' + (t.estimativa_horas != null ? esc(String(t.estimativa_horas).replace('.', ',')) : '') + '">') +
       campo('Etiquetas', '<input name="etiquetas" value="' + esc(t.etiquetas || '') + '" placeholder="Ex.: urgente, PGFN">') +
       '<label class="check"><input type="checkbox" name="exige_anexo"' + (t.exige_anexo ? ' checked' : '') + '> Exige documento anexado para concluir (ex.: protocolo)</label>' +
@@ -813,6 +975,8 @@ function formTarefa(t, depois) {
       '<div id="tf-carga" class="sub" style="align-self:end"></div>' +
       campo('Só começa depois de', '<select name="depende_de"><option value="">— nenhuma —</option>' + outras.map((x) => '<option value="' + x.id + '"' + (x.id === t.depende_de ? ' selected' : '') + '>' + esc(x.titulo) + '</option>').join('') + '</select>', 'inteiro') +
       campo('Processos vinculados', '<input name="processos_vinculados" value="' + esc(t.processos_vinculados || '') + '">', 'inteiro') +
+      // Backup 51 (T1): regra de repetição completa (o antigo "semanal / mensal / anual" continua valendo enquanto não for mexido)
+      campoRepetir(t) +
       campo('Descrição', '<textarea name="descricao" maxlength="4000">' + esc(t.descricao || '') + '</textarea>', 'inteiro') +
       campo('Observação', '<textarea name="obs" maxlength="2000">' + esc(t.obs || '') + '</textarea>', 'inteiro') +
       '<div class="inteiro secao">Checklist</div><div class="inteiro" id="tf-check"></div>' +
@@ -848,7 +1012,9 @@ function formTarefa(t, depois) {
   if (f.cliente_id) f.cliente_id.onchange = () => { const c = E.clientes.find((x) => x.id === f.cliente_id.value); if (c && c.grupo_id && !f.grupo.value) f.grupo.value = nomeGrupo(c.grupo_id); };
   j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
   f.onsubmit = (ev) => { ev.preventDefault(); j.querySelector('#btn-salvar-tf').click(); };
-  const aposSalvar = async () => { await (depois || recarregar)(); };
+  const aposSalvar = async () => { esquecerProjecoes(); await (depois || recarregar)(); };
+  // tarefa nova com repetição: o prazo vira a primeira data da regra
+  ligarRepetir(j, (r, prox) => { if (novo && j.querySelector('#tf-rep')._mexeu) { const p1 = proximasDatas(r, somarDias(r.inicio, -1), 1, E._feriados)[0]; if (p1) f.prazo.value = p1; } });
   j.querySelector('#btn-salvar-tf').onclick = (ev) => comBotao(ev.currentTarget, async () => {
     if (!f.titulo.value.trim()) throw new Error('Escreva a tarefa.');
     const est = f.estimativa_horas.value.trim() ? lerValor(f.estimativa_horas.value) : null;
@@ -856,14 +1022,33 @@ function formTarefa(t, depois) {
     if (f.prazo.value && f.prazo_fatal.value && f.prazo.value > f.prazo_fatal.value) throw new Error('O prazo interno está depois do prazo fatal.');
     const dados = { titulo: f.titulo.value.trim(), cliente_id: f.cliente_id.value || null, grupo_id: await grupoPorNome(f.grupo.value), responsavel: f.responsavel.value.trim(),
       participantes: lerParticipantes(j), prazo: f.prazo.value || null, prazo_fatal: f.prazo_fatal.value || null, inicio: f.inicio.value || null,
-      prioridade: f.prioridade.value, status: f.status.value, recorrencia: f.recorrencia.value, estimativa_horas: est, etiquetas: f.etiquetas.value.trim(),
+      prioridade: f.prioridade.value, status: f.status.value, estimativa_horas: est, etiquetas: f.etiquetas.value.trim(),
       depende_de: f.depende_de.value || null, exige_anexo: f.exige_anexo.checked, exige_revisao: f.exige_revisao.checked, revisor: f.revisor.value.trim(),
       processos_vinculados: f.processos_vinculados.value.trim(), descricao: f.descricao.value.trim(), obs: f.obs.value.trim(), checklist };
     if (!dados.grupo_id && dados.cliente_id) { const c = E.clientes.find((x) => x.id === dados.cliente_id); if (c) dados.grupo_id = c.grupo_id; }
     ['tarefa_pai_id', 'fluxo_id', 'contrato_id'].forEach((k) => { if (novo && t[k]) dados[k] = t[k]; });
     if (dados.exige_revisao && !dados.revisor) throw new Error('Informe quem revisa (ou desmarque "Exige revisão").');
     if (dados.status !== (t.status || 'pendente')) await validarDependencia(dados, dados.status);
-    if (novo) await q(sb.from('tarefas').insert(dados)); else await q(sb.from('tarefas').update(dados).eq('id', t.id));
+    // Backup 51: repetição — regra nova (série) ou a antiga, intocada
+    const box = j.querySelector('#tf-rep'), regra = lerRepetir(j), legado = !t.recorrencia_regra && ['semanal', 'mensal', 'anual'].includes(t.recorrencia || '');
+    if (regra && (regra.tipo === 'semanal' || regra.tipo === 'mensal_dias') && !(regra.dias || []).length) throw new Error('Repetir: escolha pelo menos um dia.');
+    if (legado && !box._mexeu) dados.recorrencia = t.recorrencia;
+    else if (regra || t.recorrencia_regra) { dados.recorrencia_regra = regra; dados.recorrencia = regra ? 'regra' : ''; }
+    else dados.recorrencia = '';
+    if (regra && !dados.prazo) dados.prazo = proximasDatas(regra, somarDias(regra.inicio, -1), 1, E._feriados)[0] || null;
+    let modo = 'esta';
+    if (!novo && t.recorrencia_serie) {
+      const canon = (o) => (o ? JSON.stringify(Object.keys(o).sort().reduce((a, k) => { a[k] = o[k]; return a; }, {})) : 'null');
+      const mudou = canon(t.recorrencia_regra) !== canon(dados.recorrencia_regra === undefined ? t.recorrencia_regra : dados.recorrencia_regra);
+      modo = await perguntarSerie(mudou); if (!modo) return;
+      if (modo === 'esta') { delete dados.recorrencia_regra; delete dados.recorrencia; }
+    }
+    if (modo === 'proximas') {
+      // T3: esta e as próximas — os campos vão para as abertas seguintes da série (cada uma com a própria data)
+      await q(sb.rpc('tarefa_serie_editar', { p_id: t.id, p: dados }));
+      const proprio = Object.assign({}, dados); delete proprio.recorrencia_regra; delete proprio.recorrencia;
+      await q(sb.from('tarefas').update(proprio).eq('id', t.id));
+    } else if (novo) await q(sb.from('tarefas').insert(dados)); else await q(sb.from('tarefas').update(dados).eq('id', t.id));
     if (dados.responsavel && (novo || dados.responsavel !== t.responsavel)) {
       await notificar(dados.responsavel, 'Nova tarefa para você: ' + dados.titulo, dados.prazo ? 'Prazo ' + dataBR(dados.prazo) : '', 'tarefas').catch(() => {});
     }
