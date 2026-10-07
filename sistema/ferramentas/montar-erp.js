@@ -635,17 +635,17 @@ const IC40D = {
   socios: '<path d="M21 12A9 9 0 1 1 12 3v9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/>',
   cal: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>'
 };
-trocar(`onclick="setFinTab('analise',this)"  >📊 Análise`, `onclick="setFinTab('analise',this)"  >` + IC40(IC40D.analise) + 'Análise');
-trocar(`onclick="setFinTab('receber',this)"  >📋 A Receber`, `onclick="setFinTab('receber',this)"  >` + IC40(IC40D.receber) + 'A Receber');
-trocar(`onclick="setFinTab('recebidos',this)" >✅ Recebidos`, `onclick="setFinTab('recebidos',this)" >` + IC40(IC40D.recebidos) + 'Recebidos');
-trocar(`onclick="setFinTab('prejuizo',this)"  >📉 Prejuízo / Créditos`, `onclick="setFinTab('prejuizo',this)"  >` + IC40(IC40D.prejuizo) + 'Prejuízo / Créditos');
-trocar(`onclick="setFinCTab('analise',this)" >📊 Análise`, `onclick="setFinCTab('analise',this)" >` + IC40(IC40D.analise) + 'Análise');
-trocar(`onclick="setFinCTab('receber',this)" >📥 A Receber`, `onclick="setFinCTab('receber',this)" >` + IC40(IC40D.receber) + 'A Receber');
-trocar(`onclick="setFinCTab('receita',this)" >💰 Receita`, `onclick="setFinCTab('receita',this)" >` + IC40(IC40D.receita) + 'Receita');
-trocar(`onclick="setFinCTab('apagar',this)"  >📤 A Pagar`, `onclick="setFinCTab('apagar',this)"  >` + IC40(IC40D.apagar) + 'A Pagar');
-trocar(`onclick="setFinCTab('despesa',this)" >💸 Despesa`, `onclick="setFinCTab('despesa',this)" >` + IC40(IC40D.despesa) + 'Despesa');
-trocar(`onclick="setFinCTab('caixa',this)"   >🏦 Composição de Caixa`, `onclick="setFinCTab('caixa',this)"   >` + IC40(IC40D.caixa) + 'Composição de Caixa');
-trocar(`onclick="setFinCTab('socios',this)"  >🤝 Distribuição de Lucros`, `onclick="setFinCTab('socios',this)"  >` + IC40(IC40D.socios) + 'Distribuição de Lucros');
+trocar(`onclick="setFinTab('analise',this)"  >📊 Análise`, `onclick="setFinTab('analise',this)"  >` + 'Análise');  // Backup 49: abas sem ícone, nomes iguais nas duas
+trocar(`onclick="setFinTab('receber',this)"  >📋 A Receber`, `onclick="setFinTab('receber',this)"  >` + 'A receber');  // Backup 49: abas sem ícone, nomes iguais nas duas
+trocar(`onclick="setFinTab('recebidos',this)" >✅ Recebidos`, `onclick="setFinTab('recebidos',this)" >` + 'Recebidos');  // Backup 49: abas sem ícone, nomes iguais nas duas
+trocar(`onclick="setFinTab('prejuizo',this)"  >📉 Prejuízo / Créditos`, `onclick="setFinTab('prejuizo',this)"  >` + 'Perdas');  // Backup 49: abas sem ícone, nomes iguais nas duas
+trocar(`onclick="setFinCTab('analise',this)" >📊 Análise`, `onclick="setFinCTab('analise',this)" >` + 'Análise');  // Backup 49: abas sem ícone, nomes iguais nas duas
+trocar(`onclick="setFinCTab('receber',this)" >📥 A Receber`, `onclick="setFinCTab('receber',this)" >` + 'A receber');  // Backup 49: abas sem ícone, nomes iguais nas duas
+trocar(`onclick="setFinCTab('receita',this)" >💰 Receita`, `onclick="setFinCTab('receita',this)" >` + 'Recebidos');  // Backup 49: abas sem ícone, nomes iguais nas duas
+trocar(`onclick="setFinCTab('apagar',this)"  >📤 A Pagar`, `onclick="setFinCTab('apagar',this)"  >` + 'A pagar');  // Backup 49: abas sem ícone, nomes iguais nas duas
+trocar(`onclick="setFinCTab('despesa',this)" >💸 Despesa`, `onclick="setFinCTab('despesa',this)" >` + 'Pagos');  // Backup 49: abas sem ícone, nomes iguais nas duas
+trocar(`onclick="setFinCTab('caixa',this)"   >🏦 Composição de Caixa`, `onclick="setFinCTab('caixa',this)"   >` + 'Caixa');  // Backup 49: abas sem ícone, nomes iguais nas duas
+trocar(`onclick="setFinCTab('socios',this)"  >🤝 Distribuição de Lucros`, `onclick="setFinCTab('socios',this)"  >` + 'Lucros');  // Backup 49: abas sem ícone, nomes iguais nas duas
 trocar(`title="Abrir calendário">📅</button>'`, `title="Abrir calendário">` + IC40(IC40D.cal).replace(/'/g, "\\'") + `</button>'`, 4);
 
 // Backup 40: cor da pessoa (Financeiro) reconhecida pelo primeiro nome, sem diferença de maiúscula/acento — igual ao resto do sistema
@@ -657,6 +657,22 @@ trocar(`  var c=_FA_PESSOA[String(nome||'').trim()];
 
 // Backup 41: Painel → "Em operação" vira "Operação" (cabe numa linha)
 trocar(`<th style="width:96px">Em operação</th>`, `<th style="width:84px">Operação</th>`);
+
+// Backup 49: Financeiro Jurídico — "Prejuízo" deixa de ser aba e vira o filtro "Perdas" dentro de Recebidos
+trocar("if(_finTab==='recebidos'){_finRecebidos(fin);return;}", "if(_finTab==='recebidos'){_finRecebidos(fin);_finSegPerdas();return;}", 1);
+trocar("if(_finTab==='prejuizo'){_finPrejuizo(fin);return;}", "if(_finTab==='prejuizo'){_finPrejuizo(fin);_finSegPerdas();return;}", 1);
+trocar("function setFinTab(tab,btn){", `function _finSegPerdas(){
+  var el=$('finContent'); if(!el||el.querySelector('#fin-perdas-seg')) return;
+  var d=document.createElement('div'); d.id='fin-perdas-seg'; d.className='fila-chips fin-perdas-seg';
+  d.innerHTML='<span class="fila-chips-rot">Mostrar</span>'
+    +'<button type="button" class="fila-chip'+(_finTab!=='prejuizo'?' ativo':'')+'" data-fin-perdas="0">Recebidos</button>'
+    +'<button type="button" class="fila-chip'+(_finTab==='prejuizo'?' ativo':'')+'" data-fin-perdas="1">Perdas (prejuízo)</button>';
+  d.addEventListener('click',function(ev){ var b=ev.target.closest('[data-fin-perdas]'); if(!b) return;
+    _finTab=b.getAttribute('data-fin-perdas')==='1'?'prejuizo':'recebidos'; renderFinanceiro(); });
+  el.insertBefore(d, el.firstChild);
+}
+function setFinTab(tab,btn){
+  if(tab==='prejuizo'){ btn=document.querySelector('#finTabBar [data-tab=recebidos]'); }`, 1);
 
 // 13. Cores de tokens.css (fonte única) depois do CSS do ERP; modo escuro lembrado neste aparelho.
 trocar('\n</head>\n', '\n<link rel="stylesheet" href="tokens.css">\n<link rel="stylesheet" href="tema-escuro.css">\n<link rel="stylesheet" href="design.css">\n' +

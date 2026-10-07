@@ -324,7 +324,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('Clientes: coluna Área (Jurídico / Contábil / Jurídico e contábil), sem ▸', /Área/.test(await p.textContent('#panel-clientes .cli-tabela thead')) && (await p.$$('#panel-clientes .cli-seta')).length === 0);
     await p.click('#panel-clientes tr[data-cli]:has-text("Alfa Comércio Ltda")'); await p.waitForSelector('.janela.ficha #fc-abas'); await p.waitForTimeout(1200);
     ok('clicar no cliente abre a ficha completa (sem expandir para baixo)', (await p.$$('#panel-clientes tr.cli-det')).length === 0);
-    ok('ficha do cliente abre com 13 abas e resumo', (await p.$$('.janela.ficha #fc-abas button')).length === 13 && /A receber/.test(await p.textContent('#fc-corpo')));
+    ok('ficha do cliente abre com 7 abas e resumo', (await p.$$('.janela.ficha #fc-abas button')).length === 7 && /A receber/.test(await p.textContent('#fc-corpo')));
     await foto(p, 'ficha');
     await p.click('#fc-abas [data-aba=contatos]'); await p.waitForSelector('[data-novo-sub]'); await p.click('[data-novo-sub]');
     await p.waitForSelector('#f-sub'); await p.waitForTimeout(250);
@@ -332,7 +332,9 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.fill('#f-sub [name=email]', 'fin@teste.com'); await p.check('#f-sub [name=recebe][value=cobranca]');
     await p.click('#btn-salvar-sub'); await p.waitForTimeout(1500);
     ok('ficha: cadastra contato financeiro que recebe boletos', sql("select finalidade||'|'||recebe_boletos from contatos") === 'financeiro|true' && /Fernanda Financeiro/.test(await p.textContent('#fc-corpo')));
-    for (const aba of ['enderecos', 'contas', 'socios', 'processos', 'contratos', 'financeiro', 'tarefas', 'fiscal']) {
+    ok('ficha: abas Resumo · Contatos e endereços · Sócios · Processos · Financeiro e contratos · Documentos · Histórico', (await p.$$eval('#fc-abas button', (b) => b.map((x) => x.textContent).join('|'))) === 'Resumo|Contatos e endereços|Sócios|Processos|Financeiro e contratos|Documentos|Histórico');
+    ok('ficha: Contatos e endereços junta contatos, endereços e contas', (await p.$$('#fc-corpo .ficha-parte')).length === 3 && /Endereços/.test(await p.textContent('#fc-corpo')) && /Contas bancárias/.test(await p.textContent('#fc-corpo')));
+    for (const aba of ['socios', 'processos', 'financeiro', 'historico', 'resumo']) {
       await p.click('#fc-abas [data-aba=' + aba + ']'); await p.waitForTimeout(700);
     }
     ok('ficha: processos, financeiro e dados fiscais do cliente', /Certidões/.test(await p.textContent('#fc-corpo')) && /Receita Federal/.test(await p.textContent('#fc-corpo')));
@@ -479,7 +481,8 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
 
     // ── CRM: oportunidade → funil → proposta → Ganhou ──
     await nav(p, 'crm'); await p.waitForTimeout(1500);
-    ok('CRM no menu e funil em duas linhas com 8 quadros (4 + 4), sem Contrato assinado e Lead perdido', await p.isVisible('#tn [data-ir=crm]') &&
+    ok('CRM no menu e funil com 4 colunas (Contato · Diagnóstico · Proposta · Negociação) + faixa Fechado/Perdido', await p.isVisible('#tn [data-ir=crm]') &&
+      (await p.$$eval('#panel-crm .cr-col-tit > span:first-child', (t) => t.map((x) => x.textContent).join('|'))) === 'Contato|Diagnóstico|Proposta|Negociação' && !!(await p.$('#panel-crm .cr-solte-ganho')) && !!(await p.$('#panel-crm .cr-solte-perdido')) && /Fechado \/ Perdido/.test(await p.textContent('#panel-crm')));
       (await p.$$('#panel-crm .cr-col')).length === 8 && (await p.$$('#panel-crm .cr-linha:first-child .cr-col')).length === 4 && !(await p.evaluate(() => [...document.querySelectorAll('#panel-crm .cr-col-tit')].some((t) => /Contrato assinado|Lead perdido/.test(t.textContent)))) && (await p.$$('#panel-crm .cr-linha')).length === 2 && /Aguardando assinatura/.test(await p.textContent('#panel-crm')));
     await p.click('#cr-nova'); await p.waitForSelector('#f-op'); await p.waitForTimeout(300);
     await p.fill('#f-op [name=titulo]', 'Planejamento tributário — Prospect'); await p.fill('#f-op [name=prospecto_nome]', 'Carla Prospect');
@@ -489,7 +492,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await salvarGs(p, '#btn-salvar-op');
     ok('oportunidade criada e próxima ação vira tarefa', sql("select valor_estimado from crm_oportunidades where titulo='Planejamento tributário — Prospect'") === '12000.00' &&
       sql("select count(*) from tarefas where titulo like 'CRM: Agendar diagnóstico%'") === '1');
-    await p.dragAndDrop('#panel-crm .cr-card:has-text("Planejamento tributário")', '#panel-crm .cr-col:has-text("Proposta enviada")'); await p.waitForTimeout(1500);
+    await p.dragAndDrop('#panel-crm .cr-card:has-text("Planejamento tributário")', '#panel-crm .cr-col[data-grupo=proposta]'); await p.waitForTimeout(1500);
     ok('arrastar no funil muda a etapa e a probabilidade', sql("select e.nome||'|'||o.probabilidade from crm_oportunidades o join crm_etapas e on e.id=o.etapa_id where o.titulo like 'Planejamento tributário%'") === 'Proposta enviada|60');
     await foto(p, 'crm-funil');
     await p.click('#panel-crm .cr-card:has-text("Planejamento tributário")'); await p.waitForSelector('#op-abas'); await p.waitForTimeout(500);
@@ -598,7 +601,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await foto(p, 'alertas-cnpj');
     await p.keyboard.press('Escape'); await p.waitForTimeout(250);
     { const idB = sql("select id from clientes where cpf_cnpj='22333444000172'");
-      await p.evaluate((id) => GS.abrirFicha(id, 'receita'), idB); await p.waitForSelector('#fc-corpo .dados'); await p.waitForTimeout(600);
+      await p.evaluate((id) => GS.abrirFicha(id, 'receita'), idB); await p.waitForSelector('#fc-cnpj-agora'); await p.waitForTimeout(600);
       const t = await p.textContent('#fc-corpo');
       ok('ficha do cliente: aba Cartão CNPJ com dados da Receita e histórico', /BETA SERVICOS LTDA/.test(t) && /inapta/i.test(t) && /Situação cadastral/.test(t) && /Rua Velha/.test(t), t.slice(0, 300));
       const n0 = Number(sql('select count(*) from cnpj_execucoes'));

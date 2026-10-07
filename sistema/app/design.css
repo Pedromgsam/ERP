@@ -1511,3 +1511,28 @@ body.gx-com-teste{padding-bottom:38px}
 .evo-card.evo-fechado .evo-ctl,.evo-card.evo-fechado .evo-resumo,.evo-card.evo-fechado .evo-cb,.evo-card.evo-fechado .evo-nota,.evo-card.evo-fechado #evo-sub{display:none}
 /* Painel no celular: o valor completo (não há "passar o mouse") */
 @media (max-width:600px){#tblExecRanking .er-v[title]{font-size:0}#tblExecRanking .er-v[title]::after{content:attr(title);font-size:12px}}
+/* Backup 49 (21-22): Financeiro — "Perdas" é filtro dentro de Recebidos (a aba some); chips iguais aos do Início */
+#finTabBar .fin-tab[data-tab="prejuizo"]{display:none!important}
+.fin-perdas-seg{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 12px}
+.fin-perdas-seg .fila-chips-rot{font:700 11px var(--font-ui);color:var(--text3);text-transform:uppercase;letter-spacing:.04em;min-width:64px}
+.fin-perdas-seg .fila-chip{font:600 12px var(--font-ui);padding:4px 11px;border-radius:var(--r-pill);border:1px solid var(--border-strong);background:var(--surface);color:var(--text2);cursor:pointer}
+.fin-perdas-seg .fila-chip.ativo{background:var(--ink);border-color:var(--ink);color:var(--surface)}
+.fin-tab .fa-ic{display:none}
+/* Backup 49 (26): cadastro rápido do cliente — só os campos marcados .cli-r; "Mais dados" volta às abas */
+.gs .cli-form.cli-rapido #cli-abas,.gs .cli-form.cli-rapido .cli-aba > :not(.cli-r){display:none!important}
+.gs .cli-form.cli-rapido .cli-aba{display:contents}
+.gs .cli-rapido-hd{display:flex;align-items:center;justify-content:space-between;gap:10px}
+/* Backup 49 (25): ficha do cliente — partes empilhadas dentro da mesma aba */
+.gs .ficha-parte:empty{display:none}
+.gs .ficha-parte + .ficha-parte{margin-top:18px;padding-top:14px;border-top:1px solid var(--border)}
+/* Backup 49 (23): reajuste anual dos contratos */
+.gs .ctr-reaj{margin-bottom:14px;border-left:3px solid var(--amber)}
+.gs .ctr-reaj > .sub{margin:0 16px 8px}
+.gs .ctr-reaj-tab td:nth-child(3),.gs .ctr-reaj-tab th:nth-child(3),.gs .ctr-reaj-tab td:nth-child(7){text-align:center}
+.gs .ctr-reaj-pct{width:64px;text-align:right}
+/* Backup 49 (24): Cobrar por WhatsApp ou e-mail */
+.gs .cb-canal{margin-bottom:12px}
+.gs .aviso-amarelo{background:var(--amber-lt);color:var(--amber-d);border:1px solid var(--amber-border)}
+/* Backup 49 (27): CRM em 5 etapas — selo da etapa de dentro no cartão + título da faixa final */
+.gs .cr-sub-etapa{display:inline-block;font:600 10.5px var(--font-ui);color:var(--text3);background:var(--surface3);border-radius:var(--r-pill);padding:1px 7px;margin-bottom:4px}
+.gs .cr-fins-tit{font:700 11px var(--font-ui);color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin:4px 0 6px}

@@ -7192,3 +7192,42 @@ begin
 end $$;
 revoke all on function public.previa_rascunho_texto(uuid, text, text) from public, anon;
 grant execute on function public.previa_rascunho_texto(uuid, text, text) to authenticated;
+
+-- ── Backup 49 (24): "Cobrar" também por e-mail, no modelo bonito, respeitando a chave "Recebe e-mails" do cliente ──
+create or replace function public.cobranca_email_html(p_lanc uuid, p_texto text) returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+declare l record; c record; v_ass text; h text;
+begin
+  select * into l from public.lancamentos where id = p_lanc;
+  if l.id is null then raise exception 'Lançamento não encontrado.'; end if;
+  if not public.pode(case when l.empresa = 'contabilidade' then 'financeiro_contab' else 'financeiro_juridico' end, 'editar') then
+    raise exception 'permission denied: sem acesso para cobrar este lançamento.'; end if;
+  select * into c from public.contato_do_cliente(l.cliente_id, l.grupo_id, 'cobranca') limit 1;
+  v_ass := 'Lembrete de pagamento — ' || l.descricao;
+  perform set_config('erp.conta_email', case when l.empresa = 'contabilidade' then 'contabilidade' else '' end, true);
+  h := public.email_cliente_html(v_ass, coalesce(c.nome, '-'), replace(public.esc_html(coalesce(p_texto, '')), E'\n', '<br>'),
+         jsonb_build_array(jsonb_build_object('descricao', l.descricao, 'vencimento', l.vencimento, 'valor', l.valor)), true);
+  perform set_config('erp.conta_email', '', true);
+  return jsonb_build_object('para', coalesce(c.email, ''), 'assunto', v_ass, 'html', h,
+    'recebe', coalesce((select recebe_email from public.clientes where id = l.cliente_id), true));
+end $$;
+revoke all on function public.cobranca_email_html(uuid, text) from public, anon;
+grant execute on function public.cobranca_email_html(uuid, text) to authenticated;
+create or replace function public.cobrar_por_email(p_lanc uuid, p_para text, p_texto text) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare l record; m jsonb; v_ref text := 'email_cm:' || p_lanc || ':' || to_char(now(), 'YYYYMMDDHH24MISS');
+begin
+  select * into l from public.lancamentos where id = p_lanc;
+  m := public.cobranca_email_html(p_lanc, p_texto);
+  if l.cliente_id is not null and not (m->>'recebe')::boolean then
+    raise exception 'Este cliente está marcado para NÃO receber e-mails. Para mandar, mude em Clientes → ✉ Recebe e-mails.';
+  end if;
+  if btrim(coalesce(p_para, '')) = '' then raise exception 'Informe o e-mail de destino.'; end if;
+  insert into public.email_fila (usuario_id, para, assunto, html, tipo, referencia, conta, cliente_id)
+  values (auth.uid(), btrim(p_para), m->>'assunto', m->>'html', 'cliente', v_ref,
+          public.conta_email(l.cliente_id, v_ref), l.cliente_id);
+  update public.lancamentos set cobranca = 'Cobrado' where id = p_lanc;
+  return jsonb_build_object('ref', v_ref, 'para', btrim(p_para));
+end $$;
+revoke all on function public.cobrar_por_email(uuid, text, text) from public, anon;
+grant execute on function public.cobrar_por_email(uuid, text, text) to authenticated;

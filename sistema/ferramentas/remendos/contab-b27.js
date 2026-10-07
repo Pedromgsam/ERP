@@ -26,10 +26,9 @@ function _fcPintarCorpo(){
   var atraso=vR.map(function(f){ return {f:f,t:'r'}; }).concat(vP.map(function(f){ return {f:f,t:'d'}; }))
     .sort(function(a,b){ return (pDate(a.f.vencimento)||0)-(pDate(b.f.vencimento)||0); });
   el.innerHTML =
-    '<div class="kpi-grid fc-kpis5 fc-kpis6">'
+    '<div class="kpi-grid fc-kpis5">'   // Backup 49: os mesmos 5 cartões do Jurídico (o "Pago" está na aba Pagos)
   +   kC('Recebido',fF(_fcSoma(rec)),rec.length+' recebimento(s) no período','cg','dg')
   +   kC('A receber',fF(_fcSoma(aRec)),aRec.length+' em aberto','cb','db')
-  +   kC('Pago',fF(_fcSoma(pag)),pag.length+' despesa(s) paga(s)','cr','')
   +   kC('A pagar',fF(_fcSoma(aPag)),aPag.length+' conta(s) em aberto','ca','')
   +   kC('Em atraso',fF(_fcSoma(vR)+_fcSoma(vP)),(vR.length+vP.length)+' vencido(s) · todos os meses','cr',(vR.length||vP.length)?'dr':'')
   +   (function(){ var pj=window._semPeriodo(_FC,function(){ return _fcFiltrar(['Prejuízo']); });   // Backup 38: prejuízo de todos os meses (igual ao Início)

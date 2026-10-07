@@ -55,6 +55,11 @@ const r = []; const ok = (n, c) => r.push([n, !!c]);
     ok('cadastro do cliente em abas (Empresa, Classificação, Contatos, Endereço, Situação, Observações)', (await p.locator('#cli-abas [data-cli-aba]').count()) === 6);
     await p.fill('#f-cli [name=nome]', 'Zeta Manual LTDA');
     await p.fill('#f-cli [name=cpf_cnpj]', '55666777000199');
+    ok('cliente novo abre no cadastro rápido (CPF/CNPJ, nome, grupo, e-mail, telefone)', await p.evaluate(() => {
+      const vis = (n) => { const x = document.querySelector('#f-cli [name=' + n + ']'); return !!x && x.offsetParent !== null; };
+      return vis('cpf_cnpj') && vis('nome') && vis('grupo_sel') && vis('email') && vis('telefone') && !vis('cep') && !vis('capag') && !vis('responsavel');
+    }));
+    await p.click('#cli-mais-dados');
     await p.click('[data-cli-aba=class]');
     await p.check('#f-cli [name=grupo_novo]'); await p.fill('#f-cli [name=grupo]', 'Grupo Zeta');
     await p.selectOption('#f-cli [name=responsavel]', 'Pedro');
@@ -216,7 +221,7 @@ const r = []; const ok = (n, c) => r.push([n, !!c]);
     await menu(p, 'clientes');
     ok('lista de clientes sem ▸ e com a coluna Área', (await p.locator('.cli-seta').count()) === 0 && /Área/.test(await p.textContent('.cli-tabela thead')));
     await p.click('[data-cli]'); await esperar(p, 1000);
-    ok('clicar no cliente abre a ficha 360°', (await p.locator('.janela.ficha #fc-abas button').count()) === 13);   // Backup 41: Evolução e PGFN saíram
+    ok('clicar no cliente abre a ficha 360°', (await p.locator('.janela.ficha #fc-abas button').count()) === 7);   // Backup 49: 7 abas   // Backup 41: Evolução e PGFN saíram
     await p.click('#fc-editar'); await esperar(p, 800);
     ok('equipe não tem botão excluir cliente', (await p.locator('#btn-excluir-cli').count()) === 0);
     await p.context().close();

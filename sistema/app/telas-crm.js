@@ -98,25 +98,27 @@ function cartaoOp(o, e, h) {
       '<button type="button" class="cr-at" data-ligacao="' + o.id + '" title="Registrar ligação (1 clique)" aria-label="Registrar ligação">📞</button>' +
       '<button type="button" class="cr-at cr-avancar" data-avancar="' + o.id + '" title="Avançar para a próxima etapa" aria-label="Avançar etapa">▸</button></span></div></div>';
 }
-function colunaCrm(e, ops, h) {
-  const cs = ops.filter((o) => o.etapa_id === e.id);
-  return '<div class="cr-col" data-etapa="' + e.id + '" title="' + esc(e.descricao || '') + '"><div class="cr-col-tit"><span>' + esc(e.nome) + '</span><span class="cr-col-n">' +
-    cs.length + '</span></div>' + (cs.length ? '<div class="cr-col-val">' + esc(brlCurto(soma(cs, (o) => o.valor_estimado))) + '</div>' : '') +
-    cs.map((o) => cartaoOp(o, e, h)).join('') +
+// Backup 49 (27): 5 etapas na tela — Contato · Diagnóstico · Proposta · Negociação · Fechado/Perdido (a faixa de baixo).
+// As etapas detalhadas continuam no banco (as automações dependem delas) e aparecem como selo no cartão.
+const GRUPOS_CRM = [['contato', 'Contato', /contato/i], ['diagnostico', 'Diagnóstico', /diagn/i], ['proposta', 'Proposta', /proposta|follow/i], ['negociacao', 'Negociação', /./]];
+function grupoEtapa(e) { return (GRUPOS_CRM.find((g) => g[2].test(e.nome || '')) || GRUPOS_CRM[3])[0]; }
+function colunaCrm(g, etapas, ops, h) {
+  const ids = new Set(etapas.map((e) => e.id)), cs = ops.filter((o) => ids.has(o.etapa_id)), varias = etapas.length > 1;
+  return '<div class="cr-col" data-etapa="' + (etapas[0] ? etapas[0].id : '') + '" data-grupo="' + g[0] + '" title="' + esc(etapas.map((e) => e.nome + (e.descricao ? ': ' + e.descricao : '')).join('\n')) + '">' +
+    '<div class="cr-col-tit"><span>' + g[1] + '</span><span class="cr-col-n">' + cs.length + '</span></div>' + (cs.length ? '<div class="cr-col-val">' + esc(brlCurto(soma(cs, (o) => o.valor_estimado))) + '</div>' : '') +
+    cs.map((o) => { const e = etapaDe(o.etapa_id); return cartaoOp(o, e, h).replace('<b>', (varias ? '<span class="cr-sub-etapa">' + esc(e.nome) + '</span>' : '') + '<b>'); }).join('') +
     (!cs.length ? '<div class="cr-vazia"><span class="cr-vazia-ic" aria-hidden="true">○</span>Nenhuma oportunidade<span class="sub">arraste um cartão para cá</span></div>' : '') + '</div>';
 }
-// Backup 17: "Em andamento" mostra só as etapas abertas — 4 em cima e 4 embaixo, todas do mesmo tamanho.
-// Contrato assinado e Lead perdido saem daqui (ficam nas abas); para mandar um cartão para lá, solte na faixa de baixo.
 function crmFunil(alvo) {
   const ops = filtrarOps(), h = hojeISO(), et = E._crmEtapas || [];
   const abertas = et.filter((e) => !e.final), fins = et.filter((e) => e.final);
-  const porLinha = Math.max(4, Math.ceil(abertas.length / 2)), cima = abertas.slice(0, porLinha), baixo = abertas.slice(porLinha);
-  alvo.innerHTML = '<div class="cr-linha" style="--n:' + porLinha + '">' + cima.map((e) => colunaCrm(e, ops, h)).join('') + '</div>' +
-    (baixo.length ? '<div class="cr-linha" style="--n:' + porLinha + '">' + baixo.map((e) => colunaCrm(e, ops, h)).join('') + '</div>' : '') +
+  const cols = GRUPOS_CRM.map((g) => [g, abertas.filter((e) => grupoEtapa(e) === g[0])]).filter(([, l]) => l.length);
+  alvo.innerHTML = '<div class="cr-linha" style="--n:' + cols.length + '">' + cols.map(([g, l]) => colunaCrm(g, l, ops, h)).join('') + '</div>' +
+    '<div class="cr-fins-tit">Fechado / Perdido</div>' +
     '<div class="cr-fins">' + fins.map((e) => '<div class="cr-solte cr-solte-' + e.final + '" data-etapa="' + e.id + '">' +
       (e.final === 'ganho' ? '✓ Solte aqui quando o cliente <b>assinar</b> — vai para a aba "Contratos assinados"' : '✕ Solte aqui quando <b>não fechar</b> — vai para a aba "Leads perdidos"') + '</div>').join('') + '</div>' +
-    '<p class="sub" style="margin-top:8px">Arraste o cartão para mudar a etapa (no celular, use ▸). <b>Contrato fechado</b> = o cliente disse sim (o sistema cria cadastro, contrato e onboarding). ' +
-    'Passe o mouse no nome da etapa para ver o que ela significa.</p>';
+    '<p class="sub" style="margin-top:8px">Arraste o cartão para mudar a etapa (no celular, use ▸, que também passa pelas etapas de dentro: Diagnóstico agendado → feito, Proposta enviada → follow-up, Negociação → Contrato fechado → Aguardando assinatura). ' +
+    '<b>Contrato fechado</b> = o cliente disse sim (o sistema cria cadastro, contrato e onboarding).</p>';
   let arrastando = null;
   alvo.querySelectorAll('.cr-card').forEach((c) => {
     c.addEventListener('dragstart', (ev) => { arrastando = c.dataset.op; ev.dataTransfer.setData('text/plain', c.dataset.op); c.classList.add('arrastando'); });
@@ -143,6 +145,7 @@ function crmFunil(alvo) {
 async function moverOp(opId, etapaId) {
   const o = E._crmOps.find((x) => x.id === opId), e = etapaDe(etapaId);
   if (!o || o.etapa_id === etapaId) return;
+  if (!e.final && !etapaDe(o.etapa_id).final && grupoEtapa(etapaDe(o.etapa_id)) === grupoEtapa(e)) return;   // Backup 49: solto na mesma coluna = não muda
   if (e.final === 'perdido') return janelaPerder(o);
   // "Contrato fechado" (ou pular direto para assinado) sem ter fechado ainda: primeiro cria cadastro e contrato
   if (!o.ganho_em && (e.nome === 'Contrato fechado' || e.final === 'ganho' || e.ordem > etapaFechado().ordem)) return janelaGanhar(o, null, e.final === 'ganho' || e.nome !== 'Contrato fechado' ? etapaId : null);

@@ -189,7 +189,7 @@ TELAS.documentos = async function () {
     '<div class="titulo-pag"><div><h1>Documentos</h1><p>Contratos, procurações, certidões, comprovantes e demais arquivos — guardados com acesso restrito</p></div>' +
     '<div class="acoes"><a class="btn btn-o" id="doc-ger" href="documentos/index.html" target="_blank" rel="noopener" title="Abre o sistema de geração de documentos numa aba nova">Gerar documentos ↗</a><button class="btn btn-p" id="doc-novo">+ Enviar documento</button></div></div>' +
     '<div class="filtros">' +
-    '<div class="segmento" id="doc-sit">' + [['ativos', 'Ativos'], ['vencendo', 'Vencendo / vencidos'], ['arquivados', 'Versões anteriores']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
+    '<div class="segmento" id="doc-sit">' + [['ativos', 'Ativos'], ['vencendo', 'Vencendo em 30 dias'], ['arquivados', 'Versões anteriores']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<select class="busca sel" id="doc-tipo"><option value="">Todos os tipos</option>' + TIPOS_DOC.map(([v, r]) => '<option value="' + v + '">' + r + '</option>').join('') + '</select>' +
     '<select class="busca sel" id="doc-grupo"><option value="">Todos os grupos</option>' + (E.grupos || []).map((g) => '<option value="' + g.id + '">' + esc(g.nome) + '</option>').join('') + '</select>' +
     '<select class="busca sel" id="doc-cli"><option value="">Todos os clientes</option>' + E.clientes.map((c) => '<option value="' + c.id + '">' + esc(c.nome) + '</option>').join('') + '</select>' +
@@ -210,7 +210,14 @@ async function pintarDocumentos(buscar) {
   const F = E.docs;
   document.querySelectorAll('#doc-sit button').forEach((b) => b.classList.toggle('ativo', b.dataset.v === F.situacao));
   if (buscar !== false) _docsTela = await buscarTodos(() => sb.from('documentos').select('*').order('criado_em', { ascending: false }));
-  const b = normalizar(F.busca), lim = somarDias(hojeISO(), 15);
+  const b = normalizar(F.busca), lim = somarDias(hojeISO(), 30);
+  // Backup 49 (28): selo do vencimento mais próximo (certidão, certificado…) direto na pasta e na subpasta
+  const seloPasta = (docs) => {
+    const v = docs.filter((d) => d.validade && d.validade <= lim).map((d) => d.validade).sort()[0]; if (!v) return '';
+    const dias = Math.round((new Date(v + 'T00:00:00') - new Date(hojeISO() + 'T00:00:00')) / 864e5), n = docs.filter((d) => d.validade && d.validade <= lim).length;
+    return ' <span class="pill ' + (dias < 0 ? 'vencido' : 'hoje') + ' doc-selo-venc" title="' + plural(n, 'documento vencendo', 'documentos vencendo') + ' em até 30 dias">' +
+      (dias < 0 ? 'vencido há ' + plural(-dias, 'dia', 'dias') : dias === 0 ? 'vence hoje' : 'vence em ' + plural(dias, 'dia', 'dias')) + '</span>';
+  };
   // grupo: o do documento ou o do cliente vinculado
   const grupoDe = (d) => d.grupo_id || ((E.clientes.find((c) => c.id === d.cliente_id) || {}).grupo_id) || '';
   const base = _docsTela.filter((d) => (F.situacao === 'arquivados' ? d.arquivado : !d.arquivado)
@@ -236,12 +243,12 @@ async function pintarDocumentos(buscar) {
     if (cs.length === 1 && !k) return tabelaDocumentos(docs, { vazio: '' });
     return '<div class="doc-subpastas">' + cs.map((c) => { const sk = k + '|' + c, ab = !!b || cs.length === 1 || !!F.subAbertas[sk];
       return '<details class="doc-sub" data-sub="' + esc(sk) + '"' + (ab ? ' open' : '') + '><summary><span class="doc-pasta-ic" aria-hidden="true">📂</span><b>' + esc(c ? nomeCliente(c) : 'Documentos do grupo') + '</b>' +
-        '<span class="sub">' + plural(S[c].length, 'documento', 'documentos') + '</span>' + (c ? linkDrive('cliente', c, (E.clientes.find((x) => x.id === c) || {}).drive_url) : '') +
+        '<span class="sub">' + plural(S[c].length, 'documento', 'documentos') + seloPasta(S[c]) + '</span>' + (c ? linkDrive('cliente', c, (E.clientes.find((x) => x.id === c) || {}).drive_url) : '') +
         '<span class="doc-pasta-ac"><button type="button" class="btn btn-o btn-mini" data-sub-enviar="' + esc(k) + '|' + esc(c) + '" title="Enviar já para esta empresa">+ Enviar</button></span></summary>' +
         (ab ? tabelaDocumentos(S[c], { vazio: '', semCliente: !!c }) : '') + '</details>'; }).join('') + '</div>';
   };
   $('doc-corpo').innerHTML = lista.length ? '<div class="doc-pastas">' + ks.map((k) => '<details class="card doc-pasta" data-pasta="' + esc(k) + '"' + (aberto(k) ? ' open' : '') + '><summary><span class="doc-pasta-ic" aria-hidden="true">📁</span><b>' + esc(nomeG(k)) + '</b>' +
-      '<span class="sub">' + plural(G[k].length, 'documento', 'documentos') + (G[k].some((d) => d.validade && d.validade <= lim) ? ' · <span class="pill vencido">vencendo</span>' : '') + '</span>' +
+      '<span class="sub">' + plural(G[k].length, 'documento', 'documentos') + seloPasta(G[k]) + '</span>' +
       (k ? linkDrive('grupo', k, (E.grupos.find((g) => g.id === k) || {}).drive_url) : '') +
       '<span class="doc-pasta-ac"><button type="button" class="btn btn-p btn-mini" data-pasta-enviar="' + esc(k) + '" title="Enviar documento já para este grupo">+ Enviar</button></span></summary>' +
       (aberto(k) ? subpastas(k, G[k]) : '') + '</details>').join('') + '</div>'
