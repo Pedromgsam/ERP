@@ -870,8 +870,8 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       sql("update acordos set forma_pagamento='pix', pix='chave-pix@teste.com' where id='" + idPix + "'");
       ok('Acordos: forma de pagamento vale para o acordo inteiro (mesmo processo, devedor e credor)', sql("select count(distinct forma_pagamento) from acordos a where (processo,devedor,credor)=(select processo,devedor,credor from acordos where id='" + idPix + "')") === '1');
       await p.evaluate((id) => window.GS.enviarAcordosSelecionados([id]), idPix); await p.waitForSelector('#gs-raiz .ge-janela', { timeout: 8000 }).catch(() => {});
-      ok('Acordo por PIX: texto objetivo (saudação, sem "Seguem") e a chave PIX no item', /^(Bom dia|Boa tarde|Boa noite)!/.test(await p.inputValue('#ge-texto')) && !/Seguem/.test(await p.inputValue('#ge-texto')) &&
-        /chave-pix@teste\.com/.test(await p.textContent('#gs-raiz .ge-itens')) && !/Depois de pagar/.test(await p.textContent('#gs-raiz .ge-msg')) && !(await p.isVisible('#gs-raiz .ge-anexos')));
+      ok('Acordo por PIX: saudação + texto genérico do Backup 52 e a chave PIX no item', /^(Bom dia|Boa tarde|Boa noite)!\n\nSeguem as parcelas de acordo com vencimento neste mês ou em atraso\./.test(await p.inputValue('#ge-texto')) &&
+        /PIX: chave-pix@teste\.com/.test(await p.inputValue('#ge-texto')) && !/Depois de pagar/.test(await p.textContent('#gs-raiz .ge-msg')) && !(await p.isVisible('#gs-raiz .ge-anexos')));
       ok('Backup 45: Acordos → Emitir só com "Rascunho no Gmail" (sem prévia, sem WhatsApp, sem "Enviar e-mail")', !!(await p.$('#gs-raiz #ge-rascunho')) && !(await p.$('#gs-raiz #ge-enviar')) &&
         !(await p.$('#gs-raiz #ge-zap')) && !(await p.$('#gs-raiz #ge-previa')) && !(await p.$('#gs-raiz #ge-tel')));
       await p.evaluate(() => { while (document.querySelector('#janelas .fundo')) window.GS.fecharJanela(); });
@@ -1569,7 +1569,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       const noPainel = reqs.slice();
       await nav(p, 'parcelamentos'); await p.waitForTimeout(2500);
       ok('B51 V5: abrir o Painel não recarrega nada; abrir Parcelamentos relê SÓ os parcelamentos (com a baixa)', !noPainel.some((x) => /^GET (clientes|processos|lancamentos|parcelas)\?/.test(x)) &&
-        reqs.some((x) => /^GET parcelas\?/.test(x)) && !reqs.some((x) => /^GET (clientes|processos|lancamentos)\?/.test(x)) &&
+        reqs.some((x) => /^POST rpc\/parcelamentos_json/.test(x)) && !reqs.some((x) => /^GET (clientes|processos|lancamentos)\?/.test(x)) &&
         await p.evaluate(() => (DB.parcelamentos.find((x) => x.numero === '777') || {}).parcelasPagas >= 2), noPainel.join(' ; ') + ' || ' + reqs.join(' ; '));
       sql("update parcelas set pago=false, data_pagamento=null, emitida_em=null, emissao='' where id='" + id2 + "'");
       // R3: clicar na parcela da Planilha abre o mesmo cartão de envio; "Pago" no cartão depois do vencimento
@@ -1671,7 +1671,9 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       ok('B52 C1: Início → Semana mostra a mesma semana de Tarefas (colunas Seg a Sex, atrasadas ao lado)', (await p.$$('#ini-semana .sm-col[data-dia]')).length >= 5 && !!(await p.$('#ini-semana .fila-atrasadas')));
       { const card = await p.$('#ini-semana .sm-card:has-text("Arrastar B52")');
         const destino = await p.evaluate(() => { const cs = [...document.querySelectorAll('#ini-semana .sm-col[data-dia]')].filter((c) => c.dataset.dia !== 'sem' && !c.classList.contains('sm-hoje')); return cs.length ? cs[cs.length - 1].dataset.dia : ''; });
-        if (card && destino) { await p.dragAndDrop('#ini-semana .sm-card:has-text("Arrastar B52")', '#ini-semana .sm-col[data-dia="' + destino + '"]'); await p.waitForTimeout(1500); }
+        if (card && destino) { await p.evaluate((d) => { const c = [...document.querySelectorAll('#ini-semana .sm-card')].find((x) => /Arrastar B52/.test(x.textContent)), col = document.querySelector('#ini-semana .sm-col[data-dia="' + d + '"]'), dt = new DataTransfer();
+          c.dispatchEvent(new DragEvent('dragstart', { dataTransfer: dt, bubbles: true })); col.dispatchEvent(new DragEvent('dragover', { dataTransfer: dt, bubbles: true, cancelable: true }));
+          col.dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true })); }, destino); await p.waitForTimeout(1500); }
         ok('B52 C1: arrastar a tarefa para outro dia remarca o prazo', !!card && !!destino && sql("select prazo from tarefas where titulo='Arrastar B52'") === destino, destino + ' / ' + sql("select prazo from tarefas where titulo='Arrastar B52'")); }
       ok('B52 C1: a escolha (Semana) fica guardada por pessoa', sql("select preferencias->'fila'->>'vista' from perfis where email='pedro@teste'") === 'semana');
       // C3: a Lista acompanha o conteúdo (sem espaço vazio embaixo)
@@ -1703,7 +1705,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
         reqs.some((x) => /rpc\/registrar_busca_publicacoes/.test(x)) && /Busca feita/.test(await p.textContent('#gs-raiz #aviso')), reqs.join(' ; '));
       // C6/C7: código PIX na parcela do acordo e texto genérico
       const acB = sql("select id from acordos where credor='Carlos Credor' limit 1");
-      sql("update acordos set pix='chave@credor.teste', pix_codigo='', forma_pagamento='boleto', pago=false, email_em=null where id='" + acB + "'");
+      sql("update acordos set pix='chave@credor.teste', pix_codigo='', forma_pagamento='boleto', pago=false where id='" + acB + "'");
       await p.evaluate(() => { window.__copiado = ''; navigator.clipboard.writeText = (t) => { window.__copiado = t; return Promise.resolve(); }; });
       await p.evaluate((id) => window.GS.gerarGuias('acordos', { ids: [id] }), acB); await p.waitForSelector('#gs-raiz .ge-janela'); await p.waitForTimeout(500);
       ok('B52 C6: cada parcela de acordo tem o campo "Código PIX (copia e cola)"', !!(await p.$('#gs-raiz .ge-it .ge-pix')));
@@ -1733,7 +1735,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       const idPg = await p.evaluate(() => { const b = document.querySelector('#rt-corpo [data-pl-p]'); return b && b.dataset.plP; });
       if (idPg) { await p.click('[data-pl-p="' + idPg + '"]'); await p.waitForTimeout(1500); }
       reqs.length = 0; await nav(p, 'parcelamentos'); await p.waitForTimeout(2000);
-      ok('B52 O3: Parcelamentos depois de um Pago relê só o parcelamento que mudou (uma consulta)', !!idPg && reqs.some((x) => /rpc\/parcelamentos_json/.test(x)) && !reqs.some((x) => /^GET parcelas\?/.test(x)) &&
+      ok('B52 O3: Parcelamentos depois de um Pago relê só o parcelamento que mudou (uma consulta)', !!idPg && reqs.some((x) => /rpc\/parcelamentos_json/.test(x)) && !reqs.some((x) => /^POST rpc\/parcelamentos_json/.test(x)) &&
         await p.evaluate((id) => (DB.parcelamentos || []).some((pa) => (pa.parcelas || []).some((x) => x._id === id && x.pagamento === 'SIM')), idPg), reqs.join(' ; '));
       if (idPg) sql("update parcelas set pago=false, data_pagamento=null where id='" + idPg + "'");
       // O1: Clientes com a lista guardada abre sem esperar o banco
