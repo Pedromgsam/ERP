@@ -136,7 +136,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
 
     // ── Honorários: tabela no formato do Gestão (menos colunas) ──
     await nav(p, 'financeiro');
-    await p.evaluate(() => { const b = [...document.querySelectorAll('#panel-financeiro button')].find((x) => /A Receber/.test(x.textContent)); if (b) b.click(); });
+    await p.evaluate(() => { const b = [...document.querySelectorAll('#panel-financeiro button')].find((x) => /A Receber/i.test(x.textContent)); if (b) b.click(); });
     await p.waitForTimeout(1200);
     const cab = await p.$$eval('#panel-financeiro .gx-tab-gs table thead th', (l) => l.map((t) => t.textContent.trim()).filter(Boolean));
     ok('A Receber no padrão de pagamento (Quem, Grupo, Descrição, Valor, Vencimento, Atraso)', cab.join('|') === 'Quem|Grupo / Favorecido|Descrição|Valor|Vencimento|Atraso', cab.join('|'));
@@ -483,7 +483,6 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await nav(p, 'crm'); await p.waitForTimeout(1500);
     ok('CRM no menu e funil com 4 colunas (Contato · Diagnóstico · Proposta · Negociação) + faixa Fechado/Perdido', await p.isVisible('#tn [data-ir=crm]') &&
       (await p.$$eval('#panel-crm .cr-col-tit > span:first-child', (t) => t.map((x) => x.textContent).join('|'))) === 'Contato|Diagnóstico|Proposta|Negociação' && !!(await p.$('#panel-crm .cr-solte-ganho')) && !!(await p.$('#panel-crm .cr-solte-perdido')) && /Fechado \/ Perdido/.test(await p.textContent('#panel-crm')));
-      (await p.$$('#panel-crm .cr-col')).length === 8 && (await p.$$('#panel-crm .cr-linha:first-child .cr-col')).length === 4 && !(await p.evaluate(() => [...document.querySelectorAll('#panel-crm .cr-col-tit')].some((t) => /Contrato assinado|Lead perdido/.test(t.textContent)))) && (await p.$$('#panel-crm .cr-linha')).length === 2 && /Aguardando assinatura/.test(await p.textContent('#panel-crm')));
     await p.click('#cr-nova'); await p.waitForSelector('#f-op'); await p.waitForTimeout(300);
     await p.fill('#f-op [name=titulo]', 'Planejamento tributário — Prospect'); await p.fill('#f-op [name=prospecto_nome]', 'Carla Prospect');
     await p.fill('#f-op [name=prospecto_empresa]', 'Empresa Prospect Ltda'); await p.fill('#f-op [name=prospecto_email]', 'carla@prospect.com');
@@ -957,7 +956,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await nav(p, 'hoje'); await p.waitForTimeout(1500); await p.evaluate(() => { const x = document.getElementById('gx-pop-avisos'); if (x) x.remove(); });
     ok('Início (B49): a fila tem só Lista e Mês (Semana e Dia ficam em Tarefas → Calendário)', (await p.$$eval('#panel-hoje [data-fila-vista]', (bs) => bs.map((b) => b.dataset.filaVista).join(','))) === 'lista,mes');
     await p.click('#panel-hoje [data-fila-vista=mes]'); await p.waitForTimeout(1200);
-    ok('Início: fila vira calendário do mês e a escolha fica guardada', !!(await p.$('#panel-hoje .fila-cal')) &&
+    ok('Início: fila vira calendário do mês e a escolha fica guardada', !!(await p.$('#panel-hoje .fila-cal-area .calendario')) &&
       sql("select preferencias->'fila'->>'vista' from perfis where email='pedro@teste'") === 'mes', sql("select preferencias::text from perfis where email='pedro@teste'"));
     // Backup 36: agendar compromisso direto na agenda + legenda de cores
     ok('Início: agenda com "+ Agendar" e legenda de cores', !!(await p.$('#panel-hoje [data-agendar]')) && !!(await p.$('#panel-hoje .ag-leg')));
@@ -1392,7 +1391,8 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       ok('Financeiro: depois de copiar a cobrança, o lançamento fica "Cobrado"', sql("select cobranca from lancamentos where id='" + lid + "'") === 'Cobrado');
       await p.evaluate(() => { while (document.querySelector('#janelas .fundo')) window.GS.fecharJanela(); }); }
     // Backup 42: Administração → E-mail mostra o check-list do que falta para o e-mail sair
-    await nav(p, 'admin'); await p.waitForSelector('#adm-abas'); await p.click('#adm-abas [data-aba=email]'); await p.waitForSelector('#email-check-bd .lista-ficha', { timeout: 10000 }).catch(() => {});
+    await nav(p, 'admin'); await p.waitForSelector('#adm-abas'); await p.click('#adm-abas [data-aba=email]'); await p.waitForSelector('#em-abas'); await p.click('#em-abas [data-em-aba=config]');   // Backup 49: o check-list fica em E-mail → Configuração
+    await p.waitForSelector('#email-check-bd .lista-ficha', { timeout: 10000 }).catch(() => {});
     { const tx = await p.textContent('#email-check-bd').catch(() => '');
       ok('E-mail: check-list (serviço, função, envio automático, pausa, destino e último problema)', /1\. Serviço de envio/.test(tx) && /2\. Função erp-emails/.test(tx) && /Modo teste|clientes de verdade/.test(tx), tx.slice(0, 200)); }
     // Backup 41: ⋯ sem "Relatório em PDF"
@@ -1484,7 +1484,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       await p.click('#fin-perdas-seg [data-fin-perdas="1"]'); await p.waitForTimeout(800);
       ok('B49: o filtro Perdas mostra o prejuízo e mantém Recebidos aceso', await p.evaluate(() => _finTab === 'prejuizo') && await p.evaluate(() => document.querySelector('#finTabBar [data-tab=recebidos]').classList.contains('active')) &&
         !!(await p.$('#fin-perdas-seg [data-fin-perdas="1"].ativo')));
-      await nav(p, 'financeiroContab'); await p.waitForTimeout(1200);
+      await nav(p, 'financeiroContab'); await p.evaluate(() => setFinCTab('analise', document.querySelector('#finCTabBar [data-tab=analise]'))); await p.waitForTimeout(1500);
       ok('B49: Contabilidade com os mesmos 5 cartões do Jurídico', (await p.$$('#finCContent .kpi-grid.fc-kpis5 > *')).length === 5);
       // Contratos: reajuste anual
       const ctrR = sql("insert into contratos (cliente_id, descricao, modalidade, forma_valor, valor_mensal, data_contrato, inicio_vigencia, status) values ('" + cliQ + "', 'Consultoria B49 reajuste', 'consultoria', 'fixo', 1000, current_date - 360, current_date - 360, 'Ativo') returning id").split('\n')[0];

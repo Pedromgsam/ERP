@@ -1544,3 +1544,5 @@ body.gx-barra-topo :is(th,td):is(.col-venc,.col-data,.col-sit,.col-dias):not(#tb
 /* Backup 49 (34): filtros em chips — os segmentos das barras de filtro viram pílulas separadas (mesmo desenho dos chips do Início) */
 body.gx-barra-topo .gs .filtros .segmento{display:flex;flex-wrap:wrap;gap:6px;background:transparent;border:0;padding:0;box-shadow:none}
 body.gx-barra-topo .gs .filtros .segmento button{border:1px solid var(--border-strong);border-radius:var(--r-pill);padding:4px 11px;font:600 12px var(--font-ui);background:var(--surface);color:var(--text2);min-height:0}
+/* Backup 49: atalhos do Início no celular — quebram a linha em vez de passar da tela */
+@media(max-width:600px){.gs .ini-at{white-space:normal;max-width:100%;flex-wrap:wrap;text-align:left}}
