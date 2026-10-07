@@ -7260,3 +7260,294 @@ end $$;
 revoke all on function public.definir_email_destino(uuid, text) from public, anon;
 grant execute on function public.definir_email_destino(uuid, text) to authenticated;
 -- ═══ fim do Backup 50 ═══
+
+-- ═══════════════════════════════ Backup 51 ═══════════════════════════════
+-- V1/V7 — Rotina rápida: "Guias do mês" e "Planilha" pedem tudo numa consulta só, enxuta.
+-- Volta: os parcelamentos; as parcelas em aberto, as do mês e as dos últimos 3 meses (mais a última de cada parcelamento,
+-- para a Planilha prever as próximas); e, por parcelamento, o resumo das antigas que ficaram de fora (quantas, quantas pagas,
+-- o total pago e o último valor lançado nelas). O histórico inteiro de um parcelamento só é lido quando alguém pede ("ver").
+create index if not exists parcelas_pa_pago_venc on public.parcelas (parcelamento_id, pago, vencimento);
+create index if not exists parcelas_abertas_venc on public.parcelas (vencimento) where not pago;
+create index if not exists parcelamentos_grupo on public.parcelamentos (grupo_id);
+create or replace function public.rotina_parcelas_dados() returns jsonb
+language sql stable security definer set search_path = public as $$
+  -- janela: dos últimos 3 meses até 3 meses à frente, mais as em atraso (de qualquer data) e a última de cada parcelamento.
+  -- Cada parcela vai como lista curta [id, número, vencimento, pago, data_pagamento, emitida_em, emissao, valor] dentro do parcelamento.
+  with lim as (select (date_trunc('month', current_date) - interval '3 months')::date de,
+                      (date_trunc('month', current_date) + interval '4 months - 1 day')::date ate),
+  ult as (select distinct on (parcelamento_id) id from public.parcelas order by parcelamento_id, vencimento desc nulls last, id),
+  marcadas as (
+    select x.*, (x.vencimento is null or (x.vencimento between lim.de and lim.ate) or (not x.pago and x.vencimento < lim.ate) or x.id in (select id from ult)) vis,
+           x.vencimento < lim.de antiga
+      from public.parcelas x, lim
+  ),
+  fora as (
+    select parcelamento_id,
+           count(*) filter (where antiga) n, count(*) filter (where antiga and pago) pagas,
+           coalesce(sum(valor) filter (where antiga and pago), 0) total_pago,
+           (array_agg(valor order by vencimento desc) filter (where antiga and valor > 0))[1] ultimo_valor,
+           count(*) filter (where not antiga) depois
+      from marcadas where not vis group by parcelamento_id
+  ),
+  lista as (
+    select parcelamento_id, jsonb_agg(jsonb_build_array(id, numero, vencimento, pago, data_pagamento, emitida_em, emissao, valor) order by vencimento nulls last, id) ps
+      from marcadas where vis group by parcelamento_id
+  )
+  select jsonb_build_object(
+    'hoje', current_date,
+    'parcelamentos', coalesce((select jsonb_agg(jsonb_build_object('id', p.id, 'empresa', p.empresa, 'cnpj', p.cnpj, 'local', p.local, 'natureza', p.natureza,
+        'numero', p.numero, 'total_parcelas', p.total_parcelas, 'valor_ultima_parcela', p.valor_ultima_parcela, 'grupo_id', p.grupo_id,
+        'emitimos_guia', p.emitimos_guia, 'obs', p.obs, 'grupo_nome', g.nome,
+        'ps', coalesce(l.ps, '[]'::jsonb),
+        'fora', case when f.parcelamento_id is not null then jsonb_build_object('n', f.n, 'pagas', f.pagas, 'total_pago', f.total_pago, 'ultimo_valor', f.ultimo_valor, 'depois', f.depois) end)
+        order by p.id)
+      from public.parcelamentos p left join public.grupos g on g.id = p.grupo_id left join lista l on l.parcelamento_id = p.id left join fora f on f.parcelamento_id = p.id), '[]'::jsonb));
+$$;
+revoke all on function public.rotina_parcelas_dados() from public, anon, authenticated;
+-- a permissão é conferida UMA vez (antes: a regra de acesso rodava em cada uma das milhares de linhas)
+create or replace function public.rotina_parcelas_json() returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not public.pode('juridico') then raise exception 'permission denied: sem acesso ao Jurídico (parcelamentos).'; end if;
+  return public.rotina_parcelas_dados();
+end $$;
+revoke all on function public.rotina_parcelas_json() from public, anon;
+grant execute on function public.rotina_parcelas_json() to authenticated;
+
+-- R1 — placar do mês da Rotina (quatro números, uma consulta)
+create or replace function public.rotina_placar() returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+declare ini date := date_trunc('month', current_date)::date; fim date := (date_trunc('month', current_date) + interval '1 month - 1 day')::date; r jsonb;
+begin
+  if not public.eh_equipe() then raise exception 'permission denied'; end if;
+  with guias as (
+    select x.* from public.parcelas x join public.parcelamentos p on p.id = x.parcelamento_id
+     where p.emitimos_guia is distinct from false and ((x.vencimento between ini and fim) or (not x.pago and x.vencimento < ini))
+  ), pags as (select x.* from public.parcelas x where x.vencimento between ini and current_date),
+  conf as (select distinct on (registro_id) registro_id, quando from public.rotina_conferencias where area = 'passivo' order by registro_id, quando desc)
+  select jsonb_build_object(
+    'guias_total', (select count(*) from guias),
+    'guias_feitas', (select count(*) from guias where pago or emitida_em is not null or emissao ~* 'sim|emitid'),
+    'pag_total', (select count(*) from pags),
+    'pag_feitos', (select count(*) from pags where pago),
+    'passivo_total', (select count(*) from public.clientes),
+    'passivo_feitos', (select count(*) from public.clientes c join conf on conf.registro_id = c.id where conf.quando >= ini),
+    'proc_total', (select count(*) from public.processos),
+    'proc_feitos', (select count(*) from public.processos where ultima_movimentacao_em >= current_date - 15)) into r;
+  return r;
+end $$;
+revoke all on function public.rotina_placar() from public, anon;
+grant execute on function public.rotina_placar() to authenticated;
+
+-- R4 — Processos: "✓ Conferir o grupo todo (sem alteração)" registra "sem novidade" em cada processo do grupo, de uma vez
+create or replace function public.conferir_processos_grupo(p_ids uuid[]) returns int
+language plpgsql security invoker set search_path = public as $$
+declare n int;
+begin
+  insert into public.processo_movimentacoes (processo_id, data, tipo, descricao)
+  select x, current_date, 'sem_novidade', '✓ Sem novidade' from unnest(coalesce(p_ids, '{}')) x;
+  get diagnostics n = row_count;
+  return n;
+end $$;
+revoke all on function public.conferir_processos_grupo(uuid[]) from public, anon;
+grant execute on function public.conferir_processos_grupo(uuid[]) to authenticated;
+
+-- T1 — regra de repetição completa (tarefas.recorrencia_regra, jsonb):
+--   {"tipo":"semanal","dias":[1,4],"cada":1}         toda semana nos dias (1 = segunda … 7 = domingo); "cada":2 = a cada 2 semanas
+--   {"tipo":"mensal_dias","dias":[5,20]}              2× ao mês nos dias escolhidos (dia 31 em mês curto = último dia)
+--   {"tipo":"mensal","modo":"dia","dia":10}           todo mês no dia N
+--   {"tipo":"mensal","modo":"util","n":5}             todo mês no N.º dia útil
+--   {"tipo":"mensal","modo":"semana","ordem":-1,"dow":5}  toda última sexta (ordem 1..4 = 1ª..4ª; -1 = última)
+--   {"tipo":"anual","mes":3,"dia":15}                 todo ano
+--   e em todas: "inicio":"2026-10-13", "fim":"2027-06-30" (opcional), "util":true (feriado/fim de semana → próximo dia útil; usa a tabela feriados)
+-- As tarefas de uma mesma regra formam uma "série" (recorrencia_serie). As antigas (semanal/mensal/anual sem regra) continuam como eram.
+alter table public.tarefas add column if not exists recorrencia_regra jsonb;
+alter table public.tarefas add column if not exists recorrencia_serie uuid;
+create unique index if not exists tarefas_serie_prazo on public.tarefas (recorrencia_serie, prazo) where recorrencia_serie is not null;
+
+create or replace function public.recorrencia_datas(r jsonb, p_de date, p_ate date) returns setof date
+language plpgsql stable set search_path = public as $$
+declare
+  t text := coalesce(r->>'tipo', '');
+  ini date := coalesce(nullif(r->>'inicio', '')::date, p_de);
+  fim date := nullif(r->>'fim', '')::date;
+  util boolean := coalesce((r->>'util')::boolean, false);
+  cada int := greatest(1, coalesce(nullif(r->>'cada', '')::int, 1));
+  dias int[] := coalesce((select array_agg(x::int) from jsonb_array_elements_text(case when jsonb_typeof(r->'dias') = 'array' then r->'dias' else '[]'::jsonb end) x), '{}');
+  semana0 date := ini - (extract(isodow from ini)::int - 1);
+  d date; m date; c date; ult int; k int; lista date[] := '{}';
+begin
+  if t = '' or p_ate < p_de then return; end if;
+  if t = 'mensal' and coalesce(r->>'modo', 'dia') = 'util' then
+    -- N.º dia útil de cada mês (já cai em dia útil: não precisa adiar)
+    m := date_trunc('month', greatest(ini, p_de - 10))::date;
+    while m <= p_ate loop
+      select x::date into c from generate_series(m, (m + interval '1 month - 1 day')::date, '1 day') x
+       where public.dia_util(x::date) order by x offset greatest(1, coalesce(nullif(r->>'n', '')::int, 1)) - 1 limit 1;
+      if c is not null then lista := lista || c; end if;
+      m := (m + interval '1 month')::date;
+    end loop;
+  else
+    for d in select x::date from generate_series(greatest(ini, p_de - 10), p_ate, '1 day') x loop
+      ult := extract(day from (date_trunc('month', d) + interval '1 month - 1 day'))::int;
+      k := extract(day from d)::int;
+      c := null;
+      if t = 'semanal' then
+        if extract(isodow from d)::int = any(dias) and ((d - semana0) / 7) % cada = 0 then c := d; end if;
+      elsif t = 'mensal_dias' then
+        if exists (select 1 from unnest(dias) z where least(z, ult) = k) then c := d; end if;
+      elsif t = 'mensal' and coalesce(r->>'modo', 'dia') = 'dia' then
+        if least(greatest(1, coalesce(nullif(r->>'dia', '')::int, 1)), ult) = k then c := d; end if;
+      elsif t = 'mensal' and r->>'modo' = 'semana' then
+        if extract(isodow from d)::int = coalesce(nullif(r->>'dow', '')::int, 5)
+           and ((coalesce(nullif(r->>'ordem', '')::int, 1) = -1 and k + 7 > ult) or (k - 1) / 7 + 1 = coalesce(nullif(r->>'ordem', '')::int, 1)) then c := d; end if;
+      elsif t = 'anual' then
+        if extract(month from d)::int = coalesce(nullif(r->>'mes', '')::int, 1) and least(coalesce(nullif(r->>'dia', '')::int, 1), ult) = k then c := d; end if;
+      end if;
+      if c is not null and (fim is null or c <= fim) then
+        if util then while not public.dia_util(c) loop c := c + 1; end loop; end if;
+        lista := lista || c;
+      end if;
+    end loop;
+  end if;
+  return query select distinct z from unnest(lista) z where z >= greatest(p_de, ini) and z <= p_ate order by 1;
+end $$;
+grant execute on function public.recorrencia_datas(jsonb, date, date) to authenticated;
+
+-- as próximas N datas depois de uma data (prévia do formulário e projeção da agenda)
+create or replace function public.recorrencia_proximas(r jsonb, p_depois date, p_n int default 8) returns date[]
+language sql stable set search_path = public as $$
+  select coalesce((select array_agg(z order by z) from (select z from public.recorrencia_datas(r, p_depois + 1, p_depois + 800) z order by z limit greatest(1, least(coalesce(p_n, 8), 60))) s), '{}');
+$$;
+grant execute on function public.recorrencia_proximas(jsonb, date, int) to authenticated;
+
+-- tarefa nova com regra: vira o começo de uma série; sem prazo, o prazo é a primeira data da regra
+create or replace function public.tarefa_serie_inicio() returns trigger language plpgsql set search_path = public as $$
+begin
+  if new.recorrencia_regra is not null and jsonb_typeof(new.recorrencia_regra) = 'object' and coalesce(new.recorrencia_regra->>'tipo', '') <> '' then
+    new.recorrencia := 'regra';
+    if new.recorrencia_serie is null then new.recorrencia_serie := new.id; end if;
+    if new.prazo is null then
+      new.prazo := (public.recorrencia_proximas(new.recorrencia_regra, coalesce(nullif(new.recorrencia_regra->>'inicio', '')::date, current_date) - 1, 1))[1];
+    end if;
+  elsif tg_op = 'UPDATE' and old.recorrencia = 'regra' and new.recorrencia_regra is null then
+    new.recorrencia := '';   -- tirou a repetição
+  end if;
+  return new;
+end $$;
+drop trigger if exists tarefa_serie_inicio on public.tarefas;
+create trigger tarefa_serie_inicio before insert or update of recorrencia_regra on public.tarefas for each row execute function public.tarefa_serie_inicio();
+
+-- T2 — garante as ocorrências da série: cria (sem repetir) as que caem até 7 dias à frente e, se nenhuma estiver aberta,
+-- a próxima. Concluir uma não mexe nas outras; a ocorrência nasce na data dela mesmo que a anterior continue aberta.
+create or replace function public.recorrencia_garantir(p_serie uuid) returns int
+language plpgsql security definer set search_path = public as $$
+declare m public.tarefas; ultimo date; d date; n int := 0; aberta boolean;
+begin
+  select * into m from public.tarefas where recorrencia_serie = p_serie and recorrencia_regra is not null order by prazo desc nulls last, criado_em desc limit 1;
+  if not found or m.status = 'cancelada' and not exists (select 1 from public.tarefas where recorrencia_serie = p_serie and status <> 'cancelada') then return 0; end if;
+  select max(prazo) into ultimo from public.tarefas where recorrencia_serie = p_serie;
+  aberta := exists (select 1 from public.tarefas where recorrencia_serie = p_serie and status not in ('concluida', 'cancelada'));
+  for d in select z from public.recorrencia_datas(m.recorrencia_regra, coalesce(ultimo, current_date - 1) + 1, greatest(coalesce(ultimo, current_date), current_date) + 800) z order by z loop
+    exit when n >= 60 or (d > current_date + 7 and aberta);
+    insert into public.tarefas (titulo, grupo_id, cliente_id, contrato_id, processos_vinculados, prioridade, responsavel, status, inicio, prazo,
+      descricao, participantes, etiquetas, checklist, recorrencia, recorrencia_regra, recorrencia_serie, exige_anexo, exige_revisao, revisor, estimativa_horas,
+      tipo_agenda, hora, hora_fim, local, com_quem, obs)
+    values (m.titulo, m.grupo_id, m.cliente_id, m.contrato_id, m.processos_vinculados, m.prioridade, m.responsavel, 'pendente', d, d,
+      m.descricao, m.participantes, m.etiquetas,
+      (select coalesce(jsonb_agg(jsonb_set(e, '{feito}', 'false')), '[]') from jsonb_array_elements(coalesce(m.checklist, '[]')) e),
+      'regra', m.recorrencia_regra, p_serie, m.exige_anexo, m.exige_revisao, m.revisor, m.estimativa_horas,
+      m.tipo_agenda, m.hora, m.hora_fim, m.local, m.com_quem, m.obs)
+    on conflict (recorrencia_serie, prazo) where recorrencia_serie is not null do nothing;
+    n := n + 1; aberta := true;
+  end loop;
+  return n;
+end $$;
+revoke all on function public.recorrencia_garantir(uuid) from public, anon;
+grant execute on function public.recorrencia_garantir(uuid) to authenticated;
+
+create or replace function public.tarefa_serie_depois() returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if pg_trigger_depth() = 1 and new.recorrencia_serie is not null and new.recorrencia_regra is not null then
+    perform public.recorrencia_garantir(new.recorrencia_serie);
+  end if;
+  return null;
+end $$;
+drop trigger if exists tarefa_serie_depois on public.tarefas;
+create trigger tarefa_serie_depois after insert or update of status, recorrencia_regra on public.tarefas for each row execute function public.tarefa_serie_depois();
+
+-- todo dia: todas as séries em dia (a ocorrência da semana que vem já nasce, mesmo sem concluir a anterior)
+create or replace function public.recorrencias_em_dia() returns int
+language plpgsql security definer set search_path = public as $$
+declare s uuid; n int := 0;
+begin
+  for s in select distinct recorrencia_serie from public.tarefas where recorrencia_serie is not null and recorrencia_regra is not null and status <> 'cancelada' loop
+    n := n + public.recorrencia_garantir(s);
+  end loop;
+  return n;
+end $$;
+revoke all on function public.recorrencias_em_dia() from public, anon;
+do $$
+begin
+  perform cron.unschedule(jobid) from cron.job where jobname = 'erp_recorrencias';
+  perform cron.schedule('erp_recorrencias', '5 9 * * *', 'select public.recorrencias_em_dia()');
+exception when others then
+  raise notice 'Agendador indisponível: as próximas ocorrências nascem quando a tarefa é concluída ou editada.';
+end $$;
+
+-- a regra "efetiva" de uma tarefa: a nova (recorrencia_regra) ou a antiga convertida (semanal / mensal / anual a partir do prazo)
+create or replace function public.regra_da_tarefa(t public.tarefas) returns jsonb language sql immutable as $$
+  select case
+    when t.recorrencia_regra is not null then t.recorrencia_regra
+    when t.prazo is null then null
+    when t.recorrencia = 'semanal' then jsonb_build_object('tipo', 'semanal', 'dias', jsonb_build_array(extract(isodow from t.prazo)::int), 'inicio', t.prazo)
+    when t.recorrencia = 'mensal' then jsonb_build_object('tipo', 'mensal', 'modo', 'dia', 'dia', extract(day from t.prazo)::int, 'inicio', t.prazo)
+    when t.recorrencia = 'anual' then jsonb_build_object('tipo', 'anual', 'mes', extract(month from t.prazo)::int, 'dia', extract(day from t.prazo)::int, 'inicio', t.prazo)
+  end;
+$$;
+
+-- T2 — próximas ocorrências (até 8 por série), depois da última que já existe: calendário do ERP e Google Agenda (erp-agenda).
+-- Não duplica: começa depois da última tarefa real da série. A tarefa "modelo" é a aberta mais adiantada (clique abre ela).
+create or replace function public.recorrencias_projecao(p_n int default 8) returns jsonb
+language sql stable security invoker set search_path = public as $$
+  with series as (
+    select t as tr, public.regra_da_tarefa(t) regra,
+           row_number() over (partition by coalesce(t.recorrencia_serie, t.id) order by (t.status in ('concluida', 'cancelada')), t.prazo desc nulls last) k,
+           max(t.prazo) over (partition by coalesce(t.recorrencia_serie, t.id)) ultimo
+      from public.tarefas t
+     where (t.recorrencia_serie is not null and t.recorrencia_regra is not null) or (t.recorrencia in ('semanal', 'mensal', 'anual') and t.prazo is not null and t.status not in ('concluida', 'cancelada'))
+  )
+  select coalesce(jsonb_agg(jsonb_build_object('serie', coalesce((s.tr).recorrencia_serie, (s.tr).id), 'tarefa_id', (s.tr).id, 'titulo', (s.tr).titulo,
+      'responsavel', (s.tr).responsavel, 'participantes', (s.tr).participantes, 'revisor', (s.tr).revisor, 'prioridade', (s.tr).prioridade,
+      'tipo_agenda', (s.tr).tipo_agenda, 'hora', (s.tr).hora, 'hora_fim', (s.tr).hora_fim, 'local', (s.tr).local, 'cliente_id', (s.tr).cliente_id,
+      'grupo_id', (s.tr).grupo_id, 'chave_regra', (s.tr).chave_regra, 'processos_vinculados', (s.tr).processos_vinculados, 'descricao', (s.tr).descricao,
+      'regra', s.regra, 'datas', public.recorrencia_proximas(s.regra, s.ultimo, p_n))), '[]'::jsonb)
+    from series s where s.k = 1 and (s.tr).status not in ('concluida', 'cancelada') and s.regra is not null;
+$$;
+grant execute on function public.recorrencias_projecao(int) to authenticated;
+
+-- T3 — editar "esta e as próximas": aplica os campos nesta e nas abertas seguintes da série (cada uma mantém a própria data);
+-- se a regra mudou, as próximas ainda não começadas saem e nascem de novo pela regra nova.
+create or replace function public.tarefa_serie_editar(p_id uuid, p jsonb) returns int
+language plpgsql security invoker set search_path = public as $$
+declare t public.tarefas; d jsonb := coalesce(p, '{}'::jsonb) - 'id' - 'prazo' - 'prazo_fatal' - 'inicio' - 'status' - 'checklist' - 'recorrencia_serie' - 'recorrencia' - 'depende_de'; n int;
+begin
+  select * into t from public.tarefas where id = p_id;
+  if not found then raise exception 'Tarefa não encontrada.'; end if;
+  if t.recorrencia_serie is null then raise exception 'Esta tarefa não faz parte de uma série.'; end if;
+  if d ? 'recorrencia_regra' and (d->'recorrencia_regra') is distinct from t.recorrencia_regra then
+    delete from public.tarefas where recorrencia_serie = t.recorrencia_serie and id <> p_id and status = 'pendente' and prazo > t.prazo;
+  end if;
+  update public.tarefas x set (titulo, cliente_id, grupo_id, responsavel, participantes, prioridade, estimativa_horas, etiquetas, exige_anexo, exige_revisao,
+      revisor, processos_vinculados, descricao, obs, recorrencia_regra, tipo_agenda, hora, hora_fim, local)
+    = (select y.titulo, y.cliente_id, y.grupo_id, y.responsavel, y.participantes, y.prioridade, y.estimativa_horas, y.etiquetas, y.exige_anexo, y.exige_revisao,
+              y.revisor, y.processos_vinculados, y.descricao, y.obs, y.recorrencia_regra, y.tipo_agenda, y.hora, y.hora_fim, y.local
+         from jsonb_populate_record(x, d) y)
+   where x.recorrencia_serie = t.recorrencia_serie and x.status not in ('concluida', 'cancelada') and x.prazo >= t.prazo;
+  get diagnostics n = row_count;
+  perform public.recorrencia_garantir(t.recorrencia_serie);
+  return n;
+end $$;
+revoke all on function public.tarefa_serie_editar(uuid, jsonb) from public, anon;
+grant execute on function public.tarefa_serie_editar(uuid, jsonb) to authenticated;
+-- ═══ fim do Backup 51 ═══

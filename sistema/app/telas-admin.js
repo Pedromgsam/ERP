@@ -612,13 +612,14 @@ async function salvarPagamento(form, chave) {
   await q(sb.from('configuracoes').upsert({ chave, valor: v }, { onConflict: 'chave' }));
 }
 // Backup 49: E-mail em três partes — quem recebe, o que espera revisão e a configuração (o que já existia)
+// Backup 51 (E4): "Para revisar" e "Últimos e-mails" viraram a CAIXA DE SAÍDA (filtros Para revisar · Na fila · Enviados · Com erro)
 async function admEmail(corpo) {
-  E.adm.emailAba = E.adm.emailAba || 'quem';
-  corpo.innerHTML = '<div class="segmento em-abas" id="em-abas">' + [['quem', 'Quem recebe'], ['revisar', 'Para revisar'], ['config', 'Configuração']]
+  E.adm.emailAba = E.adm.emailAba === 'revisar' ? 'saida' : (E.adm.emailAba || 'quem');
+  corpo.innerHTML = '<div class="segmento em-abas" id="em-abas">' + [['quem', 'Quem recebe'], ['saida', 'Caixa de saída'], ['config', 'Configuração']]
     .map(([v, r]) => '<button type="button" data-em-aba="' + v + '"' + (E.adm.emailAba === v ? ' class="ativo"' : '') + '>' + r + '</button>').join('') + '</div><div id="em-corpo"></div>';
   corpo.querySelector('#em-abas').onclick = (ev) => { const b = ev.target.closest('[data-em-aba]'); if (b) { E.adm.emailAba = b.dataset.emAba; admEmail(corpo); } };
   const alvo = corpo.querySelector('#em-corpo');
-  await ({ quem: admEmailQuem, revisar: admEmailRevisar, config: admEmailConfig })[E.adm.emailAba](alvo);
+  await ({ quem: admEmailQuem, saida: admEmailSaida, config: admEmailConfig })[E.adm.emailAba](alvo);
 }
 async function admEmailQuem(corpo) {
   const linhas = await q(sb.rpc('quem_recebe_emails'));
@@ -661,31 +662,52 @@ async function admEmailQuem(corpo) {
   };
   pinta();
 }
-async function admEmailRevisar(corpo) {
-  const [ret, liga] = await Promise.all([
-    q(sb.from('email_fila').select('id, para, para_original, assunto, html, criado_em, tipo, usuario_id').eq('status', 'retido').order('criado_em', { ascending: false }).limit(300)).catch(() => []),
-    q(sb.rpc('emails_revisar')).catch(() => false)]);
-  corpo.innerHTML = '<div class="card"><div class="card-hd">Revisar antes de sair<span class="sub" style="margin-left:auto;font-weight:400">vale para os e-mails automáticos ao cliente (lembretes, cobranças, avisos)</span></div><div class="card-bd">' +
-    '<label class="au-chave em-rev-chave"><input type="checkbox" role="switch" id="em-revisar"' + (liga ? ' checked' : '') + '><span class="au-trilho" aria-hidden="true"></span> ' +
-      (liga ? '<b>Ligado:</b> os automáticos esperam aqui o seu clique.' : '<b>Desligado:</b> os automáticos saem sozinhos.') + '</label>' +
-    '<p class="sub" style="margin-top:6px">Os e-mails que você manda na hora (guias, acordos, rascunhos) não passam por aqui.</p></div></div>' +
-    '<div class="card"><div class="card-hd">Esperando revisão <span class="sub">' + ret.length + '</span>' +
-      (ret.length ? '<div class="acoes" style="margin-left:auto"><button class="btn btn-o btn-mini" id="em-desc-todos">Descartar todos</button><button class="btn btn-p btn-mini" id="em-env-todos">✉ Enviar todos (' + ret.length + ')</button></div>' : '') + '</div>' +
-    (ret.length ? '<div class="tabela-wrap"><table class="em-rev"><thead><tr><th>Para</th><th>Assunto</th><th data-tipo="data">Criado</th><th></th></tr></thead><tbody>' +
-      ret.map((m) => '<tr><td>' + esc(m.para_original || m.para) + '</td><td>' + esc(m.assunto) + '</td><td>' + dataBR(m.criado_em) + '</td>' +
-        '<td class="acoes-l"><button class="btn btn-o btn-mini" data-em-ver="' + m.id + '">👁 Ver</button> <button class="btn btn-p btn-mini" data-em-env="' + m.id + '">Enviar</button> <button class="btn btn-x btn-mini" data-em-desc="' + m.id + '" title="Não enviar">✕</button></td></tr>').join('') +
-      '</tbody></table></div>' : '<div class="card-bd">' + vazio('Nada esperando revisão.') + '</div>') + '</div>';
+const FILTROS_SAIDA = [['revisar', 'Para revisar', ['retido']], ['fila', 'Na fila', ['pendente']], ['enviados', 'Enviados', ['enviado', 'rascunho_salvo']], ['erro', 'Com erro', ['erro']]];
+async function admEmailSaida(corpo) {
+  E.adm.saidaF = E.adm.saidaF || 'revisar';
+  const [lista, liga, st] = await Promise.all([
+    q(sb.from('email_fila').select('id, para, para_original, assunto, status, erro, criado_em, enviado_em, tipo, referencia').order('criado_em', { ascending: false }).limit(300)).catch(() => []),
+    q(sb.rpc('emails_revisar')).catch(() => false),
+    q(sb.rpc('status_config_email')).catch(() => ({}))]);
+  const nDe = (k) => lista.filter((m) => FILTROS_SAIDA.find((f) => f[0] === k)[2].includes(m.status)).length;
+  const F = FILTROS_SAIDA.find((f) => f[0] === E.adm.saidaF) || FILTROS_SAIDA[0], ver = lista.filter((m) => F[2].includes(m.status));
+  const ret = lista.filter((m) => m.status === 'retido');
+  const ST = { enviado: 'pago', pendente: 'aberto', erro: 'vencido', cancelado: 'neutro', retido: 'hoje', rascunho: 'vencido', rascunho_salvo: 'pago' };
+  corpo.innerHTML = '<div class="card em-saida"><div class="card-hd">📤 Caixa de saída<span class="sub">' + nDe('fila') + ' na fila · ' + (st.enviados_7d || 0) + ' enviados em 7 dias · ' + nDe('erro') + ' com erro</span>' +
+      '<label class="au-chave em-rev-chave" style="margin-left:auto"><input type="checkbox" role="switch" id="em-revisar"' + (liga ? ' checked' : '') + '><span class="au-trilho" aria-hidden="true"></span> ' +
+      (liga ? '<b>Revisar antes de sair:</b> ligado' : '<b>Revisar antes de sair:</b> desligado') + '</label></div><div class="card-bd">' +
+    '<div class="fila-chips em-saida-f" role="group" aria-label="Mostrar">' + FILTROS_SAIDA.map(([k, r]) => chipFiltro('data-saida-f', k, r + ' (' + nDe(k) + ')', E.adm.saidaF === k)).join('') +
+      (E.adm.saidaF === 'revisar' && ret.length ? '<span class="acoes" style="margin-left:auto"><button class="btn btn-o btn-mini" id="em-desc-todos">Descartar todos</button><button class="btn btn-p btn-mini" id="em-env-todos">✉ Enviar todos (' + ret.length + ')</button></span>' : '') + '</div>' +
+    (E.adm.saidaF === 'revisar' ? '<p class="sub" style="margin:6px 0 0">' + (liga ? 'Os automáticos ao cliente (lembretes, cobranças, avisos) esperam aqui o seu clique.' : 'Desligado: os automáticos saem sozinhos.') + ' Os e-mails que você manda na hora (guias, acordos, rascunhos) não passam por aqui.</p>' : '') +
+    '</div>' +
+    (ver.length ? '<div class="tabela-wrap"><table class="em-rev em-saida-tab"><thead><tr><th data-tipo="data">Quando</th><th>Para</th><th>Assunto</th><th>Situação</th><th></th></tr></thead><tbody>' +
+      ver.map((m) => '<tr><td class="mono">' + dataHoraBR(m.enviado_em || m.criado_em) + '</td><td>' + esc(m.para_original || m.para) + '</td><td>' + esc(m.assunto) + '</td>' +
+        '<td><span class="pill ' + (ST[m.status] || 'neutro') + '">' + esc(m.status === 'rascunho_salvo' ? 'rascunho no Gmail' : m.status) + '</span>' + (m.erro ? '<div class="sub">' + esc(explicarErroEmail(m.erro)) + '</div>' : '') + '</td>' +
+        '<td class="acoes-l"><button class="btn btn-o btn-mini" data-em-ver="' + m.id + '" title="Prévia: como o cliente recebe">👁</button>' +
+          (m.status === 'retido' ? ' <button class="btn btn-p btn-mini" data-em-env="' + m.id + '">Enviar</button> <button class="btn btn-x btn-mini" data-em-desc="' + m.id + '" title="Não enviar">✕</button>' : '') +
+          (m.status === 'erro' ? ' <button class="btn btn-p btn-mini" data-em-tentar="' + m.id + '" title="Volta para a fila e tenta enviar agora">↻ Tentar de novo</button>' : '') + '</td></tr>').join('') +
+      '</tbody></table></div>' : '<div class="card-bd">' + vazio({ revisar: 'Nada esperando revisão.', fila: 'Nada na fila: tudo já saiu.', enviados: 'Nenhum e-mail enviado ainda.', erro: 'Nenhum e-mail com erro. 🎉' }[F[0]]) + '</div>') + '</div>';
   const acao = (ids, a) => async () => { const n = await q(sb.rpc('emails_retidos_acao', { p_ids: ids, p_acao: a }));
     if (a === 'liberar' && n) await enviarEmailAgora(null).catch(() => null);
-    aviso('✓ ' + plural(n, 'e-mail', 'e-mails') + (a === 'liberar' ? ' liberado(s) para envio.' : ' descartado(s).')); await admEmailRevisar(corpo); };
-  corpo.querySelector('#em-revisar').onchange = (ev) => comBotao(ev.target, async () => { await q(sb.rpc('salvar_emails_revisar', { p: ev.target.checked })); await admEmailRevisar(corpo); });
+    aviso('✓ ' + plural(n, 'e-mail', 'e-mails') + (a === 'liberar' ? ' liberado(s) para envio.' : ' descartado(s).')); await admEmailSaida(corpo); };
+  corpo.querySelectorAll('[data-saida-f]').forEach((b) => b.onclick = () => { E.adm.saidaF = b.dataset.saidaF; admEmailSaida(corpo); });
+  corpo.querySelector('#em-revisar').onchange = (ev) => comBotao(ev.target, async () => { await q(sb.rpc('salvar_emails_revisar', { p: ev.target.checked })); await admEmailSaida(corpo); });
   const todos = ret.map((m) => m.id);
   if (corpo.querySelector('#em-env-todos')) corpo.querySelector('#em-env-todos').onclick = (ev) => comBotao(ev.currentTarget, acao(todos, 'liberar'));
   if (corpo.querySelector('#em-desc-todos')) corpo.querySelector('#em-desc-todos').onclick = (ev) => { if (confirm('Descartar os ' + todos.length + ' e-mails? Eles não serão enviados.')) comBotao(ev.currentTarget, acao(todos, 'descartar')); };
   corpo.querySelectorAll('[data-em-env]').forEach((b) => b.onclick = () => comBotao(b, acao([b.dataset.emEnv], 'liberar')));
   corpo.querySelectorAll('[data-em-desc]').forEach((b) => b.onclick = () => comBotao(b, acao([b.dataset.emDesc], 'descartar')));
-  corpo.querySelectorAll('[data-em-ver]').forEach((b) => b.onclick = () => { const m = ret.find((x) => x.id === b.dataset.emVer); verEmailHtml(m.assunto, m.html); });
+  corpo.querySelectorAll('[data-em-tentar]').forEach((b) => b.onclick = () => comBotao(b, async () => {
+    const m = lista.find((x) => x.id === b.dataset.emTentar);
+    await q(sb.rpc('email_reenviar', { p_id: m.id }));
+    const r = await enviarEmailAgora(m.referencia || null, m.para).catch((e) => ({ ok: false, msg: e.message }));
+    aviso((r && r.ok ? '✓ ' : '⚠ ') + ((r && r.msg) || 'E-mail de volta na fila.'), !(r && r.ok)); await admEmailSaida(corpo); }));
+  corpo.querySelectorAll('[data-em-ver]').forEach((b) => b.onclick = () => comBotao(b, async () => {
+    const m = lista.find((x) => x.id === b.dataset.emVer), [h] = await q(sb.from('email_fila').select('html').eq('id', m.id));
+    verEmailHtml(m.assunto, (h && h.html) || '<p style="font-family:sans-serif">Sem prévia guardada para este e-mail.</p>'); }));
 }
+// (Backup 49) "Para revisar" — continua existindo: agora é o filtro "Para revisar" da Caixa de saída
+async function admEmailRevisar(corpo) { E.adm.saidaF = 'revisar'; return admEmailSaida(corpo); }
 // mostra o e-mail como o cliente vai ver
 function verEmailHtml(titulo, html) {
   const j = abrirJanela({ titulo: '👁 ' + titulo, larga: true, corpo: '<iframe class="em-previa" sandbox="" title="Prévia do e-mail"></iframe>',
@@ -694,118 +716,116 @@ function verEmailHtml(titulo, html) {
   j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
   return j;
 }
+// Backup 51 (E1–E3): três passos, um embaixo do outro — 1. Contas que enviam (Escritório e Contabilidade lado a lado, o mesmo formulário) ·
+// 2. Dados para pagamento (lado a lado) · 3. Testar (um botão só). Gmail é o padrão; SMTP/Resend ficam no "Avançado". Os botões técnicos foram para "⋯ Ferramentas".
+function formConta(id, rotUsuario, rotRem) {
+  return '<form id="' + id + '" class="grade em-conta">' +
+    campo('E-mail que envia (Gmail)', '<input name="usuario" type="email" placeholder="' + rotUsuario + '">', 'inteiro') +
+    campo('<span class="rot-senha">Senha de app do Google</span>', '<input name="senha" type="password" autocomplete="new-password" placeholder="16 letras, sem espaços">', 'inteiro') +
+    campo('Nome do remetente', '<input name="remetente" placeholder="' + rotRem + '">', 'inteiro') +
+    '<details class="em-avancado inteiro"><summary>Avançado: outro serviço (SMTP ou Resend)</summary><div class="grade">' +
+      campo('Serviço', '<select name="provedor"><option value="gmail">Gmail (padrão, sem custo)</option><option value="smtp">Outro e-mail (SMTP: Hostinger, Locaweb, Outlook…)</option><option value="resend">Resend (plano grátis com limite)</option></select>', 'inteiro') +
+      '<div class="grade inteiro em-smtp">' + campo('Servidor SMTP', '<input name="host" placeholder="smtp.hostinger.com">') + campo('Porta', '<input name="porta" inputmode="numeric" value="465">') + '</div></div></details></form>';
+}
 async function admEmailConfig(corpo) {
-  const [st, fila] = await Promise.all([
-    q(sb.rpc('status_config_email')).catch(() => ({})),
-    q(sb.from('email_fila').select('para, assunto, status, erro, criado_em, enviado_em, tipo').order('criado_em', { ascending: false }).limit(30)).catch(() => [])
-  ]);
-  const prov = st.provedor || 'gmail';
-  corpo.innerHTML = '<div class="card" id="email-check"><div class="card-hd">✉ O e-mail está saindo? <span class="sub" style="margin-left:auto;font-weight:400">confira de cima para baixo</span></div><div class="card-bd" id="email-check-bd"><span class="sub">verificando…</span></div></div>' +
-    '<div class="duas-col"><div class="card"><div class="card-hd">Serviço de envio ' + (st.tem_senha ? '<span class="pill pago">configurado</span>' : '<span class="pill hoje">não configurado</span>') + '</div><div class="card-bd">' +
-    '<form id="f-email" class="grade">' +
-    campo('Serviço', '<select name="provedor"><option value="gmail">Gmail do escritório (sem custo)</option><option value="smtp">Outro e-mail (SMTP: Hostinger, Locaweb, Outlook…)</option><option value="resend">Resend (plano grátis com limite)</option></select>', 'inteiro') +
-    campo('E-mail que envia', '<input name="usuario" type="email" value="' + esc(st.usuario || '') + '" placeholder="escritorio@gmail.com">') +
-    campo('<span id="rot-senha">Senha de app do Google</span>', '<input name="senha" type="password" autocomplete="new-password" placeholder="' + (st.tem_senha ? '•••••••• (deixe vazio para manter)' : '16 letras, sem espaços') + '">') +
-    '<div class="grade inteiro" id="email-smtp">' + campo('Servidor SMTP', '<input name="host" value="' + esc(st.host || '') + '" placeholder="smtp.hostinger.com">') +
-    campo('Porta', '<input name="porta" inputmode="numeric" value="' + esc(String(st.porta || 465)) + '">') + '</div>' +
-    campo('Nome do remetente', '<input name="remetente" value="' + esc(st.remetente || 'ERP Araújo & Castro') + '">') +
-    campo('Responder para (opcional)', '<input name="responder" type="email" value="' + esc(st.responder || '') + '">') +
-    campo('Endereço do sistema (botão "Abrir no ERP")', '<input name="url" value="' + esc(location.origin) + '">', 'inteiro') +
-    '</form>' +
-    '<div class="acoes" style="margin-top:12px"><button class="btn btn-p" id="email-salvar">Salvar</button><button class="btn btn-o" id="email-teste">Enviar e-mail de teste</button>' +
-    '<button class="btn btn-o" id="email-diag" title="Confere se as funções do Supabase estão publicadas (erp-emails, erp-publicacoes, erp-cnpj, erp-agenda)">🩺 Verificar funções</button>' +
-    '<button class="btn btn-o" id="email-agora" title="A fila é a lista de e-mails esperando para sair; a rotina envia sozinha a cada 5 minutos. Este botão manda agora.">Enviar fila agora</button>' +
-    '<button class="btn btn-o" id="email-resumo" title="Resumo do dia = e-mail interno para cada pessoa da equipe com as tarefas e prazos dela (sai sozinho às 7h45 nos dias úteis). Não vai para cliente.">Mandar resumo do dia agora</button></div>' +
-    '<p class="sub" style="margin-top:8px"><b>Enviar fila agora:</b> manda já o que está esperando (a rotina manda sozinha a cada 5 min). <b>Resumo do dia:</b> e-mail interno para a equipe com as tarefas e prazos de cada um — não vai para cliente.</p>' +
-    (st.configurado_em ? '<p class="sub" style="margin-top:8px">Configurado em ' + dataHoraBR(st.configurado_em) + '.</p>' : '') +
-    '</div></div>' +
-    '<div class="card"><div class="card-hd">Como configurar (uma vez)</div><div class="card-bd" id="email-ajuda"></div></div></div>' +
-    // e-mails ao cliente: dados do quadro "Como pagar" e prévia de cada modelo
-    '<div class="card"><div class="card-hd">⚖ Escritório (Jurídico) — dados para pagamento<span class="sub" style="margin-left:auto;font-weight:400">aparecem nos e-mails dos clientes do escritório</span></div><div class="card-bd">' +
-      formPagamento('f-pag', ' do escritório', 'Equipe Araújo & Castro') +
-      '<div class="acoes" style="margin-top:10px;flex-wrap:wrap"><button class="btn btn-p" id="pag-salvar">Salvar</button><span class="sub" style="align-self:center">Ver modelo:</span>' +
-      [['lembrete', 'Lembrete'], ['cobranca', 'Cobrança'], ['acordo', 'Acordo'], ['parcelamento', 'Parcelamento'], ['recebido', 'Pagamento recebido']].map(([k, r]) => '<button class="btn btn-o btn-mini" data-previa="' + k + '">' + r + '</button>').join('') +
-      '</div><p class="sub" style="margin-top:8px">Os e-mails ao cliente vão para os contatos marcados em "Recebe por e-mail" ou, se ninguém estiver marcado, para o contato do setor certo (veja Central de e-mails → Quem recebe o quê). Sem e-mail cadastrado, nada é enviado. Liga/desliga cada um em Automações.</p></div></div>' +
-    // Backup 28: a Contabilidade manda pelo e-mail dela e com os dados de pagamento dela
-    '<div class="card" id="email-contab"><div class="card-hd">🧮 Contabilidade — e-mail que envia e dados para pagamento<span class="sub" style="margin-left:auto;font-weight:400">usados nos e-mails dos clientes da Contabilidade e nas cobranças da Contabilidade</span></div><div class="card-bd">' +
-      '<div class="dica" style="margin-bottom:10px">Quem cobra é quem aparece: clientes do escritório recebem pelo e-mail acima com os dados do escritório; clientes com área <b>Contabilidade</b> e lançamentos da Contabilidade saem por esta conta, com estes dados. Sem esta conta configurada, sai pela do escritório.</div>' +
-      '<form id="f-email-ct" class="grade">' + campo('Serviço', '<select name="provedor"><option value="gmail">Gmail (sem custo)</option><option value="smtp">Outro e-mail (SMTP)</option><option value="resend">Resend</option></select>') +
-      campo('E-mail que envia', '<input name="usuario" type="email" placeholder="contabilidade@...">') +
-      campo('Senha de app / senha', '<input name="senha" type="password" autocomplete="new-password" placeholder="deixe vazio para manter">') +
-      campo('Servidor SMTP (só "Outro e-mail")', '<input name="host" placeholder="smtp.hostinger.com">') + campo('Porta', '<input name="porta" inputmode="numeric" value="465">') +
-      campo('Nome do remetente', '<input name="remetente" placeholder="Contabilidade Araújo & Castro">') + '</form>' +
-      '<div class="secao" style="margin-top:14px">Dados para pagamento da Contabilidade</div>' + formPagamento('f-pag-ct', ' da Contabilidade', 'Equipe da Contabilidade') +
-      '<div class="acoes" style="margin-top:10px"><button class="btn btn-p" id="ct-salvar">Salvar Contabilidade</button><span class="sub" id="ct-status"></span></div></div></div>' +
-    '<div class="kpis">' + kpi('Na fila', String(st.pendentes || 0), '', 'saem a cada 5 minutos') + kpi('Enviados em 7 dias', String(st.enviados_7d || 0), 'verde', '') +
-    kpi('Com erro', String(st.erros || 0), st.erros ? 'vermelho' : '', 'veja o motivo abaixo') + '</div>' +
-    '<div class="card"><div class="card-hd">Últimos e-mails</div>' + (fila.length ? '<div class="tabela-wrap"><table><thead><tr><th>Quando</th><th>Para</th><th>Assunto</th><th>Situação</th></tr></thead><tbody>' +
-      fila.map((m) => '<tr><td class="mono">' + dataHoraBR(m.criado_em) + '</td><td>' + esc(m.para) + '</td><td>' + esc(m.assunto) + '</td><td>' +
-        '<span class="pill ' + ({ enviado: 'pago', pendente: 'aberto', erro: 'vencido', cancelado: 'neutro', retido: 'hoje', rascunho: 'vencido', rascunho_salvo: 'pago' }[m.status] || 'neutro') + '">' + esc(m.status) + '</span>' +
-        (m.erro ? '<div class="sub">' + esc(explicarErroEmail(m.erro)) + '</div>' : '') + '</td></tr>').join('') + '</tbody></table></div>' : '<div class="vazio">Nenhum e-mail ainda.</div>') + '</div>';
-  const f = $('f-email');
-  f.provedor.value = prov;
-  const fp = $('f-pag');
-  carregarPagamento(fp, 'dados_pagamento');
-  const fct = $('f-email-ct'), fpct = $('f-pag-ct');
-  q(sb.rpc('status_config_email_conta', { p_conta: 'contabilidade' })).then((c) => { c = c || {}; ['usuario', 'host', 'remetente'].forEach((k) => { fct[k].value = c[k] || ''; });
-    fct.provedor.value = c.provedor || 'gmail'; fct.porta.value = c.porta || 465; $('ct-status').textContent = c.tem_senha ? '✓ conta configurada' : 'conta ainda não configurada'; }).catch(() => {});
-  carregarPagamento(fpct, 'dados_pagamento_contab');
+  const st = await q(sb.rpc('status_config_email')).catch(() => ({}));
+  const passo = (n, tit, sub, html, id) => '<section class="card em-passo"' + (id ? ' id="' + id + '"' : '') + '><div class="card-hd"><span class="em-passo-n">' + n + '</span>' + tit + (sub ? '<span class="sub">' + sub + '</span>' : '') + '</div><div class="card-bd">' + html + '</div></section>';
+  corpo.innerHTML = '<div class="em-config-topo"><span class="sub">Configure de cima para baixo. Feito uma vez, os e-mails saem sozinhos.</span>' +
+      '<div class="em-ferr"><button type="button" class="btn btn-o btn-mini" id="em-ferr-bt" aria-expanded="false">⋯ Ferramentas</button><div class="em-ferr-menu" id="em-ferr-menu" hidden>' +
+        '<button type="button" id="email-diag" title="Confere se as funções do Supabase estão publicadas (erp-emails, erp-publicacoes, erp-cnpj, erp-agenda)">🩺 Verificar funções</button>' +
+        '<button type="button" id="email-agora" title="A fila é a lista de e-mails esperando para sair; a rotina envia sozinha a cada 5 minutos. Este botão manda agora.">✉ Enviar fila agora</button>' +
+        '<button type="button" id="email-resumo" title="E-mail interno para cada pessoa da equipe com as tarefas e prazos dela (sai sozinho às 7h45 nos dias úteis). Não vai para cliente.">📋 Mandar resumo do dia agora</button>' +
+        '<button type="button" id="email-teste" title="Só manda o e-mail de teste (sem conferir o resto)">🧪 Só enviar e-mail de teste</button></div></div></div>' +
+    passo('1', 'Contas que enviam', 'o mesmo formulário para as duas',
+      '<div class="duas-col em-lado">' +
+        '<div><div class="secao">⚖ Escritório (Jurídico) ' + (st.tem_senha ? '<span class="pill pago">configurado</span>' : '<span class="pill hoje">não configurado</span>') + '</div>' + formConta('f-email', 'escritorio@gmail.com', 'ERP Araújo & Castro') +
+          '<div class="grade em-extra">' + campo('Responder para (opcional)', '<input form="f-email" name="responder" type="email" value="' + esc(st.responder || '') + '">') +
+          campo('Endereço do sistema (botão "Abrir no ERP")', '<input form="f-email" name="url" value="' + esc(location.origin) + '">') + '</div>' +
+          '<div class="acoes"><button class="btn btn-p" id="email-salvar">Salvar conta do Escritório</button></div>' + (st.configurado_em ? '<p class="sub">Configurado em ' + dataHoraBR(st.configurado_em) + '.</p>' : '') + '</div>' +
+        '<div id="email-contab"><div class="secao">🧮 Contabilidade <span class="sub" id="ct-status"></span></div>' + formConta('f-email-ct', 'contabilidade@gmail.com', 'Contabilidade Araújo & Castro') +
+          '<p class="sub">Clientes com área <b>Contabilidade</b> e lançamentos da Contabilidade saem por esta conta. Sem ela, sai pela do Escritório.</p>' +
+          '<div class="acoes"><button class="btn btn-p" id="ct-salvar">Salvar conta da Contabilidade</button></div></div></div>' +
+      '<details class="em-ajuda"><summary>Como configurar o Gmail (uma vez)</summary><div id="email-ajuda"></div></details>') +
+    passo('2', 'Dados para pagamento', 'aparecem no quadro "Como pagar" dos e-mails aos clientes',
+      '<div class="duas-col em-lado"><div><div class="secao">⚖ Escritório</div>' + formPagamento('f-pag', ' do escritório', 'Equipe Araújo & Castro') +
+          '<div class="acoes"><button class="btn btn-p" id="pag-salvar">Salvar</button></div></div>' +
+        '<div><div class="secao">🧮 Contabilidade</div>' + formPagamento('f-pag-ct', ' da Contabilidade', 'Equipe da Contabilidade') +
+          '<div class="acoes"><button class="btn btn-p" id="pag-ct-salvar">Salvar</button></div></div></div>' +
+      '<div class="acoes em-modelos"><span class="sub">Ver modelo:</span>' + [['lembrete', 'Lembrete'], ['cobranca', 'Cobrança'], ['acordo', 'Acordo'], ['parcelamento', 'Parcelamento'], ['recebido', 'Pagamento recebido']]
+        .map(([k, r]) => '<button class="btn btn-o btn-mini" data-previa="' + k + '">' + r + '</button>').join('') + '</div>' +
+      '<p class="sub">Os e-mails ao cliente vão para quem está em "Quem recebe". Sem e-mail cadastrado, nada é enviado. Liga/desliga cada um em Automações.</p>') +
+    passo('3', 'Testar', 'confere tudo e manda um e-mail de teste',
+      '<div class="acoes"><button class="btn btn-p" id="email-testar">🧪 Testar tudo</button></div><div id="email-check"><div id="email-check-bd"><span class="sub">verificando…</span></div></div>');
+  // contas: o mesmo formulário
+  const f = $('f-email'), fct = $('f-email-ct');
+  const pintarConta = (fm, c) => { c = c || {}; ['usuario', 'host', 'remetente'].forEach((k) => { if (c[k]) fm[k].value = c[k]; }); fm.provedor.value = c.provedor || 'gmail'; fm.porta.value = c.porta || 465;
+    fm.senha.placeholder = c.tem_senha ? '•••••••• (deixe vazio para manter)' : '16 letras, sem espaços'; if ((c.provedor || 'gmail') !== 'gmail') fm.querySelector('.em-avancado').open = true; trocar(fm); };
+  const trocar = (fm) => {
+    const pv = fm.provedor.value; fm.querySelector('.em-smtp').classList.toggle('escondido', pv !== 'smtp');
+    fm.querySelector('.rot-senha').textContent = { gmail: 'Senha de app do Google', smtp: 'Senha do e-mail', resend: 'Chave da API (Resend)' }[pv];
+    fm.querySelector('[name=usuario]').closest('.campo').querySelector('span').textContent = pv === 'gmail' ? 'E-mail que envia (Gmail)' : 'E-mail que envia';
+    if (fm === f) $('email-ajuda').innerHTML = AJUDA[pv] + '<p class="sub"><b>Uma vez só, no Supabase:</b> Edge Functions → Deploy a new function → Via Editor → nome <b>erp-emails</b> → cole o arquivo ' +
+      '<code>supabase/functions/erp-emails/index.ts</code> do GitHub → Deploy → desligue <b>Verify JWT</b>. O passo a passo completo está no COMO-ATUALIZAR.</p>';
+  };
+  const AJUDA = {
+    gmail: '<ol class="passos"><li>No Gmail do escritório: <b>Conta Google → Segurança → Verificação em duas etapas</b> (ligar, se estiver desligada).</li>' +
+      '<li>Ainda em Segurança, abra <b>Senhas de app</b>, crie uma com o nome "ERP" e copie as 16 letras.</li>' +
+      '<li>Aqui: informe o e-mail e cole a senha de app. Clique em <b>Salvar</b> e depois em <b>🧪 Testar tudo</b>.</li></ol>',
+    smtp: '<ol class="passos"><li>No painel do seu provedor de e-mail, pegue o <b>servidor SMTP</b> e a <b>porta SSL (465)</b>.</li><li>Informe o e-mail, a senha da caixa, o servidor e a porta.</li><li>Salve e teste.</li></ol>',
+    resend: '<ol class="passos"><li>Crie a conta em resend.com e confirme o domínio do escritório (ex.: araujoecastro.adv.br).</li><li>Crie uma <b>API key</b> e cole no campo de senha; em "E-mail que envia", use um endereço do domínio confirmado.</li><li>Salve e teste. O plano grátis tem limite diário de envios; acima disso é pago.</li></ol>'
+  };
+  [f, fct].forEach((fm) => { fm.provedor.onchange = () => trocar(fm); });
+  pintarConta(f, Object.assign({}, st, { remetente: st.remetente || 'ERP Araújo & Castro' }));
+  q(sb.rpc('status_config_email_conta', { p_conta: 'contabilidade' })).then((c) => { pintarConta(fct, c); $('ct-status').innerHTML = c && c.tem_senha ? '<span class="pill pago">configurado</span>' : '<span class="pill hoje">não configurado</span>'; }).catch(() => {});
+  const fp = $('f-pag'), fpct = $('f-pag-ct');
+  carregarPagamento(fp, 'dados_pagamento'); carregarPagamento(fpct, 'dados_pagamento_contab');
+  const dadosConta = (fm) => ({ provedor: fm.provedor.value, usuario: fm.usuario.value.trim(), senha: fm.senha.value.replace(/\s+/g, fm.provedor.value === 'gmail' ? '' : ' ').trim(),
+    host: fm.host.value.trim(), porta: Number(fm.porta.value) || 465, remetente: fm.remetente.value.trim() });
+  $('email-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.usuario.value.trim())) throw new Error('Informe o e-mail que envia.');
+    if (f.provedor.value === 'smtp' && !f.host.value.trim()) throw new Error('Informe o servidor SMTP (em Avançado).');
+    await q(sb.rpc('salvar_config_email', { p: Object.assign(dadosConta(f), { responder: corpo.querySelector('[name=responder]').value.trim() }) }));
+    await q(sb.rpc('salvar_url_sistema', { p: corpo.querySelector('[name=url]').value.trim() }));
+    aviso('✓ Conta do Escritório salva.'); await pintarAdmin();
+  });
   $('ct-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
-    if (fct.usuario.value.trim()) {
-      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(fct.usuario.value.trim())) throw new Error('E-mail da Contabilidade inválido.');
-      await q(sb.rpc('salvar_config_email_conta', { p_conta: 'contabilidade', p: { provedor: fct.provedor.value, usuario: fct.usuario.value.trim(), senha: fct.senha.value.replace(/\s+/g, fct.provedor.value === 'gmail' ? '' : ' ').trim(),
-        host: fct.host.value.trim(), porta: Number(fct.porta.value) || 465, remetente: fct.remetente.value.trim() } }));
-    }
-    await salvarPagamento(fpct, 'dados_pagamento_contab');
-    aviso('✓ Dados da Contabilidade salvos.'); fct.senha.value = '';
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(fct.usuario.value.trim())) throw new Error('E-mail da Contabilidade inválido.');
+    await q(sb.rpc('salvar_config_email_conta', { p_conta: 'contabilidade', p: dadosConta(fct) }));
+    aviso('✓ Conta da Contabilidade salva.'); fct.senha.value = ''; $('ct-status').innerHTML = '<span class="pill pago">configurado</span>';
   });
-  $('pag-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
-    await salvarPagamento(fp, 'dados_pagamento');
-    aviso('✓ Dados para pagamento salvos: já valem nos próximos e-mails.');
-  });
+  $('pag-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => { await salvarPagamento(fp, 'dados_pagamento'); aviso('✓ Dados para pagamento do Escritório salvos: já valem nos próximos e-mails.'); });
+  $('pag-ct-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => { await salvarPagamento(fpct, 'dados_pagamento_contab'); aviso('✓ Dados para pagamento da Contabilidade salvos.'); });
   corpo.querySelectorAll('[data-previa]').forEach((b) => b.onclick = () => comBotao(b, async () => {
     const html = await q(sb.rpc('previa_email_cliente', { p_tipo: b.dataset.previa }));
     const j = abrirJanela({ titulo: 'Modelo: ' + b.textContent + ' (exemplo fictício)', larga: true, corpo: '<iframe class="previa-email" sandbox="" title="Prévia do e-mail"></iframe>' });
     j.querySelector('iframe').srcdoc = html;
   }));
-  const AJUDA = {
-    gmail: '<ol class="passos"><li>No Gmail do escritório: <b>Conta Google → Segurança → Verificação em duas etapas</b> (ligar, se estiver desligada).</li>' +
-      '<li>Ainda em Segurança, abra <b>Senhas de app</b>, crie uma com o nome "ERP" e copie as 16 letras.</li>' +
-      '<li>Aqui: escolha <b>Gmail</b>, informe o e-mail e cole a senha de app. Clique em <b>Salvar</b> e depois em <b>Enviar e-mail de teste</b>.</li></ol>',
-    smtp: '<ol class="passos"><li>No painel do seu provedor de e-mail, pegue o <b>servidor SMTP</b> e a <b>porta SSL (465)</b>.</li><li>Informe o e-mail, a senha da caixa, o servidor e a porta.</li><li>Salve e envie o teste.</li></ol>',
-    resend: '<ol class="passos"><li>Crie a conta em resend.com e confirme o domínio do escritório (ex.: araujoecastro.adv.br).</li><li>Crie uma <b>API key</b> e cole no campo de senha; em "E-mail que envia", use um endereço do domínio confirmado.</li><li>Salve e envie o teste. O plano grátis tem limite diário de envios; acima disso é pago.</li></ol>'
-  };
-  const trocar = () => {
-    $('email-smtp').classList.toggle('escondido', f.provedor.value !== 'smtp');
-    $('rot-senha').textContent = { gmail: 'Senha de app do Google', smtp: 'Senha do e-mail', resend: 'Chave da API (Resend)' }[f.provedor.value];
-    $('email-ajuda').innerHTML = AJUDA[f.provedor.value] + '<p class="sub"><b>Uma vez só, no Supabase:</b> Edge Functions → Deploy a new function → Via Editor → nome <b>erp-emails</b> → cole o arquivo ' +
-      '<code>supabase/functions/erp-emails/index.ts</code> do GitHub → Deploy → desligue <b>Verify JWT</b>. O passo a passo completo está no COMO-ATUALIZAR.</p>';
-  };
-  f.provedor.onchange = trocar; trocar();
-  $('email-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.usuario.value.trim())) throw new Error('Informe o e-mail que envia.');
-    if (f.provedor.value === 'smtp' && !f.host.value.trim()) throw new Error('Informe o servidor SMTP.');
-    await q(sb.rpc('salvar_config_email', { p: { provedor: f.provedor.value, usuario: f.usuario.value.trim(), senha: f.senha.value.replace(/\s+/g, f.provedor.value === 'gmail' ? '' : ' ').trim(),
-      host: f.host.value.trim(), porta: Number(f.porta.value) || 465, remetente: f.remetente.value.trim(), responder: f.responder.value.trim() } }));
-    await q(sb.rpc('salvar_url_sistema', { p: f.url.value.trim() }));
-    aviso('✓ Configuração de e-mail salva.'); await pintarAdmin();
-  });
   const chamar = async (acao, msgOk) => {
     const data = await chamarFuncao('erp-emails', { acao });
     if (data && data.aviso) throw new Error(data.aviso);
     aviso('✓ ' + msgOk + ' — enviados: ' + ((data && data.enviados) || 0) + (data && data.erros ? ', com erro: ' + data.erros + ' (' + data.ultimoErro + ')' : '') + '.');
-    await pintarAdmin();
   };
+  // ⋯ Ferramentas
+  const menu = $('em-ferr-menu');
+  $('em-ferr-bt').onclick = (ev) => { ev.stopPropagation(); menu.hidden = !menu.hidden; ev.currentTarget.setAttribute('aria-expanded', String(!menu.hidden)); };
+  menu.addEventListener('click', () => { menu.hidden = true; });
+  corpo.addEventListener('click', (ev) => { if (!ev.target.closest('.em-ferr')) menu.hidden = true; });
   $('email-diag').onclick = (ev) => comBotao(ev.currentTarget, async () => {
     const r = await verificarFuncoes();
-    const j = abrirJanela({ titulo: 'Funções do Supabase', corpo: '<div class="lista-ficha">' + r.map(([n, ok, m]) => '<div class="item-ficha"><div><b>' + (ok ? '✅ ' : '❌ ') + n + '</b><div class="sub">' + esc(m) + '</div></div></div>').join('') + '</div>' +
+    return abrirJanela({ titulo: 'Funções do Supabase', corpo: '<div class="lista-ficha">' + r.map(([n, ok, m]) => '<div class="item-ficha"><div><b>' + (ok ? '✅ ' : '❌ ') + n + '</b><div class="sub">' + esc(m) + '</div></div></div>').join('') + '</div>' +
       '<p class="sub" style="margin-top:10px">Para publicar: Supabase → Edge Functions → Deploy a new function → Via Editor → nome exatamente como acima → cole o arquivo de <code>supabase/functions/NOME/index.ts</code> (botão Raw no GitHub) → Deploy → desligue "Verify JWT".</p>' });
-    return j;
   });
-  checarEmail();
   $('email-teste').onclick = (ev) => comBotao(ev.currentTarget, () => chamar('teste', 'Teste enviado para o seu e-mail'));
   $('email-agora').onclick = (ev) => comBotao(ev.currentTarget, () => chamar('enviar', 'Fila enviada'));
   $('email-resumo').onclick = (ev) => comBotao(ev.currentTarget, () => chamar('resumo', 'Resumo do dia montado'));
+  // 3. Testar: confere tudo (o check-list) e manda o e-mail de teste
+  $('email-testar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    $('email-check-bd').innerHTML = '<span class="sub">verificando…</span>';
+    await checarEmail();
+    try { await chamar('teste', 'Tudo conferido. E-mail de teste enviado'); }
+    catch (e) { throw new Error('O check-list acima foi conferido, mas o e-mail de teste não saiu: ' + e.message); }
+  });
+  checarEmail();
 }
 
 // Backup 42: lista do que falta para o e-mail sair (serviço, função, rotina, pausa, destino e o último erro)
@@ -818,13 +838,13 @@ async function checarEmail() {
   if (d.falhou) { bd.innerHTML = '<div class="dica">Rode o SQL do Backup 42 no Supabase para ver o diagnóstico. (' + esc(d.falhou) + ')</div>'; return; }
   const lin = (ok, tit, txt) => '<div class="item-ficha"><div><b>' + (ok === true ? '✅ ' : ok === false ? '❌ ' : '⚠️ ') + tit + '</b><div class="sub">' + txt + '</div></div></div>';
   bd.innerHTML = '<div class="lista-ficha">' +
-    lin(d.servico, '1. Serviço de envio', d.servico ? 'Configurado: ' + esc(d.usuario) + ' (' + esc(d.provedor) + ').' : 'Falta configurar: preencha o quadro "Serviço de envio" abaixo (Gmail + senha de app) e clique em Salvar.') +
+    lin(d.servico, '1. Serviço de envio', d.servico ? 'Configurado: ' + esc(d.usuario) + ' (' + esc(d.provedor) + ').' : 'Falta configurar: preencha o passo 1 "Contas que enviam" (Gmail + senha de app) e clique em Salvar.') +
     lin(fn[0], '2. Função erp-emails no Supabase', esc(fn[1])) +
     lin(d.rotina ? true : null, '3. Envio automático (a cada 5 min)', d.rotina ? 'Ligado.' : 'Desligado — sem problema: o sistema manda na hora em que você clica em Enviar. Para ligar: Supabase → Database → Extensions → pg_cron e pg_net → rode o SQL de novo.') +
     lin(!d.pausado, '4. Pausa', d.pausado ? 'Os e-mails estão PAUSADOS (ficam retidos).' : 'Sem pausa.') +
     lin(null, '5. Destino', d.redirecionar ? 'Modo teste: todo e-mail vai só para <b>' + esc(d.redirecionar) + '</b> (o destinatário original aparece no assunto).' : 'Os e-mails vão para os clientes de verdade.') +
     lin(d.ultimo_erro ? false : true, '6. Último problema', d.ultimo_erro ? esc(explicarErroEmail(d.ultimo_erro.erro)) + ' <span class="sub">(' + dataHoraBR(d.ultimo_erro.em) + ')</span>' : 'Nenhum erro registrado.' + (d.ultimo_envio ? ' Último e-mail enviado em ' + dataHoraBR(d.ultimo_envio) + '.' : '')) +
-    '</div><p class="sub" style="margin-top:8px">Depois de corrigir, clique em <b>Enviar e-mail de teste</b>: ele chega em ' + esc(d.redirecionar || 'seu e-mail') + ' em segundos.</p>';
+    '</div><p class="sub" style="margin-top:8px">Depois de corrigir, clique em <b>🧪 Testar tudo</b>: o e-mail de teste chega em ' + esc(d.redirecionar || 'seu e-mail') + ' em segundos.</p>';
 }
 
 // Cada pessoa escolhe o que quer receber por e-mail (⋯ → Meus avisos por e-mail)

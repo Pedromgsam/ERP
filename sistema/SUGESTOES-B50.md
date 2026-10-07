@@ -3,7 +3,8 @@
 Esta análise passou de novo por todos os módulos, com mais atenção à **Rotina**, à **velocidade** (demora para abrir "Guias do mês" e "Planilha" e para marcar "Pago"), às **tarefas recorrentes** e à **configuração de e-mail**.
 A pergunta foi sempre a mesma: o que deixa o sistema **mais funcional e integrado**, sem ficar complicado?
 
-**Nada daqui foi feito ainda.** Para aprovar, responda com os números. Exemplo: "aprovo V1 a V6, T1, R1 e E1; o G4 fica para depois".
+**Feito no Backup 51:** V1 a V7, T1 a T3, R1, R3, R4 e E1 a E4 (detalhes em `COMO-ATUALIZAR.md`, seção Backup 51). Os demais continuam como sugestão.
+Para aprovar, responda com os números. Exemplo: "aprovo V1 a V6, T1, R1 e E1; o G4 fica para depois".
 O prompt pronto para o próximo chat está em `sistema/PROMPT-BACKUP-51.md`.
 
 Legenda: **Novo** = função nova · **Juntar** = unir duas coisas numa · **Tirar** = remover · **Arrumar** = visual ou ordem

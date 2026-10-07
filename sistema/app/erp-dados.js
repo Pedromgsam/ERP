@@ -368,6 +368,8 @@ window.ERP_COLS_CLIENTE = 'id,grupo_id,nome,cpf_cnpj,tipo,responsavel,email,tele
     catch (e) { console.error('[ERP/Supabase]', e); return resposta({ ok: false, erro: e.message || String(e) }); }
   };
 
+  // Backup 51: lê só alguns módulos (ex.: 'parcelamentos'), no mesmo formato da carga do ERP — usado depois de uma baixa na Rotina
+  window.ERP_LER_MODULOS = (lista) => ler(new URLSearchParams({ modulos: String(lista) }));
   // Recarrega os dados do ERP depois de uma gravação (usado pelo editor).
   window.ERP_RECARREGAR = function () { _gruposCache = null; _portal = null; if (typeof window.loadData === 'function') return window.loadData(true); };
   // Marca cada linha das tabelas do ERP com tabela:id (usado pelo botão ✎ Editar).

@@ -59,7 +59,7 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Precisam de: PostgreSQL 16 na porta **54329**, PostgREST na **3001** (`testes/postgrest.conf`) e
   `node servidor-local.js` (porta **8090**; simula Supabase, Edge Functions, DJEN e BrasilAPI).
 - `NODE_PATH` com `playwright` e `exceljs`. Rodar tudo: `sh sistema/testes/rodar-tudo.sh`
-  (permissoes.sql, fluxo.sql [fluxo cliente → financeiro], importador, e-mails, telas.js [Gestão], erp.js [ERP com cliques reais], visual.js).
+  (permissoes.sql, fluxo.sql [fluxo cliente → financeiro], importador, e-mails, telas.js [Gestão], erp.js [ERP com cliques reais], visual.js, velocidade.js [tempos, Backup 51]).
 - O `servidor-local.js` guarda as funções carregadas em memória: reinicie-o depois de mudar uma Edge Function.
 - `FOTOS=/pasta node erp.js` salva prints das telas para conferência visual.
 
@@ -82,7 +82,22 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
-- Última entrega: **Backup 50** (SQL + função erp-agenda). Início: atalho `financeiro` em `cardResumoEscritorio` (lancamentos ≤ hoje+5); chips `.fila-chip.ativo` de uma cor
+- Última entrega: **Backup 51** (SQL + função erp-agenda, VERSAO 2026-10-09). Velocidade: `rotina_parcelas_json()` (security definer, confere `pode('juridico')` uma vez; parcelas em
+  listas curtas `ps` [id,numero,venc,pago,data_pag,emitida_em,emissao,valor] na janela −3/+3 meses + atrasadas + a última; `fora` = resumo das antigas/futuras; `grupo_nome`) →
+  `dadosRotina(forcar)` (telas-rotina.js, `_rtDados` zerado ao entrar na Rotina; ↻ `#ep-atu`/`#pl-atu`), `esqueletoRotina` (`.rt-esq .esq`), `[data-pl-hist]` = histórico de 1 parcelamento,
+  `clienteDoParcelamento` (índice). V4: `pagarParcelaRotina`/`emitirParcelaRotina` (otimista; erro volta + aviso), `baixaRapida(t,id,{semRecarregar,desfazer,prazoDesfazer})` sem `carregarGrupos`,
+  `gravou(txt, desfazer, prazo)`. V5: `ERP_EDITOR.marcarSujo('parcelas')` → `window.ERP_SUJO.parcelamentos` → só ao abrir `parcelamentos` `ERP_RECARREGAR_MODULOS('parcelamentos')`
+  (erp-telas.js; `window.ERP_LER_MODULOS` no erp-dados). Nav não chama `applyFilters` se não havia filtro; `regDe` com índice; Painel sem o `setTimeout(renderExecRanking)` duplo e `fF` com
+  `Intl.NumberFormat` (montar-erp). Índices `parcelas_pa_pago_venc`, `parcelas_abertas_venc`, `parcelamentos_grupo`. Teste `testes/velocidade.js` (no rodar-tudo, mede dentro da página com +100 ms
+  por pedido; `SO_MEDIR=1` só mostra). R1: `rotina_placar()` → `#rt-placar` `[data-placar]`. R3: Planilha `tr[data-pl-x]` (nº/venc.) → `E.rt.epAbrir` → cartão; `[data-ep-pago]` no cartão.
+  R4: `[data-conf-grp]` (passivo, `conferir_rotina`) e `[data-conf-pgrp]` (RPC `conferir_processos_grupo`). T1–T3: `tarefas.recorrencia_regra` jsonb (tipo semanal|mensal_dias|mensal|anual;
+  dias/cada/modo dia|util|semana/n/ordem/dow/mes/dia/inicio/fim/util), `recorrencia='regra'`, série `recorrencia_serie` (índice único serie+prazo), `recorrencia_datas`/`recorrencia_proximas`,
+  gatilhos `tarefa_serie_inicio`/`tarefa_serie_depois` → `recorrencia_garantir` (cria até hoje+7 e sempre 1 aberta), cron `erp_recorrencias` (`recorrencias_em_dia`), `regra_da_tarefa` (antigas),
+  `recorrencias_projecao(8)` (calendário `.ag-prevista` + erp-agenda `UID:serie-`), `tarefa_serie_editar` ("esta e as próximas"). Front: `campoRepetir`/`lerRepetir`/`ligarRepetir`, `textoRegra`/
+  `textoRepete`, `datasRegra` (cópia fiel; erp.js compara com o banco), `perguntarSerie` (`#tf-serie-esta`/`#tf-serie-prox`), `projecoesRecorrentes`. E1–E4: `admEmailConfig` em 3 `.em-passo`
+  (`formConta`, Avançado `details.em-avancado`, `⋯ Ferramentas` `#em-ferr-menu`, `#email-testar`), aba `saida` = `admEmailSaida` (`FILTROS_SAIDA`, `[data-saida-f]`, `[data-em-tentar]` → `email_reenviar`);
+  `admEmailRevisar` = filtro revisar. Tempos antes/depois no COMO-ATUALIZAR (Backup 51).
+- Backup 50 (base) (SQL + função erp-agenda). Início: atalho `financeiro` em `cardResumoEscritorio` (lancamentos ≤ hoje+5); chips `.fila-chip.ativo` de uma cor
   (`--selecao`, sem as cores por tipo). erp-agenda (VERSAO 2026-10-08): todas as tarefas abertas com prazo/prazo_fatal do responsável OU participante, `TZID=America/Sao_Paulo` com hora.
   Tarefas: `pillStatusTarefa` (`.tf-st-<status>`), colunas Prazo + Dias (`celulaAtraso`), `.cal-pri-<prioridade>` no calendário. Cadastro de cliente sem `.cli-rapido`; `formCliente(cl, depois, abaInicial)`.
   Financeiro: `td.acoes-l` nowrap, `td.col-valor.valor-rec/.valor-desp` verde/vermelho (padrao.js não mede mais a cor do valor), abas com `--tc` por `data-tab`. E-mail → Quem recebe:

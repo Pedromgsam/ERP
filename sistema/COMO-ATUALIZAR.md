@@ -31,7 +31,7 @@ rodam em cinco "funções" dentro do Supabase.
 **Atenção ao nome:** tem que ser exatamente `erp-emails`, `erp-publicacoes`, `erp-cnpj`, `erp-agenda` e `erp-backup`,
 tudo em minúsculas e com hífen.
 Se o nome for outro (ex.: "ERP-email"), o ERP não encontra a função. Para conferir, vá em Administração → ✉ E-mail →
-**🩺 Verificar funções**. A tela mostra ✅ ou ❌ para cada uma e diz o que corrigir.
+Configuração → **⋯ Ferramentas** → **🩺 Verificar funções**. A tela mostra ✅ ou ❌ para cada uma e diz o que corrigir.
 Isso é feito **uma vez**; depois só muda se uma pull request pedir.
 
 **Ligar o agendador (para rodar sozinho de manhã):**
@@ -53,8 +53,8 @@ Isso é feito **uma vez**; depois só muda se uma pull request pedir.
 10. (Backup 41) A função **erp-pgfn** saiu: se ela ainda aparece na lista, abra-a e clique em **Delete**.
 
 **Configurar dentro do ERP:**
-- **E-mail:** Administração → **✉ E-mail** → escolha "Gmail do escritório", informe o e-mail e a **senha de app**
-  (a própria tela mostra onde gerar) → **Salvar** → **Enviar e-mail de teste**.
+- **E-mail:** Administração → **✉ E-mail** → **Configuração** → passo 1, informe o e-mail do Gmail e a **senha de app**
+  (a própria tela mostra onde gerar) → **Salvar** → passo 3, **🧪 Testar tudo**.
 - **Publicações:** Jurídico → **Publicações** → **OABs monitoradas** → inclua cada OAB (número e UF) e o nome do
   advogado → **Buscar agora**.
 - **Cartão CNPJ:** **Alertas** → cartão **Cartão CNPJ (6h)** → escolha a API (a BrasilAPI é grátis e sem chave) →
@@ -706,6 +706,52 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
 
 **Central de Documentos dentro do ERP:** menu **Documentos → Gerar documento** (ou ⋯ → Documentos, contrato, recibo do Financeiro).
 **Ctrl + clique** (ou botão do meio do mouse) em qualquer item do menu ou link de documento abre numa aba nova.
+
+## Backup 51 — ERP rápido (Rotina, Pago), tarefas que se repetem nas datas certas, placar do mês e e-mail em 3 passos (tem SQL e a função erp-agenda mudou)
+Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Publicar de novo a função `erp-agenda` (Verify JWT desligado)  4) Ctrl+Shift+R**.
+Para voltar à versão anterior: o zip do **Backup 50** (pasta `backups/`).
+
+**Tempos medidos** (teste `sistema/testes/velocidade.js`: 500 clientes, 300 parcelamentos, 15 mil parcelas, 2 mil lançamentos;
+cada pedido ao banco com +100 ms de "internet"; mediana de 3; medido dentro da página, do clique até a tela pintada):
+
+| Tela | Antes (Backup 50) | Depois (Backup 51) |
+|---|---|---|
+| Rotina → Guias do mês | 5,7 s | 0,38 s |
+| Rotina → Planilha | 5,4 s | 0,24 s |
+| Planilha → trocar de grupo | 0,03 s | 0,02 s |
+| Pago (do clique à tela) | 0,27 s (+ a pergunta "Lançar o pagamento?") | 0,01 s |
+| Financeiro (logo depois de um Pago) | 0,64 s (recarregava o ERP inteiro) | 0,04 s |
+| Painel Executivo | 0,56 s | 0,23 s |
+| Clientes | 0,70 s | 0,42 s |
+
+- **Velocidade (Rotina)**:
+  - "Guias do mês" e "Planilha" pedem tudo numa consulta só ao banco (`rotina_parcelas_json`): as parcelas em aberto, as dos últimos 3 meses
+    e as dos próximos 3. As mais antigas aparecem resumidas ("✓ 33 parcelas anteriores (33 pagas) · ver"); o **ver** busca o histórico daquele parcelamento.
+  - Os dados ficam guardados enquanto a Rotina está aberta: trocar de aba não busca de novo. **↻ Atualizar** (nas duas abas) busca tudo de novo.
+  - A tela aparece na hora, com um esqueleto cinza até os números chegarem.
+  - **Pago** e **Emitida** mudam no clique; o banco grava por trás. Se der erro, volta como estava e mostra o motivo.
+    A pergunta "Lançar o pagamento desta parcela?" virou o **Desfazer** (5 segundos) no rodapé.
+  - Depois de um Pago, só a tela **Jurídico → Parcelamentos** fica "a atualizar" (ela relê os parcelamentos quando for aberta). O ERP não recarrega mais inteiro.
+  - Painel Executivo: a tabela das empresas era desenhada três vezes ao abrir; agora uma.
+- **Rotina**:
+  - **Placar do mês** no alto: guias enviadas, pagamentos conferidos, passivo conferido no mês e processos conferidos nos últimos 15 dias. Clique num número para ir ao que falta.
+  - **Planilha**: clicar no nº ou no vencimento de uma parcela abre o **mesmo cartão de envio** de "Guias do mês". No cartão, as parcelas já vencidas têm o botão **○ Pago**.
+  - **Passivo** e **Processos**: em cada grupo, **✓ Conferir o grupo todo (sem alteração)**.
+- **Tarefas que se repetem** (formulário da tarefa → **Repetir**):
+  - Toda semana nos dias escolhidos · a cada N semanas · 2× ao mês (ex.: dias 5 e 20) · todo mês no dia N, no N.º dia útil ou na última sexta (ou outro dia) · todo ano.
+  - Data de início e data de fim (opcional). Opção "se cair em feriado ou fim de semana, passa para o dia útil seguinte" (usa os feriados cadastrados em Tarefas → ⚙ → Feriados).
+  - A regra aparece por extenso, ex.: "↻ toda segunda, a partir de 13/10", com as próximas datas.
+  - As próximas ocorrências (até 8) já aparecem no calendário (tracejadas) e no Google Agenda. A tarefa da semana nasce sozinha, mesmo que a anterior continue aberta.
+  - Ao editar uma tarefa que se repete, o sistema pergunta: **Só esta** ou **Esta e as próximas**.
+  - "⏭ Pular esta vez" numa tarefa com regra cancela só aquela ocorrência.
+  - As tarefas antigas (toda semana / todo mês / todo ano) continuam funcionando como antes; se você mudar a repetição delas, passam para a regra nova.
+- **Administração → E-mail**:
+  - **Configuração** em 3 passos: **1. Contas que enviam** (Escritório e Contabilidade lado a lado) · **2. Dados para pagamento** (lado a lado, com "Ver modelo") · **3. Testar** (🧪 Testar tudo: confere a lista e manda o e-mail de teste).
+  - O Gmail é o padrão. SMTP e Resend ficaram em **Avançado** (dentro de cada conta).
+  - "Verificar funções", "Enviar fila agora", "Mandar resumo do dia agora" e "Só enviar e-mail de teste" foram para **⋯ Ferramentas** (canto direito da Configuração).
+  - A aba **Para revisar** virou **Caixa de saída**, com os filtros Para revisar · Na fila · Enviados · Com erro. Cada linha tem 👁 (prévia) e, nos com erro, **↻ Tentar de novo**.
+    Os "Últimos e-mails" que ficavam na Configuração estão aqui (filtro Enviados).
+- **Onde ficou o que mudou de lugar**: "Para revisar" → E-mail → Caixa de saída (1º filtro); botões técnicos do e-mail → ⋯ Ferramentas; quadros "Na fila / Enviados / Com erro" → cabeçalho da Caixa de saída.
 
 ## Backup 50 — ajustes pedidos + sugestões novas (tem SQL e a função erp-agenda mudou)
 Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Publicar de novo a função `erp-agenda` (Verify JWT desligado)  4) Ctrl+Shift+R**.

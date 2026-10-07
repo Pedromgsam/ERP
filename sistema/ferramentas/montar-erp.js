@@ -379,7 +379,11 @@ trocar("const fS = v => { v=Number(v)||0; if(v>=1e6)return'R$'+(v/1e6).toFixed(1
   "  else if(a>=1e4) t=Math.round(a/1e3).toLocaleString('pt-BR')+'\\u00A0mil';\n" +
   "  else t=a.toLocaleString('pt-BR',{maximumFractionDigits:0});\n" +
   "  return (neg?'−':'')+'R$\\u00A0'+t; }", 1);
-trocar("const fF = v => 'R$ '+(Number(v)||0)", "const fF = v => 'R$\\u00A0'+(Number(v)||0)", 1);
+// Backup 51: o Painel desenhava a tabela das empresas DUAS vezes (o pintor "resumo" já chama renderExecRanking logo depois de renderResumo)
+trocar("  setTimeout(renderExecRanking,0);\n}", "}", 1);
+// Backup 51: moeda com um formatador só (toLocaleString criava um formatador novo a cada número: ~200 ms para abrir o Painel com 500 empresas)
+trocar("const fF = v => 'R$ '+(Number(v)||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});",
+  "const _nfBRL2 = new Intl.NumberFormat('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});\nconst fF = v => 'R$\\u00A0'+_nfBRL2.format(Number(v)||0);", 1);
 trocar("  if(a>=1e6) t='R$ '+(a/1e6).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+' mi';\n  else       t='R$ '+a.toLocaleString('pt-BR',{maximumFractionDigits:0});\n  return (neg?'−':'')+t;",
   "  return _moedaCurta(neg?-a:a);", 1);
 trocar("callback:v=>{const n=Number(v)||0;if(n>=1e6)return'R$'+(n/1e6).toFixed(1)+'M';if(n>=1e3)return'R$'+(n/1e3).toFixed(0)+'k';return'R$'+n.toFixed(0);}", "callback:v=>_moedaCurta(v)", 1);
@@ -735,7 +739,7 @@ const bundle = "'use strict';\n// GERADO por sistema/ferramentas/montar-erp.js �
   [nuc, graf, ler('telas-painel.js'), ler('telas-financeiro.js'), ler('telas-cadastros.js'), ler('telas-admin.js'), ler('telas-tarefas.js'), ler('telas-documentos.js'), ler('telas-cliente360.js'), ler('telas-crm.js'), ler('telas-publicacoes.js'), ler('telas-acordos.js'), ler('telas-alertas.js'), ler('atualizacoes-dados.js'), ler('telas-atualizacoes.js'), ler('telas-automacoes.js'), ler('telas-guias.js'), ler('telas-rotina.js')].join('\n') +
   "\n// toda gravação confirmada aparece também no rodapé do ERP\nconst _avisoOrig = aviso;\n" +
   "aviso = function (msg, erro) { _avisoOrig(msg, erro); if (!erro && window.ERP_EDITOR && /^✓/.test(msg)) window.ERP_EDITOR.gravou(String(msg).replace(/^✓\\s*/, '')); };\n" +
-  "window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, invalidarCadastros, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo, perguntarBaixa, detalheContrato, ICONE_AVISO, abrirTarefa, detalheLancamento, formReuniao, janelaDelegar, abrirGeradorContrato, cardGuias, emitirParcela, enviarAcordosSelecionados, gerarGuias, janelaMovimentacao, cobrarWhatsApp };\n})();\n";
+  "window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, invalidarCadastros, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo, perguntarBaixa, detalheContrato, ICONE_AVISO, abrirTarefa, detalheLancamento, formReuniao, janelaDelegar, abrirGeradorContrato, cardGuias, emitirParcela, enviarAcordosSelecionados, gerarGuias, janelaMovimentacao, cobrarWhatsApp, textoRegra, proximasDatas, regraDaTarefa, projecoesRecorrentes };\n})();\n";
 fs.writeFileSync(path.join(APP, 'gestao-embutida.js'), bundle);
 
 // CSS do Gestão só dentro de .gs (as telas do Gestão) e #gs-hd (barra superior)
