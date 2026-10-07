@@ -82,7 +82,19 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
-- Última entrega: **Backup 51** (SQL + função erp-agenda, VERSAO 2026-10-09). Velocidade: `rotina_parcelas_json()` (security definer, confere `pode('juridico')` uma vez; parcelas em
+- Última entrega: **Backup 52** (só SQL). C1: `VISTAS_FILA` lista/semana/mes; `semanaArrastavel(alvo, {lista, estado, abrir, repintar, atrasadas, rotulo, cartao})` usada por
+  `vistaSemana` (Tarefas) e pelo Início (`#ini-semana`). C2: Atualizações removida (telas-atualizacoes.js, atualizacoes-dados.js e o gerador no montar-erp saíram; histórico = backups/LEIA-ME.md).
+  C3: Lista do Início com `maxHeight` (era `height`), `.tf-sem .sm-grade` sem min-height 600; padrao.js mede "≤ 40 px vazios" nos `.card-bd` (Início, Tarefas, Rotina, Acordos).
+  C4/P3: `contornarGrupos` saiu (sem `gc-*`); cabeçalho de grupo único `:is(tr.gx-grp,tr.cli-grp,tr.rt-grp) > td` (faixa cinza) e `.lg-g`/`doc-pasta` sem borda azul (bloco B52 do design.css).
+  C5: `#pub-buscar` → `buscarPubNoNavegador({detalhe:true})` e, se falhar, `erp-publicacoes`; `#pub-nav` saiu. C6: `acordos.pix_codigo`, `pixDaParcela(x)` (código da parcela ou chave do acordo),
+  `.ge-pix` no cartão (grava ao copiar/enviar: `gravarPix`), `pixItem` com `pix_codigo` → `guias_texto_html` mostra o código num quadro. C7: textos sem "da <empresa>" (`textoGuias`, `textoNotifParcelas`).
+  P1: pílula única para `.gx-seg-cli > button`, `.filtros .segmento > button`, `.rt-seg > button`, `.fila-chips .fila-chip` (CSS no fim do design.css; ✓ por `::before`). P2: `botaoAtualizar(id)` (nucleo,
+  `.bt-atualizar` no `.card-hd`). P4: `SITUACOES`/`situacaoDe`/`pillSituacao` (nucleo) + `data-sit` (atraso|hoje|avencer|pago|cliente) e cores únicas `[data-sit=…]`; `ROTULO_SIT.aberto` = "A vencer".
+  O1: `cadastrosEmDia()`; irPara (montar-erp) não espera `carregarCadastros` se já há lista (renova por trás); Clientes desenha 60 linhas e o resto no quadro seguinte (`#cli-tbody`, clique delegado);
+  nav do ERP sem `scrollIntoView` (montar-erp); `.gs-area` das telas que ficaram para trás esvaziadas depois de 1,5 s. O2: RPC `rotina_processos_json()` (+ índice `processo_mov_ultima`).
+  O3: `marcarSujo('parcelas', parcelamentoId)` → `ERP_SUJO.parcelamentos` = lista de ids → `recarregarParcelamentos(ids)` (RPC `parcelamentos_json(ids)`, `ERP_LER_PARCELAMENTOS`);
+  `renderParcelamentos` desenha só a aba aberta (`_parcTab`, montar-erp). velocidade.js mede também Rotina → Processos e Parcelamentos pós-Pago (metas < 1 s) e Clientes (< 0,2 s).
+- Backup 51 (base) (SQL + função erp-agenda, VERSAO 2026-10-09). Velocidade: `rotina_parcelas_json()` (security definer, confere `pode('juridico')` uma vez; parcelas em
   listas curtas `ps` [id,numero,venc,pago,data_pag,emitida_em,emissao,valor] na janela −3/+3 meses + atrasadas + a última; `fora` = resumo das antigas/futuras; `grupo_nome`) →
   `dadosRotina(forcar)` (telas-rotina.js, `_rtDados` zerado ao entrar na Rotina; ↻ `#ep-atu`/`#pl-atu`), `esqueletoRotina` (`.rt-esq .esq`), `[data-pl-hist]` = histórico de 1 parcelamento,
   `clienteDoParcelamento` (índice). V4: `pagarParcelaRotina`/`emitirParcelaRotina` (otimista; erro volta + aviso), `baixaRapida(t,id,{semRecarregar,desfazer,prazoDesfazer})` sem `carregarGrupos`,
@@ -97,8 +109,7 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
   `textoRepete`, `datasRegra` (cópia fiel; erp.js compara com o banco), `perguntarSerie` (`#tf-serie-esta`/`#tf-serie-prox`), `projecoesRecorrentes`. E1–E4: `admEmailConfig` em 3 `.em-passo`
   (`formConta`, Avançado `details.em-avancado`, `⋯ Ferramentas` `#em-ferr-menu`, `#email-testar`), aba `saida` = `admEmailSaida` (`FILTROS_SAIDA`, `[data-saida-f]`, `[data-em-tentar]` → `email_reenviar`);
   `admEmailRevisar` = filtro revisar. Tempos antes/depois no COMO-ATUALIZAR (Backup 51).
-  Próxima rodada: `sistema/SUGESTOES-B51.md` (C1–C7 pedidos: Início Semana/Mês, tirar Atualizações, quadros do tamanho do conteúdo, sem borda azul,
-  Buscar agora pelo navegador, código PIX na parcela do acordo, texto genérico sem "da Fulano"; P simetria; O/N/A/S) e prompt `sistema/PROMPT-BACKUP-52.md`.
+  Sugestões: `sistema/SUGESTOES-B51.md` (C1–C7, P1–P5 e O1–O3 feitos no Backup 52; N/A/S e O4–O5 continuam como sugestão).
 - Backup 50 (base) (SQL + função erp-agenda). Início: atalho `financeiro` em `cardResumoEscritorio` (lancamentos ≤ hoje+5); chips `.fila-chip.ativo` de uma cor
   (`--selecao`, sem as cores por tipo). erp-agenda (VERSAO 2026-10-08): todas as tarefas abertas com prazo/prazo_fatal do responsável OU participante, `TZID=America/Sao_Paulo` com hora.
   Tarefas: `pillStatusTarefa` (`.tf-st-<status>`), colunas Prazo + Dias (`celulaAtraso`), `.cal-pri-<prioridade>` no calendário. Cadastro de cliente sem `.cli-rapido`; `formCliente(cl, depois, abaInicial)`.
@@ -131,8 +142,7 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
   `ERP_EDITOR.baixaRapida(t,id,{semRecarregar:true})` → `ERP_DADOS_SUJOS` (nav recarrega ao sair do GS); Enviar guias: `E.rt.epTodos`/`#ep-todos` (cliente emite, `.ep-tc`), `salvarCard`
   (rascunho salvo → `registrar_emissao` + `lancar_valor_parcela`), `#ep-todos-rasc`. Automações: `regras_tarefas.oculta` (flag `b46_automacoes` esconde/desliga as nunca usadas; tela filtra).
   Usuários: tabela `.us-tab` só leitura, `[data-us-ed]` → `formEditarUsuario` (`#us-nome`, `#us-papel`, `#us-cargo-sel`, `#us-rev-sel`, funções/grupos, `#us-salvar`); ✓/🔑/🗑 viraram ícones.
-  Atualizações: `telas-atualizacoes.js` (`TELAS.atualizacoes`, `.atu-*`) + `atualizacoes-dados.js` GERADO pelo montar-erp a partir de `backups/LEIA-ME.md` (datas do git) — atualize o LEIA-ME
-  ANTES de rodar o montar-erp. Reset: `banco/reset-para-uso-real.sql` (só o admin "Pedro%"; testado no rodar-tudo em erp_fluxo).
+  Atualizações (saiu no Backup 52). Reset: `banco/reset-para-uso-real.sql` (só o admin "Pedro%"; testado no rodar-tudo em erp_fluxo).
 - Backup 45 (base) (só SQL; erp-emails = B44). Rotina: `rotinaEnviarGuias` = Notificações antigas (`.ep-*`, `_epSel`, `textoNotifParcelas` com `[VALOR:x]`, `epHtml`,
   `epTextoAtual`, `epParaEdicao`; "Enviar e-mail" → RPC `rascunho_email_texto(cli, para, assunto, texto, arquivos)` + `salvarRascunhoAgora`; "Marcar enviado" → `registrar_emissao` +
   `lancar_valor_parcela`); `email_rascunho_destino_real(ref)` desfaz o desvio do modo teste nos rascunhos (também em `salvar_guias_rascunho`); constraint de `email_fila.status`

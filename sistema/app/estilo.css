@@ -1186,8 +1186,9 @@ button.pl-dt{cursor:pointer}
 @media (max-width:900px){.sm-com-atr .sm-grade{grid-auto-flow:row;grid-template-columns:1fr!important}}
 
 /* Backup 40: Minha semana com a altura do calendário (os dias esticam); concluída riscada no calendário */
-.tf-sem .sm-grade{min-height:600px;align-items:stretch}
-.tf-sem .fila-com-atr > .fila-atrasadas{min-height:600px}
+/* Backup 52 (C3): sem altura fixa — a semana acompanha o conteúdo (antes 600 px, sobrava espaço vazio com poucas tarefas) */
+.tf-sem .sm-grade{min-height:0;align-items:stretch}
+.tf-sem .fila-com-atr > .fila-atrasadas{min-height:100%}
 .tf-sem .sm-col{display:flex;flex-direction:column}
 .cal-tf.ag-feita,.ag-cor.ag-feita{text-decoration:line-through;opacity:.6}
 .ag-cor.ag-feita{background:var(--border-strong)}

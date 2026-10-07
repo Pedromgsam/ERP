@@ -743,16 +743,6 @@ body.gx-barra-topo .janela :is(.tw,.tabela-wrap){max-height:60vh}
 .gd-jan-v .ge-rs{font-size:12px;letter-spacing:0}
 #gs-raiz .gd-jan-v{gap:4px}
 /* ═══ Backup 31 — contorno azul em volta de cada grupo (tabelas agrupadas: Painel, Processos, Rotina, Clientes; listas por grupo) ═══ */
-body.gx-barra-topo :is(tr.gc-ini,tr.gc-in,tr.gc-fim) > td.gc-l{box-shadow:inset 2px 0 0 var(--primario)!important}
-body.gx-barra-topo :is(tr.gc-ini,tr.gc-in,tr.gc-fim) > td.gc-r{box-shadow:inset -2px 0 0 var(--primario)!important}
-body.gx-barra-topo :is(tr.gc-ini,tr.gc-in,tr.gc-fim) > td.gc-l.gc-r{box-shadow:inset 2px 0 0 var(--primario),inset -2px 0 0 var(--primario)!important}
-body.gx-barra-topo tr.gc-ini > td{border-top:2px solid var(--primario)!important}
-body.gx-barra-topo tr.gc-ini > td:only-child{box-shadow:inset 2px 0 0 var(--primario),inset -2px 0 0 var(--primario)!important}
-body.gx-barra-topo tr.gc-fim > td{border-bottom:2px solid var(--primario)!important}
-body.gx-barra-topo tr.gc-ini > td{background:var(--blue-lt)!important}
-body.gx-barra-topo tr.gc-ini + tr > td{border-top:0}
-body.gx-barra-topo tr.gc-fim + tr.gc-ini > td{border-top-width:2px}
-body.gx-barra-topo table:has(tr.gc-ini){border-collapse:separate;border-spacing:0}
 body.gx-barra-topo .lg-g{border:1.5px solid var(--primario);border-radius:var(--card-r);margin:6px 6px;overflow:hidden}
 body.gx-barra-topo details.doc-pasta{border:1.5px solid var(--primario)!important;border-radius:var(--card-r)}
 /* ═══ Backup 31 — "Parcelamentos/Acordos para emitir" em blocos: grupo (contorno azul, clique abre) › empresa (🧾 Emitir) › parcelas; mais compacto ═══ */
@@ -938,11 +928,6 @@ body.gx-barra-topo .ac-ap td.mono{white-space:nowrap}
   body.gx-barra-topo .cc-t{font-size:13px}
 }
 /* ── Backup 36: linha lateral do grupo CONTÍNUA — desenhada por cima da borda entre as linhas (antes ficava um risquinho branco) ── */
-body.gx-barra-topo :is(tr.gc-ini,tr.gc-in,tr.gc-fim) > td:is(.gc-l,.gc-r){position:relative;box-shadow:none!important;overflow:visible!important}
-body.gx-barra-topo :is(tr.gc-ini,tr.gc-in,tr.gc-fim) > td.gc-l::before,
-body.gx-barra-topo :is(tr.gc-ini,tr.gc-in,tr.gc-fim) > td.gc-r::after{content:'';position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--primario);pointer-events:none;z-index:1}
-body.gx-barra-topo :is(tr.gc-ini,tr.gc-in,tr.gc-fim) > td.gc-l::before{left:0}
-body.gx-barra-topo :is(tr.gc-ini,tr.gc-in,tr.gc-fim) > td.gc-r::after{right:0}
 /* ── Backup 36: últimas movimentações em cartões separados ── */
 .gx-movs{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
 .gx-mov{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border:1px solid var(--border);border-left:3px solid var(--primario);border-radius:var(--r-ctl);background:var(--surface);font-size:13px}
@@ -1375,7 +1360,6 @@ body.gx-barra-topo #tblExecRanking td:nth-child(5),body.gx-barra-topo #tblExecRa
 .gs .ep-topo[hidden],.gs .ep-legenda[hidden],.gs .rt-filtros[hidden],.gs .ep-card-body[hidden],.gs .ep-card-edit[hidden]{display:none!important}
 /* Backup 45: Clientes — faixa do grupo simples (sem o contorno azul), igual ao Painel e à Rotina */
 body.gx-barra-topo .gs .cli-tabela tr.cli-grp td{background:var(--surface3)!important;color:var(--text2)!important;font-weight:700;font-size:12px;letter-spacing:.03em;padding:7px 10px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);box-shadow:none!important}
-body.gx-barra-topo .gs .cli-tabela tr.gc-ini td,body.gx-barra-topo .gs .cli-tabela tr.gc-in td,body.gx-barra-topo .gs .cli-tabela tr.gc-fim td{box-shadow:none!important}
 /* Backup 45: Início — filtros da agenda (marca/desmarca) e os dois avisos do "Agendar" */
 .gs .fila-filtros{display:flex;flex-direction:column;gap:6px;margin:0 0 12px}
 .gs .fila-chips{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
@@ -1440,20 +1424,6 @@ body.gx-barra-topo #tblExecRanking td:nth-child(2),body.gx-barra-topo #tblExecRa
 .us-ed-sec[hidden]{display:none!important}
 .us-ed-tit{font-weight:600;font-size:var(--fs-md);margin-bottom:6px}
 @media (max-width:600px){.us-ed-grade{grid-template-columns:1fr}}
-/* Atualizações (B46): linha do tempo das versões */
-.gs .atu-linha{list-style:none;margin:0;padding:0 0 0 18px;border-left:2px solid var(--border)}
-.gs .atu-v{position:relative;display:grid;grid-template-columns:170px 1fr;gap:14px;padding:12px 0 16px 14px;border-bottom:1px solid var(--line)}
-.gs .atu-v:last-child{border-bottom:0}
-.gs .atu-v::before{content:"";position:absolute;left:-25px;top:16px;width:12px;height:12px;border-radius:50%;background:var(--surface);border:2px solid var(--border-strong)}
-.gs .atu-v.atu-nova::before{background:var(--primario);border-color:var(--primario)}
-.gs .atu-marca{display:flex;flex-direction:column;gap:4px;align-items:flex-start}
-.gs .atu-num{font-weight:700;font-size:var(--fs-md)}
-.gs .atu-data{font-size:var(--fs-xs);color:var(--text3)}
-.gs .atu-itens{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px;font-size:var(--fs-sm);line-height:1.45}
-.gs .atu-mais{text-align:center;padding-top:12px}
-.gs .atu-mais[hidden]{display:none}
-.gs #atu-busca{min-width:260px}
-@media (max-width:600px){.gs .atu-v{grid-template-columns:1fr;gap:6px}}
 /* ═══ Backup 49 ═══ */
 /* faixa do modo teste (administrador) */
 #gx-modo-teste{position:fixed;left:0;right:0;bottom:0;z-index:60;background:var(--amber-lt);color:var(--amber-d);border-top:1px solid var(--amber-border);padding:7px 16px;font-size:var(--fs-sm);text-align:center}
@@ -1637,3 +1607,32 @@ body.gx-barra-topo :is(#finTabBar,#finCTabBar) .fin-tab.active{color:var(--td)!i
 .gs #email-testar{margin-bottom:10px}
 .gs .tf-rep :is(input[type=number],input[type=date],select){height:32px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);color:var(--text);font:inherit;font-size:13px}
 .gs .tf-rep select{padding-right:28px}
+
+/* ═══ Backup 52 ═══ */
+/* C4/P3: UM cabeçalho de grupo em todo o ERP — a faixa cinza com o nome e a contagem (igual a Clientes); nenhuma borda azul em volta dos grupos */
+body.gx-barra-topo :is(tr.gx-grp,tr.cli-grp,tr.rt-grp) > td{background:var(--surface3)!important;color:var(--text2)!important;font:700 12px var(--font-ui)!important;letter-spacing:.03em;text-transform:uppercase;padding:7px 10px!important;border-top:1px solid var(--border)!important;border-bottom:1px solid var(--border)!important;box-shadow:none!important}
+body.gx-barra-topo :is(tr.gx-grp,tr.cli-grp,tr.rt-grp) > td .sub{text-transform:none;font-weight:500;margin-left:6px;color:var(--text3)}
+body.gx-barra-topo :is(.lg-g,details.doc-pasta){border:1px solid var(--border)!important;box-shadow:none!important}
+body.gx-barra-topo .lg-g-aberto{border:1px solid var(--border-strong)!important;box-shadow:var(--shadow-sm)!important}
+body.gx-barra-topo .lg-g-aberto > .lg-gl{background:var(--surface3)!important;box-shadow:none!important}
+body.gx-barra-topo .lg-g-aberto .lg-gnome{color:var(--ink)}
+body.gx-barra-topo .lg-g-aberto .lg-seta{background:var(--text3);color:var(--on-cor)}
+body.gx-barra-topo .lg-cards .lg-card.lg-g-aberto{border:1px solid var(--border-strong)!important;background:var(--surface);box-shadow:var(--shadow-md)!important}
+body.gx-barra-topo .lg-cards .lg-card.lg-g-aberto .lg-card-ab{color:var(--text2)}
+body.gx-barra-topo .lg-cards .lg-painel{border:1px solid var(--border-strong)!important}
+/* P1: UM componente de filtro em todo o ERP — as pílulas do Início (chipFiltro): Painel, Processos, Parcelamentos, Acordos, Rotina, Clientes, CRM, Publicações, Tarefas */
+body.gx-barra-topo :is(.gx-seg-cli,.filtros .segmento,.rt-seg,.fila-chips){display:inline-flex!important;flex-wrap:wrap;align-items:center;gap:6px!important;border:0!important;padding:0!important;background:none!important;box-shadow:none!important;width:auto}
+body.gx-barra-topo :is(.gx-seg-cli > button,.gx-seg-cli > .chip,.filtros .segmento > button,.rt-seg > button,.fila-chips .fila-chip){font:600 12px var(--font-ui)!important;padding:4px 11px!important;border-radius:var(--r-pill)!important;border:1px solid var(--border-strong)!important;background:var(--surface)!important;color:var(--text2)!important;box-shadow:none!important;cursor:pointer;line-height:1.4;min-height:0}
+body.gx-barra-topo :is(.gx-seg-cli > button,.gx-seg-cli > .chip,.filtros .segmento > button,.rt-seg > button,.fila-chips .fila-chip):hover{border-color:var(--selecao)!important;color:var(--ink)!important}
+body.gx-barra-topo :is(.gx-seg-cli > button.ativo,.gx-seg-cli > .chip.on,.filtros .segmento > button.ativo,.rt-seg > button.ativo,.fila-chips .fila-chip.ativo){background:var(--selecao)!important;border-color:var(--selecao)!important;color:var(--on-selecao)!important}
+/* o ✓ do escolhido (o chipFiltro já escreve o ✓ no texto; nos outros filtros vem pelo CSS) */
+body.gx-barra-topo :is(.gx-seg-cli > button.ativo,.gx-seg-cli > .chip.on,.filtros .segmento > button.ativo,.rt-seg > button.ativo)::before{content:"✓ "}
+/* P2: o "↻ Atualizar" é um só — mesmo estilo e à direita do cabeçalho do quadro */
+.gs .card-hd .bt-atualizar{margin-left:auto;flex:0 0 auto}
+.gs .bt-atualizar{white-space:nowrap}
+/* P4: situações com UMA cor em todo o ERP (SITUACOES no nucleo.js) — vale para qualquer elemento com data-sit e para as classes antigas de cada tela */
+body.gx-barra-topo :is([data-sit=atraso],.pill.vencido,.lg-st-r,.lg-em-atr,.ep-tv,.pl-dt-atr){background:var(--red-lt)!important;color:var(--red-d)!important;border:1px solid var(--red-bd)!important}
+body.gx-barra-topo :is([data-sit=hoje],.pill.hoje){background:var(--amber-lt)!important;color:var(--amber-d)!important;border:1px solid var(--amber-border)!important}
+body.gx-barra-topo :is([data-sit=avencer],.pill.aberto,.lg-st-g,.pl-dt-ab){background:var(--blue-lt)!important;color:var(--blue-d)!important;border:1px solid var(--blue-bd)!important}
+body.gx-barra-topo :is([data-sit=pago],.pill.pago,.lg-em-ok,.pl-dt-ok,.lg-st-x){background:var(--green-lt)!important;color:var(--green-d)!important;border:1px solid var(--green-bd)!important}
+body.gx-barra-topo :is([data-sit=cliente],.ep-tc,.pl-dt-cli){background:var(--surface3)!important;color:var(--text2)!important;border:1px solid var(--border)!important}

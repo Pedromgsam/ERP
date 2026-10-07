@@ -11,7 +11,7 @@ let Alertas_emDiaAberto = false;
 TELAS.alertas = async function () {
   await carregarCadastros();
   $('conteudo').innerHTML = '<div class="titulo-pag"><div><h1>Alertas</h1><p>Só o que não aparece em outro lugar: cadastro incompleto, certidão e certificado vencendo, CNPJ irregular e as rotinas automáticas</p></div>' +
-    '<div class="acoes"><button class="btn btn-o" id="al-atualizar">↻ Atualizar</button></div></div><div id="al-corpo"><div class="carregando">Montando os alertas…</div></div>';
+    '<div class="acoes">' + botaoAtualizar('al-atualizar', 'Monta os alertas de novo') + '</div></div><div id="al-corpo"><div class="carregando">Montando os alertas…</div></div>';
   $('al-atualizar').onclick = () => TELAS.alertas();
   const h = hojeISO(), nada = () => [];
   const podeJur = pode('juridico'), podeFin = pode('financeiro_juridico') || pode('financeiro_contab');

@@ -109,7 +109,7 @@ const FILA = { toda: false, min: false, vista: 'lista', ref: null, lida: false, 
 // Backup 38: a agenda mostra SÓ o que está em Tarefas (tarefas e compromissos lançados pela equipe).
 // O administrador escolhe de quem ver: só as suas, todos, ou uma pessoa; os demais veem só as suas.
 const ehAdminFila = () => !!(E.perfil && E.perfil.papel === 'admin');
-const VISTAS_FILA = [['lista', 'Lista'], ['mes', 'Mês']];   // Backup 49: Semana e Dia ficaram em Tarefas → Calendário
+const VISTAS_FILA = [['lista', 'Lista'], ['semana', 'Semana'], ['mes', 'Mês']];   // Backup 52 (C1): a Semana voltou ao Início — a MESMA de Tarefas → Calendário (arrastar remarca)
 function salvarPrefFila() {
   const v = { vista: FILA.vista, min: FILA.min, quem: FILA.quem || '', pessoas: FILA.pessoas || null, tipos: FILA.tipos || null };
   if (E.perfil) E.perfil.preferencias = Object.assign({}, E.perfil.preferencias || {}, { fila: v });
@@ -332,7 +332,7 @@ function calendarioFila(lista) {
     '<button type="button" class="btn btn-p btn-mini ag-bt" data-agendar>+ Agendar</button></div>' + corpo + legendaAgenda() + '</div></div>';
 }
 async function cardMinhaFila() {
-  if (!FILA.lida) { const p = (E.perfil && E.perfil.preferencias && E.perfil.preferencias.fila) || {}; if (p.vista) FILA.vista = p.vista === 'lista' ? 'lista' : 'mes'; FILA.min = false; FILA.quem = p.quem || '';
+  if (!FILA.lida) { const p = (E.perfil && E.perfil.preferencias && E.perfil.preferencias.fila) || {}; if (p.vista) FILA.vista = ['lista', 'semana', 'mes'].includes(p.vista) ? p.vista : 'mes'; FILA.min = false; FILA.quem = p.quem || '';
     FILA.pessoas = Array.isArray(p.pessoas) ? p.pessoas : null; FILA.tipos = Array.isArray(p.tipos) ? p.tipos : null; FILA.lida = true; }
   await feriados();
   await equipe().catch(() => []);
@@ -361,7 +361,7 @@ async function cardMinhaFila() {
   const html = '<div class="card ini-fila' + (FILA.min ? ' minimizada' : '') + '"><div class="card-hd">📋 Minha fila de trabalho ' + '<span class="sub">' + plural(todas.length, 'aberta', 'abertas') + ' · ' + esc(rotQuem) + '</span>' +
       '<div class="segmento ini-fila-vista" role="group" aria-label="Ver como">' + VISTAS_FILA.map(([v, r]) => '<button type="button" data-fila-vista="' + v + '"' + (FILA.vista === v ? ' class="ativo"' : '') + '>' + r + '</button>').join('') + '</div>' +
       '</div>' +   // Backup 39: sem "Minimizar" 
-    (FILA.min ? '' : '<div class="card-bd">' + filtros + (FILA.vista !== 'lista' ? calendarioFila(naAgenda) :
+    (FILA.min ? '' : '<div class="card-bd">' + filtros + (FILA.vista === 'semana' ? '<div id="ini-semana"></div>' : FILA.vista !== 'lista' ? calendarioFila(naAgenda) :
     (minhas.length ? '<div class="lista-ficha fila-compacta">' + minhas.map((t) => '<div class="item-ficha clicavel" data-fila="' + t.id + '"><div>' + bolinha(t) + (t.tipo_agenda ? ' <i class="ag-cor ag-' + t.tipo_agenda + '"></i>' : '') + ' <b>' + (t.hora ? horaAg(t) : '') + esc(t.titulo) + '</b>' + seloPrazo(t) +
       '<div class="sub">' + (t.prazo ? 'prazo ' + dataBR(t.prazo) : 'sem prazo') + (t.prazo_fatal ? ' · ⚑ fatal ' + dataBR(t.prazo_fatal) : '') + (t.status === 'revisao' ? ' · aguardando revisão' : '') +
       (quemTarefa(t) ? ' · ' + esc(quemTarefa(t)) : '') + '</div></div>' +
@@ -373,9 +373,14 @@ async function cardMinhaFila() {
     // Backup 46: a Lista fica da mesma altura do calendário (trocar Lista ↔ Mês não muda o tamanho do quadro)
     const bd = raiz.querySelector('.ini-fila > .card-bd');
     const medir = () => { if (bd && FILA.vista === 'mes' && bd.offsetHeight > 200) FILA.altCal = bd.offsetHeight; };
-    if (bd) { if (FILA.vista !== 'lista') requestAnimationFrame(medir); else { bd.style.height = (FILA.altCal || 680) + 'px'; bd.style.overflowY = 'auto'; } }
-    raiz.querySelectorAll('[data-fila]').forEach((d) => d.onclick = () => {
-      abrirTarefa(ts.find((t) => t.id === d.dataset.fila), () => irPara(E.tela)); });
+    // Backup 52 (C3): a Lista acompanha o conteúdo (com filtro e poucos itens, o quadro encolhe); com muitos, para na altura do calendário e rola por dentro
+    if (bd) { if (FILA.vista !== 'lista') requestAnimationFrame(medir); else { bd.style.maxHeight = (FILA.altCal || 680) + 'px'; bd.style.overflowY = 'auto'; } }
+    // Backup 52 (C1): Semana = a mesma de Tarefas → Calendário (arrastar remarca o prazo)
+    const sem = raiz.querySelector('#ini-semana');
+    if (sem) semanaArrastavel(sem, { lista: todas, estado: FILA, atrasadas: true, cartao: false, rotulo: rotQuem,
+      abrir: (t) => abrirTarefa(t, () => irPara(E.tela)), repintar: () => repinta(raiz) });
+    raiz.querySelectorAll('[data-fila]').forEach((d) => { if (d.closest('#ini-semana')) return; d.onclick = () => {
+      abrirTarefa(ts.find((t) => t.id === d.dataset.fila), () => irPara(E.tela)); }; });
     raiz.querySelectorAll('[data-fila-tipo]').forEach((b) => b.onclick = () => { const v = b.dataset.filaTipo, todos = FILTRO_TIPOS_AG.map((x) => x[0]);
       let t = new Set(tiposSel); if (v === '*') t = t.size === todos.length ? new Set() : new Set(todos); else if (t.has(v)) t.delete(v); else t.add(v);
       FILA.tipos = t.size ? [...t] : []; if (!t.size) FILA.tipos = ['__nada']; salvarPrefFila(); repinta(raiz); });
@@ -1401,48 +1406,56 @@ function ligarCriacaoRapida() {
 }
 
 // ─────────── Minha semana: segunda a sexta, arrastar para remarcar ───────────
-function vistaSemana(alvo) {
-  const F = E.tf, h = hojeISO();
+// Backup 52 (C1): a semana com arrastar é UMA só — Tarefas → Calendário → Semana e o Início usam esta função.
+// o = { lista (tarefas já filtradas), estado (guarda .semana), abrir(t), repintar(), atrasadas (bool), rotulo, cartao (bool: dentro de um cartão próprio) }
+function semanaArrastavel(alvo, o) {
+  const h = hojeISO(), F = o.estado;
   const base = new Date((F.semana || h) + 'T12:00:00'); base.setDate(base.getDate() - ((base.getDay() + 6) % 7));
   const seg = iso(base), dias = [0, 1, 2, 3, 4].map((i) => somarDias(seg, i)), sex = dias[4];
-  const quem = F.pessoas && F.pessoas.length ? 'escolhida' : '';
-  // Backup 39: respeita a aba (Em aberto / Concluídas / Excluídas) — antes "Concluídas" ainda mostrava as abertas
-  const doDono = (t) => (quem ? true : ehMinha(t));   // com pessoa escolhida, o filtro de cima já separou (responsável ou participante)
-  const ts = filtrarTarefas().filter(doDono);
-  const abertasAba = F.aba === 'abertas';
-  const atrasadas = abertasAba ? ts.filter((t) => t.prazo && t.prazo < h).sort((a, b) => a.prazo.localeCompare(b.prazo)) : [], semData = ts.filter((t) => !t.prazo);
+  const ts = o.lista;
+  const atrasadas = o.atrasadas ? ts.filter((t) => t.prazo && t.prazo < h && !tarefaFechada(t)).sort((a, b) => a.prazo.localeCompare(b.prazo)) : [], semData = ts.filter((t) => !t.prazo);
   const cartao = (t) => '<div class="sm-card" draggable="true" data-sm="' + t.id + '"><b>' + esc(t.titulo) + '</b>' + seloFatal(t) +
     '<div class="sub">' + esc(quemTarefa(t) || '') + (t.estimativa_horas ? ' · ' + String(t.estimativa_horas).replace('.', ',') + ' h' : '') + '</div></div>';
   const col = (rot, data, lista, cls) => '<div class="sm-col' + (cls ? ' ' + cls : '') + '" data-dia="' + (data || '') + '"><div class="sm-tit">' + rot + ' <span class="sub">' + lista.length + '</span></div>' + lista.map(cartao).join('') + '</div>';
-  // Backup 40: dentro do mesmo cartão do calendário, com a mesma altura
-  alvo.innerHTML = '<div class="card ini-fila tf-cal tf-sem"><div class="card-bd"><div class="fila-cal-nav"><button type="button" class="btn btn-o btn-mini" data-sm-nav="-7">‹</button><b>Semana de ' + dataBR(seg).slice(0, 5) + ' a ' + dataBR(sex).slice(0, 5) +
-      (quem ? ' — ' + esc(quem) : ' — minhas tarefas') + '</b><button type="button" class="btn btn-o btn-mini" data-sm-nav="7">›</button><button type="button" class="btn btn-o btn-mini" data-sm-nav="0">Esta semana</button></div>' +
+  const miolo = '<div class="fila-cal-nav"><button type="button" class="btn btn-o btn-mini" data-sm-nav="-7" aria-label="Semana anterior">‹</button><b>Semana de ' + dataBR(seg).slice(0, 5) + ' a ' + dataBR(sex).slice(0, 5) +
+      (o.rotulo ? ' — ' + esc(o.rotulo) : '') + '</b><button type="button" class="btn btn-o btn-mini" data-sm-nav="7" aria-label="Próxima semana">›</button><button type="button" class="btn btn-o btn-mini" data-sm-nav="0">Esta semana</button></div>' +
     // Backup 39: "Atrasadas" no MESMO quadro do Início (⏰, número em vermelho, contorno vermelho e "prazo · N dias de atraso")
-    (abertasAba ? '<div class="fila-com-atr sm-com-atr">' + quadroAtrasadas(atrasadas) : '<div>') +
+    (o.atrasadas ? '<div class="fila-com-atr sm-com-atr">' + quadroAtrasadas(atrasadas) : '<div>') +
     '<div class="sm-grade">' +
     dias.map((d, i) => col(['Seg', 'Ter', 'Qua', 'Qui', 'Sex'][i] + ' ' + dataBR(d).slice(0, 5), d, ts.filter((t) => t.prazo === d), d === h ? 'sm-hoje' : '')).join('') +
     (semData.length ? col('Sem data', 'sem', semData, 'sm-sem') : '') + '</div></div>' +
-    '<p class="sub" style="margin-top:8px">Arraste a tarefa para outro dia para remarcar o prazo. Para ver a semana de outra pessoa, escolha a pessoa no filtro acima.</p></div></div>';
-  alvo.querySelectorAll('[data-sm-nav]').forEach((b) => b.onclick = () => { F.semana = +b.dataset.smNav ? somarDias(seg, +b.dataset.smNav) : null; vistaSemana(alvo); });
-  alvo.querySelectorAll('.fila-atrasadas [data-fila]').forEach((b) => b.onclick = () => abrirTarefa(E._tarefas.find((t) => t.id === b.dataset.fila), recarregarTarefas));
+    '<p class="sub sm-dica">Arraste a tarefa para outro dia para remarcar o prazo.</p>';
+  // Backup 40: dentro do mesmo cartão do calendário, com a mesma altura
+  alvo.innerHTML = o.cartao === false ? '<div class="tf-sem tf-sem-ini">' + miolo + '</div>' : '<div class="card ini-fila tf-cal tf-sem"><div class="card-bd">' + miolo + '</div></div>';
+  const achar = (id) => ts.find((t) => t.id === id) || (E._tarefas || []).find((t) => t.id === id);
+  alvo.querySelectorAll('[data-sm-nav]').forEach((b) => b.onclick = () => { F.semana = +b.dataset.smNav ? somarDias(seg, +b.dataset.smNav) : null; o.repintar(); });
+  alvo.querySelectorAll('.fila-atrasadas [data-fila]').forEach((b) => b.onclick = () => o.abrir(achar(b.dataset.fila)));
   let arr = null;
   alvo.querySelectorAll('.sm-card').forEach((c) => {
     c.addEventListener('dragstart', (ev) => { arr = c.dataset.sm; ev.dataTransfer.setData('text/plain', arr); c.classList.add('arrastando'); });
     c.addEventListener('dragend', () => c.classList.remove('arrastando'));
-    c.onclick = () => abrirTarefa(E._tarefas.find((t) => t.id === c.dataset.sm), recarregarTarefas);
+    c.onclick = () => o.abrir(achar(c.dataset.sm));
   });
   alvo.querySelectorAll('.sm-col[data-dia]').forEach((cl) => {
     if (!cl.dataset.dia || cl.dataset.dia === 'sem') return;
     cl.addEventListener('dragover', (ev) => { ev.preventDefault(); cl.classList.add('sobre'); });
     cl.addEventListener('dragleave', () => cl.classList.remove('sobre'));
     cl.addEventListener('drop', (ev) => { ev.preventDefault(); cl.classList.remove('sobre');
-      const id = ev.dataTransfer.getData('text/plain') || arr, t = E._tarefas.find((x) => x.id === id); if (!t || t.prazo === cl.dataset.dia) return;
+      const id = ev.dataTransfer.getData('text/plain') || arr, t = achar(id); if (!t || t.prazo === cl.dataset.dia) return;
       comBotao(null, async () => {
         if (t.prazo_fatal && cl.dataset.dia > t.prazo_fatal && !confirm('A nova data passa do PRAZO FATAL (' + dataBR(t.prazo_fatal) + '). Remarcar mesmo assim?')) return;
         await q(sb.from('tarefas').update({ prazo: cl.dataset.dia }).eq('id', id)); t.prazo = cl.dataset.dia;
-        aviso('✓ "' + t.titulo + '" remarcada para ' + dataBR(cl.dataset.dia) + '.'); vistaSemana(alvo);
+        aviso('✓ "' + t.titulo + '" remarcada para ' + dataBR(cl.dataset.dia) + '.'); o.repintar();
       }); });
   });
+}
+function vistaSemana(alvo) {
+  const F = E.tf;
+  const quem = F.pessoas && F.pessoas.length ? 'escolhida' : '';
+  // Backup 39: respeita a aba (Em aberto / Concluídas / Excluídas) — antes "Concluídas" ainda mostrava as abertas
+  const doDono = (t) => (quem ? true : ehMinha(t));   // com pessoa escolhida, o filtro de cima já separou (responsável ou participante)
+  semanaArrastavel(alvo, { lista: filtrarTarefas().filter(doDono), estado: F, atrasadas: F.aba === 'abertas', rotulo: quem || 'minhas tarefas',
+    abrir: (t) => abrirTarefa(t, recarregarTarefas), repintar: () => vistaSemana(alvo) });
 }
 
 // ═══ Backup 26: DELEGAR e VALIDAR ═══

@@ -7551,3 +7551,61 @@ end $$;
 revoke all on function public.tarefa_serie_editar(uuid, jsonb) from public, anon;
 grant execute on function public.tarefa_serie_editar(uuid, jsonb) to authenticated;
 -- ═══ fim do Backup 51 ═══
+
+-- ═══════════════════════════════ Backup 52 ═══════════════════════════════
+-- C6 — código PIX (copia e cola) de cada parcela de acordo; sem ele, vale a chave PIX do acordo (acordos.pix)
+alter table public.acordos add column if not exists pix_codigo text not null default '';
+-- a caixa "Como pagar" do e-mail mostra o PIX de cada parcela (o código copia e cola fica num quadro fácil de selecionar e copiar)
+create or replace function public.guias_texto_html(p_texto text, p_itens jsonb) returns text
+language plpgsql immutable set search_path = public as $$
+declare h text; pix text;
+begin
+  h := '<p style="margin:0 0 10px">' || replace(replace(public.esc_html(btrim(coalesce(p_texto, ''))), E'\n\n', '</p><p style="margin:0 0 10px">'), E'\n', '<br>') || '</p>';
+  select string_agg(distinct
+           case when coalesce((i->>'pix_codigo')::boolean, false)
+             then 'PIX (copia e cola)' || coalesce(' — ' || nullif(public.esc_html(i->>'descricao'), ''), '') || ':<br><span style="display:block;font-family:Consolas,monospace;font-size:12.5px;word-break:break-all;background:#fff;border:1px solid #E2D6B5;border-radius:6px;padding:8px 10px;margin:4px 0 8px;user-select:all">' || public.esc_html(i->>'pix') || '</span>'
+             else 'PIX: <b>' || public.esc_html(i->>'pix') || '</b>' || coalesce(' · ' || nullif(public.esc_html(i->>'banco'), ''), '') end, '<br>') into pix
+    from jsonb_array_elements(coalesce(p_itens, '[]')) i where coalesce(i->>'pix', '') <> '';
+  if pix is not null then
+    h := h || '<div style="background:#F5EDD6;border-left:4px solid #C9A84C;border-radius:10px;padding:12px 14px;margin:14px 0;font-size:13.5px"><b style="color:#1B2A4A">Como pagar</b><br>' || pix || '</div>';
+  end if;
+  return h;
+end $$;
+-- O2 — Rotina → Processos: uma consulta só (os processos + a ÚLTIMA movimentação de cada um), em vez de baixar todas as movimentações
+create index if not exists processo_mov_ultima on public.processo_movimentacoes (processo_id, criado_em desc);
+create or replace function public.rotina_processos_dados() returns jsonb
+language sql stable security definer set search_path = public as $$
+  with ult as (
+    select distinct on (m.processo_id) m.processo_id, m.tipo, m.quem, m.criado_em
+      from public.processo_movimentacoes m order by m.processo_id, m.criado_em desc, m.id
+  )
+  select coalesce(jsonb_agg(jsonb_build_object('id', p.id, 'numero', p.numero, 'grupo_id', p.grupo_id, 'natureza', p.natureza, 'competencia', p.competencia,
+      'autor', p.autor, 'reu', p.reu, 'valor', p.valor, 'procuracao', p.procuracao, 'obs', p.obs, 'atualizacao', p.atualizacao,
+      'ultima_movimentacao', p.ultima_movimentacao, 'ultima_movimentacao_em', p.ultima_movimentacao_em,
+      'grupos', case when g.id is null then null else jsonb_build_object('nome', g.nome) end,
+      'ult', case when u.processo_id is null then null else jsonb_build_object('processo_id', u.processo_id, 'tipo', u.tipo, 'quem', u.quem, 'criado_em', u.criado_em) end)
+      order by p.id), '[]'::jsonb)
+    from public.processos p left join public.grupos g on g.id = p.grupo_id left join ult u on u.processo_id = p.id;
+$$;
+revoke all on function public.rotina_processos_dados() from public, anon, authenticated;
+create or replace function public.rotina_processos_json() returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not public.pode('juridico') then raise exception 'permission denied: sem acesso ao Jurídico (processos).'; end if;
+  return public.rotina_processos_dados();
+end $$;
+revoke all on function public.rotina_processos_json() from public, anon;
+grant execute on function public.rotina_processos_json() to authenticated;
+
+-- O3 — Parcelamentos depois de um Pago: o ERP relê SÓ o parcelamento que mudou (o parcelamento e todas as parcelas dele, numa consulta)
+create or replace function public.parcelamentos_json(p_ids uuid[]) returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not public.pode('juridico') then raise exception 'permission denied: sem acesso ao Jurídico (parcelamentos).'; end if;
+  return coalesce((select jsonb_agg(to_jsonb(pa) || jsonb_build_object('parcelas',
+      coalesce((select jsonb_agg(to_jsonb(x) order by x.vencimento nulls last, x.id) from public.parcelas x where x.parcelamento_id = pa.id), '[]'::jsonb)))
+    from public.parcelamentos pa where pa.id = any(coalesce(p_ids, '{}'))), '[]'::jsonb);
+end $$;
+revoke all on function public.parcelamentos_json(uuid[]) from public, anon;
+grant execute on function public.parcelamentos_json(uuid[]) to authenticated;
+-- ═══ fim do Backup 52 ═══

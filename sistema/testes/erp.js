@@ -411,15 +411,8 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('Tarefas sem o botão ⚡ Automações e barra sem o sino de avisos; lista sem ✎', !(await p.$('#tf-vista-corpo [data-editar-t]')) && !(await p.$('#tf-regras')) && !(await p.$('#gs-sino')));
     await nav(p, 'automacoes'); await p.waitForSelector('#panel-automacoes #au-rodar'); await p.waitForTimeout(500);
     ok('Central de automações lista as automações e as rotinas', (await p.$$('#panel-automacoes [data-au-lig]')).length === Number(sql("select count(*) from regras_tarefas where not oculta")) && /Rotinas agendadas/.test(await p.textContent('#panel-automacoes')));
-    // Backup 46: aba Atualizações (Principal, depois de Alertas) com a versão atual em cima
-    await nav(p, 'atualizacoes'); await p.waitForSelector('#panel-atualizacoes .atu-v');
-    { const n = await p.$eval('#panel-atualizacoes .atu-v', (e) => +e.dataset.atu), menu = await p.$$eval('#tn [data-ir]', (es) => es.map((e) => e.dataset.ir));
-      ok('Atualizações (B46): lista as versões da mais nova para a mais antiga, com busca', n >= 46 && /Versão atual/.test(await p.textContent('#panel-atualizacoes .atu-v')) && (await p.$$('#panel-atualizacoes .atu-v')).length === 8);
-      await p.fill('#atu-busca', 'rascunho no Gmail'); await p.waitForTimeout(300);
-      ok('Atualizações (B46): a busca filtra as versões', (await p.$$('#panel-atualizacoes .atu-v')).length >= 1 && (await p.$$('#panel-atualizacoes .atu-v')).length < 8);
-      await p.fill('#atu-busca', '');
-      const ia = menu.indexOf('alertas'), iu = menu.indexOf('atualizacoes');
-      ok('Atualizações (B46): item no menu logo depois de Alertas', ia >= 0 && iu === ia + 1); }
+    // Backup 52 (C2): a aba Atualizações saiu (o histórico das versões fica em backups/LEIA-ME.md)
+    ok('B52 C2: sem "Atualizações" no menu e sem a tela', !(await p.$('#tn [data-ir=atualizacoes]')) && await p.evaluate(() => !window.GS.TELAS.atualizacoes && !window.ATUALIZACOES));
     await nav(p, 'automacoes'); await p.waitForSelector('#panel-automacoes #au-rodar');
     await p.click('#panel-automacoes #au-rodar'); await p.waitForTimeout(1500);
     await nav(p, 'tarefas'); await p.waitForTimeout(800);
@@ -568,7 +561,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('Publicações: busca também pelo nome do cliente e descarta o nome parecido', sql("select count(*) from publicacoes where parte_monitorada='BETA SERVICOS LTDA'") === '1' &&
       sql("select count(*) from publicacoes where destinatarios like '%GAMA%'") === '0');
     sql("delete from publicacoes where parte_monitorada='BETA SERVICOS LTDA'");
-    await p.evaluate((b) => { window.ERP_DJEN_API = b + '/__teste/djen'; }, BASE); await p.click('#pub-nav'); await p.waitForTimeout(3000);
+    await p.evaluate((b) => { window.ERP_DJEN_API = b + '/__teste/djen'; }, BASE); await p.click('#pub-buscar'); await p.waitForTimeout(3000);   // Backup 52: "Buscar agora" = pelo navegador
     await nav(p, 'publicacoes'); await p.waitForTimeout(1200);
     ok('Publicações: identificação no topo (Processo / Réu / Advogado) com botão Copiar', await p.evaluate(() => [...document.querySelectorAll('#pub-corpo .pub-id-txt')].some((d) => /Processo:/.test(d.textContent) && /Réu:/.test(d.textContent))) && !!(await p.$('#pub-corpo [data-copiar-id]')));
     ok('Publicações: "Buscar pelo navegador" grava sem duplicar', sql("select count(*) from publicacoes where parte_monitorada='BETA SERVICOS LTDA'") === '1' && Number(sql("select count(*) from publicacoes")) === 3);
@@ -960,7 +953,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     // ── Backup 15 ──
     // Início: fila em calendário, escolha guardada no perfil; mural
     await nav(p, 'hoje'); await p.waitForTimeout(1500); await p.evaluate(() => { const x = document.getElementById('gx-pop-avisos'); if (x) x.remove(); });
-    ok('Início (B49): a fila tem só Lista e Mês (Semana e Dia ficam em Tarefas → Calendário)', (await p.$$eval('#panel-hoje [data-fila-vista]', (bs) => bs.map((b) => b.dataset.filaVista).join(','))) === 'lista,mes');
+    ok('Início (B52 C1): a fila tem Lista, Semana e Mês', (await p.$$eval('#panel-hoje [data-fila-vista]', (bs) => bs.map((b) => b.dataset.filaVista).join(','))) === 'lista,semana,mes');
     await p.click('#panel-hoje [data-fila-vista=mes]'); await p.waitForTimeout(1200);
     ok('Início: fila vira calendário do mês e a escolha fica guardada', !!(await p.$('#panel-hoje .fila-cal-area .calendario')) &&
       sql("select preferencias->'fila'->>'vista' from perfis where email='pedro@teste'") === 'mes', sql("select preferencias::text from perfis where email='pedro@teste'"));
@@ -1224,7 +1217,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     const pa77 = sql("select parcelamento_id from parcelas where numero='77'"), vu77 = sql("select coalesce(valor_ultima_parcela::text,'null') from parcelamentos where id='" + pa77 + "'");
     const id77 = sql("select id from parcelas where numero='77'"), id78 = sql("select id from parcelas where numero='78'"), id79 = sql("select id from parcelas where numero='79'");
     await p.evaluate((ids) => window.GS.gerarGuias('parcelas', { ids }), [id77, id78]); await p.waitForSelector('#gs-raiz .ge-janela'); await p.waitForTimeout(500);
-    ok('Enviar por empresa: texto das antigas Notificações e WhatsApp ao lado de Enviar e-mail', /Prezados,\n\nSeguem as guias dos parcelamentos da /.test(await p.inputValue('#ge-texto')) && await p.evaluate(() => { const a = document.querySelector('#ge-zap'), b = document.querySelector('#ge-enviar'); return a && b && a.parentElement === b.parentElement; }));
+    ok('Enviar por empresa: texto das antigas Notificações e WhatsApp ao lado de Enviar e-mail', /Prezados,\n\nSeguem as guias dos parcelamentos com vencimento neste mês/.test(await p.inputValue('#ge-texto')) && await p.evaluate(() => { const a = document.querySelector('#ge-zap'), b = document.querySelector('#ge-enviar'); return a && b && a.parentElement === b.parentElement; }));
     ok('Enviar por empresa: empresas agrupadas por grupo, com "Copiar texto" e o e-mail já preenchido (sem lista para escolher)', (await p.$$('#gs-raiz .ge-grp .ge-emp')).length > 0 && !!(await p.$('#gs-raiz #ge-copiar')) && !(await p.$('#gs-raiz #ge-para-sel')) && await p.isVisible('#gs-raiz #ge-para'));
     await p.click('#gs-raiz #ge-previa'); await p.waitForSelector('#gs-raiz iframe.ge-previa', { timeout: 8000 }).catch(() => {});
     ok('Enviar por empresa: "Prévia do e-mail" mostra o e-mail com a marca', /<html|<table|<div/i.test(await p.evaluate(() => (document.querySelector('#gs-raiz iframe.ge-previa') || {}).srcdoc || '')));
@@ -1355,7 +1348,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
         sql("delete from parcelas where id='" + id89 + "'"); sql("delete from parcelamentos where id='" + pac + "'"); }
       await p.check('#rt-corpo [data-ep="' + id88 + '"]'); await p.click('#ep-gerar'); await p.waitForSelector('#rt-corpo .ep-card');
       const txt = await p.textContent('#rt-corpo .ep-card-body');
-      ok('Enviar guias do mês: texto das antigas Notificações (Nº do Parcelamento, Parcela x de y | Vencimento, Nº da Guia, Valor)', /^Prezados,\s*Seguem as guias dos parcelamentos da .+ com vencimento neste mês\. Antes de pagar, confirme se a guia já não foi paga, para evitar duplicidade\./.test(txt) &&
+      ok('Enviar guias do mês: texto das antigas Notificações (Nº do Parcelamento, Parcela x de y | Vencimento, Nº da Guia, Valor)', /^Prezados,\s*Seguem as guias dos parcelamentos com vencimento neste mês\. Antes de pagar, confirme se a guia já não foi paga, para evitar duplicidade\./.test(txt) &&
         /Nº do Parcelamento: /.test(txt) && /Parcela: 88 de .+ \| Vencimento: \d{2}\/\d{2}\/\d{4}/.test(txt) && /Nº da Guia: 88/.test(txt) && /Valor:/.test(txt) && !!(await p.$('#rt-corpo .ep-card-body .ep-val')), txt.slice(0, 300));
       ok('Enviar guias do mês: cartão igual ao antigo (E-mail × WhatsApp; Editar, Copiar, Enviar e-mail, Enviar WhatsApp, Marcar enviado) + anexar guias', await p.isVisible('#rt-corpo .ep-card-hd2') &&
         (await p.$$('#rt-corpo .ep-card [data-ep-a]')).length === 6 && !!(await p.$('#rt-corpo .ep-card .ep-arqs')));
@@ -1669,6 +1662,87 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       ok('B51 E4: "tentar de novo" volta o e-mail para a fila (e tenta enviar)', sql("select status from email_fila where referencia='b51-erro'") !== 'erro', sql("select status||' '||erro from email_fila where referencia='b51-erro'"));
       await foto(p, 'b51-email-saida');
       p.off('request', ouvir); p.off('dialog', contaDialogo); }
+    // ── Backup 52 ──
+    { const reqs = []; const ouvir = (q) => reqs.push(q.method() + ' ' + q.url().replace(/^.*\/rest\/v1\//, '')); p.on('request', ouvir);
+      // C1: Início com Lista · Semana · Mês; a Semana é a mesma de Tarefas (arrastar remarca) e a escolha fica guardada
+      sql("insert into tarefas(titulo,responsavel,prazo) values ('Arrastar B52','Pedro',current_date)");
+      await nav(p, 'hoje'); await p.waitForTimeout(1200);
+      await p.click('#panel-hoje [data-fila-vista=semana]'); await p.waitForSelector('#ini-semana .sm-grade', { timeout: 8000 }).catch(() => {});
+      ok('B52 C1: Início → Semana mostra a mesma semana de Tarefas (colunas Seg a Sex, atrasadas ao lado)', (await p.$$('#ini-semana .sm-col[data-dia]')).length >= 5 && !!(await p.$('#ini-semana .fila-atrasadas')));
+      { const card = await p.$('#ini-semana .sm-card:has-text("Arrastar B52")');
+        const destino = await p.evaluate(() => { const cs = [...document.querySelectorAll('#ini-semana .sm-col[data-dia]')].filter((c) => c.dataset.dia !== 'sem' && !c.classList.contains('sm-hoje')); return cs.length ? cs[cs.length - 1].dataset.dia : ''; });
+        if (card && destino) { await p.dragAndDrop('#ini-semana .sm-card:has-text("Arrastar B52")', '#ini-semana .sm-col[data-dia="' + destino + '"]'); await p.waitForTimeout(1500); }
+        ok('B52 C1: arrastar a tarefa para outro dia remarca o prazo', !!card && !!destino && sql("select prazo from tarefas where titulo='Arrastar B52'") === destino, destino + ' / ' + sql("select prazo from tarefas where titulo='Arrastar B52'")); }
+      ok('B52 C1: a escolha (Semana) fica guardada por pessoa', sql("select preferencias->'fila'->>'vista' from perfis where email='pedro@teste'") === 'semana');
+      // C3: a Lista acompanha o conteúdo (sem espaço vazio embaixo)
+      await p.click('#panel-hoje [data-fila-vista=lista]'); await p.waitForTimeout(1200);
+      ok('B52 C3: Início → Lista sem espaço vazio embaixo (o quadro encolhe com poucos itens)', await p.evaluate(() => { const bd = document.querySelector('#panel-hoje .ini-fila > .card-bd'); if (!bd) return false;
+        const fim = Math.max(...[...bd.children].map((c) => c.getBoundingClientRect().bottom)); return bd.getBoundingClientRect().bottom - fim <= 40 && !bd.style.height; }));
+      await p.click('#panel-hoje [data-fila-vista=mes]'); await p.waitForTimeout(800);
+      // C4/P3: sem borda azul nos grupos; cabeçalho de grupo igual ao de Clientes
+      await nav(p, 'processos'); await p.waitForTimeout(1500);
+      const grpProc = await p.evaluate(() => { const td = document.querySelector('#panel-processos tr.gx-grp > td'); if (!td) return null; const c = getComputedStyle(td); return [c.backgroundColor, c.boxShadow, c.fontSize].join('|'); });
+      await nav(p, 'clientes'); await p.waitForTimeout(1500);
+      const grpCli = await p.evaluate(() => { const td = document.querySelector('#panel-clientes tr.cli-grp > td'); if (!td) return null; const c = getComputedStyle(td); return [c.backgroundColor, c.boxShadow, c.fontSize].join('|'); });
+      ok('B52 C4: Processos sem borda azul; o cabeçalho de grupo é a mesma faixa cinza de Clientes', !!grpProc && grpProc === grpCli && /\|none\|/.test(grpProc) && !(await p.evaluate(() => !!document.querySelector('.gc-ini,.gc-in,.gc-fim'))), grpProc + ' ≠ ' + grpCli);
+      // P1: o filtro é a mesma pílula em todas as telas
+      const pilula = async (tela, sel) => { await nav(p, tela); await p.waitForTimeout(1200); return p.evaluate((s2) => { const b = document.querySelector(s2); if (!b) return null; const c = getComputedStyle(b); return [c.backgroundColor, c.color, c.borderRadius, c.fontSize].join('|'); }, sel); };
+      const pIni = await pilula('hoje', '#panel-hoje .fila-chips .fila-chip.ativo'), pPai = await pilula('resumo', '#panel-resumo .gx-seg-cli > button.ativo'),
+        pCli = await pilula('clientes', '#panel-clientes .filtros .segmento > button.ativo');
+      ok('B52 P1: o filtro escolhido tem o mesmo desenho no Início, no Painel e em Clientes', !!pIni && pIni === pPai && pIni === pCli, [pIni, pPai, pCli].join(' / '));
+      // P4: situações com a mesma cor (Financeiro e Parcelamentos)
+      await nav(p, 'parcelamentos'); await p.waitForTimeout(1500);
+      const sitParc = await p.evaluate(() => { const e = document.querySelector('#panel-parcelamentos [data-sit=atraso]'); return e ? getComputedStyle(e).backgroundColor : null; });
+      ok('B52 P4: situação "em atraso" com data-sit e a cor única (Parcelamentos = a pílula padrão)', !!sitParc && sitParc === await p.evaluate(() => { const s2 = document.createElement('span'); s2.className = 'pill'; s2.dataset.sit = 'atraso'; document.querySelector('#panel-parcelamentos').appendChild(s2); const c = getComputedStyle(s2).backgroundColor; s2.remove(); return c; }), sitParc);
+      // C5: Publicações — "Buscar agora" pelo navegador, sem o botão duplicado
+      await nav(p, 'publicacoes'); await p.waitForSelector('#pub-buscar');
+      ok('B52 C5: Publicações sem o botão separado "Buscar pelo navegador"', !(await p.$('#pub-nav')));
+      sql("delete from publicacoes where parte_monitorada='BETA SERVICOS LTDA'"); reqs.length = 0;
+      await p.evaluate((b) => { window.ERP_DJEN_API = b + '/__teste/djen'; }, BASE); await p.click('#pub-buscar'); await p.waitForTimeout(3000);
+      ok('B52 C5: "Buscar agora" busca pelo navegador e traz as publicações novas', sql("select count(*) from publicacoes where parte_monitorada='BETA SERVICOS LTDA'") === '1' &&
+        reqs.some((x) => /rpc\/registrar_busca_publicacoes/.test(x)) && /Busca feita/.test(await p.textContent('#gs-raiz #aviso')), reqs.join(' ; '));
+      // C6/C7: código PIX na parcela do acordo e texto genérico
+      const acB = sql("select id from acordos where credor='Carlos Credor' limit 1");
+      sql("update acordos set pix='chave@credor.teste', pix_codigo='', forma_pagamento='boleto', pago=false, email_em=null where id='" + acB + "'");
+      await p.evaluate(() => { window.__copiado = ''; navigator.clipboard.writeText = (t) => { window.__copiado = t; return Promise.resolve(); }; });
+      await p.evaluate((id) => window.GS.gerarGuias('acordos', { ids: [id] }), acB); await p.waitForSelector('#gs-raiz .ge-janela'); await p.waitForTimeout(500);
+      ok('B52 C6: cada parcela de acordo tem o campo "Código PIX (copia e cola)"', !!(await p.$('#gs-raiz .ge-it .ge-pix')));
+      await p.click('#gs-raiz #ge-copiar'); await p.waitForTimeout(800);
+      { const t = await p.evaluate(() => window.__copiado);
+        ok('B52 C6/C7: sem código, o texto usa a chave PIX do acordo (mesmo com boleto) e é genérico (sem "da Fulano")', /Seguem as parcelas de acordo com vencimento neste mês ou em atraso\./.test(t) && /PIX: chave@credor\.teste/.test(t) && !/acordos da /.test(t) && /\*Acordo para pagamento\*/.test(t), t); }
+      await p.fill('#gs-raiz .ge-it .ge-pix', '00020126580014br.gov.bcb.pix0136B52CODIGO');
+      await p.click('#gs-raiz #ge-copiar'); await p.waitForTimeout(800);
+      { const t = await p.evaluate(() => window.__copiado);
+        ok('B52 C6: o código copia e cola entra no texto e fica gravado na parcela', /PIX: 00020126580014br\.gov\.bcb\.pix0136B52CODIGO/.test(t) && sql("select pix_codigo from acordos where id='" + acB + "'") === '00020126580014br.gov.bcb.pix0136B52CODIGO', t); }
+      await p.evaluate(() => { while (document.querySelector('#janelas .fundo')) GS.fecharJanela(); });
+      ok('B52 C6: o e-mail mostra o código na caixa "Como pagar"', /Como pagar[^]*PIX \(copia e cola\)[^]*B52CODIGO/.test(sql("select guias_texto_html('Oi', '[{\"pix\":\"B52CODIGO\",\"pix_codigo\":true}]')")));
+      // P2: "↻ Atualizar" igual e no cabeçalho do quadro
+      await p.evaluate(() => { GS.E.rt = Object.assign(GS.E.rt || {}, { aba: 'guias' }); nav(null, 'rotina'); }); await p.waitForSelector('#rt-corpo .ep-tela:not(.rt-esq)', { timeout: 10000 }).catch(() => {});
+      const atuG = await p.evaluate(() => { const b = document.querySelector('#rt-corpo .card-hd .bt-atualizar'); return b ? getComputedStyle(b).backgroundColor + '|' + b.textContent : null; });
+      await p.click('#rt-abas [data-rt-aba=planilha]'); await p.waitForSelector('#rt-corpo .pl-card:not(.rt-esq)', { timeout: 10000 }).catch(() => {});
+      const atuP = await p.evaluate(() => { const b = document.querySelector('#rt-corpo .card-hd .bt-atualizar'); return b ? getComputedStyle(b).backgroundColor + '|' + b.textContent : null; });
+      ok('B52 P2: "↻ Atualizar" igual e à direita do cabeçalho em Guias do mês e Planilha', !!atuG && atuG === atuP, atuG + ' / ' + atuP);
+      ok('B52 P4: a Planilha usa os textos únicos das situações (em atraso / a vencer / pago)', await p.evaluate(() => {
+        const t = (k) => [...document.querySelectorAll('#rt-corpo button[data-sit="' + k + '"]')].map((x) => x.textContent.trim());
+        return t('atraso').every((x) => x === 'em atraso') && t('avencer').every((x) => x === 'a vencer') && (t('atraso').length + t('avencer').length) > 0; }));
+      // O2: Rotina → Processos com uma consulta só
+      reqs.length = 0; await p.click('#rt-abas [data-rt-aba=processos]'); await p.waitForSelector('#rt-proc-corpo tr[data-pid]', { timeout: 10000 }).catch(() => {});
+      ok('B52 O2: Rotina → Processos usa uma consulta só (sem baixar as movimentações)', reqs.some((x) => /rpc\/rotina_processos_json/.test(x)) && !reqs.some((x) => /^GET (processos|processo_movimentacoes)\?/.test(x)), reqs.join(' ; '));
+      // O3: depois de um Pago, Parcelamentos relê só o parcelamento que mudou
+      await p.click('#rt-abas [data-rt-aba=planilha]'); await p.waitForSelector('#rt-corpo .pl-card:not(.rt-esq) .pl-bloco', { timeout: 10000 }).catch(() => {});
+      const idPg = await p.evaluate(() => { const b = document.querySelector('#rt-corpo [data-pl-p]'); return b && b.dataset.plP; });
+      if (idPg) { await p.click('[data-pl-p="' + idPg + '"]'); await p.waitForTimeout(1500); }
+      reqs.length = 0; await nav(p, 'parcelamentos'); await p.waitForTimeout(2000);
+      ok('B52 O3: Parcelamentos depois de um Pago relê só o parcelamento que mudou (uma consulta)', !!idPg && reqs.some((x) => /rpc\/parcelamentos_json/.test(x)) && !reqs.some((x) => /^GET parcelas\?/.test(x)) &&
+        await p.evaluate((id) => (DB.parcelamentos || []).some((pa) => (pa.parcelas || []).some((x) => x._id === id && x.pagamento === 'SIM')), idPg), reqs.join(' ; '));
+      if (idPg) sql("update parcelas set pago=false, data_pagamento=null where id='" + idPg + "'");
+      // O1: Clientes com a lista guardada abre sem esperar o banco
+      await nav(p, 'clientes'); await p.waitForTimeout(800); await nav(p, 'resumo'); await p.waitForTimeout(500);
+      await p.evaluate(() => GS.invalidarCadastros()); reqs.length = 0;
+      const tCli = await p.evaluate(() => new Promise((ok2) => { const t0 = performance.now(); nav(null, 'clientes'); const f = () => document.querySelector('#panel-clientes tbody tr') ? ok2(Math.round(performance.now() - t0)) : requestAnimationFrame(f); f(); }));
+      await p.waitForTimeout(1200);
+      ok('B52 O1: Clientes aparece na hora com a lista guardada e atualiza por trás', tCli < 200 && reqs.some((x) => /^GET clientes\?/.test(x)), tCli + ' ms');
+      p.off('request', ouvir); }
     // ── sair ──
     await p.evaluate(() => acLogout()); await p.waitForTimeout(800);
     ok('sair encerra a sessão do Supabase', await p.evaluate(async () => !(await SB.auth.getSession()).data.session));

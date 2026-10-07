@@ -707,6 +707,41 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
 **Central de Documentos dentro do ERP:** menu **Documentos → Gerar documento** (ou ⋯ → Documentos, contrato, recibo do Financeiro).
 **Ctrl + clique** (ou botão do meio do mouse) em qualquer item do menu ou link de documento abre numa aba nova.
 
+## Backup 52 — ERP simétrico (o que muda num lugar muda em todos), Semana no Início, PIX nas parcelas de acordo e "Buscar agora" funcionando (tem SQL; nenhuma função nova)
+Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+Shift+R**. Nenhuma função do Supabase precisa ser publicada de novo.
+Para voltar à versão anterior: o zip do **Backup 51** (pasta `backups/`).
+
+**Tempos medidos** (teste `sistema/testes/velocidade.js`: 500 clientes, 300 parcelamentos, 15 mil parcelas, 2 mil lançamentos e, novo, 400 processos com 8 mil movimentações;
+cada pedido ao banco com +100 ms de "internet"; mediana de 3; do clique até a tela pintada):
+
+| Tela | Antes (Backup 51) | Depois (Backup 52) |
+|---|---|---|
+| Clientes | 0,83 s | 0,06 s |
+| Rotina → Processos | 3,1 s | 0,36 s |
+| Parcelamentos logo depois de um Pago | 7,6 s | 0,80 s |
+
+- **Pedidos**:
+  - **Início → Lista · Semana · Mês.** A Semana é a mesma de Tarefas → Calendário: arraste a tarefa para outro dia e o prazo muda. Cada pessoa fica com a sua escolha.
+  - **"Atualizações" saiu** do menu. O histórico de cada versão continua em `backups/LEIA-ME.md` (no GitHub) e, com detalhes, aqui no `COMO-ATUALIZAR.md`.
+  - **Quadros do tamanho do conteúdo**: com filtro e poucos itens o quadro encolhe (a Lista do Início e a Semana não ficam mais com espaço vazio); com muitos, para numa altura e rola por dentro.
+  - **Sem borda azul nos grupos**, em todo o ERP (Processos, Parcelamentos, Acordos, Documentos). O cabeçalho de grupo é a mesma faixa cinza de Clientes.
+  - **Publicações → "↻ Buscar agora"** busca pelo navegador (o Diário do CNJ recusa o servidor do Supabase). Se o navegador não alcançar o CNJ, tenta pelo servidor e explica.
+    O botão "🌐 Buscar pelo navegador" saiu (virou o próprio "Buscar agora").
+  - **Acordos → código PIX**: no cartão de envio de cada parcela há o campo **"Código PIX (copia e cola)"**; ele fica gravado na parcela. Sem código, vale a chave PIX do acordo
+    (de qualquer forma de pagamento). No e-mail, o código aparece num quadro fácil de copiar, na caixa "Como pagar".
+  - **Texto genérico**: "Seguem as parcelas de acordo com vencimento neste mês ou em atraso." e "Seguem as guias dos parcelamentos com vencimento neste mês…". O nome do cliente fica só no assunto e no "Partes:".
+- **Simetria**:
+  - Um desenho só de **filtro** (pílulas, como no Início) em Painel, Processos, Parcelamentos, Acordos, Rotina, Clientes, CRM, Publicações e Tarefas.
+  - Um só **"↻ Atualizar"** (mesmo estilo, à direita do cabeçalho do quadro) — Rotina → Guias do mês, Planilha e Alertas.
+  - **Situações com um texto e uma cor**: em atraso (vermelho), vence hoje (amarelo), a vencer (azul), pago (verde), cliente emite (cinza) — Parcelamentos, Acordos, Financeiro e Rotina.
+    No Financeiro, "Em aberto" passou a se chamar **"A vencer"**.
+  - O teste `padrao.js` confere tudo isso em todas as telas.
+- **Velocidade**:
+  - Clientes (e todas as telas novas) abrem na hora com a lista guardada e atualizam por trás.
+  - Rotina → Processos: uma consulta só (a última movimentação de cada processo).
+  - Parcelamentos: relê só o parcelamento que mudou; e só a aba aberta é desenhada (antes as abas "A vencer" e "Pago" desenhavam ~100 mil itens escondidos, o que deixava o ERP inteiro lento).
+  - Trocar de tela não força mais o navegador a medir a página inteira; as telas que ficam para trás são esvaziadas quando o navegador está livre.
+
 ## Backup 51 — ERP rápido (Rotina, Pago), tarefas que se repetem nas datas certas, placar do mês e e-mail em 3 passos (tem SQL e a função erp-agenda mudou)
 Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Publicar de novo a função `erp-agenda` (Verify JWT desligado)  4) Ctrl+Shift+R**.
 Para voltar à versão anterior: o zip do **Backup 50** (pasta `backups/`).

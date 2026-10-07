@@ -45,14 +45,14 @@
 <script src="vendor/chart.umd.js?v=3402f6de" defer></script>
 <script src="vendor/supabase.js?v=16aeff36"></script>
 <script src="config.js"></script>
-<script src="erp-dados.js?v=1ce66e75"></script>
+<script src="erp-dados.js?v=cea43526"></script>
 <link rel="stylesheet" href="editor.css?v=7747e46f">
 <link rel="stylesheet" href="erp-telas.css?v=22ce828d">
-<script src="editor.js?v=0c8364d6" defer></script>
-<script src="erp-telas.js?v=2f70d12c" defer></script>
-<link rel="stylesheet" href="gs.css?v=d626acf3">
+<script src="editor.js?v=287b14bb" defer></script>
+<script src="erp-telas.js?v=473c965d" defer></script>
+<link rel="stylesheet" href="gs.css?v=c5d0b3a6">
 <script src="importador.js?v=23bf9824" defer></script>
-<script src="gestao-embutida.js?v=bf446433" defer></script>
+<script src="gestao-embutida.js?v=654b539c" defer></script>
 <script>
 
 
@@ -1617,7 +1617,7 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
 </style>
 <link rel="stylesheet" href="tokens.css?v=97678442">
 <link rel="stylesheet" href="tema-escuro.css?v=3bec5b6a">
-<link rel="stylesheet" href="design.css?v=ba3baca6">
+<link rel="stylesheet" href="design.css?v=415afcf9">
 <script>try{if(localStorage.getItem("erp_tema")==="escuro")document.documentElement.setAttribute("data-tema","escuro")}catch(e){}</script>
 </head>
 <body>
@@ -3526,7 +3526,7 @@ function nav(btn,pid){
     const needsSkeleton=!p.dataset.loaded;
     if(needsSkeleton) _showPanelSkeleton(p);
     p.classList.add('active');
-    p.scrollIntoView({behavior:'smooth',block:'start'});
+    requestAnimationFrame(()=>window.scrollTo(0,0));
   }
 
   // v40: se o painel ficou sujo por uma mudança de filtro enquanto
@@ -4614,9 +4614,7 @@ function renderParcelamentos(){
     </div>`;
   }).join('');
 
-  renderParcVencTbl();
-  renderParcTbl();
-  renderParcPagoTbl();
+  if(_parcTab==='avencer') renderParcTbl(); else if(_parcTab==='pago') renderParcPagoTbl(); else renderParcVencTbl();
 }
 function renderParcTbl(){
   const fN=$('fParcNat')?.value||'',fL=$('fParcLocal')?.value||'';
@@ -4824,8 +4822,9 @@ function _lgProx(abertas){
 }
 // Backup 27: uma pílula só — "2 em atraso" (rosa) ou, com risco, "2 em atraso — risco de rescisão" (a pílula toda vermelha)
 function _lgSit(atr,risco,concluido){
-  if(atr) return '<span class="lg-st '+(risco?'lg-st-risco':'lg-st-r')+'"'+(risco?' title="Um parcelamento/acordo com 2 ou mais parcelas em atraso"':'')+'>'+atr+' em atraso'+(risco?' — risco de rescisão':'')+'</span>';
-  return concluido?'<span class="lg-st lg-st-x">Concluído</span>':'<span class="lg-st lg-st-g">Em dia</span>';
+  // Backup 52 (P4): data-sit = situação única do ERP (cores no design.css)
+  if(atr) return '<span class="lg-st '+(risco?'lg-st-risco':'lg-st-r')+'" data-sit="atraso"'+(risco?' title="Um parcelamento/acordo com 2 ou mais parcelas em atraso"':'')+'>'+atr+' em atraso'+(risco?' — risco de rescisão':'')+'</span>';
+  return concluido?'<span class="lg-st lg-st-x" data-sit="pago">Concluído</span>':'<span class="lg-st lg-st-g" data-sit="avencer">Em dia</span>';
 }
 function _lgPag(pagas,total,pago,falta){
   return '<div class="lg-pag"><b class="lg-verde">'+pagas+' de '+(total||'?')+'</b> parcelas pagas</div><div class="lg-sub">Quitado <b>'+_lgFmtV(pago)+'</b> · falta <b>'+_lgFmtV(falta)+'</b></div>';
@@ -4921,9 +4920,9 @@ function _lgParcTabela(l, tabela){
   return '<div class="tw lg-parc-tw" data-sem-pagina><table class="lg-parc-tab"><colgroup><col style="width:80px"><col style="width:110px"><col style="width:130px"><col style="width:150px"><col style="width:160px"><col></colgroup>'
     +'<thead><tr><th>Parcela</th><th>Vencimento</th><th class="lg-t-num">Valor</th><th>Emissão</th><th>Pagamento</th><th></th></tr></thead><tbody>'
     +l.map(function(x){ var d=pDate(x.venc), n=d?Math.round((d-h)/864e5):null;
-      var pag=x.pago?'<span class="lg-em lg-em-ok">✓ Paga'+(x.dataPag?' '+esc(String(x.dataPag).slice(0,5)):'')+'</span>'
-        :(n!==null&&n<=0?'<span class="lg-em lg-em-atr">'+(n===0?'Vence hoje':'Vencida há '+Math.abs(n)+' d')+'</span>':'<span class="lg-em lg-em-cli">A vencer</span>');
-      var em=x.cliente?'<span class="lg-em lg-em-cli" title="As guias deste parcelamento são emitidas pelo próprio cliente">Não emitimos</span>'
+      var pag=x.pago?'<span class="lg-em lg-em-ok" data-sit="pago">✓ Paga'+(x.dataPag?' '+esc(String(x.dataPag).slice(0,5)):'')+'</span>'
+        :(n!==null&&n<=0?'<span class="lg-em lg-em-atr" data-sit="'+(n===0?'hoje':'atraso')+'">'+(n===0?'Vence hoje':'Vencida há '+Math.abs(n)+' d')+'</span>':'<span class="lg-em lg-em-cli" data-sit="avencer">A vencer</span>');
+      var em=x.cliente?'<span class="lg-em lg-em-cli" data-sit="cliente" title="As guias deste parcelamento são emitidas pelo próprio cliente">Não emitimos</span>'
         :x.emitida?'<span class="lg-em lg-em-ok" title="'+esc(x.emitidaEm?nome+' emitid'+(fem?'a':'o')+' em '+x.emitidaEm:'')+'">✓ Emitid'+(fem?'a':'o')+(x.emitidaEm?' '+esc(String(x.emitidaEm).slice(0,5)):'')+'</span>'
         :(x.pago?'<span class="lg-sub">—</span>':'<span class="lg-em lg-em-nao">Não emitid'+(fem?'a':'o')+'</span>');
       return '<tr class="'+(x.pago?'lg-pt-pago':n!==null&&n<=0?'lg-pt-atr':'')+'"><td>'+esc(x.rot||'?')+'</td><td>'+esc(x.venc||'—')+'</td>'
