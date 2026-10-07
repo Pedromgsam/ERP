@@ -34,7 +34,8 @@ function _acordosAnalise(ac){
     abertas:g.l.filter(function(a){ return !pago(a); }).map(function(a){ return {d:pDate(a.vencimento), v:v(a)}; })}; });
   var vis=_acVisSeg();
   var linhas=_lgRender({itens:itens, porEmpresa:!!(typeof FILTROS!=='undefined'&&FILTROS.grupo), porGrupo:true, abertos:_acGrpAbertos, fnGrupo:'_acAbrirGrupo', fnItem:'_acAbrir', rotulo:'acordo', tabela:'acordos', cab:'Grupo / acordo'});
-  el.innerHTML=exBloco('exAcSit','Situação dos acordos',
+  if(_EXCOL.exAcSit===undefined) _EXCOL.exAcSit=true;   // Backup 49: o resumo começa fechado — a lista principal é a "A pagar" logo abaixo
+  el.innerHTML=exBloco('exAcSit','Situação dos acordos (resumo por grupo)',
     '<div class="lg-resumo"><span>Já pago <b class="lg-verde">'+_faFT(soma(ac.filter(pago)))+'</b></span><span>Falta <b>'+_faFT(soma(ac.filter(function(a){return !pago(a);})))+'</b></span>'
    + '<span>Vence este mês <b>'+_faFT(soma(ac.filter(noMes)))+'</b></span><span>Em atraso <b'+(ac.some(atrasada)?' class="lg-vermelho"':'')+'>'+_faFT(soma(ac.filter(atrasada)))+'</b> <small>'+ac.filter(atrasada).length+' parcela(s)</small></span></div>'
    + '<div class="gx-tab-topo"><div class="pa-sub">Acordos em andamento</div><div class="pcx-ctl">'+vis+_acCaixaTodos()+'</div></div>'

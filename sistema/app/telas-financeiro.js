@@ -10,12 +10,12 @@ const EMPRESAS = {
   contabilidade: { tela: 'contabilidade', titulo: 'Honorários Contabilidade', sub: 'Financeiro da empresa de contabilidade · a receber, a pagar, receita e despesa' }
 };
 const ABAS_FIN = [
-  { id: 'analise',   rot: '📊 Análise' },
-  { id: 'areceber',  rot: '📋 A Receber' },
-  { id: 'recebidos', rot: '✅ Recebidos' },
-  { id: 'prejuizo',  rot: '📉 Prejuízo' },
-  { id: 'apagar',    rot: '📤 A Pagar' },
-  { id: 'despesas',  rot: '💸 Despesas pagas' }
+  { id: 'analise',   rot: 'Análise' },
+  { id: 'areceber',  rot: 'A Receber' },
+  { id: 'recebidos', rot: 'Recebidos' },
+  { id: 'prejuizo',  rot: 'Prejuízo' },
+  { id: 'apagar',    rot: 'A Pagar' },
+  { id: 'despesas',  rot: 'Despesas pagas' }
 ];
 // Abas que mostram "todos os meses" ao abrir; as demais abrem no mês atual.
 const ABRE_EM_TODOS = { areceber: true, apagar: true, prejuizo: true };
@@ -455,11 +455,34 @@ async function cobrarWhatsApp(id) {
   const l = (await q(sb.from('lancamentos').select('id, descricao, servico, valor, vencimento, competencia, cliente_id, grupo_id, cobranca').eq('id', id)))[0];
   if (!l) return aviso('Lançamento não encontrado.', true);
   const c = E.clientes.find((x) => x.id === l.cliente_id) || {};
-  const j = abrirJanela({ titulo: '💬 Cobrar pelo WhatsApp' + (c.nome ? ' — ' + c.nome : ''),
-    corpo: '<div class="grade">' + campo('WhatsApp', '<input id="cb-tel" data-mascara="tel" inputmode="tel" value="' + esc(c.telefone || '') + '" placeholder="(37) 9 9999-9999">') +
+  // Backup 49 (24): o mesmo botão cobra por WhatsApp OU por e-mail (modelo bonito; respeita a chave "Recebe e-mails" do cliente)
+  const naoRecebe = c.recebe_email === false;
+  const j = abrirJanela({ titulo: '💬 Cobrar' + (c.nome ? ' — ' + c.nome : ''),
+    corpo: '<div class="fila-chips cb-canal" role="group" aria-label="Como cobrar"><span class="fila-chips-rot">Por</span>' +
+        '<button type="button" class="fila-chip ativo" data-cb-canal="zap">WhatsApp</button><button type="button" class="fila-chip" data-cb-canal="email">E-mail</button></div>' +
+      '<div class="grade">' + campo('WhatsApp', '<input id="cb-tel" data-mascara="tel" inputmode="tel" value="' + esc(c.telefone || '') + '" placeholder="(37) 9 9999-9999">', 'cb-so-zap') +
+      campo('E-mail', '<input id="cb-para" type="email" placeholder="email@cliente.com.br"' + (naoRecebe ? ' disabled' : '') + '>', 'cb-so-email escondido') +
+      (naoRecebe ? '<div class="dica aviso-amarelo inteiro cb-so-email escondido">Este cliente está marcado para <b>não receber e-mails</b>. Para mandar, mude em Clientes → ✉ Recebe e-mails.</div>' : '') +
       campo('Mensagem', '<textarea id="cb-txt" rows="6">' + esc(textoCobranca(l)) + '</textarea>', 'inteiro') +
-      '<p class="sub inteiro">Ao copiar ou abrir o WhatsApp, o lançamento fica marcado como <b>COBRADO</b>.</p></div>',
-    rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Fechar</button><button class="btn btn-o" type="button" id="cb-copiar">📋 Copiar</button><button class="btn btn-v" type="button" id="cb-zap">💬 Abrir WhatsApp</button></div>' });
+      '<p class="sub inteiro">Ao copiar, abrir o WhatsApp ou enviar o e-mail, o lançamento fica marcado como <b>COBRADO</b>.</p></div>',
+    rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Fechar</button>' +
+      '<button class="btn btn-o cb-so-zap" type="button" id="cb-copiar">📋 Copiar</button><button class="btn btn-v cb-so-zap" type="button" id="cb-zap">💬 Abrir WhatsApp</button>' +
+      '<button class="btn btn-o cb-so-email escondido" type="button" id="cb-previa">👁 Prévia</button><button class="btn btn-p cb-so-email escondido" type="button" id="cb-email"' + (naoRecebe ? ' disabled' : '') + '>✉ Enviar e-mail</button></div>' });
+  let paraCarregado = false;
+  j.querySelector('.cb-canal').onclick = async (ev) => {
+    const b = ev.target.closest('[data-cb-canal]'); if (!b) return;
+    j.querySelectorAll('[data-cb-canal]').forEach((x) => x.classList.toggle('ativo', x === b));
+    const email = b.dataset.cbCanal === 'email';
+    j.querySelectorAll('.cb-so-zap').forEach((x) => x.classList.toggle('escondido', email));
+    j.querySelectorAll('.cb-so-email').forEach((x) => x.classList.toggle('escondido', !email));
+    if (email && !paraCarregado) { paraCarregado = true;
+      const m = await q(sb.rpc('cobranca_email_html', { p_lanc: id, p_texto: '' })).catch(() => null);
+      if (m && !j.querySelector('#cb-para').value) j.querySelector('#cb-para').value = m.para || ''; }
+  };
+  j.querySelector('#cb-previa').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    const m = await q(sb.rpc('cobranca_email_html', { p_lanc: id, p_texto: j.querySelector('#cb-txt').value }));
+    verEmailHtml(m.assunto, m.html);
+  });
   // Backup 43: marca "Cobrado" só nesta linha (antes recarregava todos os dados do sistema — era isso que demorava)
   const marcar = () => q(sb.from('lancamentos').update({ cobranca: 'Cobrado' }).eq('id', id).select('id')).then(() => {
     document.querySelectorAll('[data-cobrar="' + id + '"]').forEach((b) => { b.textContent = '✓ Cobrado'; b.classList.add('gx-cobrado'); });
@@ -468,6 +491,11 @@ async function cobrarWhatsApp(id) {
   j.querySelector('#cb-copiar').onclick = (ev) => comBotao(ev.currentTarget, async () => { await copiarTexto(j.querySelector('#cb-txt').value); aviso('✓ Texto copiado — cole no WhatsApp.'); marcar(); });
   j.querySelector('#cb-zap').onclick = () => { const tel = soDigitos(j.querySelector('#cb-tel').value);
     window.open('https://wa.me/' + (tel ? (tel.length <= 11 ? '55' : '') + tel : '') + '?text=' + encodeURIComponent(j.querySelector('#cb-txt').value), '_blank', 'noopener'); marcar(); };
+  j.querySelector('#cb-email').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    const r = await q(sb.rpc('cobrar_por_email', { p_lanc: id, p_para: j.querySelector('#cb-para').value.trim(), p_texto: j.querySelector('#cb-txt').value }));
+    document.querySelectorAll('[data-cobrar="' + id + '"]').forEach((b) => { b.textContent = '✓ Cobrado'; b.classList.add('gx-cobrado'); });
+    fecharJanela(j); const s2 = await enviarEmailAgora(r.ref, r.para); aviso('Cobrança: ' + (s2.ok ? '✓ ' : '⚠ ') + s2.msg, !s2.ok);
+  });
   return j;
 }
 async function detalheLancamento(id) {

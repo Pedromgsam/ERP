@@ -1463,3 +1463,86 @@ body.gx-barra-topo #tblExecRanking td:nth-child(2),body.gx-barra-topo #tblExecRa
 .gs .atu-mais[hidden]{display:none}
 .gs #atu-busca{min-width:260px}
 @media (max-width:600px){.gs .atu-v{grid-template-columns:1fr;gap:6px}}
+/* ═══ Backup 49 ═══ */
+/* faixa do modo teste (administrador) */
+#gx-modo-teste{position:fixed;left:0;right:0;bottom:0;z-index:60;background:var(--amber-lt);color:var(--amber-d);border-top:1px solid var(--amber-border);padding:7px 16px;font-size:var(--fs-sm);text-align:center}
+#gx-modo-teste button{margin-left:10px;border:1px solid var(--amber-border);background:var(--surface);color:var(--text);border-radius:var(--r-pill);padding:2px 12px;font:600 var(--fs-xs) var(--font-ui);cursor:pointer}
+body.gx-com-teste{padding-bottom:38px}
+/* Clientes: chave ✉ Recebe e-mails */
+.gs .cli-email{cursor:pointer;border:1px solid transparent;font:600 11px var(--font-ui)}
+.gs .cli-email:hover{border-color:var(--border-strong)}
+.gs .cli-avancado{border:1px dashed var(--border);border-radius:var(--r-sm);padding:6px 10px}
+.gs .cli-avancado summary{cursor:pointer;color:var(--text3);font-size:var(--fs-sm)}
+/* Administração → E-mail */
+.gs .em-abas{margin-bottom:12px}
+.gs .em-filtros{margin-bottom:10px}
+.gs .em-rev-chave{display:inline-flex;align-items:center;gap:8px}
+.em-previa{width:100%;height:68vh;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface)}
+.gs .ep-pend{background:var(--amber-lt);border:1px solid var(--amber-border);border-radius:var(--r-sm);padding:10px 14px;margin:0 0 12px;font-size:var(--fs-sm);color:var(--text)}
+.gs .ep-pend ul{margin:6px 0 0;padding-left:18px}
+.gs .ep-pend[hidden]{display:none}
+/* Início: atalhos em uma linha fina (no lugar dos cartões do resumo) */
+.gs .ini-atalhos{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px}
+.gs .ini-at{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border:1px solid var(--border);border-radius:var(--r-pill);background:var(--surface);color:var(--text2);font:500 var(--fs-sm) var(--font-ui);cursor:pointer;white-space:nowrap}
+.gs .ini-at:hover{border-color:var(--selecao);color:var(--ink)}
+.gs .ini-at-ic{display:inline-flex;color:var(--text3)}
+.gs .ini-at-tit{font-weight:600;color:var(--text)}
+.gs .ini-at-num{color:var(--ink)}
+.gs .ini-at-sub{color:var(--text3);font-size:var(--fs-xs)}
+.gs .ini-at.vermelho{border-color:var(--red-bd);background:var(--red-lt)}
+.gs .ini-at.vermelho .ini-at-num{color:var(--red-d)}
+.gs .ini-at.ambar{border-color:var(--amber-border);background:var(--amber-lt)}
+.gs .ini-at.ambar .ini-at-num{color:var(--amber-d)}
+/* Tarefas (B49): abas junto do título, ⚙ com o menu, ⚡ criação rápida, separador nos chips */
+.gs .titulo-pag h1 + .tf-abas-seg{margin-top:8px}
+.gs .tf-bt-ic{min-width:38px;justify-content:center}
+.gs .tf-cfg-wrap{position:relative;display:inline-flex}
+.gs .tf-cfg-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:30;display:flex;flex-direction:column;gap:6px;padding:10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);box-shadow:var(--shadow-md);min-width:200px}
+.gs .tf-cfg-menu[hidden]{display:none}
+.gs .tf-cfg-menu .btn{justify-content:flex-start;width:100%}
+.gs .tf-rapida[hidden]{display:none}
+.gs .fila-chips-sep{width:1px;height:18px;background:var(--border-strong);margin:0 4px}
+.gs .tf-cal-vista{margin-bottom:10px}
+/* Painel: Evolução do passivo recolhível (fechada por padrão) */
+.evo-abrir{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.evo-abrir:focus-visible{outline:2px solid var(--selecao);outline-offset:2px;border-radius:4px}
+.evo-seta{display:inline-block;transition:transform .15s;color:var(--text3)}
+.evo-card:not(.evo-fechado) .evo-seta{transform:rotate(90deg)}
+.evo-card.evo-fechado .evo-ctl,.evo-card.evo-fechado .evo-resumo,.evo-card.evo-fechado .evo-cb,.evo-card.evo-fechado .evo-nota,.evo-card.evo-fechado #evo-sub{display:none}
+/* Painel no celular: o valor completo (não há "passar o mouse") */
+@media (max-width:600px){#tblExecRanking .er-v[title]{font-size:0}#tblExecRanking .er-v[title]::after{content:attr(title);font-size:12px}}
+/* Backup 49 (21-22): Financeiro — "Perdas" é filtro dentro de Recebidos (a aba some); chips iguais aos do Início */
+#finTabBar .fin-tab[data-tab="prejuizo"]{display:none!important}
+.fin-perdas-seg{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 12px}
+.fin-perdas-seg .fila-chips-rot{font:700 11px var(--font-ui);color:var(--text3);text-transform:uppercase;letter-spacing:.04em;min-width:64px}
+.fin-perdas-seg .fila-chip{font:600 12px var(--font-ui);padding:4px 11px;border-radius:var(--r-pill);border:1px solid var(--border-strong);background:var(--surface);color:var(--text2);cursor:pointer}
+.fin-perdas-seg .fila-chip.ativo{background:var(--ink);border-color:var(--ink);color:var(--surface)}
+.fin-tab .fa-ic{display:none}
+/* Backup 49 (25): ficha do cliente — partes empilhadas dentro da mesma aba */
+.gs .ficha-parte:empty{display:none}
+.gs .ficha-parte + .ficha-parte{margin-top:18px;padding-top:14px;border-top:1px solid var(--border)}
+/* Backup 49 (23): reajuste anual dos contratos */
+.gs .ctr-reaj{margin-bottom:14px;border-left:3px solid var(--amber)}
+.gs .ctr-reaj > .sub{margin:0 16px 8px}
+.gs .ctr-reaj-tab td:nth-child(3),.gs .ctr-reaj-tab th:nth-child(3),.gs .ctr-reaj-tab td:nth-child(7){text-align:center}
+.gs .ctr-reaj-pct{width:64px;text-align:right}
+/* Backup 49 (24): Cobrar por WhatsApp ou e-mail */
+.gs .cb-canal{margin-bottom:12px}
+.gs .aviso-amarelo{background:var(--amber-lt);color:var(--amber-d);border:1px solid var(--amber-border)}
+/* Backup 49 (27): CRM em 5 etapas — selo da etapa de dentro no cartão + título da faixa final */
+.gs .cr-sub-etapa{display:inline-block;font:600 10.5px var(--font-ui);color:var(--text3);background:var(--surface3);border-radius:var(--r-pill);padding:1px 7px;margin-bottom:4px}
+.gs .cr-fins-tit{font:700 11px var(--font-ui);color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin:4px 0 6px}
+/* Backup 49 (32): Administração — "⋯ Mais" (Histórico, Acessos) */
+.gs .adm-mais{position:relative;display:inline-flex}
+.gs .adm-mais-menu{display:none;position:absolute;top:100%;left:0;z-index:30;flex-direction:column;min-width:150px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);box-shadow:var(--shadow-md);padding:4px}
+.gs #adm-abas.mais-aberto .adm-mais-menu{display:flex}
+.gs .adm-mais-menu button{justify-content:flex-start;text-align:left;border:0;width:100%}
+/* Backup 49 (30): Automações — chave geral dos e-mails automáticos */
+.gs .au-emails .au-geral{background:var(--surface2);border-bottom:1px solid var(--border)}
+/* Backup 49 (36): régua única — texto à esquerda, valor à direita, data/vencimento/atraso/situação centralizados (o Painel fica como está) */
+body.gx-barra-topo :is(th,td):is(.col-venc,.col-data,.col-sit,.col-dias):not(#tblExecRanking td){text-align:center!important}
+/* Backup 49 (34): filtros em chips — os segmentos das barras de filtro viram pílulas separadas (mesmo desenho dos chips do Início) */
+body.gx-barra-topo .gs .filtros .segmento{display:flex;flex-wrap:wrap;gap:6px;background:transparent;border:0;padding:0;box-shadow:none}
+body.gx-barra-topo .gs .filtros .segmento button{border:1px solid var(--border-strong);border-radius:var(--r-pill);padding:4px 11px;font:600 12px var(--font-ui);background:var(--surface);color:var(--text2);min-height:0}
+/* Backup 49: atalhos do Início no celular — quebram a linha em vez de passar da tela */
+@media(max-width:600px){.gs .ini-at{white-space:normal;max-width:100%;flex-wrap:wrap;text-align:left}}

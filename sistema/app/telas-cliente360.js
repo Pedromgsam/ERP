@@ -3,9 +3,13 @@
 // Ficha do cliente (visão 360°): tudo sobre o cliente numa janela só,
 // em abas. Clicar no cliente (tela Clientes) abre esta ficha.
 // ═══════════════════════════════════════════════════════════════════
-const ABAS_FICHA = [['resumo', 'Resumo'], ['contatos', 'Contatos'], ['enderecos', 'Endereços'], ['contas', 'Contas bancárias'],
-  ['socios', 'Sócios e vínculos'], ['processos', 'Processos'], ['contratos', 'Contratos'], ['financeiro', 'Financeiro'],
-  ['tarefas', 'Tarefas'], ['documentos', 'Documentos'], ['linha', 'Linha do tempo'], ['fiscal', 'Dados fiscais'], ['receita', 'Cartão CNPJ']];
+// Backup 49 (25): 7 abas — cada uma junta as partes antigas (as funções de ABA_FICHA continuam as mesmas, empilhadas)
+const ABAS_FICHA = [['resumo', 'Resumo'], ['contatos', 'Contatos e endereços'], ['socios', 'Sócios'], ['processos', 'Processos'],
+  ['financeiro', 'Financeiro e contratos'], ['documentos', 'Documentos'], ['historico', 'Histórico']];
+const PARTES_FICHA = { resumo: ['resumo', 'receita', 'fiscal'], contatos: ['contatos', 'enderecos', 'contas'], socios: ['socios'], processos: ['processos'],
+  financeiro: ['contratos', 'financeiro'], documentos: ['documentos'], historico: ['linha', 'tarefas'] };
+// nome antigo de aba (atalhos de outras telas) → aba nova
+const ABA_NOVA = { enderecos: 'contatos', contas: 'contatos', contratos: 'financeiro', tarefas: 'historico', linha: 'historico', fiscal: 'resumo', receita: 'resumo' };
 
 // Sub-cadastros editáveis da ficha (mesmo formulário para todos)
 const FINALIDADES = SETORES_CONTATO;
@@ -123,7 +127,7 @@ async function abrirFicha(id, aba) {
       '<div class="ficha-selos"><span class="pill ' + (cl.tipo === 'Inativo' ? 'neutro' : cl.tipo === 'Demanda' ? 'hoje' : 'aberto') + '">' + esc(cl.tipo === 'Demanda' ? 'Serviço pontual' : cl.tipo) + '</span> ' +
       pillPessoa(cl.responsavel) + ' ' + (cl.situacao_cadastral ? pillSitCad(cl.situacao_cadastral) + ' ' : '') + (cl.capag ? 'CAPAG ' + pillCapag(cl.capag) + ' ' : '') +
       etq.map((e) => e.etiquetas ? '<span class="pill" style="background:' + esc(e.etiquetas.cor) + '22;color:' + esc(e.etiquetas.cor) + '">' + esc(e.etiquetas.nome) + '</span>' : '').join(' ') +
-      ' <button class="btn-etq" id="fc-etq" title="Etiquetas">+ etiqueta</button></div></div>' +
+      ' ' + pillRecebeEmail(cl) + ' <button class="btn-etq" id="fc-etq" title="Etiquetas">+ etiqueta</button></div></div>' +
       '<div class="ficha-atalhos">' +
       '<button class="btn btn-o btn-mini" id="fc-tarefa">+ Tarefa</button><button class="btn btn-o btn-mini" id="fc-lanc">+ Lançamento</button>' +
       '<button class="btn btn-o btn-mini" id="fc-doc">+ Documento</button><button class="btn btn-o btn-mini" id="fc-int">+ Interação</button>' +
@@ -137,13 +141,18 @@ async function abrirFicha(id, aba) {
       '<div id="fc-corpo" class="ficha-corpo"></div>' });
   j.querySelector('.janela').classList.add('ficha');
   const corpo = j.querySelector('#fc-corpo');
-  let atual = aba || 'resumo';
+  let atual = ABA_NOVA[aba] || aba || 'resumo';
   const mostrar = async (k) => {
-    atual = k;
+    k = ABA_NOVA[k] || k; atual = k;
     j.querySelectorAll('#fc-abas button').forEach((b) => b.classList.toggle('ativo', b.dataset.aba === k));
     corpo.innerHTML = '<div class="carregando">Carregando…</div>';
-    try { await ABA_FICHA[k](corpo, cl, () => mostrar(atual)); }
-    catch (e) { console.error(e); corpo.innerHTML = '<div class="vazio">' + esc(erroAmigavel(e)) + '</div>'; }
+    const partes = PARTES_FICHA[k] || [k];
+    const caixas = partes.map((p) => { const d = document.createElement('div'); d.className = 'ficha-parte ficha-parte-' + p; return d; });
+    corpo.innerHTML = ''; caixas.forEach((d) => corpo.appendChild(d));
+    await Promise.all(partes.map(async (p, i) => {
+      try { await ABA_FICHA[p](caixas[i], cl, () => mostrar(atual)); }
+      catch (e) { console.error(e); caixas[i].innerHTML = '<div class="vazio">' + esc(erroAmigavel(e)) + '</div>'; }
+    }));
   };
   j.querySelector('#fc-abas').onclick = (ev) => { const b = ev.target.closest('button'); if (b) mostrar(b.dataset.aba); };
   const reabrir = async () => { await carregarCadastros(true); fecharJanela(j); await abrirFicha(id, atual); };
@@ -153,6 +162,9 @@ async function abrirFicha(id, aba) {
   j.querySelector('#fc-doc').onclick = () => janelaEnviarDocumento({ cliente_id: cl.id, grupo_id: cl.grupo_id }, () => mostrar('documentos'));
   j.querySelector('#fc-int').onclick = () => formInteracao(cl, () => mostrar('linha'));
   j.querySelector('#fc-etq').onclick = () => janelaEtiquetas(cl, etq, reabrir);
+  const fcMail = j.querySelector('[data-cli-email]');
+  if (fcMail) fcMail.onclick = () => comBotao(fcMail, async () => { await trocarRecebeEmail([cl.id], cl.recebe_email === false); fcMail.outerHTML = pillRecebeEmail(cl);
+    const n = j.querySelector('[data-cli-email]'); if (n) n.onclick = fcMail.onclick; });
   const lead = j.querySelector('#fc-lead');
   if (lead) lead.onclick = async () => { if (!E._crmEtapas) E._crmEtapas = await q(sb.from('crm_etapas').select('*').order('ordem')).catch(() => []);
     formOportunidade({ cliente_id: cl.id, responsavel: cl.responsavel, origem: 'Cliente antigo' }, () => aviso('✓ Oportunidade criada no CRM para ' + cl.nome + '.')); };
@@ -354,7 +366,7 @@ const ABA_FICHA = {
   },
   // Cartão CNPJ: o que a Receita diz hoje (atualização diária às 6h) e o histórico do que mudou
   async receita(alvo, cl, repinta) {
-    if (soDigitos(cl.cpf_cnpj).length !== 14) { alvo.innerHTML = vazio('O cartão CNPJ vale só para empresas (CNPJ com 14 dígitos).'); return; }
+    if (soDigitos(cl.cpf_cnpj).length !== 14) { alvo.innerHTML = ''; return; }   // Backup 49: no Resumo, pessoa física simplesmente não tem esta parte
     const [c, execs] = await Promise.all([
       q(sb.from('clientes').select('razao_social, nome_fantasia, situacao_cadastral, data_situacao, cnae_principal, porte, data_abertura, endereco, cidade, estado, cep, cnpj_atualizado_em').eq('id', cl.id).single()),
       q(sb.from('cnpj_execucoes').select('inicio, relatorio').filter('relatorio', 'cs', JSON.stringify([{ cliente_id: cl.id }])).order('inicio', { ascending: false }).limit(30)).catch(() => [])

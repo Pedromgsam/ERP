@@ -10,7 +10,7 @@ const PROVEDORES_CNPJ = [['brasilapi', 'BrasilAPI (grátis, sem chave — recome
 let Alertas_emDiaAberto = false;
 TELAS.alertas = async function () {
   await carregarCadastros();
-  $('conteudo').innerHTML = '<div class="titulo-pag"><div><h1>Alertas</h1><p>O que precisa de atenção em cada setor · clique num cartão para ver o relatório</p></div>' +
+  $('conteudo').innerHTML = '<div class="titulo-pag"><div><h1>Alertas</h1><p>Só o que não aparece em outro lugar: cadastro incompleto, certidão e certificado vencendo, CNPJ irregular e as rotinas automáticas</p></div>' +
     '<div class="acoes"><button class="btn btn-o" id="al-atualizar">↻ Atualizar</button></div></div><div id="al-corpo"><div class="carregando">Montando os alertas…</div></div>';
   $('al-atualizar').onclick = () => TELAS.alertas();
   const h = hojeISO(), nada = () => [];
@@ -23,7 +23,7 @@ TELAS.alertas = async function () {
     podeFin ? buscarTodos(() => sb.from('lancamentos').select('id, descricao, valor, redutor, vencimento, grupo_id, empresa, obs').eq('tipo', 'receita').eq('pago', false).eq('perda', false)).catch(nada) : [],
     pode('contratos') ? q(sb.from('contratos').select('id, descricao, status, cliente_id, documentos(id)').eq('status', 'Ativo')).catch(nada) : [],
     q(sb.from('cliente_certificado').select('cliente_id, validade').lte('validade', somarDias(h, 30))).catch(nada),
-    [],
+    q(sb.from('certidoes').select('*').lte('validade', somarDias(h, 30))).catch(nada),
     q(sb.from('tarefas').select('id, titulo, prazo, prazo_fatal, responsavel').not('status', 'in', '(concluida,cancelada)')).catch(nada),
     q(sb.from('cnpj_execucoes').select('*').order('inicio', { ascending: false }).limit(10)).catch(nada),
     E.perfil && E.perfil.papel === 'admin' ? q(sb.from('email_fila').select('id, para, assunto, erro, criado_em').eq('status', 'erro').order('criado_em', { ascending: false }).limit(50)).catch(nada) : [],
@@ -58,22 +58,14 @@ TELAS.alertas = async function () {
     { titulo: 'Entidades sem responsável', colunas: colCli, linhas: semResp.map(linhaCli), ids: semResp.map((c) => c.id) });
   // ── Jurídico ──
   if (podeJur) {
-    add('Jurídico', 'Publicações novas', String(pubs.length), 'no Diário de Justiça, ainda não lidas', pubs.length ? 'atencao' : 'ok',
-      { titulo: 'Publicações novas', colunas: ['Data', 'Tribunal', 'Tipo', 'Processo', 'Advogado'], linhas: pubs.map((p) => [dataBR(p.data_disponibilizacao), p.tribunal, p.tipo, p.processo, p.advogado]), tela: 'publicacoes' });
-    add('Jurídico', 'Parcelamentos com parcela vencida', String(parcelas.length), 'dívida do cliente (não é financeiro do escritório)', parcelas.length ? 'critico' : 'ok',
-      { titulo: 'Parcelas de parcelamento vencidas', colunas: ['Vencimento', 'Empresa', 'Natureza', 'Parcela', 'Grupo'],
-        linhas: parcelas.map((x) => [dataBR(x.vencimento), x.parcelamentos ? x.parcelamentos.empresa : '—', x.parcelamentos ? x.parcelamentos.natureza : '', x.numero, x.parcelamentos ? nomeGrupo(x.parcelamentos.grupo_id) : '']), tela: 'parcelamentos' });
-    add('Jurídico', 'Acordos vencidos', String(acordos.length), (acordos.length ? brlCurto(soma(acordos, (a) => a.valor)) + ' · ' : '') + 'parcelas de acordos dos clientes com terceiros', acordos.length ? 'critico' : 'ok',
-      { titulo: 'Parcelas de acordo vencidas', colunas: ['Vencimento', 'Devedor', 'Credor', 'Parcela', 'Valor'], linhas: acordos.map((a) => [dataBR(a.vencimento), a.devedor, a.credor, a.parcela, brl(a.valor)]), tela: 'acordos' });
+    // Backup 49 (29): publicações, parcelas e acordos vencidos já aparecem no Início, na Rotina e nos próprios módulos — saíram daqui
     const semValor = procs.filter((p) => !(Number(p.valor) > 0));
     add('Jurídico', 'Processos sem valor da causa', String(semValor.length) + ' de ' + procs.length, 'complete para o Painel somar certo', semValor.length ? 'info' : 'ok',
       { titulo: 'Processos sem valor da causa', colunas: ['Número', 'Natureza', 'Grupo'], linhas: semValor.map((p) => [p.numero, p.natureza, nomeGrupo(p.grupo_id)]), tela: 'processos' });
   }
   // ── Financeiro ──
   if (podeFin) {
-    const atr = lancs.filter((l) => l.vencimento < h);
-    add('Financeiro', 'Honorários em atraso', atr.length ? brlCurto(soma(atr, vl)) : '0', atr.length + ' lançamento(s) vencido(s), todos os meses', atr.length ? 'critico' : 'ok',
-      { titulo: 'Honorários em atraso', colunas: ['Vencimento', 'Descrição', 'Grupo', 'Empresa', 'Valor'], linhas: atr.sort((a, b) => a.vencimento.localeCompare(b.vencimento)).map((l) => [dataBR(l.vencimento), l.descricao, nomeGrupo(l.grupo_id), l.empresa === 'contabilidade' ? 'Contabilidade' : 'Jurídico', brl(vl(l))]), tela: 'financeiro' });
+    // Backup 49 (29): honorários em atraso já estão no Financeiro e no Início
     const prov = lancs.filter((l) => /salário mínimo de \d{4} ainda não cadastrado/i.test(l.obs || ''));
     add('Financeiro', 'Mensalidades com salário mínimo provisório', String(prov.length), 'cadastre o salário mínimo do ano em Contratos', prov.length ? 'atencao' : 'ok',
       { titulo: 'Mensalidades aguardando o salário mínimo do ano', colunas: ['Vencimento', 'Descrição', 'Valor provisório'], linhas: prov.map((l) => [dataBR(l.vencimento), l.descricao, brl(l.valor)]), tela: 'contratos' });
@@ -88,11 +80,10 @@ TELAS.alertas = async function () {
   const certDig = certs.filter((c) => c.validade);
   add('Documentos', 'Certificado digital vencendo', String(certDig.length), 'vencidos ou nos próximos 30 dias', certDig.some((c) => c.validade < h) ? 'critico' : certDig.length ? 'atencao' : 'ok',
     { titulo: 'Certificados digitais vencidos ou vencendo', colunas: ['Validade', 'Empresa', 'Grupo'], linhas: certDig.sort((a, b) => a.validade.localeCompare(b.validade)).map((c) => [dataBR(c.validade), nomeCliente(c.cliente_id), nomeGrupo((E.clientes.find((x) => x.id === c.cliente_id) || {}).grupo_id) || '—']), tela: 'documentos' });
-  const tAtr = tarefas.filter((t) => t.prazo && t.prazo < h), tFat = tarefas.filter((t) => t.prazo_fatal && t.prazo_fatal <= somarDias(h, 7));
-  add('Tarefas', 'Tarefas atrasadas', String(tAtr.length), 'todas as pessoas', tAtr.length ? 'critico' : 'ok',
-    { titulo: 'Tarefas atrasadas', colunas: ['Prazo', 'Tarefa', 'Pessoa'], linhas: tAtr.sort((a, b) => a.prazo.localeCompare(b.prazo)).map((t) => [dataBR(t.prazo), t.titulo, t.responsavel]), tela: 'tarefas' });
-  add('Tarefas', 'Prazos fatais em 7 dias', String(tFat.length), 'inclui os já vencidos', tFat.some((t) => t.prazo_fatal < h) ? 'critico' : tFat.length ? 'atencao' : 'ok',
-    { titulo: 'Prazos fatais nos próximos 7 dias', colunas: ['Prazo fatal', 'Tarefa', 'Pessoa'], linhas: tFat.sort((a, b) => a.prazo_fatal.localeCompare(b.prazo_fatal)).map((t) => [dataBR(t.prazo_fatal), t.titulo, t.responsavel]), tela: 'tarefas' });
+  // Backup 49 (29): certidões vencendo (a validade é cadastrada na ficha → Resumo → Certidões); tarefas atrasadas saíram (estão no Início e em Tarefas)
+  const certid = docs.filter((c) => c.validade);
+  add('Documentos', 'Certidões vencendo', String(certid.length), 'vencidas ou nos próximos 30 dias', certid.some((c) => c.validade < h) ? 'critico' : certid.length ? 'atencao' : 'ok',
+    { titulo: 'Certidões vencidas ou vencendo', colunas: ['Validade', 'Certidão', 'Empresa', 'Grupo'], linhas: certid.sort((a, b) => a.validade.localeCompare(b.validade)).map((c) => [dataBR(c.validade), c.orgao || '—', nomeCliente(c.cliente_id), nomeGrupo((E.clientes.find((x) => x.id === c.cliente_id) || {}).grupo_id) || '—']), ids: certid.map((c) => c.cliente_id) });
   // ── Rotinas automáticas ──
   const ult = cnpj[0], hoje6 = new Date(h + 'T06:30:00'), rodouHoje = ult && new Date(ult.inicio) >= new Date(h + 'T00:00:00');
   const cnpjNivel = !ult ? 'atencao' : ult.status === 'erro' ? 'critico' : !rodouHoje && new Date() > hoje6 ? 'critico' : ult.status === 'parcial' ? 'atencao' : 'ok';

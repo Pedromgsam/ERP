@@ -45,14 +45,14 @@
 <script src="vendor/chart.umd.js?v=3402f6de" defer></script>
 <script src="vendor/supabase.js?v=16aeff36"></script>
 <script src="config.js"></script>
-<script src="erp-dados.js?v=c63ae022"></script>
+<script src="erp-dados.js?v=c671f24e"></script>
 <link rel="stylesheet" href="editor.css?v=7747e46f">
 <link rel="stylesheet" href="erp-telas.css?v=22ce828d">
 <script src="editor.js?v=621fcea7" defer></script>
-<script src="erp-telas.js?v=6b3999b7" defer></script>
-<link rel="stylesheet" href="gs.css?v=d626acf3">
+<script src="erp-telas.js?v=4565fce7" defer></script>
+<link rel="stylesheet" href="gs.css?v=b63f5acb">
 <script src="importador.js?v=23bf9824" defer></script>
-<script src="gestao-embutida.js?v=8b45a91a" defer></script>
+<script src="gestao-embutida.js?v=5fb4bbe9" defer></script>
 <script>
 
 
@@ -1617,7 +1617,7 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
 </style>
 <link rel="stylesheet" href="tokens.css?v=97678442">
 <link rel="stylesheet" href="tema-escuro.css?v=3bec5b6a">
-<link rel="stylesheet" href="design.css?v=5cde8c80">
+<link rel="stylesheet" href="design.css?v=82578fc9">
 <script>try{if(localStorage.getItem("erp_tema")==="escuro")document.documentElement.setAttribute("data-tema","escuro")}catch(e){}</script>
 </head>
 <body>
@@ -2218,10 +2218,10 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
     <div id="alertFin" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"></div>
   </div>
   <div id="finTabBar" style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
-    <button class="fin-tab active" data-tab="analise"   onclick="setFinTab('analise',this)"  ><svg class="fa-ic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M8 17V11M13 17V7M18 17v-4"/></svg>Análise</button>
-    <button class="fin-tab"        data-tab="receber"   onclick="setFinTab('receber',this)"  ><svg class="fa-ic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>A Receber</button>
-    <button class="fin-tab"        data-tab="recebidos" onclick="setFinTab('recebidos',this)" ><svg class="fa-ic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg>Recebidos</button>
-    <button class="fin-tab"        data-tab="prejuizo"  onclick="setFinTab('prejuizo',this)"  ><svg class="fa-ic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7l6 6 4-4 8 8"/><path d="M15 17h6v-6"/></svg>Prejuízo / Créditos</button>
+    <button class="fin-tab active" data-tab="analise"   onclick="setFinTab('analise',this)"  >Análise</button>
+    <button class="fin-tab"        data-tab="receber"   onclick="setFinTab('receber',this)"  >A receber</button>
+    <button class="fin-tab"        data-tab="recebidos" onclick="setFinTab('recebidos',this)" >Recebidos</button>
+    <button class="fin-tab"        data-tab="prejuizo"  onclick="setFinTab('prejuizo',this)"  >Perdas</button>
   </div>
   <div id="finContent"></div>
 </section>
@@ -2237,13 +2237,13 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
     </div>
   </div>
   <div id="finCTabBar" style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;align-items:center">
-    <button class="fin-tab active" data-tab="analise"  onclick="setFinCTab('analise',this)" ><svg class="fa-ic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M8 17V11M13 17V7M18 17v-4"/></svg>Análise</button>
-    <button class="fin-tab"        data-tab="receber"  onclick="setFinCTab('receber',this)" ><svg class="fa-ic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>A Receber</button>
-    <button class="fin-tab"        data-tab="receita"  onclick="setFinCTab('receita',this)" ><svg class="fa-ic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>Receita</button>
-    <button class="fin-tab"        data-tab="apagar"   onclick="setFinCTab('apagar',this)"  ><svg class="fa-ic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21V9M7 14l5-5 5 5"/><path d="M4 7V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2"/></svg>A Pagar</button>
-    <button class="fin-tab"        data-tab="despesa"  onclick="setFinCTab('despesa',this)" ><svg class="fa-ic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></svg>Despesa</button>
-    <button class="fin-tab"        data-tab="caixa"    onclick="setFinCTab('caixa',this)"   ><svg class="fa-ic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="13" rx="2"/><path d="M2 10h20M16 15h2"/></svg>Composição de Caixa</button>
-    <button class="fin-tab"        data-tab="socios"   onclick="setFinCTab('socios',this)"  ><svg class="fa-ic" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12A9 9 0 1 1 12 3v9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/></svg>Distribuição de Lucros</button>
+    <button class="fin-tab active" data-tab="analise"  onclick="setFinCTab('analise',this)" >Análise</button>
+    <button class="fin-tab"        data-tab="receber"  onclick="setFinCTab('receber',this)" >A receber</button>
+    <button class="fin-tab"        data-tab="receita"  onclick="setFinCTab('receita',this)" >Recebidos</button>
+    <button class="fin-tab"        data-tab="apagar"   onclick="setFinCTab('apagar',this)"  >A pagar</button>
+    <button class="fin-tab"        data-tab="despesa"  onclick="setFinCTab('despesa',this)" >Pagos</button>
+    <button class="fin-tab"        data-tab="caixa"    onclick="setFinCTab('caixa',this)"   >Caixa</button>
+    <button class="fin-tab"        data-tab="socios"   onclick="setFinCTab('socios',this)"  >Lucros</button>
   </div>
   <div id="finCContent"></div>
 </section>
@@ -4874,7 +4874,7 @@ function _lgRender(o){
       +'<td class="lg-t-num">'+_lgFmtV(x.falta)+'</td>'
       +'<td>'+_lgEsteMesTxt(m)+'</td>'
       +'<td>'+_lgSit(x.atr,x.atr>=2,x.concluido)+(x.guias?_lgGuiaDiscreta(x.guias,false):'')+'</td>'
-      +'<td class="lg-t-gu">'+(o.tabela&&o.tabela!=='acordos'&&!x.concluido?'<button type="button" class="lg-bt-gu" onclick="_lgGuias(event,\''+o.tabela+'\',\'item\',\''+_lgEsc(x.k)+'\')" title="Gerar as guias deste '+o.rotulo+' (em atraso + do mês; se não houver, a próxima)">🧾</button>':'')+'</td><td class="lg-t-seta">›</td></tr>'; };
+      +(false?'<td class="lg-t-gu">':'')+(false&&o.tabela&&o.tabela!=='acordos'&&!x.concluido?'<button type="button" class="lg-bt-gu" onclick="_lgGuias(event,\''+o.tabela+'\',\'item\',\''+_lgEsc(x.k)+'\')" title="Gerar as guias deste '+o.rotulo+' (em atraso + do mês; se não houver, a próxima)">🧾</button>':'')+'<td class="lg-t-seta">›</td></tr>'; };
   var cards=gs.map(function(g){
     var l=G[g].slice().sort(function(a,b){ return b.atr-a.atr || String(a.titulo+a.sub).localeCompare(String(b.titulo+b.sub),'pt-BR'); }), ab=sozinho||!!o.abertos[g];
     var soma=function(f){ return l.reduce(function(s,x){ return s+(Number(x[f])||0); },0); };
@@ -4888,13 +4888,13 @@ function _lgRender(o){
       +'<div class="lg-card-lin"><span>Falta pagar</span><b>'+_lgFmtV(soma('falta'))+'</b></div>'
       +'<div class="lg-card-lin lg-card-mes" title="Parcelas vencidas sem pagamento + as que vencem até o fim deste mês"><span>A pagar este mês</span><span>'+_lgEsteMesTxt(m)+'</span></div></div>';
     var painel=ab?'<div class="lg-painel"><div class="lg-painel-tit"><b>'+esc(g)+'</b><span class="lg-sub">'+l.length+' '+o.rotulo+(l.length>1?'s':'')+' · clique na linha para ver as parcelas</span>'
-      +(o.tabela&&o.tabela!=='acordos'?'<button type="button" class="lg-bt-guias" onclick="_lgGuias(event,\''+o.tabela+'\',\''+(umGrupo?'empresa':'grupo')+'\',\''+_lgEsc(g)+'\')" title="Abre o envio já com as parcelas em atraso e as que vencem neste mês">🧾 Gerar guias '+(umGrupo?'desta empresa':'deste grupo')+'</button>':'')
+      +(false&&o.tabela&&o.tabela!=='acordos'?'<button type="button" class="lg-bt-guias" onclick="_lgGuias(event,\''+o.tabela+'\',\''+(umGrupo?'empresa':'grupo')+'\',\''+_lgEsc(g)+'\')" title="Abre o envio já com as parcelas em atraso e as que vencem neste mês">🧾 Gerar guias '+(umGrupo?'desta empresa':'deste grupo')+'</button>':'')
       +(sozinho?'':'<button type="button" class="lg-fechar" onclick="'+o.fnGrupo+'(\''+_lgEsc(g)+'\')" aria-label="Fechar">✕</button>')+'</div>'
       +'<table class="lg-t"><colgroup><col><col style="width:150px"><col style="width:130px"><col style="width:210px"><col style="width:230px"><col style="width:44px"><col style="width:28px"></colgroup>'
-      +'<thead><tr><th>'+(umGrupo?o.rotulo.charAt(0).toUpperCase()+o.rotulo.slice(1):'Empresa / '+o.rotulo)+'</th><th>Pagas</th><th class="lg-t-num">Falta</th><th>A pagar este mês</th><th>Situação</th><th class="lg-t-gu" title="Gerar guias">Guias</th><th></th></tr></thead>'
+      +'<thead><tr><th>'+(umGrupo?o.rotulo.charAt(0).toUpperCase()+o.rotulo.slice(1):'Empresa / '+o.rotulo)+'</th><th>Pagas</th><th class="lg-t-num">Falta</th><th>A pagar este mês</th><th>Situação</th><th></th></tr></thead>'
       +'<tbody>'+l.map(linhaItem).join('')+'</tbody></table></div>':'';
     return card+painel; }).join('');
-  return (o.tabela&&o.tabela!=='acordos'?'<div class="lg-topo-guias"><button type="button" class="lg-bt-guias lg-bt-guias-geral" onclick="_lgGuias(event,\''+o.tabela+'\',\'tudo\',\'\')" title="Abre o envio com todas as empresas: parcelas em atraso + as que vencem neste mês">🧾 Gerar guias — em atraso + vencem neste mês</button></div>':'')
+  return (false&&o.tabela&&o.tabela!=='acordos'?'<div class="lg-topo-guias"><button type="button" class="lg-bt-guias lg-bt-guias-geral" onclick="_lgGuias(event,\''+o.tabela+'\',\'tudo\',\'\')" title="Abre o envio com todas as empresas: parcelas em atraso + as que vencem neste mês">🧾 Gerar guias — em atraso + vencem neste mês</button></div>':'')
     +'<div class="lg lg-min lg-cards">'+cards+'</div>';
 }
 // Backup 37: "Gerar guias" — geral (respeita o grupo/empresa do filtro do topo), do grupo, da empresa ou de um item (parcelamento/acordo)
@@ -4929,7 +4929,7 @@ function _lgParcTabela(l, tabela){
       return '<tr class="'+(x.pago?'lg-pt-pago':n!==null&&n<=0?'lg-pt-atr':'')+'"><td>'+esc(x.rot||'?')+'</td><td>'+esc(x.venc||'—')+'</td>'
         +'<td class="lg-t-num" title="'+(x.lancado===false?'Valor não lançado nesta parcela: vale o último lançado':'')+'">'+_lgFmtV(Number(x.valor)||0)+(x.lancado===false?'<span class="lg-pt-est">*</span>':'')+'</td>'
         +'<td>'+em+'</td><td>'+pag+'</td>'
-        +'<td class="lg-pt-ac">'+(x.pago?'':'<button type="button" class="btn btn-o btn-mini lg-bt-pagar" data-lg-pagar="'+x.id+'" data-lg-rot="'+esc(x.rot||'')+'" data-lg-val="'+esc(_lgFmtV(Number(x.valor)||0))+'" title="Lançar o pagamento desta parcela">＋ Lançar pagamento</button>')+'</td></tr>'; }).join('')
+        +'<td class="lg-pt-ac">'+(x.pago||tabela==='parcelas'?'':'<button type="button" class="btn btn-o btn-mini lg-bt-pagar" data-lg-pagar="'+x.id+'" data-lg-rot="'+esc(x.rot||'')+'" data-lg-val="'+esc(_lgFmtV(Number(x.valor)||0))+'" title="Lançar o pagamento desta parcela">＋ Lançar pagamento</button>')+'</td></tr>'; }).join('')
     +'</tbody></table></div>'
     +(l.some(function(x){ return x.lancado===false; })?'<div class="lg-pt-nota">* valor ainda não lançado nesta parcela — vale o último valor lançado (o valor muda todo mês).</div>':'');
 }
@@ -4975,7 +4975,8 @@ function _acordosAnalise(ac){
     abertas:g.l.filter(function(a){ return !pago(a); }).map(function(a){ return {d:pDate(a.vencimento), v:v(a)}; })}; });
   var vis=_acVisSeg();
   var linhas=_lgRender({itens:itens, porEmpresa:!!(typeof FILTROS!=='undefined'&&FILTROS.grupo), porGrupo:true, abertos:_acGrpAbertos, fnGrupo:'_acAbrirGrupo', fnItem:'_acAbrir', rotulo:'acordo', tabela:'acordos', cab:'Grupo / acordo'});
-  el.innerHTML=exBloco('exAcSit','Situação dos acordos',
+  if(_EXCOL.exAcSit===undefined) _EXCOL.exAcSit=true;   // Backup 49: o resumo começa fechado — a lista principal é a "A pagar" logo abaixo
+  el.innerHTML=exBloco('exAcSit','Situação dos acordos (resumo por grupo)',
     '<div class="lg-resumo"><span>Já pago <b class="lg-verde">'+_faFT(soma(ac.filter(pago)))+'</b></span><span>Falta <b>'+_faFT(soma(ac.filter(function(a){return !pago(a);})))+'</b></span>'
    + '<span>Vence este mês <b>'+_faFT(soma(ac.filter(noMes)))+'</b></span><span>Em atraso <b'+(ac.some(atrasada)?' class="lg-vermelho"':'')+'>'+_faFT(soma(ac.filter(atrasada)))+'</b> <small>'+ac.filter(atrasada).length+' parcela(s)</small></span></div>'
    + '<div class="gx-tab-topo"><div class="pa-sub">Acordos em andamento</div><div class="pcx-ctl">'+vis+_acCaixaTodos()+'</div></div>'
@@ -6110,7 +6111,18 @@ function setFinPeriod(p,btn){
   _finCharts();
 }
 
+function _finSegPerdas(){
+  var el=$('finContent'); if(!el||el.querySelector('#fin-perdas-seg')) return;
+  var d=document.createElement('div'); d.id='fin-perdas-seg'; d.className='fila-chips fin-perdas-seg';
+  d.innerHTML='<span class="fila-chips-rot">Mostrar</span>'
+    +'<button type="button" class="fila-chip'+(_finTab!=='prejuizo'?' ativo':'')+'" data-fin-perdas="0">Recebidos</button>'
+    +'<button type="button" class="fila-chip'+(_finTab==='prejuizo'?' ativo':'')+'" data-fin-perdas="1">Perdas (prejuízo)</button>';
+  d.addEventListener('click',function(ev){ var b=ev.target.closest('[data-fin-perdas]'); if(!b) return;
+    _finTab=b.getAttribute('data-fin-perdas')==='1'?'prejuizo':'recebidos'; renderFinanceiro(); });
+  el.insertBefore(d, el.firstChild);
+}
 function setFinTab(tab,btn){
+  if(tab==='prejuizo'){ btn=document.querySelector('#finTabBar [data-tab=recebidos]'); }
   _finTab=tab;
   document.querySelectorAll('#finTabBar .fin-tab').forEach(b=>b.classList.remove('active'));
   if(btn)btn.classList.add('active');
@@ -6133,8 +6145,8 @@ function renderFinanceiro(){
   _finAplicarAbasCliente();
   if(!_finAbaPermitida(_finTab)) _finTab='receber';
   if(_finTab==='analise'){_finAnalise(fin);return;}
-  if(_finTab==='recebidos'){_finRecebidos(fin);return;}
-  if(_finTab==='prejuizo'){_finPrejuizo(fin);return;}
+  if(_finTab==='recebidos'){_finRecebidos(fin);_finSegPerdas();return;}
+  if(_finTab==='prejuizo'){_finPrejuizo(fin);_finSegPerdas();return;}
 
   var fGlobal=FILTROS.grupo||'';
   var aRec=fin.filter(f=>f.aba==='A Receber'&&(!fGlobal||f.grupo===fGlobal));
@@ -7143,10 +7155,9 @@ function _fcPintarCorpo(){
   var atraso=vR.map(function(f){ return {f:f,t:'r'}; }).concat(vP.map(function(f){ return {f:f,t:'d'}; }))
     .sort(function(a,b){ return (pDate(a.f.vencimento)||0)-(pDate(b.f.vencimento)||0); });
   el.innerHTML =
-    '<div class="kpi-grid fc-kpis5 fc-kpis6">'
+    '<div class="kpi-grid fc-kpis5">'   // Backup 49: os mesmos 5 cartões do Jurídico (o "Pago" está na aba Pagos)
   +   kC('Recebido',fF(_fcSoma(rec)),rec.length+' recebimento(s) no período','cg','dg')
   +   kC('A receber',fF(_fcSoma(aRec)),aRec.length+' em aberto','cb','db')
-  +   kC('Pago',fF(_fcSoma(pag)),pag.length+' despesa(s) paga(s)','cr','')
   +   kC('A pagar',fF(_fcSoma(aPag)),aPag.length+' conta(s) em aberto','ca','')
   +   kC('Em atraso',fF(_fcSoma(vR)+_fcSoma(vP)),(vR.length+vP.length)+' vencido(s) · todos os meses','cr',(vR.length||vP.length)?'dr':'')
   +   (function(){ var pj=window._semPeriodo(_FC,function(){ return _fcFiltrar(['Prejuízo']); });   // Backup 38: prejuízo de todos os meses (igual ao Início)
