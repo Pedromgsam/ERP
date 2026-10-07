@@ -87,7 +87,9 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
   Tarefas: `pillStatusTarefa` (`.tf-st-<status>`), colunas Prazo + Dias (`celulaAtraso`), `.cal-pri-<prioridade>` no calendário. Cadastro de cliente sem `.cli-rapido`; `formCliente(cl, depois, abaInicial)`.
   Financeiro: `td.acoes-l` nowrap, `td.col-valor.valor-rec/.valor-desp` verde/vermelho (padrao.js não mede mais a cor do valor), abas com `--tc` por `data-tab`. E-mail → Quem recebe:
   `[data-em-cli]` → `formCliente(…, 'contato')`, `[data-em-dest]` → RPC `definir_email_destino(cliente, email)` (troca no contato de onde o destino vem). Sugestões: `sistema/SUGESTOES-B50.md`
-  (R1–R10 Rotina, E1–E8 e-mail, G1–G8), prompt `sistema/PROMPT-BACKUP-51.md`.
+  (V1–V7 velocidade, T1–T3 recorrentes, R1–R10 Rotina, E1–E8 e-mail, G1–G8), prompt `sistema/PROMPT-BACKUP-51.md`.
+  Diagnóstico de lentidão da Rotina: `rotinaEnviarGuias`/`rotinaPlanilha` baixam TODAS as parcelas (buscarTodos, páginas de 1000 em série) a cada aba;
+  "Pago" = confirm + update + `carregarGrupos()` + `ERP_RECARREGAR` completo ao sair do GS.
 - Backup 49 (base) (SQL; nenhuma função nova) — as 36 sugestões do `SUGESTOES-B48.md`. E-mails: `clientes.recebe_email` (chave única; `pillRecebeEmail`/`trocarRecebeEmail`/
   `janelaRecebeEmailLote`, `#cli-email-lote`), `email_fila.cliente_id` + gatilho `email_fila_a_recebe` (`email_fila_recebe`: manual → exceção "NÃO receber e-mails", automático → cancelado),
   `pode_email` olha a chave, `quem_recebe_emails()`, `emails_revisar` (+ `email_fila_reter` segura automáticos; `salvar_emails_revisar`), `modo_teste_email`/`salvar_modo_teste_email`

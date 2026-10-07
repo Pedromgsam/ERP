@@ -1,14 +1,46 @@
-# Sugestões — Backup 50 (foco: Rotina e E-mail)
+# Sugestões — Backup 50 (foco: Rotina, velocidade e e-mail)
 
-Esta análise passou de novo por todos os módulos, com mais atenção à **Rotina** e à **configuração de e-mail**.
+Esta análise passou de novo por todos os módulos, com mais atenção à **Rotina**, à **velocidade** (demora para abrir "Guias do mês" e "Planilha" e para marcar "Pago"), às **tarefas recorrentes** e à **configuração de e-mail**.
 A pergunta foi sempre a mesma: o que deixa o sistema **mais funcional e integrado**, sem ficar complicado?
 
-**Nada daqui foi feito ainda.** Para aprovar, responda com os números. Exemplo: "aprovo R1, R3 e E1; o G4 fica para depois".
+**Nada daqui foi feito ainda.** Para aprovar, responda com os números. Exemplo: "aprovo V1 a V6, T1, R1 e E1; o G4 fica para depois".
 O prompt pronto para o próximo chat está em `sistema/PROMPT-BACKUP-51.md`.
 
 Legenda: **Novo** = função nova · **Juntar** = unir duas coisas numa · **Tirar** = remover · **Arrumar** = visual ou ordem
 
 ---
+
+## V. Velocidade — tirar a demora (prioridade máxima)
+
+**Onde está a demora hoje** (conferido no código):
+
+- **Ao abrir "Guias do mês" ou "Planilha"**
+  - O sistema baixa **todas as parcelas de todos os parcelamentos**, inclusive as pagas há anos.
+  - O banco entrega no máximo 1.000 linhas por vez, então os pedidos vão em fila, um depois do outro.
+  - Esse download inteiro acontece de novo cada vez que se troca de aba.
+  - Depois, todos os blocos são desenhados de uma só vez, até os de grupos que não estão na tela.
+- **Ao clicar "Pago"**
+  - Aparece uma pergunta de confirmação.
+  - O sistema grava a baixa e, antes de responder, faz uma consulta a mais (a lista de grupos), que não é necessária.
+  - Ao sair da Rotina, ele **recarrega o ERP inteiro**, só para atualizar as outras telas.
+
+| # | Como é hoje | Sugestão | Tipo |
+|---|---|---|---|
+| V1 | Baixa o histórico inteiro de parcelas a cada clique na aba. | O banco devolve **pronto e enxuto** (uma consulta só) apenas o que a tela usa: as parcelas em aberto, as do mês, as dos últimos 3 meses e um resumo das antigas (quantas foram pagas e o total). | Arrumar |
+| V2 | Trocar entre "Guias do mês", "Planilha" e voltar busca tudo de novo. | Os dados ficam **guardados na memória** enquanto a Rotina está aberta. Ao gravar, só a parcela mudada é atualizada. O botão "↻ Atualizar" busca de novo quando se quiser. | Novo |
+| V3 | Todos os grupos e blocos são desenhados de uma vez. | Desenhar **só o grupo aberto** (os outros, quando forem clicados) e mostrar a tela na hora, com um esqueleto cinza no lugar dos números até os dados chegarem. | Arrumar |
+| V4 | "Pago" espera o banco responder para mudar a tela. | **Marca na hora** (a tela muda no clique) e grava por trás. Se der erro, volta ao estado anterior e avisa. A confirmação vira um "Desfazer" de 5 segundos. | Arrumar |
+| V5 | Depois de uma baixa, sair da Rotina recarrega o ERP inteiro. | Atualizar **só a tela que mostra aquele dado** (Parcelamentos), e só quando ela for aberta. | Arrumar |
+| V6 | Não se mede a velocidade. | Um **teste de tempo** com dados fictícios grandes (300 parcelamentos, 15 mil parcelas). Meta: "Guias do mês" e "Planilha" abrem em **menos de 1 segundo**, e "Pago" responde em **menos de 0,2 segundo**. O mesmo teste vale para Financeiro, Painel e Clientes. | Novo |
+| V7 | Faltam índices no banco para as consultas da Rotina. | Índices em `parcelas (parcelamento_id, pago, vencimento)` e nos campos usados pelo resumo (V1). Não custa nada e o banco responde mais rápido. | Arrumar |
+
+## T. Tarefas recorrentes com datas certas
+
+| # | Como é hoje | Sugestão | Tipo |
+|---|---|---|---|
+| T1 | "Repetir" só tem: toda semana, todo mês e todo ano, contando a partir do prazo da tarefa. Não dá para dizer "toda segunda" nem "dias 5 e 20". | Regra de repetição completa, com a data de início e a data de fim (opcional):<br>• **Toda semana** nos dias escolhidos (ex.: segunda; ou segunda e quinta)<br>• **A cada N semanas** (ex.: quinzenal, toda 2ª segunda)<br>• **2× ao mês** nos dias escolhidos (ex.: dias 5 e 20)<br>• **Todo mês** no dia N, ou no N.º dia útil (ex.: 5º dia útil), ou na última sexta<br>• **Todo ano** numa data<br>Feriado ou fim de semana: escolher se a tarefa passa para o dia útil seguinte (usa os feriados já cadastrados). | Novo |
+| T2 | A próxima tarefa só nasce quando a anterior é concluída. Se ninguém concluir, a agenda do mês seguinte fica vazia. | As próximas ocorrências já aparecem **na agenda e no Google Agenda** (as próximas 4 a 8), mesmo que a anterior esteja aberta. Concluir uma não mexe nas outras. | Novo |
+| T3 | Para mudar a regra, é preciso editar uma tarefa por vez. | Ao editar uma tarefa recorrente, perguntar: **"só esta"** ou **"esta e as próximas"**. Na tela, a regra aparece escrita por extenso (ex.: "↻ toda segunda, a partir de 13/10"). | Novo |
 
 ## R. Rotina (o trabalho do mês) — prioridade
 
@@ -56,4 +88,8 @@ Legenda: **Novo** = função nova · **Juntar** = unir duas coisas numa · **Tir
 ---
 
 ### Os que eu faria primeiro (mais ganho, menos risco)
-**R1, R3, R4, E1, E2, E3, E4** e **G1**.
+1. **V1 a V7** (velocidade: é o que mais atrasa o dia a dia).
+2. **T1 e T2** (recorrentes com datas certas).
+3. **R1, R3, R4** (Rotina).
+4. **E1 a E4** (configuração de e-mail).
+5. **G1** (busca geral).
