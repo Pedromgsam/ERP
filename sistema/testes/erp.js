@@ -114,6 +114,10 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('Início (B49): resumo numa linha fina de atalhos, sem Processos; Tarefas com o total da equipe', await p.evaluate(() => {
       const t = [...document.querySelectorAll('#ini-resumo .ini-at-tit')].map((x) => x.textContent), tf = document.querySelector('#ini-resumo [data-ini-ir=tarefas]');
       return !t.includes('Processos') && t.includes('Publicações') && !t.includes('Documentos') && /em aberto/.test(tf.textContent) && !document.querySelector('#ini-resumo .ini-res'); }));
+    ok('Início (B50): atalho do financeiro (a receber hoje e nos próximos 5 dias)', !!(await p.$('#ini-resumo [data-ini-ir=financeiro]')) && /próximos 5 dias/.test(await p.textContent('#ini-resumo [data-ini-ir=financeiro]')));
+    ok('Início (B50): filtros da agenda com uma cor só (ligado = mesma cor em todos)', await p.evaluate(() => {
+      const c = [...document.querySelectorAll('#panel-hoje .fila-chips .fila-chip.ativo')].map((b) => getComputedStyle(b).backgroundColor);
+      return c.length > 1 && new Set(c).size === 1; }));
     await foto(p, 'inicio');
     await p.waitForTimeout(1500);
     const n = await p.evaluate(() => ({ b: DB.baseDados.length, pr: DB.processos.length, pa: DB.parcelamentos.length, ac: DB.acordos.length, fi: DB.financeiro.length, fc: DB.financeiroContabilidade.length }));
@@ -667,16 +671,18 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     // ── Google Agenda: link .ics por pessoa ──
     sql("insert into tarefas(titulo,responsavel,prazo) values ('Audiência de instrução — Alfa','Pedro',current_date+9), ('Audiência de outra pessoa','Adriana',current_date+9)");
     sql("insert into tarefas(titulo,responsavel,prazo,prazo_fatal) values ('Contestação Beta','Pedro',current_date+3,current_date+5)");
+    sql("insert into tarefas(titulo,responsavel,participantes,prazo,tipo_agenda,hora) values ('Reunião com cliente B50','Adriana','Pedro',current_date+2,'reuniao','14:30'), ('Tarefa simples B50','Pedro','',current_date+4,'',null)");
     await nav(p, 'tarefas'); await p.waitForTimeout(1200);
     await p.click('#tf-config'); await p.click('#tf-agenda'); await p.waitForSelector('#ag-link'); await p.waitForTimeout(300);
     { const link = await p.inputValue('#ag-link'); const r = await p.request.get(link.replace(/^https?:\/\/[^/]+/, BASE)); const ics = await r.text();
       ok('Google Agenda: link pessoal devolve a agenda (.ics) com prazo fatal e audiência', r.status() === 200 && /BEGIN:VCALENDAR/.test(ics) && /Prazo fatal: Contestação Beta/.test(ics) && /⚖ Audiência de instrução/.test(ics), ics.slice(0, 300));
       ok('agenda mostra só as tarefas da própria pessoa', !/Audiência de outra pessoa/.test(ics));
+      ok('B50: Google Agenda mostra tudo (tarefa comum e reunião em que a pessoa participa, com hora)', /Tarefa simples B50/.test(ics) && /Reunião com cliente B50/.test(ics) && /TZID=America\/Sao_Paulo:\d{8}T143000/.test(ics));
       await p.click('#ag-trocar'); await p.waitForSelector('#ag-link'); await p.waitForTimeout(500);
       const r2 = await p.request.get(link.replace(/^https?:\/\/[^/]+/, BASE));
       ok('"Trocar link" desativa o link antigo na hora', r2.status() === 404 && (await p.inputValue('#ag-link')) !== link); }
     await p.keyboard.press('Escape'); await p.waitForTimeout(200);
-    sql("delete from tarefas where titulo in ('Audiência de instrução — Alfa','Audiência de outra pessoa','Contestação Beta')");
+    sql("delete from tarefas where titulo in ('Audiência de instrução — Alfa','Audiência de outra pessoa','Contestação Beta','Reunião com cliente B50','Tarefa simples B50')");
 
     // ── segurança e rotina: acessos, backup semanal e saúde do sistema ──
     ok('login fica registrado em Acessos', Number(sql("select count(*) from acessos a join perfis p on p.id=a.usuario_id where p.email='pedro@teste'")) >= 1);
@@ -987,7 +993,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     { const ordem = await p.$$eval('#panel-hoje [data-fila-tipo]', (bs) => bs.map((b) => b.dataset.filaTipo).join(','));
       const cores = await p.$$eval('#panel-hoje [data-fila-tipo]', (bs) => bs.slice(1).map((b) => getComputedStyle(b).backgroundColor));
       const pes = await p.$$eval('#panel-hoje [data-fila-pes]', (bs) => bs.map((b) => b.textContent.replace('✓ ', '').trim()));
-      ok('Início (B46): Mostrar = Tudo, Reuniões, Audiências, Compromissos, Tarefas, Rotina, cada um com a sua cor', ordem === '*,reuniao,audiencia,compromisso,tarefa,rotina' && new Set(cores).size === 5);
+      ok('Início (B46): Mostrar = Tudo, Reuniões, Audiências, Compromissos, Tarefas, Rotina, todos com a mesma cor (Backup 50)', ordem === '*,reuniao,audiencia,compromisso,tarefa,rotina' && new Set(cores).size === 1);
       ok('Início (B46): "De quem" = Todos, depois quem está logado, depois os outros (sem "Minhas")', pes[0] === 'Todos' && /^Pedro/.test(pes[1]) && !pes.some((t) => /Minhas/.test(t))); }
     sql("insert into tarefas(titulo,responsavel,status,prazo) values ('Tarefa concluída B46','Pedro Castro','concluida',current_date)");
     await p.click('#panel-hoje [data-fila-vista=mes]'); await p.waitForTimeout(1500);
@@ -1500,6 +1506,24 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       // Alertas sem o que já tem outro lugar
       await nav(p, 'alertas'); await p.waitForTimeout(2500);
       ok('B49: Alertas sem publicações, tarefas e honorários em atraso', !/Publicações novas|Tarefas atrasadas|Honorários em atraso/.test(await p.textContent('#panel-alertas'))); }
+    // ── Backup 50 ──
+    { await nav(p, 'tarefas'); await p.evaluate(() => { GS.E.tf = null; }); await nav(p, 'tarefas'); await p.waitForTimeout(1500);
+      const cab = await p.$$eval('#panel-tarefas table thead th', (l) => l.map((t) => t.textContent.trim()).filter(Boolean)).catch(() => []);
+      ok('B50 Tarefas: Prazo e Dias em colunas separadas e status com cor', cab.includes('Prazo') && cab.includes('Dias') && !!(await p.$('#panel-tarefas .pill.tf-st')), cab.join('|'));
+      await nav(p, 'financeiro'); await p.evaluate(() => setFinTab('receber', document.querySelector('#finTabBar [data-tab=receber]'))); await p.waitForTimeout(1500);
+      ok('B50 Financeiro: valor a receber em verde e botões da linha numa linha só', await p.evaluate(() => {
+        const v = document.querySelector('#panel-financeiro td.col-valor.valor-rec'), g = getComputedStyle(document.documentElement).getPropertyValue('--green-d');
+        const td = document.querySelector('#panel-financeiro td.acoes-l .gx-cobrar'); const bs = td ? [...td.closest('td').querySelectorAll('.btn')].map((b) => Math.round(b.getBoundingClientRect().top)) : [];
+        return !!v && getComputedStyle(v).color !== getComputedStyle(document.body).color && bs.length >= 2 && new Set(bs).size === 1; }));
+      await nav(p, 'admin'); await p.waitForSelector('#adm-abas'); await p.click('#adm-abas [data-aba=email]'); await p.waitForSelector('#em-abas'); await p.click('#em-abas [data-em-aba=quem]'); await p.waitForSelector('.em-quem');
+      const cliQ = sql("select id from clientes where nome='Alfa Comércio Ltda'");
+      await p.click('.em-quem [data-em-dest="' + cliQ + '"]'); await p.waitForSelector('#em-dest-in');
+      await p.fill('#em-dest-in', 'financeiro.b50@alfa.teste'); await p.click('#em-dest-ok'); await p.waitForTimeout(1500);
+      ok('B50 Quem recebe: ✎ troca o e-mail de destino ali mesmo', /financeiro\.b50@alfa\.teste/.test(await p.textContent('.em-quem')) &&
+        sql("select email from contato_do_cliente('" + cliQ + "', null, 'cobranca')") === 'financeiro.b50@alfa.teste');
+      await p.click('.em-quem [data-em-cli="' + cliQ + '"]'); await p.waitForSelector('#f-cli'); await p.waitForTimeout(400);
+      ok('B50 Quem recebe: clicar no cliente abre o cadastro na aba Contatos', await p.isVisible('#f-cli [name=email]') && await p.evaluate(() => document.querySelector('[data-cli-aba=contato]').classList.contains('ativo')));
+      await p.evaluate(() => { while (document.querySelector('#janelas .fundo')) GS.fecharJanela(); }); }
     // ── sair ──
     await p.evaluate(() => acLogout()); await p.waitForTimeout(800);
     ok('sair encerra a sessão do Supabase', await p.evaluate(async () => !(await SB.auth.getSession()).data.session));

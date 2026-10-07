@@ -55,11 +55,7 @@ const r = []; const ok = (n, c) => r.push([n, !!c]);
     ok('cadastro do cliente em abas (Empresa, Classificação, Contatos, Endereço, Situação, Observações)', (await p.locator('#cli-abas [data-cli-aba]').count()) === 6);
     await p.fill('#f-cli [name=nome]', 'Zeta Manual LTDA');
     await p.fill('#f-cli [name=cpf_cnpj]', '55666777000199');
-    ok('cliente novo abre no cadastro rápido (CPF/CNPJ, nome, grupo, e-mail, telefone)', await p.evaluate(() => {
-      const vis = (n) => { const x = document.querySelector('#f-cli [name=' + n + ']'); return !!x && x.offsetParent !== null; };
-      return vis('cpf_cnpj') && vis('nome') && vis('grupo_sel') && vis('email') && vis('telefone') && !vis('cep') && !vis('capag') && !vis('responsavel');
-    }));
-    await p.click('#cli-mais-dados');
+    ok('Backup 50: cliente novo abre com todos os dados (abas visíveis, sem cadastro rápido)', await p.isVisible('#cli-abas') && !(await p.$('#cli-mais-dados')));
     await p.click('[data-cli-aba=class]');
     await p.check('#f-cli [name=grupo_novo]'); await p.fill('#f-cli [name=grupo]', 'Grupo Zeta');
     await p.selectOption('#f-cli [name=responsavel]', 'Pedro');

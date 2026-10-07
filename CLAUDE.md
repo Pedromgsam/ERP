@@ -82,7 +82,13 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
-- Última entrega: **Backup 49** (SQL; nenhuma função nova) — as 36 sugestões do `SUGESTOES-B48.md`. E-mails: `clientes.recebe_email` (chave única; `pillRecebeEmail`/`trocarRecebeEmail`/
+- Última entrega: **Backup 50** (SQL + função erp-agenda). Início: atalho `financeiro` em `cardResumoEscritorio` (lancamentos ≤ hoje+5); chips `.fila-chip.ativo` de uma cor
+  (`--selecao`, sem as cores por tipo). erp-agenda (VERSAO 2026-10-08): todas as tarefas abertas com prazo/prazo_fatal do responsável OU participante, `TZID=America/Sao_Paulo` com hora.
+  Tarefas: `pillStatusTarefa` (`.tf-st-<status>`), colunas Prazo + Dias (`celulaAtraso`), `.cal-pri-<prioridade>` no calendário. Cadastro de cliente sem `.cli-rapido`; `formCliente(cl, depois, abaInicial)`.
+  Financeiro: `td.acoes-l` nowrap, `td.col-valor.valor-rec/.valor-desp` verde/vermelho (padrao.js não mede mais a cor do valor), abas com `--tc` por `data-tab`. E-mail → Quem recebe:
+  `[data-em-cli]` → `formCliente(…, 'contato')`, `[data-em-dest]` → RPC `definir_email_destino(cliente, email)` (troca no contato de onde o destino vem). Sugestões: `sistema/SUGESTOES-B50.md`
+  (R1–R10 Rotina, E1–E8 e-mail, G1–G8), prompt `sistema/PROMPT-BACKUP-51.md`.
+- Backup 49 (base) (SQL; nenhuma função nova) — as 36 sugestões do `SUGESTOES-B48.md`. E-mails: `clientes.recebe_email` (chave única; `pillRecebeEmail`/`trocarRecebeEmail`/
   `janelaRecebeEmailLote`, `#cli-email-lote`), `email_fila.cliente_id` + gatilho `email_fila_a_recebe` (`email_fila_recebe`: manual → exceção "NÃO receber e-mails", automático → cancelado),
   `pode_email` olha a chave, `quem_recebe_emails()`, `emails_revisar` (+ `email_fila_reter` segura automáticos; `salvar_emails_revisar`), `modo_teste_email`/`salvar_modo_teste_email`
   (faixa `#gx-modo-teste`, `ERP_FAIXA_TESTE`), `texto_guias_rotina_html` no `rascunho_email_texto` + `previa_rascunho_texto` (`[data-ep-a=prev]`, `verEmailHtml`), `#ep-pend`,

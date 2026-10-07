@@ -210,18 +210,21 @@ async function cardResumoEscritorio() {
   const h = hojeISO(), lim5 = somarDias(h, 5);
   const conta = (qq) => qq.then((r) => (r.error ? 0 : r.count || 0)).catch(() => 0);
   const cnt = (t) => sb.from(t).select('id', { count: 'exact', head: true });
-  const jur = pode('juridico'), crm = pode('crm');
+  const jur = pode('juridico'), crm = pode('crm'), fin = pode('financeiro_juridico') || pode('financeiro_contab');
   const aberta = () => cnt('tarefas').not('status', 'in', '(concluida,cancelada)');
   const tres = (t, col, filtro) => jur ? Promise.all([
     conta(filtro(cnt(t)).lt(col, h)), conta(filtro(cnt(t)).eq(col, h)), conta(filtro(cnt(t)).gt(col, h).lte(col, lim5))]) : [0, 0, 0];
+  let lancs = [];
   const [pubs, parc, aco, ops, tAb, tAtr, tHoje, t5] = await Promise.all([
     // Backup 39: só as publicações do advogado que entrou (pelo primeiro nome: Pedro vê as do Pedro)
     jur ? conta(cnt('publicacoes').eq('status', 'nova').or('advogado.ilike.' + primeiroNomeUsuario().replace(/[,()*%]/g, '') + '*,advogados.ilike.*' + primeiroNomeUsuario().replace(/[,()*%]/g, '') + '*')) : 0,
     tres('parcelas', 'vencimento', (x) => x.eq('pago', false)),
     tres('acordos', 'vencimento', (x) => x.eq('pago', false)),
     crm ? q(sb.from('crm_oportunidades').select('valor_estimado, crm_etapas(final)')).catch(() => []) : [],
-    conta(aberta()), conta(aberta().lt('prazo', h)), conta(aberta().eq('prazo', h)), conta(aberta().gt('prazo', h).lte('prazo', lim5))
-  ]);
+    conta(aberta()), conta(aberta().lt('prazo', h)), conta(aberta().eq('prazo', h)), conta(aberta().gt('prazo', h).lte('prazo', lim5)),
+    // Backup 50: financeiro que vence (em atraso, hoje e nos próximos 5 dias)
+    fin ? buscarTodos(() => sb.from('lancamentos').select('id, tipo, valor, redutor, vencimento').eq('pago', false).eq('perda', false).lte('vencimento', lim5)).catch(() => []) : []
+  ]).then((r) => { lancs = r.pop(); return r; });
   const abertas = (ops || []).filter((o) => !(o.crm_etapas && o.crm_etapas.final));
   // linhas de prazo: [quantidade, texto, cor] — Backup 19: plural certo, sem "(s)"
   const pl = (n, um, varios) => (Number(n) === 1 ? um : varios);
@@ -231,12 +234,18 @@ async function cardResumoEscritorio() {
     jur ? ['parcelamentos', '🧾', 'Parcelamentos', parc[0], pl(parc[0], 'parcela em atraso', 'parcelas em atraso'), prazos(parc), parc[0] ? 'vermelho' : parc[1] ? 'ambar' : ''] : null,
     jur ? ['acordos', '🤝', 'Acordos', aco[0], pl(aco[0], 'parcela em atraso', 'parcelas em atraso'), prazos(aco), aco[0] ? 'vermelho' : aco[1] ? 'ambar' : ''] : null,
     crm ? ['crm', '🎯', 'CRM', abertas.length, pl(abertas.length, 'oportunidade em andamento', 'oportunidades em andamento'), [[null, brl(soma(abertas, (o) => o.valor_estimado)) + ' em negociação', '']], ''] : null,
+    fin ? (() => { const rec = lancs.filter((l) => l.tipo === 'receita'), pag = lancs.filter((l) => l.tipo === 'despesa');
+      const f = (l, a, b) => l.filter((x) => x.vencimento >= a && x.vencimento <= b), at = (l) => l.filter((x) => x.vencimento < h);
+      const sm = (l) => brlCurto(soma(l, vl));
+      return ['financeiro', '💰', 'A receber', sm(f(rec, h, lim5)), 'vence hoje e nos próximos 5 dias',
+        [[null, sm(f(rec, h, h)) + ' hoje', ''], [null, at(rec).length ? sm(at(rec)) + ' em atraso' : '', ''], [null, pag.length ? sm(pag) + ' a pagar até ' + dataBR(lim5).slice(0, 5) : '', '']].filter((l) => l[1]),
+        at(rec).length ? 'vermelho' : f(rec, h, h).length ? 'ambar' : '']; })() : null,
     ['tarefas', '📋', 'Tarefas do escritório', tAb, 'em aberto · equipe toda', [[tAtr, pl(tAtr, 'atrasada', 'atrasadas'), 'vermelho']].concat(prazos([0, tHoje, t5])), tAtr ? 'vermelho' : '']
   ].filter(Boolean);
   // Backup 38: ícones de traço fino num quadradinho (como nos prints), no lugar dos emojis coloridos
   const IC = { publicacoes: '<path d="M4 4h12a2 2 0 0 1 2 2v14H6a2 2 0 0 1-2-2z"/><path d="M18 8h2v10a2 2 0 0 1-2 2M8 8h6M8 12h6M8 16h4"/>',
     parcelamentos: '<path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6M9 13h6M9 17h4"/>', acordos: '<circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-5"/>',
-    crm: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>', tarefas: '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>' };
+    crm: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>', financeiro: '<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/>', tarefas: '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>' };
   const icone = (k) => '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (IC[k] || '') + '</svg>';
   const sub = (l) => '<span class="ini-res-sub' + (l[0] && l[2] ? ' ' + l[2] : '') + '">' + (l[0] == null ? '' : '<b>' + l[0] + '</b> ') + esc(l[1]) + '</span>';
   // Backup 49: o resumo virou uma linha fina de atalhos (o detalhe está em cada módulo)
@@ -244,10 +253,11 @@ async function cardResumoEscritorio() {
   el.innerHTML = '<div class="ini-atalhos" role="list" aria-label="Resumo do escritório">' + T.map((t) =>
     '<button type="button" role="listitem" class="ini-at ' + t[6] + '" data-ini-ir="' + t[0] + '" title="' + esc(t[2] + ': ' + t[3] + ' ' + t[4] + (resto(t) ? ' · ' + resto(t) : '')) + '">' +
     '<span class="ini-at-ic" aria-hidden="true">' + icone(t[0]) + '</span><span class="ini-at-tit">' + esc(t[2]) + '</span> <b class="ini-at-num">' + t[3] + '</b> <span class="ini-at-rot">' + esc(t[4]) + '</span>' +
-    (resto(t) ? '<span class="ini-at-sub"> · ' + esc(resto(t)) + '</span>' : '') + '</button>').join('') + '</div>';
+    (resto(t) ? '<span class="ini-at-sub"> · ' + resto(t).split(' · ').map((x) => '<span class="ini-at-p">' + esc(x) + '</span>').join(' · ') + '</span>' : '') + '</button>').join('') + '</div>';
   el.querySelectorAll('[data-ini-ir]').forEach((b) => b.onclick = () => {
     const k = b.dataset.iniIr;
     if (k === 'tarefas') E.tf = Object.assign(E.tf || {}, { aba: 'abertas', atalho: '' });
+    if (k === 'financeiro') { if (typeof window.nav === 'function') window.nav(null, pode('financeiro_juridico') ? 'financeiro' : 'financeiroContab'); return; }
     if (k === 'publicacoes') E.pub = Object.assign(E.pub || { tribunal: '', dias: '30', busca: '' }, { status: 'nova', adv: primeiroNomeUsuario() });
     irParaTela(k);
   });

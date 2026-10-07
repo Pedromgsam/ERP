@@ -7234,3 +7234,29 @@ end $$;
 revoke all on function public.cobrar_por_email(uuid, text, text) from public, anon;
 grant execute on function public.cobrar_por_email(uuid, text, text) to authenticated;
 -- ═══ fim do Backup 49 ═══
+
+-- ═══════════════════════════════ Backup 50 ═══════════════════════════════
+-- E-mail → Quem recebe: trocar o e-mail de destino ali mesmo. Muda o endereço de onde ele vem hoje
+-- (contato marcado "recebe cobrança", contato do setor, contato Geral ou o e-mail do cadastro).
+create or replace function public.definir_email_destino(p_cliente uuid, p_email text) returns text
+language plpgsql security definer set search_path = public as $$
+declare o text; st text; cid uuid; v text := lower(btrim(coalesce(p_email, '')));
+begin
+  if not public.pode('clientes', 'editar') then raise exception 'permission denied: só quem edita Clientes troca o e-mail.'; end if;
+  if v !~ '^[^@\s,;]+@[^@\s,;]+\.[^@\s,;]+$' then raise exception 'E-mail inválido: %', p_email; end if;
+  select origem into o from public.contato_do_cliente(p_cliente, null, 'cobranca') limit 1;
+  st := coalesce((select valor->>public.tipo_destino_email('cobranca') from public.configuracoes where chave = 'emails_destino'), 'financeiro');
+  if o = 'marcado' then
+    select id into cid from public.contatos where cliente_id = p_cliente and email <> '' and recebe @> array[public.tipo_destino_email('cobranca')] order by criado_em limit 1;
+  elsif o = 'setor' then
+    select id into cid from public.contatos where cliente_id = p_cliente and email <> '' and finalidade = st order by criado_em limit 1;
+  elsif o = 'geral' then
+    select id into cid from public.contatos where cliente_id = p_cliente and email <> '' and finalidade = 'geral' order by criado_em limit 1;
+  end if;
+  if cid is not null then update public.contatos set email = v where id = cid;
+  else update public.clientes set email = v where id = p_cliente; end if;
+  return (select email from public.contato_do_cliente(p_cliente, null, 'cobranca') limit 1);
+end $$;
+revoke all on function public.definir_email_destino(uuid, text) from public, anon;
+grant execute on function public.definir_email_destino(uuid, text) to authenticated;
+-- ═══ fim do Backup 50 ═══

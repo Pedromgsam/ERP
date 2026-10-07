@@ -711,10 +711,6 @@ tr.rt-alterado td{background:var(--amber-l)}
 /* ═══ Backup 28 — cadastro de cliente em abas ═══ */
 .cli-form .cli-abas{flex-wrap:wrap;margin-bottom:4px}
 .cli-aba[hidden]{display:none!important}
-/* Backup 49 (26): cadastro rápido do cliente — só os campos marcados .cli-r; "Mais dados" volta às abas */
-.cli-form.cli-rapido #cli-abas,.cli-form.cli-rapido .cli-aba > :not(.cli-r){display:none!important}
-.cli-form.cli-rapido .cli-aba{display:contents}
-.cli-rapido-hd{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .cli-lista-tit{display:flex;align-items:center;gap:10px;font-size:12px;font-weight:700;color:var(--text2);margin:4px 0 6px}
 .cli-lin{display:grid;grid-template-columns:minmax(220px,1fr) 190px 64px;gap:8px;align-items:center;margin-bottom:6px}
 .cli-lin .pill{justify-self:start}

@@ -5,6 +5,8 @@
 // recorrência e alertas (sino da barra superior).
 // ═══════════════════════════════════════════════════════════════════
 const PRIORIDADE = { alta: ['Alta', 'vencido'], media: ['Média', 'hoje'], baixa: ['Baixa', 'pago'] };
+// Backup 50: status com cor própria (pílula), igual à prioridade
+function pillStatusTarefa(st) { return '<span class="pill tf-st tf-st-' + esc(st || 'pendente') + '">' + esc(STATUS_TAREFA[st] || st || '—') + '</span>'; }
 const STATUS_TAREFA = { pendente: 'Pendente', andamento: 'Em andamento', aguardando: 'Aguardando', revisao: 'Aguardando revisão', concluida: 'Concluída', cancelada: 'Cancelada' };
 const COLUNAS_KANBAN = ['pendente', 'andamento', 'aguardando', 'revisao', 'concluida'];
 const tarefaFechada = (t) => t.status === 'concluida' || t.status === 'cancelada';
@@ -295,7 +297,9 @@ function quadroAtrasadas(atr) {
 function calendarioFila(lista) {
   const h = hojeISO(), ref = FILA.ref || h, d0 = new Date(ref + 'T12:00:00');
   const doDia = (d) => lista.filter((t) => t.prazo === d || t.prazo_fatal === d).sort((a, b) => String(a.hora || '99').localeCompare(String(b.hora || '99')));
-  const item = (t, d) => '<button type="button" class="cal-tf ' + classeAgenda(t, d) + '" data-fila="' + t.id + '" title="' + esc(horaAg(t) + t.titulo + (t.local ? ' · ' + t.local : '')) + '">' +
+  const item = (t, d) => '<button type="button" class="cal-tf ' + classeAgenda(t, d) + '" data-fila="' + t.id + '" title="' + esc(horaAg(t) + t.titulo + (t.local ? ' · ' + t.local : '') + ' · prioridade ' + ((PRIORIDADE[t.prioridade] || ['—'])[0]) + ' · ' + (STATUS_TAREFA[t.status] || '')) + '">' +
+    // Backup 50: bolinha da prioridade (vermelha alta, âmbar média, verde baixa) dentro do item do calendário
+    '<span class="cal-pri cal-pri-' + esc(t.prioridade || 'media') + '" aria-hidden="true"></span>' +
     (t.prazo_fatal === d ? '⚑ ' : '') + (t.hora ? '<b>' + horaAg(t) + '</b>' : '') + esc(t.titulo) + '</button>';
   let titulo, corpo;
   if (FILA.vista === 'dia') {
@@ -564,14 +568,16 @@ function vistaLista(alvo) {
       '<td style="padding-left:' + (12 + nivel * 22) + 'px">' + bolinha(t) + ' ' + (nivel ? '<span class="sub">↳ </span>' : '') + esc(t.titulo) + seloFatal(t) +
       (t.recorrencia ? ' <span class="pill neutro" title="Repete">↻ ' + esc(t.recorrencia) + '</span>' : '') + ' ' + barraProgresso(progresso(t, filhas)) +
       (sub ? '<div class="sub">' + esc(sub) + '</div>' : '') + '</td>' +
-      '<td>' + pillPessoa(t.responsavel) + '</td><td><span class="pill ' + pr[1] + '">' + esc(pr[0]) + '</span></td><td>' + esc(STATUS_TAREFA[t.status] || t.status) + '</td>' +
-      '<td class="mono" data-ord="' + esc(t.prazo || '9999') + '">' + dataBR(t.prazo) + seloPrazo(t) + '</td>' +
+      '<td>' + pillPessoa(t.responsavel) + '</td><td><span class="pill ' + pr[1] + '">' + esc(pr[0]) + '</span></td><td>' + pillStatusTarefa(t.status) + '</td>' +
+      // Backup 50: Prazo e Dias em colunas separadas (como no Financeiro)
+      '<td class="mono" data-ord="' + esc(t.prazo || '9999') + '">' + (t.prazo ? dataBR(t.prazo) : '<span class="sub">—</span>') + '</td>' +
+      '<td data-ord="' + (t.prazo && !tarefaFechada(t) ? diasAte(t.prazo) : 99999) + '">' + (t.prazo && !tarefaFechada(t) ? celulaAtraso(t.prazo) : '<span class="sub">—</span>') + '</td>' +
       '<td class="acoes-l">' + (t.status === 'cancelada'
         ? '<button class="btn btn-o btn-mini" data-restaurar-t="' + t.id + '">↩ Restaurar</button>' + ((E.perfil || {}).papel === 'admin' ? ' <button class="btn btn-x btn-mini" data-apagar-t="' + t.id + '">Excluir de vez</button>' : '')
         : (tarefaFechada(t) ? '' : '<button class="btn btn-v btn-mini" data-concluir="' + t.id + '">✓ Concluir</button>')) + '</td></tr>' +   // Backup 39: sem ✎ (editar fica no detalhe)
       filhas.filter((f) => ids.has(f.id)).map((f) => linha(f, nivel + 1)).join('');
   };
-  alvo.innerHTML = '<div class="card">' + (raizes.length ? '<div class="tabela-wrap"><table><thead><tr><th>Grupo</th><th>Tarefa</th><th>Pessoa</th><th>Prioridade</th><th>Status</th><th data-tipo="data">Prazo</th><th class="sem-ordem"></th></tr></thead><tbody>' +
+  alvo.innerHTML = '<div class="card">' + (raizes.length ? '<div class="tabela-wrap"><table><thead><tr><th>Grupo</th><th>Tarefa</th><th>Pessoa</th><th>Prioridade</th><th>Status</th><th data-tipo="data">Prazo</th><th data-tipo="num">Dias</th><th class="sem-ordem"></th></tr></thead><tbody>' +
     raizes.map((t) => linha(t, 0)).join('') + '</tbody></table></div>' : vazio('Nenhuma tarefa com esses filtros.', '+ Nova tarefa', '#tf-nova')) + '</div>';
   ligarLinhasTarefa(alvo);
 }
@@ -710,8 +716,7 @@ async function abrirTarefa(t, depois) {
   const fechada = tarefaFechada(t);
   const j = abrirJanela({ titulo: 'Tarefa', larga: true,
     corpo: '<div class="tf-ficha">' +
-      '<div class="tf-ficha-hd"><h3>' + bolinha(t) + ' ' + esc(t.titulo) + '</h3><div class="tf-selos"><span class="pill ' + (fechada ? 'pago' : t.status === 'revisao' ? 'hoje' : 'neutro') + '">' +
-        esc(STATUS_TAREFA[t.status] || t.status) + '</span> <span class="pill ' + pr[1] + '">' + esc(pr[0]) + '</span>' + seloPrazo(t) + seloFatal(t) + '</div></div>' +
+      '<div class="tf-ficha-hd"><h3>' + bolinha(t) + ' ' + esc(t.titulo) + '</h3><div class="tf-selos">' + pillStatusTarefa(t.status) + ' <span class="pill ' + pr[1] + '">' + esc(pr[0]) + '</span>' + seloPrazo(t) + seloFatal(t) + '</div></div>' +
       '<div class="tf-grade">' +
         linha(t.tipo_agenda ? 'Dia' : 'Prazo', t.prazo ? dataBR(t.prazo) + (t.hora ? ' · <b>' + esc(horaFaixa(t)) + '</b>' : '') : '<span class="sub">sem prazo</span>') +
         linha('Tipo', t.tipo_agenda ? esc((TIPOS_AGENDA.find(([k]) => k === t.tipo_agenda) || [, t.tipo_agenda])[1]) : '') +

@@ -12,7 +12,7 @@ const REGRAS = [
   ['selo da pessoa', ':is(.pill.pill-pessoa,.fa-pessoa)', ['fontSize', 'fontWeight', 'borderRadius']],
   ['vencimento', 'td.col-venc', ['fontSize', 'fontWeight']],
   ['valor', 'td.col-valor:not(#tblExecRanking td)',   // Backup 46: o Painel (Empresas do grupo) fica centralizado, a pedido
-  ['fontSize', 'fontWeight', 'color', 'textAlign']],
+  ['fontSize', 'fontWeight', 'textAlign']],   // Backup 50: a cor do valor depende do tipo (receber verde, pagar vermelho)
   ['dias / atraso', 'td.col-dias', ['fontSize']],
   ['nome de cliente/empresa', 'td.col-nome', ['fontSize', 'fontWeight', 'textTransform']],
   ['cabeçalho de tabela', TAB + ' > thead > tr > th', ['fontSize', 'fontWeight', 'backgroundColor', 'color', 'textTransform']],
@@ -60,7 +60,7 @@ const TELAS = [['hoje'], ['resumo'], ['processos'], ['parcelamentos'], ['parcela
     const tem = (n, re) => Object.keys(vistos[n]).every((e) => re.test(e));
     ok('tabela com 13 px', tem('célula de tabela', /fontSize=13px/));
     ok('vencimento em negrito', tem('vencimento', /fontWeight=700/));
-    ok('valor em negrito, preto e à direita', tem('valor', /fontWeight=700/) && tem('valor', /textAlign=right/));
+    ok('valor em negrito e à direita', tem('valor', /fontWeight=700/) && tem('valor', /textAlign=right/));
     ok('nomes de cliente/empresa em CAIXA ALTA sem negrito', tem('nome de cliente/empresa', /fontWeight=400 textTransform=uppercase/));
     ok('selo da pessoa como no ERP original (11 px, negrito, do tamanho do nome)', tem('selo da pessoa', /fontSize=11px fontWeight=700/));
     ok('linha de baixo com 12 px', tem('linha de baixo (sócio, descrição…)', /fontSize=12px/));

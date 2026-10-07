@@ -707,6 +707,30 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
 **Central de Documentos dentro do ERP:** menu **Documentos → Gerar documento** (ou ⋯ → Documentos, contrato, recibo do Financeiro).
 **Ctrl + clique** (ou botão do meio do mouse) em qualquer item do menu ou link de documento abre numa aba nova.
 
+## Backup 50 — ajustes pedidos + sugestões novas (tem SQL e a função erp-agenda mudou)
+Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Publicar de novo a função `erp-agenda` (Verify JWT desligado)  4) Ctrl+Shift+R**.
+Para voltar à versão anterior: o zip do **Backup 49** (pasta `backups/`).
+
+- **Início**:
+  - Novo atalho **A receber**: o que vence hoje e nos próximos 5 dias, mais o que está em atraso e o que há a pagar.
+  - Os filtros da agenda têm uma cor só: azul quando ligado.
+- **Tarefas**:
+  - O **Google Agenda** mostra tudo o que está em aberto para a pessoa: tarefas, reuniões, audiências, compromissos (com hora quando tem) e prazos fatais. Também entra o que a pessoa só participa.
+  - Status em pílula colorida.
+  - Prazo e Dias em colunas separadas, como no Financeiro.
+  - No calendário, uma bolinha com a cor da prioridade.
+- **Clientes**: o cadastro abre sempre completo (o cadastro rápido saiu).
+- **Financeiro**:
+  - Cobrar · Baixa · ✎ numa linha só.
+  - Valores a receber e recebidos em verde, a pagar e pagos em vermelho.
+  - Abas com bolinha de cor (verde para receber, vermelho para pagar).
+- **E-mail → Quem recebe**:
+  - **✎** troca o e-mail de destino ali mesmo.
+  - Clicar no nome do cliente abre o cadastro na aba Contatos.
+- **Sugestões novas**:
+  - `sistema/SUGESTOES-B50.md`: ênfase na Rotina e na configuração de e-mail.
+  - Prompt pronto: `sistema/PROMPT-BACKUP-51.md`.
+
 ## Backup 49 — simplificação geral: as 36 sugestões aprovadas (tem SQL; nenhuma função nova)
 Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+Shift+R**. Nenhuma função do Supabase precisa ser publicada de novo.
 Para voltar à versão anterior: o zip do **Backup 48** (pasta `backups/`).
