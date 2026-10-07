@@ -551,6 +551,7 @@ label.ofx-it{cursor:pointer}
 .fila-cal-nav{display:flex;align-items:center;gap:8px;margin-bottom:10px}
 .fila-cal-nav b{min-width:220px;text-align:center;color:var(--ink);text-transform:capitalize}
 @media (max-width:600px){.fila-cal-nav{flex-wrap:wrap}.fila-cal-nav b{min-width:0;flex:1}}
+.tf-sem .fila-cal-nav b{text-transform:none}
 .fila-semana{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
 .fila-sem-dia{border:1px solid var(--border);border-radius:10px;padding:6px;min-height:96px;display:flex;flex-direction:column;gap:4px;background:var(--surface)}
 .fila-sem-dia .cal-num{font-size:12px;font-weight:700;color:var(--text2);text-transform:capitalize}

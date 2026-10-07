@@ -6550,7 +6550,7 @@ TELAS.publicacoes = async function () {
   E.pub = E.pub || { status: 'nova', adv: '', tribunal: '', dias: '30', busca: '' };
   const F = E.pub; F.status = 'nova';   // Backup 49 (31): sempre abre em Novas
   $('conteudo').innerHTML =
-    '<div class="titulo-pag"><div><h1>Publicações</h1><p id="pub-ult">Diário de Justiça Eletrônico Nacional · busca automática às 7h e 13h (dias úteis)</p></div>' +
+    '<div class="titulo-pag"><div><h1>Publicações</h1><p id="pub-ult">Diário de Justiça Eletrônico Nacional · busca automática pelo navegador, 1× por dia ao abrir o ERP</p></div>' +
     '<div class="acoes"><button class="btn btn-o" id="pub-todas-lidas" title="Marca como lidas todas as publicações novas">✓ Marcar todas como lidas</button><button class="btn btn-o" id="pub-oabs">⚙ Monitoramento (OABs e clientes)</button><button class="btn btn-p" id="pub-buscar" title="Busca no Diário do CNJ pelo seu navegador (se ele falhar, tenta pelo servidor)">↻ Buscar agora</button></div></div>' +
     '<div class="filtros"><div class="segmento" id="pub-st">' + [['nova', 'Novas'], ['lida', 'Lidas'], ['tratada', 'Tratadas'], ['descartada', 'Descartadas'], ['', 'Todas']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<select class="busca sel" id="pub-dias"><option value="7">Últimos 7 dias</option><option value="15">Últimos 15 dias</option><option value="30">Últimos 30 dias</option><option value="90">Últimos 90 dias</option><option value="">Todo o período</option></select>' +
@@ -6587,7 +6587,7 @@ TELAS.publicacoes = async function () {
   let t; $('pub-busca').oninput = (ev) => { clearTimeout(t); t = setTimeout(() => { F.busca = ev.target.value; pintarPublicacoes(); }, 250); };
   q(sb.from('configuracoes').select('valor').eq('chave', 'publicacoes_ultima').maybeSingle()).then((u) => {
     if (u && u.valor && $('pub-ult')) $('pub-ult').textContent = 'Última busca: ' + quandoRodou(u.valor.quando) + ' · ' + u.valor.novas + ' nova(s) de ' + u.valor.lidas + ' lida(s)' +
-      (u.valor.erros && u.valor.erros.length ? ' · ⚠ ' + u.valor.erros[0] : '') + ' · automática às 7h e 13h (dias úteis)';
+      (u.valor.erros && u.valor.erros.length ? ' · ⚠ ' + u.valor.erros[0] : '') + ' · automática 1× por dia ao abrir o ERP';
   }).catch(() => {});
   await carregarPublicacoes();
 };

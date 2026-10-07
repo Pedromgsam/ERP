@@ -538,6 +538,7 @@
 @media (max-width:600px){.gs .fila-cal-nav{flex-wrap:wrap}
 .gs .fila-cal-nav b{min-width:0;flex:1}
 }
+.gs .tf-sem .fila-cal-nav b{text-transform:none}
 .gs .fila-semana{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
 .gs .fila-sem-dia{border:1px solid var(--border);border-radius:10px;padding:6px;min-height:96px;display:flex;flex-direction:column;gap:4px;background:var(--surface)}
 .gs .fila-sem-dia .cal-num{font-size:12px;font-weight:700;color:var(--text2);text-transform:capitalize}

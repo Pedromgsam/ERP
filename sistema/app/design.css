@@ -1636,3 +1636,5 @@ body.gx-barra-topo :is([data-sit=hoje],.pill.hoje){background:var(--amber-lt)!im
 body.gx-barra-topo :is([data-sit=avencer],.pill.aberto,.lg-st-g,.pl-dt-ab){background:var(--blue-lt)!important;color:var(--blue-d)!important;border:1px solid var(--blue-bd)!important}
 body.gx-barra-topo :is([data-sit=pago],.pill.pago,.lg-em-ok,.pl-dt-ok,.lg-st-x){background:var(--green-lt)!important;color:var(--green-d)!important;border:1px solid var(--green-bd)!important}
 body.gx-barra-topo :is([data-sit=cliente],.ep-tc,.pl-dt-cli){background:var(--surface3)!important;color:var(--text2)!important;border:1px solid var(--border)!important}
+/* Backup 52 (P2): no celular, o título do quadro e o "↻ Atualizar" ficam na 1ª linha e a explicação desce */
+@media (max-width:600px){.gs .card-hd:has(> .bt-atualizar){flex-wrap:wrap}.gs .card-hd:has(> .bt-atualizar) > .sub{flex-basis:100%;order:3}}
