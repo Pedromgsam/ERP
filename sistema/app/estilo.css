@@ -286,7 +286,7 @@ tr.tf-feita td{opacity:.6}
 .cal-dia{background:var(--surface);min-height:92px;padding:4px;display:flex;flex-direction:column;gap:2px;min-width:0}
 .cal-dia.cal-folga{background:var(--surface2)}
 .cal-dia.cal-hoje{box-shadow:inset 0 0 0 2px var(--navy3)}
-.cal-num{font-size:11.5px;font-weight:700;color:var(--text2)}
+.cal-num{font-size:12px;font-weight:700;color:var(--text2)}
 .cal-tf{border:0;border-radius:6px;padding:2px 5px;font-size:11px;text-align:left;background:var(--blue-lt);color:var(--blue-d);cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cal-tf.fatal{background:var(--red);color:var(--on-cor)}
 .cal-tf.atrasada{background:var(--red-lt);color:var(--red-d)}
@@ -553,7 +553,7 @@ label.ofx-it{cursor:pointer}
 @media (max-width:600px){.fila-cal-nav{flex-wrap:wrap}.fila-cal-nav b{min-width:0;flex:1}}
 .fila-semana{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
 .fila-sem-dia{border:1px solid var(--border);border-radius:10px;padding:6px;min-height:96px;display:flex;flex-direction:column;gap:4px;background:var(--surface)}
-.fila-sem-dia .cal-num{font-size:11.5px;font-weight:700;color:var(--text2);text-transform:capitalize}
+.fila-sem-dia .cal-num{font-size:12px;font-weight:700;color:var(--text2);text-transform:capitalize}
 @media (max-width:760px){.fila-semana{grid-template-columns:1fr}.ini-fila .card-hd{flex-wrap:wrap}}
 /* mural do Início */
 .mural-lista{display:flex;flex-direction:column;gap:8px}
@@ -996,7 +996,7 @@ button.rt-e:hover,button.rt-p:hover{border-color:var(--primario)}
 .ag-pessoas{display:flex;flex-wrap:wrap;gap:6px}
 .ag-p{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border:1px solid var(--border);border-radius:999px;cursor:pointer;font-size:13px}
 .ag-p:has(input:checked){border-color:var(--primario);background:var(--blue-lt)}
-.ag-leg{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;font-size:11.5px;color:var(--text3)}
+.ag-leg{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;font-size:12px;color:var(--text3)}
 .ag-leg span{display:inline-flex;align-items:center;gap:5px}
 .ag-cor{display:inline-block;width:10px;height:10px;border-radius:3px;vertical-align:middle}
 .ag-bt{margin-left:auto}
