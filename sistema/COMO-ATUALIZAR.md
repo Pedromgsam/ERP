@@ -707,6 +707,15 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
 **Central de Documentos dentro do ERP:** menu **Documentos → Gerar documento** (ou ⋯ → Documentos, contrato, recibo do Financeiro).
 **Ctrl + clique** (ou botão do meio do mouse) em qualquer item do menu ou link de documento abre numa aba nova.
 
+## Backup 48 — Tarefas com os filtros do Início e Painel alinhado (sem SQL)
+Ordem: **1) Merge  2) Ctrl+Shift+R**. Não tem SQL novo nem função nova.
+Para voltar à versão anterior: o zip do **Backup 47** (pasta `backups/`).
+
+- **Tarefas**: as linhas **Mostrar** (Tudo · Reuniões · Audiências · Compromissos · Tarefas · Rotinas, com as mesmas cores) e **De quem** (Todos, você, os outros)
+  iguais às da agenda do Início. Saiu a fileira "Todas as pessoas / Pedro / …".
+- **Painel Executivo** → Empresas do grupo: Grupo e CPF/CNPJ alinhados à esquerda; os títulos continuam centralizados.
+- **Sugestões**: `sistema/SUGESTOES-B48.md` (36 itens numerados para aprovar) e o prompt pronto `sistema/PROMPT-BACKUP-49.md`.
+
 ## Backup 47 — correção da importação (sem SQL)
 Ordem: **1) Merge  2) Ctrl+Shift+R**. Não tem SQL novo nem função nova.
 Para voltar à versão anterior: o zip do **Backup 46** (pasta `backups/`).

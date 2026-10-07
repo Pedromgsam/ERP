@@ -1403,8 +1403,8 @@ body .gs .fila-chips .fila-chip.fila-chip-audiencia.ativo{background:var(--viole
 body .gs .fila-chips .fila-chip.fila-chip-compromisso.ativo{background:var(--green)!important;border-color:var(--green)!important;color:var(--on-cor)!important}
 body .gs .fila-chips .fila-chip.fila-chip-tarefa.ativo{background:var(--text2)!important;border-color:var(--text2)!important;color:var(--on-cor)!important}
 body .gs .fila-chips .fila-chip.fila-chip-rotina.ativo{background:var(--orange)!important;border-color:var(--orange)!important;color:var(--on-cor)!important}
-body .gs .fila-chips .fila-chip[data-fila-tipo="*"].ativo{background:var(--ink)!important;border-color:var(--ink)!important;color:var(--surface)!important}
-html[data-tema=escuro] body .gs .fila-chips .fila-chip[data-fila-tipo].ativo{color:var(--bg)!important}
+body .gs .fila-chips .fila-chip[data-fila-tipo-v="*"].ativo{background:var(--ink)!important;border-color:var(--ink)!important;color:var(--surface)!important}
+html[data-tema=escuro] body .gs .fila-chips .fila-chip[data-tipo-filtro=tipo].ativo{color:var(--bg)!important}
 .gs .fila-chip.fila-chip-reuniao:not(.ativo){border-color:var(--blue-bd);color:var(--blue-d)}
 .gs .fila-chip.fila-chip-audiencia:not(.ativo){border-color:var(--violet-bd);color:var(--violet)}
 .gs .fila-chip.fila-chip-compromisso:not(.ativo){border-color:var(--green-bd);color:var(--green-d)}
@@ -1413,6 +1413,8 @@ html[data-tema=escuro] body .gs .fila-chips .fila-chip[data-fila-tipo].ativo{col
 body.gx-barra-topo table:has(> #tblExecRanking) th,body.gx-barra-topo #tblExecRanking td{text-align:center!important}
 body.gx-barra-topo table:has(> #tblExecRanking) th:nth-child(3),body.gx-barra-topo #tblExecRanking td:nth-child(3){text-align:left!important}
 body.gx-barra-topo #tblExecRanking .er-grupo{text-align:center!important}
+/* Backup 48: Grupo e CPF/CNPJ alinhados à esquerda (os títulos continuam centralizados) */
+body.gx-barra-topo #tblExecRanking td:nth-child(2),body.gx-barra-topo #tblExecRanking td:nth-child(4){text-align:left!important}
 /* Rotina → Passivo: empresa maior; CAPAG e Conferência menores */
 .gs .rt-pas col.rt-w-emp{width:22%}.gs .rt-pas col.rt-w-org{width:12%}.gs .rt-pas col.rt-w-ceat{width:5%}
 .gs .rt-pas col.rt-w-sn{width:7.5%}.gs .rt-pas col.rt-w-capag{width:6.5%}.gs .rt-pas col.rt-w-conf{width:15.5%}

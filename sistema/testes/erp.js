@@ -992,6 +992,24 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       ok('Início (B46): a Lista fica com a mesma altura do calendário (' + alt + ' × ' + alt2 + ')', Math.abs(alt - alt2) <= 4); }
     sql("delete from tarefas where titulo='Tarefa concluída B46'");
     await p.click('#panel-hoje [data-fila-vista=mes]'); await p.waitForTimeout(1200);
+    // Backup 48: Tarefas com os mesmos filtros (Mostrar / De quem) e o mesmo desenho da agenda do Início
+    sql("insert into tarefas(titulo,responsavel,status,prazo,tipo_agenda) values ('Audiência filtro B48','Pedro Castro','pendente',current_date + 3,'audiencia')");
+    await nav(p, 'tarefas'); await p.waitForSelector('#tf-chips [data-tf-tipo]'); await p.waitForTimeout(800);
+    { const ordem = await p.$$eval('#tf-chips [data-tf-tipo]', (bs) => bs.map((b) => b.dataset.tfTipo).join(','));
+      const pes = await p.$$eval('#tf-chips [data-tf-pes]', (bs) => bs.map((b) => b.textContent.replace('✓ ', '').trim()));
+      const corT = await p.$eval('#tf-chips [data-tf-tipo=audiencia]', (b) => getComputedStyle(b).backgroundColor);
+      await nav(p, 'hoje'); await p.waitForTimeout(1200);
+      const corI = await p.$eval('#panel-hoje [data-fila-tipo=audiencia]', (b) => getComputedStyle(b).backgroundColor);
+      ok('Tarefas (B48): Mostrar e De quem iguais ao Início (ordem, cores, Todos + eu primeiro)', ordem === '*,reuniao,audiencia,compromisso,tarefa,rotina' && corT === corI && pes[0] === 'Todos' && /^Pedro/.test(pes[1]));
+      await p.evaluate(() => { window.GS.E.tf = null; });   // filtros limpos (os testes anteriores deixam atalhos marcados)
+      await nav(p, 'tarefas'); await p.waitForSelector('#tf-chips [data-tf-tipo]'); await p.waitForTimeout(800);
+      const antes = /Audiência filtro B48/.test(await p.textContent('#tf-corpo'));
+      await p.click('#tf-chips [data-tf-tipo=audiencia]'); await p.waitForTimeout(500);
+      const depois = /Audiência filtro B48/.test(await p.textContent('#tf-corpo'));
+      await p.click('#tf-chips [data-tf-tipo=audiencia]'); await p.waitForTimeout(500);
+      ok('Tarefas (B48): desmarcar "Audiências" tira a audiência da lista; marcar de novo volta', antes && !depois && /Audiência filtro B48/.test(await p.textContent('#tf-corpo'))); }
+    sql("delete from tarefas where titulo='Audiência filtro B48'");
+    await nav(p, 'hoje'); await p.waitForTimeout(1200);
     // Backup 45: tarefa para outra pessoa + dois avisos
     await p.click('#panel-hoje [data-agendar]'); await p.waitForSelector('#gs-raiz #f-ag');
     await p.click('#gs-raiz #ag-tipo [data-v=tarefa]'); await p.fill('#gs-raiz #f-ag [name=titulo]', 'Tarefa para a equipe B45');
@@ -1030,6 +1048,9 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     { const grupos = await p.$$eval('#tblExecRanking tr.gx-linha-exp:not([hidden])', (l) => l.map((t) => (t.querySelector('.er-grupo') || {}).textContent || ''));
       // Backup 40: sem as faixas "GRUPO X · N cadastros" (e sem o contorno); as linhas continuam em ordem de grupo
       ok('Painel → Empresas do grupo: sem faixas de grupo, linhas em ordem de grupo', !(await p.$('#tblExecRanking tr.gx-grp')) && grupos.every((g, i) => grupos.indexOf(g) === i || grupos[i - 1] === g), grupos.join(' | ')); }
+    { const al = await p.evaluate(() => { const td = document.querySelector('#tblExecRanking tr.gx-linha-exp'), th = document.querySelectorAll('#execRankHead th');
+        return [2, 4].map((i) => getComputedStyle(td.children[i - 1]).textAlign + '/' + getComputedStyle(th[i - 1]).textAlign).join(' '); });
+      ok('Painel (B48): Grupo e CPF/CNPJ alinhados à esquerda, títulos centralizados', al === 'left/center left/center', al); }
     ok('Painel: sem a seta de expandir e sem o filtro de grupo (fica só no filtro de cima)', !(await p.isVisible('#tblExecRanking td.gx-seta')) && !(await p.$('#pe-grupo')));
     await p.click('#tblExecRanking tr.gx-linha-exp:has-text("Alfa Comércio") .er-grupo'); await p.waitForTimeout(400);
     await p.waitForFunction(() => [...document.querySelectorAll('#janelas .janela h2')].some((h) => /Alfa Comércio/i.test(h.textContent)), null, { timeout: 8000 }).catch(() => {});
