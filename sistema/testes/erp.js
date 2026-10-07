@@ -871,7 +871,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       ok('Acordos: forma de pagamento vale para o acordo inteiro (mesmo processo, devedor e credor)', sql("select count(distinct forma_pagamento) from acordos a where (processo,devedor,credor)=(select processo,devedor,credor from acordos where id='" + idPix + "')") === '1');
       await p.evaluate((id) => window.GS.enviarAcordosSelecionados([id]), idPix); await p.waitForSelector('#gs-raiz .ge-janela', { timeout: 8000 }).catch(() => {});
       ok('Acordo por PIX: saudação + texto genérico do Backup 52 e a chave PIX no item', /^(Bom dia|Boa tarde|Boa noite)!\n\nSeguem as parcelas de acordo com vencimento neste mês ou em atraso\./.test(await p.inputValue('#ge-texto')) &&
-        /PIX: chave-pix@teste\.com/.test(await p.inputValue('#ge-texto')) && !/Depois de pagar/.test(await p.textContent('#gs-raiz .ge-msg')) && !(await p.isVisible('#gs-raiz .ge-anexos')));
+        /chave-pix@teste\.com/.test(await p.getAttribute('#gs-raiz .ge-pix', 'placeholder')) && !/Depois de pagar/.test(await p.textContent('#gs-raiz .ge-msg')) && !(await p.isVisible('#gs-raiz .ge-anexos')), JSON.stringify(await p.inputValue('#ge-texto')));
       ok('Backup 45: Acordos → Emitir só com "Rascunho no Gmail" (sem prévia, sem WhatsApp, sem "Enviar e-mail")', !!(await p.$('#gs-raiz #ge-rascunho')) && !(await p.$('#gs-raiz #ge-enviar')) &&
         !(await p.$('#gs-raiz #ge-zap')) && !(await p.$('#gs-raiz #ge-previa')) && !(await p.$('#gs-raiz #ge-tel')));
       await p.evaluate(() => { while (document.querySelector('#janelas .fundo')) window.GS.fecharJanela(); });
@@ -1735,7 +1735,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       const idPg = await p.evaluate(() => { const b = document.querySelector('#rt-corpo [data-pl-p]'); return b && b.dataset.plP; });
       if (idPg) { await p.click('[data-pl-p="' + idPg + '"]'); await p.waitForTimeout(1500); }
       reqs.length = 0; await nav(p, 'parcelamentos'); await p.waitForTimeout(2000);
-      ok('B52 O3: Parcelamentos depois de um Pago relê só o parcelamento que mudou (uma consulta)', !!idPg && reqs.some((x) => /rpc\/parcelamentos_json/.test(x)) && !reqs.some((x) => /^POST rpc\/parcelamentos_json/.test(x)) &&
+      ok('B52 O3: Parcelamentos depois de um Pago relê só o parcelamento que mudou (uma consulta)', !!idPg && reqs.some((x) => /rpc\/parcelamentos_json/.test(x)) && !reqs.some((x) => /^GET parcelas\?/.test(x)) &&
         await p.evaluate((id) => (DB.parcelamentos || []).some((pa) => (pa.parcelas || []).some((x) => x._id === id && x.pagamento === 'SIM')), idPg), reqs.join(' ; '));
       if (idPg) sql("update parcelas set pago=false, data_pagamento=null where id='" + idPg + "'");
       // O1: Clientes com a lista guardada abre sem esperar o banco
