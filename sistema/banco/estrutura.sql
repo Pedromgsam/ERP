@@ -4306,6 +4306,8 @@ alter table public.contratos drop constraint if exists contratos_status_check;
 alter table public.contratos add constraint contratos_status_check check (status in ('Aguardando assinatura','Ativo','Encerrado','Cancelado'));
 alter table public.contratos add column if not exists assinado_em date;
 alter table public.contratos add column if not exists onboarding_pendente boolean not null default false;
+-- Backup 53: implantação — contrato antigo cujo financeiro JÁ está lançado: não gera parcelas nem mensalidades
+alter table public.contratos add column if not exists sem_financeiro boolean not null default false;
 
 -- lança as parcelas de um contrato pontual (uma vez só: se já tem parcela, não repete)
 create or replace function public.lancar_parcelas_contrato(p_contrato uuid) returns int
@@ -4314,7 +4316,7 @@ declare c public.contratos; i int; base numeric(14,2); v numeric(14,2); g uuid;
 begin
   select * into c from public.contratos where id = p_contrato;
   if not found or c.valor_total <= 0 or c.primeiro_vencimento is null then return 0; end if;
-  if coalesce(c.modalidade, 'pontual') = 'consultoria' then return 0; end if;
+  if coalesce(c.modalidade, 'pontual') = 'consultoria' or c.sem_financeiro then return 0; end if;   -- Backup 53: implantação não lança
   if exists (select 1 from public.lancamentos where contrato_id = c.id and chave_recorrencia is null and parcela is not null) then return 0; end if;
   select grupo_id into g from public.clientes where id = c.cliente_id;
   base := trunc(c.valor_total / c.num_parcelas, 2);
@@ -5631,7 +5633,8 @@ create or replace function public.gerar_mensalidades(p_contrato uuid default nul
 language plpgsql security definer set search_path = public as $$
 declare c public.contratos; comp date; fim date; venc date; g uuid; resp text; n int := 0; k int; sm_falta boolean;
 begin
-  for c in select * from public.contratos where modalidade = 'consultoria' and status <> 'Aguardando assinatura' and (p_contrato is null or id = p_contrato) loop
+  -- Backup 53: contrato de implantação (sem_financeiro) não gera mensalidades — o financeiro dele já existe
+  for c in select * from public.contratos where modalidade = 'consultoria' and status <> 'Aguardando assinatura' and not sem_financeiro and (p_contrato is null or id = p_contrato) loop
     select grupo_id, responsavel into g, resp from public.clientes where id = c.cliente_id;
     if c.rescindido_em is not null then
       delete from public.lancamentos where contrato_id = c.id and chave_recorrencia is not null and not pago
@@ -7609,3 +7612,189 @@ end $$;
 revoke all on function public.parcelamentos_json(uuid[]) from public, anon;
 grant execute on function public.parcelamentos_json(uuid[]) to authenticated;
 -- ═══ fim do Backup 52 ═══
+
+-- ═══════════════════════════════════════════════════════════════════
+-- Backup 53 — Rotina (Planilha com 6 parcelas antes e 3 depois), Execuções, e-mails automáticos por tipo e por cliente
+-- ═══════════════════════════════════════════════════════════════════
+create or replace function public.rotina_parcelas_dados() returns jsonb
+language sql stable security definer set search_path = public as $$
+  -- janela: dos últimos 3 meses até 3 meses à frente, mais as em atraso (de qualquer data) e a última de cada parcelamento.
+  -- Cada parcela vai como lista curta [id, número, vencimento, pago, data_pagamento, emitida_em, emissao, valor] dentro do parcelamento.
+  with lim as (select (date_trunc('month', current_date) - interval '3 months')::date de,
+                      (date_trunc('month', current_date) + interval '4 months - 1 day')::date ate),
+  ult as (select distinct on (parcelamento_id) id from public.parcelas order by parcelamento_id, vencimento desc nulls last, id),
+  -- Backup 53: sempre ao menos as 6 parcelas de ANTES do mês atual e as 3 de DEPOIS do mês atual (de cada parcelamento)
+  perto as (select id from (select id, row_number() over (partition by parcelamento_id order by vencimento desc) rn from public.parcelas
+                             where vencimento < date_trunc('month', current_date)::date) a where rn <= 6
+            union all
+            select id from (select id, row_number() over (partition by parcelamento_id order by vencimento) rn from public.parcelas
+                             where vencimento > (date_trunc('month', current_date) + interval '1 month - 1 day')::date) d where rn <= 3),
+  marcadas as (
+    select x.*, (x.vencimento is null or (x.vencimento between lim.de and lim.ate) or (not x.pago and x.vencimento < lim.ate) or x.id in (select id from ult) or x.id in (select id from perto)) vis,
+           x.vencimento < lim.de antiga
+      from public.parcelas x, lim
+  ),
+  fora as (
+    select parcelamento_id,
+           count(*) filter (where antiga) n, count(*) filter (where antiga and pago) pagas,
+           coalesce(sum(valor) filter (where antiga and pago), 0) total_pago,
+           (array_agg(valor order by vencimento desc) filter (where antiga and valor > 0))[1] ultimo_valor,
+           count(*) filter (where not antiga) depois
+      from marcadas where not vis group by parcelamento_id
+  ),
+  lista as (
+    select parcelamento_id, jsonb_agg(jsonb_build_array(id, numero, vencimento, pago, data_pagamento, emitida_em, emissao, valor) order by vencimento nulls last, id) ps
+      from marcadas where vis group by parcelamento_id
+  )
+  select jsonb_build_object(
+    'hoje', current_date,
+    'parcelamentos', coalesce((select jsonb_agg(jsonb_build_object('id', p.id, 'empresa', p.empresa, 'cnpj', p.cnpj, 'local', p.local, 'natureza', p.natureza,
+        'numero', p.numero, 'total_parcelas', p.total_parcelas, 'valor_ultima_parcela', p.valor_ultima_parcela, 'grupo_id', p.grupo_id,
+        'emitimos_guia', p.emitimos_guia, 'obs', p.obs, 'grupo_nome', g.nome,
+        'ps', coalesce(l.ps, '[]'::jsonb),
+        'fora', case when f.parcelamento_id is not null then jsonb_build_object('n', f.n, 'pagas', f.pagas, 'total_pago', f.total_pago, 'ultimo_valor', f.ultimo_valor, 'depois', f.depois) end)
+        order by p.id)
+      from public.parcelamentos p left join public.grupos g on g.id = p.grupo_id left join lista l on l.parcelamento_id = p.id left join fora f on f.parcelamento_id = p.id), '[]'::jsonb));
+$$;
+revoke all on function public.rotina_parcelas_dados() from public, anon, authenticated;
+
+-- ── E-mails automáticos: quais tipos cada cliente recebe (grade cliente × tipo em Administração → E-mail → Quem recebe) ──
+-- tipos: lembrete (antes de vencer) · vencimento (vence hoje) · cobranca (atraso) · recibo (pagamento recebido) · parcelamento · acordo
+-- pode_email_tipo = só a parte do "perfil" (sem a chave Recebe Sim/Não, que a tela mostra à parte)
+create or replace function public.pode_email_tipo(p_cliente uuid, p_grupo uuid, p_tipo text) returns boolean
+language plpgsql stable security definer set search_path = public as $$
+declare pf text := public.perfil_email_de(p_cliente, p_grupo); t jsonb;
+begin
+  if pf = 'nada' then return false; end if;
+  if pf = 'personalizado' then
+    select emails_tipos into t from public.clientes where id = p_cliente;
+    if t is null then select emails_tipos into t from public.clientes where grupo_id = p_grupo and perfil_email = 'personalizado' limit 1; end if;
+    return coalesce((t->>p_tipo)::boolean, p_tipo <> 'vencimento');
+  end if;
+  if pf = 'nunca' then return p_tipo not in ('lembrete','vencimento','cobranca','recibo'); end if;
+  if pf = 'vencimento' then return p_tipo not in ('lembrete','cobranca'); end if;
+  return p_tipo <> 'vencimento';
+end $$;
+revoke all on function public.pode_email_tipo(uuid, uuid, text) from public, anon, authenticated;
+
+create or replace function public.emails_matriz() returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not public.pode('clientes') then raise exception 'permission denied: sem acesso a Clientes.'; end if;
+  return coalesce((select jsonb_object_agg(c.id, (select jsonb_object_agg(k, public.pode_email_tipo(c.id, c.grupo_id, k))
+            from unnest(array['lembrete','vencimento','cobranca','recibo','parcelamento','acordo']) k))
+    from public.clientes c), '{}'::jsonb);
+end $$;
+revoke all on function public.emails_matriz() from public, anon;
+grant execute on function public.emails_matriz() to authenticated;
+
+-- liga/desliga UM tipo para UM cliente: o cliente passa a "personalizado", guardando como estava cada um dos outros tipos
+create or replace function public.salvar_email_tipo(p_cliente uuid, p_tipo text, p_valor boolean) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare g uuid; m jsonb;
+begin
+  if not public.pode('clientes', 'editar') then raise exception 'permission denied: só quem edita Clientes muda os e-mails do cliente.'; end if;
+  if p_tipo not in ('lembrete','vencimento','cobranca','recibo','parcelamento','acordo') then raise exception 'Tipo de e-mail inválido.'; end if;
+  select grupo_id into g from public.clientes where id = p_cliente;
+  if not found then raise exception 'Cliente não encontrado.'; end if;
+  select jsonb_object_agg(k, public.pode_email_tipo(p_cliente, g, k)) into m
+    from unnest(array['lembrete','vencimento','cobranca','recibo','parcelamento','acordo']) k;
+  m := m || jsonb_build_object(p_tipo, p_valor);
+  update public.clientes set perfil_email = 'personalizado', emails_tipos = m where id = p_cliente;
+  return m;
+end $$;
+revoke all on function public.salvar_email_tipo(uuid, text, boolean) from public, anon;
+grant execute on function public.salvar_email_tipo(uuid, text, boolean) to authenticated;
+
+-- Caixa de saída → "Da Rotina": os e-mails gerados na Rotina (rascunhos) podem ser AUTORIZADOS daqui (saem pelo envio normal) ou descartados
+create or replace function public.emails_rotina_acao(p_ids uuid[], p_acao text) returns int
+language plpgsql security definer set search_path = public as $$
+declare n int;
+begin
+  if not (public.eh_admin() or public.pode('juridico', 'editar')) then raise exception 'permission denied: sem acesso para autorizar e-mails.'; end if;
+  if p_acao not in ('enviar', 'descartar') then raise exception 'Ação inválida.'; end if;
+  update public.email_fila set status = case when p_acao = 'enviar' then 'pendente' else 'cancelado' end,
+         erro = case when p_acao = 'enviar' then null else 'Descartado na Caixa de saída' end
+   where id = any(coalesce(p_ids, '{}')) and status in ('rascunho', 'rascunho_salvo');
+  get diagnostics n = row_count;
+  return n;
+end $$;
+revoke all on function public.emails_rotina_acao(uuid[], text) from public, anon;
+grant execute on function public.emails_rotina_acao(uuid[], text) to authenticated;
+
+-- ── Execuções (cobrança ajuizada): o processo, o que o CLIENTE recebe e o que fica para o ESCRITÓRIO (% do que foi recebido) ──
+create table if not exists public.execucoes (
+  id uuid primary key default gen_random_uuid(),
+  cliente_id uuid references public.clientes(id) on delete set null,
+  grupo_id uuid references public.grupos(id) on delete set null,
+  processo_id uuid references public.processos(id) on delete set null,
+  numero text not null default '',
+  executado text not null default '',
+  valor_execucao numeric(14,2) not null default 0,
+  percentual numeric(5,2) not null default 0 check (percentual >= 0 and percentual <= 100),
+  situacao text not null default 'ativa' check (situacao in ('ativa','acordo','suspensa','encerrada')),
+  ajuizada_em date,
+  responsavel text not null default '',
+  obs text not null default '',
+  criado_por uuid default auth.uid(),
+  criado_em timestamptz not null default now(),
+  atualizado_em timestamptz not null default now()
+);
+create index if not exists execucoes_cliente on public.execucoes (cliente_id);
+create table if not exists public.execucao_recebimentos (
+  id uuid primary key default gen_random_uuid(),
+  execucao_id uuid not null references public.execucoes(id) on delete cascade,
+  data date not null default current_date,
+  valor numeric(14,2) not null check (valor > 0),
+  forma text not null default '',
+  repassado_em date,
+  honorario numeric(14,2),
+  lancamento_id uuid references public.lancamentos(id) on delete set null,
+  obs text not null default '',
+  criado_por uuid default auth.uid(),
+  criado_em timestamptz not null default now()
+);
+create index if not exists exec_receb_exec on public.execucao_recebimentos (execucao_id, data desc);
+drop trigger if exists atualizado_execucoes on public.execucoes;
+create trigger atualizado_execucoes before update on public.execucoes for each row execute function public.marcar_atualizacao();
+alter table public.execucoes enable row level security;
+alter table public.execucao_recebimentos enable row level security;
+revoke all on public.execucoes, public.execucao_recebimentos from anon;
+grant select, insert, update, delete on public.execucoes, public.execucao_recebimentos to authenticated;
+drop policy if exists exec_ver on public.execucoes;
+create policy exec_ver on public.execucoes for select to authenticated using (public.pode('juridico'));
+drop policy if exists exec_editar on public.execucoes;
+create policy exec_editar on public.execucoes for all to authenticated using (public.pode('juridico', 'editar')) with check (public.pode('juridico', 'editar'));
+drop policy if exists exrec_ver on public.execucao_recebimentos;
+create policy exrec_ver on public.execucao_recebimentos for select to authenticated using (public.pode('juridico'));
+drop policy if exists exrec_editar on public.execucao_recebimentos;
+create policy exrec_editar on public.execucao_recebimentos for all to authenticated using (public.pode('juridico', 'editar')) with check (public.pode('juridico', 'editar'));
+-- registrar um recebimento lança, no Financeiro Jurídico, o honorário do escritório (% da execução sobre o valor recebido)
+create or replace function public.execucao_recebimento_lanca() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare e public.execucoes; l uuid;
+begin
+  select * into e from public.execucoes where id = new.execucao_id;
+  if new.honorario is null then new.honorario := round(new.valor * coalesce(e.percentual, 0) / 100, 2); end if;
+  if new.honorario > 0 and new.lancamento_id is null then
+    insert into public.lancamentos (empresa, tipo, descricao, categoria, cliente_id, grupo_id, responsavel, vencimento, valor, servico, obs)
+    values ('escritorio', 'receita', 'Honorários da execução ' || coalesce(nullif(e.numero, ''), '') || case when e.executado <> '' then ' — ' || e.executado else '' end,
+            'Honorários de êxito', e.cliente_id, coalesce(e.grupo_id, (select grupo_id from public.clientes where id = e.cliente_id)), e.responsavel, new.data, new.honorario, '',
+            replace(rtrim(rtrim(e.percentual::text, '0'), '.'), '.', ',') || '% de R$ ' || translate(to_char(new.valor, 'FM999,999,990.00'), ',.', '.,') || ' recebido em ' || to_char(new.data, 'DD/MM/YYYY'))
+    returning id into l;
+    new.lancamento_id := l;
+  end if;
+  return new;
+end $$;
+drop trigger if exists execucao_recebimento_lanca on public.execucao_recebimentos;
+create trigger execucao_recebimento_lanca before insert on public.execucao_recebimentos for each row execute function public.execucao_recebimento_lanca();
+-- apagar o recebimento apaga o honorário lançado (se ainda não foi pago)
+create or replace function public.execucao_recebimento_apaga() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if old.lancamento_id is not null then delete from public.lancamentos where id = old.lancamento_id and not pago; end if;
+  return old;
+end $$;
+drop trigger if exists execucao_recebimento_apaga on public.execucao_recebimentos;
+create trigger execucao_recebimento_apaga after delete on public.execucao_recebimentos for each row execute function public.execucao_recebimento_apaga();
+-- ═══ fim do Backup 53 ═══

@@ -1638,3 +1638,18 @@ body.gx-barra-topo :is([data-sit=pago],.pill.pago,.lg-em-ok,.pl-dt-ok,.lg-st-x){
 body.gx-barra-topo :is([data-sit=cliente],.ep-tc,.pl-dt-cli){background:var(--surface3)!important;color:var(--text2)!important;border:1px solid var(--border)!important}
 /* Backup 52 (P2): no celular, o título do quadro e o "↻ Atualizar" ficam na 1ª linha e a explicação desce */
 @media (max-width:600px){.gs .card-hd:has(> .bt-atualizar){flex-wrap:wrap}.gs .card-hd:has(> .bt-atualizar) > .sub{flex-basis:100%;order:3}}
+/* ═══ Backup 53 ═══ */
+/* Painel → Empresas do grupo no mesmo desenho de Clientes: faixa do grupo com fundo, coluna Grupo estreita, nome da entidade/sócio maior */
+body.gx-barra-topo table:has(> #tblExecRanking) th:nth-child(2){width:6%!important}
+body.gx-barra-topo #tblExecRanking td:has(.er-grupo){width:64px!important;max-width:64px!important}
+body.gx-barra-topo #tblExecRanking .er-grupo{font-size:11px!important;color:var(--text3)!important;max-width:64px!important}
+body.gx-barra-topo #tblExecRanking .er-nome{font-size:14px!important;font-weight:500!important;color:var(--ink)!important}
+body.gx-barra-topo #tblExecRanking .er-socio,body.gx-barra-topo #tblExecRanking .er-socio b{font-size:12.5px!important}
+.gs .fc-lancar-menu{left:0;right:auto}
+/* Backup 53: Rotina → coluna Conferência mais estreita (Passivo e Processos) */
+.gs :is(.rt-pas,.rt-proc) col.rt-w-conf{width:124px}
+.gs :is(.rt-pas,.rt-proc) .rt-cf{gap:6px}
+.gs :is(.rt-pas,.rt-proc) .rt-cf-txt{min-width:0;font-size:12px;white-space:normal}
+.gs :is(.rt-pas,.rt-proc) .rt-cf-txt small{font-size:11px}
+.ficha-topo .ficha-atalhos{margin-right:160px}   /* Backup 53: o "+ Lançar ▾" fica ao lado do "Editar cadastro", sem ficar embaixo dele */
+body.gx-barra-topo #tblExecRanking tr.gx-grp > td{color:var(--text2)!important}   /* Backup 53: mesma faixa de grupo de Clientes */

@@ -105,13 +105,27 @@ function ordenarFila(lista) {
 // Fila do Início: 5 primeiras + "Ver todas"; ou em calendário (mês, semana ou dia). A escolha fica salva na pessoa
 // (perfis.preferencias.fila) e vale no próximo acesso, em qualquer computador. Cobrança de honorário atrasado não entra
 // (já aparece em "Atrasados", logo abaixo).
-const FILA = { toda: false, min: false, vista: 'lista', ref: null, lida: false, quem: '', pessoas: null, tipos: null };
+const FILA = { toda: false, min: false, vista: 'lista', ref: null, lida: false, quem: '', pessoas: null, tipos: null, pri: '', atalho: '' };
 // Backup 38: a agenda mostra SÓ o que está em Tarefas (tarefas e compromissos lançados pela equipe).
 // O administrador escolhe de quem ver: só as suas, todos, ou uma pessoa; os demais veem só as suas.
 const ehAdminFila = () => !!(E.perfil && E.perfil.papel === 'admin');
-const VISTAS_FILA = [['lista', 'Lista'], ['semana', 'Semana'], ['mes', 'Mês']];   // Backup 52 (C1): a Semana voltou ao Início — a MESMA de Tarefas → Calendário (arrastar remarca)
+const VISTAS_FILA = [['mes', 'Mês'], ['semana', 'Semana'], ['dia', 'Dia'], ['lista', 'Lista']];   // Backup 53: as mesmas vistas do Calendário de Tarefas (+ Lista)
+// Backup 53: filtros de prioridade e de prazo — os MESMOS de Tarefas (Início e Tarefas usam estas duas funções)
+const PRI_FILTRO = [['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa']], PRAZO_FILTRO = [['hoje', 'Hoje'], ['atrasadas', 'Atrasadas'], ['7', '7 dias']];
+function chipsPriPrazo(attrPri, attrPrazo, pri, atalho, extras) {
+  return '<span class="fila-chips-sep" aria-hidden="true"></span>' + PRI_FILTRO.map(([k, r]) => chipFiltro(attrPri, k, r, pri === k)).join('') +
+    (attrPrazo ? '<span class="fila-chips-sep" aria-hidden="true"></span>' + PRAZO_FILTRO.concat(extras || []).map(([k, r]) => chipFiltro(attrPrazo, k, r, atalho === k)).join('') : '');
+}
+function passaPriPrazo(t, pri, a) {
+  const h = hojeISO();
+  if (pri && t.prioridade !== pri) return false;
+  if (a === 'hoje' && (tarefaFechada(t) || !t.prazo || t.prazo > h)) return false;
+  if (a === 'atrasadas' && (tarefaFechada(t) || !t.prazo || t.prazo >= h)) return false;
+  if (a === '7' && (tarefaFechada(t) || !t.prazo || t.prazo > somarDias(h, 7))) return false;
+  return true;
+}   // Backup 52 (C1): a Semana voltou ao Início — a MESMA de Tarefas → Calendário (arrastar remarca)
 function salvarPrefFila() {
-  const v = { vista: FILA.vista, min: FILA.min, quem: FILA.quem || '', pessoas: FILA.pessoas || null, tipos: FILA.tipos || null };
+  const v = { vista: FILA.vista, min: FILA.min, quem: FILA.quem || '', pessoas: FILA.pessoas || null, tipos: FILA.tipos || null, pri: FILA.pri || '', atalho: FILA.atalho || '' };
   if (E.perfil) E.perfil.preferencias = Object.assign({}, E.perfil.preferencias || {}, { fila: v });
   sb.rpc('salvar_preferencia', { p_chave: 'fila', p_valor: v }).then(() => {}, () => {});
 }
@@ -332,7 +346,7 @@ function calendarioFila(lista) {
     '<button type="button" class="btn btn-p btn-mini ag-bt" data-agendar>+ Agendar</button></div>' + corpo + legendaAgenda() + '</div></div>';
 }
 async function cardMinhaFila() {
-  if (!FILA.lida) { const p = (E.perfil && E.perfil.preferencias && E.perfil.preferencias.fila) || {}; if (p.vista) FILA.vista = ['lista', 'semana', 'mes'].includes(p.vista) ? p.vista : 'mes'; FILA.min = false; FILA.quem = p.quem || '';
+  if (!FILA.lida) { const p = (E.perfil && E.perfil.preferencias && E.perfil.preferencias.fila) || {}; if (p.vista) FILA.vista = ['lista', 'semana', 'mes', 'dia'].includes(p.vista) ? p.vista : 'mes'; FILA.min = false; FILA.quem = p.quem || ''; FILA.pri = p.pri || ''; FILA.atalho = p.atalho || '';
     FILA.pessoas = Array.isArray(p.pessoas) ? p.pessoas : null; FILA.tipos = Array.isArray(p.tipos) ? p.tipos : null; FILA.lida = true; }
   await feriados();
   await equipe().catch(() => []);
@@ -345,7 +359,7 @@ async function cardMinhaFila() {
   const okVis = new Set(visiveis.map(chave));
   let sel = (FILA.pessoas || [eu]).filter((k) => okVis.has(k)); if (!sel.length) sel = [eu];
   const tiposSel = new Set(FILA.tipos && FILA.tipos.length ? FILA.tipos : FILTRO_TIPOS_AG.map((x) => x[0]));
-  const daPessoa = (t) => [t.responsavel, t.revisor].concat(String(t.participantes || '').split(',')).some((n) => n && sel.includes(chave(n)));
+  const daPessoa = (t) => [t.responsavel, t.revisor].concat(String(t.participantes || '').split(',')).some((n) => n && sel.includes(chave(n))) && passaPriPrazo(t, FILA.pri, FILA.atalho);
   const todas = ordenarFila(ts.filter((t) => daPessoa(t) && tiposSel.has(tipoItemAgenda(t)) && !/^(cob|parc|aco):/.test(t.chave_regra || ''))), minhas = FILA.toda ? todas : todas.slice(0, 10);
   // Backup 51 (T2): as próximas ocorrências das tarefas que se repetem já aparecem no calendário (tracejadas)
   const proj = FILA.vista === 'lista' ? [] : await projecoesRecorrentes();
@@ -354,7 +368,7 @@ async function cardMinhaFila() {
   const chip = (attr, v, rot, on) => chipFiltro(attr, v, rot, on, attr === 'data-fila-tipo');
   const filtros = '<div class="fila-filtros">' +
     '<div class="fila-chips" role="group" aria-label="Mostrar"><span class="fila-chips-rot">Mostrar</span>' + chip('data-fila-tipo', '*', 'Tudo', tiposSel.size === FILTRO_TIPOS_AG.length) +
-      FILTRO_TIPOS_AG.map(([k, r]) => chip('data-fila-tipo', k, r, tiposSel.has(k))).join('') + '</div>' +
+      FILTRO_TIPOS_AG.map(([k, r]) => chip('data-fila-tipo', k, r, tiposSel.has(k))).join('') + chipsPriPrazo('data-fila-pri', 'data-fila-prazo', FILA.pri, FILA.atalho) + '</div>' +
     (visiveis.length > 1 ? '<div class="fila-chips" role="group" aria-label="De quem"><span class="fila-chips-rot">De quem</span>' +
       // Backup 46: Todos primeiro, depois quem está logado, depois os demais
       chip('data-fila-pes', '*', 'Todos', sel.length >= okVis.size) + visiveis.map((n) => chip('data-fila-pes', chave(n), nomeCurto(n), sel.includes(chave(n)))).join('') + '</div>' : '') + '</div>';
@@ -372,18 +386,20 @@ async function cardMinhaFila() {
   return { html, ligar: (raiz) => {
     // Backup 46: a Lista fica da mesma altura do calendário (trocar Lista ↔ Mês não muda o tamanho do quadro)
     const bd = raiz.querySelector('.ini-fila > .card-bd');
-    const medir = () => { if (bd && FILA.vista === 'mes' && bd.offsetHeight > 200) FILA.altCal = bd.offsetHeight; };
+    const medir = () => { if (bd && FILA.vista === 'mes' && bd.offsetHeight > 200) FILA.altCal = bd.offsetHeight; else if (bd && FILA.vista === 'semana' && FILA.altCal) bd.style.minHeight = FILA.altCal + 'px'; };
     // Backup 52 (C3): a Lista acompanha o conteúdo (com filtro e poucos itens, o quadro encolhe); com muitos, para na altura do calendário e rola por dentro
     if (bd) { if (FILA.vista !== 'lista') requestAnimationFrame(medir); else { bd.style.maxHeight = (FILA.altCal || 680) + 'px'; bd.style.overflowY = 'auto'; } }
     // Backup 52 (C1): Semana = a mesma de Tarefas → Calendário (arrastar remarca o prazo)
     const sem = raiz.querySelector('#ini-semana');
-    if (sem) semanaArrastavel(sem, { lista: todas, estado: FILA, atrasadas: true, cartao: false, rotulo: rotQuem,
+    if (sem) semanaArrastavel(sem, { lista: todas, estado: FILA, atrasadas: true, cartao: false, rotulo: rotQuem, altura: FILA.altCal ? FILA.altCal - 90 : 600,
       abrir: (t) => abrirTarefa(t, () => irPara(E.tela)), repintar: () => repinta(raiz) });
     raiz.querySelectorAll('[data-fila]').forEach((d) => { if (d.closest('#ini-semana')) return; d.onclick = () => {
       abrirTarefa(ts.find((t) => t.id === d.dataset.fila), () => irPara(E.tela)); }; });
     raiz.querySelectorAll('[data-fila-tipo]').forEach((b) => b.onclick = () => { const v = b.dataset.filaTipo, todos = FILTRO_TIPOS_AG.map((x) => x[0]);
       let t = new Set(tiposSel); if (v === '*') t = t.size === todos.length ? new Set() : new Set(todos); else if (t.has(v)) t.delete(v); else t.add(v);
       FILA.tipos = t.size ? [...t] : []; if (!t.size) FILA.tipos = ['__nada']; salvarPrefFila(); repinta(raiz); });
+    raiz.querySelectorAll('[data-fila-pri]').forEach((b) => b.onclick = () => { FILA.pri = FILA.pri === b.dataset.filaPri ? '' : b.dataset.filaPri; salvarPrefFila(); repinta(raiz); });
+    raiz.querySelectorAll('[data-fila-prazo]').forEach((b) => b.onclick = () => { FILA.atalho = FILA.atalho === b.dataset.filaPrazo ? '' : b.dataset.filaPrazo; salvarPrefFila(); repinta(raiz); });
     raiz.querySelectorAll('[data-fila-pes]').forEach((b) => b.onclick = () => { const v = b.dataset.filaPes;
       let p = new Set(sel); if (v === '*') p = p.size >= okVis.size ? new Set([eu]) : new Set(okVis); else if (p.has(v)) p.delete(v); else p.add(v);
       FILA.pessoas = p.size ? [...p] : [eu]; salvarPrefFila(); repinta(raiz); });
@@ -451,7 +467,7 @@ TELAS.tarefas = async function () {
     '<button class="btn btn-o" id="tf-delegar" title="Delegar uma sequência de passos (ex.: lead completo) com validação">👥 Delegar</button><button class="btn btn-p" id="tf-nova">+ Nova tarefa</button></div></div>' +
     '<div class="tf-rapida" id="tf-rapida-box" hidden><input id="tf-rapida" autocomplete="off" placeholder="⚡ Criação rápida: “Protocolar defesa amanhã @Emanuelle !alta” e Enter" aria-label="Criação rápida de tarefa">' +
       '<div id="tf-rapida-prev" class="tf-rapida-prev"></div></div>' +
-    '<div class="filtros">' +
+    '<div id="tf-kpis"></div><div class="filtros">' +
     '<div class="segmento" id="tf-vista">' + [['lista', 'Lista'], ['calendario', 'Calendário'], ['fluxos', 'Fluxos']]
       .map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<input class="busca" id="tf-busca" placeholder="Buscar tarefa, cliente, processo ou etiqueta" autocomplete="off">' +
@@ -519,8 +535,7 @@ function pintarTarefas() {
     const prazos = [['hoje', 'Hoje'], ['atrasadas', 'Atrasadas'], ['7', '7 dias']].concat(F.atalho === 'atencao' ? [['atencao', 'Pedem atenção']] : []);
     $('tf-chips').innerHTML = '<div class="fila-chips" role="group" aria-label="Mostrar"><span class="fila-chips-rot">Mostrar</span>' +
         chipFiltro('data-tf-tipo', '*', 'Tudo', tSel.size === tipos.length, true) + FILTRO_TIPOS_AG.map(([k, r]) => chipFiltro('data-tf-tipo', k, r, tSel.has(k), true)).join('') +
-        '<span class="fila-chips-sep" aria-hidden="true"></span>' + [['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa']].map(([k, r]) => chipFiltro('data-tf-pri', k, r, F.pri === k)).join('') +
-        (F.aba === 'abertas' && F.vista !== 'fluxos' ? '<span class="fila-chips-sep" aria-hidden="true"></span>' + prazos.map(([k, r]) => chipFiltro('data-tf-prazo', k, r, F.atalho === k)).join('') : '') + '</div>' +
+        chipsPriPrazo('data-tf-pri', F.aba === 'abertas' && F.vista !== 'fluxos' ? 'data-tf-prazo' : '', F.pri, F.atalho, prazos.slice(3)) + '</div>' +
       (pes.length > 1 ? '<div class="fila-chips" role="group" aria-label="De quem"><span class="fila-chips-rot">De quem</span>' +
         chipFiltro('data-tf-pes', '*', 'Todos', todasP) + pes.map((n) => chipFiltro('data-tf-pes', primeiroNome(n), nomeCurto(n), pSel.has(primeiroNome(n)))).join('') + '</div>' : ''); }
   const todas = E._tarefas || [];
@@ -533,7 +548,7 @@ function pintarTarefas() {
     kpi('Prazos fatais em 7 dias', String(fatais), fatais ? 'ambar' : '', 'tarefas com prazo fatal marcado') +
     kpi('Concluídas no mês', String(todas.filter((t) => t.status === 'concluida' && String(t.concluida_em || '').slice(0, 7) === h.slice(0, 7)).length), 'verde', '') + '</div>';
   const V = { lista: vistaLista, calendario: vistaCalendario, fluxos: vistaFluxos };
-  $('tf-corpo').innerHTML = kpis + '<div id="tf-vista-corpo"></div>';
+  $('tf-kpis').innerHTML = kpis; $('tf-corpo').innerHTML = '<div id="tf-vista-corpo"></div>';
   if (!V[F.vista]) F.vista = 'lista';
   V[F.vista]($('tf-vista-corpo'));
 }
@@ -645,6 +660,8 @@ async function vistaCalendario(raiz) {
   const pre = dia ? F.dia : F.mes + '-', lista = filtradas.concat(F.aba === 'abertas' ? (E._tarefas || []).filter((t) => t.status === 'concluida' && String(t.prazo || '').startsWith(pre)) : [], proj);
   alvo.innerHTML = '<div class="card ini-fila tf-cal"><div class="card-bd">' + calendarioFila(lista) + '</div></div>';
   FILA.vista = salvo.vista; FILA.ref = salvo.ref;
+  // Backup 53: a Semana fica do mesmo tamanho do Mês (guarda a altura do calendário do mês)
+  if (!dia) requestAnimationFrame(() => { const c = alvo.querySelector('.tf-cal'); if (c && c.offsetHeight > 300) F.altCal = c.offsetHeight; });
   const [a, m] = F.mes.split('-').map(Number);
   alvo.querySelectorAll('[data-fila-nav]').forEach((b) => b.onclick = () => {
     const n = +b.dataset.filaNav;
@@ -807,7 +824,8 @@ async function abrirTarefa(t, depois) {
 const DIAS_SEM_ISO = ['', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo'];
 const DIAS_SEM_CURTO = ['', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
 const ORDENS_SEM = [[1, '1ª'], [2, '2ª'], [3, '3ª'], [4, '4ª'], [-1, 'última']];
-const TIPOS_REPETE = [['', 'Não repete'], ['semanal', 'Toda semana, nos dias…'], ['semanas', 'A cada N semanas'], ['mensal_dias', '2× ao mês, nos dias…'], ['mensal', 'Todo mês'], ['anual', 'Todo ano']];
+// Backup 53: atalhos "Todo dia útil" e "Quinzenal (a cada 2 semanas)" — viram a mesma regra semanal (dias de seg a sex / a cada 2 semanas)
+const TIPOS_REPETE = [['', 'Não repete'], ['uteis', 'Todo dia útil (seg a sex)'], ['semanal', 'Toda semana, nos dias…'], ['quinzenal', 'Quinzenal (a cada 2 semanas)'], ['semanas', 'A cada N semanas'], ['mensal_dias', '2× ao mês, nos dias…'], ['mensal', 'Todo mês'], ['anual', 'Todo ano']];
 const isoDow = (d) => { const x = new Date(d + 'T12:00:00').getDay(); return x === 0 ? 7 : x; };
 const fimDoMesIso = (d) => { const x = new Date(d + 'T12:00:00'); return iso(new Date(x.getFullYear(), x.getMonth() + 1, 0)); };
 function listaE(a) { return a.length <= 1 ? (a[0] || '') : a.slice(0, -1).join(', ') + ' e ' + a[a.length - 1]; }
@@ -888,14 +906,15 @@ function projecoesRecorrentes(forcar) {
 function esquecerProjecoes() { _projCache = null; }
 // formulário: o bloco "Repetir"
 function campoRepetir(t) {
-  const r = regraDaTarefa(t) || {}, tipo = r.tipo === 'semanal' && (Number(r.cada) || 1) > 1 ? 'semanas' : (r.tipo || '');
+  const r = regraDaTarefa(t) || {}, cada = Number(r.cada) || 1, dd = (r.dias || []).map(Number).sort().join(',');
+  const tipo = r.tipo === 'semanal' && cada === 2 ? 'quinzenal' : r.tipo === 'semanal' && cada > 1 ? 'semanas' : r.tipo === 'semanal' && dd === '1,2,3,4,5' ? 'uteis' : (r.tipo || '');
   const dias = (r.dias || []).map(Number), base = t.prazo || hojeISO();
   const md = r.tipo === 'mensal_dias' ? dias : [5, 20];
   const sel = (id, pares, v) => '<select id="' + id + '">' + pares.map(([k, rot]) => '<option value="' + k + '"' + (String(k) === String(v) ? ' selected' : '') + '>' + rot + '</option>').join('') + '</select>';
   const vis = (tipos) => ' data-rep-vis="' + tipos + '"';
   return '<div class="inteiro tf-rep" id="tf-rep"><div class="tf-rep-linha"><span class="tf-rep-rot">Repetir</span>' + sel('tf-rep-tipo', TIPOS_REPETE, tipo) +
       '<span' + vis('semanas') + '>a cada <input id="tf-rep-cada" type="number" min="2" max="12" value="' + (Number(r.cada) > 1 ? r.cada : 2) + '"> semanas</span></div>' +
-    '<div class="tf-rep-linha tf-rep-dias"' + vis('semanal semanas') + '>' + [1, 2, 3, 4, 5, 6, 7].map((k) => '<label class="tf-rep-dia"><input type="checkbox" data-rep-dia="' + k + '"' +
+    '<div class="tf-rep-linha tf-rep-dias"' + vis('semanal semanas quinzenal') + '>' + [1, 2, 3, 4, 5, 6, 7].map((k) => '<label class="tf-rep-dia"><input type="checkbox" data-rep-dia="' + k + '"' +
       ((dias.length ? dias.includes(k) : isoDow(base) === k) ? ' checked' : '') + '>' + DIAS_SEM_CURTO[k] + '</label>').join('') + '</div>' +
     '<div class="tf-rep-linha"' + vis('mensal_dias') + '>nos dias <input id="tf-rep-d1" type="number" min="1" max="31" value="' + (md[0] || 5) + '"> e <input id="tf-rep-d2" type="number" min="1" max="31" value="' + (md[1] || 20) + '"></div>' +
     '<div class="tf-rep-linha"' + vis('mensal') + '>' + sel('tf-rep-modo', [['dia', 'no dia'], ['util', 'no dia útil nº'], ['semana', 'na']], r.modo || 'dia') +
@@ -903,14 +922,16 @@ function campoRepetir(t) {
       '<input id="tf-rep-n" type="number" min="1" max="23" data-rep-modo="util" value="' + (r.n || 5) + '">' +
       '<span data-rep-modo="semana">' + sel('tf-rep-ordem', ORDENS_SEM, r.ordem || -1) + sel('tf-rep-dow', [1, 2, 3, 4, 5, 6, 7].map((k) => [k, DIAS_SEM_ISO[k]]), r.dow || 5) + ' do mês</span></div>' +
     '<div class="tf-rep-linha"' + vis('anual') + '>em <input id="tf-rep-anual" type="date" value="' + (r.tipo === 'anual' ? base.slice(0, 4) + '-' + String(r.mes).padStart(2, '0') + '-' + String(r.dia).padStart(2, '0') : base) + '"></div>' +
-    '<div class="tf-rep-linha"' + vis('semanal semanas mensal_dias mensal anual') + '>a partir de <input id="tf-rep-ini" type="date" value="' + (r.inicio || base) + '"> até <input id="tf-rep-fim" type="date" value="' + (r.fim || '') + '" title="Deixe vazio para repetir sem fim"> <span class="sub">(fim opcional)</span></div>' +
-    '<label class="check tf-rep-linha"' + vis('semanal semanas mensal_dias mensal anual') + '><input type="checkbox" id="tf-rep-util"' + (r.util ? ' checked' : '') + '> Se cair em feriado ou fim de semana, passa para o dia útil seguinte</label>' +
+    '<div class="tf-rep-linha"' + vis('uteis semanal semanas quinzenal mensal_dias mensal anual') + '>a partir de <input id="tf-rep-ini" type="date" value="' + (r.inicio || base) + '"> até <input id="tf-rep-fim" type="date" value="' + (r.fim || '') + '" title="Deixe vazio para repetir sem fim"> <span class="sub">(fim opcional)</span></div>' +
+    '<label class="check tf-rep-linha"' + vis('uteis semanal semanas quinzenal mensal_dias mensal anual') + '><input type="checkbox" id="tf-rep-util"' + (r.util ? ' checked' : '') + '> Se cair em feriado ou fim de semana, passa para o dia útil seguinte</label>' +
     '<div class="tf-rep-txt" id="tf-rep-txt" aria-live="polite"></div></div>';
 }
 function lerRepetir(j) {
   const v = (id) => (j.querySelector('#' + id) || {}).value || '';
   const tipo = v('tf-rep-tipo'); if (!tipo) return null;
-  const r = { tipo: tipo === 'semanas' ? 'semanal' : tipo };
+  const r = { tipo: ['semanas', 'quinzenal', 'uteis'].includes(tipo) ? 'semanal' : tipo };
+  if (tipo === 'uteis') r.dias = [1, 2, 3, 4, 5];
+  if (tipo === 'quinzenal') { r.dias = [...j.querySelectorAll('[data-rep-dia]:checked')].map((c) => Number(c.dataset.repDia)); r.cada = 2; }
   if (tipo === 'semanal' || tipo === 'semanas') { r.dias = [...j.querySelectorAll('[data-rep-dia]:checked')].map((c) => Number(c.dataset.repDia)); if (tipo === 'semanas') r.cada = Math.max(2, Number(v('tf-rep-cada')) || 2); }
   if (tipo === 'mensal_dias') r.dias = [...new Set([Number(v('tf-rep-d1')), Number(v('tf-rep-d2'))].filter((x) => x >= 1 && x <= 31))].sort((a, b) => a - b);
   if (tipo === 'mensal') { r.modo = v('tf-rep-modo') || 'dia'; if (r.modo === 'dia') r.dia = Math.min(31, Math.max(1, Number(v('tf-rep-dia')) || 1));
@@ -1427,6 +1448,8 @@ function semanaArrastavel(alvo, o) {
     '<p class="sub sm-dica">Arraste a tarefa para outro dia para remarcar o prazo.</p>';
   // Backup 40: dentro do mesmo cartão do calendário, com a mesma altura
   alvo.innerHTML = o.cartao === false ? '<div class="tf-sem tf-sem-ini">' + miolo + '</div>' : '<div class="card ini-fila tf-cal tf-sem"><div class="card-bd">' + miolo + '</div></div>';
+  // Backup 53: mesma altura do calendário do mês (as colunas esticam até o pé)
+  { const c = alvo.firstElementChild; if (c) c.style.minHeight = (o.altura || 680) + 'px'; }
   const achar = (id) => ts.find((t) => t.id === id) || (E._tarefas || []).find((t) => t.id === id);
   alvo.querySelectorAll('[data-sm-nav]').forEach((b) => b.onclick = () => { F.semana = +b.dataset.smNav ? somarDias(seg, +b.dataset.smNav) : null; o.repintar(); });
   alvo.querySelectorAll('.fila-atrasadas [data-fila]').forEach((b) => b.onclick = () => o.abrir(achar(b.dataset.fila)));
@@ -1454,7 +1477,7 @@ function vistaSemana(alvo) {
   const quem = F.pessoas && F.pessoas.length ? 'escolhida' : '';
   // Backup 39: respeita a aba (Em aberto / Concluídas / Excluídas) — antes "Concluídas" ainda mostrava as abertas
   const doDono = (t) => (quem ? true : ehMinha(t));   // com pessoa escolhida, o filtro de cima já separou (responsável ou participante)
-  semanaArrastavel(alvo, { lista: filtrarTarefas().filter(doDono), estado: F, atrasadas: F.aba === 'abertas', rotulo: quem || 'minhas tarefas',
+  semanaArrastavel(alvo, { lista: filtrarTarefas().filter(doDono), estado: F, atrasadas: F.aba === 'abertas', rotulo: quem || 'minhas tarefas', altura: F.altCal,
     abrir: (t) => abrirTarefa(t, recarregarTarefas), repintar: () => vistaSemana(alvo) });
 }
 

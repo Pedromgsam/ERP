@@ -123,7 +123,7 @@ function _lgParcTabela(l, tabela){
       return '<tr class="'+(x.pago?'lg-pt-pago':n!==null&&n<=0?'lg-pt-atr':'')+'"><td>'+esc(x.rot||'?')+'</td><td>'+esc(x.venc||'—')+'</td>'
         +'<td class="lg-t-num" title="'+(x.lancado===false?'Valor não lançado nesta parcela: vale o último lançado':'')+'">'+_lgFmtV(Number(x.valor)||0)+(x.lancado===false?'<span class="lg-pt-est">*</span>':'')+'</td>'
         +'<td>'+em+'</td><td>'+pag+'</td>'
-        +'<td class="lg-pt-ac">'+(x.pago||tabela==='parcelas'?'':'<button type="button" class="btn btn-o btn-mini lg-bt-pagar" data-lg-pagar="'+x.id+'" data-lg-rot="'+esc(x.rot||'')+'" data-lg-val="'+esc(_lgFmtV(Number(x.valor)||0))+'" title="Lançar o pagamento desta parcela">＋ Lançar pagamento</button>')+'</td></tr>'; }).join('')
+        +'<td class="lg-pt-ac">'+(tabela==='acordos'?'<button type="button" class="btn-ed" data-lg-editar="'+x.id+'" title="Alterar só esta parcela" aria-label="Alterar só esta parcela">✎</button> ':'')+(x.pago||tabela==='parcelas'?'':'<button type="button" class="btn btn-o btn-mini lg-bt-pagar" data-lg-pagar="'+x.id+'" data-lg-rot="'+esc(x.rot||'')+'" data-lg-val="'+esc(_lgFmtV(Number(x.valor)||0))+'" title="Lançar o pagamento desta parcela">＋ Lançar pagamento</button>')+'</td></tr>'; }).join('')
     +'</tbody></table></div>'
     +(l.some(function(x){ return x.lancado===false; })?'<div class="lg-pt-nota">* valor ainda não lançado nesta parcela — vale o último valor lançado (o valor muda todo mês).</div>':'');
 }

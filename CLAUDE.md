@@ -82,7 +82,17 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
-- Última entrega: **Backup 52** (só SQL). C1: `VISTAS_FILA` lista/semana/mes; `semanaArrastavel(alvo, {lista, estado, abrir, repintar, atrasadas, rotulo, cartao})` usada por
+- Última entrega: **Backup 53** (SQL; nenhuma função nova). Início: `cardResumoEscritorio` com `fin-jur`/`fin-contab`/`fin-pagar` (hoje · 5 dias · atraso); fila = calendário de Tarefas
+  (`VISTAS_FILA` mes/semana/dia/lista, `FILA.pri`/`FILA.atalho` salvos em prefs, `chipsPriPrazo`/`passaPriPrazo` compartilhados com Tarefas). Tarefas: `#tf-kpis` acima de `.filtros`, Semana com
+  `minHeight` = `F.altCal`/`FILA.altCal` (`semanaArrastavel` opção `altura`), `TIPOS_REPETE` + `uteis`/`quinzenal`. Alertas = arquivo do B48 (+ `botaoAtualizar`). Painel: `tabelaPadrao` sem `semDivisao`
+  (faixa `tr.gx-grp`), bloco "Backup 53" no fim do design.css. Ficha: `PARTES_FICHA.resumo` = resumo+receita (Cadastro|Situação, Tarefas|Débitos via `cardDebitos`), sem certidões; `#fc-lancar` → `#fc-lancar-menu`
+  (ids `#fc-tarefa` etc. dentro). Acordos: `.ge-it-ac` (PIX em linha própria), `GS.editarAcordo(ids)` (`#f-acordo-todo`), ✎ `[data-lg-editar]` na `_lgParcTabela`; o e-mail fecha a janela e roda `avisoEnvio` por trás.
+  Contratos: `contratos.sem_financeiro` (implantação; `lancar_parcelas_contrato`/`gerar_mensalidades` pulam), `vincularLancamentos(ct, cli, depois)` (`#vl-ok`), `#ctr-vincular`. Rotina: `rotina_parcelas_dados` com CTE `perto`
+  (6 antes/3 depois), `[data-pl-np]` → `desmarcarPagoRotina`, uma `.pl-linha` por grupo, sem `.ep-pagos`, `_valor` prioriza `valor_ultima_parcela`, `rotinaTarefas` mostra a recorrente `_feita` (`.rt-ciclo`). Admin: `ABAS_ADMIN`
+  com historico/acessos (sem `#adm-mais-bt`), Quem recebe `.cli-tabela.em-quem` + `TIPOS_EMAIL_AUTO` (`[data-em-tipo]` → RPC `salvar_email_tipo`; `emails_matriz`, `pode_email_tipo`), Caixa de saída filtro `rotina`
+  (`emails_rotina_acao`), `FUNCOES_DETALHE` + `.gf-mais` (nucleo.js). Execuções: `telas-execucoes.js` (`TELAS.execucoes`, menu Jurídico), tabelas `execucoes`/`execucao_recebimentos`, gatilho `execucao_recebimento_lanca`
+  (lançamento "Honorários de êxito"; apagar o recebimento apaga o honorário não pago).
+- Backup 52 (base) (só SQL). C1: `VISTAS_FILA` lista/semana/mes; `semanaArrastavel(alvo, {lista, estado, abrir, repintar, atrasadas, rotulo, cartao})` usada por
   `vistaSemana` (Tarefas) e pelo Início (`#ini-semana`). C2: Atualizações removida (telas-atualizacoes.js, atualizacoes-dados.js e o gerador no montar-erp saíram; histórico = backups/LEIA-ME.md).
   C3: Lista do Início com `maxHeight` (era `height`), `.tf-sem .sm-grade` sem min-height 600; padrao.js mede "≤ 40 px vazios" nos `.card-bd` (Início, Tarefas, Rotina, Acordos).
   C4/P3: `contornarGrupos` saiu (sem `gc-*`); cabeçalho de grupo único `:is(tr.gx-grp,tr.cli-grp,tr.rt-grp) > td` (faixa cinza) e `.lg-g`/`doc-pasta` sem borda azul (bloco B52 do design.css).
