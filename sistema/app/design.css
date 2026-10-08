@@ -203,7 +203,7 @@ body.gx-barra-topo #gx-linha-painel .gs-cont-grp{background:var(--blue-lt)!impor
 body.gx-barra-topo #panel-resumo .gs-cont-ent{color:var(--gold-d)!important;background:var(--ac-gold-lt)!important}
 
 /* ═══ campos ═══ */
-body.gx-barra-topo .gs :is(label.campo input,label.campo select,label.campo textarea,.busca,.tf-rapida input,.mural-novo textarea,.pr-texto),
+body.gx-barra-topo .gs :is(label.campo input,label.campo select,label.campo textarea,.busca,.mural-novo textarea,.pr-texto),
 body.gx-barra-topo :is(.gx-campo input,.gx-campo select,.gx-campo textarea){border:1px solid var(--border-strong)!important;border-radius:var(--r-ctl)!important;background-color:var(--surface)}
 body.gx-barra-topo .gs :is(label.campo input,label.campo select,label.campo textarea,.busca):focus,body.gx-barra-topo :is(.gx-campo input,.gx-campo select,.gx-campo textarea):focus{border-color:var(--navy3)!important;box-shadow:var(--anel)!important}
 body.gx-barra-topo .gs label.campo,body.gx-barra-topo .gx-campo label{font-weight:600}
@@ -1461,7 +1461,6 @@ body.gx-com-teste{padding-bottom:38px}
 .gs .tf-cfg-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:30;display:flex;flex-direction:column;gap:6px;padding:10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-sm);box-shadow:var(--shadow-md);min-width:200px}
 .gs .tf-cfg-menu[hidden]{display:none}
 .gs .tf-cfg-menu .btn{justify-content:flex-start;width:100%}
-.gs .tf-rapida[hidden]{display:none}
 .gs .fila-chips-sep{width:1px;height:18px;background:var(--border-strong);margin:0 4px}
 .gs .tf-cal-vista{margin-bottom:10px}
 /* Painel: Evolução do passivo recolhível (fechada por padrão) */
@@ -1691,10 +1690,56 @@ body.gx-barra-topo .cc-t,body.gx-barra-topo .gs .card-hd,body.gx-barra-topo .tit
 .gs .ini-at.ini-at-pag{border-left-color:var(--red)!important;background:var(--red-lt)!important;border-color:var(--red-bd)}
 .gs .ini-at.ini-at-pag .ini-at-num,.gs .ini-at.ini-at-pag .ini-at-ic{color:var(--red-d)!important}
 /* Backup 54: filtros em 2 colunas × 2 linhas (Mostrar | Urgência / De quem | Prazo) — Tarefas e Início */
-.gs .fila-filtros.fila-2x2{display:grid!important;grid-template-columns:minmax(0,1fr) auto;gap:8px 28px;align-items:center}
-.gs .fila-2x2 > .fila-chips:nth-child(even){justify-self:end}
+/* Backup 55: Urgência e Prazo logo depois de Mostrar e De quem (não colados na direita) */
+.gs .fila-filtros.fila-2x2{display:grid!important;grid-template-columns:max-content max-content;justify-content:start;gap:8px 44px;align-items:center}
+.gs .fila-2x2 > .fila-chips:nth-child(even){justify-self:start}
 @media (max-width:900px){.gs .fila-filtros.fila-2x2{grid-template-columns:1fr}.gs .fila-2x2 > .fila-chips:nth-child(even){justify-self:start}}
 /* Backup 54: a faixa de grupo não muda de cor sob o mouse em nenhuma tabela (Processos, Painel…) */
 body.gx-barra-topo tbody :is(tr.gx-grp,tr.cli-grp,tr.rt-grp):hover > td{background:var(--surface3)!important}
 /* Backup 54: "Venc." das linhas de Notificações (estilo inline do ERP antigo) com contraste suficiente no fundo novo */
 body.gx-barra-topo .ep-row > span[style*="text3"]{color:var(--text2)!important}
+
+/* ═══ Backup 55 — tabelas na distribuição do ERP antigo (ERP.html): uma linha por registro, letra 13 px, cabeçalho 11,5 px,
+   CPF/CNPJ discreto, Grupo estreito (some quando há a faixa do grupo), textos longos em "…" com o texto inteiro ao passar o mouse ═══ */
+body.gx-barra-topo :is(.tw,.tabela-wrap,.gx-tab-gs) tbody td{padding-top:8px!important;padding-bottom:8px!important;line-height:1.35}
+body.gx-barra-topo :is(.tw,.tabela-wrap,.gx-tab-gs) tbody td:first-child{padding-left:14px}
+body.gx-barra-topo th,body.gx-barra-topo .gs th,body.gx-barra-topo #execRankWrap th,body.gx-barra-topo .gx-tab-gs.gs table thead th{font-size:11.5px!important;padding-top:10px!important;padding-bottom:10px!important}
+body.gx-barra-topo :is(td,th).col-grupo{white-space:nowrap;max-width:150px;overflow:hidden;text-overflow:ellipsis}
+body.gx-barra-topo td.col-grupo{font-size:12px!important;color:var(--text2)!important;text-transform:uppercase;letter-spacing:.01em}
+body.gx-barra-topo table.tem-faixa :is(td,th).col-grupo{display:none}
+body.gx-barra-topo td.col-doc{font-family:var(--font-m,ui-monospace,monospace)!important;font-size:11.5px!important;color:var(--text3)!important;white-space:nowrap}
+body.gx-barra-topo td.col-nome{white-space:nowrap;max-width:320px;overflow:hidden;text-overflow:ellipsis}
+body.gx-barra-topo td.col-nome :is(.sub,.er-socio,small,div){overflow:hidden;text-overflow:ellipsis}
+body.gx-barra-topo td.col-texto{white-space:nowrap;max-width:220px;overflow:hidden;text-overflow:ellipsis}
+body.gx-barra-topo :is(td.col-data,td.col-sit){white-space:nowrap}
+/* Backup 55: Acordos → A pagar numa linha por parcela (grupo, processo, devedor e credor terminam em "…", o resto ao passar o mouse) */
+body.gx-barra-topo table.ac-ap th:nth-child(1){width:118px!important}
+body.gx-barra-topo table.ac-ap th:nth-child(2){width:184px!important}
+body.gx-barra-topo table.ac-ap td.ac-c-proc{font-size:12px!important}
+body.gx-barra-topo table.ac-ap td.ac-c-grp{font-size:11.5px!important}
+body.gx-barra-topo table.ac-ap td:is(:nth-child(1),:nth-child(2),:nth-child(3),:nth-child(4)),body.gx-barra-topo table.ac-ap td.ac-c-grp,body.gx-barra-topo table.ac-ap td.ac-c-proc{
+  white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;word-break:normal!important}
+body.gx-barra-topo td.col-num{white-space:nowrap}
+/* Backup 55: Rotina → Passivo com Empresa mais larga e Conferência estreita; Processos com Processo mais largo, Última movimentação menor
+   e Conferência com espaço para o texto e o ✓ (sem sobrepor) */
+.gs .rt-pas col.rt-w-emp{width:27%}.gs .rt-pas col.rt-w-org{width:11%}.gs .rt-pas col.rt-w-ceat{width:4.5%}
+.gs .rt-pas col.rt-w-sn{width:6.5%}.gs .rt-pas col.rt-w-capag{width:6%}.gs .rt-pas col.rt-w-conf{width:126px}
+.gs .rt-pas td.rt-c-conf .rt-cf{gap:4px}.gs .rt-pas td.rt-c-conf .rt-cf-txt{font-size:11.5px;line-height:1.25}
+.gs .rt-proc col.rt-w-pnum{width:23%}.gs .rt-proc col.rt-w-trib{width:7%}.gs .rt-proc col.rt-w-nat{width:12%}.gs .rt-proc col.rt-w-ult{width:19%}
+.gs .rt-proc col.rt-w-sn{width:9%}.gs .rt-proc col.rt-w-val{width:12%}.gs .rt-proc col.rt-w-conf{width:168px}
+.gs .rt-proc td.rt-c-conf .rt-cf{display:flex;align-items:center;justify-content:space-between;gap:6px;min-width:0}
+.gs .rt-proc td.rt-c-conf .rt-cf-txt{min-width:0;font-size:11.5px;line-height:1.25}
+.gs .rt-proc td.rt-c-conf .rt-cf > .btn{flex:0 0 auto}
+.gs .rt-proc td:nth-child(1){white-space:nowrap}
+/* Backup 55: Planilha — barra de rolagem para o lado sempre à mão (presa ao pé da tela) e cabeçalhos dos blocos alinhados */
+.gs .pl-card,.gs .pl-card > .card-bd{overflow:visible!important}
+.gs .pl-barra-x{position:sticky;bottom:0;height:18px;scrollbar-width:auto;box-shadow:0 -4px 10px rgba(0,0,0,.06)}
+.gs .pl-barra-x::-webkit-scrollbar{height:14px}
+.gs .pl-barra-x::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:8px}
+.gs .pl-linha .pl-bloco > .pl-cab{box-sizing:border-box;justify-content:flex-start}
+.gs .pl-linha .pl-bloco > .pl-cab > .pl-obs{margin-top:auto}
+/* Backup 55: Acordos → clicar na parcela abre "editar só esta / o acordo inteiro" logo abaixo */
+body.gx-barra-topo table.ac-ap tr.ac-ap-lin{cursor:pointer}
+body.gx-barra-topo table.ac-ap tr.ac-ap-aberta > td{background:var(--sel-bg,var(--surface2))!important}
+body.gx-barra-topo table.ac-ap tr.ac-ed-linha > td{background:var(--surface2)!important;white-space:normal!important;overflow:visible!important;padding:8px 14px!important}
+body.gx-barra-topo table.ac-ap tr.ac-ed-linha .ac-ed-rot{font-weight:700;color:var(--titulo);margin-right:10px}

@@ -1127,7 +1127,8 @@ async function cardResumoEscritorio() {
       const rec = lancs.filter((l) => l.tipo === 'receita'), pag = lancs.filter((l) => l.tipo === 'despesa');
       return [pode('financeiro_juridico') ? card('fin-jur', 'A receber · Jurídico', rec.filter((l) => l.empresa !== 'contabilidade')) : null,
         pode('financeiro_contab') ? card('fin-contab', 'A receber · Contabilidade', rec.filter((l) => l.empresa === 'contabilidade')) : null,
-        card('fin-pagar', 'A pagar', pag)].filter(Boolean); })(),
+        // Backup 55: "A pagar" virou "A pagar · Contabilidade" e mostra só as despesas da contabilidade
+        pode('financeiro_contab') ? card('fin-pagar', 'A pagar · Contabilidade', pag.filter((l) => l.empresa === 'contabilidade')) : null].filter(Boolean); })(),
     ['tarefas', '📋', 'Tarefas do escritório', tAb, 'em aberto · equipe toda', [[tAtr, pl(tAtr, 'atrasada', 'atrasadas'), 'vermelho']].concat(prazos([0, tHoje, t5])), tAtr ? 'vermelho' : '']
   ].filter(Boolean);
   // Backup 38: ícones de traço fino num quadradinho (como nos prints), no lugar dos emojis coloridos
@@ -1149,7 +1150,7 @@ async function cardResumoEscritorio() {
   el.querySelectorAll('[data-ini-ir]').forEach((b) => b.onclick = () => {
     const k = b.dataset.iniIr;
     if (k === 'tarefas') E.tf = Object.assign(E.tf || {}, { aba: 'abertas', atalho: '' });
-    if (/^fin-/.test(k)) { if (typeof window.nav === 'function') window.nav(null, k === 'fin-contab' || (k === 'fin-pagar' && pode('financeiro_contab')) ? 'financeiroContab' : 'financeiro'); return; }
+    if (/^fin-/.test(k)) { if (typeof window.nav === 'function') window.nav(null, k === 'fin-contab' || k === 'fin-pagar' ? 'financeiroContab' : 'financeiro'); return; }
     if (k === 'publicacoes') E.pub = Object.assign(E.pub || { tribunal: '', dias: '30', busca: '' }, { status: 'nova', adv: primeiroNomeUsuario() });
     irParaTela(k);
   });
@@ -2691,7 +2692,7 @@ async function pintarAdmin() {
   if (mais) { mais.classList.toggle('ativo', !!noMais); mais.textContent = noMais ? '⋯ ' + noMais.rot : '⋯ Mais'; }
   const corpo = $('adm-corpo');
   corpo.innerHTML = '<div class="carregando">Carregando…</div>';
-  try { await ({ usuarios: admUsuarios, importar: admImportar, backup: admBackup, historico: admHistorico, acessos: admAcessos, clientes_email: admClientesEmail, automacoes: () => { E.adm.aba = 'usuarios'; irParaTela('automacoes'); }, email: admEmail })[E.adm.aba](corpo); }
+  try { await ({ usuarios: admUsuarios, importar: admImportar, backup: admBackup, historico: admHistorico, acessos: admAcessos, clientes_email: admClientesEmail, email: admEmail })[E.adm.aba](corpo); }
   catch (e) { console.error(e); corpo.innerHTML = '<div class="card"><div class="card-bd msg-erro">' + esc(erroAmigavel(e)) + '</div></div>'; }
 }
 
@@ -3309,23 +3310,19 @@ const TIPOS_EMAIL_AUTO = [['lembrete', 'Lembrete', 'Antes de vencer (honorários
   ['cobranca', 'Cobrança', 'Depois do atraso', ['email_cobranca_honorario']], ['recibo', 'Recibo', 'Pagamento recebido', ['email_pagamento_recebido']],
   ['parcelamento', 'Parcelamento', 'Guias e atraso do parcelamento', ['email_lembrete_parcelamento', 'email_atraso_parcelamento']], ['acordo', 'Acordo', 'Parcelas e atraso do acordo', ['email_lembrete_acordo', 'email_atraso_acordo']]];
 async function admEmailQuem(corpo) {
-  const [linhas, M, regras] = await Promise.all([q(sb.rpc('quem_recebe_emails')), q(sb.rpc('emails_matriz')).catch(() => ({})),
-    q(sb.from('regras_tarefas').select('chave, nome, ligada').eq('grupo', 'cliente_email')).catch(() => [])]);
-  const podeEd = pode('clientes', 'editar'), ligada = (ks) => !ks.length || ks.some((k) => (regras.find((r) => r.chave === k) || {}).ligada);
+  const [linhas, M] = await Promise.all([q(sb.rpc('quem_recebe_emails')), q(sb.rpc('emails_matriz')).catch(() => ({}))]);
+  const podeEd = pode('clientes', 'editar');
   E.adm.emFiltro = E.adm.emFiltro || '';
   const F = { '': ['Todos', () => true], sim: ['Recebem', (r) => r.recebe], nao: ['Não recebem', (r) => !r.recebe], sem: ['Sem e-mail', (r) => r.recebe && !r.destino] };
   const pinta = () => {
     const ver = linhas.filter(F[E.adm.emFiltro][1]);
-    // Backup 53: os tipos de e-mail automático que existem (liga/desliga para todos, em Automações) e, na tabela, quais cada cliente recebe
-    const tiposBox = '<div class="card em-tipos"><div class="card-hd">🔔 Tipos de e-mail automático<span class="sub">ligue ou desligue para todos os clientes (abre Automações); na tabela abaixo, ✓/✕ escolhe por cliente</span></div>' +
-      '<div class="card-bd em-tipos-l">' + TIPOS_EMAIL_AUTO.map(([k, r, d, ks]) => '<div class="em-tipo"><b>' + r + '</b><span class="sub">' + d + '</span>' +
-        (ks.length ? '<button type="button" class="pill ' + (ligada(ks) ? 'pago' : 'neutro') + '" data-em-regra="' + ks[0] + '" title="Abrir em Automações">' + (ligada(ks) ? 'ligado' : 'desligado') + '</button>' : '<span class="pill neutro" title="Só vai para quem tiver este tipo marcado">só marcados</span>') + '</div>').join('') + '</div></div>';
+    // Backup 55: o liga/desliga geral de cada tipo saiu daqui (fica só em E-mail → Automáticos); aqui ficam só os clientes e, nas colunas, a exceção de cada um
     const gn = (r) => r.grupo || '';
     const ord = ver.slice().sort((a, b) => (gn(a) || '\uffff').localeCompare(gn(b) || '\uffff', 'pt-BR') || String(a.cliente).localeCompare(String(b.cliente), 'pt-BR'));
     const celTipo = (r, k) => { const v = (M[r.cliente_id] || {})[k], on = v !== false;
       return '<td class="em-t"><button type="button" class="em-tk ' + (on ? 'em-tk-on' : 'em-tk-off') + '" data-em-tipo="' + k + '" data-em-tcli="' + r.cliente_id + '"' + (podeEd ? '' : ' disabled') +
         ' title="' + esc(r.cliente) + ' — ' + (on ? 'recebe' : 'não recebe') + ' este tipo (clique para trocar)" aria-pressed="' + on + '">' + (on ? '✓' : '✕') + '</button></td>'; };
-    corpo.innerHTML = tiposBox + '<div class="fila-chips em-filtros" role="group" aria-label="Filtro">' + Object.entries(F).map(([k, [r, f]]) => chipFiltro('data-em-f', k || '*', r + ' (' + linhas.filter(f).length + ')', E.adm.emFiltro === k)).join('') + '</div>' +
+    corpo.innerHTML = '<div class="fila-chips em-filtros" role="group" aria-label="Filtro">' + Object.entries(F).map(([k, [r, f]]) => chipFiltro('data-em-f', k || '*', r + ' (' + linhas.filter(f).length + ')', E.adm.emFiltro === k)).join('') + '</div>' +
       '<div class="card"><div class="tabela-wrap"><table class="cli-tabela em-quem"><thead><tr><th>Grupo</th><th>Cliente</th><th>E-mail de destino</th><th>Recebe</th>' +
       TIPOS_EMAIL_AUTO.map(([k, r, d]) => '<th class="em-t" title="' + esc(d) + '">' + r + '</th>').join('') + '<th data-tipo="data">Último e-mail</th></tr></thead><tbody>' +
       // Backup 50: clicar no cliente abre o cadastro (aba Contatos); ✎ troca o e-mail de destino aqui mesmo
@@ -3340,7 +3337,6 @@ async function admEmailQuem(corpo) {
         : '<tr><td colspan="' + (5 + TIPOS_EMAIL_AUTO.length) + '">' + vazio('Ninguém neste filtro.') + '</td></tr>') + '</tbody></table></div></div>' +
       '<div class="dica">Clique em <b>✉ Sim</b> / <b>✕ Não</b> para trocar. Quem está em "Não" não recebe nada do escritório (nem rascunho). Nas colunas de tipo, <b>✓</b>/<b>✕</b> escolhe quais e-mails automáticos aquele cliente recebe ' +
         '(ex.: recebe o de Vencimento, mas não o de Acordo). <b>✎</b> troca o e-mail de destino; clique no <b>nome do cliente</b> para abrir o cadastro completo (vários e-mails, setores).</div>';
-    corpo.querySelectorAll('[data-em-regra]').forEach((b) => b.onclick = () => irParaTela('automacoes'));
     corpo.querySelectorAll('[data-em-tipo]').forEach((b) => b.onclick = () => comBotao(b, async () => {
       const cli = b.dataset.emTcli, k = b.dataset.emTipo, novo = !((M[cli] || {})[k] !== false);
       M[cli] = await q(sb.rpc('salvar_email_tipo', { p_cliente: cli, p_tipo: k, p_valor: novo }));
@@ -4112,17 +4108,15 @@ TELAS.tarefas = async function () {
   if (F.vista === 'kanban') F.vista = 'lista';
   if (F.atalho === 'minhas') F.atalho = '';
   $('conteudo').innerHTML =
-    // Backup 49: abas junto do título; só "+ Nova tarefa" e "Delegar" à vista — o resto no ⚙; a criação rápida abre no ⚡
+    // Backup 49: abas junto do título; só "+ Nova tarefa" e "Fluxo" à vista — o resto no ⚙ (Backup 55: a criação rápida ⚡ saiu)
     '<div class="titulo-pag"><div><h1>Tarefas</h1><div class="segmento tf-abas-seg" id="tf-abas">' + [['abertas', 'Em aberto'], ['concluidas', 'Concluídas'], ['excluidas', 'Excluídas']]
       .map(([v, r]) => '<button data-aba="' + v + '">' + r + '</button>').join('') + '</div></div>' +
-    '<div class="acoes"><button class="btn btn-o tf-bt-ic" id="tf-rapida-bt" title="Criação rápida: escreva a tarefa numa linha (ex.: Protocolar defesa amanhã @Emanuelle !alta)" aria-expanded="false">⚡</button>' +
+    '<div class="acoes">' +
     '<span class="tf-cfg-wrap"><button class="btn btn-o tf-bt-ic" id="tf-config" title="Configurar: modelos de fluxo, feriados, Google Agenda e novo fluxo" aria-expanded="false">⚙</button>' +
       '<span class="tf-cfg-menu" id="tf-cfg-menu" hidden><button class="btn btn-o" id="tf-modelos">Modelos de fluxo</button>' +
       '<button class="btn btn-o" id="tf-feriados">Feriados</button><button class="btn btn-o" id="tf-agenda" title="Prazos fatais e audiências no seu Google Agenda">📅 Google Agenda</button></span></span>' +
     // Backup 54: "Delegar" saiu daqui — virou o botão "Fluxo" (as sequências com validação, como "Lead completo", estão na lista de modelos do fluxo)
     '<button class="btn btn-o" id="tf-fluxo" title="Cria várias tarefas de uma vez a partir de um modelo (inclui as sequências com validação, ex.: Lead completo)">🔀 Fluxo</button><button class="btn btn-p" id="tf-nova">+ Nova tarefa</button></div></div>' +
-    '<div class="tf-rapida" id="tf-rapida-box" hidden><input id="tf-rapida" autocomplete="off" placeholder="⚡ Criação rápida: “Protocolar defesa amanhã @Emanuelle !alta” e Enter" aria-label="Criação rápida de tarefa">' +
-      '<div id="tf-rapida-prev" class="tf-rapida-prev"></div></div>' +
     '<div id="tf-kpis"></div><div class="filtros">' +
     '<div class="segmento" id="tf-vista">' + [['lista', 'Lista'], ['calendario', 'Calendário'], ['fluxos', 'Fluxos']]
       .map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
@@ -4130,8 +4124,6 @@ TELAS.tarefas = async function () {
     // Backup 48/49: Mostrar (tipo, prioridade e prazo) e De quem — o mesmo desenho da agenda do Início
     '</div><div class="fila-filtros tf-filtros" id="tf-chips"></div><div id="tf-corpo"><div class="carregando">Carregando…</div></div>';
   $('tf-nova').onclick = () => formTarefa({}, () => TELAS.tarefas());
-  ligarCriacaoRapida();
-  $('tf-rapida-bt').onclick = () => { const bx = $('tf-rapida-box'); bx.hidden = !bx.hidden; $('tf-rapida-bt').setAttribute('aria-expanded', String(!bx.hidden)); if (!bx.hidden) $('tf-rapida').focus(); };
   $('tf-config').onclick = (ev) => { ev.stopPropagation(); const m = $('tf-cfg-menu'); m.hidden = !m.hidden; $('tf-config').setAttribute('aria-expanded', String(!m.hidden)); };
   if (!window._tfCfgDoc) { window._tfCfgDoc = true; document.addEventListener('click', (ev) => { const m = $('tf-cfg-menu'); if (m && !m.hidden && !ev.target.closest('.tf-cfg-wrap')) m.hidden = true; }); }
   $('tf-cfg-menu').addEventListener('click', () => { setTimeout(() => { const m = $('tf-cfg-menu'); if (m) m.hidden = true; }, 0); });
@@ -4244,8 +4236,9 @@ function vistaLista(alvo) {
     const sub = [pai ? 'parte de: ' + pai : '', cli ? nomeCliente(t.cliente_id) : '', t.processos_vinculados, t.etiquetas].filter(Boolean).join(' · ');
     return '<tr class="clicavel' + (tarefaFechada(t) ? ' tf-feita' : '') + '" data-abrir-t="' + t.id + '"><td>' + (grupo ? esc(grupo) : '<span class="sub">—</span>') + '</td>' +
       '<td style="padding-left:' + (12 + nivel * 22) + 'px">' + bolinha(t) + ' ' + (nivel ? '<span class="sub">↳ </span>' : '') + esc(t.titulo) + seloFatal(t) +
-      (t.recorrencia ? ' <span class="pill neutro tf-repete" title="' + esc(textoRepete(t)) + '">' + esc(textoRepete(t)) + '</span>' : '') + ' ' + barraProgresso(progresso(t, filhas)) +
-      (sub ? '<div class="sub">' + esc(sub) + '</div>' : '') + '</td>' +
+      (t.recorrencia ? ' <span class="pill neutro tf-repete" title="' + esc(textoRepete(t)) + '">' + esc(textoRepete(t)) + '</span>' : '') +
+      // Backup 55: o progresso do fluxo vai na linha de baixo, junto do cliente (a tarefa ocupa no máximo 2 linhas)
+      ((sub || progresso(t, filhas)) ? '<div class="sub tf-linha2">' + barraProgresso(progresso(t, filhas)) + (sub ? ' ' + esc(sub) : '') + '</div>' : '') + '</td>' +
       '<td>' + pillPessoa(t.responsavel) + '</td><td><span class="pill ' + pr[1] + '">' + esc(pr[0]) + '</span></td><td>' + pillStatusTarefa(t.status) + '</td>' +
       // Backup 50: Prazo e Dias em colunas separadas (como no Financeiro)
       '<td class="mono" data-ord="' + esc(t.prazo || '9999') + '">' + (t.prazo ? dataBR(t.prazo) : '<span class="sub">—</span>') + '</td>' +
@@ -4806,7 +4799,7 @@ async function pintarTempo(j, t) {
   });
 }
 // Tarefas → Regras automáticas (o admin liga, desliga e ajusta)
-// (a antiga janela de regras virou a tela Automações — telas-automacoes.js)
+// (as regras automáticas rodam sozinhas pelo pg_cron; o liga/desliga dos e-mails fica em Administração → E-mail → Automáticos)
 function quandoRodou(v) { const d = new Date(v); return isNaN(d) ? '—' : d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); }
 
 // ─────────────────────────── fluxos e modelos ───────────────────────────
@@ -5042,49 +5035,6 @@ async function janelaAgenda(novo) {
     rodape: '<button class="btn btn-o" type="button" id="ag-trocar">Trocar link</button><div class="acoes"><button class="btn btn-p" type="button" id="ag-copiar">Copiar link</button></div>' });
   j.querySelector('#ag-copiar').onclick = async () => { try { await navigator.clipboard.writeText(link); aviso('Link copiado. Agora cole no Google Agenda → Do URL.'); } catch (e) { j.querySelector('#ag-link').select(); aviso('Selecionei o link: aperte Ctrl+C para copiar.'); } };
   j.querySelector('#ag-trocar').onclick = () => { if (confirm('Trocar o link? O link antigo para de funcionar e você precisará adicionar o novo no Google Agenda.')) { fecharJanela(j); janelaAgenda(true); } };
-}
-
-// ─────────── Criação rápida (Backup 16): "Protocolar defesa amanhã @Emanuelle !alta #tributário" ───────────
-const DIAS_SEMANA_TF = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];
-function interpretarRapida(texto) {
-  let t = ' ' + String(texto || '') + ' ', prazo = null, resp = '', pri = 'media';
-  const h = hojeISO(), tira = (re) => { t = t.replace(re, ' '); };
-  const m1 = /\s@([\wÀ-ÿ]+(?:\s[A-ZÀ-Ý][\wÀ-ÿ]+)?)/.exec(t);
-  if (m1) { const alvo = primeiroNome(m1[1]), p = pessoasEscritorio().find((x) => primeiroNome(x) === alvo || normalizar(x) === normalizar(m1[1])); if (p) { resp = p; tira(m1[0]); } }
-  const m2 = /\s!(alta|media|média|baixa|urgente)\b/i.exec(t);
-  if (m2) { pri = /baixa/i.test(m2[1]) ? 'baixa' : /alta|urgente/i.test(m2[1]) ? 'alta' : 'media'; tira(m2[0]); }
-  const etq = []; t = t.replace(/\s#([\wÀ-ÿ-]+)/g, (_, e) => { etq.push(e); return ' '; });
-  const n = normalizar(t);
-  let m;
-  if ((m = /\s(depois de amanha)\s/.exec(n))) { prazo = somarDias(h, 2); t = t.slice(0, m.index) + ' ' + t.slice(m.index + m[0].length - 1); }
-  else if ((m = /\s(amanha)\s/.exec(n))) { prazo = somarDias(h, 1); t = t.slice(0, m.index) + ' ' + t.slice(m.index + m[0].length - 1); }
-  else if ((m = /\s(hoje)\s/.exec(n))) { prazo = h; t = t.slice(0, m.index) + ' ' + t.slice(m.index + m[0].length - 1); }
-  else if ((m = /\s(?:em|daqui a)\s(\d{1,3})\sdias?\s/.exec(n))) { prazo = somarDias(h, +m[1]); t = t.slice(0, m.index) + ' ' + t.slice(m.index + m[0].length - 1); }
-  else if ((m = /\s(?:ate |na |no )?(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\s/.exec(n))) {
-    const ano = m[3] ? (m[3].length === 2 ? '20' + m[3] : m[3]) : h.slice(0, 4);
-    let d = ano + '-' + m[2].padStart(2, '0') + '-' + m[1].padStart(2, '0'); if (!m[3] && d < h) d = (+ano + 1) + d.slice(4);
-    prazo = d; t = t.slice(0, m.index) + ' ' + t.slice(m.index + m[0].length - 1);
-  } else if ((m = /\s(?:na |no |ate |proxima |proximo )?(domingo|segunda|terca|quarta|quinta|sexta|sabado)(?:-feira)?\s/.exec(n))) {
-    const alvo = DIAS_SEMANA_TF.indexOf(m[1]), hoje = new Date(h + 'T12:00:00').getDay();
-    prazo = somarDias(h, ((alvo - hoje + 7) % 7) || 7); t = t.slice(0, m.index) + ' ' + t.slice(m.index + m[0].length - 1);
-  }
-  return { titulo: t.replace(/\s+/g, ' ').trim(), prazo, responsavel: resp, prioridade: pri, etiquetas: etq.join(', ') };
-}
-function ligarCriacaoRapida() {
-  const inp = $('tf-rapida'), prev = $('tf-rapida-prev'); if (!inp) return;
-  const mostra = () => { const r = interpretarRapida(inp.value);
-    prev.innerHTML = inp.value.trim() ? '<b>' + esc(r.titulo || '—') + '</b> · ' + (r.prazo ? 'prazo ' + dataBR(r.prazo) : 'sem prazo') + ' · ' + (r.responsavel ? pillPessoa(r.responsavel) : 'você') +
-      ' · <span class="pill ' + PRIORIDADE[r.prioridade][1] + '">' + PRIORIDADE[r.prioridade][0] + '</span>' + (r.etiquetas ? ' · #' + esc(r.etiquetas) : '') + ' <span class="sub">— Enter cria</span>' : ''; };
-  inp.oninput = mostra;
-  inp.onkeydown = (ev) => { if (ev.key !== 'Enter') return; ev.preventDefault();
-    const r = interpretarRapida(inp.value); if (!r.titulo) return aviso('Escreva o que precisa ser feito.', true);
-    comBotao(null, async () => {
-      const resp = r.responsavel || (E.perfil && (E.perfil.nome || '').split(' ')[0]) || '';
-      await q(sb.from('tarefas').insert({ titulo: r.titulo, prazo: r.prazo, responsavel: resp, prioridade: r.prioridade, etiquetas: r.etiquetas, status: 'pendente', inicio: hojeISO() }));
-      if (r.responsavel && primeiroNome(r.responsavel) !== primeiroNome(meuNome())) await notificar(r.responsavel, 'Nova tarefa para você: ' + r.titulo, r.prazo ? 'Prazo ' + dataBR(r.prazo) : '', 'tarefas').catch(() => {});
-      aviso('✓ Tarefa criada: ' + r.titulo + (r.prazo ? ' (prazo ' + dataBR(r.prazo) + ')' : '') + '.'); inp.value = ''; prev.innerHTML = ''; await recarregarTarefas();
-    });
-  };
 }
 
 // ─────────── Minha semana: segunda a sexta, arrastar para remarcar ───────────
@@ -7313,103 +7263,6 @@ async function janelaCnpj(execs) {
 
 'use strict';
 // ═══════════════════════════════════════════════════════════════════
-// Central de automações — tudo o que o sistema faz sozinho, num lugar só:
-// tarefas automáticas, e-mails ao cliente, integrações e rotinas agendadas.
-// Liga/desliga salva na hora (só o administrador altera); cada automação mostra
-// quantas vezes agiu nos últimos 30 dias (tabela automacoes_log) e as últimas ações.
-// ═══════════════════════════════════════════════════════════════════
-const GRUPOS_AUTOMACAO = [
-  ['tarefas', '🗂 Tarefas automáticas', 'Um lançamento cria (e conclui) tarefas sozinho, sem duplicar.'],
-  ['cliente_email', '✉ E-mails automáticos', 'Tudo o que manda e-mail ao cliente. Respeitam a chave "Recebe e-mails" de cada cliente e nunca repetem a mesma cobrança.'],
-  ['integracao', '🔗 Integrações', 'Consultas automáticas a serviços externos gratuitos.']
-];
-// prefixo gravado no registro → automação
-const PREFIXO_AUTOMACAO = { 'rot-conf': 'rotina_conferir', 'rot-sup': 'rotina_supervisao', onb: 'contrato_onboarding', proc: 'processo_novo', cert: 'certidao_vencendo', doc: 'certidao_vencendo', parc: 'parcela_parcelamento',
-  aco: 'parcela_acordo', cob: 'cobrar_honorario', anexo: 'contrato_anexo', procur: 'processo_procuracao', pagamento_conclui: 'pagamento_conclui', pub: 'publicacao_tarefa',
-  cliente_novo_cnpj: 'cliente_novo_cnpj', email_lp: 'email_lembrete_parcelamento', email_lh: 'email_lembrete_honorario', email_ch: 'email_cobranca_honorario', email_la: 'email_lembrete_acordo', email_pr: 'email_pagamento_recebido', email_vh: 'email_lembrete_honorario', 'crm-parada': 'crm_parada', 'crm-follow': 'crm_followup', email_bv: 'email_boas_vindas' };
-// automações que não usam "N dias"
-const SEM_DIAS = ['pagamento_conclui', 'cliente_novo_cnpj', 'email_pagamento_recebido', 'email_boas_vindas'];
-// automações de tarefa que não criam tarefa nova (não têm responsável)
-const SEM_RESP = ['pagamento_conclui', 'escalar_atraso'];
-
-TELAS.automacoes = async function () {
-  const admin = E.perfil && E.perfil.papel === 'admin';
-  const [regras, cont, log, ultReg, ultPub, cnpj, backup, emails, revisar] = await Promise.all([
-    q(sb.from('regras_tarefas').select('*').eq('oculta', false).order('nome')),
-    q(sb.rpc('resumo_automacoes')).catch(() => ({})),
-    q(sb.from('automacoes_log').select('*').neq('chave', '_item').order('quando', { ascending: false }).limit(25)).catch(() => []),
-    q(sb.from('configuracoes').select('valor').eq('chave', 'regras_tarefas_ultima').maybeSingle()).catch(() => null),
-    q(sb.from('configuracoes').select('valor').eq('chave', 'publicacoes_ultima').maybeSingle()).catch(() => null),
-    q(sb.from('cnpj_execucoes').select('inicio, status, mensagem').order('inicio', { ascending: false }).limit(1)).catch(() => []),
-    admin ? q(sb.from('backups_auto').select('criado_em, tamanho').order('criado_em', { ascending: false }).limit(1)).catch(() => []) : [],
-    admin ? q(sb.from('email_fila').select('status, criado_em').gte('criado_em', new Date(Date.now() - 7 * 864e5).toISOString())).catch(() => []) : [],
-    q(sb.rpc('emails_revisar')).catch(() => false)
-  ]);
-  // Backup 49 (30): toda regra que manda e-mail ao cliente fica no bloco "E-mails automáticos"
-  const grupoDe = (r) => /^email_/.test(r.chave) || r.chave === 'crm_followup' ? 'cliente_email' : (r.grupo || 'tarefas');
-  const porRegra = {};
-  Object.entries(cont || {}).forEach(([pref, n]) => { const k = PREFIXO_AUTOMACAO[pref] || pref; porRegra[k] = (porRegra[k] || 0) + n; });
-  const ligadas = regras.filter((r) => r.ligada).length, acoes = Object.values(porRegra).reduce((a, n) => a + n, 0);
-  const envCli = ['email_lh', 'email_ch', 'email_la', 'email_pr'].reduce((a, k) => a + ((cont || {})[k] || 0), 0);
-  const linha = (r) => '<div class="au-item' + (r.ligada ? ' ligada' : '') + '" data-au="' + r.chave + '">' +
-    '<label class="au-chave" title="' + (admin ? 'Ligar / desligar' : 'Só o administrador altera') + '"><input type="checkbox" role="switch" data-au-lig="' + r.chave + '"' + (r.ligada ? ' checked' : '') + (admin ? '' : ' disabled') +
-      ' aria-label="' + esc(r.nome) + '"><span class="au-trilho" aria-hidden="true"></span></label>' +
-    '<div class="au-txt"><b>' + esc(r.nome) + '</b><div class="sub">' + esc(r.descricao) + '</div></div>' +
-    '<div class="au-cfg">' +
-      (SEM_DIAS.includes(r.chave) ? '' : '<label class="au-dias">N = <input type="number" min="0" max="90" data-au-dias="' + r.chave + '" value="' + r.dias + '"' + (admin ? '' : ' disabled') + '> dia(s)</label>') +
-      (r.grupo === 'tarefas' && !SEM_RESP.includes(r.chave) ? '<input class="au-resp" list="au-pessoas" data-au-resp="' + r.chave + '" value="' + esc(r.responsavel) + '" placeholder="responsável padrão"' + (admin ? '' : ' disabled') + '>' : '') +
-      '<span class="pill ' + (porRegra[r.chave] ? 'aberto' : 'neutro') + '" title="Vezes que agiu nos últimos 30 dias">' + (porRegra[r.chave] || 0) + '× em 30 dias</span>' +
-    '</div></div>';
-  const rotina = (nome, quando, det, nivel, botao) => '<div class="au-item au-rotina"><span class="au-pt ' + nivel + '" aria-hidden="true"></span>' +
-    '<div class="au-txt"><b>' + esc(nome) + '</b><div class="sub">' + det + '</div></div><div class="au-cfg"><span class="sub mono">' + (quando === false ? 'automática' : quando ? quandoRodou(quando) : 'nunca rodou') + '</span>' + (botao || '') + '</div></div>';
-  const ult = (x) => x && x.valor ? x.valor : null;
-  const erroEmail = emails.filter((m) => m.status === 'erro').length;
-  $('conteudo').innerHTML =
-    '<div class="titulo-pag"><div><h1>Automações</h1><p>Tudo o que o sistema faz sozinho: com poucos lançamentos, várias ações encadeadas</p></div>' +
-    '<div class="acoes"><button class="btn btn-o" id="au-rodar">↻ Rodar regras agora</button></div></div>' +
-    '<div class="kpis">' + kpi('Ligadas', ligadas + ' de ' + regras.length, 'verde', 'automações ativas') + kpi('Ações em 30 dias', String(acoes), '', 'tarefas criadas/concluídas e e-mails') +
-      kpi('E-mails ao cliente', String(envCli), envCli ? '' : 'ambar', 'enviados nos últimos 30 dias') +
-      kpi('Última execução', ult(ultReg) ? quandoCurto(ult(ultReg).quando) : '—', '', ult(ultReg) ? ult(ultReg).criadas + ' novidade(s)' : 'as regras rodam todo dia útil de manhã') + '</div>' +
-    GRUPOS_AUTOMACAO.map(([g, tit, desc]) => { const rs = regras.filter((r) => grupoDe(r) === g); return rs.length ?
-      '<div class="card' + (g === 'cliente_email' ? ' au-emails' : '') + '"><div class="card-hd">' + tit + '<span class="sub" style="margin-left:auto;font-weight:400">' + esc(desc) + '</span></div>' +
-      (g === 'cliente_email' ? '<div class="au-item au-geral"><label class="au-chave" title="' + (admin ? 'Ligar / desligar' : 'Só o administrador altera') + '"><input type="checkbox" role="switch" id="au-revisar"' + (revisar ? ' checked' : '') + (admin ? '' : ' disabled') + ' aria-label="Conferir antes de enviar"><span class="au-trilho" aria-hidden="true"></span></label>' +
-        '<div class="au-txt"><b>Conferir antes de enviar (chave geral)</b><div class="sub">Ligada: os e-mails automáticos ficam em Administração → E-mail → Para revisar até alguém clicar em "Enviar".</div></div></div>' : '') +
-      '<div class="au-lista">' + rs.map(linha).join('') + '</div></div>' : ''; }).join('') +
-    '<div class="card"><div class="card-hd">⏱ Rotinas agendadas<span class="sub" style="margin-left:auto;font-weight:400">rodam sozinhas no Supabase; aqui dá para conferir e rodar agora</span></div><div class="au-lista">' +
-      rotina('Regras e e-mails ao cliente', ult(ultReg) && ult(ultReg).quando, 'Dias úteis, 7h', ult(ultReg) ? 'ok' : 'atencao') +
-      rotina('Busca de publicações (DJEN)', ult(ultPub) && ult(ultPub).quando, 'Dias úteis, 7h e 13h' + (ult(ultPub) ? ' · ' + ult(ultPub).novas + ' nova(s) na última' : ''), ult(ultPub) ? ((ult(ultPub).erros || []).length ? 'critico' : 'ok') : 'atencao',
-        admin ? '<button class="btn btn-o btn-mini" data-au-fn="erp-publicacoes">Rodar agora</button>' : '') +
-      rotina('Cartão CNPJ', cnpj[0] && cnpj[0].inicio, 'Todo dia, 6h' + (cnpj[0] ? ' · ' + esc(cnpj[0].mensagem || cnpj[0].status) : ''), !cnpj[0] ? 'atencao' : cnpj[0].status === 'erro' ? 'critico' : cnpj[0].status === 'parcial' ? 'atencao' : 'ok',
-        admin ? '<button class="btn btn-o btn-mini" data-au-fn="erp-cnpj">Rodar agora</button>' : '') +
-      rotina('Mensalidades de consultoria', false, 'Todo dia, 6h30 · gera a competência do mês e reajusta pelo salário mínimo', 'ok') +
-      (admin ? rotina('Envio de e-mails', emails.length ? emails.map((m) => m.criado_em).sort().pop() : null, 'A cada 10 minutos · últimos 7 dias: ' + emails.filter((m) => m.status === 'enviado').length + ' enviado(s)' + (erroEmail ? ', ' + erroEmail + ' com erro' : ''), erroEmail ? 'critico' : 'ok') +
-        rotina('Backup semanal', backup[0] && backup[0].criado_em, 'Domingo, 3h · guarda as 8 últimas cópias', !backup[0] ? 'atencao' : Date.now() - new Date(backup[0].criado_em) > 8 * 864e5 ? 'critico' : 'ok',
-          '<button class="btn btn-o btn-mini" data-au-fn="erp-backup">Rodar agora</button>') : '') +
-    '</div></div>' +
-    '<div class="card"><div class="card-hd">🧾 Últimas ações automáticas</div>' +
-      (log.length ? '<div class="tabela-wrap"><table><thead><tr><th>Quando</th><th>O que aconteceu</th></tr></thead><tbody>' +
-        log.map((l) => '<tr' + (l.cliente_id ? ' class="clicavel" data-cli="' + l.cliente_id + '"' : '') + '><td class="mono">' + quandoRodou(l.quando) + '</td><td>' + esc(l.descricao) + '</td></tr>').join('') + '</tbody></table></div>'
-        : vazio('Nenhuma ação automática ainda. Elas aparecem aqui assim que acontecerem.')) + '</div>' +
-    datalistPessoas('au-pessoas');
-  const salvar = async (chave, campos, msg) => { await q(sb.from('regras_tarefas').update(campos).eq('chave', chave)); aviso('✓ ' + msg); };
-  $('conteudo').querySelectorAll('[data-au-lig]').forEach((c) => c.onchange = async () => {
-    try { await salvar(c.dataset.auLig, { ligada: c.checked }, (c.checked ? 'Ligada: ' : 'Desligada: ') + c.closest('.au-item').querySelector('b').textContent);
-      c.closest('.au-item').classList.toggle('ligada', c.checked); } catch (e) { c.checked = !c.checked; aviso(erroAmigavel(e), true); }
-  });
-  $('conteudo').querySelectorAll('[data-au-dias]').forEach((c) => c.onchange = () => salvar(c.dataset.auDias, { dias: Math.max(0, parseInt(c.value, 10) || 0) }, 'Prazo atualizado.').catch((e) => aviso(erroAmigavel(e), true)));
-  $('conteudo').querySelectorAll('[data-au-resp]').forEach((c) => c.onchange = () => salvar(c.dataset.auResp, { responsavel: c.value.trim() }, 'Responsável atualizado.').catch((e) => aviso(erroAmigavel(e), true)));
-  $('conteudo').querySelectorAll('[data-cli]').forEach((tr) => tr.onclick = () => abrirFicha(tr.dataset.cli));
-  const rev = $('au-revisar');
-  if (rev) rev.onchange = async () => { try { await q(sb.rpc('salvar_emails_revisar', { p: rev.checked })); aviso(rev.checked ? '✓ E-mails automáticos vão esperar a conferência (Administração → E-mail → Para revisar).' : '✓ E-mails automáticos saem sem conferência.'); }
-    catch (e) { rev.checked = !rev.checked; aviso(erroAmigavel(e), true); } };
-  $('au-rodar').onclick = (ev) => comBotao(ev.currentTarget, async () => { const n = await q(sb.rpc('rodar_regras_tarefas')); aviso('✓ Regras rodadas: ' + n + ' novidade(s).'); await TELAS.automacoes(); });
-  $('conteudo').querySelectorAll('[data-au-fn]').forEach((b) => b.onclick = () => comBotao(b, async () => {
-    const r = await chamarFuncao(b.dataset.auFn, { acao: 'rodar' }); aviso('✓ ' + (r.mensagem || 'Feito.')); await TELAS.automacoes();
-  }));
-};
-
-'use strict';
-// ═══════════════════════════════════════════════════════════════════
 // Guias (Backup 27) — emissão das guias de PARCELAMENTOS e dos boletos/PIX de ACORDOS,
 // pensada para o estagiário: 1) emitir  2) marcar "emitida" (data e quem, com o PDF guardado)
 // 3) mandar ao cliente por e-mail (a guia vai anexa)  4) conferir o pagamento (✓ Pago).
@@ -8147,6 +8000,8 @@ async function rotinaPassivo(el) {
       const pend = ids.filter((id) => alterados.has(id));
       if (pend.length) throw new Error('Há ' + plural(pend.length, 'empresa alterada', 'empresas alteradas') + ' neste grupo: salve (ou confira linha por linha) antes de conferir o grupo todo.');
       if (!ids.length) return;
+      // Backup 55: conferir pede confirmação
+      if (!confirm('Confirmar a conferência de ' + plural(ids.length, 'empresa', 'empresas') + ' deste grupo (sem alteração)?')) return;
       await q(sb.rpc('conferir_rotina', { p_area: 'passivo', p_ids: ids, p_alterou: false }));
       const agora = new Date().toISOString(), quem = E.perfil ? E.perfil.nome : '';
       ids.forEach((id) => { SIT[id] = Object.assign({}, SIT[id], { conferido_em: agora, conferido_por: quem, conferido_alterou: false });
@@ -8155,6 +8010,8 @@ async function rotinaPassivo(el) {
     // Backup 42: o ✓ da linha salva AQUELA linha — com alteração grava e marca "alterado"; sem alteração marca "conferido"
     const cf = ev.target.closest('[data-conferir]'); if (cf) return comBotao(cf, async () => {
       const id = cf.dataset.conferir, a = alterados.get(id), mudou = !!a;
+      const emp = ((cf.closest('tr').querySelector('td') || {}).textContent || 'esta empresa').trim().split('\n')[0].replace(/\s+\d[\d./-]+.*$/, '');
+      if (!confirm(mudou ? 'Salvar a alteração de ' + emp + ' e marcar como conferida?' : 'Confirmar que ' + emp + ' foi conferida (sem alteração)?')) return;
       if (a) await gravar([id, a]);
       await q(sb.rpc('conferir_rotina', { p_area: 'passivo', p_ids: [id], p_alterou: mudou }));
       SIT[id] = Object.assign({}, SIT[id], { conferido_em: new Date().toISOString(), conferido_por: E.perfil ? E.perfil.nome : '', conferido_alterou: mudou }, mudou ? { alterado_em: new Date().toISOString() } : {});
@@ -8275,7 +8132,7 @@ async function rotinaProcessos(el) {
       '<button type="button" class="btn btn-p btn-mini" id="rt-novo-proc" style="margin-left:auto">+ Processo</button></div>' +
     '<div class="card-bd">' + filtroRotina('') +
     '<div class="rt-segs" id="rt-proc-segs"></div>' +
-    '<div class="tabela-wrap rt-proc" data-sem-pagina><table><colgroup><col class="rt-w-pnum"><col class="rt-w-trib"><col class="rt-w-nat"><col><col class="rt-w-sn"><col class="rt-w-val"><col class="rt-w-conf"></colgroup>' +
+    '<div class="tabela-wrap rt-proc" data-sem-pagina><table><colgroup><col class="rt-w-pnum"><col class="rt-w-trib"><col class="rt-w-nat"><col class="rt-w-ult"><col class="rt-w-sn"><col class="rt-w-val"><col class="rt-w-conf"></colgroup>' +
       '<thead><tr><th>Processo</th><th>Tribunal</th><th>Natureza</th><th>Última movimentação</th><th>Procuração</th><th class="rt-num">Valor</th><th class="rt-c-conf">Conferência</th></tr></thead><tbody id="rt-proc-corpo"></tbody></table></div></div></div>';
   const base = () => { const b = normalizar(E.rt.busca);
     return P.filter((p) => (!E.rt.grupo || p.grupo_id === E.rt.grupo) && (!b || normalizar([p.numero, p.autor, p.reu, p.natureza, p._trib, p.grupos ? p.grupos.nome : ''].join(' ')).includes(b))); };
@@ -8682,11 +8539,16 @@ async function rotinaPlanilha(el) {
         (ab && (corte || prev.length > 3) ? '<tr class="pl-resumo"><td colspan="4"><button type="button" class="pl-mais" data-pl-fecha="' + p.id + '">▴ resumir</button></td></tr>' : '') +
         '</tbody></table>' : '<div class="pl-sem">Nenhuma parcela lançada neste parcelamento.</div>') + '</section>'; };
   const redesenharBloco = (id) => { const sec = el.querySelector('[data-pl-pa="' + id + '"]'), p = PA.find((y) => y.id === id); if (sec && p) sec.outerHTML = bloco(p);
+    igualarCabs();
     const r = $('pl-rolo'), bx = $('pl-barra-x'); if (r && bx) { bx.firstElementChild.style.width = r.scrollWidth + 'px'; bx.hidden = r.scrollWidth <= r.clientWidth + 2; }
     const ab = el.querySelector('.pl-aba.ativo'), n = nGrupo(E.rt.plGrupo); if (ab) ab.innerHTML = esc(E.rt.plGrupo) + (n ? ' <span class="pl-n" title="Guias a emitir">' + n + '</span>' : ''); };
   // Backup 46: cada empresa numa linha, com os parcelamentos dela lado a lado; a tela rola para o lado (barra fixa no rodapé)
+  // Backup 55: o cabeçalho de todos os blocos termina na mesma altura, para as linhas das parcelas ficarem alinhadas lado a lado
+  const igualarCabs = () => { const cabs = [...el.querySelectorAll('#pl-rolo .pl-bloco > .pl-cab')]; cabs.forEach((c) => { c.style.minHeight = ''; });
+    const h = Math.max(0, ...cabs.map((c) => c.getBoundingClientRect().height)); if (h) cabs.forEach((c) => { c.style.minHeight = Math.ceil(h) + 'px'; }); };
   const ligarRolo = () => {
     const rolo = $('pl-rolo'), bx = $('pl-barra-x'); if (!rolo || !bx) return;
+    igualarCabs();
     const ajustar = () => { bx.firstElementChild.style.width = rolo.scrollWidth + 'px'; bx.hidden = rolo.scrollWidth <= rolo.clientWidth + 2; };
     ajustar(); let lock = false;
     rolo.onscroll = () => { if (lock) return; lock = true; bx.scrollLeft = rolo.scrollLeft; lock = false; };

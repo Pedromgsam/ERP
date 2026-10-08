@@ -387,7 +387,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('vistas Lista, Calendário e Fluxos; sem Relatório, Quadro e Minha semana soltos (B41/B49)', !(await p.$('#tf-vista [data-v=relatorio]')) && !(await p.$('#tf-vista [data-v=kanban]')) && !(await p.$('#tf-vista [data-v=semana]')) &&
       (await p.$$eval('#tf-vista button', (bs) => bs.map((b) => b.dataset.v).join(','))) === 'lista,calendario,fluxos' && /execução fiscal/i.test(await p.textContent('#tf-vista-corpo')));
     ok('Tarefas (B49): só "+ Nova tarefa" e "Delegar" à vista; Modelos, Feriados, Google Agenda e Novo fluxo no ⚙; criação rápida no ⚡',
-      await p.isVisible('#tf-nova') && await p.isVisible('#tf-fluxo') && !(await p.$('#tf-delegar')) && !(await p.isVisible('#tf-modelos')) && !(await p.isVisible('#tf-rapida')) && await p.isVisible('#tf-config') && await p.isVisible('#tf-rapida-bt'));
+      await p.isVisible('#tf-nova') && await p.isVisible('#tf-fluxo') && !(await p.$('#tf-delegar')) && !(await p.isVisible('#tf-modelos')) && await p.isVisible('#tf-config') && !(await p.$('#tf-rapida-bt')));
     await p.click('#tf-vista [data-v=fluxos]'); await p.waitForTimeout(500);
     ok('fluxo com linha do tempo', (await p.$$('#tf-vista-corpo .gantt-lin')).length === 7);
     await foto(p, 'fluxos');
@@ -416,12 +416,10 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.keyboard.press('Escape');
     // regras automáticas: a Central continua (Administração → Automações); Backup 38: sem botão em Tarefas e sem sino
     ok('Tarefas sem o botão ⚡ Automações e barra sem o sino de avisos; lista sem ✎', !(await p.$('#tf-vista-corpo [data-editar-t]')) && !(await p.$('#tf-regras')) && !(await p.$('#gs-sino')));
-    await nav(p, 'automacoes'); await p.waitForSelector('#panel-automacoes #au-rodar'); await p.waitForTimeout(500);
-    ok('Central de automações lista as automações e as rotinas', (await p.$$('#panel-automacoes [data-au-lig]')).length === Number(sql("select count(*) from regras_tarefas where not oculta")) && /Rotinas agendadas/.test(await p.textContent('#panel-automacoes')));
+    ok('B55: a tela oculta de Automações saiu de vez', await p.evaluate(() => !window.GS.TELAS.automacoes) && !(await p.$('#panel-automacoes')));
     // Backup 52 (C2): a aba Atualizações saiu (o histórico das versões fica em backups/LEIA-ME.md)
     ok('B52 C2: sem "Atualizações" no menu e sem a tela', !(await p.$('#tn [data-ir=atualizacoes]')) && await p.evaluate(() => !window.GS.TELAS.atualizacoes && !window.ATUALIZACOES));
-    await nav(p, 'automacoes'); await p.waitForSelector('#panel-automacoes #au-rodar');
-    await p.click('#panel-automacoes #au-rodar'); await p.waitForTimeout(1500);
+    sql('select public.rodar_regras_tarefas()');
     await nav(p, 'tarefas'); await p.waitForTimeout(800);
     ok('rodar regras: parcela de acordo vencendo vira tarefa de acompanhamento, sem duplicar', sql("select count(*) from tarefas where chave_regra like 'aco:%'") === '0' || sql("select count(*) from tarefas where chave_regra like 'aco:%'") === '1');
 
@@ -710,20 +708,22 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.keyboard.press('Escape'); await p.waitForTimeout(200);
 
     // ── automações encadeadas (Central de automações) ──
-    await nav(p, 'automacoes'); await p.waitForSelector('#panel-automacoes [data-au-lig]'); await p.waitForTimeout(400);
+    // Backup 55: liga/desliga os e-mails ao cliente em Administração → E-mail → Automáticos (a tela Automações saiu)
+    await nav(p, 'admin'); await p.waitForSelector('#adm-abas'); await p.click('#adm-abas [data-aba=email]'); await p.waitForSelector('#em-abas');
+    await p.click('#em-abas [data-em-aba=auto]'); await p.waitForSelector('.em-auto [data-eq-regra="email_lembrete_honorario"]'); await p.waitForTimeout(300);
     ok('e-mails ao cliente já vêm ligados (só saem para quem tem e-mail); boas-vindas vem desligado', sql("select bool_and(ligada) from regras_tarefas where grupo='cliente_email' and chave<>'email_boas_vindas'") === 't' &&
       sql("select ligada from regras_tarefas where chave='email_boas_vindas'") === 'f');
-    await p.click('#panel-automacoes [data-au="email_lembrete_honorario"] .au-chave'); await p.waitForTimeout(900);
+    await p.click('.em-auto [data-eq-regra="email_lembrete_honorario"]'); await p.waitForTimeout(900);
     const desl = sql("select ligada from regras_tarefas where chave='email_lembrete_honorario'");
-    await p.click('#panel-automacoes [data-au="email_lembrete_honorario"] .au-chave'); await p.waitForTimeout(900);
-    ok('Central: desliga e liga um e-mail ao cliente com um clique (salva na hora)', desl === 'f' && sql("select ligada from regras_tarefas where chave='email_lembrete_honorario'") === 't');
+    await p.click('.em-auto [data-eq-regra="email_lembrete_honorario"]'); await p.waitForTimeout(900);
+    ok('E-mail → Automáticos: desliga e liga um e-mail ao cliente com um clique (salva na hora)', desl === 'f' && sql("select ligada from regras_tarefas where chave='email_lembrete_honorario'") === 't');
     sql("insert into contatos(cliente_id,nome,finalidade,email) select id,'Financeiro Alfa','financeiro','financeiro@alfa.teste' from clientes where nome='Alfa Comércio Ltda'");
     sql("insert into lancamentos(empresa,tipo,cliente_id,grupo_id,descricao,vencimento,valor) select 'escritorio','receita',id,grupo_id,'Honorário lembrete',current_date+3,700 from clientes where nome='Alfa Comércio Ltda'");
-    await p.click('#panel-automacoes #au-rodar'); await p.waitForTimeout(1800);
+    sql('select public.rodar_regras_tarefas()');
     const refLh = "(select referencia from email_fila where tipo='cliente' and referencia like 'email_lh:%' and html like '%Honorário lembrete%' limit 1)";
     ok('lembrete de honorário vai por e-mail ao contato financeiro do cliente (quem recebe boletos primeiro)', sql("select para from email_fila where tipo='cliente' and referencia=" + refLh) === 'fin@teste.com');
     ok('e-mail ao cliente no modelo novo (marca, tabela de itens)', sql("select (html like '%Araújo &amp; Castro%' and html like '%Vencimento%' and html like '%R$ 700,00%')::text from email_fila where referencia=" + refLh) === 'true');
-    await p.click('#panel-automacoes #au-rodar'); await p.waitForTimeout(1500);
+    sql('select public.rodar_regras_tarefas()');
     ok('rodar de novo não repete o e-mail', sql("select count(*) from email_fila where tipo='cliente' and referencia=" + refLh) === '1');
     // contrato novo → anexar; documento do contrato conclui sozinho
     sql("insert into contratos(cliente_id,descricao,valor_total,num_parcelas,data_contrato,modalidade) select id,'Contrato Automação',1000,1,current_date,'pontual' from clientes where nome='Beta Serviços Ltda'");
@@ -743,14 +743,12 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       ok('marcar "Procuração: Sim" no cadastro conclui a tarefa sozinho', sql("select status from tarefas where chave_regra like 'procur:%'") === 'concluida', opt); }
     // honorário recebido → conclui a cobrança
     sql("update regras_tarefas set ligada=true, dias=1 where chave='cobrar_honorario'");
-    await nav(p, 'automacoes'); await p.waitForSelector('#au-rodar'); await p.click('#au-rodar'); await p.waitForTimeout(1800);
+    sql('select public.rodar_regras_tarefas()');
     { const idL = sql("select id from lancamentos where descricao='Atraso antigo' limit 1");
       ok('regra de cobrança cria a tarefa "cobrar honorário"', sql("select count(*) from tarefas where chave_regra='cob:" + idL + "'") === '1');
       sql("update lancamentos set pago=true where id='" + idL + "'");
       ok('honorário recebido conclui a tarefa de cobrança sozinho', sql("select status from tarefas where chave_regra='cob:" + idL + "'") === 'concluida'); }
-    await nav(p, 'automacoes'); await p.waitForSelector('#au-rodar'); await p.waitForTimeout(500);
-    ok('Central mostra quantas vezes cada automação agiu e as últimas ações', /[1-9]× em 30 dias/.test(await p.textContent('#panel-automacoes [data-au="contrato_anexo"]')) &&
-      /tarefa concluída sozinha/.test(await p.textContent('#panel-automacoes')));
+    ok('as automações registram o que fizeram (automacoes_log)', sql("select (count(*) > 0)::text from automacoes_log") === 'true');
     // cliente novo com CNPJ → consulta na hora (fonte reserva para empresa recém-aberta) / aguardando
     await nav(p, 'clientes'); await p.waitForTimeout(900);
     for (const [nome, doc] of [['Empresa Nova (teste)', '33.444.555/0001-06'], ['Empresa Novíssima (teste)', '44.555.666/0001-77']]) {
@@ -1128,11 +1126,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.click('#tf-corpo [data-restaurar-t]'); await p.waitForTimeout(1500);
     ok('Tarefas: "Restaurar" volta para Em aberto', sql("select status from tarefas where titulo='Tarefa B15 excluir'") === 'pendente');
     // Backup 16: criação rápida, minha semana (arrastar), pular recorrência, relatório por cliente, carga
-    await p.click('#tf-rapida-bt'); await p.fill('#tf-rapida', 'Protocolar recurso B16 amanhã @Emanuelle !alta #trabalhista'); await p.waitForTimeout(200);
-    ok('Tarefas: criação rápida mostra o que entendeu', /Emanuelle/.test(await p.textContent('#tf-rapida-prev')) && /Alta/.test(await p.textContent('#tf-rapida-prev')));
-    await p.press('#tf-rapida', 'Enter'); await p.waitForTimeout(1500);
-    ok('Tarefas: criação rápida grava título, prazo (amanhã), pessoa, prioridade e etiqueta',
-      sql("select responsavel||'|'||prioridade||'|'||(prazo=current_date+1)::text||'|'||etiquetas from tarefas where titulo='Protocolar recurso B16'") === 'Emanuelle|alta|true|trabalhista');
+    ok('Tarefas (B55): sem a criação rápida ⚡', !(await p.$('#tf-rapida-bt')) && !(await p.$('#tf-rapida')));
     sql("insert into tarefas(titulo,responsavel,status,prazo,recorrencia) values ('Semana B16','Pedro','pendente',date_trunc('week', current_date)::date,'mensal')");
     await p.evaluate(() => { GS.E.tf = null; }); await nav(p, 'hoje'); await p.waitForTimeout(800); await nav(p, 'tarefas'); await p.waitForTimeout(1500);
     await p.click('#tf-vista [data-v=calendario]'); await p.waitForTimeout(400); await p.click('#tf-cal-vista [data-cal-v=semana]'); await p.waitForTimeout(600);
@@ -1485,8 +1479,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       sql("update clientes set recebe_email=true where id='" + cliQ + "'");
       await p.click('#em-abas [data-em-aba=saida]'); await p.waitForSelector('#em-revisar'); await p.waitForTimeout(300);   // Backup 51: "Para revisar" é o 1º filtro da Caixa de saída
       ok('B49: E-mail → Para revisar com a chave "conferir antes de enviar"', !!(await p.$('#em-revisar')) && !!(await p.$('[data-saida-f=revisar][aria-pressed=true]')));
-      await nav(p, 'automacoes'); await p.waitForSelector('.au-emails'); await p.waitForTimeout(300);
-      ok('B49: Automações com o bloco "E-mails automáticos" e a chave geral', /E-mails automáticos/.test(await p.textContent('.au-emails')) && !!(await p.$('#au-revisar')));
+      ok('B55: sem a tela Automações; a chave "conferir antes de enviar" fica na Caixa de saída', !!(await p.$('#em-revisar')));
       // Financeiro: Perdas dentro de Recebidos
       await nav(p, 'financeiro'); await p.evaluate(() => setFinTab('recebidos', document.querySelector('#finTabBar [data-tab=recebidos]'))); await p.waitForTimeout(800);
       ok('B49: Financeiro sem a aba Prejuízo; "Perdas" é filtro dentro de Recebidos', !(await p.isVisible('#finTabBar [data-tab=prejuizo]')) && !!(await p.$('#fin-perdas-seg [data-fin-perdas="1"]')));
@@ -1827,7 +1820,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       ok('B53 Rotina: clicar na parcela paga desmarca o pagamento', !!temNp && sql("select pago from parcelas where id='" + idPg53 + "'") === 'f');
       // Administração → E-mail: grade cliente × tipo e "Da Rotina" na Caixa de saída
       await nav(p, 'admin'); await p.waitForSelector('#adm-abas'); await p.click('#adm-abas [data-aba=email]'); await p.waitForSelector('#em-abas'); await p.click('#em-abas [data-em-aba=quem]'); await p.waitForSelector('.em-quem');
-      ok('B53 E-mail: Quem recebe no desenho de Clientes (faixa do grupo, nome sem azul) com os tipos de e-mail', (await p.$$('.em-quem tr.cli-grp')).length >= 1 && !(await p.$('.em-quem .lnk')) && (await p.$$('.em-quem thead th.em-t')).length === 6 && !!(await p.$('.em-tipos')));
+      ok('B53 E-mail: Quem recebe no desenho de Clientes (faixa do grupo, nome sem azul) com os tipos de e-mail', (await p.$$('.em-quem tr.cli-grp')).length >= 1 && !(await p.$('.em-quem .lnk')) && (await p.$$('.em-quem thead th.em-t')).length === 6 && !(await p.$('.em-tipos')));
       const cliB = sql("select id from clientes where nome='Beta Serviços Ltda'");
       await p.click('.em-quem [data-em-tipo=acordo][data-em-tcli="' + cliB + '"]'); await p.waitForTimeout(1500);
       ok('B53 E-mail: ✕ num tipo (Acordo) para um cliente grava só aquele tipo', sql("select perfil_email||'|'||(emails_tipos->>'acordo')||'|'||(emails_tipos->>'lembrete') from clientes where id='" + cliB + "'") === 'personalizado|false|true');
@@ -1867,6 +1860,38 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       ok('B54 Execuções: guarda contato de quem não é cliente (telefone, endereço)', sql("select count(*) from execucao_contatos where nome='Oficial B54' and endereco='Rua Teste, 54'") === '1' &&
         /Oficial B54/.test(await p.textContent('#gs-raiz #ex-contatos-l')));
       await fecharTudo();
+    }
+    // ── Backup 55: A pagar · Contabilidade, filtros 2×2 lado a lado, tabelas numa linha, Acordos editar pela parcela, conferir com confirmação, Planilha ──
+    {
+      const fecharTudo = async () => { for (let i = 0; i < 4; i++) { const f = await p.$('#gs-raiz .fundo [data-cancelar], #gs-raiz .fundo [data-fechar]'); if (!f) break; await f.click().catch(() => {}); await p.waitForTimeout(200); } };
+      sql("insert into lancamentos (empresa, tipo, descricao, valor, vencimento) values ('contabilidade','despesa','Despesa contab B55',111,current_date), ('escritorio','despesa','Despesa escritorio B55',999,current_date)");
+      await nav(p, 'hoje'); await p.waitForSelector('#ini-resumo [data-ini-ir=fin-pagar]'); await p.waitForTimeout(500);
+      const pagTxt = await p.textContent('#ini-resumo [data-ini-ir=fin-pagar]');
+      ok('B55 Início: cartão "A pagar · Contabilidade" só com as despesas da contabilidade', /A pagar · Contabilidade/.test(pagTxt) && /111/.test(pagTxt) && !/999|1\.110/.test(pagTxt), pagTxt);
+      await nav(p, 'tarefas'); await p.waitForSelector('#tf-chips.fila-2x2'); await p.waitForTimeout(300);
+      const pos = await p.evaluate(() => { const c = [...document.querySelectorAll('#tf-chips > .fila-chips')]; const r = c.map((x) => x.getBoundingClientRect()), w = document.querySelector('#tf-chips').getBoundingClientRect();
+        return { a: r[0] && r[0].right, b: r[1] && r[1].left, larg: w.width, ini: w.left }; });
+      ok('B55 Tarefas: Urgência e Prazo logo depois de Mostrar/De quem (não colados na direita)', pos.b > pos.a && pos.b - pos.a < 120 && pos.b - pos.ini < pos.larg * 0.8, JSON.stringify(pos));
+      await nav(p, 'resumo'); await p.waitForSelector('#tblExecRanking tr'); await p.waitForTimeout(600);
+      ok('B55 Painel: com a faixa do grupo, a coluna Grupo some e cada empresa fica numa linha', await p.evaluate(() => { const t = document.querySelector('#tblExecRanking').closest('table');
+        const g = t.querySelector('thead th.col-grupo'); const tr = [...t.querySelectorAll('tbody tr')].find((x) => x.querySelector('td.col-nome'));
+        return t.classList.contains('tem-faixa') && (!g || getComputedStyle(g).display === 'none') && !!tr && getComputedStyle(tr.querySelector('td.col-nome')).whiteSpace === 'nowrap'; }));
+      ok('B55 tabelas: CPF/CNPJ discreto (letra menor, cinza)', await p.evaluate(() => { const td = document.querySelector('#tblExecRanking td.col-doc'); if (!td) return false; const c = getComputedStyle(td); return parseFloat(c.fontSize) < 13; }));
+      await nav(p, 'acordos'); await p.waitForSelector('#tblAcordosVencBody tr[data-ac-id]', { timeout: 10000 }).catch(() => {});
+      const temAc = await p.$('#tblAcordosVencBody tr[data-ac-id] td:nth-child(3)');
+      if (temAc) { await temAc.click(); await p.waitForTimeout(300);
+        ok('B55 Acordos: clicar na parcela abre "Só esta parcela" e "O acordo inteiro"', !!(await p.$('#tblAcordosVencBody tr.ac-ed-linha [data-ac-ed=parcela]')) && !!(await p.$('#tblAcordosVencBody tr.ac-ed-linha [data-ac-ed=acordo]')));
+        await p.click('#tblAcordosVencBody tr.ac-ed-linha [data-ac-ed=acordo]'); await p.waitForSelector('#gs-raiz #f-acordo-todo', { timeout: 5000 }).catch(() => {});
+        ok('B55 Acordos: "O acordo inteiro" abre a edição de todas as parcelas', !!(await p.$('#gs-raiz #f-acordo-todo')));
+        await fecharTudo(); }
+      else ok('B55 Acordos: há parcela a pagar para testar a edição pela linha', false);
+      // Rotina → Passivo: ✓ pede confirmação
+      const dlg = []; const ouve = (d) => dlg.push(d.message()); p.on('dialog', ouve);
+      await p.evaluate(() => { GS.E.rt = Object.assign(GS.E.rt || {}, { aba: 'passivo' }); nav(null, 'rotina'); }); await p.waitForSelector('#rt-pas-corpo [data-conferir]', { timeout: 10000 });
+      await p.click('#rt-pas-corpo [data-conferir]'); await p.waitForTimeout(800);
+      p.off('dialog', ouve);
+      ok('B55 Rotina: conferir uma empresa do passivo pede confirmação', dlg.some((m) => /conferida/.test(m)), dlg.join(' | '));
+      sql("delete from lancamentos where descricao in ('Despesa contab B55','Despesa escritorio B55')");
     }
     // ── sair ──
     await p.evaluate(() => acLogout()); await p.waitForTimeout(800);

@@ -174,7 +174,7 @@ Se precisar dele de volta, basta voltar a publicação na Vercel (passo A acima)
 - **Alertas:** dentro do relatório de um alerta, **📋 Virar tarefa** → escolha quem faz (você ou o estagiário), o prazo e se
   cada linha vira subtarefa (com prazo) ou item do checklist. O cartão PGFN fica escondido até o SERPRO ser contratado.
 - **Prompts prontos** para as próximas rodadas (e-mails de honorários/parcelamentos/acordos/recibos, CRM, Tarefas):
-  `sistema/PROMPTS-BACKUP-15.md`.
+  `sistema/arquivo/PROMPTS-BACKUP-15.md`.
 
 ## Backup 16 — o que mudou e onde clicar
 - **Início (a "home" do escritório):** logo abaixo do mural, o **🏠 Resumo do escritório** (processos, publicações, parcelamentos, acordos,
@@ -367,7 +367,7 @@ Ordem: **1) Merge  2) Ctrl+Shift+R**. O banco não mudou.
 - **Início:** "guias de parcelamento a emitir" saiu do cartão de Lembretes e virou um destaque ao lado de **avisos não lidos** e **tarefas
   suas atrasadas**. Clique nele para ver a lista e marcar "Guia emitida".
 - **Painel Executivo:** saíram os gráficos "Passivo total por grupo" e "Distribuição por órgão".
-- Prompt para o novo chat "ERP Automação": `sistema/PROMPT-AUTOMACAO.md`.
+- Prompt para o novo chat "ERP Automação": `sistema/arquivo/PROMPT-AUTOMACAO.md`.
 
 ## Backup 25 — Parcelamentos e Acordos por grupo, guias por parcelamento (tem SQL)
 Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+Shift+R**. Nenhuma função do Supabase mudou.
@@ -707,6 +707,30 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
 **Central de Documentos dentro do ERP:** menu **Documentos → Gerar documento** (ou ⋯ → Documentos, contrato, recibo do Financeiro).
 **Ctrl + clique** (ou botão do meio do mouse) em qualquer item do menu ou link de documento abre numa aba nova.
 
+## Backup 55 — Tabelas no padrão do ERP antigo, Acordos editar pela parcela, Rotina, horário de Brasília e limpeza (tem SQL; nenhuma função nova)
+1. Merge da pull request.
+2. SQL: rode o `sistema/banco/estrutura.sql` inteiro (a última linha é `-- ═══ fim do Backup 55 ═══`).
+3. **Ctrl+Shift+R** no ERP. Confira na Vercel (Deployments) que a primeira linha Production é do horário do seu Merge.
+
+O que mudou (onde fica):
+- **Todas as tabelas:** letra 13 px e cabeçalho 11,5 px, como no ERP antigo; uma linha por registro. Quando a tabela já tem a faixa do grupo, a coluna "Grupo" some.
+  CPF/CNPJ fica discreto (menor e cinza). Nome, natureza, autor e réu longos terminam em "…": passe o mouse para ver o texto inteiro.
+- **Início:** o cartão "A pagar" virou **A pagar · Contabilidade** e mostra só as despesas da contabilidade.
+- **Tarefas:** Urgência e Prazo ficam logo depois de Mostrar e De quem. A criação rápida (⚡) saiu.
+- **Acordos → A pagar:** clique na linha da parcela e escolha **Só esta parcela** ou **O acordo inteiro**.
+- **Rotina:**
+  - Passivo: Empresa mais larga e Conferência mais estreita; o ✓ e "Conferir o grupo todo" pedem confirmação.
+  - Processos: Processo mais largo, Última movimentação menor, Conferência sem sobrepor o ✓.
+  - Planilha: os cabeçalhos dos blocos terminam na mesma altura (as parcelas ficam alinhadas) e a barra de rolagem para o lado fica presa no pé da tela.
+- **Horário:** o banco passa a usar o horário de Brasília. Um lançamento às 23h30 do dia 07 fica no dia 07. Pode levar até 30 minutos para todas as conexões do Supabase pegarem o horário novo.
+- **E-mail:** o liga/desliga de cada tipo de e-mail automático fica só em **Administração → E-mail → Automáticos**. Em "Quem recebe" ficam os clientes e a exceção de cada um.
+- **Automações:** a tela oculta foi apagada. As regras continuam rodando sozinhas.
+- **Limpeza:**
+  - a pasta `backups` guarda só os 10 últimos zips (os outros continuam no histórico do GitHub);
+  - os prompts e sugestões já executados foram para `sistema/arquivo`;
+  - saíram as cópias antigas do ERP de 23/09 em `#Sistemas/2 - ERP`;
+  - o conteúdo dos e-mails enviados há mais de 6 meses é apagado todo dia 1º (a linha do envio fica).
+
 ## Se depois do Merge o ERP continuar igual (Backup 54.1)
 A Vercel às vezes não publica o site depois do Merge (aconteceu no Backup 54: o merge entrou às 9h09 e a publicação não saiu).
 Para conferir:
@@ -850,8 +874,8 @@ Para voltar à versão anterior: o zip do **Backup 49** (pasta `backups/`).
   - **✎** troca o e-mail de destino ali mesmo.
   - Clicar no nome do cliente abre o cadastro na aba Contatos.
 - **Sugestões novas**:
-  - `sistema/SUGESTOES-B50.md`: ênfase na Rotina e na configuração de e-mail.
-  - Prompt pronto: `sistema/PROMPT-BACKUP-51.md`.
+  - `sistema/arquivo/SUGESTOES-B50.md`: ênfase na Rotina e na configuração de e-mail.
+  - Prompt pronto: `sistema/arquivo/PROMPT-BACKUP-51.md`.
 
 ## Backup 49 — simplificação geral: as 36 sugestões aprovadas (tem SQL; nenhuma função nova)
 Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+Shift+R**. Nenhuma função do Supabase precisa ser publicada de novo.
@@ -911,7 +935,7 @@ Para voltar à versão anterior: o zip do **Backup 47** (pasta `backups/`).
 - **Tarefas**: as linhas **Mostrar** (Tudo · Reuniões · Audiências · Compromissos · Tarefas · Rotinas, com as mesmas cores) e **De quem** (Todos, você, os outros)
   iguais às da agenda do Início. Saiu a fileira "Todas as pessoas / Pedro / …".
 - **Painel Executivo** → Empresas do grupo: Grupo e CPF/CNPJ alinhados à esquerda; os títulos continuam centralizados.
-- **Sugestões**: `sistema/SUGESTOES-B48.md` (36 itens numerados para aprovar) e o prompt pronto `sistema/PROMPT-BACKUP-49.md`.
+- **Sugestões**: `sistema/arquivo/SUGESTOES-B48.md` (36 itens numerados para aprovar) e o prompt pronto `sistema/arquivo/PROMPT-BACKUP-49.md`.
 
 ## Backup 47 — correção da importação (sem SQL)
 Ordem: **1) Merge  2) Ctrl+Shift+R**. Não tem SQL novo nem função nova.

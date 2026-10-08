@@ -7887,4 +7887,36 @@ drop policy if exists exct_ver on public.execucao_contatos;
 create policy exct_ver on public.execucao_contatos for select to authenticated using (public.pode('juridico'));
 drop policy if exists exct_editar on public.execucao_contatos;
 create policy exct_editar on public.execucao_contatos for all to authenticated using (public.pode('juridico', 'editar')) with check (public.pode('juridico', 'editar'));
--- ═══ fim do Backup 54 ═══
+
+-- ═══════════════════════ Backup 55 ═══════════════════════
+-- Horário de Brasília no banco: o Supabase vem em UTC, então às 23h30 de Brasília "hoje" (current_date) já era o dia seguinte
+-- (ex.: pagamento lançado às 23h30 do dia 07 aparecia no dia 08). A partir daqui, toda conexão nova usa America/Sao_Paulo.
+-- Os horários gravados (timestamptz) não mudam; muda só o "dia de hoje" e a hora mostrada pelo banco. As rotinas do pg_cron continuam no mesmo horário.
+do $$ begin
+  execute format('alter database %I set timezone to %L', current_database(), 'America/Sao_Paulo');
+exception when insufficient_privilege then raise notice 'Sem permissão para mudar o fuso do banco (peça ao administrador do Supabase).';
+end $$;
+set timezone to 'America/Sao_Paulo';
+-- Limpeza (pedida pelo dono): o CONTEÚDO dos e-mails já enviados há mais de 6 meses some (texto e anexos), mas a linha fica —
+-- é ela que mostra que o e-mail saiu e impede repetir o envio. O histórico de automações (automacoes_log) NÃO é apagado:
+-- ele também é a trava contra e-mail repetido. Roda uma vez agora e todo dia 1º às 4h (horário de Brasília).
+create or replace function public.limpar_emails_antigos() returns int
+language plpgsql security definer set search_path = public as $$
+declare n int;
+begin
+  if auth.uid() is not null and not public.eh_admin() then raise exception 'Só o administrador roda a limpeza.'; end if;
+  update public.email_fila set html = '<p style="color:#6B7280">(conteúdo apagado na limpeza automática: e-mail enviado há mais de 6 meses)</p>', anexo = null
+   where status = 'enviado' and enviado_em < now() - interval '6 months' and (anexo is not null or html not like '%conteúdo apagado na limpeza%');
+  get diagnostics n = row_count;
+  return n;
+end $$;
+revoke all on function public.limpar_emails_antigos() from public, anon;
+grant execute on function public.limpar_emails_antigos() to authenticated;
+select public.limpar_emails_antigos();
+do $$
+begin
+  perform cron.unschedule(jobid) from cron.job where jobname = 'erp_limpeza_emails';
+  perform cron.schedule('erp_limpeza_emails', '0 7 1 * *', 'select public.limpar_emails_antigos()');
+exception when others then raise notice 'Agendador indisponível: rode select public.limpar_emails_antigos() de vez em quando.';
+end $$;
+-- ═══ fim do Backup 55 ═══

@@ -60,6 +60,7 @@ versão foi ao ar**. O número cresce a cada entrega.
 | 52 | ERP simétrico: um desenho de filtro, de botão Atualizar, de cabeçalho de grupo (sem borda azul) e de situação em todas as telas; Início com Semana (arrastar); Atualizações saiu do menu; quadros do tamanho do conteúdo; Publicações → Buscar agora pelo navegador; código PIX nas parcelas de acordo e textos sem "da Fulano"; Clientes, Rotina → Processos e Parcelamentos muito mais rápidos |
 | 53 | Início com A receber Jurídico/Contabilidade e A pagar separados (hoje · 5 dias · atraso) e a fila igual ao calendário de Tarefas; Tarefas com cartões no alto e Semana do tamanho do Mês; Alertas como no Backup 48; Painel como Clientes e ficha em ordem com "+ Lançar"; Acordos (emissor arrumado, alterar o acordo inteiro, e-mail rápido); contratos de implantação; Rotina (desmarcar pago, 6 antes/3 depois, linha única, recorrentes concluídas); Administração (abas sem "Mais", tipos de e-mail por cliente, autorizar e-mails da Rotina, funções explicadas); módulo Execuções |
 | 54 | Visual do ERP antigo (fundo, lateral, filtros e cabeçalho das tabelas na cor do escritório, títulos em azul-escuro, tabelas menores e mais distribuídas); Início com atalhos em blocos (receber verde, pagar vermelho); Tarefas com filtros 2×2, "Fluxo" no lugar de "Delegar" e nova tarefa simples; ficha do Painel alinhada; E-mail → Automáticos (liga/desliga cada e-mail para a equipe e para os clientes; fluxo/lead desligado); + Lançar com recebimento, acordo inteiro, execução e fluxo; contatos de não clientes nas Execuções |
+| 55 | Tabelas na distribuição do ERP antigo (uma linha por registro, Grupo some quando há a faixa, CPF/CNPJ discreto, texto longo em "…"); Início "A pagar · Contabilidade"; Tarefas com Urgência/Prazo ao lado e sem a criação rápida; Acordos: clicar na parcela → editar esta ou o acordo inteiro; Rotina (Passivo/Processos com colunas novas e conferir com confirmação; Planilha alinhada e com barra de rolagem); banco no horário de Brasília; e-mail automático só em "Automáticos"; tela Automações apagada; limpeza (backups 01–45 saíram da pasta, prompts antigos em sistema/arquivo, e-mails enviados há 6+ meses sem conteúdo) |
 
 ## Como baixar um backup
 No GitHub, abra a pasta `backups`, clique no arquivo e depois em **Download** (ícone de seta, à direita).
@@ -68,6 +69,9 @@ No GitHub, abra a pasta `backups`, clique no arquivo e depois em **Download** (�
 Os backups são uma cópia de segurança guardada. Para **voltar o site** a uma versão anterior, use a Vercel:
 **vercel.com → projeto erp → Deployments → ⋯ na versão desejada → Instant Rollback** (1 minuto).
 Os dados (clientes, lançamentos etc.) ficam no banco e **não** mudam ao voltar as telas.
+
+## Backups antigos (01 a 45)
+Desde o Backup 55 a pasta guarda só os 10 últimos zips. Os Backups 01 a 45 continuam no histórico do GitHub: abra o repositório → **Commits** → um commit de antes de 08/10/2026 → **Browse files** → pasta `backups` → baixe o zip.
 
 ## E os dados?
 Estes arquivos guardam o **sistema**, não os dados dos clientes (LGPD). A cópia dos dados é feita

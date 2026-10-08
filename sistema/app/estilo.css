@@ -269,6 +269,8 @@ details summary{cursor:pointer;font-weight:600;color:var(--navy2);font-size:13px
 .secao-docs{margin-top:16px;padding-top:12px;border-top:1px solid var(--border)}
 .tf-prog{display:inline-block;width:60px;height:6px;background:var(--surface3);border-radius:99px;overflow:hidden;vertical-align:middle;margin-left:6px}
 .tf-prog i{display:block;height:100%;background:var(--green)}
+.tf-linha2{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:520px}
+.tf-linha2 .tf-prog{margin-left:0;margin-right:2px}
 tr.tf-feita td{opacity:.6}
 .ck-item{display:flex;justify-content:space-between;align-items:center;padding:3px 0}
 .riscado{text-decoration:line-through;color:var(--text3)}
@@ -613,10 +615,6 @@ label.ofx-it{cursor:pointer}
 .em-previa{width:100%;height:62vh;border:1px solid var(--border);border-radius:10px;background:var(--surface)}
 .em-lig{display:block;margin:4px 0 8px}
 /* Tarefas (Backup 16): criação rápida, minha semana, carga */
-.tf-rapida{margin:0 0 12px}
-.tf-rapida input{width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:12px;font:inherit;font-size:14px;background:var(--surface)}
-.tf-rapida input:focus{border-color:var(--navy);outline:none}
-.tf-rapida-prev{min-height:18px;margin-top:5px;font-size:12.5px;color:var(--text2)}
 .sm-grade{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
 .sm-col{background:var(--surface3);border-radius:12px;padding:8px;min-height:160px;display:flex;flex-direction:column;gap:6px}
 .sm-col.sobre{outline:2px dashed var(--navy);background:var(--blue-lt)}
@@ -1248,7 +1246,7 @@ button.pl-dt{cursor:pointer}
 .gf-mais[open] summary::before{content:'▾ '}
 .gf-mais > div{margin-top:3px;line-height:1.45}
 /* Backup 54: filtros em 2 × 2 */
-.fila-filtros.fila-2x2{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 28px;align-items:center}
+.fila-filtros.fila-2x2{display:grid;grid-template-columns:max-content max-content;justify-content:start;gap:8px 44px;align-items:center}
 @media (max-width:900px){.fila-filtros.fila-2x2{grid-template-columns:1fr}}
 /* Backup 54: Nova tarefa — "Mais opções" recolhido */
 .tf-mais{border:1px solid var(--border);border-radius:10px;padding:8px 12px;background:var(--surface2)}
