@@ -112,10 +112,13 @@ const ehAdminFila = () => !!(E.perfil && E.perfil.papel === 'admin');
 const VISTAS_FILA = [['mes', 'Mês'], ['semana', 'Semana'], ['dia', 'Dia'], ['lista', 'Lista']];   // Backup 53: as mesmas vistas do Calendário de Tarefas (+ Lista)
 // Backup 53: filtros de prioridade e de prazo — os MESMOS de Tarefas (Início e Tarefas usam estas duas funções)
 const PRI_FILTRO = [['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa']], PRAZO_FILTRO = [['hoje', 'Hoje'], ['atrasadas', 'Atrasadas'], ['7', '7 dias']];
-function chipsPriPrazo(attrPri, attrPrazo, pri, atalho, extras) {
-  return '<span class="fila-chips-sep" aria-hidden="true"></span>' + PRI_FILTRO.map(([k, r]) => chipFiltro(attrPri, k, r, pri === k)).join('') +
-    (attrPrazo ? '<span class="fila-chips-sep" aria-hidden="true"></span>' + PRAZO_FILTRO.concat(extras || []).map(([k, r]) => chipFiltro(attrPrazo, k, r, atalho === k)).join('') : '');
+// Backup 54: os filtros em 2 colunas × 2 linhas — à esquerda Mostrar / De quem, à direita Urgência / Prazo
+function gruposPriPrazo(attrPri, attrPrazo, pri, atalho, extras) {
+  const grupo = (rot, miolo) => '<div class="fila-chips" role="group" aria-label="' + rot + '"><span class="fila-chips-rot">' + rot + '</span>' + miolo + '</div>';
+  return [grupo('Urgência', PRI_FILTRO.map(([k, r]) => chipFiltro(attrPri, k, r, pri === k)).join('')),
+    attrPrazo ? grupo('Prazo', PRAZO_FILTRO.concat(extras || []).map(([k, r]) => chipFiltro(attrPrazo, k, r, atalho === k)).join('')) : '<div></div>'];
 }
+const filtros2x2 = (mostrar, deQuem, urg, prazo) => mostrar + urg + (deQuem || '<div></div>') + prazo;
 function passaPriPrazo(t, pri, a) {
   const h = hojeISO();
   if (pri && t.prioridade !== pri) return false;
@@ -366,12 +369,13 @@ async function cardMinhaFila() {
   const naAgenda = todas.concat(feitas.filter((t) => daPessoa(t) && tiposSel.has(tipoItemAgenda(t))), proj.filter((t) => daPessoa(t) && tiposSel.has(tipoItemAgenda(t))));
   const rotQuem = sel.length === 1 && sel[0] === eu ? 'suas' : sel.length >= okVis.size && okVis.size > 1 ? 'de todos' : sel.map((k) => nomeCurto(visiveis.find((n) => chave(n) === k) || k)).join(', ');
   const chip = (attr, v, rot, on) => chipFiltro(attr, v, rot, on, attr === 'data-fila-tipo');
-  const filtros = '<div class="fila-filtros">' +
+  const [gUrg, gPrazo] = gruposPriPrazo('data-fila-pri', 'data-fila-prazo', FILA.pri, FILA.atalho);
+  const filtros = '<div class="fila-filtros fila-2x2">' + filtros2x2(
     '<div class="fila-chips" role="group" aria-label="Mostrar"><span class="fila-chips-rot">Mostrar</span>' + chip('data-fila-tipo', '*', 'Tudo', tiposSel.size === FILTRO_TIPOS_AG.length) +
-      FILTRO_TIPOS_AG.map(([k, r]) => chip('data-fila-tipo', k, r, tiposSel.has(k))).join('') + chipsPriPrazo('data-fila-pri', 'data-fila-prazo', FILA.pri, FILA.atalho) + '</div>' +
+      FILTRO_TIPOS_AG.map(([k, r]) => chip('data-fila-tipo', k, r, tiposSel.has(k))).join('') + '</div>',
     (visiveis.length > 1 ? '<div class="fila-chips" role="group" aria-label="De quem"><span class="fila-chips-rot">De quem</span>' +
       // Backup 46: Todos primeiro, depois quem está logado, depois os demais
-      chip('data-fila-pes', '*', 'Todos', sel.length >= okVis.size) + visiveis.map((n) => chip('data-fila-pes', chave(n), nomeCurto(n), sel.includes(chave(n)))).join('') + '</div>' : '') + '</div>';
+      chip('data-fila-pes', '*', 'Todos', sel.length >= okVis.size) + visiveis.map((n) => chip('data-fila-pes', chave(n), nomeCurto(n), sel.includes(chave(n)))).join('') + '</div>' : ''), gUrg, gPrazo) + '</div>';
   const html = '<div class="card ini-fila' + (FILA.min ? ' minimizada' : '') + '"><div class="card-hd">📋 Minha fila de trabalho ' + '<span class="sub">' + plural(todas.length, 'aberta', 'abertas') + ' · ' + esc(rotQuem) + '</span>' +
       '<div class="segmento ini-fila-vista" role="group" aria-label="Ver como">' + VISTAS_FILA.map(([v, r]) => '<button type="button" data-fila-vista="' + v + '"' + (FILA.vista === v ? ' class="ativo"' : '') + '>' + r + '</button>').join('') + '</div>' +
       '</div>' +   // Backup 39: sem "Minimizar" 
@@ -462,9 +466,10 @@ TELAS.tarefas = async function () {
       .map(([v, r]) => '<button data-aba="' + v + '">' + r + '</button>').join('') + '</div></div>' +
     '<div class="acoes"><button class="btn btn-o tf-bt-ic" id="tf-rapida-bt" title="Criação rápida: escreva a tarefa numa linha (ex.: Protocolar defesa amanhã @Emanuelle !alta)" aria-expanded="false">⚡</button>' +
     '<span class="tf-cfg-wrap"><button class="btn btn-o tf-bt-ic" id="tf-config" title="Configurar: modelos de fluxo, feriados, Google Agenda e novo fluxo" aria-expanded="false">⚙</button>' +
-      '<span class="tf-cfg-menu" id="tf-cfg-menu" hidden><button class="btn btn-o" id="tf-fluxo">+ Novo fluxo</button><button class="btn btn-o" id="tf-modelos">Modelos de fluxo</button>' +
+      '<span class="tf-cfg-menu" id="tf-cfg-menu" hidden><button class="btn btn-o" id="tf-modelos">Modelos de fluxo</button>' +
       '<button class="btn btn-o" id="tf-feriados">Feriados</button><button class="btn btn-o" id="tf-agenda" title="Prazos fatais e audiências no seu Google Agenda">📅 Google Agenda</button></span></span>' +
-    '<button class="btn btn-o" id="tf-delegar" title="Delegar uma sequência de passos (ex.: lead completo) com validação">👥 Delegar</button><button class="btn btn-p" id="tf-nova">+ Nova tarefa</button></div></div>' +
+    // Backup 54: "Delegar" saiu daqui — virou o botão "Fluxo" (as sequências com validação, como "Lead completo", estão na lista de modelos do fluxo)
+    '<button class="btn btn-o" id="tf-fluxo" title="Cria várias tarefas de uma vez a partir de um modelo (inclui as sequências com validação, ex.: Lead completo)">🔀 Fluxo</button><button class="btn btn-p" id="tf-nova">+ Nova tarefa</button></div></div>' +
     '<div class="tf-rapida" id="tf-rapida-box" hidden><input id="tf-rapida" autocomplete="off" placeholder="⚡ Criação rápida: “Protocolar defesa amanhã @Emanuelle !alta” e Enter" aria-label="Criação rápida de tarefa">' +
       '<div id="tf-rapida-prev" class="tf-rapida-prev"></div></div>' +
     '<div id="tf-kpis"></div><div class="filtros">' +
@@ -481,7 +486,6 @@ TELAS.tarefas = async function () {
   $('tf-cfg-menu').addEventListener('click', () => { setTimeout(() => { const m = $('tf-cfg-menu'); if (m) m.hidden = true; }, 0); });
   $('tf-fluxo').onclick = () => formNovoFluxo(() => TELAS.tarefas());
   $('tf-modelos').onclick = () => janelaModelos();
-  $('tf-delegar').onclick = () => janelaDelegar({}, () => TELAS.tarefas());
   $('tf-feriados').onclick = () => janelaFeriados();
   $('tf-agenda').onclick = () => janelaAgenda();
   $('tf-vista').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.vista = b.dataset.v; pintarTarefas(); } };
@@ -533,11 +537,12 @@ function pintarTarefas() {
     const pes = pessoasFiltro().slice().sort((a, b) => (primeiroNome(b) === eu) - (primeiroNome(a) === eu) || a.localeCompare(b, 'pt-BR'));
     const pSel = new Set(F.pessoas && F.pessoas.length ? F.pessoas : pes.map(primeiroNome)), todasP = pSel.size >= pes.length;
     const prazos = [['hoje', 'Hoje'], ['atrasadas', 'Atrasadas'], ['7', '7 dias']].concat(F.atalho === 'atencao' ? [['atencao', 'Pedem atenção']] : []);
-    $('tf-chips').innerHTML = '<div class="fila-chips" role="group" aria-label="Mostrar"><span class="fila-chips-rot">Mostrar</span>' +
-        chipFiltro('data-tf-tipo', '*', 'Tudo', tSel.size === tipos.length, true) + FILTRO_TIPOS_AG.map(([k, r]) => chipFiltro('data-tf-tipo', k, r, tSel.has(k), true)).join('') +
-        chipsPriPrazo('data-tf-pri', F.aba === 'abertas' && F.vista !== 'fluxos' ? 'data-tf-prazo' : '', F.pri, F.atalho, prazos.slice(3)) + '</div>' +
+    const [gUrg, gPrazo] = gruposPriPrazo('data-tf-pri', F.aba === 'abertas' && F.vista !== 'fluxos' ? 'data-tf-prazo' : '', F.pri, F.atalho, prazos.slice(3));
+    $('tf-chips').classList.add('fila-2x2');
+    $('tf-chips').innerHTML = filtros2x2('<div class="fila-chips" role="group" aria-label="Mostrar"><span class="fila-chips-rot">Mostrar</span>' +
+        chipFiltro('data-tf-tipo', '*', 'Tudo', tSel.size === tipos.length, true) + FILTRO_TIPOS_AG.map(([k, r]) => chipFiltro('data-tf-tipo', k, r, tSel.has(k), true)).join('') + '</div>',
       (pes.length > 1 ? '<div class="fila-chips" role="group" aria-label="De quem"><span class="fila-chips-rot">De quem</span>' +
-        chipFiltro('data-tf-pes', '*', 'Todos', todasP) + pes.map((n) => chipFiltro('data-tf-pes', primeiroNome(n), nomeCurto(n), pSel.has(primeiroNome(n)))).join('') + '</div>' : ''); }
+        chipFiltro('data-tf-pes', '*', 'Todos', todasP) + pes.map((n) => chipFiltro('data-tf-pes', primeiroNome(n), nomeCurto(n), pSel.has(primeiroNome(n)))).join('') + '</div>' : ''), gUrg, gPrazo); }
   const todas = E._tarefas || [];
   const abertas = todas.filter((t) => !tarefaFechada(t));
   const atrasadas = abertas.filter((t) => t.prazo && t.prazo < h).length;
@@ -983,15 +988,18 @@ function formTarefa(t, depois) {
   const outras = (E._tarefas || []).filter((x) => x.id !== t.id && !tarefaFechada(x));
   const j = abrirJanela({ titulo: novo ? (t.tarefa_pai_id ? 'Nova subtarefa' : 'Nova tarefa') : 'Tarefa', larga: true,
     corpo: '<form id="f-tf" class="grade">' +
-      campo('Tarefa <span class="obrig">*</span>', '<input name="titulo" maxlength="300" value="' + esc(t.titulo || '') + '">', 'inteiro') +
+      // Backup 54: à vista só o essencial (o que fazer, para quem, até quando, urgência, cliente, se repete); o resto em "Mais opções"
+      campo('Tarefa <span class="obrig">*</span>', '<input name="titulo" maxlength="300" value="' + esc(t.titulo || '') + '" placeholder="O que precisa ser feito?">', 'inteiro') +
+      campo('Para quem', selectPessoa('responsavel', t.responsavel || (novo && E.perfil ? E.perfil.nome : ''), '— escolha —')) +
+      campo('Prazo', '<input name="prazo" type="date" value="' + esc(t.prazo || '') + '">') +
+      campo('Urgência', selectPares('prioridade', [['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa']], t.prioridade || 'media')) +
       campo('Cliente', '<select name="cliente_id">' + opcoesClientes(t.cliente_id || '') + '</select>') +
+      campoRepetir(t) +
+      '<details class="inteiro tf-mais" id="tf-mais"' + (novo ? '' : ' open') + '><summary>+ Mais opções <span class="sub">prazo fatal, participantes, revisão, checklist, descrição…</span></summary><div class="grade">' +
       campo('Grupo', '<input name="grupo" list="tf-grupos" value="' + esc(nomeGrupo(t.grupo_id)) + '">' + datalistGrupos('tf-grupos')) +
-      campo('Pessoa responsável', selectPessoa('responsavel', t.responsavel, '— escolha —')) +
-      '<div class="campo inteiro"><span>Participantes</span>' + campoParticipantes(t.participantes) + '</div>' +
-      campo('Prazo interno', '<input name="prazo" type="date" value="' + esc(t.prazo || '') + '">') +
       campo('Prazo fatal (legal / judicial)', '<input name="prazo_fatal" type="date" value="' + esc(t.prazo_fatal || '') + '">') +
+      '<div class="campo inteiro"><span>Participantes</span>' + campoParticipantes(t.participantes) + '</div>' +
       campo('Início', '<input name="inicio" type="date" value="' + esc(t.inicio || (novo ? hojeISO() : '')) + '">') +
-      campo('Prioridade', selectPares('prioridade', [['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa']], t.prioridade || 'media')) +
       campo('Status', selectPares('status', Object.entries(STATUS_TAREFA), t.status || 'pendente')) +
       campo('Estimativa (horas)', '<input name="estimativa_horas" inputmode="decimal" value="' + (t.estimativa_horas != null ? esc(String(t.estimativa_horas).replace('.', ',')) : '') + '">') +
       campo('Etiquetas', '<input name="etiquetas" value="' + esc(t.etiquetas || '') + '" placeholder="Ex.: urgente, PGFN">') +
@@ -1001,12 +1009,11 @@ function formTarefa(t, depois) {
       '<div id="tf-carga" class="sub" style="align-self:end"></div>' +
       campo('Só começa depois de', '<select name="depende_de"><option value="">— nenhuma —</option>' + outras.map((x) => '<option value="' + x.id + '"' + (x.id === t.depende_de ? ' selected' : '') + '>' + esc(x.titulo) + '</option>').join('') + '</select>', 'inteiro') +
       campo('Processos vinculados', '<input name="processos_vinculados" value="' + esc(t.processos_vinculados || '') + '">', 'inteiro') +
-      // Backup 51 (T1): regra de repetição completa (o antigo "semanal / mensal / anual" continua valendo enquanto não for mexido)
-      campoRepetir(t) +
       campo('Descrição', '<textarea name="descricao" maxlength="4000">' + esc(t.descricao || '') + '</textarea>', 'inteiro') +
       campo('Observação', '<textarea name="obs" maxlength="2000">' + esc(t.obs || '') + '</textarea>', 'inteiro') +
       '<div class="inteiro secao">Checklist</div><div class="inteiro" id="tf-check"></div>' +
       '<div class="inteiro filtros" style="margin:0"><input class="busca" id="tf-check-novo" placeholder="Novo item do checklist e Enter"><button class="btn btn-o btn-mini" type="button" id="tf-check-add">+ Item</button></div>' +
+      '</div></details>' +
       (novo ? '' : '<div class="inteiro secao">Subtarefas</div><div class="inteiro" id="tf-subs"></div>' +
         '<div class="inteiro secao">Horas gastas</div><div class="inteiro" id="tf-tempo"></div>' +
         '<div class="inteiro secao">Documentos</div><div class="inteiro" id="tf-docs"></div>' +
@@ -1153,11 +1160,11 @@ function quandoRodou(v) { const d = new Date(v); return isNaN(d) ? '—' : d.toL
 
 // ─────────────────────────── fluxos e modelos ───────────────────────────
 async function formNovoFluxo(depois) {
-  const modelos = await q(sb.from('modelos_fluxo').select('*').order('nome'));
+  const modelos = (await q(sb.from('modelos_fluxo').select('*').order('nome'))).sort((x, y) => !!x.sequencial - !!y.sequencial);   // Backup 54: os "passo a passo" no fim da lista
   if (!modelos.length) { aviso('Crie um modelo de fluxo primeiro (botão "Modelos de fluxo").', true); return; }
   const j = abrirJanela({ titulo: 'Novo fluxo de tarefas', larga: true,
     corpo: '<form class="grade" id="f-fl">' +
-      campo('Modelo <span class="obrig">*</span>', '<select name="modelo">' + modelos.map((m) => '<option value="' + m.id + '">' + esc(m.nome) + '</option>').join('') + '</select>', 'inteiro') +
+      campo('Modelo <span class="obrig">*</span>', '<select name="modelo">' + modelos.map((m) => '<option value="' + m.id + '">' + esc(m.nome) + (m.sequencial ? ' — passo a passo, com validação' : '') + '</option>').join('') + '</select>', 'inteiro') +
       campo('Nome do fluxo', '<input name="nome" placeholder="Ex.: Defesa — Execução 5001234-56">', 'inteiro') +
       campo('Cliente', '<select name="cliente_id">' + opcoesClientes('') + '</select>') +
       campo('Pessoa responsável', selectPessoa('responsavel', '', '— escolha —')) +
@@ -1177,7 +1184,10 @@ async function formNovoFluxo(depois) {
       '<span class="mono">' + (fatal ? dataBR(subtrairUteis(fatal, Number(it.dias) || 0, fer)) : (it.dias || 0) + ' d.u. antes') + '</span></div>').join('');
   };
   f.nome.oninput = () => { delete f.nome.dataset.auto; };
-  f.modelo.onchange = previa; f.prazo_fatal.onchange = previa; previa();
+  // Backup 54: modelo "passo a passo" (ex.: Lead completo) = a antiga janela "Delegar" (cada passo começa quando o anterior termina)
+  f.modelo.onchange = () => { const m = modelos.find((x) => x.id === f.modelo.value) || {};
+    if (m.sequencial) { fecharJanela(j); return janelaDelegar({ modelo: m.nome, cliente_id: f.cliente_id.value || '' }, depois); } previa(); };
+  f.prazo_fatal.onchange = previa; previa();
   j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
   j.querySelector('#btn-criar-fl').onclick = (ev) => comBotao(ev.currentTarget, async () => {
     const fatal = f.prazo_fatal.value;
@@ -1504,7 +1514,7 @@ async function janelaDelegar(o, depois) {
   const eu = (E.perfil && E.perfil.nome) || '';
   const j = abrirJanela({ titulo: '👥 Delegar passos', larga: true,
     corpo: '<form id="f-deleg" class="grade">' +
-      campo('Sequência', '<select name="modelo">' + seq.map((m) => '<option value="' + esc(m.nome) + '">' + esc(m.nome) + '</option>').join('') + '</select>', 'inteiro') +
+      campo('Sequência', '<select name="modelo">' + seq.map((m) => '<option value="' + esc(m.nome) + '"' + (o.modelo === m.nome ? ' selected' : '') + '>' + esc(m.nome) + '</option>').join('') + '</select>', 'inteiro') +
       '<div class="inteiro" id="deleg-passos"></div>' +
       campo('Para quem <span class="obrig">*</span>', selectPessoa('pessoa', o.pessoa || '', '— escolha —')) +
       campo('Quem valida', selectPessoa('revisor', eu, '— eu —')) +

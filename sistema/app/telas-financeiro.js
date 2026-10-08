@@ -526,3 +526,23 @@ async function detalheLancamento(id) {
   return j;
 }
 
+
+// ═══ Backup 54: "+ Lançar → Recebimento" — achar o honorário em aberto e dar baixa sem sair da tela onde está ═══
+async function janelaReceber(depois) {
+  const L = await buscarTodos(() => sb.from('lancamentos').select('id, descricao, vencimento, valor, redutor, empresa, cliente_id, grupo_id, grupos(nome), clientes(nome)').eq('tipo', 'receita').eq('pago', false).eq('perda', false).order('vencimento').order('id')).catch(() => []);
+  const j = abrirJanela({ titulo: '+ Lançar recebimento', larga: true,
+    corpo: '<input class="busca" id="rc-busca" placeholder="Buscar cliente, grupo ou descrição" autocomplete="off" style="width:100%;margin-bottom:10px"><div id="rc-lista"></div>' });
+  const pintar = () => { const b = normalizar(j.querySelector('#rc-busca').value);
+    const ver = L.filter((l) => !b || normalizar([l.descricao, l.clientes && l.clientes.nome, l.grupos && l.grupos.nome].join(' ')).includes(b)).slice(0, 60);
+    j.querySelector('#rc-lista').innerHTML = ver.length ? '<div class="tabela-wrap"><table><thead><tr><th>Vencimento</th><th>Cliente / grupo</th><th>Descrição</th><th>Valor</th><th></th></tr></thead><tbody>' +
+      ver.map((l) => '<tr><td>' + dataBR(l.vencimento) + '</td><td>' + esc((l.clientes && l.clientes.nome) || (l.grupos && l.grupos.nome) || '—') + '</td><td>' + esc(l.descricao || '') + '</td>' +
+        '<td class="col-valor">' + brl(l.valor) + '</td><td class="acoes-l"><button type="button" class="btn btn-v btn-mini" data-rc="' + l.id + '">✓ Recebido</button></td></tr>').join('') + '</tbody></table></div>'
+      : vazio(L.length ? 'Nada com essa busca.' : 'Nenhum honorário em aberto.');
+    j.querySelectorAll('[data-rc]').forEach((bt) => bt.onclick = () => comBotao(bt, async () => {
+      if (!window.ERP_EDITOR || !window.ERP_EDITOR.baixaRapida) throw new Error('Abra o ERP completo para dar baixa.');
+      const r = await window.ERP_EDITOR.baixaRapida('lancamentos', bt.dataset.rc, { semRecarregar: true });
+      if (r) { const i = L.findIndex((x) => x.id === bt.dataset.rc); if (i >= 0) L.splice(i, 1); pintar(); if (depois) depois(); } })); };
+  let t; j.querySelector('#rc-busca').oninput = () => { clearTimeout(t); t = setTimeout(pintar, 200); };
+  pintar(); j.querySelector('#rc-busca').focus();
+  return j;
+}

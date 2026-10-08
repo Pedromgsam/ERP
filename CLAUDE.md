@@ -82,7 +82,13 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
-- Última entrega: **Backup 53** (SQL; nenhuma função nova). Início: `cardResumoEscritorio` com `fin-jur`/`fin-contab`/`fin-pagar` (hoje · 5 dias · atraso); fila = calendário de Tarefas
+- Última entrega: **Backup 54** (SQL; nenhuma função nova). Visual: tokens `--bg #F0F2F7`, `--primario`/`--lado-bg`/`--th-bg` `#1B2A4A` (th branco), `--titulo`; bloco "Backup 54" no fim do design.css
+  (th na cor da lateral, td 13px). Início: `cardResumoEscritorio` em `faixa('Financeiro'|'Escritório')`, `.ini-at-rec` verde/`.ini-at-pag` vermelho. Tarefas: `filtros2x2` (`.fila-filtros.fila-2x2`), `#tf-fluxo` (sem `#tf-delegar`;
+  modelo sequencial em `formNovoFluxo` → `janelaDelegar({modelo})`), `formTarefa` com `<details id="tf-mais">`. Ficha: `.dados .dado` em grid 150px. E-mail: aba `auto` = `admEmailAuto` (`EMAILS_EQUIPE`, `[data-eq]` → RPC
+  `salvar_email_equipe`; `[data-eq-regra]` = regras cliente_email); SQL `configuracoes.emails_equipe` + `email_equipe_ligado`/`tipo_email_equipe` (fluxo = título "Novo fluxo|Nova sequência|Pode começar"),
+  checados em `enfileirar_email` e `email_da_notificacao` (fluxo desligado na 1ª vez). LANCAR (erp-telas.js): índices 0 Receita · 3 Recebimento (`janelaReceber`) · 5 Contrato · 6 Processo · 7 Acordo inteiro
+  (`formAcordoNovo`, `#f-acordo-novo`) · 9 Parcelamento · Execução · Recebimento de execução (`escolherExecucaoReceb`) · Tarefa · Fluxo. Execuções: tabela `execucao_contatos`, `pintarContatosExec`/`formContatoExec` (`#ex-contato-novo`, `#f-exc`).
+- Backup 53 (base) (SQL; nenhuma função nova). Início: `cardResumoEscritorio` com `fin-jur`/`fin-contab`/`fin-pagar` (hoje · 5 dias · atraso); fila = calendário de Tarefas
   (`VISTAS_FILA` mes/semana/dia/lista, `FILA.pri`/`FILA.atalho` salvos em prefs, `chipsPriPrazo`/`passaPriPrazo` compartilhados com Tarefas). Tarefas: `#tf-kpis` acima de `.filtros`, Semana com
   `minHeight` = `F.altCal`/`FILA.altCal` (`semanaArrastavel` opção `altura`), `TIPOS_REPETE` + `uteis`/`quinzenal`. Alertas = arquivo do B48 (+ `botaoAtualizar`). Painel: `tabelaPadrao` sem `semDivisao`
   (faixa `tr.gx-grp`), bloco "Backup 53" no fim do design.css. Ficha: `PARTES_FICHA.resumo` = resumo+receita (Cadastro|Situação, Tarefas|Débitos via `cardDebitos`), sem certidões; `#fc-lancar` → `#fc-lancar-menu`

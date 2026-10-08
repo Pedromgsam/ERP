@@ -1316,7 +1316,7 @@ body.gx-barra-topo #tblExecRanking td:nth-child(5),body.gx-barra-topo #tblExecRa
 .gs .ep-row.ep-rv{background:var(--red-lt)}.gs .ep-row.ep-re{background:var(--green-lt)}
 .gs .ep-row label{cursor:pointer;display:flex;align-items:center;gap:8px;flex:1;min-width:0}
 .gs .ep-row-lbl{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink);font-weight:500}
-.gs .ep-row-venc{color:var(--text3);font-size:11px;white-space:nowrap;flex-shrink:0}
+.gs .ep-row-venc{color:var(--text2);font-size:11px;white-space:nowrap;flex-shrink:0}
 .gs .ep-tag{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;border-radius:4px;padding:2px 7px;white-space:nowrap;border:1px solid;flex-shrink:0}
 .gs .ep-tv{color:var(--red-d);background:var(--red-lt);border-color:var(--red-bd)}
 .gs .ep-tm{color:var(--amber-d);background:var(--amber-lt);border-color:var(--amber-border)}
@@ -1653,3 +1653,48 @@ body.gx-barra-topo #tblExecRanking .er-socio,body.gx-barra-topo #tblExecRanking 
 .gs :is(.rt-pas,.rt-proc) .rt-cf-txt small{font-size:11px}
 .ficha-topo .ficha-atalhos{margin-right:160px}   /* Backup 53: o "+ Lançar ▾" fica ao lado do "Editar cadastro", sem ficar embaixo dele */
 body.gx-barra-topo #tblExecRanking tr.gx-grp > td{color:var(--text2)!important}   /* Backup 53: mesma faixa de grupo de Clientes */
+/* ═══ Backup 54 — cores do escritório e tabelas no espaçamento do ERP antigo ═══ */
+/* fundo do ERP antigo (cinza-azulado com dois halos discretos: marinho à esquerda, dourado à direita) */
+body.gx-barra-topo{background:radial-gradient(1200px 560px at 8% -12%,rgba(27,42,74,.06),transparent 58%),radial-gradient(900px 480px at 102% -6%,rgba(201,168,76,.08),transparent 55%),var(--bg)!important;background-attachment:fixed!important}
+html[data-tema=escuro] body.gx-barra-topo{background:var(--bg)!important}
+/* cabeçalho de toda tabela = a cor da barra lateral, texto branco, letra normal (sem caixa alta) */
+body.gx-barra-topo th,body.gx-barra-topo .gs th,body.gx-barra-topo #execRankWrap th,body.gx-barra-topo .gx-tab-gs.gs table thead th{
+  background:var(--th-bg)!important;color:var(--th-fg)!important;font:600 12px var(--font-ui)!important;letter-spacing:.01em!important;text-transform:none!important;
+  padding-top:11px!important;padding-bottom:11px!important;border-bottom:0!important}
+body.gx-barra-topo th:hover,body.gx-barra-topo .gs table.ordenavel thead th:not(.sem-ordem):hover,body.gx-barra-topo .gx-tab-gs.gs table thead th:hover{background:var(--th-bg)!important;color:var(--th-fg)!important}
+body.gx-barra-topo :is(.tw,.tabela-wrap,.gx-tab-gs) > table > thead th:first-child{border-top-left-radius:8px}
+body.gx-barra-topo :is(.tw,.tabela-wrap,.gx-tab-gs) > table > thead th:last-child{border-top-right-radius:8px}
+body.gx-barra-topo th small,body.gx-barra-topo th .sub{color:var(--th-fg-2)!important}
+/* tabelinhas internas (detalhe do parcelamento, aprovações) continuam claras */
+body.gx-barra-topo .lg-t th,body.gx-barra-topo .gs .ap-tab th,body.gx-barra-topo .gx-leg td{background:var(--surface2)!important;color:var(--text3)!important}
+/* linhas com mais ar e letra de 13 px (como no Painel e no Financeiro antigos) */
+body.gx-barra-topo :is(.tw,.tabela-wrap,.gx-tab-gs) tbody td{padding-top:10px;padding-bottom:10px;font-size:13px}
+/* títulos das tabelas e quadros em azul-marinho */
+body.gx-barra-topo .cc-t,body.gx-barra-topo .gs .card-hd,body.gx-barra-topo .titulo-pag h1,body.gx-barra-topo .gs .titulo-pag h1,body.gx-barra-topo #gs-tela-nome{color:var(--titulo)!important}
+/* Backup 54: Início — atalhos em cartões organizados (faixa Financeiro + faixa Escritório); A receber verde, A pagar vermelho */
+.gs .ini-faixa{margin:0 0 14px}
+.gs .ini-faixa-rot{font:700 11px var(--font-ui);letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin:0 0 6px 2px}
+.gs .ini-atalhos{display:grid!important;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;margin:0!important}
+.gs .ini-at{display:flex!important;flex-direction:column;align-items:flex-start!important;gap:3px!important;padding:11px 14px!important;border-radius:var(--r-card,12px)!important;white-space:normal!important;text-align:left;border:1px solid var(--border);border-left:3px solid var(--border-strong)!important;background:var(--surface)!important;min-height:86px}
+.gs .ini-at:hover{border-color:var(--border-strong);box-shadow:var(--shadow-md,0 4px 12px rgba(0,0,0,.08))}
+.gs .ini-at-cab{display:flex;align-items:center;gap:6px;font-size:12px}
+.gs .ini-at-tit{font-weight:600;color:var(--text2)}
+.gs .ini-at-lin{font-size:13px;color:var(--text2)}
+.gs .ini-at-num{font-size:20px;font-weight:700;color:var(--ink)}
+.gs .ini-at-sub{font-size:12px;color:var(--text3);line-height:1.35}
+.gs .ini-at-sub.vermelho b{color:var(--red-d)}
+.gs .ini-at.vermelho{border-left-color:var(--red)!important}
+.gs .ini-at.ambar{border-left-color:var(--amber)!important}
+.gs .ini-at.vermelho .ini-at-num{color:var(--red-d)}.gs .ini-at.ambar .ini-at-num{color:var(--amber-d)}
+.gs .ini-at.ini-at-rec{border-left-color:var(--green)!important;background:var(--green-lt)!important;border-color:var(--green-bd)}
+.gs .ini-at.ini-at-rec .ini-at-num,.gs .ini-at.ini-at-rec .ini-at-ic{color:var(--green-d)!important}
+.gs .ini-at.ini-at-pag{border-left-color:var(--red)!important;background:var(--red-lt)!important;border-color:var(--red-bd)}
+.gs .ini-at.ini-at-pag .ini-at-num,.gs .ini-at.ini-at-pag .ini-at-ic{color:var(--red-d)!important}
+/* Backup 54: filtros em 2 colunas × 2 linhas (Mostrar | Urgência / De quem | Prazo) — Tarefas e Início */
+.gs .fila-filtros.fila-2x2{display:grid!important;grid-template-columns:minmax(0,1fr) auto;gap:8px 28px;align-items:center}
+.gs .fila-2x2 > .fila-chips:nth-child(even){justify-self:end}
+@media (max-width:900px){.gs .fila-filtros.fila-2x2{grid-template-columns:1fr}.gs .fila-2x2 > .fila-chips:nth-child(even){justify-self:start}}
+/* Backup 54: a faixa de grupo não muda de cor sob o mouse em nenhuma tabela (Processos, Painel…) */
+body.gx-barra-topo tbody :is(tr.gx-grp,tr.cli-grp,tr.rt-grp):hover > td{background:var(--surface3)!important}
+/* Backup 54: "Venc." das linhas de Notificações (estilo inline do ERP antigo) com contraste suficiente no fundo novo */
+body.gx-barra-topo .ep-row > span[style*="text3"]{color:var(--text2)!important}

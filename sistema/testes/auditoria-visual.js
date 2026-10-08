@@ -41,8 +41,8 @@ const PAINEIS = ['hoje','resumo','processos','acordos','parcelamentos','financei
     }
     // formulários
     const forms = [['Lançar receita', async () => { await p.click('.tn-lancar-bt').catch(()=>{}); await p.click('.tn-lancar [data-lancar="0"]').catch(()=>{}); }],
-                   ['Lançar processo', async () => { await p.click('.tn-lancar-bt').catch(()=>{}); await p.click('.tn-lancar [data-lancar="5"]').catch(()=>{}); }],
-                   ['Lançar parcelamento', async () => { await p.click('.tn-lancar-bt').catch(()=>{}); await p.click('.tn-lancar [data-lancar="7"]').catch(()=>{}); }]];
+                   ['Lançar processo', async () => { await p.click('.tn-lancar-bt').catch(()=>{}); await p.click('.tn-lancar [data-lancar="6"]').catch(()=>{}); }],
+                   ['Lançar parcelamento', async () => { await p.click('.tn-lancar-bt').catch(()=>{}); await p.click('.tn-lancar [data-lancar="9"]').catch(()=>{}); }]];
     if (w >= 1024) for (const [n, abrir] of forms) {
       await abrir(); await p.waitForTimeout(900);
       out[w + ' form ' + n] = await medir('#gs-raiz .janela, .gx-janela');

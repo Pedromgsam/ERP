@@ -1216,6 +1216,25 @@
 .gs .gf-mais summary::before{content:'▸ '}
 .gs .gf-mais[open] summary::before{content:'▾ '}
 .gs .gf-mais > div{margin-top:3px;line-height:1.45}
+.gs .fila-filtros.fila-2x2{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 28px;align-items:center}
+@media (max-width:900px){.gs .fila-filtros.fila-2x2{grid-template-columns:1fr}
+}
+.gs .tf-mais{border:1px solid var(--border);border-radius:10px;padding:8px 12px;background:var(--surface2)}
+.gs .tf-mais > summary{cursor:pointer;font-weight:600;color:var(--titulo,var(--ink));list-style:none}
+.gs .tf-mais > summary::-webkit-details-marker{display:none}
+.gs .tf-mais[open] > summary{margin-bottom:10px}
+.gs .tf-mais > .grade{margin-top:4px}
+.gs .dados .dado{display:grid;grid-template-columns:150px minmax(0,1fr);gap:12px;align-items:baseline;justify-content:initial}
+.gs .dados .dado b{text-align:left;font-weight:500;color:var(--ink)}
+.gs .dados .dado b .pill{vertical-align:middle}
+@media (max-width:600px){.gs .dados .dado{grid-template-columns:110px minmax(0,1fr)}
+}
+.gs .em-auto .card{margin-bottom:12px}
+.gs .em-auto-g{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:8px}
+.gs .em-auto-l{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r-sm,8px);cursor:pointer}
+.gs .em-auto-l > span:nth-child(2){display:flex;flex-direction:column;gap:2px;min-width:0}
+.gs .em-auto-l .sub{font-size:12px}
+.gs .ex-ct-tab td{vertical-align:top}
 /* cores do ERP, tamanhos do Gestão */
 .gs{background:none!important;min-height:0!important}
 .gs .duas-col>*,.gs .card{min-width:0}

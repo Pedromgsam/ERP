@@ -253,7 +253,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('comprovante no processo gravado com o ID', sql("select comprovante_processo::text||'|'||comprovante_id from acordos where credor='Carlos Credor'") === 'true|123456789');
     ok('ERP mostra o acordo como Pago', await p.evaluate(() => DB.acordos.find((a) => a.credor === 'Carlos Credor').situacao === 'Pago'));
     ok('Desfazer no rodapé', await p.isVisible('#gx-rodape .gx-rod-bt'));
-    await lancar(p, 5);
+    await lancar(p, 6);
     await p.fill('#gx-f-numero', '5000002-22.2025.8.13.0024'); await p.fill('#gx-f-grupo_id', 'Grupo Beta');
     await salvar(p);
     ok('novo processo aparece no ERP', await p.evaluate(() => DB.processos.length === 2 && DB.processos.some((x) => x.grupo === 'Grupo Beta')));
@@ -367,12 +367,14 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     // ── tarefas completas: checklist, fluxo com dias úteis, vistas, menção ──
     await nav(p, 'tarefas'); await p.waitForTimeout(1500);
     await p.click('#tf-nova'); await p.waitForSelector('#f-tf'); await p.waitForTimeout(250);
+    ok('B54: Nova tarefa simples — só o essencial à vista e o resto em "Mais opções"', !(await p.isVisible('#f-tf [name=prazo_fatal]')) && await p.isVisible('#f-tf [name=prazo]') && await p.isVisible('#f-tf [name=responsavel]'));
+    await p.click('#tf-mais > summary');
     await p.fill('#f-tf [name=titulo]', 'Tarefa com checklist'); await p.fill('#tf-check-novo', 'Conferir guia'); await p.press('#tf-check-novo', 'Enter');
     await p.selectOption('#f-tf [name=status]', 'concluida'); await p.click('#btn-salvar-tf'); await p.waitForTimeout(1500);
     ok('não conclui tarefa com checklist pendente', sql("select count(*) from tarefas where titulo='Tarefa com checklist'") === '0' && /checklist/i.test(await p.textContent('#gs-raiz #aviso')));
     await p.check('#f-tf [data-ck="0"]'); await salvarGs(p, '#btn-salvar-tf');
     ok('com o checklist feito, conclui e registra quando', sql("select status||'|'||(concluida_em is not null) from tarefas where titulo='Tarefa com checklist'") === 'concluida|true');
-    await p.click('#tf-config'); await p.click('#tf-fluxo'); await p.waitForSelector('#f-fl'); await p.waitForTimeout(250);
+    await p.click('#tf-fluxo'); await p.waitForSelector('#f-fl'); await p.waitForTimeout(250);
     await p.selectOption('#f-fl [name=modelo]', { label: 'Defesa em execução fiscal' });
     await p.selectOption('#f-fl [name=cliente_id]', { label: 'Alfa Comércio Ltda · Grupo Alfa' });
     await p.selectOption('#f-fl [name=responsavel]', 'Adriana'); await p.fill('#f-fl [name=prazo_fatal]', '2026-10-16');
@@ -385,7 +387,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('vistas Lista, Calendário e Fluxos; sem Relatório, Quadro e Minha semana soltos (B41/B49)', !(await p.$('#tf-vista [data-v=relatorio]')) && !(await p.$('#tf-vista [data-v=kanban]')) && !(await p.$('#tf-vista [data-v=semana]')) &&
       (await p.$$eval('#tf-vista button', (bs) => bs.map((b) => b.dataset.v).join(','))) === 'lista,calendario,fluxos' && /execução fiscal/i.test(await p.textContent('#tf-vista-corpo')));
     ok('Tarefas (B49): só "+ Nova tarefa" e "Delegar" à vista; Modelos, Feriados, Google Agenda e Novo fluxo no ⚙; criação rápida no ⚡',
-      await p.isVisible('#tf-nova') && await p.isVisible('#tf-delegar') && !(await p.isVisible('#tf-modelos')) && !(await p.isVisible('#tf-rapida')) && await p.isVisible('#tf-config') && await p.isVisible('#tf-rapida-bt'));
+      await p.isVisible('#tf-nova') && await p.isVisible('#tf-fluxo') && !(await p.$('#tf-delegar')) && !(await p.isVisible('#tf-modelos')) && !(await p.isVisible('#tf-rapida')) && await p.isVisible('#tf-config') && await p.isVisible('#tf-rapida-bt'));
     await p.click('#tf-vista [data-v=fluxos]'); await p.waitForTimeout(500);
     ok('fluxo com linha do tempo', (await p.$$('#tf-vista-corpo .gantt-lin')).length === 7);
     await foto(p, 'fluxos');
@@ -401,7 +403,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     // revisão: quem faz conclui → vai para o revisor
     await p.click('#tf-nova'); await p.waitForSelector('#f-tf'); await p.waitForTimeout(250);
     await p.fill('#f-tf [name=titulo]', 'Peça com revisão'); await p.selectOption('#f-tf [name=responsavel]', 'Pedro');
-    await p.check('#f-tf [name=exige_revisao]'); await p.selectOption('#f-tf [name=revisor]', 'Adriana');
+    await p.click('#tf-mais > summary'); await p.check('#f-tf [name=exige_revisao]'); await p.selectOption('#f-tf [name=revisor]', 'Adriana');
     await salvarGs(p, '#btn-salvar-tf');
     await p.evaluate(async () => { const t = (await SB.from('tarefas').select('id').eq('titulo', 'Peça com revisão').single()).data; await SB.from('tarefas').update({ status: 'concluida' }).eq('id', t.id); });
     ok('com revisão: concluir manda para "Aguardando revisão" e avisa o revisor', sql("select status from tarefas where titulo='Peça com revisão'") === 'revisao' &&
@@ -471,7 +473,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('só com Financeiro: menu mostra Financeiro e esconde Contratos, Clientes e Jurídico', await pf.isVisible('#tn .tn-grupo:has([data-ir=financeiro])') &&
       !(await pf.isVisible('#tn [data-ir=contratos]')) && !(await pf.isVisible('#tn [data-ir=clientes]')) && !(await pf.isVisible('#tn .tn-grupo:has([data-ir=processos])')));
     await pf.click('.tn-lancar-bt'); await pf.waitForTimeout(300);
-    ok('+ Lançar só oferece o que a pessoa pode gravar', await pf.isVisible('[data-lancar="0"]') && !(await pf.isVisible('[data-lancar="4"]')) && !(await pf.isVisible('[data-lancar="5"]')));
+    ok('+ Lançar só oferece o que a pessoa pode gravar', await pf.isVisible('[data-lancar="0"]') && !(await pf.isVisible('[data-lancar="5"]')) && !(await pf.isVisible('[data-lancar="6"]')));
     await pf.keyboard.press('Escape');
     await pf.evaluate(() => nav(null, 'contratos')); await pf.waitForTimeout(800);
     ok('abrir tela sem função: aviso e volta ao Início', await pf.isVisible('#panel-hoje') && !(await pf.isVisible('#panel-contratos')));
@@ -1198,7 +1200,9 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
         sql("select count(*) from email_fila where para='rui@lead.teste' and anexo->>'tipo'='ics'") === '1'); }
     { // delegar a sequência e validar no Início
       await nav(p, 'tarefas'); await p.waitForTimeout(900);
-      await p.click('#tf-delegar'); await p.waitForSelector('#gs-raiz #f-deleg'); await p.waitForTimeout(300);
+      // Backup 54: "Delegar" virou o modelo "passo a passo" dentro de 🔀 Fluxo
+      await p.click('#tf-fluxo'); await p.waitForSelector('#gs-raiz #f-fl'); await p.selectOption('#gs-raiz #f-fl [name=modelo]', { label: 'Lead completo — passo a passo, com validação' });
+      await p.waitForSelector('#gs-raiz #f-deleg'); await p.waitForTimeout(300);
       await p.selectOption('#gs-raiz #f-deleg [name=pessoa]', { label: 'Adriana' }); await p.click('#gs-raiz #deleg-ok'); await p.waitForTimeout(1500);
       ok('Delegar: 4 passos para a pessoa, só o 1º começa', sql("select count(*) from tarefas t join fluxos f on f.id=t.fluxo_id where f.nome like 'Lead completo%'") === '4' &&
         sql("select count(*) from tarefas t join fluxos f on f.id=t.fluxo_id where f.nome like 'Lead completo%' and t.status='aguardando'") === '3');
@@ -1830,6 +1834,39 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       await p.click('#em-abas [data-em-aba=saida]'); await p.waitForSelector('.em-saida-f');
       ok('B53 E-mail: Caixa de saída com "Da Rotina" para autorizar os e-mails gerados na Rotina', !!(await p.$('.em-saida-f [data-saida-f=rotina]')));
       sql("update clientes set perfil_email='padrao', emails_tipos='{}' where id='" + cliB + "'");
+    }
+    // ── Backup 54: e-mails automáticos (equipe e clientes), + Lançar integrado, contatos das execuções ──
+    {
+      const fecharTudo = async () => { for (let i = 0; i < 4; i++) { const f = await p.$('#gs-raiz .fundo [data-cancelar], #gs-raiz .fundo [data-fechar]'); if (!f) break; await f.click().catch(() => {}); await p.waitForTimeout(200); } };
+      await p.click('#em-abas [data-em-aba=auto]'); await p.waitForSelector('.em-auto [data-eq=fluxo]');
+      ok('B54 E-mail: aba Automáticos com o aviso de fluxo já desligado', !(await p.isChecked('.em-auto [data-eq=fluxo]')) && (await p.$$('.em-auto [data-eq]')).length >= 8);
+      await p.click('.em-auto [data-eq=mencao]'); await p.waitForTimeout(1200);
+      ok('B54 E-mail: desligar "Menção" grava para o escritório todo', sql("select valor->>'mencao' from configuracoes where chave='emails_equipe'") === 'false');
+      await p.click('.em-auto [data-eq=mencao]'); await p.waitForTimeout(1200);
+      ok('B54 E-mail: e religar volta a valer', sql("select valor->>'mencao' from configuracoes where chave='emails_equipe'") === 'true');
+      ok('B54 E-mail: os e-mails aos clientes também aparecem para ligar/desligar', (await p.$$('.em-auto [data-eq-regra]')).length >= 1);
+      await fecharTudo();
+      await lancar(p, 7); await p.waitForSelector('#gs-raiz #f-acordo-novo');
+      await p.fill('#gs-raiz #f-acordo-novo [name=devedor]', 'Devedor B54'); await p.fill('#gs-raiz #f-acordo-novo [name=credor]', 'Credor B54');
+      await p.fill('#gs-raiz #f-acordo-novo [name=processo]', '5000054-00.2026.8.13.0001'); await p.fill('#gs-raiz #f-acordo-novo [name=n]', '3');
+      await p.fill('#gs-raiz #f-acordo-novo [name=valor]', '1.000,00'); await p.waitForTimeout(200);
+      ok('B54 + Lançar: acordo inteiro mostra a prévia das parcelas', /3 parcelas/.test(await p.textContent('#gs-raiz #acn-previa')));
+      await p.click('#gs-raiz #acn-ok'); await p.waitForTimeout(1500);
+      ok('B54 + Lançar: o acordo inteiro grava as 3 parcelas mês a mês', sql("select count(*)||'|'||count(distinct date_trunc('month', vencimento)) from acordos where credor='Credor B54' and total_parcelas='3'") === '3|3');
+      await fecharTudo();
+      sql("insert into lancamentos (empresa, tipo, descricao, valor, vencimento, cliente_id) select 'escritorio','receita','Honorário B54 receber',321,current_date, id from clientes where nome='Beta Serviços Ltda'");
+      await lancar(p, 3); await p.waitForSelector('#gs-raiz #rc-busca'); await p.fill('#gs-raiz #rc-busca', 'B54 receber'); await p.waitForTimeout(600);
+      await p.click('#gs-raiz [data-rc]'); await p.waitForSelector('#gs-raiz [data-bx-ok]'); await p.click('#gs-raiz [data-bx-ok]'); await p.waitForTimeout(2000);
+      ok('B54 + Lançar: "Recebimento" dá baixa no honorário escolhido', sql("select pago from lancamentos where descricao='Honorário B54 receber'") === 't');
+      await fecharTudo();
+      await nav(p, 'execucoes'); await p.waitForSelector('#panel-execucoes tr[data-ex]');
+      await p.click('#panel-execucoes tr[data-ex]'); await p.waitForSelector('#gs-raiz #ex-contato-novo');
+      await p.click('#gs-raiz #ex-contato-novo'); await p.waitForSelector('#gs-raiz #f-exc');
+      await p.fill('#gs-raiz #f-exc [name=nome]', 'Oficial B54'); await p.fill('#gs-raiz #f-exc [name=telefone]', '31999990000'); await p.fill('#gs-raiz #f-exc [name=endereco]', 'Rua Teste, 54');
+      await p.click('#gs-raiz #exc-ok'); await p.waitForTimeout(1500);
+      ok('B54 Execuções: guarda contato de quem não é cliente (telefone, endereço)', sql("select count(*) from execucao_contatos where nome='Oficial B54' and endereco='Rua Teste, 54'") === '1' &&
+        /Oficial B54/.test(await p.textContent('#gs-raiz #ex-contatos-l')));
+      await fecharTudo();
     }
     // ── sair ──
     await p.evaluate(() => acLogout()); await p.waitForTimeout(800);
