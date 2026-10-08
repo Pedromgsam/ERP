@@ -9,7 +9,8 @@
    ═══════════════════════════════════════════════════════════════════ */
 :root{
   /* marca Araújo & Castro */
-  --ac-navy:#1B2A4A;--ac-navy2:#243659;--ac-navy3:#2E5EAA;
+  /* Backup 56: azul-safira na tela (o marinho #1B2A4A da logo segue nos documentos e e-mails, escrito direto neles) */
+  --ac-navy:#173B66;--ac-navy2:#1F4D80;--ac-navy3:#2E5EAA;
   --ac-gold:#C9A84C;--ac-gold2:#D4A84B;--ac-gold-lt:#F7F1E1;--gold-d:#7A5E12;--gold-bd:rgba(201,168,76,.4);
   --navy:var(--ac-navy);--navy2:var(--ac-navy2);--navy3:var(--ac-navy3);
   --gold:var(--ac-gold);--accent:var(--ac-gold);
@@ -41,26 +42,27 @@
   --veu-1:rgba(255,255,255,.06);--veu-2:rgba(255,255,255,.1);--veu-3:rgba(255,255,255,.16);--veu-4:rgba(255,255,255,.3);
 
   /* barra superior, botão principal e seleção */
-  --bar-bg:#1B2A4A;--bar-borda:rgba(255,255,255,.06);
+  --bar-bg:#173B66;--bar-borda:rgba(255,255,255,.06);
   /* Backup 38: cores dos prints (ROMPEX) com o azul no lugar do verde e sem o azul-marinho nos botões */
-  --primario:#1B2A4A;--primario-hover:#243659;--on-primario:#FFFFFF;
-  --selecao:#1B2A4A;--on-selecao:#FFFFFF;
+  --primario:#1F4D80;--primario-hover:#173B66;--on-primario:#FFFFFF;
+  --selecao:#1F4D80;--on-selecao:#FFFFFF;
   /* barra lateral: azul da marca (troque só --lado-bg para mudar o tom) */
   /* Backup 54: o marinho oficial do escritório (o da logo da tela de entrada) — lateral, filtros e cabeçalho das tabelas */
-  --lado-bg:#1B2A4A;--lado-fg:#FFFFFF;--lado-fg-2:rgba(255,255,255,.86);--lado-sec:rgba(255,255,255,.62);--lado-linha:rgba(255,255,255,.18);
-  --lado-ativo-bg:#FFFFFF;--lado-ativo-fg:#1B2A4A;--lado-hover:rgba(255,255,255,.1);
+  /* Backup 56: azul-safira (mais limpo e vivo que o marinho acinzentado #1B2A4A, que continua na logo e nos documentos) */
+  --lado-bg:#173B66;--lado-fg:#FFFFFF;--lado-fg-2:rgba(255,255,255,.86);--lado-sec:rgba(255,255,255,.62);--lado-linha:rgba(255,255,255,.18);
+  --lado-ativo-bg:#FFFFFF;--lado-ativo-fg:#173B66;--lado-hover:rgba(255,255,255,.1);
   --topo-bg:#FFFFFF;--topo-borda:#E3E6E8;
   /* cabeçalho das tabelas (Backup 19: volta ao azul-marinho, texto branco) */
-  --th-bg:#1B2A4A;--th-fg:#FFFFFF;--th-fg-2:rgba(255,255,255,.75);   /* Backup 54: cabeçalho da tabela na cor da barra lateral, texto branco (como no ERP antigo) */
-  --titulo:#1B2A4A;   /* Backup 54: títulos das tabelas/quadros em azul-marinho */
+  --th-bg:#1F4D80;--th-fg:#FFFFFF;--th-fg-2:rgba(255,255,255,.75);   /* Backup 54: cabeçalho da tabela na cor da barra lateral, texto branco (como no ERP antigo) */
+  --titulo:#173B66;   /* títulos das tabelas/quadros (Backup 56: azul-safira) */
 
   /* gráficos (o canvas não entende var(): o JS lê estes valores na hora de desenhar) */
   --chart-1:#2F5FAE;--chart-2:#2E8C6A;--chart-3:#C0873A;--chart-4:#8266C4;--chart-5:#B85C5C;--chart-6:#3E8FA8;--chart-7:#8A8F99;--chart-8:#B8A04E;
   --chart-rampa-1:#1E3A6B;--chart-rampa-2:#2F5FAE;--chart-rampa-3:#5C83C6;--chart-rampa-4:#93AEDB;--chart-rampa-5:#C9D6EE;
   --chart-texto:#5B6270;--chart-grade:rgba(17,24,39,.06);--chart-borda:#FFFFFF;
 
-  /* tipografia: uma fonte só, números alinhados */
-  --font-ui:'Inter','DM Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  /* tipografia: uma fonte só, números alinhados (Backup 56: DM Sans, a letra do ERP antigo — mais compacta que a Inter) */
+  --font-ui:'DM Sans','Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
   --fs-xs:12px;--fs-sm:13px;--fs-md:14px;--fs-lg:16px;--fs-xl:20px;--fs-2xl:24px;
   /* espaçamento */
   --sp-1:4px;--sp-2:8px;--sp-3:12px;--sp-4:16px;--sp-5:24px;--sp-6:32px;
@@ -74,7 +76,7 @@
   --shadow-md:0 8px 24px -10px rgba(17,24,39,.16);
   --shadow-lg:0 18px 48px -16px rgba(17,24,39,.24);
   --anel:0 0 0 3px rgba(46,94,170,.16);
-  --grad-marca:linear-gradient(0deg,#1B2A4A,#1B2A4A);
+  --grad-marca:linear-gradient(0deg,#173B66,#173B66);
   --grad-ouro:linear-gradient(0deg,#C9A84C,#C9A84C);
   color-scheme:light;
 }

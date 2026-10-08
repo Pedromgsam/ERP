@@ -1873,9 +1873,14 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
         return { a: r[0] && r[0].right, b: r[1] && r[1].left, larg: w.width, ini: w.left }; });
       ok('B55 Tarefas: Urgência e Prazo logo depois de Mostrar/De quem (não colados na direita)', pos.b > pos.a && pos.b - pos.a < 120 && pos.b - pos.ini < pos.larg * 0.8, JSON.stringify(pos));
       await nav(p, 'resumo'); await p.waitForSelector('#tblExecRanking tr'); await p.evaluate(() => { FILTROS.grupo = ''; FILTROS.empresa = ''; renderExecRanking(); }); await p.waitForTimeout(800);
-      ok('B55 Painel: com a faixa do grupo, a coluna Grupo some e cada empresa fica numa linha', await p.evaluate(() => { const t = document.querySelector('#tblExecRanking').closest('table');
-        const g = t.querySelector('thead th.col-grupo'); const tr = [...t.querySelectorAll('tbody tr')].find((x) => x.querySelector('td.col-nome'));
-        return t.classList.contains('tem-faixa') && (!g || getComputedStyle(g).display === 'none') && !!tr && getComputedStyle(tr.querySelector('td.col-nome')).whiteSpace === 'nowrap'; }));
+      ok('B55 Painel: com a faixa do grupo, a coluna Grupo some', await p.evaluate(() => { const t = document.querySelector('#tblExecRanking').closest('table');
+        const g = t.querySelector('thead th.col-grupo'); return t.classList.contains('tem-faixa') && (!g || getComputedStyle(g).display === 'none'); }));
+      const caberB56 = await p.evaluate(() => { const t = document.querySelector('#tblExecRanking').closest('table'); const nm = t.querySelector('tbody td.col-nome .er-nome');
+        if (nm) nm.textContent = 'COMERCIO E DISTRIBUIDORA DE ALIMENTOS FICTICIA SANTA LUZIA LTDA EPP FILIAL CENTRO';
+        const w = t.parentElement; return { ws: getComputedStyle(t.querySelector('tbody td.col-nome')).whiteSpace, tab: t.scrollWidth, caixa: w.clientWidth }; });
+      ok('B56 Painel: nome longo quebra em 2–3 linhas e a tabela cabe na tela (sem barra para o lado)', caberB56.ws === 'normal' && caberB56.tab <= caberB56.caixa + 2, JSON.stringify(caberB56));
+      ok('B56 visual: cabeçalho da tabela no azul-safira e letra DM Sans (a do ERP antigo)', await p.evaluate(() => { const th = document.querySelector('#tblExecRanking').closest('table').querySelector('thead th');
+        return getComputedStyle(th).backgroundColor === 'rgb(31, 77, 128)' && /DM Sans/.test(getComputedStyle(document.body).fontFamily); }));
       ok('B55 tabelas: CPF/CNPJ discreto (letra menor, cinza)', await p.evaluate(() => { const td = document.querySelector('#tblExecRanking td.col-doc'); if (!td) return false; const c = getComputedStyle(td); return parseFloat(c.fontSize) < 13; }));
       await nav(p, 'acordos'); await p.waitForSelector('#tblAcordosVencBody tr[data-ac-id]', { timeout: 10000 }).catch(() => {});
       const temAc = await p.$('#tblAcordosVencBody tr[data-ac-id] td:nth-child(3)');

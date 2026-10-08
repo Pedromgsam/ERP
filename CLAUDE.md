@@ -82,7 +82,11 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
-- Última entrega: **Backup 55** (SQL; nenhuma função nova). Régua (erp-telas.js `REGUA`): `col-grupo` (some com `table.tem-faixa`, posto quando há `tr.gx-grp|cli-grp|rt-grp`), `col-doc` (CPF/CNPJ mono 11,5 px),
+- Última entrega: **Backup 56** (só front; sem SQL). Tabelas: texto QUEBRA (`td.col-nome/.col-texto` white-space normal, sem "…"); números/datas/doc/nº nowrap; td 7px 10px, th 11px (bloco "Backup 56" no
+  design.css, no lugar do bloco de tabelas do B55); `#tblExecRanking td:has(.er-nome)` 30%. Fonte `--font-ui` = DM Sans (Inter de reserva). Cor: `--ac-navy`/`--lado-bg`/`--titulo` #173B66, `--th-bg`/`--primario`/`--selecao`
+  #1F4D80 (marinho #1B2A4A só nos documentos/e-mails, escrito direto). Rotina: `.rt-grade` td 5px e select com seta curta; `.rt-proc td:nth-child(1) > .sub` quebra; NÃO pôr `table-layout:auto` geral (desfaz o
+  colgroup fixo da Rotina). erp.js testa nome longo sem rolagem e th rgb(31,77,128). Prints com as fontes reais: servir DM Sans/Inter pelo `page.route` (fonts.googleapis/gstatic).
+- Backup 55 (base) (SQL; nenhuma função nova). Régua (erp-telas.js `REGUA`): `col-grupo` (some com `table.tem-faixa`, posto quando há `tr.gx-grp|cli-grp|rt-grp`), `col-doc` (CPF/CNPJ mono 11,5 px),
   `col-texto` (natureza/autor/réu…: nowrap + "…" + `title`), `col-num` (processo/parcela nowrap); bloco "Backup 55" no fim do design.css (td 8 px, th 11,5 px). Início: `fin-pagar` = "A pagar · Contabilidade"
   (só `empresa='contabilidade'`, exige `financeiro_contab`). Tarefas: `.fila-2x2` em `max-content max-content`; sem ⚡ (`interpretarRapida`/`ligarCriacaoRapida` saíram); `.tf-linha2` (progresso + cliente). Acordos:
   `tr.ac-ap-lin[data-ac-id]` → `tr.ac-ed-linha` com `[data-ac-ed=parcela|acordo]` (remendo acordos-b35.js). Rotina: confirm em `[data-conferir]`/`[data-conf-grp]`; colunas `.rt-w-*` novas (Processos `rt-w-ult`);
