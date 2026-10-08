@@ -707,6 +707,14 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
 **Central de Documentos dentro do ERP:** menu **Documentos → Gerar documento** (ou ⋯ → Documentos, contrato, recibo do Financeiro).
 **Ctrl + clique** (ou botão do meio do mouse) em qualquer item do menu ou link de documento abre numa aba nova.
 
+## Se depois do Merge o ERP continuar igual (Backup 54.1)
+A Vercel às vezes não publica o site depois do Merge (aconteceu no Backup 54: o merge entrou às 9h09 e a publicação não saiu).
+Para conferir:
+1. Abra **vercel.com** → projeto **erp** → aba **Deployments**.
+2. A primeira linha tem que ser **Production**, com o mesmo horário do seu Merge e um ponto verde (**Ready**).
+3. Se a primeira linha de Production for antiga: clique nos **⋯** dela → **Redeploy** → **Redeploy** de novo. Ou faça o Merge de uma PR nova, porque todo Merge pede uma publicação nova.
+4. Depois, **Ctrl+Shift+R** no ERP.
+
 ## Backup 54 — Visual do ERP antigo, Início e Tarefas mais simples, controle dos e-mails automáticos, + Lançar integrado e contatos nas Execuções (tem SQL; nenhuma função nova)
 1. Merge da pull request.
 2. SQL: rode o `sistema/banco/estrutura.sql` inteiro (a última linha é `-- ═══ fim do Backup 54 ═══`).
