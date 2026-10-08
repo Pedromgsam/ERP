@@ -224,7 +224,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     // ── parcelamento: marcar parcela vencida como paga ──
     await nav(p, 'parcelamentos');
     const marcaParc = await p.evaluate(() => { const tr = document.querySelector('tr[data-gx^="parcelas:"]'); return tr && tr.dataset.gx; });
-    ok('parcelas com ✎ e ✓ Baixa na linha', !!marcaParc && await p.$('tr[data-gx^="parcelas:"] [data-la=editar]'));
+    ok('parcelas com ✓ Baixa na linha e sem ✎ (Backup 57: editar pelo detalhe da parcela)', !!marcaParc && !!(await p.$('tr[data-gx^="parcelas:"] [data-la=baixa]')) && !(await p.$('tr[data-gx^="parcelas:"] [data-la=editar]')));
     const idParc2 = sql("select id from parcelas where numero='2'");
     await p.evaluate((id) => ERP_EDITAR('parcelas:' + id + ':' + document.querySelector('tr[data-gx^="parcelas:"]').dataset.gx.split(':')[2]), idParc2);
     await esperarJanela(p);
@@ -1061,7 +1061,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       ok('Painel → Empresas do grupo: faixa por grupo (como Clientes), linhas em ordem de grupo', !!(await p.$('#tblExecRanking tr.gx-grp')) && grupos.every((g, i) => grupos.indexOf(g) === i || grupos[i - 1] === g), grupos.join(' | ')); }
     { const al = await p.evaluate(() => { const td = document.querySelector('#tblExecRanking tr.gx-linha-exp'), th = document.querySelectorAll('#execRankHead th');
         return [2, 4].map((i) => getComputedStyle(td.children[i - 1]).textAlign + '/' + getComputedStyle(th[i - 1]).textAlign).join(' '); });
-      ok('Painel (B48): Grupo e CPF/CNPJ alinhados à esquerda, títulos centralizados', al === 'left/center left/center', al); }
+      ok('Painel (B48/B57): Grupo e CPF/CNPJ alinhados à esquerda, títulos também à esquerda (como no ERP antigo)', al === 'left/left left/left', al); }
     ok('Painel: sem a seta de expandir e sem o filtro de grupo (fica só no filtro de cima)', !(await p.isVisible('#tblExecRanking td.gx-seta')) && !(await p.$('#pe-grupo')));
     await p.click('#tblExecRanking tr.gx-linha-exp:has-text("Alfa Comércio") .er-nome'); await p.waitForTimeout(400);
     await p.waitForFunction(() => [...document.querySelectorAll('#janelas .janela h2')].some((h) => /Alfa Comércio/i.test(h.textContent)), null, { timeout: 8000 }).catch(() => {});
