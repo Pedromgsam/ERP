@@ -16,7 +16,7 @@ const REGRAS = [
   ['dias / atraso', 'td.col-dias', ['fontSize']],
   ['nome de cliente/empresa', 'td.col-nome', ['fontSize', 'fontWeight', 'textTransform']],
   ['cabeçalho de tabela', TAB + ' > thead > tr > th', ['fontSize', 'fontWeight', 'backgroundColor', 'color', 'textTransform']],
-  ['célula de tabela', TAB + ' > tbody > tr:not(.gx-grp):not(.gx-det) > td:not(.col-doc):not(.col-grupo)', ['fontSize']],
+  ['célula de tabela', TAB + ' > tbody > tr:not(.gx-grp):not(.gx-det) > td:not(.col-doc):not(.col-grupo):not(.col-num)', ['fontSize']],
   ['linha de baixo (sócio, descrição…)', TAB + ' > tbody > tr > td .sub', ['fontSize', 'color']],
   ['botão "✓ Baixa" da linha', 'td :is(.gx-la-bx,[data-pagar].btn-mini)', ['fontSize', 'fontWeight']],
   ['botão "✎" da linha', 'td :is(.gx-la-ed,.btn-ed)', ['fontSize']],
@@ -83,8 +83,8 @@ const TELAS = [['hoje'], ['resumo'], ['processos'], ['parcelamentos'], ['parcela
     const tem = (n, re) => Object.keys(vistos[n]).every((e) => re.test(e));
     ok('tabela com 13 px', tem('célula de tabela', /fontSize=13px/));
     ok('vencimento em negrito', tem('vencimento', /fontWeight=700/));
-    ok('valor em negrito e à direita', tem('valor', /fontWeight=700/) && tem('valor', /textAlign=right/));
-    ok('nomes de cliente/empresa em CAIXA ALTA sem negrito', tem('nome de cliente/empresa', /fontWeight=400 textTransform=uppercase/));
+    ok('valor em negrito e à esquerda (como no ERP antigo — Backup 57)', tem('valor', /fontWeight=700/) && tem('valor', /textAlign=left/));
+    ok('nomes de cliente/empresa como foram digitados, sem negrito (como no ERP antigo — Backup 57)', tem('nome de cliente/empresa', /fontWeight=400 textTransform=none/));
     ok('selo da pessoa como no ERP original (11 px, negrito, do tamanho do nome)', tem('selo da pessoa', /fontSize=11px fontWeight=700/));
     ok('linha de baixo com 12 px', tem('linha de baixo (sócio, descrição…)', /fontSize=12px/));
     ok('nenhum botão PIX nas tabelas', await p.evaluate(() => !document.querySelector('[data-pix]')));

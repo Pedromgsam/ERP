@@ -31,7 +31,7 @@
     { id: 'contratos', rot: 'Contratos', ic: 'contratos', equipe: true, func: 'contratos' },
     { id: 'clientes', rot: 'Clientes', ic: 'clientes', equipe: true, func: 'clientes' },
     { id: 'crm', rot: 'CRM', ic: 'crm', equipe: true, func: 'crm' },
-    { id: 'documentos', rot: 'Documentos', ic: 'documentos', equipe: true, func: 'documentos' },   // Backup 40: a geração de documentos é um sistema à parte (botão "Gerar documentos ↗" na tela)
+    { rot: 'Documentos', ic: 'documentos', equipe: true, itens: [['documentos', 'Arquivos', 'documentos'], ['gerador', 'Gerar documentos', 'documentos']] },   // Backup 57: submódulo "Gerar documentos" (Central de Documentos dentro do ERP)
     { id: 'rotina', rot: 'Rotina', ic: 'rotina', equipe: true },   // Backup 28: o lugar do estagiário; Backup 39: em Módulos, abaixo de Documentos
     { sec: 'Sistema', admin: true },
     { id: 'admin', rot: 'Administração', ic: 'admin', admin: true }
@@ -58,7 +58,7 @@
   // Cobranças, avisos e recibos (antiga "Notificações"): fora da barra; abre pelo botão ✉ de cada tela e pelo ⋯
   const FUNC_EXTRA = { notificacoes: 'clientes' };   // a Central de e-mails confere o acesso no banco
   // painéis novos → tela do Gestão que desenha nele
-  const TELAS_GS = { hoje: 'inicio', contratos: 'contratos', clientes: 'clientes', crm: 'crm', publicacoes: 'publicacoes', documentos: 'documentos', tarefas: 'tarefas', alertas: 'alertas', rotina: 'rotina', execucoes: 'execucoes', admin: 'admin' };
+  const TELAS_GS = { hoje: 'inicio', contratos: 'contratos', clientes: 'clientes', crm: 'crm', publicacoes: 'publicacoes', documentos: 'documentos', gerador: 'gerador', tarefas: 'tarefas', alertas: 'alertas', rotina: 'rotina', execucoes: 'execucoes', admin: 'admin' };
 
   // "+ Lançar": formulários do Gestão onde existem; os demais, do editor do ERP
   const empresaAtual = () => (_painel === 'financeiroContab' ? 'contabilidade' : 'escritorio');
@@ -778,7 +778,7 @@
       if (t._gxRegua !== sig) { t._gxRegua = sig; t._gxCols = ths.map((th) => { const n = normTit(th.textContent); const r = REGUA.find(([, re]) => re.test(n)); return r ? r[0] : ''; }); }
       const cols = t._gxCols; if (!cols.some(Boolean)) return;
       cols.forEach((c, i) => { if (c && ths[i]) ths[i].classList.add(c); });
-      // Backup 55: com a faixa do grupo na tabela, a coluna Grupo repetida some
+      // Backup 55: tabela com a faixa do grupo ganha a marca tem-faixa (Backup 57: a coluna Grupo NÃO some mais — é a 1ª coluna)
       t.classList.toggle('tem-faixa', !!t.querySelector(':scope > tbody > tr:is(.gx-grp,.cli-grp,.rt-grp)'));
       t.querySelectorAll(':scope > tbody > tr').forEach((tr) => {
         if (tr._gxRegua === sig || tr.classList.contains('gx-grp') || tr.classList.contains('gx-det')) return;
@@ -787,7 +787,9 @@
           // Backup 55: texto que não cabe numa linha termina em "…" e mostra tudo ao passar o mouse
           if ((c === 'col-nome' || c === 'col-grupo' || c === 'col-texto') && !td.title) td.title = td.textContent.trim().replace(/\s+/g, ' ');
           // vencido no ERP antigo vinha só com a cor no style: vira a marca da régua
-          if (c === 'col-venc' && /red/.test(td.getAttribute('style') || '')) td.classList.add('venc-atraso'); });
+          if (c === 'col-venc' && /red/.test(td.getAttribute('style') || '')) td.classList.add('venc-atraso');
+          // Backup 57: Grupo em pílula, como no ERP antigo
+          if (c === 'col-grupo' && !td.children.length && td.textContent.trim() && td.textContent.trim() !== '—') td.innerHTML = '<span class="gx-gpill">' + td.innerHTML + '</span>'; });
         tr._gxRegua = sig;
       });
     });

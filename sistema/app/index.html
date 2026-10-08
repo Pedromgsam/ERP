@@ -48,11 +48,11 @@
 <script src="erp-dados.js?v=cea43526"></script>
 <link rel="stylesheet" href="editor.css?v=7747e46f">
 <link rel="stylesheet" href="erp-telas.css?v=22ce828d">
-<script src="editor.js?v=4a628dc2" defer></script>
-<script src="erp-telas.js?v=4b7faded" defer></script>
+<script src="editor.js?v=c1deef63" defer></script>
+<script src="erp-telas.js?v=0350bd9a" defer></script>
 <link rel="stylesheet" href="gs.css?v=3664502a">
 <script src="importador.js?v=23bf9824" defer></script>
-<script src="gestao-embutida.js?v=10a51bed" defer></script>
+<script src="gestao-embutida.js?v=c6153c35" defer></script>
 <script>
 
 
@@ -1615,9 +1615,9 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
 .ep-val:focus{border-bottom-color:var(--navy);background:#FFF8E1}
 .ep-val::placeholder{color:var(--text4);font-weight:400}
 </style>
-<link rel="stylesheet" href="tokens.css?v=7d2bea70">
+<link rel="stylesheet" href="tokens.css?v=71f436d3">
 <link rel="stylesheet" href="tema-escuro.css?v=3bec5b6a">
-<link rel="stylesheet" href="design.css?v=e94e3680">
+<link rel="stylesheet" href="design.css?v=c76d29be">
 <script>try{if(localStorage.getItem("erp_tema")==="escuro")document.documentElement.setAttribute("data-tema","escuro")}catch(e){}</script>
 </head>
 <body>
@@ -2036,7 +2036,7 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
           <th class="s" onclick="sortParcVenc(3)">Parcela</th>
           <th class="s" onclick="sortParcVenc(5)">Valor</th>
           <th class="s" onclick="sortParcVenc(4)">Vencimento</th>
-          <th>Atraso</th>
+          <th>Status</th><th>Atraso</th>
         </tr></thead><tbody id="tblParcVencBody"></tbody></table>
       </div>
     </div>
@@ -2064,7 +2064,7 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
           <th class="s" onclick="sortParc(3)">Parcela</th>
           <th class="s" onclick="sortParc(5)">Valor</th>
           <th class="s" onclick="sortParc(4)">Vencimento</th>
-          <th>Dias</th>
+          <th>Status</th><th>Atraso</th>
         </tr></thead><tbody id="tblParcBody"></tbody></table>
       </div>
     </div>
@@ -4659,8 +4659,9 @@ function renderParcTbl(){
     <td class="mono">${p.numero||'—'}</td>
     <td class="mono" style="font-weight:600;color:var(--navy)">${p.valor?fF(p.valor):'—'}</td>
     <td class="mono">${fDate(p.vencimento)}</td>
+    <td><span class="tag ${sC[p.status]||'tx'}">${p.status||'—'}</span></td>
     <td class="mono">${_parcDias(p.vencimento)}</td>
-  </tr>`).join(''):`<tr><td colspan="8">${emp()}</td></tr>`;
+  </tr>`).join(''):`<tr><td colspan="10">${emp()}</td></tr>`;
 }
 
 let _parcPagoPg=1, _parcPagoSort={col:4,asc:true};
@@ -4760,8 +4761,9 @@ function renderParcVencTbl(){
     <td class="mono">${p.numero||'—'}</td>
     <td class="mono" style="font-weight:600;color:var(--navy)">${p.valor?fF(p.valor):'—'}</td>
     <td class="mono" style="color:var(--red);font-weight:700">${fDate(p.vencimento)}</td>
+    <td><span class="tag tr">Inadimplente</span></td>
     <td class="mono">${_parcDias(p.vencimento)}</td>
-  </tr>`).join(''):`<tr><td colspan="8">${emp('Nenhuma parcela vencida — tudo em dia! ✅')}</td></tr>`;
+  </tr>`).join(''):`<tr><td colspan="10">${emp('Nenhuma parcela vencida — tudo em dia! ✅')}</td></tr>`;
 }
 function sortParcVenc(c){if(_parcVencSort.col===c)_parcVencSort.asc=!_parcVencSort.asc;else _parcVencSort={col:c,asc:true};renderParcVencTbl();}
 

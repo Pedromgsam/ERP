@@ -5471,6 +5471,15 @@ async function janelaCertificado(vinculo, depois) {
   return janelaEnviarDocumento({ grupo_id: vinculo.grupo_id || undefined, empresa_id: vinculo.cliente_id || undefined, tipo: 'certificado' }, depois, 'Enviar certificado digital');
 }
 
+// Backup 57: submódulo "Gerar documentos" — a Central de Documentos (documentos/index.html) dentro do ERP, com o mesmo login.
+// "Abrir em aba nova" continua para quem prefere a tela inteira.
+TELAS.gerador = async function () {
+  $('conteudo').innerHTML =
+    '<div class="titulo-pag"><div><h1>Gerar documentos</h1><p>Procuração, substabelecimento, contrato, recibo, declaração e acordo — com os dados do cliente já preenchidos</p></div>' +
+    '<div class="acoes"><a class="btn btn-o" id="ger-aba" href="documentos/index.html" target="_blank" rel="noopener">Abrir em aba nova ↗</a></div></div>' +
+    '<div class="card ger-card"><iframe id="ger-frame" class="ger-frame" src="documentos/index.html?embutido=1" title="Central de Documentos"></iframe></div>';
+};
+
 'use strict';
 // ═══════════════════════════════════════════════════════════════════
 // Ficha do cliente (visão 360°): tudo sobre o cliente numa janela só,
