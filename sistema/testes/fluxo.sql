@@ -362,6 +362,16 @@ update configuracoes set valor = valor - 'tarefa' where chave = 'emails_equipe';
 insert into notificacoes (usuario_id, tipo, titulo, detalhe) select id, 'tarefa', 'Nova tarefa para você: Teste B54 b', '' from perfis where papel in ('admin','equipe') and coalesce((pref_email->>'tarefa')::boolean, true) order by criado_em limit 1;
 select pg_temp.ok(exists (select 1 from email_fila where assunto = 'Nova tarefa para você: Teste B54 b') or not exists (select 1 from notificacoes where titulo = 'Nova tarefa para você: Teste B54 b'), '54.4 religada, o e-mail de tarefa volta a sair');
 
+-- Backup 55: o banco usa o horário de Brasília (o "hoje" não vira às 21h)
+select pg_temp.ok(current_setting('TimeZone') = 'America/Sao_Paulo', '55.1 o banco está no horário de Brasília (current_date = dia de Brasília)');
+
+insert into email_fila (para, assunto, html, tipo, referencia, status, enviado_em, anexo) values ('velho@teste', 'Antigo B55', '<p>texto antigo</p>', 'cliente', 'b55-velho', 'enviado', now() - interval '7 months', '{"tipo":"x"}');
+insert into email_fila (para, assunto, html, tipo, referencia, status, enviado_em) values ('novo@teste', 'Novo B55', '<p>texto novo</p>', 'cliente', 'b55-novo', 'enviado', now() - interval '1 month');
+reset role; select pg_temp.como('');
+select public.limpar_emails_antigos();
+select pg_temp.ok((select html like '%conteúdo apagado%' and anexo is null from email_fila where referencia = 'b55-velho') and (select html = '<p>texto novo</p>' from email_fila where referencia = 'b55-novo'),
+  '55.2 limpeza: e-mail enviado há mais de 6 meses perde o conteúdo (a linha fica); o recente fica inteiro');
+delete from email_fila where referencia in ('b55-velho', 'b55-novo');
 -- ═══ RESUMO ═══
 select case when ok then 'PASSA ' else 'FALHA ' end || nome || case when not ok and obs <> '' then '  → ' || obs else '' end from r order by n;
 do $$ declare n int; begin

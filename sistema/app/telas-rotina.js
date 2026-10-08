@@ -168,6 +168,8 @@ async function rotinaPassivo(el) {
       const pend = ids.filter((id) => alterados.has(id));
       if (pend.length) throw new Error('Há ' + plural(pend.length, 'empresa alterada', 'empresas alteradas') + ' neste grupo: salve (ou confira linha por linha) antes de conferir o grupo todo.');
       if (!ids.length) return;
+      // Backup 55: conferir pede confirmação
+      if (!confirm('Confirmar a conferência de ' + plural(ids.length, 'empresa', 'empresas') + ' deste grupo (sem alteração)?')) return;
       await q(sb.rpc('conferir_rotina', { p_area: 'passivo', p_ids: ids, p_alterou: false }));
       const agora = new Date().toISOString(), quem = E.perfil ? E.perfil.nome : '';
       ids.forEach((id) => { SIT[id] = Object.assign({}, SIT[id], { conferido_em: agora, conferido_por: quem, conferido_alterou: false });
@@ -176,6 +178,8 @@ async function rotinaPassivo(el) {
     // Backup 42: o ✓ da linha salva AQUELA linha — com alteração grava e marca "alterado"; sem alteração marca "conferido"
     const cf = ev.target.closest('[data-conferir]'); if (cf) return comBotao(cf, async () => {
       const id = cf.dataset.conferir, a = alterados.get(id), mudou = !!a;
+      const emp = ((cf.closest('tr').querySelector('td') || {}).textContent || 'esta empresa').trim().split('\n')[0].replace(/\s+\d[\d./-]+.*$/, '');
+      if (!confirm(mudou ? 'Salvar a alteração de ' + emp + ' e marcar como conferida?' : 'Confirmar que ' + emp + ' foi conferida (sem alteração)?')) return;
       if (a) await gravar([id, a]);
       await q(sb.rpc('conferir_rotina', { p_area: 'passivo', p_ids: [id], p_alterou: mudou }));
       SIT[id] = Object.assign({}, SIT[id], { conferido_em: new Date().toISOString(), conferido_por: E.perfil ? E.perfil.nome : '', conferido_alterou: mudou }, mudou ? { alterado_em: new Date().toISOString() } : {});
@@ -296,7 +300,7 @@ async function rotinaProcessos(el) {
       '<button type="button" class="btn btn-p btn-mini" id="rt-novo-proc" style="margin-left:auto">+ Processo</button></div>' +
     '<div class="card-bd">' + filtroRotina('') +
     '<div class="rt-segs" id="rt-proc-segs"></div>' +
-    '<div class="tabela-wrap rt-proc" data-sem-pagina><table><colgroup><col class="rt-w-pnum"><col class="rt-w-trib"><col class="rt-w-nat"><col><col class="rt-w-sn"><col class="rt-w-val"><col class="rt-w-conf"></colgroup>' +
+    '<div class="tabela-wrap rt-proc" data-sem-pagina><table><colgroup><col class="rt-w-pnum"><col class="rt-w-trib"><col class="rt-w-nat"><col class="rt-w-ult"><col class="rt-w-sn"><col class="rt-w-val"><col class="rt-w-conf"></colgroup>' +
       '<thead><tr><th>Processo</th><th>Tribunal</th><th>Natureza</th><th>Última movimentação</th><th>Procuração</th><th class="rt-num">Valor</th><th class="rt-c-conf">Conferência</th></tr></thead><tbody id="rt-proc-corpo"></tbody></table></div></div></div>';
   const base = () => { const b = normalizar(E.rt.busca);
     return P.filter((p) => (!E.rt.grupo || p.grupo_id === E.rt.grupo) && (!b || normalizar([p.numero, p.autor, p.reu, p.natureza, p._trib, p.grupos ? p.grupos.nome : ''].join(' ')).includes(b))); };
@@ -703,11 +707,16 @@ async function rotinaPlanilha(el) {
         (ab && (corte || prev.length > 3) ? '<tr class="pl-resumo"><td colspan="4"><button type="button" class="pl-mais" data-pl-fecha="' + p.id + '">▴ resumir</button></td></tr>' : '') +
         '</tbody></table>' : '<div class="pl-sem">Nenhuma parcela lançada neste parcelamento.</div>') + '</section>'; };
   const redesenharBloco = (id) => { const sec = el.querySelector('[data-pl-pa="' + id + '"]'), p = PA.find((y) => y.id === id); if (sec && p) sec.outerHTML = bloco(p);
+    igualarCabs();
     const r = $('pl-rolo'), bx = $('pl-barra-x'); if (r && bx) { bx.firstElementChild.style.width = r.scrollWidth + 'px'; bx.hidden = r.scrollWidth <= r.clientWidth + 2; }
     const ab = el.querySelector('.pl-aba.ativo'), n = nGrupo(E.rt.plGrupo); if (ab) ab.innerHTML = esc(E.rt.plGrupo) + (n ? ' <span class="pl-n" title="Guias a emitir">' + n + '</span>' : ''); };
   // Backup 46: cada empresa numa linha, com os parcelamentos dela lado a lado; a tela rola para o lado (barra fixa no rodapé)
+  // Backup 55: o cabeçalho de todos os blocos termina na mesma altura, para as linhas das parcelas ficarem alinhadas lado a lado
+  const igualarCabs = () => { const cabs = [...el.querySelectorAll('#pl-rolo .pl-bloco > .pl-cab')]; cabs.forEach((c) => { c.style.minHeight = ''; });
+    const h = Math.max(0, ...cabs.map((c) => c.getBoundingClientRect().height)); if (h) cabs.forEach((c) => { c.style.minHeight = Math.ceil(h) + 'px'; }); };
   const ligarRolo = () => {
     const rolo = $('pl-rolo'), bx = $('pl-barra-x'); if (!rolo || !bx) return;
+    igualarCabs();
     const ajustar = () => { bx.firstElementChild.style.width = rolo.scrollWidth + 'px'; bx.hidden = rolo.scrollWidth <= rolo.clientWidth + 2; };
     ajustar(); let lock = false;
     rolo.onscroll = () => { if (lock) return; lock = true; bx.scrollLeft = rolo.scrollLeft; lock = false; };

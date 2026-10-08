@@ -241,6 +241,8 @@
 .gs .secao-docs{margin-top:16px;padding-top:12px;border-top:1px solid var(--border)}
 .gs .tf-prog{display:inline-block;width:60px;height:6px;background:var(--surface3);border-radius:99px;overflow:hidden;vertical-align:middle;margin-left:6px}
 .gs .tf-prog i{display:block;height:100%;background:var(--green)}
+.gs .tf-linha2{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:520px}
+.gs .tf-linha2 .tf-prog{margin-left:0;margin-right:2px}
 .gs tr.tf-feita td{opacity:.6}
 .gs .ck-item{display:flex;justify-content:space-between;align-items:center;padding:3px 0}
 .gs .riscado{text-decoration:line-through;color:var(--text3)}
@@ -596,10 +598,6 @@
 .gs .mural-dest.ambar{background:var(--amber-lt);border-color:var(--amber-border);color:var(--amber-d)}
 .gs .em-previa{width:100%;height:62vh;border:1px solid var(--border);border-radius:10px;background:var(--surface)}
 .gs .em-lig{display:block;margin:4px 0 8px}
-.gs .tf-rapida{margin:0 0 12px}
-.gs .tf-rapida input{width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:12px;font:inherit;font-size:14px;background:var(--surface)}
-.gs .tf-rapida input:focus{border-color:var(--navy);outline:none}
-.gs .tf-rapida-prev{min-height:18px;margin-top:5px;font-size:12.5px;color:var(--text2)}
 .gs .sm-grade{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
 .gs .sm-col{background:var(--surface3);border-radius:12px;padding:8px;min-height:160px;display:flex;flex-direction:column;gap:6px}
 .gs .sm-col.sobre{outline:2px dashed var(--navy);background:var(--blue-lt)}
@@ -1216,8 +1214,8 @@
 .gs .gf-mais summary::before{content:'▸ '}
 .gs .gf-mais[open] summary::before{content:'▾ '}
 .gs .gf-mais > div{margin-top:3px;line-height:1.45}
-.gs .fila-filtros.fila-2x2{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 28px;align-items:center}
-@media (max-width:900px){.gs .fila-filtros.fila-2x2{grid-template-columns:1fr}
+.gs .fila-filtros.fila-2x2{display:grid;grid-template-columns:max-content max-content;justify-content:start;gap:8px 44px;align-items:center}
+@media (max-width:1280px){.gs .fila-filtros.fila-2x2{grid-template-columns:minmax(0,1fr)}
 }
 .gs .tf-mais{border:1px solid var(--border);border-radius:10px;padding:8px 12px;background:var(--surface2)}
 .gs .tf-mais > summary{cursor:pointer;font-weight:600;color:var(--titulo,var(--ink));list-style:none}

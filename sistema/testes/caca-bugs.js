@@ -12,7 +12,7 @@ const { chromium } = require('playwright');
 const fs = require('fs');
 const BASE = process.env.BASE || 'http://127.0.0.1:8090';
 const PAINEIS = ['hoje', 'resumo', 'processos', 'parcelamentos', 'publicacoes', 'acordos', 'financeiro', 'financeiroContab', 'contratos',
-  'clientes', 'crm', 'documentos', 'tarefas', 'alertas', 'automacoes', 'notificacoes', 'admin'];
+  'clientes', 'crm', 'documentos', 'tarefas', 'alertas', 'notificacoes', 'admin'];
 const LARGURAS = (process.env.LARGURAS || '1440,1024,390').split(',').map(Number);
 const TEMAS = (process.env.TEMAS || 'claro,escuro').split(',');
 

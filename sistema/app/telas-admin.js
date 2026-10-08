@@ -39,7 +39,7 @@ async function pintarAdmin() {
   if (mais) { mais.classList.toggle('ativo', !!noMais); mais.textContent = noMais ? '⋯ ' + noMais.rot : '⋯ Mais'; }
   const corpo = $('adm-corpo');
   corpo.innerHTML = '<div class="carregando">Carregando…</div>';
-  try { await ({ usuarios: admUsuarios, importar: admImportar, backup: admBackup, historico: admHistorico, acessos: admAcessos, clientes_email: admClientesEmail, automacoes: () => { E.adm.aba = 'usuarios'; irParaTela('automacoes'); }, email: admEmail })[E.adm.aba](corpo); }
+  try { await ({ usuarios: admUsuarios, importar: admImportar, backup: admBackup, historico: admHistorico, acessos: admAcessos, clientes_email: admClientesEmail, email: admEmail })[E.adm.aba](corpo); }
   catch (e) { console.error(e); corpo.innerHTML = '<div class="card"><div class="card-bd msg-erro">' + esc(erroAmigavel(e)) + '</div></div>'; }
 }
 
@@ -657,23 +657,19 @@ const TIPOS_EMAIL_AUTO = [['lembrete', 'Lembrete', 'Antes de vencer (honorários
   ['cobranca', 'Cobrança', 'Depois do atraso', ['email_cobranca_honorario']], ['recibo', 'Recibo', 'Pagamento recebido', ['email_pagamento_recebido']],
   ['parcelamento', 'Parcelamento', 'Guias e atraso do parcelamento', ['email_lembrete_parcelamento', 'email_atraso_parcelamento']], ['acordo', 'Acordo', 'Parcelas e atraso do acordo', ['email_lembrete_acordo', 'email_atraso_acordo']]];
 async function admEmailQuem(corpo) {
-  const [linhas, M, regras] = await Promise.all([q(sb.rpc('quem_recebe_emails')), q(sb.rpc('emails_matriz')).catch(() => ({})),
-    q(sb.from('regras_tarefas').select('chave, nome, ligada').eq('grupo', 'cliente_email')).catch(() => [])]);
-  const podeEd = pode('clientes', 'editar'), ligada = (ks) => !ks.length || ks.some((k) => (regras.find((r) => r.chave === k) || {}).ligada);
+  const [linhas, M] = await Promise.all([q(sb.rpc('quem_recebe_emails')), q(sb.rpc('emails_matriz')).catch(() => ({}))]);
+  const podeEd = pode('clientes', 'editar');
   E.adm.emFiltro = E.adm.emFiltro || '';
   const F = { '': ['Todos', () => true], sim: ['Recebem', (r) => r.recebe], nao: ['Não recebem', (r) => !r.recebe], sem: ['Sem e-mail', (r) => r.recebe && !r.destino] };
   const pinta = () => {
     const ver = linhas.filter(F[E.adm.emFiltro][1]);
-    // Backup 53: os tipos de e-mail automático que existem (liga/desliga para todos, em Automações) e, na tabela, quais cada cliente recebe
-    const tiposBox = '<div class="card em-tipos"><div class="card-hd">🔔 Tipos de e-mail automático<span class="sub">ligue ou desligue para todos os clientes (abre Automações); na tabela abaixo, ✓/✕ escolhe por cliente</span></div>' +
-      '<div class="card-bd em-tipos-l">' + TIPOS_EMAIL_AUTO.map(([k, r, d, ks]) => '<div class="em-tipo"><b>' + r + '</b><span class="sub">' + d + '</span>' +
-        (ks.length ? '<button type="button" class="pill ' + (ligada(ks) ? 'pago' : 'neutro') + '" data-em-regra="' + ks[0] + '" title="Abrir em Automações">' + (ligada(ks) ? 'ligado' : 'desligado') + '</button>' : '<span class="pill neutro" title="Só vai para quem tiver este tipo marcado">só marcados</span>') + '</div>').join('') + '</div></div>';
+    // Backup 55: o liga/desliga geral de cada tipo saiu daqui (fica só em E-mail → Automáticos); aqui ficam só os clientes e, nas colunas, a exceção de cada um
     const gn = (r) => r.grupo || '';
     const ord = ver.slice().sort((a, b) => (gn(a) || '\uffff').localeCompare(gn(b) || '\uffff', 'pt-BR') || String(a.cliente).localeCompare(String(b.cliente), 'pt-BR'));
     const celTipo = (r, k) => { const v = (M[r.cliente_id] || {})[k], on = v !== false;
       return '<td class="em-t"><button type="button" class="em-tk ' + (on ? 'em-tk-on' : 'em-tk-off') + '" data-em-tipo="' + k + '" data-em-tcli="' + r.cliente_id + '"' + (podeEd ? '' : ' disabled') +
         ' title="' + esc(r.cliente) + ' — ' + (on ? 'recebe' : 'não recebe') + ' este tipo (clique para trocar)" aria-pressed="' + on + '">' + (on ? '✓' : '✕') + '</button></td>'; };
-    corpo.innerHTML = tiposBox + '<div class="fila-chips em-filtros" role="group" aria-label="Filtro">' + Object.entries(F).map(([k, [r, f]]) => chipFiltro('data-em-f', k || '*', r + ' (' + linhas.filter(f).length + ')', E.adm.emFiltro === k)).join('') + '</div>' +
+    corpo.innerHTML = '<div class="fila-chips em-filtros" role="group" aria-label="Filtro">' + Object.entries(F).map(([k, [r, f]]) => chipFiltro('data-em-f', k || '*', r + ' (' + linhas.filter(f).length + ')', E.adm.emFiltro === k)).join('') + '</div>' +
       '<div class="card"><div class="tabela-wrap"><table class="cli-tabela em-quem"><thead><tr><th>Grupo</th><th>Cliente</th><th>E-mail de destino</th><th>Recebe</th>' +
       TIPOS_EMAIL_AUTO.map(([k, r, d]) => '<th class="em-t" title="' + esc(d) + '">' + r + '</th>').join('') + '<th data-tipo="data">Último e-mail</th></tr></thead><tbody>' +
       // Backup 50: clicar no cliente abre o cadastro (aba Contatos); ✎ troca o e-mail de destino aqui mesmo
@@ -688,7 +684,6 @@ async function admEmailQuem(corpo) {
         : '<tr><td colspan="' + (5 + TIPOS_EMAIL_AUTO.length) + '">' + vazio('Ninguém neste filtro.') + '</td></tr>') + '</tbody></table></div></div>' +
       '<div class="dica">Clique em <b>✉ Sim</b> / <b>✕ Não</b> para trocar. Quem está em "Não" não recebe nada do escritório (nem rascunho). Nas colunas de tipo, <b>✓</b>/<b>✕</b> escolhe quais e-mails automáticos aquele cliente recebe ' +
         '(ex.: recebe o de Vencimento, mas não o de Acordo). <b>✎</b> troca o e-mail de destino; clique no <b>nome do cliente</b> para abrir o cadastro completo (vários e-mails, setores).</div>';
-    corpo.querySelectorAll('[data-em-regra]').forEach((b) => b.onclick = () => irParaTela('automacoes'));
     corpo.querySelectorAll('[data-em-tipo]').forEach((b) => b.onclick = () => comBotao(b, async () => {
       const cli = b.dataset.emTcli, k = b.dataset.emTipo, novo = !((M[cli] || {})[k] !== false);
       M[cli] = await q(sb.rpc('salvar_email_tipo', { p_cliente: cli, p_tipo: k, p_valor: novo }));

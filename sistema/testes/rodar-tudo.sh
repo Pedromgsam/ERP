@@ -3,6 +3,8 @@
 # Precisa: PostgreSQL 16 na porta 54329,
 # PostgREST na 3001 (config em testes/postgrest.conf) e node servidor-local.js.
 set -e
+# Backup 55: o banco roda no horário de Brasília; os testes (navegador e node) também
+export TZ=America/Sao_Paulo
 DIR=$(cd "$(dirname "$0")" && pwd)
 "$DIR/preparar-banco.sh"
 psql -h 127.0.0.1 -p ${PGPORT:-54329} -U postgres -q -c "drop database if exists erp_perm with (force)" -c "create database erp_perm"

@@ -630,7 +630,8 @@
   // clicar numa parcela de acordo abre o detalhe (o que é, todas as parcelas, ações)
   document.addEventListener('click', (e) => {
     const tr = e.target.closest && e.target.closest('tr[data-gx^="acordos:"]');
-    if (!tr || ehCliente() || e.target.closest('button, a, input, select, .gx-la')) return;
+    // Backup 55: na tabela "A pagar" de Acordos o clique na linha abre "editar esta parcela / o acordo inteiro" (remendo acordos-b35)
+    if (!tr || ehCliente() || tr.classList.contains('ac-ap-lin') || tr.classList.contains('ac-ed-linha') || e.target.closest('button, a, input, select, .gx-la')) return;
     const id = tr.dataset.gx.split(':')[1];
     if (window.GS && window.GS.detalheAcordo) Promise.resolve(window.GS.carregarCadastros()).then(() => window.GS.detalheAcordo(id)).catch((er) => console.error(er));
   });

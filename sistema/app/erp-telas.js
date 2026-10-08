@@ -58,7 +58,7 @@
   // Cobranças, avisos e recibos (antiga "Notificações"): fora da barra; abre pelo botão ✉ de cada tela e pelo ⋯
   const FUNC_EXTRA = { notificacoes: 'clientes' };   // a Central de e-mails confere o acesso no banco
   // painéis novos → tela do Gestão que desenha nele
-  const TELAS_GS = { hoje: 'inicio', contratos: 'contratos', clientes: 'clientes', crm: 'crm', publicacoes: 'publicacoes', documentos: 'documentos', tarefas: 'tarefas', alertas: 'alertas', automacoes: 'automacoes', rotina: 'rotina', execucoes: 'execucoes', admin: 'admin' };
+  const TELAS_GS = { hoje: 'inicio', contratos: 'contratos', clientes: 'clientes', crm: 'crm', publicacoes: 'publicacoes', documentos: 'documentos', tarefas: 'tarefas', alertas: 'alertas', rotina: 'rotina', execucoes: 'execucoes', admin: 'admin' };
 
   // "+ Lançar": formulários do Gestão onde existem; os demais, do editor do ERP
   const empresaAtual = () => (_painel === 'financeiroContab' ? 'contabilidade' : 'escritorio');
@@ -250,7 +250,7 @@
   let _painel = '', _voltando = false;
   function nomeTela(id) {
     for (const m of MENU) { if (m.id === id) return m.rot; const x = (m.itens || []).find((i) => i[0] === id); if (x) return m.rot + ' · ' + x[1]; }
-    return { automacoes: 'Automações', notificacoes: 'Tela antiga de cobranças' }[id] || '';
+    return { notificacoes: 'Tela antiga de cobranças' }[id] || '';
   }
   function destacar(id) {
     const tn = document.getElementById('gs-tela-nome'); if (tn) tn.textContent = nomeTela(id);
@@ -760,7 +760,12 @@
     ['col-venc', /^(vencimento|venc\.?|pago em|data (de )?pagamento|data pag\.?|prazo)$/],
     ['col-valor', /^(valor|valor da causa|valor parcela|total|saldo|saldo devedor)$/],
     ['col-dias', /^(atraso|dias|dias de atraso)$/],
-    ['col-nome', /^(grupo|grupo \/ favorecido|devedor|credor|empresa|cliente|nome|entidade|entidade \/ socio)$/],
+    // Backup 55: "Grupo" virou coluna própria (estreita, uma linha; some quando a tabela já tem a faixa do grupo) e CPF/CNPJ discreto, como no ERP antigo
+    ['col-grupo', /^grupo$/],
+    ['col-doc', /^(cpf\/cnpj|cpf \/ cnpj|cnpj|cpf|documento)$/],
+    ['col-num', /^(processo|n[ºo°]? ?processo|n[ºo°]? do processo|numero|parcela|parcelas)$/],
+    ['col-texto', /^(natureza|autor|reu|tribunal|orgao|local|tipo|responsavel|advogado|forma)$/],
+    ['col-nome', /^(grupo \/ favorecido|devedor|credor|empresa|cliente|nome|entidade|entidade \/ socio)$/],
     // Backup 49 (36): datas e situação também têm lugar fixo (centralizadas)
     ['col-data', /^(data|emissao|validade|desde|aniversario|quando|competencia|inicio|vigencia|criado em|enviado em|ultima movimentacao)$/],
     ['col-sit', /^(situacao|status|financeiro|cobranca|situacao da cobranca)$/]];
@@ -773,10 +778,14 @@
       if (t._gxRegua !== sig) { t._gxRegua = sig; t._gxCols = ths.map((th) => { const n = normTit(th.textContent); const r = REGUA.find(([, re]) => re.test(n)); return r ? r[0] : ''; }); }
       const cols = t._gxCols; if (!cols.some(Boolean)) return;
       cols.forEach((c, i) => { if (c && ths[i]) ths[i].classList.add(c); });
+      // Backup 55: com a faixa do grupo na tabela, a coluna Grupo repetida some
+      t.classList.toggle('tem-faixa', !!t.querySelector(':scope > tbody > tr:is(.gx-grp,.cli-grp,.rt-grp)'));
       t.querySelectorAll(':scope > tbody > tr').forEach((tr) => {
         if (tr._gxRegua === sig || tr.classList.contains('gx-grp') || tr.classList.contains('gx-det')) return;
         const tds = tr.children; if (!tds.length || [...tds].some((x) => x.colSpan > 1)) return;
         cols.forEach((c, i) => { if (!c || !tds[i]) return; const td = tds[i]; td.classList.add(c);
+          // Backup 55: texto que não cabe numa linha termina em "…" e mostra tudo ao passar o mouse
+          if ((c === 'col-nome' || c === 'col-grupo' || c === 'col-texto') && !td.title) td.title = td.textContent.trim().replace(/\s+/g, ' ');
           // vencido no ERP antigo vinha só com a cor no style: vira a marca da régua
           if (c === 'col-venc' && /red/.test(td.getAttribute('style') || '')) td.classList.add('venc-atraso'); });
         tr._gxRegua = sig;

@@ -461,17 +461,15 @@ TELAS.tarefas = async function () {
   if (F.vista === 'kanban') F.vista = 'lista';
   if (F.atalho === 'minhas') F.atalho = '';
   $('conteudo').innerHTML =
-    // Backup 49: abas junto do título; só "+ Nova tarefa" e "Delegar" à vista — o resto no ⚙; a criação rápida abre no ⚡
+    // Backup 49: abas junto do título; só "+ Nova tarefa" e "Fluxo" à vista — o resto no ⚙ (Backup 55: a criação rápida ⚡ saiu)
     '<div class="titulo-pag"><div><h1>Tarefas</h1><div class="segmento tf-abas-seg" id="tf-abas">' + [['abertas', 'Em aberto'], ['concluidas', 'Concluídas'], ['excluidas', 'Excluídas']]
       .map(([v, r]) => '<button data-aba="' + v + '">' + r + '</button>').join('') + '</div></div>' +
-    '<div class="acoes"><button class="btn btn-o tf-bt-ic" id="tf-rapida-bt" title="Criação rápida: escreva a tarefa numa linha (ex.: Protocolar defesa amanhã @Emanuelle !alta)" aria-expanded="false">⚡</button>' +
+    '<div class="acoes">' +
     '<span class="tf-cfg-wrap"><button class="btn btn-o tf-bt-ic" id="tf-config" title="Configurar: modelos de fluxo, feriados, Google Agenda e novo fluxo" aria-expanded="false">⚙</button>' +
       '<span class="tf-cfg-menu" id="tf-cfg-menu" hidden><button class="btn btn-o" id="tf-modelos">Modelos de fluxo</button>' +
       '<button class="btn btn-o" id="tf-feriados">Feriados</button><button class="btn btn-o" id="tf-agenda" title="Prazos fatais e audiências no seu Google Agenda">📅 Google Agenda</button></span></span>' +
     // Backup 54: "Delegar" saiu daqui — virou o botão "Fluxo" (as sequências com validação, como "Lead completo", estão na lista de modelos do fluxo)
     '<button class="btn btn-o" id="tf-fluxo" title="Cria várias tarefas de uma vez a partir de um modelo (inclui as sequências com validação, ex.: Lead completo)">🔀 Fluxo</button><button class="btn btn-p" id="tf-nova">+ Nova tarefa</button></div></div>' +
-    '<div class="tf-rapida" id="tf-rapida-box" hidden><input id="tf-rapida" autocomplete="off" placeholder="⚡ Criação rápida: “Protocolar defesa amanhã @Emanuelle !alta” e Enter" aria-label="Criação rápida de tarefa">' +
-      '<div id="tf-rapida-prev" class="tf-rapida-prev"></div></div>' +
     '<div id="tf-kpis"></div><div class="filtros">' +
     '<div class="segmento" id="tf-vista">' + [['lista', 'Lista'], ['calendario', 'Calendário'], ['fluxos', 'Fluxos']]
       .map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
@@ -479,8 +477,6 @@ TELAS.tarefas = async function () {
     // Backup 48/49: Mostrar (tipo, prioridade e prazo) e De quem — o mesmo desenho da agenda do Início
     '</div><div class="fila-filtros tf-filtros" id="tf-chips"></div><div id="tf-corpo"><div class="carregando">Carregando…</div></div>';
   $('tf-nova').onclick = () => formTarefa({}, () => TELAS.tarefas());
-  ligarCriacaoRapida();
-  $('tf-rapida-bt').onclick = () => { const bx = $('tf-rapida-box'); bx.hidden = !bx.hidden; $('tf-rapida-bt').setAttribute('aria-expanded', String(!bx.hidden)); if (!bx.hidden) $('tf-rapida').focus(); };
   $('tf-config').onclick = (ev) => { ev.stopPropagation(); const m = $('tf-cfg-menu'); m.hidden = !m.hidden; $('tf-config').setAttribute('aria-expanded', String(!m.hidden)); };
   if (!window._tfCfgDoc) { window._tfCfgDoc = true; document.addEventListener('click', (ev) => { const m = $('tf-cfg-menu'); if (m && !m.hidden && !ev.target.closest('.tf-cfg-wrap')) m.hidden = true; }); }
   $('tf-cfg-menu').addEventListener('click', () => { setTimeout(() => { const m = $('tf-cfg-menu'); if (m) m.hidden = true; }, 0); });
@@ -593,8 +589,9 @@ function vistaLista(alvo) {
     const sub = [pai ? 'parte de: ' + pai : '', cli ? nomeCliente(t.cliente_id) : '', t.processos_vinculados, t.etiquetas].filter(Boolean).join(' · ');
     return '<tr class="clicavel' + (tarefaFechada(t) ? ' tf-feita' : '') + '" data-abrir-t="' + t.id + '"><td>' + (grupo ? esc(grupo) : '<span class="sub">—</span>') + '</td>' +
       '<td style="padding-left:' + (12 + nivel * 22) + 'px">' + bolinha(t) + ' ' + (nivel ? '<span class="sub">↳ </span>' : '') + esc(t.titulo) + seloFatal(t) +
-      (t.recorrencia ? ' <span class="pill neutro tf-repete" title="' + esc(textoRepete(t)) + '">' + esc(textoRepete(t)) + '</span>' : '') + ' ' + barraProgresso(progresso(t, filhas)) +
-      (sub ? '<div class="sub">' + esc(sub) + '</div>' : '') + '</td>' +
+      (t.recorrencia ? ' <span class="pill neutro tf-repete" title="' + esc(textoRepete(t)) + '">' + esc(textoRepete(t)) + '</span>' : '') +
+      // Backup 55: o progresso do fluxo vai na linha de baixo, junto do cliente (a tarefa ocupa no máximo 2 linhas)
+      ((sub || progresso(t, filhas)) ? '<div class="sub tf-linha2">' + barraProgresso(progresso(t, filhas)) + (sub ? ' ' + esc(sub) : '') + '</div>' : '') + '</td>' +
       '<td>' + pillPessoa(t.responsavel) + '</td><td><span class="pill ' + pr[1] + '">' + esc(pr[0]) + '</span></td><td>' + pillStatusTarefa(t.status) + '</td>' +
       // Backup 50: Prazo e Dias em colunas separadas (como no Financeiro)
       '<td class="mono" data-ord="' + esc(t.prazo || '9999') + '">' + (t.prazo ? dataBR(t.prazo) : '<span class="sub">—</span>') + '</td>' +
@@ -1155,7 +1152,7 @@ async function pintarTempo(j, t) {
   });
 }
 // Tarefas → Regras automáticas (o admin liga, desliga e ajusta)
-// (a antiga janela de regras virou a tela Automações — telas-automacoes.js)
+// (as regras automáticas rodam sozinhas pelo pg_cron; o liga/desliga dos e-mails fica em Administração → E-mail → Automáticos)
 function quandoRodou(v) { const d = new Date(v); return isNaN(d) ? '—' : d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); }
 
 // ─────────────────────────── fluxos e modelos ───────────────────────────
@@ -1391,49 +1388,6 @@ async function janelaAgenda(novo) {
     rodape: '<button class="btn btn-o" type="button" id="ag-trocar">Trocar link</button><div class="acoes"><button class="btn btn-p" type="button" id="ag-copiar">Copiar link</button></div>' });
   j.querySelector('#ag-copiar').onclick = async () => { try { await navigator.clipboard.writeText(link); aviso('Link copiado. Agora cole no Google Agenda → Do URL.'); } catch (e) { j.querySelector('#ag-link').select(); aviso('Selecionei o link: aperte Ctrl+C para copiar.'); } };
   j.querySelector('#ag-trocar').onclick = () => { if (confirm('Trocar o link? O link antigo para de funcionar e você precisará adicionar o novo no Google Agenda.')) { fecharJanela(j); janelaAgenda(true); } };
-}
-
-// ─────────── Criação rápida (Backup 16): "Protocolar defesa amanhã @Emanuelle !alta #tributário" ───────────
-const DIAS_SEMANA_TF = ['domingo', 'segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado'];
-function interpretarRapida(texto) {
-  let t = ' ' + String(texto || '') + ' ', prazo = null, resp = '', pri = 'media';
-  const h = hojeISO(), tira = (re) => { t = t.replace(re, ' '); };
-  const m1 = /\s@([\wÀ-ÿ]+(?:\s[A-ZÀ-Ý][\wÀ-ÿ]+)?)/.exec(t);
-  if (m1) { const alvo = primeiroNome(m1[1]), p = pessoasEscritorio().find((x) => primeiroNome(x) === alvo || normalizar(x) === normalizar(m1[1])); if (p) { resp = p; tira(m1[0]); } }
-  const m2 = /\s!(alta|media|média|baixa|urgente)\b/i.exec(t);
-  if (m2) { pri = /baixa/i.test(m2[1]) ? 'baixa' : /alta|urgente/i.test(m2[1]) ? 'alta' : 'media'; tira(m2[0]); }
-  const etq = []; t = t.replace(/\s#([\wÀ-ÿ-]+)/g, (_, e) => { etq.push(e); return ' '; });
-  const n = normalizar(t);
-  let m;
-  if ((m = /\s(depois de amanha)\s/.exec(n))) { prazo = somarDias(h, 2); t = t.slice(0, m.index) + ' ' + t.slice(m.index + m[0].length - 1); }
-  else if ((m = /\s(amanha)\s/.exec(n))) { prazo = somarDias(h, 1); t = t.slice(0, m.index) + ' ' + t.slice(m.index + m[0].length - 1); }
-  else if ((m = /\s(hoje)\s/.exec(n))) { prazo = h; t = t.slice(0, m.index) + ' ' + t.slice(m.index + m[0].length - 1); }
-  else if ((m = /\s(?:em|daqui a)\s(\d{1,3})\sdias?\s/.exec(n))) { prazo = somarDias(h, +m[1]); t = t.slice(0, m.index) + ' ' + t.slice(m.index + m[0].length - 1); }
-  else if ((m = /\s(?:ate |na |no )?(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\s/.exec(n))) {
-    const ano = m[3] ? (m[3].length === 2 ? '20' + m[3] : m[3]) : h.slice(0, 4);
-    let d = ano + '-' + m[2].padStart(2, '0') + '-' + m[1].padStart(2, '0'); if (!m[3] && d < h) d = (+ano + 1) + d.slice(4);
-    prazo = d; t = t.slice(0, m.index) + ' ' + t.slice(m.index + m[0].length - 1);
-  } else if ((m = /\s(?:na |no |ate |proxima |proximo )?(domingo|segunda|terca|quarta|quinta|sexta|sabado)(?:-feira)?\s/.exec(n))) {
-    const alvo = DIAS_SEMANA_TF.indexOf(m[1]), hoje = new Date(h + 'T12:00:00').getDay();
-    prazo = somarDias(h, ((alvo - hoje + 7) % 7) || 7); t = t.slice(0, m.index) + ' ' + t.slice(m.index + m[0].length - 1);
-  }
-  return { titulo: t.replace(/\s+/g, ' ').trim(), prazo, responsavel: resp, prioridade: pri, etiquetas: etq.join(', ') };
-}
-function ligarCriacaoRapida() {
-  const inp = $('tf-rapida'), prev = $('tf-rapida-prev'); if (!inp) return;
-  const mostra = () => { const r = interpretarRapida(inp.value);
-    prev.innerHTML = inp.value.trim() ? '<b>' + esc(r.titulo || '—') + '</b> · ' + (r.prazo ? 'prazo ' + dataBR(r.prazo) : 'sem prazo') + ' · ' + (r.responsavel ? pillPessoa(r.responsavel) : 'você') +
-      ' · <span class="pill ' + PRIORIDADE[r.prioridade][1] + '">' + PRIORIDADE[r.prioridade][0] + '</span>' + (r.etiquetas ? ' · #' + esc(r.etiquetas) : '') + ' <span class="sub">— Enter cria</span>' : ''; };
-  inp.oninput = mostra;
-  inp.onkeydown = (ev) => { if (ev.key !== 'Enter') return; ev.preventDefault();
-    const r = interpretarRapida(inp.value); if (!r.titulo) return aviso('Escreva o que precisa ser feito.', true);
-    comBotao(null, async () => {
-      const resp = r.responsavel || (E.perfil && (E.perfil.nome || '').split(' ')[0]) || '';
-      await q(sb.from('tarefas').insert({ titulo: r.titulo, prazo: r.prazo, responsavel: resp, prioridade: r.prioridade, etiquetas: r.etiquetas, status: 'pendente', inicio: hojeISO() }));
-      if (r.responsavel && primeiroNome(r.responsavel) !== primeiroNome(meuNome())) await notificar(r.responsavel, 'Nova tarefa para você: ' + r.titulo, r.prazo ? 'Prazo ' + dataBR(r.prazo) : '', 'tarefas').catch(() => {});
-      aviso('✓ Tarefa criada: ' + r.titulo + (r.prazo ? ' (prazo ' + dataBR(r.prazo) + ')' : '') + '.'); inp.value = ''; prev.innerHTML = ''; await recarregarTarefas();
-    });
-  };
 }
 
 // ─────────── Minha semana: segunda a sexta, arrastar para remarcar ───────────

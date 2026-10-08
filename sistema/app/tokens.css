@@ -97,7 +97,7 @@ html[data-tema="escuro"]{
   --overlay:rgba(1,4,9,.72);
   --ac-gold-lt:rgba(201,168,76,.12);--gold-d:#E3C877;--gold-bd:rgba(201,168,76,.32);
   --bar-bg:#010409;--bar-borda:#21262D;
-  --primario:#1F6FEB;--primario-hover:#388BFD;--on-primario:#FFFFFF;
+  --primario:#1F6FEB;--primario-hover:#1A5FCC;--on-primario:#FFFFFF;
   --selecao:#1F6FEB;--on-selecao:#FFFFFF;
   --th-bg:#161B22;--th-fg:#C9D1D9;--th-fg-2:#8B949E;
   --titulo:#E6EDF3;

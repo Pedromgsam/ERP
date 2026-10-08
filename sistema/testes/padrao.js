@@ -16,7 +16,7 @@ const REGRAS = [
   ['dias / atraso', 'td.col-dias', ['fontSize']],
   ['nome de cliente/empresa', 'td.col-nome', ['fontSize', 'fontWeight', 'textTransform']],
   ['cabeçalho de tabela', TAB + ' > thead > tr > th', ['fontSize', 'fontWeight', 'backgroundColor', 'color', 'textTransform']],
-  ['célula de tabela', TAB + ' > tbody > tr:not(.gx-grp):not(.gx-det) > td', ['fontSize']],
+  ['célula de tabela', TAB + ' > tbody > tr:not(.gx-grp):not(.gx-det) > td:not(.col-doc):not(.col-grupo)', ['fontSize']],
   ['linha de baixo (sócio, descrição…)', TAB + ' > tbody > tr > td .sub', ['fontSize', 'color']],
   ['botão "✓ Baixa" da linha', 'td :is(.gx-la-bx,[data-pagar].btn-mini)', ['fontSize', 'fontWeight']],
   ['botão "✎" da linha', 'td :is(.gx-la-ed,.btn-ed)', ['fontSize']],

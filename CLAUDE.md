@@ -77,14 +77,21 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - **Defeito visual:** rode `node sistema/testes/caca-bugs.js` (entra no `rodar-tudo.sh`; tem que dar "nenhuma ocorrência").
 - **Automação nova:** linha em `regras_tarefas` (chave, nome, descrição, `grupo` tarefas|cliente_email|integracao, `ligada`, `dias`) +
   gatilho/trecho em `rodar_regras_tarefas`; tarefas via `tarefa_da_regra` (registra em `automacoes_log` pelo prefixo da chave),
-  e-mail ao cliente via `email_ao_cliente` (nunca repete o mesmo `ref`). Mapear o prefixo em `PREFIXO_AUTOMACAO` (telas-automacoes.js).
+  e-mail ao cliente via `email_ao_cliente` (nunca repete o mesmo `ref`). (A tela Automações saiu no Backup 55; e-mails ao cliente ligam/desligam em Administração → E-mail → Automáticos.)
 - **Gravação nova em tabela de cadastro:** `sb.from()` normal (o modo rascunho saiu no Backup 41). Baixa (pago) sempre via `perguntarBaixa`.
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
+- Última entrega: **Backup 55** (SQL; nenhuma função nova). Régua (erp-telas.js `REGUA`): `col-grupo` (some com `table.tem-faixa`, posto quando há `tr.gx-grp|cli-grp|rt-grp`), `col-doc` (CPF/CNPJ mono 11,5 px),
+  `col-texto` (natureza/autor/réu…: nowrap + "…" + `title`), `col-num` (processo/parcela nowrap); bloco "Backup 55" no fim do design.css (td 8 px, th 11,5 px). Início: `fin-pagar` = "A pagar · Contabilidade"
+  (só `empresa='contabilidade'`, exige `financeiro_contab`). Tarefas: `.fila-2x2` em `max-content max-content`; sem ⚡ (`interpretarRapida`/`ligarCriacaoRapida` saíram); `.tf-linha2` (progresso + cliente). Acordos:
+  `tr.ac-ap-lin[data-ac-id]` → `tr.ac-ed-linha` com `[data-ac-ed=parcela|acordo]` (remendo acordos-b35.js). Rotina: confirm em `[data-conferir]`/`[data-conf-grp]`; colunas `.rt-w-*` novas (Processos `rt-w-ult`);
+  Planilha `igualarCabs()` + `.pl-barra-x` sticky. SQL: `alter database … set timezone 'America/Sao_Paulo'` (rodar-tudo exporta `TZ`), `limpar_emails_antigos()` + cron `erp_limpeza_emails` (dia 1º; NÃO apagar automacoes_log = trava
+  de repetição). `telas-automacoes.js` apagado (sem `TELAS.automacoes`); e-mail: tipos só em `admEmailAuto` (sem `.em-tipos` em Quem recebe). Limpeza: backups 01–45 fora da pasta (histórico git), prompts em `sistema/arquivo/`.
+  Não feito: enxugar funções repetidas do estrutura.sql (regravação bloqueada pela proteção do ambiente) e apagar branches antigos (proxy sem permissão; o usuário apaga em GitHub → Branches).
 - Backup 54.1 (só docs): o merge da PR #57 não gerou publicação Production na Vercel (última Production = merge do B53); conferir com
   `gh api repos/Pedromgsam/ERP/deployments?environment=Production` depois de cada merge. Passo a passo para o usuário no COMO-ATUALIZAR.
-- Última entrega: **Backup 54** (SQL; nenhuma função nova). Visual: tokens `--bg #F0F2F7`, `--primario`/`--lado-bg`/`--th-bg` `#1B2A4A` (th branco), `--titulo`; bloco "Backup 54" no fim do design.css
+- Backup 54 (base) (SQL; nenhuma função nova). Visual: tokens `--bg #F0F2F7`, `--primario`/`--lado-bg`/`--th-bg` `#1B2A4A` (th branco), `--titulo`; bloco "Backup 54" no fim do design.css
   (th na cor da lateral, td 13px). Início: `cardResumoEscritorio` em `faixa('Financeiro'|'Escritório')`, `.ini-at-rec` verde/`.ini-at-pag` vermelho. Tarefas: `filtros2x2` (`.fila-filtros.fila-2x2`), `#tf-fluxo` (sem `#tf-delegar`;
   modelo sequencial em `formNovoFluxo` → `janelaDelegar({modelo})`), `formTarefa` com `<details id="tf-mais">`. Ficha: `.dados .dado` em grid 150px. E-mail: aba `auto` = `admEmailAuto` (`EMAILS_EQUIPE`, `[data-eq]` → RPC
   `salvar_email_equipe`; `[data-eq-regra]` = regras cliente_email); SQL `configuracoes.emails_equipe` + `email_equipe_ligado`/`tipo_email_equipe` (fluxo = título "Novo fluxo|Nova sequência|Pode começar"),
@@ -127,13 +134,13 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
   `textoRepete`, `datasRegra` (cópia fiel; erp.js compara com o banco), `perguntarSerie` (`#tf-serie-esta`/`#tf-serie-prox`), `projecoesRecorrentes`. E1–E4: `admEmailConfig` em 3 `.em-passo`
   (`formConta`, Avançado `details.em-avancado`, `⋯ Ferramentas` `#em-ferr-menu`, `#email-testar`), aba `saida` = `admEmailSaida` (`FILTROS_SAIDA`, `[data-saida-f]`, `[data-em-tentar]` → `email_reenviar`);
   `admEmailRevisar` = filtro revisar. Tempos antes/depois no COMO-ATUALIZAR (Backup 51).
-  Sugestões: `sistema/SUGESTOES-B51.md` (C1–C7, P1–P5 e O1–O3 feitos no Backup 52; N/A/S e O4–O5 continuam como sugestão).
+  Sugestões: `sistema/arquivo/SUGESTOES-B51.md` (C1–C7, P1–P5 e O1–O3 feitos no Backup 52; N/A/S e O4–O5 continuam como sugestão).
 - Backup 50 (base) (SQL + função erp-agenda). Início: atalho `financeiro` em `cardResumoEscritorio` (lancamentos ≤ hoje+5); chips `.fila-chip.ativo` de uma cor
   (`--selecao`, sem as cores por tipo). erp-agenda (VERSAO 2026-10-08): todas as tarefas abertas com prazo/prazo_fatal do responsável OU participante, `TZID=America/Sao_Paulo` com hora.
   Tarefas: `pillStatusTarefa` (`.tf-st-<status>`), colunas Prazo + Dias (`celulaAtraso`), `.cal-pri-<prioridade>` no calendário. Cadastro de cliente sem `.cli-rapido`; `formCliente(cl, depois, abaInicial)`.
   Financeiro: `td.acoes-l` nowrap, `td.col-valor.valor-rec/.valor-desp` verde/vermelho (padrao.js não mede mais a cor do valor), abas com `--tc` por `data-tab`. E-mail → Quem recebe:
-  `[data-em-cli]` → `formCliente(…, 'contato')`, `[data-em-dest]` → RPC `definir_email_destino(cliente, email)` (troca no contato de onde o destino vem). Sugestões: `sistema/SUGESTOES-B50.md`
-  (V1–V7 velocidade, T1–T3 recorrentes, R1–R10 Rotina, E1–E8 e-mail, G1–G8), prompt `sistema/PROMPT-BACKUP-51.md`.
+  `[data-em-cli]` → `formCliente(…, 'contato')`, `[data-em-dest]` → RPC `definir_email_destino(cliente, email)` (troca no contato de onde o destino vem). Sugestões: `sistema/arquivo/SUGESTOES-B50.md`
+  (V1–V7 velocidade, T1–T3 recorrentes, R1–R10 Rotina, E1–E8 e-mail, G1–G8), prompt `sistema/arquivo/PROMPT-BACKUP-51.md`.
   Diagnóstico de lentidão da Rotina: `rotinaEnviarGuias`/`rotinaPlanilha` baixam TODAS as parcelas (buscarTodos, páginas de 1000 em série) a cada aba;
   "Pago" = confirm + update + `carregarGrupos()` + `ERP_RECARREGAR` completo ao sair do GS.
 - Backup 49 (base) (SQL; nenhuma função nova) — as 36 sugestões do `SUGESTOES-B48.md`. E-mails: `clientes.recebe_email` (chave única; `pillRecebeEmail`/`trocarRecebeEmail`/
@@ -150,7 +157,7 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
   (menos `#tblExecRanking`); `.filtros .segmento` em pílulas.
 - Backup 48 (base) (sem SQL): Tarefas com `#tf-chips` (Mostrar `[data-tf-tipo]` + De quem `[data-tf-pes]`; `E.tf.tipos`/`E.tf.pessoas`, vazio = todos) usando
   `chipFiltro(attr, v, rot, on, comCor)` e `alternarFiltro` (telas-tarefas.js, também no Início); `#tf-resp` saiu (Minha semana usa `F.pessoas`). Painel: td 2 e 4 do `#tblExecRanking` à esquerda.
-  Sugestões numeradas em `sistema/SUGESTOES-B48.md`; próximo prompt `sistema/PROMPT-BACKUP-49.md` (e-mails: chave única por cliente + modelo bonito nas guias).
+  Sugestões numeradas em `sistema/arquivo/SUGESTOES-B48.md`; próximo prompt `sistema/arquivo/PROMPT-BACKUP-49.md` (e-mails: chave única por cliente + modelo bonito nas guias).
 - Backup 47 (base) (sem SQL): importação — `IMPORTADOR.gruposFaltando(nomes, existentes)` (importador.js) tira repetidos pelo `norm` (caixa, espaços,
   acentos) antes do insert em `grupos` (índice `grupos_nome_unico` = lower(btrim)); `idGrupo` em `gravarImportacao` compara com espaços colapsados.
 - Backup 46 (base) (só SQL; erp-emails = B44). Agenda: `FILTRO_TIPOS_AG` na ordem reunião/audiência/compromisso/tarefa/rotina, chips `.fila-chip-<tipo>` (cores no
@@ -354,7 +361,7 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
   `#alertAcordos` e `.pa-nota` escondidos; Início com 5 tamanhos (teste em padrao.js).
 - Backup 24 (base, sem SQL). Início: o destaque `guias` voltou para a faixa de `cardMural` (lista `.ini-guias` com `data-guia-ok`),
   o cartão de Lembretes ficou só com lembretes. Painel: `.res-graficos` (cResGrupos/cResDonut) escondido (ids mantidos para o JS do ERP).
-  (O prompt `sistema/PROMPT-AUTOMACAO.md` foi executado no Backup 26.)
+  (O prompt `sistema/arquivo/PROMPT-AUTOMACAO.md` foi executado no Backup 26.)
 - Backup 23 (base). SQL: `excluir_usuario(p_perfil)` (admin; não a si mesmo nem o último admin; apaga auth.users → perfis em
   cascata). Início: `cardMural` = só a faixa de destaques; `cardLembretes` (cartão próprio, `#ini-lembretes`: guias, lembretes ≤7 dias/sem prazo/
   fixos e "Mais adiante"), `detalheLembrete`, `botoesLembrete` (`.lemb-fixo.on`); `dadosLembretes` devolve vis/futuros/todos. Selo da pessoa:
@@ -364,7 +371,7 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
   Tarefas: Grupo·Tarefa·Pessoa·Prioridade·Status·Prazo (régua: "Prazo" = `col-venc`). Clientes: `pillSimNao` verde/vermelho, `SITCAD_COR`.
   Escuro: tokens grafite (bg #15171C, surface #1C1F26) + `tema-escuro.js` com tons de grafite. Imagem do Parcelamentos do Backup 17:
   `sistema/prototipos/parcelamentos-backup17.png`.
-- Backup 22 (base): padronização (prompt em `sistema/PROMPT-BACKUP-22.md`). **Régua única:** `marcarColunas()` (erp-telas.js, no
+- Backup 22 (base): padronização (prompt em `sistema/arquivo/PROMPT-BACKUP-22.md`). **Régua única:** `marcarColunas()` (erp-telas.js, no
   MutationObserver) reconhece a coluna pelo título (`REGUA`: Vencimento/Pago em → `col-venc`, Valor/Total/Saldo → `col-valor`, Atraso/Dias →
   `col-dias`, Grupo/Devedor/Credor/Empresa/Cliente/Nome → `col-nome`) em toda `.tw/.tabela-wrap/.gx-tab-gs table`; o estilo fica no bloco "RÉGUA
   ÚNICA" do design.css (13 px, sub 12 px, venc/valor negrito, nomes CAIXA ALTA, selo da pessoa 92 px, `.alerta-tri`). Coluna nova com esses
@@ -387,7 +394,7 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
   `acoesNoLugar` (alertas/botões à direita das abas do Financeiro), `acoesNaSituacao`/`devolverAoBanner` (Acordos/Parcelamentos); `subnavJuridico`
   e a área "antiga" da Central saíram. CSS do bloco "Backup 20" no fim do design.css (mod-banner escondido nessas telas, `.gx-seg-cli`, `.gx-rank`).
   Colunas com ▸ deslocam o nth-child (+1). `estrutura.sql` = 4681 linhas. Protótipo "Progresso por acordo" só em imagem (aguardando aprovação).
-- Backup 19 (base): enxuto (prompt em `sistema/PROMPT-BACKUP-19.md`). SQL: pausa de e-mails (`configuracoes.emails_pausados`,
+- Backup 19 (base): enxuto (prompt em `sistema/arquivo/PROMPT-BACKUP-19.md`). SQL: pausa de e-mails (`configuracoes.emails_pausados`,
   trigger `email_fila_reter` → status `retido`; `pausar_emails`, `emails_retidos_acao(ids,'liberar'|'descartar')`, flag de sessão
   `erp.liberar_email`), `confirmar_email_usuario(perfil)` (admin libera a entrada sem o e-mail de confirmação). Testes rodam com a pausa
   desligada (`preparar-banco.sh`). Central de e-mails com abas (`AREAS_EMAIL`: fila/clientes/config/avisos/antiga; `pintarAreaEmail`,
@@ -397,7 +404,7 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
   Acordos: `_acTodos`/`_acCaixaTodos` no remendo. Financeiro: `_faTabelaAtraso`, total no comparativo por pessoa, `cFaMes`/`cFcMes` com as
   cores próprias (pluginTema pula). Jurídico: `subnavJuridico` (erp-telas.js). Tabelas: `--th-bg/--th-fg` (navy). `estrutura.sql` = 4626 linhas.
 - Backup 18 (base): design — tokens sóbrios + escuro preto, `design.css`, cores soltas dos CSS viraram tokens,
-  gráficos com `--chart-*` e sem animação, `tema-escuro.js` sem tons azulados. Diagnóstico em `sistema/DIAGNOSTICO-DESIGN-B18.md`.
+  gráficos com `--chart-*` e sem animação, `tema-escuro.js` sem tons azulados. Diagnóstico em `sistema/arquivo/DIAGNOSTICO-DESIGN-B18.md`.
 - Backup 17 (base): Início: `cardResumoEscritorio` sem Processos (atraso/hoje/5 dias no mesmo cartão), `buscaPubAutomatica`
   (DJEN pelo navegador 1×/dia, localStorage `erp_pub_auto`). Painel "Empresas do grupo" = visual de Processos (#tblExecRanking em erp-telas.css).
   Acordos: lista `.acx-*` no remendo `acordos-b16.js`. CRM: 8 etapas abertas (nova "Follow-up da proposta", ordem 5), finais viram faixa
@@ -405,7 +412,7 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
   `previa_email_manual` e `previa_email_modelo` (prévia com a marca). Publicações: destinatários com "Autor:/Réu:" (polo A/P), `partesPub`,
   função com timeout (`AbortSignal.timeout`, VERSAO 2026-10-02). PGFN: `cabecalhoPgfn` lê o CSV do site Dívida Aberta. Contratos: ficha
   (`.ctr-ficha`), tabela `contratos_aditivos` + `registrar_aditivo(p_contrato, p jsonb)`; `valor_competencia` usa o valor anterior ao aditivo.
-  Prompt da rodada de design: `sistema/PROMPT-DESIGN-BACKUP-18.md`. `estrutura.sql` = 4556 linhas.
+  Prompt da rodada de design: `sistema/arquivo/PROMPT-DESIGN-BACKUP-18.md`. `estrutura.sql` = 4556 linhas.
 - Backup 16 (base): Início home (`cardResumoEscritorio`, `cardLembretes` + tabela `lembretes`; guias de parcelamento viraram
   lembrete: regra `parcela_parcelamento` não cria tarefa, marca `parcelas.emissao='SIM'`; fila exclui `cob:|parc:|aco:`). Painel: selos
   (CAPAG/situação/grupo 124px, caixa alta) em erp-telas.css. Processos: análise sem duplicar número (sócio+PJ). Publicações: `partes_monitoradas`

@@ -244,7 +244,8 @@ async function cardResumoEscritorio() {
       const rec = lancs.filter((l) => l.tipo === 'receita'), pag = lancs.filter((l) => l.tipo === 'despesa');
       return [pode('financeiro_juridico') ? card('fin-jur', 'A receber · Jurídico', rec.filter((l) => l.empresa !== 'contabilidade')) : null,
         pode('financeiro_contab') ? card('fin-contab', 'A receber · Contabilidade', rec.filter((l) => l.empresa === 'contabilidade')) : null,
-        card('fin-pagar', 'A pagar', pag)].filter(Boolean); })(),
+        // Backup 55: "A pagar" virou "A pagar · Contabilidade" e mostra só as despesas da contabilidade
+        pode('financeiro_contab') ? card('fin-pagar', 'A pagar · Contabilidade', pag.filter((l) => l.empresa === 'contabilidade')) : null].filter(Boolean); })(),
     ['tarefas', '📋', 'Tarefas do escritório', tAb, 'em aberto · equipe toda', [[tAtr, pl(tAtr, 'atrasada', 'atrasadas'), 'vermelho']].concat(prazos([0, tHoje, t5])), tAtr ? 'vermelho' : '']
   ].filter(Boolean);
   // Backup 38: ícones de traço fino num quadradinho (como nos prints), no lugar dos emojis coloridos
@@ -266,7 +267,7 @@ async function cardResumoEscritorio() {
   el.querySelectorAll('[data-ini-ir]').forEach((b) => b.onclick = () => {
     const k = b.dataset.iniIr;
     if (k === 'tarefas') E.tf = Object.assign(E.tf || {}, { aba: 'abertas', atalho: '' });
-    if (/^fin-/.test(k)) { if (typeof window.nav === 'function') window.nav(null, k === 'fin-contab' || (k === 'fin-pagar' && pode('financeiro_contab')) ? 'financeiroContab' : 'financeiro'); return; }
+    if (/^fin-/.test(k)) { if (typeof window.nav === 'function') window.nav(null, k === 'fin-contab' || k === 'fin-pagar' ? 'financeiroContab' : 'financeiro'); return; }
     if (k === 'publicacoes') E.pub = Object.assign(E.pub || { tribunal: '', dias: '30', busca: '' }, { status: 'nova', adv: primeiroNomeUsuario() });
     irParaTela(k);
   });
