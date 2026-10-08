@@ -707,7 +707,7 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
 **Central de Documentos dentro do ERP:** menu **Documentos → Gerar documento** (ou ⋯ → Documentos, contrato, recibo do Financeiro).
 **Ctrl + clique** (ou botão do meio do mouse) em qualquer item do menu ou link de documento abre numa aba nova.
 
-## Backup 59.1 — Plano da reforma e tela-modelo (só documentos; o sistema não muda)
+## Backup 60 — Plano da reforma e tela-modelo (só documentos; o sistema não muda)
 1. Merge da pull request.
 2. SQL: não precisa. Ctrl+Shift+R: não precisa (nada mudou nas telas).
 

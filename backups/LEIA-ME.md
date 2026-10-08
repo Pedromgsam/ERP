@@ -65,7 +65,7 @@ versão foi ao ar**. O número cresce a cada entrega.
 | 57 | Letras do ERP antigo em todas as tabelas (cabeçalho em Playfair Display, números em JetBrains Mono, nomes como foram digitados, tudo à esquerda); Painel com a distribuição do ERP.html (Grupo em pílula · Entidade/Sócio larga · CPF/CNPJ · valores · Total · Operação · Situação); Grupo volta a ser a 1ª coluna em Painel, Clientes e Processos; Parcelamentos na tabela do ERP antigo + Atraso e Baixa, sem a caneta (clicar na parcela abre o detalhe com Editar); Documentos → Gerar documentos |
 | 58 | Padrão único em todas as tabelas: dinheiro à direita, datas/prazo/situação/botões no centro, textos à esquerda; linha de baixo em letra normal; vazio sempre "—"; Grupo só como 1ª coluna (sem a faixa repetida); sem a caneta ✎ em nenhuma tabela (clicar na linha abre o detalhe com Editar); Acordos com Processo numa linha, Devedor/Credor menores e "emitido" embaixo do prazo; Parcelamentos com Nº Parc. discreto |
 | 59 | Cartões (Início, Painel, Financeiro…) voltaram à letra de antes (DM Sans no título e no número); Playfair/JetBrains continuam só nas tabelas |
-| 59.1 | Reforma por partes, etapa 0: plano (`sistema/PLANO-REFORMA.md`) e tela-modelo do novo visual (`sistema/prototipos/guia-visual.html`). O sistema não muda |
+| 60 | Reforma por partes, etapa 0: plano (`sistema/PLANO-REFORMA.md`) e tela-modelo do novo visual (`sistema/prototipos/guia-visual.html`). O sistema não muda |
 
 ## Como baixar um backup
 No GitHub, abra a pasta `backups`, clique no arquivo e depois em **Download** (ícone de seta, à direita).

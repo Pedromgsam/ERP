@@ -23,7 +23,7 @@ Aprovado pelo usuário em 08/10/2026. Leia isto antes de qualquer rodada da refo
 ## Etapas (uma por Backup/PR)
 | Etapa | O que fazer | Situação |
 |---|---|---|
-| 0 | Guia visual (página-modelo) para aprovação | **feita (Backup 59.1)** — aguardando o OK do usuário |
+| 0 | Guia visual (página-modelo) para aprovação | **feita (Backup 60)** — aguardando o OK do usuário |
 | 1 | Diagnóstico por escrito: por módulo, o que fica / o que é refeito / ordem | a fazer |
 | 2 | Base nova do visual: as 118 camadas "Backup N" do `design.css` (+ erp-telas.css/estilo.css) viram um arquivo limpo seguindo o guia; testes `padrao.js`/`caca-bugs.js` ajustados ao novo padrão | a fazer |
 | 3–8 | Um módulo por rodada, saindo dos remendos do ERP antigo (`#Sistemas/2 - ERP/ERP.html` + `montar-erp.js`) para telas `telas-*.js` limpas: Clientes → Financeiro → Parcelamentos → Acordos → Painel/Processos → Rotina | a fazer |

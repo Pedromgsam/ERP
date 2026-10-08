@@ -82,7 +82,7 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
-- **REFORMA EM ANDAMENTO (opção C, aprovada):** leia `sistema/PLANO-REFORMA.md` antes de mexer em tela. Etapa 0 feita (Backup 59.1: `sistema/prototipos/guia-visual.html`,
+- **REFORMA EM ANDAMENTO (opção C, aprovada):** leia `sistema/PLANO-REFORMA.md` antes de mexer em tela. Etapa 0 feita (Backup 60: `sistema/prototipos/guia-visual.html`,
   publicado como artifact "Guia Visual do ERP"); próxima = aguardar o OK do guia e fazer a Etapa 1 (diagnóstico).
 - Última entrega com mudança no app: **Backup 59** (só front; sem SQL). Cartões voltaram ao `--font-ui`: saíram do bloco B57 do design.css as regras `.card-hd/.cc-t/.sec-t/.ex-t/.erp-box-hd/.m-title` em
   `--font-tit` e `.kv` em `--font-num` (Playfair/JetBrains só em `thead th` e nas células numéricas das tabelas).
