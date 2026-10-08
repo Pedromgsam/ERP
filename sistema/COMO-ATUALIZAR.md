@@ -707,6 +707,14 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
 **Central de Documentos dentro do ERP:** menu **Documentos → Gerar documento** (ou ⋯ → Documentos, contrato, recibo do Financeiro).
 **Ctrl + clique** (ou botão do meio do mouse) em qualquer item do menu ou link de documento abre numa aba nova.
 
+## Backup 59 — Letra dos cartões como antes (sem SQL; nenhuma função nova)
+1. Merge da pull request.
+2. SQL: não precisa.
+3. **Ctrl+Shift+R** no ERP. Confira na Vercel (Deployments) que a primeira linha Production é do horário do seu Merge.
+
+O que mudou: os títulos e os números dos cartões (Início, Painel, Financeiro e demais quadros) voltaram para a letra de antes (DM Sans).
+As tabelas continuam com o padrão do Backup 58 (cabeçalho Playfair Display, números JetBrains Mono).
+
 ## Backup 58 — Padrão único das tabelas (sem SQL; nenhuma função nova)
 1. Merge da pull request.
 2. SQL: não precisa.

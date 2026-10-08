@@ -1772,10 +1772,7 @@ html body.gx-barra-topo :is(.tw,.tabela-wrap,.gx-tab-gs) td:is(.col-doc,.col-num
 html body.gx-barra-topo td.col-grupo{width:1%;white-space:nowrap!important;font-size:12px!important}
 html body.gx-barra-topo td.col-grupo .gx-gpill{display:inline-block;max-width:140px;overflow:hidden;text-overflow:ellipsis;vertical-align:middle;padding:3px 11px;border-radius:999px;border:1px solid color-mix(in srgb,var(--primario) 28%,transparent);
   background:color-mix(in srgb,var(--primario) 7%,var(--surface));color:color-mix(in srgb,var(--primario) 62%,var(--ink));font:700 11px var(--font-ui);letter-spacing:.02em;text-transform:none}
-/* títulos dos quadros em Playfair Display (como "Empresas do Grupo" no ERP antigo) */
-html body.gx-barra-topo :is(.cc-t,.sec-t,.ex-t,.erp-box-hd,.m-title),html body.gx-barra-topo .gs .card-hd{font-family:var(--font-tit)!important;letter-spacing:-.005em}
-html body.gx-barra-topo .gs .card-hd :is(.sub,button,.btn,select,input,label,span:not([class])){font-family:var(--font-ui)}
-html body.gx-barra-topo .kv{font-family:var(--font-num)!important}
+/* Backup 59: os cartões voltaram à letra de antes (DM Sans no título e no número); Playfair/JetBrains ficam só nas tabelas */
 /* Painel → Empresas do grupo: distribuição do ERP antigo (Grupo · Entidade/Sócio larga · CPF/CNPJ · RFB · PGFN · AGE/MG · Total · Operação · Situação) */
 html body.gx-barra-topo table:has(> #tblExecRanking){table-layout:fixed!important;width:100%!important}
 html body.gx-barra-topo table:has(> #tblExecRanking) th:nth-child(2){width:10%!important}
