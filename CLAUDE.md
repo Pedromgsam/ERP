@@ -82,7 +82,9 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
-- Última entrega: **Backup 59** (só front; sem SQL). Cartões voltaram ao `--font-ui`: saíram do bloco B57 do design.css as regras `.card-hd/.cc-t/.sec-t/.ex-t/.erp-box-hd/.m-title` em
+- **REFORMA EM ANDAMENTO (opção C, aprovada):** leia `sistema/PLANO-REFORMA.md` antes de mexer em tela. Etapa 0 feita (Backup 59.1: `sistema/prototipos/guia-visual.html`,
+  publicado como artifact "Guia Visual do ERP"); próxima = aguardar o OK do guia e fazer a Etapa 1 (diagnóstico).
+- Última entrega com mudança no app: **Backup 59** (só front; sem SQL). Cartões voltaram ao `--font-ui`: saíram do bloco B57 do design.css as regras `.card-hd/.cc-t/.sec-t/.ex-t/.erp-box-hd/.m-title` em
   `--font-tit` e `.kv` em `--font-num` (Playfair/JetBrains só em `thead th` e nas células numéricas das tabelas).
 - Backup 58 (base) (só front; sem SQL). Bloco "Backup 58" no fim do design.css: `col-valor` à direita; `col-venc/data/sit/dias` + `gx-th-acoes/gx-td-acoes` + `td.acoes-l` no centro; `td .sub/small/.er-socio` em `--font-ui`
   12 px; `table:has(> thead th.col-grupo) > tbody > tr:is(.gx-grp,.cli-grp)` escondida (Grupo só como coluna); Painel 3=29%, 9-10=6,5%; Acordos `table.ac-ap` fixa por `th:nth-child` (10,5/19/13,5/11,5/6/9,5/9/9,5/11,5%; texto 13 px como o resto), `.ac-c-prazo` + `.ac-emit-sub`,
