@@ -1269,6 +1269,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.click('#rt-abas [data-rt-aba=passivo]').catch(() => {}); await p.waitForSelector('#rt-pas-corpo [data-senha]', { timeout: 10000 }).catch(() => {});
     ok('Rotina: passivo sem a coluna Senha GOV (fica no botão 🔑)', (await p.$$('#rt-pas-corpo [data-senha]')).length > 0 && !/Senha GOV/.test(await p.textContent('#rt-corpo thead')));
     // Backup 45: preencher como planilha — Enter desce para a mesma coluna da empresa de baixo
+    await p.waitForTimeout(800);   // Backup 56: espera a Rotina terminar de redesenhar depois do ✓ (senão o foco cai numa linha que some)
     await p.focus('#rt-pas-corpo tr[data-id] >> nth=0 >> [data-c=ceat_trt3]'); await p.keyboard.press('Enter');
     ok('Rotina (B45): Enter no passivo desce para a mesma coluna da linha de baixo', await p.evaluate(() => { const a = document.activeElement, linhas = [...document.querySelectorAll('#rt-pas-corpo tr[data-id]')];
       return !!a && a.dataset.c === 'ceat_trt3' && a.closest('tr') === linhas[1]; }));
