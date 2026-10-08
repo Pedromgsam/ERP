@@ -1063,7 +1063,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
         return [2, 4].map((i) => getComputedStyle(td.children[i - 1]).textAlign + '/' + getComputedStyle(th[i - 1]).textAlign).join(' '); });
       ok('Painel (B48): Grupo e CPF/CNPJ alinhados à esquerda, títulos centralizados', al === 'left/center left/center', al); }
     ok('Painel: sem a seta de expandir e sem o filtro de grupo (fica só no filtro de cima)', !(await p.isVisible('#tblExecRanking td.gx-seta')) && !(await p.$('#pe-grupo')));
-    await p.click('#tblExecRanking tr.gx-linha-exp:has-text("Alfa Comércio") .er-grupo'); await p.waitForTimeout(400);
+    await p.click('#tblExecRanking tr.gx-linha-exp:has-text("Alfa Comércio") .er-nome'); await p.waitForTimeout(400);
     await p.waitForFunction(() => [...document.querySelectorAll('#janelas .janela h2')].some((h) => /Alfa Comércio/i.test(h.textContent)), null, { timeout: 8000 }).catch(() => {});
     ok('Painel: clicar no grupo (ou na linha) abre direto a ficha completa, sem expandir', !(await p.$('#tblExecRanking tr.gx-det')) && !/uuid|Erro no ERP/.test(await p.textContent('#gs-raiz #aviso').catch(() => '')) &&
       await p.evaluate(() => [...document.querySelectorAll('#janelas .janela h2')].some((h) => /Alfa Comércio/i.test(h.textContent))));
