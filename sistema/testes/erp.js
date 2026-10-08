@@ -1872,7 +1872,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       const pos = await p.evaluate(() => { const c = [...document.querySelectorAll('#tf-chips > .fila-chips')]; const r = c.map((x) => x.getBoundingClientRect()), w = document.querySelector('#tf-chips').getBoundingClientRect();
         return { a: r[0] && r[0].right, b: r[1] && r[1].left, larg: w.width, ini: w.left }; });
       ok('B55 Tarefas: Urgência e Prazo logo depois de Mostrar/De quem (não colados na direita)', pos.b > pos.a && pos.b - pos.a < 120 && pos.b - pos.ini < pos.larg * 0.8, JSON.stringify(pos));
-      await nav(p, 'resumo'); await p.waitForSelector('#tblExecRanking tr'); await p.waitForTimeout(600);
+      await nav(p, 'resumo'); await p.waitForSelector('#tblExecRanking tr'); await p.evaluate(() => { FILTROS.grupo = ''; FILTROS.empresa = ''; renderExecRanking(); }); await p.waitForTimeout(800);
       ok('B55 Painel: com a faixa do grupo, a coluna Grupo some e cada empresa fica numa linha', await p.evaluate(() => { const t = document.querySelector('#tblExecRanking').closest('table');
         const g = t.querySelector('thead th.col-grupo'); const tr = [...t.querySelectorAll('tbody tr')].find((x) => x.querySelector('td.col-nome'));
         return t.classList.contains('tem-faixa') && (!g || getComputedStyle(g).display === 'none') && !!tr && getComputedStyle(tr.querySelector('td.col-nome')).whiteSpace === 'nowrap'; }));
