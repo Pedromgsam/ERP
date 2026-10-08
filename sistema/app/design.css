@@ -1790,7 +1790,7 @@ html body.gx-barra-topo #tblExecRanking td:has(.er-nome){width:auto!important;mi
 html body.gx-barra-topo #tblExecRanking .er-nome{display:block;font:600 13.5px/1.35 var(--font-ui)!important;color:var(--titulo)!important;text-transform:none!important;border-left:3px solid var(--ac-gold)!important;padding-left:9px!important}
 html body.gx-barra-topo #tblExecRanking .er-socio{display:block;font:400 11.5px/1.3 var(--font-ui)!important;color:var(--text3)!important;text-transform:none!important;padding-left:12px;margin-top:3px}
 html body.gx-barra-topo #tblExecRanking .er-socio b{font-weight:600!important;color:var(--text2)!important;text-transform:none!important}
-html body.gx-barra-topo #tblExecRanking td.col-valor,html body.gx-barra-topo #tblExecRanking td.col-valor *{font-size:13.5px!important;font-weight:800!important;color:var(--titulo)!important}
+html body.gx-barra-topo #tblExecRanking td.col-valor,html body.gx-barra-topo #tblExecRanking td.col-valor *{font-size:13px!important;font-weight:800!important;color:var(--titulo)!important}
 html body.gx-barra-topo #tblExecRanking td:is(.er-op,.er-sit,.col-sit){white-space:nowrap}
 /* Processos e Clientes: Grupo e números estreitos, textos dividem o resto */
 html body.gx-barra-topo table:has(> #tblProcBody) td.col-num{white-space:nowrap}
