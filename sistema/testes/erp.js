@@ -1155,8 +1155,11 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('Documentos: filtros por grupo e atalhos por tipo (Procuração)', !!(await p.$('#doc-grupo')) && /Procuração/.test(await p.textContent('#doc-chips')));
     ok('"Jur + Cont" virou "Jurídico + Contábil"', await p.evaluate(() => !/Jur \+ Cont/.test(document.body.innerText)));
     // Backup 40: a geração de documentos é um sistema à parte — um botão só, que abre numa aba nova
-    ok('Documentos: "Gerar documentos ↗" abre o sistema numa aba nova; sem "Gerar documento" no menu', await p.getAttribute('#doc-ger', 'target') === '_blank' &&
-      /documentos\/index\.html/.test(await p.getAttribute('#doc-ger', 'href')) && !(await p.$('#tn [data-ir=gerador]')));
+    ok('Documentos: "Gerar documentos ↗" abre o sistema numa aba nova', await p.getAttribute('#doc-ger', 'target') === '_blank' && /documentos\/index\.html/.test(await p.getAttribute('#doc-ger', 'href')));
+    // Backup 57: submódulo "Gerar documentos" no menu (Central de Documentos dentro do ERP)
+    await nav(p, 'gerador'); await p.waitForSelector('#ger-frame', { timeout: 8000 }).catch(() => {});
+    ok('B57: menu Documentos → "Gerar documentos" abre a Central dentro do ERP', !!(await p.$('#tn [data-ir=gerador]')) && /documentos\/index\.html\?embutido=1/.test((await p.getAttribute('#ger-frame', 'src')) || ''));
+    await nav(p, 'documentos'); await p.waitForTimeout(800);
 
     // Backup 41: geradores antigos removidos
     ok('Geradores antigos saíram do site', (await p.request.get(BASE + '/geradores/peticao.html')).status() === 404);
@@ -1874,8 +1877,17 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
         return { a: r[0] && r[0].right, b: r[1] && r[1].left, larg: w.width, ini: w.left }; });
       ok('B55 Tarefas: Urgência e Prazo logo depois de Mostrar/De quem (não colados na direita)', pos.b > pos.a && pos.b - pos.a < 120 && pos.b - pos.ini < pos.larg * 0.8, JSON.stringify(pos));
       await nav(p, 'resumo'); await p.waitForSelector('#tblExecRanking tr'); await p.evaluate(() => { FILTROS.grupo = ''; FILTROS.empresa = ''; renderExecRanking(); }); await p.waitForTimeout(800);
-      ok('B55 Painel: com a faixa do grupo, a coluna Grupo some', await p.evaluate(() => { const t = document.querySelector('#tblExecRanking').closest('table');
-        const g = t.querySelector('thead th.col-grupo'); return t.classList.contains('tem-faixa') && (!g || getComputedStyle(g).display === 'none'); }));
+      await nav(p, 'parcelamentos'); await p.evaluate(() => setParcTab('avencer')); await p.waitForSelector('#tblParcBody tr[data-gx]', { timeout: 10000 }).catch(() => {}); await p.waitForTimeout(500);
+      ok('B57 Parcelamentos: tabela do ERP antigo com Status, Atraso e Baixa, sem a caneta', await p.evaluate(() => { const t = document.querySelector('#tblParcBody').closest('table'); const ths = [...t.tHead.rows[0].cells].map((x) => x.textContent.trim());
+        return ['Status', 'Atraso', 'Baixa'].every((n) => ths.includes(n)) && !t.querySelector('tbody .gx-la-ed') && !!t.querySelector('tbody .gx-la-bx'); }));
+      await p.click('#tblParcBody tr[data-gx] td:first-child'); await p.waitForSelector('#pc-det-editar', { timeout: 5000 }).catch(() => {});
+      ok('B57 Parcelamentos: clicar na parcela abre o detalhe com "Editar" e "Dar baixa"', !!(await p.$('#pc-det-editar')) && !!(await p.$('#pc-det-baixa')));
+      await p.click('#pc-det-editar').catch(() => {}); await p.waitForTimeout(1200);
+      ok('B57 Parcelamentos: "Editar" abre a edição do parcelamento', await p.evaluate(() => !!document.querySelector('.gx-fundo .gx-janela')));
+      await p.keyboard.press('Escape'); await p.waitForTimeout(300); await nav(p, 'resumo'); await p.waitForTimeout(800);
+      ok('B57 Painel: Grupo é a 1ª coluna (pílula), cabeçalho em Playfair e números em JetBrains Mono, como no ERP antigo', await p.evaluate(() => { const t = document.querySelector('#tblExecRanking').closest('table');
+        const g = t.querySelector('thead th.col-grupo'), td = t.querySelector('tbody td.col-doc');
+        return !!g && getComputedStyle(g).display !== 'none' && /Playfair/.test(getComputedStyle(g).fontFamily) && !!td && /JetBrains/.test(getComputedStyle(td).fontFamily) && !!t.querySelector('tbody .er-grupo'); }));
       const caberB56 = await p.evaluate(() => { const t = document.querySelector('#tblExecRanking').closest('table'); const nm = t.querySelector('tbody td.col-nome .er-nome');
         if (nm) nm.textContent = 'COMERCIO E DISTRIBUIDORA DE ALIMENTOS FICTICIA SANTA LUZIA LTDA EPP FILIAL CENTRO';
         const w = t.parentElement; return { ws: getComputedStyle(t.querySelector('tbody td.col-nome')).whiteSpace, tab: t.scrollWidth, caixa: w.clientWidth }; });

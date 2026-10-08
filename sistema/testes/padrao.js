@@ -83,8 +83,8 @@ const TELAS = [['hoje'], ['resumo'], ['processos'], ['parcelamentos'], ['parcela
     const tem = (n, re) => Object.keys(vistos[n]).every((e) => re.test(e));
     ok('tabela com 13 px', tem('célula de tabela', /fontSize=13px/));
     ok('vencimento em negrito', tem('vencimento', /fontWeight=700/));
-    ok('valor em negrito e à direita', tem('valor', /fontWeight=700/) && tem('valor', /textAlign=right/));
-    ok('nomes de cliente/empresa em CAIXA ALTA sem negrito', tem('nome de cliente/empresa', /fontWeight=400 textTransform=uppercase/));
+    ok('valor em negrito e à esquerda (como no ERP antigo — Backup 57)', tem('valor', /fontWeight=700/) && tem('valor', /textAlign=left/));
+    ok('nomes de cliente/empresa como foram digitados, sem negrito (como no ERP antigo — Backup 57)', tem('nome de cliente/empresa', /fontWeight=400 textTransform=none/));
     ok('selo da pessoa como no ERP original (11 px, negrito, do tamanho do nome)', tem('selo da pessoa', /fontSize=11px fontWeight=700/));
     ok('linha de baixo com 12 px', tem('linha de baixo (sócio, descrição…)', /fontSize=12px/));
     ok('nenhum botão PIX nas tabelas', await p.evaluate(() => !document.querySelector('[data-pix]')));

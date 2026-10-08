@@ -590,6 +590,26 @@
   }
   window.ERP_EDITAR = editarPorMarca;
 
+  const PARC_TABS = '#tblParcBody, #tblParcVencBody, #tblParcPagoBody';
+  // Backup 57: clicar numa parcela (Parcelamentos → Vencidos / A vencer / Pago) abre o detalhe da parcela, com "Editar" e "Dar baixa"
+  function detalheParcela(tr) {
+    const cabs = [...tr.closest('table').querySelectorAll('thead th')].map((th) => th.textContent.trim());
+    const linhas = [...tr.children].map((td, i) => [cabs[i], td.textContent.trim()]).filter(([r, v]) => r && r !== 'Baixa' && v);
+    const [t, id, , sit] = tr.dataset.gx.split(':');
+    const jan = abrirJanela('Parcela', '<div class="gx-det-dados">' + linhas.map(([r, v]) => '<div><span>' + esc(r) + '</span><b>' + esc(v) + '</b></div>').join('') + '</div>' +
+      '<div class="gx-pe" style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">' +
+      (sit === 'a' ? '<button type="button" class="btn btn-o" id="pc-det-baixa">✓ Dar baixa</button>' : '') +
+      '<button type="button" class="btn btn-p" id="pc-det-editar">✎ Editar</button></div>', 520);
+    jan.querySelector('#pc-det-editar').onclick = () => { fecharJanela(); editarPorMarca(tr.dataset.gx); };
+    const bx = jan.querySelector('#pc-det-baixa');
+    if (bx) bx.onclick = () => { bx.disabled = true; bx.textContent = '…'; baixaRapida(t, id).finally(fecharJanela); };
+  }
+  document.addEventListener('click', (e) => {
+    const tr = e.target.closest && e.target.closest('tr[data-gx^="parcelas:"]');
+    if (!tr || ehCliente() || !tr.closest(PARC_TABS) || e.target.closest('button, a, input, select, .gx-la')) return;
+    detalheParcela(tr);
+  });
+
   // ─────────── ações fixas no fim de cada linha: ✎ editar e ✓ baixa ───────────
   // As linhas das tabelas do ERP chegam marcadas com data-gx="tabela:id:pai:(p|a)".
   function marcarLinhas() {
@@ -599,16 +619,19 @@
       if (!tr.lastElementChild) return;
       // Backup 39: Painel (Empresas do grupo) e Processos sem a coluna ✎ — a linha abre o detalhe e o "Editar" fica lá dentro
       if (tr.closest('#tblExecRanking, #tblProcBody, #tblAcordosVencBody')) return;   // Backup 40: Acordos → A pagar tem os próprios botões (Emitir · Baixa)
+      // Backup 57: Parcelamentos (Vencidos/A vencer) = tabela do ERP.html + coluna "Baixa", sem a caneta (clicar na parcela abre o detalhe com Editar); Pago sem coluna de ação
+      const parcTab = tr.closest(PARC_TABS);
+      if (parcTab && parcTab.id === 'tblParcPagoBody') return;
       // coluna própria para as ações (a caneta não fica mais junto da Situação)
       const tabela = tr.closest('table'), cab = tabela && tabela.querySelector('thead tr:last-child');
-      if (cab && !cab.querySelector('.gx-th-acoes')) { const th = document.createElement('th'); th.className = 'gx-th-acoes'; th.setAttribute('aria-label', 'Ações'); cab.appendChild(th); }
+      if (cab && !cab.querySelector('.gx-th-acoes')) { const th = document.createElement('th'); th.className = 'gx-th-acoes'; if (parcTab) th.textContent = 'Baixa'; else th.setAttribute('aria-label', 'Ações'); cab.appendChild(th); }
       const ultima = document.createElement('td'); ultima.className = 'gx-td-acoes'; tr.appendChild(ultima);
       const [t, , , sit, rec] = tr.dataset.gx.split(':');
       const span = document.createElement('span');
       span.className = 'gx-la';
       span.innerHTML = (sit === 'a' && rec === 'r' ? '<button type="button" class="gx-la-cb" data-la="cobrar" title="Cobrar pelo WhatsApp (texto pronto)">💬 Cobrar</button>' : '')
         + (sit === 'a' ? '<button type="button" class="gx-la-bx" data-la="baixa" title="Dar baixa (pago hoje)">✓ Baixa</button>' : '')
-        + '<button type="button" class="gx-la-ed" data-la="editar" title="Editar" aria-label="Editar">✎</button>';
+        + (parcTab ? '' : '<button type="button" class="gx-la-ed" data-la="editar" title="Editar" aria-label="Editar">✎</button>');
       void t;
       ultima.appendChild(span);
     });

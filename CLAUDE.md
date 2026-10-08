@@ -82,7 +82,12 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
-- Última entrega: **Backup 56** (só front; sem SQL). Tabelas: texto QUEBRA (`td.col-nome/.col-texto` white-space normal, sem "…"); números/datas/doc/nº nowrap; td 7px 10px, th 11px (bloco "Backup 56" no
+- Última entrega: **Backup 57** (só front; sem SQL). Letras do ERP antigo: tokens `--font-tit` (Playfair Display) e `--font-num` (JetBrains Mono); bloco "Backup 57" no fim do design.css usa `:not(#_)`
+  para vencer as regras antigas com ID (`#tblExecRanking td{font-family:var(--font-ui)!important}` do erp-telas.css): th Playfair 11 px sem caixa alta, td 11px×14px à esquerda, números (`col-valor/venc/dias/num/doc/.mono`) em mono,
+  `td.col-nome` sem uppercase. Grupo: a regra que escondia `col-grupo` com `tem-faixa` saiu; `marcarColunas` embrulha o texto em `.gx-gpill` (Painel usa `.er-grupo`). Painel: `table-layout:fixed` com larguras por `th:nth-child` (2 Grupo 10% · 3 Entidade 26% ·
+  4 CPF 15% · 5-7 8% · 8 Total 9% · 9-10 8%). Parcelamentos: montar-erp põe Status+Atraso (colspan 10); editor.js `PARC_TABS` — coluna "Baixa" sem ✎ (Pago sem coluna), clique na linha → `detalheParcela(tr)` (`#pc-det-editar`, `#pc-det-baixa`).
+  Documentos: MENU vira grupo (Arquivos `documentos` + Gerar documentos `gerador`), `TELAS.gerador` (telas-documentos.js, `#ger-frame` = `documentos/index.html?embutido=1`). padrao.js: valor à esquerda e nomes `textTransform=none`.
+- Backup 56 (base) (só front; sem SQL). Tabelas: texto QUEBRA (`td.col-nome/.col-texto` white-space normal, sem "…"); números/datas/doc/nº nowrap; td 7px 10px, th 11px (bloco "Backup 56" no
   design.css, no lugar do bloco de tabelas do B55); `#tblExecRanking td:has(.er-nome)` 30%. Fonte `--font-ui` = DM Sans (Inter de reserva). Cor: `--ac-navy`/`--lado-bg`/`--titulo` #173B66, `--th-bg`/`--primario`/`--selecao`
   #1F4D80 (marinho #1B2A4A só nos documentos/e-mails, escrito direto). Rotina: `.rt-grade` td 5px e select com seta curta; `.rt-proc td:nth-child(1) > .sub` quebra; NÃO pôr `table-layout:auto` geral (desfaz o
   colgroup fixo da Rotina). erp.js testa nome longo sem rolagem e th rgb(31,77,128). Prints com as fontes reais: servir DM Sans/Inter pelo `page.route` (fonts.googleapis/gstatic).

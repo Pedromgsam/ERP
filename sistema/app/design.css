@@ -1707,7 +1707,6 @@ body.gx-barra-topo :is(.tw,.tabela-wrap,.gx-tab-gs) tbody td:first-child{padding
 body.gx-barra-topo th,body.gx-barra-topo .gs th,body.gx-barra-topo #execRankWrap th,body.gx-barra-topo .gx-tab-gs.gs table thead th{font-size:11px!important;padding:9px 10px!important;letter-spacing:.02em}
 body.gx-barra-topo :is(td,th).col-grupo{white-space:normal;width:12%}
 body.gx-barra-topo td.col-grupo{font-size:12px!important;color:var(--text2)!important;text-transform:uppercase;letter-spacing:.01em}
-body.gx-barra-topo table.tem-faixa :is(td,th).col-grupo{display:none}
 body.gx-barra-topo td.col-doc{font-family:var(--font-m,ui-monospace,monospace)!important;font-size:11.5px!important;color:var(--text3)!important;white-space:nowrap}
 body.gx-barra-topo td:is(.col-nome,.col-texto){white-space:normal!important;overflow:visible;text-overflow:clip;overflow-wrap:break-word}
 body.gx-barra-topo td.col-nome{min-width:160px}
@@ -1754,3 +1753,61 @@ body.gx-barra-topo #tblExecRanking td.col-doc{font-size:11.5px!important;color:v
 @media (max-width:1280px){.gs .fila-filtros.fila-2x2{grid-template-columns:minmax(0,1fr)!important}.gs .fila-2x2 > .fila-chips{min-width:0;flex-wrap:wrap}}
 /* Backup 55: no celular (tabela vira cartão) o texto volta a quebrar linha */
 @media (max-width:600px){body.gx-barra-topo td:is(.col-nome,.col-texto,.col-grupo,.col-num),body.gx-barra-topo #tblExecRanking td:has(.er-nome){white-space:normal!important;max-width:none!important}}
+
+/* ═══ Backup 57 — letras, tamanhos e espaçamento do ERP antigo (ERP.html) em todas as tabelas ═══
+   cabeçalho em Playfair Display 11 px (sem caixa alta), células DM Sans 13 px com 11 px × 14 px de margem, números em JetBrains Mono,
+   nomes como foram digitados (sem caixa alta forçada), tudo alinhado à esquerda; Grupo é a 1ª coluna (pílula) no Painel, Clientes e Processos */
+html body.gx-barra-topo table thead th:not(#_),html body.gx-barra-topo table thead th:not(#_) *{font-family:var(--font-tit)!important;font-size:11px!important;font-weight:600!important;letter-spacing:.04em!important;text-transform:none!important}
+html body.gx-barra-topo :is(.tw,.tabela-wrap,.gx-tab-gs) table > thead > tr > th{padding:11px 14px!important;text-align:left!important}
+html body.gx-barra-topo :is(.tw,.tabela-wrap,.gx-tab-gs) table > tbody > tr > td{padding-top:11px!important;padding-bottom:11px!important;padding-left:14px!important;padding-right:14px!important;text-align:left!important;color:var(--text2)}
+html body.gx-barra-topo :is(.tw,.tabela-wrap,.gx-tab-gs) table > tbody > tr > td.gx-td-acoes{padding-left:8px!important;padding-right:10px!important}
+html body.gx-barra-topo :is(.tw,.tabela-wrap,.gx-tab-gs) table > tbody > tr:is(.gx-grp,.cli-grp,.rt-grp) > td{text-align:left!important}
+html body.gx-barra-topo td.col-nome,html body.gx-barra-topo td.col-nome *{text-transform:none!important}
+html body.gx-barra-topo :is(.tw,.tabela-wrap,.gx-tab-gs) td:is(.col-valor,.col-venc,.col-dias,.col-num,.col-doc,.mono):not(#_),
+html body.gx-barra-topo :is(.tw,.tabela-wrap,.gx-tab-gs) td:is(.col-valor,.col-venc,.col-dias,.col-num,.col-doc):not(#_) *{font-family:var(--font-num)!important;letter-spacing:-.01em!important;font-variant-numeric:tabular-nums}
+html body.gx-barra-topo :is(.tw,.tabela-wrap,.gx-tab-gs) td.col-valor:not(#_){font-weight:700!important}
+html body.gx-barra-topo :is(.tw,.tabela-wrap,.gx-tab-gs) td.col-valor:not(.valor-rec):not(.valor-desp):not(#_){color:var(--titulo)}
+html body.gx-barra-topo :is(.tw,.tabela-wrap,.gx-tab-gs) td:is(.col-doc,.col-num):not(#_){font-size:12px!important;color:var(--text3)!important}
+/* Grupo: pílula azul, como no ERP antigo */
+html body.gx-barra-topo td.col-grupo{width:1%;white-space:nowrap!important;font-size:12px!important}
+html body.gx-barra-topo td.col-grupo .gx-gpill{display:inline-block;max-width:140px;overflow:hidden;text-overflow:ellipsis;vertical-align:middle;padding:3px 11px;border-radius:999px;border:1px solid color-mix(in srgb,var(--primario) 28%,transparent);
+  background:color-mix(in srgb,var(--primario) 7%,var(--surface));color:var(--primario);font:700 11px var(--font-ui);letter-spacing:.02em;text-transform:none}
+/* títulos dos quadros em Playfair Display (como "Empresas do Grupo" no ERP antigo) */
+html body.gx-barra-topo :is(.cc-t,.sec-t,.ex-t,.erp-box-hd,.m-title),html body.gx-barra-topo .gs .card-hd{font-family:var(--font-tit)!important;letter-spacing:-.005em}
+html body.gx-barra-topo .gs .card-hd :is(.sub,button,.btn,select,input,label,span:not([class])){font-family:var(--font-ui)}
+html body.gx-barra-topo .kv{font-family:var(--font-num)!important}
+/* Painel → Empresas do grupo: distribuição do ERP antigo (Grupo · Entidade/Sócio larga · CPF/CNPJ · RFB · PGFN · AGE/MG · Total · Operação · Situação) */
+html body.gx-barra-topo table:has(> #tblExecRanking){table-layout:fixed!important;width:100%!important}
+html body.gx-barra-topo table:has(> #tblExecRanking) th:nth-child(2){width:10%!important}
+html body.gx-barra-topo table:has(> #tblExecRanking) th:nth-child(3){width:26%!important}
+html body.gx-barra-topo table:has(> #tblExecRanking) th:nth-child(4){width:15%!important}
+html body.gx-barra-topo table:has(> #tblExecRanking) :is(th:nth-child(5),th:nth-child(6),th:nth-child(7)){width:8%!important}
+html body.gx-barra-topo table:has(> #tblExecRanking) th:nth-child(8){width:9%!important}
+html body.gx-barra-topo table:has(> #tblExecRanking) :is(th:nth-child(9),th:nth-child(10)){width:8%!important}
+html body.gx-barra-topo table:has(> #tblExecRanking) :is(th,td){text-align:left!important;padding-left:12px!important;padding-right:8px!important}
+html body.gx-barra-topo #tblExecRanking td{font-size:13px!important;vertical-align:middle}
+html body.gx-barra-topo #tblExecRanking td:has(.er-nome){width:auto!important;min-width:0!important;white-space:normal!important}
+html body.gx-barra-topo #tblExecRanking .er-nome{display:block;font:600 13.5px/1.35 var(--font-ui)!important;color:var(--titulo)!important;text-transform:none!important;border-left:3px solid var(--ac-gold)!important;padding-left:9px!important}
+html body.gx-barra-topo #tblExecRanking .er-socio{display:block;font:400 11.5px/1.3 var(--font-ui)!important;color:var(--text3)!important;text-transform:none!important;padding-left:12px;margin-top:3px}
+html body.gx-barra-topo #tblExecRanking .er-socio b{font-weight:600!important;color:var(--text2)!important;text-transform:none!important}
+html body.gx-barra-topo #tblExecRanking td.col-valor,html body.gx-barra-topo #tblExecRanking td.col-valor *{font-size:13.5px!important;font-weight:800!important;color:var(--titulo)!important}
+html body.gx-barra-topo #tblExecRanking td:is(.er-op,.er-sit,.col-sit){white-space:nowrap}
+/* Processos e Clientes: Grupo e números estreitos, textos dividem o resto */
+html body.gx-barra-topo table:has(> #tblProcBody) td.col-num{white-space:nowrap}
+html body.gx-barra-topo #tblExecRanking td:is(.col-valor,.col-doc,.mono),html body.gx-barra-topo #tblExecRanking td:is(.col-valor,.col-doc,.mono) *{font-family:var(--font-num)!important;letter-spacing:-.01em!important}
+html body.gx-barra-topo #tblExecRanking td.col-doc{font-size:12px!important;color:var(--text3)!important}
+/* a pílula do Grupo (Painel usa .er-grupo; as outras tabelas, .gx-gpill) */
+html body.gx-barra-topo #tblExecRanking .er-grupo,html body.gx-barra-topo td.col-grupo .gx-gpill{display:inline-block!important;max-width:100%!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;vertical-align:middle;
+  padding:3px 10px!important;border-radius:999px!important;border:1px solid color-mix(in srgb,var(--primario) 28%,transparent)!important;background:color-mix(in srgb,var(--primario) 7%,var(--surface))!important;
+  color:var(--primario)!important;font:700 11px var(--font-ui)!important;letter-spacing:.02em!important;text-transform:none!important;width:auto!important;text-align:left!important}
+html body.gx-barra-topo #tblExecRanking td:has(.er-grupo){width:auto!important;max-width:none!important;padding-right:6px!important}
+html body.gx-barra-topo table thead th:not(#_){border-left:0!important;border-right:0!important}
+/* Parcelamentos (Vencidos / A vencer / Pago): Empresa larga numa linha, como no ERP antigo */
+html body.gx-barra-topo #panel-parcelamentos :is(#tblParcBody,#tblParcVencBody,#tblParcPagoBody) > tr > td:first-child{min-width:210px}
+html body.gx-barra-topo #panel-parcelamentos table:has(> :is(#tblParcBody,#tblParcVencBody,#tblParcPagoBody)) :is(th,td):not(#_){padding-left:10px!important;padding-right:10px!important}
+html body.gx-barra-topo #panel-parcelamentos :is(#tblParcBody,#tblParcVencBody,#tblParcPagoBody) > tr > td:nth-child(3){min-width:120px}
+html body.gx-barra-topo #panel-parcelamentos :is(#tblParcBody,#tblParcVencBody,#tblParcPagoBody) > tr{cursor:pointer}
+@media (max-width:600px){html body.gx-barra-topo table:has(> #tblExecRanking){table-layout:auto!important}}
+/* Backup 57: Gerar documentos dentro do ERP (Central de Documentos num quadro do tamanho da tela) */
+.gs .ger-card{padding:0;overflow:hidden}
+.gs .ger-frame{display:block;width:100%;height:calc(100vh - 210px);min-height:560px;border:0;background:var(--surface)}

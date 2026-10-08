@@ -63,6 +63,8 @@
 
   /* tipografia: uma fonte só, números alinhados (Backup 56: DM Sans, a letra do ERP antigo — mais compacta que a Inter) */
   --font-ui:'DM Sans','Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+  /* Backup 57: as letras do ERP antigo — títulos e cabeçalho das tabelas em Playfair Display, números (valores, datas, CPF/CNPJ, nº) em JetBrains Mono */
+  --font-tit:'Playfair Display',Georgia,serif;--font-num:'JetBrains Mono',ui-monospace,'Courier New',monospace;
   --fs-xs:12px;--fs-sm:13px;--fs-md:14px;--fs-lg:16px;--fs-xl:20px;--fs-2xl:24px;
   /* espaçamento */
   --sp-1:4px;--sp-2:8px;--sp-3:12px;--sp-4:16px;--sp-5:24px;--sp-6:32px;

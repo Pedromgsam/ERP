@@ -469,12 +469,13 @@ trocar("      </div>\n    </div>`;\n  }).join('');\n\n  renderParcVencTbl();",
 // que deixavam o ERP inteiro lento. Agora só a aba aberta é desenhada (as outras, ao clicar nelas: setParcTab já chama a função de cada uma).
 trocar("  renderParcVencTbl();\n  renderParcTbl();\n  renderParcPagoTbl();\n}", "  if(_parcTab==='avencer') renderParcTbl(); else if(_parcTab==='pago') renderParcPagoTbl(); else renderParcVencTbl();\n}", 1);
 // tabelas: "Status" vira dias (Atraso nos vencidos; Dias nos a vencer), como em Acordos
-trocar('          <th class="s" onclick="sortParcVenc(4)">Vencimento</th>\n          <th>Status</th>', '          <th class="s" onclick="sortParcVenc(4)">Vencimento</th>\n          <th>Atraso</th>', 1);
-trocar('          <th class="s" onclick="sortParc(4)">Vencimento</th>\n          <th>Status</th>', '          <th class="s" onclick="sortParc(4)">Vencimento</th>\n          <th>Dias</th>', 1);
+// Backup 57: igual ao ERP.html (Status) + Atraso; a coluna Baixa entra pelo editor.js (sem a caneta: clicar na parcela abre o detalhe com Editar)
+trocar('          <th class="s" onclick="sortParcVenc(4)">Vencimento</th>\n          <th>Status</th>', '          <th class="s" onclick="sortParcVenc(4)">Vencimento</th>\n          <th>Status</th><th>Atraso</th>', 1);
+trocar('          <th class="s" onclick="sortParc(4)">Vencimento</th>\n          <th>Status</th>', '          <th class="s" onclick="sortParc(4)">Vencimento</th>\n          <th>Status</th><th>Atraso</th>', 1);
 trocar("    <td><span class=\"tag ${sC[p.status]||'tx'} ${p.status==='Inadimplente'?'tpls':''}\" style=\"${p.status==='Inadimplente'?'border-left:3px solid var(--red);':''}\">${p.status||'—'}</span></td>\n  </tr>`).join(''):`<tr><td colspan=\"8\">${emp()}</td></tr>`;",
-  "    <td class=\"mono\">${_parcDias(p.vencimento)}</td>\n  </tr>`).join(''):`<tr><td colspan=\"8\">${emp()}</td></tr>`;", 1);
+  "    <td><span class=\"tag ${sC[p.status]||'tx'}\">${p.status||'—'}</span></td>\n    <td class=\"mono\">${_parcDias(p.vencimento)}</td>\n  </tr>`).join(''):`<tr><td colspan=\"10\">${emp()}</td></tr>`;", 1);
 trocar("    <td><span class=\"tag tr tpls\" style=\"border-left:3px solid var(--red)\">Inadimplente</span></td>\n  </tr>`).join(''):`<tr><td colspan=\"8\">${emp('Nenhuma parcela vencida — tudo em dia! ✅')}</td></tr>`;",
-  "    <td class=\"mono\">${_parcDias(p.vencimento)}</td>\n  </tr>`).join(''):`<tr><td colspan=\"8\">${emp('Nenhuma parcela vencida — tudo em dia! ✅')}</td></tr>`;", 1);
+  "    <td><span class=\"tag tr\">Inadimplente</span></td>\n    <td class=\"mono\">${_parcDias(p.vencimento)}</td>\n  </tr>`).join(''):`<tr><td colspan=\"10\">${emp('Nenhuma parcela vencida — tudo em dia! ✅')}</td></tr>`;", 1);
 // ═══════ Backup 19 — Acordos: sai a coluna "Situação" (Vencido) dos vencidos — o "Atraso" em dias já diz ═══════
 trocar('          <th>Atraso</th><th>Situação</th>\n        </tr></thead><tbody id="tblAcordosVencBody">', '          <th>Atraso</th>\n        </tr></thead><tbody id="tblAcordosVencBody">', 1);
 trocar("      <td class=\"mono\" style=\"font-weight:700;color:var(--red)\">${dias===0?'Hoje':dias+' d atraso'}</td>\n      <td><span class=\"tag tr tpls\" style=\"border-left:3px solid var(--red)\">${a.situacao||'Vencido'}</span></td>\n",

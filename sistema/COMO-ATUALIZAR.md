@@ -707,6 +707,27 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
 **Central de Documentos dentro do ERP:** menu **Documentos → Gerar documento** (ou ⋯ → Documentos, contrato, recibo do Financeiro).
 **Ctrl + clique** (ou botão do meio do mouse) em qualquer item do menu ou link de documento abre numa aba nova.
 
+## Backup 57 — Letras e tabelas do ERP antigo, Parcelamentos e Gerar documentos (sem SQL; nenhuma função nova)
+1. Merge da pull request.
+2. SQL: não precisa.
+3. **Ctrl+Shift+R** no ERP. Confira na Vercel (Deployments) que a primeira linha Production é do horário do seu Merge.
+
+O que mudou:
+- **Todas as tabelas (letras do ERP antigo):** cabeçalho em Playfair Display 11 px, células em DM Sans 13 px, valores, datas, CPF/CNPJ e números em JetBrains Mono.
+  Os nomes aparecem como foram digitados (sem caixa alta forçada) e tudo fica alinhado à esquerda, com a mesma margem do ERP antigo.
+- **Painel → Empresas do grupo:** a mesma distribuição do ERP.html:
+  - Grupo (pílula azul);
+  - Entidade/Sócio larga (nome em negrito com o filete dourado);
+  - CPF/CNPJ;
+  - RFB · PGFN · AGE/MG;
+  - Total;
+  - Operação;
+  - Situação.
+- **Grupo** volta a ser a 1ª coluna no Painel, em Clientes e em Processos.
+- **Parcelamentos (Vencidos / A vencer / Pago):** a tabela do ERP antigo (Empresa · Plataforma · Natureza · Nº Parc. · Parcela · Valor · Vencimento · Status), mais **Atraso** e **Baixa**. A caneta saiu.
+  Clique na parcela para abrir o detalhe, com **✎ Editar** e **✓ Dar baixa**.
+- **Documentos → Gerar documentos:** novo item no menu. Abre a Central de Documentos dentro do ERP; o botão "Abrir em aba nova ↗" abre a tela inteira.
+
 ## Backup 56 — Tabelas que cabem na tela, letra do ERP antigo e cor nova (sem SQL; nenhuma função nova)
 1. Merge da pull request.
 2. SQL: não precisa (o banco não mudou).
