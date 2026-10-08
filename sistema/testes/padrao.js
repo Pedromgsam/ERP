@@ -11,7 +11,7 @@ const TAB = ':is(.tw,.tabela-wrap,.gx-tab-gs) table:not(.gx-leg):not(.massa)';
 const REGRAS = [
   ['selo da pessoa', ':is(.pill.pill-pessoa,.fa-pessoa)', ['fontSize', 'fontWeight', 'borderRadius']],
   ['vencimento', 'td.col-venc', ['fontSize', 'fontWeight']],
-  ['valor', 'td.col-valor:not(#tblExecRanking td)',   // Backup 46: o Painel (Empresas do grupo) fica centralizado, a pedido
+  ['valor', 'td.col-valor',   // Backup 46: o Painel (Empresas do grupo) fica centralizado, a pedido
   ['fontSize', 'fontWeight', 'textAlign']],   // Backup 50: a cor do valor depende do tipo (receber verde, pagar vermelho)
   ['dias / atraso', 'td.col-dias', ['fontSize']],
   ['nome de cliente/empresa', 'td.col-nome', ['fontSize', 'fontWeight', 'textTransform']],
@@ -19,7 +19,7 @@ const REGRAS = [
   ['célula de tabela', TAB + ' > tbody > tr:not(.gx-grp):not(.gx-det) > td:not(.col-doc):not(.col-grupo):not(.col-num)', ['fontSize']],
   ['linha de baixo (sócio, descrição…)', TAB + ' > tbody > tr > td .sub', ['fontSize', 'color']],
   ['botão "✓ Baixa" da linha', 'td :is(.gx-la-bx,[data-pagar].btn-mini)', ['fontSize', 'fontWeight']],
-  ['botão "✎" da linha', 'td :is(.gx-la-ed,.btn-ed)', ['fontSize']],
+  ['botão "✎" da linha (Backup 58: saiu das tabelas)', 'td :is(.gx-la-ed,.btn-ed)', ['fontSize'], true],
   // Backup 52 (P5): o que muda num lugar vale para todas as telas
   ['cabeçalho de grupo (faixa cinza, sem borda azul)', ':is(tr.gx-grp,tr.cli-grp,tr.rt-grp) > td', ['backgroundColor', 'color', 'fontSize', 'fontWeight', 'boxShadow']],
   ['filtro (pílula)', ':is(.gx-seg-cli > button,.filtros .segmento > button,.rt-seg > button,.fila-chips .fila-chip):not(.ativo):not(.on)', ['fontSize', 'borderRadius', 'backgroundColor', 'paddingTop']],
@@ -83,7 +83,7 @@ const TELAS = [['hoje'], ['resumo'], ['processos'], ['parcelamentos'], ['parcela
     const tem = (n, re) => Object.keys(vistos[n]).every((e) => re.test(e));
     ok('tabela com 13 px', tem('célula de tabela', /fontSize=13px/));
     ok('vencimento em negrito', tem('vencimento', /fontWeight=700/));
-    ok('valor em negrito e à esquerda (como no ERP antigo — Backup 57)', tem('valor', /fontWeight=700/) && tem('valor', /textAlign=left/));
+    ok('valor em negrito e à direita (Backup 58: dinheiro à direita em todas as tabelas)', tem('valor', /fontWeight=700/) && tem('valor', /textAlign=right/));
     ok('nomes de cliente/empresa como foram digitados, sem negrito (como no ERP antigo — Backup 57)', tem('nome de cliente/empresa', /fontWeight=400 textTransform=none/));
     ok('selo da pessoa como no ERP original (11 px, negrito, do tamanho do nome)', tem('selo da pessoa', /fontSize=11px fontWeight=700/));
     ok('linha de baixo com 12 px', tem('linha de baixo (sócio, descrição…)', /fontSize=12px/));

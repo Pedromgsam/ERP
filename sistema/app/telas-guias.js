@@ -451,7 +451,7 @@ async function enviarAcordosSelecionados(ids, depois) {
 }
 
 // ═══ Backup 53: alterar o ACORDO INTEIRO (todas as parcelas, ou só as em aberto) — devedor, credor, processo, forma de pagamento, PIX, banco,
-// valor da parcela e dia do vencimento. Para mudar UMA parcela só, use o ✎ da linha dela.
+// valor da parcela e dia do vencimento. Para mudar UMA parcela só, clique na parcela.
 async function editarAcordo(ids, depois) {
   const L = await q(sb.from('acordos').select('id, parcela, total_parcelas, vencimento, valor, pago, devedor, credor, processo, forma_pagamento, pix, banco').in('id', ids || []));
   if (!L.length) return aviso('Acordo não encontrado.', true);
@@ -459,7 +459,7 @@ async function editarAcordo(ids, depois) {
   const j = abrirJanela({ titulo: '✎ Alterar o acordo inteiro', larga: true,
     corpo: '<form class="grade" id="f-acordo-todo">' +
       '<div class="inteiro dica">Muda de uma vez <b>' + plural(L.length, 'parcela', 'parcelas') + '</b> deste acordo (' + plural(abertas.length, 'em aberto', 'em aberto') + '). ' +
-        'Campo em branco = não muda. Para mudar uma parcela só, feche e use o ✎ da linha dela.</div>' +
+        'Campo em branco = não muda. Para mudar uma parcela só, feche e clique na parcela.</div>' +
       campo('Devedor', '<input name="devedor" value="' + esc(a.devedor || '') + '">') + campo('Credor', '<input name="credor" value="' + esc(a.credor || '') + '">') +
       campo('Processo', '<input name="processo" value="' + esc(a.processo || '') + '">') +
       campo('Forma de pagamento', '<select name="forma_pagamento"><option value="">— não muda —</option><option value="boleto"' + (a.forma_pagamento === 'boleto' ? ' selected' : '') + '>Boleto</option><option value="pix"' + (a.forma_pagamento === 'pix' ? ' selected' : '') + '>PIX</option></select>') +

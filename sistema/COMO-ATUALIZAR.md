@@ -707,6 +707,32 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
 **Central de Documentos dentro do ERP:** menu **Documentos → Gerar documento** (ou ⋯ → Documentos, contrato, recibo do Financeiro).
 **Ctrl + clique** (ou botão do meio do mouse) em qualquer item do menu ou link de documento abre numa aba nova.
 
+## Backup 58 — Padrão único das tabelas (sem SQL; nenhuma função nova)
+1. Merge da pull request.
+2. SQL: não precisa.
+3. **Ctrl+Shift+R** no ERP. Confira na Vercel (Deployments) que a primeira linha Production é do horário do seu Merge.
+
+O que mudou em todas as tabelas (letras do Backup 57 mantidas):
+- **Alinhamento:** nomes e textos à esquerda; **dinheiro à direita**; data, prazo, dias, situação e botões no centro.
+- **Linha de baixo** (sócio, "Cobrado", "Previsão", "Consultoria"): letra normal, 12 px, cinza.
+- **Vazio:** sempre "—".
+- **Grupo:** só a coluna Grupo, à esquerda. A faixa cinza repetida saiu do Painel, de Clientes e de Processos.
+- **Sem a caneta ✎:** clique na linha para abrir o detalhe com **✎ Editar**. Vale para:
+  - Financeiro;
+  - Parcelamentos;
+  - Administração → Usuários;
+  - contatos das Execuções;
+  - parcelas do cartão de Acordos.
+
+Por tela:
+- **Painel:** Entidade/Sócio mais larga; Operação e Situação só do tamanho da pílula; RFB, PGFN, AGE/MG e Total à direita.
+- **Acordos → A pagar:**
+  - Processo numa linha;
+  - Devedor e Credor mais estreitos (nome longo quebra em 2 linhas);
+  - o botão é sempre "Emitir", e o "✓ emitido" aparece embaixo do Prazo (a data aparece ao passar o mouse).
+- **Parcelamentos:** Nº Parc. em letra 11 px cinza; Empresa mais larga; Parcela no centro.
+- **Financeiro → A receber:** só Cobrar e Baixa na linha; o texto embaixo do Atraso na letra normal.
+
 ## Backup 57 — Letras e tabelas do ERP antigo, Parcelamentos e Gerar documentos (sem SQL; nenhuma função nova)
 1. Merge da pull request.
 2. SQL: não precisa.

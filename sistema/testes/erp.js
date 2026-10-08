@@ -157,8 +157,11 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
 
     // ── editar: formulário do Gestão ──
     const idRec = sql("select id from lancamentos where descricao='Honorários mensais'");
-    await p.click('#panel-financeiro .gx-tab-gs [data-editar="' + idRec + '"]');
-    await p.waitForSelector('#gs-raiz .janela', { timeout: 8000 }); await p.waitForTimeout(250);
+    // Backup 58: sem a caneta na linha — clicar na linha abre o detalhe e o "✎ Editar" fica lá dentro
+    ok('Financeiro: linha sem a caneta ✎ (editar pelo detalhe)', !(await p.$('#panel-financeiro .gx-tab-gs tr [data-editar]')) && !(await p.$('#panel-financeiro .gx-la-ed')));
+    await p.click('#panel-financeiro .gx-tab-gs tr[data-lanc="' + idRec + '"] td:nth-child(3)');
+    await p.waitForSelector('#gs-raiz .janela [data-editar]', { timeout: 8000 }); await p.click('#gs-raiz .janela [data-editar]');
+    await p.waitForFunction(() => /Editar receita/.test((document.querySelector('#gs-raiz .janela-hd') || {}).textContent || ''), null, { timeout: 8000 }).catch(() => {}); await p.waitForTimeout(250);
     ok('Editar abre o formulário do Gestão', /Editar receita/.test(await p.textContent('#gs-raiz .janela-hd')));
     await foto(p, 'editar');
     await p.fill('#f-lanc [name=referencia]', '10/2026');
@@ -437,7 +440,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.click('[data-excluir-u="' + sql("select id from perfis where email='nova@teste.com'") + '"]'); await p.waitForTimeout(1500);
     ok('Usuários: 🗑 Excluir apaga o acesso da pessoa', sql("select count(*) from perfis where email='nova@teste.com'") === '0' && sql("select count(*) from auth.users where email='nova@teste.com'") === '0');
     ok('envia link de nova senha', (await (await p.request.get(BASE + '/__teste/recuperacoes')).json()).includes('novo@teste'));
-    ok('Usuários (B46): a tabela só mostra (sem campos); muda tudo em ✎ Editar', !(await p.$('.us-tab select, .us-tab input')) && (await p.$$('.us-tab [data-us-ed]')).length >= 3);
+    ok('Usuários (B46): a tabela só mostra (sem campos); muda tudo em ✎ Editar', !(await p.$('.us-tab select, .us-tab input')) && (await p.$$('.us-tab tr[data-us].clicavel')).length >= 3 && !(await p.$('.us-tab [data-us-ed]')));
     await p.click('#adm-abas [data-aba=historico]'); await p.waitForTimeout(1500);
     ok('histórico na Administração com filtros e detalhes', /Alterou/.test(await p.textContent('#adm-corpo')) && await p.isVisible('#hist-quem') && await p.isVisible('#hist-csv') && /Referência:/.test(await p.textContent('#adm-corpo')));
     await p.evaluate((id) => ERP_EDITAR('processos:' + id), sql("select id from processos limit 1")); await esperarJanela(p);
@@ -448,7 +451,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     // ── funções de acesso: admin escolhe; pessoa só com Financeiro ──
     await nav(p, 'admin'); await p.waitForTimeout(1500);
     await p.click('#adm-abas [data-aba=usuarios]'); await p.waitForTimeout(1200);
-    await p.click('[data-us-ed="' + sql("select id from perfis where email='equipe@teste'") + '"]'); await p.waitForSelector('.grade-funcoes'); await p.waitForTimeout(250);
+    await p.click('tr[data-us="' + sql("select id from perfis where email='equipe@teste'") + '"] td:first-child'); await p.waitForSelector('.grade-funcoes'); await p.waitForTimeout(250);
     await p.click('[data-modelo-acesso="Estagiário"]'); await p.click('.gf-areas [data-v=juridico]'); await p.click('#us-salvar'); await p.waitForTimeout(1500);
     ok('admin escolhe as funções com um modelo pronto (estagiário) — sem a opção Rascunho', sql("select funcoes->>'juridico'||'|'||coalesce(funcoes->>'financeiro_juridico','-') from perfis where email='equipe@teste'") === 'editar|-' &&
       !(await p.$('.grade-funcoes [data-v=propor]')));
@@ -948,7 +951,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('Usuários: os 4 acessos combinados aparecem com "Criar conta"', (await p.$$('[data-prev]')).length === 4);
     // Backup 45: cargo (hierarquia da agenda) e revisor padrão
     { const idA = sql("select id from perfis where email='equipe@teste'"), idP = sql("select id from perfis where email='pedro@teste'");
-      await p.click('[data-us-ed="' + idA + '"]'); await p.waitForSelector('#us-cargo-sel');
+      await p.click('tr[data-us="' + idA + '"] td:first-child'); await p.waitForSelector('#us-cargo-sel');
       await p.selectOption('#us-cargo-sel', 'estagiario'); await p.selectOption('#us-rev-sel', idP); await p.click('#us-salvar'); await p.waitForTimeout(1200);
       ok('Usuários (B45): cargo e revisor gravados', sql("select cargo||'|'||revisor_id from perfis where id='" + idA + "'") === 'estagiario|' + idP);
       sql("insert into tarefas(titulo,responsavel,exige_revisao,status) values ('Tarefa com revisor padrão B45','Adriana',true,'pendente')");
@@ -1885,6 +1888,9 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       await p.click('#pc-det-editar').catch(() => {}); await p.waitForTimeout(1200);
       ok('B57 Parcelamentos: "Editar" abre a edição do parcelamento', await p.evaluate(() => !!document.querySelector('.gx-fundo .gx-janela')));
       await p.keyboard.press('Escape'); await p.waitForTimeout(300); await nav(p, 'resumo'); await p.waitForTimeout(800);
+      ok('B58 tabelas: dinheiro à direita, Grupo só como coluna (sem a faixa repetida) e vazio sempre "—"', await p.evaluate(() => { const t = document.querySelector('#tblExecRanking').closest('table');
+        const v = t.querySelector('tbody td.col-valor'), f = t.querySelector('tbody tr.gx-grp');
+        return !!v && getComputedStyle(v).textAlign === 'right' && (!f || getComputedStyle(f).display === 'none') && ![...t.querySelectorAll('tbody td')].some((td) => !td.children.length && td.textContent.trim() === '-'); }));
       ok('B57 Painel: Grupo é a 1ª coluna (pílula), cabeçalho em Playfair e números em JetBrains Mono, como no ERP antigo', await p.evaluate(() => { const t = document.querySelector('#tblExecRanking').closest('table');
         const g = t.querySelector('thead th.col-grupo'), td = t.querySelector('tbody td.col-doc');
         return !!g && getComputedStyle(g).display !== 'none' && /Playfair/.test(getComputedStyle(g).fontFamily) && !!td && /JetBrains/.test(getComputedStyle(td).fontFamily) && !!t.querySelector('tbody .er-grupo'); }));
@@ -1896,6 +1902,9 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
         return getComputedStyle(th).backgroundColor === 'rgb(31, 77, 128)' && /DM Sans/.test(getComputedStyle(document.body).fontFamily); }));
       ok('B55 tabelas: CPF/CNPJ discreto (letra menor, cinza)', await p.evaluate(() => { const td = document.querySelector('#tblExecRanking td.col-doc'); if (!td) return false; const c = getComputedStyle(td); return parseFloat(c.fontSize) < 13; }));
       await nav(p, 'acordos'); await p.waitForSelector('#tblAcordosVencBody tr[data-ac-id]', { timeout: 10000 }).catch(() => {});
+      ok('B58 Acordos: botão só "Emitir" (sem "Emitido" por cima do Prazo); o "emitido" fica embaixo do prazo; Processo numa linha', await p.evaluate(() => {
+        const b = [...document.querySelectorAll('#tblAcordosVencBody .ac-bt-emitir')]; const pr = document.querySelector('#tblAcordosVencBody td.ac-c-proc');
+        return b.length > 0 && b.every((x) => x.textContent.trim() === 'Emitir') && !!pr && getComputedStyle(pr).whiteSpace === 'nowrap' && !!document.querySelector('#tblAcordosVencBody td.ac-c-prazo'); }));
       const temAc = await p.$('#tblAcordosVencBody tr[data-ac-id] td:nth-child(3)');
       if (temAc) { await temAc.click(); await p.waitForTimeout(300);
         ok('B55 Acordos: clicar na parcela abre "Só esta parcela" e "O acordo inteiro"', !!(await p.$('#tblAcordosVencBody tr.ac-ed-linha [data-ac-ed=parcela]')) && !!(await p.$('#tblAcordosVencBody tr.ac-ed-linha [data-ac-ed=acordo]')));

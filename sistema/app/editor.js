@@ -591,12 +591,13 @@
   window.ERP_EDITAR = editarPorMarca;
 
   const PARC_TABS = '#tblParcBody, #tblParcVencBody, #tblParcPagoBody';
-  // Backup 57: clicar numa parcela (Parcelamentos → Vencidos / A vencer / Pago) abre o detalhe da parcela, com "Editar" e "Dar baixa"
+  // Backup 57/58: clicar numa linha (parcelas e as demais tabelas do ERP, menos lançamentos e acordos, que têm detalhe próprio) abre o detalhe, com "Editar" e "Dar baixa"
+  const TITULO_DET = { parcelas: 'Parcela', clientes: 'Cliente', processos: 'Processo', contratos: 'Contrato', tarefas: 'Tarefa', parcelamentos: 'Parcelamento' };
   function detalheParcela(tr) {
     const cabs = [...tr.closest('table').querySelectorAll('thead th')].map((th) => th.textContent.trim());
-    const linhas = [...tr.children].map((td, i) => [cabs[i], td.textContent.trim()]).filter(([r, v]) => r && r !== 'Baixa' && v);
+    const linhas = [...tr.children].map((td, i) => [cabs[i], td.textContent.trim()]).filter(([r, v]) => r && r !== 'Baixa' && r !== 'Ações' && v && v !== '—');
     const [t, id, , sit] = tr.dataset.gx.split(':');
-    const jan = abrirJanela('Parcela', '<div class="gx-det-dados">' + linhas.map(([r, v]) => '<div><span>' + esc(r) + '</span><b>' + esc(v) + '</b></div>').join('') + '</div>' +
+    const jan = abrirJanela(TITULO_DET[t] || 'Detalhe', '<div class="gx-det-dados">' + linhas.map(([r, v]) => '<div><span>' + esc(r) + '</span><b>' + esc(v) + '</b></div>').join('') + '</div>' +
       '<div class="gx-pe" style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">' +
       (sit === 'a' ? '<button type="button" class="btn btn-o" id="pc-det-baixa">✓ Dar baixa</button>' : '') +
       '<button type="button" class="btn btn-p" id="pc-det-editar">✎ Editar</button></div>', 520);
@@ -605,8 +606,12 @@
     if (bx) bx.onclick = () => { bx.disabled = true; bx.textContent = '…'; baixaRapida(t, id).finally(fecharJanela); };
   }
   document.addEventListener('click', (e) => {
-    const tr = e.target.closest && e.target.closest('tr[data-gx^="parcelas:"]');
-    if (!tr || ehCliente() || !tr.closest(PARC_TABS) || e.target.closest('button, a, input, select, .gx-la')) return;
+    const tr = e.target.closest && e.target.closest('tr[data-gx]');
+    if (!tr || ehCliente() || e.target.closest('button, a, input, select, label, .gx-la')) return;
+    const t = (tr.dataset.gx || '').split(':')[0];
+    // lançamentos e acordos têm detalhe próprio; Painel, Processos e Acordos → A pagar abrem os seus
+    if (!t || t === 'lancamentos' || t === 'acordos' || tr.closest('#tblExecRanking, #tblProcBody, #tblAcordosVencBody')) return;
+    if (!tr.closest(PARC_TABS) && !tr.querySelector('.gx-td-acoes')) return;
     detalheParcela(tr);
   });
 
@@ -624,14 +629,14 @@
       if (parcTab && parcTab.id === 'tblParcPagoBody') return;
       // coluna própria para as ações (a caneta não fica mais junto da Situação)
       const tabela = tr.closest('table'), cab = tabela && tabela.querySelector('thead tr:last-child');
-      if (cab && !cab.querySelector('.gx-th-acoes')) { const th = document.createElement('th'); th.className = 'gx-th-acoes'; if (parcTab) th.textContent = 'Baixa'; else th.setAttribute('aria-label', 'Ações'); cab.appendChild(th); }
+      if (cab && !cab.querySelector('.gx-th-acoes')) { const th = document.createElement('th'); th.className = 'gx-th-acoes'; th.textContent = parcTab ? 'Baixa' : 'Ações'; cab.appendChild(th); }
       const ultima = document.createElement('td'); ultima.className = 'gx-td-acoes'; tr.appendChild(ultima);
       const [t, , , sit, rec] = tr.dataset.gx.split(':');
       const span = document.createElement('span');
       span.className = 'gx-la';
       span.innerHTML = (sit === 'a' && rec === 'r' ? '<button type="button" class="gx-la-cb" data-la="cobrar" title="Cobrar pelo WhatsApp (texto pronto)">💬 Cobrar</button>' : '')
         + (sit === 'a' ? '<button type="button" class="gx-la-bx" data-la="baixa" title="Dar baixa (pago hoje)">✓ Baixa</button>' : '')
-        + (parcTab ? '' : '<button type="button" class="gx-la-ed" data-la="editar" title="Editar" aria-label="Editar">✎</button>');
+        ;   // Backup 58: sem a caneta em nenhuma tabela — clicar na linha abre o detalhe com "✎ Editar"
       void t;
       ultima.appendChild(span);
     });

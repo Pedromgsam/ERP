@@ -790,6 +790,8 @@
           if (c === 'col-venc' && /red/.test(td.getAttribute('style') || '')) td.classList.add('venc-atraso');
           // Backup 57: Grupo em pílula, como no ERP antigo
           if (c === 'col-grupo' && !td.children.length && td.textContent.trim() && td.textContent.trim() !== '—') td.innerHTML = '<span class="gx-gpill">' + td.innerHTML + '</span>'; });
+        // Backup 58: vazio é sempre "—" (o ERP antigo usava "-" em algumas colunas)
+        [...tds].forEach((td) => { if (!td.children.length && td.textContent.trim() === '-') td.textContent = '—'; });
         tr._gxRegua = sig;
       });
     });
