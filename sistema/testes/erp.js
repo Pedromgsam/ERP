@@ -1837,6 +1837,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     }
     // ── Backup 54: e-mails automáticos (equipe e clientes), + Lançar integrado, contatos das execuções ──
     {
+      const fecharTudo = async () => { for (let i = 0; i < 4; i++) { const f = await p.$('#gs-raiz .fundo [data-cancelar], #gs-raiz .fundo [data-fechar]'); if (!f) break; await f.click().catch(() => {}); await p.waitForTimeout(200); } };
       await p.click('#em-abas [data-em-aba=auto]'); await p.waitForSelector('.em-auto [data-eq=fluxo]');
       ok('B54 E-mail: aba Automáticos com o aviso de fluxo já desligado', !(await p.isChecked('.em-auto [data-eq=fluxo]')) && (await p.$$('.em-auto [data-eq]')).length >= 8);
       await p.click('.em-auto [data-eq=mencao]'); await p.waitForTimeout(1200);

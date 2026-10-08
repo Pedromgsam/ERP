@@ -1694,3 +1694,5 @@ body.gx-barra-topo .cc-t,body.gx-barra-topo .gs .card-hd,body.gx-barra-topo .tit
 .gs .fila-filtros.fila-2x2{display:grid!important;grid-template-columns:minmax(0,1fr) auto;gap:8px 28px;align-items:center}
 .gs .fila-2x2 > .fila-chips:nth-child(even){justify-self:end}
 @media (max-width:900px){.gs .fila-filtros.fila-2x2{grid-template-columns:1fr}.gs .fila-2x2 > .fila-chips:nth-child(even){justify-self:start}}
+/* Backup 54: a faixa de grupo não muda de cor sob o mouse em nenhuma tabela (Processos, Painel…) */
+body.gx-barra-topo tbody :is(tr.gx-grp,tr.cli-grp,tr.rt-grp):hover > td{background:var(--surface3)!important}
