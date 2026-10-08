@@ -707,6 +707,20 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
 **Central de Documentos dentro do ERP:** menu **Documentos → Gerar documento** (ou ⋯ → Documentos, contrato, recibo do Financeiro).
 **Ctrl + clique** (ou botão do meio do mouse) em qualquer item do menu ou link de documento abre numa aba nova.
 
+## Backup 56 — Tabelas que cabem na tela, letra do ERP antigo e cor nova (sem SQL; nenhuma função nova)
+1. Merge da pull request.
+2. SQL: não precisa (o banco não mudou).
+3. **Ctrl+Shift+R** no ERP. Confira na Vercel (Deployments) que a primeira linha Production é do horário do seu Merge.
+
+O que mudou:
+- **Todas as tabelas:** o texto longo (nome da empresa, sócio, natureza, autor, réu) quebra em 2 ou 3 linhas em vez de sumir em "…". A tabela não passa da largura da tela, então não precisa da barra para o lado. Números, datas, CPF/CNPJ e nº do processo continuam numa linha só.
+- **Painel → Empresas do grupo:** a coluna Entidade/Sócio ficou mais estreita (cerca de 30% da tabela).
+- **Letra:** DM Sans, a mesma do ERP antigo (mais compacta). Linhas mais baixas: 7 px de margem e cabeçalho de 11 px.
+- **Cor:** o marinho acinzentado (#1B2A4A) virou **azul-safira**: lateral #173B66 e cabeçalho das tabelas e botões #1F4D80. A logo, os documentos e os e-mails continuam no marinho original.
+  Para trocar o tom depois, só mude `--lado-bg`, `--th-bg` e `--primario` no `sistema/app/tokens.css`.
+- **Rotina → Passivo:** os valores (R$ 000.000,00), o Sim/Não e a CAPAG aparecem inteiros.
+- **Rotina → Processos:** o nome da parte quebra linha, e a tabela cabe sem rolar para o lado.
+
 ## Backup 55 — Tabelas no padrão do ERP antigo, Acordos editar pela parcela, Rotina, horário de Brasília e limpeza (tem SQL; nenhuma função nova)
 1. Merge da pull request.
 2. SQL: rode o `sistema/banco/estrutura.sql` inteiro (a última linha é `-- ═══ fim do Backup 55 ═══`).
