@@ -1215,7 +1215,7 @@
 .gs .gf-mais[open] summary::before{content:'▾ '}
 .gs .gf-mais > div{margin-top:3px;line-height:1.45}
 .gs .fila-filtros.fila-2x2{display:grid;grid-template-columns:max-content max-content;justify-content:start;gap:8px 44px;align-items:center}
-@media (max-width:900px){.gs .fila-filtros.fila-2x2{grid-template-columns:1fr}
+@media (max-width:1280px){.gs .fila-filtros.fila-2x2{grid-template-columns:minmax(0,1fr)}
 }
 .gs .tf-mais{border:1px solid var(--border);border-radius:10px;padding:8px 12px;background:var(--surface2)}
 .gs .tf-mais > summary{cursor:pointer;font-weight:600;color:var(--titulo,var(--ink));list-style:none}

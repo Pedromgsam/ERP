@@ -1717,7 +1717,7 @@ body.gx-barra-topo table.ac-ap th:nth-child(1){width:118px!important}
 body.gx-barra-topo table.ac-ap th:nth-child(2){width:184px!important}
 body.gx-barra-topo table.ac-ap td.ac-c-proc{font-size:12px!important}
 body.gx-barra-topo table.ac-ap td.ac-c-grp{font-size:11.5px!important}
-body.gx-barra-topo table.ac-ap td:is(:nth-child(1),:nth-child(2),:nth-child(3),:nth-child(4)),body.gx-barra-topo table.ac-ap td.ac-c-grp,body.gx-barra-topo table.ac-ap td.ac-c-proc{
+body.gx-barra-topo table.ac-ap tr.ac-ap-lin > td:is(:nth-child(1),:nth-child(2),:nth-child(3),:nth-child(4)),body.gx-barra-topo table.ac-ap td.ac-c-grp,body.gx-barra-topo table.ac-ap td.ac-c-proc{
   white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;word-break:normal!important}
 body.gx-barra-topo td.col-num{white-space:nowrap}
 /* Backup 55: Rotina → Passivo com Empresa mais larga e Conferência estreita; Processos com Processo mais largo, Última movimentação menor
@@ -1748,3 +1748,7 @@ body.gx-barra-topo #tblExecRanking td:has(.er-nome){white-space:nowrap!important
 body.gx-barra-topo :is(.tw,.tabela-wrap,.gx-tab-gs) table:not(.gx-leg):not(.massa) > tbody > tr > td.col-doc{font-size:11.5px!important}
 body.gx-barra-topo :is(.tw,.tabela-wrap,.gx-tab-gs) table:not(.gx-leg):not(.massa) > tbody > tr > td.col-grupo{font-size:12px!important}
 body.gx-barra-topo #tblExecRanking td.col-doc{font-size:11.5px!important;color:var(--text3)!important}
+/* Backup 55: em telas estreitas os 4 filtros ficam um embaixo do outro (sem rolar a tela para o lado) */
+@media (max-width:1280px){.gs .fila-filtros.fila-2x2{grid-template-columns:minmax(0,1fr)!important}.gs .fila-2x2 > .fila-chips{min-width:0;flex-wrap:wrap}}
+/* Backup 55: no celular (tabela vira cartão) o texto volta a quebrar linha */
+@media (max-width:600px){body.gx-barra-topo td:is(.col-nome,.col-texto,.col-grupo,.col-num),body.gx-barra-topo #tblExecRanking td:has(.er-nome){white-space:normal!important;max-width:none!important}}
