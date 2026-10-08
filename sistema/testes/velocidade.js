@@ -70,7 +70,7 @@ console.log('Dados fictícios: ' + N.cl + ' clientes, ' + N.pa + ' parcelamentos
         grupo: () => { const a = document.querySelector('.pl-aba.ativo'); return a && a.dataset.plG === window.__alvo && !!document.querySelector('#rt-corpo .pl-card:not(.rt-esq) .pl-bloco .pl-tab'); },
         pago: () => !document.querySelector('[data-pl-p="' + window.__alvo + '"]'),
         financeiro: () => { const t = document.querySelector('#panel-financeiro tbody tr'); return !!t && t.offsetParent !== null && !(document.getElementById('loadOverlay') || document.body).classList.contains('on'); },
-        painel: () => { const t = document.querySelector('#tblExecRanking tr'); return !!t && t.offsetParent !== null; },
+        painel: () => { const t = document.querySelector('#tblExecRanking tr:not(.gx-grp)'); return !!t && t.offsetParent !== null; },
         processos: () => { const t = document.querySelector('#rt-proc-corpo tr[data-pid]'); return !!t && t.offsetParent !== null; },
         parcelamentos: () => { const pn = document.getElementById('panel-parcelamentos'); if (!pn || !pn.offsetParent) return false;
           return (DB.parcelamentos || []).some((pa) => (pa.parcelas || []).some((x) => x._id === window.__alvo && x.pagamento === 'SIM')); },

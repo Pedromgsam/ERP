@@ -120,10 +120,10 @@ function _lgParcTabela(l, tabela){
       var em=x.cliente?'<span class="lg-em lg-em-cli" data-sit="cliente" title="As guias deste parcelamento são emitidas pelo próprio cliente">Não emitimos</span>'
         :x.emitida?'<span class="lg-em lg-em-ok" title="'+esc(x.emitidaEm?nome+' emitid'+(fem?'a':'o')+' em '+x.emitidaEm:'')+'">✓ Emitid'+(fem?'a':'o')+(x.emitidaEm?' '+esc(String(x.emitidaEm).slice(0,5)):'')+'</span>'
         :(x.pago?'<span class="lg-sub">—</span>':'<span class="lg-em lg-em-nao">Não emitid'+(fem?'a':'o')+'</span>');
-      return '<tr class="'+(x.pago?'lg-pt-pago':n!==null&&n<=0?'lg-pt-atr':'')+'"><td>'+esc(x.rot||'?')+'</td><td>'+esc(x.venc||'—')+'</td>'
+      return '<tr class="'+(x.pago?'lg-pt-pago':n!==null&&n<=0?'lg-pt-atr':'')+(tabela==='acordos'?' clicavel':'')+'"'+(tabela==='acordos'?' data-lg-editar="'+x.id+'" title="Clique para alterar só esta parcela"':'')+'><td>'+esc(x.rot||'?')+'</td><td>'+esc(x.venc||'—')+'</td>'
         +'<td class="lg-t-num" title="'+(x.lancado===false?'Valor não lançado nesta parcela: vale o último lançado':'')+'">'+_lgFmtV(Number(x.valor)||0)+(x.lancado===false?'<span class="lg-pt-est">*</span>':'')+'</td>'
         +'<td>'+em+'</td><td>'+pag+'</td>'
-        +'<td class="lg-pt-ac">'+(tabela==='acordos'?'<button type="button" class="btn-ed" data-lg-editar="'+x.id+'" title="Alterar só esta parcela" aria-label="Alterar só esta parcela">✎</button> ':'')+(x.pago||tabela==='parcelas'?'':'<button type="button" class="btn btn-o btn-mini lg-bt-pagar" data-lg-pagar="'+x.id+'" data-lg-rot="'+esc(x.rot||'')+'" data-lg-val="'+esc(_lgFmtV(Number(x.valor)||0))+'" title="Lançar o pagamento desta parcela">＋ Lançar pagamento</button>')+'</td></tr>'; }).join('')
+        +'<td class="lg-pt-ac">'+(x.pago||tabela==='parcelas'?'':'<button type="button" class="btn btn-o btn-mini lg-bt-pagar" data-lg-pagar="'+x.id+'" data-lg-rot="'+esc(x.rot||'')+'" data-lg-val="'+esc(_lgFmtV(Number(x.valor)||0))+'" title="Lançar o pagamento desta parcela">＋ Lançar pagamento</button>')+'</td></tr>'; }).join('')
     +'</tbody></table></div>'
     +(l.some(function(x){ return x.lancado===false; })?'<div class="lg-pt-nota">* valor ainda não lançado nesta parcela — vale o último valor lançado (o valor muda todo mês).</div>':'');
 }

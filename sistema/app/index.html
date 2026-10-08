@@ -48,11 +48,11 @@
 <script src="erp-dados.js?v=cea43526"></script>
 <link rel="stylesheet" href="editor.css?v=7747e46f">
 <link rel="stylesheet" href="erp-telas.css?v=22ce828d">
-<script src="editor.js?v=c1deef63" defer></script>
-<script src="erp-telas.js?v=0350bd9a" defer></script>
+<script src="editor.js?v=5e926912" defer></script>
+<script src="erp-telas.js?v=b3a42c97" defer></script>
 <link rel="stylesheet" href="gs.css?v=3664502a">
 <script src="importador.js?v=23bf9824" defer></script>
-<script src="gestao-embutida.js?v=c6153c35" defer></script>
+<script src="gestao-embutida.js?v=72eba1cb" defer></script>
 <script>
 
 
@@ -1617,7 +1617,7 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
 </style>
 <link rel="stylesheet" href="tokens.css?v=71f436d3">
 <link rel="stylesheet" href="tema-escuro.css?v=3bec5b6a">
-<link rel="stylesheet" href="design.css?v=c76d29be">
+<link rel="stylesheet" href="design.css?v=13a01c7d">
 <script>try{if(localStorage.getItem("erp_tema")==="escuro")document.documentElement.setAttribute("data-tema","escuro")}catch(e){}</script>
 </head>
 <body>
@@ -4927,10 +4927,10 @@ function _lgParcTabela(l, tabela){
       var em=x.cliente?'<span class="lg-em lg-em-cli" data-sit="cliente" title="As guias deste parcelamento são emitidas pelo próprio cliente">Não emitimos</span>'
         :x.emitida?'<span class="lg-em lg-em-ok" title="'+esc(x.emitidaEm?nome+' emitid'+(fem?'a':'o')+' em '+x.emitidaEm:'')+'">✓ Emitid'+(fem?'a':'o')+(x.emitidaEm?' '+esc(String(x.emitidaEm).slice(0,5)):'')+'</span>'
         :(x.pago?'<span class="lg-sub">—</span>':'<span class="lg-em lg-em-nao">Não emitid'+(fem?'a':'o')+'</span>');
-      return '<tr class="'+(x.pago?'lg-pt-pago':n!==null&&n<=0?'lg-pt-atr':'')+'"><td>'+esc(x.rot||'?')+'</td><td>'+esc(x.venc||'—')+'</td>'
+      return '<tr class="'+(x.pago?'lg-pt-pago':n!==null&&n<=0?'lg-pt-atr':'')+(tabela==='acordos'?' clicavel':'')+'"'+(tabela==='acordos'?' data-lg-editar="'+x.id+'" title="Clique para alterar só esta parcela"':'')+'><td>'+esc(x.rot||'?')+'</td><td>'+esc(x.venc||'—')+'</td>'
         +'<td class="lg-t-num" title="'+(x.lancado===false?'Valor não lançado nesta parcela: vale o último lançado':'')+'">'+_lgFmtV(Number(x.valor)||0)+(x.lancado===false?'<span class="lg-pt-est">*</span>':'')+'</td>'
         +'<td>'+em+'</td><td>'+pag+'</td>'
-        +'<td class="lg-pt-ac">'+(tabela==='acordos'?'<button type="button" class="btn-ed" data-lg-editar="'+x.id+'" title="Alterar só esta parcela" aria-label="Alterar só esta parcela">✎</button> ':'')+(x.pago||tabela==='parcelas'?'':'<button type="button" class="btn btn-o btn-mini lg-bt-pagar" data-lg-pagar="'+x.id+'" data-lg-rot="'+esc(x.rot||'')+'" data-lg-val="'+esc(_lgFmtV(Number(x.valor)||0))+'" title="Lançar o pagamento desta parcela">＋ Lançar pagamento</button>')+'</td></tr>'; }).join('')
+        +'<td class="lg-pt-ac">'+(x.pago||tabela==='parcelas'?'':'<button type="button" class="btn btn-o btn-mini lg-bt-pagar" data-lg-pagar="'+x.id+'" data-lg-rot="'+esc(x.rot||'')+'" data-lg-val="'+esc(_lgFmtV(Number(x.valor)||0))+'" title="Lançar o pagamento desta parcela">＋ Lançar pagamento</button>')+'</td></tr>'; }).join('')
     +'</tbody></table></div>'
     +(l.some(function(x){ return x.lancado===false; })?'<div class="lg-pt-nota">* valor ainda não lançado nesta parcela — vale o último valor lançado (o valor muda todo mês).</div>':'');
 }
@@ -5000,9 +5000,9 @@ function _acAbrir(k){
       +'<div class="pcd-tit">Parcelas</div>'+_lgParcTabela(g.l.map(function(a){ return {id:a._id, rot:(a.parcela||'?')+(a.totalParc?'/'+a.totalParc:''), venc:a.vencimento, valor:F.v(a),
           pago:F.pago(a), dataPag:a.dataPag, emitida:!!a.emitidaEm||/sim|emitid/i.test(a.emissao||''), emitidaEm:a.emitidaEm}; }),'acordos')+'</div>',
     // Backup 53: alterar o acordo inteiro (todas as parcelas) — ou só uma parcela pelo ✎ da linha
-    rodape:'<span class="sub">✎ na linha = só aquela parcela</span><div class="acoes"><button type="button" class="btn btn-p" data-ac-todo>✎ Alterar o acordo inteiro</button></div>' });
+    rodape:'<span class="sub">clique na parcela = só aquela parcela</span><div class="acoes"><button type="button" class="btn btn-p" data-ac-todo>✎ Alterar o acordo inteiro</button></div>' });
   j.querySelector('[data-ac-todo]').onclick=function(){ GS.fecharJanela(j); if(GS.editarAcordo) GS.editarAcordo(g.l.map(function(a){ return a._id; })); };
-  j.querySelectorAll('[data-lg-editar]').forEach(function(b){ b.onclick=function(){ GS.fecharJanela(j); if(window.ERP_EDITAR) window.ERP_EDITAR('acordos:'+b.dataset.lgEditar); }; });
+  j.querySelectorAll('[data-lg-editar]').forEach(function(b){ b.onclick=function(ev){ if(ev&&ev.target.closest('button,a,input')) return; GS.fecharJanela(j); if(window.ERP_EDITAR) window.ERP_EDITAR('acordos:'+b.dataset.lgEditar); }; });
   j.querySelectorAll('[data-lg-pagar]').forEach(function(b){ b.onclick=function(){ if(!_lgConfirmaPag(b)) return; GS.fecharJanela(j); _acPagar(b.dataset.lgPagar,b); }; });
   j.querySelectorAll('[data-ac-pagar]').forEach(function(b){ b.onclick=function(){ GS.fecharJanela(j); _acPagar(b.dataset.acPagar,b); }; });
   j.querySelectorAll('[data-ac-det]').forEach(function(b){ b.onclick=function(){ GS.fecharJanela(j); _acDetalhe(b.dataset.acDet); }; });
@@ -5302,9 +5302,11 @@ function renderAcordosVencTbl(){
       +'<td class="mono ac-c-proc">'+esc(a.processo||'—')+'</td><td>'+esc(a.devedor||'—')+'</td><td>'+esc(a.credor||'—')+'</td>'
       +'<td class="mono">'+esc(a.parcela||'—')+' de '+esc(a.totalParc||'—')+'</td><td class="mono"><strong>'+fF(a.valor||0)+'</strong></td>'
       +'<td class="mono">'+esc(a.vencimento||'—')+'</td>'
-      +'<td class="mono"><span class="'+(dias===null?'':_diasCls(dias))+'">'+(dias===null?'—':dias<0?Math.abs(dias)+' d atraso':dias===0?'vence hoje':dias+' dias')+'</span></td>'
+      // Backup 58: "emitido" embaixo do prazo (não fica mais por cima dele, no botão)
+      +'<td class="mono ac-c-prazo"><span class="'+(dias===null?'':_diasCls(dias))+'">'+(dias===null?'—':dias<0?Math.abs(dias)+' d atraso':dias===0?'vence hoje':dias+' dias')+'</span>'
+      +(emit?'<div class="sub ac-emit-sub" title="'+esc('Emitido'+(a.emitidaEm?' em '+a.emitidaEm:''))+'">✓ emitido</div>':'')+'</td>'
       // Backup 40: dois botões simples — "Emitir" (vira "Emitido" depois de emitida; clicar de novo reemite) e "Baixa"; sem a caneta
-      +'<td class="ac-ap-ac ac-c-acao"><span class="ac-acoes"><button type="button" class="ac-bt-emitir'+(emit?' ac-emitido':'')+'" data-ac-guia="'+a._id+'" title="'+(emit?esc('Emitido'+(a.emitidaEm?' em '+a.emitidaEm:'')+' — clique para emitir de novo'):'Emitir o boleto (ou a cobrança por PIX) e enviar ao cliente')+'">'+(emit?'✓ Emitido':'Emitir')+'</button>'
+      +'<td class="ac-ap-ac ac-c-acao"><span class="ac-acoes"><button type="button" class="ac-bt-emitir'+(emit?' ac-emitido':'')+'" data-ac-guia="'+a._id+'" title="'+(emit?esc('Emitido'+(a.emitidaEm?' em '+a.emitidaEm:'')+' — clique para emitir de novo'):'Emitir o boleto (ou a cobrança por PIX) e enviar ao cliente')+'">Emitir</button>'
         +'<button type="button" class="gx-la-bx ac-bt-baixa" data-la="baixa" title="Dar baixa (pago) — pede confirmação">Baixa</button></span></td></tr>';
   }).join(''):'<tr><td colspan="9">'+emp('Nenhuma parcela a pagar — tudo em dia! ✅')+'</td></tr>';
   var bx=$('acSelBarra'); if(bx) bx.remove();

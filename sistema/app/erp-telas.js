@@ -763,7 +763,7 @@
     // Backup 55: "Grupo" virou coluna própria (estreita, uma linha; some quando a tabela já tem a faixa do grupo) e CPF/CNPJ discreto, como no ERP antigo
     ['col-grupo', /^grupo$/],
     ['col-doc', /^(cpf\/cnpj|cpf \/ cnpj|cnpj|cpf|documento)$/],
-    ['col-num', /^(processo|n[ºo°]? ?processo|n[ºo°]? do processo|numero|parcela|parcelas)$/],
+    ['col-num', /^(processo|n[ºo°]? ?processo|n[ºo°]? do processo|numero|parcela|parcelas|n[ºo°]? ?parc\.?)$/],
     ['col-texto', /^(natureza|autor|reu|tribunal|orgao|local|tipo|responsavel|advogado|forma)$/],
     ['col-nome', /^(grupo \/ favorecido|devedor|credor|empresa|cliente|nome|entidade|entidade \/ socio)$/],
     // Backup 49 (36): datas e situação também têm lugar fixo (centralizadas)
@@ -790,6 +790,8 @@
           if (c === 'col-venc' && /red/.test(td.getAttribute('style') || '')) td.classList.add('venc-atraso');
           // Backup 57: Grupo em pílula, como no ERP antigo
           if (c === 'col-grupo' && !td.children.length && td.textContent.trim() && td.textContent.trim() !== '—') td.innerHTML = '<span class="gx-gpill">' + td.innerHTML + '</span>'; });
+        // Backup 58: vazio é sempre "—" (o ERP antigo usava "-" em algumas colunas)
+        [...tds].forEach((td) => { if (!td.children.length && td.textContent.trim() === '-') td.textContent = '—'; });
         tr._gxRegua = sig;
       });
     });

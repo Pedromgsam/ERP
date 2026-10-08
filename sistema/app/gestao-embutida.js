@@ -1435,8 +1435,8 @@ function tabelaLancamentos(lista, opc) {
         '<td class="acoes-l">' +
         (l.pago ? '<button class="btn btn-o btn-mini" data-desfazer="' + l.id + '" title="Voltar para em aberto">↺</button> '
                 : l.perda ? '' : (l.tipo === 'receita' && !l.redutor ? '<button class="btn btn-o btn-mini gx-cobrar" data-cobrar="' + l.id + '" title="Cobrar pelo WhatsApp (texto pronto)">💬 Cobrar</button> ' : '') +
-                  '<button class="btn btn-v btn-mini" data-pagar="' + l.id + '" title="Dar baixa — ' + (l.tipo === 'despesa' && !l.redutor ? 'pago' : 'recebido') + ' (pergunta a data)">✓ Baixa</button> ') +
-        '<button class="btn btn-o btn-mini btn-ed" data-editar="' + l.id + '" title="Editar" aria-label="Editar">✎</button></td></tr>';
+                  '<button class="btn btn-v btn-mini" data-pagar="' + l.id + '" title="Dar baixa — ' + (l.tipo === 'despesa' && !l.redutor ? 'pago' : 'recebido') + ' (pergunta a data)">✓ Baixa</button>') +
+        '</td></tr>';   // Backup 58: sem a caneta — clicar na linha abre o detalhe, com "✎ Editar"
     }).join('') +
     '</tbody><tfoot><tr><td colspan="' + ((lote ? 1 : 0) + (compacta ? 0 : 2) + (comDesc ? 1 : 0)) + '">Total (' + lista.length + ')</td><td class="num mono">' +
     brl(soma(lista, (l) => l.tipo === 'despesa' ? -l.valor : vl(l))) + '</td><td colspan="' + (nCols - (lote ? 1 : 0) - (compacta ? 0 : 2) - (comDesc ? 1 : 0) - 1) + '"></td></tr></tfoot></table></div></div>';
@@ -1760,6 +1760,8 @@ async function detalheLancamento(id) {
       '<div class="acoes"><button class="btn btn-o" type="button" data-editar="' + l.id + '">✎ Editar</button>' +
       (!l.pago && !l.perda ? '<button class="btn btn-v" type="button" data-pagar="' + l.id + '">✓ ' + (l.tipo === 'despesa' && !l.redutor ? 'Pago' : 'Recebido') + '</button>' : '') + '</div>' });
   ligarAcoesLancamentos(j, async () => { fecharJanela(j); if (window.ERP_RECARREGAR) window.ERP_RECARREGAR(); else await recarregar(); });
+  // Backup 58: "✎ Editar" troca o detalhe pelo formulário (não empilha duas janelas)
+  const be = j.querySelector('[data-editar]'); if (be) { const ed = be.onclick; be.onclick = () => { fecharJanela(j); return ed(); }; }
   const bc = j.querySelector('#dl-ctr'); if (bc) bc.onclick = () => { fecharJanela(j); detalheContrato(l.contrato_id); };
   const bl = j.querySelector('#dl-cli'); if (bl) bl.onclick = () => { fecharJanela(j); abrirFicha(l.cliente_id); };
   return j;
@@ -2723,7 +2725,7 @@ async function admUsuarios(corpo) {
         : p.papel === 'cliente' ? (gruposDe(p.id).map((g) => '<span class="pill neutro">' + esc(g) + '</span>').join(' ') || '<span class="pill vencido">nenhum</span>')
         : p.papel === 'admin' ? '<span class="sub">Tudo</span>' : '<span class="sub">—</span>') + '</td>' +
       '<td class="mono" data-ord="' + p.criado_em + '">' + dataBR(p.criado_em) + '</td>' +
-      '<td class="acoes-l us-acoes"><button class="btn btn-p btn-mini" data-us-ed="' + p.id + '">✎ Editar</button> ' +
+      '<td class="acoes-l us-acoes">' +   // Backup 58: sem "✎ Editar" — clicar na linha abre a edição
         '<button class="btn btn-o btn-mini" data-liberar="' + p.id + '" title="Liberar entrada: confirma a conta sem depender do e-mail de confirmação (a pessoa entra com o e-mail e a senha provisória)">✓</button> ' +
         '<button class="btn btn-o btn-mini" data-senha="' + esc(p.email) + '" title="Link de senha: envia por e-mail um link para a pessoa criar uma senha nova">🔑</button>' +
         (E.perfil && p.id === E.perfil.id ? '' : ' <button class="btn btn-x btn-mini" data-excluir-u="' + p.id + '" data-nome-u="' + esc(p.nome || p.email) + '" title="Excluir: apaga o acesso desta pessoa (o que ela lançou continua no sistema)">🗑</button>') + '</td></tr>').join('') +
@@ -2742,7 +2744,8 @@ async function admUsuarios(corpo) {
     const ok = await q(sb.rpc('confirmar_email_usuario', { p_perfil: b.dataset.liberar }));
     aviso(ok ? '✓ Entrada liberada: a pessoa já entra com o e-mail e a senha provisória.' : 'Não foi possível confirmar por aqui: confirme em Supabase → Authentication → Users.', !ok);
   }));
-  corpo.querySelectorAll('[data-us-ed]').forEach((b) => b.onclick = () => formEditarUsuario(lista.find((x) => x.id === b.dataset.usEd), lista, vinculos.filter((v) => v.perfil_id === b.dataset.usEd).map((v) => v.grupo_id)));
+  corpo.querySelectorAll('tr[data-us]').forEach((tr) => { tr.classList.add('clicavel'); tr.title = 'Clique para editar'; tr.onclick = (ev) => { if (ev.target.closest('button, a, input, select, label')) return;
+    formEditarUsuario(lista.find((x) => x.id === tr.dataset.us), lista, vinculos.filter((v) => v.perfil_id === tr.dataset.us).map((v) => v.grupo_id)); }; });
   corpo.querySelectorAll('[data-senha]').forEach((b) => b.onclick = () => comBotao(b, async () => {
     if (!confirm('Enviar para ' + b.dataset.senha + ' um e-mail com link para criar uma senha nova?')) return;
     const { error } = await sb.auth.resetPasswordForEmail(b.dataset.senha, { redirectTo: location.origin + '/' });
@@ -7723,7 +7726,7 @@ async function enviarAcordosSelecionados(ids, depois) {
 }
 
 // ═══ Backup 53: alterar o ACORDO INTEIRO (todas as parcelas, ou só as em aberto) — devedor, credor, processo, forma de pagamento, PIX, banco,
-// valor da parcela e dia do vencimento. Para mudar UMA parcela só, use o ✎ da linha dela.
+// valor da parcela e dia do vencimento. Para mudar UMA parcela só, clique na parcela.
 async function editarAcordo(ids, depois) {
   const L = await q(sb.from('acordos').select('id, parcela, total_parcelas, vencimento, valor, pago, devedor, credor, processo, forma_pagamento, pix, banco').in('id', ids || []));
   if (!L.length) return aviso('Acordo não encontrado.', true);
@@ -7731,7 +7734,7 @@ async function editarAcordo(ids, depois) {
   const j = abrirJanela({ titulo: '✎ Alterar o acordo inteiro', larga: true,
     corpo: '<form class="grade" id="f-acordo-todo">' +
       '<div class="inteiro dica">Muda de uma vez <b>' + plural(L.length, 'parcela', 'parcelas') + '</b> deste acordo (' + plural(abertas.length, 'em aberto', 'em aberto') + '). ' +
-        'Campo em branco = não muda. Para mudar uma parcela só, feche e use o ✎ da linha dela.</div>' +
+        'Campo em branco = não muda. Para mudar uma parcela só, feche e clique na parcela.</div>' +
       campo('Devedor', '<input name="devedor" value="' + esc(a.devedor || '') + '">') + campo('Credor', '<input name="credor" value="' + esc(a.credor || '') + '">') +
       campo('Processo', '<input name="processo" value="' + esc(a.processo || '') + '">') +
       campo('Forma de pagamento', '<select name="forma_pagamento"><option value="">— não muda —</option><option value="boleto"' + (a.forma_pagamento === 'boleto' ? ' selected' : '') + '>Boleto</option><option value="pix"' + (a.forma_pagamento === 'pix' ? ' selected' : '') + '>PIX</option></select>') +
@@ -8831,12 +8834,13 @@ async function pintarContatosExec(j, e, podeEd) {
   const lista = await q(sb.from('execucao_contatos').select('*').eq('execucao_id', e.id).order('nome')).catch(() => []);
   const zap = (t) => { const d = String(t || '').replace(/\D/g, ''); return d.length >= 10 ? 'https://wa.me/' + (d.length <= 11 ? '55' : '') + d : ''; };
   alvo.innerHTML = lista.length ? '<div class="tabela-wrap"><table class="ex-ct-tab"><thead><tr><th>Nome</th><th>Papel</th><th>Telefone</th><th>E-mail</th><th>Endereço</th><th></th></tr></thead><tbody>' +
-    lista.map((c) => '<tr><td><b>' + esc(c.nome) + '</b>' + (c.obs ? '<div class="sub">' + esc(c.obs) + '</div>' : '') + '</td><td>' + esc(c.papel || '—') + '</td>' +
+    lista.map((c) => '<tr' + (podeEd ? ' class="clicavel" data-exc-linha="' + c.id + '" title="Clique para editar"' : '') + '><td><b>' + esc(c.nome) + '</b>' + (c.obs ? '<div class="sub">' + esc(c.obs) + '</div>' : '') + '</td><td>' + esc(c.papel || '—') + '</td>' +
       '<td>' + (c.telefone ? '<a href="tel:' + esc(c.telefone.replace(/[^\d+]/g, '')) + '">' + esc(c.telefone) + '</a>' + (zap(c.telefone) ? ' <a href="' + zap(c.telefone) + '" target="_blank" rel="noopener" title="WhatsApp">💬</a>' : '') : '<span class="sub">—</span>') + '</td>' +
       '<td>' + (c.email ? '<a href="mailto:' + esc(c.email) + '">' + esc(c.email) + '</a>' : '<span class="sub">—</span>') + '</td><td>' + (esc(c.endereco) || '<span class="sub">—</span>') + '</td>' +
-      '<td class="acoes-l">' + (podeEd ? '<button class="btn btn-o btn-mini btn-ed" type="button" data-exc-ed="' + c.id + '" title="Editar">✎</button> <button class="btn btn-x btn-mini" type="button" data-exc-apagar="' + c.id + '" title="Apagar">✕</button>' : '') + '</td></tr>').join('') +
+      '<td class="acoes-l">' + (podeEd ? '<button class="btn btn-x btn-mini" type="button" data-exc-apagar="' + c.id + '" title="Apagar">✕</button>' : '') + '</td></tr>').join('') +
     '</tbody></table></div>' : '<div class="card-bd">' + vazio('Nenhum contato. Guarde aqui telefone e endereço do executado, do advogado da outra parte, do cartório…') + '</div>';
-  alvo.querySelectorAll('[data-exc-ed]').forEach((b) => b.onclick = () => formContatoExec(e, lista.find((c) => c.id === b.dataset.excEd), () => pintarContatosExec(j, e, podeEd)));
+  alvo.querySelectorAll('tr[data-exc-linha]').forEach((tr) => tr.onclick = (ev) => { if (ev.target.closest('button, a')) return;   // Backup 58: a linha edita (sem ✎)
+    formContatoExec(e, lista.find((c) => c.id === tr.dataset.excLinha), () => pintarContatosExec(j, e, podeEd)); });
   alvo.querySelectorAll('[data-exc-apagar]').forEach((b) => b.onclick = () => comBotao(b, async () => {
     if (!confirm('Apagar este contato?')) return;
     await q(sb.from('execucao_contatos').delete().eq('id', b.dataset.excApagar)); aviso('Contato apagado.'); pintarContatosExec(j, e, podeEd); }));

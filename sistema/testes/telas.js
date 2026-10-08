@@ -199,10 +199,10 @@ const r = []; const ok = (n, c) => r.push([n, !!c]);
 
     // Usuários
     await p.click('#adm-abas [data-aba=usuarios]'); await esperar(p);
-    await p.locator('tr:has-text("novo@teste") [data-us-ed]').click(); await p.waitForSelector('#us-papel');
+    await p.locator('tr:has-text("novo@teste") td:first-child').click(); await p.waitForSelector('#us-papel');
     await p.selectOption('#us-papel', 'equipe'); await p.click('#us-salvar'); await esperar(p);
     ok('admin libera usuário novo', sql("select papel from perfis where email='novo@teste'") === 'equipe');
-    await p.locator('tr:has-text("pedro@teste") [data-us-ed]').click(); await p.waitForSelector('#us-papel');
+    await p.locator('tr:has-text("pedro@teste") td:first-child').click(); await p.waitForSelector('#us-papel');
     await p.selectOption('#us-papel', 'equipe'); await p.click('#us-salvar'); await esperar(p, 900);
     ok('não deixa tirar o último admin', /pelo menos um administrador/.test(await texto(p, '#aviso')));
     await p.keyboard.press('Escape'); await esperar(p, 300);

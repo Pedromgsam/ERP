@@ -70,7 +70,7 @@ async function admUsuarios(corpo) {
         : p.papel === 'cliente' ? (gruposDe(p.id).map((g) => '<span class="pill neutro">' + esc(g) + '</span>').join(' ') || '<span class="pill vencido">nenhum</span>')
         : p.papel === 'admin' ? '<span class="sub">Tudo</span>' : '<span class="sub">—</span>') + '</td>' +
       '<td class="mono" data-ord="' + p.criado_em + '">' + dataBR(p.criado_em) + '</td>' +
-      '<td class="acoes-l us-acoes"><button class="btn btn-p btn-mini" data-us-ed="' + p.id + '">✎ Editar</button> ' +
+      '<td class="acoes-l us-acoes">' +   // Backup 58: sem "✎ Editar" — clicar na linha abre a edição
         '<button class="btn btn-o btn-mini" data-liberar="' + p.id + '" title="Liberar entrada: confirma a conta sem depender do e-mail de confirmação (a pessoa entra com o e-mail e a senha provisória)">✓</button> ' +
         '<button class="btn btn-o btn-mini" data-senha="' + esc(p.email) + '" title="Link de senha: envia por e-mail um link para a pessoa criar uma senha nova">🔑</button>' +
         (E.perfil && p.id === E.perfil.id ? '' : ' <button class="btn btn-x btn-mini" data-excluir-u="' + p.id + '" data-nome-u="' + esc(p.nome || p.email) + '" title="Excluir: apaga o acesso desta pessoa (o que ela lançou continua no sistema)">🗑</button>') + '</td></tr>').join('') +
@@ -89,7 +89,8 @@ async function admUsuarios(corpo) {
     const ok = await q(sb.rpc('confirmar_email_usuario', { p_perfil: b.dataset.liberar }));
     aviso(ok ? '✓ Entrada liberada: a pessoa já entra com o e-mail e a senha provisória.' : 'Não foi possível confirmar por aqui: confirme em Supabase → Authentication → Users.', !ok);
   }));
-  corpo.querySelectorAll('[data-us-ed]').forEach((b) => b.onclick = () => formEditarUsuario(lista.find((x) => x.id === b.dataset.usEd), lista, vinculos.filter((v) => v.perfil_id === b.dataset.usEd).map((v) => v.grupo_id)));
+  corpo.querySelectorAll('tr[data-us]').forEach((tr) => { tr.classList.add('clicavel'); tr.title = 'Clique para editar'; tr.onclick = (ev) => { if (ev.target.closest('button, a, input, select, label')) return;
+    formEditarUsuario(lista.find((x) => x.id === tr.dataset.us), lista, vinculos.filter((v) => v.perfil_id === tr.dataset.us).map((v) => v.grupo_id)); }; });
   corpo.querySelectorAll('[data-senha]').forEach((b) => b.onclick = () => comBotao(b, async () => {
     if (!confirm('Enviar para ' + b.dataset.senha + ' um e-mail com link para criar uma senha nova?')) return;
     const { error } = await sb.auth.resetPasswordForEmail(b.dataset.senha, { redirectTo: location.origin + '/' });

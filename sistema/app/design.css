@@ -1790,7 +1790,7 @@ html body.gx-barra-topo #tblExecRanking td:has(.er-nome){width:auto!important;mi
 html body.gx-barra-topo #tblExecRanking .er-nome{display:block;font:600 13.5px/1.35 var(--font-ui)!important;color:var(--titulo)!important;text-transform:none!important;border-left:3px solid var(--ac-gold)!important;padding-left:9px!important}
 html body.gx-barra-topo #tblExecRanking .er-socio{display:block;font:400 11.5px/1.3 var(--font-ui)!important;color:var(--text3)!important;text-transform:none!important;padding-left:12px;margin-top:3px}
 html body.gx-barra-topo #tblExecRanking .er-socio b{font-weight:600!important;color:var(--text2)!important;text-transform:none!important}
-html body.gx-barra-topo #tblExecRanking td.col-valor,html body.gx-barra-topo #tblExecRanking td.col-valor *{font-size:13px!important;font-weight:800!important;color:var(--titulo)!important}
+html body.gx-barra-topo #tblExecRanking td.col-valor,html body.gx-barra-topo #tblExecRanking td.col-valor *{font-size:13px!important;font-weight:700!important;color:var(--titulo)!important}
 html body.gx-barra-topo #tblExecRanking td:is(.er-op,.er-sit,.col-sit){white-space:nowrap}
 /* Processos e Clientes: Grupo e números estreitos, textos dividem o resto */
 html body.gx-barra-topo table:has(> #tblProcBody) td.col-num{white-space:nowrap}
@@ -1811,3 +1811,51 @@ html body.gx-barra-topo #panel-parcelamentos :is(#tblParcBody,#tblParcVencBody,#
 /* Backup 57: Gerar documentos dentro do ERP (Central de Documentos num quadro do tamanho da tela) */
 .gs .ger-card{padding:0;overflow:hidden}
 .gs .ger-frame{display:block;width:100%;height:calc(100vh - 210px);min-height:560px;border:0;background:var(--surface)}
+
+/* ═══ Backup 58 — padrão único de todas as tabelas (letras do Backup 57) ═══
+   alinhamento por tipo de coluna (texto à esquerda · dinheiro à direita · data, prazo, situação e botões no centro), linha de baixo
+   sempre em letra normal, números longos discretos numa linha, Grupo só como 1ª coluna (sem a faixa repetida) */
+html body.gx-barra-topo :is(.tw,.tabela-wrap,.gx-tab-gs) table :is(th,td):is(.col-valor):not(#_){text-align:right!important}
+html body.gx-barra-topo :is(.tw,.tabela-wrap,.gx-tab-gs) table :is(th,td):is(.col-venc,.col-data,.col-sit,.col-dias,.gx-th-acoes,.gx-td-acoes):not(#_){text-align:center!important}
+html body.gx-barra-topo :is(.tw,.tabela-wrap,.gx-tab-gs) table td.gx-td-acoes:not(#_) .gx-la{justify-content:center}
+html body.gx-barra-topo :is(.tw,.tabela-wrap,.gx-tab-gs) table td:is(.col-venc,.col-dias,.col-data,.col-sit):not(#_){white-space:nowrap}
+/* linha de baixo: letra normal 12 px cinza, mesmo dentro de célula de número */
+html body.gx-barra-topo :is(.tw,.tabela-wrap,.gx-tab-gs) table td :is(.sub,small,.er-socio):not(#_){font-family:var(--font-ui)!important;font-size:12px!important;font-weight:400!important;color:var(--text3)!important;letter-spacing:0!important;white-space:normal}
+html body.gx-barra-topo #tblExecRanking td .er-socio b:not(#_){font-family:var(--font-ui)!important;font-size:12px!important}
+/* Grupo só como 1ª coluna: tabela que já tem a coluna Grupo não repete a faixa cinza do grupo */
+html body.gx-barra-topo table:has(> thead th.col-grupo) > tbody > tr:is(.gx-grp,.cli-grp){display:none!important}
+/* Painel: Entidade/Sócio maior, Operação e Situação só do tamanho da pílula, dinheiro à direita */
+html body.gx-barra-topo table:has(> #tblExecRanking) th:nth-child(3){width:29%!important}
+html body.gx-barra-topo table:has(> #tblExecRanking) :is(th:nth-child(9),th:nth-child(10)){width:6.5%!important}
+html body.gx-barra-topo table:has(> #tblExecRanking) :is(th,td):is(:nth-child(5),:nth-child(6),:nth-child(7),:nth-child(8)):not(#_){text-align:right!important;padding-right:14px!important}
+html body.gx-barra-topo table:has(> #tblExecRanking) :is(th,td):is(:nth-child(9),:nth-child(10)):not(#_){text-align:center!important;padding-left:4px!important;padding-right:4px!important}
+/* Acordos → A pagar: Processo inteiro numa linha, Devedor e Credor mais estreitos, "emitido" embaixo do prazo */
+html body.gx-barra-topo table.ac-ap td.ac-c-proc:not(#_){white-space:nowrap!important;font-size:11.5px!important;overflow:hidden;text-overflow:ellipsis}
+html body.gx-barra-topo table.ac-ap :is(th,td):not(#_){padding-left:8px!important;padding-right:8px!important}
+html body.gx-barra-topo table.ac-ap td:is(:nth-child(3),:nth-child(4)):not(#_){white-space:normal!important}
+html body.gx-barra-topo table.ac-ap th:nth-child(1):not(#_){width:10.5%!important}
+html body.gx-barra-topo table.ac-ap th:nth-child(2):not(#_){width:19%!important}
+html body.gx-barra-topo table.ac-ap th:nth-child(3):not(#_){width:13.5%!important}
+html body.gx-barra-topo table.ac-ap th:nth-child(4):not(#_){width:11.5%!important}
+html body.gx-barra-topo table.ac-ap th:nth-child(5):not(#_){width:6%!important}
+html body.gx-barra-topo table.ac-ap :is(th:nth-child(6),th:nth-child(8)):not(#_){width:9.5%!important}
+html body.gx-barra-topo table.ac-ap th:nth-child(7):not(#_){width:9%!important}
+html body.gx-barra-topo table.ac-ap th:nth-child(9):not(#_){width:11.5%!important}
+html body.gx-barra-topo table.ac-ap .ac-acoes{gap:4px}
+html body.gx-barra-topo table.ac-ap .ac-acoes :is(.ac-bt-emitir,.ac-bt-baixa){padding:5px 8px}
+html body.gx-barra-topo table.ac-ap td.ac-c-acao:not(#_){padding-left:4px!important;padding-right:4px!important}
+html body.gx-barra-topo table.ac-ap td.ac-c-prazo .ac-emit-sub:not(#_){white-space:nowrap!important}
+html body.gx-barra-topo table.ac-ap td.ac-c-grp .gx-gpill,html body.gx-barra-topo table.ac-ap td.ac-c-grp{font-size:11px}
+html body.gx-barra-topo table.ac-ap td:nth-child(5):not(#_){text-align:center!important}
+html body.gx-barra-topo table.ac-ap td.ac-c-prazo:not(#_){text-align:center!important;white-space:nowrap}
+html body.gx-barra-topo table.ac-ap td.ac-c-prazo .ac-emit-sub{color:var(--green-d)!important;margin-top:2px}
+html body.gx-barra-topo table.ac-ap td.ac-c-acao:not(#_){white-space:nowrap;text-align:center!important}
+html body.gx-barra-topo table.ac-ap td.ac-c-acao .ac-acoes{justify-content:center}
+/* Parcelamentos: Nº Parc. discreto (11 px, cinza) e Empresa maior */
+html body.gx-barra-topo #panel-parcelamentos :is(#tblParcBody,#tblParcVencBody) > tr > td:nth-child(4):not(#_){font-size:11px!important;color:var(--text3)!important;white-space:nowrap}
+html body.gx-barra-topo #panel-parcelamentos :is(#tblParcBody,#tblParcVencBody,#tblParcPagoBody) > tr > td:first-child{min-width:250px}
+html body.gx-barra-topo #panel-parcelamentos :is(#tblParcBody,#tblParcVencBody) > tr > td:nth-child(5):not(#_){text-align:center!important;width:1%}
+/* coluna de ações: só do tamanho dos botões, no centro */
+html body.gx-barra-topo :is(.tw,.tabela-wrap,.gx-tab-gs) table td.acoes-l:not(#_){white-space:nowrap;text-align:center!important;width:1%}
+@media (max-width:600px){html body.gx-barra-topo table:has(> thead th.col-grupo) > tbody > tr:is(.gx-grp,.cli-grp){display:none!important}}
+@media (max-width:600px){html body.gx-barra-topo td.col-grupo .gx-gpill,html body.gx-barra-topo #tblExecRanking .er-grupo{max-width:none!important}}
