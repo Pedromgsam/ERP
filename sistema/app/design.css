@@ -1316,7 +1316,7 @@ body.gx-barra-topo #tblExecRanking td:nth-child(5),body.gx-barra-topo #tblExecRa
 .gs .ep-row.ep-rv{background:var(--red-lt)}.gs .ep-row.ep-re{background:var(--green-lt)}
 .gs .ep-row label{cursor:pointer;display:flex;align-items:center;gap:8px;flex:1;min-width:0}
 .gs .ep-row-lbl{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink);font-weight:500}
-.gs .ep-row-venc{color:var(--text3);font-size:11px;white-space:nowrap;flex-shrink:0}
+.gs .ep-row-venc{color:var(--text2);font-size:11px;white-space:nowrap;flex-shrink:0}
 .gs .ep-tag{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;border-radius:4px;padding:2px 7px;white-space:nowrap;border:1px solid;flex-shrink:0}
 .gs .ep-tv{color:var(--red-d);background:var(--red-lt);border-color:var(--red-bd)}
 .gs .ep-tm{color:var(--amber-d);background:var(--amber-lt);border-color:var(--amber-border)}
@@ -1679,8 +1679,8 @@ body.gx-barra-topo .cc-t,body.gx-barra-topo .gs .card-hd,body.gx-barra-topo .tit
 .gs .ini-at:hover{border-color:var(--border-strong);box-shadow:var(--shadow-md,0 4px 12px rgba(0,0,0,.08))}
 .gs .ini-at-cab{display:flex;align-items:center;gap:6px;font-size:12px}
 .gs .ini-at-tit{font-weight:600;color:var(--text2)}
-.gs .ini-at-lin{font-size:12.5px;color:var(--text2)}
-.gs .ini-at-num{font-size:17px;font-weight:700;color:var(--ink)}
+.gs .ini-at-lin{font-size:13px;color:var(--text2)}
+.gs .ini-at-num{font-size:20px;font-weight:700;color:var(--ink)}
 .gs .ini-at-sub{font-size:12px;color:var(--text3);line-height:1.35}
 .gs .ini-at-sub.vermelho b{color:var(--red-d)}
 .gs .ini-at.vermelho{border-left-color:var(--red)!important}
@@ -1696,3 +1696,5 @@ body.gx-barra-topo .cc-t,body.gx-barra-topo .gs .card-hd,body.gx-barra-topo .tit
 @media (max-width:900px){.gs .fila-filtros.fila-2x2{grid-template-columns:1fr}.gs .fila-2x2 > .fila-chips:nth-child(even){justify-self:start}}
 /* Backup 54: a faixa de grupo não muda de cor sob o mouse em nenhuma tabela (Processos, Painel…) */
 body.gx-barra-topo tbody :is(tr.gx-grp,tr.cli-grp,tr.rt-grp):hover > td{background:var(--surface3)!important}
+/* Backup 54: "Venc." das linhas de Notificações (estilo inline do ERP antigo) com contraste suficiente no fundo novo */
+body.gx-barra-topo .ep-row > span[style*="text3"]{color:var(--text2)!important}
