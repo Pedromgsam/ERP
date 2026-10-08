@@ -1771,7 +1771,7 @@ html body.gx-barra-topo :is(.tw,.tabela-wrap,.gx-tab-gs) td:is(.col-doc,.col-num
 /* Grupo: pílula azul, como no ERP antigo */
 html body.gx-barra-topo td.col-grupo{width:1%;white-space:nowrap!important;font-size:12px!important}
 html body.gx-barra-topo td.col-grupo .gx-gpill{display:inline-block;max-width:140px;overflow:hidden;text-overflow:ellipsis;vertical-align:middle;padding:3px 11px;border-radius:999px;border:1px solid color-mix(in srgb,var(--primario) 28%,transparent);
-  background:color-mix(in srgb,var(--primario) 7%,var(--surface));color:var(--primario);font:700 11px var(--font-ui);letter-spacing:.02em;text-transform:none}
+  background:color-mix(in srgb,var(--primario) 7%,var(--surface));color:color-mix(in srgb,var(--primario) 62%,var(--ink));font:700 11px var(--font-ui);letter-spacing:.02em;text-transform:none}
 /* títulos dos quadros em Playfair Display (como "Empresas do Grupo" no ERP antigo) */
 html body.gx-barra-topo :is(.cc-t,.sec-t,.ex-t,.erp-box-hd,.m-title),html body.gx-barra-topo .gs .card-hd{font-family:var(--font-tit)!important;letter-spacing:-.005em}
 html body.gx-barra-topo .gs .card-hd :is(.sub,button,.btn,select,input,label,span:not([class])){font-family:var(--font-ui)}
@@ -1799,7 +1799,7 @@ html body.gx-barra-topo #tblExecRanking td.col-doc{font-size:12px!important;colo
 /* a pílula do Grupo (Painel usa .er-grupo; as outras tabelas, .gx-gpill) */
 html body.gx-barra-topo #tblExecRanking .er-grupo,html body.gx-barra-topo td.col-grupo .gx-gpill{display:inline-block!important;max-width:100%!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;vertical-align:middle;
   padding:3px 10px!important;border-radius:999px!important;border:1px solid color-mix(in srgb,var(--primario) 28%,transparent)!important;background:color-mix(in srgb,var(--primario) 7%,var(--surface))!important;
-  color:var(--primario)!important;font:700 11px var(--font-ui)!important;letter-spacing:.02em!important;text-transform:none!important;width:auto!important;text-align:left!important}
+  color:color-mix(in srgb,var(--primario) 62%,var(--ink))!important;font:700 11px var(--font-ui)!important;letter-spacing:.02em!important;text-transform:none!important;width:auto!important;text-align:left!important}
 html body.gx-barra-topo #tblExecRanking td:has(.er-grupo){width:auto!important;max-width:none!important;padding-right:6px!important}
 html body.gx-barra-topo table thead th:not(#_){border-left:0!important;border-right:0!important}
 /* Parcelamentos (Vencidos / A vencer / Pago): Empresa larga numa linha, como no ERP antigo */
