@@ -82,6 +82,8 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
+- Backup 54.1 (só docs): o merge da PR #57 não gerou publicação Production na Vercel (última Production = merge do B53); conferir com
+  `gh api repos/Pedromgsam/ERP/deployments?environment=Production` depois de cada merge. Passo a passo para o usuário no COMO-ATUALIZAR.
 - Última entrega: **Backup 54** (SQL; nenhuma função nova). Visual: tokens `--bg #F0F2F7`, `--primario`/`--lado-bg`/`--th-bg` `#1B2A4A` (th branco), `--titulo`; bloco "Backup 54" no fim do design.css
   (th na cor da lateral, td 13px). Início: `cardResumoEscritorio` em `faixa('Financeiro'|'Escritório')`, `.ini-at-rec` verde/`.ini-at-pag` vermelho. Tarefas: `filtros2x2` (`.fila-filtros.fila-2x2`), `#tf-fluxo` (sem `#tf-delegar`;
   modelo sequencial em `formNovoFluxo` → `janelaDelegar({modelo})`), `formTarefa` com `<details id="tf-mais">`. Ficha: `.dados .dado` em grid 150px. E-mail: aba `auto` = `admEmailAuto` (`EMAILS_EQUIPE`, `[data-eq]` → RPC
