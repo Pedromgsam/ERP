@@ -65,15 +65,21 @@
   const depois = () => ED.recarregar();
   async function comCadastros(fn) { await GS().carregarCadastros(); return fn(); }
   const LANCAR = [
+    // Backup 54: lançamentos integrados — receber um honorário em aberto, acordo inteiro, execução e recebimento de execução, fluxo de tarefas
     ['Receita (honorário)', () => comCadastros(() => GS().formLancamento({ tipo: 'receita', empresa: empresaAtual() }, depois)), '*fin'],
     ['Despesa', () => comCadastros(() => GS().formLancamento({ tipo: 'despesa', empresa: empresaAtual() }, depois)), '*fin'],
     ['Comissão / desconto (redutor de receita)', () => comCadastros(() => GS().formLancamento({ tipo: 'receita', redutor: true, empresa: empresaAtual(), categoria: 'Comissão' }, depois)), '*fin'],
+    ['Recebimento (dar baixa num honorário)', () => comCadastros(() => GS().janelaReceber(depois)), '*fin'],
     ['Cliente', () => comCadastros(() => GS().formCliente(undefined, depois)), 'clientes'],
     ['Contrato', () => comCadastros(() => GS().formContrato({})), 'contratos'],
     ['Processo', () => ED.abrirFormulario('processos', null, { carteira: 'Ativo', status: 'Em andamento' }), 'juridico'],
-    ['Acordo (parcela)', () => ED.abrirFormulario('acordos', null, {}), 'juridico'],
+    ['Acordo (todas as parcelas)', () => comCadastros(() => GS().formAcordoNovo(depois)), 'juridico'],
+    ['Acordo (uma parcela)', () => ED.abrirFormulario('acordos', null, {}), 'juridico'],
     ['Parcelamento', () => ED.abrirParcelamento(null), 'juridico'],
+    ['Execução (cobrança ajuizada)', () => comCadastros(() => GS().formExecucao({}, depois)), 'juridico'],
+    ['Recebimento de execução', () => comCadastros(() => GS().escolherExecucaoReceb(depois)), 'juridico'],
     ['Tarefa', () => comCadastros(() => GS().formTarefa({}, depois))],
+    ['Fluxo de tarefas', () => comCadastros(() => GS().formNovoFluxo(depois))],
     ['Oportunidade (CRM)', () => comCadastros(() => GS().formOportunidade({}, depois)), 'crm']
   ];
 

@@ -616,11 +616,41 @@ async function salvarPagamento(form, chave) {
 // Backup 51 (E4): "Para revisar" e "Últimos e-mails" viraram a CAIXA DE SAÍDA (filtros Para revisar · Na fila · Enviados · Com erro)
 async function admEmail(corpo) {
   E.adm.emailAba = E.adm.emailAba === 'revisar' ? 'saida' : (E.adm.emailAba || 'quem');
-  corpo.innerHTML = '<div class="segmento em-abas" id="em-abas">' + [['quem', 'Quem recebe'], ['saida', 'Caixa de saída'], ['config', 'Configuração']]
+  corpo.innerHTML = '<div class="segmento em-abas" id="em-abas">' + [['quem', 'Quem recebe'], ['auto', 'Automáticos'], ['saida', 'Caixa de saída'], ['config', 'Configuração']]
     .map(([v, r]) => '<button type="button" data-em-aba="' + v + '"' + (E.adm.emailAba === v ? ' class="ativo"' : '') + '>' + r + '</button>').join('') + '</div><div id="em-corpo"></div>';
   corpo.querySelector('#em-abas').onclick = (ev) => { const b = ev.target.closest('[data-em-aba]'); if (b) { E.adm.emailAba = b.dataset.emAba; admEmail(corpo); } };
   const alvo = corpo.querySelector('#em-corpo');
-  await ({ quem: admEmailQuem, saida: admEmailSaida, config: admEmailConfig })[E.adm.emailAba](alvo);
+  await ({ quem: admEmailQuem, auto: admEmailAuto, saida: admEmailSaida, config: admEmailConfig })[E.adm.emailAba](alvo);
+}
+// Backup 54: um lugar só para ligar/desligar TODO e-mail automático — os avisos para a equipe (tarefa, fluxo, menção…) e os e-mails aos clientes
+const EMAILS_EQUIPE = [['fluxo', 'Fluxo / sequência de tarefas', 'Quando alguém cria um fluxo ou um "Lead completo", e quando o próximo passo é liberado'],
+  ['tarefa', 'Tarefa nova para alguém', 'Tarefa atribuída, encaminhada ou criada por automação'], ['revisao', 'Tarefa para revisar', 'Quando a tarefa vai para o revisor'],
+  ['mencao', 'Menção (@Nome)', 'Quando alguém é mencionado num comentário'], ['atraso', 'Tarefa atrasada', 'Aviso ao administrador'],
+  ['agenda', 'Lembrete de compromisso', 'Antes de reunião, audiência ou compromisso'], ['publicacao', 'Publicação nova', 'Diário de Justiça'],
+  ['financeiro', 'Contrato assinado', 'Financeiro lançado'], ['cnpj', 'Cartão CNPJ', 'Mudança no cadastro da Receita'], ['acesso', 'Acesso de aparelho novo', 'Segurança'],
+  ['resumo', 'Resumo do dia', 'Dias úteis, de manhã']];
+async function admEmailAuto(corpo) {
+  const [eq, regras] = await Promise.all([q(sb.rpc('emails_equipe')).catch(() => ({})),
+    q(sb.from('regras_tarefas').select('chave, nome, descricao, ligada, oculta').eq('grupo', 'cliente_email').order('nome')).catch(() => [])]);
+  const adm = (E.perfil || window.ERP_EU || {}).papel === 'admin';
+  const chave = (attr, k, on, rot, desc) => '<label class="em-auto-l"><input type="checkbox" ' + attr + '="' + esc(k) + '"' + (on ? ' checked' : '') + (adm ? '' : ' disabled') + '>' +
+    '<span><b>' + esc(rot) + '</b><span class="sub">' + esc(desc || '') + '</span></span><span class="pill ' + (on ? 'pago' : 'neutro') + '">' + (on ? 'ligado' : 'desligado') + '</span></label>';
+  corpo.innerHTML = '<div class="em-auto">' +
+    '<div class="card"><div class="card-hd">👥 Para a equipe<span class="sub">avisos do ERP que também vão por e-mail — desligado, o aviso continua no sino, só o e-mail não sai</span></div><div class="card-bd em-auto-g">' +
+      EMAILS_EQUIPE.map(([k, r, d]) => chave('data-eq', k, eq[k] !== false, r, d)).join('') + '</div></div>' +
+    '<div class="card"><div class="card-hd">🏢 Para os clientes<span class="sub">vale para todos; por cliente, use "Quem recebe"</span></div><div class="card-bd em-auto-g">' +
+      (regras.filter((r) => !r.oculta).map((r) => chave('data-eq-regra', r.chave, r.ligada, r.nome, r.descricao)).join('') || vazio('Nenhum e-mail automático para clientes.')) + '</div></div>' +
+    '<p class="dica">Cada pessoa ainda pode desligar os seus em ⋯ → Meus avisos por e-mail. Aqui vale para o escritório todo' + (adm ? '' : ' (só o administrador muda)') + '.</p></div>';
+  corpo.querySelectorAll('[data-eq]').forEach((c) => c.onchange = async () => {
+    try { await q(sb.rpc('salvar_email_equipe', { p_tipo: c.dataset.eq, p_ligado: c.checked })); aviso('✓ E-mail "' + EMAILS_EQUIPE.find((x) => x[0] === c.dataset.eq)[1] + '" ' + (c.checked ? 'ligado.' : 'desligado.')); }
+    catch (e) { c.checked = !c.checked; aviso(erroAmigavel(e), true); }
+    admEmailAuto(corpo);
+  });
+  corpo.querySelectorAll('[data-eq-regra]').forEach((c) => c.onchange = async () => {
+    try { await q(sb.from('regras_tarefas').update({ ligada: c.checked }).eq('chave', c.dataset.eqRegra)); aviso('✓ ' + (c.checked ? 'Ligado.' : 'Desligado.')); }
+    catch (e) { c.checked = !c.checked; aviso(erroAmigavel(e), true); }
+    admEmailAuto(corpo);
+  });
 }
 // Backup 53: os tipos de e-mail automático (as chaves Sim/Não de cada cliente) e as regras que os disparam (Automações)
 const TIPOS_EMAIL_AUTO = [['lembrete', 'Lembrete', 'Antes de vencer (honorários)', ['email_lembrete_honorario']], ['vencimento', 'Vence hoje', 'No dia do vencimento', []],

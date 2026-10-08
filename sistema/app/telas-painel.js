@@ -253,13 +253,16 @@ async function cardResumoEscritorio() {
     crm: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>', financeiro: '<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/>',
     'fin-pagar': '<path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>', tarefas: '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>' };
   const icone = (k) => '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (IC[k] || IC[k.replace(/^fin-(jur|contab)$/, 'financeiro')] || '') + '</svg>';
-  const sub = (l) => '<span class="ini-res-sub' + (l[0] && l[2] ? ' ' + l[2] : '') + '">' + (l[0] == null ? '' : '<b>' + l[0] + '</b> ') + esc(l[1]) + '</span>';
-  // Backup 49: o resumo virou uma linha fina de atalhos (o detalhe está em cada módulo)
-  const resto = (t) => t[5].filter((l) => l[0] == null || l[0]).map((l) => (l[0] == null ? '' : l[0] + ' ') + l[1]).join(' · ');
-  el.innerHTML = '<div class="ini-atalhos" role="list" aria-label="Resumo do escritório">' + T.map((t) =>
-    '<button type="button" role="listitem" class="ini-at ' + t[6] + '" data-ini-ir="' + t[0] + '" title="' + esc(t[2] + ': ' + t[3] + ' ' + t[4] + (resto(t) ? ' · ' + resto(t) : '')) + '">' +
-    '<span class="ini-at-ic" aria-hidden="true">' + icone(t[0]) + '</span><span class="ini-at-tit">' + esc(t[2]) + '</span> <b class="ini-at-num">' + t[3] + '</b> <span class="ini-at-rot">' + esc(t[4]) + '</span>' +
-    (resto(t) ? '<span class="ini-at-sub"> · ' + resto(t).split(' · ').map((x) => '<span class="ini-at-p">' + esc(x) + '</span>').join(' · ') + '</span>' : '') + '</button>').join('') + '</div>';
+  // Backup 54: cartões organizados em duas faixas — Financeiro (A receber verde, A pagar vermelho) e Escritório (publicações, parcelamentos,
+  // acordos, CRM, tarefas). Cada cartão: título pequeno, o número grande e, embaixo, uma linha por detalhe (sem amontoar numa linha só).
+  const tom = (k) => (k === 'fin-pagar' ? ' ini-at-pag' : /^fin-/.test(k) ? ' ini-at-rec' : '');
+  const cartao = (t) => '<button type="button" role="listitem" class="ini-at ' + t[6] + tom(t[0]) + '" data-ini-ir="' + t[0] + '">' +
+    '<span class="ini-at-cab"><span class="ini-at-ic" aria-hidden="true">' + icone(t[0]) + '</span><span class="ini-at-tit">' + esc(t[2]) + '</span></span>' +
+    '<span class="ini-at-lin"><b class="ini-at-num">' + t[3] + '</b> <span class="ini-at-rot">' + esc(t[4]) + '</span></span>' +
+    t[5].filter((l) => l[0] == null || l[0]).map((l) => '<span class="ini-at-sub' + (l[0] && l[2] ? ' ' + l[2] : '') + '">' + (l[0] == null ? '' : '<b>' + l[0] + '</b> ') + esc(l[1]) + '</span>').join('') + '</button>';
+  const finT = T.filter((t) => /^fin-/.test(t[0])), escT = T.filter((t) => !/^fin-/.test(t[0]));
+  const faixa = (rot, L) => L.length ? '<div class="ini-faixa"><div class="ini-faixa-rot">' + rot + '</div><div class="ini-atalhos" role="list" aria-label="' + rot + '">' + L.map(cartao).join('') + '</div></div>' : '';
+  el.innerHTML = faixa('Financeiro', finT) + faixa('Escritório', escT);
   el.querySelectorAll('[data-ini-ir]').forEach((b) => b.onclick = () => {
     const k = b.dataset.iniIr;
     if (k === 'tarefas') E.tf = Object.assign(E.tf || {}, { aba: 'abertas', atalho: '' });

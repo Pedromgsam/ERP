@@ -350,6 +350,18 @@ delete from email_fila where referencia in ('b49-auto', 'b49-rev');
 select pg_temp.ok((select count(*) > 0 from quem_recebe_emails()), '49.10 a tela "Quem recebe" lista os clientes');
 select pg_temp.ok(texto_guias_rotina_html('Nº do Parcelamento: 123' || chr(10) || 'Parcela: 2/10' || chr(10) || 'Vencimento: 10/11/2030') like '%Nº do Parcelamento:%', '49.11 o texto das guias vira quadro no e-mail');
 
+-- Backup 54: chave geral dos e-mails da equipe (o aviso fica no ERP; só o e-mail deixa de sair)
+update perfis set email = coalesce(nullif(email, ''), 'equipe54@teste') where id = (select id from perfis where papel in ('admin','equipe') order by criado_em limit 1);
+insert into notificacoes (usuario_id, tipo, titulo, detalhe) select id, 'tarefa', 'Novo fluxo para você: Teste B54', '' from perfis where papel in ('admin','equipe') order by criado_em limit 1;
+select pg_temp.ok(not exists (select 1 from email_fila where assunto = 'Novo fluxo para você: Teste B54'), '54.1 aviso de fluxo NÃO vira e-mail (chave "fluxo" desligada por padrão)');
+select pg_temp.ok(exists (select 1 from notificacoes where titulo = 'Novo fluxo para você: Teste B54'), '54.2 o aviso continua no ERP');
+update configuracoes set valor = valor || '{"tarefa": false}'::jsonb where chave = 'emails_equipe';
+insert into notificacoes (usuario_id, tipo, titulo, detalhe) select id, 'tarefa', 'Nova tarefa para você: Teste B54', '' from perfis where papel in ('admin','equipe') order by criado_em limit 1;
+select pg_temp.ok(not exists (select 1 from email_fila where assunto = 'Nova tarefa para você: Teste B54'), '54.3 desligar "tarefa" segura o e-mail de tarefa nova');
+update configuracoes set valor = valor - 'tarefa' where chave = 'emails_equipe';
+insert into notificacoes (usuario_id, tipo, titulo, detalhe) select id, 'tarefa', 'Nova tarefa para você: Teste B54 b', '' from perfis where papel in ('admin','equipe') and coalesce((pref_email->>'tarefa')::boolean, true) order by criado_em limit 1;
+select pg_temp.ok(exists (select 1 from email_fila where assunto = 'Nova tarefa para você: Teste B54 b') or not exists (select 1 from notificacoes where titulo = 'Nova tarefa para você: Teste B54 b'), '54.4 religada, o e-mail de tarefa volta a sair');
+
 -- ═══ RESUMO ═══
 select case when ok then 'PASSA ' else 'FALHA ' end || nome || case when not ok and obs <> '' then '  → ' || obs else '' end from r order by n;
 do $$ declare n int; begin

@@ -707,6 +707,21 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
 **Central de Documentos dentro do ERP:** menu **Documentos → Gerar documento** (ou ⋯ → Documentos, contrato, recibo do Financeiro).
 **Ctrl + clique** (ou botão do meio do mouse) em qualquer item do menu ou link de documento abre numa aba nova.
 
+## Backup 54 — Visual do ERP antigo, Início e Tarefas mais simples, controle dos e-mails automáticos, + Lançar integrado e contatos nas Execuções (tem SQL; nenhuma função nova)
+1. Merge da pull request.
+2. SQL: rode o `sistema/banco/estrutura.sql` inteiro (a última linha é `-- ═══ fim do Backup 54 ═══`).
+3. **Ctrl+Shift+R** no ERP.
+
+O que mudou (onde fica):
+- **Visual geral:** fundo do ERP antigo; barra lateral, filtros e o cabeçalho de todas as tabelas na cor do escritório (azul-marinho da logo) com texto branco; títulos em azul-escuro; tabelas com letra menor e colunas mais bem distribuídas.
+- **Início:** atalhos em dois blocos (Financeiro e Escritório); "A receber" em verde e "A pagar" em vermelho.
+- **Tarefas:** filtros em 2 colunas × 2 linhas (Mostrar · De quem | Urgência · Prazo); o botão **🔀 Fluxo** substitui "Delegar" (o "Lead completo" está dentro dele); a janela de nova tarefa mostra só o essencial — o resto fica em "Mais opções".
+- **Painel → ficha da empresa:** Cadastro e Situação alinhados (rótulo à esquerda, valor sempre começando na mesma linha).
+- **Administração → E-mail → Automáticos (novo):** liga/desliga, para o escritório todo, cada e-mail automático — para a equipe (fluxo/sequência, tarefa nova, revisão, menção, atraso, agenda, publicação, contrato assinado, CNPJ, acesso, resumo do dia) e para os clientes.
+  O e-mail de **fluxo / "Lead completo" já vem desligado** (o aviso continua no sino do ERP).
+- **+ Lançar:** novos atalhos — Recebimento (dar baixa num honorário em aberto), Acordo (todas as parcelas de uma vez), Execução, Recebimento de execução e Fluxo de tarefas.
+- **Execuções:** na janela da execução, **📇 Contatos (não clientes)** — nome, papel (executado, advogado da outra parte, cartório…), telefone (liga ou abre o WhatsApp), e-mail e endereço.
+
 ## Backup 53 — Início/Tarefas/Painel/Acordos/Rotina/Administração e o módulo Execuções (tem SQL; nenhuma função nova)
 1. Merge da pull request.
 2. SQL: rode o `sistema/banco/estrutura.sql` inteiro (a última linha é `-- ═══ fim do Backup 53 ═══`).

@@ -527,3 +527,42 @@ async function gerarGuias(tabela, alcance, depois) {
   }
   return janelaGuiasEmpresa(tabela, L, null, depois);
 }
+
+// ═══ Backup 54: "+ Lançar → Acordo inteiro" — cadastra TODAS as parcelas de um acordo de uma vez (antes: uma parcela por vez) ═══
+function formAcordoNovo(depois) {
+  const grupos = (E.grupos || []).slice().sort((a, b) => String(a.nome).localeCompare(String(b.nome), 'pt-BR'));
+  const j = abrirJanela({ titulo: '+ Novo acordo (todas as parcelas)', larga: true,
+    corpo: '<form class="grade" id="f-acordo-novo">' +
+      campo('Grupo', '<select name="grupo_id"><option value="">— escolha —</option>' + grupos.map((g) => '<option value="' + g.id + '">' + esc(g.nome) + '</option>').join('') + '</select>') +
+      campo('Responsável', selectPessoa('responsavel', (E.perfil && E.perfil.nome) || '', '— escolha —')) +
+      campo('Devedor (nosso cliente) <span class="obrig">*</span>', '<input name="devedor" maxlength="200">') +
+      campo('Credor <span class="obrig">*</span>', '<input name="credor" maxlength="200">') +
+      campo('Processo / identificação <span class="obrig">*</span>', '<input name="processo" maxlength="80" placeholder="nº do processo ou do acordo">') +
+      campo('Forma de pagamento', '<select name="forma_pagamento"><option value="boleto">Boleto</option><option value="pix">PIX</option></select>') +
+      campo('Nº de parcelas <span class="obrig">*</span>', '<input name="n" type="number" min="1" max="240" value="1">') +
+      campo('Valor de cada parcela (R$) <span class="obrig">*</span>', '<input name="valor" data-mascara="brl" inputmode="decimal" placeholder="0,00">') +
+      campo('1º vencimento <span class="obrig">*</span>', '<input name="venc" type="date" value="' + somarDias(hojeISO(), 30) + '">') +
+      campo('Chave PIX', '<input name="pix" maxlength="200">') +
+      '<div class="dica inteiro" id="acn-previa">Preencha para ver as parcelas.</div></form>',
+    rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="acn-ok">Lançar o acordo</button></div>' });
+  const f = j.querySelector('#f-acordo-novo');
+  const venc = (k) => { const [y, m, d] = f.venc.value.split('-').map(Number), x = new Date(y, m - 1 + k, 1), ult = new Date(x.getFullYear(), x.getMonth() + 1, 0).getDate();
+    return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(Math.min(d, ult)).padStart(2, '0'); };
+  const previa = () => { const n = Math.max(1, Math.min(240, Number(f.n.value) || 1)), v = lerValor(f.valor.value);
+    j.querySelector('#acn-previa').innerHTML = v > 0 && f.venc.value ? plural(n, 'parcela', 'parcelas') + ' de <b class="mono">' + brl(v) + '</b> (total ' + brl(v * n) + '), de ' + dataBR(venc(0)) + ' a ' + dataBR(venc(n - 1)) + ', todo mês.' : 'Preencha para ver as parcelas.'; };
+  ['input', 'change'].forEach((x) => f.addEventListener(x, previa));
+  j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
+  j.querySelector('#acn-ok').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    const n = Number(f.n.value) || 0, v = lerValor(f.valor.value);
+    if (!f.devedor.value.trim() || !f.credor.value.trim() || !f.processo.value.trim()) throw new Error('Preencha devedor, credor e processo.');
+    if (!(n >= 1 && n <= 240)) throw new Error('Nº de parcelas entre 1 e 240.');
+    if (!(v > 0)) throw new Error('Informe o valor da parcela (ex.: 1.500,00).');
+    if (!f.venc.value) throw new Error('Informe o 1º vencimento.');
+    const base = { grupo_id: f.grupo_id.value || null, responsavel: f.responsavel.value || '', devedor: f.devedor.value.trim(), credor: f.credor.value.trim(), processo: f.processo.value.trim(),
+      forma_pagamento: f.forma_pagamento.value, pix: f.pix.value.trim(), total_parcelas: String(n), valor: v };
+    await q(sb.from('acordos').insert(Array.from({ length: n }, (_, k) => Object.assign({}, base, { parcela: String(k + 1), vencimento: venc(k) }))));
+    aviso('✓ Acordo lançado: ' + plural(n, 'parcela', 'parcelas') + '.'); fecharJanela(j);
+    if (depois) await depois(); else if (window.ERP_RECARREGAR) window.ERP_RECARREGAR();
+  });
+  return j;
+}

@@ -1247,3 +1247,25 @@ button.pl-dt{cursor:pointer}
 .gf-mais summary::before{content:'▸ '}
 .gf-mais[open] summary::before{content:'▾ '}
 .gf-mais > div{margin-top:3px;line-height:1.45}
+/* Backup 54: filtros em 2 × 2 */
+.fila-filtros.fila-2x2{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 28px;align-items:center}
+@media (max-width:900px){.fila-filtros.fila-2x2{grid-template-columns:1fr}}
+/* Backup 54: Nova tarefa — "Mais opções" recolhido */
+.tf-mais{border:1px solid var(--border);border-radius:10px;padding:8px 12px;background:var(--surface2)}
+.tf-mais > summary{cursor:pointer;font-weight:600;color:var(--titulo,var(--ink));list-style:none}
+.tf-mais > summary::-webkit-details-marker{display:none}
+.tf-mais[open] > summary{margin-bottom:10px}
+.tf-mais > .grade{margin-top:4px}
+/* Backup 54: ficha — rótulo numa coluna fixa e o valor sempre começando no mesmo ponto (à esquerda), em Cadastro, Situação e Receita */
+.dados .dado{display:grid;grid-template-columns:150px minmax(0,1fr);gap:12px;align-items:baseline;justify-content:initial}
+.dados .dado b{text-align:left;font-weight:500;color:var(--ink)}
+.dados .dado b .pill{vertical-align:middle}
+@media (max-width:600px){.dados .dado{grid-template-columns:110px minmax(0,1fr)}}
+
+/* Backup 54: Administração → E-mail → Automáticos (chaves ligado/desligado) e contatos das execuções */
+.em-auto .card{margin-bottom:12px}
+.em-auto-g{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:8px}
+.em-auto-l{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--r-sm,8px);cursor:pointer}
+.em-auto-l > span:nth-child(2){display:flex;flex-direction:column;gap:2px;min-width:0}
+.em-auto-l .sub{font-size:12px}
+.ex-ct-tab td{vertical-align:top}

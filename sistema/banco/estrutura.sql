@@ -7798,3 +7798,93 @@ end $$;
 drop trigger if exists execucao_recebimento_apaga on public.execucao_recebimentos;
 create trigger execucao_recebimento_apaga after delete on public.execucao_recebimentos for each row execute function public.execucao_recebimento_apaga();
 -- ═══ fim do Backup 53 ═══
+
+-- ═══════════════════════ Backup 54 ═══════════════════════
+-- E-mails automáticos para a EQUIPE (avisos do ERP): uma chave por tipo, para o escritório todo (Administração → E-mail → Para a equipe).
+-- Ex.: criar um fluxo ou "Lead completo" avisa por e-mail quem vai fazer — a chave "fluxo" desliga só esse e-mail (o aviso no ERP continua).
+-- configuracoes.emails_equipe = {"fluxo": false, ...}; tipo ausente = ligado.
+create or replace function public.email_equipe_ligado(p_tipo text) returns boolean
+language sql stable security definer set search_path = public as $$
+  select coalesce(((select valor from public.configuracoes where chave = 'emails_equipe') ->> p_tipo)::boolean, true);
+$$;
+revoke all on function public.email_equipe_ligado(text) from public, anon;
+grant execute on function public.email_equipe_ligado(text) to authenticated;
+create or replace function public.emails_equipe() returns jsonb
+language sql stable security definer set search_path = public as $$
+  select coalesce((select valor from public.configuracoes where chave = 'emails_equipe'), '{}'::jsonb);
+$$;
+revoke all on function public.emails_equipe() from public, anon;
+grant execute on function public.emails_equipe() to authenticated;
+create or replace function public.salvar_email_equipe(p_tipo text, p_ligado boolean) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare v jsonb;
+begin
+  if not public.eh_admin() then raise exception 'Só o administrador muda os e-mails automáticos.'; end if;
+  if coalesce(p_tipo, '') !~ '^[a-z_]{2,30}$' then raise exception 'Tipo inválido.'; end if;
+  insert into public.configuracoes (chave, valor) values ('emails_equipe', jsonb_build_object(p_tipo, coalesce(p_ligado, true)))
+  on conflict (chave) do update set valor = public.configuracoes.valor || excluded.valor, atualizado_em = now()
+  returning valor into v;
+  return v;
+end $$;
+revoke all on function public.salvar_email_equipe(text, boolean) from public, anon;
+grant execute on function public.salvar_email_equipe(text, boolean) to authenticated;
+-- a chave geral vale antes da preferência de cada pessoa (⋯ → Meus avisos por e-mail); o resumo do dia também passa por aqui
+create or replace function public.enfileirar_email(p_usuario uuid, p_pref text, p_assunto text, p_corpo text, p_tipo text, p_ref text default '')
+returns boolean language plpgsql security definer set search_path = public as $$
+declare pf record; n int;
+begin
+  if p_pref <> '' and not public.email_equipe_ligado(p_pref) then return false; end if;
+  select * into pf from public.perfis where id = p_usuario and papel in ('admin','equipe');
+  if not found or coalesce(pf.email, '') = '' then return false; end if;
+  if p_pref <> '' and coalesce((pf.pref_email->>p_pref)::boolean, true) = false then return false; end if;
+  insert into public.email_fila (usuario_id, para, assunto, html, tipo, referencia)
+  values (p_usuario, pf.email, p_assunto, public.email_modelo(p_assunto, p_corpo), p_tipo, coalesce(p_ref, ''))
+  on conflict (usuario_id, referencia) where referencia <> '' do nothing;
+  get diagnostics n = row_count;
+  return n > 0;
+end $$;
+revoke all on function public.enfileirar_email(uuid, text, text, text, text, text) from anon, authenticated;
+-- tipo do aviso → chave geral (fluxo/sequência separado das tarefas soltas)
+create or replace function public.tipo_email_equipe(p_tipo text, p_titulo text) returns text language sql immutable as $$
+  select case
+    when coalesce(p_titulo, '') ~* '^(novo fluxo|nova sequência|pode começar)' then 'fluxo'
+    when p_tipo in ('mencao','publicacao','revisao','agenda','financeiro','acesso','cnpj') then p_tipo
+    when p_tipo = 'atraso' then 'atraso'
+    else 'tarefa' end;
+$$;
+create or replace function public.email_da_notificacao() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare pref text;
+begin
+  if not public.email_equipe_ligado(public.tipo_email_equipe(new.tipo, new.titulo)) then return null; end if;
+  pref := case new.tipo when 'mencao' then 'mencao' when 'publicacao' then 'publicacao' when 'atraso' then 'fatal' else 'tarefa' end;
+  perform public.enfileirar_email(new.usuario_id, pref, new.titulo,
+    '<p>' || public.esc_html(new.titulo) || '</p>' || case when new.detalhe <> '' then '<p style="color:#4B5563">' || public.esc_html(new.detalhe) || '</p>' else '' end
+    || coalesce('<p><a href="' || (select valor #>> '{}' from public.config_privada where chave = 'url_sistema') || '" style="background:#1B2A4A;color:#fff;padding:9px 16px;border-radius:8px;text-decoration:none;display:inline-block">Abrir no ERP</a></p>', ''),
+    new.tipo, 'notif:' || new.id);
+  return null;
+end $$;
+-- primeira vez: o aviso por e-mail de fluxo/sequência sai DESLIGADO (o dono pediu); os demais continuam como estavam
+insert into public.configuracoes (chave, valor) values ('emails_equipe', '{"fluxo": false}'::jsonb) on conflict (chave) do nothing;
+
+-- Execuções: contatos de quem NÃO é cliente (executado, advogado da outra parte, cartório, perito…) — telefone, e-mail, endereço
+create table if not exists public.execucao_contatos (
+  id          uuid primary key default gen_random_uuid(),
+  execucao_id uuid not null references public.execucoes(id) on delete cascade,
+  nome        text not null,
+  papel       text not null default '',
+  telefone    text not null default '',
+  email       text not null default '',
+  endereco    text not null default '',
+  obs         text not null default '',
+  criado_em   timestamptz not null default now()
+);
+create index if not exists execucao_contatos_exec on public.execucao_contatos (execucao_id);
+alter table public.execucao_contatos enable row level security;
+revoke all on public.execucao_contatos from anon;
+grant select, insert, update, delete on public.execucao_contatos to authenticated;
+drop policy if exists exct_ver on public.execucao_contatos;
+create policy exct_ver on public.execucao_contatos for select to authenticated using (public.pode('juridico'));
+drop policy if exists exct_editar on public.execucao_contatos;
+create policy exct_editar on public.execucao_contatos for all to authenticated using (public.pode('juridico', 'editar')) with check (public.pode('juridico', 'editar'));
+-- ═══ fim do Backup 54 ═══
