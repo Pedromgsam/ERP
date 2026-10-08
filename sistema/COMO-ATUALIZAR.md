@@ -707,6 +707,24 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
 **Central de Documentos dentro do ERP:** menu **Documentos → Gerar documento** (ou ⋯ → Documentos, contrato, recibo do Financeiro).
 **Ctrl + clique** (ou botão do meio do mouse) em qualquer item do menu ou link de documento abre numa aba nova.
 
+## Backup 53 — Início/Tarefas/Painel/Acordos/Rotina/Administração e o módulo Execuções (tem SQL; nenhuma função nova)
+1. Merge da pull request.
+2. SQL: rode o `sistema/banco/estrutura.sql` inteiro (a última linha é `-- ═══ fim do Backup 53 ═══`).
+3. **Ctrl+Shift+R** no ERP.
+
+O que mudou (onde fica):
+- **Início:** cartões "A receber · Jurídico", "A receber · Contabilidade" e "A pagar" — cada um com *vence hoje*, *próximos 5 dias* e *em atraso* separados.
+  A fila é o mesmo calendário de Tarefas (Mês · Semana · Dia · Lista) com os filtros Alta/Média/Baixa e Hoje/Atrasadas/7 dias.
+- **Tarefas:** os cartões (em aberto, atrasadas…) ficam acima de Lista/Calendário/Fluxos; a Semana tem a altura do Mês; repetir "Quinzenal" e "Todo dia útil".
+- **Alertas:** voltou a versão do Backup 48 (publicações, parcelas e acordos vencidos, honorários e tarefas atrasadas).
+- **Painel → Empresas do grupo:** faixa cinza por grupo com o nº de empresas, coluna Grupo estreita, nome maior. A ficha abre em Cadastro · Situação (procuração e certificado) · Tarefas · Dados da Receita · Histórico, sem certidões; os atalhos viraram um botão **+ Lançar ▾**.
+- **Acordos:** janela de envio arrumada (valor à direita, código PIX numa linha própria); na janela do acordo, **✎ Alterar o acordo inteiro** (todas as parcelas) ou o ✎ da linha (só uma parcela); o e-mail fecha a janela na hora e termina por trás.
+- **Contratos:** opção **📥 Implantação** (o financeiro já está lançado: não gera nada) e o botão **🔗 Ligar lançamentos que já existem** no detalhe do contrato.
+- **Rotina:** coluna Conferência mais estreita; Planilha com todos os parcelamentos do grupo numa linha só, pelo menos 6 parcelas antes e 3 depois, clique na parcela paga para desmarcar;
+  o "Valor da última parcela" vira o valor de referência em Guias do mês; a notificação não tem mais a linha "Pagamento"; Minhas tarefas mostra a recorrente concluída ("✓ concluída neste ciclo · volta em …").
+- **Administração:** Histórico e Acessos viraram abas; E-mail → Quem recebe no desenho de Clientes, com os tipos de e-mail automático e ✓/✕ por cliente e por tipo; Caixa de saída → **Da Rotina** (autorizar ou tirar); Usuários com "o que libera" em cada função.
+- **Execuções (novo, no menu Jurídico):** processo, executado, valor, % do escritório; cada recebimento lança sozinho o honorário em Financeiro → Jurídico.
+
 ## Backup 52 — ERP simétrico (o que muda num lugar muda em todos), Semana no Início, PIX nas parcelas de acordo e "Buscar agora" funcionando (tem SQL; nenhuma função nova)
 Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+Shift+R**. Nenhuma função do Supabase precisa ser publicada de novo.
 Para voltar à versão anterior: o zip do **Backup 51** (pasta `backups/`).

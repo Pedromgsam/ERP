@@ -355,7 +355,7 @@ async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
         '<label class="campo ge-ass"><span>Assunto</span><input id="ge-assunto" value="' + esc((tabela === 'parcelas' ? 'Guias de parcelamento' : e.itens.every((x) => ehPixGuia(tabela, x)) ? 'Parcela de acordo' : 'Boletos de acordo') + ' — ' + e.nome) + '"></label></div>' +
       '<div class="ge-papel"><textarea id="ge-texto" rows="5">' + esc(t.intro) + '</textarea>' +
         '<div class="ge-itens">' + e.itens.map((x) => { const p = x.parcelamentos || {};
-          return '<label class="ge-it' + (x.vencimento < hojeISO() ? ' ge-venc' : '') + '" data-ge="' + x.id + '"><input type="checkbox" checked aria-label="Incluir">' +
+          return '<label class="ge-it' + (tabela === 'acordos' ? ' ge-it-ac' : '') + (x.vencimento < hojeISO() ? ' ge-venc' : '') + '" data-ge="' + x.id + '"><input type="checkbox" checked aria-label="Incluir">' +
             '<span class="ge-it-txt">' + (x.vencimento < hojeISO() ? '<span class="ge-alerta">⚠ ' + (tabela === 'parcelas' ? 'GUIA VENCIDA' : 'PARCELA VENCIDA') + '</span>' : '') +
               '<b>' + esc(tabela === 'parcelas' ? 'Parcelamento ' + [p.local, p.natureza].filter(Boolean).join(' — ') : 'Processo ' + (x.processo || '—') + ' · ' + parcOrd(x)) + '</b>' +
               (ehPixGuia(tabela, x) ? ' <span class="ge-forma">PIX</span>' : tabela === 'acordos' ? ' <span class="ge-forma ge-forma-b">boleto</span>' : '') +
@@ -388,9 +388,10 @@ async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
   j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
   // Backup 52 (C6): o código PIX digitado fica gravado na parcela (acordos.pix_codigo)
   const gravarPix = async (its) => { if (tabela !== 'acordos') return;
-    for (const i of its) { if (i._pixCodigo == null || i._pixCodigo === (i.pix_codigo || '')) continue;
+    // Backup 53: grava as parcelas alteradas ao mesmo tempo (antes, uma depois da outra)
+    await Promise.all(its.filter((i) => i._pixCodigo != null && i._pixCodigo !== (i.pix_codigo || '')).map(async (i) => {
       await q(sb.from('acordos').update({ pix_codigo: i._pixCodigo }).eq('id', i.id));
-      const o = atual().itens.find((y) => y.id === i.id); if (o) o.pix_codigo = i._pixCodigo; } };
+      const o = atual().itens.find((y) => y.id === i.id); if (o) o.pix_codigo = i._pixCodigo; })); };
   if ($j('#ge-zap')) $j('#ge-zap').onclick = (ev) => comBotao(ev.currentTarget, async () => {
     const its = marcados(); if (!its.length) throw new Error('Marque ao menos uma parcela.');
     await gravarPix(its);
@@ -420,16 +421,18 @@ async function janelaGuiasEmpresa(tabela, L, chaveIni, depois) {
     if (its.some((i) => !(i._valor > 0))) throw new Error('Confira o valor de todas as parcelas marcadas.');
     if (its.some((i) => i._venc !== null && i._venc !== undefined && (!i._venc || i._venc < hojeISO()))) throw new Error('Confira o novo vencimento da guia atualizada (hoje ou depois).');
     if (arquivos.reduce((s2, f) => s2 + f.size, 0) > LIMITE_ANEXOS) throw new Error('Os PDFs somam mais de 15 MB: envie em dois e-mails.');
-    await gravarPix(its);
-    const arqs = []; for (const f of arquivos) arqs.push(await lerArquivoB64(f));
+    const [, arqs] = await Promise.all([gravarPix(its), Promise.all(arquivos.map(lerArquivoB64))]);   // Backup 53: em paralelo
     const r = await q(sb.rpc(rascunho ? 'salvar_guias_rascunho' : 'enviar_guias_email', { p_cliente: e.cli || null, p_grupo: e.grupo || null,
       p_itens: its.map((i) => Object.assign(i._venc
         ? { tabela, id: i.id, descricao: descricaoGuia(tabela, i).replace(/^⚠ VENCIDA — /, '↻ Guia atualizada — ') + ' (vencia em ' + dataBR(i.vencimento) + ')', vencimento: i._venc, valor: i._valor, reenvio: true }
         : { tabela, id: i.id, descricao: descricaoGuia(tabela, i), vencimento: i.vencimento, valor: i._valor }, pixItem(i))),
       p_assunto: $j('#ge-assunto').value.trim(), p_texto: $j('#ge-texto').value.trim() + '\n\n' + fechoGuias(tabela, its), p_docs: its.map((i) => i.guia_doc).filter(Boolean),
       p_para: $j('#ge-para').value.trim() || null, p_arquivos: arqs }));
-    await avisoEnvio(plural(r.itens, 'parcela', 'parcelas') + (r.anexos ? ' e ' + plural(r.anexos, 'anexo', 'anexos') : '') + ': ', r);
-    fecharJanela(j); if (depois) await depois(); if (window.ERP_RECARREGAR) window.ERP_RECARREGAR();
+    // Backup 53 (lentidão do e-mail do acordo): a janela fecha assim que o e-mail fica pronto no banco; o Gmail e a tela atualizam por trás
+    fecharJanela(j); aviso(rascunho ? '📝 Guardando o rascunho no seu Gmail…' : '✉ Enviando o e-mail…');
+    Promise.all([avisoEnvio(plural(r.itens, 'parcela', 'parcelas') + (r.anexos ? ' e ' + plural(r.anexos, 'anexo', 'anexos') : '') + ': ', r).catch((er) => aviso('⚠ ' + erroAmigavel(er), true)),
+      depois ? Promise.resolve(depois()).catch(() => {}) : null])
+      .then(() => { if (window.ERP_RECARREGAR) window.ERP_RECARREGAR(); });
   };
   if ($j('#ge-enviar')) $j('#ge-enviar').onclick = (ev) => comBotao(ev.currentTarget, mandar(false));
   $j('#ge-rascunho').onclick = (ev) => comBotao(ev.currentTarget, mandar(true));
@@ -447,7 +450,44 @@ async function enviarAcordosSelecionados(ids, depois) {
   return janelaGuiasEmpresa('acordos', L, null, depois);
 }
 
-// ═══ Backup 37: "🧾 Gerar guias" — abre o envio por empresa (a tela que expande com vencimento e valor atualizado) já com as parcelas a emitir:
+// ═══ Backup 53: alterar o ACORDO INTEIRO (todas as parcelas, ou só as em aberto) — devedor, credor, processo, forma de pagamento, PIX, banco,
+// valor da parcela e dia do vencimento. Para mudar UMA parcela só, use o ✎ da linha dela.
+async function editarAcordo(ids, depois) {
+  const L = await q(sb.from('acordos').select('id, parcela, total_parcelas, vencimento, valor, pago, devedor, credor, processo, forma_pagamento, pix, banco').in('id', ids || []));
+  if (!L.length) return aviso('Acordo não encontrado.', true);
+  const a = L.find((x) => !x.pago) || L[0], abertas = L.filter((x) => !x.pago);
+  const j = abrirJanela({ titulo: '✎ Alterar o acordo inteiro', larga: true,
+    corpo: '<form class="grade" id="f-acordo-todo">' +
+      '<div class="inteiro dica">Muda de uma vez <b>' + plural(L.length, 'parcela', 'parcelas') + '</b> deste acordo (' + plural(abertas.length, 'em aberto', 'em aberto') + '). ' +
+        'Campo em branco = não muda. Para mudar uma parcela só, feche e use o ✎ da linha dela.</div>' +
+      campo('Devedor', '<input name="devedor" value="' + esc(a.devedor || '') + '">') + campo('Credor', '<input name="credor" value="' + esc(a.credor || '') + '">') +
+      campo('Processo', '<input name="processo" value="' + esc(a.processo || '') + '">') +
+      campo('Forma de pagamento', '<select name="forma_pagamento"><option value="">— não muda —</option><option value="boleto"' + (a.forma_pagamento === 'boleto' ? ' selected' : '') + '>Boleto</option><option value="pix"' + (a.forma_pagamento === 'pix' ? ' selected' : '') + '>PIX</option></select>') +
+      campo('Chave PIX', '<input name="pix" value="' + esc(a.pix || '') + '">') + campo('Banco', '<input name="banco" value="' + esc(a.banco || '') + '">') +
+      campo('Novo valor da parcela (só as em aberto)', '<input name="valor" data-mascara="brl" inputmode="decimal" placeholder="em branco = não muda">') +
+      campo('Novo dia do vencimento (só as em aberto)', '<input name="dia" type="number" min="1" max="31" placeholder="ex.: 10">') +
+      campo('Aplicar em', '<select name="alcance"><option value="abertas">Só nas parcelas em aberto (' + abertas.length + ')</option><option value="todas">Em todas as parcelas (' + L.length + ')</option></select>', 'inteiro') + '</form>',
+    rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="ac-todo-ok">Salvar no acordo inteiro</button></div>' });
+  const f = j.querySelector('#f-acordo-todo');
+  j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
+  j.querySelector('#ac-todo-ok').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    const alvo = f.alcance.value === 'todas' ? L : abertas;
+    if (!alvo.length) throw new Error('Este acordo não tem parcela em aberto. Escolha "Em todas as parcelas".');
+    const d = {}; ['devedor', 'credor', 'processo', 'pix', 'banco'].forEach((k) => { const v = f[k].value.trim(); if (v !== String(a[k] || '')) d[k] = v || null; });
+    if (f.forma_pagamento.value) d.forma_pagamento = f.forma_pagamento.value;
+    if (Object.keys(d).length) await q(sb.from('acordos').update(d).in('id', alvo.map((x) => x.id)));
+    const v = lerValor(f.valor.value), dia = Math.min(31, Math.max(0, Number(f.dia.value) || 0));
+    if (v > 0) await q(sb.from('acordos').update({ valor: v }).in('id', abertas.map((x) => x.id)));
+    if (dia) await Promise.all(abertas.filter((x) => x.vencimento).map((x) => { const [y, m] = x.vencimento.split('-').map(Number), ult = new Date(y, m, 0).getDate();
+      return q(sb.from('acordos').update({ vencimento: y + '-' + String(m).padStart(2, '0') + '-' + String(Math.min(dia, ult)).padStart(2, '0') }).eq('id', x.id)); }));
+    if (!Object.keys(d).length && !(v > 0) && !dia) throw new Error('Nada mudou.');
+    aviso('✓ Acordo alterado (' + plural(alvo.length, 'parcela', 'parcelas') + ').'); fecharJanela(j);
+    if (depois) await depois(); else if (window.ERP_RECARREGAR) window.ERP_RECARREGAR();
+  });
+  return j;
+}
+
+// ═══ Backup 37: "🧾 Gerar guias\" — abre o envio por empresa (a tela que expande com vencimento e valor atualizado) já com as parcelas a emitir:
 // em atraso + as que vencem neste mês. alcance: {} = tudo · {grupo_id} · {empresa} · {itens: ids de parcelamento ou chaves de acordo}.
 // proximas: true → se o parcelamento/acordo não tem nada a emitir agora, entra a PRÓXIMA parcela (mesmo futura).
 const chaveAcordoGuia = (a) => [a.grupo_id || '', a.devedor || '', a.credor || '', a.processo || ''].join('|');

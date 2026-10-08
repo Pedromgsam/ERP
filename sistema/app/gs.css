@@ -1163,6 +1163,9 @@
 .gs .tf-sem .sm-grade{min-height:0;align-items:stretch}
 .gs .tf-sem .fila-com-atr > .fila-atrasadas{min-height:100%}
 .gs .tf-sem .sm-col{display:flex;flex-direction:column}
+.gs .tf-sem,.gs .tf-sem > .card-bd,.gs .tf-sem-ini{display:flex;flex-direction:column}
+.gs .tf-sem > .card-bd{flex:1}
+.gs .tf-sem .sm-com-atr{flex:1}
 .gs .cal-tf.ag-feita,.gs .ag-cor.ag-feita{text-decoration:line-through;opacity:.6}
 .gs .ag-cor.ag-feita{background:var(--border-strong)}
 .gs .cal-tf.ag-feita{background:var(--surface2);color:var(--text3)}
@@ -1186,6 +1189,33 @@
 .gs .doc-envio[data-tipo=certificado] .doc-so-cert{display:flex}
 .gs .doc-envio[data-tipo=certificado] .cert-lido.doc-so-cert{display:block}
 .gs .pr-completo{max-height:380px;overflow:auto}
+.gs .ge-it.ge-it-ac,.gs .ge-it.ge-it-ac.ge-venc{grid-template-columns:22px minmax(0,1fr) 180px;grid-template-rows:auto auto;row-gap:8px}
+.gs .ge-it-ac > input[type=checkbox]{grid-column:1;grid-row:1}
+.gs .ge-it-ac > .ge-it-txt{grid-column:2;grid-row:1}
+.gs .ge-it-ac > .ge-it-v:not(.ge-it-pix){grid-column:3;grid-row:1}
+.gs .ge-it-ac > .ge-it-pix{grid-column:2 / 4;grid-row:2;display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:10px}
+.gs .ge-it-ac > .ge-it-pix small{text-align:left;white-space:nowrap}
+.gs .ge-it-ac .ge-pix{width:100%;height:34px;border:1px solid var(--border-strong);border-radius:8px;padding:0 10px;font:500 12.5px var(--font-mono,monospace);color:var(--ink);background:var(--surface);min-width:0}
+@media(max-width:800px){.gs .ge-it.ge-it-ac{grid-template-columns:22px 1fr}
+.gs .ge-it-ac > .ge-it-v:not(.ge-it-pix){grid-column:2;grid-row:2}
+.gs .ge-it-ac > .ge-it-pix{grid-column:2;grid-row:3;grid-template-columns:1fr}
+}
+.gs .em-tipos-l{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px}
+.gs .em-tipo{display:flex;flex-direction:column;gap:3px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:var(--surface2)}
+.gs .em-tipo .pill{align-self:flex-start;cursor:pointer}
+.gs .em-quem th.em-t,.gs .em-quem td.em-t{text-align:center;width:74px}
+.gs .em-tk{width:28px;height:24px;border-radius:6px;border:1px solid var(--border);font:700 13px var(--font-ui);cursor:pointer;background:var(--surface)}
+.gs .em-tk-on{background:var(--green-lt);color:var(--green-d);border-color:var(--green-bd)}
+.gs .em-tk-off{background:var(--surface3);color:var(--text3)}
+.gs .em-tk:disabled{cursor:default;opacity:.7}
+.gs .em-quem td[data-em-cli]{cursor:pointer}
+.gs .gf-legenda{margin:6px 0 8px;line-height:1.5}
+.gs .gf-mais{margin-top:3px;font-size:12px;color:var(--text2)}
+.gs .gf-mais summary{cursor:pointer;color:var(--primario);font-size:11.5px;list-style:none}
+.gs .gf-mais summary::-webkit-details-marker{display:none}
+.gs .gf-mais summary::before{content:'▸ '}
+.gs .gf-mais[open] summary::before{content:'▾ '}
+.gs .gf-mais > div{margin-top:3px;line-height:1.45}
 /* cores do ERP, tamanhos do Gestão */
 .gs{background:none!important;min-height:0!important}
 .gs .duas-col>*,.gs .card{min-width:0}

@@ -25,7 +25,7 @@
     { id: 'alertas', rot: 'Alertas', ic: 'alertas', equipe: true },
     { sec: 'Módulos' },
     { id: 'resumo', rot: 'Painel Executivo', ic: 'painel', func: 'relatorios' },
-    { rot: 'Jurídico', ic: 'juridico', itens: [['processos', 'Processos', 'juridico'], ['parcelamentos', 'Parcelamentos', 'juridico'], ['publicacoes', 'Publicações', 'juridico']] },
+    { rot: 'Jurídico', ic: 'juridico', itens: [['processos', 'Processos', 'juridico'], ['parcelamentos', 'Parcelamentos', 'juridico'], ['execucoes', 'Execuções', 'juridico'], ['publicacoes', 'Publicações', 'juridico']] },   // Backup 53: Execuções
     { id: 'acordos', rot: 'Acordos', ic: 'acordos', func: 'juridico' },
     { rot: 'Financeiro', ic: 'financeiro', equipe: true, itens: [['financeiro', 'Jurídico', 'financeiro_juridico'], ['financeiroContab', 'Contabilidade', 'financeiro_contab']] },
     { id: 'contratos', rot: 'Contratos', ic: 'contratos', equipe: true, func: 'contratos' },
@@ -58,7 +58,7 @@
   // Cobranças, avisos e recibos (antiga "Notificações"): fora da barra; abre pelo botão ✉ de cada tela e pelo ⋯
   const FUNC_EXTRA = { notificacoes: 'clientes' };   // a Central de e-mails confere o acesso no banco
   // painéis novos → tela do Gestão que desenha nele
-  const TELAS_GS = { hoje: 'inicio', contratos: 'contratos', clientes: 'clientes', crm: 'crm', publicacoes: 'publicacoes', documentos: 'documentos', tarefas: 'tarefas', alertas: 'alertas', automacoes: 'automacoes', rotina: 'rotina', admin: 'admin' };
+  const TELAS_GS = { hoje: 'inicio', contratos: 'contratos', clientes: 'clientes', crm: 'crm', publicacoes: 'publicacoes', documentos: 'documentos', tarefas: 'tarefas', alertas: 'alertas', automacoes: 'automacoes', rotina: 'rotina', execucoes: 'execucoes', admin: 'admin' };
 
   // "+ Lançar": formulários do Gestão onde existem; os demais, do editor do ERP
   const empresaAtual = () => (_painel === 'financeiroContab' ? 'contabilidade' : 'escritorio');
@@ -356,7 +356,8 @@
     // valor negociado: "18k neg." (sem caixa alta)
     tb.querySelectorAll('.tag.tv[title]').forEach((tg) => { const v = Number(String(tg.title).replace(/[^\d,]/g, '').replace(',', '.')); if (v) tg.textContent = kNeg(v) + ' neg.'; });
     tb.querySelectorAll('.er-grupo[onclick], .er-nome[onclick]').forEach((x) => { x.removeAttribute('onclick'); x.title = 'Abrir a ficha completa'; });
-    tabelaPadrao(tb, { chave: 'emp', um: 'cadastro', varios: 'cadastros', semSeta: true, semDivisao: true,
+    // Backup 53: igual à tabela de Clientes — faixa cinza por grupo (nome + nº de empresas), coluna Grupo estreita, nome maior
+    tabelaPadrao(tb, { chave: 'emp', um: 'empresa', varios: 'empresas', semSeta: true,
       clique: (tr) => { const r = regDe(B, tr) || {}; if (r._id && GS() && GS().abrirFicha) Promise.resolve(GS().carregarCadastros()).then(() => GS().abrirFicha(r._id)); },
       grupo: (tr) => (regDe(B, tr) || {}).grupo || '',
       filtro: (tr) => { const r = regDe(B, tr); if (!r) return true; const c = cli.find((x) => x.id === r._id) || {};

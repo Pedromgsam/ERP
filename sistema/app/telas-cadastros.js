@@ -507,7 +507,9 @@ function formContrato(ct) {
           campo('1º vencimento', '<input name="primeiro_vencimento" type="date" value="' + somarDias(hojeISO(), 30) + '">') +
           '<div class="dica inteiro" id="ctr-previa">Informe o valor para ver as parcelas.</div>'
         : '<div class="dica inteiro">Valor e parcelas já foram lançados em Honorários Jurídico. Para ajustar uma parcela, use o botão Editar dela.</div>') + '</div>' +
-      (novo ? '<div class="inteiro"><div class="segmento" id="ctr-assin">' + [['Ativo', '✓ Já está assinado (lança o financeiro agora)'], ['Aguardando assinatura', '⏳ Aguardando assinatura (lança só quando assinar)']]
+      // Backup 53: "Implantação" = contrato antigo cujo financeiro já está lançado — grava o contrato sem gerar nenhum lançamento e deixa vincular os que já existem
+      (novo ? '<div class="inteiro"><div class="segmento" id="ctr-assin">' + [['Ativo', '✓ Já está assinado (lança o financeiro agora)'], ['Aguardando assinatura', '⏳ Aguardando assinatura (lança só quando assinar)'],
+        ['implantacao', '📥 Implantação (o financeiro já está lançado)']]
           .map(([v, r], i) => '<button type="button" data-v="' + v + '"' + (i === 0 ? ' class="ativo"' : '') + '>' + r + '</button>').join('') + '</div></div>'
         : campo('Situação', '<select name="status">' + SITUACOES_CTR
           .map((st) => '<option value="' + st + '"' + (ct.status === st ? ' selected' : '') + '>' + (st === 'Ativo' && ct.status === 'Aguardando assinatura' ? 'Ativo (assinado: lança o financeiro)' : st) + '</option>').join('') + '</select>')) +
@@ -600,8 +602,10 @@ function formContrato(ct) {
         if (v > 0 && !f.primeiro_vencimento.value) throw new Error('Informe o 1º vencimento.');
         Object.assign(dados, { valor_total: v, num_parcelas: n, primeiro_vencimento: v > 0 ? f.primeiro_vencimento.value : null });
       }
-      dados.status = situacao;
+      const implant = situacao === 'implantacao';
+      dados.status = implant ? 'Ativo' : situacao; dados.sem_financeiro = implant;
       const criado = await q(sb.from('contratos').insert(dados).select().single());
+      if (implant) { aviso('✓ Contrato de implantação gravado — nenhum lançamento foi criado.'); fecharJanela(j); await recarregar(); return vincularLancamentos(criado, cli); }
       if (modalidade === 'pontual' && dados.valor_total > 0 && cli) await q(sb.from('lancamentos').update({ grupo_id: cli.grupo_id, responsavel: cli.responsavel || '' }).eq('contrato_id', criado.id));
       if (situacao === 'Aguardando assinatura') aviso('✓ Contrato criado aguardando assinatura: o financeiro é lançado quando você marcar "✓ Assinado".');
       else aviso(modalidade === 'consultoria' ? '✓ Contrato de consultoria criado: mensalidades lançadas em Honorários Jurídico.' :
@@ -615,6 +619,32 @@ function formContrato(ct) {
     if (!novo) fecharJanela();
     await recarregar();
   });
+}
+
+// Backup 53: implantação — escolher os lançamentos que JÁ existem (do cliente/grupo, sem contrato) e ligá-los a este contrato
+async function vincularLancamentos(ct, cli, depois) {
+  cli = cli || E.clientes.find((c) => c.id === ct.cliente_id) || {};
+  let L = await q(sb.from('lancamentos').select('id, descricao, vencimento, valor, pago, cliente_id, grupo_id').eq('tipo', 'receita').is('contrato_id', null)
+    .or('cliente_id.eq.' + ct.cliente_id + (cli.grupo_id ? ',grupo_id.eq.' + cli.grupo_id : '')).order('vencimento').limit(500)).catch(() => []);
+  const j = abrirJanela({ titulo: '🔗 Ligar lançamentos ao contrato — ' + (ct.descricao || ''), larga: true,
+    corpo: '<p class="sub" style="margin-bottom:8px">Marque os lançamentos que já existem no Financeiro e pertencem a este contrato. Nada novo é lançado.</p>' +
+      (L.length ? '<div class="tabela-wrap"><table><thead><tr><th><input type="checkbox" id="vl-todos" aria-label="Marcar todos"></th><th>Vencimento</th><th>Descrição</th><th>Valor</th><th>Situação</th></tr></thead><tbody>' +
+        L.map((l) => '<tr><td><input type="checkbox" data-vl="' + l.id + '" aria-label="Ligar"></td><td>' + dataBR(l.vencimento) + '</td><td>' + esc(l.descricao || '') + '</td><td class="mono">' + brl(l.valor) + '</td><td>' +
+          (l.pago ? '<span class="pill pago">pago</span>' : '<span class="pill aberto">em aberto</span>') + '</td></tr>').join('') + '</tbody></table></div>'
+        : vazio('Nenhum lançamento sem contrato para este cliente.')),
+    rodape: '<span class="sub" id="vl-n"></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Agora não</button><button class="btn btn-p" type="button" id="vl-ok">Ligar ao contrato</button></div>' });
+  const marc = () => [...j.querySelectorAll('[data-vl]:checked')].map((x) => x.dataset.vl);
+  const conta = () => { j.querySelector('#vl-n').textContent = plural(marc().length, 'lançamento marcado', 'lançamentos marcados'); };
+  j.querySelectorAll('[data-vl]').forEach((x) => x.onchange = conta);
+  const td = j.querySelector('#vl-todos'); if (td) td.onchange = () => { j.querySelectorAll('[data-vl]').forEach((x) => { x.checked = td.checked; }); conta(); };
+  conta();
+  j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
+  j.querySelector('#vl-ok').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    const ids = marc(); if (!ids.length) throw new Error('Marque ao menos um lançamento.');
+    await q(sb.from('lancamentos').update({ contrato_id: ct.id }).in('id', ids));
+    aviso('✓ ' + plural(ids.length, 'lançamento ligado', 'lançamentos ligados') + ' ao contrato.'); fecharJanela(j); if (depois) await depois(); else await recarregar();
+  });
+  return j;
 }
 
 // rescisão: cobra até a competência do mês anterior ao da rescisão
@@ -701,7 +731,9 @@ async function _detalheContrato(id) {
       '</div>' +
       (ct.obs ? '<div class="dica" style="margin-bottom:12px">' + esc(ct.obs) + '</div>' : '') +
       '<div class="card" style="margin:0">' + tabelaLancamentos(parc, { compacta: true }) + '</div>' +
-      '<div style="margin-top:10px"><button class="btn btn-o btn-mini" id="ctr-add-parc">+ Lançar valor avulso neste contrato</button></div>' +
+      '<div style="margin-top:10px"><button class="btn btn-o btn-mini" id="ctr-add-parc">+ Lançar valor avulso neste contrato</button> ' +
+        '<button class="btn btn-o btn-mini" id="ctr-vincular" title="Implantação: liga a este contrato lançamentos que já estão no Financeiro (não cria nada novo)">🔗 Ligar lançamentos que já existem</button>' +
+        (ct.sem_financeiro ? ' <span class="pill neutro" title="Contrato de implantação: o sistema não gera parcelas nem mensalidades">implantação</span>' : '') + '</div>' +
       (ct.percentual_exito ? blocoExito(ct, exitos) : '') +
       '<div class="card" style="margin:14px 0 0"><div class="card-bd" id="ctr-docs"></div></div>' + blocoAditivos(ct, aditivos),
     rodape:
@@ -723,6 +755,7 @@ async function _detalheContrato(id) {
   const br = j.querySelector('#btn-rescindir-ctr'); if (br) br.onclick = () => formRescisao(ct, reabrir);
   const be = j.querySelector('#ctr-exito-reg'); if (be) be.onclick = () => formExito(ct, reabrir);
   const ba = j.querySelector('#ctr-aditivo'); if (ba) ba.onclick = () => formAditivo(ct, reabrir);
+  j.querySelector('#ctr-vincular').onclick = () => vincularLancamentos(ct, null, reabrir);
   j.querySelector('#ctr-add-parc').onclick = () => {
     formLancamento({ tipo: 'receita', empresa: 'escritorio', cliente_id: ct.cliente_id, contrato_id: id,
                      grupo_id: ct.clientes && ct.clientes.grupo_id, responsavel: ct.clientes && ct.clientes.responsavel,

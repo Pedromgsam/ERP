@@ -446,7 +446,8 @@ async function rotinaEnviarGuias(el) {
     if (x.valor != null && Number(x.valor) > 0) ult[p.id] = Number(x.valor);
     if (x.pago || !x.vencimento || (x.vencimento > fimMes && x.id !== E.rt.epAbrir)) return;
     G.push(Object.assign(x, { p, clienteEmite: p.emitimos_guia === false, vencida: x.vencimento < h, enviada: !!x.emitida_em || /sim|emitid/i.test(x.emissao || ''),
-      _valor: x.valor != null && Number(x.valor) > 0 ? Number(x.valor) : ult[p.id] != null ? ult[p.id] : Number(p.valor_ultima_parcela) || 0 })); });
+      // Backup 53: sem valor lançado na parcela, vale o "Valor da última parcela" da Planilha; sem ele, o último valor lançado
+      _valor: x.valor != null && Number(x.valor) > 0 ? Number(x.valor) : Number(p.valor_ultima_parcela) > 0 ? Number(p.valor_ultima_parcela) : ult[p.id] != null ? ult[p.id] : 0 })); });
   const empK = (g) => g.p.empresa || '—';
   // Backup 52 (P2): "↻ Atualizar" no mesmo lugar em todo o ERP — à direita do cabeçalho do quadro
   el.innerHTML = '<div class="card ep-tela"><div class="card-hd">📨 Guias do mês<span class="sub">vencidas e do mês · marque e gere a notificação de cada empresa</span>' + botaoAtualizar('ep-atu') + '</div><div class="card-bd">' +
@@ -516,10 +517,7 @@ async function rotinaEnviarGuias(el) {
           '<div class="ep-card-body">' + epHtml(textoNotifParcelas(e.emp, e.its)) + '</div><textarea class="ep-card-edit" hidden></textarea>' +
           '<div class="ep-anexos"><label class="ep-anexar"><input type="file" class="ep-arqs" accept=".pdf,image/*" multiple hidden>📎 Anexar guias (PDF)</label><span class="ep-chips"></span>' +
             '<span class="ep-anx-dica">vão anexadas no rascunho do Gmail</span></div>' +
-          // Backup 51 (R3): depois do vencimento, o "Pago" fica no próprio cartão
-          (e.its.some((g) => g.vencimento <= hojeISO()) ? '<div class="ep-pagos"><span class="ep-pagos-rot">Pagamento:</span>' + e.its.filter((g) => g.vencimento <= hojeISO()).map((g) =>
-            '<button type="button" class="ep-pago' + (g.pago ? ' ep-pago-ok' : '') + '" data-ep-pago="' + g.id + '"' + (g.pago ? ' disabled' : '') + ' title="Marca a parcela como paga (dá para desfazer por 5 s)">' +
-            (g.pago ? '✓ Paga' : '○ Pago') + ' — parcela ' + esc(g.numero || '?') + ' · venc. ' + dataBR(g.vencimento).slice(0, 5) + '</button>').join('') + '</div>' : '') +
+          // Backup 53: o "Pagamento" saiu do cartão da notificação (o pagamento se marca na Planilha)
           '<div class="ep-card-acts2">' +
             '<button type="button" class="ep-act ep-a-edit" data-ep-a="edit">✏️ Editar</button>' +
             '<button type="button" class="ep-act ep-a-copy" data-ep-a="copy">📋 Copiar</button>' +
@@ -624,6 +622,15 @@ function pagarParcelaRotina(x, redesenhar) {
     atualizarPlacar();
   }, (e) => { aviso('⚠ ' + erroAmigavel(e), true); volta(); });
 }
+// Backup 53: desmarcar o pagamento (a tela muda na hora; erro → volta)
+function desmarcarPagoRotina(x, redesenhar) {
+  const antes = { pago: x.pago, data_pagamento: x.data_pagamento };
+  x.pago = false; x.data_pagamento = null; redesenhar();
+  return q(sb.from('parcelas').update({ pago: false, data_pagamento: null }).eq('id', x.id)).then(() => {
+    const ED = window.ERP_EDITOR; if (ED && ED.gravou) ED.gravou('Pagamento desmarcado'); else aviso('Pagamento desmarcado.');
+    if (ED && ED.marcarSujo) ED.marcarSujo('parcelas', x.parcelamento_id); atualizarPlacar();
+  }, (e) => { Object.assign(x, antes); redesenhar(); aviso('⚠ ' + erroAmigavel(e), true); });
+}
 function emitirParcelaRotina(x, redesenhar) {
   const emitida = !!x.emitida_em || /sim|emitid/i.test(x.emissao || ''), novo = !emitida;
   const antes = { emitida_em: x.emitida_em, emissao: x.emissao, enviada: x.enviada };
@@ -664,7 +671,8 @@ async function rotinaPlanilha(el) {
         : x.pago ? '<span class="pl-dt">—</span>'
         : '<button type="button" class="pl-dt pl-dt-mk2" data-pl-e="' + x.id + '" title="Marcar como emitida">○ marcar</button>') + '</td>' +
       // Backup 52 (P4): situação com o texto e a cor únicos do ERP (SITUACOES)
-      '<td>' + (x.pago ? '<span class="pl-dt pl-dt-ok" data-sit="pago" title="Paga">✓ ' + (x.data_pagamento ? curta(x.data_pagamento) : 'paga') + '</span>'
+      // Backup 53: a paga também é botão — clicar desmarca o pagamento
+      '<td>' + (x.pago ? '<button type="button" class="pl-dt pl-dt-ok" data-sit="pago" data-pl-np="' + x.id + '" title="Paga · clique para desmarcar o pagamento">✓ ' + (x.data_pagamento ? curta(x.data_pagamento) : 'paga') + '</button>'
         : '<button type="button" class="pl-dt ' + (at ? 'pl-dt-atr' : 'pl-dt-ab') + '" data-sit="' + situacaoDe(x.vencimento, false) + '" data-pl-p="' + x.id + '" title="Clique para lançar o pagamento">' + SITUACOES[situacaoDe(x.vencimento, false)] + '</button>') + '</td></tr>'; };
   const bloco = (p) => {
     // Backup 51: as pagas há mais de 3 meses chegam resumidas (antes[p.id]); "ver" busca o histórico deste parcelamento
@@ -715,7 +723,8 @@ async function rotinaPlanilha(el) {
         return '<button type="button" role="tab" class="pl-aba' + (g === E.rt.plGrupo ? ' ativo' : '') + '" data-pl-g="' + esc(g) + '">' + esc(g) + (n ? ' <span class="pl-n" title="Guias a emitir">' + n + '</span>' : '') + '</button>'; }).join('') + '</div>' +
       '<div class="pl-barra"><span class="sub">' + plural(L.length, 'parcelamento', 'parcelamentos') + ' em <b>' + esc(E.rt.plGrupo || '—') + '</b> · ' + (nE ? plural(nE, 'guia a emitir', 'guias a emitir') + ' (em atraso + vencem neste mês)' : 'nenhuma guia a emitir agora') + '</span>' +
         '</div>' +
-      (L.length ? '<div class="pl-rolo" id="pl-rolo"><div class="pl-linhas">' + porEmp.map((e) => '<div class="pl-linha">' + e.ps.map(bloco).join('') + '</div>').join('') + '</div></div>' +
+      // Backup 53: TODOS os parcelamentos do grupo lado a lado numa linha só (antes: uma linha por empresa)
+      (L.length ? '<div class="pl-rolo" id="pl-rolo"><div class="pl-linhas"><div class="pl-linha">' + porEmp.map((e) => e.ps.map(bloco).join('')).join('') + '</div></div></div>' +
         '<div class="pl-barra-x" id="pl-barra-x" aria-label="Rolar para o lado"><div></div></div>' : vazio('Nenhum parcelamento neste grupo.')) + '</div></div>';
     ligarRolo();
   };
@@ -735,6 +744,8 @@ async function rotinaPlanilha(el) {
     const be = ev.target.closest('[data-pl-e]');
     if (be) { const x = P2.find((y) => y.id === be.dataset.plE); if (x) emitirParcelaRotina(x, () => redesenharBloco(x.parcelamento_id)); return; }
     // o "Lançar o pagamento?" virou "Desfazer" (5 s) no rodapé
+    const np = ev.target.closest('[data-pl-np]');
+    if (np) { const x = P2.find((y) => y.id === np.dataset.plNp); if (x && confirm('Desmarcar o pagamento da parcela ' + (x.numero || '') + '?')) desmarcarPagoRotina(x, () => redesenharBloco(x.parcelamento_id)); return; }
     const bp = ev.target.closest('[data-pl-p]');
     if (bp) { const x = P2.find((y) => y.id === bp.dataset.plP); if (x) pagarParcelaRotina(x, () => redesenharBloco(x.parcelamento_id)); return; }
     // Backup 51 (R3): clicar na parcela (nº ou vencimento) abre o mesmo cartão de envio de "Guias do mês"
@@ -762,12 +773,19 @@ async function rotinaPlanilha(el) {
 // ── 5) Minhas tarefas — Backup 29: separadas em Recorrentes (voltam no próximo período), Com validação e Únicas ──
 const REPETE = { semanal: 'toda semana', mensal: 'todo mês', anual: 'todo ano' };
 async function rotinaTarefas(el) {
-  const T = (await q(sb.from('tarefas').select('*, clientes(nome)').not('status', 'in', '(concluida,cancelada)').order('prazo', { nullsFirst: false }).limit(1000)).catch(() => []));
+  const [T, F] = await Promise.all([q(sb.from('tarefas').select('*, clientes(nome)').not('status', 'in', '(concluida,cancelada)').order('prazo', { nullsFirst: false }).limit(1000)).catch(() => []),
+    // Backup 53: as recorrentes já concluídas neste ciclo continuam à vista ("concluída neste ciclo · volta em …")
+    q(sb.from('tarefas').select('*, clientes(nome)').eq('status', 'concluida').not('recorrencia', 'is', null).order('prazo', { ascending: false, nullsFirst: false }).limit(500)).catch(() => [])]);
+  await feriados().catch(() => null);
   const eu = primeiroNome((E.perfil && E.perfil.nome) || '');
   const minhas = T.filter((t) => ehMinha(t) && !/^(cob|parc|aco):/.test(t.chave_regra || '') && t.status !== 'revisao');
   const validar = T.filter((t) => t.status === 'revisao' && t.revisor && primeiroNome(t.revisor) === eu);
   const h = hojeISO();
-  const sec = [['🔁 Recorrentes', 'fazem e voltam sozinhas no próximo período (semana, mês ou ano)', minhas.filter((t) => t.recorrencia)],
+  const serie = (t) => t.recorrencia_serie || t.id, abertasSerie = new Set(minhas.filter((t) => t.recorrencia).map(serie)), vistas = new Set();
+  const feitasCiclo = F.filter((t) => ehMinha(t) && !abertasSerie.has(serie(t)) && !vistas.has(serie(t)) && vistas.add(serie(t))).map((t) => {
+    const r = typeof regraDaTarefa === 'function' ? regraDaTarefa(t) : null, prox = r && typeof proximasDatas === 'function' ? proximasDatas(r, t.prazo || hojeISO(), 1, E._feriados)[0] : null;
+    return Object.assign({}, t, { _feita: true, _volta: prox }); }).filter((t) => !t.recorrencia_regra || !t.recorrencia_regra.fim || !t._volta || t._volta <= t.recorrencia_regra.fim);
+  const sec = [['🔁 Recorrentes', 'fazem e voltam sozinhas no próximo período (semana, quinzena, mês ou ano)', minhas.filter((t) => t.recorrencia).concat(feitasCiclo)],
     ['✔ Com validação', 'ao concluir, vão para quem valida; só fecham depois do "aprovado"', minhas.filter((t) => !t.recorrencia && t.exige_revisao)],
     ['📌 Únicas', 'fazem uma vez e acabou', minhas.filter((t) => !t.recorrencia && !t.exige_revisao)],
     ['🔎 Para eu validar', 'o que a equipe concluiu e espera o seu aprovado', validar]];
@@ -775,7 +793,7 @@ async function rotinaTarefas(el) {
     '<td>' + (t.recorrencia ? '<span class="pill aberto tf-repete">' + esc(typeof textoRepete === 'function' ? textoRepete(t) : '↻ ' + (REPETE[t.recorrencia] || t.recorrencia)) + '</span>' : '<span class="sub">—</span>') + '</td>' +
     '<td>' + (t.exige_revisao || validando ? '<span class="pill hoje">valida: ' + esc(t.revisor || '—') + '</span>' : '<span class="sub">—</span>') + '</td>' +
     '<td>' + (t.prazo ? '<span class="' + (t.prazo < h ? 'dias-r' : t.prazo === h ? 'dias-a' : '') + '">' + dataBR(t.prazo) + '</span>' : '—') + '</td>' +
-    '<td class="acoes-l">' + (validando ? '<button type="button" class="btn btn-v btn-mini" data-rt-ok="' + t.id + '">✓ Abrir e validar</button>'
+    '<td class="acoes-l">' + (t._feita ? '<span class="pill pago rt-ciclo" title="Concluída em ' + esc(dataBR(String(t.concluida_em || t.prazo || '').slice(0, 10))) + '">✓ concluída neste ciclo' + (t._volta ? ' · volta em ' + dataBR(t._volta) : '') + '</span>' : validando ? '<button type="button" class="btn btn-v btn-mini" data-rt-ok="' + t.id + '">✓ Abrir e validar</button>'
       : '<button type="button" class="btn btn-v btn-mini" data-rt-concluir="' + t.id + '">' + (t.exige_revisao ? '✓ Concluir e enviar' : '✓ Concluir') + '</button>') + '</td></tr>';
   el.innerHTML = '<div class="card"><div class="card-hd">✓ Minhas tarefas<span class="sub">recorrentes voltam sozinhas; com validação vão para quem valida</span>' +
       '<span class="gd-hd-ac"><button type="button" class="btn btn-o btn-mini" id="rt-nova-rec">+ Tarefa recorrente</button><button type="button" class="btn btn-p btn-mini" id="rt-nova-t">+ Tarefa</button></span></div><div class="card-bd">' +

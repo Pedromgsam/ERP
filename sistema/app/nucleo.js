@@ -87,6 +87,18 @@ const FUNCOES = [
   ['crm', 'CRM', 'Oportunidades, propostas e funil'],
   ['relatorios', 'Relatórios', 'Painel Executivo']
 ];
+// Backup 53: o que cada nível libera, em palavras simples (aparece em Administração → Usuários)
+const FUNCOES_DETALHE = {
+  financeiro_juridico: ['Vê o Financeiro do Jurídico (a receber, recebidos, despesas), os cartões de dinheiro do Início e os recibos.', 'Lança, edita e dá baixa (pago) em receitas e despesas do Jurídico, cobra pelo WhatsApp/e-mail e emite recibo.'],
+  financeiro_contab: ['Vê o Financeiro da Contabilidade e os cartões dela no Início.', 'Lança, edita e dá baixa nos honorários e despesas da Contabilidade.'],
+  contratos: ['Vê os contratos, aditivos, reajustes e as parcelas que eles geraram.', 'Cria e edita contratos (inclusive implantação), registra aditivo, rescinde e marca como assinado.'],
+  clientes: ['Vê a lista de clientes e a ficha completa (contatos, sócios, documentos, histórico).', 'Cadastra e edita clientes, contatos e contas; liga/desliga os e-mails do cliente.'],
+  juridico: ['Vê Processos, Parcelamentos, Acordos, Execuções, Publicações e a Rotina.', 'Edita tudo isso: registra movimentação, emite guias, dá baixa em parcelas, envia e-mails de guias/acordos.'],
+  tarefas: ['Vê as tarefas de toda a equipe, os fluxos e os modelos (as próprias tarefas todos veem sempre).', 'Cria, delega e edita tarefas de qualquer pessoa, fluxos e modelos.'],
+  documentos: ['Abre e baixa os documentos guardados.', 'Envia, organiza em pastas e apaga documentos; cadastra certificado digital.'],
+  crm: ['Vê o funil, as oportunidades e as propostas.', 'Cria e move oportunidades, faz propostas e agenda reuniões.'],
+  relatorios: ['Vê o Painel Executivo (passivo, evolução, empresas do grupo).', 'Mesmo que "Ver" (o Painel só mostra).']
+};
 const MODELOS_ACESSO = {
   'Sócio (tudo)': Object.fromEntries(FUNCOES.map((f) => [f[0], 'editar'])),
   'Financeiro': { financeiro_juridico: 'editar', financeiro_contab: 'editar', contratos: 'editar', clientes: 'ver', documentos: 'editar', relatorios: 'ver' },
@@ -154,7 +166,10 @@ function resumoFuncoes(p) {
 function gradeFuncoes(funcoes) {
   funcoes = funcoes || {};
   return '<div class="modelos-acesso">' + Object.keys(MODELOS_ACESSO).map((m) => '<button type="button" class="btn btn-o btn-mini" data-modelo-acesso="' + esc(m) + '">' + esc(m) + '</button>').join('') + '</div>' +
-    '<div class="grade-funcoes">' + FUNCOES.map(([k, rot, desc]) => '<div class="gf-lin"><div><b>' + rot + '</b><div class="sub">' + desc + '</div></div><div class="segmento gf-niveis" data-funcao="' + k + '">' +
+    '<div class="gf-legenda sub"><b>Nenhum</b> = a pessoa nem vê o menu · <b>Ver</b> = só olha, sem mudar nada · <b>Editar</b> = vê e altera. Clique em “o que libera” para ver o detalhe.</div>' +
+    '<div class="grade-funcoes">' + FUNCOES.map(([k, rot, desc]) => '<div class="gf-lin"><div><b>' + rot + '</b><div class="sub">' + desc + '</div>' +
+      (FUNCOES_DETALHE[k] ? '<details class="gf-mais"><summary>o que libera</summary><div><b>Ver:</b> ' + FUNCOES_DETALHE[k][0] + '</div><div><b>Editar:</b> ' + FUNCOES_DETALHE[k][1] + '</div></details>' : '') +
+      '</div><div class="segmento gf-niveis" data-funcao="' + k + '">' +
       [['', 'Nenhum'], ['ver', 'Ver'], ['editar', 'Editar']].map(([v, r]) => '<button type="button" data-v="' + v + '" class="' + ((funcoes[k] || '') === v ? 'ativo' : '') + '">' + r + '</button>').join('') + '</div></div>').join('') + '</div>';
 }
 // quais clientes a pessoa vê: só do Jurídico, só da Contabilidade ou os dois (clientes "Jurídico + Contabilidade" todos veem)
