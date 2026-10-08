@@ -1832,10 +1832,10 @@ html body.gx-barra-topo table:has(> #tblExecRanking) :is(th,td):is(:nth-child(9)
 /* Acordos → A pagar: Processo inteiro numa linha, Devedor e Credor mais estreitos, "emitido" embaixo do prazo */
 html body.gx-barra-topo table.ac-ap td.ac-c-proc:not(#_){white-space:nowrap!important;font-size:11.5px!important;overflow:hidden;text-overflow:ellipsis}
 html body.gx-barra-topo table.ac-ap :is(th,td):not(#_){padding-left:8px!important;padding-right:8px!important}
-html body.gx-barra-topo table.ac-ap td:is(:nth-child(3),:nth-child(4)):not(#_){white-space:normal!important;font-size:12.5px!important}
-html body.gx-barra-topo table.ac-ap th:nth-child(1):not(#_){width:8%!important}
-html body.gx-barra-topo table.ac-ap th:nth-child(2):not(#_){width:20.5%!important}
-html body.gx-barra-topo table.ac-ap th:nth-child(3):not(#_){width:14.5%!important}
+html body.gx-barra-topo table.ac-ap td:is(:nth-child(3),:nth-child(4)):not(#_){white-space:normal!important}
+html body.gx-barra-topo table.ac-ap th:nth-child(1):not(#_){width:10.5%!important}
+html body.gx-barra-topo table.ac-ap th:nth-child(2):not(#_){width:19%!important}
+html body.gx-barra-topo table.ac-ap th:nth-child(3):not(#_){width:13.5%!important}
 html body.gx-barra-topo table.ac-ap th:nth-child(4):not(#_){width:11.5%!important}
 html body.gx-barra-topo table.ac-ap th:nth-child(5):not(#_){width:6%!important}
 html body.gx-barra-topo table.ac-ap :is(th:nth-child(6),th:nth-child(8)):not(#_){width:9.5%!important}

@@ -1321,7 +1321,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
 
     // Backup 43: a Planilha de parcelamentos (preencher emissão, pagamento, valor da última parcela, observação) voltou
     await p.evaluate(() => nav(null, 'rotina')); await p.waitForSelector('#rt-abas'); await p.click('#rt-abas [data-rt-aba=planilha]');
-    await p.waitForSelector('#rt-corpo .pl-bloco', { timeout: 10000 }).catch(() => {});
+    await p.waitForFunction(() => /Valor residual/.test((document.querySelector('#rt-corpo .pl-bloco') || {}).textContent || '') && !!document.querySelector('#rt-corpo .pl-aba'), null, { timeout: 10000 }).catch(() => {});
     ok('Rotina: "Planilha de parcelamentos" só para conferência (abas por grupo, blocos, valor residual; Backup 45: sem nenhum botão de envio)', (await p.$$('#rt-corpo .pl-aba')).length >= 1 &&
       (await p.$$('#rt-corpo .pl-bloco')).length >= 1 && /Valor residual/.test(await p.textContent('#rt-corpo .pl-bloco')) && !(await p.$('#rt-corpo #pl-emitir')) && !(await p.$('#rt-corpo [data-pl-gx]')) &&
       !(await p.$('#rt-corpo [data-pl-gpa]')) && !(await p.$('#rt-corpo [data-pl-gemp]')) && !/teste/.test(await p.textContent('#rt-corpo .card-hd')));
@@ -1879,7 +1879,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       const pos = await p.evaluate(() => { const c = [...document.querySelectorAll('#tf-chips > .fila-chips')]; const r = c.map((x) => x.getBoundingClientRect()), w = document.querySelector('#tf-chips').getBoundingClientRect();
         return { a: r[0] && r[0].right, b: r[1] && r[1].left, larg: w.width, ini: w.left }; });
       ok('B55 Tarefas: Urgência e Prazo logo depois de Mostrar/De quem (não colados na direita)', pos.b > pos.a && pos.b - pos.a < 120 && pos.b - pos.ini < pos.larg * 0.8, JSON.stringify(pos));
-      await nav(p, 'resumo'); await p.waitForSelector('#tblExecRanking tr'); await p.evaluate(() => { FILTROS.grupo = ''; FILTROS.empresa = ''; renderExecRanking(); }); await p.waitForTimeout(800);
+      await nav(p, 'resumo'); await p.waitForSelector('#tblExecRanking tr:not(.gx-grp)'); await p.evaluate(() => { FILTROS.grupo = ''; FILTROS.empresa = ''; renderExecRanking(); }); await p.waitForTimeout(800);
       await nav(p, 'parcelamentos'); await p.evaluate(() => setParcTab('avencer')); await p.waitForSelector('#tblParcBody tr[data-gx]', { timeout: 10000 }).catch(() => {}); await p.waitForTimeout(500);
       ok('B57 Parcelamentos: tabela do ERP antigo com Status, Atraso e Baixa, sem a caneta', await p.evaluate(() => { const t = document.querySelector('#tblParcBody').closest('table'); const ths = [...t.tHead.rows[0].cells].map((x) => x.textContent.trim());
         return ['Status', 'Atraso', 'Baixa'].every((n) => ths.includes(n)) && !t.querySelector('tbody .gx-la-ed') && !!t.querySelector('tbody .gx-la-bx'); }));

@@ -83,9 +83,10 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 
 ## Estado atual (atualizar a cada entrega)
 - Última entrega: **Backup 58** (só front; sem SQL). Bloco "Backup 58" no fim do design.css: `col-valor` à direita; `col-venc/data/sit/dias` + `gx-th-acoes/gx-td-acoes` + `td.acoes-l` no centro; `td .sub/small/.er-socio` em `--font-ui`
-  12 px; `table:has(> thead th.col-grupo) > tbody > tr:is(.gx-grp,.cli-grp)` escondida (Grupo só como coluna); Painel 3=29%, 9-10=6,5%; Acordos `table.ac-ap` fixa por `th:nth-child` (8/20,5/14,5/11,5/6/9,5/9/9,5/11,5%), `.ac-c-prazo` + `.ac-emit-sub`,
+  12 px; `table:has(> thead th.col-grupo) > tbody > tr:is(.gx-grp,.cli-grp)` escondida (Grupo só como coluna); Painel 3=29%, 9-10=6,5%; Acordos `table.ac-ap` fixa por `th:nth-child` (10,5/19/13,5/11,5/6/9,5/9/9,5/11,5%; texto 13 px como o resto), `.ac-c-prazo` + `.ac-emit-sub`,
   botão sempre "Emitir". `marcarColunas` troca "-" por "—". Sem ✎: editor.js não cria `gx-la-ed` (th "Ações"/"Baixa"); clique em `tr[data-gx]` (menos lançamentos/acordos/Painel/Processos/A pagar) → `detalheParcela(tr)` (genérico, título por tipo);
-  telas-financeiro sem `data-editar` na linha (detalhe tem); Admin `tr[data-us].clicavel`; Execuções `tr[data-exc-linha]`; lista-grupos acordos `tr[data-lg-editar]`. padrao.js: valor à direita, ✎ opcional.
+  telas-financeiro sem `data-editar` na linha (detalhe tem); Admin `tr[data-us].clicavel`; Execuções `tr[data-exc-linha]`; lista-grupos acordos `tr[data-lg-editar]`. padrao.js: valor à direita, ✎ opcional. "Nº Parc." = `col-num` (REGUA). Detalhe do lançamento: "✎ Editar"
+  fecha o detalhe antes do formulário. Testes que esperam a 1ª linha do Painel usam `#tblExecRanking tr:not(.gx-grp)` (a faixa está escondida).
 - Backup 57 (base) (só front; sem SQL). Letras do ERP antigo: tokens `--font-tit` (Playfair Display) e `--font-num` (JetBrains Mono); bloco "Backup 57" no fim do design.css usa `:not(#_)`
   para vencer as regras antigas com ID (`#tblExecRanking td{font-family:var(--font-ui)!important}` do erp-telas.css): th Playfair 11 px sem caixa alta, td 11px×14px à esquerda, números (`col-valor/venc/dias/num/doc/.mono`) em mono,
   `td.col-nome` sem uppercase. Grupo: a regra que escondia `col-grupo` com `tem-faixa` saiu; `marcarColunas` embrulha o texto em `.gx-gpill` (Painel usa `.er-grupo`). Painel: `table-layout:fixed` com larguras por `th:nth-child` (2 Grupo 10% · 3 Entidade 26% ·

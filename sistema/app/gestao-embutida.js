@@ -1760,6 +1760,8 @@ async function detalheLancamento(id) {
       '<div class="acoes"><button class="btn btn-o" type="button" data-editar="' + l.id + '">✎ Editar</button>' +
       (!l.pago && !l.perda ? '<button class="btn btn-v" type="button" data-pagar="' + l.id + '">✓ ' + (l.tipo === 'despesa' && !l.redutor ? 'Pago' : 'Recebido') + '</button>' : '') + '</div>' });
   ligarAcoesLancamentos(j, async () => { fecharJanela(j); if (window.ERP_RECARREGAR) window.ERP_RECARREGAR(); else await recarregar(); });
+  // Backup 58: "✎ Editar" troca o detalhe pelo formulário (não empilha duas janelas)
+  const be = j.querySelector('[data-editar]'); if (be) { const ed = be.onclick; be.onclick = () => { fecharJanela(j); return ed(); }; }
   const bc = j.querySelector('#dl-ctr'); if (bc) bc.onclick = () => { fecharJanela(j); detalheContrato(l.contrato_id); };
   const bl = j.querySelector('#dl-cli'); if (bl) bl.onclick = () => { fecharJanela(j); abrirFicha(l.cliente_id); };
   return j;

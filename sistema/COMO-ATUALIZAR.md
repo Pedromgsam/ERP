@@ -731,7 +731,7 @@ Por tela:
   - Devedor e Credor mais estreitos (nome longo quebra em 2 linhas);
   - o botão é sempre "Emitir", e o "✓ emitido" aparece embaixo do Prazo (a data aparece ao passar o mouse).
 - **Parcelamentos:** Nº Parc. em letra 11 px cinza; Empresa mais larga; Parcela no centro.
-- **Financeiro → A receber:** só Cobrar e Baixa na linha; o texto embaixo do Atraso na letra normal.
+- **Financeiro → A receber:** só Cobrar e Baixa na linha; o texto embaixo do Atraso na letra normal. No detalhe, "✎ Editar" fecha o detalhe e abre o formulário (não ficam duas janelas uma sobre a outra).
 
 ## Backup 57 — Letras e tabelas do ERP antigo, Parcelamentos e Gerar documentos (sem SQL; nenhuma função nova)
 1. Merge da pull request.

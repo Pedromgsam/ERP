@@ -763,7 +763,7 @@
     // Backup 55: "Grupo" virou coluna própria (estreita, uma linha; some quando a tabela já tem a faixa do grupo) e CPF/CNPJ discreto, como no ERP antigo
     ['col-grupo', /^grupo$/],
     ['col-doc', /^(cpf\/cnpj|cpf \/ cnpj|cnpj|cpf|documento)$/],
-    ['col-num', /^(processo|n[ºo°]? ?processo|n[ºo°]? do processo|numero|parcela|parcelas)$/],
+    ['col-num', /^(processo|n[ºo°]? ?processo|n[ºo°]? do processo|numero|parcela|parcelas|n[ºo°]? ?parc\.?)$/],
     ['col-texto', /^(natureza|autor|reu|tribunal|orgao|local|tipo|responsavel|advogado|forma)$/],
     ['col-nome', /^(grupo \/ favorecido|devedor|credor|empresa|cliente|nome|entidade|entidade \/ socio)$/],
     // Backup 49 (36): datas e situação também têm lugar fixo (centralizadas)
