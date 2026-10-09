@@ -707,6 +707,19 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
 **Central de Documentos dentro do ERP:** menu **Documentos → Gerar documento** (ou ⋯ → Documentos, contrato, recibo do Financeiro).
 **Ctrl + clique** (ou botão do meio do mouse) em qualquer item do menu ou link de documento abre numa aba nova.
 
+## Backup 64 — Tela-modelo v5 (só documentos; o sistema não muda)
+1. Merge da pull request.
+2. SQL: não precisa. Ctrl+Shift+R: não precisa (nada mudou nas telas).
+
+O que entrou: a tela-modelo com as suas respostas à v4 (texto menor, letra do ERP.html em teste, nome sem negrito, sem a coluna "Situação",
+vencimento colorido, "Pago em" na Baixa) e uma 2ª tela de exemplo, Financeiro · Honorários (seletor "Tela" no alto).
+Link: https://claude.ai/artifact/T1Mbpimj7Fh5E2ZyviaDmY
+
+**Importante — deixar o repositório privado** (hoje ele está público na internet):
+1. GitHub → repositório **ERP** → **Settings** (engrenagem, no alto).
+2. Role até o fim: **Danger Zone** → **Change repository visibility** → **Change visibility**.
+3. Escolha **Make private**, digite o nome pedido e confirme. A Vercel continua publicando normalmente.
+
 ## Backup 63 — Reforma, etapa 2: base nova do visual (sem SQL; nenhuma função nova)
 1. Merge da pull request.
 2. SQL: não precisa.

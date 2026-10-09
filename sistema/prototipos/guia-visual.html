@@ -15,7 +15,7 @@
   --lado-bg:#173B66;--lado-borda:transparent;--lado-fg:#FFFFFF;--lado-fg2:rgba(255,255,255,.82);--lado-sec:rgba(255,255,255,.55);--lado-ativo-bg:#FFFFFF;--lado-ativo-fg:#173B66;--lado-hover:rgba(255,255,255,.09);
   --green:#1F7A48;--green-lt:#EBF6EF;--amber:#9A5A0B;--amber-lt:#FBF4E6;--red:#B73A3A;--red-lt:#FBEEEE;--blue:#2F5FAE;--blue-lt:#EDF2FA;--gray-lt:#F1F2F4;
   --overlay:rgba(17,24,39,.38);--shadow:0 1px 2px rgba(17,24,39,.04);--shadow-lg:0 24px 64px -16px rgba(17,24,39,.35);
-  --font:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--mono:'JetBrains Mono',ui-monospace,'Courier New',monospace;
+  --font:'DM Sans',system-ui,-apple-system,'Segoe UI',sans-serif;--mono:'JetBrains Mono',ui-monospace,'Courier New',monospace;
   --r:12px;--r-ctl:8px;
 }
 /* escuro = preto de verdade (aprovado); a lateral num azul-marinho escuro com borda, para não sumir */
@@ -38,7 +38,7 @@
 
 *{box-sizing:border-box}
 [hidden]{display:none!important}
-body{margin:0;background:var(--bg);color:var(--text);font:400 14px/1.45 var(--font);-webkit-font-smoothing:antialiased}
+body{margin:0;background:var(--bg);color:var(--text);font:400 13px/1.45 var(--font);-webkit-font-smoothing:antialiased}
 button,input,select,textarea{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--primario);outline-offset:2px}
 svg.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
@@ -66,9 +66,11 @@ svg.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stro
 .item.on{background:var(--lado-ativo-bg);color:var(--lado-ativo-fg);font-weight:700}
 .item .n{margin-left:auto;font-size:10.5px;font-weight:700;background:var(--red);color:#fff;border-radius:999px;padding:1px 6px}
 .sub-item{padding-left:36px}
+.item[data-tela]{cursor:pointer}
+.tela{display:flex;flex-direction:column;gap:16px}
 
 .topo{display:flex;align-items:center;gap:10px;padding:8px 20px;background:var(--surface);border-bottom:1px solid var(--border)}
-.topo .onde{font-weight:600;font-size:13.5px;color:var(--ink);min-width:110px}
+.topo .onde{font-weight:600;font-size:13px;color:var(--ink);min-width:110px}
 .busca-geral{flex:1;max-width:440px;margin:0 auto;display:flex;align-items:center;gap:8px;border:1px solid var(--border);background:var(--surface2);border-radius:var(--r-ctl);padding:6px 10px;color:var(--text3);font-size:13px}
 .busca-geral kbd{margin-left:auto;font:500 11px var(--font);border:1px solid var(--border);border-radius:5px;padding:1px 6px;background:var(--surface);color:var(--text3)}
 .ic-bt{width:32px;height:32px;display:grid;place-items:center;border:1px solid var(--border);border-radius:var(--r-ctl);background:var(--surface);color:var(--text2);cursor:pointer}
@@ -84,13 +86,13 @@ svg.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stro
 .cab{display:flex;gap:14px;align-items:flex-start}
 .cab-ic{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;background:var(--primario-lt);color:var(--primario);border:1px solid var(--border)}
 .cab-ic svg.i{width:21px;height:21px}
-.cab h1{margin:0;font-size:22px;line-height:1.2;font-weight:700;color:var(--ink);letter-spacing:-.015em;text-wrap:balance}
-.cab p{margin:3px 0 0;color:var(--text3);font-size:13.5px}
+.cab h1{margin:0;font-size:19px;line-height:1.2;font-weight:700;color:var(--ink);letter-spacing:-.015em;text-wrap:balance}
+.cab p{margin:2px 0 0;color:var(--text3);font-size:12.5px}
 .cab-acoes{margin-left:auto;display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
 .link-bt{display:inline-flex;align-items:center;gap:6px;border:0;background:none;color:var(--text2);font-weight:600;font-size:13px;cursor:pointer;padding:6px 4px}
 .link-bt:hover{color:var(--primario)}
 .selo{font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--gray-lt);color:var(--text2)}
-.bt{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:1px solid transparent;border-radius:var(--r-ctl);padding:8px 14px;font-weight:600;font-size:13.5px;cursor:pointer;white-space:nowrap}
+.bt{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:1px solid transparent;border-radius:var(--r-ctl);padding:7px 13px;font-weight:600;font-size:13px;cursor:pointer;white-space:nowrap}
 .bt-p{background:var(--primario);color:var(--on-primario)}
 .bt-p:hover{background:var(--primario-hover)}
 .bt-o{background:var(--surface);border-color:var(--border);color:var(--text)}
@@ -104,15 +106,15 @@ svg.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stro
 .kpi-ic{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;border:1px solid var(--border);flex:none}
 .kpi-ic.r{color:var(--red);background:var(--red-lt)}.kpi-ic.b{color:var(--blue);background:var(--blue-lt)}.kpi-ic.g{color:var(--green);background:var(--green-lt)}.kpi-ic.a{color:var(--amber);background:var(--amber-lt)}
 .kpi-tx{min-width:0;flex:1;display:flex;flex-direction:column;gap:1px}
-.kpi .l{color:var(--text2);font-size:13px;font-weight:500}
-.kpi .v{font-size:24px;font-weight:700;color:var(--ink);letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1.2;white-space:nowrap}
+.kpi .l{color:var(--text2);font-size:12.5px;font-weight:500}
+.kpi .v{font-size:20px;font-weight:700;color:var(--ink);letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1.2;white-space:nowrap}
 .kpi .v.r{color:var(--red)}
-.kpi .v small{font-size:13px;font-weight:600;color:var(--text3);letter-spacing:0}
-.kpi .s{color:var(--text3);font-size:12px}
+.kpi .v small{font-size:12px;font-weight:600;color:var(--text3);letter-spacing:0}
+.kpi .s{color:var(--text3);font-size:11.5px}
 .kpi .s b{color:var(--text2);font-weight:600}
 .dupla{display:flex;flex-direction:column;gap:1px;margin-top:2px}
 .dupla>div{display:flex;align-items:baseline;gap:6px;min-width:0}
-.dupla .v{font-size:17px}
+.dupla .v{font-size:14.5px}
 .dupla .v.g{color:var(--green)}
 .barra{height:6px;border-radius:999px;background:var(--gray-lt);overflow:hidden;margin:8px 0 4px}
 .barra span{display:block;height:100%;background:var(--green);border-radius:999px}
@@ -121,7 +123,7 @@ svg.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stro
 /* 3. abas + filtros na mesma linha (sem cartão) */
 .barra-abas{display:flex;align-items:flex-end;gap:12px;border-bottom:1px solid var(--border);flex-wrap:wrap}
 .abas{display:flex;flex-wrap:wrap;gap:2px}   /* sem overflow: no Windows a rolagem aparecia como setinhas ↑↓ */
-.aba{border:0;background:none;padding:9px 12px;font-weight:600;font-size:13.5px;color:var(--text3);border-bottom:2px solid transparent;margin-bottom:-1px;cursor:pointer;white-space:nowrap}
+.aba{border:0;background:none;padding:8px 11px;font-weight:600;font-size:13px;color:var(--text3);border-bottom:2px solid transparent;margin-bottom:-1px;cursor:pointer;white-space:nowrap}
 .aba:hover{color:var(--ink)}
 .aba[aria-selected="true"]{color:var(--primario);border-bottom-color:var(--primario)}
 .aba .c{display:inline-block;min-width:20px;margin-left:4px;font-size:11.5px;font-weight:700;padding:0 6px;border-radius:999px;background:var(--gray-lt);color:var(--text3)}
@@ -136,7 +138,7 @@ svg.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stro
 /* 4. tabela leve */
 .quadro{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden}
 .quadro-hd{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
-.quadro-hd h2{margin:0;font-size:15px;font-weight:700;color:var(--ink)}
+.quadro-hd h2{margin:0;font-size:14px;font-weight:700;color:var(--ink)}
 .quadro-hd .resumo{margin-left:auto;color:var(--text3);font-size:12.5px;font-variant-numeric:tabular-nums}
 .quadro-hd .resumo b{color:var(--ink)}
 .quadro-pe{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 16px;border-top:1px solid var(--line);color:var(--text3);font-size:12.5px;flex-wrap:wrap}
@@ -147,13 +149,13 @@ table{width:100%;border-collapse:collapse}
 .t-parc{min-width:980px}
 .t-parc .c-emp{width:26%}
 th{text-align:left;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);padding:10px;border-bottom:1px solid var(--line);background:var(--surface);white-space:nowrap}
-td{padding:11px 10px;border-bottom:1px solid var(--line);vertical-align:middle;color:var(--text);font-size:13.5px}
+td{padding:10px;border-bottom:1px solid var(--line);vertical-align:middle;color:var(--text);font-size:13px}
 tbody tr.cl{cursor:pointer}
 tbody tr.cl:hover td{background:var(--hover)}
 tbody tr:last-child td{border-bottom:0}
 .dir{text-align:right}.cen{text-align:center}
 .g-txt{color:var(--text2);font-weight:500;min-width:96px}
-.nome{font-weight:600;color:var(--ink)}
+.nome{font-weight:400;color:var(--ink)}   /* nome sem negrito — padrão de todo o sistema */
 .doc{display:block;font:400 11.5px var(--mono);color:var(--text3);margin-top:2px;letter-spacing:-.01em;white-space:nowrap}
 .num{font:400 12px var(--mono);color:var(--text3);white-space:nowrap}
 .val{font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -161,6 +163,8 @@ tbody tr:last-child td{border-bottom:0}
 .dt small{display:block;font-size:12px;color:var(--text3)}
 .dt small.r{color:var(--red);font-weight:600}
 .dt small.g{color:var(--green)}
+.dt.v-atr,.dt.v-atr small{color:var(--red)!important;font-weight:600}
+.dt.v-av,.dt.v-av small{color:var(--blue)!important}
 .plat{display:inline-block;font-size:12px;font-weight:600;color:var(--text2);white-space:nowrap}
 .pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px;white-space:nowrap}
 .pill::before{content:"";width:6px;height:6px;border-radius:999px;background:currentColor}
@@ -181,8 +185,8 @@ tbody tr:last-child td{border-bottom:0}
 
 /* 12. situação dos parcelamentos por cliente (aprovada) */
 .sit-cab{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap}
-.sec-tit{margin:10px 0 -6px;font-size:17px;font-weight:700;color:var(--ink)}
-.sit-cab h2{margin:0;font-size:17px;font-weight:700;color:var(--ink)}
+.sec-tit{margin:10px 0 -6px;font-size:15px;font-weight:700;color:var(--ink)}
+.sit-cab h2{margin:0;font-size:15px;font-weight:700;color:var(--ink)}
 .sit-cab p{margin:2px 0 0;color:var(--text3);font-size:13px}
 .chips{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
 .chip{border:1px solid var(--border);background:var(--surface);color:var(--text2);border-radius:999px;padding:5px 12px;font-size:12.5px;font-weight:600;cursor:pointer}
@@ -193,11 +197,11 @@ tbody tr:last-child td{border-bottom:0}
 .cg[aria-expanded="true"]{border-color:var(--primario);box-shadow:0 0 0 3px var(--anel)}
 .cg.atr::before{content:"";position:absolute;left:-1px;top:12px;bottom:12px;width:3px;border-radius:0 3px 3px 0;background:var(--red)}
 .cg-hd{display:flex;align-items:center;gap:8px}
-.cg-hd b{font-size:14.5px;color:var(--ink)}
+.cg-hd b{font-size:13.5px;color:var(--ink)}
 .cg-hd .pill{margin-left:auto}
 .cg-sub{font-size:12px;color:var(--text3)}
 .cg .barra{margin:4px 0 2px}
-.cg-lin{display:flex;justify-content:space-between;gap:10px;font-size:13px;color:var(--text2)}
+.cg-lin{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;color:var(--text2)}
 .cg-lin b{color:var(--ink);font-variant-numeric:tabular-nums}
 .cg-lin b.g{color:var(--green)}
 .det{grid-column:1/-1}
@@ -215,7 +219,7 @@ tbody tr:last-child td{border-bottom:0}
 @keyframes esmaece{from{opacity:0}to{opacity:1}}
 .j-hd{display:flex;gap:12px;align-items:flex-start;padding:18px 22px 14px;border-bottom:1px solid var(--line)}
 .j-hd .kick{display:block;font-size:12px;font-weight:600;color:var(--primario);margin-bottom:2px}
-.j-hd b{display:block;font-size:17px;line-height:1.3;color:var(--ink);letter-spacing:-.01em}
+.j-hd b{display:block;font-size:16px;line-height:1.3;color:var(--ink);letter-spacing:-.01em}
 .j-hd small{display:block;color:var(--text3);font-size:12.5px;margin-top:2px}
 .j-hd .dir-hd{margin-left:auto;display:flex;align-items:center;gap:10px}
 .fechar{width:32px;height:32px;display:grid;place-items:center;border:0;border-radius:999px;background:none;color:var(--text3);cursor:pointer;flex:none}
@@ -231,7 +235,7 @@ tbody tr:last-child td{border-bottom:0}
 .mini{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
 .mini>div{border:1px solid var(--border);border-radius:10px;padding:10px 12px}
 .mini span{display:block;font-size:11.5px;color:var(--text3)}
-.mini b{display:block;font-size:15px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}
+.mini b{display:block;font-size:14px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}
 .mini b small{font-weight:500;color:var(--text3);font-size:12px}
 .mini b.g{color:var(--green)}.mini b.r{color:var(--red)}
 .mini .barra{margin:6px 0 0}
@@ -240,7 +244,7 @@ tbody tr:last-child td{border-bottom:0}
 .lista-parc{border:1px solid var(--border);border-radius:10px;max-height:340px;overflow:auto}
 .lista-parc table{min-width:620px}
 .lista-parc th{position:sticky;top:0;z-index:1}
-.lista-parc td{padding:8px 10px;font-size:13px}
+.lista-parc td{padding:8px 10px;font-size:12.5px}
 .lista-parc tr.pg td,.lista-parc tr.pg .val{color:var(--text3)}
 .lista-parc tr.pg .val{font-weight:600}
 .lista-parc tr.atr td{background:var(--red-lt)}
@@ -258,7 +262,7 @@ tbody tr:last-child td{border-bottom:0}
 .bloco h3::after{content:"";flex:1;height:1px;background:var(--line)}
 .campo{display:flex;flex-direction:column;gap:5px;min-width:0}
 .campo label,.campo .rot{font-size:12.5px;font-weight:600;color:var(--text2)}
-.campo .ctl{height:38px;font-size:13.5px;padding:0 11px}
+.campo .ctl{height:36px;font-size:13px;padding:0 11px}
 textarea.ctl{height:72px!important;padding:9px 11px!important;resize:vertical}
 .dois{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .opcoes{display:inline-flex;border:1px solid var(--border);border-radius:var(--r-ctl);padding:3px;background:var(--surface2);gap:2px;width:100%}
@@ -281,8 +285,9 @@ textarea.ctl{height:72px!important;padding:9px 11px!important;resize:vertical}
 .aviso b{color:var(--amber)}
 
 /* opção "como hoje no ERP": cabeçalho das tabelas em Playfair e números em JetBrains (Backup 57) */
-.letra-erp th{font-family:'Playfair Display',Georgia,serif;font-size:12px;letter-spacing:0;text-transform:none;color:var(--text2)}
-.letra-erp td.val,.letra-erp td.dt,.letra-erp .cg-lin b,.letra-erp .kpi .v,.letra-erp .mini b{font-family:var(--mono);letter-spacing:-.02em}
+.letra-erp th{font-family:'Playfair Display',Georgia,serif;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:none;color:var(--text2)}
+.letra-erp td.val,.letra-erp td.dt,.letra-erp .cg-lin b,.letra-erp .kpi .v,.letra-erp .mini b,.letra-erp .pago-em{font-family:var(--mono);letter-spacing:-.01em}
+.letra-erp td.val,.letra-erp td.dt{font-size:12px}
 .letra-erp td.dt small,.letra-erp .kpi .v small,.letra-erp .mini b small{font-family:var(--font);letter-spacing:0}
 
 @media (max-width:1240px){.kpis{grid-template-columns:1fr 1fr}}
@@ -332,16 +337,21 @@ textarea.ctl{height:72px!important;padding:9px 11px!important;resize:vertical}
 </svg>
 
 <div class="guia">
-  <div><b>Guia visual · versão 4</b> <span>Dados fictícios (hoje = 09/10/2026). Clique nas linhas, em "Baixa", nas abas, nos cartões dos grupos e nos parcelamentos.</span></div>
+  <div><b>Guia visual · versão 5</b> <span>Dados fictícios (hoje = 09/10/2026). Clique nas linhas, em "Baixa", nas abas, nos cartões dos grupos e nos parcelamentos.</span></div>
   <div class="guia-ctl">
+    <label>Tela</label>
+    <div class="seg" role="group" aria-label="Tela" id="telas">
+      <button type="button" data-tela="parc" aria-pressed="true">Parcelamentos</button>
+      <button type="button" data-tela="fin" aria-pressed="false">Financeiro · Honorários</button>
+    </div>
     <label>Letra</label>
     <div class="seg" role="group" aria-label="Letra" id="letras">
-      <button type="button" data-f="'Inter'" aria-pressed="true">Inter (escolhida)</button>
+      <button type="button" data-f="'DM Sans'" data-erp="1" aria-pressed="true">ERP.html (teste)</button>
+      <button type="button" data-f="'Inter'" aria-pressed="false">Inter (no sistema hoje)</button>
       <button type="button" data-f="'IBM Plex Sans'" aria-pressed="false">IBM Plex</button>
       <button type="button" data-f="'Source Sans 3'" aria-pressed="false">Source Sans</button>
       <button type="button" data-f="'Roboto'" aria-pressed="false">Roboto</button>
       <button type="button" data-f="'DM Sans'" aria-pressed="false">DM Sans</button>
-      <button type="button" data-f="'DM Sans'" data-erp="1" aria-pressed="false">Como hoje (ERP.html)</button>
     </div>
     <label>Tema</label>
     <div class="seg" role="group" aria-label="Tema">
@@ -360,9 +370,9 @@ textarea.ctl{height:72px!important;padding:9px 11px!important;resize:vertical}
     <div class="sec">MÓDULOS</div>
     <div class="item"><svg class="i"><use href="#i-scale"/></svg>Jurídico</div>
     <div class="item sub-item">Processos</div>
-    <div class="item sub-item on">Parcelamentos</div>
+    <div class="item sub-item on" data-tela="parc">Parcelamentos</div>
     <div class="item sub-item">Publicações</div>
-    <div class="item"><svg class="i"><use href="#i-money"/></svg>Financeiro</div>
+    <div class="item" data-tela="fin"><svg class="i"><use href="#i-money"/></svg>Financeiro</div>
     <div class="item"><svg class="i"><use href="#i-users"/></svg>Clientes</div>
     <div class="item"><svg class="i"><use href="#i-folder"/></svg>Documentos</div>
   </nav>
@@ -377,6 +387,7 @@ textarea.ctl{height:72px!important;padding:9px 11px!important;resize:vertical}
     </header>
 
     <main class="corpo">
+      <div class="tela" id="tela-parc">
       <div class="cab">
         <div class="cab-ic"><svg class="i"><use href="#i-layers"/></svg></div>
         <div><h1>Parcelamentos</h1><p>Parcelas dos clientes no eCAC, Regularize e SIARE, por vencimento</p></div>
@@ -411,17 +422,38 @@ textarea.ctl{height:72px!important;padding:9px 11px!important;resize:vertical}
       </div>
       <div id="area-tabela"></div>
 
+      </div>
+      <div class="tela" id="tela-fin" hidden>
+        <div class="cab">
+          <div class="cab-ic"><svg class="i"><use href="#i-money"/></svg></div>
+          <div><h1>Honorários · Jurídico</h1><p>O que os clientes pagam ao escritório: contratos, mensalidades e êxito</p></div>
+          <div class="cab-acoes">
+            <button class="link-bt" type="button"><svg class="i"><use href="#i-refresh"/></svg>Atualizar</button>
+            <button class="bt bt-p" type="button" id="fin-novo"><svg class="i"><use href="#i-plus"/></svg>Lançar honorário</button>
+          </div>
+        </div>
+        <div class="kpis" id="fin-kpis"></div>
+        <div class="barra-abas">
+          <div class="abas" role="tablist" id="fin-abas"></div>
+          <div class="filtros">
+            <label class="ctl-busca"><svg class="i"><use href="#i-search"/></svg><input id="fin-busca" placeholder="Cliente, CPF/CNPJ ou contrato" aria-label="Buscar"></label>
+            <select class="ctl" id="fin-grupo" aria-label="Grupo"><option value="">Todos os grupos</option></select>
+            <select class="ctl" id="fin-tipo" aria-label="Tipo"><option value="">Todos os tipos</option><option>Mensalidade</option><option>Parcela de contrato</option><option>Êxito</option></select>
+          </div>
+        </div>
+        <div id="fin-tabela"></div>
+      </div>
+
       <section class="regras" aria-labelledby="regras-t">
-        <h2 id="regras-t">O que mudou da versão 3 para esta</h2>
-        <p>Cada número é a sua orientação.</p>
+        <h2 id="regras-t">O que mudou da versão 4 para esta</h2>
+        <p>Cada número é a sua orientação. Use "Tela" na faixa de cima para ver o mesmo padrão no Financeiro.</p>
         <ol>
-          <li><b>Ordem:</b> primeiro a situação dos parcelamentos por cliente; depois as parcelas (Em atraso, A vencer, Pagas).</li>
-          <li><b>Abas sem as setinhas</b> ↑↓ que apareciam ao lado de "Pagas".</li>
-          <li><b>Tabela com ~12 linhas à vista</b>; o resto aparece rolando dentro dela (o cabeçalho fica parado).</li>
-          <li><b>Lista do grupo:</b> a coluna "Situação" mostra em vermelho quantas parcelas estão em atraso, ou "Em dia" em verde.</li>
-          <li><b>Emitir na janela do parcelamento:</b> botão "Emitir" em cada guia não emitida e "Emitir guias (n)" no rodapé, para as vencidas e as do mês.</li>
-          <li><b>Todo pagamento pede confirmação:</b> "Baixa" (e "Paga" na edição da parcela) abre a janela "Confirmar pagamento" com a data; nada é lançado antes do "Confirmar".</li>
-          <li><b>Letra:</b> Inter (escolhida).</li>
+          <li><b>Texto menor:</b> títulos, cartões, abas e tabelas desceram 1 a 4 px (corpo 13 px).</li>
+          <li><b>Letra da tabela do ERP.html em teste:</b> DM Sans no texto, Playfair Display no cabeçalho das tabelas e JetBrains Mono em valores, datas e números. "Inter" continua no seletor para comparar.</li>
+          <li><b>Nome da empresa sem negrito</b> (vale para o sistema todo).</li>
+          <li><b>Sem a coluna "Situação":</b> o vencimento já diz tudo. Em atraso (inclui hoje) = data e dias em <b>vermelho</b>; a vencer = data e prazo em <b>azul</b>; paga = data normal.</li>
+          <li><b>Paga:</b> o "paga em" saiu do vencimento e foi para a coluna Baixa: "✓ Pago em 04/10".</li>
+          <li><b>Nova tela de exemplo:</b> Financeiro · Honorários, com as mesmas peças (cartões, abas com filtros, vencimento colorido, Recebido em, confirmação antes de receber).</li>
         </ol>
       </section>
     </main>
@@ -434,6 +466,7 @@ textarea.ctl{height:72px!important;padding:9px 11px!important;resize:vertical}
 <div class="aviso-tx" id="toast" hidden></div>
 
 <script>
+document.documentElement.classList.add('letra-erp');   // teste: as letras da tabela de parcelamentos do ERP.html
 (function(){
   var DIA = 864e5, HOJE = new Date(2026, 9, 9);
   function dataNoMes(a, m, d){ var u = new Date(a, m + 1, 0).getDate(); return new Date(a, m, Math.min(d, u)); }
@@ -479,13 +512,9 @@ textarea.ctl{height:72px!important;padding:9px 11px!important;resize:vertical}
   var todas = function(){ return [].concat.apply([], PARC.map(function(p){ return p.parcelas; })); };
   var aba = 'atraso', grupoAberto = 'Grupo Serra Azul', filtroChip = 'todos';
 
-  function situacao(x){
-    if (x.pagoEm) return '<span class="pill p-pago">Pago</span>';
-    if (x.venc <= HOJE) return '<span class="pill p-atraso">Em atraso</span>';
-    return '<span class="pill p-avencer">A vencer</span>';
-  }
+  function corVenc(x){ return x.pagoEm ? '' : (x.venc <= HOJE ? ' v-atr' : ' v-av'); }
   function quando(x){
-    if (x.pagoEm) return '<small class="g">paga em '+fc(x.pagoEm)+'</small>';
+    if (x.pagoEm) return '';
     var d = dias(x);
     if (d === 0) return '<small class="r">vence hoje</small>';
     if (d > 0) return '<small class="r">'+d+' dia'+(d>1?'s':'')+' de atraso</small>';
@@ -548,7 +577,7 @@ textarea.ctl{height:72px!important;padding:9px 11px!important;resize:vertical}
     var soma = lin.reduce(function(s,x){ return s+x.v; },0), vis = lin;
     var tit = {atraso:'Parcelas em atraso (inclui as que vencem hoje)', avencer:'Todas as parcelas a vencer', pagas:'Todas as parcelas pagas'}[aba];
     area.innerHTML = '<div class="quadro"><div class="quadro-hd"><h2>'+tit+'</h2><span class="resumo">'+lin.length+' parcela'+(lin.length>1?'s':'')+' · <b>'+brl(soma)+'</b></span></div>'
-      +'<div class="rola rola-12"><table class="t-parc"><thead><tr><th>Grupo</th><th class="c-emp">Empresa</th><th>Plataforma</th><th>Natureza</th><th>Nº parcelamento</th><th>Parcela</th><th class="dir">Valor</th><th class="cen">Vencimento</th><th class="cen">Situação</th><th class="cen">Baixa</th></tr></thead><tbody>'
+      +'<div class="rola rola-12"><table class="t-parc"><thead><tr><th>Grupo</th><th class="c-emp">Empresa</th><th>Plataforma</th><th>Natureza</th><th>Nº parcelamento</th><th>Parcela</th><th class="dir">Valor</th><th class="cen">Vencimento</th><th class="cen">Baixa</th></tr></thead><tbody>'
       + vis.map(function(x){
         var p = x.p;
         return '<tr class="cl" tabindex="0" data-p="'+p.id+'" data-n="'+x.n+'" title="Clique para abrir e editar a parcela">'
@@ -559,9 +588,8 @@ textarea.ctl{height:72px!important;padding:9px 11px!important;resize:vertical}
           +'<td class="num">'+p.num+'</td>'
           +'<td class="dt">'+x.n+' de '+p.tot+'</td>'
           +'<td class="dir val">'+brl(x.v)+'</td>'
-          +'<td class="cen dt">'+fd(x.venc)+quando(x)+'</td>'
-          +'<td class="cen">'+situacao(x)+'</td>'
-          +'<td class="cen">'+(x.pagoEm ? '<span class="pago-em">✓ '+fc(x.pagoEm)+'</span>' : botaoBaixa(x))+'</td></tr>';
+          +'<td class="cen dt'+corVenc(x)+'">'+fd(x.venc)+quando(x)+'</td>'
+          +'<td class="cen">'+(x.pagoEm ? '<span class="pago-em">✓ Pago em '+fc(x.pagoEm)+'</span>' : botaoBaixa(x))+'</td></tr>';
       }).join('') + '</tbody></table></div>'
       + '</div>';
   }
@@ -624,10 +652,9 @@ textarea.ctl{height:72px!important;padding:9px 11px!important;resize:vertical}
     var linhas = p.parcelas.map(function(x){
       var cls = x.pagoEm ? 'pg' : (x.venc <= HOJE ? 'atr' : ''), id = '';
       if (!x.pagoEm && !ancora){ ancora = true; id = ' id="ancora"'; }
-      var pag = x.pagoEm ? '<span class="em ok">✓ Paga '+fc(x.pagoEm)+'</span>'
-        : (x.venc <= HOJE ? '<span class="pill p-atraso">'+(dias(x)===0?'Vence hoje':'Vencida há '+dias(x)+' d')+'</span>' : '<span class="pill p-avencer">A vencer</span>');
-      return '<tr class="cl '+cls+'"'+id+' data-p="'+p.id+'" data-n="'+x.n+'" tabindex="0" title="Clique para editar esta parcela"><td class="dt">'+x.n+'/'+p.tot+'</td><td class="dt">'+fd(x.venc)+'</td><td class="dir val">'+brl(x.v)+'</td>'
-        +'<td>'+emissao(x, true)+'</td><td>'+pag+'</td><td class="cen">'+(x.pagoEm?'':botaoBaixa(x))+'</td></tr>';
+      var q = x.pagoEm ? '' : (dias(x) === 0 ? ' · vence hoje' : dias(x) > 0 ? ' · '+dias(x)+' d de atraso' : '');
+      return '<tr class="cl '+cls+'"'+id+' data-p="'+p.id+'" data-n="'+x.n+'" tabindex="0" title="Clique para editar esta parcela"><td class="dt">'+x.n+'/'+p.tot+'</td><td class="dt'+corVenc(x)+'">'+fd(x.venc)+q+'</td><td class="dir val">'+brl(x.v)+'</td>'
+        +'<td>'+emissao(x, true)+'</td><td class="cen">'+(x.pagoEm?'<span class="pago-em">✓ Pago em '+fc(x.pagoEm)+'</span>':botaoBaixa(x))+'</td></tr>';
     }).join('');
     abrir(cab('Parcelamento nº '+p.num, p.emp, esc(p.g)+' · '+p.plat+' · '+esc(p.nat), r.atr?'<span class="pill p-atraso">'+r.atr+' em atraso</span>':'<span class="pill p-pago">Em dia</span>')
       +'<div class="j-bd">'
@@ -636,8 +663,8 @@ textarea.ctl{height:72px!important;padding:9px 11px!important;resize:vertical}
       +'<div class="mini"><div><span>Parcelas pagas</span><b>'+r.pg+' de '+p.tot+' <small>('+pc+'%)</small></b><div class="barra"><span style="width:'+pc+'%"></span></div></div>'
         +'<div><span>Já quitado</span><b class="g">'+brl(r.quitado)+'</b></div><div><span>Falta pagar</span><b>'+brl(r.falta)+'</b></div>'
         +'<div><span>Próxima parcela</span><b>'+(r.prox?fd(r.prox.venc):'—')+'</b></div><div><span>Em atraso</span><b class="'+(r.atr?'r':'')+'">'+(r.atr?r.atr+' parcela'+(r.atr>1?'s':''):'nenhuma')+'</b></div></div>'
-      +'<p class="tit-sec">Parcelas <small>clique numa parcela para editar · as pagas ficam em cinza, as vencidas em vermelho</small></p>'
-      +'<div class="lista-parc"><table><thead><tr><th>Parcela</th><th>Vencimento</th><th class="dir">Valor</th><th>Emissão</th><th>Pagamento</th><th class="cen">Baixa</th></tr></thead><tbody>'+linhas+'</tbody></table></div>'
+      +'<p class="tit-sec">Parcelas <small>clique numa parcela para editar · vencimento em vermelho = em atraso, em azul = a vencer</small></p>'
+      +'<div class="lista-parc"><table><thead><tr><th>Parcela</th><th>Vencimento</th><th class="dir">Valor</th><th>Emissão</th><th class="cen">Baixa</th></tr></thead><tbody>'+linhas+'</tbody></table></div>'
       +'</div>'
       +'<div class="j-pe"><button class="bt bt-g esq" type="button" data-editar-parc="'+p.id+'">Editar dados do parcelamento</button>'+(paraEmitir(p).length?'<button class="bt bt-o" type="button" data-emitir-todas="'+p.id+'">'+ic('i-doc')+'Emitir guias ('+paraEmitir(p).length+')</button>':'')+'<button class="bt bt-o" type="button" data-fechar>Fechar</button></div>', true);
     var a = jan.querySelector('#ancora'), box = jan.querySelector('.lista-parc');
@@ -766,6 +793,103 @@ textarea.ctl{height:72px!important;padding:9px 11px!important;resize:vertical}
   $('tema-escuro').onclick = function(){ tema('dark'); };
   $('tema-topo').onclick = function(){ tema(raiz.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'); };
 
-  tudo();
+  /* ═══ Financeiro · Honorários (mesmo padrão) ═══ */
+  var CLI = [
+    ['Grupo Horizonte','Comercial Horizonte de Alimentos Ltda','12.345.678/0001-90','Mensalidade','Consultoria tributária mensal',2800,5,0],
+    ['Grupo Horizonte','Horizonte Logística e Transportes Eireli','23.456.789/0001-01','Parcela de contrato','Defesa em execução fiscal',4500,10,6],
+    ['Grupo Serra Azul','Serra Azul Comércio de Materiais de Construção Ltda','45.678.901/0001-23','Mensalidade','Consultoria tributária mensal',3200,10,0],
+    ['Grupo Serra Azul','Serra Azul Serviços Ltda','56.789.012/0001-34','Parcela de contrato','Transação tributária PGFN',6000,20,5],
+    ['Grupo Vale Verde','Vale Verde Indústria de Embalagens S.A.','34.567.890/0001-12','Mensalidade','Consultoria tributária mensal',5400,9,0],
+    ['Grupo Vale Verde','Mariana de Souza Vale','123.456.789-09','Parcela de contrato','Inventário extrajudicial',2500,15,4],
+    ['Grupo Ipê Amarelo','Ipê Amarelo Farmácia de Manipulação Ltda','67.890.123/0001-45','Mensalidade','Consultoria tributária mensal',1900,5,0],
+    ['Grupo Ipê Amarelo','Ipê Amarelo Farmácia de Manipulação Ltda','67.890.123/0001-45','Êxito','Êxito — restituição de PIS/COFINS',18500,25,1]
+  ];
+  var LANC = [];
+  CLI.forEach(function(c, ci){
+    var tot = c[7] || 0, n = 0;
+    for (var m = -6; m <= 5; m++){
+      if (tot && ++n > tot) break;
+      var venc = dataNoMes(2026, 9 + m, c[6]);
+      if (c[3] === 'Êxito' && m !== 0) continue;
+      var atrasa = (ci === 1 && m === -1) || (ci === 3 && m === -1) || (ci === 5 && m === -3) || (ci === 4 && m === 0);
+      var pago = venc < HOJE && !atrasa ? new Date(venc - ((ci + m + 12) % 3) * DIA) : null;
+      LANC.push({id:LANC.length, g:c[0], cli:c[1], doc:c[2], tipo:c[3], desc:c[4], v:c[5], venc:venc, n:tot ? n : 0, tot:tot, recEm:pago});
+    }
+  });
+  var finAba = 'atraso';
+  var estF = function(l){ return l.recEm ? 'recebidos' : (l.venc <= HOJE ? 'atraso' : 'areceber'); };
+  function finKpis(){
+    var mes = LANC.filter(doMes), rec = mes.filter(function(l){ return l.recEm; }), arec = mes.filter(function(l){ return !l.recEm && l.venc > HOJE; });
+    var atr = LANC.filter(function(l){ return estF(l) === 'atraso'; });
+    var soma = function(a){ return a.reduce(function(s, l){ return s + l.v; }, 0); };
+    var prev = soma(mes), pc = prev ? Math.round(soma(rec) / prev * 100) : 0;
+    $('fin-kpis').innerHTML =
+      '<div class="kpi"><div class="kpi-ic g">'+ic('i-checkc')+'</div><div class="kpi-tx"><div class="l">Recebido no mês</div><div class="v" style="color:var(--green)">'+brl(soma(rec))+'</div><div class="s">'+rec.length+(rec.length === 1 ? ' honorário recebido' : ' honorários recebidos')+'</div></div></div>'
+     +'<div class="kpi"><div class="kpi-ic b">'+ic('i-cal')+'</div><div class="kpi-tx"><div class="l">A receber no mês</div><div class="v">'+brl(soma(arec))+'</div><div class="s">'+arec.length+(arec.length === 1 ? ' ainda vai' : ' ainda vão')+' vencer em outubro</div></div></div>'
+     +'<div class="kpi"><div class="kpi-ic r">'+ic('i-alert')+'</div><div class="kpi-tx"><div class="l">Em atraso</div><div class="v r">'+brl(soma(atr))+'</div><div class="s">'+atr.length+(atr.length === 1 ? ' honorário' : ' honorários')+' · contando os de hoje</div></div></div>'
+     +'<div class="kpi"><div class="kpi-ic a">'+ic('i-pie')+'</div><div class="kpi-tx"><div class="l">Recebido do previsto no mês</div><div class="v">'+pc+'% <small>de '+brl(prev)+'</small></div>'
+       +'<div class="barra" title="'+pc+'%"><span style="width:'+pc+'%"></span></div><div class="s">quanto de outubro já entrou</div></div></div>';
+  }
+  function finAbas(){
+    var c = {atraso:0, areceber:0, recebidos:0}; LANC.forEach(function(l){ c[estF(l)]++; });
+    var rot = {atraso:'Em atraso', areceber:'A receber', recebidos:'Recebidos'};
+    $('fin-abas').innerHTML = ['atraso','areceber','recebidos'].map(function(k){
+      return '<button class="aba" role="tab" type="button" data-aba="'+k+'" aria-selected="'+(k===finAba)+'">'+rot[k]+'<span class="c">'+c[k]+'</span></button>'; }).join('');
+  }
+  function finTabela(){
+    var q = $('fin-busca').value.trim().toLowerCase(), g = $('fin-grupo').value, tp = $('fin-tipo').value;
+    var lin = LANC.filter(function(l){ return estF(l) === finAba && (!g || l.g === g) && (!tp || l.tipo === tp) && (!q || (l.cli+' '+l.doc+' '+l.desc).toLowerCase().indexOf(q) >= 0); })
+      .sort(function(a, b){ return finAba === 'recebidos' ? b.recEm - a.recEm : a.venc - b.venc; });
+    if (!lin.length){ $('fin-tabela').innerHTML = '<div class="quadro"><div class="vazio"><div class="vazio-ic">'+ic('i-search')+'</div><b>Nenhum honorário aqui</b><p>Nada nesta aba combina com a busca e os filtros escolhidos.</p></div></div>'; return; }
+    var soma = lin.reduce(function(s, l){ return s + l.v; }, 0);
+    var tit = {atraso:'Honorários em atraso (inclui os que vencem hoje)', areceber:'Todos os honorários a receber', recebidos:'Todos os honorários recebidos'}[finAba];
+    $('fin-tabela').innerHTML = '<div class="quadro"><div class="quadro-hd"><h2>'+tit+'</h2><span class="resumo">'+lin.length+' lançamento'+(lin.length>1?'s':'')+' · <b>'+brl(soma)+'</b></span></div>'
+      +'<div class="rola rola-12"><table class="t-parc"><thead><tr><th>Grupo</th><th class="c-emp">Cliente</th><th>Tipo</th><th>Descrição</th><th>Parcela</th><th class="dir">Valor</th><th class="cen">Vencimento</th><th class="cen">Baixa</th></tr></thead><tbody>'
+      + lin.map(function(l){
+        var d = Math.round((HOJE - l.venc) / DIA), cor = l.recEm ? '' : (l.venc <= HOJE ? ' v-atr' : ' v-av');
+        var qd = l.recEm ? '' : (d === 0 ? '<small>vence hoje</small>' : d > 0 ? '<small>'+d+' dia'+(d>1?'s':'')+' de atraso</small>' : '<small>em '+(-d)+' dia'+(-d>1?'s':'')+'</small>');
+        return '<tr class="cl" tabindex="0" data-lanc="'+l.id+'" title="Clique para abrir e editar o lançamento"><td class="g-txt">'+esc(l.g)+'</td><td><span class="nome">'+esc(l.cli)+'</span><span class="doc">'+l.doc+'</span></td>'
+          +'<td><span class="plat">'+l.tipo+'</span></td><td>'+esc(l.desc)+'</td><td class="dt">'+(l.tot ? l.n+' de '+l.tot : '—')+'</td><td class="dir val">'+brl(l.v)+'</td>'
+          +'<td class="cen dt'+cor+'">'+fd(l.venc)+qd+'</td>'
+          +'<td class="cen">'+(l.recEm ? '<span class="pago-em">✓ Recebido em '+fc(l.recEm)+'</span>' : '<button class="bt-baixa" type="button" data-receber="'+l.id+'">'+ic('i-check')+'Baixa</button>')+'</td></tr>';
+      }).join('') + '</tbody></table></div></div>';
+  }
+  function finTudo(){ finKpis(); finAbas(); finTabela(); }
+  function confirmarReceb(l){
+    abrir(cab('Confirmar recebimento', 'Lançar o recebimento deste honorário?', esc(l.cli))
+      +'<div class="j-bd"><div class="conf-resumo"><b>'+esc(l.desc)+(l.tot ? ' · parcela '+l.n+' de '+l.tot : '')+'</b><span>'+l.tipo+' · vencimento '+fd(l.venc)+'</span><span class="val">'+brl(l.v)+'</span></div>'
+      +'<div class="campo"><label for="r-data">Data do recebimento</label><input class="ctl" id="r-data" value="'+fd(HOJE)+'"><span class="traco" style="font-size:12px">Já vem com a data de hoje. Se o dinheiro entrou em outro dia, troque aqui.</span></div></div>'
+      +'<div class="j-pe"><button class="bt bt-o" type="button" data-fechar>Cancelar</button><button class="bt bt-p" type="button" id="r-ok">'+ic('i-check')+'Confirmar recebimento</button></div>');
+    jan.querySelector('#r-ok').onclick = function(){ l.recEm = new Date(HOJE); fechar(); finTudo();
+      aviso('Recebimento lançado — '+l.cli.split(' ').slice(0,2).join(' '), function(){ l.recEm = null; finTudo(); }); };
+  }
+  function editarLanc(l){
+    abrir(cab('Editar honorário', l.desc, esc(l.cli)+' · '+esc(l.g))
+      +'<div class="j-bd"><div class="ficha f2"><div><span>Cliente</span><b>'+esc(l.cli)+'</b></div><div><span>CPF / CNPJ</span><b class="m">'+l.doc+'</b></div><div><span>Tipo</span><b>'+l.tipo+'</b></div><div><span>Parcela</span><b>'+(l.tot ? l.n+' de '+l.tot : '—')+'</b></div></div>'
+      +'<div class="bloco"><h3>Lançamento</h3><div class="dois"><div class="campo"><label for="l-venc">Vencimento</label><input class="ctl" id="l-venc" value="'+fd(l.venc)+'"></div>'
+      +'<div class="campo"><label for="l-v">Valor</label><input class="ctl" id="l-v" value="'+brl(l.v)+'"></div></div>'
+      +'<div class="campo"><label for="l-d">Descrição</label><input class="ctl" id="l-d" value="'+esc(l.desc)+'"></div></div></div>'
+      +'<div class="j-pe">'+(l.recEm ? '' : '<button class="bt bt-g esq" type="button" id="l-receber">Receber agora</button>')+'<button class="bt bt-o" type="button" data-fechar>Cancelar</button><button class="bt bt-p" type="button" data-fechar>'+ic('i-check')+'Salvar</button></div>');
+    var r = jan.querySelector('#l-receber'); if (r) r.onclick = function(){ confirmarReceb(l); };
+  }
+  CLI.forEach(function(c){ if (![].some.call($('fin-grupo').options, function(o){ return o.value === c[0]; })) $('fin-grupo').insertAdjacentHTML('beforeend', '<option>'+esc(c[0])+'</option>'); });
+  $('fin-abas').addEventListener('click', function(e){ var b = e.target.closest('.aba'); if (!b) return; finAba = b.dataset.aba; finAbas(); finTabela(); });
+  ['fin-busca','fin-grupo','fin-tipo'].forEach(function(id){ $(id).addEventListener('input', finTabela); });
+  $('fin-tabela').addEventListener('click', function(e){
+    var b = e.target.closest('[data-receber]'); if (b) return confirmarReceb(LANC[+b.dataset.receber]);
+    var tr = e.target.closest('tr[data-lanc]'); if (tr) editarLanc(LANC[+tr.dataset.lanc]);
+  });
+  $('fin-novo').onclick = function(){ aviso('No sistema, abre a janela "Lançar honorário" no centro (mesmo desenho da janela de parcelamento).'); };
+  function irTela(t){
+    $('tela-parc').hidden = t !== 'parc'; $('tela-fin').hidden = t !== 'fin';
+    document.querySelectorAll('#telas button').forEach(function(x){ x.setAttribute('aria-pressed', x.dataset.tela === t); });
+    document.querySelectorAll('.lado .item').forEach(function(x){ x.classList.toggle('on', x.dataset.tela === t); });
+    document.querySelector('.topo .onde').textContent = t === 'fin' ? 'Financeiro · Jurídico' : 'Parcelamentos';
+    window.scrollTo(0, 0);
+  }
+  $('telas').addEventListener('click', function(e){ var b = e.target.closest('[data-tela]'); if (b) irTela(b.dataset.tela); });
+  document.querySelector('.lado').addEventListener('click', function(e){ var b = e.target.closest('[data-tela]'); if (b) irTela(b.dataset.tela); });
+
+  tudo(); finTudo();
 })();
 </script>
