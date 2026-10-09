@@ -15,7 +15,8 @@ const REGRAS = [
   ['fontSize', 'fontWeight', 'textAlign']],   // Backup 50: a cor do valor depende do tipo (receber verde, pagar vermelho)
   ['dias / atraso', 'td.col-dias', ['fontSize']],
   ['nome de cliente/empresa', 'td.col-nome', ['fontSize', 'fontWeight', 'textTransform']],
-  ['cabeçalho de tabela', TAB + ' > thead > tr > th', ['fontSize', 'fontWeight', 'backgroundColor', 'color', 'textTransform']],
+  // a planilha estreita da Rotina (Passivo) usa 10,5 px no cabeçalho de propósito (Backup 63: "Procur.", "Certif." e "Conferência" sem "…")
+  ['cabeçalho de tabela', TAB + ':not(.rt-grade *) > thead > tr > th', ['fontSize', 'fontWeight', 'backgroundColor', 'color', 'textTransform']],
   ['célula de tabela', TAB + ' > tbody > tr:not(.gx-grp):not(.gx-det) > td:not(.col-doc):not(.col-grupo):not(.col-num)', ['fontSize']],
   ['linha de baixo (sócio, descrição…)', TAB + ' > tbody > tr > td .sub', ['fontSize', 'color']],
   ['botão "✓ Baixa" da linha', 'td :is(.gx-la-bx,[data-pagar].btn-mini)', ['fontSize', 'fontWeight']],
