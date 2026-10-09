@@ -83,9 +83,9 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 
 ## Estado atual (atualizar a cada entrega)
 - **REFORMA EM ANDAMENTO (opção C, aprovada):** leia `sistema/PLANO-REFORMA.md` (tem as respostas do usuário ao guia) e `sistema/DIAGNOSTICO-REFORMA.md`
-  antes de mexer em tela. Backup 61 (só docs): guia v2 (`sistema/prototipos/guia-visual.html`, artifact https://claude.ai/artifact/T1Mbpimj7Fh5E2ZyviaDmY) + Etapa 1 feita.
+  antes de mexer em tela. Backup 62 (só docs): guia v3 (janela no CENTRO em vez de painel à direita, 4 cartões, 0 = vencido). Backup 61: guia v2 (`sistema/prototipos/guia-visual.html`, artifact https://claude.ai/artifact/T1Mbpimj7Fh5E2ZyviaDmY) + Etapa 1 feita.
   Próxima = usuário escolher a LETRA no seletor do guia e dar o OK da ordem → Etapa 2 (base nova: tokens, `cabecalhoTela`/`cartoesNumero`/`barraAbas`/
-  `tabelaLeve`/`painelLateral`, lateral 188 px, `--gut` 20 px, escuro preto) → Parcelamentos (primeira tela refeita).
+  `tabelaLeve`/`janelaCentral`, lateral 188 px, `--gut` 20 px, escuro preto) → Parcelamentos (primeira tela refeita).
 - Última entrega com mudança no app: **Backup 59** (só front; sem SQL). Cartões voltaram ao `--font-ui`: saíram do bloco B57 do design.css as regras `.card-hd/.cc-t/.sec-t/.ex-t/.erp-box-hd/.m-title` em
   `--font-tit` e `.kv` em `--font-num` (Playfair/JetBrains só em `thead th` e nas células numéricas das tabelas).
 - Backup 58 (base) (só front; sem SQL). Bloco "Backup 58" no fim do design.css: `col-valor` à direita; `col-venc/data/sit/dias` + `gx-th-acoes/gx-td-acoes` + `td.acoes-l` no centro; `td .sub/small/.er-socio` em `--font-ui`
