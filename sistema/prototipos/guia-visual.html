@@ -1,42 +1,45 @@
 <title>Guia Visual do ERP</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Source+Sans+3:wght@400;500;600;700&family=Roboto:wght@400;500;700&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Playfair+Display:wght@600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 <style>
-/* Etapa 0 da reforma: uma tela modelo (Parcelamentos) com o desenho único que todas as telas vão seguir.
-   Cores = tokens.css do ERP (claro e escuro). Uma letra só (DM Sans); a de máquina só em CPF/CNPJ e nº. */
+/* Etapa 0 da reforma — versão 2 (09/10/2026), com as orientações do usuário sobre a versão 1:
+   3 cartões (atraso · vencem no mês · quitado/falta), filtros numa barra junto das abas (sem cartão), "Em atraso" primeiro,
+   colunas Grupo · Empresa · Plataforma · Natureza · Nº · Parcela · Valor · Vencimento · Situação · Baixa (sem ✎: clique na linha edita),
+   painel lateral refeito, lateral 188 px, margens menores, escuro preto, "Situação dos parcelamentos" por cliente e letra à escolha. */
 :root{
-  --bg:#F0F2F7;--surface:#FFFFFF;--surface2:#F7F8FA;--hover:#F4F6F9;
-  --ink:#1D2329;--text:#1F2429;--text2:#454C53;--text3:#5E666D;
+  --bg:#F0F2F7;--surface:#FFFFFF;--surface2:#F6F7F9;--hover:#F3F5F8;
+  --ink:#1D2329;--text:#1F2429;--text2:#454C53;--text3:#646C74;
   --border:#E3E6E8;--line:#ECEEF0;
-  --primario:#1F4D80;--primario-hover:#173B66;--on-primario:#FFFFFF;--primario-lt:#EDF2FA;
-  --lado-bg:#173B66;--lado-fg:#FFFFFF;--lado-fg2:rgba(255,255,255,.82);--lado-sec:rgba(255,255,255,.55);--lado-ativo-bg:#FFFFFF;--lado-ativo-fg:#173B66;--lado-hover:rgba(255,255,255,.09);
+  --primario:#1F4D80;--primario-hover:#173B66;--on-primario:#FFFFFF;--primario-lt:#EDF2FA;--anel:rgba(31,77,128,.16);
+  --lado-bg:#173B66;--lado-borda:transparent;--lado-fg:#FFFFFF;--lado-fg2:rgba(255,255,255,.82);--lado-sec:rgba(255,255,255,.55);--lado-ativo-bg:#FFFFFF;--lado-ativo-fg:#173B66;--lado-hover:rgba(255,255,255,.09);
   --green:#1F7A48;--green-lt:#EBF6EF;--amber:#9A5A0B;--amber-lt:#FBF4E6;--red:#B73A3A;--red-lt:#FBEEEE;--blue:#2F5FAE;--blue-lt:#EDF2FA;--gray-lt:#F1F2F4;
-  --overlay:rgba(17,24,39,.36);--shadow:0 1px 3px rgba(17,24,39,.05);--shadow-lg:0 18px 48px -16px rgba(17,24,39,.28);
-  --font:'DM Sans','Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--mono:'JetBrains Mono',ui-monospace,'Courier New',monospace;
+  --overlay:rgba(17,24,39,.30);--shadow:0 1px 2px rgba(17,24,39,.04);--shadow-lg:-12px 0 40px -12px rgba(17,24,39,.22);
+  --font:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--mono:'JetBrains Mono',ui-monospace,'Courier New',monospace;
   --r:12px;--r-ctl:8px;
 }
+/* escuro = preto de verdade; a lateral fica num azul-marinho bem escuro, com borda, para não sumir no fundo */
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
-  --bg:#0D1117;--surface:#161B22;--surface2:#1C2128;--hover:#1F242C;
-  --ink:#F0F6FC;--text:#E6EDF3;--text2:#C9D1D9;--text3:#8B949E;
-  --border:#30363D;--line:#21262D;
-  --primario:#1F6FEB;--primario-hover:#1A5FCC;--on-primario:#FFFFFF;--primario-lt:rgba(56,139,253,.13);
-  --lado-bg:#010409;--lado-fg:#E6EDF3;--lado-fg2:#C9D1D9;--lado-sec:#7D8590;--lado-ativo-bg:#1F242C;--lado-ativo-fg:#79C0FF;--lado-hover:#161B22;
-  --green:#3FB950;--green-lt:rgba(63,185,80,.13);--amber:#D29922;--amber-lt:rgba(210,153,34,.13);--red:#F85149;--red-lt:rgba(248,81,73,.12);--blue:#58A6FF;--blue-lt:rgba(56,139,253,.13);--gray-lt:#21262D;
-  --overlay:rgba(1,4,9,.72);--shadow:none;--shadow-lg:0 0 0 1px #30363D,0 16px 48px rgba(1,4,9,.85);color-scheme:dark}}
+  --bg:#000000;--surface:#0B0B0D;--surface2:#121215;--hover:#16161A;
+  --ink:#F2F2F3;--text:#E6E6E8;--text2:#C2C2C7;--text3:#8C8C93;
+  --border:#26262B;--line:#1A1A1E;
+  --primario:#3D7FE0;--primario-hover:#3270CC;--on-primario:#FFFFFF;--primario-lt:rgba(61,127,224,.15);--anel:rgba(61,127,224,.30);
+  --lado-bg:#0F1B30;--lado-borda:#22324D;--lado-fg:#E8EDF5;--lado-fg2:#C3CCD9;--lado-sec:#7E8BA0;--lado-ativo-bg:#1C3050;--lado-ativo-fg:#8DB8FF;--lado-hover:#15243D;
+  --green:#3FB950;--green-lt:rgba(63,185,80,.14);--amber:#D8A02A;--amber-lt:rgba(216,160,42,.14);--red:#F2564D;--red-lt:rgba(242,86,77,.14);--blue:#6AA6FF;--blue-lt:rgba(106,166,255,.14);--gray-lt:#1A1A1E;
+  --overlay:rgba(0,0,0,.70);--shadow:none;--shadow-lg:0 0 0 1px #26262B,-16px 0 48px rgba(0,0,0,.9);color-scheme:dark}}
 :root[data-theme="dark"]{
-  --bg:#0D1117;--surface:#161B22;--surface2:#1C2128;--hover:#1F242C;
-  --ink:#F0F6FC;--text:#E6EDF3;--text2:#C9D1D9;--text3:#8B949E;
-  --border:#30363D;--line:#21262D;
-  --primario:#1F6FEB;--primario-hover:#1A5FCC;--on-primario:#FFFFFF;--primario-lt:rgba(56,139,253,.13);
-  --lado-bg:#010409;--lado-fg:#E6EDF3;--lado-fg2:#C9D1D9;--lado-sec:#7D8590;--lado-ativo-bg:#1F242C;--lado-ativo-fg:#79C0FF;--lado-hover:#161B22;
-  --green:#3FB950;--green-lt:rgba(63,185,80,.13);--amber:#D29922;--amber-lt:rgba(210,153,34,.13);--red:#F85149;--red-lt:rgba(248,81,73,.12);--blue:#58A6FF;--blue-lt:rgba(56,139,253,.13);--gray-lt:#21262D;
-  --overlay:rgba(1,4,9,.72);--shadow:none;--shadow-lg:0 0 0 1px #30363D,0 16px 48px rgba(1,4,9,.85);color-scheme:dark}
+  --bg:#000000;--surface:#0B0B0D;--surface2:#121215;--hover:#16161A;
+  --ink:#F2F2F3;--text:#E6E6E8;--text2:#C2C2C7;--text3:#8C8C93;
+  --border:#26262B;--line:#1A1A1E;
+  --primario:#3D7FE0;--primario-hover:#3270CC;--on-primario:#FFFFFF;--primario-lt:rgba(61,127,224,.15);--anel:rgba(61,127,224,.30);
+  --lado-bg:#0F1B30;--lado-borda:#22324D;--lado-fg:#E8EDF5;--lado-fg2:#C3CCD9;--lado-sec:#7E8BA0;--lado-ativo-bg:#1C3050;--lado-ativo-fg:#8DB8FF;--lado-hover:#15243D;
+  --green:#3FB950;--green-lt:rgba(63,185,80,.14);--amber:#D8A02A;--amber-lt:rgba(216,160,42,.14);--red:#F2564D;--red-lt:rgba(242,86,77,.14);--blue:#6AA6FF;--blue-lt:rgba(106,166,255,.14);--gray-lt:#1A1A1E;
+  --overlay:rgba(0,0,0,.70);--shadow:none;--shadow-lg:0 0 0 1px #26262B,-16px 0 48px rgba(0,0,0,.9);color-scheme:dark}
 
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 body{margin:0;background:var(--bg);color:var(--text);font:400 14px/1.45 var(--font);-webkit-font-smoothing:antialiased}
-button,input,select{font:inherit;color:inherit}
+button,input,select,textarea{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--primario);outline-offset:2px}
 svg.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
 
@@ -44,147 +47,225 @@ svg.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stro
 .guia{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between;padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--border)}
 .guia b{font-weight:700;color:var(--ink)}
 .guia span{color:var(--text3);font-size:13px}
-.seg{display:inline-flex;border:1px solid var(--border);border-radius:999px;padding:3px;background:var(--surface2)}
-.seg button{border:0;background:none;padding:5px 12px;border-radius:999px;cursor:pointer;font-size:13px;font-weight:600;color:var(--text2)}
+.guia-ctl{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
+.guia-ctl label{font-size:12px;font-weight:600;color:var(--text3)}
+.seg{display:inline-flex;flex-wrap:wrap;border:1px solid var(--border);border-radius:999px;padding:3px;background:var(--surface2)}
+.seg button{border:0;background:none;padding:5px 11px;border-radius:999px;cursor:pointer;font-size:12.5px;font-weight:600;color:var(--text2)}
 .seg button[aria-pressed="true"]{background:var(--primario);color:var(--on-primario)}
 
-/* moldura do sistema */
-.app{display:grid;grid-template-columns:220px minmax(0,1fr);min-height:860px}
+/* moldura do sistema — lateral mais estreita (188 px) e margens menores */
+.app{display:grid;grid-template-columns:188px minmax(0,1fr);min-height:900px}
 .app>div{min-width:0}
-.lado{background:var(--lado-bg);color:var(--lado-fg);padding:18px 10px;display:flex;flex-direction:column;gap:2px}
-.marca{font-weight:700;font-size:17px;padding:2px 10px 16px;letter-spacing:-.01em}
-.marca small{display:block;font-weight:500;font-size:11px;color:var(--lado-sec);letter-spacing:.02em}
-.sec{font-size:10.5px;font-weight:700;letter-spacing:.09em;color:var(--lado-sec);padding:14px 10px 6px}
-.item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;color:var(--lado-fg2);font-weight:500;font-size:13.5px}
+.lado{background:var(--lado-bg);color:var(--lado-fg);padding:14px 8px;display:flex;flex-direction:column;gap:1px;border-right:1px solid var(--lado-borda)}
+.marca{font-weight:700;font-size:15px;padding:2px 10px 12px;letter-spacing:-.01em;line-height:1.25}
+.marca small{display:block;font-weight:500;font-size:10.5px;color:var(--lado-sec);letter-spacing:.02em}
+.sec{font-size:10px;font-weight:700;letter-spacing:.09em;color:var(--lado-sec);padding:12px 10px 5px}
+.item{display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:7px;color:var(--lado-fg2);font-weight:500;font-size:13px}
+.item svg.i{width:17px;height:17px}
 .item:hover{background:var(--lado-hover)}
 .item.on{background:var(--lado-ativo-bg);color:var(--lado-ativo-fg);font-weight:700}
-.item .n{margin-left:auto;font-size:11px;font-weight:700;background:var(--red);color:#fff;border-radius:999px;padding:1px 7px}
-.sub-item{padding-left:38px}
+.item .n{margin-left:auto;font-size:10.5px;font-weight:700;background:var(--red);color:#fff;border-radius:999px;padding:1px 6px}
+.sub-item{padding-left:36px}
 
-.topo{display:flex;align-items:center;gap:12px;padding:10px 24px;background:var(--surface);border-bottom:1px solid var(--border)}
+.topo{display:flex;align-items:center;gap:10px;padding:8px 20px;background:var(--surface);border-bottom:1px solid var(--border)}
 .topo .onde{font-weight:600;font-size:13.5px;color:var(--ink);min-width:110px}
-.busca-geral{flex:1;max-width:460px;margin:0 auto;display:flex;align-items:center;gap:8px;border:1px solid var(--border);background:var(--surface2);border-radius:var(--r-ctl);padding:7px 10px;color:var(--text3);font-size:13px}
+.busca-geral{flex:1;max-width:440px;margin:0 auto;display:flex;align-items:center;gap:8px;border:1px solid var(--border);background:var(--surface2);border-radius:var(--r-ctl);padding:6px 10px;color:var(--text3);font-size:13px}
 .busca-geral kbd{margin-left:auto;font:500 11px var(--font);border:1px solid var(--border);border-radius:5px;padding:1px 6px;background:var(--surface);color:var(--text3)}
-.ic-bt{width:34px;height:34px;display:grid;place-items:center;border:1px solid var(--border);border-radius:var(--r-ctl);background:var(--surface);color:var(--text2);cursor:pointer}
-.eu{display:flex;align-items:center;gap:9px;border:1px solid var(--border);border-radius:10px;padding:4px 10px 4px 4px}
-.ava{width:30px;height:30px;border-radius:999px;background:var(--primario);color:var(--on-primario);display:grid;place-items:center;font-weight:700;font-size:12px}
-.eu b{display:block;font-size:13px;color:var(--ink)}
+.ic-bt{width:32px;height:32px;display:grid;place-items:center;border:1px solid var(--border);border-radius:var(--r-ctl);background:var(--surface);color:var(--text2);cursor:pointer}
+.ic-bt:hover{background:var(--hover)}
+.eu{display:flex;align-items:center;gap:9px;border:1px solid var(--border);border-radius:10px;padding:3px 10px 3px 3px}
+.ava{width:28px;height:28px;border-radius:999px;background:var(--primario);color:var(--on-primario);display:grid;place-items:center;font-weight:700;font-size:11.5px}
+.eu b{display:block;font-size:12.5px;color:var(--ink)}
 .eu small{font-size:11px;color:var(--text3)}
 
-.corpo{padding:28px 32px 48px;display:flex;flex-direction:column;gap:20px;max-width:1240px;width:100%;margin:0 auto}
+.corpo{padding:20px 20px 44px;display:flex;flex-direction:column;gap:16px;width:100%}
 
-/* 2. cabeçalho da tela */
+/* 1. cabeçalho da tela (aprovado) */
 .cab{display:flex;gap:14px;align-items:flex-start}
-.cab-ic{width:44px;height:44px;border-radius:11px;display:grid;place-items:center;background:var(--primario-lt);color:var(--primario);border:1px solid var(--border)}
-.cab-ic svg.i{width:22px;height:22px}
-.cab h1{margin:0;font-size:24px;line-height:1.2;font-weight:700;color:var(--ink);letter-spacing:-.015em;text-wrap:balance}
-.cab p{margin:3px 0 0;color:var(--text3);font-size:14px}
+.cab-ic{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;background:var(--primario-lt);color:var(--primario);border:1px solid var(--border)}
+.cab-ic svg.i{width:21px;height:21px}
+.cab h1{margin:0;font-size:22px;line-height:1.2;font-weight:700;color:var(--ink);letter-spacing:-.015em;text-wrap:balance}
+.cab p{margin:3px 0 0;color:var(--text3);font-size:13.5px}
 .cab-acoes{margin-left:auto;display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
 .link-bt{display:inline-flex;align-items:center;gap:6px;border:0;background:none;color:var(--text2);font-weight:600;font-size:13px;cursor:pointer;padding:6px 4px}
-.selo{font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;background:var(--gray-lt);color:var(--text2)}
-.bt{display:inline-flex;align-items:center;gap:7px;border:1px solid transparent;border-radius:var(--r-ctl);padding:8px 14px;font-weight:600;font-size:13.5px;cursor:pointer}
+.link-bt:hover{color:var(--primario)}
+.selo{font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;background:var(--gray-lt);color:var(--text2)}
+.bt{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:1px solid transparent;border-radius:var(--r-ctl);padding:8px 14px;font-weight:600;font-size:13.5px;cursor:pointer;white-space:nowrap}
 .bt-p{background:var(--primario);color:var(--on-primario)}
 .bt-p:hover{background:var(--primario-hover)}
 .bt-o{background:var(--surface);border-color:var(--border);color:var(--text)}
 .bt-o:hover{background:var(--hover)}
+.bt-g{background:none;color:var(--text2)}
+.bt-g:hover{background:var(--hover);color:var(--ink)}
 
-/* 3. cartões de número */
-.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
-.kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:2px}
-.kpi-ic{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;margin-bottom:10px;border:1px solid var(--border)}
-.kpi-ic.r{color:var(--red);background:var(--red-lt)}.kpi-ic.a{color:var(--amber);background:var(--amber-lt)}.kpi-ic.g{color:var(--green);background:var(--green-lt)}.kpi-ic.b{color:var(--blue);background:var(--blue-lt)}
-.kpi .v{font-size:26px;font-weight:700;color:var(--ink);letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1.15}
+/* 2. cartões de número — três */
+.kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.kpi{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;box-shadow:var(--shadow);display:flex;gap:14px;align-items:flex-start}
+.kpi-ic{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;border:1px solid var(--border);flex:none}
+.kpi-ic.r{color:var(--red);background:var(--red-lt)}.kpi-ic.b{color:var(--blue);background:var(--blue-lt)}.kpi-ic.g{color:var(--green);background:var(--green-lt)}
+.kpi-tx{min-width:0;flex:1;display:flex;flex-direction:column;gap:1px}
+.kpi .l{color:var(--text2);font-size:13px;font-weight:500}
+.kpi .v{font-size:24px;font-weight:700;color:var(--ink);letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1.2}
 .kpi .v.r{color:var(--red)}
-.kpi .l{color:var(--text2);font-size:13.5px}
+.kpi .v small{font-size:13px;font-weight:600;color:var(--text3);letter-spacing:0}
 .kpi .s{color:var(--text3);font-size:12px}
+.kpi .s b{color:var(--text2);font-weight:600}
+.dupla{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:2px}
+.dupla .v{font-size:19px;white-space:nowrap}
+.dupla .v.g{color:var(--green)}
+.barra{height:6px;border-radius:999px;background:var(--gray-lt);overflow:hidden;margin:8px 0 4px}
+.barra span{display:block;height:100%;background:var(--green);border-radius:999px}
 
-/* 4. filtros num cartão, com o nome em cima */
-.filtros{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;display:grid;grid-template-columns:1.1fr 2fr 1.1fr 1fr;gap:12px;box-shadow:var(--shadow)}
-.campo{display:flex;flex-direction:column;gap:5px;min-width:0}
-.campo label{font-size:10.5px;font-weight:700;letter-spacing:.08em;color:var(--text3);text-transform:uppercase}
-.ctl{height:38px;border:1px solid var(--border);border-radius:var(--r-ctl);background:var(--surface);padding:0 11px;width:100%;color:var(--text)}
-.ctl-busca{display:flex;align-items:center;gap:8px;height:38px;border:1px solid var(--border);border-radius:var(--r-ctl);padding:0 11px;background:var(--surface);color:var(--text3)}
-.ctl-busca input{border:0;outline:0;background:none;flex:1;min-width:0}
-.dois{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-
-/* abas sublinhadas */
-.abas{display:flex;gap:4px;border-bottom:1px solid var(--border);overflow-x:auto}
-.aba{border:0;background:none;padding:10px 12px;font-weight:600;font-size:13.5px;color:var(--text3);border-bottom:2px solid transparent;margin-bottom:-1px;cursor:pointer;white-space:nowrap}
+/* 3. abas + filtros na mesma barra (sem cartão) */
+.barra-abas{display:flex;align-items:flex-end;gap:12px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.abas{display:flex;gap:2px;overflow-x:auto}
+.aba{border:0;background:none;padding:9px 12px;font-weight:600;font-size:13.5px;color:var(--text3);border-bottom:2px solid transparent;margin-bottom:-1px;cursor:pointer;white-space:nowrap}
+.aba:hover{color:var(--ink)}
 .aba[aria-selected="true"]{color:var(--primario);border-bottom-color:var(--primario)}
-.aba .c{font-weight:500;color:var(--text3)}
+.aba .c{display:inline-block;min-width:20px;margin-left:4px;font-size:11.5px;font-weight:700;padding:0 6px;border-radius:999px;background:var(--gray-lt);color:var(--text3)}
+.aba[data-aba="atraso"] .c{background:var(--red-lt);color:var(--red)}
+.filtros{margin-left:auto;display:flex;gap:8px;align-items:center;padding-bottom:7px;flex-wrap:wrap}
+.ctl{height:34px;border:1px solid var(--border);border-radius:var(--r-ctl);background:var(--surface);padding:0 10px;color:var(--text);font-size:13px;min-width:0}
+.ctl:focus,.ctl:focus-visible{outline:0;border-color:var(--primario);box-shadow:0 0 0 3px var(--anel)}
+.ctl-busca{display:flex;align-items:center;gap:7px;height:34px;border:1px solid var(--border);border-radius:var(--r-ctl);padding:0 10px;background:var(--surface);color:var(--text3);width:260px}
+.ctl-busca:focus-within{border-color:var(--primario);box-shadow:0 0 0 3px var(--anel)}
+.ctl-busca input{border:0;outline:0;background:none;flex:1;min-width:0;font-size:13px}
 
-/* 5. tabela leve */
+/* 4. tabela leve */
 .quadro{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden}
-.quadro-hd{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line)}
+.quadro-hd{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
 .quadro-hd h2{margin:0;font-size:15px;font-weight:700;color:var(--ink)}
 .quadro-hd .resumo{margin-left:auto;color:var(--text3);font-size:12.5px;font-variant-numeric:tabular-nums}
+.quadro-hd .resumo b{color:var(--ink)}
 .rola{overflow-x:auto}
-table{width:100%;border-collapse:collapse;min-width:860px}
-th{text-align:left;font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);padding:12px 14px;border-bottom:1px solid var(--line);background:var(--surface);white-space:nowrap}
-td{padding:13px 14px;border-bottom:1px solid var(--line);vertical-align:middle;color:var(--text)}
-tbody tr{cursor:pointer}
-tbody tr:hover td{background:var(--hover)}
+table{width:100%;border-collapse:collapse}
+.t-parc{min-width:980px}
+.t-parc .c-emp{width:26%}
+th{text-align:left;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);padding:10px;border-bottom:1px solid var(--line);background:var(--surface);white-space:nowrap}
+td{padding:11px 10px;border-bottom:1px solid var(--line);vertical-align:middle;color:var(--text);font-size:13.5px}
+tbody tr.cl{cursor:pointer}
+tbody tr.cl:hover td{background:var(--hover)}
 tbody tr:last-child td{border-bottom:0}
 .dir{text-align:right}.cen{text-align:center}
+.g-txt{color:var(--text2);font-weight:500;min-width:96px}
 .nome{font-weight:600;color:var(--ink)}
-.doc{display:block;font:400 11.5px var(--mono);color:var(--text3);margin-top:2px;letter-spacing:-.01em}
+.doc{display:block;font:400 11.5px var(--mono);color:var(--text3);margin-top:2px;letter-spacing:-.01em;white-space:nowrap}
 .num{font:400 12px var(--mono);color:var(--text3);white-space:nowrap}
 .val{font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}
 .dt{font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--text2)}
 .dt small{display:block;font-size:12px;color:var(--text3)}
-.grp{display:inline-block;font-size:11.5px;font-weight:700;padding:3px 10px;border-radius:999px;background:var(--primario-lt);color:var(--primario);white-space:nowrap}
+.dt small.r{color:var(--red);font-weight:600}
+.plat{display:inline-block;font-size:12px;font-weight:600;color:var(--text2);white-space:nowrap}
 .pill{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px;white-space:nowrap}
 .pill::before{content:"";width:6px;height:6px;border-radius:999px;background:currentColor}
-.p-atraso{color:var(--red);background:var(--red-lt)}.p-hoje{color:var(--amber);background:var(--amber-lt)}.p-avencer{color:var(--blue);background:var(--blue-lt)}.p-pago{color:var(--green);background:var(--green-lt)}
-.acoes{display:flex;gap:4px;justify-content:center}
-.acoes button{width:30px;height:30px;display:grid;place-items:center;border:0;background:none;border-radius:7px;color:var(--text3);cursor:pointer}
-.acoes button:hover{background:var(--primario-lt);color:var(--primario)}
-.acoes svg.i{width:16px;height:16px}
+.p-atraso{color:var(--red);background:var(--red-lt)}.p-avencer{color:var(--blue);background:var(--blue-lt)}.p-pago{color:var(--green);background:var(--green-lt)}
+.bt-baixa{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--border);background:var(--surface);color:var(--text2);border-radius:999px;padding:4px 11px;font-size:12.5px;font-weight:600;cursor:pointer;white-space:nowrap}
+.bt-baixa svg.i{width:14px;height:14px}
+.bt-baixa:hover{border-color:var(--green);color:var(--green);background:var(--green-lt)}
+.pago-em{font-size:12.5px;font-weight:600;color:var(--green);white-space:nowrap}
 
-/* 6. tela vazia que explica */
-.vazio{border:1.5px dashed var(--border);border-radius:var(--r);padding:36px 20px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:6px;background:var(--surface)}
-.vazio-ic{width:52px;height:52px;border-radius:13px;display:grid;place-items:center;background:var(--surface2);color:var(--text3);border:1px solid var(--border);margin-bottom:6px}
+/* tela vazia que explica (de verdade: aparece quando a lista não tem nada) */
+.vazio{padding:36px 20px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:6px}
+.vazio-ic{width:48px;height:48px;border-radius:12px;display:grid;place-items:center;background:var(--surface2);color:var(--text3);border:1px solid var(--border);margin-bottom:6px}
 .vazio b{font-size:15px;color:var(--ink)}
-.vazio p{margin:0;color:var(--text3);max-width:46ch}
+.vazio p{margin:0;color:var(--text3);max-width:52ch}
 .vazio .bt{margin-top:10px}
 
-.duas{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px}
+/* 12. situação dos parcelamentos por cliente */
+.sit-cab{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-top:10px}
+.sit-cab h2{margin:0;font-size:17px;font-weight:700;color:var(--ink)}
+.sit-cab p{margin:2px 0 0;color:var(--text3);font-size:13px}
+.chips{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid var(--border);background:var(--surface);color:var(--text2);border-radius:999px;padding:5px 12px;font-size:12.5px;font-weight:600;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--primario-lt);border-color:var(--primario);color:var(--primario)}
+.cartoes{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));grid-auto-flow:row dense;gap:12px}
+.cg{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;box-shadow:var(--shadow);cursor:pointer;text-align:left;display:flex;flex-direction:column;gap:6px;position:relative}
+.cg:hover{border-color:var(--primario)}
+.cg[aria-expanded="true"]{border-color:var(--primario);box-shadow:0 0 0 3px var(--anel)}
+.cg.atr::before{content:"";position:absolute;left:-1px;top:12px;bottom:12px;width:3px;border-radius:0 3px 3px 0;background:var(--red)}
+.cg-hd{display:flex;align-items:center;gap:8px}
+.cg-hd b{font-size:14.5px;color:var(--ink)}
+.cg-hd .pill{margin-left:auto}
+.cg-sub{font-size:12px;color:var(--text3)}
+.cg .barra{margin:4px 0 2px}
+.cg-lin{display:flex;justify-content:space-between;gap:10px;font-size:13px;color:var(--text2)}
+.cg-lin b{color:var(--ink);font-variant-numeric:tabular-nums}
+.cg-lin b.g{color:var(--green)}
+.det{grid-column:1/-1}
+.det .quadro-hd small{color:var(--text3);font-size:12.5px}
+.t-sit{min-width:980px}
+.prog{display:flex;align-items:center;gap:8px;white-space:nowrap;font-size:13px;color:var(--text2)}
+.prog .barra{width:70px;margin:0}
+.prog b{color:var(--green)}
 
-/* 7. painel lateral */
-.fundo{position:fixed;inset:0;background:var(--overlay);display:flex;justify-content:flex-end;z-index:10}
-.painel{width:min(420px,100%);height:100%;background:var(--surface);box-shadow:var(--shadow-lg);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
-.painel-hd{display:flex;gap:10px;align-items:flex-start;padding:16px 18px;border-bottom:1px solid var(--line)}
-.painel-hd b{display:block;font-size:16px;color:var(--ink)}
-.painel-hd small{color:var(--text3);font-size:12.5px}
-.painel-hd .ic-bt{margin-left:auto}
-.painel-bd{padding:16px 18px;display:flex;flex-direction:column;gap:14px;overflow:auto;flex:1}
-.painel-pe{display:flex;gap:10px;justify-content:flex-end;padding:14px 18px;border-top:1px solid var(--line)}
-textarea.ctl{height:84px;padding:9px 11px;resize:vertical}
+/* 8. painel lateral (criar / editar) — mais leve */
+.fundo{position:fixed;inset:0;background:var(--overlay);display:flex;justify-content:flex-end;z-index:10;animation:esmaece .16s ease-out}
+.painel{width:min(460px,100%);height:100%;background:var(--surface);border-left:1px solid var(--border);box-shadow:var(--shadow-lg);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);animation:entra .2s cubic-bezier(.2,.8,.2,1)}
+@keyframes entra{from{transform:translateX(24px);opacity:.4}to{transform:none;opacity:1}}
+@keyframes esmaece{from{opacity:0}to{opacity:1}}
+.painel-hd{display:flex;gap:12px;align-items:flex-start;padding:18px 22px 14px}
+.painel-hd .kick{display:block;font-size:12px;font-weight:600;color:var(--primario);margin-bottom:2px}
+.painel-hd b{display:block;font-size:17px;line-height:1.3;color:var(--ink);letter-spacing:-.01em}
+.painel-hd small{display:block;color:var(--text3);font-size:12.5px;margin-top:2px}
+.fechar{margin-left:auto;width:32px;height:32px;display:grid;place-items:center;border:0;border-radius:999px;background:none;color:var(--text3);cursor:pointer;flex:none}
+.fechar:hover{background:var(--hover);color:var(--ink)}
+.painel-bd{padding:4px 22px 20px;display:flex;flex-direction:column;gap:18px;overflow:auto;flex:1}
+.resumo-box{background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:grid;grid-template-columns:1fr 1fr;gap:10px 16px}
+.resumo-box div{min-width:0}
+.resumo-box span{display:block;font-size:11.5px;color:var(--text3)}
+.resumo-box b{display:block;font-size:13px;font-weight:600;color:var(--ink);overflow-wrap:anywhere}
+.resumo-box .larga{grid-column:1/-1}
+.bloco{display:flex;flex-direction:column;gap:12px}
+.bloco h3{margin:0;font-size:12px;font-weight:600;color:var(--text3);display:flex;align-items:center;gap:10px}
+.bloco h3::after{content:"";flex:1;height:1px;background:var(--line)}
+.campo{display:flex;flex-direction:column;gap:5px;min-width:0}
+.campo label,.campo .rot{font-size:12.5px;font-weight:600;color:var(--text2)}
+.campo .ctl{height:38px;font-size:13.5px;padding:0 11px}
+.campo .ajuda{font-size:12px;color:var(--text3)}
+textarea.ctl{height:76px!important;padding:9px 11px!important;resize:vertical}
+.dois{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.opcoes{display:inline-flex;border:1px solid var(--border);border-radius:var(--r-ctl);padding:3px;background:var(--surface2);gap:2px;width:100%}
+.opcoes button{flex:1;border:0;background:none;padding:6px 8px;border-radius:6px;font-size:13px;font-weight:600;color:var(--text2);cursor:pointer}
+.opcoes button[aria-pressed="true"]{background:var(--surface);color:var(--primario);box-shadow:0 1px 2px rgba(17,24,39,.12)}
+.painel-pe{display:flex;gap:8px;align-items:center;padding:12px 22px;border-top:1px solid var(--line);background:var(--surface)}
+.painel-pe .esq{margin-right:auto}
+
+.aviso-tx{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--ink);color:var(--surface);border-radius:10px;padding:10px 14px;font-size:13px;font-weight:500;display:flex;gap:12px;align-items:center;z-index:20;box-shadow:var(--shadow-lg)}
+.aviso-tx button{border:0;background:none;color:inherit;font-weight:700;text-decoration:underline;cursor:pointer}
 
 /* regras */
-.regras{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:20px 22px}
-.regras h2{margin:0 0 4px;font-size:17px;color:var(--ink)}
-.regras>p{margin:0 0 14px;color:var(--text3)}
+.regras{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:18px 20px;margin-top:10px}
+.regras h2{margin:0 0 4px;font-size:16px;color:var(--ink)}
+.regras>p{margin:0 0 12px;color:var(--text3)}
 .regras ol{margin:0;padding-left:20px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 32px}
 .regras li{color:var(--text2);padding-left:4px}
 .regras li b{color:var(--ink)}
-.aviso{margin-top:16px;border-radius:10px;padding:12px 14px;background:var(--amber-lt);color:var(--text);border:1px solid var(--border)}
+.aviso{margin-top:14px;border-radius:10px;padding:12px 14px;background:var(--amber-lt);color:var(--text);border:1px solid var(--border)}
 .aviso b{color:var(--amber)}
-.marca-rotulo{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:-10px}
+.marca-rotulo{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:-8px}
 
-@media (max-width:1100px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.filtros{grid-template-columns:1fr 1fr}.duas{grid-template-columns:1fr}}
+/* opção "como hoje no ERP": DM Sans + cabeçalho das tabelas em Playfair e números em JetBrains (Backup 57) */
+.letra-erp th{font-family:'Playfair Display',Georgia,serif;font-size:12px;letter-spacing:0;text-transform:none;color:var(--text2)}
+.letra-erp td.val,.letra-erp td.dt,.letra-erp .cg-lin b,.letra-erp .kpi .v{font-family:var(--mono);letter-spacing:-.02em}
+.letra-erp td.dt small,.letra-erp .kpi .v small{font-family:var(--font);letter-spacing:0}
+
+@media (max-width:1100px){.kpis{grid-template-columns:1fr 1fr}.filtros{margin-left:0;width:100%}.ctl-busca{flex:1;width:auto}}
 @media (max-width:760px){
   .app{grid-template-columns:minmax(0,1fr)}
   .lado{display:none}
-  .topo{padding:10px 16px}
+  .topo{padding:8px 16px}
   .busca-geral,.eu div{display:none}
-  .corpo{padding:20px 16px 40px}
+  .corpo{padding:16px 16px 40px}
   .cab{flex-wrap:wrap}.cab-acoes{margin-left:0;justify-content:flex-start;width:100%}
-  .filtros{grid-template-columns:1fr}
+  .kpis{grid-template-columns:1fr}
+  .filtros .ctl{flex:1}
+  .ctl-busca{width:100%;flex:1 1 100%}
+  .chips{margin-left:0}
   .regras ol{grid-template-columns:1fr}
+  .dois,.resumo-box{grid-template-columns:1fr}
 }
-@media (max-width:460px){.kpis{grid-template-columns:1fr}}
-@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+@media (max-width:460px){.dupla{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -192,12 +273,10 @@ textarea.ctl{height:84px;padding:9px 11px;resize:vertical}
   <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
   <symbol id="i-checkc" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.5 2.5 2.5 5-5"/></symbol>
   <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></symbol>
-  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
   <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></symbol>
   <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/></symbol>
   <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
   <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14.7-4.3L3 9m0-5v5h5M4 13a8 8 0 0 0 14.7 4.3L21 15m0 5v-5h-5"/></symbol>
-  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
   <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
   <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
   <symbol id="i-moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></symbol>
@@ -207,13 +286,26 @@ textarea.ctl{height:84px;padding:9px 11px;resize:vertical}
   <symbol id="i-scale" viewBox="0 0 24 24"><path d="M12 3v18M7 21h10M5 7h14M5 7l-3 7a3 3 0 0 0 6 0zM19 7l-3 7a3 3 0 0 0 6 0z"/></symbol>
   <symbol id="i-money" viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></symbol>
   <symbol id="i-task" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="m8 12 3 3 5-6"/></symbol>
+  <symbol id="i-pie" viewBox="0 0 24 24"><path d="M21 12A9 9 0 1 1 12 3v9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/></symbol>
 </svg>
 
 <div class="guia">
-  <div><b>Guia visual · Etapa 0 da reforma</b> <span>Tela-modelo com dados fictícios. Clique nas linhas, nas abas e em "+ Nova tarefa".</span></div>
-  <div class="seg" role="group" aria-label="Tema">
-    <button type="button" id="tema-claro" aria-pressed="true">Claro</button>
-    <button type="button" id="tema-escuro" aria-pressed="false">Escuro</button>
+  <div><b>Guia visual · versão 2</b> <span>Dados fictícios. Clique nas linhas, em "Baixa", nas abas e nos cartões dos grupos.</span></div>
+  <div class="guia-ctl">
+    <label>Letra</label>
+    <div class="seg" role="group" aria-label="Letra" id="letras">
+      <button type="button" data-f="'Inter'" aria-pressed="true">Inter</button>
+      <button type="button" data-f="'IBM Plex Sans'" aria-pressed="false">IBM Plex</button>
+      <button type="button" data-f="'Source Sans 3'" aria-pressed="false">Source Sans</button>
+      <button type="button" data-f="'Roboto'" aria-pressed="false">Roboto</button>
+      <button type="button" data-f="'DM Sans'" aria-pressed="false">DM Sans</button>
+      <button type="button" data-f="'DM Sans'" data-erp="1" aria-pressed="false">Como hoje (Playfair + JetBrains)</button>
+    </div>
+    <label>Tema</label>
+    <div class="seg" role="group" aria-label="Tema">
+      <button type="button" id="tema-claro" aria-pressed="true">Claro</button>
+      <button type="button" id="tema-escuro" aria-pressed="false">Escuro</button>
+    </div>
   </div>
 </div>
 
@@ -243,170 +335,333 @@ textarea.ctl{height:84px;padding:9px 11px;resize:vertical}
     </header>
 
     <main class="corpo">
-      <span class="marca-rotulo">1 · Cabeçalho da tela</span>
+      <span class="marca-rotulo">1 · Cabeçalho da tela (aprovado)</span>
       <div class="cab">
         <div class="cab-ic"><svg class="i"><use href="#i-layers"/></svg></div>
-        <div><h1>Parcelamentos</h1><p>Parcelas dos clientes com a Receita, a PGFN e o Estado, por vencimento</p></div>
+        <div><h1>Parcelamentos</h1><p>Parcelas dos clientes no eCAC, Regularize e SIARE, por vencimento</p></div>
         <div class="cab-acoes">
-          <button class="link-bt" type="button"><svg class="i"><use href="#i-refresh"/></svg>Atualizar</button>
-          <span class="selo">Atualizado 09:42</span>
-          <button class="bt bt-p" type="button" id="abrir-painel"><svg class="i"><use href="#i-plus"/></svg>Nova tarefa</button>
+          <button class="link-bt" type="button" id="atualizar"><svg class="i"><use href="#i-refresh"/></svg>Atualizar</button>
+          <span class="selo" id="hora">Atualizado 09:42</span>
+          <button class="bt bt-p" type="button" id="novo"><svg class="i"><use href="#i-plus"/></svg>Novo parcelamento</button>
         </div>
       </div>
 
       <span class="marca-rotulo">2 · Cartões de número</span>
-      <div class="kpis">
-        <div class="kpi"><div class="kpi-ic r"><svg class="i"><use href="#i-alert"/></svg></div><div class="v r">3</div><div class="l">Parcelas em atraso</div><div class="s">R$ 4.218,40 somadas</div></div>
-        <div class="kpi"><div class="kpi-ic a"><svg class="i"><use href="#i-clock"/></svg></div><div class="v">2</div><div class="l">Vencem hoje</div><div class="s">emitir a guia até 17h</div></div>
-        <div class="kpi"><div class="kpi-ic b"><svg class="i"><use href="#i-cal"/></svg></div><div class="v">12</div><div class="l">Próximos 5 dias</div><div class="s">R$ 9.870,15</div></div>
-        <div class="kpi"><div class="kpi-ic g"><svg class="i"><use href="#i-checkc"/></svg></div><div class="v">41</div><div class="l">Pagas no mês</div><div class="s">de 56 previstas</div></div>
-      </div>
+      <div class="kpis" id="kpis"></div>
 
-      <span class="marca-rotulo">3 · Filtros num cartão</span>
-      <div class="filtros">
-        <div class="campo"><label for="f-grupo">Grupo</label><select class="ctl" id="f-grupo"><option>Todos os grupos</option><option>Grupo Horizonte</option><option>Grupo Vale Verde</option></select></div>
-        <div class="campo"><label for="f-busca">Buscar</label><div class="ctl-busca"><svg class="i"><use href="#i-search"/></svg><input id="f-busca" placeholder="Empresa, CNPJ ou nº do parcelamento"></div></div>
-        <div class="campo"><label for="f-mes">Competência</label><div class="dois"><select class="ctl" id="f-mes"><option>Outubro</option><option>Novembro</option></select><select class="ctl" id="f-ano" aria-label="Ano"><option>2026</option><option>2025</option></select></div></div>
-        <div class="campo"><label for="f-orgao">Órgão</label><select class="ctl" id="f-orgao"><option>Todos</option><option>Receita Federal</option><option>PGFN</option><option>Estado (AGE/MG)</option></select></div>
+      <span class="marca-rotulo">3 e 4 · Abas com os filtros ao lado (sem cartão) e tabela leve</span>
+      <div class="barra-abas">
+        <div class="abas" role="tablist" id="abas"></div>
+        <div class="filtros">
+          <label class="ctl-busca"><svg class="i"><use href="#i-search"/></svg><input id="f-busca" placeholder="Empresa, CNPJ ou nº" aria-label="Buscar"></label>
+          <select class="ctl" id="f-grupo" aria-label="Grupo"><option value="">Todos os grupos</option></select>
+          <select class="ctl" id="f-plat" aria-label="Plataforma"><option value="">Todas as plataformas</option><option>eCAC</option><option>Regularize</option><option>SIARE</option></select>
+        </div>
       </div>
-
-      <span class="marca-rotulo">4 · Abas e tabela leve</span>
-      <div class="abas" role="tablist">
-        <button class="aba" role="tab" type="button" data-aba="avencer" aria-selected="true">A vencer <span class="c">(12)</span></button>
-        <button class="aba" role="tab" type="button" data-aba="atraso" aria-selected="false">Em atraso <span class="c">(3)</span></button>
-        <button class="aba" role="tab" type="button" data-aba="pagas" aria-selected="false">Pagas <span class="c">(0)</span></button>
-      </div>
-
       <div id="area-tabela"></div>
 
-      <div class="duas">
-        <div>
-          <span class="marca-rotulo" style="display:block;margin-bottom:10px">5 · Tela vazia que explica</span>
-          <div class="vazio">
-            <div class="vazio-ic"><svg class="i"><use href="#i-folder"/></svg></div>
-            <b>Nenhum documento neste mês</b>
-            <p>O cliente ainda não enviou nada de outubro. O último envio foi em 12/09/2026.</p>
-            <button class="bt bt-o" type="button"><svg class="i"><use href="#i-plus"/></svg>Enviar documento</button>
-          </div>
-        </div>
-        <div>
-          <span class="marca-rotulo" style="display:block;margin-bottom:10px">6 · Botões e situações</span>
-          <div class="vazio" style="border-style:solid;align-items:flex-start;text-align:left">
-            <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="bt bt-p" type="button">Salvar</button><button class="bt bt-o" type="button">Cancelar</button><button class="link-bt" type="button"><svg class="i"><use href="#i-refresh"/></svg>Atualizar</button></div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><span class="pill p-atraso">Em atraso</span><span class="pill p-hoje">Vence hoje</span><span class="pill p-avencer">A vencer</span><span class="pill p-pago">Pago</span></div>
-            <p style="margin-top:12px">Verde só para "pago". Vermelho para atraso, laranja para atenção, azul para o que está no prazo. Os botões principais usam o azul do escritório.</p>
-          </div>
+      <div class="sit-cab">
+        <div><span class="marca-rotulo" style="display:block;margin-bottom:6px">12 · Situação dos parcelamentos</span><h2>Situação dos parcelamentos por cliente</h2><p>Quanto cada grupo já pagou, quanto falta e o que vence este mês. Clique no cartão para ver cada parcelamento.</p></div>
+        <div class="chips" id="chips">
+          <button class="chip" type="button" data-c="todos" aria-pressed="true">Todos</button>
+          <button class="chip" type="button" data-c="atraso" aria-pressed="false">Com atraso</button>
+          <button class="chip" type="button" data-c="dia" aria-pressed="false">Em dia</button>
         </div>
       </div>
+      <div class="cartoes" id="cartoes"></div>
 
       <section class="regras" aria-labelledby="regras-t">
-        <h2 id="regras-t">O que muda em todas as telas</h2>
-        <p>Estas regras viram o padrão único do sistema. Toda tela nova já nasce assim.</p>
+        <h2 id="regras-t">O que mudou da versão 1 para esta</h2>
+        <p>Cada número é a sua orientação.</p>
         <ol>
-          <li><b>Uma letra só</b> (DM Sans) em títulos, tabelas e cartões. A letra de máquina fica só no CPF/CNPJ e nos números de processo e parcelamento, pequena e cinza.</li>
-          <li><b>Toda tela começa igual:</b> ícone, título, uma frase dizendo para que serve e, à direita, Atualizar e o botão principal.</li>
-          <li><b>Filtros dentro de um cartão</b>, com o nome em cima de cada campo.</li>
-          <li><b>Tabela leve:</b> cabeçalho claro com letras pequenas cinza, linhas altas, dinheiro à direita em negrito, ações em ícones discretos. Clicar na linha abre o detalhe.</li>
-          <li><b>Uma cor de destaque</b> (o azul do escritório). Verde só para pago, laranja para atenção, vermelho para atraso.</li>
-          <li><b>Tela vazia que explica</b> o motivo e oferece o próximo passo.</li>
-          <li><b>Criar e editar em painel lateral</b>, que entra pela direita sem esconder a tela de trás.</li>
-          <li><b>Modo escuro com o mesmo desenho</b>, só trocando as cores.</li>
+          <li><b>Cartões:</b> só três — em atraso, vencem no mês (com "emitir até dia 12") e quitado/falta.</li>
+          <li><b>Filtros:</b> saíram do cartão; ficam na mesma linha das abas, à direita.</li>
+          <li><b>Abas:</b> "Em atraso" vem primeiro e já abre selecionada.</li>
+          <li><b>Colunas:</b> Grupo (só o nome) · Empresa com CNPJ · Plataforma · Natureza · Nº · Parcela · Valor · Vencimento · Situação · Baixa.</li>
+          <li><b>Situação:</b> atraso ou vence hoje = vermelho; a vencer = azul; pago = verde.</li>
+          <li><b>Sem botão de editar:</b> clicar na linha abre a parcela para editar. "Baixa" lança o pagamento (com "Desfazer").</li>
+          <li><b>Tela vazia:</b> é de verdade — aparece quando a lista não tem nada (busque "xyz" para ver).</li>
+          <li><b>Letra:</b> escolha na faixa de cima (inclui "Como hoje", com Playfair no cabeçalho das tabelas e JetBrains nos números); a que você aprovar vale para o sistema inteiro.</li>
+          <li><b>Painel lateral</b> mais leve: resumo do parcelamento em cima, campos em blocos, rótulos normais.</li>
+          <li><b>Lateral</b> mais estreita (188 px, era 220) e <b>margens</b> menores (20 px) — sobra espaço para as tabelas.</li>
+          <li><b>Escuro</b> preto de verdade; a lateral fica num azul-marinho escuro com borda, para não sumir.</li>
+          <li><b>Situação dos parcelamentos</b> voltou: um cartão por grupo, que abre a lista dos parcelamentos.</li>
         </ol>
-        <div class="aviso"><b>Duas mudanças para você confirmar:</b> (1) as tabelas deixam a letra Playfair no cabeçalho e a de máquina nos valores, passando para a mesma letra do resto; (2) o cabeçalho das tabelas deixa de ser azul cheio e fica claro, como no ROMPEX.</div>
+        <div class="aviso"><b>Para você escolher:</b> a letra — Inter, IBM Plex, Source Sans, Roboto, DM Sans (a da versão 1) ou "Como hoje" (DM Sans com Playfair no cabeçalho das tabelas e JetBrains nos valores e datas, como está no ERP desde o Backup 57). O CNPJ e o nº do parcelamento ficam sempre numa letra de máquina pequena e cinza.</div>
       </section>
     </main>
   </div>
 </div>
 
 <div class="fundo" id="fundo" hidden>
-  <aside class="painel" role="dialog" aria-modal="true" aria-labelledby="painel-t">
-    <div class="painel-hd">
-      <div><b id="painel-t">Nova tarefa</b><small>Entra na agenda do responsável</small></div>
-      <button class="ic-bt" type="button" id="fechar-painel" aria-label="Fechar"><svg class="i"><use href="#i-x"/></svg></button>
-    </div>
-    <div class="painel-bd">
-      <div class="campo"><label for="t-tit">Título da tarefa</label><input class="ctl" id="t-tit" value="Emitir guia da parcela 14 — Comercial Horizonte"></div>
-      <div class="campo"><label for="t-det">Detalhes (opcional)</label><textarea class="ctl" id="t-det">Conferir o valor atualizado no e-CAC antes de enviar ao cliente.</textarea></div>
-      <div class="dois">
-        <div class="campo"><label for="t-prazo">Prazo</label><input class="ctl" id="t-prazo" value="15/10/2026"></div>
-        <div class="campo"><label for="t-resp">Responsável</label><select class="ctl" id="t-resp"><option>Adriana</option><option>Pedro</option></select></div>
-      </div>
-    </div>
-    <div class="painel-pe"><button class="bt bt-o" type="button" id="cancelar-painel">Cancelar</button><button class="bt bt-p" type="button" id="salvar-painel"><svg class="i"><use href="#i-check"/></svg>Criar tarefa</button></div>
-  </aside>
+  <aside class="painel" role="dialog" aria-modal="true" aria-labelledby="painel-t" id="painel"></aside>
 </div>
+<div class="aviso-tx" id="toast" hidden></div>
 
 <script>
 (function(){
-  var dados = {
-    avencer: [
-      ['Grupo Horizonte','Comercial Horizonte de Alimentos Ltda','12.345.678/0001-90','10120.004512/2024-11','14 de 60','1.284,90','15/10/2026','em 7 dias','p-avencer','A vencer'],
-      ['Grupo Horizonte','Horizonte Logística e Transportes Eireli','23.456.789/0001-01','PGFN 2.093.551','8 de 120','612,35','10/10/2026','em 2 dias','p-avencer','A vencer'],
-      ['Grupo Vale Verde','Vale Verde Indústria de Embalagens S.A.','34.567.890/0001-12','10120.009871/2025-40','3 de 60','4.910,00','08/10/2026','hoje','p-hoje','Vence hoje'],
-      ['Grupo Vale Verde','Mariana de Souza Vale','123.456.789-09','PGFN 2.110.004','22 de 60','318,77','08/10/2026','hoje','p-hoje','Vence hoje']
+  var HOJE = '09/10/2026';
+  // [grupo, empresa, doc, plataforma, natureza, nº, parcela, total, valor, vencimento, dias(+ atraso / - faltam), pago em]
+  var P = [
+    ['Grupo Serra Azul','Serra Azul Comércio de Materiais de Construção Ltda','45.678.901/0001-23','eCAC','Simples Nacional','10120.001133/2023-77',31,60,2205.10,'30/09/2026',9,''],
+    ['Grupo Horizonte','Comercial Horizonte de Alimentos Ltda','12.345.678/0001-90','SIARE','ICMS','0045.778-2',5,36,1402.55,'25/09/2026',14,''],
+    ['Grupo Serra Azul','Serra Azul Serviços Ltda','56.789.012/0001-34','Regularize','Não previdenciário','1.998.320',47,120,610.75,'20/09/2026',19,''],
+    ['Grupo Vale Verde','Vale Verde Indústria de Embalagens S.A.','34.567.890/0001-12','eCAC','INSS','10120.009871/2025-40',3,60,4910.00,'09/10/2026',0,''],
+    ['Grupo Vale Verde','Mariana de Souza Vale','123.456.789-09','Regularize','Não previdenciário','2.110.004',22,60,318.77,'09/10/2026',0,''],
+    ['Grupo Horizonte','Horizonte Logística e Transportes Eireli','23.456.789/0001-01','Regularize','Previdenciário','2.093.551',8,120,612.35,'12/10/2026',-3,''],
+    ['Grupo Serra Azul','Serra Azul Comércio de Materiais de Construção Ltda','45.678.901/0001-23','SIARE','ICMS','0051.204-9',10,24,980.00,'20/10/2026',-11,''],
+    ['Grupo Horizonte','Comercial Horizonte de Alimentos Ltda','12.345.678/0001-90','eCAC','Simples Nacional','10120.004512/2024-11',14,60,1284.90,'31/10/2026',-22,''],
+    ['Grupo Vale Verde','Vale Verde Indústria de Embalagens S.A.','34.567.890/0001-12','eCAC','Simples Nacional','10120.004410/2024-02',19,60,1050.00,'05/10/2026',4,'04/10'],
+    ['Grupo Horizonte','Horizonte Logística e Transportes Eireli','23.456.789/0001-01','Regularize','Não previdenciário','2.093.120',30,60,745.20,'01/10/2026',8,'01/10']
+  ].map(function(r,i){ return {id:i,g:r[0],emp:r[1],doc:r[2],plat:r[3],nat:r[4],num:r[5],n:r[6],tot:r[7],v:r[8],venc:r[9],dias:r[10],pagoEm:r[11]}; });
+
+  // parcelamentos por grupo (quadro "Situação")
+  var S = {
+    'Grupo Horizonte':[
+      {emp:'Comercial Horizonte de Alimentos Ltda',doc:'12.345.678/0001-90',plat:'eCAC',nat:'Simples Nacional',num:'10120.004512/2024-11',pg:13,tot:60,falta:60390.30,prox:'31/10/2026',atr:0},
+      {emp:'Comercial Horizonte de Alimentos Ltda',doc:'12.345.678/0001-90',plat:'SIARE',nat:'ICMS',num:'0045.778-2',pg:4,tot:36,falta:44881.60,prox:'25/09/2026',atr:1},
+      {emp:'Horizonte Logística e Transportes Eireli',doc:'23.456.789/0001-01',plat:'Regularize',nat:'Previdenciário',num:'2.093.551',pg:7,tot:120,falta:69195.55,prox:'12/10/2026',atr:0},
+      {emp:'Horizonte Logística e Transportes Eireli',doc:'23.456.789/0001-01',plat:'Regularize',nat:'Não previdenciário',num:'2.093.120',pg:30,tot:60,falta:22356.00,prox:'01/11/2026',atr:0}
     ],
-    atraso: [
-      ['Grupo Serra Azul','Serra Azul Comércio de Materiais de Construção Ltda','45.678.901/0001-23','10120.001133/2023-77','31 de 60','2.205,10','30/09/2026','8 dias de atraso','p-atraso','Em atraso'],
-      ['Grupo Horizonte','Comercial Horizonte de Alimentos Ltda','12.345.678/0001-90','AGE/MG 0045.778','5 de 36','1.402,55','25/09/2026','13 dias de atraso','p-atraso','Em atraso'],
-      ['Grupo Serra Azul','Serra Azul Serviços Ltda','56.789.012/0001-34','PGFN 1.998.320','47 de 120','610,75','20/09/2026','18 dias de atraso','p-atraso','Em atraso']
+    'Grupo Serra Azul':[
+      {emp:'Serra Azul Comércio de Materiais de Construção Ltda',doc:'45.678.901/0001-23',plat:'eCAC',nat:'Simples Nacional',num:'10120.001133/2023-77',pg:30,tot:60,falta:66153.00,prox:'30/09/2026',atr:1},
+      {emp:'Serra Azul Comércio de Materiais de Construção Ltda',doc:'45.678.901/0001-23',plat:'SIARE',nat:'ICMS',num:'0051.204-9',pg:9,tot:24,falta:14700.00,prox:'20/10/2026',atr:0},
+      {emp:'Serra Azul Serviços Ltda',doc:'56.789.012/0001-34',plat:'Regularize',nat:'Não previdenciário',num:'1.998.320',pg:46,tot:120,falta:45195.50,prox:'20/09/2026',atr:1}
     ],
-    pagas: []
+    'Grupo Vale Verde':[
+      {emp:'Vale Verde Indústria de Embalagens S.A.',doc:'34.567.890/0001-12',plat:'eCAC',nat:'INSS',num:'10120.009871/2025-40',pg:2,tot:60,falta:284780.00,prox:'09/10/2026',atr:0},
+      {emp:'Vale Verde Indústria de Embalagens S.A.',doc:'34.567.890/0001-12',plat:'eCAC',nat:'Simples Nacional',num:'10120.004410/2024-02',pg:19,tot:60,falta:43050.00,prox:'05/11/2026',atr:0},
+      {emp:'Mariana de Souza Vale',doc:'123.456.789-09',plat:'Regularize',nat:'Não previdenciário',num:'2.110.004',pg:21,tot:60,falta:12432.03,prox:'09/10/2026',atr:0}
+    ],
+    'Grupo Ipê Amarelo':[
+      {emp:'Ipê Amarelo Farmácia de Manipulação Ltda',doc:'67.890.123/0001-45',plat:'eCAC',nat:'Simples Nacional',num:'10120.007733/2024-15',pg:24,tot:60,falta:18540.00,prox:'30/10/2026',atr:0}
+    ]
   };
+  var PAGO_TOTAL = 214380.45;
+
+  var $ = function(id){ return document.getElementById(id); };
   var ic = function(id){ return '<svg class="i"><use href="#'+id+'"/></svg>'; };
-  function tabela(aba){
-    var area = document.getElementById('area-tabela');
-    var lin = dados[aba];
+  var esc = function(s){ return String(s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); };
+  var brl = function(v){ return 'R$ ' + v.toLocaleString('pt-BR',{minimumFractionDigits:2, maximumFractionDigits:2}); };
+  var aba = 'atraso', grupoAberto = 'Grupo Serra Azul', filtroChip = 'todos';
+
+  function estado(p){ return p.pagoEm ? 'pagas' : (p.dias > 0 ? 'atraso' : 'avencer'); }
+  function pill(p){
+    if (p.pagoEm) return '<span class="pill p-pago">Pago</span>';
+    if (p.dias > 0) return '<span class="pill p-atraso">Em atraso</span>';
+    if (p.dias === 0) return '<span class="pill p-atraso">Vence hoje</span>';
+    return '<span class="pill p-avencer">A vencer</span>';
+  }
+  function quando(p){
+    if (p.pagoEm) return '<small>paga em '+p.pagoEm+'</small>';
+    if (p.dias > 0) return '<small class="r">'+p.dias+' dia'+(p.dias>1?'s':'')+' de atraso</small>';
+    if (p.dias === 0) return '<small class="r">hoje</small>';
+    return '<small>em '+(-p.dias)+' dias</small>';
+  }
+
+  function kpis(){
+    var atr = P.filter(function(p){ return estado(p)==='atraso'; });
+    var mes = P.filter(function(p){ return !p.pagoEm && /\/10\/2026$/.test(p.venc); });
+    var somaA = atr.reduce(function(s,p){ return s+p.v; },0), somaM = mes.reduce(function(s,p){ return s+p.v; },0);
+    var falta = 0; Object.keys(S).forEach(function(g){ S[g].forEach(function(x){ falta += x.falta; }); });
+    var pago = PAGO_TOTAL + P.filter(function(p){ return p.pagoEm; }).reduce(function(s,p){ return s+p.v; },0);
+    var pc = Math.round(pago/(pago+falta)*100);
+    $('kpis').innerHTML =
+      '<div class="kpi"><div class="kpi-ic r">'+ic('i-alert')+'</div><div class="kpi-tx"><div class="l">Parcelas em atraso</div><div class="v r">'+atr.length+'</div><div class="s">'+brl(somaA)+' somadas</div></div></div>'
+     +'<div class="kpi"><div class="kpi-ic b">'+ic('i-cal')+'</div><div class="kpi-tx"><div class="l">Vencem este mês</div><div class="v">'+mes.length+' <small>· '+brl(somaM)+' no mês</small></div><div class="s">Emitir as guias até <b>dia 12</b></div></div></div>'
+     +'<div class="kpi"><div class="kpi-ic g">'+ic('i-pie')+'</div><div class="kpi-tx"><div class="l">Quitado / falta</div>'
+       +'<div class="dupla"><div><div class="v g">'+brl(pago)+'</div><div class="s">já pago</div></div><div><div class="v">'+brl(falta)+'</div><div class="s">falta pagar</div></div></div>'
+       +'<div class="barra" title="'+pc+'% quitado"><span style="width:'+pc+'%"></span></div><div class="s">'+pc+'% do total dos parcelamentos em andamento</div></div></div>';
+  }
+
+  function abas(){
+    var c = {atraso:0, avencer:0, pagas:0}; P.forEach(function(p){ c[estado(p)]++; });
+    var rot = {atraso:'Em atraso', avencer:'A vencer', pagas:'Pagas no mês'};
+    $('abas').innerHTML = ['atraso','avencer','pagas'].map(function(k){
+      return '<button class="aba" role="tab" type="button" data-aba="'+k+'" aria-selected="'+(k===aba)+'">'+rot[k]+'<span class="c">'+c[k]+'</span></button>';
+    }).join('');
+  }
+
+  function tabela(){
+    var q = $('f-busca').value.trim().toLowerCase(), g = $('f-grupo').value, pl = $('f-plat').value;
+    var lin = P.filter(function(p){
+      return estado(p)===aba && (!g || p.g===g) && (!pl || p.plat===pl)
+        && (!q || (p.emp+' '+p.doc+' '+p.num).toLowerCase().indexOf(q) >= 0);
+    }).sort(function(a,b){ return b.dias - a.dias; });
+    var area = $('area-tabela');
     if (!lin.length){
-      area.innerHTML = '<div class="vazio"><div class="vazio-ic">'+ic('i-checkc')+'</div><b>Nenhuma parcela paga em outubro ainda</b><p>Os pagamentos aparecem aqui assim que a baixa é dada. Há 12 parcelas a vencer neste mês.</p></div>';
+      var filtrando = q || g || pl;
+      area.innerHTML = '<div class="quadro"><div class="vazio"><div class="vazio-ic">'+ic(filtrando?'i-search':'i-checkc')+'</div>'
+        + (filtrando
+          ? '<b>Nenhuma parcela encontrada</b><p>Nada nesta aba combina com a busca e os filtros escolhidos.</p><button class="bt bt-o" type="button" id="limpar">Limpar filtros</button>'
+          : '<b>'+(aba==='atraso'?'Nenhuma parcela em atraso':'Nada aqui por enquanto')+'</b><p>'+(aba==='atraso'?'Todos os clientes estão em dia. Confira as que vencem este mês na aba "A vencer".':'As parcelas aparecem aqui assim que houver alguma.')+'</p>')
+        + '</div></div>';
       return;
     }
-    var soma = 0;
-    var corpo = lin.map(function(r){
-      soma += parseFloat(r[5].replace(/\./g,'').replace(',','.'));
-      return '<tr tabindex="0"><td><span class="grp">'+r[0]+'</span></td>'
-        +'<td><span class="nome">'+r[1]+'</span><span class="doc">'+r[2]+'</span></td>'
-        +'<td class="num">'+r[3]+'</td><td class="dt">'+r[4]+'</td>'
-        +'<td class="dir val">R$ '+r[5]+'</td>'
-        +'<td class="cen dt">'+r[6]+'<small>'+r[7]+'</small></td>'
-        +'<td class="cen"><span class="pill '+r[8]+'">'+r[9]+'</span></td>'
-        +'<td><div class="acoes"><button type="button" aria-label="Ver detalhe">'+ic('i-eye')+'</button><button type="button" aria-label="Dar baixa">'+ic('i-check')+'</button></div></td></tr>';
-    }).join('');
-    var total = soma.toLocaleString('pt-BR',{minimumFractionDigits:2, maximumFractionDigits:2});
-    area.innerHTML = '<div class="quadro"><div class="quadro-hd"><h2>'+(aba==='atraso'?'Parcelas em atraso':'Parcelas a vencer')+'</h2><span class="resumo">'+lin.length+' parcelas · R$ '+total+'</span></div>'
-      +'<div class="rola"><table><thead><tr><th>Grupo</th><th>Empresa</th><th>Nº parcelamento</th><th>Parcela</th><th class="dir">Valor</th><th class="cen">Vencimento</th><th class="cen">Situação</th><th class="cen">Ações</th></tr></thead><tbody>'+corpo+'</tbody></table></div></div>';
+    var soma = lin.reduce(function(s,p){ return s+p.v; },0);
+    var tit = {atraso:'Parcelas em atraso', avencer:'Parcelas a vencer', pagas:'Parcelas pagas no mês'}[aba];
+    area.innerHTML = '<div class="quadro"><div class="quadro-hd"><h2>'+tit+'</h2><span class="resumo">'+lin.length+' parcela'+(lin.length>1?'s':'')+' · <b>'+brl(soma)+'</b></span></div>'
+      +'<div class="rola"><table class="t-parc"><thead><tr><th>Grupo</th><th class="c-emp">Empresa</th><th>Plataforma</th><th>Natureza</th><th>Nº parcelamento</th><th>Parcela</th><th class="dir">Valor</th><th class="cen">Vencimento</th><th class="cen">Situação</th><th class="cen">Baixa</th></tr></thead><tbody>'
+      + lin.map(function(p){
+        return '<tr class="cl" tabindex="0" data-id="'+p.id+'" title="Clique para abrir e editar a parcela">'
+          +'<td class="g-txt">'+esc(p.g)+'</td>'
+          +'<td><span class="nome">'+esc(p.emp)+'</span><span class="doc">'+p.doc+'</span></td>'
+          +'<td><span class="plat">'+p.plat+'</span></td>'
+          +'<td>'+esc(p.nat)+'</td>'
+          +'<td class="num">'+p.num+'</td>'
+          +'<td class="dt">'+p.n+' de '+p.tot+'</td>'
+          +'<td class="dir val">'+brl(p.v)+'</td>'
+          +'<td class="cen dt">'+p.venc+quando(p)+'</td>'
+          +'<td class="cen">'+pill(p)+'</td>'
+          +'<td class="cen">'+(p.pagoEm ? '<span class="pago-em">✓ '+p.pagoEm+'</span>' : '<button class="bt-baixa" type="button" data-baixa="'+p.id+'">'+ic('i-check')+'Baixa</button>')+'</td></tr>';
+      }).join('') + '</tbody></table></div></div>';
   }
-  document.querySelectorAll('.aba').forEach(function(b){
-    b.addEventListener('click', function(){
-      document.querySelectorAll('.aba').forEach(function(x){ x.setAttribute('aria-selected', x === b ? 'true' : 'false'); });
-      tabela(b.dataset.aba);
-    });
-  });
-  tabela('avencer');
 
+  function cartoes(){
+    var gs = Object.keys(S).filter(function(g){
+      var atr = S[g].some(function(x){ return x.atr; });
+      return filtroChip==='todos' || (filtroChip==='atraso' ? atr : !atr);
+    });
+    var html = '';
+    gs.forEach(function(g){
+      var l = S[g], pg = 0, tot = 0, falta = 0, atr = 0;
+      l.forEach(function(x){ pg += x.pg; tot += x.tot; falta += x.falta; atr += x.atr; });
+      var mes = P.filter(function(p){ return p.g===g && !p.pagoEm && (p.dias>0 || /\/10\/2026$/.test(p.venc)); });
+      var somaMes = mes.reduce(function(s,p){ return s+p.v; },0);
+      var pc = Math.round(pg/tot*100), ab = g===grupoAberto;
+      html += '<button type="button" class="cg'+(atr?' atr':'')+'" aria-expanded="'+ab+'" data-g="'+esc(g)+'">'
+        +'<div class="cg-hd"><b>'+esc(g)+'</b>'+(atr?'<span class="pill p-atraso">'+atr+' em atraso</span>':'<span class="pill p-pago">Em dia</span>')+'</div>'
+        +'<div class="cg-sub">'+l.length+' parcelamento'+(l.length>1?'s':'')+'</div>'
+        +'<div class="barra" title="'+pc+'% das parcelas pagas"><span style="width:'+pc+'%"></span></div>'
+        +'<div class="cg-lin"><span>Pagas</span><b><b class="g">'+pg+'</b> de '+tot+'</b></div>'
+        +'<div class="cg-lin"><span>Falta pagar</span><b>'+brl(falta)+'</b></div>'
+        +'<div class="cg-lin"><span>A pagar este mês</span><b>'+(mes.length?brl(somaMes)+' <span style="font-weight:500;color:var(--text3)">('+mes.length+')</span>':'—')+'</b></div>'
+        +'</button>';
+      if (ab) html += detalheGrupo(g);
+    });
+    $('cartoes').innerHTML = html || '<div class="quadro det"><div class="vazio"><div class="vazio-ic">'+ic('i-checkc')+'</div><b>Nenhum grupo neste recorte</b><p>Troque o filtro acima para ver os outros grupos.</p></div></div>';
+  }
+  function detalheGrupo(g){
+    return '<div class="quadro det"><div class="quadro-hd"><h2>'+esc(g)+'</h2><small>clique na linha para ver as parcelas do parcelamento</small></div><div class="rola"><table class="t-sit"><thead><tr><th>Empresa</th><th>Plataforma</th><th>Natureza</th><th>Nº parcelamento</th><th>Pagas</th><th class="dir">Falta pagar</th><th class="cen">Próxima</th><th class="cen">Situação</th></tr></thead><tbody>'
+      + S[g].map(function(x, i){
+        var pc = Math.round(x.pg/x.tot*100);
+        return '<tr class="cl" tabindex="0" data-sg="'+esc(g)+'" data-si="'+i+'"><td><span class="nome">'+esc(x.emp)+'</span><span class="doc">'+x.doc+'</span></td>'
+          +'<td><span class="plat">'+x.plat+'</span></td><td>'+esc(x.nat)+'</td><td class="num">'+x.num+'</td>'
+          +'<td><div class="prog"><div class="barra"><span style="width:'+pc+'%"></span></div><span><b>'+x.pg+'</b> de '+x.tot+'</span></div></td>'
+          +'<td class="dir val">'+brl(x.falta)+'</td><td class="cen dt">'+x.prox+'</td>'
+          +'<td class="cen">'+(x.atr?'<span class="pill p-atraso">Em atraso</span>':'<span class="pill p-pago">Em dia</span>')+'</td></tr>';
+      }).join('') + '</tbody></table></div></div>';
+  }
+
+  /* painel lateral */
+  var fundo = $('fundo'), painel = $('painel'), voltarFoco = null;
+  function abrirPainel(html){ voltarFoco = document.activeElement; painel.innerHTML = html; fundo.hidden = false; var f = painel.querySelector('input,select,textarea'); if (f) f.focus(); }
+  function fechar(){ fundo.hidden = true; if (voltarFoco) voltarFoco.focus(); }
+  function cab(kick, tit, sub){ return '<div class="painel-hd"><div><span class="kick">'+kick+'</span><b id="painel-t">'+esc(tit)+'</b>'+(sub?'<small>'+sub+'</small>':'')+'</div><button class="fechar" type="button" data-fechar aria-label="Fechar">'+ic('i-x')+'</button></div>'; }
+  function opc(nome, itens, sel){ return '<div class="opcoes" role="group" aria-label="'+nome+'">'+itens.map(function(t){ return '<button type="button" aria-pressed="'+(t===sel)+'">'+t+'</button>'; }).join('')+'</div>'; }
+  function resumo(x){
+    return '<div class="resumo-box"><div class="larga"><span>Empresa</span><b>'+esc(x.emp)+'</b></div><div><span>CNPJ / CPF</span><b class="num" style="font-size:12px">'+x.doc+'</b></div><div><span>Nº do parcelamento</span><b class="num" style="font-size:12px">'+x.num+'</b></div>'
+      +'<div><span>Plataforma</span><b>'+x.plat+'</b></div><div><span>Natureza</span><b>'+esc(x.nat)+'</b></div></div>';
+  }
+  function editarParcela(p){
+    abrirPainel(cab('Editar parcela', 'Parcela '+p.n+' de '+p.tot, esc(p.g))
+      +'<div class="painel-bd">'+resumo(p)
+      +'<div class="bloco"><h3>Parcela</h3><div class="dois"><div class="campo"><label for="e-venc">Vencimento</label><input class="ctl" id="e-venc" value="'+p.venc+'"></div>'
+      +'<div class="campo"><label for="e-valor">Valor</label><input class="ctl" id="e-valor" value="'+brl(p.v)+'"></div></div>'
+      +'<div class="campo"><span class="rot">Guia</span>'+opc('Guia',['Não emitida','Emitida','Cliente emite'], 'Não emitida')+'</div></div>'
+      +'<div class="bloco"><h3>Pagamento</h3><div class="dois"><div class="campo"><span class="rot">Situação</span>'+opc('Pagamento',['Em aberto','Paga'], p.pagoEm?'Paga':'Em aberto')+'</div>'
+      +'<div class="campo"><label for="e-pag">Pago em</label><input class="ctl" id="e-pag" placeholder="dd/mm/aaaa" value="'+(p.pagoEm?p.pagoEm+'/2026':'')+'"></div></div>'
+      +'<div class="campo"><label for="e-obs">Observação</label><textarea class="ctl" id="e-obs" placeholder="Opcional"></textarea></div></div></div>'
+      +'<div class="painel-pe"><button class="bt bt-g esq" type="button" data-fechar>Ver o parcelamento inteiro</button><button class="bt bt-o" type="button" data-fechar>Cancelar</button><button class="bt bt-p" type="button" data-fechar>'+ic('i-check')+'Salvar</button></div>');
+  }
+  function editarParcelamento(g, x){
+    abrirPainel(cab('Parcelamento', x.plat+' · '+x.nat, esc(g)+' · '+x.pg+' de '+x.tot+' parcelas pagas')
+      +'<div class="painel-bd">'+resumo(x)
+      +'<div class="bloco"><h3>Andamento</h3><div class="dois"><div class="campo"><span class="rot">Pagas</span><b style="font-size:20px;color:var(--green)">'+x.pg+' <span style="font-size:13px;color:var(--text3);font-weight:500">de '+x.tot+'</span></b></div><div class="campo"><span class="rot">Falta pagar</span><b style="font-size:20px;color:var(--ink)">'+brl(x.falta)+'</b></div></div>'
+      +'<div class="campo"><span class="rot">Quem emite a guia</span>'+opc('Quem emite',['Nós','O cliente'],'Nós')+'</div></div>'
+      +'<div class="bloco"><h3>Próximas parcelas</h3><div class="campo"><span class="ajuda">No sistema, aqui entra a lista das parcelas deste parcelamento (clique para editar cada uma).</span></div></div></div>'
+      +'<div class="painel-pe"><button class="bt bt-o" type="button" data-fechar>Fechar</button><button class="bt bt-p" type="button" data-fechar>'+ic('i-check')+'Salvar</button></div>');
+  }
+  function novo(){
+    var grupos = Object.keys(S).map(function(g){ return '<option>'+esc(g)+'</option>'; }).join('');
+    abrirPainel(cab('Novo', 'Novo parcelamento', 'As parcelas são criadas a partir do 1º vencimento')
+      +'<div class="painel-bd"><div class="bloco"><h3>Cliente</h3>'
+      +'<div class="campo"><label for="n-grupo">Grupo</label><select class="ctl" id="n-grupo">'+grupos+'</select></div>'
+      +'<div class="campo"><label for="n-emp">Empresa</label><input class="ctl" id="n-emp" placeholder="Nome ou CNPJ"></div></div>'
+      +'<div class="bloco"><h3>Parcelamento</h3><div class="dois"><div class="campo"><label for="n-plat">Plataforma</label><select class="ctl" id="n-plat"><option>eCAC</option><option>Regularize</option><option>SIARE</option></select></div>'
+      +'<div class="campo"><label for="n-nat">Natureza</label><select class="ctl" id="n-nat"><option>Simples Nacional</option><option>INSS</option><option>Previdenciário</option><option>Não previdenciário</option><option>ICMS</option></select></div></div>'
+      +'<div class="campo"><label for="n-num">Nº do parcelamento</label><input class="ctl" id="n-num" placeholder="Ex.: 10120.004512/2024-11"></div></div>'
+      +'<div class="bloco"><h3>Parcelas</h3><div class="dois"><div class="campo"><label for="n-tot">Quantidade</label><input class="ctl" id="n-tot" inputmode="numeric" placeholder="60"></div>'
+      +'<div class="campo"><label for="n-v">Valor da parcela</label><input class="ctl" id="n-v" inputmode="decimal" placeholder="R$ 0,00"></div></div>'
+      +'<div class="dois"><div class="campo"><label for="n-1">1º vencimento</label><input class="ctl" id="n-1" placeholder="dd/mm/aaaa"></div>'
+      +'<div class="campo"><span class="rot">Quem emite a guia</span>'+opc('Quem emite',['Nós','O cliente'],'Nós')+'</div></div></div></div>'
+      +'<div class="painel-pe"><button class="bt bt-o" type="button" data-fechar>Cancelar</button><button class="bt bt-p" type="button" data-fechar>'+ic('i-check')+'Criar parcelamento</button></div>');
+  }
+
+  var toastT;
+  function aviso(txt, desfazer){
+    var t = $('toast'); clearTimeout(toastT);
+    t.innerHTML = '<span>'+txt+'</span>'+(desfazer?'<button type="button" id="desfazer">Desfazer</button>':'');
+    t.hidden = false;
+    if (desfazer) $('desfazer').onclick = function(){ desfazer(); t.hidden = true; };
+    toastT = setTimeout(function(){ t.hidden = true; }, 5000);
+  }
+  function tudo(){ kpis(); abas(); tabela(); cartoes(); }
+
+  /* eventos */
+  Object.keys(S).forEach(function(g){ $('f-grupo').insertAdjacentHTML('beforeend','<option>'+esc(g)+'</option>'); });
+  $('abas').addEventListener('click', function(e){ var b = e.target.closest('.aba'); if (!b) return; aba = b.dataset.aba; abas(); tabela(); });
+  ['f-busca','f-grupo','f-plat'].forEach(function(id){ $(id).addEventListener('input', tabela); });
+  $('area-tabela').addEventListener('click', function(e){
+    if (e.target.id === 'limpar'){ $('f-busca').value=''; $('f-grupo').value=''; $('f-plat').value=''; tabela(); return; }
+    var bx = e.target.closest('[data-baixa]');
+    if (bx){
+      var p = P[+bx.dataset.baixa]; p.pagoEm = HOJE.slice(0,5); tudo();
+      aviso('Baixa lançada: parcela '+p.n+' de '+p.tot+' — '+p.emp.split(' ').slice(0,2).join(' '), function(){ p.pagoEm=''; tudo(); });
+      return;
+    }
+    var tr = e.target.closest('tr[data-id]'); if (tr) editarParcela(P[+tr.dataset.id]);
+  });
+  $('cartoes').addEventListener('click', function(e){
+    var c = e.target.closest('.cg'); if (c){ grupoAberto = grupoAberto===c.dataset.g ? '' : c.dataset.g; cartoes(); return; }
+    var tr = e.target.closest('tr[data-sg]'); if (tr) editarParcelamento(tr.dataset.sg, S[tr.dataset.sg][+tr.dataset.si]);
+  });
+  document.addEventListener('keydown', function(e){
+    if (e.key === 'Escape' && !fundo.hidden) fechar();
+    if (e.key === 'Enter' && e.target.matches && e.target.matches('tr.cl')) e.target.click();
+  });
+  $('chips').addEventListener('click', function(e){
+    var b = e.target.closest('.chip'); if (!b) return; filtroChip = b.dataset.c;
+    document.querySelectorAll('.chip').forEach(function(x){ x.setAttribute('aria-pressed', x===b); }); cartoes();
+  });
+  fundo.addEventListener('click', function(e){
+    if (e.target === fundo || e.target.closest('[data-fechar]')) return fechar();
+    var o = e.target.closest('.opcoes button');
+    if (o) o.parentNode.querySelectorAll('button').forEach(function(x){ x.setAttribute('aria-pressed', x===o); });
+  });
+  $('novo').onclick = novo;
+  $('atualizar').onclick = function(){ var d = new Date(); $('hora').textContent = 'Atualizado '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); };
+
+  /* letra e tema (só do guia) */
   var raiz = document.documentElement;
+  $('letras').addEventListener('click', function(e){
+    var b = e.target.closest('button'); if (!b) return;
+    raiz.style.setProperty('--font', b.dataset.f+",system-ui,-apple-system,'Segoe UI',sans-serif");
+    raiz.classList.toggle('letra-erp', !!b.dataset.erp);
+    this.querySelectorAll('button').forEach(function(x){ x.setAttribute('aria-pressed', x===b); });
+  });
   function tema(t){
     raiz.setAttribute('data-theme', t);
-    document.getElementById('tema-claro').setAttribute('aria-pressed', t === 'light');
-    document.getElementById('tema-escuro').setAttribute('aria-pressed', t === 'dark');
+    $('tema-claro').setAttribute('aria-pressed', t === 'light');
+    $('tema-escuro').setAttribute('aria-pressed', t === 'dark');
   }
   var inicial = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   if (raiz.getAttribute('data-theme')) inicial = raiz.getAttribute('data-theme');
   tema(inicial);
-  document.getElementById('tema-claro').onclick = function(){ tema('light'); };
-  document.getElementById('tema-escuro').onclick = function(){ tema('dark'); };
-  document.getElementById('tema-topo').onclick = function(){ tema(raiz.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'); };
+  $('tema-claro').onclick = function(){ tema('light'); };
+  $('tema-escuro').onclick = function(){ tema('dark'); };
+  $('tema-topo').onclick = function(){ tema(raiz.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'); };
 
-  var fundo = document.getElementById('fundo');
-  function abrir(){ fundo.hidden = false; document.getElementById('t-tit').focus(); }
-  function fechar(){ fundo.hidden = true; }
-  document.getElementById('abrir-painel').onclick = abrir;
-  document.getElementById('fechar-painel').onclick = fechar;
-  document.getElementById('cancelar-painel').onclick = fechar;
-  document.getElementById('salvar-painel').onclick = fechar;
-  fundo.addEventListener('click', function(e){ if (e.target === fundo) fechar(); });
-  document.addEventListener('keydown', function(e){ if (e.key === 'Escape') fechar(); });
-  document.getElementById('area-tabela').addEventListener('click', function(e){
-    var tr = e.target.closest('tbody tr'); if (!tr || e.target.closest('button')) return; abrir();
-  });
+  tudo();
 })();
 </script>
