@@ -226,11 +226,12 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('painel recalcula após editar cliente (R$ 3.000,00)', /3\.000,00/.test(await p.evaluate(() => document.getElementById('execKpis').innerHTML)));
 
     // ── parcelamento: marcar parcela vencida como paga ──
-    await nav(p, 'parcelamentos');
-    const marcaParc = await p.evaluate(() => { const tr = document.querySelector('tr[data-gx^="parcelas:"]'); return tr && tr.dataset.gx; });
-    ok('parcelas com ✓ Baixa na linha e sem ✎ (Backup 57: editar pelo detalhe da parcela)', !!marcaParc && !!(await p.$('tr[data-gx^="parcelas:"] [data-la=baixa]')) && !(await p.$('tr[data-gx^="parcelas:"] [data-la=editar]')));
+    // Backup 68: Parcelamentos é a tela nova (telas-parcelamentos.js) — Baixa na linha, sem ✎; clique na linha → detalhe da parcela → Editar (formulário do ERP)
+    await nav(p, 'parcelamentos'); await p.waitForSelector('#panel-parcelamentos #pc-tabela tr[data-b-k]');
     const idParc2 = sql("select id from parcelas where numero='2'");
-    await p.evaluate((id) => ERP_EDITAR('parcelas:' + id + ':' + document.querySelector('tr[data-gx^="parcelas:"]').dataset.gx.split(':')[2]), idParc2);
+    ok('parcelas com Baixa na linha e sem ✎ (editar pelo detalhe da parcela)', !!(await p.$('#pc-tabela tr[data-b-k="' + idParc2 + '"] [data-pc-baixa]')) && !(await p.$('#pc-tabela [data-la=editar]')));
+    await p.click('#pc-tabela tr[data-b-k="' + idParc2 + '"] td:nth-child(3)'); await p.waitForSelector('#gs-raiz #pc-p-editar');
+    await p.click('#gs-raiz #pc-p-editar');
     await esperarJanela(p);
     ok('abre o parcelamento com a parcela destacada', await p.isVisible('.gx-destaque'));
     await p.check('.gx-destaque [data-c=pago]');
@@ -809,34 +810,48 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       !(await p.$('#tblProcBody tr.gx-det')) && !!(await p.$('#janelas [data-pr-editar]')));
     await p.evaluate(() => { while (document.querySelector('#janelas .fundo')) window.GS.fecharJanela(); });
     ok('Processos: grupo em texto simples e sem o botão "Limpar"', !!(await p.$('#tblProcBody td.gx-grupo-txt')) && !(await p.isVisible('#btnProcClear')));
-    await nav(p, 'parcelamentos'); await p.waitForTimeout(1200);
-    ok('Parcelamentos: sem "Saldo residual por empresa" e sem "Progresso por parcelamento" separado', !(await p.$('#cParcResidual')) && !(await p.isVisible('#parcProgressList')));
-    // Backup 25: lista por grupo (a mesma de Acordos), sem barra de progresso
-    ok('Parcelamentos: "Parcelamentos em andamento" por grupo, com "N de M parcelas pagas" e sem barra', /Grupo Alfa/.test(await p.textContent('#parcAnalise .lg')) &&
-      /Pagas\s*\d+ de \d+/.test(await p.textContent("#parcAnalise .lg")) && !(await p.$('#parcAnalise .lg .acx-bar')), await p.textContent('#parcAnalise .lg').catch(() => 'sem .lg'));
-    ok('Parcelamentos: de início só os grupos (sem os parcelamentos abertos)', (await p.$$('#parcAnalise .lg-card')).length >= 1 && !(await p.$('#parcAnalise .lg-t-lin')) || (await p.$$('#parcAnalise .lg-card')).length === 1);
-    if (!(await p.$('#parcAnalise .lg-t-lin'))) { await p.click('#parcAnalise .lg-card'); await p.waitForTimeout(500); }
-    ok('Parcelamentos: situação em cartões por grupo; clicar no cartão abre a tabela dos parcelamentos logo abaixo (cartão marcado "aberto")', (await p.$$('#parcAnalise .lg-painel .lg-t-lin')).length >= 1 && !!(await p.$('#parcAnalise .lg-card[aria-expanded=true]')));
-    ok('Parcelamentos: cartão mostra "A pagar este mês" (vencidas + do mês)', /A pagar este mês/.test(await p.textContent('#parcAnalise .lg-card')));
-    await p.click('#parcAnalise .lg-t-lin'); await p.waitForTimeout(600);
-    ok('Parcelamentos (B49): clicar no parcelamento abre o detalhamento só para consulta (pagar e emitir ficam na Rotina)', /Parcelamento/.test(await p.textContent('#janelas .janela-hd').catch(() => '')) && !(await p.$('#janelas .pcd [data-lg-pagar]')));
-    ok('Parcelamentos: o detalhamento traz a ficha da planilha (devedor, órgão, natureza, nº) e as parcelas em lista com a situação da guia', !!(await p.$('#janelas .pcd .lg-ficha')) &&
-      /Devedor/.test(await p.textContent('#janelas .lg-ficha')) && (await p.$$('#janelas .lg-parc-tab tbody tr')).length >= 1 && !!(await p.$('#janelas .lg-parc-tab .lg-em')));
-    ok('Parcelamentos: detalhamento com colunas separadas "Emissão" e "Pagamento"', /Emissão/.test(await p.textContent('#janelas .lg-parc-tab thead')) && /Pagamento/.test(await p.textContent('#janelas .lg-parc-tab thead')));
-    sql("update parcelamentos set emitimos_guia=true");
-    await p.evaluate(() => { while (document.querySelector('#janelas .fundo')) window.GS.fecharJanela(); });
-    await p.evaluate(() => { FILTROS.grupo = 'Grupo Alfa'; renderParcAnalise(); }); await p.waitForTimeout(400);
-    ok('Parcelamentos: com um grupo filtrado os cartões são por empresa', /alfa com/i.test(await p.textContent('#parcAnalise .lg-card .lg-gnome')));
-    await p.click('#parcFSit button:has-text("Em dia")'); await p.waitForTimeout(400);
-    ok('Parcelamentos: filtros de grupo e situação', /de \d+/.test(await p.textContent('#parcAnalise .pcx-filtros')) && !!(await p.$('#parcFSit button.ativo')));
-    await p.click('#parcFSit button:has-text("Todas")'); await p.evaluate(() => { FILTROS.grupo = ''; renderParcAnalise(); }); await p.waitForTimeout(400);
-    ok('Parcelamentos: sem "Por grupo / Lista" (sempre por grupo) e "N de M" em verde', !(await p.$('#parcVisao')) && !!(await p.$('#parcAnalise .lg-card')) && !!(await p.$('#parcAnalise .lg-verde')));
-    // Backup 37: "Gerar guias" geral (e por grupo/linha) abre o envio por empresa; sem o seletor "Todos os grupos" (vem do filtro do topo)
-    ok('Parcelamentos (B49): sem botões de gerar guias (a emissão é na Rotina) e sem o seletor de grupo repetido', !(await p.$('#parcAnalise .lg-bt-guias-geral')) && !(await p.$('#parcAnalise .lg-bt-guias')) && !(await p.$('#parcAnalise .lg-bt-gu')) && !(await p.$('#parcFGrupo')));
-    await p.evaluate(() => { while (document.querySelector('#janelas .fundo')) window.GS.fecharJanela(); });
-    await p.waitForTimeout(800);
-    ok('Parcelamentos: sem o quadro "Parcelamentos para emitir" (Backup 34: a emissão é na Rotina) e sem "quem emite" na situação', !(await p.$('#parcGuias')) && !/Nós emitimos|Cliente emite/.test(await p.textContent('#parcAnalise')));
-    ok('Parcelamentos e Acordos: sem o selo vermelho do topo e sem a nota em itálico', !(await p.isVisible('#alertParc')) && !(await p.isVisible('#panel-parcelamentos .pa-nota')));
+    // ── Backup 68 (reforma, etapa 3): Parcelamentos refeita — os testes da tela antiga viraram estes (mesmas funções, peças novas) ──
+    await nav(p, 'parcelamentos'); await p.waitForSelector('#panel-parcelamentos #pc-grupos .b-cg');
+    ok('Parcelamentos (B68): a tela antiga fica escondida para a equipe (sem a "Situação" antiga, sem o selo vermelho do topo)', !(await p.isVisible('#parcAnalise')) && !(await p.isVisible('#alertParc')) && !(await p.isVisible('#parcTabBar')));
+    ok('Parcelamentos (B68): 4 cartões — em atraso, vencem este mês, guias a emitir, quitado/falta', (await p.$$('#pc-cartoes .b-kpi-bt')).length === 4 && /Guias a emitir/.test(await p.textContent('#pc-cartoes')) && /Quitado/.test(await p.textContent('#pc-cartoes')));
+    await p.click('#pc-cartoes [data-kpi=quit]'); await p.waitForTimeout(300);
+    ok('Parcelamentos (B68): clicar no cartão abre o detalhamento logo abaixo (e marca o cartão)', !!(await p.$('#pc-cartoes .b-kpi-det table')) && /Grupo Alfa/.test(await p.textContent('#pc-cartoes .b-kpi-det')) && !!(await p.$('#pc-cartoes [data-kpi=quit][aria-expanded=true]')));
+    await p.click('#pc-cartoes [data-kpi=quit]'); await p.waitForTimeout(200);
+    ok('Parcelamentos (B68): clicar de novo fecha o detalhamento', !(await p.$('#pc-cartoes .b-kpi-det table')));
+    ok('Parcelamentos (B68): situação por cliente — cartão do grupo com "Pagas N de M", falta pagar e "A pagar este mês"', /Grupo Alfa/.test(await p.textContent('#pc-grupos')) && /Pagas\s*\d+ de \d+/.test(await p.textContent('#pc-grupos .b-cg')) && /A pagar este mês/.test(await p.textContent('#pc-grupos .b-cg')));
+    ok('Parcelamentos (B68): um grupo só já abre a lista dos parcelamentos (cartão marcado)', !!(await p.$('#pc-det-grupo tr[data-b-k]')) && !!(await p.$('#pc-grupos .b-cg[aria-expanded=true]')));
+    ok('Parcelamentos (B68): a lista do grupo mostra a situação ("em atraso" em vermelho ou "Em dia")', /em atraso|Em dia|Concluído/.test(await p.textContent('#pc-det-grupo')));
+    await p.click('#pc-det-grupo tr[data-b-k] td:nth-child(2)'); await p.waitForSelector('#gs-raiz #pc-j-parcelas tr[data-b-k]');
+    ok('Parcelamentos (B68): clicar no parcelamento abre a janela no centro com ficha, 5 números e TODAS as parcelas', /Parcelamento nº/.test(await p.textContent('#gs-raiz .janela-hd')) && /CPF \/ CNPJ/.test(await p.textContent('#gs-raiz .b-ficha')) &&
+      (await p.$$('#gs-raiz .b-nums > div')).length === 5 && (await p.$$('#gs-raiz #pc-j-parcelas [data-b-aba]')).length === 3);
+    ok('Parcelamentos (B68): parcelas da janela com Guia e Baixa (sem coluna "Situação")', /Guia/.test(await p.textContent('#gs-raiz #pc-j-parcelas thead')) && /Baixa/.test(await p.textContent('#gs-raiz #pc-j-parcelas thead')) && !/Situação/.test(await p.textContent('#gs-raiz #pc-j-parcelas thead')));
+    await p.evaluate(() => { while (document.querySelector('#gs-raiz .fundo')) window.GS.fecharJanela(); });
+    await p.click('#pc-chips [data-pc-chip=atraso]'); await p.waitForTimeout(200);
+    const chipAtr = await p.textContent('#pc-grupos');
+    await p.click('#pc-chips [data-pc-chip=todos]'); await p.waitForTimeout(200);
+    ok('Parcelamentos (B68): escolher "Com atraso / Risco / Em dia / Concluídos" filtra os cartões', /Nenhum grupo neste recorte|em atraso/.test(chipAtr) && /Grupo Alfa/.test(await p.textContent('#pc-grupos')));
+    ok('Parcelamentos (B68): parcelas em abas Em atraso / A vencer / Pagas, com contador', /Em atraso\s*\d+/.test(await p.textContent('#pc-tabela .b-abas')) && /A vencer\s*\d+/.test(await p.textContent('#pc-tabela .b-abas')) && /Pagas\s*\d+/.test(await p.textContent('#pc-tabela .b-abas')));
+    await p.click('#pc-tabela [data-b-aba=avencer]'); await p.waitForTimeout(200);
+    ok('Parcelamentos (B68): colunas pedidas (Grupo, Empresa, Plataforma, Natureza, Nº, Parcela, Valor, Vencimento, Baixa) e sem "Situação"', await p.evaluate(() => { const t = [...document.querySelectorAll('#pc-tabela thead th')].map((th) => th.textContent.replace(/[↑↓]/g, '').trim().toLowerCase()).join('|');
+      return ['grupo', 'empresa', 'plataforma', 'natureza', 'nº parcelamento', 'parcela', 'valor', 'vencimento', 'baixa'].every((c) => t.includes(c)) && !t.includes('situação'); }));
+    ok('Parcelamentos (B68): a vencer com o vencimento inteiro em azul ("em N dias")', !!(await p.$('#pc-tabela td.b-v-av')) && /em \d+ dias?/.test(await p.textContent('#pc-tabela td.b-v-av')));
+    await p.click('#pc-tabela [data-bt=painel]'); await p.fill('#pc-tabela [data-bt=min]', '99999999'); await p.waitForTimeout(300);
+    ok('Parcelamentos (B68): botão "Filtros" com valor de/até (nada encontrado → "Limpar filtros") e o contador de filtros ligados', /Nada encontrado/.test(await p.textContent('#pc-tabela')) && /1/.test(await p.textContent('#pc-tabela [data-bt=painel] .b-nf')));
+    await p.click('#pc-tabela [data-bt=quadro] [data-bt=limpar]'); await p.waitForTimeout(300);
+    ok('Parcelamentos (B68): limpar filtros volta a lista', (await p.$$('#pc-tabela tbody tr[data-b-k]')).length >= 1);
+    await p.click('#pc-tabela th[data-b-ord=v]'); await p.waitForTimeout(150);
+    ok('Parcelamentos (B68): ordenar clicando no título da coluna', (await p.getAttribute('#pc-tabela th[data-b-ord=v]', 'data-dir')) === '1');
+    await p.click('#pc-tabela tbody tr[data-b-k] [data-bt=um]'); await p.waitForTimeout(150);
+    ok('Parcelamentos (B68): marcar parcelas mostra a barra de ações em lote (dar baixa, marcar guias)', /Dar baixa/.test(await p.textContent('#pc-tabela .b-lote')) && /Marcar guias/.test(await p.textContent('#pc-tabela .b-lote')));
+    await p.click('#pc-tabela [data-bt=desmarcar]'); await p.waitForTimeout(150);
+    const idParc3 = sql("select id from parcelas where numero='3'");
+    await p.click('#pc-tabela [data-b-aba=avencer]'); await p.waitForSelector('#pc-tabela tr[data-b-k="' + idParc3 + '"] [data-pc-baixa]');
+    await p.click('#pc-tabela tr[data-b-k="' + idParc3 + '"] [data-pc-baixa]'); await p.waitForSelector('.janela-baixa [data-bx-ok]');
+    ok('Parcelamentos (B68): Baixa pede confirmação (com a data) antes de gravar', sql("select pago from parcelas where id='" + idParc3 + "'") === 'f');
+    await p.click('.janela-baixa [data-bx-ok]'); await p.waitForTimeout(1500);
+    ok('Parcelamentos (B68): confirmou → grava e a parcela vai para "Pagas" com "Pago em"', sql("select pago from parcelas where id='" + idParc3 + "'") === 't' && !(await p.$('#pc-tabela tr[data-b-k="' + idParc3 + '"] [data-pc-baixa]')));
+    await p.click('#gx-rodape .gx-rod-bt'); await p.waitForTimeout(1500);
+    ok('Parcelamentos (B68): "Desfazer" no rodapé tira a baixa', sql("select pago from parcelas where id='" + idParc3 + "'") === 'f' && !!(await p.$('#pc-tabela tr[data-b-k="' + idParc3 + '"] [data-pc-baixa]')));
     await nav(p, 'acordos'); await p.waitForTimeout(1200);
     ok('Acordos (B49): o resumo "Situação dos acordos" começa fechado (a lista principal é a A pagar)', await p.evaluate(() => document.getElementById('exAcSit').classList.contains('fechado')));
     await p.click('#exAcSit .ex-tg'); await p.waitForTimeout(300);
@@ -1710,8 +1725,10 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       ok('B52 P1: o filtro escolhido tem o mesmo desenho no Início, no Painel e em Clientes', !!pIni && pIni === pPai && pIni === pCli, [pIni, pPai, pCli].join(' / '));
       // P4: situações com a mesma cor (Financeiro e Parcelamentos)
       await nav(p, 'parcelamentos'); await p.waitForTimeout(1500);
-      const sitParc = await p.evaluate(() => { const e = document.querySelector('#panel-parcelamentos [data-sit=atraso]'); return e ? getComputedStyle(e).backgroundColor : null; });
-      ok('B52 P4: situação "em atraso" com data-sit e a cor única (Parcelamentos = a pílula padrão)', !!sitParc && sitParc === await p.evaluate(() => { const s2 = document.createElement('span'); s2.className = 'pill'; s2.dataset.sit = 'atraso'; document.querySelector('#panel-parcelamentos').appendChild(s2); const c = getComputedStyle(s2).backgroundColor; s2.remove(); return c; }), sitParc);
+      // Backup 68: na tela nova, "em atraso" é o mesmo vermelho em todo lugar (pílula do grupo, texto da situação e vencimento)
+      const corAtr = await p.evaluate(() => { const alvo = document.querySelector('#panel-parcelamentos #pc-tabela'); const mk = (c) => { const e = document.createElement('span'); e.className = c; alvo.appendChild(e); const r = getComputedStyle(e).color; e.remove(); return r; };
+        return [mk('b-n-atr'), mk('b-pill b-r'), mk('b-verm')]; });
+      ok('B52 P4 / B68: "em atraso" com a mesma cor na tela nova de Parcelamentos', !!corAtr[0] && corAtr.every((c) => c === corAtr[0]), corAtr.join(' / '));
       // C5: Publicações — "Buscar agora" pelo navegador, sem o botão duplicado
       await nav(p, 'publicacoes'); await p.waitForSelector('#pub-buscar');
       ok('B52 C5: Publicações sem o botão separado "Buscar pelo navegador"', !(await p.$('#pub-nav')));
@@ -1887,13 +1904,14 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
         return { a: r[0] && r[0].right, b: r[1] && r[1].left, larg: w.width, ini: w.left }; });
       ok('B55 Tarefas: Urgência e Prazo logo depois de Mostrar/De quem (não colados na direita)', pos.b > pos.a && pos.b - pos.a < 120 && pos.b - pos.ini < pos.larg * 0.8, JSON.stringify(pos));
       await nav(p, 'resumo'); await p.waitForSelector('#tblExecRanking tr:not(.gx-grp)'); await p.evaluate(() => { FILTROS.grupo = ''; FILTROS.empresa = ''; renderExecRanking(); }); await p.waitForTimeout(800);
-      await nav(p, 'parcelamentos'); await p.evaluate(() => setParcTab('avencer')); await p.waitForSelector('#tblParcBody tr[data-gx]', { timeout: 10000 }).catch(() => {}); await p.waitForTimeout(500);
-      ok('B57 Parcelamentos: tabela do ERP antigo com Status, Atraso e Baixa, sem a caneta', await p.evaluate(() => { const t = document.querySelector('#tblParcBody').closest('table'); const ths = [...t.tHead.rows[0].cells].map((x) => x.textContent.trim());
-        return ['Status', 'Atraso', 'Baixa'].every((n) => ths.includes(n)) && !t.querySelector('tbody .gx-la-ed') && !!t.querySelector('tbody .gx-la-bx'); }));
-      await p.click('#tblParcBody tr[data-gx] td:first-child'); await p.waitForSelector('#pc-det-editar', { timeout: 5000 }).catch(() => {});
-      ok('B57 Parcelamentos: clicar na parcela abre o detalhe com "Editar" e "Dar baixa"', !!(await p.$('#pc-det-editar')) && !!(await p.$('#pc-det-baixa')));
-      await p.click('#pc-det-editar').catch(() => {}); await p.waitForTimeout(1200);
-      ok('B57 Parcelamentos: "Editar" abre a edição do parcelamento', await p.evaluate(() => !!document.querySelector('.gx-fundo .gx-janela')));
+      // Backup 68: a tabela antiga (Status/Atraso/Baixa) virou a tela nova — Vencimento colorido, Baixa, sem caneta; clique → detalhe com Editar e Baixa
+      await nav(p, 'parcelamentos'); await p.waitForSelector('#pc-tabela [data-b-aba=avencer]'); await p.click('#pc-tabela [data-b-aba=avencer]'); await p.waitForSelector('#pc-tabela tbody tr[data-b-k]', { timeout: 10000 }).catch(() => {});
+      ok('B57/B68 Parcelamentos: tabela com Vencimento e Baixa, sem a caneta', await p.evaluate(() => { const t = document.querySelector('#pc-tabela table'); const ths = [...t.tHead.rows[0].cells].map((x) => x.textContent.replace(/[↑↓]/g, '').trim());
+        return ['Vencimento', 'Baixa'].every((n) => ths.includes(n)) && !t.querySelector('.gx-la-ed') && !!t.querySelector('tbody [data-pc-baixa]'); }));
+      await p.click('#pc-tabela tbody tr[data-b-k] td:nth-child(3)'); await p.waitForSelector('#gs-raiz #pc-p-editar', { timeout: 5000 }).catch(() => {});
+      ok('B57/B68 Parcelamentos: clicar na parcela abre o detalhe com "Editar" e "Baixa"', !!(await p.$('#gs-raiz #pc-p-editar')) && !!(await p.$('#gs-raiz .janela [data-pc-baixa]')));
+      await p.click('#gs-raiz #pc-p-editar').catch(() => {}); await p.waitForTimeout(1200);
+      ok('B57/B68 Parcelamentos: "Editar" abre a edição do parcelamento', await p.evaluate(() => !!document.querySelector('.gx-fundo .gx-janela')));
       await p.keyboard.press('Escape'); await p.waitForTimeout(300); await nav(p, 'resumo'); await p.waitForTimeout(800);
       ok('B58 tabelas: dinheiro à direita, Grupo só como coluna (sem a faixa repetida) e vazio sempre "—"', await p.evaluate(() => { const t = document.querySelector('#tblExecRanking').closest('table');
         const v = t.querySelector('tbody td.col-valor'), f = t.querySelector('tbody tr.gx-grp');

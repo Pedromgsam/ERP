@@ -58,7 +58,9 @@
   // Cobranças, avisos e recibos (antiga "Notificações"): fora da barra; abre pelo botão ✉ de cada tela e pelo ⋯
   const FUNC_EXTRA = { notificacoes: 'clientes' };   // a Central de e-mails confere o acesso no banco
   // painéis novos → tela do Gestão que desenha nele
-  const TELAS_GS = { hoje: 'inicio', contratos: 'contratos', clientes: 'clientes', crm: 'crm', publicacoes: 'publicacoes', documentos: 'documentos', gerador: 'gerador', tarefas: 'tarefas', alertas: 'alertas', rotina: 'rotina', execucoes: 'execucoes', admin: 'admin' };
+  const TELAS_GS = { hoje: 'inicio', contratos: 'contratos', clientes: 'clientes', crm: 'crm', publicacoes: 'publicacoes', documentos: 'documentos', gerador: 'gerador', tarefas: 'tarefas', alertas: 'alertas', rotina: 'rotina', execucoes: 'execucoes', admin: 'admin', parcelamentos: 'parcelamentos' };
+  // Backup 68 (reforma, etapa 3): Parcelamentos é tela nova para a equipe; o cliente (portal) continua vendo a antiga
+  const ehGS = (id) => !!TELAS_GS[id] && !(id === 'parcelamentos' && ehCliente());
 
   // "+ Lançar": formulários do Gestão onde existem; os demais, do editor do ERP
   const empresaAtual = () => (_painel === 'financeiroContab' ? 'contabilidade' : 'escritorio');
@@ -234,7 +236,9 @@
     const main = document.getElementById('main');
     if (!main) return;
     Object.keys(TELAS_GS).forEach((id) => {
-      if (document.getElementById('panel-' + id)) return;
+      const antigo = document.getElementById('panel-' + id);
+      // Backup 68: o painel antigo fica (portal do cliente); a tela nova entra dentro dele e o CSS mostra uma ou outra (body.gx-tela-nova)
+      if (antigo) { if (!document.getElementById('gs-main-' + id)) antigo.insertAdjacentHTML('beforeend', '<div class="gs gx-gs-no-antigo"><main class="gs-main" id="gs-main-' + id + '"></main></div>'); return; }
       const s = document.createElement('section');
       s.id = 'panel-' + id; s.className = 'panel gx-painel-gs'; s.dataset.loaded = '1';
       s.innerHTML = '<div class="gs"><main class="gs-main" id="gs-main-' + id + '"></main></div>';
@@ -242,7 +246,7 @@
     });
   }
   function desenharGS(id) {
-    if (!GS() || ehCliente()) return;
+    if (!GS() || !ehGS(id)) return;
     if (id === 'admin' && !ehAdmin()) return;
     return GS().irPara(TELAS_GS[id], document.getElementById('gs-main-' + id));
   }
@@ -454,7 +458,9 @@
      ['renderParcelamentos', () => acoesNaSituacao('panel-parcelamentos', 'exParcSit'), () => devolverAoBanner('panel-parcelamentos')],
      ['renderParcAnalise', () => acoesNaSituacao('panel-parcelamentos', 'exParcSit'), () => devolverAoBanner('panel-parcelamentos')]].forEach(([nome, fn, antes]) => {
       const orig = window[nome]; if (typeof orig !== 'function') return;
-      window[nome] = function () { if (antes) antes(); const r = orig.apply(this, arguments); try { fn(); } catch (e) { console.warn('[ERP] ' + nome + ':', e); } return r; };
+      // Backup 68: para a equipe, Parcelamentos é a tela nova — o desenho antigo (escondido) não roda à toa
+      const soCliente = nome === 'renderParcelamentos' || nome === 'renderParcAnalise';
+      window[nome] = function () { if (soCliente && !ehCliente()) return; if (antes) antes(); const r = orig.apply(this, arguments); try { fn(); } catch (e) { console.warn('[ERP] ' + nome + ':', e); } return r; };
     });
     acoesNoLugar();
     // aba do Financeiro marcada no próprio conteúdo (o CSS esconde gráficos repetidos só nas abas de lista)
@@ -486,8 +492,8 @@
       // assim a página não carrega dezenas de milhares de elementos escondidos, que deixavam toda troca de tela mais lenta
       clearTimeout(window._gxLimpa); window._gxLimpa = setTimeout(() => { document.querySelectorAll('.gs-area').forEach((a) => { if (a.firstChild && !a.closest('.panel.active')) a.textContent = ''; }); }, 1500);
       if (id) document.body.dataset.painel = id;
-      document.body.classList.toggle('gx-tela-nova', !!TELAS_GS[id]);
-      if (TELAS_GS[id]) desenharGS(id);
+      document.body.classList.toggle('gx-tela-nova', ehGS(id));
+      if (ehGS(id)) desenharGS(id);
       // Backup 46: baixa feita na Rotina não recarrega tudo na hora; recarrega ao abrir uma tela do ERP antigo (Parcelamentos, Painel…)
       else if (window.ERP_DADOS_SUJOS && typeof window.ERP_RECARREGAR === 'function') { window.ERP_DADOS_SUJOS = false; window.ERP_SUJO = null; window.ERP_RECARREGAR(); }
       // Backup 51 (V5): baixa/emissão de parcela feita na Rotina → relê SÓ os parcelamentos (não o ERP inteiro)
@@ -521,7 +527,8 @@
     window.ERP_RECARREGAR = function () {
       if (GS() && GS().invalidarCadastros) GS().invalidarCadastros();
       const r = recOrig && recOrig.apply(this, arguments);
-      if (TELAS_GS[_painel]) setTimeout(() => desenharGS(_painel), 200);
+      // Backup 68: redesenha a tela nova DEPOIS que os dados chegaram (antes eram 200 ms fixos — a tela podia sair com o dado velho)
+      if (ehGS(_painel)) Promise.resolve(r).catch(() => null).then(() => setTimeout(() => desenharGS(_painel), 50));
       return r;
     };
   }
@@ -536,6 +543,8 @@
     } catch (e) { console.warn('[ERP] recarregar ' + lista + ':', e.message); if (window.ERP_RECARREGAR) window.ERP_RECARREGAR(); }
   }
   window.ERP_RECARREGAR_MODULOS = recarregarModulos;
+  // Backup 68: a tela nova de Parcelamentos relê o que mudou (baixa na Rotina, por exemplo) antes de se desenhar
+  window.ERP_RECARREGAR_PARCELAMENTOS = (ids) => (Array.isArray(ids) ? recarregarParcelamentos(ids) : recarregarModulos('parcelamentos'));
   // Backup 52 (O3): troca no DB do ERP só os parcelamentos que mudaram e redesenha a tela aberta
   async function recarregarParcelamentos(ids) {
     try {

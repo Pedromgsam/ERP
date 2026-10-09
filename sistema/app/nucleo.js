@@ -574,6 +574,144 @@ function vazioB({ icone, titulo, frase, botao }) {
 // Enter na linha clicável = clique
 document.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && ev.target && ev.target.matches && ev.target.matches('tr.b-cl')) ev.target.click(); });
 
+// ═══ Backup 68 (reforma, etapa 3): as peças aprovadas no ambiente de teste (sistema/prototipos/ambiente-teste/pecas.js) ═══
+// Valem para TODA tela refeita: cartões que abrem o detalhamento, tabela com abas, busca, listas, "Filtros" (vencimento e valor de/até),
+// ordenar pelo título, total e média no rodapé, tabela compacta e marcar várias linhas para agir de uma vez (sempre com confirmação).
+const ICONES_B2 = { filtro: '<path d="M3 5h18l-7 8v6l-4 2v-8z"/>', compacto: '<path d="M4 5h16M4 9.5h16M4 14h16M4 18.5h16"/>', x: '<path d="M18 6 6 18M6 6l12 12"/>' };
+Object.assign(ICONES_B, ICONES_B2);
+// vencimento colorido: vermelho = em atraso (hoje conta como vencido), azul = a vencer; pago = data normal
+function vencB(isoData, pago) {
+  if (!isoData) return { cls: '', html: '—' };
+  if (pago) return { cls: '', html: dataBR(isoData) };
+  const d = Math.round((new Date(hojeISO() + 'T00:00:00') - new Date(isoData + 'T00:00:00')) / 864e5);
+  return { cls: d >= 0 ? ' b-v-atr' : ' b-v-av', html: dataBR(isoData) + '<small>' + (d === 0 ? 'vence hoje' : d > 0 ? plural(d, 'dia', 'dias') + ' de atraso' : 'em ' + plural(-d, 'dia', 'dias')) + '</small>' };
+}
+// cartões que abrem o detalhamento logo abaixo (clicou → abre; clicou de novo → fecha)
+// lista: [{id, icone, cor, rotulo, valor, comp, sub, barra, linhas, det(container)}]
+function cartoesB(el, chave, lista) {
+  E.kpiAberto = E.kpiAberto || {};
+  const ab = E.kpiAberto[chave] || '';
+  el.innerHTML = '<div class="b-kpis b-kpis-' + lista.length + ' b-kpis-ab">' + lista.map((c) => {
+    const on = ab === c.id;
+    return '<button type="button" class="b-kpi b-kpi-bt" data-kpi="' + esc(c.id) + '" aria-expanded="' + on + '"><span class="b-kpi-abre">' + (on ? 'fechar ▲' : 'ver ▼') + '</span>' +
+      '<div class="b-kpi-ic b-' + (c.cor || 'b') + '">' + iconeB(c.icone || 'ok') + '</div><div class="b-kpi-tx"><div class="b-kpi-l">' + esc(c.rotulo) + '</div>' +
+      (c.linhas ? '<div class="b-kpi-linhas">' + c.linhas.map((l) => '<div><span class="b-kpi-v' + (l[2] ? ' b-verde' : '') + '">' + esc(l[0]) + '</span><span class="b-kpi-s">' + esc(l[1]) + '</span></div>').join('') + '</div>'
+        : '<div class="b-kpi-v' + (c.cor === 'r' && c.valor && c.valor !== '0' ? ' b-verm' : '') + '">' + esc(c.valor) + (c.comp ? ' <small>' + esc(c.comp) + '</small>' : '') + '</div>') +
+      (c.barra != null ? '<div class="b-barra' + (c.cor === 'a' ? ' b-barra-a' : '') + '"><span style="width:' + Math.max(0, Math.min(100, Math.round(c.barra))) + '%"></span></div>' : '') +
+      (c.sub ? '<div class="b-kpi-s">' + c.sub + '</div>' : '') + '</div></button>';
+  }).join('') + '</div><div class="b-kpi-det"></div>';
+  const atual = lista.find((c) => c.id === ab);
+  if (atual && atual.det) atual.det(el.querySelector('.b-kpi-det'));
+  el.querySelector('.b-kpis').onclick = (ev) => { const b = ev.target.closest('[data-kpi]'); if (!b) return; E.kpiAberto[chave] = ab === b.dataset.kpi ? '' : b.dataset.kpi; cartoesB(el, chave, lista); };
+}
+// TABELA de toda tela refeita. cfg: { id, titulo (texto ou fn(aba)), colunas: [{k, rot, cls, clsL(r), html(r), ord(r) | false, soma}], linhas,
+//   abas: [{id, rot, f(r), cor:'r'}], abaPadrao, ordAbas: {aba: {k, dir}}, ord: {k, dir}, busca(r) → texto, dicaBusca,
+//   listas: [{k, rot, todos, opcoes: [[v, rótulo]], get(r)}], venc(r) → 'aaaa-mm-dd', valor(r) → número,
+//   lote: [{rot, icone, quando(r), fn(lista)}], clique(r), chave(r), vazio: {titulo, frase}, unidade: [um, varios], altura, semBarra }
+function tabelaB(el, cfg) {
+  E.tabB = E.tabB || {};
+  const st = E.tabB[cfg.id] = E.tabB[cfg.id] || { aba: (cfg.abas && (cfg.abaPadrao || cfg.abas[0].id)) || '', q: '', listas: {}, vde: '', vate: '', min: '', max: '', ord: Object.assign({}, cfg.ord || { k: '', dir: 1 }), ordAba: {}, sel: {}, painel: false };
+  if (cfg.ordAbas) Object.keys(cfg.ordAbas).forEach((a) => { if (!st.ordAba[a]) st.ordAba[a] = Object.assign({}, cfg.ordAbas[a]); });
+  el._cfgB = cfg;
+  const chave = cfg.chave || ((r) => String(r.id));
+  const temFx = !!(cfg.venc || cfg.valor);
+  const compacto = () => document.documentElement.classList.contains('b-compacto');
+  if (!cfg.semBarra) {
+    el.innerHTML = '<div class="b-abas-linha"' + (cfg.abas ? '' : ' style="border-bottom:0"') + '>' + (cfg.abas ? '<div class="b-abas" role="tablist"></div>' : '') +
+      '<div class="b-filtros">' + (cfg.busca ? '<label class="b-busca">' + iconeB('busca') + '<input data-bt="q" placeholder="' + esc(cfg.dicaBusca || 'Buscar') + '" aria-label="Buscar" value="' + esc(st.q) + '"></label>' : '') +
+      (cfg.listas || []).map((l) => '<select data-bt="l" data-k="' + esc(l.k) + '" aria-label="' + esc(l.rot) + '"><option value="">' + esc(l.todos) + '</option>' + l.opcoes.map((o) => '<option value="' + esc(o[0]) + '"' + (st.listas[l.k] === String(o[0]) ? ' selected' : '') + '>' + esc(o[1]) + '</option>').join('') + '</select>').join('') +
+      (temFx ? '<button type="button" class="b-bt-f" data-bt="painel" aria-expanded="' + st.painel + '">' + iconeB('filtro') + 'Filtros <span class="b-nf" hidden></span></button>' : '') +
+      '<button type="button" class="b-ic-bt" data-bt="dens" aria-pressed="' + compacto() + '" title="Tabela compacta (mais linhas na tela)" aria-label="Tabela compacta">' + iconeB('compacto') + '</button></div></div>' +
+      (temFx ? '<div class="b-mais-filtros" data-bt="pn"' + (st.painel ? '' : ' hidden') + '>' +
+        (cfg.venc ? '<div class="b-fx"><span>Vencimento</span><input type="date" data-bt="vde" aria-label="Vencimento de" value="' + st.vde + '"><span>até</span><input type="date" data-bt="vate" aria-label="Vencimento até" value="' + st.vate + '"></div>' : '') +
+        (cfg.valor ? '<div class="b-fx"><span>Valor (R$)</span><input inputmode="decimal" data-mascara="nenhuma" data-bt="min" placeholder="de" aria-label="Valor mínimo" value="' + esc(st.min) + '"><span>até</span><input inputmode="decimal" data-mascara="nenhuma" data-bt="max" placeholder="até" aria-label="Valor máximo" value="' + esc(st.max) + '"></div>' : '') +
+        '<button type="button" class="b-link" data-bt="limpar">Limpar filtros</button></div>' : '') +
+      '<div data-bt="quadro"></div>';
+  } else el.innerHTML = '<div data-bt="quadro"></div>';
+  const Q = (s) => el.querySelector(s);
+  const filtrar = (semAba) => {
+    const q = normalizar(st.q.trim()), min = st.min ? lerValor(st.min) : null, max = st.max ? lerValor(st.max) : null;
+    return cfg.linhas.filter((r) => {
+      if (!semAba && cfg.abas && st.aba) { const a = cfg.abas.find((x) => x.id === st.aba); if (a && a.f && !a.f(r)) return false; }
+      if (q && cfg.busca && normalizar(cfg.busca(r)).indexOf(q) < 0) return false;
+      for (const l of (cfg.listas || [])) { const v = st.listas[l.k]; if (v && String(l.get(r)) !== v) return false; }
+      if (cfg.venc) { const d = cfg.venc(r) || ''; if (st.vde && d < st.vde) return false; if (st.vate && d > st.vate) return false; }
+      if (cfg.valor) { const v = cfg.valor(r) || 0; if (min != null && v < min) return false; if (max != null && v > max) return false; }
+      return true;
+    });
+  };
+  const ordem = () => (cfg.abas && st.ordAba[st.aba]) || st.ord;
+  const filtrando = () => st.q || st.vde || st.vate || st.min || st.max || Object.keys(st.listas).some((k) => st.listas[k]);
+  function abas() {
+    if (!cfg.abas || cfg.semBarra) return;
+    const guarda = st.aba, cont = {};
+    cfg.abas.forEach((a) => { st.aba = a.id; cont[a.id] = filtrar().length; }); st.aba = guarda;
+    Q('.b-abas').innerHTML = cfg.abas.map((a) => '<button type="button" role="tab" class="b-aba" data-b-aba="' + esc(a.id) + '" aria-selected="' + (a.id === st.aba) + '">' + esc(a.rot) +
+      '<span class="b-aba-n' + (a.cor === 'r' && cont[a.id] ? ' b-r' : '') + '">' + cont[a.id] + '</span></button>').join('');
+  }
+  function quadro() {
+    const o = ordem(), lin = filtrar(), col = cfg.colunas.find((c) => c.k === o.k);
+    if (col && col.ord !== false) { const f = col.ord || ((r) => r[col.k]); lin.sort((a, b) => { const x = f(a), y = f(b); return (x > y ? 1 : x < y ? -1 : 0) * o.dir; }); }
+    Object.keys(st.sel).forEach((k) => { if (!lin.some((r) => chave(r) === k)) delete st.sel[k]; });
+    const titulo = typeof cfg.titulo === 'function' ? cfg.titulo(st.aba) : cfg.titulo;
+    const un = cfg.unidade || ['linha', 'linhas'];
+    if (!lin.length) {
+      Q('[data-bt=quadro]').innerHTML = '<div class="b-quadro">' + (titulo ? '<div class="b-quadro-hd"><h2>' + esc(titulo) + '</h2></div>' : '') +
+        (filtrando() ? '<div class="b-vazio"><div class="b-vazio-ic">' + iconeB('busca') + '</div><b>Nada encontrado</b><p>Nenhuma linha combina com a busca e os filtros escolhidos.</p><button type="button" class="btn btn-o" data-bt="limpar">Limpar filtros</button></div>'
+          : vazioB({ icone: 'ok', titulo: (cfg.vazio && cfg.vazio.titulo) || 'Nada aqui por enquanto', frase: (cfg.vazio && cfg.vazio.frase) || '' })) + '</div>';
+      return;
+    }
+    const soma = cfg.valor ? lin.reduce((s, r) => s + (cfg.valor(r) || 0), 0) : null;
+    const temLote = !!(cfg.lote && cfg.lote.length);
+    const marc = lin.filter((r) => st.sel[chave(r)]);
+    const lote = temLote && marc.length ? '<div class="b-lote"><b>' + plural(marc.length, 'marcada', 'marcadas') + '</b>' + (cfg.valor ? '<span>' + brl(marc.reduce((s, r) => s + (cfg.valor(r) || 0), 0)) + '</span>' : '') +
+      '<button type="button" class="b-link" data-bt="desmarcar">Desmarcar</button><div class="b-lote-acoes">' + cfg.lote.map((a, i) => { const n = marc.filter((r) => !a.quando || a.quando(r)).length;
+        return '<button type="button" class="btn btn-o btn-mini" data-b-lote="' + i + '"' + (n ? '' : ' disabled') + '>' + iconeB(a.icone || 'check') + esc(a.rot) + (n !== marc.length ? ' (' + n + ')' : '') + '</button>'; }).join('') + '</div></div>' : '';
+    const cols = cfg.colunas;
+    const cel = (c, r) => '<td' + ((c.cls || c.clsL) ? ' class="' + (c.cls || '') + (c.clsL ? c.clsL(r) : '') + '"' : '') + '>' + c.html(r) + '</td>';
+    Q('[data-bt=quadro]').innerHTML = '<div class="b-quadro">' + (titulo ? '<div class="b-quadro-hd"><h2>' + esc(titulo) + '</h2><span class="b-resumo">' + plural(lin.length, un[0], un[1]) + (soma != null ? ' · <b>' + brl(soma) + '</b>' : '') + '</span></div>' : '') + lote +
+      '<div class="b-rola" data-sem-pagina' + (cfg.altura ? ' style="max-height:' + cfg.altura + '"' : '') + '><table class="b-tab"><thead><tr>' +
+      (temLote ? '<th class="b-ck"><input type="checkbox" data-bt="todas" aria-label="Marcar todas"' + (marc.length && marc.length === lin.length ? ' checked' : '') + '></th>' : '') +
+      cols.map((c) => { const pode = c.ord !== false; return '<th class="' + (pode ? 'b-ord ' : '') + (c.cls || '') + '"' + (pode ? ' data-b-ord="' + esc(c.k) + '" title="Ordenar"' : '') + (o.k === c.k ? ' data-dir="' + o.dir + '"' : '') + '>' + esc(c.rot) + '</th>'; }).join('') +
+      '</tr></thead><tbody>' + lin.map((r) => { const k = chave(r);
+        return '<tr class="' + (cfg.clique ? 'b-cl' : '') + (st.sel[k] ? ' b-sel' : '') + '"' + (cfg.clique ? ' tabindex="0"' : '') + ' data-b-k="' + esc(k) + '">' +
+          (temLote ? '<td class="b-ck"><input type="checkbox" data-bt="um" aria-label="Marcar"' + (st.sel[k] ? ' checked' : '') + '></td>' : '') + cols.map((c) => cel(c, r)).join('') + '</tr>'; }).join('') +
+      '</tbody>' + (soma != null && lin.length > 1 ? '<tfoot><tr>' + (temLote ? '<td></td>' : '') + cols.map((c, i) => c.soma ? '<td class="b-dir b-val">' + brl(soma) + '<small>média ' + brl(soma / lin.length) + '</small></td>' : '<td>' + (i === 0 ? 'Total de ' + lin.length : '') + '</td>').join('') + '</tr></tfoot>' : '') +
+      '</table></div></div>';
+  }
+  function contarFx() { const b = Q('[data-bt=painel]'); if (!b) return; const n = (st.vde || st.vate ? 1 : 0) + (st.min || st.max ? 1 : 0); b.classList.toggle('b-tem', n > 0); const s = b.querySelector('.b-nf'); s.hidden = !n; s.textContent = n; }
+  const tudo = () => { abas(); quadro(); contarFx(); };
+  el._redesenharB = tudo;
+  tudo();
+  if (!el._ligadoB) {
+    el._ligadoB = true;
+    el.addEventListener('input', (ev) => {
+      const c2 = el._cfgB, s2 = E.tabB[c2.id], t = ev.target.dataset.bt;
+      if (t === 'q') s2.q = ev.target.value; else if (t === 'l') s2.listas[ev.target.dataset.k] = ev.target.value;
+      else if (['vde', 'vate', 'min', 'max'].includes(t)) s2[t] = ev.target.value; else return;
+      el._redesenharB();
+    });
+    el.addEventListener('click', (ev) => {
+      const c2 = el._cfgB, s2 = E.tabB[c2.id], ch2 = c2.chave || ((r) => String(r.id)), t = ev.target.closest('[data-bt]'), tt = t && t.dataset.bt;
+      if (tt === 'painel') { s2.painel = !s2.painel; el.querySelector('[data-bt=pn]').hidden = !s2.painel; t.setAttribute('aria-expanded', s2.painel); return; }
+      if (tt === 'limpar') { s2.q = ''; s2.listas = {}; s2.vde = s2.vate = s2.min = s2.max = ''; tabelaB(el, c2); return; }
+      if (tt === 'dens') { const on = !document.documentElement.classList.contains('b-compacto'); document.documentElement.classList.toggle('b-compacto', on); try { localStorage.setItem('erp_compacto', on ? '1' : ''); } catch (e) { /* sem armazenamento */ } t.setAttribute('aria-pressed', on); return; }
+      if (tt === 'desmarcar') { s2.sel = {}; el._redesenharB(); return; }
+      if (tt === 'todas') { const marcar = t.checked; s2.sel = {}; if (marcar) el.querySelectorAll('tbody tr[data-b-k]').forEach((tr) => { s2.sel[tr.dataset.bK] = true; }); el._redesenharB(); return; }
+      if (tt === 'um') { const k = t.closest('tr').dataset.bK; if (t.checked) s2.sel[k] = true; else delete s2.sel[k]; el._redesenharB(); return; }
+      const ab = ev.target.closest('[data-b-aba]'); if (ab && el.contains(ab)) { s2.aba = ab.dataset.bAba; s2.sel = {}; el._redesenharB(); return; }
+      const th = ev.target.closest('th[data-b-ord]'); if (th) { const o = c2.abas ? (s2.ordAba[s2.aba] = s2.ordAba[s2.aba] || Object.assign({}, s2.ord)) : s2.ord;
+        if (o.k === th.dataset.bOrd) o.dir = -o.dir; else { o.k = th.dataset.bOrd; o.dir = 1; } el._redesenharB(); return; }
+      const lt = ev.target.closest('[data-b-lote]'); if (lt) { const a = c2.lote[+lt.dataset.bLote]; const marc = c2.linhas.filter((r) => s2.sel[ch2(r)] && (!a.quando || a.quando(r)));
+        Promise.resolve(a.fn(marc)).then((feito) => { if (feito !== false) { s2.sel = {}; if (el.isConnected) el._redesenharB(); } }); return; }
+      if (ev.target.closest('button, a, input, select, label')) return;
+      const tr = ev.target.closest('tbody tr[data-b-k]'); if (tr && c2.clique) { const r = c2.linhas.find((x) => ch2(x) === tr.dataset.bK); if (r) c2.clique(r); }
+    });
+  }
+  return { st, redesenhar: tudo };
+}
+try { if (localStorage.getItem('erp_compacto')) document.documentElement.classList.add('b-compacto'); } catch (e) { /* sem armazenamento */ }
+
 function vazio(frase, rotulo, seletor) {
   return '<div class="vazio"><div class="vazio-frase">' + esc(frase) + '</div>' +
     (rotulo && seletor ? '<button type="button" class="btn btn-p btn-mini vazio-bt" data-vazio-clica="' + esc(seletor) + '">' + esc(rotulo) + '</button>' : '') + '</div>';

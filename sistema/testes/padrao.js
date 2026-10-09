@@ -15,7 +15,8 @@ const REGRAS = [
   ['fontSize', 'fontWeight', 'textAlign']],   // Backup 50: a cor do valor depende do tipo (receber verde, pagar vermelho)
   ['dias / atraso', 'td.col-dias', ['fontSize']],
   ['nome de cliente/empresa', 'td.col-nome', ['fontSize', 'fontWeight', 'textTransform']],
-  ['cabeçalho de tabela', TAB + ' > thead > tr > th', ['fontSize', 'fontWeight', 'backgroundColor', 'color', 'textTransform']],
+  // a planilha estreita da Rotina (Passivo) usa 10,5 px no cabeçalho de propósito (Backup 63: "Procur.", "Certif." e "Conferência" sem "…")
+  ['cabeçalho de tabela', TAB + ':not(.rt-grade *) > thead > tr > th', ['fontSize', 'fontWeight', 'backgroundColor', 'color', 'textTransform']],
   ['célula de tabela', TAB + ' > tbody > tr:not(.gx-grp):not(.gx-det) > td:not(.col-doc):not(.col-grupo):not(.col-num)', ['fontSize']],
   ['linha de baixo (sócio, descrição…)', TAB + ' > tbody > tr > td .sub', ['fontSize', 'color']],
   ['botão "✓ Baixa" da linha', 'td :is(.gx-la-bx,[data-pagar].btn-mini)', ['fontSize', 'fontWeight']],
@@ -33,7 +34,7 @@ const REGRAS = [
 const ROTINA = (aba) => "document.querySelector('#rt-abas [data-rt-aba=" + aba + "]').click()";
 
 // telas e, entre colchetes, o que clicar antes de medir (abas)
-const TELAS = [['hoje'], ['resumo'], ['processos'], ['parcelamentos'], ['parcelamentos', "setParcTab('avencer')"], ['acordos'], ['acordos', "setAcordTab('pagar')"],
+const TELAS = [['hoje'], ['resumo'], ['processos'], ['parcelamentos'], ['parcelamentos', "document.querySelector('#pc-tabela [data-b-aba=avencer]').click()"], ['acordos'], ['acordos', "setAcordTab('pagar')"],
   ['acordos', "setAcordTab('pago')"], ['financeiro', "setFinTab('receber')"], ['financeiro', "setFinTab('recebidos')"], ['financeiro', "setFinTab('analise')"],
   ['financeiroContab', "setFinCTab('receber')"], ['contratos'], ['clientes'],
   ['rotina', ROTINA('passivo')], ['rotina', ROTINA('processos')], ['rotina', ROTINA('guias')], ['rotina', ROTINA('planilha')], ['tarefas'], ['alertas'], ['crm'], ['publicacoes']];

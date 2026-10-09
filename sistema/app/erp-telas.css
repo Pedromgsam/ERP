@@ -43,6 +43,12 @@ body.modo-cliente #ac-cliente-badge{display:none!important}
 
 /* telas: o filtro flutuante do ERP só vale para as telas do ERP */
 body.gx-tela-nova #fb{display:none!important}
+/* Backup 68: Parcelamentos novo dentro do painel antigo — a equipe vê a tela nova; o portal do cliente, a antiga */
+.panel > .gx-gs-no-antigo{display:none}
+body.gx-tela-nova .panel > .gx-gs-no-antigo{display:block}
+body.gx-tela-nova #panel-parcelamentos > :not(.gx-gs-no-antigo){display:none!important}
+body.gx-tela-nova #panel-parcelamentos{padding:0!important}
+body.gx-tela-nova #panel-parcelamentos > .gx-gs-no-antigo{width:100%}
 .gx-painel-gs{padding:0!important}
 .gx-painel-gs>.gs{width:100%}
 
