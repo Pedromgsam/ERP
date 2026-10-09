@@ -92,6 +92,9 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
   marcar a tela; `_lgConfirmaPag` = true (sem confirm duplo). Corrigido o "pisca" da faixa de grupo (o :hover encolhia o td → loop; base.css fixa o padding). Próxima = **Etapa 3: Parcelamentos**
   refeita com as peças (ordem: Situação por cliente → abas Em atraso/A vencer/Pagas → tabela; janela do parcelamento com ficha, 5 números, parcelas, Emitir; Baixa com confirmação).
   Os blocos "Backup N" do design.css saem na rodada de cada tela.
+  Backup 65 (só docs): guia v6 — LETRA = INTER (definitiva); regras para todas as telas: filtros em toda tabela (busca/listas + botão "Filtros" com vencimento e valor de/até),
+  ordenar clicando no título, todo cartão abre o detalhamento (lista abaixo), toda informação clicável abre o detalhe. Levar para `tabelaLeve`/`cartoesNumero` na Etapa 3.
+  Sugestões para o usuário escolher: `sistema/SUGESTOES-REFORMA.md` (E1–E5, F1–F8, A1–A6, O1–O2).
   Backup 64 (só docs): guia v5 com as regras novas que valem para o sistema todo — texto menor, nome sem negrito, SEM coluna "Situação" nas listas de parcelas
   (vencimento inteiro vermelho/azul; "✓ Pago em" na coluna Baixa), letra do ERP.html (DM Sans + Playfair no th + JetBrains nos números) EM TESTE — perguntar ao usuário
   antes de trocar a Inter. Ainda NÃO aplicado no app: fazer junto com a Etapa 3 (Parcelamentos) e levar para `tabelaLeve`/base.css.

@@ -15,7 +15,7 @@
   --lado-bg:#173B66;--lado-borda:transparent;--lado-fg:#FFFFFF;--lado-fg2:rgba(255,255,255,.82);--lado-sec:rgba(255,255,255,.55);--lado-ativo-bg:#FFFFFF;--lado-ativo-fg:#173B66;--lado-hover:rgba(255,255,255,.09);
   --green:#1F7A48;--green-lt:#EBF6EF;--amber:#9A5A0B;--amber-lt:#FBF4E6;--red:#B73A3A;--red-lt:#FBEEEE;--blue:#2F5FAE;--blue-lt:#EDF2FA;--gray-lt:#F1F2F4;
   --overlay:rgba(17,24,39,.38);--shadow:0 1px 2px rgba(17,24,39,.04);--shadow-lg:0 24px 64px -16px rgba(17,24,39,.35);
-  --font:'DM Sans',system-ui,-apple-system,'Segoe UI',sans-serif;--mono:'JetBrains Mono',ui-monospace,'Courier New',monospace;
+  --font:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;--mono:'JetBrains Mono',ui-monospace,'Courier New',monospace;
   --r:12px;--r-ctl:8px;
 }
 /* escuro = preto de verdade (aprovado); a lateral num azul-marinho escuro com borda, para não sumir */
@@ -68,6 +68,25 @@ svg.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stro
 .sub-item{padding-left:36px}
 .item[data-tela]{cursor:pointer}
 .tela{display:flex;flex-direction:column;gap:16px}
+/* cartões que abrem o detalhamento */
+.kpi.clic{cursor:pointer;text-align:left;font:inherit;color:inherit;position:relative}
+.kpi.clic:hover{border-color:var(--primario)}
+.kpi.clic[aria-expanded="true"]{border-color:var(--primario);box-shadow:0 0 0 3px var(--anel)}
+.kpi .abre{position:absolute;right:12px;top:12px;font-size:11px;font-weight:600;color:var(--text3)}
+.kpi.clic[aria-expanded="true"] .abre{color:var(--primario)}
+/* filtros de toda tabela: busca e listas na linha das abas + "Filtros" (vencimento, valor…) + ordenar clicando no título da coluna */
+.bt-filtros{display:inline-flex;align-items:center;gap:6px;height:34px;border:1px solid var(--border);border-radius:var(--r-ctl);background:var(--surface);padding:0 11px;font-size:13px;font-weight:600;color:var(--text2);cursor:pointer}
+.bt-filtros[aria-expanded="true"],.bt-filtros.tem{border-color:var(--primario);color:var(--primario)}
+.bt-filtros .nf{background:var(--primario);color:var(--on-primario);border-radius:999px;font-size:11px;padding:0 6px}
+.mais-filtros{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-top:-6px}
+.mais-filtros .campo{width:auto}
+.mais-filtros .campo .ctl{height:34px;width:150px}
+.mais-filtros .par{display:flex;align-items:center;gap:6px}
+.mais-filtros .par span{color:var(--text3);font-size:12px}
+th.ord{cursor:pointer;user-select:none}
+th.ord:hover{color:var(--ink)}
+th.ord[data-dir]::after{content:" ↑";color:var(--primario)}
+th.ord[data-dir="-1"]::after{content:" ↓"}
 
 .topo{display:flex;align-items:center;gap:10px;padding:8px 20px;background:var(--surface);border-bottom:1px solid var(--border)}
 .topo .onde{font-weight:600;font-size:13px;color:var(--ink);min-width:110px}
@@ -337,7 +356,7 @@ textarea.ctl{height:72px!important;padding:9px 11px!important;resize:vertical}
 </svg>
 
 <div class="guia">
-  <div><b>Guia visual · versão 5</b> <span>Dados fictícios (hoje = 09/10/2026). Clique nas linhas, em "Baixa", nas abas, nos cartões dos grupos e nos parcelamentos.</span></div>
+  <div><b>Guia visual · versão 6</b> <span>Dados fictícios (hoje = 09/10/2026). Clique nas linhas, em "Baixa", nas abas, nos cartões dos grupos e nos parcelamentos.</span></div>
   <div class="guia-ctl">
     <label>Tela</label>
     <div class="seg" role="group" aria-label="Tela" id="telas">
@@ -346,8 +365,8 @@ textarea.ctl{height:72px!important;padding:9px 11px!important;resize:vertical}
     </div>
     <label>Letra</label>
     <div class="seg" role="group" aria-label="Letra" id="letras">
-      <button type="button" data-f="'DM Sans'" data-erp="1" aria-pressed="true">ERP.html (teste)</button>
-      <button type="button" data-f="'Inter'" aria-pressed="false">Inter (no sistema hoje)</button>
+      <button type="button" data-f="'Inter'" aria-pressed="true">Inter (escolhida)</button>
+      <button type="button" data-f="'DM Sans'" data-erp="1" aria-pressed="false">ERP.html</button>
       <button type="button" data-f="'IBM Plex Sans'" aria-pressed="false">IBM Plex</button>
       <button type="button" data-f="'Source Sans 3'" aria-pressed="false">Source Sans</button>
       <button type="button" data-f="'Roboto'" aria-pressed="false">Roboto</button>
@@ -399,6 +418,7 @@ textarea.ctl{height:72px!important;padding:9px 11px!important;resize:vertical}
       </div>
 
       <div class="kpis" id="kpis"></div>
+      <div id="kpi-det"></div>
 
 
       <div class="sit-cab">
@@ -418,8 +438,10 @@ textarea.ctl{height:72px!important;padding:9px 11px!important;resize:vertical}
           <label class="ctl-busca"><svg class="i"><use href="#i-search"/></svg><input id="f-busca" placeholder="Empresa, CNPJ ou nº" aria-label="Buscar"></label>
           <select class="ctl" id="f-grupo" aria-label="Grupo"><option value="">Todos os grupos</option></select>
           <select class="ctl" id="f-plat" aria-label="Plataforma"><option value="">Todas as plataformas</option><option>eCAC</option><option>Regularize</option><option>SIARE</option></select>
+          <button class="bt-filtros" type="button" data-filtros="pf" aria-expanded="false">Filtros <span class="nf" hidden></span></button>
         </div>
       </div>
+      <div id="pf-lugar"></div>
       <div id="area-tabela"></div>
 
       </div>
@@ -433,27 +455,29 @@ textarea.ctl{height:72px!important;padding:9px 11px!important;resize:vertical}
           </div>
         </div>
         <div class="kpis" id="fin-kpis"></div>
+        <div id="fin-det"></div>
         <div class="barra-abas">
           <div class="abas" role="tablist" id="fin-abas"></div>
           <div class="filtros">
             <label class="ctl-busca"><svg class="i"><use href="#i-search"/></svg><input id="fin-busca" placeholder="Cliente, CPF/CNPJ ou contrato" aria-label="Buscar"></label>
             <select class="ctl" id="fin-grupo" aria-label="Grupo"><option value="">Todos os grupos</option></select>
             <select class="ctl" id="fin-tipo" aria-label="Tipo"><option value="">Todos os tipos</option><option>Mensalidade</option><option>Parcela de contrato</option><option>Êxito</option></select>
+            <button class="bt-filtros" type="button" data-filtros="ff" aria-expanded="false">Filtros <span class="nf" hidden></span></button>
           </div>
         </div>
+        <div id="ff-lugar"></div>
         <div id="fin-tabela"></div>
       </div>
 
       <section class="regras" aria-labelledby="regras-t">
-        <h2 id="regras-t">O que mudou da versão 4 para esta</h2>
-        <p>Cada número é a sua orientação. Use "Tela" na faixa de cima para ver o mesmo padrão no Financeiro.</p>
+        <h2 id="regras-t">O que mudou da versão 5 para esta</h2>
+        <p>Regras que passam a valer para o sistema inteiro.</p>
         <ol>
-          <li><b>Texto menor:</b> títulos, cartões, abas e tabelas desceram 1 a 4 px (corpo 13 px).</li>
-          <li><b>Letra da tabela do ERP.html em teste:</b> DM Sans no texto, Playfair Display no cabeçalho das tabelas e JetBrains Mono em valores, datas e números. "Inter" continua no seletor para comparar.</li>
-          <li><b>Nome da empresa sem negrito</b> (vale para o sistema todo).</li>
-          <li><b>Sem a coluna "Situação":</b> o vencimento já diz tudo. Em atraso (inclui hoje) = data e dias em <b>vermelho</b>; a vencer = data e prazo em <b>azul</b>; paga = data normal.</li>
-          <li><b>Paga:</b> o "paga em" saiu do vencimento e foi para a coluna Baixa: "✓ Pago em 04/10".</li>
-          <li><b>Nova tela de exemplo:</b> Financeiro · Honorários, com as mesmas peças (cartões, abas com filtros, vencimento colorido, Recebido em, confirmação antes de receber).</li>
+          <li><b>Letra Inter</b> (a do sistema hoje) volta a ser a padrão. A do ERP.html fica no seletor só para comparar.</li>
+          <li><b>Toda tabela tem filtros:</b> busca e listas na linha das abas e o botão <b>"Filtros"</b>, que abre vencimento (de/até), valor (de/até) e o que for próprio da tela (ex.: natureza). O botão mostra quantos filtros estão ligados.</li>
+          <li><b>Toda tabela ordena:</b> clique no título da coluna (↑ / ↓). Vale também para a lista do grupo.</li>
+          <li><b>Todo cartão abre o detalhamento:</b> clique em "Parcelas em atraso" e aparece a lista das parcelas; em "Quitado / falta", o resumo por grupo. Clicar de novo fecha.</li>
+          <li><b>Toda informação clicável abre o detalhe:</b> linha → janela da parcela; grupo → lista dos parcelamentos; parcelamento → ficha com todas as parcelas.</li>
         </ol>
       </section>
     </main>
@@ -466,7 +490,6 @@ textarea.ctl{height:72px!important;padding:9px 11px!important;resize:vertical}
 <div class="aviso-tx" id="toast" hidden></div>
 
 <script>
-document.documentElement.classList.add('letra-erp');   // teste: as letras da tabela de parcelamentos do ERP.html
 (function(){
   var DIA = 864e5, HOJE = new Date(2026, 9, 9);
   function dataNoMes(a, m, d){ var u = new Date(a, m + 1, 0).getDate(); return new Date(a, m, Math.min(d, u)); }
@@ -530,6 +553,8 @@ document.documentElement.classList.add('letra-erp');   // teste: as letras da ta
   }
   function botaoBaixa(x){ return '<button class="bt-baixa" type="button" data-baixa="'+x.p.id+':'+x.n+'">'+ic('i-check')+'Baixa</button>'; }
 
+  var ORD = {atraso:{k:'venc',dir:1}, avencer:{k:'venc',dir:1}, pagas:{k:'pago',dir:-1}};
+  var CH_PARC = {g:function(x){return x.p.g;}, emp:function(x){return x.p.emp;}, plat:function(x){return x.p.plat;}, nat:function(x){return x.p.nat;}, n:function(x){return x.n;}, v:function(x){return x.v;}, venc:function(x){return +x.venc;}, pago:function(x){return x.pagoEm ? +x.pagoEm : 0;}};
   function kpis(){
     var t = todas();
     var atr = t.filter(function(x){ return estado(x)==='atraso'; });
@@ -540,12 +565,13 @@ document.documentElement.classList.add('letra-erp');   // teste: as letras da ta
     var guias = t.filter(function(x){ return !x.p.cliente && !x.pagoEm && (x.venc <= HOJE || doMes(x)); });
     var emit = guias.filter(function(x){ return x.emitidaEm; }).length;
     var pcg = guias.length ? Math.round(emit/guias.length*100) : 100;
+    var k = function(id){ return ' clic" data-kpi="'+id+'" role="button" tabindex="0" aria-expanded="'+(kpiAberto===id)+'"><span class="abre">'+(kpiAberto===id?'fechar ▲':'ver ▼')+'</span'; };
     $('kpis').innerHTML =
-      '<div class="kpi"><div class="kpi-ic r">'+ic('i-alert')+'</div><div class="kpi-tx"><div class="l">Parcelas em atraso</div><div class="v r">'+atr.length+'</div><div class="s">'+brl(somaA)+' somadas</div><div class="s">contando as que vencem hoje</div></div></div>'
-     +'<div class="kpi"><div class="kpi-ic b">'+ic('i-cal')+'</div><div class="kpi-tx"><div class="l">Vencem este mês</div><div class="v">'+mes.length+' <small>· '+brl(somaM)+' no mês</small></div><div class="s">Emitir as guias até <b>dia 12</b></div></div></div>'
-     +'<div class="kpi"><div class="kpi-ic a">'+ic('i-doc')+'</div><div class="kpi-tx"><div class="l">Guias a emitir</div><div class="v">'+(guias.length-emit)+' <small>de '+guias.length+'</small></div>'
+      '<div class="kpi'+k('atraso')+'><div class="kpi-ic r">'+ic('i-alert')+'</div><div class="kpi-tx"><div class="l">Parcelas em atraso</div><div class="v r">'+atr.length+'</div><div class="s">'+brl(somaA)+' somadas</div><div class="s">contando as que vencem hoje</div></div></div>'
+     +'<div class="kpi'+k('mes')+'><div class="kpi-ic b">'+ic('i-cal')+'</div><div class="kpi-tx"><div class="l">Vencem este mês</div><div class="v">'+mes.length+' <small>· '+brl(somaM)+' no mês</small></div><div class="s">Emitir as guias até <b>dia 12</b></div></div></div>'
+     +'<div class="kpi'+k('guias')+'><div class="kpi-ic a">'+ic('i-doc')+'</div><div class="kpi-tx"><div class="l">Guias a emitir</div><div class="v">'+(guias.length-emit)+' <small>de '+guias.length+'</small></div>'
        +'<div class="barra a" title="'+pcg+'% emitidas"><span style="width:'+pcg+'%"></span></div><div class="s">'+emit+' já emitidas · prazo <b>dia 12</b></div></div></div>'
-     +'<div class="kpi"><div class="kpi-ic g">'+ic('i-pie')+'</div><div class="kpi-tx"><div class="l">Quitado / falta</div>'
+     +'<div class="kpi'+k('quitado')+'><div class="kpi-ic g">'+ic('i-pie')+'</div><div class="kpi-tx"><div class="l">Quitado / falta</div>'
        +'<div class="dupla"><div><span class="v g">'+brl(pago)+'</span><span class="s">já pago</span></div><div><span class="v">'+brl(falta)+'</span><span class="s">falta pagar</span></div></div>'
        +'<div class="barra" title="'+pc+'% quitado"><span style="width:'+pc+'%"></span></div><div class="s">'+pc+'% do total em andamento</div></div></div>';
   }
@@ -560,13 +586,14 @@ document.documentElement.classList.add('letra-erp');   // teste: as letras da ta
 
   function tabela(){
     var q = $('f-busca').value.trim().toLowerCase(), g = $('f-grupo').value, pl = $('f-plat').value;
-    var lin = todas().filter(function(x){
-      return estado(x)===aba && (!g || x.p.g===g) && (!pl || x.p.plat===pl)
+    var fx = filtroExtra('pf'), nat = $('pf-nat').value;
+    var lin = ordenar(todas().filter(function(x){
+      return estado(x)===aba && (!g || x.p.g===g) && (!pl || x.p.plat===pl) && (!nat || x.p.nat===nat) && passa(fx, x.venc, x.v)
         && (!q || (x.p.emp+' '+x.p.doc+' '+x.p.num).toLowerCase().indexOf(q) >= 0);
-    }).sort(function(a,b){ return aba==='pagas' ? b.pagoEm - a.pagoEm : a.venc - b.venc; });
+    }), ORD[aba], CH_PARC);
     var area = $('area-tabela');
     if (!lin.length){
-      var filtrando = q || g || pl;
+      var filtrando = q || g || pl || nat || $('pf-vde').value || $('pf-vate').value || $('pf-min').value || $('pf-max').value;
       area.innerHTML = '<div class="quadro"><div class="vazio"><div class="vazio-ic">'+ic(filtrando?'i-search':'i-checkc')+'</div>'
         + (filtrando
           ? '<b>Nenhuma parcela encontrada</b><p>Nada nesta aba combina com a busca e os filtros escolhidos.</p><button class="bt bt-o" type="button" id="limpar">Limpar filtros</button>'
@@ -577,7 +604,7 @@ document.documentElement.classList.add('letra-erp');   // teste: as letras da ta
     var soma = lin.reduce(function(s,x){ return s+x.v; },0), vis = lin;
     var tit = {atraso:'Parcelas em atraso (inclui as que vencem hoje)', avencer:'Todas as parcelas a vencer', pagas:'Todas as parcelas pagas'}[aba];
     area.innerHTML = '<div class="quadro"><div class="quadro-hd"><h2>'+tit+'</h2><span class="resumo">'+lin.length+' parcela'+(lin.length>1?'s':'')+' · <b>'+brl(soma)+'</b></span></div>'
-      +'<div class="rola rola-12"><table class="t-parc"><thead><tr><th>Grupo</th><th class="c-emp">Empresa</th><th>Plataforma</th><th>Natureza</th><th>Nº parcelamento</th><th>Parcela</th><th class="dir">Valor</th><th class="cen">Vencimento</th><th class="cen">Baixa</th></tr></thead><tbody>'
+      +'<div class="rola rola-12"><table class="t-parc"><thead><tr>'+th('Grupo','g',ORD[aba])+th('Empresa','emp',ORD[aba],'c-emp')+th('Plataforma','plat',ORD[aba])+th('Natureza','nat',ORD[aba])+'<th>Nº parcelamento</th>'+th('Parcela','n',ORD[aba])+th('Valor','v',ORD[aba],'dir')+th('Vencimento','venc',ORD[aba],'cen')+th('Baixa','pago',ORD[aba],'cen')+'</tr></thead><tbody>'
       + vis.map(function(x){
         var p = x.p;
         return '<tr class="cl" tabindex="0" data-p="'+p.id+'" data-n="'+x.n+'" title="Clique para abrir e editar a parcela">'
@@ -592,6 +619,57 @@ document.documentElement.classList.add('letra-erp');   // teste: as letras da ta
           +'<td class="cen">'+(x.pagoEm ? '<span class="pago-em">✓ Pago em '+fc(x.pagoEm)+'</span>' : botaoBaixa(x))+'</td></tr>';
       }).join('') + '</tbody></table></div>'
       + '</div>';
+  }
+
+  /* ── filtros e ordenação: valem para toda tabela ── */
+  function painelFiltros(pre, extra){
+    return '<div class="mais-filtros" id="'+pre+'-painel" hidden>'
+      +'<div class="campo"><span class="rot">Vencimento</span><div class="par"><input class="ctl" type="date" id="'+pre+'-vde" aria-label="Vencimento de"><span>até</span><input class="ctl" type="date" id="'+pre+'-vate" aria-label="Vencimento até"></div></div>'
+      +'<div class="campo"><span class="rot">Valor (R$)</span><div class="par"><input class="ctl" inputmode="decimal" id="'+pre+'-min" placeholder="de" aria-label="Valor mínimo" style="width:110px"><span>até</span><input class="ctl" inputmode="decimal" id="'+pre+'-max" placeholder="até" aria-label="Valor máximo" style="width:110px"></div></div>'
+      +(extra||'')+'<button class="bt bt-g" type="button" data-limpar-f="'+pre+'">Limpar filtros</button></div>';
+  }
+  function num(v){ v = String(v||'').replace(/[^\d,.-]/g,'').replace(/\./g,'').replace(',', '.'); return v === '' ? null : Number(v); }
+  function dia(v){ if (!v) return null; var a = v.split('-'); return new Date(+a[0], +a[1]-1, +a[2]); }
+  function filtroExtra(pre){ var r = {vde:dia($(pre+'-vde').value), vate:dia($(pre+'-vate').value), min:num($(pre+'-min').value), max:num($(pre+'-max').value)};
+    var n = (r.vde||r.vate?1:0) + (r.min!=null||r.max!=null?1:0); [].forEach.call(document.querySelectorAll('#'+pre+'-painel select'), function(s){ if (s.value) n++; });
+    var b = document.querySelector('[data-filtros="'+pre+'"]'); b.classList.toggle('tem', n > 0); b.querySelector('.nf').hidden = !n; b.querySelector('.nf').textContent = n; return r; }
+  function passa(r, venc, v){ return (!r.vde || venc >= r.vde) && (!r.vate || venc <= r.vate) && (r.min == null || v >= r.min) && (r.max == null || v <= r.max); }
+  function ordenar(lin, o, chaves){ var f = chaves[o.k]; if (!f) return lin; return lin.sort(function(a, b){ var x = f(a), y = f(b); return (x > y ? 1 : x < y ? -1 : 0) * o.dir; }); }
+  function th(rot, k, o, cls){ return '<th class="ord'+(cls?' '+cls:'')+'" data-ord="'+k+'"'+(o.k===k?' data-dir="'+o.dir+'"':'')+' title="Ordenar">'+rot+'</th>'; }
+  function trocaOrd(o, k){ if (o.k === k) o.dir = -o.dir; else { o.k = k; o.dir = 1; } }
+  document.addEventListener('click', function(e){
+    var b = e.target.closest('[data-filtros]'); if (b){ var pn = $(b.dataset.filtros+'-painel'); pn.hidden = !pn.hidden; b.setAttribute('aria-expanded', !pn.hidden); return; }
+    var l = e.target.closest('[data-limpar-f]'); if (l){ var pr = l.dataset.limparF; [].forEach.call(document.querySelectorAll('#'+pr+'-painel input, #'+pr+'-painel select'), function(i){ i.value = ''; }); (pr === 'pf' ? tabela : finTabela)(); }
+  });
+  /* ── tabela pequena do detalhamento dos cartões ── */
+  function miniTab(tit, sub, cols, rows){
+    return '<div class="quadro"><div class="quadro-hd"><h2>'+tit+'</h2><span class="resumo">'+sub+'</span></div><div class="rola" style="max-height:420px;overflow:auto"><table class="t-parc" style="min-width:760px"><thead><tr>'
+      + cols.map(function(c){ return '<th'+(c[1]?' class="'+c[1]+'"':'')+'>'+c[0]+'</th>'; }).join('')+'</tr></thead><tbody>'
+      + (rows.length ? rows.join('') : '<tr><td colspan="'+cols.length+'"><div class="vazio" style="padding:18px"><b>Nada aqui</b></div></td></tr>') + '</tbody></table></div></div>';
+  }
+  function linhaParc(x, ultima){
+    return '<tr class="cl" tabindex="0" data-p="'+x.p.id+'" data-n="'+x.n+'"><td><span class="nome">'+esc(x.p.emp)+'</span><span class="doc">'+x.p.doc+'</span></td><td><span class="plat">'+x.p.plat+'</span> · '+esc(x.p.nat)+'</td>'
+      +'<td class="dt">'+x.n+' de '+x.p.tot+'</td><td class="dir val">'+brl(x.v)+'</td><td class="cen dt'+corVenc(x)+'">'+fd(x.venc)+quando(x)+'</td><td class="cen">'+ultima+'</td></tr>';
+  }
+  var kpiAberto = '';
+  function detalheKpi(){
+    var el = $('kpi-det'); if (!kpiAberto){ el.innerHTML = ''; return; }
+    var t = todas(), cols = [['Empresa','c-emp'],['Plataforma · natureza'],['Parcela'],['Valor','dir'],['Vencimento','cen']];
+    if (kpiAberto === 'atraso'){
+      var l = t.filter(function(x){ return estado(x)==='atraso'; }).sort(function(a,b){ return a.venc-b.venc; });
+      el.innerHTML = miniTab('Parcelas em atraso', l.length+' parcelas · <b>'+brl(l.reduce(function(s,x){return s+x.v;},0))+'</b>', cols.concat([['Baixa','cen']]), l.map(function(x){ return linhaParc(x, botaoBaixa(x)); }));
+    } else if (kpiAberto === 'mes'){
+      var l = t.filter(function(x){ return !x.pagoEm && doMes(x); }).sort(function(a,b){ return a.venc-b.venc; });
+      el.innerHTML = miniTab('Vencem em outubro', l.length+' parcelas · <b>'+brl(l.reduce(function(s,x){return s+x.v;},0))+'</b>', cols.concat([['Guia','cen']]), l.map(function(x){ return linhaParc(x, emissao(x, true)); }));
+    } else if (kpiAberto === 'guias'){
+      var l = t.filter(function(x){ return !x.p.cliente && !x.pagoEm && !x.emitidaEm && (x.venc <= HOJE || doMes(x)); }).sort(function(a,b){ return a.venc-b.venc; });
+      el.innerHTML = miniTab('Guias a emitir (prazo dia 12)', l.length+' guias', cols.concat([['Emitir','cen']]), l.map(function(x){ return linhaParc(x, emissao(x, true)); }));
+    } else {
+      var gs = {}; PARC.forEach(function(p){ var r = resumoParc(p), g = gs[p.g] = gs[p.g] || {pago:0, falta:0, n:0}; g.pago += r.quitado; g.falta += r.falta; g.n++; });
+      el.innerHTML = miniTab('Quitado e falta, por grupo', 'clique no grupo para ver os parcelamentos', [['Grupo'],['Parcelamentos','cen'],['Já pago','dir'],['Falta pagar','dir'],['Quitado']],
+        Object.keys(gs).map(function(k){ var g = gs[k], pc = Math.round(g.pago/(g.pago+g.falta)*100);
+          return '<tr class="cl" tabindex="0" data-ir-grupo="'+esc(k)+'"><td class="nome">'+esc(k)+'</td><td class="cen dt">'+g.n+'</td><td class="dir val" style="color:var(--green)">'+brl(g.pago)+'</td><td class="dir val">'+brl(g.falta)+'</td><td><div class="prog"><div class="barra"><span style="width:'+pc+'%"></span></div><span>'+pc+'%</span></div></td></tr>'; }));
+    }
   }
 
   function resumoParc(p){
@@ -622,9 +700,13 @@ document.documentElement.classList.add('letra-erp');   // teste: as letras da ta
     });
     $('cartoes').innerHTML = html || '<div class="quadro det"><div class="vazio"><div class="vazio-ic">'+ic('i-checkc')+'</div><b>Nenhum grupo neste recorte</b><p>Troque o filtro acima para ver os outros grupos.</p></div></div>';
   }
+  var GORD = {k:'emp', dir:1};
+  var CH_G = {emp:function(p){return p.emp;}, plat:function(p){return p.plat;}, nat:function(p){return p.nat;}, pg:function(p){return resumoParc(p).pg/p.tot;}, falta:function(p){return resumoParc(p).falta;},
+    prox:function(p){var r = resumoParc(p); return r.prox ? +r.prox.venc : 9e15;}, atr:function(p){return resumoParc(p).atr;}};
   function detalheGrupo(g, l){
-    return '<div class="quadro det"><div class="quadro-hd"><h2>'+esc(g)+'</h2><small>clique no parcelamento para ver a ficha e todas as parcelas</small></div><div class="rola"><table class="t-sit"><thead><tr><th>Empresa</th><th>Plataforma</th><th>Natureza</th><th>Nº parcelamento</th><th>Pagas</th><th class="dir">Falta pagar</th><th class="cen">Próxima</th><th class="cen">Situação</th></tr></thead><tbody>'
-      + l.map(function(p){
+    var o = GORD;
+    return '<div class="quadro det"><div class="quadro-hd"><h2>'+esc(g)+'</h2><small>clique no parcelamento para ver a ficha e todas as parcelas · clique no título da coluna para ordenar</small></div><div class="rola"><table class="t-sit"><thead><tr>'+th('Empresa','emp',o)+th('Plataforma','plat',o)+th('Natureza','nat',o)+'<th>Nº parcelamento</th>'+th('Pagas','pg',o)+th('Falta pagar','falta',o,'dir')+th('Próxima','prox',o,'cen')+th('Situação','atr',o,'cen')+'</tr></thead><tbody>'
+      + ordenar(l.slice(), o, CH_G).map(function(p){
         var r = resumoParc(p), pc = Math.round(r.pg/p.tot*100);
         return '<tr class="cl" tabindex="0" data-parc="'+p.id+'"><td><span class="nome">'+esc(p.emp)+'</span><span class="doc">'+p.doc+'</span></td>'
           +'<td><span class="plat">'+p.plat+'</span></td><td>'+esc(p.nat)+'</td><td class="num">'+p.num+'</td>'
@@ -734,7 +816,7 @@ document.documentElement.classList.add('letra-erp');   // teste: as letras da ta
     if (desfazer) $('desfazer').onclick = function(){ desfazer(); t.hidden = true; };
     toastT = setTimeout(function(){ t.hidden = true; }, 5000);
   }
-  function tudo(){ kpis(); abas(); tabela(); cartoes(); if (abertoParc && !fundo.hidden) verParcelamento(abertoParc); }
+  function tudo(){ kpis(); detalheKpi(); abas(); tabela(); cartoes(); if (abertoParc && !fundo.hidden) verParcelamento(abertoParc); }
   function parcela(pid, n){ return PARC[+pid].parcelas[+n - 1]; }
   function baixa(b){ var k = b.dataset.baixa.split(':'); confirmarBaixa(parcela(k[0], k[1])); }
 
@@ -742,12 +824,23 @@ document.documentElement.classList.add('letra-erp');   // teste: as letras da ta
   PARC.forEach(function(p){ if (![].some.call($('f-grupo').options, function(o){ return o.value===p.g; })) $('f-grupo').insertAdjacentHTML('beforeend','<option>'+esc(p.g)+'</option>'); });
   $('abas').addEventListener('click', function(e){ var b = e.target.closest('.aba'); if (!b) return; aba = b.dataset.aba; abas(); tabela(); });
   ['f-busca','f-grupo','f-plat'].forEach(function(id){ $(id).addEventListener('input', tabela); });
+  $('pf-lugar').innerHTML = painelFiltros('pf', '<div class="campo"><span class="rot">Natureza</span><select class="ctl" id="pf-nat"><option value="">Todas</option><option>Simples Nacional</option><option>INSS</option><option>Previdenciário</option><option>Não previdenciário</option><option>ICMS</option></select></div>');
+  ['pf-vde','pf-vate','pf-min','pf-max','pf-nat'].forEach(function(id){ $(id).addEventListener('input', tabela); });
+  $('kpis').addEventListener('click', function(e){ var c = e.target.closest('[data-kpi]'); if (!c) return; kpiAberto = kpiAberto === c.dataset.kpi ? '' : c.dataset.kpi; kpis(); detalheKpi(); });
+  $('kpi-det').addEventListener('click', function(e){
+    var bx = e.target.closest('[data-baixa]'); if (bx) return baixa(bx);
+    var em = e.target.closest('[data-emitir]'); if (em){ var k = em.dataset.emitir.split(':'); return emitir([parcela(k[0], k[1])]); }
+    var gr = e.target.closest('[data-ir-grupo]'); if (gr){ grupoAberto = gr.dataset.irGrupo; cartoes(); $('cartoes').scrollIntoView({behavior:'smooth'}); return; }
+    var tr = e.target.closest('tr[data-p]'); if (tr) editarParcela(parcela(tr.dataset.p, tr.dataset.n), false);
+  });
   $('area-tabela').addEventListener('click', function(e){
+    var o = e.target.closest('th[data-ord]'); if (o){ trocaOrd(ORD[aba], o.dataset.ord); return tabela(); }
     if (e.target.id === 'limpar'){ $('f-busca').value=''; $('f-grupo').value=''; $('f-plat').value=''; tabela(); return; }
     var bx = e.target.closest('[data-baixa]'); if (bx) return baixa(bx);
     var tr = e.target.closest('tr[data-p]'); if (tr) editarParcela(parcela(tr.dataset.p, tr.dataset.n), false);
   });
   $('cartoes').addEventListener('click', function(e){
+    var o = e.target.closest('th[data-ord]'); if (o){ trocaOrd(GORD, o.dataset.ord); return cartoes(); }
     var c = e.target.closest('.cg'); if (c){ grupoAberto = grupoAberto===c.dataset.g ? '' : c.dataset.g; cartoes(); return; }
     var tr = e.target.closest('tr[data-parc]'); if (tr) verParcelamento(PARC[+tr.dataset.parc]);
   });
@@ -818,16 +911,40 @@ document.documentElement.classList.add('letra-erp');   // teste: as letras da ta
   });
   var finAba = 'atraso';
   var estF = function(l){ return l.recEm ? 'recebidos' : (l.venc <= HOJE ? 'atraso' : 'areceber'); };
+  var FORD = {atraso:{k:'venc',dir:1}, areceber:{k:'venc',dir:1}, recebidos:{k:'rec',dir:-1}}, finKpiAb = '';
+  var CH_FIN = {g:function(l){return l.g;}, cli:function(l){return l.cli;}, tipo:function(l){return l.tipo;}, desc:function(l){return l.desc;}, v:function(l){return l.v;}, venc:function(l){return +l.venc;}, rec:function(l){return l.recEm ? +l.recEm : 0;}};
+  function linhaLanc(l, ult){
+    var d = Math.round((HOJE - l.venc) / DIA), cor = l.recEm ? '' : (l.venc <= HOJE ? ' v-atr' : ' v-av');
+    var qd = l.recEm ? '' : (d === 0 ? '<small>vence hoje</small>' : d > 0 ? '<small>'+d+' dia'+(d>1?'s':'')+' de atraso</small>' : '<small>em '+(-d)+' dia'+(-d>1?'s':'')+'</small>');
+    return '<tr class="cl" tabindex="0" data-lanc="'+l.id+'"><td><span class="nome">'+esc(l.cli)+'</span><span class="doc">'+l.doc+'</span></td><td>'+esc(l.desc)+'</td><td class="dir val">'+brl(l.v)+'</td><td class="cen dt'+cor+'">'+fd(l.venc)+qd+'</td><td class="cen">'+ult+'</td></tr>';
+  }
+  function finDetalhe(){
+    var el = $('fin-det'); if (!finKpiAb){ el.innerHTML = ''; return; }
+    var cols = [['Cliente','c-emp'],['Descrição'],['Valor','dir'],['Vencimento','cen']], soma = function(a){ return a.reduce(function(s, l){ return s + l.v; }, 0); };
+    var bx = function(l){ return l.recEm ? '<span class="pago-em">✓ Recebido em '+fc(l.recEm)+'</span>' : '<button class="bt-baixa" type="button" data-receber="'+l.id+'">'+ic('i-check')+'Baixa</button>'; };
+    if (finKpiAb === 'prev'){
+      var cs = {}; LANC.filter(doMes).forEach(function(l){ var c = cs[l.cli] = cs[l.cli] || {prev:0, rec:0}; c.prev += l.v; if (l.recEm) c.rec += l.v; });
+      el.innerHTML = miniTab('Previsto e recebido em outubro, por cliente', Object.keys(cs).length+' clientes', [['Cliente','c-emp'],['Previsto','dir'],['Recebido','dir'],['Falta','dir'],['Recebido do previsto']],
+        Object.keys(cs).map(function(n){ var c = cs[n], pc = Math.round(c.rec / c.prev * 100);
+          return '<tr><td class="nome">'+esc(n)+'</td><td class="dir val">'+brl(c.prev)+'</td><td class="dir val" style="color:var(--green)">'+brl(c.rec)+'</td><td class="dir val">'+brl(c.prev - c.rec)+'</td><td><div class="prog"><div class="barra"><span style="width:'+pc+'%"></span></div><span>'+pc+'%</span></div></td></tr>'; }));
+      return;
+    }
+    var l = finKpiAb === 'rec' ? LANC.filter(function(x){ return doMes(x) && x.recEm; }) : finKpiAb === 'arec' ? LANC.filter(function(x){ return doMes(x) && !x.recEm && x.venc > HOJE; }) : LANC.filter(function(x){ return estF(x) === 'atraso'; });
+    l.sort(function(a, b){ return a.venc - b.venc; });
+    var tit = {rec:'Recebidos em outubro', arec:'A receber em outubro', atr:'Honorários em atraso'}[finKpiAb];
+    el.innerHTML = miniTab(tit, l.length+' lançamentos · <b>'+brl(soma(l))+'</b>', cols.concat([['Baixa','cen']]), l.map(function(x){ return linhaLanc(x, bx(x)); }));
+  }
   function finKpis(){
     var mes = LANC.filter(doMes), rec = mes.filter(function(l){ return l.recEm; }), arec = mes.filter(function(l){ return !l.recEm && l.venc > HOJE; });
     var atr = LANC.filter(function(l){ return estF(l) === 'atraso'; });
     var soma = function(a){ return a.reduce(function(s, l){ return s + l.v; }, 0); };
     var prev = soma(mes), pc = prev ? Math.round(soma(rec) / prev * 100) : 0;
+    var k = function(id){ return ' clic" data-kpi="'+id+'" role="button" tabindex="0" aria-expanded="'+(finKpiAb===id)+'"><span class="abre">'+(finKpiAb===id?'fechar ▲':'ver ▼')+'</span'; };
     $('fin-kpis').innerHTML =
-      '<div class="kpi"><div class="kpi-ic g">'+ic('i-checkc')+'</div><div class="kpi-tx"><div class="l">Recebido no mês</div><div class="v" style="color:var(--green)">'+brl(soma(rec))+'</div><div class="s">'+rec.length+(rec.length === 1 ? ' honorário recebido' : ' honorários recebidos')+'</div></div></div>'
-     +'<div class="kpi"><div class="kpi-ic b">'+ic('i-cal')+'</div><div class="kpi-tx"><div class="l">A receber no mês</div><div class="v">'+brl(soma(arec))+'</div><div class="s">'+arec.length+(arec.length === 1 ? ' ainda vai' : ' ainda vão')+' vencer em outubro</div></div></div>'
-     +'<div class="kpi"><div class="kpi-ic r">'+ic('i-alert')+'</div><div class="kpi-tx"><div class="l">Em atraso</div><div class="v r">'+brl(soma(atr))+'</div><div class="s">'+atr.length+(atr.length === 1 ? ' honorário' : ' honorários')+' · contando os de hoje</div></div></div>'
-     +'<div class="kpi"><div class="kpi-ic a">'+ic('i-pie')+'</div><div class="kpi-tx"><div class="l">Recebido do previsto no mês</div><div class="v">'+pc+'% <small>de '+brl(prev)+'</small></div>'
+      '<div class="kpi'+k('rec')+'><div class="kpi-ic g">'+ic('i-checkc')+'</div><div class="kpi-tx"><div class="l">Recebido no mês</div><div class="v" style="color:var(--green)">'+brl(soma(rec))+'</div><div class="s">'+rec.length+(rec.length === 1 ? ' honorário recebido' : ' honorários recebidos')+'</div></div></div>'
+     +'<div class="kpi'+k('arec')+'><div class="kpi-ic b">'+ic('i-cal')+'</div><div class="kpi-tx"><div class="l">A receber no mês</div><div class="v">'+brl(soma(arec))+'</div><div class="s">'+arec.length+(arec.length === 1 ? ' ainda vai' : ' ainda vão')+' vencer em outubro</div></div></div>'
+     +'<div class="kpi'+k('atr')+'><div class="kpi-ic r">'+ic('i-alert')+'</div><div class="kpi-tx"><div class="l">Em atraso</div><div class="v r">'+brl(soma(atr))+'</div><div class="s">'+atr.length+(atr.length === 1 ? ' honorário' : ' honorários')+' · contando os de hoje</div></div></div>'
+     +'<div class="kpi'+k('prev')+'><div class="kpi-ic a">'+ic('i-pie')+'</div><div class="kpi-tx"><div class="l">Recebido do previsto no mês</div><div class="v">'+pc+'% <small>de '+brl(prev)+'</small></div>'
        +'<div class="barra" title="'+pc+'%"><span style="width:'+pc+'%"></span></div><div class="s">quanto de outubro já entrou</div></div></div>';
   }
   function finAbas(){
@@ -838,13 +955,13 @@ document.documentElement.classList.add('letra-erp');   // teste: as letras da ta
   }
   function finTabela(){
     var q = $('fin-busca').value.trim().toLowerCase(), g = $('fin-grupo').value, tp = $('fin-tipo').value;
-    var lin = LANC.filter(function(l){ return estF(l) === finAba && (!g || l.g === g) && (!tp || l.tipo === tp) && (!q || (l.cli+' '+l.doc+' '+l.desc).toLowerCase().indexOf(q) >= 0); })
-      .sort(function(a, b){ return finAba === 'recebidos' ? b.recEm - a.recEm : a.venc - b.venc; });
+    var fx = filtroExtra('ff'), o = FORD[finAba];
+    var lin = ordenar(LANC.filter(function(l){ return estF(l) === finAba && (!g || l.g === g) && (!tp || l.tipo === tp) && passa(fx, l.venc, l.v) && (!q || (l.cli+' '+l.doc+' '+l.desc).toLowerCase().indexOf(q) >= 0); }), o, CH_FIN);
     if (!lin.length){ $('fin-tabela').innerHTML = '<div class="quadro"><div class="vazio"><div class="vazio-ic">'+ic('i-search')+'</div><b>Nenhum honorário aqui</b><p>Nada nesta aba combina com a busca e os filtros escolhidos.</p></div></div>'; return; }
     var soma = lin.reduce(function(s, l){ return s + l.v; }, 0);
     var tit = {atraso:'Honorários em atraso (inclui os que vencem hoje)', areceber:'Todos os honorários a receber', recebidos:'Todos os honorários recebidos'}[finAba];
     $('fin-tabela').innerHTML = '<div class="quadro"><div class="quadro-hd"><h2>'+tit+'</h2><span class="resumo">'+lin.length+' lançamento'+(lin.length>1?'s':'')+' · <b>'+brl(soma)+'</b></span></div>'
-      +'<div class="rola rola-12"><table class="t-parc"><thead><tr><th>Grupo</th><th class="c-emp">Cliente</th><th>Tipo</th><th>Descrição</th><th>Parcela</th><th class="dir">Valor</th><th class="cen">Vencimento</th><th class="cen">Baixa</th></tr></thead><tbody>'
+      +'<div class="rola rola-12"><table class="t-parc"><thead><tr>'+th('Grupo','g',o)+th('Cliente','cli',o,'c-emp')+th('Tipo','tipo',o)+th('Descrição','desc',o)+'<th>Parcela</th>'+th('Valor','v',o,'dir')+th('Vencimento','venc',o,'cen')+th('Baixa','rec',o,'cen')+'</tr></thead><tbody>'
       + lin.map(function(l){
         var d = Math.round((HOJE - l.venc) / DIA), cor = l.recEm ? '' : (l.venc <= HOJE ? ' v-atr' : ' v-av');
         var qd = l.recEm ? '' : (d === 0 ? '<small>vence hoje</small>' : d > 0 ? '<small>'+d+' dia'+(d>1?'s':'')+' de atraso</small>' : '<small>em '+(-d)+' dia'+(-d>1?'s':'')+'</small>');
@@ -854,7 +971,7 @@ document.documentElement.classList.add('letra-erp');   // teste: as letras da ta
           +'<td class="cen">'+(l.recEm ? '<span class="pago-em">✓ Recebido em '+fc(l.recEm)+'</span>' : '<button class="bt-baixa" type="button" data-receber="'+l.id+'">'+ic('i-check')+'Baixa</button>')+'</td></tr>';
       }).join('') + '</tbody></table></div></div>';
   }
-  function finTudo(){ finKpis(); finAbas(); finTabela(); }
+  function finTudo(){ finKpis(); finDetalhe(); finAbas(); finTabela(); }
   function confirmarReceb(l){
     abrir(cab('Confirmar recebimento', 'Lançar o recebimento deste honorário?', esc(l.cli))
       +'<div class="j-bd"><div class="conf-resumo"><b>'+esc(l.desc)+(l.tot ? ' · parcela '+l.n+' de '+l.tot : '')+'</b><span>'+l.tipo+' · vencimento '+fd(l.venc)+'</span><span class="val">'+brl(l.v)+'</span></div>'
@@ -875,7 +992,15 @@ document.documentElement.classList.add('letra-erp');   // teste: as letras da ta
   CLI.forEach(function(c){ if (![].some.call($('fin-grupo').options, function(o){ return o.value === c[0]; })) $('fin-grupo').insertAdjacentHTML('beforeend', '<option>'+esc(c[0])+'</option>'); });
   $('fin-abas').addEventListener('click', function(e){ var b = e.target.closest('.aba'); if (!b) return; finAba = b.dataset.aba; finAbas(); finTabela(); });
   ['fin-busca','fin-grupo','fin-tipo'].forEach(function(id){ $(id).addEventListener('input', finTabela); });
+  $('ff-lugar').innerHTML = painelFiltros('ff');
+  ['ff-vde','ff-vate','ff-min','ff-max'].forEach(function(id){ $(id).addEventListener('input', finTabela); });
+  $('fin-kpis').addEventListener('click', function(e){ var c = e.target.closest('[data-kpi]'); if (!c) return; finKpiAb = finKpiAb === c.dataset.kpi ? '' : c.dataset.kpi; finKpis(); finDetalhe(); });
+  $('fin-det').addEventListener('click', function(e){
+    var b = e.target.closest('[data-receber]'); if (b) return confirmarReceb(LANC[+b.dataset.receber]);
+    var tr = e.target.closest('tr[data-lanc]'); if (tr) editarLanc(LANC[+tr.dataset.lanc]);
+  });
   $('fin-tabela').addEventListener('click', function(e){
+    var o = e.target.closest('th[data-ord]'); if (o){ trocaOrd(FORD[finAba], o.dataset.ord); return finTabela(); }
     var b = e.target.closest('[data-receber]'); if (b) return confirmarReceb(LANC[+b.dataset.receber]);
     var tr = e.target.closest('tr[data-lanc]'); if (tr) editarLanc(LANC[+tr.dataset.lanc]);
   });

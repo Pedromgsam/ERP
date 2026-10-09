@@ -46,7 +46,11 @@ Aprovado pelo usuário em 08/10/2026. Leia isto antes de qualquer rodada da refo
   fica vermelho em atraso (inclui hoje) e azul a vencer (data + "em N dias"); paga = data normal e a coluna Baixa mostra "✓ Pago em dd/mm"
   ("Recebido em" no Financeiro). A coluna "Situação" da lista do grupo (nº de parcelas em atraso / Em dia) continua.
   Guia v5 ganhou um seletor "Tela" com um 2º exemplo: Financeiro · Honorários (mesmas peças).
-- Guia v2 (Backup 61), v3 (Backup 62), v4 (Backup 63) e v5 (Backup 64) com essas respostas; diagnóstico da Etapa 1 em `sistema/DIAGNOSTICO-REFORMA.md`.
+- **Respostas ao guia v5 (09/10/2026)** — valem para TODO o sistema: **letra Inter** (definitiva; a do ERP.html fica só para comparar);
+  **toda tabela tem filtros**: busca + listas na linha das abas e o botão "Filtros" (vencimento de/até, valor de/até + o que for da tela), com o número de filtros ligados;
+  **toda tabela ordena** clicando no título da coluna (↑/↓); **todo cartão abre o detalhamento** (clicou → lista abaixo dos cartões; clicou de novo → fecha);
+  **toda informação clicável abre o detalhe**. Sugestões numeradas em `sistema/SUGESTOES-REFORMA.md` (aguardando o usuário escolher).
+- Guia v2 (Backup 61), v3 (Backup 62), v4 (Backup 63), v5 (Backup 64) e v6 (Backup 65) com essas respostas; diagnóstico da Etapa 1 em `sistema/DIAGNOSTICO-REFORMA.md`.
 - Funções novas do ROMPEX (A–K da conversa: NFS-e Nacional pelo A1, envio de documentos por competência, link de cadastro do cliente,
   conferir anexo antes de enviar, busca Ctrl+K, "?" de ajuda, envio seguro de e-mail, registro de importações com reverter,
   página Atualizações, apuração pelos XMLs, leitura por foto com IA [paga]) → **perguntar ao usuário depois da reforma**, não antes.
