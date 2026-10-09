@@ -48,11 +48,11 @@
 <script src="erp-dados.js?v=cea43526"></script>
 <link rel="stylesheet" href="editor.css?v=7747e46f">
 <link rel="stylesheet" href="erp-telas.css?v=22ce828d">
-<script src="editor.js?v=5e926912" defer></script>
+<script src="editor.js?v=2f159e86" defer></script>
 <script src="erp-telas.js?v=b3a42c97" defer></script>
 <link rel="stylesheet" href="gs.css?v=3664502a">
 <script src="importador.js?v=23bf9824" defer></script>
-<script src="gestao-embutida.js?v=72eba1cb" defer></script>
+<script src="gestao-embutida.js?v=07d0acff" defer></script>
 <script>
 
 
@@ -1615,9 +1615,10 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
 .ep-val:focus{border-bottom-color:var(--navy);background:#FFF8E1}
 .ep-val::placeholder{color:var(--text4);font-weight:400}
 </style>
-<link rel="stylesheet" href="tokens.css?v=71f436d3">
+<link rel="stylesheet" href="tokens.css?v=c80d0639">
 <link rel="stylesheet" href="tema-escuro.css?v=3bec5b6a">
-<link rel="stylesheet" href="design.css?v=d1113072">
+<link rel="stylesheet" href="design.css?v=9e16dc28">
+<link rel="stylesheet" href="base.css?v=6ba917dc">
 <script>try{if(localStorage.getItem("erp_tema")==="escuro")document.documentElement.setAttribute("data-tema","escuro")}catch(e){}</script>
 </head>
 <body>
@@ -4935,7 +4936,7 @@ function _lgParcTabela(l, tabela){
     +(l.some(function(x){ return x.lancado===false; })?'<div class="lg-pt-nota">* valor ainda não lançado nesta parcela — vale o último valor lançado (o valor muda todo mês).</div>':'');
 }
 // Backup 36: confirmação antes de lançar o pagamento (evita clique sem querer)
-function _lgConfirmaPag(b){ return confirm('Lançar o pagamento da parcela '+(b.dataset.lgRot||'')+(b.dataset.lgVal?' ('+b.dataset.lgVal+')':'')+'?\n\nConfirme só se o cliente já pagou.'); }
+function _lgConfirmaPag(b){ return true; }   // Backup 63: a confirmação (data + "Confirmar") é feita pela janela de baixa, igual em todo o sistema
 // cabeçalho do detalhamento com os dados da planilha (devedor, CPF/CNPJ, órgão, natureza, nº…)
 function _lgFicha(campos){
   return '<div class="lg-ficha">'+campos.filter(function(c){ return c&&c[1]!==''&&c[1]!=null; }).map(function(c){ return '<div><span>'+c[0]+'</span><b>'+c[1]+'</b></div>'; }).join('')+'</div>';

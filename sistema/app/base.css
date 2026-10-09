@@ -1,0 +1,138 @@
+/* ═══════════════════════════════════════════════════════════════════
+   base.css — A BASE NOVA do visual (reforma, etapa 2 — Backup 63).
+   Segue a tela-modelo aprovada (sistema/prototipos/guia-visual.html).
+   É a ÚLTIMA camada (carrega depois do design.css). Só var(--…) de tokens.css.
+   • Peças novas (classes b-*): cabecalhoTela, cartoesNumero, barraAbas,
+     tabelaLeve, vazioB (nucleo.js). Toda tela refeita usa só elas.
+   • Regras globais do padrão novo (cabeçalho de tabela claro, Grupo em
+     texto, janela no centro, lateral escura com borda).
+   Os blocos "Backup N" do design.css saem quando a tela deles for refeita.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── regras globais do padrão novo ── */
+/* cabeçalho das tabelas: claro (fundo do cartão), 11 px, caixa alta cinza, com um fio embaixo */
+html body.gx-barra-topo table thead th:not(#_){border-bottom:1px solid var(--line)!important}
+html body.gx-barra-topo :is(.tw,.tabela-wrap,.gx-tab-gs) > table > thead th:is(:first-child,:last-child){border-radius:0}
+/* Grupo: só o nome, em texto (sem a pílula) */
+html body.gx-barra-topo :is(#tblExecRanking .er-grupo,td.col-grupo .gx-gpill):not(#_){display:inline!important;padding:0!important;border:0!important;background:none!important;border-radius:0!important;
+  color:var(--text2)!important;font:500 13px var(--font-ui)!important;letter-spacing:0!important;white-space:normal!important;overflow:visible!important;max-width:none!important}
+html body.gx-barra-topo td.col-grupo:not(#_){text-transform:none!important;white-space:normal!important;font-size:13px!important}
+/* valor: quase-preto e negrito (sem o azul) */
+html body.gx-barra-topo :is(.tw,.tabela-wrap,.gx-tab-gs) td.col-valor:not(.valor-rec):not(.valor-desp):not(#_){color:var(--ink)}
+/* lateral: no escuro ganha uma borda para não se perder no fundo preto */
+html[data-tema="escuro"] #gs-lado{border-right:1px solid var(--lado-linha)}
+
+/* ── janela no CENTRO (criar, editar, detalhe) — a única janela do sistema ── */
+body.gx-barra-topo .gs .janela{border-radius:14px!important}
+body.gx-barra-topo .gs .janela-hd{display:flex;align-items:flex-start;gap:12px;padding:18px 22px 14px!important;border-radius:14px 14px 0 0!important}
+body.gx-barra-topo .gs .janela-hd h2{font-size:17px!important;font-weight:700!important;letter-spacing:-.01em;line-height:1.3;margin:0}
+body.gx-barra-topo .gs .janela-hd > button[data-fechar]{width:32px;height:32px;border-radius:999px!important;flex:none;margin-left:auto;font-size:20px;line-height:1}
+body.gx-barra-topo .gs .janela-hd .j-tit{min-width:0}
+body.gx-barra-topo .gs .janela-hd .j-kick{display:block;font:600 12px var(--font-ui);color:var(--primario);margin-bottom:2px}
+html[data-tema="escuro"] body.gx-barra-topo .gs .janela-hd .j-kick{color:var(--blue-d)}
+body.gx-barra-topo .gs .janela-hd .j-sub{display:block;font:400 12.5px var(--font-ui);color:var(--text3);margin-top:2px}
+body.gx-barra-topo .gs .janela-hd .j-dir{margin-left:auto;display:flex;align-items:center;gap:8px}
+body.gx-barra-topo .gs .janela-hd .j-dir + button[data-fechar]{margin-left:0}
+body.gx-barra-topo .gs .janela-bd{padding:16px 22px 20px}
+body.gx-barra-topo .gs .janela-rp{padding:12px 22px!important;border-radius:0 0 14px 14px!important}
+@media (max-width:600px){body.gx-barra-topo .gs .janela,body.gx-barra-topo .gs .janela-hd,body.gx-barra-topo .gs .janela-rp{border-radius:0!important}}
+
+/* ── peças novas ── */
+.b-ic{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.b-r{color:var(--red-d);background:var(--red-lt)}.b-b{color:var(--blue-d);background:var(--blue-lt)}.b-a{color:var(--amber-d);background:var(--amber-lt)}.b-g{color:var(--green-d);background:var(--green-lt)}
+.b-verm{color:var(--red-d)!important}.b-verde{color:var(--green-d)!important}
+
+/* 1) cabeçalho da tela */
+.b-cab{display:flex;gap:14px;align-items:flex-start;margin:0 0 16px}
+.b-cab-ic{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;background:var(--blue-lt);color:var(--primario);border:1px solid var(--border);flex:none}
+html[data-tema="escuro"] .b-cab-ic{color:var(--blue-d)}
+.b-cab-ic .b-ic{width:21px;height:21px}
+.b-cab-tx{min-width:0}
+.b-cab h1{margin:0;font:700 22px/1.2 var(--font-ui);color:var(--ink);letter-spacing:-.015em;text-wrap:balance}
+.b-cab p{margin:3px 0 0;color:var(--text3);font-size:13.5px}
+.b-cab-acoes{margin-left:auto;display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+.b-link{display:inline-flex;align-items:center;gap:6px;border:0;background:none;color:var(--text2);font:600 13px var(--font-ui);cursor:pointer;padding:6px 4px}
+.b-link:hover{color:var(--primario)}
+.b-bt{display:inline-flex!important;align-items:center;gap:7px}
+
+/* 2) cartões de número */
+.b-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:0 0 16px}
+.b-kpis-3{grid-template-columns:repeat(3,minmax(0,1fr))}.b-kpis-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.b-kpi{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow-card);display:flex;gap:12px;align-items:flex-start;min-width:0}
+.b-kpi-ic{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;border:1px solid var(--border);flex:none}
+.b-kpi-tx{min-width:0;flex:1;display:flex;flex-direction:column;gap:1px}
+.b-kpi-l{color:var(--text2);font-size:13px;font-weight:500}
+.b-kpi-v{font:700 24px/1.2 var(--font-ui);color:var(--ink);letter-spacing:-.02em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.b-kpi-v small{font-size:13px;font-weight:600;color:var(--text3);letter-spacing:0}
+.b-kpi-s{color:var(--text3);font-size:12px}
+.b-kpi-s b{color:var(--text2);font-weight:600}
+.b-kpi-linhas{display:flex;flex-direction:column;gap:1px;margin-top:2px}
+.b-kpi-linhas > div{display:flex;align-items:baseline;gap:6px;min-width:0}
+.b-kpi-linhas .b-kpi-v{font-size:17px}
+.b-barra{height:6px;border-radius:999px;background:var(--gray-lt);overflow:hidden;margin:8px 0 4px}
+.b-barra span{display:block;height:100%;background:var(--green);border-radius:999px}
+.b-barra-a span{background:var(--amber)}
+@media (max-width:1240px){.b-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:600px){.b-kpis,.b-kpis-3,.b-kpis-2{grid-template-columns:1fr}}
+
+/* 3) abas + filtros na mesma linha, sem cartão */
+.b-abas-linha{display:flex;align-items:flex-end;gap:12px;border-bottom:1px solid var(--border);flex-wrap:wrap;margin:0 0 12px}
+.b-abas{display:flex;flex-wrap:wrap;gap:2px}   /* sem overflow: no Windows a rolagem aparecia como setinhas ↑↓ ao lado das abas */
+.b-aba{border:0;background:none;padding:9px 12px;font:600 13.5px var(--font-ui);color:var(--text3);border-bottom:2px solid transparent;margin-bottom:-1px;cursor:pointer;white-space:nowrap}
+.b-aba:hover{color:var(--ink)}
+.b-aba[aria-selected="true"]{color:var(--primario);border-bottom-color:var(--primario)}
+html[data-tema="escuro"] .b-aba[aria-selected="true"]{color:var(--blue-d);border-bottom-color:var(--blue-d)}
+.b-aba-n{display:inline-block;min-width:20px;margin-left:5px;font-size:11.5px;font-weight:700;padding:0 6px;border-radius:999px;background:var(--gray-lt);color:var(--text3);text-align:center}
+.b-filtros{margin-left:auto;display:flex;gap:8px;align-items:center;padding-bottom:7px;flex-wrap:wrap}
+.b-filtros select{height:34px;border:1px solid var(--border-strong);border-radius:var(--r-ctl);background-color:var(--surface);color:var(--text);font:13px var(--font-ui);padding:0 28px 0 10px}
+.b-busca{display:flex;align-items:center;gap:7px;height:34px;border:1px solid var(--border-strong);border-radius:var(--r-ctl);padding:0 10px;background:var(--surface);color:var(--text3);width:260px}
+.b-busca:focus-within,.b-filtros select:focus{border-color:var(--primario);box-shadow:var(--anel);outline:0}
+.b-busca input{border:0!important;outline:0;background:none!important;flex:1;min-width:0;font:13px var(--font-ui);color:var(--text);padding:0!important;box-shadow:none!important}
+@media (max-width:1100px){.b-filtros{margin-left:0;width:100%}.b-busca{flex:1;width:auto}}
+
+/* 4) tabela leve: ~12 linhas à vista, o resto rola com o cabeçalho parado */
+.b-quadro{background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-card);overflow:hidden;margin:0 0 16px}
+.b-quadro-hd{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.b-quadro-hd h2{margin:0;font:700 15px var(--font-ui);color:var(--ink)}
+.b-quadro-hd small{color:var(--text3);font-size:12.5px}
+.b-resumo{margin-left:auto;color:var(--text3);font-size:12.5px;font-variant-numeric:tabular-nums}
+.b-resumo b{color:var(--ink)}
+.b-rola{overflow:auto;max-height:680px}
+html body.gx-barra-topo table.b-tab:not(#_){width:100%;border-collapse:collapse}
+html body.gx-barra-topo table.b-tab thead th:not(#_){position:sticky;top:0;z-index:1;background:var(--surface)!important;color:var(--text3)!important;text-align:left!important;padding:10px!important;white-space:nowrap}
+html body.gx-barra-topo table.b-tab tbody td:not(#_){padding:11px 10px!important;border-bottom:1px solid var(--line);vertical-align:middle;color:var(--text);font:400 13.5px/1.4 var(--font-ui)!important;text-align:left}
+html body.gx-barra-topo table.b-tab :is(th,td).b-dir:not(#_){text-align:right!important}
+html body.gx-barra-topo table.b-tab :is(th,td).b-cen:not(#_){text-align:center!important}
+.b-tab tbody tr:last-child td{border-bottom:0}
+.b-tab tr.b-cl{cursor:pointer}
+.b-tab tr.b-cl:hover td{background:var(--hover)}
+.b-nome{font-weight:600;color:var(--ink)}
+.b-doc{display:block;font:400 11.5px var(--font-num);color:var(--text3);margin-top:2px;letter-spacing:-.01em;white-space:nowrap}
+.b-num{font:400 12px var(--font-num)!important;color:var(--text3)!important;white-space:nowrap}
+.b-val{font-weight:700!important;color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}
+.b-data{font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--text2)}
+.b-data small{display:block;font-size:12px;color:var(--text3)}
+.b-data small.b-verm{font-weight:600}
+.b-baixa{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--border-strong);background:var(--surface);color:var(--text2);border-radius:999px;padding:4px 11px;font:600 12.5px var(--font-ui);cursor:pointer;white-space:nowrap}
+.b-baixa .b-ic{width:14px;height:14px}
+.b-baixa:hover{border-color:var(--green);color:var(--green-d);background:var(--green-lt)}
+
+/* tela vazia que explica */
+.b-vazio{padding:36px 20px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:6px}
+.b-vazio-ic{width:48px;height:48px;border-radius:12px;display:grid;place-items:center;background:var(--surface2);color:var(--text3);border:1px solid var(--border);margin-bottom:6px}
+.b-vazio b{font-size:15px;color:var(--ink)}
+.b-vazio p{margin:0;color:var(--text3);max-width:52ch}
+.b-vazio .btn{margin-top:10px}
+
+/* faixa do grupo (Painel, Clientes, Rotina…): o mesmo espaçamento com e sem o mouse em cima.
+   Antes uma regra de :hover encolhia a faixa 8 px → ela saía de baixo do mouse, crescia de novo e ficava "piscando" (achado no teste da Rotina) */
+html body.gx-barra-topo :is(.tw,.tabela-wrap,.gx-tab-gs) table > tbody > tr:is(.gx-grp,.cli-grp,.rt-grp) > td:not(#_){padding:9px 14px!important}
+
+/* Painel → Empresas do grupo: com o cabeçalho em caixa alta, "OPERAÇÃO" e "SITUAÇÃO" precisam de 9% (a Entidade cede 2%) para a tabela caber sem rolar para o lado */
+html body.gx-barra-topo table:has(> #tblExecRanking) th:nth-child(3):not(#_){width:24%!important}
+html body.gx-barra-topo table:has(> #tblExecRanking) :is(th:nth-child(9),th:nth-child(10)):not(#_){width:9%!important}
+
+/* cabeçalho em caixa alta: a linha de baixo do título (ex.: "em aberto · negociada") fica em minúsculas, e as planilhas estreitas da Rotina
+   usam letra um pouco menor e sem espaçamento extra — para "Procur.", "Certif." e "Conferência" caberem sem "…" */
+html body.gx-barra-topo table thead th:not(#_) :is(small,.sub,span.sub){text-transform:none!important;letter-spacing:0!important;font-weight:500!important}
+html body.gx-barra-topo .rt-grade table thead th:not(#_),html body.gx-barra-topo .rt-grade table thead th:not(#_) *{letter-spacing:.01em!important;font-size:10.5px!important}

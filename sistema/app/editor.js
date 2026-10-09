@@ -461,17 +461,23 @@
   }
   // baixa direto na linha, sem abrir formulário
   // data do recebimento (hoje, editável) e, no acordo, o comprovante juntado ao processo
+  // Backup 63 (reforma, etapa 2): TODA baixa pede confirmação — inclusive a parcela de parcelamento (antes gravava direto)
   async function perguntar(tabela, reg) {
-    if (tabela === 'parcelas') return { pago: true };
     const GS = window.GS;
-    if (!GS || !GS.perguntarBaixa) return { pago: true, data_pagamento: hojeISO() };
+    if (!GS || !GS.perguntarBaixa) return confirm('Confirmar o pagamento?') ? { pago: true, data_pagamento: hojeISO() } : null;
+    if (tabela === 'parcelas') return GS.perguntarBaixa({ despesa: true, titulo: 'Pagamento da parcela — confirme', valor: reg && reg.valor != null ? Number(reg.valor) : null,
+      descricao: 'Parcela ' + ((reg && reg.numero) || '') + (reg && reg._empresa ? ' — ' + reg._empresa : '') + (reg && reg.vencimento ? ' · venc. ' + brData(reg.vencimento) : '') });
     return GS.perguntarBaixa({ acordo: tabela === 'acordos', valor: reg && reg.valor, despesa: tabela === 'lancamentos' && reg && reg.tipo === 'despesa' && !reg.redutor,
       descricao: reg ? (tabela === 'acordos' ? 'Parcela ' + (reg.parcela || '') + (reg.total_parcelas ? '/' + reg.total_parcelas : '') + ' — ' + (reg.credor || reg.processo || '') : reg.descricao) : '' });
   }
+  // opc.dados = confirmação já feita por quem chamou (a Rotina pergunta antes de marcar a tela)
   async function baixaRapida(tabela, id, opc) {
-    let reg = null;
-    if (tabela !== 'parcelas') { const r = await sb.from(tabela).select('*').eq('id', id).single(); if (r.error) return aviso('⚠ ' + erroAmigavel(r.error)); reg = r.data; }
-    const d = await perguntar(tabela, reg); if (!d) return;
+    let d = opc && opc.dados ? Object.assign({}, opc.dados) : null;
+    if (!d) {
+      const r = await sb.from(tabela).select(tabela === 'parcelas' ? '*, parcelamentos(empresa)' : '*').eq('id', id).single(); if (r.error) return aviso('⚠ ' + erroAmigavel(r.error));
+      const reg = r.data; if (tabela === 'parcelas' && reg.parcelamentos) reg._empresa = reg.parcelamentos.empresa;
+      d = await perguntar(tabela, reg); if (!d) return;
+    }
     if (tabela === 'lancamentos') d.perda = false;
     const { data, error } = await sb.from(tabela).update(d).eq('id', id).select().single();
     if (error) return aviso('⚠ ' + erroAmigavel(error));

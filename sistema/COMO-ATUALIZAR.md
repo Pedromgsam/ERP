@@ -707,6 +707,21 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
 **Central de Documentos dentro do ERP:** menu **Documentos → Gerar documento** (ou ⋯ → Documentos, contrato, recibo do Financeiro).
 **Ctrl + clique** (ou botão do meio do mouse) em qualquer item do menu ou link de documento abre numa aba nova.
 
+## Backup 63 — Reforma, etapa 2: base nova do visual (sem SQL; nenhuma função nova)
+1. Merge da pull request.
+2. SQL: não precisa.
+3. **Ctrl+Shift+R** no ERP. Confira na Vercel (Deployments) que a primeira linha Production é do horário do seu Merge.
+
+O que muda na tela:
+- Letra **Inter** em todo o sistema (sai a Playfair dos cabeçalhos das tabelas; a letra de máquina fica só no CPF/CNPJ e nos números de processo/parcelamento).
+- Cabeçalho das tabelas **claro** (letras pequenas cinza), Grupo só com o nome (sem a pílula), "Vence hoje" em vermelho.
+- Barra lateral mais estreita (188 px) e margens de 20 px dos lados, sem limite de largura: as tabelas ganham espaço.
+- Modo escuro **preto**; a barra lateral fica num azul-marinho escuro com borda.
+- **Todo pagamento pede confirmação**: o "Pago" da Rotina/Planilha e a "Baixa" das parcelas de parcelamento agora abrem a janela "Pagamento da parcela — confirme"
+  (com a data, que já vem com hoje). Antes a parcela era marcada como paga direto, sem perguntar.
+- A faixa cinza do grupo (Rotina, Painel, Clientes) não "pisca" mais quando o mouse passa por cima.
+- Tela-modelo v4 (link no artifact): situação por cliente primeiro, abas sem setinhas, tabela com ~12 linhas e rolagem, "Emitir" na janela do parcelamento.
+
 ## Backup 62 — Tela-modelo v3 (só documentos; o sistema não muda)
 1. Merge da pull request.
 2. SQL: não precisa. Ctrl+Shift+R: não precisa (nada mudou nas telas).

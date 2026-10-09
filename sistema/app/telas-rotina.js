@@ -610,16 +610,21 @@ async function rotinaEnviarGuias(el) {
 }
 
 // ── Backup 51 (V4): "Pago" e "Emitida" na hora — a tela muda no clique, o banco grava por trás; erro → a tela volta e o motivo aparece ──
-function pagarParcelaRotina(x, redesenhar) {
+// Backup 63: antes de marcar, pergunta (data do pagamento + confirmação); cancelou → nada muda
+async function pagarParcelaRotina(x, redesenhar) {
+  const D = _rtDados ? await _rtDados.catch(() => null) : null, pa = D && D.porId[x.parcelamento_id];
+  const bx = await perguntarBaixa({ despesa: true, titulo: 'Pagamento da parcela — confirme', valor: x.valor != null ? Number(x.valor) : (pa && pa.valor_ultima_parcela != null ? Number(pa.valor_ultima_parcela) : null),
+    descricao: 'Parcela ' + (x.numero || '') + (pa && pa.empresa ? ' — ' + pa.empresa : '') + (x.vencimento ? ' · venc. ' + dataBR(x.vencimento) : '') });
+  if (!bx) return;
   const antes = { pago: x.pago, data_pagamento: x.data_pagamento };
   const volta = () => { x.pago = antes.pago; x.data_pagamento = antes.data_pagamento; redesenhar(); atualizarPlacar(); };
-  x.pago = true; x.data_pagamento = hojeISO(); redesenhar();
+  x.pago = true; x.data_pagamento = bx.data_pagamento; redesenhar();
   const ED = window.ERP_EDITOR;
   const desfazer = async () => { const r = await sb.from('parcelas').update({ pago: false }).eq('id', x.id);
     if (r.error) return aviso('⚠ ' + erroAmigavel(r.error), true);
     if (ED && ED.gravou) ED.gravou('Baixa desfeita'); if (ED && ED.marcarSujo) ED.marcarSujo('parcelas', x.parcelamento_id); volta(); };
-  const gravar = ED && ED.baixaRapida ? ED.baixaRapida('parcelas', x.id, { semRecarregar: true, desfazer, prazoDesfazer: 5000 })
-    : q(sb.from('parcelas').update({ pago: true }).eq('id', x.id).select().single()).catch((e) => { aviso('⚠ ' + erroAmigavel(e), true); return null; });
+  const gravar = ED && ED.baixaRapida ? ED.baixaRapida('parcelas', x.id, { semRecarregar: true, desfazer, prazoDesfazer: 5000, dados: bx })
+    : q(sb.from('parcelas').update(bx).eq('id', x.id).select().single()).catch((e) => { aviso('⚠ ' + erroAmigavel(e), true); return null; });
   return Promise.resolve(gravar).then((d) => {
     if (!d || !d.id) return volta();
     if (d.data_pagamento && d.data_pagamento !== x.data_pagamento) { x.data_pagamento = d.data_pagamento; redesenhar(); }

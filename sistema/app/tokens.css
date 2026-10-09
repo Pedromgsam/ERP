@@ -53,8 +53,9 @@
   --lado-ativo-bg:#FFFFFF;--lado-ativo-fg:#173B66;--lado-hover:rgba(255,255,255,.1);
   --topo-bg:#FFFFFF;--topo-borda:#E3E6E8;
   /* cabeçalho das tabelas (Backup 19: volta ao azul-marinho, texto branco) */
-  --th-bg:#1F4D80;--th-fg:#FFFFFF;--th-fg-2:rgba(255,255,255,.75);   /* Backup 54: cabeçalho da tabela na cor da barra lateral, texto branco (como no ERP antigo) */
-  --titulo:#173B66;   /* títulos das tabelas/quadros (Backup 56: azul-safira) */
+  /* Backup 63 (reforma, etapa 2): cabeçalho CLARO — fundo do cartão, letra pequena cinza em caixa alta (aprovado na tela-modelo) */
+  --th-bg:#FFFFFF;--th-fg:#646C74;--th-fg-2:#8A9199;   /* Backup 54: cabeçalho da tabela na cor da barra lateral, texto branco (como no ERP antigo) */
+  --titulo:#1D2329;   /* Backup 63: títulos em quase-preto (o azul fica só nos botões, seleção e lateral) */
 
   /* gráficos (o canvas não entende var(): o JS lê estes valores na hora de desenhar) */
   --chart-1:#2F5FAE;--chart-2:#2E8C6A;--chart-3:#C0873A;--chart-4:#8266C4;--chart-5:#B85C5C;--chart-6:#3E8FA8;--chart-7:#8A8F99;--chart-8:#B8A04E;
@@ -62,9 +63,11 @@
   --chart-texto:#5B6270;--chart-grade:rgba(17,24,39,.06);--chart-borda:#FFFFFF;
 
   /* tipografia: uma fonte só, números alinhados (Backup 56: DM Sans, a letra do ERP antigo — mais compacta que a Inter) */
-  --font-ui:'DM Sans','Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+  /* Backup 63 (reforma): Inter — discreta, números alinhados; escolhida pelo usuário na tela-modelo */
+  --font-ui:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
   /* Backup 57: as letras do ERP antigo — títulos e cabeçalho das tabelas em Playfair Display, números (valores, datas, CPF/CNPJ, nº) em JetBrains Mono */
-  --font-tit:'Playfair Display',Georgia,serif;--font-num:'JetBrains Mono',ui-monospace,'Courier New',monospace;
+  /* Backup 63: Playfair saiu (--font-tit = a letra única); a de máquina fica só para CPF/CNPJ e nº de processo/parcelamento */
+  --font-tit:var(--font-ui);--font-num:'JetBrains Mono',ui-monospace,'Courier New',monospace;
   --fs-xs:12px;--fs-sm:13px;--fs-md:14px;--fs-lg:16px;--fs-xl:20px;--fs-2xl:24px;
   /* espaçamento */
   --sp-1:4px;--sp-2:8px;--sp-3:12px;--sp-4:16px;--sp-5:24px;--sp-6:32px;
@@ -83,7 +86,7 @@
   color-scheme:light;
 }
 
-/* ── modo escuro no estilo GitHub/Supabase (Backup 40): fundo quase preto, cartões um tom acima, bordas finas visíveis ── */
+/* ── modo escuro (Backup 63: PRETO de verdade, aprovado na tela-modelo; a lateral num azul-marinho escuro com borda para não sumir) ── */
 html[data-tema="escuro"]{
   --green:#3FB950;--green-d:#56D364;--green-lt:rgba(63,185,80,.13);--green-bd:rgba(63,185,80,.32);
   --amber:#D29922;--amber-d:#E3B341;--amber-lt:rgba(210,153,34,.13);--amber-border:rgba(210,153,34,.34);
@@ -92,32 +95,32 @@ html[data-tema="escuro"]{
   --teal:#4DB6AC;--teal-lt:rgba(77,182,172,.12);--teal-bd:rgba(77,182,172,.3);
   --blue:#58A6FF;--blue-d:#79C0FF;--blue-lt:rgba(56,139,253,.13);--blue-bd:rgba(56,139,253,.36);
   --violet:#A371F7;--violet-d:#BC8CFF;--violet-lt:rgba(163,113,247,.13);--violet-bd:rgba(163,113,247,.34);
-  --gray:#8B949E;--gray-lt:#161B22;--gray-mid:#21262D;
+  --gray:#8C8C93;--gray-lt:#1A1A1E;--gray-mid:#26262B;
   --sem-preto:#010409;
-  --bg:#0D1117;--surface:#161B22;--surface2:#1C2128;--surface3:#21262D;--white:#161B22;--hover:#1F242C;
-  --ink:#F0F6FC;
-  --text:#E6EDF3;--text2:#C9D1D9;--text3:#8B949E;--text4:#7D8590;
-  --border:#30363D;--border-strong:#3D444D;--line:#21262D;
-  --overlay:rgba(1,4,9,.72);
+  --bg:#000000;--surface:#0B0B0D;--surface2:#121215;--surface3:#18181C;--white:#0B0B0D;--hover:#16161A;
+  --ink:#F2F2F3;
+  --text:#E6E6E8;--text2:#C2C2C7;--text3:#8C8C93;--text4:#86868E;
+  --border:#26262B;--border-strong:#34343A;--line:#1A1A1E;
+  --overlay:rgba(0,0,0,.72);
   --ac-gold-lt:rgba(201,168,76,.12);--gold-d:#E3C877;--gold-bd:rgba(201,168,76,.32);
-  --bar-bg:#010409;--bar-borda:#21262D;
-  --primario:#1F6FEB;--primario-hover:#1A5FCC;--on-primario:#FFFFFF;
-  --selecao:#1F6FEB;--on-selecao:#FFFFFF;
-  --th-bg:#161B22;--th-fg:#C9D1D9;--th-fg-2:#8B949E;
-  --titulo:#E6EDF3;
-  --lado-bg:#010409;--lado-fg:#E6EDF3;--lado-fg-2:#C9D1D9;--lado-sec:#7D8590;--lado-linha:#21262D;
-  --lado-ativo-bg:#1F242C;--lado-ativo-fg:#79C0FF;--lado-hover:#161B22;--topo-bg:#0D1117;--topo-borda:#21262D;
+  --bar-bg:#0F1B30;--bar-borda:#22324D;
+  --primario:#3270CC;--primario-hover:#2B64C2;--on-primario:#FFFFFF;
+  --selecao:#3270CC;--on-selecao:#FFFFFF;
+  --th-bg:#0B0B0D;--th-fg:#8C8C93;--th-fg-2:#7E7E86;
+  --titulo:#F2F2F3;
+  --lado-bg:#0F1B30;--lado-fg:#E8EDF5;--lado-fg-2:#C3CCD9;--lado-sec:#7E8BA0;--lado-linha:#22324D;
+  --lado-ativo-bg:#1C3050;--lado-ativo-fg:#8DB8FF;--lado-hover:#15243D;--topo-bg:#0B0B0D;--topo-borda:#26262B;
   --chart-1:#6E97DB;--chart-2:#55B08F;--chart-3:#D6A25C;--chart-4:#A08AD9;--chart-5:#D98080;--chart-6:#62AFC6;--chart-7:#8E8E96;--chart-8:#CDB66A;
   --chart-rampa-1:#A9C1EC;--chart-rampa-2:#7CA3E0;--chart-rampa-3:#5A83C8;--chart-rampa-4:#3D62A2;--chart-rampa-5:#284574;
-  --chart-texto:#8B949E;--chart-grade:#21262D;--chart-borda:#161B22;
+  --chart-texto:#8C8C93;--chart-grade:#1A1A1E;--chart-borda:#0B0B0D;
   /* no grafite a sombra escura aparece de novo: suave, com um fio claro por cima */
   --shadow-sm:none;
   --shadow-card:none;
-  --shadow-hover:0 0 0 1px #3D444D;
-  --shadow-md:0 8px 24px rgba(1,4,9,.75);
-  --shadow-lg:0 0 0 1px #30363D,0 16px 48px rgba(1,4,9,.85);
+  --shadow-hover:0 0 0 1px #34343A;
+  --shadow-md:0 8px 24px rgba(0,0,0,.8);
+  --shadow-lg:0 0 0 1px #26262B,0 24px 64px rgba(0,0,0,.9);
   --anel:0 0 0 3px rgba(56,139,253,.35);
-  --grad-marca:linear-gradient(0deg,#1F6FEB,#1F6FEB);
+  --grad-marca:linear-gradient(0deg,#3270CC,#3270CC);
   color-scheme:dark;
 }
 html[data-tema="escuro"] body{background:var(--bg)!important;color:var(--text)}
@@ -132,7 +135,7 @@ button:focus:not(:focus-visible),a:focus:not(:focus-visible){outline:none}
 .pag-oculta{display:none!important}
 @media print{.pag-oculta{display:table-row!important}.pag-rodape{display:none!important}}
 .pag-rodape{display:flex;align-items:center;gap:8px;justify-content:flex-end;padding:10px 4px 2px;font-size:12px;color:var(--text3)}
-.pag-rodape button{font:600 12px 'DM Sans',system-ui,sans-serif;padding:5px 11px;border-radius:8px;border:1px solid var(--border-strong);background:var(--surface);color:var(--ink);cursor:pointer}
+.pag-rodape button{font:600 12px var(--font-ui);padding:5px 11px;border-radius:8px;border:1px solid var(--border-strong);background:var(--surface);color:var(--ink);cursor:pointer}
 .pag-rodape button:hover{border-color:var(--ac-navy3)}
 
 /* ── contraste: correções pontuais achadas pelo caca-bugs.js ── */

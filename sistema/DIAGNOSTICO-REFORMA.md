@@ -71,7 +71,12 @@ Testes que mudam junto (nunca apagados sem substituto): `erp.js` (confere o cabe
 Mudança em relação ao plano de 08/10: Parcelamentos passa a ser a primeira tela (antes era Clientes), porque é a tela-modelo e Clientes
 já é do Gestão (só muda o visual, o que a Etapa 2 resolve). Se preferir outra ordem, é só dizer.
 
-## 5. O que fica pendente com você
+## 4b. Situação (Backup 63)
+- Etapa 2 feita: `app/base.css` + peças do item 3 no `nucleo.js` (expostas em `window.GS`), tokens novos, confirmação em toda baixa.
+- Os blocos antigos do `design.css` saem na rodada de cada tela (não de uma vez — as telas antigas ainda dependem deles).
+- Próxima: **Etapa 3 = Parcelamentos** refeita com as peças, igual à tela-modelo v4.
+
+## 5. O que estava pendente com você (respondido em 09/10/2026: letra Inter; ordem aceita)
 - **Letra** (orientação 7): escolher no seletor do guia v2 — Inter, IBM Plex, Source Sans, Roboto, DM Sans ou "Como hoje" (Playfair no
   cabeçalho das tabelas e JetBrains nos números). Sem essa escolha a Etapa 2 não começa.
 - OK no guia v3 (4 cartões, abas com todas as parcelas, janela no centro, janela do parcelamento).

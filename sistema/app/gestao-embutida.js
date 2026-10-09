@@ -441,12 +441,16 @@ function baixarArquivo(nome, conteudo, tipo) {
 }
 
 // ─────────────────────────── janelas ───────────────────────────────
-function abrirJanela({ titulo, corpo, rodape, larga }) {
+// Backup 63 (reforma): a janela no CENTRO é a única para criar, editar e ver detalhes — kick (linha azul acima do título),
+// sub (linha cinza abaixo) e dir (selo/pílula à direita, antes do ×) são opcionais
+function abrirJanela({ titulo, corpo, rodape, larga, kick, sub, dir }) {
   const fundo = document.createElement('div');
   fundo.className = 'fundo';
   fundo.innerHTML =
     '<div class="janela' + (larga ? ' larga' : '') + '" role="dialog" aria-modal="true">' +
-    '<div class="janela-hd"><h2>' + esc(titulo) + '</h2><button type="button" data-fechar aria-label="Fechar">×</button></div>' +
+    '<div class="janela-hd">' + (kick || sub ? '<div class="j-tit">' + (kick ? '<span class="j-kick">' + esc(kick) + '</span>' : '') : '') + '<h2>' + esc(titulo) + '</h2>' +
+    (kick || sub ? (sub ? '<small class="j-sub">' + sub + '</small>' : '') + '</div>' : '') + (dir ? '<div class="j-dir">' + dir + '</div>' : '') +
+    '<button type="button" data-fechar aria-label="Fechar">×</button></div>' +
     '<div class="janela-bd">' + corpo + '</div>' +
     (rodape ? '<div class="janela-rp">' + rodape + '</div>' : '') + '</div>';
   fundo.addEventListener('mousedown', (ev) => { if (ev.target === fundo) fecharJanela(fundo); });
@@ -519,6 +523,62 @@ function relatorioTabela(r) {
 
 // Estado vazio padrão: uma frase + um botão que aciona o botão de criar da própria tela
 // (seletor procurado primeiro na mesma janela/tela, depois na página toda).
+// ═══ Backup 63 (reforma, etapa 2): peças únicas do desenho novo (tela-modelo sistema/prototipos/guia-visual.html) ═══
+// Toda tela refeita usa estas peças — o estilo fica em base.css (classes b-*). Nada de estilo inline nas telas.
+const ICONES_B = {
+  alerta: '<path d="M12 9v4m0 4h.01M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>',
+  calendario: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/>',
+  documento: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/>',
+  pizza: '<path d="M21 12A9 9 0 1 1 12 3v9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/>',
+  camadas: '<path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/>',
+  ok: '<circle cx="12" cy="12" r="9"/><path d="m8.5 12.5 2.5 2.5 5-5"/>',
+  busca: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+  atualizar: '<path d="M20 11a8 8 0 0 0-14.7-4.3L3 9m0-5v5h5M4 13a8 8 0 0 0 14.7 4.3L21 15m0 5v-5h-5"/>',
+  mais: '<path d="M12 5v14M5 12h14"/>',
+  check: '<path d="M20 6 9 17l-5-5"/>'
+};
+function iconeB(k) { return '<svg class="b-ic" viewBox="0 0 24 24" aria-hidden="true">' + (ICONES_B[k] || '') + '</svg>'; }
+// 1) cabeçalho da tela: ícone + título + frase; à direita "Atualizar" e o botão principal
+function cabecalhoTela({ icone, titulo, frase, atualizar, botao }) {
+  return '<div class="b-cab"><div class="b-cab-ic">' + iconeB(icone || 'camadas') + '</div><div class="b-cab-tx"><h1>' + esc(titulo) + '</h1>' + (frase ? '<p>' + esc(frase) + '</p>' : '') + '</div>' +
+    '<div class="b-cab-acoes">' + (atualizar ? '<button type="button" class="b-link" id="' + esc(atualizar) + '">' + iconeB('atualizar') + 'Atualizar</button>' : '') +
+    (botao ? '<button type="button" class="btn btn-p b-bt" id="' + esc(botao.id) + '">' + iconeB('mais') + esc(botao.rotulo) + '</button>' : '') + '</div></div>';
+}
+// 2) cartões de número: [{icone, cor: r|b|a|g, rotulo, valor, comp (texto menor ao lado), sub, barra (0–100), linhas: [[valor, rótulo, verde?]]}]
+function cartoesNumero(lista) {
+  return '<div class="b-kpis b-kpis-' + lista.length + '">' + lista.map((c) => '<div class="b-kpi"' + (c.id ? ' id="' + esc(c.id) + '"' : '') + '><div class="b-kpi-ic b-' + (c.cor || 'b') + '">' + iconeB(c.icone || 'ok') + '</div><div class="b-kpi-tx">' +
+    '<div class="b-kpi-l">' + esc(c.rotulo) + '</div>' +
+    (c.linhas ? '<div class="b-kpi-linhas">' + c.linhas.map((l) => '<div><span class="b-kpi-v' + (l[2] ? ' b-verde' : '') + '">' + esc(l[0]) + '</span><span class="b-kpi-s">' + esc(l[1]) + '</span></div>').join('') + '</div>'
+      : '<div class="b-kpi-v' + (c.cor === 'r' && c.valor && c.valor !== '0' ? ' b-verm' : '') + '">' + esc(c.valor) + (c.comp ? ' <small>' + esc(c.comp) + '</small>' : '') + '</div>') +
+    (c.barra != null ? '<div class="b-barra' + (c.cor === 'a' ? ' b-barra-a' : '') + '"><span style="width:' + Math.max(0, Math.min(100, Math.round(c.barra))) + '%"></span></div>' : '') +
+    (c.sub ? '<div class="b-kpi-s">' + c.sub + '</div>' : '') + '</div></div>').join('') + '</div>';
+}
+// 3) abas sublinhadas com contador e os filtros à direita, na mesma linha (sem cartão)
+function barraAbas({ abas, ativa, filtros, attr }) {
+  const a = attr || 'data-b-aba';
+  return '<div class="b-abas-linha"><div class="b-abas" role="tablist">' + abas.map((x) => '<button type="button" role="tab" class="b-aba" ' + a + '="' + esc(x.id) + '" aria-selected="' + (x.id === ativa) + '">' +
+    esc(x.rotulo) + (x.n != null ? '<span class="b-aba-n' + (x.cor ? ' b-' + x.cor : '') + '">' + x.n + '</span>' : '') + '</button>').join('') + '</div>' +
+    (filtros ? '<div class="b-filtros">' + filtros + '</div>' : '') + '</div>';
+}
+// campo de busca da barra de filtros
+function buscaB(id, dica, valor) { return '<label class="b-busca">' + iconeB('busca') + '<input id="' + esc(id) + '" placeholder="' + esc(dica || 'Buscar') + '" aria-label="' + esc(dica || 'Buscar') + '" value="' + esc(valor || '') + '"></label>'; }
+// 4) tabela leve: cabeçalho claro, ~12 linhas visíveis e o resto rolando (cabeçalho parado), clique na linha abre o detalhe/editar
+//    colunas: [{rot, cls}] (cls: b-dir = dinheiro à direita, b-cen = centro) · linhas: [{attrs: 'data-x="…"', cels: [html]}]
+function tabelaLeve({ titulo, resumo, colunas, linhas, vazio: v, id, clicavel }) {
+  if (!linhas.length && v) return '<div class="b-quadro"' + (id ? ' id="' + esc(id) + '"' : '') + '>' + vazioB(v) + '</div>';
+  return '<div class="b-quadro"' + (id ? ' id="' + esc(id) + '"' : '') + '>' + (titulo ? '<div class="b-quadro-hd"><h2>' + esc(titulo) + '</h2>' + (resumo ? '<span class="b-resumo">' + resumo + '</span>' : '') + '</div>' : '') +
+    '<div class="b-rola" data-sem-pagina><table class="b-tab"><thead><tr>' + colunas.map((c) => '<th' + (c.cls ? ' class="' + c.cls + '"' : '') + '>' + esc(c.rot) + '</th>').join('') + '</tr></thead><tbody>' +
+    linhas.map((l) => '<tr' + (clicavel !== false ? ' class="b-cl" tabindex="0"' : '') + (l.attrs ? ' ' + l.attrs : '') + '>' + l.cels.map((c, i) => '<td' + (colunas[i] && colunas[i].cls ? ' class="' + colunas[i].cls + '"' : '') + '>' + c + '</td>').join('') + '</tr>').join('') +
+    '</tbody></table></div></div>';
+}
+// tela vazia que explica e oferece o próximo passo: {icone, titulo, frase, botao: {rotulo, seletor}}
+function vazioB({ icone, titulo, frase, botao }) {
+  return '<div class="b-vazio"><div class="b-vazio-ic">' + iconeB(icone || 'ok') + '</div><b>' + esc(titulo) + '</b>' + (frase ? '<p>' + esc(frase) + '</p>' : '') +
+    (botao ? '<button type="button" class="btn btn-o" data-vazio-clica="' + esc(botao.seletor) + '">' + esc(botao.rotulo) + '</button>' : '') + '</div>';
+}
+// Enter na linha clicável = clique
+document.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && ev.target && ev.target.matches && ev.target.matches('tr.b-cl')) ev.target.click(); });
+
 function vazio(frase, rotulo, seletor) {
   return '<div class="vazio"><div class="vazio-frase">' + esc(frase) + '</div>' +
     (rotulo && seletor ? '<button type="button" class="btn btn-p btn-mini vazio-bt" data-vazio-clica="' + esc(seletor) + '">' + esc(rotulo) + '</button>' : '') + '</div>';
@@ -8454,16 +8514,21 @@ async function rotinaEnviarGuias(el) {
 }
 
 // ── Backup 51 (V4): "Pago" e "Emitida" na hora — a tela muda no clique, o banco grava por trás; erro → a tela volta e o motivo aparece ──
-function pagarParcelaRotina(x, redesenhar) {
+// Backup 63: antes de marcar, pergunta (data do pagamento + confirmação); cancelou → nada muda
+async function pagarParcelaRotina(x, redesenhar) {
+  const D = _rtDados ? await _rtDados.catch(() => null) : null, pa = D && D.porId[x.parcelamento_id];
+  const bx = await perguntarBaixa({ despesa: true, titulo: 'Pagamento da parcela — confirme', valor: x.valor != null ? Number(x.valor) : (pa && pa.valor_ultima_parcela != null ? Number(pa.valor_ultima_parcela) : null),
+    descricao: 'Parcela ' + (x.numero || '') + (pa && pa.empresa ? ' — ' + pa.empresa : '') + (x.vencimento ? ' · venc. ' + dataBR(x.vencimento) : '') });
+  if (!bx) return;
   const antes = { pago: x.pago, data_pagamento: x.data_pagamento };
   const volta = () => { x.pago = antes.pago; x.data_pagamento = antes.data_pagamento; redesenhar(); atualizarPlacar(); };
-  x.pago = true; x.data_pagamento = hojeISO(); redesenhar();
+  x.pago = true; x.data_pagamento = bx.data_pagamento; redesenhar();
   const ED = window.ERP_EDITOR;
   const desfazer = async () => { const r = await sb.from('parcelas').update({ pago: false }).eq('id', x.id);
     if (r.error) return aviso('⚠ ' + erroAmigavel(r.error), true);
     if (ED && ED.gravou) ED.gravou('Baixa desfeita'); if (ED && ED.marcarSujo) ED.marcarSujo('parcelas', x.parcelamento_id); volta(); };
-  const gravar = ED && ED.baixaRapida ? ED.baixaRapida('parcelas', x.id, { semRecarregar: true, desfazer, prazoDesfazer: 5000 })
-    : q(sb.from('parcelas').update({ pago: true }).eq('id', x.id).select().single()).catch((e) => { aviso('⚠ ' + erroAmigavel(e), true); return null; });
+  const gravar = ED && ED.baixaRapida ? ED.baixaRapida('parcelas', x.id, { semRecarregar: true, desfazer, prazoDesfazer: 5000, dados: bx })
+    : q(sb.from('parcelas').update(bx).eq('id', x.id).select().single()).catch((e) => { aviso('⚠ ' + erroAmigavel(e), true); return null; });
   return Promise.resolve(gravar).then((d) => {
     if (!d || !d.id) return volta();
     if (d.data_pagamento && d.data_pagamento !== x.data_pagamento) { x.data_pagamento = d.data_pagamento; redesenhar(); }
@@ -8869,5 +8934,5 @@ function formContatoExec(e, c, depois) {
 // toda gravação confirmada aparece também no rodapé do ERP
 const _avisoOrig = aviso;
 aviso = function (msg, erro) { _avisoOrig(msg, erro); if (!erro && window.ERP_EDITOR && /^✓/.test(msg)) window.ERP_EDITOR.gravou(String(msg).replace(/^✓\s*/, '')); };
-window.GS = { TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, invalidarCadastros, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo, perguntarBaixa, detalheContrato, ICONE_AVISO, abrirTarefa, detalheLancamento, formReuniao, janelaDelegar, abrirGeradorContrato, cardGuias, emitirParcela, enviarAcordosSelecionados, editarAcordo, formAcordoNovo, janelaReceber, formExecucao, escolherExecucaoReceb, formNovoFluxo, gerarGuias, janelaMovimentacao, cobrarWhatsApp, textoRegra, proximasDatas, regraDaTarefa, projecoesRecorrentes };
+window.GS = { cabecalhoTela, cartoesNumero, barraAbas, buscaB, tabelaLeve, vazioB, iconeB, TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, invalidarCadastros, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo, perguntarBaixa, detalheContrato, ICONE_AVISO, abrirTarefa, detalheLancamento, formReuniao, janelaDelegar, abrirGeradorContrato, cardGuias, emitirParcela, enviarAcordosSelecionados, editarAcordo, formAcordoNovo, janelaReceber, formExecucao, escolherExecucaoReceb, formNovoFluxo, gerarGuias, janelaMovimentacao, cobrarWhatsApp, textoRegra, proximasDatas, regraDaTarefa, projecoesRecorrentes };
 })();
