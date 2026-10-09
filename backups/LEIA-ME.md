@@ -73,6 +73,7 @@ versão foi ao ar**. O número cresce a cada entrega.
 | 65 | Reforma: tela-modelo v6 (letra Inter, filtros de vencimento e valor e ordenação em toda tabela, cartões que abrem o detalhamento) e sugestões numeradas em `sistema/SUGESTOES-REFORMA.md`. O sistema não muda |
 | 66 | Reforma: ambiente de teste completo (`sistema/prototipos/ambiente-teste/`: Início, Rotina, Parcelamentos, Honorários, Clientes, Administração; sugestões E1–E5, F1/F2/F4/F5/F7, A1–A6, O1, funções do ROMPEX; automações por cliente) e `sistema/banco/anonimizar-copia.sql` (O2). O ERP não muda |
 | 67 | Ambiente de teste sem filtros salvos e sem link de cadastro; regra "mudança vale para o sistema todo" registrada. O ERP não muda |
+| 68 | Reforma, etapa 3: Parcelamentos refeita no ERP com as peças do ambiente de teste (cartões que abrem o detalhe, situação por cliente, abas Em atraso/A vencer/Pagas, Filtros de vencimento e valor, ordenar, total e média, tabela compacta, baixa em lote com confirmação e Desfazer). Sem SQL |
 
 ## Como baixar um backup
 No GitHub, abra a pasta `backups`, clique no arquivo e depois em **Download** (ícone de seta, à direita).

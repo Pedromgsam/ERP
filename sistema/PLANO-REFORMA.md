@@ -72,7 +72,8 @@ Aprovado pelo usuário em 08/10/2026. Leia isto antes de qualquer rodada da refo
 | 0 | Guia visual (página-modelo) para aprovação | **feita** (v1 B60 · v2 B61 · v3 B62 · v4 B63) — aprovada, letra Inter |
 | 1 | Diagnóstico por escrito: por módulo, o que fica / o que é refeito / ordem | **feita (Backup 61)** — `sistema/DIAGNOSTICO-REFORMA.md` |
 | 2 | Base nova do visual | **feita (Backup 63)**: `app/base.css` (última camada, peças `b-*`), peças no `nucleo.js` (`cabecalhoTela`, `cartoesNumero`, `barraAbas`, `buscaB`, `tabelaLeve`, `vazioB`, `abrirJanela` com `kick/sub/dir`), tokens (Inter, cabeçalho claro, escuro preto, lateral 188 px, margens 20 px), confirmação em toda baixa de parcela, testes ajustados. **Decisão:** os 118 blocos "Backup N" do `design.css` NÃO foram reescritos de uma vez (as telas antigas ainda dependem deles); cada bloco sai na rodada da tela dele (3–8), e o `design.css` encolhe até sumir |
-| 3–8 | Um módulo por rodada, saindo dos remendos do ERP antigo (`#Sistemas/2 - ERP/ERP.html` + `montar-erp.js`) para telas `telas-*.js` limpas. Ordem proposta no diagnóstico: Parcelamentos → Acordos → Financeiro → Painel/Processos → Rotina → painel lateral nas telas do Gestão | a fazer |
+| 3 | Parcelamentos | **feita (Backup 68)**: `telas-parcelamentos.js` (TELAS.parcelamentos, `semCadastros`), peças `cartoesB`/`tabelaB`/`vencB` no nucleo.js + CSS no fim do base.css; o painel antigo fica para o portal do cliente (erp-telas `ehGS`) |
+| 4–8 | Um módulo por rodada, saindo dos remendos do ERP antigo (`#Sistemas/2 - ERP/ERP.html` + `montar-erp.js`) para telas `telas-*.js` limpas. Ordem proposta no diagnóstico: Parcelamentos → Acordos → Financeiro → Painel/Processos → Rotina → painel lateral nas telas do Gestão | a fazer |
 | 9 | Faxina do banco: 39 funções escritas mais de uma vez no `estrutura.sql` (manter só a última, idempotente) | a fazer |
 | 10+ | Funções novas (lista A–K), na ordem que o usuário escolher | depois |
 
