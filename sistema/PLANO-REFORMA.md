@@ -16,6 +16,20 @@ Aprovado pelo usuário em 08/10/2026. Leia isto antes de qualquer rodada da refo
   8. modo escuro com o mesmo desenho.
 - Modelo aprovável: `sistema/prototipos/guia-visual.html` (publicado como artifact "Guia Visual do ERP").
   Duas mudanças pedem o OK explícito do usuário antes de aplicar: tabelas sem Playfair/JetBrains e cabeçalho da tabela claro (deixa de ser azul cheio).
+- **Respostas do usuário ao guia v1 (09/10/2026)** — valem para todas as telas:
+  1. cabeçalho aprovado;
+  2. cartões de Parcelamentos = 3: Parcelas em atraso · Vencem este mês (valor "no mês" + "emitir as guias até dia 12") · Quitado / falta;
+  3. filtros **sem** cartão (ficam na linha das abas, à direita) — substitui o item 3 do ROMPEX;
+  4. tabela leve aprovada (cabeçalho claro incluído); "Em atraso" antes de "A vencer"; colunas de Parcelamentos: Grupo (só texto, sem pílula) ·
+     Empresa + CNPJ · Plataforma (`parcelamentos.local`) · Natureza · Nº · Parcela "14 de 60" · Valor · Vencimento · Situação · Baixa;
+     situação: atraso **ou vence hoje = vermelho**, a vencer = azul, pago = verde; **sem botão de editar** (clique na linha edita);
+  5. tela vazia = de verdade (aparece quando a lista está vazia); "botões e situações" era só mostruário;
+  7. **não gostou da letra** — escolher no seletor do guia v2 (Inter, IBM Plex, Source Sans, Roboto, DM Sans ou "Como hoje" = Playfair/JetBrains nas tabelas);
+  8. painel lateral sim, mas mais leve (refeito no v2: resumo em cima, blocos, rótulos normais, rodapé fixo);
+  9. lateral mais estreita (188 px); 10. margens menores (20 px, sem largura máxima);
+  11. escuro **preto** (`#000`), com a lateral em azul-marinho escuro e borda para não sumir;
+  12. **obrigatório** um lugar para controlar os parcelamentos dos clientes ("Situação dos parcelamentos": cartão por grupo → lista dos parcelamentos).
+- Guia v2 (Backup 61) já com essas respostas; diagnóstico da Etapa 1 em `sistema/DIAGNOSTICO-REFORMA.md`.
 - Funções novas do ROMPEX (A–K da conversa: NFS-e Nacional pelo A1, envio de documentos por competência, link de cadastro do cliente,
   conferir anexo antes de enviar, busca Ctrl+K, "?" de ajuda, envio seguro de e-mail, registro de importações com reverter,
   página Atualizações, apuração pelos XMLs, leitura por foto com IA [paga]) → **perguntar ao usuário depois da reforma**, não antes.
@@ -23,10 +37,10 @@ Aprovado pelo usuário em 08/10/2026. Leia isto antes de qualquer rodada da refo
 ## Etapas (uma por Backup/PR)
 | Etapa | O que fazer | Situação |
 |---|---|---|
-| 0 | Guia visual (página-modelo) para aprovação | **feita (Backup 60)** — aguardando o OK do usuário |
-| 1 | Diagnóstico por escrito: por módulo, o que fica / o que é refeito / ordem | a fazer |
+| 0 | Guia visual (página-modelo) para aprovação | **feita** (v1 Backup 60; v2 Backup 61 com as respostas) — falta escolher a letra e o OK final |
+| 1 | Diagnóstico por escrito: por módulo, o que fica / o que é refeito / ordem | **feita (Backup 61)** — `sistema/DIAGNOSTICO-REFORMA.md`, aguardando o OK da ordem |
 | 2 | Base nova do visual: as 118 camadas "Backup N" do `design.css` (+ erp-telas.css/estilo.css) viram um arquivo limpo seguindo o guia; testes `padrao.js`/`caca-bugs.js` ajustados ao novo padrão | a fazer |
-| 3–8 | Um módulo por rodada, saindo dos remendos do ERP antigo (`#Sistemas/2 - ERP/ERP.html` + `montar-erp.js`) para telas `telas-*.js` limpas: Clientes → Financeiro → Parcelamentos → Acordos → Painel/Processos → Rotina | a fazer |
+| 3–8 | Um módulo por rodada, saindo dos remendos do ERP antigo (`#Sistemas/2 - ERP/ERP.html` + `montar-erp.js`) para telas `telas-*.js` limpas. Ordem proposta no diagnóstico: Parcelamentos → Acordos → Financeiro → Painel/Processos → Rotina → painel lateral nas telas do Gestão | a fazer |
 | 9 | Faxina do banco: 39 funções escritas mais de uma vez no `estrutura.sql` (manter só a última, idempotente) | a fazer |
 | 10+ | Funções novas (lista A–K), na ordem que o usuário escolher | depois |
 

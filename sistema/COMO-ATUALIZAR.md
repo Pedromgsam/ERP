@@ -707,6 +707,14 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
 **Central de Documentos dentro do ERP:** menu **Documentos → Gerar documento** (ou ⋯ → Documentos, contrato, recibo do Financeiro).
 **Ctrl + clique** (ou botão do meio do mouse) em qualquer item do menu ou link de documento abre numa aba nova.
 
+## Backup 61 — Tela-modelo v2 e diagnóstico da reforma (só documentos; o sistema não muda)
+1. Merge da pull request.
+2. SQL: não precisa. Ctrl+Shift+R: não precisa (nada mudou nas telas).
+
+O que entrou: a tela-modelo com as suas respostas (`sistema/prototipos/guia-visual.html`, também no link do artifact "Guia Visual do ERP")
+e o diagnóstico da Etapa 1 (`sistema/DIAGNOSTICO-REFORMA.md`: o que fica, o que é refeito e em que ordem).
+Para escolher a letra: abra o guia e clique nas opções da faixa de cima ("Letra"); repare na tabela e nos cartões.
+
 ## Backup 60 — Plano da reforma e tela-modelo (só documentos; o sistema não muda)
 1. Merge da pull request.
 2. SQL: não precisa. Ctrl+Shift+R: não precisa (nada mudou nas telas).

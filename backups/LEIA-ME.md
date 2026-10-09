@@ -66,6 +66,7 @@ versão foi ao ar**. O número cresce a cada entrega.
 | 58 | Padrão único em todas as tabelas: dinheiro à direita, datas/prazo/situação/botões no centro, textos à esquerda; linha de baixo em letra normal; vazio sempre "—"; Grupo só como 1ª coluna (sem a faixa repetida); sem a caneta ✎ em nenhuma tabela (clicar na linha abre o detalhe com Editar); Acordos com Processo numa linha, Devedor/Credor menores e "emitido" embaixo do prazo; Parcelamentos com Nº Parc. discreto |
 | 59 | Cartões (Início, Painel, Financeiro…) voltaram à letra de antes (DM Sans no título e no número); Playfair/JetBrains continuam só nas tabelas |
 | 60 | Reforma por partes, etapa 0: plano (`sistema/PLANO-REFORMA.md`) e tela-modelo do novo visual (`sistema/prototipos/guia-visual.html`). O sistema não muda |
+| 61 | Reforma: tela-modelo v2 com as respostas (3 cartões, filtros ao lado das abas, colunas novas, sem editar, painel lateral leve, lateral e margens menores, escuro preto, situação por grupo, seletor de letra) e diagnóstico da Etapa 1 (`sistema/DIAGNOSTICO-REFORMA.md`). O sistema não muda |
 
 ## Como baixar um backup
 No GitHub, abra a pasta `backups`, clique no arquivo e depois em **Download** (ícone de seta, à direita).
