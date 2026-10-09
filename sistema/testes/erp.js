@@ -89,7 +89,8 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('entra com e-mail e senha do Supabase', await p.evaluate(() => window.AC_SESSION && window.AC_SESSION.nivel === 'admin'));
     await p.waitForTimeout(1200);
     ok('Backup 43: menu na barra LATERAL (voltou como no Backup 41)', await p.isVisible('#gs-lado #tn') && !(await p.$('#gs-hd #tn')) && !(await p.isVisible('#sb')) && !(await p.isVisible('#hd')) && await p.isVisible('.tn-lancar-bt'));
-    ok('Backup 43: margens laterais menores (20 px no mínimo, conteúdo até 1440 px)', await p.evaluate(() => getComputedStyle(document.body).getPropertyValue('--conteudo').trim() === '1440px'));
+    ok('Backup 63 (reforma): lateral de 188 px e margens de 20 px, sem largura máxima', await p.evaluate(() => { const c = getComputedStyle(document.body);
+      return c.getPropertyValue('--sw').trim() === '188px' && c.getPropertyValue('--gut').trim() === '20px' && document.querySelector('#gs-lado').getBoundingClientRect().width === 188; }));
     ok('barra mostra entidades e grupos', /3/.test(await p.textContent('#gs-n-ent')) && /2/.test(await p.textContent('#gs-n-grp')));
     // menus suspensos: clicar como uma pessoa e conferir que o item aparece de verdade (não escondido atrás da tela)
     for (const g of ['Jurídico', 'Financeiro']) {
@@ -1333,7 +1334,9 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     // Backup 46: pagamento marca na hora (sem recarregar a tela) e os parcelamentos da mesma empresa ficam lado a lado
     { const idp = await p.getAttribute('#rt-corpo [data-pl-p] >> nth=0', 'data-pl-p');
       await p.evaluate(() => { window.__plMarca = 1; document.querySelector('#rt-corpo .pl-card').dataset.marca = 'x'; });
-      await p.click('#rt-corpo [data-pl-p="' + idp + '"]'); await p.waitForTimeout(1500);
+      await p.click('#rt-corpo [data-pl-p="' + idp + '"]');
+      ok('Backup 63: "Pagamento" pede confirmação antes de gravar (janela com a data)', !!(await p.waitForSelector('.janela-baixa [data-bx-ok]', { timeout: 5000 }).catch(() => null)) && sql("select pago::text from parcelas where id='" + idp + "'") === 'false');
+      await p.click('.janela-baixa [data-bx-ok]'); await p.waitForTimeout(1500);
       ok('Planilha (B46): "Pagamento" grava e marca na hora, sem recarregar a planilha', sql("select pago::text from parcelas where id='" + idp + "'") === 'true' &&
         !(await p.$('#rt-corpo [data-pl-p="' + idp + '"]')) && await p.evaluate(() => document.querySelector('#rt-corpo .pl-card').dataset.marca === 'x'));
       sql("update parcelas set pago=false, data_pagamento=null where id='" + idp + "'");
@@ -1557,16 +1560,20 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       await p.click('.pl-aba[data-pl-g="Grupo Alfa"]').catch(() => {}); await p.waitForTimeout(300);
       const id2 = sql("select id from parcelas where parcelamento_id='" + paB + "' and numero='2'");
       dialogos.length = 0;
-      const mudou = await p.evaluate((id) => { document.querySelector('[data-pl-p="' + id + '"]').click(); return !document.querySelector('[data-pl-p="' + id + '"]'); }, id2);
+      // Backup 63: o usuário pediu confirmação em TODO pagamento — a pergunta é a janela de baixa (data + Confirmar), não o confirm() do navegador
+      await p.click('[data-pl-p="' + id2 + '"]'); await p.waitForSelector('.janela-baixa [data-bx-ok]', { timeout: 5000 });
+      ok('Backup 63: "Pago" na Rotina pede confirmação e não grava antes dela', sql("select pago from parcelas where id='" + id2 + "'") === 'f');
+      const mudou = await p.evaluate((id) => new Promise((r) => { document.querySelector('.janela-baixa [data-bx-ok]').click();
+        requestAnimationFrame(() => r(!document.querySelector('[data-pl-p="' + id + '"]'))); }), id2);
       await p.waitForTimeout(1500);
-      ok('B51 V4: "Pago" muda a tela no clique (sem a pergunta de confirmação) e grava por trás', mudou && !dialogos.length && sql("select pago from parcelas where id='" + id2 + "'") === 't', dialogos.join('|'));
+      ok('B51 V4: depois de confirmar, "Pago" muda a tela na hora e grava por trás', mudou && !dialogos.length && sql("select pago from parcelas where id='" + id2 + "'") === 't', dialogos.join('|'));
       ok('B51 V4: rodapé com "Desfazer"', await p.isVisible('#gx-rodape .gx-rod-bt'));
       ok('B51 V5: depois da baixa, só Parcelamentos fica "a atualizar" (sem recarregar o ERP inteiro)', await p.evaluate(() => !!(window.ERP_SUJO && window.ERP_SUJO.parcelamentos) && !window.ERP_DADOS_SUJOS));
       await p.click('#gx-rodape .gx-rod-bt'); await p.waitForTimeout(1500);
       ok('B51 V4: "Desfazer" volta a parcela para em aberto (tela e banco)', sql("select pago from parcelas where id='" + id2 + "'") === 'f' && !!(await p.$('[data-pl-p="' + id2 + '"]')));
       // V4: erro → a tela volta e mostra o motivo
       await p.route(/\/rest\/v1\/parcelas/, (rota) => rota.request().method() === 'PATCH' ? rota.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ message: 'falha simulada B51' }) }) : rota.continue());
-      await p.click('[data-pl-p="' + id2 + '"]'); await p.waitForTimeout(1200);
+      await p.click('[data-pl-p="' + id2 + '"]'); await p.click('.janela-baixa [data-bx-ok]'); await p.waitForTimeout(1200);
       ok('B51 V4: se der erro, a parcela volta ao estado anterior e o motivo aparece', !!(await p.$('[data-pl-p="' + id2 + '"]')) && /falha simulada B51/.test((await p.textContent('#toast').catch(() => '')) + (await p.textContent('#gs-raiz #aviso').catch(() => ''))) && sql("select pago from parcelas where id='" + id2 + "'") === 'f');
       await p.unroute(/\/rest\/v1\/parcelas/);
       // V4: Emitida na hora
@@ -1574,7 +1581,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       await p.waitForTimeout(1200);
       ok('B51 V4: "Emitida" muda a tela no clique e grava por trás', mudouE && sql("select emitida_em is not null from parcelas where id='" + id2 + "'") === 't');
       // V5: abrir o Painel não recarrega; abrir Parcelamentos relê só os parcelamentos
-      await p.evaluate((id) => document.querySelector('[data-pl-p="' + id + '"]').click(), id2); await p.waitForTimeout(1500);
+      await p.evaluate((id) => document.querySelector('[data-pl-p="' + id + '"]').click(), id2); await p.click('.janela-baixa [data-bx-ok]'); await p.waitForTimeout(1500);
       reqs.length = 0; await nav(p, 'resumo'); await p.waitForTimeout(800);
       const noPainel = reqs.slice();
       await nav(p, 'parcelamentos'); await p.waitForTimeout(2500);
@@ -1742,7 +1749,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       // O3: depois de um Pago, Parcelamentos relê só o parcelamento que mudou
       await p.click('#rt-abas [data-rt-aba=planilha]'); await p.waitForSelector('#rt-corpo .pl-card:not(.rt-esq) .pl-bloco', { timeout: 10000 }).catch(() => {});
       const idPg = await p.evaluate(() => { const b = document.querySelector('#rt-corpo [data-pl-p]'); return b && b.dataset.plP; });
-      if (idPg) { await p.click('[data-pl-p="' + idPg + '"]'); await p.waitForTimeout(1500); }
+      if (idPg) { await p.click('[data-pl-p="' + idPg + '"]'); await p.click('.janela-baixa [data-bx-ok]'); await p.waitForTimeout(1500); }
       reqs.length = 0; await nav(p, 'parcelamentos'); await p.waitForTimeout(2000);
       ok('B52 O3: Parcelamentos depois de um Pago relê só o parcelamento que mudou (uma consulta)', !!idPg && reqs.some((x) => /rpc\/parcelamentos_json/.test(x)) && !reqs.some((x) => /^GET parcelas\?/.test(x)) &&
         await p.evaluate((id) => (DB.parcelamentos || []).some((pa) => (pa.parcelas || []).some((x) => x._id === id && x.pagamento === 'SIM')), idPg), reqs.join(' ; '));
@@ -1891,15 +1898,16 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       ok('B58 tabelas: dinheiro à direita, Grupo só como coluna (sem a faixa repetida) e vazio sempre "—"', await p.evaluate(() => { const t = document.querySelector('#tblExecRanking').closest('table');
         const v = t.querySelector('tbody td.col-valor'), f = t.querySelector('tbody tr.gx-grp');
         return !!v && getComputedStyle(v).textAlign === 'right' && (!f || getComputedStyle(f).display === 'none') && ![...t.querySelectorAll('tbody td')].some((td) => !td.children.length && td.textContent.trim() === '-'); }));
-      ok('B57 Painel: Grupo é a 1ª coluna (pílula), cabeçalho em Playfair e números em JetBrains Mono, como no ERP antigo', await p.evaluate(() => { const t = document.querySelector('#tblExecRanking').closest('table');
+      ok('B57/B63 Painel: Grupo é a 1ª coluna (só o nome), cabeçalho em Inter caixa alta e letra de máquina só no CPF/CNPJ', await p.evaluate(() => { const t = document.querySelector('#tblExecRanking').closest('table');
         const g = t.querySelector('thead th.col-grupo'), td = t.querySelector('tbody td.col-doc');
-        return !!g && getComputedStyle(g).display !== 'none' && /Playfair/.test(getComputedStyle(g).fontFamily) && !!td && /JetBrains/.test(getComputedStyle(td).fontFamily) && !!t.querySelector('tbody .er-grupo'); }));
+        return !!g && getComputedStyle(g).display !== 'none' && /Inter/.test(getComputedStyle(g).fontFamily) && !/Playfair/.test(getComputedStyle(g).fontFamily) && getComputedStyle(g).textTransform === 'uppercase' && !!td && /JetBrains/.test(getComputedStyle(td).fontFamily)
+          && !!t.querySelector('tbody .er-grupo') && getComputedStyle(t.querySelector('tbody .er-grupo')).backgroundColor === 'rgba(0, 0, 0, 0)'; }));   // Backup 63: Inter em caixa alta; Grupo só em texto (sem pílula); máquina só no CPF/CNPJ
       const caberB56 = await p.evaluate(() => { const t = document.querySelector('#tblExecRanking').closest('table'); const nm = t.querySelector('tbody td.col-nome .er-nome');
         if (nm) nm.textContent = 'COMERCIO E DISTRIBUIDORA DE ALIMENTOS FICTICIA SANTA LUZIA LTDA EPP FILIAL CENTRO';
         const w = t.parentElement; return { ws: getComputedStyle(t.querySelector('tbody td.col-nome')).whiteSpace, tab: t.scrollWidth, caixa: w.clientWidth }; });
       ok('B56 Painel: nome longo quebra em 2–3 linhas e a tabela cabe na tela (sem barra para o lado)', caberB56.ws === 'normal' && caberB56.tab <= caberB56.caixa + 2, JSON.stringify(caberB56));
-      ok('B56 visual: cabeçalho da tabela no azul-safira e letra DM Sans (a do ERP antigo)', await p.evaluate(() => { const th = document.querySelector('#tblExecRanking').closest('table').querySelector('thead th');
-        return getComputedStyle(th).backgroundColor === 'rgb(31, 77, 128)' && /DM Sans/.test(getComputedStyle(document.body).fontFamily); }));
+      ok('Backup 63 visual: cabeçalho da tabela CLARO (fundo branco, letra cinza) e letra Inter em tudo', await p.evaluate(() => { const th = document.querySelector('#tblExecRanking').closest('table').querySelector('thead th');
+        return getComputedStyle(th).backgroundColor === 'rgb(255, 255, 255)' && getComputedStyle(th).color !== 'rgb(255, 255, 255)' && /^"?Inter/.test(getComputedStyle(document.body).fontFamily); }));
       ok('B55 tabelas: CPF/CNPJ discreto (letra menor, cinza)', await p.evaluate(() => { const td = document.querySelector('#tblExecRanking td.col-doc'); if (!td) return false; const c = getComputedStyle(td); return parseFloat(c.fontSize) < 13; }));
       await nav(p, 'acordos'); await p.waitForSelector('#tblAcordosVencBody tr[data-ac-id]', { timeout: 10000 }).catch(() => {});
       ok('B58 Acordos: botão só "Emitir" (sem "Emitido" por cima do Prazo); o "emitido" fica embaixo do prazo; Processo numa linha', await p.evaluate(() => {

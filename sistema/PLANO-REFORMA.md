@@ -34,7 +34,12 @@ Aprovado pelo usuário em 08/10/2026. Leia isto antes de qualquer rodada da refo
   cartões por grupo aprovados + coluna "Em atraso" (nº de parcelas vencidas) na lista do grupo; ao clicar no parcelamento, janela com os dados do
   sistema atual (`_parcAbrir`: ficha, 5 números e todas as parcelas com Emissão/Pagamento/Baixa); **criar/editar/detalhe em JANELA NO CENTRO**
   (substitui o painel à direita do item 7 do ROMPEX); escuro preto aprovado; letra ainda em aberto (sugestão: Inter).
-- Guia v2 (Backup 61) e v3 (Backup 62) com essas respostas; diagnóstico da Etapa 1 em `sistema/DIAGNOSTICO-REFORMA.md`.
+- **Respostas ao guia v3 (09/10/2026):** em Parcelamentos a "Situação dos parcelamentos por cliente" vem ANTES das abas; sem as setinhas ↑↓
+  ao lado das abas (era o `overflow` da barra de abas no Windows); tabela com ~12 linhas à vista e o resto rolando (sem "Mostrar mais");
+  lista do grupo: coluna "Situação" = "N parcela(s) em atraso" em vermelho ou "Em dia" em verde (a pílula "Situação" antiga saiu);
+  janela do parcelamento com "Emitir" (por guia e "Emitir guias (n)"); **regra geral: todo clique que lança pagamento pede confirmação**
+  (janela com a data, `perguntarBaixa`); **letra = Inter** (escolhida). Etapa 2 liberada.
+- Guia v2 (Backup 61), v3 (Backup 62) e v4 (Backup 63) com essas respostas; diagnóstico da Etapa 1 em `sistema/DIAGNOSTICO-REFORMA.md`.
 - Funções novas do ROMPEX (A–K da conversa: NFS-e Nacional pelo A1, envio de documentos por competência, link de cadastro do cliente,
   conferir anexo antes de enviar, busca Ctrl+K, "?" de ajuda, envio seguro de e-mail, registro de importações com reverter,
   página Atualizações, apuração pelos XMLs, leitura por foto com IA [paga]) → **perguntar ao usuário depois da reforma**, não antes.
@@ -42,9 +47,9 @@ Aprovado pelo usuário em 08/10/2026. Leia isto antes de qualquer rodada da refo
 ## Etapas (uma por Backup/PR)
 | Etapa | O que fazer | Situação |
 |---|---|---|
-| 0 | Guia visual (página-modelo) para aprovação | **feita** (v1 Backup 60; v2 Backup 61; v3 Backup 62) — falta escolher a letra e o OK final |
-| 1 | Diagnóstico por escrito: por módulo, o que fica / o que é refeito / ordem | **feita (Backup 61)** — `sistema/DIAGNOSTICO-REFORMA.md`, aguardando o OK da ordem |
-| 2 | Base nova do visual: as 118 camadas "Backup N" do `design.css` (+ erp-telas.css/estilo.css) viram um arquivo limpo seguindo o guia; testes `padrao.js`/`caca-bugs.js` ajustados ao novo padrão | a fazer |
+| 0 | Guia visual (página-modelo) para aprovação | **feita** (v1 B60 · v2 B61 · v3 B62 · v4 B63) — aprovada, letra Inter |
+| 1 | Diagnóstico por escrito: por módulo, o que fica / o que é refeito / ordem | **feita (Backup 61)** — `sistema/DIAGNOSTICO-REFORMA.md` |
+| 2 | Base nova do visual | **feita (Backup 63)**: `app/base.css` (última camada, peças `b-*`), peças no `nucleo.js` (`cabecalhoTela`, `cartoesNumero`, `barraAbas`, `buscaB`, `tabelaLeve`, `vazioB`, `abrirJanela` com `kick/sub/dir`), tokens (Inter, cabeçalho claro, escuro preto, lateral 188 px, margens 20 px), confirmação em toda baixa de parcela, testes ajustados. **Decisão:** os 118 blocos "Backup N" do `design.css` NÃO foram reescritos de uma vez (as telas antigas ainda dependem deles); cada bloco sai na rodada da tela dele (3–8), e o `design.css` encolhe até sumir |
 | 3–8 | Um módulo por rodada, saindo dos remendos do ERP antigo (`#Sistemas/2 - ERP/ERP.html` + `montar-erp.js`) para telas `telas-*.js` limpas. Ordem proposta no diagnóstico: Parcelamentos → Acordos → Financeiro → Painel/Processos → Rotina → painel lateral nas telas do Gestão | a fazer |
 | 9 | Faxina do banco: 39 funções escritas mais de uma vez no `estrutura.sql` (manter só a última, idempotente) | a fazer |
 | 10+ | Funções novas (lista A–K), na ordem que o usuário escolher | depois |

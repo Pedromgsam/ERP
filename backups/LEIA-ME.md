@@ -68,6 +68,7 @@ versão foi ao ar**. O número cresce a cada entrega.
 | 60 | Reforma por partes, etapa 0: plano (`sistema/PLANO-REFORMA.md`) e tela-modelo do novo visual (`sistema/prototipos/guia-visual.html`). O sistema não muda |
 | 61 | Reforma: tela-modelo v2 com as respostas (3 cartões, filtros ao lado das abas, colunas novas, sem editar, painel lateral leve, lateral e margens menores, escuro preto, situação por grupo, seletor de letra) e diagnóstico da Etapa 1 (`sistema/DIAGNOSTICO-REFORMA.md`). O sistema não muda |
 | 62 | Reforma: tela-modelo v3 (4º cartão "Guias a emitir", A vencer/Pagas com todas as parcelas, vence hoje = em atraso, coluna "Em atraso" na lista do grupo, janela do parcelamento com ficha e todas as parcelas, criar/editar em janela no centro, Inter sugerida). O sistema não muda |
+| 63 | Reforma, etapa 2 — base nova do visual: letra Inter, cabeçalho das tabelas claro, Grupo só com o nome, lateral 188 px e margens de 20 px, escuro preto, "vence hoje" em vermelho, todo pagamento de parcela pede confirmação, faixa de grupo sem piscar; peças novas (base.css + nucleo.js) para as telas refeitas; tela-modelo v4 |
 
 ## Como baixar um backup
 No GitHub, abra a pasta `backups`, clique no arquivo e depois em **Download** (ícone de seta, à direita).

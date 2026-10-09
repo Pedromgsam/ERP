@@ -100,7 +100,9 @@ console.log('Dados fictícios: ' + N.cl + ' clientes, ' + N.pa + ' parcelamentos
       await clicar('Trocar de grupo', '[data-pl-g="' + outro + '"]', 'grupo');
       // Pago: do clique até a tela mostrar a parcela paga
       const id = await p.evaluate(() => { const x = document.querySelector('[data-pl-p]'); return (window.__alvo = x && x.dataset.plP); });
-      await clicar('Pago', '[data-pl-p="' + id + '"]', 'pago');
+      // Backup 63: o Pago pede confirmação (janela com a data) — o tempo conta do "Confirmar" até a tela mostrar a parcela paga
+      await p.click('[data-pl-p="' + id + '"]'); await p.waitForSelector('.janela-baixa [data-bx-ok]');
+      await clicar('Pago', '.janela-baixa [data-bx-ok]', 'pago');
       await p.waitForTimeout(1500);
       ok('Pago gravou no banco (' + (i + 1) + 'ª)', sql("select pago from parcelas where id='" + id + "'") === 't');
       if (!i) await foto('pago');

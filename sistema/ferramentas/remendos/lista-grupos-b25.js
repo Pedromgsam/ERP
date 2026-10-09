@@ -128,7 +128,7 @@ function _lgParcTabela(l, tabela){
     +(l.some(function(x){ return x.lancado===false; })?'<div class="lg-pt-nota">* valor ainda não lançado nesta parcela — vale o último valor lançado (o valor muda todo mês).</div>':'');
 }
 // Backup 36: confirmação antes de lançar o pagamento (evita clique sem querer)
-function _lgConfirmaPag(b){ return confirm('Lançar o pagamento da parcela '+(b.dataset.lgRot||'')+(b.dataset.lgVal?' ('+b.dataset.lgVal+')':'')+'?\n\nConfirme só se o cliente já pagou.'); }
+function _lgConfirmaPag(b){ return true; }   // Backup 63: a confirmação (data + "Confirmar") é feita pela janela de baixa, igual em todo o sistema
 // cabeçalho do detalhamento com os dados da planilha (devedor, CPF/CNPJ, órgão, natureza, nº…)
 function _lgFicha(campos){
   return '<div class="lg-ficha">'+campos.filter(function(c){ return c&&c[1]!==''&&c[1]!=null; }).map(function(c){ return '<div><span>'+c[0]+'</span><b>'+c[1]+'</b></div>'; }).join('')+'</div>';

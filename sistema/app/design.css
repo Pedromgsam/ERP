@@ -1030,7 +1030,8 @@ body.gx-barra-topo :is(.tw,.tabela-wrap,.gx-tab-gs) thead th{border-bottom:1px s
    lateral fixa (240 px; "encolher" → só ícones), barra de cima branca com o nome da tela,
    conteúdo centralizado com margem dos dois lados (não encosta nas bordas). */
 /* Backup 39: a margem dos lados é a MESMA com a lateral aberta ou encolhida — encolher só alarga o conteúdo */
-body.gx-barra-topo{--sw:204px;--hh:56px;--conteudo:1440px;--gut:max(20px,calc((100vw - 204px - var(--conteudo)) / 2))}   /* Backup 44: lateral mais estreita (era 240px); Backup 43: margens menores (eram 32px / 1360px) */
+body.gx-barra-topo{--sw:188px;--hh:56px;--conteudo:none;--gut:20px}   /* Backup 63 (reforma): lateral 188 px e margens de 20 px, sem largura máxima — sobra espaço para as tabelas */
+   /* Backup 44: lateral mais estreita (era 240px); Backup 43: margens menores (eram 32px / 1360px) */
 body.gx-barra-topo.gx-lado-min{--sw:68px}
 body.gx-barra-topo #main{margin-left:var(--sw)!important;padding-left:var(--gut)!important;padding-right:var(--gut)!important;transition:margin-left .18s}
 body.gx-barra-topo #main > .panel{max-width:none;margin-left:0!important;margin-right:0!important}
@@ -1631,7 +1632,7 @@ body.gx-barra-topo :is(.gx-seg-cli > button.ativo,.gx-seg-cli > .chip.on,.filtro
 .gs .bt-atualizar{white-space:nowrap}
 /* P4: situações com UMA cor em todo o ERP (SITUACOES no nucleo.js) — vale para qualquer elemento com data-sit e para as classes antigas de cada tela */
 body.gx-barra-topo :is([data-sit=atraso],.pill.vencido,.lg-st-r,.lg-em-atr,.ep-tv,.pl-dt-atr){background:var(--red-lt)!important;color:var(--red-d)!important;border:1px solid var(--red-bd)!important}
-body.gx-barra-topo :is([data-sit=hoje],.pill.hoje){background:var(--amber-lt)!important;color:var(--amber-d)!important;border:1px solid var(--amber-border)!important}
+body.gx-barra-topo :is([data-sit=hoje],.pill.hoje){background:var(--red-lt)!important;color:var(--red-d)!important;border:1px solid var(--red-bd)!important}   /* Backup 63: vence hoje = vencido (vermelho), decisão do usuário */
 body.gx-barra-topo :is([data-sit=avencer],.pill.aberto,.lg-st-g,.pl-dt-ab){background:var(--blue-lt)!important;color:var(--blue-d)!important;border:1px solid var(--blue-bd)!important}
 body.gx-barra-topo :is([data-sit=pago],.pill.pago,.lg-em-ok,.pl-dt-ok,.lg-st-x){background:var(--green-lt)!important;color:var(--green-d)!important;border:1px solid var(--green-bd)!important}
 body.gx-barra-topo :is([data-sit=cliente],.ep-tc,.pl-dt-cli){background:var(--surface3)!important;color:var(--text2)!important;border:1px solid var(--border)!important}
@@ -1757,14 +1758,16 @@ body.gx-barra-topo #tblExecRanking td.col-doc{font-size:11.5px!important;color:v
 /* ═══ Backup 57 — letras, tamanhos e espaçamento do ERP antigo (ERP.html) em todas as tabelas ═══
    cabeçalho em Playfair Display 11 px (sem caixa alta), células DM Sans 13 px com 11 px × 14 px de margem, números em JetBrains Mono,
    nomes como foram digitados (sem caixa alta forçada), tudo alinhado à esquerda; Grupo é a 1ª coluna (pílula) no Painel, Clientes e Processos */
-html body.gx-barra-topo table thead th:not(#_),html body.gx-barra-topo table thead th:not(#_) *{font-family:var(--font-tit)!important;font-size:11px!important;font-weight:600!important;letter-spacing:.04em!important;text-transform:none!important}
+html body.gx-barra-topo table thead th:not(#_),html body.gx-barra-topo table thead th:not(#_) *{font-family:var(--font-ui)!important;font-size:11px!important;font-weight:700!important;letter-spacing:.06em!important;text-transform:uppercase!important}   /* Backup 63: cabeçalho claro, caixa alta cinza (era Playfair) */
 html body.gx-barra-topo :is(.tw,.tabela-wrap,.gx-tab-gs) table > thead > tr > th{padding:11px 14px!important;text-align:left!important}
 html body.gx-barra-topo :is(.tw,.tabela-wrap,.gx-tab-gs) table > tbody > tr > td{padding-top:11px!important;padding-bottom:11px!important;padding-left:14px!important;padding-right:14px!important;text-align:left!important;color:var(--text2)}
 html body.gx-barra-topo :is(.tw,.tabela-wrap,.gx-tab-gs) table > tbody > tr > td.gx-td-acoes{padding-left:8px!important;padding-right:10px!important}
 html body.gx-barra-topo :is(.tw,.tabela-wrap,.gx-tab-gs) table > tbody > tr:is(.gx-grp,.cli-grp,.rt-grp) > td{text-align:left!important}
 html body.gx-barra-topo td.col-nome,html body.gx-barra-topo td.col-nome *{text-transform:none!important}
-html body.gx-barra-topo :is(.tw,.tabela-wrap,.gx-tab-gs) td:is(.col-valor,.col-venc,.col-dias,.col-num,.col-doc,.mono):not(#_),
-html body.gx-barra-topo :is(.tw,.tabela-wrap,.gx-tab-gs) td:is(.col-valor,.col-venc,.col-dias,.col-num,.col-doc):not(#_) *{font-family:var(--font-num)!important;letter-spacing:-.01em!important;font-variant-numeric:tabular-nums}
+html body.gx-barra-topo :is(.tw,.tabela-wrap,.gx-tab-gs) td:is(.col-valor,.col-venc,.col-dias):not(#_),
+html body.gx-barra-topo :is(.tw,.tabela-wrap,.gx-tab-gs) td:is(.col-valor,.col-venc,.col-dias):not(#_) *{font-family:var(--font-ui)!important;letter-spacing:0!important;font-variant-numeric:tabular-nums}   /* Backup 63: valores e datas na letra única */
+html body.gx-barra-topo :is(.tw,.tabela-wrap,.gx-tab-gs) td:is(.col-num,.col-doc,.mono):not(#_),
+html body.gx-barra-topo :is(.tw,.tabela-wrap,.gx-tab-gs) td:is(.col-num,.col-doc):not(#_) *{font-family:var(--font-num)!important;letter-spacing:-.01em!important;font-variant-numeric:tabular-nums}
 html body.gx-barra-topo :is(.tw,.tabela-wrap,.gx-tab-gs) td.col-valor:not(#_){font-weight:700!important}
 html body.gx-barra-topo :is(.tw,.tabela-wrap,.gx-tab-gs) td.col-valor:not(.valor-rec):not(.valor-desp):not(#_){color:var(--titulo)}
 html body.gx-barra-topo :is(.tw,.tabela-wrap,.gx-tab-gs) td:is(.col-doc,.col-num):not(#_){font-size:12px!important;color:var(--text3)!important}
@@ -1791,7 +1794,7 @@ html body.gx-barra-topo #tblExecRanking td.col-valor,html body.gx-barra-topo #tb
 html body.gx-barra-topo #tblExecRanking td:is(.er-op,.er-sit,.col-sit){white-space:nowrap}
 /* Processos e Clientes: Grupo e números estreitos, textos dividem o resto */
 html body.gx-barra-topo table:has(> #tblProcBody) td.col-num{white-space:nowrap}
-html body.gx-barra-topo #tblExecRanking td:is(.col-valor,.col-doc,.mono),html body.gx-barra-topo #tblExecRanking td:is(.col-valor,.col-doc,.mono) *{font-family:var(--font-num)!important;letter-spacing:-.01em!important}
+html body.gx-barra-topo #tblExecRanking td:is(.col-doc,.mono),html body.gx-barra-topo #tblExecRanking td:is(.col-doc,.mono) *{font-family:var(--font-num)!important;letter-spacing:-.01em!important}
 html body.gx-barra-topo #tblExecRanking td.col-doc{font-size:12px!important;color:var(--text3)!important}
 /* a pílula do Grupo (Painel usa .er-grupo; as outras tabelas, .gx-gpill) */
 html body.gx-barra-topo #tblExecRanking .er-grupo,html body.gx-barra-topo td.col-grupo .gx-gpill{display:inline-block!important;max-width:100%!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important;vertical-align:middle;

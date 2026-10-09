@@ -82,11 +82,17 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
 - Plano de migração das telas antigas: `sistema/INVENTARIO-SIMPLIFICACAO.md`. Custos das integrações pagas: `sistema/INTEGRACOES-CUSTOS.md`.
 
 ## Estado atual (atualizar a cada entrega)
-- **REFORMA EM ANDAMENTO (opção C, aprovada):** leia `sistema/PLANO-REFORMA.md` (tem as respostas do usuário ao guia) e `sistema/DIAGNOSTICO-REFORMA.md`
-  antes de mexer em tela. Backup 62 (só docs): guia v3 (janela no CENTRO em vez de painel à direita, 4 cartões, 0 = vencido). Backup 61: guia v2 (`sistema/prototipos/guia-visual.html`, artifact https://claude.ai/artifact/T1Mbpimj7Fh5E2ZyviaDmY) + Etapa 1 feita.
-  Próxima = usuário escolher a LETRA no seletor do guia e dar o OK da ordem → Etapa 2 (base nova: tokens, `cabecalhoTela`/`cartoesNumero`/`barraAbas`/
-  `tabelaLeve`/`janelaCentral`, lateral 188 px, `--gut` 20 px, escuro preto) → Parcelamentos (primeira tela refeita).
-- Última entrega com mudança no app: **Backup 59** (só front; sem SQL). Cartões voltaram ao `--font-ui`: saíram do bloco B57 do design.css as regras `.card-hd/.cc-t/.sec-t/.ex-t/.erp-box-hd/.m-title` em
+- **REFORMA EM ANDAMENTO (opção C, aprovada):** leia `sistema/PLANO-REFORMA.md` (tem TODAS as respostas do usuário à tela-modelo) e `sistema/DIAGNOSTICO-REFORMA.md`
+  antes de mexer em tela. Tela-modelo v4: `sistema/prototipos/guia-visual.html` (artifact https://claude.ai/artifact/T1Mbpimj7Fh5E2ZyviaDmY).
+  **Backup 63 = Etapa 2 (base nova) feita**: `app/base.css` é a ÚLTIMA camada (depois do design.css; montar-erp põe o link) com as peças `b-*`; peças no `nucleo.js`
+  (`cabecalhoTela`, `cartoesNumero`, `barraAbas`, `buscaB`, `tabelaLeve` [~12 linhas à vista + rolagem, cabeçalho parado, `tr.b-cl`], `vazioB`, `iconeB`; `abrirJanela` aceita
+  `kick`/`sub`/`dir`) — tela refeita usa SÓ elas. Tokens: `--font-ui` Inter (`--font-tit` = a mesma; `--font-num` só CPF/CNPJ/nº), `--th-bg` claro, escuro PRETO (#000/#0B0B0D, lateral #0F1B30
+  com borda), `--sw` 188 px, `--gut` 20 px, `--conteudo:none`; "vence hoje" vermelho (0 = vencido); Grupo nas tabelas só em texto. **Toda baixa pede confirmação**: `editor.js perguntar()` agora
+  pergunta também para `parcelas` (antes gravava direto), `baixaRapida(t,id,{dados})` pula a pergunta quando quem chama já confirmou; Rotina `pagarParcelaRotina` é async e pergunta ANTES de
+  marcar a tela; `_lgConfirmaPag` = true (sem confirm duplo). Corrigido o "pisca" da faixa de grupo (o :hover encolhia o td → loop; base.css fixa o padding). Próxima = **Etapa 3: Parcelamentos**
+  refeita com as peças (ordem: Situação por cliente → abas Em atraso/A vencer/Pagas → tabela; janela do parcelamento com ficha, 5 números, parcelas, Emitir; Baixa com confirmação).
+  Os blocos "Backup N" do design.css saem na rodada de cada tela. Falhas que JÁ existiam antes desta rodada (conferido rodando a versão anterior): erp.js travava no ✓ da Rotina (era o pisca — corrigido); erp.js "B51 T2 calendário mostra as próximas" (cache de 30 s de `projecoesRecorrentes` não é limpo depois do SQL do teste); padrao.js "situação: em atraso" (depende da data dos dados de teste).
+- Última entrega com mudança no app: **Backup 63** (só front; sem SQL) — ver acima. Backup 59 (só front; sem SQL). Cartões voltaram ao `--font-ui`: saíram do bloco B57 do design.css as regras `.card-hd/.cc-t/.sec-t/.ex-t/.erp-box-hd/.m-title` em
   `--font-tit` e `.kv` em `--font-num` (Playfair/JetBrains só em `thead th` e nas células numéricas das tabelas).
 - Backup 58 (base) (só front; sem SQL). Bloco "Backup 58" no fim do design.css: `col-valor` à direita; `col-venc/data/sit/dias` + `gx-th-acoes/gx-td-acoes` + `td.acoes-l` no centro; `td .sub/small/.er-socio` em `--font-ui`
   12 px; `table:has(> thead th.col-grupo) > tbody > tr:is(.gx-grp,.cli-grp)` escondida (Grupo só como coluna); Painel 3=29%, 9-10=6,5%; Acordos `table.ac-ap` fixa por `th:nth-child` (10,5/19/13,5/11,5/6/9,5/9/9,5/11,5%; texto 13 px como o resto), `.ac-c-prazo` + `.ac-emit-sub`,

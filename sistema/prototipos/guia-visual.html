@@ -23,7 +23,7 @@
   --bg:#000000;--surface:#0B0B0D;--surface2:#121215;--hover:#16161A;
   --ink:#F2F2F3;--text:#E6E6E8;--text2:#C2C2C7;--text3:#8C8C93;
   --border:#26262B;--line:#1A1A1E;
-  --primario:#3D7FE0;--primario-hover:#3270CC;--on-primario:#FFFFFF;--primario-lt:rgba(61,127,224,.15);--anel:rgba(61,127,224,.30);
+  --primario:#3270CC;--primario-hover:#2B64C2;--on-primario:#FFFFFF;--primario-lt:rgba(61,127,224,.15);--anel:rgba(61,127,224,.30);
   --lado-bg:#0F1B30;--lado-borda:#22324D;--lado-fg:#E8EDF5;--lado-fg2:#C3CCD9;--lado-sec:#7E8BA0;--lado-ativo-bg:#1C3050;--lado-ativo-fg:#8DB8FF;--lado-hover:#15243D;
   --green:#3FB950;--green-lt:rgba(63,185,80,.14);--amber:#D8A02A;--amber-lt:rgba(216,160,42,.14);--red:#F2564D;--red-lt:rgba(242,86,77,.14);--blue:#6AA6FF;--blue-lt:rgba(106,166,255,.14);--gray-lt:#1A1A1E;
   --overlay:rgba(0,0,0,.72);--shadow:none;--shadow-lg:0 0 0 1px #26262B,0 24px 64px rgba(0,0,0,.9);color-scheme:dark}}
@@ -31,7 +31,7 @@
   --bg:#000000;--surface:#0B0B0D;--surface2:#121215;--hover:#16161A;
   --ink:#F2F2F3;--text:#E6E6E8;--text2:#C2C2C7;--text3:#8C8C93;
   --border:#26262B;--line:#1A1A1E;
-  --primario:#3D7FE0;--primario-hover:#3270CC;--on-primario:#FFFFFF;--primario-lt:rgba(61,127,224,.15);--anel:rgba(61,127,224,.30);
+  --primario:#3270CC;--primario-hover:#2B64C2;--on-primario:#FFFFFF;--primario-lt:rgba(61,127,224,.15);--anel:rgba(61,127,224,.30);
   --lado-bg:#0F1B30;--lado-borda:#22324D;--lado-fg:#E8EDF5;--lado-fg2:#C3CCD9;--lado-sec:#7E8BA0;--lado-ativo-bg:#1C3050;--lado-ativo-fg:#8DB8FF;--lado-hover:#15243D;
   --green:#3FB950;--green-lt:rgba(63,185,80,.14);--amber:#D8A02A;--amber-lt:rgba(216,160,42,.14);--red:#F2564D;--red-lt:rgba(242,86,77,.14);--blue:#6AA6FF;--blue-lt:rgba(106,166,255,.14);--gray-lt:#1A1A1E;
   --overlay:rgba(0,0,0,.72);--shadow:none;--shadow-lg:0 0 0 1px #26262B,0 24px 64px rgba(0,0,0,.9);color-scheme:dark}
@@ -120,7 +120,7 @@ svg.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stro
 
 /* 3. abas + filtros na mesma linha (sem cartão) */
 .barra-abas{display:flex;align-items:flex-end;gap:12px;border-bottom:1px solid var(--border);flex-wrap:wrap}
-.abas{display:flex;gap:2px;overflow-x:auto}
+.abas{display:flex;flex-wrap:wrap;gap:2px}   /* sem overflow: no Windows a rolagem aparecia como setinhas ↑↓ */
 .aba{border:0;background:none;padding:9px 12px;font-weight:600;font-size:13.5px;color:var(--text3);border-bottom:2px solid transparent;margin-bottom:-1px;cursor:pointer;white-space:nowrap}
 .aba:hover{color:var(--ink)}
 .aba[aria-selected="true"]{color:var(--primario);border-bottom-color:var(--primario)}
@@ -141,6 +141,8 @@ svg.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stro
 .quadro-hd .resumo b{color:var(--ink)}
 .quadro-pe{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 16px;border-top:1px solid var(--line);color:var(--text3);font-size:12.5px;flex-wrap:wrap}
 .rola{overflow-x:auto}
+.rola-12{overflow:auto;max-height:680px}
+.rola-12 thead th{position:sticky;top:0;z-index:1}
 table{width:100%;border-collapse:collapse}
 .t-parc{min-width:980px}
 .t-parc .c-emp{width:26%}
@@ -178,7 +180,8 @@ tbody tr:last-child td{border-bottom:0}
 .vazio .bt{margin-top:10px}
 
 /* 12. situação dos parcelamentos por cliente (aprovada) */
-.sit-cab{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-top:10px}
+.sit-cab{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap}
+.sec-tit{margin:10px 0 -6px;font-size:17px;font-weight:700;color:var(--ink)}
 .sit-cab h2{margin:0;font-size:17px;font-weight:700;color:var(--ink)}
 .sit-cab p{margin:2px 0 0;color:var(--text3);font-size:13px}
 .chips{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
@@ -243,6 +246,13 @@ tbody tr:last-child td{border-bottom:0}
 .lista-parc tr.atr td{background:var(--red-lt)}
 .em{font-size:12px;font-weight:600;white-space:nowrap}
 .em.ok{color:var(--green)}.em.nao{color:var(--amber)}.em.cli{color:var(--text3)}
+.bt-emitir{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--border);background:var(--surface);color:var(--amber);border-radius:999px;padding:3px 10px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
+.bt-emitir svg.i{width:13px;height:13px}
+.bt-emitir:hover{border-color:var(--primario);color:var(--primario);background:var(--primario-lt)}
+.conf-resumo{border:1px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:3px}
+.conf-resumo b{font-size:15px;color:var(--ink)}
+.conf-resumo span{color:var(--text3);font-size:13px}
+.conf-resumo .val{font-size:18px}
 .bloco{display:flex;flex-direction:column;gap:12px}
 .bloco h3{margin:0;font-size:12px;font-weight:600;color:var(--text3);display:flex;align-items:center;gap:10px}
 .bloco h3::after{content:"";flex:1;height:1px;background:var(--line)}
@@ -322,11 +332,11 @@ textarea.ctl{height:72px!important;padding:9px 11px!important;resize:vertical}
 </svg>
 
 <div class="guia">
-  <div><b>Guia visual · versão 3</b> <span>Dados fictícios (hoje = 09/10/2026). Clique nas linhas, em "Baixa", nas abas, nos cartões dos grupos e nos parcelamentos.</span></div>
+  <div><b>Guia visual · versão 4</b> <span>Dados fictícios (hoje = 09/10/2026). Clique nas linhas, em "Baixa", nas abas, nos cartões dos grupos e nos parcelamentos.</span></div>
   <div class="guia-ctl">
     <label>Letra</label>
     <div class="seg" role="group" aria-label="Letra" id="letras">
-      <button type="button" data-f="'Inter'" aria-pressed="true">Inter (sugerida)</button>
+      <button type="button" data-f="'Inter'" aria-pressed="true">Inter (escolhida)</button>
       <button type="button" data-f="'IBM Plex Sans'" aria-pressed="false">IBM Plex</button>
       <button type="button" data-f="'Source Sans 3'" aria-pressed="false">Source Sans</button>
       <button type="button" data-f="'Roboto'" aria-pressed="false">Roboto</button>
@@ -379,15 +389,6 @@ textarea.ctl{height:72px!important;padding:9px 11px!important;resize:vertical}
 
       <div class="kpis" id="kpis"></div>
 
-      <div class="barra-abas">
-        <div class="abas" role="tablist" id="abas"></div>
-        <div class="filtros">
-          <label class="ctl-busca"><svg class="i"><use href="#i-search"/></svg><input id="f-busca" placeholder="Empresa, CNPJ ou nº" aria-label="Buscar"></label>
-          <select class="ctl" id="f-grupo" aria-label="Grupo"><option value="">Todos os grupos</option></select>
-          <select class="ctl" id="f-plat" aria-label="Plataforma"><option value="">Todas as plataformas</option><option>eCAC</option><option>Regularize</option><option>SIARE</option></select>
-        </div>
-      </div>
-      <div id="area-tabela"></div>
 
       <div class="sit-cab">
         <div><h2>Situação dos parcelamentos por cliente</h2><p>Quanto cada grupo já pagou, quanto falta e o que vence este mês. Clique no cartão para ver cada parcelamento.</p></div>
@@ -399,20 +400,29 @@ textarea.ctl{height:72px!important;padding:9px 11px!important;resize:vertical}
       </div>
       <div class="cartoes" id="cartoes"></div>
 
+      <h2 class="sec-tit">Parcelas</h2>
+      <div class="barra-abas">
+        <div class="abas" role="tablist" id="abas"></div>
+        <div class="filtros">
+          <label class="ctl-busca"><svg class="i"><use href="#i-search"/></svg><input id="f-busca" placeholder="Empresa, CNPJ ou nº" aria-label="Buscar"></label>
+          <select class="ctl" id="f-grupo" aria-label="Grupo"><option value="">Todos os grupos</option></select>
+          <select class="ctl" id="f-plat" aria-label="Plataforma"><option value="">Todas as plataformas</option><option>eCAC</option><option>Regularize</option><option>SIARE</option></select>
+        </div>
+      </div>
+      <div id="area-tabela"></div>
+
       <section class="regras" aria-labelledby="regras-t">
-        <h2 id="regras-t">O que mudou da versão 2 para esta</h2>
+        <h2 id="regras-t">O que mudou da versão 3 para esta</h2>
         <p>Cada número é a sua orientação.</p>
         <ol>
-          <li><b>Quarto cartão:</b> "Guias a emitir" — parcelas vencidas ou do mês cuja guia ainda não foi emitida (prazo dia 12), com a barra do que já foi emitido.</li>
-          <li><b>A vencer:</b> todas as parcelas que ainda vão vencer, de todos os meses (a lista mostra 25 por vez e tem "Mostrar mais").</li>
-          <li><b>Pagas:</b> todas as parcelas já pagas até hoje, da mais recente para a mais antiga.</li>
-          <li><b>Vence hoje = em atraso:</b> o dia 0 conta como vencido; a parcela de hoje entra na aba "Em atraso" e nos cartões.</li>
-          <li><b>Lista do grupo:</b> nova coluna "Em atraso" com quantas parcelas estão vencidas em cada parcelamento.</li>
-          <li><b>Janela do parcelamento</b> com os dados do sistema de hoje: ficha (CNPJ, plataforma, natureza, nº, total de parcelas, valor, residual, quem emite), resumo (pagas, quitado, falta, próxima, em atraso) e todas as parcelas com Emissão, Pagamento e Baixa.</li>
-          <li><b>Janela no centro:</b> criar, editar e ver detalhes abrem no meio da tela (no celular ocupa a tela toda).</li>
-          <li><b>Letra:</b> sugestão Inter (já aplicada); as outras continuam no seletor para comparar.</li>
+          <li><b>Ordem:</b> primeiro a situação dos parcelamentos por cliente; depois as parcelas (Em atraso, A vencer, Pagas).</li>
+          <li><b>Abas sem as setinhas</b> ↑↓ que apareciam ao lado de "Pagas".</li>
+          <li><b>Tabela com ~12 linhas à vista</b>; o resto aparece rolando dentro dela (o cabeçalho fica parado).</li>
+          <li><b>Lista do grupo:</b> a coluna "Situação" mostra em vermelho quantas parcelas estão em atraso, ou "Em dia" em verde.</li>
+          <li><b>Emitir na janela do parcelamento:</b> botão "Emitir" em cada guia não emitida e "Emitir guias (n)" no rodapé, para as vencidas e as do mês.</li>
+          <li><b>Todo pagamento pede confirmação:</b> "Baixa" (e "Paga" na edição da parcela) abre a janela "Confirmar pagamento" com a data; nada é lançado antes do "Confirmar".</li>
+          <li><b>Letra:</b> Inter (escolhida).</li>
         </ol>
-        <div class="aviso"><b>Ainda para você decidir:</b> a letra. Clique nas opções da faixa de cima e repare na tabela e nos cartões.</div>
       </section>
     </main>
   </div>
@@ -467,7 +477,7 @@ textarea.ctl{height:72px!important;padding:9px 11px!important;resize:vertical}
   var estado = function(x){ return x.pagoEm ? 'pagas' : (x.venc <= HOJE ? 'atraso' : 'avencer'); };
   var doMes = function(x){ return x.venc.getMonth() === 9 && x.venc.getFullYear() === 2026; };
   var todas = function(){ return [].concat.apply([], PARC.map(function(p){ return p.parcelas; })); };
-  var aba = 'atraso', grupoAberto = 'Grupo Serra Azul', filtroChip = 'todos', mostrar = 25;
+  var aba = 'atraso', grupoAberto = 'Grupo Serra Azul', filtroChip = 'todos';
 
   function situacao(x){
     if (x.pagoEm) return '<span class="pill p-pago">Pago</span>';
@@ -481,10 +491,13 @@ textarea.ctl{height:72px!important;padding:9px 11px!important;resize:vertical}
     if (d > 0) return '<small class="r">'+d+' dia'+(d>1?'s':'')+' de atraso</small>';
     return '<small>em '+(-d)+' dia'+(-d>1?'s':'')+'</small>';
   }
-  function emissao(x){
+  function emissao(x, comBotao){
     if (x.p.cliente) return '<span class="em cli">Não emitimos</span>';
     if (x.emitidaEm) return '<span class="em ok">✓ Emitida '+fc(x.emitidaEm)+'</span>';
-    return x.pagoEm ? '<span class="traco">—</span>' : '<span class="em nao">Não emitida</span>';
+    if (x.pagoEm) return '<span class="traco">—</span>';
+    if (!comBotao) return '<span class="em nao">Não emitida</span>';
+    // o botão só aparece nas vencidas e nas do mês (as futuras são emitidas no mês delas)
+    return (x.venc <= HOJE || doMes(x)) ? '<button class="bt-emitir" type="button" data-emitir="'+x.p.id+':'+x.n+'">'+ic('i-doc')+'Emitir</button>' : '<span class="traco">—</span>';
   }
   function botaoBaixa(x){ return '<button class="bt-baixa" type="button" data-baixa="'+x.p.id+':'+x.n+'">'+ic('i-check')+'Baixa</button>'; }
 
@@ -532,10 +545,10 @@ textarea.ctl{height:72px!important;padding:9px 11px!important;resize:vertical}
         + '</div></div>';
       return;
     }
-    var soma = lin.reduce(function(s,x){ return s+x.v; },0), vis = lin.slice(0, mostrar);
+    var soma = lin.reduce(function(s,x){ return s+x.v; },0), vis = lin;
     var tit = {atraso:'Parcelas em atraso (inclui as que vencem hoje)', avencer:'Todas as parcelas a vencer', pagas:'Todas as parcelas pagas'}[aba];
     area.innerHTML = '<div class="quadro"><div class="quadro-hd"><h2>'+tit+'</h2><span class="resumo">'+lin.length+' parcela'+(lin.length>1?'s':'')+' · <b>'+brl(soma)+'</b></span></div>'
-      +'<div class="rola"><table class="t-parc"><thead><tr><th>Grupo</th><th class="c-emp">Empresa</th><th>Plataforma</th><th>Natureza</th><th>Nº parcelamento</th><th>Parcela</th><th class="dir">Valor</th><th class="cen">Vencimento</th><th class="cen">Situação</th><th class="cen">Baixa</th></tr></thead><tbody>'
+      +'<div class="rola rola-12"><table class="t-parc"><thead><tr><th>Grupo</th><th class="c-emp">Empresa</th><th>Plataforma</th><th>Natureza</th><th>Nº parcelamento</th><th>Parcela</th><th class="dir">Valor</th><th class="cen">Vencimento</th><th class="cen">Situação</th><th class="cen">Baixa</th></tr></thead><tbody>'
       + vis.map(function(x){
         var p = x.p;
         return '<tr class="cl" tabindex="0" data-p="'+p.id+'" data-n="'+x.n+'" title="Clique para abrir e editar a parcela">'
@@ -550,7 +563,6 @@ textarea.ctl{height:72px!important;padding:9px 11px!important;resize:vertical}
           +'<td class="cen">'+situacao(x)+'</td>'
           +'<td class="cen">'+(x.pagoEm ? '<span class="pago-em">✓ '+fc(x.pagoEm)+'</span>' : botaoBaixa(x))+'</td></tr>';
       }).join('') + '</tbody></table></div>'
-      + (lin.length > mostrar ? '<div class="quadro-pe"><span>Mostrando '+vis.length+' de '+lin.length+'</span><button class="bt bt-o" type="button" id="mais">Mostrar mais 25</button></div>' : '')
       + '</div>';
   }
 
@@ -583,15 +595,14 @@ textarea.ctl{height:72px!important;padding:9px 11px!important;resize:vertical}
     $('cartoes').innerHTML = html || '<div class="quadro det"><div class="vazio"><div class="vazio-ic">'+ic('i-checkc')+'</div><b>Nenhum grupo neste recorte</b><p>Troque o filtro acima para ver os outros grupos.</p></div></div>';
   }
   function detalheGrupo(g, l){
-    return '<div class="quadro det"><div class="quadro-hd"><h2>'+esc(g)+'</h2><small>clique no parcelamento para ver a ficha e todas as parcelas</small></div><div class="rola"><table class="t-sit"><thead><tr><th>Empresa</th><th>Plataforma</th><th>Natureza</th><th>Nº parcelamento</th><th>Pagas</th><th class="dir">Falta pagar</th><th class="cen">Próxima</th><th class="cen">Em atraso</th><th class="cen">Situação</th></tr></thead><tbody>'
+    return '<div class="quadro det"><div class="quadro-hd"><h2>'+esc(g)+'</h2><small>clique no parcelamento para ver a ficha e todas as parcelas</small></div><div class="rola"><table class="t-sit"><thead><tr><th>Empresa</th><th>Plataforma</th><th>Natureza</th><th>Nº parcelamento</th><th>Pagas</th><th class="dir">Falta pagar</th><th class="cen">Próxima</th><th class="cen">Situação</th></tr></thead><tbody>'
       + l.map(function(p){
         var r = resumoParc(p), pc = Math.round(r.pg/p.tot*100);
         return '<tr class="cl" tabindex="0" data-parc="'+p.id+'"><td><span class="nome">'+esc(p.emp)+'</span><span class="doc">'+p.doc+'</span></td>'
           +'<td><span class="plat">'+p.plat+'</span></td><td>'+esc(p.nat)+'</td><td class="num">'+p.num+'</td>'
           +'<td><div class="prog"><div class="barra"><span style="width:'+pc+'%"></span></div><span><b>'+r.pg+'</b> de '+p.tot+'</span></div></td>'
           +'<td class="dir val">'+brl(r.falta)+'</td><td class="cen dt">'+(r.prox?fd(r.prox.venc):'—')+'</td>'
-          +'<td class="cen">'+(r.atr?'<span class="n-atr">'+r.atr+' parcela'+(r.atr>1?'s':'')+'</span>':'<span class="traco">—</span>')+'</td>'
-          +'<td class="cen">'+(r.atr?'<span class="pill p-atraso">Em atraso</span>':'<span class="pill p-pago">Em dia</span>')+'</td></tr>';
+          +'<td class="cen">'+(r.atr?'<span class="n-atr">'+r.atr+' parcela'+(r.atr>1?'s':'')+' em atraso</span>':'<span class="pill p-pago">Em dia</span>')+'</td></tr>';
       }).join('') + '</tbody></table></div></div>';
   }
 
@@ -616,7 +627,7 @@ textarea.ctl{height:72px!important;padding:9px 11px!important;resize:vertical}
       var pag = x.pagoEm ? '<span class="em ok">✓ Paga '+fc(x.pagoEm)+'</span>'
         : (x.venc <= HOJE ? '<span class="pill p-atraso">'+(dias(x)===0?'Vence hoje':'Vencida há '+dias(x)+' d')+'</span>' : '<span class="pill p-avencer">A vencer</span>');
       return '<tr class="cl '+cls+'"'+id+' data-p="'+p.id+'" data-n="'+x.n+'" tabindex="0" title="Clique para editar esta parcela"><td class="dt">'+x.n+'/'+p.tot+'</td><td class="dt">'+fd(x.venc)+'</td><td class="dir val">'+brl(x.v)+'</td>'
-        +'<td>'+emissao(x)+'</td><td>'+pag+'</td><td class="cen">'+(x.pagoEm?'':botaoBaixa(x))+'</td></tr>';
+        +'<td>'+emissao(x, true)+'</td><td>'+pag+'</td><td class="cen">'+(x.pagoEm?'':botaoBaixa(x))+'</td></tr>';
     }).join('');
     abrir(cab('Parcelamento nº '+p.num, p.emp, esc(p.g)+' · '+p.plat+' · '+esc(p.nat), r.atr?'<span class="pill p-atraso">'+r.atr+' em atraso</span>':'<span class="pill p-pago">Em dia</span>')
       +'<div class="j-bd">'
@@ -628,9 +639,29 @@ textarea.ctl{height:72px!important;padding:9px 11px!important;resize:vertical}
       +'<p class="tit-sec">Parcelas <small>clique numa parcela para editar · as pagas ficam em cinza, as vencidas em vermelho</small></p>'
       +'<div class="lista-parc"><table><thead><tr><th>Parcela</th><th>Vencimento</th><th class="dir">Valor</th><th>Emissão</th><th>Pagamento</th><th class="cen">Baixa</th></tr></thead><tbody>'+linhas+'</tbody></table></div>'
       +'</div>'
-      +'<div class="j-pe"><button class="bt bt-g esq" type="button" data-editar-parc="'+p.id+'">Editar dados do parcelamento</button><button class="bt bt-o" type="button" data-fechar>Fechar</button></div>', true);
+      +'<div class="j-pe"><button class="bt bt-g esq" type="button" data-editar-parc="'+p.id+'">Editar dados do parcelamento</button>'+(paraEmitir(p).length?'<button class="bt bt-o" type="button" data-emitir-todas="'+p.id+'">'+ic('i-doc')+'Emitir guias ('+paraEmitir(p).length+')</button>':'')+'<button class="bt bt-o" type="button" data-fechar>Fechar</button></div>', true);
     var a = jan.querySelector('#ancora'), box = jan.querySelector('.lista-parc');
     if (a && box) box.scrollTop = Math.max(0, a.offsetTop - 120);
+  }
+  // guias a emitir agora: não pagas, nós emitimos, sem emissão, vencidas ou do mês
+  function paraEmitir(p){ return p.cliente ? [] : p.parcelas.filter(function(x){ return !x.pagoEm && !x.emitidaEm && (x.venc <= HOJE || doMes(x)); }); }
+  function emitir(lista){
+    lista.forEach(function(x){ x.emitidaEm = new Date(HOJE); }); tudo();
+    aviso((lista.length > 1 ? lista.length+' guias marcadas como emitidas' : 'Guia da parcela '+lista[0].n+' marcada como emitida'), function(){ lista.forEach(function(x){ x.emitidaEm = null; }); tudo(); });
+  }
+  // 4.4: todo pagamento pede confirmação (com a data, que já vem com hoje)
+  function confirmarBaixa(x, depois){
+    var volta = abertoParc;
+    abrir(cab('Confirmar pagamento', 'Lançar o pagamento desta parcela?', esc(x.p.emp))
+      +'<div class="j-bd"><div class="conf-resumo"><b>Parcela '+x.n+' de '+x.p.tot+' · '+x.p.plat+' · '+esc(x.p.nat)+'</b><span>Nº '+x.p.num+' · vencimento '+fd(x.venc)+'</span><span class="val">'+brl(x.v)+'</span></div>'
+      +'<div class="campo"><label for="c-data">Data do pagamento</label><input class="ctl" id="c-data" value="'+fd(HOJE)+'"><span class="traco" style="font-size:12px">Já vem com a data de hoje. Se foi pago em outro dia, troque aqui.</span></div></div>'
+      +'<div class="j-pe"><button class="bt bt-o" type="button" data-cancelar-baixa>Cancelar</button><button class="bt bt-p" type="button" data-confirmar-baixa>'+ic('i-check')+'Confirmar pagamento</button></div>');
+    jan.querySelector('[data-cancelar-baixa]').onclick = function(){ if (volta) verParcelamento(volta); else fechar(); };
+    jan.querySelector('[data-confirmar-baixa]').onclick = function(){
+      x.pagoEm = new Date(HOJE); if (volta) { tudo(); verParcelamento(volta); } else { fechar(); tudo(); }
+      aviso('Pagamento lançado: parcela '+x.n+' de '+x.p.tot+' — '+x.p.emp.split(' ').slice(0,2).join(' '), function(){ x.pagoEm = null; tudo(); });
+      if (depois) depois();
+    };
   }
   function editarParcela(x, deParc){
     var p = x.p;
@@ -643,7 +674,12 @@ textarea.ctl{height:72px!important;padding:9px 11px!important;resize:vertical}
       +'<div class="bloco"><h3>Pagamento</h3><div class="dois"><div class="campo"><span class="rot">Situação</span>'+opc('Pagamento',['Em aberto','Paga'], x.pagoEm?'Paga':'Em aberto')+'</div>'
       +'<div class="campo"><label for="e-pag">Pago em</label><input class="ctl" id="e-pag" placeholder="dd/mm/aaaa" value="'+(x.pagoEm?fd(x.pagoEm):'')+'"></div></div>'
       +'<div class="campo"><label for="e-obs">Observação</label><textarea class="ctl" id="e-obs" placeholder="Opcional"></textarea></div></div></div>'
-      +'<div class="j-pe">'+(deParc?'':'<button class="bt bt-g esq" type="button" data-voltar="'+p.id+'">Ver o parcelamento inteiro</button>')+'<button class="bt bt-o" type="button" data-fechar>Cancelar</button><button class="bt bt-p" type="button" data-fechar>'+ic('i-check')+'Salvar</button></div>');
+      +'<div class="j-pe">'+(deParc?'':'<button class="bt bt-g esq" type="button" data-voltar="'+p.id+'">Ver o parcelamento inteiro</button>')+'<button class="bt bt-o" type="button" data-fechar>Cancelar</button><button class="bt bt-p" type="button" id="salvar-parcela">'+ic('i-check')+'Salvar</button></div>');
+    jan.querySelector('#salvar-parcela').onclick = function(){
+      var paga = jan.querySelector('.opcoes[aria-label="Pagamento"] [aria-pressed="true"]').textContent === 'Paga';
+      if (paga && !x.pagoEm) return confirmarBaixa(x);   // virou "Paga": confirma antes de lançar
+      if (abertoParc) verParcelamento(abertoParc); else fechar();
+    };
   }
   function formParcelamento(p){
     var grupos = []; PARC.forEach(function(x){ if (grupos.indexOf(x.g) < 0) grupos.push(x.g); });
@@ -673,19 +709,14 @@ textarea.ctl{height:72px!important;padding:9px 11px!important;resize:vertical}
   }
   function tudo(){ kpis(); abas(); tabela(); cartoes(); if (abertoParc && !fundo.hidden) verParcelamento(abertoParc); }
   function parcela(pid, n){ return PARC[+pid].parcelas[+n - 1]; }
-  function baixa(b){
-    var k = b.dataset.baixa.split(':'), x = parcela(k[0], k[1]);
-    x.pagoEm = new Date(HOJE); tudo();
-    aviso('Baixa lançada: parcela '+x.n+' de '+x.p.tot+' — '+x.p.emp.split(' ').slice(0,2).join(' '), function(){ x.pagoEm = null; tudo(); });
-  }
+  function baixa(b){ var k = b.dataset.baixa.split(':'); confirmarBaixa(parcela(k[0], k[1])); }
 
   /* eventos */
   PARC.forEach(function(p){ if (![].some.call($('f-grupo').options, function(o){ return o.value===p.g; })) $('f-grupo').insertAdjacentHTML('beforeend','<option>'+esc(p.g)+'</option>'); });
-  $('abas').addEventListener('click', function(e){ var b = e.target.closest('.aba'); if (!b) return; aba = b.dataset.aba; mostrar = 25; abas(); tabela(); });
-  ['f-busca','f-grupo','f-plat'].forEach(function(id){ $(id).addEventListener('input', function(){ mostrar = 25; tabela(); }); });
+  $('abas').addEventListener('click', function(e){ var b = e.target.closest('.aba'); if (!b) return; aba = b.dataset.aba; abas(); tabela(); });
+  ['f-busca','f-grupo','f-plat'].forEach(function(id){ $(id).addEventListener('input', tabela); });
   $('area-tabela').addEventListener('click', function(e){
     if (e.target.id === 'limpar'){ $('f-busca').value=''; $('f-grupo').value=''; $('f-plat').value=''; tabela(); return; }
-    if (e.target.id === 'mais'){ mostrar += 25; tabela(); return; }
     var bx = e.target.closest('[data-baixa]'); if (bx) return baixa(bx);
     var tr = e.target.closest('tr[data-p]'); if (tr) editarParcela(parcela(tr.dataset.p, tr.dataset.n), false);
   });
@@ -704,6 +735,8 @@ textarea.ctl{height:72px!important;padding:9px 11px!important;resize:vertical}
   fundo.addEventListener('click', function(e){
     if (e.target === fundo || e.target.closest('[data-fechar]')) return fechar();
     var bx = e.target.closest('[data-baixa]'); if (bx) return baixa(bx);
+    var em = e.target.closest('[data-emitir]'); if (em){ var k = em.dataset.emitir.split(':'); return emitir([parcela(k[0], k[1])]); }
+    var et = e.target.closest('[data-emitir-todas]'); if (et) return emitir(paraEmitir(PARC[+et.dataset.emitirTodas]));
     var v = e.target.closest('[data-voltar]'); if (v) return verParcelamento(PARC[+v.dataset.voltar]);
     var ed = e.target.closest('[data-editar-parc]'); if (ed) return formParcelamento(PARC[+ed.dataset.editarParc]);
     var tr = e.target.closest('tr[data-p]'); if (tr) return editarParcela(parcela(tr.dataset.p, tr.dataset.n), true);
