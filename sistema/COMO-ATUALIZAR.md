@@ -707,6 +707,13 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
 **Central de Documentos dentro do ERP:** menu **Documentos → Gerar documento** (ou ⋯ → Documentos, contrato, recibo do Financeiro).
 **Ctrl + clique** (ou botão do meio do mouse) em qualquer item do menu ou link de documento abre numa aba nova.
 
+## Backup 62 — Tela-modelo v3 (só documentos; o sistema não muda)
+1. Merge da pull request.
+2. SQL: não precisa. Ctrl+Shift+R: não precisa (nada mudou nas telas).
+
+O que entrou: a tela-modelo com as respostas à v2 (4 cartões, abas com todas as parcelas, vence hoje = em atraso, janela no centro,
+janela do parcelamento completa, Inter como letra sugerida). Link: https://claude.ai/artifact/T1Mbpimj7Fh5E2ZyviaDmY
+
 ## Backup 61 — Tela-modelo v2 e diagnóstico da reforma (só documentos; o sistema não muda)
 1. Merge da pull request.
 2. SQL: não precisa. Ctrl+Shift+R: não precisa (nada mudou nas telas).
