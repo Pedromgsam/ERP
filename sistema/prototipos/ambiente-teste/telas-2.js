@@ -107,22 +107,18 @@
     APP.acao(primeiro(c) + (novo ? ' volta a receber e-mails.' : ' não recebe mais e-mails (nenhuma automação ao cliente roda).'), function(){ var f = APP.foto(c, ['recebeEmail']); c.recebeEmail = novo; return f; }); }, true);
 
   APP.registrar('clientes', { tit:'Clientes', ic:'pessoas', sec:'Cadastros',
-    ajuda:['Clique no cliente para abrir a <b>ficha</b>: resumo, <b>linha do tempo</b> (tudo o que aconteceu), <b>automações do cliente</b> e documentos do mês.', 'A chave "Recebe e-mails" desliga de uma vez tudo o que sai para o cliente.', '<b>Link de cadastro</b>: o cliente preenche os próprios dados; você só aprova.'],
-    novo:function(){ janelaLink(); },
+    ajuda:['Clique no cliente para abrir a <b>ficha</b>: resumo, <b>linha do tempo</b> (tudo o que aconteceu), <b>automações do cliente</b> e documentos do mês.', 'A chave "Recebe e-mails" desliga de uma vez tudo o que sai para o cliente.'],
     desenhar:function(el){
-      D().cadPend = D().cadPend || []; D().links = D().links || [];
       var C = D().clientes, semEmail = C.filter(function(c){ return !c.email; }), naoRec = C.filter(function(c){ return c.recebeEmail === false; });
       var ref = HOJE, faltam = Object.keys(D().docsCliente).filter(function(cid){ return N.docsFaltando(cid, ref).length; });
-      el.innerHTML = APP.cabecalho({ ic:'pessoas', tit:'Clientes', frase:'Empresas e pessoas atendidas, por grupo', acoes:'<button class="bt bt-o" type="button" id="cl-link">' + ic('link') + 'Link de cadastro</button>' })
+      el.innerHTML = APP.cabecalho({ ic:'pessoas', tit:'Clientes', frase:'Empresas e pessoas atendidas, por grupo' })
         + '<div id="cl-cartoes"></div><div id="cl-tabela"></div>';
-      APP.$('cl-link').onclick = function(){ janelaLink(); };
       APP.cartoes(APP.$('cl-cartoes'), 'cli', [
         { id:'tot', cor:'b', ic:'pessoas', rot:'Clientes', v:String(C.length), sub:APP.plural(D().grupos.length, 'grupo', 'grupos'), det:function(c){ var gs = D().grupos.map(function(g){ return { id:g.id, g:g, n:C.filter(function(x){ return x.g === g.id; }).length }; });
           APP.tabela(c, { id:'cl-d-g', titulo:'Clientes por grupo', linhas:gs, unidade:['grupo','grupos'], ord:{ k:'g', dir:1 }, colunas:[{ k:'g', rot:'Grupo', html:function(r){ return APP.grupoTxt(r.id); }, ord:function(r){ return r.g.nome; } }, { k:'n', rot:'Clientes', cls:'cen dt', html:function(r){ return r.n; } }, { k:'resp', rot:'Responsável', html:function(r){ return esc(APP.pessoa(r.g.resp).curto); } }],
             clique:function(r){ APP.estTab.clientes = APP.estTab.clientes || { aba:'', q:'', listas:{}, vde:'', vate:'', min:'', max:'', ord:{ k:'g', dir:1 }, ordAba:{}, sel:{}, painel:false }; APP.estTab.clientes.listas.g = r.id; APP.redesenhar(); } }); } },
         { id:'sem', cor:'a', ic:'email', rot:'Sem e-mail ou sem envio', v:String(semEmail.length + naoRec.filter(function(c){ return c.email; }).length), sub:semEmail.length + ' sem e-mail · ' + naoRec.length + ' não recebem', det:function(c){ APP.tabela(c, APP.cfgClientes('cl-d-sem', C.filter(function(x){ return !x.email || x.recebeEmail === false; }), 'Clientes que não recebem nada por e-mail')); } },
-        { id:'docs', cor:'a', ic:'clipe', rot:'Documentos de ' + N.mesNome(new Date(2026, 8, 1)).split('/')[0], v:String(faltam.length), sub:'clientes com documento faltando', det:function(c){ APP.tabela(c, cfgDocs('cl-d-docs', new Date(2026, 8, 1), 'Documentos de setembro')); } },
-        { id:'cad', cor:'g', ic:'link', rot:'Cadastros para aprovar', v:String(D().cadPend.length), sub:APP.plural(D().links.length, 'link enviado', 'links enviados'), det:function(c){ desenharCadastros(c); } }
+        { id:'docs', cor:'a', ic:'clipe', rot:'Documentos de ' + N.mesNome(new Date(2026, 8, 1)).split('/')[0], v:String(faltam.length), sub:'clientes com documento faltando', det:function(c){ APP.tabela(c, cfgDocs('cl-d-docs', new Date(2026, 8, 1), 'Documentos de setembro')); } }
       ]);
       APP.tabela(APP.$('cl-tabela'), APP.cfgClientes('clientes', C, 'Todos os clientes'));
     } });
@@ -259,36 +255,6 @@
       rodape:'<button class="bt bt-o" type="button" data-fechar>Cancelar</button><button class="bt bt-p" type="button" id="ec-ok">' + ic('check') + 'Salvar</button>' });
     J.q('#ec-ok').onclick = function(){ var d = { nome:J.q('#ec-nome').value.trim() || c.nome, email:J.q('#ec-email').value.trim(), fiscal:J.q('#ec-fiscal').value.trim(), tel:J.q('#ec-tel').value.trim(), g:J.q('#ec-g').value }; J.fechar();
       APP.acao('Cadastro salvo.', function(){ var f = APP.foto(c, ['nome', 'email', 'fiscal', 'tel', 'g']); Object.assign(c, d); return f; }); };
-  }
-
-  /* ── ROMPEX C: link de cadastro (o cliente preenche; o escritório aprova) ── */
-  function janelaLink(){
-    var cod = Math.random().toString(36).slice(2, 8).toUpperCase(), url = 'https://erp.araujocastro.adv.br/cadastro/' + cod;
-    var J = APP.janela({ kick:'Link de cadastro', tit:'Mandar o cadastro para o cliente preencher', sub:'Ele preenche os dados e os e-mails; você só confere e aprova.',
-      corpo:'<div class="campo"><label for="lk-g">Grupo do novo cliente</label>' + sel('lk-g', D().grupos.map(function(g){ return [g.id, g.nome]; }), 'g1') + '</div>'
-        + '<div class="campo"><span class="rot">Link (vale 7 dias)</span><div class="par"><input class="ctl" id="lk-url" readonly value="' + url + '" style="flex:1;font-family:var(--mono);font-size:12px"><button class="bt bt-o" type="button" id="lk-copiar">Copiar</button></div><span class="ajuda">Mande por WhatsApp ou e-mail. Ambiente de teste: o link não abre de verdade.</span></div>'
-        + '<div class="texto" style="padding:12px 14px"><b>O que o cliente vê:</b> nome/razão social, CPF/CNPJ (com busca automática do cartão CNPJ), endereço, e-mail geral, e-mail fiscal (para guias), telefone e os sócios. Nada entra no sistema antes da sua aprovação.</div>',
-      rodape:'<button class="bt bt-o" type="button" data-fechar>Fechar</button><button class="bt bt-p" type="button" id="lk-sim">' + ic('teste') + 'Simular a resposta do cliente</button>' });
-    J.q('#lk-copiar').onclick = function(){ var i = J.q('#lk-url'); try { navigator.clipboard.writeText(i.value).then(function(){ APP.aviso('Link copiado.'); }, function(){ i.select(); APP.aviso('Selecionado: use Ctrl+C.'); }); } catch (e) { i.select(); } };
-    D().links.push({ cod:cod, g:J.q('#lk-g').value, criado:new Date() }); APP.salvar();
-    J.q('#lk-sim').onclick = function(){ var g = J.q('#lk-g').value; J.fechar();
-      APP.acao('O cliente respondeu: cadastro esperando aprovação (Clientes → "Cadastros para aprovar").', function(){ var p = { id:'cp' + Date.now(), g:g, nome:'Nova Aurora Comércio de Tecidos Ltda', doc:'90.123.456/0001-78', email:'contato@novaaurora.teste', fiscal:'fiscal@novaaurora.teste', tel:'(31) 3333-6001', socios:'Joana Aurora (50%) · Carlos Aurora (50%)', cod:cod, quando:new Date() }; D().cadPend.push(p); return function(){ D().cadPend.splice(D().cadPend.indexOf(p), 1); }; }); };
-  }
-  function desenharCadastros(el){
-    APP.tabela(el, { id:'cl-cad', titulo:'Cadastros preenchidos pelo cliente', linhas:D().cadPend, unidade:['cadastro','cadastros'], vazio:{ tit:'Nenhum cadastro esperando', frase:'Use "Link de cadastro" e mande para o cliente.' },
-      colunas:[{ k:'nome', rot:'Cliente', html:function(p){ return APP.celEmpresa(p); } }, { k:'g', rot:'Grupo', html:function(p){ return APP.grupoTxt(p.g); } }, { k:'email', rot:'E-mails', html:function(p){ return esc(p.email) + '<span class="doc">fiscal: ' + esc(p.fiscal) + '</span>'; } },
-        { k:'quando', rot:'Respondido em', cls:'dt', html:function(p){ return APP.fd(p.quando) + ' <small>' + APP.fh(p.quando) + '</small>'; }, ord:function(p){ return +p.quando; } }],
-      clique:aprovarCadastro });
-  }
-  function aprovarCadastro(p){
-    var J = APP.janela({ kick:'Cadastro preenchido pelo cliente', tit:p.nome, sub:'Link ' + p.cod + ' · respondido em ' + APP.fd(p.quando),
-      corpo:'<div class="ficha f2"><div><span>CPF / CNPJ</span><b class="m">' + esc(p.doc) + '</b></div><div><span>Grupo</span><b>' + APP.grupoTxt(p.g) + '</b></div><div><span>E-mail</span><b>' + esc(p.email) + '</b></div><div><span>E-mail fiscal</span><b>' + esc(p.fiscal) + '</b></div><div><span>Telefone</span><b>' + esc(p.tel) + '</b></div><div><span>Sócios</span><b>' + esc(p.socios) + '</b></div></div>'
-        + '<div class="checa"><div class="ok">' + ic('ok') + '<span>CNPJ não está cadastrado em outro cliente.</span></div><div class="ok">' + ic('ok') + '<span>E-mails com formato válido.</span></div></div>',
-      rodape:'<button class="bt bt-g esq" type="button" id="ap-rec" style="color:var(--red)">Recusar</button><button class="bt bt-o" type="button" data-fechar>Depois</button><button class="bt bt-p" type="button" id="ap-ok">' + ic('check') + 'Aprovar e criar o cliente</button>' });
-    J.q('#ap-ok').onclick = function(){ J.fechar(); APP.acao('Cliente criado: ' + p.nome + '.', function(){ var i = D().cadPend.indexOf(p), c = { id:'c' + Date.now(), g:p.g, nome:p.nome, doc:p.doc, email:p.email, fiscal:p.fiscal, tel:p.tel, tipo:'PJ', recebeEmail:true };
-      D().cadPend.splice(i, 1); D().clientes.push(c); return function(){ D().clientes.splice(D().clientes.indexOf(c), 1); D().cadPend.splice(i, 0, p); }; }); };
-    J.q('#ap-rec').onclick = function(){ APP.confirmar({ kick:'Recusar', tit:'Recusar este cadastro?', perigo:true, ok:'Recusar' }).then(function(s){ if (!s) return; J.fechar();
-      APP.acao('Cadastro recusado.', function(){ var i = D().cadPend.indexOf(p); D().cadPend.splice(i, 1); return function(){ D().cadPend.splice(i, 0, p); }; }); }); };
   }
 
   /* ═════════ ROTINA ═════════ */
@@ -457,7 +423,7 @@
 
   // ROMPEX I: novidades do sistema (o que mudou, em linguagem simples)
   var NOVIDADES = [
-    ['09/10/2026', 'Ambiente de teste', ['Tabelas com filtros por vencimento e valor, filtros salvos (estrela), modo compacto e total com média no rodapé.', 'Marque várias linhas para dar baixa, emitir guias ou enviar e-mails de uma vez — sempre com confirmação.', 'Tudo que grava tem "Desfazer" por alguns segundos.', 'Ctrl+K (ou /) busca cliente, CNPJ, nº do parcelamento, tela ou ação. "?" abre a ajuda da tela.', 'Automações com hora, dias e exceção por cliente; calendário do que vai acontecer.', 'Caixa de saída com conferência do anexo (valor e vencimento lidos do PDF).', 'Ficha do cliente com linha do tempo, automações do cliente e documentos do mês.', 'Link de cadastro para o cliente preencher; importações com Reverter.']],
+    ['09/10/2026', 'Ambiente de teste', ['Tabelas com filtros por vencimento e valor, modo compacto e total com média no rodapé.', 'Marque várias linhas para dar baixa, emitir guias ou enviar e-mails de uma vez — sempre com confirmação.', 'Tudo que grava tem "Desfazer" por alguns segundos.', 'Ctrl+K (ou /) busca cliente, CNPJ, nº do parcelamento, tela ou ação. "?" abre a ajuda da tela.', 'Automações com hora, dias e exceção por cliente; calendário do que vai acontecer.', 'Caixa de saída com conferência do anexo (valor e vencimento lidos do PDF).', 'Ficha do cliente com linha do tempo, automações do cliente e documentos do mês.', 'Importações com Reverter.']],
     ['08/10/2026', 'Backup 63 — base nova', ['Letra Inter, lateral mais estreita, margens menores e modo escuro preto.', 'Toda baixa pede confirmação.']],
     ['03/10/2026', 'Backup 59', ['Cartões com a mesma letra do resto do sistema.']]
   ];
@@ -482,7 +448,7 @@
     APP.ordem.forEach(function(id){ var t = APP.telas[id]; L.push({ grupo:'Telas', rot:t.tit, sub:t.sec, ic:t.ic, fn:function(){ APP.ir(id); } }); });
     [['Novo parcelamento', 'mais', function(){ APP.ir('parcelamentos'); APP.novoParcelamento(); }], ['Caixa de saída (e-mails para revisar)', 'email', function(){ APP.ir('admin', 'saida'); }],
       ['Automações', 'raio', function(){ APP.ir('admin', 'auto'); }], ['Guias do mês', 'doc', function(){ APP.ir('rotina', 'guias'); }], ['Conferência do mês', 'check', function(){ APP.ir('rotina', 'conf'); }],
-      ['Rodar as automações agora', 'raio', rodarAgora], ['Link de cadastro do cliente', 'link', function(){ APP.ir('clientes'); janelaLink(); }],
+      ['Rodar as automações agora', 'raio', rodarAgora],
       ['Modo escuro / claro', 'lua', function(){ APP.$('bt-tema').click(); }], ['Tabelas compactas', 'compacto', function(){ var on = !document.documentElement.classList.contains('compacto'); document.documentElement.classList.toggle('compacto', on); APP.pref('compacto', on); APP.redesenhar(); }]]
       .forEach(function(a){ L.push({ grupo:'Ações', rot:a[0], ic:a[1], fn:a[2] }); });
     D().clientes.forEach(function(c){ L.push({ grupo:'Clientes', rot:c.nome, sub:c.doc, extra:c.doc.replace(/\D/g, '') + ' ' + APP.grupo(c.g).nome + ' ' + c.email, ic:'pessoas', fn:function(){ APP.fichaCliente(c); } }); });

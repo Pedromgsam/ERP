@@ -1,5 +1,5 @@
 /* Peças comuns do ambiente de teste — as mesmas vão para o ERP de verdade (nucleo.js/base.css).
-   Toda tela usa SÓ estas peças: cabecalho, cartoes (abrem o detalhamento), tabela (filtros, ordenação, filtros salvos,
+   Toda tela usa SÓ estas peças: cabecalho, cartoes (abrem o detalhamento), tabela (filtros, ordenação,
    densidade, total no rodapé, seleção para ações em lote), janela no centro, confirmar, acao (com Desfazer), busca geral e ajuda. */
 (function(){
   var APP = window.APP = { telas:{}, ordem:[], atual:null, arg:null };
@@ -146,7 +146,6 @@
         + '<div class="filtros">' + (cfg.busca ? '<label class="ctl-busca">' + ic('busca') + '<input data-t="q" placeholder="' + esc(cfg.dicaBusca || 'Buscar') + '" aria-label="Buscar" value="' + esc(st.q) + '"></label>' : '')
         + (cfg.listas || []).map(function(l){ return '<select class="ctl" data-t="l" data-k="' + l.k + '" aria-label="' + esc(l.rot) + '"><option value="">' + esc(l.todos) + '</option>' + l.opcoes.map(function(o){ return '<option value="' + esc(o[0]) + '"' + (st.listas[l.k] === o[0] ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select>'; }).join('')
         + (temFx ? '<button class="bt-f" type="button" data-t="painel" aria-expanded="' + st.painel + '">' + ic('filtro') + 'Filtros <span class="nf" hidden></span></button>' : '')
-        + '<span style="position:relative"><button class="bt-f" type="button" data-t="salvos" title="Filtros salvos">' + ic('estrela') + '<span class="so-largo">Salvos</span></button></span>'
         + '<button class="ic-bt" type="button" data-t="dens" aria-pressed="' + document.documentElement.classList.contains('compacto') + '" title="Tabela compacta (mais linhas na tela)">' + ic('compacto') + '</button>'
         + '</div></div>'
         + (temFx ? '<div class="mais-filtros" data-t="pn"' + (st.painel ? '' : ' hidden') + '>'
@@ -222,7 +221,6 @@
         if (tt === 'painel'){ s2.painel = !s2.painel; el.querySelector('[data-t=pn]').hidden = !s2.painel; t.setAttribute('aria-expanded', s2.painel); return; }
         if (tt === 'limpar'){ s2.q = ''; s2.listas = {}; s2.vde = s2.vate = s2.min = s2.max = ''; APP.tabela(el, cfg2); return; }
         if (tt === 'dens'){ var on = !document.documentElement.classList.contains('compacto'); document.documentElement.classList.toggle('compacto', on); APP.pref('compacto', on); APP.redesenhar(); APP.aviso(on ? 'Tabelas compactas: mais linhas na tela.' : 'Tabelas confortáveis.'); return; }
-        if (tt === 'salvos') return menuSalvos(t, el, cfg2);
         if (tt === 'desmarcar'){ s2.sel = {}; el._redesenhar(); return; }
         if (tt === 'todas'){ var lin = []; el.querySelectorAll('tbody tr').forEach(function(tr){ lin.push(tr.dataset.k); }); var marcar = t.checked; s2.sel = {}; if (marcar) lin.forEach(function(k){ s2.sel[k] = true; }); el._redesenhar(); return; }
         if (tt === 'um'){ var k = t.closest('tr').dataset.k; if (t.checked) s2.sel[k] = true; else delete s2.sel[k]; el._redesenhar(); return; }
@@ -240,29 +238,6 @@
     return { st:st, redesenhar:el._redesenhar };
   };
   APP.marcadas = function(id){ return Object.keys((EST[id] || {}).sel || {}); };
-
-  // F2: filtros salvos (por tabela)
-  function menuSalvos(bt, el, cfg){
-    fecharMenus();
-    var L = (APP.D.filtrosSalvos[cfg.id] = APP.D.filtrosSalvos[cfg.id] || []);
-    var m = document.createElement('div'); m.className = 'menu'; m.style.right = '0'; m.style.top = '38px';
-    m.innerHTML = '<div class="tit">Filtros salvos</div>' + (L.length ? L.map(function(f, i){ return '<button type="button" data-usar="' + i + '">' + ic('estrela') + esc(f.nome) + '<span class="x" data-apagar="' + i + '" title="Apagar">×</span></button>'; }).join('') : '<button type="button" disabled style="color:var(--text3)">Nenhum ainda</button>')
-      + '<div class="sep"></div><button type="button" data-salvar>' + ic('mais') + 'Salvar os filtros de agora…</button>';
-    bt.parentNode.appendChild(m);
-    m.onclick = function(e){
-      e.stopPropagation();
-      var ap = e.target.closest('[data-apagar]'); if (ap){ var f = L.splice(+ap.dataset.apagar, 1)[0]; fecharMenus(); APP.salvar(); APP.aviso('Filtro "' + f.nome + '" apagado.', function(){ L.push(f); }); return; }
-      var u = e.target.closest('[data-usar]'); if (u){ var s = EST[cfg.id], f2 = L[+u.dataset.usar].st; s.q = f2.q || ''; s.listas = Object.assign({}, f2.listas || {}); s.vde = f2.vde || ''; s.vate = f2.vate || ''; s.min = f2.min != null ? String(f2.min) : ''; s.max = f2.max != null ? String(f2.max) : ''; if (f2.aba) s.aba = f2.aba; s.painel = !!(s.vde || s.vate || s.min || s.max); fecharMenus(); APP.tabela(el, cfg); APP.aviso('Filtro aplicado: ' + L[+u.dataset.usar].nome); return; }
-      if (e.target.closest('[data-salvar]')){ fecharMenus();
-        var J = APP.janela({ kick:'Filtros salvos', tit:'Salvar os filtros de agora', corpo:'<div class="campo"><label for="fs-nome">Nome</label><input class="ctl" id="fs-nome" placeholder="Ex.: Horizonte · em atraso · acima de R$ 1.000"></div><span class="ajuda" style="color:var(--text3);font-size:12px">Guarda a aba, a busca, as listas, o vencimento e o valor escolhidos. Vale só para esta tabela.</span>',
-          rodape:'<button class="bt bt-o" type="button" data-fechar>Cancelar</button><button class="bt bt-p" type="button" id="fs-ok">' + ic('check') + 'Salvar</button>' });
-        J.q('#fs-ok').onclick = function(){ var nome = J.q('#fs-nome').value.trim(); if (!nome) return J.q('#fs-nome').focus(); var s = EST[cfg.id];
-          L.push({ nome:nome, st:{ aba:s.aba, q:s.q, listas:Object.assign({}, s.listas), vde:s.vde, vate:s.vate, min:s.min, max:s.max } }); J.fechar(); APP.salvar(); APP.aviso('Filtro "' + nome + '" salvo. Ele aparece em "Salvos".'); };
-      }
-    };
-  }
-  function fecharMenus(){ document.querySelectorAll('.menu').forEach(function(m){ m.remove(); }); }
-  document.addEventListener('click', function(e){ if (!e.target.closest('.menu') && !e.target.closest('[data-t=salvos]')) fecharMenus(); });
 
   /* ── F1: busca geral (Ctrl+K) ── */
   APP.abrirBusca = function(){

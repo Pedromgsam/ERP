@@ -111,7 +111,7 @@
   /* ═════════ PARCELAMENTOS ═════════ */
   var grupoAberto = 'g2', chipSit = 'todos';
   APP.registrar('parcelamentos', { tit:'Parcelamentos', ic:'camadas', sec:'Jurídico',
-    ajuda:['Primeiro a <b>situação por cliente</b> (um cartão por grupo; clique para ver os parcelamentos). Depois as <b>parcelas</b>.', '<b>Vencimento</b>: vermelho = em atraso (hoje conta como vencido); azul = a vencer. Pagas mostram "✓ Pago em" na coluna Baixa.', '<b>Filtros</b> abre vencimento e valor. <b>Salvos</b> guarda uma combinação com nome. O ícone de linhas deixa a tabela compacta.', 'Marque várias parcelas para <b>dar baixa</b> ou <b>marcar guias como emitidas</b> de uma vez — sempre com confirmação.', 'Toda baixa pede confirmação e tem "Desfazer" por alguns segundos.'],
+    ajuda:['Primeiro a <b>situação por cliente</b> (um cartão por grupo; clique para ver os parcelamentos). Depois as <b>parcelas</b>.', '<b>Vencimento</b>: vermelho = em atraso (hoje conta como vencido); azul = a vencer. Pagas mostram "✓ Pago em" na coluna Baixa.', '<b>Filtros</b> abre vencimento e valor. O ícone de linhas deixa a tabela compacta.', 'Marque várias parcelas para <b>dar baixa</b> ou <b>marcar guias como emitidas</b> de uma vez — sempre com confirmação.', 'Toda baixa pede confirmação e tem "Desfazer" por alguns segundos.'],
     novo:function(){ APP.novoParcelamento(); },
     desenhar:function(el){
       var t = D().parcelas, atr = t.filter(function(x){ return N.estado(x) === 'atraso'; }), mes = t.filter(function(x){ return !x.pago && APP.doMes(x.venc); });
@@ -310,7 +310,7 @@
       APP.acao('Honorário excluído.', function(){ var i = D().honorarios.indexOf(h); D().honorarios.splice(i, 1); return function(){ D().honorarios.splice(i, 0, h); }; }); }); };
   };
   APP.registrar('financeiro', { tit:'Financeiro · Jurídico', ic:'dinheiro', sec:'Financeiro',
-    ajuda:['Honorários que os clientes pagam ao escritório: contratos, mensalidades e êxito.', 'Cartões abrem o detalhe. A tabela tem filtros, ordenação, filtros salvos e recebimento em lote (com confirmação).', 'Ao receber, o recibo em PDF segue sozinho para o cliente (automação "Recibo de pagamento").'],
+    ajuda:['Honorários que os clientes pagam ao escritório: contratos, mensalidades e êxito.', 'Cartões abrem o detalhe. A tabela tem filtros, ordenação e recebimento em lote (com confirmação).', 'Ao receber, o recibo em PDF segue sozinho para o cliente (automação "Recibo de pagamento").'],
     novo:function(){ APP.aviso('No ERP, abre "Lançar honorário" na janela do centro.'); },
     desenhar:function(el){
       var H = D().honorarios, mes = H.filter(function(h){ return APP.doMes(h.venc); }), rec = mes.filter(function(h){ return h.rec; }), arec = mes.filter(function(h){ return !h.rec && h.venc > HOJE; }), atr = H.filter(function(h){ return !h.rec && h.venc <= HOJE; });

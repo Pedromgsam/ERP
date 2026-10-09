@@ -62,6 +62,10 @@ Aprovado pelo usuário em 08/10/2026. Leia isto antes de qualquer rodada da refo
   antes de enviar, "?" de ajuda, importações com Reverter, Novidades. Fora: NFS-e Nacional, apuração pelos XMLs, leitura por foto com IA (paga).
   Regra: o que muda num módulo do ambiente vale para o sistema todo (peças únicas em `pecas.js`).
 
+- **Respostas ao ambiente de teste (Backup 67):** SEM filtros salvos (F2) e SEM link de cadastro do cliente — removidos. Os e-mails ao cliente continuam com o
+  modelo bonito do ERP (`email_cliente_html`/`guias_texto_html`); Honorários continua com a aba Análise (tabelas e gráficos); nenhuma função do ERP sai na reforma
+  sem aprovação. Toda mudança pedida num módulo vale para o sistema todo (regra no CLAUDE.md).
+
 ## Etapas (uma por Backup/PR)
 | Etapa | O que fazer | Situação |
 |---|---|---|

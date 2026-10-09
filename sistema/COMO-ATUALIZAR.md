@@ -707,6 +707,13 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
 **Central de Documentos dentro do ERP:** menu **Documentos → Gerar documento** (ou ⋯ → Documentos, contrato, recibo do Financeiro).
 **Ctrl + clique** (ou botão do meio do mouse) em qualquer item do menu ou link de documento abre numa aba nova.
 
+## Backup 67 — Ajustes no ambiente de teste (o ERP não muda)
+1. Merge da pull request.
+2. SQL: não precisa. Ctrl+Shift+R: não precisa.
+
+O que mudou no ambiente de teste (mesmo link: https://claude.ai/artifact/UGretADTq3ZNXoLnQjqopB): saíram os **filtros salvos** (estrela "Salvos")
+e o **link de cadastro do cliente**.
+
 ## Backup 66 — Ambiente de teste completo (só testes; o ERP não muda)
 1. Merge da pull request.
 2. SQL: não precisa. Ctrl+Shift+R: não precisa (nada mudou no ERP).
