@@ -39,7 +39,14 @@ Aprovado pelo usuário em 08/10/2026. Leia isto antes de qualquer rodada da refo
   lista do grupo: coluna "Situação" = "N parcela(s) em atraso" em vermelho ou "Em dia" em verde (a pílula "Situação" antiga saiu);
   janela do parcelamento com "Emitir" (por guia e "Emitir guias (n)"); **regra geral: todo clique que lança pagamento pede confirmação**
   (janela com a data, `perguntarBaixa`); **letra = Inter** (escolhida). Etapa 2 liberada.
-- Guia v2 (Backup 61), v3 (Backup 62) e v4 (Backup 63) com essas respostas; diagnóstico da Etapa 1 em `sistema/DIAGNOSTICO-REFORMA.md`.
+- **Respostas ao guia v4 (09/10/2026, depois do Backup 63)** — valem para TODO o sistema:
+  texto menor (corpo 13 px; títulos/cartões/abas 1–4 px menores); **testar a letra da tabela de parcelamentos do ERP.html** (DM Sans no texto,
+  Playfair Display 11 px no cabeçalho, JetBrains Mono 12 px em valores/datas/nº) — o sistema está em Inter (B63) até o usuário decidir;
+  **nome da empresa sem negrito**; **sem coluna "Situação" nas listas de parcelas/lançamentos**: o VENCIMENTO inteiro (data + "N dias de atraso")
+  fica vermelho em atraso (inclui hoje) e azul a vencer (data + "em N dias"); paga = data normal e a coluna Baixa mostra "✓ Pago em dd/mm"
+  ("Recebido em" no Financeiro). A coluna "Situação" da lista do grupo (nº de parcelas em atraso / Em dia) continua.
+  Guia v5 ganhou um seletor "Tela" com um 2º exemplo: Financeiro · Honorários (mesmas peças).
+- Guia v2 (Backup 61), v3 (Backup 62), v4 (Backup 63) e v5 (Backup 64) com essas respostas; diagnóstico da Etapa 1 em `sistema/DIAGNOSTICO-REFORMA.md`.
 - Funções novas do ROMPEX (A–K da conversa: NFS-e Nacional pelo A1, envio de documentos por competência, link de cadastro do cliente,
   conferir anexo antes de enviar, busca Ctrl+K, "?" de ajuda, envio seguro de e-mail, registro de importações com reverter,
   página Atualizações, apuração pelos XMLs, leitura por foto com IA [paga]) → **perguntar ao usuário depois da reforma**, não antes.
