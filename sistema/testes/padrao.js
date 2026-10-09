@@ -33,7 +33,7 @@ const REGRAS = [
 const ROTINA = (aba) => "document.querySelector('#rt-abas [data-rt-aba=" + aba + "]').click()";
 
 // telas e, entre colchetes, o que clicar antes de medir (abas)
-const TELAS = [['hoje'], ['resumo'], ['processos'], ['parcelamentos'], ['parcelamentos', "setParcTab('avencer')"], ['acordos'], ['acordos', "setAcordTab('pagar')"],
+const TELAS = [['hoje'], ['resumo'], ['processos'], ['parcelamentos'], ['parcelamentos', "document.querySelector('#pc-tabela [data-b-aba=avencer]').click()"], ['acordos'], ['acordos', "setAcordTab('pagar')"],
   ['acordos', "setAcordTab('pago')"], ['financeiro', "setFinTab('receber')"], ['financeiro', "setFinTab('recebidos')"], ['financeiro', "setFinTab('analise')"],
   ['financeiroContab', "setFinCTab('receber')"], ['contratos'], ['clientes'],
   ['rotina', ROTINA('passivo')], ['rotina', ROTINA('processos')], ['rotina', ROTINA('guias')], ['rotina', ROTINA('planilha')], ['tarefas'], ['alertas'], ['crm'], ['publicacoes']];

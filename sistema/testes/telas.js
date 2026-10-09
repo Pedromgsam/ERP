@@ -153,6 +153,9 @@ const r = []; const ok = (n, c) => r.push([n, !!c]);
       ok(vez ? 'reimportar módulos não duplica' : 'grava 4 processos, 2 parcelamentos, 5 parcelas, 2 acordos, 2 tarefas', contagem() === '4,2,5,2,2');
     }
     ok('parcelas ligadas ao parcelamento e grupo resolvido', sql("select count(*) from parcelas x join parcelamentos p on p.id=x.parcelamento_id join grupos g on g.id=p.grupo_id where g.nome='Grupo Alfa'") === '5');
+    // Backup 68: a tela nova de Parcelamentos também abre no Gestão avulso (lê do banco)
+    await menu(p, 'parcelamentos'); await p.waitForSelector('#pc-grupos .b-cg', { timeout: 10000 }).catch(() => {});
+    ok('Parcelamentos (tela nova): situação por cliente e parcelas em abas', /Grupo Alfa/.test(await texto(p, '#pc-grupos')) && (await p.$$('#pc-tabela [data-b-aba]')).length === 3);
 
     // Painel Executivo
     await menu(p, 'painel');
