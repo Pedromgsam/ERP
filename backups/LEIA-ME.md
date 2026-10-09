@@ -70,6 +70,8 @@ versão foi ao ar**. O número cresce a cada entrega.
 | 62 | Reforma: tela-modelo v3 (4º cartão "Guias a emitir", A vencer/Pagas com todas as parcelas, vence hoje = em atraso, coluna "Em atraso" na lista do grupo, janela do parcelamento com ficha e todas as parcelas, criar/editar em janela no centro, Inter sugerida). O sistema não muda |
 | 63 | Reforma, etapa 2 — base nova do visual: letra Inter, cabeçalho das tabelas claro, Grupo só com o nome, lateral 188 px e margens de 20 px, escuro preto, "vence hoje" em vermelho, todo pagamento de parcela pede confirmação, faixa de grupo sem piscar; peças novas (base.css + nucleo.js) para as telas refeitas; tela-modelo v4 |
 | 64 | Reforma: tela-modelo v5 (texto menor, letra do ERP.html em teste, nome sem negrito, sem coluna Situação — vencimento vermelho/azul, "Pago em" na Baixa; 2ª tela de exemplo: Financeiro · Honorários). O sistema não muda |
+| 65 | Reforma: tela-modelo v6 (letra Inter, filtros de vencimento e valor e ordenação em toda tabela, cartões que abrem o detalhamento) e sugestões numeradas em `sistema/SUGESTOES-REFORMA.md`. O sistema não muda |
+| 66 | Reforma: ambiente de teste completo (`sistema/prototipos/ambiente-teste/`: Início, Rotina, Parcelamentos, Honorários, Clientes, Administração; sugestões E1–E5, F1/F2/F4/F5/F7, A1–A6, O1, funções do ROMPEX; automações por cliente) e `sistema/banco/anonimizar-copia.sql` (O2). O ERP não muda |
 
 ## Como baixar um backup
 No GitHub, abra a pasta `backups`, clique no arquivo e depois em **Download** (ícone de seta, à direita).

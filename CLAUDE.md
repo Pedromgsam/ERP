@@ -92,9 +92,16 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
   marcar a tela; `_lgConfirmaPag` = true (sem confirm duplo). Corrigido o "pisca" da faixa de grupo (o :hover encolhia o td → loop; base.css fixa o padding). Próxima = **Etapa 3: Parcelamentos**
   refeita com as peças (ordem: Situação por cliente → abas Em atraso/A vencer/Pagas → tabela; janela do parcelamento com ficha, 5 números, parcelas, Emitir; Baixa com confirmação).
   Os blocos "Backup N" do design.css saem na rodada de cada tela.
+  Backup 65 (só docs): guia v6 — LETRA = INTER (definitiva); regras para todas as telas: filtros em toda tabela (busca/listas + botão "Filtros" com vencimento e valor de/até),
+  ordenar clicando no título, todo cartão abre o detalhamento (lista abaixo), toda informação clicável abre o detalhe. Levar para `tabelaLeve`/`cartoesNumero` na Etapa 3.
+  Sugestões para o usuário escolher: `sistema/SUGESTOES-REFORMA.md` (E1–E5, F1–F8, A1–A6, O1–O2).
   Backup 64 (só docs): guia v5 com as regras novas que valem para o sistema todo — texto menor, nome sem negrito, SEM coluna "Situação" nas listas de parcelas
   (vencimento inteiro vermelho/azul; "✓ Pago em" na coluna Baixa), letra do ERP.html (DM Sans + Playfair no th + JetBrains nos números) EM TESTE — perguntar ao usuário
   antes de trocar a Inter. Ainda NÃO aplicado no app: fazer junto com a Etapa 3 (Parcelamentos) e levar para `tabelaLeve`/base.css.
+  **Backup 66 = AMBIENTE DE TESTE** (`sistema/prototipos/ambiente-teste/`, artifact https://claude.ai/artifact/UGretADTq3ZNXoLnQjqopB; dados fictícios em localStorage, hoje fixo 09/10/2026):
+  peças em `pecas.js` (`APP.tabela` com filtros/ordem/salvos/compacto/total+média/lote, `cartoes`, `janela`, `confirmar`, `acao` com Desfazer, busca Ctrl+K `APP.indice`, ajuda "?"), regras em
+  `negocio.js` (`N.regra(auto, cli)` = exceção por cliente, `N.proximas`, `N.checagens`, `N.lerPdf`, `N.linhaDoTempo`), telas em `telas-1.js`/`telas-2.js`. O usuário só leva para o ERP quando
+  terminar o ambiente; a Etapa 3 (Parcelamentos) espera. Teste: servir a pasta (python3 -m http.server) + playwright. `sistema/banco/anonimizar-copia.sql` (O2; só roda com `configuracoes.ambiente='"teste"'`).
   **O repositório GitHub está PÚBLICO** (09/10/2026; tem `#Sistemas/7 - Documentos/Modelos/Ronaldo.json` com nome/CNPJ de cliente) — o usuário foi orientado a deixá-lo privado. Falhas que JÁ existiam antes desta rodada (conferido rodando a versão anterior): erp.js travava no ✓ da Rotina (era o pisca — corrigido); erp.js "B51 T2 calendário mostra as próximas" (cache de 30 s de `projecoesRecorrentes` não é limpo depois do SQL do teste); padrao.js "situação: em atraso" (depende da data dos dados de teste).
 - Última entrega com mudança no app: **Backup 63** (só front; sem SQL) — ver acima. Backup 59 (só front; sem SQL). Cartões voltaram ao `--font-ui`: saíram do bloco B57 do design.css as regras `.card-hd/.cc-t/.sec-t/.ex-t/.erp-box-hd/.m-title` em
   `--font-tit` e `.kv` em `--font-num` (Playfair/JetBrains só em `thead th` e nas células numéricas das tabelas).
