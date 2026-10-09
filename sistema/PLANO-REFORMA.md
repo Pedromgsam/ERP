@@ -55,6 +55,13 @@ Aprovado pelo usuário em 08/10/2026. Leia isto antes de qualquer rodada da refo
   conferir anexo antes de enviar, busca Ctrl+K, "?" de ajuda, envio seguro de e-mail, registro de importações com reverter,
   página Atualizações, apuração pelos XMLs, leitura por foto com IA [paga]) → **perguntar ao usuário depois da reforma**, não antes.
 
+- **Ambiente de teste (Backup 66)** — pedido do usuário antes da Etapa 3: `sistema/prototipos/ambiente-teste/` (index.html + app.css + dados.js + pecas.js + negocio.js + telas-1.js + telas-2.js;
+  artifact https://claude.ai/artifact/UGretADTq3ZNXoLnQjqopB). **Só vai para o ERP de verdade quando o usuário der o ambiente por terminado.** Feito ali: E1–E5, F1, F2, F4, F5, F7 (arquivos;
+  instalar só no ERP), A1–A6 (cada automação com hora/dias e exceção POR CLIENTE: Padrão/Desligado/Personalizado — `N.regra(auto, cliente)`; calendário `N.proximas`), O1 (processo na tela
+  Administração → Ambiente de teste), O2 (`sistema/banco/anonimizar-copia.sql`, trava `configuracoes.ambiente = "teste"`), e do ROMPEX: documentos por competência, link de cadastro, conferir anexo
+  antes de enviar, "?" de ajuda, importações com Reverter, Novidades. Fora: NFS-e Nacional, apuração pelos XMLs, leitura por foto com IA (paga).
+  Regra: o que muda num módulo do ambiente vale para o sistema todo (peças únicas em `pecas.js`).
+
 ## Etapas (uma por Backup/PR)
 | Etapa | O que fazer | Situação |
 |---|---|---|

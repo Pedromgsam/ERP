@@ -1,0 +1,14 @@
+{
+  "name": "ERP Araújo & Castro",
+  "short_name": "ERP A&C",
+  "description": "Sistema do escritório Araújo & Castro",
+  "lang": "pt-BR",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F0F2F7",
+  "theme_color": "#173B66",
+  "icons": [
+    { "src": "icone.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

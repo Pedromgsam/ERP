@@ -707,6 +707,31 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
 **Central de Documentos dentro do ERP:** menu **Documentos → Gerar documento** (ou ⋯ → Documentos, contrato, recibo do Financeiro).
 **Ctrl + clique** (ou botão do meio do mouse) em qualquer item do menu ou link de documento abre numa aba nova.
 
+## Backup 66 — Ambiente de teste completo (só testes; o ERP não muda)
+1. Merge da pull request.
+2. SQL: não precisa. Ctrl+Shift+R: não precisa (nada mudou no ERP).
+
+O que entrou: o **ambiente de teste** (link: https://claude.ai/artifact/UGretADTq3ZNXoLnQjqopB), com dados fictícios e 6 telas
+(Início, Rotina, Parcelamentos, Honorários, Clientes, Administração) usando as mesmas peças. Arquivos em `sistema/prototipos/ambiente-teste/`.
+- E1 tabela compacta (ícone de linhas) · E2 total e média no rodapé · E3 cor fixa por grupo · E4 ícones de traço, sem emoji · E5 linha do tempo do cliente com filtro.
+- F1 busca Ctrl+K (ou /) · F2 filtros salvos (estrela) · F4 ações em lote com confirmação · F5 "Desfazer" em tudo · F7 arquivos do aplicativo instalável prontos (só funciona no ERP de verdade).
+- A1 resumo da manhã · A2 lembrete antes do vencimento · A3 guia emitida → e-mail pronto · A4 parcelamento em risco → tarefa · A5 leitura do PDF da guia · A6 conferência mensal.
+  **Cada automação diz quando roda e para quem**, com exceção por cliente (Padrão / Desligado / Personalizado com dias e hora próprios):
+  Administração → Automações, ou na ficha do cliente → "Automações do cliente".
+- Do ROMPEX: documentos do mês por competência, link de cadastro do cliente, conferir o anexo antes de enviar (Caixa de saída),
+  "?" de ajuda, registro de importações com Reverter, Novidades.
+
+### O2 — cópia anonimizada do banco (quando você quiser; grátis)
+O plano grátis do Supabase permite 2 projetos. Passo a passo:
+1. supabase.com → **New project** → nome "erp-teste" (plano Free, **sem custo**). Guarde a senha do banco que ele pedir.
+2. No projeto **erp-teste**: SQL Editor → rode `sistema/banco/estrutura.sql` (igual ao de sempre).
+3. Copiar os dados do projeto de verdade para o erp-teste: me avise e eu preparo o passo a passo da cópia, feita no seu computador
+   (os dados reais não passam pelo chat nem pelo GitHub).
+4. Ainda no **erp-teste**, rode esta linha (marca o banco como de teste):
+   `insert into public.configuracoes (chave, valor) values ('ambiente', '"teste"') on conflict (chave) do update set valor = excluded.valor;`
+5. Rode `sistema/banco/anonimizar-copia.sql` (Raw → Ctrl+A/Ctrl+C → Run). Ele troca nomes, CPF/CNPJ, e-mails, telefones e endereços,
+   apaga senhas e chaves e desliga as rotinas automáticas. **No banco de verdade ele não roda** (para logo na 1ª linha, porque falta a marca do passo 4).
+
 ## Backup 65 — Tela-modelo v6 e sugestões (só documentos; o sistema não muda)
 1. Merge da pull request.
 2. SQL: não precisa. Ctrl+Shift+R: não precisa (nada mudou nas telas).

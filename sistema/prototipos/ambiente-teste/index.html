@@ -1,0 +1,61 @@
+<meta charset="utf-8">
+<title>Ambiente de Teste ERP</title>
+<meta name="theme-color" content="#173B66">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="app.css">
+
+<div class="faixa-teste" role="note"><b>AMBIENTE DE TESTE</b><span>Dados fictícios. Hoje é 09/10/2026. O que você muda fica só neste navegador e não chega ao ERP.</span></div>
+<div class="app">
+  <nav class="lado" id="lado" aria-label="Menu">
+    <div class="marca">Araújo &amp; Castro<small>ERP · ambiente de teste</small></div>
+    <div id="menu"></div>
+  </nav>
+  <div>
+    <header class="topo">
+      <button class="ic-bt so-celular" type="button" id="bt-menu" aria-label="Abrir o menu"></button>
+      <span class="onde" id="onde"></span>
+      <button class="busca-geral" type="button" id="bt-busca" aria-label="Buscar (Ctrl+K)"></button>
+      <button class="ic-bt" type="button" id="bt-ajuda" title="Ajuda desta tela (?)" aria-label="Ajuda"></button>
+      <button class="ic-bt" type="button" id="bt-tema" title="Modo escuro / claro" aria-label="Modo escuro"></button>
+      <div class="eu"><span class="ava">PC</span><div><b>Pedro Castro</b><small>Administrador</small></div></div>
+    </header>
+    <main class="corpo" id="corpo"></main>
+  </div>
+</div>
+<div class="avisos" id="avisos" aria-live="polite"></div>
+
+<script src="dados.js"></script>
+<script src="pecas.js"></script>
+<script src="negocio.js"></script>
+<script src="telas-1.js"></script>
+<script src="telas-2.js"></script>
+<script>
+(function(){
+  var APP = window.APP, ic = APP.ic;
+  APP.D = DADOS.carregar() || DADOS.gerar();
+  // menu: a mesma ordem do ERP
+  var MENU = [['Principal', ['inicio', 'rotina']], ['Jurídico', ['parcelamentos']], ['Financeiro', ['financeiro']], ['Cadastros', ['clientes']], ['Sistema', ['admin']]];
+  document.getElementById('menu').innerHTML = MENU.map(function(s){ return '<div class="sec">' + s[0] + '</div>' + s[1].map(function(id){ var t = APP.telas[id]; return '<button class="item" type="button" data-ir="' + id + '">' + ic(t.ic) + '<span>' + APP.esc(id === 'financeiro' ? 'Honorários' : t.tit) + '</span></button>'; }).join(''); }).join('');
+  document.getElementById('menu').onclick = function(e){ var b = e.target.closest('[data-ir]'); if (b) APP.ir(b.dataset.ir); };
+  document.getElementById('bt-menu').innerHTML = ic('menu');
+  document.getElementById('bt-menu').onclick = function(){ document.getElementById('lado').classList.toggle('aberto'); };
+  document.getElementById('bt-busca').innerHTML = ic('busca') + '<span>Buscar cliente, CNPJ, parcelamento…</span><kbd>Ctrl K</kbd>';
+  document.getElementById('bt-busca').onclick = APP.abrirBusca;
+  document.getElementById('bt-ajuda').innerHTML = ic('ajuda');
+  document.getElementById('bt-ajuda').onclick = APP.abrirAjuda;
+  // tema: segue o sistema até a pessoa escolher
+  var bt = document.getElementById('bt-tema'); bt.innerHTML = ic('lua');
+  function escuroAgora(){ var t = document.documentElement.getAttribute('data-theme'); return t ? t === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; }
+  if (APP.pref('tema')) document.documentElement.setAttribute('data-theme', APP.pref('tema'));
+  bt.setAttribute('aria-pressed', escuroAgora());
+  bt.onclick = function(){ var novo = escuroAgora() ? 'light' : 'dark'; document.documentElement.setAttribute('data-theme', novo); APP.pref('tema', novo); bt.setAttribute('aria-pressed', novo === 'dark'); };
+  if (APP.pref('compacto')) document.documentElement.classList.add('compacto');
+  document.addEventListener('click', function(e){ var l = document.getElementById('lado'); if (l.classList.contains('aberto') && !e.target.closest('#lado') && !e.target.closest('#bt-menu')) l.classList.remove('aberto'); });
+  var t = APP.pref('tela'); APP.ir(APP.telas[t] ? t : 'inicio');
+  // F7: aplicativo instalável (só funciona fora de página incorporada; no ERP de verdade, sim)
+  try { if ('serviceWorker' in navigator && window.top === window && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(function(){}); } catch (e) {}
+})();
+</script>
