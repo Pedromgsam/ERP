@@ -2,7 +2,7 @@
 
 Responda com os números que aprovar (ex.: "aprovo E1, E3, F2, A1"). Nada daqui é feito sem a sua aprovação.
 Tudo pode ser testado antes na tela-modelo (https://claude.ai/artifact/T1Mbpimj7Fh5E2ZyviaDmY).
-Custos: só A5 e F7 têm custo, e estão marcados.
+Custos: A5 (com IA) e O2 podem ter custo — está explicado em cada um; o resto é grátis.
 
 ## E — Estética (visual)
 - **E1. Densidade escolhível**: botão "confortável / compacto" nas tabelas. O compacto mostra ~20 linhas na tela em vez de 12, e o sistema lembra a escolha de cada pessoa.
@@ -31,4 +31,4 @@ Custos: só A5 e F7 têm custo, e estão marcados.
 
 ## O — Organização do trabalho
 - **O1. Protótipo uma etapa à frente**: antes de cada módulo, a tela-modelo dele é feita e aprovada; depois o ERP é mudado. Já fizemos assim com Parcelamentos e Financeiro.
-- **O2. Ambiente de testes com cópia dos dados**: um segundo endereço do ERP (outro projeto do Supabase, grátis no plano atual) com uma cópia **anonimizada** dos dados, para testar com volume real sem mexer no ERP de verdade.
+- **O2. Ambiente de testes com cópia dos dados**: um segundo endereço do ERP (outro projeto do Supabase: o plano gratuito permite 2 projetos; se a conta já usar os dois, eu confiro o preço antes) com uma cópia **anonimizada** dos dados, para testar com volume real sem mexer no ERP de verdade.
