@@ -145,7 +145,9 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.evaluate(() => { const b = [...document.querySelectorAll('#panel-financeiro button')].find((x) => /A Receber/i.test(x.textContent)); if (b) b.click(); });
     await p.waitForTimeout(1200);
     const cab = await p.$$eval('#panel-financeiro .gx-tab-gs table thead th', (l) => l.map((t) => t.textContent.trim()).filter(Boolean));
-    ok('A Receber no padrão de pagamento (Quem, Grupo, Descrição, Valor, Vencimento, Atraso)', cab.join('|') === 'Quem|Grupo / Favorecido|Descrição|Valor|Vencimento|Atraso', cab.join('|'));
+    ok('A Receber no desenho de Acordos (B71: Quem, Grupo, Descrição, Valor, Vencimento, Prazo)', cab.map((t) => t.replace(/[↑↓]/g, '').trim()).join('|') === 'Quem|Grupo / Favorecido|Descrição|Valor|Vencimento|Prazo', cab.join('|'));
+    ok('Financeiro (B71): Cobrar + Baixa na linha, linha vencida rosada e "Marcar várias" sem caixinhas à vista', !!(await p.$('#panel-financeiro .gx-tab-gs .b-bt-baixa[data-pagar]')) && !!(await p.$('#panel-financeiro .gx-tab-gs [data-cobrar]')) &&
+      !(await p.$('#panel-financeiro .gx-tab-gs .b-ck')) && !!(await p.$('#panel-financeiro .gx-tab-gs [data-bt=loteon]')));
     ok('tabela original do ERP escondida (sem duplicar)', await p.$eval('#tblFinBody', (tb) => tb.closest('table').classList.contains('gx-oculta')));
     ok('comissão aparece como redutor (valor negativo)', /−\s*R\$\s*150,00/.test(await p.textContent('#panel-financeiro .gx-tab-gs')) && /redutor/.test(await p.textContent('#panel-financeiro .gx-tab-gs')));
     await foto(p, 'areceber');
@@ -160,7 +162,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     const idRec = sql("select id from lancamentos where descricao='Honorários mensais'");
     // Backup 58: sem a caneta na linha — clicar na linha abre o detalhe e o "✎ Editar" fica lá dentro
     ok('Financeiro: linha sem a caneta ✎ (editar pelo detalhe)', !(await p.$('#panel-financeiro .gx-tab-gs tr [data-editar]')) && !(await p.$('#panel-financeiro .gx-la-ed')));
-    await p.click('#panel-financeiro .gx-tab-gs tr[data-lanc="' + idRec + '"] td:nth-child(3)');
+    await p.click('#panel-financeiro .gx-tab-gs tr[data-b-k="' + idRec + '"] td:nth-child(3)');
     await p.waitForSelector('#gs-raiz .janela [data-editar]', { timeout: 8000 }); await p.click('#gs-raiz .janela [data-editar]');
     await p.waitForFunction(() => /Editar receita/.test((document.querySelector('#gs-raiz .janela-hd') || {}).textContent || ''), null, { timeout: 8000 }).catch(() => {}); await p.waitForTimeout(250);
     ok('Editar abre o formulário do Gestão', /Editar receita/.test(await p.textContent('#gs-raiz .janela-hd')));
@@ -244,7 +246,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     // ── acordo (✓ Baixa na linha) e processo ──
     await nav(p, 'acordos'); await p.waitForTimeout(600);
     const idAc = sql("select id from acordos where credor='Carlos Credor'");
-    ok('acordos com ✓ Baixa na linha', await p.evaluate((id) => document.querySelectorAll('tr[data-gx^="acordos:' + id + '"] [data-la=baixa]').length > 0, idAc));
+    ok('acordos (B70): Baixa na linha da tabela nova', await p.evaluate((id) => !!document.querySelector('#ac-tabela [data-ac-baixa="' + id + '"]'), idAc));
     await p.evaluate((id) => ERP_EDITAR('acordos:' + id), idAc); await esperarJanela(p);
     await p.click('.gx-janela [data-a=baixa]');
     await p.waitForSelector('.janela-baixa [name=bx-comp][value=sim]', { timeout: 8000 });
@@ -801,15 +803,16 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await nav(p, 'processos'); await p.waitForTimeout(1200);
     ok('Processos: sem "Visão Geral" e sem "Todos status"; Análise com passivo e ativo em disputas', !(await p.isVisible('#kpiProc')) && !(await p.$('#fProcStatus')) &&
       /Passivo em disputas/.test(await p.textContent('#procAnalise')) && /Ativo em disputas/.test(await p.textContent('#procAnalise')));
-    { const n1 = await p.evaluate(() => document.querySelectorAll('#tblProcBody tr').length);
-      await p.click('#chipProcAtivo'); await p.waitForTimeout(400);
-      const n2 = await p.evaluate(() => document.querySelectorAll('#tblProcBody tr').length);
-      ok('Processos: começa só com Ativos; desmarcar mostra todos', n2 >= n1, n1 + '→' + n2); await p.click('#chipProcAtivo'); }
-    await p.click('#tblProcBody tr.gx-linha-exp'); await p.waitForTimeout(500);
-    ok('Processos: clicar no processo abre uma janela com o detalhe (não abre para baixo)', await p.evaluate(() => [...document.querySelectorAll('#janelas .janela h2')].some((h) => /Processo 5000001/.test(h.textContent))) &&
-      !(await p.$('#tblProcBody tr.gx-det')) && !!(await p.$('#janelas [data-pr-editar]')));
+    // Backup 72: a lista de Processos no desenho de Acordos (abas Ativos · Arquivados · Extintos · Todos); a tabela antiga fica para o portal do cliente
+    ok('Processos (B72): a tabela antiga some para a equipe e a nova aparece com as abas', !(await p.isVisible('#tblProcBody')) && (await p.$$eval('#pr-nova [data-b-aba]', (l) => l.map((b) => b.textContent.replace(/\d+/g, '').trim()).join('|'))) === 'Ativos|Arquivados|Extintos|Todos');
+    { const n1 = await p.evaluate(() => document.querySelectorAll('#pr-nova tbody tr[data-b-k]').length);
+      await p.click('#pr-nova [data-b-aba=todos]'); await p.waitForTimeout(300);
+      const n2 = await p.evaluate(() => document.querySelectorAll('#pr-nova tbody tr[data-b-k]').length);
+      ok('Processos: começa só com Ativos; "Todos" mostra todos', n2 >= n1 && n1 > 0, n1 + '→' + n2); await p.click('#pr-nova [data-b-aba=at]'); await p.waitForTimeout(200); }
+    await p.click('#pr-nova tr[data-b-k]:has-text("5000001") td:nth-child(2)'); await p.waitForTimeout(500);
+    ok('Processos: clicar no processo abre uma janela com o detalhe', await p.evaluate(() => [...document.querySelectorAll('#janelas .janela h2')].some((h) => /Processo 5000001/.test(h.textContent))) && !!(await p.$('#janelas [data-pr-editar]')) && !!(await p.$('#janelas [data-pr-mov]')));
     await p.evaluate(() => { while (document.querySelector('#janelas .fundo')) window.GS.fecharJanela(); });
-    ok('Processos: grupo em texto simples e sem o botão "Limpar"', !!(await p.$('#tblProcBody td.gx-grupo-txt')) && !(await p.isVisible('#btnProcClear')));
+    ok('Processos (B72): colunas Grupo, Processo, Competência, Natureza, Partes, Valor, Última movimentação, Status', (await p.$$eval('#pr-nova thead th', (l) => l.map((t) => t.textContent.replace(/[↑↓]/g, '').trim()).join('|'))) === 'Grupo|Processo|Competência|Natureza|Partes|Valor|Última movimentação|Status');
     // ── Backup 68 (reforma, etapa 3): Parcelamentos refeita — os testes da tela antiga viraram estes (mesmas funções, peças novas) ──
     await nav(p, 'parcelamentos'); await p.waitForSelector('#panel-parcelamentos #pc-grupos .b-cg');
     ok('Parcelamentos (B68): a tela antiga fica escondida para a equipe (sem a "Situação" antiga, sem o selo vermelho do topo)', !(await p.isVisible('#parcAnalise')) && !(await p.isVisible('#alertParc')) && !(await p.isVisible('#parcTabBar')));
@@ -859,43 +862,47 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('Parcelamentos (B68): confirmou → grava e a parcela vai para "Pagas" com "Pago em"', sql("select pago from parcelas where id='" + idParc3 + "'") === 't' && !(await p.$('#pc-tabela tr[data-b-k="' + idParc3 + '"] [data-pc-baixa]')));
     await p.click('#gx-rodape .gx-rod-bt'); await p.waitForTimeout(1500);
     ok('Parcelamentos (B68): "Desfazer" no rodapé tira a baixa', sql("select pago from parcelas where id='" + idParc3 + "'") === 'f' && !!(await p.$('#pc-tabela tr[data-b-k="' + idParc3 + '"] [data-pc-baixa]')));
-    await nav(p, 'acordos'); await p.waitForTimeout(1200);
-    ok('Acordos (B49): o resumo "Situação dos acordos" começa fechado (a lista principal é a A pagar)', await p.evaluate(() => document.getElementById('exAcSit').classList.contains('fechado')));
-    await p.click('#exAcSit .ex-tg'); await p.waitForTimeout(300);
-    ok('Acordos: "Situação dos acordos" com a tabela "Acordos em andamento" (sem "Por credor" e sem o gráfico de atraso)', /Situação dos acordos/.test(await p.textContent('#acAnalise')) && /Acordos em andamento/.test(await p.textContent('#acAnalise')) &&
-      !/Por credor/.test(await p.textContent('#acAnalise')) && !(await p.$('#cAcordAtraso')));
+    await nav(p, 'acordos'); await p.waitForSelector('#ac-tabela .b-quadro', { timeout: 15000 }).catch(() => {});
+    // Backup 70: Acordos refeita com as peças novas (igual a Parcelamentos), mantendo todas as funções
+    ok('Acordos (B70): cabeçalho, 4 cartões, situação por cliente (cartões por grupo + escolhas) e a tabela de parcelas', !!(await p.$('#conteudo .b-cab')) && (await p.$$('#ac-cartoes [data-kpi]')).length === 4 &&
+      (await p.$$('#ac-chips [data-ac-chip]')).length === 5 && (await p.$$('#ac-grupos [data-ac-g]')).length >= 1 && !!(await p.$('#ac-tabela table')));
+    ok('Acordos (B70): tabela como a aprovada (Grupo, Processo, Devedor, Credor, Parcela, Valor, Vencimento, Prazo), sem "Situação" e sem caixinha de marcar', await p.evaluate(() => {
+      const t = [...document.querySelectorAll('#ac-tabela thead th')].map((th) => th.textContent.replace(/[↑↓]/g, '').trim().toLowerCase()).join('|');
+      return t.startsWith('grupo|processo|devedor|credor|parcela|valor|vencimento|prazo') && !t.includes('situação') && !document.querySelector('#ac-tabela .b-lote'); }));
+    ok('Acordos (B70): "A pagar / Pago" e atalhos Todas · Vencidas · 5 · 10 · 15 · 30 dias · até', (await p.$$('#ac-tabela [data-b-aba]')).length === 2 && (await p.$$('#ac-tabela [data-b-prazo]')).length === 6 && !!(await p.$('#ac-tabela [data-bt=prazoate]')));
+    ok('Acordos (B70): cada parcela a pagar com Emitir e Baixa', !!(await p.$('#ac-tabela [data-ac-emitir]')) && !!(await p.$('#ac-tabela [data-ac-baixa]')));
+    await p.click('#ac-cartoes [data-kpi=atr]'); await p.waitForTimeout(300);
+    ok('Acordos (B70): o cartão abre o detalhamento (lista embaixo)', !!(await p.$('#ac-cartoes .b-kpi-det .b-quadro')));
+    await p.click('#ac-cartoes [data-kpi=atr]'); await p.waitForTimeout(200);
     { const pg0 = Number(sql("select count(*) from acordos where pago"));
-      ok('Acordos: por grupo, de início só os grupos', (await p.$$('#acAnalise .lg-card')).length >= 1 && !(await p.$('#acAnalise .lg-t-lin')) || (await p.$$('#acAnalise .lg-card')).length === 1);
-      if (!(await p.$('#acAnalise .lg-t-lin'))) { await p.click('#acAnalise .lg-card'); await p.waitForTimeout(400); } await p.click('#acAnalise .lg-t-lin'); await p.waitForTimeout(500);
-      ok('Acordos: clicar no acordo abre o detalhamento com "Lançar pagamento"', !!(await p.$('#janelas .pcd [data-lg-pagar]')));
-      await p.click('#janelas .pcd [data-lg-pagar]'); await p.waitForSelector('#gs-raiz .janela-baixa, #gs-raiz [data-bx-ok]'); await p.click('#gs-raiz [data-bx-ok]'); await p.waitForTimeout(2500);
-      ok('Acordos: "Lançar pagamento" dá baixa na parcela', Number(sql("select count(*) from acordos where pago")) === pg0 + 1); }
-    ok('Acordos: acordo todo pago some da lista; "Mostrar concluídos" traz de volta', await (async () => {
+      const fecharTudo = async () => { for (let i = 0; i < 4; i++) { const f = await p.$('#gs-raiz .fundo [data-cancelar], #gs-raiz .fundo [data-fechar]'); if (!f) break; await f.click().catch(() => {}); await p.waitForTimeout(200); } };
+      if (!(await p.$('#ac-det-grupo'))) { await p.click('#ac-grupos [data-ac-g] >> nth=0'); await p.waitForTimeout(400); }
+      ok('Acordos (B70): o cartão do grupo mostra a parcela do mês e abre os acordos do grupo', /Parcela do mês/.test(await p.textContent('#ac-grupos')) && !!(await p.$('#ac-det-grupo tr[data-b-k]')));
+      await p.click('#ac-det-grupo tr[data-b-k] >> nth=0'); await p.waitForSelector('#ac-j-parcelas tr[data-b-k]', { timeout: 5000 }).catch(() => {});
+      ok('Acordos (B70): clicar no acordo abre a janela com a ficha, os 5 números e todas as parcelas', !!(await p.$('#ac-j-parcelas tr[data-b-k]')) && (await p.$$('.ac-janela .b-nums > div')).length === 5 && !!(await p.$('#ac-j-todo')));
+      await p.click('#ac-j-parcelas [data-ac-baixa] >> nth=0'); await p.waitForSelector('#gs-raiz .janela-baixa [data-bx-ok]', { timeout: 5000 });
+      ok('Acordos (B70): a Baixa pergunta antes (data e comprovante no processo)', await p.isVisible('#gs-raiz .janela-baixa .bx-comp'));
+      await p.check('#gs-raiz .janela-baixa [name=bx-comp][value=nao]').catch(() => {}); await p.click('#gs-raiz [data-bx-ok]'); await p.waitForTimeout(2500);
+      ok('Acordos (B70): a Baixa grava a parcela como paga', Number(sql("select count(*) from acordos where pago")) === pg0 + 1);
+      await fecharTudo(); }
+    ok('Acordos: acordo todo pago some da lista; "Concluídos" traz de volta', await (async () => {
       sql("update acordos set pago=true, data_pagamento=current_date where devedor='Alfa Comércio Ltda'"); await p.evaluate(() => ERP_RECARREGAR()); await p.waitForTimeout(2500);
-      for (const g of await p.$$('#acAnalise .lg-card[aria-expanded=false]')) { await g.click().catch(() => {}); await p.waitForTimeout(250); }
-      const sem = !/Alfa Comércio/.test(await p.textContent('#acAnalise'));
-      await p.check('#acMostrarTodos'); await p.waitForTimeout(500);
-      for (const g of await p.$$('#acAnalise .lg-card[aria-expanded=false]')) { await g.click().catch(() => {}); await p.waitForTimeout(250); }
-      const com = /Alfa Comércio/.test(await p.textContent('#acAnalise'));
-      await p.uncheck('#acMostrarTodos'); sql("update acordos set pago=false, data_pagamento=null where devedor='Alfa Comércio Ltda'"); await p.evaluate(() => ERP_RECARREGAR()); await p.waitForTimeout(2000);
+      const vivos = async () => { const t = []; const ids = await p.$$eval('#ac-grupos [data-ac-g]', (l) => l.map((x) => x.dataset.acG));
+        for (const id of ids) { const sel = '#ac-grupos [data-ac-g="' + id.replace(/"/g, '\\"') + '"]';
+          if ((await p.getAttribute(sel, 'aria-expanded')) !== 'true') { await p.click(sel); await p.waitForTimeout(250); }
+          t.push(await p.textContent('#ac-grupos')); } return t.join(' '); };
+      const sem = !/Alfa Comércio/i.test(await vivos());
+      await p.click('#ac-chips [data-ac-chip=concluidos]'); await p.waitForTimeout(300);
+      const com = /Alfa Comércio/i.test(await vivos());
+      await p.click('#ac-chips [data-ac-chip=todos]'); sql("update acordos set pago=false, data_pagamento=null where devedor='Alfa Comércio Ltda'"); await p.evaluate(() => ERP_RECARREGAR()); await p.waitForTimeout(2000);
       return sem && com; })());
-    ok('Acordos: sem "Saldo por devedor" e sem "Vencimentos dos próximos 30 dias"', !(await p.isVisible('#acDevedorLista')) && !(await p.isVisible('#acProx30')));
-    ok('Acordos: tabela de vencidos com altura mínima de 5 linhas (sem sobrar espaço em branco)', await p.evaluate(() => { const h = document.querySelector('#acordTabVencidos .tw').getBoundingClientRect().height; return h >= 250 && h < 400; }));
     ok('PIX copia e cola saiu (sem botão e sem a função no banco)', !(await p.$('[data-pix]')) && sql("select count(*) from pg_proc where proname in ('pix_copia_cola','crc16_ccitt')") === '0');
-    ok('Acordos: sem "Progresso por acordo"; uma aba só "A pagar" (vencidas + a vencer) com Grupo e Responsável', !(await p.isVisible('#acordProgressList')) &&
-      !(await p.isVisible('#acordTabBar [data-atab=pagar]')) && /A pagar/.test(await p.textContent('#acordTabBar')) &&
-      (await p.$$eval('#acordTabVencidos thead th', (l) => l.map((t) => t.textContent))).join('|').includes('Grupo|Processo') && !(await p.textContent('#acordTabVencidos thead')).includes('Responsável'));
-    // Backup 41: sem a caixinha de marcar — cada linha tem "Emitir", que abre a janela de envio
-    ok('Acordos: cada parcela a pagar tem "Emitir" e não tem mais a caixinha de marcar', !!(await p.$('#tblAcordosVencBody [data-ac-guia]')) && !(await p.$('#tblAcordosVencBody [data-ac-sel]')) && !(await p.$('#acSelTodos')));
-    await p.click('#tblAcordosVencBody [data-ac-guia] >> nth=0'); await p.waitForSelector('#gs-raiz .ge-janela', { timeout: 8000 }).catch(() => {});
+    await p.click('#ac-tabela [data-ac-emitir] >> nth=0'); await p.waitForSelector('#gs-raiz .ge-janela', { timeout: 8000 }).catch(() => {});
     ok('Acordos: "Emitir" abre a janela de envio', await p.isVisible('#gs-raiz .ge-janela'));
     await p.evaluate(() => { while (document.querySelector('#janelas .fundo')) window.GS.fecharJanela(); });
-    // Backup 37: filtros de prazo (vencidas · 5/10/15/30 dias · até) e sem "Situação"; "✓ emitido" ao lado do Emitir
-    ok('Acordos: tabela "A pagar" sem a coluna Situação, com filtros de prazo e sem os seletores de grupo/devedor', !(await p.textContent('#acordTabVencidos thead')).includes('Situação') &&
-      (await p.$$('#acPrazoBar [data-prazo]')).length === 6 && !!(await p.$('#acPrazoAte')) && !(await p.isVisible('#fAcordVencGrupo')) && !(await p.isVisible('#fAcordVencDev')));
-    await p.click('#acPrazoBar [data-prazo=venc]'); await p.waitForTimeout(400);
-    ok('Acordos: filtro "Vencidas" mostra só o que já venceu', await p.evaluate(() => [...document.querySelectorAll('#tblAcordosVencBody tr[data-gx]')].every((tr) => /atraso|hoje/.test(tr.textContent))));
-    await p.click('#acPrazoBar [data-prazo=""]'); await p.waitForTimeout(300);
+    await p.click('#ac-tabela [data-b-prazo=venc]'); await p.waitForTimeout(400);
+    ok('Acordos: filtro "Vencidas" mostra só o que já venceu', await p.evaluate(() => [...document.querySelectorAll('#ac-tabela tbody tr[data-b-k]')].every((tr) => /atraso|hoje/.test(tr.textContent))));
+    await p.click('#ac-tabela [data-b-prazo=""]').catch(() => {}); await p.waitForTimeout(300);
     // forma de pagamento: PIX = mensagem objetiva (Bom dia/Boa tarde, Processo | Parcela, Partes, Vencimento, Valor, PIX), sem "Seguem"
     { const idPix = sql("select id from acordos where not pago order by vencimento limit 1");
       sql("update acordos set forma_pagamento='pix', pix='chave-pix@teste.com' where id='" + idPix + "'");
@@ -1407,7 +1414,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       ok('Processos: mudança de valor grava a data do valor da causa (separada da última movimentação)', sql("select (valor_em = current_date-20)::text || '|' || (ultima_movimentacao_em = current_date-1)::text from processos where id='" + pid + "'") === 'true|true');
       await p.evaluate(() => ERP_RECARREGAR()); await nav(p, 'processos'); await p.waitForTimeout(2000);
       const num = sql("select numero from processos where id='" + pid + "'");
-      await p.click('#tblProcBody tr:has-text("' + num + '")').catch(() => {}); await p.waitForSelector('#janelas .gx-mov', { timeout: 8000 }).catch(() => {}); await p.waitForTimeout(800);
+      await p.click('#pr-nova tr[data-b-k]:has-text("' + num + '") td:nth-child(2)').catch(() => {}); await p.waitForSelector('#janelas .gx-mov', { timeout: 8000 }).catch(() => {}); await p.waitForTimeout(800);
       const t = await p.textContent('#janelas').catch(() => '');
       ok('Processos: a janela mostra as 3 últimas movimentações e "valor atualizado em"', (await p.$$('#janelas .gx-mov')).length === 3 && /Mov C/.test(t) && !/Mov velha/.test(t) && /atualizado em/.test(t), t.slice(0, 300));
       await p.evaluate(() => { while (document.querySelector('#janelas .fundo')) window.GS.fecharJanela(); }); }
@@ -1540,8 +1547,8 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       ok('B50 Tarefas: Prazo e Dias em colunas separadas e status com cor', cab.includes('Prazo') && cab.includes('Dias') && !!(await p.$('#panel-tarefas .pill.tf-st')), cab.join('|'));
       await nav(p, 'financeiro'); await p.evaluate(() => setFinTab('receber', document.querySelector('#finTabBar [data-tab=receber]'))); await p.waitForTimeout(1500);
       ok('B50 Financeiro: valor a receber em verde e botões da linha numa linha só', await p.evaluate(() => {
-        const v = document.querySelector('#panel-financeiro td.col-valor.valor-rec'), g = getComputedStyle(document.documentElement).getPropertyValue('--green-d');
-        const td = document.querySelector('#panel-financeiro td.acoes-l .gx-cobrar'); const bs = td ? [...td.closest('td').querySelectorAll('.btn')].map((b) => Math.round(b.getBoundingClientRect().top)) : [];
+        const v = document.querySelector('#panel-financeiro td.b-val.valor-rec');   // Backup 70: tabela nova (tabelaLancB)
+        const td = document.querySelector('#panel-financeiro td .gx-cobrar'); const bs = td ? [...td.closest('td').querySelectorAll('button')].map((b) => Math.round(b.getBoundingClientRect().top)) : [];
         return !!v && getComputedStyle(v).color !== getComputedStyle(document.body).color && bs.length >= 2 && new Set(bs).size === 1; }));
       await nav(p, 'admin'); await p.waitForSelector('#adm-abas'); await p.click('#adm-abas [data-aba=email]'); await p.waitForSelector('#em-abas'); await p.click('#em-abas [data-em-aba=quem]'); await p.waitForSelector('.em-quem');
       const cliQ = sql("select id from clientes where nome='Alfa Comércio Ltda'");
@@ -1934,14 +1941,13 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       ok('Backup 63 visual: cabeçalho da tabela CLARO (fundo branco, letra cinza) e letra Inter em tudo', await p.evaluate(() => { const th = document.querySelector('#tblExecRanking').closest('table').querySelector('thead th');
         return getComputedStyle(th).backgroundColor === 'rgb(255, 255, 255)' && getComputedStyle(th).color !== 'rgb(255, 255, 255)' && /^"?Inter/.test(getComputedStyle(document.body).fontFamily); }));
       ok('B55 tabelas: CPF/CNPJ discreto (letra menor, cinza)', await p.evaluate(() => { const td = document.querySelector('#tblExecRanking td.col-doc'); if (!td) return false; const c = getComputedStyle(td); return parseFloat(c.fontSize) < 13; }));
-      await nav(p, 'acordos'); await p.waitForSelector('#tblAcordosVencBody tr[data-ac-id]', { timeout: 10000 }).catch(() => {});
-      ok('B58 Acordos: botão só "Emitir" (sem "Emitido" por cima do Prazo); o "emitido" fica embaixo do prazo; Processo numa linha', await p.evaluate(() => {
-        const b = [...document.querySelectorAll('#tblAcordosVencBody .ac-bt-emitir')]; const pr = document.querySelector('#tblAcordosVencBody td.ac-c-proc');
-        return b.length > 0 && b.every((x) => x.textContent.trim() === 'Emitir') && !!pr && getComputedStyle(pr).whiteSpace === 'nowrap' && !!document.querySelector('#tblAcordosVencBody td.ac-c-prazo'); }));
-      const temAc = await p.$('#tblAcordosVencBody tr[data-ac-id] td:nth-child(3)');
-      if (temAc) { await temAc.click(); await p.waitForTimeout(300);
-        ok('B55 Acordos: clicar na parcela abre "Só esta parcela" e "O acordo inteiro"', !!(await p.$('#tblAcordosVencBody tr.ac-ed-linha [data-ac-ed=parcela]')) && !!(await p.$('#tblAcordosVencBody tr.ac-ed-linha [data-ac-ed=acordo]')));
-        await p.click('#tblAcordosVencBody tr.ac-ed-linha [data-ac-ed=acordo]'); await p.waitForSelector('#gs-raiz #f-acordo-todo', { timeout: 5000 }).catch(() => {});
+      await nav(p, 'acordos'); await p.waitForSelector('#ac-tabela tr[data-b-k]', { timeout: 10000 }).catch(() => {});
+      ok('B58/B70 Acordos: botão só "Emitir"; o "emitido" fica embaixo do prazo', await p.evaluate(() => {
+        const b = [...document.querySelectorAll('#ac-tabela [data-ac-emitir]')]; return b.length > 0 && b.every((x) => x.textContent.trim() === 'Emitir'); }));
+      const temAc = await p.$('#ac-tabela tr[data-b-k] td:nth-child(3)');
+      if (temAc) { await temAc.click(); await p.waitForSelector('#gs-raiz #ac-p-todo', { timeout: 5000 }).catch(() => {});
+        ok('B55/B70 Acordos: clicar na parcela abre "Só esta parcela" e "O acordo inteiro"', !!(await p.$('#gs-raiz #ac-p-editar')) && !!(await p.$('#gs-raiz #ac-p-todo')));
+        await p.click('#gs-raiz #ac-p-todo'); await p.waitForSelector('#gs-raiz #f-acordo-todo', { timeout: 5000 }).catch(() => {});
         ok('B55 Acordos: "O acordo inteiro" abre a edição de todas as parcelas', !!(await p.$('#gs-raiz #f-acordo-todo')));
         await fecharTudo(); }
       else ok('B55 Acordos: há parcela a pagar para testar a edição pela linha', false);

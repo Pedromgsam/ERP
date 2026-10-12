@@ -75,6 +75,7 @@ versão foi ao ar**. O número cresce a cada entrega.
 | 67 | Ambiente de teste sem filtros salvos e sem link de cadastro; regra "mudança vale para o sistema todo" registrada. O ERP não muda |
 | 68 | Reforma, etapa 3: Parcelamentos refeita no ERP com as peças do ambiente de teste (cartões que abrem o detalhe, situação por cliente, abas Em atraso/A vencer/Pagas, Filtros de vencimento e valor, ordenar, total e média, tabela compacta, baixa em lote com confirmação e Desfazer). Sem SQL |
 | 69 | Parcelamentos: tabela igual à de Acordos (A pagar/Pago, atalhos de prazo, coluna Prazo, Emitir + Baixa, sem marcar várias; listas dentro de Filtros) e "Parcela do mês" nos cartões, na lista do grupo e na janela. Sem SQL |
+| 70 | Reforma etapas 4–7: Acordos refeita (cartões, situação por cliente com parcela do mês, janela do acordo, tabela A pagar/Pago com Emitir + Baixa); Financeiro, Processos e Minhas tarefas (Rotina) no desenho da tabela de Acordos; cartões de número das telas antigas e cabeçalho/placar/abas da Rotina no visual novo; "Marcar várias" no lugar das caixinhas. Sem SQL |
 
 ## Como baixar um backup
 No GitHub, abra a pasta `backups`, clique no arquivo e depois em **Download** (ícone de seta, à direita).

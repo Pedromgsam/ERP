@@ -103,7 +103,9 @@ const r = []; const ok = (n, c) => r.push([n, !!c]);
     await p.fill('#fin-busca', ''); await esperar(p, 500);
     // ordenar por valor clicando no cabeçalho
     await p.click('#fin-corpo th:has-text("Valor")'); await esperar(p, 200);
-    ok('cabeçalho ordena a tabela', await p.getAttribute('#fin-corpo th:has-text("Valor")', 'aria-sort') === 'descending');
+    const sort1 = await p.getAttribute('#fin-corpo th:has-text("Valor")', 'aria-sort');
+    await p.click('#fin-corpo th:has-text("Valor")'); await esperar(p, 200);
+    ok('cabeçalho ordena a tabela (clicar de novo inverte)', sort1 === 'ascending' && await p.getAttribute('#fin-corpo th:has-text("Valor")', 'aria-sort') === 'descending');
     await foto(p, '02-honorarios-areceber');
 
     // Contabilidade: despesa recorrente

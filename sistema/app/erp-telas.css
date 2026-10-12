@@ -46,9 +46,9 @@ body.gx-tela-nova #fb{display:none!important}
 /* Backup 68: Parcelamentos novo dentro do painel antigo — a equipe vê a tela nova; o portal do cliente, a antiga */
 .panel > .gx-gs-no-antigo{display:none}
 body.gx-tela-nova .panel > .gx-gs-no-antigo{display:block}
-body.gx-tela-nova #panel-parcelamentos > :not(.gx-gs-no-antigo){display:none!important}
-body.gx-tela-nova #panel-parcelamentos{padding:0!important}
-body.gx-tela-nova #panel-parcelamentos > .gx-gs-no-antigo{width:100%}
+body.gx-tela-nova :is(#panel-parcelamentos,#panel-acordos) > :not(.gx-gs-no-antigo){display:none!important}
+body.gx-tela-nova :is(#panel-parcelamentos,#panel-acordos){padding:0!important}
+body.gx-tela-nova :is(#panel-parcelamentos,#panel-acordos) > .gx-gs-no-antigo{width:100%}
 .gx-painel-gs{padding:0!important}
 .gx-painel-gs>.gs{width:100%}
 
@@ -432,3 +432,6 @@ body.gx-barra-topo table.gx-sem-seta th.gx-th-seta,body.gx-barra-topo table.gx-s
 #gs-sessao{font:500 11px var(--font-ui);color:var(--on-cor-2);white-space:nowrap;margin:0 2px;font-variant-numeric:tabular-nums}
 #gs-sessao.gs-sessao-fim{color:var(--red-lt);font-weight:700}
 @media (max-width:900px){#gs-sessao{display:none}}
+/* Backup 72: Processos — a tabela antiga fica só para o portal do cliente; a equipe vê a lista nova (#pr-nova) */
+#panel-processos .gx-proc-antigo{display:none!important}
+#pr-nova{margin-top:var(--sp-4,16px)}
