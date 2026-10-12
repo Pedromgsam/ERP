@@ -58,9 +58,10 @@
   // Cobranças, avisos e recibos (antiga "Notificações"): fora da barra; abre pelo botão ✉ de cada tela e pelo ⋯
   const FUNC_EXTRA = { notificacoes: 'clientes' };   // a Central de e-mails confere o acesso no banco
   // painéis novos → tela do Gestão que desenha nele
-  const TELAS_GS = { hoje: 'inicio', contratos: 'contratos', clientes: 'clientes', crm: 'crm', publicacoes: 'publicacoes', documentos: 'documentos', gerador: 'gerador', tarefas: 'tarefas', alertas: 'alertas', rotina: 'rotina', execucoes: 'execucoes', admin: 'admin', parcelamentos: 'parcelamentos' };
+  const TELAS_GS = { hoje: 'inicio', contratos: 'contratos', clientes: 'clientes', crm: 'crm', publicacoes: 'publicacoes', documentos: 'documentos', gerador: 'gerador', tarefas: 'tarefas', alertas: 'alertas', rotina: 'rotina', execucoes: 'execucoes', admin: 'admin', parcelamentos: 'parcelamentos', acordos: 'acordos' };
   // Backup 68 (reforma, etapa 3): Parcelamentos é tela nova para a equipe; o cliente (portal) continua vendo a antiga
-  const ehGS = (id) => !!TELAS_GS[id] && !(id === 'parcelamentos' && ehCliente());
+  const SO_EQUIPE_GS = ['parcelamentos', 'acordos'];
+  const ehGS = (id) => !!TELAS_GS[id] && !(SO_EQUIPE_GS.includes(id) && ehCliente());
 
   // "+ Lançar": formulários do Gestão onde existem; os demais, do editor do ERP
   const empresaAtual = () => (_painel === 'financeiroContab' ? 'contabilidade' : 'escritorio');
@@ -404,7 +405,12 @@
     const P = dbERP().processos || [];
     tabelaPadrao(tb, { chave: 'proc', um: 'processo', varios: 'processos', semSeta: true,
       grupo: (tr) => (regDe(P, tr) || {}).grupo || '',
-      detalhe: (tr) => { const p = regDe(P, tr) || {};
+      detalhe: (tr) => detalheProcHTML(regDe(P, tr) || {}),
+      // Backup 21: clicar no processo abre uma janela com o detalhe (Editar fica no rodapé)
+      popup: (tr) => abrirProcesso(regDe(P, tr) || {}) });
+  }
+  // Backup 72: o detalhe e a janela do processo servem à tabela antiga (portal do cliente) e à nova (equipe)
+  function detalheProcHTML(p) {
         return '<div class="gx-det-grade"><div><div class="gx-det-tit">Processo</div><div class="gx-det-dados">' +
           [['Nº', p.numero], ['Grupo', p.grupo], ['Competência', p.competencia], ['Natureza', p.natureza], ['Autor', String(p.autor || '').replace(/;\s*/g, ' · ')], ['Réu', String(p.reu || '').replace(/;\s*/g, ' · ')]]
             .filter((x) => x[1]).map((x) => '<div><span>' + x[0] + '</span><b>' + escH(x[1]) + '</b></div>').join('') + '</div></div>' +
@@ -415,10 +421,10 @@
           '<div class="gx-det-blocos"><div class="gx-det-bloco"><div class="gx-det-tit">Últimas movimentações</div>' +
             '<div class="gx-det-txt gx-movs" data-movs="' + escH(p._id || '') + '">' + (p.ultimaMov ? '<div class="gx-mov"><b>' + escH(p.ultimaMovEm || '') + '</b> ' + escH(p.ultimaMov) + '</div>' : '<span class="sub">Nenhuma registrada ainda.</span>') + '</div></div>' +
           '<div class="gx-det-bloco"><div class="gx-det-tit">Observação</div><div class="gx-det-txt">' + (p.obs ? escH(p.obs) : '<span class="sub">—</span>') + '</div></div></div>' +
-          ''; },
-      // Backup 21: clicar no processo abre uma janela com o detalhe (Editar fica no rodapé)
-      popup: (tr) => { const p = regDe(P, tr) || {}; if (!GS() || !GS().abrirJanela) return;
-        const j = GS().abrirJanela({ titulo: 'Processo ' + (p.numero || ''), larga: true, corpo: '<div class="gx-det-corpo gx-det-janela">' + tbody_det(tr) + '</div>',
+          '';
+  }
+  function abrirProcesso(p) { if (!GS() || !GS().abrirJanela) return;
+        const j = GS().abrirJanela({ titulo: 'Processo ' + (p.numero || ''), larga: true, corpo: '<div class="gx-det-corpo gx-det-janela">' + detalheProcHTML(p) + '</div>',
           rodape: '<span class="sub">' + escH(p.grupo || '') + '</span><div class="acoes"><button type="button" class="btn btn-o" data-pr-mov>+ Registrar movimentação</button><button type="button" class="btn btn-p" data-pr-editar>✎ Editar processo</button></div>' });
         // Backup 35: as 3 últimas movimentações lançadas (Rotina → Processos ou "+ Registrar movimentação")
         const box = j.querySelector('[data-movs]');
@@ -428,8 +434,41 @@
             box.innerHTML = data.map((m) => '<div class="gx-mov"><div class="gx-mov-cab"><span class="gx-mov-d">' + escH(String(m.data).split('-').reverse().join('/')) + '</span><span class="gx-mov-t">' + escH(TIPO[m.tipo] || m.tipo) + '</span></div>' +
               '<div class="gx-mov-x">' + escH(m.descricao || (m.tipo === 'sem_novidade' ? 'Conferido — sem novidade' : '')) + (m.valor_novo ? ' · novo valor ' + fBRL(m.valor_novo) : '') + '</div>' + (m.quem ? '<div class="gx-mov-q">por ' + escH(m.quem) + '</div>' : '') + '</div>').join(''); });
         j.querySelector('[data-pr-mov]').onclick = () => { GS().fecharJanela(j); if (GS().janelaMovimentacao) GS().janelaMovimentacao(p._id, () => { if (window.ERP_RECARREGAR) window.ERP_RECARREGAR(); }); };
-        j.querySelector('[data-pr-editar]').onclick = () => { GS().fecharJanela(j); if (window.ERP_EDITAR) window.ERP_EDITAR(tr.dataset.gx); }; } });
-    function tbody_det(tr) { return tb._gxDet(tr); }
+        j.querySelector('[data-pr-editar]').onclick = () => { GS().fecharJanela(j); if (window.ERP_EDITAR) window.ERP_EDITAR('processos:' + p._id); }; }
+  // ═══════ Backup 72 (reforma, etapa 6): Processos — a lista no desenho de Acordos (peça tabelaB) ═══════
+  // A análise de cima (passivo/ativo em disputas e os gráficos) continua; a tabela antiga fica para o portal do cliente.
+  // Abas Ativos · Arquivados · Extintos · Todos; busca; Filtros (grupo, competência, natureza, valor); ordenar pelo título;
+  // clicar = a janela do processo de sempre (+ Registrar movimentação, ✎ Editar).
+  const isoDeBR = (d) => (/^\d{2}\/\d{2}\/\d{4}$/.test(d || '') ? d.split('/').reverse().join('-') : '');
+  function processosNovos() {
+    if (ehCliente() || !GS() || !GS().tabelaB) return;
+    const painel = document.getElementById('panel-processos'), tb = document.getElementById('tblProcBody'); if (!painel || !tb) return;
+    const card = tb.closest('.cc'); if (!card) return;
+    card.classList.add('gx-proc-antigo');
+    let el = document.getElementById('pr-nova');
+    if (!el) { el = document.createElement('div'); el.id = 'pr-nova'; el.className = 'gs gx-pr-nova'; card.after(el); }
+    const P = (dbERP().processos || []).filter((p) => p.carteira !== 'Prospecção');
+    const sit = (p) => (p.arquivamento === 'Arquivado' ? 'arq' : p.arquivamento ? 'ext' : 'at');
+    const ops = (f) => [...new Set(P.map(f).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR')).map((x) => [x, x]);
+    const partes = (p) => [p.autor, p.reu].filter(Boolean).map((x) => String(x).replace(/;\s*/g, ' · '));
+    GS().tabelaB(el, { id: 'processos', tabCls: 'b-tab-proc', linhas: P, chave: (p) => String(p._id), unidade: ['processo', 'processos'], dicaBusca: 'Nº, grupo, autor, réu…',
+      abas: [{ id: 'at', rot: 'Ativos', f: (p) => sit(p) === 'at' }, { id: 'arq', rot: 'Arquivados', f: (p) => sit(p) === 'arq' }, { id: 'ext', rot: 'Extintos', f: (p) => sit(p) === 'ext' }, { id: 'todos', rot: 'Todos', f: () => true }],
+      busca: (p) => [p.numero, p.grupo, p.autor, p.reu, p.natureza, p.competencia, p.advogado, p.obs].join(' '), valor: (p) => Number(p.valor) || 0,
+      conta: (n) => (n === 1 ? '1 processo' : n + ' processos'), ord: { k: 'g', dir: 1 },
+      listas: [{ k: 'g', rot: 'Grupo', todos: 'Todos os grupos', opcoes: ops((p) => p.grupo), get: (p) => p.grupo },
+        { k: 'comp', rot: 'Competência', todos: 'Todas as competências', opcoes: ops((p) => p.competencia), get: (p) => p.competencia },
+        { k: 'nat', rot: 'Natureza', todos: 'Todas as naturezas', opcoes: ops((p) => p.natureza), get: (p) => p.natureza }],
+      colunas: [
+        { k: 'g', rot: 'Grupo', html: (p) => escH(p.grupo || '—'), ord: (p) => (p.grupo || '').toLowerCase() },
+        { k: 'n', rot: 'Processo', cls: 'b-num', html: (p) => escH(p.numero || '—'), ord: (p) => p.numero || '' },
+        { k: 'comp', rot: 'Competência', html: (p) => escH(p.competencia || '—'), ord: (p) => p.competencia || '' },
+        { k: 'nat', rot: 'Natureza', html: (p) => escH(p.natureza || '—'), ord: (p) => p.natureza || '' },
+        { k: 'pt', rot: 'Partes', html: (p) => { const x = partes(p); return x.length ? escH(x[0]) + (x[1] ? '<span class="b-sub">× ' + escH(x[1]) + '</span>' : '') : '—'; }, ord: (p) => (p.autor || '').toLowerCase() },
+        { k: 'v', rot: 'Valor', cls: 'b-dir b-val', soma: true, html: (p) => (p.valor ? fBRL(p.valor) + (p.valorEm ? '<small>em ' + escH(p.valorEm) + '</small>' : '') : '—'), ord: (p) => Number(p.valor) || 0 },
+        { k: 'mov', rot: 'Última movimentação', cls: 'b-cen b-data', html: (p) => { const d = p.ultimaMovEm || p.atualizacao; return d ? escH(d) + (p.ultimaMov ? '<small title="' + escH(p.ultimaMov) + '">' + escH(String(p.ultimaMov).slice(0, 40)) + '</small>' : '') : '—'; }, ord: (p) => isoDeBR(p.ultimaMovEm || p.atualizacao) || '0' },
+        { k: 'st', rot: 'Status', cls: 'b-cen', html: (p) => '<span class="b-pill ' + (sit(p) === 'at' ? 'b-g' : sit(p) === 'arq' ? 'b-a' : 'b-r') + '">' + escH(p.arquivamento || 'Ativo') + '</span>', ord: (p) => sit(p) }],
+      clique: (p) => abrirProcesso(p),
+      vazio: { titulo: 'Nenhum processo aqui', frase: 'Troque a aba (Ativos, Arquivados, Extintos, Todos) ou limpe os filtros.' } });
   }
   const fBRL = (v) => (Number(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   // ═══════ Backup 20: sem o cartão de título no topo; botões e alertas vão para junto do conteúdo ═══════
@@ -453,15 +492,24 @@
   function instalarGanchos() {
     botoesCobranca();
     // Backup 20: Painel (Empresas do grupo) e Processos no padrão de Clientes — redesenha junto com a tabela do ERP
-    [['renderExecRanking', () => { padraoEmpresas(); evolucaoPassivo(); }], ['renderProcTbl', padraoProcessos],
+    [['renderExecRanking', () => { padraoEmpresas(); evolucaoPassivo(); }], ['renderProcTbl', () => { padraoProcessos(); processosNovos(); }],
      ['renderAcordos', () => acoesNaSituacao('panel-acordos', 'exAcSit'), () => devolverAoBanner('panel-acordos')],
      ['renderParcelamentos', () => acoesNaSituacao('panel-parcelamentos', 'exParcSit'), () => devolverAoBanner('panel-parcelamentos')],
      ['renderParcAnalise', () => acoesNaSituacao('panel-parcelamentos', 'exParcSit'), () => devolverAoBanner('panel-parcelamentos')]].forEach(([nome, fn, antes]) => {
       const orig = window[nome]; if (typeof orig !== 'function') return;
       // Backup 68: para a equipe, Parcelamentos é a tela nova — o desenho antigo (escondido) não roda à toa
-      const soCliente = nome === 'renderParcelamentos' || nome === 'renderParcAnalise';
+      const soCliente = nome === 'renderParcelamentos' || nome === 'renderParcAnalise' || nome === 'renderAcordos';
       window[nome] = function () { if (soCliente && !ehCliente()) return; if (antes) antes(); const r = orig.apply(this, arguments); try { fn(); } catch (e) { console.warn('[ERP] ' + nome + ':', e); } return r; };
     });
+    // Backup 70: a tela nova aberta antes de os dados chegarem (2ª/3ª etapa da carga) se redesenha quando eles chegam
+    const etapaOrig = window._aplicarEtapa2;
+    if (typeof etapaOrig === 'function') {
+      window._aplicarEtapa2 = function (json) {
+        const r = etapaOrig.apply(this, arguments);
+        if (json && ehGS(_painel) && Object.keys(json).some((m) => m === _painel)) setTimeout(() => desenharGS(_painel), 60);
+        return r;
+      };
+    }
     acoesNoLugar();
     // aba do Financeiro marcada no próprio conteúdo (o CSS esconde gráficos repetidos só nas abas de lista)
     ['setFinTab', 'setFinCTab'].forEach((nome) => {
@@ -758,8 +806,9 @@
       tabela.classList.add('gx-oculta');
       if (caixa.dataset.sig === assinatura) return;
       caixa.dataset.sig = assinatura;
-      caixa.innerHTML = GS().tabelaLancamentos(regs, { aba: LISTAS[tb.id] || 'areceber' });
-      GS().ligarAcoesLancamentos(caixa, () => ED.recarregar());
+      // Backup 71: no desenho da tabela de Acordos (tabelaB: Prazo colorido, Cobrar + Baixa, filtros, "Marcar várias")
+      const aba = LISTAS[tb.id] || (regs.length && regs.every((l) => l.pago) ? 'despesas' : 'apagar');
+      GS().tabelaLancB(caixa, regs, { aba, id: 'erp-' + tb.id, semPrazos: true }, () => ED.recarregar());   // o período (Todos · Vencidos · 7…60 dias · Mês/ano) já fica em cima
     });
   }
   // ═══════ Backup 22: RÉGUA ÚNICA das tabelas ═══════
@@ -781,7 +830,7 @@
   const normTit = (t) => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[▲▼↑↓⇅]/g, '').trim().toLowerCase();
   function marcarColunas() {
     document.querySelectorAll('.tw table, .tabela-wrap table, .gx-tab-gs table').forEach((t) => {
-      if (t.classList.contains('gx-leg') || t.classList.contains('massa')) return;
+      if (t.classList.contains('gx-leg') || t.classList.contains('massa') || t.classList.contains('b-tab')) return;   // Backup 71: a tabela nova tem régua própria
       const cab = t.querySelector('thead tr:last-child'); if (!cab) return;
       const ths = [...cab.children], sig = ths.map((x) => x.textContent).join('|');
       if (t._gxRegua !== sig) { t._gxRegua = sig; t._gxCols = ths.map((th) => { const n = normTit(th.textContent); const r = REGUA.find(([, re]) => re.test(n)); return r ? r[0] : ''; }); }

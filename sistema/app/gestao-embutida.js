@@ -630,6 +630,7 @@ function tabelaB(el, cfg) {
       (cfg.prazos ? '<div class="b-prazos" data-bt="prazos"></div>' : '') +
       (cfg.busca ? '<label class="b-busca">' + iconeB('busca') + '<input data-bt="q" placeholder="' + esc(cfg.dicaBusca || 'Buscar') + '" aria-label="Buscar" value="' + esc(st.q) + '"></label>' : '') +
       '<span class="b-conta" data-bt="conta"></span><span class="b-barra-dir">' +
+      (cfg.lote && cfg.loteBotao ? '<button type="button" class="b-bt-f" data-bt="loteon" aria-pressed="' + !!st.loteOn + '" title="Marcar várias linhas para dar baixa de uma vez">' + iconeB('check') + (st.loteOn ? 'Fechar marcação' : 'Marcar várias') + '</button>' : '') +
       (temPainel ? '<button type="button" class="b-bt-f" data-bt="painel" aria-expanded="' + st.painel + '">' + iconeB('filtro') + 'Filtros <span class="b-nf" hidden></span></button>' : '') +
       '<button type="button" class="b-ic-bt" data-bt="dens" aria-pressed="' + compacto() + '" title="Tabela compacta (mais linhas na tela)" aria-label="Tabela compacta">' + iconeB('compacto') + '</button></span></div>' +
       (temPainel ? '<div class="b-mais-filtros" data-bt="pn"' + (st.painel ? '' : ' hidden') + '>' +
@@ -679,7 +680,7 @@ function tabelaB(el, cfg) {
       return;
     }
     const soma = cfg.valor ? lin.reduce((s, r) => s + (cfg.valor(r) || 0), 0) : null;
-    const temLote = !!(cfg.lote && cfg.lote.length);
+    const temLote = !!(cfg.lote && cfg.lote.length) && (!cfg.loteBotao || !!st.loteOn);   // Backup 71: loteBotao = caixinhas só depois de "Marcar várias"
     const marc = lin.filter((r) => st.sel[chave(r)]);
     const lote = temLote && marc.length ? '<div class="b-lote"><b>' + plural(marc.length, 'marcada', 'marcadas') + '</b>' + (cfg.valor ? '<span>' + brl(marc.reduce((s, r) => s + (cfg.valor(r) || 0), 0)) + '</span>' : '') +
       '<button type="button" class="b-link" data-bt="desmarcar">Desmarcar</button><div class="b-lote-acoes">' + cfg.lote.map((a, i) => { const n = marc.filter((r) => !a.quando || a.quando(r)).length;
@@ -725,6 +726,7 @@ function tabelaB(el, cfg) {
       const pz = ev.target.closest('[data-b-prazo]'); if (pz) { s2.prazo = pz.dataset.bPrazo; s2.prazoAte = ''; el._redesenharB(); return; }
       if (tt === 'dens') { const on = !document.documentElement.classList.contains('b-compacto'); document.documentElement.classList.toggle('b-compacto', on); try { localStorage.setItem('erp_compacto', on ? '1' : ''); } catch (e) { /* sem armazenamento */ } t.setAttribute('aria-pressed', on); return; }
       if (tt === 'desmarcar') { s2.sel = {}; el._redesenharB(); return; }
+      if (tt === 'loteon') { s2.loteOn = !s2.loteOn; s2.sel = {}; t.setAttribute('aria-pressed', s2.loteOn); t.lastChild.textContent = s2.loteOn ? 'Fechar marcação' : 'Marcar várias'; el._redesenharB(); return; }
       if (tt === 'mais') { s2.limite += 150; el._redesenharB(); return; }
       if (tt === 'todas') { const marcar = t.checked; s2.sel = {}; if (marcar) el.querySelectorAll('tbody tr[data-b-k]').forEach((tr) => { s2.sel[tr.dataset.bK] = true; }); el._redesenharB(); return; }
       if (tt === 'um') { const k = t.closest('tr').dataset.bK; if (t.checked) s2.sel[k] = true; else delete s2.sel[k]; el._redesenharB(); return; }
@@ -1604,8 +1606,8 @@ async function pintarLista(empresa, buscar) {
     kpi(rotAba, brl(total), F.aba === 'prejuizo' || F.aba === 'apagar' ? 'ambar' : F.aba === 'recebidos' ? 'verde' : '', lista.length + ' lançamento(s)') +
     (F.aba === 'areceber' || F.aba === 'apagar' ? kpi('Em atraso', brl(atrasado), 'vermelho', lista.filter((l) => situacao(l) === 'vencido').length + ' vencido(s)') : '') +
     '</div>' +
-    '<div class="card">' + tabelaLancamentos(lista, { aba: F.aba }) + '</div>';
-  ligarAcoesLancamentos($('fin-corpo'), () => pintarFin(empresa));
+    '<div id="fin-tabela"></div>';
+  tabelaLancB($('fin-tabela'), lista, { aba: F.aba, id: 'fin-' + empresa + '-' + F.aba }, () => pintarFin(empresa));
 }
 
 // Legenda do lançamento (vale no sistema todo): 2ª linha = "Área do serviço — contrato"; sem contrato, só a área;
@@ -1663,6 +1665,72 @@ function tabelaLancamentos(lista, opc) {
     }).join('') +
     '</tbody><tfoot><tr><td colspan="' + ((lote ? 1 : 0) + (compacta ? 0 : 2) + (comDesc ? 1 : 0)) + '">Total (' + lista.length + ')</td><td class="num mono">' +
     brl(soma(lista, (l) => l.tipo === 'despesa' ? -l.valor : vl(l))) + '</td><td colspan="' + (nCols - (lote ? 1 : 0) - (compacta ? 0 : 2) - (comDesc ? 1 : 0) - 1) + '"></td></tr></tfoot></table></div></div>';
+}
+
+// ═══ Backup 71 (reforma, etapa 5): a lista de lançamentos no desenho da tabela de Acordos (peça tabelaB) ═══
+// Quem · Grupo / Favorecido · Descrição · Valor · Vencimento (ou Pago em) · Prazo colorido · Cobrar + Baixa (verde) · linha vencida rosada.
+// Nada saiu: clique na linha = detalhe (✎ Editar, recibo…), Cobrar pelo WhatsApp, Baixa (pergunta a data), ↺ voltar para em aberto,
+// baixa de várias de uma vez (botão "Marcar várias" — as caixinhas só aparecem quando pedidas), busca, filtros e ordenar pelo título.
+function celPrazoL(l) {
+  if (l.perda) return pillSit(l);
+  if (l.pago) return '<span class="b-ok-txt">✓ ' + (l.data_pagamento ? 'Pago em ' + dataBR(l.data_pagamento).slice(0, 5) : 'Pago') + '</span>';
+  const d = l.vencimento ? diasAte(l.vencimento) : null;
+  return (d === null ? '—' : '<span class="' + corPrazo(d) + '">' + (d < 0 ? Math.abs(d) + ' d atraso' : d === 0 ? 'vence hoje' : d + (d === 1 ? ' dia' : ' dias')) + '</span>') +
+    (l.cobranca ? '<small class="b-pz-sub">' + esc(l.cobranca) + '</small>' : '');
+}
+function celAcoesL(l) {
+  if (l.perda) return '';
+  if (l.pago) return '<span class="b-acoes"><button type="button" class="b-bt-emitir" data-desfazer="' + l.id + '" title="Voltar para em aberto">↺ Desfazer</button></span>';
+  return '<span class="b-acoes">' + (l.tipo === 'receita' && !l.redutor ? '<button type="button" class="b-bt-emitir gx-cobrar" data-cobrar="' + l.id + '" title="Cobrar pelo WhatsApp (texto pronto)">Cobrar</button>' : '') +
+    '<button type="button" class="b-bt-baixa" data-pagar="' + l.id + '" title="Dar baixa — ' + (l.tipo === 'despesa' && !l.redutor ? 'pago' : 'recebido') + ' (pergunta a data)">Baixa</button></span>';
+}
+function tabelaLancB(el, lista, opc, depois) {
+  opc = opc || {};
+  const aba = opc.aba || 'areceber', porPag = aba === 'recebidos' || aba === 'despesas', aberto = !porPag && aba !== 'prejuizo';
+  const h = hojeISO(), quemL = (l) => (l.grupos && l.grupos.nome) || l.favorecido || (l.clientes && l.clientes.nome) || '';
+  const vS = (l) => (l.tipo === 'despesa' ? -l.valor : vl(l));
+  const dataL = (l) => (porPag ? l.data_pagamento : l.vencimento) || '';
+  const C = [
+    { k: 'resp', rot: 'Quem', html: (l) => pillPessoa(l.responsavel), ord: (l) => normalizar(l.responsavel || '') },
+    { k: 'quem', rot: 'Grupo / Favorecido', html: (l) => esc(quemL(l) || '—') + (l.clientes && l.grupos ? '<span class="b-sub">' + esc(l.clientes.nome) + '</span>' : ''), ord: (l) => normalizar(quemL(l)) },
+    { k: 'desc', rot: 'Descrição', html: (l) => { const lg = legendaLanc(l); return esc(l.descricao || '—') + (lg ? '<span class="b-sub">' + esc(lg) + '</span>' : ''); }, ord: (l) => normalizar(l.descricao || '') },
+    { k: 'v', rot: 'Valor', cls: 'b-dir b-val', clsL: (l) => (l.tipo === 'receita' && !l.redutor ? ' valor-rec' : ' valor-desp'), soma: true,
+      html: (l) => (l.tipo === 'despesa' || l.redutor ? '− ' : '') + brl(l.valor) + (l.redutor ? '<small>redutor</small>' : ''), ord: vS },
+    { k: 'venc', rot: porPag ? 'Pago em' : 'Vencimento', cls: 'b-cen b-data', html: (l) => { const d = dataL(l); return d ? dataBR(d) + (porPag && l.vencimento && l.vencimento !== d ? '<small>venc. ' + dataBR(l.vencimento) + '</small>' : '') : '—'; }, ord: (l) => dataL(l) || '9' }];
+  if (!porPag) C.push({ k: 'pz', rot: 'Prazo', cls: 'b-cen b-prazo', html: celPrazoL, ord: (l) => (l.pago || l.perda ? '9' : l.vencimento || '9') });
+  C.push({ k: 'ac', rot: '', cls: 'b-dir b-c-acoes', html: celAcoesL, ord: false });
+  const resp = [...new Set(lista.map((l) => l.responsavel).filter(Boolean))].sort();
+  const temAberto = lista.some((l) => !l.pago && !l.perda);
+  el._lancDepois = depois || recarregar;
+  tabelaB(el, { id: opc.id || 'fin-' + aba, tabCls: 'b-tab-lanc' + (porPag ? ' b-sem-prazo' : ''), linhas: lista, colunas: C, unidade: ['lançamento', 'lançamentos'],
+    titulo: opc.titulo, busca: (l) => [l.descricao, quemL(l), l.clientes && l.clientes.nome, l.favorecido, l.categoria, l.obs, l.servico].join(' '), dicaBusca: 'Cliente, grupo, descrição…',
+    prazos: aberto && !opc.semPrazos, venc: (l) => dataL(l), valor: vS, ord: porPag ? { k: 'venc', dir: -1 } : { k: 'venc', dir: 1 },
+    conta: (n) => plural(n, 'lançamento', 'lançamentos'), linhaCls: (l) => (!l.pago && !l.perda && l.vencimento && l.vencimento <= h ? ' b-tr-venc' : ''),
+    listas: resp.length > 1 ? [{ k: 'resp', rot: 'Quem', todos: 'Todas as pessoas', opcoes: resp.map((r) => [r, r]), get: (l) => l.responsavel }] : [],
+    lote: temAberto ? [{ rot: 'Dar baixa nas marcadas', icone: 'check', quando: (l) => !l.pago && !l.perda, fn: async (marc) => {
+      const ids = marc.map((l) => l.id); if (!ids.length) return false;
+      const bx = await perguntarBaixa({ titulo: 'Baixa em lote — confirme a data', descricao: plural(ids.length, 'lançamento', 'lançamentos'), valor: soma(marc, vS) });
+      if (!bx) return false;
+      await q(sb.from('lancamentos').update(Object.assign(bx, { cobranca: '', perda: false })).in('id', ids));
+      aviso('✓ Baixa de ' + plural(ids.length, 'lançamento', 'lançamentos') + ' em ' + dataBR(bx.data_pagamento) + '.'); await el._lancDepois(); } }] : null, loteBotao: true,
+    clique: (l) => detalheLancamento(l.id).catch((e) => aviso(erroAmigavel(e), true)),
+    vazio: { titulo: 'Nenhum lançamento aqui', frase: 'Troque o mês, a aba ou os filtros.' } });
+  if (!el._lancLigado) {
+    el._lancLigado = true;
+    el.addEventListener('click', (ev) => {
+      const b = ev.target.closest('[data-pagar], [data-cobrar], [data-desfazer]'); if (!b || !el.contains(b)) return;
+      ev.stopPropagation();
+      if (b.dataset.cobrar) return cobrarWhatsApp(b.dataset.cobrar);
+      if (b.dataset.desfazer) return comBotao(b, async () => { await q(sb.from('lancamentos').update({ pago: false }).eq('id', b.dataset.desfazer)); aviso('Lançamento voltou para "em aberto".'); await el._lancDepois(); });
+      comBotao(b, async () => {
+        const l = await q(sb.from('lancamentos').select('descricao, valor, tipo, redutor').eq('id', b.dataset.pagar).single());
+        const bx = await perguntarBaixa({ descricao: l.descricao, valor: l.valor, despesa: l.tipo === 'despesa' && !l.redutor });
+        if (!bx) return;
+        await q(sb.from('lancamentos').update(Object.assign(bx, { cobranca: '', perda: false })).eq('id', b.dataset.pagar));
+        aviso('✓ Baixa registrada em ' + dataBR(bx.data_pagamento) + '.'); await el._lancDepois();
+      });
+    }, true);
+  }
 }
 
 function ligarAcoesLancamentos(raiz, depois) {
@@ -8086,9 +8154,10 @@ TELAS.rotina = async function () {
   if (E.rt.aba === 'parcs' || E.rt.aba === 'acs' || E.rt.aba === 'financeiro') E.rt.aba = 'planilha';   // Backup 42: o Controle saiu
   _rtDados = null;   // Backup 51: entrar na Rotina busca de novo; trocar de aba usa o que já veio
   $('conteudo').innerHTML =
-    '<div class="titulo-pag"><div><h1>Rotina</h1><p>Tudo o que era atualizado nas planilhas, num lugar só — o que você grava aqui aparece no Painel, nos Processos e no Financeiro</p></div></div>' +
-    '<div class="rt-placar" id="rt-placar" aria-label="Placar do mês">' + placarRotina(null) + '</div>' +
-    '<div class="segmento rt-abas" id="rt-abas" style="margin-bottom:14px">' + ABAS_ROTINA.map(([k, r]) => '<button type="button" data-rt-aba="' + k + '">' + r + '</button>').join('') + '</div>' +
+    // Backup 73 (reforma, etapa 7): cabeçalho, placar e abas com as peças novas (o miolo de cada aba continua igual)
+    cabecalhoTela({ icone: 'check', titulo: 'Rotina', frase: 'Tudo o que era atualizado nas planilhas, num lugar só — o que você grava aqui aparece no Painel, nos Processos e no Financeiro' }) +
+    '<div class="rt-placar b-placar" id="rt-placar" aria-label="Placar do mês">' + placarRotina(null) + '</div>' +
+    '<div class="b-seg rt-abas" id="rt-abas" role="tablist">' + ABAS_ROTINA.map(([k, r]) => '<button type="button" role="tab" class="b-seg-bt" data-rt-aba="' + k + '">' + r + '</button>').join('') + '</div>' +
     '<div id="rt-corpo"></div>';
   // Backup 42: "Acordos" abre a própria tela de Acordos (idêntica, sem repetir código)
   $('rt-abas').onclick = (ev) => { const b = ev.target.closest('[data-rt-aba]'); if (!b) return;
@@ -8157,7 +8226,7 @@ function esqueletoRotina(aba) {
     [0, 1, 2, 3, 4, 5].map(() => '<div class="ep-emp"><div class="ep-emp-hd">' + barra(40) + '</div><div class="ep-emp-body"><div class="ep-row">' + barra(55) + '</div><div class="ep-row">' + barra(45) + '</div></div></div>').join('') + '</div></div>';
 }
 async function pintarRotina() {
-  document.querySelectorAll('#rt-abas button').forEach((b) => b.classList.toggle('ativo', b.dataset.rtAba === E.rt.aba));
+  document.querySelectorAll('#rt-abas button').forEach((b) => { const on = b.dataset.rtAba === E.rt.aba; b.classList.toggle('ativo', on); b.setAttribute('aria-selected', on); });
   const el = $('rt-corpo'); if (!el) return;
   el.innerHTML = E.rt.aba === 'guias' || E.rt.aba === 'planilha' ? esqueletoRotina(E.rt.aba) : '<div class="sub" style="padding:10px">Carregando…</div>';
   try { await ({ passivo: rotinaPassivo, processos: rotinaProcessos, planilha: rotinaPlanilha, guias: rotinaEnviarGuias, tarefas: rotinaTarefas })[E.rt.aba](el); }
@@ -8870,29 +8939,43 @@ async function rotinaTarefas(el) {
     ['✔ Com validação', 'ao concluir, vão para quem valida; só fecham depois do "aprovado"', minhas.filter((t) => !t.recorrencia && t.exige_revisao)],
     ['📌 Únicas', 'fazem uma vez e acabou', minhas.filter((t) => !t.recorrencia && !t.exige_revisao)],
     ['🔎 Para eu validar', 'o que a equipe concluiu e espera o seu aprovado', validar]];
-  const linha = (t, validando) => '<tr class="clicavel" data-tarefa="' + t.id + '"><td><b>' + esc(t.titulo) + '</b>' + (t.clientes ? '<div class="sub">' + esc(t.clientes.nome) + '</div>' : '') + '</td>' +
-    '<td>' + (t.recorrencia ? '<span class="pill aberto tf-repete">' + esc(typeof textoRepete === 'function' ? textoRepete(t) : '↻ ' + (REPETE[t.recorrencia] || t.recorrencia)) + '</span>' : '<span class="sub">—</span>') + '</td>' +
-    '<td>' + (t.exige_revisao || validando ? '<span class="pill hoje">valida: ' + esc(t.revisor || '—') + '</span>' : '<span class="sub">—</span>') + '</td>' +
-    '<td>' + (t.prazo ? '<span class="' + (t.prazo < h ? 'dias-r' : t.prazo === h ? 'dias-a' : '') + '">' + dataBR(t.prazo) + '</span>' : '—') + '</td>' +
-    '<td class="acoes-l">' + (t._feita ? '<span class="pill pago rt-ciclo" title="Concluída em ' + esc(dataBR(String(t.concluida_em || t.prazo || '').slice(0, 10))) + '">✓ concluída neste ciclo' + (t._volta ? ' · volta em ' + dataBR(t._volta) : '') + '</span>' : validando ? '<button type="button" class="btn btn-v btn-mini" data-rt-ok="' + t.id + '">✓ Abrir e validar</button>'
-      : '<button type="button" class="btn btn-v btn-mini" data-rt-concluir="' + t.id + '">' + (t.exige_revisao ? '✓ Concluir e enviar' : '✓ Concluir') + '</button>') + '</td></tr>';
-  el.innerHTML = '<div class="card"><div class="card-hd">✓ Minhas tarefas<span class="sub">recorrentes voltam sozinhas; com validação vão para quem valida</span>' +
-      '<span class="gd-hd-ac"><button type="button" class="btn btn-o btn-mini" id="rt-nova-rec">+ Tarefa recorrente</button><button type="button" class="btn btn-p btn-mini" id="rt-nova-t">+ Tarefa</button></span></div><div class="card-bd">' +
-    sec.map(([tit, sub, L], k) => '<div class="rt-tsec"><div class="rt-tsec-tit">' + tit + ' <span class="pill neutro">' + L.length + '</span><span class="sub">' + sub + '</span></div>' +
-      (L.length ? '<div class="tabela-wrap" data-sem-pagina><table class="rt-ttab"><thead><tr><th>Tarefa</th><th>Repete</th><th>Validação</th><th>Prazo</th><th></th></tr></thead><tbody>' + L.map((t) => linha(t, k === 3)).join('') + '</tbody></table></div>'
-        : '<div class="sub" style="padding:4px 2px 10px">Nada aqui.</div>') + '</div>').join('') + '</div></div>';
+  // Backup 73: as quatro listas viram abas de uma tabela só (peça tabelaB), como Acordos — mesmas ações (Concluir, Concluir e enviar, Abrir e validar)
+  const linhas = [];
+  sec.forEach(([, , L], k) => L.forEach((t) => linhas.push(Object.assign({}, t, { _sec: k }))));
+  const acoes = (t) => (t._feita ? '<span class="pill pago rt-ciclo" title="Concluída em ' + esc(dataBR(String(t.concluida_em || t.prazo || '').slice(0, 10))) + '">✓ concluída neste ciclo' + (t._volta ? ' · volta em ' + dataBR(t._volta) : '') + '</span>'
+    : t._sec === 3 ? '<button type="button" class="b-bt-baixa" data-rt-ok="' + t.id + '">Abrir e validar</button>'
+      : '<button type="button" class="b-bt-baixa" data-rt-concluir="' + t.id + '">' + (t.exige_revisao ? 'Concluir e enviar' : 'Concluir') + '</button>');
+  E.rt.tfAba = E.rt.tfAba || (sec.find((x) => x[2].length) ? ['rec', 'val', 'uni', 'eu'][sec.findIndex((x) => x[2].length)] : 'rec');
+  el.innerHTML = cabecalhoSecao() + '<div id="rt-tf"></div>';
+  function cabecalhoSecao() { return '<div class="b-sec"><div><h2>Minhas tarefas</h2><p>Recorrentes voltam sozinhas; com validação vão para quem valida.</p></div>' +
+    '<div class="b-chips"><button type="button" class="btn btn-o btn-mini" id="rt-nova-rec">+ Tarefa recorrente</button><button type="button" class="btn btn-p btn-mini" id="rt-nova-t">+ Tarefa</button></div></div>'; }
+  const box = $('rt-tf');
+  tabelaB(box, { id: 'rt-tarefas', linhas, chave: (t) => String(t.id) + (t._feita ? ':f' : ''), unidade: ['tarefa', 'tarefas'], dicaBusca: 'Tarefa ou cliente…', abaPadrao: E.rt.tfAba,
+    abas: [{ id: 'rec', rot: 'Recorrentes', f: (t) => t._sec === 0 }, { id: 'val', rot: 'Com validação', f: (t) => t._sec === 1 }, { id: 'uni', rot: 'Únicas', f: (t) => t._sec === 2 }, { id: 'eu', rot: 'Para eu validar', f: (t) => t._sec === 3 }],
+    busca: (t) => [t.titulo, t.clientes && t.clientes.nome, t.revisor].join(' '), ord: { k: 'pz', dir: 1 },
+    colunas: [
+      { k: 't', rot: 'Tarefa', html: (t) => '<b>' + esc(t.titulo) + '</b>' + (t.clientes ? '<span class="b-sub">' + esc(t.clientes.nome) + '</span>' : ''), ord: (t) => normalizar(t.titulo) },
+      { k: 'rep', rot: 'Repete', html: (t) => (t.recorrencia ? '<span class="pill aberto tf-repete">' + esc(typeof textoRepete === 'function' ? textoRepete(t) : '↻ ' + (REPETE[t.recorrencia] || t.recorrencia)) + '</span>' : '<span class="b-em">—</span>'), ord: false },
+      { k: 'val', rot: 'Validação', html: (t) => (t.exige_revisao || t._sec === 3 ? 'valida: ' + esc(t.revisor || '—') : '<span class="b-em">—</span>'), ord: (t) => t.revisor || '' },
+      { k: 'pz', rot: 'Prazo', cls: 'b-cen b-data', html: (t) => (t.prazo ? '<span class="' + (t.prazo < h ? 'b-pz-r' : t.prazo === h ? 'b-pz-a' : '') + '">' + dataBR(t.prazo) + '</span>' : '—'), ord: (t) => t.prazo || '9' },
+      { k: 'ac', rot: '', cls: 'b-dir b-c-acoes', html: acoes, ord: false }],
+    linhaCls: (t) => (!t._feita && t.prazo && t.prazo < h ? ' b-tr-venc' : ''),
+    clique: (t) => abrirTarefa(t.id, rep), vazio: { titulo: 'Nada aqui', frase: 'Nenhuma tarefa nesta aba.' } });
   const rep = () => rotinaTarefas(el);
   $('rt-nova-t').onclick = () => formTarefa({}, rep);
   $('rt-nova-rec').onclick = () => formTarefa({ recorrencia_regra: { tipo: 'mensal', modo: 'dia', dia: Number(hojeISO().slice(8)), inicio: hojeISO() }, responsavel: (E.perfil && E.perfil.nome) || '' }, rep);
-  el.querySelectorAll('[data-tarefa]').forEach((tr) => tr.onclick = (ev) => { if (ev.target.closest('button')) return; abrirTarefa(tr.dataset.tarefa, rep); });
-  el.querySelectorAll('[data-rt-ok]').forEach((b) => b.onclick = () => abrirTarefa(b.dataset.rtOk, rep));
-  el.querySelectorAll('[data-rt-concluir]').forEach((b) => b.onclick = () => comBotao(b, async () => {
-    const t = T.find((x) => x.id === b.dataset.rtConcluir);
-    if ((t.checklist || []).some((c) => !c.feito)) return abrirTarefa(t, rep);
-    if (t.exige_revisao) { await q(sb.from('tarefas').update({ status: 'revisao' }).eq('id', t.id)); aviso('✓ Enviada para validação de ' + (t.revisor || 'quem valida') + '.'); }
-    else { await concluirTarefa(t.id); aviso(t.recorrencia ? '✓ Concluída — ela volta sozinha ' + (t.recorrencia_regra ? textoRegra(t.recorrencia_regra).split(',')[0] : REPETE[t.recorrencia] || '') + '.' : '✓ Tarefa concluída.'); }
-    await rep();
-  }));
+  box.addEventListener('click', (ev) => {
+    const ab = ev.target.closest('[data-b-aba]'); if (ab) E.rt.tfAba = ab.dataset.bAba;
+    const ok = ev.target.closest('[data-rt-ok]'); if (ok) { ev.stopPropagation(); return abrirTarefa(ok.dataset.rtOk, rep); }
+    const b = ev.target.closest('[data-rt-concluir]'); if (!b) return; ev.stopPropagation();
+    comBotao(b, async () => {
+      const t = T.find((x) => x.id === b.dataset.rtConcluir);
+      if ((t.checklist || []).some((c) => !c.feito)) return abrirTarefa(t, rep);
+      if (t.exige_revisao) { await q(sb.from('tarefas').update({ status: 'revisao' }).eq('id', t.id)); aviso('✓ Enviada para validação de ' + (t.revisor || 'quem valida') + '.'); }
+      else { await concluirTarefa(t.id); aviso(t.recorrencia ? '✓ Concluída — ela volta sozinha ' + (t.recorrencia_regra ? textoRegra(t.recorrencia_regra).split(',')[0] : REPETE[t.recorrencia] || '') + '.' : '✓ Tarefa concluída.'); }
+      await rep();
+    });
+  }, true);
 }
 
 'use strict';
@@ -9418,8 +9501,253 @@ document.addEventListener('click', (ev) => {
   if (typeof emitirParcela === 'function') emitirParcela('parcelas', x.id);
 }, true);
 
+// ═══════════════════════════════════════════════════════════════════════════
+// ACORDOS — tela refeita (reforma, etapa 4 — Backup 70). Mesmas peças e o mesmo desenho de Parcelamentos:
+// 1) cartões que abrem o detalhamento; 2) situação dos acordos por cliente (cartão por grupo → acordos → janela do acordo);
+// 3) parcelas como a tabela de Acordos que o usuário preferiu (A pagar / Pago, atalhos de prazo, Prazo, Emitir + Baixa).
+// Acordo = dívida do cliente com terceiros (não entra no Financeiro). Nada foi tirado: emitir (e-mail/WhatsApp/rascunho,
+// PIX), baixa com comprovante no processo, editar só a parcela ou o acordo inteiro, detalhe completo (tarefa, WhatsApp),
+// novo acordo, mostrar concluídos. Dados: DB.acordos do ERP (no Gestão avulso, lidos do banco).
+// ═══════════════════════════════════════════════════════════════════════════
+
+const chaveAcordo = (a) => [a.processo, a.devedor, a.credor].join('|');
+function acDoERP(a) {
+  return { id: a._id, grupo: a.grupo || '', grupoId: a.grupoId || '', processo: a.processo || '', devedor: a.devedor || '', credor: a.credor || '', responsavel: a.responsavel || '',
+    n: a.parcela || '', tot: a.totalParc || '', valor: Number(a.valor) || 0, venc: a.vencIso || brIso(a.vencimento), pago: a.pagamento === 'SIM', pagoEm: a.pagoEm || brIso(a.dataPag),
+    emitida: a.emitidaIso || brIso(a.emitidaEm) || (/sim|emitid/i.test(a.emissao || '') ? '1' : ''), forma: a.formaPag || 'boleto', pix: a.pix || '', banco: a.banco || '', obs: a.obs || '',
+    comprovante: !!a.comprovante, comprovanteId: a.comprovanteId || '', _orig: a };
+}
+async function acDoBanco() {
+  const L = await buscarTodos(() => sb.from('acordos').select('*, grupos(nome)'));
+  return L.map((a) => ({ id: a.id, grupo: (a.grupos && a.grupos.nome) || a.aba || '', grupoId: a.grupo_id || '', processo: a.processo || '', devedor: a.devedor || '', credor: a.credor || '', responsavel: a.responsavel || '',
+    n: a.parcela || '', tot: a.total_parcelas || '', valor: Number(a.valor) || 0, venc: a.vencimento || '', pago: !!a.pago, pagoEm: a.data_pagamento || '', emitida: a.emitida_em || '',
+    forma: a.forma_pagamento || 'boleto', pix: a.pix || '', banco: a.banco || '', obs: a.obs || '', comprovante: !!a.comprovante_processo, comprovanteId: a.comprovante_id || '' }));
+}
+async function dadosAcordos() { const D = dbParc(); return D && Array.isArray(D.acordos) ? D.acordos.map(acDoERP) : acDoBanco(); }
+// junta as parcelas em acordos (processo + devedor + credor) e calcula os números de cada um
+function acordosDe(T) {
+  const M = {};
+  T.forEach((x) => { const k = chaveAcordo(x); const a = M[k] = M[k] || { k, grupo: x.grupo, processo: x.processo, devedor: x.devedor, credor: x.credor, responsavel: x.responsavel, forma: x.forma, pix: x.pix, banco: x.banco, parcelas: [] }; a.parcelas.push(x); x.ac = a; });
+  const h = hojeISO();
+  return Object.values(M).map((a) => {
+    a.parcelas.sort((x, y) => String(x.venc).localeCompare(String(y.venc)));
+    const ab = a.parcelas.filter((x) => !x.pago);
+    a.pagas = a.parcelas.length - ab.length; a.tot = Math.max(a.parcelas.length, Number(a.parcelas[0].tot) || 0);
+    a.pago = a.parcelas.filter((x) => x.pago).reduce((s, x) => s + x.valor, 0); a.falta = ab.reduce((s, x) => s + x.valor, 0);
+    a.atr = ab.filter((x) => x.venc && x.venc <= h).length; a.concluido = !ab.length;
+    a.prox = ab.find((x) => x.venc > h) || null; a.doMes = a.parcelas.filter((x) => doMesP(x.venc)); a.parcMes = a.doMes[0] || null;
+    a.mes = ab.filter((x) => x.venc && (x.venc <= h || doMesP(x.venc))); a.pc = a.tot ? Math.round(a.pagas / a.tot * 100) : 0;
+    return a;
+  });
+}
+
+// ── colunas (as mesmas da tabela de Acordos que o usuário aprovou) ──
+function celPrazoA(x) {
+  if (x.pago) return '<span class="b-ok-txt">✓ ' + (x.pagoEm ? 'Pago em ' + dataBR(x.pagoEm).slice(0, 5) : 'Pago') + '</span>';
+  const d = diasAteP(x.venc);
+  return (d === null ? '—' : '<span class="' + corPrazo(d) + '">' + (d < 0 ? Math.abs(d) + ' d atraso' : d === 0 ? 'vence hoje' : d + (d === 1 ? ' dia' : ' dias')) + '</span>') +
+    (x.emitida ? '<small class="b-pz-sub b-pz-emit">✓ emitido</small>' : '');
+}
+function celAcoesA(x) {
+  if (x.pago || !pode('juridico', 'editar')) return '';
+  return '<span class="b-acoes"><button type="button" class="b-bt-emitir' + (x.emitida ? ' b-emitido' : '') + '" data-ac-emitir="' + esc(x.id) + '" title="' + (x.emitida ? 'Já emitido — clique para emitir de novo' : 'Emitir o boleto (ou a cobrança por PIX) e enviar ao cliente') + '">Emitir</button>' +
+    '<button type="button" class="b-bt-baixa" data-ac-baixa="' + esc(x.id) + '" title="Dar baixa (pago) — pede confirmação e o comprovante">Baixa</button></span>';
+}
+function colunasAcordos(o) {
+  o = o || {};
+  const C = [];
+  if (!o.semGrupo) C.push({ k: 'g', rot: 'Grupo', html: (x) => esc(x.grupo || '—'), ord: (x) => normalizar(x.grupo) });
+  C.push({ k: 'proc', rot: 'Processo', cls: 'b-num', html: (x) => esc(x.processo || '—'), ord: (x) => x.processo });
+  C.push({ k: 'dev', rot: 'Devedor', html: (x) => esc(x.devedor || '—'), ord: (x) => normalizar(x.devedor) });
+  C.push({ k: 'cred', rot: 'Credor', html: (x) => esc(x.credor || '—'), ord: (x) => normalizar(x.credor) });
+  C.push({ k: 'n', rot: 'Parcela', cls: 'b-cen b-data', html: (x) => esc(x.n || '—') + (x.tot ? ' de ' + esc(x.tot) : ''), ord: (x) => Number(x.n) || 0 });
+  C.push({ k: 'v', rot: 'Valor', cls: 'b-dir b-val', soma: true, html: (x) => brl(x.valor), ord: (x) => x.valor });
+  C.push({ k: 'venc', rot: 'Vencimento', cls: 'b-cen b-data', html: (x) => (x.venc ? dataBR(x.venc) : '—'), ord: (x) => x.venc || '9' });
+  C.push({ k: 'pz', rot: 'Prazo', cls: 'b-cen b-prazo', html: celPrazoA, ord: (x) => (x.pago ? x.pagoEm || '1' : x.venc || '9') });
+  C.push({ k: 'ac', rot: '', cls: 'b-dir b-c-acoes', html: celAcoesA, ord: false });
+  return C;
+}
+const buscaAc = (x) => [x.devedor, x.credor, x.processo, x.grupo, x.responsavel].join(' ');
+const vencidaA = (x) => (!x.pago && x.venc && x.venc <= hojeISO() ? ' b-tr-venc' : '');
+
+// ═════════ TELA ═════════
+TELAS.acordos = async function () {
+  E.ac = E.ac || { grupo: '', chip: 'todos' };
+  const el0 = $('conteudo');
+  const T = await dadosAcordos();
+  if (!el0.isConnected) return;
+  E.ac.T = T; E.ac.A = acordosDe(T);
+  pintarAcordos();
+};
+TELAS.acordos.semCadastros = true;
+function pintarAcordos() {
+  const el = $('conteudo'); if (!el) return;
+  const T = E.ac.T || [], A = E.ac.A || [], h = hojeISO(), podeEd = pode('juridico', 'editar');
+  const atr = T.filter((x) => !x.pago && x.venc && x.venc <= h), mes = T.filter((x) => !x.pago && doMesP(x.venc));
+  const emitir = T.filter((x) => !x.pago && x.venc && (x.venc <= h || doMesP(x.venc))), emit = emitir.filter((x) => x.emitida);
+  const vivos = A.filter((a) => !a.concluido), pago = vivos.reduce((s, a) => s + a.pago, 0), falta = vivos.reduce((s, a) => s + a.falta, 0);
+  const soma = (l) => l.reduce((s, x) => s + x.valor, 0);
+  el.innerHTML = cabecalhoTela({ icone: 'documento', titulo: 'Acordos', frase: 'Dívidas dos clientes com terceiros (não entram no Financeiro)', atualizar: 'ac-atualizar', botao: podeEd ? { id: 'ac-novo', rotulo: 'Novo acordo' } : null }) +
+    '<div id="ac-cartoes"></div>' +
+    '<div class="b-sec"><div><h2>Situação dos acordos por cliente</h2><p>Quanto cada grupo já pagou, quanto falta e o que vence este mês. Clique no cartão para ver cada acordo.</p></div><div class="b-chips" id="ac-chips">' +
+    [['todos', 'Todos'], ['atraso', 'Com atraso'], ['risco', 'Risco de rescisão'], ['dia', 'Em dia'], ['concluidos', 'Concluídos']].map((c) => '<button type="button" class="b-chip" data-ac-chip="' + c[0] + '" aria-pressed="' + (E.ac.chip === c[0]) + '">' + c[1] + '</button>').join('') + '</div></div>' +
+    '<div class="b-cards" id="ac-grupos"></div><div class="b-sec"><div><h2>Parcelas</h2></div></div><div id="ac-tabela"></div>';
+  const bt = $('ac-novo'); if (bt) bt.onclick = () => { if (typeof formAcordoNovo === 'function') formAcordoNovo(() => { if (window.ERP_RECARREGAR) window.ERP_RECARREGAR(); else TELAS.acordos(); }); };
+  $('ac-atualizar').onclick = () => { if (window.ERP_RECARREGAR_MODULOS) window.ERP_RECARREGAR_MODULOS('acordos').then(() => TELAS.acordos()); else TELAS.acordos(); };
+  const det = (id, titulo, linhas) => (c) => tabelaB(c, { id, titulo, tabCls: 'b-tab-ac', linhas, colunas: colunasAcordos(), unidade: ['parcela', 'parcelas'], busca: buscaAc, valor: (x) => x.valor, venc: (x) => x.venc,
+    ord: { k: 'venc', dir: 1 }, clique: janelaParcelaAc, altura: '440px', linhaCls: vencidaA });
+  cartoesB($('ac-cartoes'), 'acordos', [
+    { id: 'atr', cor: 'r', icone: 'alerta', rotulo: 'Parcelas em atraso', valor: String(atr.length), sub: brl(soma(atr)) + ' somadas · contando as de hoje', det: det('ac-d-atr', 'Parcelas em atraso (inclui as que vencem hoje)', atr) },
+    { id: 'mes', cor: 'b', icone: 'calendario', rotulo: 'Vencem este mês', valor: String(mes.length), comp: '· ' + brl(soma(mes)) + ' no mês', sub: 'emitir e mandar ao cliente antes do vencimento', det: det('ac-d-mes', 'Vencem em ' + nomeMes(new Date()), mes) },
+    { id: 'emitir', cor: 'a', icone: 'documento', rotulo: 'Boletos / PIX a emitir', valor: String(emitir.length - emit.length), comp: 'de ' + emitir.length, barra: emitir.length ? emit.length / emitir.length * 100 : 100,
+      sub: emit.length + ' já emitidos (vencidas e do mês)', det: det('ac-d-emitir', 'A emitir (vencidas e do mês)', emitir.filter((x) => !x.emitida)) },
+    { id: 'quit', cor: 'g', icone: 'pizza', rotulo: 'Quitado / falta', linhas: [[brl(pago), 'já pago', true], [brl(falta), 'falta pagar']], barra: pago + falta ? pago / (pago + falta) * 100 : 0,
+      sub: plural(vivos.length, 'acordo em andamento', 'acordos em andamento'), det: (c) => {
+        const G = {}; vivos.forEach((a) => { const g = G[a.grupo] = G[a.grupo] || { id: a.grupo, nome: a.grupo, n: 0, pago: 0, falta: 0 }; g.n++; g.pago += a.pago; g.falta += a.falta; });
+        tabelaB(c, { id: 'ac-d-quit', titulo: 'Quitado e falta, por grupo', linhas: Object.values(G), unidade: ['grupo', 'grupos'], valor: (g) => g.falta, ord: { k: 'falta', dir: -1 }, chave: (g) => g.id,
+          colunas: [{ k: 'g', rot: 'Grupo', html: (g) => grupoTxtB(g.nome), ord: (g) => normalizar(g.nome) }, { k: 'n', rot: 'Acordos', cls: 'b-cen b-data', html: (g) => g.n, ord: (g) => g.n },
+            { k: 'pago', rot: 'Já pago', cls: 'b-dir b-val', html: (g) => '<span class="b-verde">' + brl(g.pago) + '</span>', ord: (g) => g.pago }, { k: 'falta', rot: 'Falta pagar', cls: 'b-dir b-val', soma: true, html: (g) => brl(g.falta), ord: (g) => g.falta }],
+          clique: (g) => { E.ac.grupo = g.id; desenharGruposAc(); const x = $('ac-grupos'); if (x) x.scrollIntoView({ behavior: 'smooth', block: 'start' }); } });
+      } }
+  ]);
+  desenharGruposAc();
+  $('ac-chips').onclick = (ev) => { const b = ev.target.closest('[data-ac-chip]'); if (!b) return; E.ac.chip = b.dataset.acChip; $('ac-chips').querySelectorAll('.b-chip').forEach((x) => x.setAttribute('aria-pressed', x === b)); desenharGruposAc(); };
+  const uniq = (f) => [...new Set(T.map(f).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR')).map((v) => [v, v]);
+  tabelaB($('ac-tabela'), { id: 'acordos', tabCls: 'b-tab-ac', linhas: T, colunas: colunasAcordos(), unidade: ['parcela', 'parcelas'], dicaBusca: 'Devedor / processo…',
+    abas: [{ id: 'apagar', rot: 'A pagar', f: (x) => !x.pago }, { id: 'pago', rot: 'Pago', f: (x) => x.pago }], semContagemAbas: true,
+    prazos: true, prazosAbas: ['apagar'], conta: (n, aba) => plural(n, 'parcela', 'parcelas') + (aba === 'pago' ? ' paga' + (n === 1 ? '' : 's') : ' a pagar'),
+    ordAbas: { apagar: { k: 'venc', dir: 1 }, pago: { k: 'pz', dir: -1 } }, ord: { k: 'venc', dir: 1 }, linhaCls: vencidaA, busca: buscaAc, venc: (x) => x.venc, valor: (x) => x.valor, clique: janelaParcelaAc,
+    listas: [{ k: 'g', rot: 'Grupo', todos: 'Todos os grupos', opcoes: uniq((x) => x.grupo), get: (x) => x.grupo }, { k: 'cred', rot: 'Credor', todos: 'Todos os credores', opcoes: uniq((x) => x.credor), get: (x) => x.credor },
+      { k: 'forma', rot: 'Forma de pagamento', todos: 'Boleto e PIX', opcoes: [['boleto', 'Boleto'], ['pix', 'PIX']], get: (x) => x.forma }],
+    vazio: { titulo: 'Nenhuma parcela aqui', frase: 'Troque a escolha acima (Todas, Vencidas, 5/10/15/30 dias) ou limpe os filtros.' } });
+}
+
+// ── situação por cliente: um cartão por grupo; clicou → os acordos do grupo ──
+function desenharGruposAc() {
+  const el = $('ac-grupos'); if (!el) return;
+  const G = {};
+  (E.ac.A || []).forEach((a) => { const k = a.grupo || a.devedor; (G[k] = G[k] || { id: k, nome: k, itens: [] }).itens.push(a); });
+  const chip = E.ac.chip, grupos = Object.values(G).map((g) => {
+    const vivos = g.itens.filter((a) => !a.concluido), conc = g.itens.filter((a) => a.concluido);
+    const s = (f) => vivos.reduce((t, a) => t + f(a), 0);
+    return Object.assign(g, { vivos, conc, pg: s((a) => a.pagas), tot: s((a) => a.tot), falta: s((a) => a.falta), atr: s((a) => a.atr), risco: vivos.some((a) => a.atr >= 2),
+      parcMes: s((a) => a.doMes.reduce((t, x) => t + x.valor, 0)), nParcMes: s((a) => a.doMes.length), nMes: s((a) => a.mes.length), somaMes: s((a) => a.mes.reduce((t, x) => t + x.valor, 0)) });
+  }).filter((g) => chip === 'concluidos' ? g.conc.length : g.vivos.length && (chip === 'todos' || (chip === 'atraso' && g.atr) || (chip === 'risco' && g.risco) || (chip === 'dia' && !g.atr)))
+    .sort((a, b) => (b.atr ? 1 : 0) - (a.atr ? 1 : 0) || a.nome.localeCompare(b.nome, 'pt-BR'));
+  if (grupos.length === 1 && !E.ac.grupo) E.ac.grupo = grupos[0].id;
+  let html = '';
+  grupos.forEach((g) => {
+    const ab = E.ac.grupo === g.id, n = chip === 'concluidos' ? g.conc.length : g.vivos.length, pc = g.tot ? Math.round(g.pg / g.tot * 100) : 100;
+    html += '<button type="button" class="b-cg" data-ac-g="' + esc(g.id) + '" aria-expanded="' + ab + '"><div class="b-cg-hd"><span class="b-ponto" style="background:' + corGrupo(g.nome) + '"></span><b>' + esc(g.nome) + '</b>' +
+      (chip === 'concluidos' ? '<span class="b-pill b-g">Concluídos</span>' : g.atr ? '<span class="b-pill b-r">' + plural(g.atr, 'parcela', 'parcelas') + ' em atraso</span>' : '<span class="b-pill b-g">Em dia</span>') + '</div>' +
+      '<div class="b-cg-sub">' + plural(n, 'acordo', 'acordos') + (g.risco && chip !== 'concluidos' ? ' · <span class="b-n-atr">risco de rescisão</span>' : '') + '</div>' +
+      (chip === 'concluidos' ? '' : '<div class="b-barra"><span style="width:' + pc + '%"></span></div><div class="b-cg-lin"><span>Pagas</span><b><span class="b-verde">' + g.pg + '</span> de ' + g.tot + '</b></div>' +
+        '<div class="b-cg-lin"><span>Falta pagar</span><b>' + brl(g.falta) + '</b></div><div class="b-cg-lin"><span>Parcela do mês</span><b>' + (g.nParcMes ? brl(g.parcMes) + (g.nParcMes > 1 ? ' (' + g.nParcMes + ')' : '') : '—') + '</b></div>' +
+        '<div class="b-cg-lin"><span>A pagar este mês</span><b>' + (g.nMes ? brl(g.somaMes) + ' (' + g.nMes + ')' : '—') + '</b></div>') + '</button>';
+    if (ab) html += '<div class="b-cg-det" id="ac-det-grupo"></div>';
+  });
+  el.innerHTML = html || '<div class="b-quadro b-cg-det">' + vazioB({ icone: 'ok', titulo: 'Nenhum grupo neste recorte', frase: 'Troque a escolha acima (Todos, Com atraso, Risco de rescisão, Em dia, Concluídos).' }) + '</div>';
+  el.onclick = (ev) => { const c = ev.target.closest('[data-ac-g]'); if (!c) return; E.ac.grupo = E.ac.grupo === c.dataset.acG ? '' : c.dataset.acG; desenharGruposAc(); };
+  const det = $('ac-det-grupo'), g = grupos.find((x) => x.id === E.ac.grupo);
+  if (!det || !g) return;
+  tabelaB(det, { id: 'ac-grupo', titulo: g.nome + ' — clique no acordo para ver a ficha e todas as parcelas', linhas: chip === 'concluidos' ? g.conc : g.vivos, unidade: ['acordo', 'acordos'], chave: (a) => a.k, ord: { k: 'dev', dir: 1 },
+    busca: (a) => a.devedor + ' ' + a.credor + ' ' + a.processo, valor: (a) => a.falta,
+    colunas: [{ k: 'dev', rot: 'Devedor', html: (a) => esc(a.devedor || '—') + '<span class="b-doc">deve a ' + esc(a.credor || '—') + '</span>', ord: (a) => normalizar(a.devedor) },
+      { k: 'proc', rot: 'Processo', cls: 'b-num', html: (a) => esc(a.processo || '—'), ord: (a) => a.processo },
+      { k: 'pg', rot: 'Pagas', html: (a) => '<div class="b-prog"><div class="b-barra"><span style="width:' + a.pc + '%"></span></div><span><b class="b-verde">' + a.pagas + '</b> de ' + a.tot + '</span></div>', ord: (a) => a.pc },
+      { k: 'falta', rot: 'Falta pagar', cls: 'b-dir b-val', soma: true, html: (a) => brl(a.falta), ord: (a) => a.falta },
+      { k: 'pmes', rot: 'Parcela do mês', cls: 'b-dir b-data', html: (a) => { const x = a.parcMes; if (!x) return '<span class="b-em">—</span>';
+        return '<b class="b-val">' + brl(x.valor) + '</b><small' + (!x.pago && x.venc <= hojeISO() ? ' class="b-verm"' : '') + '>' + (x.pago ? '✓ paga' : 'vence ' + dataBR(x.venc).slice(0, 5)) + '</small>'; }, ord: (a) => (a.parcMes ? a.parcMes.valor : -1) },
+      { k: 'atr', rot: 'Situação', cls: 'b-cen', html: (a) => (a.concluido ? '<span class="b-pill b-g">Concluído</span>' : a.atr ? '<span class="b-n-atr">' + plural(a.atr, 'parcela', 'parcelas') + ' em atraso</span>' : '<span class="b-pill b-g">Em dia</span>'), ord: (a) => a.atr }],
+    clique: janelaAcordo });
+}
+
+// ── janela do acordo: ficha, 5 números, todas as parcelas; alterar o acordo inteiro; emitir as do mês ──
+function janelaAcordo(a) {
+  const podeEd = pode('juridico', 'editar'), ids = a.parcelas.map((x) => x.id), aEmitir = a.mes.filter((x) => !x.emitida);
+  const j = abrirJanela({ larga: true, kick: 'Acordo · processo ' + (a.processo || '—'), titulo: a.devedor, sub: 'deve a ' + esc(a.credor || '—') + ' · ' + esc(a.grupo || ''),
+    dir: a.concluido ? '<span class="b-pill b-g">Concluído</span>' : a.atr ? '<span class="b-pill b-r">' + plural(a.atr, 'parcela', 'parcelas') + ' em atraso</span>' : '<span class="b-pill b-g">Em dia</span>',
+    corpo: '<div class="b-ficha"><div><span>Devedor (cliente)</span><b>' + esc(a.devedor || '—') + '</b></div><div><span>Credor</span><b>' + esc(a.credor || '—') + '</b></div><div><span>Processo</span><b class="b-m">' + esc(a.processo || '—') + '</b></div><div><span>Responsável</span><b>' + esc(a.responsavel || '—') + '</b></div>' +
+      '<div><span>Forma de pagamento</span><b>' + (a.forma === 'pix' ? 'PIX' : 'Boleto') + '</b></div><div><span>Chave PIX</span><b>' + esc(a.pix || '—') + '</b></div><div><span>Banco</span><b>' + esc(a.banco || '—') + '</b></div><div><span>Grupo</span><b>' + esc(a.grupo || '—') + '</b></div></div>' +
+      '<div class="b-nums">' + [['Parcelas pagas', a.pagas + ' de ' + a.tot + ' (' + a.pc + '%)', ''], ['Já pago', brl(a.pago), 'b-verde'], ['Falta pagar', brl(a.falta), ''],
+        ['Parcela do mês', a.parcMes ? brl(a.parcMes.valor) + ' · ' + (a.parcMes.pago ? 'paga' : dataBR(a.parcMes.venc).slice(0, 5)) : (a.prox ? 'próxima ' + dataBR(a.prox.venc) : '—'), a.parcMes && !a.parcMes.pago && a.parcMes.venc <= hojeISO() ? 'b-verm' : ''],
+        ['Em atraso', a.atr ? plural(a.atr, 'parcela', 'parcelas') : 'nenhuma', a.atr ? 'b-verm' : '']].map((k) => '<div><span>' + k[0] + '</span><b class="' + k[2] + '">' + k[1] + '</b></div>').join('') + '</div>' +
+      '<div id="ac-j-parcelas"></div>',
+    rodape: (podeEd ? '<button type="button" class="btn btn-o" id="ac-j-todo" style="margin-right:auto">✎ Alterar o acordo inteiro</button>' : '') +
+      (podeEd && aEmitir.length ? '<button type="button" class="btn btn-o" id="ac-j-emitir">' + iconeB('documento') + ' Emitir (' + aEmitir.length + ')</button>' : '') + '<button type="button" class="btn btn-o" data-fechar>Fechar</button>' });
+  j.classList.add('ac-janela');
+  const td = j.querySelector('#ac-j-todo'); if (td) td.onclick = () => { fecharJanela(j); if (typeof editarAcordo === 'function') editarAcordo(ids, () => { if (window.ERP_RECARREGAR) window.ERP_RECARREGAR(); }); };
+  const em = j.querySelector('#ac-j-emitir'); if (em) em.onclick = () => { fecharJanela(j); emitirAcordos(aEmitir.map((x) => x.id)); };
+  E.ac.janela = { a, el: j.querySelector('#ac-j-parcelas') };
+  tabelaB(E.ac.janela.el, { id: 'ac-j-' + a.k, titulo: 'Parcelas', linhas: a.parcelas, unidade: ['parcela', 'parcelas'], ord: { k: 'venc', dir: 1 }, valor: (x) => x.valor, venc: (x) => x.venc, altura: '360px', abaPadrao: 'abertas',
+    abas: [{ id: 'abertas', rot: 'A pagar', f: (x) => !x.pago }, { id: 'pagas', rot: 'Pago', f: (x) => x.pago }, { id: 'todas', rot: 'Todas', f: () => true }], linhaCls: vencidaA,
+    colunas: colunasAcordos({ semGrupo: true }).filter((c) => !['proc', 'dev', 'cred'].includes(c.k)), clique: janelaParcelaAc });
+}
+// ── clique na parcela: ficha + emitir + baixa (com comprovante) + editar só esta / o acordo inteiro + detalhe completo ──
+function janelaParcelaAc(x) {
+  const podeEd = pode('juridico', 'editar'), a = x.ac;
+  const j = abrirJanela({ kick: 'Parcela ' + (x.n || '—') + (x.tot ? ' de ' + x.tot : ''), titulo: x.devedor, sub: 'deve a ' + esc(x.credor || '—') + ' · processo ' + esc(x.processo || '—'),
+    corpo: '<div class="b-ficha" style="grid-template-columns:1fr 1fr"><div><span>Grupo</span><b>' + grupoTxtB(x.grupo) + '</b></div><div><span>Forma de pagamento</span><b>' + (x.forma === 'pix' ? 'PIX' : 'Boleto') + '</b></div>' +
+      '<div><span>Vencimento</span><b>' + (x.venc ? dataBR(x.venc) : '—') + '</b></div><div><span>Valor</span><b>' + brl(x.valor) + '</b></div>' + (x.obs ? '<div style="grid-column:1/-1"><span>Observação</span><b>' + esc(x.obs) + '</b></div>' : '') + '</div>' +
+      '<div class="b-conf"><b>Emissão</b><span>' + (x.emitida ? '<span class="b-ok-txt">✓ Emitido' + (x.emitida.length === 10 ? ' em ' + dataBR(x.emitida) : '') + '</span>' : 'Ainda não emitido') + (podeEd && !x.pago ? ' <button type="button" class="b-bt-emitir" data-ac-emitir="' + esc(x.id) + '">Emitir</button>' : '') + '</span></div>' +
+      '<div class="b-conf"><b>Pagamento</b><span>' + (x.pago ? '<span class="b-ok-txt">✓ Pago' + (x.pagoEm ? ' em ' + dataBR(x.pagoEm) : '') + '</span>' + (x.comprovante ? ' · comprovante no processo' + (x.comprovanteId ? ' (ID ' + esc(x.comprovanteId) + ')' : '') : '') +
+        (podeEd ? ' <button type="button" class="b-link" id="ac-p-desmarcar">Desmarcar o pagamento</button>' : '') : (podeEd ? '<button type="button" class="b-bt-baixa" data-ac-baixa="' + esc(x.id) + '">Baixa</button>' : 'Em aberto')) + '</span></div>',
+    rodape: '<button type="button" class="btn btn-o" id="ac-p-acordo" style="margin-right:auto">Ver o acordo inteiro</button><button type="button" class="btn btn-o" id="ac-p-detalhe">Detalhe completo</button>' +
+      (podeEd ? '<button type="button" class="btn btn-o" id="ac-p-editar">✎ Só esta parcela</button><button type="button" class="btn btn-o" id="ac-p-todo">✎ O acordo inteiro</button>' : '') + '<button type="button" class="btn btn-o" data-fechar>Fechar</button>' });
+  j.querySelector('#ac-p-acordo').onclick = () => { fecharJanela(j); if (a) janelaAcordo(a); };
+  j.querySelector('#ac-p-detalhe').onclick = () => { fecharJanela(j); if (typeof detalheAcordo === 'function') detalheAcordo(x.id); };
+  const ed = j.querySelector('#ac-p-editar'); if (ed) ed.onclick = () => { fecharJanela(j); if (window.ERP_EDITAR) window.ERP_EDITAR('acordos:' + x.id); };
+  const td = j.querySelector('#ac-p-todo'); if (td) td.onclick = () => { fecharJanela(j); if (typeof editarAcordo === 'function') editarAcordo(a ? a.parcelas.map((y) => y.id) : [x.id], () => { if (window.ERP_RECARREGAR) window.ERP_RECARREGAR(); }); };
+  const dm = j.querySelector('#ac-p-desmarcar'); if (dm) dm.onclick = async () => {
+    if (!confirm('Tirar a baixa desta parcela? Ela volta a ficar em aberto.')) return;
+    fecharJanela(j); const antes = { pago: x.pago, pagoEm: x.pagoEm };
+    marcarParcelaAc(x, false, '');
+    try { await q(sb.from('acordos').update({ pago: false, data_pagamento: null }).eq('id', x.id)); const ED = ED_P(); if (ED && ED.gravou) ED.gravou('Pagamento desmarcado'); else aviso('Pagamento desmarcado.'); if (ED && ED.marcarSujo) ED.marcarSujo('acordos'); }
+    catch (e) { marcarParcelaAc(x, antes.pago, antes.pagoEm); aviso('⚠ ' + erroAmigavel(e), true); }
+  };
+}
+// muda a parcela na tela (e no ERP, para o Painel e os outros números) e redesenha
+function marcarParcelaAc(x, pago, pagoEm) {
+  x.pago = pago; x.pagoEm = pagoEm || '';
+  const o = x._orig; if (o) { o.pagamento = pago ? 'SIM' : ''; o.situacao = pago ? 'Pago' : (x.venc < hojeISO() ? 'Vencido' : 'OK'); o.dataPag = pagoEm ? dataBR(pagoEm) : ''; o.pagoEm = x.pagoEm; }
+  E.ac.A = acordosDe(E.ac.T || []);
+  if ($('ac-tabela')) pintarAcordos();
+  const jn = E.ac.janela; if (jn && jn.el.isConnected && jn.el._redesenharB) jn.el._redesenharB();
+}
+// ── baixa: pergunta a data e o comprovante no processo; a tela muda na hora; "Desfazer" no rodapé ──
+async function baixaAcordo(x) {
+  const bx = await perguntarBaixa({ acordo: true, valor: x.valor, descricao: 'Parcela ' + (x.n || '') + (x.tot ? '/' + x.tot : '') + ' — ' + (x.credor || x.processo || '') });
+  if (!bx) return;
+  const antes = { pago: x.pago, pagoEm: x.pagoEm };
+  marcarParcelaAc(x, true, bx.data_pagamento);
+  const ED = ED_P();
+  const desfazer = async () => {
+    const r = await sb.from('acordos').update({ pago: false, data_pagamento: null }).eq('id', x.id);
+    if (r.error) return aviso('⚠ ' + erroAmigavel(r.error), true);
+    marcarParcelaAc(x, antes.pago, antes.pagoEm); if (ED && ED.gravou) ED.gravou('Baixa desfeita'); if (ED && ED.marcarSujo) ED.marcarSujo('acordos');
+  };
+  try {
+    const d = ED && ED.baixaRapida ? await ED.baixaRapida('acordos', x.id, { semRecarregar: true, desfazer, prazoDesfazer: 8000, dados: bx })
+      : await q(sb.from('acordos').update(bx).eq('id', x.id).select().single());
+    if (!d || !d.id) throw new Error('não gravou');
+    x.comprovante = !!d.comprovante_processo; x.comprovanteId = d.comprovante_id || '';
+  } catch (e) { marcarParcelaAc(x, antes.pago, antes.pagoEm); if (e.message !== 'não gravou') aviso('⚠ ' + erroAmigavel(e), true); }
+}
+// emitir = a janela de envio de sempre (e-mail/rascunho/WhatsApp, PIX); depois recarrega
+function emitirAcordos(ids) { if (typeof enviarAcordosSelecionados === 'function') enviarAcordosSelecionados(ids, () => { if (window.ERP_RECARREGAR) window.ERP_RECARREGAR(); else TELAS.acordos(); }); }
+document.addEventListener('click', (ev) => {
+  const b = ev.target.closest('[data-ac-baixa]'), em = ev.target.closest('[data-ac-emitir]');
+  if (!b && !em) return;
+  ev.stopPropagation(); ev.preventDefault();
+  const id = (b || em).dataset[b ? 'acBaixa' : 'acEmitir'];
+  const x = ((E.ac && E.ac.T) || []).find((y) => y.id === id);
+  const janela = (b || em).closest('.fundo'); if (janela && !janela.classList.contains('ac-janela')) fecharJanela(janela);
+  if (b) { if (x) baixaAcordo(x); return; }
+  emitirAcordos([id]);
+}, true);
+
 // toda gravação confirmada aparece também no rodapé do ERP
 const _avisoOrig = aviso;
 aviso = function (msg, erro) { _avisoOrig(msg, erro); if (!erro && window.ERP_EDITOR && /^✓/.test(msg)) window.ERP_EDITOR.gravou(String(msg).replace(/^✓\s*/, '')); };
-window.GS = { cabecalhoTela, cartoesNumero, barraAbas, buscaB, tabelaLeve, vazioB, iconeB, tabelaB, cartoesB, vencB, janelaParcelamento, TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, invalidarCadastros, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo, perguntarBaixa, detalheContrato, ICONE_AVISO, abrirTarefa, detalheLancamento, formReuniao, janelaDelegar, abrirGeradorContrato, cardGuias, emitirParcela, enviarAcordosSelecionados, editarAcordo, formAcordoNovo, janelaReceber, formExecucao, escolherExecucaoReceb, formNovoFluxo, gerarGuias, janelaMovimentacao, cobrarWhatsApp, textoRegra, proximasDatas, regraDaTarefa, projecoesRecorrentes };
+window.GS = { cabecalhoTela, cartoesNumero, barraAbas, buscaB, tabelaLeve, vazioB, iconeB, tabelaB, cartoesB, vencB, janelaParcelamento, TELAS, E, irPara, carregarCadastros, formLancamento, formCliente, formContrato, formTarefa, tabelaLancamentos, tabelaLancB, ligarAcoesLancamentos, abrirJanela, fecharJanela, abrirFicha, invalidarCadastros, blocoDocumentos, abrirAlertas, contarAlertas, pode, janelaMeusAvisos, formOportunidade, detalheAcordo, perguntarBaixa, detalheContrato, ICONE_AVISO, abrirTarefa, detalheLancamento, formReuniao, janelaDelegar, abrirGeradorContrato, cardGuias, emitirParcela, enviarAcordosSelecionados, editarAcordo, formAcordoNovo, janelaReceber, formExecucao, escolherExecucaoReceb, formNovoFluxo, gerarGuias, janelaMovimentacao, cobrarWhatsApp, textoRegra, proximasDatas, regraDaTarefa, projecoesRecorrentes };
 })();

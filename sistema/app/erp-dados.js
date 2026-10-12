@@ -116,7 +116,9 @@ window.ERP_COLS_CLIENTE = 'id,grupo_id,nome,cpf_cnpj,tipo,responsavel,email,tele
       valor: num(a.valor), vencimento: br(a.vencimento), diasRestantes: dias(a.vencimento),
       situacao: a.pago ? 'Pago' : (a.vencimento && a.vencimento < hojeISO()) ? 'Vencido' : /emitir/i.test(a.situacao || '') ? 'Emitir Guia' : 'OK', emissao: a.emissao || '', pagamento: a.pago ? 'SIM' : '',
       dataPag: br(a.data_pagamento), pix: a.pix || '', banco: a.banco || '', obs: a.obs || '', formaPag: a.forma_pagamento || 'boleto',
-      emitidaEm: br(a.emitida_em), emitidaPor: a.emitida_por || '', guiaDoc: a.guia_doc || ''
+      emitidaEm: br(a.emitida_em), emitidaPor: a.emitida_por || '', guiaDoc: a.guia_doc || '',
+      // Backup 70: para a tela nova de Acordos (datas em aaaa-mm-dd, grupo, comprovante)
+      grupoId: a.grupo_id || '', vencIso: a.vencimento || '', pagoEm: a.data_pagamento || '', emitidaIso: a.emitida_em || '', comprovante: !!a.comprovante_processo, comprovanteId: a.comprovante_id || ''
     };
   }
   // Lançamento → linha do financeiro antigo. Despesa que veio da aba de

@@ -142,8 +142,8 @@ async function pintarLista(empresa, buscar) {
     kpi(rotAba, brl(total), F.aba === 'prejuizo' || F.aba === 'apagar' ? 'ambar' : F.aba === 'recebidos' ? 'verde' : '', lista.length + ' lançamento(s)') +
     (F.aba === 'areceber' || F.aba === 'apagar' ? kpi('Em atraso', brl(atrasado), 'vermelho', lista.filter((l) => situacao(l) === 'vencido').length + ' vencido(s)') : '') +
     '</div>' +
-    '<div class="card">' + tabelaLancamentos(lista, { aba: F.aba }) + '</div>';
-  ligarAcoesLancamentos($('fin-corpo'), () => pintarFin(empresa));
+    '<div id="fin-tabela"></div>';
+  tabelaLancB($('fin-tabela'), lista, { aba: F.aba, id: 'fin-' + empresa + '-' + F.aba }, () => pintarFin(empresa));
 }
 
 // Legenda do lançamento (vale no sistema todo): 2ª linha = "Área do serviço — contrato"; sem contrato, só a área;
@@ -201,6 +201,72 @@ function tabelaLancamentos(lista, opc) {
     }).join('') +
     '</tbody><tfoot><tr><td colspan="' + ((lote ? 1 : 0) + (compacta ? 0 : 2) + (comDesc ? 1 : 0)) + '">Total (' + lista.length + ')</td><td class="num mono">' +
     brl(soma(lista, (l) => l.tipo === 'despesa' ? -l.valor : vl(l))) + '</td><td colspan="' + (nCols - (lote ? 1 : 0) - (compacta ? 0 : 2) - (comDesc ? 1 : 0) - 1) + '"></td></tr></tfoot></table></div></div>';
+}
+
+// ═══ Backup 71 (reforma, etapa 5): a lista de lançamentos no desenho da tabela de Acordos (peça tabelaB) ═══
+// Quem · Grupo / Favorecido · Descrição · Valor · Vencimento (ou Pago em) · Prazo colorido · Cobrar + Baixa (verde) · linha vencida rosada.
+// Nada saiu: clique na linha = detalhe (✎ Editar, recibo…), Cobrar pelo WhatsApp, Baixa (pergunta a data), ↺ voltar para em aberto,
+// baixa de várias de uma vez (botão "Marcar várias" — as caixinhas só aparecem quando pedidas), busca, filtros e ordenar pelo título.
+function celPrazoL(l) {
+  if (l.perda) return pillSit(l);
+  if (l.pago) return '<span class="b-ok-txt">✓ ' + (l.data_pagamento ? 'Pago em ' + dataBR(l.data_pagamento).slice(0, 5) : 'Pago') + '</span>';
+  const d = l.vencimento ? diasAte(l.vencimento) : null;
+  return (d === null ? '—' : '<span class="' + corPrazo(d) + '">' + (d < 0 ? Math.abs(d) + ' d atraso' : d === 0 ? 'vence hoje' : d + (d === 1 ? ' dia' : ' dias')) + '</span>') +
+    (l.cobranca ? '<small class="b-pz-sub">' + esc(l.cobranca) + '</small>' : '');
+}
+function celAcoesL(l) {
+  if (l.perda) return '';
+  if (l.pago) return '<span class="b-acoes"><button type="button" class="b-bt-emitir" data-desfazer="' + l.id + '" title="Voltar para em aberto">↺ Desfazer</button></span>';
+  return '<span class="b-acoes">' + (l.tipo === 'receita' && !l.redutor ? '<button type="button" class="b-bt-emitir gx-cobrar" data-cobrar="' + l.id + '" title="Cobrar pelo WhatsApp (texto pronto)">Cobrar</button>' : '') +
+    '<button type="button" class="b-bt-baixa" data-pagar="' + l.id + '" title="Dar baixa — ' + (l.tipo === 'despesa' && !l.redutor ? 'pago' : 'recebido') + ' (pergunta a data)">Baixa</button></span>';
+}
+function tabelaLancB(el, lista, opc, depois) {
+  opc = opc || {};
+  const aba = opc.aba || 'areceber', porPag = aba === 'recebidos' || aba === 'despesas', aberto = !porPag && aba !== 'prejuizo';
+  const h = hojeISO(), quemL = (l) => (l.grupos && l.grupos.nome) || l.favorecido || (l.clientes && l.clientes.nome) || '';
+  const vS = (l) => (l.tipo === 'despesa' ? -l.valor : vl(l));
+  const dataL = (l) => (porPag ? l.data_pagamento : l.vencimento) || '';
+  const C = [
+    { k: 'resp', rot: 'Quem', html: (l) => pillPessoa(l.responsavel), ord: (l) => normalizar(l.responsavel || '') },
+    { k: 'quem', rot: 'Grupo / Favorecido', html: (l) => esc(quemL(l) || '—') + (l.clientes && l.grupos ? '<span class="b-sub">' + esc(l.clientes.nome) + '</span>' : ''), ord: (l) => normalizar(quemL(l)) },
+    { k: 'desc', rot: 'Descrição', html: (l) => { const lg = legendaLanc(l); return esc(l.descricao || '—') + (lg ? '<span class="b-sub">' + esc(lg) + '</span>' : ''); }, ord: (l) => normalizar(l.descricao || '') },
+    { k: 'v', rot: 'Valor', cls: 'b-dir b-val', clsL: (l) => (l.tipo === 'receita' && !l.redutor ? ' valor-rec' : ' valor-desp'), soma: true,
+      html: (l) => (l.tipo === 'despesa' || l.redutor ? '− ' : '') + brl(l.valor) + (l.redutor ? '<small>redutor</small>' : ''), ord: vS },
+    { k: 'venc', rot: porPag ? 'Pago em' : 'Vencimento', cls: 'b-cen b-data', html: (l) => { const d = dataL(l); return d ? dataBR(d) + (porPag && l.vencimento && l.vencimento !== d ? '<small>venc. ' + dataBR(l.vencimento) + '</small>' : '') : '—'; }, ord: (l) => dataL(l) || '9' }];
+  if (!porPag) C.push({ k: 'pz', rot: 'Prazo', cls: 'b-cen b-prazo', html: celPrazoL, ord: (l) => (l.pago || l.perda ? '9' : l.vencimento || '9') });
+  C.push({ k: 'ac', rot: '', cls: 'b-dir b-c-acoes', html: celAcoesL, ord: false });
+  const resp = [...new Set(lista.map((l) => l.responsavel).filter(Boolean))].sort();
+  const temAberto = lista.some((l) => !l.pago && !l.perda);
+  el._lancDepois = depois || recarregar;
+  tabelaB(el, { id: opc.id || 'fin-' + aba, tabCls: 'b-tab-lanc' + (porPag ? ' b-sem-prazo' : ''), linhas: lista, colunas: C, unidade: ['lançamento', 'lançamentos'],
+    titulo: opc.titulo, busca: (l) => [l.descricao, quemL(l), l.clientes && l.clientes.nome, l.favorecido, l.categoria, l.obs, l.servico].join(' '), dicaBusca: 'Cliente, grupo, descrição…',
+    prazos: aberto && !opc.semPrazos, venc: (l) => dataL(l), valor: vS, ord: porPag ? { k: 'venc', dir: -1 } : { k: 'venc', dir: 1 },
+    conta: (n) => plural(n, 'lançamento', 'lançamentos'), linhaCls: (l) => (!l.pago && !l.perda && l.vencimento && l.vencimento <= h ? ' b-tr-venc' : ''),
+    listas: resp.length > 1 ? [{ k: 'resp', rot: 'Quem', todos: 'Todas as pessoas', opcoes: resp.map((r) => [r, r]), get: (l) => l.responsavel }] : [],
+    lote: temAberto ? [{ rot: 'Dar baixa nas marcadas', icone: 'check', quando: (l) => !l.pago && !l.perda, fn: async (marc) => {
+      const ids = marc.map((l) => l.id); if (!ids.length) return false;
+      const bx = await perguntarBaixa({ titulo: 'Baixa em lote — confirme a data', descricao: plural(ids.length, 'lançamento', 'lançamentos'), valor: soma(marc, vS) });
+      if (!bx) return false;
+      await q(sb.from('lancamentos').update(Object.assign(bx, { cobranca: '', perda: false })).in('id', ids));
+      aviso('✓ Baixa de ' + plural(ids.length, 'lançamento', 'lançamentos') + ' em ' + dataBR(bx.data_pagamento) + '.'); await el._lancDepois(); } }] : null, loteBotao: true,
+    clique: (l) => detalheLancamento(l.id).catch((e) => aviso(erroAmigavel(e), true)),
+    vazio: { titulo: 'Nenhum lançamento aqui', frase: 'Troque o mês, a aba ou os filtros.' } });
+  if (!el._lancLigado) {
+    el._lancLigado = true;
+    el.addEventListener('click', (ev) => {
+      const b = ev.target.closest('[data-pagar], [data-cobrar], [data-desfazer]'); if (!b || !el.contains(b)) return;
+      ev.stopPropagation();
+      if (b.dataset.cobrar) return cobrarWhatsApp(b.dataset.cobrar);
+      if (b.dataset.desfazer) return comBotao(b, async () => { await q(sb.from('lancamentos').update({ pago: false }).eq('id', b.dataset.desfazer)); aviso('Lançamento voltou para "em aberto".'); await el._lancDepois(); });
+      comBotao(b, async () => {
+        const l = await q(sb.from('lancamentos').select('descricao, valor, tipo, redutor').eq('id', b.dataset.pagar).single());
+        const bx = await perguntarBaixa({ descricao: l.descricao, valor: l.valor, despesa: l.tipo === 'despesa' && !l.redutor });
+        if (!bx) return;
+        await q(sb.from('lancamentos').update(Object.assign(bx, { cobranca: '', perda: false })).eq('id', b.dataset.pagar));
+        aviso('✓ Baixa registrada em ' + dataBR(bx.data_pagamento) + '.'); await el._lancDepois();
+      });
+    }, true);
+  }
 }
 
 function ligarAcoesLancamentos(raiz, depois) {

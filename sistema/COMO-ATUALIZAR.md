@@ -707,6 +707,35 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
 **Central de Documentos dentro do ERP:** menu **Documentos → Gerar documento** (ou ⋯ → Documentos, contrato, recibo do Financeiro).
 **Ctrl + clique** (ou botão do meio do mouse) em qualquer item do menu ou link de documento abre numa aba nova.
 
+## Backup 70 — Reforma, etapas 4 a 7: Acordos, Financeiro, Processos/Painel e Rotina no visual novo
+1. Merge da pull request.
+2. SQL: não precisa (o banco não mudou).
+3. **Ctrl+Shift+R** no ERP.
+
+O que mudou (só para a equipe; o portal do cliente continua igual). **Nenhuma função saiu.**
+- **Acordos (etapa 4)** — tela refeita, no mesmo desenho de Parcelamentos:
+  1. Quatro cartões (Parcelas em atraso · Vencem este mês · Boletos/PIX a emitir · Quitado/falta). Clique no cartão para ver a lista embaixo.
+  2. **Situação dos acordos por cliente**: um cartão por grupo com Pagas, Falta pagar, **Parcela do mês** e A pagar este mês. Os botões Todos · Com atraso ·
+     Risco de rescisão · Em dia · **Concluídos** (antes "Mostrar concluídos") escolhem os cartões. Clique no cartão → acordos do grupo → clique no acordo →
+     janela com a ficha (devedor, credor, processo, forma de pagamento, PIX, banco), 5 números e todas as parcelas; **✎ Alterar o acordo inteiro** e **Emitir** ficam no rodapé.
+  3. **Parcelas**: A pagar / Pago, atalhos Todas · Vencidas · 5 · 10 · 15 · 30 dias · até, busca, **Filtros** (grupo, credor, forma de pagamento, vencimento, valor),
+     coluna Prazo colorida, botões **Emitir** e **Baixa** (a Baixa pergunta a data e se o comprovante foi anexado ao processo; "Desfazer" no rodapé).
+     Clicar na parcela: Emitir, Baixa, Desmarcar o pagamento, **✎ Só esta parcela**, **✎ O acordo inteiro**, Ver o acordo inteiro e o **Detalhe completo** de antes
+     (tarefa "lembrar o cliente", WhatsApp). **Novo acordo** no alto da tela.
+- **Financeiro (etapa 5)** — as listas (A receber, Recebidos, Prejuízo, A pagar, Pagos, nas duas empresas) ficaram no desenho da tabela de Acordos:
+  Quem · Grupo / Favorecido · Descrição · Valor · Vencimento (ou Pago em) · **Prazo** colorido · **Cobrar** e **Baixa** (verde); linha vencida rosada; busca e Filtros.
+  A baixa de várias de uma vez continua: botão **Marcar várias** (as caixinhas só aparecem quando você pede). Análise, gráficos, Caixa, comparativos e o filtro
+  de período de cima continuam como estavam.
+- **Processos (etapa 6)** — a lista ficou no desenho novo: abas **Ativos · Arquivados · Extintos · Todos**, busca, Filtros (grupo, competência, natureza, valor),
+  colunas Grupo · Processo · Competência · Natureza · Partes · Valor · Última movimentação · Status. Clicar abre a mesma janela do processo
+  (+ Registrar movimentação, ✎ Editar). A análise de cima (passivo/ativo em disputas, tabelas por grupo/tribunal/natureza) continua.
+- **Painel Executivo (etapa 6)** — os cartões de número de todas as telas antigas (Painel, Processos, Início…) ficaram no desenho dos novos (título, número,
+  explicação; a cor virou um pontinho) e a tabela "Empresas do grupo" usa a letra Inter nos números (só CPF/CNPJ na letra de número), sem sobra de espaço embaixo.
+  A tabela, a ficha da empresa, a evolução do passivo e os filtros continuam iguais.
+- **Rotina (etapa 7)** — cabeçalho, placar do mês e abas no desenho novo; **Minhas tarefas** virou uma tabela com abas (Recorrentes · Com validação · Únicas ·
+  Para eu validar), busca e os mesmos botões (Concluir, Concluir e enviar, Abrir e validar). Passivo, Processos, Guias do mês e Planilha continuam iguais por dentro.
+- Correção: quem abria Acordos/Parcelamentos logo depois de entrar via a tela vazia até clicar em Atualizar (os dados chegam em etapas); agora a tela se redesenha sozinha.
+
 ## Backup 69 — Parcelamentos com a tabela igual à de Acordos + "Parcela do mês"
 1. Merge da pull request.
 2. SQL: não precisa.

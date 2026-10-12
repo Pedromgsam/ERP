@@ -19,9 +19,10 @@ TELAS.rotina = async function () {
   if (E.rt.aba === 'parcs' || E.rt.aba === 'acs' || E.rt.aba === 'financeiro') E.rt.aba = 'planilha';   // Backup 42: o Controle saiu
   _rtDados = null;   // Backup 51: entrar na Rotina busca de novo; trocar de aba usa o que já veio
   $('conteudo').innerHTML =
-    '<div class="titulo-pag"><div><h1>Rotina</h1><p>Tudo o que era atualizado nas planilhas, num lugar só — o que você grava aqui aparece no Painel, nos Processos e no Financeiro</p></div></div>' +
-    '<div class="rt-placar" id="rt-placar" aria-label="Placar do mês">' + placarRotina(null) + '</div>' +
-    '<div class="segmento rt-abas" id="rt-abas" style="margin-bottom:14px">' + ABAS_ROTINA.map(([k, r]) => '<button type="button" data-rt-aba="' + k + '">' + r + '</button>').join('') + '</div>' +
+    // Backup 73 (reforma, etapa 7): cabeçalho, placar e abas com as peças novas (o miolo de cada aba continua igual)
+    cabecalhoTela({ icone: 'check', titulo: 'Rotina', frase: 'Tudo o que era atualizado nas planilhas, num lugar só — o que você grava aqui aparece no Painel, nos Processos e no Financeiro' }) +
+    '<div class="rt-placar b-placar" id="rt-placar" aria-label="Placar do mês">' + placarRotina(null) + '</div>' +
+    '<div class="b-seg rt-abas" id="rt-abas" role="tablist">' + ABAS_ROTINA.map(([k, r]) => '<button type="button" role="tab" class="b-seg-bt" data-rt-aba="' + k + '">' + r + '</button>').join('') + '</div>' +
     '<div id="rt-corpo"></div>';
   // Backup 42: "Acordos" abre a própria tela de Acordos (idêntica, sem repetir código)
   $('rt-abas').onclick = (ev) => { const b = ev.target.closest('[data-rt-aba]'); if (!b) return;
@@ -90,7 +91,7 @@ function esqueletoRotina(aba) {
     [0, 1, 2, 3, 4, 5].map(() => '<div class="ep-emp"><div class="ep-emp-hd">' + barra(40) + '</div><div class="ep-emp-body"><div class="ep-row">' + barra(55) + '</div><div class="ep-row">' + barra(45) + '</div></div></div>').join('') + '</div></div>';
 }
 async function pintarRotina() {
-  document.querySelectorAll('#rt-abas button').forEach((b) => b.classList.toggle('ativo', b.dataset.rtAba === E.rt.aba));
+  document.querySelectorAll('#rt-abas button').forEach((b) => { const on = b.dataset.rtAba === E.rt.aba; b.classList.toggle('ativo', on); b.setAttribute('aria-selected', on); });
   const el = $('rt-corpo'); if (!el) return;
   el.innerHTML = E.rt.aba === 'guias' || E.rt.aba === 'planilha' ? esqueletoRotina(E.rt.aba) : '<div class="sub" style="padding:10px">Carregando…</div>';
   try { await ({ passivo: rotinaPassivo, processos: rotinaProcessos, planilha: rotinaPlanilha, guias: rotinaEnviarGuias, tarefas: rotinaTarefas })[E.rt.aba](el); }
@@ -803,27 +804,41 @@ async function rotinaTarefas(el) {
     ['✔ Com validação', 'ao concluir, vão para quem valida; só fecham depois do "aprovado"', minhas.filter((t) => !t.recorrencia && t.exige_revisao)],
     ['📌 Únicas', 'fazem uma vez e acabou', minhas.filter((t) => !t.recorrencia && !t.exige_revisao)],
     ['🔎 Para eu validar', 'o que a equipe concluiu e espera o seu aprovado', validar]];
-  const linha = (t, validando) => '<tr class="clicavel" data-tarefa="' + t.id + '"><td><b>' + esc(t.titulo) + '</b>' + (t.clientes ? '<div class="sub">' + esc(t.clientes.nome) + '</div>' : '') + '</td>' +
-    '<td>' + (t.recorrencia ? '<span class="pill aberto tf-repete">' + esc(typeof textoRepete === 'function' ? textoRepete(t) : '↻ ' + (REPETE[t.recorrencia] || t.recorrencia)) + '</span>' : '<span class="sub">—</span>') + '</td>' +
-    '<td>' + (t.exige_revisao || validando ? '<span class="pill hoje">valida: ' + esc(t.revisor || '—') + '</span>' : '<span class="sub">—</span>') + '</td>' +
-    '<td>' + (t.prazo ? '<span class="' + (t.prazo < h ? 'dias-r' : t.prazo === h ? 'dias-a' : '') + '">' + dataBR(t.prazo) + '</span>' : '—') + '</td>' +
-    '<td class="acoes-l">' + (t._feita ? '<span class="pill pago rt-ciclo" title="Concluída em ' + esc(dataBR(String(t.concluida_em || t.prazo || '').slice(0, 10))) + '">✓ concluída neste ciclo' + (t._volta ? ' · volta em ' + dataBR(t._volta) : '') + '</span>' : validando ? '<button type="button" class="btn btn-v btn-mini" data-rt-ok="' + t.id + '">✓ Abrir e validar</button>'
-      : '<button type="button" class="btn btn-v btn-mini" data-rt-concluir="' + t.id + '">' + (t.exige_revisao ? '✓ Concluir e enviar' : '✓ Concluir') + '</button>') + '</td></tr>';
-  el.innerHTML = '<div class="card"><div class="card-hd">✓ Minhas tarefas<span class="sub">recorrentes voltam sozinhas; com validação vão para quem valida</span>' +
-      '<span class="gd-hd-ac"><button type="button" class="btn btn-o btn-mini" id="rt-nova-rec">+ Tarefa recorrente</button><button type="button" class="btn btn-p btn-mini" id="rt-nova-t">+ Tarefa</button></span></div><div class="card-bd">' +
-    sec.map(([tit, sub, L], k) => '<div class="rt-tsec"><div class="rt-tsec-tit">' + tit + ' <span class="pill neutro">' + L.length + '</span><span class="sub">' + sub + '</span></div>' +
-      (L.length ? '<div class="tabela-wrap" data-sem-pagina><table class="rt-ttab"><thead><tr><th>Tarefa</th><th>Repete</th><th>Validação</th><th>Prazo</th><th></th></tr></thead><tbody>' + L.map((t) => linha(t, k === 3)).join('') + '</tbody></table></div>'
-        : '<div class="sub" style="padding:4px 2px 10px">Nada aqui.</div>') + '</div>').join('') + '</div></div>';
+  // Backup 73: as quatro listas viram abas de uma tabela só (peça tabelaB), como Acordos — mesmas ações (Concluir, Concluir e enviar, Abrir e validar)
+  const linhas = [];
+  sec.forEach(([, , L], k) => L.forEach((t) => linhas.push(Object.assign({}, t, { _sec: k }))));
+  const acoes = (t) => (t._feita ? '<span class="pill pago rt-ciclo" title="Concluída em ' + esc(dataBR(String(t.concluida_em || t.prazo || '').slice(0, 10))) + '">✓ concluída neste ciclo' + (t._volta ? ' · volta em ' + dataBR(t._volta) : '') + '</span>'
+    : t._sec === 3 ? '<button type="button" class="b-bt-baixa" data-rt-ok="' + t.id + '">Abrir e validar</button>'
+      : '<button type="button" class="b-bt-baixa" data-rt-concluir="' + t.id + '">' + (t.exige_revisao ? 'Concluir e enviar' : 'Concluir') + '</button>');
+  E.rt.tfAba = E.rt.tfAba || (sec.find((x) => x[2].length) ? ['rec', 'val', 'uni', 'eu'][sec.findIndex((x) => x[2].length)] : 'rec');
+  el.innerHTML = cabecalhoSecao() + '<div id="rt-tf"></div>';
+  function cabecalhoSecao() { return '<div class="b-sec"><div><h2>Minhas tarefas</h2><p>Recorrentes voltam sozinhas; com validação vão para quem valida.</p></div>' +
+    '<div class="b-chips"><button type="button" class="btn btn-o btn-mini" id="rt-nova-rec">+ Tarefa recorrente</button><button type="button" class="btn btn-p btn-mini" id="rt-nova-t">+ Tarefa</button></div></div>'; }
+  const box = $('rt-tf');
+  tabelaB(box, { id: 'rt-tarefas', linhas, chave: (t) => String(t.id) + (t._feita ? ':f' : ''), unidade: ['tarefa', 'tarefas'], dicaBusca: 'Tarefa ou cliente…', abaPadrao: E.rt.tfAba,
+    abas: [{ id: 'rec', rot: 'Recorrentes', f: (t) => t._sec === 0 }, { id: 'val', rot: 'Com validação', f: (t) => t._sec === 1 }, { id: 'uni', rot: 'Únicas', f: (t) => t._sec === 2 }, { id: 'eu', rot: 'Para eu validar', f: (t) => t._sec === 3 }],
+    busca: (t) => [t.titulo, t.clientes && t.clientes.nome, t.revisor].join(' '), ord: { k: 'pz', dir: 1 },
+    colunas: [
+      { k: 't', rot: 'Tarefa', html: (t) => '<b>' + esc(t.titulo) + '</b>' + (t.clientes ? '<span class="b-sub">' + esc(t.clientes.nome) + '</span>' : ''), ord: (t) => normalizar(t.titulo) },
+      { k: 'rep', rot: 'Repete', html: (t) => (t.recorrencia ? '<span class="pill aberto tf-repete">' + esc(typeof textoRepete === 'function' ? textoRepete(t) : '↻ ' + (REPETE[t.recorrencia] || t.recorrencia)) + '</span>' : '<span class="b-em">—</span>'), ord: false },
+      { k: 'val', rot: 'Validação', html: (t) => (t.exige_revisao || t._sec === 3 ? 'valida: ' + esc(t.revisor || '—') : '<span class="b-em">—</span>'), ord: (t) => t.revisor || '' },
+      { k: 'pz', rot: 'Prazo', cls: 'b-cen b-data', html: (t) => (t.prazo ? '<span class="' + (t.prazo < h ? 'b-pz-r' : t.prazo === h ? 'b-pz-a' : '') + '">' + dataBR(t.prazo) + '</span>' : '—'), ord: (t) => t.prazo || '9' },
+      { k: 'ac', rot: '', cls: 'b-dir b-c-acoes', html: acoes, ord: false }],
+    linhaCls: (t) => (!t._feita && t.prazo && t.prazo < h ? ' b-tr-venc' : ''),
+    clique: (t) => abrirTarefa(t.id, rep), vazio: { titulo: 'Nada aqui', frase: 'Nenhuma tarefa nesta aba.' } });
   const rep = () => rotinaTarefas(el);
   $('rt-nova-t').onclick = () => formTarefa({}, rep);
   $('rt-nova-rec').onclick = () => formTarefa({ recorrencia_regra: { tipo: 'mensal', modo: 'dia', dia: Number(hojeISO().slice(8)), inicio: hojeISO() }, responsavel: (E.perfil && E.perfil.nome) || '' }, rep);
-  el.querySelectorAll('[data-tarefa]').forEach((tr) => tr.onclick = (ev) => { if (ev.target.closest('button')) return; abrirTarefa(tr.dataset.tarefa, rep); });
-  el.querySelectorAll('[data-rt-ok]').forEach((b) => b.onclick = () => abrirTarefa(b.dataset.rtOk, rep));
-  el.querySelectorAll('[data-rt-concluir]').forEach((b) => b.onclick = () => comBotao(b, async () => {
-    const t = T.find((x) => x.id === b.dataset.rtConcluir);
-    if ((t.checklist || []).some((c) => !c.feito)) return abrirTarefa(t, rep);
-    if (t.exige_revisao) { await q(sb.from('tarefas').update({ status: 'revisao' }).eq('id', t.id)); aviso('✓ Enviada para validação de ' + (t.revisor || 'quem valida') + '.'); }
-    else { await concluirTarefa(t.id); aviso(t.recorrencia ? '✓ Concluída — ela volta sozinha ' + (t.recorrencia_regra ? textoRegra(t.recorrencia_regra).split(',')[0] : REPETE[t.recorrencia] || '') + '.' : '✓ Tarefa concluída.'); }
-    await rep();
-  }));
+  box.addEventListener('click', (ev) => {
+    const ab = ev.target.closest('[data-b-aba]'); if (ab) E.rt.tfAba = ab.dataset.bAba;
+    const ok = ev.target.closest('[data-rt-ok]'); if (ok) { ev.stopPropagation(); return abrirTarefa(ok.dataset.rtOk, rep); }
+    const b = ev.target.closest('[data-rt-concluir]'); if (!b) return; ev.stopPropagation();
+    comBotao(b, async () => {
+      const t = T.find((x) => x.id === b.dataset.rtConcluir);
+      if ((t.checklist || []).some((c) => !c.feito)) return abrirTarefa(t, rep);
+      if (t.exige_revisao) { await q(sb.from('tarefas').update({ status: 'revisao' }).eq('id', t.id)); aviso('✓ Enviada para validação de ' + (t.revisor || 'quem valida') + '.'); }
+      else { await concluirTarefa(t.id); aviso(t.recorrencia ? '✓ Concluída — ela volta sozinha ' + (t.recorrencia_regra ? textoRegra(t.recorrencia_regra).split(',')[0] : REPETE[t.recorrencia] || '') + '.' : '✓ Tarefa concluída.'); }
+      await rep();
+    });
+  }, true);
 }
