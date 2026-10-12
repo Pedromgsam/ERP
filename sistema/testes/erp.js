@@ -887,7 +887,10 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       await fecharTudo(); }
     ok('Acordos: acordo todo pago some da lista; "Concluídos" traz de volta', await (async () => {
       sql("update acordos set pago=true, data_pagamento=current_date where devedor='Alfa Comércio Ltda'"); await p.evaluate(() => ERP_RECARREGAR()); await p.waitForTimeout(2500);
-      const vivos = async () => { const t = []; for (const g of await p.$$('#ac-grupos [data-ac-g]')) { await g.click(); await p.waitForTimeout(250); t.push(await p.textContent('#ac-grupos')); const ab = await p.$('#ac-grupos [data-ac-g][aria-expanded=true]'); if (ab) { await ab.click(); await p.waitForTimeout(150); } } return t.join(' '); };
+      const vivos = async () => { const t = []; const ids = await p.$$eval('#ac-grupos [data-ac-g]', (l) => l.map((x) => x.dataset.acG));
+        for (const id of ids) { const sel = '#ac-grupos [data-ac-g="' + id.replace(/"/g, '\\"') + '"]';
+          if ((await p.getAttribute(sel, 'aria-expanded')) !== 'true') { await p.click(sel); await p.waitForTimeout(250); }
+          t.push(await p.textContent('#ac-grupos')); } return t.join(' '); };
       const sem = !/Alfa Comércio/i.test(await vivos());
       await p.click('#ac-chips [data-ac-chip=concluidos]'); await p.waitForTimeout(300);
       const com = /Alfa Comércio/i.test(await vivos());
