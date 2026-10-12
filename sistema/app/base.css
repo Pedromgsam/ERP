@@ -280,3 +280,7 @@ html body.gx-barra-topo table.b-tab-parc td.b-num:not(#_){white-space:normal!imp
 .b-tab-parc td .b-doc{white-space:normal}
 html body.gx-barra-topo table.b-tab-parc tfoot td:not(#_){white-space:nowrap;overflow:visible}
 .b-tab-parc th:nth-child(1){width:7.5%}.b-tab-parc th:nth-child(8){width:9%}
+.b-tab tr.b-tr-mais td{text-align:center!important;background:var(--surface2)}
+/* cabeçalho da lista de parcelas: quebra linha e diminui um pouco em telas estreitas (nada cortado em 1024 px) */
+html body.gx-barra-topo table.b-tab-parc thead th:not(#_){white-space:normal!important;overflow:visible;letter-spacing:0!important;font-size:10.5px!important;line-height:1.25;vertical-align:bottom}
+@media (max-width:1180px){html body.gx-barra-topo table.b-tab-parc thead th:not(#_){font-size:9.5px!important}}

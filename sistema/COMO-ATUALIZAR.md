@@ -719,6 +719,7 @@ O que mudou em **Jurídico → Parcelamentos** (a seu pedido):
 - Grupo, plataforma, natureza, vencimento de/até e valor ficaram dentro do botão **Filtros**. A letra continua a Inter.
 - **Parcela do mês** (valor e vencimento) no cartão de cada grupo, na lista dos parcelamentos do grupo e na janela do parcelamento.
 - Vale para as próximas telas refeitas (Acordos, Financeiro…): a tabela de todas segue este mesmo desenho.
+- Com muitas parcelas, a lista mostra 150 por vez e um botão **Mostrar mais** no fim (o total e a média contam todas). A tela abre em menos de meio segundo.
 
 ## Backup 68 — Parcelamentos refeita no ERP (reforma, etapa 3)
 1. Merge da pull request.

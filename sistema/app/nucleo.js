@@ -610,8 +610,9 @@ function cartoesB(el, chave, lista) {
 //   lote: [{rot, icone, quando(r), fn(lista)}], clique(r), chave(r), vazio: {titulo, frase}, unidade: [um, varios], altura, semBarra }
 function tabelaB(el, cfg) {
   E.tabB = E.tabB || {};
-  const st = E.tabB[cfg.id] = E.tabB[cfg.id] || { aba: (cfg.abas && (cfg.abaPadrao || cfg.abas[0].id)) || '', q: '', listas: {}, vde: '', vate: '', min: '', max: '', ord: Object.assign({}, cfg.ord || { k: '', dir: 1 }), ordAba: {}, sel: {}, painel: false, prazo: '', prazoAte: '' };
+  const st = E.tabB[cfg.id] = E.tabB[cfg.id] || { aba: (cfg.abas && (cfg.abaPadrao || cfg.abas[0].id)) || '', q: '', listas: {}, vde: '', vate: '', min: '', max: '', ord: Object.assign({}, cfg.ord || { k: '', dir: 1 }), ordAba: {}, sel: {}, painel: false, prazo: '', prazoAte: '', limite: 150 };
   if (cfg.ordAbas) Object.keys(cfg.ordAbas).forEach((a) => { if (!st.ordAba[a]) st.ordAba[a] = Object.assign({}, cfg.ordAbas[a]); });
+  if (!st.limite) st.limite = 150;
   el._cfgB = cfg;
   const chave = cfg.chave || ((r) => String(r.id));
   const temFx = !!(cfg.venc || cfg.valor);
@@ -656,7 +657,7 @@ function tabelaB(el, cfg) {
   function abas() {
     if (!cfg.abas || cfg.semBarra) return;
     const guarda = st.aba, cont = {};
-    cfg.abas.forEach((a) => { st.aba = a.id; cont[a.id] = filtrar().length; }); st.aba = guarda;
+    if (!cfg.semContagemAbas) { cfg.abas.forEach((a) => { st.aba = a.id; cont[a.id] = filtrar().length; }); st.aba = guarda; }
     Q('.b-seg').innerHTML = cfg.abas.map((a) => '<button type="button" role="tab" class="b-seg-bt" data-b-aba="' + esc(a.id) + '" aria-selected="' + (a.id === st.aba) + '">' + esc(a.rot) +
       (cfg.semContagemAbas ? '' : ' <span class="b-seg-n">' + cont[a.id] + '</span>') + '</button>').join('');
   }
@@ -684,9 +685,11 @@ function tabelaB(el, cfg) {
       '<div class="b-rola" data-sem-pagina' + (cfg.altura ? ' style="max-height:' + cfg.altura + '"' : '') + '><table class="b-tab' + (cfg.tabCls ? ' ' + cfg.tabCls : '') + '"><thead><tr>' +
       (temLote ? '<th class="b-ck"><input type="checkbox" data-bt="todas" aria-label="Marcar todas"' + (marc.length && marc.length === lin.length ? ' checked' : '') + '></th>' : '') +
       cols.map((c) => { const pode = c.ord !== false; return '<th class="' + (pode ? 'b-ord ' : '') + (c.cls || '') + '"' + (pode ? ' data-b-ord="' + esc(c.k) + '" title="Ordenar"' : '') + (o.k === c.k ? ' data-dir="' + o.dir + '"' : '') + '>' + esc(c.rot) + '</th>'; }).join('') +
-      '</tr></thead><tbody>' + lin.map((r) => { const k = chave(r);
+      '</tr></thead><tbody>' + lin.slice(0, st.limite).map((r) => { const k = chave(r);
         return '<tr class="' + (cfg.clique ? 'b-cl' : '') + (st.sel[k] ? ' b-sel' : '') + (cfg.linhaCls ? cfg.linhaCls(r) : '') + '"' + (cfg.clique ? ' tabindex="0"' : '') + ' data-b-k="' + esc(k) + '">' +
           (temLote ? '<td class="b-ck"><input type="checkbox" data-bt="um" aria-label="Marcar"' + (st.sel[k] ? ' checked' : '') + '></td>' : '') + cols.map((c) => cel(c, r)).join('') + '</tr>'; }).join('') +
+      // Backup 69: com muitas linhas (ex.: 15 mil parcelas), desenha 150 por vez — a tela abre na hora
+      (lin.length > st.limite ? '<tr class="b-tr-mais"><td colspan="' + (cols.length + (temLote ? 1 : 0)) + '"><button type="button" class="b-link" data-bt="mais">Mostrar mais ' + Math.min(150, lin.length - st.limite) + ' (' + lin.length + ' no total)</button></td></tr>' : '') +
       '</tbody>' + (soma != null && lin.length > 1 ? '<tfoot><tr>' + (temLote ? '<td></td>' : '') + cols.map((c, i) => c.soma ? '<td class="b-dir b-val">' + brl(soma) + '<small>média ' + brl(soma / lin.length) + '</small></td>' : '<td>' + (i === 0 ? 'Total de ' + lin.length : '') + '</td>').join('') + '</tr></tfoot>' : '') +
       '</table></div></div>';
   }
@@ -717,9 +720,10 @@ function tabelaB(el, cfg) {
       const pz = ev.target.closest('[data-b-prazo]'); if (pz) { s2.prazo = pz.dataset.bPrazo; s2.prazoAte = ''; el._redesenharB(); return; }
       if (tt === 'dens') { const on = !document.documentElement.classList.contains('b-compacto'); document.documentElement.classList.toggle('b-compacto', on); try { localStorage.setItem('erp_compacto', on ? '1' : ''); } catch (e) { /* sem armazenamento */ } t.setAttribute('aria-pressed', on); return; }
       if (tt === 'desmarcar') { s2.sel = {}; el._redesenharB(); return; }
+      if (tt === 'mais') { s2.limite += 150; el._redesenharB(); return; }
       if (tt === 'todas') { const marcar = t.checked; s2.sel = {}; if (marcar) el.querySelectorAll('tbody tr[data-b-k]').forEach((tr) => { s2.sel[tr.dataset.bK] = true; }); el._redesenharB(); return; }
       if (tt === 'um') { const k = t.closest('tr').dataset.bK; if (t.checked) s2.sel[k] = true; else delete s2.sel[k]; el._redesenharB(); return; }
-      const ab = ev.target.closest('[data-b-aba]'); if (ab && el.contains(ab)) { s2.aba = ab.dataset.bAba; s2.sel = {}; el._redesenharB(); return; }
+      const ab = ev.target.closest('[data-b-aba]'); if (ab && el.contains(ab)) { s2.aba = ab.dataset.bAba; s2.sel = {}; s2.limite = 150; el._redesenharB(); return; }
       const th = ev.target.closest('th[data-b-ord]'); if (th) { const o = c2.abas ? (s2.ordAba[s2.aba] = s2.ordAba[s2.aba] || Object.assign({}, s2.ord)) : s2.ord;
         if (o.k === th.dataset.bOrd) o.dir = -o.dir; else { o.k = th.dataset.bOrd; o.dir = 1; } el._redesenharB(); return; }
       const lt = ev.target.closest('[data-b-lote]'); if (lt) { const a = c2.lote[+lt.dataset.bLote]; const marc = c2.linhas.filter((r) => s2.sel[ch2(r)] && (!a.quando || a.quando(r)));
