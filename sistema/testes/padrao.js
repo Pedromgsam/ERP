@@ -7,7 +7,8 @@ const BASE = process.env.BASE || 'http://127.0.0.1:8090';
 const r = []; const ok = (n, c, extra) => { r.push([n, !!c]); if (!c && extra !== undefined) console.log('   ↳', n, '→', extra); };
 
 // o que é medido: [nome, seletor, propriedades que têm de ser iguais em todas as telas]
-const TAB = ':is(.tw,.tabela-wrap,.gx-tab-gs) table:not(.gx-leg):not(.massa)';
+// Backup 70: as tabelas novas (.b-tab, peça tabelaB) têm régua própria e são medidas no erp.js
+const TAB = ':is(.tw,.tabela-wrap,.gx-tab-gs) table:not(.gx-leg):not(.massa):not(.b-tab)';
 const REGRAS = [
   ['selo da pessoa', ':is(.pill.pill-pessoa,.fa-pessoa)', ['fontSize', 'fontWeight', 'borderRadius']],
   ['vencimento', 'td.col-venc', ['fontSize', 'fontWeight']],
@@ -19,7 +20,7 @@ const REGRAS = [
   ['cabeçalho de tabela', TAB + ':not(.rt-grade *) > thead > tr > th', ['fontSize', 'fontWeight', 'backgroundColor', 'color', 'textTransform']],
   ['célula de tabela', TAB + ' > tbody > tr:not(.gx-grp):not(.gx-det) > td:not(.col-doc):not(.col-grupo):not(.col-num)', ['fontSize']],
   ['linha de baixo (sócio, descrição…)', TAB + ' > tbody > tr > td .sub', ['fontSize', 'color']],
-  ['botão "✓ Baixa" da linha', 'td :is(.gx-la-bx,[data-pagar].btn-mini)', ['fontSize', 'fontWeight']],
+  ['botão "Baixa" da linha', 'td :is(.gx-la-bx,[data-pagar].btn-mini,.b-bt-baixa)', ['fontSize', 'fontWeight']],
   ['botão "✎" da linha (Backup 58: saiu das tabelas)', 'td :is(.gx-la-ed,.btn-ed)', ['fontSize'], true],
   // Backup 52 (P5): o que muda num lugar vale para todas as telas
   ['cabeçalho de grupo (faixa cinza, sem borda azul)', ':is(tr.gx-grp,tr.cli-grp,tr.rt-grp) > td', ['backgroundColor', 'color', 'fontSize', 'fontWeight', 'boxShadow']],
