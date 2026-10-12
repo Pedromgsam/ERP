@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap">
 <link rel="stylesheet" href="app.css">
 
-<div class="faixa-teste" role="note"><b>AMBIENTE DE TESTE</b><span>Dados fictícios. Hoje é 09/10/2026. O que você muda fica só neste navegador e não chega ao ERP.</span></div>
+<div class="faixa-teste" role="note"><b>AMBIENTE DE TESTE · versão 2</b><span>Todos os módulos, dados fictícios. Hoje é 12/10/2026. O que você muda fica só neste navegador. Vá em <b>Para aprovar</b> para marcar o que aprova.</span></div>
 <div class="app">
   <nav class="lado" id="lado" aria-label="Menu">
     <div class="marca">Araújo &amp; Castro<small>ERP · ambiente de teste</small></div>
@@ -18,6 +18,7 @@
       <button class="ic-bt so-celular" type="button" id="bt-menu" aria-label="Abrir o menu"></button>
       <span class="onde" id="onde"></span>
       <button class="busca-geral" type="button" id="bt-busca" aria-label="Buscar (Ctrl+K)"></button>
+      <button class="ic-bt" type="button" id="bt-textos" title="Ver os textos antigos (marcados em amarelo)" aria-label="Ver textos antigos">Aa</button>
       <button class="ic-bt" type="button" id="bt-ajuda" title="Ajuda desta tela (?)" aria-label="Ajuda"></button>
       <button class="ic-bt" type="button" id="bt-tema" title="Modo escuro / claro" aria-label="Modo escuro"></button>
       <div class="eu"><span class="ava">PC</span><div><b>Pedro Castro</b><small>Administrador</small></div></div>
@@ -28,25 +29,39 @@
 <div class="avisos" id="avisos" aria-live="polite"></div>
 
 <script src="dados.js"></script>
+<script src="textos.js"></script>
 <script src="pecas.js"></script>
 <script src="negocio.js"></script>
-<script src="telas-1.js"></script>
-<script src="telas-2.js"></script>
+<script src="telas-inicio.js"></script>
+<script src="telas-juridico.js"></script>
+<script src="telas-financeiro.js"></script>
+<script src="telas-cadastros.js"></script>
+<script src="telas-rotina.js"></script>
+<script src="telas-admin.js"></script>
+<script src="portal.js"></script>
+<script src="telas-aprovar.js"></script>
 <script>
 (function(){
-  var APP = window.APP, ic = APP.ic;
+  var APP = window.APP, ic = APP.ic, esc = APP.esc;
   APP.D = DADOS.carregar() || DADOS.gerar();
-  // menu: a mesma ordem do ERP
-  var MENU = [['Principal', ['inicio', 'rotina']], ['Jurídico', ['parcelamentos']], ['Financeiro', ['financeiro']], ['Cadastros', ['clientes']], ['Sistema', ['admin']]];
-  document.getElementById('menu').innerHTML = MENU.map(function(s){ return '<div class="sec">' + s[0] + '</div>' + s[1].map(function(id){ var t = APP.telas[id]; return '<button class="item" type="button" data-ir="' + id + '">' + ic(t.ic) + '<span>' + APP.esc(id === 'financeiro' ? 'Honorários' : t.tit) + '</span></button>'; }).join(''); }).join('');
+  // menu: a mesma ordem do ERP (Alertas saiu: virou a faixa do Início)
+  var MENU = [['Principal', ['inicio', 'tarefas']],
+    ['Módulos', ['painel', ['Jurídico', ['processos', 'parcelamentos', 'execucoes', 'publicacoes']], 'acordos', ['Financeiro', ['financeiro', 'contabilidade']], 'contratos', 'clientes', 'crm', 'documentos', 'rotina']],
+    ['Sistema', ['admin']], ['Ambiente de teste', ['aprovar', 'portal']]];
+  function item(id, sub){ var t = APP.telas[id]; return '<button class="item' + (sub ? ' sub' : '') + '" type="button" data-ir="' + id + '">' + (sub ? '' : ic(t.ic)) + '<span>' + esc(t.tit) + '</span></button>'; }
+  document.getElementById('menu').innerHTML = MENU.map(function(s){ return '<div class="sec">' + s[0] + '</div>' + s[1].map(function(x){
+    if (typeof x === 'string') return item(x);
+    return '<div class="item grupo">' + ic(x[0] === 'Jurídico' ? 'balanca' : 'dinheiro') + '<span>' + x[0] + '</span></div>' + x[1].map(function(id){ return item(id, true); }).join(''); }).join(''); }).join('');
   document.getElementById('menu').onclick = function(e){ var b = e.target.closest('[data-ir]'); if (b) APP.ir(b.dataset.ir); };
   document.getElementById('bt-menu').innerHTML = ic('menu');
   document.getElementById('bt-menu').onclick = function(){ document.getElementById('lado').classList.toggle('aberto'); };
-  document.getElementById('bt-busca').innerHTML = ic('busca') + '<span>Buscar cliente, CNPJ, parcelamento…</span><kbd>Ctrl K</kbd>';
+  document.getElementById('bt-busca').innerHTML = ic('busca') + '<span>Buscar cliente, CNPJ, processo…</span><kbd>Ctrl K</kbd>';
   document.getElementById('bt-busca').onclick = APP.abrirBusca;
   document.getElementById('bt-ajuda').innerHTML = ic('ajuda');
   document.getElementById('bt-ajuda').onclick = APP.abrirAjuda;
-  // tema: segue o sistema até a pessoa escolher
+  var tx = document.getElementById('bt-textos');
+  tx.setAttribute('aria-pressed', !!APP.pref('textosAntigos'));
+  tx.onclick = function(){ var on = !APP.pref('textosAntigos'); APP.pref('textosAntigos', on); tx.setAttribute('aria-pressed', on); APP.redesenhar(); APP.aviso(on ? 'Mostrando os textos ANTIGOS (marcados em amarelo).' : 'Mostrando os textos novos.'); };
   var bt = document.getElementById('bt-tema'); bt.innerHTML = ic('lua');
   function escuroAgora(){ var t = document.documentElement.getAttribute('data-theme'); return t ? t === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches; }
   if (APP.pref('tema')) document.documentElement.setAttribute('data-theme', APP.pref('tema'));
@@ -54,8 +69,8 @@
   bt.onclick = function(){ var novo = escuroAgora() ? 'light' : 'dark'; document.documentElement.setAttribute('data-theme', novo); APP.pref('tema', novo); bt.setAttribute('aria-pressed', novo === 'dark'); };
   if (APP.pref('compacto')) document.documentElement.classList.add('compacto');
   document.addEventListener('click', function(e){ var l = document.getElementById('lado'); if (l.classList.contains('aberto') && !e.target.closest('#lado') && !e.target.closest('#bt-menu')) l.classList.remove('aberto'); });
-  var t = APP.pref('tela'); APP.ir(APP.telas[t] ? t : 'inicio');
-  // F7: aplicativo instalável (só funciona fora de página incorporada; no ERP de verdade, sim)
+  var h = (location.hash || '').slice(1), t = APP.telas[h] ? h : APP.pref('tela');
+  APP.ir(APP.telas[t] ? t : 'inicio');
   try { if ('serviceWorker' in navigator && window.top === window && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(function(){}); } catch (e) {}
 })();
 </script>

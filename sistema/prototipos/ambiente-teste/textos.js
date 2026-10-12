@@ -1,0 +1,38 @@
+/* Textos curtos (pedido 2.1): cada texto da tela tem a versão ANTIGA (como está no ERP hoje) e a NOVA (curta).
+   No ambiente aparece a nova; o botão "Aa" no topo mostra a antiga marcada em amarelo. A lista completa, para aprovar
+   um a um, fica em "Para aprovar → Textos". */
+window.TEXTOS = {
+  'inicio.frase':      { tela:'Início', antigo:'Olá, Pedro', novo:'O que pede ação hoje' },
+  'inicio.lemb.vazio': { tela:'Início', antigo:'Nenhum lembrete para os próximos 7 dias. Use + Lembrete (com ou sem data; dá para fixar no topo e escolher uma cor).', novo:'Nenhum lembrete nos próximos 7 dias.' },
+  'inicio.fila':       { tela:'Início', antigo:'Minha fila de trabalho · 400 abertas · suas', novo:'Meu dia' },
+  'tarefas.frase':     { tela:'Tarefas', antigo:'(sem frase; 4 cartões: Em aberto · Atrasadas · Prazos fatais em 7 dias · Concluídas no mês)', novo:'Suas tarefas e as da equipe' },
+  'alertas.frase':     { tela:'Alertas', antigo:'O que precisa de atenção em cada setor · clique num cartão para ver o relatório', novo:'(a tela sai: os alertas vão para a faixa do Início)' },
+  'painel.frase':      { tela:'Painel Executivo', antigo:'PASSIVO TRIBUTÁRIO CONSOLIDADO · DISCRIMINADO POR ESPÉCIE', novo:'Passivo dos clientes e onde ele está' },
+  'painel.empresas':   { tela:'Painel Executivo', antigo:'Todas as entidades · clique no cabeçalho para ordenar', novo:'Clique na empresa para abrir a ficha' },
+  'painel.evolucao':   { tela:'Painel Executivo', antigo:'Evolução do passivo (Tudo junto / Uma linha por grupo · 6 meses)', novo:'Evolução do passivo' },
+  'processos.frase':   { tela:'Processos', antigo:'Processos únicos após deduplicação · polo ativo e passivo consolidados', novo:'Processos dos clientes' },
+  'processos.analise': { tela:'Processos', antigo:'ANÁLISE DA CARTEIRA JUDICIAL · soma dos valores da causa · cliente como réu · cliente como autor', novo:'Resumo da carteira' },
+  'parc.frase':        { tela:'Parcelamentos', antigo:'Parcelas dos clientes no e-CAC, Regularize e SIARE, por vencimento', novo:'Parcelas dos clientes, por vencimento' },
+  'parc.situacao':     { tela:'Parcelamentos', antigo:'Quanto cada grupo já pagou, quanto falta e o que vence este mês. Clique no cartão para ver cada parcelamento.', novo:'Clique no grupo para ver os parcelamentos.' },
+  'acordos.frase':     { tela:'Acordos', antigo:'Dívidas dos clientes com terceiros (não entram no Financeiro)', novo:'Dívidas dos clientes com terceiros' },
+  'acordos.situacao':  { tela:'Acordos', antigo:'Quanto cada grupo já pagou, quanto falta e o que vence este mês. Clique no cartão para ver cada acordo.', novo:'Clique no grupo para ver os acordos.' },
+  'exec.frase':        { tela:'Execuções', antigo:'Cobranças ajuizadas: o processo, o que o cliente já recebeu e os honorários do escritório (% do recebido)', novo:'Cobranças na Justiça e o que já entrou' },
+  'pub.frase':         { tela:'Publicações', antigo:'Publicações do Diário de Justiça (DJEN) das OABs monitoradas · novas, lidas e arquivadas', novo:'Intimações do Diário de Justiça' },
+  'fin.frase':         { tela:'Financeiro', antigo:'Mostrando todos · 01/01/2026 a 31/12/2026 · data considerada: pagamento, ou vencimento quando não houver pagamento', novo:'Honorários a receber, recebidos e contas a pagar' },
+  'fin.periodo':       { tela:'Financeiro', antigo:'QUEM FEZ · clique em mais de um para somar · PERÍODO · RECORTE', novo:'Quem · Período' },
+  'contratos.frase':   { tela:'Contratos', antigo:'Consultoria mensal (fixo ou em salários mínimos) ou serviço pontual · os valores entram sozinhos em Honorários Jurídico', novo:'Os valores entram sozinhos no Financeiro' },
+  'clientes.frase':    { tela:'Clientes', antigo:'Cadastro de clientes por grupo · clique no cliente para abrir a ficha 360°', novo:'Clique no cliente para abrir a ficha' },
+  'crm.frase':         { tela:'CRM', antigo:'Funil de oportunidades: 8 etapas abertas (Novo contato … Follow-up da proposta) e 4 finais', novo:'Quem pode virar cliente' },
+  'docs.frase':        { tela:'Documentos', antigo:'Pastas por grupo · Vencendo em 30 dias · Gerar documentos (Central)', novo:'Arquivos dos clientes' },
+  'rotina.frase':      { tela:'Rotina', antigo:'Tudo o que era atualizado nas planilhas, num lugar só — o que você grava aqui aparece no Painel, nos Processos e no Financeiro', novo:'O trabalho do mês, num lugar só' },
+  'rotina.passivo':    { tela:'Rotina', antigo:'edite direto na tabela · valores em R$ · as linhas alteradas ficam marcadas até você salvar', novo:'Edite na tabela e clique em Salvar' },
+  'rotina.planilha':   { tela:'Rotina', antigo:'para conferência · uma aba por grupo, um bloco por parcelamento · clique em EMISSÃO ou PAGAMENTO para marcar · o envio das guias é na aba "Guias do mês"', novo:'Clique em Emissão ou Pagamento para marcar' },
+  'rotina.guias':      { tela:'Rotina', antigo:'Guias do mês (em atraso + vencem neste mês): emitir, anexar, enviar e marcar como enviado', novo:'Anexe a guia e mande ao cliente' },
+  'rotina.tarefas':    { tela:'Rotina', antigo:'Recorrentes voltam sozinhas; com validação vão para quem valida.', novo:'As suas tarefas, por tipo' },
+  'admin.frase':       { tela:'Administração', antigo:'Usuários, importação, e-mail e backup', novo:'Usuários, e-mails e cópias de segurança' },
+  'email.auto':        { tela:'Administração · E-mails', antigo:'avisos do ERP que também vão por e-mail — desligado, o aviso continua no sino, só o e-mail não sai', novo:'Ligado = também chega por e-mail' },
+  'email.quem':        { tela:'Administração · E-mails', antigo:'Clique em ✉ Sim / ✕ Não para trocar. Quem está em "Não" não recebe nada do escritório (nem rascunho). Nas colunas de tipo, ✓/✕ escolhe quais e-mails automáticos aquele cliente recebe (ex.: recebe o de Vencimento, mas não o de Acordo). ✎ troca o e-mail de destino; clique no nome do cliente para abrir o cadastro completo (vários e-mails, setores).', novo:'Sim = recebe e-mails do escritório. Clique para trocar.' },
+  'email.saida':       { tela:'Administração · E-mails', antigo:'Desligado: os automáticos saem sozinhos. Os e-mails que você manda na hora (guias, acordos, rascunhos) não passam por aqui.', novo:'Tudo o que saiu, os rascunhos e os erros' },
+  'email.config':      { tela:'Administração · E-mails', antigo:'Configure de cima para baixo. Feito uma vez, os e-mails saem sozinhos.', novo:'Faça uma vez só, de cima para baixo' },
+  'baixa.ajuda':       { tela:'Todas', antigo:'Já vem com a data de hoje. Se foi em outro dia, troque aqui.', novo:'Já vem com hoje. Se foi em outro dia, troque.' }
+};
