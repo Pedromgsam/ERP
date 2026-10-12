@@ -133,8 +133,6 @@
       { id:'i1', quando:new Date(2026,9,8,17,20), quem:'pedro', arquivo:'Parcelamentos Tributários.xlsx', o:'Parcelamentos e parcelas', itens:{ parcelamentos:['p12','p13'] }, revertida:null },
       { id:'i2', quando:new Date(2026,8,30,11,5), quem:'adriana', arquivo:'Base de Dados — clientes.xlsx', o:'Clientes', itens:{ clientes:['c8','c9'] }, revertida:null }
     ];
-    // filtros salvos (F2): começam com um de exemplo
-    D.filtrosSalvos = { parcelas:[{ nome:'Serra Azul · acima de R$ 1.000', st:{ listas:{ g:'g2' }, min:1000 } }] };
     return D;
   }
 

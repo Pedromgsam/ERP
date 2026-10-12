@@ -95,16 +95,18 @@ window.ERP_COLS_CLIENTE = 'id,grupo_id,nome,cpf_cnpj,tipo,responsavel,email,tele
     let ultimoLancado = null;
     ord.forEach((x) => { if (x.valor != null && Number(x.valor) > 0) ultimoLancado = Number(x.valor); x._valorEf = ultimoLancado != null ? ultimoLancado : num(pa.valor_ultima_parcela); x._lancado = x.valor != null && Number(x.valor) > 0; });
     return {
-      _id: pa.id, _t: 'parcelamentos', aba: pa.aba || '', empresa: pa.empresa, cnpj: doc(pa.cnpj), local: pa.local || '',
+      _id: pa.id, _t: 'parcelamentos', grupoId: pa.grupo_id || '', obs: pa.obs || '', aba: pa.aba || '', empresa: pa.empresa, cnpj: doc(pa.cnpj), local: pa.local || '',
       natureza: pa.natureza || '', numero: pa.numero || '', totalParcelas: pa.total_parcelas || 0, parcelasPagas: pagas,
       emitimosGuia: pa.emitimos_guia !== false,   // Backup 25: o escritório emite as guias deste parcelamento?
       valorUltimaParcela: num(pa.valor_ultima_parcela), residual: num(pa.valor_residual),
       pagasReais: pagas, totalReais: ord.length, proximoVencimento: br(prox), vencidas, janela: true,
-      parcelas: ord.filter((x) => !x.vencimento || (x.vencimento >= iIso && x.vencimento <= fIso))
+      parcelas: ord.filter((x) => !x.vencimento || (x.vencimento >= iIso && x.vencimento <= fIso) || (!x.pago && x.vencimento < iIso))   // Backup 68: a atrasada antiga também aparece
         .map((x) => ({ _id: x.id, _t: 'parcelas', _pai: pa.id, numero: x.numero, vencimento: br(x.vencimento), pagamento: x.pago ? 'SIM' : '', status: status(x),
           // Backup 27: emissão da guia (data, quem, PDF guardado)
           emissao: x.emissao || '', emitidaEm: br(x.emitida_em), emitidaPor: x.emitida_por || '', guiaDoc: x.guia_doc || '',
-          valor: x._valorEf, valorLancado: x._lancado, reenvioEm: x.reenvio_em || '', reenvioValor: num(x.reenvio_valor) }))
+          valor: x._valorEf, valorLancado: x._lancado, reenvioEm: x.reenvio_em || '', reenvioValor: num(x.reenvio_valor),
+          // Backup 68: datas em aaaa-mm-dd para a tela nova de Parcelamentos (vencimento colorido, "Pago em")
+          vencIso: x.vencimento || '', pagoEm: x.data_pagamento || '', emitidaIso: x.emitida_em || '' }))
     };
   }
   function acordo(a, gNome) {

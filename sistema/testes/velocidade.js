@@ -72,7 +72,7 @@ console.log('Dados fictícios: ' + N.cl + ' clientes, ' + N.pa + ' parcelamentos
         financeiro: () => { const t = document.querySelector('#panel-financeiro tbody tr'); return !!t && t.offsetParent !== null && !(document.getElementById('loadOverlay') || document.body).classList.contains('on'); },
         painel: () => { const t = document.querySelector('#tblExecRanking tr:not(.gx-grp)'); return !!t && t.offsetParent !== null; },
         processos: () => { const t = document.querySelector('#rt-proc-corpo tr[data-pid]'); return !!t && t.offsetParent !== null; },
-        parcelamentos: () => { const pn = document.getElementById('panel-parcelamentos'); if (!pn || !pn.offsetParent) return false;
+        parcelamentos: () => { const pn = document.getElementById('panel-parcelamentos'); if (!pn || !pn.offsetParent || !pn.querySelector('#pc-tabela .b-quadro')) return false;   // Backup 68: a tela nova já desenhada (lista ou "nada aqui")
           return (DB.parcelamentos || []).some((pa) => (pa.parcelas || []).some((x) => x._id === window.__alvo && x.pagamento === 'SIM')); },
         clientes: () => /\d/.test((document.getElementById('cli-conta') || {}).textContent || '') && !!document.querySelector('#panel-clientes tbody tr') };
       window.__medir = (acao, cond) => new Promise((ok, falha) => {

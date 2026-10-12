@@ -707,6 +707,33 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
 **Central de Documentos dentro do ERP:** menu **Documentos → Gerar documento** (ou ⋯ → Documentos, contrato, recibo do Financeiro).
 **Ctrl + clique** (ou botão do meio do mouse) em qualquer item do menu ou link de documento abre numa aba nova.
 
+## Backup 68 — Parcelamentos refeita no ERP (reforma, etapa 3)
+1. Merge da pull request.
+2. SQL: não precisa (o banco não mudou).
+3. **Ctrl+Shift+R** no ERP.
+
+O que mudou (só para a equipe; o portal do cliente continua igual):
+- **Jurídico → Parcelamentos** agora é a tela aprovada no ambiente de teste:
+  1. Quatro cartões (Parcelas em atraso · Vencem este mês · Guias a emitir · Quitado/falta). **Clique no cartão** para ver a lista logo abaixo; clique de novo para fechar.
+  2. **Situação dos parcelamentos por cliente**: um cartão por grupo (vermelho "N parcelas em atraso" ou verde "Em dia", "risco de rescisão" com 2 ou mais).
+     Clique no cartão para ver os parcelamentos do grupo; clique no parcelamento para abrir a janela com a ficha, 5 números e **todas** as parcelas.
+     Os botões Todos · Com atraso · Risco de rescisão · Em dia · **Concluídos** (antes "Mostrar concluídos") escolhem os cartões.
+  3. **Parcelas** em abas Em atraso · A vencer · Pagas, com busca, listas (grupo, plataforma, natureza), botão **Filtros** (vencimento e valor de/até),
+     ordenar clicando no título, total e média no rodapé e o ícone de linhas para a **tabela compacta**.
+  4. Vencimento inteiro em **vermelho** (em atraso, hoje conta) ou **azul** (a vencer); pagas mostram "✓ Pago em dd/mm" na coluna Baixa.
+  5. **Baixa** sempre pede confirmação (com a data) e tem **Desfazer** no rodapé. Marque várias parcelas para **dar baixa** ou **marcar as guias como emitidas** de uma vez.
+  6. **Emitir** abre a janela de sempre (valor da guia, PDF, enviar ao cliente). **Editar** abre o formulário de sempre (gerar parcelas, excluir, histórico).
+- Nada foi tirado: as funções da tela antiga estão na nova (o que mudou de lugar: "Mostrar concluídos" virou o botão "Concluídos"; os atalhos 7/15/30/60 dias
+  viraram o filtro de vencimento de/até).
+- As peças desta tela (cartões que abrem o detalhe, tabela com filtros/ordem/total/compacta/lote) passam a ser as de todas as telas refeitas a seguir.
+
+## Backup 67 — Ajustes no ambiente de teste (o ERP não muda)
+1. Merge da pull request.
+2. SQL: não precisa. Ctrl+Shift+R: não precisa.
+
+O que mudou no ambiente de teste (mesmo link: https://claude.ai/artifact/UGretADTq3ZNXoLnQjqopB): saíram os **filtros salvos** (estrela "Salvos")
+e o **link de cadastro do cliente**.
+
 ## Backup 66 — Ambiente de teste completo (só testes; o ERP não muda)
 1. Merge da pull request.
 2. SQL: não precisa. Ctrl+Shift+R: não precisa (nada mudou no ERP).
