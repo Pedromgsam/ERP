@@ -337,3 +337,4 @@ body.gx-barra-topo #execRankWrap .tw:not(#_){min-height:0!important;height:auto!
 .b-placar .rt-pl-rot{color:var(--text2);font-size:13px;font-weight:500}
 /* abas lado a lado nunca empurram a tela para o lado no celular (rolam dentro delas) */
 @media (max-width:600px){.b-seg{max-width:100%;overflow-x:auto;scrollbar-width:none}.b-seg::-webkit-scrollbar{display:none}}
+.b-tab tfoot td small{white-space:nowrap}
