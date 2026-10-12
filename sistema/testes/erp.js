@@ -1547,8 +1547,8 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       ok('B50 Tarefas: Prazo e Dias em colunas separadas e status com cor', cab.includes('Prazo') && cab.includes('Dias') && !!(await p.$('#panel-tarefas .pill.tf-st')), cab.join('|'));
       await nav(p, 'financeiro'); await p.evaluate(() => setFinTab('receber', document.querySelector('#finTabBar [data-tab=receber]'))); await p.waitForTimeout(1500);
       ok('B50 Financeiro: valor a receber em verde e botões da linha numa linha só', await p.evaluate(() => {
-        const v = document.querySelector('#panel-financeiro td.col-valor.valor-rec'), g = getComputedStyle(document.documentElement).getPropertyValue('--green-d');
-        const td = document.querySelector('#panel-financeiro td.acoes-l .gx-cobrar'); const bs = td ? [...td.closest('td').querySelectorAll('.btn')].map((b) => Math.round(b.getBoundingClientRect().top)) : [];
+        const v = document.querySelector('#panel-financeiro td.b-val.valor-rec');   // Backup 70: tabela nova (tabelaLancB)
+        const td = document.querySelector('#panel-financeiro td .gx-cobrar'); const bs = td ? [...td.closest('td').querySelectorAll('button')].map((b) => Math.round(b.getBoundingClientRect().top)) : [];
         return !!v && getComputedStyle(v).color !== getComputedStyle(document.body).color && bs.length >= 2 && new Set(bs).size === 1; }));
       await nav(p, 'admin'); await p.waitForSelector('#adm-abas'); await p.click('#adm-abas [data-aba=email]'); await p.waitForSelector('#em-abas'); await p.click('#em-abas [data-em-aba=quem]'); await p.waitForSelector('.em-quem');
       const cliQ = sql("select id from clientes where nome='Alfa Comércio Ltda'");
