@@ -81,9 +81,9 @@ Aprovado pelo usuário em 08/10/2026. Leia isto antes de qualquer rodada da refo
 | 5 | Financeiro | **feita (Backup 70), híbrida**: listas de lançamentos = `tabelaLancB` (telas-financeiro.js, peça tabelaB, `loteBotao` = "Marcar várias"); análise/gráficos/caixa continuam do ERP antigo |
 | 6 | Painel/Processos | **feita (Backup 70), híbrida**: Processos = lista nova `#pr-nova` (erp-telas `processosNovos`, janela `abrirProcesso`); Painel e análises: cartões `.kc` e números no visual novo (base.css). A tabela "Empresas do grupo" segue a do ERP antigo (muitos ajustes aprovados nela) |
 | 7 | Rotina | **feita (Backup 70)**: cabeçalho/placar/abas com as peças novas; Minhas tarefas = tabelaB com abas; Passivo/Processos/Guias/Planilha por dentro iguais |
-| 8 | Painel lateral nas telas do Gestão; tirar os remendos antigos quando o portal do cliente for refeito | a fazer |
+| 8 | Tirar o ERP antigo de vez (ERP.html + 190 remendos + blocos do design.css), depois de levar para o ERP as telas aprovadas no ambiente v2 e o portal do cliente novo | **ambiente v2 pronto (Backup 71)**; esperando as respostas do usuário em "Para aprovar" |
 | 9 | Faxina do banco: 39 funções escritas mais de uma vez no `estrutura.sql` (manter só a última, idempotente) | a fazer |
-| 10+ | Funções novas (lista A–K), na ordem que o usuário escolher | depois |
+| 10+ | Funções novas (lista A–K): o usuário escolheu só **Ctrl+K e a ajuda "?"** (12/10/2026) — já estão no ambiente; vão para o ERP junto com a etapa 8 | escolhido |
 
 ## Como conduzir cada rodada
 1. Uma etapa por vez; não misturar com pedidos grandes de função nova (correções urgentes podem entrar).
@@ -95,3 +95,11 @@ Aprovado pelo usuário em 08/10/2026. Leia isto antes de qualquer rodada da refo
 ## Números de partida (08/10/2026)
 - `design.css` 1.858 linhas com 118 blocos "Backup N" e ~450 linhas com `!important`; `montar-erp.js` com 190 remendos (`trocar(`)
   sobre o `ERP.html` antigo (10.145 linhas); `estrutura.sql` 7.922 linhas, 276 funções, 39 repetidas.
+
+- **Respostas de 12/10/2026 (Backup 71):** os 4 cartões do topo (com "ver") saem de vez — vale para o sistema todo (tirados de Parcelamentos e Acordos no ERP; no ambiente v2 nenhuma tela tem cartões
+  de número no topo). Funções novas: só Ctrl+K e "?". Portal do cliente: novo e simples, o cliente vê só o dele (parcelas, acordos, execuções, documentos, contratos e financeiro). E-mails de parcelamento (e acordo)
+  são sempre manuais; a opção é **rascunho no Gmail** ou **enviar direto** (precisa anexar a guia). Tudo primeiro no ambiente de teste; o ERP antigo sai depois da aprovação (ver "Para aprovar → Tirar o ERP antigo", A1–A5).
+- **Ambiente v2** (`sistema/prototipos/ambiente-teste/`, dados versão 4, hoje fixo 12/10/2026): `pecas.js` (APP.tabela no desenho de Acordos com `prazos`/`prazosAbas`/`contagem`/`lote` + "Marcar várias", `APP.faixa`/`ligarFaixa`,
+  `APP.nums`, `APP.cartoesGrupo`, `APP.colunas`/`APP.linha`/`APP.barrasH` em HTML, `APP.T(chave)` + `textos.js` = textos antes/depois, `APP.preparar(id, {prazo, aba, q})` = abrir lista já filtrada), `negocio.js` (`N.janelaEmitir(itens, tipo)`
+  lê o PDF e salva rascunho/envia conforme `D.emailCfg`, `N.pendencias()` = faixa do Início, `N.baixa*`), telas em `telas-inicio/juridico/financeiro/cadastros/rotina/admin.js`, `portal.js`, `telas-aprovar.js` (respostas em
+  localStorage `aprov`, "Copiar minhas respostas"). Teste: servir a pasta + playwright (scratchpad `amb2.js` e `amb2-cliques.js`, 31 cliques).
