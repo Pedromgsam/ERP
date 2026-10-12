@@ -232,3 +232,51 @@ html body.gx-barra-topo table.b-tab td.b-v-av:not(#_),html body.gx-barra-topo ta
 .b-conf b{color:var(--ink)}.b-conf span{color:var(--text3);font-size:12.5px}
 @media (max-width:900px){.b-ficha{grid-template-columns:1fr 1fr}.b-nums{grid-template-columns:1fr 1fr}}
 @media (max-width:600px){.b-chips{margin-left:0}.b-fx{flex-wrap:wrap}.b-fx input{width:130px}}
+
+/* ═══ Backup 69: a tabela de toda tela refeita fica como a de Acordos (o usuário preferiu) — letra Inter mantida ═══ */
+.b-barra-tab{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin:0 0 12px}
+.b-seg{display:inline-flex;border:1px solid var(--border-strong);border-radius:var(--r-ctl);padding:3px;background:var(--surface);gap:2px;flex-basis:100%;max-width:max-content}
+.b-seg-bt{border:0;background:none;border-radius:6px;padding:6px 14px;font:600 13px var(--font-ui);color:var(--text2);cursor:pointer;white-space:nowrap}
+.b-seg-bt:hover{background:var(--hover)}
+.b-seg-bt[aria-selected="true"]{background:var(--primario);color:var(--on-primario)}
+.b-seg-n{font-weight:500;opacity:.75;margin-left:3px}
+.b-prazos{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.b-prazos[hidden]{display:none!important}
+.b-prazos .b-chip{padding:5px 13px}
+.b-prazo-ate{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--text3);margin-left:4px}
+.b-prazo-ate input{height:30px;border:1px solid var(--border-strong);border-radius:var(--r-ctl);background:var(--surface);color:var(--text);font:12.5px var(--font-ui);padding:0 8px}
+.b-prazo-ate.b-on input{border-color:var(--primario)}
+.b-barra-tab .b-busca{width:220px}
+.b-conta{font-size:12px;color:var(--text3);white-space:nowrap}
+.b-barra-dir{margin-left:auto;display:flex;gap:8px}
+.b-mais-filtros select{height:34px;border:1px solid var(--border-strong);border-radius:var(--r-ctl);background-color:var(--surface);color:var(--text);font:13px var(--font-ui);padding:0 28px 0 10px}
+/* linha vencida com fundo rosado; prazo colorido (atraso/vence hoje vermelho, < 3 dias âmbar, < 10 azul, depois verde) */
+.b-tab tr.b-tr-venc td{background:color-mix(in srgb,var(--red-lt) 55%,transparent)}
+.b-tab tr.b-tr-venc.b-cl:hover td{background:var(--red-lt)}
+html body.gx-barra-topo table.b-tab td.b-prazo:not(#_){white-space:nowrap;font-weight:600}
+.b-pz-r{color:var(--red-d);font-weight:700}.b-pz-a{color:var(--amber-d);font-weight:700}.b-pz-b{color:var(--blue-d)}.b-pz-g{color:var(--green-d)}
+.b-pz-sub{display:block;font-size:11.5px;font-weight:500;color:var(--text3);margin-top:1px}
+.b-pz-sub.b-pz-emit{color:var(--green-d)}
+/* botões da linha: Emitir (verde claro depois de emitida) e Baixa (verde) */
+html body.gx-barra-topo table.b-tab td.b-c-acoes:not(#_){white-space:nowrap;width:1%}
+.b-acoes{display:inline-flex;gap:6px}
+.b-bt-emitir,.b-bt-baixa{font:600 12px var(--font-ui);padding:5px 11px;border-radius:var(--r-ctl);cursor:pointer;white-space:nowrap;border:1px solid var(--border-strong);background:var(--surface);color:var(--text)}
+.b-bt-emitir:hover{border-color:var(--primario);color:var(--primario)}
+.b-bt-emitir.b-emitido{background:var(--green-lt);border-color:var(--green-bd);color:var(--green-d)}
+.b-bt-baixa{background:var(--btn-verde);border-color:var(--btn-verde);color:var(--on-cor)}
+.b-bt-baixa:hover{filter:brightness(1.08)}
+@media (max-width:600px){.b-barra-tab .b-busca{width:100%}.b-barra-dir{margin-left:0}}
+/* lista de parcelas: larguras fixas (como Acordos) — cabe em 1366 px sem rolar para o lado; nome quebra, números não */
+html body.gx-barra-topo table.b-tab.b-tab-parc:not(#_){table-layout:fixed}
+html body.gx-barra-topo table.b-tab-parc:not(#_) :is(th,td){padding-left:8px!important;padding-right:8px!important}
+html body.gx-barra-topo table.b-tab-parc:not(#_) tbody td{padding-top:9px!important;padding-bottom:9px!important;line-height:1.35!important}
+.b-tab-parc th:nth-child(1){width:8%}.b-tab-parc th:nth-child(2){width:auto}.b-tab-parc th:nth-child(3){width:8.5%}.b-tab-parc th:nth-child(4){width:9.5%}
+.b-tab-parc th:nth-child(5){width:12%}.b-tab-parc th:nth-child(6){width:6.5%}.b-tab-parc th:nth-child(7){width:9%}.b-tab-parc th:nth-child(8){width:8.5%}
+.b-tab-parc th:nth-child(9){width:8.5%}.b-tab-parc th:nth-child(10){width:132px}
+.b-tab-parc.b-sem-num th:nth-child(5){width:6.5%}.b-tab-parc.b-sem-num th:nth-child(6){width:9%}.b-tab-parc.b-sem-num th:nth-child(7){width:8.5%}.b-tab-parc.b-sem-num th:nth-child(8){width:8.5%}.b-tab-parc.b-sem-num th:nth-child(9){width:132px}
+.b-tab-parc :is(.b-bt-emitir,.b-bt-baixa){padding:5px 8px}
+html body.gx-barra-topo table.b-tab-parc thead th:not(#_){overflow:hidden;text-overflow:clip;letter-spacing:.02em!important}
+html body.gx-barra-topo table.b-tab-parc td.b-num:not(#_){white-space:normal!important;word-break:break-all;font-size:11.5px!important}
+.b-tab-parc td .b-doc{white-space:normal}
+html body.gx-barra-topo table.b-tab-parc tfoot td:not(#_){white-space:nowrap;overflow:visible}
+.b-tab-parc th:nth-child(1){width:7.5%}.b-tab-parc th:nth-child(8){width:9%}
