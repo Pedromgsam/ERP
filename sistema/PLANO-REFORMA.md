@@ -66,6 +66,10 @@ Aprovado pelo usuário em 08/10/2026. Leia isto antes de qualquer rodada da refo
   modelo bonito do ERP (`email_cliente_html`/`guias_texto_html`); Honorários continua com a aba Análise (tabelas e gráficos); nenhuma função do ERP sai na reforma
   sem aprovação. Toda mudança pedida num módulo vale para o sistema todo (regra no CLAUDE.md).
 
+- **Respostas à tela nova de Parcelamentos (Backup 69):** a TABELA de toda tela refeita segue a de **Acordos** (o usuário preferiu): "A pagar / Pago" (botões, não abas sublinhadas),
+  atalhos Todas · Vencidas · 5 · 10 · 15 · 30 dias · até, busca + contador, coluna **Prazo** colorida (com "✓ emitido"), botões **Emitir** + **Baixa** verde na linha, linha vencida rosada,
+  SEM caixinha de marcar várias; listas e vencimento/valor dentro de "Filtros". Letra Inter mantida. Cartões de grupo com **"Parcela do mês"**.
+
 ## Etapas (uma por Backup/PR)
 | Etapa | O que fazer | Situação |
 |---|---|---|

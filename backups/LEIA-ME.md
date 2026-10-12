@@ -74,6 +74,7 @@ versão foi ao ar**. O número cresce a cada entrega.
 | 66 | Reforma: ambiente de teste completo (`sistema/prototipos/ambiente-teste/`: Início, Rotina, Parcelamentos, Honorários, Clientes, Administração; sugestões E1–E5, F1/F2/F4/F5/F7, A1–A6, O1, funções do ROMPEX; automações por cliente) e `sistema/banco/anonimizar-copia.sql` (O2). O ERP não muda |
 | 67 | Ambiente de teste sem filtros salvos e sem link de cadastro; regra "mudança vale para o sistema todo" registrada. O ERP não muda |
 | 68 | Reforma, etapa 3: Parcelamentos refeita no ERP com as peças do ambiente de teste (cartões que abrem o detalhe, situação por cliente, abas Em atraso/A vencer/Pagas, Filtros de vencimento e valor, ordenar, total e média, tabela compacta, baixa em lote com confirmação e Desfazer). Sem SQL |
+| 69 | Parcelamentos: tabela igual à de Acordos (A pagar/Pago, atalhos de prazo, coluna Prazo, Emitir + Baixa, sem marcar várias; listas dentro de Filtros) e "Parcela do mês" nos cartões, na lista do grupo e na janela. Sem SQL |
 
 ## Como baixar um backup
 No GitHub, abra a pasta `backups`, clique no arquivo e depois em **Download** (ícone de seta, à direita).

@@ -615,19 +615,25 @@ function cartoesB(el, chave, lista) {
 //   lote: [{rot, icone, quando(r), fn(lista)}], clique(r), chave(r), vazio: {titulo, frase}, unidade: [um, varios], altura, semBarra }
 function tabelaB(el, cfg) {
   E.tabB = E.tabB || {};
-  const st = E.tabB[cfg.id] = E.tabB[cfg.id] || { aba: (cfg.abas && (cfg.abaPadrao || cfg.abas[0].id)) || '', q: '', listas: {}, vde: '', vate: '', min: '', max: '', ord: Object.assign({}, cfg.ord || { k: '', dir: 1 }), ordAba: {}, sel: {}, painel: false };
+  const st = E.tabB[cfg.id] = E.tabB[cfg.id] || { aba: (cfg.abas && (cfg.abaPadrao || cfg.abas[0].id)) || '', q: '', listas: {}, vde: '', vate: '', min: '', max: '', ord: Object.assign({}, cfg.ord || { k: '', dir: 1 }), ordAba: {}, sel: {}, painel: false, prazo: '', prazoAte: '', limite: 150 };
   if (cfg.ordAbas) Object.keys(cfg.ordAbas).forEach((a) => { if (!st.ordAba[a]) st.ordAba[a] = Object.assign({}, cfg.ordAbas[a]); });
+  if (!st.limite) st.limite = 150;
   el._cfgB = cfg;
   const chave = cfg.chave || ((r) => String(r.id));
   const temFx = !!(cfg.venc || cfg.valor);
   const compacto = () => document.documentElement.classList.contains('b-compacto');
   if (!cfg.semBarra) {
-    el.innerHTML = '<div class="b-abas-linha"' + (cfg.abas ? '' : ' style="border-bottom:0"') + '>' + (cfg.abas ? '<div class="b-abas" role="tablist"></div>' : '') +
-      '<div class="b-filtros">' + (cfg.busca ? '<label class="b-busca">' + iconeB('busca') + '<input data-bt="q" placeholder="' + esc(cfg.dicaBusca || 'Buscar') + '" aria-label="Buscar" value="' + esc(st.q) + '"></label>' : '') +
-      (cfg.listas || []).map((l) => '<select data-bt="l" data-k="' + esc(l.k) + '" aria-label="' + esc(l.rot) + '"><option value="">' + esc(l.todos) + '</option>' + l.opcoes.map((o) => '<option value="' + esc(o[0]) + '"' + (st.listas[l.k] === String(o[0]) ? ' selected' : '') + '>' + esc(o[1]) + '</option>').join('') + '</select>').join('') +
-      (temFx ? '<button type="button" class="b-bt-f" data-bt="painel" aria-expanded="' + st.painel + '">' + iconeB('filtro') + 'Filtros <span class="b-nf" hidden></span></button>' : '') +
-      '<button type="button" class="b-ic-bt" data-bt="dens" aria-pressed="' + compacto() + '" title="Tabela compacta (mais linhas na tela)" aria-label="Tabela compacta">' + iconeB('compacto') + '</button></div></div>' +
-      (temFx ? '<div class="b-mais-filtros" data-bt="pn"' + (st.painel ? '' : ' hidden') + '>' +
+    // Backup 69: como a tabela de Acordos (o usuário preferiu) — botões "A pagar / Pago", atalhos de prazo, busca e contador numa linha;
+    // grupo/plataforma/natureza, vencimento de/até e valor ficam no botão "Filtros"
+    const temPainel = temFx || (cfg.listas || []).length;
+    el.innerHTML = '<div class="b-barra-tab">' + (cfg.abas ? '<div class="b-seg" role="tablist"></div>' : '') +
+      (cfg.prazos ? '<div class="b-prazos" data-bt="prazos"></div>' : '') +
+      (cfg.busca ? '<label class="b-busca">' + iconeB('busca') + '<input data-bt="q" placeholder="' + esc(cfg.dicaBusca || 'Buscar') + '" aria-label="Buscar" value="' + esc(st.q) + '"></label>' : '') +
+      '<span class="b-conta" data-bt="conta"></span><span class="b-barra-dir">' +
+      (temPainel ? '<button type="button" class="b-bt-f" data-bt="painel" aria-expanded="' + st.painel + '">' + iconeB('filtro') + 'Filtros <span class="b-nf" hidden></span></button>' : '') +
+      '<button type="button" class="b-ic-bt" data-bt="dens" aria-pressed="' + compacto() + '" title="Tabela compacta (mais linhas na tela)" aria-label="Tabela compacta">' + iconeB('compacto') + '</button></span></div>' +
+      (temPainel ? '<div class="b-mais-filtros" data-bt="pn"' + (st.painel ? '' : ' hidden') + '>' +
+        (cfg.listas || []).map((l) => '<select data-bt="l" data-k="' + esc(l.k) + '" aria-label="' + esc(l.rot) + '"><option value="">' + esc(l.todos) + '</option>' + l.opcoes.map((o) => '<option value="' + esc(o[0]) + '"' + (st.listas[l.k] === String(o[0]) ? ' selected' : '') + '>' + esc(o[1]) + '</option>').join('') + '</select>').join('') +
         (cfg.venc ? '<div class="b-fx"><span>Vencimento</span><input type="date" data-bt="vde" aria-label="Vencimento de" value="' + st.vde + '"><span>até</span><input type="date" data-bt="vate" aria-label="Vencimento até" value="' + st.vate + '"></div>' : '') +
         (cfg.valor ? '<div class="b-fx"><span>Valor (R$)</span><input inputmode="decimal" data-mascara="nenhuma" data-bt="min" placeholder="de" aria-label="Valor mínimo" value="' + esc(st.min) + '"><span>até</span><input inputmode="decimal" data-mascara="nenhuma" data-bt="max" placeholder="até" aria-label="Valor máximo" value="' + esc(st.max) + '"></div>' : '') +
         '<button type="button" class="b-link" data-bt="limpar">Limpar filtros</button></div>' : '') +
@@ -640,19 +646,25 @@ function tabelaB(el, cfg) {
       if (!semAba && cfg.abas && st.aba) { const a = cfg.abas.find((x) => x.id === st.aba); if (a && a.f && !a.f(r)) return false; }
       if (q && cfg.busca && normalizar(cfg.busca(r)).indexOf(q) < 0) return false;
       for (const l of (cfg.listas || [])) { const v = st.listas[l.k]; if (v && String(l.get(r)) !== v) return false; }
-      if (cfg.venc) { const d = cfg.venc(r) || ''; if (st.vde && d < st.vde) return false; if (st.vate && d > st.vate) return false; }
+      if (cfg.venc) { const d = cfg.venc(r) || ''; if (st.vde && d < st.vde) return false; if (st.vate && d > st.vate) return false;
+        // atalhos de prazo (só nas abas em aberto): Vencidas = até hoje; N dias = vence até hoje + N (inclui as vencidas); até = data escolhida
+        if (cfg.prazos && st.prazo && prazoNaAba()) { const h = hojeISO();
+          if (st.prazo === 'venc' && !(d && d <= h)) return false;
+          if (/^\d+$/.test(st.prazo) && !(d && d <= somarDias(h, Number(st.prazo)))) return false;
+          if (st.prazo === 'ate' && st.prazoAte && !(d && d <= st.prazoAte)) return false; } }
       if (cfg.valor) { const v = cfg.valor(r) || 0; if (min != null && v < min) return false; if (max != null && v > max) return false; }
       return true;
     });
   };
   const ordem = () => (cfg.abas && st.ordAba[st.aba]) || st.ord;
-  const filtrando = () => st.q || st.vde || st.vate || st.min || st.max || Object.keys(st.listas).some((k) => st.listas[k]);
+  const prazoNaAba = () => !cfg.prazosAbas || cfg.prazosAbas.includes(st.aba);
+  const filtrando = () => st.q || st.vde || st.vate || st.min || st.max || (st.prazo && prazoNaAba()) || Object.keys(st.listas).some((k) => st.listas[k]);
   function abas() {
     if (!cfg.abas || cfg.semBarra) return;
     const guarda = st.aba, cont = {};
-    cfg.abas.forEach((a) => { st.aba = a.id; cont[a.id] = filtrar().length; }); st.aba = guarda;
-    Q('.b-abas').innerHTML = cfg.abas.map((a) => '<button type="button" role="tab" class="b-aba" data-b-aba="' + esc(a.id) + '" aria-selected="' + (a.id === st.aba) + '">' + esc(a.rot) +
-      '<span class="b-aba-n' + (a.cor === 'r' && cont[a.id] ? ' b-r' : '') + '">' + cont[a.id] + '</span></button>').join('');
+    if (!cfg.semContagemAbas) { cfg.abas.forEach((a) => { st.aba = a.id; cont[a.id] = filtrar().length; }); st.aba = guarda; }
+    Q('.b-seg').innerHTML = cfg.abas.map((a) => '<button type="button" role="tab" class="b-seg-bt" data-b-aba="' + esc(a.id) + '" aria-selected="' + (a.id === st.aba) + '">' + esc(a.rot) +
+      (cfg.semContagemAbas ? '' : ' <span class="b-seg-n">' + cont[a.id] + '</span>') + '</button>').join('');
   }
   function quadro() {
     const o = ordem(), lin = filtrar(), col = cfg.colunas.find((c) => c.k === o.k);
@@ -675,17 +687,26 @@ function tabelaB(el, cfg) {
     const cols = cfg.colunas;
     const cel = (c, r) => '<td' + ((c.cls || c.clsL) ? ' class="' + (c.cls || '') + (c.clsL ? c.clsL(r) : '') + '"' : '') + '>' + c.html(r) + '</td>';
     Q('[data-bt=quadro]').innerHTML = '<div class="b-quadro">' + (titulo ? '<div class="b-quadro-hd"><h2>' + esc(titulo) + '</h2><span class="b-resumo">' + plural(lin.length, un[0], un[1]) + (soma != null ? ' · <b>' + brl(soma) + '</b>' : '') + '</span></div>' : '') + lote +
-      '<div class="b-rola" data-sem-pagina' + (cfg.altura ? ' style="max-height:' + cfg.altura + '"' : '') + '><table class="b-tab"><thead><tr>' +
+      '<div class="b-rola" data-sem-pagina' + (cfg.altura ? ' style="max-height:' + cfg.altura + '"' : '') + '><table class="b-tab' + (cfg.tabCls ? ' ' + cfg.tabCls : '') + '"><thead><tr>' +
       (temLote ? '<th class="b-ck"><input type="checkbox" data-bt="todas" aria-label="Marcar todas"' + (marc.length && marc.length === lin.length ? ' checked' : '') + '></th>' : '') +
       cols.map((c) => { const pode = c.ord !== false; return '<th class="' + (pode ? 'b-ord ' : '') + (c.cls || '') + '"' + (pode ? ' data-b-ord="' + esc(c.k) + '" title="Ordenar"' : '') + (o.k === c.k ? ' data-dir="' + o.dir + '"' : '') + '>' + esc(c.rot) + '</th>'; }).join('') +
-      '</tr></thead><tbody>' + lin.map((r) => { const k = chave(r);
-        return '<tr class="' + (cfg.clique ? 'b-cl' : '') + (st.sel[k] ? ' b-sel' : '') + '"' + (cfg.clique ? ' tabindex="0"' : '') + ' data-b-k="' + esc(k) + '">' +
+      '</tr></thead><tbody>' + lin.slice(0, st.limite).map((r) => { const k = chave(r);
+        return '<tr class="' + (cfg.clique ? 'b-cl' : '') + (st.sel[k] ? ' b-sel' : '') + (cfg.linhaCls ? cfg.linhaCls(r) : '') + '"' + (cfg.clique ? ' tabindex="0"' : '') + ' data-b-k="' + esc(k) + '">' +
           (temLote ? '<td class="b-ck"><input type="checkbox" data-bt="um" aria-label="Marcar"' + (st.sel[k] ? ' checked' : '') + '></td>' : '') + cols.map((c) => cel(c, r)).join('') + '</tr>'; }).join('') +
+      // Backup 69: com muitas linhas (ex.: 15 mil parcelas), desenha 150 por vez — a tela abre na hora
+      (lin.length > st.limite ? '<tr class="b-tr-mais"><td colspan="' + (cols.length + (temLote ? 1 : 0)) + '"><button type="button" class="b-link" data-bt="mais">Mostrar mais ' + Math.min(150, lin.length - st.limite) + ' (' + lin.length + ' no total)</button></td></tr>' : '') +
       '</tbody>' + (soma != null && lin.length > 1 ? '<tfoot><tr>' + (temLote ? '<td></td>' : '') + cols.map((c, i) => c.soma ? '<td class="b-dir b-val">' + brl(soma) + '<small>média ' + brl(soma / lin.length) + '</small></td>' : '<td>' + (i === 0 ? 'Total de ' + lin.length : '') + '</td>').join('') + '</tr></tfoot>' : '') +
       '</table></div></div>';
   }
-  function contarFx() { const b = Q('[data-bt=painel]'); if (!b) return; const n = (st.vde || st.vate ? 1 : 0) + (st.min || st.max ? 1 : 0); b.classList.toggle('b-tem', n > 0); const s = b.querySelector('.b-nf'); s.hidden = !n; s.textContent = n; }
-  const tudo = () => { abas(); quadro(); contarFx(); };
+  function contarFx() { const b = Q('[data-bt=painel]'); if (!b) return; const n = (st.vde || st.vate ? 1 : 0) + (st.min || st.max ? 1 : 0) + Object.keys(st.listas).filter((k) => st.listas[k]).length; b.classList.toggle('b-tem', n > 0); const s = b.querySelector('.b-nf'); s.hidden = !n; s.textContent = n; }
+  function prazos() {
+    const b = Q('[data-bt=prazos]'); if (!b) return;
+    b.hidden = !prazoNaAba();
+    b.innerHTML = [['', 'Todas'], ['venc', 'Vencidas'], ['5', '5 dias'], ['10', '10 dias'], ['15', '15 dias'], ['30', '30 dias']].map((o) => '<button type="button" class="b-chip" data-b-prazo="' + o[0] + '" aria-pressed="' + (st.prazo === o[0]) + '">' + o[1] + '</button>').join('') +
+      '<label class="b-prazo-ate' + (st.prazo === 'ate' ? ' b-on' : '') + '" title="Vencimento até esta data">até <input type="date" data-bt="prazoate" value="' + esc(st.prazoAte) + '" aria-label="Vencimento até"></label>';
+  }
+  function conta() { const c = Q('[data-bt=conta]'); if (!c || !cfg.conta) return; c.textContent = '· ' + cfg.conta(filtrar().length, st.aba); }
+  const tudo = () => { abas(); prazos(); quadro(); contarFx(); conta(); };
   el._redesenharB = tudo;
   tudo();
   if (!el._ligadoB) {
@@ -693,18 +714,21 @@ function tabelaB(el, cfg) {
     el.addEventListener('input', (ev) => {
       const c2 = el._cfgB, s2 = E.tabB[c2.id], t = ev.target.dataset.bt;
       if (t === 'q') s2.q = ev.target.value; else if (t === 'l') s2.listas[ev.target.dataset.k] = ev.target.value;
-      else if (['vde', 'vate', 'min', 'max'].includes(t)) s2[t] = ev.target.value; else return;
+      else if (['vde', 'vate', 'min', 'max'].includes(t)) s2[t] = ev.target.value;
+      else if (t === 'prazoate') { s2.prazoAte = ev.target.value; s2.prazo = ev.target.value ? 'ate' : ''; } else return;
       el._redesenharB();
     });
     el.addEventListener('click', (ev) => {
       const c2 = el._cfgB, s2 = E.tabB[c2.id], ch2 = c2.chave || ((r) => String(r.id)), t = ev.target.closest('[data-bt]'), tt = t && t.dataset.bt;
       if (tt === 'painel') { s2.painel = !s2.painel; el.querySelector('[data-bt=pn]').hidden = !s2.painel; t.setAttribute('aria-expanded', s2.painel); return; }
-      if (tt === 'limpar') { s2.q = ''; s2.listas = {}; s2.vde = s2.vate = s2.min = s2.max = ''; tabelaB(el, c2); return; }
+      if (tt === 'limpar') { s2.q = ''; s2.listas = {}; s2.vde = s2.vate = s2.min = s2.max = ''; s2.prazo = s2.prazoAte = ''; tabelaB(el, c2); return; }
+      const pz = ev.target.closest('[data-b-prazo]'); if (pz) { s2.prazo = pz.dataset.bPrazo; s2.prazoAte = ''; el._redesenharB(); return; }
       if (tt === 'dens') { const on = !document.documentElement.classList.contains('b-compacto'); document.documentElement.classList.toggle('b-compacto', on); try { localStorage.setItem('erp_compacto', on ? '1' : ''); } catch (e) { /* sem armazenamento */ } t.setAttribute('aria-pressed', on); return; }
       if (tt === 'desmarcar') { s2.sel = {}; el._redesenharB(); return; }
+      if (tt === 'mais') { s2.limite += 150; el._redesenharB(); return; }
       if (tt === 'todas') { const marcar = t.checked; s2.sel = {}; if (marcar) el.querySelectorAll('tbody tr[data-b-k]').forEach((tr) => { s2.sel[tr.dataset.bK] = true; }); el._redesenharB(); return; }
       if (tt === 'um') { const k = t.closest('tr').dataset.bK; if (t.checked) s2.sel[k] = true; else delete s2.sel[k]; el._redesenharB(); return; }
-      const ab = ev.target.closest('[data-b-aba]'); if (ab && el.contains(ab)) { s2.aba = ab.dataset.bAba; s2.sel = {}; el._redesenharB(); return; }
+      const ab = ev.target.closest('[data-b-aba]'); if (ab && el.contains(ab)) { s2.aba = ab.dataset.bAba; s2.sel = {}; s2.limite = 150; el._redesenharB(); return; }
       const th = ev.target.closest('th[data-b-ord]'); if (th) { const o = c2.abas ? (s2.ordAba[s2.aba] = s2.ordAba[s2.aba] || Object.assign({}, s2.ord)) : s2.ord;
         if (o.k === th.dataset.bOrd) o.dir = -o.dir; else { o.k = th.dataset.bOrd; o.dir = 1; } el._redesenharB(); return; }
       const lt = ev.target.closest('[data-b-lote]'); if (lt) { const a = c2.lote[+lt.dataset.bLote]; const marc = c2.linhas.filter((r) => s2.sel[ch2(r)] && (!a.quando || a.quando(r)));
@@ -9123,7 +9147,8 @@ function resumoPa(pa) {
   const prox = abertas.filter((x) => x.venc > h).sort((a, b) => a.venc.localeCompare(b.venc))[0] || null;
   const vAtual = (L.length ? L[L.length - 1].valor : 0) || pa.vparc;
   const falta = Math.max(0, pa.tot - pa.pagas) * vAtual;
-  return { atr: atr.length, valorAtr: atr.reduce((s, x) => s + x.valor, 0), prox, quitado: pa.pagas * vAtual, falta, concluido: pa.tot > 0 && pa.pagas >= pa.tot, pc: pa.tot ? Math.round(pa.pagas / pa.tot * 100) : 0,
+  const doMes = L.filter((x) => doMesP(x.venc));
+  return { doMes, parcMes: doMes[0] || null, valorMes: doMes.reduce((s, x) => s + x.valor, 0), atr: atr.length, valorAtr: atr.reduce((s, x) => s + x.valor, 0), prox, quitado: pa.pagas * vAtual, falta, concluido: pa.tot > 0 && pa.pagas >= pa.tot, pc: pa.tot ? Math.round(pa.pagas / pa.tot * 100) : 0,
     mes: abertas.filter((x) => x.venc && (x.venc <= h || doMesP(x.venc))) };
 }
 const estadoParc = (x) => (x.pago ? 'pagas' : x.venc && x.venc <= hojeISO() ? 'atraso' : 'avencer');
@@ -9140,19 +9165,34 @@ function celBaixaP(x) {
   if (x.pago) return '<span class="b-ok-txt">✓ ' + (x.pagoEm ? 'Pago em ' + dataBR(x.pagoEm).slice(0, 5) : 'Pago') + '</span>';
   return pode('juridico', 'editar') ? '<button type="button" class="b-baixa" data-pc-baixa="' + esc(x.id) + '">' + iconeB('check') + 'Baixa</button>' : '<span class="b-em">Em aberto</span>';
 }
+// Backup 69: colunas como a tabela de Acordos (o usuário preferiu): Vencimento só a data; "Prazo" colorido (atraso, vence hoje, N dias) com "✓ emitido";
+// no fim, os botões Emitir (verde claro depois de emitida) e Baixa (verde). Pagas: "Pago em" no lugar do prazo, sem botões.
+const diasAteP = (iso) => (iso ? Math.round((new Date(iso + 'T00:00:00') - new Date(hojeISO() + 'T00:00:00')) / 864e5) : null);
+const corPrazo = (d) => (d <= 0 ? 'b-pz-r' : d < 3 ? 'b-pz-a' : d < 10 ? 'b-pz-b' : 'b-pz-g');
+function celPrazoP(x) {
+  if (x.pago) return '<span class="b-ok-txt">✓ ' + (x.pagoEm ? 'Pago em ' + dataBR(x.pagoEm).slice(0, 5) : 'Pago') + '</span>';
+  const d = diasAteP(x.venc);
+  return (d === null ? '—' : '<span class="' + corPrazo(d) + '">' + (d < 0 ? Math.abs(d) + ' d atraso' : d === 0 ? 'vence hoje' : d + (d === 1 ? ' dia' : ' dias')) + '</span>') +
+    (!x.pa.emitimos ? '<small class="b-pz-sub">cliente emite</small>' : x.emitida ? '<small class="b-pz-sub b-pz-emit" title="Emitida em ' + esc(dataBR(x.emitida)) + '">✓ emitido</small>' : '');
+}
+function celAcoesP(x) {
+  if (x.pago || !pode('juridico', 'editar')) return '';
+  return '<span class="b-acoes">' + (x.pa.emitimos ? '<button type="button" class="b-bt-emitir' + (x.emitida ? ' b-emitido' : '') + '" data-pc-emitir="' + esc(x.id) + '" title="' + (x.emitida ? 'Emitida em ' + esc(dataBR(x.emitida)) + ' — clique para emitir de novo' : 'Emitir a guia (PDF, valor) e enviar ao cliente') + '">Emitir</button>' : '') +
+    '<button type="button" class="b-bt-baixa" data-pc-baixa="' + esc(x.id) + '" title="Dar baixa (pago) — pede confirmação">Baixa</button></span>';
+}
 function colunasParcelas(o) {
   o = o || {};
   const C = [];
-  if (!o.semGrupo) C.push({ k: 'g', rot: 'Grupo', html: (x) => grupoTxtB(x.pa.grupo), ord: (x) => normalizar(x.pa.grupo) });
+  if (!o.semGrupo) C.push({ k: 'g', rot: 'Grupo', html: (x) => esc(x.pa.grupo || '—'), ord: (x) => normalizar(x.pa.grupo) });
   C.push({ k: 'emp', rot: 'Empresa', html: (x) => empresaB(x.pa.empresa, x.pa.cnpj), ord: (x) => normalizar(x.pa.empresa) });
-  C.push({ k: 'plat', rot: 'Plataforma', html: (x) => '<span class="b-plat">' + esc(x.pa.local || '—') + '</span>', ord: (x) => x.pa.local });
+  C.push({ k: 'plat', rot: 'Plataforma', html: (x) => esc(x.pa.local || '—'), ord: (x) => x.pa.local });
   C.push({ k: 'nat', rot: 'Natureza', html: (x) => esc(x.pa.natureza || '—'), ord: (x) => x.pa.natureza });
   if (!o.semNum) C.push({ k: 'num', rot: 'Nº parcelamento', cls: 'b-num', html: (x) => esc(x.pa.numero || '—'), ord: (x) => x.pa.numero });
-  C.push({ k: 'n', rot: 'Parcela', cls: 'b-data', html: (x) => esc(x.n) + (x.pa.tot ? ' de ' + x.pa.tot : ''), ord: (x) => Number(x.n) || 0 });
+  C.push({ k: 'n', rot: 'Parcela', cls: 'b-cen b-data', html: (x) => esc(x.n) + (x.pa.tot ? ' de ' + x.pa.tot : ''), ord: (x) => Number(x.n) || 0 });
   C.push({ k: 'v', rot: 'Valor', cls: 'b-dir b-val', soma: true, html: (x) => brl(x.valor), ord: (x) => x.valor });
-  C.push({ k: 'venc', rot: 'Vencimento', cls: 'b-cen b-data', clsL: (x) => vencB(x.venc, x.pago).cls, html: (x) => vencB(x.venc, x.pago).html, ord: (x) => x.venc || '9' });
-  if (o.emissao) C.push({ k: 'em', rot: 'Guia', cls: 'b-cen', html: (x) => celEmissaoP(x, true), ord: (x) => x.emitida || '' });
-  if (!o.semBaixa) C.push({ k: 'pago', rot: 'Baixa', cls: 'b-cen', html: celBaixaP, ord: (x) => x.pagoEm || (x.pago ? '1' : '') });
+  C.push({ k: 'venc', rot: 'Vencimento', cls: 'b-cen b-data', html: (x) => (x.venc ? dataBR(x.venc) : '—'), ord: (x) => x.venc || '9' });
+  C.push({ k: 'pz', rot: o.pagas ? 'Pagamento' : 'Prazo', cls: 'b-cen b-prazo', html: celPrazoP, ord: (x) => (x.pago ? x.pagoEm || '1' : x.venc || '9') });
+  if (!o.semAcoes) C.push({ k: 'ac', rot: '', cls: 'b-dir b-c-acoes', html: celAcoesP, ord: false });
   return C;
 }
 function listasParcelas(T) {
@@ -9193,13 +9233,13 @@ function pintarParcelamentos() {
     '<div class="b-sec"><div><h2>Parcelas</h2></div></div><div id="pc-tabela"></div>';
   const bt = $('pc-novo'); if (bt) bt.onclick = () => { const ED = ED_P(); if (ED && ED.abrirParcelamento) ED.abrirParcelamento(null); else aviso('Abra pelo ERP: + Lançar → Parcelamento.', true); };
   $('pc-atualizar').onclick = () => { if (window.ERP_RECARREGAR_MODULOS) window.ERP_RECARREGAR_MODULOS('parcelamentos').then(() => TELAS.parcelamentos()); else TELAS.parcelamentos(); };
-  const det = (id, titulo, linhas, o) => (c) => tabelaB(c, Object.assign({ id, titulo, linhas, colunas: colunasParcelas(o), unidade: ['parcela', 'parcelas'], busca: buscaParc, valor: (x) => x.valor, venc: (x) => x.venc,
-    ord: { k: 'venc', dir: 1 }, clique: janelaParcela, lote: lotesParcelas(), altura: '440px' }, o && o.cfg));
+  const det = (id, titulo, linhas, o) => (c) => tabelaB(c, Object.assign({ id, titulo, tabCls: o && o.semNum ? 'b-tab-parc b-sem-num' : 'b-tab-parc', linhas, colunas: colunasParcelas(o), unidade: ['parcela', 'parcelas'], busca: buscaParc, valor: (x) => x.valor, venc: (x) => x.venc,
+    ord: { k: 'venc', dir: 1 }, clique: janelaParcela, altura: '440px', linhaCls: (x) => (!x.pago && x.venc && x.venc <= hojeISO() ? ' b-tr-venc' : '') }, o && o.cfg));
   cartoesB($('pc-cartoes'), 'parcelamentos', [
     { id: 'atr', cor: 'r', icone: 'alerta', rotulo: 'Parcelas em atraso', valor: String(atr.length), sub: brl(soma(atr)) + ' somadas · ' + plural(hoje.length, 'vence', 'vencem') + ' hoje', det: det('pc-d-atr', 'Parcelas em atraso (inclui as que vencem hoje)', atr, { semNum: true }) },
-    { id: 'mes', cor: 'b', icone: 'calendario', rotulo: 'Vencem este mês', valor: String(mes.length), comp: '· ' + brl(soma(mes)) + ' no mês', sub: 'Emitir as guias até <b>dia 12</b>', det: det('pc-d-mes', 'Vencem em ' + nomeMes(new Date()), mes, { semNum: true, emissao: true }) },
+    { id: 'mes', cor: 'b', icone: 'calendario', rotulo: 'Vencem este mês', valor: String(mes.length), comp: '· ' + brl(soma(mes)) + ' no mês', sub: 'Emitir as guias até <b>dia 12</b>', det: det('pc-d-mes', 'Vencem em ' + nomeMes(new Date()), mes, { semNum: true }) },
     { id: 'guias', cor: 'a', icone: 'documento', rotulo: 'Guias a emitir', valor: String(guiasMes.length - emit.length), comp: 'de ' + guiasMes.length, barra: guiasMes.length ? emit.length / guiasMes.length * 100 : 100,
-      sub: emit.length + ' já emitidas · prazo <b>dia 12</b>', det: det('pc-d-guias', 'Guias a emitir (vencidas e do mês)', guiasMes.filter((x) => !x.emitida), { semNum: true, emissao: true, semBaixa: true }) },
+      sub: emit.length + ' já emitidas · prazo <b>dia 12</b>', det: det('pc-d-guias', 'Guias a emitir (vencidas e do mês)', guiasMes.filter((x) => !x.emitida), { semNum: true }) },
     { id: 'quit', cor: 'g', icone: 'pizza', rotulo: 'Quitado / falta', linhas: [[brl(pago), 'já pago', true], [brl(falta), 'falta pagar']], barra: pago + falta ? pago / (pago + falta) * 100 : 0,
       sub: (pago + falta ? Math.round(pago / (pago + falta) * 100) : 0) + '% do total dos parcelamentos em andamento', det: (c) => {
         const G = {}; ativos.forEach(([pa, r]) => { const g = G[pa.grupo] = G[pa.grupo] || { id: pa.grupo, nome: pa.grupo, n: 0, pago: 0, falta: 0 }; g.n++; g.pago += r.quitado; g.falta += r.falta; });
@@ -9212,12 +9252,12 @@ function pintarParcelamentos() {
   ]);
   desenharGruposPc();
   $('pc-chips').onclick = (ev) => { const b = ev.target.closest('[data-pc-chip]'); if (!b) return; E.pc.chip = b.dataset.pcChip; $('pc-chips').querySelectorAll('.b-chip').forEach((x) => x.setAttribute('aria-pressed', x === b)); desenharGruposPc(); };
-  tabelaB($('pc-tabela'), { id: 'parcelas', linhas: T, colunas: colunasParcelas(), unidade: ['parcela', 'parcelas'], dicaBusca: 'Empresa, CNPJ ou nº',
-    titulo: (a) => ({ atraso: 'Parcelas em atraso (inclui as que vencem hoje)', avencer: 'Parcelas a vencer', pagas: 'Parcelas pagas' }[a]),
-    abas: [{ id: 'atraso', rot: 'Em atraso', cor: 'r', f: (x) => estadoParc(x) === 'atraso' }, { id: 'avencer', rot: 'A vencer', f: (x) => estadoParc(x) === 'avencer' }, { id: 'pagas', rot: 'Pagas', f: (x) => x.pago }],
-    ordAbas: { atraso: { k: 'venc', dir: 1 }, avencer: { k: 'venc', dir: 1 }, pagas: { k: 'pago', dir: -1 } }, ord: { k: 'venc', dir: 1 },
-    busca: buscaParc, listas: listasParcelas(T), venc: (x) => x.venc, valor: (x) => x.valor, lote: lotesParcelas(), clique: janelaParcela,
-    vazio: { titulo: 'Nenhuma parcela aqui', frase: 'Quando houver parcelas nesta situação, elas aparecem nesta lista.' } });
+  tabelaB($('pc-tabela'), { id: 'parcelas', tabCls: 'b-tab-parc', linhas: T, colunas: colunasParcelas(), unidade: ['parcela', 'parcelas'], dicaBusca: 'Empresa, CNPJ ou nº',
+    abas: [{ id: 'apagar', rot: 'A pagar', f: (x) => !x.pago }, { id: 'pago', rot: 'Pago', f: (x) => x.pago }], semContagemAbas: true,
+    prazos: true, prazosAbas: ['apagar'], conta: (n, aba) => plural(n, 'parcela', 'parcelas') + (aba === 'pago' ? ' paga' + (n === 1 ? '' : 's') : ' a pagar'),
+    ordAbas: { apagar: { k: 'venc', dir: 1 }, pago: { k: 'pz', dir: -1 } }, ord: { k: 'venc', dir: 1 }, linhaCls: (x) => (!x.pago && x.venc && x.venc <= hojeISO() ? ' b-tr-venc' : ''),
+    busca: buscaParc, listas: listasParcelas(T), venc: (x) => x.venc, valor: (x) => x.valor, clique: janelaParcela,
+    vazio: { titulo: 'Nenhuma parcela aqui', frase: 'Troque a escolha acima (Todas, Vencidas, 5/10/15/30 dias) ou limpe os filtros.' } });
 }
 
 // ── situação por cliente: um cartão por grupo; clicou → a lista dos parcelamentos do grupo ──
@@ -9227,9 +9267,9 @@ function desenharGruposPc() {
   PA.forEach((pa) => { const r = resumoPa(pa), k = pa.grupo || pa.empresa; const g = G[k] = G[k] || { id: k, nome: k, itens: [] }; g.itens.push([pa, r]); });
   const chip = E.pc.chip, grupos = Object.values(G).map((g) => {
     const vivos = g.itens.filter(([, r]) => !r.concluido), conc = g.itens.filter(([, r]) => r.concluido);
-    let pg = 0, tot = 0, falta = 0, atr = 0, risco = false, nMes = 0, somaMes = 0;
-    vivos.forEach(([pa, r]) => { pg += pa.pagas; tot += pa.tot; falta += r.falta; atr += r.atr; if (r.atr >= 2) risco = true; nMes += r.mes.length; somaMes += r.mes.reduce((s, x) => s + x.valor, 0); });
-    return Object.assign(g, { vivos, conc, pg, tot, falta, atr, risco, nMes, somaMes });
+    let pg = 0, tot = 0, falta = 0, atr = 0, risco = false, nMes = 0, somaMes = 0, parcMes = 0, nParcMes = 0;
+    vivos.forEach(([pa, r]) => { pg += pa.pagas; tot += pa.tot; falta += r.falta; atr += r.atr; if (r.atr >= 2) risco = true; nMes += r.mes.length; somaMes += r.mes.reduce((s, x) => s + x.valor, 0); parcMes += r.valorMes; nParcMes += r.doMes.length; });
+    return Object.assign(g, { vivos, conc, pg, tot, falta, atr, risco, nMes, somaMes, parcMes, nParcMes });
   }).filter((g) => chip === 'concluidos' ? g.conc.length : g.vivos.length && (chip === 'todos' || (chip === 'atraso' && g.atr) || (chip === 'risco' && g.risco) || (chip === 'dia' && !g.atr)))
     .sort((a, b) => (b.atr ? 1 : 0) - (a.atr ? 1 : 0) || a.nome.localeCompare(b.nome, 'pt-BR'));
   if (grupos.length === 1 && !E.pc.grupo) E.pc.grupo = grupos[0].id;
@@ -9240,7 +9280,7 @@ function desenharGruposPc() {
       (chip === 'concluidos' ? '<span class="b-pill b-g">Concluídos</span>' : g.atr ? '<span class="b-pill b-r">' + plural(g.atr, 'parcela', 'parcelas') + ' em atraso</span>' : '<span class="b-pill b-g">Em dia</span>') + '</div>' +
       '<div class="b-cg-sub">' + plural(n, 'parcelamento', 'parcelamentos') + (g.risco && chip !== 'concluidos' ? ' · <span class="b-n-atr">risco de rescisão</span>' : '') + '</div>' +
       (chip === 'concluidos' ? '' : '<div class="b-barra"><span style="width:' + pc + '%"></span></div><div class="b-cg-lin"><span>Pagas</span><b><span class="b-verde">' + g.pg + '</span> de ' + g.tot + '</b></div>' +
-        '<div class="b-cg-lin"><span>Falta pagar</span><b>' + brl(g.falta) + '</b></div><div class="b-cg-lin"><span>A pagar este mês</span><b>' + (g.nMes ? brl(g.somaMes) + ' (' + g.nMes + ')' : '—') + '</b></div>') + '</button>';
+        '<div class="b-cg-lin"><span>Falta pagar</span><b>' + brl(g.falta) + '</b></div><div class="b-cg-lin"><span>Parcela do mês</span><b>' + (g.nParcMes ? brl(g.parcMes) + (g.nParcMes > 1 ? ' (' + g.nParcMes + ')' : '') : '—') + '</b></div><div class="b-cg-lin"><span>A pagar este mês</span><b>' + (g.nMes ? brl(g.somaMes) + ' (' + g.nMes + ')' : '—') + '</b></div>') + '</button>';
     if (ab) html += '<div class="b-cg-det" id="pc-det-grupo"></div>';
   });
   el.innerHTML = html || '<div class="b-quadro b-cg-det">' + vazioB({ icone: 'ok', titulo: 'Nenhum grupo neste recorte', frase: 'Troque a escolha acima (Todos, Com atraso, Risco de rescisão, Em dia, Concluídos).' }) + '</div>';
@@ -9254,6 +9294,8 @@ function desenharGruposPc() {
       { k: 'nat', rot: 'Natureza', html: ([pa]) => esc(pa.natureza || '—'), ord: ([pa]) => pa.natureza }, { k: 'num', rot: 'Nº parcelamento', cls: 'b-num', html: ([pa]) => esc(pa.numero || '—'), ord: ([pa]) => pa.numero },
       { k: 'pg', rot: 'Pagas', html: ([pa, r]) => '<div class="b-prog"><div class="b-barra"><span style="width:' + r.pc + '%"></span></div><span><b class="b-verde">' + pa.pagas + '</b> de ' + pa.tot + '</span></div>', ord: ([, r]) => r.pc },
       { k: 'falta', rot: 'Falta pagar', cls: 'b-dir b-val', soma: true, html: ([, r]) => brl(r.falta), ord: ([, r]) => r.falta },
+      { k: 'pmes', rot: 'Parcela do mês', cls: 'b-dir b-data', html: ([, r]) => { const x = r.parcMes; if (!x) return '<span class="b-em">—</span>';
+          return '<b class="b-val">' + brl(x.valor) + '</b><small' + (!x.pago && x.venc <= hojeISO() ? ' class="b-verm"' : '') + '>' + (x.pago ? '✓ paga' : 'vence ' + dataBR(x.venc).slice(0, 5)) + '</small>'; }, ord: ([, r]) => (r.parcMes ? r.parcMes.valor : -1) },
       { k: 'prox', rot: 'Próxima', cls: 'b-cen b-data', html: ([, r]) => (r.prox ? dataBR(r.prox.venc) : '—'), ord: ([, r]) => (r.prox ? r.prox.venc : '9') },
       { k: 'atr', rot: 'Situação', cls: 'b-cen', html: ([, r]) => (r.concluido ? '<span class="b-pill b-g">Concluído</span>' : r.atr ? '<span class="b-n-atr">' + plural(r.atr, 'parcela', 'parcelas') + ' em atraso</span>' : '<span class="b-pill b-g">Em dia</span>'), ord: ([, r]) => r.atr }],
     clique: ([pa]) => janelaParcelamento(pa) });
@@ -9267,7 +9309,7 @@ async function janelaParcelamento(pa) {
     corpo: '<div class="b-ficha"><div><span>CPF / CNPJ</span><b class="b-m">' + esc(pa.cnpj || '—') + '</b></div><div><span>Plataforma</span><b>' + esc(pa.local || '—') + '</b></div><div><span>Natureza</span><b>' + esc(pa.natureza || '—') + '</b></div><div><span>Nº do parcelamento</span><b class="b-m">' + esc(pa.numero || '—') + '</b></div>' +
       '<div><span>Total de parcelas</span><b>' + (pa.tot || '—') + '</b></div><div><span>Valor da parcela</span><b>' + brl((pa.parcelas.length ? pa.parcelas[pa.parcelas.length - 1].valor : 0) || pa.vparc) + '</b></div><div><span>Valor residual</span><b>' + brl(r.falta) + '</b></div><div><span>Guias</span><b>' + (pa.emitimos ? 'Nós emitimos' : 'O cliente emite') + '</b></div>' +
       (pa.obs ? '<div style="grid-column:1/-1"><span>Observação</span><b>' + esc(pa.obs) + '</b></div>' : '') + '</div>' +
-      '<div class="b-nums">' + [['Parcelas pagas', pa.pagas + ' de ' + pa.tot + ' (' + r.pc + '%)', ''], ['Já quitado', brl(r.quitado), 'b-verde'], ['Falta pagar', brl(r.falta), ''], ['Próxima parcela', r.prox ? dataBR(r.prox.venc) : '—', ''], ['Em atraso', r.atr ? plural(r.atr, 'parcela', 'parcelas') : 'nenhuma', r.atr ? 'b-verm' : '']]
+      '<div class="b-nums">' + [['Parcelas pagas', pa.pagas + ' de ' + pa.tot + ' (' + r.pc + '%)', ''], ['Já quitado', brl(r.quitado), 'b-verde'], ['Falta pagar', brl(r.falta), ''], ['Parcela do mês', r.parcMes ? brl(r.parcMes.valor) + ' · ' + (r.parcMes.pago ? 'paga' : dataBR(r.parcMes.venc).slice(0, 5)) : (r.prox ? 'próxima ' + dataBR(r.prox.venc) : '—'), r.parcMes && !r.parcMes.pago && r.parcMes.venc <= hojeISO() ? 'b-verm' : ''], ['Em atraso', r.atr ? plural(r.atr, 'parcela', 'parcelas') : 'nenhuma', r.atr ? 'b-verm' : '']]
         .map((k) => '<div><span>' + k[0] + '</span><b class="' + k[2] + '">' + k[1] + '</b></div>').join('') + '</div><div id="pc-j-parcelas"><p class="b-kpi-s">Carregando todas as parcelas…</p></div>',
     rodape: (pode('juridico', 'editar') ? '<button type="button" class="btn btn-o" id="pc-j-editar" style="margin-right:auto">Editar dados do parcelamento</button>' : '') +
       (pa.emitimos && r.mes.some((x) => !x.emitida) && pode('juridico', 'editar') ? '<button type="button" class="btn btn-o" id="pc-j-guias">' + iconeB('documento') + ' Emitir guias (' + r.mes.filter((x) => !x.emitida).length + ')</button>' : '') +
@@ -9287,13 +9329,14 @@ async function janelaParcelamento(pa) {
   const alvo = j.querySelector('#pc-j-parcelas'); if (!alvo || !alvo.isConnected) return;
   E.pc.janelaPa = { pa, todas, el: alvo };
   tabelaB(alvo, { id: 'pc-j-' + pa.id, titulo: 'Parcelas', linhas: todas, unidade: ['parcela', 'parcelas'], ord: { k: 'n', dir: 1 }, valor: (x) => x.valor, venc: (x) => x.venc, altura: '360px', abaPadrao: 'abertas',
-    abas: [{ id: 'abertas', rot: 'Em aberto', f: (x) => !x.pago }, { id: 'pagas', rot: 'Pagas', f: (x) => x.pago }, { id: 'todas', rot: 'Todas', f: () => true }],
-    colunas: [{ k: 'n', rot: 'Parcela', cls: 'b-data', html: (x) => esc(x.n) + (pa.tot ? '/' + pa.tot : ''), ord: (x) => Number(x.n) || 0 },
-      { k: 'venc', rot: 'Vencimento', cls: 'b-data', clsL: (x) => vencB(x.venc, x.pago).cls, html: (x) => vencB(x.venc, x.pago).html, ord: (x) => x.venc || '9' },
+    abas: [{ id: 'abertas', rot: 'A pagar', f: (x) => !x.pago }, { id: 'pagas', rot: 'Pago', f: (x) => x.pago }, { id: 'todas', rot: 'Todas', f: () => true }],
+    linhaCls: (x) => (!x.pago && x.venc && x.venc <= hojeISO() ? ' b-tr-venc' : ''),
+    colunas: [{ k: 'n', rot: 'Parcela', cls: 'b-data', html: (x) => esc(x.n) + (pa.tot ? ' de ' + pa.tot : ''), ord: (x) => Number(x.n) || 0 },
+      { k: 'venc', rot: 'Vencimento', cls: 'b-cen b-data', html: (x) => (x.venc ? dataBR(x.venc) : '—'), ord: (x) => x.venc || '9' },
       { k: 'v', rot: 'Valor', cls: 'b-dir b-val', soma: true, html: (x) => brl(x.valor) + (x.lancado ? '' : ' <small title="Valor ainda não lançado nesta parcela: vale o último lançado">*</small>'), ord: (x) => x.valor },
-      { k: 'em', rot: 'Guia', html: (x) => celEmissaoP(x, true), ord: (x) => x.emitida || '' },
-      { k: 'pago', rot: 'Baixa', cls: 'b-cen', html: celBaixaP, ord: (x) => x.pagoEm || (x.pago ? '1' : '') }],
-    lote: lotesParcelas(), clique: janelaParcela });
+      { k: 'pz', rot: 'Prazo', cls: 'b-cen b-prazo', html: celPrazoP, ord: (x) => (x.pago ? x.pagoEm || '1' : x.venc || '9') },
+      { k: 'ac', rot: '', cls: 'b-dir b-c-acoes', html: celAcoesP, ord: false }],
+    clique: janelaParcela });
 }
 
 // ── clique na parcela: ficha + guia + pagamento (com Desmarcar) + editar no formulário do ERP ──
@@ -9358,27 +9401,6 @@ async function gravarBaixas(lista, bx) {
     }
     return true;
   } catch (e) { antes.forEach((a) => marcarParcela(a.x, a.pago, a.pagoEm)); if (e.message !== 'não gravou') aviso('⚠ ' + erroAmigavel(e), true); return false; }
-}
-// ── ações em lote (sempre com confirmação) ──
-function lotesParcelas() {
-  if (!pode('juridico', 'editar')) return null;
-  return [{ rot: 'Dar baixa', icone: 'check', quando: (x) => !x.pago, fn: async (l) => {
-      const soma = l.reduce((s, x) => s + x.valor, 0);
-      const bx = await perguntarBaixa({ despesa: true, titulo: 'Pagamento de ' + plural(l.length, 'parcela', 'parcelas') + ' — confirme', valor: soma,
-        descricao: l.slice(0, 6).map((x) => x.pa.empresa + ' · parcela ' + x.n + (x.pa.tot ? '/' + x.pa.tot : '')).join(' · ') + (l.length > 6 ? ' · … e mais ' + (l.length - 6) : '') });
-      if (!bx) return false;
-      return gravarBaixas(l, bx);
-    } },
-    { rot: 'Marcar guias como emitidas', icone: 'documento', quando: paraEmitirP, fn: async (l) => {
-      if (!confirm('Marcar ' + plural(l.length, 'guia', 'guias') + ' como emitida(s)?\n\nUse quando os PDFs já foram gerados no e-CAC/Regularize/SIARE. Nenhum e-mail é enviado por aqui.')) return false;
-      const h = hojeISO(); l.forEach((x) => { x.emitida = h; if (x._orig) { x._orig.emitidaIso = h; x._orig.emitidaEm = dataBR(h); x._orig.emissao = 'SIM'; } }); redesenharParc();
-      try {
-        for (const x of l) await q(sb.rpc('registrar_emissao', { p_tabela: 'parcelas', p_id: x.id, p_emitida: true, p_doc: null, p_enviar: false }));
-        const ED = ED_P(); if (ED && ED.gravou) ED.gravou(plural(l.length, 'guia marcada', 'guias marcadas') + ' como emitida(s)'); else aviso('✓ Guias marcadas.');
-        if (ED && ED.marcarSujo) l.forEach((x) => ED.marcarSujo('parcelas', x.pa.id));
-        return true;
-      } catch (e) { l.forEach((x) => { x.emitida = ''; if (x._orig) { x._orig.emitidaIso = ''; x._orig.emitidaEm = ''; } }); redesenharParc(); aviso('⚠ Não foi possível marcar: ' + erroAmigavel(e), true); return false; }
-    } }];
 }
 // botões dentro das linhas (Baixa e Emitir) — um ouvinte para a tela e as janelas
 document.addEventListener('click', (ev) => {

@@ -707,6 +707,20 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
 **Central de Documentos dentro do ERP:** menu **Documentos → Gerar documento** (ou ⋯ → Documentos, contrato, recibo do Financeiro).
 **Ctrl + clique** (ou botão do meio do mouse) em qualquer item do menu ou link de documento abre numa aba nova.
 
+## Backup 69 — Parcelamentos com a tabela igual à de Acordos + "Parcela do mês"
+1. Merge da pull request.
+2. SQL: não precisa.
+3. **Ctrl+Shift+R** no ERP.
+
+O que mudou em **Jurídico → Parcelamentos** (a seu pedido):
+- A lista de parcelas ficou **igual à de Acordos**: botões **A pagar / Pago**, atalhos **Todas · Vencidas · 5 · 10 · 15 · 30 dias · até [data]**, busca e o contador
+  "N parcelas a pagar". Colunas Grupo · Empresa · Plataforma · Natureza · Nº · Parcela · Valor · Vencimento · **Prazo** (vermelho "N d atraso", âmbar, azul, verde "N dias";
+  "✓ emitido" embaixo) e, no fim de cada linha, os botões **Emitir** e **Baixa** (verde). Parcelas vencidas com o fundo rosado. Sem a caixinha de marcar várias.
+- Grupo, plataforma, natureza, vencimento de/até e valor ficaram dentro do botão **Filtros**. A letra continua a Inter.
+- **Parcela do mês** (valor e vencimento) no cartão de cada grupo, na lista dos parcelamentos do grupo e na janela do parcelamento.
+- Vale para as próximas telas refeitas (Acordos, Financeiro…): a tabela de todas segue este mesmo desenho.
+- Com muitas parcelas, a lista mostra 150 por vez e um botão **Mostrar mais** no fim (o total e a média contam todas). A tela abre em menos de meio segundo.
+
 ## Backup 68 — Parcelamentos refeita no ERP (reforma, etapa 3)
 1. Merge da pull request.
 2. SQL: não precisa (o banco não mudou).
