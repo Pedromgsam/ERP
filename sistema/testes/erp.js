@@ -816,11 +816,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     // ── Backup 68 (reforma, etapa 3): Parcelamentos refeita — os testes da tela antiga viraram estes (mesmas funções, peças novas) ──
     await nav(p, 'parcelamentos'); await p.waitForSelector('#panel-parcelamentos #pc-grupos .b-cg');
     ok('Parcelamentos (B68): a tela antiga fica escondida para a equipe (sem a "Situação" antiga, sem o selo vermelho do topo)', !(await p.isVisible('#parcAnalise')) && !(await p.isVisible('#alertParc')) && !(await p.isVisible('#parcTabBar')));
-    ok('Parcelamentos (B68): 4 cartões — em atraso, vencem este mês, guias a emitir, quitado/falta', (await p.$$('#pc-cartoes .b-kpi-bt')).length === 4 && /Guias a emitir/.test(await p.textContent('#pc-cartoes')) && /Quitado/.test(await p.textContent('#pc-cartoes')));
-    await p.click('#pc-cartoes [data-kpi=quit]'); await p.waitForTimeout(300);
-    ok('Parcelamentos (B68): clicar no cartão abre o detalhamento logo abaixo (e marca o cartão)', !!(await p.$('#pc-cartoes .b-kpi-det table')) && /Grupo Alfa/.test(await p.textContent('#pc-cartoes .b-kpi-det')) && !!(await p.$('#pc-cartoes [data-kpi=quit][aria-expanded=true]')));
-    await p.click('#pc-cartoes [data-kpi=quit]'); await p.waitForTimeout(200);
-    ok('Parcelamentos (B68): clicar de novo fecha o detalhamento', !(await p.$('#pc-cartoes .b-kpi-det table')));
+    ok('Parcelamentos (B71): sem os 4 cartões do topo (a tela começa na situação por cliente)', !(await p.$('#pc-cartoes')) && !(await p.$('#conteudo .b-kpi-bt')));
     ok('Parcelamentos (B68): situação por cliente — cartão do grupo com "Pagas N de M", falta pagar e "A pagar este mês"', /Grupo Alfa/.test(await p.textContent('#pc-grupos')) && /Pagas\s*\d+ de \d+/.test(await p.textContent('#pc-grupos .b-cg')) && /A pagar este mês/.test(await p.textContent('#pc-grupos .b-cg')));
     ok('Parcelamentos (B68): um grupo só já abre a lista dos parcelamentos (cartão marcado)', !!(await p.$('#pc-det-grupo tr[data-b-k]')) && !!(await p.$('#pc-grupos .b-cg[aria-expanded=true]')));
     ok('Parcelamentos (B68): a lista do grupo mostra a situação ("em atraso" em vermelho ou "Em dia")', /em atraso|Em dia|Concluído/.test(await p.textContent('#pc-det-grupo')));
@@ -864,16 +860,13 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('Parcelamentos (B68): "Desfazer" no rodapé tira a baixa', sql("select pago from parcelas where id='" + idParc3 + "'") === 'f' && !!(await p.$('#pc-tabela tr[data-b-k="' + idParc3 + '"] [data-pc-baixa]')));
     await nav(p, 'acordos'); await p.waitForSelector('#ac-tabela .b-quadro', { timeout: 15000 }).catch(() => {});
     // Backup 70: Acordos refeita com as peças novas (igual a Parcelamentos), mantendo todas as funções
-    ok('Acordos (B70): cabeçalho, 4 cartões, situação por cliente (cartões por grupo + escolhas) e a tabela de parcelas', !!(await p.$('#conteudo .b-cab')) && (await p.$$('#ac-cartoes [data-kpi]')).length === 4 &&
+    ok('Acordos (B70/B71): cabeçalho, sem os cartões do topo, situação por cliente (cartões por grupo + escolhas) e a tabela de parcelas', !!(await p.$('#conteudo .b-cab')) && !(await p.$('#ac-cartoes')) &&
       (await p.$$('#ac-chips [data-ac-chip]')).length === 5 && (await p.$$('#ac-grupos [data-ac-g]')).length >= 1 && !!(await p.$('#ac-tabela table')));
     ok('Acordos (B70): tabela como a aprovada (Grupo, Processo, Devedor, Credor, Parcela, Valor, Vencimento, Prazo), sem "Situação" e sem caixinha de marcar', await p.evaluate(() => {
       const t = [...document.querySelectorAll('#ac-tabela thead th')].map((th) => th.textContent.replace(/[↑↓]/g, '').trim().toLowerCase()).join('|');
       return t.startsWith('grupo|processo|devedor|credor|parcela|valor|vencimento|prazo') && !t.includes('situação') && !document.querySelector('#ac-tabela .b-lote'); }));
     ok('Acordos (B70): "A pagar / Pago" e atalhos Todas · Vencidas · 5 · 10 · 15 · 30 dias · até', (await p.$$('#ac-tabela [data-b-aba]')).length === 2 && (await p.$$('#ac-tabela [data-b-prazo]')).length === 6 && !!(await p.$('#ac-tabela [data-bt=prazoate]')));
     ok('Acordos (B70): cada parcela a pagar com Emitir e Baixa', !!(await p.$('#ac-tabela [data-ac-emitir]')) && !!(await p.$('#ac-tabela [data-ac-baixa]')));
-    await p.click('#ac-cartoes [data-kpi=atr]'); await p.waitForTimeout(300);
-    ok('Acordos (B70): o cartão abre o detalhamento (lista embaixo)', !!(await p.$('#ac-cartoes .b-kpi-det .b-quadro')));
-    await p.click('#ac-cartoes [data-kpi=atr]'); await p.waitForTimeout(200);
     { const pg0 = Number(sql("select count(*) from acordos where pago"));
       const fecharTudo = async () => { for (let i = 0; i < 4; i++) { const f = await p.$('#gs-raiz .fundo [data-cancelar], #gs-raiz .fundo [data-fechar]'); if (!f) break; await f.click().catch(() => {}); await p.waitForTimeout(200); } };
       if (!(await p.$('#ac-det-grupo'))) { await p.click('#ac-grupos [data-ac-g] >> nth=0'); await p.waitForTimeout(400); }

@@ -9302,37 +9302,14 @@ TELAS.parcelamentos.semCadastros = true;   // os dados vêm do ERP (DB.parcelame
 function pintarParcelamentos() {
   const el = $('conteudo'); if (!el) return;
   const PA = E.pc.PA || [], T = [].concat(...PA.map((pa) => pa.parcelas)), h = hojeISO(), podeEd = pode('juridico', 'editar');
-  const atr = T.filter((x) => estadoParc(x) === 'atraso'), hoje = atr.filter((x) => x.venc === h);
-  const mes = T.filter((x) => !x.pago && doMesP(x.venc));
-  const guiasMes = T.filter((x) => x.pa.emitimos && !x.pago && x.venc && (x.venc <= h || doMesP(x.venc))), emit = guiasMes.filter((x) => x.emitida);
-  const R = PA.map((pa) => [pa, resumoPa(pa)]), ativos = R.filter(([, r]) => !r.concluido);
-  const pago = ativos.reduce((s, [, r]) => s + r.quitado, 0), falta = ativos.reduce((s, [, r]) => s + r.falta, 0);
-  const soma = (l) => l.reduce((s, x) => s + x.valor, 0);
   el.innerHTML = cabecalhoTela({ icone: 'camadas', titulo: 'Parcelamentos', frase: 'Parcelas dos clientes no e-CAC, Regularize e SIARE, por vencimento', atualizar: 'pc-atualizar', botao: podeEd ? { id: 'pc-novo', rotulo: 'Novo parcelamento' } : null }) +
-    '<div id="pc-cartoes"></div>' +
     '<div class="b-sec"><div><h2>Situação dos parcelamentos por cliente</h2><p>Quanto cada grupo já pagou, quanto falta e o que vence este mês. Clique no cartão para ver cada parcelamento.</p></div><div class="b-chips" id="pc-chips">' +
     [['todos', 'Todos'], ['atraso', 'Com atraso'], ['risco', 'Risco de rescisão'], ['dia', 'Em dia'], ['concluidos', 'Concluídos']].map((c) => '<button type="button" class="b-chip" data-pc-chip="' + c[0] + '" aria-pressed="' + (E.pc.chip === c[0]) + '">' + c[1] + '</button>').join('') + '</div></div>' +
     '<div class="b-cards" id="pc-grupos"></div>' +
     '<div class="b-sec"><div><h2>Parcelas</h2></div></div><div id="pc-tabela"></div>';
   const bt = $('pc-novo'); if (bt) bt.onclick = () => { const ED = ED_P(); if (ED && ED.abrirParcelamento) ED.abrirParcelamento(null); else aviso('Abra pelo ERP: + Lançar → Parcelamento.', true); };
   $('pc-atualizar').onclick = () => { if (window.ERP_RECARREGAR_MODULOS) window.ERP_RECARREGAR_MODULOS('parcelamentos').then(() => TELAS.parcelamentos()); else TELAS.parcelamentos(); };
-  const det = (id, titulo, linhas, o) => (c) => tabelaB(c, Object.assign({ id, titulo, tabCls: o && o.semNum ? 'b-tab-parc b-sem-num' : 'b-tab-parc', linhas, colunas: colunasParcelas(o), unidade: ['parcela', 'parcelas'], busca: buscaParc, valor: (x) => x.valor, venc: (x) => x.venc,
-    ord: { k: 'venc', dir: 1 }, clique: janelaParcela, altura: '440px', linhaCls: (x) => (!x.pago && x.venc && x.venc <= hojeISO() ? ' b-tr-venc' : '') }, o && o.cfg));
-  cartoesB($('pc-cartoes'), 'parcelamentos', [
-    { id: 'atr', cor: 'r', icone: 'alerta', rotulo: 'Parcelas em atraso', valor: String(atr.length), sub: brl(soma(atr)) + ' somadas · ' + plural(hoje.length, 'vence', 'vencem') + ' hoje', det: det('pc-d-atr', 'Parcelas em atraso (inclui as que vencem hoje)', atr, { semNum: true }) },
-    { id: 'mes', cor: 'b', icone: 'calendario', rotulo: 'Vencem este mês', valor: String(mes.length), comp: '· ' + brl(soma(mes)) + ' no mês', sub: 'Emitir as guias até <b>dia 12</b>', det: det('pc-d-mes', 'Vencem em ' + nomeMes(new Date()), mes, { semNum: true }) },
-    { id: 'guias', cor: 'a', icone: 'documento', rotulo: 'Guias a emitir', valor: String(guiasMes.length - emit.length), comp: 'de ' + guiasMes.length, barra: guiasMes.length ? emit.length / guiasMes.length * 100 : 100,
-      sub: emit.length + ' já emitidas · prazo <b>dia 12</b>', det: det('pc-d-guias', 'Guias a emitir (vencidas e do mês)', guiasMes.filter((x) => !x.emitida), { semNum: true }) },
-    { id: 'quit', cor: 'g', icone: 'pizza', rotulo: 'Quitado / falta', linhas: [[brl(pago), 'já pago', true], [brl(falta), 'falta pagar']], barra: pago + falta ? pago / (pago + falta) * 100 : 0,
-      sub: (pago + falta ? Math.round(pago / (pago + falta) * 100) : 0) + '% do total dos parcelamentos em andamento', det: (c) => {
-        const G = {}; ativos.forEach(([pa, r]) => { const g = G[pa.grupo] = G[pa.grupo] || { id: pa.grupo, nome: pa.grupo, n: 0, pago: 0, falta: 0 }; g.n++; g.pago += r.quitado; g.falta += r.falta; });
-        tabelaB(c, { id: 'pc-d-quit', titulo: 'Quitado e falta, por grupo', linhas: Object.values(G), unidade: ['grupo', 'grupos'], valor: (g) => g.falta, ord: { k: 'falta', dir: -1 }, chave: (g) => g.id,
-          colunas: [{ k: 'g', rot: 'Grupo', html: (g) => grupoTxtB(g.nome), ord: (g) => normalizar(g.nome) }, { k: 'n', rot: 'Parcelamentos', cls: 'b-cen b-data', html: (g) => g.n, ord: (g) => g.n },
-            { k: 'pago', rot: 'Já pago', cls: 'b-dir b-val', html: (g) => '<span class="b-verde">' + brl(g.pago) + '</span>', ord: (g) => g.pago }, { k: 'falta', rot: 'Falta pagar', cls: 'b-dir b-val', soma: true, html: (g) => brl(g.falta), ord: (g) => g.falta },
-            { k: 'pc', rot: 'Quitado', html: (g) => { const p = g.pago + g.falta ? Math.round(g.pago / (g.pago + g.falta) * 100) : 0; return '<div class="b-prog"><div class="b-barra"><span style="width:' + p + '%"></span></div><span>' + p + '%</span></div>'; }, ord: (g) => g.pago / ((g.pago + g.falta) || 1) }],
-          clique: (g) => { E.pc.grupo = g.id; desenharGruposPc(); const x = $('pc-grupos'); if (x) x.scrollIntoView({ behavior: 'smooth', block: 'start' }); } });
-      } }
-  ]);
+  // Backup 71: os 4 cartões do topo saíram a pedido (a tela começa na situação por cliente)
   desenharGruposPc();
   $('pc-chips').onclick = (ev) => { const b = ev.target.closest('[data-pc-chip]'); if (!b) return; E.pc.chip = b.dataset.pcChip; $('pc-chips').querySelectorAll('.b-chip').forEach((x) => x.setAttribute('aria-pressed', x === b)); desenharGruposPc(); };
   tabelaB($('pc-tabela'), { id: 'parcelas', tabCls: 'b-tab-parc', linhas: T, colunas: colunasParcelas(), unidade: ['parcela', 'parcelas'], dicaBusca: 'Empresa, CNPJ ou nº',
@@ -9583,33 +9560,13 @@ TELAS.acordos.semCadastros = true;
 function pintarAcordos() {
   const el = $('conteudo'); if (!el) return;
   const T = E.ac.T || [], A = E.ac.A || [], h = hojeISO(), podeEd = pode('juridico', 'editar');
-  const atr = T.filter((x) => !x.pago && x.venc && x.venc <= h), mes = T.filter((x) => !x.pago && doMesP(x.venc));
-  const emitir = T.filter((x) => !x.pago && x.venc && (x.venc <= h || doMesP(x.venc))), emit = emitir.filter((x) => x.emitida);
-  const vivos = A.filter((a) => !a.concluido), pago = vivos.reduce((s, a) => s + a.pago, 0), falta = vivos.reduce((s, a) => s + a.falta, 0);
-  const soma = (l) => l.reduce((s, x) => s + x.valor, 0);
   el.innerHTML = cabecalhoTela({ icone: 'documento', titulo: 'Acordos', frase: 'Dívidas dos clientes com terceiros (não entram no Financeiro)', atualizar: 'ac-atualizar', botao: podeEd ? { id: 'ac-novo', rotulo: 'Novo acordo' } : null }) +
-    '<div id="ac-cartoes"></div>' +
     '<div class="b-sec"><div><h2>Situação dos acordos por cliente</h2><p>Quanto cada grupo já pagou, quanto falta e o que vence este mês. Clique no cartão para ver cada acordo.</p></div><div class="b-chips" id="ac-chips">' +
     [['todos', 'Todos'], ['atraso', 'Com atraso'], ['risco', 'Risco de rescisão'], ['dia', 'Em dia'], ['concluidos', 'Concluídos']].map((c) => '<button type="button" class="b-chip" data-ac-chip="' + c[0] + '" aria-pressed="' + (E.ac.chip === c[0]) + '">' + c[1] + '</button>').join('') + '</div></div>' +
     '<div class="b-cards" id="ac-grupos"></div><div class="b-sec"><div><h2>Parcelas</h2></div></div><div id="ac-tabela"></div>';
   const bt = $('ac-novo'); if (bt) bt.onclick = () => { if (typeof formAcordoNovo === 'function') formAcordoNovo(() => { if (window.ERP_RECARREGAR) window.ERP_RECARREGAR(); else TELAS.acordos(); }); };
   $('ac-atualizar').onclick = () => { if (window.ERP_RECARREGAR_MODULOS) window.ERP_RECARREGAR_MODULOS('acordos').then(() => TELAS.acordos()); else TELAS.acordos(); };
-  const det = (id, titulo, linhas) => (c) => tabelaB(c, { id, titulo, tabCls: 'b-tab-ac', linhas, colunas: colunasAcordos(), unidade: ['parcela', 'parcelas'], busca: buscaAc, valor: (x) => x.valor, venc: (x) => x.venc,
-    ord: { k: 'venc', dir: 1 }, clique: janelaParcelaAc, altura: '440px', linhaCls: vencidaA });
-  cartoesB($('ac-cartoes'), 'acordos', [
-    { id: 'atr', cor: 'r', icone: 'alerta', rotulo: 'Parcelas em atraso', valor: String(atr.length), sub: brl(soma(atr)) + ' somadas · contando as de hoje', det: det('ac-d-atr', 'Parcelas em atraso (inclui as que vencem hoje)', atr) },
-    { id: 'mes', cor: 'b', icone: 'calendario', rotulo: 'Vencem este mês', valor: String(mes.length), comp: '· ' + brl(soma(mes)) + ' no mês', sub: 'emitir e mandar ao cliente antes do vencimento', det: det('ac-d-mes', 'Vencem em ' + nomeMes(new Date()), mes) },
-    { id: 'emitir', cor: 'a', icone: 'documento', rotulo: 'Boletos / PIX a emitir', valor: String(emitir.length - emit.length), comp: 'de ' + emitir.length, barra: emitir.length ? emit.length / emitir.length * 100 : 100,
-      sub: emit.length + ' já emitidos (vencidas e do mês)', det: det('ac-d-emitir', 'A emitir (vencidas e do mês)', emitir.filter((x) => !x.emitida)) },
-    { id: 'quit', cor: 'g', icone: 'pizza', rotulo: 'Quitado / falta', linhas: [[brl(pago), 'já pago', true], [brl(falta), 'falta pagar']], barra: pago + falta ? pago / (pago + falta) * 100 : 0,
-      sub: plural(vivos.length, 'acordo em andamento', 'acordos em andamento'), det: (c) => {
-        const G = {}; vivos.forEach((a) => { const g = G[a.grupo] = G[a.grupo] || { id: a.grupo, nome: a.grupo, n: 0, pago: 0, falta: 0 }; g.n++; g.pago += a.pago; g.falta += a.falta; });
-        tabelaB(c, { id: 'ac-d-quit', titulo: 'Quitado e falta, por grupo', linhas: Object.values(G), unidade: ['grupo', 'grupos'], valor: (g) => g.falta, ord: { k: 'falta', dir: -1 }, chave: (g) => g.id,
-          colunas: [{ k: 'g', rot: 'Grupo', html: (g) => grupoTxtB(g.nome), ord: (g) => normalizar(g.nome) }, { k: 'n', rot: 'Acordos', cls: 'b-cen b-data', html: (g) => g.n, ord: (g) => g.n },
-            { k: 'pago', rot: 'Já pago', cls: 'b-dir b-val', html: (g) => '<span class="b-verde">' + brl(g.pago) + '</span>', ord: (g) => g.pago }, { k: 'falta', rot: 'Falta pagar', cls: 'b-dir b-val', soma: true, html: (g) => brl(g.falta), ord: (g) => g.falta }],
-          clique: (g) => { E.ac.grupo = g.id; desenharGruposAc(); const x = $('ac-grupos'); if (x) x.scrollIntoView({ behavior: 'smooth', block: 'start' }); } });
-      } }
-  ]);
+  // Backup 71: os 4 cartões do topo saíram a pedido (a tela começa na situação por cliente)
   desenharGruposAc();
   $('ac-chips').onclick = (ev) => { const b = ev.target.closest('[data-ac-chip]'); if (!b) return; E.ac.chip = b.dataset.acChip; $('ac-chips').querySelectorAll('.b-chip').forEach((x) => x.setAttribute('aria-pressed', x === b)); desenharGruposAc(); };
   const uniq = (f) => [...new Set(T.map(f).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR')).map((v) => [v, v]);

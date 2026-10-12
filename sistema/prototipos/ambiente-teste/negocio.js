@@ -1,157 +1,117 @@
-/* Regras do ambiente de teste: parcelas, automações (quando cada uma roda e para quem), e-mails com conferência,
-   leitura do PDF da guia e linha do tempo do cliente. */
+/* Regras do ambiente de teste (versão 2): parcelas e acordos, baixa com confirmação, emitir guia (lê o PDF),
+   e-mails (manuais com rascunho ou envio direto; automáticos), pendências do Início, linha do tempo do cliente e o índice da busca. */
 (function(){
   var APP = window.APP, DIA = DADOS.DIA, HOJE = DADOS.HOJE, esc = APP.esc, brl = APP.brl;
   var N = APP.N = {};
+  var D = function(){ return APP.D; };
 
   /* ── parcelamentos ── */
-  N.pa = function(id){ return APP.D.parcelamentos.find(function(p){ return p.id === id; }); };
-  N.parcela = function(id){ return APP.D.parcelas.find(function(x){ return x.id === id; }); };
-  N.parcelasDe = function(pa){ return APP.D.parcelas.filter(function(x){ return x.pa === pa.id; }).sort(function(a, b){ return a.n - b.n; }); };
-  N.estado = function(x){ return x.pago ? 'pagas' : (x.venc <= HOJE ? 'atraso' : 'avencer'); };
+  N.pa = function(id){ return D().parcelamentos.find(function(p){ return p.id === id; }); };
+  N.parcela = function(id){ return D().parcelas.find(function(x){ return x.id === id; }); };
+  N.parcelasDe = function(pa){ return D().parcelas.filter(function(x){ return x.pa === pa.id; }).sort(function(a, b){ return a.n - b.n; }); };
   N.resumo = function(pa){
-    var r = { pg:0, atr:0, falta:0, quitado:0, prox:null, tot:pa.tot };
-    N.parcelasDe(pa).forEach(function(x){ if (x.pago){ r.pg++; r.quitado += x.v; } else { r.falta += x.v; if (x.venc <= HOJE) r.atr++; if (!r.prox) r.prox = x; } });
-    return r;
+    var r = { pg:0, atr:0, falta:0, quitado:0, prox:null, tot:pa.tot, mes:[], parcMes:null };
+    N.parcelasDe(pa).forEach(function(x){
+      if (APP.doMes(x.venc)) r.parcMes = x;
+      if (x.pago){ r.pg++; r.quitado += x.v; } else { r.falta += x.v; if (x.venc <= HOJE){ r.atr++; r.mes.push(x); } else { if (!r.prox) r.prox = x; if (APP.doMes(x.venc)) r.mes.push(x); } } });
+    r.concluido = r.pg >= pa.tot; return r;
   };
   N.cliDe = function(x){ return APP.cli((x.pa ? N.pa(x.pa) : x).cli); };
   N.grupoDe = function(x){ return N.cliDe(x).g; };
   N.paraEmitir = function(x){ var pa = N.pa(x.pa); return !pa.cliEmite && !x.pago && !x.emitida && (x.venc <= HOJE || APP.doMes(x.venc)); };
 
-  /* ── automações: configuração efetiva para um cliente ── */
-  N.auto = function(id){ return APP.D.automacoes.find(function(a){ return a.id === id; }); };
-  N.regra = function(autoId, cliId){
-    var a = N.auto(autoId), o = ((APP.D.porCliente[cliId] || {})[autoId]) || { modo:'padrao' };
-    var cli = cliId ? APP.cli(cliId) : null;
-    var ligada = a.ligada && o.modo !== 'desligado' && (!cli || a.grupo !== 'cliente' || cli.recebeEmail !== false);
-    return { modo:o.modo, ligada:ligada, dias:o.modo === 'personalizado' && o.dias != null ? o.dias : a.dias, hora:o.modo === 'personalizado' && o.hora ? o.hora : a.hora,
-      motivo:!a.ligada ? 'automação desligada para todos' : o.modo === 'desligado' ? 'desligada para este cliente' : cli && a.grupo === 'cliente' && cli.recebeEmail === false ? 'cliente não recebe e-mails' : '' };
+  /* ── acordos (parcelas → acordo = mesmo ac) ── */
+  N.acordos = function(){
+    var M = {};
+    D().acordos.forEach(function(x){ var a = M[x.ac] = M[x.ac] || { id:x.ac, cli:x.cli, processo:x.processo, credor:x.credor, forma:x.forma, parcelas:[] }; a.parcelas.push(x); });
+    return Object.keys(M).map(function(k){ var a = M[k];
+      a.parcelas.sort(function(x, y){ return x.n - y.n; });
+      var ab = a.parcelas.filter(function(x){ return !x.pago; });
+      a.tot = a.parcelas.length; a.pg = a.tot - ab.length; a.pago = APP.soma(a.parcelas.filter(function(x){ return x.pago; }), function(x){ return x.v; }); a.falta = APP.soma(ab, function(x){ return x.v; });
+      a.atr = ab.filter(function(x){ return x.venc <= HOJE; }).length; a.concluido = !ab.length; a.parcMes = a.parcelas.find(function(x){ return APP.doMes(x.venc); }) || null;
+      a.mes = ab.filter(function(x){ return x.venc <= HOJE || APP.doMes(x.venc); });
+      return a; });
   };
-  function quando(dia, hora){ var h = String(hora || '08:00').split(':'); var d = new Date(dia); d.setHours(+h[0], +h[1], 0, 0); return d; }
-  function proxDiaMes(diaMes){ var d = new Date(HOJE.getFullYear(), HOJE.getMonth(), diaMes); if (d < HOJE) d = new Date(HOJE.getFullYear(), HOJE.getMonth() + 1, diaMes); return d; }
+  N.parcelaAc = function(id){ return D().acordos.find(function(x){ return x.id === id; }); };
 
-  // o que cada automação vai fazer nos próximos dias — "quando acontece, para quem e por quê"
-  N.proximas = function(dias){
-    var fim = new Date(+HOJE + (dias || 14) * DIA), L = [], D = APP.D;
-    function add(o){ if (o.quando >= HOJE && o.quando <= new Date(+fim + DIA)) L.push(o); }
-    // A1 resumo da manhã
-    var a1 = N.auto('resumo_manha');
-    for (var i = 0; i <= (dias || 14); i++){ var d = new Date(+HOJE + i * DIA); if (a1.uteis && (d.getDay() === 0 || d.getDay() === 6)) continue;
-      a1.quem.forEach(function(p){ add({ auto:'resumo_manha', quando:quando(d, a1.hora), para:APP.pessoa(p).nome, oque:'Resumo da manhã', ligada:a1.ligada, motivo:a1.ligada ? '' : 'automação desligada' }); }); }
-    // A2 lembrete da parcela
-    D.parcelas.forEach(function(x){ if (x.pago) return; var pa = N.pa(x.pa), r = N.regra('lembrete_parcela', pa.cli), dia = new Date(+x.venc - (r.dias || 0) * DIA);
-      if (dia < HOJE && x.venc >= HOJE) dia = new Date(HOJE);
-      add({ auto:'lembrete_parcela', quando:quando(dia, r.hora), cli:pa.cli, para:APP.cli(pa.cli).nome, oque:'Lembrete da parcela ' + x.n + '/' + pa.tot + ' (' + pa.plat + ' · ' + pa.nat + ') — vence ' + APP.fd(x.venc), ligada:r.ligada, motivo:r.motivo, ref:x.id }); });
-    // A3 guia emitida → e-mail pronto (acontece quando a guia for emitida)
-    D.parcelas.filter(N.paraEmitir).forEach(function(x){ var pa = N.pa(x.pa), r = N.regra('guia_emitida', pa.cli);
-      add({ auto:'guia_emitida', quando:quando(HOJE, '23:59'), quandoTxt:'ao emitir a guia', cli:pa.cli, para:APP.cli(pa.cli).nome, oque:'E-mail com a guia da parcela ' + x.n + '/' + pa.tot + ' (' + pa.nat + ')', ligada:r.ligada, motivo:r.motivo, ref:x.id }); });
-    // A4 risco de rescisão
-    var a4 = N.auto('risco_rescisao');
-    D.parcelamentos.forEach(function(pa){ var rs = N.resumo(pa), g = APP.grupo(APP.cli(pa.cli).g);
-      if (rs.atr === a4.limite - 1 && rs.prox && rs.prox.venc > HOJE) add({ auto:'risco_rescisao', quando:quando(new Date(+rs.prox.venc + DIA), '08:00'), cli:pa.cli, para:APP.pessoa(g.resp).nome, oque:'Tarefa "parcelamento em risco" se a parcela de ' + APP.fd(rs.prox.venc) + ' não for paga — ' + APP.cli(pa.cli).nome + ' (' + pa.nat + ')', ligada:a4.ligada, motivo:a4.ligada ? '' : 'automação desligada' }); });
-    // A6 conferência mensal
-    var a6 = N.auto('conferencia_mes');
-    add({ auto:'conferencia_mes', quando:quando(proxDiaMes(a6.diaMes), a6.hora), para:APP.pessoa(a6.resp).nome, oque:'Tarefa "Conferir os parcelamentos do mês" com a lista pronta', ligada:a6.ligada, motivo:a6.ligada ? '' : 'automação desligada' });
-    // pedido de documentos do mês
-    var a7 = N.auto('docs_mes');
-    Object.keys(D.docsCliente).forEach(function(cid){ var r = N.regra('docs_mes', cid), dia = proxDiaMes(a7.diaMes), falta = N.docsFaltando(cid, dia);
-      add({ auto:'docs_mes', quando:quando(dia, r.hora), cli:cid, para:APP.cli(cid).nome, oque:'Pedido dos documentos de ' + mesNome(new Date(dia.getFullYear(), dia.getMonth() - 1, 1)) + (falta.length ? ' (' + falta.length + ' itens)' : ''), ligada:r.ligada, motivo:r.motivo }); });
-    // cobrança de honorário
-    D.honorarios.forEach(function(h){ if (h.rec) return; var r = N.regra('cobranca_honorario', h.cli), dia = new Date(+h.venc + (r.dias || 0) * DIA); if (dia < HOJE) dia = new Date(HOJE);
-      add({ auto:'cobranca_honorario', quando:quando(dia, r.hora), cli:h.cli, para:APP.cli(h.cli).nome, oque:'Cobrança educada — ' + h.desc + ' (' + brl(h.v) + ', venc. ' + APP.fd(h.venc) + ')', ligada:r.ligada, motivo:r.motivo }); });
-    return L.sort(function(a, b){ return a.quando - b.quando; });
+  /* ── baixa (pagamento) — sempre com confirmação e "Desfazer" ── */
+  N.baixa = function(x, o){
+    // o: { tit, desc, valor, sub, comprovante (acordo), aposTexto }
+    var extra = o.comprovante ? '<div class="campo"><label>O comprovante foi anexado ao processo?</label>' + APP.opcoes('Comprovante', ['Não', 'Sim'], 'Não') + '</div>' : '';
+    return APP.confirmar({ kick:'Confirmar pagamento', tit:o.tit || 'Lançar o pagamento?', sub:o.sub, ok:'Confirmar pagamento', data:'Data do pagamento', extra:extra,
+      resumo:'<b>' + esc(o.desc) + '</b>' + (o.linha ? '<span>' + o.linha + '</span>' : '') + '<span class="val">' + brl(o.valor) + '</span>' + (o.aviso ? '<span>' + o.aviso + '</span>' : ''),
+      ler:o.comprovante ? function(J){ return APP.opcaoDe(J, 'Comprovante'); } : null }).then(function(r){
+      if (!r) return false; var data = o.comprovante ? r.data : r;
+      APP.acao(o.feito || 'Pagamento lançado.', function(){ var volta = APP.foto(x, o.campo === 'rec' ? ['rec'] : ['pago']); if (o.campo === 'rec') x.rec = data; else x.pago = data; if (o.depois) o.depois(data); return volta; });
+      return true;
+    });
   };
-  function mesNome(d){ return ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'][d.getMonth()] + '/' + d.getFullYear(); }
-  N.mesNome = mesNome;
-
-  /* ── documentos por competência ── */
-  N.comp = function(d){ return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
-  N.docsFaltando = function(cid, ref){ var comp = N.comp(new Date(ref.getFullYear(), ref.getMonth() - 1, 1)), rec = APP.D.docsRecebidos[cid + '|' + comp] || [];
-    return (APP.D.docsCliente[cid] || []).filter(function(t){ return rec.indexOf(t) < 0; }); };
-
-  /* ── A4: varrer os parcelamentos em risco (roda sozinho; aqui também pelo botão "Rodar agora") ── */
-  N.varrerRiscos = function(){
-    var a4 = N.auto('risco_rescisao'), novas = [];
-    if (!a4.ligada) return novas;
-    APP.D.parcelamentos.forEach(function(pa){ var rs = N.resumo(pa); if (rs.atr < a4.limite) return;
-      if (APP.D.tarefas.some(function(t){ return t.origem === 'risco_rescisao' && t.ref === pa.id && !t.feita; })) return;
-      var c = APP.cli(pa.cli), t = { id:'t' + Date.now() + novas.length, tit:'Parcelamento em risco: ' + c.nome + ' — ' + pa.nat + ' (' + rs.atr + ' parcelas em atraso)', resp:APP.grupo(c.g).resp, prazo:new Date(+HOJE + DIA), origem:'risco_rescisao', feita:null, ref:pa.id };
-      APP.D.tarefas.push(t); novas.push(t); });
-    return novas;
-  };
-
-  /* ── baixa de parcela (sempre com confirmação) ── */
   N.baixaParcela = function(x){
     var pa = N.pa(x.pa), c = APP.cli(pa.cli);
-    return APP.confirmar({ kick:'Confirmar pagamento', tit:'Lançar o pagamento desta parcela?', sub:esc(c.nome), ok:'Confirmar pagamento', data:'Data do pagamento',
-      resumo:'<b>Parcela ' + x.n + ' de ' + pa.tot + ' · ' + pa.plat + ' · ' + esc(pa.nat) + '</b><span>Nº ' + pa.num + ' · vencimento ' + APP.fd(x.venc) + '</span><span class="val">' + brl(x.v) + '</span>' }).then(function(data){
-      if (!data) return false;
-      APP.acao('Pagamento lançado: parcela ' + x.n + '/' + pa.tot + ' — ' + c.nome.split(' ').slice(0, 2).join(' '), function(){ var volta = APP.foto(x, ['pago']); x.pago = data; return volta; });
-      return true;
-    });
+    return N.baixa(x, { tit:'Lançar o pagamento desta parcela?', sub:esc(c.nome), desc:'Parcela ' + x.n + ' de ' + pa.tot + ' · ' + pa.plat + ' · ' + pa.nat, linha:'Nº ' + pa.num + ' · vencimento ' + APP.fd(x.venc), valor:x.v, feito:'Pagamento lançado: parcela ' + x.n + '/' + pa.tot + ' — ' + APP.curto(c) });
   };
-  N.baixaLote = function(lista){
-    var soma = lista.reduce(function(s, x){ return s + x.v; }, 0);
-    return APP.confirmar({ kick:'Confirmar pagamento em lote', tit:'Lançar o pagamento de ' + APP.plural(lista.length, 'parcela', 'parcelas') + '?', ok:'Confirmar pagamentos', data:'Data do pagamento',
-      resumo:'<b>' + brl(soma) + '</b>' + lista.slice(0, 8).map(function(x){ var pa = N.pa(x.pa); return '<span>' + esc(APP.cli(pa.cli).nome) + ' · parcela ' + x.n + '/' + pa.tot + ' · ' + brl(x.v) + '</span>'; }).join('') + (lista.length > 8 ? '<span>… e mais ' + (lista.length - 8) + '</span>' : '') }).then(function(data){
-      if (!data) return false;
-      APP.acao(APP.plural(lista.length, 'pagamento lançado', 'pagamentos lançados') + ' (' + brl(soma) + ').', function(){ var voltas = lista.map(function(x){ var v = APP.foto(x, ['pago']); x.pago = data; return v; }); return function(){ voltas.forEach(function(v){ v(); }); }; });
-      return true;
-    });
+  N.baixaAcordo = function(x){
+    var c = APP.cli(x.cli);
+    return N.baixa(x, { tit:'Lançar o pagamento desta parcela do acordo?', sub:esc(c.nome) + ' · deve a ' + esc(x.credor), desc:'Parcela ' + x.n + ' de ' + x.tot + ' · processo ' + x.processo, linha:'vencimento ' + APP.fd(x.venc), valor:x.v, comprovante:true, feito:'Pagamento do acordo lançado — ' + APP.curto(c) });
   };
-  N.receberHonorario = function(h){
-    var c = APP.cli(h.cli);
-    return APP.confirmar({ kick:'Confirmar recebimento', tit:'Lançar o recebimento deste honorário?', sub:esc(c.nome), ok:'Confirmar recebimento', data:'Data do recebimento',
-      resumo:'<b>' + esc(h.desc) + (h.tot ? ' · parcela ' + h.n + ' de ' + h.tot : '') + '</b><span>' + h.tipo + ' · vencimento ' + APP.fd(h.venc) + '</span><span class="val">' + brl(h.v) + '</span>'
-        + (N.regra('recibo', h.cli).ligada ? '<span>O recibo em PDF vai para ' + esc(c.email || 'o e-mail do cadastro') + ' (automação "Recibo de pagamento").</span>' : '') }).then(function(data){
-      if (!data) return false;
-      APP.acao('Recebimento lançado — ' + c.nome.split(' ').slice(0, 2).join(' '), function(){
-        var volta = APP.foto(h, ['rec']); h.rec = data; var e = null;
-        if (N.regra('recibo', h.cli).ligada && c.email){ e = { id:'e' + Date.now(), cli:h.cli, assunto:'Recibo de pagamento — ' + brl(h.v), para:c.email, status:'enviado', origem:'recibo', quando:new Date(), criado:new Date() }; APP.D.emails.push(e); }
-        return function(){ volta(); if (e) APP.D.emails.splice(APP.D.emails.indexOf(e), 1); }; });
-      return true;
-    });
+  N.baixaLanc = function(l){
+    var c = l.cli ? APP.cli(l.cli) : null, desp = l.tipo === 'despesa' && !l.redutor;
+    return N.baixa(l, { tit:desp ? 'Lançar este pagamento?' : 'Lançar este recebimento?', sub:esc(c ? c.nome : l.fav || ''), desc:l.desc, linha:'vencimento ' + APP.fd(l.venc), valor:l.v,
+      aviso: !desp && D().emailCfg.recibo.ligado && c && c.email ? 'O recibo em PDF vai sozinho para ' + esc(c.email) + '.' : '', feito:desp ? 'Pagamento lançado.' : 'Recebimento lançado — ' + (c ? APP.curto(c) : ''),
+      depois:function(){ if (!desp && D().emailCfg.recibo.ligado && c && c.email) D().emails.push({ id:'e' + Date.now(), cli:l.cli, tipo:'recibo', assunto:'Recibo de pagamento — ' + brl(l.v), para:c.email, status:'enviado', quando:new Date(HOJE) }); } });
   };
 
-  /* ── A3/A5: emitir a guia, ler o PDF e deixar o e-mail pronto ── */
-  N.emitir = function(x, pdf){
-    var pa = N.pa(x.pa), c = APP.cli(pa.cli), r3 = N.regra('guia_emitida', pa.cli);
-    var volta = APP.foto(x, ['emitida', 'pdf']); x.emitida = new Date(HOJE); x.pdf = pdf || null; var e = null;
-    if (r3.ligada && (c.fiscal || c.email)){
-      e = { id:'e' + Date.now() + Math.round(Math.random() * 1e3), cli:pa.cli, assunto:'Guia do parcelamento — vence em ' + APP.fd(x.venc), para:c.fiscal || c.email, status:N.auto('guia_emitida').modo === 'enviar' ? 'agendado' : 'revisar', origem:'guia_emitida',
-        anexo: pdf ? { nome:pdf.nome, valor:pdf.valor, venc:pdf.venc } : null, parcela:x.id, criado:new Date(), quando:new Date() };
-      APP.D.emails.push(e);
+  /* ── emitir a guia (parcelamento ou acordo): anexa o PDF, o sistema lê valor e vencimento, e o e-mail sai como RASCUNHO ou DIRETO ── */
+  N.janelaEmitir = function(itens, tipo){
+    // itens: parcelas do MESMO cliente; tipo: 'guia_parcelamento' | 'guia_acordo'
+    var x0 = itens[0], c = tipo === 'guia_acordo' ? APP.cli(x0.cli) : N.cliDe(x0), modo = D().emailCfg[tipo].modo;
+    var desc = function(x){ if (tipo === 'guia_acordo') return 'Acordo · processo ' + x.processo + ' · parcela ' + x.n + '/' + x.tot; var pa = N.pa(x.pa); return pa.plat + ' · ' + pa.nat + ' · parcela ' + x.n + '/' + pa.tot; };
+    var lidos = {};
+    var J = APP.janela({ larga:true, kick:tipo === 'guia_acordo' ? 'Emitir boleto/PIX do acordo' : 'Emitir guias do parcelamento', tit:c.nome, sub:esc(c.doc) + (c.email ? ' · e-mail: ' + esc(c.email) : ' · <b class="vermelho">sem e-mail cadastrado</b>'),
+      corpo:'<div class="passos3"><span class="on">1. Anexar a guia (PDF)</span><span>2. Conferir</span><span>3. ' + (modo === 'rascunho' ? 'Salvar no rascunho do Gmail' : 'Enviar') + '</span></div>'
+        + '<div class="rola livre"><table class="tab" style="min-width:0"><thead><tr><th>Parcela</th><th class="dir">Valor</th><th class="cen">Vencimento</th><th>Guia (PDF)</th><th>Conferência</th></tr></thead><tbody>'
+        + itens.map(function(x){ return '<tr data-x="' + x.id + '"><td>' + esc(desc(x)) + '</td><td class="dir val">' + brl(x.v) + '</td><td class="cen dt">' + APP.fd(x.venc) + '</td>'
+          + '<td><label class="bt bt-o bt-mini">' + APP.ic('clipe') + 'Anexar<input type="file" accept="application/pdf" hidden data-pdf="' + x.id + '"></label> <button class="bt bt-g bt-mini" type="button" data-exemplo="' + x.id + '" title="Gera um PDF de exemplo para testar a leitura">exemplo</button></td>'
+          + '<td class="conf" data-conf="' + x.id + '"><span class="traco">aguardando o PDF</span></td></tr>'; }).join('') + '</tbody></table></div>'
+        + '<div class="campo"><label>Texto do e-mail</label><textarea class="ctl" id="em-tx" style="height:150px!important">' + esc(N.textoGuia(itens, tipo, c)) + '</textarea></div>'
+        + '<div class="dica">Como está configurado: <b>' + (modo === 'rascunho' ? 'o e-mail vai para o RASCUNHO do Gmail' : 'o e-mail é ENVIADO direto') + '</b> com as guias anexadas. Troque em Administração → E-mails.</div>',
+      rodape:'<button class="bt bt-o" type="button" data-fechar>Cancelar</button><button class="bt bt-o" type="button" id="em-so">Só marcar como emitida</button><button class="bt bt-p" type="button" id="em-ok">' + APP.ic(modo === 'rascunho' ? 'doc' : 'enviar') + (modo === 'rascunho' ? 'Salvar no rascunho' : 'Enviar agora') + '</button>' });
+    function conferir(x, pdf){
+      lidos[x.id] = pdf;
+      var dif = pdf.valor != null && Math.abs(pdf.valor - x.v) > .01, vdif = pdf.venc && +pdf.venc !== +x.venc;
+      J.q('[data-conf="' + x.id + '"]').innerHTML = '<span class="' + (dif || vdif ? 'pz-a' : 'ok-txt') + '">' + (pdf.valor != null ? brl(pdf.valor) : 'valor não lido') + ' · ' + (pdf.venc ? APP.fd(pdf.venc) : 'vencimento não lido') + '</span>'
+        + (dif ? '<small class="pz-sub">valor diferente da parcela (juros/atualização?) — o novo valor fica gravado</small>' : '') + '<small class="pz-sub">' + esc(pdf.nome) + '</small>';
     }
-    return function(){ volta(); if (e) APP.D.emails.splice(APP.D.emails.indexOf(e), 1); };
-  };
-  N.textoGuia = function(x){
-    var pa = N.pa(x.pa), c = APP.cli(pa.cli);
-    return 'Olá,\n\nSegue a guia da parcela ' + x.n + ' de ' + pa.tot + ' do parcelamento ' + pa.nat + ' (' + pa.plat + ', nº ' + pa.num + ') de ' + c.nome + '.\n\nValor: ' + brl(x.v) + '\nVencimento: ' + APP.fd(x.venc)
-      + '\n\nPague até o vencimento para manter o parcelamento em dia. Qualquer dúvida, é só responder este e-mail.\n\nAraújo & Castro Advocacia';
-  };
-
-  // ROMPEX "envio seguro" + "conferir anexo": a lista do que precisa estar certo antes de enviar
-  N.checagens = function(e){
-    var c = APP.cli(e.cli), L = [], x = e.parcela ? N.parcela(e.parcela) : null;
-    var dom = function(m){ return String(m || '').split('@')[1] || ''; };
-    var conhecidos = [c.email, c.fiscal].filter(Boolean);
-    L.push(e.para ? { ok:true, txt:'Destinatário preenchido: ' + e.para } : { ok:false, txt:'Sem destinatário. Cadastre o e-mail do cliente.' });
-    if (e.para) L.push(conhecidos.indexOf(e.para) >= 0 ? { ok:true, txt:'O endereço é um dos cadastrados para este cliente.' }
-      : conhecidos.some(function(m){ return dom(m) === dom(e.para); }) ? { av:true, txt:'Endereço novo, mas do mesmo domínio do cliente (' + dom(e.para) + ').' } : { ok:false, txt:'Endereço fora do cadastro do cliente — confira antes de enviar.' });
-    if (c.recebeEmail === false) L.push({ ok:false, txt:'Este cliente está marcado para NÃO receber e-mails.' });
-    if (x){
-      if (!e.anexo) L.push({ ok:false, txt:'Falta anexar o PDF da guia.' });
-      else {
-        L.push(Math.abs((e.anexo.valor || 0) - x.v) < 0.01 ? { ok:true, txt:'Valor do PDF (' + brl(e.anexo.valor) + ') igual ao da parcela.' } : { av:true, txt:'Valor do PDF (' + (e.anexo.valor != null ? brl(e.anexo.valor) : 'não lido') + ') diferente do da parcela (' + brl(x.v) + '). Se a guia veio com juros/atualização, está certo.' });
-        L.push(e.anexo.venc && +e.anexo.venc === +x.venc ? { ok:true, txt:'Vencimento do PDF igual ao da parcela (' + APP.fd(x.venc) + ').' } : { av:true, txt:'Vencimento do PDF (' + (e.anexo.venc ? APP.fd(e.anexo.venc) : 'não lido') + ') diferente do da parcela (' + APP.fd(x.venc) + ').' });
-        var nome = String(e.anexo.nome || '').toLowerCase(), chave = c.nome.split(' ')[0].toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-        L.push(nome.indexOf(chave) >= 0 || nome.indexOf(N.pa(x.pa).num.replace(/\D/g, '').slice(-5)) >= 0 ? { ok:true, txt:'O nome do arquivo bate com o cliente/parcelamento.' } : { av:true, txt:'O nome do arquivo (' + e.anexo.nome + ') não cita o cliente nem o nº do parcelamento — abra e confira.' });
-      }
+    J.el.addEventListener('change', function(e){ var inp = e.target.closest('[data-pdf]'); if (!inp || !inp.files[0]) return; var x = itens.find(function(y){ return y.id === inp.dataset.pdf; });
+      N.lerPdf(inp.files[0]).then(function(pdf){ conferir(x, pdf); }).catch(function(){ conferir(x, { nome:inp.files[0].name, valor:null, venc:null }); }); });
+    J.el.addEventListener('click', function(e){ var b = e.target.closest('[data-exemplo]'); if (!b) return; var x = itens.find(function(y){ return y.id === b.dataset.exemplo; });
+      N.lerPdf(N.pdfExemplo(x, tipo, Math.random() < .4)).then(function(pdf){ conferir(x, pdf); }); });
+    function gravar(comEmail){
+      var falta = itens.filter(function(x){ return !lidos[x.id]; });
+      APP.acao(comEmail ? (modo === 'rascunho' ? 'E-mail salvo no rascunho do Gmail com ' + APP.plural(itens.length - falta.length, 'guia', 'guias') + '.' : 'E-mail enviado para ' + (c.email || '—') + '.') : APP.plural(itens.length, 'guia marcada', 'guias marcadas') + ' como emitida(s).', function(){
+        var voltas = itens.map(function(x){ var v = APP.foto(x, ['emitida', 'v']); x.emitida = new Date(HOJE); if (lidos[x.id] && lidos[x.id].valor) x.v = lidos[x.id].valor; return v; }), e = null;
+        if (comEmail){ e = { id:'e' + Date.now(), cli:c.id, tipo:tipo, assunto:(tipo === 'guia_acordo' ? 'Acordo — ' : 'Guias do mês — ') + APP.curto(c), para:c.email, status:modo === 'rascunho' ? 'rascunho' : (c.email ? 'enviado' : 'erro'), erro:c.email ? '' : 'cliente sem e-mail', quando:new Date(HOJE), anexos:Object.keys(lidos).map(function(k){ return lidos[k].nome; }) }; D().emails.push(e); }
+        return function(){ voltas.forEach(function(v){ v(); }); if (e) D().emails.splice(D().emails.indexOf(e), 1); }; });
+      J.fechar();
     }
-    return L;
+    J.q('#em-so').onclick = function(){ gravar(false); };
+    J.q('#em-ok').onclick = function(){
+      var falta = itens.filter(function(x){ return !lidos[x.id]; });
+      if (!c.email && modo !== 'rascunho'){ APP.aviso('Este cliente não tem e-mail cadastrado. Cadastre em Clientes ou use "Salvar no rascunho".'); return; }
+      if (falta.length) APP.confirmar({ tit:'Faltam ' + APP.plural(falta.length, 'guia', 'guias') + ' sem PDF', sub:'O e-mail sai só com as que têm PDF.', ok:'Continuar mesmo assim', resumo:falta.map(function(x){ return '<span>' + esc(desc(x)) + '</span>'; }).join('') }).then(function(s){ if (s) gravar(true); });
+      else gravar(true);
+    };
+    return J;
+  };
+  N.textoGuia = function(itens, tipo, c){
+    var h = new Date().getHours(), oi = h < 12 ? 'Bom dia!' : h < 18 ? 'Boa tarde!' : 'Boa noite!';
+    return oi + '\n\n' + (tipo === 'guia_acordo' ? 'Segue a parcela do acordo para pagamento.' : 'Seguem as guias dos parcelamentos com vencimento neste mês ou em atraso.') + '\n\n'
+      + itens.map(function(x){ if (tipo === 'guia_acordo') return '• Processo ' + x.processo + ' — parcela ' + x.n + '/' + x.tot + ' — ' + brl(x.v) + ' — vence ' + APP.fd(x.venc);
+        var pa = N.pa(x.pa); return '• ' + pa.nat + ' (' + pa.plat + ', nº ' + pa.num + ') — parcela ' + x.n + '/' + pa.tot + ' — ' + brl(x.v) + ' — vence ' + APP.fd(x.venc); }).join('\n')
+      + '\n\nQualquer dúvida, é só responder este e-mail.\n\nEquipe Araújo & Castro';
   };
 
-  /* ── A5: ler valor e vencimento do PDF (pdf.js; se não carregar, leitura própria do PDF) ── */
+  /* ── leitura do PDF (pdf.js; se não carregar, leitura própria) ── */
   var PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js', PDFW = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
   function carregarPdfJs(){
     if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
@@ -162,7 +122,6 @@
       var pags = []; for (var i = 1; i <= Math.min(doc.numPages, 3); i++) pags.push(doc.getPage(i).then(function(p){ return p.getTextContent(); }).then(function(t){ return t.items.map(function(it){ return it.str; }).join(' '); }));
       return Promise.all(pags).then(function(t){ return t.join('\n'); }); });
   }
-  // leitura própria: textos entre parênteses dos blocos de texto (inclusive comprimidos com FlateDecode)
   function textoProprio(buf){
     var bytes = new Uint8Array(buf), bruto = ''; for (var i = 0; i < bytes.length; i++) bruto += String.fromCharCode(bytes[i]);
     var partes = [bruto], re = /stream\r?\n/g, m, tarefas = [];
@@ -176,42 +135,68 @@
     var t = String(txt).replace(/\s+/g, ' ');
     var v = t.match(/valor(?:\s+total)?(?:\s+a\s+pagar)?\s*(?:\(r\$\))?\s*[:\-]?\s*(?:r\$\s*)?([\d.]{1,12},\d{2})/i) || t.match(/r\$\s*([\d.]{1,12},\d{2})/i);
     var d = t.match(/(?:data\s+de\s+)?vencimento\s*[:\-]?\s*(\d{2}\/\d{2}\/\d{4})/i) || t.match(/(\d{2}\/\d{2}\/\d{4})/);
-    return { valor: v ? APP.num(v[1]) : null, venc: d ? APP.deBR(d[1]) : null, trecho: t.slice(0, 240) };
+    return { valor: v ? APP.num(v[1]) : null, venc: d ? APP.deBR(d[1]) : null };
   };
   N.lerPdf = function(arquivo){
-    if (!N.auto('leitura_pdf').ligada) return Promise.resolve({ nome:arquivo.name, valor:null, venc:null, como:'leitura desligada' });
     return arquivo.arrayBuffer().then(function(buf){
-      return textoPdfJs(buf.slice(0)).then(function(t){ return { t:t, como:'pdf.js' }; }, function(){ return textoProprio(buf).then(function(t){ return { t:t, como:'leitura própria' }; }); });
-    }).then(function(r){ var x = N.extrair(r.t); x.nome = arquivo.name; x.como = r.como; return x; });
+      return textoPdfJs(buf.slice(0)).then(function(t){ return { t:t }; }, function(){ return textoProprio(buf).then(function(t){ return { t:t }; }); });
+    }).then(function(r){ var x = N.extrair(r.t); x.nome = arquivo.name; return x; });
   };
-  // guia de exemplo em PDF (para testar a leitura sem ter uma guia real à mão)
-  N.pdfExemplo = function(x, valorDiferente){
-    var pa = N.pa(x.pa), c = APP.cli(pa.cli), sem = function(s){ return String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[()\\]/g, ''); };
-    var linhas = ['DOCUMENTO DE ARRECADACAO - GUIA DE PARCELAMENTO', 'Contribuinte: ' + sem(c.nome), 'CNPJ/CPF: ' + c.doc, 'Parcelamento ' + sem(pa.plat) + ' - ' + sem(pa.nat) + ' n. ' + pa.num,
-      'Parcela ' + x.n + ' de ' + pa.tot, 'Data de vencimento: ' + APP.fd(x.venc), 'Valor total: R$ ' + (valorDiferente ? x.v * 1.0137 : x.v).toLocaleString('pt-BR', { minimumFractionDigits:2, maximumFractionDigits:2 }), 'Ambiente de teste - documento ficticio'];
+  N.pdfExemplo = function(x, tipo, valorDiferente){
+    var c = tipo === 'guia_acordo' ? APP.cli(x.cli) : N.cliDe(x), sem = function(s){ return String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[()\\]/g, ''); };
+    var linhas = ['DOCUMENTO DE ARRECADACAO - GUIA', 'Contribuinte: ' + sem(c.nome), 'CNPJ/CPF: ' + c.doc, 'Parcela ' + x.n, 'Data de vencimento: ' + APP.fd(x.venc), 'Valor total: R$ ' + (valorDiferente ? x.v * 1.0137 : x.v).toLocaleString('pt-BR', { minimumFractionDigits:2, maximumFractionDigits:2 }), 'Ambiente de teste - documento ficticio'];
     var cont = 'BT /F1 12 Tf 50 780 Td 16 TL ' + linhas.map(function(l){ return '(' + l + ') Tj T*'; }).join(' ') + ' ET';
     var objs = ['<< /Type /Catalog /Pages 2 0 R >>', '<< /Type /Pages /Kids [3 0 R] /Count 1 >>', '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>',
       '<< /Length ' + cont.length + ' >>\nstream\n' + cont + '\nendstream', '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>'];
     var s = '%PDF-1.4\n', offs = [];
     objs.forEach(function(o, i){ offs.push(s.length); s += (i + 1) + ' 0 obj\n' + o + '\nendobj\n'; });
     var xref = s.length; s += 'xref\n0 ' + (objs.length + 1) + '\n0000000000 65535 f \n' + offs.map(function(o){ return String(o).padStart(10, '0') + ' 00000 n \n'; }).join('') + 'trailer\n<< /Size ' + (objs.length + 1) + ' /Root 1 0 R >>\nstartxref\n' + xref + '\n%%EOF';
-    return new File([s], 'guia-' + c.nome.split(' ')[0].toLowerCase() + '-' + pa.num.replace(/\D/g, '').slice(-5) + '-' + x.n + '.pdf', { type:'application/pdf' });
+    return new File([s], 'guia-' + c.nome.split(' ')[0].toLowerCase() + '-' + x.n + '.pdf', { type:'application/pdf' });
   };
 
-  /* ── E5: linha do tempo do cliente ── */
+  /* ── pendências (a faixa do Início no lugar dos cartões "Financeiro" e "Escritório") ── */
+  N.pendencias = function(){
+    var L = [], d = D();
+    var recHoje = d.lanc.filter(function(l){ return l.tipo === 'receita' && !l.pago && !l.perda && !l.redutor && l.venc <= HOJE; });
+    var pagar = d.lanc.filter(function(l){ return l.tipo === 'despesa' && !l.redutor && !l.pago && l.venc <= new Date(+HOJE + 5 * DIA); });
+    var parcAtr = d.parcelas.filter(function(x){ return !x.pago && x.venc <= HOJE; }), guias = d.parcelas.filter(N.paraEmitir);
+    var acAtr = d.acordos.filter(function(x){ return !x.pago && x.venc <= HOJE; });
+    var pubs = d.publicacoes.filter(function(p){ return !p.lida; }), errosEmail = d.emails.filter(function(e){ return e.status === 'erro'; });
+    var tAtr = d.tarefas.filter(function(t){ return !t.feita && t.prazo < HOJE; }), cert = d.clientes.filter(function(c){ return c.certificado && c.certificado <= new Date(+HOJE + 30 * DIA); });
+    if (recHoje.length) L.push({ cor:'r', txt:'<b>' + APP.brlK(APP.soma(recHoje, function(l){ return l.v; })) + '</b> de honorários em atraso', ir:'financeiro', arg:{ aba:'areceber', prazo:'venc' }, area:'Financeiro' });
+    if (pagar.length) L.push({ cor:'a', txt:'<b>' + APP.brlK(APP.soma(pagar, function(l){ return l.v; })) + '</b> a pagar em 5 dias', ir:'contabilidade', arg:{ aba:'apagar', prazo:'5' }, area:'Financeiro' });
+    if (guias.length) L.push({ cor:'a', txt:'<b>' + guias.length + '</b> guias a emitir até dia 12', ir:'rotina', arg:{ aba:'guias' }, area:'Escritório' });
+    if (parcAtr.length) L.push({ cor:'r', txt:'<b>' + parcAtr.length + '</b> parcelas de parcelamento em atraso', ir:'parcelamentos', arg:{ prazo:'venc', aba:'apagar' }, area:'Escritório' });
+    if (acAtr.length) L.push({ cor:'r', txt:'<b>' + acAtr.length + '</b> parcelas de acordo em atraso', ir:'acordos', arg:{ prazo:'venc', aba:'apagar' }, area:'Escritório' });
+    if (pubs.length) L.push({ cor:'b', txt:'<b>' + pubs.length + '</b> publicações novas', ir:'publicacoes', area:'Escritório' });
+    if (tAtr.length) L.push({ cor:'r', txt:'<b>' + tAtr.length + '</b> tarefas atrasadas', ir:'tarefas', area:'Escritório' });
+    if (errosEmail.length) L.push({ cor:'r', txt:'<b>' + errosEmail.length + '</b> e-mail com erro', ir:'admin', arg:{ aba:'emails', sub:'saida' }, area:'Escritório' });
+    if (cert.length) L.push({ cor:'a', txt:'<b>' + cert.length + '</b> certificado vencendo', ir:'clientes', area:'Escritório' });
+    return L;
+  };
+
+  /* ── linha do tempo do cliente ── */
   N.linhaDoTempo = function(cid){
-    var L = [], D = APP.D;
-    D.parcelamentos.filter(function(p){ return p.cli === cid; }).forEach(function(pa){
-      N.parcelasDe(pa).forEach(function(x){
-        if (x.pago && x.pago > new Date(+HOJE - 120 * DIA)) L.push({ tipo:'pagamento', quando:x.pago, tit:'Parcela ' + x.n + '/' + pa.tot + ' paga', sub:pa.plat + ' · ' + pa.nat + ' · ' + brl(x.v) });
-        if (x.emitida && x.emitida > new Date(+HOJE - 120 * DIA)) L.push({ tipo:'guia', quando:x.emitida, tit:'Guia emitida — parcela ' + x.n + '/' + pa.tot, sub:pa.plat + ' · ' + pa.nat + ' · vence ' + APP.fd(x.venc) });
-        if (!x.pago && x.venc <= HOJE) L.push({ tipo:'atraso', quando:x.venc, tit:'Parcela ' + x.n + '/' + pa.tot + ' venceu sem pagamento', sub:pa.plat + ' · ' + pa.nat + ' · ' + brl(x.v) });
-      }); });
-    D.honorarios.filter(function(h){ return h.cli === cid && h.rec; }).forEach(function(h){ L.push({ tipo:'pagamento', quando:h.rec, tit:'Honorário recebido', sub:h.desc + ' · ' + brl(h.v) }); });
-    D.emails.filter(function(e){ return e.cli === cid; }).forEach(function(e){ L.push({ tipo:'email', quando:e.quando || e.criado, tit:'E-mail ' + ({ enviado:'enviado', revisar:'pronto para revisar', agendado:'agendado' }[e.status] || e.status), sub:e.assunto }); });
-    D.tarefas.filter(function(t){ var pa = t.ref && N.pa(t.ref); return pa && pa.cli === cid; }).forEach(function(t){ L.push({ tipo:'tarefa', quando:t.feita || t.prazo, tit:(t.feita ? 'Tarefa concluída' : 'Tarefa aberta'), sub:t.tit }); });
-    Object.keys(D.docsRecebidos).forEach(function(k){ var p = k.split('|'); if (p[0] !== cid) return; var a = p[1].split('-');
-      L.push({ tipo:'documento', quando:new Date(+a[0], +a[1], 6), tit:'Documentos de ' + mesNome(new Date(+a[0], +a[1] - 1, 1)) + ' recebidos', sub:D.docsRecebidos[k].map(function(i){ return D.tiposDoc[i]; }).join(', ') }); });
+    var L = [], d = D(), lim = new Date(+HOJE - 120 * DIA);
+    d.parcelamentos.filter(function(p){ return p.cli === cid; }).forEach(function(pa){ N.parcelasDe(pa).forEach(function(x){
+      if (x.pago && x.pago > lim) L.push({ tipo:'pagamento', quando:x.pago, tit:'Parcela ' + x.n + '/' + pa.tot + ' paga', sub:pa.plat + ' · ' + pa.nat + ' · ' + brl(x.v) });
+      if (x.emitida && x.emitida > lim) L.push({ tipo:'guia', quando:x.emitida, tit:'Guia emitida — parcela ' + x.n + '/' + pa.tot, sub:pa.plat + ' · ' + pa.nat });
+      if (!x.pago && x.venc <= HOJE) L.push({ tipo:'atraso', quando:x.venc, tit:'Parcela ' + x.n + '/' + pa.tot + ' venceu sem pagamento', sub:pa.plat + ' · ' + pa.nat + ' · ' + brl(x.v) }); }); });
+    d.lanc.filter(function(l){ return l.cli === cid && l.pago && l.pago > lim && l.tipo === 'receita'; }).forEach(function(l){ L.push({ tipo:'pagamento', quando:l.pago, tit:'Honorário recebido', sub:l.desc + ' · ' + brl(l.v) }); });
+    d.emails.filter(function(e){ return e.cli === cid; }).forEach(function(e){ L.push({ tipo:'email', quando:e.quando, tit:'E-mail ' + ({ enviado:'enviado', rascunho:'salvo no rascunho', erro:'com erro' }[e.status] || e.status), sub:e.assunto }); });
+    d.processos.filter(function(p){ return p.cli === cid; }).forEach(function(p){ L.push({ tipo:'processo', quando:p.ultMov.data, tit:'Movimentação — ' + p.natureza, sub:p.numero + ' · ' + p.ultMov.txt }); });
     return L.sort(function(a, b){ return b.quando - a.quando; });
+  };
+
+  /* ── índice da busca geral (Ctrl+K): clientes, processos, parcelamentos, telas e ações ── */
+  APP.indice = function(){
+    var L = [], d = D();
+    APP.ordem.forEach(function(id){ var t = APP.telas[id]; if (!t.oculta) L.push({ grupo:'Telas', rot:(t.pai ? t.pai + ' · ' : '') + t.tit, ic:t.ic, fn:function(){ APP.ir(id); } }); });
+    [['Nova tarefa', 'tarefa', function(){ APP.ir('tarefas'); APP.telas.tarefas.novo(); }], ['Novo lembrete', 'mais', function(){ APP.ir('inicio'); APP.telas.inicio.novo(); }], ['Emitir as guias do mês', 'doc', function(){ APP.ir('rotina', { aba:'guias' }); }],
+      ['Ver como o cliente vê (portal)', 'portal', function(){ APP.ir('portal'); }], ['Textos: antes → depois', 'texto', function(){ APP.ir('aprovar'); }]].forEach(function(a){ L.push({ grupo:'Ações', rot:a[0], ic:a[1], fn:a[2] }); });
+    d.clientes.forEach(function(c){ L.push({ grupo:'Clientes', rot:c.nome, sub:c.doc, extra:c.doc.replace(/\D/g, '') + ' ' + APP.grupo(c.g).nome, ic:'pessoas', fn:function(){ APP.ir('clientes'); APP.fichaCliente(c.id); } }); });
+    d.processos.forEach(function(p){ L.push({ grupo:'Processos', rot:p.numero, sub:p.natureza + ' · ' + APP.curto(APP.cli(p.cli)), extra:p.numero.replace(/\D/g, ''), ic:'balanca', fn:function(){ APP.ir('processos'); APP.janelaProcesso(p); } }); });
+    d.parcelamentos.forEach(function(pa){ var c = APP.cli(pa.cli); L.push({ grupo:'Parcelamentos', rot:pa.nat + ' · ' + pa.plat, sub:APP.curto(c) + ' · nº ' + pa.num, extra:pa.num.replace(/\D/g, '') + ' ' + c.nome, ic:'camadas', fn:function(){ APP.ir('parcelamentos'); APP.janelaParcelamento(pa); } }); });
+    return L;
   };
 })();

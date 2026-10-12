@@ -707,6 +707,22 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
 **Central de Documentos dentro do ERP:** menu **Documentos → Gerar documento** (ou ⋯ → Documentos, contrato, recibo do Financeiro).
 **Ctrl + clique** (ou botão do meio do mouse) em qualquer item do menu ou link de documento abre numa aba nova.
 
+## Backup 71 — Sem os 4 cartões do topo + ambiente de teste versão 2 (todos os módulos)
+1. Merge da pull request.
+2. SQL: não precisa.
+3. **Ctrl+Shift+R** no ERP.
+
+No ERP (a pedido): **Parcelamentos** e **Acordos** sem os 4 cartões do topo (e sem o "ver"). A tela começa direto na situação por cliente.
+
+No **ambiente de teste** (https://claude.ai/artifact/UGretADTq3ZNXoLnQjqopB), nada muda no ERP até você aprovar:
+- Todos os módulos com o visual novo: Início, Tarefas, Painel Executivo, Processos, Parcelamentos, Execuções, Publicações, Acordos, Financeiro (Jurídico e Contabilidade, com Lançamentos e a **Análise com os gráficos**),
+  Contratos, Clientes (ficha com 8 abas), CRM, Documentos, **Rotina inteira** (Passivo, Processos, Guias do mês, Planilha, Minhas tarefas) e Administração.
+- **Sem cartões de número no topo** em nenhuma tela. O Início troca os cartões "Financeiro" e "Escritório" (e a tela Alertas) por uma **faixa de avisos** que leva à lista certa, já filtrada.
+- **Textos curtos**: o botão **Aa** no alto mostra o texto antigo marcado em amarelo; a lista completa (antes → depois) fica em **Para aprovar → Textos**.
+- **E-mails explicados**: Administração → E-mails → **Como funciona**. São 3 manuais (guias de parcelamento, boleto/PIX de acordo, cobrar) e 3 automáticos (lembrete de honorário, cobrança, recibo). Parcelamento e acordo são sempre manuais; você só escolhe **rascunho no Gmail** ou **enviar direto**.
+- **Portal do cliente novo** (menu Ambiente de teste → Portal do cliente): o cliente vê só o dele (o que pagar no mês, parcelamentos, acordos, execuções, contratos, financeiro e documentos).
+- **Para aprovar**: marque Aprovo/Não em cada texto, em cada item enxugado (E1–E12), em cada melhoria (M1–M18) e nos passos para tirar o ERP antigo (A1–A5). Depois clique em **Copiar minhas respostas** e cole na conversa.
+
 ## Backup 70 — Reforma, etapas 4 a 7: Acordos, Financeiro, Processos/Painel e Rotina no visual novo
 1. Merge da pull request.
 2. SQL: não precisa (o banco não mudou).
