@@ -554,3 +554,10 @@ html body.gx-barra-topo .ex-bn.ex-col > .ex-tg:hover .ex-t{text-decoration:under
 .pt-home .pt-como h2{font:700 15px var(--font-ui);color:var(--ink);margin:0 0 8px}
 .pt-home .pt-como ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:5px;font-size:13.5px;color:var(--text2);line-height:1.5}
 .pt-home .pt-contato{margin:10px 0 0;font-size:13px;color:var(--text3)}
+/* Início: no máximo 5 tamanhos de letra (20 · 14 · 13 · 12 · 11), como pede o teste de padrão */
+#panel-hoje .b-cab h1:not(#_){font-size:20px}
+#panel-hoje .b-cab p:not(#_),#panel-hoje .b-vazio p:not(#_){font-size:13px}
+#panel-hoje .ini-sec-hd h2:not(#_),#panel-hoje .b-vazio b:not(#_){font-size:14px}
+#panel-hoje .ini-sec-hd p:not(#_),#panel-hoje .ini-dt:not(#_),#panel-hoje .ini-it-tx small:not(#_){font-size:12px}
+#panel-hoje .ini-it-tx b:not(#_){font-size:13px}
+#panel-hoje .ini-tipo:not(#_){font-size:11px}
