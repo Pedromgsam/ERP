@@ -49,10 +49,10 @@
 <link rel="stylesheet" href="editor.css?v=7747e46f">
 <link rel="stylesheet" href="erp-telas.css?v=e074c3eb">
 <script src="editor.js?v=2f159e86" defer></script>
-<script src="erp-telas.js?v=377a9b9d" defer></script>
+<script src="erp-telas.js?v=83b9cb86" defer></script>
 <link rel="stylesheet" href="gs.css?v=3664502a">
 <script src="importador.js?v=23bf9824" defer></script>
-<script src="gestao-embutida.js?v=1797d5be" defer></script>
+<script src="gestao-embutida.js?v=e6dbd037" defer></script>
 <script>
 
 
@@ -1618,7 +1618,7 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
 <link rel="stylesheet" href="tokens.css?v=c80d0639">
 <link rel="stylesheet" href="tema-escuro.css?v=3bec5b6a">
 <link rel="stylesheet" href="design.css?v=9e16dc28">
-<link rel="stylesheet" href="base.css?v=4a3095f6">
+<link rel="stylesheet" href="base.css?v=84f32e43">
 <script>try{if(localStorage.getItem("erp_tema")==="escuro")document.documentElement.setAttribute("data-tema","escuro")}catch(e){}</script>
 </head>
 <body>
@@ -7184,29 +7184,20 @@ function _fcPintarCorpo(){
   var vP=window._semPeriodo(_FC,function(){ return _fcFiltrarPag([P.abaAberto]); }).filter(venc);
   var atraso=vR.map(function(f){ return {f:f,t:'r'}; }).concat(vP.map(function(f){ return {f:f,t:'d'}; }))
     .sort(function(a,b){ return (pDate(a.f.vencimento)||0)-(pDate(b.f.vencimento)||0); });
-  el.innerHTML =
-    '<div class="kpi-grid fc-kpis5">'   // Backup 49: os mesmos 5 cartões do Jurídico (o "Pago" está na aba Pagos)
-  +   kC('Recebido',fF(_fcSoma(rec)),rec.length+' recebimento(s) no período','cg','dg')
-  +   kC('A receber',fF(_fcSoma(aRec)),aRec.length+' em aberto','cb','db')
-  +   kC('A pagar',fF(_fcSoma(aPag)),aPag.length+' conta(s) em aberto','ca','')
-  +   kC('Em atraso',fF(_fcSoma(vR)+_fcSoma(vP)),(vR.length+vP.length)+' vencido(s) · todos os meses','cr',(vR.length||vP.length)?'dr':'')
-  +   (function(){ var pj=window._semPeriodo(_FC,function(){ return _fcFiltrar(['Prejuízo']); });   // Backup 38: prejuízo de todos os meses (igual ao Início)
-        return kC('Prejuízo',fF(_fcSoma(pj)),pj.length+' baixa(s) · todos os meses','cx',pj.length?'dr':''); })()
-  + '</div>'
-  + '<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t">Recebido × pago mês a mês</div>'
-  +   '<div class="cc-d">verde = recebido · vermelho = pago (despesas) · passe o mouse na coluna para ver o saldo do mês</div></div></div>'
-  +   '<div class="cb" style="height:280px"><canvas id="cFcMes"></canvas></div></div>'
-  + '<div hidden aria-hidden="true"><canvas id="cFcQuem"></canvas></div>'
-  // Backup 72: no lugar dos comparativos por cliente/fornecedor, os mesmos gráficos do Jurídico
-  + '<div class="crow c2" style="margin-bottom:14px">'
-  +   '<div class="cc"><div class="cc-hd"><div><div class="cc-t">Recebido por tipo de serviço</div>'
-  +     '<div class="cc-d">área do serviço · mesmo período e recortes acima</div></div></div>'
-  +     '<div class="cb" style="height:240px"><canvas id="cFcTipo"></canvas></div></div>'
-  +   '<div class="cc"><div class="cc-hd"><div><div class="cc-t">Maiores grupos</div>'
-  +     '<div class="cc-d">10 primeiros por valor recebido</div></div></div>'
-  +     '<div class="cb" style="height:240px"><canvas id="cFcGrupo"></canvas></div></div>'
-  + '</div>'
-  + (false&&atraso.length?'<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t">Em atraso</div><div class="cc-d">receitas e despesas vencidas · todos os meses</div></div></div>'+_fcTabelaAtraso(atraso)+'</div>':'');
+  // Backup 74: estrutura do ambiente de teste (faixa de números, cartões, barras simples) — mesmos valores de antes
+  var pj=window._semPeriodo(_FC,function(){ return _fcFiltrar(['Prejuízo']); });   // Backup 38: prejuízo de todos os meses (igual ao Início)
+  el.innerHTML = _numsB([['Recebido',fF(_fcSoma(rec)),_pluralB(rec.length,'recebimento','recebimentos')+' no período','b-verde'],['A receber',fF(_fcSoma(aRec)),aRec.length+' em aberto'],
+      ['A pagar',fF(_fcSoma(aPag)),_pluralB(aPag.length,'conta em aberto','contas em aberto')],['Em atraso',fF(_fcSoma(vR)+_fcSoma(vP)),(vR.length+vP.length)+' vencido(s) · todos os meses',(vR.length||vP.length)?'b-verm':''],
+      ['Prejuízo',fF(_fcSoma(pj)),_pluralB(pj.length,'baixa','baixas')+' · todos os meses']])
+    + _cartaoB('Recebido × pago mês a mês','Verde = recebido · vermelho = pago (despesas). Passe o mouse na coluna para ver o saldo do mês.','<div class="cb b-fin-graf"><canvas id="cFcMes"></canvas></div>')
+    + '<div hidden aria-hidden="true"><canvas id="cFcQuem"></canvas></div>'
+    // Backup 72/74: no lugar dos comparativos por cliente/fornecedor, os mesmos gráficos do Jurídico (barras simples)
+    + '<div class="b-fin-dois">'
+    +   _cartaoB('Recebido por tipo de serviço','', _barrasB(_somaPor(rec, function(f){ return f.servico; }, _fcVal)))
+    +   _cartaoB('Maiores grupos','', _barrasB(_somaPor(rec, function(f){ return f.grupo; }, _fcVal)))
+    + '</div>'
+    + _cartaoB('Despesas por categoria','Pago no período, por categoria.', _barrasB(_somaPor(pag, function(f){ return _fcRecorteVal(f) === '—' ? '' : _fcRecorteVal(f); }, _fcVal)));
+  void atraso;   // a tabela "Em atraso" saiu no Backup 38 (os vencidos estão nas abas A receber/A pagar)
   _fcGraficosB27(rec, pag);
 }
 function _fcTabelaAtraso(L){
@@ -7242,7 +7233,7 @@ function _fcGraficosB27(rec, pag){
     var ix=vs.map(function(_,i){ return i; }).sort(function(a,b){ return vs[b]-vs[a]; }).slice(0,10);
     var cfg=bCfg(ix.map(function(i){ return ks[i]; }),ix.map(function(i){ return vs[i]; }),null,true);
     cfg.options.animation=false; _barrasComValor(cfg); mCh(id,cfg); };
-  barras('cFcTipo', function(f){ return f.servico||'Não informado'; });
+  barras('cFcTipo', function(f){ return f.servico||'Não informado'; });   // (Backup 74: só desenha se ainda houver o canvas — hoje as barras são HTML)
   barras('cFcGrupo', function(f){ return f.grupo||'—'; });
 }
 
@@ -7268,6 +7259,62 @@ function _fcTabelaComp(html){
   return html.replace('<div class="tw"><table>','<div class="tw fc-comp-wrap" data-sem-pagina><table class="fc-comp">')
     .replace(/<\/tbody><\/table><\/div>$/, tot+'</tbody></table></div>');
 }
+// ═══ Backup 74 — Financeiro › Análise na estrutura do ambiente de teste (pedido do usuário, print de 13/10/2026) ═══
+// Mesmo conteúdo de antes (os filtros Quem/Período/Recorte continuam), com o desenho novo:
+// faixa de números · "Recebido mês a mês" (empilhado por pessoa) · Comparativo por pessoa (tabela nova) ·
+// "Por tipo de serviço" e "Maiores grupos" em barras simples (nome · barra · valor). Vale para Jurídico e Contabilidade.
+function _barrasB(lista, max){
+  lista = lista.filter(function(x){ return x[1] > 0; }).sort(function(a,b){ return b[1]-a[1]; }).slice(0, max || 10);
+  if (!lista.length) return '<div class="b-barras-vazio">Nada no período.</div>';
+  var topo = lista[0][1] || 1;
+  return '<div class="b-barras">' + lista.map(function(x){
+    return '<div class="b-barra-lin"><span class="b-barra-rot" title="'+esc(x[0])+'">'+esc(x[0])+'</span><span class="b-barra-trilho"><span style="width:'+Math.max(2, Math.round(x[1]/topo*100))+'%"></span></span><b class="b-barra-val">'+fF(x[1])+'</b></div>';
+  }).join('') + '</div>';
+}
+function _somaPor(lista, chave, val){ var M={}; lista.forEach(function(f){ var k=chave(f)||'Não informado'; M[k]=(M[k]||0)+val(f); }); return Object.keys(M).map(function(k){ return [k, M[k]]; }); }
+function _numsB(itens){
+  return '<div class="b-nums b-nums-faixa b-nums-'+itens.length+'">' + itens.map(function(i){
+    return '<div><span>'+esc(i[0])+'</span><b class="'+(i[3]||'')+'">'+i[1]+'</b><small>'+esc(i[2]||'')+'</small></div>'; }).join('') + '</div>';
+}
+function _cartaoB(tit, sub, corpo, extra){ return '<section class="b-fin-cartao'+(extra?' '+extra:'')+'"><div class="b-fin-hd"><h3>'+esc(tit)+'</h3>'+(sub?'<p>'+esc(sub)+'</p>':'')+'</div>'+corpo+'</section>'; }
+function _faTabelaPessoasB(pessoas){
+  var cliente=_acCliente();
+  var linhas=pessoas.map(function(p){
+    var salvo=_FA.quem; _FA.quem=[p];
+    var rec=_faFiltrar(['Receita']), ar=_faFiltrar(['A Receber']), pj=_faFiltrar(['Prejuízo']);
+    _FA.quem=salvo;
+    return {p:p, rec:_faSoma(rec), n:rec.length, ar:_faSoma(ar), pj:_faSoma(pj), tk:rec.length?_faSoma(rec)/rec.length:0};
+  }).sort(function(a,b){ return b.rec-a.rec; });
+  if (!linhas.length) return '<div class="b-barras-vazio">Nada no período.</div>';
+  var tot=linhas.reduce(function(s,l){ return s+l.rec; },0)||1, sN=0, sA=0, sP=0; linhas.forEach(function(l){ sN+=l.n; sA+=l.ar; sP+=l.pj; });
+  var td=function(v, cls){ return '<td class="b-dir'+(cls?' '+cls:'')+'">'+v+'</td>'; };
+  return '<div class="b-rola b-rola-solta" data-sem-pagina><table class="b-tab b-tab-comp"><thead><tr><th>Pessoa</th><th class="b-dir">Recebido</th><th class="b-dir">%</th><th class="b-cen">Lançamentos</th><th class="b-dir">Ticket médio</th><th class="b-dir">A receber</th>'+(cliente?'':'<th class="b-dir">Prejuízo</th>')+'</tr></thead><tbody>'
+    + linhas.map(function(l){ return '<tr><td><span class="b-pes">'+esc(l.p)+'</span></td>'+td(fF(l.rec),'b-verde-v')+td(Math.round(l.rec/tot*100)+'%')+'<td class="b-cen">'+l.n+'</td>'+td(l.tk?fF(l.tk):'—')+td(l.ar?fF(l.ar):'—')+(cliente?'':td(l.pj?fF(l.pj):'—'))+'</tr>'; }).join('')
+    + '</tbody><tfoot><tr><td>Total</td>'+td(fF(tot===1&&!linhas[0].rec?0:linhas.reduce(function(s,l){ return s+l.rec; },0)))+td('100%')+'<td class="b-cen">'+sN+'</td><td></td>'+td(sA?fF(sA):'—')+(cliente?'':td(sP?fF(sP):'—'))+'</tr></tfoot></table></div>';
+}
+function _faPintarCorpo(){
+  var el=$('faCorpo'); if(!el) return;
+  var hoje=new Date(); hoje.setHours(0,0,0,0);
+  var receita=_faFiltrar(['Receita']), aReceber=_faFiltrar(['A Receber']);
+  var prejuizo=window._semPeriodo(_FA,function(){ return _faFiltrar(['Prejuízo']); });
+  var vencidos=window._semPeriodo(_FA,function(){ return _faFiltrar(['A Receber']); }).filter(function(f){ var d=pDate(f.vencimento); return d&&d<hoje; });
+  var vRec=_faSoma(receita), vPrej=_faSoma(prejuizo), vVenc=_faSoma(vencidos), ticket=receita.length? vRec/receita.length : 0, cliente=_acCliente();
+  var aVenc=aReceber.filter(function(f){ return vencidos.indexOf(f)<0; }), aPag=_faFiltrar(['A Pagar']);
+  var nums=[['Recebido',fF(vRec),_pluralB(receita.length,'recebimento','recebimentos'),'b-verde'],['A receber',fF(_faSoma(aVenc)),aVenc.length+' em aberto']]
+    .concat(cliente?[]:[['A pagar',fF(_faSoma(aPag)),_pluralB(aPag.length,'conta em aberto','contas em aberto')]])
+    .concat([['Em atraso',fF(vVenc),'todos os meses',vVenc>0?'b-verm':'']])
+    .concat(cliente?[]:[['Prejuízo',fF(vPrej),_pluralB(prejuizo.length,'baixa','baixas')]])
+    .concat([['Ticket médio',fF(ticket),'por recebimento']]);
+  el.innerHTML = _numsB(nums)
+    + _cartaoB('Recebido mês a mês','Empilhado por pessoa. Passe o mouse na coluna para ver o valor.','<div class="cb b-fin-graf"><canvas id="cFaMes"></canvas></div>')
+    + _cartaoB('Comparativo por pessoa','', _faTabelaPessoasB(_faPessoas()))
+    + '<div class="b-fin-dois">'
+    +   _cartaoB('Por tipo de serviço','', _barrasB(_somaPor(receita, function(f){ return f.servico; }, _faVal)))
+    +   _cartaoB('Maiores grupos','', _barrasB(_somaPor(receita, function(f){ return f.grupo; }, _faVal)))
+    + '</div>';
+  _faGraficos(receita);
+}
+function _pluralB(n, um, varios){ return n + ' ' + (n === 1 ? um : varios); }
 function _fcTabelaPessoas(pessoas){
   var L=_FC_LADOS[_FC.lado];
   var linhas=pessoas.map(function(p){

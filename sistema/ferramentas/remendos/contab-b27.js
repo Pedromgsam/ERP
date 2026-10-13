@@ -25,29 +25,20 @@ function _fcPintarCorpo(){
   var vP=window._semPeriodo(_FC,function(){ return _fcFiltrarPag([P.abaAberto]); }).filter(venc);
   var atraso=vR.map(function(f){ return {f:f,t:'r'}; }).concat(vP.map(function(f){ return {f:f,t:'d'}; }))
     .sort(function(a,b){ return (pDate(a.f.vencimento)||0)-(pDate(b.f.vencimento)||0); });
-  el.innerHTML =
-    '<div class="kpi-grid fc-kpis5">'   // Backup 49: os mesmos 5 cartões do Jurídico (o "Pago" está na aba Pagos)
-  +   kC('Recebido',fF(_fcSoma(rec)),rec.length+' recebimento(s) no período','cg','dg')
-  +   kC('A receber',fF(_fcSoma(aRec)),aRec.length+' em aberto','cb','db')
-  +   kC('A pagar',fF(_fcSoma(aPag)),aPag.length+' conta(s) em aberto','ca','')
-  +   kC('Em atraso',fF(_fcSoma(vR)+_fcSoma(vP)),(vR.length+vP.length)+' vencido(s) · todos os meses','cr',(vR.length||vP.length)?'dr':'')
-  +   (function(){ var pj=window._semPeriodo(_FC,function(){ return _fcFiltrar(['Prejuízo']); });   // Backup 38: prejuízo de todos os meses (igual ao Início)
-        return kC('Prejuízo',fF(_fcSoma(pj)),pj.length+' baixa(s) · todos os meses','cx',pj.length?'dr':''); })()
-  + '</div>'
-  + '<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t">Recebido × pago mês a mês</div>'
-  +   '<div class="cc-d">verde = recebido · vermelho = pago (despesas) · passe o mouse na coluna para ver o saldo do mês</div></div></div>'
-  +   '<div class="cb" style="height:280px"><canvas id="cFcMes"></canvas></div></div>'
-  + '<div hidden aria-hidden="true"><canvas id="cFcQuem"></canvas></div>'
-  // Backup 72: no lugar dos comparativos por cliente/fornecedor, os mesmos gráficos do Jurídico
-  + '<div class="crow c2" style="margin-bottom:14px">'
-  +   '<div class="cc"><div class="cc-hd"><div><div class="cc-t">Recebido por tipo de serviço</div>'
-  +     '<div class="cc-d">área do serviço · mesmo período e recortes acima</div></div></div>'
-  +     '<div class="cb" style="height:240px"><canvas id="cFcTipo"></canvas></div></div>'
-  +   '<div class="cc"><div class="cc-hd"><div><div class="cc-t">Maiores grupos</div>'
-  +     '<div class="cc-d">10 primeiros por valor recebido</div></div></div>'
-  +     '<div class="cb" style="height:240px"><canvas id="cFcGrupo"></canvas></div></div>'
-  + '</div>'
-  + (false&&atraso.length?'<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t">Em atraso</div><div class="cc-d">receitas e despesas vencidas · todos os meses</div></div></div>'+_fcTabelaAtraso(atraso)+'</div>':'');
+  // Backup 74: estrutura do ambiente de teste (faixa de números, cartões, barras simples) — mesmos valores de antes
+  var pj=window._semPeriodo(_FC,function(){ return _fcFiltrar(['Prejuízo']); });   // Backup 38: prejuízo de todos os meses (igual ao Início)
+  el.innerHTML = _numsB([['Recebido',fF(_fcSoma(rec)),_pluralB(rec.length,'recebimento','recebimentos')+' no período','b-verde'],['A receber',fF(_fcSoma(aRec)),aRec.length+' em aberto'],
+      ['A pagar',fF(_fcSoma(aPag)),_pluralB(aPag.length,'conta em aberto','contas em aberto')],['Em atraso',fF(_fcSoma(vR)+_fcSoma(vP)),(vR.length+vP.length)+' vencido(s) · todos os meses',(vR.length||vP.length)?'b-verm':''],
+      ['Prejuízo',fF(_fcSoma(pj)),_pluralB(pj.length,'baixa','baixas')+' · todos os meses']])
+    + _cartaoB('Recebido × pago mês a mês','Verde = recebido · vermelho = pago (despesas). Passe o mouse na coluna para ver o saldo do mês.','<div class="cb b-fin-graf"><canvas id="cFcMes"></canvas></div>')
+    + '<div hidden aria-hidden="true"><canvas id="cFcQuem"></canvas></div>'
+    // Backup 72/74: no lugar dos comparativos por cliente/fornecedor, os mesmos gráficos do Jurídico (barras simples)
+    + '<div class="b-fin-dois">'
+    +   _cartaoB('Recebido por tipo de serviço','', _barrasB(_somaPor(rec, function(f){ return f.servico; }, _fcVal)))
+    +   _cartaoB('Maiores grupos','', _barrasB(_somaPor(rec, function(f){ return f.grupo; }, _fcVal)))
+    + '</div>'
+    + _cartaoB('Despesas por categoria','Pago no período, por categoria.', _barrasB(_somaPor(pag, function(f){ return _fcRecorteVal(f) === '—' ? '' : _fcRecorteVal(f); }, _fcVal)));
+  void atraso;   // a tabela "Em atraso" saiu no Backup 38 (os vencidos estão nas abas A receber/A pagar)
   _fcGraficosB27(rec, pag);
 }
 function _fcTabelaAtraso(L){
@@ -83,7 +74,7 @@ function _fcGraficosB27(rec, pag){
     var ix=vs.map(function(_,i){ return i; }).sort(function(a,b){ return vs[b]-vs[a]; }).slice(0,10);
     var cfg=bCfg(ix.map(function(i){ return ks[i]; }),ix.map(function(i){ return vs[i]; }),null,true);
     cfg.options.animation=false; _barrasComValor(cfg); mCh(id,cfg); };
-  barras('cFcTipo', function(f){ return f.servico||'Não informado'; });
+  barras('cFcTipo', function(f){ return f.servico||'Não informado'; });   // (Backup 74: só desenha se ainda houver o canvas — hoje as barras são HTML)
   barras('cFcGrupo', function(f){ return f.grupo||'—'; });
 }
 

@@ -707,6 +707,41 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
 **Central de Documentos dentro do ERP:** menu **Documentos → Gerar documento** (ou ⋯ → Documentos, contrato, recibo do Financeiro).
 **Ctrl + clique** (ou botão do meio do mouse) em qualquer item do menu ou link de documento abre numa aba nova.
 
+## Backup 74 — Levando o ambiente de teste para o ERP (3ª rodada): Financeiro, Início, Clientes, CRM, cartões e portal do cliente
+1. Merge da pull request.
+2. SQL: não precisa (o banco não mudou).
+3. **Ctrl+Shift+R** no ERP.
+
+O que mudou. **Nenhuma função saiu.**
+- **Financeiro → Análise** (Jurídico e Contabilidade), na estrutura do seu print:
+  1. Abas em botões.
+  2. Quem/Período/Recorte em pílulas.
+  3. **Faixa de números**.
+  4. "Recebido mês a mês".
+  5. **Comparativo por pessoa** na tabela nova (só no Jurídico).
+  6. **Por tipo de serviço** e **Maiores grupos** em barras simples.
+
+  Na Contabilidade também: "Recebido × pago mês a mês" e **Despesas por categoria**, sem os comparativos por cliente/fornecedor.
+- **Início** (funcionando com os dados reais):
+  1. "Bom dia, Pedro" com a data.
+  2. Os cartões **Financeiro** e **Escritório** continuam.
+  3. **Meu dia**: o que vence hoje e o que atrasou, com **Concluir** e Desfazer, e a escolha "Só eu / Equipe toda".
+  4. **Lembretes** e **Próximos 7 dias**.
+  5. O calendário da fila continua embaixo.
+- **Clientes**: a lista continua a de hoje. A **ficha** ficou com o desenho do ambiente e todas as informações de antes:
+  - grupo · tipo em cima e o nome em destaque;
+  - abas em botões e números em faixa;
+  - cadastro e situação em quadros leves.
+- **CRM**: o mesmo funil (as mesmas etapas e botões), com os cartões, colunas e textos no desenho do ambiente.
+- **Seções que abrem ao clicar** (ex.: "Resumo da carteira"): no modelo do ambiente, em todo o sistema.
+- **Portal do cliente**: o cliente entra num **Início de boas-vindas**. No menu dele, "Painel Executivo" passou a se chamar "Início". A página tem:
+  - "Olá, Grupo X";
+  - o que ele encontra no portal;
+  - um resumo clicável: parcelas do mês, em atraso, parcelamentos, acordos e processos;
+  - "Como usar" e o contato do escritório.
+
+Próximo passo (aprovado por você): tirar o ERP antigo (ERP.html, os remendos e os blocos antigos do design.css) e fazer a faxina das funções repetidas do banco.
+
 ## Backup 73 — Levando o ambiente de teste para o ERP (2ª rodada): Painel Executivo e Rotina
 1. Merge da pull request.
 2. SQL: não precisa (o banco não mudou).

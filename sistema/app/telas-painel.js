@@ -13,19 +13,63 @@ function kpi(rotulo, valor, cor, sub) {
 // Cartões sem sobreposição: "A receber" = de hoje até o fim do mês (o que já venceu fica só em "Em atraso").
 // Em atraso: duas tabelas completas lado a lado (Jurídico | Contabilidade), com o que vence HOJE destacado.
 TELAS.inicio = async function () {
-  // Backup 38: Início enxuto — sem os cartões de Honorários (ficam no Financeiro), sem a faixa de avisos/destaques.
-  // Fica: Olá, Lembretes, Resumo do escritório e a fila/agenda de tarefas.
+  // Backup 74: como no ambiente de teste, mas funcionando com os dados reais — cabeçalho com a data, os cartões Financeiro e Escritório
+  // (o usuário pediu para manter, E3 = não), "Meu dia" (hoje + atrasadas) ao lado de Lembretes e "Próximos 7 dias", e o calendário da fila embaixo.
+  const h = new Date(), hora = h.getHours(), saud = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';
+  const dataLonga = h.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
   $('conteudo').innerHTML =
-    '<div class="titulo-pag"><div><h1>Olá, ' + esc(primeiroNomeUsuario()) + '</h1></div></div>' +
-    '<div id="ini-valid"></div><div id="ini-lembretes"></div><div id="ini-resumo"></div>' +
+    cabecalhoTela({ icone: 'inicio', titulo: saud + ', ' + primeiroNomeUsuario(), frase: dataLonga.charAt(0).toUpperCase() + dataLonga.slice(1) }) +   // o "+ Lembrete" fica no cartão de Lembretes (sem botão repetido)
+    '<div id="ini-valid"></div><div id="ini-resumo"></div>' +
+    '<div class="ini-b74"><section class="ini-col"><div class="ini-sec-hd"><div><h2>Meu dia</h2><p>Hoje e o que atrasou</p></div><div class="b-seg ini-quem" id="ini-quem" role="group" aria-label="De quem"></div></div><div id="ini-dia"></div></section>' +
+    '<section class="ini-col"><div id="ini-lembretes"></div><div class="ini-sec-hd ini-sec-hd2"><div><h2>Próximos 7 dias</h2></div></div><div id="ini-prox"></div></section></div>' +
     '<div id="ini-fila"></div>';
   cardLembretes().catch((e) => console.error(e));
   cardResumoEscritorio().catch((e) => console.error(e));
+  meuDia().catch((e) => console.error(e));
   if (typeof buscaPubAutomatica === 'function') buscaPubAutomatica().catch(() => {});
   if (typeof vigiarAgenda === 'function') vigiarAgenda();   // Backup 40: aviso antes dos compromissos
   if (typeof cardValidacoes === 'function') cardValidacoes().then((c) => { const el = $('ini-valid'); if (el) { el.innerHTML = c.html; c.ligar(el); } }).catch((e) => console.error(e));
   if (typeof cardMinhaFila === 'function') cardMinhaFila().then((c) => { const el = $('ini-fila'); if (el) { el.innerHTML = c.html; c.ligar(el); } }).catch((e) => console.error(e));
 };
+ICONES_B.inicio = ICONES_B.inicio || '<rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/>';
+// Backup 74: "Meu dia" (prazo até hoje, inclusive atrasadas) e "Próximos 7 dias" — tarefas reais, com Concluir (e Desfazer por 6 s)
+const TIPO_ITEM_INI = { reuniao: 'Reunião', audiencia: 'Audiência', compromisso: 'Compromisso', tarefa: 'Tarefa', rotina: 'Rotina' };
+async function meuDia() {
+  const el = $('ini-dia'), elP = $('ini-prox'); if (!el) return;
+  E.ini = E.ini || { quem: 'eu' };
+  const h = hojeISO(), lim = somarDias(h, 7);
+  const L = await buscarTodos(() => sb.from('tarefas').select('id, titulo, prazo, prazo_fatal, hora, responsavel, participantes, revisor, status, tipo_agenda, chave_regra, recorrencia, cliente_id, grupo_id')
+    .not('status', 'in', '(concluida,cancelada)').lte('prazo', lim).order('prazo')).catch(() => []);
+  const doDono = (t) => E.ini.quem === 'todos' || ehMinha(t);
+  const linha = (t) => { const tipo = TIPO_ITEM_INI[tipoItemAgenda(t)] || 'Tarefa', atr = t.prazo < h;
+    const sub = [String(t.responsavel || '').split(' ')[0], t.prazo_fatal ? '<b class="ini-fatal">prazo fatal' + (t.prazo_fatal !== t.prazo ? ' ' + dataBR(t.prazo_fatal).slice(0, 5) : '') + '</b>' : ''].filter(Boolean).join(' · ');
+    return '<div class="ini-it' + (atr ? ' ini-it-atr' : '') + '" data-ini-t="' + t.id + '" tabindex="0"><span class="ini-tipo">' + esc(tipo) + '</span><div class="ini-it-tx"><b>' + esc(t.titulo) + '</b>' + (sub ? '<small>' + sub + '</small>' : '') + '</div>' +
+      '<span class="ini-dt' + (atr ? ' ini-dt-atr' : '') + '">' + (t.hora ? esc(String(t.hora).slice(0, 5)) + ' · ' : '') + dataBR(t.prazo).slice(0, 5) + '</span>' +
+      '<button type="button" class="b-bt-baixa" data-ini-ok="' + t.id + '">Concluir</button></div>'; };
+  const pintar = () => {
+    $('ini-quem').innerHTML = [['eu', 'Só eu'], ['todos', 'Equipe toda']].map(([v, r]) => '<button type="button" class="b-seg-bt" data-ini-quem="' + v + '" aria-selected="' + (E.ini.quem === v) + '">' + r + '</button>').join('');
+    const hoje = L.filter((t) => t.prazo && t.prazo <= h && doDono(t)).sort((a, b) => String(a.prazo).localeCompare(String(b.prazo)) || String(a.hora || '').localeCompare(String(b.hora || '')));
+    const prox = L.filter((t) => t.prazo && t.prazo > h && t.prazo <= lim && doDono(t));
+    el.innerHTML = hoje.length ? '<div class="ini-lista">' + hoje.map(linha).join('') + '</div>' : '<div class="ini-vazio">' + vazioB({ icone: 'ok', titulo: 'Nada para hoje', frase: 'Nenhuma tarefa vence hoje nem está atrasada.' }) + '</div>';
+    elP.innerHTML = prox.length ? '<div class="ini-lista">' + prox.slice(0, 6).map(linha).join('') + '</div>' + (prox.length > 6 ? '<button type="button" class="b-link ini-mais" data-ini-tarefas>Ver as ' + prox.length + ' em Tarefas</button>' : '')
+      : '<div class="ini-vazio-p">Nada marcado para os próximos 7 dias.</div>';
+  };
+  pintar();
+  const raiz = el.closest('.ini-b74');
+  raiz.onclick = (ev) => {
+    const q2 = ev.target.closest('[data-ini-quem]'); if (q2) { E.ini.quem = q2.dataset.iniQuem; return pintar(); }
+    if (ev.target.closest('[data-ini-tarefas]')) return nav(null, 'tarefas');
+    const ok = ev.target.closest('[data-ini-ok]');
+    if (ok) { ev.stopPropagation(); const id = ok.dataset.iniOk, t = L.find((x) => x.id === id); return comBotao(ok, async () => {
+      await q(sb.from('tarefas').update({ status: 'concluida' }).eq('id', id));
+      const i = L.indexOf(t); if (i >= 0) L.splice(i, 1); pintar();
+      const desfazer = async () => { await q(sb.from('tarefas').update({ status: t.status || 'pendente' }).eq('id', id)); L.splice(Math.max(0, i), 0, t); pintar(); };
+      if (window.ERP_EDITOR && window.ERP_EDITOR.gravou) window.ERP_EDITOR.gravou('Tarefa concluída — ' + t.titulo, desfazer, 8000); else aviso('✓ Tarefa concluída.');
+    }); }
+    const it = ev.target.closest('[data-ini-t]');
+    if (it && typeof abrirTarefa === 'function') q(sb.from('tarefas').select('*').eq('id', it.dataset.iniT).maybeSingle()).then((t) => { if (t) abrirTarefa(t, () => TELAS.inicio()); });
+  };
+}
 
 function diasAtraso(venc) {
   const n = Math.round((new Date(hojeISO() + 'T12:00:00') - new Date(venc + 'T12:00:00')) / 864e5);
@@ -169,7 +213,7 @@ async function cardLembretes() {
   const el = $('ini-lembretes'); if (!el) return;
   // Backup 27: aparecem os fixados (sempre), os sem prazo e os com data em até 7 dias; o resto fica em "Todos os lembretes"
   const L = await dadosLembretes().catch(() => ({ semGuia: [], vis: [], futuros: [], todos: [], dias: 5 }));
-  el.innerHTML = '<div class="card ini-lemb"><div class="card-hd">🔔 Lembretes' +
+  el.innerHTML = '<div class="card ini-lemb"><div class="card-hd">Lembretes' +
       '<span style="margin-left:auto;display:flex;gap:6px"><button type="button" class="btn btn-o btn-mini" id="lemb-todos" title="Todos os lembretes, inclusive os com data depois de 7 dias e os concluídos">📋 Todos (' + L.todos.length + ')</button>' +
       '<button type="button" class="btn btn-p btn-mini" id="lemb-novo">+ Lembrete</button></span></div><div class="card-bd">' +
     (L.vis.length ? '<div class="lemb-lista">' + htmlLembretes(L.vis) + '</div>'

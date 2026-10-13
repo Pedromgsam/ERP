@@ -586,6 +586,10 @@ function vencB(isoData, pago) {
   const d = Math.round((new Date(hojeISO() + 'T00:00:00') - new Date(isoData + 'T00:00:00')) / 864e5);
   return { cls: d >= 0 ? ' b-v-atr' : ' b-v-av', html: dataBR(isoData) + '<small>' + (d === 0 ? 'vence hoje' : d > 0 ? plural(d, 'dia', 'dias') + ' de atraso' : 'em ' + plural(-d, 'dia', 'dias')) + '</small>' };
 }
+// Backup 74: faixa de números (a mesma do Painel, da Análise do Financeiro e da ficha do cliente): [[rótulo, valor, sub, classe b-verde|b-verm]]
+function numsFaixa(itens) {
+  return '<div class="b-nums b-nums-faixa b-nums-' + itens.length + '">' + itens.map((i) => '<div><span>' + esc(i[0]) + '</span><b class="' + (i[3] || '') + '">' + i[1] + '</b>' + (i[2] ? '<small>' + esc(i[2]) + '</small>' : '') + '</div>').join('') + '</div>';
+}
 // cartões que abrem o detalhamento logo abaixo (clicou → abre; clicou de novo → fecha)
 // lista: [{id, icone, cor, rotulo, valor, comp, sub, barra, linhas, det(container)}]
 function cartoesB(el, chave, lista) {
