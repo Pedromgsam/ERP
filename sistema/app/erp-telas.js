@@ -391,6 +391,58 @@
         if (a === 'ficha' && GS() && GS().abrirFicha) Promise.resolve(GS().carregarCadastros()).then(() => GS().abrirFicha(r._id));
         if (a === 'empresa' && typeof window.goEmpresa === 'function') window.goEmpresa(r.nome); } });
   }
+  // ═══════ Backup 73: Painel Executivo como no ambiente de teste ═══════
+  // (1) uma faixa de números no lugar dos 3 blocos de cartões (mesmos valores, lidos dos cartões antigos, que ficam escondidos);
+  // (2) Empresas do grupo na tabela nova (tabelaB), com as MESMAS colunas de antes e sem bolinha no grupo.
+  const numDe = (t) => { const n = Number(String(t || '').replace(/[^\d,-]/g, '').replace(',', '.')); return isFinite(n) ? n : 0; };
+  const curtaMi = (v) => { const a = Math.abs(v); return a >= 1e6 ? 'R$ ' + (v / 1e6).toLocaleString('pt-BR', { maximumFractionDigits: 2 }) + ' mi' : a >= 1e3 ? 'R$ ' + (v / 1e3).toLocaleString('pt-BR', { maximumFractionDigits: 0 }) + ' mil' : 'R$ ' + Math.round(v).toLocaleString('pt-BR'); };
+  function painelNumeros() {
+    const sec = document.getElementById('execKpiSection'); if (!sec || ehCliente()) return;
+    sec.classList.add('gx-pe-antigo');
+    let el = document.getElementById('pe-nums');
+    if (!el) { el = document.createElement('div'); el.id = 'pe-nums'; el.className = 'gs'; sec.before(el); }
+    const card = (rot) => [...sec.querySelectorAll('.kc')].find((k) => (k.querySelector('.kl') || {}).textContent === rot);
+    const val = (rot) => { const k = card(rot); return k ? numDe((k.querySelector('.kv span[title]') || k.querySelector('.kv') || {}).textContent) : null; };
+    const itens = [['Passivo total', 'Passivo Tributário Total'], ['RFB', 'RFB'], ['PGFN', 'PGFN'], ['AGE/MG', 'AGE/MG'], ['Parcelamentos (saldo)', 'Saldo Parc. Tributário'],
+      ['Acordos (em aberto)', 'Acordos dos clientes c/ terceiros'], ['Passivo em disputa', 'Passivo em Disputas', 'b-verm'], ['Ativo em disputa', 'Ativo em Disputas', 'b-verde']];
+    el.innerHTML = '<div class="b-nums b-nums-faixa">' + itens.map(([r, k, c]) => { const v = val(k);
+      return '<div><span>' + escH(r) + '</span><b class="' + (c && v ? c : '') + '" title="' + (v == null ? '' : fBRL(v)) + '">' + (v == null ? '—' : curtaMi(v)) + '</b></div>'; }).join('') + '</div>';
+  }
+  function empresasNovas() {
+    const rk = document.getElementById('execRankWrap'); if (!rk || ehCliente() || !GS() || !GS().tabelaB) return;
+    rk.classList.add('gx-pe-antigo');
+    let el = document.getElementById('pe-nova');
+    if (!el) { el = document.createElement('div'); el.id = 'pe-nova'; el.className = 'gs gx-pe-nova';
+      el.innerHTML = '<div class="b-sec"><div><h2>Empresas do grupo</h2><p>Clique na empresa para abrir a ficha.</p></div></div><div id="pe-tab"></div>'; rk.after(el); }
+    let base = []; try { base = (typeof FIL !== 'undefined' && FIL.length) ? FIL : (dbERP().baseDados || []); } catch (e) { base = dbERP().baseDados || []; }   // eslint-disable-line no-undef
+    const cli = GS().E ? GS().E.clientes || [] : [];
+    const areaDe = (r) => (cli.find((x) => x.id === r._id) || {}).area || 'ambos';
+    const tot = (r) => (r.rfb || 0) + (r.rfbNeg || 0) + (r.pgfn || 0) + (r.pgfnNeg || 0) + (r.ageMG || 0) + (r.ageMGNeg || 0);
+    const orgao = (v, n) => ((v || 0) + (n || 0) > 0 ? '<b class="b-pe-v" title="' + fBRL(v || 0) + '">' + curtaMi(v || 0) + '</b>' + (n > 0 ? '<small class="b-pe-neg" title="' + fBRL(n) + '">' + curtaMi(n) + ' neg.</small>' : '') : '<span class="sub">—</span>');
+    const sit = (r) => String(r.sitCadastral || '').trim();
+    const ops = (f) => [...new Set(base.map(f).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR')).map((x) => [x, x]);
+    GS().tabelaB(document.getElementById('pe-tab'), { id: 'empresas', tabCls: 'b-tab-pe', linhas: base, chave: (r) => String(r._id), unidade: ['empresa', 'empresas'],
+      abas: [{ id: 'at', rot: 'Ativos', f: (r) => r.tipoCliente !== 'Inativo' }, { id: 'cons', rot: 'Consultoria', f: (r) => r.tipoCliente === 'Consultoria' },
+        { id: 'pont', rot: 'Serviço pontual', f: (r) => r.tipoCliente === 'Serviço pontual' }, { id: 'in', rot: 'Inativos', f: (r) => r.tipoCliente === 'Inativo' }, { id: 'todos', rot: 'Todos', f: () => true }],
+      busca: (r) => [r.nome, r.grupo, r.socioAdmin, r.cpfCnpj, String(r.cpfCnpj || '').replace(/\D/g, '')].join(' '), dicaBusca: 'Nome, sócio ou CPF/CNPJ…',
+      conta: (n) => (n === 1 ? '1 empresa' : n + ' empresas'), valor: tot, ord: { k: 'g', dir: 1 },
+      listas: [{ k: 'area', rot: 'Área', todos: 'Todas as áreas', opcoes: [['juridico', 'Jurídico'], ['contabilidade', 'Contabilidade']], get: (r) => { const a = areaDe(r); return a === 'ambos' ? '' : a; } },
+        { k: 'g', rot: 'Grupo', todos: 'Todos os grupos', opcoes: ops((r) => r.grupo), get: (r) => r.grupo },
+        { k: 'op', rot: 'Operação', todos: 'Operação: todas', opcoes: [['Sim', 'Em operação'], ['Não', 'Sem operação']], get: (r) => (/^sim$/i.test(r.emOperacao || '') ? 'Sim' : /^n[aã]o$/i.test(r.emOperacao || '') ? 'Não' : '') },
+        { k: 'sit', rot: 'Situação', todos: 'Situação: todas', opcoes: ops(sit), get: sit }],
+      colunas: [
+        { k: 'g', rot: 'Grupo', html: (r) => escH(r.grupo || '—'), ord: (r) => (r.grupo || '~').toLowerCase() },
+        { k: 'nome', rot: 'Entidade / sócio', html: (r) => escH(r.nome || '—') + (r.isPJ !== false && String(r.socioAdmin || '').trim().length > 1 && r.socioAdmin !== '-' ? '<span class="b-sub">Sócio: ' + escH(r.socioAdmin) + '</span>' : ''), ord: (r) => (r.nome || '').toLowerCase() },
+        { k: 'doc', rot: 'CPF/CNPJ', cls: 'b-num', html: (r) => escH(r.cpfCnpj || '—'), ord: (r) => r.cpfCnpj || '' },
+        { k: 'rfb', rot: 'RFB', cls: 'b-dir', html: (r) => orgao(r.rfb, r.rfbNeg), ord: (r) => (r.rfb || 0) + (r.rfbNeg || 0) },
+        { k: 'pgfn', rot: 'PGFN', cls: 'b-dir', html: (r) => orgao(r.pgfn, r.pgfnNeg), ord: (r) => (r.pgfn || 0) + (r.pgfnNeg || 0) },
+        { k: 'age', rot: 'AGE/MG', cls: 'b-dir', html: (r) => orgao(r.ageMG, r.ageMGNeg), ord: (r) => (r.ageMG || 0) + (r.ageMGNeg || 0) },
+        { k: 'tot', rot: 'Total', cls: 'b-dir b-val', soma: true, html: (r) => (tot(r) > 0 ? '<span title="' + fBRL(tot(r)) + '">' + curtaMi(tot(r)) + '</span>' : '<span class="sub">—</span>'), ord: tot },
+        { k: 'op', rot: 'Operação', cls: 'b-cen', html: (r) => (/^sim$/i.test(r.emOperacao || '') ? '<span class="b-pill b-g">Sim</span>' : /^n[aã]o$/i.test(r.emOperacao || '') ? '<span class="b-pill b-r">Não</span>' : '<span class="sub">—</span>'), ord: (r) => r.emOperacao || '' },
+        { k: 'sit', rot: 'Situação', cls: 'b-cen', html: (r) => { const t = sit(r); return t ? '<span class="b-pill ' + (/^ativa$/i.test(t) ? 'b-g' : 'b-r') + '">' + escH(t.toLowerCase().replace(/^./, (c) => c.toUpperCase())) + '</span>' : '<span class="sub">—</span>'; }, ord: sit }],
+      clique: (r) => { if (r._id && GS().abrirFicha) Promise.resolve(GS().carregarCadastros()).then(() => GS().abrirFicha(r._id)); },
+      vazio: { titulo: 'Nenhuma empresa aqui', frase: 'Troque a aba (Ativos, Consultoria, Serviço pontual, Inativos, Todos) ou limpe os filtros.' } });
+  }
   // ── Processos ──
   function padraoProcessos() {
     const tb = document.getElementById('tblProcBody'); if (!tb || ehCliente()) return;
@@ -493,7 +545,7 @@
   function instalarGanchos() {
     botoesCobranca();
     // Backup 20: Painel (Empresas do grupo) e Processos no padrão de Clientes — redesenha junto com a tabela do ERP
-    [['renderExecRanking', () => { padraoEmpresas(); evolucaoPassivo(); }], ['renderProcTbl', () => { padraoProcessos(); processosNovos(); }],
+    [['renderExecRanking', () => { padraoEmpresas(); empresasNovas(); evolucaoPassivo(); }], ['renderResumo', () => painelNumeros()], ['renderProcTbl', () => { padraoProcessos(); processosNovos(); }],
      ['renderAcordos', () => acoesNaSituacao('panel-acordos', 'exAcSit'), () => devolverAoBanner('panel-acordos')],
      ['renderParcelamentos', () => acoesNaSituacao('panel-parcelamentos', 'exParcSit'), () => devolverAoBanner('panel-parcelamentos')],
      ['renderParcAnalise', () => acoesNaSituacao('panel-parcelamentos', 'exParcSit'), () => devolverAoBanner('panel-parcelamentos')]].forEach(([nome, fn, antes]) => {
@@ -859,7 +911,7 @@
   // Cartão no Painel Executivo, antes de "Empresas do grupo". Dados: evolucao_passivo (SQL), lidos uma vez e filtrados aqui.
   // Grupo: "Todos" ou um grupo. Visão: "Total" (uma linha) ou "Por empresa" (uma linha por empresa; em "Todos", uma por grupo).
   const EVO_CORES = ['#5873C1', '#2D7C75', '#AD6833', '#9A79D2', '#B74373', '#358452', '#C26464', '#3294AC', '#73A034'];
-  const _evo = { dados: null, visao: 'total', meses: 6, ch: null, carregando: false };
+  const _evo = { dados: null, visao: 'total', meses: 6, ch: null, carregando: false, aberto: true };   // Backup 73: sempre aberta, como no ambiente
   const evoMoeda = (v) => 'R$ ' + (Number(v) || 0).toLocaleString('pt-BR', { maximumFractionDigits: 0 });
   const evoCurta = (v) => { const n = Math.abs(v); return n >= 1e6 ? 'R$ ' + (v / 1e6).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' mi' : n >= 1e3 ? 'R$ ' + (v / 1e3).toLocaleString('pt-BR', { maximumFractionDigits: 0 }) + ' mil' : evoMoeda(v); };
   const evoMes = (iso) => { const [a, m] = String(iso).split('-'); return ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'][Number(m) - 1] + '/' + a.slice(2); };
@@ -911,7 +963,7 @@
     const ds = nomes.map((n, i) => {
       const cor = nomes.length === 1 ? '#16294B' : EVO_CORES[i % EVO_CORES.length];
       return { label: n, data: meses.map((m) => (series[n][m] == null ? null : series[n][m])), spanGaps: true, borderColor: cor, backgroundColor: cor, borderWidth: nomes.length === 1 ? 2.5 : 2,
-        pointRadius: 2, pointHoverRadius: 5, tension: 0.25, fill: false };
+        pointRadius: 4, pointHoverRadius: 6, pointBackgroundColor: '#fff', pointBorderWidth: 2, tension: 0, fill: false };   // Backup 73: bolinhas como no ambiente
     });
     const tot = (m) => linhas.filter((x) => x.mes === m && x.total != null).reduce((s, x) => s + (Number(x.total) || 0), 0);
     const ini = tot(meses[0]), fim = tot(ult), dif = fim - ini, pct = ini ? (dif / ini) * 100 : 0;
@@ -919,10 +971,11 @@
     if (r) r.innerHTML = '<span><b>' + evoMoeda(fim) + '</b> hoje' + (gf ? ' · ' + esc(gf) : '') + '</span><span class="' + (dif > 0 ? 'evo-sobe' : dif < 0 ? 'evo-desce' : '') + '">' +
       (dif > 0 ? '▲ ' : dif < 0 ? '▼ ' : '') + evoMoeda(Math.abs(dif)) + (ini ? ' (' + pct.toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + '%)' : '') + ' desde ' + evoMes(meses[0]) + '</span>';
     const cfg = { type: 'line', data: { labels: meses.map(evoMes), datasets: ds },
-      options: { responsive: true, maintainAspectRatio: false, animation: false, interaction: { mode: 'index', intersect: false },
+      // Backup 73: escala à esquerda a partir do zero (0 · 10 mi · 20 mi…) e, perto da bolinha, "jun/26 · R$ 1,5 mi"
+      options: { responsive: true, maintainAspectRatio: false, animation: false, interaction: { mode: ds.length > 1 ? 'index' : 'nearest', axis: 'x', intersect: false },
         plugins: { legend: { display: ds.length > 1, position: 'bottom', labels: { boxWidth: 12, boxHeight: 2 } },
-          tooltip: { itemSort: (a, b) => b.parsed.y - a.parsed.y, callbacks: { label: (c) => ' ' + c.dataset.label + ': ' + evoMoeda(c.parsed.y) } } },
-        scales: { y: { ticks: { callback: (v) => evoCurta(v) }, grid: {} }, x: { grid: { display: false } } } } };
+          tooltip: { displayColors: ds.length > 1, itemSort: (a, b) => b.parsed.y - a.parsed.y, callbacks: { title: (it) => (it[0] ? it[0].label : ''), label: (c) => ' ' + (ds.length > 1 ? c.dataset.label + ': ' : '') + evoCurta(c.parsed.y) } } },
+        scales: { y: { beginAtZero: true, ticks: { callback: (v) => (v === 0 ? '0' : evoCurta(v).replace('R$ ', '')) }, grid: { color: 'rgba(0,0,0,.05)' } }, x: { grid: { display: false } } } } };
     if (_evo.ch) _evo.ch.destroy();
     _evo.ch = new Chart(cv, cfg);
   }

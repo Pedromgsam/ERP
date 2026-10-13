@@ -8301,7 +8301,7 @@ async function rotinaPassivo(el) {
         PARES_PASSIVO.map(([k, r]) => '<td class="rt-par">' + [k, k + '_negociada'].map((kk, i) => '<input class="rt-in rt-valor' + (i ? ' rt-neg' : '') + '" data-mascara="brl" data-c="' + kk + '" inputmode="decimal" aria-label="' + r + (i ? ' negociada' : ' em aberto') + '" placeholder="' + (i ? 'negociada' : 'em aberto') + '" value="' + (c[kk] != null && c[kk] !== '' ? 'R$ ' + valorParaCampo(c[kk]) : '') + '">').join('') + '</td>').join('') +
         '<td><input class="rt-in rt-int" data-c="ceat_trt3" inputmode="numeric" value="' + (c.ceat_trt3 == null ? '' : esc(c.ceat_trt3)) + '"></td>' +
         '<td>' + simNaoSel('procuracao', c.procuracao) + '</td>' +
-        '<td>' + simNaoSel('certificado', c.certificado) + '</td>' +
+        '<td class="rt-c-cert">' + celCertificado(c, ct) + '</td>' +
         '<td class="rt-c-capag"><select class="rt-in rt-sn rt-capag" data-c="capag">' + CAPAG_OPCOES.map((v) => '<option value="' + v + '"' + ((c.capag || '') === v ? ' selected' : '') + '>' + (v || '—') + '</option>').join('') + '</select></td>' +
         '<td class="rt-c-conf">' + celulaConferencia(SIT[c.id], c.id) + '</td></tr>';
     }).join('') : '<tr><td colspan="12">' + vazio('Nenhuma empresa com esses filtros.') + '</td></tr>';
@@ -8314,6 +8314,7 @@ async function rotinaPassivo(el) {
     const a = alterados.get(tr.dataset.id) || { cli: {}, cert: {} };
     if (ev.target.dataset.c) a.cli[ev.target.dataset.c] = ev.target.value; else a.cert[ev.target.dataset.cert] = ev.target.value;
     alterados.set(tr.dataset.id, a); tr.classList.add('rt-alterado'); contar();
+    const cel = tr.querySelector('.rt-c-conf'); if (cel && !cel.querySelector('.rt-cf2-bt')) cel.innerHTML = celulaConferencia(SIT[tr.dataset.id], tr.dataset.id, true);
   };
   $('rt-pas-corpo').onclick = (ev) => {
     const ks = ev.target.closest('[data-senha]'); if (ks) return janelaSenhaGov(ks.dataset.senha, C);
@@ -8407,17 +8408,23 @@ async function situacaoRotina(area) {
 }
 const dCurta = (ts) => { const x = dataLocal(ts); return x.slice(0, 6) + x.slice(8); };   // 03/10/26
 const diasDesde = (ts) => ts ? Math.floor((Date.now() - new Date(ts).getTime()) / 864e5) : null;
-function celulaConferencia(x, id) {
+// Backup 73: Certificado como no ambiente de teste — a data de validade (vermelha se venceu, amarela em até 30 dias);
+// sem validade cadastrada, fica a escolha Sim/Não de antes (para o filtro "Sem certificado")
+function celCertificado(c, ct) {
+  if (ct && ct.validade) { const d = Math.round((new Date(ct.validade + 'T00:00:00') - new Date(hojeISO() + 'T00:00:00')) / 864e5);
+    return '<span class="rt-cert ' + (d < 0 ? 'rt-cert-venc' : d <= 30 ? 'rt-cert-perto' : '') + '" title="Validade do certificado digital' + (d < 0 ? ' — VENCIDO' : d <= 30 ? ' — vence em ' + d + ' dias' : '') + '">' + dataBR(ct.validade) + '</span>'; }
+  return simNaoSel('certificado', c.certificado);
+}
+// Backup 73: Conferência como no ambiente de teste — conferida há até 15 dias: "✓ 02/10" (verde); senão o botão verde "Conferido" com a data da última vez
+function celulaConferencia(x, id, forcarBotao) {
   x = x || {};
-  // Backup 33: mais de 15 dias sem conferir = amarelo; mais de 30 (ou nunca) = vermelho. Datas no fuso de quem olha (Brasília)
-  const d = diasDesde(x.conferido_em), cls = d == null || d > 30 ? 'rt-cf-nunca' : d > 15 ? 'rt-cf-velho' : 'rt-cf-ok';
-  const alt = x.alterado_em ? 'Última alteração: ' + dataHoraBR(x.alterado_em) + (x.alterado_por ? ' por ' + x.alterado_por : '') : 'Sem alteração registrada';
-  // Backup 45: uma linha só para o que aconteceu ("✓ conferido" ou "✎ alterado") e, embaixo, quem · há quanto tempo · alteração de outro dia (sem repetir "alterado")
-  const altOutra = x.alterado_em && !(x.conferido_alterou && dataLocal(x.alterado_em) === dataLocal(x.conferido_em));
-  const sub = [x.conferido_em ? String(x.conferido_por || '').split(' ')[0] : '', d != null && d > 15 ? 'há ' + d + ' d' : '', altOutra ? 'alt. ' + dCurta(x.alterado_em) : ''].filter(Boolean).join(' · ');
-  return '<div class="rt-cf ' + cls + '" title="' + esc(alt) + '"><span class="rt-cf-txt">' +
-      (x.conferido_em ? (x.conferido_alterou ? '✎ alterado ' : '✓ conferido ') + dCurta(x.conferido_em) : 'nunca conferido') + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</span>' +
-    '<button type="button" class="btn btn-o btn-mini" data-conferir="' + id + '" title="Fui até esta linha e os dados continuam certos">✓</button></div>';
+  const d0 = diasDesde(x.conferido_em);
+  const alt0 = x.alterado_em ? 'Última alteração: ' + dataHoraBR(x.alterado_em) + (x.alterado_por ? ' por ' + x.alterado_por : '') : 'Sem alteração registrada';
+  const quem0 = x.conferido_em ? (x.conferido_alterou ? 'Alterado e conferido' : 'Conferido') + ' em ' + dataHoraBR(x.conferido_em) + (x.conferido_por ? ' por ' + x.conferido_por : '') + ' · ' : '';
+  if (!forcarBotao && d0 != null && d0 <= 15) return '<div class="rt-cf2 rt-cf2-ok" title="' + esc(quem0 + alt0) + '"><span>' + (x.conferido_alterou ? '✎ ' : '✓ ') + dCurta(x.conferido_em).slice(0, 5) + '</span>' +
+    '<button type="button" class="rt-cf2-de-novo" data-conferir="' + id + '" title="Conferir de novo" aria-label="Conferir de novo">↻</button></div>';
+  return '<div class="rt-cf2" title="' + esc(quem0 + alt0) + '"><button type="button" class="rt-cf2-bt" data-conferir="' + id + '" title="Fui até esta linha e os dados continuam certos (ou salvar a alteração desta linha)">Conferido</button>' +
+    '<small class="' + (d0 == null || d0 > 30 ? 'rt-cf2-velho' : '') + '">' + (x.conferido_em ? 'último ' + dCurta(x.conferido_em).slice(0, 5) : 'nunca') + '</small></div>';
 }
 
 // Backup 29: histórico de alterações do passivo (quem mudou, quando, de quanto para quanto)
@@ -8832,12 +8839,12 @@ async function rotinaPlanilha(el) {
     const dEm = x.emitida_em ? curta(x.emitida_em) : em ? 'emitida' : '';
     return '<tr data-pl-x="' + x.id + '" class="' + (x.pago ? 'pl-pago' : at ? 'pl-atr' : mes ? 'pl-mes' : '') + '"' + (x.pago ? '' : ' title="Clique no nº ou no vencimento para abrir o cartão de envio da guia"') + '><td>' + esc(x.numero || '') + '</td><td>' + dataBR(x.vencimento) + '</td>' +
       '<td>' + (cli ? '<span class="pl-dt pl-dt-cli" data-sit="cliente" title="O cliente emite">cliente</span>'
-        : em ? '<button type="button" class="pl-dt pl-dt-ok" data-pl-e="' + x.id + '" title="Emitida' + (x.emitida_em ? ' em ' + dataBR(x.emitida_em) : '') + ' · clique para desmarcar">✓ ' + esc(dEm) + '</button>'
+        : em ? '<button type="button" class="pl-dt pl-dt-ok" data-pl-e="' + x.id + '" title="Emitida' + (x.emitida_em ? ' em ' + dataBR(x.emitida_em) : '') + ' · clique para desmarcar">✓ emitida</button>'
         : x.pago ? '<span class="pl-dt">—</span>'
-        : '<button type="button" class="pl-dt pl-dt-mk2" data-pl-e="' + x.id + '" title="Marcar como emitida">○ marcar</button>') + '</td>' +
+        : '<button type="button" class="pl-dt pl-dt-mk2" data-pl-e="' + x.id + '" title="Marcar como emitida">marcar</button>') + '</td>' +
       // Backup 52 (P4): situação com o texto e a cor únicos do ERP (SITUACOES)
       // Backup 53: a paga também é botão — clicar desmarca o pagamento
-      '<td>' + (x.pago ? '<button type="button" class="pl-dt pl-dt-ok" data-sit="pago" data-pl-np="' + x.id + '" title="Paga · clique para desmarcar o pagamento">✓ ' + (x.data_pagamento ? curta(x.data_pagamento) : 'paga') + '</button>'
+      '<td>' + (x.pago ? '<button type="button" class="pl-dt pl-dt-ok" data-sit="pago" data-pl-np="' + x.id + '" title="Paga' + (x.data_pagamento ? ' em ' + dataBR(x.data_pagamento) : '') + ' · clique para desmarcar o pagamento">✓ ' + (x.data_pagamento ? dataBR(x.data_pagamento).slice(0, 5) : 'paga') + '</button>'
         : '<button type="button" class="pl-dt ' + (at ? 'pl-dt-atr' : 'pl-dt-ab') + '" data-sit="' + situacaoDe(x.vencimento, false) + '" data-pl-p="' + x.id + '" title="Clique para lançar o pagamento">' + SITUACOES[situacaoDe(x.vencimento, false)] + '</button>') + '</td></tr>'; };
   const bloco = (p) => {
     // Backup 51: as pagas há mais de 3 meses chegam resumidas (antes[p.id]); "ver" busca o histórico deste parcelamento
@@ -8846,7 +8853,12 @@ async function rotinaPlanilha(el) {
     const resid = v * Math.max(0, tot - pagas), cli = p.emitimos_guia === false, atr = ps.filter((x) => !x.pago && x.vencimento < h).length, nAe = aEmitir(p).length;
     const pct = tot ? Math.round(100 * pagas / tot) : 0, ab = abertos.has(p.id);
     // Backup 46: todas as parcelas lançadas aparecem; só as PREVISTAS (ainda não lançadas) ficam resumidas numa linha
-    const corte = 0, escondidas = 0, prev = prevista(ps, tot), prevVis = ab ? prev : prev.slice(0, 3);
+    // Backup 73: como no ambiente de teste — o cartão mostra só as parcelas perto de hoje (3 antes e 3 depois da 1ª em aberto, mais as em atraso);
+    // "Ver todas as N parcelas" abre o resto (e busca o histórico antigo, se houver)
+    const i0 = ps.findIndex((x) => !x.pago), centro = i0 < 0 ? ps.length - 1 : i0;
+    const lim4 = somarDias(h, 125), perto = ab ? ps : ps.filter((x, i) => ((i >= centro - 3 && i <= centro + 3) && String(x.vencimento || '') <= lim4) || (!x.pago && x.vencimento < h));
+    const corte = 0, escondidas = 0, prev = prevista(ps, tot), prevVis = ab ? prev : [];
+    const faltam = !ab && (perto.length < ps.length || prev.length || (ant && (Number(ant.n) || Number(ant.depois))));
     return '<section class="pl-bloco" data-pl-pa="' + p.id + '">' +
       '<div class="pl-cab"><div class="pl-cab-nome">' + esc(p.empresa || '—') + '</div>' +
         '<div class="pl-cab-doc">' + esc(mascaraDoc(p.cnpj) || 'sem CPF/CNPJ') + '</div>' +
@@ -8858,14 +8870,15 @@ async function rotinaPlanilha(el) {
           (nAe ? '<span class="pill hoje" title="Envie na aba “Enviar guias do mês”">' + plural(nAe, 'a emitir', 'a emitir') + '</span>' : '') + '</div>' +
         '<input class="pl-obs" data-pl-obs="' + p.id + '" value="' + esc(p.obs || '') + '" placeholder="Observação" aria-label="Observação"></div>' +
       (ps.length || ant ? '<table class="pl-tab"><colgroup><col style="width:12%"><col style="width:28%"><col style="width:30%"><col style="width:30%"></colgroup><thead><tr><th title="Parcela">Nº</th><th>Vencimento</th><th>Emissão</th><th>Pagamento</th></tr></thead><tbody>' +
-        (ant && Number(ant.n) ? '<tr class="pl-resumo"><td colspan="4"><button type="button" class="pl-mais" data-pl-hist="' + p.id + '" title="Parcelas de antes dos últimos 3 meses">✓ ' + plural(Number(ant.n) || 0, 'parcela anterior', 'parcelas anteriores') +
+        (ab && ant && Number(ant.n) ? '<tr class="pl-resumo"><td colspan="4"><button type="button" class="pl-mais" data-pl-hist="' + p.id + '" title="Parcelas de antes dos últimos 3 meses">✓ ' + plural(Number(ant.n) || 0, 'parcela anterior', 'parcelas anteriores') +
           ' (' + (Number(ant.pagas) || 0) + ' pagas' + (ant.total_pago > 0 ? ' · ' + brl(ant.total_pago) : '') + ') · ver</button></td></tr>' : '') +
         (escondidas ? '<tr class="pl-resumo"><td colspan="4"><button type="button" class="pl-mais" data-pl-abre="' + p.id + '">✓ ' + plural(escondidas, 'parcela paga', 'parcelas pagas') + ' (' + esc(ps[0].numero || '') + ' a ' + esc(ps[escondidas - 1].numero || '') + ') · ver</button></td></tr>' : '') +
-        ps.slice(escondidas).map((x, i, arr) => (ant && Number(ant.depois) && i === arr.length - 1 ? '<tr class="pl-resumo"><td colspan="4"><button type="button" class="pl-mais" data-pl-hist="' + p.id + '" title="Parcelas lançadas para depois dos próximos 3 meses">… ' +
+        perto.map((x, i, arr) => (ab && ant && Number(ant.depois) && i === arr.length - 1 ? '<tr class="pl-resumo"><td colspan="4"><button type="button" class="pl-mais" data-pl-hist="' + p.id + '" title="Parcelas lançadas para depois dos próximos 3 meses">… ' +
           plural(Number(ant.depois), 'parcela lançada mais adiante', 'parcelas lançadas mais adiante') + ' · ver</button></td></tr>' : '') + linhaParcela(x, cli)).join('') +
         prevVis.map((r) => '<tr class="pl-prev" title="Parcela ainda não lançada no sistema (data prevista)"><td>' + r.n + '</td><td>' + dataBR(r.v) + '</td><td>—</td><td>prevista</td></tr>').join('') +
-        (prev.length > prevVis.length ? '<tr class="pl-resumo"><td colspan="4"><button type="button" class="pl-mais" data-pl-abre="' + p.id + '">+ ' + plural(prev.length - prevVis.length, 'parcela prevista', 'parcelas previstas') + ' até ' + dataBR(prev[prev.length - 1].v) + ' · ver</button></td></tr>' : '') +
-        (ab && (corte || prev.length > 3) ? '<tr class="pl-resumo"><td colspan="4"><button type="button" class="pl-mais" data-pl-fecha="' + p.id + '">▴ resumir</button></td></tr>' : '') +
+        (ab && prev.length > prevVis.length ? '<tr class="pl-resumo"><td colspan="4"><button type="button" class="pl-mais" data-pl-abre="' + p.id + '">+ ' + plural(prev.length - prevVis.length, 'parcela prevista', 'parcelas previstas') + ' até ' + dataBR(prev[prev.length - 1].v) + ' · ver</button></td></tr>' : '') +
+        (faltam ? '<tr class="pl-resumo pl-todas"><td colspan="4"><button type="button" class="pl-mais pl-ver-todas" data-pl-todas="' + p.id + '">Ver todas as ' + (tot || ps.length) + ' parcelas</button></td></tr>' : '') +
+        (ab ? '<tr class="pl-resumo"><td colspan="4"><button type="button" class="pl-mais" data-pl-fecha="' + p.id + '">▴ mostrar só as de agora</button></td></tr>' : '') +
         '</tbody></table>' : '<div class="pl-sem">Nenhuma parcela lançada neste parcelamento.</div>') + '</section>'; };
   const redesenharBloco = (id) => { const sec = el.querySelector('[data-pl-pa="' + id + '"]'), p = PA.find((y) => y.id === id); if (sec && p) sec.outerHTML = bloco(p);
     igualarCabs();
@@ -8888,7 +8901,8 @@ async function rotinaPlanilha(el) {
     const L = PA.filter((p) => gNomes[p.grupo_id] === E.rt.plGrupo).sort((a, b) => String(a.empresa).localeCompare(String(b.empresa), 'pt-BR') || String(a.natureza).localeCompare(String(b.natureza), 'pt-BR'));
     const porEmp = []; L.forEach((p) => { const u = porEmp[porEmp.length - 1]; if (u && u.nome === (p.empresa || '—')) u.ps.push(p); else porEmp.push({ nome: p.empresa || '—', ps: [p] }); });
     const nE = L.reduce((s2, p) => s2 + aEmitir(p).length, 0);
-    el.innerHTML = '<div class="card pl-card"><div class="card-hd">📋 Planilha de parcelamentos<span class="sub">para conferência · uma aba por grupo, um bloco por parcelamento · clique em EMISSÃO ou PAGAMENTO para marcar · o envio das guias é na aba “Guias do mês”</span>' + botaoAtualizar('pl-atu') + '</div>' +
+    // Backup 73: como no ambiente de teste — grupos em pílulas e os cartões em grade (sem rolar para o lado)
+    el.innerHTML = '<div class="card pl-card pl-b73"><div class="card-hd">Planilha de parcelamentos<span class="sub">clique em Emissão ou Pagamento para marcar · o envio das guias é na aba “Guias do mês”</span>' + botaoAtualizar('pl-atu') + '</div>' +
       '<div class="card-bd"><div class="pl-abas" role="tablist">' + grupos.map((g) => { const n = nGrupo(g);
         return '<button type="button" role="tab" class="pl-aba' + (g === E.rt.plGrupo ? ' ativo' : '') + '" data-pl-g="' + esc(g) + '">' + esc(g) + (n ? ' <span class="pl-n" title="Guias a emitir">' + n + '</span>' : '') + '</button>'; }).join('') + '</div>' +
       '<div class="pl-barra"><span class="sub">' + plural(L.length, 'parcelamento', 'parcelamentos') + ' em <b>' + esc(E.rt.plGrupo || '—') + '</b> · ' + (nE ? plural(nE, 'guia a emitir', 'guias a emitir') + ' (em atraso + vencem neste mês)' : 'nenhuma guia a emitir agora') + '</span>' +
@@ -8903,6 +8917,12 @@ async function rotinaPlanilha(el) {
     const ab = ev.target.closest('[data-pl-g]'); if (ab) { E.rt.plGrupo = ab.dataset.plG; return pintar(); }
     const atu = ev.target.closest('#pl-atu'); if (atu) return comBotao(atu, async () => { await dadosRotina(true); atualizarPlacar(); await rotinaPlanilha(el); });
     const ma = ev.target.closest('[data-pl-abre]'); if (ma) { abertos.add(ma.dataset.plAbre); return redesenharBloco(ma.dataset.plAbre); }
+    // Backup 73: "Ver todas as N parcelas" — busca o histórico antigo (se houver) e abre o cartão inteiro
+    const vt = ev.target.closest('[data-pl-todas]');
+    if (vt) return comBotao(vt, async () => { const id = vt.dataset.plTodas;
+      if (antes[id]) { const L = await q(sb.from('parcelas').select('id, parcelamento_id, numero, vencimento, pago, data_pagamento, emitida_em, emissao, valor').eq('parcelamento_id', id).order('vencimento').order('id'));
+        const ja = new Set((porPa[id] || []).map((x) => x.id)); L.forEach((x) => { if (!ja.has(x.id)) { (porPa[id] = porPa[id] || []).push(x); P2.push(x); } }); delete antes[id]; }
+      abertos.add(id); redesenharBloco(id); });
     const mf = ev.target.closest('[data-pl-fecha]'); if (mf) { abertos.delete(mf.dataset.plFecha); return redesenharBloco(mf.dataset.plFecha); }
     // Backup 51: histórico antigo de UM parcelamento, só quando pedido
     const hi = ev.target.closest('[data-pl-hist]');
@@ -8974,7 +8994,7 @@ async function rotinaTarefas(el) {
     abas: [{ id: 'rec', rot: 'Recorrentes', f: (t) => t._sec === 0 }, { id: 'val', rot: 'Com validação', f: (t) => t._sec === 1 }, { id: 'uni', rot: 'Únicas', f: (t) => t._sec === 2 }, { id: 'eu', rot: 'Para eu validar', f: (t) => t._sec === 3 }],
     busca: (t) => [t.titulo, t.clientes && t.clientes.nome, t.revisor].join(' '), ord: { k: 'pz', dir: 1 },
     colunas: [
-      { k: 't', rot: 'Tarefa', html: (t) => '<b>' + esc(t.titulo) + '</b>' + (t.clientes ? '<span class="b-sub">' + esc(t.clientes.nome) + '</span>' : ''), ord: (t) => normalizar(t.titulo) },
+      { k: 't', rot: 'Tarefa', html: (t) => esc(t.titulo) + (t.clientes ? '<span class="b-sub">' + esc(t.clientes.nome) + '</span>' : ''), ord: (t) => normalizar(t.titulo) },
       { k: 'rep', rot: 'Repete', html: (t) => (t.recorrencia ? '<span class="pill aberto tf-repete">' + esc(typeof textoRepete === 'function' ? textoRepete(t) : '↻ ' + (REPETE[t.recorrencia] || t.recorrencia)) + '</span>' : '<span class="b-em">—</span>'), ord: false },
       { k: 'val', rot: 'Validação', html: (t) => (t.exige_revisao || t._sec === 3 ? 'valida: ' + esc(t.revisor || '—') : '<span class="b-em">—</span>'), ord: (t) => t.revisor || '' },
       { k: 'pz', rot: 'Prazo', cls: 'b-cen b-data', html: (t) => (t.prazo ? '<span class="' + (t.prazo < h ? 'b-pz-r' : t.prazo === h ? 'b-pz-a' : '') + '">' + dataBR(t.prazo) + '</span>' : '—'), ord: (t) => t.prazo || '9' },

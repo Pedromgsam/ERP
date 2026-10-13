@@ -361,3 +361,66 @@ html body .b-tab-lanc td.b-val.valor-rec:not(#_){color:var(--green-d)!important}
 .b-tab-pub td.b-num{white-space:nowrap}
 .pub-jan .pub-texto{max-height:52vh;overflow:auto}
 .b-quadro .vazio.b-vazio-bt{padding:0 0 18px;margin:0;border:0;background:none;box-shadow:none;text-align:center;min-height:0}
+/* ═══ Backup 73 — Painel Executivo como no ambiente de teste ═══ */
+#panel-resumo .gx-pe-antigo{display:none!important}
+.b-nums.b-nums-faixa{grid-template-columns:repeat(8,minmax(0,1fr));gap:0;background:var(--surface);border:1px solid var(--border);border-radius:12px;margin:0 0 16px;overflow:hidden}
+.b-nums.b-nums-faixa > div{border:0;border-left:1px solid var(--border);border-radius:0;padding:12px 14px}
+.b-nums.b-nums-faixa > div:first-child{border-left:0}
+.b-nums.b-nums-faixa b{font-size:16px;font-weight:700}
+.b-nums b.b-verm{color:var(--red-d)}.b-nums b.b-verde{color:var(--green-d)}
+@media (max-width:1100px){.b-nums.b-nums-faixa{grid-template-columns:repeat(4,minmax(0,1fr))}.b-nums.b-nums-faixa > div:nth-child(5){border-left:0}.b-nums.b-nums-faixa > div:nth-child(n+5){border-top:1px solid var(--border)}}
+@media (max-width:600px){.b-nums.b-nums-faixa{grid-template-columns:1fr 1fr}.b-nums.b-nums-faixa > div:nth-child(odd){border-left:0}.b-nums.b-nums-faixa > div:nth-child(n+3){border-top:1px solid var(--border)}}
+.gx-pe-nova{margin-top:6px}
+html body.gx-barra-topo table.b-tab.b-tab-pe:not(#_){table-layout:fixed}
+.b-tab-pe th:nth-child(1){width:12%}.b-tab-pe th:nth-child(2){width:auto}.b-tab-pe th:nth-child(3){width:13%}.b-tab-pe th:nth-child(4),.b-tab-pe th:nth-child(5),.b-tab-pe th:nth-child(6){width:9%}
+.b-tab-pe th:nth-child(7){width:12%}.b-tab-pe th:nth-child(8){width:86px}.b-tab-pe th:nth-child(9){width:96px}
+.b-tab-pe td .b-pe-v{display:block;font-weight:500;white-space:nowrap}
+.b-tab-pe td.b-val{font-weight:700}
+.b-tab-pe td .b-pe-neg{display:block;font-size:11.5px;color:var(--green-d);white-space:nowrap}
+.b-tab-pe td.b-num{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* evolução do passivo: sempre aberta (sem a setinha de abrir/fechar) */
+#execEvolWrap .evo-seta{display:none}
+#execEvolWrap .evo-abrir{cursor:default;pointer-events:none}
+/* ═══ Backup 73 — Rotina › Planilha como no ambiente de teste (grade de cartões, grupos em pílulas, selos pequenos) ═══ */
+.gs .pl-b73 .pl-abas:not(#_){display:flex;flex-wrap:wrap;gap:8px;border:0;padding:0;margin:0 0 6px}
+.gs .pl-b73 .pl-aba:not(#_){border:1px solid var(--border-strong);border-radius:999px;background:var(--surface);color:var(--text2);padding:5px 12px;font:600 12.5px var(--font-ui)}
+.gs .pl-b73 .pl-aba.ativo:not(#_){background:var(--primario);border-color:var(--primario);color:var(--on-primario,var(--on-cor))}
+.gs .pl-b73 .pl-aba .pl-n{background:var(--red-lt);color:var(--red-d);border-radius:999px;padding:0 6px;font-size:11px;margin-left:4px}
+.gs .pl-b73 .pl-rolo:not(#_){overflow:visible;padding:0}
+.gs .pl-b73 .pl-linha:not(#_){display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px;align-items:start;content-visibility:visible}
+.gs .pl-b73 .pl-linha .pl-bloco:not(#_){width:auto;flex:none!important;border:1px solid var(--border);border-radius:12px;box-shadow:none}
+.gs .pl-b73 .pl-barra-x{display:none!important}
+.gs .pl-b73 .pl-cab:not(#_){min-height:0!important;padding:12px 14px 10px}
+.gs .pl-b73 .pl-cab-nome:not(#_){font:600 13.5px var(--font-ui);text-transform:none;letter-spacing:0}
+.gs .pl-b73 .pl-cab-doc{font:12px var(--font-num);color:var(--text3)}
+.gs .pl-b73 .pl-tag{font:500 11.5px var(--font-ui);background:var(--gray-lt);border:0;border-radius:6px;padding:2px 7px;color:var(--text2)}
+.gs .pl-b73 .pl-kpis{gap:8px;margin-top:8px}
+.gs .pl-b73 .pl-kpis > div{padding:6px 10px;border-radius:8px}
+.gs .pl-b73 .pl-kpis small{font-size:10.5px;text-transform:uppercase;letter-spacing:.04em}
+.gs .pl-b73 .pl-obs{height:30px;font-size:12.5px}
+.gs .pl-b73 .pl-tab:not(#_){font:13px var(--font-ui)}
+.gs .pl-b73 .pl-tab thead th:not(#_){position:static;background:var(--surface)!important;color:var(--text3)!important;font:700 10.5px var(--font-ui)!important;text-transform:uppercase;letter-spacing:.05em;padding:7px 8px!important;border-top:1px solid var(--border)}
+.gs .pl-b73 .pl-tab td:not(#_){padding:5px 8px!important;border-top:1px solid var(--border)}
+.gs .pl-b73 .pl-tab tr.pl-atr td{background:var(--red-lt)}
+.gs .pl-b73 .pl-dt:not(#_){width:auto;min-height:0;padding:2px 9px;border-radius:999px;font:600 11.5px var(--font-ui);border:1px solid transparent}
+.gs .pl-b73 .pl-dt-ok:not(#_){background:var(--green-lt)!important;color:var(--green-d)!important;border-color:transparent!important}
+.gs .pl-b73 .pl-dt-mk2:not(#_){background:var(--surface);border:1px solid var(--border-strong);color:var(--text2)}
+.gs .pl-b73 .pl-dt-ab:not(#_){background:var(--blue-lt);color:var(--blue-d);border:0}
+.gs .pl-b73 .pl-dt-atr:not(#_){background:transparent!important;color:var(--red-d)!important;border:0!important}
+.gs .pl-b73 .pl-tab td:nth-child(n+3){text-align:center}
+.gs .pl-b73 tr.pl-todas td{text-align:center;padding:9px!important}
+.gs .pl-b73 .pl-ver-todas{font:600 12.5px var(--font-ui);color:var(--ink);background:none;border:0;cursor:pointer}
+.gs .pl-b73 .pl-ver-todas:hover{text-decoration:underline}
+.gs .pl-b73 .pl-linhas:not(#_){display:block;width:auto;min-width:0}
+/* Rotina › Passivo (Backup 73): Certificado e Conferência como no ambiente de teste */
+.gs .rt-cert{font:500 12.5px var(--font-ui);color:var(--text);white-space:nowrap}
+.gs .rt-cert.rt-cert-venc{color:var(--red-d);font-weight:700}
+.gs .rt-cert.rt-cert-perto{color:var(--amber-d);font-weight:700}
+.gs .rt-cf2{display:flex;flex-direction:column;align-items:center;gap:2px;line-height:1.2}
+.gs .rt-cf2.rt-cf2-ok{flex-direction:row;justify-content:center;gap:6px;color:var(--green-d);font:600 12.5px var(--font-ui)}
+.gs .rt-cf2-bt{border:0;border-radius:var(--r-ctl);background:var(--btn-verde);color:var(--on-cor);font:600 12px var(--font-ui);padding:5px 11px;cursor:pointer;white-space:nowrap}
+.gs .rt-cf2-bt:hover{filter:brightness(1.08)}
+.gs .rt-cf2 small:not(#_){font-size:11px;color:var(--green-d)}
+.gs .rt-cf2 small.rt-cf2-velho:not(#_){color:var(--red-d)}
+.gs .rt-cf2-de-novo{border:0;background:none;color:var(--text3);cursor:pointer;font-size:13px;padding:0 2px;opacity:0;transition:opacity .15s}
+.gs tr:hover .rt-cf2-de-novo,.gs .rt-cf2-de-novo:focus-visible{opacity:1}
