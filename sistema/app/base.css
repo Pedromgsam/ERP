@@ -427,22 +427,6 @@ html body.gx-barra-topo table.b-tab.b-tab-pe:not(#_){table-layout:fixed}
 html body.gx-barra-topo table.b-tab td.b-num:not(#_){font-size:12px!important;color:var(--text3)!important}
 html body.gx-barra-topo table.b-tab.b-tab-proc td.b-num:not(#_){font-size:11.5px!important}
 /* ═══ Backup 74 — Financeiro › Análise na estrutura do ambiente de teste (Jurídico e Contabilidade) ═══ */
-/* abas Análise · A receber · Recebidos… como botões (o mesmo .b-seg das telas novas) */
-html body.gx-barra-topo :is(#finTabBar,#finCTabBar):not(#_){display:flex!important;gap:2px!important;padding:3px;background:var(--surface);border:1px solid var(--border);border-radius:10px;margin:0 0 14px!important;width:auto;flex-wrap:wrap}
-html body.gx-barra-topo :is(#finTabBar,#finCTabBar) .fin-tab:not(#_){border:0!important;border-radius:8px!important;padding:6px 13px!important;margin:0!important;color:var(--text2)!important;font:600 13px var(--font-ui)!important;background:none!important}
-html body.gx-barra-topo :is(#finTabBar,#finCTabBar) .fin-tab.active:not(#_){background:var(--primario)!important;color:var(--on-primario,var(--on-cor))!important}
-html body.gx-barra-topo :is(#finTabBar,#finCTabBar) .fin-tab:not(#_)::before{display:none!important}
-html body.gx-barra-topo :is(#finTabBar,#finCTabBar) > .gx-tabbar-dir:not(#_){margin-left:auto}
-/* barra Quem / Período / Recorte: pílulas e linhas compactas */
-html body.gx-barra-topo :is(#faBar,#fcBar):not(#_){padding:12px 16px!important;border-radius:12px;margin-bottom:12px!important}
-html body.gx-barra-topo :is(#faBar,#fcBar) .fa-lin:not(#_){gap:6px 8px;padding:4px 0;border:0}
-html body.gx-barra-topo :is(#faBar,#fcBar) .fa-lbl:not(#_){font:700 11px var(--font-ui);letter-spacing:.06em;text-transform:uppercase;color:var(--text3);min-width:64px}
-html body.gx-barra-topo :is(#faBar,#fcBar) .fa-chip:not(#_){border:1px solid var(--border-strong)!important;border-radius:999px!important;background:var(--surface)!important;color:var(--text2)!important;padding:5px 12px!important;font:600 12.5px var(--font-ui)!important;box-shadow:none!important}
-html body.gx-barra-topo :is(#faBar,#fcBar) .fa-chip.on:not(#_){background:var(--primario)!important;border-color:var(--primario)!important;color:var(--on-primario,var(--on-cor))!important}
-html body.gx-barra-topo :is(#faBar,#fcBar) .fa-chip-p:not(#_){background:var(--surface)!important;border-color:var(--border-strong)!important;color:var(--text2)!important}
-html body.gx-barra-topo :is(#faBar,#fcBar) .fa-chip-p.on:not(#_){background:var(--primario)!important;border-color:var(--primario)!important;color:var(--on-primario,var(--on-cor))!important}
-html body.gx-barra-topo :is(#faBar,#fcBar) .fa-dica{display:none}
-html body.gx-barra-topo :is(#faBar,#fcBar) .fa-resumo:not(#_){border-top:0;padding-top:4px;margin-top:2px;font-size:12px;color:var(--text3)}
 /* faixa de números com 5 ou 6 itens */
 .b-nums.b-nums-faixa.b-nums-5{grid-template-columns:repeat(5,minmax(0,1fr))}
 .b-nums.b-nums-faixa.b-nums-6{grid-template-columns:repeat(6,minmax(0,1fr))}
@@ -454,7 +438,8 @@ html body.gx-barra-topo :is(#faBar,#fcBar) .fa-resumo:not(#_){border-top:0;paddi
 .b-fin-hd{margin:0 0 10px}
 .b-fin-hd h3{font:700 15px var(--font-ui);color:var(--ink);margin:0}
 .b-fin-hd p{font-size:12.5px;color:var(--text3);margin:3px 0 0}
-.b-fin-graf{height:280px}
+.b-fin-graf{min-height:200px}
+.b-fin-graf .b-graf{width:100%;height:auto;display:block}
 .b-fin-dois{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
 @media (max-width:900px){.b-fin-dois{grid-template-columns:1fr}}
 .b-barras{display:flex;flex-direction:column;gap:9px}
@@ -464,7 +449,7 @@ html body.gx-barra-topo :is(#faBar,#fcBar) .fa-resumo:not(#_){border-top:0;paddi
 .b-barra-trilho > span{display:block;height:100%;border-radius:999px;background:var(--primario)}
 .b-barra-val{font:700 13px var(--font-ui);color:var(--ink);white-space:nowrap;font-variant-numeric:tabular-nums}
 .b-barras-vazio{font-size:13px;color:var(--text3);padding:6px 0}
-.b-rola.b-rola-solta{max-height:none;border:0}
+.b-rola.b-rola-solta{max-height:none;border:0;overflow-x:auto;max-width:100%}
 html body.gx-barra-topo table.b-tab.b-tab-comp td.b-verde-v:not(#_){color:var(--green-d)!important;font-weight:700}
 html body.gx-barra-topo table.b-tab.b-tab-comp tfoot td:not(#_){position:static;font-weight:700!important;color:var(--ink)!important;background:var(--surface2)}
 .b-pes{display:inline-block;background:var(--gray-lt);border:1px solid var(--border);border-radius:999px;padding:1px 10px;font:600 12px var(--font-ui);color:var(--text2);white-space:nowrap}
@@ -561,3 +546,84 @@ html body.gx-barra-topo .ex-bn.ex-col > .ex-tg:hover .ex-t{text-decoration:under
 #panel-hoje .ini-sec-hd p:not(#_),#panel-hoje .ini-dt:not(#_),#panel-hoje .ini-it-tx small:not(#_){font-size:12px}
 #panel-hoje .ini-it-tx b:not(#_){font-size:13px}
 #panel-hoje .ini-tipo:not(#_){font-size:11px}
+
+/* ═══ Backup 76 — Financeiro inteiro na peça nova (S1 + L1) ═══ */
+.b-fin-topo{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:0 0 14px}
+.b-fin-topo > .b-seg{flex-basis:auto}
+.b-fin-avisos{display:flex;flex-wrap:wrap;gap:6px}
+.b-fin-topo .b-barra-dir{margin-left:auto;display:flex;gap:8px;align-items:center}
+.b-aviso{border:1px solid var(--border-strong);background:var(--surface);color:var(--text2);border-radius:999px;padding:5px 12px;font:600 12.5px var(--font-ui);cursor:pointer;white-space:nowrap}
+.b-aviso:hover{background:var(--hover)}
+.b-aviso.b-aviso-r{border-color:var(--red-lt);background:var(--red-lt);color:var(--red-d)}
+.b-fin-filtros{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 16px;margin:0 0 14px;display:flex;flex-direction:column;gap:8px}
+.b-fin-lin{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px}
+.b-fin-rot{font:700 11px var(--font-ui);letter-spacing:.06em;text-transform:uppercase;color:var(--text3);min-width:76px}
+.b-fin-lin .b-fx{display:inline-flex;align-items:center;gap:6px;margin-left:6px}
+.b-fin-lin .b-fx span{font-size:12px;color:var(--text3)}
+.b-fin-lin :is(input[type=date],select){border:1px solid var(--border-strong);border-radius:var(--r-ctl);padding:5px 8px;font:500 13px var(--font-ui);background:var(--surface);color:var(--text)}
+.b-fin-mostra{margin:0;font-size:12px;color:var(--text3)}
+.b-fin-mostra b{color:var(--text2)}
+.b-verde-v{color:var(--green-d)}
+.b-verm-v{color:var(--red-d)}
+.b-seg.b-seg-mini{margin:0 0 12px}
+tr.b-apagada td{color:var(--text4)}
+.b-cx-mes{background:var(--surface);border:1px solid var(--border);border-radius:12px;margin:0 0 10px;padding:0 16px}
+.b-cx-mes > summary{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center;padding:12px 0;cursor:pointer;font-size:13px;color:var(--text2);list-style:none}
+.b-cx-mes > summary::-webkit-details-marker{display:none}
+.b-cx-mes > summary b{font-size:14px;color:var(--ink);min-width:70px}
+.b-cx-mes[open] > summary{border-bottom:1px solid var(--border)}
+.b-cx-mes .b-rola{margin:10px 0}
+.b-cx-cats{display:flex;flex-wrap:wrap;gap:6px;padding:0 0 12px}
+.b-cx-cats span{background:var(--gray-lt);border:1px solid var(--border);border-radius:999px;padding:3px 10px;font-size:12px;color:var(--text3)}
+.b-cx-cats b{color:var(--red-d)}
+.b-alerta-a{background:var(--amber-lt);border:1px solid var(--amber);border-radius:12px;padding:12px 16px;margin:0 0 14px;font-size:13px;color:var(--text2);display:flex;flex-direction:column;gap:4px}
+.b-alerta-a b{color:var(--ink)}
+.b-cob-bloco{border:1px solid var(--border);border-radius:10px;padding:12px;margin:0 0 10px}
+.b-cob-hd{display:flex;justify-content:space-between;gap:10px;margin:0 0 8px;font-size:13px}
+.b-cob-hd span{color:var(--text3)}
+.b-cob-bloco textarea{width:100%;font:13px/1.5 var(--font-ui);border:1px solid var(--border-strong);border-radius:8px;padding:8px}
+.b-cob-acoes{display:flex;gap:6px;justify-content:flex-end;margin-top:8px}
+.b-graf .g-eixo{font-size:11px;fill:var(--chart-texto)}
+@media (max-width:600px){.b-fin-topo .b-barra-dir{margin-left:0}.b-fin-rot{min-width:0;flex-basis:100%}}
+/* Backup 76 — Painel executivo e Processos (telas novas da equipe) */
+body.gx-tela-nova #gx-linha-painel{display:none!important}
+.b-fin-topo select{border:1px solid var(--border-strong);border-radius:var(--r-ctl);padding:6px 30px 6px 10px;font:500 13px var(--font-ui);background-color:var(--surface);color:var(--text);max-width:280px}
+.b-pe-conta{font-size:12.5px;color:var(--text3)}
+.b-nums.b-nums-faixa.b-nums-8{grid-template-columns:repeat(8,minmax(0,1fr))}
+@media (max-width:1200px){.b-nums.b-nums-faixa.b-nums-8{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media (max-width:600px){.b-nums.b-nums-faixa.b-nums-8{grid-template-columns:1fr 1fr}}
+.b-pe-evo-hd{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-start;gap:10px}
+.b-pe-evo-ctl{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.b-pe-evo-ctl .b-seg{margin:0}
+.b-pe-evo-ctl select{border:1px solid var(--border-strong);border-radius:var(--r-ctl);padding:6px 30px 6px 10px;font:500 13px var(--font-ui);background-color:var(--surface);color:var(--text)}
+.b-pe-evo-res{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:13px;color:var(--text2);margin:0 0 8px}
+.b-pe-evo-res b{font-size:16px;color:var(--ink)}
+.b-pr-res{padding:0}
+.b-pr-res-hd{display:flex;align-items:baseline;gap:10px;width:100%;background:none;border:0;padding:14px 18px;cursor:pointer;text-align:left;flex-wrap:wrap}
+.b-pr-res-hd h3{font:700 15px var(--font-ui);color:var(--ink);margin:0}
+.b-pr-res-hd .b-seta{display:inline-block;color:var(--text3);font-size:12px;transition:transform .15s}
+.b-pr-res.b-aberto .b-pr-res-hd .b-seta{transform:rotate(90deg)}
+#pr-res-corpo{padding:0 18px 16px}
+.b-pr-res-tres{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:14px}
+@media (max-width:1000px){.b-pr-res-tres{grid-template-columns:1fr}}
+.b-pr-res-t{border:1px solid var(--border);border-radius:10px;overflow:hidden;min-width:0}
+/* Backup 76 (L4): cabeçalho único — as telas que ainda usavam o título antigo ganham o mesmo cabeçalho das telas novas (ícone, título, frase, botões à direita) */
+.gs .titulo-pag.b-cab{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.gs .titulo-pag.b-cab > .acoes{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.gs .titulo-pag.b-cab .b-cab-tx h1{margin:0}
+/* Backup 76 (F1): busca geral */
+.b-bg-campo{width:100%;margin:0 0 10px}
+.b-bg-campo input{font-size:15px}
+.bg-res{display:flex;flex-direction:column;gap:2px;max-height:60vh;overflow:auto}
+.bg-it{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:none;border:0;border-radius:8px;padding:8px 10px;cursor:pointer;color:var(--text)}
+.bg-it:hover,.bg-it.bg-sel{background:var(--hover)}
+.bg-tipo{flex:none;width:92px;font:600 11px var(--font-ui);text-transform:uppercase;letter-spacing:.04em;color:var(--text3)}
+.bg-tx{min-width:0;display:flex;flex-direction:column}
+.bg-tx b{font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bg-tx small{font-size:12px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Backup 76 (F3): conferências do Início */
+.gs .ini-conf{margin:4px 0 18px}
+.gs .ini-conf-l{display:flex;flex-wrap:wrap;gap:8px}
+.gs .ini-conf-it{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--amber,var(--border-strong));background:var(--amber-lt,var(--surface));color:var(--text2);border-radius:10px;padding:8px 12px;font:500 13px var(--font-ui);cursor:pointer}
+.gs .ini-conf-it b{color:var(--ink)}
+.gs .ini-conf-it .b-ic{width:14px;height:14px;opacity:.6}

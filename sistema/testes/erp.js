@@ -78,6 +78,9 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     const esperarJanela = (p) => p.waitForSelector('.gx-janela', { timeout: 8000 });
     const lancar = async (p, i) => { await p.click('.tn-lancar-bt'); await p.click('.tn-lancar [data-lancar="' + i + '"]'); await p.waitForSelector('.gx-janela, #gs-raiz .janela', { timeout: 8000 }); await p.waitForTimeout(250); };
     const salvarGs = async (p, bt) => { await p.click(bt); await p.waitForSelector('#gs-raiz .fundo', { state: 'detached', timeout: 10000 }).catch(async () => console.log('JANELA NÃO FECHOU:', bt, await p.textContent('#gs-raiz #aviso'))); await p.waitForTimeout(1500); };
+    // Backup 76: Financeiro novo — abas Análise / Lançamentos (/ Caixa / Distribuição de lucros) e, dentro de Lançamentos, os botões da tabela
+    const finAba = async (p, painel, aba, tab) => { await p.click('#gs-main-' + painel + ' #fin-abas [data-aba=' + aba + ']'); await p.waitForTimeout(700);
+      if (tab) { await p.click('#gs-main-' + painel + ' #fin-tab [data-b-aba=' + tab + ']'); await p.waitForTimeout(500); } };
     const salvar = async (p) => { await p.click('.gx-janela button[type=submit]'); await p.waitForSelector('.gx-fundo', { state: 'detached', timeout: 8000 }).catch(() => {}); await p.waitForTimeout(2500); };
 
     // ── login ──
@@ -130,7 +133,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('PF identificada (isPJ=false) e PJ (isPJ=true)', await p.evaluate(() => DB.baseDados.find((x) => x.nome === 'Ana Alfa').isPJ === false && DB.baseDados.find((x) => x.nome === 'Alfa Comércio Ltda').isPJ === true));
     // Passivo total = só PJ: Alfa 1000+500+200 + Beta 300 = 2.000 (a PF igual NÃO soma)
     await nav(p, 'resumo');
-    const kpi = await p.evaluate(() => document.getElementById('execKpis').innerHTML);
+    await p.waitForSelector('#pe-nums', { timeout: 8000 }).catch(() => {}); const kpi = await p.evaluate(() => document.getElementById('pe-nums').innerHTML);
     ok('dívida idêntica de PF e PJ não é somada (total R$ 2.000,00)', /2\.000,00/.test(kpi) && !/3\.700,00/.test(kpi), kpi.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 200));
     ok('dívida negociada entra no total (como no ERP)', await p.evaluate(() => trib(DB.baseDados.find((x) => x.nome === 'Alfa Comércio Ltda')) === 1700));
     const fin = await p.evaluate(() => DB.financeiro.map((f) => f.aba + '|' + f.valor + '|' + f.situacao).sort().join(';'));
@@ -145,14 +148,13 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
 
     // ── Honorários: tabela no formato do Gestão (menos colunas) ──
     await nav(p, 'financeiro');
-    await p.evaluate(() => { const b = [...document.querySelectorAll('#panel-financeiro button')].find((x) => /A Receber/i.test(x.textContent)); if (b) b.click(); });
-    await p.waitForTimeout(1200);
-    const cab = await p.$$eval('#panel-financeiro .gx-tab-gs table thead th', (l) => l.map((t) => t.textContent.trim()).filter(Boolean));
+    await p.waitForTimeout(800); await finAba(p, 'financeiro', 'lanc', 'areceber');
+    const cab = await p.$$eval('#panel-financeiro #fin-tab table thead th', (l) => l.map((t) => t.textContent.trim()).filter(Boolean));
     ok('A Receber no desenho de Acordos (B71: Quem, Grupo, Descrição, Valor, Vencimento, Prazo)', cab.map((t) => t.replace(/[↑↓]/g, '').trim()).join('|') === 'Quem|Grupo / Favorecido|Descrição|Valor|Vencimento|Prazo', cab.join('|'));
-    ok('Financeiro (B71): Cobrar + Baixa na linha, linha vencida rosada e "Marcar várias" sem caixinhas à vista', !!(await p.$('#panel-financeiro .gx-tab-gs .b-bt-baixa[data-pagar]')) && !!(await p.$('#panel-financeiro .gx-tab-gs [data-cobrar]')) &&
-      !(await p.$('#panel-financeiro .gx-tab-gs .b-ck')) && !!(await p.$('#panel-financeiro .gx-tab-gs [data-bt=loteon]')));
-    ok('tabela original do ERP escondida (sem duplicar)', await p.$eval('#tblFinBody', (tb) => tb.closest('table').classList.contains('gx-oculta')));
-    ok('comissão aparece como redutor (valor negativo)', /−\s*R\$\s*150,00/.test(await p.textContent('#panel-financeiro .gx-tab-gs')) && /redutor/.test(await p.textContent('#panel-financeiro .gx-tab-gs')));
+    ok('Financeiro (B71): Cobrar + Baixa na linha, linha vencida rosada e "Marcar várias" sem caixinhas à vista', !!(await p.$('#panel-financeiro #fin-tab .b-bt-baixa[data-pagar]')) && !!(await p.$('#panel-financeiro #fin-tab [data-cobrar]')) &&
+      !(await p.$('#panel-financeiro #fin-tab .b-ck')) && !!(await p.$('#panel-financeiro #fin-tab [data-bt=loteon]')));
+    ok('B76: a tela antiga do Financeiro não aparece (só a nova)', !(await p.isVisible('#finTabBar')) && !(await p.isVisible('#finContent')) && await p.isVisible('#gs-main-financeiro #fin-raiz'));
+    ok('comissão aparece como redutor (valor negativo)', /−\s*R\$\s*150,00/.test(await p.textContent('#panel-financeiro #fin-tab')) && /redutor/.test(await p.textContent('#panel-financeiro #fin-tab')));
     await foto(p, 'areceber');
 
     // ── acordos são dívidas do cliente: nunca entram no financeiro do escritório ──
@@ -164,8 +166,8 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     // ── editar: formulário do Gestão ──
     const idRec = sql("select id from lancamentos where descricao='Honorários mensais'");
     // Backup 58: sem a caneta na linha — clicar na linha abre o detalhe e o "✎ Editar" fica lá dentro
-    ok('Financeiro: linha sem a caneta ✎ (editar pelo detalhe)', !(await p.$('#panel-financeiro .gx-tab-gs tr [data-editar]')) && !(await p.$('#panel-financeiro .gx-la-ed')));
-    await p.click('#panel-financeiro .gx-tab-gs tr[data-b-k="' + idRec + '"] td:nth-child(3)');
+    ok('Financeiro: linha sem a caneta ✎ (editar pelo detalhe)', !(await p.$('#panel-financeiro #fin-tab tr [data-editar]')) && !(await p.$('#panel-financeiro .gx-la-ed')));
+    await p.click('#panel-financeiro #fin-tab tr[data-b-k="' + idRec + '"] td:nth-child(3)');
     await p.waitForSelector('#gs-raiz .janela [data-editar]', { timeout: 8000 }); await p.click('#gs-raiz .janela [data-editar]');
     await p.waitForFunction(() => /Editar receita/.test((document.querySelector('#gs-raiz .janela-hd') || {}).textContent || ''), null, { timeout: 8000 }).catch(() => {}); await p.waitForTimeout(250);
     ok('Editar abre o formulário do Gestão', /Editar receita/.test(await p.textContent('#gs-raiz .janela-hd')));
@@ -177,8 +179,8 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('rodapé mostra a última gravação', /Última gravação/.test(await p.textContent('#gx-rodape')));
 
     // ── ✓ Baixa na linha (Gestão) ──
-    await p.waitForSelector('#panel-financeiro .gx-tab-gs [data-pagar="' + idRec + '"]', { timeout: 8000 });
-    await p.click('#panel-financeiro .gx-tab-gs [data-pagar="' + idRec + '"]');
+    await p.waitForSelector('#panel-financeiro #fin-tab [data-pagar="' + idRec + '"]', { timeout: 8000 });
+    await p.click('#panel-financeiro #fin-tab [data-pagar="' + idRec + '"]');
     await p.waitForSelector('.janela-baixa [name=bx-data]', { timeout: 8000 });
     ok('✓ Recebido pergunta a data (já vem com hoje)', await p.inputValue('.janela-baixa [name=bx-data]') === sql('select current_date'));
     await p.fill('.janela-baixa [name=bx-data]', sql("select (current_date - 3)::text"));
@@ -189,13 +191,11 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     // ── Análise: "Em atraso" do Gestão = todos os meses ──
     sql("insert into lancamentos(empresa,tipo,grupo_id,descricao,categoria,responsavel,vencimento,valor) select 'escritorio','receita',id,'Atraso antigo','Mensal','Pedro','2024-05-10',400 from grupos where nome='Grupo Beta'");
     await p.evaluate(() => loadData(true)); await p.waitForTimeout(4000);
-    await nav(p, 'financeiro');
-    await p.evaluate(() => { const b = [...document.querySelectorAll('#panel-financeiro button')].find((x) => /Análise/.test(x.textContent)); if (b) b.click(); });
-    await p.waitForTimeout(1200);
-    const an = await p.textContent('#faCorpo');
+    await nav(p, 'financeiro'); await p.waitForTimeout(800); await finAba(p, 'financeiro', 'analise');
+    const an = await p.textContent('#panel-financeiro #fin-corpo');
     ok('Em atraso conta todos os meses, mesmo com "Este ano"', /Em atraso/.test(an) && /400/.test(an) /* Backup 37: a tabela "Em atraso" saiu; o cartão continua somando */, an.replace(/\s+/g, ' ').slice(0, 300));
-    ok('B74 Financeiro Jurídico: Análise com faixa de números, Recebido mês a mês, Comparativo por pessoa, tipo de serviço e maiores grupos', (await p.$$('#faCorpo .b-nums-faixa > div')).length >= 5 &&
-      ['Recebido mês a mês', 'Comparativo por pessoa', 'Por tipo de serviço', 'Maiores grupos'].every((t) => an.includes(t)) && !!(await p.$('#faCorpo table.b-tab-comp')) && !!(await p.$('#faCorpo canvas#cFaMes')));
+    ok('B74 Financeiro Jurídico: Análise com faixa de números, Recebido mês a mês, Comparativo por pessoa, tipo de serviço e maiores grupos', (await p.$$('#panel-financeiro #fin-corpo .b-nums-faixa > div')).length >= 5 &&
+      ['Recebido mês a mês', 'Comparativo por pessoa', 'Por tipo de serviço', 'Maiores grupos'].every((t) => an.includes(t)) && !!(await p.$('#panel-financeiro #fin-corpo table.b-tab-comp')) && !!(await p.$('#panel-financeiro #fin-corpo svg.b-graf')));
 
     // ── + Lançar: formulários do Gestão ──
     await lancar(p, 0);
@@ -230,7 +230,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.click('#gs-raiz [data-cli-aba=sit]'); await p.fill('#gs-raiz [name=age_mg]', '1.300,00');
     await salvarGs(p, '#btn-salvar-cli');
     await nav(p, 'resumo'); await p.waitForTimeout(800);
-    ok('painel recalcula após editar cliente (R$ 3.000,00)', /3\.000,00/.test(await p.evaluate(() => document.getElementById('execKpis').innerHTML)));
+    ok('painel recalcula após editar cliente (R$ 3.000,00)', /3\.000,00/.test(await p.evaluate(() => document.getElementById('pe-nums').innerHTML)));
 
     // ── parcelamento: marcar parcela vencida como paga ──
     // Backup 68: Parcelamentos é a tela nova (telas-parcelamentos.js) — Baixa na linha, sem ✎; clique na linha → detalhe da parcela → Editar (formulário do ERP)
@@ -652,6 +652,19 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('B75 Portal do cliente: o menu não mostra Execuções nem Publicações (telas da equipe)', await pc.evaluate(() =>
       ['execucoes', 'publicacoes'].every((id) => [...document.querySelectorAll('#tn [data-ir=' + id + ']')].every((b) => !b.offsetParent)) &&
       [...document.querySelectorAll('#tn [data-ir=processos]')].some((b) => b.closest('.tn-grupo') && b.closest('.tn-grupo').offsetParent)));
+    // Backup 76 (S5): o portal do cliente nas telas novas — Início com "Para pagar este mês" e o passivo; Processos, Parcelamentos e Acordos só para ver
+    ok('B76 Portal: Início novo com "Para pagar este mês", passivo em faixa e as empresas', await pc.isVisible('#pt-pagar') && /Para pagar este mês/.test(await pc.textContent('#panel-resumo')) &&
+      (await pc.$$('#panel-resumo .b-nums-faixa > div')).length === 6 && !!(await pc.$('#panel-resumo #pe-nova table')) && !(await pc.isVisible('#execKpiSection')));
+    for (const [tela, sel] of [['processos', '#pr-nova'], ['parcelamentos', '#pc-tabela'], ['acordos', '#ac-tabela']]) {
+      await pc.evaluate((x) => nav(null, x), tela); await pc.waitForTimeout(1500);
+      ok('B76 Portal: ' + tela + ' na tela nova, só para ver (sem Baixa, Emitir ou editar)', await pc.isVisible('#gs-main-' + tela + ' ' + sel) &&
+        !(await pc.$('#gs-main-' + tela + ' [data-pc-baixa], #gs-main-' + tela + ' [data-ac-baixa], #gs-main-' + tela + ' .b-bt-baixa, #gs-main-' + tela + ' #pr-novo')));
+    }
+    await pc.evaluate(() => nav(null, 'processos')); await pc.waitForTimeout(800);
+    await pc.click('#pr-nova tbody tr[data-b-k] td:nth-child(2)').catch(() => {}); await pc.waitForTimeout(500);
+    ok('B76 Portal: a janela do processo abre sem "Editar" nem "Registrar movimentação"', !!(await pc.$('#janelas .janela')) && !(await pc.$('#janelas [data-pr-editar]')) && !(await pc.$('#janelas [data-pr-mov]')));
+    await pc.evaluate(() => { while (document.querySelector('#janelas .fundo')) window.GS.fecharJanela(); });
+    await pc.evaluate(() => nav(null, 'resumo')); await pc.waitForTimeout(800);
     const vis = await pc.evaluate(() => ({ nivel: AC_SESSION.nivel, grupos: [...new Set(DB.baseDados.map((x) => x.grupo))].join(','), fin: DB.financeiro.length, obs: DB.baseDados.some((x) => x.obs) }));
     ok('cliente vê só o próprio grupo e nada de financeiro', vis.nivel === 'cliente' && vis.grupos === 'Grupo Alfa' && vis.fin === 0, JSON.stringify(vis));
     ok('cliente não vê Lançar, ✎ nem telas da equipe', !(await pc.isVisible('.tn-lancar-bt')) && !(await pc.$('.gx-la')) && !(await pc.isVisible('#tn [data-ir=clientes]')) && await pc.isVisible('#tn [data-ir=resumo]'));
@@ -824,7 +837,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('Painel: sem "Passivo total por grupo" e sem "Distribuição por órgão"', !(await p.isVisible('#cResGrupos')) && !(await p.isVisible('#cResDonut')));
     await nav(p, 'processos'); await p.waitForTimeout(1200);
     ok('Processos: sem "Visão Geral" e sem "Todos status"; Análise com passivo e ativo em disputas', !(await p.isVisible('#kpiProc')) && !(await p.$('#fProcStatus')) &&
-      /Passivo em disputas/.test(await p.textContent('#procAnalise')) && /Ativo em disputas/.test(await p.textContent('#procAnalise')));
+      /Passivo em disputas/.test(await p.textContent('#pr-res')) && /Ativo em disputas/.test(await p.textContent('#pr-res')));
     // Backup 72: a lista de Processos no desenho de Acordos (abas Ativos · Arquivados · Extintos · Todos); a tabela antiga fica para o portal do cliente
     ok('Processos (B72): a tabela antiga some para a equipe e a nova aparece com as abas', !(await p.isVisible('#tblProcBody')) && (await p.$$eval('#pr-nova [data-b-aba]', (l) => l.map((b) => b.textContent.replace(/\d+/g, '').trim()).join('|'))) === 'Ativos|Arquivados|Extintos|Todos');
     { const n1 = await p.evaluate(() => document.querySelectorAll('#pr-nova tbody tr[data-b-k]').length);
@@ -835,7 +848,10 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('Processos: clicar no processo abre uma janela com o detalhe', await p.evaluate(() => [...document.querySelectorAll('#janelas .janela h2')].some((h) => /Processo 5000001/.test(h.textContent))) && !!(await p.$('#janelas [data-pr-editar]')) && !!(await p.$('#janelas [data-pr-mov]')));
     await p.evaluate(() => { while (document.querySelector('#janelas .fundo')) window.GS.fecharJanela(); });
     ok('Processos (Backup 72, como o ambiente de teste): Grupo, Processo, Natureza, Partes, Valor, Última movimentação, Status (sem "Conferido")', (await p.$$eval('#pr-nova thead th', (l) => l.map((t) => t.textContent.replace(/[↑↓]/g, '').trim()).join('|'))) === 'Grupo|Processo|Natureza|Partes|Valor|Última movimentação|Status');
-    ok('B72 Processos: "Resumo da carteira" começa fechado', /Resumo da carteira/.test(await p.textContent('#exProcAn')) && await p.evaluate(() => document.getElementById('exProcAn').classList.contains('fechado')));
+    ok('B72/B76 Processos: "Resumo da carteira" começa fechado', /Resumo da carteira/.test(await p.textContent('#pr-res')) && await p.evaluate(() => !document.getElementById('pr-res').classList.contains('b-aberto') && document.getElementById('pr-res-corpo').hidden));
+    await p.click('#pr-res-bt'); await p.waitForTimeout(200);
+    ok('B76 Processos: o Resumo abre com os números e as tabelas por grupo, tribunal e natureza', await p.isVisible('#pr-res-corpo .b-nums-faixa') && (await p.$$('#pr-res-corpo .b-pr-res-t table')).length === 3);
+    await p.click('#pr-res-bt'); await p.waitForTimeout(200);
     // ── Backup 68 (reforma, etapa 3): Parcelamentos refeita — os testes da tela antiga viraram estes (mesmas funções, peças novas) ──
     await nav(p, 'parcelamentos'); await p.waitForSelector('#panel-parcelamentos #pc-grupos .b-cg');
     ok('Parcelamentos (B68): a tela antiga fica escondida para a equipe (sem a "Situação" antiga, sem o selo vermelho do topo)', !(await p.isVisible('#parcAnalise')) && !(await p.isVisible('#alertParc')) && !(await p.isVisible('#parcTabBar')));
@@ -932,17 +948,23 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       ok('E-mail das guias no padrão "Honorários em aberto": parágrafos e quadro "Como pagar" com o PIX', /Como pagar/.test(sql("select public.guias_texto_html('Bom dia!" + "\n\n" + "Teste', '[{\"pix\":\"chave-pix@teste.com\"}]')")) &&
         /<\/p><p/.test(sql("select public.guias_texto_html('a" + "\n\n" + "b', '[]')")));
       sql("update acordos set forma_pagamento='boleto' where (processo,devedor,credor)=(select processo,devedor,credor from acordos where id='" + idPix + "')"); }
-    await nav(p, 'financeiroContab'); await p.waitForTimeout(1500);
+    await nav(p, 'financeiroContab'); await p.waitForTimeout(1500); await finAba(p, 'financeiroContab', 'analise');
     ok('Contabilidade: Análise sem "Maiores clientes" e sem a lista de lançamentos', !/Maiores clientes/.test(await p.textContent('#panel-financeiroContab')) && !(await p.$('#fcLancTbl')));
-    ok('B72 Contabilidade: Análise com "Recebido por tipo de serviço" e "Maiores grupos" (sem os comparativos por cliente/fornecedor)', !(await p.$('#fcLadoBar')) &&
-      !/Comparativo por cliente|Comparativo por fornecedor/.test(await p.textContent('#fcCorpo')) && /Recebido × pago mês a mês/.test(await p.textContent('#fcCorpo')) &&
-      /Recebido por tipo de serviço/.test(await p.textContent('#fcCorpo')) && /Maiores grupos/.test(await p.textContent('#fcCorpo')) && !!(await p.$('#fcCorpo .b-barras, #fcCorpo .b-barras-vazio')));
-    ok('B74 Financeiro: Análise na estrutura do ambiente (faixa de números, cartões e barras simples)', !!(await p.$('#fcCorpo .b-nums-faixa')) && (await p.$$('#fcCorpo .b-fin-cartao')).length >= 4 && /Despesas por categoria/.test(await p.textContent('#fcCorpo')));
-    ok('Contabilidade: gráfico mês a mês com recebido (verde) e pago (vermelho)', await p.evaluate(() => { const c = Chart.getChart('cFcMes'); return !!c && c.data.datasets.length === 2 && /Recebido/.test(c.data.datasets[0].label) && /Pago/.test(c.data.datasets[1].label); }));
+    ok('B72 Contabilidade: Análise com "Recebido por tipo de serviço" e "Maiores grupos" (sem os comparativos por cliente/fornecedor)', 
+      !/Comparativo por cliente|Comparativo por fornecedor/.test(await p.textContent('#panel-financeiroContab #fin-corpo')) && /Recebido × pago mês a mês/.test(await p.textContent('#panel-financeiroContab #fin-corpo')) &&
+      /Recebido por tipo de serviço/.test(await p.textContent('#panel-financeiroContab #fin-corpo')) && /Maiores grupos/.test(await p.textContent('#panel-financeiroContab #fin-corpo')) && !!(await p.$('#panel-financeiroContab #fin-corpo .b-barras, #panel-financeiroContab #fin-corpo .b-barras-vazio')));
+    ok('B74 Financeiro: Análise na estrutura do ambiente (faixa de números, cartões e barras simples)', !!(await p.$('#panel-financeiroContab #fin-corpo .b-nums-faixa')) && (await p.$$('#panel-financeiroContab #fin-corpo .b-fin-cartao')).length >= 4 && /Despesas por categoria/.test(await p.textContent('#panel-financeiroContab #fin-corpo')));
+    ok('Contabilidade: gráfico mês a mês com recebido (verde) e pago (vermelho)', await p.evaluate(() => { const g = document.querySelector('#panel-financeiroContab #fin-corpo .b-graf'); const leg = g && g.nextElementSibling ? g.nextElementSibling.textContent : '';
+      return !!g && /Recebido/.test(leg) && /Pago/.test(leg); }));
     sql("insert into lancamentos(empresa,tipo,descricao,vencimento,valor,pago,data_pagamento) values ('contabilidade','receita','Caixa teste',current_date-5,500,true,current_date-5)");
     await p.evaluate(() => ERP_RECARREGAR()); await p.waitForTimeout(2500);
-    await p.click('#panel-financeiroContab .fin-tab[data-tab=caixa]'); await p.waitForTimeout(1000);
-    ok('Composição de Caixa aparece (gráficos não somem)', await p.evaluate(() => { const c = document.querySelector('#cFcCaixaSaldo'); return !!c && c.offsetParent !== null; }));
+    await finAba(p, 'financeiroContab', 'caixa');
+    ok('Composição de Caixa aparece (gráficos não somem)', await p.evaluate(() => { const c = document.querySelector('#panel-financeiroContab #fin-corpo .b-graf'); return !!c && c.getBoundingClientRect().height > 50; }) &&
+      /Resumo mensal/.test(await p.textContent('#panel-financeiroContab #fin-corpo')));
+    await p.click('#panel-financeiroContab #cx-vista [data-cx=detalhado]'); await p.waitForTimeout(500);
+    ok('B76 Caixa: "Mês a mês" mostra o livro-caixa do mês aberto', !!(await p.$('#panel-financeiroContab details.b-cx-mes[open] table')));
+    await finAba(p, 'financeiroContab', 'lucros');
+    ok('B76 Distribuição de lucros: aba própria (vazia ou com o equilíbrio 50/50)', /Distribuição|distribuição/.test(await p.textContent('#panel-financeiroContab #fin-corpo')));
     sql("delete from lancamentos where descricao='Caixa teste'");
     await nav(p, 'financeiro'); await p.waitForTimeout(1000);
     ok('Financeiro: Análise sem a tabela "Em atraso" (já está em A receber)', !(await p.evaluate(() => [...document.querySelectorAll('#panel-financeiro .cc-t')].some((x) => /^Em atraso$/.test(x.textContent.trim())))));
@@ -982,7 +1004,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       ok('rodapé "Última gravação" some sozinho', on0 && !(await p.evaluate(() => document.getElementById('gx-rodape').classList.contains('on')))); }
     // telas antigas
     await nav(p, 'resumo'); await p.waitForTimeout(1500);
-    ok('Painel: valores inteiros (sem "mil"/"mi")', /R\$\s?[\d.]+,\d{2}/.test(await p.textContent('#execKpis')) && !/\d(k|M)\b/.test(await p.textContent('#kpiSecProc')));
+    ok('Painel: cada número mostra o valor completo ao passar o mouse', await p.evaluate(() => { const s = [...document.querySelectorAll('#pe-nums b span[title]')]; return s.length >= 8 && s.every((x) => /^R\$\s?[\d.]+,\d{2}$/.test(x.title)); }));
     await nav(p, 'parcelamentos'); await p.waitForTimeout(1200);
     ok('Parcelamentos: sem o botão "Notificar clientes" (o envio é pelo quadro de guias)', !/Notificar clientes/.test(await p.textContent('#panel-parcelamentos')));
     await nav(p, 'processos'); await p.waitForTimeout(1200);
@@ -1104,7 +1126,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('Início: lembretes num cartão próprio, sem o ⓘ', !(await p.$('#ini-lembretes .info-i')) && !(await p.$('#panel-hoje .ini-fila .info-i')));
     // Painel: sem faixa, "Atualizado" e entidades/grupos na linha do filtro
     await nav(p, 'resumo'); await p.waitForTimeout(1500);
-    ok('Painel: sem a faixa "Painel Executivo" e com "Atualizado" na linha do filtro', !(await p.isVisible('#panel-resumo > .mod-banner')) && await p.isVisible('#gx-linha-painel'));
+    ok('Painel (B76): sem a faixa antiga; entidades e grupos contados na própria tela', !(await p.isVisible('#panel-resumo > .mod-banner')) && !(await p.isVisible('#gx-linha-painel')) && /entidade/.test(await p.textContent('#panel-resumo .b-pe-conta')));
     ok('Painel: contadores rolam com a página (não ficam presos no topo)', await p.evaluate(() => getComputedStyle(document.getElementById('gx-linha-painel')).position !== 'fixed'));
     ok('Painel: sem "Por grupo / Lista" e sem "Mostrar mais" (todas as linhas)', !(await p.$('#pe-visao')) && !(await p.isVisible('#panel-resumo .pag-rodape')));
     // Backup 73: "Empresas do grupo" é a tabela nova (#pe-nova), com as mesmas colunas; a antiga fica escondida
@@ -1112,7 +1134,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       const grupos = await p.$$eval('#pe-nova tbody tr[data-b-k]', (l) => l.map((t) => t.cells[0].textContent.trim()));
       ok('B73 Painel → Empresas do grupo: tabela nova com as colunas de antes, em ordem de grupo e sem bolinha no grupo', (await p.$$eval('#pe-nova thead th', (l) => l.map((t) => t.textContent.replace(/[↑↓]/g, '').trim()).join('|'))) === 'Grupo|Entidade / sócio|CPF/CNPJ|RFB|PGFN|AGE/MG|Total|Operação|Situação' &&
         grupos.length > 0 && grupos.every((g, i) => grupos.indexOf(g) === i || grupos[i - 1] === g) && !(await p.$('#pe-nova .b-ponto')) && !(await p.isVisible('#execRankWrap')), grupos.join(' | ')); }
-    ok('B73 Painel: abas Ativos · Consultoria · Serviço pontual · Inativos · Todos e "Filtros" (área, grupo, operação, situação)', (await p.$$eval('#pe-nova [data-b-aba]', (l) => l.map((b) => b.dataset.bAba).join(','))) === 'at,cons,pont,in,todos' && (await p.$$('#pe-nova [data-bt=l]')).length === 4);
+    ok('B73/B76 Painel: abas Ativos · Consultoria · Serviço pontual · Inativos · Todos e "Filtros" (área, operação, situação; grupo no topo)', (await p.$$eval('#pe-nova [data-b-aba]', (l) => l.map((b) => b.dataset.bAba).join(','))) === 'at,cons,pont,in,todos' && (await p.$$('#pe-nova [data-bt=l]')).length === 3 && !!(await p.$('#pe-grupo')));   // B76: o grupo fica no topo da tela (vale para os números, a evolução e a tabela)
     ok('B73 Painel: faixa de números no topo (Passivo total … Ativo em disputa), sem os 3 blocos de cartões', (await p.$$('#pe-nums .b-nums-faixa > div')).length === 8 && !(await p.isVisible('#execKpiSection')) && /Passivo total/.test(await p.textContent('#pe-nums')));
     await p.click('#pe-nova tbody tr[data-b-k]:has-text("Alfa Comércio") td:nth-child(2)'); await p.waitForTimeout(400);
     await p.waitForFunction(() => [...document.querySelectorAll('#janelas .janela h2')].some((h) => /Alfa Comércio/i.test(h.textContent)), null, { timeout: 8000 }).catch(() => {});
@@ -1355,19 +1377,22 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     // Backup 33: Painel Executivo — evolução do passivo em linhas (total ou por empresa)
     await p.evaluate(() => nav(null, 'resumo')); await p.waitForTimeout(1500);
     await p.waitForTimeout(1500);
-    ok('Painel (B73): "Evolução do passivo" já aberta, com a escala começando em 0', await p.isVisible('#cEvoPassivo') && await p.evaluate(() => { const ch = Chart.getChart('cEvoPassivo'); return !!ch && ch.scales.y.min === 0; }));
-    ok('Painel: gráfico de linhas "Evolução do passivo"', await p.evaluate(() => { const c = document.getElementById('cEvoPassivo'); const ch = c && window.Chart && Chart.getChart(c); return !!ch && ch.config.type === 'line' && ch.data.labels.length >= 2 && ch.data.labels.length <= 12; }));
-    ok('Painel (B45/B73): Empresas do grupo com valores resumidos (R$ 3 mil, R$ 1,3 mi) e o valor completo ao passar o mouse', await p.evaluate(() => { const v = [...document.querySelectorAll('#pe-nova .b-pe-v')];
-      return v.length > 0 && v.every((x) => /^R\$ [\d.,]+( mil| mi)?$/.test(x.textContent.trim()) && /^R\$\s?[\d.]+,\d{2}$/.test(x.title)); }));
-    ok('Painel: evolução abre em "Tudo junto" (uma linha só)', await p.evaluate(() => Chart.getChart(document.getElementById('cEvoPassivo')).data.datasets.length === 1));
-    ok('Painel: evolução sem os meses antes do primeiro lançamento (nada de cair para zero)', await p.evaluate(() => Chart.getChart(document.getElementById('cEvoPassivo')).data.datasets[0].data[0] != null));
-    await p.click('#evo-visao [data-v=linhas]'); await p.waitForTimeout(500);
-    ok('Painel: evolução com uma linha por grupo', await p.evaluate(() => Chart.getChart(document.getElementById('cEvoPassivo')).data.datasets.length === Number(document.querySelectorAll('#execRankWrap tr.gx-grp').length || 2) || Chart.getChart(document.getElementById('cEvoPassivo')).data.datasets.length >= 2));
-    await p.click('#evo-visao [data-v=total]'); await p.waitForTimeout(500);
-    ok('Painel: "Tudo junto" soma numa linha só', await p.evaluate(() => Chart.getChart(document.getElementById('cEvoPassivo')).data.datasets.length === 1));
-    await p.evaluate(() => { FILTROS.grupo = 'Grupo Alfa'; renderExecRanking(); }); await p.click('#evo-visao [data-v=linhas]'); await p.waitForTimeout(500);
-    ok('Painel: com um grupo no filtro do topo, uma linha por empresa do grupo', /empresa/.test(await p.textContent('#evo-bt-linhas')) && await p.evaluate(() => Chart.getChart(document.getElementById('cEvoPassivo')).data.datasets.every((d) => d.label !== 'Grupo Alfa')));
-    await p.evaluate(() => { FILTROS.grupo = ''; renderExecRanking(); });
+    await p.waitForSelector('#pe-evo-graf svg.b-graf', { timeout: 8000 }).catch(() => {});
+    const evo = () => p.evaluate(() => { const s = document.querySelector('#pe-evo-graf svg.b-graf'); return s ? { n: +s.dataset.n, m: +s.dataset.m, nomes: s.dataset.nomes, ini: s.dataset.ini, zero: [...s.querySelectorAll('.g-eixo')].some((x) => x.textContent === '0') } : null; });
+    { const e1 = await evo();
+      ok('Painel (B73/B76): "Evolução do passivo" já aberta, com a escala começando em 0', !!e1 && e1.zero, JSON.stringify(e1));
+      ok('Painel: gráfico de linhas "Evolução do passivo"', !!e1 && e1.m >= 2 && e1.m <= 12, JSON.stringify(e1));
+      ok('Painel (B45/B73): Empresas do grupo com valores resumidos (R$ 3 mil, R$ 1,3 mi) e o valor completo ao passar o mouse', await p.evaluate(() => { const v = [...document.querySelectorAll('#pe-nova .b-pe-v')];
+        return v.length > 0 && v.every((x) => /^R\$ [\d.,]+( mil| mi)?$/.test(x.textContent.trim()) && /^R\$\s?[\d.]+,\d{2}$/.test(x.title)); }));
+      ok('Painel: evolução abre em "Tudo junto" (uma linha só)', !!e1 && e1.n === 1);
+      ok('Painel: evolução sem os meses antes do primeiro lançamento (nada de cair para zero)', !!e1 && e1.ini === '1'); }
+    await p.click('#pe-evo-visao [data-v=linhas]'); await p.waitForTimeout(500);
+    { const e2 = await evo(); ok('Painel: evolução com uma linha por grupo', !!e2 && e2.n >= 2, JSON.stringify(e2)); }
+    await p.click('#pe-evo-visao [data-v=total]'); await p.waitForTimeout(500);
+    ok('Painel: "Tudo junto" soma numa linha só', (await evo()).n === 1);
+    await p.selectOption('#pe-grupo', 'Grupo Alfa'); await p.waitForTimeout(800); await p.click('#pe-evo-visao [data-v=linhas]'); await p.waitForTimeout(600);
+    { const e3 = await evo(); ok('Painel: com um grupo escolhido no topo, uma linha por empresa do grupo', /empresa/.test(await p.textContent('#pe-evo-visao')) && !!e3 && !/Grupo Alfa/.test(e3.nomes), JSON.stringify(e3)); }
+    await p.selectOption('#pe-grupo', ''); await p.waitForTimeout(600); await p.click('#pe-evo-visao [data-v=total]');
 
     // Backup 43: a Planilha de parcelamentos (preencher emissão, pagamento, valor da última parcela, observação) voltou
     await p.evaluate(() => nav(null, 'rotina')); await p.waitForSelector('#rt-abas'); await p.click('#rt-abas [data-rt-aba=planilha]');
@@ -1540,13 +1565,12 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       ok('B49: E-mail → Para revisar com a chave "conferir antes de enviar"', !!(await p.$('#em-revisar')) && !!(await p.$('[data-saida-f=revisar][aria-pressed=true]')));
       ok('B55: sem a tela Automações; a chave "conferir antes de enviar" fica na Caixa de saída', !!(await p.$('#em-revisar')));
       // Financeiro: Perdas dentro de Recebidos
-      await nav(p, 'financeiro'); await p.evaluate(() => setFinTab('recebidos', document.querySelector('#finTabBar [data-tab=recebidos]'))); await p.waitForTimeout(800);
-      ok('B49: Financeiro sem a aba Prejuízo; "Perdas" é filtro dentro de Recebidos', !(await p.isVisible('#finTabBar [data-tab=prejuizo]')) && !!(await p.$('#fin-perdas-seg [data-fin-perdas="1"]')));
-      await p.click('#fin-perdas-seg [data-fin-perdas="1"]'); await p.waitForTimeout(800);
-      ok('B49: o filtro Perdas mostra o prejuízo e mantém Recebidos aceso', await p.evaluate(() => _finTab === 'prejuizo') && await p.evaluate(() => document.querySelector('#finTabBar [data-tab=recebidos]').classList.contains('active')) &&
-        !!(await p.$('#fin-perdas-seg [data-fin-perdas="1"].ativo')));
-      await nav(p, 'financeiroContab'); await p.evaluate(() => setFinCTab('analise', document.querySelector('#finCTabBar [data-tab=analise]'))); await p.waitForTimeout(1500);
-      ok('B49/B74: Contabilidade com os mesmos 5 números do Jurídico (faixa)', (await p.$$('#finCContent .b-nums-faixa > div')).length === 5);
+      await nav(p, 'financeiro'); await p.waitForTimeout(800); await finAba(p, 'financeiro', 'lanc', 'recebido');
+      ok('B49/B76: Financeiro → Lançamentos com os botões A receber · Recebido · Perdas (sem aba Prejuízo separada)', !!(await p.$('#panel-financeiro #fin-tab [data-b-aba=perda]')) && !(await p.$('#panel-financeiro #fin-abas [data-aba=prejuizo]')));
+      await p.click('#panel-financeiro #fin-tab [data-b-aba=perda]'); await p.waitForTimeout(600);
+      ok('B49/B76: o botão Perdas mostra o prejuízo', await p.evaluate(() => GS.E.tabB['fin-escritorio'].aba === 'perda') && !!(await p.$('#panel-financeiro #fin-tab [data-b-aba=perda][aria-selected=true]')));
+      await nav(p, 'financeiroContab'); await p.waitForTimeout(800); await finAba(p, 'financeiroContab', 'analise');
+      ok('B49/B74: Contabilidade com os mesmos 5 números do Jurídico (faixa)', (await p.$$('#panel-financeiroContab #fin-corpo .b-nums-faixa > div')).length === 5);
       // Contratos: reajuste anual
       const ctrR = sql("insert into contratos (cliente_id, descricao, modalidade, forma_valor, valor_mensal, data_contrato, inicio_vigencia, status) values ('" + cliQ + "', 'Consultoria B49 reajuste', 'consultoria', 'fixo', 1000, current_date - 360, current_date - 360, 'Ativo') returning id").split('\n')[0];
       await nav(p, 'contratos'); await p.waitForSelector('#ctr-reaj', { timeout: 8000 }).catch(() => {});
@@ -1565,7 +1589,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     { await nav(p, 'tarefas'); await p.evaluate(() => { GS.E.tf = null; if (GS.E.tabB) delete GS.E.tabB.tarefas; }); await nav(p, 'tarefas'); await p.waitForTimeout(1500);   // B72: a aba da Lista fica guardada; volta para "Em aberto"
       const cab = await p.$$eval('#panel-tarefas table thead th', (l) => l.map((t) => t.textContent.trim()).filter(Boolean)).catch(() => []);
       ok('B50/B72 Tarefas: Prazo e Situação (ex-"Dias") em colunas separadas e status com cor', cab.some((c) => /^Prazo/.test(c)) && cab.includes('Situação') && !!(await p.$('#panel-tarefas .pill.tf-st')), cab.join('|'));
-      await nav(p, 'financeiro'); await p.evaluate(() => setFinTab('receber', document.querySelector('#finTabBar [data-tab=receber]'))); await p.waitForTimeout(1500);
+      await nav(p, 'financeiro'); await p.waitForTimeout(800); await finAba(p, 'financeiro', 'lanc', 'areceber');
       ok('B50 Financeiro: valor a receber em verde e botões da linha numa linha só', await p.evaluate(() => {
         const v = document.querySelector('#panel-financeiro td.b-val.valor-rec');   // Backup 70: tabela nova (tabelaLancB)
         const td = document.querySelector('#panel-financeiro td .gx-cobrar'); const bs = td ? [...td.closest('td').querySelectorAll('button')].map((b) => Math.round(b.getBoundingClientRect().top)) : [];
@@ -1747,14 +1771,12 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
         const fim = Math.max(...[...bd.children].map((c) => c.getBoundingClientRect().bottom)); return bd.getBoundingClientRect().bottom - fim <= 40 && !bd.style.height; }));
       await p.click('#panel-hoje [data-fila-vista=mes]'); await p.waitForTimeout(800);
       // C4/P3: sem borda azul nos grupos; cabeçalho de grupo igual ao de Clientes
-      await nav(p, 'processos'); await p.waitForTimeout(1500);
-      const grpProc = await p.evaluate(() => { const td = document.querySelector('#panel-processos tr.gx-grp > td'); if (!td) return null; const c = getComputedStyle(td); return [c.backgroundColor, c.boxShadow, c.fontSize].join('|'); });
       await nav(p, 'clientes'); await p.waitForTimeout(1500);
       const grpCli = await p.evaluate(() => { const td = document.querySelector('#panel-clientes tr.cli-grp > td'); if (!td) return null; const c = getComputedStyle(td); return [c.backgroundColor, c.boxShadow, c.fontSize].join('|'); });
-      ok('B52 C4: Processos sem borda azul; o cabeçalho de grupo é a mesma faixa cinza de Clientes', !!grpProc && grpProc === grpCli && /\|none\|/.test(grpProc) && !(await p.evaluate(() => !!document.querySelector('.gc-ini,.gc-in,.gc-fim'))), grpProc + ' ≠ ' + grpCli);
+      ok('B52 C4/B76: sem borda azul nos grupos (Clientes; Processos agora é a tabela nova, com o grupo em coluna)', !!grpCli && /\|none\|/.test(grpCli) && !(await p.evaluate(() => !!document.querySelector('.gc-ini,.gc-in,.gc-fim'))), grpCli);
       // P1: o filtro é a mesma pílula em todas as telas
       const pilula = async (tela, sel) => { await nav(p, tela); await p.waitForTimeout(1200); return p.evaluate((s2) => { const b = document.querySelector(s2); if (!b) return null; const c = getComputedStyle(b); return [c.backgroundColor, c.color, c.borderRadius, c.fontSize].join('|'); }, sel); };
-      const pIni = await pilula('hoje', '#panel-hoje .fila-chips .fila-chip.ativo'), pPai = await pilula('resumo', '#panel-resumo .gx-seg-cli > button.ativo'),
+      const pIni = await pilula('hoje', '#panel-hoje .fila-chips .fila-chip.ativo'), pPai = await pilula('clientes', '#panel-clientes .filtros .segmento > button.ativo'),   // B76: o Painel novo não tem pílulas de filtro (grupo no topo)
         pCli = await pilula('clientes', '#panel-clientes .filtros .segmento > button.ativo');
       ok('B52 P1: o filtro escolhido tem o mesmo desenho no Início, no Painel e em Clientes', !!pIni && pIni === pPai && pIni === pCli, [pIni, pPai, pCli].join(' / '));
       // P4: situações com a mesma cor (Financeiro e Parcelamentos)
@@ -1976,6 +1998,47 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       p.off('dialog', ouve);
       ok('B55 Rotina: conferir uma empresa do passivo pede confirmação', dlg.some((m) => /conferida/.test(m)), dlg.join(' | '));
       sql("delete from lancamentos where descricao in ('Despesa contab B55','Despesa escritorio B55')");
+    }
+    // ── Backup 76: busca geral, conferências, desfazer na Rotina, contagem no menu, cabeçalho único, recibo e o fim das Notificações ──
+    { await nav(p, 'hoje'); await p.waitForTimeout(1500);
+      ok('B76 L4: cabeçalho único (ícone + título) em Tarefas, Clientes, CRM, Contratos, Documentos, Alertas, Publicações e Administração', await (async () => {
+        for (const tela of ['tarefas', 'clientes', 'crm', 'contratos', 'documentos', 'alertas', 'publicacoes', 'admin']) { await nav(p, tela); await p.waitForTimeout(900);
+          if (!(await p.$('#panel-' + tela + ' .b-cab .b-cab-ic svg'))) { console.log('   ↳ sem cabeçalho novo:', tela); return false; } }
+        return true; })());
+      await p.keyboard.press('Control+k'); await p.waitForSelector('#bg-in', { timeout: 5000 }).catch(() => {});
+      await p.fill('#bg-in', 'Alfa Com'); await p.waitForTimeout(600);
+      ok('B76 F1: Ctrl+K abre a busca geral e acha o cliente pelo nome', /Alfa Comércio/i.test(await p.textContent('#bg-res').catch(() => '')) && /Cliente/.test(await p.textContent('#bg-res').catch(() => '')));
+      await p.fill('#bg-in', '5000001'); await p.waitForTimeout(600);
+      ok('B76 F1: acha o processo pelo número (só os dígitos)', /Processo/.test(await p.textContent('#bg-res').catch(() => '')));
+      await p.keyboard.press('Enter'); await p.waitForTimeout(800);
+      ok('B76 F1: Enter abre a janela do processo', await p.evaluate(() => [...document.querySelectorAll('#janelas .janela h2')].some((h) => /Processo 5000001/.test(h.textContent))));
+      await p.evaluate(() => { while (document.querySelector('#janelas .fundo')) window.GS.fecharJanela(); });
+      ok('B76 F1: botão "Buscar" na barra de cima', await p.isVisible('#gs-buscar'));
+      // F3: conferências
+      sql("update clientes set email='' , recebe_email=true where nome='Beta Serviços Ltda'");
+      await p.evaluate(() => GS.carregarCadastros(true)); await nav(p, 'clientes'); await nav(p, 'hoje'); await p.waitForSelector('#ini-conf .ini-conf-it', { timeout: 8000 }).catch(() => {});
+      ok('B76 F3: Início mostra as conferências (ex.: cliente que recebe e-mail sem e-mail)', /sem e-mail|não têm e-mail|não tem e-mail/.test(await p.textContent('#ini-conf').catch(() => '')));
+      await p.click('#ini-conf [data-conf=cl]').catch(() => {}); await p.waitForTimeout(500);
+      ok('B76 F3: clicar abre a lista para corrigir', /Beta Serviços/.test(await p.textContent('#janelas').catch(() => '')));
+      await p.evaluate(() => { while (document.querySelector('#janelas .fundo')) window.GS.fecharJanela(); });
+      // L2: contagem no menu
+      sql("insert into tarefas(titulo,responsavel,prazo) values ('Atrasada menu B76','Pedro',current_date-2)"); await p.evaluate(() => ERP_RECARREGAR()); await p.waitForTimeout(3000);
+      await nav(p, 'clientes'); await p.waitForTimeout(500);
+      ok('B76 L2: número vermelho no menu ao lado de Tarefas (minhas atrasadas)', Number(await p.textContent('#tn [data-ir=tarefas] .tn-n').catch(() => '0')) >= 1);
+      sql("delete from tarefas where titulo='Atrasada menu B76'");
+      // F4: desfazer a conferência do passivo
+      await p.evaluate(() => { GS.E.rt = Object.assign(GS.E.rt || {}, { aba: 'passivo' }); nav(null, 'rotina'); }); await p.waitForSelector('#rt-pas-corpo [data-conferir]', { timeout: 10000 }).catch(() => {});
+      const n0 = Number(sql("select count(*) from rotina_conferencias where area='passivo'"));
+      p.once('dialog', (d) => d.accept()); await p.click('#rt-pas-corpo [data-conferir]'); await p.waitForTimeout(1200);
+      const n1 = Number(sql("select count(*) from rotina_conferencias where area='passivo'"));
+      await p.click('#gx-rodape .gx-rod-bt').catch(() => {}); await p.waitForTimeout(1500);
+      const n2 = Number(sql("select count(*) from rotina_conferencias where area='passivo'"));
+      ok('B76 F4: conferir uma linha do Passivo e "Desfazer" apaga a conferência', n1 === n0 + 1 && n2 === n0, n0 + '→' + n1 + '→' + n2);
+      // S4: Notificações saiu; recibo na Central
+      await p.evaluate(() => nav(null, 'notificacoes')); await p.waitForTimeout(1200);
+      ok('B76 S4: a tela antiga de Notificações não abre mais (vai para o Financeiro)', !(await p.isVisible('#panel-notificacoes')) && await p.isVisible('#panel-financeiro'));
+      await p.click('#gs-main-financeiro #fin-recibo'); await p.waitForTimeout(1500);
+      ok('B76 S4: "Recibo" abre a Central de Documentos já no modelo de recibo', /modelo=recibo/.test((await p.getAttribute('#ger-frame', 'src').catch(() => '')) || ''));
     }
     // ── sair ──
     await p.evaluate(() => acLogout()); await p.waitForTimeout(800);

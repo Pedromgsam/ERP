@@ -38,6 +38,7 @@
   ];
   // ícones de traço fino (estilo dos prints): 16 px, cor do texto
   const ICONES = {
+    busca: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
     inicio: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
     tarefas: '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
     rotina: '<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M9 14l2 2 4-4"/>',
@@ -56,12 +57,15 @@
   };
   const icone = (k) => '<svg class="tn-ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICONES[k] || '') + '</svg>';
   // Cobranças, avisos e recibos (antiga "Notificações"): fora da barra; abre pelo botão ✉ de cada tela e pelo ⋯
-  const FUNC_EXTRA = { notificacoes: 'clientes' };   // a Central de e-mails confere o acesso no banco
+  const FUNC_EXTRA = {};
   // painéis novos → tela do Gestão que desenha nele
-  const TELAS_GS = { hoje: 'inicio', contratos: 'contratos', clientes: 'clientes', crm: 'crm', publicacoes: 'publicacoes', documentos: 'documentos', gerador: 'gerador', tarefas: 'tarefas', alertas: 'alertas', rotina: 'rotina', execucoes: 'execucoes', admin: 'admin', parcelamentos: 'parcelamentos', acordos: 'acordos' };
+  const TELAS_GS = { hoje: 'inicio', contratos: 'contratos', clientes: 'clientes', crm: 'crm', publicacoes: 'publicacoes', documentos: 'documentos', gerador: 'gerador', tarefas: 'tarefas', alertas: 'alertas', rotina: 'rotina', execucoes: 'execucoes', admin: 'admin', parcelamentos: 'parcelamentos', acordos: 'acordos', financeiro: 'juridico', financeiroContab: 'contabilidade', resumo: 'painelExec', processos: 'processosERP' };   // Backup 76: Financeiro (S1), Painel (S2) e Processos (S3) novos
   // Backup 68 (reforma, etapa 3): Parcelamentos é tela nova para a equipe; o cliente (portal) continua vendo a antiga
-  const SO_EQUIPE_GS = ['parcelamentos', 'acordos'];
-  const ehGS = (id) => !!TELAS_GS[id] && !(SO_EQUIPE_GS.includes(id) && ehCliente());
+  // Backup 76 (S5): o cliente também usa as telas novas; o Início dele é o portal (as outras telas novas já são só leitura para quem não edita)
+  const TELAS_CLIENTE = { resumo: 'portalInicio' };
+  const telaGS = (id) => (ehCliente() && TELAS_CLIENTE[id]) || TELAS_GS[id];
+  const ehGS = (id) => !!TELAS_GS[id];
+  window.ERP_TELA_NOVA = ehGS;   // Backup 76: o ERP antigo pula o desenho escondido destas telas
 
   // "+ Lançar": formulários do Gestão onde existem; os demais, do editor do ERP
   const empresaAtual = () => (_painel === 'financeiroContab' ? 'contabilidade' : 'escritorio');
@@ -116,6 +120,8 @@
     // Backup 38: barra de cima branca = nome da tela à esquerda; + Lançar, tema, ⋯, sessão, pessoa e Sair à direita (sem o sino de avisos)
     hd.innerHTML =
       '<span id="gs-tela-nome"></span>' +
+      // Backup 76 (F1): busca geral — também com Ctrl+K (⌘K no Mac)
+      '<button type="button" id="gs-buscar" class="gs-buscar" title="Buscar cliente, CPF/CNPJ, processo, parcelamento, acordo ou tarefa (Ctrl+K)">' + icone('busca') + '<span>Buscar</span><kbd>Ctrl K</kbd></button>' +
       '<div class="tn-lancar gx-so-equipe"><button type="button" class="tn-lancar-bt" aria-haspopup="true" aria-expanded="false">+ Lançar</button>' +
       '<div class="tn-menu tn-menu-dir" role="menu">' + LANCAR.map((x, i) => '<button type="button" role="menuitem" data-lancar="' + i + '">' + esc(x[0]) + '</button>').join('') + '</div></div>' +
       '<div class="hd-usuario"><button type="button" id="gs-tema" title="Modo escuro / claro" aria-label="Alternar modo escuro" aria-pressed="false">◐</button>' +
@@ -132,6 +138,7 @@
           '<div class="tn-menu" role="menu">' + m.itens.map((x) => '<button type="button" role="menuitem"' + (x[3] ? ' class="gx-so-equipe"' : '') + ' data-ir="' + x[0] + '">' + esc(x[1]) + '</button>').join('') + '</div></div>').join('') +
       '</nav><button type="button" id="gs-encolher" title="Encolher / abrir a barra" aria-label="Encolher ou abrir a barra lateral">' + icone('encolher') + '<span class="tn-rot">encolher</span></button>';
     document.body.insertBefore(lado, document.body.firstChild);
+    const bb = document.getElementById('gs-buscar'); if (bb) bb.onclick = () => { if (GS() && GS().abrirBuscaGeral) GS().abrirBuscaGeral(); };
     try { if (localStorage.getItem('erp_lado_min') === '1') document.body.classList.add('gx-lado-min'); } catch (e) { /* sem armazenamento: começa aberta */ }
     document.getElementById('gs-encolher').onclick = () => { const min = document.body.classList.toggle('gx-lado-min'); try { localStorage.setItem('erp_lado_min', min ? '1' : '0'); } catch (e) { /* vale só agora */ } };
     document.body.insertBefore(hd, document.body.firstChild);
@@ -249,13 +256,41 @@
   function desenharGS(id) {
     if (!GS() || !ehGS(id)) return;
     if (id === 'admin' && !ehAdmin()) return;
-    return GS().irPara(TELAS_GS[id], document.getElementById('gs-main-' + id));
+    if (id === 'resumo' && ehCliente()) rotuloInicioCliente();
+    return GS().irPara(telaGS(id), document.getElementById('gs-main-' + id));
   }
 
+  // ═══════ Backup 76 (L2): contagem discreta no menu — tarefas minhas atrasadas, publicações novas, parcelas de parcelamento vencidas ═══════
+  let _pubN = { n: 0, em: 0 };
+  function contagensMenu() {
+    if (ehCliente() || !document.getElementById('tn')) return;
+    const D = dbERP(), hoje = new Date().toISOString().slice(0, 10);
+    const eu = String((window.AC_SESSION && window.AC_SESSION.nome) || '').trim().split(/\s+/)[0].normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const prim = (n) => String(n || '').trim().split(/\s+/)[0].normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const tarefas = (D.tarefas || []).filter((x) => x.prazo && x.prazo < hoje && !/conclu|cancel|exclu/i.test(x.status || '') && (!eu || prim(x.responsavel) === eu)).length;
+    let vencidas = 0; (D.parcelamentos || []).forEach((p) => (p.parcelas || []).forEach((x) => { if (x.status === 'Inadimplente') vencidas++; }));
+    const marca = (id, n, dica) => document.querySelectorAll('#tn [data-ir="' + id + '"]').forEach((b) => {
+      let s = b.querySelector(':scope > .tn-n'); if (!n) { if (s) s.remove(); return; }
+      if (!s) { s = document.createElement('span'); s.className = 'tn-n'; b.appendChild(s); } s.textContent = n > 99 ? '99+' : String(n); s.title = dica; });
+    marca('tarefas', tarefas, 'Minhas tarefas atrasadas'); marca('parcelamentos', vencidas, 'Parcelas vencidas'); marca('publicacoes', _pubN.n, 'Publicações novas');
+    // no grupo fechado (Jurídico), a soma aparece no próprio grupo
+    document.querySelectorAll('#tn .tn-grupo').forEach((g) => { const soma = [...g.querySelectorAll('.tn-menu .tn-n')].reduce((s, x) => s + (parseInt(x.textContent, 10) || 0), 0);
+      const bt = g.querySelector('.tn-abre'); if (!bt) return; let s = bt.querySelector('.tn-n');
+      if (!soma) { if (s) s.remove(); return; } if (!s) { s = document.createElement('span'); s.className = 'tn-n tn-n-grupo'; bt.insertBefore(s, bt.querySelector('.tn-seta')); } s.textContent = soma > 99 ? '99+' : String(soma); });
+    if (Date.now() - _pubN.em > 120000 && window.SB) { _pubN.em = Date.now();
+      window.SB.from('publicacoes').select('id', { count: 'exact', head: true }).eq('status', 'nova').then(({ count }) => { if (typeof count === 'number' && count !== _pubN.n) { _pubN.n = count; contagensMenu(); } }); }
+  }
+  setInterval(() => { try { contagensMenu(); } catch (e) { /* menu ainda não montado */ } }, 300000);
+  // no portal do cliente, "Painel Executivo" se chama "Início"
+  function rotuloInicioCliente() {
+    const m = MENU.find((x) => x.id === 'resumo'); if (m) m.rot = 'Início';
+    document.querySelectorAll('#tn [data-ir=resumo] .tn-rot').forEach((x) => { x.textContent = 'Início'; });
+    const nt = document.getElementById('gs-tela-nome'); if (nt && /Painel Executivo/.test(nt.textContent)) nt.textContent = 'Início';
+  }
   let _painel = '', _voltando = false;
   function nomeTela(id) {
     for (const m of MENU) { if (m.id === id) return m.rot; const x = (m.itens || []).find((i) => i[0] === id); if (x) return m.rot + ' · ' + x[1]; }
-    return { notificacoes: 'Tela antiga de cobranças' }[id] || '';
+    return '';
   }
   function destacar(id) {
     const tn = document.getElementById('gs-tela-nome'); if (tn) tn.textContent = nomeTela(id);
@@ -264,239 +299,10 @@
     document.querySelectorAll('#tn .tn-grupo').forEach((g) => { const tem = !!g.querySelector('[data-ir="' + id + '"]'); g.classList.toggle('ativo', tem);
       if (tem && !document.body.classList.contains('gx-lado-min')) { g.classList.add('on'); const b = g.querySelector('.tn-abre'); if (b) b.setAttribute('aria-expanded', 'true'); } });
   }
-  // ✉ dentro de cada tela: abre "Cobranças, avisos e recibos" já na aba certa
-  let _abaCobranca = 'hon';
-  function abrirCobrancas(aba) {
-    _abaCobranca = aba || 'hon';
-    if (_painel !== 'notificacoes') { ir('notificacoes'); return; }
-    const b = document.querySelector('#notif-tab-bar [data-nt="' + _abaCobranca + '"]');
-    if (typeof window.notifAba === 'function') window.notifAba(_abaCobranca, b);
-  }
-  function botoesCobranca() {
-    [['panel-financeiro', 'hon', '✉ Cobrar clientes', true], ['panel-financeiroContab', 'hon', '✉ Cobrar clientes', true]]   // Backup 29: "Notificar clientes" saiu de Parcelamentos/Acordos (o envio é pelo quadro de guias)
-      .forEach(([pid, aba, rot, recibo]) => {
-        const ban = document.querySelector('#' + pid + ' .mod-banner'); if (!ban || document.querySelector('#' + pid + ' .gx-cobrar')) return;
-        const d = document.createElement('div'); d.className = 'gx-cobrar gx-so-equipe';
-        // Backup 40: fica só o Recibo (Conciliar extrato e Editar em tabela saíram); ícone de traço no lugar do emoji
-        d.innerHTML = (recibo ? '<button type="button" data-cob="rec">' + icone('recibo') + 'Recibo</button>' : '');
-        d.querySelectorAll('[data-cob]').forEach((b) => b.onclick = () => abrirCobrancas('rec'));
-        ban.appendChild(d);
-      });
-  }
-  // ═══════ Backup 20: tabelas do ERP antigo no MESMO padrão de Clientes ═══════
-  // "Por grupo" (linha de título com o grupo e quantos cadastros) ou "Lista"; ▸ na frente de cada linha, que abre o detalhe logo abaixo;
-  // filtros discretos (segmentos com fundo azul no escolhido). Vale para Painel → Empresas do grupo e Processos.
-  const _pad = { emp: { visao: 'grupo', tipo: 'ativos', area: '', grupo: '', busca: '' }, proc: { visao: 'grupo' } };
+  // Backup 76: as tabelas antigas do Painel e de Processos saíram (equipe e cliente usam as telas novas); ficam só os ajudantes usados abaixo
   const escH = (t) => String(t == null ? '' : t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const normH = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
   // o DB do ERP é um const do script principal: existe como nome global, mas NÃO como window.DB
   const dbERP = () => { try { return DB || {}; } catch (e) { return {}; } }; // eslint-disable-line no-undef
-  // Backup 51: índice por id (antes, cada linha procurava na lista inteira: 500 empresas = 250 mil comparações no Painel)
-  const _idxReg = new WeakMap();
-  const regDe = (lista, tr) => { const id = (tr.dataset.gx || '').split(':')[1]; if (!lista) return undefined;
-    let m = _idxReg.get(lista); if (!m || m.n !== lista.length) { m = new Map(); lista.forEach((x) => { if (!m.has(x._id)) m.set(x._id, x); }); m.n = lista.length; _idxReg.set(lista, m); }
-    return m.get(id); };
-  function tabelaPadrao(tbody, o) {
-    const table = tbody && tbody.closest('table'); if (!table) return;
-    // Backup 27: sem a seta (Painel abre a ficha; Processos abre a janela) — a coluna continua no lugar, só escondida,
-    // para as regras de coluna (nth-child) não mudarem
-    table.classList.toggle('gx-sem-seta', !!o.semSeta);
-    const cab = table.querySelector('thead tr:last-child');
-    if (cab && !cab.querySelector('.gx-th-seta')) { const th = document.createElement('th'); th.className = 'gx-th-seta'; th.setAttribute('aria-label', 'Abrir'); cab.insertBefore(th, cab.firstChild); }
-    tbody.querySelectorAll(':scope > tr.gx-grp, :scope > tr.gx-det').forEach((x) => x.remove());
-    const linhas = [...tbody.querySelectorAll(':scope > tr[data-gx]')];
-    linhas.forEach((tr) => {
-      if (!tr.querySelector(':scope > td.gx-seta')) { const td = document.createElement('td'); td.className = 'gx-seta'; td.textContent = o.popup ? '›' : '▸'; tr.insertBefore(td, tr.firstChild); }
-      tr.classList.add('gx-linha-exp'); tr.classList.remove('gx-aberta'); tr.setAttribute('aria-expanded', 'false'); tr.tabIndex = 0;
-      tr.hidden = o.filtro ? !o.filtro(tr) : false;
-    });
-    const vazia = tbody.querySelector(':scope > tr:not([data-gx]) td[colspan]'); if (vazia) vazia.colSpan = 50;
-    if (_pad[o.chave].visao === 'grupo' && o.semDivisao) {   // Backup 40: ordena por grupo, sem a faixa "GRUPO X · N cadastros" nem o contorno
-      linhas.slice().sort((a, b) => (o.grupo(a) || '￿').localeCompare(o.grupo(b) || '￿', 'pt-BR')).forEach((tr) => tbody.appendChild(tr));
-    } else if (_pad[o.chave].visao === 'grupo') {
-      const ord = linhas.slice().sort((a, b) => (o.grupo(a) || '￿').localeCompare(o.grupo(b) || '￿', 'pt-BR'));
-      ord.forEach((tr) => tbody.appendChild(tr));
-      const vis = ord.filter((tr) => !tr.hidden); let ult = null;
-      vis.forEach((tr) => { const g = o.grupo(tr) || ''; if (g === ult) return; ult = g;
-        const n = vis.filter((x) => (o.grupo(x) || '') === g).length, h = document.createElement('tr');
-        h.className = 'gx-grp'; h.innerHTML = '<td colspan="50">' + escH(g || 'Sem grupo') + ' <span class="sub">' + n + ' ' + (n === 1 ? o.um : o.varios) + '</span></td>'; tr.before(h); });
-    }
-    if (!tbody._gxPad) {
-      tbody._gxPad = true;
-      const abrir = (tr) => {
-        if (tbody._gxClique) return tbody._gxClique(tr);   // Backup 27: Painel abre direto a ficha completa
-        if (tbody._gxPopup) return tbody._gxPopup(tr);   // Backup 21: Processos abre uma janela em vez de abrir para baixo
-        const aberta = tr.classList.contains('gx-aberta');
-        tbody.querySelectorAll(':scope > tr.gx-det').forEach((x) => x.remove());
-        tbody.querySelectorAll(':scope > tr.gx-aberta').forEach((x) => { x.classList.remove('gx-aberta'); x.setAttribute('aria-expanded', 'false'); const s = x.querySelector('.gx-seta'); if (s) s.textContent = '▸'; });
-        if (aberta) return;
-        tr.classList.add('gx-aberta'); tr.setAttribute('aria-expanded', 'true'); const s = tr.querySelector('.gx-seta'); if (s) s.textContent = '▾';
-        const det = document.createElement('tr'); det.className = 'gx-det'; det.innerHTML = '<td colspan="50"><div class="gx-det-corpo">' + tbody._gxDet(tr) + '</div></td>'; tr.after(det);
-        det.querySelectorAll('[data-det-acao]').forEach((b) => b.onclick = () => tbody._gxAcao(b.dataset.detAcao, tr));
-      };
-      tbody.addEventListener('click', (ev) => { const tr = ev.target.closest('tr.gx-linha-exp'); if (!tr || ev.target.closest(tbody._gxClique ? 'button, a, input, select, .gx-la' : 'button, a, input, select, .gx-la, .lnk, .er-nome')) return; abrir(tr); });
-      tbody.addEventListener('keydown', (ev) => { const tr = ev.target.closest('tr.gx-linha-exp'); if (tr && (ev.key === 'Enter' || ev.key === ' ') && ev.target === tr) { ev.preventDefault(); abrir(tr); } });
-    }
-    tbody._gxDet = o.detalhe; tbody._gxAcao = o.acao || (() => {}); tbody._gxPopup = o.popup || null; tbody._gxClique = o.clique || null;
-  }
-  const seg = (id, ops, atual) => '<div class="segmento gx-seg-cli" id="' + id + '">' + ops.map(([v, r]) => '<button type="button" data-v="' + v + '" class="' + (v === atual ? 'ativo' : '') + '">' + r + '</button>').join('') + '</div>';
-  // ── Painel → Empresas do grupo ──
-  const kNeg = (v) => { v = Number(v) || 0; return v >= 1e6 ? (v / 1e6).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' mi' : Math.round(v / 1e3).toLocaleString('pt-BR') + 'k'; };
-  function filtrosEmpresas() {
-    const wrap = document.getElementById('execRankWrap'); if (!wrap || wrap.querySelector('#pe-filtros')) return;
-    const hd = wrap.querySelector('.cc-hd'); if (!hd) return;
-    const F = _pad.emp;
-    const d = document.createElement('div'); d.id = 'pe-filtros'; d.className = 'gx-filtros-cli';
-    d.innerHTML = '' +   // Backup 28: sem "Por grupo / Lista" (sempre por grupo)
-      seg('pe-tipo', [['ativos', 'Ativos'], ['Consultoria', 'Consultoria'], ['Demanda', 'Serviço pontual'], ['Inativo', 'Inativos'], ['todos', 'Todos']], F.tipo) +
-      seg('pe-area', [['', 'Todas as áreas'], ['juridico', 'Jurídico'], ['contabil', 'Contabilidade']], F.area || '') +   // Backup 39: mesmo estilo de Ativos/Consultoria
-
-      '<input type="text" class="fsel" id="pe-busca" placeholder="Buscar nome, grupo, sócio ou CPF/CNPJ" autocomplete="off">';
-    hd.appendChild(d);
-    const re = () => { if (typeof window.renderExecRanking === 'function') window.renderExecRanking(); };
-    d.querySelector('#pe-tipo').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.tipo = b.dataset.v; d.querySelectorAll('#pe-tipo button').forEach((x) => x.classList.toggle('ativo', x === b)); re(); } };
-    d.querySelector('#pe-area').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.area = b.dataset.v; d.querySelectorAll('#pe-area button').forEach((x) => x.classList.toggle('ativo', x === b)); re(); } };
-    let t; d.querySelector('#pe-busca').oninput = (ev) => { clearTimeout(t); t = setTimeout(() => { F.busca = ev.target.value; re(); }, 250); };
-  }
-  function padraoEmpresas() {
-    const tb = document.getElementById('tblExecRanking'); if (!tb || ehCliente()) return;
-    if (tb.parentElement) tb.parentElement.setAttribute('data-sem-pagina', '');   // Backup 28: mostra todas
-    filtrosEmpresas();
-    const F = _pad.emp, B = dbERP().baseDados || [], cli = GS() && GS().E ? GS().E.clientes || [] : [];
-    const busca = normH(F.busca), dig = String(F.busca || '').replace(/\D/g, '');
-    // valor negociado: "18k neg." (sem caixa alta)
-    tb.querySelectorAll('.tag.tv[title]').forEach((tg) => { const v = Number(String(tg.title).replace(/[^\d,]/g, '').replace(',', '.')); if (v) tg.textContent = kNeg(v) + ' neg.'; });
-    tb.querySelectorAll('.er-grupo[onclick], .er-nome[onclick]').forEach((x) => { x.removeAttribute('onclick'); x.title = 'Abrir a ficha completa'; });
-    // Backup 53: igual à tabela de Clientes — faixa cinza por grupo (nome + nº de empresas), coluna Grupo estreita, nome maior
-    tabelaPadrao(tb, { chave: 'emp', um: 'empresa', varios: 'empresas', semSeta: true,
-      clique: (tr) => { const r = regDe(B, tr) || {}; if (r._id && GS() && GS().abrirFicha) Promise.resolve(GS().carregarCadastros()).then(() => GS().abrirFicha(r._id)); },
-      grupo: (tr) => (regDe(B, tr) || {}).grupo || '',
-      filtro: (tr) => { const r = regDe(B, tr); if (!r) return true; const c = cli.find((x) => x.id === r._id) || {};
-        const tipo = r.tipoCliente || c.tipo || '';
-        if (F.tipo === 'ativos' && tipo === 'Inativo') return false;
-        if (F.tipo !== 'ativos' && F.tipo !== 'todos' && tipo !== F.tipo) return false;
-        if (F.area && (c.area || 'ambos') !== F.area && (c.area || 'ambos') !== 'ambos') return false;
-        if (F.grupo && r.grupo !== F.grupo) return false;
-        if (busca && !(normH([r.nome, r.grupo, r.socioAdmin].join(' ')).includes(busca) || (dig && String(r.cpfCnpj || '').replace(/\D/g, '').includes(dig)))) return false;
-        return true; },
-      detalhe: (tr) => { const r = regDe(B, tr) || {}, M = (v) => (Number(v) ? fBRL(v) : '—');
-        const lin = (o, v, n) => '<tr><td>' + o + '</td><td class="num">' + M(v) + '</td><td class="num">' + (Number(n) ? M(n) : '—') + '</td><td class="num">' + M((Number(v) || 0) + (Number(n) || 0)) + '</td></tr>';
-        return '<div class="gx-det-grade"><div><div class="gx-det-tit">Dívida por órgão</div><table class="gx-leg"><thead><tr><td>Órgão</td><td class="num">Em aberto</td><td class="num">Negociado</td><td class="num">Total</td></tr></thead><tbody>' +
-          lin('RFB', r.rfb, r.rfbNeg) + lin('PGFN', r.pgfn, r.pgfnNeg) + lin('AGE/MG', r.ageMG, r.ageMGNeg) + lin('SEFAZ/MG', r.sefaz, 0) + '</tbody></table>' +
-          (Number(r.ceat) ? '<div class="sub" style="margin-top:6px">CEAT/TRT3: ' + escH(r.ceat) + '</div>' : '') + '</div>' +
-          '<div><div class="gx-det-tit">Cadastro</div><div class="gx-det-dados">' + [['Grupo', r.grupo], ['Sócio', r.socioAdmin], ['CPF/CNPJ', r.cpfCnpj], ['CAPAG', r.capag], ['Situação', r.sitCadastral], ['Regime', r.regimeTrib]]
-            .filter((x) => x[1]).map((x) => '<div><span>' + x[0] + '</span><b>' + escH(x[1]) + '</b></div>').join('') + '</div></div></div>' +
-          '<div class="gx-det-acoes"><button type="button" class="btn-m" data-det-acao="ficha">Abrir ficha completa</button><button type="button" class="btn-m" data-det-acao="empresa">Ver processos e parcelamentos</button></div>'; },
-      acao: (a, tr) => { const r = regDe(B, tr) || {};
-        if (a === 'ficha' && GS() && GS().abrirFicha) Promise.resolve(GS().carregarCadastros()).then(() => GS().abrirFicha(r._id));
-        if (a === 'empresa' && typeof window.goEmpresa === 'function') window.goEmpresa(r.nome); } });
-  }
-  // ═══════ Backup 73: Painel Executivo como no ambiente de teste ═══════
-  // (1) uma faixa de números no lugar dos 3 blocos de cartões (mesmos valores, lidos dos cartões antigos, que ficam escondidos);
-  // (2) Empresas do grupo na tabela nova (tabelaB), com as MESMAS colunas de antes e sem bolinha no grupo.
-  const numDe = (t) => { const n = Number(String(t || '').replace(/[^\d,-]/g, '').replace(',', '.')); return isFinite(n) ? n : 0; };
-  const curtaMi = (v) => { const a = Math.abs(v); return a >= 1e6 ? 'R$ ' + (v / 1e6).toLocaleString('pt-BR', { maximumFractionDigits: 2 }) + ' mi' : a >= 1e3 ? 'R$ ' + (v / 1e3).toLocaleString('pt-BR', { maximumFractionDigits: 0 }) + ' mil' : 'R$ ' + Math.round(v).toLocaleString('pt-BR'); };
-  function painelNumeros() {
-    const sec = document.getElementById('execKpiSection'); if (!sec || ehCliente()) return;
-    sec.classList.add('gx-pe-antigo');
-    let el = document.getElementById('pe-nums');
-    if (!el) { el = document.createElement('div'); el.id = 'pe-nums'; el.className = 'gs'; sec.before(el); }
-    const card = (rot) => [...sec.querySelectorAll('.kc')].find((k) => (k.querySelector('.kl') || {}).textContent === rot);
-    const val = (rot) => { const k = card(rot); return k ? numDe((k.querySelector('.kv span[title]') || k.querySelector('.kv') || {}).textContent) : null; };
-    const itens = [['Passivo total', 'Passivo Tributário Total'], ['RFB', 'RFB'], ['PGFN', 'PGFN'], ['AGE/MG', 'AGE/MG'], ['Parcelamentos (saldo)', 'Saldo Parc. Tributário'],
-      ['Acordos (em aberto)', 'Acordos dos clientes c/ terceiros'], ['Passivo em disputa', 'Passivo em Disputas', 'b-verm'], ['Ativo em disputa', 'Ativo em Disputas', 'b-verde']];
-    el.innerHTML = '<div class="b-nums b-nums-faixa">' + itens.map(([r, k, c]) => { const v = val(k);
-      return '<div><span>' + escH(r) + '</span><b class="' + (c && v ? c : '') + '" title="' + (v == null ? '' : fBRL(v)) + '">' + (v == null ? '—' : curtaMi(v)) + '</b></div>'; }).join('') + '</div>';
-  }
-  // ═══════ Backup 74: PORTAL DO CLIENTE — Início de boas-vindas (pedido: "algo de home, introdutório") ═══════
-  // Fica no topo da tela de entrada do cliente (o painel do passivo continua embaixo). No menu do cliente, "Painel Executivo" vira "Início".
-  function portalBoasVindas() {
-    if (!ehCliente()) return;
-    const sec = document.getElementById('execKpiSection'); if (!sec) return;
-    const m = MENU.find((x) => x.id === 'resumo'); if (m) m.rot = 'Início';
-    document.querySelectorAll('#tn [data-ir=resumo] .tn-rot').forEach((x) => { x.textContent = 'Início'; });
-    const nomeTela = document.getElementById('gs-tela-nome'); if (nomeTela && /Painel Executivo/.test(nomeTela.textContent)) nomeTela.textContent = 'Início';
-    let el = document.getElementById('pt-home');
-    if (!el) { el = document.createElement('div'); el.id = 'pt-home'; el.className = 'gs pt-home'; const alvo = document.getElementById('execClienteAlert') || sec; alvo.before(el); }
-    const s = window.AC_SESSION || {}, grupos = String(s.grupos || '').split(',').map((g) => g.trim()).filter(Boolean);
-    const D = dbERP(), noGrupo = (g) => !grupos.length || grupos.includes(g);
-    const empresas = (D.baseDados || []).filter((b) => noGrupo(b.grupo));
-    const nomesEmp = new Set(empresas.map((b) => b.nome));
-    const parc = (D.parcelamentos || []).filter((p) => nomesEmp.has(p.empresa) || noGrupo(p.grupoNome) && p.grupoNome);
-    const hj = new Date(); hj.setHours(0, 0, 0, 0);
-    const dt = (br) => { const x = String(br || '').split('/'); return x.length === 3 ? new Date(+x[2], +x[1] - 1, +x[0]) : null; };
-    let atr = 0, mes = 0, vMes = 0;
-    parc.forEach((p) => (p.parcelas || []).forEach((pa) => { if (pa.pagamento === 'SIM') return; const d = dt(pa.vencimento); if (!d) return;
-      if (d < hj) atr++; else if (d.getMonth() === hj.getMonth() && d.getFullYear() === hj.getFullYear()) { mes++; vMes += Number(pa.valor || p.valorUltimaParcela || 0); } }));
-    const acs = (D.acordos || []).filter((a) => noGrupo(a.grupo) && a.pagamento !== 'SIM' && a.situacao !== 'Pago');
-    const procs = (D.processos || []).filter((p) => noGrupo(p.grupo) && !p.arquivamento);
-    const titulo = grupos.length === 1 ? grupos[0] : (s.nome || 'cliente');
-    const tile = (n, rot, sub, ir, cls) => '<button type="button" class="pt-tile' + (cls ? ' ' + cls : '') + '" data-pt-ir="' + ir + '"><b>' + n + '</b><span>' + escH(rot) + '</span>' + (sub ? '<small>' + escH(sub) + '</small>' : '') + '</button>';
-    el.innerHTML = '<section class="pt-banda"><div><div class="pt-marca">Araújo &amp; Castro</div><div class="pt-marca-s">Portal do cliente</div></div><div class="pt-banda-dir">' + escH(titulo) + '<small>' + empresas.length + (empresas.length === 1 ? ' empresa' : ' empresas') + '</small></div></section>' +
-      '<section class="pt-ola"><h1>Olá, ' + escH(titulo) + '!</h1><p>Este é o seu espaço no escritório. Aqui você acompanha, a qualquer hora, os <b>parcelamentos</b> e <b>acordos</b> das suas empresas, os <b>processos</b> e o <b>passivo tributário</b> — tudo atualizado pela nossa equipe.</p></section>' +
-      '<section class="pt-tiles">' + tile(mes, mes === 1 ? 'parcela vence este mês' : 'parcelas vencem este mês', mes ? 'total de ' + fBRL(vMes) : 'nada a pagar este mês', 'parcelamentos', '') +
-        tile(atr, atr === 1 ? 'parcela em atraso' : 'parcelas em atraso', atr ? 'fale com o escritório' : 'tudo em dia', 'parcelamentos', atr ? 'pt-tile-atr' : 'pt-tile-ok') +
-        tile(parc.length, parc.length === 1 ? 'parcelamento' : 'parcelamentos', 'acompanhe cada parcela', 'parcelamentos', '') +
-        tile(acs.length, acs.length === 1 ? 'parcela de acordo em aberto' : 'parcelas de acordo em aberto', '', 'acordos', '') +
-        tile(procs.length, procs.length === 1 ? 'processo em andamento' : 'processos em andamento', '', 'processos', '') + '</section>' +
-      '<section class="pt-como"><h2>Como usar</h2><ol><li><b>Parcelamentos</b> e <b>Acordos</b>: veja o que vence, o que já foi pago e baixe as guias quando estiverem prontas.</li>' +
-        '<li><b>Processos</b>: acompanhe os processos das suas empresas e a última movimentação.</li><li>Logo abaixo, o <b>passivo tributário</b> (RFB, PGFN e Estado) de cada empresa.</li></ol>' +
-        '<p class="pt-contato">Alguma dúvida? Fale com o escritório pelo seu contato de sempre (WhatsApp ou e-mail) — nossa equipe responde.</p></section>';
-    el.onclick = (ev) => { const b = ev.target.closest('[data-pt-ir]'); if (b && typeof window.nav === 'function') window.nav(null, b.dataset.ptIr); };
-  }
-  function empresasNovas() {
-    const rk = document.getElementById('execRankWrap'); if (!rk || ehCliente() || !GS() || !GS().tabelaB) return;
-    rk.classList.add('gx-pe-antigo');
-    let el = document.getElementById('pe-nova');
-    if (!el) { el = document.createElement('div'); el.id = 'pe-nova'; el.className = 'gs gx-pe-nova';
-      el.innerHTML = '<div class="b-sec"><div><h2>Empresas do grupo</h2><p>Clique na empresa para abrir a ficha.</p></div></div><div id="pe-tab"></div>'; rk.after(el); }
-    let base = []; try { base = (typeof FIL !== 'undefined' && FIL.length) ? FIL : (dbERP().baseDados || []); } catch (e) { base = dbERP().baseDados || []; }   // eslint-disable-line no-undef
-    const cli = GS().E ? GS().E.clientes || [] : [];
-    const areaDe = (r) => (cli.find((x) => x.id === r._id) || {}).area || 'ambos';
-    const tot = (r) => (r.rfb || 0) + (r.rfbNeg || 0) + (r.pgfn || 0) + (r.pgfnNeg || 0) + (r.ageMG || 0) + (r.ageMGNeg || 0);
-    const orgao = (v, n) => ((v || 0) + (n || 0) > 0 ? '<b class="b-pe-v" title="' + fBRL(v || 0) + '">' + curtaMi(v || 0) + '</b>' + (n > 0 ? '<small class="b-pe-neg" title="' + fBRL(n) + '">' + curtaMi(n) + ' neg.</small>' : '') : '<span class="sub">—</span>');
-    const sit = (r) => String(r.sitCadastral || '').trim();
-    const ops = (f) => [...new Set(base.map(f).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR')).map((x) => [x, x]);
-    GS().tabelaB(document.getElementById('pe-tab'), { id: 'empresas', tabCls: 'b-tab-pe', linhas: base, chave: (r) => String(r._id), unidade: ['empresa', 'empresas'],
-      abas: [{ id: 'at', rot: 'Ativos', f: (r) => r.tipoCliente !== 'Inativo' }, { id: 'cons', rot: 'Consultoria', f: (r) => r.tipoCliente === 'Consultoria' },
-        { id: 'pont', rot: 'Serviço pontual', f: (r) => r.tipoCliente === 'Serviço pontual' }, { id: 'in', rot: 'Inativos', f: (r) => r.tipoCliente === 'Inativo' }, { id: 'todos', rot: 'Todos', f: () => true }],
-      busca: (r) => [r.nome, r.grupo, r.socioAdmin, r.cpfCnpj, String(r.cpfCnpj || '').replace(/\D/g, '')].join(' '), dicaBusca: 'Nome, sócio ou CPF/CNPJ…',
-      conta: (n) => (n === 1 ? '1 empresa' : n + ' empresas'), valor: tot, ord: { k: 'g', dir: 1 },
-      listas: [{ k: 'area', rot: 'Área', todos: 'Todas as áreas', opcoes: [['juridico', 'Jurídico'], ['contabilidade', 'Contabilidade']], get: (r) => { const a = areaDe(r); return a === 'ambos' ? '' : a; } },
-        { k: 'g', rot: 'Grupo', todos: 'Todos os grupos', opcoes: ops((r) => r.grupo), get: (r) => r.grupo },
-        { k: 'op', rot: 'Operação', todos: 'Operação: todas', opcoes: [['Sim', 'Em operação'], ['Não', 'Sem operação']], get: (r) => (/^sim$/i.test(r.emOperacao || '') ? 'Sim' : /^n[aã]o$/i.test(r.emOperacao || '') ? 'Não' : '') },
-        { k: 'sit', rot: 'Situação', todos: 'Situação: todas', opcoes: ops(sit), get: sit }],
-      colunas: [
-        { k: 'g', rot: 'Grupo', html: (r) => escH(r.grupo || '—'), ord: (r) => (r.grupo || '~').toLowerCase() },
-        { k: 'nome', rot: 'Entidade / sócio', html: (r) => escH(r.nome || '—') + (r.isPJ !== false && String(r.socioAdmin || '').trim().length > 1 && r.socioAdmin !== '-' ? '<span class="b-sub">Sócio: ' + escH(r.socioAdmin) + '</span>' : ''), ord: (r) => (r.nome || '').toLowerCase() },
-        { k: 'doc', rot: 'CPF/CNPJ', cls: 'b-num', html: (r) => escH(r.cpfCnpj || '—'), ord: (r) => r.cpfCnpj || '' },
-        { k: 'rfb', rot: 'RFB', cls: 'b-dir', html: (r) => orgao(r.rfb, r.rfbNeg), ord: (r) => (r.rfb || 0) + (r.rfbNeg || 0) },
-        { k: 'pgfn', rot: 'PGFN', cls: 'b-dir', html: (r) => orgao(r.pgfn, r.pgfnNeg), ord: (r) => (r.pgfn || 0) + (r.pgfnNeg || 0) },
-        { k: 'age', rot: 'AGE/MG', cls: 'b-dir', html: (r) => orgao(r.ageMG, r.ageMGNeg), ord: (r) => (r.ageMG || 0) + (r.ageMGNeg || 0) },
-        { k: 'tot', rot: 'Total', cls: 'b-dir b-val', soma: true, html: (r) => (tot(r) > 0 ? '<span title="' + fBRL(tot(r)) + '">' + curtaMi(tot(r)) + '</span>' : '<span class="sub">—</span>'), ord: tot },
-        { k: 'op', rot: 'Operação', cls: 'b-cen', html: (r) => (/^sim$/i.test(r.emOperacao || '') ? '<span class="b-pill b-g">Sim</span>' : /^n[aã]o$/i.test(r.emOperacao || '') ? '<span class="b-pill b-r">Não</span>' : '<span class="sub">—</span>'), ord: (r) => r.emOperacao || '' },
-        { k: 'sit', rot: 'Situação', cls: 'b-cen', html: (r) => { const t = sit(r); return t ? '<span class="b-pill ' + (/^ativa$/i.test(t) ? 'b-g' : 'b-r') + '">' + escH(t.toLowerCase().replace(/^./, (c) => c.toUpperCase())) + '</span>' : '<span class="sub">—</span>'; }, ord: sit }],
-      clique: (r) => { if (r._id && GS().abrirFicha) Promise.resolve(GS().carregarCadastros()).then(() => GS().abrirFicha(r._id)); },
-      vazio: { titulo: 'Nenhuma empresa aqui', frase: 'Troque a aba (Ativos, Consultoria, Serviço pontual, Inativos, Todos) ou limpe os filtros.' } });
-  }
-  // ── Processos ──
-  function padraoProcessos() {
-    const tb = document.getElementById('tblProcBody'); if (!tb || ehCliente()) return;
-    if (tb.parentElement) tb.parentElement.setAttribute('data-sem-pagina', '');   // Backup 28: mostra todos
-    const hd = document.querySelector('#panel-processos .cc-hd > div:last-child');
-    if (hd && !document.getElementById('pr-visao')) {
-      // Backup 28: sem "Por grupo / Lista" (sempre por grupo)
-      const sv = document.createElement('span'); sv.id = 'pr-visao'; sv.hidden = true; hd.insertBefore(sv, hd.firstChild);
-      // Ativos · Arquivados · Extintos juntos, no mesmo desenho dos filtros de Clientes
-      const chips = [...hd.querySelectorAll('.chip')]; if (chips.length) { const box = document.createElement('div'); box.className = 'segmento gx-seg-cli gx-seg-chips'; chips[0].before(box); chips.forEach((c) => box.appendChild(c)); }
-    }
-    const P = dbERP().processos || [];
-    tabelaPadrao(tb, { chave: 'proc', um: 'processo', varios: 'processos', semSeta: true,
-      grupo: (tr) => (regDe(P, tr) || {}).grupo || '',
-      detalhe: (tr) => detalheProcHTML(regDe(P, tr) || {}),
-      // Backup 21: clicar no processo abre uma janela com o detalhe (Editar fica no rodapé)
-      popup: (tr) => abrirProcesso(regDe(P, tr) || {}) });
-  }
   // Backup 72: o detalhe e a janela do processo servem à tabela antiga (portal do cliente) e à nova (equipe)
   function detalheProcHTML(p) {
         return '<div class="gx-det-grade"><div><div class="gx-det-tit">Processo</div><div class="gx-det-dados">' +
@@ -511,9 +317,10 @@
           '<div class="gx-det-bloco"><div class="gx-det-tit">Observação</div><div class="gx-det-txt">' + (p.obs ? escH(p.obs) : '<span class="sub">—</span>') + '</div></div></div>' +
           '';
   }
+  window.ERP_ABRIR_PROCESSO = (p) => abrirProcesso(p);   // Backup 76: a tela nova de Processos (telas-painel-exec.js) abre a mesma janela
   function abrirProcesso(p) { if (!GS() || !GS().abrirJanela) return;
         const j = GS().abrirJanela({ titulo: 'Processo ' + (p.numero || ''), larga: true, corpo: '<div class="gx-det-corpo gx-det-janela">' + detalheProcHTML(p) + '</div>',
-          rodape: '<span class="sub">' + escH(p.grupo || '') + '</span><div class="acoes"><button type="button" class="btn btn-o" data-pr-mov>+ Registrar movimentação</button><button type="button" class="btn btn-p" data-pr-editar>✎ Editar processo</button></div>' });
+          rodape: '<span class="sub">' + escH(p.grupo || '') + '</span>' + (ehCliente() ? '' : '<div class="acoes"><button type="button" class="btn btn-o" data-pr-mov>+ Registrar movimentação</button><button type="button" class="btn btn-p" data-pr-editar>✎ Editar processo</button></div>') });
         // Backup 35: as 3 últimas movimentações lançadas (Rotina → Processos ou "+ Registrar movimentação")
         const box = j.querySelector('[data-movs]');
         if (box && p._id && window.SB) window.SB.from('processo_movimentacoes').select('data, tipo, descricao, valor_novo, quem').eq('processo_id', p._id).order('data', { ascending: false }).order('criado_em', { ascending: false }).limit(3)
@@ -521,94 +328,32 @@
             const TIPO = { movimentacao: 'Movimentação', decisao: 'Decisão', valor: 'Valor', procuracao: 'Procuração', sem_novidade: 'Sem novidade' };
             box.innerHTML = data.map((m) => '<div class="gx-mov"><div class="gx-mov-cab"><span class="gx-mov-d">' + escH(String(m.data).split('-').reverse().join('/')) + '</span><span class="gx-mov-t">' + escH(TIPO[m.tipo] || m.tipo) + '</span></div>' +
               '<div class="gx-mov-x">' + escH(m.descricao || (m.tipo === 'sem_novidade' ? 'Conferido — sem novidade' : '')) + (m.valor_novo ? ' · novo valor ' + fBRL(m.valor_novo) : '') + '</div>' + (m.quem ? '<div class="gx-mov-q">por ' + escH(m.quem) + '</div>' : '') + '</div>').join(''); });
+        if (ehCliente()) return;
         j.querySelector('[data-pr-mov]').onclick = () => { GS().fecharJanela(j); if (GS().janelaMovimentacao) GS().janelaMovimentacao(p._id, () => { if (window.ERP_RECARREGAR) window.ERP_RECARREGAR(); }); };
         j.querySelector('[data-pr-editar]').onclick = () => { GS().fecharJanela(j); if (window.ERP_EDITAR) window.ERP_EDITAR('processos:' + p._id); }; }
-  // ═══════ Backup 72 (reforma, etapa 6): Processos — a lista no desenho de Acordos (peça tabelaB) ═══════
-  // A análise de cima (passivo/ativo em disputas e os gráficos) continua; a tabela antiga fica para o portal do cliente.
-  // Abas Ativos · Arquivados · Extintos · Todos; busca; Filtros (grupo, competência, natureza, valor); ordenar pelo título;
-  // clicar = a janela do processo de sempre (+ Registrar movimentação, ✎ Editar).
-  const isoDeBR = (d) => (/^\d{2}\/\d{2}\/\d{4}$/.test(d || '') ? d.split('/').reverse().join('-') : '');
-  function processosNovos() {
-    if (ehCliente() || !GS() || !GS().tabelaB) return;
-    const painel = document.getElementById('panel-processos'), tb = document.getElementById('tblProcBody'); if (!painel || !tb) return;
-    const card = tb.closest('.cc'); if (!card) return;
-    card.classList.add('gx-proc-antigo');
-    let el = document.getElementById('pr-nova');
-    if (!el) { el = document.createElement('div'); el.id = 'pr-nova'; el.className = 'gs gx-pr-nova'; card.after(el); }
-    const P = (dbERP().processos || []).filter((p) => p.carteira !== 'Prospecção');
-    const sit = (p) => (p.arquivamento === 'Arquivado' ? 'arq' : p.arquivamento ? 'ext' : 'at');
-    const ops = (f) => [...new Set(P.map(f).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR')).map((x) => [x, x]);
-    const partes = (p) => [p.autor, p.reu].filter(Boolean).map((x) => String(x).replace(/;\s*/g, ' · '));
-    GS().tabelaB(el, { id: 'processos', tabCls: 'b-tab-proc', linhas: P, chave: (p) => String(p._id), unidade: ['processo', 'processos'], dicaBusca: 'Nº, grupo, autor, réu…',
-      abas: [{ id: 'at', rot: 'Ativos', f: (p) => sit(p) === 'at' }, { id: 'arq', rot: 'Arquivados', f: (p) => sit(p) === 'arq' }, { id: 'ext', rot: 'Extintos', f: (p) => sit(p) === 'ext' }, { id: 'todos', rot: 'Todos', f: () => true }],
-      busca: (p) => [p.numero, p.grupo, p.autor, p.reu, p.natureza, p.competencia, p.advogado, p.obs].join(' '), valor: (p) => Number(p.valor) || 0,
-      conta: (n) => (n === 1 ? '1 processo' : n + ' processos'), ord: { k: 'g', dir: 1 },
-      listas: [{ k: 'g', rot: 'Grupo', todos: 'Todos os grupos', opcoes: ops((p) => p.grupo), get: (p) => p.grupo },
-        { k: 'comp', rot: 'Competência', todos: 'Todas as competências', opcoes: ops((p) => p.competencia), get: (p) => p.competencia },
-        { k: 'nat', rot: 'Natureza', todos: 'Todas as naturezas', opcoes: ops((p) => p.natureza), get: (p) => p.natureza }],
-      colunas: [
-        { k: 'g', rot: 'Grupo', html: (p) => escH(p.grupo || '—'), ord: (p) => (p.grupo || '').toLowerCase() },
-        // Backup 72: como no ambiente de teste — a competência vai embaixo do número (sem coluna própria; continua em "Filtros")
-        { k: 'n', rot: 'Processo', cls: 'b-num', html: (p) => escH(p.numero || '—') + (p.competencia ? '<span class="b-sub">' + escH(p.competencia) + '</span>' : ''), ord: (p) => p.numero || '' },
-        { k: 'nat', rot: 'Natureza', html: (p) => escH(p.natureza || '—'), ord: (p) => p.natureza || '' },
-        { k: 'pt', rot: 'Partes', html: (p) => { const x = partes(p); return x.length ? escH(x[0]) + (x[1] ? '<span class="b-sub">× ' + escH(x[1]) + '</span>' : '') : '—'; }, ord: (p) => (p.autor || '').toLowerCase() },
-        { k: 'v', rot: 'Valor', cls: 'b-dir b-val', soma: true, html: (p) => (p.valor ? fBRL(p.valor) + (p.valorEm ? '<small>em ' + escH(p.valorEm) + '</small>' : '') : '—'), ord: (p) => Number(p.valor) || 0 },
-        { k: 'mov', rot: 'Última movimentação', cls: 'b-cen b-data', html: (p) => { const d = p.ultimaMovEm || p.atualizacao, iso = isoDeBR(d), velho = iso && iso < new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10);
-          return d ? (velho ? '<span class="b-pz-r" title="Mais de 30 dias sem novidade">' + escH(d) + '</span>' : escH(d)) + (p.ultimaMov ? '<small title="' + escH(p.ultimaMov) + '">' + escH(String(p.ultimaMov).slice(0, 40)) + '</small>' : '') : '—'; }, ord: (p) => isoDeBR(p.ultimaMovEm || p.atualizacao) || '0' },
-        { k: 'st', rot: 'Status', cls: 'b-cen', html: (p) => '<span class="b-pill ' + (sit(p) === 'at' ? 'b-g' : sit(p) === 'arq' ? 'b-a' : 'b-r') + '">' + escH(p.arquivamento || 'Ativo') + '</span>', ord: (p) => sit(p) }],
-      clique: (p) => abrirProcesso(p),
-      vazio: { titulo: 'Nenhum processo aqui', frase: 'Troque a aba (Ativos, Arquivados, Extintos, Todos) ou limpe os filtros.' } });
-  }
   const fBRL = (v) => (Number(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   // ═══════ Backup 20: sem o cartão de título no topo; botões e alertas vão para junto do conteúdo ═══════
   // Financeiro: à direita das abas (Análise, A receber…). Acordos/Parcelamentos: no canto de cima da "Situação".
-  function acoesNoLugar() {
-    [['panel-financeiro', 'finTabBar'], ['panel-financeiroContab', 'finCTabBar']].forEach(([pid, bar]) => {
-      const tb = document.getElementById(bar), painel = document.getElementById(pid); if (!tb || !painel) return;
-      let dir = tb.querySelector(':scope > .gx-tabbar-dir'); if (!dir) { dir = document.createElement('div'); dir.className = 'gx-tabbar-dir'; tb.appendChild(dir); }
-      painel.querySelectorAll(':scope > .mod-banner [id^="alertFin"], :scope > .mod-banner .gx-cobrar').forEach((x) => dir.appendChild(x));
-    });
-  }
-  function devolverAoBanner(pid) {
-    const ban = document.querySelector('#' + pid + ' > .mod-banner'); if (!ban) return;
-    document.querySelectorAll('#' + pid + ' .gx-bn-dir > *').forEach((x) => ban.appendChild(x));
-  }
-  function acoesNaSituacao(pid, bloco) {
-    const ex = document.getElementById(bloco), ban = document.querySelector('#' + pid + ' > .mod-banner'); if (!ex || !ban) return;
-    let dir = ex.querySelector(':scope > .gx-bn-dir'); if (!dir) { dir = document.createElement('div'); dir.className = 'gx-bn-dir'; ex.insertBefore(dir, ex.firstChild); }
-    ban.querySelectorAll('[id^="alert"], .gx-cobrar').forEach((x) => dir.appendChild(x));
-  }
   function instalarGanchos() {
-    botoesCobranca();
-    // Backup 20: Painel (Empresas do grupo) e Processos no padrão de Clientes — redesenha junto com a tabela do ERP
-    [['renderExecRanking', () => { padraoEmpresas(); empresasNovas(); evolucaoPassivo(); }], ['renderResumo', () => { painelNumeros(); portalBoasVindas(); }], ['renderProcTbl', () => { padraoProcessos(); processosNovos(); }],
-     ['renderAcordos', () => acoesNaSituacao('panel-acordos', 'exAcSit'), () => devolverAoBanner('panel-acordos')],
-     ['renderParcelamentos', () => acoesNaSituacao('panel-parcelamentos', 'exParcSit'), () => devolverAoBanner('panel-parcelamentos')],
-     ['renderParcAnalise', () => acoesNaSituacao('panel-parcelamentos', 'exParcSit'), () => devolverAoBanner('panel-parcelamentos')]].forEach(([nome, fn, antes]) => {
-      const orig = window[nome]; if (typeof orig !== 'function') return;
-      // Backup 68: para a equipe, Parcelamentos é a tela nova — o desenho antigo (escondido) não roda à toa
-      const soCliente = nome === 'renderParcelamentos' || nome === 'renderParcAnalise' || nome === 'renderAcordos';
-      window[nome] = function () { if (soCliente && !ehCliente()) return; if (antes) antes(); const r = orig.apply(this, arguments); try { fn(); } catch (e) { console.warn('[ERP] ' + nome + ':', e); } return r; };
-    });
+    // Backup 76 (S5): equipe E cliente usam as telas novas de Painel/Início, Processos, Parcelamentos, Acordos e Financeiro —
+    // o desenho antigo destas telas (escondido) não roda mais para ninguém
+    ['renderResumo', 'renderExecRanking', '_execDetalhe', 'renderProcessos', 'renderProcTbl', 'renderProcAnalise', 'renderParcelamentos', 'renderParcAnalise', 'renderAcordos',
+     'renderFinanceiro', 'renderFinanceiroContab', 'renderFinTbl', 'renderFinCAbaTbl', 'renderInicio', 'renderDashboardCliente'].forEach((nome) => { if (typeof window[nome] === 'function') window[nome] = function () {}; });
     // Backup 70: a tela nova aberta antes de os dados chegarem (2ª/3ª etapa da carga) se redesenha quando eles chegam
     const etapaOrig = window._aplicarEtapa2;
     if (typeof etapaOrig === 'function') {
       window._aplicarEtapa2 = function (json) {
         const r = etapaOrig.apply(this, arguments);
         if (json && ehGS(_painel) && Object.keys(json).some((m) => m === _painel)) setTimeout(() => desenharGS(_painel), 60);
+        setTimeout(() => { try { contagensMenu(); } catch (e) { /* sem menu */ } }, 80);
         return r;
       };
     }
-    acoesNoLugar();
-    // aba do Financeiro marcada no próprio conteúdo (o CSS esconde gráficos repetidos só nas abas de lista)
-    ['setFinTab', 'setFinCTab'].forEach((nome) => {
-      const orig = window[nome]; if (typeof orig !== 'function') return;
-      const alvo = nome === 'setFinTab' ? 'finContent' : 'finCContent';
-      window[nome] = function (tab) { const el = document.getElementById(alvo); if (el) el.dataset.aba = tab; return orig.apply(this, arguments); };
-    });
     const navOrig = window.nav;
     window.nav = function (btn, pid) {
       const id = pid || (btn && btn.dataset && btn.dataset.panel);
+      // Backup 76 (S4): a tela antiga de Notificações/cobranças saiu — cobrar é no Financeiro, guias na Rotina, recibo na Central de Documentos
+      if (id === 'notificacoes' || id === 'inicio' || id === 'relatorio') return window.nav(null, id === 'notificacoes' ? 'financeiro' : 'hoje');
       if (id && !ehCliente() && !permitido(FUNC_TELA[id])) { aviso('Sem acesso a esta área. Peça ao administrador para liberar a função.', true); if (id !== 'hoje') return window.nav(null, 'hoje'); }
       // como no Gestão: cada tela abre sem o filtro da tela anterior
       if (id && _painel && id !== _painel && typeof window.resetarFiltros === 'function') {
@@ -624,7 +369,7 @@
         if (!history.state || !history.state.tela) history.replaceState(est, '', '#' + id);
         else if (history.state.tela !== id) history.pushState(est, '', '#' + id);
       }
-      _painel = id; destacar(id);
+      _painel = id; destacar(id); try { contagensMenu(); } catch (e) { console.warn('[ERP] contagens do menu:', e); }
       // Backup 52 (O1): as telas novas que ficaram para trás são esvaziadas quando o navegador está livre (cada uma é desenhada de novo ao voltar);
       // assim a página não carrega dezenas de milhares de elementos escondidos, que deixavam toda troca de tela mais lenta
       clearTimeout(window._gxLimpa); window._gxLimpa = setTimeout(() => { document.querySelectorAll('.gs-area').forEach((a) => { if (a.firstChild && !a.closest('.panel.active')) a.textContent = ''; }); }, 1500);
@@ -637,7 +382,6 @@
       else if (id === 'parcelamentos' && window.ERP_SUJO && window.ERP_SUJO.parcelamentos) { const ids = window.ERP_SUJO.parcelamentos; window.ERP_SUJO = null;
         // Backup 52 (O3): sabendo QUAIS mudaram, relê só eles; senão, o módulo inteiro
         if (Array.isArray(ids)) recarregarParcelamentos(ids); else recarregarModulos('parcelamentos'); }
-      if (id === 'notificacoes') setTimeout(() => abrirCobrancas(_abaCobranca), 0);
     };
     // equipe entra no Início
     const admOrig = window.acAplicarModoAdmin;
@@ -645,7 +389,7 @@
     if (typeof admOrig === 'function') window.acAplicarModoAdmin = function () {
       const r = admOrig.apply(this, arguments);
       const h = decodeURIComponent(location.hash.slice(1));
-      setTimeout(() => ir(h && (TELAS_GS[h] || document.getElementById('panel-' + h)) ? h : 'hoje'), 0);
+      setTimeout(() => ir(h && !['inicio', 'relatorio'].includes(h) && (TELAS_GS[h] || document.getElementById('panel-' + h)) ? h : 'hoje'), 0);   // Backup 76: Início/Relatório antigos saíram
       return r;
     };
     window.addEventListener('popstate', (ev) => {
@@ -872,34 +616,6 @@
 
   // Backup 38: sem avisos (sino, cartão no canto e caixa de avisos saíram a pedido do escritório)
 
-  // ═══════ Honorários: tabelas de lançamentos no formato do Gestão ═══════
-  // O ERP continua filtrando, ordenando e paginando; a tabela dele fica escondida
-  // e, logo abaixo, aparece a mesma lista no formato do Gestão (menos colunas).
-  const LISTAS = { tblFinBody: 'areceber', tblRecBody: 'recebidos', tblPrejBody: 'prejuizo', tblFcAbaBody: 'areceber', tblFcFechBody: 'recebidos' };
-  function converterTabelas() {
-    if (!GS() || ehCliente()) return;
-    document.querySelectorAll('#panel-financeiro tbody, #panel-financeiroContab tbody').forEach((tb) => {
-      const tabela = tb.closest('table');
-      if (!tabela || tb.closest('.gs') || tb.closest('[data-sem-gs]')) return;   // Backup 27: "Em atraso" da Contabilidade tem colunas próprias (Receita/Despesa)
-      const linhas = [...tb.querySelectorAll('tr[data-gx^="lancamentos:"]')];
-      const ehLista = LISTAS[tb.id] || linhas.length;
-      if (!ehLista) return;
-      const regs = linhas.map((tr) => (window.ERP_LANC || {})[tr.dataset.gx.split(':')[1]]).filter(Boolean);
-      const assinatura = regs.map((l) => l.id + l.atualizado_em).join('|') || 'vazio';
-      let caixa = tabela.nextElementSibling;
-      if (!caixa || !caixa.classList.contains('gx-tab-gs')) {
-        caixa = document.createElement('div'); caixa.className = 'gs gx-tab-gs';
-        caixa.setAttribute('data-sem-ordem', '');   // quem ordena aqui é o Gestão, não o ERP
-        tabela.after(caixa);
-      }
-      tabela.classList.add('gx-oculta');
-      if (caixa.dataset.sig === assinatura) return;
-      caixa.dataset.sig = assinatura;
-      // Backup 71: no desenho da tabela de Acordos (tabelaB: Prazo colorido, Cobrar + Baixa, filtros, "Marcar várias")
-      const aba = LISTAS[tb.id] || (regs.length && regs.every((l) => l.pago) ? 'despesas' : 'apagar');
-      GS().tabelaLancB(caixa, regs, { aba, id: 'erp-' + tb.id, semPrazos: true }, () => ED.recarregar());   // o período (Todos · Vencidos · 7…60 dias · Mês/ano) já fica em cima
-    });
-  }
   // ═══════ Backup 22: RÉGUA ÚNICA das tabelas ═══════
   // Cada coluna é reconhecida pelo título do cabeçalho e ganha a classe da régua (design.css) — em todas as telas, do ERP antigo e do Gestão:
   // col-venc (vencimento/pago em: negrito; vermelho se vencido) · col-valor (negrito, à direita) · col-dias (atraso/dias) · col-nome (CAIXA ALTA).
@@ -943,86 +659,12 @@
       });
     });
   }
-  // ═══════ Backup 33: EVOLUÇÃO DO PASSIVO mês a mês (linhas, "tipo cotação do dólar") ═══════
-  // Cartão no Painel Executivo, antes de "Empresas do grupo". Dados: evolucao_passivo (SQL), lidos uma vez e filtrados aqui.
-  // Grupo: "Todos" ou um grupo. Visão: "Total" (uma linha) ou "Por empresa" (uma linha por empresa; em "Todos", uma por grupo).
-  const EVO_CORES = ['#5873C1', '#2D7C75', '#AD6833', '#9A79D2', '#B74373', '#358452', '#C26464', '#3294AC', '#73A034'];
-  const _evo = { dados: null, visao: 'total', meses: 6, ch: null, carregando: false, aberto: true };   // Backup 73: sempre aberta, como no ambiente
-  const evoMoeda = (v) => 'R$ ' + (Number(v) || 0).toLocaleString('pt-BR', { maximumFractionDigits: 0 });
-  const evoCurta = (v) => { const n = Math.abs(v); return n >= 1e6 ? 'R$ ' + (v / 1e6).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' mi' : n >= 1e3 ? 'R$ ' + (v / 1e3).toLocaleString('pt-BR', { maximumFractionDigits: 0 }) + ' mil' : evoMoeda(v); };
-  const evoMes = (iso) => { const [a, m] = String(iso).split('-'); return ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'][Number(m) - 1] + '/' + a.slice(2); };
-  // Backup 35: sempre POR GRUPO (uma linha por grupo). Com um grupo no filtro do topo, uma linha por EMPRESA do grupo.
-  // "Tudo junto" soma tudo numa linha só.
-  const evoGrupoFiltro = () => { try { return (typeof FILTROS !== 'undefined' && FILTROS.grupo) || ''; } catch (e) { return ''; } };   // eslint-disable-line no-undef
-  function evolucaoPassivo() {
-    const rk = document.getElementById('execRankWrap'); if (!rk || ehCliente() || !window.SB) return;
-    let card = document.getElementById('execEvolWrap');
-    if (!card) {
-      // Backup 49: recolhido por padrão (abre com um clique; só busca os dados quando abre)
-      card = document.createElement('div'); card.id = 'execEvolWrap'; card.className = 'cc evo-card' + (_evo.aberto ? '' : ' evo-fechado');
-      card.innerHTML = '<div class="cc-h evo-h"><div><button type="button" class="evo-abrir" id="evo-abrir" aria-expanded="' + (_evo.aberto ? 'true' : 'false') + '"><span class="evo-seta" aria-hidden="true">▸</span> <span class="cc-t">Evolução do passivo</span></button><div class="cc-d" id="evo-sub"></div></div>' +
-        '<div class="evo-ctl"><div class="segmento gx-seg-cli" id="evo-visao"><button type="button" data-v="total" class="ativo">Tudo junto</button><button type="button" data-v="linhas" id="evo-bt-linhas">Uma linha por grupo</button></div>' +
-        '<select class="fsel" id="evo-meses" autocomplete="off"><option value="6" selected>6 meses</option><option value="12">12 meses</option><option value="24">24 meses</option></select></div></div>' +
-        '<div class="evo-resumo" id="evo-resumo"></div><div class="cb evo-cb"><canvas id="cEvoPassivo"></canvas></div>' +
-        '<div class="evo-nota">Soma de RFB, PGFN, SEFAZ e AGE/MG (em aberto + negociado). O valor de cada mês é o que estava cadastrado no último dia do mês. Para ver as empresas de um grupo, escolha o grupo no filtro do topo.</div>';
-      rk.parentElement.insertBefore(card, rk);
-      card.querySelector('#evo-visao').onclick = (ev) => { const b = ev.target.closest('button'); if (!b) return; _evo.visao = b.dataset.v; card.querySelectorAll('#evo-visao button').forEach((x) => x.classList.toggle('ativo', x === b)); evoDesenhar(); };
-      card.querySelector('#evo-meses').onchange = (ev) => { _evo.meses = Number(ev.target.value); _evo.dados = null; evolucaoPassivo(); };
-      card.querySelector('#evo-abrir').onclick = () => { _evo.aberto = !_evo.aberto; card.classList.toggle('evo-fechado', !_evo.aberto);
-        card.querySelector('#evo-abrir').setAttribute('aria-expanded', String(!!_evo.aberto)); if (_evo.aberto) evolucaoPassivo(); };
-    }
-    if (!_evo.aberto) return;
-    if (_evo.dados) return evoDesenhar();
-    if (_evo.carregando) return;
-    _evo.carregando = true;
-    window.SB.rpc('evolucao_passivo', { p_grupo: null, p_meses: _evo.meses }).then(({ data, error }) => {
-      _evo.carregando = false;
-      if (error) { const r = document.getElementById('evo-resumo'); if (r) r.textContent = 'Não foi possível ler a evolução: ' + error.message; return; }
-      _evo.dados = data || []; evoDesenhar();
-    });
-  }
-  function evoDesenhar() {
-    const cv = document.getElementById('cEvoPassivo'); if (!cv || !_evo.dados || !window.Chart) return;
-    const gf = evoGrupoFiltro();
-    const linhas = _evo.dados.filter((x) => !gf || x.grupo === gf);
-    // Backup 36: meses sem passivo lançado ainda (null) ficam de fora; o gráfico começa no 1º mês com dado
-    let meses = [...new Set(_evo.dados.map((x) => x.mes))].sort();
-    const comDado = new Set(linhas.filter((x) => x.total != null).map((x) => x.mes));
-    while (meses.length > 2 && !comDado.has(meses[0])) meses.shift();
-    const bt = document.getElementById('evo-bt-linhas'); if (bt) bt.textContent = gf ? 'Uma linha por empresa' : 'Uma linha por grupo';
-    const sub = document.getElementById('evo-sub'); if (sub) sub.textContent = gf ? 'Empresas do grupo ' + gf + ', mês a mês' : 'Grupos, mês a mês';
-    const chave = _evo.visao === 'total' ? () => (gf || 'Todos os grupos') : gf ? (x) => x.cliente : (x) => x.grupo;
-    const series = {};
-    linhas.forEach((x) => { if (x.total == null) return; const k = chave(x); (series[k] = series[k] || {})[x.mes] = (series[k][x.mes] || 0) + (Number(x.total) || 0); });
-    const ult = meses[meses.length - 1];
-    const nomes = Object.keys(series).sort((a, b) => (series[b][ult] || 0) - (series[a][ult] || 0));
-    const ds = nomes.map((n, i) => {
-      const cor = nomes.length === 1 ? '#16294B' : EVO_CORES[i % EVO_CORES.length];
-      return { label: n, data: meses.map((m) => (series[n][m] == null ? null : series[n][m])), spanGaps: true, borderColor: cor, backgroundColor: cor, borderWidth: nomes.length === 1 ? 2.5 : 2,
-        pointRadius: 4, pointHoverRadius: 6, pointBackgroundColor: '#fff', pointBorderWidth: 2, tension: 0, fill: false };   // Backup 73: bolinhas como no ambiente
-    });
-    const tot = (m) => linhas.filter((x) => x.mes === m && x.total != null).reduce((s, x) => s + (Number(x.total) || 0), 0);
-    const ini = tot(meses[0]), fim = tot(ult), dif = fim - ini, pct = ini ? (dif / ini) * 100 : 0;
-    const r = document.getElementById('evo-resumo');
-    if (r) r.innerHTML = '<span><b>' + evoMoeda(fim) + '</b> hoje' + (gf ? ' · ' + esc(gf) : '') + '</span><span class="' + (dif > 0 ? 'evo-sobe' : dif < 0 ? 'evo-desce' : '') + '">' +
-      (dif > 0 ? '▲ ' : dif < 0 ? '▼ ' : '') + evoMoeda(Math.abs(dif)) + (ini ? ' (' + pct.toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + '%)' : '') + ' desde ' + evoMes(meses[0]) + '</span>';
-    const cfg = { type: 'line', data: { labels: meses.map(evoMes), datasets: ds },
-      // Backup 73: escala à esquerda a partir do zero (0 · 10 mi · 20 mi…) e, perto da bolinha, "jun/26 · R$ 1,5 mi"
-      options: { responsive: true, maintainAspectRatio: false, animation: false, interaction: { mode: ds.length > 1 ? 'index' : 'nearest', axis: 'x', intersect: false },
-        plugins: { legend: { display: ds.length > 1, position: 'bottom', labels: { boxWidth: 12, boxHeight: 2 } },
-          tooltip: { displayColors: ds.length > 1, itemSort: (a, b) => b.parsed.y - a.parsed.y, callbacks: { title: (it) => (it[0] ? it[0].label : ''), label: (c) => ' ' + (ds.length > 1 ? c.dataset.label + ': ' : '') + evoCurta(c.parsed.y) } } },
-        scales: { y: { beginAtZero: true, ticks: { callback: (v) => (v === 0 ? '0' : evoCurta(v).replace('R$ ', '')) }, grid: { color: 'rgba(0,0,0,.05)' } }, x: { grid: { display: false } } } } };
-    if (_evo.ch) _evo.ch.destroy();
-    _evo.ch = new Chart(cv, cfg);
-  }
-  window.ERP_EVOLUCAO_PASSIVO = () => { _evo.dados = null; evolucaoPassivo(); };
-
   // ═══════ Backup 31: CONTORNO AZUL de cada grupo nas tabelas agrupadas (Painel, Processos, Rotina, Clientes…) ═══════
   // a linha do grupo (tr.gx-grp; Backup 45: Clientes saiu — faixa simples, como no Painel e na Rotina) abre o bloco; as linhas até o próximo grupo ficam dentro do contorno (design.css: .gc-*)
   let _agendado = false;
   new MutationObserver(() => {
     if (_agendado) return; _agendado = true;
-    requestAnimationFrame(() => { _agendado = false; try { converterTabelas(); } catch (e) { console.warn('[ERP] tabela Gestão:', e); }
+    requestAnimationFrame(() => { _agendado = false; 
       try { marcarColunas(); } catch (e) { console.warn('[ERP] régua das tabelas:', e); }
       /* Backup 52 (C4): sem contorno azul nos grupos (contornarGrupos não roda mais; o cabeçalho de grupo é a faixa cinza, igual em todo o ERP) */ });
   }).observe(document.documentElement, { childList: true, subtree: true });
@@ -1062,5 +704,5 @@
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar); else iniciar();
   window.ERP_DADOS = dadosERP;
-  window.ERP_TELAS = { ir, desenharGS, LANCAR, cobrancas: abrirCobrancas };
+  window.ERP_TELAS = { ir, desenharGS, LANCAR };
 })();

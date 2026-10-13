@@ -314,7 +314,8 @@ const ABA_FICHA = {
   },
   documentos: (alvo, cl) => blocoDocumentos(alvo, { cliente_id: cl.id, grupo_id: cl.grupo_id }, { vazio: 'Nenhum documento. Envie contrato social, procuração, documentos pessoais…' }),
   async linha(alvo, cl) {
-    const [ints, ctrs, lanc, ts, docs, hist, crm, reus, mails] = await Promise.all([
+    const g = cl.grupo_id;
+    const [ints, ctrs, lanc, ts, docs, hist, crm, reus, mails, pBx, aBx, movs] = await Promise.all([
       q(sb.from('interacoes').select('*').eq('cliente_id', cl.id)),
       q(sb.from('contratos').select('id, descricao, data_contrato, status, assinado_em').eq('cliente_id', cl.id)),
       q(sb.from('lancamentos').select('descricao, valor, redutor, data_pagamento, vencimento').eq('cliente_id', cl.id).eq('pago', true).order('data_pagamento', { ascending: false }).limit(60)),
@@ -325,7 +326,11 @@ const ABA_FICHA = {
       pode('crm') ? q(sb.from('crm_atividades').select('tipo, quando, resumo, crm_oportunidades!inner(titulo, cliente_id)').eq('crm_oportunidades.cliente_id', cl.id)).catch(() => []) : [],
       // Backup 26: reuniões e e-mails enviados também entram na linha do tempo
       q(sb.from('reunioes').select('titulo, inicio, local, status, participantes').eq('cliente_id', cl.id)).catch(() => []),
-      q(sb.rpc('emails_do_cliente', { p_cliente: cl.id })).catch(() => [])
+      q(sb.rpc('emails_do_cliente', { p_cliente: cl.id })).catch(() => []),
+      // Backup 76 (F6): baixas de parcelamentos e de acordos do grupo e as movimentações dos processos — tudo num lugar só
+      g && pode('juridico') ? q(sb.from('parcelas').select('numero, data_pagamento, parcelamentos!inner(empresa, natureza, local, total_parcelas, grupo_id)').eq('parcelamentos.grupo_id', g).eq('pago', true).not('data_pagamento', 'is', null).order('data_pagamento', { ascending: false }).limit(60)).catch(() => []) : [],
+      g && pode('juridico') ? q(sb.from('acordos').select('parcela, total_parcelas, valor, credor, data_pagamento').eq('grupo_id', g).eq('pago', true).not('data_pagamento', 'is', null).order('data_pagamento', { ascending: false }).limit(60)).catch(() => []) : [],
+      g && pode('juridico') ? q(sb.from('processo_movimentacoes').select('data, tipo, descricao, processos!inner(numero, grupo_id)').eq('processos.grupo_id', g).order('data', { ascending: false }).limit(40)).catch(() => []) : []
     ]);
     const ev = [];
     // [quando, ícone, título, texto, item, categoria]
@@ -338,6 +343,10 @@ const ABA_FICHA = {
     lanc.forEach((l) => ev.push([(l.data_pagamento || l.vencimento) + 'T12:00:00', '💰', 'Pagamento', l.descricao + ' — ' + brl(vl(l)), null, 'financeiro']));
     (mails || []).forEach((m) => ev.push([m.quando, '✉', 'E-mail · ' + (m.tipo || ''), m.assunto + ' → ' + m.para + (m.status === 'erro' ? ' (erro)' : m.status === 'retido' ? ' (retido pela pausa)' : ''), null, 'emails']));
     ts.forEach((t) => ev.push([t.concluida_em, '✓', 'Tarefa concluída', t.titulo, null, 'tarefas']));
+    pBx.forEach((x) => { const pa = x.parcelamentos || {}; ev.push([x.data_pagamento + 'T12:00:00', '✓', 'Baixa — parcelamento', (pa.empresa || '') + ' · ' + (pa.natureza || '') + (pa.local ? ' (' + pa.local + ')' : '') + ' · parcela ' + x.numero + (pa.total_parcelas ? ' de ' + pa.total_parcelas : ''), null, 'baixas']); });
+    aBx.forEach((x) => ev.push([x.data_pagamento + 'T12:00:00', '✓', 'Baixa — acordo', 'com ' + (x.credor || '—') + ' · parcela ' + (x.parcela || '') + (x.total_parcelas ? ' de ' + x.total_parcelas : '') + ' · ' + brl(x.valor), null, 'baixas']));
+    const TIPO_MOV = { movimentacao: 'Movimentação', decisao: 'Decisão', valor: 'Valor atualizado', procuracao: 'Procuração', sem_novidade: 'Conferido — sem novidade' };
+    movs.forEach((m) => ev.push([m.data + 'T12:00:00', '⚖', 'Processo ' + ((m.processos && m.processos.numero) || ''), (TIPO_MOV[m.tipo] || m.tipo) + (m.descricao ? ' — ' + m.descricao : ''), null, 'processos']));
     docs.forEach((d) => ev.push([d.criado_em, '📎', 'Documento', d.nome + ' (' + nomeTipoDoc(d.tipo) + ')', null, 'documentos']));
     hist.forEach((x) => {
       if (x.acao === 'INSERT') ev.push([x.quando, '＋', 'Cadastro criado', '', null, 'cadastro']);
@@ -347,18 +356,18 @@ const ABA_FICHA = {
       }
     });
     ev.sort((a, b) => String(b[0]).localeCompare(String(a[0])));
-    const CATS = [['', 'Tudo'], ['contatos', 'Contatos e reuniões'], ['contratos', 'Contratos'], ['financeiro', 'Financeiro'], ['emails', 'E-mails'], ['tarefas', 'Tarefas'], ['documentos', 'Documentos'], ['cadastro', 'Cadastro']];
+    const CATS = [['', 'Tudo'], ['contatos', 'Contatos e reuniões'], ['contratos', 'Contratos'], ['financeiro', 'Financeiro'], ['baixas', 'Baixas'], ['processos', 'Processos'], ['emails', 'E-mails'], ['tarefas', 'Tarefas'], ['documentos', 'Documentos'], ['cadastro', 'Cadastro']];
     const presentes = new Set(ev.map((e) => e[5]));
     let cat = '';
     const pintarLt = () => {
       const vis = ev.filter((e) => !cat || e[5] === cat);
       alvo.querySelector('#fc-lt').innerHTML = vis.length ? '<div class="linha-tempo">' + vis.map(([q_, ic, tit, txt]) => '<div class="lt-item"><span class="lt-ic">' + ic + '</span><div><b>' + esc(tit) + '</b> <span class="sub">' + quandoBR(q_) + '</span>' +
         (txt ? '<div>' + esc(txt) + '</div>' : '') + '</div></div>').join('') + '</div>' : '<div class="vazio">Nada registrado ainda.</div>';
-      alvo.querySelectorAll('#fc-lt-cat button').forEach((b) => b.classList.toggle('ativo', b.dataset.v === cat));
+      alvo.querySelectorAll('#fc-lt-cat button').forEach((b) => { b.classList.toggle('ativo', b.dataset.v === cat); b.setAttribute('aria-selected', String(b.dataset.v === cat)); });
     };
     alvo.innerHTML = '<div class="titulo-pag" style="margin-bottom:8px"><div><b>Linha do tempo</b> <span class="sub">' + ev.length + ' evento(s) · do primeiro contato ao financeiro</span></div>' +
       '<div class="acoes"><button class="btn btn-o btn-mini" id="fc-int2">+ Registrar interação</button></div></div>' +
-      (ev.length ? '<div class="segmento" id="fc-lt-cat" style="margin-bottom:10px">' + CATS.filter(([v]) => !v || presentes.has(v)).map(([v, r]) => '<button type="button" data-v="' + v + '">' + r + '</button>').join('') + '</div>' : '') +
+      (ev.length ? '<div class="b-seg b-seg-mini" id="fc-lt-cat" style="margin-bottom:10px">' + CATS.filter(([v]) => !v || presentes.has(v)).map(([v, r]) => '<button type="button" class="b-seg-bt" data-v="' + v + '">' + r + '</button>').join('') + '</div>' : '') +
       '<div id="fc-lt"></div>';
     const segLt = alvo.querySelector('#fc-lt-cat'); if (segLt) segLt.onclick = (evt) => { const b = evt.target.closest('button'); if (b) { cat = b.dataset.v; pintarLt(); } };
     pintarLt();

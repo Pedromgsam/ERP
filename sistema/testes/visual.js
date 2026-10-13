@@ -9,7 +9,7 @@ const sql = (q) => execFileSync('psql', ['-h', '127.0.0.1', '-p', process.env.PG
 const r = []; const ok = (n, c, extra) => { r.push([n, !!c]); if (!c && extra !== undefined) console.log('   ↳', n, '→', extra); };
 sql("update lancamentos set valor=round(valor*137.53,2); update processos set valor=1845320.55; update acordos set valor=128450.9;" +
     "update clientes set rfb=1250340.12, pgfn=987654.32, age_mg=345678.9; update parcelamentos set valor_ultima_parcela=12345.67; update contratos set valor_total=148000;");
-const PAINEIS = ['hoje', 'resumo', 'processos', 'acordos', 'parcelamentos', 'financeiro', 'financeiroContab', 'contratos', 'clientes', 'documentos', 'tarefas', 'notificacoes', 'admin'];
+const PAINEIS = ['hoje', 'resumo', 'processos', 'acordos', 'parcelamentos', 'financeiro', 'financeiroContab', 'contratos', 'clientes', 'documentos', 'tarefas', 'admin'];
 (async () => {
   const b = await chromium.launch(); const falhas = { rs: [], campo: [], rolagem: [] };
   try {

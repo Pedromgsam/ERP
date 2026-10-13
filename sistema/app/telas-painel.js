@@ -19,13 +19,14 @@ TELAS.inicio = async function () {
   const dataLonga = h.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
   $('conteudo').innerHTML =
     cabecalhoTela({ icone: 'inicio', titulo: saud + ', ' + primeiroNomeUsuario(), frase: dataLonga.charAt(0).toUpperCase() + dataLonga.slice(1) }) +   // o "+ Lembrete" fica no cartão de Lembretes (sem botão repetido)
-    '<div id="ini-valid"></div><div id="ini-resumo"></div>' +
+    '<div id="ini-valid"></div><div id="ini-resumo"></div><div id="ini-conf"></div>' +
     '<div class="ini-b74"><section class="ini-col"><div class="ini-sec-hd"><div><h2>Meu dia</h2><p>Hoje e o que atrasou</p></div><div class="b-seg ini-quem" id="ini-quem" role="group" aria-label="De quem"></div></div><div id="ini-dia"></div></section>' +
     '<section class="ini-col"><div id="ini-lembretes"></div><div class="ini-sec-hd ini-sec-hd2"><div><h2>Próximos 7 dias</h2></div></div><div id="ini-prox"></div></section></div>' +
     '<div id="ini-fila"></div>';
   cardLembretes().catch((e) => console.error(e));
   cardResumoEscritorio().catch((e) => console.error(e));
   meuDia().catch((e) => console.error(e));
+  conferenciasIni().catch((e) => console.error(e));   // Backup 76 (F3)
   if (typeof buscaPubAutomatica === 'function') buscaPubAutomatica().catch(() => {});
   if (typeof vigiarAgenda === 'function') vigiarAgenda();   // Backup 40: aviso antes dos compromissos
   if (typeof cardValidacoes === 'function') cardValidacoes().then((c) => { const el = $('ini-valid'); if (el) { el.innerHTML = c.html; c.ligar(el); } }).catch((e) => console.error(e));
@@ -99,7 +100,7 @@ TELAS.painel = async function () {
   await carregarCadastros();
   const P = E.painel;
   $('conteudo').innerHTML =
-    '<div class="titulo-pag"><div><h1>Painel Executivo</h1><p>Passivo tributário consolidado · todos os grupos e empresas</p></div></div>' +
+    '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('pizza') + '</div><div class="b-cab-tx"><h1>Painel Executivo</h1><p>Passivo tributário consolidado · todos os grupos e empresas</p></div></div>' +
     '<div class="filtros" id="pn-barra">' +
     '<div class="segmento" id="pn-tipo">' + [['ativos', 'Ativos'], ['Consultoria', 'Consultoria'], ['Demanda', 'Serviço pontual'], ['Inativo', 'Inativos'], ['todos', 'Todos']]
       .map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
@@ -389,4 +390,40 @@ function formLembrete(l) {
     if (l) await q(sb.from('lembretes').update(dados).eq('id', l.id)); else await q(sb.from('lembretes').insert(dados));
     aviso(l ? '✓ Lembrete salvo.' : '✓ Lembrete criado.'); fecharJanela(j); await cardLembretes();
   });
+}
+
+
+// ═══ Backup 76 (F3): CONFERÊNCIAS AUTOMÁTICAS no Início — o que está faltando no cadastro e pode virar problema ═══
+// Cada linha mostra quantos são; clicar abre a lista com o atalho para corrigir. Some sozinha quando está tudo certo.
+async function conferenciasIni() {
+  const el = $('ini-conf'); if (!el) return;
+  await carregarCadastros().catch(() => {});
+  const D = dbParc() || {}, hoje = hojeISO(), lim90 = somarDias(hoje, -90);
+  const isoBR = (d) => (/^\d{2}\/\d{2}\/\d{4}$/.test(d || '') ? d.split('/').reverse().join('-') : String(d || '').slice(0, 10));
+  const regras = [];
+  if (pode('juridico')) {
+    const pa = (D.parcelamentos || []).filter((p) => (p.parcelas || []).some((x) => x.pagamento !== 'SIM') && !(Number(p.valorUltimaParcela) > 0) && !(p.parcelas || []).some((x) => x.valorLancado));
+    regras.push({ id: 'pa', rot: 'parcelamento sem o valor da parcela', rots: 'parcelamentos sem o valor da parcela', itens: pa.map((p) => ({ t: (p.empresa || '—') + ' — ' + (p.natureza || ''), s: [p.local, p.numero ? 'nº ' + p.numero : ''].filter(Boolean).join(' · '),
+      ir: async () => { const PA = await dadosParcelamentos(); E.pc = E.pc || { grupo: '', chip: 'todos' }; E.pc.PA = PA; const x = PA.find((y) => y.id === p._id); if (x) janelaParcelamento(x); } })) });
+    const pr = (D.processos || []).filter((p) => !String(p.arquivamento || '').trim() && p.carteira !== 'Prospecção' && (isoBR(p.ultimaMovEm || p.atualizacao) || '0') < lim90);
+    regras.push({ id: 'pr', rot: 'processo sem movimentação há mais de 90 dias', rots: 'processos sem movimentação há mais de 90 dias', itens: pr.map((p) => ({ t: p.numero || '(sem número)', s: [p.grupo, p.ultimaMovEm ? 'última: ' + p.ultimaMovEm : 'nenhuma movimentação registrada'].filter(Boolean).join(' · '),
+      ir: () => (window.ERP_ABRIR_PROCESSO ? window.ERP_ABRIR_PROCESSO(p) : irParaTela('processos')) })) });
+  }
+  if (pode('clientes')) {
+    const cl = (E.clientes || []).filter((c) => c.recebe_email !== false && c.tipo !== 'Inativo' && !String(c.email || '').trim());
+    regras.push({ id: 'cl', rot: 'cliente que recebe e-mail mas não tem e-mail', rots: 'clientes que recebem e-mail mas não têm e-mail', itens: cl.map((c) => ({ t: c.nome, s: nomeGrupo(c.grupo_id), ir: () => formCliente(c, () => conferenciasIni(), 'contato') })) });
+  }
+  if (pode('contratos')) {
+    const cts = await q(sb.from('contratos').select('id, descricao, status, modalidade, forma_valor, valor_mensal, data_contrato, inicio_vigencia, rescindido_em, clientes(nome)').eq('status', 'Ativo').eq('modalidade', 'consultoria')).catch(() => []);
+    const sem = cts.filter((c) => !c.rescindido_em && c.forma_valor !== 'salario_minimo' && !c.inicio_vigencia && !c.data_contrato);
+    regras.push({ id: 'ct', rot: 'contrato de consultoria sem data para o reajuste', rots: 'contratos de consultoria sem data para o reajuste', itens: sem.map((c) => ({ t: c.descricao || 'Contrato', s: (c.clientes && c.clientes.nome) || '', ir: () => detalheContrato(c.id) })) });
+  }
+  const comItens = regras.filter((r) => r.itens.length);
+  if (!comItens.length) { el.innerHTML = ''; return; }
+  el.innerHTML = '<section class="ini-conf"><div class="ini-sec-hd"><div><h2>Conferências</h2><p>Dados que faltam no cadastro — clique para ver e corrigir</p></div></div><div class="ini-conf-l">' +
+    comItens.map((r) => '<button type="button" class="ini-conf-it" data-conf="' + r.id + '"><b>' + r.itens.length + '</b><span>' + esc(r.itens.length === 1 ? r.rot : r.rots) + '</span>' + iconeB('mais') + '</button>').join('') + '</div></section>';
+  el.onclick = (ev) => { const b = ev.target.closest('[data-conf]'); if (!b) return; const r = regras.find((x) => x.id === b.dataset.conf);
+    const j = abrirJanela({ titulo: r.itens.length + ' ' + (r.itens.length === 1 ? r.rot : r.rots), kick: 'Conferências', larga: true,
+      corpo: '<div class="bg-res">' + r.itens.map((x, i) => '<button type="button" class="bg-it" data-ci="' + i + '"><span class="bg-tx"><b>' + esc(x.t) + '</b>' + (x.s ? '<small>' + esc(x.s) + '</small>' : '') + '</span></button>').join('') + '</div>' });
+    j.onclick = (e2) => { const it = e2.target.closest('[data-ci]'); if (!it) return; fecharJanela(j); Promise.resolve(r.itens[+it.dataset.ci].ir()).catch((e) => aviso(erroAmigavel(e), true)); }; };
 }

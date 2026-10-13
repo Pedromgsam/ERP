@@ -1,149 +1,370 @@
 'use strict';
 // ═══════════════════════════════════════════════════════════════════
-// Honorários Jurídico (empresa 'escritorio') e Honorários Contabilidade
-// (empresa 'contabilidade'). Mesma tela, mesmas abas do ERP antigo.
-// A barra de filtros é montada uma vez; filtro repinta só #fin-corpo.
+// FINANCEIRO — Jurídico (empresa 'escritorio') e Contabilidade (empresa 'contabilidade').
+// Backup 76 (S1 + L1): a tela inteira nas peças novas, lendo direto do banco (sem o ERP antigo):
+//  · Análise: Quem fez · Período · Tipo · Grupo → faixa de números, mês a mês, comparativo por pessoa, serviço, grupos (e despesas por categoria);
+//  · Lançamentos: UMA tabela com os botões A receber · Recebido · Perdas (+ A pagar · Pago quando há despesas), atalhos de prazo, busca e
+//    "Filtros" num painel só (quem, grupo, tipo, área, referência, favorecido, vencimento/pagamento de-até, valor);
+//  · Contabilidade também: Caixa (consolidado ou mês a mês) e Distribuição de lucros (Pedro × Éder, 50/50).
+// Nada saiu do antigo: baixa (com confirmação), baixa de várias, Cobrar (WhatsApp/e-mail) uma ou várias, desfazer, detalhe com ✎ Editar,
+// os avisos "vencidos" e "prejuízo", o Recibo e os mesmos números da Análise.
 // ═══════════════════════════════════════════════════════════════════
 
 const EMPRESAS = {
-  escritorio:    { tela: 'juridico',      titulo: 'Honorários Jurídico',      sub: 'Honorários do escritório · recebimentos · análise por pessoa e por período' },
-  contabilidade: { tela: 'contabilidade', titulo: 'Honorários Contabilidade', sub: 'Financeiro da empresa de contabilidade · a receber, a pagar, receita e despesa' }
+  escritorio:    { tela: 'juridico', titulo: 'Financeiro jurídico', frase: 'Honorários do escritório: receber, dar baixa e acompanhar.',
+                   abas: [['analise', 'Análise'], ['lanc', 'Lançamentos']] },
+  contabilidade: { tela: 'contabilidade', titulo: 'Financeiro da contabilidade', frase: 'A receber, a pagar, caixa e distribuição de lucros da contabilidade.',
+                   abas: [['analise', 'Análise'], ['lanc', 'Lançamentos'], ['caixa', 'Caixa'], ['lucros', 'Distribuição de lucros']] }
 };
-const ABAS_FIN = [
-  { id: 'analise',   rot: 'Análise' },
-  { id: 'areceber',  rot: 'A Receber' },
-  { id: 'recebidos', rot: 'Recebidos' },
-  { id: 'prejuizo',  rot: 'Prejuízo' },
-  { id: 'apagar',    rot: 'A Pagar' },
-  { id: 'despesas',  rot: 'Despesas pagas' }
-];
-// Abas que mostram "todos os meses" ao abrir; as demais abrem no mês atual.
-const ABRE_EM_TODOS = { areceber: true, apagar: true, prejuizo: true };
+const SOCIOS_LUCRO = ['Pedro', 'Éder'];
+const PERIODOS_FIN = [['mes', 'Este mês'], ['mesant', 'Mês passado'], ['ano', 'Este ano'], ['anoant', 'Ano passado'], ['12m', '12 meses'], ['todos', 'Tudo']];
 
 function estadoFin(empresa) {
   E.fin = E.fin || {};
-  if (!E.fin[empresa]) E.fin[empresa] = { aba: 'analise', mes: primeiroDiaDoMes(new Date()), todos: false, grupo: '', resp: '', busca: '' };
+  if (!E.fin[empresa]) E.fin[empresa] = { aba: 'analise', an: { quem: [], preset: 'ano', de: '', ate: '', tipo: '', grupo: '' }, caixa: 'consolidado', dados: null, lidoEm: 0 };
   return E.fin[empresa];
 }
 
 TELAS.juridico = () => telaHonorarios('escritorio');
 TELAS.contabilidade = () => telaHonorarios('contabilidade');
 
-async function telaHonorarios(empresa) {
-  const F = estadoFin(empresa), info = EMPRESAS[empresa];
-  $('conteudo').innerHTML =
-    '<div class="titulo-pag"><div><h1>' + info.titulo + '</h1><p>' + info.sub + '</p></div>' +
-    '<div class="acoes"><button class="btn btn-p" data-novo-l="receita">+ Receita</button>' +
-    '<button class="btn btn-o" data-novo-l="despesa">+ Despesa</button></div></div>' +
-    '<div class="abas" id="fin-abas">' + ABAS_FIN.map((a) => '<button data-aba="' + a.id + '">' + a.rot + '</button>').join('') + '</div>' +
-    '<div class="filtros" id="fin-barra">' +
-    '<div class="mes-sel" id="fin-mes"><button data-mes="-1" aria-label="Mês anterior">‹</button><span></span><button data-mes="1" aria-label="Próximo mês">›</button></div>' +
-    '<button class="chip" id="fin-todos">Todos os meses</button>' +
-    '<select class="busca sel" id="fin-grupo" autocomplete="off"><option value="">Todos os grupos</option>' +
-    E.grupos.map((g) => '<option value="' + g.id + '">' + esc(g.nome) + '</option>').join('') + '</select>' +
-    '<select class="busca sel" id="fin-resp" autocomplete="off"><option value="">Todas as pessoas</option>' +
-    Object.keys(PESSOA).map((p) => '<option>' + p + '</option>').join('') + '</select>' +
-    '<input class="busca" id="fin-busca" placeholder="Buscar descrição, grupo ou fornecedor" autocomplete="off">' +
-    '<span class="pill neutro periodo" id="fin-periodo"></span>' +
-    '</div><div id="fin-corpo"><div class="carregando">Carregando…</div></div>';
+// ── classe do lançamento (a mesma regra do ERP antigo): redutor/dedução = receita negativa; estorno = despesa negativa ──
+function classeLanc(l) {
+  const deducao = !!l.redutor || (l.tipo === 'despesa' && !l.favorecido && !!l.grupo_id);
+  const estorno = l.tipo === 'receita' && !l.redutor && !!l.favorecido && !l.grupo_id;
+  const rec = (l.tipo === 'receita' && !estorno) || deducao;
+  return rec ? (l.perda ? 'perda' : l.pago ? 'recebido' : 'areceber') : (l.pago ? 'pago' : 'apagar');
+}
+const sinalLanc = (l) => { const deducao = !!l.redutor || (l.tipo === 'despesa' && !l.favorecido && !!l.grupo_id); const estorno = l.tipo === 'receita' && !l.redutor && !!l.favorecido && !l.grupo_id; return deducao || estorno ? -1 : 1; };
+const valorLanc = (l) => sinalLanc(l) * (Number(l.valor) || 0);
+const quemLanc = (l) => (l.responsavel || '').trim() || 'Sem pessoa';
+const nomeLanc = (l) => (l.grupos && l.grupos.nome) || l.favorecido || (l.clientes && l.clientes.nome) || '';
+const dataLanc = (l) => l.data_pagamento || l.vencimento || '';   // a mesma data do antigo: pagamento, ou vencimento quando não pago
 
-  const c = $('conteudo');
-  c.querySelectorAll('[data-novo-l]').forEach((b) => b.onclick = () =>
-    formLancamento({ tipo: b.dataset.novoL, empresa, grupo_id: F.grupo || null }, () => pintarFin(empresa)));
-  c.querySelectorAll('#fin-abas [data-aba]').forEach((b) => b.onclick = () => {
-    F.aba = b.dataset.aba; F.todos = !!ABRE_EM_TODOS[F.aba]; pintarFin(empresa);
-  });
-  c.querySelectorAll('#fin-mes [data-mes]').forEach((b) => b.onclick = () => {
-    F.mes = new Date(F.mes.getFullYear(), F.mes.getMonth() + Number(b.dataset.mes), 1); F.todos = false; pintarFin(empresa);
-  });
-  $('fin-todos').onclick = () => { F.todos = !F.todos; pintarFin(empresa); };
-  $('fin-grupo').onchange = (ev) => { F.grupo = ev.target.value; pintarFin(empresa); };
-  $('fin-resp').onchange = (ev) => { F.resp = ev.target.value; pintarFin(empresa); };
-  let t;
-  $('fin-busca').oninput = (ev) => { clearTimeout(t); t = setTimeout(() => { F.busca = ev.target.value; pintarLista(empresa); }, 250); };
-  await pintarFin(empresa);
+// Dados: dentro do ERP, os lançamentos que o ERP já carregou (window.ERP_LANC — ficam sempre em dia quando algo é gravado em qualquer tela);
+// no Gestão avulso, lidos do banco. "forcar" = gravou agora: no ERP relê só o financeiro; fora dele, relê do banco.
+const MOD_FIN = { escritorio: 'financeiro', contabilidade: 'financeiroContab' };
+async function dadosFin(empresa, forcar) {
+  const F = estadoFin(empresa), D = dbParc(), noERP = D && window.ERP_LANC;
+  if (noERP) {
+    if (forcar && typeof window.ERP_RECARREGAR_MODULOS === 'function') { await window.ERP_RECARREGAR_MODULOS(MOD_FIN[empresa]); }
+    const nomeCli = {}; (E.clientes || []).forEach((c) => { nomeCli[c.id] = c.nome; });
+    F.dados = Object.values(window.ERP_LANC).filter((l) => l.empresa === empresa)
+      .map((l) => Object.assign({}, l, { clientes: l.clientes || (l.cliente_id && nomeCli[l.cliente_id] ? { nome: nomeCli[l.cliente_id] } : null) }))
+      .sort((a, b) => String(a.vencimento).localeCompare(String(b.vencimento)) || String(a.id).localeCompare(String(b.id)));
+  } else if (forcar || !F.dados || Date.now() - F.lidoEm > 20000) {
+    F.dados = await buscarTodos(() => sb.from('lancamentos').select('*, grupos(nome), clientes(nome), contratos(descricao)').eq('empresa', empresa).order('vencimento').order('id'));
+    F.lidoEm = Date.now();
+  }
+  F.dados.forEach((l) => { l._c = classeLanc(l); });
+  return F.dados;
 }
 
-// Atualiza a barra no lugar (sem recriar) e repinta o corpo.
-function sincronizarBarraFin(empresa) {
-  const F = estadoFin(empresa);
-  document.querySelectorAll('#fin-abas [data-aba]').forEach((b) => b.classList.toggle('ativo', b.dataset.aba === F.aba));
-  const semMes = F.aba === 'prejuizo';
-  $('fin-mes').classList.toggle('escondido', semMes);
-  $('fin-todos').classList.toggle('escondido', semMes || F.aba === 'analise');
-  $('fin-todos').classList.toggle('ativo', F.todos);
-  $('fin-mes').classList.toggle('apagado', F.todos && F.aba !== 'analise');
-  $('fin-mes').querySelector('span').textContent = nomeMes(F.mes);
-  const g = $('fin-grupo'), r = $('fin-resp'), b = $('fin-busca');
-  if (document.activeElement !== g) g.value = F.grupo;
-  if (document.activeElement !== r) r.value = F.resp;
-  if (document.activeElement !== b) b.value = F.busca;
-  const periodo = F.aba === 'prejuizo' ? 'Todos os meses'
-    : F.aba === 'analise' ? 'Referência: ' + nomeMes(F.mes)
-    : F.todos ? 'Todos os meses' : nomeMes(F.mes);
-  const recorte = [periodo, F.grupo ? nomeGrupo(F.grupo) : '', F.resp].filter(Boolean).join(' · ');
-  $('fin-periodo').textContent = '🗓 ' + recorte;
+async function telaHonorarios(empresa, forcar) {
+  const F = estadoFin(empresa), info = EMPRESAS[empresa], c = $('conteudo');
+  if (!c.querySelector('#fin-raiz[data-emp="' + empresa + '"]')) {
+    c.innerHTML = '<div id="fin-raiz" data-emp="' + empresa + '">' +
+      cabecalhoTela({ icone: 'financeiro', titulo: info.titulo, frase: info.frase }) +
+      '<div class="b-fin-topo"><div class="b-seg" role="tablist" id="fin-abas">' + info.abas.map((a) => '<button type="button" role="tab" class="b-seg-bt" data-aba="' + a[0] + '">' + a[1] + '</button>').join('') + '</div>' +
+      '<div class="b-fin-avisos" id="fin-avisos"></div><span class="b-barra-dir">' +
+      '<button type="button" class="b-bt-f" id="fin-recibo" title="Gerar um recibo na Central de Documentos">' + iconeB('recibo') + 'Recibo</button>' +
+      (pode(empresa === 'contabilidade' ? 'financeiro_contab' : 'financeiro_juridico', 'editar') ? '<button type="button" class="b-bt-f" data-novo-l="despesa">' + iconeB('mais') + 'Despesa</button>' +
+        '<button type="button" class="btn btn-p b-bt" data-novo-l="receita">' + iconeB('mais') + 'Receita</button>' : '') + '</span></div>' +
+      '<div id="fin-corpo"><div class="carregando">Carregando…</div></div></div>';
+    c.querySelectorAll('[data-novo-l]').forEach((b) => b.onclick = () =>
+      formLancamento({ tipo: b.dataset.novoL, empresa, grupo_id: F.an.grupo || null }, () => telaHonorarios(empresa, true)));
+    c.querySelector('#fin-abas').onclick = (ev) => { const b = ev.target.closest('[data-aba]'); if (!b) return; F.aba = b.dataset.aba; pintarFin(empresa); };
+    c.querySelector('#fin-recibo').onclick = () => abrirGerador('modelo=recibo');
+    c.querySelector('#fin-avisos').onclick = (ev) => { const b = ev.target.closest('[data-fin-ir]'); if (!b) return;
+      F.aba = 'lanc'; E.tabB = E.tabB || {}; const st = E.tabB['fin-' + empresa] = E.tabB['fin-' + empresa] || {};
+      if (b.dataset.finIr === 'venc') { st.aba = 'areceber'; st.prazo = 'venc'; } else { st.aba = 'perda'; st.prazo = ''; }
+      pintarFin(empresa); };
+  }
+  try { await dadosFin(empresa, forcar); } catch (e) { $('fin-corpo').innerHTML = '<div class="card"><div class="card-bd msg-erro">' + esc(erroAmigavel(e)) + '</div></div>'; return; }
+  pintarFin(empresa);
 }
+// compatibilidade: quem chamava pintarFin/pintarLista depois de gravar
+function recarregarFin(empresa) { return telaHonorarios(empresa, true); }
 
-function consultaBase(empresa) {
-  const F = estadoFin(empresa);
-  let q1 = sb.from('lancamentos').select('*, grupos(nome), clientes(nome), contratos(descricao)').eq('empresa', empresa);
-  if (F.grupo) q1 = q1.eq('grupo_id', F.grupo);
-  if (F.resp) q1 = q1.eq('responsavel', F.resp);
-  return q1;
-}
-
-async function pintarFin(empresa) {
-  sincronizarBarraFin(empresa);
-  const F = estadoFin(empresa), corpo = $('fin-corpo');
-  corpo.innerHTML = '<div class="carregando">Carregando…</div>';
+function pintarFin(empresa) {
+  const F = estadoFin(empresa), L = F.dados || [], corpo = $('fin-corpo'); if (!corpo) return;
+  if (!EMPRESAS[empresa].abas.some((a) => a[0] === F.aba)) F.aba = 'analise';
+  document.querySelectorAll('#fin-abas [data-aba]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.aba === F.aba)));
+  // avisos (os do topo do antigo): honorários vencidos e prejuízo — clicar leva à lista
+  const h = hojeISO(), venc = L.filter((l) => l._c === 'areceber' && l.vencimento && l.vencimento < h), perdas = L.filter((l) => l._c === 'perda');
+  $('fin-avisos').innerHTML = (venc.length ? '<button type="button" class="b-aviso b-aviso-r" data-fin-ir="venc">' + plural(venc.length, 'honorário vencido', 'honorários vencidos') + ' · ' + brl(soma(venc, valorLanc)) + '</button>' : '') +
+    (perdas.length ? '<button type="button" class="b-aviso" data-fin-ir="perda">Prejuízo: ' + brl(soma(perdas, valorLanc)) + '</button>' : '');
   try {
-    if (F.aba === 'analise') await pintarAnalise(empresa);
-    else await pintarLista(empresa, true);
-  } catch (e) {
-    console.error(e);
-    corpo.innerHTML = '<div class="card"><div class="card-bd msg-erro">' + esc(erroAmigavel(e)) + '</div></div>';
+    if (F.aba === 'analise') analiseFin(empresa, corpo);
+    else if (F.aba === 'lanc') listaFin(empresa, corpo);
+    else if (F.aba === 'caixa') caixaFin(empresa, corpo);
+    else if (F.aba === 'lucros') lucrosFin(empresa, corpo);
+  } catch (e) { console.error(e); corpo.innerHTML = '<div class="card"><div class="card-bd msg-erro">' + esc(erroAmigavel(e)) + '</div></div>'; }
+}
+
+// ───────────────────────────── Lançamentos (L1) ─────────────────────────────
+function listaFin(empresa, corpo) {
+  const F = estadoFin(empresa), L = F.dados || [], h = hojeISO();
+  const temDesp = empresa === 'contabilidade' || L.some((l) => l._c === 'apagar' || l._c === 'pago');
+  const abas = [{ id: 'areceber', rot: 'A receber', f: (l) => l._c === 'areceber' }, { id: 'recebido', rot: 'Recebido', f: (l) => l._c === 'recebido' }]
+    .concat(temDesp ? [{ id: 'apagar', rot: 'A pagar', f: (l) => l._c === 'apagar' }, { id: 'pago', rot: 'Pago', f: (l) => l._c === 'pago' }] : [])
+    .concat([{ id: 'perda', rot: 'Perdas', f: (l) => l._c === 'perda' }]);
+  const porPag = (a) => a === 'recebido' || a === 'pago';
+  const dataL = (l) => (l.pago ? l.data_pagamento : l.vencimento) || '';
+  const opc = (f) => [...new Set(L.map(f).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR')).map((v) => [v, v]);
+  const lista = (k, rot, todos, f) => { const o = opc(f); return o.length > 1 ? [{ k, rot, todos, opcoes: o, get: (l) => f(l) || '' }] : []; };
+  const vS = (l) => (l._c === 'apagar' || l._c === 'pago' ? -valorLanc(l) : valorLanc(l));   // na tabela: despesa negativa
+  const colunas = (aba) => {
+    const C = [
+      { k: 'resp', rot: 'Quem', html: (l) => pillPessoa(l.responsavel), ord: (l) => normalizar(l.responsavel || '') },
+      { k: 'quem', rot: 'Grupo / Favorecido', html: (l) => esc(nomeLanc(l) || '—') + (l.clientes && l.grupos ? '<span class="b-sub">' + esc(l.clientes.nome) + '</span>' : ''), ord: (l) => normalizar(nomeLanc(l)) },
+      { k: 'desc', rot: 'Descrição', html: (l) => { const lg = legendaLanc(l); return esc(l.descricao || '—') + (lg ? '<span class="b-sub">' + esc(lg) + '</span>' : ''); }, ord: (l) => normalizar(l.descricao || '') },
+      { k: 'v', rot: 'Valor', cls: 'b-dir b-val', clsL: (l) => (vS(l) < 0 ? ' valor-desp' : ' valor-rec'), soma: true,
+        html: (l) => (vS(l) < 0 ? '− ' : '') + brl(l.valor) + (l.redutor ? '<small>redutor</small>' : ''), ord: valorLanc },
+      { k: 'venc', rot: porPag(aba) ? 'Pago em' : 'Vencimento', cls: 'b-cen b-data',
+        html: (l) => { const d = dataL(l); return d ? dataBR(d) + (porPag(aba) && l.vencimento && l.vencimento !== d ? '<small>venc. ' + dataBR(l.vencimento) + '</small>' : '') : '—'; }, ord: (l) => dataL(l) || '9' }];
+    if (!porPag(aba)) C.push({ k: 'pz', rot: aba === 'perda' ? 'Situação' : 'Prazo', cls: 'b-cen b-prazo', html: celPrazoL, ord: (l) => (l.pago || l.perda ? '9' : l.vencimento || '9') });
+    C.push({ k: 'ac', rot: '', cls: 'b-dir b-c-acoes', html: celAcoesL, ord: false });
+    return C;
+  };
+  const el = corpo.querySelector('#fin-tab') || (corpo.innerHTML = '<div id="fin-tab"></div>', corpo.querySelector('#fin-tab'));
+  el._lancDepois = () => telaHonorarios(empresa, true);
+  tabelaB(el, { id: 'fin-' + empresa, tabCls: 'b-tab-lanc', linhas: L, colunas: colunas('areceber'), colunasAba: colunas, abas, semContagemAbas: false,
+    unidade: ['lançamento', 'lançamentos'], busca: (l) => [l.descricao, nomeLanc(l), l.clientes && l.clientes.nome, l.favorecido, l.categoria, l.obs, l.servico, l.referencia].join(' '),
+    dicaBusca: 'Cliente, grupo, descrição…', prazos: true, prazosAbas: ['areceber', 'apagar'], venc: dataL, valor: vS,
+    ord: { k: 'venc', dir: 1 }, ordAbas: { recebido: { k: 'venc', dir: -1 }, pago: { k: 'venc', dir: -1 } },
+    conta: (n) => plural(n, 'lançamento', 'lançamentos'), linhaCls: (l) => (!l.pago && !l.perda && l.vencimento && l.vencimento <= h ? ' b-tr-venc' : ''),
+    listas: [].concat(lista('resp', 'Quem', 'Todas as pessoas', (l) => l.responsavel), lista('grupo', 'Grupo', 'Todos os grupos', (l) => l.grupos && l.grupos.nome),
+      lista('tipo', 'Tipo', 'Todos os tipos', (l) => l.categoria), lista('area', 'Área', 'Todas as áreas', (l) => l.servico),
+      lista('ref', 'Referência', 'Todas as referências', (l) => l.referencia), lista('fav', 'Favorecido', 'Todos os favorecidos', (l) => l.favorecido)),
+    lote: [{ rot: 'Dar baixa nas marcadas', icone: 'check', quando: (l) => !l.pago && !l.perda, fn: async (marc) => {
+      const alvo = marc.filter((l) => !l.pago && !l.perda); if (!alvo.length) return false;
+      const bx = await perguntarBaixa({ titulo: 'Baixa em lote — confirme a data', descricao: plural(alvo.length, 'lançamento', 'lançamentos'), valor: soma(alvo, valorLanc) });
+      if (!bx) return false;
+      await q(sb.from('lancamentos').update(Object.assign(bx, { cobranca: '', perda: false })).in('id', alvo.map((l) => l.id)));
+      aviso('✓ Baixa de ' + plural(alvo.length, 'lançamento', 'lançamentos') + ' em ' + dataBR(bx.data_pagamento) + '.'); await el._lancDepois(); } },
+    { rot: 'Cobrar as marcadas', icone: 'enviar', quando: (l) => l._c === 'areceber' && !l.redutor, fn: async (marc) => { cobrarVarios(marc.filter((l) => l._c === 'areceber' && !l.redutor)); return false; } }],
+    loteBotao: true,
+    clique: (l) => detalheLancamento(l.id).catch((e) => aviso(erroAmigavel(e), true)),
+    vazio: { titulo: 'Nenhum lançamento aqui', frase: 'Troque o botão (A receber, Recebido…) ou limpe os filtros.' } });
+  if (!el._lancLigado) {
+    el._lancLigado = true;
+    el.addEventListener('click', (ev) => {
+      const b = ev.target.closest('[data-pagar], [data-cobrar], [data-desfazer]'); if (!b || !el.contains(b)) return;
+      ev.stopPropagation();
+      if (b.dataset.cobrar) return cobrarWhatsApp(b.dataset.cobrar);
+      if (b.dataset.desfazer) return comBotao(b, async () => { await q(sb.from('lancamentos').update({ pago: false }).eq('id', b.dataset.desfazer)); aviso('Lançamento voltou para "em aberto".'); await el._lancDepois(); });
+      comBotao(b, async () => {
+        const l = (F.dados || []).find((x) => x.id === b.dataset.pagar) || await q(sb.from('lancamentos').select('descricao, valor, tipo, redutor').eq('id', b.dataset.pagar).single());
+        const bx = await perguntarBaixa({ descricao: l.descricao, valor: l.valor, despesa: l.tipo === 'despesa' && !l.redutor });
+        if (!bx) return;
+        await q(sb.from('lancamentos').update(Object.assign(bx, { cobranca: '', perda: false })).eq('id', b.dataset.pagar));
+        aviso('✓ Baixa registrada em ' + dataBR(bx.data_pagamento) + '.'); await el._lancDepois();
+      });
+    }, true);
   }
 }
 
-// ───────────────────────────── listas ──────────────────────────────
-let _listaFin = [];
-async function pintarLista(empresa, buscar) {
+// Cobrar várias de uma vez (o que a aba "Honorários" da tela antiga de Notificações fazia): um texto por cliente, com todas as parcelas dele
+function cobrarVarios(lista) {
+  if (!lista.length) return aviso('Nenhum honorário em aberto entre os marcados.', true);
+  const porCli = {};
+  lista.forEach((l) => { const k = nomeLanc(l) || 'Sem cliente'; (porCli[k] = porCli[k] || []).push(l); });
+  const h = hojeISO();
+  const texto = (nome, ls) => 'Olá! Tudo bem?\n\nSegue o resumo dos honorários' + (ls.some((l) => l.vencimento < h) ? ' em aberto' : ' deste período') + ' de ' + nome + ':\n\n' +
+    ls.map((l) => '• ' + l.descricao + ' — ' + brl(l.valor) + ' — ' + (l.vencimento < h ? 'venceu em ' : 'vence em ') + dataBR(l.vencimento)).join('\n') +
+    '\n\nTotal: ' + brl(soma(ls, valorLanc)) + '\n\nQualquer dúvida, estamos à disposição.';
+  const blocos = Object.keys(porCli).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  const j = abrirJanela({ titulo: 'Cobrar ' + plural(lista.length, 'honorário', 'honorários'), kick: 'Financeiro', sub: plural(blocos.length, 'cliente', 'clientes') + ' · um texto para cada', larga: true,
+    corpo: blocos.map((n, i) => '<div class="b-cob-bloco"><div class="b-cob-hd"><b>' + esc(n) + '</b><span>' + plural(porCli[n].length, 'parcela', 'parcelas') + ' · ' + brl(soma(porCli[n], valorLanc)) + '</span></div>' +
+      '<textarea rows="7" data-cob-txt="' + i + '">' + esc(texto(n, porCli[n])) + '</textarea>' +
+      '<div class="b-cob-acoes"><button type="button" class="b-bt-emitir" data-cob-copiar="' + i + '">Copiar</button><button type="button" class="b-bt-emitir" data-cob-wa="' + i + '">WhatsApp</button>' +
+      (porCli[n].length === 1 ? '<button type="button" class="b-bt-emitir" data-cob-um="' + esc(porCli[n][0].id) + '">E-mail…</button>' : '') + '</div></div>').join(''),
+    rodape: '<span class="sub">O texto pode ser editado antes de enviar. Para e-mail, abra a cobrança de cada parcela (botão Cobrar da linha).</span><div class="acoes"><button type="button" class="btn btn-o" data-fechar>Fechar</button></div>' });
+  j.addEventListener('click', (ev) => {
+    const cp = ev.target.closest('[data-cob-copiar]'), wa = ev.target.closest('[data-cob-wa]'), um = ev.target.closest('[data-cob-um]');
+    const txt = (i) => j.querySelector('[data-cob-txt="' + i + '"]').value;
+    if (cp) copiarTexto(txt(cp.dataset.cobCopiar));
+    if (wa) window.open('https://wa.me/?text=' + encodeURIComponent(txt(wa.dataset.cobWa)), '_blank', 'noopener');
+    if (um) { fecharJanela(j); cobrarWhatsApp(um.dataset.cobUm); }
+  });
+  return j;
+}
+
+// ───────────────────────────── Análise ─────────────────────────────
+function janelaFin(an) {
+  if (an.de || an.ate) return [an.de || '1900-01-01', an.ate || '2999-12-31'];
+  const d = new Date(), a = d.getFullYear(), m = d.getMonth(), f = (x) => iso(x);
+  switch (an.preset) {
+    case 'mes': return [f(new Date(a, m, 1)), f(new Date(a, m + 1, 0))];
+    case 'mesant': return [f(new Date(a, m - 1, 1)), f(new Date(a, m, 0))];
+    case 'ano': return [f(new Date(a, 0, 1)), f(new Date(a, 11, 31))];
+    case 'anoant': return [f(new Date(a - 1, 0, 1)), f(new Date(a - 1, 11, 31))];
+    case '12m': return [f(new Date(a, m - 11, 1)), f(new Date(a, m + 1, 0))];
+    default: return null;
+  }
+}
+function filtrarFin(empresa, classes, semPeriodo) {
+  const F = estadoFin(empresa), an = F.an, jan = semPeriodo ? null : janelaFin(an);
+  return (F.dados || []).filter((l) => {
+    if (!classes.includes(l._c)) return false;
+    if (an.quem.length && !an.quem.includes(quemLanc(l))) return false;
+    if (an.tipo && (l.categoria || '') !== an.tipo) return false;
+    if (an.grupo && (l.grupos && l.grupos.nome) !== an.grupo) return false;
+    if (jan) { const d = dataLanc(l); if (!d || d < jan[0] || d > jan[1]) return false; }
+    return true;
+  });
+}
+const somaV = (ls) => soma(ls, valorLanc);
+function misturaCor(a, b, t) {
+  const h = (x) => [1, 3, 5].map((i) => parseInt(x.slice(i, i + 2), 16));
+  const A = h(a), B = h(b); return '#' + A.map((v, i) => ('0' + Math.round(v + (B[i] - v) * t).toString(16)).slice(-2)).join('');
+}
+function corBarraPessoa(n) { const c = corPessoa(n); return /^#[0-9a-f]{6}$/i.test(c.fundo) && /^#[0-9a-f]{6}$/i.test(c.marca) ? misturaCor(c.fundo, c.marca, 0.45) : 'var(--chart-7)'; }
+function mesesEntre(a, b) { const out = []; let [y, m] = a.split('-').map(Number); const [y2, m2] = b.split('-').map(Number);
+  while (y < y2 || (y === y2 && m <= m2)) { out.push(y + '-' + String(m).padStart(2, '0')); m++; if (m > 12) { m = 1; y++; } } return out; }
+function cartaoFin(tit, sub, corpo, extra) { return '<section class="b-fin-cartao' + (extra ? ' ' + extra : '') + '"><div class="b-fin-hd"><h3>' + esc(tit) + '</h3>' + (sub ? '<p>' + esc(sub) + '</p>' : '') + '</div>' + corpo + '</section>'; }
+function barrasFin(pares, max) {
+  const lista = pares.filter((x) => x[1] > 0).sort((a, b) => b[1] - a[1]).slice(0, max || 10);
+  if (!lista.length) return '<div class="b-barras-vazio">Nada no período.</div>';
+  const topo = lista[0][1] || 1;
+  return '<div class="b-barras">' + lista.map((x) => '<div class="b-barra-lin"><span class="b-barra-rot" title="' + esc(x[0]) + '">' + esc(x[0]) + '</span><span class="b-barra-trilho"><span style="width:' + Math.max(2, Math.round(x[1] / topo * 100)) + '%"></span></span><b class="b-barra-val">' + brl(x[1]) + '</b></div>').join('') + '</div>';
+}
+const somaPor = (ls, chave) => { const M = {}; ls.forEach((l) => { const k = chave(l) || 'Não informado'; M[k] = (M[k] || 0) + valorLanc(l); }); return Object.entries(M); };
+
+function analiseFin(empresa, corpo) {
+  const F = estadoFin(empresa), an = F.an, L = F.dados || [], contab = empresa === 'contabilidade', h = hojeISO();
+  const pessoas = [...new Set(L.map(quemLanc))].filter((p) => p !== 'Sem pessoa').sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  const tipos = [...new Set(L.map((l) => l.categoria).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  const grupos = [...new Set(L.map((l) => l.grupos && l.grupos.nome).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  const jan = janelaFin(an);
+  const fil = '<section class="b-fin-filtros" id="fa-filtros">' +
+    (pessoas.length > 1 ? '<div class="b-fin-lin"><span class="b-fin-rot">Quem fez</span><button type="button" class="b-chip" data-fa-quem="" aria-pressed="' + !an.quem.length + '">Todos</button>' +
+      pessoas.map((p) => '<button type="button" class="b-chip" data-fa-quem="' + esc(p) + '" aria-pressed="' + an.quem.includes(p) + '">' + esc(p) + '</button>').join('') + '</div>' : '') +
+    '<div class="b-fin-lin"><span class="b-fin-rot">Período</span>' + PERIODOS_FIN.map((p) => '<button type="button" class="b-chip" data-fa-per="' + p[0] + '" aria-pressed="' + (!an.de && !an.ate && an.preset === p[0]) + '">' + p[1] + '</button>').join('') +
+      '<span class="b-fx"><input type="date" id="fa-de" value="' + esc(an.de) + '" aria-label="De"><span>até</span><input type="date" id="fa-ate" value="' + esc(an.ate) + '" aria-label="Até"><button type="button" class="b-bt-f" id="fa-aplicar">Aplicar</button></span></div>' +
+    '<div class="b-fin-lin"><span class="b-fin-rot">Recorte</span><select id="fa-tipo" aria-label="Tipo"><option value="">Todos os tipos</option>' + tipos.map((t) => '<option' + (an.tipo === t ? ' selected' : '') + '>' + esc(t) + '</option>').join('') + '</select>' +
+      (grupos.length > 1 ? '<select id="fa-grupo" aria-label="Grupo"><option value="">Todos os grupos</option>' + grupos.map((g) => '<option' + (an.grupo === g ? ' selected' : '') + '>' + esc(g) + '</option>').join('') + '</select>' : '') + '</div>' +
+    '<p class="b-fin-mostra">Mostrando <b>' + esc(an.quem.length ? an.quem.join(', ') : 'todos') + '</b> · <b>' + (jan ? dataBR(jan[0]) + ' a ' + dataBR(jan[1]) : 'todo o período') + '</b>' + (an.tipo ? ' · <b>' + esc(an.tipo) + '</b>' : '') + (an.grupo ? ' · <b>' + esc(an.grupo) + '</b>' : '') +
+      ' · data considerada: <b>pagamento</b>, ou vencimento quando não houver pagamento</p></section>';
+  const receita = filtrarFin(empresa, ['recebido']), aRec = filtrarFin(empresa, ['areceber']), aPag = filtrarFin(empresa, ['apagar']), pagos = filtrarFin(empresa, ['pago']);
+  const perdas = filtrarFin(empresa, ['perda'], true), vencidos = filtrarFin(empresa, ['areceber'], true).filter((l) => l.vencimento && l.vencimento < h);
+  const aVencer = aRec.filter((l) => !(l.vencimento && l.vencimento < h));
+  const vRec = somaV(receita);
+  const nums = [['Recebido', brl(vRec), plural(receita.length, 'recebimento', 'recebimentos'), 'b-verde'], ['A receber', brl(somaV(aVencer)), aVencer.length + ' em aberto']]
+    .concat(contab || aPag.length ? [['A pagar', brl(somaV(aPag)), plural(aPag.length, 'conta em aberto', 'contas em aberto')]] : [])
+    .concat([['Em atraso', brl(somaV(vencidos)), 'todos os meses', vencidos.length ? 'b-verm' : ''], ['Prejuízo', brl(somaV(perdas)), plural(perdas.length, 'baixa', 'baixas') + ' · todos os meses']])
+    .concat(contab ? [] : [['Ticket médio', brl(receita.length ? vRec / receita.length : 0), 'por recebimento']]);
+  // mês a mês: do 1º mês com dado ao último (no período)
+  const chaves = [...receita, ...pagos].map((l) => dataLanc(l).slice(0, 7)).filter(Boolean).sort();
+  const meses = chaves.length ? mesesEntre(chaves[0], chaves[chaves.length - 1]) : [];
+  let graf;
+  if (contab) {
+    graf = cartaoFin('Recebido × pago mês a mês', 'Verde = recebido · vermelho = pago (despesas). Passe o mouse na coluna para ver o mês.',
+      '<div class="b-fin-graf">' + graficoColunasB(meses, [{ nome: 'Recebido', cor: 'var(--chart-2)', valores: meses.map((k) => somaV(receita.filter((l) => dataLanc(l).startsWith(k)))) },
+        { nome: 'Pago (despesas)', cor: 'var(--chart-5)', valores: meses.map((k) => somaV(pagos.filter((l) => dataLanc(l).startsWith(k)))) }], { titulo: 'Recebido e pago por mês' }) + '</div>');
+  } else {
+    const quem = [...new Set(receita.map(quemLanc))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    graf = cartaoFin('Recebido mês a mês', 'Empilhado por pessoa. Passe o mouse na coluna para ver o valor.',
+      '<div class="b-fin-graf">' + graficoColunasB(meses, quem.map((p) => ({ nome: p, cor: corBarraPessoa(p), valores: meses.map((k) => somaV(receita.filter((l) => quemLanc(l) === p && dataLanc(l).startsWith(k)))) })), { empilhado: true, titulo: 'Recebido por mês' }) + '</div>');
+  }
+  let comp = '';
+  if (!contab) {
+    const linhas = (pessoas.length ? pessoas : ['Sem pessoa']).filter((p) => !an.quem.length || an.quem.includes(p)).map((p) => {
+      const r = receita.filter((l) => quemLanc(l) === p), a = aRec.filter((l) => quemLanc(l) === p), pj = perdas.filter((l) => quemLanc(l) === p);
+      return { p, rec: somaV(r), n: r.length, ar: somaV(a), pj: somaV(pj) };
+    }).sort((x, y) => y.rec - x.rec);
+    const tot = linhas.reduce((s, l) => s + l.rec, 0), td = (v, c) => '<td class="b-dir' + (c ? ' ' + c : '') + '">' + v + '</td>';
+    comp = cartaoFin('Comparativo por pessoa', '', linhas.length ? '<div class="b-rola b-rola-solta" data-sem-pagina><table class="b-tab b-tab-comp"><thead><tr><th>Pessoa</th><th class="b-dir">Recebido</th><th class="b-dir">%</th><th class="b-cen">Lançamentos</th><th class="b-dir">Ticket médio</th><th class="b-dir">A receber</th><th class="b-dir">Prejuízo</th></tr></thead><tbody>' +
+      linhas.map((l) => '<tr><td>' + pillPessoa(l.p) + '</td>' + td(brl(l.rec), 'b-verde-v') + td((tot ? Math.round(l.rec / tot * 100) : 0) + '%') + '<td class="b-cen">' + l.n + '</td>' + td(l.n ? brl(l.rec / l.n) : '—') + td(l.ar ? brl(l.ar) : '—') + td(l.pj ? brl(l.pj) : '—') + '</tr>').join('') +
+      '</tbody><tfoot><tr><td>Total</td>' + td(brl(tot)) + td(tot ? '100%' : '—') + '<td class="b-cen">' + linhas.reduce((s, l) => s + l.n, 0) + '</td><td></td>' + td(brl(linhas.reduce((s, l) => s + l.ar, 0))) + td(brl(linhas.reduce((s, l) => s + l.pj, 0))) + '</tr></tfoot></table></div>' : '<div class="b-barras-vazio">Nada no período.</div>');
+  }
+  corpo.innerHTML = fil + numsFaixa(nums) + graf + comp +
+    '<div class="b-fin-dois">' + cartaoFin(contab ? 'Recebido por tipo de serviço' : 'Por tipo de serviço', '', barrasFin(somaPor(receita, (l) => l.servico))) +
+      cartaoFin('Maiores grupos', '', barrasFin(somaPor(receita, (l) => l.grupos && l.grupos.nome))) + '</div>' +
+    (contab ? cartaoFin('Despesas por categoria', 'Pago no período, por categoria.', barrasFin(somaPor(pagos, (l) => l.categoria))) : '');
+  // controles
+  const fl = corpo.querySelector('#fa-filtros');
+  fl.onclick = (ev) => {
+    const qb = ev.target.closest('[data-fa-quem]'), pb = ev.target.closest('[data-fa-per]');
+    if (qb) { const p = qb.dataset.faQuem; if (!p) an.quem = []; else an.quem = an.quem.includes(p) ? an.quem.filter((x) => x !== p) : an.quem.concat(p); return analiseFin(empresa, corpo); }
+    if (pb) { an.preset = pb.dataset.faPer; an.de = an.ate = ''; return analiseFin(empresa, corpo); }
+    if (ev.target.id === 'fa-aplicar') { an.de = fl.querySelector('#fa-de').value; an.ate = fl.querySelector('#fa-ate').value; if (an.de && an.ate && an.de > an.ate) { const t = an.de; an.de = an.ate; an.ate = t; } return analiseFin(empresa, corpo); }
+  };
+  fl.onchange = (ev) => { if (ev.target.id === 'fa-tipo') { an.tipo = ev.target.value; analiseFin(empresa, corpo); } else if (ev.target.id === 'fa-grupo') { an.grupo = ev.target.value; analiseFin(empresa, corpo); } };
+  fl.onkeydown = (ev) => { if (ev.key === 'Enter' && (ev.target.id === 'fa-de' || ev.target.id === 'fa-ate')) fl.querySelector('#fa-aplicar').click(); };
+}
+
+// ───────────────────────────── Caixa (Contabilidade) ─────────────────────────────
+// Livro-caixa: só o que já foi pago mexe no caixa (recebido − pago, pela data de pagamento); saldo acumulado desde o 1º mês.
+function mesesCaixa(L) {
+  const mov = L.filter((l) => l._c === 'recebido' || l._c === 'pago');
+  const ch = mov.map((l) => dataLanc(l).slice(0, 7)).filter(Boolean).sort();
+  if (!ch.length) return [];
+  const atual = hojeISO().slice(0, 7), fim = atual > ch[ch.length - 1] ? atual : ch[ch.length - 1];
+  let saldo = 0;
+  return mesesEntre(ch[0], fim).map((k) => {
+    const r = somaV(mov.filter((l) => l._c === 'recebido' && dataLanc(l).startsWith(k))), d = somaV(mov.filter((l) => l._c === 'pago' && dataLanc(l).startsWith(k)));
+    saldo += r - d; return { k, r, d, res: r - d, saldo, itens: mov.filter((l) => dataLanc(l).startsWith(k)).sort((a, b) => dataLanc(a).localeCompare(dataLanc(b))) };
+  });
+}
+function caixaFin(empresa, corpo) {
+  const F = estadoFin(empresa), meses = mesesCaixa(F.dados || []);
+  if (!meses.length) { corpo.innerHTML = vazioB({ icone: 'financeiro', titulo: 'Nada pago ainda', frase: 'O caixa usa só os lançamentos já recebidos ou pagos — assim que houver um, ele aparece aqui.' }); return; }
+  const hk = hojeISO().slice(0, 7), atual = meses.find((m) => m.k === hk) || meses[meses.length - 1], saldo = meses[meses.length - 1].saldo;
+  const nums = numsFaixa([['Saldo em caixa', brl(saldo), 'acumulado desde o início', saldo < 0 ? 'b-verm' : ''], ['Receita do mês', brl(atual.r), rotMesB(atual.k), 'b-verde'],
+    ['Despesas do mês', brl(atual.d), rotMesB(atual.k)], ['Resultado do mês', brl(atual.res), atual.res >= 0 ? 'superávit' : 'déficit', atual.res < 0 ? 'b-verm' : 'b-verde']]);
+  const seg = '<div class="b-seg b-seg-mini" id="cx-vista"><button type="button" class="b-seg-bt" data-cx="consolidado" aria-selected="' + (F.caixa === 'consolidado') + '">Consolidado</button><button type="button" class="b-seg-bt" data-cx="detalhado" aria-selected="' + (F.caixa === 'detalhado') + '">Mês a mês</button></div>';
+  let miolo;
+  if (F.caixa === 'detalhado') {
+    let ini = 0;
+    miolo = meses.slice().map((m) => { const s0 = ini; ini = m.saldo; return [m, s0]; }).reverse().map(([m, s0]) => {
+      let s = s0;
+      const cats = somaPor(m.itens.filter((l) => l._c === 'pago'), (l) => l.categoria).sort((a, b) => b[1] - a[1]);
+      return '<details class="b-cx-mes"' + (m.k === hk ? ' open' : '') + '><summary><b>' + esc(rotMesB(m.k)) + '</b><span class="b-verde-v">+ ' + brl(m.r) + '</span><span class="b-verm-v">− ' + brl(m.d) + '</span><span>saldo ' + brl(m.saldo) + '</span></summary>' +
+        (m.itens.length ? '<div class="b-rola b-rola-solta" data-sem-pagina><table class="b-tab"><thead><tr><th class="b-cen">Data</th><th>Histórico</th><th>Categoria</th><th class="b-dir">Entrada</th><th class="b-dir">Saída</th><th class="b-dir">Saldo</th></tr></thead><tbody>' +
+          m.itens.map((l) => { const v = valorLanc(l), ent = l._c === 'recebido' ? v : 0, sai = l._c === 'pago' ? v : 0; s += ent - sai;
+            return '<tr class="b-cl" data-cx-l="' + esc(l.id) + '"><td class="b-cen b-data">' + dataBR(dataLanc(l)) + '</td><td>' + esc(l.descricao || nomeLanc(l) || '—') + '</td><td>' + esc(l._c === 'recebido' ? 'Honorários' : (l.categoria || '—')) + '</td>' +
+              '<td class="b-dir b-verde-v">' + (ent ? brl(ent) : '—') + '</td><td class="b-dir b-verm-v">' + (sai ? brl(sai) : '—') + '</td><td class="b-dir"><b>' + brl(s) + '</b></td></tr>'; }).join('') +
+          '</tbody></table></div>' : '<p class="b-barras-vazio">Nenhum movimento neste mês.</p>') +
+        (cats.length ? '<div class="b-cx-cats">' + cats.map(([k, v]) => '<span>' + esc(k) + ' <b>' + brl(v) + '</b></span>').join('') + '</div>' : '') + '</details>';
+    }).join('');
+  } else {
+    const ks = meses.map((m) => m.k);
+    const despCat = somaPor((F.dados || []).filter((l) => l._c === 'pago'), (l) => l.categoria);
+    miolo = cartaoFin('Saldo em caixa mês a mês', 'Acumulado — receita menos despesa, mês após mês.', '<div class="b-fin-graf">' + graficoColunasB(ks, [], { linha: { nome: 'Saldo', cor: 'var(--chart-1)', valores: meses.map((m) => m.saldo) }, titulo: 'Saldo mês a mês' }) + '</div>') +
+      cartaoFin('Receita × despesa mês a mês', 'Recebido contra pago — passe o mouse no mês para ver os dois juntos.', '<div class="b-fin-graf">' + graficoColunasB(ks, [{ nome: 'Receita', cor: 'var(--chart-2)', valores: meses.map((m) => m.r) }, { nome: 'Despesa', cor: 'var(--chart-5)', valores: meses.map((m) => m.d) }], { titulo: 'Receita e despesa' }) + '</div>') +
+      cartaoFin('Despesas por categoria', 'Acumulado de todo o período.', barrasFin(despCat)) +
+      cartaoFin('Resumo mensal', 'Receita, despesa, resultado e saldo final de cada mês.', '<div class="b-rola b-rola-solta" data-sem-pagina><table class="b-tab"><thead><tr><th>Mês</th><th class="b-dir">Receita</th><th class="b-dir">Despesa</th><th class="b-dir">Resultado</th><th class="b-dir">Saldo final</th></tr></thead><tbody>' +
+        meses.map((m) => '<tr' + (!m.r && !m.d ? ' class="b-apagada"' : '') + '><td>' + esc(rotMesB(m.k)) + '</td><td class="b-dir b-verde-v">' + (m.r ? brl(m.r) : '—') + '</td><td class="b-dir b-verm-v">' + (m.d ? brl(m.d) : '—') + '</td><td class="b-dir' + (m.res < 0 ? ' b-verm-v' : '') + '">' + brl(m.res) + '</td><td class="b-dir"><b>' + brl(m.saldo) + '</b></td></tr>').join('') +
+        '</tbody><tfoot><tr><td>Total</td><td class="b-dir">' + brl(meses.reduce((s, m) => s + m.r, 0)) + '</td><td class="b-dir">' + brl(meses.reduce((s, m) => s + m.d, 0)) + '</td><td class="b-dir">' + brl(meses.reduce((s, m) => s + m.res, 0)) + '</td><td class="b-dir">' + brl(saldo) + '</td></tr></tfoot></table></div>');
+  }
+  corpo.innerHTML = seg + nums + miolo;
+  corpo.querySelector('#cx-vista').onclick = (ev) => { const b = ev.target.closest('[data-cx]'); if (b) { F.caixa = b.dataset.cx; caixaFin(empresa, corpo); } };
+  corpo.querySelectorAll('[data-cx-l]').forEach((tr) => tr.onclick = () => detalheLancamento(tr.dataset.cxL).catch((e) => aviso(erroAmigavel(e), true)));
+}
+
+// ───────────────────────────── Distribuição de lucros (Contabilidade) ─────────────────────────────
+function lucrosFin(empresa, corpo) {
   const F = estadoFin(empresa);
-  if (buscar) {
-    const ini = iso(F.mes), fim = iso(fimDoMes(F.mes));
-    _listaFin = await buscarTodos(() => {
-      let c = consultaBase(empresa);
-      switch (F.aba) {
-        case 'areceber':  c = c.eq('tipo', 'receita').eq('pago', false).eq('perda', false); break;
-        case 'recebidos': c = c.eq('tipo', 'receita').eq('pago', true); break;
-        case 'prejuizo':  c = c.eq('tipo', 'receita').eq('perda', true); break;
-        case 'apagar':    c = c.eq('tipo', 'despesa').eq('pago', false); break;
-        case 'despesas':  c = c.eq('tipo', 'despesa').eq('pago', true); break;
-      }
-      const porPagamento = F.aba === 'recebidos' || F.aba === 'despesas';
-      if (!F.todos && F.aba !== 'prejuizo') {
-        const campo = porPagamento ? 'data_pagamento' : 'vencimento';
-        c = c.gte(campo, ini).lte(campo, fim);
-      }
-      return c.order(porPagamento ? 'data_pagamento' : 'vencimento', { ascending: !porPagamento }).order('descricao');
-    });
-  }
-  let lista = _listaFin;
-  if (F.busca) {
-    const b = normalizar(F.busca);
-    lista = lista.filter((l) => normalizar([l.descricao, l.grupos && l.grupos.nome, l.clientes && l.clientes.nome, l.favorecido, l.categoria, l.obs].join(' ')).includes(b));
-  }
-  const total = soma(lista, vl);
-  const atrasado = soma(lista.filter((l) => situacao(l) === 'vencido'), vl);
-  const rotAba = ABAS_FIN.find((a) => a.id === F.aba).rot.replace(/^\S+\s/, '');
-  $('fin-corpo').innerHTML =
-    '<div class="kpis">' +
-    kpi(rotAba, brl(total), F.aba === 'prejuizo' || F.aba === 'apagar' ? 'ambar' : F.aba === 'recebidos' ? 'verde' : '', lista.length + ' lançamento(s)') +
-    (F.aba === 'areceber' || F.aba === 'apagar' ? kpi('Em atraso', brl(atrasado), 'vermelho', lista.filter((l) => situacao(l) === 'vencido').length + ' vencido(s)') : '') +
-    '</div>' +
-    '<div id="fin-tabela"></div>';
-  tabelaLancB($('fin-tabela'), lista, { aba: F.aba, id: 'fin-' + empresa + '-' + F.aba }, () => pintarFin(empresa));
+  const linhas = (F.dados || []).filter((l) => /distribui[cç][aã]o de lucros/i.test(l.categoria || ''));
+  if (!linhas.length) { corpo.innerHTML = vazioB({ icone: 'financeiro', titulo: 'Nenhuma distribuição lançada ainda', frase: 'Lance uma despesa com o tipo "Distribuição de lucros" e o favorecido Pedro ou Éder — o cálculo aparece aqui sozinho.' }); return; }
+  const socio = (l) => (l.favorecido || (l.grupos && l.grupos.nome) || '—').trim() || '—';
+  const ehSocio = (n) => SOCIOS_LUCRO.find((s) => normalizar(s) === normalizar(n));
+  const por = {}; linhas.forEach((l) => { const k = ehSocio(socio(l)) || socio(l); por[k] = (por[k] || 0) + (Number(l.valor) || 0); });
+  const [s1, s2] = SOCIOS_LUCRO, v1 = por[s1] || 0, v2 = por[s2] || 0, tot12 = v1 + v2, totGeral = Object.values(por).reduce((s, v) => s + v, 0);
+  const outros = Object.keys(por).filter((n) => !ehSocio(n)), dif = v1 - v2, igual = Math.abs(dif) < 0.01;
+  const pc = (v) => (tot12 ? Math.round(v / tot12 * 100) + '% do total (' + s1 + ' + ' + s2 + ')' : '—');
+  corpo.innerHTML = (outros.length ? '<div class="b-alerta-a"><b>Favorecido fora de ' + s1 + '/' + s2 + '</b>' + outros.map((n) => '<div>• "' + esc(n) + '" — ' + brl(por[n]) + ' (não entra no equilíbrio 50/50)</div>').join('') + '</div>' : '') +
+    numsFaixa([['Total distribuído', brl(totGeral), plural(linhas.length, 'lançamento', 'lançamentos')], [s1, brl(v1), pc(v1)], [s2, brl(v2), pc(v2)],
+      ['Equilíbrio (50/50)', igual ? 'Igual' : brl(Math.abs(dif)), igual ? s1 + ' e ' + s2 + ' receberam o mesmo total' : (dif > 0 ? s1 : s2) + ' está à frente — ' + brl(Math.abs(dif) / 2) + ' equilibraria', igual ? 'b-verde' : 'b-verm']]) +
+    '<div id="fin-lucros"></div>';
+  tabelaB(corpo.querySelector('#fin-lucros'), { id: 'fin-lucros-' + empresa, linhas, titulo: 'Lançamentos de distribuição de lucros', unidade: ['lançamento', 'lançamentos'],
+    colunas: [{ k: 'd', rot: 'Data', cls: 'b-cen b-data', html: (l) => dataBR(dataLanc(l)), ord: dataLanc }, { k: 's', rot: 'Sócio', html: (l) => esc(socio(l)), ord: (l) => normalizar(socio(l)) },
+      { k: 'v', rot: 'Valor', cls: 'b-dir b-val', soma: true, html: (l) => brl(l.valor), ord: (l) => Number(l.valor) || 0 },
+      { k: 'st', rot: 'Situação', cls: 'b-cen', html: (l) => (l.pago ? '<span class="b-ok-txt">✓ Pago</span>' : '<span class="b-pz-a">Pendente</span>'), ord: (l) => (l.pago ? 1 : 0) },
+      { k: 'o', rot: 'Observação', html: (l) => '<span class="b-sub">' + esc(l.obs || l.descricao || l.referencia || '—') + '</span>', ord: false }],
+    ord: { k: 'd', dir: -1 }, valor: (l) => Number(l.valor) || 0, clique: (l) => detalheLancamento(l.id).catch((e) => aviso(erroAmigavel(e), true)) });
 }
 
 // Legenda do lançamento (vale no sistema todo): 2ª linha = "Área do serviço — contrato"; sem contrato, só a área;
@@ -307,77 +528,6 @@ function ligarAcoesLancamentos(raiz, depois) {
     const l = await q(sb.from('lancamentos').select('*').eq('id', b.dataset.editar).single());
     formLancamento(l, apos);
   }));
-}
-
-// ───────────────────────────── análise ─────────────────────────────
-async function pintarAnalise(empresa) {
-  const F = estadoFin(empresa), h = hojeISO();
-  const ini12 = iso(new Date(F.mes.getFullYear(), F.mes.getMonth() - 11, 1));
-  const fimRef = iso(fimDoMes(F.mes)), iniRef = iso(F.mes);
-  const fim3 = iso(fimDoMes(new Date(F.mes.getFullYear(), F.mes.getMonth() + 3, 1)));
-  const [pagos, abertos, perdas] = await Promise.all([
-    buscarTodos(() => consultaBase(empresa).eq('pago', true).gte('data_pagamento', ini12).lte('data_pagamento', fimRef)),
-    buscarTodos(() => consultaBase(empresa).eq('pago', false).eq('perda', false)),
-    buscarTodos(() => consultaBase(empresa).eq('tipo', 'receita').eq('perda', true))
-  ]);
-  const rec = (l) => l.tipo === 'receita', desp = (l) => l.tipo === 'despesa';
-  const noMes = (l) => l.data_pagamento >= iniRef && l.data_pagamento <= fimRef;
-  const recebidoMes = soma(pagos.filter((l) => rec(l) && noMes(l)), vl);
-  const pagoMes = soma(pagos.filter((l) => desp(l) && noMes(l)), vl);
-  const aReceber = abertos.filter(rec), aPagar = abertos.filter(desp);
-  const atraso = aReceber.filter((l) => l.vencimento < h);
-  const aReceberMes = aReceber.filter((l) => l.vencimento >= iniRef && l.vencimento <= fimRef);
-
-  // série mensal: 12 meses recebidos + 3 meses previstos (a receber)
-  const serie = [];
-  const mesAtual = iso(primeiroDiaDoMes(new Date())).slice(0, 7);
-  for (let i = -11; i <= 3; i++) {
-    const d = new Date(F.mes.getFullYear(), F.mes.getMonth() + i, 1), chave = iso(d).slice(0, 7);
-    const futuro = chave > mesAtual;
-    const valor = futuro
-      ? soma(aReceber.filter((l) => l.vencimento.slice(0, 7) === chave), vl)
-      : soma(pagos.filter((l) => rec(l) && l.data_pagamento.slice(0, 7) === chave), vl);
-    if (i > 0 && !futuro) continue;              // mês de referência no passado: não mostra "futuro" já ocorrido
-    serie.push({ rotulo: mesCurto(d), valor, estado: futuro ? 'futuro' : chave === mesAtual ? 'atual' : 'passado',
-                 dica: nomeMes(d) + ': ' + brl(valor) + (futuro ? ' a receber (previsto)' : ' recebido') });
-  }
-  // em aberto por grupo (top 10)
-  const porGrupo = {};
-  aReceber.forEach((l) => { const n = (l.grupos && l.grupos.nome) || l.favorecido || 'Sem grupo'; porGrupo[n] = (porGrupo[n] || 0) + vl(l); });
-  const topGrupos = Object.entries(porGrupo).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([rotulo, valor]) => ({ rotulo, valor }));
-  // recebido no mês por pessoa
-  const porPessoa = {};
-  pagos.filter((l) => rec(l) && noMes(l)).forEach((l) => { const p = l.responsavel || 'Sem pessoa'; porPessoa[p] = (porPessoa[p] || 0) + vl(l); });
-
-  $('fin-corpo').innerHTML =
-    '<div class="kpis">' +
-    kpi('Recebido em ' + nomeMes(F.mes).split(' ')[0].toLowerCase(), brl(recebidoMes), 'verde', pagos.filter((l) => rec(l) && noMes(l)).length + ' recebimento(s)') +
-    kpi('A receber no mês', brl(soma(aReceberMes, vl)), '', aReceberMes.length + ' em aberto') +
-    kpi('Total em aberto', brl(soma(aReceber, vl)), '', aReceber.length + ' lançamento(s), todos os meses') +
-    kpi('Em atraso', brl(soma(atraso, vl)), 'vermelho', atraso.length + ' vencido(s)') +
-    (aPagar.length || pagoMes ? kpi('A pagar (aberto)', brl(soma(aPagar, vl)), 'ambar', 'pago no mês: ' + brl(pagoMes)) : '') +
-    kpi('Prejuízo', brl(soma(perdas, vl)), 'ambar', perdas.length + ' crédito(s) perdido(s)') +
-    '</div>' +
-    blocoRecolhivel('fin-g-mensal-' + empresa, '📊 Recebido por mês e previsão', '<div class="card-bd">' + graficoMensal(serie, { titulo: 'Recebido por mês' }) + '</div>') +
-    '<div class="duas-col">' +
-    blocoRecolhivel('fin-g-grupo-' + empresa, '💰 Em aberto por grupo (10 maiores)', '<div class="card-bd">' + graficoRanking(topGrupos, { titulo: 'Em aberto por grupo' }) + '</div>') +
-    blocoRecolhivel('fin-g-pessoa-' + empresa, '👤 Recebido no mês por pessoa', '<div class="card-bd">' + barrasPessoa(porPessoa) + '</div>') +
-    '</div>' +
-    '<div class="card"><div class="card-hd">⚠ Em atraso<span class="pill neutro">' + atraso.length + '</span></div>' + tabelaLancamentos(atraso.sort((a, b) => a.vencimento < b.vencimento ? -1 : 1), { aba: 'areceber' }) + '</div>';
-  ligarAcoesLancamentos($('fin-corpo'), () => pintarFin(empresa));
-}
-
-// Barras por pessoa: a cor é a identidade da pessoa (única exceção à rampa azul).
-function barrasPessoa(mapa) {
-  const itens = Object.entries(mapa).sort((a, b) => b[1] - a[1]);
-  if (!itens.length) return '<div class="vazio">Nenhum recebimento no mês.</div>';
-  const max = Math.max(...itens.map((i) => i[1]), 1);
-  return '<div class="barras-pessoa">' + itens.map(([p, v]) => {
-    const c = corPessoa(p);
-    return '<div class="bp" data-dica="' + esc(p + ': ' + brl(v)) + '"><span class="bp-nome">' + esc(p) + '</span>' +
-      '<span class="bp-trilho"><span class="bp-barra" style="width:' + (v / max * 100).toFixed(1) + '%;background:' + c.marca + '"></span></span>' +
-      '<span class="mono bp-val">' + esc(brlCurto(v)) + '</span></div>';
-  }).join('') + '</div>';
 }
 
 // ───────────────────────────── formulário ──────────────────────────
@@ -584,12 +734,14 @@ async function detalheLancamento(id) {
         (l.cliente_id ? '<button class="btn btn-o btn-mini" type="button" id="dl-cli">Ficha do cliente</button>' : '') +
         // Backup 32: recibo já preenchido na Central de Documentos (valor, data, forma e cliente)
         '</span>' +
-      '<div class="acoes"><button class="btn btn-o" type="button" data-editar="' + l.id + '">✎ Editar</button>' +
+      '<div class="acoes">' + (l.pago && l.tipo === 'receita' && !l.redutor ? '<button class="btn btn-o" type="button" id="dl-recibo" title="Recibo deste pagamento na Central de Documentos (já preenchido)">🧾 Recibo</button>' : '') +
+      '<button class="btn btn-o" type="button" data-editar="' + l.id + '">✎ Editar</button>' +
       (!l.pago && !l.perda ? '<button class="btn btn-v" type="button" data-pagar="' + l.id + '">✓ ' + (l.tipo === 'despesa' && !l.redutor ? 'Pago' : 'Recebido') + '</button>' : '') + '</div>' });
   ligarAcoesLancamentos(j, async () => { fecharJanela(j); if (window.ERP_RECARREGAR) window.ERP_RECARREGAR(); else await recarregar(); });
   // Backup 58: "✎ Editar" troca o detalhe pelo formulário (não empilha duas janelas)
   const be = j.querySelector('[data-editar]'); if (be) { const ed = be.onclick; be.onclick = () => { fecharJanela(j); return ed(); }; }
   const bc = j.querySelector('#dl-ctr'); if (bc) bc.onclick = () => { fecharJanela(j); detalheContrato(l.contrato_id); };
+  const br = j.querySelector('#dl-recibo'); if (br) br.onclick = () => { fecharJanela(j); abrirGerador('lancamento=' + l.id); };
   const bl = j.querySelector('#dl-cli'); if (bl) bl.onclick = () => { fecharJanela(j); abrirFicha(l.cliente_id); };
   return j;
 }

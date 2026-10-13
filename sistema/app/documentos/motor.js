@@ -505,6 +505,9 @@
       const [l] = await q(sb.from('lancamentos').select('*').eq('id', u.get('lancamento'))).catch(() => []);
       if (l) { Object.assign(extra, { valor: String(l.valor || '').replace('.', ','), pago_em: l.data_pagamento || hojeISO(), referente: l.descricao ? 'honorários advocatícios — ' + l.descricao : 'honorários advocatícios',
         forma: /pix/i.test(l.forma_pagamento || '') ? 'pix' : /boleto/i.test(l.forma_pagamento || '') ? 'boleto' : /dinheiro|esp[eé]cie/i.test(l.forma_pagamento || '') ? 'dinheiro' : /transf|ted|doc/i.test(l.forma_pagamento || '') ? 'transferencia' : 'pix' });
+        // Backup 76: honorário mensal → recibo do tipo "Honorários mensais" (mês do pagamento e mês da prestação)
+        if (/mensal|fixo|consultoria/i.test((l.categoria || '') + ' ' + (l.descricao || ''))) Object.assign(extra, { tipo_rec: 'mensal', referente: l.servico ? 'assessoria jurídica — ' + l.servico.toLowerCase() : 'consultoria jurídica',
+          mes_quit: String(l.data_pagamento || hojeISO()).slice(0, 7), mes_prest: String(l.competencia || l.vencimento || '').slice(0, 7) });
         if (l.cliente_id && !extra.pagador) extra.pagador = await dadosCliente(l.cliente_id); }
     }
     novoDocumento(m.id, extra); E.sujo = true; prever();

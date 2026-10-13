@@ -535,33 +535,6 @@ function cabecalhoTela({ icone, titulo, frase, atualizar, botao }) {
     '<div class="b-cab-acoes">' + (atualizar ? '<button type="button" class="b-link" id="' + esc(atualizar) + '">' + iconeB('atualizar') + 'Atualizar</button>' : '') +
     (botao ? '<button type="button" class="btn btn-p b-bt" id="' + esc(botao.id) + '">' + iconeB('mais') + esc(botao.rotulo) + '</button>' : '') + '</div></div>';
 }
-// 2) cartões de número: [{icone, cor: r|b|a|g, rotulo, valor, comp (texto menor ao lado), sub, barra (0–100), linhas: [[valor, rótulo, verde?]]}]
-function cartoesNumero(lista) {
-  return '<div class="b-kpis b-kpis-' + lista.length + '">' + lista.map((c) => '<div class="b-kpi"' + (c.id ? ' id="' + esc(c.id) + '"' : '') + '><div class="b-kpi-ic b-' + (c.cor || 'b') + '">' + iconeB(c.icone || 'ok') + '</div><div class="b-kpi-tx">' +
-    '<div class="b-kpi-l">' + esc(c.rotulo) + '</div>' +
-    (c.linhas ? '<div class="b-kpi-linhas">' + c.linhas.map((l) => '<div><span class="b-kpi-v' + (l[2] ? ' b-verde' : '') + '">' + esc(l[0]) + '</span><span class="b-kpi-s">' + esc(l[1]) + '</span></div>').join('') + '</div>'
-      : '<div class="b-kpi-v' + (c.cor === 'r' && c.valor && c.valor !== '0' ? ' b-verm' : '') + '">' + esc(c.valor) + (c.comp ? ' <small>' + esc(c.comp) + '</small>' : '') + '</div>') +
-    (c.barra != null ? '<div class="b-barra' + (c.cor === 'a' ? ' b-barra-a' : '') + '"><span style="width:' + Math.max(0, Math.min(100, Math.round(c.barra))) + '%"></span></div>' : '') +
-    (c.sub ? '<div class="b-kpi-s">' + c.sub + '</div>' : '') + '</div></div>').join('') + '</div>';
-}
-// 3) abas sublinhadas com contador e os filtros à direita, na mesma linha (sem cartão)
-function barraAbas({ abas, ativa, filtros, attr }) {
-  const a = attr || 'data-b-aba';
-  return '<div class="b-abas-linha"><div class="b-abas" role="tablist">' + abas.map((x) => '<button type="button" role="tab" class="b-aba" ' + a + '="' + esc(x.id) + '" aria-selected="' + (x.id === ativa) + '">' +
-    esc(x.rotulo) + (x.n != null ? '<span class="b-aba-n' + (x.cor ? ' b-' + x.cor : '') + '">' + x.n + '</span>' : '') + '</button>').join('') + '</div>' +
-    (filtros ? '<div class="b-filtros">' + filtros + '</div>' : '') + '</div>';
-}
-// campo de busca da barra de filtros
-function buscaB(id, dica, valor) { return '<label class="b-busca">' + iconeB('busca') + '<input id="' + esc(id) + '" placeholder="' + esc(dica || 'Buscar') + '" aria-label="' + esc(dica || 'Buscar') + '" value="' + esc(valor || '') + '"></label>'; }
-// 4) tabela leve: cabeçalho claro, ~12 linhas visíveis e o resto rolando (cabeçalho parado), clique na linha abre o detalhe/editar
-//    colunas: [{rot, cls}] (cls: b-dir = dinheiro à direita, b-cen = centro) · linhas: [{attrs: 'data-x="…"', cels: [html]}]
-function tabelaLeve({ titulo, resumo, colunas, linhas, vazio: v, id, clicavel }) {
-  if (!linhas.length && v) return '<div class="b-quadro"' + (id ? ' id="' + esc(id) + '"' : '') + '>' + vazioB(v) + '</div>';
-  return '<div class="b-quadro"' + (id ? ' id="' + esc(id) + '"' : '') + '>' + (titulo ? '<div class="b-quadro-hd"><h2>' + esc(titulo) + '</h2>' + (resumo ? '<span class="b-resumo">' + resumo + '</span>' : '') + '</div>' : '') +
-    '<div class="b-rola" data-sem-pagina><table class="b-tab"><thead><tr>' + colunas.map((c) => '<th' + (c.cls ? ' class="' + c.cls + '"' : '') + '>' + esc(c.rot) + '</th>').join('') + '</tr></thead><tbody>' +
-    linhas.map((l) => '<tr' + (clicavel !== false ? ' class="b-cl" tabindex="0"' : '') + (l.attrs ? ' ' + l.attrs : '') + '>' + l.cels.map((c, i) => '<td' + (colunas[i] && colunas[i].cls ? ' class="' + colunas[i].cls + '"' : '') + '>' + c + '</td>').join('') + '</tr>').join('') +
-    '</tbody></table></div></div>';
-}
 // tela vazia que explica e oferece o próximo passo: {icone, titulo, frase, botao: {rotulo, seletor}}
 function vazioB({ icone, titulo, frase, botao }) {
   return '<div class="b-vazio"><div class="b-vazio-ic">' + iconeB(icone || 'ok') + '</div><b>' + esc(titulo) + '</b>' + (frase ? '<p>' + esc(frase) + '</p>' : '') +
@@ -575,34 +548,20 @@ document.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && ev.targ
 // ordenar pelo título, total e média no rodapé, tabela compacta e marcar várias linhas para agir de uma vez (sempre com confirmação).
 const ICONES_B2 = { filtro: '<path d="M3 5h18l-7 8v6l-4 2v-8z"/>', compacto: '<path d="M4 5h16M4 9.5h16M4 14h16M4 18.5h16"/>', x: '<path d="M18 6 6 18M6 6l12 12"/>' };
 Object.assign(ICONES_B, ICONES_B2);
-// vencimento colorido: vermelho = em atraso (hoje conta como vencido), azul = a vencer; pago = data normal
-function vencB(isoData, pago) {
-  if (!isoData) return { cls: '', html: '—' };
-  if (pago) return { cls: '', html: dataBR(isoData) };
-  const d = Math.round((new Date(hojeISO() + 'T00:00:00') - new Date(isoData + 'T00:00:00')) / 864e5);
-  return { cls: d >= 0 ? ' b-v-atr' : ' b-v-av', html: dataBR(isoData) + '<small>' + (d === 0 ? 'vence hoje' : d > 0 ? plural(d, 'dia', 'dias') + ' de atraso' : 'em ' + plural(-d, 'dia', 'dias')) + '</small>' };
-}
+// Backup 76: ícones do Financeiro novo (e de quem mais precisar)
+// Backup 76 (L4): ícones do cabeçalho único de todas as telas
+Object.assign(ICONES_B, { admin: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
+  clientes: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M21.5 20a6.5 6.5 0 0 0-4-6"/>',
+  contrato: '<path d="M14 2.5H6.5a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V8z"/><path d="M14 2.5V8h5.5M8.5 13h7M8.5 17h4"/>',
+  crm: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
+  execucao: '<path d="m14.5 12.5-8 8a2 2 0 0 1-3-3l8-8M16 16l6-6M8 8l6-6M9 7l8 8M21 11l-8-8"/>',
+  publicacao: '<path d="M4 4h16v16H4z"/><path d="M8 8h8M8 12h8M8 16h5"/>',
+  tarefas: '<rect x="3.5" y="3.5" width="17" height="17" rx="2"/><path d="m8 12 2.5 2.5L16 9"/>' });
+Object.assign(ICONES_B, { financeiro: '<rect x="2.5" y="5.5" width="19" height="13" rx="2"/><path d="M2.5 10h19M6.5 15h4"/>',
+  recibo: '<path d="M6 2.5h12v19l-3-2-3 2-3-2-3 2z"/><path d="M9 7.5h6M9 11h6M9 14.5h4"/>', enviar: '<path d="m21.5 2.5-19 7 8 3 3 8z"/><path d="m10.5 12.5 11-10"/>' });
 // Backup 74: faixa de números (a mesma do Painel, da Análise do Financeiro e da ficha do cliente): [[rótulo, valor, sub, classe b-verde|b-verm]]
 function numsFaixa(itens) {
   return '<div class="b-nums b-nums-faixa b-nums-' + itens.length + '">' + itens.map((i) => '<div><span>' + esc(i[0]) + '</span><b class="' + (i[3] || '') + '">' + i[1] + '</b>' + (i[2] ? '<small>' + esc(i[2]) + '</small>' : '') + '</div>').join('') + '</div>';
-}
-// cartões que abrem o detalhamento logo abaixo (clicou → abre; clicou de novo → fecha)
-// lista: [{id, icone, cor, rotulo, valor, comp, sub, barra, linhas, det(container)}]
-function cartoesB(el, chave, lista) {
-  E.kpiAberto = E.kpiAberto || {};
-  const ab = E.kpiAberto[chave] || '';
-  el.innerHTML = '<div class="b-kpis b-kpis-' + lista.length + ' b-kpis-ab">' + lista.map((c) => {
-    const on = ab === c.id;
-    return '<button type="button" class="b-kpi b-kpi-bt" data-kpi="' + esc(c.id) + '" aria-expanded="' + on + '"><span class="b-kpi-abre">' + (on ? 'fechar ▲' : 'ver ▼') + '</span>' +
-      '<div class="b-kpi-ic b-' + (c.cor || 'b') + '">' + iconeB(c.icone || 'ok') + '</div><div class="b-kpi-tx"><div class="b-kpi-l">' + esc(c.rotulo) + '</div>' +
-      (c.linhas ? '<div class="b-kpi-linhas">' + c.linhas.map((l) => '<div><span class="b-kpi-v' + (l[2] ? ' b-verde' : '') + '">' + esc(l[0]) + '</span><span class="b-kpi-s">' + esc(l[1]) + '</span></div>').join('') + '</div>'
-        : '<div class="b-kpi-v' + (c.cor === 'r' && c.valor && c.valor !== '0' ? ' b-verm' : '') + '">' + esc(c.valor) + (c.comp ? ' <small>' + esc(c.comp) + '</small>' : '') + '</div>') +
-      (c.barra != null ? '<div class="b-barra' + (c.cor === 'a' ? ' b-barra-a' : '') + '"><span style="width:' + Math.max(0, Math.min(100, Math.round(c.barra))) + '%"></span></div>' : '') +
-      (c.sub ? '<div class="b-kpi-s">' + c.sub + '</div>' : '') + '</div></button>';
-  }).join('') + '</div><div class="b-kpi-det"></div>';
-  const atual = lista.find((c) => c.id === ab);
-  if (atual && atual.det) atual.det(el.querySelector('.b-kpi-det'));
-  el.querySelector('.b-kpis').onclick = (ev) => { const b = ev.target.closest('[data-kpi]'); if (!b) return; E.kpiAberto[chave] = ab === b.dataset.kpi ? '' : b.dataset.kpi; cartoesB(el, chave, lista); };
 }
 // TABELA de toda tela refeita. cfg: { id, titulo (texto ou fn(aba)), colunas: [{k, rot, cls, clsL(r), html(r), ord(r) | false, soma}], linhas,
 //   abas: [{id, rot, f(r), cor:'r'}], abaPadrao, ordAbas: {aba: {k, dir}}, ord: {k, dir}, busca(r) → texto, dicaBusca,
@@ -663,7 +622,8 @@ function tabelaB(el, cfg) {
       (cfg.semContagemAbas ? '' : ' <span class="b-seg-n">' + cont[a.id] + '</span>') + '</button>').join('');
   }
   function quadro() {
-    const o = ordem(), lin = filtrar(), col = cfg.colunas.find((c) => c.k === o.k);
+    const cols = cfg.colunasAba ? cfg.colunasAba(st.aba) : cfg.colunas;   // Backup 76: colunas que mudam com a aba (ex.: Vencimento × Pago em)
+    const o = ordem(), lin = filtrar(), col = cols.find((c) => c.k === o.k);
     if (col && col.ord !== false) { const f = col.ord || ((r) => r[col.k]); lin.sort((a, b) => { const x = f(a), y = f(b); return (x > y ? 1 : x < y ? -1 : 0) * o.dir; }); }
     Object.keys(st.sel).forEach((k) => { if (!lin.some((r) => chave(r) === k)) delete st.sel[k]; });
     const titulo = typeof cfg.titulo === 'function' ? cfg.titulo(st.aba) : cfg.titulo;
@@ -682,7 +642,6 @@ function tabelaB(el, cfg) {
     const lote = temLote && marc.length ? '<div class="b-lote"><b>' + plural(marc.length, 'marcada', 'marcadas') + '</b>' + (cfg.valor ? '<span>' + brl(marc.reduce((s, r) => s + (cfg.valor(r) || 0), 0)) + '</span>' : '') +
       '<button type="button" class="b-link" data-bt="desmarcar">Desmarcar</button><div class="b-lote-acoes">' + cfg.lote.map((a, i) => { const n = marc.filter((r) => !a.quando || a.quando(r)).length;
         return '<button type="button" class="btn btn-o btn-mini" data-b-lote="' + i + '"' + (n ? '' : ' disabled') + '>' + iconeB(a.icone || 'check') + esc(a.rot) + (n !== marc.length ? ' (' + n + ')' : '') + '</button>'; }).join('') + '</div></div>' : '';
-    const cols = cfg.colunas;
     const cel = (c, r) => '<td' + ((c.cls || c.clsL) ? ' class="' + (c.cls || '') + (c.clsL ? c.clsL(r) : '') + '"' : '') + '>' + c.html(r) + '</td>';
     Q('[data-bt=quadro]').innerHTML = '<div class="b-quadro">' + (titulo ? '<div class="b-quadro-hd"><h2>' + esc(titulo) + '</h2><span class="b-resumo">' + plural(lin.length, un[0], un[1]) + (soma != null ? ' · <b>' + brl(soma) + '</b>' : '') + '</span></div>' : '') + lote +
       '<div class="b-rola" data-sem-pagina' + (cfg.altura ? ' style="max-height:' + cfg.altura + '"' : '') + '><table class="b-tab' + (cfg.tabCls ? ' ' + cfg.tabCls : '') + '"><thead><tr>' +

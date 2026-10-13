@@ -1,7 +1,7 @@
 // Auditoria visual (skill telas-com-dados-ac): R$ quebrado, campo fora do card, rolagem lateral, menu morto.
 // Uso: node auditoria-visual.js  (servidor-local.js no ar; use valores grandes no banco de teste)
 const { chromium } = require('playwright');
-const PAINEIS = ['hoje','resumo','processos','acordos','parcelamentos','financeiro','financeiroContab','contratos','clientes','documentos','tarefas','notificacoes','admin'];
+const PAINEIS = ['hoje','resumo','processos','acordos','parcelamentos','financeiro','financeiroContab','contratos','clientes','documentos','tarefas','admin'];
 (async () => {
   const b = await chromium.launch(); const out = {};
   for (const w of [1440, 1024, 390]) {

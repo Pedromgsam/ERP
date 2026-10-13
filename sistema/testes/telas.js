@@ -87,20 +87,20 @@ const r = []; const ok = (n, c) => r.push([n, !!c]);
 
     // Honorários Jurídico
     await menu(p, 'juridico');
-    ok('Análise com gráfico mensal e KPIs', (await p.locator('#fin-corpo svg.grafico').count()) >= 1 && /Total em aberto/.test(await texto(p)));
-    await p.click('#fin-abas [data-aba=areceber]'); await esperar(p);
-    ok('A Receber lista as parcelas (todos os meses)', /Consultoria tributária — parcela 1\/3/.test(await texto(p)) && /Todos os meses/.test(await texto(p, '#fin-periodo')));
+    ok('Análise com gráfico mensal e faixa de números (B76)', /Recebido mês a mês/.test(await texto(p, '#fin-corpo')) && (await p.locator('#fin-corpo .b-nums-faixa').count()) === 1 && /A receber/.test(await texto(p, '#fin-corpo')) && /Em atraso/.test(await texto(p, '#fin-corpo')));
+    await p.click('#fin-abas [data-aba=lanc]'); await esperar(p);
+    ok('Lançamentos → A receber lista as parcelas (todos os meses)', /Consultoria tributária — parcela 1\/3/.test(await texto(p, '#fin-corpo')) && await p.isVisible('#fin-tab [data-b-aba=areceber][aria-selected=true]'));
     await p.click('#fin-corpo tr:has-text("parcela 1/3") [data-pagar]');
     await p.waitForSelector('.janela-baixa [data-bx-ok]'); await p.click('.janela-baixa [data-bx-ok]'); await esperar(p, 900);
-    await p.click('#fin-abas [data-aba=recebidos]'); await esperar(p);
-    ok('baixa aparece em Recebidos do mês', /parcela 1\/3/.test(await texto(p)) && /Recebido/.test(await texto(p)));
+    await p.click('#fin-tab [data-b-aba=recebido]'); await esperar(p);
+    ok('baixa aparece em Recebido', /parcela 1\/3/.test(await texto(p, '#fin-corpo')) && /Pago em/.test(await texto(p, '#fin-corpo')));
     // busca não perde o foco nem recria a barra
-    await p.click('#fin-abas [data-aba=areceber]'); await esperar(p);
-    const barraAntes = await p.evaluate(() => { window.__barra = document.getElementById('fin-barra'); return true; });
-    await p.fill('#fin-busca', 'parcela 3'); await esperar(p, 700);
-    ok('busca filtra sem recriar a barra e sem tirar o foco', barraAntes && await p.evaluate(() => window.__barra === document.getElementById('fin-barra') && document.activeElement.id === 'fin-busca')
+    await p.click('#fin-tab [data-b-aba=areceber]'); await esperar(p);
+    const barraAntes = await p.evaluate(() => { window.__barra = document.querySelector('#fin-tab .b-barra-tab'); return !!window.__barra; });
+    await p.fill('#fin-tab [data-bt=q]', 'parcela 3'); await esperar(p, 700);
+    ok('busca filtra sem recriar a barra e sem tirar o foco', barraAntes && await p.evaluate(() => window.__barra === document.querySelector('#fin-tab .b-barra-tab') && document.activeElement.dataset.bt === 'q')
       && /parcela 3\/3/.test(await texto(p, '#fin-corpo')) && !/parcela 2\/3/.test(await texto(p, '#fin-corpo')));
-    await p.fill('#fin-busca', ''); await esperar(p, 500);
+    await p.fill('#fin-tab [data-bt=q]', ''); await esperar(p, 500);
     // ordenar por valor clicando no cabeçalho
     await p.click('#fin-corpo th:has-text("Valor")'); await esperar(p, 200);
     const sort1 = await p.getAttribute('#fin-corpo th:has-text("Valor")', 'aria-sort');
@@ -110,7 +110,7 @@ const r = []; const ok = (n, c) => r.push([n, !!c]);
 
     // Contabilidade: despesa recorrente
     await menu(p, 'contabilidade');
-    await p.click('text=+ Despesa');
+    await p.click('[data-novo-l=despesa]');
     await p.fill('#f-lanc [name=descricao]', 'Sistema contábil');
     await p.fill('#f-lanc [name=valor]', '616,00');
     await p.fill('#f-lanc [name=favorecido]', 'Arquivei');
@@ -174,11 +174,11 @@ const r = []; const ok = (n, c) => r.push([n, !!c]);
 
     // Honorários importados: COBRADO, previsão, prejuízo
     await menu(p, 'juridico');
-    await p.click('#fin-abas [data-aba=areceber]'); await esperar(p);
+    await p.click('#fin-abas [data-aba=lanc]'); await esperar(p); await p.click('#fin-tab [data-b-aba=areceber]'); await esperar(p);
     const ar = await texto(p, '#fin-corpo');
     ok('importados aparecem com "Cobrado" e "Previsão"', /Cobrado/.test(ar) && /Previsão: 30\/09\/2026/.test(ar));
-    await p.click('#fin-abas [data-aba=prejuizo]'); await esperar(p);
-    ok('aba Prejuízo com o crédito perdido', /910,80/.test(await texto(p, '#fin-corpo')));
+    await p.click('#fin-tab [data-b-aba=perda]'); await esperar(p);
+    ok('botão Perdas com o crédito perdido', /910,80/.test(await texto(p, '#fin-corpo')));
 
     // Backup
     await menu(p, 'admin');

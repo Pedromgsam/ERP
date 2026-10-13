@@ -463,7 +463,7 @@ TELAS.tarefas = async function () {
   $('conteudo').innerHTML =
     // Backup 49: abas junto do título; só "+ Nova tarefa" e "Fluxo" à vista — o resto no ⚙ (Backup 55: a criação rápida ⚡ saiu)
     // Backup 72: as abas Em aberto/Atrasadas/Concluídas/Excluídas ficam na tabela (com os números), como no ambiente de teste
-    '<div class="titulo-pag"><div><h1>Tarefas</h1></div>' +
+    '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('tarefas') + '</div><div class="b-cab-tx"><h1>Tarefas</h1></div>' +
     '<div class="acoes">' +
     '<span class="tf-cfg-wrap"><button class="btn btn-o tf-bt-ic" id="tf-config" title="Configurar: modelos de fluxo, feriados, Google Agenda e novo fluxo" aria-expanded="false">⚙</button>' +
       '<span class="tf-cfg-menu" id="tf-cfg-menu" hidden><button class="btn btn-o" id="tf-modelos">Modelos de fluxo</button>' +
