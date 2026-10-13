@@ -110,8 +110,11 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('gestao.html saiu do site', g2.status() === 404);
     ok('menu Financeiro com Jurídico e Contabilidade', (await p.$$eval('#tn .tn-grupo:has([data-ir=financeiro]) .tn-menu button', (l) => l.map((b) => b.textContent))).join('|') === 'Jurídico|Contabilidade');
     await nav(p, 'hoje'); await p.waitForTimeout(1500);
-    ok('equipe entra no Início do Gestão (resumo do mês)', await p.isVisible('#panel-hoje') && /Olá, Pedro/.test(await p.textContent('#panel-hoje')) && !!(await p.$('#ini-resumo .ini-atalhos')));
+    ok('equipe entra no Início do Gestão (resumo do mês)', await p.isVisible('#panel-hoje') && /(Olá|Bom dia|Boa tarde|Boa noite), Pedro/.test(await p.textContent('#panel-hoje')) && !!(await p.$('#ini-resumo .ini-atalhos')));
     await p.waitForSelector('#ini-resumo .ini-at'); await p.waitForTimeout(300);
+    await p.waitForSelector('#ini-dia', { timeout: 8000 }).catch(() => {}); await p.waitForTimeout(800);
+    ok('B74 Início: "Meu dia" (hoje + atrasadas, Só eu/Equipe toda), Lembretes e "Próximos 7 dias", mantendo os cartões Financeiro/Escritório e o calendário', !!(await p.$('#ini-dia')) && !!(await p.$('#ini-prox')) &&
+      (await p.$$('#ini-quem [data-ini-quem]')).length === 2 && !!(await p.$('#ini-resumo [data-ini-ir=fin-jur]')) && !!(await p.$('#ini-fila')) && !/O que pede ação hoje/.test(await p.textContent('#panel-hoje')));
     ok('Início (B49): resumo numa linha fina de atalhos, sem Processos; Tarefas com o total da equipe', await p.evaluate(() => {
       const t = [...document.querySelectorAll('#ini-resumo .ini-at-tit')].map((x) => x.textContent), tf = document.querySelector('#ini-resumo [data-ini-ir=tarefas]');
       return !t.includes('Processos') && t.includes('Publicações') && !t.includes('Documentos') && /em aberto/.test(tf.textContent) && !document.querySelector('#ini-resumo .ini-res'); }));
@@ -191,6 +194,8 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.waitForTimeout(1200);
     const an = await p.textContent('#faCorpo');
     ok('Em atraso conta todos os meses, mesmo com "Este ano"', /Em atraso/.test(an) && /400/.test(an) /* Backup 37: a tabela "Em atraso" saiu; o cartão continua somando */, an.replace(/\s+/g, ' ').slice(0, 300));
+    ok('B74 Financeiro Jurídico: Análise com faixa de números, Recebido mês a mês, Comparativo por pessoa, tipo de serviço e maiores grupos', (await p.$$('#faCorpo .b-nums-faixa > div')).length >= 5 &&
+      ['Recebido mês a mês', 'Comparativo por pessoa', 'Por tipo de serviço', 'Maiores grupos'].every((t) => an.includes(t)) && !!(await p.$('#faCorpo table.b-tab-comp')) && !!(await p.$('#faCorpo canvas#cFaMes')));
 
     // ── + Lançar: formulários do Gestão ──
     await lancar(p, 0);
@@ -641,6 +646,9 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     // ── portal do cliente ──
     const pc = await pagina();
     await entrar(pc, 'cliente@teste'); await carregado(pc); await pc.waitForTimeout(1500);
+    await pc.waitForSelector('#pt-home', { timeout: 8000 }).catch(() => {});
+    ok('B74 Portal do cliente: entra num Início de boas-vindas (Olá, explicação, resumo clicável e "Como usar"); no menu, "Início"', /Olá, Grupo Alfa/.test(await pc.textContent('#pt-home').catch(() => '')) &&
+      (await pc.$$('#pt-home [data-pt-ir]')).length === 5 && /Como usar/.test(await pc.textContent('#pt-home')) && /Início/.test(await pc.textContent('#tn [data-ir=resumo]')));
     const vis = await pc.evaluate(() => ({ nivel: AC_SESSION.nivel, grupos: [...new Set(DB.baseDados.map((x) => x.grupo))].join(','), fin: DB.financeiro.length, obs: DB.baseDados.some((x) => x.obs) }));
     ok('cliente vê só o próprio grupo e nada de financeiro', vis.nivel === 'cliente' && vis.grupos === 'Grupo Alfa' && vis.fin === 0, JSON.stringify(vis));
     ok('cliente não vê Lançar, ✎ nem telas da equipe', !(await pc.isVisible('.tn-lancar-bt')) && !(await pc.$('.gx-la')) && !(await pc.isVisible('#tn [data-ir=clientes]')) && await pc.isVisible('#tn [data-ir=resumo]'));
@@ -925,7 +933,8 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('Contabilidade: Análise sem "Maiores clientes" e sem a lista de lançamentos', !/Maiores clientes/.test(await p.textContent('#panel-financeiroContab')) && !(await p.$('#fcLancTbl')));
     ok('B72 Contabilidade: Análise com "Recebido por tipo de serviço" e "Maiores grupos" (sem os comparativos por cliente/fornecedor)', !(await p.$('#fcLadoBar')) &&
       !/Comparativo por cliente|Comparativo por fornecedor/.test(await p.textContent('#fcCorpo')) && /Recebido × pago mês a mês/.test(await p.textContent('#fcCorpo')) &&
-      /Recebido por tipo de serviço/.test(await p.textContent('#fcCorpo')) && /Maiores grupos/.test(await p.textContent('#fcCorpo')) && await p.evaluate(() => !!Chart.getChart('cFcTipo') && !!Chart.getChart('cFcGrupo')));
+      /Recebido por tipo de serviço/.test(await p.textContent('#fcCorpo')) && /Maiores grupos/.test(await p.textContent('#fcCorpo')) && !!(await p.$('#fcCorpo .b-barras, #fcCorpo .b-barras-vazio')));
+    ok('B74 Financeiro: Análise na estrutura do ambiente (faixa de números, cartões e barras simples)', !!(await p.$('#fcCorpo .b-nums-faixa')) && (await p.$$('#fcCorpo .b-fin-cartao')).length >= 4 && /Despesas por categoria/.test(await p.textContent('#fcCorpo')));
     ok('Contabilidade: gráfico mês a mês com recebido (verde) e pago (vermelho)', await p.evaluate(() => { const c = Chart.getChart('cFcMes'); return !!c && c.data.datasets.length === 2 && /Recebido/.test(c.data.datasets[0].label) && /Pago/.test(c.data.datasets[1].label); }));
     sql("insert into lancamentos(empresa,tipo,descricao,vencimento,valor,pago,data_pagamento) values ('contabilidade','receita','Caixa teste',current_date-5,500,true,current_date-5)");
     await p.evaluate(() => ERP_RECARREGAR()); await p.waitForTimeout(2500);
@@ -1534,7 +1543,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       ok('B49: o filtro Perdas mostra o prejuízo e mantém Recebidos aceso', await p.evaluate(() => _finTab === 'prejuizo') && await p.evaluate(() => document.querySelector('#finTabBar [data-tab=recebidos]').classList.contains('active')) &&
         !!(await p.$('#fin-perdas-seg [data-fin-perdas="1"].ativo')));
       await nav(p, 'financeiroContab'); await p.evaluate(() => setFinCTab('analise', document.querySelector('#finCTabBar [data-tab=analise]'))); await p.waitForTimeout(1500);
-      ok('B49: Contabilidade com os mesmos 5 cartões do Jurídico', (await p.$$('#finCContent .kpi-grid.fc-kpis5 > *')).length === 5);
+      ok('B49/B74: Contabilidade com os mesmos 5 números do Jurídico (faixa)', (await p.$$('#finCContent .b-nums-faixa > div')).length === 5);
       // Contratos: reajuste anual
       const ctrR = sql("insert into contratos (cliente_id, descricao, modalidade, forma_valor, valor_mensal, data_contrato, inicio_vigencia, status) values ('" + cliQ + "', 'Consultoria B49 reajuste', 'consultoria', 'fixo', 1000, current_date - 360, current_date - 360, 'Ativo') returning id").split('\n')[0];
       await nav(p, 'contratos'); await p.waitForSelector('#ctr-reaj', { timeout: 8000 }).catch(() => {});

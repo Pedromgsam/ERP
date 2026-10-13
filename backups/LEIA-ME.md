@@ -79,6 +79,7 @@ versão foi ao ar**. O número cresce a cada entrega.
 | 71 | Parcelamentos e Acordos sem os 4 cartões do topo (a pedido). Ambiente de teste versão 2: todos os módulos no visual novo, faixa de avisos no Início, textos antes/depois (botão Aa), e-mails explicados e simplificados, portal do cliente novo e a página Para aprovar. Sem SQL |
 | 72 | Ambiente de teste no ERP, 1ª rodada: Tarefas (abas com números, atalhos de prazo, De quem, Filtros, Situação, Concluir, vistas Lista/Semana/Calendário/Fluxos, sem bolinha), Publicações em tabela (com Tratadas, Descartadas e período), Processos sem Conferido e com resumo fechado, nº do parcelamento no cartão do cliente, Contabilidade com tipo de serviço e maiores grupos. Sem SQL |
 | 73 | Ambiente de teste no ERP, 2ª rodada: Painel Executivo (faixa de números, evolução aberta com escala desde 0 e valor ao passar o mouse, Empresas do grupo na tabela nova com as colunas de antes) e Rotina (Passivo com Certificado e Conferência do ambiente, Planilha em grade com "Ver todas", última parcela, residual e "nós emitimos"). Sem SQL |
+| 74 | Ambiente de teste no ERP, 3ª rodada: Financeiro → Análise na estrutura do ambiente (Jurídico e Contabilidade), Início funcional (Meu dia, Lembretes, Próximos 7 dias + cartões Financeiro/Escritório), ficha do cliente e CRM no desenho novo, seções que abrem ao clicar, Início de boas-vindas no portal do cliente. Sem SQL |
 
 ## Como baixar um backup
 No GitHub, abra a pasta `backups`, clique no arquivo e depois em **Download** (ícone de seta, à direita).

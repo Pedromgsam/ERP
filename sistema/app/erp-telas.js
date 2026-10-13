@@ -408,6 +408,42 @@
     el.innerHTML = '<div class="b-nums b-nums-faixa">' + itens.map(([r, k, c]) => { const v = val(k);
       return '<div><span>' + escH(r) + '</span><b class="' + (c && v ? c : '') + '" title="' + (v == null ? '' : fBRL(v)) + '">' + (v == null ? '—' : curtaMi(v)) + '</b></div>'; }).join('') + '</div>';
   }
+  // ═══════ Backup 74: PORTAL DO CLIENTE — Início de boas-vindas (pedido: "algo de home, introdutório") ═══════
+  // Fica no topo da tela de entrada do cliente (o painel do passivo continua embaixo). No menu do cliente, "Painel Executivo" vira "Início".
+  function portalBoasVindas() {
+    if (!ehCliente()) return;
+    const sec = document.getElementById('execKpiSection'); if (!sec) return;
+    const m = MENU.find((x) => x.id === 'resumo'); if (m) m.rot = 'Início';
+    document.querySelectorAll('#tn [data-ir=resumo] .tn-rot').forEach((x) => { x.textContent = 'Início'; });
+    const nomeTela = document.getElementById('gs-tela-nome'); if (nomeTela && /Painel Executivo/.test(nomeTela.textContent)) nomeTela.textContent = 'Início';
+    let el = document.getElementById('pt-home');
+    if (!el) { el = document.createElement('div'); el.id = 'pt-home'; el.className = 'gs pt-home'; const alvo = document.getElementById('execClienteAlert') || sec; alvo.before(el); }
+    const s = window.AC_SESSION || {}, grupos = String(s.grupos || '').split(',').map((g) => g.trim()).filter(Boolean);
+    const D = dbERP(), noGrupo = (g) => !grupos.length || grupos.includes(g);
+    const empresas = (D.baseDados || []).filter((b) => noGrupo(b.grupo));
+    const nomesEmp = new Set(empresas.map((b) => b.nome));
+    const parc = (D.parcelamentos || []).filter((p) => nomesEmp.has(p.empresa) || noGrupo(p.grupoNome) && p.grupoNome);
+    const hj = new Date(); hj.setHours(0, 0, 0, 0);
+    const dt = (br) => { const x = String(br || '').split('/'); return x.length === 3 ? new Date(+x[2], +x[1] - 1, +x[0]) : null; };
+    let atr = 0, mes = 0, vMes = 0;
+    parc.forEach((p) => (p.parcelas || []).forEach((pa) => { if (pa.pagamento === 'SIM') return; const d = dt(pa.vencimento); if (!d) return;
+      if (d < hj) atr++; else if (d.getMonth() === hj.getMonth() && d.getFullYear() === hj.getFullYear()) { mes++; vMes += Number(pa.valor || p.valorUltimaParcela || 0); } }));
+    const acs = (D.acordos || []).filter((a) => noGrupo(a.grupo) && a.pagamento !== 'SIM' && a.situacao !== 'Pago');
+    const procs = (D.processos || []).filter((p) => noGrupo(p.grupo) && !p.arquivamento);
+    const titulo = grupos.length === 1 ? grupos[0] : (s.nome || 'cliente');
+    const tile = (n, rot, sub, ir, cls) => '<button type="button" class="pt-tile' + (cls ? ' ' + cls : '') + '" data-pt-ir="' + ir + '"><b>' + n + '</b><span>' + escH(rot) + '</span>' + (sub ? '<small>' + escH(sub) + '</small>' : '') + '</button>';
+    el.innerHTML = '<section class="pt-banda"><div><div class="pt-marca">Araújo &amp; Castro</div><div class="pt-marca-s">Portal do cliente</div></div><div class="pt-banda-dir">' + escH(titulo) + '<small>' + empresas.length + (empresas.length === 1 ? ' empresa' : ' empresas') + '</small></div></section>' +
+      '<section class="pt-ola"><h1>Olá, ' + escH(titulo) + '!</h1><p>Este é o seu espaço no escritório. Aqui você acompanha, a qualquer hora, os <b>parcelamentos</b> e <b>acordos</b> das suas empresas, os <b>processos</b> e o <b>passivo tributário</b> — tudo atualizado pela nossa equipe.</p></section>' +
+      '<section class="pt-tiles">' + tile(mes, mes === 1 ? 'parcela vence este mês' : 'parcelas vencem este mês', mes ? 'total de ' + fBRL(vMes) : 'nada a pagar este mês', 'parcelamentos', '') +
+        tile(atr, atr === 1 ? 'parcela em atraso' : 'parcelas em atraso', atr ? 'fale com o escritório' : 'tudo em dia', 'parcelamentos', atr ? 'pt-tile-atr' : 'pt-tile-ok') +
+        tile(parc.length, parc.length === 1 ? 'parcelamento' : 'parcelamentos', 'acompanhe cada parcela', 'parcelamentos', '') +
+        tile(acs.length, acs.length === 1 ? 'parcela de acordo em aberto' : 'parcelas de acordo em aberto', '', 'acordos', '') +
+        tile(procs.length, procs.length === 1 ? 'processo em andamento' : 'processos em andamento', '', 'processos', '') + '</section>' +
+      '<section class="pt-como"><h2>Como usar</h2><ol><li><b>Parcelamentos</b> e <b>Acordos</b>: veja o que vence, o que já foi pago e baixe as guias quando estiverem prontas.</li>' +
+        '<li><b>Processos</b>: acompanhe os processos das suas empresas e a última movimentação.</li><li>Logo abaixo, o <b>passivo tributário</b> (RFB, PGFN e Estado) de cada empresa.</li></ol>' +
+        '<p class="pt-contato">Alguma dúvida? Fale com o escritório pelo seu contato de sempre (WhatsApp ou e-mail) — nossa equipe responde.</p></section>';
+    el.onclick = (ev) => { const b = ev.target.closest('[data-pt-ir]'); if (b && typeof window.nav === 'function') window.nav(null, b.dataset.ptIr); };
+  }
   function empresasNovas() {
     const rk = document.getElementById('execRankWrap'); if (!rk || ehCliente() || !GS() || !GS().tabelaB) return;
     rk.classList.add('gx-pe-antigo');
@@ -545,7 +581,7 @@
   function instalarGanchos() {
     botoesCobranca();
     // Backup 20: Painel (Empresas do grupo) e Processos no padrão de Clientes — redesenha junto com a tabela do ERP
-    [['renderExecRanking', () => { padraoEmpresas(); empresasNovas(); evolucaoPassivo(); }], ['renderResumo', () => painelNumeros()], ['renderProcTbl', () => { padraoProcessos(); processosNovos(); }],
+    [['renderExecRanking', () => { padraoEmpresas(); empresasNovas(); evolucaoPassivo(); }], ['renderResumo', () => { painelNumeros(); portalBoasVindas(); }], ['renderProcTbl', () => { padraoProcessos(); processosNovos(); }],
      ['renderAcordos', () => acoesNaSituacao('panel-acordos', 'exAcSit'), () => devolverAoBanner('panel-acordos')],
      ['renderParcelamentos', () => acoesNaSituacao('panel-parcelamentos', 'exParcSit'), () => devolverAoBanner('panel-parcelamentos')],
      ['renderParcAnalise', () => acoesNaSituacao('panel-parcelamentos', 'exParcSit'), () => devolverAoBanner('panel-parcelamentos')]].forEach(([nome, fn, antes]) => {

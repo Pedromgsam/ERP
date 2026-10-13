@@ -45,7 +45,7 @@ const r = []; const ok = (n, c) => r.push([n, !!c]);
     ok('senha errada mostra mensagem clara', /E-mail ou senha incorretos/.test(await texto(p, '#login-msg')));
     await entrar(p, 'pedro@teste');
     const ini = await texto(p);
-    ok('Início enxuto (Backup 38: sem os cartões de Honorários)', /Olá, Pedro/.test(ini) && !/Honorários Jurídico/.test(ini));
+    ok('Início enxuto (Backup 38: sem os cartões de Honorários)', /(Olá|Bom dia|Boa tarde|Boa noite), Pedro/.test(ini) && !/Honorários Jurídico/.test(ini));
     ok('menu com Painel, Honorários e Administração', await p.isVisible('#menu [data-tela=painel]') && await p.isVisible('#menu [data-tela=admin]'));
 
     // cliente manual com passivo
@@ -218,7 +218,7 @@ const r = []; const ok = (n, c) => r.push([n, !!c]);
     // ── equipe ──
     p = await pagina();
     await entrar(p, 'equipe@teste');
-    ok('equipe entra e não vê Administração', /Olá, Adriana/.test(await texto(p)) && !(await p.isVisible('#menu [data-tela=admin]')));
+    ok('equipe entra e não vê Administração', /(Olá|Bom dia|Boa tarde|Boa noite), Adriana/.test(await texto(p)) && !(await p.isVisible('#menu [data-tela=admin]')));
     await menu(p, 'clientes');
     ok('lista de clientes sem ▸ e com a coluna Área', (await p.locator('.cli-seta').count()) === 0 && /Área/.test(await p.textContent('.cli-tabela thead')));
     await p.click('[data-cli]'); await esperar(p, 1000);

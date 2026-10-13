@@ -120,7 +120,10 @@ async function abrirFicha(id, aba) {
   const cl = E.clientes.find((c) => c.id === id) || await q(sb.from('clientes').select('*, grupos(nome)').eq('id', id).single());
   const etq = await q(sb.from('cliente_etiquetas').select('etiqueta_id, etiquetas(nome, cor)').eq('cliente_id', id)).catch(() => []);
   const tel = cl.telefone, mail = cl.email;
-  const j = abrirJanela({ titulo: cl.nome, larga: true,
+  // Backup 74: cabeçalho como no ambiente de teste — grupo · tipo em cima (pequeno), o nome e, embaixo, CPF/CNPJ · sócio; o conteúdo continua o completo de antes
+  const tipoCli = cl.tipo === 'Demanda' ? 'Serviço pontual' : cl.tipo;
+  const j = abrirJanela({ titulo: cl.nome, larga: true, kick: [cl.grupos && cl.grupos.nome, tipoCli].filter(Boolean).join(' · '),
+    sub: esc([mascaraDoc(cl.cpf_cnpj), cl.socio_admin ? 'sócio: ' + cl.socio_admin : '', cl.tipo_societario, cl.regime_tributario].filter(Boolean).join(' · ')),
     corpo:
       // Backup 39: "Editar cadastro" em destaque, no canto de cima à direita (não some no meio dos atalhos)
       '<div class="ficha-topo"><button class="btn btn-p ficha-bt-editar" id="fc-editar">✎ Editar cadastro</button><div class="ficha-id">' +
@@ -140,14 +143,14 @@ async function abrirFicha(id, aba) {
       (tel ? '<a class="btn btn-o btn-mini" target="_blank" rel="noopener" href="https://wa.me/' + (soDigitos(tel).length <= 11 ? '55' : '') + soDigitos(tel) + '">WhatsApp</a>' : '') +
       (mail ? '<a class="btn btn-o btn-mini" href="mailto:' + esc(mail) + '">E-mail</a>' : '') +
       '</div></div>' +
-      '<div class="abas ficha-abas" id="fc-abas">' + ABAS_FICHA.map(([k, r]) => '<button data-aba="' + k + '">' + r + '</button>').join('') + '</div>' +
+      '<div class="abas ficha-abas b-seg" id="fc-abas" role="tablist">' + ABAS_FICHA.map(([k, r]) => '<button type="button" class="b-seg-bt" role="tab" data-aba="' + k + '">' + r + '</button>').join('') + '</div>' +
       '<div id="fc-corpo" class="ficha-corpo"></div>' });
   j.querySelector('.janela').classList.add('ficha');
   const corpo = j.querySelector('#fc-corpo');
   let atual = ABA_NOVA[aba] || aba || 'resumo';
   const mostrar = async (k) => {
     k = ABA_NOVA[k] || k; atual = k;
-    j.querySelectorAll('#fc-abas button').forEach((b) => b.classList.toggle('ativo', b.dataset.aba === k));
+    j.querySelectorAll('#fc-abas button').forEach((b) => { b.classList.toggle('ativo', b.dataset.aba === k); b.setAttribute('aria-selected', String(b.dataset.aba === k)); });
     corpo.innerHTML = '<div class="carregando">Carregando…</div>';
     const partes = PARTES_FICHA[k] || [k];
     const caixas = partes.map((p) => { const d = document.createElement('div'); d.className = 'ficha-parte ficha-parte-' + p; return d; });
@@ -243,11 +246,10 @@ const ABA_FICHA = {
     const ano = rec.filter((l) => l.pago && (l.data_pagamento || l.vencimento) >= somarDias(h, -365));
     const tAtr = tarefas.filter((t) => t.prazo && t.prazo < h);
     const debitos = soma([cl.rfb, cl.pgfn, cl.sefaz_mg, cl.age_mg].map((x) => Number(x) || 0));
-    alvo.innerHTML = '<div class="kpis">' +
-      kpi('A receber', brl(soma(aberto, vl)), atraso.length ? 'vermelho' : '', atraso.length ? brl(soma(atraso, vl)) + ' em atraso' : aberto.length + ' lançamento(s) em aberto') +
-      kpi('Recebido em 12 meses', brl(soma(ano, vl)), 'verde', ano.length + ' pagamento(s)') +
-      kpi('Tarefas abertas', String(tarefas.length), tAtr.length ? 'vermelho' : '', tAtr.length ? tAtr.length + ' atrasada(s)' : 'nenhuma atrasada') +
-      kpi('Débitos fiscais', brl(debitos), debitos ? 'ambar' : '', procs.length + ' processo(s) do grupo') + '</div>' +
+    // Backup 74: os 4 números numa faixa só, como no ambiente de teste
+    alvo.innerHTML = numsFaixa([['A receber', brl(soma(aberto, vl)), atraso.length ? brl(soma(atraso, vl)) + ' em atraso' : aberto.length + ' lançamento(s) em aberto', atraso.length ? 'b-verm' : ''],
+      ['Recebido em 12 meses', brl(soma(ano, vl)), ano.length + ' pagamento(s)', 'b-verde'], ['Tarefas abertas', String(tarefas.length), tAtr.length ? tAtr.length + ' atrasada(s)' : 'nenhuma atrasada', tAtr.length ? 'b-verm' : ''],
+      ['Débitos fiscais', brl(debitos), procs.length + ' processo(s) do grupo']]) +
       '<div class="duas-col"><div class="card"><div class="card-hd">Cadastro</div><div class="card-bd dados">' +
       linhaDado('Nome', esc(cl.nome)) + linhaDado('CPF/CNPJ', esc(mascaraDoc(cl.cpf_cnpj))) + linhaDado('Sócio-administrador', esc(cl.socio_admin)) +
       linhaDado('E-mail', cl.email ? '<a href="mailto:' + esc(cl.email) + '">' + esc(cl.email) + '</a>' : '') + linhaDado('Telefone', esc(cl.telefone)) +

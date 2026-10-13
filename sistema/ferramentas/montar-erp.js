@@ -207,7 +207,7 @@ trocar("    return '<div><div class=\"pa-sub\">'+rotulo+'</div><div class=\"tw\"
 trocar("let _procPg=1,_procSort={col:9,asc:false};", "let _procPg=1,_procSort={col:3,asc:true};", 1);
 // Backup 27: Financeiro Contabilidade — Análise única (sem os cartões Recebimentos/Pagamentos), ver remendos/contab-b27.js
 trocar("function _fcPintarCorpo(){", "function _fcPintarCorpoAntigo(){", 1);
-trocar("function _fcTabelaPessoas(pessoas){", fs.readFileSync(path.join(__dirname, 'remendos', 'contab-b27.js'), 'utf8') + "function _fcTabelaPessoas(pessoas){", 1);
+trocar("function _fcTabelaPessoas(pessoas){", fs.readFileSync(path.join(__dirname, 'remendos', 'contab-b27.js'), 'utf8') + fs.readFileSync(path.join(__dirname, 'remendos', 'financeiro-b74.js'), 'utf8') + "function _fcTabelaPessoas(pessoas){", 1);   // Backup 74: Análise no desenho do ambiente
 trocar("  + '<div style=\"display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;align-items:center\" id=\"fcLadoBar\">'\n  +   '<button class=\"fin-tab '+(_FC.lado==='receber'?'active':'')+'\" onclick=\"fcSetLado(\\'receber\\',this)\">📥 Recebimentos</button>'\n  +   '<button class=\"fin-tab '+(_FC.lado==='pagar'?'active':'')+'\" onclick=\"fcSetLado(\\'pagar\\',this)\">📤 Pagamentos</button>'\n  + '</div>'\n", "", 1);
 // Painel Executivo (Backup 14): valor inteiro no lugar de "R$ 1,2 mi" + legenda; Processos e Indicadores em preto
 trocar("    kC('Passivo Tributário Total',fS(total),fF(total),'cb','db',total)+\n    kC('RFB',fS(rfb),fF(rfb),'cb','db',rfb)+\n    kC('PGFN',fS(pgfn),fF(pgfn),'cb','db',pgfn)+\n    kC('AGE/MG',fS(age),fF(age),'cb','db',age);",

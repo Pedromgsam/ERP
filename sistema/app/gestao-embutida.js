@@ -591,6 +591,10 @@ function vencB(isoData, pago) {
   const d = Math.round((new Date(hojeISO() + 'T00:00:00') - new Date(isoData + 'T00:00:00')) / 864e5);
   return { cls: d >= 0 ? ' b-v-atr' : ' b-v-av', html: dataBR(isoData) + '<small>' + (d === 0 ? 'vence hoje' : d > 0 ? plural(d, 'dia', 'dias') + ' de atraso' : 'em ' + plural(-d, 'dia', 'dias')) + '</small>' };
 }
+// Backup 74: faixa de números (a mesma do Painel, da Análise do Financeiro e da ficha do cliente): [[rótulo, valor, sub, classe b-verde|b-verm]]
+function numsFaixa(itens) {
+  return '<div class="b-nums b-nums-faixa b-nums-' + itens.length + '">' + itens.map((i) => '<div><span>' + esc(i[0]) + '</span><b class="' + (i[3] || '') + '">' + i[1] + '</b>' + (i[2] ? '<small>' + esc(i[2]) + '</small>' : '') + '</div>').join('') + '</div>';
+}
 // cartões que abrem o detalhamento logo abaixo (clicou → abre; clicou de novo → fecha)
 // lista: [{id, icone, cor, rotulo, valor, comp, sub, barra, linhas, det(container)}]
 function cartoesB(el, chave, lista) {
@@ -1123,19 +1127,63 @@ function kpi(rotulo, valor, cor, sub) {
 // Cartões sem sobreposição: "A receber" = de hoje até o fim do mês (o que já venceu fica só em "Em atraso").
 // Em atraso: duas tabelas completas lado a lado (Jurídico | Contabilidade), com o que vence HOJE destacado.
 TELAS.inicio = async function () {
-  // Backup 38: Início enxuto — sem os cartões de Honorários (ficam no Financeiro), sem a faixa de avisos/destaques.
-  // Fica: Olá, Lembretes, Resumo do escritório e a fila/agenda de tarefas.
+  // Backup 74: como no ambiente de teste, mas funcionando com os dados reais — cabeçalho com a data, os cartões Financeiro e Escritório
+  // (o usuário pediu para manter, E3 = não), "Meu dia" (hoje + atrasadas) ao lado de Lembretes e "Próximos 7 dias", e o calendário da fila embaixo.
+  const h = new Date(), hora = h.getHours(), saud = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';
+  const dataLonga = h.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
   $('conteudo').innerHTML =
-    '<div class="titulo-pag"><div><h1>Olá, ' + esc(primeiroNomeUsuario()) + '</h1></div></div>' +
-    '<div id="ini-valid"></div><div id="ini-lembretes"></div><div id="ini-resumo"></div>' +
+    cabecalhoTela({ icone: 'inicio', titulo: saud + ', ' + primeiroNomeUsuario(), frase: dataLonga.charAt(0).toUpperCase() + dataLonga.slice(1) }) +   // o "+ Lembrete" fica no cartão de Lembretes (sem botão repetido)
+    '<div id="ini-valid"></div><div id="ini-resumo"></div>' +
+    '<div class="ini-b74"><section class="ini-col"><div class="ini-sec-hd"><div><h2>Meu dia</h2><p>Hoje e o que atrasou</p></div><div class="b-seg ini-quem" id="ini-quem" role="group" aria-label="De quem"></div></div><div id="ini-dia"></div></section>' +
+    '<section class="ini-col"><div id="ini-lembretes"></div><div class="ini-sec-hd ini-sec-hd2"><div><h2>Próximos 7 dias</h2></div></div><div id="ini-prox"></div></section></div>' +
     '<div id="ini-fila"></div>';
   cardLembretes().catch((e) => console.error(e));
   cardResumoEscritorio().catch((e) => console.error(e));
+  meuDia().catch((e) => console.error(e));
   if (typeof buscaPubAutomatica === 'function') buscaPubAutomatica().catch(() => {});
   if (typeof vigiarAgenda === 'function') vigiarAgenda();   // Backup 40: aviso antes dos compromissos
   if (typeof cardValidacoes === 'function') cardValidacoes().then((c) => { const el = $('ini-valid'); if (el) { el.innerHTML = c.html; c.ligar(el); } }).catch((e) => console.error(e));
   if (typeof cardMinhaFila === 'function') cardMinhaFila().then((c) => { const el = $('ini-fila'); if (el) { el.innerHTML = c.html; c.ligar(el); } }).catch((e) => console.error(e));
 };
+ICONES_B.inicio = ICONES_B.inicio || '<rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/>';
+// Backup 74: "Meu dia" (prazo até hoje, inclusive atrasadas) e "Próximos 7 dias" — tarefas reais, com Concluir (e Desfazer por 6 s)
+const TIPO_ITEM_INI = { reuniao: 'Reunião', audiencia: 'Audiência', compromisso: 'Compromisso', tarefa: 'Tarefa', rotina: 'Rotina' };
+async function meuDia() {
+  const el = $('ini-dia'), elP = $('ini-prox'); if (!el) return;
+  E.ini = E.ini || { quem: 'eu' };
+  const h = hojeISO(), lim = somarDias(h, 7);
+  const L = await buscarTodos(() => sb.from('tarefas').select('id, titulo, prazo, prazo_fatal, hora, responsavel, participantes, revisor, status, tipo_agenda, chave_regra, recorrencia, cliente_id, grupo_id')
+    .not('status', 'in', '(concluida,cancelada)').lte('prazo', lim).order('prazo')).catch(() => []);
+  const doDono = (t) => E.ini.quem === 'todos' || ehMinha(t);
+  const linha = (t) => { const tipo = TIPO_ITEM_INI[tipoItemAgenda(t)] || 'Tarefa', atr = t.prazo < h;
+    const sub = [String(t.responsavel || '').split(' ')[0], t.prazo_fatal ? '<b class="ini-fatal">prazo fatal' + (t.prazo_fatal !== t.prazo ? ' ' + dataBR(t.prazo_fatal).slice(0, 5) : '') + '</b>' : ''].filter(Boolean).join(' · ');
+    return '<div class="ini-it' + (atr ? ' ini-it-atr' : '') + '" data-ini-t="' + t.id + '" tabindex="0"><span class="ini-tipo">' + esc(tipo) + '</span><div class="ini-it-tx"><b>' + esc(t.titulo) + '</b>' + (sub ? '<small>' + sub + '</small>' : '') + '</div>' +
+      '<span class="ini-dt' + (atr ? ' ini-dt-atr' : '') + '">' + (t.hora ? esc(String(t.hora).slice(0, 5)) + ' · ' : '') + dataBR(t.prazo).slice(0, 5) + '</span>' +
+      '<button type="button" class="b-bt-baixa" data-ini-ok="' + t.id + '">Concluir</button></div>'; };
+  const pintar = () => {
+    $('ini-quem').innerHTML = [['eu', 'Só eu'], ['todos', 'Equipe toda']].map(([v, r]) => '<button type="button" class="b-seg-bt" data-ini-quem="' + v + '" aria-selected="' + (E.ini.quem === v) + '">' + r + '</button>').join('');
+    const hoje = L.filter((t) => t.prazo && t.prazo <= h && doDono(t)).sort((a, b) => String(a.prazo).localeCompare(String(b.prazo)) || String(a.hora || '').localeCompare(String(b.hora || '')));
+    const prox = L.filter((t) => t.prazo && t.prazo > h && t.prazo <= lim && doDono(t));
+    el.innerHTML = hoje.length ? '<div class="ini-lista">' + hoje.map(linha).join('') + '</div>' : '<div class="ini-vazio">' + vazioB({ icone: 'ok', titulo: 'Nada para hoje', frase: 'Nenhuma tarefa vence hoje nem está atrasada.' }) + '</div>';
+    elP.innerHTML = prox.length ? '<div class="ini-lista">' + prox.slice(0, 6).map(linha).join('') + '</div>' + (prox.length > 6 ? '<button type="button" class="b-link ini-mais" data-ini-tarefas>Ver as ' + prox.length + ' em Tarefas</button>' : '')
+      : '<div class="ini-vazio-p">Nada marcado para os próximos 7 dias.</div>';
+  };
+  pintar();
+  const raiz = el.closest('.ini-b74');
+  raiz.onclick = (ev) => {
+    const q2 = ev.target.closest('[data-ini-quem]'); if (q2) { E.ini.quem = q2.dataset.iniQuem; return pintar(); }
+    if (ev.target.closest('[data-ini-tarefas]')) return nav(null, 'tarefas');
+    const ok = ev.target.closest('[data-ini-ok]');
+    if (ok) { ev.stopPropagation(); const id = ok.dataset.iniOk, t = L.find((x) => x.id === id); return comBotao(ok, async () => {
+      await q(sb.from('tarefas').update({ status: 'concluida' }).eq('id', id));
+      const i = L.indexOf(t); if (i >= 0) L.splice(i, 1); pintar();
+      const desfazer = async () => { await q(sb.from('tarefas').update({ status: t.status || 'pendente' }).eq('id', id)); L.splice(Math.max(0, i), 0, t); pintar(); };
+      if (window.ERP_EDITOR && window.ERP_EDITOR.gravou) window.ERP_EDITOR.gravou('Tarefa concluída — ' + t.titulo, desfazer, 8000); else aviso('✓ Tarefa concluída.');
+    }); }
+    const it = ev.target.closest('[data-ini-t]');
+    if (it && typeof abrirTarefa === 'function') q(sb.from('tarefas').select('*').eq('id', it.dataset.iniT).maybeSingle()).then((t) => { if (t) abrirTarefa(t, () => TELAS.inicio()); });
+  };
+}
 
 function diasAtraso(venc) {
   const n = Math.round((new Date(hojeISO() + 'T12:00:00') - new Date(venc + 'T12:00:00')) / 864e5);
@@ -1279,7 +1327,7 @@ async function cardLembretes() {
   const el = $('ini-lembretes'); if (!el) return;
   // Backup 27: aparecem os fixados (sempre), os sem prazo e os com data em até 7 dias; o resto fica em "Todos os lembretes"
   const L = await dadosLembretes().catch(() => ({ semGuia: [], vis: [], futuros: [], todos: [], dias: 5 }));
-  el.innerHTML = '<div class="card ini-lemb"><div class="card-hd">🔔 Lembretes' +
+  el.innerHTML = '<div class="card ini-lemb"><div class="card-hd">Lembretes' +
       '<span style="margin-left:auto;display:flex;gap:6px"><button type="button" class="btn btn-o btn-mini" id="lemb-todos" title="Todos os lembretes, inclusive os com data depois de 7 dias e os concluídos">📋 Todos (' + L.todos.length + ')</button>' +
       '<button type="button" class="btn btn-p btn-mini" id="lemb-novo">+ Lembrete</button></span></div><div class="card-bd">' +
     (L.vis.length ? '<div class="lemb-lista">' + htmlLembretes(L.vis) + '</div>'
@@ -5922,7 +5970,10 @@ async function abrirFicha(id, aba) {
   const cl = E.clientes.find((c) => c.id === id) || await q(sb.from('clientes').select('*, grupos(nome)').eq('id', id).single());
   const etq = await q(sb.from('cliente_etiquetas').select('etiqueta_id, etiquetas(nome, cor)').eq('cliente_id', id)).catch(() => []);
   const tel = cl.telefone, mail = cl.email;
-  const j = abrirJanela({ titulo: cl.nome, larga: true,
+  // Backup 74: cabeçalho como no ambiente de teste — grupo · tipo em cima (pequeno), o nome e, embaixo, CPF/CNPJ · sócio; o conteúdo continua o completo de antes
+  const tipoCli = cl.tipo === 'Demanda' ? 'Serviço pontual' : cl.tipo;
+  const j = abrirJanela({ titulo: cl.nome, larga: true, kick: [cl.grupos && cl.grupos.nome, tipoCli].filter(Boolean).join(' · '),
+    sub: esc([mascaraDoc(cl.cpf_cnpj), cl.socio_admin ? 'sócio: ' + cl.socio_admin : '', cl.tipo_societario, cl.regime_tributario].filter(Boolean).join(' · ')),
     corpo:
       // Backup 39: "Editar cadastro" em destaque, no canto de cima à direita (não some no meio dos atalhos)
       '<div class="ficha-topo"><button class="btn btn-p ficha-bt-editar" id="fc-editar">✎ Editar cadastro</button><div class="ficha-id">' +
@@ -5942,14 +5993,14 @@ async function abrirFicha(id, aba) {
       (tel ? '<a class="btn btn-o btn-mini" target="_blank" rel="noopener" href="https://wa.me/' + (soDigitos(tel).length <= 11 ? '55' : '') + soDigitos(tel) + '">WhatsApp</a>' : '') +
       (mail ? '<a class="btn btn-o btn-mini" href="mailto:' + esc(mail) + '">E-mail</a>' : '') +
       '</div></div>' +
-      '<div class="abas ficha-abas" id="fc-abas">' + ABAS_FICHA.map(([k, r]) => '<button data-aba="' + k + '">' + r + '</button>').join('') + '</div>' +
+      '<div class="abas ficha-abas b-seg" id="fc-abas" role="tablist">' + ABAS_FICHA.map(([k, r]) => '<button type="button" class="b-seg-bt" role="tab" data-aba="' + k + '">' + r + '</button>').join('') + '</div>' +
       '<div id="fc-corpo" class="ficha-corpo"></div>' });
   j.querySelector('.janela').classList.add('ficha');
   const corpo = j.querySelector('#fc-corpo');
   let atual = ABA_NOVA[aba] || aba || 'resumo';
   const mostrar = async (k) => {
     k = ABA_NOVA[k] || k; atual = k;
-    j.querySelectorAll('#fc-abas button').forEach((b) => b.classList.toggle('ativo', b.dataset.aba === k));
+    j.querySelectorAll('#fc-abas button').forEach((b) => { b.classList.toggle('ativo', b.dataset.aba === k); b.setAttribute('aria-selected', String(b.dataset.aba === k)); });
     corpo.innerHTML = '<div class="carregando">Carregando…</div>';
     const partes = PARTES_FICHA[k] || [k];
     const caixas = partes.map((p) => { const d = document.createElement('div'); d.className = 'ficha-parte ficha-parte-' + p; return d; });
@@ -6045,11 +6096,10 @@ const ABA_FICHA = {
     const ano = rec.filter((l) => l.pago && (l.data_pagamento || l.vencimento) >= somarDias(h, -365));
     const tAtr = tarefas.filter((t) => t.prazo && t.prazo < h);
     const debitos = soma([cl.rfb, cl.pgfn, cl.sefaz_mg, cl.age_mg].map((x) => Number(x) || 0));
-    alvo.innerHTML = '<div class="kpis">' +
-      kpi('A receber', brl(soma(aberto, vl)), atraso.length ? 'vermelho' : '', atraso.length ? brl(soma(atraso, vl)) + ' em atraso' : aberto.length + ' lançamento(s) em aberto') +
-      kpi('Recebido em 12 meses', brl(soma(ano, vl)), 'verde', ano.length + ' pagamento(s)') +
-      kpi('Tarefas abertas', String(tarefas.length), tAtr.length ? 'vermelho' : '', tAtr.length ? tAtr.length + ' atrasada(s)' : 'nenhuma atrasada') +
-      kpi('Débitos fiscais', brl(debitos), debitos ? 'ambar' : '', procs.length + ' processo(s) do grupo') + '</div>' +
+    // Backup 74: os 4 números numa faixa só, como no ambiente de teste
+    alvo.innerHTML = numsFaixa([['A receber', brl(soma(aberto, vl)), atraso.length ? brl(soma(atraso, vl)) + ' em atraso' : aberto.length + ' lançamento(s) em aberto', atraso.length ? 'b-verm' : ''],
+      ['Recebido em 12 meses', brl(soma(ano, vl)), ano.length + ' pagamento(s)', 'b-verde'], ['Tarefas abertas', String(tarefas.length), tAtr.length ? tAtr.length + ' atrasada(s)' : 'nenhuma atrasada', tAtr.length ? 'b-verm' : ''],
+      ['Débitos fiscais', brl(debitos), procs.length + ' processo(s) do grupo']]) +
       '<div class="duas-col"><div class="card"><div class="card-hd">Cadastro</div><div class="card-bd dados">' +
       linhaDado('Nome', esc(cl.nome)) + linhaDado('CPF/CNPJ', esc(mascaraDoc(cl.cpf_cnpj))) + linhaDado('Sócio-administrador', esc(cl.socio_admin)) +
       linhaDado('E-mail', cl.email ? '<a href="mailto:' + esc(cl.email) + '">' + esc(cl.email) + '</a>' : '') + linhaDado('Telefone', esc(cl.telefone)) +

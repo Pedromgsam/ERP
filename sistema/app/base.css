@@ -426,3 +426,131 @@ html body.gx-barra-topo table.b-tab.b-tab-pe:not(#_){table-layout:fixed}
 /* Backup 73: CPF/CNPJ e nº sempre menores que o texto da tabela (a regra da célula da b-tab vencia a .b-num) */
 html body.gx-barra-topo table.b-tab td.b-num:not(#_){font-size:12px!important;color:var(--text3)!important}
 html body.gx-barra-topo table.b-tab.b-tab-proc td.b-num:not(#_){font-size:11.5px!important}
+/* ═══ Backup 74 — Financeiro › Análise na estrutura do ambiente de teste (Jurídico e Contabilidade) ═══ */
+/* abas Análise · A receber · Recebidos… como botões (o mesmo .b-seg das telas novas) */
+html body.gx-barra-topo :is(#finTabBar,#finCTabBar):not(#_){display:flex!important;gap:2px!important;padding:3px;background:var(--surface);border:1px solid var(--border);border-radius:10px;margin:0 0 14px!important;width:auto;flex-wrap:wrap}
+html body.gx-barra-topo :is(#finTabBar,#finCTabBar) .fin-tab:not(#_){border:0!important;border-radius:8px!important;padding:6px 13px!important;margin:0!important;color:var(--text2)!important;font:600 13px var(--font-ui)!important;background:none!important}
+html body.gx-barra-topo :is(#finTabBar,#finCTabBar) .fin-tab.active:not(#_){background:var(--primario)!important;color:var(--on-primario,var(--on-cor))!important}
+html body.gx-barra-topo :is(#finTabBar,#finCTabBar) .fin-tab:not(#_)::before{display:none!important}
+html body.gx-barra-topo :is(#finTabBar,#finCTabBar) > .gx-tabbar-dir:not(#_){margin-left:auto}
+/* barra Quem / Período / Recorte: pílulas e linhas compactas */
+html body.gx-barra-topo :is(#faBar,#fcBar):not(#_){padding:12px 16px!important;border-radius:12px;margin-bottom:12px!important}
+html body.gx-barra-topo :is(#faBar,#fcBar) .fa-lin:not(#_){gap:6px 8px;padding:4px 0;border:0}
+html body.gx-barra-topo :is(#faBar,#fcBar) .fa-lbl:not(#_){font:700 11px var(--font-ui);letter-spacing:.06em;text-transform:uppercase;color:var(--text3);min-width:64px}
+html body.gx-barra-topo :is(#faBar,#fcBar) .fa-chip:not(#_){border:1px solid var(--border-strong)!important;border-radius:999px!important;background:var(--surface)!important;color:var(--text2)!important;padding:5px 12px!important;font:600 12.5px var(--font-ui)!important;box-shadow:none!important}
+html body.gx-barra-topo :is(#faBar,#fcBar) .fa-chip.on:not(#_){background:var(--primario)!important;border-color:var(--primario)!important;color:var(--on-primario,var(--on-cor))!important}
+html body.gx-barra-topo :is(#faBar,#fcBar) .fa-chip-p:not(#_){background:var(--surface)!important;border-color:var(--border-strong)!important;color:var(--text2)!important}
+html body.gx-barra-topo :is(#faBar,#fcBar) .fa-chip-p.on:not(#_){background:var(--primario)!important;border-color:var(--primario)!important;color:var(--on-primario,var(--on-cor))!important}
+html body.gx-barra-topo :is(#faBar,#fcBar) .fa-dica{display:none}
+html body.gx-barra-topo :is(#faBar,#fcBar) .fa-resumo:not(#_){border-top:0;padding-top:4px;margin-top:2px;font-size:12px;color:var(--text3)}
+/* faixa de números com 5 ou 6 itens */
+.b-nums.b-nums-faixa.b-nums-5{grid-template-columns:repeat(5,minmax(0,1fr))}
+.b-nums.b-nums-faixa.b-nums-6{grid-template-columns:repeat(6,minmax(0,1fr))}
+.b-nums.b-nums-faixa small{display:block;font-size:12px;color:var(--text3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:900px){.b-nums.b-nums-faixa:is(.b-nums-5,.b-nums-6){grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:600px){.b-nums.b-nums-faixa:is(.b-nums-5,.b-nums-6){grid-template-columns:1fr 1fr}}
+/* cartões da análise */
+.b-fin-cartao{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin:0 0 14px;min-width:0}
+.b-fin-hd{margin:0 0 10px}
+.b-fin-hd h3{font:700 15px var(--font-ui);color:var(--ink);margin:0}
+.b-fin-hd p{font-size:12.5px;color:var(--text3);margin:3px 0 0}
+.b-fin-graf{height:280px}
+.b-fin-dois{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+@media (max-width:900px){.b-fin-dois{grid-template-columns:1fr}}
+.b-barras{display:flex;flex-direction:column;gap:9px}
+.b-barra-lin{display:grid;grid-template-columns:minmax(90px,30%) 1fr auto;gap:10px;align-items:center;font-size:13px}
+.b-barra-rot{color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.b-barra-trilho{display:block;height:14px;border-radius:999px;background:var(--gray-lt);overflow:hidden}
+.b-barra-trilho > span{display:block;height:100%;border-radius:999px;background:var(--primario)}
+.b-barra-val{font:700 13px var(--font-ui);color:var(--ink);white-space:nowrap;font-variant-numeric:tabular-nums}
+.b-barras-vazio{font-size:13px;color:var(--text3);padding:6px 0}
+.b-rola.b-rola-solta{max-height:none;border:0}
+html body.gx-barra-topo table.b-tab.b-tab-comp td.b-verde-v:not(#_){color:var(--green-d)!important;font-weight:700}
+html body.gx-barra-topo table.b-tab.b-tab-comp tfoot td:not(#_){position:static;font-weight:700!important;color:var(--ink)!important;background:var(--surface2)}
+.b-pes{display:inline-block;background:var(--gray-lt);border:1px solid var(--border);border-radius:999px;padding:1px 10px;font:600 12px var(--font-ui);color:var(--text2);white-space:nowrap}
+/* ═══ Backup 74 — Início como no ambiente de teste (Meu dia · Lembretes · Próximos 7 dias), com os cartões Financeiro e Escritório ═══ */
+.gs .ini-b74{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:start;margin:4px 0 18px}
+@media (max-width:1000px){.gs .ini-b74{grid-template-columns:1fr}}
+.gs .ini-col{min-width:0}
+.gs .ini-sec-hd{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;margin:0 0 8px}
+.gs .ini-sec-hd h2{font:700 16px var(--font-ui);color:var(--ink);margin:0}
+.gs .ini-sec-hd p{font-size:12.5px;color:var(--text3);margin:2px 0 0}
+.gs .ini-sec-hd2{margin-top:16px}
+.gs .ini-quem{flex:none}
+.gs .ini-lista{display:flex;flex-direction:column;gap:8px}
+.gs .ini-it{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:10px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;cursor:pointer}
+.gs .ini-it:hover{border-color:var(--border-strong)}
+.gs .ini-it.ini-it-atr{border-left:3px solid var(--red)}
+.gs .ini-tipo{font:600 11.5px var(--font-ui);color:var(--text2);background:var(--gray-lt);border-radius:6px;padding:2px 7px;white-space:nowrap}
+.gs .ini-it-tx b{display:block;font:600 13.5px var(--font-ui);color:var(--ink)}
+.gs .ini-it-tx small{display:block;font-size:12px;color:var(--text3);margin-top:1px}
+.gs .ini-fatal{color:var(--red-d);font-weight:700}
+.gs .ini-dt{font:600 12.5px var(--font-ui);color:var(--blue-d);white-space:nowrap}
+.gs .ini-dt.ini-dt-atr{color:var(--red-d)}
+.gs .ini-vazio{background:var(--surface);border:1px solid var(--border);border-radius:12px}
+.gs .ini-vazio-p{font-size:13px;color:var(--text3);background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px}
+.gs .ini-mais{margin-top:8px}
+.gs .ini-b74 .ini-lemb{margin:0}
+/* ═══ Backup 74 — ficha do cliente com o desenho do ambiente de teste (conteúdo completo de antes) ═══ */
+.gs .janela.ficha .ficha-abas.b-seg:not(#_){display:inline-flex;flex-wrap:wrap;border-bottom:0;margin:6px 0 14px;gap:2px}
+.gs .janela.ficha .ficha-abas .b-seg-bt:not(#_){border:0;border-bottom:0;margin:0}
+.gs .janela.ficha .ficha-abas .b-seg-bt.ativo:not(#_){background:var(--primario);color:var(--on-primario,var(--on-cor))}
+.gs .janela.ficha .ficha-sub{display:none}
+.gs .janela.ficha .card:not(#_){border:1px solid var(--border);border-radius:12px;box-shadow:none}
+.gs .janela.ficha .card-hd:not(#_){border-bottom:0;padding:12px 14px 4px;font:700 14px var(--font-ui);color:var(--ink);background:none}
+.gs .janela.ficha .card-bd.dados:not(#_){display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 18px;background:var(--surface2);border-radius:10px;margin:6px 12px 12px;padding:12px 14px}
+.gs .janela.ficha .card-bd.dados .dado:not(#_){display:block;border:0;padding:0;min-width:0}
+.gs .janela.ficha .card-bd.dados .dado > span:not(#_){display:block;font-size:12px;color:var(--text3);margin-bottom:2px}
+.gs .janela.ficha .card-bd.dados .dado > b:not(#_){display:block;font:600 13.5px var(--font-ui);color:var(--ink);overflow-wrap:anywhere}
+.gs .janela.ficha .ficha-parte-resumo > .b-nums-faixa{margin:0 0 14px}
+@media (max-width:700px){.gs .janela.ficha .card-bd.dados:not(#_){grid-template-columns:1fr}}
+.b-nums.b-nums-faixa.b-nums-3{grid-template-columns:repeat(3,minmax(0,1fr))}.b-nums.b-nums-faixa.b-nums-4{grid-template-columns:repeat(4,minmax(0,1fr))}.b-nums.b-nums-faixa.b-nums-7{grid-template-columns:repeat(7,minmax(0,1fr))}
+/* ═══ Backup 74 — CRM: o funil de hoje (mesmas etapas e funções) no desenho do ambiente de teste ═══ */
+.gs .cr-col:not(#_){background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:10px;box-shadow:none}
+.gs .cr-col-tit:not(#_){display:flex;align-items:center;gap:8px;font:700 13.5px var(--font-ui);color:var(--ink);padding:2px 4px 6px;border:0}
+.gs .cr-col-n:not(#_){background:var(--gray-lt);color:var(--text2);border-radius:999px;padding:0 7px;font:600 11.5px var(--font-ui)}
+.gs .cr-col-val:not(#_){font:500 12px var(--font-ui);color:var(--text3);padding:0 4px 8px}
+.gs .cr-vazia:not(#_){min-height:0;padding:16px 8px;border:1px dashed var(--border);border-radius:10px;font-size:12.5px;color:var(--text3);background:none}
+.gs .cr-vazia-ic{display:none}
+.gs .cr-card:not(#_){border:1px solid var(--border);border-radius:10px;padding:10px 12px;box-shadow:none;background:var(--surface)}
+.gs .cr-card:not(#_) > b{font:600 13.5px var(--font-ui);color:var(--ink)}
+.gs .cr-card .sub:not(#_){font-size:12px;color:var(--text3)}
+.gs .cr-card-rod .mono:not(#_){font:600 12.5px var(--font-ui);color:var(--text)}
+.gs .cr-prox:not(#_){font:500 12px var(--font-ui);color:var(--text2);font-style:normal;margin-top:4px}
+.gs .cr-prox.atrasada:not(#_){color:var(--red-d);font-weight:700}
+.gs .cr-prox.cr-sem-prox:not(#_){color:var(--text3)}
+.gs .cr-card.cr-atrasada:not(#_){border-left:3px solid var(--red)}
+.gs .cr-at:not(#_){border:1px solid var(--border);background:var(--surface);border-radius:8px;opacity:.75}
+.gs .cr-card:hover .cr-at{opacity:1}
+.gs .cr-sub-etapa:not(#_){font:600 11px var(--font-ui);color:var(--text2);background:var(--gray-lt);border-radius:6px;padding:1px 7px}
+/* ═══ Backup 74 — seções que abrem/fecham ao clicar (ex-bn.ex-col do ERP antigo: Resumo da carteira, situações etc.) no modelo do ambiente ═══ */
+html body.gx-barra-topo .ex-bn.ex-col:not(#_){background:var(--surface)!important;border:1px solid var(--border)!important;border-radius:12px!important;box-shadow:none!important;padding:0!important;overflow:hidden}
+html body.gx-barra-topo .ex-bn.ex-col > .ex-tg:not(#_){display:flex;align-items:center;gap:8px;width:100%;padding:12px 16px;background:none;border:0;cursor:pointer;text-align:left}
+html body.gx-barra-topo .ex-bn.ex-col > .ex-tg .ex-t:not(#_){font:700 14px var(--font-ui)!important;letter-spacing:0!important;text-transform:none!important;color:var(--ink)!important;margin:0!important}
+html body.gx-barra-topo .ex-bn.ex-col > .ex-tg .ex-cv:not(#_){display:inline-block;color:var(--text3);font-size:11px;transition:transform .15s}
+html body.gx-barra-topo .ex-bn.ex-col.fechado > .ex-tg .ex-cv:not(#_){transform:rotate(-90deg)}
+html body.gx-barra-topo .ex-bn.ex-col > .ex-body:not(#_){padding:4px 16px 16px}
+html body.gx-barra-topo .ex-bn.ex-col > .ex-tg:hover .ex-t{text-decoration:underline}
+/* ═══ Backup 74 — Portal do cliente: Início de boas-vindas ═══ */
+.pt-home{margin:0 0 18px;display:flex;flex-direction:column;gap:14px}
+.pt-home .pt-banda{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--lado-bg,var(--primario));color:var(--on-cor);border-radius:12px;padding:14px 18px}
+.pt-home .pt-marca{font:700 15px var(--font-ui)}
+.pt-home .pt-marca-s{font-size:12px;opacity:.75}
+.pt-home .pt-banda-dir{font:700 14px var(--font-ui);text-align:right}
+.pt-home .pt-banda-dir small{display:block;font-weight:400;font-size:12px;opacity:.75}
+.pt-home .pt-ola h1{font:700 22px var(--font-ui);color:var(--ink);margin:4px 0 6px}
+.pt-home .pt-ola p{font-size:14px;line-height:1.55;color:var(--text2);margin:0;max-width:72ch}
+.pt-home .pt-tiles{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+@media (max-width:1100px){.pt-home .pt-tiles{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:600px){.pt-home .pt-tiles{grid-template-columns:1fr 1fr}}
+.pt-home .pt-tile{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px;cursor:pointer;font:inherit;color:inherit}
+.pt-home .pt-tile:hover{border-color:var(--primario)}
+.pt-home .pt-tile b{font:700 22px var(--font-ui);color:var(--ink)}
+.pt-home .pt-tile span{font:600 13px var(--font-ui);color:var(--text)}
+.pt-home .pt-tile small{font-size:12px;color:var(--text3)}
+.pt-home .pt-tile.pt-tile-atr b,.pt-home .pt-tile.pt-tile-atr small{color:var(--red-d)}
+.pt-home .pt-tile.pt-tile-ok small{color:var(--green-d)}
+.pt-home .pt-como{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 18px}
+.pt-home .pt-como h2{font:700 15px var(--font-ui);color:var(--ink);margin:0 0 8px}
+.pt-home .pt-como ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:5px;font-size:13.5px;color:var(--text2);line-height:1.5}
+.pt-home .pt-contato{margin:10px 0 0;font-size:13px;color:var(--text3)}
