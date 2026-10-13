@@ -734,6 +734,7 @@ O que mudou (o que você aprovou: S1–S8, L1–L4, F1, F3, F4, F6). **Nenhuma f
 - **Conferências (F3)** no Início: parcelamento sem valor da parcela, cliente sem e-mail, processo parado há mais de 90 dias, contrato sem data de reajuste. Clique para ver e corrigir.
 - **Desfazer na Rotina (F4)**: depois de conferir uma linha (ou o grupo) do Passivo e de concluir uma tarefa, aparece "Desfazer" no rodapé por alguns segundos.
 - **Linha do tempo do cliente (F6)**: agora também com as baixas de parcelamentos e acordos e as movimentações dos processos.
+- **Próximo passo (A4)**: o ERP antigo agora só faz a entrada (login), a leitura dos dados e a troca de tela. As sugestões novas (R = retirar o antigo, V = visual, N = funções) estão em `sistema/SUGESTOES-B76.md`.
 
 ## Backup 75 — Faxina do banco (A5): versões antigas repetidas das funções saíram do estrutura.sql
 1. Merge da pull request.

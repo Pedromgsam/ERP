@@ -29,7 +29,7 @@ function brlCurto(n) {
   const v = Math.abs(Number(n) || 0), s = n < 0 ? '−' : '';
   if (v >= 1e6) return s + 'R$ ' + (v / 1e6).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' mi';
   if (v >= 1e4) return s + 'R$ ' + Math.round(v / 1e3).toLocaleString('pt-BR') + ' mil';
-  return s + brl(v);
+  return s + brl(v).replace(/\u00a0/g, ' ');   // Backup 76: espaço comum (o mesmo dos valores "mil"/"mi")
 }
 function iso(d) {
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');

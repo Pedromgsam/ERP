@@ -375,7 +375,9 @@
       clearTimeout(window._gxLimpa); window._gxLimpa = setTimeout(() => { document.querySelectorAll('.gs-area').forEach((a) => { if (a.firstChild && !a.closest('.panel.active')) a.textContent = ''; }); }, 1500);
       if (id) document.body.dataset.painel = id;
       document.body.classList.toggle('gx-tela-nova', ehGS(id));
-      if (ehGS(id)) desenharGS(id);
+      // Backup 76: Painel, Processos, Acordos e Financeiro agora são telas novas que leem os dados do ERP — se algo ficou "a atualizar", relê antes
+      if (ehGS(id) && window.ERP_DADOS_SUJOS && ['resumo', 'processos', 'acordos', 'financeiro', 'financeiroContab'].includes(id) && typeof window.ERP_RECARREGAR === 'function') { window.ERP_DADOS_SUJOS = false; window.ERP_SUJO = null; desenharGS(id); window.ERP_RECARREGAR(); }
+      else if (ehGS(id)) desenharGS(id);
       // Backup 46: baixa feita na Rotina não recarrega tudo na hora; recarrega ao abrir uma tela do ERP antigo (Parcelamentos, Painel…)
       else if (window.ERP_DADOS_SUJOS && typeof window.ERP_RECARREGAR === 'function') { window.ERP_DADOS_SUJOS = false; window.ERP_SUJO = null; window.ERP_RECARREGAR(); }
       // Backup 51 (V5): baixa/emissão de parcela feita na Rotina → relê SÓ os parcelamentos (não o ERP inteiro)

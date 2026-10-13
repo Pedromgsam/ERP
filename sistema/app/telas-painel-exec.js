@@ -213,9 +213,9 @@ TELAS.portalInicio = async function () {
     '<div class="b-sec"><div><h2>Passivo tributário</h2><p>RFB, PGFN e Estado das suas empresas (em aberto + negociado).</p></div></div>' +
     numsFaixa([['Passivo total', t(N.total)], ['RFB', t(N.rfb)], ['PGFN', t(N.pgfn)], ['AGE/MG', t(N.age)], ['Parcelamentos (saldo)', t(N.saldoParc)], ['Acordos (em aberto)', t(N.acPagar)]]) +
     '<div class="b-sec"><div><h2>Suas empresas</h2></div></div><div id="pe-nova"></div>' +
-    '<section class="pt-como"><h2>Como usar</h2><ol><li><b>Parcelamentos</b> e <b>Acordos</b>: veja o que vence, o que já foi pago e se a guia já está pronta.</li>' +
+    '<div class="pt-home"><section class="pt-como"><h2>Como usar</h2><ol><li><b>Parcelamentos</b> e <b>Acordos</b>: veja o que vence, o que já foi pago e se a guia já está pronta.</li>' +
       '<li><b>Processos</b>: acompanhe os processos das suas empresas e a última movimentação.</li><li>Acima, o <b>passivo tributário</b> de cada empresa.</li></ol>' +
-      '<p class="pt-contato">Alguma dúvida? Fale com o escritório pelo seu contato de sempre (WhatsApp ou e-mail) — nossa equipe responde.</p></section>';
+      '<p class="pt-contato">Alguma dúvida? Fale com o escritório pelo seu contato de sempre (WhatsApp ou e-mail) — nossa equipe responde.</p></section></div>';
   c.querySelector('#pt-home').onclick = (ev) => { const b = ev.target.closest('[data-pt-ir]'); if (b) irParaTela(b.dataset.ptIr); };
   tabelaB($('pt-pagar'), { id: 'pt-pagar', linhas: aPagar, unidade: ['parcela', 'parcelas'], valor: (x) => x.v, venc: (x) => x.venc, ord: { k: 'venc', dir: 1 },
     linhaCls: (x) => (x.venc <= h ? ' b-tr-venc' : ''),

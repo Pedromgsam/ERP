@@ -257,7 +257,7 @@ function analiseFin(empresa, corpo) {
     .concat(contab ? [] : [['Ticket médio', brl(receita.length ? vRec / receita.length : 0), 'por recebimento']]);
   // mês a mês: do 1º mês com dado ao último (no período)
   const chaves = [...receita, ...pagos].map((l) => dataLanc(l).slice(0, 7)).filter(Boolean).sort();
-  const meses = chaves.length ? mesesEntre(chaves[0], chaves[chaves.length - 1]) : [];
+  const meses = chaves.length ? mesesEntre(chaves[0], chaves[chaves.length - 1]) : [hojeISO().slice(0, 7)];   // sem nada no período: o mês atual (o gráfico aparece vazio, com a legenda)
   let graf;
   if (contab) {
     graf = cartaoFin('Recebido × pago mês a mês', 'Verde = recebido · vermelho = pago (despesas). Passe o mouse na coluna para ver o mês.',
