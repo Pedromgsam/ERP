@@ -8,7 +8,6 @@ function _acordosPendentes(ac){
   return ac.filter(function(a){ return pend[_acChave(a)]; });
 }
 function _acCaixaTodos(){ return '<label class="ac-todos"><input type="checkbox" id="acMostrarTodos"'+(_acTodos?' checked':'')+' onchange="_acTodos=this.checked;renderAcordos()"> Mostrar concluídos</label>'; }
-function _acToggle(k){ _acAbertos[k]=!_acAbertos[k]; renderAcordos(); }
 function _acPagar(id,bt){ if(bt) bt.disabled=true; if(window.ERP_EDITOR&&window.ERP_EDITOR.baixaRapida) window.ERP_EDITOR.baixaRapida('acordos',id); }
 function _acDetalhe(id){ if(window.GS&&window.GS.detalheAcordo) Promise.resolve(window.GS.carregarCadastros()).then(function(){ window.GS.detalheAcordo(id); }); }
 function _acordosAnalise(ac){

@@ -143,10 +143,6 @@ const MODELOS_AREA = { 'Adm. da Contabilidade': 'contabil' };
 // Área do cliente e áreas que cada usuário vê
 const AREAS = [['juridico', 'Jurídico'], ['contabil', 'Contabilidade'], ['ambos', 'Jurídico + Contabilidade']];
 function rotArea(a) { return (AREAS.find((x) => x[0] === (a || 'ambos')) || AREAS[2])[1]; }
-function pillArea(a) {
-  a = a || 'ambos';
-  return '<span class="pill area-' + a + '" title="Área: ' + rotArea(a) + '">' + (a === 'juridico' ? 'Jurídico' : a === 'contabil' ? 'Contábil' : 'Jurídico + Contábil') + '</span>';
-}
 function minhasAreas(perfil) { const p = perfil || E.perfil || window.ERP_EU || {}; return p.papel === 'admin' ? 'ambos' : (p.areas || 'ambos'); }
 // pode('contratos') → pode ver; pode('contratos','editar') → pode gravar. Admin pode tudo.
 function pode(f, nivel, perfil) {

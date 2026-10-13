@@ -630,39 +630,6 @@ function vistaLista(alvo) {
   }
 }
 
-// ── Quadro (kanban): arraste o cartão para mudar o status ──
-function vistaKanban(alvo) {
-  const lista = filtrarTarefas().filter((t) => t.status !== 'cancelada');
-  alvo.innerHTML = '<div class="kanban">' + COLUNAS_KANBAN.map((s) => {
-    const cs = lista.filter((t) => t.status === s);
-    return '<div class="kb-col" data-status="' + s + '"><div class="kb-tit">' + STATUS_TAREFA[s] + ' <span class="sub">' + cs.length + '</span></div>' +
-      cs.map((t) => '<div class="kb-card" draggable="true" data-id="' + t.id + '">' + bolinha(t) + ' <b>' + esc(t.titulo) + '</b>' +
-        '<div class="sub">' + esc(quemTarefa(t) || '') + '</div>' +
-        '<div class="kb-rod">' + pillPessoa(t.responsavel) + (t.prazo ? ' <span class="sub mono">' + dataBR(t.prazo) + '</span>' : '') + seloPrazo(t) + seloFatal(t) + '</div>' +
-        barraProgresso(progresso(t, (E._tarefas || []).filter((x) => x.tarefa_pai_id === t.id))) + '</div>').join('') +
-      '</div>';
-  }).join('') + '</div><p class="sub" style="margin-top:8px">Arraste um cartão para outra coluna para mudar o status. Clique para abrir.</p>';
-  let arrastando = null;
-  alvo.querySelectorAll('.kb-card').forEach((c) => {
-    c.addEventListener('dragstart', (ev) => { arrastando = c.dataset.id; ev.dataTransfer.setData('text/plain', c.dataset.id); c.classList.add('arrastando'); });
-    c.addEventListener('dragend', () => c.classList.remove('arrastando'));
-    c.onclick = () => abrirTarefa(E._tarefas.find((t) => t.id === c.dataset.id), recarregarTarefas);
-  });
-  alvo.querySelectorAll('.kb-col').forEach((col) => {
-    col.addEventListener('dragover', (ev) => { ev.preventDefault(); col.classList.add('sobre'); });
-    col.addEventListener('dragleave', () => col.classList.remove('sobre'));
-    col.addEventListener('drop', (ev) => {
-      ev.preventDefault(); col.classList.remove('sobre');
-      const id = ev.dataTransfer.getData('text/plain') || arrastando, t = E._tarefas.find((x) => x.id === id);
-      if (!t || t.status === col.dataset.status) return;
-      comBotao(null, async () => {
-        await validarDependencia(t, col.dataset.status);
-        await q(sb.from('tarefas').update({ status: col.dataset.status }).eq('id', id));
-        aviso('✓ Tarefa movida para ' + STATUS_TAREFA[col.dataset.status] + '.'); await recarregarTarefas();
-      });
-    });
-  });
-}
 
 // ── Calendário do mês (prazo interno e ⚑ prazo fatal) ──
 async function vistaCalendario(raiz) {
@@ -727,14 +694,6 @@ function vistaFluxos(alvo) {
     await q(sb.from('fluxos').update({ status: f.status === 'ativo' ? 'concluido' : 'ativo' }).eq('id', f.id));
     aviso('✓ Fluxo atualizado.'); await recarregarTarefas();
   }));
-}
-async function horasGastasPorPessoa(alvo) {
-  const ini = hojeISO().slice(0, 8) + '01';
-  const [tempos, eq] = await Promise.all([q(sb.from('tarefa_tempos').select('usuario, inicio, fim').gte('inicio', ini)), equipe()]);
-  const por = {};
-  tempos.forEach((x) => { const u = eq.find((e) => e.id === x.usuario); const n = u ? primeiroNome(u.nome) : '?';
-    por[n] = (por[n] || 0) + ((x.fim ? new Date(x.fim) : new Date()) - new Date(x.inicio)) / 3600000; });
-  alvo.querySelectorAll('[data-gasto]').forEach((td) => { const v = por[primeiroNome(td.dataset.gasto)]; if (v) td.textContent = String(Math.round(v * 10) / 10).replace('.', ',') + ' h'; });
 }
 function diasEntre(a, b) { return Math.round((new Date(b + 'T12:00:00') - new Date(a + 'T12:00:00')) / 86400000); }
 

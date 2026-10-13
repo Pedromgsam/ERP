@@ -649,6 +649,9 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await pc.waitForSelector('#pt-home', { timeout: 8000 }).catch(() => {});
     ok('B74 Portal do cliente: entra num Início de boas-vindas (Olá, explicação, resumo clicável e "Como usar"); no menu, "Início"', /Olá, Grupo Alfa/.test(await pc.textContent('#pt-home').catch(() => '')) &&
       (await pc.$$('#pt-home [data-pt-ir]')).length === 5 && /Como usar/.test(await pc.textContent('#pt-home')) && /Início/.test(await pc.textContent('#tn [data-ir=resumo]')));
+    ok('B75 Portal do cliente: o menu não mostra Execuções nem Publicações (telas da equipe)', await pc.evaluate(() =>
+      ['execucoes', 'publicacoes'].every((id) => [...document.querySelectorAll('#tn [data-ir=' + id + ']')].every((b) => !b.offsetParent)) &&
+      [...document.querySelectorAll('#tn [data-ir=processos]')].some((b) => b.closest('.tn-grupo') && b.closest('.tn-grupo').offsetParent)));
     const vis = await pc.evaluate(() => ({ nivel: AC_SESSION.nivel, grupos: [...new Set(DB.baseDados.map((x) => x.grupo))].join(','), fin: DB.financeiro.length, obs: DB.baseDados.some((x) => x.obs) }));
     ok('cliente vê só o próprio grupo e nada de financeiro', vis.nivel === 'cliente' && vis.grupos === 'Grupo Alfa' && vis.fin === 0, JSON.stringify(vis));
     ok('cliente não vê Lançar, ✎ nem telas da equipe', !(await pc.isVisible('.tn-lancar-bt')) && !(await pc.$('.gx-la')) && !(await pc.isVisible('#tn [data-ir=clientes]')) && await pc.isVisible('#tn [data-ir=resumo]'));

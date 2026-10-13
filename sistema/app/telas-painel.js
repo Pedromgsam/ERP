@@ -71,10 +71,6 @@ async function meuDia() {
   };
 }
 
-function diasAtraso(venc) {
-  const n = Math.round((new Date(hojeISO() + 'T12:00:00') - new Date(venc + 'T12:00:00')) / 864e5);
-  return n === 1 ? 'venceu ontem' : 'há ' + n + ' dias';
-}
 function primeiroNomeUsuario() { return ((E.perfil && E.perfil.nome) || '').trim().split(/\s+/)[0] || ''; }
 
 function ligarBotoesNovo(raiz) {
@@ -195,8 +191,6 @@ const EXPLICA = {
   lembretes: 'Lembretes: recados com ou sem data que NÃO viram tarefa (ex.: pagar o aluguel, reunião sexta). Aparecem até 7 dias antes da data; sem prazo, ficam até você marcar "Feito".'
 };
 const DESTAQUES_LEMB = [['', 'Sem destaque'], ['vermelho', '🔴 Vermelho — urgente'], ['amarelo', '🟡 Amarelo — atenção'], ['verde', '🟢 Verde — tudo certo'], ['azul', '🔵 Azul — informação'], ['roxo', '🟣 Roxo — pessoal']];
-// ⓘ com balão próprio (Backup 22: volta o ⓘ; o balão do Backup 21 fica)
-function infoI(chave) { return '<span class="info-i" tabindex="0" role="note" data-dica="' + esc(EXPLICA[chave]) + '" aria-label="' + esc(EXPLICA[chave]) + '">ⓘ</span>'; }
 async function dadosLembretes() {
   const h = hojeISO();
   const meus = await q(sb.from('lembretes').select('*').is('feito_em', null).order('dia', { nullsFirst: true })).catch(() => []);
@@ -316,7 +310,6 @@ async function cardResumoEscritorio() {
     irParaTela(k);
   });
 }
-function fimDoMesISO(d) { const x = new Date(d + 'T12:00:00'); return iso(new Date(x.getFullYear(), x.getMonth() + 1, 0)); }
 
 // ── Lembretes: o que NÃO é tarefa (recado sem prazo, pagar o aluguel, emitir guias de parcelamento) ──
 // Linha do lembrete: fundo pela cor do destaque, "✓ Feito" e "📌 Fixar/Fixado" (o fixado fica marcado, como o Feito); clicar abre o detalhe

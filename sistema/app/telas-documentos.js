@@ -307,11 +307,6 @@ async function lerCertificado(arquivo, senha) {
   const iso = (d) => new Date(d.getTime() - d.getTimezoneOffset() * 6e4).toISOString().slice(0, 10);
   return { validade: iso(c.validity.notAfter), inicio: iso(c.validity.notBefore), titular: campo(c.subject.attributes, 'CN'), emissor: campo(c.issuer.attributes, 'CN') || campo(c.issuer.attributes, 'O') };
 }
-// Backup 40: o certificado entra pelo "+ Enviar" (tipo Certificado digital); esta função fica para quem já chamava (alertas, ficha)
-async function janelaCertificado(vinculo, depois) {
-  if (!E.clientes.length) await carregarCadastros();
-  return janelaEnviarDocumento({ grupo_id: vinculo.grupo_id || undefined, empresa_id: vinculo.cliente_id || undefined, tipo: 'certificado' }, depois, 'Enviar certificado digital');
-}
 
 // Backup 57: submódulo "Gerar documentos" — a Central de Documentos (documentos/index.html) dentro do ERP, com o mesmo login.
 // "Abrir em aba nova" continua para quem prefere a tela inteira.

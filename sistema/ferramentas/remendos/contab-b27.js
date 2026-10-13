@@ -13,8 +13,6 @@ function _fcFiltrarPag(abas){
     return true;
   });
 }
-function _fcComLado(lado, fn){ var s={lado:_FC.lado,quem:_FC.quem,recorte:_FC.recorte}; _FC.lado=lado; if(lado==='pagar'){ _FC.quem=[]; _FC.recorte=''; }
-  try { return fn(); } finally { _FC.lado=s.lado; _FC.quem=s.quem; _FC.recorte=s.recorte; } }
 function _fcPintarCorpo(){
   var el=$('fcCorpo'); if(!el) return;
   var R=_FC_LADOS.receber, P=_FC_LADOS.pagar, hoje=new Date(); hoje.setHours(0,0,0,0);
@@ -41,18 +39,6 @@ function _fcPintarCorpo(){
   void atraso;   // a tabela "Em atraso" saiu no Backup 38 (os vencidos estão nas abas A receber/A pagar)
   _fcGraficosB27(rec, pag);
 }
-function _fcTabelaAtraso(L){
-  var h=new Date(); h.setHours(0,0,0,0);
-  return '<div class="tw scr" data-sem-gs><table><thead><tr><th>Vencimento</th><th>Tipo</th><th>Cliente / fornecedor</th><th>Tipo / categoria</th><th>Referência</th><th style="text-align:right">Valor</th><th style="text-align:right">Atraso</th></tr></thead><tbody>'
-   + L.slice(0,400).map(function(x){ var f=x.f, d=pDate(f.vencimento), dias=d?Math.round((h-d)/864e5):0;
-       return '<tr data-gx="'+_gx(f)+'"><td class="mono">'+(d?d.toLocaleDateString('pt-BR'):'—')+'</td>'
-        +'<td><span class="tag '+(x.t==='r'?'tg':'tr')+'">'+(x.t==='r'?'RECEITA':'DESPESA')+'</span></td>'
-        +'<td>'+esc(_fcQuem(f))+'</td><td>'+esc(_fcRecorteVal(f))+'</td>'
-        +'<td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(f.referencia||'')+'">'+esc(f.referencia||'—')+'</td>'
-        +'<td class="mono" style="text-align:right;font-weight:600;color:'+(x.t==='r'?'var(--green-d)':'var(--red-d)')+'">'+_faFT(_fcVal(f))+'</td>'
-        +'<td class="mono" style="text-align:right"><span class="dias-r">'+dias+' d</span></td></tr>'; }).join('')
-   + '</tbody></table></div>';
-}
 function _fcGraficosB27(rec, pag){
   if(typeof Chart==='undefined'||!$('cFcMes')) return;
   var chave=function(f){ var d=_fcData(f); return d?_fcMesKey(d):null; };
@@ -78,25 +64,3 @@ function _fcGraficosB27(rec, pag){
   barras('cFcGrupo', function(f){ return f.grupo||'—'; });
 }
 
-// Backup 28: os dois comparativos com as MESMAS larguras de coluna (um embaixo do outro, 100% alinhados) e linha de Total
-function _fcTotaisPessoas(){
-  var L=_FC_LADOS[_FC.lado], f=0, n=0, ab=0;
-  _fcPessoas().forEach(function(p){ var salvo=_FC.quem; _FC.quem=[p];
-    var fe=_fcFiltrar([L.abaFechado]), a=_fcFiltrar([L.abaAberto]); _FC.quem=salvo;
-    f+=_fcSoma(fe); n+=fe.length; ab+=_fcSoma(a); });
-  return {f:f, n:n, ab:ab};
-}
-function _fcTabelaComp(html){
-  var t=_fcTotaisPessoas(), pagar=_FC.lado==='pagar';
-  var tot='<tr class="linha-total fc-comp-tot"><td><b>Total</b></td>'
-    +'<td class="mono" style="text-align:right;font-weight:700;color:'+(pagar?'var(--red-d)':'var(--green-d)')+'">'+_faFT(t.f)+'</td>'
-    +'<td class="mono" style="text-align:right">'+(t.f?'100%':'—')+'</td><td class="mono" style="text-align:right">'+t.n+'</td>'
-    +'<td class="mono" style="text-align:right">'+(t.n?_faFT(t.f/t.n):'—')+'</td><td class="mono" style="text-align:right;font-weight:700">'+(t.ab?_faFT(t.ab):'—')+'</td>'
-    +'<td class="mono" style="text-align:right">—</td></tr>';
-  // Backup 39: colunas distribuídas como no "Comparativo por pessoa" do Jurídico (sem a 1ª coluna enorme);
-  // linhas sem o fundo cinza; recebido em verde (clientes) e pago em vermelho (fornecedores)
-  html = html.replace(/<tr style="background:[^"]*">/g, '<tr>');
-  if (pagar) html = html.split('color:var(--green-d);font-weight:600').join('color:var(--red-d);font-weight:600');
-  return html.replace('<div class="tw"><table>','<div class="tw fc-comp-wrap" data-sem-pagina><table class="fc-comp">')
-    .replace(/<\/tbody><\/table><\/div>$/, tot+'</tbody></table></div>');
-}

@@ -177,46 +177,6 @@ function crmLista(alvo) {
   alvo.querySelectorAll('[data-op]').forEach((tr) => tr.onclick = () => fichaOportunidade(tr.dataset.op));
 }
 
-// ── Painel ──
-function crmPainel(alvo) {
-  const ops = filtrarOps(), abertas = ops.filter(opAberta), mes = hojeISO().slice(0, 7);
-  const ganhos = ops.filter((o) => o.ganho_em), perdas = ops.filter((o) => o.perdido_em);
-  const noMes = (l, k) => l.filter((o) => String(o[k]).slice(0, 7) === mes);
-  const d90 = Date.now() - 90 * 86400000, g90 = ganhos.filter((o) => new Date(o.ganho_em) > d90).length, p90 = perdas.filter((o) => new Date(o.perdido_em) > d90).length;
-  const tempo = ganhos.length ? soma(ganhos, (o) => (new Date(o.ganho_em) - new Date(o.criado_em)) / 86400000) / ganhos.length : null;
-  const novasMes = ops.filter((o) => String(o.criado_em).slice(0, 7) === mes).length;
-  const assinados = ops.filter((o) => o.assinado_em), ano = Date.now() - 365 * 86400000;
-  const porArea = {}; ganhos.filter((o) => new Date(o.ganho_em) > ano).forEach((o) => { const k = o.servico || 'Não informada'; porArea[k] = (porArea[k] || 0) + (Number(o.valor_estimado) || 0); });
-  const indic = {}; ops.filter((o) => (o.indicado_por || '').trim()).forEach((o) => { const k = o.indicado_por.trim(); indic[k] = indic[k] || { total: 0, ganhos: 0, valor: 0 }; indic[k].total++; if (o.ganho_em) { indic[k].ganhos++; indic[k].valor += Number(o.valor_estimado) || 0; } });
-  const pond = (o) => (Number(o.valor_estimado) || 0) * (o.probabilidade || 0) / 100;
-  const funil = (E._crmEtapas || []).filter((e) => !e.final).map((e) => ({ rotulo: e.nome, valor: abertas.filter((o) => o.etapa_id === e.id).length }));
-  const motivos = {}; perdas.forEach((o) => { const m = o.motivo_perda || 'sem motivo'; motivos[m] = (motivos[m] || 0) + 1; });
-  const origens = {}; ops.forEach((o) => { const k = o.origem || 'Não informada'; origens[k] = origens[k] || { total: 0, ganhos: 0, valor: 0 }; origens[k].total++; if (o.ganho_em) { origens[k].ganhos++; origens[k].valor += Number(o.valor_estimado) || 0; } });
-  const meses = [0, 1, 2].map((i) => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() + i); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); });
-  const previsao = meses.map((m) => ({ rotulo: nomeMes(new Date(m + '-01T12:00:00')), valor: soma(abertas.filter((o) => String(o.previsao_fechamento || '').slice(0, 7) === m), pond) }));
-  const fmtN = (n) => String(n);
-  const ranking = (itens, opc, vazio) => itens.some((i) => i.valor) ? graficoRanking(itens, opc) : '<div class="vazio">' + vazio + '</div>';
-  alvo.innerHTML = '<div class="kpis">' +
-    kpi('Novas no mês', String(novasMes), '', 'oportunidades criadas em ' + nomeMes(new Date()).split(' ')[0].toLowerCase()) +
-    kpi('Em aberto', brl(soma(abertas, (o) => o.valor_estimado)), '', abertas.length + ' oportunidade(s) · ponderado ' + brl(soma(abertas, pond))) +
-    kpi('Fechados no mês', brl(soma(noMes(ganhos, 'ganho_em'), (o) => o.valor_estimado)), 'verde', noMes(ganhos, 'ganho_em').length + ' contrato(s) · ' + noMes(assinados, 'assinado_em').length + ' assinado(s)') +
-    kpi('Perdidas no mês', String(noMes(perdas, 'perdido_em').length), noMes(perdas, 'perdido_em').length ? 'vermelho' : '', '') +
-    kpi('Conversão (90 dias)', g90 + p90 ? Math.round(g90 / (g90 + p90) * 100) + '%' : '—', '', g90 + ' ganha(s) de ' + (g90 + p90) + ' decidida(s)') +
-    kpi('Tempo médio até fechar', tempo == null ? '—' : Math.round(tempo) + ' dia(s)', '', 'do primeiro contato ao "Contrato fechado"') + '</div>' +
-    '<div class="duas-col"><div class="card"><div class="card-hd">Funil — oportunidades abertas por etapa</div><div class="card-bd">' + ranking(funil, { fmt: fmtN, titulo: 'Funil' }, 'Nenhuma oportunidade aberta.') + '</div></div>' +
-    '<div class="card"><div class="card-hd">Previsão ponderada — próximos 3 meses</div><div class="card-bd">' + ranking(previsao, { titulo: 'Previsão' }, 'Sem previsão de fechamento nos próximos 3 meses.') +
-      '<p class="sub">Pela data de previsão de fechamento de cada oportunidade × probabilidade.</p></div></div></div>' +
-    '<div class="duas-col"><div class="card"><div class="card-hd">Valor fechado por área do serviço <span class="sub">últimos 12 meses</span></div><div class="card-bd">' +
-      ranking(Object.entries(porArea).sort((a, b) => b[1] - a[1]).map(([k, v]) => ({ rotulo: k, valor: v })), { titulo: 'Por área' }, 'Nenhum contrato fechado nos últimos 12 meses.') + '</div></div>' +
-    '<div class="card"><div class="card-hd">🤝 Quem mais indica</div>' + (Object.keys(indic).length ? '<div class="tabela-wrap"><table class="ordenavel"><thead><tr><th>Quem indicou</th><th data-tipo="num">Indicações</th><th data-tipo="num">Fechadas</th><th data-tipo="num">Valor fechado</th></tr></thead><tbody>' +
-      Object.entries(indic).sort((a, b) => b[1].total - a[1].total || b[1].valor - a[1].valor).map(([k, v]) => '<tr><td><b>' + esc(k) + '</b></td><td class="mono">' + v.total + '</td><td class="mono">' + v.ganhos + '</td><td class="num mono" data-ord="' + v.valor + '">' + brl(v.valor) + '</td></tr>').join('') +
-      '</tbody></table></div>' : '<div class="card-bd"><div class="vazio">Nenhuma indicação registrada (campo "Indicado por").</div></div>') + '</div></div>' +
-    '<div class="duas-col"><div class="card"><div class="card-hd">Motivos de perda</div><div class="card-bd">' +
-      ranking(Object.entries(motivos).sort((a, b) => b[1] - a[1]).map(([k, v]) => ({ rotulo: k, valor: v })), { fmt: fmtN, titulo: 'Motivos' }, 'Nenhuma perda registrada.') + '</div></div>' +
-    '<div class="card"><div class="card-hd">Origem que mais converte</div><div class="tabela-wrap"><table class="ordenavel"><thead><tr><th>Origem</th><th data-tipo="num">Oportunidades</th><th data-tipo="num">Ganhas</th><th data-tipo="num">Conversão</th><th data-tipo="num">Valor ganho</th></tr></thead><tbody>' +
-      Object.entries(origens).sort((a, b) => b[1].ganhos - a[1].ganhos).map(([k, v]) => '<tr><td>' + esc(k) + '</td><td class="mono">' + v.total + '</td><td class="mono">' + v.ganhos + '</td><td class="mono" data-ord="' + (v.ganhos / v.total) + '">' + Math.round(v.ganhos / v.total * 100) + '%</td><td class="num mono" data-ord="' + v.valor + '">' + brl(v.valor) + '</td></tr>').join('') +
-      '</tbody></table></div></div></div>';
-}
 
 // ── Formulário da oportunidade ──
 function formOportunidade(o, depois) {

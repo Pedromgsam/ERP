@@ -712,12 +712,16 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
 2. **SQL no Supabase** (o arquivo ficou menor, mas o resultado no banco é o MESMO): Raw → Ctrl+A/Ctrl+C → conferir a última linha (`-- ═══ fim do Backup 55 ═══`) → Run.
 3. **Ctrl+Shift+R** no ERP.
 
-O que mudou. **Nenhuma função saiu e nada muda nas telas.**
+O que mudou. **Nenhuma função saiu; nas telas só muda o menu do cliente.**
 - O `estrutura.sql` guardava várias cópias da mesma função (a de cada backup). Das 60 cópias antigas (39 funções repetidas) saíram **41**; o arquivo foi de **7922 para 6870 linhas**.
   Ficou só a última versão de cada uma (a que já valia no banco).
 - Ficaram 19 cópias antigas que ainda são usadas antes da versão nova (por exemplo, para montar um gatilho ou corrigir dados no meio do arquivo). Tirar essas exige reescrever o trecho — não vale o risco.
 - Como foi conferido: banco novo do zero com o arquivo antigo × com o novo (rodando 2 vezes cada) → estrutura e dados **idênticos**; banco montado com o antigo e depois atualizado com o novo → idêntico; todos os testes passaram.
-- **A4 (apagar o ERP antigo)**: ainda não dá para apagar o `ERP.html`. Ver a lista do que ainda sai dele em `sistema/SUGESTOES-B75.md` (parte "O que ainda depende do ERP antigo").
+- **Limpeza do código (parte do A4)**:
+  - saíram 18 funções de tela que nada mais chamava (ex.: o Kanban de Tarefas, que não tinha botão);
+  - saíram 282 regras do `design.css` que apontavam para peças que não existem mais (1861 → cerca de 1570 linhas).
+- **Portal do cliente**: o menu dele mostrava "Execuções" e "Publicações" (telas da equipe, que abriam vazias). Agora só a equipe vê.
+- **A4 (apagar o ERP antigo)**: ainda não dá para apagar o `ERP.html`. A lista do que ainda depende dele e as sugestões novas (S/L/F) estão em `sistema/SUGESTOES-B75.md`.
 
 ## Backup 74 — Levando o ambiente de teste para o ERP (3ª rodada): Financeiro, Início, Clientes, CRM, cartões e portal do cliente
 1. Merge da pull request.

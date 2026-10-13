@@ -25,7 +25,7 @@
     { id: 'alertas', rot: 'Alertas', ic: 'alertas', equipe: true },
     { sec: 'Módulos' },
     { id: 'resumo', rot: 'Painel Executivo', ic: 'painel', func: 'relatorios' },
-    { rot: 'Jurídico', ic: 'juridico', itens: [['processos', 'Processos', 'juridico'], ['parcelamentos', 'Parcelamentos', 'juridico'], ['execucoes', 'Execuções', 'juridico'], ['publicacoes', 'Publicações', 'juridico']] },   // Backup 53: Execuções
+    { rot: 'Jurídico', ic: 'juridico', itens: [['processos', 'Processos', 'juridico'], ['parcelamentos', 'Parcelamentos', 'juridico'], ['execucoes', 'Execuções', 'juridico', 1], ['publicacoes', 'Publicações', 'juridico', 1]] },   // Backup 53: Execuções; Backup 75: o 4º item = só equipe (o cliente não vê)
     { id: 'acordos', rot: 'Acordos', ic: 'acordos', func: 'juridico' },
     { rot: 'Financeiro', ic: 'financeiro', equipe: true, itens: [['financeiro', 'Jurídico', 'financeiro_juridico'], ['financeiroContab', 'Contabilidade', 'financeiro_contab']] },
     { id: 'contratos', rot: 'Contratos', ic: 'contratos', equipe: true, func: 'contratos' },
@@ -129,7 +129,7 @@
       '<nav id="tn" aria-label="Menu principal">' + MENU.map((m, i) => m.sec ? '<div class="tn-sec' + itemCls(m) + '">' + esc(m.sec) + '</div>'
         : !m.itens ? '<button type="button" class="tn-it' + itemCls(m) + '" data-ir="' + m.id + '" title="' + esc(m.rot) + '">' + icone(m.ic) + '<span class="tn-rot">' + esc(m.rot) + '</span></button>'
         : '<div class="tn-grupo' + itemCls(m) + '"><button type="button" class="tn-it tn-abre" data-grupo="' + i + '" aria-expanded="false" title="' + esc(m.rot) + '">' + icone(m.ic) + '<span class="tn-rot">' + esc(m.rot) + '</span>' + icone('seta').replace('tn-ic', 'tn-ic tn-seta') + '</button>' +
-          '<div class="tn-menu" role="menu">' + m.itens.map((x) => '<button type="button" role="menuitem" data-ir="' + x[0] + '">' + esc(x[1]) + '</button>').join('') + '</div></div>').join('') +
+          '<div class="tn-menu" role="menu">' + m.itens.map((x) => '<button type="button" role="menuitem"' + (x[3] ? ' class="gx-so-equipe"' : '') + ' data-ir="' + x[0] + '">' + esc(x[1]) + '</button>').join('') + '</div></div>').join('') +
       '</nav><button type="button" id="gs-encolher" title="Encolher / abrir a barra" aria-label="Encolher ou abrir a barra lateral">' + icone('encolher') + '<span class="tn-rot">encolher</span></button>';
     document.body.insertBefore(lado, document.body.firstChild);
     try { if (localStorage.getItem('erp_lado_min') === '1') document.body.classList.add('gx-lado-min'); } catch (e) { /* sem armazenamento: começa aberta */ }
@@ -220,7 +220,7 @@
     const cls = (m) => (m.equipe ? ' class="gx-so-equipe"' : m.admin ? ' class="gx-so-admin"' : '');
     const itens = soLancar ? '<div class="tn-mais-tit">Lançar</div>' + LANCAR.map((x, i) => '<button type="button" data-lancar="' + i + '">+ ' + esc(x[0]) + '</button>').join('')
       : MENU.filter((m) => !m.sec).map((m) => !m.itens ? '<button type="button"' + cls(m) + ' data-ir="' + m.id + '">' + esc(m.rot) + '</button>'
-        : '<div class="tn-mais-tit' + (m.equipe ? ' gx-so-equipe' : '') + '">' + esc(m.rot) + '</div>' + m.itens.map((x) => '<button type="button"' + cls(m) + ' data-ir="' + x[0] + '">' + esc(x[1]) + '</button>').join('')).join('')
+        : '<div class="tn-mais-tit' + (m.equipe ? ' gx-so-equipe' : '') + '">' + esc(m.rot) + '</div>' + m.itens.map((x) => '<button type="button"' + (x[3] && !m.equipe ? ' class="gx-so-equipe"' : cls(m)) + ' data-ir="' + x[0] + '">' + esc(x[1]) + '</button>').join('')).join('')
         + '<button type="button" data-acao="atualizar">↻ Atualizar dados</button><button type="button" class="gs-sair">Sair</button>';
     f.innerHTML = '<div class="tn-mais-caixa">' + itens + '<button type="button" class="tn-mais-fechar" data-fechar>Fechar</button></div>';
     f.querySelectorAll('[data-ir]').forEach((b) => { if (!permitido(FUNC_TELA[b.dataset.ir])) b.remove(); });
