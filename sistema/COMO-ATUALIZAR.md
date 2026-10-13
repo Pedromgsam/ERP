@@ -707,6 +707,28 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
 **Central de Documentos dentro do ERP:** menu **Documentos → Gerar documento** (ou ⋯ → Documentos, contrato, recibo do Financeiro).
 **Ctrl + clique** (ou botão do meio do mouse) em qualquer item do menu ou link de documento abre numa aba nova.
 
+## Backup 73 — Levando o ambiente de teste para o ERP (2ª rodada): Painel Executivo e Rotina
+1. Merge da pull request.
+2. SQL: não precisa (o banco não mudou).
+3. **Ctrl+Shift+R** no ERP.
+
+O que mudou (a partir das suas respostas de 12/10/2026). **Nenhuma função saiu.**
+- **Painel Executivo**
+  1. No topo, uma **faixa de números** (Passivo total · RFB · PGFN · AGE/MG · Parcelamentos (saldo) · Acordos (em aberto) · Passivo em disputa · Ativo em disputa) no lugar dos 3 blocos de cartões. Os valores são os mesmos de antes; o valor completo aparece ao passar o mouse.
+  2. **Evolução do passivo** já aberta. A escala à esquerda começa em 0 (0 · 10 mi · 20 mi…) e, ao passar o mouse perto da bolinha, aparece o mês e o valor (ex.: "jun/26 · R$ 1,5 mi"). "Tudo junto / Uma linha por grupo" e 6/12/24 meses continuam.
+  3. **Empresas do grupo** na tabela nova, com as **colunas de antes** (Grupo · Entidade/sócio · CPF/CNPJ · RFB · PGFN · AGE/MG · Total · Operação · Situação), sem bolinha no grupo.
+     Abas Ativos · Consultoria · Serviço pontual · Inativos · Todos; área, grupo, operação e situação em **Filtros**; total e média no rodapé. Clique na empresa para abrir a ficha.
+- **Rotina** (a atual, com o placar em cartões)
+  1. **Passivo**: igual a hoje, com duas colunas como no ambiente — **Certificado** mostra a data de validade (vermelha se venceu, amarela em até 30 dias; sem data cadastrada fica o Sim/Não) e
+     **Conferência** é o botão verde **"Conferido"** com "último dd/mm" (ou "nunca") embaixo; conferida há até 15 dias mostra só "✓ dd/mm".
+  2. **Planilha**: como no ambiente — grupos em pílulas, cartões em grade (sem rolar para o lado), selos menores e só as parcelas perto de hoje, com **"Ver todas as N parcelas"**.
+     Continuam: **última parcela**, **valor residual**, **"Nós emitimos as guias"** e a observação. "Em atraso" fica na pílula vermelha única do sistema.
+  3. **Minhas tarefas**: a do ambiente (já era desde o Backup 70); o título da tarefa sem negrito.
+- **Importações** e **Usuários**: no ERP já estão como você pediu (sem histórico/reverter; Usuários com editar e excluir) — nada mudou.
+
+Próximas rodadas: Início funcional (com os cartões Financeiro e Escritório), Clientes/CRM no desenho novo, cartões expansíveis,
+portal do cliente novo (com um "Início" de boas-vindas) e, por fim, tirar o ERP antigo e fazer a faxina do banco.
+
 ## Backup 72 — Levando o ambiente de teste para o ERP (1ª rodada): Tarefas, Publicações, Processos, Parcelamentos e Contabilidade
 1. Merge da pull request.
 2. SQL: não precisa (o banco não mudou).

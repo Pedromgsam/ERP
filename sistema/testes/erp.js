@@ -1095,17 +1095,16 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('Painel: sem a faixa "Painel Executivo" e com "Atualizado" na linha do filtro', !(await p.isVisible('#panel-resumo > .mod-banner')) && await p.isVisible('#gx-linha-painel'));
     ok('Painel: contadores rolam com a página (não ficam presos no topo)', await p.evaluate(() => getComputedStyle(document.getElementById('gx-linha-painel')).position !== 'fixed'));
     ok('Painel: sem "Por grupo / Lista" e sem "Mostrar mais" (todas as linhas)', !(await p.$('#pe-visao')) && !(await p.isVisible('#panel-resumo .pag-rodape')));
-    { const grupos = await p.$$eval('#tblExecRanking tr.gx-linha-exp:not([hidden])', (l) => l.map((t) => (t.querySelector('.er-grupo') || {}).textContent || ''));
-      // Backup 40: sem as faixas "GRUPO X · N cadastros" (e sem o contorno); as linhas continuam em ordem de grupo
-      // Backup 53: as faixas voltaram (igual à tabela de Clientes: nome do grupo + nº de empresas, com fundo)
-      ok('Painel → Empresas do grupo: faixa por grupo (como Clientes), linhas em ordem de grupo', !!(await p.$('#tblExecRanking tr.gx-grp')) && grupos.every((g, i) => grupos.indexOf(g) === i || grupos[i - 1] === g), grupos.join(' | ')); }
-    { const al = await p.evaluate(() => { const td = document.querySelector('#tblExecRanking tr.gx-linha-exp'), th = document.querySelectorAll('#execRankHead th');
-        return [2, 4].map((i) => getComputedStyle(td.children[i - 1]).textAlign + '/' + getComputedStyle(th[i - 1]).textAlign).join(' '); });
-      ok('Painel (B48/B57): Grupo e CPF/CNPJ alinhados à esquerda, títulos também à esquerda (como no ERP antigo)', al === 'left/left left/left', al); }
-    ok('Painel: sem a seta de expandir e sem o filtro de grupo (fica só no filtro de cima)', !(await p.isVisible('#tblExecRanking td.gx-seta')) && !(await p.$('#pe-grupo')));
-    await p.click('#tblExecRanking tr.gx-linha-exp:has-text("Alfa Comércio") .er-nome'); await p.waitForTimeout(400);
+    // Backup 73: "Empresas do grupo" é a tabela nova (#pe-nova), com as mesmas colunas; a antiga fica escondida
+    { await p.waitForSelector('#pe-nova tbody tr[data-b-k]', { timeout: 10000 }).catch(() => {});
+      const grupos = await p.$$eval('#pe-nova tbody tr[data-b-k]', (l) => l.map((t) => t.cells[0].textContent.trim()));
+      ok('B73 Painel → Empresas do grupo: tabela nova com as colunas de antes, em ordem de grupo e sem bolinha no grupo', (await p.$$eval('#pe-nova thead th', (l) => l.map((t) => t.textContent.replace(/[↑↓]/g, '').trim()).join('|'))) === 'Grupo|Entidade / sócio|CPF/CNPJ|RFB|PGFN|AGE/MG|Total|Operação|Situação' &&
+        grupos.length > 0 && grupos.every((g, i) => grupos.indexOf(g) === i || grupos[i - 1] === g) && !(await p.$('#pe-nova .b-ponto')) && !(await p.isVisible('#execRankWrap')), grupos.join(' | ')); }
+    ok('B73 Painel: abas Ativos · Consultoria · Serviço pontual · Inativos · Todos e "Filtros" (área, grupo, operação, situação)', (await p.$$eval('#pe-nova [data-b-aba]', (l) => l.map((b) => b.dataset.bAba).join(','))) === 'at,cons,pont,in,todos' && (await p.$$('#pe-nova [data-bt=l]')).length === 4);
+    ok('B73 Painel: faixa de números no topo (Passivo total … Ativo em disputa), sem os 3 blocos de cartões', (await p.$$('#pe-nums .b-nums-faixa > div')).length === 8 && !(await p.isVisible('#execKpiSection')) && /Passivo total/.test(await p.textContent('#pe-nums')));
+    await p.click('#pe-nova tbody tr[data-b-k]:has-text("Alfa Comércio") td:nth-child(2)'); await p.waitForTimeout(400);
     await p.waitForFunction(() => [...document.querySelectorAll('#janelas .janela h2')].some((h) => /Alfa Comércio/i.test(h.textContent)), null, { timeout: 8000 }).catch(() => {});
-    ok('Painel: clicar no grupo (ou na linha) abre direto a ficha completa, sem expandir', !(await p.$('#tblExecRanking tr.gx-det')) && !/uuid|Erro no ERP/.test(await p.textContent('#gs-raiz #aviso').catch(() => '')) &&
+    ok('Painel: clicar na empresa abre direto a ficha completa', !/uuid|Erro no ERP/.test(await p.textContent('#gs-raiz #aviso').catch(() => '')) &&
       await p.evaluate(() => [...document.querySelectorAll('#janelas .janela h2')].some((h) => /Alfa Comércio/i.test(h.textContent))));
     await p.evaluate(() => { while (document.querySelector('#janelas .fundo')) window.GS.fecharJanela(); }); await p.waitForTimeout(200);
     // Financeiro Jurídico: área do serviço, detalhe ao clicar na linha
@@ -1302,7 +1301,9 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.waitForSelector('#rt-pas-corpo [data-conferir]', { timeout: 10000 }); await p.waitForTimeout(500);
     ok('Rotina: Conferência é a última coluna, sem contorno azul nem relógio nas empresas', /Conferência/.test(await p.textContent('#rt-corpo thead th:last-child')) && !(await p.$('#rt-pas-corpo tr.gx-grp')) && !(await p.$('#rt-pas-corpo [data-hist]')));
     await p.click('#rt-pas-corpo [data-conferir] >> nth=0'); await p.waitForTimeout(1200);
-    ok('Rotina: "✓" registra a conferência da empresa (quem e quando), sem alterar nada', sql("select count(*) from rotina_conferencias where area='passivo' and not alterou") === '1' && /conferido/.test(await p.textContent('#rt-pas-corpo')));
+    ok('Rotina: "✓" registra a conferência da empresa (quem e quando), sem alterar nada', sql("select count(*) from rotina_conferencias where area='passivo' and not alterou") === '1' && !!(await p.$('#rt-pas-corpo .rt-cf2-ok')));
+    ok('B73 Rotina › Passivo: Conferência como no ambiente (botão verde "Conferido" com "último dd/mm" ou "nunca"; conferida há até 15 dias = "✓ dd/mm")', !!(await p.$('#rt-pas-corpo .rt-cf2-bt')) &&
+      /^✓ \d\d\/\d\d$/.test((await p.textContent('#rt-pas-corpo .rt-cf2-ok span')).trim()) && /nunca|último/.test(await p.textContent('#rt-pas-corpo .rt-cf2 small')));
     { const tr = '#rt-pas-corpo tr[data-id] >> nth=1', cid = await p.getAttribute(tr, 'data-id');
       await p.fill('#rt-pas-corpo tr[data-id="' + cid + '"] [data-c=ceat_trt3]', '7'); await p.waitForTimeout(200);
       await p.click('#rt-pas-corpo tr[data-id="' + cid + '"] [data-conferir]'); await p.waitForTimeout(1500);
@@ -1316,7 +1317,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.focus('#rt-pas-corpo tr[data-id] >> nth=0 >> [data-c=ceat_trt3]'); await p.keyboard.press('Enter');
     ok('Rotina (B45): Enter no passivo desce para a mesma coluna da linha de baixo', await p.evaluate(() => { const a = document.activeElement, linhas = [...document.querySelectorAll('#rt-pas-corpo tr[data-id]')];
       return !!a && a.dataset.c === 'ceat_trt3' && a.closest('tr') === linhas[1]; }));
-    ok('Rotina (B45): conferência sem repetir "alterado" (uma linha só com a data)', await p.evaluate(() => [...document.querySelectorAll('#rt-pas-corpo .rt-cf-txt')].every((x) => (x.textContent.match(/alt/g) || []).length <= 1)));
+    ok('B73 Rotina › Passivo: Certificado mostra a validade (data) quando cadastrada; sem validade, a escolha Sim/Não', await p.evaluate(() => [...document.querySelectorAll('#rt-pas-corpo td.rt-c-cert')].every((td) => !!td.querySelector('select[data-c=certificado]') || /^\d\d\/\d\d\/\d{4}$/.test(td.textContent.trim()))));
     // Backup 45: Processos — conferência na última coluna, tribunal, filtros em azul e "sem novidade" dentro da janela
     await p.click('#rt-abas [data-rt-aba=processos]'); await p.waitForSelector('#rt-proc-corpo', { timeout: 10000 }); await p.waitForTimeout(600);
     ok('Rotina → Processos (B45): Tribunal, Conferência na última coluna, filtros em azul e sem o botão solto "Sem novidade"', /Tribunal/.test(await p.textContent('#rt-corpo thead')) &&
@@ -1341,11 +1342,11 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
 
     // Backup 33: Painel Executivo — evolução do passivo em linhas (total ou por empresa)
     await p.evaluate(() => nav(null, 'resumo')); await p.waitForTimeout(1500);
-    ok('Painel (B49): "Evolução do passivo" começa fechada (só o título)', await p.isVisible('#evo-abrir') && !(await p.isVisible('#cEvoPassivo')));
-    await p.click('#evo-abrir'); await p.waitForTimeout(1500);
+    await p.waitForTimeout(1500);
+    ok('Painel (B73): "Evolução do passivo" já aberta, com a escala começando em 0', await p.isVisible('#cEvoPassivo') && await p.evaluate(() => { const ch = Chart.getChart('cEvoPassivo'); return !!ch && ch.scales.y.min === 0; }));
     ok('Painel: gráfico de linhas "Evolução do passivo"', await p.evaluate(() => { const c = document.getElementById('cEvoPassivo'); const ch = c && window.Chart && Chart.getChart(c); return !!ch && ch.config.type === 'line' && ch.data.labels.length >= 2 && ch.data.labels.length <= 12; }));
-    ok('Painel (B45): Empresas do grupo com valores resumidos (R$ 3k, R$ 1,3M) e o valor completo ao passar o mouse', await p.evaluate(() => { const v = [...document.querySelectorAll('#tblExecRanking .er-v')];
-      return v.length > 0 && v.every((x) => /^R\$ [\d,]+(k|M)?$/.test(x.textContent.trim()) && /^R\$\s?[\d.]+,\d{2}$/.test(x.title)); }));
+    ok('Painel (B45/B73): Empresas do grupo com valores resumidos (R$ 3 mil, R$ 1,3 mi) e o valor completo ao passar o mouse', await p.evaluate(() => { const v = [...document.querySelectorAll('#pe-nova .b-pe-v')];
+      return v.length > 0 && v.every((x) => /^R\$ [\d.,]+( mil| mi)?$/.test(x.textContent.trim()) && /^R\$\s?[\d.]+,\d{2}$/.test(x.title)); }));
     ok('Painel: evolução abre em "Tudo junto" (uma linha só)', await p.evaluate(() => Chart.getChart(document.getElementById('cEvoPassivo')).data.datasets.length === 1));
     ok('Painel: evolução sem os meses antes do primeiro lançamento (nada de cair para zero)', await p.evaluate(() => Chart.getChart(document.getElementById('cEvoPassivo')).data.datasets[0].data[0] != null));
     await p.click('#evo-visao [data-v=linhas]'); await p.waitForTimeout(500);
@@ -1452,9 +1453,9 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       await p.evaluate(() => nav(null, 'rotina')); await p.waitForSelector('#rt-abas'); await p.click('#rt-abas [data-rt-aba=passivo]'); await p.waitForSelector('#rt-pas-corpo tr[data-id]', { timeout: 10000 }).catch(() => {});
       ok('Rotina: passivo sem a coluna "Em operação"', !/Em operação/.test(await p.textContent('#rt-corpo thead')));
       await p.evaluate(() => nav(null, 'resumo')); await p.waitForTimeout(2000);
-      const thsPe = (await p.$$eval('#execRankHead th', (l) => l.map((x) => x.textContent.trim()))).join(' ');
+      const thsPe = (await p.$$eval('#pe-nova thead th', (l) => l.map((x) => x.textContent.trim()))).join(' ');
       ok('Painel: "Operação" presente (B41), sem CEAT e sem CAPAG; situação sem caixa alta', /Operação/.test(thsPe) && !/Em operação/.test(thsPe) && !/CAPAG|CEAT/.test(thsPe) &&
-        await p.evaluate(() => [...document.querySelectorAll('#tblExecRanking td.er-sit .tag')].every((x) => x.textContent === '—' || x.textContent !== x.textContent.toUpperCase())));
+        await p.evaluate(() => [...document.querySelectorAll('#pe-nova tbody td:nth-child(9) .b-pill')].every((x) => x.textContent !== x.textContent.toUpperCase())));
       // contador da sessão na barra de cima (só cai por inatividade)
       ok('Barra de cima: contador discreto da sessão', /⏱\d+′/.test(await p.textContent('#gs-sessao')));
     }
@@ -1549,7 +1550,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       await nav(p, 'alertas'); await p.waitForTimeout(2500);
       ok('B53: Alertas voltou ao Backup 48 (publicações, tarefas e honorários em atraso)', /Publicações novas/.test(await p.textContent('#panel-alertas')) && /Honorários em atraso/.test(await p.textContent('#panel-alertas'))); }
     // ── Backup 50 ──
-    { await nav(p, 'tarefas'); await p.evaluate(() => { GS.E.tf = null; }); await nav(p, 'tarefas'); await p.waitForTimeout(1500);
+    { await nav(p, 'tarefas'); await p.evaluate(() => { GS.E.tf = null; if (GS.E.tabB) delete GS.E.tabB.tarefas; }); await nav(p, 'tarefas'); await p.waitForTimeout(1500);   // B72: a aba da Lista fica guardada; volta para "Em aberto"
       const cab = await p.$$eval('#panel-tarefas table thead th', (l) => l.map((t) => t.textContent.trim()).filter(Boolean)).catch(() => []);
       ok('B50/B72 Tarefas: Prazo e Situação (ex-"Dias") em colunas separadas e status com cor', cab.some((c) => /^Prazo/.test(c)) && cab.includes('Situação') && !!(await p.$('#panel-tarefas .pill.tf-st')), cab.join('|'));
       await nav(p, 'financeiro'); await p.evaluate(() => setFinTab('receber', document.querySelector('#finTabBar [data-tab=receber]'))); await p.waitForTimeout(1500);
@@ -1823,8 +1824,8 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       ok('B53 Tarefas: quinzenal = a cada 2 semanas', /a cada 2 semanas/.test(await p.textContent('#gs-raiz #tf-rep-txt')));
       await fecharTudo();
       // Painel: faixa por grupo (nome + nº de empresas), como em Clientes
-      await nav(p, 'resumo'); await p.waitForSelector('#tblExecRanking tr', { timeout: 10000 }).catch(() => {}); await p.waitForTimeout(600);
-      ok('B53 Painel: "Empresas do grupo" com a faixa do grupo e o nº de empresas', await p.evaluate(() => [...document.querySelectorAll('#tblExecRanking tr.gx-grp')].some((t) => /GRUPO ALFA|Grupo Alfa/i.test(t.textContent) && /empresa/.test(t.textContent))));
+      await nav(p, 'resumo'); await p.waitForSelector('#pe-nova tbody tr[data-b-k]', { timeout: 10000 }).catch(() => {}); await p.waitForTimeout(600);
+      ok('B73 Painel: "Empresas do grupo" com o grupo em coluna (texto, sem faixa) e o total de empresas na barra', await p.evaluate(() => [...document.querySelectorAll('#pe-nova tbody tr[data-b-k] td:first-child')].some((t) => /Grupo Alfa/i.test(t.textContent))) && /empresa/.test(await p.textContent('#pe-nova [data-bt=conta]')));
       // Acordos: alterar o acordo inteiro
       const idsAc = sql("select string_agg(id::text, ',') from acordos where credor='Carlos Credor'").split(',').filter(Boolean);
       await p.evaluate((ids) => GS.editarAcordo(ids), idsAc); await p.waitForSelector('#gs-raiz #f-acordo-todo');
@@ -1924,7 +1925,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
         return { a: r[0] && r[0].right, b: r[1] && r[1].left, larg: w.width, ini: w.left }; });
       ok('B55 Tarefas: Urgência e Prazo logo depois de Mostrar/De quem (não colados na direita)', pos.b > pos.a && pos.b - pos.a < 120 && pos.b - pos.ini < pos.larg * 0.8, JSON.stringify(pos));
       await p.click('#tf-vista [data-v=lista]'); await p.waitForTimeout(300);
-      await nav(p, 'resumo'); await p.waitForSelector('#tblExecRanking tr:not(.gx-grp)'); await p.evaluate(() => { FILTROS.grupo = ''; FILTROS.empresa = ''; renderExecRanking(); }); await p.waitForTimeout(800);
+      await nav(p, 'resumo'); await p.waitForSelector('#pe-nova tbody tr[data-b-k]'); await p.evaluate(() => { FILTROS.grupo = ''; FILTROS.empresa = ''; renderExecRanking(); }); await p.waitForTimeout(800);
       // Backup 68: a tabela antiga (Status/Atraso/Baixa) virou a tela nova — Vencimento colorido, Baixa, sem caneta; clique → detalhe com Editar e Baixa
       await nav(p, 'parcelamentos'); await p.waitForSelector('#pc-tabela [data-b-aba=apagar]'); await p.waitForSelector('#pc-tabela tbody tr[data-b-k]', { timeout: 10000 }).catch(() => {});
       ok('B57/B69 Parcelamentos: tabela com Vencimento, Prazo e o botão Baixa, sem a caneta', await p.evaluate(() => { const t = document.querySelector('#pc-tabela table'); const ths = [...t.tHead.rows[0].cells].map((x) => x.textContent.replace(/[↑↓]/g, '').trim());
@@ -1934,20 +1935,18 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       await p.click('#gs-raiz #pc-p-editar').catch(() => {}); await p.waitForTimeout(1200);
       ok('B57/B68 Parcelamentos: "Editar" abre a edição do parcelamento', await p.evaluate(() => !!document.querySelector('.gx-fundo .gx-janela')));
       await p.keyboard.press('Escape'); await p.waitForTimeout(300); await nav(p, 'resumo'); await p.waitForTimeout(800);
-      ok('B58 tabelas: dinheiro à direita, Grupo só como coluna (sem a faixa repetida) e vazio sempre "—"', await p.evaluate(() => { const t = document.querySelector('#tblExecRanking').closest('table');
-        const v = t.querySelector('tbody td.col-valor'), f = t.querySelector('tbody tr.gx-grp');
-        return !!v && getComputedStyle(v).textAlign === 'right' && (!f || getComputedStyle(f).display === 'none') && ![...t.querySelectorAll('tbody td')].some((td) => !td.children.length && td.textContent.trim() === '-'); }));
-      ok('B57/B63 Painel: Grupo é a 1ª coluna (só o nome), cabeçalho em Inter caixa alta e letra de máquina só no CPF/CNPJ', await p.evaluate(() => { const t = document.querySelector('#tblExecRanking').closest('table');
-        const g = t.querySelector('thead th.col-grupo'), td = t.querySelector('tbody td.col-doc');
-        return !!g && getComputedStyle(g).display !== 'none' && /Inter/.test(getComputedStyle(g).fontFamily) && !/Playfair/.test(getComputedStyle(g).fontFamily) && getComputedStyle(g).textTransform === 'uppercase' && !!td && /JetBrains/.test(getComputedStyle(td).fontFamily)
-          && !!t.querySelector('tbody .er-grupo') && getComputedStyle(t.querySelector('tbody .er-grupo')).backgroundColor === 'rgba(0, 0, 0, 0)'; }));   // Backup 63: Inter em caixa alta; Grupo só em texto (sem pílula); máquina só no CPF/CNPJ
-      const caberB56 = await p.evaluate(() => { const t = document.querySelector('#tblExecRanking').closest('table'); const nm = t.querySelector('tbody td.col-nome .er-nome');
-        if (nm) nm.textContent = 'COMERCIO E DISTRIBUIDORA DE ALIMENTOS FICTICIA SANTA LUZIA LTDA EPP FILIAL CENTRO';
-        const w = t.parentElement; return { ws: getComputedStyle(t.querySelector('tbody td.col-nome')).whiteSpace, tab: t.scrollWidth, caixa: w.clientWidth }; });
-      ok('B56 Painel: nome longo quebra em 2–3 linhas e a tabela cabe na tela (sem barra para o lado)', caberB56.ws === 'normal' && caberB56.tab <= caberB56.caixa + 2, JSON.stringify(caberB56));
-      ok('Backup 63 visual: cabeçalho da tabela CLARO (fundo branco, letra cinza) e letra Inter em tudo', await p.evaluate(() => { const th = document.querySelector('#tblExecRanking').closest('table').querySelector('thead th');
+      // Backup 73: o Painel usa a tabela nova; as medidas de antes (B55–B63) passam a valer para ela
+      ok('B58/B73 tabelas: dinheiro à direita e vazio sempre "—" (Painel)', await p.evaluate(() => { const t = document.querySelector('#pe-nova table');
+        const v = t.querySelector('tbody td.b-val'); return !!v && getComputedStyle(v).textAlign === 'right' && ![...t.querySelectorAll('tbody td')].some((td) => !td.children.length && td.textContent.trim() === '-'); }));
+      ok('B57/B63/B73 Painel: Grupo é a 1ª coluna (só o nome, sem pílula nem bolinha), cabeçalho em Inter caixa alta', await p.evaluate(() => { const t = document.querySelector('#pe-nova table'), g = t.querySelector('thead th'), td = t.querySelector('tbody td');
+        return /Grupo/i.test(g.textContent) && /Inter/.test(getComputedStyle(g).fontFamily) && getComputedStyle(g).textTransform === 'uppercase' && !td.querySelector('.b-ponto, .gx-gpill, .er-grupo'); }));
+      const caberB56 = await p.evaluate(() => { const t = document.querySelector('#pe-nova table'); const nm = t.querySelector('tbody td:nth-child(2)');
+        if (nm) nm.firstChild.textContent = 'COMERCIO E DISTRIBUIDORA DE ALIMENTOS FICTICIA SANTA LUZIA LTDA EPP FILIAL CENTRO';
+        const w = t.closest('.b-rola'); return { ws: getComputedStyle(nm).whiteSpace, tab: t.scrollWidth, caixa: w.clientWidth }; });
+      ok('B56 Painel: nome longo quebra em 2–3 linhas e a tabela cabe na tela (sem barra para o lado)', caberB56.ws !== 'nowrap' && caberB56.tab <= caberB56.caixa + 2, JSON.stringify(caberB56));
+      ok('Backup 63 visual: cabeçalho da tabela CLARO (fundo branco, letra cinza) e letra Inter em tudo', await p.evaluate(() => { const th = document.querySelector('#pe-nova table thead th');
         return getComputedStyle(th).backgroundColor === 'rgb(255, 255, 255)' && getComputedStyle(th).color !== 'rgb(255, 255, 255)' && /^"?Inter/.test(getComputedStyle(document.body).fontFamily); }));
-      ok('B55 tabelas: CPF/CNPJ discreto (letra menor, cinza)', await p.evaluate(() => { const td = document.querySelector('#tblExecRanking td.col-doc'); if (!td) return false; const c = getComputedStyle(td); return parseFloat(c.fontSize) < 13; }));
+      ok('B55 tabelas: CPF/CNPJ discreto (letra menor)', await p.evaluate(() => { const td = document.querySelector('#pe-nova tbody td.b-num'); if (!td) return false; return parseFloat(getComputedStyle(td).fontSize) <= 13; }));
       await nav(p, 'acordos'); await p.waitForSelector('#ac-tabela tr[data-b-k]', { timeout: 10000 }).catch(() => {});
       ok('B58/B70 Acordos: botão só "Emitir"; o "emitido" fica embaixo do prazo', await p.evaluate(() => {
         const b = [...document.querySelectorAll('#ac-tabela [data-ac-emitir]')]; return b.length > 0 && b.every((x) => x.textContent.trim() === 'Emitir'); }));
