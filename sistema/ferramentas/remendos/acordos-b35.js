@@ -88,13 +88,3 @@ function renderAcordosVencTbl(){
     // Backup 36: emitir = a janela de envio (e-mail ou WhatsApp) já com esta parcela
     if(window.GS&&GS.enviarAcordosSelecionados) GS.enviarAcordosSelecionados([b.dataset.acGuia], function(){ if(window.ERP_RECARREGAR) window.ERP_RECARREGAR(); }); };
 }
-function _acBarraSel(){
-  var box=$('acSelBarra'), w=document.querySelector('#acordTabVencidos .tw');
-  if(!box&&w){ box=document.createElement('div'); box.id='acSelBarra'; box.className='ac-selbar'; w.parentNode.insertBefore(box,w); }
-  if(!box) return;
-  var ids=Object.keys(_acSel);
-  box.innerHTML=ids.length?'<span><b>'+ids.length+' parcela'+(ids.length>1?'s':'')+' marcada'+(ids.length>1?'s':'')+'</b></span><span class="acoes"><button type="button" class="ac-bt-boleto" id="acSelLimpar">Desmarcar</button><button type="button" class="ac-bt-boleto ac-bt-prim" id="acSelEnviar">✉ Enviar por empresa</button></span>'
-    :'<span class="sub">Marque as parcelas para enviar os boletos por empresa (ou use Emitir na linha).</span>';
-  var l=$('acSelLimpar'); if(l) l.onclick=function(){ _acSel={}; renderAcordosVencTbl(); };
-  var e=$('acSelEnviar'); if(e) e.onclick=function(){ if(window.GS&&GS.enviarAcordosSelecionados) GS.enviarAcordosSelecionados(ids, function(){ _acSel={}; if(window.ERP_RECARREGAR) window.ERP_RECARREGAR(); }); };
-}

@@ -768,8 +768,6 @@ async function admEmailSaida(corpo) {
     const m = lista.find((x) => x.id === b.dataset.emVer), [h] = await q(sb.from('email_fila').select('html').eq('id', m.id));
     verEmailHtml(m.assunto, (h && h.html) || '<p style="font-family:sans-serif">Sem prévia guardada para este e-mail.</p>'); }));
 }
-// (Backup 49) "Para revisar" — continua existindo: agora é o filtro "Para revisar" da Caixa de saída
-async function admEmailRevisar(corpo) { E.adm.saidaF = 'revisar'; return admEmailSaida(corpo); }
 // mostra o e-mail como o cliente vai ver
 function verEmailHtml(titulo, html) {
   const j = abrirJanela({ titulo: '👁 ' + titulo, larga: true, corpo: '<iframe class="em-previa" sandbox="" title="Prévia do e-mail"></iframe>',

@@ -14,7 +14,6 @@ function _parcConcluido(p){
 function _parcMostrarTodos(v){ _parcTodos=!!v; renderParcelamentos(); }
 function _parcGrupoDe(p){ if(p.grupoNome) return p.grupoNome; var bd=(DB.baseDados||[]).find(function(b){ return b.nome===p.empresa||b.cpfCnpj===p.cnpj; }); return (bd&&bd.grupo)||p.aba||'Sem grupo'; }
 function _parcChave(p){ return (p._id||'')+'|'+p.empresa+'|'+p.numero; }
-function _parcToggleGrp(k){ _parcGrpAbertos[k]=!_parcGrpAbertos[k]; renderParcAnalise(); }
 function _parcToggle(k){ _parcAbertos[k]=!_parcAbertos[k]; renderParcAnalise(); }
 function _parcBaixa(id,bt){ if(bt) bt.disabled=true; if(window.ERP_EDITOR&&window.ERP_EDITOR.baixaRapida) window.ERP_EDITOR.baixaRapida('parcelas',id); }
 // "12 d atraso" (vermelho) · "Hoje" · "5 d" (âmbar até 7 dias) — o mesmo texto de Acordos

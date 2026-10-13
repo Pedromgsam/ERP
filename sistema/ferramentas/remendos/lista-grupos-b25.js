@@ -7,22 +7,11 @@
 // item: {k, grupo, titulo, sub, pagas, total, pago, falta, atr, abertas:[{d:Date, v:Number}], extra}
 var _LG_MES=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
 function _lgFmtV(v){ return typeof _faFT==='function'?_faFT(v):fF(v); }
-function _lgProx(abertas){
-  var h=new Date(); h.setHours(0,0,0,0);
-  var fut=abertas.filter(function(x){ return x.d&&x.d>h; }).sort(function(a,b){ return a.d-b.d; });
-  if(!fut.length) return null;
-  var m=fut[0].d.getMonth(), y=fut[0].d.getFullYear();
-  var doMes=fut.filter(function(x){ return x.d.getMonth()===m&&x.d.getFullYear()===y; });
-  return { d:fut[0].d, v:doMes.reduce(function(s,x){ return s+(Number(x.v)||0); },0), n:doMes.length, mes:_LG_MES[m]+'/'+y };
-}
 // Backup 27: uma pílula só — "2 em atraso" (rosa) ou, com risco, "2 em atraso — risco de rescisão" (a pílula toda vermelha)
 function _lgSit(atr,risco,concluido){
   // Backup 52 (P4): data-sit = situação única do ERP (cores no design.css)
   if(atr) return '<span class="lg-st '+(risco?'lg-st-risco':'lg-st-r')+'" data-sit="atraso"'+(risco?' title="Um parcelamento/acordo com 2 ou mais parcelas em atraso"':'')+'>'+atr+' em atraso'+(risco?' — risco de rescisão':'')+'</span>';
   return concluido?'<span class="lg-st lg-st-x" data-sit="pago">Concluído</span>':'<span class="lg-st lg-st-g" data-sit="avencer">Em dia</span>';
-}
-function _lgPag(pagas,total,pago,falta){
-  return '<div class="lg-pag"><b class="lg-verde">'+pagas+' de '+(total||'?')+'</b> parcelas pagas</div><div class="lg-sub">Quitado <b>'+_lgFmtV(pago)+'</b> · falta <b>'+_lgFmtV(falta)+'</b></div>';
 }
 // Backup 28: guias a emitir — parcela sem pagamento, sem emissão, vencida ou vencendo em até 15 dias (mesmo prazo do quadro "Guias para emitir")
 function _lgFaltaEmitir(lista, emitida, paga){
