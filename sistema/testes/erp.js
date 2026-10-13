@@ -1550,7 +1550,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       await nav(p, 'alertas'); await p.waitForTimeout(2500);
       ok('B53: Alertas voltou ao Backup 48 (publicações, tarefas e honorários em atraso)', /Publicações novas/.test(await p.textContent('#panel-alertas')) && /Honorários em atraso/.test(await p.textContent('#panel-alertas'))); }
     // ── Backup 50 ──
-    { await nav(p, 'tarefas'); await p.evaluate(() => { GS.E.tf = null; }); await nav(p, 'tarefas'); await p.waitForTimeout(1500);
+    { await nav(p, 'tarefas'); await p.evaluate(() => { GS.E.tf = null; if (GS.E.tabB) delete GS.E.tabB.tarefas; }); await nav(p, 'tarefas'); await p.waitForTimeout(1500);   // B72: a aba da Lista fica guardada; volta para "Em aberto"
       const cab = await p.$$eval('#panel-tarefas table thead th', (l) => l.map((t) => t.textContent.trim()).filter(Boolean)).catch(() => []);
       ok('B50/B72 Tarefas: Prazo e Situação (ex-"Dias") em colunas separadas e status com cor', cab.some((c) => /^Prazo/.test(c)) && cab.includes('Situação') && !!(await p.$('#panel-tarefas .pill.tf-st')), cab.join('|'));
       await nav(p, 'financeiro'); await p.evaluate(() => setFinTab('receber', document.querySelector('#finTabBar [data-tab=receber]'))); await p.waitForTimeout(1500);

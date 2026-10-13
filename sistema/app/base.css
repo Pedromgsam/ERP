@@ -424,3 +424,6 @@ html body.gx-barra-topo table.b-tab.b-tab-pe:not(#_){table-layout:fixed}
 .gs .rt-cf2 small.rt-cf2-velho:not(#_){color:var(--red-d)}
 .gs .rt-cf2-de-novo{border:0;background:none;color:var(--text3);cursor:pointer;font-size:13px;padding:0 2px;opacity:0;transition:opacity .15s}
 .gs tr:hover .rt-cf2-de-novo,.gs .rt-cf2-de-novo:focus-visible{opacity:1}
+/* Backup 73: CPF/CNPJ e nº sempre menores que o texto da tabela (a regra da célula da b-tab vencia a .b-num) */
+html body.gx-barra-topo table.b-tab td.b-num:not(#_){font-size:12px!important;color:var(--text3)!important}
+html body.gx-barra-topo table.b-tab.b-tab-proc td.b-num:not(#_){font-size:11.5px!important}
