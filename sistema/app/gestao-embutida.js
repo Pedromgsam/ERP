@@ -612,7 +612,7 @@ function cartoesB(el, chave, lista) {
 // TABELA de toda tela refeita. cfg: { id, titulo (texto ou fn(aba)), colunas: [{k, rot, cls, clsL(r), html(r), ord(r) | false, soma}], linhas,
 //   abas: [{id, rot, f(r), cor:'r'}], abaPadrao, ordAbas: {aba: {k, dir}}, ord: {k, dir}, busca(r) → texto, dicaBusca,
 //   listas: [{k, rot, todos, opcoes: [[v, rótulo]], get(r)}], venc(r) → 'aaaa-mm-dd', valor(r) → número,
-//   lote: [{rot, icone, quando(r), fn(lista)}], clique(r), chave(r), vazio: {titulo, frase}, unidade: [um, varios], altura, semBarra }
+//   lote: [{rot, icone, quando(r), fn(lista)}], clique(r), chave(r), vazio: {titulo, frase}, unidade: [um, varios], altura, semBarra, barraExtra (html) }
 function tabelaB(el, cfg) {
   E.tabB = E.tabB || {};
   const st = E.tabB[cfg.id] = E.tabB[cfg.id] || { aba: (cfg.abas && (cfg.abaPadrao || cfg.abas[0].id)) || '', q: '', listas: {}, vde: '', vate: '', min: '', max: '', ord: Object.assign({}, cfg.ord || { k: '', dir: 1 }), ordAba: {}, sel: {}, painel: false, prazo: '', prazoAte: '', limite: 150 };
@@ -629,7 +629,7 @@ function tabelaB(el, cfg) {
     el.innerHTML = '<div class="b-barra-tab">' + (cfg.abas ? '<div class="b-seg" role="tablist"></div>' : '') +
       (cfg.prazos ? '<div class="b-prazos" data-bt="prazos"></div>' : '') +
       (cfg.busca ? '<label class="b-busca">' + iconeB('busca') + '<input data-bt="q" placeholder="' + esc(cfg.dicaBusca || 'Buscar') + '" aria-label="Buscar" value="' + esc(st.q) + '"></label>' : '') +
-      '<span class="b-conta" data-bt="conta"></span><span class="b-barra-dir">' +
+      '<span class="b-conta" data-bt="conta"></span><span class="b-barra-dir">' + (cfg.barraExtra || '') +   // Backup 72: controle extra da tela (ex.: período das Publicações)
       (cfg.lote && cfg.loteBotao ? '<button type="button" class="b-bt-f" data-bt="loteon" aria-pressed="' + !!st.loteOn + '" title="Marcar várias linhas para dar baixa de uma vez">' + iconeB('check') + (st.loteOn ? 'Fechar marcação' : 'Marcar várias') + '</button>' : '') +
       (temPainel ? '<button type="button" class="b-bt-f" data-bt="painel" aria-expanded="' + st.painel + '">' + iconeB('filtro') + 'Filtros <span class="b-nf" hidden></span></button>' : '') +
       '<button type="button" class="b-ic-bt" data-bt="dens" aria-pressed="' + compacto() + '" title="Tabela compacta (mais linhas na tela)" aria-label="Tabela compacta">' + iconeB('compacto') + '</button></span></div>' +
@@ -676,7 +676,9 @@ function tabelaB(el, cfg) {
     if (!lin.length) {
       Q('[data-bt=quadro]').innerHTML = '<div class="b-quadro">' + (titulo ? '<div class="b-quadro-hd"><h2>' + esc(titulo) + '</h2></div>' : '') +
         (filtrando() ? '<div class="b-vazio"><div class="b-vazio-ic">' + iconeB('busca') + '</div><b>Nada encontrado</b><p>Nenhuma linha combina com a busca e os filtros escolhidos.</p><button type="button" class="btn btn-o" data-bt="limpar">Limpar filtros</button></div>'
-          : vazioB({ icone: 'ok', titulo: (cfg.vazio && cfg.vazio.titulo) || 'Nada aqui por enquanto', frase: (cfg.vazio && cfg.vazio.frase) || '' })) + '</div>';
+          : vazioB({ icone: 'ok', titulo: (cfg.vazio && cfg.vazio.titulo) || 'Nada aqui por enquanto', frase: (cfg.vazio && cfg.vazio.frase) || '' }) +
+            // Backup 72: lista vazia com o botão de criar (vazio.botao = [rótulo, seletor do botão da tela])
+            (cfg.vazio && cfg.vazio.botao ? '<div class="vazio b-vazio-bt"><button type="button" class="btn btn-p btn-mini vazio-bt" data-vazio-clica="' + esc(cfg.vazio.botao[1]) + '">' + esc(cfg.vazio.botao[0]) + '</button></div>' : '')) + '</div>';
       return;
     }
     const soma = cfg.valor ? lin.reduce((s, r) => s + (cfg.valor(r) || 0), 0) : null;
@@ -4035,7 +4037,8 @@ function semaforo(t, fer) {
   if (ref && uteisAte(ref, fer) <= 2) return ['amarelo', 'Vence em até 2 dias úteis'];
   return ['verde', 'No prazo'];
 }
-function bolinha(t) { const s = semaforo(t); return s ? '<span class="semaforo ' + s[0] + '" title="' + s[1] + '"></span>' : ''; }
+// Backup 72: sem a bolinha colorida (semáforo) ao lado da tarefa — pedido do usuário, vale para todas as telas
+function bolinha() { return ""; }
 // Fila de trabalho: fatal em risco → atrasadas → fatal mais próximo → prioridade → prazo interno
 const PESO_PRI = { alta: 0, media: 1, baixa: 2 };
 function ordenarFila(lista) {
@@ -4398,21 +4401,21 @@ TELAS.tarefas = async function () {
   // abas: o painel mostra só o que está em aberto; concluídas e excluídas ficam separadas
   F.aba = F.aba || 'abertas'; if (F.atalho === 'abertas' || F.atalho === 'concluidas') F.atalho = '';
   // Backup 49: Minha semana virou a vista Semana do Calendário; o Quadro saiu (repetia a Lista)
-  if (F.vista === 'semana') { F.vista = 'calendario'; F.calVista = 'semana'; }
   if (F.vista === 'kanban') F.vista = 'lista';
   if (F.atalho === 'minhas') F.atalho = '';
   $('conteudo').innerHTML =
     // Backup 49: abas junto do título; só "+ Nova tarefa" e "Fluxo" à vista — o resto no ⚙ (Backup 55: a criação rápida ⚡ saiu)
-    '<div class="titulo-pag"><div><h1>Tarefas</h1><div class="segmento tf-abas-seg" id="tf-abas">' + [['abertas', 'Em aberto'], ['concluidas', 'Concluídas'], ['excluidas', 'Excluídas']]
-      .map(([v, r]) => '<button data-aba="' + v + '">' + r + '</button>').join('') + '</div></div>' +
+    // Backup 72: as abas Em aberto/Atrasadas/Concluídas/Excluídas ficam na tabela (com os números), como no ambiente de teste
+    '<div class="titulo-pag"><div><h1>Tarefas</h1></div>' +
     '<div class="acoes">' +
     '<span class="tf-cfg-wrap"><button class="btn btn-o tf-bt-ic" id="tf-config" title="Configurar: modelos de fluxo, feriados, Google Agenda e novo fluxo" aria-expanded="false">⚙</button>' +
       '<span class="tf-cfg-menu" id="tf-cfg-menu" hidden><button class="btn btn-o" id="tf-modelos">Modelos de fluxo</button>' +
       '<button class="btn btn-o" id="tf-feriados">Feriados</button><button class="btn btn-o" id="tf-agenda" title="Prazos fatais e audiências no seu Google Agenda">📅 Google Agenda</button></span></span>' +
     // Backup 54: "Delegar" saiu daqui — virou o botão "Fluxo" (as sequências com validação, como "Lead completo", estão na lista de modelos do fluxo)
     '<button class="btn btn-o" id="tf-fluxo" title="Cria várias tarefas de uma vez a partir de um modelo (inclui as sequências com validação, ex.: Lead completo)">🔀 Fluxo</button><button class="btn btn-p" id="tf-nova">+ Nova tarefa</button></div></div>' +
-    '<div id="tf-kpis"></div><div class="filtros">' +
-    '<div class="segmento" id="tf-vista">' + [['lista', 'Lista'], ['calendario', 'Calendário'], ['fluxos', 'Fluxos']]
+    // Backup 72: sem os 4 cartões do topo; vistas Lista · Semana · Calendário · Fluxos
+    '<div class="filtros">' +
+    '<div class="segmento" id="tf-vista">' + [['lista', 'Lista'], ['semana', 'Semana'], ['calendario', 'Calendário'], ['fluxos', 'Fluxos']]
       .map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<input class="busca" id="tf-busca" placeholder="Buscar tarefa, cliente, processo ou etiqueta" autocomplete="off">' +
     // Backup 48/49: Mostrar (tipo, prioridade e prazo) e De quem — o mesmo desenho da agenda do Início
@@ -4426,7 +4429,6 @@ TELAS.tarefas = async function () {
   $('tf-feriados').onclick = () => janelaFeriados();
   $('tf-agenda').onclick = () => janelaAgenda();
   $('tf-vista').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.vista = b.dataset.v; pintarTarefas(); } };
-  $('tf-abas').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.aba = b.dataset.aba; pintarTarefas(); } };
   $('tf-chips').onclick = (ev) => { const b = ev.target.closest('button'); if (!b) return;
     if (b.dataset.tfTipo != null) F.tipos = alternarFiltro(F.tipos || FILTRO_TIPOS_AG.map((x) => x[0]), b.dataset.tfTipo, FILTRO_TIPOS_AG.map((x) => x[0]));
     else if (b.dataset.tfPri != null) F.pri = F.pri === b.dataset.tfPri ? '' : b.dataset.tfPri;
@@ -4444,22 +4446,23 @@ TELAS.tarefas = async function () {
   pintarTarefas();
 };
 
-function filtrarTarefas() {
+function filtrarTarefas(daLista) {
   const F = E.tf, h = hojeISO(), b = normalizar(F.busca);
   return (E._tarefas || []).filter((t) => {
-    if (F.aba === 'concluidas') { if (t.status !== 'concluida') return false; }
+    if (daLista) { /* Backup 72: a Lista separa pelas abas da tabela e filtra tipo/prioridade no botão "Filtros" */ }
+    else if (F.aba === 'concluidas') { if (t.status !== 'concluida') return false; }
     else if (F.aba === 'excluidas') { if (t.status !== 'cancelada' || String(t.atualizado_em || '') < somarDias(hojeISO(), -90)) return false; }   // mais de 90 dias: só no histórico
     else if (tarefaFechada(t)) return false;
-    const a = F.aba === 'abertas' ? F.atalho : '';
+    const a = daLista || F.aba === 'abertas' ? F.atalho : '';
     if (a === 'minhas' && (tarefaFechada(t) || !ehMinha(t))) return false;
     if (a === 'hoje' && (tarefaFechada(t) || !t.prazo || t.prazo > h)) return false;
     if (a === 'atrasadas' && (tarefaFechada(t) || !t.prazo || t.prazo >= h)) return false;
     if (a === '7' && (tarefaFechada(t) || !t.prazo || t.prazo > somarDias(h, 7))) return false;
     // "pedem atenção" (destaque do Início): minhas atrasadas ou com prazo fatal em até 7 dias
     if (a === 'atencao' && (tarefaFechada(t) || !ehMinha(t) || !((t.prazo && t.prazo < h) || (t.prazo_fatal && t.prazo_fatal <= somarDias(h, 7))))) return false;
-    if (F.tipos && !F.tipos.includes(tipoItemAgenda(t))) return false;
+    if (!daLista && F.tipos && !F.tipos.includes(tipoItemAgenda(t))) return false;
     if (F.pessoas && F.pessoas.length && ![t.responsavel, t.revisor].concat(String(t.participantes || '').split(',')).some((n) => n && F.pessoas.includes(primeiroNome(n)))) return false;
-    if (F.pri && t.prioridade !== F.pri) return false;
+    if (!daLista && F.pri && t.prioridade !== F.pri) return false;
     if (b && !normalizar(t.titulo + ' ' + t.processos_vinculados + ' ' + nomeGrupo(t.grupo_id) + ' ' + nomeCliente(t.cliente_id) + ' ' + t.etiquetas + ' ' + t.descricao).includes(b)) return false;
     return true;
   });
@@ -4468,29 +4471,26 @@ function filtrarTarefas() {
 function pintarTarefas() {
   const F = E.tf, h = hojeISO();
   document.querySelectorAll('#tf-vista button').forEach((b) => b.classList.toggle('ativo', b.dataset.v === F.vista));
-  document.querySelectorAll('#tf-abas button').forEach((b) => b.classList.toggle('ativo', b.dataset.aba === F.aba));
+  if (F.vista !== 'lista') F.aba = 'abertas';   // Backup 72: as abas (Concluídas, Excluídas…) são da Lista; Semana/Calendário/Fluxos mostram as em aberto
   // Backup 48: filtros em botões que se marcam/desmarcam (iguais aos da agenda do Início); pessoas: Todos, eu, depois os outros
   { const tipos = FILTRO_TIPOS_AG.map((x) => x[0]), tSel = new Set(F.tipos || tipos), eu = primeiroNome(meuNome());
     const pes = pessoasFiltro().slice().sort((a, b) => (primeiroNome(b) === eu) - (primeiroNome(a) === eu) || a.localeCompare(b, 'pt-BR'));
     const pSel = new Set(F.pessoas && F.pessoas.length ? F.pessoas : pes.map(primeiroNome)), todasP = pSel.size >= pes.length;
     const prazos = [['hoje', 'Hoje'], ['atrasadas', 'Atrasadas'], ['7', '7 dias']].concat(F.atalho === 'atencao' ? [['atencao', 'Pedem atenção']] : []);
     const [gUrg, gPrazo] = gruposPriPrazo('data-tf-pri', F.aba === 'abertas' && F.vista !== 'fluxos' ? 'data-tf-prazo' : '', F.pri, F.atalho, prazos.slice(3));
+    const deQuem = pes.length > 1 ? '<div class="fila-chips" role="group" aria-label="De quem"><span class="fila-chips-rot">De quem</span>' +
+        chipFiltro('data-tf-pes', '*', 'Todos', todasP) + pes.map((n) => chipFiltro('data-tf-pes', primeiroNome(n), nomeCurto(n), pSel.has(primeiroNome(n)))).join('') + '</div>' : '';
+    // Backup 72: na Lista, só "De quem" (pílulas do desenho novo); tipo e prioridade ficam no botão "Filtros" da tabela
+    $('tf-chips').classList.toggle('tf-so-quem', F.vista === 'lista');
+    if (F.vista === 'lista') { $('tf-chips').classList.remove('fila-2x2'); $('tf-chips').innerHTML = deQuem.replace(/✓ /g, ''); }
+    else {
     $('tf-chips').classList.add('fila-2x2');
     $('tf-chips').innerHTML = filtros2x2('<div class="fila-chips" role="group" aria-label="Mostrar"><span class="fila-chips-rot">Mostrar</span>' +
         chipFiltro('data-tf-tipo', '*', 'Tudo', tSel.size === tipos.length, true) + FILTRO_TIPOS_AG.map(([k, r]) => chipFiltro('data-tf-tipo', k, r, tSel.has(k), true)).join('') + '</div>',
       (pes.length > 1 ? '<div class="fila-chips" role="group" aria-label="De quem"><span class="fila-chips-rot">De quem</span>' +
-        chipFiltro('data-tf-pes', '*', 'Todos', todasP) + pes.map((n) => chipFiltro('data-tf-pes', primeiroNome(n), nomeCurto(n), pSel.has(primeiroNome(n)))).join('') + '</div>' : ''), gUrg, gPrazo); }
-  const todas = E._tarefas || [];
-  const abertas = todas.filter((t) => !tarefaFechada(t));
-  const atrasadas = abertas.filter((t) => t.prazo && t.prazo < h).length;
-  const fatais = abertas.filter((t) => t.prazo_fatal && t.prazo_fatal >= h && t.prazo_fatal <= somarDias(h, 7)).length;
-  const minhas = abertas.filter(ehMinha).length;
-  const kpis = '<div class="kpis">' + kpi('Em aberto', String(abertas.length), '', minhas + ' comigo') +
-    kpi('Atrasadas', String(atrasadas), atrasadas ? 'vermelho' : 'verde', 'todas as pessoas') +
-    kpi('Prazos fatais em 7 dias', String(fatais), fatais ? 'ambar' : '', 'tarefas com prazo fatal marcado') +
-    kpi('Concluídas no mês', String(todas.filter((t) => t.status === 'concluida' && String(t.concluida_em || '').slice(0, 7) === h.slice(0, 7)).length), 'verde', '') + '</div>';
-  const V = { lista: vistaLista, calendario: vistaCalendario, fluxos: vistaFluxos };
-  $('tf-kpis').innerHTML = kpis; $('tf-corpo').innerHTML = '<div id="tf-vista-corpo"></div>';
+        chipFiltro('data-tf-pes', '*', 'Todos', todasP) + pes.map((n) => chipFiltro('data-tf-pes', primeiroNome(n), nomeCurto(n), pSel.has(primeiroNome(n)))).join('') + '</div>' : ''), gUrg, gPrazo); } }
+  const V = { lista: vistaLista, semana: vistaSemana, calendario: vistaCalendario, fluxos: vistaFluxos };
+  $('tf-corpo').innerHTML = '<div id="tf-vista-corpo"></div>';
   if (!V[F.vista]) F.vista = 'lista';
   V[F.vista]($('tf-vista-corpo'));
 }
@@ -4515,36 +4515,62 @@ function ligarLinhasTarefa(raiz) {
   raiz.querySelectorAll('[data-abrir-t]').forEach((tr) => tr.onclick = () => abrirTarefa(E._tarefas.find((t) => t.id === tr.dataset.abrirT), recarregarTarefas));
 }
 
-// ── Lista em árvore ──
+// ── Lista (Backup 72): a tabela do desenho novo (tabelaB) com a ordem de colunas de antes ──
+// Grupo · Tarefa · Pessoa · Prioridade · Status · Prazo · Situação · Concluir. Abas com os números, atalhos de prazo,
+// "Filtros" (tipo, prioridade, prazo de/até); sem "Marcar várias" e sem o contador à direita. Subtarefa: "↳ parte de: …" embaixo.
+const PRI_B = { alta: ['Alta', 'b-r'], media: ['Média', 'b-a'], baixa: ['Baixa', 'b-n'] };
+function situacaoTarefa(t) {
+  if (t.status === 'concluida') return '<span class="b-ok-txt">✓ ' + (t.concluida_em ? dataBR(String(t.concluida_em).slice(0, 10)).slice(0, 5) : 'Feita') + '</span>';
+  if (t.status === 'cancelada') return '<span class="sub">excluída</span>';
+  if (!t.prazo) return '<span class="sub">sem prazo</span>';
+  const d = diasAte(t.prazo);
+  return '<span class="' + (d <= 0 ? 'b-pz-r' : d < 3 ? 'b-pz-a' : d < 10 ? 'b-pz-b' : 'b-pz-g') + '">' + (d < 0 ? Math.abs(d) + ' d atraso' : d === 0 ? 'vence hoje' : d + (d === 1 ? ' dia' : ' dias')) + '</span>' +
+    (t.prazo_fatal ? '<small class="b-pz-sub">fatal ' + esc(dataBR(t.prazo_fatal).slice(0, 5)) + '</small>' : '');
+}
 function vistaLista(alvo) {
-  const lista = filtrarTarefas(), ids = new Set(lista.map((t) => t.id));
+  const lista = filtrarTarefas(true), h = hojeISO(), F = E.tf;
+  const porId = {}; (E._tarefas || []).forEach((t) => { porId[t.id] = t; });
   const filhasDe = (id) => (E._tarefas || []).filter((x) => x.tarefa_pai_id === id);
-  let raizes = lista.filter((t) => !t.tarefa_pai_id || !ids.has(t.tarefa_pai_id));
-  if (E.tf.atalho === 'minhas') raizes = ordenarFila(raizes);
-  const linha = (t, nivel) => {
-    const pr = PRIORIDADE[t.prioridade] || [t.prioridade || '—', 'neutro'];
-    const filhas = filhasDe(t.id), pai = t.tarefa_pai_id && !ids.has(t.tarefa_pai_id) ? (E._tarefas.find((x) => x.id === t.tarefa_pai_id) || {}).titulo : '';
-    // Backup 23: Grupo · Tarefa · Pessoa · Prioridade · Status · Prazo
-    const cli = t.cliente_id ? (E.clientes || []).find((c) => c.id === t.cliente_id) : null;
-    const grupo = nomeGrupo(t.grupo_id || (cli && cli.grupo_id)) || '';
-    const sub = [pai ? 'parte de: ' + pai : '', cli ? nomeCliente(t.cliente_id) : '', t.processos_vinculados, t.etiquetas].filter(Boolean).join(' · ');
-    return '<tr class="clicavel' + (tarefaFechada(t) ? ' tf-feita' : '') + '" data-abrir-t="' + t.id + '"><td>' + (grupo ? esc(grupo) : '<span class="sub">—</span>') + '</td>' +
-      '<td style="padding-left:' + (12 + nivel * 22) + 'px">' + bolinha(t) + ' ' + (nivel ? '<span class="sub">↳ </span>' : '') + esc(t.titulo) + seloFatal(t) +
-      (t.recorrencia ? ' <span class="pill neutro tf-repete" title="' + esc(textoRepete(t)) + '">' + esc(textoRepete(t)) + '</span>' : '') +
-      // Backup 55: o progresso do fluxo vai na linha de baixo, junto do cliente (a tarefa ocupa no máximo 2 linhas)
-      ((sub || progresso(t, filhas)) ? '<div class="sub tf-linha2">' + barraProgresso(progresso(t, filhas)) + (sub ? ' ' + esc(sub) : '') + '</div>' : '') + '</td>' +
-      '<td>' + pillPessoa(t.responsavel) + '</td><td><span class="pill ' + pr[1] + '">' + esc(pr[0]) + '</span></td><td>' + pillStatusTarefa(t.status) + '</td>' +
-      // Backup 50: Prazo e Dias em colunas separadas (como no Financeiro)
-      '<td class="mono" data-ord="' + esc(t.prazo || '9999') + '">' + (t.prazo ? dataBR(t.prazo) : '<span class="sub">—</span>') + '</td>' +
-      '<td data-ord="' + (t.prazo && !tarefaFechada(t) ? diasAte(t.prazo) : 99999) + '">' + (t.prazo && !tarefaFechada(t) ? celulaAtraso(t.prazo) : '<span class="sub">—</span>') + '</td>' +
-      '<td class="acoes-l">' + (t.status === 'cancelada'
-        ? '<button class="btn btn-o btn-mini" data-restaurar-t="' + t.id + '">↩ Restaurar</button>' + ((E.perfil || {}).papel === 'admin' ? ' <button class="btn btn-x btn-mini" data-apagar-t="' + t.id + '">Excluir de vez</button>' : '')
-        : (tarefaFechada(t) ? '' : '<button class="btn btn-v btn-mini" data-concluir="' + t.id + '">✓ Concluir</button>')) + '</td></tr>' +   // Backup 39: sem ✎ (editar fica no detalhe)
-      filhas.filter((f) => ids.has(f.id)).map((f) => linha(f, nivel + 1)).join('');
-  };
-  alvo.innerHTML = '<div class="card">' + (raizes.length ? '<div class="tabela-wrap"><table><thead><tr><th>Grupo</th><th>Tarefa</th><th>Pessoa</th><th>Prioridade</th><th>Status</th><th data-tipo="data">Prazo</th><th data-tipo="num">Dias</th><th class="sem-ordem"></th></tr></thead><tbody>' +
-    raizes.map((t) => linha(t, 0)).join('') + '</tbody></table></div>' : vazio('Nenhuma tarefa com esses filtros.', '+ Nova tarefa', '#tf-nova')) + '</div>';
-  ligarLinhasTarefa(alvo);
+  const grupoDe = (t) => { const cli = t.cliente_id ? (E.clientes || []).find((c) => c.id === t.cliente_id) : null; return nomeGrupo(t.grupo_id || (cli && cli.grupo_id)) || ''; };
+  const admin = (E.perfil || {}).papel === 'admin';
+  const abaIni = 'abertas';
+  if (F.atalho === 'atrasadas') { F.atalho = ''; E.tabB = E.tabB || {}; (E.tabB.tarefas = E.tabB.tarefas || {}).aba = 'atrasadas'; }
+  const r = tabelaB(alvo, { id: 'tarefas', linhas: lista, chave: (t) => String(t.id), abaPadrao: abaIni, unidade: ['tarefa', 'tarefas'], tabCls: 'b-tab-tf',
+    abas: [{ id: 'abertas', rot: 'Em aberto', f: (t) => !tarefaFechada(t) }, { id: 'atrasadas', rot: 'Atrasadas', cor: 'r', f: (t) => !tarefaFechada(t) && t.prazo && t.prazo < h },
+      { id: 'concluidas', rot: 'Concluídas', f: (t) => t.status === 'concluida' },
+      { id: 'excluidas', rot: 'Excluídas', f: (t) => t.status === 'cancelada' && String(t.atualizado_em || '') >= somarDias(h, -90) }],   // mais de 90 dias: só no histórico
+    prazos: true, prazosAbas: ['abertas'], venc: (t) => t.prazo || '', ord: { k: 'prazo', dir: 1 }, ordAbas: { concluidas: { k: 'prazo', dir: -1 } },
+    listas: [{ k: 'tipo', rot: 'Tipo', todos: 'Todos os tipos', opcoes: FILTRO_TIPOS_AG, get: (t) => tipoItemAgenda(t) },
+      { k: 'pri', rot: 'Prioridade', todos: 'Todas as prioridades', opcoes: [['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa']], get: (t) => t.prioridade }],
+    colunas: [
+      { k: 'grupo', rot: 'Grupo', html: (t) => (grupoDe(t) ? esc(grupoDe(t)) : '<span class="sub">—</span>'), ord: (t) => normalizar(grupoDe(t)) || '~' },
+      { k: 'tit', rot: 'Tarefa', cls: 'b-tf-tit', ord: (t) => normalizar(t.titulo), html: (t) => {
+        const pai = t.tarefa_pai_id ? (porId[t.tarefa_pai_id] || {}).titulo : '';
+        const sub = [pai ? '↳ parte de: ' + pai : '', t.cliente_id ? nomeCliente(t.cliente_id) : '', t.processos_vinculados, t.etiquetas].filter(Boolean).join(' · ');
+        const pg = progresso(t, filhasDe(t.id));
+        return esc(t.titulo) + seloFatal(t) + (t.recorrencia ? ' <span class="pill neutro tf-repete" title="' + esc(textoRepete(t)) + '">' + esc(textoRepete(t)) + '</span>' : '') +
+          ((sub || pg) ? '<div class="sub tf-linha2">' + barraProgresso(pg) + (sub ? ' ' + esc(sub) : '') + '</div>' : ''); } },
+      { k: 'resp', rot: 'Pessoa', cls: 'b-tf-pes', html: (t) => pillPessoa(t.responsavel), ord: (t) => normalizar(t.responsavel) || '~' },
+      { k: 'pri', rot: 'Prioridade', cls: 'b-cen', html: (t) => { const p = PRI_B[t.prioridade]; return p ? '<span class="b-pill ' + p[1] + '">' + p[0] + '</span>' : '<span class="sub">—</span>'; }, ord: (t) => ({ alta: 0, media: 1, baixa: 2 })[t.prioridade] ?? 3 },
+      { k: 'st', rot: 'Status', cls: 'b-cen', html: (t) => pillStatusTarefa(t.status), ord: (t) => t.status },
+      { k: 'prazo', rot: 'Prazo', cls: 'b-cen b-data', html: (t) => (t.prazo ? dataBR(t.prazo) + (t.hora ? '<small>' + esc(String(t.hora).slice(0, 5)) + '</small>' : '') : '<span class="sub">—</span>'), ord: (t) => t.prazo || '9999' },
+      { k: 'sit', rot: 'Situação', cls: 'b-cen b-prazo', html: situacaoTarefa, ord: (t) => (t.status === 'concluida' ? String(t.concluida_em || '') : t.prazo || '9999') },
+      { k: 'ac', rot: '', cls: 'b-dir', ord: false, html: (t) => (t.status === 'cancelada'
+        ? '<span class="b-acoes"><button type="button" class="btn btn-o btn-mini" data-restaurar-t="' + t.id + '">↩ Restaurar</button>' + (admin ? '<button type="button" class="btn btn-x btn-mini" data-apagar-t="' + t.id + '">Excluir de vez</button>' : '') + '</span>'
+        : tarefaFechada(t) ? '' : '<button type="button" class="b-bt-baixa" data-concluir="' + t.id + '" title="Concluir a tarefa">Concluir</button>') }],
+    linhaCls: (t) => (!tarefaFechada(t) && t.prazo && t.prazo < h ? ' b-tr-venc' : '') + (tarefaFechada(t) ? ' tf-feita' : ''),
+    clique: (t) => abrirTarefa(t, recarregarTarefas),
+    vazio: { titulo: 'Nenhuma tarefa aqui', frase: 'Use "+ Nova tarefa" ou troque a aba.', botao: ['+ Nova tarefa', '#tf-nova'] } });
+  if (!alvo._tfLigado) { alvo._tfLigado = true;
+    alvo.addEventListener('click', (ev) => {
+      const c = ev.target.closest('[data-concluir]'); if (c) { ev.stopPropagation(); comBotao(c, async () => { await concluirTarefa(c.dataset.concluir); aviso('✓ Tarefa concluída.'); await recarregarTarefas(); }); return; }
+      const rs = ev.target.closest('[data-restaurar-t]'); if (rs) { ev.stopPropagation(); comBotao(rs, async () => {
+        await q(sb.from('tarefas').update({ status: 'pendente' }).eq('id', rs.dataset.restaurarT)); aviso('✓ Tarefa restaurada (voltou para Em aberto).'); await recarregarTarefas(); }); return; }
+      const ap = ev.target.closest('[data-apagar-t]'); if (ap) { ev.stopPropagation(); comBotao(ap, async () => {
+        if (!confirm('Excluir de vez? Esta ação não pode ser desfeita.')) return;
+        await excluir('tarefas', ap.dataset.apagarT); aviso('Tarefa excluída de vez.'); await recarregarTarefas(); }); }
+    }, true);
+  }
 }
 
 // ── Quadro (kanban): arraste o cartão para mudar o status ──
@@ -6990,18 +7016,14 @@ function destacar(texto) {
 
 TELAS.publicacoes = async function () {
   E.pub = E.pub || { status: 'nova', adv: '', tribunal: '', dias: '30', busca: '' };
-  const F = E.pub; F.status = 'nova';   // Backup 49 (31): sempre abre em Novas
+  const F = E.pub;
+  // Backup 72: como no ambiente de teste — uma tabela (Data · Tribunal · Processo · O que diz · Advogado · Lida/Tarefa) no lugar dos cartões
+  // grandes; o texto inteiro abre na janela ao clicar na linha. Ficam as abas Tratadas e Descartadas e o período (últimos N dias).
+  if (E.tabB && E.tabB.publicacoes) E.tabB.publicacoes.aba = 'nova';   // sempre abre em Novas
   $('conteudo').innerHTML =
-    '<div class="titulo-pag"><div><h1>Publicações</h1><p id="pub-ult">Diário de Justiça Eletrônico Nacional · busca automática pelo navegador, 1× por dia ao abrir o ERP</p></div>' +
+    '<div class="titulo-pag"><div><h1>Publicações</h1><p id="pub-ult">Intimações do Diário de Justiça · busca automática 1× por dia ao abrir o ERP</p></div>' +
     '<div class="acoes"><button class="btn btn-o" id="pub-todas-lidas" title="Marca como lidas todas as publicações novas">✓ Marcar todas como lidas</button><button class="btn btn-o" id="pub-oabs">⚙ Monitoramento (OABs e clientes)</button><button class="btn btn-p" id="pub-buscar" title="Busca no Diário do CNJ pelo seu navegador (se ele falhar, tenta pelo servidor)">↻ Buscar agora</button></div></div>' +
-    '<div class="filtros"><div class="segmento" id="pub-st">' + [['nova', 'Novas'], ['lida', 'Lidas'], ['tratada', 'Tratadas'], ['descartada', 'Descartadas'], ['', 'Todas']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
-    '<select class="busca sel" id="pub-dias"><option value="7">Últimos 7 dias</option><option value="15">Últimos 15 dias</option><option value="30">Últimos 30 dias</option><option value="90">Últimos 90 dias</option><option value="">Todo o período</option></select>' +
-
-    '<input class="busca" id="pub-busca" placeholder="Buscar no texto, processo ou parte" autocomplete="off"></div>' +
-    // Backup 21: tribunais como filtro de botões — só os que têm publicação pendente (nova ou lida) no período
-    // Backup 35: filtro por advogado (os nomes cadastrados em Monitoramento → OABs) em botões, como os tribunais
-    '<div class="filtros pub-trib-linha"><div class="segmento" id="pub-advs" role="group" aria-label="Advogado"></div></div>' +
-    '<div class="filtros pub-trib-linha"><div class="segmento" id="pub-trib" role="group" aria-label="Tribunal"></div></div><div id="pub-corpo"><div class="carregando">Carregando…</div></div>';
+    '<div id="pub-corpo"><div class="carregando">Carregando…</div></div>';
   $('pub-oabs').onclick = () => janelaOabs();
   $('pub-todas-lidas').onclick = (ev) => comBotao(ev.currentTarget, async () => {
     if (!confirm('Marcar TODAS as publicações novas como lidas?')) return;
@@ -7009,7 +7031,7 @@ TELAS.publicacoes = async function () {
     aviso('✓ ' + plural(r.length, 'publicação marcada como lida', 'publicações marcadas como lidas') + '.'); await carregarPublicacoes();
   });
   // Backup 52 (C5): "Buscar agora" busca PELO NAVEGADOR (o CNJ recusa o servidor do Supabase, que fica fora do Brasil);
-  // se o navegador não alcançar o CNJ, tenta a função erp-publicacoes como reserva e explica. O antigo "🌐 Buscar pelo navegador" virou este botão.
+  // se o navegador não alcançar o CNJ, tenta a função erp-publicacoes como reserva e explica.
   $('pub-buscar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
     const r = await buscarPubNoNavegador({ silencioso: true, detalhe: true });
     if (r.semMonitoramento) throw new Error('Cadastre pelo menos uma OAB ou um cliente em "Monitoramento".');
@@ -7021,12 +7043,12 @@ TELAS.publicacoes = async function () {
     } else aviso('✓ Busca feita: ' + r.lidas + ' publicação(ões) lida(s), ' + r.novas + ' nova(s).' + (r.erros.length ? ' Atenção: ' + r.erros[0] : ''), !!r.erros.length);
     await TELAS.publicacoes();
   });
-  $('pub-st').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.status = b.dataset.v; pintarPublicacoes(); } };
-  $('pub-trib').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.tribunal = b.dataset.v; pintarPublicacoes(); } };
-  $('pub-dias').onchange = (ev) => { F.dias = ev.target.value; carregarPublicacoes(); };
-  $('pub-advs').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.adv = b.dataset.v; pintarPublicacoes(); } };
-  $('pub-dias').value = F.dias; $('pub-busca').value = F.busca;
-  let t; $('pub-busca').oninput = (ev) => { clearTimeout(t); t = setTimeout(() => { F.busca = ev.target.value; pintarPublicacoes(); }, 250); };
+  const corpo = $('pub-corpo');
+  corpo.addEventListener('change', (ev) => { if (ev.target.id === 'pub-dias') { F.dias = ev.target.value; carregarPublicacoes(); } });
+  corpo.addEventListener('click', (ev) => {
+    const b = ev.target.closest('[data-pub-st]'); if (b) { ev.stopPropagation(); mudarStatusPub(b, b.dataset.pubId, b.dataset.pubSt); return; }
+    const t = ev.target.closest('[data-pub-tarefa]'); if (t) { ev.stopPropagation(); tarefaDaPub(t, t.dataset.pubTarefa); }
+  }, true);
   q(sb.from('configuracoes').select('valor').eq('chave', 'publicacoes_ultima').maybeSingle()).then((u) => {
     if (u && u.valor && $('pub-ult')) $('pub-ult').textContent = 'Última busca: ' + quandoRodou(u.valor.quando) + ' · ' + u.valor.novas + ' nova(s) de ' + u.valor.lidas + ' lida(s)' +
       (u.valor.erros && u.valor.erros.length ? ' · ⚠ ' + u.valor.erros[0] : '') + ' · automática 1× por dia ao abrir o ERP';
@@ -7056,64 +7078,44 @@ async function carregarPublicacoes() {
   E._pubAdvs = await q(sb.from('oabs_monitoradas').select('advogado')).then((l) => l.map((o) => o.advogado)).catch(() => []);
   pintarPublicacoes();
 }
+function primeiroNomePub(n) { return String(n || '').trim().split(/\s+/)[0] || ''; }
+function advDaPub(p) { return primeiroNomePub(p.advogado || String(p.advogados || '').split(';')[0].replace(/\s*OAB.*$/i, '')); }
 function pintarPublicacoes() {
-  const F = E.pub, b = normalizar(F.busca);
-  if (!$('pub-corpo')) return;
+  const F = E.pub, el = $('pub-corpo'); if (!el) return;
   const todas = E._pubs || [];
-  // Backup 36: cada contador mostra exatamente o que aparece ao clicar nele — vale o recorte dos OUTROS filtros
-  // (situação × advogado × tribunal × busca). Ex.: 61 no total, 5 tratadas → Novas 56 · Tratadas 5 · Todas 61.
-  const pn = (n) => normalizar(String(n || '').trim().split(/\s+/)[0] || '');
-  const doAdv = (p, n) => { const k = pn(n); return !!k && (pn(p.advogado) === k || normalizar(p.advogados || '').split(/[;,]/).some((x) => pn(x) === k)); };
-  const okSt = (p) => !F.status || p.status === F.status, okAdv = (p) => !F.adv || doAdv(p, F.adv), okTrib = (p) => !F.tribunal || p.tribunal === F.tribunal;
-  const okBusca = (p) => !b || normalizar(p.texto + ' ' + p.processo + ' ' + p.destinatarios + ' ' + p.orgao).includes(b);
-  const semSt = todas.filter((p) => okAdv(p) && okTrib(p) && okBusca(p));
-  document.querySelectorAll('#pub-st button').forEach((x) => { x.classList.toggle('ativo', x.dataset.v === F.status);
-    const n = semSt.filter((p) => !x.dataset.v || p.status === x.dataset.v).length;
-    x.innerHTML = esc(x.dataset.rot || (x.dataset.rot = x.textContent)) + ' <span class="seg-n">' + n + '</span>'; });
-  const semTrib = todas.filter((p) => okSt(p) && okAdv(p) && okBusca(p));
-  const pend = {}; semTrib.filter((p) => p.tribunal).forEach((p) => { pend[p.tribunal] = (pend[p.tribunal] || 0) + 1; });
-  const tribs = Object.keys(pend).sort((a, b) => a.localeCompare(b, 'pt-BR'));
-  if (F.tribunal && !pend[F.tribunal]) F.tribunal = '';
-  const st = $('pub-trib');
-  if (st) { st.parentNode.hidden = !tribs.length;
-    st.innerHTML = '<button type="button" data-v="" class="' + (F.tribunal ? '' : 'ativo') + '">Todos os tribunais <span class="seg-n">' + semTrib.length + '</span></button>' +
-      tribs.map((t) => '<button type="button" data-v="' + esc(t) + '" class="' + (F.tribunal === t ? 'ativo' : '') + '">' + esc(t) + ' <span class="seg-n">' + pend[t] + '</span></button>').join(''); }
-  const nomesAdv = [...new Set((E._pubAdvs || []).concat(todas.map((p) => p.advogado)).filter(Boolean).map((n) => String(n).trim().split(/\s+/)[0]))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
-  if (F.adv && !nomesAdv.includes(F.adv)) F.adv = '';
-  const semAdv = todas.filter((p) => okSt(p) && okTrib(p) && okBusca(p));
-  const sa = $('pub-advs');
-  if (sa) { sa.parentNode.hidden = !nomesAdv.length;
-    sa.innerHTML = '<button type="button" data-v="" class="' + (F.adv ? '' : 'ativo') + '">Todos os advogados <span class="seg-n">' + semAdv.length + '</span></button>' + nomesAdv.map((n) => { const c = semAdv.filter((p) => doAdv(p, n)).length;
-      return '<button type="button" data-v="' + esc(n) + '" class="' + (F.adv === n ? 'ativo' : '') + '">' + esc(n) + ' <span class="seg-n">' + c + '</span></button>'; }).join(''); }
-  const lista = todas.filter((p) => okSt(p) && okAdv(p) && okTrib(p) && okBusca(p));
-  const conta = (s) => semSt.filter((p) => p.status === s).length;
-  $('pub-corpo').innerHTML = '<div class="kpis">' + kpi('Novas', String(conta('nova')), conta('nova') ? 'ambar' : 'verde', 'ainda não lidas') + kpi('Lidas', String(conta('lida')), '', 'sem tarefa ainda') +
-    kpi('Tratadas', String(conta('tratada')), 'verde', 'com tarefa criada') + '</div>' +
-    (lista.length ? lista.map((p) => '<div class="card pub-card' + (p.status === 'nova' ? ' pub-nova' : '') + '" data-pub="' + p.id + '"><div class="card-bd">' +
-      '<div class="pub-topo"><div><span class="pill ' + ({ nova: 'hoje', lida: 'aberto', tratada: 'pago', descartada: 'neutro' }[p.status]) + '">' + p.status + '</span> ' +
-      '<b>' + esc(p.tipo || 'Comunicação') + '</b> · ' + esc(p.tribunal) + ' · <span class="mono">' + dataBR(p.data_disponibilizacao) + '</span>' +
-      '<div class="sub">' + esc(p.orgao) + (p.classe ? ' · ' + esc(p.classe) : '') + '</div></div>' +
-      '<div class="sub" style="text-align:right">' + (p.processo ? '<b class="mono">' + esc(p.processo) + '</b>' : '') + (p.processo_id ? ' <span class="pill pago" title="Processo cadastrado no ERP">no ERP</span>' : '') +
-      '<div>' + (p.oab_numero ? esc(p.advogado ? p.advogado + ' · ' : '') + 'OAB ' + esc(p.oab_numero + '/' + p.oab_uf) : '🏢 cliente monitorado: ' + esc(p.parte_monitorada || '—')) + '</div></div></div>' +
-      partesPub(p) +
-      '<div class="pub-texto' + (p.texto.length > 500 ? ' curto' : '') + '">' + destacar(p.texto) + '</div>' + (p.texto.length > 500 ? '<button class="btn-link" data-ver>ver tudo</button>' : '') +
-      '<div class="acoes" style="margin-top:10px">' + (p.tarefa_id || p.status === 'tratada' ? '' : '<button class="btn btn-p btn-mini" data-tarefa="' + p.id + '">+ Criar tarefa (' + prazoSugerido(p) + ' dias úteis)</button>') +
-      (p.status === 'nova' ? '<button class="btn btn-o btn-mini" data-st="lida">Marcar lida</button>' : '') +
-      (p.status !== 'tratada' ? '<button class="btn btn-o btn-mini" data-st="tratada">Tratada</button>' : '') +
-      (p.status !== 'descartada' ? '<button class="btn btn-o btn-mini" data-st="descartada">Descartar</button>' : '<button class="btn btn-o btn-mini" data-st="nova">Voltar para novas</button>') +
-      (p.link && /^https?:/.test(p.link) ? '<a class="btn btn-o btn-mini" href="' + esc(p.link) + '" target="_blank" rel="noopener">Abrir no Diário</a>' : '') + '</div></div></div>').join('')
-      : '<div class="card">' + (todas.length ? vazio('Nenhuma publicação neste recorte — mude o filtro.') : vazio('Nenhuma publicação ainda. Cadastre as OABs do escritório e o sistema busca no Diário todo dia.', 'OABs monitoradas', '#pub-oabs')) + '</div>');
-  $('pub-corpo').querySelectorAll('[data-copiar-id]').forEach((b2) => b2.onclick = async () => {
-    try { await navigator.clipboard.writeText(b2.dataset.copiarId); aviso('✓ Copiado: Processo, Autor, Réu e Advogado.'); } catch (e) { aviso('Não consegui copiar: selecione o texto e use Ctrl+C.', true); } });
-  $('pub-corpo').querySelectorAll('[data-ver]').forEach((b2) => b2.onclick = () => { b2.previousElementSibling.classList.remove('curto'); b2.remove(); });
-  $('pub-corpo').querySelectorAll('[data-st]').forEach((b2) => b2.onclick = () => comBotao(b2, async () => {
-    const id = b2.closest('[data-pub]').dataset.pub;
-    await q(sb.from('publicacoes').update({ status: b2.dataset.st }).eq('id', id));
-    const p = E._pubs.find((x) => x.id === id); if (p) p.status = b2.dataset.st;
+  const ops = (f) => [...new Set(todas.map(f).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR')).map((x) => [x, x]);
+  const advs = [...new Set((E._pubAdvs || []).map(primeiroNomePub).concat(todas.map(advDaPub)).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR')).map((x) => [x, x]);
+  const resumo = (p) => String(p.texto || '').replace(/\s+/g, ' ').trim();
+  const periodo = '<select class="b-sel-per" id="pub-dias" aria-label="Período">' + [['7', 'Últimos 7 dias'], ['15', 'Últimos 15 dias'], ['30', 'Últimos 30 dias'], ['90', 'Últimos 90 dias'], ['', 'Todo o período']]
+    .map(([v, r]) => '<option value="' + v + '"' + (String(F.dias) === v ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>';
+  tabelaB(el, { id: 'publicacoes', linhas: todas, unidade: ['publicação', 'publicações'], tabCls: 'b-tab-pub', abaPadrao: 'nova', barraExtra: periodo,
+    abas: [['nova', 'Novas'], ['lida', 'Lidas'], ['tratada', 'Tratadas'], ['descartada', 'Descartadas'], ['', 'Todas']].map(([v, r]) => ({ id: v || 'todas', rot: r, f: (p) => !v || p.status === v })),
+    busca: (p) => [p.texto, p.processo, p.destinatarios, p.orgao, p.tribunal, p.tipo].join(' '), dicaBusca: 'Buscar no texto, processo ou parte',
+    conta: (n) => plural(n, 'publicação', 'publicações'), ord: { k: 'data', dir: -1 },
+    listas: [{ k: 'trib', rot: 'Tribunal', todos: 'Todos os tribunais', opcoes: ops((p) => p.tribunal), get: (p) => p.tribunal },
+      { k: 'adv', rot: 'Advogado', todos: 'Todos os advogados', opcoes: advs, get: advDaPub }],
+    colunas: [
+      { k: 'data', rot: 'Data', cls: 'b-data', html: (p) => (p.data_disponibilizacao ? dataBR(p.data_disponibilizacao) : '—'), ord: (p) => p.data_disponibilizacao || '' },
+      { k: 'trib', rot: 'Tribunal', html: (p) => esc(p.tribunal || '—') + (p.status !== 'nova' ? '<small class="b-sub">' + esc({ lida: 'lida', tratada: 'tratada', descartada: 'descartada' }[p.status] || '') + '</small>' : ''), ord: (p) => p.tribunal || '' },
+      { k: 'proc', rot: 'Processo', cls: 'b-num', html: (p) => esc(p.processo || '—') + (p.processo_id ? '<small class="b-sub" title="Processo cadastrado no ERP">no ERP</small>' : ''), ord: (p) => p.processo || '' },
+      { k: 'txt', rot: 'O que diz', cls: 'b-pub-tx', html: (p) => '<b>' + esc(p.tipo || 'Comunicação') + ':</b> ' + esc(resumo(p).slice(0, 170)) + (resumo(p).length > 170 ? '…' : ''), ord: (p) => p.tipo || '' },
+      { k: 'adv', rot: 'Advogado', html: (p) => (advDaPub(p) ? pillPessoa(advDaPub(p)) : '<span class="sub">' + esc(p.parte_monitorada ? 'cliente' : '—') + '</span>'), ord: (p) => advDaPub(p) },
+      { k: 'ac', rot: '', cls: 'b-dir', ord: false, html: (p) => '<span class="b-acoes">' + (p.status === 'nova' ? '<button type="button" class="b-bt-emitir" data-pub-st="lida" data-pub-id="' + p.id + '">Lida</button>' : '') +
+        (p.tarefa_id || p.status === 'tratada' || p.status === 'descartada' ? '' : '<button type="button" class="b-bt-baixa" data-pub-tarefa="' + p.id + '" title="Criar tarefa com prazo de ' + prazoSugerido(p) + ' dias úteis">Tarefa</button>') + '</span>' }],
+    linhaCls: (p) => (p.status === 'nova' ? ' b-pub-nova' : ''),
+    clique: janelaPublicacao,
+    vazio: todas.length ? { titulo: 'Nada nesta aba', frase: 'Troque a aba, o período ou limpe os filtros.' } : { titulo: 'Nenhuma publicação ainda', frase: 'Cadastre as OABs do escritório em "Monitoramento" e o sistema busca no Diário todo dia.' } });
+}
+async function mudarStatusPub(bt, id, st) {
+  return comBotao(bt, async () => {
+    await q(sb.from('publicacoes').update({ status: st }).eq('id', id));
+    const p = (E._pubs || []).find((x) => x.id === id); if (p) p.status = st;
     pintarPublicacoes();
-  }));
-  $('pub-corpo').querySelectorAll('[data-tarefa]').forEach((b2) => b2.onclick = () => comBotao(b2, async () => {
-    const p = E._pubs.find((x) => x.id === b2.dataset.tarefa), fer = await feriados();
+  });
+}
+async function tarefaDaPub(bt, id) {
+  return comBotao(bt, async () => {
+    const p = E._pubs.find((x) => x.id === id), fer = await feriados();
     const proc = p.processo_id ? await q(sb.from('processos').select('grupo_id, advogado').eq('id', p.processo_id).maybeSingle()).catch(() => null) : null;
     const prazo = somarUteis(p.data_disponibilizacao || hojeISO(), prazoSugerido(p), fer);
     const titulo = 'Analisar ' + (p.tipo || 'publicação').toLowerCase() + ' — ' + (p.processo || p.tribunal);
@@ -7123,7 +7125,25 @@ function pintarPublicacoes() {
       await q(sb.from('publicacoes').update({ status: 'tratada', tarefa_id: t ? t.id : null }).eq('id', p.id));
       await carregarPublicacoes();
     });
-  }));
+  });
+}
+// janela da publicação: identificação (Processo / Autor / Réu / Advogado + Copiar), texto inteiro com as palavras destacadas e as ações
+function janelaPublicacao(p) {
+  const st = { nova: ['Nova', 'b-a'], lida: ['Lida', 'b-b'], tratada: ['Tratada', 'b-g'], descartada: ['Descartada', 'b-n'] }[p.status] || [p.status, 'b-n'];
+  const raiz = abrirJanela({ titulo: (p.tipo || 'Publicação') + ' · ' + (p.tribunal || ''), larga: true, kick: 'Publicação', sub: esc(p.processo || ''),
+    corpo: '<div class="pub-jan" data-pub="' + p.id + '"><div class="sub">' + esc(p.orgao || '') + (p.classe ? ' · ' + esc(p.classe) : '') + ' · ' + (p.data_disponibilizacao ? dataBR(p.data_disponibilizacao) : '') +
+      (p.oab_numero ? ' · ' + esc(p.advogado ? p.advogado + ' · ' : '') + 'OAB ' + esc(p.oab_numero + '/' + p.oab_uf) : p.parte_monitorada ? ' · cliente monitorado: ' + esc(p.parte_monitorada) : '') + '</div>' +
+      partesPub(p) + '<div class="pub-texto">' + destacar(p.texto || '') + '</div></div>',
+    rodape: '<span class="b-pill ' + st[1] + '">' + esc(st[0]) + '</span><span style="flex:1"></span>' +
+      (p.link && /^https?:/.test(p.link) ? '<a class="btn btn-o" href="' + esc(p.link) + '" target="_blank" rel="noopener">Abrir no Diário</a>' : '') +
+      (p.status === 'nova' ? '<button type="button" class="btn btn-o" data-pj-st="lida">Marcar lida</button>' : '') +
+      (p.status !== 'tratada' ? '<button type="button" class="btn btn-o" data-pj-st="tratada">Tratada</button>' : '') +
+      (p.status !== 'descartada' ? '<button type="button" class="btn btn-o" data-pj-st="descartada">Descartar</button>' : '<button type="button" class="btn btn-o" data-pj-st="nova">Voltar para novas</button>') +
+      (p.tarefa_id || p.status === 'tratada' ? '' : '<button type="button" class="btn btn-p" data-pj-tarefa>+ Criar tarefa (' + prazoSugerido(p) + ' dias úteis)</button>') });
+  raiz.querySelectorAll('[data-copiar-id]').forEach((b2) => b2.onclick = async () => {
+    try { await navigator.clipboard.writeText(b2.dataset.copiarId); aviso('✓ Copiado: Processo, Autor, Réu e Advogado.'); } catch (e) { aviso('Não consegui copiar: selecione o texto e use Ctrl+C.', true); } });
+  raiz.querySelectorAll('[data-pj-st]').forEach((b2) => b2.onclick = () => { fecharJanela(raiz); mudarStatusPub(b2, p.id, b2.dataset.pjSt); });
+  const bt = raiz.querySelector('[data-pj-tarefa]'); if (bt) bt.onclick = () => { fecharJanela(raiz); tarefaDaPub(bt, p.id); };
 }
 async function janelaOabs() {
   const [os, ps] = await Promise.all([q(sb.from('oabs_monitoradas').select('*').order('numero')), q(sb.from('partes_monitoradas').select('*').order('nome')).catch(() => [])]);
@@ -9190,8 +9210,8 @@ function formContatoExec(e, c, depois) {
 const ED_P = () => window.ERP_EDITOR || null;
 const doMesP = (iso) => !!iso && iso.slice(0, 7) === hojeISO().slice(0, 7);
 // E3: cada grupo com uma cor fixa (a mesma em todas as telas)
-function corGrupo(nome) { let h = 0; String(nome || '').split('').forEach((c) => { h = (h * 31 + c.charCodeAt(0)) >>> 0; }); return 'var(--chart-' + (1 + (h % 8)) + ')'; }
-function grupoTxtB(nome) { return '<span class="b-gtx"><span class="b-ponto" style="background:' + corGrupo(nome) + '"></span>' + esc(nome || 'Sem grupo') + '</span>'; }
+// Backup 72: grupo só em texto, sem a bolinha colorida (vale para o ERP todo)
+function grupoTxtB(nome) { return '<span class="b-gtx">' + esc(nome || 'Sem grupo') + '</span>'; }
 function empresaB(nome, docx) { return '<span class="b-emp">' + esc(nome || '—') + '</span>' + (docx ? '<span class="b-doc">' + esc(docx) + '</span>' : ''); }
 const brIso = (br) => { const m = String(br || '').match(/(\d{2})\/(\d{2})\/(\d{4})/); return m ? m[3] + '-' + m[2] + '-' + m[1] : (/^\d{4}-\d{2}-\d{2}/.test(String(br || '')) ? String(br).slice(0, 10) : ''); };
 const dbParc = () => { try { return (typeof DB !== 'undefined' && DB) || window.DB || null; } catch (e) { return window.DB || null; } }; // eslint-disable-line no-undef
@@ -9303,7 +9323,7 @@ function pintarParcelamentos() {
   const el = $('conteudo'); if (!el) return;
   const PA = E.pc.PA || [], T = [].concat(...PA.map((pa) => pa.parcelas)), h = hojeISO(), podeEd = pode('juridico', 'editar');
   el.innerHTML = cabecalhoTela({ icone: 'camadas', titulo: 'Parcelamentos', frase: 'Parcelas dos clientes no e-CAC, Regularize e SIARE, por vencimento', atualizar: 'pc-atualizar', botao: podeEd ? { id: 'pc-novo', rotulo: 'Novo parcelamento' } : null }) +
-    '<div class="b-sec"><div><h2>Situação dos parcelamentos por cliente</h2><p>Quanto cada grupo já pagou, quanto falta e o que vence este mês. Clique no cartão para ver cada parcelamento.</p></div><div class="b-chips" id="pc-chips">' +
+    '<div class="b-sec"><div><h2>Situação por cliente</h2><p>Clique no grupo para ver os parcelamentos.</p></div><div class="b-chips" id="pc-chips">' +
     [['todos', 'Todos'], ['atraso', 'Com atraso'], ['risco', 'Risco de rescisão'], ['dia', 'Em dia'], ['concluidos', 'Concluídos']].map((c) => '<button type="button" class="b-chip" data-pc-chip="' + c[0] + '" aria-pressed="' + (E.pc.chip === c[0]) + '">' + c[1] + '</button>').join('') + '</div></div>' +
     '<div class="b-cards" id="pc-grupos"></div>' +
     '<div class="b-sec"><div><h2>Parcelas</h2></div></div><div id="pc-tabela"></div>';
@@ -9336,9 +9356,11 @@ function desenharGruposPc() {
   let html = '';
   grupos.forEach((g) => {
     const ab = E.pc.grupo === g.id, n = chip === 'concluidos' ? g.conc.length : g.vivos.length, pc = g.tot ? Math.round(g.pg / g.tot * 100) : 100;
-    html += '<button type="button" class="b-cg" data-pc-g="' + esc(g.id) + '" aria-expanded="' + ab + '"><div class="b-cg-hd"><span class="b-ponto" style="background:' + corGrupo(g.nome) + '"></span><b>' + esc(g.nome) + '</b>' +
+    html += '<button type="button" class="b-cg" data-pc-g="' + esc(g.id) + '" aria-expanded="' + ab + '"><div class="b-cg-hd"><b>' + esc(g.nome) + '</b>' +
       (chip === 'concluidos' ? '<span class="b-pill b-g">Concluídos</span>' : g.atr ? '<span class="b-pill b-r">' + plural(g.atr, 'parcela', 'parcelas') + ' em atraso</span>' : '<span class="b-pill b-g">Em dia</span>') + '</div>' +
       '<div class="b-cg-sub">' + plural(n, 'parcelamento', 'parcelamentos') + (g.risco && chip !== 'concluidos' ? ' · <span class="b-n-atr">risco de rescisão</span>' : '') + '</div>' +
+      // Backup 72: o número de cada parcelamento no cartão do cliente (até 4; o resto em "+N")
+      (function () { const L = (chip === 'concluidos' ? g.conc : g.vivos).map(([pa]) => pa.numero).filter(Boolean); return L.length ? '<div class="b-cg-nums" title="' + esc(L.join(' · ')) + '">Nº ' + L.slice(0, 4).map(esc).join(' · ') + (L.length > 4 ? ' <b>+' + (L.length - 4) + '</b>' : '') + '</div>' : ''; })() +
       (chip === 'concluidos' ? '' : '<div class="b-barra"><span style="width:' + pc + '%"></span></div><div class="b-cg-lin"><span>Pagas</span><b><span class="b-verde">' + g.pg + '</span> de ' + g.tot + '</b></div>' +
         '<div class="b-cg-lin"><span>Falta pagar</span><b>' + brl(g.falta) + '</b></div><div class="b-cg-lin"><span>Parcela do mês</span><b>' + (g.nParcMes ? brl(g.parcMes) + (g.nParcMes > 1 ? ' (' + g.nParcMes + ')' : '') : '—') + '</b></div><div class="b-cg-lin"><span>A pagar este mês</span><b>' + (g.nMes ? brl(g.somaMes) + ' (' + g.nMes + ')' : '—') + '</b></div>') + '</button>';
     if (ab) html += '<div class="b-cg-det" id="pc-det-grupo"></div>';
@@ -9595,7 +9617,7 @@ function desenharGruposAc() {
   let html = '';
   grupos.forEach((g) => {
     const ab = E.ac.grupo === g.id, n = chip === 'concluidos' ? g.conc.length : g.vivos.length, pc = g.tot ? Math.round(g.pg / g.tot * 100) : 100;
-    html += '<button type="button" class="b-cg" data-ac-g="' + esc(g.id) + '" aria-expanded="' + ab + '"><div class="b-cg-hd"><span class="b-ponto" style="background:' + corGrupo(g.nome) + '"></span><b>' + esc(g.nome) + '</b>' +
+    html += '<button type="button" class="b-cg" data-ac-g="' + esc(g.id) + '" aria-expanded="' + ab + '"><div class="b-cg-hd"><b>' + esc(g.nome) + '</b>' +
       (chip === 'concluidos' ? '<span class="b-pill b-g">Concluídos</span>' : g.atr ? '<span class="b-pill b-r">' + plural(g.atr, 'parcela', 'parcelas') + ' em atraso</span>' : '<span class="b-pill b-g">Em dia</span>') + '</div>' +
       '<div class="b-cg-sub">' + plural(n, 'acordo', 'acordos') + (g.risco && chip !== 'concluidos' ? ' · <span class="b-n-atr">risco de rescisão</span>' : '') + '</div>' +
       (chip === 'concluidos' ? '' : '<div class="b-barra"><span style="width:' + pc + '%"></span></div><div class="b-cg-lin"><span>Pagas</span><b><span class="b-verde">' + g.pg + '</span> de ' + g.tot + '</b></div>' +

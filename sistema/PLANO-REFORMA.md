@@ -81,7 +81,7 @@ Aprovado pelo usuário em 08/10/2026. Leia isto antes de qualquer rodada da refo
 | 5 | Financeiro | **feita (Backup 70), híbrida**: listas de lançamentos = `tabelaLancB` (telas-financeiro.js, peça tabelaB, `loteBotao` = "Marcar várias"); análise/gráficos/caixa continuam do ERP antigo |
 | 6 | Painel/Processos | **feita (Backup 70), híbrida**: Processos = lista nova `#pr-nova` (erp-telas `processosNovos`, janela `abrirProcesso`); Painel e análises: cartões `.kc` e números no visual novo (base.css). A tabela "Empresas do grupo" segue a do ERP antigo (muitos ajustes aprovados nela) |
 | 7 | Rotina | **feita (Backup 70)**: cabeçalho/placar/abas com as peças novas; Minhas tarefas = tabelaB com abas; Passivo/Processos/Guias/Planilha por dentro iguais |
-| 8 | Tirar o ERP antigo de vez (ERP.html + 190 remendos + blocos do design.css), depois de levar para o ERP as telas aprovadas no ambiente v2 e o portal do cliente novo | **ambiente v2 pronto (Backup 71)**; esperando as respostas do usuário em "Para aprovar" |
+| 8 | Tirar o ERP antigo de vez (ERP.html + 190 remendos + blocos do design.css), depois de levar para o ERP as telas aprovadas no ambiente v2 e o portal do cliente novo | ambiente v2 aprovado (A1–A5, 12/10/2026). **Backup 72 = 1ª rodada** (Tarefas, Publicações, Processos, Parcelamentos, Contabilidade); faltam Painel, Rotina, Início, Clientes/CRM, cartões expansíveis, Usuários/Importações, portal, e então apagar o antigo |
 | 9 | Faxina do banco: 39 funções escritas mais de uma vez no `estrutura.sql` (manter só a última, idempotente) | a fazer |
 | 10+ | Funções novas (lista A–K): o usuário escolheu só **Ctrl+K e a ajuda "?"** (12/10/2026) — já estão no ambiente; vão para o ERP junto com a etapa 8 | escolhido |
 
@@ -103,3 +103,12 @@ Aprovado pelo usuário em 08/10/2026. Leia isto antes de qualquer rodada da refo
   `APP.nums`, `APP.cartoesGrupo`, `APP.colunas`/`APP.linha`/`APP.barrasH` em HTML, `APP.T(chave)` + `textos.js` = textos antes/depois, `APP.preparar(id, {prazo, aba, q})` = abrir lista já filtrada), `negocio.js` (`N.janelaEmitir(itens, tipo)`
   lê o PDF e salva rascunho/envia conforme `D.emailCfg`, `N.pendencias()` = faixa do Início, `N.baixa*`), telas em `telas-inicio/juridico/financeiro/cadastros/rotina/admin.js`, `portal.js`, `telas-aprovar.js` (respostas em
   localStorage `aprov`, "Copiar minhas respostas"). Teste: servir a pasta + playwright (scratchpad `amb2.js` e `amb2-cliques.js`, 31 cliques).
+
+- **Respostas de 12/10/2026 ("Para aprovar" + pedidos por tela; levar ao ERP, Backup 72 em diante):** textos todos aprovados MENOS "O que pede ação hoje" (Início). Enxugar: aprovados E1, E2, E5, E6, E7, E9–E12;
+  NÃO E3 (Início mantém os cartões Financeiro e Escritório), NÃO E4 (placar da Rotina continua em cartões), NÃO E8 (CRM mantém as etapas atuais). Melhorias M1–M16 aprovadas; NÃO M17 (Asaas) e M18 (WhatsApp pago).
+  Tirar o ERP antigo: A1–A5 aprovados. Por tela: **Contabilidade** = gráficos "Recebido por tipo de serviço" e "Maiores grupos", sem comparativos por cliente/fornecedor (B72 ✓). **Início** = o do ambiente, funcional.
+  **Tarefas** = a versão atual com 15 ajustes (B72 ✓). **Painel** = números do topo e linha da evolução do ambiente, mas com escala 0/10 mi/20 mi… à esquerda e "jun/26 1,5 mi" ao passar o mouse; Empresas do grupo no desenho
+  do ambiente com as colunas ATUAIS; sem bolinha no grupo. **Processos** = ambiente sem bolinha, sem "Conferido" (usar Status), filtros afastados da tabela como hoje (B72 ✓). **Parcelamentos** = ambiente + nº do parcelamento
+  na situação por cliente (B72 ✓); sem bolinha de grupo no ERP todo (B72 ✓). **Publicações** = ambiente + filtros de tratadas e prazos/período (B72 ✓). **Clientes** = o atual (ficha atual, mais completa) com o desenho do
+  ambiente. **CRM** = o atual com o desenho do ambiente. **Rotina** = a atual inteira; Passivo atual mas colunas Certificado e Conferência do ambiente; Planilha do ambiente + última parcela, valor residual e "emitimos as guias";
+  Minhas tarefas do ambiente. **Geral** = cartões expansíveis como no ambiente. **Importações** sem histórico/reverter. **Usuários** com editar/excluir. **Portal do cliente**: a aba "Início" precisa ser uma página de boas-vindas.

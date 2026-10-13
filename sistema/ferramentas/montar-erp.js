@@ -183,6 +183,9 @@ depoisDe('function dCfg(labels,data,colors){', '\n', '\n' +
 removerTrechoHtml('  <div class="ex-bn" style="margin-bottom:16px;position:relative;background:none;border:1.5px solid var(--border);box-shadow:var(--shadow-md);padding:22px 26px">\n    <div style="font-family:var(--font-d);font-size:14px;font-weight:700;color:var(--ac-gold);margin-bottom:12px;letter-spacing:.01em">⚖ Processos — Visão Geral</div>',
   '      <div class="cb" style="height:210px"><canvas id="cProcNatureza"></canvas></div>\n    </div>\n  </div>\n',
   '  <div hidden aria-hidden="true"><div id="kpiProc"></div><canvas id="cProcGrupos"></canvas><canvas id="cProcComp"></canvas><canvas id="cProcValor"></canvas><canvas id="cProcNatureza"></canvas></div>\n');
+// Backup 72: como no ambiente de teste — "Resumo da carteira", começando FECHADO (clique para abrir)
+trocar("var _EXCOL={};", "var _EXCOL={exProcAn:true};", 1);
+trocar("el.innerHTML=exBloco('exProcAn','Análise da carteira judicial',", "el.innerHTML=exBloco('exProcAn','Resumo da carteira',", 1);
 // Análise da carteira ganha Arquivados/extintos, Passivo e Ativo em disputas
 // Backup 16: o mesmo processo (mesmo número) que aparece para o sócio e para a PJ conta uma vez só — no total,
 // no valor em disputa e no passivo/ativo; arquivados/extintos viram legenda do card Processos (sem card próprio).

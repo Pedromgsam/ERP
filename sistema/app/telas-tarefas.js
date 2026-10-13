@@ -94,7 +94,8 @@ function semaforo(t, fer) {
   if (ref && uteisAte(ref, fer) <= 2) return ['amarelo', 'Vence em até 2 dias úteis'];
   return ['verde', 'No prazo'];
 }
-function bolinha(t) { const s = semaforo(t); return s ? '<span class="semaforo ' + s[0] + '" title="' + s[1] + '"></span>' : ''; }
+// Backup 72: sem a bolinha colorida (semáforo) ao lado da tarefa — pedido do usuário, vale para todas as telas
+function bolinha() { return ""; }
 // Fila de trabalho: fatal em risco → atrasadas → fatal mais próximo → prioridade → prazo interno
 const PESO_PRI = { alta: 0, media: 1, baixa: 2 };
 function ordenarFila(lista) {
@@ -457,21 +458,21 @@ TELAS.tarefas = async function () {
   // abas: o painel mostra só o que está em aberto; concluídas e excluídas ficam separadas
   F.aba = F.aba || 'abertas'; if (F.atalho === 'abertas' || F.atalho === 'concluidas') F.atalho = '';
   // Backup 49: Minha semana virou a vista Semana do Calendário; o Quadro saiu (repetia a Lista)
-  if (F.vista === 'semana') { F.vista = 'calendario'; F.calVista = 'semana'; }
   if (F.vista === 'kanban') F.vista = 'lista';
   if (F.atalho === 'minhas') F.atalho = '';
   $('conteudo').innerHTML =
     // Backup 49: abas junto do título; só "+ Nova tarefa" e "Fluxo" à vista — o resto no ⚙ (Backup 55: a criação rápida ⚡ saiu)
-    '<div class="titulo-pag"><div><h1>Tarefas</h1><div class="segmento tf-abas-seg" id="tf-abas">' + [['abertas', 'Em aberto'], ['concluidas', 'Concluídas'], ['excluidas', 'Excluídas']]
-      .map(([v, r]) => '<button data-aba="' + v + '">' + r + '</button>').join('') + '</div></div>' +
+    // Backup 72: as abas Em aberto/Atrasadas/Concluídas/Excluídas ficam na tabela (com os números), como no ambiente de teste
+    '<div class="titulo-pag"><div><h1>Tarefas</h1></div>' +
     '<div class="acoes">' +
     '<span class="tf-cfg-wrap"><button class="btn btn-o tf-bt-ic" id="tf-config" title="Configurar: modelos de fluxo, feriados, Google Agenda e novo fluxo" aria-expanded="false">⚙</button>' +
       '<span class="tf-cfg-menu" id="tf-cfg-menu" hidden><button class="btn btn-o" id="tf-modelos">Modelos de fluxo</button>' +
       '<button class="btn btn-o" id="tf-feriados">Feriados</button><button class="btn btn-o" id="tf-agenda" title="Prazos fatais e audiências no seu Google Agenda">📅 Google Agenda</button></span></span>' +
     // Backup 54: "Delegar" saiu daqui — virou o botão "Fluxo" (as sequências com validação, como "Lead completo", estão na lista de modelos do fluxo)
     '<button class="btn btn-o" id="tf-fluxo" title="Cria várias tarefas de uma vez a partir de um modelo (inclui as sequências com validação, ex.: Lead completo)">🔀 Fluxo</button><button class="btn btn-p" id="tf-nova">+ Nova tarefa</button></div></div>' +
-    '<div id="tf-kpis"></div><div class="filtros">' +
-    '<div class="segmento" id="tf-vista">' + [['lista', 'Lista'], ['calendario', 'Calendário'], ['fluxos', 'Fluxos']]
+    // Backup 72: sem os 4 cartões do topo; vistas Lista · Semana · Calendário · Fluxos
+    '<div class="filtros">' +
+    '<div class="segmento" id="tf-vista">' + [['lista', 'Lista'], ['semana', 'Semana'], ['calendario', 'Calendário'], ['fluxos', 'Fluxos']]
       .map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<input class="busca" id="tf-busca" placeholder="Buscar tarefa, cliente, processo ou etiqueta" autocomplete="off">' +
     // Backup 48/49: Mostrar (tipo, prioridade e prazo) e De quem — o mesmo desenho da agenda do Início
@@ -485,7 +486,6 @@ TELAS.tarefas = async function () {
   $('tf-feriados').onclick = () => janelaFeriados();
   $('tf-agenda').onclick = () => janelaAgenda();
   $('tf-vista').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.vista = b.dataset.v; pintarTarefas(); } };
-  $('tf-abas').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.aba = b.dataset.aba; pintarTarefas(); } };
   $('tf-chips').onclick = (ev) => { const b = ev.target.closest('button'); if (!b) return;
     if (b.dataset.tfTipo != null) F.tipos = alternarFiltro(F.tipos || FILTRO_TIPOS_AG.map((x) => x[0]), b.dataset.tfTipo, FILTRO_TIPOS_AG.map((x) => x[0]));
     else if (b.dataset.tfPri != null) F.pri = F.pri === b.dataset.tfPri ? '' : b.dataset.tfPri;
@@ -503,22 +503,23 @@ TELAS.tarefas = async function () {
   pintarTarefas();
 };
 
-function filtrarTarefas() {
+function filtrarTarefas(daLista) {
   const F = E.tf, h = hojeISO(), b = normalizar(F.busca);
   return (E._tarefas || []).filter((t) => {
-    if (F.aba === 'concluidas') { if (t.status !== 'concluida') return false; }
+    if (daLista) { /* Backup 72: a Lista separa pelas abas da tabela e filtra tipo/prioridade no botão "Filtros" */ }
+    else if (F.aba === 'concluidas') { if (t.status !== 'concluida') return false; }
     else if (F.aba === 'excluidas') { if (t.status !== 'cancelada' || String(t.atualizado_em || '') < somarDias(hojeISO(), -90)) return false; }   // mais de 90 dias: só no histórico
     else if (tarefaFechada(t)) return false;
-    const a = F.aba === 'abertas' ? F.atalho : '';
+    const a = daLista || F.aba === 'abertas' ? F.atalho : '';
     if (a === 'minhas' && (tarefaFechada(t) || !ehMinha(t))) return false;
     if (a === 'hoje' && (tarefaFechada(t) || !t.prazo || t.prazo > h)) return false;
     if (a === 'atrasadas' && (tarefaFechada(t) || !t.prazo || t.prazo >= h)) return false;
     if (a === '7' && (tarefaFechada(t) || !t.prazo || t.prazo > somarDias(h, 7))) return false;
     // "pedem atenção" (destaque do Início): minhas atrasadas ou com prazo fatal em até 7 dias
     if (a === 'atencao' && (tarefaFechada(t) || !ehMinha(t) || !((t.prazo && t.prazo < h) || (t.prazo_fatal && t.prazo_fatal <= somarDias(h, 7))))) return false;
-    if (F.tipos && !F.tipos.includes(tipoItemAgenda(t))) return false;
+    if (!daLista && F.tipos && !F.tipos.includes(tipoItemAgenda(t))) return false;
     if (F.pessoas && F.pessoas.length && ![t.responsavel, t.revisor].concat(String(t.participantes || '').split(',')).some((n) => n && F.pessoas.includes(primeiroNome(n)))) return false;
-    if (F.pri && t.prioridade !== F.pri) return false;
+    if (!daLista && F.pri && t.prioridade !== F.pri) return false;
     if (b && !normalizar(t.titulo + ' ' + t.processos_vinculados + ' ' + nomeGrupo(t.grupo_id) + ' ' + nomeCliente(t.cliente_id) + ' ' + t.etiquetas + ' ' + t.descricao).includes(b)) return false;
     return true;
   });
@@ -527,29 +528,26 @@ function filtrarTarefas() {
 function pintarTarefas() {
   const F = E.tf, h = hojeISO();
   document.querySelectorAll('#tf-vista button').forEach((b) => b.classList.toggle('ativo', b.dataset.v === F.vista));
-  document.querySelectorAll('#tf-abas button').forEach((b) => b.classList.toggle('ativo', b.dataset.aba === F.aba));
+  if (F.vista !== 'lista') F.aba = 'abertas';   // Backup 72: as abas (Concluídas, Excluídas…) são da Lista; Semana/Calendário/Fluxos mostram as em aberto
   // Backup 48: filtros em botões que se marcam/desmarcam (iguais aos da agenda do Início); pessoas: Todos, eu, depois os outros
   { const tipos = FILTRO_TIPOS_AG.map((x) => x[0]), tSel = new Set(F.tipos || tipos), eu = primeiroNome(meuNome());
     const pes = pessoasFiltro().slice().sort((a, b) => (primeiroNome(b) === eu) - (primeiroNome(a) === eu) || a.localeCompare(b, 'pt-BR'));
     const pSel = new Set(F.pessoas && F.pessoas.length ? F.pessoas : pes.map(primeiroNome)), todasP = pSel.size >= pes.length;
     const prazos = [['hoje', 'Hoje'], ['atrasadas', 'Atrasadas'], ['7', '7 dias']].concat(F.atalho === 'atencao' ? [['atencao', 'Pedem atenção']] : []);
     const [gUrg, gPrazo] = gruposPriPrazo('data-tf-pri', F.aba === 'abertas' && F.vista !== 'fluxos' ? 'data-tf-prazo' : '', F.pri, F.atalho, prazos.slice(3));
+    const deQuem = pes.length > 1 ? '<div class="fila-chips" role="group" aria-label="De quem"><span class="fila-chips-rot">De quem</span>' +
+        chipFiltro('data-tf-pes', '*', 'Todos', todasP) + pes.map((n) => chipFiltro('data-tf-pes', primeiroNome(n), nomeCurto(n), pSel.has(primeiroNome(n)))).join('') + '</div>' : '';
+    // Backup 72: na Lista, só "De quem" (pílulas do desenho novo); tipo e prioridade ficam no botão "Filtros" da tabela
+    $('tf-chips').classList.toggle('tf-so-quem', F.vista === 'lista');
+    if (F.vista === 'lista') { $('tf-chips').classList.remove('fila-2x2'); $('tf-chips').innerHTML = deQuem.replace(/✓ /g, ''); }
+    else {
     $('tf-chips').classList.add('fila-2x2');
     $('tf-chips').innerHTML = filtros2x2('<div class="fila-chips" role="group" aria-label="Mostrar"><span class="fila-chips-rot">Mostrar</span>' +
         chipFiltro('data-tf-tipo', '*', 'Tudo', tSel.size === tipos.length, true) + FILTRO_TIPOS_AG.map(([k, r]) => chipFiltro('data-tf-tipo', k, r, tSel.has(k), true)).join('') + '</div>',
       (pes.length > 1 ? '<div class="fila-chips" role="group" aria-label="De quem"><span class="fila-chips-rot">De quem</span>' +
-        chipFiltro('data-tf-pes', '*', 'Todos', todasP) + pes.map((n) => chipFiltro('data-tf-pes', primeiroNome(n), nomeCurto(n), pSel.has(primeiroNome(n)))).join('') + '</div>' : ''), gUrg, gPrazo); }
-  const todas = E._tarefas || [];
-  const abertas = todas.filter((t) => !tarefaFechada(t));
-  const atrasadas = abertas.filter((t) => t.prazo && t.prazo < h).length;
-  const fatais = abertas.filter((t) => t.prazo_fatal && t.prazo_fatal >= h && t.prazo_fatal <= somarDias(h, 7)).length;
-  const minhas = abertas.filter(ehMinha).length;
-  const kpis = '<div class="kpis">' + kpi('Em aberto', String(abertas.length), '', minhas + ' comigo') +
-    kpi('Atrasadas', String(atrasadas), atrasadas ? 'vermelho' : 'verde', 'todas as pessoas') +
-    kpi('Prazos fatais em 7 dias', String(fatais), fatais ? 'ambar' : '', 'tarefas com prazo fatal marcado') +
-    kpi('Concluídas no mês', String(todas.filter((t) => t.status === 'concluida' && String(t.concluida_em || '').slice(0, 7) === h.slice(0, 7)).length), 'verde', '') + '</div>';
-  const V = { lista: vistaLista, calendario: vistaCalendario, fluxos: vistaFluxos };
-  $('tf-kpis').innerHTML = kpis; $('tf-corpo').innerHTML = '<div id="tf-vista-corpo"></div>';
+        chipFiltro('data-tf-pes', '*', 'Todos', todasP) + pes.map((n) => chipFiltro('data-tf-pes', primeiroNome(n), nomeCurto(n), pSel.has(primeiroNome(n)))).join('') + '</div>' : ''), gUrg, gPrazo); } }
+  const V = { lista: vistaLista, semana: vistaSemana, calendario: vistaCalendario, fluxos: vistaFluxos };
+  $('tf-corpo').innerHTML = '<div id="tf-vista-corpo"></div>';
   if (!V[F.vista]) F.vista = 'lista';
   V[F.vista]($('tf-vista-corpo'));
 }
@@ -574,36 +572,62 @@ function ligarLinhasTarefa(raiz) {
   raiz.querySelectorAll('[data-abrir-t]').forEach((tr) => tr.onclick = () => abrirTarefa(E._tarefas.find((t) => t.id === tr.dataset.abrirT), recarregarTarefas));
 }
 
-// ── Lista em árvore ──
+// ── Lista (Backup 72): a tabela do desenho novo (tabelaB) com a ordem de colunas de antes ──
+// Grupo · Tarefa · Pessoa · Prioridade · Status · Prazo · Situação · Concluir. Abas com os números, atalhos de prazo,
+// "Filtros" (tipo, prioridade, prazo de/até); sem "Marcar várias" e sem o contador à direita. Subtarefa: "↳ parte de: …" embaixo.
+const PRI_B = { alta: ['Alta', 'b-r'], media: ['Média', 'b-a'], baixa: ['Baixa', 'b-n'] };
+function situacaoTarefa(t) {
+  if (t.status === 'concluida') return '<span class="b-ok-txt">✓ ' + (t.concluida_em ? dataBR(String(t.concluida_em).slice(0, 10)).slice(0, 5) : 'Feita') + '</span>';
+  if (t.status === 'cancelada') return '<span class="sub">excluída</span>';
+  if (!t.prazo) return '<span class="sub">sem prazo</span>';
+  const d = diasAte(t.prazo);
+  return '<span class="' + (d <= 0 ? 'b-pz-r' : d < 3 ? 'b-pz-a' : d < 10 ? 'b-pz-b' : 'b-pz-g') + '">' + (d < 0 ? Math.abs(d) + ' d atraso' : d === 0 ? 'vence hoje' : d + (d === 1 ? ' dia' : ' dias')) + '</span>' +
+    (t.prazo_fatal ? '<small class="b-pz-sub">fatal ' + esc(dataBR(t.prazo_fatal).slice(0, 5)) + '</small>' : '');
+}
 function vistaLista(alvo) {
-  const lista = filtrarTarefas(), ids = new Set(lista.map((t) => t.id));
+  const lista = filtrarTarefas(true), h = hojeISO(), F = E.tf;
+  const porId = {}; (E._tarefas || []).forEach((t) => { porId[t.id] = t; });
   const filhasDe = (id) => (E._tarefas || []).filter((x) => x.tarefa_pai_id === id);
-  let raizes = lista.filter((t) => !t.tarefa_pai_id || !ids.has(t.tarefa_pai_id));
-  if (E.tf.atalho === 'minhas') raizes = ordenarFila(raizes);
-  const linha = (t, nivel) => {
-    const pr = PRIORIDADE[t.prioridade] || [t.prioridade || '—', 'neutro'];
-    const filhas = filhasDe(t.id), pai = t.tarefa_pai_id && !ids.has(t.tarefa_pai_id) ? (E._tarefas.find((x) => x.id === t.tarefa_pai_id) || {}).titulo : '';
-    // Backup 23: Grupo · Tarefa · Pessoa · Prioridade · Status · Prazo
-    const cli = t.cliente_id ? (E.clientes || []).find((c) => c.id === t.cliente_id) : null;
-    const grupo = nomeGrupo(t.grupo_id || (cli && cli.grupo_id)) || '';
-    const sub = [pai ? 'parte de: ' + pai : '', cli ? nomeCliente(t.cliente_id) : '', t.processos_vinculados, t.etiquetas].filter(Boolean).join(' · ');
-    return '<tr class="clicavel' + (tarefaFechada(t) ? ' tf-feita' : '') + '" data-abrir-t="' + t.id + '"><td>' + (grupo ? esc(grupo) : '<span class="sub">—</span>') + '</td>' +
-      '<td style="padding-left:' + (12 + nivel * 22) + 'px">' + bolinha(t) + ' ' + (nivel ? '<span class="sub">↳ </span>' : '') + esc(t.titulo) + seloFatal(t) +
-      (t.recorrencia ? ' <span class="pill neutro tf-repete" title="' + esc(textoRepete(t)) + '">' + esc(textoRepete(t)) + '</span>' : '') +
-      // Backup 55: o progresso do fluxo vai na linha de baixo, junto do cliente (a tarefa ocupa no máximo 2 linhas)
-      ((sub || progresso(t, filhas)) ? '<div class="sub tf-linha2">' + barraProgresso(progresso(t, filhas)) + (sub ? ' ' + esc(sub) : '') + '</div>' : '') + '</td>' +
-      '<td>' + pillPessoa(t.responsavel) + '</td><td><span class="pill ' + pr[1] + '">' + esc(pr[0]) + '</span></td><td>' + pillStatusTarefa(t.status) + '</td>' +
-      // Backup 50: Prazo e Dias em colunas separadas (como no Financeiro)
-      '<td class="mono" data-ord="' + esc(t.prazo || '9999') + '">' + (t.prazo ? dataBR(t.prazo) : '<span class="sub">—</span>') + '</td>' +
-      '<td data-ord="' + (t.prazo && !tarefaFechada(t) ? diasAte(t.prazo) : 99999) + '">' + (t.prazo && !tarefaFechada(t) ? celulaAtraso(t.prazo) : '<span class="sub">—</span>') + '</td>' +
-      '<td class="acoes-l">' + (t.status === 'cancelada'
-        ? '<button class="btn btn-o btn-mini" data-restaurar-t="' + t.id + '">↩ Restaurar</button>' + ((E.perfil || {}).papel === 'admin' ? ' <button class="btn btn-x btn-mini" data-apagar-t="' + t.id + '">Excluir de vez</button>' : '')
-        : (tarefaFechada(t) ? '' : '<button class="btn btn-v btn-mini" data-concluir="' + t.id + '">✓ Concluir</button>')) + '</td></tr>' +   // Backup 39: sem ✎ (editar fica no detalhe)
-      filhas.filter((f) => ids.has(f.id)).map((f) => linha(f, nivel + 1)).join('');
-  };
-  alvo.innerHTML = '<div class="card">' + (raizes.length ? '<div class="tabela-wrap"><table><thead><tr><th>Grupo</th><th>Tarefa</th><th>Pessoa</th><th>Prioridade</th><th>Status</th><th data-tipo="data">Prazo</th><th data-tipo="num">Dias</th><th class="sem-ordem"></th></tr></thead><tbody>' +
-    raizes.map((t) => linha(t, 0)).join('') + '</tbody></table></div>' : vazio('Nenhuma tarefa com esses filtros.', '+ Nova tarefa', '#tf-nova')) + '</div>';
-  ligarLinhasTarefa(alvo);
+  const grupoDe = (t) => { const cli = t.cliente_id ? (E.clientes || []).find((c) => c.id === t.cliente_id) : null; return nomeGrupo(t.grupo_id || (cli && cli.grupo_id)) || ''; };
+  const admin = (E.perfil || {}).papel === 'admin';
+  const abaIni = 'abertas';
+  if (F.atalho === 'atrasadas') { F.atalho = ''; E.tabB = E.tabB || {}; (E.tabB.tarefas = E.tabB.tarefas || {}).aba = 'atrasadas'; }
+  const r = tabelaB(alvo, { id: 'tarefas', linhas: lista, chave: (t) => String(t.id), abaPadrao: abaIni, unidade: ['tarefa', 'tarefas'], tabCls: 'b-tab-tf',
+    abas: [{ id: 'abertas', rot: 'Em aberto', f: (t) => !tarefaFechada(t) }, { id: 'atrasadas', rot: 'Atrasadas', cor: 'r', f: (t) => !tarefaFechada(t) && t.prazo && t.prazo < h },
+      { id: 'concluidas', rot: 'Concluídas', f: (t) => t.status === 'concluida' },
+      { id: 'excluidas', rot: 'Excluídas', f: (t) => t.status === 'cancelada' && String(t.atualizado_em || '') >= somarDias(h, -90) }],   // mais de 90 dias: só no histórico
+    prazos: true, prazosAbas: ['abertas'], venc: (t) => t.prazo || '', ord: { k: 'prazo', dir: 1 }, ordAbas: { concluidas: { k: 'prazo', dir: -1 } },
+    listas: [{ k: 'tipo', rot: 'Tipo', todos: 'Todos os tipos', opcoes: FILTRO_TIPOS_AG, get: (t) => tipoItemAgenda(t) },
+      { k: 'pri', rot: 'Prioridade', todos: 'Todas as prioridades', opcoes: [['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa']], get: (t) => t.prioridade }],
+    colunas: [
+      { k: 'grupo', rot: 'Grupo', html: (t) => (grupoDe(t) ? esc(grupoDe(t)) : '<span class="sub">—</span>'), ord: (t) => normalizar(grupoDe(t)) || '~' },
+      { k: 'tit', rot: 'Tarefa', cls: 'b-tf-tit', ord: (t) => normalizar(t.titulo), html: (t) => {
+        const pai = t.tarefa_pai_id ? (porId[t.tarefa_pai_id] || {}).titulo : '';
+        const sub = [pai ? '↳ parte de: ' + pai : '', t.cliente_id ? nomeCliente(t.cliente_id) : '', t.processos_vinculados, t.etiquetas].filter(Boolean).join(' · ');
+        const pg = progresso(t, filhasDe(t.id));
+        return esc(t.titulo) + seloFatal(t) + (t.recorrencia ? ' <span class="pill neutro tf-repete" title="' + esc(textoRepete(t)) + '">' + esc(textoRepete(t)) + '</span>' : '') +
+          ((sub || pg) ? '<div class="sub tf-linha2">' + barraProgresso(pg) + (sub ? ' ' + esc(sub) : '') + '</div>' : ''); } },
+      { k: 'resp', rot: 'Pessoa', cls: 'b-tf-pes', html: (t) => pillPessoa(t.responsavel), ord: (t) => normalizar(t.responsavel) || '~' },
+      { k: 'pri', rot: 'Prioridade', cls: 'b-cen', html: (t) => { const p = PRI_B[t.prioridade]; return p ? '<span class="b-pill ' + p[1] + '">' + p[0] + '</span>' : '<span class="sub">—</span>'; }, ord: (t) => ({ alta: 0, media: 1, baixa: 2 })[t.prioridade] ?? 3 },
+      { k: 'st', rot: 'Status', cls: 'b-cen', html: (t) => pillStatusTarefa(t.status), ord: (t) => t.status },
+      { k: 'prazo', rot: 'Prazo', cls: 'b-cen b-data', html: (t) => (t.prazo ? dataBR(t.prazo) + (t.hora ? '<small>' + esc(String(t.hora).slice(0, 5)) + '</small>' : '') : '<span class="sub">—</span>'), ord: (t) => t.prazo || '9999' },
+      { k: 'sit', rot: 'Situação', cls: 'b-cen b-prazo', html: situacaoTarefa, ord: (t) => (t.status === 'concluida' ? String(t.concluida_em || '') : t.prazo || '9999') },
+      { k: 'ac', rot: '', cls: 'b-dir', ord: false, html: (t) => (t.status === 'cancelada'
+        ? '<span class="b-acoes"><button type="button" class="btn btn-o btn-mini" data-restaurar-t="' + t.id + '">↩ Restaurar</button>' + (admin ? '<button type="button" class="btn btn-x btn-mini" data-apagar-t="' + t.id + '">Excluir de vez</button>' : '') + '</span>'
+        : tarefaFechada(t) ? '' : '<button type="button" class="b-bt-baixa" data-concluir="' + t.id + '" title="Concluir a tarefa">Concluir</button>') }],
+    linhaCls: (t) => (!tarefaFechada(t) && t.prazo && t.prazo < h ? ' b-tr-venc' : '') + (tarefaFechada(t) ? ' tf-feita' : ''),
+    clique: (t) => abrirTarefa(t, recarregarTarefas),
+    vazio: { titulo: 'Nenhuma tarefa aqui', frase: 'Use "+ Nova tarefa" ou troque a aba.', botao: ['+ Nova tarefa', '#tf-nova'] } });
+  if (!alvo._tfLigado) { alvo._tfLigado = true;
+    alvo.addEventListener('click', (ev) => {
+      const c = ev.target.closest('[data-concluir]'); if (c) { ev.stopPropagation(); comBotao(c, async () => { await concluirTarefa(c.dataset.concluir); aviso('✓ Tarefa concluída.'); await recarregarTarefas(); }); return; }
+      const rs = ev.target.closest('[data-restaurar-t]'); if (rs) { ev.stopPropagation(); comBotao(rs, async () => {
+        await q(sb.from('tarefas').update({ status: 'pendente' }).eq('id', rs.dataset.restaurarT)); aviso('✓ Tarefa restaurada (voltou para Em aberto).'); await recarregarTarefas(); }); return; }
+      const ap = ev.target.closest('[data-apagar-t]'); if (ap) { ev.stopPropagation(); comBotao(ap, async () => {
+        if (!confirm('Excluir de vez? Esta ação não pode ser desfeita.')) return;
+        await excluir('tarefas', ap.dataset.apagarT); aviso('Tarefa excluída de vez.'); await recarregarTarefas(); }); }
+    }, true);
+  }
 }
 
 // ── Quadro (kanban): arraste o cartão para mudar o status ──

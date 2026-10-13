@@ -607,7 +607,7 @@ function cartoesB(el, chave, lista) {
 // TABELA de toda tela refeita. cfg: { id, titulo (texto ou fn(aba)), colunas: [{k, rot, cls, clsL(r), html(r), ord(r) | false, soma}], linhas,
 //   abas: [{id, rot, f(r), cor:'r'}], abaPadrao, ordAbas: {aba: {k, dir}}, ord: {k, dir}, busca(r) → texto, dicaBusca,
 //   listas: [{k, rot, todos, opcoes: [[v, rótulo]], get(r)}], venc(r) → 'aaaa-mm-dd', valor(r) → número,
-//   lote: [{rot, icone, quando(r), fn(lista)}], clique(r), chave(r), vazio: {titulo, frase}, unidade: [um, varios], altura, semBarra }
+//   lote: [{rot, icone, quando(r), fn(lista)}], clique(r), chave(r), vazio: {titulo, frase}, unidade: [um, varios], altura, semBarra, barraExtra (html) }
 function tabelaB(el, cfg) {
   E.tabB = E.tabB || {};
   const st = E.tabB[cfg.id] = E.tabB[cfg.id] || { aba: (cfg.abas && (cfg.abaPadrao || cfg.abas[0].id)) || '', q: '', listas: {}, vde: '', vate: '', min: '', max: '', ord: Object.assign({}, cfg.ord || { k: '', dir: 1 }), ordAba: {}, sel: {}, painel: false, prazo: '', prazoAte: '', limite: 150 };
@@ -624,7 +624,7 @@ function tabelaB(el, cfg) {
     el.innerHTML = '<div class="b-barra-tab">' + (cfg.abas ? '<div class="b-seg" role="tablist"></div>' : '') +
       (cfg.prazos ? '<div class="b-prazos" data-bt="prazos"></div>' : '') +
       (cfg.busca ? '<label class="b-busca">' + iconeB('busca') + '<input data-bt="q" placeholder="' + esc(cfg.dicaBusca || 'Buscar') + '" aria-label="Buscar" value="' + esc(st.q) + '"></label>' : '') +
-      '<span class="b-conta" data-bt="conta"></span><span class="b-barra-dir">' +
+      '<span class="b-conta" data-bt="conta"></span><span class="b-barra-dir">' + (cfg.barraExtra || '') +   // Backup 72: controle extra da tela (ex.: período das Publicações)
       (cfg.lote && cfg.loteBotao ? '<button type="button" class="b-bt-f" data-bt="loteon" aria-pressed="' + !!st.loteOn + '" title="Marcar várias linhas para dar baixa de uma vez">' + iconeB('check') + (st.loteOn ? 'Fechar marcação' : 'Marcar várias') + '</button>' : '') +
       (temPainel ? '<button type="button" class="b-bt-f" data-bt="painel" aria-expanded="' + st.painel + '">' + iconeB('filtro') + 'Filtros <span class="b-nf" hidden></span></button>' : '') +
       '<button type="button" class="b-ic-bt" data-bt="dens" aria-pressed="' + compacto() + '" title="Tabela compacta (mais linhas na tela)" aria-label="Tabela compacta">' + iconeB('compacto') + '</button></span></div>' +
@@ -671,7 +671,9 @@ function tabelaB(el, cfg) {
     if (!lin.length) {
       Q('[data-bt=quadro]').innerHTML = '<div class="b-quadro">' + (titulo ? '<div class="b-quadro-hd"><h2>' + esc(titulo) + '</h2></div>' : '') +
         (filtrando() ? '<div class="b-vazio"><div class="b-vazio-ic">' + iconeB('busca') + '</div><b>Nada encontrado</b><p>Nenhuma linha combina com a busca e os filtros escolhidos.</p><button type="button" class="btn btn-o" data-bt="limpar">Limpar filtros</button></div>'
-          : vazioB({ icone: 'ok', titulo: (cfg.vazio && cfg.vazio.titulo) || 'Nada aqui por enquanto', frase: (cfg.vazio && cfg.vazio.frase) || '' })) + '</div>';
+          : vazioB({ icone: 'ok', titulo: (cfg.vazio && cfg.vazio.titulo) || 'Nada aqui por enquanto', frase: (cfg.vazio && cfg.vazio.frase) || '' }) +
+            // Backup 72: lista vazia com o botão de criar (vazio.botao = [rótulo, seletor do botão da tela])
+            (cfg.vazio && cfg.vazio.botao ? '<div class="vazio b-vazio-bt"><button type="button" class="btn btn-p btn-mini vazio-bt" data-vazio-clica="' + esc(cfg.vazio.botao[1]) + '">' + esc(cfg.vazio.botao[0]) + '</button></div>' : '')) + '</div>';
       return;
     }
     const soma = cfg.valor ? lin.reduce((s, r) => s + (cfg.valor(r) || 0), 0) : null;
