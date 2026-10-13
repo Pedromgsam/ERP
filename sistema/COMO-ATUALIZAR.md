@@ -707,6 +707,29 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
 **Central de Documentos dentro do ERP:** menu **Documentos → Gerar documento** (ou ⋯ → Documentos, contrato, recibo do Financeiro).
 **Ctrl + clique** (ou botão do meio do mouse) em qualquer item do menu ou link de documento abre numa aba nova.
 
+## Backup 72 — Levando o ambiente de teste para o ERP (1ª rodada): Tarefas, Publicações, Processos, Parcelamentos e Contabilidade
+1. Merge da pull request.
+2. SQL: não precisa (o banco não mudou).
+3. **Ctrl+Shift+R** no ERP.
+
+O que mudou (a partir das suas respostas de 12/10/2026). **Nenhuma função saiu.**
+- **Financeiro → Contabilidade → Análise**: entraram "Recebido por tipo de serviço" e "Maiores grupos" (iguais aos do Jurídico); saíram "Comparativo por cliente" e "Comparativo por fornecedor".
+- **Tarefas** (a versão de antes, com os ajustes pedidos):
+  1. Sem os 4 cartões do topo; os números ficam nas abas **Em aberto · Atrasadas · Concluídas · Excluídas**.
+  2. Atalhos **Todas · Vencidas · 5 · 10 · 15 · 30 dias · até**; **De quem** em pílulas; tipo e prioridade no botão **Filtros**; sem "Marcar várias" e sem o contador à direita.
+  3. Colunas na ordem de antes (Grupo · Tarefa · Pessoa · Prioridade · Status · Prazo), com **Situação** (atraso / vence hoje / N dias, como no ambiente) e o botão verde **Concluir**.
+  4. Sem a bolinha colorida ao lado da tarefa (em todas as telas); selos de Pessoa todos do mesmo tamanho; letra e altura de linha do ambiente.
+  5. Vistas **Lista · Semana · Calendário · Fluxos**.
+- **Publicações**: uma tabela (Data · Tribunal · Processo · O que diz · Advogado · Lida/Tarefa) no lugar dos cartões grandes. Ficaram as abas **Tratadas** e **Descartadas** e o
+  **período** (últimos 7/15/30/90 dias). Tribunal e advogado ficam em **Filtros**. Clique na linha para ler o texto inteiro, copiar Processo/Autor/Réu e criar a tarefa.
+- **Processos**: sem coluna "Conferido" (fica **Status**); a competência vai embaixo do número; data da última movimentação em vermelho com mais de 30 dias;
+  "Resumo da carteira" começa fechado (clique para abrir).
+- **Parcelamentos**: o cartão de cada cliente mostra o **número dos parcelamentos**. Texto "Situação por cliente".
+- **Sistema todo**: grupo sem bolinha colorida. O espaço entre os filtros e a tabela continua o de hoje.
+
+Próximas rodadas (já aprovadas): Painel Executivo, Rotina, Início funcional (mantendo os cartões Financeiro e Escritório), Clientes/CRM no desenho novo,
+cartões expansíveis, Usuários/Importações, portal do cliente novo (com um "Início" de boas-vindas) e, por fim, tirar o ERP antigo e fazer a faxina do banco.
+
 ## Backup 71 — Sem os 4 cartões do topo + ambiente de teste versão 2 (todos os módulos)
 1. Merge da pull request.
 2. SQL: não precisa.

@@ -31,18 +31,14 @@ function destacar(texto) {
 
 TELAS.publicacoes = async function () {
   E.pub = E.pub || { status: 'nova', adv: '', tribunal: '', dias: '30', busca: '' };
-  const F = E.pub; F.status = 'nova';   // Backup 49 (31): sempre abre em Novas
+  const F = E.pub;
+  // Backup 72: como no ambiente de teste — uma tabela (Data · Tribunal · Processo · O que diz · Advogado · Lida/Tarefa) no lugar dos cartões
+  // grandes; o texto inteiro abre na janela ao clicar na linha. Ficam as abas Tratadas e Descartadas e o período (últimos N dias).
+  if (E.tabB && E.tabB.publicacoes) E.tabB.publicacoes.aba = 'nova';   // sempre abre em Novas
   $('conteudo').innerHTML =
-    '<div class="titulo-pag"><div><h1>Publicações</h1><p id="pub-ult">Diário de Justiça Eletrônico Nacional · busca automática pelo navegador, 1× por dia ao abrir o ERP</p></div>' +
+    '<div class="titulo-pag"><div><h1>Publicações</h1><p id="pub-ult">Intimações do Diário de Justiça · busca automática 1× por dia ao abrir o ERP</p></div>' +
     '<div class="acoes"><button class="btn btn-o" id="pub-todas-lidas" title="Marca como lidas todas as publicações novas">✓ Marcar todas como lidas</button><button class="btn btn-o" id="pub-oabs">⚙ Monitoramento (OABs e clientes)</button><button class="btn btn-p" id="pub-buscar" title="Busca no Diário do CNJ pelo seu navegador (se ele falhar, tenta pelo servidor)">↻ Buscar agora</button></div></div>' +
-    '<div class="filtros"><div class="segmento" id="pub-st">' + [['nova', 'Novas'], ['lida', 'Lidas'], ['tratada', 'Tratadas'], ['descartada', 'Descartadas'], ['', 'Todas']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
-    '<select class="busca sel" id="pub-dias"><option value="7">Últimos 7 dias</option><option value="15">Últimos 15 dias</option><option value="30">Últimos 30 dias</option><option value="90">Últimos 90 dias</option><option value="">Todo o período</option></select>' +
-
-    '<input class="busca" id="pub-busca" placeholder="Buscar no texto, processo ou parte" autocomplete="off"></div>' +
-    // Backup 21: tribunais como filtro de botões — só os que têm publicação pendente (nova ou lida) no período
-    // Backup 35: filtro por advogado (os nomes cadastrados em Monitoramento → OABs) em botões, como os tribunais
-    '<div class="filtros pub-trib-linha"><div class="segmento" id="pub-advs" role="group" aria-label="Advogado"></div></div>' +
-    '<div class="filtros pub-trib-linha"><div class="segmento" id="pub-trib" role="group" aria-label="Tribunal"></div></div><div id="pub-corpo"><div class="carregando">Carregando…</div></div>';
+    '<div id="pub-corpo"><div class="carregando">Carregando…</div></div>';
   $('pub-oabs').onclick = () => janelaOabs();
   $('pub-todas-lidas').onclick = (ev) => comBotao(ev.currentTarget, async () => {
     if (!confirm('Marcar TODAS as publicações novas como lidas?')) return;
@@ -50,7 +46,7 @@ TELAS.publicacoes = async function () {
     aviso('✓ ' + plural(r.length, 'publicação marcada como lida', 'publicações marcadas como lidas') + '.'); await carregarPublicacoes();
   });
   // Backup 52 (C5): "Buscar agora" busca PELO NAVEGADOR (o CNJ recusa o servidor do Supabase, que fica fora do Brasil);
-  // se o navegador não alcançar o CNJ, tenta a função erp-publicacoes como reserva e explica. O antigo "🌐 Buscar pelo navegador" virou este botão.
+  // se o navegador não alcançar o CNJ, tenta a função erp-publicacoes como reserva e explica.
   $('pub-buscar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
     const r = await buscarPubNoNavegador({ silencioso: true, detalhe: true });
     if (r.semMonitoramento) throw new Error('Cadastre pelo menos uma OAB ou um cliente em "Monitoramento".');
@@ -62,12 +58,12 @@ TELAS.publicacoes = async function () {
     } else aviso('✓ Busca feita: ' + r.lidas + ' publicação(ões) lida(s), ' + r.novas + ' nova(s).' + (r.erros.length ? ' Atenção: ' + r.erros[0] : ''), !!r.erros.length);
     await TELAS.publicacoes();
   });
-  $('pub-st').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.status = b.dataset.v; pintarPublicacoes(); } };
-  $('pub-trib').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.tribunal = b.dataset.v; pintarPublicacoes(); } };
-  $('pub-dias').onchange = (ev) => { F.dias = ev.target.value; carregarPublicacoes(); };
-  $('pub-advs').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.adv = b.dataset.v; pintarPublicacoes(); } };
-  $('pub-dias').value = F.dias; $('pub-busca').value = F.busca;
-  let t; $('pub-busca').oninput = (ev) => { clearTimeout(t); t = setTimeout(() => { F.busca = ev.target.value; pintarPublicacoes(); }, 250); };
+  const corpo = $('pub-corpo');
+  corpo.addEventListener('change', (ev) => { if (ev.target.id === 'pub-dias') { F.dias = ev.target.value; carregarPublicacoes(); } });
+  corpo.addEventListener('click', (ev) => {
+    const b = ev.target.closest('[data-pub-st]'); if (b) { ev.stopPropagation(); mudarStatusPub(b, b.dataset.pubId, b.dataset.pubSt); return; }
+    const t = ev.target.closest('[data-pub-tarefa]'); if (t) { ev.stopPropagation(); tarefaDaPub(t, t.dataset.pubTarefa); }
+  }, true);
   q(sb.from('configuracoes').select('valor').eq('chave', 'publicacoes_ultima').maybeSingle()).then((u) => {
     if (u && u.valor && $('pub-ult')) $('pub-ult').textContent = 'Última busca: ' + quandoRodou(u.valor.quando) + ' · ' + u.valor.novas + ' nova(s) de ' + u.valor.lidas + ' lida(s)' +
       (u.valor.erros && u.valor.erros.length ? ' · ⚠ ' + u.valor.erros[0] : '') + ' · automática 1× por dia ao abrir o ERP';
@@ -97,64 +93,44 @@ async function carregarPublicacoes() {
   E._pubAdvs = await q(sb.from('oabs_monitoradas').select('advogado')).then((l) => l.map((o) => o.advogado)).catch(() => []);
   pintarPublicacoes();
 }
+function primeiroNomePub(n) { return String(n || '').trim().split(/\s+/)[0] || ''; }
+function advDaPub(p) { return primeiroNomePub(p.advogado || String(p.advogados || '').split(';')[0].replace(/\s*OAB.*$/i, '')); }
 function pintarPublicacoes() {
-  const F = E.pub, b = normalizar(F.busca);
-  if (!$('pub-corpo')) return;
+  const F = E.pub, el = $('pub-corpo'); if (!el) return;
   const todas = E._pubs || [];
-  // Backup 36: cada contador mostra exatamente o que aparece ao clicar nele — vale o recorte dos OUTROS filtros
-  // (situação × advogado × tribunal × busca). Ex.: 61 no total, 5 tratadas → Novas 56 · Tratadas 5 · Todas 61.
-  const pn = (n) => normalizar(String(n || '').trim().split(/\s+/)[0] || '');
-  const doAdv = (p, n) => { const k = pn(n); return !!k && (pn(p.advogado) === k || normalizar(p.advogados || '').split(/[;,]/).some((x) => pn(x) === k)); };
-  const okSt = (p) => !F.status || p.status === F.status, okAdv = (p) => !F.adv || doAdv(p, F.adv), okTrib = (p) => !F.tribunal || p.tribunal === F.tribunal;
-  const okBusca = (p) => !b || normalizar(p.texto + ' ' + p.processo + ' ' + p.destinatarios + ' ' + p.orgao).includes(b);
-  const semSt = todas.filter((p) => okAdv(p) && okTrib(p) && okBusca(p));
-  document.querySelectorAll('#pub-st button').forEach((x) => { x.classList.toggle('ativo', x.dataset.v === F.status);
-    const n = semSt.filter((p) => !x.dataset.v || p.status === x.dataset.v).length;
-    x.innerHTML = esc(x.dataset.rot || (x.dataset.rot = x.textContent)) + ' <span class="seg-n">' + n + '</span>'; });
-  const semTrib = todas.filter((p) => okSt(p) && okAdv(p) && okBusca(p));
-  const pend = {}; semTrib.filter((p) => p.tribunal).forEach((p) => { pend[p.tribunal] = (pend[p.tribunal] || 0) + 1; });
-  const tribs = Object.keys(pend).sort((a, b) => a.localeCompare(b, 'pt-BR'));
-  if (F.tribunal && !pend[F.tribunal]) F.tribunal = '';
-  const st = $('pub-trib');
-  if (st) { st.parentNode.hidden = !tribs.length;
-    st.innerHTML = '<button type="button" data-v="" class="' + (F.tribunal ? '' : 'ativo') + '">Todos os tribunais <span class="seg-n">' + semTrib.length + '</span></button>' +
-      tribs.map((t) => '<button type="button" data-v="' + esc(t) + '" class="' + (F.tribunal === t ? 'ativo' : '') + '">' + esc(t) + ' <span class="seg-n">' + pend[t] + '</span></button>').join(''); }
-  const nomesAdv = [...new Set((E._pubAdvs || []).concat(todas.map((p) => p.advogado)).filter(Boolean).map((n) => String(n).trim().split(/\s+/)[0]))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
-  if (F.adv && !nomesAdv.includes(F.adv)) F.adv = '';
-  const semAdv = todas.filter((p) => okSt(p) && okTrib(p) && okBusca(p));
-  const sa = $('pub-advs');
-  if (sa) { sa.parentNode.hidden = !nomesAdv.length;
-    sa.innerHTML = '<button type="button" data-v="" class="' + (F.adv ? '' : 'ativo') + '">Todos os advogados <span class="seg-n">' + semAdv.length + '</span></button>' + nomesAdv.map((n) => { const c = semAdv.filter((p) => doAdv(p, n)).length;
-      return '<button type="button" data-v="' + esc(n) + '" class="' + (F.adv === n ? 'ativo' : '') + '">' + esc(n) + ' <span class="seg-n">' + c + '</span></button>'; }).join(''); }
-  const lista = todas.filter((p) => okSt(p) && okAdv(p) && okTrib(p) && okBusca(p));
-  const conta = (s) => semSt.filter((p) => p.status === s).length;
-  $('pub-corpo').innerHTML = '<div class="kpis">' + kpi('Novas', String(conta('nova')), conta('nova') ? 'ambar' : 'verde', 'ainda não lidas') + kpi('Lidas', String(conta('lida')), '', 'sem tarefa ainda') +
-    kpi('Tratadas', String(conta('tratada')), 'verde', 'com tarefa criada') + '</div>' +
-    (lista.length ? lista.map((p) => '<div class="card pub-card' + (p.status === 'nova' ? ' pub-nova' : '') + '" data-pub="' + p.id + '"><div class="card-bd">' +
-      '<div class="pub-topo"><div><span class="pill ' + ({ nova: 'hoje', lida: 'aberto', tratada: 'pago', descartada: 'neutro' }[p.status]) + '">' + p.status + '</span> ' +
-      '<b>' + esc(p.tipo || 'Comunicação') + '</b> · ' + esc(p.tribunal) + ' · <span class="mono">' + dataBR(p.data_disponibilizacao) + '</span>' +
-      '<div class="sub">' + esc(p.orgao) + (p.classe ? ' · ' + esc(p.classe) : '') + '</div></div>' +
-      '<div class="sub" style="text-align:right">' + (p.processo ? '<b class="mono">' + esc(p.processo) + '</b>' : '') + (p.processo_id ? ' <span class="pill pago" title="Processo cadastrado no ERP">no ERP</span>' : '') +
-      '<div>' + (p.oab_numero ? esc(p.advogado ? p.advogado + ' · ' : '') + 'OAB ' + esc(p.oab_numero + '/' + p.oab_uf) : '🏢 cliente monitorado: ' + esc(p.parte_monitorada || '—')) + '</div></div></div>' +
-      partesPub(p) +
-      '<div class="pub-texto' + (p.texto.length > 500 ? ' curto' : '') + '">' + destacar(p.texto) + '</div>' + (p.texto.length > 500 ? '<button class="btn-link" data-ver>ver tudo</button>' : '') +
-      '<div class="acoes" style="margin-top:10px">' + (p.tarefa_id || p.status === 'tratada' ? '' : '<button class="btn btn-p btn-mini" data-tarefa="' + p.id + '">+ Criar tarefa (' + prazoSugerido(p) + ' dias úteis)</button>') +
-      (p.status === 'nova' ? '<button class="btn btn-o btn-mini" data-st="lida">Marcar lida</button>' : '') +
-      (p.status !== 'tratada' ? '<button class="btn btn-o btn-mini" data-st="tratada">Tratada</button>' : '') +
-      (p.status !== 'descartada' ? '<button class="btn btn-o btn-mini" data-st="descartada">Descartar</button>' : '<button class="btn btn-o btn-mini" data-st="nova">Voltar para novas</button>') +
-      (p.link && /^https?:/.test(p.link) ? '<a class="btn btn-o btn-mini" href="' + esc(p.link) + '" target="_blank" rel="noopener">Abrir no Diário</a>' : '') + '</div></div></div>').join('')
-      : '<div class="card">' + (todas.length ? vazio('Nenhuma publicação neste recorte — mude o filtro.') : vazio('Nenhuma publicação ainda. Cadastre as OABs do escritório e o sistema busca no Diário todo dia.', 'OABs monitoradas', '#pub-oabs')) + '</div>');
-  $('pub-corpo').querySelectorAll('[data-copiar-id]').forEach((b2) => b2.onclick = async () => {
-    try { await navigator.clipboard.writeText(b2.dataset.copiarId); aviso('✓ Copiado: Processo, Autor, Réu e Advogado.'); } catch (e) { aviso('Não consegui copiar: selecione o texto e use Ctrl+C.', true); } });
-  $('pub-corpo').querySelectorAll('[data-ver]').forEach((b2) => b2.onclick = () => { b2.previousElementSibling.classList.remove('curto'); b2.remove(); });
-  $('pub-corpo').querySelectorAll('[data-st]').forEach((b2) => b2.onclick = () => comBotao(b2, async () => {
-    const id = b2.closest('[data-pub]').dataset.pub;
-    await q(sb.from('publicacoes').update({ status: b2.dataset.st }).eq('id', id));
-    const p = E._pubs.find((x) => x.id === id); if (p) p.status = b2.dataset.st;
+  const ops = (f) => [...new Set(todas.map(f).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR')).map((x) => [x, x]);
+  const advs = [...new Set((E._pubAdvs || []).map(primeiroNomePub).concat(todas.map(advDaPub)).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR')).map((x) => [x, x]);
+  const resumo = (p) => String(p.texto || '').replace(/\s+/g, ' ').trim();
+  const periodo = '<select class="b-sel-per" id="pub-dias" aria-label="Período">' + [['7', 'Últimos 7 dias'], ['15', 'Últimos 15 dias'], ['30', 'Últimos 30 dias'], ['90', 'Últimos 90 dias'], ['', 'Todo o período']]
+    .map(([v, r]) => '<option value="' + v + '"' + (String(F.dias) === v ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>';
+  tabelaB(el, { id: 'publicacoes', linhas: todas, unidade: ['publicação', 'publicações'], tabCls: 'b-tab-pub', abaPadrao: 'nova', barraExtra: periodo,
+    abas: [['nova', 'Novas'], ['lida', 'Lidas'], ['tratada', 'Tratadas'], ['descartada', 'Descartadas'], ['', 'Todas']].map(([v, r]) => ({ id: v || 'todas', rot: r, f: (p) => !v || p.status === v })),
+    busca: (p) => [p.texto, p.processo, p.destinatarios, p.orgao, p.tribunal, p.tipo].join(' '), dicaBusca: 'Buscar no texto, processo ou parte',
+    conta: (n) => plural(n, 'publicação', 'publicações'), ord: { k: 'data', dir: -1 },
+    listas: [{ k: 'trib', rot: 'Tribunal', todos: 'Todos os tribunais', opcoes: ops((p) => p.tribunal), get: (p) => p.tribunal },
+      { k: 'adv', rot: 'Advogado', todos: 'Todos os advogados', opcoes: advs, get: advDaPub }],
+    colunas: [
+      { k: 'data', rot: 'Data', cls: 'b-data', html: (p) => (p.data_disponibilizacao ? dataBR(p.data_disponibilizacao) : '—'), ord: (p) => p.data_disponibilizacao || '' },
+      { k: 'trib', rot: 'Tribunal', html: (p) => esc(p.tribunal || '—') + (p.status !== 'nova' ? '<small class="b-sub">' + esc({ lida: 'lida', tratada: 'tratada', descartada: 'descartada' }[p.status] || '') + '</small>' : ''), ord: (p) => p.tribunal || '' },
+      { k: 'proc', rot: 'Processo', cls: 'b-num', html: (p) => esc(p.processo || '—') + (p.processo_id ? '<small class="b-sub" title="Processo cadastrado no ERP">no ERP</small>' : ''), ord: (p) => p.processo || '' },
+      { k: 'txt', rot: 'O que diz', cls: 'b-pub-tx', html: (p) => '<b>' + esc(p.tipo || 'Comunicação') + ':</b> ' + esc(resumo(p).slice(0, 170)) + (resumo(p).length > 170 ? '…' : ''), ord: (p) => p.tipo || '' },
+      { k: 'adv', rot: 'Advogado', html: (p) => (advDaPub(p) ? pillPessoa(advDaPub(p)) : '<span class="sub">' + esc(p.parte_monitorada ? 'cliente' : '—') + '</span>'), ord: (p) => advDaPub(p) },
+      { k: 'ac', rot: '', cls: 'b-dir', ord: false, html: (p) => '<span class="b-acoes">' + (p.status === 'nova' ? '<button type="button" class="b-bt-emitir" data-pub-st="lida" data-pub-id="' + p.id + '">Lida</button>' : '') +
+        (p.tarefa_id || p.status === 'tratada' || p.status === 'descartada' ? '' : '<button type="button" class="b-bt-baixa" data-pub-tarefa="' + p.id + '" title="Criar tarefa com prazo de ' + prazoSugerido(p) + ' dias úteis">Tarefa</button>') + '</span>' }],
+    linhaCls: (p) => (p.status === 'nova' ? ' b-pub-nova' : ''),
+    clique: janelaPublicacao,
+    vazio: todas.length ? { titulo: 'Nada nesta aba', frase: 'Troque a aba, o período ou limpe os filtros.' } : { titulo: 'Nenhuma publicação ainda', frase: 'Cadastre as OABs do escritório em "Monitoramento" e o sistema busca no Diário todo dia.' } });
+}
+async function mudarStatusPub(bt, id, st) {
+  return comBotao(bt, async () => {
+    await q(sb.from('publicacoes').update({ status: st }).eq('id', id));
+    const p = (E._pubs || []).find((x) => x.id === id); if (p) p.status = st;
     pintarPublicacoes();
-  }));
-  $('pub-corpo').querySelectorAll('[data-tarefa]').forEach((b2) => b2.onclick = () => comBotao(b2, async () => {
-    const p = E._pubs.find((x) => x.id === b2.dataset.tarefa), fer = await feriados();
+  });
+}
+async function tarefaDaPub(bt, id) {
+  return comBotao(bt, async () => {
+    const p = E._pubs.find((x) => x.id === id), fer = await feriados();
     const proc = p.processo_id ? await q(sb.from('processos').select('grupo_id, advogado').eq('id', p.processo_id).maybeSingle()).catch(() => null) : null;
     const prazo = somarUteis(p.data_disponibilizacao || hojeISO(), prazoSugerido(p), fer);
     const titulo = 'Analisar ' + (p.tipo || 'publicação').toLowerCase() + ' — ' + (p.processo || p.tribunal);
@@ -164,7 +140,25 @@ function pintarPublicacoes() {
       await q(sb.from('publicacoes').update({ status: 'tratada', tarefa_id: t ? t.id : null }).eq('id', p.id));
       await carregarPublicacoes();
     });
-  }));
+  });
+}
+// janela da publicação: identificação (Processo / Autor / Réu / Advogado + Copiar), texto inteiro com as palavras destacadas e as ações
+function janelaPublicacao(p) {
+  const st = { nova: ['Nova', 'b-a'], lida: ['Lida', 'b-b'], tratada: ['Tratada', 'b-g'], descartada: ['Descartada', 'b-n'] }[p.status] || [p.status, 'b-n'];
+  const raiz = abrirJanela({ titulo: (p.tipo || 'Publicação') + ' · ' + (p.tribunal || ''), larga: true, kick: 'Publicação', sub: esc(p.processo || ''),
+    corpo: '<div class="pub-jan" data-pub="' + p.id + '"><div class="sub">' + esc(p.orgao || '') + (p.classe ? ' · ' + esc(p.classe) : '') + ' · ' + (p.data_disponibilizacao ? dataBR(p.data_disponibilizacao) : '') +
+      (p.oab_numero ? ' · ' + esc(p.advogado ? p.advogado + ' · ' : '') + 'OAB ' + esc(p.oab_numero + '/' + p.oab_uf) : p.parte_monitorada ? ' · cliente monitorado: ' + esc(p.parte_monitorada) : '') + '</div>' +
+      partesPub(p) + '<div class="pub-texto">' + destacar(p.texto || '') + '</div></div>',
+    rodape: '<span class="b-pill ' + st[1] + '">' + esc(st[0]) + '</span><span style="flex:1"></span>' +
+      (p.link && /^https?:/.test(p.link) ? '<a class="btn btn-o" href="' + esc(p.link) + '" target="_blank" rel="noopener">Abrir no Diário</a>' : '') +
+      (p.status === 'nova' ? '<button type="button" class="btn btn-o" data-pj-st="lida">Marcar lida</button>' : '') +
+      (p.status !== 'tratada' ? '<button type="button" class="btn btn-o" data-pj-st="tratada">Tratada</button>' : '') +
+      (p.status !== 'descartada' ? '<button type="button" class="btn btn-o" data-pj-st="descartada">Descartar</button>' : '<button type="button" class="btn btn-o" data-pj-st="nova">Voltar para novas</button>') +
+      (p.tarefa_id || p.status === 'tratada' ? '' : '<button type="button" class="btn btn-p" data-pj-tarefa>+ Criar tarefa (' + prazoSugerido(p) + ' dias úteis)</button>') });
+  raiz.querySelectorAll('[data-copiar-id]').forEach((b2) => b2.onclick = async () => {
+    try { await navigator.clipboard.writeText(b2.dataset.copiarId); aviso('✓ Copiado: Processo, Autor, Réu e Advogado.'); } catch (e) { aviso('Não consegui copiar: selecione o texto e use Ctrl+C.', true); } });
+  raiz.querySelectorAll('[data-pj-st]').forEach((b2) => b2.onclick = () => { fecharJanela(raiz); mudarStatusPub(b2, p.id, b2.dataset.pjSt); });
+  const bt = raiz.querySelector('[data-pj-tarefa]'); if (bt) bt.onclick = () => { fecharJanela(raiz); tarefaDaPub(bt, p.id); };
 }
 async function janelaOabs() {
   const [os, ps] = await Promise.all([q(sb.from('oabs_monitoradas').select('*').order('numero')), q(sb.from('partes_monitoradas').select('*').order('nome')).catch(() => [])]);

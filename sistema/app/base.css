@@ -183,7 +183,7 @@ html body.gx-barra-topo table.b-tab td.b-v-atr:not(#_),html body.gx-barra-topo t
 html body.gx-barra-topo table.b-tab td.b-v-av:not(#_),html body.gx-barra-topo table.b-tab td.b-v-av:not(#_) small{color:var(--blue-d)!important}
 /* textos e marcas das células */
 .b-gtx{display:inline-flex;align-items:center;gap:7px;color:var(--text2);font-weight:500;white-space:nowrap}
-.b-ponto{width:8px;height:8px;border-radius:999px;flex:none}
+.b-ponto{display:none}  /* Backup 72: sem bolinha colorida no grupo (o ERP todo) */
 .b-emp{color:var(--ink);font-weight:400}
 .b-plat{font-weight:600;font-size:12px;color:var(--text2)}
 .b-ok-txt{color:var(--green-d);font-weight:600;white-space:nowrap}
@@ -311,9 +311,11 @@ html body.gx-barra-topo table.b-tab-lanc tfoot td:not(#_){white-space:nowrap;ove
 html body.gx-barra-topo table.b-tab.b-tab-proc:not(#_){table-layout:fixed}
 html body.gx-barra-topo table.b-tab-proc:not(#_) :is(th,td){padding-left:8px!important;padding-right:8px!important}
 html body.gx-barra-topo table.b-tab-proc thead th:not(#_){white-space:normal!important;overflow:visible;letter-spacing:0!important;font-size:10.5px!important;line-height:1.25;vertical-align:bottom}
-html body.gx-barra-topo table.b-tab-proc td.b-num:not(#_){white-space:normal!important;word-break:break-all;font-size:11.5px!important}
-.b-tab-proc th:nth-child(1){width:11%}.b-tab-proc th:nth-child(2){width:15%}.b-tab-proc th:nth-child(3){width:11%}.b-tab-proc th:nth-child(4){width:11%}
-.b-tab-proc th:nth-child(5){width:auto}.b-tab-proc th:nth-child(6){width:12%}.b-tab-proc th:nth-child(7){width:12%}.b-tab-proc th:nth-child(8){width:100px}
+html body.gx-barra-topo table.b-tab-proc td.b-num:not(#_){white-space:nowrap!important;overflow:hidden;text-overflow:ellipsis;font-size:11.5px!important}
+html body.gx-barra-topo table.b-tab-proc td.b-num .b-sub:not(#_){font-family:var(--font-ui);white-space:normal}
+/* Backup 72: 7 colunas (a competência foi para baixo do número, que não quebra mais) */
+.b-tab-proc th:nth-child(1){width:13%}.b-tab-proc th:nth-child(2){width:19%}.b-tab-proc th:nth-child(3){width:12%}.b-tab-proc th:nth-child(4){width:auto}
+.b-tab-proc th:nth-child(5){width:12%}.b-tab-proc th:nth-child(6){width:14%}.b-tab-proc th:nth-child(7){width:96px}
 /* Backup 71: 2ª linha das células (legenda, cliente, data da atualização) — sempre embaixo, letra da tela, cinza */
 .b-sub{display:block;font:400 11.5px var(--font-ui);color:var(--text3);margin-top:2px;white-space:normal}
 .b-tab tbody td small{display:block;font-weight:400;font-size:11.5px;color:var(--text3);margin-top:2px}
@@ -339,3 +341,23 @@ body.gx-barra-topo #execRankWrap .tw:not(#_){min-height:0!important;height:auto!
 @media (max-width:600px){.b-seg{max-width:100%;overflow-x:auto;scrollbar-width:none}.b-seg::-webkit-scrollbar{display:none}}
 .b-tab tfoot td small{white-space:nowrap}
 html body .b-tab-lanc td.b-val.valor-rec:not(#_){color:var(--green-d)!important}html body .b-tab-lanc td.b-val.valor-desp:not(#_){color:var(--red-d)!important}
+/* ═══ Backup 72 — Tarefas no desenho novo (tabelaB) e o que vale para o ERP todo ═══ */
+.b-n{color:var(--text3);background:var(--gray-lt)}
+.b-tab-tf td.b-tf-pes .pill-pessoa:not(#_){display:inline-block;width:96px;max-width:96px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;box-sizing:border-box;vertical-align:middle}
+.b-tab-tf td.b-tf-tit{white-space:normal;min-width:260px}
+.b-tab-tf td .tf-linha2{margin-top:2px}
+.b-tab-tf tr.tf-feita td.b-tf-tit{color:var(--text2)}
+.b-tab-tf td .pill.tf-st{font:600 12px var(--font-ui)}
+#tf-chips.tf-so-quem{margin:0 0 12px}
+#tf-chips.tf-so-quem .fila-chip:not(#_){font:600 12.5px var(--font-ui)!important;padding:5px 12px!important;border-color:var(--border-strong)!important}
+#tf-chips.tf-so-quem .fila-chip.ativo:not(#_){background:var(--primario)!important;border-color:var(--primario)!important;color:var(--on-primario,var(--on-cor))!important}
+.b-cg-nums{font:500 11.5px var(--font-num);color:var(--text3);margin:-2px 0 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.b-cg-nums b{font-family:var(--font-ui);color:var(--text2)}
+/* Publicações (Backup 72): tabela no lugar dos cartões grandes */
+.b-sel-per{height:34px;border:1px solid var(--border-strong);border-radius:var(--r-ctl);background-color:var(--surface);color:var(--text);font:13px var(--font-ui);padding:0 28px 0 10px}
+.b-tab-pub td.b-pub-tx{white-space:normal;min-width:280px;color:var(--text)}
+.b-tab-pub td.b-pub-tx b{font-weight:600}
+.b-tab-pub tr.b-pub-nova td:first-child{font-weight:600}
+.b-tab-pub td.b-num{white-space:nowrap}
+.pub-jan .pub-texto{max-height:52vh;overflow:auto}
+.b-quadro .vazio.b-vazio-bt{padding:0 0 18px;margin:0;border:0;background:none;box-shadow:none;text-align:center;min-height:0}

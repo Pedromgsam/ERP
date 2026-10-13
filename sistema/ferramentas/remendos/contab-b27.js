@@ -1,7 +1,7 @@
 // ═══ Backup 27 — Financeiro Contabilidade: Análise ÚNICA (sem os cartões "Recebimentos / Pagamentos") ═══
 // • Números dos dois lados: Recebido, A receber, Pago, A pagar e Em atraso.
 // • "Recebido × pago mês a mês": recebido em verde e pago em vermelho (as cores do Recebido mês a mês do Jurídico).
-// • Duas tabelas: Comparativo por cliente e Comparativo por fornecedor.
+// • Backup 72: "Recebido por tipo de serviço" e "Maiores grupos" (iguais aos do Jurídico); os comparativos por cliente/fornecedor saíram.
 // • "Em atraso" com a coluna Receita / Despesa.
 // Os chips de Cliente e o Recorte (tipo) valem para as receitas; período vale para tudo.
 function _fcFiltrarPag(abas){
@@ -38,10 +38,15 @@ function _fcPintarCorpo(){
   +   '<div class="cc-d">verde = recebido · vermelho = pago (despesas) · passe o mouse na coluna para ver o saldo do mês</div></div></div>'
   +   '<div class="cb" style="height:280px"><canvas id="cFcMes"></canvas></div></div>'
   + '<div hidden aria-hidden="true"><canvas id="cFcQuem"></canvas></div>'
-  + '<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t">Comparativo por cliente</div><div class="cc-d">receitas · mesmo período e mesmos recortes acima</div></div></div>'
-  +   _fcComLado('receber', function(){ return _fcTabelaComp(_fcTabelaPessoas(_fcPessoas())); }) + '</div>'
-  + '<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t">Comparativo por fornecedor</div><div class="cc-d">despesas · mesmo período</div></div></div>'
-  +   _fcComLado('pagar', function(){ return _fcTabelaComp(_fcTabelaPessoas(_fcPessoas())).replace('<th style="text-align:right">Recebido</th>','<th style="text-align:right">Pago</th>').replace('<th style="text-align:right">A receber</th>','<th style="text-align:right">A pagar</th>').replace(/color:var\(--green-d\);font-weight:600/g,'color:var(--red-d);font-weight:600'); }) + '</div>'
+  // Backup 72: no lugar dos comparativos por cliente/fornecedor, os mesmos gráficos do Jurídico
+  + '<div class="crow c2" style="margin-bottom:14px">'
+  +   '<div class="cc"><div class="cc-hd"><div><div class="cc-t">Recebido por tipo de serviço</div>'
+  +     '<div class="cc-d">área do serviço · mesmo período e recortes acima</div></div></div>'
+  +     '<div class="cb" style="height:240px"><canvas id="cFcTipo"></canvas></div></div>'
+  +   '<div class="cc"><div class="cc-hd"><div><div class="cc-t">Maiores grupos</div>'
+  +     '<div class="cc-d">10 primeiros por valor recebido</div></div></div>'
+  +     '<div class="cb" style="height:240px"><canvas id="cFcGrupo"></canvas></div></div>'
+  + '</div>'
   + (false&&atraso.length?'<div class="cc" style="margin-bottom:14px"><div class="cc-hd"><div><div class="cc-t">Em atraso</div><div class="cc-d">receitas e despesas vencidas · todos os meses</div></div></div>'+_fcTabelaAtraso(atraso)+'</div>':'');
   _fcGraficosB27(rec, pag);
 }
@@ -72,6 +77,14 @@ function _fcGraficosB27(rec, pag){
         tooltip:{mode:'index',intersect:false,callbacks:{label:function(c){ return ' '+c.dataset.label+': '+fF(c.raw||0); },
           footer:function(it){ if(!it||!it.length) return ''; var i=it[0].dataIndex; return 'Saldo do mês: '+fF((dR[i]||0)-(dP[i]||0)); }}}},
       scales:{x:{ticks:{font:{size:10}},grid:{display:false}},y:{ticks:{font:{size:10},callback:function(v){ return fS(v); }},grid:{color:'rgba(0,0,0,.04)'}}}}});
+  // Backup 72: tipo de serviço e maiores grupos (mesmo desenho do Jurídico)
+  var barras=function(id, chave){ if(!$(id)) return;
+    var ks=[...new Set(rec.map(chave))], vs=ks.map(function(k){ return rec.filter(function(f){ return chave(f)===k; }).reduce(function(s,f){ return s+_fcVal(f); },0); });
+    var ix=vs.map(function(_,i){ return i; }).sort(function(a,b){ return vs[b]-vs[a]; }).slice(0,10);
+    var cfg=bCfg(ix.map(function(i){ return ks[i]; }),ix.map(function(i){ return vs[i]; }),null,true);
+    cfg.options.animation=false; _barrasComValor(cfg); mCh(id,cfg); };
+  barras('cFcTipo', function(f){ return f.servico||'Não informado'; });
+  barras('cFcGrupo', function(f){ return f.grupo||'—'; });
 }
 
 // Backup 28: os dois comparativos com as MESMAS larguras de coluna (um embaixo do outro, 100% alinhados) e linha de Total

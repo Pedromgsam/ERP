@@ -460,12 +460,13 @@
         { k: 'nat', rot: 'Natureza', todos: 'Todas as naturezas', opcoes: ops((p) => p.natureza), get: (p) => p.natureza }],
       colunas: [
         { k: 'g', rot: 'Grupo', html: (p) => escH(p.grupo || '—'), ord: (p) => (p.grupo || '').toLowerCase() },
-        { k: 'n', rot: 'Processo', cls: 'b-num', html: (p) => escH(p.numero || '—'), ord: (p) => p.numero || '' },
-        { k: 'comp', rot: 'Competência', html: (p) => escH(p.competencia || '—'), ord: (p) => p.competencia || '' },
+        // Backup 72: como no ambiente de teste — a competência vai embaixo do número (sem coluna própria; continua em "Filtros")
+        { k: 'n', rot: 'Processo', cls: 'b-num', html: (p) => escH(p.numero || '—') + (p.competencia ? '<span class="b-sub">' + escH(p.competencia) + '</span>' : ''), ord: (p) => p.numero || '' },
         { k: 'nat', rot: 'Natureza', html: (p) => escH(p.natureza || '—'), ord: (p) => p.natureza || '' },
         { k: 'pt', rot: 'Partes', html: (p) => { const x = partes(p); return x.length ? escH(x[0]) + (x[1] ? '<span class="b-sub">× ' + escH(x[1]) + '</span>' : '') : '—'; }, ord: (p) => (p.autor || '').toLowerCase() },
         { k: 'v', rot: 'Valor', cls: 'b-dir b-val', soma: true, html: (p) => (p.valor ? fBRL(p.valor) + (p.valorEm ? '<small>em ' + escH(p.valorEm) + '</small>' : '') : '—'), ord: (p) => Number(p.valor) || 0 },
-        { k: 'mov', rot: 'Última movimentação', cls: 'b-cen b-data', html: (p) => { const d = p.ultimaMovEm || p.atualizacao; return d ? escH(d) + (p.ultimaMov ? '<small title="' + escH(p.ultimaMov) + '">' + escH(String(p.ultimaMov).slice(0, 40)) + '</small>' : '') : '—'; }, ord: (p) => isoDeBR(p.ultimaMovEm || p.atualizacao) || '0' },
+        { k: 'mov', rot: 'Última movimentação', cls: 'b-cen b-data', html: (p) => { const d = p.ultimaMovEm || p.atualizacao, iso = isoDeBR(d), velho = iso && iso < new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10);
+          return d ? (velho ? '<span class="b-pz-r" title="Mais de 30 dias sem novidade">' + escH(d) + '</span>' : escH(d)) + (p.ultimaMov ? '<small title="' + escH(p.ultimaMov) + '">' + escH(String(p.ultimaMov).slice(0, 40)) + '</small>' : '') : '—'; }, ord: (p) => isoDeBR(p.ultimaMovEm || p.atualizacao) || '0' },
         { k: 'st', rot: 'Status', cls: 'b-cen', html: (p) => '<span class="b-pill ' + (sit(p) === 'at' ? 'b-g' : sit(p) === 'arq' ? 'b-a' : 'b-r') + '">' + escH(p.arquivamento || 'Ativo') + '</span>', ord: (p) => sit(p) }],
       clique: (p) => abrirProcesso(p),
       vazio: { titulo: 'Nenhum processo aqui', frase: 'Troque a aba (Ativos, Arquivados, Extintos, Todos) ou limpe os filtros.' } });
