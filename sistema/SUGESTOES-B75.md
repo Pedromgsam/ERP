@@ -19,7 +19,7 @@ Responda com os números que aprova (ex.: "S1, S2, L3, F1"). Nada aqui foi feito
 Já limpo no B75 **(feito)**:
 - 41 cópias antigas de funções no banco;
 - 18 funções de tela que nada mais chamava (ex.: o Kanban de Tarefas, que não tinha botão);
-- 282 regras de desenho do `design.css` que apontavam para peças que não existem mais (o arquivo foi de 1861 para cerca de 1570 linhas);
+- 287 regras de desenho do `design.css` que apontavam para peças que não existem mais (o arquivo foi de 1861 para 1553 linhas);
 - no portal do cliente, o menu mostrava "Execuções" e "Publicações", telas da equipe que abriam vazias para ele. Agora só a equipe vê.
 
 ## Simplificação (S)

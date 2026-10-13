@@ -42,8 +42,8 @@ body.gx-barra-topo .gs-area > .titulo-pag:first-child p,body.gx-barra-topo .mod-
 /* ═══ cartões: UM desenho só ═══
    fundo do cartão, borda 1px leve, raio 12px, sombra de uma camada; cor de situação só no ponto/ícone */
 body.gx-barra-topo :is(.cc,.ex-bn,.tw,.kc,.acx),
-body.gx-barra-topo .gs :is(.card,.kpi,
-body.gx-barra-topo .cr-linha .cr-col {
+body.gx-barra-topo .gs :is(.card,.kpi,.ini-res,.al-card:not(.al-chip),.al-radar,.ap-item,.faixa-aprov,.cx-item,.mural-it,.item-ficha,.pub-card),
+body.gx-barra-topo .cr-linha .cr-col{
   background:var(--surface)!important;border:1px solid var(--border)!important;border-radius:var(--card-r)!important;box-shadow:var(--shadow-card)!important}
 body.gx-barra-topo :is(.cc,.kc):hover{transform:none!important;box-shadow:var(--shadow-card)!important;border-color:var(--border)!important}
 body.gx-barra-topo .cc::before,body.gx-barra-topo .kc::after{content:none!important;display:none!important}
@@ -246,16 +246,6 @@ body.gx-barra-topo .gs .al-rotina .al-pt{animation:none}
 @media (max-width:760px){body.gx-barra-topo .gs .al-rotinas .al-card.al-rotina{grid-template-columns:auto 1fr auto;grid-template-areas:'pt rot val' 'pt det det'}}
 @media (max-width:600px){}
 body.gx-barra-topo .gs .al-feed .al-card.al-linha.al-atencao:not(.al-chip){border-left:0!important}
-
-/* ═══ Backup 20 ═══ */
-/* explicação ao passar o mouse: "?" discreto com balão (Backup 21) */
-.info-i{position:relative;display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;
-  font:500 13px/1 var(--font-ui);color:var(--text3);cursor:help;vertical-align:0;margin-left:4px;text-transform:none;letter-spacing:0}
-.info-i:hover,.info-i:focus-visible{color:var(--navy3);outline:none}
-.info-i::after{content:attr(data-dica);position:absolute;left:50%;top:calc(100% + 8px);transform:translateX(-50%);width:max-content;max-width:280px;
-  padding:8px 11px;border-radius:var(--r-ctl);background:var(--ink);color:var(--surface);font:400 12px/1.45 var(--font-ui);text-align:left;white-space:normal;
-  box-shadow:var(--shadow-md);display:none;pointer-events:none;z-index:300}
-.info-i:hover::after,.info-i:focus-visible::after{display:block}
 /* Início: lembretes no topo, com destaque de cor e fixos */
 body.gx-barra-topo .gs .ini-lemb .card-hd{gap:8px}
 body.gx-barra-topo .gs .lemb-lista{display:flex;flex-direction:column;gap:6px}
@@ -472,8 +462,6 @@ body.gx-barra-topo :is(.lg-gl,.lg-i):focus-visible{outline:2px solid var(--navy3
 body.gx-barra-topo .lg-nome{font:500 13.5px var(--font-ui);color:var(--ink);text-transform:uppercase;letter-spacing:.01em}
 body.gx-barra-topo .lg-sub{font:400 12px/1.45 var(--font-ui);color:var(--text3);margin-top:2px}
 body.gx-barra-topo .lg-sub b{color:var(--text);font-weight:600}
-body.gx-barra-topo .lg-pag{font:400 13px var(--font-ui);color:var(--text)}
-body.gx-barra-topo .lg-pag b{font-weight:700;color:var(--ink)}
 body.gx-barra-topo .lg-st{display:inline-block;padding:2px 9px;border-radius:var(--r-pill);font:600 11px var(--font-ui);white-space:nowrap;border:1px solid transparent}
 body.gx-barra-topo .lg-st-r{background:var(--red-lt);color:var(--red-d);border-color:var(--red-bd)}
 body.gx-barra-topo .lg-st-g{background:var(--green-lt);color:var(--green-d);border-color:var(--green-bd)}
@@ -541,10 +529,6 @@ body.gx-barra-topo .gs select:not([multiple]):not([size]), body.gx-barra-topo .g
   background-position:calc(100% - 15px) 50%,calc(100% - 10px) 50%;background-size:5px 5px,5px 5px;background-repeat:no-repeat;background-color:var(--surface)}
 body.gx-barra-topo .gs select:not([multiple]):not([size]):hover{border-color:var(--border-strong)}
 body.gx-barra-topo .gs select:not([multiple]):not([size]):focus{outline:none;border-color:var(--primario);box-shadow:0 0 0 3px color-mix(in srgb,var(--primario) 18%,transparent)}
-/* Backup 28: Comparativo por cliente × por fornecedor com as mesmas colunas e linha de total */
-table.fc-comp{table-layout:auto;width:100%}
-table.fc-comp td:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-table.fc-comp tr.fc-comp-tot td{border-top:2px solid var(--border-strong);background:var(--surface2)}
 @media(max-width:900px){}
 /* Backup 29: coluna "Guias" na lista por grupo (Parcelamentos e Acordos) */
 @media(min-width:901px){body.gx-barra-topo :is(.lg-hd,.lg-gl,.lg-i){grid-template-columns:minmax(0,1fr) 170px 230px 180px 200px 24px}}
@@ -684,11 +668,6 @@ body.gx-barra-topo .lg-cards .lg-painel{grid-column:1/-1;border:1.5px solid var(
 @media(max-width:760px){.lg-ficha{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .ac-ap tr.ac-ap-venc td{background:color-mix(in srgb,var(--red-lt) 55%,transparent)}
 .ac-ap .ac-ap-ac{text-align:right;white-space:nowrap}
-.ac-selbar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 12px;margin:0 0 8px;border:1px dashed var(--border-strong);border-radius:var(--r-ctl);background:var(--surface2)}
-.ac-selbar .acoes{display:flex;gap:6px}
-.ac-bt-boleto{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border:1px solid var(--border-strong);border-radius:var(--r-ctl);background:var(--surface);color:var(--ink);font:600 12px var(--font-ui);cursor:pointer;white-space:nowrap}
-.ac-bt-boleto:hover{border-color:var(--primario);background:var(--hover)}
-.ac-bt-boleto.ac-bt-prim{background:var(--primario);border-color:var(--primario);color:var(--on-cor)}
 body.gx-barra-topo .ac-ap td,body.gx-barra-topo .ac-ap th{padding-left:8px!important;padding-right:8px!important}
 body.gx-barra-topo .ac-ap td.mono{white-space:nowrap}
 /* ── Backup 35: densidade — um pouco menor em tudo (cartões, títulos e números), sem mudar o desenho ── */

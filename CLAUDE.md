@@ -149,7 +149,7 @@ Tarefas · **Alertas** (cartões por setor + rotina do cartão CNPJ) · Notifica
   quando entre ela e a próxima a função só aparece em corpo plpgsql/comentário ou em grant/revoke/comment/create trigger (esses vão para depois da próxima definição). Conferido: banco do zero
   (2×) antigo × novo com pg_dump de estrutura e dados idênticos, e antigo→novo por cima idêntico. Sobraram 19 cópias (usadas por gatilho/DO/drop no meio do arquivo). Código morto fora: 18 funções
   sem chamada (pillArea, admEmailRevisar, crmPainel, janelaCertificado, diasAtraso, infoI, fimDoMesISO, vistaKanban, horasGastasPorPessoa, _acToggle, _acBarraSel, _lgProx, _lgPag, _parcToggleGrp,
-  _fcComLado, _fcTabelaAtraso, _fcTabelaComp, _fcTotaisPessoas) e 282 regras do design.css cujo seletor exige classe/id que não existe em nenhum .js/.html (1861 → ~1570 linhas). MENU: 4º item do
+  _fcComLado, _fcTabelaAtraso, _fcTabelaComp, _fcTotaisPessoas) e 287 regras do design.css cujo seletor exige classe/id que não existe em nenhum .js/.html (1861 → 1553 linhas). MENU: 4º item do
   submenu = só equipe (`['execucoes', …, 1]`) → o cliente não vê Execuções/Publicações. O que ainda depende do ERP.html e as sugestões S1–S8/L1–L4/F1–F6: `sistema/SUGESTOES-B75.md`.
   PRÓXIMO: A4 (apagar ERP.html + remendos) depois de S1 (Financeiro), S2/S3/S6 (Painel/Processos), S4 (Notificações) e S5 (portal do cliente).
   Servidores de teste: o run_in_background mata processos em 2 h — subir PostgREST e servidor-local com `setsid nohup … &` (não expira).

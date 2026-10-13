@@ -719,7 +719,7 @@ O que mudou. **Nenhuma função saiu; nas telas só muda o menu do cliente.**
 - Como foi conferido: banco novo do zero com o arquivo antigo × com o novo (rodando 2 vezes cada) → estrutura e dados **idênticos**; banco montado com o antigo e depois atualizado com o novo → idêntico; todos os testes passaram.
 - **Limpeza do código (parte do A4)**:
   - saíram 18 funções de tela que nada mais chamava (ex.: o Kanban de Tarefas, que não tinha botão);
-  - saíram 282 regras do `design.css` que apontavam para peças que não existem mais (1861 → cerca de 1570 linhas).
+  - saíram 287 regras do `design.css` que apontavam para peças que não existem mais (1861 → 1553 linhas).
 - **Portal do cliente**: o menu dele mostrava "Execuções" e "Publicações" (telas da equipe, que abriam vazias). Agora só a equipe vê.
 - **A4 (apagar o ERP antigo)**: ainda não dá para apagar o `ERP.html`. A lista do que ainda depende dele e as sugestões novas (S/L/F) estão em `sistema/SUGESTOES-B75.md`.
 
