@@ -1551,7 +1551,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     // ── Backup 50 ──
     { await nav(p, 'tarefas'); await p.evaluate(() => { GS.E.tf = null; }); await nav(p, 'tarefas'); await p.waitForTimeout(1500);
       const cab = await p.$$eval('#panel-tarefas table thead th', (l) => l.map((t) => t.textContent.trim()).filter(Boolean)).catch(() => []);
-      ok('B50 Tarefas: Prazo e Dias em colunas separadas e status com cor', cab.includes('Prazo') && cab.includes('Dias') && !!(await p.$('#panel-tarefas .pill.tf-st')), cab.join('|'));
+      ok('B50/B72 Tarefas: Prazo e Situação (ex-"Dias") em colunas separadas e status com cor', cab.some((c) => /^Prazo/.test(c)) && cab.includes('Situação') && !!(await p.$('#panel-tarefas .pill.tf-st')), cab.join('|'));
       await nav(p, 'financeiro'); await p.evaluate(() => setFinTab('receber', document.querySelector('#finTabBar [data-tab=receber]'))); await p.waitForTimeout(1500);
       ok('B50 Financeiro: valor a receber em verde e botões da linha numa linha só', await p.evaluate(() => {
         const v = document.querySelector('#panel-financeiro td.b-val.valor-rec');   // Backup 70: tabela nova (tabelaLancB)
