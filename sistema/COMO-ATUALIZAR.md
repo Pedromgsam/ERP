@@ -722,7 +722,7 @@ O que mudou (a partir das suas respostas de 12/10/2026). **Nenhuma função saiu
   1. **Passivo**: igual a hoje, com duas colunas como no ambiente — **Certificado** mostra a data de validade (vermelha se venceu, amarela em até 30 dias; sem data cadastrada fica o Sim/Não) e
      **Conferência** é o botão verde **"Conferido"** com "último dd/mm" (ou "nunca") embaixo; conferida há até 15 dias mostra só "✓ dd/mm".
   2. **Planilha**: como no ambiente — grupos em pílulas, cartões em grade (sem rolar para o lado), selos menores e só as parcelas perto de hoje, com **"Ver todas as N parcelas"**.
-     Continuam: **última parcela**, **valor residual**, **"Nós emitimos as guias"** e a observação.
+     Continuam: **última parcela**, **valor residual**, **"Nós emitimos as guias"** e a observação. "Em atraso" fica na pílula vermelha única do sistema.
   3. **Minhas tarefas**: a do ambiente (já era desde o Backup 70); o título da tarefa sem negrito.
 - **Importações** e **Usuários**: no ERP já estão como você pediu (sem histórico/reverter; Usuários com editar e excluir) — nada mudou.
 
