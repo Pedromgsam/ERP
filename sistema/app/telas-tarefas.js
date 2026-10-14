@@ -139,6 +139,7 @@ const TIPOS_AGENDA = [['reuniao', 'Reunião', '🤝'], ['audiencia', 'Audiência
 const legendaAgenda = () => '<div class="ag-leg">' + TIPOS_AGENDA.map(([k, r]) => '<span><i class="ag-cor ag-' + k + '"></i>' + r + '</span>').join('') +
   '<span><i class="ag-cor ag-tarefa"></i>Tarefa</span><span><i class="ag-cor ag-rotina"></i>Rotina</span><span><i class="ag-cor ag-atrasada"></i>Atrasada</span><span><i class="ag-cor ag-feita"></i>Concluída</span><span><i class="ag-cor ag-prevista"></i>Próxima (repete)</span><span>⚑ Prazo fatal</span></div>';
 // Backup 45: filtros da agenda (marca/desmarca) — tipo do item e de quem é (respeitando o cargo: ninguém vê a agenda de quem está acima)
+const ROT_TIPO_TF = { reuniao: 'Reunião', audiencia: 'Audiência', compromisso: 'Compromisso', tarefa: 'Tarefa', rotina: 'Rotina' };
 const FILTRO_TIPOS_AG = [['reuniao', 'Reuniões'], ['audiencia', 'Audiências'], ['compromisso', 'Compromissos'], ['tarefa', 'Tarefas'], ['rotina', 'Rotinas']];
 function tipoItemAgenda(t) {
   if (t.tipo_agenda) return t.tipo_agenda === 'ligacao' ? 'compromisso' : t.tipo_agenda;
@@ -529,6 +530,7 @@ function filtrarTarefas(daLista) {
 function pintarTarefas() {
   const F = E.tf, h = hojeISO();
   document.querySelectorAll('#tf-vista button').forEach((b) => b.classList.toggle('ativo', b.dataset.v === F.vista));
+  { const fl = document.querySelector('#panel-tarefas .filtros, #gs-main-tarefas .filtros'); if (fl) fl.style.display = F.vista === 'lista' ? 'none' : ''; }
   if (F.vista !== 'lista') F.aba = 'abertas';   // Backup 72: as abas (Concluídas, Excluídas…) são da Lista; Semana/Calendário/Fluxos mostram as em aberto
   // Backup 48: filtros em botões que se marcam/desmarcam (iguais aos da agenda do Início); pessoas: Todos, eu, depois os outros
   { const tipos = FILTRO_TIPOS_AG.map((x) => x[0]), tSel = new Set(F.tipos || tipos), eu = primeiroNome(meuNome());
@@ -540,7 +542,8 @@ function pintarTarefas() {
         chipFiltro('data-tf-pes', '*', 'Todos', todasP) + pes.map((n) => chipFiltro('data-tf-pes', primeiroNome(n), nomeCurto(n), pSel.has(primeiroNome(n)))).join('') + '</div>' : '';
     // Backup 72: na Lista, só "De quem" (pílulas do desenho novo); tipo e prioridade ficam no botão "Filtros" da tabela
     $('tf-chips').classList.toggle('tf-so-quem', F.vista === 'lista');
-    if (F.vista === 'lista') { $('tf-chips').classList.remove('fila-2x2'); $('tf-chips').innerHTML = deQuem.replace(/✓ /g, ''); }
+    // Backup 82: na Lista, como no ambiente — busca, "De quem", tipo e prioridade ficam na barra da tabela (Filtros)
+    if (F.vista === 'lista') { $('tf-chips').classList.remove('fila-2x2'); $('tf-chips').innerHTML = ''; }
     else {
     $('tf-chips').classList.add('fila-2x2');
     $('tf-chips').innerHTML = filtros2x2('<div class="fila-chips" role="group" aria-label="Mostrar"><span class="fila-chips-rot">Mostrar</span>' +
@@ -599,18 +602,21 @@ function vistaLista(alvo) {
       { id: 'excluidas', rot: 'Excluídas', f: (t) => t.status === 'cancelada' && String(t.atualizado_em || '') >= somarDias(h, -90) }],   // mais de 90 dias: só no histórico
     prazos: true, prazosAbas: ['abertas'], venc: (t) => t.prazo || '', ord: { k: 'prazo', dir: 1 }, ordAbas: { concluidas: { k: 'prazo', dir: -1 } },
     listas: [{ k: 'tipo', rot: 'Tipo', todos: 'Todos os tipos', opcoes: FILTRO_TIPOS_AG, get: (t) => tipoItemAgenda(t) },
-      { k: 'pri', rot: 'Prioridade', todos: 'Todas as prioridades', opcoes: [['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa']], get: (t) => t.prioridade }],
+      { k: 'pri', rot: 'Prioridade', todos: 'Todas as prioridades', opcoes: [['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa']], get: (t) => t.prioridade },
+      { k: 'pes', rot: 'De quem', todos: 'Todas as pessoas', opcoes: pessoasFiltro().map((n) => [primeiroNome(n), nomeCurto(n)]), get: (t) => [t.responsavel, t.revisor].concat(String(t.participantes || '').split(',')).filter(Boolean).map(primeiroNome) },
+      { k: 'st', rot: 'Status', todos: 'Todos os status', opcoes: Object.entries(STATUS_TAREFA), get: (t) => t.status }],
+    busca: (t) => [t.titulo, t.processos_vinculados, grupoDe(t), nomeCliente(t.cliente_id), t.etiquetas, t.descricao].join(' '), dicaBusca: 'Tarefa ou cliente…',
     colunas: [
-      { k: 'grupo', rot: 'Grupo', html: (t) => (grupoDe(t) ? esc(grupoDe(t)) : '<span class="sub">—</span>'), ord: (t) => normalizar(grupoDe(t)) || '~' },
       { k: 'tit', rot: 'Tarefa', cls: 'b-tf-tit', ord: (t) => normalizar(t.titulo), html: (t) => {
+        // Backup 82 (desenho do ambiente): tipo em etiqueta antes do título; grupo, cliente, status e repetição na linha de baixo
         const pai = t.tarefa_pai_id ? (porId[t.tarefa_pai_id] || {}).titulo : '';
-        const sub = [pai ? '↳ parte de: ' + pai : '', t.cliente_id ? nomeCliente(t.cliente_id) : '', t.processos_vinculados, t.etiquetas].filter(Boolean).join(' · ');
-        const pg = progresso(t, filhasDe(t.id));
-        return esc(t.titulo) + seloFatal(t) + (t.recorrencia ? ' <span class="pill neutro tf-repete" title="' + esc(textoRepete(t)) + '">' + esc(textoRepete(t)) + '</span>' : '') +
+        const st = t.status && !['pendente', 'concluida', 'cancelada'].includes(t.status) ? (STATUS_TAREFA[t.status] || t.status) : '';
+        const sub = [grupoDe(t), pai ? '↳ parte de: ' + pai : '', t.cliente_id ? nomeCliente(t.cliente_id) : '', t.processos_vinculados, t.etiquetas, st, t.recorrencia ? textoRepete(t) : ''].filter(Boolean).join(' · ');
+        const pg = progresso(t, filhasDe(t.id)), tp = tipoItemAgenda(t);
+        return '<span class="b-tf-tipo b-tf-tipo-' + tp + '">' + esc(ROT_TIPO_TF[tp] || 'Tarefa') + '</span>' + esc(t.titulo) + seloFatal(t) +
           ((sub || pg) ? '<div class="sub tf-linha2">' + barraProgresso(pg) + (sub ? ' ' + esc(sub) : '') + '</div>' : ''); } },
       { k: 'resp', rot: 'Pessoa', cls: 'b-tf-pes', html: (t) => pillPessoa(t.responsavel), ord: (t) => normalizar(t.responsavel) || '~' },
       { k: 'pri', rot: 'Prioridade', cls: 'b-cen', html: (t) => { const p = PRI_B[t.prioridade]; return p ? '<span class="b-pill ' + p[1] + '">' + p[0] + '</span>' : '<span class="sub">—</span>'; }, ord: (t) => ({ alta: 0, media: 1, baixa: 2 })[t.prioridade] ?? 3 },
-      { k: 'st', rot: 'Status', cls: 'b-cen', html: (t) => pillStatusTarefa(t.status), ord: (t) => t.status },
       { k: 'prazo', rot: 'Prazo', cls: 'b-cen b-data', html: (t) => (t.prazo ? dataBR(t.prazo) + (t.hora ? '<small>' + esc(String(t.hora).slice(0, 5)) + '</small>' : '') : '<span class="sub">—</span>'), ord: (t) => t.prazo || '9999' },
       { k: 'sit', rot: 'Situação', cls: 'b-cen b-prazo', html: situacaoTarefa, ord: (t) => (t.status === 'concluida' ? String(t.concluida_em || '') : t.prazo || '9999') },
       { k: 'ac', rot: '', cls: 'b-dir', ord: false, html: (t) => (t.status === 'cancelada'

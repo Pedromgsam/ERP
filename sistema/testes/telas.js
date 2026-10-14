@@ -75,7 +75,7 @@ const r = []; const ok = (n, c) => r.push([n, !!c]);
 
     // contrato gera parcelas com grupo e pessoa
     await menu(p, 'contratos');
-    await p.click('text=+ Novo contrato');
+    await p.click('#ctr-novo');
     await p.selectOption('#f-ctr [name=cliente_id]', { label: 'Zeta Manual LTDA · Grupo Zeta' });
     await p.fill('#f-ctr [name=descricao]', 'Consultoria tributária');
     await p.click('#ctr-mod [data-v=pontual]');
@@ -110,7 +110,7 @@ const r = []; const ok = (n, c) => r.push([n, !!c]);
 
     // Contabilidade: despesa recorrente
     await menu(p, 'contabilidade');
-    await p.click('[data-novo-l=despesa]');
+    await p.click('#fin-lancar'); await p.click('[data-novo-l=despesa]');
     await p.fill('#f-lanc [name=descricao]', 'Sistema contábil');
     await p.fill('#f-lanc [name=valor]', '616,00');
     await p.fill('#f-lanc [name=favorecido]', 'Arquivei');

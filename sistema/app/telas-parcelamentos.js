@@ -127,7 +127,7 @@ TELAS.parcelamentos.semCadastros = true;   // os dados vêm do ERP (DB.parcelame
 function pintarParcelamentos() {
   const el = $('conteudo'); if (!el) return;
   const PA0 = E.pc.PA || [], F = E.pc.f || {}, PA = paFiltrados(), T = [].concat(...PA.map((pa) => pa.parcelas)), h = hojeISO(), podeEd = pode('juridico', 'editar');
-  el.innerHTML = cabecalhoTela({ icone: 'camadas', titulo: 'Parcelamentos', frase: 'Parcelas dos clientes, por vencimento', atualizar: 'pc-atualizar', botao: podeEd ? { id: 'pc-novo', rotulo: 'Novo parcelamento' } : null }) +
+  el.innerHTML = cabecalhoTela({ icone: 'camadas', titulo: 'Parcelamentos', frase: 'Parcelas dos clientes, por vencimento', atualizar: 'pc-atualizar', extra: '<button type="button" class="btn btn-o b-bt" id="pc-guias">' + iconeB('documento') + 'Guias do mês</button>', botao: podeEd ? { id: 'pc-novo', rotulo: 'Parcelamento' } : null }) +
     // Backup 79: filtro suspenso (Grupo / Empresa) — recorta a situação por cliente e a lista de parcelas
     filtroSusB('pc-filtro', [{ k: 'grupo', rot: 'Grupo', todos: 'Todos os grupos', opcoes: unicosTxt(PA0.map((pa) => pa.grupo)), v: F.grupo },
       { k: 'emp', rot: 'Empresa', todos: 'Todas as empresas', opcoes: unicosTxt(PA0.filter((pa) => !F.grupo || pa.grupo === F.grupo).map((pa) => pa.empresa)), v: F.emp }]) +
@@ -135,6 +135,7 @@ function pintarParcelamentos() {
     [['todos', 'Todos'], ['atraso', 'Com atraso'], ['risco', 'Risco de rescisão'], ['dia', 'Em dia'], ['concluidos', 'Concluídos']].map((c) => '<button type="button" class="b-chip" data-pc-chip="' + c[0] + '" aria-pressed="' + (E.pc.chip === c[0]) + '">' + c[1] + '</button>').join('') + '</div></div>' +
     '<div class="b-cards" id="pc-grupos"></div>' +
     '<div class="b-sec"><div><h2>Parcelas</h2></div></div><div id="pc-tabela"></div>';
+  $('pc-guias').onclick = () => { E.rt = Object.assign(E.rt || {}, { aba: 'guias' }); irParaTela('rotina'); };   // Backup 82: atalho do ambiente para as guias do mês (Rotina)
   const bt = $('pc-novo'); if (bt) bt.onclick = () => { const ED = ED_P(); if (ED && ED.abrirParcelamento) ED.abrirParcelamento(null); else aviso('Abra pelo ERP: + Lançar → Parcelamento.', true); };
   $('pc-atualizar').onclick = () => { if (window.ERP_RECARREGAR_MODULOS) window.ERP_RECARREGAR_MODULOS('parcelamentos').then(() => TELAS.parcelamentos()); else TELAS.parcelamentos(); };
   // Backup 71: os 4 cartões do topo saíram a pedido (a tela começa na situação por cliente)

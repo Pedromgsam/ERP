@@ -118,3 +118,5 @@ Aprovado pelo usuário em 08/10/2026. Leia isto antes de qualquer rodada da refo
 - **Respostas de 16/10/2026 ("levar o ambiente todo ao ERP"):** aprovado tudo (E1, E2, E4–E12, M1–M16, A1–A5, N1–N5, F1–F8, X1–X4, P1 e os textos novos), menos D1–D3, E3, M17, M18 e "O que pede ação hoje"; F8 = Clientes como está hoje no ERP.
   Feito no ERP: **Backup 80** (visual, menu, avisos, Rotina, CRM, e-mails, busca/ajuda) e **Backup 81** (portal do cliente novo por grupo, "Ver como o cliente vê", o que cada grupo vê).
   Falta: **A4** — apagar o ERP.html, os remendos do montar-erp e os blocos "Backup N" do design.css (rodada própria, Backup 82).
+- **Respostas de 14/10/2026 (Backup 82, "100% do design do ambiente no ERP"):** Início = faixa do ambiente (agora SIM ao E3: saem os cartões grandes Financeiro/Escritório); Clientes = manter a do ERP; frase do Início = só a data.
+  Feito no **Backup 82** (só front). Mantidos por serem funções que só o ERP tem: pastas de Documentos, "Minha fila de trabalho", Calendário/Fluxos de Tarefas, filtros Grupo/Competência, recortes do Financeiro. Falta: **A4** (tirar o ERP.html) — Backup 83.

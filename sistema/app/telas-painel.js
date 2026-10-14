@@ -17,12 +17,17 @@ TELAS.inicio = async function () {
   // (o usuário pediu para manter, E3 = não), "Meu dia" (hoje + atrasadas) ao lado de Lembretes e "Próximos 7 dias", e o calendário da fila embaixo.
   const h = new Date(), hora = h.getHours(), saud = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';
   const dataLonga = h.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+  // Backup 82 (E3 aprovado): os cartões grandes viraram a faixa "Financeiro · Escritório" em pílulas, como no ambiente; avisos e conferências entram na linha do Escritório
   $('conteudo').innerHTML =
-    cabecalhoTela({ icone: 'inicio', titulo: saud + ', ' + primeiroNomeUsuario(), frase: dataLonga.charAt(0).toUpperCase() + dataLonga.slice(1) }) +   // o "+ Lembrete" fica no cartão de Lembretes (sem botão repetido)
-    '<div id="ini-valid"></div><div id="ini-resumo"></div><div id="ini-conf"></div>' +
-    '<div class="ini-b74"><section class="ini-col"><div class="ini-sec-hd"><div><h2>Meu dia</h2><p>Hoje e o que atrasou</p></div><div class="b-seg ini-quem" id="ini-quem" role="group" aria-label="De quem"></div></div><div id="ini-dia"></div></section>' +
+    cabecalhoTela({ icone: 'inicio', titulo: saud + ', ' + primeiroNomeUsuario(), frase: dataLonga, botao: { id: 'lemb-novo', rotulo: 'Lembrete' } }) +
+    '<div id="ini-valid"></div>' +
+    '<section class="b-faixa-av ini-faixa" id="ini-faixa"><div class="b-faixa-lin" id="ini-lin-fin"><span class="b-faixa-rot">Financeiro</span><div class="ini-conf-l" id="ini-resumo-fin"></div></div>' +
+      '<div class="b-faixa-lin"><span class="b-faixa-rot">Escritório</span><div class="ini-conf-l"><span id="ini-resumo" class="ini-pills"></span><span id="ini-conf" class="ini-pills"></span></div></div></section>' +
+    '<div class="ini-b74"><section class="ini-col"><div class="ini-sec-hd"><div><h2>Meu dia</h2><p>Hoje e o que atrasou</p></div><div class="b-chips ini-quem" id="ini-quem" role="group" aria-label="De quem"></div></div><div id="ini-dia"></div></section>' +
     '<section class="ini-col"><div id="ini-lembretes"></div><div class="ini-sec-hd ini-sec-hd2"><div><h2>Próximos 7 dias</h2></div></div><div id="ini-prox"></div></section></div>' +
     '<div id="ini-fila"></div>';
+  $('lemb-novo').onclick = () => formLembrete();
+  verComoIni();
   cardLembretes().catch((e) => console.error(e));
   cardResumoEscritorio().catch((e) => console.error(e));
   meuDia().catch((e) => console.error(e));
@@ -35,20 +40,31 @@ TELAS.inicio = async function () {
 ICONES_B.inicio = ICONES_B.inicio || '<rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/>';
 // Backup 74: "Meu dia" (prazo até hoje, inclusive atrasadas) e "Próximos 7 dias" — tarefas reais, com Concluir (e Desfazer por 6 s)
 const TIPO_ITEM_INI = { reuniao: 'Reunião', audiencia: 'Audiência', compromisso: 'Compromisso', tarefa: 'Tarefa', rotina: 'Rotina' };
+// Backup 82: "Ver como" (como no ambiente) — o administrador vê o dia de outra pessoa da equipe
+function verComoIni() {
+  if ((E.perfil || {}).papel !== 'admin' || typeof pessoasFiltro !== 'function') return;
+  const ac = document.querySelector('#panel-hoje .b-cab-acoes, #conteudo .b-cab-acoes'); if (!ac) return;
+  E.ini = E.ini || { quem: 'eu' };
+  const pes = pessoasFiltro();
+  ac.insertAdjacentHTML('afterbegin', '<label class="ini-vercomo"><span>Ver como</span><select id="ini-vercomo">' +
+    pes.map((n) => '<option value="' + esc(primeiroNome(n)) + '"' + ((E.ini.pessoa || primeiroNome(meuNome())) === primeiroNome(n) ? ' selected' : '') + '>' + esc(nomeCurto(n)) + '</option>').join('') + '</select></label>');
+  $('ini-vercomo').onchange = (ev) => { E.ini.pessoa = ev.target.value === primeiroNome(meuNome()) ? '' : ev.target.value; E.ini.quem = 'eu'; meuDia(); };
+}
 async function meuDia() {
   const el = $('ini-dia'), elP = $('ini-prox'); if (!el) return;
   E.ini = E.ini || { quem: 'eu' };
   const h = hojeISO(), lim = somarDias(h, 7);
   const L = await buscarTodos(() => sb.from('tarefas').select('id, titulo, prazo, prazo_fatal, hora, responsavel, participantes, revisor, status, tipo_agenda, chave_regra, recorrencia, cliente_id, grupo_id')
     .not('status', 'in', '(concluida,cancelada)').lte('prazo', lim).order('prazo')).catch(() => []);
-  const doDono = (t) => E.ini.quem === 'todos' || ehMinha(t);
+  const daPessoa = (t, p) => [t.responsavel, t.revisor].concat(String(t.participantes || '').split(',')).some((n) => n && primeiroNome(n) === p);
+  const doDono = (t) => E.ini.quem === 'todos' || (E.ini.pessoa ? daPessoa(t, E.ini.pessoa) : ehMinha(t));
   const linha = (t) => { const tipo = TIPO_ITEM_INI[tipoItemAgenda(t)] || 'Tarefa', atr = t.prazo < h;
     const sub = [String(t.responsavel || '').split(' ')[0], t.prazo_fatal ? '<b class="ini-fatal">prazo fatal' + (t.prazo_fatal !== t.prazo ? ' ' + dataBR(t.prazo_fatal).slice(0, 5) : '') + '</b>' : ''].filter(Boolean).join(' · ');
     return '<div class="ini-it' + (atr ? ' ini-it-atr' : '') + '" data-ini-t="' + t.id + '" tabindex="0"><span class="ini-tipo">' + esc(tipo) + '</span><div class="ini-it-tx"><b>' + esc(t.titulo) + '</b>' + (sub ? '<small>' + sub + '</small>' : '') + '</div>' +
       '<span class="ini-dt' + (atr ? ' ini-dt-atr' : '') + '">' + (t.hora ? esc(String(t.hora).slice(0, 5)) + ' · ' : '') + dataBR(t.prazo).slice(0, 5) + '</span>' +
       '<button type="button" class="b-bt-baixa" data-ini-ok="' + t.id + '">Concluir</button></div>'; };
   const pintar = () => {
-    $('ini-quem').innerHTML = [['eu', 'Só eu'], ['todos', 'Equipe toda']].map(([v, r]) => '<button type="button" class="b-seg-bt" data-ini-quem="' + v + '" aria-selected="' + (E.ini.quem === v) + '">' + r + '</button>').join('');
+    $('ini-quem').innerHTML = [['eu', E.ini.pessoa ? 'Só ' + E.ini.pessoa.charAt(0).toUpperCase() + E.ini.pessoa.slice(1) : 'Só eu'], ['todos', 'Equipe toda']].map(([v, r]) => '<button type="button" class="b-chip" data-ini-quem="' + v + '" aria-pressed="' + (E.ini.quem === v) + '">' + r + '</button>').join('');
     const hoje = L.filter((t) => t.prazo && t.prazo <= h && doDono(t)).sort((a, b) => String(a.prazo).localeCompare(String(b.prazo)) || String(a.hora || '').localeCompare(String(b.hora || '')));
     const prox = L.filter((t) => t.prazo && t.prazo > h && t.prazo <= lim && doDono(t));
     el.innerHTML = hoje.length ? '<div class="ini-lista">' + hoje.map(linha).join('') + '</div>' : '<div class="ini-vazio">' + vazioB({ icone: 'ok', titulo: 'Nada para hoje', frase: 'Nenhuma tarefa vence hoje nem está atrasada.' }) + '</div>';
@@ -208,17 +224,14 @@ async function cardLembretes() {
   const el = $('ini-lembretes'); if (!el) return;
   // Backup 27: aparecem os fixados (sempre), os sem prazo e os com data em até 7 dias; o resto fica em "Todos os lembretes"
   const L = await dadosLembretes().catch(() => ({ semGuia: [], vis: [], futuros: [], todos: [], dias: 5 }));
-  el.innerHTML = '<div class="card ini-lemb"><div class="card-hd">Lembretes' +
-      '<span style="margin-left:auto;display:flex;gap:6px"><button type="button" class="btn btn-o btn-mini" id="lemb-todos" title="Todos os lembretes, inclusive os com data depois de 7 dias e os concluídos">📋 Todos (' + L.todos.length + ')</button>' +
-      '<button type="button" class="btn btn-p btn-mini" id="lemb-novo">+ Lembrete</button></span></div><div class="card-bd">' +
-    (L.vis.length ? '<div class="lemb-lista">' + htmlLembretes(L.vis) + '</div>'
-      : '<div class="sub">Nenhum lembrete nos próximos 7 dias.</div>') +
+  // Backup 82: como no ambiente — título "Lembretes" (sem cartão em volta), itens com a faixa de cor à esquerda e "✓ Feito"; o "+ Lembrete" foi para o alto da tela
+  el.innerHTML = '<div class="ini-lemb"><div class="ini-sec-hd"><div><h2>Lembretes</h2></div><button type="button" class="b-link" id="lemb-todos" title="Todos os lembretes, inclusive os com data depois de 7 dias e os concluídos">Todos (' + L.todos.length + ')</button></div>' +
+    (L.vis.length ? '<div class="lemb-lista">' + htmlLembretes(L.vis) + '</div>' : '<div class="ini-vazio-p">Nenhum lembrete nos próximos 7 dias.</div>') +
     (L.futuros.length ? '<button type="button" class="lemb-tg lemb-tg-fut" id="lemb-fut">+ ' + plural(L.futuros.length, 'lembrete mais adiante', 'lembretes mais adiante') + ' — ver todos</button>' : '') +
-    '</div></div>';
+    '</div>';
   const fu = $('lemb-fut'); if (fu) fu.onclick = () => janelaTodosLembretes();
   $('lemb-todos').onclick = () => janelaTodosLembretes();
   ligarLembretes(el, L);
-  $('lemb-novo').onclick = () => formLembrete();
 }
 // Todos os lembretes (Backup 27): fixados, próximos 7 dias/sem prazo, mais adiante e concluídos nos últimos 90 dias
 async function janelaTodosLembretes() {
@@ -287,25 +300,34 @@ async function cardResumoEscritorio() {
         pode('financeiro_contab') ? card('fin-pagar', 'A pagar · Contabilidade', pag.filter((l) => l.empresa === 'contabilidade')) : null].filter(Boolean); })(),
     ['tarefas', '📋', 'Tarefas do escritório', tAb, 'em aberto · equipe toda', [[tAtr, pl(tAtr, 'atrasada', 'atrasadas'), 'vermelho']].concat(prazos([0, tHoje, t5])), tAtr ? 'vermelho' : '']
   ].filter(Boolean);
-  // Backup 38: ícones de traço fino num quadradinho (como nos prints), no lugar dos emojis coloridos
-  const IC = { publicacoes: '<path d="M4 4h12a2 2 0 0 1 2 2v14H6a2 2 0 0 1-2-2z"/><path d="M18 8h2v10a2 2 0 0 1-2 2M8 8h6M8 12h6M8 16h4"/>',
-    parcelamentos: '<path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6M9 13h6M9 17h4"/>', acordos: '<circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-5"/>',
-    crm: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>', financeiro: '<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/>',
-    'fin-pagar': '<path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>', tarefas: '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>' };
-  const icone = (k) => '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (IC[k] || IC[k.replace(/^fin-(jur|contab)$/, 'financeiro')] || '') + '</svg>';
-  // Backup 54: cartões organizados em duas faixas — Financeiro (A receber verde, A pagar vermelho) e Escritório (publicações, parcelamentos,
-  // acordos, CRM, tarefas). Cada cartão: título pequeno, o número grande e, embaixo, uma linha por detalhe (sem amontoar numa linha só).
-  const tom = (k) => (k === 'fin-pagar' ? ' ini-at-pag' : /^fin-/.test(k) ? ' ini-at-rec' : '');
-  const cartao = (t) => '<button type="button" role="listitem" class="ini-at ' + t[6] + tom(t[0]) + '" data-ini-ir="' + t[0] + '">' +
-    '<span class="ini-at-cab"><span class="ini-at-ic" aria-hidden="true">' + icone(t[0]) + '</span><span class="ini-at-tit">' + esc(t[2]) + '</span></span>' +
-    '<span class="ini-at-lin"><b class="ini-at-num">' + t[3] + '</b> <span class="ini-at-rot">' + esc(t[4]) + '</span></span>' +
-    t[5].filter((l) => l[0] == null || l[0]).map((l) => '<span class="ini-at-sub' + (l[0] && l[2] ? ' ' + l[2] : '') + '">' + (l[0] == null ? '' : '<b>' + l[0] + '</b> ') + esc(l[1]) + '</span>').join('') + '</button>';
-  const finT = T.filter((t) => /^fin-/.test(t[0])), escT = T.filter((t) => !/^fin-/.test(t[0]));
-  const faixa = (rot, L) => L.length ? '<div class="ini-faixa"><div class="ini-faixa-rot">' + rot + '</div><div class="ini-atalhos" role="list" aria-label="' + rot + '">' + L.map(cartao).join('') + '</div></div>' : '';
-  el.innerHTML = faixa('Financeiro', finT) + faixa('Escritório', escT);
-  el.querySelectorAll('[data-ini-ir]').forEach((b) => b.onclick = () => {
+  // Backup 82 (E3): pílulas da faixa, como no ambiente — cada uma abre a tela certa (data-ini-ir); só o que pede ação (o resto some)
+  const pil = (k, n, txt, nivel, tit) => '<button type="button" class="ini-conf-it ini-pil b-av-' + nivel + '" data-ini-ir="' + k + '"><span class="b-av-pt" aria-hidden="true"></span>' +
+    (n !== '' && n != null ? '<b>' + n + '</b>' : '') + '<span class="ini-pil-tx" data-tit="' + esc(tit) + '">' + esc(txt) + '</span></button>';
+  const finP = [], esc2 = [];
+  if (lancs && (pode('financeiro_juridico') || pode('financeiro_contab'))) {
+    const at = (l) => l.filter((x) => x.vencimento < h), hj = (l) => l.filter((x) => x.vencimento === h), cinco = (l) => l.filter((x) => x.vencimento >= h && x.vencimento <= lim5);
+    const sm = (l) => brl(soma(l, (x) => Math.abs(vl(x))));
+    const rec = lancs.filter((l) => l.tipo === 'receita'), pag = lancs.filter((l) => l.tipo === 'despesa' && l.empresa === 'contabilidade');
+    const parte = (k, l, nome) => { if (at(l).length) finP.push(pil(k, sm(at(l)), 'de honorários em atraso · ' + nome, 'critico', 'A receber · ' + nome));
+      if (hj(l).length) finP.push(pil(k, sm(hj(l)), 'vence hoje · ' + nome, 'atencao', 'A receber · ' + nome)); };
+    if (pode('financeiro_juridico')) parte('fin-jur', rec.filter((l) => l.empresa !== 'contabilidade'), 'Jurídico');
+    if (pode('financeiro_contab')) { parte('fin-contab', rec.filter((l) => l.empresa === 'contabilidade'), 'Contabilidade');
+      if (at(pag).length) finP.push(pil('fin-pagar', sm(at(pag)), 'a pagar em atraso', 'critico', 'A pagar · Contabilidade'));
+      if (cinco(pag).length) finP.push(pil('fin-pagar', sm(cinco(pag)), 'a pagar em 5 dias', 'atencao', 'A pagar · Contabilidade')); }
+    if (!finP.length) finP.push(pil('fin-jur', '', 'Nada em atraso nem vencendo hoje', 'ok', 'A receber · Jurídico'));
+  }
+  T.forEach((t) => { const [k, , tit, n] = t, num = Number(n) || 0;
+    if (k === 'parcelamentos' && num) esc2.push(pil(k, num, pl(num, 'parcela de parcelamento em atraso', 'parcelas de parcelamento em atraso'), 'critico', tit));
+    if (k === 'acordos' && num) esc2.push(pil(k, num, pl(num, 'parcela de acordo em atraso', 'parcelas de acordo em atraso'), 'critico', tit));
+    if (k === 'publicacoes' && num) esc2.push(pil(k, num, pl(num, 'publicação nova', 'publicações novas'), 'info', tit));
+    if (k === 'crm' && num) esc2.push(pil(k, num, pl(num, 'oportunidade em andamento', 'oportunidades em andamento'), 'info', tit));
+    if (k === 'tarefas' && tAtr) esc2.push(pil(k, tAtr, pl(tAtr, 'tarefa atrasada', 'tarefas atrasadas'), 'critico', tit)); });
+  const lf = $('ini-resumo-fin'); if (lf) { lf.innerHTML = finP.join(''); const lin = $('ini-lin-fin'); if (lin) lin.hidden = !finP.length; }
+  el.innerHTML = esc2.join('');
+  const raiz = $('ini-faixa') || el;
+  raiz.querySelectorAll('[data-ini-ir]').forEach((b) => b.onclick = () => {
     const k = b.dataset.iniIr;
-    if (k === 'tarefas') E.tf = Object.assign(E.tf || {}, { aba: 'abertas', atalho: '' });
+    if (k === 'tarefas') E.tf = Object.assign(E.tf || {}, { aba: 'abertas', atalho: 'atrasadas' });
     if (/^fin-/.test(k)) { if (typeof window.nav === 'function') window.nav(null, k === 'fin-contab' || k === 'fin-pagar' ? 'financeiroContab' : 'financeiro'); return; }
     if (k === 'publicacoes') E.pub = Object.assign(E.pub || { tribunal: '', dias: '30', busca: '' }, { status: 'nova', adv: primeiroNomeUsuario() });
     irParaTela(k);
@@ -430,11 +452,9 @@ async function conferenciasIni() {
   if (!$('ini-conf')) return;
   if (!comItens.length && !avisos.length) { el.innerHTML = ''; return; }
   const pilula = (attr, v, n, txt, nivel) => '<button type="button" class="ini-conf-it b-av-' + nivel + '" ' + attr + '="' + v + '"><span class="b-av-pt" aria-hidden="true"></span>' + (n !== '' ? '<b>' + esc(n) + '</b>' : '') + '<span>' + esc(txt) + '</span></button>';
-  el.innerHTML = '<section class="ini-conf b-faixa-av">' +
-    (avisos.length ? '<div class="b-faixa-lin"><span class="b-faixa-rot">Avisos</span><div class="ini-conf-l" id="ini-avisos">' +
-      avisos.map((x) => pilula('data-av', x.i, /^\d+$/.test(x.valor) ? x.valor : '', /^\d+$/.test(x.valor) ? x.rot.charAt(0).toLowerCase() + x.rot.slice(1) : x.setor === 'Rotinas' ? x.rot + ' · ' + x.valor : x.det || x.rot, x.nivel)).join('') + '</div></div>' : '') +
-    (comItens.length ? '<div class="b-faixa-lin"><span class="b-faixa-rot">Conferências</span><div class="ini-conf-l">' +
-      comItens.map((r) => pilula('data-conf', r.id, r.itens.length, r.itens.length === 1 ? r.rot : r.rots, 'atencao')).join('') + '</div></div>' : '') + '</section>';
+  // Backup 82: avisos e conferências viram pílulas na linha "Escritório" da faixa (como no ambiente)
+  el.innerHTML = avisos.map((x) => pilula('data-av', x.i, /^\d+$/.test(x.valor) ? x.valor : '', /^\d+$/.test(x.valor) ? x.rot.charAt(0).toLowerCase() + x.rot.slice(1) : x.setor === 'Rotinas' ? x.rot + ' · ' + x.valor : x.det || x.rot, x.nivel)).join('') +
+    comItens.map((r) => pilula('data-conf', r.id, r.itens.length, r.itens.length === 1 ? r.rot : r.rots, 'atencao')).join('');
   el.onclick = (ev) => { const av = ev.target.closest('[data-av]');
     if (av) { const x = avisos.find((y) => String(y.i) === av.dataset.av); if (x) abrirAlerta(x, cnpjAv); return; }
     const b = ev.target.closest('[data-conf]'); if (!b) return; const r = regras.find((x) => x.id === b.dataset.conf);

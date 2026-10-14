@@ -21,8 +21,10 @@ TELAS.crm = async function () {
   await carregarCadastros();
   $('conteudo').innerHTML =
     '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('crm') + '</div><div class="b-cab-tx"><h1>CRM</h1><p>Quem pode virar cliente</p></div>' +
-    '<div class="acoes"><button class="btn btn-o" id="cr-etapas" title="Prazo de cada etapa (depois dele vira tarefa) e o que cada uma significa">⚙ Etapas</button><button class="btn btn-o" id="cr-modelos">Modelos de proposta</button>' +
-    '<button class="btn btn-o" id="cr-rapido" title="Só nome, telefone e interesse">⚡ Cadastro rápido</button><button class="btn btn-p" id="cr-nova">+ Nova oportunidade</button></div></div>' +
+    // Backup 82 (ambiente): só "+ Oportunidade" à vista; Etapas, Modelos de proposta e Cadastro rápido no menu ⋯
+    '<div class="acoes"><span class="b-menu-w"><button class="b-ic-bt" id="cr-mais" type="button" title="Mais opções" aria-label="Mais opções" aria-haspopup="true">⋯</button>' +
+    '<span class="b-menu" id="cr-mais-menu" hidden><button type="button" id="cr-rapido" title="Só nome, telefone e interesse">Cadastro rápido</button><button type="button" id="cr-etapas" title="Prazo de cada etapa (depois dele vira tarefa) e o que cada uma significa">Etapas do funil</button>' +
+    '<button type="button" id="cr-modelos">Modelos de proposta</button></span></span><button class="btn btn-p" id="cr-nova">+ Oportunidade</button></div></div>' +
     // abas: no painel ficam só as oportunidades em andamento; ganhas (contrato assinado) e perdidas (cancelado) têm aba própria
     // Backup 37: as abas usam o MESMO filtro escuro dos outros (simetria); "Painel" saiu; responsáveis viram botões
     '<div class="filtros cr-filtros"><div class="segmento" id="cr-abas">' + [['andamento', 'Em andamento'], ['ganho', 'Contratos assinados'], ['perdido', 'Leads perdidos']]
@@ -36,6 +38,9 @@ TELAS.crm = async function () {
   $('cr-modelos').onclick = () => janelaModelosProposta();
   $('cr-rapido').onclick = () => cadastroRapido();
   $('cr-etapas').onclick = () => janelaEtapasCrm();
+  { const bm = $('cr-mais'), mm = $('cr-mais-menu'); bm.onclick = (ev) => { ev.stopPropagation(); mm.hidden = !mm.hidden; };
+    mm.addEventListener('click', () => setTimeout(() => { mm.hidden = true; }, 0));
+    document.addEventListener('click', (ev) => { if (!mm.hidden && !ev.target.closest('.b-menu-w')) mm.hidden = true; }); }
   $('cr-vista').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.vista = b.dataset.v; pintarCrm(); } };
   $('cr-abas').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.aba = b.dataset.aba; pintarCrm(); } };
   $('cr-resp-seg').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.resp = b.dataset.r; pintarCrm(); } };

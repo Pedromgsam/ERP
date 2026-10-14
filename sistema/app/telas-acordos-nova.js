@@ -82,10 +82,10 @@ function pintarAcordos() {
   const el = $('conteudo'); if (!el) return;
   const T0 = E.ac.T || [], F = E.ac.f || {}, T = T0.filter((x) => (!F.grupo || x.grupo === F.grupo) && (!F.emp || x.devedor === F.emp)), h = hojeISO(), podeEd = pode('juridico', 'editar');
   E.ac.Af = acordosDe(T);
-  el.innerHTML = cabecalhoTela({ icone: 'documento', titulo: 'Acordos', frase: 'Dívidas dos clientes com terceiros', atualizar: 'ac-atualizar', botao: podeEd ? { id: 'ac-novo', rotulo: 'Novo acordo' } : null }) +
+  el.innerHTML = cabecalhoTela({ icone: 'documento', titulo: 'Acordos', frase: 'Dívidas dos clientes com terceiros', atualizar: 'ac-atualizar', botao: podeEd ? { id: 'ac-novo', rotulo: 'Acordo' } : null }) +
     filtroSusB('ac-filtro', [{ k: 'grupo', rot: 'Grupo', todos: 'Todos os grupos', opcoes: unicosTxt(T0.map((x) => x.grupo)), v: F.grupo },   // Backup 79
       { k: 'emp', rot: 'Devedor', todos: 'Todos os devedores', opcoes: unicosTxt(T0.filter((x) => !F.grupo || x.grupo === F.grupo).map((x) => x.devedor)), v: F.emp }]) +
-    '<div class="b-sec"><div><h2>Situação dos acordos por cliente</h2><p>Quanto cada grupo já pagou, quanto falta e o que vence este mês.</p></div><div class="b-chips" id="ac-chips">' +
+    '<div class="b-sec"><div><h2>Situação por cliente</h2></div><div class="b-chips" id="ac-chips">' +
     [['todos', 'Todos'], ['atraso', 'Com atraso'], ['risco', 'Risco de rescisão'], ['dia', 'Em dia'], ['concluidos', 'Concluídos']].map((c) => '<button type="button" class="b-chip" data-ac-chip="' + c[0] + '" aria-pressed="' + (E.ac.chip === c[0]) + '">' + c[1] + '</button>').join('') + '</div></div>' +
     '<div class="b-cards" id="ac-grupos"></div><div class="b-sec"><div><h2>Parcelas</h2></div></div><div id="ac-tabela"></div>';
   const bt = $('ac-novo'); if (bt) bt.onclick = () => { if (typeof formAcordoNovo === 'function') formAcordoNovo(() => { if (window.ERP_RECARREGAR) window.ERP_RECARREGAR(); else TELAS.acordos(); }); };

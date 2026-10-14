@@ -11,9 +11,9 @@
 // ═══════════════════════════════════════════════════════════════════
 
 const EMPRESAS = {
-  escritorio:    { tela: 'juridico', titulo: 'Financeiro jurídico', frase: 'Honorários a receber, recebidos e contas a pagar',
+  escritorio:    { tela: 'juridico', titulo: 'Financeiro · Jurídico', frase: 'Honorários a receber, recebidos e contas a pagar',
                    abas: [['analise', 'Análise'], ['lanc', 'Lançamentos']] },
-  contabilidade: { tela: 'contabilidade', titulo: 'Financeiro da contabilidade', frase: 'A receber, a pagar, caixa e distribuição de lucros da contabilidade.',
+  contabilidade: { tela: 'contabilidade', titulo: 'Financeiro · Contabilidade', frase: 'A receber, a pagar, caixa e distribuição de lucros da contabilidade.',
                    abas: [['analise', 'Análise'], ['lanc', 'Lançamentos'], ['caixa', 'Caixa'], ['lucros', 'Distribuição de lucros']] }
 };
 const SOCIOS_LUCRO = ['Pedro', 'Éder'];
@@ -64,13 +64,17 @@ async function telaHonorarios(empresa, forcar) {
   const F = estadoFin(empresa), info = EMPRESAS[empresa], c = $('conteudo');
   if (!c.querySelector('#fin-raiz[data-emp="' + empresa + '"]')) {
     c.innerHTML = '<div id="fin-raiz" data-emp="' + empresa + '">' +
-      cabecalhoTela({ icone: 'financeiro', titulo: info.titulo, frase: info.frase }) +
-      '<div class="b-fin-topo"><div class="b-seg" role="tablist" id="fin-abas">' + info.abas.map((a) => '<button type="button" role="tab" class="b-seg-bt" data-aba="' + a[0] + '">' + a[1] + '</button>').join('') + '</div>' +
-      '<div class="b-fin-avisos" id="fin-avisos"></div><span class="b-barra-dir">' +
-      '<button type="button" class="b-bt-f" id="fin-recibo" title="Gerar um recibo na Central de Documentos">' + iconeB('recibo') + 'Recibo</button>' +
-      (pode(empresa === 'contabilidade' ? 'financeiro_contab' : 'financeiro_juridico', 'editar') ? '<button type="button" class="b-bt-f" data-novo-l="despesa">' + iconeB('mais') + 'Despesa</button>' +
-        '<button type="button" class="btn btn-p b-bt" data-novo-l="receita">' + iconeB('mais') + 'Receita</button>' : '') + '</span></div>' +
+      // Backup 82 (ambiente): Análise | Lançamentos, Recibo e "+ Lançar" (Receita/Despesa) no alto, à direita do título
+      cabecalhoTela({ icone: 'financeiro', titulo: info.titulo, frase: info.frase,
+        extra: '<div class="b-seg" role="tablist" id="fin-abas">' + info.abas.map((a) => '<button type="button" role="tab" class="b-seg-bt" data-aba="' + a[0] + '">' + a[1] + '</button>').join('') + '</div>' +
+          '<button type="button" class="btn btn-o b-bt" id="fin-recibo" title="Gerar um recibo na Central de Documentos">' + iconeB('recibo') + 'Recibo</button>' +
+          (pode(empresa === 'contabilidade' ? 'financeiro_contab' : 'financeiro_juridico', 'editar') ? '<span class="b-menu-w"><button type="button" class="btn btn-p b-bt" id="fin-lancar" aria-haspopup="true" aria-expanded="false">' + iconeB('mais') + 'Lançar</button>' +
+            '<span class="b-menu" id="fin-lancar-menu" hidden><button type="button" data-novo-l="receita">Receita (honorário a receber)</button><button type="button" data-novo-l="despesa">Despesa (conta a pagar)</button></span></span>' : '') }) +
+      '<div class="b-fin-avisos" id="fin-avisos"></div>' +
       '<div id="fin-corpo"><div class="carregando">Carregando…</div></div></div>';
+    { const bl = c.querySelector('#fin-lancar'), mn = c.querySelector('#fin-lancar-menu');
+      if (bl) { bl.onclick = (ev) => { ev.stopPropagation(); mn.hidden = !mn.hidden; bl.setAttribute('aria-expanded', String(!mn.hidden)); };
+        document.addEventListener('click', (ev) => { if (!mn.hidden && !ev.target.closest('.b-menu-w')) { mn.hidden = true; bl.setAttribute('aria-expanded', 'false'); } }); } }
     c.querySelectorAll('[data-novo-l]').forEach((b) => b.onclick = () =>
       formLancamento({ tipo: b.dataset.novoL, empresa, grupo_id: F.an.grupo || null }, () => telaHonorarios(empresa, true)));
     c.querySelector('#fin-abas').onclick = (ev) => { const b = ev.target.closest('[data-aba]'); if (!b) return; F.aba = b.dataset.aba; pintarFin(empresa); };
@@ -279,7 +283,7 @@ function analiseFin(empresa, corpo) {
       linhas.map((l) => '<tr><td>' + pillPessoa(l.p) + '</td>' + td(brl(l.rec), 'b-verde-v') + td((tot ? Math.round(l.rec / tot * 100) : 0) + '%') + '<td class="b-cen">' + l.n + '</td>' + td(l.n ? brl(l.rec / l.n) : '—') + td(l.ar ? brl(l.ar) : '—') + td(l.pj ? brl(l.pj) : '—') + '</tr>').join('') +
       '</tbody><tfoot><tr><td>Total</td>' + td(brl(tot)) + td(tot ? '100%' : '—') + '<td class="b-cen">' + linhas.reduce((s, l) => s + l.n, 0) + '</td><td></td>' + td(brl(linhas.reduce((s, l) => s + l.ar, 0))) + td(brl(linhas.reduce((s, l) => s + l.pj, 0))) + '</tr></tfoot></table></div>' : '<div class="b-barras-vazio">Nada no período.</div>');
   }
-  corpo.innerHTML = fil + numsFaixa(nums) + fluxoDoMes(empresa) + graf + comp + resultadoMeses(meses, receita, pagos, contab) +
+  corpo.innerHTML = fil + fluxoDoMes(empresa) + numsFaixa(nums) + graf + comp + resultadoMeses(meses, receita, pagos, contab) +
     '<div class="b-fin-dois">' + cartaoFin(contab ? 'Recebido por tipo de serviço' : 'Por tipo de serviço', '', barrasFin(somaPor(receita, (l) => l.servico))) +
       cartaoFin('Maiores grupos', '', barrasFin(somaPor(receita, (l) => l.grupos && l.grupos.nome))) + '</div>' +
     (contab ? cartaoFin('Despesas por categoria', 'Pago no período, por categoria.', barrasFin(somaPor(pagos, (l) => l.categoria))) : '');

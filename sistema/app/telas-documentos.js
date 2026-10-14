@@ -203,7 +203,7 @@ TELAS.documentos = async function () {
   await carregarCadastros();
   $('conteudo').innerHTML =
     '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('documento') + '</div><div class="b-cab-tx"><h1>Documentos</h1><p>Arquivos dos clientes</p></div>' +
-    '<div class="acoes"><a class="btn btn-o" id="doc-ger" href="documentos/index.html" target="_blank" rel="noopener" title="Procuração, contrato, recibo… (Ctrl + clique abre numa aba nova)">Gerar documentos</a><button class="btn btn-p" id="doc-novo">+ Enviar documento</button></div></div>' +
+    '<div class="acoes"><a class="btn btn-o" id="doc-ger" href="documentos/index.html" target="_blank" rel="noopener" title="Procuração, contrato, recibo… (Ctrl + clique abre numa aba nova)">' + iconeB('documento') + 'Gerar documentos</a><button class="btn btn-p" id="doc-novo">+ Enviar arquivo</button></div></div>' +
     '<div class="filtros">' +
     '<div class="segmento" id="doc-sit">' + [['ativos', 'Ativos'], ['vencendo', 'Vencendo em 30 dias'], ['arquivados', 'Versões anteriores']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<select class="busca sel" id="doc-tipo"><option value="">Todos os tipos</option>' + TIPOS_DOC.map(([v, r]) => '<option value="' + v + '">' + r + '</option>').join('') + '</select>' +

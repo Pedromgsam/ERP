@@ -335,19 +335,15 @@ async function formCliente(cl, depois, abaInicial) {   // Backup 50: abaInicial 
 
 // ─────────────────────────── CONTRATOS ─────────────────────────────
 TELAS.contratos = async function () {
-  E.ctr = E.ctr || { busca: '', status: 'Ativo' };
-  const F = E.ctr;
-  $('conteudo').innerHTML =
-    '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('contrato') + '</div><div class="b-cab-tx"><h1>Contratos</h1><p>Os valores entram sozinhos no Financeiro</p></div>' +
-    '<div class="acoes"><button class="btn btn-o" id="ctr-sm">Salário mínimo</button><button class="btn btn-p" data-novo="contrato">+ Novo contrato</button></div></div>' +
-    '<div class="filtros"><div class="segmento" id="ctr-status">' + [['Ativo', 'Ativos'], ['Aguardando assinatura', 'Aguardando assinatura'], ['Encerrado', 'Encerrados'], ['Cancelado', 'Cancelados'], ['todos', 'Todos']]
-      .map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
-    '<input class="busca" id="ctr-busca" placeholder="Buscar cliente ou descrição" autocomplete="off"></div><div id="ctr-corpo"></div>';
-  $('ctr-status').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.status = b.dataset.v; pintarContratos(true); } };
-  let t;
-  $('ctr-busca').oninput = (ev) => { clearTimeout(t); t = setTimeout(() => { F.busca = ev.target.value; pintarContratos(false); }, 250); };
+  // Backup 82: no desenho do ambiente — cabeçalho com "Salário mínimo: R$ …" e "+ Contrato"; tabela única (abas por situação, busca, Filtros, total)
+  E.ctr = E.ctr || {};
+  $('conteudo').innerHTML = cabecalhoTela({ icone: 'contrato', titulo: 'Contratos', frase: 'Os valores entram sozinhos no Financeiro',
+    extra: '<button class="btn btn-o b-bt" id="ctr-sm">Salário mínimo</button>', botao: { id: 'ctr-novo', rotulo: 'Contrato' } }) +
+    '<div id="ctr-reaj-box"></div><div id="ctr-corpo"><div class="carregando">Carregando…</div></div>';
+  $('ctr-novo').dataset.novo = 'contrato';
   ligarBotoesNovo($('conteudo'));
   $('ctr-sm').onclick = () => janelaSalarioMinimo();
+  sb.from('salarios_minimos').select('ano, valor').order('ano', { ascending: false }).limit(1).then((r) => { const x = (r.data || [])[0], bt = $('ctr-sm'); if (x && bt) bt.textContent = 'Salário mínimo: ' + brl(x.valor); }, () => {});
   // garante a mensalidade do próximo mês mesmo sem o agendador do banco (uma vez por sessão)
   if (!E._mensalidadesOk) { E._mensalidadesOk = true; await sb.rpc('gerar_mensalidades').then(() => {}, () => {}); }
   await pintarContratos(true);
@@ -355,41 +351,34 @@ TELAS.contratos = async function () {
 
 let _contratos = [];
 async function pintarContratos(buscar) {
-  const F = E.ctr;
-  document.querySelectorAll('#ctr-status button').forEach((x) => x.classList.toggle('ativo', x.dataset.v === F.status));
-  if (document.activeElement !== $('ctr-busca')) $('ctr-busca').value = F.busca;
-  if (buscar) {
-    let c = sb.from('contratos').select('*, clientes(nome, grupos(nome)), lancamentos(valor, pago, vencimento), documentos(id), exitos(id), contratos_aditivos(tipo, data)').order('data_contrato', { ascending: false });
-    if (F.status !== 'todos') c = c.eq('status', F.status);
-    _contratos = await q(c);
-  }
-  let lista = _contratos;
-  if (F.busca) {
-    const b = normalizar(F.busca);
-    lista = lista.filter((c) => normalizar(c.descricao + ' ' + (c.clientes ? c.clientes.nome : '')).includes(b));
-  }
-  const h = hojeISO();
-  const reaj = F.status === 'Ativo' || F.status === 'todos' ? reajustesProximos(_contratos) : [];
-  $('ctr-corpo').innerHTML = (reaj.length ? await cardReajustes(reaj) : '') + '<div class="card">' + (lista.length ?
-    '<div class="tabela-wrap"><table class="ordenavel ctr-tab"><thead><tr><th>Cliente</th><th>Contrato</th><th>Tipo</th><th data-tipo="data">Data</th><th class="num">Valor</th><th class="num">Recebido</th><th>Financeiro</th><th>Situação</th></tr></thead><tbody>' +
-    lista.map((c) => {
-      const parc = c.lancamentos || [];
-      const recebido = soma(parc.filter((p) => p.pago), (p) => p.valor);
-      const atraso = parc.some((p) => !p.pago && p.vencimento < h);
-      return '<tr class="clicavel" data-ctr="' + c.id + '"><td>' + esc(c.clientes ? c.clientes.nome : '—') +
-        (c.clientes && c.clientes.grupos ? '<div class="sub">' + esc(c.clientes.grupos.nome) + '</div>' : '') + '</td>' +
-        '<td>' + esc(c.descricao) + (c.percentual_exito ? '<div class="sub">+ ' + esc(String(c.percentual_exito).replace('.', ',')) + '% de êxito ' + ((c.exitos || []).length ? '<span class="pill pago">🏆 ' + c.exitos.length + ' registrado(s)</span>' : '<span class="pill neutro">aguardando o êxito</span>') + '</div>' : '') + '</td>' +
-        '<td><span class="pill ' + (c.modalidade === 'consultoria' ? 'aberto' : 'neutro') + '">' + (c.modalidade === 'consultoria' ? 'Consultoria' : 'Pontual') + '</span></td>' +
-        '<td class="mono" data-ord="' + c.data_contrato + '">' + dataBR(c.data_contrato) + (c.rescindido_em ? '<div class="sub">rescindido ' + dataBR(c.rescindido_em) + '</div>' : '') + '</td>' +
-        '<td class="num mono" data-ord="' + (c.modalidade === 'consultoria' ? (c.valor_mensal || 0) : c.valor_total) + '">' + valorContratoTexto(c) + '</td>' +
-        '<td class="num mono valor-rec" data-ord="' + recebido + '">' + brl(recebido) + '</td>' +
-        // Backup 39: sem as colunas Parcelas e Anexo (ficam no detalhe); Financeiro antes de Situação
-        '<td>' + (atraso ? '<span class="pill vencido">Parcela em atraso</span>' : parc.length ? '<span class="pill pago">Em dia</span>' : '<span class="pill neutro">—</span>') + '</td>' +
-        '<td>' + pillSituacaoCtr(c) + '</td></tr>';
-    }).join('') + '</tbody></table></div>'
-    : vazio('Nenhum contrato' + (F.status !== 'todos' ? ' com essa situação' : '') + ' — cadastre um contrato e o sistema gera os lançamentos.', '+ Novo contrato', '[data-novo=contrato]')) + '</div>';
-  $('ctr-corpo').querySelectorAll('[data-ctr]').forEach((tr) => tr.onclick = () => detalheContrato(tr.dataset.ctr));
+  if (buscar || !_contratos.length) _contratos = await q(sb.from('contratos').select('*, clientes(nome, cpf_cnpj, grupos(nome)), lancamentos(valor, pago, vencimento), documentos(id), exitos(id), contratos_aditivos(tipo, data)').order('data_contrato', { ascending: false }));
+  if (!$('ctr-corpo')) return;
+  const h = hojeISO(), hoje = new Date(h + 'T00:00:00');
+  const reaj = reajustesProximos(_contratos);
+  $('ctr-reaj-box').innerHTML = reaj.length ? await cardReajustes(reaj) : '';
   ligarReajustes(reaj);
+  const recebido = (c) => soma((c.lancamentos || []).filter((p) => p.pago), (p) => p.valor);
+  const atraso = (c) => (c.lancamentos || []).some((p) => !p.pago && p.vencimento < h);
+  const proxReaj = (c) => (c.status === 'Ativo' && c.modalidade === 'consultoria' && c.forma_valor !== 'salario_minimo' ? aniversarioContrato(c, hoje) : null);
+  tabelaB($('ctr-corpo'), { id: 'contratos', linhas: _contratos, chave: (c) => String(c.id), unidade: ['contrato', 'contratos'], dicaBusca: 'Buscar',
+    abas: [{ id: 'Ativo', rot: 'Ativos', f: (c) => c.status === 'Ativo' }, { id: 'Aguardando assinatura', rot: 'Aguardando assinatura', f: (c) => c.status === 'Aguardando assinatura' },
+      { id: 'Encerrado', rot: 'Encerrados', f: (c) => c.status === 'Encerrado' }, { id: 'Cancelado', rot: 'Cancelados', f: (c) => c.status === 'Cancelado' }, { id: 'todos', rot: 'Todos', f: () => true }],
+    busca: (c) => [c.descricao, c.clientes && c.clientes.nome, c.clientes && c.clientes.cpf_cnpj, c.clientes && c.clientes.grupos && c.clientes.grupos.nome].join(' '),
+    valor: (c) => Number(c.modalidade === 'consultoria' ? c.valor_mensal : c.valor_total) || 0, ord: { k: 'ini', dir: -1 },
+    listas: [{ k: 'mod', rot: 'Tipo', todos: 'Todos os tipos', opcoes: [['consultoria', 'Consultoria'], ['pontual', 'Serviço pontual']], get: (c) => (c.modalidade === 'consultoria' ? 'consultoria' : 'pontual') },
+      { k: 'fin', rot: 'Financeiro', todos: 'Todos', opcoes: [['atraso', 'Parcela em atraso'], ['dia', 'Em dia']], get: (c) => (atraso(c) ? 'atraso' : 'dia') }],
+    colunas: [
+      { k: 'cli', rot: 'Cliente', html: (c) => esc(c.clientes ? c.clientes.nome : '—') + (c.clientes && c.clientes.cpf_cnpj ? '<span class="b-doc">' + esc(mascaraDoc(c.clientes.cpf_cnpj)) + '</span>' : ''), ord: (c) => normalizar(c.clientes ? c.clientes.nome : '~') },
+      { k: 'tipo', rot: 'Tipo', html: (c) => (c.modalidade === 'consultoria' ? 'Consultoria' : 'Serviço pontual') + (c.servico ? '<small class="b-sub">' + esc(c.servico) + '</small>' : ''), ord: (c) => c.modalidade || '' },
+      { k: 'desc', rot: 'Descrição', html: (c) => esc(c.descricao || '—') + (c.percentual_exito ? '<small class="b-sub">+ êxito: ' + esc(String(c.percentual_exito).replace('.', ',')) + '%' + ((c.exitos || []).length ? ' · ' + c.exitos.length + ' registrado(s)' : '') + '</small>' : ''), ord: (c) => normalizar(c.descricao || '') },
+      { k: 'v', rot: 'Valor', cls: 'b-dir b-val', soma: true, html: (c) => valorContratoTexto(c) + (c.modalidade !== 'consultoria' && (c.lancamentos || []).length ? '<small class="b-sub">' + plural(c.lancamentos.length, 'parcela', 'parcelas') + '</small>' : ''), ord: (c) => Number(c.modalidade === 'consultoria' ? c.valor_mensal : c.valor_total) || 0 },
+      { k: 'ini', rot: 'Início', cls: 'b-cen b-data', html: (c) => dataBR(c.inicio_vigencia || c.data_contrato) + (c.rescindido_em ? '<small class="b-sub">rescindido ' + dataBR(c.rescindido_em) + '</small>' : ''), ord: (c) => c.inicio_vigencia || c.data_contrato || '' },
+      { k: 'reaj', rot: 'Reajuste', cls: 'b-cen b-data', html: (c) => { const d = proxReaj(c); if (!d) return '<span class="traco">—</span>'; const di = Math.round((d - hoje) / 864e5); return '<span class="' + (di <= 60 ? 'b-pz-a' : '') + '">' + dataBR(iso(d)) + '</span>'; }, ord: (c) => { const d = proxReaj(c); return d ? iso(d) : '9'; } },
+      { k: 'rec', rot: 'Recebido', cls: 'b-dir', html: (c) => '<span class="b-verde-v">' + brl(recebido(c)) + '</span>', ord: recebido },
+      { k: 'fin', rot: 'Financeiro', cls: 'b-cen', html: (c) => (atraso(c) ? '<span class="b-pill b-r">Em atraso</span>' : (c.lancamentos || []).length ? '<span class="b-pill b-g">Em dia</span>' : c.exito_base ? '<span class="b-pill b-a">aguardando o êxito</span>' : '<span class="traco">—</span>'), ord: (c) => (atraso(c) ? 0 : 1) },
+      { k: 'sit', rot: 'Situação', cls: 'b-cen', html: (c) => { const st = situacaoCtr(c); return '<span class="b-pill ' + ({ Ativo: 'b-g', 'Aguardando assinatura': 'b-a', Cancelado: 'b-r' }[st] || 'b-n') + '">' + esc(st) + '</span>'; }, ord: (c) => situacaoCtr(c) }],
+    clique: (c) => detalheContrato(c.id),
+    vazio: { titulo: 'Nenhum contrato aqui', frase: 'Troque a aba ou limpe os filtros — ou cadastre um contrato e o sistema gera os lançamentos.', botao: ['+ Contrato', '#ctr-novo'] } });
 }
 
 // Backup 49 (23): reajuste anual — consultoria com valor FIXO cujo aniversário cai nos próximos 30 dias (ou passou há até 15)

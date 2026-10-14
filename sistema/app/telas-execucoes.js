@@ -9,47 +9,36 @@ const FORMAS_RECEB = ['Alvará', 'Depósito judicial', 'Acordo', 'Penhora / Sisb
 const pillSitExec = (s) => { const x = SITUACOES_EXEC.find((y) => y[0] === s) || SITUACOES_EXEC[0]; return '<span class="pill ' + x[2] + '">' + x[1] + '</span>'; };
 
 TELAS.execucoes = async function () {
+  // Backup 82: no desenho do ambiente — sem os cartões de número no alto; tabela única (abas Em andamento · Encerradas · Todas, busca, Filtros, total)
   await carregarCadastros();
-  E.ex = E.ex || { sit: 'abertas', busca: '' };
-  const F = E.ex, podeEd = pode('juridico', 'editar');
-  $('conteudo').innerHTML = '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('execucao') + '</div><div class="b-cab-tx"><h1>Execuções</h1><p>Cobranças na Justiça e o que já entrou</p></div>' +
-    '<div class="acoes">' + botaoAtualizar('ex-atu', 'Busca de novo') + (podeEd ? '<button class="btn btn-p" id="ex-nova">+ Nova execução</button>' : '') + '</div></div>' +
-    '<div id="ex-kpis"></div><div class="filtros"><div class="segmento" id="ex-sit">' + [['abertas', 'Em andamento'], ['encerrada', 'Encerradas'], ['todas', 'Todas']]
-      .map(([v, r]) => '<button type="button" data-v="' + v + '"' + (F.sit === v ? ' class="ativo"' : '') + '>' + r + '</button>').join('') + '</div>' +
-    '<input class="busca" id="ex-busca" placeholder="Buscar cliente, processo ou executado" autocomplete="off" value="' + esc(F.busca) + '"></div><div id="ex-corpo"><div class="carregando">Carregando…</div></div>';
-  const [L, R] = await Promise.all([q(sb.from('execucoes').select('*').order('criado_em', { ascending: false })).catch(() => []),
-    q(sb.from('execucao_recebimentos').select('id, execucao_id, data, valor, honorario, repassado_em, lancamento_id, lancamentos(pago)')).catch(() => [])]);
-  const porEx = {}; R.forEach((r) => { (porEx[r.execucao_id] = porEx[r.execucao_id] || []).push(r); });
-  const somaR = (id, k) => (porEx[id] || []).reduce((s, r) => s + (Number(r[k]) || 0), 0);
-  const nomeCli = (e) => (E.clientes.find((c) => c.id === e.cliente_id) || {}).nome || '—';
-  const grupoDe = (e) => nomeGrupo(e.grupo_id || (E.clientes.find((c) => c.id === e.cliente_id) || {}).grupo_id) || '';
-  const pintar = () => {
-    const b = normalizar(F.busca);
-    const ver = L.filter((e) => (F.sit === 'todas' || (F.sit === 'encerrada' ? e.situacao === 'encerrada' : e.situacao !== 'encerrada')) &&
-      (!b || normalizar([nomeCli(e), e.numero, e.executado, grupoDe(e)].join(' ')).includes(b)))
-      .sort((x, y) => (grupoDe(x) || '￿').localeCompare(grupoDe(y) || '￿', 'pt-BR') || nomeCli(x).localeCompare(nomeCli(y), 'pt-BR'));
-    const abertas = L.filter((e) => e.situacao !== 'encerrada'), todosR = R;
-    const honAberto = todosR.filter((r) => r.lancamento_id && !(r.lancamentos && r.lancamentos.pago)).reduce((s, r) => s + (Number(r.honorario) || 0), 0);
-    $('ex-kpis').innerHTML = '<div class="kpis">' + kpi('Em andamento', String(abertas.length), '', plural(L.length, 'execução', 'execuções') + ' no total') +
-      kpi('Valor executado', brl(abertas.reduce((s, e) => s + (Number(e.valor_execucao) || 0), 0)), '', 'das que estão em andamento') +
-      kpi('Recebido pelos clientes', brl(todosR.reduce((s, r) => s + (Number(r.valor) || 0), 0)), 'verde', plural(todosR.length, 'recebimento', 'recebimentos')) +
-      kpi('Honorários do escritório', brl(todosR.reduce((s, r) => s + (Number(r.honorario) || 0), 0)), '', honAberto ? brl(honAberto) + ' ainda a receber' : 'tudo recebido') + '</div>';
-    const linhas = ver.map((e, i) => (i === 0 || grupoDe(ver[i - 1]) !== grupoDe(e) ? '<tr class="cli-grp"><td colspan="8">' + esc(grupoDe(e) || 'Sem grupo') + ' <span class="sub">' +
-        plural(ver.filter((x) => grupoDe(x) === grupoDe(e)).length, 'execução', 'execuções') + '</span></td></tr>' : '') +
-      '<tr class="clicavel cli-linha" tabindex="0" data-ex="' + e.id + '"><td><span class="cli-nome">' + esc(nomeCli(e)) + '</span></td><td class="mono">' + esc(e.numero || '—') + '</td><td>' + esc(e.executado || '—') + '</td>' +
-      '<td class="col-valor">' + brl(e.valor_execucao) + '</td><td class="col-valor">' + brl(somaR(e.id, 'valor')) + '</td><td class="ex-pct">' + String(Number(e.percentual) || 0).replace('.', ',') + '%</td>' +
-      '<td class="col-valor">' + brl(somaR(e.id, 'honorario')) + '</td><td>' + pillSitExec(e.situacao) + '</td></tr>');
-    $('ex-corpo').innerHTML = '<div class="card">' + (ver.length ? '<div class="tabela-wrap"><table class="cli-tabela ex-tab"><thead><tr><th>Cliente</th><th>Processo</th><th>Executado</th><th>Valor da execução</th>' +
-      '<th>Recebido pelo cliente</th><th>%</th><th>Honorários</th><th>Situação</th></tr></thead><tbody>' + linhas.join('') + '</tbody></table></div>'
-      : L.length ? vazio('Nenhuma execução neste filtro.') : vazio('Nenhuma execução cadastrada. Cadastre a primeira cobrança ajuizada.', podeEd ? '+ Nova execução' : '', '#ex-nova')) + '</div>';
-    $('ex-corpo').querySelectorAll('[data-ex]').forEach((tr) => { const abre = () => detalheExecucao(L.find((e) => e.id === tr.dataset.ex), porEx[tr.dataset.ex] || [], () => TELAS.execucoes());
-      tr.onclick = abre; tr.onkeydown = (ev) => { if (ev.key === 'Enter') abre(); }; });
-  };
-  $('ex-sit').onclick = (ev) => { const b = ev.target.closest('button'); if (!b) return; F.sit = b.dataset.v; $('ex-sit').querySelectorAll('button').forEach((x) => x.classList.toggle('ativo', x === b)); pintar(); };
-  let t; $('ex-busca').oninput = (ev) => { clearTimeout(t); t = setTimeout(() => { F.busca = ev.target.value; pintar(); }, 250); };
+  E.ex = E.ex || {};
+  const podeEd = pode('juridico', 'editar');
+  $('conteudo').innerHTML = cabecalhoTela({ icone: 'execucao', titulo: 'Execuções', frase: 'Cobranças na Justiça e o que já entrou', atualizar: 'ex-atu', botao: podeEd ? { id: 'ex-nova', rotulo: 'Execução' } : null }) +
+    '<div id="ex-corpo"><div class="carregando">Carregando…</div></div>';
   $('ex-atu').onclick = () => TELAS.execucoes();
   if ($('ex-nova')) $('ex-nova').onclick = () => formExecucao({}, () => TELAS.execucoes());
-  pintar();
+  const [L, R] = await Promise.all([q(sb.from('execucoes').select('*').order('criado_em', { ascending: false })).catch(() => []),
+    q(sb.from('execucao_recebimentos').select('id, execucao_id, data, valor, honorario, repassado_em, lancamento_id, lancamentos(pago)')).catch(() => [])]);
+  if (!$('ex-corpo')) return;
+  const porEx = {}; R.forEach((r) => { (porEx[r.execucao_id] = porEx[r.execucao_id] || []).push(r); });
+  const somaR = (id, k) => (porEx[id] || []).reduce((s, r) => s + (Number(r[k]) || 0), 0);
+  const cliDe = (e) => E.clientes.find((c) => c.id === e.cliente_id) || {};
+  const grupoDe = (e) => nomeGrupo(e.grupo_id || cliDe(e).grupo_id) || '';
+  const sitTxt = (e) => (SITUACOES_EXEC.find((y) => y[0] === e.situacao) || SITUACOES_EXEC[0])[1];
+  const pct = (a, b) => (b ? Math.round(a / b * 100) : 0) + '%';
+  tabelaB($('ex-corpo'), { id: 'execucoes', linhas: L, chave: (e) => String(e.id), unidade: ['execução', 'execuções'], dicaBusca: 'Buscar',
+    abas: [{ id: 'and', rot: 'Em andamento', f: (e) => e.situacao !== 'encerrada' }, { id: 'enc', rot: 'Encerradas', f: (e) => e.situacao === 'encerrada' }, { id: 'todas', rot: 'Todas', f: () => true }],
+    busca: (e) => [cliDe(e).nome, cliDe(e).cpf_cnpj, e.numero, e.executado, grupoDe(e)].join(' '), valor: (e) => Number(e.valor_execucao) || 0, ord: { k: 'cli', dir: 1 },
+    listas: [{ k: 'g', rot: 'Grupo', todos: 'Todos os grupos', opcoes: unicosTxt(L.map(grupoDe)).map((x) => [x, x]), get: grupoDe },
+      { k: 'sit', rot: 'Situação', todos: 'Todas as situações', opcoes: SITUACOES_EXEC.map((x) => [x[0], x[1]]), get: (e) => e.situacao || 'ativa' }],
+    colunas: [
+      { k: 'cli', rot: 'Cliente', html: (e) => esc(cliDe(e).nome || '—') + (cliDe(e).cpf_cnpj ? '<span class="b-doc">' + esc(mascaraDoc(cliDe(e).cpf_cnpj)) + '</span>' : ''), ord: (e) => normalizar(cliDe(e).nome || '~') },
+      { k: 'exe', rot: 'Executado', html: (e) => esc(e.executado || '—') + '<span class="b-doc">' + esc([e.numero, e.situacao && e.situacao !== 'ativa' && e.situacao !== 'encerrada' ? sitTxt(e) : ''].filter(Boolean).join(' · ') || '—') + '</span>', ord: (e) => normalizar(e.executado || '~') },
+      { k: 'v', rot: 'Valor executado', cls: 'b-dir b-val', soma: true, html: (e) => brl(e.valor_execucao), ord: (e) => Number(e.valor_execucao) || 0 },
+      { k: 'rec', rot: 'Já recebido', cls: 'b-dir', html: (e) => '<b class="b-verde-v">' + brl(somaR(e.id, 'valor')) + '</b><small class="b-sub">' + pct(somaR(e.id, 'valor'), Number(e.valor_execucao)) + ' do total</small>', ord: (e) => somaR(e.id, 'valor') },
+      { k: 'hon', rot: 'Honorário (%)', cls: 'b-dir', html: (e) => '<b>' + brl(somaR(e.id, 'honorario')) + '</b><small class="b-sub">' + String(Number(e.percentual) || 0).replace('.', ',') + '% do recebido</small>', ord: (e) => somaR(e.id, 'honorario') }],
+    clique: (e) => detalheExecucao(e, porEx[e.id] || [], () => TELAS.execucoes()),
+    vazio: { titulo: 'Nenhuma execução aqui', frase: L.length ? 'Troque a aba ou limpe os filtros.' : 'Cadastre a primeira cobrança ajuizada.', botao: podeEd && !L.length ? ['+ Execução', '#ex-nova'] : null } });
 };
 
 function formExecucao(e, depois) {
@@ -95,8 +84,9 @@ function detalheExecucao(e, recs, depois) {
   const ord = recs.slice().sort((a, b) => String(b.data).localeCompare(String(a.data)));
   const j = abrirJanela({ titulo: 'Execução ' + (e.numero || '') + ' — ' + (cli.nome || ''), larga: true,
     corpo: '<div class="ficha-sub" style="margin-bottom:10px">' + [esc(cli.nome || '—'), e.executado ? 'contra <b>' + esc(e.executado) + '</b>' : '', e.ajuizada_em ? 'ajuizada em ' + dataBR(e.ajuizada_em) : '', pillSitExec(e.situacao)].filter(Boolean).join(' · ') + '</div>' +
-      '<div class="kpis">' + kpi('Valor da execução', brl(e.valor_execucao), '', '') + kpi('Recebido pelo cliente', brl(tot), 'verde', plural(recs.length, 'recebimento', 'recebimentos')) +
-        kpi('Falta receber', brl(Math.max(0, (Number(e.valor_execucao) || 0) - tot)), 'ambar', '') + kpi('Honorários do escritório', brl(hon), '', String(Number(e.percentual) || 0).replace('.', ',') + '% do recebido') + '</div>' +
+      // Backup 82: números numa faixa só (desenho do ambiente), sem cartões
+      numsFaixa([['Valor da execução', esc(brl(e.valor_execucao))], ['Recebido pelo cliente', esc(brl(tot)), plural(recs.length, 'recebimento', 'recebimentos'), 'b-verde'],
+        ['Falta receber', esc(brl(Math.max(0, (Number(e.valor_execucao) || 0) - tot)))], ['Honorários do escritório', esc(brl(hon)), String(Number(e.percentual) || 0).replace('.', ',') + '% do recebido']]) +
       (e.obs ? '<div class="dica" style="margin-bottom:10px">' + esc(e.obs) + '</div>' : '') +
       '<div class="card" style="margin:0"><div class="card-hd">Recebimentos' + (podeEd ? '<span class="gd-hd-ac"><button class="btn btn-p btn-mini" type="button" id="ex-receb">+ Registrar recebimento</button></span>' : '') + '</div>' +
       (ord.length ? '<div class="tabela-wrap"><table><thead><tr><th>Data</th><th>Recebido pelo cliente</th><th>Honorários do escritório</th><th>No Financeiro</th><th>Repassado ao cliente</th><th></th></tr></thead><tbody>' +
