@@ -2029,7 +2029,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       // F4: desfazer a conferência do passivo
       await p.evaluate(() => { GS.E.rt = Object.assign(GS.E.rt || {}, { aba: 'passivo' }); nav(null, 'rotina'); }); await p.waitForSelector('#rt-pas-corpo [data-conferir]', { timeout: 10000 }).catch(() => {});
       const n0 = Number(sql("select count(*) from rotina_conferencias where area='passivo'"));
-      p.once('dialog', (d) => d.accept()); await p.click('#rt-pas-corpo [data-conferir]'); await p.waitForTimeout(1200);
+      await p.click('#rt-pas-corpo [data-conferir]'); await p.waitForTimeout(1200);
       const n1 = Number(sql("select count(*) from rotina_conferencias where area='passivo'"));
       await p.click('#gx-rodape .gx-rod-bt').catch(() => {}); await p.waitForTimeout(1500);
       const n2 = Number(sql("select count(*) from rotina_conferencias where area='passivo'"));
