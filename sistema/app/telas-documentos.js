@@ -186,7 +186,7 @@ TELAS.documentos = async function () {
   const F = E.docs;
   await carregarCadastros();
   $('conteudo').innerHTML =
-    '<div class="titulo-pag"><div><h1>Documentos</h1><p>Contratos, procurações, certidões, comprovantes e demais arquivos — guardados com acesso restrito</p></div>' +
+    '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('documento') + '</div><div class="b-cab-tx"><h1>Documentos</h1><p>Contratos, procurações, certidões, comprovantes e demais arquivos — guardados com acesso restrito</p></div>' +
     '<div class="acoes"><a class="btn btn-o" id="doc-ger" href="documentos/index.html" target="_blank" rel="noopener" title="Abre o sistema de geração de documentos numa aba nova">Gerar documentos ↗</a><button class="btn btn-p" id="doc-novo">+ Enviar documento</button></div></div>' +
     '<div class="filtros">' +
     '<div class="segmento" id="doc-sit">' + [['ativos', 'Ativos'], ['vencendo', 'Vencendo em 30 dias'], ['arquivados', 'Versões anteriores']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
@@ -310,9 +310,15 @@ async function lerCertificado(arquivo, senha) {
 
 // Backup 57: submódulo "Gerar documentos" — a Central de Documentos (documentos/index.html) dentro do ERP, com o mesmo login.
 // "Abrir em aba nova" continua para quem prefere a tela inteira.
+// Backup 76 (S4): abre a Central já num modelo/lançamento (ex.: 'modelo=recibo' ou 'lancamento=<id>') — dentro do ERP, na tela "Gerar documentos"
+function abrirGerador(params) {
+  if (typeof window.nav === 'function') { E.gerParams = params || ''; window.nav(null, 'gerador'); return; }
+  window.open('documentos/index.html' + (params ? '?' + params : ''), '_blank', 'noopener');
+}
 TELAS.gerador = async function () {
+  const extra = E.gerParams ? '&' + E.gerParams : ''; E.gerParams = '';
   $('conteudo').innerHTML =
-    '<div class="titulo-pag"><div><h1>Gerar documentos</h1><p>Procuração, substabelecimento, contrato, recibo, declaração e acordo — com os dados do cliente já preenchidos</p></div>' +
+    '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('documento') + '</div><div class="b-cab-tx"><h1>Gerar documentos</h1><p>Procuração, substabelecimento, contrato, recibo, declaração e acordo — com os dados do cliente já preenchidos</p></div>' +
     '<div class="acoes"><a class="btn btn-o" id="ger-aba" href="documentos/index.html" target="_blank" rel="noopener">Abrir em aba nova ↗</a></div></div>' +
-    '<div class="card ger-card"><iframe id="ger-frame" class="ger-frame" src="documentos/index.html?embutido=1" title="Central de Documentos"></iframe></div>';
+    '<div class="card ger-card"><iframe id="ger-frame" class="ger-frame" src="documentos/index.html?embutido=1' + esc(extra) + '" title="Central de Documentos"></iframe></div>';
 };

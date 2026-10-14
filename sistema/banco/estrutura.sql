@@ -504,32 +504,6 @@ create policy configuracoes_admin on public.configuracoes for all to authenticat
 -- Parcelas geradas pelo contrato já nascem com o grupo do cliente e o
 -- responsável, para aparecerem certinhas em Honorários Jurídico.
 alter table public.contratos add column if not exists responsavel text not null default '';
-create or replace function public.gerar_parcelas_contrato() returns trigger
-language plpgsql as $$
-declare
-  i int; base numeric(14,2); v numeric(14,2); g uuid;
-begin
-  if new.valor_total > 0 and new.primeiro_vencimento is not null then
-    select grupo_id into g from public.clientes where id = new.cliente_id;
-    base := trunc(new.valor_total / new.num_parcelas, 2);
-    for i in 1..new.num_parcelas loop
-      v := case when i = new.num_parcelas
-                then new.valor_total - base * (new.num_parcelas - 1) else base end;
-      insert into public.lancamentos
-        (empresa, tipo, descricao, categoria, cliente_id, contrato_id, grupo_id, responsavel, referencia,
-         parcela, total_parcelas, vencimento, valor)
-      values
-        ('escritorio', 'receita', new.descricao || case when new.num_parcelas > 1
-                                          then ' — parcela ' || i || '/' || new.num_parcelas else '' end,
-         'Honorários', new.cliente_id, new.id, g, new.responsavel,
-         case when new.num_parcelas > 1 then i || '/' || new.num_parcelas else '' end,
-         i, new.num_parcelas, (new.primeiro_vencimento + make_interval(months => i - 1))::date, v);
-    end loop;
-  end if;
-  return new;
-end $$;
-create trigger gerar_parcelas after insert on public.contratos
-  for each row execute function public.gerar_parcelas_contrato();
 
 -- ─────────────────── v5: comissão é redutor de receita ───────────────────
 -- Comissão/desconto não é despesa: é um ajuste que diminui a receita
@@ -692,34 +666,6 @@ create table if not exists public.notificacoes (
 );
 create index if not exists notificacoes_usuario on public.notificacoes (usuario_id, lida, criado_em desc);
 
--- conclusão: carimba quem/quando; não conclui com checklist pendente; recria tarefas recorrentes
-create or replace function public.tarefa_ao_concluir() returns trigger
-language plpgsql as $$
-begin
-  if new.status = 'concluida' and (tg_op = 'INSERT' or old.status is distinct from 'concluida') then
-    if exists (select 1 from jsonb_array_elements(coalesce(new.checklist, '[]')) e where coalesce((e->>'feito')::boolean, false) = false) then
-      raise exception 'Conclua todos os itens do checklist antes de concluir a tarefa.';
-    end if;
-    new.concluida_em := now(); new.concluida_por := auth.uid();
-    if tg_op = 'UPDATE' and new.recorrencia in ('semanal','mensal','anual') and new.prazo is not null then
-      insert into public.tarefas (titulo, grupo_id, cliente_id, contrato_id, processos_vinculados, prioridade, responsavel, status,
-        inicio, prazo, prazo_fatal, descricao, participantes, etiquetas, checklist, recorrencia, fluxo_id, tarefa_pai_id)
-      values (new.titulo, new.grupo_id, new.cliente_id, new.contrato_id, new.processos_vinculados, new.prioridade, new.responsavel, 'pendente',
-        new.prazo, (new.prazo + case new.recorrencia when 'semanal' then interval '7 days' when 'mensal' then interval '1 month' else interval '1 year' end)::date,
-        case when new.prazo_fatal is null then null else (new.prazo_fatal + case new.recorrencia when 'semanal' then interval '7 days' when 'mensal' then interval '1 month' else interval '1 year' end)::date end,
-        new.descricao, new.participantes, new.etiquetas,
-        (select coalesce(jsonb_agg(jsonb_set(e, '{feito}', 'false')), '[]') from jsonb_array_elements(coalesce(new.checklist, '[]')) e),
-        new.recorrencia, new.fluxo_id, new.tarefa_pai_id);
-    end if;
-  elsif new.status <> 'concluida' then
-    new.concluida_em := null; new.concluida_por := null;
-  end if;
-  return new;
-end $$;
-drop trigger if exists tarefa_ao_concluir on public.tarefas;
-create trigger tarefa_ao_concluir before insert or update on public.tarefas
-  for each row execute function public.tarefa_ao_concluir();
-
 -- datas de alteração, histórico e regras de acesso das tabelas novas
 do $$
 declare t text;
@@ -842,7 +788,7 @@ begin
   end if;
 end $$;
 
--- pode('financeiro_juridico') = pode ver; pode('contratos','editar') = pode gravar
+-- pode(f,'ver') = pode ver; pode(f,'editar') = grava. (Backup 41: o nível "Propor"/rascunho saiu.)
 create or replace function public.pode(f text, nivel text default 'ver') returns boolean
 language sql stable security definer set search_path = public as $$
   select coalesce((
@@ -870,10 +816,6 @@ language sql stable security definer set search_path = public as $$
 $$;
 revoke all on function public.tarefa_minha(text, text) from anon;
 grant execute on function public.tarefa_minha(text, text) to authenticated;
-
--- contrato gera as parcelas mesmo para quem não tem a função Financeiro
-alter function public.gerar_parcelas_contrato() security definer;
-alter function public.gerar_parcelas_contrato() set search_path = public;
 
 -- regras por tabela: ver / gravar (incluir e alterar) / excluir
 do $$
@@ -1023,6 +965,9 @@ begin
   end if;
   return new;
 end $$;
+drop trigger if exists tarefa_ao_concluir on public.tarefas;
+create trigger tarefa_ao_concluir before insert or update on public.tarefas
+  for each row execute function public.tarefa_ao_concluir();
 
 -- horas gastas (botão ▶/■ na tarefa)
 create table if not exists public.tarefa_tempos (
@@ -1099,25 +1044,6 @@ begin
   return n > 0;
 end $$;
 revoke all on function public.tarefa_da_regra(text, text, text, date, uuid, uuid, uuid, jsonb, text, text, text) from anon, authenticated;
-
--- gatilhos na hora: contrato novo e processo novo
-create or replace function public.regra_contrato_novo() returns trigger
-language plpgsql security definer set search_path = public as $$
-declare rg record; cl record; ck jsonb;
-begin
-  select * into rg from public.regras_tarefas where chave = 'contrato_onboarding' and ligada;
-  if not found then return null; end if;
-  select * into cl from public.clientes where id = new.cliente_id;
-  select coalesce(jsonb_agg(jsonb_build_object('texto', i->>'titulo', 'feito', false)), '[]') into ck
-    from public.modelos_fluxo m, jsonb_array_elements(m.itens) i where m.nome = 'Onboarding de cliente';
-  perform public.tarefa_da_regra('onb:' || new.id, 'Onboarding: ' || coalesce(cl.nome, new.descricao),
-    coalesce(nullif(rg.responsavel, ''), nullif(new.responsavel, ''), cl.responsavel),
-    public.somar_uteis(coalesce(new.data_contrato, current_date), rg.dias), new.cliente_id, cl.grupo_id, new.id, ck,
-    'Contrato: ' || new.descricao);
-  return null;
-end $$;
-drop trigger if exists regra_contrato_novo on public.contratos;
-create trigger regra_contrato_novo after insert on public.contratos for each row execute function public.regra_contrato_novo();
 
 create or replace function public.regra_processo_novo() returns trigger
 language plpgsql security definer set search_path = public as $$
@@ -1313,21 +1239,6 @@ create or replace function public.esc_html(t text) returns text language sql imm
   select replace(replace(replace(coalesce(t, ''), '&', '&amp;'), '<', '&lt;'), '>', '&gt;');
 $$;
 
--- toda notificação (tarefa atribuída, menção, revisão, atraso, publicação) pode virar e-mail na hora
-create or replace function public.email_da_notificacao() returns trigger
-language plpgsql security definer set search_path = public as $$
-declare pref text;
-begin
-  pref := case new.tipo when 'mencao' then 'mencao' when 'publicacao' then 'publicacao' when 'atraso' then 'fatal' else 'tarefa' end;
-  perform public.enfileirar_email(new.usuario_id, pref, new.titulo,
-    '<p>' || public.esc_html(new.titulo) || '</p>' || case when new.detalhe <> '' then '<p style="color:#4B5563">' || public.esc_html(new.detalhe) || '</p>' else '' end
-    || coalesce('<p><a href="' || (select valor #>> '{}' from public.config_privada where chave = 'url_sistema') || '" style="background:#1B2A4A;color:#fff;padding:9px 16px;border-radius:8px;text-decoration:none;display:inline-block">Abrir no ERP</a></p>', ''),
-    new.tipo, 'notif:' || new.id);
-  return null;
-end $$;
-drop trigger if exists email_da_notificacao on public.notificacoes;
-create trigger email_da_notificacao after insert on public.notificacoes for each row execute function public.email_da_notificacao();
-
 -- resumo diário de cada pessoa (dias úteis, de manhã)
 create or replace function public.montar_resumos_diarios() returns int
 language plpgsql security definer set search_path = public as $$
@@ -1494,16 +1405,6 @@ select n, t, i::jsonb from (values
    '[{"servico":"Estudo e planejamento","valor":0,"forma":"na assinatura"},{"servico":"Constituição e integralização","valor":0,"forma":"na conclusão"}]')
 ) v(n, t, i)
 where not exists (select 1 from public.crm_modelos_proposta);
-
--- muda de etapa → reinicia o relógio "dias parado"
-create or replace function public.crm_ao_mudar_etapa() returns trigger
-language plpgsql as $$
-begin
-  if tg_op = 'UPDATE' and new.etapa_id is distinct from old.etapa_id then new.etapa_desde := now(); end if;
-  return new;
-end $$;
-drop trigger if exists crm_ao_mudar_etapa on public.crm_oportunidades;
-create trigger crm_ao_mudar_etapa before update on public.crm_oportunidades for each row execute function public.crm_ao_mudar_etapa();
 
 do $$
 declare t text;
@@ -1759,45 +1660,6 @@ $$;
 
 -- gera as mensalidades que faltam (até 2 meses à frente), reajusta as em aberto e aplica a rescisão
 drop function if exists public.gerar_mensalidades(uuid);
-create or replace function public.gerar_mensalidades(p_contrato uuid default null, p_ate date default null) returns int
-language plpgsql security definer set search_path = public as $$
-declare c public.contratos; comp date; fim date; venc date; g uuid; resp text; n int := 0; k int; sm_falta boolean;
-begin
-  for c in select * from public.contratos where modalidade = 'consultoria' and (p_contrato is null or id = p_contrato) loop
-    select grupo_id, responsavel into g, resp from public.clientes where id = c.cliente_id;
-    -- rescisão: nada a partir da competência do mês da rescisão (rescindido em set → cobra até a competência de ago)
-    if c.rescindido_em is not null then
-      delete from public.lancamentos where contrato_id = c.id and chave_recorrencia is not null and not pago
-         and competencia >= date_trunc('month', c.rescindido_em)::date;
-    end if;
-    if c.status in ('Cancelado') then continue; end if;
-    comp := date_trunc('month', coalesce(c.inicio_competencia, c.data_contrato))::date;
-    fim := date_trunc('month', coalesce(p_ate, (current_date + interval '2 months')::date))::date;
-    if c.rescindido_em is not null then fim := least(fim, (date_trunc('month', c.rescindido_em) - interval '1 month')::date); end if;
-    while comp <= fim loop
-      venc := make_date(extract(year from comp + interval '1 month')::int, extract(month from comp + interval '1 month')::int, c.dia_vencimento);
-      sm_falta := c.forma_valor = 'salario_minimo' and not exists (select 1 from public.salarios_minimos where ano = extract(year from comp)::int);
-      insert into public.lancamentos (empresa, tipo, descricao, categoria, cliente_id, contrato_id, grupo_id, responsavel, referencia,
-                                      competencia, vencimento, valor, chave_recorrencia, obs)
-      values ('escritorio', 'receita', c.descricao || ' — competência ' || to_char(comp, 'MM/YYYY'), 'Consultoria mensal', c.cliente_id, c.id, g,
-              coalesce(nullif(c.responsavel, ''), resp, ''), to_char(comp, 'MM/YYYY'), comp, venc, greatest(public.valor_competencia(c, comp), 0.01),
-              'rec:' || c.id || ':' || to_char(comp, 'YYYY-MM'),
-              case when sm_falta then 'Salário mínimo de ' || extract(year from comp)::int || ' ainda não cadastrado: valor provisório, reajusta sozinho.' else '' end)
-      on conflict (chave_recorrencia) where chave_recorrencia is not null do nothing;
-      get diagnostics k = row_count; n := n + k;
-      comp := (comp + interval '1 month')::date;
-    end loop;
-    -- reajuste das mensalidades em aberto (valor do contrato mudou ou saiu o salário mínimo do ano)
-    update public.lancamentos l set valor = greatest(public.valor_competencia(c, l.competencia), 0.01),
-           obs = case when c.forma_valor = 'salario_minimo' and not exists (select 1 from public.salarios_minimos where ano = extract(year from l.competencia)::int)
-                      then l.obs else regexp_replace(l.obs, 'Salário mínimo de \d{4} ainda não cadastrado: valor provisório, reajusta sozinho\.', '') end
-     where l.contrato_id = c.id and l.chave_recorrencia is not null and not l.pago
-       and l.valor is distinct from greatest(public.valor_competencia(c, l.competencia), 0.01);
-  end loop;
-  return n;
-end $$;
-revoke all on function public.gerar_mensalidades(uuid, date) from anon;
-grant execute on function public.gerar_mensalidades(uuid, date) to authenticated;
 
 create or replace function public.contrato_recorrente() returns trigger
 language plpgsql security definer set search_path = public as $$
@@ -1816,15 +1678,6 @@ begin
 end $$;
 drop trigger if exists salario_minimo_mudou on public.salarios_minimos;
 create trigger salario_minimo_mudou after insert or update or delete on public.salarios_minimos for each statement execute function public.salario_minimo_mudou();
-
--- rotina diária: cria a mensalidade do próximo mês de cada consultoria ativa
-do $$
-begin
-  perform cron.unschedule(jobid) from cron.job where jobname = 'erp_mensalidades';
-  perform cron.schedule('erp_mensalidades', '30 9 * * *', 'select public.gerar_mensalidades()');
-exception when others then
-  raise notice 'Agendador indisponível: as mensalidades são geradas ao salvar o contrato e ao abrir Contratos.';
-end $$;
 
 -- ─────────── cartão CNPJ: atualização diária (6h) com relatório ───────────
 alter table public.clientes add column if not exists razao_social text not null default '';
@@ -2110,38 +1963,6 @@ insert into public.regras_tarefas (chave, nome, descricao, ligada, dias, grupo) 
 on conflict (chave) do nothing;
 update public.regras_tarefas set grupo = 'tarefas' where grupo is null;
 
--- contrato novo → tarefa "anexar contrato assinado"
-create or replace function public.regra_contrato_anexo() returns trigger
-language plpgsql security definer set search_path = public as $$
-declare rg record; cl record;
-begin
-  select * into rg from public.regras_tarefas where chave = 'contrato_anexo' and ligada;
-  if not found or current_setting('erp.sem_regra_onboarding', true) = '1' then return null; end if;
-  if exists (select 1 from public.documentos d where d.contrato_id = new.id) then return null; end if;
-  select * into cl from public.clientes where id = new.cliente_id;
-  perform public.tarefa_da_regra('anexo:' || new.id, 'Anexar o contrato assinado — ' || new.descricao || coalesce(' (' || cl.nome || ')', ''),
-    coalesce(nullif(rg.responsavel, ''), nullif(new.responsavel, ''), cl.responsavel), public.somar_uteis(coalesce(new.data_contrato, current_date), rg.dias),
-    new.cliente_id, cl.grupo_id, new.id, '[]', 'Envie o PDF assinado em Contratos → abrir o contrato → Documentos. A tarefa se conclui sozinha.');
-  return null;
-end $$;
-drop trigger if exists regra_contrato_anexo on public.contratos;
-create trigger regra_contrato_anexo after insert on public.contratos for each row execute function public.regra_contrato_anexo();
-
--- documento ligado ao contrato → conclui "anexar contrato"
-create or replace function public.anexo_conclui_tarefa() returns trigger
-language plpgsql security definer set search_path = public as $$
-declare n int;
-begin
-  if new.contrato_id is null then return null; end if;
-  update public.tarefas set status = 'concluida', checklist = (select coalesce(jsonb_agg(i || '{"feito":true}'::jsonb), '[]'::jsonb) from jsonb_array_elements(checklist) i)
-   where chave_regra = 'anexo:' || new.contrato_id and status not in ('concluida','cancelada');
-  get diagnostics n = row_count;
-  if n > 0 then insert into public.automacoes_log (chave, ref, descricao, cliente_id) values ('anexo', 'anexo-ok:' || new.contrato_id, 'Contrato anexado: tarefa concluída sozinha', new.cliente_id); end if;
-  return null;
-end $$;
-drop trigger if exists anexo_conclui_tarefa on public.documentos;
-create trigger anexo_conclui_tarefa after insert or update of contrato_id on public.documentos for each row execute function public.anexo_conclui_tarefa();
-
 -- processo novo de grupo sem nenhuma procuração → tarefa "providenciar procuração"
 create or replace function public.regra_processo_procuracao() returns trigger
 language plpgsql security definer set search_path = public as $$
@@ -2174,27 +1995,6 @@ begin
 end $$;
 drop trigger if exists procuracao_conclui_tarefa on public.clientes;
 create trigger procuracao_conclui_tarefa after update of procuracao on public.clientes for each row execute function public.procuracao_conclui_tarefa();
-
--- honorário pago → conclui "cobrar honorário" + (opcional) e-mail de confirmação ao cliente
-create or replace function public.pagamento_automacoes() returns trigger
-language plpgsql security definer set search_path = public as $$
-declare n int;
-begin
-  if not new.pago or old.pago or new.tipo <> 'receita' or new.redutor then return null; end if;
-  if exists (select 1 from public.regras_tarefas where chave = 'pagamento_conclui' and ligada) then
-    update public.tarefas set status = 'concluida', checklist = (select coalesce(jsonb_agg(i || '{"feito":true}'::jsonb), '[]'::jsonb) from jsonb_array_elements(checklist) i) where chave_regra = 'cob:' || new.id and status not in ('concluida','cancelada');
-    get diagnostics n = row_count;
-    if n > 0 then insert into public.automacoes_log (chave, ref, descricao, cliente_id) values ('pagamento_conclui', 'pago:' || new.id, 'Honorário recebido: cobrança concluída sozinha — ' || new.descricao, new.cliente_id); end if;
-  end if;
-  if exists (select 1 from public.regras_tarefas where chave = 'email_pagamento_recebido' and ligada) then
-    perform public.email_ao_cliente('email_pr', 'email_pr:' || new.id, new.cliente_id, new.grupo_id, 'Recebemos o seu pagamento',
-      '<p>Olá!</p><p>Confirmamos o recebimento de <b>' || public.brl_texto(new.valor) || '</b> referente a <b>' || public.esc_html(new.descricao || coalesce(' ' || nullif(new.referencia, ''), '')) ||
-      '</b>' || coalesce(', em ' || to_char(new.data_pagamento, 'DD/MM/YYYY'), '') || '. Obrigado!</p><p>Araújo &amp; Castro Advocacia</p>');
-  end if;
-  return null;
-end $$;
-drop trigger if exists pagamento_automacoes on public.lancamentos;
-create trigger pagamento_automacoes after update of pago on public.lancamentos for each row execute function public.pagamento_automacoes();
 
 -- publicação nova ligada a processo → tarefa (começa desligada: prazo legal precisa de conferência)
 create or replace function public.publicacao_tarefa() returns trigger
@@ -2296,18 +2096,6 @@ begin
     execute format('create policy %1$s_area on public.%1$s as restrictive for all to authenticated using (public.ve_cliente(cliente_id)) with check (public.ve_cliente(cliente_id))', t);
   end loop;
 end $$;
-
--- pode(f,'ver') = pode ver; pode(f,'editar') = grava. (Backup 41: o nível "Propor"/rascunho saiu.)
-create or replace function public.pode(f text, nivel text default 'ver') returns boolean
-language sql stable security definer set search_path = public as $$
-  select coalesce((
-    select case when p.papel = 'admin' then true
-                when p.papel <> 'equipe' then false
-                when coalesce(p.funcoes->>f, '') = 'editar' then true
-                when coalesce(p.funcoes->>f, '') = 'ver' then nivel = 'ver'
-                else false end
-      from public.perfis p where p.id = auth.uid()), false);
-$$;
 
 -- ─────────── êxito: como foi combinado + registros (vira lançamento só quando acontece) ───────────
 alter table public.contratos add column if not exists exito_base text;
@@ -2532,45 +2320,36 @@ insert into public.configuracoes (chave, valor) values ('dados_pagamento', '{"pi
 on conflict (chave) do nothing;
 
 -- e-mail certo para cada assunto: contato com a FINALIDADE pedida (financeiro, juridico…), depois quem recebe boletos/avisos, depois o do cadastro
-drop function if exists public.contato_do_cliente(uuid, uuid, text);  -- Backup 26 mudou o retorno (setor/origem)
-create or replace function public.contato_do_cliente(p_cliente uuid, p_grupo uuid, p_finalidade text default 'financeiro')
-returns table (email text, nome text)
-language sql stable security definer set search_path = public as $$
-  -- 1) finalidade certa + marcado para receber (boletos no financeiro; avisos nos demais)  2) marcado para receber
-  -- 3) finalidade certa  4) contato "geral"  5) e-mail do cadastro  6/7) o mesmo no grupo, quando não há cliente
-  select x.email, x.nome from (
-    select c.email, nullif(split_part(btrim(c.nome), ' ', 1), '') nome,
-           case when f.certa and marca then 1 when marca then 2 when f.certa then 3 else 4 end ord
-      from public.contatos c
-      cross join lateral (select case when p_finalidade in ('financeiro','cobranca') then c.recebe_boletos else c.recebe_notificacoes end marca,
-                                 -- "cobrança" e "financeiro" valem como a mesma finalidade
-                                 (c.finalidade = p_finalidade or (p_finalidade in ('financeiro','cobranca') and c.finalidade in ('financeiro','cobranca'))) certa) f
-     where c.cliente_id = p_cliente and c.email <> '' and (f.certa or c.finalidade = 'geral' or f.marca)
-    union all
-    select cl.email, null, 5 from public.clientes cl where cl.id = p_cliente and cl.email <> ''
-    union all
-    select c.email, nullif(split_part(btrim(c.nome), ' ', 1), ''), 6 from public.contatos c join public.clientes cl on cl.id = c.cliente_id
-     where p_cliente is null and cl.grupo_id = p_grupo and c.email <> '' and (c.finalidade = p_finalidade or c.recebe_boletos
-           or (p_finalidade in ('financeiro','cobranca') and c.finalidade in ('financeiro','cobranca')))
-    union all
-    select cl.email, null, 7 from public.clientes cl where p_cliente is null and cl.grupo_id = p_grupo and cl.email <> '' and cl.tipo <> 'Inativo'
-  ) x order by x.ord limit 1;
-$$;
-revoke all on function public.contato_do_cliente(uuid, uuid, text) from public, anon, authenticated;
-
+drop function if exists public.contato_do_cliente(uuid, uuid, text);
 -- manda ao contato da finalidade certa, com o modelo novo, uma vez só por "ref"
 -- (v22) o envio ganhou o parâmetro do anexo: a versão antiga sai antes de recriar
 drop function if exists public.email_cliente_enviar(text, text, uuid, uuid, text, text, text, jsonb, boolean);
+
 create or replace function public.email_cliente_enviar(p_regra text, p_ref text, p_cliente uuid, p_grupo uuid, p_finalidade text,
   p_assunto text, p_texto text, p_itens jsonb default '[]', p_pagar boolean default false, p_anexo jsonb default null) returns boolean
 language plpgsql security definer set search_path = public as $$
-declare c record;
+declare c record; tipo text; v_conta text;
 begin
   if exists (select 1 from public.automacoes_log where ref = p_ref) then return false; end if;
+  tipo := case p_regra when 'email_lh' then 'lembrete' when 'email_vh' then 'vencimento' when 'email_ch' then 'cobranca'
+                       when 'email_pr' then 'recibo' when 'email_lp' then 'parcelamento' when 'email_la' then 'acordo'
+                       when 'email_bv' then 'boas_vindas' when 'email_cv' then 'convite' end;
+  if tipo is not null and not public.pode_email(p_cliente, p_grupo, tipo) then
+    insert into public.automacoes_log (chave, ref, descricao, cliente_id)
+    values (p_regra, p_ref, 'Não enviado (perfil de e-mail do cliente): ' || p_assunto, p_cliente);
+    return false;
+  end if;
   select * into c from public.contato_do_cliente(p_cliente, p_grupo, p_finalidade);
   if c.email is null or c.email = '' then return false; end if;
-  insert into public.email_fila (usuario_id, para, assunto, html, tipo, referencia)
-  values (null, c.email, p_assunto, public.email_cliente_html(p_assunto, c.nome, p_texto, p_itens, p_pagar), 'cliente', p_ref);
+  if c.email ~* '(@|\.)example\.com(,|$)' then
+    insert into public.automacoes_log (chave, ref, descricao, cliente_id) values (p_regra, p_ref, 'Demonstração (não enviado): ' || p_assunto, p_cliente);
+    return false;
+  end if;
+  v_conta := public.conta_email(p_cliente, p_ref);
+  perform set_config('erp.conta_email', v_conta, true);
+  insert into public.email_fila (usuario_id, para, assunto, html, tipo, referencia, anexo, conta)
+  values (null, c.email, p_assunto, public.email_cliente_html(p_assunto, c.nome, p_texto, p_itens, p_pagar), 'cliente', p_ref, p_anexo, v_conta);
+  perform set_config('erp.conta_email', '', true);
   insert into public.automacoes_log (chave, ref, descricao, cliente_id) values (p_regra, p_ref, p_assunto || ' → ' || c.email, p_cliente);
   return true;
 end $$;
@@ -2652,33 +2431,6 @@ begin
     alter table public.clientes add constraint clientes_perfil_email_ck check (perfil_email in ('padrao','nunca','vencimento','personalizado'));
   end if;
 end $$;
-
--- envio (redefinido): respeita o perfil do cliente e nunca manda para example.com (demonstração)
-create or replace function public.email_cliente_enviar(p_regra text, p_ref text, p_cliente uuid, p_grupo uuid, p_finalidade text,
-  p_assunto text, p_texto text, p_itens jsonb default '[]', p_pagar boolean default false, p_anexo jsonb default null) returns boolean
-language plpgsql security definer set search_path = public as $$
-declare c record; tipo text;
-begin
-  if exists (select 1 from public.automacoes_log where ref = p_ref) then return false; end if;
-  tipo := case p_regra when 'email_lh' then 'lembrete' when 'email_vh' then 'vencimento' when 'email_ch' then 'cobranca'
-                       when 'email_pr' then 'recibo' when 'email_lp' then 'parcelamento' when 'email_la' then 'acordo' end;
-  if tipo is not null and not public.pode_email(p_cliente, p_grupo, tipo) then
-    insert into public.automacoes_log (chave, ref, descricao, cliente_id)
-    values (p_regra, p_ref, 'Não enviado (perfil de e-mail do cliente): ' || p_assunto, p_cliente);
-    return false;
-  end if;
-  select * into c from public.contato_do_cliente(p_cliente, p_grupo, p_finalidade);
-  if c.email is null or c.email = '' then return false; end if;
-  if c.email ~* '(@|\.)example\.com$' then
-    insert into public.automacoes_log (chave, ref, descricao, cliente_id) values (p_regra, p_ref, 'Demonstração (não enviado): ' || p_assunto, p_cliente);
-    return false;
-  end if;
-  insert into public.email_fila (usuario_id, para, assunto, html, tipo, referencia)
-  values (null, c.email, p_assunto, public.email_cliente_html(p_assunto, c.nome, p_texto, p_itens, p_pagar), 'cliente', p_ref);
-  insert into public.automacoes_log (chave, ref, descricao, cliente_id) values (p_regra, p_ref, p_assunto || ' → ' || c.email, p_cliente);
-  return true;
-end $$;
-revoke all on function public.email_cliente_enviar(text, text, uuid, uuid, text, text, text, jsonb, boolean, jsonb) from public, anon, authenticated;
 
 -- último e-mail enviado a cada cliente (para a tabela da tela)
 create or replace function public.ultimos_emails_clientes() returns table (cliente_id uuid, quando timestamptz, descricao text)
@@ -2928,6 +2680,8 @@ begin
   end if;
   return new;
 end $$;
+drop trigger if exists crm_ao_mudar_etapa on public.crm_oportunidades;
+create trigger crm_ao_mudar_etapa before update on public.crm_oportunidades for each row execute function public.crm_ao_mudar_etapa();
 
 -- regras automáticas do CRM (rodam com as demais, todo dia útil)
 insert into public.regras_tarefas (chave, nome, descricao, ligada, dias, grupo) values
@@ -3185,9 +2939,6 @@ insert into public.regras_tarefas (chave, nome, descricao, ligada, dias, grupo) 
   ('email_atraso_acordo', 'E-mail ao cliente: parcela do acordo em atraso', 'N dias depois do vencimento sem baixa, avisa o cliente (o credor pode executar)', true, 2, 'cliente_email')
 on conflict (chave) do nothing;
 
--- envio (redefinido): aceita anexo (recibo em PDF); respeita perfil, contato certo e nunca example.com
-drop function if exists public.email_cliente_enviar(text, text, uuid, uuid, text, text, text, jsonb, boolean);
-
 -- tipo da Central ligado no automático?
 create or replace function public.email_tipo_auto(p_tipo text) returns boolean
 language sql stable security definer set search_path = public as $$ select coalesce((public.config_emails()->>p_tipo)::boolean, false) $$;
@@ -3255,6 +3006,8 @@ begin
   end if;
   return null;
 end $$;
+drop trigger if exists pagamento_automacoes on public.lancamentos;
+create trigger pagamento_automacoes after update of pago on public.lancamentos for each row execute function public.pagamento_automacoes();
 
 -- ─────────── Central de e-mails (tela) ───────────
 create or replace function public.pode_central_emails() returns boolean
@@ -3552,16 +3305,6 @@ end $$;
 create or replace function public.emails_pausados() returns boolean language sql stable security definer set search_path = public as $$
   select coalesce((select valor = 'true'::jsonb from public.configuracoes where chave = 'emails_pausados'), false) $$;
 grant execute on function public.emails_pausados() to authenticated;
-create or replace function public.email_fila_reter() returns trigger language plpgsql security definer set search_path = public as $$
-begin
-  if new.status = 'pendente' and coalesce(new.tipo, '') <> 'teste' and coalesce(current_setting('erp.liberar_email', true), '') <> '1'
-     and (tg_op = 'INSERT' or old.status is distinct from 'pendente') and public.emails_pausados() then
-    new.status := 'retido';
-  end if;
-  return new;
-end $$;
-drop trigger if exists email_fila_reter on public.email_fila;
-create trigger email_fila_reter before insert or update of status on public.email_fila for each row execute function public.email_fila_reter();
 
 create or replace function public.pausar_emails(p_pausar boolean) returns boolean language plpgsql security definer set search_path = public as $$
 begin
@@ -3691,6 +3434,8 @@ begin
   perform public.lancar_parcelas_contrato(new.id);
   return new;
 end $$;
+create trigger gerar_parcelas after insert on public.contratos
+  for each row execute function public.gerar_parcelas_contrato();
 drop trigger if exists gerar_parcelas on public.contratos;
 create trigger gerar_parcelas after insert on public.contratos for each row execute function public.gerar_parcelas_contrato();
 
@@ -3710,6 +3455,8 @@ begin
     public.somar_uteis(current_date, rg.dias), new.cliente_id, cl.grupo_id, new.id, ck, 'Contrato: ' || new.descricao);
   return null;
 end $$;
+drop trigger if exists regra_contrato_novo on public.contratos;
+create trigger regra_contrato_novo after insert on public.contratos for each row execute function public.regra_contrato_novo();
 
 -- "anexar o contrato assinado" também para o contrato que vem do CRM
 create or replace function public.regra_contrato_anexo() returns trigger
@@ -3728,6 +3475,8 @@ begin
          else 'Envie o PDF assinado em Contratos → abrir o contrato → Documentos. A tarefa se conclui sozinha.' end);
   return null;
 end $$;
+drop trigger if exists regra_contrato_anexo on public.contratos;
+create trigger regra_contrato_anexo after insert on public.contratos for each row execute function public.regra_contrato_anexo();
 
 -- documento ligado ao contrato → conclui "anexar contrato" (a minuta gerada pelo gerador, em HTML, não conta)
 create or replace function public.anexo_conclui_tarefa() returns trigger
@@ -3741,6 +3490,8 @@ begin
   if n > 0 then insert into public.automacoes_log (chave, ref, descricao, cliente_id) values ('anexo', 'anexo-ok:' || new.contrato_id, 'Contrato anexado: tarefa concluída sozinha', new.cliente_id); end if;
   return null;
 end $$;
+drop trigger if exists anexo_conclui_tarefa on public.documentos;
+create trigger anexo_conclui_tarefa after insert or update of contrato_id on public.documentos for each row execute function public.anexo_conclui_tarefa();
 
 -- boas-vindas (desligado de fábrica; só sai com a pausa desligada e a regra ligada)
 insert into public.regras_tarefas (chave, nome, descricao, ligada, dias, grupo) values
@@ -3962,10 +3713,6 @@ create or replace function public.tipo_destino_email(p text) returns text langua
               when p in ('guia','parcelamento') then 'guia' when p in ('recibo') then 'recibo' when p in ('contrato','boas_vindas','proposta') then 'contrato'
               when p in ('convite','reuniao') then 'convite' else 'cobranca' end;
 $$;
-
--- quem recebe: 1) contatos marcados para o tipo (todos)  2) contatos do setor do tipo  3) contato "geral"  4) e-mail do cadastro
---              (sem cliente: o mesmo nos clientes do grupo)
-drop function if exists public.contato_do_cliente(uuid, uuid, text);
 create or replace function public.contato_do_cliente(p_cliente uuid, p_grupo uuid, p_finalidade text default 'cobranca')
 returns table (email text, nome text, setor text, origem text)
 language plpgsql stable security definer set search_path = public as $$
@@ -3987,6 +3734,7 @@ begin
   if found then return; end if;
   return query select cl.email, null::text, ''::text, 'cadastro'::text from public.clientes cl where cl.id = any(ids) and cl.email <> '' order by cl.criado_em limit 1;
 end $$;
+revoke all on function public.contato_do_cliente(uuid, uuid, text) from public, anon, authenticated;
 revoke all on function public.contato_do_cliente(uuid, uuid, text) from public, anon, authenticated;
 create or replace function public.email_do_cliente(p_cliente uuid, p_grupo uuid) returns text
 language sql stable security definer set search_path = public as $$
@@ -4528,22 +4276,6 @@ drop policy if exists pmov_criar on public.processo_movimentacoes;
 create policy pmov_criar on public.processo_movimentacoes for insert to authenticated with check (public.pode('juridico', 'editar'));
 drop policy if exists pmov_apagar on public.processo_movimentacoes;
 create policy pmov_apagar on public.processo_movimentacoes for delete to authenticated using (public.eh_admin());
--- ao registrar: atualiza a "última movimentação" do processo (e o valor, quando é alteração de valor)
-create or replace function public.processo_mov_aplica() returns trigger
-language plpgsql security definer set search_path = public as $$
-begin
-  if coalesce(new.quem, '') = '' then select coalesce(nullif(nome, ''), email) into new.quem from public.perfis where id = auth.uid(); new.quem := coalesce(new.quem, ''); end if;
-  update public.processos set
-    ultima_movimentacao = case when new.tipo = 'sem_novidade' then coalesce(nullif(ultima_movimentacao, ''), 'Conferido: sem novidade') else left(new.descricao, 500) end,
-    ultima_movimentacao_em = greatest(coalesce(ultima_movimentacao_em, new.data), new.data),
-    atualizacao = new.data,
-    valor = case when new.tipo = 'valor' and new.valor_novo is not null then new.valor_novo else valor end,
-    procuracao = case when new.tipo = 'procuracao' then true else procuracao end
-   where id = new.processo_id;
-  return new;
-end $$;
-drop trigger if exists processo_mov_aplica on public.processo_movimentacoes;
-create trigger processo_mov_aplica before insert on public.processo_movimentacoes for each row execute function public.processo_mov_aplica();
 
 -- Backup 28 — Certificado digital do cliente (validade e senha) — tabela separada, só quem EDITA clientes vê
 create table if not exists public.cliente_certificado (
@@ -4595,35 +4327,7 @@ begin
   return case when a = 'contabil' then 'contabilidade' else 'escritorio' end;
 end $$;
 revoke all on function public.conta_email(uuid, text) from public, anon, authenticated;
-
-create or replace function public.email_cliente_enviar(p_regra text, p_ref text, p_cliente uuid, p_grupo uuid, p_finalidade text,
-  p_assunto text, p_texto text, p_itens jsonb default '[]', p_pagar boolean default false, p_anexo jsonb default null) returns boolean
-language plpgsql security definer set search_path = public as $$
-declare c record; tipo text; v_conta text;
-begin
-  if exists (select 1 from public.automacoes_log where ref = p_ref) then return false; end if;
-  tipo := case p_regra when 'email_lh' then 'lembrete' when 'email_vh' then 'vencimento' when 'email_ch' then 'cobranca'
-                       when 'email_pr' then 'recibo' when 'email_lp' then 'parcelamento' when 'email_la' then 'acordo'
-                       when 'email_bv' then 'boas_vindas' when 'email_cv' then 'convite' end;
-  if tipo is not null and not public.pode_email(p_cliente, p_grupo, tipo) then
-    insert into public.automacoes_log (chave, ref, descricao, cliente_id)
-    values (p_regra, p_ref, 'Não enviado (perfil de e-mail do cliente): ' || p_assunto, p_cliente);
-    return false;
-  end if;
-  select * into c from public.contato_do_cliente(p_cliente, p_grupo, p_finalidade);
-  if c.email is null or c.email = '' then return false; end if;
-  if c.email ~* '(@|\.)example\.com(,|$)' then
-    insert into public.automacoes_log (chave, ref, descricao, cliente_id) values (p_regra, p_ref, 'Demonstração (não enviado): ' || p_assunto, p_cliente);
-    return false;
-  end if;
-  v_conta := public.conta_email(p_cliente, p_ref);
-  perform set_config('erp.conta_email', v_conta, true);
-  insert into public.email_fila (usuario_id, para, assunto, html, tipo, referencia, anexo, conta)
-  values (null, c.email, p_assunto, public.email_cliente_html(p_assunto, c.nome, p_texto, p_itens, p_pagar), 'cliente', p_ref, p_anexo, v_conta);
-  perform set_config('erp.conta_email', '', true);
-  insert into public.automacoes_log (chave, ref, descricao, cliente_id) values (p_regra, p_ref, p_assunto || ' → ' || c.email, p_cliente);
-  return true;
-end $$;
+revoke all on function public.email_cliente_enviar(text, text, uuid, uuid, text, text, text, jsonb, boolean, jsonb) from public, anon, authenticated;
 revoke all on function public.email_cliente_enviar(text, text, uuid, uuid, text, text, text, jsonb, boolean, jsonb) from public, anon, authenticated;
 revoke all on function public.email_cliente_enviar(text, text, uuid, uuid, text, text, text, jsonb, boolean, jsonb) from public, anon, authenticated;
 revoke all on function public.email_cliente_enviar(text, text, uuid, uuid, text, text, text, jsonb, boolean, jsonb) from public, anon, authenticated;
@@ -4853,6 +4557,17 @@ begin
        and l.valor is distinct from greatest(public.valor_competencia(c, l.competencia), 0.01);
   end loop;
   return n;
+end $$;
+revoke all on function public.gerar_mensalidades(uuid, date) from anon;
+grant execute on function public.gerar_mensalidades(uuid, date) to authenticated;
+
+-- rotina diária: cria a mensalidade do próximo mês de cada consultoria ativa
+do $$
+begin
+  perform cron.unschedule(jobid) from cron.job where jobname = 'erp_mensalidades';
+  perform cron.schedule('erp_mensalidades', '30 9 * * *', 'select public.gerar_mensalidades()');
+exception when others then
+  raise notice 'Agendador indisponível: as mensalidades são geradas ao salvar o contrato e ao abrir Contratos.';
 end $$;
 
 -- ═══════════════════════════════════════════════════════════════════
@@ -5212,6 +4927,8 @@ begin
    where id = new.processo_id;
   return new;
 end $$;
+drop trigger if exists processo_mov_aplica on public.processo_movimentacoes;
+create trigger processo_mov_aplica before insert on public.processo_movimentacoes for each row execute function public.processo_mov_aplica();
 
 -- ═══════════════════════════════════════════════════════════════════
 -- Backup 36 — Evolução do passivo: antes de a empresa ter o passivo lançado pela primeira vez, o mês fica SEM VALOR (null) e não "zero"
@@ -5455,46 +5172,6 @@ alter table public.tarefas add column if not exists hora_fim time;
 alter table public.tarefas add column if not exists aviso_min int;
 alter table public.tarefas add column if not exists aviso_em timestamptz;
 update public.tarefas set tipo_agenda = 'compromisso' where tipo_agenda = 'ligacao';
--- aviso: notificação para o responsável e cada participante (a notificação já vira e-mail para a pessoa)
-create or replace function public.avisos_agenda() returns int
-language plpgsql security definer set search_path = public as $$
-declare t record; pnome text; uid uuid; n int := 0; ini timestamptz; rot text;
-begin
-  for t in select * from public.tarefas
-            where aviso_min is not null and aviso_em is null and prazo is not null
-              and status not in ('concluida', 'cancelada') and prazo between current_date - 1 and current_date + 3 loop
-    ini := ((t.prazo + coalesce(t.hora, time '08:00')) at time zone 'America/Sao_Paulo');
-    continue when ini - make_interval(mins => t.aviso_min) > now() or ini < now() - interval '1 hour';
-    rot := case t.tipo_agenda when 'reuniao' then 'Reunião' when 'audiencia' then 'Audiência' when 'compromisso' then 'Compromisso' else 'Tarefa' end;
-    for pnome in select distinct lower(split_part(btrim(x), ' ', 1)) from unnest(array[t.responsavel] || string_to_array(coalesce(t.participantes, ''), ',')) x where btrim(coalesce(x, '')) <> '' loop
-      uid := (select p.id from public.perfis p where p.papel in ('admin', 'equipe') and lower(split_part(btrim(p.nome), ' ', 1)) = pnome limit 1);
-      if uid is not null then
-        insert into public.notificacoes (usuario_id, tipo, titulo, detalhe)
-        values (uid, 'agenda', '🔔 ' || rot || ' ' || to_char(t.prazo, 'DD/MM') || coalesce(' às ' || to_char(t.hora, 'HH24:MI'), '') || ': ' || t.titulo,
-                concat_ws(' · ', nullif(coalesce(t.local, ''), ''), nullif(coalesce(t.processos_vinculados, ''), '')));
-        n := n + 1;
-      end if;
-    end loop;
-    update public.tarefas set aviso_em = now() where id = t.id;
-  end loop;
-  return n;
-end $$;
-revoke all on function public.avisos_agenda() from public, anon, authenticated;
--- se mudar dia, hora ou antecedência, o aviso volta a valer
-create or replace function public.tarefa_aviso_reset() returns trigger language plpgsql as $$
-begin
-  if new.prazo is distinct from old.prazo or new.hora is distinct from old.hora or new.aviso_min is distinct from old.aviso_min then new.aviso_em := null; end if;
-  return new;
-end $$;
-drop trigger if exists tarefa_aviso_reset on public.tarefas;
-create trigger tarefa_aviso_reset before update on public.tarefas for each row execute function public.tarefa_aviso_reset();
-do $$
-begin
-  perform cron.unschedule(jobid) from cron.job where jobname = 'erp_avisos_agenda';
-  perform cron.schedule('erp_avisos_agenda', '*/5 * * * *', 'select public.avisos_agenda()');
-exception when others then
-  raise notice 'Agendador indisponível: os avisos da agenda aparecem só na tela de quem está com o ERP aberto.';
-end $$;
 -- Conciliação de extrato (OFX) saiu do sistema: a tabela de controle dos créditos já tratados não é mais usada
 drop table if exists public.extrato_itens;
 -- Documentos: "Arquivar" virou "Excluir" (com confirmação na tela) — quem edita Documentos pode apagar o registro e o arquivo
@@ -5855,24 +5532,6 @@ language sql security definer set search_path = public as $$
    where referencia = p_ref and status = 'rascunho' and coalesce(para_original, '') <> '';
 $$;
 revoke all on function public.email_rascunho_destino_real(text) from public, anon, authenticated;
-create or replace function public.rascunho_email_texto(p_cliente uuid, p_para text, p_assunto text, p_texto text, p_arquivos jsonb default null) returns jsonb
-language plpgsql security definer set search_path = public as $$
-declare v_ref text := 'rasc:' || gen_random_uuid(); lista jsonb; v_conta text; html text;
-begin
-  if not public.pode('juridico', 'editar') then raise exception 'permission denied: sem acesso para enviar guias.'; end if;
-  select coalesce(jsonb_agg(jsonb_build_object('tipo', 'bin', 'arquivo', a->>'arquivo', 'mime', coalesce(a->>'mime', 'application/pdf'), 'b64', a->>'b64')), '[]') into lista
-    from jsonb_array_elements(coalesce(p_arquivos, '[]')) a where coalesce(a->>'b64', '') <> '';
-  v_conta := public.conta_email(p_cliente, null);
-  html := '<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#222">' ||
-          replace(replace(replace(replace(coalesce(p_texto, ''), '&', '&amp;'), '<', '&lt;'), '>', '&gt;'), E'\n', '<br>') || '</div>';
-  insert into public.email_fila (usuario_id, para, assunto, html, tipo, referencia, anexo, conta, status)
-  values (auth.uid(), coalesce(trim(p_para), ''), coalesce(nullif(trim(p_assunto), ''), 'Guias de Parcelamento'), html, 'cliente', v_ref,
-          case when jsonb_array_length(lista) > 0 then jsonb_build_object('tipo', 'lista', 'itens', lista) end, v_conta, 'rascunho');
-  perform public.email_rascunho_destino_real(v_ref);
-  return jsonb_build_object('ref', v_ref, 'para', p_para, 'status', 'rascunho', 'anexos', jsonb_array_length(lista));
-end $$;
-revoke all on function public.rascunho_email_texto(uuid, text, text, text, jsonb) from public, anon;
-grant execute on function public.rascunho_email_texto(uuid, text, text, text, jsonb) to authenticated;
 -- o rascunho das guias/acordos (janela "Emitir") também vai com o e-mail real do cliente
 create or replace function public.salvar_guias_rascunho(p_cliente uuid, p_grupo uuid, p_itens jsonb, p_assunto text, p_texto text,
   p_docs uuid[] default '{}', p_para text default null, p_arquivos jsonb default null) returns jsonb
@@ -5944,12 +5603,22 @@ begin
   return n;
 end $$;
 revoke all on function public.avisos_agenda() from public, anon, authenticated;
+do $$
+begin
+  perform cron.unschedule(jobid) from cron.job where jobname = 'erp_avisos_agenda';
+  perform cron.schedule('erp_avisos_agenda', '*/5 * * * *', 'select public.avisos_agenda()');
+exception when others then
+  raise notice 'Agendador indisponível: os avisos da agenda aparecem só na tela de quem está com o ERP aberto.';
+end $$;
+revoke all on function public.avisos_agenda() from public, anon, authenticated;
 create or replace function public.tarefa_aviso_reset() returns trigger language plpgsql as $$
 begin
   if new.prazo is distinct from old.prazo or new.hora is distinct from old.hora or new.aviso_min is distinct from old.aviso_min then new.aviso_em := null; end if;
   if new.prazo is distinct from old.prazo or new.hora is distinct from old.hora or new.aviso2_min is distinct from old.aviso2_min then new.aviso2_em := null; end if;
   return new;
 end $$;
+drop trigger if exists tarefa_aviso_reset on public.tarefas;
+create trigger tarefa_aviso_reset before update on public.tarefas for each row execute function public.tarefa_aviso_reset();
 -- ═══ fim do Backup 45 ═══
 
 -- ═══════════════════════════════ Backup 46 ═══════════════════════════════
@@ -6098,6 +5767,8 @@ begin
   end if;
   return new;
 end $$;
+drop trigger if exists email_fila_reter on public.email_fila;
+create trigger email_fila_reter before insert or update of status on public.email_fila for each row execute function public.email_fila_reter();
 create or replace function public.salvar_emails_revisar(p boolean) returns void language plpgsql security definer set search_path = public as $$
 begin
   if not public.eh_admin() then raise exception 'Só o administrador muda esta opção.'; end if;
@@ -6142,7 +5813,6 @@ begin
   end loop;
   return out;
 end $$;
-drop function if exists public.rascunho_email_texto(uuid, text, text, text, jsonb);
 create or replace function public.rascunho_email_texto(p_cliente uuid, p_para text, p_assunto text, p_texto text, p_arquivos jsonb default null) returns jsonb
 language plpgsql security definer set search_path = public as $$
 declare v_ref text := 'rasc:' || gen_random_uuid(); lista jsonb; v_conta text; html text; v_ass text := coalesce(nullif(trim(p_assunto), ''), 'Guias de Parcelamento');
@@ -6163,6 +5833,8 @@ begin
   perform public.email_rascunho_destino_real(v_ref);
   return jsonb_build_object('ref', v_ref, 'para', p_para, 'status', 'rascunho', 'anexos', jsonb_array_length(lista));
 end $$;
+revoke all on function public.rascunho_email_texto(uuid, text, text, text, jsonb) from public, anon;
+grant execute on function public.rascunho_email_texto(uuid, text, text, text, jsonb) to authenticated;
 revoke all on function public.rascunho_email_texto(uuid, text, text, text, jsonb) from public, anon;
 grant execute on function public.rascunho_email_texto(uuid, text, text, text, jsonb) to authenticated;
 -- prévia do e-mail como o cliente vai ver (botão "👁 Prévia" do cartão)
@@ -6812,6 +6484,8 @@ begin
     new.tipo, 'notif:' || new.id);
   return null;
 end $$;
+drop trigger if exists email_da_notificacao on public.notificacoes;
+create trigger email_da_notificacao after insert on public.notificacoes for each row execute function public.email_da_notificacao();
 -- primeira vez: o aviso por e-mail de fluxo/sequência sai DESLIGADO (o dono pediu); os demais continuam como estavam
 insert into public.configuracoes (chave, valor) values ('emails_equipe', '{"fluxo": false}'::jsonb) on conflict (chave) do nothing;
 
@@ -6867,4 +6541,22 @@ begin
   perform cron.schedule('erp_limpeza_emails', '0 7 1 * *', 'select public.limpar_emails_antigos()');
 exception when others then raise notice 'Agendador indisponível: rode select public.limpar_emails_antigos() de vez em quando.';
 end $$;
--- ═══ fim do Backup 55 ═══
+
+-- ═══ Backup 76 (F4): "Desfazer" logo depois de conferir uma linha do Passivo (ou um grupo) na Rotina ═══
+-- Apaga só a conferência MAIS RECENTE de cada registro, e só se foi feita há menos de 15 minutos pela própria pessoa.
+create or replace function public.desfazer_conferencia(p_area text, p_ids uuid[]) returns integer
+language plpgsql security definer set search_path = public as $$
+declare n int;
+begin
+  if p_area = 'passivo' and not public.pode('clientes', 'editar') then raise exception 'permission denied: sem acesso para conferir o passivo.'; end if;
+  if p_area = 'parcelamentos' and not public.pode('juridico', 'editar') then raise exception 'permission denied: sem acesso para conferir parcelamentos.'; end if;
+  delete from public.rotina_conferencias c
+   where c.id in (select distinct on (x.registro_id) x.id from public.rotina_conferencias x
+                   where x.area = p_area and x.registro_id = any(coalesce(p_ids, '{}')) and x.usuario_id = auth.uid() and x.quando > now() - interval '15 minutes'
+                   order by x.registro_id, x.quando desc);
+  get diagnostics n = row_count;
+  return n;
+end $$;
+revoke all on function public.desfazer_conferencia(text, uuid[]) from public, anon;
+grant execute on function public.desfazer_conferencia(text, uuid[]) to authenticated;
+-- ═══ fim do Backup 76 ═══

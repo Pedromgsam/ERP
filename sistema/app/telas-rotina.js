@@ -173,10 +173,13 @@ async function rotinaPassivo(el) {
       // Backup 55: conferir pede confirmação
       if (!confirm('Confirmar a conferência de ' + plural(ids.length, 'empresa', 'empresas') + ' deste grupo (sem alteração)?')) return;
       await q(sb.rpc('conferir_rotina', { p_area: 'passivo', p_ids: ids, p_alterou: false }));
-      const agora = new Date().toISOString(), quem = E.perfil ? E.perfil.nome : '';
-      ids.forEach((id) => { SIT[id] = Object.assign({}, SIT[id], { conferido_em: agora, conferido_por: quem, conferido_alterou: false });
-        const cel = $('rt-pas-corpo').querySelector('tr[data-id="' + id + '"] .rt-c-conf'); if (cel) cel.innerHTML = celulaConferencia(SIT[id], id); });
-      aviso('✓ ' + plural(ids.length, 'empresa conferida', 'empresas conferidas') + ' (sem alteração).'); atualizarPlacar(); });
+      const agora = new Date().toISOString(), quem = E.perfil ? E.perfil.nome : '', antes = {};
+      const redesenha = (id) => { const cel = $('rt-pas-corpo') && $('rt-pas-corpo').querySelector('tr[data-id="' + id + '"] .rt-c-conf'); if (cel) cel.innerHTML = celulaConferencia(SIT[id], id); };
+      ids.forEach((id) => { antes[id] = SIT[id]; SIT[id] = Object.assign({}, SIT[id], { conferido_em: agora, conferido_por: quem, conferido_alterou: false }); redesenha(id); });
+      atualizarPlacar();
+      // Backup 76 (F4): Desfazer por alguns segundos (apaga só estas conferências)
+      desfazerRotina('✓ ' + plural(ids.length, 'empresa conferida', 'empresas conferidas') + ' (sem alteração).', async () => {
+        await q(sb.rpc('desfazer_conferencia', { p_area: 'passivo', p_ids: ids })); ids.forEach((id) => { SIT[id] = antes[id]; redesenha(id); }); atualizarPlacar(); }); });
     // Backup 42: o ✓ da linha salva AQUELA linha — com alteração grava e marca "alterado"; sem alteração marca "conferido"
     const cf = ev.target.closest('[data-conferir]'); if (cf) return comBotao(cf, async () => {
       const id = cf.dataset.conferir, a = alterados.get(id), mudou = !!a;
@@ -184,10 +187,13 @@ async function rotinaPassivo(el) {
       if (!confirm(mudou ? 'Salvar a alteração de ' + emp + ' e marcar como conferida?' : 'Confirmar que ' + emp + ' foi conferida (sem alteração)?')) return;
       if (a) await gravar([id, a]);
       await q(sb.rpc('conferir_rotina', { p_area: 'passivo', p_ids: [id], p_alterou: mudou }));
+      const antes = SIT[id], td = cf.closest('td');
       SIT[id] = Object.assign({}, SIT[id], { conferido_em: new Date().toISOString(), conferido_por: E.perfil ? E.perfil.nome : '', conferido_alterou: mudou }, mudou ? { alterado_em: new Date().toISOString() } : {});
       if (mudou) { alterados.delete(id); cf.closest('tr').classList.remove('rt-alterado'); contar(); }
-      cf.closest('td').innerHTML = celulaConferencia(SIT[id], id);
-      aviso(mudou ? '✓ Linha salva.' : '✓ Conferido.'); });
+      td.innerHTML = celulaConferencia(SIT[id], id);
+      // Backup 76 (F4): a conferência pode ser desfeita por alguns segundos (a alteração salva continua salva)
+      desfazerRotina(mudou ? '✓ Linha salva e conferida.' : '✓ Conferido.', async () => {
+        await q(sb.rpc('desfazer_conferencia', { p_area: 'passivo', p_ids: [id] })); SIT[id] = Object.assign({}, antes, mudou ? { alterado_em: SIT[id].alterado_em } : {}); if (td.isConnected) td.innerHTML = celulaConferencia(SIT[id], id); atualizarPlacar(); }); });
     const b = ev.target.closest('[data-ver-senha]'); if (!b) return; const i = b.previousElementSibling; i.type = i.type === 'password' ? 'text' : 'password'; };
   $('rt-hist').onclick = () => janelaHistoricoPassivo(null);
   // Backup 45: preencher como numa planilha — Enter (ou ↓) desce para a mesma coluna da empresa de baixo, ↑ sobe; ao entrar no campo o valor fica selecionado
@@ -856,9 +862,18 @@ async function rotinaTarefas(el) {
     comBotao(b, async () => {
       const t = T.find((x) => x.id === b.dataset.rtConcluir);
       if ((t.checklist || []).some((c) => !c.feito)) return abrirTarefa(t, rep);
-      if (t.exige_revisao) { await q(sb.from('tarefas').update({ status: 'revisao' }).eq('id', t.id)); aviso('✓ Enviada para validação de ' + (t.revisor || 'quem valida') + '.'); }
-      else { await concluirTarefa(t.id); aviso(t.recorrencia ? '✓ Concluída — ela volta sozinha ' + (t.recorrencia_regra ? textoRegra(t.recorrencia_regra).split(',')[0] : REPETE[t.recorrencia] || '') + '.' : '✓ Tarefa concluída.'); }
+      // Backup 76 (F4): Desfazer por alguns segundos (a recorrente não — ela já gerou a próxima)
+      const volta = async () => { await q(sb.from('tarefas').update({ status: t.status || 'pendente' }).eq('id', t.id)); await rep(); };
+      if (t.exige_revisao) { await q(sb.from('tarefas').update({ status: 'revisao' }).eq('id', t.id)); desfazerRotina('✓ Enviada para validação de ' + (t.revisor || 'quem valida') + '.', volta); }
+      else if (t.recorrencia) { await concluirTarefa(t.id); aviso('✓ Concluída — ela volta sozinha ' + (t.recorrencia_regra ? textoRegra(t.recorrencia_regra).split(',')[0] : REPETE[t.recorrencia] || '') + '.'); }
+      else { await concluirTarefa(t.id); desfazerRotina('✓ Tarefa concluída — ' + t.titulo, volta); }
       await rep();
     });
   }, true);
+}
+
+// Backup 76 (F4): aviso de "feito" com o botão Desfazer (no rodapé do ERP; no Gestão avulso, só o aviso)
+function desfazerRotina(msg, fn) {
+  if (window.ERP_EDITOR && window.ERP_EDITOR.gravou) window.ERP_EDITOR.gravou(msg.replace(/^✓\s*/, ''), async () => { try { await fn(); aviso('Desfeito.'); } catch (e) { aviso(erroAmigavel(e), true); } }, 8000);
+  else aviso(msg);
 }

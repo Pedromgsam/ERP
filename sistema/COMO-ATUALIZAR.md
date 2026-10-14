@@ -707,6 +707,35 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
 **Central de Documentos dentro do ERP:** menu **Documentos → Gerar documento** (ou ⋯ → Documentos, contrato, recibo do Financeiro).
 **Ctrl + clique** (ou botão do meio do mouse) em qualquer item do menu ou link de documento abre numa aba nova.
 
+## Backup 76 — Fim das telas antigas para a equipe e para o cliente: Financeiro, Painel, Processos, portal do cliente, busca geral e mais
+1. Merge da pull request.
+2. **SQL no Supabase** (Raw → Ctrl+A/Ctrl+C → conferir a última linha `-- ═══ fim do Backup 76 ═══` → Run).
+3. **Ctrl+Shift+R** no ERP.
+
+O que mudou (o que você aprovou: S1–S8, L1–L4, F1, F3, F4, F6). **Nenhuma função saiu** — cada tela nova faz tudo o que a antiga fazia.
+- **Financeiro (S1 + L1)** — Jurídico e Contabilidade numa tela nova só:
+  1. abas **Análise · Lançamentos** (e, na Contabilidade, **Caixa** e **Distribuição de lucros**);
+  2. em Lançamentos, uma tabela com os botões **A receber · Recebido · A pagar · Pago · Perdas**, os atalhos de prazo (Vencidas, 5, 10, 15, 30 dias) e **Filtros** num painel só (quem, grupo, tipo, área, referência, favorecido, datas e valor);
+  3. **Marcar várias** dá baixa em todas de uma vez ou **cobra várias** (um texto por cliente para WhatsApp);
+  4. no topo, os avisos "honorários vencidos" e "prejuízo" (clique leva à lista) e os botões Recibo, Despesa e Receita.
+- **Painel Executivo (S2)** inteiro novo: grupo e empresa escolhidos no topo, 8 números, evolução do passivo e a tabela de empresas. Os números são calculados com as mesmas regras de antes.
+- **Processos (S3)**: o "Resumo da carteira" (abre com um clique) ganhou o desenho novo: processos, valor em disputa, passivo e ativo em disputa e as tabelas por grupo, tribunal e natureza.
+- **Notificações antigas (S4)** saíram. Cada coisa ficou no seu lugar:
+  - cobrar honorários: no Financeiro ("Cobrar" na linha ou "Marcar várias → Cobrar");
+  - guias de parcelamento: Rotina → Enviar guias;
+  - acordos: botão Emitir;
+  - **recibo**: Central de Documentos, que agora tem os tipos "Honorários mensais" (mês da prestação e do pagamento) e "Juros de empréstimo". No detalhe de um honorário pago há o botão **🧾 Recibo**, já preenchido.
+- **Portal do cliente (S5)**: Início novo ("Para pagar este mês", passivo e as empresas), Processos, Parcelamentos e Acordos nas telas novas — só para ver.
+- **Mais rápido (S6)**: o Início e o Relatório antigos (escondidos) não são mais calculados, e nenhuma tela antiga escondida é redesenhada.
+- **Limpeza (S7 + S8)**: peças sem uso saíram do código; no banco, das 19 cópias antigas de funções que sobraram, saíram 18 (o banco fica idêntico — conferido).
+- **Menu (L2)**: número vermelho ao lado de Tarefas (as suas atrasadas), Publicações (novas) e Parcelamentos (parcelas vencidas).
+- **Cabeçalho único (L4)**: Tarefas, Publicações, Clientes, CRM, Contratos, Documentos, Execuções, Alertas e Administração com o mesmo cabeçalho das telas novas.
+- **Busca geral (F1)**: botão **Buscar** no topo ou **Ctrl+K**: cliente, grupo, CPF/CNPJ, processo, parcelamento, acordo ou tarefa — Enter abre.
+- **Conferências (F3)** no Início: parcelamento sem valor da parcela, cliente sem e-mail, processo parado há mais de 90 dias, contrato sem data de reajuste. Clique para ver e corrigir.
+- **Desfazer na Rotina (F4)**: depois de conferir uma linha (ou o grupo) do Passivo e de concluir uma tarefa, aparece "Desfazer" no rodapé por alguns segundos.
+- **Linha do tempo do cliente (F6)**: agora também com as baixas de parcelamentos e acordos e as movimentações dos processos.
+- **Próximo passo (A4)**: o ERP antigo agora só faz a entrada (login), a leitura dos dados e a troca de tela. As sugestões novas (R = retirar o antigo, V = visual, N = funções) estão em `sistema/SUGESTOES-B76.md`.
+
 ## Backup 75 — Faxina do banco (A5): versões antigas repetidas das funções saíram do estrutura.sql
 1. Merge da pull request.
 2. **SQL no Supabase** (o arquivo ficou menor, mas o resultado no banco é o MESMO): Raw → Ctrl+A/Ctrl+C → conferir a última linha (`-- ═══ fim do Backup 55 ═══`) → Run.

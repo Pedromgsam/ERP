@@ -221,7 +221,12 @@
       { sec: 'Pagamento' },
       { id: 'valor', tipo: 'valor', rotulo: 'Valor recebido', meia: true },
       { id: 'pago_em', tipo: 'data', rotulo: 'Pago em', meia: true, padrao: 'hoje' },
-      { id: 'referente', tipo: 'area', rotulo: 'Referente a', padrao: 'honorários advocatícios' },
+      // Backup 76 (S4): os tipos que só a tela antiga de Recibos tinha — honorários mensais (mês da prestação e do pagamento) e juros de empréstimo
+      { id: 'tipo_rec', tipo: 'select', rotulo: 'Tipo de recibo', opcoes: [['avulso', 'Avulso'], ['mensal', 'Honorários mensais'], ['juros', 'Juros de empréstimo']], padrao: 'avulso' },
+      { id: 'referente', tipo: 'area', rotulo: 'Referente a', padrao: 'honorários advocatícios', dica: 'Nos honorários mensais: os serviços prestados (ex.: consultoria jurídica tributária e acompanhamento de processos tributários)' },
+      { id: 'mes_prest', tipo: 'mes', rotulo: 'Mês da prestação do serviço', meia: true, se: (d) => d.tipo_rec === 'mensal' || d.tipo_rec === 'juros' },
+      { id: 'mes_quit', tipo: 'mes', rotulo: 'Mês do pagamento', meia: true, se: (d) => d.tipo_rec === 'mensal' || d.tipo_rec === 'juros' },
+      { id: 'emprestimo', tipo: 'valor', rotulo: 'Valor do empréstimo', se: (d) => d.tipo_rec === 'juros' },
       { id: 'forma', tipo: 'select', rotulo: 'Forma de pagamento', opcoes: [['pix', 'PIX'], ['transferencia', 'transferência bancária'], ['boleto', 'boleto'], ['dinheiro', 'dinheiro'], ['cartao', 'cartão'], ['cheque', 'cheque']], padrao: 'pix' },
       { sec: 'Fecho' }, local, data],
     titulo: (d, h) => 'Recibo — ' + h.nomeParte(d.pagador) + (d.valor ? ' — ' + h.brl(h.valor(d.valor)) : ''),
@@ -230,12 +235,24 @@
       const forma = { pix: 'PIX', transferencia: 'transferência bancária', boleto: 'boleto', dinheiro: 'dinheiro', cartao: 'cartão', cheque: 'cheque' }[d.forma] || d.forma;
       return [B.titulo('RECIBO'),
         B.recibo(d._numero ? 'Nº ' + d._numero : 'Nº — (sai ao salvar)', v ? h.brl(v) : h.V('', 'valor')),
-        B.p((r.plural ? 'Recebemos' : 'Recebi') + ' de ' + h.qualifica(d.pagador, { curto: true }) + ', a importância de **' + h.dinheiro(d.valor) + '**, referente a ' + h.V(String(d.referente || '').trim().replace(/\.$/, ''), 'referente a') +
+        B.p((r.plural ? 'Recebemos' : 'Recebi') + ' de ' + h.qualifica(d.pagador, { curto: true }) + ', a importância de **' + h.dinheiro(d.valor) + '**, ' + referenteRecibo(d, h) +
           ', paga por ' + forma + ' em ' + h.dataCurta(d.pago_em) + ', pelo que ' + (r.plural ? 'damos' : 'dou') + ' plena e geral quitação quanto ao valor recebido.'),
         B.fecho(d.local, d.data),
         B.assinaturas([[{ nome: h.up(r.nome), doc: r.doc }]])];
     }
   };
+
+  // texto do "referente a" do recibo, conforme o tipo (o mesmo da tela antiga de Recibos)
+  const MESES_REC = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+  const mesRec = (ym, h, rot) => (/^\d{4}-\d{2}/.test(ym || '') ? MESES_REC[+ym.slice(5, 7) - 1] + ' de ' + ym.slice(0, 4) : h.V('', rot));
+  function referenteRecibo(d, h) {
+    const ref = String(d.referente || '').trim().replace(/\.$/, '');
+    if (d.tipo_rec === 'mensal') return 'referente ao pagamento de honorários advocatícios mensais, quitados no mês de ' + mesRec(d.mes_quit, h, 'mês do pagamento') +
+      ', relativos aos serviços de ' + h.V(ref, 'serviços') + ', prestados no mês de ' + mesRec(d.mes_prest, h, 'mês da prestação') + ', conforme contrato firmado entre as partes';
+    if (d.tipo_rec === 'juros') return 'referente a juros sobre empréstimo no valor de ' + (h.valor(d.emprestimo) ? h.brl(h.valor(d.emprestimo)) : h.V('', 'valor do empréstimo')) +
+      ', correspondente ao período compreendido entre ' + mesRec(d.mes_prest, h, 'mês inicial') + ' e ' + mesRec(d.mes_quit, h, 'mês final');
+    return 'referente a ' + h.V(ref, 'referente a');
+  }
 
   // ── 5) DECLARAÇÃO ──
   const declaracao = {

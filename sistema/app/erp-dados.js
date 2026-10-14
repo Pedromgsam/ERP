@@ -158,6 +158,8 @@ window.ERP_COLS_CLIENTE = 'id,grupo_id,nome,cpf_cnpj,tipo,responsavel,email,tele
   }
   // Lançamentos como vieram do banco (as tabelas no estilo Gestão usam o registro original)
   window.ERP_LANC = window.ERP_LANC || {};
+  // Backup 76: ao reler uma empresa, tira antes os dela (um lançamento apagado não fica para trás na tela nova do Financeiro)
+  function limparLanc(empresa) { Object.keys(window.ERP_LANC).forEach((k) => { if (window.ERP_LANC[k].empresa === empresa) delete window.ERP_LANC[k]; }); }
   function guardarLanc(l, G) { window.ERP_LANC[l.id] = Object.assign({}, l, { grupos: l.grupo_id ? { nome: G[l.grupo_id] || '' } : null }); }
   const LEITORES = {
     async baseDados() { const G = await grupos(); return (await todos(() => sb.from('clientes').select(window.ERP_COLS_CLIENTE).order('nome'))).map((c) => baseDados(c, G[c.grupo_id])); },
@@ -169,8 +171,8 @@ window.ERP_COLS_CLIENTE = 'id,grupo_id,nome,cpf_cnpj,tipo,responsavel,email,tele
       return pas.map((pa) => Object.assign(parcelamento(pa, porParc[pa.id] || []), { grupoNome: G[pa.grupo_id] || '' }));
     },
     async acordos() { const G = await grupos(); return (await todos(() => sb.from('acordos').select('*').order('vencimento').order('id'))).map((a) => acordo(a, G[a.grupo_id])); },
-    async financeiro() { const G = await grupos(); return (await todos(() => sb.from('lancamentos').select('*, contratos(descricao)').eq('empresa', 'escritorio').order('vencimento').order('id'))).map((l) => { guardarLanc(l, G); return financeiro(l, G[l.grupo_id]); }); },
-    async financeiroContab() { const G = await grupos(); return (await todos(() => sb.from('lancamentos').select('*, contratos(descricao)').eq('empresa', 'contabilidade').order('vencimento').order('id'))).map((l) => { guardarLanc(l, G); return financeiro(l, G[l.grupo_id]); }); },
+    async financeiro() { const G = await grupos(); const ls = await todos(() => sb.from('lancamentos').select('*, contratos(descricao)').eq('empresa', 'escritorio').order('vencimento').order('id')); limparLanc('escritorio'); return ls.map((l) => { guardarLanc(l, G); return financeiro(l, G[l.grupo_id]); }); },
+    async financeiroContab() { const G = await grupos(); const ls = await todos(() => sb.from('lancamentos').select('*, contratos(descricao)').eq('empresa', 'contabilidade').order('vencimento').order('id')); limparLanc('contabilidade'); return ls.map((l) => { guardarLanc(l, G); return financeiro(l, G[l.grupo_id]); }); },
     async tarefas() {
       const G = await grupos();
       return (await todos(() => sb.from('tarefas').select('*').order('prazo').order('id'))).map((t) => ({

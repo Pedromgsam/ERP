@@ -45,14 +45,14 @@
 <script src="vendor/chart.umd.js?v=3402f6de" defer></script>
 <script src="vendor/supabase.js?v=16aeff36"></script>
 <script src="config.js"></script>
-<script src="erp-dados.js?v=1e8ad23b"></script>
+<script src="erp-dados.js?v=1f1f02aa"></script>
 <link rel="stylesheet" href="editor.css?v=7747e46f">
-<link rel="stylesheet" href="erp-telas.css?v=e074c3eb">
+<link rel="stylesheet" href="erp-telas.css?v=3787a9da">
 <script src="editor.js?v=2f159e86" defer></script>
-<script src="erp-telas.js?v=03882aca" defer></script>
+<script src="erp-telas.js?v=2856ddfe" defer></script>
 <link rel="stylesheet" href="gs.css?v=3664502a">
 <script src="importador.js?v=23bf9824" defer></script>
-<script src="gestao-embutida.js?v=301a57cf" defer></script>
+<script src="gestao-embutida.js?v=7bec26a2" defer></script>
 <script>
 
 
@@ -1617,8 +1617,8 @@ tbody tr:hover td{background:rgba(37,99,235,.07)!important}
 </style>
 <link rel="stylesheet" href="tokens.css?v=c80d0639">
 <link rel="stylesheet" href="tema-escuro.css?v=3bec5b6a">
-<link rel="stylesheet" href="design.css?v=9548b0a6">
-<link rel="stylesheet" href="base.css?v=84f32e43">
+<link rel="stylesheet" href="design.css?v=80fbba13">
+<link rel="stylesheet" href="base.css?v=2639ea04">
 <script>try{if(localStorage.getItem("erp_tema")==="escuro")document.documentElement.setAttribute("data-tema","escuro")}catch(e){}</script>
 </head>
 <body>
@@ -3534,8 +3534,6 @@ function nav(btn,pid){
   // estava fechado, é agora que ele se acerta — no momento em que aparece.
   if(_SUJOS[id]) _pintar(id);
 
-  if(id==='relatorio')    { renderTudoAgora(); _initRelatorio(); }
-  if(id==='inicio')       renderInicio();
   if(id==='notificacoes') { /* carrega por aba */ }
 
   if(p) p.dataset.loaded='1';
@@ -4082,7 +4080,7 @@ function _pgHdUpdate(){
   el.textContent=_filtroResumoTxt()+(ts?' · Atualizado '+ts:'');
 }
 var _PINTORES={
-  resumo:        function(){ renderInicio(); renderResumo(); _execDetalhe(); renderExecRanking(); _pgHdUpdate(); },
+  resumo:        function(){ renderResumo(); _execDetalhe(); renderExecRanking(); _pgHdUpdate(); },
   processos:     function(){ renderProcessos(); renderProcAnalise(); },
   parcelamentos: function(){ renderParcelamentos(); renderParcAnalise(); },
   acordos:       function(){ renderAcordos(); },
@@ -4106,6 +4104,7 @@ function _painelVisivel(){
 // Desenha o painel pedido e tira o selo de sujo. Silencioso de propósito:
 // um painel que quebra não pode derrubar a navegação inteira.
 function _pintar(id){
+  if(window.ERP_TELA_NOVA&&window.ERP_TELA_NOVA(id)){ delete _SUJOS[id]; return; }
   const fn=_PINTORES[id];
   if(!fn){ delete _SUJOS[id]; return; }
   try{ fn(); }catch(e){ console.warn('[ERP] painel '+id+':', e); }

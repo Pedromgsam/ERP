@@ -46,9 +46,9 @@ body.gx-tela-nova #fb{display:none!important}
 /* Backup 68: Parcelamentos novo dentro do painel antigo — a equipe vê a tela nova; o portal do cliente, a antiga */
 .panel > .gx-gs-no-antigo{display:none}
 body.gx-tela-nova .panel > .gx-gs-no-antigo{display:block}
-body.gx-tela-nova :is(#panel-parcelamentos,#panel-acordos) > :not(.gx-gs-no-antigo){display:none!important}
-body.gx-tela-nova :is(#panel-parcelamentos,#panel-acordos){padding:0!important}
-body.gx-tela-nova :is(#panel-parcelamentos,#panel-acordos) > .gx-gs-no-antigo{width:100%}
+body.gx-tela-nova :is(#panel-parcelamentos,#panel-acordos,#panel-financeiro,#panel-financeiroContab,#panel-resumo,#panel-processos) > :not(.gx-gs-no-antigo){display:none!important}
+body.gx-tela-nova :is(#panel-parcelamentos,#panel-acordos,#panel-financeiro,#panel-financeiroContab,#panel-resumo,#panel-processos){padding:0!important}
+body.gx-tela-nova :is(#panel-parcelamentos,#panel-acordos,#panel-financeiro,#panel-financeiroContab,#panel-resumo,#panel-processos) > .gx-gs-no-antigo{width:100%}
 .gx-painel-gs{padding:0!important}
 .gx-painel-gs>.gs{width:100%}
 
@@ -435,3 +435,13 @@ body.gx-barra-topo table.gx-sem-seta th.gx-th-seta,body.gx-barra-topo table.gx-s
 /* Backup 72: Processos — a tabela antiga fica só para o portal do cliente; a equipe vê a lista nova (#pr-nova) */
 #panel-processos .gx-proc-antigo{display:none!important}
 #pr-nova{margin-top:var(--sp-4,16px)}
+/* Backup 76 (L2): contagem discreta no menu lateral */
+#tn .tn-n{margin-left:auto;min-width:20px;height:18px;padding:0 6px;border-radius:999px;background:var(--red);color:#fff;font:700 11px/18px var(--font-ui);text-align:center;font-variant-numeric:tabular-nums}
+#tn .tn-abre .tn-n-grupo{margin-right:6px}
+body.gx-lado-min #tn .tn-n{position:absolute;top:4px;right:6px;min-width:16px;height:16px;line-height:16px;font-size:10px;padding:0 4px}
+/* Backup 76 (F1): botão "Buscar" na barra de cima */
+#gs-hd .gs-buscar{display:inline-flex;align-items:center;gap:8px;margin-left:18px;border:1px solid var(--border);background:var(--surface2,var(--surface));color:var(--text3);border-radius:999px;padding:6px 12px 6px 10px;font:500 13px var(--font-ui);cursor:pointer;min-width:220px}
+#gs-hd .gs-buscar:hover{border-color:var(--border-strong);color:var(--text2)}
+#gs-hd .gs-buscar svg{width:15px;height:15px}
+#gs-hd .gs-buscar kbd{margin-left:auto;font:600 10.5px var(--font-ui);color:var(--text3);border:1px solid var(--border);border-radius:5px;padding:1px 5px;background:var(--surface)}
+@media (max-width:900px){#gs-hd .gs-buscar{min-width:0}#gs-hd .gs-buscar span,#gs-hd .gs-buscar kbd{display:none}}

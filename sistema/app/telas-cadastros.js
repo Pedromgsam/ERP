@@ -21,7 +21,7 @@ TELAS.clientes = async function () {
   if (!E.clientes.length) await carregarCadastros();
   const C = E.cli;
   $('conteudo').innerHTML =
-    '<div class="titulo-pag"><div><h1>Clientes</h1><p id="cli-conta"></p></div>' +
+    '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('clientes') + '</div><div class="b-cab-tx"><h1>Clientes</h1><p id="cli-conta"></p></div>' +
     '<div class="acoes"><button class="btn btn-o" id="cli-email-lote" title="Marcar vários clientes de uma vez: recebem ou não os e-mails do escritório">✉ Recebe e-mails…</button><button class="btn btn-p" data-novo="cliente">+ Novo cliente</button></div></div>' +
     '<div class="filtros">' +
     '<div class="segmento" id="cli-visao" title="Como mostrar a lista">' + [['grupo', 'Por grupo'], ['lista', 'Lista']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
@@ -338,7 +338,7 @@ TELAS.contratos = async function () {
   E.ctr = E.ctr || { busca: '', status: 'Ativo' };
   const F = E.ctr;
   $('conteudo').innerHTML =
-    '<div class="titulo-pag"><div><h1>Contratos</h1><p>Consultoria mensal (fixo ou em salários mínimos) ou serviço pontual · os valores entram sozinhos em Honorários Jurídico</p></div>' +
+    '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('contrato') + '</div><div class="b-cab-tx"><h1>Contratos</h1><p>Consultoria mensal (fixo ou em salários mínimos) ou serviço pontual · os valores entram sozinhos em Honorários Jurídico</p></div>' +
     '<div class="acoes"><button class="btn btn-o" id="ctr-sm">Salário mínimo</button><button class="btn btn-p" data-novo="contrato">+ Novo contrato</button></div></div>' +
     '<div class="filtros"><div class="segmento" id="ctr-status">' + [['Ativo', 'Ativos'], ['Aguardando assinatura', 'Aguardando assinatura'], ['Encerrado', 'Encerrados'], ['Cancelado', 'Cancelados'], ['todos', 'Todos']]
       .map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +

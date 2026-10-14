@@ -32,12 +32,14 @@ const REGRAS = [
   ['situação: a vencer', '[data-sit=avencer]', ['backgroundColor', 'color'], true],
   ['situação: pago', '[data-sit=pago]', ['backgroundColor', 'color'], true],
   ['situação: cliente emite', '[data-sit=cliente]', ['backgroundColor', 'color'], true]];
+// Backup 76: Financeiro novo — abas Análise / Lançamentos / Caixa
+const FIN = (painel, aba) => "document.querySelector('#gs-main-" + painel + " #fin-abas [data-aba=" + aba + "]').click()";
 const ROTINA = (aba) => "document.querySelector('#rt-abas [data-rt-aba=" + aba + "]').click()";
 
 // telas e, entre colchetes, o que clicar antes de medir (abas)
 const TELAS = [['hoje'], ['resumo'], ['processos'], ['parcelamentos'], ['parcelamentos', "document.querySelector('#pc-tabela [data-b-aba=pago]').click()"], ['acordos'], ['acordos', "document.querySelector('#ac-tabela [data-b-aba=pago]').click()"],
-  ['financeiro', "setFinTab('receber')"], ['financeiro', "setFinTab('recebidos')"], ['financeiro', "setFinTab('analise')"],
-  ['financeiroContab', "setFinCTab('receber')"], ['contratos'], ['clientes'],
+  ['financeiro', FIN('financeiro', 'lanc')], ['financeiro', FIN('financeiro', 'lanc') + ";document.querySelector('#gs-main-financeiro #fin-tab [data-b-aba=recebido]').click()"], ['financeiro', FIN('financeiro', 'analise')],
+  ['financeiroContab', FIN('financeiroContab', 'lanc')], ['financeiroContab', FIN('financeiroContab', 'caixa')], ['contratos'], ['clientes'],
   ['rotina', ROTINA('passivo')], ['rotina', ROTINA('processos')], ['rotina', ROTINA('guias')], ['rotina', ROTINA('planilha')], ['tarefas'], ['alertas'], ['crm'], ['publicacoes']];
 
 (async () => {
