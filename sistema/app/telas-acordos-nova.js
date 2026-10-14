@@ -70,6 +70,7 @@ const vencidaA = (x) => (!x.pago && x.venc && x.venc <= hojeISO() ? ' b-tr-venc'
 // ═════════ TELA ═════════
 TELAS.acordos = async function () {
   E.ac = E.ac || { grupo: '', chip: 'todos' };
+  E.ac.f = E.ac.f || { grupo: '', emp: '' };
   const el0 = $('conteudo');
   const T = await dadosAcordos();
   if (!el0.isConnected) return;
@@ -79,14 +80,18 @@ TELAS.acordos = async function () {
 TELAS.acordos.semCadastros = true;
 function pintarAcordos() {
   const el = $('conteudo'); if (!el) return;
-  const T = E.ac.T || [], A = E.ac.A || [], h = hojeISO(), podeEd = pode('juridico', 'editar');
+  const T0 = E.ac.T || [], F = E.ac.f || {}, T = T0.filter((x) => (!F.grupo || x.grupo === F.grupo) && (!F.emp || x.devedor === F.emp)), h = hojeISO(), podeEd = pode('juridico', 'editar');
+  E.ac.Af = acordosDe(T);
   el.innerHTML = cabecalhoTela({ icone: 'documento', titulo: 'Acordos', frase: 'Dívidas dos clientes com terceiros (não entram no Financeiro)', atualizar: 'ac-atualizar', botao: podeEd ? { id: 'ac-novo', rotulo: 'Novo acordo' } : null }) +
+    filtroSusB('ac-filtro', [{ k: 'grupo', rot: 'Grupo', todos: 'Todos os grupos', opcoes: unicosTxt(T0.map((x) => x.grupo)), v: F.grupo },   // Backup 79
+      { k: 'emp', rot: 'Devedor', todos: 'Todos os devedores', opcoes: unicosTxt(T0.filter((x) => !F.grupo || x.grupo === F.grupo).map((x) => x.devedor)), v: F.emp }]) +
     '<div class="b-sec"><div><h2>Situação dos acordos por cliente</h2><p>Quanto cada grupo já pagou, quanto falta e o que vence este mês.</p></div><div class="b-chips" id="ac-chips">' +
     [['todos', 'Todos'], ['atraso', 'Com atraso'], ['risco', 'Risco de rescisão'], ['dia', 'Em dia'], ['concluidos', 'Concluídos']].map((c) => '<button type="button" class="b-chip" data-ac-chip="' + c[0] + '" aria-pressed="' + (E.ac.chip === c[0]) + '">' + c[1] + '</button>').join('') + '</div></div>' +
     '<div class="b-cards" id="ac-grupos"></div><div class="b-sec"><div><h2>Parcelas</h2></div></div><div id="ac-tabela"></div>';
   const bt = $('ac-novo'); if (bt) bt.onclick = () => { if (typeof formAcordoNovo === 'function') formAcordoNovo(() => { if (window.ERP_RECARREGAR) window.ERP_RECARREGAR(); else TELAS.acordos(); }); };
   $('ac-atualizar').onclick = () => { if (window.ERP_RECARREGAR_MODULOS) window.ERP_RECARREGAR_MODULOS('acordos').then(() => TELAS.acordos()); else TELAS.acordos(); };
   // Backup 71: os 4 cartões do topo saíram a pedido (a tela começa na situação por cliente)
+  ligarFiltroSusB('ac-filtro', E.ac.f, () => { E.ac.grupo = ''; E.ac.fechado = false; pintarAcordos(); });
   desenharGruposAc();
   $('ac-chips').onclick = (ev) => { const b = ev.target.closest('[data-ac-chip]'); if (!b) return; E.ac.chip = b.dataset.acChip; $('ac-chips').querySelectorAll('.b-chip').forEach((x) => x.setAttribute('aria-pressed', x === b)); desenharGruposAc(); };
   const uniq = (f) => [...new Set(T.map(f).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR')).map((v) => [v, v]);
@@ -103,7 +108,7 @@ function pintarAcordos() {
 function desenharGruposAc() {
   const el = $('ac-grupos'); if (!el) return;
   const G = {};
-  (E.ac.A || []).forEach((a) => { const k = a.grupo || a.devedor; (G[k] = G[k] || { id: k, nome: k, itens: [] }).itens.push(a); });
+  (E.ac.Af || E.ac.A || []).forEach((a) => { const k = a.grupo || a.devedor; (G[k] = G[k] || { id: k, nome: k, itens: [] }).itens.push(a); });
   const chip = E.ac.chip, grupos = Object.values(G).map((g) => {
     const vivos = g.itens.filter((a) => !a.concluido), conc = g.itens.filter((a) => a.concluido);
     const s = (f) => vivos.reduce((t, a) => t + f(a), 0);
@@ -111,7 +116,7 @@ function desenharGruposAc() {
       parcMes: s((a) => a.doMes.reduce((t, x) => t + x.valor, 0)), nParcMes: s((a) => a.doMes.length), nMes: s((a) => a.mes.length), somaMes: s((a) => a.mes.reduce((t, x) => t + x.valor, 0)) });
   }).filter((g) => chip === 'concluidos' ? g.conc.length : g.vivos.length && (chip === 'todos' || (chip === 'atraso' && g.atr) || (chip === 'risco' && g.risco) || (chip === 'dia' && !g.atr)))
     .sort((a, b) => (b.atr ? 1 : 0) - (a.atr ? 1 : 0) || a.nome.localeCompare(b.nome, 'pt-BR'));
-  if (grupos.length === 1 && !E.ac.grupo) E.ac.grupo = grupos[0].id;
+  if (grupos.length === 1 && !E.ac.grupo && !E.ac.fechado) E.ac.grupo = grupos[0].id;   // Backup 79: fecha se você clicar
   let html = '';
   grupos.forEach((g) => {
     const ab = E.ac.grupo === g.id, n = chip === 'concluidos' ? g.conc.length : g.vivos.length, pc = g.tot ? Math.round(g.pg / g.tot * 100) : 100;
@@ -124,7 +129,7 @@ function desenharGruposAc() {
     if (ab) html += '<div class="b-cg-det" id="ac-det-grupo"></div>';
   });
   el.innerHTML = html || '<div class="b-quadro b-cg-det">' + vazioB({ icone: 'ok', titulo: 'Nenhum grupo neste recorte', frase: 'Troque a escolha acima (Todos, Com atraso, Risco de rescisão, Em dia, Concluídos).' }) + '</div>';
-  el.onclick = (ev) => { const c = ev.target.closest('[data-ac-g]'); if (!c) return; E.ac.grupo = E.ac.grupo === c.dataset.acG ? '' : c.dataset.acG; desenharGruposAc(); };
+  el.onclick = (ev) => { const c = ev.target.closest('[data-ac-g]'); if (!c) return; E.ac.fechado = E.ac.grupo === c.dataset.acG; E.ac.grupo = E.ac.fechado ? '' : c.dataset.acG; desenharGruposAc(); };
   const det = $('ac-det-grupo'), g = grupos.find((x) => x.id === E.ac.grupo);
   if (!det || !g) return;
   tabelaB(det, { id: 'ac-grupo', titulo: g.nome, linhas: chip === 'concluidos' ? g.conc : g.vivos, unidade: ['acordo', 'acordos'], chave: (a) => a.k, ord: { k: 'dev', dir: 1 },

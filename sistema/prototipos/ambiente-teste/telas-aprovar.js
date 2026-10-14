@@ -2,7 +2,7 @@
    (fica guardado neste navegador; "Copiar minhas respostas" junta tudo num texto para colar na conversa). */
 (function(){
   var APP = window.APP, ic = APP.ic, esc = APP.esc;
-  var SUB = [['design','Novidades (Backup 78)'],['textos','Textos (antes → depois)'],['enxugar','O que foi enxugado'],['melhorias','Melhorias (uso simulado)'],['antigo','Tirar o ERP antigo']];
+  var SUB = [['design','Novidades (Backup 79)'],['textos','Textos (antes → depois)'],['enxugar','O que foi enxugado'],['melhorias','Melhorias (uso simulado)'],['antigo','Tirar o ERP antigo']];
   var ENXUGAR = [
     ['E1', 'Tela Alertas sai do menu', 'Os alertas viram a faixa do Início; as "rotinas automáticas" foram para Administração → Saúde do sistema.'],
     ['E2', 'Sem cartões de número no topo das telas', 'Parcelamentos, Acordos, Tarefas, Execuções e Rotina. Os números ficam nas abas (ex.: "Atrasadas 3") ou numa linha só.'],
@@ -37,12 +37,15 @@
     ['M17', 'Honorário com boleto/PIX e baixa sozinha', 'O cliente paga e o sistema dá a baixa e manda o recibo sem ninguém mexer. Custo (Asaas): R$ 1,99 por pagamento, sem mensalidade — com 150 cobranças/mês, cerca de R$ 300/mês.', 'sugestão'],
     ['M18', 'Lembrete do honorário também pelo WhatsApp', 'Custo (API oficial da Meta): cerca de R$ 0,03 por mensagem + o provedor (de grátis a cerca de R$ 100/mês). Com 300 lembretes/mês: cerca de R$ 10 + o provedor.', 'sugestão']
   ];
-  var DESIGN = [   // Backup 78: o que mudou depois das respostas de 14/10 (designs A/B/C recusados: fica o desenho atual)
-    ['N1', 'Portal do cliente: Início só de introdução', 'Boas-vindas, uma linha "Tudo em dia" (ou "N parcelas em atraso") e os atalhos. Sem tabelas e sem números.'],
-    ['N2', 'Portal: Parcelamentos, Acordos e Execuções em cartões que abrem', 'Um cartão por parcelamento, acordo ou execução (como na sua tela); clicou, abrem as parcelas ou os recebimentos logo abaixo.'],
-    ['N3', 'Portal: Financeiro separado', 'Botões "Jurídico (advocacia)" e "Contabilidade" no alto; cada um com os seus honorários.'],
-    ['N4', 'Parcelamentos: coluna "Parcelamento" com tudo', '"Não previdenciário" e, embaixo, "Regularize · nº 1.998.320" — no lugar de Plataforma, Natureza e Nº separados. Já está no ERP de verdade.'],
-    ['N5', 'Enxuto fixo', 'Cartões de grupo com 2 linhas, Painel com 5 números, sem frases "Clique…", sem bolinha do grupo — no ambiente e no ERP de verdade.']
+  var DESIGN = [   // Backup 79: o que mudou com as respostas de 15/10
+    ['F1', 'Filtro suspenso no alto (ERP)', 'Processos, Parcelamentos e Acordos: "Grupo" e "Empresa" (ou Competência/Devedor) no alto recortam o resumo/situação e a tabela. "Limpar filtro" volta tudo.'],
+    ['F2', 'Parcelamentos: coluna Empresa só com o nome', 'Sem o CNPJ embaixo (a busca continua achando pelo CNPJ).'],
+    ['F3', 'Cartão único fecha', 'Com um grupo só (ou um acordo/parcelamento só), o cartão abre sozinho, mas agora fecha ao clicar.'],
+    ['F4', 'Portal: escolher o grupo e o que ele vê', 'No alto do portal: o grupo e os botões "O que este grupo vê" (Parcelamentos, Acordos, Execuções, Contratos, Financeiro, Documentos).'],
+    ['F5', 'Publicações: Processo, Autor — advogado, Réu — advogado', 'O bloco de identificação do ERP dentro do cartão do ambiente.'],
+    ['F6', 'Financeiro: Análise primeiro; datas dd/mm/aaaa', 'Análise | Lançamentos; período "de … até …" digitado; os filtros de vencimento também em dd/mm/aaaa.'],
+    ['F7', 'Fluxo do mês', 'Previsto no mês · Recebido · Em atraso (só deste mês) · A receber, com a barra; o atraso de meses anteriores aparece à parte. Mude o mês com ‹ ›.'],
+    ['F8', 'Clientes como estão hoje no ERP', 'A tela de Clientes do ambiente não vai para o ERP.']
   ];
   var ANTIGO = [
     ['A1', 'Aprovar este ambiente (telas, textos, e-mails, portal).'],
@@ -65,7 +68,7 @@
       APP.$('ap-copiar').onclick = copiar;
       var c = APP.$('ap-corpo');
       if (sub === 'design'){
-        c.innerHTML = '<div class="texto"><h3>O que mudou com as suas respostas</h3><p>Os três designs novos (A, B e C) saíram: fica o desenho atual. O que você aprovou do "Enxuto" ficou fixo, e os pedidos sobre o portal do cliente e a coluna Parcelamento estão abaixo. Abra <b>Portal do cliente</b> no menu para ver.</p></div>'
+        c.innerHTML = '<div class="texto"><h3>O que mudou com as suas respostas de 15/10</h3><p>F1, F2, F3, F6 (datas), F7 e o bloco do F5 já estão no ERP de verdade. F4 (portal por grupo) é só no ambiente por enquanto.</p></div>'
           + '<div class="lista">' + DESIGN.map(function(x){ return '<div class="li li-ap"><span class="li-tipo t-rotina">' + x[0] + '</span><span class="li-tx"><b>' + esc(x[1]) + '</b><small>' + esc(x[2]) + '</small></span>' + bts(x[0]) + '</div>'; }).join('') + '</div>';
       } else if (sub === 'textos'){
         var T = window.TEXTOS, telas = {};

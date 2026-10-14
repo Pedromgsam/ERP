@@ -707,6 +707,25 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
 **Central de Documentos dentro do ERP:** menu **Documentos → Gerar documento** (ou ⋯ → Documentos, contrato, recibo do Financeiro).
 **Ctrl + clique** (ou botão do meio do mouse) em qualquer item do menu ou link de documento abre numa aba nova.
 
+## Backup 79 — Filtros por grupo, Fluxo do mês e ajustes das suas respostas de 15/10
+1. Merge da pull request.
+2. **Sem SQL** e sem função nova.
+3. **Ctrl+Shift+R** no ERP.
+
+O que mudou no ERP:
+- **Filtro no alto (o "filtro suspenso" de volta):** em **Processos** (Grupo e Competência), **Parcelamentos** (Grupo e Empresa) e **Acordos** (Grupo e Devedor).
+  Escolha o grupo: o Resumo da carteira / a Situação por cliente e a tabela mostram só ele. **Limpar filtro** volta tudo.
+- **Parcelamentos:** a coluna Empresa mostra só o nome (sem o CNPJ; a busca continua achando pelo CNPJ).
+- **Cartão único:** quando só sobra um grupo, o cartão abre sozinho — e agora **fecha** se você clicar nele.
+- **Publicações:** o bloco de cada publicação mostra sempre Processo, **Autor** e **Réu**; o nome do advogado do escritório fica na linha da parte que é o nosso cliente.
+- **Financeiro → Análise:**
+  1. **Fluxo do mês** (no alto): Previsto no mês · Recebido · Em atraso (só deste mês) · A receber, com uma barra colorida. O atraso de meses anteriores aparece numa linha à parte. Use ‹ › para mudar o mês.
+  2. **Resultado do mês**: tabela Entradas · Saídas · Resultado de cada mês do período (como no ambiente de teste).
+  3. Período **de … até …** digitado como **dd/mm/aaaa** (também nos filtros de vencimento das tabelas). 31/11 vira 30/11 sozinho.
+- **Clientes:** fica como está hoje (a tela do ambiente de teste não vai para o ERP).
+
+No ambiente de teste (https://claude.ai/artifact/GMgLFUpDhAoBs1LMrh6QiP): Financeiro abre na Análise; Fluxo do mês; portal com **Grupo** e **O que este grupo vê**; Publicações com Autor/Réu — advogado.
+
 ## Backup 78 — Suas respostas de 14/10: visual enxuto, coluna "Parcelamento" e portal do cliente
 1. Merge da pull request.
 2. **Sem SQL** e sem função nova.

@@ -17,6 +17,11 @@
   APP.fh = function(d){ return d ? d2(d.getHours()) + ':' + d2(d.getMinutes()) : ''; };
   APP.iso = function(d){ return d.getFullYear() + '-' + d2(d.getMonth() + 1) + '-' + d2(d.getDate()); };
   APP.deIso = function(v){ if (!v) return null; var a = String(v).split('-'); return new Date(+a[0], +a[1] - 1, +a[2]); };
+  // Backup 79: datas digitadas dd/mm/aaaa (máscara ao digitar; 31/11 vira 30/11; incompleta = '')
+  APP.mascData = function(v){ var d = String(v || '').replace(/\D/g, '').slice(0, 8); return d.length > 4 ? d.slice(0, 2) + '/' + d.slice(2, 4) + '/' + d.slice(4) : d.length > 2 ? d.slice(0, 2) + '/' + d.slice(2) : d; };
+  APP.isoBR = function(v){ var m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(v || '').trim()); if (!m || +m[2] < 1 || +m[2] > 12) return ''; var ult = new Date(+m[3], +m[2], 0).getDate(); return m[3] + '-' + m[2] + '-' + String(Math.min(Math.max(+m[1], 1), ult)).padStart(2, '0'); };
+  APP.campoData = function(attrs, iso, rot){ return '<input class="ctl in-data" type="text" inputmode="numeric" placeholder="dd/mm/aaaa" maxlength="10" data-mdata ' + attrs + ' aria-label="' + esc(rot || 'Data') + '" value="' + (iso ? APP.fd(APP.deIso(iso)) : '') + '">'; };
+  document.addEventListener('input', function(e){ if (e.target.matches && e.target.matches('[data-mdata]')){ var v = APP.mascData(e.target.value); if (v !== e.target.value) e.target.value = v; } }, true);
   APP.deBR = function(v){ var m = String(v || '').match(/(\d{2})\/(\d{2})\/(\d{4})/); return m ? new Date(+m[3], +m[2] - 1, +m[1]) : null; };
   APP.num = function(v){ v = String(v == null ? '' : v).replace(/[^\d,.-]/g, ''); if (v === '') return null; if (v.indexOf(',') >= 0) v = v.replace(/\./g, '').replace(',', '.'); return Number(v); };
   APP.plural = function(n, um, varios){ return n + ' ' + (n === 1 ? um : varios); };
@@ -175,7 +180,7 @@
         + '<button class="ic-bt" type="button" data-t="dens" aria-pressed="' + document.documentElement.classList.contains('compacto') + '" title="Tabela compacta (mais linhas na tela)">' + ic('compacto') + '</button></span></div>'
         + (temPainel ? '<div class="mais-filtros" data-t="pn"' + (st.painel ? '' : ' hidden') + '>'
           + (cfg.listas || []).map(function(l){ return '<div class="campo"><span class="rot">' + esc(l.rot) + '</span><select class="ctl" data-t="l" data-k="' + l.k + '" aria-label="' + esc(l.rot) + '"><option value="">' + esc(l.todos) + '</option>' + l.opcoes.map(function(o){ return '<option value="' + esc(o[0]) + '"' + (st.listas[l.k] === String(o[0]) ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select></div>'; }).join('')
-          + (cfg.venc ? '<div class="campo"><span class="rot">Vencimento</span><div class="par"><input class="ctl" type="date" data-t="vde" aria-label="Vencimento de" value="' + st.vde + '"><span>até</span><input class="ctl" type="date" data-t="vate" aria-label="Vencimento até" value="' + st.vate + '"></div></div>' : '')
+          + (cfg.venc ? '<div class="campo"><span class="rot">Vencimento</span><div class="par">' + APP.campoData('data-t="vde"', st.vde, 'Vencimento de') + '<span>até</span>' + APP.campoData('data-t="vate"', st.vate, 'Vencimento até') + '</div></div>' : '')
           + (cfg.valor ? '<div class="campo"><span class="rot">Valor (R$)</span><div class="par"><input class="ctl" inputmode="decimal" data-t="min" placeholder="de" aria-label="Valor mínimo" style="width:110px" value="' + esc(st.min) + '"><span>até</span><input class="ctl" inputmode="decimal" data-t="max" placeholder="até" aria-label="Valor máximo" style="width:110px" value="' + esc(st.max) + '"></div></div>' : '')
           + '<button class="bt bt-g" type="button" data-t="limpar">Limpar filtros</button></div>' : '')
         + '<div data-t="quadro"></div>';
@@ -209,7 +214,7 @@
     function prazos(){
       var b = Q('[data-t=prazos]'); if (!b) return; b.hidden = !prazoNaAba();
       b.innerHTML = [['', 'Todas'], ['venc', 'Vencidas'], ['5', '5 dias'], ['10', '10 dias'], ['15', '15 dias'], ['30', '30 dias']].map(function(o){ return '<button type="button" class="chip" data-prazo="' + o[0] + '" aria-pressed="' + (st.prazo === o[0]) + '">' + o[1] + '</button>'; }).join('')
-        + '<label class="prazo-ate' + (st.prazo === 'ate' ? ' on' : '') + '" title="Vencimento até esta data">até <input type="date" data-t="prazoate" value="' + esc(st.prazoAte) + '" aria-label="Vencimento até"></label>';
+        + '<label class="prazo-ate' + (st.prazo === 'ate' ? ' on' : '') + '" title="Vencimento até esta data">até ' + APP.campoData('data-t="prazoate"', st.prazoAte, 'Vencimento até') + '</label>';
     }
     function conta(){ var c = Q('[data-t=conta]'); if (!c) return; var n = filtrar().length; c.textContent = cfg.conta ? cfg.conta(n, st.aba) : APP.plural(n, cfg.unidade ? cfg.unidade[0] : 'linha', cfg.unidade ? cfg.unidade[1] : 'linhas'); }
     function quadro(){
@@ -250,8 +255,9 @@
       el.addEventListener('input', function(e){
         var t = e.target.dataset.t, cfg2 = el._cfg, s2 = EST[cfg2.id];
         if (t === 'q') s2.q = e.target.value; else if (t === 'l') s2.listas[e.target.dataset.k] = e.target.value;
-        else if (t === 'vde' || t === 'vate' || t === 'min' || t === 'max') s2[t] = e.target.value;
-        else if (t === 'prazoate'){ s2.prazoAte = e.target.value; s2.prazo = e.target.value ? 'ate' : ''; } else return;
+        else if (t === 'min' || t === 'max') s2[t] = e.target.value;
+        else if (t === 'vde' || t === 'vate' || t === 'prazoate'){ var v = e.target.value, i = APP.isoBR(v); if (v && !i) return;   // só filtra com a data completa
+          if (t === 'prazoate'){ s2.prazoAte = i; s2.prazo = i ? 'ate' : ''; } else s2[t] = i; } else return;
         s2.lim = 150; el._redesenhar();
       });
       el.addEventListener('click', function(e){
@@ -285,13 +291,14 @@
     // o: { id, grupos:[{id, nome, cor, pill:[cls, txt], sub, linhas:[[rot, valor, cls]], barra, prog (legenda da barra)}], det(el, grupo), vazio }
     var ab = APP.pref('cg-' + o.id) || '';
     if (o.grupos.length === 1 && !ab) ab = o.grupos[0].id;
+    if (ab === '-') ab = '';   // Backup 79: '-' = você fechou o cartão único (não reabre sozinho)
     el.innerHTML = o.grupos.length ? o.grupos.map(function(g){ var on = ab === g.id;
       return '<button type="button" class="cg" data-cg="' + esc(g.id) + '" aria-expanded="' + on + '"><div class="cg-hd"><b>' + esc(g.nome) + '</b>' + (g.pill ? '<span class="pill ' + g.pill[0] + '">' + g.pill[1] + '</span>' : '') + '</div>'
         + (g.sub ? '<div class="cg-sub">' + g.sub + '</div>' : '') + (g.barra != null ? '<div class="barra"><span style="width:' + Math.round(g.barra) + '%"></span></div>' : '') + (g.prog ? '<small class="cg-prog">' + g.prog + '</small>' : '')
         + (g.linhas || []).map(function(l){ return '<div class="cg-lin"><span>' + esc(l[0]) + '</span><b' + (l[2] ? ' class="' + l[2] + '"' : '') + '>' + l[1] + '</b></div>'; }).join('') + '</button>'
         + (on ? '<div class="det" id="' + o.id + '-det"></div>' : ''); }).join('')
       : '<div class="quadro det"><div class="vazio"><div class="vazio-ic">' + ic('ok') + '</div><b>' + esc(o.vazio || 'Nenhum grupo neste recorte') + '</b></div></div>';
-    el.onclick = function(e){ var c = e.target.closest('[data-cg]'); if (!c) return; APP.pref('cg-' + o.id, ab === c.dataset.cg ? '' : c.dataset.cg); APP.cartoesGrupo(el, o); };
+    el.onclick = function(e){ var c = e.target.closest('[data-cg]'); if (!c) return; APP.pref('cg-' + o.id, ab === c.dataset.cg ? (o.grupos.length === 1 ? '-' : '') : c.dataset.cg); APP.cartoesGrupo(el, o); };
     var g = o.grupos.find(function(x){ return x.id === ab; }), det = document.getElementById(o.id + '-det');
     if (g && det) o.det(det, g);
   };

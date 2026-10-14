@@ -92,7 +92,7 @@ function colunasParcelas(o) {
   o = o || {};
   const C = [];
   if (!o.semGrupo) C.push({ k: 'g', rot: 'Grupo', html: (x) => esc(x.pa.grupo || '—'), ord: (x) => normalizar(x.pa.grupo) });
-  C.push({ k: 'emp', rot: 'Empresa', html: (x) => empresaB(x.pa.empresa, x.pa.cnpj), ord: (x) => normalizar(x.pa.empresa) });
+  C.push({ k: 'emp', rot: 'Empresa', html: (x) => empresaB(x.pa.empresa), ord: (x) => normalizar(x.pa.empresa) });   // Backup 79: sem o CNPJ (a busca continua achando pelo CNPJ)
   // Backup 78: uma coluna "Parcelamento" com tudo (natureza; plataforma · nº embaixo), como no portal do cliente
   C.push({ k: 'pa', rot: 'Parcelamento', html: (x) => celParcelamento(x.pa), ord: (x) => normalizar((x.pa.natureza || '') + ' ' + (x.pa.local || '')) });
   C.push({ k: 'n', rot: 'Parcela', cls: 'b-cen b-data', html: (x) => esc(x.n) + (x.pa.tot ? ' de ' + x.pa.tot : ''), ord: (x) => Number(x.n) || 0 });
@@ -113,6 +113,7 @@ const buscaParc = (x) => x.pa.empresa + ' ' + x.pa.cnpj + ' ' + soDigitos(x.pa.c
 // ═════════ TELA ═════════
 TELAS.parcelamentos = async function () {
   E.pc = E.pc || { grupo: '', chip: 'todos' };
+  E.pc.f = E.pc.f || { grupo: '', emp: '' };
   const el0 = $('conteudo');
   // o que mudou em outra tela (baixa na Rotina, por exemplo): relê só esses parcelamentos antes de desenhar
   const sujo = window.ERP_SUJO && window.ERP_SUJO.parcelamentos;
@@ -125,8 +126,11 @@ TELAS.parcelamentos = async function () {
 TELAS.parcelamentos.semCadastros = true;   // os dados vêm do ERP (DB.parcelamentos); a lista de clientes não é usada aqui
 function pintarParcelamentos() {
   const el = $('conteudo'); if (!el) return;
-  const PA = E.pc.PA || [], T = [].concat(...PA.map((pa) => pa.parcelas)), h = hojeISO(), podeEd = pode('juridico', 'editar');
+  const PA0 = E.pc.PA || [], F = E.pc.f || {}, PA = paFiltrados(), T = [].concat(...PA.map((pa) => pa.parcelas)), h = hojeISO(), podeEd = pode('juridico', 'editar');
   el.innerHTML = cabecalhoTela({ icone: 'camadas', titulo: 'Parcelamentos', frase: 'Parcelas dos clientes no e-CAC, Regularize e SIARE, por vencimento', atualizar: 'pc-atualizar', botao: podeEd ? { id: 'pc-novo', rotulo: 'Novo parcelamento' } : null }) +
+    // Backup 79: filtro suspenso (Grupo / Empresa) — recorta a situação por cliente e a lista de parcelas
+    filtroSusB('pc-filtro', [{ k: 'grupo', rot: 'Grupo', todos: 'Todos os grupos', opcoes: unicosTxt(PA0.map((pa) => pa.grupo)), v: F.grupo },
+      { k: 'emp', rot: 'Empresa', todos: 'Todas as empresas', opcoes: unicosTxt(PA0.filter((pa) => !F.grupo || pa.grupo === F.grupo).map((pa) => pa.empresa)), v: F.emp }]) +
     '<div class="b-sec"><div><h2>Situação por cliente</h2></div><div class="b-chips" id="pc-chips">' +
     [['todos', 'Todos'], ['atraso', 'Com atraso'], ['risco', 'Risco de rescisão'], ['dia', 'Em dia'], ['concluidos', 'Concluídos']].map((c) => '<button type="button" class="b-chip" data-pc-chip="' + c[0] + '" aria-pressed="' + (E.pc.chip === c[0]) + '">' + c[1] + '</button>').join('') + '</div></div>' +
     '<div class="b-cards" id="pc-grupos"></div>' +
@@ -134,6 +138,7 @@ function pintarParcelamentos() {
   const bt = $('pc-novo'); if (bt) bt.onclick = () => { const ED = ED_P(); if (ED && ED.abrirParcelamento) ED.abrirParcelamento(null); else aviso('Abra pelo ERP: + Lançar → Parcelamento.', true); };
   $('pc-atualizar').onclick = () => { if (window.ERP_RECARREGAR_MODULOS) window.ERP_RECARREGAR_MODULOS('parcelamentos').then(() => TELAS.parcelamentos()); else TELAS.parcelamentos(); };
   // Backup 71: os 4 cartões do topo saíram a pedido (a tela começa na situação por cliente)
+  ligarFiltroSusB('pc-filtro', E.pc.f, () => { E.pc.grupo = ''; E.pc.fechado = false; pintarParcelamentos(); });
   desenharGruposPc();
   $('pc-chips').onclick = (ev) => { const b = ev.target.closest('[data-pc-chip]'); if (!b) return; E.pc.chip = b.dataset.pcChip; $('pc-chips').querySelectorAll('.b-chip').forEach((x) => x.setAttribute('aria-pressed', x === b)); desenharGruposPc(); };
   tabelaB($('pc-tabela'), { id: 'parcelas', tabCls: 'b-tab-parc', linhas: T, colunas: colunasParcelas(), unidade: ['parcela', 'parcelas'], dicaBusca: 'Empresa, CNPJ ou nº',
@@ -145,9 +150,10 @@ function pintarParcelamentos() {
 }
 
 // ── situação por cliente: um cartão por grupo; clicou → a lista dos parcelamentos do grupo ──
+function paFiltrados() { const F = E.pc.f || {}; return (E.pc.PA || []).filter((pa) => (!F.grupo || pa.grupo === F.grupo) && (!F.emp || pa.empresa === F.emp)); }
 function desenharGruposPc() {
   const el = $('pc-grupos'); if (!el) return;
-  const PA = E.pc.PA || [], G = {};
+  const PA = paFiltrados(), G = {};
   PA.forEach((pa) => { const r = resumoPa(pa), k = pa.grupo || pa.empresa; const g = G[k] = G[k] || { id: k, nome: k, itens: [] }; g.itens.push([pa, r]); });
   const chip = E.pc.chip, grupos = Object.values(G).map((g) => {
     const vivos = g.itens.filter(([, r]) => !r.concluido), conc = g.itens.filter(([, r]) => r.concluido);
@@ -156,7 +162,7 @@ function desenharGruposPc() {
     return Object.assign(g, { vivos, conc, pg, tot, falta, atr, risco, nMes, somaMes, parcMes, nParcMes });
   }).filter((g) => chip === 'concluidos' ? g.conc.length : g.vivos.length && (chip === 'todos' || (chip === 'atraso' && g.atr) || (chip === 'risco' && g.risco) || (chip === 'dia' && !g.atr)))
     .sort((a, b) => (b.atr ? 1 : 0) - (a.atr ? 1 : 0) || a.nome.localeCompare(b.nome, 'pt-BR'));
-  if (grupos.length === 1 && !E.pc.grupo) E.pc.grupo = grupos[0].id;
+  if (grupos.length === 1 && !E.pc.grupo && !E.pc.fechado) E.pc.grupo = grupos[0].id;   // Backup 79: um grupo só abre sozinho, mas fecha se você clicar
   let html = '';
   grupos.forEach((g) => {
     const ab = E.pc.grupo === g.id, n = chip === 'concluidos' ? g.conc.length : g.vivos.length, pc = g.tot ? Math.round(g.pg / g.tot * 100) : 100;
@@ -170,13 +176,13 @@ function desenharGruposPc() {
     if (ab) html += '<div class="b-cg-det" id="pc-det-grupo"></div>';
   });
   el.innerHTML = html || '<div class="b-quadro b-cg-det">' + vazioB({ icone: 'ok', titulo: 'Nenhum grupo neste recorte', frase: 'Troque a escolha acima (Todos, Com atraso, Risco de rescisão, Em dia, Concluídos).' }) + '</div>';
-  el.onclick = (ev) => { const c = ev.target.closest('[data-pc-g]'); if (!c) return; E.pc.grupo = E.pc.grupo === c.dataset.pcG ? '' : c.dataset.pcG; desenharGruposPc(); };
+  el.onclick = (ev) => { const c = ev.target.closest('[data-pc-g]'); if (!c) return; E.pc.fechado = E.pc.grupo === c.dataset.pcG; E.pc.grupo = E.pc.fechado ? '' : c.dataset.pcG; desenharGruposPc(); };
   const det = $('pc-det-grupo'), g = grupos.find((x) => x.id === E.pc.grupo);
   if (!det || !g) return;
   const lista = chip === 'concluidos' ? g.conc : g.vivos;
   tabelaB(det, { id: 'pc-grupo', titulo: g.nome, linhas: lista, unidade: ['parcelamento', 'parcelamentos'], chave: ([pa]) => pa.id, ord: { k: 'emp', dir: 1 },
     busca: ([pa]) => pa.empresa + ' ' + pa.numero + ' ' + pa.natureza, valor: ([, r]) => r.falta,
-    colunas: [{ k: 'emp', rot: 'Empresa', html: ([pa]) => empresaB(pa.empresa, pa.cnpj), ord: ([pa]) => normalizar(pa.empresa) },
+    colunas: [{ k: 'emp', rot: 'Empresa', html: ([pa]) => empresaB(pa.empresa), ord: ([pa]) => normalizar(pa.empresa) },
       { k: 'pa', rot: 'Parcelamento', html: ([pa]) => celParcelamento(pa), ord: ([pa]) => normalizar((pa.natureza || '') + ' ' + (pa.local || '')) },
       { k: 'pg', rot: 'Pagas', html: ([pa, r]) => '<div class="b-prog"><div class="b-barra"><span style="width:' + r.pc + '%"></span></div><span><b class="b-verde">' + pa.pagas + '</b> de ' + pa.tot + '</span></div>', ord: ([, r]) => r.pc },
       { k: 'falta', rot: 'Falta pagar', cls: 'b-dir b-val', soma: true, html: ([, r]) => brl(r.falta), ord: ([, r]) => r.falta },

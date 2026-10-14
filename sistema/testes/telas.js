@@ -87,7 +87,7 @@ const r = []; const ok = (n, c) => r.push([n, !!c]);
 
     // Honorários Jurídico
     await menu(p, 'juridico');
-    ok('Análise com gráfico mensal e faixa de números (B76)', /Recebido mês a mês/.test(await texto(p, '#fin-corpo')) && (await p.locator('#fin-corpo .b-nums-faixa').count()) === 1 && /A receber/.test(await texto(p, '#fin-corpo')) && /Em atraso/.test(await texto(p, '#fin-corpo')));
+    ok('Análise com gráfico mensal, faixa de números e o Fluxo do mês (B79)', /Recebido mês a mês/.test(await texto(p, '#fin-corpo')) && (await p.locator('#fin-corpo .b-nums-faixa').count()) === 2 && /Fluxo do mês/.test(await texto(p, '#fin-corpo')) && /A receber/.test(await texto(p, '#fin-corpo')) && /Em atraso/.test(await texto(p, '#fin-corpo')));
     await p.click('#fin-abas [data-aba=lanc]'); await esperar(p);
     ok('Lançamentos → A receber lista as parcelas (todos os meses)', /Consultoria tributária — parcela 1\/3/.test(await texto(p, '#fin-corpo')) && await p.isVisible('#fin-tab [data-b-aba=areceber][aria-selected=true]'));
     await p.click('#fin-corpo tr:has-text("parcela 1/3") [data-pagar]');

@@ -9,15 +9,21 @@
   APP.registrar('portal', { tit:'Portal do cliente', ic:'portal', pai:'Ambiente de teste',
     ajuda:['É assim que o <b>cliente</b> vê o sistema quando entra com o login dele: só as empresas do grupo dele, sem nada do escritório.', 'Troque o cliente no alto para ver outro.', 'Ele baixa guias e recibos e fala com o escritório pelo WhatsApp. Não muda nada.'],
     desenhar:function(el){
-      var cid = APP.pref('portal-cli') || 'c3', c = APP.cli(cid), g = APP.grupo(c.g), aba = APP.pref('portal-aba') || 'resumo';
-      var emp = D().clientes.filter(function(x){ return x.g === c.g; }), ids = emp.map(function(x){ return x.id; });
-      el.innerHTML = '<div class="dica dica-portal">' + ic('olho') + '<span>Prévia: assim o cliente vê o portal. Cliente: </span><select class="ctl" id="pt-cli">' + D().clientes.map(function(x){ return '<option value="' + x.id + '"' + (x.id === cid ? ' selected' : '') + '>' + esc(x.nome) + '</option>'; }).join('') + '</select></div>'
+      // Backup 79: escolhe o GRUPO (o cliente entra pelo grupo) e o que esse grupo vê no portal (fica guardado por grupo)
+      var gid = APP.pref('portal-grupo') || (APP.pref('portal-cli') ? APP.cli(APP.pref('portal-cli')).g : D().grupos[0].id), g = APP.grupo(gid);
+      var vis = (APP.pref('portal-vis') || {})[gid] || ABAS.map(function(a){ return a[0]; });
+      var aba = APP.pref('portal-aba') || 'resumo'; if (aba !== 'resumo' && vis.indexOf(aba) < 0) aba = 'resumo';
+      var emp = D().clientes.filter(function(x){ return x.g === gid; }), ids = emp.map(function(x){ return x.id; });
+      el.innerHTML = '<div class="dica dica-portal">' + ic('olho') + '<span>Prévia do portal. Grupo: </span><select class="ctl" id="pt-grupo">' + D().grupos.map(function(x){ return '<option value="' + x.id + '"' + (x.id === gid ? ' selected' : '') + '>' + esc(x.nome) + '</option>'; }).join('') + '</select>'
+        + '<span class="pt-vis-rot">O que este grupo vê:</span><span class="chips chips-esq" id="pt-vis">' + ABAS.slice(1).map(function(a){ return '<button type="button" class="chip" data-vis="' + a[0] + '" aria-pressed="' + (vis.indexOf(a[0]) >= 0) + '">' + a[1] + '</button>'; }).join('') + '</span></div>'
         + '<div class="portal"><div class="pt-topo"><div><b>Araújo &amp; Castro</b><small>Portal do cliente</small></div><div class="pt-eu"><b>' + esc(g.nome) + '</b><small>' + APP.plural(emp.length, 'empresa', 'empresas') + '</small></div><button class="bt bt-o bt-mini" type="button" id="pt-zap">' + ic('enviar') + 'Falar com o escritório</button></div>'
-        + '<div class="seg seg-grande" id="pt-abas">' + ABAS.map(function(a){ return '<button type="button" class="seg-bt" data-pt="' + a[0] + '" aria-selected="' + (a[0] === aba) + '">' + a[1] + '</button>'; }).join('') + '</div><div id="pt-corpo" class="pt-corpo"></div></div>';
-      APP.$('pt-cli').onchange = function(){ APP.pref('portal-cli', this.value); APP.redesenhar(); };
+        + '<div class="seg seg-grande" id="pt-abas">' + ABAS.filter(function(a){ return a[0] === 'resumo' || vis.indexOf(a[0]) >= 0; }).map(function(a){ return '<button type="button" class="seg-bt" data-pt="' + a[0] + '" aria-selected="' + (a[0] === aba) + '">' + a[1] + '</button>'; }).join('') + '</div><div id="pt-corpo" class="pt-corpo"></div></div>';
+      APP.$('pt-grupo').onchange = function(){ APP.pref('portal-grupo', this.value); APP.pref('portal-aba', 'resumo'); APP.redesenhar(); };
+      APP.$('pt-vis').onclick = function(e){ var b = e.target.closest('[data-vis]'); if (!b) return; var V = APP.pref('portal-vis') || {}, L = (V[gid] || ABAS.map(function(a){ return a[0]; })).slice(), i = L.indexOf(b.dataset.vis);
+        if (i >= 0) L.splice(i, 1); else L.push(b.dataset.vis); V[gid] = L; APP.pref('portal-vis', V); APP.redesenhar(); };
       APP.$('pt-abas').onclick = function(e){ var b = e.target.closest('[data-pt]'); if (b){ APP.pref('portal-aba', b.dataset.pt); APP.redesenhar(); } };
       APP.$('pt-zap').onclick = function(){ APP.aviso('Abre o WhatsApp do escritório com "Olá, sou do ' + g.nome + '…".'); };
-      pintar(APP.$('pt-corpo'), aba, ids);
+      pintar(APP.$('pt-corpo'), aba, ids, vis);
     } });
 
   function baixar(o){ return '<button class="bt-emitir" type="button" data-baixar="' + esc(o) + '">' + ic('importar') + 'Baixar</button>'; }
@@ -31,7 +37,7 @@
         { k:'venc', rot:'Vencimento', cls:'cen dt', html:function(x){ return APP.fd(x.venc); }, ord:function(x){ return +x.venc; } }, { k:'pz', rot:'Prazo', cls:'cen', html:function(x){ return APP.celPrazo(x.venc, x.pago); }, ord:false },
         { k:'g', rot:guia, cls:'dir', ord:false, html:function(x){ return x.pago ? '' : x.cliEmite ? '<span class="mudo">você emite</span>' : x.emitida ? baixar('guia') : '<span class="mudo">em preparo</span>'; } }] });
   }
-  function pintar(el, aba, ids){
+  function pintar(el, aba, ids, vis){
     var meu = function(x){ return ids.indexOf(x.cli) >= 0; };
     var PA = D().parcelamentos.filter(meu), A = N.acordos().filter(meu), L = D().lanc.filter(function(l){ return meu(l) && l.tipo === 'receita' && !l.redutor && !l.perda; });
     if (aba === 'resumo'){
@@ -40,8 +46,8 @@
       var ir = function(a, rot, txt){ return '<button type="button" class="pt-tile" data-pt-ir="' + a + '"><b>' + esc(rot) + '</b><span>' + esc(txt) + '</span></button>'; };
       el.innerHTML = '<div class="pt-intro"><h2>Bem-vindo ao seu portal</h2><p>Aqui você acompanha, a qualquer hora, tudo o que o escritório cuida para as suas empresas. É só para consultar: nada do que você clicar muda os seus dados.</p></div>'
         + '<div class="pt-sit ' + (atr ? 'atr' : 'ok') + '">' + ic(atr ? 'alerta' : 'ok') + '<span>' + (atr ? APP.plural(atr, 'parcela em atraso', 'parcelas em atraso') + '. Fale com o escritório.' : 'Tudo em dia: nenhuma parcela em atraso.') + '</span></div>'
-        + '<div class="pt-tiles">' + ir('parc', 'Parcelamentos', 'Cada parcelamento, o que vence e as guias') + ir('acordos', 'Acordos', 'Os acordos com terceiros e as parcelas') + ir('exec', 'Execuções', 'Cobranças na Justiça e o que já entrou')
-        + ir('contratos', 'Contratos', 'Os contratos com o escritório') + ir('fin', 'Financeiro', 'Honorários do jurídico e da contabilidade') + ir('docs', 'Documentos', 'Guias, recibos e arquivos para baixar') + '</div>';
+        + '<div class="pt-tiles">' + [['parc', 'Parcelamentos', 'Cada parcelamento, o que vence e as guias'], ['acordos', 'Acordos', 'Os acordos com terceiros e as parcelas'], ['exec', 'Execuções', 'Cobranças na Justiça e o que já entrou'],
+          ['contratos', 'Contratos', 'Os contratos com o escritório'], ['fin', 'Financeiro', 'Honorários do jurídico e da contabilidade'], ['docs', 'Documentos', 'Guias, recibos e arquivos para baixar']].filter(function(t){ return !vis || vis.indexOf(t[0]) >= 0; }).map(function(t){ return ir(t[0], t[1], t[2]); }).join('') + '</div>';
     } else if (aba === 'parc'){
       el.innerHTML = '<div class="cartoes" id="pt-pa"></div>';
       APP.cartoesGrupo(el.firstChild, { id:'pt-pa', vazio:'Nenhum parcelamento', grupos:PA.map(function(pa){ var r = N.resumo(pa), c = APP.cli(pa.cli), mes = r.mes;

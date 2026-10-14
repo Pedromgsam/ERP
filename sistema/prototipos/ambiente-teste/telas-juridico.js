@@ -99,7 +99,7 @@
   function colsParcelas(o){
     o = o || {}; var C = [];
     if (!o.semGrupo) C.push({ k:'g', rot:'Grupo', html:function(x){ return APP.grupoTxt(N.grupoDe(x)); }, ord:function(x){ return APP.grupo(N.grupoDe(x)).nome; } });
-    if (!o.semEmpresa) C.push({ k:'emp', rot:'Empresa', html:function(x){ return APP.empresa(N.cliDe(x)); }, ord:function(x){ return N.cliDe(x).nome; } });
+    if (!o.semEmpresa) C.push({ k:'emp', rot:'Empresa', html:function(x){ return '<span class="nome">' + esc(N.cliDe(x).nome) + '</span>'; }, ord:function(x){ return N.cliDe(x).nome; } });
     C.push({ k:'pa', rot:'Parcelamento', html:function(x){ return APP.celParc(N.pa(x.pa)); }, ord:function(x){ var pa = N.pa(x.pa); return pa.nat + pa.plat; } });   // Backup 78
     C.push({ k:'n', rot:'Parcela', cls:'cen dt', html:function(x){ return x.n + ' de ' + N.pa(x.pa).tot; }, ord:function(x){ return x.n; } });
     C.push({ k:'v', rot:'Valor', cls:'dir val', soma:true, html:function(x){ return brl(x.v); }, ord:function(x){ return x.v; } });
@@ -285,7 +285,7 @@
       function pintar(){
         var todas = D().publicacoes, q = APP.norm ? APP.norm(F.q || '') : String(F.q || '').toLowerCase();
         var okSt = function(p){ return F.st === 'todas' || (F.st === 'nova' ? !p.lida : p.lida); }, okAdv = function(p){ return !F.adv || p.adv === F.adv; },
-          okTrib = function(p){ return !F.trib || p.tribunal === F.trib; }, okQ = function(p){ var t = (p.processo + ' ' + p.txt).toLowerCase(); return !q || t.indexOf(q) >= 0; };
+          okTrib = function(p){ return !F.trib || p.tribunal === F.trib; }, okQ = function(p){ var t = (p.processo + ' ' + p.txt + ' ' + (p.autor || '') + ' ' + (p.reu || '')).toLowerCase(); return !q || t.indexOf(q) >= 0; };
         function seg(id, ops, atual, conta){ APP.$(id).innerHTML = ops.map(function(o){ return '<button type="button" class="seg-bt" data-v="' + o[0] + '" aria-selected="' + (atual === o[0]) + '">' + esc(o[1]) + ' <span class="seg-n">' + conta(o[0]) + '</span></button>'; }).join(''); }
         seg('pb-st', [['nova', 'Novas'], ['lida', 'Lidas'], ['todas', 'Todas']], F.st, function(v){ return todas.filter(function(p){ return okAdv(p) && okTrib(p) && okQ(p) && (v === 'todas' || (v === 'nova' ? !p.lida : p.lida)); }).length; });
         var advs = [''].concat(D().equipe.map(function(x){ return x.id; }).filter(function(id){ return todas.some(function(p){ return p.adv === id; }); }));
@@ -296,6 +296,10 @@
         APP.$('pb-lista').innerHTML = lista.length ? lista.map(function(p){
           return '<article class="pub-card' + (p.lida ? '' : ' pub-nova') + '"><div class="pub-topo"><div><span class="pill ' + (p.lida ? 'p-n' : 'p-a') + '">' + (p.lida ? 'lida' : 'nova') + '</span> <b>' + esc(/^[^:]{2,30}:/.test(p.txt) ? p.txt.split(':')[0] : 'Comunicação') + '</b> · ' + esc(p.tribunal) + ' · <span class="num">' + APP.fd(p.data) + '</span></div>'
             + '<div class="pub-proc"><span class="num">' + esc(p.processo) + '</span><small>' + esc(APP.pessoa(p.adv).nome || APP.pessoa(p.adv).curto) + '</small></div></div>'
+            // Backup 79: o bloco de identificação (como no ERP): processo, autor — advogado; réu — advogado
+            + '<div class="pub-id"><div><b>Processo:</b> <span class="num">' + esc(p.processo) + '</span></div>'
+            + '<div><b>Autor:</b> ' + esc(p.autor || '—') + (p.advAutor ? ' <span class="pub-adv">— Advogado: <b>' + esc(p.advAutor) + '</b></span>' : '') + '</div>'
+            + '<div><b>Réu:</b> ' + esc(p.reu || '—') + (p.advReu ? ' <span class="pub-adv">— Advogado: <b>' + esc(p.advReu) + '</b></span>' : '') + '</div></div>'
             + '<div class="pub-texto">' + esc(p.txt) + '</div>'
             + '<div class="pub-acoes"><button class="bt bt-p bt-mini" type="button" data-pub-tarefa="' + p.id + '">' + ic('mais') + 'Criar tarefa (5 dias úteis)</button>'
             + (p.lida ? '<button class="bt bt-o bt-mini" type="button" data-pub-nova="' + p.id + '">Voltar para novas</button>' : '<button class="bt bt-o bt-mini" type="button" data-pub-lida="' + p.id + '">Marcar lida</button>') + '</div></article>'; }).join('')

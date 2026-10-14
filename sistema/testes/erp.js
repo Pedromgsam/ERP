@@ -196,6 +196,14 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('Em atraso conta todos os meses, mesmo com "Este ano"', /Em atraso/.test(an) && /400/.test(an) /* Backup 37: a tabela "Em atraso" saiu; o cartão continua somando */, an.replace(/\s+/g, ' ').slice(0, 300));
     ok('B74 Financeiro Jurídico: Análise com faixa de números, Recebido mês a mês, Comparativo por pessoa, tipo de serviço e maiores grupos', (await p.$$('#panel-financeiro #fin-corpo .b-nums-faixa > div')).length >= 5 &&
       ['Recebido mês a mês', 'Comparativo por pessoa', 'Por tipo de serviço', 'Maiores grupos'].every((t) => an.includes(t)) && !!(await p.$('#panel-financeiro #fin-corpo table.b-tab-comp')) && !!(await p.$('#panel-financeiro #fin-corpo svg.b-graf')));
+    // Backup 79: Fluxo do mês (previsto × recebido × em atraso deste mês × a receber) e período digitado dd/mm/aaaa
+    { const fx = await p.textContent('#panel-financeiro #fa-fluxo').catch(() => '');
+      ok('B79 Financeiro: "Fluxo do mês" com Previsto, Recebido, Em atraso (deste mês), A receber e o atraso de meses anteriores à parte', ['Previsto no mês', 'Recebido', 'Em atraso (deste mês)', 'A receber', 'Fora deste mês'].every((t) => fx.includes(t)) && !!(await p.$('#panel-financeiro #fa-fluxo .b-fluxo-barra')));
+      const m0 = await p.textContent('#panel-financeiro .b-fluxo-nav b'); await p.click('#panel-financeiro [data-fm="-1"]'); await p.waitForTimeout(300);
+      ok('B79 Financeiro: ‹ › trocam o mês do fluxo', (await p.textContent('#panel-financeiro .b-fluxo-nav b')) !== m0);
+      await p.fill('#panel-financeiro #fa-de', '01012024'); await p.fill('#panel-financeiro #fa-ate', '31/12/2024'); await p.click('#panel-financeiro #fa-aplicar'); await p.waitForTimeout(400);
+      ok('B79 Financeiro: período "de … até …" digitado em dd/mm/aaaa (sem calendário do navegador)', /01\/01\/2024 a 31\/12\/2024/.test(await p.textContent('#panel-financeiro .b-fin-mostra')) && (await p.getAttribute('#panel-financeiro #fa-de', 'type')) === 'text');
+      await p.click('#panel-financeiro [data-fa-per=ano]'); await p.waitForTimeout(300); }
 
     // ── + Lançar: formulários do Gestão ──
     await lancar(p, 0);
@@ -845,6 +853,12 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.click('#pr-res-bt'); await p.waitForTimeout(200);
     ok('B76 Processos: o Resumo abre com os números e as tabelas por grupo, tribunal e natureza', await p.isVisible('#pr-res-corpo .b-nums-faixa') && (await p.$$('#pr-res-corpo .b-pr-res-t table')).length === 3);
     await p.click('#pr-res-bt'); await p.waitForTimeout(200);
+    // Backup 79: filtro suspenso (Grupo) no alto de Processos recorta o resumo e a lista
+    { const g = await p.evaluate(() => { const s = document.querySelector('#pr-filtro [data-fsus=grupo]'); return s && s.options.length > 1 ? s.options[1].value : ''; });
+      ok('B79 Processos: filtro suspenso de Grupo no alto', !!g);
+      if (g) { await p.selectOption('#pr-filtro [data-fsus=grupo]', g); await p.waitForTimeout(400);
+        ok('B79 Processos: com o grupo escolhido, a lista só mostra esse grupo', await p.evaluate((gg) => { const L = [...document.querySelectorAll('#pr-nova tr[data-b-k] td:first-child')]; return !L.length || L.every((td) => td.textContent.trim() === gg); }, g) && /Limpar filtro/.test(await p.textContent('#pr-filtro')));
+        await p.click('#pr-filtro [data-fsus-limpar]'); await p.waitForTimeout(400); } }
     // ── Backup 68 (reforma, etapa 3): Parcelamentos refeita — os testes da tela antiga viraram estes (mesmas funções, peças novas) ──
     await nav(p, 'parcelamentos'); await p.waitForSelector('#panel-parcelamentos #pc-grupos .b-cg');
     ok('Parcelamentos (B68): a tela antiga fica escondida para a equipe (sem a "Situação" antiga, sem o selo vermelho do topo)', !(await p.isVisible('#parcAnalise')) && !(await p.isVisible('#alertParc')) && !(await p.isVisible('#parcTabBar')));
@@ -868,6 +882,15 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       return ['grupo', 'empresa', 'parcelamento', 'parcela', 'valor', 'vencimento', 'prazo'].every((c) => t.includes(c)) && !t.includes('plataforma') && !t.includes('situação'); }));
     ok('Parcelamentos (B78): a coluna Parcelamento traz natureza, plataforma e nº', await p.evaluate(() => { const th = [...document.querySelectorAll('#pc-tabela thead th')].findIndex((x) => /^Parcelamento/.test(x.textContent.trim()));
       const td = document.querySelector('#pc-tabela tbody tr[data-b-k] td:nth-child(' + (th + 1) + ')'); return !!td && /nº /.test(td.textContent) && !!td.querySelector('.b-sub'); }));
+    // Backup 79: filtro suspenso (Grupo / Empresa) e o cartão único que fecha; coluna Empresa sem CNPJ
+    { ok('B79 Parcelamentos: coluna Empresa só com o nome (sem CNPJ)', !(await p.$('#pc-tabela tbody td .b-doc')));
+      const g = await p.evaluate(() => { const s = document.querySelector('#pc-filtro [data-fsus=grupo]'); return s && s.options.length > 1 ? s.options[1].value : ''; });
+      ok('B79 Parcelamentos: filtro suspenso Grupo e Empresa no alto', !!g && !!(await p.$('#pc-filtro [data-fsus=emp]')));
+      if (g) { await p.selectOption('#pc-filtro [data-fsus=grupo]', g); await p.waitForTimeout(400);
+        ok('B79 Parcelamentos: com o grupo escolhido fica um cartão só, aberto', (await p.$$('#pc-grupos .b-cg')).length === 1 && !!(await p.$('#pc-grupos .b-cg[aria-expanded=true]')));
+        await p.click('#pc-grupos .b-cg'); await p.waitForTimeout(300);
+        ok('B79 Parcelamentos: o cartão único fecha ao clicar', !(await p.$('#pc-grupos .b-cg[aria-expanded=true]')) && !(await p.$('#pc-det-grupo')));
+        await p.click('#pc-filtro [data-fsus-limpar]'); await p.waitForTimeout(400); } }
     ok('Parcelamentos (B78, enxuto): cartão do grupo sem "Pagas" e sem "Parcela do mês" — "N de T pagas" embaixo da barra', await p.evaluate(() => { const c = document.querySelector('#pc-grupos .b-cg') || document.querySelector('.b-cg[data-pc-g]');
       return !!c && !!c.querySelector('.b-cg-prog') && ![...c.querySelectorAll('.b-cg-lin span')].some((s) => /^(Pagas|Parcela do mês)$/.test(s.textContent.trim())); }));
     ok('Parcelamentos (B69): cada parcela em aberto com os botões Emitir e Baixa (como Acordos), sem caixinha de marcar', !!(await p.$('#pc-tabela tbody .b-bt-baixa[data-pc-baixa]')) && !(await p.$('#pc-tabela [data-bt=um]')) && !(await p.$('#pc-tabela .b-lote')));
@@ -1567,7 +1590,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       await p.click('#panel-financeiro #fin-tab [data-b-aba=perda]'); await p.waitForTimeout(600);
       ok('B49/B76: o botão Perdas mostra o prejuízo', await p.evaluate(() => GS.E.tabB['fin-escritorio'].aba === 'perda') && !!(await p.$('#panel-financeiro #fin-tab [data-b-aba=perda][aria-selected=true]')));
       await nav(p, 'financeiroContab'); await p.waitForTimeout(800); await finAba(p, 'financeiroContab', 'analise');
-      ok('B49/B74: Contabilidade com os mesmos 5 números do Jurídico (faixa)', (await p.$$('#panel-financeiroContab #fin-corpo .b-nums-faixa > div')).length === 5);
+      ok('B49/B74: Contabilidade com os mesmos 5 números do Jurídico (faixa)', (await p.$$('#panel-financeiroContab #fin-corpo .b-nums-faixa:not(#fa-fluxo .b-nums-faixa) > div')).length === 5);
       // Contratos: reajuste anual
       const ctrR = sql("insert into contratos (cliente_id, descricao, modalidade, forma_valor, valor_mensal, data_contrato, inicio_vigencia, status) values ('" + cliQ + "', 'Consultoria B49 reajuste', 'consultoria', 'fixo', 1000, current_date - 360, current_date - 360, 'Ativo') returning id").split('\n')[0];
       await nav(p, 'contratos'); await p.waitForSelector('#ctr-reaj', { timeout: 8000 }).catch(() => {});
