@@ -832,9 +832,9 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('tabela longa: cabeçalho fixo dentro do quadro', await p.evaluate(() => { const w = document.querySelector('#panel-tarefas .b-rola'); return !!w && getComputedStyle(w.querySelector('thead th')).position === 'sticky'; }));
     sql("delete from tarefas where titulo like 'Tarefa em massa %'");
     await p.fill('#panel-tarefas [data-bt=q]', 'nada-com-este-nome-xyz').catch(() => {}); await p.waitForTimeout(700);
-    { const v = await p.$('#panel-tarefas .vazio [data-vazio-clica]');
-      ok('lista vazia mostra frase e botão de criar', !!v);
-      if (v) { await v.click(); await p.waitForTimeout(500); ok('botão do estado vazio abre o formulário', await p.isVisible('#f-tf')); await p.keyboard.press('Escape'); } }
+    { const v = await p.$('#panel-tarefas .b-vazio [data-bt=limpar]');
+      ok('busca sem resultado mostra "Nada encontrado" e "Limpar filtros"', !!v && /Nada encontrado/.test(await p.textContent('#panel-tarefas .b-vazio')));
+      if (v) { await v.click(); await p.waitForTimeout(500); ok('"Limpar filtros" volta a lista', !(await p.$('#panel-tarefas .b-vazio [data-bt=limpar]')) && (await p.$$('#panel-tarefas tr[data-b-k]')).length > 0); } }
 
     // ── Backup 13 ──
     await nav(p, 'hoje'); await p.waitForTimeout(1500);
@@ -1649,7 +1649,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     // ── Backup 50 ──
     { await nav(p, 'tarefas'); await p.evaluate(() => { GS.E.tf = null; if (GS.E.tabB) delete GS.E.tabB.tarefas; }); await nav(p, 'tarefas'); await p.waitForTimeout(1500);   // B72: a aba da Lista fica guardada; volta para "Em aberto"
       const cab = await p.$$eval('#panel-tarefas table thead th', (l) => l.map((t) => t.textContent.trim()).filter(Boolean)).catch(() => []);
-      ok('B50/B72 Tarefas: Prazo e Situação (ex-"Dias") em colunas separadas e status com cor', cab.some((c) => /^Prazo/.test(c)) && cab.includes('Situação') && !!(await p.$('#panel-tarefas .pill.tf-st')), cab.join('|'));
+      ok('B50/B72 Tarefas: Prazo e Situação (ex-"Dias") em colunas separadas e status com cor', cab.some((c) => /^Prazo/.test(c)) && cab.includes('Situação') && !cab.includes('Status'), cab.join('|'));   // B82: status só embaixo do título (como no ambiente)
       await nav(p, 'financeiro'); await p.waitForTimeout(800); await finAba(p, 'financeiro', 'lanc', 'areceber');
       ok('B50 Financeiro: valor a receber em verde e botões da linha numa linha só', await p.evaluate(() => {
         const v = document.querySelector('#panel-financeiro td.b-val.valor-rec');   // Backup 70: tabela nova (tabelaLancB)
@@ -1839,7 +1839,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       const pilula = async (tela, sel) => { await nav(p, tela); await p.waitForTimeout(1200); return p.evaluate((s2) => { const b = document.querySelector(s2); if (!b) return null; const c = getComputedStyle(b); return [c.backgroundColor, c.color, c.borderRadius, c.fontSize].join('|'); }, sel); };
       const pIni = await pilula('hoje', '#panel-hoje .fila-chips .fila-chip.ativo'), pPai = await pilula('clientes', '#panel-clientes .filtros .segmento > button.ativo'),   // B76: o Painel novo não tem pílulas de filtro (grupo no topo)
         pCli = await pilula('clientes', '#panel-clientes .filtros .segmento > button.ativo');
-      ok('B52 P1: o filtro escolhido tem o mesmo desenho no Início, no Painel e em Clientes', !!pIni && pIni === pPai && pIni === pCli, [pIni, pPai, pCli].join(' / '));
+      ok('B52/B82 P1: o filtro escolhido tem a mesma cor no Início e em Clientes (chip redondo e segmentado, como no ambiente)', !!pIni && pPai === pCli && pIni.split('|').slice(0, 2).join() === pCli.split('|').slice(0, 2).join(), [pIni, pPai, pCli].join(' / '));
       // P4: situações com a mesma cor (Financeiro e Parcelamentos)
       await nav(p, 'parcelamentos'); await p.waitForTimeout(1500);
       // Backup 68: na tela nova, "em atraso" é o mesmo vermelho em todo lugar (pílula do grupo, texto da situação e vencimento)
