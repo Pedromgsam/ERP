@@ -1959,7 +1959,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       await p.click('#panel-execucoes tr[data-b-k]'); await p.waitForSelector('#gs-raiz #ex-contato-novo');
       await p.click('#gs-raiz #ex-contato-novo'); await p.waitForSelector('#gs-raiz #f-exc');
       await p.fill('#gs-raiz #f-exc [name=nome]', 'Oficial B54'); await p.fill('#gs-raiz #f-exc [name=telefone]', '31999990000'); await p.fill('#gs-raiz #f-exc [name=endereco]', 'Rua Teste, 54');
-      await p.click('#gs-raiz #exc-ok'); await p.waitForTimeout(1500);
+      await p.click('#gs-raiz #exc-ok'); await p.waitForFunction(() => /Oficial B54/.test((document.querySelector('#gs-raiz #ex-contatos-l') || {}).textContent || ''), null, { timeout: 6000 }).catch(() => {});
       ok('B54 Execuções: guarda contato de quem não é cliente (telefone, endereço)', sql("select count(*) from execucao_contatos where nome='Oficial B54' and endereco='Rua Teste, 54'") === '1' &&
         /Oficial B54/.test(await p.textContent('#gs-raiz #ex-contatos-l')));
       await fecharTudo();
