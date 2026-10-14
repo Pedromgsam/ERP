@@ -871,3 +871,8 @@ html body.gx-barra-topo .gs .b-seg-n:not(#_){display:inline-block;min-width:18px
 html body.gx-barra-topo .gs .b-seg-bt[aria-selected="true"] .b-seg-n:not(#_){background:rgba(255,255,255,.22);color:inherit}
 html body.gx-barra-topo .gs a.btn:not(#_){text-decoration:none;display:inline-flex;align-items:center;gap:7px}
 html body.gx-barra-topo .gs .titulo-pag.b-cab .acoes .btn .b-ic{width:15px;height:15px}
+/* Backup 82: no celular as ações do cabeçalho (abas + botões) quebram linha e as abas rolam dentro de si — a página não rola para o lado */
+@media (max-width:600px){
+  .gs .b-cab-acoes{max-width:100%;min-width:0;justify-content:flex-start;margin-left:0}
+  .gs .b-cab-acoes > .b-seg{max-width:100%;overflow-x:auto;flex-wrap:nowrap}
+}
