@@ -916,7 +916,7 @@ html body.gx-barra-topo .gs .b-cg-lin b:not(#_){font-weight:700;color:var(--ink)
 .gs .b-r{color:var(--red)}.gs .b-b{color:var(--blue)}.gs .b-a{color:var(--amber)}.gs .b-g{color:var(--green)}
 html body.gx-barra-topo .gs :is(.b-bt-emitir,.b-bt-baixa):not(#_){font-size:12.5px;padding:5px 11px;gap:5px;display:inline-flex;align-items:center;line-height:1.45}
 html body.gx-barra-topo .gs .b-bt-emitir:not(#_){border-color:var(--border)}
-html body.gx-barra-topo .gs .b-bt-baixa:not(#_){font-weight:700;background:var(--green);border-color:var(--green)}
+html body.gx-barra-topo .gs .b-bt-baixa:not(#_){font-weight:700;background:var(--btn-verde);border-color:var(--btn-verde)}
 html body.gx-barra-topo table.b-tab thead th:not(#_){line-height:1.45!important}
 html body.gx-barra-topo .gs :is(.b-sec h2,.b-fin-hd h3,.b-sec-cab h2):not(#_){line-height:1.45;letter-spacing:normal}
 html body.gx-barra-topo .gs .b-faixa-lin:not(#_){gap:6px 8px}
