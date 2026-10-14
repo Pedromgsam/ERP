@@ -9,7 +9,6 @@
 
 const dbE = () => dbParc() || {};
 const unicosB = (l) => [...new Set(l.filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b), 'pt-BR'));
-const CORES_LINHA = ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-4)', 'var(--chart-5)', 'var(--chart-6)', 'var(--chart-8)', 'var(--chart-7)'];
 
 function estadoPE() { E.pe = E.pe || { grupo: '', empresa: '', evo: { visao: 'total', meses: 6, dados: null, lidoMeses: 0 } }; return E.pe; }
 
@@ -56,40 +55,34 @@ TELAS.painelExec = async function () {
       '<span class="b-pe-conta">' + plural(N.data.length, 'entidade', 'entidades') + ' · ' + plural(unicosB(N.data.map((r) => r.grupo)).length, 'grupo', 'grupos') + '</span></div>' +
     '<div id="pe-nums">' + numsFaixa([['Passivo total', t(N.total), 'RFB ' + brlCurto(N.rfb) + ' · PGFN ' + brlCurto(N.pgfn) + ' · AGE/MG ' + brlCurto(N.age)], ['Parcelamentos (saldo)', t(N.saldoParc), plural(N.nParc, 'ativo', 'ativos')],
       ['Acordos (em aberto)', t(N.acPagar), plural(N.nAc, 'parcela', 'parcelas')], ['Passivo em disputa', t(N.passivo), plural(N.nProc, 'processo', 'processos'), N.passivo ? 'b-verm' : ''], ['Ativo em disputa', t(N.ativo), '', N.ativo ? 'b-verde' : '']]) + '</div>' +
-    '<section class="b-fin-cartao" id="pe-evo"><div class="b-fin-hd b-pe-evo-hd"><div><h3>Evolução do passivo</h3><p id="pe-evo-sub"></p></div>' +
-      '<div class="b-pe-evo-ctl"><div class="b-chips" id="pe-evo-visao"><button type="button" class="b-chip" data-v="total">Tudo junto</button><button type="button" class="b-chip" data-v="linhas">' + (P.grupo ? 'Uma linha por empresa' : 'Uma linha por grupo') + '</button></div>' +
-      '<div class="b-chips" id="pe-evo-meses" role="group" aria-label="Período">' + [6, 12, 24].map((m) => '<button type="button" class="b-chip" data-m="' + m + '">' + m + ' meses</button>').join('') + '</div></div></div>' +
-      '<div class="b-pe-evo-res" id="pe-evo-res"></div><div class="b-fin-graf" id="pe-evo-graf"><div class="carregando">Carregando…</div></div>' +
-      '<p class="b-fin-mostra">Soma de RFB, PGFN, SEFAZ e AGE/MG (em aberto + negociado). O valor de cada mês é o que estava cadastrado no último dia do mês.</p></section>' +
+    // Backup 83: como no ambiente — só o título e "6 meses · 12 meses"; a linha é o total do que está escolhido no alto (todos, um grupo ou uma empresa)
+    '<section class="b-fin-cartao b-pe-evo" id="pe-evo"><div class="b-fin-hd b-pe-evo-hd"><div><h3>Evolução do passivo</h3></div>' +
+      '<div class="b-chips" id="pe-evo-meses" role="group" aria-label="Período">' + [6, 12].map((m) => '<button type="button" class="b-chip" data-m="' + m + '">' + m + ' meses</button>').join('') + '</div></div>' +
+      '<div id="pe-evo-graf"><div class="carregando">Carregando…</div></div></section>' +
     '<div class="b-sec"><div><h2>Empresas do grupo</h2></div></div><div id="pe-nova"></div>';
   $('pe-grupo').onchange = (ev) => { P.grupo = ev.target.value; P.empresa = ''; TELAS.painelExec(); };
   $('pe-emp').onchange = (ev) => { P.empresa = ev.target.value; TELAS.painelExec(); };
   $('pe-evo-meses').onclick = (ev) => { const b = ev.target.closest('[data-m]'); if (!b) return; P.evo.meses = Number(b.dataset.m); P.evo.dados = null; evolucaoPE(); };
-  $('pe-evo-visao').onclick = (ev) => { const b = ev.target.closest('[data-v]'); if (!b) return; P.evo.visao = b.dataset.v; evolucaoPE(); };
   evolucaoPE();
   empresasPE(N.data);
 };
 
 async function evolucaoPE() {
   const P = estadoPE(), ev = P.evo, gr = $('pe-evo-graf'); if (!gr) return;
-  document.querySelectorAll('#pe-evo-visao [data-v]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === ev.visao)));
+  if (![6, 12].includes(Number(ev.meses))) ev.meses = 6;
   document.querySelectorAll('#pe-evo-meses [data-m]').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.m) === Number(ev.meses))));
   if (!ev.dados || ev.lidoMeses !== ev.meses) {
     try { ev.dados = await q(sb.rpc('evolucao_passivo', { p_grupo: null, p_meses: ev.meses })) || []; ev.lidoMeses = ev.meses; }
     catch (e) { gr.innerHTML = '<p class="msg-erro">Não foi possível ler a evolução: ' + esc(erroAmigavel(e)) + '</p>'; return; }
   }
-  const linhas = ev.dados.filter((x) => (!P.grupo || x.grupo === P.grupo) && (!P.empresa || x.cliente === P.empresa));
-  const meses = unicosB(ev.dados.map((x) => x.mes)), comDado = new Set(linhas.filter((x) => x.total != null).map((x) => x.mes));
+  const linhas = ev.dados.filter((x) => (!P.grupo || x.grupo === P.grupo) && (!P.empresa || x.cliente === P.empresa) && x.total != null);
+  const meses = unicosB(ev.dados.map((x) => x.mes)), comDado = new Set(linhas.map((x) => x.mes));
   while (meses.length > 2 && !comDado.has(meses[0])) meses.shift();   // começa no 1º mês com passivo lançado
-  const chave = ev.visao === 'total' ? () => P.empresa || P.grupo || 'Todos os grupos' : P.grupo ? (x) => x.cliente : (x) => x.grupo;
-  const S = {}; linhas.forEach((x) => { if (x.total == null) return; const k = chave(x); (S[k] = S[k] || {})[x.mes] = (S[k][x.mes] || 0) + (Number(x.total) || 0); });
-  const ult = meses[meses.length - 1], nomes = Object.keys(S).sort((a, b) => (S[b][ult] || 0) - (S[a][ult] || 0));
-  const tot = (m) => linhas.filter((x) => x.mes === m && x.total != null).reduce((s, x) => s + (Number(x.total) || 0), 0);
-  const ini = tot(meses[0]), fim = tot(ult), dif = fim - ini;
-  $('pe-evo-sub').textContent = P.grupo ? 'Empresas do grupo ' + P.grupo + ', mês a mês' : 'Grupos, mês a mês';
-  $('pe-evo-res').innerHTML = meses.length ? '<span><b>' + esc(brl(fim)) + '</b> hoje</span><span class="' + (dif > 0 ? 'b-verm-v' : dif < 0 ? 'b-verde-v' : '') + '">' + (dif > 0 ? '▲ ' : dif < 0 ? '▼ ' : '') + esc(brl(Math.abs(dif))) +
-    (ini ? ' (' + (dif / ini * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + '%)' : '') + ' desde ' + esc(rotMesB(meses[0])) + '</span>' : '';
-  gr.innerHTML = graficoLinhasB(meses, nomes.map((n, i) => ({ nome: n, cor: nomes.length === 1 ? 'var(--primario)' : CORES_LINHA[i % CORES_LINHA.length], valores: meses.map((m) => (S[n][m] == null ? null : S[n][m])) })), { titulo: 'Evolução do passivo' });
+  const tot = (m) => linhas.filter((x) => x.mes === m).reduce((s, x) => s + (Number(x.total) || 0), 0);
+  const rot = (m) => rotMesB(m).toLowerCase();
+  const ms = meses.filter((m) => comDado.has(m));
+  while (ms.length > 1 && !tot(ms[0])) ms.shift();   // meses do começo com passivo zero não entram (a linha não "cai para zero")
+  gr.innerHTML = graficoLinhaB(ms.map((m) => ({ rot: rot(m), v: tot(m), dica: rot(m) + ': ' + brl(tot(m)) })));
 }
 
 function empresasPE(base) {
@@ -100,7 +93,7 @@ function empresasPE(base) {
   const sit = (r) => String(r.sitCadastral || '').trim();
   const ops = (f) => unicosB(base.map(f)).map((x) => [x, x]);
   const op = (r) => (/^sim$/i.test(r.emOperacao || '') ? 'Sim' : /^n[aã]o$/i.test(r.emOperacao || '') ? 'Não' : '');
-  tabelaB(el, { id: 'empresas', tabCls: 'b-tab-pe', linhas: base, chave: (r) => String(r._id), unidade: ['empresa', 'empresas'],
+  tabelaB(el, { id: 'empresas', tabCls: 'b-tab-pe', semContagemAbas: true, linhas: base, chave: (r) => String(r._id), unidade: ['empresa', 'empresas'],
     abas: [{ id: 'at', rot: 'Ativos', f: (r) => r.tipoCliente !== 'Inativo' }, { id: 'cons', rot: 'Consultoria', f: (r) => r.tipoCliente === 'Consultoria' },
       { id: 'pont', rot: 'Serviço pontual', f: (r) => r.tipoCliente === 'Serviço pontual' }, { id: 'in', rot: 'Inativos', f: (r) => r.tipoCliente === 'Inativo' }, { id: 'todos', rot: 'Todos', f: () => true }],
     busca: (r) => [r.nome, r.grupo, r.socioAdmin, r.cpfCnpj, String(r.cpfCnpj || '').replace(/\D/g, '')].join(' '), dicaBusca: 'Nome, sócio ou CPF/CNPJ…',

@@ -126,6 +126,18 @@ function graficoRosca(itens, opc) {
 // A dica de cada mês mostra todas as séries (e a linha) juntas; legenda embaixo.
 const MES_CURTO_B = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 function rotMesB(k) { const p = String(k).split('-'); return MES_CURTO_B[+p[1] - 1] + '/' + p[0].slice(2); }
+// Backup 83: linha simples do ambiente de teste — só o máximo e o mínimo à esquerda, sem grade, traço que estica e pontos brancos em HTML
+// (não deformam), meses embaixo em letra pequena. pontos = [{ rot, v, dica }]
+function graficoLinhaB(pontos) {
+  const ps = pontos.filter((p) => p.v != null && isFinite(p.v));
+  if (!ps.length) return '<p class="b-barras-vazio">Sem passivo lançado no período.</p>';
+  const vs = ps.map((p) => p.v), max = Math.max(...vs), min = Math.min(...vs), rng = (max - min) || 1;
+  const xy = ps.map((p, i) => [ps.length > 1 ? i / (ps.length - 1) * 100 : 50, 8 + (1 - (p.v - min) / rng) * 84]);
+  return '<div class="b-glin"><div class="b-glin-y"><span>' + esc(brlCurto(max)) + '</span><span>' + esc(brlCurto(min)) + '</span></div><div class="b-glin-area">' +
+    '<svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><polyline points="' + xy.map((q) => q.join(',')).join(' ') + '" fill="none" stroke="var(--primario)" stroke-width="2.5" vector-effect="non-scaling-stroke"/></svg>' +
+    xy.map((q, i) => '<span class="b-glin-p" style="left:' + q[0] + '%;top:' + q[1] + '%" title="' + esc(ps[i].dica || ps[i].rot + ': ' + brl(ps[i].v)) + '"></span>').join('') + '</div>' +
+    '<div class="b-glin-x">' + ps.map((p) => '<small>' + esc(p.rot) + '</small>').join('') + '</div></div>';
+}
 function graficoColunasB(meses, series, opc) {
   opc = opc || {};
   if (!meses.length) return '<div class="b-barras-vazio">Nada no período.</div>';
@@ -162,38 +174,5 @@ function graficoColunasB(meses, series, opc) {
   }
   s += '</svg><div class="legenda">' + series.map((x) => '<span><i style="background:' + x.cor + '"></i>' + esc(x.nome) + '</span>').join('') +
     (opc.linha ? '<span><i style="background:' + opc.linha.cor + '"></i>' + esc(opc.linha.nome) + '</span>' : '') + '</div>';
-  return s;
-}
-
-// Backup 76 — linhas por mês (Evolução do passivo no Painel novo): séries = [{nome, cor, valores: [n|null, …]}].
-// Bolinhas brancas em cada mês; dica com o mês e o valor de cada linha; escala a partir do zero.
-function graficoLinhasB(meses, series, opc) {
-  opc = opc || {};
-  if (!meses.length || !series.length) return '<div class="b-barras-vazio">Sem dados para o gráfico.</div>';
-  const todos = series.flatMap((s) => s.valores.filter((v) => v != null));
-  const passoBom = (v) => { const e = Math.pow(10, Math.floor(Math.log10(v || 1))), f = v / e; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * e; };
-  const passo = passoBom(Math.max(1, ...todos) / 4), max = Math.ceil(Math.max(1, ...todos) / passo) * passo;
-  const larg = 1100, h = 280, esq = 76, dir = 24, topo = 14, base = 240, util = base - topo;
-  const x = (i) => esq + (meses.length === 1 ? (larg - esq - dir) / 2 : i * (larg - esq - dir) / (meses.length - 1));
-  const y = (v) => base - v / max * util;
-  const fmt = opc.fmt || brlCurto;
-  // data-n / data-m / data-nomes / data-ini: quantas linhas e meses, os nomes e se o 1º mês tem valor (os testes leem daqui)
-  let s = '<svg class="grafico b-graf b-graf-linhas" data-n="' + series.length + '" data-m="' + meses.length + '" data-nomes="' + esc(series.map((x) => x.nome).join('|')) + '" data-ini="' + (series.some((x) => x.valores[0] != null) ? 1 : 0) + '" viewBox="0 0 ' + larg + ' ' + h + '" role="img" aria-label="' + esc(opc.titulo || 'Evolução') + '">';
-  for (let v = 0; v <= max + passo / 2; v += passo) s += '<line x1="' + esq + '" x2="' + (larg - dir) + '" y1="' + y(v) + '" y2="' + y(v) + '" class="' + (v ? 'g-grade' : 'g-base') + '"/><text x="' + (esq - 8) + '" y="' + (y(v) + 4) + '" text-anchor="end" class="g-eixo">' + esc(v ? fmt(v).replace('R$ ', '') : '0') + '</text>';
-  const pulo = Math.ceil(meses.length / 14);
-  meses.forEach((k, i) => { if (i % pulo === 0 || i === meses.length - 1) s += '<text x="' + x(i) + '" y="' + (base + 22) + '" text-anchor="middle" class="g-eixo">' + esc(rotMesB(k)) + '</text>'; });
-  series.forEach((sr) => {
-    const pts = sr.valores.map((v, i) => (v == null ? null : [x(i), y(v)])).filter(Boolean);
-    if (pts.length > 1) s += '<polyline points="' + pts.map((p) => p.join(',')).join(' ') + '" fill="none" style="stroke:' + sr.cor + '" stroke-width="' + (series.length === 1 ? 2.5 : 2) + '" pointer-events="none"/>';
-    s += pts.map((p) => '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="4" style="fill:var(--surface);stroke:' + sr.cor + '" stroke-width="2" pointer-events="none"/>').join('');
-  });
-  // faixas invisíveis por mês com a dica
-  const col = meses.length === 1 ? larg - esq - dir : (larg - esq - dir) / (meses.length - 1);
-  meses.forEach((k, i) => { const dica = rotMesB(k) + ' — ' + series.filter((sr) => sr.valores[i] != null).sort((a, b) => b.valores[i] - a.valores[i]).map((sr) => (series.length > 1 ? sr.nome + ': ' : '') + fmt(sr.valores[i])).join(' · ');
-    // área de "passar o mouse" do mês, sem sair do desenho (com 1 ou 2 meses ela ficava mais larga que o gráfico)
-    const rx = Math.max(esq, x(i) - col / 2), rw = Math.min(larg - dir, x(i) + col / 2) - rx;
-    s += '<rect x="' + rx + '" y="' + topo + '" width="' + rw + '" height="' + (util + 30) + '" fill="transparent" data-dica="' + esc(dica) + '"/>'; });
-  s += '</svg>';
-  if (series.length > 1) s += '<div class="legenda">' + series.map((sr) => '<span><i style="background:' + sr.cor + '"></i>' + esc(sr.nome) + '</span>').join('') + '</div>';
   return s;
 }

@@ -120,3 +120,5 @@ Aprovado pelo usuário em 08/10/2026. Leia isto antes de qualquer rodada da refo
   Falta: **A4** — apagar o ERP.html, os remendos do montar-erp e os blocos "Backup N" do design.css (rodada própria, Backup 82).
 - **Respostas de 14/10/2026 (Backup 82, "100% do design do ambiente no ERP"):** Início = faixa do ambiente (agora SIM ao E3: saem os cartões grandes Financeiro/Escritório); Clientes = manter a do ERP; frase do Início = só a data.
   Feito no **Backup 82** (só front). Mantidos por serem funções que só o ERP tem: pastas de Documentos, "Minha fila de trabalho", Calendário/Fluxos de Tarefas, filtros Grupo/Competência, recortes do Financeiro. Falta: **A4** (tirar o ERP.html) — Backup 83.
+
+- **Respostas de 14/10 (Backup 83):** o ERP deve ficar idêntico ao ambiente v5 — sem a busca na barra do alto, Início sem calendário (agenda só em Tarefas), menu Jurídico/Financeiro que abre e fecha (como antes), faixa/pílulas na altura do ambiente, Evolução do passivo na linha do ambiente, Empresas do grupo e cartões de Parcelamentos mais leves.

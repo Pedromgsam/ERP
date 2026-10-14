@@ -125,8 +125,8 @@
     // Backup 38: barra de cima branca = nome da tela à esquerda; + Lançar, tema, ⋯, sessão, pessoa e Sair à direita (sem o sino de avisos)
     hd.innerHTML =
       '<span id="gs-tela-nome"></span>' +
-      // Backup 76 (F1): busca geral — também com Ctrl+K (⌘K no Mac)
-      '<button type="button" id="gs-buscar" class="gs-buscar" title="Buscar cliente, CPF/CNPJ, processo, parcelamento, acordo ou tarefa (Ctrl+K)">' + icone('busca') + '<span>Buscar cliente, CNPJ, processo…</span><kbd>Ctrl K</kbd></button>' +
+      // Backup 83: sem o campo de busca na barra do alto (pedido do usuário); a busca geral continua no Ctrl+K (⌘K no Mac)
+      '<span class="gs-hd-esp"></span>' +
       '<div class="tn-lancar gx-so-equipe"><button type="button" class="tn-lancar-bt" aria-haspopup="true" aria-expanded="false">+ Lançar</button>' +
       '<div class="tn-menu tn-menu-dir" role="menu">' + LANCAR.map((x, i) => '<button type="button" role="menuitem" data-lancar="' + i + '">' + esc(x[0]) + '</button>').join('') + '</div></div>' +
       '<div class="hd-usuario"><button type="button" id="gs-ajuda" title="Ajuda desta tela" aria-label="Ajuda desta tela"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6M12 17h.01"/></svg></button><button type="button" id="gs-tema" title="Modo escuro / claro" aria-label="Alternar modo escuro" aria-pressed="false"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></button>' +
@@ -143,7 +143,6 @@
           '<div class="tn-menu" role="menu">' + m.itens.map((x) => '<button type="button" role="menuitem"' + (x[3] ? ' class="gx-so-equipe"' : '') + ' data-ir="' + x[0] + '">' + esc(x[1]) + '</button>').join('') + '</div></div>').join('') +
       '</nav><button type="button" id="gs-encolher" title="Encolher / abrir a barra" aria-label="Encolher ou abrir a barra lateral">' + icone('encolher') + '<span class="tn-rot">encolher</span></button>';
     document.body.insertBefore(lado, document.body.firstChild);
-    const bb = hd.querySelector('#gs-buscar'); if (bb) bb.onclick = () => { if (GS() && GS().abrirBuscaGeral) GS().abrirBuscaGeral(); };
     const ba = hd.querySelector('#gs-ajuda'); if (ba) ba.onclick = () => abrirAjuda(_painel);
     try { if (localStorage.getItem('erp_lado_min') === '1') document.body.classList.add('gx-lado-min'); } catch (e) { /* sem armazenamento: começa aberta */ }
     document.getElementById('gs-encolher').onclick = () => { const min = document.body.classList.toggle('gx-lado-min'); try { localStorage.setItem('erp_lado_min', min ? '1' : '0'); } catch (e) { /* vale só agora */ } };

@@ -242,15 +242,14 @@ function analiseFin(empresa, corpo) {
   const tipos = [...new Set(L.map((l) => l.categoria).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
   const grupos = [...new Set(L.map((l) => l.grupos && l.grupos.nome).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
   const jan = janelaFin(an);
-  const fil = '<section class="b-fin-filtros" id="fa-filtros">' +
-    (pessoas.length > 1 ? '<div class="b-fin-lin"><span class="b-fin-rot">Quem fez</span><button type="button" class="b-chip" data-fa-quem="" aria-pressed="' + !an.quem.length + '">Todos</button>' +
-      pessoas.map((p) => '<button type="button" class="b-chip" data-fa-quem="' + esc(p) + '" aria-pressed="' + an.quem.includes(p) + '">' + esc(p) + '</button>').join('') + '</div>' : '') +
-    '<div class="b-fin-lin"><span class="b-fin-rot">Período</span>' + PERIODOS_FIN.map((p) => '<button type="button" class="b-chip" data-fa-per="' + p[0] + '" aria-pressed="' + (!an.de && !an.ate && an.preset === p[0]) + '">' + p[1] + '</button>').join('') +
-      '<span class="b-fx"><span>de</span>' + campoDataB('id="fa-de"', an.de, 'De') + '<span>até</span>' + campoDataB('id="fa-ate"', an.ate, 'Até') + '<button type="button" class="b-bt-f" id="fa-aplicar">Aplicar</button><small class="b-fx-aviso" id="fa-aviso"></small></span></div>' +
-    '<div class="b-fin-lin"><span class="b-fin-rot">Recorte</span><select id="fa-tipo" aria-label="Tipo"><option value="">Todos os tipos</option>' + tipos.map((t) => '<option' + (an.tipo === t ? ' selected' : '') + '>' + esc(t) + '</option>').join('') + '</select>' +
-      (grupos.length > 1 ? '<select id="fa-grupo" aria-label="Grupo"><option value="">Todos os grupos</option>' + grupos.map((g) => '<option' + (an.grupo === g ? ' selected' : '') + '>' + esc(g) + '</option>').join('') + '</select>' : '') + '</div>' +
-    '<p class="b-fin-mostra">Mostrando <b>' + esc(an.quem.length ? an.quem.join(', ') : 'todos') + '</b> · <b>' + (jan ? dataBR(jan[0]) + ' a ' + dataBR(jan[1]) : 'todo o período') + '</b>' + (an.tipo ? ' · <b>' + esc(an.tipo) + '</b>' : '') + (an.grupo ? ' · <b>' + esc(an.grupo) + '</b>' : '') +
-      ' · data considerada: <b>pagamento</b>, ou vencimento quando não houver pagamento</p></section>';
+  // Backup 83: filtros numa linha só, como no ambiente (Quem · Período · de/até · Aplicar); tipo e grupo continuam, no fim da mesma linha
+  const fil = '<section class="b-fin-filtros b-filtro-linha" id="fa-filtros">' +
+    (pessoas.length > 1 ? '<span class="b-fin-rot">Quem</span><span class="b-chips-in"><button type="button" class="b-chip" data-fa-quem="" aria-pressed="' + !an.quem.length + '">Todos</button>' +
+      pessoas.map((p) => '<button type="button" class="b-chip" data-fa-quem="' + esc(p) + '" aria-pressed="' + an.quem.includes(p) + '">' + esc(p) + '</button>').join('') + '</span>' : '') +
+    '<span class="b-fin-rot">Período</span><span class="b-chips-in">' + PERIODOS_FIN.map((p) => '<button type="button" class="b-chip" data-fa-per="' + p[0] + '" aria-pressed="' + (!an.de && !an.ate && an.preset === p[0]) + '">' + p[1] + '</button>').join('') + '</span>' +
+    '<span class="b-fx"><span class="b-fin-rot">de</span>' + campoDataB('id="fa-de"', an.de, 'De') + '<span class="b-fin-rot">até</span>' + campoDataB('id="fa-ate"', an.ate, 'Até') + '<button type="button" class="btn btn-o btn-mini" id="fa-aplicar">Aplicar</button><small class="b-fx-aviso" id="fa-aviso"></small></span>' +
+    (tipos.length > 1 ? '<select id="fa-tipo" aria-label="Tipo"><option value="">Todos os tipos</option>' + tipos.map((t) => '<option' + (an.tipo === t ? ' selected' : '') + '>' + esc(t) + '</option>').join('') + '</select>' : '') +
+    (grupos.length > 1 ? '<select id="fa-grupo" aria-label="Grupo"><option value="">Todos os grupos</option>' + grupos.map((g) => '<option' + (an.grupo === g ? ' selected' : '') + '>' + esc(g) + '</option>').join('') + '</select>' : '') + '</section>';
   const receita = filtrarFin(empresa, ['recebido']), aRec = filtrarFin(empresa, ['areceber']), aPag = filtrarFin(empresa, ['apagar']), pagos = filtrarFin(empresa, ['pago']);
   const perdas = filtrarFin(empresa, ['perda'], true), vencidos = filtrarFin(empresa, ['areceber'], true).filter((l) => l.vencimento && l.vencimento < h);
   const aVencer = aRec.filter((l) => !(l.vencimento && l.vencimento < h));

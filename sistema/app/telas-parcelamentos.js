@@ -171,7 +171,7 @@ function desenharGruposPc() {
       (chip === 'concluidos' ? '<span class="b-pill b-g">Concluídos</span>' : g.atr ? '<span class="b-pill b-r">' + plural(g.atr, 'parcela', 'parcelas') + ' em atraso</span>' : '<span class="b-pill b-g">Em dia</span>') + '</div>' +
       '<div class="b-cg-sub">' + plural(n, 'parcelamento', 'parcelamentos') + (g.risco && chip !== 'concluidos' ? ' · <span class="b-n-atr">risco de rescisão</span>' : '') + '</div>' +
       // Backup 72: o número de cada parcelamento no cartão do cliente (até 4; o resto em "+N")
-      (function () { const L = (chip === 'concluidos' ? g.conc : g.vivos).map(([pa]) => pa.numero).filter(Boolean); return L.length ? '<div class="b-cg-nums" title="' + esc(L.join(' · ')) + '">Nº ' + L.slice(0, 4).map(esc).join(' · ') + (L.length > 4 ? ' <b>+' + (L.length - 4) + '</b>' : '') + '</div>' : ''; })() +
+      // Backup 83: sem a linha "Nº …" no cartão (como no ambiente — menos amontoado); o nº continua na coluna Parcelamento da tabela
       (chip === 'concluidos' ? '' : '<div class="b-barra"><span style="width:' + pc + '%"></span></div><small class="b-cg-prog">' + g.pg + ' de ' + g.tot + ' pagas</small>' +
         '<div class="b-cg-lin"><span>Falta pagar</span><b>' + brl(g.falta) + '</b></div><div class="b-cg-lin"><span>A pagar este mês</span><b>' + (g.nMes ? brl(g.somaMes) + ' (' + g.nMes + ')' : '—') + '</b></div>') + '</button>';
     if (ab) html += '<div class="b-cg-det" id="pc-det-grupo"></div>';
