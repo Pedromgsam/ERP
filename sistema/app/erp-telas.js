@@ -261,13 +261,13 @@
   }
 
   // ═══════ Backup 76 (L2): contagem discreta no menu — tarefas minhas atrasadas, publicações novas, parcelas de parcelamento vencidas ═══════
-  let _pubN = { n: 0, em: 0 };
+  let _pubN = { n: 0, em: 0 }, _tfN = { n: 0, em: 0, hoje: '' };
   function contagensMenu() {
     if (ehCliente() || !document.getElementById('tn')) return;
     const D = dbERP(), dh = new Date(), hoje = dh.getFullYear() + '-' + String(dh.getMonth() + 1).padStart(2, '0') + '-' + String(dh.getDate()).padStart(2, '0');
-    const eu = String((window.AC_SESSION && window.AC_SESSION.nome) || '').trim().split(/\s+/)[0].normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-    const prim = (n) => String(n || '').trim().split(/\s+/)[0].normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-    const tarefas = (D.tarefas || []).filter((x) => x.prazo && x.prazo < hoje && !/conclu|cancel|exclu/i.test(x.status || '') && (!eu || prim(x.responsavel) === eu)).length;
+    // tarefas: o ERP antigo não carrega a lista — conta direto no banco (minhas, com prazo vencido e ainda abertas)
+    const eu = String((window.AC_SESSION && window.AC_SESSION.nome) || '').trim().split(/\s+/)[0];
+    const tarefas = _tfN.n;
     let vencidas = 0; (D.parcelamentos || []).forEach((p) => (p.parcelas || []).forEach((x) => { if (x.status === 'Inadimplente') vencidas++; }));
     const marca = (id, n, dica) => document.querySelectorAll('#tn [data-ir="' + id + '"]').forEach((b) => {
       let s = b.querySelector(':scope > .tn-n'); if (!n) { if (s) s.remove(); return; }
@@ -277,6 +277,9 @@
     document.querySelectorAll('#tn .tn-grupo').forEach((g) => { const soma = [...g.querySelectorAll('.tn-menu .tn-n')].reduce((s, x) => s + (parseInt(x.textContent, 10) || 0), 0);
       const bt = g.querySelector('.tn-abre'); if (!bt) return; let s = bt.querySelector('.tn-n');
       if (!soma) { if (s) s.remove(); return; } if (!s) { s = document.createElement('span'); s.className = 'tn-n tn-n-grupo'; bt.insertBefore(s, bt.querySelector('.tn-seta')); } s.textContent = soma > 99 ? '99+' : String(soma); });
+    if ((Date.now() - _tfN.em > 120000 || _tfN.hoje !== hoje) && window.SB && eu) { _tfN.em = Date.now(); _tfN.hoje = hoje;
+      window.SB.from('tarefas').select('id', { count: 'exact', head: true }).lt('prazo', hoje).not('status', 'in', '(concluida,cancelada)').ilike('responsavel', eu + '%')
+        .then(({ count }) => { if (typeof count === 'number' && count !== _tfN.n) { _tfN.n = count; contagensMenu(); } }); }
     if (Date.now() - _pubN.em > 120000 && window.SB) { _pubN.em = Date.now();
       window.SB.from('publicacoes').select('id', { count: 'exact', head: true }).eq('status', 'nova').then(({ count }) => { if (typeof count === 'number' && count !== _pubN.n) { _pubN.n = count; contagensMenu(); } }); }
   }
@@ -369,6 +372,7 @@
         if (!history.state || !history.state.tela) history.replaceState(est, '', '#' + id);
         else if (history.state.tela !== id) history.pushState(est, '', '#' + id);
       }
+      if (_painel === 'tarefas') _tfN.em = 0;   // saiu de Tarefas: reconta (pode ter concluído alguma)
       _painel = id; destacar(id); try { contagensMenu(); } catch (e) { console.warn('[ERP] contagens do menu:', e); }
       // Backup 52 (O1): as telas novas que ficaram para trás são esvaziadas quando o navegador está livre (cada uma é desenhada de novo ao voltar);
       // assim a página não carrega dezenas de milhares de elementos escondidos, que deixavam toda troca de tela mais lenta
@@ -412,6 +416,7 @@
       const r = recOrig && recOrig.apply(this, arguments);
       // Backup 68: redesenha a tela nova DEPOIS que os dados chegaram (antes eram 200 ms fixos — a tela podia sair com o dado velho)
       if (ehGS(_painel)) Promise.resolve(r).catch(() => null).then(() => setTimeout(() => desenharGS(_painel), 50));
+      _tfN.em = 0; _pubN.em = 0;
       Promise.resolve(r).catch(() => null).then(() => setTimeout(() => { try { contagensMenu(); } catch (e) { /* sem menu */ } }, 60));
       return r;
     };
