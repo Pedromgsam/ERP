@@ -105,7 +105,7 @@
     var gs = D().grupos, g = APP.pref('pl-g') || gs[0].id;
     var PA = D().parcelamentos.filter(function(pa){ return APP.cli(pa.cli).g === g; });
     el.innerHTML = '<div class="chips chips-esq">' + gs.map(function(x){ var n = D().parcelas.filter(function(y){ var pa = N.pa(y.pa); return APP.cli(pa.cli).g === x.id && N.paraEmitir(y); }).length;
-        return '<button class="chip" type="button" data-plg="' + x.id + '" aria-pressed="' + (x.id === g) + '"><span class="ponto" style="background:var(--g' + x.cor + ')"></span>' + esc(x.nome) + (n ? ' <span class="seg-n r">' + n + '</span>' : '') + '</button>'; }).join('') + '</div>'
+        return '<button class="chip" type="button" data-plg="' + x.id + '" aria-pressed="' + (x.id === g) + '">' + esc(x.nome) + (n ? ' <span class="seg-n r">' + n + '</span>' : '') + '</button>'; }).join('') + '</div>'
       + '<p class="mudo">' + APP.T('rotina.planilha') + '</p><div class="blocos">' + PA.map(function(pa){ var c = APP.cli(pa.cli), r = N.resumo(pa), L = N.parcelasDe(pa);
         var i0 = L.findIndex(function(x){ return !x.pago; }); if (i0 < 0) i0 = L.length; var ver = APP.pref('pl-tudo-' + pa.id), V = ver ? L : L.slice(Math.max(0, i0 - 3), i0 + 4);
         return '<section class="bloco-pl"><div class="pl-hd"><b>' + esc(c.nome) + '</b><span class="doc">' + esc(c.doc) + '</span><div class="tags"><span class="tag-g">' + esc(pa.plat) + '</span><span class="tag-g">' + esc(pa.nat) + '</span><span class="tag-g">nº ' + esc(pa.num) + '</span>' + (pa.cliEmite ? '<span class="tag-g">o cliente emite</span>' : '') + '</div>'

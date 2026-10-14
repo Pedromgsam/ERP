@@ -215,6 +215,7 @@ html body.gx-barra-topo table.b-tab td.b-v-av:not(#_),html body.gx-barra-topo ta
 .b-cg-hd b{font-size:14px;color:var(--ink);flex:1 1 auto;min-width:0}
 .b-cg-sub{font-size:12px;color:var(--text3)}
 .b-cg .b-barra{margin:4px 0 2px}
+.b-cg-prog{display:block;font-size:11.5px;color:var(--text3);margin:-1px 0 4px}
 .b-cg-lin{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;color:var(--text3)}
 .b-cg-lin b{color:var(--ink);font-variant-numeric:tabular-nums;font-weight:600}
 .b-cards > .b-cg-det{grid-column:1 / -1}
@@ -270,16 +271,14 @@ html body.gx-barra-topo table.b-tab td.b-c-acoes:not(#_){white-space:nowrap;widt
 html body.gx-barra-topo table.b-tab.b-tab-parc:not(#_){table-layout:fixed}
 html body.gx-barra-topo table.b-tab-parc:not(#_) :is(th,td){padding-left:8px!important;padding-right:8px!important}
 html body.gx-barra-topo table.b-tab-parc:not(#_) tbody td{padding-top:9px!important;padding-bottom:9px!important;line-height:1.35!important}
-.b-tab-parc th:nth-child(1){width:8%}.b-tab-parc th:nth-child(2){width:auto}.b-tab-parc th:nth-child(3){width:8.5%}.b-tab-parc th:nth-child(4){width:9.5%}
-.b-tab-parc th:nth-child(5){width:12%}.b-tab-parc th:nth-child(6){width:6.5%}.b-tab-parc th:nth-child(7){width:9%}.b-tab-parc th:nth-child(8){width:8.5%}
-.b-tab-parc th:nth-child(9){width:8.5%}.b-tab-parc th:nth-child(10){width:132px}
-.b-tab-parc.b-sem-num th:nth-child(5){width:6.5%}.b-tab-parc.b-sem-num th:nth-child(6){width:9%}.b-tab-parc.b-sem-num th:nth-child(7){width:8.5%}.b-tab-parc.b-sem-num th:nth-child(8){width:8.5%}.b-tab-parc.b-sem-num th:nth-child(9){width:132px}
+/* Backup 78: Grupo · Empresa · Parcelamento (natureza; plataforma · nº) · Parcela · Valor · Vencimento · Prazo · ações */
+.b-tab-parc th:nth-child(1){width:10%}.b-tab-parc th:nth-child(2){width:auto}.b-tab-parc th:nth-child(3){width:21%}.b-tab-parc th:nth-child(4){width:7.5%}
+.b-tab-parc th:nth-child(5){width:10%}.b-tab-parc th:nth-child(6){width:9.5%}.b-tab-parc th:nth-child(7){width:10%}.b-tab-parc th:nth-child(8){width:132px}
 .b-tab-parc :is(.b-bt-emitir,.b-bt-baixa){padding:5px 8px}
 html body.gx-barra-topo table.b-tab-parc thead th:not(#_){overflow:hidden;text-overflow:clip;letter-spacing:.02em!important}
 html body.gx-barra-topo table.b-tab-parc td.b-num:not(#_){white-space:normal!important;word-break:break-all;font-size:11.5px!important}
 .b-tab-parc td .b-doc{white-space:normal}
 html body.gx-barra-topo table.b-tab-parc tfoot td:not(#_){white-space:nowrap;overflow:visible}
-.b-tab-parc th:nth-child(1){width:7.5%}.b-tab-parc th:nth-child(8){width:9%}
 .b-tab tr.b-tr-mais td{text-align:center!important;background:var(--surface2)}
 /* cabeçalho da lista de parcelas: quebra linha e diminui um pouco em telas estreitas (nada cortado em 1024 px) */
 html body.gx-barra-topo table.b-tab-parc thead th:not(#_){white-space:normal!important;overflow:visible;letter-spacing:0!important;font-size:10.5px!important;line-height:1.25;vertical-align:bottom}
@@ -535,6 +534,13 @@ html body.gx-barra-topo .ex-bn.ex-col > .ex-tg:hover .ex-t{text-decoration:under
 .pt-home .pt-tile small{font-size:12px;color:var(--text3)}
 .pt-home .pt-tile.pt-tile-atr b,.pt-home .pt-tile.pt-tile-atr small{color:var(--red-d)}
 .pt-home .pt-tile.pt-tile-ok small{color:var(--green-d)}
+.pt-home .pt-tiles.pt-tiles-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media (max-width:760px){.pt-home .pt-tiles.pt-tiles-3{grid-template-columns:1fr}}
+.pt-home .pt-tiles-3 .pt-tile{padding:16px 18px;gap:4px}
+.pt-home .pt-tiles-3 .pt-tile span{font:700 15px var(--font-ui);color:var(--ink)}
+.pt-home .pt-situacao{border-radius:10px;padding:10px 14px;font:600 13px var(--font-ui)}
+.pt-home .pt-sit-ok{background:var(--green-lt);color:var(--green-d)}
+.pt-home .pt-sit-atr{background:var(--red-lt);color:var(--red-d)}
 .pt-home .pt-como{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 18px}
 .pt-home .pt-como h2{font:700 15px var(--font-ui);color:var(--ink);margin:0 0 8px}
 .pt-home .pt-como ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:5px;font-size:13.5px;color:var(--text2);line-height:1.5}

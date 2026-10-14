@@ -84,14 +84,17 @@ function celAcoesP(x) {
   return '<span class="b-acoes">' + (x.pa.emitimos ? '<button type="button" class="b-bt-emitir' + (x.emitida ? ' b-emitido' : '') + '" data-pc-emitir="' + esc(x.id) + '" title="' + (x.emitida ? 'Emitida em ' + esc(dataBR(x.emitida)) + ' — clique para emitir de novo' : 'Emitir a guia (PDF, valor) e enviar ao cliente') + '">Emitir</button>' : '') +
     '<button type="button" class="b-bt-baixa" data-pc-baixa="' + esc(x.id) + '" title="Dar baixa (pago) — pede confirmação">Baixa</button></span>';
 }
+function celParcelamento(pa) {
+  const sub = [pa.local, pa.numero ? 'nº ' + pa.numero : ''].filter(Boolean).join(' · ');
+  return esc(pa.natureza || '—') + (sub ? '<span class="b-sub">' + esc(sub) + '</span>' : '');
+}
 function colunasParcelas(o) {
   o = o || {};
   const C = [];
   if (!o.semGrupo) C.push({ k: 'g', rot: 'Grupo', html: (x) => esc(x.pa.grupo || '—'), ord: (x) => normalizar(x.pa.grupo) });
   C.push({ k: 'emp', rot: 'Empresa', html: (x) => empresaB(x.pa.empresa, x.pa.cnpj), ord: (x) => normalizar(x.pa.empresa) });
-  C.push({ k: 'plat', rot: 'Plataforma', html: (x) => esc(x.pa.local || '—'), ord: (x) => x.pa.local });
-  C.push({ k: 'nat', rot: 'Natureza', html: (x) => esc(x.pa.natureza || '—'), ord: (x) => x.pa.natureza });
-  if (!o.semNum) C.push({ k: 'num', rot: 'Nº parcelamento', cls: 'b-num', html: (x) => esc(x.pa.numero || '—'), ord: (x) => x.pa.numero });
+  // Backup 78: uma coluna "Parcelamento" com tudo (natureza; plataforma · nº embaixo), como no portal do cliente
+  C.push({ k: 'pa', rot: 'Parcelamento', html: (x) => celParcelamento(x.pa), ord: (x) => normalizar((x.pa.natureza || '') + ' ' + (x.pa.local || '')) });
   C.push({ k: 'n', rot: 'Parcela', cls: 'b-cen b-data', html: (x) => esc(x.n) + (x.pa.tot ? ' de ' + x.pa.tot : ''), ord: (x) => Number(x.n) || 0 });
   C.push({ k: 'v', rot: 'Valor', cls: 'b-dir b-val', soma: true, html: (x) => brl(x.valor), ord: (x) => x.valor });
   C.push({ k: 'venc', rot: 'Vencimento', cls: 'b-cen b-data', html: (x) => (x.venc ? dataBR(x.venc) : '—'), ord: (x) => x.venc || '9' });
@@ -124,7 +127,7 @@ function pintarParcelamentos() {
   const el = $('conteudo'); if (!el) return;
   const PA = E.pc.PA || [], T = [].concat(...PA.map((pa) => pa.parcelas)), h = hojeISO(), podeEd = pode('juridico', 'editar');
   el.innerHTML = cabecalhoTela({ icone: 'camadas', titulo: 'Parcelamentos', frase: 'Parcelas dos clientes no e-CAC, Regularize e SIARE, por vencimento', atualizar: 'pc-atualizar', botao: podeEd ? { id: 'pc-novo', rotulo: 'Novo parcelamento' } : null }) +
-    '<div class="b-sec"><div><h2>Situação por cliente</h2><p>Clique no grupo para ver os parcelamentos.</p></div><div class="b-chips" id="pc-chips">' +
+    '<div class="b-sec"><div><h2>Situação por cliente</h2></div><div class="b-chips" id="pc-chips">' +
     [['todos', 'Todos'], ['atraso', 'Com atraso'], ['risco', 'Risco de rescisão'], ['dia', 'Em dia'], ['concluidos', 'Concluídos']].map((c) => '<button type="button" class="b-chip" data-pc-chip="' + c[0] + '" aria-pressed="' + (E.pc.chip === c[0]) + '">' + c[1] + '</button>').join('') + '</div></div>' +
     '<div class="b-cards" id="pc-grupos"></div>' +
     '<div class="b-sec"><div><h2>Parcelas</h2></div></div><div id="pc-tabela"></div>';
@@ -162,8 +165,8 @@ function desenharGruposPc() {
       '<div class="b-cg-sub">' + plural(n, 'parcelamento', 'parcelamentos') + (g.risco && chip !== 'concluidos' ? ' · <span class="b-n-atr">risco de rescisão</span>' : '') + '</div>' +
       // Backup 72: o número de cada parcelamento no cartão do cliente (até 4; o resto em "+N")
       (function () { const L = (chip === 'concluidos' ? g.conc : g.vivos).map(([pa]) => pa.numero).filter(Boolean); return L.length ? '<div class="b-cg-nums" title="' + esc(L.join(' · ')) + '">Nº ' + L.slice(0, 4).map(esc).join(' · ') + (L.length > 4 ? ' <b>+' + (L.length - 4) + '</b>' : '') + '</div>' : ''; })() +
-      (chip === 'concluidos' ? '' : '<div class="b-barra"><span style="width:' + pc + '%"></span></div><div class="b-cg-lin"><span>Pagas</span><b><span class="b-verde">' + g.pg + '</span> de ' + g.tot + '</b></div>' +
-        '<div class="b-cg-lin"><span>Falta pagar</span><b>' + brl(g.falta) + '</b></div><div class="b-cg-lin"><span>Parcela do mês</span><b>' + (g.nParcMes ? brl(g.parcMes) + (g.nParcMes > 1 ? ' (' + g.nParcMes + ')' : '') : '—') + '</b></div><div class="b-cg-lin"><span>A pagar este mês</span><b>' + (g.nMes ? brl(g.somaMes) + ' (' + g.nMes + ')' : '—') + '</b></div>') + '</button>';
+      (chip === 'concluidos' ? '' : '<div class="b-barra"><span style="width:' + pc + '%"></span></div><small class="b-cg-prog">' + g.pg + ' de ' + g.tot + ' pagas</small>' +
+        '<div class="b-cg-lin"><span>Falta pagar</span><b>' + brl(g.falta) + '</b></div><div class="b-cg-lin"><span>A pagar este mês</span><b>' + (g.nMes ? brl(g.somaMes) + ' (' + g.nMes + ')' : '—') + '</b></div>') + '</button>';
     if (ab) html += '<div class="b-cg-det" id="pc-det-grupo"></div>';
   });
   el.innerHTML = html || '<div class="b-quadro b-cg-det">' + vazioB({ icone: 'ok', titulo: 'Nenhum grupo neste recorte', frase: 'Troque a escolha acima (Todos, Com atraso, Risco de rescisão, Em dia, Concluídos).' }) + '</div>';
@@ -171,10 +174,10 @@ function desenharGruposPc() {
   const det = $('pc-det-grupo'), g = grupos.find((x) => x.id === E.pc.grupo);
   if (!det || !g) return;
   const lista = chip === 'concluidos' ? g.conc : g.vivos;
-  tabelaB(det, { id: 'pc-grupo', titulo: g.nome + ' — clique no parcelamento para ver a ficha e todas as parcelas', linhas: lista, unidade: ['parcelamento', 'parcelamentos'], chave: ([pa]) => pa.id, ord: { k: 'emp', dir: 1 },
+  tabelaB(det, { id: 'pc-grupo', titulo: g.nome, linhas: lista, unidade: ['parcelamento', 'parcelamentos'], chave: ([pa]) => pa.id, ord: { k: 'emp', dir: 1 },
     busca: ([pa]) => pa.empresa + ' ' + pa.numero + ' ' + pa.natureza, valor: ([, r]) => r.falta,
-    colunas: [{ k: 'emp', rot: 'Empresa', html: ([pa]) => empresaB(pa.empresa, pa.cnpj), ord: ([pa]) => normalizar(pa.empresa) }, { k: 'plat', rot: 'Plataforma', html: ([pa]) => '<span class="b-plat">' + esc(pa.local || '—') + '</span>', ord: ([pa]) => pa.local },
-      { k: 'nat', rot: 'Natureza', html: ([pa]) => esc(pa.natureza || '—'), ord: ([pa]) => pa.natureza }, { k: 'num', rot: 'Nº parcelamento', cls: 'b-num', html: ([pa]) => esc(pa.numero || '—'), ord: ([pa]) => pa.numero },
+    colunas: [{ k: 'emp', rot: 'Empresa', html: ([pa]) => empresaB(pa.empresa, pa.cnpj), ord: ([pa]) => normalizar(pa.empresa) },
+      { k: 'pa', rot: 'Parcelamento', html: ([pa]) => celParcelamento(pa), ord: ([pa]) => normalizar((pa.natureza || '') + ' ' + (pa.local || '')) },
       { k: 'pg', rot: 'Pagas', html: ([pa, r]) => '<div class="b-prog"><div class="b-barra"><span style="width:' + r.pc + '%"></span></div><span><b class="b-verde">' + pa.pagas + '</b> de ' + pa.tot + '</span></div>', ord: ([, r]) => r.pc },
       { k: 'falta', rot: 'Falta pagar', cls: 'b-dir b-val', soma: true, html: ([, r]) => brl(r.falta), ord: ([, r]) => r.falta },
       { k: 'pmes', rot: 'Parcela do mês', cls: 'b-dir b-data', html: ([, r]) => { const x = r.parcMes; if (!x) return '<span class="b-em">—</span>';

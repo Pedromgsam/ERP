@@ -399,7 +399,7 @@ td.acoes{white-space:nowrap}
 
 /* larguras das tabelas principais (computador) */
 .t-parc,.t-ac,.t-lanc{table-layout:fixed}
-.t-parc th:nth-child(1){width:11%}.t-parc th:nth-child(2){width:auto}.t-parc th:nth-child(3){width:11%}.t-parc th:nth-child(4){width:13%}.t-parc th:nth-child(5){width:7%}.t-parc th:nth-child(6){width:9%}.t-parc th:nth-child(7){width:9%}.t-parc th:nth-child(8){width:10%}.t-parc th:nth-child(9){width:150px}
+.t-parc th:nth-child(1){width:11%}.t-parc th:nth-child(2){width:auto}.t-parc th:nth-child(3){width:21%}.t-parc th:nth-child(4){width:8%}.t-parc th:nth-child(5){width:10%}.t-parc th:nth-child(6){width:10%}.t-parc th:nth-child(7){width:10%}.t-parc th:nth-child(8){width:150px}
 .t-ac th:nth-child(1){width:11%}.t-ac th:nth-child(2){width:14%}.t-ac th:nth-child(3){width:auto}.t-ac th:nth-child(4){width:13%}.t-ac th:nth-child(5){width:7%}.t-ac th:nth-child(6){width:9%}.t-ac th:nth-child(7){width:9%}.t-ac th:nth-child(8){width:10%}.t-ac th:nth-child(9){width:150px}
 .t-lanc th:nth-child(1){width:9%}.t-lanc th:nth-child(2){width:15%}.t-lanc th:nth-child(3){width:auto}.t-lanc th:nth-child(4){width:11%}.t-lanc th:nth-child(5){width:10%}.t-lanc th:nth-child(6){width:10%}.t-lanc th:nth-child(7){width:160px}
 .t-lanc th.ck,.t-parc th.ck,.t-ac th.ck{width:34px!important}
@@ -560,7 +560,6 @@ tr.tr-alt td{background:var(--amber-lt)}
 .cg-hd b{flex:1 1 auto;min-width:0}
 .cg-hd .pill{margin-left:auto}
 .tab tfoot td{white-space:nowrap;overflow:visible}
-.t-parc th:nth-child(4){width:12%}.t-parc th:nth-child(6){width:10%}
 .passo .passo-n{color:var(--on-primario);font-size:13px;font-weight:700}
 .passo .seg-bt{white-space:normal;text-align:left}
 .op .selo-p{align-self:flex-start}
@@ -586,3 +585,16 @@ tr.tr-alt td{background:var(--amber-lt)}
 .pub-texto{font-size:13.5px;line-height:1.6;color:var(--text);white-space:pre-wrap}
 .pub-acoes{display:flex;gap:8px;flex-wrap:wrap}
 @media (max-width:760px){.pub-proc{text-align:left}}
+
+/* Backup 78: enxuto fixo — legenda da barra no cartão do grupo ("84 de 204 pagas") */
+.cg-prog{display:block;font-size:12px;color:var(--text3);margin:-2px 0 2px}
+.num-it small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pt-intro h2{margin:0 0 4px;font-size:17px;color:var(--ink)}
+.pt-intro p{margin:0;color:var(--text2);max-width:70ch;line-height:1.55}
+.pt-sit{display:flex;align-items:center;gap:8px;border-radius:10px;padding:10px 14px;font-weight:600;font-size:13px}
+.pt-sit.ok{background:var(--green-lt);color:var(--green)}.pt-sit.atr{background:var(--red-lt);color:var(--red)}
+.pt-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.pt-tile{display:flex;flex-direction:column;gap:3px;text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;cursor:pointer;font:inherit;color:inherit}
+.pt-tile:hover{border-color:var(--primario)}
+.pt-tile b{font-size:14px;color:var(--ink)}.pt-tile span{font-size:12.5px;color:var(--text3)}
+@media (max-width:760px){.pt-tiles{grid-template-columns:minmax(0,1fr)}}
