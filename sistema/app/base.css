@@ -856,7 +856,7 @@ html body.gx-barra-topo :is(.gx-seg-cli > button,.gx-seg-cli > .chip,.filtros .s
 html body.gx-barra-topo :is(.gx-seg-cli > button.ativo,.gx-seg-cli > .chip.on,.filtros .segmento > button.ativo,.rt-seg > button.ativo,.gs .segmento > button.ativo):not(#_){background:var(--primario)!important;color:var(--on-primario)!important}
 html body.gx-barra-topo :is(.gx-seg-cli > button.ativo,.gx-seg-cli > .chip.on,.filtros .segmento > button.ativo,.rt-seg > button.ativo,.gs .segmento > button.ativo,.fila-chips .fila-chip.ativo)::before{content:none!important}
 html body.gx-barra-topo .gs .segmento .seg-n:not(#_){background:var(--gray-lt);color:var(--text3);font-size:11px;padding:0 6px;border-radius:999px;margin-left:5px}
-html body.gx-barra-topo .gs .segmento button.ativo .seg-n:not(#_){background:rgba(255,255,255,.22);color:inherit}
+html body.gx-barra-topo .gs .segmento button.ativo .seg-n:not(#_){background:rgba(0,0,0,.28);color:inherit}
 html body.gx-barra-topo #gs-lado .tn-menu button:not(#_){gap:6px;padding-right:8px}
 html body.gx-barra-topo #gs-lado .tn-menu button .tn-n:not(#_){flex:none;font-size:10px;padding:1px 5px;min-width:0;height:auto;line-height:1.4}
 /* menu do botão "+ Lançar" das telas (B82) */
@@ -868,7 +868,7 @@ html body.gx-barra-topo #gs-lado .tn-menu button .tn-n:not(#_){flex:none;font-si
 .gs .b-fin-avisos:empty{display:none}
 .gs .b-fin-avisos{margin:-6px 0 12px;display:flex;gap:8px;flex-wrap:wrap}
 html body.gx-barra-topo .gs .b-seg-n:not(#_){display:inline-block;min-width:18px;margin-left:4px;font-size:11px;font-weight:700;padding:0 6px;border-radius:999px;background:var(--gray-lt);color:var(--text3);opacity:1;text-align:center}
-html body.gx-barra-topo .gs .b-seg-bt[aria-selected="true"] .b-seg-n:not(#_){background:rgba(255,255,255,.22);color:inherit}
+html body.gx-barra-topo .gs .b-seg-bt[aria-selected="true"] .b-seg-n:not(#_){background:rgba(0,0,0,.28);color:inherit}
 html body.gx-barra-topo .gs a.btn:not(#_){text-decoration:none;display:inline-flex;align-items:center;gap:7px}
 html body.gx-barra-topo .gs .titulo-pag.b-cab .acoes .btn .b-ic{width:15px;height:15px}
 /* Backup 82: no celular as ações do cabeçalho (abas + botões) quebram linha e as abas rolam dentro de si — a página não rola para o lado */
