@@ -127,7 +127,7 @@ TELAS.parcelamentos.semCadastros = true;   // os dados vêm do ERP (DB.parcelame
 function pintarParcelamentos() {
   const el = $('conteudo'); if (!el) return;
   const PA0 = E.pc.PA || [], F = E.pc.f || {}, PA = paFiltrados(), T = [].concat(...PA.map((pa) => pa.parcelas)), h = hojeISO(), podeEd = pode('juridico', 'editar');
-  el.innerHTML = cabecalhoTela({ icone: 'camadas', titulo: 'Parcelamentos', frase: 'Parcelas dos clientes no e-CAC, Regularize e SIARE, por vencimento', atualizar: 'pc-atualizar', botao: podeEd ? { id: 'pc-novo', rotulo: 'Novo parcelamento' } : null }) +
+  el.innerHTML = cabecalhoTela({ icone: 'camadas', titulo: 'Parcelamentos', frase: 'Parcelas dos clientes, por vencimento', atualizar: 'pc-atualizar', botao: podeEd ? { id: 'pc-novo', rotulo: 'Novo parcelamento' } : null }) +
     // Backup 79: filtro suspenso (Grupo / Empresa) — recorta a situação por cliente e a lista de parcelas
     filtroSusB('pc-filtro', [{ k: 'grupo', rot: 'Grupo', todos: 'Todos os grupos', opcoes: unicosTxt(PA0.map((pa) => pa.grupo)), v: F.grupo },
       { k: 'emp', rot: 'Empresa', todos: 'Todas as empresas', opcoes: unicosTxt(PA0.filter((pa) => !F.grupo || pa.grupo === F.grupo).map((pa) => pa.empresa)), v: F.emp }]) +

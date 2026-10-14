@@ -180,23 +180,41 @@ async function blocoDocumentos(alvo, vinculo, opc) {
   return docs;
 }
 
+// Backup 80 (M14): faixa "Vencendo em 30 dias" no alto — certidões, procurações e certificados digitais (do arquivo .pfx), do mais próximo ao mais distante
+async function faixaVencendoDocs(lim) {
+  const el = $('doc-venc'); if (!el) return;
+  const certs = await q(sb.from('cliente_certificado').select('cliente_id, validade').lte('validade', lim)).catch(() => []);
+  const nomeCli = (id) => { const c = E.clientes.find((x) => x.id === id); return c ? c.nome : ''; };
+  const itens = _docsTela.filter((d) => !d.arquivado && d.validade && d.validade <= lim).map((d) => ({ v: d.validade, t: (TIPOS_DOC.find((x) => x[0] === d.tipo) || [0, 'Documento'])[1], c: nomeCli(d.cliente_id) || d.nome }))
+    .concat(certs.filter((c) => c.validade).map((c) => ({ v: c.validade, t: 'Certificado digital', c: nomeCli(c.cliente_id) })))
+    .sort((a, b) => a.v.localeCompare(b.v));
+  if (!itens.length) { el.innerHTML = ''; return; }
+  const h = hojeISO();
+  el.innerHTML = '<div class="gs-faixa b-faixa-av" style="margin:0 0 12px"><div class="b-faixa-lin"><span class="b-faixa-rot">Vencendo em 30 dias</span><div class="ini-conf-l">' +
+    itens.slice(0, 12).map((x) => '<button type="button" class="ini-conf-it ' + (x.v < h ? 'b-av-critico' : 'b-av-atencao') + '" data-doc-venc><span class="b-av-pt" aria-hidden="true"></span><span>' + esc(x.t) + ' de <b>' + esc(x.c || '—') + '</b> ' + (x.v < h ? 'venceu ' : 'vence ') + esc(dataBR(x.v).slice(0, 5)) + '</span></button>').join('') +
+    (itens.length > 12 ? '<span class="sub">+' + (itens.length - 12) + '</span>' : '') + '</div></div></div>';
+  el.onclick = (ev) => { if (!ev.target.closest('[data-doc-venc]')) return; E.docs.situacao = 'vencendo'; pintarDocumentos(false); };
+}
+
 // ─────────────────────────── tela Documentos ───────────────────────────
 TELAS.documentos = async function () {
   E.docs = E.docs || { tipo: '', cliente: '', grupo: '', busca: '', situacao: 'ativos' };
   const F = E.docs;
   await carregarCadastros();
   $('conteudo').innerHTML =
-    '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('documento') + '</div><div class="b-cab-tx"><h1>Documentos</h1><p>Contratos, procurações, certidões, comprovantes e demais arquivos — guardados com acesso restrito</p></div>' +
-    '<div class="acoes"><a class="btn btn-o" id="doc-ger" href="documentos/index.html" target="_blank" rel="noopener" title="Abre o sistema de geração de documentos numa aba nova">Gerar documentos ↗</a><button class="btn btn-p" id="doc-novo">+ Enviar documento</button></div></div>' +
+    '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('documento') + '</div><div class="b-cab-tx"><h1>Documentos</h1><p>Arquivos dos clientes</p></div>' +
+    '<div class="acoes"><a class="btn btn-o" id="doc-ger" href="documentos/index.html" target="_blank" rel="noopener" title="Procuração, contrato, recibo… (Ctrl + clique abre numa aba nova)">Gerar documentos</a><button class="btn btn-p" id="doc-novo">+ Enviar documento</button></div></div>' +
     '<div class="filtros">' +
     '<div class="segmento" id="doc-sit">' + [['ativos', 'Ativos'], ['vencendo', 'Vencendo em 30 dias'], ['arquivados', 'Versões anteriores']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<select class="busca sel" id="doc-tipo"><option value="">Todos os tipos</option>' + TIPOS_DOC.map(([v, r]) => '<option value="' + v + '">' + r + '</option>').join('') + '</select>' +
     '<select class="busca sel" id="doc-grupo"><option value="">Todos os grupos</option>' + (E.grupos || []).map((g) => '<option value="' + g.id + '">' + esc(g.nome) + '</option>').join('') + '</select>' +
     '<select class="busca sel" id="doc-cli"><option value="">Todos os clientes</option>' + E.clientes.map((c) => '<option value="' + c.id + '">' + esc(c.nome) + '</option>').join('') + '</select>' +
     '<input class="busca" id="doc-busca" placeholder="Buscar nome, etiqueta ou observação" autocomplete="off"></div>' +
-    '<div class="doc-chips" id="doc-chips"></div><div id="doc-corpo"><div class="carregando">Carregando…</div></div>';
+    '<div id="doc-venc"></div><div class="doc-chips" id="doc-chips"></div><div id="doc-corpo"><div class="carregando">Carregando…</div></div>';
   $('doc-tipo').value = F.tipo; $('doc-cli').value = F.cliente; $('doc-grupo').value = F.grupo || ''; $('doc-busca').value = F.busca;
   $('doc-novo').onclick = () => janelaEnviarDocumento({}, () => TELAS.documentos());
+  // Backup 80 (E11): "Gerar documentos" abre a Central dentro do ERP (Ctrl/⌘ + clique = aba nova)
+  $('doc-ger').onclick = (ev) => { if (ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.button === 1) return; ev.preventDefault(); irParaTela('gerador'); };
   $('doc-sit').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.situacao = b.dataset.v; pintarDocumentos(); } };
   $('doc-tipo').onchange = (ev) => { F.tipo = ev.target.value; pintarDocumentos(); };
   $('doc-cli').onchange = (ev) => { F.cliente = ev.target.value; pintarDocumentos(false); };
@@ -225,6 +243,7 @@ async function pintarDocumentos(buscar) {
     && (!F.cliente || d.cliente_id === F.cliente) && (!F.grupo || grupoDe(d) === F.grupo)
     && (!b || normalizar(d.nome + ' ' + d.etiquetas + ' ' + d.obs).includes(b)));
   const lista = base.filter((d) => !F.tipo || d.tipo === F.tipo);
+  if (buscar !== false) faixaVencendoDocs(lim).catch(() => {});
   // atalhos por tipo (Procuração, Contrato…) com a quantidade no recorte atual
   const cont = {}; base.forEach((d) => { cont[d.tipo] = (cont[d.tipo] || 0) + 1; });
   $('doc-chips').innerHTML = TIPOS_DOC.filter(([v]) => cont[v] || v === F.tipo || v === 'procuracao' || v === 'contrato')

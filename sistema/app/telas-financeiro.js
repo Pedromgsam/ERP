@@ -11,7 +11,7 @@
 // ═══════════════════════════════════════════════════════════════════
 
 const EMPRESAS = {
-  escritorio:    { tela: 'juridico', titulo: 'Financeiro jurídico', frase: 'Honorários do escritório: receber, dar baixa e acompanhar.',
+  escritorio:    { tela: 'juridico', titulo: 'Financeiro jurídico', frase: 'Honorários a receber, recebidos e contas a pagar',
                    abas: [['analise', 'Análise'], ['lanc', 'Lançamentos']] },
   contabilidade: { tela: 'contabilidade', titulo: 'Financeiro da contabilidade', frase: 'A receber, a pagar, caixa e distribuição de lucros da contabilidade.',
                    abas: [['analise', 'Análise'], ['lanc', 'Lançamentos'], ['caixa', 'Caixa'], ['lucros', 'Distribuição de lucros']] }

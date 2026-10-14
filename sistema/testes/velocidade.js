@@ -65,7 +65,7 @@ console.log('Dados fictícios: ' + N.cl + ' clientes, ' + N.pa + ' parcelamentos
       window.confirm = () => true;   // a versão antiga perguntava "Lançar o pagamento?" — aqui a resposta é imediata
       const sel = (s) => () => !!document.querySelector(s);
       const COND = {
-        guias: sel('#rt-corpo .ep-tela:not(.rt-esq) .ep-emp'),
+        guias: sel('#rt-corpo .ep-tela:not(.rt-esq) [data-ep-emitir]'),
         planilha: sel('#rt-corpo .pl-card:not(.rt-esq) .pl-bloco .pl-tab'),
         grupo: () => { const a = document.querySelector('.pl-aba.ativo'); return a && a.dataset.plG === window.__alvo && !!document.querySelector('#rt-corpo .pl-card:not(.rt-esq) .pl-bloco .pl-tab'); },
         pago: () => !document.querySelector('[data-pl-p="' + window.__alvo + '"]'),

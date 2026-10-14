@@ -34,7 +34,7 @@ TELAS.publicacoes = async function () {
   const F = E.pub; F.status = 'nova';   // Backup 49 (31): sempre abre em Novas
   $('conteudo').innerHTML =
     // Backup 77: a tela voltou a ser a de antes do Backup 72 (cartões com o texto, filtros em botões), a pedido; só o cabeçalho segue o padrão único (ícone + título)
-    '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('publicacao') + '</div><div class="b-cab-tx"><h1>Publicações</h1><p id="pub-ult">Diário de Justiça Eletrônico Nacional · busca automática pelo navegador, 1× por dia ao abrir o ERP</p></div>' +
+    '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('publicacao') + '</div><div class="b-cab-tx"><h1>Publicações</h1><p id="pub-ult">Intimações do Diário de Justiça</p></div>' +
     '<div class="acoes"><button class="btn btn-o" id="pub-todas-lidas" title="Marca como lidas todas as publicações novas">✓ Marcar todas como lidas</button><button class="btn btn-o" id="pub-oabs">⚙ Monitoramento (OABs e clientes)</button><button class="btn btn-p" id="pub-buscar" title="Busca no Diário do CNJ pelo seu navegador (se ele falhar, tenta pelo servidor)">↻ Buscar agora</button></div></div>' +
     '<div class="filtros"><div class="segmento" id="pub-st">' + [['nova', 'Novas'], ['lida', 'Lidas'], ['tratada', 'Tratadas'], ['descartada', 'Descartadas'], ['', 'Todas']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<select class="busca sel" id="pub-dias"><option value="7">Últimos 7 dias</option><option value="15">Últimos 15 dias</option><option value="30">Últimos 30 dias</option><option value="90">Últimos 90 dias</option><option value="">Todo o período</option></select>' +
@@ -133,8 +133,8 @@ function pintarPublicacoes() {
       return '<button type="button" data-v="' + esc(n) + '" class="' + (F.adv === n ? 'ativo' : '') + '">' + esc(n) + ' <span class="seg-n">' + c + '</span></button>'; }).join(''); }
   const lista = todas.filter((p) => okSt(p) && okAdv(p) && okTrib(p) && okBusca(p));
   const conta = (s) => semSt.filter((p) => p.status === s).length;
-  $('pub-corpo').innerHTML = '<div class="kpis">' + kpi('Novas', String(conta('nova')), conta('nova') ? 'ambar' : 'verde', 'ainda não lidas') + kpi('Lidas', String(conta('lida')), '', 'sem tarefa ainda') +
-    kpi('Tratadas', String(conta('tratada')), 'verde', 'com tarefa criada') + '</div>' +
+  // Backup 80 (E2): sem cartões de número no topo — as contagens ficam nos botões Novas · Lidas · Tratadas
+  $('pub-corpo').innerHTML = 
     (lista.length ? lista.map((p) => '<div class="card pub-card' + (p.status === 'nova' ? ' pub-nova' : '') + '" data-pub="' + p.id + '"><div class="card-bd">' +
       '<div class="pub-topo"><div><span class="pill ' + ({ nova: 'hoje', lida: 'aberto', tratada: 'pago', descartada: 'neutro' }[p.status]) + '">' + p.status + '</span> ' +
       '<b>' + esc(p.tipo || 'Comunicação') + '</b> · ' + esc(p.tribunal) + ' · <span class="mono">' + dataBR(p.data_disponibilizacao) + '</span>' +

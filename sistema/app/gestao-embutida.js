@@ -474,7 +474,7 @@ function perguntarBaixa({ titulo, descricao, valor, acordo, despesa }) {
     const j = abrirJanela({ titulo: titulo || (despesa ? 'Pago — confirme a data' : 'Recebido — confirme a data'),
       corpo: (descricao ? '<div class="dica" style="margin-bottom:12px"><b>' + esc(descricao) + '</b>' + (valor != null ? ' · ' + brl(valor) : '') + '</div>' : '') +
         campo(despesa || acordo ? 'Data do pagamento' : 'Data do recebimento', '<input type="date" name="bx-data" required value="' + hojeISO() + '">') +
-        '<div class="sub" style="margin:4px 0 10px">Já vem com a data de hoje. Se o dinheiro entrou em outro dia, troque aqui.</div>' +
+        '<div class="sub" style="margin:4px 0 10px">Já vem com hoje. Se foi em outro dia, troque.</div>' +
         (acordo ? '<fieldset class="bx-comp"><legend>O comprovante foi anexado ao processo?</legend>' +
           '<label><input type="radio" name="bx-comp" value="sim"> Sim</label> <label><input type="radio" name="bx-comp" value="nao" checked> Não</label>' +
           '<div class="bx-id" hidden>' + campo('ID do documento no processo', '<input name="bx-id" placeholder="ex.: 123456789 (ID do PJe)">') + '</div></fieldset>' : ''),
@@ -949,6 +949,45 @@ function invalidarCadastros() { _cadQuando = 0; }
 // Backup 52 (O1): a cópia ainda vale (menos de 60 s e nenhuma gravação desde então)?
 function cadastrosEmDia() { return !!_cadQuando && Date.now() - _cadQuando < 60000; }
 
+// ═══ Backup 80 (M4): LER A GUIA EM PDF — valor e vencimento saem do próprio arquivo (pdf.js de vendor/, carregado só quando precisa).
+// Se o pdf.js não carregar, um leitor simples procura o texto nos blocos do PDF. Devolve { nome, valor (número|null), venc ('aaaa-mm-dd'|null) }.
+let _pdfJs = null;
+function carregarPdfJs() {
+  if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+  if (!_pdfJs) _pdfJs = new Promise((ok, falha) => { const s = document.createElement('script'); s.src = 'vendor/pdf-3.11.174.min.js';
+    s.onload = () => { try { window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'vendor/pdf-3.11.174.worker.min.js'; } catch (e) { /* sem worker: o pdf.js usa o modo lento */ } ok(window.pdfjsLib); };
+    s.onerror = () => { _pdfJs = null; falha(new Error('leitor de PDF indisponível')); }; document.head.appendChild(s); });
+  return _pdfJs;
+}
+async function textoPdfJs(buf) {
+  const lib = await carregarPdfJs(), doc = await lib.getDocument({ data: new Uint8Array(buf), isEvalSupported: false }).promise, pags = [];
+  for (let i = 1; i <= Math.min(doc.numPages, 3); i++) { const t = await (await doc.getPage(i)).getTextContent(); pags.push(t.items.map((it) => it.str).join(' ')); }
+  return pags.join('\n');
+}
+async function textoPdfSimples(buf) {
+  const bytes = new Uint8Array(buf); let bruto = ''; for (let i = 0; i < bytes.length; i++) bruto += String.fromCharCode(bytes[i]);
+  const partes = [bruto], re = /stream\r?\n/g; let m; const tarefas = [];
+  while ((m = re.exec(bruto))) { const ini = m.index + m[0].length, fim = bruto.indexOf('endstream', ini); if (fim < 0) break;
+    if (/FlateDecode/.test(bruto.slice(Math.max(0, m.index - 300), m.index)) && window.DecompressionStream)
+      tarefas.push(new Response(new Blob([bytes.slice(ini, fim)]).stream().pipeThrough(new DecompressionStream('deflate'))).arrayBuffer()
+        .then((b) => { const u = new Uint8Array(b); let s = ''; for (let j = 0; j < u.length; j++) s += String.fromCharCode(u[j]); partes.push(s); }).catch(() => {})); }
+  await Promise.all(tarefas);
+  const out = []; partes.forEach((p) => { const r2 = /\(((?:\\.|[^\\)])*)\)\s*T[jJ]/g; let mm; while ((mm = r2.exec(p))) out.push(mm[1].replace(/\\([()\\])/g, '$1')); });
+  return out.join('\n');
+}
+function extrairGuia(txt) {
+  const t = String(txt || '').replace(/\s+/g, ' ');
+  const v = t.match(/valor(?:\s+total)?(?:\s+a\s+pagar)?(?:\s+do\s+documento)?\s*(?:\(r\$\))?\s*[:\-]?\s*(?:r\$\s*)?([\d.]{1,12},\d{2})/i) || t.match(/r\$\s*([\d.]{1,12},\d{2})/i);
+  const d = t.match(/(?:data\s+de\s+)?vencimento\s*[:\-]?\s*(\d{2}\/\d{2}\/\d{4})/i) || t.match(/pag(?:ar|ável)\s+até\s*[:\-]?\s*(\d{2}\/\d{2}\/\d{4})/i) || t.match(/(\d{2}\/\d{2}\/\d{4})/);
+  return { valor: v ? lerValor(v[1]) : null, venc: d ? d[1].split('/').reverse().join('-') : null };
+}
+async function lerPdfGuia(arquivo) {
+  if (!arquivo || !/pdf$/i.test(arquivo.type || arquivo.name || '')) return { nome: arquivo && arquivo.name, valor: null, venc: null };
+  const buf = await arquivo.arrayBuffer();
+  let t = ''; try { t = await textoPdfJs(buf.slice(0)); } catch (e) { t = await textoPdfSimples(buf).catch(() => ''); }
+  return Object.assign(extrairGuia(t), { nome: arquivo.name });
+}
+
 // ── navegação dentro do ERP: cada tela desenha no painel que o ERP mostrou ──
 const TELAS = {};
 async function irPara(tela, alvo) {
@@ -1387,7 +1426,7 @@ async function cardLembretes() {
       '<span style="margin-left:auto;display:flex;gap:6px"><button type="button" class="btn btn-o btn-mini" id="lemb-todos" title="Todos os lembretes, inclusive os com data depois de 7 dias e os concluídos">📋 Todos (' + L.todos.length + ')</button>' +
       '<button type="button" class="btn btn-p btn-mini" id="lemb-novo">+ Lembrete</button></span></div><div class="card-bd">' +
     (L.vis.length ? '<div class="lemb-lista">' + htmlLembretes(L.vis) + '</div>'
-      : '<div class="sub">Nenhum lembrete para os próximos 7 dias. Use <b>+ Lembrete</b> (com ou sem data; dá para fixar no topo e escolher uma cor).</div>') +
+      : '<div class="sub">Nenhum lembrete nos próximos 7 dias.</div>') +
     (L.futuros.length ? '<button type="button" class="lemb-tg lemb-tg-fut" id="lemb-fut">+ ' + plural(L.futuros.length, 'lembrete mais adiante', 'lembretes mais adiante') + ' — ver todos</button>' : '') +
     '</div></div>';
   const fu = $('lemb-fut'); if (fu) fu.onclick = () => janelaTodosLembretes();
@@ -1570,6 +1609,8 @@ function formLembrete(l) {
 
 // ═══ Backup 76 (F3): CONFERÊNCIAS AUTOMÁTICAS no Início — o que está faltando no cadastro e pode virar problema ═══
 // Cada linha mostra quantos são; clicar abre a lista com o atalho para corrigir. Some sozinha quando está tudo certo.
+// o que os cartões Financeiro/Escritório do Início já mostram não se repete na faixa
+const NO_CARTAO_INI = ['Publicações novas', 'Parcelamentos com parcela vencida', 'Acordos vencidos', 'Honorários em atraso', 'Tarefas atrasadas'];
 async function conferenciasIni() {
   const el = $('ini-conf'); if (!el) return;
   await carregarCadastros().catch(() => {});
@@ -1594,10 +1635,23 @@ async function conferenciasIni() {
     regras.push({ id: 'ct', rot: 'contrato de consultoria sem data para o reajuste', rots: 'contratos de consultoria sem data para o reajuste', itens: sem.map((c) => ({ t: c.descricao || 'Contrato', s: (c.clientes && c.clientes.nome) || '', ir: () => detalheContrato(c.id) })) });
   }
   const comItens = regras.filter((r) => r.itens.length);
-  if (!comItens.length) { el.innerHTML = ''; return; }
-  el.innerHTML = '<section class="ini-conf"><div class="ini-sec-hd"><div><h2>Conferências</h2><p>Dados que faltam no cadastro</p></div></div><div class="ini-conf-l">' +
-    comItens.map((r) => '<button type="button" class="ini-conf-it" data-conf="' + r.id + '"><b>' + r.itens.length + '</b><span>' + esc(r.itens.length === 1 ? r.rot : r.rots) + '</span>' + iconeB('mais') + '</button>').join('') + '</div></section>';
-  el.onclick = (ev) => { const b = ev.target.closest('[data-conf]'); if (!b) return; const r = regras.find((x) => x.id === b.dataset.conf);
+  // Backup 80 (E1/M1): faixa de AVISOS — o que era a tela Alertas (fora do menu). Só o que pede ação e que os cartões acima ainda não mostram.
+  let avisos = [], cnpjAv = [];
+  try { const r = await coletarAlertasTodos(300000); cnpjAv = r.cnpj;
+    avisos = r.A.map((x, i) => Object.assign({ i }, x)).filter((x) => (x.nivel === 'critico' || x.nivel === 'atencao') && !NO_CARTAO_INI.includes(x.rot) && (x.setor !== 'Rotinas' || x.nivel === 'critico'))
+      .sort((x, y) => (x.nivel === 'critico' ? 0 : 1) - (y.nivel === 'critico' ? 0 : 1));
+    avisos.forEach((x) => { x.lista = r.A; }); } catch (e) { console.warn('[Início] avisos:', e.message); }
+  if (!$('ini-conf')) return;
+  if (!comItens.length && !avisos.length) { el.innerHTML = ''; return; }
+  const pilula = (attr, v, n, txt, nivel) => '<button type="button" class="ini-conf-it b-av-' + nivel + '" ' + attr + '="' + v + '"><span class="b-av-pt" aria-hidden="true"></span>' + (n !== '' ? '<b>' + esc(n) + '</b>' : '') + '<span>' + esc(txt) + '</span></button>';
+  el.innerHTML = '<section class="ini-conf b-faixa-av">' +
+    (avisos.length ? '<div class="b-faixa-lin"><span class="b-faixa-rot">Avisos</span><div class="ini-conf-l" id="ini-avisos">' +
+      avisos.map((x) => pilula('data-av', x.i, /^\d+$/.test(x.valor) ? x.valor : '', /^\d+$/.test(x.valor) ? x.rot.charAt(0).toLowerCase() + x.rot.slice(1) : x.setor === 'Rotinas' ? x.rot + ' · ' + x.valor : x.det || x.rot, x.nivel)).join('') + '</div></div>' : '') +
+    (comItens.length ? '<div class="b-faixa-lin"><span class="b-faixa-rot">Conferências</span><div class="ini-conf-l">' +
+      comItens.map((r) => pilula('data-conf', r.id, r.itens.length, r.itens.length === 1 ? r.rot : r.rots, 'atencao')).join('') + '</div></div>' : '') + '</section>';
+  el.onclick = (ev) => { const av = ev.target.closest('[data-av]');
+    if (av) { const x = avisos.find((y) => String(y.i) === av.dataset.av); if (x) abrirAlerta(x, cnpjAv); return; }
+    const b = ev.target.closest('[data-conf]'); if (!b) return; const r = regras.find((x) => x.id === b.dataset.conf);
     const j = abrirJanela({ titulo: r.itens.length + ' ' + (r.itens.length === 1 ? r.rot : r.rots), kick: 'Conferências', larga: true,
       corpo: '<div class="bg-res">' + r.itens.map((x, i) => '<button type="button" class="bg-it" data-ci="' + i + '"><span class="bg-tx"><b>' + esc(x.t) + '</b>' + (x.s ? '<small>' + esc(x.s) + '</small>' : '') + '</span></button>').join('') + '</div>' });
     j.onclick = (e2) => { const it = e2.target.closest('[data-ci]'); if (!it) return; fecharJanela(j); Promise.resolve(r.itens[+it.dataset.ci].ir()).catch((e) => aviso(erroAmigavel(e), true)); }; };
@@ -1616,7 +1670,7 @@ async function conferenciasIni() {
 // ═══════════════════════════════════════════════════════════════════
 
 const EMPRESAS = {
-  escritorio:    { tela: 'juridico', titulo: 'Financeiro jurídico', frase: 'Honorários do escritório: receber, dar baixa e acompanhar.',
+  escritorio:    { tela: 'juridico', titulo: 'Financeiro jurídico', frase: 'Honorários a receber, recebidos e contas a pagar',
                    abas: [['analise', 'Análise'], ['lanc', 'Lançamentos']] },
   contabilidade: { tela: 'contabilidade', titulo: 'Financeiro da contabilidade', frase: 'A receber, a pagar, caixa e distribuição de lucros da contabilidade.',
                    abas: [['analise', 'Análise'], ['lanc', 'Lançamentos'], ['caixa', 'Caixa'], ['lucros', 'Distribuição de lucros']] }
@@ -2509,7 +2563,7 @@ function pintarClientes() {
   const gn = (c) => (c.grupos ? c.grupos.nome : '') || '';
   if (porGrupo) lista.sort((a, x) => (gn(a) || '\uffff').localeCompare(gn(x) || '\uffff', 'pt-BR') || String(a.nome).localeCompare(String(x.nome), 'pt-BR'));
   C.ultima = lista;
-  $('cli-conta').textContent = lista.length + ' de ' + E.clientes.length + ' cadastro(s) · clique na linha para abrir a ficha completa';
+  $('cli-conta').textContent = lista.length + ' de ' + E.clientes.length + ' cadastro(s)';
   const linhas = lista.map((c, i) => (porGrupo && (i === 0 || gn(lista[i - 1]) !== gn(c)) ? '<tr class="cli-grp"><td colspan="9">' + esc(gn(c) || 'Sem grupo') +
         ' <span class="sub">' + plural(lista.filter((x) => gn(x) === gn(c)).length, 'cadastro', 'cadastros') + '</span></td></tr>' : '') + '<tr class="clicavel cli-linha" tabindex="0" data-cli="' + c.id + '" title="Abrir a ficha completa">' +
       '<td class="cli-grupo" title="' + esc(c.grupos ? c.grupos.nome : '') + '">' + esc(c.grupos ? c.grupos.nome : '—') + '</td>' +
@@ -2748,7 +2802,7 @@ TELAS.contratos = async function () {
   E.ctr = E.ctr || { busca: '', status: 'Ativo' };
   const F = E.ctr;
   $('conteudo').innerHTML =
-    '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('contrato') + '</div><div class="b-cab-tx"><h1>Contratos</h1><p>Consultoria mensal (fixo ou em salários mínimos) ou serviço pontual · os valores entram sozinhos em Honorários Jurídico</p></div>' +
+    '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('contrato') + '</div><div class="b-cab-tx"><h1>Contratos</h1><p>Os valores entram sozinhos no Financeiro</p></div>' +
     '<div class="acoes"><button class="btn btn-o" id="ctr-sm">Salário mínimo</button><button class="btn btn-p" data-novo="contrato">+ Novo contrato</button></div></div>' +
     '<div class="filtros"><div class="segmento" id="ctr-status">' + [['Ativo', 'Ativos'], ['Aguardando assinatura', 'Aguardando assinatura'], ['Encerrado', 'Encerrados'], ['Cancelado', 'Cancelados'], ['todos', 'Todos']]
       .map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
@@ -2817,7 +2871,7 @@ function reajustesProximos(lista) {
   const hoje = new Date(hojeISO() + 'T00:00:00');
   return lista.filter((c) => c.status === 'Ativo' && !c.rescindido_em && c.modalidade === 'consultoria' && c.forma_valor !== 'salario_minimo' && Number(c.valor_mensal) > 0)
     .map((c) => { const anv = aniversarioContrato(c, hoje); return anv && { c, anv, dias: Math.round((anv - hoje) / 864e5) }; })
-    .filter((r) => r && r.dias <= 30 && !(r.c.contratos_aditivos || []).some((a) => a.tipo === 'valor' && (new Date(a.data + 'T00:00:00') - r.anv) / 864e5 > -45))
+    .filter((r) => r && r.dias <= 60 && !(r.c.contratos_aditivos || []).some((a) => a.tipo === 'valor' && (new Date(a.data + 'T00:00:00') - r.anv) / 864e5 > -45))
     .sort((a, b) => a.dias - b.dias);
 }
 // índice padrão = variação do salário mínimo do ano (a pessoa pode trocar pelo IPCA/IGP-M antes de aplicar)
@@ -2829,7 +2883,7 @@ async function indiceReajustePadrao() {
 }
 async function cardReajustes(reaj) {
   const idx = await indiceReajustePadrao();
-  return '<div class="card ctr-reaj" id="ctr-reaj"><div class="card-hd">Reajuste anual nos próximos 30 dias <span class="pill hoje">' + reaj.length + '</span></div>' +
+  return '<div class="card ctr-reaj" id="ctr-reaj"><div class="card-hd">Reajuste anual nos próximos 60 dias <span class="pill hoje">' + reaj.length + '</span></div>' +
     '<p class="sub">Consultorias com valor fixo fazendo aniversário. O % sugerido é a variação do salário mínimo do ano — troque pelo índice do contrato (IPCA, IGP-M) se for outro.</p>' +
     '<div class="tabela-wrap"><table class="ctr-reaj-tab"><thead><tr><th>Cliente</th><th>Contrato</th><th>Aniversário</th><th class="num">Valor atual</th><th class="num">%</th><th class="num">Novo valor</th><th></th></tr></thead><tbody>' +
     reaj.map(({ c, anv, dias }) => {
@@ -3282,10 +3336,12 @@ function formExito(ct, depois) {
 
 // Backup 49 (32): abas principais Usuários · Importar · E-mail · Backup; Histórico e Acessos (uso raro) ficam no "⋯ Mais".
 // Automações saiu daqui (tem menu próprio). Abas sem ícone.
+// Backup 80: na ordem do ambiente de teste + "Saúde do sistema" (as rotinas automáticas que ficavam na tela Alertas)
 const ABAS_ADMIN = [
   { id: 'usuarios', rot: 'Usuários' },
   { id: 'importar', rot: 'Importar' },
   { id: 'email', rot: 'E-mail' },
+  { id: 'saude', rot: 'Saúde do sistema' },
   { id: 'backup',   rot: 'Backup' },
   // Backup 53: sem o "⋯ Mais" — Histórico e Acessos viraram abas normais
   { id: 'historico', rot: 'Histórico' },
@@ -3296,8 +3352,8 @@ const ABAS_ADMIN_MAIS = [];
 TELAS.admin = async function () {
   E.adm = E.adm || { aba: 'usuarios', tabela: '' };
   $('conteudo').innerHTML =
-    '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('admin') + '</div><div class="b-cab-tx"><h1>Administração</h1><p>Usuários, importação, e-mail e backup</p></div></div>' +
-    '<div class="abas" id="adm-abas">' + ABAS_ADMIN.map((a) => '<button data-aba="' + a.id + '">' + a.rot + '</button>').join('') + '</div>' +
+    '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('admin') + '</div><div class="b-cab-tx"><h1>Administração</h1><p>Usuários, e-mails e cópias de segurança</p></div></div>' +
+    '<div class="b-seg adm-abas" id="adm-abas" role="tablist">' + ABAS_ADMIN.map((a) => '<button type="button" role="tab" class="b-seg-bt" data-aba="' + a.id + '">' + a.rot + '</button>').join('') + '</div>' +
     '<div id="adm-corpo"></div>';
   $('adm-abas').onclick = (ev) => { const b = ev.target.closest('button'); if (!b) return;
     if (b.id === 'adm-mais-bt') { $('adm-abas').classList.toggle('mais-aberto'); return; }
@@ -3309,12 +3365,12 @@ async function pintarAdmin() {
   // Backup 19: as telas de e-mail moraram para a Central de e-mails (abas) — lá o "atualizar" redesenha a aba aberta
   if (E.adm.aba === 'clientes_email') E.adm.aba = 'usuarios';   // Backup 38: módulo E-mails saiu (a aba E-mail da Administração voltou no Backup 42)
   if (E.adm.aba === 'automacoes') E.adm.aba = 'usuarios';
-  document.querySelectorAll('#adm-abas button[data-aba]').forEach((b) => b.classList.toggle('ativo', b.dataset.aba === E.adm.aba));
+  document.querySelectorAll('#adm-abas button[data-aba]').forEach((b) => { const on = b.dataset.aba === E.adm.aba; b.classList.toggle('ativo', on); b.setAttribute('aria-selected', on); });
   const mais = $('adm-mais-bt'), noMais = ABAS_ADMIN_MAIS.find((a) => a.id === E.adm.aba);
   if (mais) { mais.classList.toggle('ativo', !!noMais); mais.textContent = noMais ? '⋯ ' + noMais.rot : '⋯ Mais'; }
   const corpo = $('adm-corpo');
   corpo.innerHTML = '<div class="carregando">Carregando…</div>';
-  try { await ({ usuarios: admUsuarios, importar: admImportar, backup: admBackup, historico: admHistorico, acessos: admAcessos, clientes_email: admClientesEmail, email: admEmail })[E.adm.aba](corpo); }
+  try { await ({ usuarios: admUsuarios, importar: admImportar, saude: admSaude, backup: admBackup, historico: admHistorico, acessos: admAcessos, clientes_email: admClientesEmail, email: admEmail })[E.adm.aba](corpo); }
   catch (e) { console.error(e); corpo.innerHTML = '<div class="card"><div class="card-bd msg-erro">' + esc(erroAmigavel(e)) + '</div></div>'; }
 }
 
@@ -3891,12 +3947,58 @@ async function salvarPagamento(form, chave) {
 // Backup 49: E-mail em três partes — quem recebe, o que espera revisão e a configuração (o que já existia)
 // Backup 51 (E4): "Para revisar" e "Últimos e-mails" viraram a CAIXA DE SAÍDA (filtros Para revisar · Na fila · Enviados · Com erro)
 async function admEmail(corpo) {
-  E.adm.emailAba = E.adm.emailAba === 'revisar' ? 'saida' : (E.adm.emailAba || 'quem');
-  corpo.innerHTML = '<div class="segmento em-abas" id="em-abas">' + [['quem', 'Quem recebe'], ['auto', 'Automáticos'], ['saida', 'Caixa de saída'], ['config', 'Configuração']]
-    .map(([v, r]) => '<button type="button" data-em-aba="' + v + '"' + (E.adm.emailAba === v ? ' class="ativo"' : '') + '>' + r + '</button>').join('') + '</div><div id="em-corpo"></div>';
+  E.adm.emailAba = E.adm.emailAba === 'revisar' ? 'saida' : (E.adm.emailAba || 'como');
+  // Backup 80 (E6): Como funciona · O que sai e quando · Quem recebe · Caixa de saída · Configuração (como no ambiente de teste)
+  corpo.innerHTML = '<div class="b-seg em-abas" id="em-abas" role="tablist">' + [['como', 'Como funciona'], ['auto', 'O que sai e quando'], ['quem', 'Quem recebe'], ['saida', 'Caixa de saída'], ['config', 'Configuração']]
+    .map(([v, r]) => '<button type="button" role="tab" class="b-seg-bt' + (E.adm.emailAba === v ? ' ativo' : '') + '" aria-selected="' + (E.adm.emailAba === v) + '" data-em-aba="' + v + '">' + r + '</button>').join('') + '</div><div id="em-corpo"></div>';
   corpo.querySelector('#em-abas').onclick = (ev) => { const b = ev.target.closest('[data-em-aba]'); if (b) { E.adm.emailAba = b.dataset.emAba; admEmail(corpo); } };
   const alvo = corpo.querySelector('#em-corpo');
-  await ({ quem: admEmailQuem, auto: admEmailAuto, saida: admEmailSaida, config: admEmailConfig })[E.adm.emailAba](alvo);
+  await ({ como: admEmailComo, quem: admEmailQuem, auto: admEmailAuto, saida: admEmailSaida, config: admEmailConfig })[E.adm.emailAba](alvo);
+}
+// ═══ Backup 80 (E6/M5): "Como funciona" — os 3 tipos de e-mail num lugar só, como no ambiente de teste.
+// Guias de parcelamento e de acordo são sempre manuais (precisam da guia anexada); aqui escolhe-se rascunho no Gmail ou envio direto.
+const MODOS_GUIA = [['parcelamento', 'Guias de parcelamento'], ['acordo', 'Boleto/PIX de acordo']];
+async function modoEnvioGuias() {
+  const r = await q(sb.from('configuracoes').select('valor').eq('chave', 'emails_guias_modo').maybeSingle()).catch(() => null);
+  return Object.assign({ parcelamento: 'rascunho', acordo: 'rascunho' }, (r && r.valor) || {});
+}
+async function admEmailComo(corpo) {
+  const adm = (E.perfil || window.ERP_EU || {}).papel === 'admin';
+  const [modo, regras] = await Promise.all([modoEnvioGuias(), q(sb.from('regras_tarefas').select('chave, nome, descricao, ligada, oculta').eq('grupo', 'cliente_email').order('nome')).catch(() => [])]);
+  const seg = (k) => '<div class="b-seg em-modo" data-modo="' + k + '" role="group">' + [['rascunho', 'Salvar no rascunho do Gmail'], ['direto', 'Enviar direto']]
+    .map(([v, r]) => '<button type="button" class="b-seg-bt' + (modo[k] === v ? ' ativo' : '') + '" aria-selected="' + (modo[k] === v) + '" data-m="' + v + '"' + (adm ? '' : ' disabled') + '>' + r + '</button>').join('') + '</div>';
+  const auto = regras.filter((r) => !r.oculta);
+  corpo.innerHTML = '<div class="em-como"><div class="card em-como-intro"><div class="card-bd"><b>Como funcionam os e-mails no dia a dia</b><p>São só <b>três tipos</b> de e-mail. Nada sai para o cliente sem você saber de onde veio.</p></div></div>' +
+    '<div class="em-como-g">' +
+    '<section class="card em-como-c"><div class="card-bd"><span class="em-como-n">1</span><h3>Os que VOCÊ manda (com anexo)</h3><p>Guias de parcelamento e boleto/PIX de acordo. <b>Sempre manuais</b>, porque precisam da guia anexada.</p>' +
+      '<ol><li>Rotina → <b>Guias do mês</b> (ou o botão Emitir na parcela).</li><li>Anexe o PDF da guia. O sistema lê o valor e o vencimento do PDF e avisa se mudou.</li><li>O e-mail, com o texto pronto e as guias anexadas, vai para o lugar escolhido abaixo.</li></ol>' +
+      MODOS_GUIA.map(([k, r]) => '<div class="em-como-m"><b>' + r + '</b>' + seg(k) + '</div>').join('') + '</div></section>' +
+    '<section class="card em-como-c"><div class="card-bd"><span class="em-como-n">2</span><h3>Os que saem SOZINHOS para o cliente</h3><p>Você só liga ou desliga. Saem de manhã e uma vez só.</p>' +
+      '<ul class="em-como-l">' + (auto.map((r) => '<li><span class="pill ' + (r.ligada ? 'pago' : 'neutro') + '">' + (r.ligada ? 'ligado' : 'desligado') + '</span> <b>' + esc(r.nome) + '</b>' + (r.descricao ? '<small>' + esc(r.descricao) + '</small>' : '') + '</li>').join('') || '<li>Nenhum.</li>') + '</ul>' +
+      '<button type="button" class="btn btn-o btn-mini" data-em-ir="auto">Ligar ou desligar em "O que sai e quando"</button></div></section>' +
+    '<section class="card em-como-c"><div class="card-bd"><span class="em-como-n">3</span><h3>Avisos para a EQUIPE</h3><p>Tudo aparece no sistema (Início e Tarefas). Por e-mail, só o que estiver ligado em "O que sai e quando" (tarefa nova, tarefa para revisar, compromissos…).</p></div></section>' +
+    '<section class="card em-como-c"><div class="card-bd"><span class="em-como-n em-como-x">!</span><h3>Quando dá errado</h3><p>Cliente sem e-mail, endereço errado ou Gmail fora do ar: o e-mail fica <b>Com erro</b> na Caixa de saída e aparece na faixa de Avisos do Início. Corrija o e-mail do cliente e clique em "Tentar de novo".</p>' +
+      '<button type="button" class="btn btn-o btn-mini" data-em-ir="saida">Abrir a Caixa de saída</button></div></section></div></div>';
+  corpo.onclick = async (ev) => {
+    const ir = ev.target.closest('[data-em-ir]'); if (ir) { E.adm.emailAba = ir.dataset.emIr; return admEmail($('adm-corpo')); }
+    const b = ev.target.closest('.em-modo [data-m]'); if (!b || !adm) return;
+    const k = b.closest('[data-modo]').dataset.modo, novo = Object.assign({}, modo, { [k]: b.dataset.m });
+    try { await q(sb.from('configuracoes').upsert({ chave: 'emails_guias_modo', valor: novo }, { onConflict: 'chave' })); aviso('✓ ' + MODOS_GUIA.find((x) => x[0] === k)[1] + ': ' + (b.dataset.m === 'rascunho' ? 'vão para o rascunho do Gmail.' : 'saem direto para o cliente.')); }
+    catch (e) { aviso(erroAmigavel(e), true); }
+    admEmailComo(corpo);
+  };
+}
+// ═══ Backup 80 (E1): Saúde do sistema — as rotinas automáticas que ficavam na tela Alertas (cartão CNPJ, publicações, regras de tarefas, e-mails com erro, espaço e backup)
+async function admSaude(corpo) {
+  corpo.innerHTML = '<div id="adm-saude"><div class="carregando">Conferindo as rotinas…</div></div>';
+  const { A, cnpj } = await coletarAlertasTodos();
+  const el = $('adm-saude'); if (!el) return;
+  const rot = A.map((a, i) => Object.assign({ i }, a)).filter((a) => a.setor === 'Rotinas');
+  el.innerHTML = '<div class="card"><div class="card-hd">Rotinas automáticas<span class="sub">clique na linha para ver o detalhe</span></div><div class="tabela-wrap" data-sem-pagina><table class="al-rot-tab"><thead><tr><th>Rotina</th><th>Situação</th><th>Detalhe</th><th></th></tr></thead><tbody>' +
+    rot.map((a) => '<tr class="clicavel al-rotina al-' + a.nivel + '" data-al="' + a.i + '" tabindex="0"><td><span class="al-pt" aria-hidden="true"></span> <b>' + esc(a.rot) + '</b></td>' +
+      '<td><span class="pill ' + ({ ok: 'pago', critico: 'vencido', atencao: 'hoje' }[a.nivel] || 'neutro') + '">' + esc(a.valor) + '</span></td><td class="sub">' + esc(a.det) + '</td><td class="al-ir">Abrir →</td></tr>').join('') +
+    '</tbody></table></div></div><p class="dica">Os avisos do dia a dia (certificado vencendo, cadastro incompleto…) ficam na faixa <b>Avisos</b> do Início.</p>';
+  el.querySelectorAll('[data-al]').forEach((b) => b.onclick = () => abrirAlerta(A[+b.dataset.al], cnpj));
 }
 // Backup 54: um lugar só para ligar/desligar TODO e-mail automático — os avisos para a equipe (tarefa, fluxo, menção…) e os e-mails aos clientes
 const EMAILS_EQUIPE = [['fluxo', 'Fluxo / sequência de tarefas', 'Quando alguém cria um fluxo ou um "Lead completo", e quando o próximo passo é liberado'],
@@ -3912,7 +4014,7 @@ async function admEmailAuto(corpo) {
   const chave = (attr, k, on, rot, desc) => '<label class="em-auto-l"><input type="checkbox" ' + attr + '="' + esc(k) + '"' + (on ? ' checked' : '') + (adm ? '' : ' disabled') + '>' +
     '<span><b>' + esc(rot) + '</b><span class="sub">' + esc(desc || '') + '</span></span><span class="pill ' + (on ? 'pago' : 'neutro') + '">' + (on ? 'ligado' : 'desligado') + '</span></label>';
   corpo.innerHTML = '<div class="em-auto">' +
-    '<div class="card"><div class="card-hd">👥 Para a equipe<span class="sub">avisos do ERP que também vão por e-mail — desligado, o aviso continua no sino, só o e-mail não sai</span></div><div class="card-bd em-auto-g">' +
+    '<div class="card"><div class="card-hd">👥 Para a equipe<span class="sub">Ligado = também chega por e-mail</span></div><div class="card-bd em-auto-g">' +
       EMAILS_EQUIPE.map(([k, r, d]) => chave('data-eq', k, eq[k] !== false, r, d)).join('') + '</div></div>' +
     '<div class="card"><div class="card-hd">🏢 Para os clientes<span class="sub">vale para todos; por cliente, use "Quem recebe"</span></div><div class="card-bd em-auto-g">' +
       (regras.filter((r) => !r.oculta).map((r) => chave('data-eq-regra', r.chave, r.ligada, r.nome, r.descricao)).join('') || vazio('Nenhum e-mail automático para clientes.')) + '</div></div>' +
@@ -3958,8 +4060,7 @@ async function admEmailQuem(corpo) {
         '<td>' + pillRecebeEmail({ id: r.cliente_id, recebe_email: r.recebe }) + '</td>' + TIPOS_EMAIL_AUTO.map(([k]) => celTipo(r, k)).join('') +
         '<td data-ord="' + (r.ultimo_em || '') + '">' + (r.ultimo_em ? dataBR(r.ultimo_em) + ' <span class="sub">' + esc(r.ultimo_assunto || '') + '</span>' : '<span class="sub">—</span>') + '</td></tr>').join('')
         : '<tr><td colspan="' + (5 + TIPOS_EMAIL_AUTO.length) + '">' + vazio('Ninguém neste filtro.') + '</td></tr>') + '</tbody></table></div></div>' +
-      '<div class="dica">Clique em <b>✉ Sim</b> / <b>✕ Não</b> para trocar. Quem está em "Não" não recebe nada do escritório (nem rascunho). Nas colunas de tipo, <b>✓</b>/<b>✕</b> escolhe quais e-mails automáticos aquele cliente recebe ' +
-        '(ex.: recebe o de Vencimento, mas não o de Acordo). <b>✎</b> troca o e-mail de destino; clique no <b>nome do cliente</b> para abrir o cadastro completo (vários e-mails, setores).</div>';
+      '<div class="dica">Sim = recebe e-mails do escritório. Clique para trocar. <b>✓</b>/<b>✕</b> nas colunas escolhe quais automáticos ele recebe; <b>✎</b> troca o e-mail de destino.</div>';
     corpo.querySelectorAll('[data-em-tipo]').forEach((b) => b.onclick = () => comBotao(b, async () => {
       const cli = b.dataset.emTcli, k = b.dataset.emTipo, novo = !((M[cli] || {})[k] !== false);
       M[cli] = await q(sb.rpc('salvar_email_tipo', { p_cliente: cli, p_tipo: k, p_valor: novo }));
@@ -3990,9 +4091,10 @@ async function admEmailQuem(corpo) {
   pinta();
 }
 // Backup 53: "Da Rotina" — os e-mails gerados na Rotina (rascunhos) podem ser autorizados aqui e saem pelo envio normal
-const FILTROS_SAIDA = [['revisar', 'Para revisar', ['retido']], ['rotina', 'Da Rotina', ['rascunho', 'rascunho_salvo']], ['fila', 'Na fila', ['pendente']], ['enviados', 'Enviados', ['enviado']], ['erro', 'Com erro', ['erro']]];
+// Backup 80 (E7): 3 abas — No rascunho (inclui os retidos para revisar e os montados na Rotina) · Enviados (inclui os que estão saindo) · Com erro
+const FILTROS_SAIDA = [['rascunho', 'No rascunho', ['retido', 'rascunho', 'rascunho_salvo']], ['enviados', 'Enviados', ['enviado', 'pendente']], ['erro', 'Com erro', ['erro']]];
 async function admEmailSaida(corpo) {
-  E.adm.saidaF = E.adm.saidaF || 'revisar';
+  if (!FILTROS_SAIDA.some((f) => f[0] === E.adm.saidaF)) E.adm.saidaF = 'rascunho';
   const [lista, liga, st] = await Promise.all([
     q(sb.from('email_fila').select('id, para, para_original, assunto, status, erro, criado_em, enviado_em, tipo, referencia').order('criado_em', { ascending: false }).limit(300)).catch(() => []),
     q(sb.rpc('emails_revisar')).catch(() => false),
@@ -4001,14 +4103,14 @@ async function admEmailSaida(corpo) {
   const F = FILTROS_SAIDA.find((f) => f[0] === E.adm.saidaF) || FILTROS_SAIDA[0], ver = lista.filter((m) => F[2].includes(m.status));
   const ret = lista.filter((m) => m.status === 'retido');
   const ST = { enviado: 'pago', pendente: 'aberto', erro: 'vencido', cancelado: 'neutro', retido: 'hoje', rascunho: 'vencido', rascunho_salvo: 'pago' };
-  corpo.innerHTML = '<div class="card em-saida"><div class="card-hd">📤 Caixa de saída<span class="sub">' + nDe('fila') + ' na fila · ' + (st.enviados_7d || 0) + ' enviados em 7 dias · ' + nDe('erro') + ' com erro</span>' +
+  corpo.innerHTML = '<div class="card em-saida"><div class="card-hd">Caixa de saída<span class="sub">Tudo o que saiu, os rascunhos e os erros · ' + lista.filter((m) => m.status === 'pendente').length + ' saindo agora · ' + (st.enviados_7d || 0) + ' enviados em 7 dias · ' + nDe('erro') + ' com erro</span>' +
       '<label class="au-chave em-rev-chave" style="margin-left:auto"><input type="checkbox" role="switch" id="em-revisar"' + (liga ? ' checked' : '') + '><span class="au-trilho" aria-hidden="true"></span> ' +
       (liga ? '<b>Revisar antes de sair:</b> ligado' : '<b>Revisar antes de sair:</b> desligado') + '</label></div><div class="card-bd">' +
     '<div class="fila-chips em-saida-f" role="group" aria-label="Mostrar">' + FILTROS_SAIDA.map(([k, r]) => chipFiltro('data-saida-f', k, r + ' (' + nDe(k) + ')', E.adm.saidaF === k)).join('') +
-      (E.adm.saidaF === 'revisar' && ret.length ? '<span class="acoes" style="margin-left:auto"><button class="btn btn-o btn-mini" id="em-desc-todos">Descartar todos</button><button class="btn btn-p btn-mini" id="em-env-todos">✉ Enviar todos (' + ret.length + ')</button></span>' : '') +
-      (E.adm.saidaF === 'rotina' && ver.length ? '<span class="acoes" style="margin-left:auto"><button class="btn btn-p btn-mini" id="em-rot-todos">✓ Autorizar e enviar todos (' + ver.length + ')</button></span>' : '') + '</div>' +
-    (E.adm.saidaF === 'rotina' ? '<p class="sub" style="margin:6px 0 0">E-mails montados na Rotina (Guias do mês). Confira com 👁 e clique em <b>Autorizar</b>: sai direto para o cliente. Se você já enviou pelo rascunho do Gmail, use ✕ para tirar daqui.</p>' : '') +
-    (E.adm.saidaF === 'revisar' ? '<p class="sub" style="margin:6px 0 0">' + (liga ? 'Os automáticos ao cliente (lembretes, cobranças, avisos) esperam aqui o seu clique.' : 'Desligado: os automáticos saem sozinhos.') + ' Os e-mails que você manda na hora (guias, acordos, rascunhos) não passam por aqui.</p>' : '') +
+      (E.adm.saidaF === 'rascunho' && ret.length ? '<span class="acoes" style="margin-left:auto"><button class="btn btn-o btn-mini" id="em-desc-todos">Descartar todos</button><button class="btn btn-p btn-mini" id="em-env-todos">✉ Enviar todos (' + ret.length + ')</button></span>' : '') +
+      (E.adm.saidaF === 'rascunho' && ver.some((m) => /^rascunho/.test(m.status)) ? '<span class="acoes" style="margin-left:auto"><button class="btn btn-p btn-mini" id="em-rot-todos">✓ Autorizar e enviar os da Rotina (' + ver.filter((m) => /^rascunho/.test(m.status)).length + ')</button></span>' : '') + '</div>' +
+    (E.adm.saidaF === 'rascunho' ? '<p class="sub" style="margin:6px 0 0">E-mails montados na Rotina (Guias do mês). Confira com 👁 e clique em <b>Autorizar</b>: sai direto para o cliente. Se você já enviou pelo rascunho do Gmail, use ✕ para tirar daqui.</p>' : '') +
+    (E.adm.saidaF === 'rascunho' ? '<p class="sub" style="margin:6px 0 0">' + (liga ? 'Os automáticos ao cliente (lembretes, cobranças, avisos) esperam aqui o seu clique.' : 'Desligado: os automáticos saem sozinhos.') + ' Os e-mails que você manda na hora (guias, acordos, rascunhos) não passam por aqui.</p>' : '') +
     '</div>' +
     (ver.length ? '<div class="tabela-wrap"><table class="em-rev em-saida-tab"><thead><tr><th data-tipo="data">Quando</th><th>Para</th><th>Assunto</th><th>Situação</th><th></th></tr></thead><tbody>' +
       ver.map((m) => '<tr><td class="mono">' + dataHoraBR(m.enviado_em || m.criado_em) + '</td><td>' + esc(m.para_original || m.para) + '</td><td>' + esc(m.assunto) + '</td>' +
@@ -4017,7 +4119,7 @@ async function admEmailSaida(corpo) {
           (m.status === 'retido' ? ' <button class="btn btn-p btn-mini" data-em-env="' + m.id + '">Enviar</button> <button class="btn btn-x btn-mini" data-em-desc="' + m.id + '" title="Não enviar">✕</button>' : '') +
           (m.status === 'erro' ? ' <button class="btn btn-p btn-mini" data-em-tentar="' + m.id + '" title="Volta para a fila e tenta enviar agora">↻ Tentar de novo</button>' : '') +
           (/^rascunho/.test(m.status) ? ' <button class="btn btn-p btn-mini" data-em-rot="' + m.id + '" title="Autoriza: o e-mail sai agora para o cliente">✓ Autorizar</button> <button class="btn btn-x btn-mini" data-em-rotx="' + m.id + '" title="Tirar da Caixa de saída (não envia)">✕</button>' : '') + '</td></tr>').join('') +
-      '</tbody></table></div>' : '<div class="card-bd">' + vazio({ revisar: 'Nada esperando revisão.', fila: 'Nada na fila: tudo já saiu.', enviados: 'Nenhum e-mail enviado ainda.', erro: 'Nenhum e-mail com erro. 🎉' }[F[0]]) + '</div>') + '</div>';
+      '</tbody></table></div>' : '<div class="card-bd">' + vazio({ rascunho: 'Nada no rascunho nem esperando revisão.', enviados: 'Nenhum e-mail enviado ainda.', erro: 'Nenhum e-mail com erro. 🎉' }[F[0]]) + '</div>') + '</div>';
   const acao = (ids, a) => async () => { const n = await q(sb.rpc('emails_retidos_acao', { p_ids: ids, p_acao: a }));
     if (a === 'liberar' && n) await enviarEmailAgora(null).catch(() => null);
     aviso('✓ ' + plural(n, 'e-mail', 'e-mails') + (a === 'liberar' ? ' liberado(s) para envio.' : ' descartado(s).')); await admEmailSaida(corpo); };
@@ -4025,7 +4127,7 @@ async function admEmailSaida(corpo) {
   const rotina = (ids, a) => async () => { const n = await q(sb.rpc('emails_rotina_acao', { p_ids: ids, p_acao: a }));
     if (a === 'enviar' && n) await enviarEmailAgora(null).catch(() => null);
     aviso('✓ ' + plural(n, 'e-mail', 'e-mails') + (a === 'enviar' ? ' autorizado(s) e enviado(s).' : ' tirado(s) da Caixa de saída.')); await admEmailSaida(corpo); };
-  if (corpo.querySelector('#em-rot-todos')) corpo.querySelector('#em-rot-todos').onclick = (ev) => comBotao(ev.currentTarget, rotina(ver.map((m) => m.id), 'enviar'));
+  if (corpo.querySelector('#em-rot-todos')) corpo.querySelector('#em-rot-todos').onclick = (ev) => comBotao(ev.currentTarget, rotina(ver.filter((m) => /^rascunho/.test(m.status)).map((m) => m.id), 'enviar'));
   corpo.querySelectorAll('[data-em-rot]').forEach((b) => b.onclick = () => comBotao(b, rotina([b.dataset.emRot], 'enviar')));
   corpo.querySelectorAll('[data-em-rotx]').forEach((b) => b.onclick = () => comBotao(b, rotina([b.dataset.emRotx], 'descartar')));
   corpo.querySelector('#em-revisar').onchange = (ev) => comBotao(ev.target, async () => { await q(sb.rpc('salvar_emails_revisar', { p: ev.target.checked })); await admEmailSaida(corpo); });
@@ -4065,7 +4167,7 @@ function formConta(id, rotUsuario, rotRem) {
 async function admEmailConfig(corpo) {
   const st = await q(sb.rpc('status_config_email')).catch(() => ({}));
   const passo = (n, tit, sub, html, id) => '<section class="card em-passo"' + (id ? ' id="' + id + '"' : '') + '><div class="card-hd"><span class="em-passo-n">' + n + '</span>' + tit + (sub ? '<span class="sub">' + sub + '</span>' : '') + '</div><div class="card-bd">' + html + '</div></section>';
-  corpo.innerHTML = '<div class="em-config-topo"><span class="sub">Configure de cima para baixo. Feito uma vez, os e-mails saem sozinhos.</span>' +
+  corpo.innerHTML = '<div class="em-config-topo"><span class="sub">Faça uma vez só, de cima para baixo</span>' +
       '<div class="em-ferr"><button type="button" class="btn btn-o btn-mini" id="em-ferr-bt" aria-expanded="false">⋯ Ferramentas</button><div class="em-ferr-menu" id="em-ferr-menu" hidden>' +
         '<button type="button" id="email-diag" title="Confere se as funções do Supabase estão publicadas (erp-emails, erp-publicacoes, erp-cnpj, erp-agenda)">🩺 Verificar funções</button>' +
         '<button type="button" id="email-agora" title="A fila é a lista de e-mails esperando para sair; a rotina envia sozinha a cada 5 minutos. Este botão manda agora.">✉ Enviar fila agora</button>' +
@@ -4731,8 +4833,11 @@ TELAS.tarefas = async function () {
   $('conteudo').innerHTML =
     // Backup 49: abas junto do título; só "+ Nova tarefa" e "Fluxo" à vista — o resto no ⚙ (Backup 55: a criação rápida ⚡ saiu)
     // Backup 72: as abas Em aberto/Atrasadas/Concluídas/Excluídas ficam na tabela (com os números), como no ambiente de teste
-    '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('tarefas') + '</div><div class="b-cab-tx"><h1>Tarefas</h1></div>' +
+    '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('tarefas') + '</div><div class="b-cab-tx"><h1>Tarefas</h1><p>Suas tarefas e as da equipe</p></div>' +
     '<div class="acoes">' +
+    // Backup 80: Lista · Semana · Calendário · Fluxos no alto, ao lado de "+ Nova tarefa" (como no ambiente de teste)
+    '<div class="b-seg tf-vista" id="tf-vista" role="tablist">' + [['lista', 'Lista'], ['semana', 'Semana'], ['calendario', 'Calendário'], ['fluxos', 'Fluxos']]
+      .map(([v, r]) => '<button type="button" role="tab" class="b-seg-bt" data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<span class="tf-cfg-wrap"><button class="btn btn-o tf-bt-ic" id="tf-config" title="Configurar: modelos de fluxo, feriados, Google Agenda e novo fluxo" aria-expanded="false">⚙</button>' +
       '<span class="tf-cfg-menu" id="tf-cfg-menu" hidden><button class="btn btn-o" id="tf-modelos">Modelos de fluxo</button>' +
       '<button class="btn btn-o" id="tf-feriados">Feriados</button><button class="btn btn-o" id="tf-agenda" title="Prazos fatais e audiências no seu Google Agenda">📅 Google Agenda</button></span></span>' +
@@ -4740,8 +4845,6 @@ TELAS.tarefas = async function () {
     '<button class="btn btn-o" id="tf-fluxo" title="Cria várias tarefas de uma vez a partir de um modelo (inclui as sequências com validação, ex.: Lead completo)">🔀 Fluxo</button><button class="btn btn-p" id="tf-nova">+ Nova tarefa</button></div></div>' +
     // Backup 72: sem os 4 cartões do topo; vistas Lista · Semana · Calendário · Fluxos
     '<div class="filtros">' +
-    '<div class="segmento" id="tf-vista">' + [['lista', 'Lista'], ['semana', 'Semana'], ['calendario', 'Calendário'], ['fluxos', 'Fluxos']]
-      .map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<input class="busca" id="tf-busca" placeholder="Buscar tarefa, cliente, processo ou etiqueta" autocomplete="off">' +
     // Backup 48/49: Mostrar (tipo, prioridade e prazo) e De quem — o mesmo desenho da agenda do Início
     '</div><div class="fila-filtros tf-filtros" id="tf-chips"></div><div id="tf-corpo"><div class="carregando">Carregando…</div></div>';
@@ -5942,23 +6045,41 @@ async function blocoDocumentos(alvo, vinculo, opc) {
   return docs;
 }
 
+// Backup 80 (M14): faixa "Vencendo em 30 dias" no alto — certidões, procurações e certificados digitais (do arquivo .pfx), do mais próximo ao mais distante
+async function faixaVencendoDocs(lim) {
+  const el = $('doc-venc'); if (!el) return;
+  const certs = await q(sb.from('cliente_certificado').select('cliente_id, validade').lte('validade', lim)).catch(() => []);
+  const nomeCli = (id) => { const c = E.clientes.find((x) => x.id === id); return c ? c.nome : ''; };
+  const itens = _docsTela.filter((d) => !d.arquivado && d.validade && d.validade <= lim).map((d) => ({ v: d.validade, t: (TIPOS_DOC.find((x) => x[0] === d.tipo) || [0, 'Documento'])[1], c: nomeCli(d.cliente_id) || d.nome }))
+    .concat(certs.filter((c) => c.validade).map((c) => ({ v: c.validade, t: 'Certificado digital', c: nomeCli(c.cliente_id) })))
+    .sort((a, b) => a.v.localeCompare(b.v));
+  if (!itens.length) { el.innerHTML = ''; return; }
+  const h = hojeISO();
+  el.innerHTML = '<div class="gs-faixa b-faixa-av" style="margin:0 0 12px"><div class="b-faixa-lin"><span class="b-faixa-rot">Vencendo em 30 dias</span><div class="ini-conf-l">' +
+    itens.slice(0, 12).map((x) => '<button type="button" class="ini-conf-it ' + (x.v < h ? 'b-av-critico' : 'b-av-atencao') + '" data-doc-venc><span class="b-av-pt" aria-hidden="true"></span><span>' + esc(x.t) + ' de <b>' + esc(x.c || '—') + '</b> ' + (x.v < h ? 'venceu ' : 'vence ') + esc(dataBR(x.v).slice(0, 5)) + '</span></button>').join('') +
+    (itens.length > 12 ? '<span class="sub">+' + (itens.length - 12) + '</span>' : '') + '</div></div></div>';
+  el.onclick = (ev) => { if (!ev.target.closest('[data-doc-venc]')) return; E.docs.situacao = 'vencendo'; pintarDocumentos(false); };
+}
+
 // ─────────────────────────── tela Documentos ───────────────────────────
 TELAS.documentos = async function () {
   E.docs = E.docs || { tipo: '', cliente: '', grupo: '', busca: '', situacao: 'ativos' };
   const F = E.docs;
   await carregarCadastros();
   $('conteudo').innerHTML =
-    '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('documento') + '</div><div class="b-cab-tx"><h1>Documentos</h1><p>Contratos, procurações, certidões, comprovantes e demais arquivos — guardados com acesso restrito</p></div>' +
-    '<div class="acoes"><a class="btn btn-o" id="doc-ger" href="documentos/index.html" target="_blank" rel="noopener" title="Abre o sistema de geração de documentos numa aba nova">Gerar documentos ↗</a><button class="btn btn-p" id="doc-novo">+ Enviar documento</button></div></div>' +
+    '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('documento') + '</div><div class="b-cab-tx"><h1>Documentos</h1><p>Arquivos dos clientes</p></div>' +
+    '<div class="acoes"><a class="btn btn-o" id="doc-ger" href="documentos/index.html" target="_blank" rel="noopener" title="Procuração, contrato, recibo… (Ctrl + clique abre numa aba nova)">Gerar documentos</a><button class="btn btn-p" id="doc-novo">+ Enviar documento</button></div></div>' +
     '<div class="filtros">' +
     '<div class="segmento" id="doc-sit">' + [['ativos', 'Ativos'], ['vencendo', 'Vencendo em 30 dias'], ['arquivados', 'Versões anteriores']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<select class="busca sel" id="doc-tipo"><option value="">Todos os tipos</option>' + TIPOS_DOC.map(([v, r]) => '<option value="' + v + '">' + r + '</option>').join('') + '</select>' +
     '<select class="busca sel" id="doc-grupo"><option value="">Todos os grupos</option>' + (E.grupos || []).map((g) => '<option value="' + g.id + '">' + esc(g.nome) + '</option>').join('') + '</select>' +
     '<select class="busca sel" id="doc-cli"><option value="">Todos os clientes</option>' + E.clientes.map((c) => '<option value="' + c.id + '">' + esc(c.nome) + '</option>').join('') + '</select>' +
     '<input class="busca" id="doc-busca" placeholder="Buscar nome, etiqueta ou observação" autocomplete="off"></div>' +
-    '<div class="doc-chips" id="doc-chips"></div><div id="doc-corpo"><div class="carregando">Carregando…</div></div>';
+    '<div id="doc-venc"></div><div class="doc-chips" id="doc-chips"></div><div id="doc-corpo"><div class="carregando">Carregando…</div></div>';
   $('doc-tipo').value = F.tipo; $('doc-cli').value = F.cliente; $('doc-grupo').value = F.grupo || ''; $('doc-busca').value = F.busca;
   $('doc-novo').onclick = () => janelaEnviarDocumento({}, () => TELAS.documentos());
+  // Backup 80 (E11): "Gerar documentos" abre a Central dentro do ERP (Ctrl/⌘ + clique = aba nova)
+  $('doc-ger').onclick = (ev) => { if (ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.button === 1) return; ev.preventDefault(); irParaTela('gerador'); };
   $('doc-sit').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.situacao = b.dataset.v; pintarDocumentos(); } };
   $('doc-tipo').onchange = (ev) => { F.tipo = ev.target.value; pintarDocumentos(); };
   $('doc-cli').onchange = (ev) => { F.cliente = ev.target.value; pintarDocumentos(false); };
@@ -5987,6 +6108,7 @@ async function pintarDocumentos(buscar) {
     && (!F.cliente || d.cliente_id === F.cliente) && (!F.grupo || grupoDe(d) === F.grupo)
     && (!b || normalizar(d.nome + ' ' + d.etiquetas + ' ' + d.obs).includes(b)));
   const lista = base.filter((d) => !F.tipo || d.tipo === F.tipo);
+  if (buscar !== false) faixaVencendoDocs(lim).catch(() => {});
   // atalhos por tipo (Procuração, Contrato…) com a quantidade no recorte atual
   const cont = {}; base.forEach((d) => { cont[d.tipo] = (cont[d.tipo] || 0) + 1; });
   $('doc-chips').innerHTML = TIPOS_DOC.filter(([v]) => cont[v] || v === F.tipo || v === 'procuracao' || v === 'contrato')
@@ -6535,7 +6657,7 @@ TELAS.crm = async function () {
   const F = E.crm;
   await carregarCadastros();
   $('conteudo').innerHTML =
-    '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('crm') + '</div><div class="b-cab-tx"><h1>CRM</h1><p>Oportunidades, propostas e o caminho até o contrato assinado</p></div>' +
+    '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('crm') + '</div><div class="b-cab-tx"><h1>CRM</h1><p>Quem pode virar cliente</p></div>' +
     '<div class="acoes"><button class="btn btn-o" id="cr-etapas" title="Prazo de cada etapa (depois dele vira tarefa) e o que cada uma significa">⚙ Etapas</button><button class="btn btn-o" id="cr-modelos">Modelos de proposta</button>' +
     '<button class="btn btn-o" id="cr-rapido" title="Só nome, telefone e interesse">⚡ Cadastro rápido</button><button class="btn btn-p" id="cr-nova">+ Nova oportunidade</button></div></div>' +
     // abas: no painel ficam só as oportunidades em andamento; ganhas (contrato assinado) e perdidas (cancelado) têm aba própria
@@ -6615,12 +6737,13 @@ function cartaoOp(o, e, h) {
 }
 // Backup 49 (27): 5 etapas na tela — Contato · Diagnóstico · Proposta · Negociação · Fechado/Perdido (a faixa de baixo).
 // As etapas detalhadas continuam no banco (as automações dependem delas) e aparecem como selo no cartão.
-const GRUPOS_CRM = [['contato', 'Contato', /contato/i], ['diagnostico', 'Diagnóstico', /diagn/i], ['proposta', 'Proposta', /proposta|follow/i], ['negociacao', 'Negociação', /./]];
+// Backup 80 (E8): as 4 colunas do ambiente — Novo contato · Diagnóstico · Proposta · Fechamento (as etapas do banco ficam dentro delas)
+const GRUPOS_CRM = [['contato', 'Novo contato', /contato/i], ['diagnostico', 'Diagnóstico', /diagn/i], ['proposta', 'Proposta', /proposta|follow/i], ['negociacao', 'Fechamento', /./]];
 function grupoEtapa(e) { return (GRUPOS_CRM.find((g) => g[2].test(e.nome || '')) || GRUPOS_CRM[3])[0]; }
 function colunaCrm(g, etapas, ops, h) {
   const ids = new Set(etapas.map((e) => e.id)), cs = ops.filter((o) => ids.has(o.etapa_id)), varias = etapas.length > 1;
   return '<div class="cr-col" data-etapa="' + (etapas[0] ? etapas[0].id : '') + '" data-grupo="' + g[0] + '" title="' + esc(etapas.map((e) => e.nome + (e.descricao ? ': ' + e.descricao : '')).join('\n')) + '">' +
-    '<div class="cr-col-tit"><span>' + g[1] + '</span><span class="cr-col-n">' + cs.length + '</span></div>' + (cs.length ? '<div class="cr-col-val">' + esc(brlCurto(soma(cs, (o) => o.valor_estimado))) + '</div>' : '') +
+    '<div class="cr-col-tit"><span>' + g[1] + '</span><span class="cr-col-n">' + cs.length + (cs.length ? ' · ' + esc(brlCurto(soma(cs, (o) => o.valor_estimado))) : '') + '</span></div>' +
     cs.map((o) => { const e = etapaDe(o.etapa_id); return cartaoOp(o, e, h).replace('<b>', (varias ? '<span class="cr-sub-etapa">' + esc(e.nome) + '</span>' : '') + '<b>'); }).join('') +
     (!cs.length ? '<div class="cr-vazia"><span class="cr-vazia-ic" aria-hidden="true">○</span>Nenhuma oportunidade<span class="sub">arraste um cartão para cá</span></div>' : '') + '</div>';
 }
@@ -6629,11 +6752,10 @@ function crmFunil(alvo) {
   const abertas = et.filter((e) => !e.final), fins = et.filter((e) => e.final);
   const cols = GRUPOS_CRM.map((g) => [g, abertas.filter((e) => grupoEtapa(e) === g[0])]).filter(([, l]) => l.length);
   alvo.innerHTML = '<div class="cr-linha" style="--n:' + cols.length + '">' + cols.map(([g, l]) => colunaCrm(g, l, ops, h)).join('') + '</div>' +
-    '<div class="cr-fins-tit">Fechado / Perdido</div>' +
+    '<div class="cr-fins-tit">Ganhos e perdidos</div>' +
     '<div class="cr-fins">' + fins.map((e) => '<div class="cr-solte cr-solte-' + e.final + '" data-etapa="' + e.id + '">' +
       (e.final === 'ganho' ? '✓ Solte aqui quando o cliente <b>assinar</b> — vai para a aba "Contratos assinados"' : '✕ Solte aqui quando <b>não fechar</b> — vai para a aba "Leads perdidos"') + '</div>').join('') + '</div>' +
-    '<p class="sub" style="margin-top:8px">Arraste o cartão para mudar a etapa (no celular, use ▸, que também passa pelas etapas de dentro: Diagnóstico agendado → feito, Proposta enviada → follow-up, Negociação → Contrato fechado → Aguardando assinatura). ' +
-    '<b>Contrato fechado</b> = o cliente disse sim (o sistema cria cadastro, contrato e onboarding).</p>';
+    '<p class="sub" style="margin-top:8px">Arraste o cartão para mudar de etapa (no celular, use ▸). <b>Contrato fechado</b> = o cliente disse sim: o sistema cria cadastro, contrato e onboarding.</p>';
   let arrastando = null;
   alvo.querySelectorAll('.cr-card').forEach((c) => {
     c.addEventListener('dragstart', (ev) => { arrastando = c.dataset.op; ev.dataTransfer.setData('text/plain', c.dataset.op); c.classList.add('arrastando'); });
@@ -7275,7 +7397,7 @@ TELAS.publicacoes = async function () {
   const F = E.pub; F.status = 'nova';   // Backup 49 (31): sempre abre em Novas
   $('conteudo').innerHTML =
     // Backup 77: a tela voltou a ser a de antes do Backup 72 (cartões com o texto, filtros em botões), a pedido; só o cabeçalho segue o padrão único (ícone + título)
-    '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('publicacao') + '</div><div class="b-cab-tx"><h1>Publicações</h1><p id="pub-ult">Diário de Justiça Eletrônico Nacional · busca automática pelo navegador, 1× por dia ao abrir o ERP</p></div>' +
+    '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('publicacao') + '</div><div class="b-cab-tx"><h1>Publicações</h1><p id="pub-ult">Intimações do Diário de Justiça</p></div>' +
     '<div class="acoes"><button class="btn btn-o" id="pub-todas-lidas" title="Marca como lidas todas as publicações novas">✓ Marcar todas como lidas</button><button class="btn btn-o" id="pub-oabs">⚙ Monitoramento (OABs e clientes)</button><button class="btn btn-p" id="pub-buscar" title="Busca no Diário do CNJ pelo seu navegador (se ele falhar, tenta pelo servidor)">↻ Buscar agora</button></div></div>' +
     '<div class="filtros"><div class="segmento" id="pub-st">' + [['nova', 'Novas'], ['lida', 'Lidas'], ['tratada', 'Tratadas'], ['descartada', 'Descartadas'], ['', 'Todas']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<select class="busca sel" id="pub-dias"><option value="7">Últimos 7 dias</option><option value="15">Últimos 15 dias</option><option value="30">Últimos 30 dias</option><option value="90">Últimos 90 dias</option><option value="">Todo o período</option></select>' +
@@ -7374,8 +7496,8 @@ function pintarPublicacoes() {
       return '<button type="button" data-v="' + esc(n) + '" class="' + (F.adv === n ? 'ativo' : '') + '">' + esc(n) + ' <span class="seg-n">' + c + '</span></button>'; }).join(''); }
   const lista = todas.filter((p) => okSt(p) && okAdv(p) && okTrib(p) && okBusca(p));
   const conta = (s) => semSt.filter((p) => p.status === s).length;
-  $('pub-corpo').innerHTML = '<div class="kpis">' + kpi('Novas', String(conta('nova')), conta('nova') ? 'ambar' : 'verde', 'ainda não lidas') + kpi('Lidas', String(conta('lida')), '', 'sem tarefa ainda') +
-    kpi('Tratadas', String(conta('tratada')), 'verde', 'com tarefa criada') + '</div>' +
+  // Backup 80 (E2): sem cartões de número no topo — as contagens ficam nos botões Novas · Lidas · Tratadas
+  $('pub-corpo').innerHTML = 
     (lista.length ? lista.map((p) => '<div class="card pub-card' + (p.status === 'nova' ? ' pub-nova' : '') + '" data-pub="' + p.id + '"><div class="card-bd">' +
       '<div class="pub-topo"><div><span class="pill ' + ({ nova: 'hoje', lida: 'aberto', tratada: 'pago', descartada: 'neutro' }[p.status]) + '">' + p.status + '</span> ' +
       '<b>' + esc(p.tipo || 'Comunicação') + '</b> · ' + esc(p.tribunal) + ' · <span class="mono">' + dataBR(p.data_disponibilizacao) + '</span>' +
@@ -7603,6 +7725,15 @@ TELAS.alertas = async function () {
   $('conteudo').innerHTML = '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('alerta') + '</div><div class="b-cab-tx"><h1>Alertas</h1><p>O que precisa de atenção em cada setor</p></div>' +
     '<div class="acoes">' + botaoAtualizar('al-atualizar', 'Monta os alertas de novo') + '</div></div><div id="al-corpo"><div class="carregando">Montando os alertas…</div></div>';
   $('al-atualizar').onclick = () => TELAS.alertas();
+  const { A, cnpj } = await coletarAlertasTodos();
+  desenharAlertas(A, cnpj);
+};
+
+// Backup 80 (E1/M1): a coleta é a mesma para a tela Alertas (fora do menu), a faixa de avisos do Início e Administração → Saúde do sistema.
+let _alertasCache = null;
+async function coletarAlertasTodos(cacheMs) {
+  if (cacheMs && _alertasCache && Date.now() - _alertasCache.em < cacheMs) return _alertasCache.r;
+  await carregarCadastros();
   const h = hojeISO(), nada = () => [];
   const podeJur = pode('juridico'), podeFin = pode('financeiro_juridico') || pode('financeiro_contab');
   const [pubs, parcelas, acordos, procs, lancs, contratos, certs, docs, tarefas, cnpj, emails, ultPub, ultReg, contatos] = await Promise.all([
@@ -7711,6 +7842,9 @@ TELAS.alertas = async function () {
     }
   }
 
+  const r = { A, cnpj }; _alertasCache = { em: Date.now(), r }; return r;
+}
+function desenharAlertas(A, cnpj) {
   // ── desenho: radar no topo, só o que pede ação em destaque; o que está em dia vira selinho verde ──
   const ICONE_SETOR = { Cadastro: '🗂', 'Jurídico': '⚖', Financeiro: '💰', Documentos: '📄', Tarefas: '✅', Rotinas: '⚙' };
   const acao = A.map((a, i) => Object.assign({ i }, a)).filter((a) => a.setor !== 'Rotinas' && (a.nivel === 'critico' || a.nivel === 'atencao'))
@@ -7754,6 +7888,8 @@ TELAS.alertas = async function () {
   $('al-corpo').querySelectorAll('[data-al]').forEach((b) => b.onclick = () => { const a = A[+b.dataset.al]; if (a.rel.cnpj) janelaCnpj(cnpj); else if (a.rel.saude) janelaSaude(a.rel.saude); else if (a.rel.backup) irTelaAlerta('admin', 'backup'); else relatorioAlerta(a); });
 };
 
+// abre o alerta (lista com "Virar tarefa", janela do cartão CNPJ, saúde ou backup) — usado pela tela, pela faixa do Início e pela Administração
+function abrirAlerta(a, cnpj) { if (a.rel.cnpj) janelaCnpj(cnpj); else if (a.rel.saude) janelaSaude(a.rel.saude); else if (a.rel.backup) irTelaAlerta('admin', 'backup'); else relatorioAlerta(a); }
 function quandoCurto(v) {
   const d = new Date(v); if (isNaN(d)) return '—';
   const hora = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
@@ -7845,7 +7981,8 @@ async function janelaCnpj(execs) {
   const ag = j.querySelector('#cnpj-agora');
   if (ag) ag.onclick = () => comBotao(ag, async () => {
     const r = await chamarFuncao('erp-cnpj', { acao: 'rodar' });
-    aviso('✓ Cartão CNPJ: ' + (r.mensagem || 'feito') + '.'); fecharJanela(j); await TELAS.alertas();
+    aviso('✓ Cartão CNPJ: ' + (r.mensagem || 'feito') + '.'); fecharJanela(j); _alertasCache = null;
+    if ($('al-corpo')) await TELAS.alertas(); else if ($('adm-saude')) await admSaude($('adm-corpo'));
   });
 }
 
@@ -8442,8 +8579,8 @@ TELAS.rotina = async function () {
   _rtDados = null;   // Backup 51: entrar na Rotina busca de novo; trocar de aba usa o que já veio
   $('conteudo').innerHTML =
     // Backup 73 (reforma, etapa 7): cabeçalho, placar e abas com as peças novas (o miolo de cada aba continua igual)
-    cabecalhoTela({ icone: 'check', titulo: 'Rotina', frase: 'Tudo o que era atualizado nas planilhas, num lugar só — o que você grava aqui aparece no Painel, nos Processos e no Financeiro' }) +
-    '<div class="rt-placar b-placar" id="rt-placar" aria-label="Placar do mês">' + placarRotina(null) + '</div>' +
+    cabecalhoTela({ icone: 'check', titulo: 'Rotina', frase: 'O trabalho do mês, num lugar só' }) +
+    '<div class="rt-placar b-placar b-placar-linha" id="rt-placar" aria-label="Placar do mês">' + placarRotina(null) + '</div>' +
     '<div class="b-seg rt-abas" id="rt-abas" role="tablist">' + ABAS_ROTINA.map(([k, r]) => '<button type="button" role="tab" class="b-seg-bt" data-rt-aba="' + k + '">' + r + '</button>').join('') + '</div>' +
     '<div id="rt-corpo"></div>';
   // Backup 42: "Acordos" abre a própria tela de Acordos (idêntica, sem repetir código)
@@ -8459,15 +8596,16 @@ TELAS.rotina = async function () {
 };
 // ── Backup 51 (R1): placar do mês — guias enviadas, pagamentos conferidos, passivo conferido e processos conferidos (15 dias); cada número leva ao que falta ──
 function placarRotina(r) {
+  // Backup 80 (E4): o placar virou UMA linha (rótulo + pílulas com ponto de cor), como no ambiente de teste; cada item leva à aba
   const it = (alvo, rot, feitos, total, dica) => { const ok = total > 0 && feitos >= total;
-    return '<button type="button" class="rt-pl-it' + (r ? (ok ? ' rt-pl-ok' : '') : ' rt-pl-esq') + '" data-placar="' + alvo + '" title="' + esc(dica) + '">' +
-      '<span class="rt-pl-n">' + (!r ? '<span class="esq esq-n"></span>' : total ? '<b>' + feitos + '</b> de ' + total : '<b>—</b> nada no mês') + '</span><span class="rt-pl-rot">' + (ok ? '✓ ' : '') + esc(rot) + '</span>' +
-      '<span class="rt-pl-bar"><span style="width:' + (r && total ? Math.round(100 * Math.min(feitos, total) / total) : 0) + '%"></span></span></button>'; };
+    return '<button type="button" class="rt-pl-it' + (r ? (ok ? ' rt-pl-ok' : '') : ' rt-pl-esq') + '" data-placar="' + alvo + '" title="' + esc(dica) + '"><span class="b-av-pt" aria-hidden="true"></span>' +
+      '<span class="rt-pl-rot">' + esc(rot) + '</span> <span class="rt-pl-n">' + (!r ? '<span class="esq esq-n"></span>' : total ? '<b>' + feitos + ' de ' + total + '</b>' : '<b>—</b>') + '</span></button>'; };
   r = r || {};
-  return it('guias', 'guias enviadas', r.guias_feitas, r.guias_total, 'Guias do mês (em atraso + vencem neste mês) que já foram enviadas — clique para ver as que faltam') +
-    it('planilha', 'pagamentos conferidos', r.pag_feitos, r.pag_total, 'Parcelas que já venceram neste mês e estão marcadas como pagas — clique para conferir na Planilha') +
-    it('passivo', 'passivo conferido no mês', r.passivo_feitos, r.passivo_total, 'Empresas com o passivo conferido neste mês — clique para conferir') +
-    it('processos:velhos', 'processos conferidos (15 dias)', r.proc_feitos, r.proc_total, 'Processos conferidos nos últimos 15 dias — clique para ver os que faltam');
+  return '<span class="b-faixa-rot">Placar do mês</span>' +
+    it('guias', 'Guias enviadas', r.guias_feitas, r.guias_total, 'Guias do mês (em atraso + vencem neste mês) que já foram enviadas — clique para ver as que faltam') +
+    it('planilha', 'Pagamentos conferidos', r.pag_feitos, r.pag_total, 'Parcelas que já venceram neste mês e estão marcadas como pagas — clique para conferir na Planilha') +
+    it('passivo', 'Passivo conferido', r.passivo_feitos, r.passivo_total, 'Empresas com o passivo conferido neste mês — clique para conferir') +
+    it('processos:velhos', 'Processos conferidos (15 dias)', r.proc_feitos, r.proc_total, 'Processos conferidos nos últimos 15 dias — clique para ver os que faltam');
 }
 let _placarT = 0;
 function atualizarPlacar() {
@@ -8542,7 +8680,7 @@ async function rotinaPassivo(el) {
   const C = {}; (certs || []).forEach((c) => { C[c.cliente_id] = c; });
   const podeCert = certs !== null;
   const SIT = await situacaoRotina('passivo');
-  el.innerHTML = '<div class="card"><div class="card-hd">🏛 Passivo e cadastro das empresas<span class="sub">edite direto na tabela · valores em R$ · as linhas alteradas ficam marcadas até você salvar</span></div>' +
+  el.innerHTML = '<div class="card"><div class="card-hd">🏛 Passivo e cadastro das empresas<span class="sub">Edite na tabela e clique em Salvar</span></div>' +
     '<div class="card-bd">' + filtroRotina('<select class="busca" id="rt-filtro" autocomplete="off">' + [['', 'Todas as empresas'], ['cert', 'Sem certificado'], ['proc', 'Sem procuração'], ['capag', 'Sem CAPAG']]
       .map(([v, r]) => '<option value="' + v + '"' + (v === E.rt.filtro ? ' selected' : '') + '>' + r + '</option>').join('') + '</select>' +
       '<span class="rt-salvar-box"><button type="button" class="btn btn-o" id="rt-hist">🕘 Histórico do passivo</button><span class="sub" id="rt-alt"></span><button type="button" class="btn btn-p" id="rt-salvar" disabled>Salvar alterações</button></span>') +
@@ -8733,7 +8871,9 @@ async function rotinaProcessos(el) {
   if (!Array.isArray(F.conf)) F.conf = [];
   const tribs = [...new Set(P.map((p) => p._trib).filter(Boolean))].sort();
   el.innerHTML = '<div class="card"><div class="card-hd">⚖ Acompanhamento dos processos<span class="sub">confira no tribunal e clique em ✓ na linha: marque “sem novidade” ou registre o que mudou</span>' +
-      '<button type="button" class="btn btn-p btn-mini" id="rt-novo-proc" style="margin-left:auto">+ Processo</button></div>' +
+      '<button type="button" class="btn btn-o btn-mini" id="rt-proc-marcar" style="margin-left:auto" aria-pressed="' + !!(E.rt.fp && E.rt.fp.marcar) + '">' + (E.rt.fp && E.rt.fp.marcar ? 'Fechar marcação' : 'Marcar várias') + '</button>' +
+      '<button type="button" class="btn btn-p btn-mini" id="rt-novo-proc">+ Processo</button></div>' +
+    '<div class="rt-proc-lote" id="rt-proc-lote" hidden><span id="rt-proc-n"></span><button type="button" class="btn btn-p btn-mini" id="rt-proc-sn">✓ Sem novidade nos marcados</button></div>' +
     '<div class="card-bd">' + filtroRotina('') +
     '<div class="rt-segs" id="rt-proc-segs"></div>' +
     '<div class="tabela-wrap rt-proc" data-sem-pagina><table><colgroup><col class="rt-w-pnum"><col class="rt-w-trib"><col class="rt-w-nat"><col class="rt-w-ult"><col class="rt-w-sn"><col class="rt-w-val"><col class="rt-w-conf"></colgroup>' +
@@ -8757,7 +8897,7 @@ async function rotinaProcessos(el) {
     $('rt-proc-corpo').innerHTML = L.length ? L.map((p) => { const g = p.grupos ? p.grupos.nome : 'Sem grupo';
       return (g !== grp ? (grp = g, '<tr class="rt-grp"><td colspan="7">' + esc(g) + ' <span class="sub">' + plural(L.filter((z) => (z.grupos ? z.grupos.nome : 'Sem grupo') === g).length, 'processo', 'processos') + '</span>' +
         '<button type="button" class="btn btn-o btn-mini rt-conf-grp" data-conf-pgrp title="Registra “sem novidade” em todos os processos deste grupo que estão na tela">✓ Conferir o grupo todo (sem alteração)</button></td></tr>') : '') +
-      '<tr data-pid="' + p.id + '"><td><b class="mono">' + esc(p.numero) + '</b><div class="sub">' + esc(p.reu || p.autor || '') + '</div></td>' +
+      '<tr data-pid="' + p.id + '"><td>' + (F.marcar ? '<input type="checkbox" class="rt-pmarca" data-pmarca="' + p.id + '"' + (F.sel && F.sel[p.id] ? ' checked' : '') + ' aria-label="Marcar"> ' : '') + '<b class="mono">' + esc(p.numero) + '</b><div class="sub">' + esc(p.reu || p.autor || '') + '</div></td>' +
       '<td>' + (p._trib ? '<span class="pill neutro">' + esc(p._trib) + '</span>' : '<span class="sub">—</span>') + '</td>' +
       '<td>' + esc(p.natureza || '—') + '</td><td class="rt-mov">' + (p.ultima_movimentacao ? esc(p.ultima_movimentacao) : '<span class="sub">nada registrado</span>') + '</td>' +
       '<td><span class="pill ' + (p.procuracao ? 'pago' : 'vencido') + '">' + (p.procuracao ? 'Sim' : 'Não') + '</span></td>' +
@@ -8776,7 +8916,18 @@ async function rotinaProcessos(el) {
       if (!ids.length) return;
       await q(sb.rpc('conferir_processos_grupo', { p_ids: ids }));
       aviso('✓ ' + plural(ids.length, 'processo conferido', 'processos conferidos') + ' (sem novidade).'); atualizarPlacar(); await rotinaProcessos(el); });
+    const sn = ev.target.closest('[data-sem-nov-p]');
+    if (sn) return comBotao(sn, async () => { await q(sb.rpc('conferir_processos_grupo', { p_ids: [sn.dataset.semNovP] })); aviso('✓ Conferido: sem novidade.'); atualizarPlacar(); await rotinaProcessos(el); });
     const b = ev.target.closest('[data-mov]'); if (b) janelaMovimentacao(b.dataset.mov, () => rotinaProcessos(el), { conferir: true }); };
+  // Backup 80 (M7): "Marcar várias" — caixinhas na linha e "Sem novidade" em todos os marcados de uma vez
+  F.sel = F.sel || {};
+  const loteProc = () => { const n = Object.keys(F.sel).filter((k) => F.sel[k]).length, box = $('rt-proc-lote'); if (!box) return;
+    box.hidden = !F.marcar || !n; $('rt-proc-n').textContent = plural(n, 'processo marcado', 'processos marcados'); };
+  $('rt-proc-corpo').addEventListener('change', (ev) => { const c = ev.target.closest('[data-pmarca]'); if (!c) return; F.sel[c.dataset.pmarca] = c.checked; loteProc(); });
+  $('rt-proc-marcar').onclick = () => { F.marcar = !F.marcar; if (!F.marcar) F.sel = {}; rotinaProcessos(el); };
+  $('rt-proc-sn').onclick = (ev) => comBotao(ev.currentTarget, async () => { const ids = Object.keys(F.sel).filter((k) => F.sel[k]); if (!ids.length) return;
+    await q(sb.rpc('conferir_processos_grupo', { p_ids: ids })); F.sel = {}; aviso('✓ ' + plural(ids.length, 'processo conferido', 'processos conferidos') + ' (sem novidade).'); atualizarPlacar(); await rotinaProcessos(el); });
+  loteProc();
   $('rt-novo-proc').onclick = () => { if (window.ERP_EDITOR && window.ERP_EDITOR.abrirFormulario) window.ERP_EDITOR.abrirFormulario('processos', null, { carteira: 'Ativo', status: 'Em andamento' }); else aviso('Use + Lançar → Processo.', true); };
   ligarFiltroRotina(el, pintar); pintar();
 }
@@ -8785,7 +8936,9 @@ function celulaConfProc(p, m) {
   const sub = [m ? String(m.quem || '').split(' ')[0] : '', m ? (m.tipo === 'sem_novidade' ? 'sem novidade' : 'com alteração') : '', d != null && d > 15 ? 'há ' + d + ' d' : ''].filter(Boolean).join(' · ');
   return '<div class="rt-cf ' + (d == null || d > 30 ? 'rt-cf-nunca' : d > 15 ? 'rt-cf-velho' : 'rt-cf-ok') + '"><span class="rt-cf-txt">' +
     (d == null ? 'nunca conferido' : (m && m.tipo !== 'sem_novidade' ? '✎ alterado ' : '✓ conferido ') + dataBR(p.ultima_movimentacao_em).replace(/\/(\d\d)(\d\d)$/, '/$2')) + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</span>' +
-    '<button type="button" class="btn btn-o btn-mini" data-mov="' + p.id + '" title="Conferi no tribunal: marcar “sem novidade” ou registrar o que mudou">✓</button></div>';
+    // Backup 80 (M7): "Sem novidade" e "Movimentação" direto na linha (antes: um ✓ que abria a janela)
+    '<span class="rt-cf-bts"><button type="button" class="btn btn-o btn-mini" data-sem-nov-p="' + p.id + '" title="Conferi no tribunal e não mudou nada">Sem novidade</button>' +
+    '<button type="button" class="btn btn-o btn-mini" data-mov="' + p.id + '" title="Registrar o que mudou (decisão, valor, procuração…)">Movimentação</button></span></div>';
 }
 // janela "Registrar movimentação" (também no detalhe do processo, em Jurídico → Processos)
 async function janelaMovimentacao(processoId, depois, opc) {
@@ -8890,50 +9043,43 @@ async function rotinaEnviarGuias(el) {
       _valor: x.valor != null && Number(x.valor) > 0 ? Number(x.valor) : Number(p.valor_ultima_parcela) > 0 ? Number(p.valor_ultima_parcela) : ult[p.id] != null ? ult[p.id] : 0 })); });
   const empK = (g) => g.p.empresa || '—';
   // Backup 52 (P2): "↻ Atualizar" no mesmo lugar em todo o ERP — à direita do cabeçalho do quadro
-  el.innerHTML = '<div class="card ep-tela"><div class="card-hd">📨 Guias do mês<span class="sub">vencidas e do mês · marque e gere a notificação de cada empresa</span>' + botaoAtualizar('ep-atu') + '</div><div class="card-bd">' +
-    filtroRotina('') +
-    // Backup 46: o normal é só quem o escritório emite; a exceção (cliente muito atrasado etc.) mostra também quem emite as próprias guias
-    '<div class="ep-topo"><div id="ep-cnt" class="ep-cnt">Nenhum item selecionado.</div>' +
-      '<label class="check ep-excecao" title="Mostra também os parcelamentos em que o próprio cliente emite as guias"><input type="checkbox" id="ep-todos"' + (E.rt.epTodos ? ' checked' : '') + '> Incluir clientes que emitem as próprias guias</label>' +
-      '' +
-      '<button type="button" class="ep-gen-btn" id="ep-gerar" disabled>📨 Gerar Notificação</button></div>' +
-    '<div class="ep-legenda"><span class="ep-leg"><span class="ep-dot ep-dot-v"></span>Vencida</span><span class="ep-leg"><span class="ep-dot ep-dot-m"></span>Vence este mês</span><span class="ep-leg"><span class="ep-dot ep-dot-e"></span>Enviada</span></div>' +
-    '<div id="ep-sel"></div><div id="ep-out" hidden></div></div></div>';
+  // Backup 80 (M3): UMA LINHA POR EMPRESA (como no ambiente de teste) — abas A emitir · Já emitidas · O cliente emite;
+  // "Emitir e mandar" abre o cartão da empresa (texto pronto, anexar os PDFs — o sistema lê valor e vencimento —, rascunho no Gmail ou envio direto).
+  const modo = await modoEnvioGuias().catch(() => ({ parcelamento: 'rascunho' }));
+  if (E.rt.aba !== 'guias' || !el.isConnected) return;
+  el.innerHTML = '<div class="card ep-tela"><div class="card-hd">Guias do mês<span class="sub">Anexe a guia e mande ao cliente</span>' + botaoAtualizar('ep-atu') + '</div><div class="card-bd">' +
+    '<div class="dica ep-modo">Hoje o e-mail vai para o <b>' + (modo.parcelamento === 'direto' ? 'cliente direto' : 'rascunho do Gmail') + '</b> (troque em Administração → E-mail → Como funciona).</div>' +
+    filtroRotina('') + '<div id="ep-sel"></div><div id="ep-out" hidden></div></div></div>';
   const visiveis = () => { const b = normalizar(E.rt.busca), dig = soDigitos(E.rt.busca);
-    return G.filter((g) => !g.pago && (E.rt.epTodos || !g.clienteEmite) && (!E.rt.grupo || g.p.grupo_id === E.rt.grupo) &&
+    return G.filter((g) => !g.pago && (!E.rt.grupo || g.p.grupo_id === E.rt.grupo) &&
       (!b || normalizar([g.p.empresa, g.p.natureza, g.p.local, g.p.numero].join(' ')).includes(b) || (dig.length >= 3 && soDigitos(g.p.cnpj).includes(dig)))); };
-  const contar = () => { const its = G.filter((g) => _epSel.has(g.id)), n = its.length, e = new Set(its.map(empK)).size;
-    $('ep-cnt').innerHTML = n ? '<strong>' + plural(e, 'empresa', 'empresas') + '</strong> · <strong>' + plural(n, 'item selecionado', 'itens selecionados') + '.</strong>' : 'Nenhum item selecionado.';
-    $('ep-gerar').disabled = !n; };
-  const fechadas = new Set();
+  const nomeGrupoP = (id) => ((E.grupos || []).find((x) => x.id === id) || {}).nome || '';
   const pintar = () => {
     const emps = {}; visiveis().forEach((g) => { (emps[empK(g)] = emps[empK(g)] || []).push(g); });
-    const nomes = Object.keys(emps).sort((a, b) => a.localeCompare(b, 'pt-BR'));
-    $('ep-sel').innerHTML = nomes.length ? nomes.map((emp) => { const its = emps[emp];
-      return '<div class="ep-emp"><div class="ep-emp-hd" data-ep-emp-hd="' + esc(emp) + '"><label><input type="checkbox" class="ep-emp-chk" data-ep-emp="' + esc(emp) + '"' + (its.every((g) => _epSel.has(g.id)) ? ' checked' : '') + '>' +
-        '<span class="ep-emp-nome">' + esc(emp) + '</span><span class="ep-emp-meta">' + its.length + ' item' + (its.length !== 1 ? 's' : '') + '</span></label>' +
-        '<span class="ep-emp-arrow" data-ep-seta="' + esc(emp) + '" title="Mostrar/ocultar itens">▾</span></div>' +
-        '<div class="ep-emp-body"' + (fechadas.has(emp) ? ' hidden' : '') + '>' + its.map((g) => '<div class="ep-row' + (g.enviada ? ' ep-re' : g.vencida ? ' ep-rv' : '') + '" data-ep-row="' + g.id + '"><label>' +
-          '<input type="checkbox" class="ep-chk" data-ep="' + g.id + '"' + (_epSel.has(g.id) ? ' checked' : '') + '>' +
-          (g.enviada ? '<span class="ep-tag ep-te">✓ Enviada</span>' : g.vencida ? '<span class="ep-tag ep-tv" data-sit="atraso">⚠︎ Vencida</span>' : '<span class="ep-tag ep-tm" data-sit="' + situacaoDe(g.vencimento, false) + '">📅 ' + (g.vencimento === hojeISO() ? 'Vence hoje' : 'Este mês') + '</span>') +
-          '<span class="ep-row-lbl">' + esc((g.p.natureza || '') + (g.p.local && g.p.local !== g.p.natureza ? ' — ' + g.p.local : '')) + '</span>' + (g.clienteEmite ? '<span class="ep-tag ep-tc" data-sit="cliente" title="Normalmente o próprio cliente emite esta guia">cliente emite</span>' : '') + '</label>' +
-          '<span class="ep-row-venc">Venc. ' + dataBR(g.vencimento) + '</span></div>').join('') + '</div></div>'; }).join('')
-      : '<div class="ep-vazio">✅ Nenhum item vencido ou vencendo neste mês' + (E.rt.grupo || E.rt.busca ? ' com esses filtros' : '') + '.</div>';
-    contar();
+    const linhas = Object.keys(emps).map((emp) => { const its = emps[emp].sort((a, b) => a.vencimento.localeCompare(b.vencimento)), p0 = its[0].p;
+      return { id: emp, emp, its, grupo: nomeGrupoP(p0.grupo_id) || p0.grupo_nome || '', cnpj: p0.cnpj || '', valor: its.reduce((s2, g) => s2 + (g._valor || 0), 0), venc: its[0].vencimento,
+        enviada: its.every((g) => g.enviada), cliente: its.every((g) => g.clienteEmite), emitida: its.map((g) => g.emitida_em).filter(Boolean).sort().pop() || '' }; });
+    const chipG = (g) => '<span class="ep-gchip' + (g.enviada ? ' ep-g-ok' : g.vencida ? ' ep-g-atr' : '') + '" data-ep="' + g.id + '" title="' + esc((g.p.local || '') + (g.p.numero ? ' · nº ' + g.p.numero : '') + ' · venc. ' + dataBR(g.vencimento)) + '">' +
+      esc(g.p.natureza || 'Parcela') + ' ' + esc(String(g.numero || '?')) + (g.p.total_parcelas ? '/' + g.p.total_parcelas : '') + (g.clienteEmite ? ' · cliente emite' : '') + '</span>';
+    tabelaB($('ep-sel'), { id: 'rt-guias', tabCls: 'b-tab-guias', unidade: ['empresa', 'empresas'],
+      abas: [{ id: 'emitir', rot: 'A emitir', f: (r) => !r.cliente && !r.enviada }, { id: 'emitidas', rot: 'Já emitidas', f: (r) => !r.cliente && r.enviada }, { id: 'cliente', rot: 'O cliente emite', f: (r) => r.cliente }],
+      busca: (r) => [r.emp, r.grupo, r.cnpj, r.its.map((g) => g.p.natureza + ' ' + g.p.numero).join(' ')].join(' '), dicaBusca: 'Empresa…', conta: (n) => plural(n, 'empresa', 'empresas'),
+      ord: { k: 'prazo', dir: 1 }, valor: (r) => r.valor, venc: (r) => r.venc,
+      colunas: [{ k: 'grupo', rot: 'Grupo', html: (r) => esc(r.grupo || '—'), ord: (r) => r.grupo },
+        { k: 'emp', rot: 'Empresa', html: (r) => esc(r.emp) + (r.cnpj ? '<small class="b-sub b-doc">' + esc(mascaraDoc(r.cnpj)) + '</small>' : ''), ord: (r) => r.emp },
+        { k: 'guias', rot: 'Guias', html: (r) => '<span class="ep-gchips">' + r.its.map(chipG).join('') + '</span>', ord: false },
+        { k: 'valor', rot: 'Valor', cls: 'b-dir b-val', html: (r) => r.valor ? brl(r.valor) : '—', ord: (r) => r.valor, soma: (r) => r.valor },
+        { k: 'prazo', rot: 'Prazo', cls: 'b-cen b-prazo', html: (r) => celPrazoGuia(r.venc), ord: (r) => r.venc },
+        { k: 'email', rot: 'E-mail', html: (r) => r.emitida ? '<span class="b-pz-b">● ' + (modo.parcelamento === 'direto' ? 'Enviado' : 'No rascunho') + ' ' + esc(dataBR(r.emitida).slice(0, 5)) + '</span>' : '—', ord: (r) => r.emitida },
+        { k: 'acao', rot: '', cls: 'b-dir b-c-acoes', ord: false, html: (r) => '<button type="button" class="btn btn-p btn-mini ep-emitir" data-ep-emitir="' + esc(r.emp) + '">' + (r.enviada ? 'Mandar de novo' : 'Emitir e mandar') + '</button>' }],
+      linhas, chave: (r) => r.emp, linhaCls: (r) => (!r.enviada && r.venc < h ? ' b-tr-venc' : ''),
+      vazio: { titulo: 'Nenhuma guia aqui', frase: 'Nenhuma guia vencida ou do mês' + (E.rt.grupo || E.rt.busca ? ' com esses filtros' : '') + '.' } });
   };
-  $('ep-sel').onclick = (ev) => {
-    const seta = ev.target.closest('[data-ep-seta]'); if (seta) { const k = seta.dataset.epSeta; if (fechadas.has(k)) fechadas.delete(k); else fechadas.add(k); return pintar(); }
-    if (ev.target.closest('input,label')) return;
-    // clicar na linha (fora da caixinha) também marca/desmarca, como no ERP antigo
-    const hd = ev.target.closest('[data-ep-emp-hd]'); if (hd) { const c = hd.querySelector('.ep-emp-chk'); c.checked = !c.checked; c.dispatchEvent(new Event('change', { bubbles: true })); return; }
-    const row = ev.target.closest('[data-ep-row]'); if (row) { const c = row.querySelector('.ep-chk'); c.checked = !c.checked; c.dispatchEvent(new Event('change', { bubbles: true })); }
-  };
-  $('ep-sel').onchange = (ev) => {
-    const c = ev.target.closest('[data-ep]'); if (c) { if (c.checked) _epSel.add(c.dataset.ep); else _epSel.delete(c.dataset.ep); return pintar(); }
-    const ce = ev.target.closest('[data-ep-emp]'); if (ce) { visiveis().filter((g) => empK(g) === ce.dataset.epEmp).forEach((g) => { if (ce.checked) _epSel.add(g.id); else _epSel.delete(g.id); }); pintar(); }
-  };
+  const celPrazoGuia = (v) => { const d = Math.round((new Date(v + 'T00:00:00') - new Date(h + 'T00:00:00')) / 864e5);
+    return d < 0 ? '<span class="b-pz-r">' + (-d) + ' d atraso</span>' : d === 0 ? '<span class="b-pz-r">vence hoje</span>' : '<span class="' + (d <= 5 ? 'b-pz-a' : 'b-pz-b') + '">' + plural(d, 'dia', 'dias') + '</span>'; };
+  $('ep-sel').onclick = (ev) => { const b = ev.target.closest('[data-ep-emitir]'); if (!b) return; ev.stopPropagation();
+    _epSel.clear(); visiveis().filter((g) => empK(g) === b.dataset.epEmitir).forEach((g) => _epSel.add(g.id)); gerar(); };
   $('ep-atu').onclick = (ev) => comBotao(ev.currentTarget, async () => { await dadosRotina(true); atualizarPlacar(); await rotinaEnviarGuias(el); });
-  $('ep-todos').onchange = (ev) => { E.rt.epTodos = ev.target.checked; if (!ev.target.checked) G.filter((g) => g.clienteEmite).forEach((g) => _epSel.delete(g.id)); pintar(); };
   // ── mensagens geradas: um cartão por empresa ──
   const gerar = async () => {
     if (cad) await cad;
@@ -8941,7 +9087,7 @@ async function rotinaEnviarGuias(el) {
     const lista = Object.keys(porEmp).sort((a, b) => a.localeCompare(b, 'pt-BR')).map((emp) => { const its = porEmp[emp], g0 = its[0], cid = clienteDoParcelamento(g0.p), c = E.clientes.find((y) => y.id === cid) || {};
       return { emp, its, cli: cid, grupo: g0.p.grupo_id, tel: c.telefone || '', arquivos: [] }; });
     const out = $('ep-out'); out.hidden = false; $('ep-sel').hidden = true;
-    el.querySelector('.ep-topo').hidden = true; el.querySelector('.ep-legenda').hidden = true; el.querySelector('.rt-filtros').hidden = true;
+    el.querySelector('.rt-filtros').hidden = true; el.querySelector('.ep-modo').hidden = true;
     out.innerHTML = '<div class="ep-out-hd"><div class="ep-out-tit">📨 Mensagens geradas</div><span class="ep-out-ac">' +
         (lista.length > 1 ? '<button type="button" class="btn btn-p btn-mini" id="ep-todos-rasc" title="Salva o rascunho no Gmail de todas as mensagens abaixo, uma por uma">✉ Salvar todos os rascunhos (' + lista.length + ')</button>' : '') +
         '<button type="button" class="btn btn-o btn-mini ep-voltar" id="ep-voltar">← Voltar à seleção</button></span></div>' +
@@ -8956,13 +9102,13 @@ async function rotinaEnviarGuias(el) {
             '<div class="ep-card-sub">' + (wnum ? '<a href="https://wa.me/55' + wnum + '" target="_blank" rel="noopener" class="ep-zap-l">' + esc(e.tel) + '</a>' : '<em class="ep-nada">número não cadastrado</em>') + '</div></div></div>' +
           '<div class="ep-card-body">' + epHtml(textoNotifParcelas(e.emp, e.its)) + '</div><textarea class="ep-card-edit" hidden></textarea>' +
           '<div class="ep-anexos"><label class="ep-anexar"><input type="file" class="ep-arqs" accept=".pdf,image/*" multiple hidden>📎 Anexar guias (PDF)</label><span class="ep-chips"></span>' +
-            '<span class="ep-anx-dica">vão anexadas no rascunho do Gmail</span></div>' +
+            '<span class="ep-anx-dica">' + (modo.parcelamento === 'direto' ? 'vão anexadas no e-mail' : 'vão anexadas no rascunho do Gmail') + ' · o sistema lê o valor e o vencimento do PDF</span></div><div class="ep-pdf-av" hidden></div>' +
           // Backup 53: o "Pagamento" saiu do cartão da notificação (o pagamento se marca na Planilha)
           '<div class="ep-card-acts2">' +
             '<button type="button" class="ep-act ep-a-edit" data-ep-a="edit">✏️ Editar</button>' +
             '<button type="button" class="ep-act ep-a-copy" data-ep-a="copy">📋 Copiar</button>' +
             '<button type="button" class="ep-act ep-a-prev" data-ep-a="prev" title="Ver o e-mail como o cliente vai receber">👁 Prévia</button>' +
-            '<button type="button" class="ep-act ep-a-mail" data-ep-a="mail" title="Salva um rascunho no seu Gmail, já com o e-mail do cliente e as guias anexadas — confira no Gmail e clique em Enviar">✉ Enviar e-mail</button>' +
+            '<button type="button" class="ep-act ep-a-mail" data-ep-a="mail" title="' + (modo.parcelamento === 'direto' ? 'Envia agora ao cliente, com as guias anexadas' : 'Salva um rascunho no seu Gmail, já com o e-mail do cliente e as guias anexadas — confira no Gmail e clique em Enviar') + '">✉ Enviar e-mail</button>' +
             '<button type="button" class="ep-act ep-a-wpp2" data-ep-a="zap"' + (wnum ? '' : ' disabled') + '>💬 Enviar WhatsApp</button>' +
             '<button type="button" class="ep-act ep-a-sent" data-ep-a="sent"' + (env ? ' disabled' : '') + '>' + (env ? '✓ Enviado' : '✉ Marcar enviado') + '</button></div></div>'; }).join('') + '</div>';
     const pendencias = () => { const box = $('ep-pend'); if (!box) return; const P = [];
@@ -8984,15 +9130,25 @@ async function rotinaEnviarGuias(el) {
       const arqs = []; for (const f of e.arquivos) arqs.push(await lerArquivoB64(f));
       b.textContent = '⏳ Salvando rascunho…'; b.disabled = true;
       try {
-        const r = await q(sb.rpc('rascunho_email_texto', { p_cliente: e.cli || null, p_para: para, p_assunto: 'Guias de Parcelamento — ' + e.emp, p_texto: epTextoAtual(card), p_arquivos: arqs }));
-        const s2 = await salvarRascunhoAgora(r.ref);
-        if (!s2.ok) return { ok: false, msg: e.emp + ': ' + s2.msg };
         valores(card, e);
+        if (modo.parcelamento === 'direto') {   // Backup 80 (M5): envio direto ao cliente (escolhido em Administração → E-mail → Como funciona)
+          if (!para) return { ok: false, msg: e.emp + ': digite o e-mail do cliente no campo "Para".' };
+          const r = await q(sb.rpc('enviar_guias_email', { p_cliente: e.cli || null, p_grupo: e.grupo || null,
+            p_itens: e.its.map((g) => ({ tabela: 'parcelas', id: g.id, descricao: 'Parcela ' + (g.numero || '?') + ' — ' + (g.p.natureza || 'parcelamento') + (g.p.numero ? ' nº ' + g.p.numero : ''), vencimento: g.vencimento, valor: g._valor || null })),
+            p_assunto: 'Guias de Parcelamento — ' + e.emp, p_texto: epTextoAtual(card), p_docs: [], p_para: para, p_arquivos: arqs }));
+          if (r && r.status === 'erro') return { ok: false, msg: e.emp + ': ' + explicarErroEmail(r.erro || 'não saiu') };
+          if (r && r.ref) { const ee = await enviarEmailAgora(r.ref, para).catch(() => null); if (ee && !ee.ok) return { ok: false, msg: e.emp + ': ' + ee.msg }; }
+        } else {
+          const r = await q(sb.rpc('rascunho_email_texto', { p_cliente: e.cli || null, p_para: para, p_assunto: 'Guias de Parcelamento — ' + e.emp, p_texto: epTextoAtual(card), p_arquivos: arqs }));
+          const s2 = await salvarRascunhoAgora(r.ref);
+          if (!s2.ok) return { ok: false, msg: e.emp + ': ' + s2.msg };
+        }
         for (const g of e.its) { await q(sb.rpc('registrar_emissao', { p_tabela: 'parcelas', p_id: g.id, p_emitida: true, p_doc: null, p_enviar: false }));
           if (g._valor > 0) await q(sb.rpc('lancar_valor_parcela', { p_id: g.id, p_valor: g._valor })).catch(() => null);
           g.enviada = true; g.emitida_em = g.emitida_em || hojeISO(); g.emissao = 'SIM'; _epSel.delete(g.id); }
         if (window.ERP_EDITOR && window.ERP_EDITOR.marcarSujo) e.its.forEach((g) => window.ERP_EDITOR.marcarSujo('parcelas', g.parcelamento_id)); atualizarPlacar();
         card.classList.add('ep-feito'); const sb2 = card.querySelector('[data-ep-a=sent]'); if (sb2) { sb2.disabled = true; sb2.textContent = '✓ Enviado'; }
+        if (modo.parcelamento === 'direto') return { ok: true, msg: '✓ E-mail enviado para ' + para + (arqs.length ? ' com ' + plural(arqs.length, 'anexo', 'anexos') : '') + ' — guia marcada como emitida.' };
         return { ok: true, msg: '✓ Rascunho criado no Gmail' + (para ? ' para ' + para : ' (sem destinatário cadastrado)') + (arqs.length ? ' com ' + plural(arqs.length, 'anexo', 'anexos') : '') + ' — guia marcada como emitida. Abra o Gmail → Rascunhos, confira e envie.' };
       } catch (err) { return { ok: false, msg: e.emp + ': ' + erroAmigavel(err) }; }
       finally { b.textContent = card.classList.contains('ep-feito') ? '✓ Rascunho salvo' : '✉ Enviar e-mail'; b.disabled = card.classList.contains('ep-feito'); }
@@ -9000,7 +9156,23 @@ async function rotinaEnviarGuias(el) {
     const valores = (card, e) => { const ins = [...card.querySelectorAll('.ep-card-body .ep-val')];
       if (ins.length === e.its.length) ins.forEach((i, n) => { const v = lerValor(i.value); e.its[n]._valor = isNaN(v) ? 0 : v; }); };
     out.onchange = (ev) => { const a = ev.target.closest('.ep-arqs'); if (!a) return; const card = a.closest('.ep-card'), e = lista[+card.dataset.k];
-      e.arquivos = e.arquivos.concat([...a.files]); a.value = ''; chips(card, e); pendencias(); };
+      const novos = [...a.files]; e.arquivos = e.arquivos.concat(novos); a.value = ''; chips(card, e); pendencias(); lerPdfs(card, e, novos); };
+    // Backup 80 (M4): o valor novo da guia vem do PDF — acha a parcela pelo vencimento (ou a próxima sem PDF), troca o valor no texto e avisa
+    const lerPdfs = async (card, e, arquivos) => {
+      e.lidos = e.lidos || {};
+      const ins = [...card.querySelectorAll('.ep-card-body .ep-val')], av = [];
+      for (const f of arquivos) {
+        const pdf = await lerPdfGuia(f).catch(() => null); if (!pdf || (!pdf.valor && !pdf.venc)) { av.push('<li>' + esc(f.name) + ': não achei valor nem vencimento no PDF — confira à mão.</li>'); continue; }
+        let n = e.its.findIndex((g) => !e.lidos[g.id] && pdf.venc && g.vencimento === pdf.venc); if (n < 0) n = e.its.findIndex((g) => !e.lidos[g.id]); if (n < 0) continue;
+        const g = e.its[n]; e.lidos[g.id] = pdf;
+        if (pdf.valor && Math.abs(pdf.valor - (g._valor || 0)) >= 0.01) {
+          if (ins[n]) ins[n].value = valorParaCampo(pdf.valor);
+          av.push('<li>Parcela ' + esc(String(g.numero || '?')) + ' (' + esc(g.p.natureza || '') + '): o PDF traz <b>' + brl(pdf.valor) + '</b>' + (g._valor ? ' (era ' + brl(g._valor) + ')' : '') + ' — o valor novo vai para a parcela.</li>');
+        } else av.push('<li>Parcela ' + esc(String(g.numero || '?')) + ': PDF conferido' + (pdf.valor ? ' (' + brl(pdf.valor) + ')' : '') + '.</li>');
+        if (pdf.venc && pdf.venc !== g.vencimento) av.push('<li>Parcela ' + esc(String(g.numero || '?')) + ': o PDF vence em <b>' + dataBR(pdf.venc) + '</b> (a parcela diz ' + dataBR(g.vencimento) + ').</li>');
+      }
+      const box = card.querySelector('.ep-pdf-av'); if (box && av.length) { box.hidden = false; box.innerHTML = '<b>Lido dos PDFs</b><ul>' + av.join('') + '</ul>'; }
+    };
     out.addEventListener('focusout', (ev) => { const i = ev.target.closest('.ep-val'); if (!i || !i.value.trim()) return; const v = lerValor(i.value); i.value = isNaN(v) ? '' : valorParaCampo(v); });
     out.onclick = (ev) => {
       if (ev.target.closest('#ep-todos-rasc')) return comBotao(ev.target.closest('#ep-todos-rasc'), async () => {
@@ -9009,7 +9181,7 @@ async function rotinaEnviarGuias(el) {
         pendencias();
         if (falhas.length) aviso('⚠ ' + plural(ok, 'rascunho salvo', 'rascunhos salvos') + '; ' + plural(falhas.length, 'falhou', 'falharam') + ': ' + falhas.join(' · '), true);
         else aviso('✓ ' + plural(ok, 'rascunho salvo', 'rascunhos salvos') + ' no Gmail e as guias marcadas como emitidas. Abra o Gmail → Rascunhos.'); });
-      if (ev.target.closest('#ep-voltar')) { out.hidden = true; $('ep-sel').hidden = false; el.querySelector('.ep-topo').hidden = false; el.querySelector('.ep-legenda').hidden = false; el.querySelector('.rt-filtros').hidden = false; return pintar(); }
+      if (ev.target.closest('#ep-voltar')) { out.hidden = true; $('ep-sel').hidden = false; el.querySelector('.ep-modo').hidden = false; el.querySelector('.rt-filtros').hidden = false; return pintar(); }
       const card = ev.target.closest('.ep-card'); if (!card) return; const e = lista[+card.dataset.k];
       const pg = ev.target.closest('[data-ep-pago]');
       if (pg) { const g = e.its.find((y) => y.id === pg.dataset.epPago); if (!g || g.pago) return;
@@ -9035,7 +9207,6 @@ async function rotinaEnviarGuias(el) {
       if (a === 'mail') return comBotao(b, async () => { const r = await salvarCard(card, e); if (!r.ok) throw new Error(r.msg); aviso(r.msg); });
     };
   };
-  $('ep-gerar').onclick = gerar;
   ligarFiltroRotina(el, pintar); pintar();
   // a lista de grupos do filtro completa quando os cadastros chegam
   if (cad) cad.then(() => { const sel = el.querySelector('#rt-grupo'); if (sel && sel.options.length <= 1) sel.innerHTML = '<option value="">Todos os grupos</option>' +
@@ -9043,6 +9214,26 @@ async function rotinaEnviarGuias(el) {
   // Backup 51 (R3): veio da Planilha (clique na parcela) → abre direto o cartão de envio daquela guia
   if (E.rt.epAbrir) { const id = E.rt.epAbrir; E.rt.epAbrir = null;
     if (G.some((g) => g.id === id)) { _epSel.clear(); _epSel.add(id); gerar(); } }
+}
+
+// ═══ Backup 80 (M16): ROTINA DO MÊS AUTOMÁTICA — três tarefas que se repetem sozinhas (dia útil 1, 5 e 10 de cada mês), uma vez só por título ═══
+const ROTINA_MES = [[1, 'Rotina do mês: conferir os pagamentos das parcelas'], [5, 'Rotina do mês: pedir os documentos aos clientes'], [10, 'Rotina do mês: emitir e mandar as guias do mês']];
+async function janelaRotinaMes(depois) {
+  await feriados().catch(() => null); await equipe().catch(() => null);
+  const ja = await q(sb.from('tarefas').select('titulo').in('titulo', ROTINA_MES.map((x) => x[1])).not('status', 'in', '(concluida,cancelada)')).catch(() => []);
+  const tem = new Set(ja.map((t) => t.titulo)), eu = (E.perfil && E.perfil.nome) || '';
+  const j = abrirJanela({ kick: 'Rotina', titulo: 'Rotina do mês automática', sub: 'Tarefas que voltam sozinhas todo mês (no próximo dia útil, se cair em feriado ou fim de semana)',
+    corpo: ROTINA_MES.map(([d, t], i) => '<label class="check rt-rm-l"><input type="checkbox" data-rm="' + i + '"' + (tem.has(t) ? ' disabled' : ' checked') + '> Dia ' + d + ' — ' + esc(t.replace('Rotina do mês: ', '')) + (tem.has(t) ? ' <span class="sub">(já existe)</span>' : '') + '</label>').join('') +
+      '<label class="campo" style="margin-top:12px"><span>Quem faz</span><select id="rt-rm-resp">' + pessoasEscritorio(eu).map((n) => '<option' + (primeiroNome(n) === primeiroNome(eu) ? ' selected' : '') + '>' + esc(n) + '</option>').join('') + '</select></label>',
+    rodape: '<span></span><div class="acoes"><button type="button" class="btn btn-p" id="rt-rm-ok">Criar</button></div>' });
+  j.querySelector('#rt-rm-ok').onclick = (ev) => comBotao(ev.currentTarget, async () => {
+    const resp = j.querySelector('#rt-rm-resp').value, h = hojeISO(), novos = [];
+    j.querySelectorAll('[data-rm]:checked:not(:disabled)').forEach((c) => { const [dia, titulo] = ROTINA_MES[+c.dataset.rm];
+      const regra = { tipo: 'mensal', modo: 'dia', dia, inicio: h, util: true };
+      novos.push({ titulo, responsavel: resp, prioridade: 'media', status: 'pendente', recorrencia: 'regra', recorrencia_regra: regra, prazo: proximasDatas(regra, somarDias(h, -1), 1, E._feriados)[0] || null }); });
+    if (!novos.length) return fecharJanela(j);
+    await q(sb.from('tarefas').insert(novos));
+    aviso('✓ ' + plural(novos.length, 'tarefa da rotina criada', 'tarefas da rotina criadas') + ' — voltam sozinhas todo mês.'); fecharJanela(j); if (depois) await depois(); });
 }
 
 // ── Backup 51 (V4): "Pago" e "Emitida" na hora — a tela muda no clique, o banco grava por trás; erro → a tela volta e o motivo aparece ──
@@ -9175,7 +9366,7 @@ async function rotinaPlanilha(el) {
     const porEmp = []; L.forEach((p) => { const u = porEmp[porEmp.length - 1]; if (u && u.nome === (p.empresa || '—')) u.ps.push(p); else porEmp.push({ nome: p.empresa || '—', ps: [p] }); });
     const nE = L.reduce((s2, p) => s2 + aEmitir(p).length, 0);
     // Backup 73: como no ambiente de teste — grupos em pílulas e os cartões em grade (sem rolar para o lado)
-    el.innerHTML = '<div class="card pl-card pl-b73"><div class="card-hd">Planilha de parcelamentos<span class="sub">clique em Emissão ou Pagamento para marcar · o envio das guias é na aba “Guias do mês”</span>' + botaoAtualizar('pl-atu') + '</div>' +
+    el.innerHTML = '<div class="card pl-card pl-b73"><div class="card-hd">Planilha de parcelamentos<span class="sub">Clique em Emissão ou Pagamento para marcar</span>' + botaoAtualizar('pl-atu') + '</div>' +
       '<div class="card-bd"><div class="pl-abas" role="tablist">' + grupos.map((g) => { const n = nGrupo(g);
         return '<button type="button" role="tab" class="pl-aba' + (g === E.rt.plGrupo ? ' ativo' : '') + '" data-pl-g="' + esc(g) + '">' + esc(g) + (n ? ' <span class="pl-n" title="Guias a emitir">' + n + '</span>' : '') + '</button>'; }).join('') + '</div>' +
       '<div class="pl-barra"><span class="sub">' + plural(L.length, 'parcelamento', 'parcelamentos') + ' em <b>' + esc(E.rt.plGrupo || '—') + '</b> · ' + (nE ? plural(nE, 'guia a emitir', 'guias a emitir') + ' (em atraso + vencem neste mês)' : 'nenhuma guia a emitir agora') + '</span>' +
@@ -9260,8 +9451,8 @@ async function rotinaTarefas(el) {
       : '<button type="button" class="b-bt-baixa" data-rt-concluir="' + t.id + '">' + (t.exige_revisao ? 'Concluir e enviar' : 'Concluir') + '</button>');
   E.rt.tfAba = E.rt.tfAba || (sec.find((x) => x[2].length) ? ['rec', 'val', 'uni', 'eu'][sec.findIndex((x) => x[2].length)] : 'rec');
   el.innerHTML = cabecalhoSecao() + '<div id="rt-tf"></div>';
-  function cabecalhoSecao() { return '<div class="b-sec"><div><h2>Minhas tarefas</h2><p>Recorrentes voltam sozinhas; com validação vão para quem valida.</p></div>' +
-    '<div class="b-chips"><button type="button" class="btn btn-o btn-mini" id="rt-nova-rec">+ Tarefa recorrente</button><button type="button" class="btn btn-p btn-mini" id="rt-nova-t">+ Tarefa</button></div></div>'; }
+  function cabecalhoSecao() { return '<div class="b-sec"><div><h2>Minhas tarefas</h2><p>As suas tarefas, por tipo</p></div>' +
+    '<div class="b-chips"><button type="button" class="btn btn-o btn-mini" id="rt-rot-mes" title="Cria as tarefas que se repetem todo mês: dia 1 conferir pagamentos, dia 5 pedir documentos, dia 10 emitir guias">Rotina do mês</button><button type="button" class="btn btn-o btn-mini" id="rt-nova-rec">+ Tarefa recorrente</button><button type="button" class="btn btn-p btn-mini" id="rt-nova-t">+ Tarefa</button></div></div>'; }
   const box = $('rt-tf');
   tabelaB(box, { id: 'rt-tarefas', linhas, chave: (t) => String(t.id) + (t._feita ? ':f' : ''), unidade: ['tarefa', 'tarefas'], dicaBusca: 'Tarefa ou cliente…', abaPadrao: E.rt.tfAba,
     abas: [{ id: 'rec', rot: 'Recorrentes', f: (t) => t._sec === 0 }, { id: 'val', rot: 'Com validação', f: (t) => t._sec === 1 }, { id: 'uni', rot: 'Únicas', f: (t) => t._sec === 2 }, { id: 'eu', rot: 'Para eu validar', f: (t) => t._sec === 3 }],
@@ -9276,6 +9467,7 @@ async function rotinaTarefas(el) {
     clique: (t) => abrirTarefa(t.id, rep), vazio: { titulo: 'Nada aqui', frase: 'Nenhuma tarefa nesta aba.' } });
   const rep = () => rotinaTarefas(el);
   $('rt-nova-t').onclick = () => formTarefa({}, rep);
+  $('rt-rot-mes').onclick = () => janelaRotinaMes(rep);
   $('rt-nova-rec').onclick = () => formTarefa({ recorrencia_regra: { tipo: 'mensal', modo: 'dia', dia: Number(hojeISO().slice(8)), inicio: hojeISO() }, responsavel: (E.perfil && E.perfil.nome) || '' }, rep);
   box.addEventListener('click', (ev) => {
     const ab = ev.target.closest('[data-b-aba]'); if (ab) E.rt.tfAba = ab.dataset.bAba;
@@ -9314,7 +9506,7 @@ TELAS.execucoes = async function () {
   await carregarCadastros();
   E.ex = E.ex || { sit: 'abertas', busca: '' };
   const F = E.ex, podeEd = pode('juridico', 'editar');
-  $('conteudo').innerHTML = '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('execucao') + '</div><div class="b-cab-tx"><h1>Execuções</h1><p>Cobranças ajuizadas: o processo, o que o cliente já recebeu e os honorários do escritório (% do recebido)</p></div>' +
+  $('conteudo').innerHTML = '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('execucao') + '</div><div class="b-cab-tx"><h1>Execuções</h1><p>Cobranças na Justiça e o que já entrou</p></div>' +
     '<div class="acoes">' + botaoAtualizar('ex-atu', 'Busca de novo') + (podeEd ? '<button class="btn btn-p" id="ex-nova">+ Nova execução</button>' : '') + '</div></div>' +
     '<div id="ex-kpis"></div><div class="filtros"><div class="segmento" id="ex-sit">' + [['abertas', 'Em andamento'], ['encerrada', 'Encerradas'], ['todas', 'Todas']]
       .map(([v, r]) => '<button type="button" data-v="' + v + '"' + (F.sit === v ? ' class="ativo"' : '') + '>' + r + '</button>').join('') + '</div>' +
@@ -9628,7 +9820,7 @@ TELAS.parcelamentos.semCadastros = true;   // os dados vêm do ERP (DB.parcelame
 function pintarParcelamentos() {
   const el = $('conteudo'); if (!el) return;
   const PA0 = E.pc.PA || [], F = E.pc.f || {}, PA = paFiltrados(), T = [].concat(...PA.map((pa) => pa.parcelas)), h = hojeISO(), podeEd = pode('juridico', 'editar');
-  el.innerHTML = cabecalhoTela({ icone: 'camadas', titulo: 'Parcelamentos', frase: 'Parcelas dos clientes no e-CAC, Regularize e SIARE, por vencimento', atualizar: 'pc-atualizar', botao: podeEd ? { id: 'pc-novo', rotulo: 'Novo parcelamento' } : null }) +
+  el.innerHTML = cabecalhoTela({ icone: 'camadas', titulo: 'Parcelamentos', frase: 'Parcelas dos clientes, por vencimento', atualizar: 'pc-atualizar', botao: podeEd ? { id: 'pc-novo', rotulo: 'Novo parcelamento' } : null }) +
     // Backup 79: filtro suspenso (Grupo / Empresa) — recorta a situação por cliente e a lista de parcelas
     filtroSusB('pc-filtro', [{ k: 'grupo', rot: 'Grupo', todos: 'Todos os grupos', opcoes: unicosTxt(PA0.map((pa) => pa.grupo)), v: F.grupo },
       { k: 'emp', rot: 'Empresa', todos: 'Todas as empresas', opcoes: unicosTxt(PA0.filter((pa) => !F.grupo || pa.grupo === F.grupo).map((pa) => pa.empresa)), v: F.emp }]) +
@@ -9895,7 +10087,7 @@ function pintarAcordos() {
   const el = $('conteudo'); if (!el) return;
   const T0 = E.ac.T || [], F = E.ac.f || {}, T = T0.filter((x) => (!F.grupo || x.grupo === F.grupo) && (!F.emp || x.devedor === F.emp)), h = hojeISO(), podeEd = pode('juridico', 'editar');
   E.ac.Af = acordosDe(T);
-  el.innerHTML = cabecalhoTela({ icone: 'documento', titulo: 'Acordos', frase: 'Dívidas dos clientes com terceiros (não entram no Financeiro)', atualizar: 'ac-atualizar', botao: podeEd ? { id: 'ac-novo', rotulo: 'Novo acordo' } : null }) +
+  el.innerHTML = cabecalhoTela({ icone: 'documento', titulo: 'Acordos', frase: 'Dívidas dos clientes com terceiros', atualizar: 'ac-atualizar', botao: podeEd ? { id: 'ac-novo', rotulo: 'Novo acordo' } : null }) +
     filtroSusB('ac-filtro', [{ k: 'grupo', rot: 'Grupo', todos: 'Todos os grupos', opcoes: unicosTxt(T0.map((x) => x.grupo)), v: F.grupo },   // Backup 79
       { k: 'emp', rot: 'Devedor', todos: 'Todos os devedores', opcoes: unicosTxt(T0.filter((x) => !F.grupo || x.grupo === F.grupo).map((x) => x.devedor)), v: F.emp }]) +
     '<div class="b-sec"><div><h2>Situação dos acordos por cliente</h2><p>Quanto cada grupo já pagou, quanto falta e o que vence este mês.</p></div><div class="b-chips" id="ac-chips">' +
@@ -10093,7 +10285,7 @@ TELAS.painelExec = async function () {
   const grupos = unicosB(base.map((r) => r.grupo)), emps = unicosB(base.filter((r) => !P.grupo || r.grupo === P.grupo).map((r) => r.nome));
   if (P.empresa && !emps.includes(P.empresa)) P.empresa = '';
   const N = numerosPainel(D, P), t = (v) => '<span title="' + esc(brl(v)) + '">' + esc(brlCurto(v)) + '</span>';
-  c.innerHTML = cabecalhoTela({ icone: 'pizza', titulo: 'Painel executivo', frase: 'Passivo tributário dos clientes, parcelamentos, acordos e processos — num lugar só.' }) +
+  c.innerHTML = cabecalhoTela({ icone: 'pizza', titulo: 'Painel Executivo', frase: 'Passivo dos clientes e onde ele está' }) +
     '<div class="b-fin-topo b-pe-topo"><select id="pe-grupo" aria-label="Grupo"><option value="">Todos os grupos</option>' + grupos.map((g) => '<option' + (P.grupo === g ? ' selected' : '') + '>' + esc(g) + '</option>').join('') + '</select>' +
       '<select id="pe-emp" aria-label="Empresa"><option value="">Todas as empresas</option>' + emps.map((e) => '<option' + (P.empresa === e ? ' selected' : '') + '>' + esc(e) + '</option>').join('') + '</select>' +
       '<span class="b-pe-conta">' + plural(N.data.length, 'entidade', 'entidades') + ' · ' + plural(unicosB(N.data.map((r) => r.grupo)).length, 'grupo', 'grupos') + '</span></div>' +
@@ -10175,7 +10367,7 @@ TELAS.processosERP = async function () {
   // Backup 79: filtro suspenso (Grupo / Competência) — recorta o Resumo da carteira e a lista
   const F = E.prF, L0 = D.processos, L = L0.filter((p) => (!F.grupo || p.grupo === F.grupo) && (!F.comp || p.competencia === F.comp)), P = L.filter((p) => p.carteira !== 'Prospecção');
   const podeEd = pode('juridico', 'editar');
-  c.innerHTML = cabecalhoTela({ icone: 'documento', titulo: 'Processos', frase: 'Carteira judicial dos clientes: andamento, valores e movimentações.', botao: podeEd ? { id: 'pr-novo', rotulo: 'Processo' } : null }) +
+  c.innerHTML = cabecalhoTela({ icone: 'documento', titulo: 'Processos', frase: 'Processos dos clientes', botao: podeEd ? { id: 'pr-novo', rotulo: 'Processo' } : null }) +
     filtroSusB('pr-filtro', [{ k: 'grupo', rot: 'Grupo', todos: 'Todos os grupos', opcoes: unicosTxt(L0.map((p) => p.grupo)), v: F.grupo },
       { k: 'comp', rot: 'Competência', todos: 'Todas as competências', opcoes: unicosTxt(L0.filter((p) => !F.grupo || p.grupo === F.grupo).map((p) => p.competencia)), v: F.comp }]) +
     '<section class="b-fin-cartao b-pr-res' + (E.prRes.aberto ? ' b-aberto' : '') + '" id="pr-res"><button type="button" class="b-pr-res-hd" id="pr-res-bt" aria-expanded="' + E.prRes.aberto + '"><span class="b-seta" aria-hidden="true">▸</span><h3>Resumo da carteira</h3><span class="b-sub">' +
@@ -10280,6 +10472,13 @@ async function indiceBusca() {
       ir: async () => { const T = await dadosAcordos(); E.ac = E.ac || { grupo: '', chip: 'todos' }; E.ac.T = T; E.ac.A = acordosDe(T); const ac = E.ac.A.find((x) => x.k === k); if (ac) janelaAcordo(ac); else irParaTela('acordos'); } }); });
   if (!ehClienteGS()) (D.tarefas || []).filter((t) => !/conclu|cancel|exclu/i.test(t.status || '')).forEach((t) => I.push({ tipo: 'Tarefa', tit: t.titulo, sub: [t.responsavel, t.prazo ? 'prazo ' + dataBR(t.prazo) : '', t.grupo].filter(Boolean).join(' · '),
     txt: [t.titulo, t.responsavel, t.grupo].join(' '), ir: () => abrirTarefa(t.id) }));
+  // Backup 80 (M15): ações — "Nova tarefa", "Emitir as guias do mês", "+ Lançar …" e "Ir para <tela>"
+  if (!ehClienteGS()) {
+    const ac = [{ rot: 'Emitir as guias do mês', fn: () => { E.rt = Object.assign(E.rt || {}, { aba: 'guias' }); irParaTela('rotina'); } },
+      { rot: 'Nova tarefa', fn: async () => { await carregarCadastros(); formTarefa({}, () => {}); } }];
+    (typeof window.ERP_ACOES_BUSCA === 'function' ? window.ERP_ACOES_BUSCA() : []).forEach((x) => ac.push({ rot: x.tela ? x.rot : 'Lançar ' + x.rot.charAt(0).toLowerCase() + x.rot.slice(1), fn: x.fn, tela: x.tela }));
+    ac.forEach((x) => I.push({ tipo: x.tela ? 'Tela' : 'Ação', tit: x.rot, sub: '', txt: x.rot + (x.tela ? '' : ' novo nova criar lançar'), ir: x.fn, acao: 1 }));
+  }
   I.forEach((x) => { x.n = normalizar(x.txt); x.nt = normalizar(x.tit); });
   return I;
 }
@@ -10287,7 +10486,7 @@ const ehClienteGS = () => !!(window.AC_SESSION && window.AC_SESSION.nivel === 'c
 
 async function abrirBuscaGeral() {
   if (document.getElementById('bg-in')) { document.getElementById('bg-in').focus(); return; }
-  const j = abrirJanela({ titulo: 'Buscar', kick: 'Busca geral', sub: 'Nome, CPF/CNPJ, nº do processo ou do parcelamento · Enter abre', larga: true,
+  const j = abrirJanela({ titulo: 'Buscar', kick: 'Busca geral', sub: 'Nome, CPF/CNPJ, nº do processo ou do parcelamento — ou uma ação ("nova tarefa", "guias") · Enter abre', larga: true,
     corpo: '<label class="b-busca b-bg-campo">' + iconeB('busca') + '<input id="bg-in" placeholder="Digite para buscar…" autocomplete="off" aria-label="Buscar"></label><div id="bg-res" class="bg-res" role="listbox"></div>' });
   const inp = j.querySelector('#bg-in'), res = j.querySelector('#bg-res');
   res.innerHTML = '<p class="b-barras-vazio">Carregando…</p>';
@@ -10298,7 +10497,7 @@ async function abrirBuscaGeral() {
     if (q0.length < 2 && qd.length < 3) { lista = []; res.innerHTML = '<p class="b-barras-vazio">Digite ao menos 2 letras (ou 3 números de um CPF/CNPJ/processo).</p>'; return; }
     const termos = q0.split(/\s+/).filter(Boolean);
     lista = I.filter((x) => termos.every((t) => x.n.includes(t)) || (qd.length >= 3 && x.n.includes(qd)))
-      .map((x) => ({ x, p: (x.nt.startsWith(q0) ? 0 : x.nt.includes(q0) ? 1 : 2) }))
+      .map((x) => ({ x, p: (x.nt.startsWith(q0) ? 0 : x.nt.includes(q0) ? 1 : 2) + (x.acao && !x.nt.includes(q0) ? 1 : 0) }))
       .sort((a, b) => a.p - b.p || a.x.tit.localeCompare(b.x.tit, 'pt-BR')).slice(0, 40).map((y) => y.x);
     sel = Math.min(sel, Math.max(0, lista.length - 1));
     res.innerHTML = lista.length ? lista.map((x, i) => '<button type="button" class="bg-it' + (i === sel ? ' bg-sel' : '') + '" data-bg="' + i + '" role="option" aria-selected="' + (i === sel) + '"><span class="bg-tipo">' + esc(x.tipo) + '</span>' +

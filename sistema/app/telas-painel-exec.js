@@ -50,7 +50,7 @@ TELAS.painelExec = async function () {
   const grupos = unicosB(base.map((r) => r.grupo)), emps = unicosB(base.filter((r) => !P.grupo || r.grupo === P.grupo).map((r) => r.nome));
   if (P.empresa && !emps.includes(P.empresa)) P.empresa = '';
   const N = numerosPainel(D, P), t = (v) => '<span title="' + esc(brl(v)) + '">' + esc(brlCurto(v)) + '</span>';
-  c.innerHTML = cabecalhoTela({ icone: 'pizza', titulo: 'Painel executivo', frase: 'Passivo tributário dos clientes, parcelamentos, acordos e processos — num lugar só.' }) +
+  c.innerHTML = cabecalhoTela({ icone: 'pizza', titulo: 'Painel Executivo', frase: 'Passivo dos clientes e onde ele está' }) +
     '<div class="b-fin-topo b-pe-topo"><select id="pe-grupo" aria-label="Grupo"><option value="">Todos os grupos</option>' + grupos.map((g) => '<option' + (P.grupo === g ? ' selected' : '') + '>' + esc(g) + '</option>').join('') + '</select>' +
       '<select id="pe-emp" aria-label="Empresa"><option value="">Todas as empresas</option>' + emps.map((e) => '<option' + (P.empresa === e ? ' selected' : '') + '>' + esc(e) + '</option>').join('') + '</select>' +
       '<span class="b-pe-conta">' + plural(N.data.length, 'entidade', 'entidades') + ' · ' + plural(unicosB(N.data.map((r) => r.grupo)).length, 'grupo', 'grupos') + '</span></div>' +
@@ -132,7 +132,7 @@ TELAS.processosERP = async function () {
   // Backup 79: filtro suspenso (Grupo / Competência) — recorta o Resumo da carteira e a lista
   const F = E.prF, L0 = D.processos, L = L0.filter((p) => (!F.grupo || p.grupo === F.grupo) && (!F.comp || p.competencia === F.comp)), P = L.filter((p) => p.carteira !== 'Prospecção');
   const podeEd = pode('juridico', 'editar');
-  c.innerHTML = cabecalhoTela({ icone: 'documento', titulo: 'Processos', frase: 'Carteira judicial dos clientes: andamento, valores e movimentações.', botao: podeEd ? { id: 'pr-novo', rotulo: 'Processo' } : null }) +
+  c.innerHTML = cabecalhoTela({ icone: 'documento', titulo: 'Processos', frase: 'Processos dos clientes', botao: podeEd ? { id: 'pr-novo', rotulo: 'Processo' } : null }) +
     filtroSusB('pr-filtro', [{ k: 'grupo', rot: 'Grupo', todos: 'Todos os grupos', opcoes: unicosTxt(L0.map((p) => p.grupo)), v: F.grupo },
       { k: 'comp', rot: 'Competência', todos: 'Todas as competências', opcoes: unicosTxt(L0.filter((p) => !F.grupo || p.grupo === F.grupo).map((p) => p.competencia)), v: F.comp }]) +
     '<section class="b-fin-cartao b-pr-res' + (E.prRes.aberto ? ' b-aberto' : '') + '" id="pr-res"><button type="button" class="b-pr-res-hd" id="pr-res-bt" aria-expanded="' + E.prRes.aberto + '"><span class="b-seta" aria-hidden="true">▸</span><h3>Resumo da carteira</h3><span class="b-sub">' +

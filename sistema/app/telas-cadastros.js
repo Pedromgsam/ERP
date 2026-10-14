@@ -99,7 +99,7 @@ function pintarClientes() {
   const gn = (c) => (c.grupos ? c.grupos.nome : '') || '';
   if (porGrupo) lista.sort((a, x) => (gn(a) || '\uffff').localeCompare(gn(x) || '\uffff', 'pt-BR') || String(a.nome).localeCompare(String(x.nome), 'pt-BR'));
   C.ultima = lista;
-  $('cli-conta').textContent = lista.length + ' de ' + E.clientes.length + ' cadastro(s) · clique na linha para abrir a ficha completa';
+  $('cli-conta').textContent = lista.length + ' de ' + E.clientes.length + ' cadastro(s)';
   const linhas = lista.map((c, i) => (porGrupo && (i === 0 || gn(lista[i - 1]) !== gn(c)) ? '<tr class="cli-grp"><td colspan="9">' + esc(gn(c) || 'Sem grupo') +
         ' <span class="sub">' + plural(lista.filter((x) => gn(x) === gn(c)).length, 'cadastro', 'cadastros') + '</span></td></tr>' : '') + '<tr class="clicavel cli-linha" tabindex="0" data-cli="' + c.id + '" title="Abrir a ficha completa">' +
       '<td class="cli-grupo" title="' + esc(c.grupos ? c.grupos.nome : '') + '">' + esc(c.grupos ? c.grupos.nome : '—') + '</td>' +
@@ -338,7 +338,7 @@ TELAS.contratos = async function () {
   E.ctr = E.ctr || { busca: '', status: 'Ativo' };
   const F = E.ctr;
   $('conteudo').innerHTML =
-    '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('contrato') + '</div><div class="b-cab-tx"><h1>Contratos</h1><p>Consultoria mensal (fixo ou em salários mínimos) ou serviço pontual · os valores entram sozinhos em Honorários Jurídico</p></div>' +
+    '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('contrato') + '</div><div class="b-cab-tx"><h1>Contratos</h1><p>Os valores entram sozinhos no Financeiro</p></div>' +
     '<div class="acoes"><button class="btn btn-o" id="ctr-sm">Salário mínimo</button><button class="btn btn-p" data-novo="contrato">+ Novo contrato</button></div></div>' +
     '<div class="filtros"><div class="segmento" id="ctr-status">' + [['Ativo', 'Ativos'], ['Aguardando assinatura', 'Aguardando assinatura'], ['Encerrado', 'Encerrados'], ['Cancelado', 'Cancelados'], ['todos', 'Todos']]
       .map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
@@ -407,7 +407,7 @@ function reajustesProximos(lista) {
   const hoje = new Date(hojeISO() + 'T00:00:00');
   return lista.filter((c) => c.status === 'Ativo' && !c.rescindido_em && c.modalidade === 'consultoria' && c.forma_valor !== 'salario_minimo' && Number(c.valor_mensal) > 0)
     .map((c) => { const anv = aniversarioContrato(c, hoje); return anv && { c, anv, dias: Math.round((anv - hoje) / 864e5) }; })
-    .filter((r) => r && r.dias <= 30 && !(r.c.contratos_aditivos || []).some((a) => a.tipo === 'valor' && (new Date(a.data + 'T00:00:00') - r.anv) / 864e5 > -45))
+    .filter((r) => r && r.dias <= 60 && !(r.c.contratos_aditivos || []).some((a) => a.tipo === 'valor' && (new Date(a.data + 'T00:00:00') - r.anv) / 864e5 > -45))
     .sort((a, b) => a.dias - b.dias);
 }
 // índice padrão = variação do salário mínimo do ano (a pessoa pode trocar pelo IPCA/IGP-M antes de aplicar)
@@ -419,7 +419,7 @@ async function indiceReajustePadrao() {
 }
 async function cardReajustes(reaj) {
   const idx = await indiceReajustePadrao();
-  return '<div class="card ctr-reaj" id="ctr-reaj"><div class="card-hd">Reajuste anual nos próximos 30 dias <span class="pill hoje">' + reaj.length + '</span></div>' +
+  return '<div class="card ctr-reaj" id="ctr-reaj"><div class="card-hd">Reajuste anual nos próximos 60 dias <span class="pill hoje">' + reaj.length + '</span></div>' +
     '<p class="sub">Consultorias com valor fixo fazendo aniversário. O % sugerido é a variação do salário mínimo do ano — troque pelo índice do contrato (IPCA, IGP-M) se for outro.</p>' +
     '<div class="tabela-wrap"><table class="ctr-reaj-tab"><thead><tr><th>Cliente</th><th>Contrato</th><th>Aniversário</th><th class="num">Valor atual</th><th class="num">%</th><th class="num">Novo valor</th><th></th></tr></thead><tbody>' +
     reaj.map(({ c, anv, dias }) => {

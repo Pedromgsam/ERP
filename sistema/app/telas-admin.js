@@ -7,10 +7,12 @@
 
 // Backup 49 (32): abas principais Usuários · Importar · E-mail · Backup; Histórico e Acessos (uso raro) ficam no "⋯ Mais".
 // Automações saiu daqui (tem menu próprio). Abas sem ícone.
+// Backup 80: na ordem do ambiente de teste + "Saúde do sistema" (as rotinas automáticas que ficavam na tela Alertas)
 const ABAS_ADMIN = [
   { id: 'usuarios', rot: 'Usuários' },
   { id: 'importar', rot: 'Importar' },
   { id: 'email', rot: 'E-mail' },
+  { id: 'saude', rot: 'Saúde do sistema' },
   { id: 'backup',   rot: 'Backup' },
   // Backup 53: sem o "⋯ Mais" — Histórico e Acessos viraram abas normais
   { id: 'historico', rot: 'Histórico' },
@@ -21,8 +23,8 @@ const ABAS_ADMIN_MAIS = [];
 TELAS.admin = async function () {
   E.adm = E.adm || { aba: 'usuarios', tabela: '' };
   $('conteudo').innerHTML =
-    '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('admin') + '</div><div class="b-cab-tx"><h1>Administração</h1><p>Usuários, importação, e-mail e backup</p></div></div>' +
-    '<div class="abas" id="adm-abas">' + ABAS_ADMIN.map((a) => '<button data-aba="' + a.id + '">' + a.rot + '</button>').join('') + '</div>' +
+    '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('admin') + '</div><div class="b-cab-tx"><h1>Administração</h1><p>Usuários, e-mails e cópias de segurança</p></div></div>' +
+    '<div class="b-seg adm-abas" id="adm-abas" role="tablist">' + ABAS_ADMIN.map((a) => '<button type="button" role="tab" class="b-seg-bt" data-aba="' + a.id + '">' + a.rot + '</button>').join('') + '</div>' +
     '<div id="adm-corpo"></div>';
   $('adm-abas').onclick = (ev) => { const b = ev.target.closest('button'); if (!b) return;
     if (b.id === 'adm-mais-bt') { $('adm-abas').classList.toggle('mais-aberto'); return; }
@@ -34,12 +36,12 @@ async function pintarAdmin() {
   // Backup 19: as telas de e-mail moraram para a Central de e-mails (abas) — lá o "atualizar" redesenha a aba aberta
   if (E.adm.aba === 'clientes_email') E.adm.aba = 'usuarios';   // Backup 38: módulo E-mails saiu (a aba E-mail da Administração voltou no Backup 42)
   if (E.adm.aba === 'automacoes') E.adm.aba = 'usuarios';
-  document.querySelectorAll('#adm-abas button[data-aba]').forEach((b) => b.classList.toggle('ativo', b.dataset.aba === E.adm.aba));
+  document.querySelectorAll('#adm-abas button[data-aba]').forEach((b) => { const on = b.dataset.aba === E.adm.aba; b.classList.toggle('ativo', on); b.setAttribute('aria-selected', on); });
   const mais = $('adm-mais-bt'), noMais = ABAS_ADMIN_MAIS.find((a) => a.id === E.adm.aba);
   if (mais) { mais.classList.toggle('ativo', !!noMais); mais.textContent = noMais ? '⋯ ' + noMais.rot : '⋯ Mais'; }
   const corpo = $('adm-corpo');
   corpo.innerHTML = '<div class="carregando">Carregando…</div>';
-  try { await ({ usuarios: admUsuarios, importar: admImportar, backup: admBackup, historico: admHistorico, acessos: admAcessos, clientes_email: admClientesEmail, email: admEmail })[E.adm.aba](corpo); }
+  try { await ({ usuarios: admUsuarios, importar: admImportar, saude: admSaude, backup: admBackup, historico: admHistorico, acessos: admAcessos, clientes_email: admClientesEmail, email: admEmail })[E.adm.aba](corpo); }
   catch (e) { console.error(e); corpo.innerHTML = '<div class="card"><div class="card-bd msg-erro">' + esc(erroAmigavel(e)) + '</div></div>'; }
 }
 
@@ -616,12 +618,58 @@ async function salvarPagamento(form, chave) {
 // Backup 49: E-mail em três partes — quem recebe, o que espera revisão e a configuração (o que já existia)
 // Backup 51 (E4): "Para revisar" e "Últimos e-mails" viraram a CAIXA DE SAÍDA (filtros Para revisar · Na fila · Enviados · Com erro)
 async function admEmail(corpo) {
-  E.adm.emailAba = E.adm.emailAba === 'revisar' ? 'saida' : (E.adm.emailAba || 'quem');
-  corpo.innerHTML = '<div class="segmento em-abas" id="em-abas">' + [['quem', 'Quem recebe'], ['auto', 'Automáticos'], ['saida', 'Caixa de saída'], ['config', 'Configuração']]
-    .map(([v, r]) => '<button type="button" data-em-aba="' + v + '"' + (E.adm.emailAba === v ? ' class="ativo"' : '') + '>' + r + '</button>').join('') + '</div><div id="em-corpo"></div>';
+  E.adm.emailAba = E.adm.emailAba === 'revisar' ? 'saida' : (E.adm.emailAba || 'como');
+  // Backup 80 (E6): Como funciona · O que sai e quando · Quem recebe · Caixa de saída · Configuração (como no ambiente de teste)
+  corpo.innerHTML = '<div class="b-seg em-abas" id="em-abas" role="tablist">' + [['como', 'Como funciona'], ['auto', 'O que sai e quando'], ['quem', 'Quem recebe'], ['saida', 'Caixa de saída'], ['config', 'Configuração']]
+    .map(([v, r]) => '<button type="button" role="tab" class="b-seg-bt' + (E.adm.emailAba === v ? ' ativo' : '') + '" aria-selected="' + (E.adm.emailAba === v) + '" data-em-aba="' + v + '">' + r + '</button>').join('') + '</div><div id="em-corpo"></div>';
   corpo.querySelector('#em-abas').onclick = (ev) => { const b = ev.target.closest('[data-em-aba]'); if (b) { E.adm.emailAba = b.dataset.emAba; admEmail(corpo); } };
   const alvo = corpo.querySelector('#em-corpo');
-  await ({ quem: admEmailQuem, auto: admEmailAuto, saida: admEmailSaida, config: admEmailConfig })[E.adm.emailAba](alvo);
+  await ({ como: admEmailComo, quem: admEmailQuem, auto: admEmailAuto, saida: admEmailSaida, config: admEmailConfig })[E.adm.emailAba](alvo);
+}
+// ═══ Backup 80 (E6/M5): "Como funciona" — os 3 tipos de e-mail num lugar só, como no ambiente de teste.
+// Guias de parcelamento e de acordo são sempre manuais (precisam da guia anexada); aqui escolhe-se rascunho no Gmail ou envio direto.
+const MODOS_GUIA = [['parcelamento', 'Guias de parcelamento'], ['acordo', 'Boleto/PIX de acordo']];
+async function modoEnvioGuias() {
+  const r = await q(sb.from('configuracoes').select('valor').eq('chave', 'emails_guias_modo').maybeSingle()).catch(() => null);
+  return Object.assign({ parcelamento: 'rascunho', acordo: 'rascunho' }, (r && r.valor) || {});
+}
+async function admEmailComo(corpo) {
+  const adm = (E.perfil || window.ERP_EU || {}).papel === 'admin';
+  const [modo, regras] = await Promise.all([modoEnvioGuias(), q(sb.from('regras_tarefas').select('chave, nome, descricao, ligada, oculta').eq('grupo', 'cliente_email').order('nome')).catch(() => [])]);
+  const seg = (k) => '<div class="b-seg em-modo" data-modo="' + k + '" role="group">' + [['rascunho', 'Salvar no rascunho do Gmail'], ['direto', 'Enviar direto']]
+    .map(([v, r]) => '<button type="button" class="b-seg-bt' + (modo[k] === v ? ' ativo' : '') + '" aria-selected="' + (modo[k] === v) + '" data-m="' + v + '"' + (adm ? '' : ' disabled') + '>' + r + '</button>').join('') + '</div>';
+  const auto = regras.filter((r) => !r.oculta);
+  corpo.innerHTML = '<div class="em-como"><div class="card em-como-intro"><div class="card-bd"><b>Como funcionam os e-mails no dia a dia</b><p>São só <b>três tipos</b> de e-mail. Nada sai para o cliente sem você saber de onde veio.</p></div></div>' +
+    '<div class="em-como-g">' +
+    '<section class="card em-como-c"><div class="card-bd"><span class="em-como-n">1</span><h3>Os que VOCÊ manda (com anexo)</h3><p>Guias de parcelamento e boleto/PIX de acordo. <b>Sempre manuais</b>, porque precisam da guia anexada.</p>' +
+      '<ol><li>Rotina → <b>Guias do mês</b> (ou o botão Emitir na parcela).</li><li>Anexe o PDF da guia. O sistema lê o valor e o vencimento do PDF e avisa se mudou.</li><li>O e-mail, com o texto pronto e as guias anexadas, vai para o lugar escolhido abaixo.</li></ol>' +
+      MODOS_GUIA.map(([k, r]) => '<div class="em-como-m"><b>' + r + '</b>' + seg(k) + '</div>').join('') + '</div></section>' +
+    '<section class="card em-como-c"><div class="card-bd"><span class="em-como-n">2</span><h3>Os que saem SOZINHOS para o cliente</h3><p>Você só liga ou desliga. Saem de manhã e uma vez só.</p>' +
+      '<ul class="em-como-l">' + (auto.map((r) => '<li><span class="pill ' + (r.ligada ? 'pago' : 'neutro') + '">' + (r.ligada ? 'ligado' : 'desligado') + '</span> <b>' + esc(r.nome) + '</b>' + (r.descricao ? '<small>' + esc(r.descricao) + '</small>' : '') + '</li>').join('') || '<li>Nenhum.</li>') + '</ul>' +
+      '<button type="button" class="btn btn-o btn-mini" data-em-ir="auto">Ligar ou desligar em "O que sai e quando"</button></div></section>' +
+    '<section class="card em-como-c"><div class="card-bd"><span class="em-como-n">3</span><h3>Avisos para a EQUIPE</h3><p>Tudo aparece no sistema (Início e Tarefas). Por e-mail, só o que estiver ligado em "O que sai e quando" (tarefa nova, tarefa para revisar, compromissos…).</p></div></section>' +
+    '<section class="card em-como-c"><div class="card-bd"><span class="em-como-n em-como-x">!</span><h3>Quando dá errado</h3><p>Cliente sem e-mail, endereço errado ou Gmail fora do ar: o e-mail fica <b>Com erro</b> na Caixa de saída e aparece na faixa de Avisos do Início. Corrija o e-mail do cliente e clique em "Tentar de novo".</p>' +
+      '<button type="button" class="btn btn-o btn-mini" data-em-ir="saida">Abrir a Caixa de saída</button></div></section></div></div>';
+  corpo.onclick = async (ev) => {
+    const ir = ev.target.closest('[data-em-ir]'); if (ir) { E.adm.emailAba = ir.dataset.emIr; return admEmail($('adm-corpo')); }
+    const b = ev.target.closest('.em-modo [data-m]'); if (!b || !adm) return;
+    const k = b.closest('[data-modo]').dataset.modo, novo = Object.assign({}, modo, { [k]: b.dataset.m });
+    try { await q(sb.from('configuracoes').upsert({ chave: 'emails_guias_modo', valor: novo }, { onConflict: 'chave' })); aviso('✓ ' + MODOS_GUIA.find((x) => x[0] === k)[1] + ': ' + (b.dataset.m === 'rascunho' ? 'vão para o rascunho do Gmail.' : 'saem direto para o cliente.')); }
+    catch (e) { aviso(erroAmigavel(e), true); }
+    admEmailComo(corpo);
+  };
+}
+// ═══ Backup 80 (E1): Saúde do sistema — as rotinas automáticas que ficavam na tela Alertas (cartão CNPJ, publicações, regras de tarefas, e-mails com erro, espaço e backup)
+async function admSaude(corpo) {
+  corpo.innerHTML = '<div id="adm-saude"><div class="carregando">Conferindo as rotinas…</div></div>';
+  const { A, cnpj } = await coletarAlertasTodos();
+  const el = $('adm-saude'); if (!el) return;
+  const rot = A.map((a, i) => Object.assign({ i }, a)).filter((a) => a.setor === 'Rotinas');
+  el.innerHTML = '<div class="card"><div class="card-hd">Rotinas automáticas<span class="sub">clique na linha para ver o detalhe</span></div><div class="tabela-wrap" data-sem-pagina><table class="al-rot-tab"><thead><tr><th>Rotina</th><th>Situação</th><th>Detalhe</th><th></th></tr></thead><tbody>' +
+    rot.map((a) => '<tr class="clicavel al-rotina al-' + a.nivel + '" data-al="' + a.i + '" tabindex="0"><td><span class="al-pt" aria-hidden="true"></span> <b>' + esc(a.rot) + '</b></td>' +
+      '<td><span class="pill ' + ({ ok: 'pago', critico: 'vencido', atencao: 'hoje' }[a.nivel] || 'neutro') + '">' + esc(a.valor) + '</span></td><td class="sub">' + esc(a.det) + '</td><td class="al-ir">Abrir →</td></tr>').join('') +
+    '</tbody></table></div></div><p class="dica">Os avisos do dia a dia (certificado vencendo, cadastro incompleto…) ficam na faixa <b>Avisos</b> do Início.</p>';
+  el.querySelectorAll('[data-al]').forEach((b) => b.onclick = () => abrirAlerta(A[+b.dataset.al], cnpj));
 }
 // Backup 54: um lugar só para ligar/desligar TODO e-mail automático — os avisos para a equipe (tarefa, fluxo, menção…) e os e-mails aos clientes
 const EMAILS_EQUIPE = [['fluxo', 'Fluxo / sequência de tarefas', 'Quando alguém cria um fluxo ou um "Lead completo", e quando o próximo passo é liberado'],
@@ -637,7 +685,7 @@ async function admEmailAuto(corpo) {
   const chave = (attr, k, on, rot, desc) => '<label class="em-auto-l"><input type="checkbox" ' + attr + '="' + esc(k) + '"' + (on ? ' checked' : '') + (adm ? '' : ' disabled') + '>' +
     '<span><b>' + esc(rot) + '</b><span class="sub">' + esc(desc || '') + '</span></span><span class="pill ' + (on ? 'pago' : 'neutro') + '">' + (on ? 'ligado' : 'desligado') + '</span></label>';
   corpo.innerHTML = '<div class="em-auto">' +
-    '<div class="card"><div class="card-hd">👥 Para a equipe<span class="sub">avisos do ERP que também vão por e-mail — desligado, o aviso continua no sino, só o e-mail não sai</span></div><div class="card-bd em-auto-g">' +
+    '<div class="card"><div class="card-hd">👥 Para a equipe<span class="sub">Ligado = também chega por e-mail</span></div><div class="card-bd em-auto-g">' +
       EMAILS_EQUIPE.map(([k, r, d]) => chave('data-eq', k, eq[k] !== false, r, d)).join('') + '</div></div>' +
     '<div class="card"><div class="card-hd">🏢 Para os clientes<span class="sub">vale para todos; por cliente, use "Quem recebe"</span></div><div class="card-bd em-auto-g">' +
       (regras.filter((r) => !r.oculta).map((r) => chave('data-eq-regra', r.chave, r.ligada, r.nome, r.descricao)).join('') || vazio('Nenhum e-mail automático para clientes.')) + '</div></div>' +
@@ -683,8 +731,7 @@ async function admEmailQuem(corpo) {
         '<td>' + pillRecebeEmail({ id: r.cliente_id, recebe_email: r.recebe }) + '</td>' + TIPOS_EMAIL_AUTO.map(([k]) => celTipo(r, k)).join('') +
         '<td data-ord="' + (r.ultimo_em || '') + '">' + (r.ultimo_em ? dataBR(r.ultimo_em) + ' <span class="sub">' + esc(r.ultimo_assunto || '') + '</span>' : '<span class="sub">—</span>') + '</td></tr>').join('')
         : '<tr><td colspan="' + (5 + TIPOS_EMAIL_AUTO.length) + '">' + vazio('Ninguém neste filtro.') + '</td></tr>') + '</tbody></table></div></div>' +
-      '<div class="dica">Clique em <b>✉ Sim</b> / <b>✕ Não</b> para trocar. Quem está em "Não" não recebe nada do escritório (nem rascunho). Nas colunas de tipo, <b>✓</b>/<b>✕</b> escolhe quais e-mails automáticos aquele cliente recebe ' +
-        '(ex.: recebe o de Vencimento, mas não o de Acordo). <b>✎</b> troca o e-mail de destino; clique no <b>nome do cliente</b> para abrir o cadastro completo (vários e-mails, setores).</div>';
+      '<div class="dica">Sim = recebe e-mails do escritório. Clique para trocar. <b>✓</b>/<b>✕</b> nas colunas escolhe quais automáticos ele recebe; <b>✎</b> troca o e-mail de destino.</div>';
     corpo.querySelectorAll('[data-em-tipo]').forEach((b) => b.onclick = () => comBotao(b, async () => {
       const cli = b.dataset.emTcli, k = b.dataset.emTipo, novo = !((M[cli] || {})[k] !== false);
       M[cli] = await q(sb.rpc('salvar_email_tipo', { p_cliente: cli, p_tipo: k, p_valor: novo }));
@@ -715,9 +762,10 @@ async function admEmailQuem(corpo) {
   pinta();
 }
 // Backup 53: "Da Rotina" — os e-mails gerados na Rotina (rascunhos) podem ser autorizados aqui e saem pelo envio normal
-const FILTROS_SAIDA = [['revisar', 'Para revisar', ['retido']], ['rotina', 'Da Rotina', ['rascunho', 'rascunho_salvo']], ['fila', 'Na fila', ['pendente']], ['enviados', 'Enviados', ['enviado']], ['erro', 'Com erro', ['erro']]];
+// Backup 80 (E7): 3 abas — No rascunho (inclui os retidos para revisar e os montados na Rotina) · Enviados (inclui os que estão saindo) · Com erro
+const FILTROS_SAIDA = [['rascunho', 'No rascunho', ['retido', 'rascunho', 'rascunho_salvo']], ['enviados', 'Enviados', ['enviado', 'pendente']], ['erro', 'Com erro', ['erro']]];
 async function admEmailSaida(corpo) {
-  E.adm.saidaF = E.adm.saidaF || 'revisar';
+  if (!FILTROS_SAIDA.some((f) => f[0] === E.adm.saidaF)) E.adm.saidaF = 'rascunho';
   const [lista, liga, st] = await Promise.all([
     q(sb.from('email_fila').select('id, para, para_original, assunto, status, erro, criado_em, enviado_em, tipo, referencia').order('criado_em', { ascending: false }).limit(300)).catch(() => []),
     q(sb.rpc('emails_revisar')).catch(() => false),
@@ -726,14 +774,14 @@ async function admEmailSaida(corpo) {
   const F = FILTROS_SAIDA.find((f) => f[0] === E.adm.saidaF) || FILTROS_SAIDA[0], ver = lista.filter((m) => F[2].includes(m.status));
   const ret = lista.filter((m) => m.status === 'retido');
   const ST = { enviado: 'pago', pendente: 'aberto', erro: 'vencido', cancelado: 'neutro', retido: 'hoje', rascunho: 'vencido', rascunho_salvo: 'pago' };
-  corpo.innerHTML = '<div class="card em-saida"><div class="card-hd">📤 Caixa de saída<span class="sub">' + nDe('fila') + ' na fila · ' + (st.enviados_7d || 0) + ' enviados em 7 dias · ' + nDe('erro') + ' com erro</span>' +
+  corpo.innerHTML = '<div class="card em-saida"><div class="card-hd">Caixa de saída<span class="sub">Tudo o que saiu, os rascunhos e os erros · ' + lista.filter((m) => m.status === 'pendente').length + ' saindo agora · ' + (st.enviados_7d || 0) + ' enviados em 7 dias · ' + nDe('erro') + ' com erro</span>' +
       '<label class="au-chave em-rev-chave" style="margin-left:auto"><input type="checkbox" role="switch" id="em-revisar"' + (liga ? ' checked' : '') + '><span class="au-trilho" aria-hidden="true"></span> ' +
       (liga ? '<b>Revisar antes de sair:</b> ligado' : '<b>Revisar antes de sair:</b> desligado') + '</label></div><div class="card-bd">' +
     '<div class="fila-chips em-saida-f" role="group" aria-label="Mostrar">' + FILTROS_SAIDA.map(([k, r]) => chipFiltro('data-saida-f', k, r + ' (' + nDe(k) + ')', E.adm.saidaF === k)).join('') +
-      (E.adm.saidaF === 'revisar' && ret.length ? '<span class="acoes" style="margin-left:auto"><button class="btn btn-o btn-mini" id="em-desc-todos">Descartar todos</button><button class="btn btn-p btn-mini" id="em-env-todos">✉ Enviar todos (' + ret.length + ')</button></span>' : '') +
-      (E.adm.saidaF === 'rotina' && ver.length ? '<span class="acoes" style="margin-left:auto"><button class="btn btn-p btn-mini" id="em-rot-todos">✓ Autorizar e enviar todos (' + ver.length + ')</button></span>' : '') + '</div>' +
-    (E.adm.saidaF === 'rotina' ? '<p class="sub" style="margin:6px 0 0">E-mails montados na Rotina (Guias do mês). Confira com 👁 e clique em <b>Autorizar</b>: sai direto para o cliente. Se você já enviou pelo rascunho do Gmail, use ✕ para tirar daqui.</p>' : '') +
-    (E.adm.saidaF === 'revisar' ? '<p class="sub" style="margin:6px 0 0">' + (liga ? 'Os automáticos ao cliente (lembretes, cobranças, avisos) esperam aqui o seu clique.' : 'Desligado: os automáticos saem sozinhos.') + ' Os e-mails que você manda na hora (guias, acordos, rascunhos) não passam por aqui.</p>' : '') +
+      (E.adm.saidaF === 'rascunho' && ret.length ? '<span class="acoes" style="margin-left:auto"><button class="btn btn-o btn-mini" id="em-desc-todos">Descartar todos</button><button class="btn btn-p btn-mini" id="em-env-todos">✉ Enviar todos (' + ret.length + ')</button></span>' : '') +
+      (E.adm.saidaF === 'rascunho' && ver.some((m) => /^rascunho/.test(m.status)) ? '<span class="acoes" style="margin-left:auto"><button class="btn btn-p btn-mini" id="em-rot-todos">✓ Autorizar e enviar os da Rotina (' + ver.filter((m) => /^rascunho/.test(m.status)).length + ')</button></span>' : '') + '</div>' +
+    (E.adm.saidaF === 'rascunho' ? '<p class="sub" style="margin:6px 0 0">E-mails montados na Rotina (Guias do mês). Confira com 👁 e clique em <b>Autorizar</b>: sai direto para o cliente. Se você já enviou pelo rascunho do Gmail, use ✕ para tirar daqui.</p>' : '') +
+    (E.adm.saidaF === 'rascunho' ? '<p class="sub" style="margin:6px 0 0">' + (liga ? 'Os automáticos ao cliente (lembretes, cobranças, avisos) esperam aqui o seu clique.' : 'Desligado: os automáticos saem sozinhos.') + ' Os e-mails que você manda na hora (guias, acordos, rascunhos) não passam por aqui.</p>' : '') +
     '</div>' +
     (ver.length ? '<div class="tabela-wrap"><table class="em-rev em-saida-tab"><thead><tr><th data-tipo="data">Quando</th><th>Para</th><th>Assunto</th><th>Situação</th><th></th></tr></thead><tbody>' +
       ver.map((m) => '<tr><td class="mono">' + dataHoraBR(m.enviado_em || m.criado_em) + '</td><td>' + esc(m.para_original || m.para) + '</td><td>' + esc(m.assunto) + '</td>' +
@@ -742,7 +790,7 @@ async function admEmailSaida(corpo) {
           (m.status === 'retido' ? ' <button class="btn btn-p btn-mini" data-em-env="' + m.id + '">Enviar</button> <button class="btn btn-x btn-mini" data-em-desc="' + m.id + '" title="Não enviar">✕</button>' : '') +
           (m.status === 'erro' ? ' <button class="btn btn-p btn-mini" data-em-tentar="' + m.id + '" title="Volta para a fila e tenta enviar agora">↻ Tentar de novo</button>' : '') +
           (/^rascunho/.test(m.status) ? ' <button class="btn btn-p btn-mini" data-em-rot="' + m.id + '" title="Autoriza: o e-mail sai agora para o cliente">✓ Autorizar</button> <button class="btn btn-x btn-mini" data-em-rotx="' + m.id + '" title="Tirar da Caixa de saída (não envia)">✕</button>' : '') + '</td></tr>').join('') +
-      '</tbody></table></div>' : '<div class="card-bd">' + vazio({ revisar: 'Nada esperando revisão.', fila: 'Nada na fila: tudo já saiu.', enviados: 'Nenhum e-mail enviado ainda.', erro: 'Nenhum e-mail com erro. 🎉' }[F[0]]) + '</div>') + '</div>';
+      '</tbody></table></div>' : '<div class="card-bd">' + vazio({ rascunho: 'Nada no rascunho nem esperando revisão.', enviados: 'Nenhum e-mail enviado ainda.', erro: 'Nenhum e-mail com erro. 🎉' }[F[0]]) + '</div>') + '</div>';
   const acao = (ids, a) => async () => { const n = await q(sb.rpc('emails_retidos_acao', { p_ids: ids, p_acao: a }));
     if (a === 'liberar' && n) await enviarEmailAgora(null).catch(() => null);
     aviso('✓ ' + plural(n, 'e-mail', 'e-mails') + (a === 'liberar' ? ' liberado(s) para envio.' : ' descartado(s).')); await admEmailSaida(corpo); };
@@ -750,7 +798,7 @@ async function admEmailSaida(corpo) {
   const rotina = (ids, a) => async () => { const n = await q(sb.rpc('emails_rotina_acao', { p_ids: ids, p_acao: a }));
     if (a === 'enviar' && n) await enviarEmailAgora(null).catch(() => null);
     aviso('✓ ' + plural(n, 'e-mail', 'e-mails') + (a === 'enviar' ? ' autorizado(s) e enviado(s).' : ' tirado(s) da Caixa de saída.')); await admEmailSaida(corpo); };
-  if (corpo.querySelector('#em-rot-todos')) corpo.querySelector('#em-rot-todos').onclick = (ev) => comBotao(ev.currentTarget, rotina(ver.map((m) => m.id), 'enviar'));
+  if (corpo.querySelector('#em-rot-todos')) corpo.querySelector('#em-rot-todos').onclick = (ev) => comBotao(ev.currentTarget, rotina(ver.filter((m) => /^rascunho/.test(m.status)).map((m) => m.id), 'enviar'));
   corpo.querySelectorAll('[data-em-rot]').forEach((b) => b.onclick = () => comBotao(b, rotina([b.dataset.emRot], 'enviar')));
   corpo.querySelectorAll('[data-em-rotx]').forEach((b) => b.onclick = () => comBotao(b, rotina([b.dataset.emRotx], 'descartar')));
   corpo.querySelector('#em-revisar').onchange = (ev) => comBotao(ev.target, async () => { await q(sb.rpc('salvar_emails_revisar', { p: ev.target.checked })); await admEmailSaida(corpo); });
@@ -790,7 +838,7 @@ function formConta(id, rotUsuario, rotRem) {
 async function admEmailConfig(corpo) {
   const st = await q(sb.rpc('status_config_email')).catch(() => ({}));
   const passo = (n, tit, sub, html, id) => '<section class="card em-passo"' + (id ? ' id="' + id + '"' : '') + '><div class="card-hd"><span class="em-passo-n">' + n + '</span>' + tit + (sub ? '<span class="sub">' + sub + '</span>' : '') + '</div><div class="card-bd">' + html + '</div></section>';
-  corpo.innerHTML = '<div class="em-config-topo"><span class="sub">Configure de cima para baixo. Feito uma vez, os e-mails saem sozinhos.</span>' +
+  corpo.innerHTML = '<div class="em-config-topo"><span class="sub">Faça uma vez só, de cima para baixo</span>' +
       '<div class="em-ferr"><button type="button" class="btn btn-o btn-mini" id="em-ferr-bt" aria-expanded="false">⋯ Ferramentas</button><div class="em-ferr-menu" id="em-ferr-menu" hidden>' +
         '<button type="button" id="email-diag" title="Confere se as funções do Supabase estão publicadas (erp-emails, erp-publicacoes, erp-cnpj, erp-agenda)">🩺 Verificar funções</button>' +
         '<button type="button" id="email-agora" title="A fila é a lista de e-mails esperando para sair; a rotina envia sozinha a cada 5 minutos. Este botão manda agora.">✉ Enviar fila agora</button>' +

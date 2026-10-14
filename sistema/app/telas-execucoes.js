@@ -12,7 +12,7 @@ TELAS.execucoes = async function () {
   await carregarCadastros();
   E.ex = E.ex || { sit: 'abertas', busca: '' };
   const F = E.ex, podeEd = pode('juridico', 'editar');
-  $('conteudo').innerHTML = '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('execucao') + '</div><div class="b-cab-tx"><h1>Execuções</h1><p>Cobranças ajuizadas: o processo, o que o cliente já recebeu e os honorários do escritório (% do recebido)</p></div>' +
+  $('conteudo').innerHTML = '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('execucao') + '</div><div class="b-cab-tx"><h1>Execuções</h1><p>Cobranças na Justiça e o que já entrou</p></div>' +
     '<div class="acoes">' + botaoAtualizar('ex-atu', 'Busca de novo') + (podeEd ? '<button class="btn btn-p" id="ex-nova">+ Nova execução</button>' : '') + '</div></div>' +
     '<div id="ex-kpis"></div><div class="filtros"><div class="segmento" id="ex-sit">' + [['abertas', 'Em andamento'], ['encerrada', 'Encerradas'], ['todas', 'Todas']]
       .map(([v, r]) => '<button type="button" data-v="' + v + '"' + (F.sit === v ? ' class="ativo"' : '') + '>' + r + '</button>').join('') + '</div>' +
