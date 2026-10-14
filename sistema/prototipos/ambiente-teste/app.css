@@ -572,3 +572,17 @@ tr.tr-alt td{background:var(--amber-lt)}
   .tab td[data-rot]::before{float:left;margin-right:12px}
   .tab td .acs{justify-content:flex-end}
 }
+
+/* Backup 77: Publicações como antes do Backup 72 — um cartão por publicação, texto à vista, filtros em botões */
+.pub-filtros{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center}
+.pub-filtros .ctl-busca{flex:1;min-width:220px;max-width:420px}
+.pub-lista{display:flex;flex-direction:column;gap:10px}
+.pub-card{background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--border);border-radius:var(--r);padding:14px 16px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:8px}
+.pub-card.pub-nova{border-left-color:var(--amber)}
+.pub-topo{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-size:13px;color:var(--text2)}
+.pub-topo b{color:var(--ink)}
+.pub-proc{text-align:right;display:flex;flex-direction:column;gap:1px}
+.pub-proc small{color:var(--text3);font-size:12px}
+.pub-texto{font-size:13.5px;line-height:1.6;color:var(--text);white-space:pre-wrap}
+.pub-acoes{display:flex;gap:8px;flex-wrap:wrap}
+@media (max-width:760px){.pub-proc{text-align:left}}

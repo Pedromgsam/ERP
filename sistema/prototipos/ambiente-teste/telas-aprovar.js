@@ -2,7 +2,7 @@
    (fica guardado neste navegador; "Copiar minhas respostas" junta tudo num texto para colar na conversa). */
 (function(){
   var APP = window.APP, ic = APP.ic, esc = APP.esc;
-  var SUB = [['textos','Textos (antes → depois)'],['enxugar','O que foi enxugado'],['melhorias','Melhorias (uso simulado)'],['antigo','Tirar o ERP antigo']];
+  var SUB = [['design','Design (Backup 77)'],['textos','Textos (antes → depois)'],['enxugar','O que foi enxugado'],['melhorias','Melhorias (uso simulado)'],['antigo','Tirar o ERP antigo']];
   var ENXUGAR = [
     ['E1', 'Tela Alertas sai do menu', 'Os alertas viram a faixa do Início; as "rotinas automáticas" foram para Administração → Saúde do sistema.'],
     ['E2', 'Sem cartões de número no topo das telas', 'Parcelamentos, Acordos, Tarefas, Execuções e Rotina. Os números ficam nas abas (ex.: "Atrasadas 3") ou numa linha só.'],
@@ -37,6 +37,16 @@
     ['M17', 'Honorário com boleto/PIX e baixa sozinha', 'O cliente paga e o sistema dá a baixa e manda o recibo sem ninguém mexer. Custo (Asaas): R$ 1,99 por pagamento, sem mensalidade — com 150 cobranças/mês, cerca de R$ 300/mês.', 'sugestão'],
     ['M18', 'Lembrete do honorário também pelo WhatsApp', 'Custo (API oficial da Meta): cerca de R$ 0,03 por mensagem + o provedor (de grátis a cerca de R$ 100/mês). Com 300 lembretes/mês: cerca de R$ 10 + o provedor.', 'sugestão']
   ];
+  var DESIGN = [
+    ['D1', 'A · Nítido (ROMPEX fiel)', 'Lateral azul-marinho com o item aberto em azul, fundo claro quente, ícone ao lado do título, cartões com contorno fino, tabela com linhas mais altas e números maiores.'],
+    ['D2', 'B · Claro (estilo Linear / Vercel / Notion)', 'Lateral clara e discreta, sem ícone no título, contornos bem leves, cabeçalho da tabela sem caixa alta, situação só com a cor do texto, botões escolhidos em preto.'],
+    ['D3', 'C · Executivo (o ERP antigo, marinho e dourado)', 'Lateral marinho com marcador dourado, títulos em Playfair Display (a letra dos títulos do ERP antigo), cartões sem contorno com sombra suave.'],
+    ['X1', 'Enxuto: cartões de grupo com 2 linhas', '"Pagas 84 de 204" vira a legenda da barra; "Parcela do mês" sai (o "A pagar este mês" já diz o valor do mês). O detalhe continua ao clicar.'],
+    ['X2', 'Enxuto: Painel com 5 números em vez de 8', 'RFB, PGFN e AGE/MG viram uma linha embaixo do "Passivo total".'],
+    ['X3', 'Enxuto: sem frases de instrução', '"Clique no grupo…", "Clique na empresa…" saem: o cursor já mostra que abre.'],
+    ['X4', 'Sem a bolinha de cor do grupo em todas as telas', 'Regra do ERP (Backup 72) que ainda não valia no ambiente.'],
+    ['P1', 'Publicações como antes do Backup 72', 'Um cartão por publicação com o texto à vista, filtros em botões com contagem (situação, advogado, tribunal) e as ações no cartão. No ERP de verdade já foi aplicado.']
+  ];
   var ANTIGO = [
     ['A1', 'Aprovar este ambiente (telas, textos, e-mails, portal).'],
     ['A2', 'Levar para o ERP, uma tela por vez, com os testes passando: Início, Tarefas, Painel, Processos, Execuções, Publicações, Financeiro (Jurídico e Contabilidade), Contratos, Clientes, CRM, Documentos, Rotina, Administração.'],
@@ -51,13 +61,16 @@
   APP.registrar('aprovar', { tit:'Para aprovar', ic:'estrela', pai:'Ambiente de teste',
     ajuda:['Marque <b>Aprovo</b> ou <b>Não</b> em cada item. Fica guardado neste navegador.', 'No fim, clique em <b>Copiar minhas respostas</b> e cole na conversa.', 'O botão "Aa" no alto troca os textos da tela entre o novo e o antigo (o antigo aparece marcado em amarelo).'],
     desenhar:function(el){
-      var sub = APP.pref('ap-sub') || 'textos', r = respostas(), n = Object.keys(r).filter(function(k){ return r[k]; }).length;
+      var sub = APP.pref('ap-sub') || 'design', r = respostas(), n = Object.keys(r).filter(function(k){ return r[k]; }).length;
       el.innerHTML = APP.cabecalho({ ic:'estrela', tit:'Para aprovar', frase:'O que mudou nesta versão do ambiente · ' + n + ' respondido(s)', acoes:'<button class="bt bt-p" type="button" id="ap-copiar">' + ic('doc') + 'Copiar minhas respostas</button>' })
         + '<div class="seg seg-grande" id="ap-sub">' + SUB.map(function(a){ return '<button type="button" class="seg-bt" data-sub="' + a[0] + '" aria-selected="' + (a[0] === sub) + '">' + a[1] + '</button>'; }).join('') + '</div><div id="ap-corpo"></div>';
       APP.$('ap-sub').onclick = function(e){ var b = e.target.closest('[data-sub]'); if (b){ APP.pref('ap-sub', b.dataset.sub); APP.redesenhar(); } };
       APP.$('ap-copiar').onclick = copiar;
       var c = APP.$('ap-corpo');
-      if (sub === 'textos'){
+      if (sub === 'design'){
+        c.innerHTML = '<div class="texto"><h3>Escolha o design</h3><p>Use o seletor <b>Design</b> na faixa do alto (Atual · A · B · C) e passeie pelas telas em cada um, no claro e no escuro (botão da lua). A caixa <b>Enxuto</b> liga e desliga os resumos. Marque abaixo o que aprova; o design escolhido vai para o ERP de verdade numa rodada só.</p></div>'
+          + '<div class="lista">' + DESIGN.map(function(x){ return '<div class="li li-ap"><span class="li-tipo t-rotina">' + x[0] + '</span><span class="li-tx"><b>' + esc(x[1]) + '</b><small>' + esc(x[2]) + '</small></span>' + bts(x[0]) + '</div>'; }).join('') + '</div>';
+      } else if (sub === 'textos'){
         var T = window.TEXTOS, telas = {};
         Object.keys(T).forEach(function(k){ (telas[T[k].tela] = telas[T[k].tela] || []).push(k); });
         c.innerHTML = '<div class="dica">' + ic('texto') + '<span>Ligue <b>Aa</b> no alto da tela para ver os textos antigos marcados em amarelo em cada tela.</span></div>' + Object.keys(telas).map(function(t){
@@ -77,7 +90,7 @@
     } });
   function copiar(){
     var r = respostas(), L = [];
-    Object.keys(r).forEach(function(k){ if (!r[k]) return; var nome = k.indexOf('T:') === 0 ? 'Texto ' + window.TEXTOS[k.slice(2)].tela + ': "' + window.TEXTOS[k.slice(2)].novo + '"' : k + ' ' + ((ENXUGAR.concat(MELHORIAS).concat(ANTIGO)).find(function(x){ return x[0] === k; }) || [k, ''])[1];
+    Object.keys(r).forEach(function(k){ if (!r[k]) return; var nome = k.indexOf('T:') === 0 ? 'Texto ' + window.TEXTOS[k.slice(2)].tela + ': "' + window.TEXTOS[k.slice(2)].novo + '"' : k + ' ' + ((DESIGN.concat(ENXUGAR).concat(MELHORIAS).concat(ANTIGO)).find(function(x){ return x[0] === k; }) || [k, ''])[1];
       L.push((r[k] === 'sim' ? 'APROVO  ' : 'NÃO     ') + nome); });
     var txt = L.length ? 'Minhas respostas no ambiente de teste:\n' + L.join('\n') : 'Nenhuma resposta marcada ainda.';
     var ok = function(){ APP.aviso('Respostas copiadas. Cole na conversa.'); };

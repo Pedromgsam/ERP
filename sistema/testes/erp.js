@@ -560,18 +560,16 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       await p.textContent('#gs-raiz #aviso'));
     ok('publicação liga ao processo cadastrado e avisa a advogada', sql("select count(*) from publicacoes where processo_id is not null") === '1' &&
       sql("select count(*) from notificacoes n join perfis pf on pf.id=n.usuario_id where pf.email='equipe@teste' and n.tipo='publicacao'") === '2');
-    ok('B72 Publicações: tabela com as abas Novas, Lidas, Tratadas, Descartadas e Todas + período e "Filtros" (tribunal, advogado)', (await p.$$eval('#pub-corpo [data-b-aba]', (l) => l.map((b) => b.dataset.bAba).join(','))) === 'nova,lida,tratada,descartada,todas' &&
-      !!(await p.$('#pub-corpo #pub-dias')) && (await p.$$('#pub-corpo [data-bt=l]')).length === 2 && !(await p.$('#pub-corpo .kpis')) && !(await p.$('#pub-corpo .pub-card')));
-    ok('Publicações: contadores batem (Todas = Novas + Lidas + Tratadas + Descartadas; o número da aba = linhas ao clicar)', await p.evaluate(() => {
-      const n = (v) => Number((document.querySelector('#pub-corpo [data-b-aba="' + v + '"] .b-seg-n') || {}).textContent);
-      return n('todas') === n('nova') + n('lida') + n('tratada') + n('descartada') && n('nova') === document.querySelectorAll('#pub-corpo tbody tr[data-b-k]').length; }));
-    await p.click('#pub-corpo tbody tr[data-b-k] >> nth=0'); await p.waitForSelector('#janelas .pub-jan');
-    ok('texto sem HTML e com as palavras importantes destacadas (na janela da publicação)', sql("select count(*) from publicacoes where texto like '%<p>%'") === '0' && (await p.$$('#janelas .pub-jan mark')).length > 0);
-    await p.evaluate(() => { while (document.querySelector('#janelas .fundo')) window.GS.fecharJanela(); });
+    ok('Publicações: filtro por tribunal só com os tribunais da situação escolhida', (await p.$$('#pub-trib button[data-v]:not([data-v=""])')).length >= 1 &&
+      await p.evaluate(() => [...document.querySelectorAll('#pub-trib button[data-v]')].filter((b) => b.dataset.v).every((b) => (window.GS.E._pubs || []).some((x) => x.tribunal === b.dataset.v && x.status === window.GS.E.pub.status))));
+    ok('Publicações: contadores batem (Todas = Novas + Lidas + Tratadas + Descartadas; o número do botão = itens ao clicar)', await p.evaluate(() => {
+      const n = (v) => Number((document.querySelector('#pub-st button[data-v="' + v + '"] .seg-n') || {}).textContent);
+      return n('') === n('nova') + n('lida') + n('tratada') + n('descartada') && n('nova') === document.querySelectorAll('#pub-corpo .pub-card').length; }));
+    ok('texto sem HTML e com as palavras importantes destacadas', sql("select count(*) from publicacoes where texto like '%<p>%'") === '0' && (await p.$$('#pub-corpo mark')).length > 0);
     await p.click('#pub-buscar'); await p.waitForTimeout(2500);
     ok('buscar de novo não duplica', sql("select count(*) from publicacoes") === '2');
     ok('número do processo no padrão CNJ mesmo quando vem só com dígitos', sql("select processo from publicacoes where tribunal='TRT3'") === '0001234-55.2023.5.03.0001');
-    await p.click('#pub-corpo tbody tr:has-text("5000001-11.2024.8.13.0024") [data-pub-tarefa]'); await p.waitForSelector('#f-tf'); await p.waitForTimeout(300);
+    await p.click('#pub-corpo [data-pub]:has-text("5000001-11.2024.8.13.0024") [data-tarefa]'); await p.waitForSelector('#f-tf'); await p.waitForTimeout(300);
     ok('tarefa sugerida com prazo de 15 dias úteis (pula feriado de 12/10)', await p.inputValue('#f-tf [name=prazo]') === '2026-10-19' && /Execução|execução|intimação/i.test(await p.inputValue('#f-tf [name=titulo]')));
     await salvarGs(p, '#btn-salvar-tf'); await p.waitForTimeout(800);
     ok('publicação fica "tratada" e ligada à tarefa', sql("select status||'|'||(tarefa_id is not null) from publicacoes where processo_numero='50000011120248130024'") === 'tratada|true');
@@ -587,11 +585,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     sql("delete from publicacoes where parte_monitorada='BETA SERVICOS LTDA'");
     await p.evaluate((b) => { window.ERP_DJEN_API = b + '/__teste/djen'; }, BASE); await p.click('#pub-buscar'); await p.waitForTimeout(3000);   // Backup 52: "Buscar agora" = pelo navegador
     await nav(p, 'publicacoes'); await p.waitForTimeout(1200);
-    await p.click('#pub-corpo [data-b-aba=todas]'); await p.waitForTimeout(300);
-    { let achou = false; for (const tr of await p.$$('#pub-corpo tbody tr[data-b-k]')) { await tr.click(); await p.waitForSelector('#janelas .pub-jan');
-        achou = await p.evaluate(() => [...document.querySelectorAll('#janelas .pub-id-txt')].some((d) => /Processo:/.test(d.textContent) && /Réu:/.test(d.textContent))) && !!(await p.$('#janelas [data-copiar-id]'));
-        await p.evaluate(() => { while (document.querySelector('#janelas .fundo')) window.GS.fecharJanela(); }); if (achou) break; }
-      ok('Publicações: identificação no topo da janela (Processo / Réu / Advogado) com botão Copiar', achou); }
+    ok('Publicações: identificação no topo (Processo / Réu / Advogado) com botão Copiar', await p.evaluate(() => [...document.querySelectorAll('#pub-corpo .pub-id-txt')].some((d) => /Processo:/.test(d.textContent) && /Réu:/.test(d.textContent))) && !!(await p.$('#pub-corpo [data-copiar-id]')));
     ok('Publicações: "Buscar pelo navegador" grava sem duplicar', sql("select count(*) from publicacoes where parte_monitorada='BETA SERVICOS LTDA'") === '1' && Number(sql("select count(*) from publicacoes")) === 3);
 
     // ── Alertas: cartões por setor + cartão CNPJ (rotina das 6h) ──
@@ -1465,8 +1459,8 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       await p.evaluate(() => { while (document.querySelector('#janelas .fundo')) window.GS.fecharJanela(); }); }
 
     // Backup 35: Publicações — filtro por advogado em botões
-    await nav(p, 'publicacoes'); await p.waitForSelector('#pub-corpo [data-bt=l][data-k=adv]', { timeout: 8000 }).catch(() => {}); await p.waitForTimeout(800);
-    ok('Publicações: filtro por advogado (nomes cadastrados nas OABs, no botão "Filtros")', (await p.$$('#pub-corpo [data-bt=l][data-k=adv] option')).length >= 2);
+    await nav(p, 'publicacoes'); await p.waitForSelector('#pub-advs', { timeout: 8000 }).catch(() => {}); await p.waitForTimeout(800);
+    ok('Publicações: filtro por advogado (botões com os nomes cadastrados nas OABs)', (await p.$$('#pub-advs button')).length >= 2);
 
     // Backup 42: Financeiro → "💬 Cobrar" com texto simples para o WhatsApp
     { const lid = sql("select id from lancamentos where tipo='receita' and not pago and not perda order by vencimento limit 1");
@@ -1579,7 +1573,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       ok('B49: "Aplicar" registra o aditivo com o valor novo', sql("select valor_mensal from contratos where id='" + ctrR + "'") === '1100.00' && sql("select count(*) from contratos_aditivos where contrato_id='" + ctrR + "' and tipo='valor'") === '1');
       // Publicações: abre em Novas + marcar todas como lidas
       await nav(p, 'publicacoes'); await p.waitForSelector('#pub-todas-lidas'); await p.waitForTimeout(600);
-      ok('B49: Publicações abre em "Novas"', await p.evaluate(() => GS.E.tabB.publicacoes.aba === 'nova'));
+      ok('B49: Publicações abre em "Novas"', await p.evaluate(() => GS.E.pub.status === 'nova'));
       await p.click('#pub-todas-lidas'); await p.waitForTimeout(1500);
       ok('B49: "Marcar todas como lidas"', sql("select count(*) from publicacoes where status='nova'") === '0');
       // Alertas sem o que já tem outro lugar

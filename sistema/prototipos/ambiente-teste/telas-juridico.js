@@ -266,23 +266,47 @@
   }
 
   /* ═════════ PUBLICAÇÕES ═════════ */
+  // Backup 77: voltou a ser como antes do Backup 72 (a pedido): uma publicação por cartão, com o texto à vista,
+  // filtros em botões com contagem (situação, advogado, tribunal) e as ações no próprio cartão.
   APP.registrar('publicacoes', { tit:'Publicações', ic:'jornal', pai:'Jurídico',
-    ajuda:['Novas primeiro. "Lida" tira da lista de novas; "Tarefa" cria a tarefa com o prazo.', 'A busca no Diário roda sozinha 1 vez por dia.'],
+    ajuda:['Novas primeiro. "Marcar lida" tira da lista de novas; "Criar tarefa" já sugere o prazo.', 'A busca no Diário roda sozinha 1 vez por dia.'],
     desenhar:function(el){
-      el.innerHTML = APP.cabecalho({ ic:'jornal', tit:'Publicações', frase:APP.T('pub.frase'), acoes:'<button class="bt bt-o" type="button" id="pb-todas">' + ic('check') + 'Marcar todas como lidas</button>' }) + '<div id="pb-tab"></div>';
+      var F = APP.pref('pubF') || { st:'nova', trib:'', adv:'', q:'' };
+      function salvar(){ APP.pref('pubF', F); }
+      el.innerHTML = APP.cabecalho({ ic:'jornal', tit:'Publicações', frase:APP.T('pub.frase'), acoes:'<button class="bt bt-o" type="button" id="pb-todas">' + ic('check') + 'Marcar todas como lidas</button>' })
+        + '<div class="pub-filtros"><div class="seg" id="pb-st" role="group" aria-label="Situação"></div><span class="ctl-busca">' + ic('busca') + '<input id="pb-q" placeholder="Buscar no texto ou no processo" autocomplete="off"></span></div>'
+        + '<div class="pub-filtros"><div class="seg" id="pb-adv" role="group" aria-label="Advogado"></div><div class="seg" id="pb-trib" role="group" aria-label="Tribunal"></div></div>'
+        + '<div id="pb-lista" class="pub-lista"></div>';
+      APP.$('pb-q').value = F.q || '';
       APP.$('pb-todas').onclick = function(){ var L = D().publicacoes.filter(function(p){ return !p.lida; }); APP.acao(APP.plural(L.length, 'publicação marcada', 'publicações marcadas') + ' como lida(s).', function(){ L.forEach(function(p){ p.lida = true; }); return function(){ L.forEach(function(p){ p.lida = false; }); }; }); };
-      APP.tabela(APP.$('pb-tab'), { id:'publicacoes', linhas:D().publicacoes, unidade:['publicação', 'publicações'], contagem:true, ord:{ k:'d', dir:-1 },
-        abas:[{ id:'nova', rot:'Novas', cor:'r', f:function(p){ return !p.lida; } }, { id:'lida', rot:'Lidas', f:function(p){ return p.lida; } }, { id:'todas', rot:'Todas', f:function(){ return true; } }],
-        busca:function(p){ return p.processo + ' ' + p.txt; }, listas:[{ k:'t', rot:'Tribunal', todos:'Todos os tribunais', opcoes:[['TJMG','TJMG'],['TRT3','TRT3'],['TRF1','TRF1']], get:function(p){ return p.tribunal; } }, { k:'a', rot:'Advogado', todos:'Todos', opcoes:D().equipe.map(function(p){ return [p.id, p.curto]; }), get:function(p){ return p.adv; } }],
-        colunas:[{ k:'d', rot:'Data', cls:'dt', html:function(p){ return APP.fd(p.data); }, ord:function(p){ return +p.data; } },
-          { k:'t', rot:'Tribunal', html:function(p){ return esc(p.tribunal); }, ord:function(p){ return p.tribunal; } },
-          { k:'p', rot:'Processo', cls:'num', html:function(p){ return esc(p.processo); }, ord:function(p){ return p.processo; } },
-          { k:'tx', rot:'O que diz', html:function(p){ return esc(p.txt); }, ord:false },
-          { k:'a', rot:'Advogado', html:function(p){ return APP.pessoaTxt(p.adv); }, ord:function(p){ return p.adv; } },
-          { k:'ac', rot:'', cls:'dir acoes', ord:false, html:function(p){ return '<span class="acs">' + (p.lida ? '' : '<button class="bt-emitir" type="button" data-pub-lida="' + p.id + '">Lida</button>') + '<button class="bt-baixa" type="button" data-pub-tarefa="' + p.id + '">Tarefa</button></span>'; } }] });
+      function pintar(){
+        var todas = D().publicacoes, q = APP.norm ? APP.norm(F.q || '') : String(F.q || '').toLowerCase();
+        var okSt = function(p){ return F.st === 'todas' || (F.st === 'nova' ? !p.lida : p.lida); }, okAdv = function(p){ return !F.adv || p.adv === F.adv; },
+          okTrib = function(p){ return !F.trib || p.tribunal === F.trib; }, okQ = function(p){ var t = (p.processo + ' ' + p.txt).toLowerCase(); return !q || t.indexOf(q) >= 0; };
+        function seg(id, ops, atual, conta){ APP.$(id).innerHTML = ops.map(function(o){ return '<button type="button" class="seg-bt" data-v="' + o[0] + '" aria-selected="' + (atual === o[0]) + '">' + esc(o[1]) + ' <span class="seg-n">' + conta(o[0]) + '</span></button>'; }).join(''); }
+        seg('pb-st', [['nova', 'Novas'], ['lida', 'Lidas'], ['todas', 'Todas']], F.st, function(v){ return todas.filter(function(p){ return okAdv(p) && okTrib(p) && okQ(p) && (v === 'todas' || (v === 'nova' ? !p.lida : p.lida)); }).length; });
+        var advs = [''].concat(D().equipe.map(function(x){ return x.id; }).filter(function(id){ return todas.some(function(p){ return p.adv === id; }); }));
+        seg('pb-adv', advs.map(function(id){ return [id, id ? APP.pessoa(id).curto : 'Todos os advogados']; }), F.adv, function(v){ return todas.filter(function(p){ return okSt(p) && okTrib(p) && okQ(p) && (!v || p.adv === v); }).length; });
+        var tribs = [''].concat(['TJMG', 'TRT3', 'TRF1'].filter(function(t){ return todas.some(function(p){ return p.tribunal === t; }); }));
+        seg('pb-trib', tribs.map(function(t){ return [t, t || 'Todos os tribunais']; }), F.trib, function(v){ return todas.filter(function(p){ return okSt(p) && okAdv(p) && okQ(p) && (!v || p.tribunal === v); }).length; });
+        var lista = todas.filter(function(p){ return okSt(p) && okAdv(p) && okTrib(p) && okQ(p); }).sort(function(a, b){ return b.data - a.data; });
+        APP.$('pb-lista').innerHTML = lista.length ? lista.map(function(p){
+          return '<article class="pub-card' + (p.lida ? '' : ' pub-nova') + '"><div class="pub-topo"><div><span class="pill ' + (p.lida ? 'p-n' : 'p-a') + '">' + (p.lida ? 'lida' : 'nova') + '</span> <b>' + esc(/^[^:]{2,30}:/.test(p.txt) ? p.txt.split(':')[0] : 'Comunicação') + '</b> · ' + esc(p.tribunal) + ' · <span class="num">' + APP.fd(p.data) + '</span></div>'
+            + '<div class="pub-proc"><span class="num">' + esc(p.processo) + '</span><small>' + esc(APP.pessoa(p.adv).nome || APP.pessoa(p.adv).curto) + '</small></div></div>'
+            + '<div class="pub-texto">' + esc(p.txt) + '</div>'
+            + '<div class="pub-acoes"><button class="bt bt-p bt-mini" type="button" data-pub-tarefa="' + p.id + '">' + ic('mais') + 'Criar tarefa (5 dias úteis)</button>'
+            + (p.lida ? '<button class="bt bt-o bt-mini" type="button" data-pub-nova="' + p.id + '">Voltar para novas</button>' : '<button class="bt bt-o bt-mini" type="button" data-pub-lida="' + p.id + '">Marcar lida</button>') + '</div></article>'; }).join('')
+          : '<div class="quadro"><div class="vazio"><div class="vazio-ic">' + ic('ok') + '</div><b>Nenhuma publicação neste recorte</b><p>Troque o filtro ou a busca.</p></div></div>';
+      }
+      pintar();
+      var t; APP.$('pb-q').oninput = function(e){ clearTimeout(t); t = setTimeout(function(){ F.q = e.target.value; salvar(); pintar(); }, 200); };
       el.onclick = function(e){
+        var b = e.target.closest('#pb-st [data-v]'); if (b){ F.st = b.dataset.v; salvar(); pintar(); return; }
+        b = e.target.closest('#pb-adv [data-v]'); if (b){ F.adv = b.dataset.v; salvar(); pintar(); return; }
+        b = e.target.closest('#pb-trib [data-v]'); if (b){ F.trib = b.dataset.v; salvar(); pintar(); return; }
         var l = e.target.closest('[data-pub-lida]'); if (l){ var p = D().publicacoes.find(function(x){ return x.id === l.dataset.pubLida; }); APP.acao('Publicação lida.', function(){ p.lida = true; return function(){ p.lida = false; }; }); return; }
-        var t = e.target.closest('[data-pub-tarefa]'); if (t){ var q = D().publicacoes.find(function(x){ return x.id === t.dataset.pubTarefa; }); APP.formTarefa(null); setTimeout(function(){ var i = document.getElementById('tf-tit'); if (i) i.value = 'Publicação ' + q.tribunal + ' — ' + q.txt.slice(0, 60); }, 40); }
+        var n = e.target.closest('[data-pub-nova]'); if (n){ var p2 = D().publicacoes.find(function(x){ return x.id === n.dataset.pubNova; }); APP.acao('Voltou para novas.', function(){ p2.lida = false; return function(){ p2.lida = true; }; }); return; }
+        var tt = e.target.closest('[data-pub-tarefa]'); if (tt){ var q = D().publicacoes.find(function(x){ return x.id === tt.dataset.pubTarefa; }); APP.formTarefa(null); setTimeout(function(){ var i = document.getElementById('tf-tit'); if (i) i.value = 'Publicação ' + q.tribunal + ' — ' + q.txt.slice(0, 60); }, 40); }
       };
     } });
 })();
