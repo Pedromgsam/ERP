@@ -1769,7 +1769,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       sql("insert into email_fila (para, assunto, html, status, erro, tipo, referencia) values ('erro.b51@teste.com', 'E-mail com erro B51', '<p>oi B51</p>', 'erro', 'Invalid login', 'manual', 'b51-erro')");
       await p.click('#em-abas [data-em-aba=saida]'); await p.waitForSelector('.em-saida');
       ok('B80 (E7): Caixa de saída com 3 abas No rascunho · Enviados · Com erro', /No rascunho.*Enviados.*Com erro/.test((await p.textContent('.em-saida-f')).replace(/\s+/g, ' ')) && !!(await p.$('#em-revisar')));
-      await p.click('.em-saida-f [data-saida-f=erro]'); await p.waitForSelector('.em-saida-tab');
+      await p.click('.em-saida-f [data-saida-f=erro]'); await p.waitForSelector('.em-saida-tab'); await p.waitForFunction(() => /E-mail com erro B51/.test((document.querySelector('.em-saida-tab') || {}).textContent || ''), null, { timeout: 6000 }).catch(() => {});
       ok('B51 E4: "Com erro" lista o e-mail com 👁 prévia e "tentar de novo"', /E-mail com erro B51/.test(await p.textContent('.em-saida-tab')) && !!(await p.$('.em-saida-tab [data-em-tentar]')) && !!(await p.$('.em-saida-tab [data-em-ver]')));
       await p.click('.em-saida-tab [data-em-ver]'); await p.waitForSelector('iframe.em-previa'); await p.waitForTimeout(300);
       ok('B51 E4: 👁 mostra a prévia do e-mail', /oi B51/.test(await p.evaluate(() => document.querySelector('iframe.em-previa').srcdoc)));
