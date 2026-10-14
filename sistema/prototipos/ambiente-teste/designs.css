@@ -1,0 +1,166 @@
+/* ═══ Backup 77 — DESIGNS ALTERNATIVOS (só no ambiente de teste) ═══
+   O seletor "Design" na faixa amarela troca o atributo html[data-design]. "Atual" = sem atributo (o desenho aprovado até o Backup 76).
+   A · Nítido     = ROMPEX fiel: lateral azul-marinho, fundo quente claro, ícone no título, cartões com contorno, tabela leve com linhas altas.
+   B · Claro      = Linear/Vercel/Notion: lateral clara e discreta, sem ícone no título, contornos de cabelo, cabeçalho da tabela sem caixa alta, cor só onde tem significado.
+   C · Executivo  = ERP antigo (marinho + dourado): lateral marinho com marcador dourado, títulos em Playfair Display, cartões sem contorno com sombra suave.
+   "Enxuto" (designs.js) resume o que pesa pouco: cartões de grupo com 2 linhas, números do Painel agrupados, sem bolinha de grupo. */
+
+/* ───────────────── A · NÍTIDO (ROMPEX) ───────────────── */
+:root[data-design="nitido"]{
+  --bg:#F5F5F2;--surface:#FFFFFF;--surface2:#F8F8F6;--hover:#F4F4F1;
+  --ink:#1A1D22;--text:#22262C;--text2:#4A4F57;--text3:#6E737B;
+  --border:#E6E4DF;--line:#EFEDE9;
+  --primario:#1F4D80;--primario-hover:#173B66;--primario-lt:#EAF0F8;
+  --lado-bg:#16243D;--lado-borda:transparent;--lado-fg:#FFFFFF;--lado-fg2:rgba(255,255,255,.80);--lado-sec:rgba(255,255,255,.48);
+  --lado-ativo-bg:#2D63B5;--lado-ativo-fg:#FFFFFF;--lado-hover:rgba(255,255,255,.07);
+  --shadow:none;--r:12px;--r-ctl:9px;--pad-td:12px;--pad-th:11px}
+:root[data-design="nitido"].compacto{--pad-td:7px;--pad-th:8px}
+:root[data-design="nitido"][data-theme="dark"]{--bg:#0A0A0B;--surface:#121214;--surface2:#18181B;--hover:#1C1C20;--border:#26262B;--line:#1D1D21;--lado-bg:#0F1B30;--lado-borda:#22324D;--lado-ativo-bg:#2D63B5;--primario-lt:rgba(61,127,224,.15)}
+@media (prefers-color-scheme: dark){:root[data-design="nitido"]:not([data-theme="light"]){--bg:#0A0A0B;--surface:#121214;--surface2:#18181B;--hover:#1C1C20;--border:#26262B;--line:#1D1D21;--lado-bg:#0F1B30;--lado-borda:#22324D;--lado-ativo-bg:#2D63B5;--primario-lt:rgba(61,127,224,.15)}}
+[data-design="nitido"] .lado{padding:16px 10px}
+[data-design="nitido"] .marca{font-size:16px;padding:4px 10px 16px}
+[data-design="nitido"] .item{padding:8px 11px;border-radius:8px;font-size:13.5px}
+[data-design="nitido"] .item.sub{padding-left:38px}
+[data-design="nitido"] .item.on{font-weight:600}
+[data-design="nitido"] .topo{padding:10px 24px}
+[data-design="nitido"] .busca-geral{background:var(--bg);border-color:var(--border)}
+[data-design="nitido"] .corpo{padding:26px 28px 64px;gap:20px}
+[data-design="nitido"] .cab{align-items:center}
+[data-design="nitido"] .cab-ic{width:44px;height:44px;border-radius:12px;background:var(--surface);color:var(--primario)}
+[data-design="nitido"] .cab h1{font-size:24px;font-weight:700;letter-spacing:-.02em}
+[data-design="nitido"] .cab p{font-size:14px;margin-top:3px}
+[data-design="nitido"] .quadro-hd{padding:14px 18px}
+[data-design="nitido"] .quadro-hd h2,[data-design="nitido"] .sec-cab h2{font-size:15px}
+[data-design="nitido"] th{font-size:11px;letter-spacing:.07em;color:var(--text3);font-weight:600;padding-left:14px;padding-right:14px}
+[data-design="nitido"] td{padding-left:14px;padding-right:14px}
+[data-design="nitido"] .cg{padding:16px 18px;gap:8px}
+[data-design="nitido"] .nums,[data-design="nitido"] .faixas,[data-design="nitido"] .faixa{border-radius:12px}
+[data-design="nitido"] .num-it{padding:16px 18px}
+[data-design="nitido"] .num-it b{font-size:20px}
+[data-design="nitido"] .num-it b.forte{font-size:22px}
+[data-design="nitido"] .seg-bt[aria-selected="true"],[data-design="nitido"] .chip[aria-pressed="true"]{background:var(--primario)}
+[data-design="nitido"] .bt{padding:8px 14px}
+
+/* ───────────────── B · CLARO (Linear / Vercel / Notion) ───────────────── */
+:root[data-design="claro"]{
+  --bg:#FFFFFF;--surface:#FFFFFF;--surface2:#F7F7F8;--hover:#F4F4F5;
+  --ink:#111318;--text:#1E2127;--text2:#4B5059;--text3:#7A7F88;
+  --border:#E8E8EB;--line:#F0F0F2;
+  --primario:#173B66;--primario-hover:#0F2C50;--primario-lt:#EEF2F8;--link:#2F5FAE;
+  --lado-bg:#F7F7F8;--lado-borda:#ECECEF;--lado-fg:#1E2127;--lado-fg2:#4B5059;--lado-sec:#9196A0;
+  --lado-ativo-bg:#E9EAED;--lado-ativo-fg:#111318;--lado-hover:#EFEFF1;
+  --shadow:none;--r:10px;--r-ctl:7px;--pad-td:9px;--pad-th:8px}
+:root[data-design="claro"].compacto{--pad-td:6px;--pad-th:6px}
+:root[data-design="claro"][data-theme="dark"]{--bg:#0B0B0C;--surface:#0B0B0C;--surface2:#141416;--hover:#17171A;--ink:#EDEDEF;--text:#E2E2E5;--text2:#B4B4BA;--text3:#85858D;--border:#232327;--line:#1A1A1D;
+  --primario:#3B74D1;--primario-hover:#3368BF;--primario-lt:rgba(59,116,209,.15);--link:#8DB8FF;--lado-bg:#0F0F11;--lado-borda:#1E1E22;--lado-fg:#E2E2E5;--lado-fg2:#B4B4BA;--lado-sec:#6E6E76;--lado-ativo-bg:#1E1E22;--lado-ativo-fg:#FFFFFF;--lado-hover:#18181B}
+@media (prefers-color-scheme: dark){:root[data-design="claro"]:not([data-theme="light"]){--bg:#0B0B0C;--surface:#0B0B0C;--surface2:#141416;--hover:#17171A;--ink:#EDEDEF;--text:#E2E2E5;--text2:#B4B4BA;--text3:#85858D;--border:#232327;--line:#1A1A1D;
+  --primario:#3B74D1;--primario-hover:#3368BF;--primario-lt:rgba(59,116,209,.15);--link:#8DB8FF;--lado-bg:#0F0F11;--lado-borda:#1E1E22;--lado-fg:#E2E2E5;--lado-fg2:#B4B4BA;--lado-sec:#6E6E76;--lado-ativo-bg:#1E1E22;--lado-ativo-fg:#FFFFFF;--lado-hover:#18181B}}
+[data-design="claro"] .lado{padding:14px 8px}
+[data-design="claro"] .marca{font-size:14px;font-weight:650}
+[data-design="claro"] .item{padding:6px 10px;font-size:13px;border-radius:6px;font-weight:500}
+[data-design="claro"] .item.sub{padding-left:36px}
+[data-design="claro"] .item.on{font-weight:600}
+[data-design="claro"] .item .n{background:transparent;color:var(--red);padding:0}
+[data-design="claro"] .sec{font-size:11px;letter-spacing:.02em;text-transform:none;font-weight:600}
+[data-design="claro"] .topo{border-bottom-color:var(--line);padding:8px 28px}
+[data-design="claro"] .topo .onde{color:var(--text3);font-weight:500}
+[data-design="claro"] .busca-geral{background:var(--surface2);border-color:transparent}
+[data-design="claro"] .eu{border-color:transparent}
+[data-design="claro"] .ic-bt{border-color:transparent;background:transparent}
+[data-design="claro"] .ic-bt:hover{background:var(--hover)}
+[data-design="claro"] .corpo{padding:28px 36px 72px;gap:22px}
+[data-design="claro"] .cab-ic{display:none}
+[data-design="claro"] .cab h1{font-size:22px;font-weight:650;letter-spacing:-.025em}
+[data-design="claro"] .cab p{font-size:13px}
+[data-design="claro"] .quadro,[data-design="claro"] .cg,[data-design="claro"] .nums,[data-design="claro"] .faixas,[data-design="claro"] .faixa,[data-design="claro"] .li{box-shadow:none}
+[data-design="claro"] .quadro-hd{padding:12px 16px;border-bottom-color:var(--line)}
+[data-design="claro"] .quadro-hd h2,[data-design="claro"] .sec-cab h2{font-size:14px;font-weight:600}
+[data-design="claro"] th{text-transform:none;letter-spacing:0;font-size:12px;font-weight:500;color:var(--text3);background:var(--surface)}
+[data-design="claro"] td{border-bottom-color:var(--line)}
+[data-design="claro"] tbody tr.cl:hover td{background:var(--surface2)}
+[data-design="claro"] .pill{background:transparent!important;padding:0;font-weight:600}
+[data-design="claro"] .seg{background:var(--surface2);border-color:transparent}
+[data-design="claro"] .seg-bt[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08),0 0 0 1px var(--border)}
+[data-design="claro"] .seg-bt[aria-selected="true"] .seg-n{background:var(--gray-lt);color:var(--text2)}
+[data-design="claro"] .chip{border-color:var(--border);font-weight:500}
+[data-design="claro"] .chip[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--surface)}
+[data-design="claro"] .fx{border-color:var(--line);background:var(--surface2)}
+[data-design="claro"] .faixa-rot{letter-spacing:.02em;text-transform:none;font-size:12px;font-weight:600}
+[data-design="claro"] .num-it{padding:14px 16px}
+[data-design="claro"] .num-it span{font-size:12px}
+[data-design="claro"] .num-it b{font-size:20px;font-weight:600;letter-spacing:-.02em}
+[data-design="claro"] .barra{height:4px}
+[data-design="claro"] .barra span{background:var(--ink)}
+[data-design="claro"] .cg{padding:14px 16px}
+[data-design="claro"] .cg:hover{border-color:var(--text3)}
+[data-design="claro"] .bt{font-weight:500}
+[data-design="claro"] .bt-o{border-color:var(--border)}
+
+/* ───────────────── C · EXECUTIVO (ERP antigo: marinho + dourado) ───────────────── */
+:root[data-design="exec"]{
+  --bg:#F2F3F6;--surface:#FFFFFF;--surface2:#F8F9FB;--hover:#F4F5F8;
+  --ink:#1B2A4A;--text:#24304A;--text2:#4A5568;--text3:#737C8C;
+  --border:#E4E7EC;--line:#EEF0F3;
+  --primario:#1B2A4A;--primario-hover:#13203A;--primario-lt:#EEF1F6;--link:#2F5FAE;
+  --ouro:#C9A84C;--ouro-lt:rgba(201,168,76,.14);
+  --lado-bg:#1B2A4A;--lado-borda:transparent;--lado-fg:#FFFFFF;--lado-fg2:rgba(255,255,255,.78);--lado-sec:#C9A84C;
+  --lado-ativo-bg:rgba(201,168,76,.16);--lado-ativo-fg:#F3E6BE;--lado-hover:rgba(255,255,255,.06);
+  --shadow:0 1px 2px rgba(27,42,74,.05),0 8px 24px -14px rgba(27,42,74,.22);--r:14px;--r-ctl:9px;--pad-td:11px;--pad-th:10px;
+  --titulo:'Playfair Display',Georgia,serif;--forte:#1B2A4A;--on-forte:#FFFFFF}
+:root[data-design="exec"].compacto{--pad-td:7px;--pad-th:7px}
+:root[data-design="exec"][data-theme="dark"]{--bg:#070A12;--surface:#0E1424;--surface2:#131A2C;--hover:#172036;--ink:#F1F3F8;--text:#E2E6EF;--text2:#B7BFCE;--text3:#8590A4;--border:#212B42;--line:#19223A;
+  --primario:#3A6BC4;--primario-hover:#335FAF;--primario-lt:rgba(58,107,196,.16);--link:#8DB8FF;--lado-bg:#0B1222;--lado-borda:#1E2A44;--lado-ativo-bg:rgba(201,168,76,.18);--shadow:none;--forte:#3A6BC4}
+@media (prefers-color-scheme: dark){:root[data-design="exec"]:not([data-theme="light"]){--bg:#070A12;--surface:#0E1424;--surface2:#131A2C;--hover:#172036;--ink:#F1F3F8;--text:#E2E6EF;--text2:#B7BFCE;--text3:#8590A4;--border:#212B42;--line:#19223A;
+  --primario:#3A6BC4;--primario-hover:#335FAF;--primario-lt:rgba(58,107,196,.16);--link:#8DB8FF;--lado-bg:#0B1222;--lado-borda:#1E2A44;--lado-ativo-bg:rgba(201,168,76,.18);--shadow:none;--forte:#3A6BC4}}
+[data-design="exec"] .lado{padding:18px 10px;width:auto}
+[data-design="exec"] .marca{font-family:var(--titulo);font-size:18px;font-weight:700;letter-spacing:0;padding:4px 12px 18px;border-bottom:1px solid rgba(201,168,76,.25);margin-bottom:6px}
+[data-design="exec"] .marca small{font-family:'Inter',sans-serif;color:var(--ouro);letter-spacing:.06em;text-transform:uppercase;font-size:9.5px;margin-top:3px}
+[data-design="exec"] .sec{color:var(--ouro);opacity:.85}
+[data-design="exec"] .item{border-radius:6px;position:relative;font-size:13.5px}
+[data-design="exec"] .item.on{font-weight:600;box-shadow:inset 3px 0 0 var(--ouro)}
+[data-design="exec"] .topo{padding:10px 28px}
+[data-design="exec"] .corpo{padding:28px 32px 64px;gap:22px}
+[data-design="exec"] .cab{align-items:center}
+[data-design="exec"] .cab-ic{width:46px;height:46px;border-radius:50%;background:var(--surface);border:1px solid var(--border);color:var(--ink);box-shadow:inset 0 0 0 3px var(--ouro-lt)}
+[data-design="exec"] .cab h1{font-family:var(--titulo);font-size:27px;font-weight:700;letter-spacing:-.01em;color:var(--ink)}
+[data-design="exec"] .cab p{font-size:13.5px}
+[data-design="exec"] .quadro,[data-design="exec"] .cg,[data-design="exec"] .nums,[data-design="exec"] .faixas,[data-design="exec"] .faixa,[data-design="exec"] .li{border-color:transparent}
+[data-design="exec"] .quadro-hd{padding:15px 20px}
+[data-design="exec"] .quadro-hd h2,[data-design="exec"] .sec-cab h2,[data-design="exec"] .j-hd b{font-family:var(--titulo);font-size:16.5px;font-weight:700;letter-spacing:0}
+[data-design="exec"] th{font-size:10.5px;letter-spacing:.09em;color:var(--text3);font-weight:600;background:var(--surface2)}
+[data-design="exec"] .num-it{padding:16px 20px}
+[data-design="exec"] .num-it b{font-size:20px;color:var(--ink)}
+[data-design="exec"] .num-it b.forte{font-size:23px}
+[data-design="exec"] .cg{padding:16px 17px}
+[data-design="exec"] .cg[aria-expanded="true"]{box-shadow:var(--shadow),inset 0 3px 0 var(--ouro)}
+[data-design="exec"] .barra span{background:var(--forte)}
+[data-design="exec"] .seg{border-color:var(--border)}
+[data-design="exec"] .seg-bt[aria-selected="true"],[data-design="exec"] .chip[aria-pressed="true"]{background:var(--forte);border-color:var(--forte);color:var(--on-forte)}
+[data-design="exec"] .bt-p{background:var(--forte);color:var(--on-forte)}
+[data-design="exec"] .ava{background:var(--ouro);color:#1B2A4A}
+
+/* ───────────────── comum aos 3 designs novos ───────────────── */
+:root[data-design] .cg-lin b{white-space:nowrap}
+:root[data-design] .cg-lin span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+:root[data-design] .ponto{display:none}   /* sem bolinha de grupo (regra do ERP, Backup 72) */
+:root[data-design] .faixa-teste{background:var(--surface2);border-bottom:1px solid var(--line)}
+:root[data-design] .faixa-teste b{color:var(--ink)}
+
+/* ───────────────── seletor de design (faixa do ambiente) ───────────────── */
+.ds{display:inline-flex;align-items:center;gap:6px;margin-left:auto;flex-wrap:wrap}
+.ds-rot{font-weight:700;font-size:12px}
+.ds-seg{display:inline-flex;border:1px solid var(--border);border-radius:8px;padding:2px;background:var(--surface);gap:2px}
+.ds-seg button{border:0;background:none;border-radius:6px;padding:3px 10px;font:600 12px var(--font);color:var(--text2);cursor:pointer;white-space:nowrap}
+.ds-seg button[aria-pressed="true"]{background:var(--primario);color:var(--on-primario)}
+.ds-enx{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:var(--text2);cursor:pointer}
+
+/* ───────────────── ENXUTO (designs.js marca o que sai) ───────────────── */
+:root.enxuto .enx-fora{display:none!important}
+.cg-prog{font-size:11.5px;color:var(--text3);margin-top:-2px}
+.num-org{display:block;font-size:11.5px;color:var(--text3);margin-top:3px;white-space:normal}
+@media (min-width:761px){
+  :root[data-design="nitido"] .app{grid-template-columns:212px minmax(0,1fr)}
+  :root[data-design="exec"] .app{grid-template-columns:220px minmax(0,1fr)}
+  :root[data-design="claro"] .app{grid-template-columns:200px minmax(0,1fr)}
+}
+:root:not(.enxuto) .enx-so{display:none}

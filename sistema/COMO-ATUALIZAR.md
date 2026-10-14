@@ -707,6 +707,20 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
 **Central de Documentos dentro do ERP:** menu **Documentos → Gerar documento** (ou ⋯ → Documentos, contrato, recibo do Financeiro).
 **Ctrl + clique** (ou botão do meio do mouse) em qualquer item do menu ou link de documento abre numa aba nova.
 
+## Backup 77 — Designs novos para escolher (ambiente de teste) e Publicações como antes
+1. Merge da pull request.
+2. **Sem SQL** e sem função nova.
+3. **Ctrl+Shift+R** no ERP.
+
+O que mudou:
+- **Publicações (no ERP de verdade)** voltaram a ser como antes do Backup 72: números Novas/Lidas/Tratadas no alto, filtros em botões
+  (situação, período, advogado, tribunal) e um cartão por publicação com o texto inteiro e os botões no próprio cartão. Só o título da tela ficou no padrão novo.
+- **Ambiente de teste** (https://claude.ai/artifact/GMgLFUpDhAoBs1LMrh6QiP) — nada disso está no ERP ainda:
+  1. na faixa amarela do alto, **Design**: Atual · A Nítido · B Claro · C Executivo. Clique em cada um e passeie pelas telas (também no escuro, botão da lua);
+  2. a caixa **Enxuto** liga/desliga os resumos (cartões de grupo com 2 linhas, Painel com 5 números, sem frases "Clique…");
+  3. **Para aprovar → Design (Backup 77)**: marque Aprovo/Não e clique em **Copiar minhas respostas** para colar na conversa.
+  O design escolhido vai para o ERP inteiro numa rodada só.
+
 ## Backup 76 — Fim das telas antigas para a equipe e para o cliente: Financeiro, Painel, Processos, portal do cliente, busca geral e mais
 1. Merge da pull request.
 2. **SQL no Supabase** (Raw → Ctrl+A/Ctrl+C → conferir a última linha `-- ═══ fim do Backup 76 ═══` → Run).
