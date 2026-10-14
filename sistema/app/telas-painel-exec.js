@@ -50,7 +50,7 @@ TELAS.painelExec = async function () {
   const grupos = unicosB(base.map((r) => r.grupo)), emps = unicosB(base.filter((r) => !P.grupo || r.grupo === P.grupo).map((r) => r.nome));
   if (P.empresa && !emps.includes(P.empresa)) P.empresa = '';
   const N = numerosPainel(D, P), t = (v) => '<span title="' + esc(brl(v)) + '">' + esc(brlCurto(v)) + '</span>';
-  c.innerHTML = cabecalhoTela({ icone: 'pizza', titulo: 'Painel executivo', frase: 'Passivo tributário dos clientes, parcelamentos, acordos e processos — num lugar só.' }) +
+  c.innerHTML = cabecalhoTela({ icone: 'pizza', titulo: 'Painel Executivo', frase: 'Passivo dos clientes e onde ele está' }) +
     '<div class="b-fin-topo b-pe-topo"><select id="pe-grupo" aria-label="Grupo"><option value="">Todos os grupos</option>' + grupos.map((g) => '<option' + (P.grupo === g ? ' selected' : '') + '>' + esc(g) + '</option>').join('') + '</select>' +
       '<select id="pe-emp" aria-label="Empresa"><option value="">Todas as empresas</option>' + emps.map((e) => '<option' + (P.empresa === e ? ' selected' : '') + '>' + esc(e) + '</option>').join('') + '</select>' +
       '<span class="b-pe-conta">' + plural(N.data.length, 'entidade', 'entidades') + ' · ' + plural(unicosB(N.data.map((r) => r.grupo)).length, 'grupo', 'grupos') + '</span></div>' +
@@ -132,7 +132,7 @@ TELAS.processosERP = async function () {
   // Backup 79: filtro suspenso (Grupo / Competência) — recorta o Resumo da carteira e a lista
   const F = E.prF, L0 = D.processos, L = L0.filter((p) => (!F.grupo || p.grupo === F.grupo) && (!F.comp || p.competencia === F.comp)), P = L.filter((p) => p.carteira !== 'Prospecção');
   const podeEd = pode('juridico', 'editar');
-  c.innerHTML = cabecalhoTela({ icone: 'documento', titulo: 'Processos', frase: 'Carteira judicial dos clientes: andamento, valores e movimentações.', botao: podeEd ? { id: 'pr-novo', rotulo: 'Processo' } : null }) +
+  c.innerHTML = cabecalhoTela({ icone: 'documento', titulo: 'Processos', frase: 'Processos dos clientes', botao: podeEd ? { id: 'pr-novo', rotulo: 'Processo' } : null }) +
     filtroSusB('pr-filtro', [{ k: 'grupo', rot: 'Grupo', todos: 'Todos os grupos', opcoes: unicosTxt(L0.map((p) => p.grupo)), v: F.grupo },
       { k: 'comp', rot: 'Competência', todos: 'Todas as competências', opcoes: unicosTxt(L0.filter((p) => !F.grupo || p.grupo === F.grupo).map((p) => p.competencia)), v: F.comp }]) +
     '<section class="b-fin-cartao b-pr-res' + (E.prRes.aberto ? ' b-aberto' : '') + '" id="pr-res"><button type="button" class="b-pr-res-hd" id="pr-res-bt" aria-expanded="' + E.prRes.aberto + '"><span class="b-seta" aria-hidden="true">▸</span><h3>Resumo da carteira</h3><span class="b-sub">' +
@@ -183,29 +183,4 @@ function resumoCarteira(L0) {
     '<div class="b-pr-res-tres">' + agrupa('grupo', 'Grupo') + agrupa('competencia', 'Tribunal') + agrupa('natureza', 'Natureza') + '</div>';
 }
 
-// ═══════════════════════════════ PORTAL DO CLIENTE — Início ═══════════════════════════════
-// Backup 78 (pedido): o Início do cliente é só uma introdução — boas-vindas, uma linha de situação (em dia ou em atraso)
-// e os atalhos para Parcelamentos, Acordos e Processos. Os números e as listas ficam em cada tela.
-TELAS.portalInicio = async function () {
-  const D = dbE(), c = $('conteudo');
-  if (!Array.isArray(D.baseDados)) { c.innerHTML = '<div class="carregando">Carregando…</div>'; return; }
-  const s = window.AC_SESSION || {}, grupos = String(s.grupos || '').split(',').map((g) => g.trim()).filter(Boolean);
-  const noGrupo = (g) => !grupos.length || grupos.includes(g);
-  const empresas = (D.baseDados || []).filter((b) => noGrupo(b.grupo)), nomesEmp = new Set(empresas.map((b) => b.nome));
-  const parc = (D.parcelamentos || []).filter((p) => nomesEmp.has(p.empresa) || (p.grupoNome && noGrupo(p.grupoNome)));
-  const h = hojeISO(), isoP = (x) => x.vencIso || brIsoB(x.vencimento);
-  let atr = 0;
-  parc.forEach((p) => (p.parcelas || []).forEach((x) => { const v = isoP(x); if (x.pagamento !== 'SIM' && v && v < h) atr++; }));
-  (D.acordos || []).filter((a) => noGrupo(a.grupo) && a.pagamento !== 'SIM' && a.situacao !== 'Pago').forEach((a) => { const v = a.vencIso || brIsoB(a.vencimento); if (v && v < h) atr++; });
-  const titulo = grupos.length === 1 ? grupos[0] : (s.nome || 'cliente');
-  const atalho = (ir, rot, txt) => '<button type="button" class="pt-tile" data-pt-ir="' + ir + '"><span>' + esc(rot) + '</span><small>' + esc(txt) + '</small></button>';
-  c.innerHTML = '<div id="pt-home" class="pt-home">' +
-    '<section class="pt-banda"><div><div class="pt-marca">Araújo &amp; Castro</div><div class="pt-marca-s">Portal do cliente</div></div><div class="pt-banda-dir">' + esc(titulo) + '<small>' + plural(empresas.length, 'empresa', 'empresas') + '</small></div></section>' +
-    '<section class="pt-ola"><h1>Olá, ' + esc(titulo) + '!</h1><p>Este é o seu espaço no escritório. Aqui você acompanha, a qualquer hora, os parcelamentos, os acordos e os processos das suas empresas. Escolha abaixo por onde começar.</p></section>' +
-    '<div class="pt-situacao ' + (atr ? 'pt-sit-atr' : 'pt-sit-ok') + '">' + (atr ? plural(atr, 'parcela em atraso', 'parcelas em atraso') + ' — fale com o escritório.' : 'Tudo em dia: nenhuma parcela em atraso.') + '</div>' +
-    '<section class="pt-tiles pt-tiles-3">' + atalho('parcelamentos', 'Parcelamentos', 'Cada parcelamento, o que vence e as guias prontas') +
-      atalho('acordos', 'Acordos', 'Os acordos com terceiros e as parcelas') + atalho('processos', 'Processos', 'Os processos das suas empresas e a última movimentação') + '</section>' +
-    '<p class="pt-contato">Alguma dúvida? Fale com o escritório pelo seu contato de sempre (WhatsApp ou e-mail) — nossa equipe responde.</p></div>';
-  c.querySelector('#pt-home').onclick = (ev) => { const b = ev.target.closest('[data-pt-ir]'); if (b) irParaTela(b.dataset.ptIr); };
-};
-const brIsoB = (d) => (/^\d{2}\/\d{2}\/\d{4}$/.test(d || '') ? d.split('/').reverse().join('-') : (/^\d{4}-\d{2}-\d{2}/.test(d || '') ? String(d).slice(0, 10) : ''));
+// Backup 81: o Início antigo do cliente (TELAS.portalInicio) saiu — o cliente entra no portal novo (telas-portal.js)

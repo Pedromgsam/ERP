@@ -6560,3 +6560,106 @@ end $$;
 revoke all on function public.desfazer_conferencia(text, uuid[]) from public, anon;
 grant execute on function public.desfazer_conferencia(text, uuid[]) to authenticated;
 -- ═══ fim do Backup 76 ═══
+
+-- ═══════════════════════════════════════════════════════════════════
+-- Backup 81 — PORTAL DO CLIENTE NOVO (aprovado no ambiente de teste, A3/F4/M10)
+-- Cada grupo tem a lista do que o cliente vê no portal (o escritório escolhe).
+-- O cliente lê tudo pela função portal_cliente() (security definer, só os grupos dele,
+-- sem campos internos); a equipe usa a mesma função para "Ver como o cliente vê".
+-- ═══════════════════════════════════════════════════════════════════
+alter table public.grupos add column if not exists portal_ve text[] not null
+  default '{processos,parcelamentos,acordos,execucoes,contratos,financeiro,documentos}';
+alter table public.grupos alter column portal_ve set default '{processos,parcelamentos,acordos,execucoes,contratos,financeiro,documentos}';
+
+create or replace function public.salvar_portal_ve(p_grupo uuid, p_ve text[]) returns text[]
+language plpgsql security definer set search_path = public as $$
+declare v text[];
+begin
+  if not (public.eh_admin() or public.pode('clientes', 'editar')) then raise exception 'permission denied: só quem edita clientes escolhe o que o grupo vê.'; end if;
+  select coalesce(array_agg(x order by x), '{}') into v from unnest(coalesce(p_ve, '{}')) x
+   where x in ('processos','parcelamentos','acordos','execucoes','contratos','financeiro','documentos');
+  update public.grupos set portal_ve = v where id = p_grupo;
+  if not found then raise exception 'Grupo não encontrado.'; end if;
+  return v;
+end $$;
+revoke all on function public.salvar_portal_ve(uuid, text[]) from public, anon;
+grant execute on function public.salvar_portal_ve(uuid, text[]) to authenticated;
+
+-- grupos que a pessoa pode ver no portal: cliente = os dele; equipe = o grupo pedido (prévia)
+create or replace function public.portal_grupos_de(p_grupo uuid) returns uuid[]
+language plpgsql stable security definer set search_path = public as $$
+declare g uuid[];
+begin
+  if public.papel_atual() = 'cliente' then
+    select coalesce(array_agg(grupo_id), '{}') into g from public.perfil_grupos where perfil_id = auth.uid();
+    if p_grupo is not null then g := array(select x from unnest(g) x where x = p_grupo); end if;
+    return g;
+  end if;
+  if public.eh_equipe() and p_grupo is not null then return array[p_grupo]; end if;
+  raise exception 'Acesso restrito ao portal do cliente.';
+end $$;
+revoke all on function public.portal_grupos_de(uuid) from public, anon;
+grant execute on function public.portal_grupos_de(uuid) to authenticated;
+
+create or replace function public.portal_cliente(p_grupo uuid default null) returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+declare meus uuid[]; ve_pr uuid[]; ve_par uuid[]; ve_ac uuid[]; ve_ex uuid[]; ve_ct uuid[]; ve_fin uuid[]; ve_doc uuid[];
+begin
+  meus := public.portal_grupos_de(p_grupo);
+  select coalesce(array_agg(id) filter (where 'processos' = any(portal_ve)), '{}'), coalesce(array_agg(id) filter (where 'parcelamentos' = any(portal_ve)), '{}'), coalesce(array_agg(id) filter (where 'acordos' = any(portal_ve)), '{}'),
+         coalesce(array_agg(id) filter (where 'execucoes' = any(portal_ve)), '{}'), coalesce(array_agg(id) filter (where 'contratos' = any(portal_ve)), '{}'),
+         coalesce(array_agg(id) filter (where 'financeiro' = any(portal_ve)), '{}'), coalesce(array_agg(id) filter (where 'documentos' = any(portal_ve)), '{}')
+    into ve_pr, ve_par, ve_ac, ve_ex, ve_ct, ve_fin, ve_doc from public.grupos where id = any(meus);
+  return jsonb_build_object(
+    'grupos', (select coalesce(jsonb_agg(jsonb_build_object('id', g.id, 'nome', g.nome, 've', g.portal_ve) order by g.nome), '[]') from public.grupos g where g.id = any(meus)),
+    'clientes', (select coalesce(jsonb_agg(jsonb_build_object('id', c.id, 'nome', c.nome, 'cpf_cnpj', c.cpf_cnpj, 'grupo_id', c.grupo_id) order by c.nome), '[]')
+                 from public.clientes c where c.grupo_id = any(meus)),
+    'processos', (select coalesce(jsonb_agg(jsonb_build_object('id', p.id, 'grupo_id', p.grupo_id, 'numero', p.numero, 'competencia', p.competencia, 'natureza', p.natureza,
+                    'autor', p.autor, 'reu', p.reu, 'status', p.status, 'valor', p.valor, 'ultima_movimentacao', p.ultima_movimentacao, 'ultima_movimentacao_em', p.ultima_movimentacao_em)
+                    order by p.ultima_movimentacao_em desc nulls last, p.numero), '[]')
+                  from public.processos p where p.grupo_id = any(ve_pr) and p.carteira = 'Ativo'),
+    'parcelamentos', (select coalesce(jsonb_agg(jsonb_build_object('id', pa.id, 'grupo_id', pa.grupo_id, 'empresa', pa.empresa, 'cnpj', pa.cnpj, 'local', pa.local, 'natureza', pa.natureza,
+                          'numero', pa.numero, 'total_parcelas', pa.total_parcelas, 'emitimos_guia', pa.emitimos_guia, 'valor_ultima_parcela', pa.valor_ultima_parcela,
+                          'parcelas', (select coalesce(jsonb_agg(jsonb_build_object('id', x.id, 'numero', x.numero, 'vencimento', x.vencimento, 'valor', x.valor, 'pago', x.pago,
+                              'data_pagamento', x.data_pagamento, 'emitida', x.emitida_em is not null, 'guia', d.caminho) order by x.vencimento), '[]')
+                            from public.parcelas x left join public.documentos d on d.id = x.guia_doc where x.parcelamento_id = pa.id))), '[]')
+                      from public.parcelamentos pa where pa.grupo_id = any(ve_par)),
+    'acordos', (select coalesce(jsonb_agg(jsonb_build_object('id', a.id, 'grupo_id', a.grupo_id, 'processo', a.processo, 'devedor', a.devedor, 'credor', a.credor, 'parcela', a.parcela, 'total_parcelas', a.total_parcelas,
+                    'valor', a.valor, 'vencimento', a.vencimento, 'pago', a.pago, 'forma', a.forma_pagamento, 'emitida', a.emitida_em is not null, 'data_pagamento', a.data_pagamento, 'guia', d.caminho) order by a.vencimento), '[]')
+                from public.acordos a left join public.documentos d on d.id = a.guia_doc where a.grupo_id = any(ve_ac)),
+    'execucoes', (select coalesce(jsonb_agg(jsonb_build_object('id', e.id, 'grupo_id', e.grupo_id, 'numero', e.numero, 'executado', e.executado, 'valor_execucao', e.valor_execucao,
+                    'situacao', e.situacao, 'ajuizada_em', e.ajuizada_em,
+                    'recebimentos', (select coalesce(jsonb_agg(jsonb_build_object('data', r.data, 'valor', r.valor) order by r.data desc), '[]') from public.execucao_recebimentos r where r.execucao_id = e.id))), '[]')
+                  from public.execucoes e where e.grupo_id = any(ve_ex)),
+    'contratos', (select coalesce(jsonb_agg(jsonb_build_object('id', ct.id, 'descricao', ct.descricao, 'modalidade', ct.modalidade, 'status', ct.status, 'inicio', coalesce(ct.inicio_vigencia, ct.data_contrato),
+                    'valor_mensal', ct.valor_mensal, 'valor_total', ct.valor_total, 'cliente', c.nome) order by ct.data_contrato desc), '[]')
+                  from public.contratos ct join public.clientes c on c.id = ct.cliente_id where c.grupo_id = any(ve_ct)),
+    'financeiro', (select coalesce(jsonb_agg(jsonb_build_object('id', l.id, 'descricao', l.descricao, 'valor', l.valor, 'vencimento', l.vencimento, 'pago', l.pago,
+                    'data_pagamento', l.data_pagamento, 'empresa', l.empresa) order by l.vencimento), '[]')
+                   from public.lancamentos l where l.tipo = 'receita' and not l.redutor and not l.perda
+                    and coalesce(l.grupo_id, (select c.grupo_id from public.clientes c where c.id = l.cliente_id)) = any(ve_fin)),
+    'documentos', (select coalesce(jsonb_agg(jsonb_build_object('id', d.id, 'nome', d.nome, 'tipo', d.tipo, 'criado_em', d.criado_em, 'validade', d.validade, 'caminho', d.caminho) order by d.criado_em desc), '[]')
+                   from public.documentos d where d.liberado_cliente and not d.arquivado and d.tipo <> 'certificado'
+                    and coalesce(d.grupo_id, (select c.grupo_id from public.clientes c where c.id = d.cliente_id)) = any(ve_doc))
+  );
+end $$;
+revoke all on function public.portal_cliente(uuid) from public, anon;
+grant execute on function public.portal_cliente(uuid) to authenticated;
+
+-- o cliente baixa só os arquivos que o portal mostra: documento liberado ou guia de parcela do grupo dele
+create or replace function public.portal_pode_arquivo(p_caminho text) returns boolean
+language sql stable security definer set search_path = public as $$
+  select public.papel_atual() = 'cliente' and exists (
+    select 1 from public.documentos d
+     where d.caminho = p_caminho and not d.arquivado and d.tipo <> 'certificado'
+       and coalesce(d.grupo_id, (select c.grupo_id from public.clientes c where c.id = d.cliente_id)) in (select grupo_id from public.perfil_grupos where perfil_id = auth.uid())
+       and (d.liberado_cliente or exists (select 1 from public.parcelas x where x.guia_doc = d.id) or exists (select 1 from public.acordos x where x.guia_doc = d.id)));
+$$;
+revoke all on function public.portal_pode_arquivo(text) from public, anon;
+grant execute on function public.portal_pode_arquivo(text) to authenticated;
+do $$ begin
+  execute 'drop policy if exists documentos_ver_cliente on storage.objects';
+  execute 'create policy documentos_ver_cliente on storage.objects for select to authenticated using (bucket_id = ''documentos'' and public.portal_pode_arquivo(name))';
+exception when others then raise notice 'Sem permissão em storage.objects: o cliente ainda não baixa arquivos pelo portal.';
+end $$;
+-- ═══ fim do Backup 81 ═══

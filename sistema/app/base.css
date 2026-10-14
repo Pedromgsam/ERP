@@ -651,3 +651,118 @@ body.gx-tela-nova #gx-linha-painel{display:none!important}
 .b-fluxo-fora b{color:var(--text2)}
 input.b-data-br{width:104px;font-variant-numeric:tabular-nums}
 .b-fx-aviso{color:var(--red-d);font-size:12px}
+/* ═══ Backup 80 — o desenho do AMBIENTE DE TESTE no ERP inteiro (lateral, barra do alto, cabeçalho, abas, faixas, números) ═══ */
+/* lateral: itens leves (500), o ativo em negrito; submódulos com recuo e sem linha */
+#gs-lado .tn-it:not(#_){font:500 13px var(--font-ui);padding:7px 10px;border-radius:7px}
+#gs-lado .tn-it.ativo:not(#_),#gs-lado .tn-grupo.ativo > .tn-abre:not(#_){font-weight:700}
+#gs-lado .tn-menu:not(#_){border-left:0;margin:2px 0 4px 16px;padding-left:10px}
+#gs-lado .tn-menu button:not(#_){font:500 13px var(--font-ui);padding:6px 10px;border-radius:7px}
+#gs-lado .tn-menu button.ativo:not(#_){font-weight:700}
+#gs-lado .tn-sec:not(#_){font-size:10px;padding:12px 10px 5px}
+#gs-lado .gl-nome:not(#_){font-size:15px;font-weight:700}
+/* barra do alto: busca larga no meio, ajuda "?", pessoa com iniciais e papel */
+body.gx-barra-topo #gs-hd #gs-tela-nome:not(#_){flex:0 0 auto;min-width:110px;font:600 13px var(--font-ui)}
+#gs-hd .gs-buscar:not(#_){flex:1;max-width:440px;margin:0 auto;padding:6px 10px;border-radius:var(--r-ctl);font:400 13px var(--font-ui)}
+body.gx-barra-topo #gs-hd #gs-ajuda{font:700 14px var(--font-ui)}
+#gs-hd .gs-eu{display:inline-flex;align-items:center;gap:9px;border:1px solid var(--border);border-radius:10px;padding:3px 10px 3px 3px;background:var(--surface)}
+#gs-hd .gs-ava{width:28px;height:28px;border-radius:999px;background:var(--primario);color:var(--on-primario);display:grid;place-items:center;font:700 11.5px var(--font-ui);flex:none}
+#gs-hd .gs-eu-tx{display:flex;flex-direction:column;line-height:1.15}
+body.gx-barra-topo #gs-hd #gs-nome:not(#_){background:none;border:0;padding:0;font:700 12.5px var(--font-ui);color:var(--ink)}
+#gs-hd #gs-papel{font:400 11px var(--font-ui);color:var(--text3)}
+@media (max-width:900px){#gs-hd .gs-eu-tx{display:none}#gs-hd .gs-eu{padding:3px;border:0}}
+/* cabeçalho: o texto fica junto do ícone (sem "space-between"); título 19 px como no ambiente */
+.gs .titulo-pag.b-cab{justify-content:flex-start}
+.b-cab-tx{flex:1}
+.b-cab h1:not(#_),body.gx-barra-topo .titulo-pag.b-cab h1:not(#_){font-size:20px!important}
+.b-cab p:not(#_){font-size:12.5px}
+.b-cab-ic:not(#_){width:40px;height:40px}
+/* abas (b-seg): o mesmo botão em toda tela, também na Administração e no E-mail */
+.b-seg .b-seg-bt.ativo{background:var(--primario);color:var(--on-primario)}
+#adm-abas.b-seg,#em-abas.b-seg{margin:0 0 14px;flex-wrap:wrap}
+.b-ajuda{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:8px;font-size:13.5px;line-height:1.5}
+/* faixa de números: valor 16–17 px como no ambiente */
+.b-nums.b-nums-faixa b:not(#_){font-size:16.5px;letter-spacing:-.01em}
+/* faixa de avisos/conferências do Início (rótulo à esquerda + pílulas com ponto de cor) */
+.gs .b-faixa-av{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:0;margin:0 0 16px;overflow:hidden}
+.gs .b-faixa-lin{display:flex;align-items:center;gap:6px 10px;flex-wrap:wrap;padding:8px 12px}
+.gs .b-faixa-lin + .b-faixa-lin{border-top:1px solid var(--line)}
+.gs .b-faixa-rot{font:700 11px var(--font-ui);letter-spacing:.08em;text-transform:uppercase;color:var(--text3);min-width:104px}
+.gs .b-faixa-av .ini-conf-it{border:1px solid var(--border);background:var(--surface);border-radius:999px;padding:4px 11px;font-size:12px;gap:7px}
+.gs .b-faixa-av .ini-conf-it b{font-size:12px}
+.gs .b-faixa-av .ini-conf-it:hover{border-color:var(--primario)}
+.gs .b-av-pt{width:7px;height:7px;border-radius:999px;background:var(--amber);flex:none}
+.gs .b-av-critico .b-av-pt{background:var(--red)}
+.gs .b-av-critico b{color:var(--red-d)}
+/* E-mail → Como funciona: 4 cartões lado a lado */
+.em-como-intro{margin:0 0 12px}
+.em-como-intro p{margin:4px 0 0;color:var(--text3)}
+.em-como-g{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.em-como-c h3{margin:8px 0 6px;font:700 13.5px var(--font-ui);color:var(--ink)}
+.em-como-c p,.em-como-c li{font-size:13px;color:var(--text2);line-height:1.5}
+.em-como-c ol{padding-left:18px;margin:6px 0 10px}
+.em-como-n{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:999px;background:var(--primario);color:var(--on-primario);font:700 12px var(--font-ui)}
+.em-como-x{background:var(--red)}
+.em-como-m{display:flex;flex-direction:column;gap:6px;margin:10px 0 0}
+.em-como-m b{font-size:12.5px;color:var(--text2)}
+.em-como-m .b-seg{flex-direction:column;align-items:stretch}
+.em-como-l{list-style:none;padding:0;margin:8px 0 12px;display:flex;flex-direction:column;gap:8px}
+.em-como-l small{display:block;color:var(--text3);font-size:12px}
+@media (max-width:600px){.gs .b-faixa-rot{min-width:0;flex:1 1 100%}}
+/* Backup 80 (E4): placar da Rotina numa linha só */
+.gs .rt-placar.b-placar-linha:not(#_){display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:8px 12px;margin:0 0 14px}
+.gs .b-placar-linha .rt-pl-it:not(#_){flex-direction:row;align-items:center;gap:7px;border:1px solid var(--border);border-radius:999px;padding:4px 11px;box-shadow:none;background:var(--surface);font-size:12.5px}
+.gs .b-placar-linha .rt-pl-it:not(#_):hover{border-color:var(--primario)}
+.gs .b-placar-linha .rt-pl-rot:not(#_){font-size:12.5px;color:var(--text2);font-weight:500}
+.gs .b-placar-linha .rt-pl-n b:not(#_){font:700 12.5px var(--font-ui);color:var(--ink);margin:0}
+.gs .b-placar-linha .rt-pl-ok .b-av-pt{background:var(--green)}
+.gs .b-placar-linha .rt-pl-ok .rt-pl-rot{color:var(--green-d)}
+/* Backup 80: margens do ambiente — 20 px entre a barra do alto e o título, e 20 px dos lados (antes eram ~44 px) */
+body.gx-barra-topo.gx-tela-nova #main:not(#_){padding-top:var(--hh)}
+body.gx-barra-topo .gs main.gs-main:not(#_){padding:20px 0 60px}
+@media (max-width:600px){body.gx-barra-topo .gs main.gs-main:not(#_){padding:14px 0 40px}}
+/* Backup 80 (M3/M4): Guias do mês — uma linha por empresa, as guias em pílulas, aviso do que foi lido dos PDFs */
+.ep-gchips{display:flex;flex-wrap:wrap;gap:4px}
+.ep-gchip{display:inline-block;font:600 11.5px var(--font-ui);border-radius:6px;padding:2px 7px;background:var(--gray-lt,var(--surface2));color:var(--text2);white-space:nowrap}
+.ep-gchip.ep-g-atr{background:var(--red-lt);color:var(--red-d)}
+.ep-gchip.ep-g-ok{background:var(--green-lt);color:var(--green-d)}
+.ep-pdf-av{margin:8px 0 0;padding:8px 12px;border:1px solid var(--amber);background:var(--amber-lt);border-radius:8px;font-size:12.5px}
+.ep-pdf-av ul{margin:4px 0 0;padding-left:18px}
+.ep-modo{margin:0 0 10px}
+/* Backup 80 (M7): conferência do processo com os dois botões na linha */
+.gs .rt-cf-bts{display:inline-flex;gap:4px;flex-wrap:wrap}
+.gs .rt-proc-lote{display:flex;align-items:center;gap:10px;margin:0 0 10px;padding:8px 12px;border:1px solid var(--primario);border-radius:10px;background:var(--primario-lt,var(--blue-lt))}
+.gs .rt-proc col.rt-w-conf:not(#_){width:24%}.gs .rt-proc col.rt-w-ult:not(#_){width:20%}
+/* Backup 80: no celular, os botões do cabeçalho (ex.: Lista · Semana · Calendário · Fluxos) quebram linha sem passar da tela */
+@media (max-width:600px){.gs .titulo-pag.b-cab > .acoes{flex-wrap:wrap;min-width:0;max-width:100%}.gs .titulo-pag.b-cab > .acoes > .b-seg{flex-basis:100%;max-width:100%;min-width:0}}
+
+/* ═══ Backup 81 — portal do cliente novo (telas-portal.js) ═══ */
+.pt-previa{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;background:var(--blue-lt);color:var(--blue-d);border-radius:10px;padding:9px 14px;margin:0 0 14px;font-size:13px}
+.pt-previa .b-ic{width:16px;height:16px}
+.pt-previa select{max-width:260px}
+.pt-previa .pt-vis-rot{margin-left:6px;font-weight:600}
+.pt-previa .b-chip[disabled]{opacity:.6;cursor:not-allowed}
+.pt-portal{display:flex;flex-direction:column;gap:14px}
+.pt-portal .pt-topo{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--lado-bg,var(--primario));color:var(--on-cor);border-radius:12px;padding:14px 18px}
+.pt-portal .pt-topo b{display:block;font:700 15px var(--font-ui)}
+.pt-portal .pt-topo small{display:block;font-size:12px;opacity:.75}
+.pt-portal .pt-eu{text-align:right}
+.pt-portal .pt-abas{flex-wrap:wrap;max-width:100%}
+.pt-corpo{display:flex;flex-direction:column;gap:12px;min-width:0}
+.pt-corpo .pt-intro h2{font:700 18px var(--font-ui);color:var(--ink);margin:2px 0 6px}
+.pt-corpo .pt-intro p{font-size:14px;line-height:1.55;color:var(--text2);margin:0;max-width:72ch}
+.pt-corpo .pt-situacao{border-radius:10px;padding:10px 14px;font:600 13px var(--font-ui)}
+.pt-corpo .pt-sit-ok{background:var(--green-lt);color:var(--green-d)}
+.pt-corpo .pt-sit-atr{background:var(--red-lt);color:var(--red-d)}
+.pt-corpo .pt-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+@media (max-width:760px){.pt-corpo .pt-tiles{grid-template-columns:1fr}}
+.pt-corpo .pt-tile{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px;cursor:pointer;font:inherit;color:inherit}
+.pt-corpo .pt-tile:hover{border-color:var(--primario)}
+.pt-corpo .pt-tile b{font:700 14px var(--font-ui);color:var(--ink)}
+.pt-corpo .pt-tile span{font-size:12px;color:var(--text3)}
+.pt-corpo .pt-contato{font-size:13px;color:var(--text3);margin:0}
+.pt-corpo #pt-fin-emp{margin-bottom:2px}
+.b-mudo{color:var(--text3);font-size:12px}
+body.modo-cliente #tn .tn-sec{display:none}   /* Backup 81: o cliente só tem o portal no menu */
+.pt-previa select{border:1px solid var(--border-strong);border-radius:var(--r-ctl);padding:5px 30px 5px 10px;font:500 13px var(--font-ui);background-color:var(--surface);color:var(--text)}
+.pt-previa .b-chips{margin-left:0}
+.pt-previa .b-chip{font-size:12px}

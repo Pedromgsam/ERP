@@ -22,16 +22,16 @@
     { sec: 'Principal' },
     { id: 'hoje', rot: 'Início', ic: 'inicio', equipe: true },
     { id: 'tarefas', rot: 'Tarefas', ic: 'tarefas', equipe: true },
-    { id: 'alertas', rot: 'Alertas', ic: 'alertas', equipe: true },
+    // Backup 80 (E1): Alertas saiu do menu — os avisos viram a faixa do Início e as rotinas automáticas vão para Administração → Saúde do sistema
     { sec: 'Módulos' },
     { id: 'resumo', rot: 'Painel Executivo', ic: 'painel', func: 'relatorios' },
-    { rot: 'Jurídico', ic: 'juridico', itens: [['processos', 'Processos', 'juridico'], ['parcelamentos', 'Parcelamentos', 'juridico'], ['execucoes', 'Execuções', 'juridico', 1], ['publicacoes', 'Publicações', 'juridico', 1]] },   // Backup 53: Execuções; Backup 75: o 4º item = só equipe (o cliente não vê)
-    { id: 'acordos', rot: 'Acordos', ic: 'acordos', func: 'juridico' },
+    { rot: 'Jurídico', ic: 'juridico', equipe: true, itens: [['processos', 'Processos', 'juridico'], ['parcelamentos', 'Parcelamentos', 'juridico'], ['execucoes', 'Execuções', 'juridico', 1], ['publicacoes', 'Publicações', 'juridico', 1]] },   // Backup 53: Execuções; Backup 75: o 4º item = só equipe (o cliente não vê)
+    { id: 'acordos', rot: 'Acordos', ic: 'acordos', equipe: true, func: 'juridico' },   // Backup 81: o cliente vê Processos/Parcelamentos/Acordos dentro do portal
     { rot: 'Financeiro', ic: 'financeiro', equipe: true, itens: [['financeiro', 'Jurídico', 'financeiro_juridico'], ['financeiroContab', 'Contabilidade', 'financeiro_contab']] },
     { id: 'contratos', rot: 'Contratos', ic: 'contratos', equipe: true, func: 'contratos' },
     { id: 'clientes', rot: 'Clientes', ic: 'clientes', equipe: true, func: 'clientes' },
     { id: 'crm', rot: 'CRM', ic: 'crm', equipe: true, func: 'crm' },
-    { rot: 'Documentos', ic: 'documentos', equipe: true, itens: [['documentos', 'Arquivos', 'documentos'], ['gerador', 'Gerar documentos', 'documentos']] },   // Backup 57: submódulo "Gerar documentos" (Central de Documentos dentro do ERP)
+    { id: 'documentos', rot: 'Documentos', ic: 'documentos', equipe: true, func: 'documentos' },   // Backup 80 (E11): "Gerar documentos" virou botão dentro de Documentos
     { id: 'rotina', rot: 'Rotina', ic: 'rotina', equipe: true },   // Backup 28: o lugar do estagiário; Backup 39: em Módulos, abaixo de Documentos
     { sec: 'Sistema', admin: true },
     { id: 'admin', rot: 'Administração', ic: 'admin', admin: true }
@@ -59,10 +59,11 @@
   // Cobranças, avisos e recibos (antiga "Notificações"): fora da barra; abre pelo botão ✉ de cada tela e pelo ⋯
   const FUNC_EXTRA = {};
   // painéis novos → tela do Gestão que desenha nele
-  const TELAS_GS = { hoje: 'inicio', contratos: 'contratos', clientes: 'clientes', crm: 'crm', publicacoes: 'publicacoes', documentos: 'documentos', gerador: 'gerador', tarefas: 'tarefas', alertas: 'alertas', rotina: 'rotina', execucoes: 'execucoes', admin: 'admin', parcelamentos: 'parcelamentos', acordos: 'acordos', financeiro: 'juridico', financeiroContab: 'contabilidade', resumo: 'painelExec', processos: 'processosERP' };   // Backup 76: Financeiro (S1), Painel (S2) e Processos (S3) novos
+  const TELAS_GS = { hoje: 'inicio', contratos: 'contratos', clientes: 'clientes', crm: 'crm', publicacoes: 'publicacoes', documentos: 'documentos', gerador: 'gerador', tarefas: 'tarefas', alertas: 'alertas', rotina: 'rotina', execucoes: 'execucoes', admin: 'admin', parcelamentos: 'parcelamentos', acordos: 'acordos', financeiro: 'juridico', financeiroContab: 'contabilidade', resumo: 'painelExec', processos: 'processosERP', portal: 'portal' };   // Backup 76: Financeiro (S1), Painel (S2) e Processos (S3) novos
   // Backup 68 (reforma, etapa 3): Parcelamentos é tela nova para a equipe; o cliente (portal) continua vendo a antiga
   // Backup 76 (S5): o cliente também usa as telas novas; o Início dele é o portal (as outras telas novas já são só leitura para quem não edita)
-  const TELAS_CLIENTE = { resumo: 'portalInicio' };
+  // Backup 81 (A3): o cliente entra direto no portal novo (abas dentro dele); as telas antigas saem do menu dele
+  const TELAS_CLIENTE = { resumo: 'portal' };
   const telaGS = (id) => (ehCliente() && TELAS_CLIENTE[id]) || TELAS_GS[id];
   const ehGS = (id) => !!TELAS_GS[id];
   window.ERP_TELA_NOVA = ehGS;   // Backup 76: o ERP antigo pula o desenho escondido destas telas
@@ -93,6 +94,10 @@
   // ═════════════════ FUNÇÕES DE ACESSO (Administração → Usuários) ═════════════════
   const FUNC_TELA = {};
   Object.assign(FUNC_TELA, FUNC_EXTRA);
+  // Backup 80 (M15): a busca Ctrl+K também lista as ações de "+ Lançar" e as telas do menu
+  window.ERP_ACOES_BUSCA = () => ehCliente() ? [] : LANCAR.filter((x) => permitido(x[2], 'editar')).map((x) => ({ rot: x[0], fn: x[1] }))
+    .concat(MENU.filter((m) => !m.sec).flatMap((m) => m.itens ? m.itens.map((i) => ({ ir: i[0], rot: m.rot + ' · ' + i[1], f: i[2] })) : [{ ir: m.id, rot: m.rot, f: m.func, adm: m.admin }])
+      .filter((x) => x.ir && permitido(x.f) && (!x.adm || ehAdmin())).map((x) => ({ rot: 'Ir para ' + x.rot, fn: () => ir(x.ir), tela: 1 })));
   MENU.forEach((m) => { if (m.id && m.func) FUNC_TELA[m.id] = m.func; (m.itens || []).forEach((x) => { if (x[2]) FUNC_TELA[x[0]] = x[2]; }); });
   function permitido(func, nivel) {
     if (!func) return true;
@@ -121,13 +126,13 @@
     hd.innerHTML =
       '<span id="gs-tela-nome"></span>' +
       // Backup 76 (F1): busca geral — também com Ctrl+K (⌘K no Mac)
-      '<button type="button" id="gs-buscar" class="gs-buscar" title="Buscar cliente, CPF/CNPJ, processo, parcelamento, acordo ou tarefa (Ctrl+K)">' + icone('busca') + '<span>Buscar</span><kbd>Ctrl K</kbd></button>' +
+      '<button type="button" id="gs-buscar" class="gs-buscar" title="Buscar cliente, CPF/CNPJ, processo, parcelamento, acordo ou tarefa (Ctrl+K)">' + icone('busca') + '<span>Buscar cliente, CNPJ, processo…</span><kbd>Ctrl K</kbd></button>' +
       '<div class="tn-lancar gx-so-equipe"><button type="button" class="tn-lancar-bt" aria-haspopup="true" aria-expanded="false">+ Lançar</button>' +
       '<div class="tn-menu tn-menu-dir" role="menu">' + LANCAR.map((x, i) => '<button type="button" role="menuitem" data-lancar="' + i + '">' + esc(x[0]) + '</button>').join('') + '</div></div>' +
-      '<div class="hd-usuario"><button type="button" id="gs-tema" title="Modo escuro / claro" aria-label="Alternar modo escuro" aria-pressed="false">◐</button>' +
+      '<div class="hd-usuario"><button type="button" id="gs-ajuda" title="Ajuda desta tela" aria-label="Ajuda desta tela">?</button><button type="button" id="gs-tema" title="Modo escuro / claro" aria-label="Alternar modo escuro" aria-pressed="false">◐</button>' +
       '<div class="tn-grupo tn-mais-acoes"><button type="button" class="tn-abre gs-bt-mais" data-grupo="acoes" title="Atualizar dados e relatório em PDF" aria-label="Mais ações" aria-haspopup="true" aria-expanded="false">⋯</button>' +
       '<div class="tn-menu tn-menu-dir" role="menu"><button type="button" data-acao="atualizar">↻ Atualizar dados</button><button type="button" data-acao="meunome">👤 Meu nome</button></div></div>' +
-      '<span id="gs-sessao" title="Tempo até sair sozinho por falta de uso (cada clique ou tecla recomeça a contagem)" aria-live="off"></span><span id="gs-nome"></span><button type="button" id="gs-sair">Sair</button></div>';
+      '<span id="gs-sessao" title="Tempo até sair sozinho por falta de uso (cada clique ou tecla recomeça a contagem)" aria-live="off"></span><span class="gs-eu"><span class="gs-ava" id="gs-ava" aria-hidden="true"></span><span class="gs-eu-tx"><span id="gs-nome"></span><small id="gs-papel"></small></span></span><button type="button" id="gs-sair">Sair</button></div>';
     // barra lateral: marca, seções, itens com ícone; submódulos abrem logo abaixo (linha fina à esquerda); "encolher" no pé
     const lado = document.createElement('aside');
     lado.id = 'gs-lado'; lado.className = 'gs';
@@ -138,7 +143,8 @@
           '<div class="tn-menu" role="menu">' + m.itens.map((x) => '<button type="button" role="menuitem"' + (x[3] ? ' class="gx-so-equipe"' : '') + ' data-ir="' + x[0] + '">' + esc(x[1]) + '</button>').join('') + '</div></div>').join('') +
       '</nav><button type="button" id="gs-encolher" title="Encolher / abrir a barra" aria-label="Encolher ou abrir a barra lateral">' + icone('encolher') + '<span class="tn-rot">encolher</span></button>';
     document.body.insertBefore(lado, document.body.firstChild);
-    const bb = document.getElementById('gs-buscar'); if (bb) bb.onclick = () => { if (GS() && GS().abrirBuscaGeral) GS().abrirBuscaGeral(); };
+    const bb = hd.querySelector('#gs-buscar'); if (bb) bb.onclick = () => { if (GS() && GS().abrirBuscaGeral) GS().abrirBuscaGeral(); };
+    const ba = hd.querySelector('#gs-ajuda'); if (ba) ba.onclick = () => abrirAjuda(_painel);
     try { if (localStorage.getItem('erp_lado_min') === '1') document.body.classList.add('gx-lado-min'); } catch (e) { /* sem armazenamento: começa aberta */ }
     document.getElementById('gs-encolher').onclick = () => { const min = document.body.classList.toggle('gx-lado-min'); try { localStorage.setItem('erp_lado_min', min ? '1' : '0'); } catch (e) { /* vale só agora */ } };
     document.body.insertBefore(hd, document.body.firstChild);
@@ -239,6 +245,34 @@
 
   function ir(id) { if (typeof window.nav === 'function') window.nav(null, id); window.scrollTo(0, 0); }
 
+  // ═══════ Backup 80 (F5): ajuda "?" de cada tela — o que a tela faz e o que fazer primeiro ═══════
+  const AJUDA = {
+    hoje: ['Os cartões <b>Financeiro</b> e <b>Escritório</b> abrem a lista certa, já filtrada.', 'A faixa <b>Avisos</b> junta o que antes ficava na tela Alertas (certificado vencendo, e-mail com erro, cadastro incompleto…). Clique para ver a lista e, se quiser, "Virar tarefa".', '<b>Meu dia</b>: o que vence hoje e o que atrasou. "Concluir" tem Desfazer.', '<b>Lembretes</b>: anotações rápidas, com ou sem data.'],
+    tarefas: ['Abas Em aberto · Atrasadas · Concluídas; os atalhos Vencidas · 5 · 10 · 15 · 30 dias filtram pelo prazo.', 'Lista, Semana, Calendário e Fluxos ficam no alto, ao lado de "+ Nova tarefa".', 'Tarefa com revisor vai para validação ao concluir.'],
+    resumo: ['Os números do alto são o passivo dos clientes (em aberto + negociado).', 'Escolha o grupo ou a empresa no alto para recortar tudo.', '<b>Empresas do grupo</b>: clique na empresa para abrir a ficha.'],
+    processos: ['O <b>Resumo da carteira</b> começa fechado: clique para abrir os números e as tabelas por grupo, tribunal e natureza.', 'O filtro do alto (Grupo, Competência) recorta o resumo e a tabela.', 'A última movimentação fica vermelha com mais de 30 dias sem novidade. Clique no processo para ver a ficha e registrar movimentação.'],
+    parcelamentos: ['A tela começa na <b>Situação por cliente</b>: clique no cartão do grupo para ver os parcelamentos.', 'Tabela A pagar / Pago com atalhos de prazo, <b>Emitir</b> e <b>Baixa</b> (a baixa sempre pede confirmação).', 'O filtro do alto (Grupo, Empresa) recorta a situação e a tabela.'],
+    acordos: ['Dívidas dos clientes com terceiros (fora do Financeiro).', 'Clique no cartão do grupo para ver os acordos; Emitir e Baixa ficam na linha.', 'O filtro do alto (Grupo, Devedor) recorta tudo.'],
+    execucoes: ['Cobranças na Justiça: o processo, o que o cliente recebeu e a parte do escritório.', 'Cada recebimento lança sozinho o "Honorário de êxito" no Financeiro.'],
+    publicacoes: ['Intimações do Diário de Justiça das OABs cadastradas.', 'Marque como lida ou tratada; o botão "Tarefa" cria a tarefa já com o título.'],
+    financeiro: ['<b>Análise</b>: Fluxo do mês, Resultado do mês, gráficos e comparativos. O período "de … até …" é digitado (dd/mm/aaaa).', '<b>Lançamentos</b>: A receber, Recebido, A pagar, Pago e Perdas, com Cobrar e Baixa na linha.', 'A baixa de honorário manda o recibo sozinho (se ligado em Administração → E-mail).'],
+    contratos: ['Consultoria (mensal fixo ou em salários mínimos) ou serviço pontual com parcelas.', 'Ao assinar, as parcelas e mensalidades entram sozinhas no Financeiro.', 'Reajuste nos próximos dias aparece no alto, com "Aplicar".'],
+    clientes: ['Clique no cliente para abrir a ficha completa.', '"Recebe e-mails" liga e desliga todos os e-mails a esse cliente.'],
+    crm: ['4 colunas: Novo contato · Diagnóstico · Proposta · Fechamento. Ganhos e perdidos ficam na faixa de baixo.', 'Arraste o cartão para mudar de etapa, ou clique para abrir a oportunidade.'],
+    documentos: ['Uma pasta por grupo e cliente. "Vencendo em 30 dias" junta certidões, procurações e certificados.', '"Gerar documentos" abre a Central (procuração, contrato, recibo…).'],
+    gerador: ['Central de Documentos: escolha o modelo, o cliente, confira a prévia e gere PDF ou Word.'],
+    rotina: ['O <b>placar</b> do mês fica numa linha só: clique em cada item para ir à aba.', '<b>Passivo</b>: edite direto e clique em Salvar. <b>Guias do mês</b>: anexe a guia e mande ao cliente.', '<b>Planilha</b>: clique em Emissão ou Pagamento para marcar (pagamento sempre pede confirmação).'],
+    admin: ['<b>E-mail → Como funciona</b> explica o que sai sozinho e o que é você quem manda.', '<b>Saúde do sistema</b> mostra as rotinas automáticas (cartão CNPJ, publicações, backup) — antes ficavam em Alertas.'],
+    alertas: ['Tudo o que pede atenção em cada setor. Cada linha abre a lista; "Virar tarefa" transforma em tarefa.']
+  };
+  function abrirAjuda(id) {
+    if (!GS() || !GS().abrirJanela) return;
+    const itens = AJUDA[id] || ['Use o menu da esquerda para trocar de tela e a busca (Ctrl+K) para achar cliente, processo ou parcelamento.'];
+    const nome = nomeTela(id) || 'Esta tela';
+    GS().abrirJanela({ kick: 'Ajuda', titulo: nome, corpo: '<ul class="b-ajuda">' + itens.map((x) => '<li>' + x + '</li>').join('') + '</ul>' +
+      '<p class="sub" style="margin-top:10px">Dica: <b>Ctrl+K</b> busca cliente, processo, parcelamento ou uma ação (ex.: "nova tarefa").</p>' });
+  }
+
   // ═════════════════ telas do Gestão dentro do ERP ═════════════════
   function criarPaineis() {
     const main = document.getElementById('main');
@@ -293,10 +327,11 @@
   let _painel = '', _voltando = false;
   function nomeTela(id) {
     for (const m of MENU) { if (m.id === id) return m.rot; const x = (m.itens || []).find((i) => i[0] === id); if (x) return m.rot + ' · ' + x[1]; }
-    return '';
+    return ({ gerador: 'Documentos · Gerar documentos', alertas: 'Alertas', portal: 'Portal do cliente (prévia)' })[id] || '';
   }
   function destacar(id) {
     const tn = document.getElementById('gs-tela-nome'); if (tn) tn.textContent = nomeTela(id);
+    id = ({ gerador: 'documentos', portal: 'clientes' })[id] || id;   // Backup 80: "Gerar documentos" saiu do menu — acende Documentos
     document.querySelectorAll('#tn [data-ir], #tn-baixo [data-baixo]').forEach((b) => b.classList.toggle('ativo', b.dataset.ir === id || b.dataset.baixo === id));
     // o grupo da tela aberta fica aberto na lateral (como "Fiscal" nos prints); os outros ficam como a pessoa deixou
     document.querySelectorAll('#tn .tn-grupo').forEach((g) => { const tem = !!g.querySelector('[data-ir="' + id + '"]'); g.classList.toggle('ativo', tem);
@@ -452,6 +487,9 @@
     const eu = window.ERP_EU || {}, s = window.AC_SESSION || {};
     const nome = nomeProvisorio(eu) ? (s.nome && !/@|^[a-z0-9._-]+$/.test(s.nome) ? s.nome : '') : eu.nome;
     if (n) { n.textContent = (nome || '').split(/\s+/)[0]; n.title = nome || eu.email || ''; }
+    const av = document.getElementById('gs-ava'), pp = document.getElementById('gs-papel');
+    if (av) av.textContent = (nome || eu.email || '?').split(/\s+/).filter(Boolean).slice(0, 2).map((x) => x[0]).join('').toUpperCase();
+    if (pp) pp.textContent = ehCliente() ? 'Cliente' : ehAdmin() ? 'Administrador' : 'Equipe';
     if (eu.id && nomeProvisorio(eu) && !mostrarNome._pediu) { mostrarNome._pediu = true; setTimeout(() => pedirMeuNome(true), 1500); }
   }
   // janela "Como você quer ser chamado?" (primeiro acesso ou ⋯ → Meu nome)

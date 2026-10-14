@@ -14,6 +14,15 @@ TELAS.alertas = async function () {
   $('conteudo').innerHTML = '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('alerta') + '</div><div class="b-cab-tx"><h1>Alertas</h1><p>O que precisa de atenção em cada setor</p></div>' +
     '<div class="acoes">' + botaoAtualizar('al-atualizar', 'Monta os alertas de novo') + '</div></div><div id="al-corpo"><div class="carregando">Montando os alertas…</div></div>';
   $('al-atualizar').onclick = () => TELAS.alertas();
+  const { A, cnpj } = await coletarAlertasTodos();
+  desenharAlertas(A, cnpj);
+};
+
+// Backup 80 (E1/M1): a coleta é a mesma para a tela Alertas (fora do menu), a faixa de avisos do Início e Administração → Saúde do sistema.
+let _alertasCache = null;
+async function coletarAlertasTodos(cacheMs) {
+  if (cacheMs && _alertasCache && Date.now() - _alertasCache.em < cacheMs) return _alertasCache.r;
+  await carregarCadastros();
   const h = hojeISO(), nada = () => [];
   const podeJur = pode('juridico'), podeFin = pode('financeiro_juridico') || pode('financeiro_contab');
   const [pubs, parcelas, acordos, procs, lancs, contratos, certs, docs, tarefas, cnpj, emails, ultPub, ultReg, contatos] = await Promise.all([
@@ -122,6 +131,9 @@ TELAS.alertas = async function () {
     }
   }
 
+  const r = { A, cnpj }; _alertasCache = { em: Date.now(), r }; return r;
+}
+function desenharAlertas(A, cnpj) {
   // ── desenho: radar no topo, só o que pede ação em destaque; o que está em dia vira selinho verde ──
   const ICONE_SETOR = { Cadastro: '🗂', 'Jurídico': '⚖', Financeiro: '💰', Documentos: '📄', Tarefas: '✅', Rotinas: '⚙' };
   const acao = A.map((a, i) => Object.assign({ i }, a)).filter((a) => a.setor !== 'Rotinas' && (a.nivel === 'critico' || a.nivel === 'atencao'))
@@ -165,6 +177,8 @@ TELAS.alertas = async function () {
   $('al-corpo').querySelectorAll('[data-al]').forEach((b) => b.onclick = () => { const a = A[+b.dataset.al]; if (a.rel.cnpj) janelaCnpj(cnpj); else if (a.rel.saude) janelaSaude(a.rel.saude); else if (a.rel.backup) irTelaAlerta('admin', 'backup'); else relatorioAlerta(a); });
 };
 
+// abre o alerta (lista com "Virar tarefa", janela do cartão CNPJ, saúde ou backup) — usado pela tela, pela faixa do Início e pela Administração
+function abrirAlerta(a, cnpj) { if (a.rel.cnpj) janelaCnpj(cnpj); else if (a.rel.saude) janelaSaude(a.rel.saude); else if (a.rel.backup) irTelaAlerta('admin', 'backup'); else relatorioAlerta(a); }
 function quandoCurto(v) {
   const d = new Date(v); if (isNaN(d)) return '—';
   const hora = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
@@ -256,7 +270,8 @@ async function janelaCnpj(execs) {
   const ag = j.querySelector('#cnpj-agora');
   if (ag) ag.onclick = () => comBotao(ag, async () => {
     const r = await chamarFuncao('erp-cnpj', { acao: 'rodar' });
-    aviso('✓ Cartão CNPJ: ' + (r.mensagem || 'feito') + '.'); fecharJanela(j); await TELAS.alertas();
+    aviso('✓ Cartão CNPJ: ' + (r.mensagem || 'feito') + '.'); fecharJanela(j); _alertasCache = null;
+    if ($('al-corpo')) await TELAS.alertas(); else if ($('adm-saude')) await admSaude($('adm-corpo'));
   });
 }
 

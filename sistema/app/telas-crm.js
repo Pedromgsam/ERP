@@ -20,7 +20,7 @@ TELAS.crm = async function () {
   const F = E.crm;
   await carregarCadastros();
   $('conteudo').innerHTML =
-    '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('crm') + '</div><div class="b-cab-tx"><h1>CRM</h1><p>Oportunidades, propostas e o caminho até o contrato assinado</p></div>' +
+    '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('crm') + '</div><div class="b-cab-tx"><h1>CRM</h1><p>Quem pode virar cliente</p></div>' +
     '<div class="acoes"><button class="btn btn-o" id="cr-etapas" title="Prazo de cada etapa (depois dele vira tarefa) e o que cada uma significa">⚙ Etapas</button><button class="btn btn-o" id="cr-modelos">Modelos de proposta</button>' +
     '<button class="btn btn-o" id="cr-rapido" title="Só nome, telefone e interesse">⚡ Cadastro rápido</button><button class="btn btn-p" id="cr-nova">+ Nova oportunidade</button></div></div>' +
     // abas: no painel ficam só as oportunidades em andamento; ganhas (contrato assinado) e perdidas (cancelado) têm aba própria
@@ -100,12 +100,13 @@ function cartaoOp(o, e, h) {
 }
 // Backup 49 (27): 5 etapas na tela — Contato · Diagnóstico · Proposta · Negociação · Fechado/Perdido (a faixa de baixo).
 // As etapas detalhadas continuam no banco (as automações dependem delas) e aparecem como selo no cartão.
-const GRUPOS_CRM = [['contato', 'Contato', /contato/i], ['diagnostico', 'Diagnóstico', /diagn/i], ['proposta', 'Proposta', /proposta|follow/i], ['negociacao', 'Negociação', /./]];
+// Backup 80 (E8): as 4 colunas do ambiente — Novo contato · Diagnóstico · Proposta · Fechamento (as etapas do banco ficam dentro delas)
+const GRUPOS_CRM = [['contato', 'Novo contato', /contato/i], ['diagnostico', 'Diagnóstico', /diagn/i], ['proposta', 'Proposta', /proposta|follow/i], ['negociacao', 'Fechamento', /./]];
 function grupoEtapa(e) { return (GRUPOS_CRM.find((g) => g[2].test(e.nome || '')) || GRUPOS_CRM[3])[0]; }
 function colunaCrm(g, etapas, ops, h) {
   const ids = new Set(etapas.map((e) => e.id)), cs = ops.filter((o) => ids.has(o.etapa_id)), varias = etapas.length > 1;
   return '<div class="cr-col" data-etapa="' + (etapas[0] ? etapas[0].id : '') + '" data-grupo="' + g[0] + '" title="' + esc(etapas.map((e) => e.nome + (e.descricao ? ': ' + e.descricao : '')).join('\n')) + '">' +
-    '<div class="cr-col-tit"><span>' + g[1] + '</span><span class="cr-col-n">' + cs.length + '</span></div>' + (cs.length ? '<div class="cr-col-val">' + esc(brlCurto(soma(cs, (o) => o.valor_estimado))) + '</div>' : '') +
+    '<div class="cr-col-tit"><span>' + g[1] + '</span><span class="cr-col-n">' + cs.length + (cs.length ? ' · ' + esc(brlCurto(soma(cs, (o) => o.valor_estimado))) : '') + '</span></div>' +
     cs.map((o) => { const e = etapaDe(o.etapa_id); return cartaoOp(o, e, h).replace('<b>', (varias ? '<span class="cr-sub-etapa">' + esc(e.nome) + '</span>' : '') + '<b>'); }).join('') +
     (!cs.length ? '<div class="cr-vazia"><span class="cr-vazia-ic" aria-hidden="true">○</span>Nenhuma oportunidade<span class="sub">arraste um cartão para cá</span></div>' : '') + '</div>';
 }
@@ -114,11 +115,10 @@ function crmFunil(alvo) {
   const abertas = et.filter((e) => !e.final), fins = et.filter((e) => e.final);
   const cols = GRUPOS_CRM.map((g) => [g, abertas.filter((e) => grupoEtapa(e) === g[0])]).filter(([, l]) => l.length);
   alvo.innerHTML = '<div class="cr-linha" style="--n:' + cols.length + '">' + cols.map(([g, l]) => colunaCrm(g, l, ops, h)).join('') + '</div>' +
-    '<div class="cr-fins-tit">Fechado / Perdido</div>' +
+    '<div class="cr-fins-tit">Ganhos e perdidos</div>' +
     '<div class="cr-fins">' + fins.map((e) => '<div class="cr-solte cr-solte-' + e.final + '" data-etapa="' + e.id + '">' +
       (e.final === 'ganho' ? '✓ Solte aqui quando o cliente <b>assinar</b> — vai para a aba "Contratos assinados"' : '✕ Solte aqui quando <b>não fechar</b> — vai para a aba "Leads perdidos"') + '</div>').join('') + '</div>' +
-    '<p class="sub" style="margin-top:8px">Arraste o cartão para mudar a etapa (no celular, use ▸, que também passa pelas etapas de dentro: Diagnóstico agendado → feito, Proposta enviada → follow-up, Negociação → Contrato fechado → Aguardando assinatura). ' +
-    '<b>Contrato fechado</b> = o cliente disse sim (o sistema cria cadastro, contrato e onboarding).</p>';
+    '<p class="sub" style="margin-top:8px">Arraste o cartão para mudar de etapa (no celular, use ▸). <b>Contrato fechado</b> = o cliente disse sim: o sistema cria cadastro, contrato e onboarding.</p>';
   let arrastando = null;
   alvo.querySelectorAll('.cr-card').forEach((c) => {
     c.addEventListener('dragstart', (ev) => { arrastando = c.dataset.op; ev.dataTransfer.setData('text/plain', c.dataset.op); c.classList.add('arrastando'); });

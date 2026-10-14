@@ -469,7 +469,7 @@ function perguntarBaixa({ titulo, descricao, valor, acordo, despesa }) {
     const j = abrirJanela({ titulo: titulo || (despesa ? 'Pago — confirme a data' : 'Recebido — confirme a data'),
       corpo: (descricao ? '<div class="dica" style="margin-bottom:12px"><b>' + esc(descricao) + '</b>' + (valor != null ? ' · ' + brl(valor) : '') + '</div>' : '') +
         campo(despesa || acordo ? 'Data do pagamento' : 'Data do recebimento', '<input type="date" name="bx-data" required value="' + hojeISO() + '">') +
-        '<div class="sub" style="margin:4px 0 10px">Já vem com a data de hoje. Se o dinheiro entrou em outro dia, troque aqui.</div>' +
+        '<div class="sub" style="margin:4px 0 10px">Já vem com hoje. Se foi em outro dia, troque.</div>' +
         (acordo ? '<fieldset class="bx-comp"><legend>O comprovante foi anexado ao processo?</legend>' +
           '<label><input type="radio" name="bx-comp" value="sim"> Sim</label> <label><input type="radio" name="bx-comp" value="nao" checked> Não</label>' +
           '<div class="bx-id" hidden>' + campo('ID do documento no processo', '<input name="bx-id" placeholder="ex.: 123456789 (ID do PJe)">') + '</div></fieldset>' : ''),
@@ -548,6 +548,7 @@ document.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && ev.targ
 // ordenar pelo título, total e média no rodapé, tabela compacta e marcar várias linhas para agir de uma vez (sempre com confirmação).
 const ICONES_B2 = { filtro: '<path d="M3 5h18l-7 8v6l-4 2v-8z"/>', compacto: '<path d="M4 5h16M4 9.5h16M4 14h16M4 18.5h16"/>', x: '<path d="M18 6 6 18M6 6l12 12"/>' };
 Object.assign(ICONES_B, ICONES_B2);
+ICONES_B.olho = '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>';   // Backup 81: prévia do portal
 // Backup 76: ícones do Financeiro novo (e de quem mais precisar)
 // Backup 76 (L4): ícones do cabeçalho único de todas as telas
 Object.assign(ICONES_B, { admin: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
@@ -995,6 +996,45 @@ function invalidarCadastros() { _cadQuando = 0; }
 // Backup 52 (O1): a cópia ainda vale (menos de 60 s e nenhuma gravação desde então)?
 function cadastrosEmDia() { return !!_cadQuando && Date.now() - _cadQuando < 60000; }
 
+// ═══ Backup 80 (M4): LER A GUIA EM PDF — valor e vencimento saem do próprio arquivo (pdf.js de vendor/, carregado só quando precisa).
+// Se o pdf.js não carregar, um leitor simples procura o texto nos blocos do PDF. Devolve { nome, valor (número|null), venc ('aaaa-mm-dd'|null) }.
+let _pdfJs = null;
+function carregarPdfJs() {
+  if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+  if (!_pdfJs) _pdfJs = new Promise((ok, falha) => { const s = document.createElement('script'); s.src = 'vendor/pdf-3.11.174.min.js';
+    s.onload = () => { try { window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'vendor/pdf-3.11.174.worker.min.js'; } catch (e) { /* sem worker: o pdf.js usa o modo lento */ } ok(window.pdfjsLib); };
+    s.onerror = () => { _pdfJs = null; falha(new Error('leitor de PDF indisponível')); }; document.head.appendChild(s); });
+  return _pdfJs;
+}
+async function textoPdfJs(buf) {
+  const lib = await carregarPdfJs(), doc = await lib.getDocument({ data: new Uint8Array(buf), isEvalSupported: false }).promise, pags = [];
+  for (let i = 1; i <= Math.min(doc.numPages, 3); i++) { const t = await (await doc.getPage(i)).getTextContent(); pags.push(t.items.map((it) => it.str).join(' ')); }
+  return pags.join('\n');
+}
+async function textoPdfSimples(buf) {
+  const bytes = new Uint8Array(buf); let bruto = ''; for (let i = 0; i < bytes.length; i++) bruto += String.fromCharCode(bytes[i]);
+  const partes = [bruto], re = /stream\r?\n/g; let m; const tarefas = [];
+  while ((m = re.exec(bruto))) { const ini = m.index + m[0].length, fim = bruto.indexOf('endstream', ini); if (fim < 0) break;
+    if (/FlateDecode/.test(bruto.slice(Math.max(0, m.index - 300), m.index)) && window.DecompressionStream)
+      tarefas.push(new Response(new Blob([bytes.slice(ini, fim)]).stream().pipeThrough(new DecompressionStream('deflate'))).arrayBuffer()
+        .then((b) => { const u = new Uint8Array(b); let s = ''; for (let j = 0; j < u.length; j++) s += String.fromCharCode(u[j]); partes.push(s); }).catch(() => {})); }
+  await Promise.all(tarefas);
+  const out = []; partes.forEach((p) => { const r2 = /\(((?:\\.|[^\\)])*)\)\s*T[jJ]/g; let mm; while ((mm = r2.exec(p))) out.push(mm[1].replace(/\\([()\\])/g, '$1')); });
+  return out.join('\n');
+}
+function extrairGuia(txt) {
+  const t = String(txt || '').replace(/\s+/g, ' ');
+  const v = t.match(/valor(?:\s+total)?(?:\s+a\s+pagar)?(?:\s+do\s+documento)?\s*(?:\(r\$\))?\s*[:\-]?\s*(?:r\$\s*)?([\d.]{1,12},\d{2})/i) || t.match(/r\$\s*([\d.]{1,12},\d{2})/i);
+  const d = t.match(/(?:data\s+de\s+)?vencimento\s*[:\-]?\s*(\d{2}\/\d{2}\/\d{4})/i) || t.match(/pag(?:ar|ável)\s+até\s*[:\-]?\s*(\d{2}\/\d{2}\/\d{4})/i) || t.match(/(\d{2}\/\d{2}\/\d{4})/);
+  return { valor: v ? lerValor(v[1]) : null, venc: d ? d[1].split('/').reverse().join('-') : null };
+}
+async function lerPdfGuia(arquivo) {
+  if (!arquivo || !/pdf$/i.test(arquivo.type || arquivo.name || '')) return { nome: arquivo && arquivo.name, valor: null, venc: null };
+  const buf = await arquivo.arrayBuffer();
+  let t = ''; try { t = await textoPdfJs(buf.slice(0)); } catch (e) { t = await textoPdfSimples(buf).catch(() => ''); }
+  return Object.assign(extrairGuia(t), { nome: arquivo.name });
+}
+
 // ─────────────────────────── navegação ─────────────────────────────
 // Cada tela: TELAS.x = async function () {...}. Monta a própria barra de
 // filtros uma vez e repinta só o corpo quando um filtro muda.
@@ -1033,4 +1073,5 @@ window.addEventListener('DOMContentLoaded', async function iniciar() {
     mostrarLogin(erroAmigavel(e));
   }
 });
+
 

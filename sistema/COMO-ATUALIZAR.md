@@ -707,6 +707,40 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
 **Central de Documentos dentro do ERP:** menu **Documentos → Gerar documento** (ou ⋯ → Documentos, contrato, recibo do Financeiro).
 **Ctrl + clique** (ou botão do meio do mouse) em qualquer item do menu ou link de documento abre numa aba nova.
 
+## Backup 81 — Portal do cliente novo (2ª parte do ambiente de teste)
+1. Merge da pull request.
+2. **SQL no Supabase** (o `estrutura.sql` inteiro: Raw → Ctrl+A / Ctrl+C → conferir a última linha → Run).
+3. **Ctrl+Shift+R** no ERP.
+
+O que mudou:
+- **O cliente entra direto no portal novo.** No menu dele fica só **Início**; lá dentro, as abas **Início · Processos · Parcelamentos · Acordos · Execuções · Contratos · Financeiro (Jurídico | Contabilidade) · Documentos**.
+  É só para consultar: ele baixa as guias e os documentos liberados e não muda nada. Cada parcelamento, acordo e execução é um cartão — clicou, abre as parcelas embaixo.
+- **Você escolhe o que cada grupo vê:** abra a ficha de um cliente → **Ver como o cliente vê** (ou Ctrl+K → "Ver como o cliente vê"). No alto aparece **O que este grupo vê**: clique para ligar/desligar cada parte (fica gravado no grupo).
+- **Segurança:** o cliente lê tudo por uma função do banco que só entrega o grupo dele e sem campos internos (observações, senhas, dados do escritório).
+  Ele só consegue baixar arquivo que o portal mostra (guia de parcela/acordo do grupo ou documento marcado "liberado ao cliente").
+
+Ainda falta (próxima rodada): apagar o ERP antigo (ERP.html, remendos e blocos antigos do design.css).
+
+## Backup 80 — O visual e as funções do ambiente de teste no ERP (1ª parte)
+1. Merge da pull request.
+2. **Sem SQL** e sem função nova.
+3. **Ctrl+Shift+R** no ERP.
+
+O que mudou no ERP:
+- **Menu:** "Alertas" saiu. O que pede ação aparece na faixa **Avisos** do Início (clique para ver a lista e "Virar tarefa"); as rotinas automáticas (cartão CNPJ, publicações, backup, espaço) estão em **Administração → Saúde do sistema**.
+  "Gerar documentos" saiu do menu: é o botão **Gerar documentos** dentro de Documentos (Ctrl + clique abre numa aba nova).
+- **Barra do alto:** busca larga no meio (Ctrl+K também acha ações, ex.: "nova tarefa", "guias"), botão **?** com a ajuda da tela, e o seu nome com as iniciais.
+- **Visual:** lateral, cabeçalhos, abas e faixas no desenho do ambiente; menos espaço vazio no alto; frases das telas curtas (as que você aprovou).
+- **Início:** cartões Financeiro e Escritório continuam; embaixo, a faixa **Avisos / Conferências**.
+- **Rotina:** placar do mês numa linha só; **Guias do mês** com uma linha por empresa e o botão **Emitir e mandar** — ao anexar o PDF, o sistema lê o valor e o vencimento e troca o valor no e-mail se mudou;
+  **Processos** com **Sem novidade** e **Movimentação** na própria linha e **Marcar várias**; em Minhas tarefas, o botão **Rotina do mês** cria as tarefas dos dias 1, 5 e 10 que voltam sozinhas.
+- **Administração:** abas em botões; **E-mail → Como funciona** explica os 3 tipos de e-mail e é onde você escolhe, para guias de parcelamento e de acordo, **Salvar no rascunho do Gmail** ou **Enviar direto**;
+  **Caixa de saída** com 3 abas (No rascunho · Enviados · Com erro).
+- **CRM:** colunas Novo contato · Diagnóstico · Proposta · Fechamento, com o valor de cada coluna.
+- **Documentos:** faixa **Vencendo em 30 dias** (certidões, procurações e certificados). **Contratos:** aviso de reajuste com 60 dias. **Publicações:** sem os cartões de número no alto.
+
+Ainda falta (próximas rodadas): o portal do cliente novo por grupo (feito no Backup 81) e apagar o ERP antigo (ERP.html).
+
 ## Backup 79 — Filtros por grupo, Fluxo do mês e ajustes das suas respostas de 15/10
 1. Merge da pull request.
 2. **Sem SQL** e sem função nova.

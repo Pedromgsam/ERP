@@ -82,7 +82,7 @@ function pintarAcordos() {
   const el = $('conteudo'); if (!el) return;
   const T0 = E.ac.T || [], F = E.ac.f || {}, T = T0.filter((x) => (!F.grupo || x.grupo === F.grupo) && (!F.emp || x.devedor === F.emp)), h = hojeISO(), podeEd = pode('juridico', 'editar');
   E.ac.Af = acordosDe(T);
-  el.innerHTML = cabecalhoTela({ icone: 'documento', titulo: 'Acordos', frase: 'Dívidas dos clientes com terceiros (não entram no Financeiro)', atualizar: 'ac-atualizar', botao: podeEd ? { id: 'ac-novo', rotulo: 'Novo acordo' } : null }) +
+  el.innerHTML = cabecalhoTela({ icone: 'documento', titulo: 'Acordos', frase: 'Dívidas dos clientes com terceiros', atualizar: 'ac-atualizar', botao: podeEd ? { id: 'ac-novo', rotulo: 'Novo acordo' } : null }) +
     filtroSusB('ac-filtro', [{ k: 'grupo', rot: 'Grupo', todos: 'Todos os grupos', opcoes: unicosTxt(T0.map((x) => x.grupo)), v: F.grupo },   // Backup 79
       { k: 'emp', rot: 'Devedor', todos: 'Todos os devedores', opcoes: unicosTxt(T0.filter((x) => !F.grupo || x.grupo === F.grupo).map((x) => x.devedor)), v: F.emp }]) +
     '<div class="b-sec"><div><h2>Situação dos acordos por cliente</h2><p>Quanto cada grupo já pagou, quanto falta e o que vence este mês.</p></div><div class="b-chips" id="ac-chips">' +

@@ -463,8 +463,11 @@ TELAS.tarefas = async function () {
   $('conteudo').innerHTML =
     // Backup 49: abas junto do título; só "+ Nova tarefa" e "Fluxo" à vista — o resto no ⚙ (Backup 55: a criação rápida ⚡ saiu)
     // Backup 72: as abas Em aberto/Atrasadas/Concluídas/Excluídas ficam na tabela (com os números), como no ambiente de teste
-    '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('tarefas') + '</div><div class="b-cab-tx"><h1>Tarefas</h1></div>' +
+    '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('tarefas') + '</div><div class="b-cab-tx"><h1>Tarefas</h1><p>Suas tarefas e as da equipe</p></div>' +
     '<div class="acoes">' +
+    // Backup 80: Lista · Semana · Calendário · Fluxos no alto, ao lado de "+ Nova tarefa" (como no ambiente de teste)
+    '<div class="b-seg tf-vista" id="tf-vista" role="tablist">' + [['lista', 'Lista'], ['semana', 'Semana'], ['calendario', 'Calendário'], ['fluxos', 'Fluxos']]
+      .map(([v, r]) => '<button type="button" role="tab" class="b-seg-bt" data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<span class="tf-cfg-wrap"><button class="btn btn-o tf-bt-ic" id="tf-config" title="Configurar: modelos de fluxo, feriados, Google Agenda e novo fluxo" aria-expanded="false">⚙</button>' +
       '<span class="tf-cfg-menu" id="tf-cfg-menu" hidden><button class="btn btn-o" id="tf-modelos">Modelos de fluxo</button>' +
       '<button class="btn btn-o" id="tf-feriados">Feriados</button><button class="btn btn-o" id="tf-agenda" title="Prazos fatais e audiências no seu Google Agenda">📅 Google Agenda</button></span></span>' +
@@ -472,8 +475,6 @@ TELAS.tarefas = async function () {
     '<button class="btn btn-o" id="tf-fluxo" title="Cria várias tarefas de uma vez a partir de um modelo (inclui as sequências com validação, ex.: Lead completo)">🔀 Fluxo</button><button class="btn btn-p" id="tf-nova">+ Nova tarefa</button></div></div>' +
     // Backup 72: sem os 4 cartões do topo; vistas Lista · Semana · Calendário · Fluxos
     '<div class="filtros">' +
-    '<div class="segmento" id="tf-vista">' + [['lista', 'Lista'], ['semana', 'Semana'], ['calendario', 'Calendário'], ['fluxos', 'Fluxos']]
-      .map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<input class="busca" id="tf-busca" placeholder="Buscar tarefa, cliente, processo ou etiqueta" autocomplete="off">' +
     // Backup 48/49: Mostrar (tipo, prioridade e prazo) e De quem — o mesmo desenho da agenda do Início
     '</div><div class="fila-filtros tf-filtros" id="tf-chips"></div><div id="tf-corpo"><div class="carregando">Carregando…</div></div>';

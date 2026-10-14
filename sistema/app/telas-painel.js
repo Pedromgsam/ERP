@@ -212,7 +212,7 @@ async function cardLembretes() {
       '<span style="margin-left:auto;display:flex;gap:6px"><button type="button" class="btn btn-o btn-mini" id="lemb-todos" title="Todos os lembretes, inclusive os com data depois de 7 dias e os concluídos">📋 Todos (' + L.todos.length + ')</button>' +
       '<button type="button" class="btn btn-p btn-mini" id="lemb-novo">+ Lembrete</button></span></div><div class="card-bd">' +
     (L.vis.length ? '<div class="lemb-lista">' + htmlLembretes(L.vis) + '</div>'
-      : '<div class="sub">Nenhum lembrete para os próximos 7 dias. Use <b>+ Lembrete</b> (com ou sem data; dá para fixar no topo e escolher uma cor).</div>') +
+      : '<div class="sub">Nenhum lembrete nos próximos 7 dias.</div>') +
     (L.futuros.length ? '<button type="button" class="lemb-tg lemb-tg-fut" id="lemb-fut">+ ' + plural(L.futuros.length, 'lembrete mais adiante', 'lembretes mais adiante') + ' — ver todos</button>' : '') +
     '</div></div>';
   const fu = $('lemb-fut'); if (fu) fu.onclick = () => janelaTodosLembretes();
@@ -395,6 +395,8 @@ function formLembrete(l) {
 
 // ═══ Backup 76 (F3): CONFERÊNCIAS AUTOMÁTICAS no Início — o que está faltando no cadastro e pode virar problema ═══
 // Cada linha mostra quantos são; clicar abre a lista com o atalho para corrigir. Some sozinha quando está tudo certo.
+// o que os cartões Financeiro/Escritório do Início já mostram não se repete na faixa
+const NO_CARTAO_INI = ['Publicações novas', 'Parcelamentos com parcela vencida', 'Acordos vencidos', 'Honorários em atraso', 'Tarefas atrasadas'];
 async function conferenciasIni() {
   const el = $('ini-conf'); if (!el) return;
   await carregarCadastros().catch(() => {});
@@ -419,10 +421,23 @@ async function conferenciasIni() {
     regras.push({ id: 'ct', rot: 'contrato de consultoria sem data para o reajuste', rots: 'contratos de consultoria sem data para o reajuste', itens: sem.map((c) => ({ t: c.descricao || 'Contrato', s: (c.clientes && c.clientes.nome) || '', ir: () => detalheContrato(c.id) })) });
   }
   const comItens = regras.filter((r) => r.itens.length);
-  if (!comItens.length) { el.innerHTML = ''; return; }
-  el.innerHTML = '<section class="ini-conf"><div class="ini-sec-hd"><div><h2>Conferências</h2><p>Dados que faltam no cadastro</p></div></div><div class="ini-conf-l">' +
-    comItens.map((r) => '<button type="button" class="ini-conf-it" data-conf="' + r.id + '"><b>' + r.itens.length + '</b><span>' + esc(r.itens.length === 1 ? r.rot : r.rots) + '</span>' + iconeB('mais') + '</button>').join('') + '</div></section>';
-  el.onclick = (ev) => { const b = ev.target.closest('[data-conf]'); if (!b) return; const r = regras.find((x) => x.id === b.dataset.conf);
+  // Backup 80 (E1/M1): faixa de AVISOS — o que era a tela Alertas (fora do menu). Só o que pede ação e que os cartões acima ainda não mostram.
+  let avisos = [], cnpjAv = [];
+  try { const r = await coletarAlertasTodos(300000); cnpjAv = r.cnpj;
+    avisos = r.A.map((x, i) => Object.assign({ i }, x)).filter((x) => (x.nivel === 'critico' || x.nivel === 'atencao') && !NO_CARTAO_INI.includes(x.rot) && (x.setor !== 'Rotinas' || x.nivel === 'critico'))
+      .sort((x, y) => (x.nivel === 'critico' ? 0 : 1) - (y.nivel === 'critico' ? 0 : 1));
+    avisos.forEach((x) => { x.lista = r.A; }); } catch (e) { console.warn('[Início] avisos:', e.message); }
+  if (!$('ini-conf')) return;
+  if (!comItens.length && !avisos.length) { el.innerHTML = ''; return; }
+  const pilula = (attr, v, n, txt, nivel) => '<button type="button" class="ini-conf-it b-av-' + nivel + '" ' + attr + '="' + v + '"><span class="b-av-pt" aria-hidden="true"></span>' + (n !== '' ? '<b>' + esc(n) + '</b>' : '') + '<span>' + esc(txt) + '</span></button>';
+  el.innerHTML = '<section class="ini-conf b-faixa-av">' +
+    (avisos.length ? '<div class="b-faixa-lin"><span class="b-faixa-rot">Avisos</span><div class="ini-conf-l" id="ini-avisos">' +
+      avisos.map((x) => pilula('data-av', x.i, /^\d+$/.test(x.valor) ? x.valor : '', /^\d+$/.test(x.valor) ? x.rot.charAt(0).toLowerCase() + x.rot.slice(1) : x.setor === 'Rotinas' ? x.rot + ' · ' + x.valor : x.det || x.rot, x.nivel)).join('') + '</div></div>' : '') +
+    (comItens.length ? '<div class="b-faixa-lin"><span class="b-faixa-rot">Conferências</span><div class="ini-conf-l">' +
+      comItens.map((r) => pilula('data-conf', r.id, r.itens.length, r.itens.length === 1 ? r.rot : r.rots, 'atencao')).join('') + '</div></div>' : '') + '</section>';
+  el.onclick = (ev) => { const av = ev.target.closest('[data-av]');
+    if (av) { const x = avisos.find((y) => String(y.i) === av.dataset.av); if (x) abrirAlerta(x, cnpjAv); return; }
+    const b = ev.target.closest('[data-conf]'); if (!b) return; const r = regras.find((x) => x.id === b.dataset.conf);
     const j = abrirJanela({ titulo: r.itens.length + ' ' + (r.itens.length === 1 ? r.rot : r.rots), kick: 'Conferências', larga: true,
       corpo: '<div class="bg-res">' + r.itens.map((x, i) => '<button type="button" class="bg-it" data-ci="' + i + '"><span class="bg-tx"><b>' + esc(x.t) + '</b>' + (x.s ? '<small>' + esc(x.s) + '</small>' : '') + '</span></button>').join('') + '</div>' });
     j.onclick = (e2) => { const it = e2.target.closest('[data-ci]'); if (!it) return; fecharJanela(j); Promise.resolve(r.itens[+it.dataset.ci].ir()).catch((e) => aviso(erroAmigavel(e), true)); }; };

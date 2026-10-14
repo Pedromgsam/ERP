@@ -25,6 +25,14 @@ async function indiceBusca() {
       ir: async () => { const T = await dadosAcordos(); E.ac = E.ac || { grupo: '', chip: 'todos' }; E.ac.T = T; E.ac.A = acordosDe(T); const ac = E.ac.A.find((x) => x.k === k); if (ac) janelaAcordo(ac); else irParaTela('acordos'); } }); });
   if (!ehClienteGS()) (D.tarefas || []).filter((t) => !/conclu|cancel|exclu/i.test(t.status || '')).forEach((t) => I.push({ tipo: 'Tarefa', tit: t.titulo, sub: [t.responsavel, t.prazo ? 'prazo ' + dataBR(t.prazo) : '', t.grupo].filter(Boolean).join(' · '),
     txt: [t.titulo, t.responsavel, t.grupo].join(' '), ir: () => abrirTarefa(t.id) }));
+  // Backup 80 (M15): ações — "Nova tarefa", "Emitir as guias do mês", "+ Lançar …" e "Ir para <tela>"
+  if (!ehClienteGS()) {
+    const ac = [{ rot: 'Emitir as guias do mês', fn: () => { E.rt = Object.assign(E.rt || {}, { aba: 'guias' }); irParaTela('rotina'); } },
+      { rot: 'Nova tarefa', fn: async () => { await carregarCadastros(); formTarefa({}, () => {}); } },
+      { rot: 'Ver como o cliente vê (portal)', fn: () => verComoCliente('') }];   // Backup 81 (M10)
+    (typeof window.ERP_ACOES_BUSCA === 'function' ? window.ERP_ACOES_BUSCA() : []).forEach((x) => ac.push({ rot: x.tela ? x.rot : 'Lançar ' + x.rot.charAt(0).toLowerCase() + x.rot.slice(1), fn: x.fn, tela: x.tela }));
+    ac.forEach((x) => I.push({ tipo: x.tela ? 'Tela' : 'Ação', tit: x.rot, sub: '', txt: x.rot + (x.tela ? '' : ' novo nova criar lançar'), ir: x.fn, acao: 1 }));
+  }
   I.forEach((x) => { x.n = normalizar(x.txt); x.nt = normalizar(x.tit); });
   return I;
 }
@@ -32,7 +40,7 @@ const ehClienteGS = () => !!(window.AC_SESSION && window.AC_SESSION.nivel === 'c
 
 async function abrirBuscaGeral() {
   if (document.getElementById('bg-in')) { document.getElementById('bg-in').focus(); return; }
-  const j = abrirJanela({ titulo: 'Buscar', kick: 'Busca geral', sub: 'Nome, CPF/CNPJ, nº do processo ou do parcelamento · Enter abre', larga: true,
+  const j = abrirJanela({ titulo: 'Buscar', kick: 'Busca geral', sub: 'Nome, CPF/CNPJ, nº do processo ou do parcelamento — ou uma ação ("nova tarefa", "guias") · Enter abre', larga: true,
     corpo: '<label class="b-busca b-bg-campo">' + iconeB('busca') + '<input id="bg-in" placeholder="Digite para buscar…" autocomplete="off" aria-label="Buscar"></label><div id="bg-res" class="bg-res" role="listbox"></div>' });
   const inp = j.querySelector('#bg-in'), res = j.querySelector('#bg-res');
   res.innerHTML = '<p class="b-barras-vazio">Carregando…</p>';
@@ -43,7 +51,7 @@ async function abrirBuscaGeral() {
     if (q0.length < 2 && qd.length < 3) { lista = []; res.innerHTML = '<p class="b-barras-vazio">Digite ao menos 2 letras (ou 3 números de um CPF/CNPJ/processo).</p>'; return; }
     const termos = q0.split(/\s+/).filter(Boolean);
     lista = I.filter((x) => termos.every((t) => x.n.includes(t)) || (qd.length >= 3 && x.n.includes(qd)))
-      .map((x) => ({ x, p: (x.nt.startsWith(q0) ? 0 : x.nt.includes(q0) ? 1 : 2) }))
+      .map((x) => ({ x, p: (x.nt.startsWith(q0) ? 0 : x.nt.includes(q0) ? 1 : 2) + (x.acao && !x.nt.includes(q0) ? 1 : 0) }))
       .sort((a, b) => a.p - b.p || a.x.tit.localeCompare(b.x.tit, 'pt-BR')).slice(0, 40).map((y) => y.x);
     sel = Math.min(sel, Math.max(0, lista.length - 1));
     res.innerHTML = lista.length ? lista.map((x, i) => '<button type="button" class="bg-it' + (i === sel ? ' bg-sel' : '') + '" data-bg="' + i + '" role="option" aria-selected="' + (i === sel) + '"><span class="bg-tipo">' + esc(x.tipo) + '</span>' +
