@@ -648,7 +648,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await entrar(pc, 'cliente@teste'); await carregado(pc); await pc.waitForTimeout(1500);
     await pc.waitForSelector('#pt-home', { timeout: 8000 }).catch(() => {});
     ok('B74 Portal do cliente: entra num Início de boas-vindas (Olá, explicação, resumo clicável e "Como usar"); no menu, "Início"', /Olá, Grupo Alfa/.test(await pc.textContent('#pt-home').catch(() => '')) &&
-      (await pc.$$('#pt-home [data-pt-ir]')).length === 5 && /Como usar/.test(await pc.textContent('#pt-home')) && /Início/.test(await pc.textContent('#tn [data-ir=resumo]')));
+      (await pc.$$('#pt-home [data-pt-ir]')).length === 5 && /Como usar/.test(await pc.textContent('#panel-resumo')) && /Início/.test(await pc.textContent('#tn [data-ir=resumo]')));
     ok('B75 Portal do cliente: o menu não mostra Execuções nem Publicações (telas da equipe)', await pc.evaluate(() =>
       ['execucoes', 'publicacoes'].every((id) => [...document.querySelectorAll('#tn [data-ir=' + id + ']')].every((b) => !b.offsetParent)) &&
       [...document.querySelectorAll('#tn [data-ir=processos]')].some((b) => b.closest('.tn-grupo') && b.closest('.tn-grupo').offsetParent)));

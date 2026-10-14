@@ -264,7 +264,7 @@
   let _pubN = { n: 0, em: 0 };
   function contagensMenu() {
     if (ehCliente() || !document.getElementById('tn')) return;
-    const D = dbERP(), hoje = new Date().toISOString().slice(0, 10);
+    const D = dbERP(), dh = new Date(), hoje = dh.getFullYear() + '-' + String(dh.getMonth() + 1).padStart(2, '0') + '-' + String(dh.getDate()).padStart(2, '0');
     const eu = String((window.AC_SESSION && window.AC_SESSION.nome) || '').trim().split(/\s+/)[0].normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
     const prim = (n) => String(n || '').trim().split(/\s+/)[0].normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
     const tarefas = (D.tarefas || []).filter((x) => x.prazo && x.prazo < hoje && !/conclu|cancel|exclu/i.test(x.status || '') && (!eu || prim(x.responsavel) === eu)).length;
@@ -412,6 +412,7 @@
       const r = recOrig && recOrig.apply(this, arguments);
       // Backup 68: redesenha a tela nova DEPOIS que os dados chegaram (antes eram 200 ms fixos — a tela podia sair com o dado velho)
       if (ehGS(_painel)) Promise.resolve(r).catch(() => null).then(() => setTimeout(() => desenharGS(_painel), 50));
+      Promise.resolve(r).catch(() => null).then(() => setTimeout(() => { try { contagensMenu(); } catch (e) { /* sem menu */ } }, 60));
       return r;
     };
   }
