@@ -28,7 +28,8 @@ async function indiceBusca() {
   // Backup 80 (M15): ações — "Nova tarefa", "Emitir as guias do mês", "+ Lançar …" e "Ir para <tela>"
   if (!ehClienteGS()) {
     const ac = [{ rot: 'Emitir as guias do mês', fn: () => { E.rt = Object.assign(E.rt || {}, { aba: 'guias' }); irParaTela('rotina'); } },
-      { rot: 'Nova tarefa', fn: async () => { await carregarCadastros(); formTarefa({}, () => {}); } }];
+      { rot: 'Nova tarefa', fn: async () => { await carregarCadastros(); formTarefa({}, () => {}); } },
+      { rot: 'Ver como o cliente vê (portal)', fn: () => verComoCliente('') }];   // Backup 81 (M10)
     (typeof window.ERP_ACOES_BUSCA === 'function' ? window.ERP_ACOES_BUSCA() : []).forEach((x) => ac.push({ rot: x.tela ? x.rot : 'Lançar ' + x.rot.charAt(0).toLowerCase() + x.rot.slice(1), fn: x.fn, tela: x.tela }));
     ac.forEach((x) => I.push({ tipo: x.tela ? 'Tela' : 'Ação', tit: x.rot, sub: '', txt: x.rot + (x.tela ? '' : ' novo nova criar lançar'), ir: x.fn, acao: 1 }));
   }

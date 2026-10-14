@@ -648,24 +648,36 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     // ── portal do cliente ──
     const pc = await pagina();
     await entrar(pc, 'cliente@teste'); await carregado(pc); await pc.waitForTimeout(1500);
-    await pc.waitForSelector('#pt-home', { timeout: 8000 }).catch(() => {});
-    ok('B78 Portal do cliente: Início só de introdução (Olá, situação em uma linha e 3 atalhos); no menu, "Início"', /Olá, Grupo Alfa/.test(await pc.textContent('#pt-home').catch(() => '')) &&
-      (await pc.$$('#pt-home [data-pt-ir]')).length === 3 && !!(await pc.$('#pt-home .pt-situacao')) && /Início/.test(await pc.textContent('#tn [data-ir=resumo]')));
-    ok('B75 Portal do cliente: o menu não mostra Execuções nem Publicações (telas da equipe)', await pc.evaluate(() =>
-      ['execucoes', 'publicacoes'].every((id) => [...document.querySelectorAll('#tn [data-ir=' + id + ']')].every((b) => !b.offsetParent)) &&
-      [...document.querySelectorAll('#tn [data-ir=processos]')].some((b) => b.closest('.tn-grupo') && b.closest('.tn-grupo').offsetParent)));
-    // Backup 76 (S5): o portal do cliente nas telas novas — Início com "Para pagar este mês" e o passivo; Processos, Parcelamentos e Acordos só para ver
-    ok('B78 Portal: Início sem tabelas nem números (sem "Para pagar este mês", passivo e empresas)', !(await pc.$('#pt-pagar')) && !(await pc.$('#panel-resumo .b-nums-faixa')) && !(await pc.$('#panel-resumo #pe-nova table')) && !(await pc.isVisible('#execKpiSection')));
-    for (const [tela, sel] of [['processos', '#pr-nova'], ['parcelamentos', '#pc-tabela'], ['acordos', '#ac-tabela']]) {
-      await pc.evaluate((x) => nav(null, x), tela); await pc.waitForTimeout(1500);
-      ok('B76 Portal: ' + tela + ' na tela nova, só para ver (sem Baixa, Emitir ou editar)', await pc.isVisible('#gs-main-' + tela + ' ' + sel) &&
-        !(await pc.$('#gs-main-' + tela + ' [data-pc-baixa], #gs-main-' + tela + ' [data-ac-baixa], #gs-main-' + tela + ' .b-bt-baixa, #gs-main-' + tela + ' #pr-novo')));
+    // Backup 81 (A3): o cliente entra direto no portal novo — abas dentro dele, menu só com "Início"
+    await pc.waitForSelector('#pt-portal', { timeout: 8000 }).catch(() => {});
+    ok('B81 Portal: o cliente entra no portal novo (Grupo Alfa, Início de introdução e atalhos)', /Grupo Alfa/.test(await pc.textContent('#pt-portal .pt-topo').catch(() => '')) &&
+      !!(await pc.$('#pt-corpo .pt-situacao')) && (await pc.$$('#pt-corpo [data-pt-ir]')).length === 7 && !(await pc.$('#pt-previa')));
+    ok('B81 Portal: abas Início, Processos, Parcelamentos, Acordos, Execuções, Contratos, Financeiro e Documentos', (await pc.$$eval('#pt-abas [data-pt]', (bs) => bs.map((b) => b.dataset.pt).join(','))) ===
+      'inicio,processos,parcelamentos,acordos,execucoes,contratos,financeiro,documentos');
+    ok('B81 Portal: o menu do cliente só tem "Início" (as telas antigas saíram)', await pc.evaluate(() => ['processos', 'parcelamentos', 'acordos', 'execucoes', 'publicacoes', 'financeiro'].every((id) =>
+      [...document.querySelectorAll('#tn [data-ir=' + id + ']')].every((b) => !b.offsetParent)) && /Início/.test(document.querySelector('#tn [data-ir=resumo]').textContent)));
+    for (const aba of ['processos', 'parcelamentos', 'acordos', 'execucoes', 'contratos', 'financeiro', 'documentos']) {
+      await pc.click('#pt-abas [data-pt=' + aba + ']'); await pc.waitForTimeout(400);
+      ok('B81 Portal: aba ' + aba + ' abre, só para ver (sem Baixa, Emitir ou editar)', await pc.isVisible('#pt-corpo > *') && !(await pc.$('#pt-corpo .b-bt-baixa, #pt-corpo [data-pc-baixa], #pt-corpo [data-ac-baixa], #pt-corpo [data-pc-emitir]')));
     }
-    await pc.evaluate(() => nav(null, 'processos')); await pc.waitForTimeout(800);
-    await pc.click('#pr-nova tbody tr[data-b-k] td:nth-child(2)').catch(() => {}); await pc.waitForTimeout(500);
-    ok('B76 Portal: a janela do processo abre sem "Editar" nem "Registrar movimentação"', !!(await pc.$('#janelas .janela')) && !(await pc.$('#janelas [data-pr-editar]')) && !(await pc.$('#janelas [data-pr-mov]')));
-    await pc.evaluate(() => { while (document.querySelector('#janelas .fundo')) window.GS.fecharJanela(); });
-    await pc.evaluate(() => nav(null, 'resumo')); await pc.waitForTimeout(800);
+    { const nFin = Number(sql("select count(*) from lancamentos l where tipo='receita' and not redutor and not perda and coalesce(l.grupo_id,(select grupo_id from clientes c where c.id=l.cliente_id))=(select id from grupos where nome='Grupo Alfa')"));
+      const r = await pc.evaluate(async () => { const a = await SB.rpc('portal_cliente', {}); const outro = await SB.rpc('portal_cliente', { p_grupo: '00000000-0000-0000-0000-000000000001' });
+        const sv = await SB.rpc('salvar_portal_ve', { p_grupo: a.data.grupos[0].id, p_ve: [] }); return { g: a.data.grupos.map((x) => x.nome).join(','), fin: a.data.financeiro.length, outro: (outro.data && outro.data.grupos || []).length, salvar: !!sv.error }; });
+      ok('B81 Portal: o banco entrega só o grupo do cliente (honorários do grupo, outro grupo vazio) e ele não muda o que vê', r.g === 'Grupo Alfa' && r.fin === nFin && r.outro === 0 && r.salvar, JSON.stringify(r) + ' esperado fin=' + nFin); }
+    sql("update grupos set portal_ve='{processos,parcelamentos,acordos}' where nome='Grupo Alfa'");
+    await pc.evaluate(() => nav(null, 'resumo')); await pc.waitForTimeout(1500);
+    ok('B81 Portal: o escritório escolhe o que o grupo vê (sem Financeiro, Execuções…)', (await pc.$$eval('#pt-abas [data-pt]', (bs) => bs.map((b) => b.dataset.pt).join(','))) === 'inicio,processos,parcelamentos,acordos');
+    sql("update grupos set portal_ve='{processos,parcelamentos,acordos,execucoes,contratos,financeiro,documentos}' where nome='Grupo Alfa'");
+    // a equipe: "Ver como o cliente vê" na ficha → prévia do portal do grupo, com os botões "O que este grupo vê"
+    { const idAlfa = sql("select id from clientes where grupo_id=(select id from grupos where nome='Grupo Alfa') limit 1");
+      await p.evaluate((id) => window.GS.abrirFicha(id), idAlfa); await p.waitForSelector('#fc-portal', { timeout: 8000 }).catch(() => {});
+      await p.click('#fc-portal').catch(() => {}); await p.waitForSelector('#pt-previa', { timeout: 8000 }).catch(() => {});
+      ok('B81 (M10) Ficha → "Ver como o cliente vê" abre a prévia do portal do grupo', await p.isVisible('#pt-previa') && /Grupo Alfa/.test(await p.textContent('#pt-portal .pt-topo').catch(() => '')) &&
+        await p.evaluate(() => document.querySelector('#pt-grupo option:checked').textContent) === 'Grupo Alfa');
+      await p.click('#pt-vis [data-pt-ve=financeiro]'); await p.waitForTimeout(1500);
+      ok('B81 (F4) Prévia: tirar "Financeiro" grava no grupo e some a aba', /financeiro/.test(sql("select portal_ve::text from grupos where nome='Grupo Alfa'")) === false && !(await p.$('#pt-abas [data-pt=financeiro]')));
+      await p.click('#pt-vis [data-pt-ve=financeiro]'); await p.waitForTimeout(1500);
+      ok('B81 (F4) Prévia: pôr de volta', /financeiro/.test(sql("select portal_ve::text from grupos where nome='Grupo Alfa'")) && !!(await p.$('#pt-abas [data-pt=financeiro]'))); }
     const vis = await pc.evaluate(() => ({ nivel: AC_SESSION.nivel, grupos: [...new Set(DB.baseDados.map((x) => x.grupo))].join(','), fin: DB.financeiro.length, obs: DB.baseDados.some((x) => x.obs) }));
     ok('cliente vê só o próprio grupo e nada de financeiro', vis.nivel === 'cliente' && vis.grupos === 'Grupo Alfa' && vis.fin === 0, JSON.stringify(vis));
     ok('cliente não vê Lançar, ✎ nem telas da equipe', !(await pc.isVisible('.tn-lancar-bt')) && !(await pc.$('.gx-la')) && !(await pc.isVisible('#tn [data-ir=clientes]')) && await pc.isVisible('#tn [data-ir=resumo]'));

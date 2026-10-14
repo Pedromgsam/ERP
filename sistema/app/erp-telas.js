@@ -25,8 +25,8 @@
     // Backup 80 (E1): Alertas saiu do menu — os avisos viram a faixa do Início e as rotinas automáticas vão para Administração → Saúde do sistema
     { sec: 'Módulos' },
     { id: 'resumo', rot: 'Painel Executivo', ic: 'painel', func: 'relatorios' },
-    { rot: 'Jurídico', ic: 'juridico', itens: [['processos', 'Processos', 'juridico'], ['parcelamentos', 'Parcelamentos', 'juridico'], ['execucoes', 'Execuções', 'juridico', 1], ['publicacoes', 'Publicações', 'juridico', 1]] },   // Backup 53: Execuções; Backup 75: o 4º item = só equipe (o cliente não vê)
-    { id: 'acordos', rot: 'Acordos', ic: 'acordos', func: 'juridico' },
+    { rot: 'Jurídico', ic: 'juridico', equipe: true, itens: [['processos', 'Processos', 'juridico'], ['parcelamentos', 'Parcelamentos', 'juridico'], ['execucoes', 'Execuções', 'juridico', 1], ['publicacoes', 'Publicações', 'juridico', 1]] },   // Backup 53: Execuções; Backup 75: o 4º item = só equipe (o cliente não vê)
+    { id: 'acordos', rot: 'Acordos', ic: 'acordos', equipe: true, func: 'juridico' },   // Backup 81: o cliente vê Processos/Parcelamentos/Acordos dentro do portal
     { rot: 'Financeiro', ic: 'financeiro', equipe: true, itens: [['financeiro', 'Jurídico', 'financeiro_juridico'], ['financeiroContab', 'Contabilidade', 'financeiro_contab']] },
     { id: 'contratos', rot: 'Contratos', ic: 'contratos', equipe: true, func: 'contratos' },
     { id: 'clientes', rot: 'Clientes', ic: 'clientes', equipe: true, func: 'clientes' },
@@ -59,10 +59,11 @@
   // Cobranças, avisos e recibos (antiga "Notificações"): fora da barra; abre pelo botão ✉ de cada tela e pelo ⋯
   const FUNC_EXTRA = {};
   // painéis novos → tela do Gestão que desenha nele
-  const TELAS_GS = { hoje: 'inicio', contratos: 'contratos', clientes: 'clientes', crm: 'crm', publicacoes: 'publicacoes', documentos: 'documentos', gerador: 'gerador', tarefas: 'tarefas', alertas: 'alertas', rotina: 'rotina', execucoes: 'execucoes', admin: 'admin', parcelamentos: 'parcelamentos', acordos: 'acordos', financeiro: 'juridico', financeiroContab: 'contabilidade', resumo: 'painelExec', processos: 'processosERP' };   // Backup 76: Financeiro (S1), Painel (S2) e Processos (S3) novos
+  const TELAS_GS = { hoje: 'inicio', contratos: 'contratos', clientes: 'clientes', crm: 'crm', publicacoes: 'publicacoes', documentos: 'documentos', gerador: 'gerador', tarefas: 'tarefas', alertas: 'alertas', rotina: 'rotina', execucoes: 'execucoes', admin: 'admin', parcelamentos: 'parcelamentos', acordos: 'acordos', financeiro: 'juridico', financeiroContab: 'contabilidade', resumo: 'painelExec', processos: 'processosERP', portal: 'portal' };   // Backup 76: Financeiro (S1), Painel (S2) e Processos (S3) novos
   // Backup 68 (reforma, etapa 3): Parcelamentos é tela nova para a equipe; o cliente (portal) continua vendo a antiga
   // Backup 76 (S5): o cliente também usa as telas novas; o Início dele é o portal (as outras telas novas já são só leitura para quem não edita)
-  const TELAS_CLIENTE = { resumo: 'portalInicio' };
+  // Backup 81 (A3): o cliente entra direto no portal novo (abas dentro dele); as telas antigas saem do menu dele
+  const TELAS_CLIENTE = { resumo: 'portal' };
   const telaGS = (id) => (ehCliente() && TELAS_CLIENTE[id]) || TELAS_GS[id];
   const ehGS = (id) => !!TELAS_GS[id];
   window.ERP_TELA_NOVA = ehGS;   // Backup 76: o ERP antigo pula o desenho escondido destas telas
@@ -326,11 +327,11 @@
   let _painel = '', _voltando = false;
   function nomeTela(id) {
     for (const m of MENU) { if (m.id === id) return m.rot; const x = (m.itens || []).find((i) => i[0] === id); if (x) return m.rot + ' · ' + x[1]; }
-    return ({ gerador: 'Documentos · Gerar documentos', alertas: 'Alertas' })[id] || '';
+    return ({ gerador: 'Documentos · Gerar documentos', alertas: 'Alertas', portal: 'Portal do cliente (prévia)' })[id] || '';
   }
   function destacar(id) {
     const tn = document.getElementById('gs-tela-nome'); if (tn) tn.textContent = nomeTela(id);
-    id = ({ gerador: 'documentos' })[id] || id;   // Backup 80: "Gerar documentos" saiu do menu — acende Documentos
+    id = ({ gerador: 'documentos', portal: 'clientes' })[id] || id;   // Backup 80: "Gerar documentos" saiu do menu — acende Documentos
     document.querySelectorAll('#tn [data-ir], #tn-baixo [data-baixo]').forEach((b) => b.classList.toggle('ativo', b.dataset.ir === id || b.dataset.baixo === id));
     // o grupo da tela aberta fica aberto na lateral (como "Fiscal" nos prints); os outros ficam como a pessoa deixou
     document.querySelectorAll('#tn .tn-grupo').forEach((g) => { const tem = !!g.querySelector('[data-ir="' + id + '"]'); g.classList.toggle('ativo', tem);

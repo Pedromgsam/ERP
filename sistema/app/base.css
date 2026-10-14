@@ -734,3 +734,35 @@ body.gx-barra-topo .gs main.gs-main:not(#_){padding:20px 0 60px}
 .gs .rt-proc col.rt-w-conf:not(#_){width:24%}.gs .rt-proc col.rt-w-ult:not(#_){width:20%}
 /* Backup 80: no celular, os botões do cabeçalho (ex.: Lista · Semana · Calendário · Fluxos) quebram linha sem passar da tela */
 @media (max-width:600px){.gs .titulo-pag.b-cab > .acoes{flex-wrap:wrap;min-width:0;max-width:100%}.gs .titulo-pag.b-cab > .acoes > .b-seg{flex-basis:100%;max-width:100%;min-width:0}}
+
+/* ═══ Backup 81 — portal do cliente novo (telas-portal.js) ═══ */
+.pt-previa{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;background:var(--blue-lt);color:var(--blue-d);border-radius:10px;padding:9px 14px;margin:0 0 14px;font-size:13px}
+.pt-previa .b-ic{width:16px;height:16px}
+.pt-previa select{max-width:260px}
+.pt-previa .pt-vis-rot{margin-left:6px;font-weight:600}
+.pt-previa .b-chip[disabled]{opacity:.6;cursor:not-allowed}
+.pt-portal{display:flex;flex-direction:column;gap:14px}
+.pt-portal .pt-topo{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--lado-bg,var(--primario));color:var(--on-cor);border-radius:12px;padding:14px 18px}
+.pt-portal .pt-topo b{display:block;font:700 15px var(--font-ui)}
+.pt-portal .pt-topo small{display:block;font-size:12px;opacity:.75}
+.pt-portal .pt-eu{text-align:right}
+.pt-portal .pt-abas{flex-wrap:wrap;max-width:100%}
+.pt-corpo{display:flex;flex-direction:column;gap:12px;min-width:0}
+.pt-corpo .pt-intro h2{font:700 18px var(--font-ui);color:var(--ink);margin:2px 0 6px}
+.pt-corpo .pt-intro p{font-size:14px;line-height:1.55;color:var(--text2);margin:0;max-width:72ch}
+.pt-corpo .pt-situacao{border-radius:10px;padding:10px 14px;font:600 13px var(--font-ui)}
+.pt-corpo .pt-sit-ok{background:var(--green-lt);color:var(--green-d)}
+.pt-corpo .pt-sit-atr{background:var(--red-lt);color:var(--red-d)}
+.pt-corpo .pt-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+@media (max-width:760px){.pt-corpo .pt-tiles{grid-template-columns:1fr}}
+.pt-corpo .pt-tile{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px;cursor:pointer;font:inherit;color:inherit}
+.pt-corpo .pt-tile:hover{border-color:var(--primario)}
+.pt-corpo .pt-tile b{font:700 14px var(--font-ui);color:var(--ink)}
+.pt-corpo .pt-tile span{font-size:12px;color:var(--text3)}
+.pt-corpo .pt-contato{font-size:13px;color:var(--text3);margin:0}
+.pt-corpo #pt-fin-emp{margin-bottom:2px}
+.b-mudo{color:var(--text3);font-size:12px}
+body.modo-cliente #tn .tn-sec{display:none}   /* Backup 81: o cliente só tem o portal no menu */
+.pt-previa select{border:1px solid var(--border-strong);border-radius:var(--r-ctl);padding:5px 30px 5px 10px;font:500 13px var(--font-ui);background-color:var(--surface);color:var(--text)}
+.pt-previa .b-chips{margin-left:0}
+.pt-previa .b-chip{font-size:12px}

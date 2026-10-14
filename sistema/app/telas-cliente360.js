@@ -142,6 +142,8 @@ async function abrirFicha(id, aba) {
         '<button class="btn btn-o btn-mini" id="fc-lead" title="Nova oportunidade no CRM para este cliente (novo serviço)">Novo serviço (CRM)</button>' : '') + '</span></span>' +
       (tel ? '<a class="btn btn-o btn-mini" target="_blank" rel="noopener" href="https://wa.me/' + (soDigitos(tel).length <= 11 ? '55' : '') + soDigitos(tel) + '">WhatsApp</a>' : '') +
       (mail ? '<a class="btn btn-o btn-mini" href="mailto:' + esc(mail) + '">E-mail</a>' : '') +
+      // Backup 81 (M10): abre o portal do cliente como ele vê (prévia do grupo)
+      (cl.grupo_id ? '<button class="btn btn-o btn-mini" id="fc-portal" title="Abre o portal do cliente deste grupo, do jeito que ele vê">Ver como o cliente vê</button>' : '') +
       '</div></div>' +
       '<div class="abas ficha-abas b-seg" id="fc-abas" role="tablist">' + ABAS_FICHA.map(([k, r]) => '<button type="button" class="b-seg-bt" role="tab" data-aba="' + k + '">' + r + '</button>').join('') + '</div>' +
       '<div id="fc-corpo" class="ficha-corpo"></div>' });
@@ -172,6 +174,7 @@ async function abrirFicha(id, aba) {
   j.querySelector('#fc-doc').onclick = () => janelaEnviarDocumento({ cliente_id: cl.id, grupo_id: cl.grupo_id }, () => mostrar('documentos'));
   j.querySelector('#fc-int').onclick = () => formInteracao(cl, () => mostrar('linha'));
   j.querySelector('#fc-etq').onclick = () => janelaEtiquetas(cl, etq, reabrir);
+  { const bp = j.querySelector('#fc-portal'); if (bp) bp.onclick = () => { fecharJanela(j); verComoCliente(cl.grupo_id); }; }
   const fcMail = j.querySelector('[data-cli-email]');
   if (fcMail) fcMail.onclick = () => comBotao(fcMail, async () => { await trocarRecebeEmail([cl.id], cl.recebe_email === false); fcMail.outerHTML = pillRecebeEmail(cl);
     const n = j.querySelector('[data-cli-email]'); if (n) n.onclick = fcMail.onclick; });
