@@ -50,22 +50,21 @@ TELAS.painelExec = async function () {
   const grupos = unicosB(base.map((r) => r.grupo)), emps = unicosB(base.filter((r) => !P.grupo || r.grupo === P.grupo).map((r) => r.nome));
   if (P.empresa && !emps.includes(P.empresa)) P.empresa = '';
   const N = numerosPainel(D, P), t = (v) => '<span title="' + esc(brl(v)) + '">' + esc(brlCurto(v)) + '</span>';
-  c.innerHTML = cabecalhoTela({ icone: 'pizza', titulo: 'Painel Executivo', frase: 'Passivo dos clientes e onde ele está' }) +
+  c.innerHTML = cabecalhoTela({ icone: 'painel', titulo: 'Painel Executivo', frase: 'Passivo dos clientes e onde ele está' }) +
     '<div class="b-fin-topo b-pe-topo"><select id="pe-grupo" aria-label="Grupo"><option value="">Todos os grupos</option>' + grupos.map((g) => '<option' + (P.grupo === g ? ' selected' : '') + '>' + esc(g) + '</option>').join('') + '</select>' +
       '<select id="pe-emp" aria-label="Empresa"><option value="">Todas as empresas</option>' + emps.map((e) => '<option' + (P.empresa === e ? ' selected' : '') + '>' + esc(e) + '</option>').join('') + '</select>' +
       '<span class="b-pe-conta">' + plural(N.data.length, 'entidade', 'entidades') + ' · ' + plural(unicosB(N.data.map((r) => r.grupo)).length, 'grupo', 'grupos') + '</span></div>' +
     '<div id="pe-nums">' + numsFaixa([['Passivo total', t(N.total), 'RFB ' + brlCurto(N.rfb) + ' · PGFN ' + brlCurto(N.pgfn) + ' · AGE/MG ' + brlCurto(N.age)], ['Parcelamentos (saldo)', t(N.saldoParc), plural(N.nParc, 'ativo', 'ativos')],
       ['Acordos (em aberto)', t(N.acPagar), plural(N.nAc, 'parcela', 'parcelas')], ['Passivo em disputa', t(N.passivo), plural(N.nProc, 'processo', 'processos'), N.passivo ? 'b-verm' : ''], ['Ativo em disputa', t(N.ativo), '', N.ativo ? 'b-verde' : '']]) + '</div>' +
     '<section class="b-fin-cartao" id="pe-evo"><div class="b-fin-hd b-pe-evo-hd"><div><h3>Evolução do passivo</h3><p id="pe-evo-sub"></p></div>' +
-      '<div class="b-pe-evo-ctl"><div class="b-seg b-seg-mini" id="pe-evo-visao"><button type="button" class="b-seg-bt" data-v="total">Tudo junto</button><button type="button" class="b-seg-bt" data-v="linhas">' + (P.grupo ? 'Uma linha por empresa' : 'Uma linha por grupo') + '</button></div>' +
-      '<select id="pe-evo-meses" aria-label="Período"><option value="6">6 meses</option><option value="12">12 meses</option><option value="24">24 meses</option></select></div></div>' +
+      '<div class="b-pe-evo-ctl"><div class="b-chips" id="pe-evo-visao"><button type="button" class="b-chip" data-v="total">Tudo junto</button><button type="button" class="b-chip" data-v="linhas">' + (P.grupo ? 'Uma linha por empresa' : 'Uma linha por grupo') + '</button></div>' +
+      '<div class="b-chips" id="pe-evo-meses" role="group" aria-label="Período">' + [6, 12, 24].map((m) => '<button type="button" class="b-chip" data-m="' + m + '">' + m + ' meses</button>').join('') + '</div></div></div>' +
       '<div class="b-pe-evo-res" id="pe-evo-res"></div><div class="b-fin-graf" id="pe-evo-graf"><div class="carregando">Carregando…</div></div>' +
       '<p class="b-fin-mostra">Soma de RFB, PGFN, SEFAZ e AGE/MG (em aberto + negociado). O valor de cada mês é o que estava cadastrado no último dia do mês.</p></section>' +
     '<div class="b-sec"><div><h2>Empresas do grupo</h2></div></div><div id="pe-nova"></div>';
   $('pe-grupo').onchange = (ev) => { P.grupo = ev.target.value; P.empresa = ''; TELAS.painelExec(); };
   $('pe-emp').onchange = (ev) => { P.empresa = ev.target.value; TELAS.painelExec(); };
-  $('pe-evo-meses').value = String(P.evo.meses);
-  $('pe-evo-meses').onchange = (ev) => { P.evo.meses = Number(ev.target.value); P.evo.dados = null; evolucaoPE(); };
+  $('pe-evo-meses').onclick = (ev) => { const b = ev.target.closest('[data-m]'); if (!b) return; P.evo.meses = Number(b.dataset.m); P.evo.dados = null; evolucaoPE(); };
   $('pe-evo-visao').onclick = (ev) => { const b = ev.target.closest('[data-v]'); if (!b) return; P.evo.visao = b.dataset.v; evolucaoPE(); };
   evolucaoPE();
   empresasPE(N.data);
@@ -73,7 +72,8 @@ TELAS.painelExec = async function () {
 
 async function evolucaoPE() {
   const P = estadoPE(), ev = P.evo, gr = $('pe-evo-graf'); if (!gr) return;
-  document.querySelectorAll('#pe-evo-visao [data-v]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.v === ev.visao)));
+  document.querySelectorAll('#pe-evo-visao [data-v]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === ev.visao)));
+  document.querySelectorAll('#pe-evo-meses [data-m]').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.m) === Number(ev.meses))));
   if (!ev.dados || ev.lidoMeses !== ev.meses) {
     try { ev.dados = await q(sb.rpc('evolucao_passivo', { p_grupo: null, p_meses: ev.meses })) || []; ev.lidoMeses = ev.meses; }
     catch (e) { gr.innerHTML = '<p class="msg-erro">Não foi possível ler a evolução: ' + esc(erroAmigavel(e)) + '</p>'; return; }
@@ -136,7 +136,7 @@ TELAS.processosERP = async function () {
     filtroSusB('pr-filtro', [{ k: 'grupo', rot: 'Grupo', todos: 'Todos os grupos', opcoes: unicosTxt(L0.map((p) => p.grupo)), v: F.grupo },
       { k: 'comp', rot: 'Competência', todos: 'Todas as competências', opcoes: unicosTxt(L0.filter((p) => !F.grupo || p.grupo === F.grupo).map((p) => p.competencia)), v: F.comp }]) +
     '<section class="b-fin-cartao b-pr-res' + (E.prRes.aberto ? ' b-aberto' : '') + '" id="pr-res"><button type="button" class="b-pr-res-hd" id="pr-res-bt" aria-expanded="' + E.prRes.aberto + '"><span class="b-seta" aria-hidden="true">▸</span><h3>Resumo da carteira</h3><span class="b-sub">' +
-      (F.grupo || F.comp ? esc([F.grupo, F.comp].filter(Boolean).join(' · ')) : 'toda a carteira') + '</span></button><div id="pr-res-corpo"' + (E.prRes.aberto ? '' : ' hidden') + '>' + resumoCarteira(L) + '</div></section>' +
+      (F.grupo || F.comp ? esc([F.grupo, F.comp].filter(Boolean).join(' · ')) + ' · ' : '') + (() => { const at = L.filter((p) => !p.arquivamento); return plural(at.length, 'processo ativo', 'processos ativos') + ' · ' + esc(brlCurto(soma(at, (p) => Number(p.valor) || 0))) + ' em disputa'; })() + '</span></button><div id="pr-res-corpo"' + (E.prRes.aberto ? '' : ' hidden') + '>' + resumoCarteira(L) + '</div></section>' +
     '<div id="pr-nova"></div>';
   ligarFiltroSusB('pr-filtro', E.prF, () => TELAS.processosERP());
   $('pr-res-bt').onclick = () => { E.prRes.aberto = !E.prRes.aberto; $('pr-res').classList.toggle('b-aberto', E.prRes.aberto); $('pr-res-bt').setAttribute('aria-expanded', String(E.prRes.aberto)); $('pr-res-corpo').hidden = !E.prRes.aberto; };
@@ -158,7 +158,7 @@ TELAS.processosERP = async function () {
       { k: 'nat', rot: 'Natureza', html: (p) => esc(p.natureza || '—'), ord: (p) => p.natureza || '' },
       { k: 'pt', rot: 'Partes', html: (p) => { const x = partes(p); return x.length ? esc(x[0]) + (x[1] ? '<span class="b-sub">× ' + esc(x[1]) + '</span>' : '') : '—'; }, ord: (p) => (p.autor || '').toLowerCase() },
       { k: 'v', rot: 'Valor', cls: 'b-dir b-val', soma: true, html: (p) => (p.valor ? brl(p.valor) + (p.valorEm ? '<small>em ' + esc(p.valorEm) + '</small>' : '') : '—'), ord: (p) => Number(p.valor) || 0 },
-      { k: 'mov', rot: 'Última movimentação', cls: 'b-cen b-data', html: (p) => { const d = p.ultimaMovEm || p.atualizacao, i = isoDeBRp(d), velho = i && i < somarDias(hojeISO(), -30);
+      { k: 'mov', rot: 'Última movimentação', cls: 'b-data b-mov', html: (p) => { const d = p.ultimaMovEm || p.atualizacao, i = isoDeBRp(d), velho = i && i < somarDias(hojeISO(), -30);
         return d ? (velho ? '<span class="b-pz-r" title="Mais de 30 dias sem novidade">' + esc(d) + '</span>' : esc(d)) + (p.ultimaMov ? '<small title="' + esc(p.ultimaMov) + '">' + esc(String(p.ultimaMov).slice(0, 40)) + '</small>' : '') : '—'; }, ord: (p) => isoDeBRp(p.ultimaMovEm || p.atualizacao) || '0' },
       { k: 'st', rot: 'Status', cls: 'b-cen', html: (p) => '<span class="b-pill ' + (sit(p) === 'at' ? 'b-g' : sit(p) === 'arq' ? 'b-a' : 'b-r') + '">' + esc(p.arquivamento || 'Ativo') + '</span>', ord: sit }],
     clique: (p) => (window.ERP_ABRIR_PROCESSO ? window.ERP_ABRIR_PROCESSO(p) : null),

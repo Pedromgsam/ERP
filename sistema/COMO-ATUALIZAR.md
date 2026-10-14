@@ -721,6 +721,21 @@ O que mudou:
 
 Ainda falta (próxima rodada): apagar o ERP antigo (ERP.html, remendos e blocos antigos do design.css).
 
+## Backup 82 — O desenho do ambiente de teste em todas as telas do ERP
+1. Merge da pull request.
+2. **Sem SQL** nesta rodada.
+3. **Ctrl+Shift+R** no ERP.
+
+O que mudou (só o visual; nenhuma função saiu):
+- **Letras e tamanhos iguais aos do ambiente** em todo o sistema: texto 13, botões, abas, filtros e tabelas com o mesmo tamanho e espaçamento.
+- **Início:** os cartões grandes Financeiro/Escritório viraram a **faixa** do ambiente (pílulas: "R$ X de honorários em atraso", "vence hoje", "a pagar", parcelas em atraso, publicações novas, tarefas atrasadas, conferências). Embaixo da saudação fica **só a data**. O admin escolhe "Ver como" (a agenda de outra pessoa). Lembretes com a faixa de cor à esquerda e "✓ Feito".
+- **Tarefas (Lista):** o tipo (Reunião, Audiência…) aparece numa etiqueta antes do título e o grupo/cliente embaixo; busca e "De quem"/Status dentro de **Filtros**.
+- **Execuções e Contratos:** viraram a tabela nova (abas, busca, filtros, ordenar clicando no título). Contratos mostra o salário mínimo no alto.
+- **Financeiro:** abas Análise/Lançamentos no alto, botão **Lançar** (Receita/Despesa) e Recibo.
+- **Painel, Processos, Parcelamentos, Acordos, Publicações, CRM, Documentos, Rotina:** cabeçalhos, botões e filtros no desenho do ambiente (Parcelamentos ganhou "Guias do mês"; CRM juntou as ferramentas no ⋯).
+- **Menu da esquerda:** grupos sempre abertos, como no ambiente. Botões de ajuda e tema com ícone.
+- Ficaram como estavam (pedido seu ou função que só o ERP tem): Clientes, as pastas de Documentos, a "Minha fila de trabalho" do Início, Calendário/Fluxos de Tarefas e os filtros de Grupo/Competência.
+
 ## Backup 80 — O visual e as funções do ambiente de teste no ERP (1ª parte)
 1. Merge da pull request.
 2. **Sem SQL** e sem função nova.

@@ -530,9 +530,10 @@ const ICONES_B = {
 };
 function iconeB(k) { return '<svg class="b-ic" viewBox="0 0 24 24" aria-hidden="true">' + (ICONES_B[k] || '') + '</svg>'; }
 // 1) cabeçalho da tela: ícone + título + frase; à direita "Atualizar" e o botão principal
-function cabecalhoTela({ icone, titulo, frase, atualizar, botao }) {
+function cabecalhoTela({ icone, titulo, frase, atualizar, botao, extra }) {
+  // Backup 82 (ambiente): "Atualizar" virou um botão só com o ícone; `extra` = outros botões antes do principal (ex.: "Guias do mês")
   return '<div class="b-cab"><div class="b-cab-ic">' + iconeB(icone || 'camadas') + '</div><div class="b-cab-tx"><h1>' + esc(titulo) + '</h1>' + (frase ? '<p>' + esc(frase) + '</p>' : '') + '</div>' +
-    '<div class="b-cab-acoes">' + (atualizar ? '<button type="button" class="b-link" id="' + esc(atualizar) + '">' + iconeB('atualizar') + 'Atualizar</button>' : '') +
+    '<div class="b-cab-acoes">' + (atualizar ? '<button type="button" class="b-ic-bt" id="' + esc(atualizar) + '" title="Atualizar" aria-label="Atualizar">' + iconeB('atualizar') + '</button>' : '') + (extra || '') +
     (botao ? '<button type="button" class="btn btn-p b-bt" id="' + esc(botao.id) + '">' + iconeB('mais') + esc(botao.rotulo) + '</button>' : '') + '</div></div>';
 }
 // tela vazia que explica e oferece o próximo passo: {icone, titulo, frase, botao: {rotulo, seletor}}
@@ -548,6 +549,8 @@ document.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && ev.targ
 // ordenar pelo título, total e média no rodapé, tabela compacta e marcar várias linhas para agir de uma vez (sempre com confirmação).
 const ICONES_B2 = { filtro: '<path d="M3 5h18l-7 8v6l-4 2v-8z"/>', compacto: '<path d="M4 5h16M4 9.5h16M4 14h16M4 18.5h16"/>', x: '<path d="M18 6 6 18M6 6l12 12"/>' };
 Object.assign(ICONES_B, ICONES_B2);
+ICONES_B.painel = '<path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 6-6"/>';   // Backup 82: gráfico de linha (Painel), como no ambiente
+ICONES_B.rotina = '<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M9 14l2 2 4-4"/>';
 ICONES_B.olho = '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>';   // Backup 81: prévia do portal
 // Backup 76: ícones do Financeiro novo (e de quem mais precisar)
 // Backup 76 (L4): ícones do cabeçalho único de todas as telas
@@ -614,7 +617,7 @@ function tabelaB(el, cfg) {
     return cfg.linhas.filter((r) => {
       if (!semAba && cfg.abas && st.aba) { const a = cfg.abas.find((x) => x.id === st.aba); if (a && a.f && !a.f(r)) return false; }
       if (q && cfg.busca && normalizar(cfg.busca(r)).indexOf(q) < 0) return false;
-      for (const l of (cfg.listas || [])) { const v = st.listas[l.k]; if (v && String(l.get(r)) !== v) return false; }
+      for (const l of (cfg.listas || [])) { const v = st.listas[l.k]; if (!v) continue; const g = l.get(r); if (Array.isArray(g) ? !g.map(String).includes(v) : String(g) !== v) return false; }   // Backup 82: get pode devolver lista (ex.: De quem)
       if (cfg.venc) { const d = cfg.venc(r) || ''; if (st.vde && d < st.vde) return false; if (st.vate && d > st.vate) return false;
         // atalhos de prazo (só nas abas em aberto): Vencidas = até hoje; N dias = vence até hoje + N (inclui as vencidas); até = data escolhida
         if (cfg.prazos && st.prazo && prazoNaAba()) { const h = hojeISO();

@@ -766,3 +766,108 @@ body.modo-cliente #tn .tn-sec{display:none}   /* Backup 81: o cliente só tem o 
 .pt-previa select{border:1px solid var(--border-strong);border-radius:var(--r-ctl);padding:5px 30px 5px 10px;font:500 13px var(--font-ui);background-color:var(--surface);color:var(--text)}
 .pt-previa .b-chips{margin-left:0}
 .pt-previa .b-chip{font-size:12px}
+
+/* ═══════════ Backup 82 — 100% do desenho do ambiente de teste (letra 13 px, densidade, botões, tabelas) ═══════════ */
+html body.gx-barra-topo,html body.gx-barra-topo .gs{font-size:13px;line-height:1.45}
+html body.gx-barra-topo .gs :is(.b-seg-bt,.b-chip,.b-bt-f,.b-link):not(#_){font-size:13px}
+html body.gx-barra-topo .gs .b-seg:not(#_){padding:3px;border-radius:9px;border-color:var(--border);gap:2px}
+html body.gx-barra-topo .gs .b-seg-bt:not(#_){font-weight:600;padding:5px 12px;border-radius:6px}
+html body.gx-barra-topo .gs .b-chip:not(#_){font-size:12.5px;padding:4px 11px;border-color:var(--border)}
+html body.gx-barra-topo .gs .b-prazos .b-chip:not(#_){padding:4px 11px}
+html body.gx-barra-topo .gs :is(.b-bt-f,.b-ic-bt,.b-busca):not(#_){border-color:var(--border)}
+html body.gx-barra-topo table.b-tab tbody td:not(#_){padding:10px!important;font:400 13px/1.45 var(--font-ui)!important}
+html body.gx-barra-topo table.b-tab thead th:not(#_){padding:9px 10px!important;font:700 11px var(--font-ui)!important;letter-spacing:.06em!important;color:var(--text3)!important}
+html body.gx-barra-topo .gs .b-cab p:not(#_){font-size:12.5px}
+html body.gx-barra-topo .gs .btn:not(.btn-mini):not(#_){font:600 13px var(--font-ui);padding:7px 13px;border-radius:8px}
+html body.gx-barra-topo .gs .btn.btn-mini:not(#_){font:600 12.5px var(--font-ui);padding:4px 10px;border-radius:8px}
+html body.gx-barra-topo .gs .b-pill:not(#_){font:700 12px var(--font-ui);padding:3px 10px;gap:6px}
+html body.gx-barra-topo .gs .b-cg-hd b:not(#_){font-size:13.5px}
+/* Tarefas (B82): etiqueta do tipo antes do título, pessoa em pílula neutra */
+.gs .b-tf-tipo{display:inline-block;font:700 11px var(--font-ui);padding:1px 7px;border-radius:5px;margin-right:7px;background:var(--gray-lt);color:var(--text2);vertical-align:1px}
+.gs .b-tf-tipo-rotina,.gs .b-tf-tipo-reuniao{background:var(--blue-lt);color:var(--blue-d,var(--blue))}
+.gs .b-tf-tipo-audiencia{background:var(--red-lt);color:var(--red-d,var(--red))}
+.gs .b-tf-tipo-compromisso{background:var(--amber-lt);color:var(--amber-d,var(--amber))}
+html body.gx-barra-topo .b-tab-tf td.b-tf-pes .pill-pessoa:not(#_){background:var(--gray-lt)!important;color:var(--text2)!important;border:1px solid var(--border)!important;font:700 12px var(--font-ui)!important;width:auto;max-width:110px;padding:2px 9px!important;border-radius:999px!important}
+/* barra da tabela como no ambiente: abas, prazos e busca na mesma linha; contador e botões quebram juntos */
+html body.gx-barra-topo .gs .b-barra-tab:not(#_){gap:8px 10px}
+html body.gx-barra-topo .gs .b-barra-tab > .b-seg:not(#_){flex-basis:auto}
+html body.gx-barra-topo .gs .b-barra-tab .b-busca:not(#_){width:240px}
+html body.gx-barra-topo .gs .b-conta:not(#_){font-size:12.5px}
+/* lateral (B82) como no ambiente: grupos sempre abertos (rótulo + itens recuados), contador em cada item */
+html body.gx-barra-topo #gs-lado .tn-it:not(#_){font:500 13px var(--font-ui);padding:7px 10px;border-radius:7px}
+html body.gx-barra-topo #gs-lado .tn-it.ativo:not(#_){font-weight:700}
+body:not(.gx-lado-min) #gs-lado .tn-grupo > .tn-menu:not(#_){display:flex;flex-direction:column;gap:1px;margin:0;padding:0;border:0}
+body:not(.gx-lado-min) #gs-lado .tn-grupo > .tn-abre:not(#_){cursor:default;color:var(--lado-sec);font-weight:600;background:none}
+body:not(.gx-lado-min) #gs-lado .tn-grupo > .tn-abre .tn-seta,body:not(.gx-lado-min) #gs-lado .tn-n-grupo{display:none}
+html body.gx-barra-topo #gs-lado .tn-menu button:not(#_){display:flex;align-items:center;padding:7px 10px 7px 36px;font:500 12.5px var(--font-ui);border-radius:7px}
+html body.gx-barra-topo #gs-lado .tn-menu button.ativo:not(#_){font-weight:700}
+html body.gx-barra-topo #gs-lado .tn-n:not(#_){margin-left:auto;font:700 10.5px var(--font-ui);background:var(--red);color:#fff;border-radius:999px;padding:1px 6px}
+/* Início (B82): faixa Financeiro · Escritório em pílulas, lembretes e "Ver como" como no ambiente */
+.gs .ini-faixa .ini-pills{display:contents}
+.gs .ini-faixa .ini-conf-l{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;flex:1;min-width:0}
+.gs .ini-faixa .b-faixa-lin{padding:8px 10px}
+.gs .ini-faixa .b-faixa-rot{font-size:10.5px;min-width:84px;padding:0 4px}
+html body.gx-barra-topo .gs .b-faixa-av .ini-conf-it:not(#_){font-size:12.5px;padding:4px 11px;color:var(--text2)}
+html body.gx-barra-topo .gs .b-faixa-av .ini-conf-it b:not(#_){font-size:12.5px;color:var(--ink)}
+.gs .b-av-info .b-av-pt{background:var(--blue)}
+.gs .b-av-ok .b-av-pt{background:var(--green)}
+html body.gx-barra-topo .gs .b-faixa-av .b-av-critico b:not(#_){color:var(--red-d,var(--red))}
+.gs .ini-vercomo{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text3)}
+.gs .ini-vercomo select{height:32px;border:1px solid var(--border);border-radius:8px;background-color:var(--surface);color:var(--text);padding:0 28px 0 10px;font:13px var(--font-ui)}
+.gs .ini-quem.b-chips{margin-left:auto}
+.gs .ini-lemb .ini-sec-hd{display:flex;align-items:flex-end;justify-content:space-between}
+.gs .ini-lemb .lemb-lista{display:flex;flex-direction:column;gap:6px}
+html body.gx-barra-topo .gs .ini-lemb .lemb-it:not(#_){display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--text3);border-radius:10px;padding:9px 12px;box-shadow:none;cursor:pointer}
+html body.gx-barra-topo .gs .ini-lemb .lemb-it.dest-vermelho:not(#_){border-left-color:var(--red)}
+html body.gx-barra-topo .gs .ini-lemb .lemb-it.dest-azul:not(#_){border-left-color:var(--blue)}
+html body.gx-barra-topo .gs .ini-lemb .lemb-it.dest-verde:not(#_){border-left-color:var(--green)}
+html body.gx-barra-topo .gs .ini-lemb .lemb-it.dest-amarelo:not(#_){border-left-color:var(--amber)}
+html body.gx-barra-topo .gs .ini-lemb .lemb-it.dest-roxo:not(#_){border-left-color:#8266C4}
+html body.gx-barra-topo .gs .ini-lemb .lemb-txt:not(#_){flex:1;min-width:0;font-size:13px;color:var(--ink)}
+html body.gx-barra-topo .gs .ini-lemb .lemb-txt .sub:not(#_){font-size:12px;color:var(--text3)}
+html body.gx-barra-topo .gs .ini-lemb .acoes-l:not(#_){display:flex;gap:4px;align-items:center}
+html body.gx-barra-topo .gs .ini-lemb [data-lemb-ok]:not(#_){background:none!important;border:0!important;color:var(--text2)!important;font:600 12.5px var(--font-ui)!important;padding:4px 10px!important;box-shadow:none!important}
+html body.gx-barra-topo .gs .ini-lemb [data-lemb-ok]:hover{background:var(--hover)!important;color:var(--ink)!important}
+.gs .ini-lemb .lemb-it:not(:hover):not(:focus-within) :is(.lemb-fixo:not(.on),[data-lemb-x]){visibility:hidden}
+html body.gx-barra-topo .gs .ini-it-tx b:not(#_){font:600 13px var(--font-ui)}
+html body.gx-barra-topo .gs .ini-it-tx small:not(#_){font-size:12px}
+html body.gx-barra-topo #gs-lado .tn-menu button .tn-n:not(#_){margin-left:auto;padding-left:6px}
+html body.gx-barra-topo .gs .ini-sec-hd h2:not(#_){font:700 15px var(--font-ui);color:var(--ink);margin:0}
+html body.gx-barra-topo .gs .ini-sec-hd p:not(#_){font-size:12.5px;color:var(--text3);margin:2px 0 0}
+/* números da faixa: o valor pode vir embrulhado num <span title> — não herda o estilo do rótulo */
+html body.gx-barra-topo .b-nums b span:not(#_){display:inline;font:inherit;color:inherit;margin:0}
+html body.gx-barra-topo .b-nums.b-nums-faixa > div:first-child b:not(#_){font-size:18px}
+html body.gx-barra-topo table.b-tab td.b-val:not(#_){font-weight:700!important;color:var(--ink);font-variant-numeric:tabular-nums}
+/* Processos (B82): nº em letra de máquina pequena, última movimentação à esquerda, resumo da carteira mais discreto */
+html body.gx-barra-topo table.b-tab td.b-num:not(#_){font:400 12px var(--font-num)!important;color:var(--text3);white-space:nowrap}
+html body.gx-barra-topo table.b-tab td.b-num .b-sub:not(#_){font:400 11px var(--font-num);color:var(--text3)}
+html body.gx-barra-topo table.b-tab td.b-mov:not(#_){text-align:left}
+html body.gx-barra-topo table.b-tab td.b-mov small:not(#_){display:block;font-size:12px;color:var(--text3)}
+.gs .b-pr-res-hd:not(#_){padding:11px 16px;align-items:center}
+.gs .b-pr-res-hd h3:not(#_){font-size:13.5px}
+.gs .b-pr-res-hd .b-sub:not(#_){font-size:12px;display:inline}
+.b-cards:not(#_){grid-template-columns:repeat(auto-fill,minmax(236px,1fr))}
+.gs .b-cab-acoes .b-ic-bt .b-ic{width:16px;height:16px}
+/* Backup 82: segmentos antigos (.segmento, .rt-seg, .gx-seg-cli) no desenho do ambiente — controle segmentado em caixa, sem "✓";
+   contadores numa pílula cinza; chips (.fila-chip) sem "✓" */
+html body.gx-barra-topo :is(.gx-seg-cli,.filtros .segmento,.rt-seg,.gs .segmento):not(#_){display:inline-flex!important;flex-wrap:wrap;gap:2px!important;padding:3px!important;border:1px solid var(--border)!important;border-radius:9px!important;background:var(--surface)!important;box-shadow:none!important}
+html body.gx-barra-topo :is(.gx-seg-cli > button,.gx-seg-cli > .chip,.filtros .segmento > button,.rt-seg > button,.gs .segmento > button):not(#_){font:600 13px var(--font-ui)!important;padding:5px 12px!important;border:0!important;border-radius:6px!important;background:none!important;color:var(--text2)!important;min-height:0}
+html body.gx-barra-topo :is(.gx-seg-cli > button,.gx-seg-cli > .chip,.filtros .segmento > button,.rt-seg > button,.gs .segmento > button):hover:not(#_){background:var(--hover)!important;color:var(--ink)!important}
+html body.gx-barra-topo :is(.gx-seg-cli > button.ativo,.gx-seg-cli > .chip.on,.filtros .segmento > button.ativo,.rt-seg > button.ativo,.gs .segmento > button.ativo):not(#_){background:var(--primario)!important;color:var(--on-primario)!important}
+html body.gx-barra-topo :is(.gx-seg-cli > button.ativo,.gx-seg-cli > .chip.on,.filtros .segmento > button.ativo,.rt-seg > button.ativo,.gs .segmento > button.ativo,.fila-chips .fila-chip.ativo)::before{content:none!important}
+html body.gx-barra-topo .gs .segmento .seg-n:not(#_){background:var(--gray-lt);color:var(--text3);font-size:11px;padding:0 6px;border-radius:999px;margin-left:5px}
+html body.gx-barra-topo .gs .segmento button.ativo .seg-n:not(#_){background:rgba(255,255,255,.22);color:inherit}
+html body.gx-barra-topo #gs-lado .tn-menu button:not(#_){gap:6px;padding-right:8px}
+html body.gx-barra-topo #gs-lado .tn-menu button .tn-n:not(#_){flex:none;font-size:10px;padding:1px 5px;min-width:0;height:auto;line-height:1.4}
+/* menu do botão "+ Lançar" das telas (B82) */
+.gs .b-menu-w{position:relative;display:inline-flex}
+.gs .b-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:30;min-width:240px;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow-lg,0 12px 32px rgba(0,0,0,.18));padding:6px;display:flex;flex-direction:column}
+.gs .b-menu[hidden]{display:none}
+.gs .b-menu button{border:0;background:none;text-align:left;padding:8px 10px;border-radius:7px;cursor:pointer;font:500 13px var(--font-ui);color:var(--text)}
+.gs .b-menu button:hover{background:var(--hover)}
+.gs .b-fin-avisos:empty{display:none}
+.gs .b-fin-avisos{margin:-6px 0 12px;display:flex;gap:8px;flex-wrap:wrap}
+html body.gx-barra-topo .gs .b-seg-n:not(#_){display:inline-block;min-width:18px;margin-left:4px;font-size:11px;font-weight:700;padding:0 6px;border-radius:999px;background:var(--gray-lt);color:var(--text3);opacity:1;text-align:center}
+html body.gx-barra-topo .gs .b-seg-bt[aria-selected="true"] .b-seg-n:not(#_){background:rgba(255,255,255,.22);color:inherit}
+html body.gx-barra-topo .gs a.btn:not(#_){text-decoration:none;display:inline-flex;align-items:center;gap:7px}
+html body.gx-barra-topo .gs .titulo-pag.b-cab .acoes .btn .b-ic{width:15px;height:15px}

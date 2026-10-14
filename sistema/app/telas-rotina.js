@@ -20,7 +20,7 @@ TELAS.rotina = async function () {
   _rtDados = null;   // Backup 51: entrar na Rotina busca de novo; trocar de aba usa o que já veio
   $('conteudo').innerHTML =
     // Backup 73 (reforma, etapa 7): cabeçalho, placar e abas com as peças novas (o miolo de cada aba continua igual)
-    cabecalhoTela({ icone: 'check', titulo: 'Rotina', frase: 'O trabalho do mês, num lugar só' }) +
+    cabecalhoTela({ icone: 'rotina', titulo: 'Rotina', frase: 'O trabalho do mês, num lugar só' }) +
     '<div class="rt-placar b-placar b-placar-linha" id="rt-placar" aria-label="Placar do mês">' + placarRotina(null) + '</div>' +
     '<div class="b-seg rt-abas" id="rt-abas" role="tablist">' + ABAS_ROTINA.map(([k, r]) => '<button type="button" role="tab" class="b-seg-bt" data-rt-aba="' + k + '">' + r + '</button>').join('') + '</div>' +
     '<div id="rt-corpo"></div>';
