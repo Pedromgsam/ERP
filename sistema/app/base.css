@@ -40,7 +40,7 @@ body.gx-barra-topo .gs .janela-rp{padding:12px 22px!important;border-radius:0 0 
 /* ── peças novas ── */
 .b-ic{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
 .b-r{color:var(--red-d);background:var(--red-lt)}.b-b{color:var(--blue-d);background:var(--blue-lt)}.b-a{color:var(--amber-d);background:var(--amber-lt)}.b-g{color:var(--green-d);background:var(--green-lt)}
-.b-verm{color:var(--red-d)!important}.b-verde{color:var(--green-d)!important}
+.b-verm{color:var(--red)!important}.b-verde{color:var(--green)!important}
 
 /* 1) cabeçalho da tela */
 .b-cab{display:flex;gap:14px;align-items:flex-start;margin:0 0 16px}
@@ -187,7 +187,7 @@ html body.gx-barra-topo table.b-tab td.b-v-av:not(#_),html body.gx-barra-topo ta
 .b-emp{color:var(--ink);font-weight:400}
 .b-plat{font-weight:600;font-size:12px;color:var(--text2)}
 .b-ok-txt{color:var(--green-d);font-weight:600;white-space:nowrap}
-.b-n-atr{color:var(--red-d);font-weight:600;white-space:nowrap}
+.b-n-atr{color:var(--red);font-weight:600;white-space:nowrap}
 .b-em{font-size:12px;white-space:nowrap;color:var(--text3)}
 .b-em.b-em-ok{color:var(--green-d);font-weight:600}
 .b-emitir{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--amber-border);background:var(--surface);color:var(--amber-d);border-radius:999px;padding:4px 11px;font:600 12.5px var(--font-ui);cursor:pointer;white-space:nowrap}
@@ -366,7 +366,7 @@ html body .b-tab-lanc td.b-val.valor-rec:not(#_){color:var(--green-d)!important}
 .b-nums.b-nums-faixa > div{border:0;border-left:1px solid var(--border);border-radius:0;padding:12px 14px}
 .b-nums.b-nums-faixa > div:first-child{border-left:0}
 .b-nums.b-nums-faixa b{font-size:16px;font-weight:700}
-.b-nums b.b-verm{color:var(--red-d)}.b-nums b.b-verde{color:var(--green-d)}
+.b-nums b.b-verm{color:var(--red)}.b-nums b.b-verde{color:var(--green)}
 @media (max-width:1100px){.b-nums.b-nums-faixa{grid-template-columns:repeat(4,minmax(0,1fr))}.b-nums.b-nums-faixa > div:nth-child(5){border-left:0}.b-nums.b-nums-faixa > div:nth-child(n+5){border-top:1px solid var(--border)}}
 @media (max-width:600px){.b-nums.b-nums-faixa{grid-template-columns:1fr 1fr}.b-nums.b-nums-faixa > div:nth-child(odd){border-left:0}.b-nums.b-nums-faixa > div:nth-child(n+3){border-top:1px solid var(--border)}}
 .gx-pe-nova{margin-top:6px}

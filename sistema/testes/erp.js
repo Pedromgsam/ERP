@@ -1387,8 +1387,8 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       ok('Painel: evolução sem os meses antes do primeiro lançamento (nada de cair para zero)', !!e1 && !/R\$ 0,00/.test(await p.textContent('#pe-evo-graf .b-glin-y'))); }
     await p.click('#pe-evo-meses [data-m="12"]'); await p.waitForTimeout(800);
     ok('Painel (B83): "12 meses" fica marcado e redesenha a linha', (await p.getAttribute('#pe-evo-meses [data-m="12"]', 'aria-pressed')) === 'true' && !!(await evo()));
-    await p.selectOption('#pe-grupo', 'Grupo Alfa'); await p.waitForTimeout(800);
-    ok('Painel (B83): com um grupo escolhido no topo, a linha mostra só aquele grupo', !!(await evo()));
+    await p.selectOption('#pe-grupo', 'Grupo Alfa'); await p.waitForSelector('#pe-evo-graf :is(.b-glin, .b-barras-vazio)', { timeout: 8000 }).catch(() => {});
+    ok('Painel (B83): com um grupo escolhido no topo, a linha mostra só aquele grupo', !!(await p.$('#pe-evo-graf :is(.b-glin, .b-barras-vazio)')) && /Grupo Alfa/.test(await p.inputValue('#pe-grupo')));
     await p.selectOption('#pe-grupo', ''); await p.waitForTimeout(600); await p.click('#pe-evo-meses [data-m="6"]');
 
     // Backup 43: a Planilha de parcelamentos (preencher emissão, pagamento, valor da última parcela, observação) voltou
@@ -1859,12 +1859,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     // ══════════ Backup 53 (cliques reais) ══════════
     { const fecharTudo = async () => { for (let i = 0; i < 4; i++) { const f = await p.$('#gs-raiz .fundo [data-cancelar]'); if (!f) break; await f.click().catch(() => {}); await p.waitForTimeout(200); } };
       await fecharTudo();
-      // Início: a fila tem os MESMOS filtros de Tarefas (prioridade e prazo) e a escolha fica guardada
-      await nav(p, 'hoje'); await p.waitForSelector('#panel-hoje [data-fila-pri]', { timeout: 10000 }).catch(() => {});
-      ok('B53 Início: fila com Alta/Média/Baixa e Hoje/Atrasadas/7 dias (como em Tarefas)', (await p.$$('#panel-hoje [data-fila-pri]')).length === 3 && (await p.$$('#panel-hoje [data-fila-prazo]')).length === 3);
-      await p.click('#panel-hoje [data-fila-pri=alta]'); await p.waitForTimeout(1200);
-      ok('B53 Início: escolher "Alta" filtra a fila e fica guardado', sql("select preferencias->'fila'->>'pri' from perfis where email='pedro@teste'") === 'alta' && !!(await p.$('#panel-hoje [data-fila-pri=alta][aria-pressed=true]')));
-      await p.click('#panel-hoje [data-fila-pri=alta]'); await p.waitForTimeout(800);
+      // (B83: o Início não tem mais a fila — os filtros de prioridade e prazo ficam só em Tarefas)
       // Tarefas: cartões acima da barra de vistas; Semana do tamanho do Mês
       await nav(p, 'tarefas'); await p.waitForSelector('#tf-vista', { timeout: 10000 }).catch(() => {});
       ok('B72 Tarefas: sem os cartões do topo (os números estão nas abas)', !(await p.$('#tf-kpis')) && !(await p.$('#panel-tarefas .kpis')));

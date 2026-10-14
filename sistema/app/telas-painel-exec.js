@@ -80,7 +80,9 @@ async function evolucaoPE() {
   while (meses.length > 2 && !comDado.has(meses[0])) meses.shift();   // começa no 1º mês com passivo lançado
   const tot = (m) => linhas.filter((x) => x.mes === m).reduce((s, x) => s + (Number(x.total) || 0), 0);
   const rot = (m) => rotMesB(m).toLowerCase();
-  gr.innerHTML = graficoLinhaB(meses.filter((m) => comDado.has(m)).map((m) => ({ rot: rot(m), v: tot(m), dica: rot(m) + ': ' + brl(tot(m)) })));
+  const ms = meses.filter((m) => comDado.has(m));
+  while (ms.length > 1 && !tot(ms[0])) ms.shift();   // meses do começo com passivo zero não entram (a linha não "cai para zero")
+  gr.innerHTML = graficoLinhaB(ms.map((m) => ({ rot: rot(m), v: tot(m), dica: rot(m) + ': ' + brl(tot(m)) })));
 }
 
 function empresasPE(base) {
