@@ -29,7 +29,7 @@
   APP.grupo = function(id){ return APP.D.grupos.find(function(g){ return g.id === id; }) || { nome:'Sem grupo', cor:7 }; };
   APP.pessoa = function(id){ return APP.D.equipe.find(function(p){ return p.id === id; }) || { nome:id || '—', curto:id || '—' }; };
   APP.curto = function(c){ return c.nome.split(' ').slice(0, 2).join(' '); };
-  APP.grupoTxt = function(gid){ var g = APP.grupo(gid); return '<span class="g-txt"><span class="ponto" style="background:var(--g' + g.cor + ')"></span>' + esc(g.nome) + '</span>'; };
+  APP.grupoTxt = function(gid){ var g = APP.grupo(gid); return '<span class="g-txt">' + esc(g.nome) + '</span>'; };   // Backup 78: sem a bolinha de cor do grupo (X4)
   APP.empresa = function(c){ return '<span class="nome">' + esc(c.nome) + '</span><span class="doc">' + esc(c.doc) + '</span>'; };
   APP.pessoaTxt = function(id){ var p = APP.pessoa(id); return '<span class="selo-p">' + esc(p.curto) + '</span>'; };
 
@@ -67,7 +67,7 @@
   /* ── textos "antes → depois" (para o usuário aprovar): T('chave') devolve o texto novo; com "Ver textos antigos" ligado, o antigo marcado ── */
   APP.T = function(k){
     var t = (window.TEXTOS || {})[k]; if (!t) return k;
-    if (APP.pref('textosAntigos')) return '<mark class="tx-antigo" title="Texto novo: ' + esc(t.novo) + '">' + esc(t.antigo) + '</mark>';
+    if (APP.pref('textosAntigos') && t.antigo) return '<mark class="tx-antigo" title="Texto novo: ' + esc(t.novo) + '">' + esc(t.antigo) + '</mark>';
     return esc(t.novo);
   };
 
@@ -282,12 +282,12 @@
 
   /* ── cartões por grupo ("Situação por cliente"): clicou → a lista do grupo logo abaixo ── */
   APP.cartoesGrupo = function(el, o){
-    // o: { id, grupos:[{id, nome, cor, pill:[cls, txt], sub, linhas:[[rot, valor, cls]], barra}], det(el, grupo), vazio }
+    // o: { id, grupos:[{id, nome, cor, pill:[cls, txt], sub, linhas:[[rot, valor, cls]], barra, prog (legenda da barra)}], det(el, grupo), vazio }
     var ab = APP.pref('cg-' + o.id) || '';
     if (o.grupos.length === 1 && !ab) ab = o.grupos[0].id;
     el.innerHTML = o.grupos.length ? o.grupos.map(function(g){ var on = ab === g.id;
-      return '<button type="button" class="cg" data-cg="' + esc(g.id) + '" aria-expanded="' + on + '"><div class="cg-hd"><span class="ponto" style="background:var(--g' + g.cor + ')"></span><b>' + esc(g.nome) + '</b>' + (g.pill ? '<span class="pill ' + g.pill[0] + '">' + g.pill[1] + '</span>' : '') + '</div>'
-        + (g.sub ? '<div class="cg-sub">' + g.sub + '</div>' : '') + (g.barra != null ? '<div class="barra"><span style="width:' + Math.round(g.barra) + '%"></span></div>' : '')
+      return '<button type="button" class="cg" data-cg="' + esc(g.id) + '" aria-expanded="' + on + '"><div class="cg-hd"><b>' + esc(g.nome) + '</b>' + (g.pill ? '<span class="pill ' + g.pill[0] + '">' + g.pill[1] + '</span>' : '') + '</div>'
+        + (g.sub ? '<div class="cg-sub">' + g.sub + '</div>' : '') + (g.barra != null ? '<div class="barra"><span style="width:' + Math.round(g.barra) + '%"></span></div>' : '') + (g.prog ? '<small class="cg-prog">' + g.prog + '</small>' : '')
         + (g.linhas || []).map(function(l){ return '<div class="cg-lin"><span>' + esc(l[0]) + '</span><b' + (l[2] ? ' class="' + l[2] + '"' : '') + '>' + l[1] + '</b></div>'; }).join('') + '</button>'
         + (on ? '<div class="det" id="' + o.id + '-det"></div>' : ''); }).join('')
       : '<div class="quadro det"><div class="vazio"><div class="vazio-ic">' + ic('ok') + '</div><b>' + esc(o.vazio || 'Nenhum grupo neste recorte') + '</b></div></div>';

@@ -5,6 +5,7 @@
   var preparar = function(id, arg){ APP.preparar(id, arg); };
   var tot = function(p){ return (p.rfb || 0) + (p.rfbNeg || 0) + (p.pgfn || 0) + (p.pgfnNeg || 0) + (p.age || 0) + (p.ageNeg || 0); };
   var CAPAG = { A:'p-g', B:'p-g', C:'p-a', D:'p-r', Omisso:'p-r' };
+  var pT = function(k){ var t = APP.T(k); return t ? '<p>' + t + '</p>' : ''; };   // Backup 78: frase vazia = sem parágrafo (enxuto)
   APP.nums = function(itens){ return '<div class="nums">' + itens.map(function(x){ return '<div class="num-it"><span>' + esc(x[0]) + '</span><b class="' + (x[2] || '') + '">' + x[1] + '</b>' + (x[3] ? '<small>' + x[3] + '</small>' : '') + '</div>'; }).join('') + '</div>'; };
 
   /* ═════════ PAINEL EXECUTIVO ═════════ */
@@ -16,10 +17,10 @@
       var parcSaldo = APP.soma(D().parcelas.filter(function(x){ return !x.pago; }), function(x){ return x.v; }), acSaldo = APP.soma(D().acordos.filter(function(x){ return !x.pago; }), function(x){ return x.v; });
       var proc = D().processos.filter(function(p){ return p.status === 'Ativo'; });
       el.innerHTML = APP.cabecalho({ ic:'grafico', tit:'Painel Executivo', frase:APP.T('painel.frase') })
-        + APP.nums([['Passivo total', APP.brlK(s('rfb') + s('rfbNeg') + s('pgfn') + s('pgfnNeg') + s('age') + s('ageNeg')), 'forte'], ['RFB', APP.brlK(s('rfb') + s('rfbNeg'))], ['PGFN', APP.brlK(s('pgfn') + s('pgfnNeg'))], ['AGE/MG', APP.brlK(s('age') + s('ageNeg'))],
+        + APP.nums([['Passivo total', APP.brlK(s('rfb') + s('rfbNeg') + s('pgfn') + s('pgfnNeg') + s('age') + s('ageNeg')), 'forte', 'RFB ' + APP.brlK(s('rfb') + s('rfbNeg')).replace('R$ ', '') + ' · PGFN ' + APP.brlK(s('pgfn') + s('pgfnNeg')).replace('R$ ', '') + ' · AGE/MG ' + APP.brlK(s('age') + s('ageNeg')).replace('R$ ', '')],
           ['Parcelamentos (saldo)', APP.brlK(parcSaldo)], ['Acordos (em aberto)', APP.brlK(acSaldo)], ['Passivo em disputa', APP.brlK(APP.soma(proc.filter(function(p){ return p.polo === 'passivo'; }), function(p){ return p.valor; })), 'vermelho'], ['Ativo em disputa', APP.brlK(APP.soma(proc.filter(function(p){ return p.polo === 'ativo'; }), function(p){ return p.valor; })), 'verde']])
         + '<section class="quadro pad"><div class="sec-cab"><div><h2>' + APP.T('painel.evolucao') + '</h2></div><div class="chips"><button class="chip" type="button" data-ev="6" aria-pressed="' + (APP.pref('ev') !== 12) + '">6 meses</button><button class="chip" type="button" data-ev="12" aria-pressed="' + (APP.pref('ev') === 12) + '">12 meses</button></div></div><div id="pe-evo"></div></section>'
-        + '<div class="sec-cab"><div><h2>Empresas do grupo</h2><p>' + APP.T('painel.empresas') + '</p></div></div><div id="pe-tab"></div>';
+        + '<div class="sec-cab"><div><h2>Empresas do grupo</h2>' + pT('painel.empresas') + '</div></div><div id="pe-tab"></div>';
       var n = APP.pref('ev') === 12 ? 12 : 6, ev = D().evolucao.slice(-n);
       APP.$('pe-evo').innerHTML = APP.linha(ev.map(function(x){ return { rot:APP.mesCurto(x.mes), v:x.v }; }));
       el.querySelector('.quadro.pad .chips').onclick = function(e){ var b = e.target.closest('[data-ev]'); if (b){ APP.pref('ev', +b.dataset.ev); APP.redesenhar(); } };
@@ -93,12 +94,13 @@
   };
 
   /* ═════════ PARCELAMENTOS ═════════ */
+  // Backup 78: a coluna "Parcelamento" traz tudo — "Não previdenciário" e, embaixo, "Regularize · nº 1.998.320" (como no portal do cliente)
+  APP.celParc = function(pa){ return esc(pa.nat) + '<span class="b-sub">' + esc(pa.plat) + ' · nº ' + esc(pa.num) + '</span>'; };
   function colsParcelas(o){
     o = o || {}; var C = [];
     if (!o.semGrupo) C.push({ k:'g', rot:'Grupo', html:function(x){ return APP.grupoTxt(N.grupoDe(x)); }, ord:function(x){ return APP.grupo(N.grupoDe(x)).nome; } });
     if (!o.semEmpresa) C.push({ k:'emp', rot:'Empresa', html:function(x){ return APP.empresa(N.cliDe(x)); }, ord:function(x){ return N.cliDe(x).nome; } });
-    C.push({ k:'plat', rot:'Plataforma', html:function(x){ var pa = N.pa(x.pa); return '<span class="plat">' + esc(pa.plat) + '</span><span class="b-sub">' + esc(pa.nat) + '</span>'; }, ord:function(x){ return N.pa(x.pa).plat; } });
-    if (!o.semNum) C.push({ k:'num', rot:'Nº', cls:'num', html:function(x){ return esc(N.pa(x.pa).num); }, ord:function(x){ return N.pa(x.pa).num; } });
+    C.push({ k:'pa', rot:'Parcelamento', html:function(x){ return APP.celParc(N.pa(x.pa)); }, ord:function(x){ var pa = N.pa(x.pa); return pa.nat + pa.plat; } });   // Backup 78
     C.push({ k:'n', rot:'Parcela', cls:'cen dt', html:function(x){ return x.n + ' de ' + N.pa(x.pa).tot; }, ord:function(x){ return x.n; } });
     C.push({ k:'v', rot:'Valor', cls:'dir val', soma:true, html:function(x){ return brl(x.v); }, ord:function(x){ return x.v; } });
     C.push({ k:'venc', rot:'Vencimento', cls:'cen dt', html:function(x){ return APP.fd(x.venc); }, ord:function(x){ return +x.venc; } });
@@ -125,7 +127,7 @@
     desenhar:function(el, arg){
       preparar('parcelas', arg);
       el.innerHTML = APP.cabecalho({ ic:'camadas', tit:'Parcelamentos', frase:APP.T('parc.frase'), acoes:'<button class="bt bt-o" type="button" id="pc-guias">' + ic('doc') + 'Guias do mês</button><button class="bt bt-p" type="button" id="pc-novo">' + ic('mais') + 'Parcelamento</button>' })
-        + '<div class="sec-cab"><div><h2>Situação por cliente</h2><p>' + APP.T('parc.situacao') + '</p></div>' + chips('pc-chip') + '</div><div class="cartoes" id="pc-grupos"></div>'
+        + '<div class="sec-cab"><div><h2>Situação por cliente</h2>' + pT('parc.situacao') + '</div>' + chips('pc-chip') + '</div><div class="cartoes" id="pc-grupos"></div>'
         + '<div class="sec-cab"><div><h2>Parcelas</h2></div></div><div id="pc-tab"></div>';
       ligarChips(el);
       APP.$('pc-guias').onclick = function(){ APP.ir('rotina', { aba:'guias' }); };
@@ -136,13 +138,13 @@
         var atr = APP.soma(vivos, function(x){ return x[1].atr; }), pg = APP.soma(vivos, function(x){ return x[1].pg; }), tt = APP.soma(vivos, function(x){ return x[0].tot; });
         var parcMes = APP.soma(vivos, function(x){ return x[1].parcMes ? x[1].parcMes.v : 0; }), mes = [].concat.apply([], vivos.map(function(x){ return x[1].mes; }));
         return { id:gid, nome:g.nome, cor:g.cor, atr:atr, conc:!vivos.length, itens:L, pill:atr ? ['p-r', APP.plural(atr, 'parcela', 'parcelas') + ' em atraso'] : ['p-g', vivos.length ? 'Em dia' : 'Concluídos'],
-          sub:APP.plural(vivos.length, 'parcelamento', 'parcelamentos') + (atr >= 2 ? ' · <span class="n-atr">risco de rescisão</span>' : ''), barra:tt ? pg / tt * 100 : 100,
-          linhas:[['Pagas', '<span class="verde">' + pg + '</span> de ' + tt], ['Falta pagar', brl(APP.soma(vivos, function(x){ return x[1].falta; }))], ['Parcela do mês', parcMes ? brl(parcMes) : '—'], ['A pagar este mês', mes.length ? brl(APP.soma(mes, function(x){ return x.v; })) + ' (' + mes.length + ')' : '—']] };
+          sub:APP.plural(vivos.length, 'parcelamento', 'parcelamentos') + (atr >= 2 ? ' · <span class="n-atr">risco de rescisão</span>' : ''), barra:tt ? pg / tt * 100 : 100, prog:pg + ' de ' + tt + ' pagas',
+          linhas:[['Falta pagar', brl(APP.soma(vivos, function(x){ return x[1].falta; }))], ['A pagar este mês', mes.length ? brl(APP.soma(mes, function(x){ return x.v; })) + ' (' + mes.length + ')' : '—']] };
       }).filter(function(g){ return passaChip(chip, g.atr, g.conc); }).sort(function(a, b){ return b.atr - a.atr || a.nome.localeCompare(b.nome); });
       APP.cartoesGrupo(APP.$('pc-grupos'), { id:'pc', grupos:grupos, det:function(det, g){
-        APP.tabela(det, { id:'pc-grupo-' + g.id, titulo:g.nome + ' — clique no parcelamento para ver todas as parcelas', linhas:g.itens, chave:function(x){ return x[0].id; }, unidade:['parcelamento', 'parcelamentos'], semBarra:true,
+        APP.tabela(det, { id:'pc-grupo-' + g.id, titulo:g.nome, linhas:g.itens, chave:function(x){ return x[0].id; }, unidade:['parcelamento', 'parcelamentos'], semBarra:true,
           colunas:[{ k:'emp', rot:'Empresa', html:function(x){ return APP.empresa(APP.cli(x[0].cli)); }, ord:function(x){ return APP.cli(x[0].cli).nome; } },
-            { k:'plat', rot:'Plataforma', html:function(x){ return '<span class="plat">' + esc(x[0].plat) + '</span><span class="b-sub">' + esc(x[0].nat) + '</span>'; }, ord:function(x){ return x[0].plat; } },
+            { k:'pa', rot:'Parcelamento', html:function(x){ return APP.celParc(x[0]); }, ord:function(x){ return x[0].nat + x[0].plat; } },
             { k:'pg', rot:'Pagas', html:function(x){ return '<div class="prog"><div class="barra"><span style="width:' + (x[1].pg / x[0].tot * 100) + '%"></span></div>' + x[1].pg + ' de ' + x[0].tot + '</div>'; }, ord:function(x){ return x[1].pg / x[0].tot; } },
             { k:'falta', rot:'Falta pagar', cls:'dir val', html:function(x){ return brl(x[1].falta); }, ord:function(x){ return x[1].falta; } },
             { k:'mes', rot:'Parcela do mês', cls:'dir', html:function(x){ var p = x[1].parcMes; return p ? '<b class="val">' + brl(p.v) + '</b><small class="' + (p.pago ? 'ok-txt' : p.venc <= HOJE ? 'pz-r' : 'mudo') + '">' + (p.pago ? '✓ paga' : 'vence ' + APP.fc(p.venc)) + '</small>' : '—'; }, ord:function(x){ return x[1].parcMes ? x[1].parcMes.v : 0; } },
@@ -169,7 +171,7 @@
       rodape:'<button class="bt bt-o esq" type="button" id="jp-ficha">' + ic('pessoas') + 'Ficha do cliente</button>' + (emitir.length ? '<button class="bt bt-o" type="button" id="jp-emitir">' + ic('doc') + 'Emitir (' + emitir.length + ')</button>' : '') + '<button class="bt bt-o" type="button" data-fechar>Fechar</button>' });
     APP.tabela(J.q('#jp-tab'), { id:'jp-' + pa.id, linhas:L, unidade:['parcela', 'parcelas'], altura:'340px', abaPadrao:'ab', contagem:true,
       abas:[{ id:'ab', rot:'A pagar', f:function(x){ return !x.pago; } }, { id:'pg', rot:'Pagas', f:function(x){ return !!x.pago; } }, { id:'todas', rot:'Todas', f:function(){ return true; } }],
-      colunas:colsParcelas({ semGrupo:true, semEmpresa:true, semNum:true }).filter(function(c){ return c.k !== 'plat'; }), ord:{ k:'n', dir:1 }, valor:function(x){ return x.v; }, linhaCls:function(x){ return APP.vencida(x.venc, x.pago); } });
+      colunas:colsParcelas({ semGrupo:true, semEmpresa:true }).filter(function(c){ return c.k !== 'pa'; }), ord:{ k:'n', dir:1 }, valor:function(x){ return x.v; }, linhaCls:function(x){ return APP.vencida(x.venc, x.pago); } });
     J.q('#jp-ficha').onclick = function(){ J.fechar(); APP.fichaCliente(c.id); };
     var em = J.q('#jp-emitir'); if (em) em.onclick = function(){ J.fechar(); N.janelaEmitir(emitir, 'guia_parcelamento'); };
   };
@@ -181,7 +183,7 @@
     desenhar:function(el, arg){
       preparar('acordos', arg);
       el.innerHTML = APP.cabecalho({ ic:'contrato', tit:'Acordos', frase:APP.T('acordos.frase'), acoes:'<button class="bt bt-p" type="button" id="ac-novo">' + ic('mais') + 'Acordo</button>' })
-        + '<div class="sec-cab"><div><h2>Situação por cliente</h2><p>' + APP.T('acordos.situacao') + '</p></div>' + chips('ac-chip') + '</div><div class="cartoes" id="ac-grupos"></div>'
+        + '<div class="sec-cab"><div><h2>Situação por cliente</h2>' + pT('acordos.situacao') + '</div>' + chips('ac-chip') + '</div><div class="cartoes" id="ac-grupos"></div>'
         + '<div class="sec-cab"><div><h2>Parcelas</h2></div></div><div id="ac-tab"></div>';
       ligarChips(el);
       APP.$('ac-novo').onclick = function(){ APP.aviso('No ERP: + Lançar → Acordo inteiro.'); };
@@ -191,7 +193,8 @@
         var mes = [].concat.apply([], vivos.map(function(a){ return a.mes; })), parcMes = APP.soma(vivos, function(a){ return a.parcMes ? a.parcMes.v : 0; });
         return { id:gid, nome:g.nome, cor:g.cor, atr:atr, conc:!vivos.length, itens:L, pill:atr ? ['p-r', APP.plural(atr, 'parcela', 'parcelas') + ' em atraso'] : ['p-g', vivos.length ? 'Em dia' : 'Concluídos'],
           sub:APP.plural(vivos.length, 'acordo', 'acordos'), barra:APP.soma(vivos, function(a){ return a.pg; }) / Math.max(1, APP.soma(vivos, function(a){ return a.tot; })) * 100,
-          linhas:[['Falta pagar', brl(APP.soma(vivos, function(a){ return a.falta; }))], ['Parcela do mês', parcMes ? brl(parcMes) : '—'], ['A pagar este mês', mes.length ? brl(APP.soma(mes, function(x){ return x.v; })) + ' (' + mes.length + ')' : '—']] };
+          prog:APP.soma(vivos, function(a){ return a.pg; }) + ' de ' + APP.soma(vivos, function(a){ return a.tot; }) + ' pagas',
+          linhas:[['Falta pagar', brl(APP.soma(vivos, function(a){ return a.falta; }))], ['A pagar este mês', mes.length ? brl(APP.soma(mes, function(x){ return x.v; })) + ' (' + mes.length + ')' : '—']] };
       }).filter(function(g){ return passaChip(chip, g.atr, g.conc); });
       APP.cartoesGrupo(APP.$('ac-grupos'), { id:'ac', grupos:grupos, det:function(det, g){
         APP.tabela(det, { id:'ac-grupo-' + g.id, titulo:g.nome, linhas:g.itens, unidade:['acordo', 'acordos'], semBarra:true,

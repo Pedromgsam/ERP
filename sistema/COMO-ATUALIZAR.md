@@ -707,6 +707,24 @@ Ordem: **1) Merge  2) SQL no Supabase (`sistema/banco/estrutura.sql`)  3) Ctrl+S
 **Central de Documentos dentro do ERP:** menu **Documentos → Gerar documento** (ou ⋯ → Documentos, contrato, recibo do Financeiro).
 **Ctrl + clique** (ou botão do meio do mouse) em qualquer item do menu ou link de documento abre numa aba nova.
 
+## Backup 78 — Suas respostas de 14/10: visual enxuto, coluna "Parcelamento" e portal do cliente
+1. Merge da pull request.
+2. **Sem SQL** e sem função nova.
+3. **Ctrl+Shift+R** no ERP.
+
+O que mudou no ERP:
+- **Os 3 designs novos saíram** (você recusou A, B e C): fica o visual de hoje.
+- **Parcelamentos e Acordos:** o cartão de cada grupo ficou com 2 linhas (Falta pagar e A pagar este mês); "84 de 204 pagas" aparece embaixo da barra. A parcela do mês continua na lista do grupo.
+- **Parcelamentos:** uma coluna **Parcelamento** com tudo — "Não previdenciário" e, embaixo, "Regularize · nº 1.998.320" (no lugar de Plataforma, Natureza e Nº separados).
+- **Painel Executivo:** 5 números no alto. RFB, PGFN e AGE/MG aparecem numa linha embaixo do "Passivo total".
+- **Sem frases "Clique…"** nos títulos das telas.
+- **Portal do cliente:** o Início virou só uma introdução — boas-vindas, uma linha "Tudo em dia" (ou "N parcelas em atraso") e 3 atalhos (Parcelamentos, Acordos, Processos).
+
+No ambiente de teste (https://claude.ai/artifact/GMgLFUpDhAoBs1LMrh6QiP), abra **Portal do cliente**:
+- Parcelamentos, Acordos e Execuções em cartões; clicou, as parcelas (ou os recebimentos) abrem logo abaixo;
+- Financeiro com os botões **Jurídico (advocacia)** e **Contabilidade**.
+Para o cliente ver Execuções e Financeiro no ERP de verdade é preciso liberar essas tabelas para ele no banco (SQL novo). Isso fica para a próxima rodada, depois do seu OK no ambiente.
+
 ## Backup 77 — Designs novos para escolher (ambiente de teste) e Publicações como antes
 1. Merge da pull request.
 2. **Sem SQL** e sem função nova.

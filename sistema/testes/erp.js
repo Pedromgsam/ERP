@@ -641,14 +641,13 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     const pc = await pagina();
     await entrar(pc, 'cliente@teste'); await carregado(pc); await pc.waitForTimeout(1500);
     await pc.waitForSelector('#pt-home', { timeout: 8000 }).catch(() => {});
-    ok('B74 Portal do cliente: entra num Início de boas-vindas (Olá, explicação, resumo clicável e "Como usar"); no menu, "Início"', /Olá, Grupo Alfa/.test(await pc.textContent('#pt-home').catch(() => '')) &&
-      (await pc.$$('#pt-home [data-pt-ir]')).length === 5 && /Como usar/.test(await pc.textContent('#panel-resumo')) && /Início/.test(await pc.textContent('#tn [data-ir=resumo]')));
+    ok('B78 Portal do cliente: Início só de introdução (Olá, situação em uma linha e 3 atalhos); no menu, "Início"', /Olá, Grupo Alfa/.test(await pc.textContent('#pt-home').catch(() => '')) &&
+      (await pc.$$('#pt-home [data-pt-ir]')).length === 3 && !!(await pc.$('#pt-home .pt-situacao')) && /Início/.test(await pc.textContent('#tn [data-ir=resumo]')));
     ok('B75 Portal do cliente: o menu não mostra Execuções nem Publicações (telas da equipe)', await pc.evaluate(() =>
       ['execucoes', 'publicacoes'].every((id) => [...document.querySelectorAll('#tn [data-ir=' + id + ']')].every((b) => !b.offsetParent)) &&
       [...document.querySelectorAll('#tn [data-ir=processos]')].some((b) => b.closest('.tn-grupo') && b.closest('.tn-grupo').offsetParent)));
     // Backup 76 (S5): o portal do cliente nas telas novas — Início com "Para pagar este mês" e o passivo; Processos, Parcelamentos e Acordos só para ver
-    ok('B76 Portal: Início novo com "Para pagar este mês", passivo em faixa e as empresas', await pc.isVisible('#pt-pagar') && /Para pagar este mês/.test(await pc.textContent('#panel-resumo')) &&
-      (await pc.$$('#panel-resumo .b-nums-faixa > div')).length === 6 && !!(await pc.$('#panel-resumo #pe-nova table')) && !(await pc.isVisible('#execKpiSection')));
+    ok('B78 Portal: Início sem tabelas nem números (sem "Para pagar este mês", passivo e empresas)', !(await pc.$('#pt-pagar')) && !(await pc.$('#panel-resumo .b-nums-faixa')) && !(await pc.$('#panel-resumo #pe-nova table')) && !(await pc.isVisible('#execKpiSection')));
     for (const [tela, sel] of [['processos', '#pr-nova'], ['parcelamentos', '#pc-tabela'], ['acordos', '#ac-tabela']]) {
       await pc.evaluate((x) => nav(null, x), tela); await pc.waitForTimeout(1500);
       ok('B76 Portal: ' + tela + ' na tela nova, só para ver (sem Baixa, Emitir ou editar)', await pc.isVisible('#gs-main-' + tela + ' ' + sel) &&
@@ -850,7 +849,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await nav(p, 'parcelamentos'); await p.waitForSelector('#panel-parcelamentos #pc-grupos .b-cg');
     ok('Parcelamentos (B68): a tela antiga fica escondida para a equipe (sem a "Situação" antiga, sem o selo vermelho do topo)', !(await p.isVisible('#parcAnalise')) && !(await p.isVisible('#alertParc')) && !(await p.isVisible('#parcTabBar')));
     ok('Parcelamentos (B71): sem os 4 cartões do topo (a tela começa na situação por cliente)', !(await p.$('#pc-cartoes')) && !(await p.$('#conteudo .b-kpi-bt')));
-    ok('Parcelamentos (B68): situação por cliente — cartão do grupo com "Pagas N de M", falta pagar e "A pagar este mês"', /Grupo Alfa/.test(await p.textContent('#pc-grupos')) && /Pagas\s*\d+ de \d+/.test(await p.textContent('#pc-grupos .b-cg')) && /A pagar este mês/.test(await p.textContent('#pc-grupos .b-cg')));
+    ok('Parcelamentos (B78): situação por cliente — cartão do grupo com "N de M pagas", falta pagar e "A pagar este mês"', /Grupo Alfa/.test(await p.textContent('#pc-grupos')) && /\d+ de \d+ pagas/.test(await p.textContent('#pc-grupos .b-cg')) && /A pagar este mês/.test(await p.textContent('#pc-grupos .b-cg')));
     ok('Parcelamentos (B68): um grupo só já abre a lista dos parcelamentos (cartão marcado)', !!(await p.$('#pc-det-grupo tr[data-b-k]')) && !!(await p.$('#pc-grupos .b-cg[aria-expanded=true]')));
     ok('Parcelamentos (B68): a lista do grupo mostra a situação ("em atraso" em vermelho ou "Em dia")', /em atraso|Em dia|Concluído/.test(await p.textContent('#pc-det-grupo')));
     await p.click('#pc-det-grupo tr[data-b-k] td:nth-child(2)'); await p.waitForSelector('#gs-raiz #pc-j-parcelas tr[data-b-k]');
@@ -865,8 +864,12 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     // Backup 69: a tabela de parcelas ficou como a de Acordos (pedido do usuário) — "A pagar / Pago", atalhos de prazo, coluna Prazo, Emitir + Baixa, sem marcar várias
     ok('Parcelamentos (B69): botões "A pagar / Pago" e atalhos Todas · Vencidas · 5 · 10 · 15 · 30 dias · até', (await p.$$('#pc-tabela .b-seg [data-b-aba]')).length === 2 && /A pagar/.test(await p.textContent('#pc-tabela .b-seg')) &&
       (await p.$$('#pc-tabela [data-b-prazo]')).length === 6 && !!(await p.$('#pc-tabela [data-bt=prazoate]')) && /parcelas? a pagar/.test(await p.textContent('#pc-tabela [data-bt=conta]')));
-    ok('Parcelamentos (B69): colunas como Acordos (Grupo, Empresa, Plataforma, Natureza, Nº, Parcela, Valor, Vencimento, Prazo) e sem "Situação"', await p.evaluate(() => { const t = [...document.querySelectorAll('#pc-tabela thead th')].map((th) => th.textContent.replace(/[↑↓]/g, '').trim().toLowerCase()).join('|');
-      return ['grupo', 'empresa', 'plataforma', 'natureza', 'nº parcelamento', 'parcela', 'valor', 'vencimento', 'prazo'].every((c) => t.includes(c)) && !t.includes('situação'); }));
+    ok('Parcelamentos (B78): colunas Grupo, Empresa, Parcelamento (natureza; plataforma · nº), Parcela, Valor, Vencimento, Prazo e sem "Situação"', await p.evaluate(() => { const t = [...document.querySelectorAll('#pc-tabela thead th')].map((th) => th.textContent.replace(/[↑↓]/g, '').trim().toLowerCase());
+      return ['grupo', 'empresa', 'parcelamento', 'parcela', 'valor', 'vencimento', 'prazo'].every((c) => t.includes(c)) && !t.includes('plataforma') && !t.includes('situação'); }));
+    ok('Parcelamentos (B78): a coluna Parcelamento traz natureza, plataforma e nº', await p.evaluate(() => { const th = [...document.querySelectorAll('#pc-tabela thead th')].findIndex((x) => /^Parcelamento/.test(x.textContent.trim()));
+      const td = document.querySelector('#pc-tabela tbody tr[data-b-k] td:nth-child(' + (th + 1) + ')'); return !!td && /nº /.test(td.textContent) && !!td.querySelector('.b-sub'); }));
+    ok('Parcelamentos (B78, enxuto): cartão do grupo sem "Pagas" e sem "Parcela do mês" — "N de T pagas" embaixo da barra', await p.evaluate(() => { const c = document.querySelector('#pc-grupos .b-cg') || document.querySelector('.b-cg[data-pc-g]');
+      return !!c && !!c.querySelector('.b-cg-prog') && ![...c.querySelectorAll('.b-cg-lin span')].some((s) => /^(Pagas|Parcela do mês)$/.test(s.textContent.trim())); }));
     ok('Parcelamentos (B69): cada parcela em aberto com os botões Emitir e Baixa (como Acordos), sem caixinha de marcar', !!(await p.$('#pc-tabela tbody .b-bt-baixa[data-pc-baixa]')) && !(await p.$('#pc-tabela [data-bt=um]')) && !(await p.$('#pc-tabela .b-lote')));
     ok('Parcelamentos (B69): prazo colorido ("N dias" / "N d atraso")', /\d+ (dias?|d atraso)|vence hoje/.test(await p.textContent('#pc-tabela td.b-prazo')));
     await p.click('#pc-tabela [data-b-prazo=venc]'); await p.waitForTimeout(200);
@@ -882,7 +885,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('Parcelamentos (B68): limpar filtros volta a lista', (await p.$$('#pc-tabela tbody tr[data-b-k]')).length >= 1);
     await p.click('#pc-tabela th[data-b-ord=v]'); await p.waitForTimeout(150);
     ok('Parcelamentos (B68): ordenar clicando no título da coluna', (await p.getAttribute('#pc-tabela th[data-b-ord=v]', 'data-dir')) === '1');
-    ok('Parcelamentos (B69): parcela do mês no cartão do grupo e na lista dos parcelamentos', /Parcela do mês/.test(await p.textContent('#pc-grupos .b-cg')) && /Parcela do mês/.test(await p.textContent('#pc-det-grupo thead')));
+    ok('Parcelamentos (B78): parcela do mês na lista dos parcelamentos (o cartão do grupo ficou enxuto)', !/Parcela do mês/.test(await p.textContent('#pc-grupos .b-cg')) && /Parcela do mês/.test(await p.textContent('#pc-det-grupo thead')));
     const idParc3 = sql("select id from parcelas where numero='3'");
     await p.waitForSelector('#pc-tabela tr[data-b-k="' + idParc3 + '"] [data-pc-baixa]');
     await p.click('#pc-tabela tr[data-b-k="' + idParc3 + '"] [data-pc-baixa]'); await p.waitForSelector('.janela-baixa [data-bx-ok]');
@@ -903,7 +906,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     { const pg0 = Number(sql("select count(*) from acordos where pago"));
       const fecharTudo = async () => { for (let i = 0; i < 4; i++) { const f = await p.$('#gs-raiz .fundo [data-cancelar], #gs-raiz .fundo [data-fechar]'); if (!f) break; await f.click().catch(() => {}); await p.waitForTimeout(200); } };
       if (!(await p.$('#ac-det-grupo'))) { await p.click('#ac-grupos [data-ac-g] >> nth=0'); await p.waitForTimeout(400); }
-      ok('Acordos (B70): o cartão do grupo mostra a parcela do mês e abre os acordos do grupo', /Parcela do mês/.test(await p.textContent('#ac-grupos')) && !!(await p.$('#ac-det-grupo tr[data-b-k]')));
+      ok('Acordos (B78): o cartão do grupo fica enxuto ("N de T pagas") e abre os acordos do grupo (com a parcela do mês)', !!(await p.$('#ac-grupos .b-cg-prog')) && /Parcela do mês/.test(await p.textContent('#ac-det-grupo thead')) && !!(await p.$('#ac-det-grupo tr[data-b-k]')));
       await p.click('#ac-det-grupo tr[data-b-k] >> nth=0'); await p.waitForSelector('#ac-j-parcelas tr[data-b-k]', { timeout: 5000 }).catch(() => {});
       ok('Acordos (B70): clicar no acordo abre a janela com a ficha, os 5 números e todas as parcelas', !!(await p.$('#ac-j-parcelas tr[data-b-k]')) && (await p.$$('.ac-janela .b-nums > div')).length === 5 && !!(await p.$('#ac-j-todo')));
       await p.click('#ac-j-parcelas [data-ac-baixa] >> nth=0'); await p.waitForSelector('#gs-raiz .janela-baixa [data-bx-ok]', { timeout: 5000 });
@@ -998,7 +1001,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       ok('rodapé "Última gravação" some sozinho', on0 && !(await p.evaluate(() => document.getElementById('gx-rodape').classList.contains('on')))); }
     // telas antigas
     await nav(p, 'resumo'); await p.waitForTimeout(1500);
-    ok('Painel: cada número mostra o valor completo ao passar o mouse', await p.evaluate(() => { const s = [...document.querySelectorAll('#pe-nums b span[title]')]; return s.length >= 8 && s.every((x) => /^R\$\s?[\d.]+,\d{2}$/.test(x.title)); }));
+    ok('Painel: cada número mostra o valor completo ao passar o mouse', await p.evaluate(() => { const s = [...document.querySelectorAll('#pe-nums b span[title]')]; return s.length >= 5 && s.every((x) => /^R\$\s?[\d.]+,\d{2}$/.test(x.title)); }));
     await nav(p, 'parcelamentos'); await p.waitForTimeout(1200);
     ok('Parcelamentos: sem o botão "Notificar clientes" (o envio é pelo quadro de guias)', !/Notificar clientes/.test(await p.textContent('#panel-parcelamentos')));
     await nav(p, 'processos'); await p.waitForTimeout(1200);
@@ -1129,7 +1132,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       ok('B73 Painel → Empresas do grupo: tabela nova com as colunas de antes, em ordem de grupo e sem bolinha no grupo', (await p.$$eval('#pe-nova thead th', (l) => l.map((t) => t.textContent.replace(/[↑↓]/g, '').trim()).join('|'))) === 'Grupo|Entidade / sócio|CPF/CNPJ|RFB|PGFN|AGE/MG|Total|Operação|Situação' &&
         grupos.length > 0 && grupos.every((g, i) => grupos.indexOf(g) === i || grupos[i - 1] === g) && !(await p.$('#pe-nova .b-ponto')) && !(await p.isVisible('#execRankWrap')), grupos.join(' | ')); }
     ok('B73/B76 Painel: abas Ativos · Consultoria · Serviço pontual · Inativos · Todos e "Filtros" (área, operação, situação; grupo no topo)', (await p.$$eval('#pe-nova [data-b-aba]', (l) => l.map((b) => b.dataset.bAba).join(','))) === 'at,cons,pont,in,todos' && (await p.$$('#pe-nova [data-bt=l]')).length === 3 && !!(await p.$('#pe-grupo')));   // B76: o grupo fica no topo da tela (vale para os números, a evolução e a tabela)
-    ok('B73 Painel: faixa de números no topo (Passivo total … Ativo em disputa), sem os 3 blocos de cartões', (await p.$$('#pe-nums .b-nums-faixa > div')).length === 8 && !(await p.isVisible('#execKpiSection')) && /Passivo total/.test(await p.textContent('#pe-nums')));
+    ok('B78 Painel (enxuto): 5 números no topo (RFB · PGFN · AGE/MG numa linha sob o Passivo total), sem os 3 blocos de cartões', (await p.$$('#pe-nums .b-nums-faixa > div')).length === 5 && /RFB .* · PGFN .* · AGE\/MG/.test(await p.textContent('#pe-nums .b-nums-faixa > div:first-child small')) && !(await p.isVisible('#execKpiSection')) && /Passivo total/.test(await p.textContent('#pe-nums')));
     await p.click('#pe-nova tbody tr[data-b-k]:has-text("Alfa Comércio") td:nth-child(2)'); await p.waitForTimeout(400);
     await p.waitForFunction(() => [...document.querySelectorAll('#janelas .janela h2')].some((h) => /Alfa Comércio/i.test(h.textContent)), null, { timeout: 8000 }).catch(() => {});
     ok('Painel: clicar na empresa abre direto a ficha completa', !/uuid|Erro no ERP/.test(await p.textContent('#gs-raiz #aviso').catch(() => '')) &&

@@ -420,7 +420,7 @@ async function conferenciasIni() {
   }
   const comItens = regras.filter((r) => r.itens.length);
   if (!comItens.length) { el.innerHTML = ''; return; }
-  el.innerHTML = '<section class="ini-conf"><div class="ini-sec-hd"><div><h2>Conferências</h2><p>Dados que faltam no cadastro — clique para ver e corrigir</p></div></div><div class="ini-conf-l">' +
+  el.innerHTML = '<section class="ini-conf"><div class="ini-sec-hd"><div><h2>Conferências</h2><p>Dados que faltam no cadastro</p></div></div><div class="ini-conf-l">' +
     comItens.map((r) => '<button type="button" class="ini-conf-it" data-conf="' + r.id + '"><b>' + r.itens.length + '</b><span>' + esc(r.itens.length === 1 ? r.rot : r.rots) + '</span>' + iconeB('mais') + '</button>').join('') + '</div></section>';
   el.onclick = (ev) => { const b = ev.target.closest('[data-conf]'); if (!b) return; const r = regras.find((x) => x.id === b.dataset.conf);
     const j = abrirJanela({ titulo: r.itens.length + ' ' + (r.itens.length === 1 ? r.rot : r.rots), kick: 'Conferências', larga: true,
