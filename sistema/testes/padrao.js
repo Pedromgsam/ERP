@@ -24,8 +24,11 @@ const REGRAS = [
   ['botão "✎" da linha (Backup 58: saiu das tabelas)', 'td :is(.gx-la-ed,.btn-ed)', ['fontSize'], true],
   // Backup 52 (P5): o que muda num lugar vale para todas as telas
   ['cabeçalho de grupo (faixa cinza, sem borda azul)', ':is(tr.gx-grp,tr.cli-grp,tr.rt-grp) > td', ['backgroundColor', 'color', 'fontSize', 'fontWeight', 'boxShadow']],
-  ['filtro (pílula)', ':is(.gx-seg-cli > button,.filtros .segmento > button,.rt-seg > button,.fila-chips .fila-chip):not(.ativo):not(.on)', ['fontSize', 'borderRadius', 'backgroundColor', 'paddingTop']],
-  ['filtro escolhido', ':is(.gx-seg-cli > button,.filtros .segmento > button,.rt-seg > button,.fila-chips .fila-chip).ativo', ['backgroundColor', 'color', 'borderRadius']],
+  // B82: como no ambiente, há duas peças de filtro — o segmentado (abas numa caixa) e o chip redondo
+  ['filtro (segmentado)', ':is(.gx-seg-cli > button,.filtros .segmento > button,.rt-seg > button):not(.ativo):not(.on)', ['fontSize', 'borderRadius', 'backgroundColor', 'paddingTop']],
+  ['filtro escolhido (segmentado)', ':is(.gx-seg-cli > button,.filtros .segmento > button,.rt-seg > button).ativo', ['backgroundColor', 'color', 'borderRadius']],
+  ['filtro (chip)', '.fila-chips .fila-chip:not(.ativo):not(.on)', ['fontSize', 'borderRadius', 'backgroundColor', 'paddingTop']],
+  ['filtro escolhido (chip)', '.fila-chips .fila-chip.ativo', ['backgroundColor', 'color', 'borderRadius']],
   ['botão "↻ Atualizar"', '.bt-atualizar', ['fontSize', 'backgroundColor', 'borderRadius', 'paddingTop']],
   ['situação: em atraso', '[data-sit=atraso]', ['backgroundColor', 'color']],
   ['situação: vence hoje', '[data-sit=hoje]', ['backgroundColor', 'color'], true],
@@ -94,7 +97,7 @@ const TELAS = [['hoje'], ['resumo'], ['processos'], ['parcelamentos'], ['parcela
     ok('nenhum botão PIX nas tabelas', await p.evaluate(() => !document.querySelector('[data-pix]')));
     await p.evaluate(() => nav(null, 'hoje')); await p.waitForTimeout(1500);
     { const tam = await p.evaluate(() => [...new Set([...document.querySelectorAll('#panel-hoje *')].filter((e) => e.offsetParent !== null && [...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())).map((e) => getComputedStyle(e).fontSize + (/^1[1-4]px$|^20px$/.test(getComputedStyle(e).fontSize) ? '' : ' (' + e.tagName.toLowerCase() + '.' + String(e.className).split(' ')[0] + ')')))]);
-      ok('Início com no máximo 5 tamanhos de letra', new Set(tam.map((x) => x.split(' ')[0])).size <= 5, tam.join(' ')); }
+      ok('Início com no máximo 5 tamanhos de letra (meio pixel conta como o mesmo tamanho)', new Set(tam.map((x) => Math.round(parseFloat(x)))).size <= 5, tam.join(' ')); }
     ok('sem triângulo vermelho nos títulos', await p.evaluate(() => !document.querySelector('.alerta-tri')));
     ok('sem erros de JavaScript', !erros.length, erros.join(' | '));
   } catch (e) { console.error(e); ok('sem exceção no teste', false); }

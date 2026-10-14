@@ -787,7 +787,7 @@ html body.gx-barra-topo .gs .b-cg-hd b:not(#_){font-size:13.5px}
 .gs .b-tf-tipo-rotina,.gs .b-tf-tipo-reuniao{background:var(--blue-lt);color:var(--blue-d,var(--blue))}
 .gs .b-tf-tipo-audiencia{background:var(--red-lt);color:var(--red-d,var(--red))}
 .gs .b-tf-tipo-compromisso{background:var(--amber-lt);color:var(--amber-d,var(--amber))}
-html body.gx-barra-topo .b-tab-tf td.b-tf-pes .pill-pessoa:not(#_){background:var(--gray-lt)!important;color:var(--text2)!important;border:1px solid var(--border)!important;font:700 12px var(--font-ui)!important;width:auto;max-width:110px;padding:2px 9px!important;border-radius:999px!important}
+html body.gx-barra-topo .b-tab-tf td.b-tf-pes .pill-pessoa:not(#_){background:var(--gray-lt)!important;color:var(--text2)!important;border:1px solid var(--border)!important;font:700 11px var(--font-ui)!important;width:auto;max-width:110px;padding:2px 9px!important;border-radius:20px!important}
 /* barra da tabela como no ambiente: abas, prazos e busca na mesma linha; contador e botões quebram juntos */
 html body.gx-barra-topo .gs .b-barra-tab:not(#_){gap:8px 10px}
 html body.gx-barra-topo .gs .b-barra-tab > .b-seg:not(#_){flex-basis:auto}
