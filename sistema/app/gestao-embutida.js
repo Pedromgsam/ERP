@@ -565,6 +565,19 @@ Object.assign(ICONES_B, { admin: '<circle cx="12" cy="12" r="3"/><path d="M19.4 
 Object.assign(ICONES_B, { financeiro: '<rect x="2.5" y="5.5" width="19" height="13" rx="2"/><path d="M2.5 10h19M6.5 15h4"/>',
   recibo: '<path d="M6 2.5h12v19l-3-2-3 2-3-2-3 2z"/><path d="M9 7.5h6M9 11h6M9 14.5h4"/>', enviar: '<path d="m21.5 2.5-19 7 8 3 3 8z"/><path d="m10.5 12.5 11-10"/>' });
 // Backup 74: faixa de números (a mesma do Painel, da Análise do Financeiro e da ficha do cliente): [[rótulo, valor, sub, classe b-verde|b-verm]]
+// Backup 79: FILTRO SUSPENSO no alto das telas refeitas (Grupo, Empresa…). campos: [{k, rot, todos, opcoes:[texto], v}].
+// A tela guarda o valor em E.<tela>.f e, ao trocar, redesenha tudo (resumo/cartões e a tabela) com o recorte.
+function filtroSusB(id, campos) {
+  return '<div class="b-fsus" id="' + id + '">' + campos.map((c) => '<label class="b-fsus-c"><span>' + esc(c.rot) + '</span><select data-fsus="' + c.k + '" aria-label="' + esc(c.rot) + '"><option value="">' + esc(c.todos) + '</option>' +
+    c.opcoes.map((o) => '<option' + (o === c.v ? ' selected' : '') + '>' + esc(o) + '</option>').join('') + '</select></label>').join('') +
+    (campos.some((c) => c.v) ? '<button type="button" class="b-fsus-limpar" data-fsus-limpar>Limpar filtro</button>' : '') + '</div>';
+}
+function ligarFiltroSusB(id, estado, depois) {
+  const el = $(id); if (!el) return;
+  el.onchange = (ev) => { const s = ev.target.closest('[data-fsus]'); if (!s) return; estado[s.dataset.fsus] = s.value; if (s.dataset.fsus === 'grupo' && 'emp' in estado) estado.emp = ''; depois(); };
+  el.onclick = (ev) => { if (!ev.target.closest('[data-fsus-limpar]')) return; Object.keys(estado).forEach((k) => { estado[k] = ''; }); depois(); };
+}
+const unicosTxt = (L) => [...new Set(L.filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b), 'pt-BR'));
 function numsFaixa(itens) {
   return '<div class="b-nums b-nums-faixa b-nums-' + itens.length + '">' + itens.map((i) => '<div><span>' + esc(i[0]) + '</span><b class="' + (i[3] || '') + '">' + i[1] + '</b>' + (i[2] ? '<small>' + esc(i[2]) + '</small>' : '') + '</div>').join('') + '</div>';
 }
@@ -594,7 +607,7 @@ function tabelaB(el, cfg) {
       '<button type="button" class="b-ic-bt" data-bt="dens" aria-pressed="' + compacto() + '" title="Tabela compacta (mais linhas na tela)" aria-label="Tabela compacta">' + iconeB('compacto') + '</button></span></div>' +
       (temPainel ? '<div class="b-mais-filtros" data-bt="pn"' + (st.painel ? '' : ' hidden') + '>' +
         (cfg.listas || []).map((l) => '<select data-bt="l" data-k="' + esc(l.k) + '" aria-label="' + esc(l.rot) + '"><option value="">' + esc(l.todos) + '</option>' + l.opcoes.map((o) => '<option value="' + esc(o[0]) + '"' + (st.listas[l.k] === String(o[0]) ? ' selected' : '') + '>' + esc(o[1]) + '</option>').join('') + '</select>').join('') +
-        (cfg.venc ? '<div class="b-fx"><span>Vencimento</span><input type="date" data-bt="vde" aria-label="Vencimento de" value="' + st.vde + '"><span>até</span><input type="date" data-bt="vate" aria-label="Vencimento até" value="' + st.vate + '"></div>' : '') +
+        (cfg.venc ? '<div class="b-fx"><span>Vencimento</span>' + campoDataB('data-bt="vde"', st.vde, 'Vencimento de') + '<span>até</span>' + campoDataB('data-bt="vate"', st.vate, 'Vencimento até') + '</div>' : '') +
         (cfg.valor ? '<div class="b-fx"><span>Valor (R$)</span><input inputmode="decimal" data-mascara="nenhuma" data-bt="min" placeholder="de" aria-label="Valor mínimo" value="' + esc(st.min) + '"><span>até</span><input inputmode="decimal" data-mascara="nenhuma" data-bt="max" placeholder="até" aria-label="Valor máximo" value="' + esc(st.max) + '"></div>' : '') +
         '<button type="button" class="b-link" data-bt="limpar">Limpar filtros</button></div>' : '') +
       '<div data-bt="quadro"></div>';
@@ -665,7 +678,7 @@ function tabelaB(el, cfg) {
     const b = Q('[data-bt=prazos]'); if (!b) return;
     b.hidden = !prazoNaAba();
     b.innerHTML = [['', 'Todas'], ['venc', 'Vencidas'], ['5', '5 dias'], ['10', '10 dias'], ['15', '15 dias'], ['30', '30 dias']].map((o) => '<button type="button" class="b-chip" data-b-prazo="' + o[0] + '" aria-pressed="' + (st.prazo === o[0]) + '">' + o[1] + '</button>').join('') +
-      '<label class="b-prazo-ate' + (st.prazo === 'ate' ? ' b-on' : '') + '" title="Vencimento até esta data">até <input type="date" data-bt="prazoate" value="' + esc(st.prazoAte) + '" aria-label="Vencimento até"></label>';
+      '<label class="b-prazo-ate' + (st.prazo === 'ate' ? ' b-on' : '') + '" title="Vencimento até esta data">até ' + campoDataB('data-bt="prazoate"', st.prazoAte, 'Vencimento até') + '</label>';
   }
   function conta() { const c = Q('[data-bt=conta]'); if (!c || !cfg.conta) return; c.textContent = '· ' + cfg.conta(filtrar().length, st.aba); }
   const tudo = () => { abas(); prazos(); quadro(); contarFx(); conta(); };
@@ -676,8 +689,13 @@ function tabelaB(el, cfg) {
     el.addEventListener('input', (ev) => {
       const c2 = el._cfgB, s2 = E.tabB[c2.id], t = ev.target.dataset.bt;
       if (t === 'q') s2.q = ev.target.value; else if (t === 'l') s2.listas[ev.target.dataset.k] = ev.target.value;
-      else if (['vde', 'vate', 'min', 'max'].includes(t)) s2[t] = ev.target.value;
-      else if (t === 'prazoate') { s2.prazoAte = ev.target.value; s2.prazo = ev.target.value ? 'ate' : ''; } else return;
+      else if (['min', 'max'].includes(t)) s2[t] = ev.target.value;
+      else if (['vde', 'vate', 'prazoate'].includes(t)) {
+        // data digitada: só filtra quando a data está completa (ou o campo ficou vazio) — nada roda no meio da digitação
+        const v = formatarDataBR(ev.target.value), i = isoDeDataBR(v); if (v && !i) return;
+        if (t === 'prazoate') { s2.prazoAte = i; s2.prazo = i ? 'ate' : ''; } else s2[t] = i;
+        if (i && dataBR(i) !== v) ev.target.value = dataBR(i);
+      } else return;
       el._redesenharB();
     });
     el.addEventListener('click', (ev) => {
@@ -773,6 +791,16 @@ function tipoMascara(el) {
   if (/(^|_)telefone$|^whatsapp$/.test(n) || el.type === 'tel') return 'tel';
   return '';
 }
+// Backup 79: data digitada "dd/mm/aaaa" (no lugar do calendário do navegador, que aparece como mm/dd/yyyy em alguns computadores)
+function formatarDataBR(txt) { const d = String(txt || '').replace(/\D/g, '').slice(0, 8); return d.length > 4 ? d.slice(0, 2) + '/' + d.slice(2, 4) + '/' + d.slice(4) : d.length > 2 ? d.slice(0, 2) + '/' + d.slice(2) : d; }
+// "31/11/2025" → "2025-11-30" (dia acima do fim do mês vira o último dia); incompleta ou inválida → ''
+function isoDeDataBR(txt) {
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(txt || '').trim()); if (!m) return '';
+  const a = +m[3], me = +m[2]; if (me < 1 || me > 12 || a < 1900) return '';
+  const ult = new Date(a, me, 0).getDate(), d = Math.min(Math.max(+m[1], 1), ult);
+  return a + '-' + String(me).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+}
+function campoDataB(attrs, iso, rotulo) { return '<input type="text" inputmode="numeric" data-mascara="data" placeholder="dd/mm/aaaa" maxlength="10" class="b-data-br" ' + attrs + ' aria-label="' + esc(rotulo || 'Data') + '" value="' + (iso ? dataBR(iso) : '') + '">'; }
 function formatarBRL(txt, final) {
   const jaMascarado = /R\$/.test(String(txt || ''));
   let s = String(txt || '').replace(/R\$|\s/g, ''); if (!s) return '';
@@ -804,7 +832,7 @@ function aplicarMascara(el, final) {
   const antes = el.value, fim = el.selectionStart === antes.length;
   const pos = el.selectionStart == null ? antes.length : el.selectionStart;
   const sig = (s, p) => s.slice(0, p).replace(t === 'brl' ? /[^\d,-]/g : /\D/g, '').length;   // dígitos antes do cursor
-  const novo = t === 'brl' ? formatarBRL(antes, final) : formatarTel(antes);
+  const novo = t === 'brl' ? formatarBRL(antes, final) : t === 'data' ? formatarDataBR(antes) : formatarTel(antes);
   if (novo === antes) return;
   el.value = novo;
   if (document.activeElement === el && !final) {
@@ -1819,7 +1847,7 @@ function analiseFin(empresa, corpo) {
     (pessoas.length > 1 ? '<div class="b-fin-lin"><span class="b-fin-rot">Quem fez</span><button type="button" class="b-chip" data-fa-quem="" aria-pressed="' + !an.quem.length + '">Todos</button>' +
       pessoas.map((p) => '<button type="button" class="b-chip" data-fa-quem="' + esc(p) + '" aria-pressed="' + an.quem.includes(p) + '">' + esc(p) + '</button>').join('') + '</div>' : '') +
     '<div class="b-fin-lin"><span class="b-fin-rot">Período</span>' + PERIODOS_FIN.map((p) => '<button type="button" class="b-chip" data-fa-per="' + p[0] + '" aria-pressed="' + (!an.de && !an.ate && an.preset === p[0]) + '">' + p[1] + '</button>').join('') +
-      '<span class="b-fx"><input type="date" id="fa-de" value="' + esc(an.de) + '" aria-label="De"><span>até</span><input type="date" id="fa-ate" value="' + esc(an.ate) + '" aria-label="Até"><button type="button" class="b-bt-f" id="fa-aplicar">Aplicar</button></span></div>' +
+      '<span class="b-fx"><span>de</span>' + campoDataB('id="fa-de"', an.de, 'De') + '<span>até</span>' + campoDataB('id="fa-ate"', an.ate, 'Até') + '<button type="button" class="b-bt-f" id="fa-aplicar">Aplicar</button><small class="b-fx-aviso" id="fa-aviso"></small></span></div>' +
     '<div class="b-fin-lin"><span class="b-fin-rot">Recorte</span><select id="fa-tipo" aria-label="Tipo"><option value="">Todos os tipos</option>' + tipos.map((t) => '<option' + (an.tipo === t ? ' selected' : '') + '>' + esc(t) + '</option>').join('') + '</select>' +
       (grupos.length > 1 ? '<select id="fa-grupo" aria-label="Grupo"><option value="">Todos os grupos</option>' + grupos.map((g) => '<option' + (an.grupo === g ? ' selected' : '') + '>' + esc(g) + '</option>').join('') + '</select>' : '') + '</div>' +
     '<p class="b-fin-mostra">Mostrando <b>' + esc(an.quem.length ? an.quem.join(', ') : 'todos') + '</b> · <b>' + (jan ? dataBR(jan[0]) + ' a ' + dataBR(jan[1]) : 'todo o período') + '</b>' + (an.tipo ? ' · <b>' + esc(an.tipo) + '</b>' : '') + (an.grupo ? ' · <b>' + esc(an.grupo) + '</b>' : '') +
@@ -1856,7 +1884,7 @@ function analiseFin(empresa, corpo) {
       linhas.map((l) => '<tr><td>' + pillPessoa(l.p) + '</td>' + td(brl(l.rec), 'b-verde-v') + td((tot ? Math.round(l.rec / tot * 100) : 0) + '%') + '<td class="b-cen">' + l.n + '</td>' + td(l.n ? brl(l.rec / l.n) : '—') + td(l.ar ? brl(l.ar) : '—') + td(l.pj ? brl(l.pj) : '—') + '</tr>').join('') +
       '</tbody><tfoot><tr><td>Total</td>' + td(brl(tot)) + td(tot ? '100%' : '—') + '<td class="b-cen">' + linhas.reduce((s, l) => s + l.n, 0) + '</td><td></td>' + td(brl(linhas.reduce((s, l) => s + l.ar, 0))) + td(brl(linhas.reduce((s, l) => s + l.pj, 0))) + '</tr></tfoot></table></div>' : '<div class="b-barras-vazio">Nada no período.</div>');
   }
-  corpo.innerHTML = fil + numsFaixa(nums) + graf + comp +
+  corpo.innerHTML = fil + numsFaixa(nums) + fluxoDoMes(empresa) + graf + comp + resultadoMeses(meses, receita, pagos, contab) +
     '<div class="b-fin-dois">' + cartaoFin(contab ? 'Recebido por tipo de serviço' : 'Por tipo de serviço', '', barrasFin(somaPor(receita, (l) => l.servico))) +
       cartaoFin('Maiores grupos', '', barrasFin(somaPor(receita, (l) => l.grupos && l.grupos.nome))) + '</div>' +
     (contab ? cartaoFin('Despesas por categoria', 'Pago no período, por categoria.', barrasFin(somaPor(pagos, (l) => l.categoria))) : '');
@@ -1866,10 +1894,46 @@ function analiseFin(empresa, corpo) {
     const qb = ev.target.closest('[data-fa-quem]'), pb = ev.target.closest('[data-fa-per]');
     if (qb) { const p = qb.dataset.faQuem; if (!p) an.quem = []; else an.quem = an.quem.includes(p) ? an.quem.filter((x) => x !== p) : an.quem.concat(p); return analiseFin(empresa, corpo); }
     if (pb) { an.preset = pb.dataset.faPer; an.de = an.ate = ''; return analiseFin(empresa, corpo); }
-    if (ev.target.id === 'fa-aplicar') { an.de = fl.querySelector('#fa-de').value; an.ate = fl.querySelector('#fa-ate').value; if (an.de && an.ate && an.de > an.ate) { const t = an.de; an.de = an.ate; an.ate = t; } return analiseFin(empresa, corpo); }
+    if (ev.target.id === 'fa-aplicar') {
+      // Backup 79: datas digitadas dd/mm/aaaa — só aplica com as duas preenchidas; invertidas trocam sozinhas; 31/11 vira 30/11
+      const de = isoDeDataBR(formatarDataBR(fl.querySelector('#fa-de').value)), ate = isoDeDataBR(formatarDataBR(fl.querySelector('#fa-ate').value));
+      if (!de || !ate) { fl.querySelector('#fa-aviso').textContent = 'Preencha as duas datas (dd/mm/aaaa).'; return; }
+      an.de = de < ate ? de : ate; an.ate = de < ate ? ate : de; return analiseFin(empresa, corpo); }
   };
   fl.onchange = (ev) => { if (ev.target.id === 'fa-tipo') { an.tipo = ev.target.value; analiseFin(empresa, corpo); } else if (ev.target.id === 'fa-grupo') { an.grupo = ev.target.value; analiseFin(empresa, corpo); } };
+  const fx = corpo.querySelector('#fa-fluxo');
+  if (fx) fx.onclick = (ev) => { const b = ev.target.closest('[data-fm]'); if (!b) return; an.fluxoMes = somarMesB(an.fluxoMes || hojeISO().slice(0, 7), Number(b.dataset.fm)); analiseFin(empresa, corpo); };
   fl.onkeydown = (ev) => { if (ev.key === 'Enter' && (ev.target.id === 'fa-de' || ev.target.id === 'fa-ate')) fl.querySelector('#fa-aplicar').click(); };
+}
+
+// ── Backup 79: FLUXO DO MÊS — o que estava previsto para entrar no mês e como está: recebido, em atraso (só deste mês) e a receber.
+// Base = honorários (receitas) com VENCIMENTO no mês; o atraso dos meses anteriores e o que entrou neste mês de outros meses aparecem à parte.
+const somarMesB = (k, n) => { const [a, m] = k.split('-').map(Number), d = new Date(a, m - 1 + n, 1); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
+function fluxoDoMes(empresa) {
+  const F = estadoFin(empresa), an = F.an, k = an.fluxoMes || hojeISO().slice(0, 7), h = hojeISO(), ini = k + '-01';
+  const rec = filtrarFin(empresa, ['recebido', 'areceber'], true);
+  const doMes = rec.filter((l) => String(l.vencimento || '').startsWith(k));
+  const recebido = somaV(doMes.filter((l) => l._c === 'recebido')), atraso = somaV(doMes.filter((l) => l._c === 'areceber' && l.vencimento < h)),
+    aReceber = somaV(doMes.filter((l) => l._c === 'areceber' && l.vencimento >= h)), previsto = recebido + atraso + aReceber;
+  const atrasoAntes = somaV(rec.filter((l) => l._c === 'areceber' && l.vencimento && l.vencimento < ini));
+  const deOutros = somaV(rec.filter((l) => l._c === 'recebido' && String(l.data_pagamento || '').startsWith(k) && !String(l.vencimento || '').startsWith(k)));
+  const pc = (v) => (previsto > 0 ? Math.max(0, v / previsto * 100) : 0);
+  return '<section class="b-fin-cartao b-fluxo" id="fa-fluxo"><div class="b-fin-hd b-fluxo-hd"><div><h3>Fluxo do mês</h3><p>Honorários com vencimento no mês: quanto estava previsto e como está.</p></div>' +
+    '<div class="b-fluxo-nav"><button type="button" class="b-bt-f" data-fm="-1" aria-label="Mês anterior">‹</button><b>' + esc(rotMesB(k)) + '</b><button type="button" class="b-bt-f" data-fm="1" aria-label="Próximo mês">›</button></div></div>' +
+    numsFaixa([['Previsto no mês', brl(previsto), 'tudo o que vence no mês'], ['Recebido', brl(recebido), previsto ? Math.round(pc(recebido)) + '% do previsto' : '', 'b-verde'],
+      ['Em atraso (deste mês)', brl(atraso), 'venceu e não entrou', atraso ? 'b-verm' : ''], ['A receber', brl(aReceber), 'ainda vai vencer']]) +
+    '<div class="b-fluxo-barra" role="img" aria-label="Recebido ' + brl(recebido) + ', em atraso ' + brl(atraso) + ', a receber ' + brl(aReceber) + '">' +
+      '<span class="b-fx-rec" style="width:' + pc(recebido) + '%" title="Recebido ' + esc(brl(recebido)) + '"></span><span class="b-fx-atr" style="width:' + pc(atraso) + '%" title="Em atraso ' + esc(brl(atraso)) + '"></span><span class="b-fx-arec" style="width:' + pc(aReceber) + '%" title="A receber ' + esc(brl(aReceber)) + '"></span></div>' +
+    '<p class="b-fluxo-fora">Fora deste mês: <b>' + brl(atrasoAntes) + '</b> em atraso de meses anteriores · <b>' + brl(deOutros) + '</b> recebidos neste mês de vencimentos de outros meses.</p></section>';
+}
+// ── Backup 79: RESULTADO DO MÊS (como no ambiente de teste): entradas, saídas e resultado de cada mês do período ──
+function resultadoMeses(meses, receita, pagos, contab) {
+  if (!contab && !pagos.length) return '';
+  const linhas = meses.map((k) => { const e = somaV(receita.filter((l) => dataLanc(l).startsWith(k))), sd = somaV(pagos.filter((l) => dataLanc(l).startsWith(k))); return { k, e, sd, r: e - sd }; });
+  const t = linhas.reduce((a, l) => ({ e: a.e + l.e, sd: a.sd + l.sd, r: a.r + l.r }), { e: 0, sd: 0, r: 0 });
+  return cartaoFin('Resultado do mês', 'Entradas − saídas', '<div class="b-rola b-rola-solta" data-sem-pagina><table class="b-tab b-tab-res"><thead><tr><th>Mês</th><th class="b-dir">Entradas</th><th class="b-dir">Saídas</th><th class="b-dir">Resultado</th></tr></thead><tbody>' +
+    linhas.slice().reverse().map((l) => '<tr><td>' + esc(rotMesB(l.k)) + '</td><td class="b-dir b-verde-v">' + brl(l.e) + '</td><td class="b-dir b-verm-v">' + brl(l.sd) + '</td><td class="b-dir"><b class="' + (l.r < 0 ? 'b-verm' : '') + '">' + brl(l.r) + '</b></td></tr>').join('') +
+    '</tbody><tfoot><tr><td>Total</td><td class="b-dir">' + brl(t.e) + '</td><td class="b-dir">' + brl(t.sd) + '</td><td class="b-dir">' + brl(t.r) + '</td></tr></tfoot></table></div>');
 }
 
 // ───────────────────────────── Caixa (Contabilidade) ─────────────────────────────
@@ -7260,10 +7324,14 @@ function partesPub(p) {
   if (Array.isArray(p.polos) && p.polos.some((d) => d && d.polo)) p.polos.forEach((d) => { if (d && d.nome) G[{ A: 'Autor', P: 'Réu' }[String(d.polo || '').toUpperCase()] || 'Partes'].push(d.nome); });
   else String(p.destinatarios || '').split(/;\s*/).filter(Boolean).forEach((x) => { const m = /^(Autor|Réu):\s*(.*)$/.exec(x); if (m) G[m[1]].push(m[2]); else G.Partes.push(x); });
   const adv = p.advogado || String(p.advogados || '').split(';')[0].replace(/\s*OAB.*$/i, '').trim();
+  // Backup 79: sempre Processo, Autor e Réu (— quando o Diário não informa); o advogado do escritório vai na linha da parte que é o cliente
+  // (a parte monitorada), senão na do Autor
+  if (!G.Partes.length || G['Autor'].length || G['Réu'].length) { if (!G['Autor'].length) G['Autor'].push('—'); if (!G['Réu'].length) G['Réu'].push('—'); }
+  const mon = normalizar(p.parte_monitorada || ''), ladoAdv = mon && G['Réu'].some((n) => normalizar(n).includes(mon) || mon.includes(normalizar(n))) ? 'Réu' : (G['Autor'].length ? 'Autor' : 'Partes');
   const linhas = [['Processo', p.processo || '—']].concat(Object.keys(G).filter((k) => G[k].length).map((k) => [k, G[k].join(' · ')]));
-  const txt = linhas.map((l) => l[0] + ': ' + l[1]).join('\n') + (adv ? ' - Advogado: ' + adv : '');
-  return '<div class="pub-id"><div class="pub-id-txt">' + linhas.map((l, i) => '<div><b>' + l[0] + ':</b> ' + (l[0] === 'Processo' ? '<span class="mono">' + esc(l[1]) + '</span>' : esc(l[1])) +
-      (i === linhas.length - 1 && adv ? ' <span class="pub-adv">— Advogado: <b>' + esc(adv) + '</b></span>' : '') + '</div>').join('') + '</div>' +
+  const txt = linhas.map((l) => l[0] + ': ' + l[1] + (adv && l[0] === ladoAdv ? ' - Advogado: ' + adv : '')).join('\n');
+  return '<div class="pub-id"><div class="pub-id-txt">' + linhas.map((l) => '<div><b>' + l[0] + ':</b> ' + (l[0] === 'Processo' ? '<span class="mono">' + esc(l[1]) + '</span>' : esc(l[1])) +
+      (adv && l[0] === ladoAdv ? ' <span class="pub-adv">— Advogado: <b>' + esc(adv) + '</b></span>' : '') + '</div>').join('') + '</div>' +
     '<button type="button" class="btn btn-o btn-mini" data-copiar-id="' + esc(txt) + '" title="Copiar Processo, Autor, Réu e Advogado">📋 Copiar</button></div>';
 }
 async function carregarPublicacoes() {
@@ -9525,7 +9593,7 @@ function colunasParcelas(o) {
   o = o || {};
   const C = [];
   if (!o.semGrupo) C.push({ k: 'g', rot: 'Grupo', html: (x) => esc(x.pa.grupo || '—'), ord: (x) => normalizar(x.pa.grupo) });
-  C.push({ k: 'emp', rot: 'Empresa', html: (x) => empresaB(x.pa.empresa, x.pa.cnpj), ord: (x) => normalizar(x.pa.empresa) });
+  C.push({ k: 'emp', rot: 'Empresa', html: (x) => empresaB(x.pa.empresa), ord: (x) => normalizar(x.pa.empresa) });   // Backup 79: sem o CNPJ (a busca continua achando pelo CNPJ)
   // Backup 78: uma coluna "Parcelamento" com tudo (natureza; plataforma · nº embaixo), como no portal do cliente
   C.push({ k: 'pa', rot: 'Parcelamento', html: (x) => celParcelamento(x.pa), ord: (x) => normalizar((x.pa.natureza || '') + ' ' + (x.pa.local || '')) });
   C.push({ k: 'n', rot: 'Parcela', cls: 'b-cen b-data', html: (x) => esc(x.n) + (x.pa.tot ? ' de ' + x.pa.tot : ''), ord: (x) => Number(x.n) || 0 });
@@ -9546,6 +9614,7 @@ const buscaParc = (x) => x.pa.empresa + ' ' + x.pa.cnpj + ' ' + soDigitos(x.pa.c
 // ═════════ TELA ═════════
 TELAS.parcelamentos = async function () {
   E.pc = E.pc || { grupo: '', chip: 'todos' };
+  E.pc.f = E.pc.f || { grupo: '', emp: '' };
   const el0 = $('conteudo');
   // o que mudou em outra tela (baixa na Rotina, por exemplo): relê só esses parcelamentos antes de desenhar
   const sujo = window.ERP_SUJO && window.ERP_SUJO.parcelamentos;
@@ -9558,8 +9627,11 @@ TELAS.parcelamentos = async function () {
 TELAS.parcelamentos.semCadastros = true;   // os dados vêm do ERP (DB.parcelamentos); a lista de clientes não é usada aqui
 function pintarParcelamentos() {
   const el = $('conteudo'); if (!el) return;
-  const PA = E.pc.PA || [], T = [].concat(...PA.map((pa) => pa.parcelas)), h = hojeISO(), podeEd = pode('juridico', 'editar');
+  const PA0 = E.pc.PA || [], F = E.pc.f || {}, PA = paFiltrados(), T = [].concat(...PA.map((pa) => pa.parcelas)), h = hojeISO(), podeEd = pode('juridico', 'editar');
   el.innerHTML = cabecalhoTela({ icone: 'camadas', titulo: 'Parcelamentos', frase: 'Parcelas dos clientes no e-CAC, Regularize e SIARE, por vencimento', atualizar: 'pc-atualizar', botao: podeEd ? { id: 'pc-novo', rotulo: 'Novo parcelamento' } : null }) +
+    // Backup 79: filtro suspenso (Grupo / Empresa) — recorta a situação por cliente e a lista de parcelas
+    filtroSusB('pc-filtro', [{ k: 'grupo', rot: 'Grupo', todos: 'Todos os grupos', opcoes: unicosTxt(PA0.map((pa) => pa.grupo)), v: F.grupo },
+      { k: 'emp', rot: 'Empresa', todos: 'Todas as empresas', opcoes: unicosTxt(PA0.filter((pa) => !F.grupo || pa.grupo === F.grupo).map((pa) => pa.empresa)), v: F.emp }]) +
     '<div class="b-sec"><div><h2>Situação por cliente</h2></div><div class="b-chips" id="pc-chips">' +
     [['todos', 'Todos'], ['atraso', 'Com atraso'], ['risco', 'Risco de rescisão'], ['dia', 'Em dia'], ['concluidos', 'Concluídos']].map((c) => '<button type="button" class="b-chip" data-pc-chip="' + c[0] + '" aria-pressed="' + (E.pc.chip === c[0]) + '">' + c[1] + '</button>').join('') + '</div></div>' +
     '<div class="b-cards" id="pc-grupos"></div>' +
@@ -9567,6 +9639,7 @@ function pintarParcelamentos() {
   const bt = $('pc-novo'); if (bt) bt.onclick = () => { const ED = ED_P(); if (ED && ED.abrirParcelamento) ED.abrirParcelamento(null); else aviso('Abra pelo ERP: + Lançar → Parcelamento.', true); };
   $('pc-atualizar').onclick = () => { if (window.ERP_RECARREGAR_MODULOS) window.ERP_RECARREGAR_MODULOS('parcelamentos').then(() => TELAS.parcelamentos()); else TELAS.parcelamentos(); };
   // Backup 71: os 4 cartões do topo saíram a pedido (a tela começa na situação por cliente)
+  ligarFiltroSusB('pc-filtro', E.pc.f, () => { E.pc.grupo = ''; E.pc.fechado = false; pintarParcelamentos(); });
   desenharGruposPc();
   $('pc-chips').onclick = (ev) => { const b = ev.target.closest('[data-pc-chip]'); if (!b) return; E.pc.chip = b.dataset.pcChip; $('pc-chips').querySelectorAll('.b-chip').forEach((x) => x.setAttribute('aria-pressed', x === b)); desenharGruposPc(); };
   tabelaB($('pc-tabela'), { id: 'parcelas', tabCls: 'b-tab-parc', linhas: T, colunas: colunasParcelas(), unidade: ['parcela', 'parcelas'], dicaBusca: 'Empresa, CNPJ ou nº',
@@ -9578,9 +9651,10 @@ function pintarParcelamentos() {
 }
 
 // ── situação por cliente: um cartão por grupo; clicou → a lista dos parcelamentos do grupo ──
+function paFiltrados() { const F = E.pc.f || {}; return (E.pc.PA || []).filter((pa) => (!F.grupo || pa.grupo === F.grupo) && (!F.emp || pa.empresa === F.emp)); }
 function desenharGruposPc() {
   const el = $('pc-grupos'); if (!el) return;
-  const PA = E.pc.PA || [], G = {};
+  const PA = paFiltrados(), G = {};
   PA.forEach((pa) => { const r = resumoPa(pa), k = pa.grupo || pa.empresa; const g = G[k] = G[k] || { id: k, nome: k, itens: [] }; g.itens.push([pa, r]); });
   const chip = E.pc.chip, grupos = Object.values(G).map((g) => {
     const vivos = g.itens.filter(([, r]) => !r.concluido), conc = g.itens.filter(([, r]) => r.concluido);
@@ -9589,7 +9663,7 @@ function desenharGruposPc() {
     return Object.assign(g, { vivos, conc, pg, tot, falta, atr, risco, nMes, somaMes, parcMes, nParcMes });
   }).filter((g) => chip === 'concluidos' ? g.conc.length : g.vivos.length && (chip === 'todos' || (chip === 'atraso' && g.atr) || (chip === 'risco' && g.risco) || (chip === 'dia' && !g.atr)))
     .sort((a, b) => (b.atr ? 1 : 0) - (a.atr ? 1 : 0) || a.nome.localeCompare(b.nome, 'pt-BR'));
-  if (grupos.length === 1 && !E.pc.grupo) E.pc.grupo = grupos[0].id;
+  if (grupos.length === 1 && !E.pc.grupo && !E.pc.fechado) E.pc.grupo = grupos[0].id;   // Backup 79: um grupo só abre sozinho, mas fecha se você clicar
   let html = '';
   grupos.forEach((g) => {
     const ab = E.pc.grupo === g.id, n = chip === 'concluidos' ? g.conc.length : g.vivos.length, pc = g.tot ? Math.round(g.pg / g.tot * 100) : 100;
@@ -9603,13 +9677,13 @@ function desenharGruposPc() {
     if (ab) html += '<div class="b-cg-det" id="pc-det-grupo"></div>';
   });
   el.innerHTML = html || '<div class="b-quadro b-cg-det">' + vazioB({ icone: 'ok', titulo: 'Nenhum grupo neste recorte', frase: 'Troque a escolha acima (Todos, Com atraso, Risco de rescisão, Em dia, Concluídos).' }) + '</div>';
-  el.onclick = (ev) => { const c = ev.target.closest('[data-pc-g]'); if (!c) return; E.pc.grupo = E.pc.grupo === c.dataset.pcG ? '' : c.dataset.pcG; desenharGruposPc(); };
+  el.onclick = (ev) => { const c = ev.target.closest('[data-pc-g]'); if (!c) return; E.pc.fechado = E.pc.grupo === c.dataset.pcG; E.pc.grupo = E.pc.fechado ? '' : c.dataset.pcG; desenharGruposPc(); };
   const det = $('pc-det-grupo'), g = grupos.find((x) => x.id === E.pc.grupo);
   if (!det || !g) return;
   const lista = chip === 'concluidos' ? g.conc : g.vivos;
   tabelaB(det, { id: 'pc-grupo', titulo: g.nome, linhas: lista, unidade: ['parcelamento', 'parcelamentos'], chave: ([pa]) => pa.id, ord: { k: 'emp', dir: 1 },
     busca: ([pa]) => pa.empresa + ' ' + pa.numero + ' ' + pa.natureza, valor: ([, r]) => r.falta,
-    colunas: [{ k: 'emp', rot: 'Empresa', html: ([pa]) => empresaB(pa.empresa, pa.cnpj), ord: ([pa]) => normalizar(pa.empresa) },
+    colunas: [{ k: 'emp', rot: 'Empresa', html: ([pa]) => empresaB(pa.empresa), ord: ([pa]) => normalizar(pa.empresa) },
       { k: 'pa', rot: 'Parcelamento', html: ([pa]) => celParcelamento(pa), ord: ([pa]) => normalizar((pa.natureza || '') + ' ' + (pa.local || '')) },
       { k: 'pg', rot: 'Pagas', html: ([pa, r]) => '<div class="b-prog"><div class="b-barra"><span style="width:' + r.pc + '%"></span></div><span><b class="b-verde">' + pa.pagas + '</b> de ' + pa.tot + '</span></div>', ord: ([, r]) => r.pc },
       { k: 'falta', rot: 'Falta pagar', cls: 'b-dir b-val', soma: true, html: ([, r]) => brl(r.falta), ord: ([, r]) => r.falta },
@@ -9809,6 +9883,7 @@ const vencidaA = (x) => (!x.pago && x.venc && x.venc <= hojeISO() ? ' b-tr-venc'
 // ═════════ TELA ═════════
 TELAS.acordos = async function () {
   E.ac = E.ac || { grupo: '', chip: 'todos' };
+  E.ac.f = E.ac.f || { grupo: '', emp: '' };
   const el0 = $('conteudo');
   const T = await dadosAcordos();
   if (!el0.isConnected) return;
@@ -9818,14 +9893,18 @@ TELAS.acordos = async function () {
 TELAS.acordos.semCadastros = true;
 function pintarAcordos() {
   const el = $('conteudo'); if (!el) return;
-  const T = E.ac.T || [], A = E.ac.A || [], h = hojeISO(), podeEd = pode('juridico', 'editar');
+  const T0 = E.ac.T || [], F = E.ac.f || {}, T = T0.filter((x) => (!F.grupo || x.grupo === F.grupo) && (!F.emp || x.devedor === F.emp)), h = hojeISO(), podeEd = pode('juridico', 'editar');
+  E.ac.Af = acordosDe(T);
   el.innerHTML = cabecalhoTela({ icone: 'documento', titulo: 'Acordos', frase: 'Dívidas dos clientes com terceiros (não entram no Financeiro)', atualizar: 'ac-atualizar', botao: podeEd ? { id: 'ac-novo', rotulo: 'Novo acordo' } : null }) +
+    filtroSusB('ac-filtro', [{ k: 'grupo', rot: 'Grupo', todos: 'Todos os grupos', opcoes: unicosTxt(T0.map((x) => x.grupo)), v: F.grupo },   // Backup 79
+      { k: 'emp', rot: 'Devedor', todos: 'Todos os devedores', opcoes: unicosTxt(T0.filter((x) => !F.grupo || x.grupo === F.grupo).map((x) => x.devedor)), v: F.emp }]) +
     '<div class="b-sec"><div><h2>Situação dos acordos por cliente</h2><p>Quanto cada grupo já pagou, quanto falta e o que vence este mês.</p></div><div class="b-chips" id="ac-chips">' +
     [['todos', 'Todos'], ['atraso', 'Com atraso'], ['risco', 'Risco de rescisão'], ['dia', 'Em dia'], ['concluidos', 'Concluídos']].map((c) => '<button type="button" class="b-chip" data-ac-chip="' + c[0] + '" aria-pressed="' + (E.ac.chip === c[0]) + '">' + c[1] + '</button>').join('') + '</div></div>' +
     '<div class="b-cards" id="ac-grupos"></div><div class="b-sec"><div><h2>Parcelas</h2></div></div><div id="ac-tabela"></div>';
   const bt = $('ac-novo'); if (bt) bt.onclick = () => { if (typeof formAcordoNovo === 'function') formAcordoNovo(() => { if (window.ERP_RECARREGAR) window.ERP_RECARREGAR(); else TELAS.acordos(); }); };
   $('ac-atualizar').onclick = () => { if (window.ERP_RECARREGAR_MODULOS) window.ERP_RECARREGAR_MODULOS('acordos').then(() => TELAS.acordos()); else TELAS.acordos(); };
   // Backup 71: os 4 cartões do topo saíram a pedido (a tela começa na situação por cliente)
+  ligarFiltroSusB('ac-filtro', E.ac.f, () => { E.ac.grupo = ''; E.ac.fechado = false; pintarAcordos(); });
   desenharGruposAc();
   $('ac-chips').onclick = (ev) => { const b = ev.target.closest('[data-ac-chip]'); if (!b) return; E.ac.chip = b.dataset.acChip; $('ac-chips').querySelectorAll('.b-chip').forEach((x) => x.setAttribute('aria-pressed', x === b)); desenharGruposAc(); };
   const uniq = (f) => [...new Set(T.map(f).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR')).map((v) => [v, v]);
@@ -9842,7 +9921,7 @@ function pintarAcordos() {
 function desenharGruposAc() {
   const el = $('ac-grupos'); if (!el) return;
   const G = {};
-  (E.ac.A || []).forEach((a) => { const k = a.grupo || a.devedor; (G[k] = G[k] || { id: k, nome: k, itens: [] }).itens.push(a); });
+  (E.ac.Af || E.ac.A || []).forEach((a) => { const k = a.grupo || a.devedor; (G[k] = G[k] || { id: k, nome: k, itens: [] }).itens.push(a); });
   const chip = E.ac.chip, grupos = Object.values(G).map((g) => {
     const vivos = g.itens.filter((a) => !a.concluido), conc = g.itens.filter((a) => a.concluido);
     const s = (f) => vivos.reduce((t, a) => t + f(a), 0);
@@ -9850,7 +9929,7 @@ function desenharGruposAc() {
       parcMes: s((a) => a.doMes.reduce((t, x) => t + x.valor, 0)), nParcMes: s((a) => a.doMes.length), nMes: s((a) => a.mes.length), somaMes: s((a) => a.mes.reduce((t, x) => t + x.valor, 0)) });
   }).filter((g) => chip === 'concluidos' ? g.conc.length : g.vivos.length && (chip === 'todos' || (chip === 'atraso' && g.atr) || (chip === 'risco' && g.risco) || (chip === 'dia' && !g.atr)))
     .sort((a, b) => (b.atr ? 1 : 0) - (a.atr ? 1 : 0) || a.nome.localeCompare(b.nome, 'pt-BR'));
-  if (grupos.length === 1 && !E.ac.grupo) E.ac.grupo = grupos[0].id;
+  if (grupos.length === 1 && !E.ac.grupo && !E.ac.fechado) E.ac.grupo = grupos[0].id;   // Backup 79: fecha se você clicar
   let html = '';
   grupos.forEach((g) => {
     const ab = E.ac.grupo === g.id, n = chip === 'concluidos' ? g.conc.length : g.vivos.length, pc = g.tot ? Math.round(g.pg / g.tot * 100) : 100;
@@ -9863,7 +9942,7 @@ function desenharGruposAc() {
     if (ab) html += '<div class="b-cg-det" id="ac-det-grupo"></div>';
   });
   el.innerHTML = html || '<div class="b-quadro b-cg-det">' + vazioB({ icone: 'ok', titulo: 'Nenhum grupo neste recorte', frase: 'Troque a escolha acima (Todos, Com atraso, Risco de rescisão, Em dia, Concluídos).' }) + '</div>';
-  el.onclick = (ev) => { const c = ev.target.closest('[data-ac-g]'); if (!c) return; E.ac.grupo = E.ac.grupo === c.dataset.acG ? '' : c.dataset.acG; desenharGruposAc(); };
+  el.onclick = (ev) => { const c = ev.target.closest('[data-ac-g]'); if (!c) return; E.ac.fechado = E.ac.grupo === c.dataset.acG; E.ac.grupo = E.ac.fechado ? '' : c.dataset.acG; desenharGruposAc(); };
   const det = $('ac-det-grupo'), g = grupos.find((x) => x.id === E.ac.grupo);
   if (!det || !g) return;
   tabelaB(det, { id: 'ac-grupo', titulo: g.nome, linhas: chip === 'concluidos' ? g.conc : g.vivos, unidade: ['acordo', 'acordos'], chave: (a) => a.k, ord: { k: 'dev', dir: 1 },
@@ -10092,12 +10171,17 @@ TELAS.processosERP = async function () {
   const D = dbE(), c = $('conteudo');
   if (!Array.isArray(D.processos)) { c.innerHTML = vazioB({ icone: 'documento', titulo: 'Abra pelo ERP', frase: 'A lista de processos usa os dados que o ERP carrega.' }); return; }
   E.prRes = E.prRes || { aberto: false };
-  const L = D.processos, P = L.filter((p) => p.carteira !== 'Prospecção');
+  E.prF = E.prF || { grupo: '', comp: '' };
+  // Backup 79: filtro suspenso (Grupo / Competência) — recorta o Resumo da carteira e a lista
+  const F = E.prF, L0 = D.processos, L = L0.filter((p) => (!F.grupo || p.grupo === F.grupo) && (!F.comp || p.competencia === F.comp)), P = L.filter((p) => p.carteira !== 'Prospecção');
   const podeEd = pode('juridico', 'editar');
   c.innerHTML = cabecalhoTela({ icone: 'documento', titulo: 'Processos', frase: 'Carteira judicial dos clientes: andamento, valores e movimentações.', botao: podeEd ? { id: 'pr-novo', rotulo: 'Processo' } : null }) +
+    filtroSusB('pr-filtro', [{ k: 'grupo', rot: 'Grupo', todos: 'Todos os grupos', opcoes: unicosTxt(L0.map((p) => p.grupo)), v: F.grupo },
+      { k: 'comp', rot: 'Competência', todos: 'Todas as competências', opcoes: unicosTxt(L0.filter((p) => !F.grupo || p.grupo === F.grupo).map((p) => p.competencia)), v: F.comp }]) +
     '<section class="b-fin-cartao b-pr-res' + (E.prRes.aberto ? ' b-aberto' : '') + '" id="pr-res"><button type="button" class="b-pr-res-hd" id="pr-res-bt" aria-expanded="' + E.prRes.aberto + '"><span class="b-seta" aria-hidden="true">▸</span><h3>Resumo da carteira</h3><span class="b-sub">' +
-      'clique para ver os números da carteira</span></button><div id="pr-res-corpo"' + (E.prRes.aberto ? '' : ' hidden') + '>' + resumoCarteira(L) + '</div></section>' +
+      (F.grupo || F.comp ? esc([F.grupo, F.comp].filter(Boolean).join(' · ')) : 'toda a carteira') + '</span></button><div id="pr-res-corpo"' + (E.prRes.aberto ? '' : ' hidden') + '>' + resumoCarteira(L) + '</div></section>' +
     '<div id="pr-nova"></div>';
+  ligarFiltroSusB('pr-filtro', E.prF, () => TELAS.processosERP());
   $('pr-res-bt').onclick = () => { E.prRes.aberto = !E.prRes.aberto; $('pr-res').classList.toggle('b-aberto', E.prRes.aberto); $('pr-res-bt').setAttribute('aria-expanded', String(E.prRes.aberto)); $('pr-res-corpo').hidden = !E.prRes.aberto; };
   if ($('pr-novo')) $('pr-novo').onclick = () => window.ERP_EDITOR && window.ERP_EDITOR.abrirFormulario('processos', null, { carteira: 'Ativo', status: 'Em andamento' });
   const sit = (p) => (p.arquivamento === 'Arquivado' ? 'arq' : p.arquivamento ? 'ext' : 'at');

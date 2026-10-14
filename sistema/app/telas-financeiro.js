@@ -242,7 +242,7 @@ function analiseFin(empresa, corpo) {
     (pessoas.length > 1 ? '<div class="b-fin-lin"><span class="b-fin-rot">Quem fez</span><button type="button" class="b-chip" data-fa-quem="" aria-pressed="' + !an.quem.length + '">Todos</button>' +
       pessoas.map((p) => '<button type="button" class="b-chip" data-fa-quem="' + esc(p) + '" aria-pressed="' + an.quem.includes(p) + '">' + esc(p) + '</button>').join('') + '</div>' : '') +
     '<div class="b-fin-lin"><span class="b-fin-rot">Período</span>' + PERIODOS_FIN.map((p) => '<button type="button" class="b-chip" data-fa-per="' + p[0] + '" aria-pressed="' + (!an.de && !an.ate && an.preset === p[0]) + '">' + p[1] + '</button>').join('') +
-      '<span class="b-fx"><input type="date" id="fa-de" value="' + esc(an.de) + '" aria-label="De"><span>até</span><input type="date" id="fa-ate" value="' + esc(an.ate) + '" aria-label="Até"><button type="button" class="b-bt-f" id="fa-aplicar">Aplicar</button></span></div>' +
+      '<span class="b-fx"><span>de</span>' + campoDataB('id="fa-de"', an.de, 'De') + '<span>até</span>' + campoDataB('id="fa-ate"', an.ate, 'Até') + '<button type="button" class="b-bt-f" id="fa-aplicar">Aplicar</button><small class="b-fx-aviso" id="fa-aviso"></small></span></div>' +
     '<div class="b-fin-lin"><span class="b-fin-rot">Recorte</span><select id="fa-tipo" aria-label="Tipo"><option value="">Todos os tipos</option>' + tipos.map((t) => '<option' + (an.tipo === t ? ' selected' : '') + '>' + esc(t) + '</option>').join('') + '</select>' +
       (grupos.length > 1 ? '<select id="fa-grupo" aria-label="Grupo"><option value="">Todos os grupos</option>' + grupos.map((g) => '<option' + (an.grupo === g ? ' selected' : '') + '>' + esc(g) + '</option>').join('') + '</select>' : '') + '</div>' +
     '<p class="b-fin-mostra">Mostrando <b>' + esc(an.quem.length ? an.quem.join(', ') : 'todos') + '</b> · <b>' + (jan ? dataBR(jan[0]) + ' a ' + dataBR(jan[1]) : 'todo o período') + '</b>' + (an.tipo ? ' · <b>' + esc(an.tipo) + '</b>' : '') + (an.grupo ? ' · <b>' + esc(an.grupo) + '</b>' : '') +
@@ -279,7 +279,7 @@ function analiseFin(empresa, corpo) {
       linhas.map((l) => '<tr><td>' + pillPessoa(l.p) + '</td>' + td(brl(l.rec), 'b-verde-v') + td((tot ? Math.round(l.rec / tot * 100) : 0) + '%') + '<td class="b-cen">' + l.n + '</td>' + td(l.n ? brl(l.rec / l.n) : '—') + td(l.ar ? brl(l.ar) : '—') + td(l.pj ? brl(l.pj) : '—') + '</tr>').join('') +
       '</tbody><tfoot><tr><td>Total</td>' + td(brl(tot)) + td(tot ? '100%' : '—') + '<td class="b-cen">' + linhas.reduce((s, l) => s + l.n, 0) + '</td><td></td>' + td(brl(linhas.reduce((s, l) => s + l.ar, 0))) + td(brl(linhas.reduce((s, l) => s + l.pj, 0))) + '</tr></tfoot></table></div>' : '<div class="b-barras-vazio">Nada no período.</div>');
   }
-  corpo.innerHTML = fil + numsFaixa(nums) + graf + comp +
+  corpo.innerHTML = fil + numsFaixa(nums) + fluxoDoMes(empresa) + graf + comp + resultadoMeses(meses, receita, pagos, contab) +
     '<div class="b-fin-dois">' + cartaoFin(contab ? 'Recebido por tipo de serviço' : 'Por tipo de serviço', '', barrasFin(somaPor(receita, (l) => l.servico))) +
       cartaoFin('Maiores grupos', '', barrasFin(somaPor(receita, (l) => l.grupos && l.grupos.nome))) + '</div>' +
     (contab ? cartaoFin('Despesas por categoria', 'Pago no período, por categoria.', barrasFin(somaPor(pagos, (l) => l.categoria))) : '');
@@ -289,10 +289,46 @@ function analiseFin(empresa, corpo) {
     const qb = ev.target.closest('[data-fa-quem]'), pb = ev.target.closest('[data-fa-per]');
     if (qb) { const p = qb.dataset.faQuem; if (!p) an.quem = []; else an.quem = an.quem.includes(p) ? an.quem.filter((x) => x !== p) : an.quem.concat(p); return analiseFin(empresa, corpo); }
     if (pb) { an.preset = pb.dataset.faPer; an.de = an.ate = ''; return analiseFin(empresa, corpo); }
-    if (ev.target.id === 'fa-aplicar') { an.de = fl.querySelector('#fa-de').value; an.ate = fl.querySelector('#fa-ate').value; if (an.de && an.ate && an.de > an.ate) { const t = an.de; an.de = an.ate; an.ate = t; } return analiseFin(empresa, corpo); }
+    if (ev.target.id === 'fa-aplicar') {
+      // Backup 79: datas digitadas dd/mm/aaaa — só aplica com as duas preenchidas; invertidas trocam sozinhas; 31/11 vira 30/11
+      const de = isoDeDataBR(formatarDataBR(fl.querySelector('#fa-de').value)), ate = isoDeDataBR(formatarDataBR(fl.querySelector('#fa-ate').value));
+      if (!de || !ate) { fl.querySelector('#fa-aviso').textContent = 'Preencha as duas datas (dd/mm/aaaa).'; return; }
+      an.de = de < ate ? de : ate; an.ate = de < ate ? ate : de; return analiseFin(empresa, corpo); }
   };
   fl.onchange = (ev) => { if (ev.target.id === 'fa-tipo') { an.tipo = ev.target.value; analiseFin(empresa, corpo); } else if (ev.target.id === 'fa-grupo') { an.grupo = ev.target.value; analiseFin(empresa, corpo); } };
+  const fx = corpo.querySelector('#fa-fluxo');
+  if (fx) fx.onclick = (ev) => { const b = ev.target.closest('[data-fm]'); if (!b) return; an.fluxoMes = somarMesB(an.fluxoMes || hojeISO().slice(0, 7), Number(b.dataset.fm)); analiseFin(empresa, corpo); };
   fl.onkeydown = (ev) => { if (ev.key === 'Enter' && (ev.target.id === 'fa-de' || ev.target.id === 'fa-ate')) fl.querySelector('#fa-aplicar').click(); };
+}
+
+// ── Backup 79: FLUXO DO MÊS — o que estava previsto para entrar no mês e como está: recebido, em atraso (só deste mês) e a receber.
+// Base = honorários (receitas) com VENCIMENTO no mês; o atraso dos meses anteriores e o que entrou neste mês de outros meses aparecem à parte.
+const somarMesB = (k, n) => { const [a, m] = k.split('-').map(Number), d = new Date(a, m - 1 + n, 1); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
+function fluxoDoMes(empresa) {
+  const F = estadoFin(empresa), an = F.an, k = an.fluxoMes || hojeISO().slice(0, 7), h = hojeISO(), ini = k + '-01';
+  const rec = filtrarFin(empresa, ['recebido', 'areceber'], true);
+  const doMes = rec.filter((l) => String(l.vencimento || '').startsWith(k));
+  const recebido = somaV(doMes.filter((l) => l._c === 'recebido')), atraso = somaV(doMes.filter((l) => l._c === 'areceber' && l.vencimento < h)),
+    aReceber = somaV(doMes.filter((l) => l._c === 'areceber' && l.vencimento >= h)), previsto = recebido + atraso + aReceber;
+  const atrasoAntes = somaV(rec.filter((l) => l._c === 'areceber' && l.vencimento && l.vencimento < ini));
+  const deOutros = somaV(rec.filter((l) => l._c === 'recebido' && String(l.data_pagamento || '').startsWith(k) && !String(l.vencimento || '').startsWith(k)));
+  const pc = (v) => (previsto > 0 ? Math.max(0, v / previsto * 100) : 0);
+  return '<section class="b-fin-cartao b-fluxo" id="fa-fluxo"><div class="b-fin-hd b-fluxo-hd"><div><h3>Fluxo do mês</h3><p>Honorários com vencimento no mês: quanto estava previsto e como está.</p></div>' +
+    '<div class="b-fluxo-nav"><button type="button" class="b-bt-f" data-fm="-1" aria-label="Mês anterior">‹</button><b>' + esc(rotMesB(k)) + '</b><button type="button" class="b-bt-f" data-fm="1" aria-label="Próximo mês">›</button></div></div>' +
+    numsFaixa([['Previsto no mês', brl(previsto), 'tudo o que vence no mês'], ['Recebido', brl(recebido), previsto ? Math.round(pc(recebido)) + '% do previsto' : '', 'b-verde'],
+      ['Em atraso (deste mês)', brl(atraso), 'venceu e não entrou', atraso ? 'b-verm' : ''], ['A receber', brl(aReceber), 'ainda vai vencer']]) +
+    '<div class="b-fluxo-barra" role="img" aria-label="Recebido ' + brl(recebido) + ', em atraso ' + brl(atraso) + ', a receber ' + brl(aReceber) + '">' +
+      '<span class="b-fx-rec" style="width:' + pc(recebido) + '%" title="Recebido ' + esc(brl(recebido)) + '"></span><span class="b-fx-atr" style="width:' + pc(atraso) + '%" title="Em atraso ' + esc(brl(atraso)) + '"></span><span class="b-fx-arec" style="width:' + pc(aReceber) + '%" title="A receber ' + esc(brl(aReceber)) + '"></span></div>' +
+    '<p class="b-fluxo-fora">Fora deste mês: <b>' + brl(atrasoAntes) + '</b> em atraso de meses anteriores · <b>' + brl(deOutros) + '</b> recebidos neste mês de vencimentos de outros meses.</p></section>';
+}
+// ── Backup 79: RESULTADO DO MÊS (como no ambiente de teste): entradas, saídas e resultado de cada mês do período ──
+function resultadoMeses(meses, receita, pagos, contab) {
+  if (!contab && !pagos.length) return '';
+  const linhas = meses.map((k) => { const e = somaV(receita.filter((l) => dataLanc(l).startsWith(k))), sd = somaV(pagos.filter((l) => dataLanc(l).startsWith(k))); return { k, e, sd, r: e - sd }; });
+  const t = linhas.reduce((a, l) => ({ e: a.e + l.e, sd: a.sd + l.sd, r: a.r + l.r }), { e: 0, sd: 0, r: 0 });
+  return cartaoFin('Resultado do mês', 'Entradas − saídas', '<div class="b-rola b-rola-solta" data-sem-pagina><table class="b-tab b-tab-res"><thead><tr><th>Mês</th><th class="b-dir">Entradas</th><th class="b-dir">Saídas</th><th class="b-dir">Resultado</th></tr></thead><tbody>' +
+    linhas.slice().reverse().map((l) => '<tr><td>' + esc(rotMesB(l.k)) + '</td><td class="b-dir b-verde-v">' + brl(l.e) + '</td><td class="b-dir b-verm-v">' + brl(l.sd) + '</td><td class="b-dir"><b class="' + (l.r < 0 ? 'b-verm' : '') + '">' + brl(l.r) + '</b></td></tr>').join('') +
+    '</tbody><tfoot><tr><td>Total</td><td class="b-dir">' + brl(t.e) + '</td><td class="b-dir">' + brl(t.sd) + '</td><td class="b-dir">' + brl(t.r) + '</td></tr></tfoot></table></div>');
 }
 
 // ───────────────────────────── Caixa (Contabilidade) ─────────────────────────────

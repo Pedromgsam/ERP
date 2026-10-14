@@ -560,6 +560,19 @@ Object.assign(ICONES_B, { admin: '<circle cx="12" cy="12" r="3"/><path d="M19.4 
 Object.assign(ICONES_B, { financeiro: '<rect x="2.5" y="5.5" width="19" height="13" rx="2"/><path d="M2.5 10h19M6.5 15h4"/>',
   recibo: '<path d="M6 2.5h12v19l-3-2-3 2-3-2-3 2z"/><path d="M9 7.5h6M9 11h6M9 14.5h4"/>', enviar: '<path d="m21.5 2.5-19 7 8 3 3 8z"/><path d="m10.5 12.5 11-10"/>' });
 // Backup 74: faixa de números (a mesma do Painel, da Análise do Financeiro e da ficha do cliente): [[rótulo, valor, sub, classe b-verde|b-verm]]
+// Backup 79: FILTRO SUSPENSO no alto das telas refeitas (Grupo, Empresa…). campos: [{k, rot, todos, opcoes:[texto], v}].
+// A tela guarda o valor em E.<tela>.f e, ao trocar, redesenha tudo (resumo/cartões e a tabela) com o recorte.
+function filtroSusB(id, campos) {
+  return '<div class="b-fsus" id="' + id + '">' + campos.map((c) => '<label class="b-fsus-c"><span>' + esc(c.rot) + '</span><select data-fsus="' + c.k + '" aria-label="' + esc(c.rot) + '"><option value="">' + esc(c.todos) + '</option>' +
+    c.opcoes.map((o) => '<option' + (o === c.v ? ' selected' : '') + '>' + esc(o) + '</option>').join('') + '</select></label>').join('') +
+    (campos.some((c) => c.v) ? '<button type="button" class="b-fsus-limpar" data-fsus-limpar>Limpar filtro</button>' : '') + '</div>';
+}
+function ligarFiltroSusB(id, estado, depois) {
+  const el = $(id); if (!el) return;
+  el.onchange = (ev) => { const s = ev.target.closest('[data-fsus]'); if (!s) return; estado[s.dataset.fsus] = s.value; if (s.dataset.fsus === 'grupo' && 'emp' in estado) estado.emp = ''; depois(); };
+  el.onclick = (ev) => { if (!ev.target.closest('[data-fsus-limpar]')) return; Object.keys(estado).forEach((k) => { estado[k] = ''; }); depois(); };
+}
+const unicosTxt = (L) => [...new Set(L.filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b), 'pt-BR'));
 function numsFaixa(itens) {
   return '<div class="b-nums b-nums-faixa b-nums-' + itens.length + '">' + itens.map((i) => '<div><span>' + esc(i[0]) + '</span><b class="' + (i[3] || '') + '">' + i[1] + '</b>' + (i[2] ? '<small>' + esc(i[2]) + '</small>' : '') + '</div>').join('') + '</div>';
 }
@@ -589,7 +602,7 @@ function tabelaB(el, cfg) {
       '<button type="button" class="b-ic-bt" data-bt="dens" aria-pressed="' + compacto() + '" title="Tabela compacta (mais linhas na tela)" aria-label="Tabela compacta">' + iconeB('compacto') + '</button></span></div>' +
       (temPainel ? '<div class="b-mais-filtros" data-bt="pn"' + (st.painel ? '' : ' hidden') + '>' +
         (cfg.listas || []).map((l) => '<select data-bt="l" data-k="' + esc(l.k) + '" aria-label="' + esc(l.rot) + '"><option value="">' + esc(l.todos) + '</option>' + l.opcoes.map((o) => '<option value="' + esc(o[0]) + '"' + (st.listas[l.k] === String(o[0]) ? ' selected' : '') + '>' + esc(o[1]) + '</option>').join('') + '</select>').join('') +
-        (cfg.venc ? '<div class="b-fx"><span>Vencimento</span><input type="date" data-bt="vde" aria-label="Vencimento de" value="' + st.vde + '"><span>até</span><input type="date" data-bt="vate" aria-label="Vencimento até" value="' + st.vate + '"></div>' : '') +
+        (cfg.venc ? '<div class="b-fx"><span>Vencimento</span>' + campoDataB('data-bt="vde"', st.vde, 'Vencimento de') + '<span>até</span>' + campoDataB('data-bt="vate"', st.vate, 'Vencimento até') + '</div>' : '') +
         (cfg.valor ? '<div class="b-fx"><span>Valor (R$)</span><input inputmode="decimal" data-mascara="nenhuma" data-bt="min" placeholder="de" aria-label="Valor mínimo" value="' + esc(st.min) + '"><span>até</span><input inputmode="decimal" data-mascara="nenhuma" data-bt="max" placeholder="até" aria-label="Valor máximo" value="' + esc(st.max) + '"></div>' : '') +
         '<button type="button" class="b-link" data-bt="limpar">Limpar filtros</button></div>' : '') +
       '<div data-bt="quadro"></div>';
@@ -660,7 +673,7 @@ function tabelaB(el, cfg) {
     const b = Q('[data-bt=prazos]'); if (!b) return;
     b.hidden = !prazoNaAba();
     b.innerHTML = [['', 'Todas'], ['venc', 'Vencidas'], ['5', '5 dias'], ['10', '10 dias'], ['15', '15 dias'], ['30', '30 dias']].map((o) => '<button type="button" class="b-chip" data-b-prazo="' + o[0] + '" aria-pressed="' + (st.prazo === o[0]) + '">' + o[1] + '</button>').join('') +
-      '<label class="b-prazo-ate' + (st.prazo === 'ate' ? ' b-on' : '') + '" title="Vencimento até esta data">até <input type="date" data-bt="prazoate" value="' + esc(st.prazoAte) + '" aria-label="Vencimento até"></label>';
+      '<label class="b-prazo-ate' + (st.prazo === 'ate' ? ' b-on' : '') + '" title="Vencimento até esta data">até ' + campoDataB('data-bt="prazoate"', st.prazoAte, 'Vencimento até') + '</label>';
   }
   function conta() { const c = Q('[data-bt=conta]'); if (!c || !cfg.conta) return; c.textContent = '· ' + cfg.conta(filtrar().length, st.aba); }
   const tudo = () => { abas(); prazos(); quadro(); contarFx(); conta(); };
@@ -671,8 +684,13 @@ function tabelaB(el, cfg) {
     el.addEventListener('input', (ev) => {
       const c2 = el._cfgB, s2 = E.tabB[c2.id], t = ev.target.dataset.bt;
       if (t === 'q') s2.q = ev.target.value; else if (t === 'l') s2.listas[ev.target.dataset.k] = ev.target.value;
-      else if (['vde', 'vate', 'min', 'max'].includes(t)) s2[t] = ev.target.value;
-      else if (t === 'prazoate') { s2.prazoAte = ev.target.value; s2.prazo = ev.target.value ? 'ate' : ''; } else return;
+      else if (['min', 'max'].includes(t)) s2[t] = ev.target.value;
+      else if (['vde', 'vate', 'prazoate'].includes(t)) {
+        // data digitada: só filtra quando a data está completa (ou o campo ficou vazio) — nada roda no meio da digitação
+        const v = formatarDataBR(ev.target.value), i = isoDeDataBR(v); if (v && !i) return;
+        if (t === 'prazoate') { s2.prazoAte = i; s2.prazo = i ? 'ate' : ''; } else s2[t] = i;
+        if (i && dataBR(i) !== v) ev.target.value = dataBR(i);
+      } else return;
       el._redesenharB();
     });
     el.addEventListener('click', (ev) => {
@@ -768,6 +786,16 @@ function tipoMascara(el) {
   if (/(^|_)telefone$|^whatsapp$/.test(n) || el.type === 'tel') return 'tel';
   return '';
 }
+// Backup 79: data digitada "dd/mm/aaaa" (no lugar do calendário do navegador, que aparece como mm/dd/yyyy em alguns computadores)
+function formatarDataBR(txt) { const d = String(txt || '').replace(/\D/g, '').slice(0, 8); return d.length > 4 ? d.slice(0, 2) + '/' + d.slice(2, 4) + '/' + d.slice(4) : d.length > 2 ? d.slice(0, 2) + '/' + d.slice(2) : d; }
+// "31/11/2025" → "2025-11-30" (dia acima do fim do mês vira o último dia); incompleta ou inválida → ''
+function isoDeDataBR(txt) {
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(txt || '').trim()); if (!m) return '';
+  const a = +m[3], me = +m[2]; if (me < 1 || me > 12 || a < 1900) return '';
+  const ult = new Date(a, me, 0).getDate(), d = Math.min(Math.max(+m[1], 1), ult);
+  return a + '-' + String(me).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+}
+function campoDataB(attrs, iso, rotulo) { return '<input type="text" inputmode="numeric" data-mascara="data" placeholder="dd/mm/aaaa" maxlength="10" class="b-data-br" ' + attrs + ' aria-label="' + esc(rotulo || 'Data') + '" value="' + (iso ? dataBR(iso) : '') + '">'; }
 function formatarBRL(txt, final) {
   const jaMascarado = /R\$/.test(String(txt || ''));
   let s = String(txt || '').replace(/R\$|\s/g, ''); if (!s) return '';
@@ -799,7 +827,7 @@ function aplicarMascara(el, final) {
   const antes = el.value, fim = el.selectionStart === antes.length;
   const pos = el.selectionStart == null ? antes.length : el.selectionStart;
   const sig = (s, p) => s.slice(0, p).replace(t === 'brl' ? /[^\d,-]/g : /\D/g, '').length;   // dígitos antes do cursor
-  const novo = t === 'brl' ? formatarBRL(antes, final) : formatarTel(antes);
+  const novo = t === 'brl' ? formatarBRL(antes, final) : t === 'data' ? formatarDataBR(antes) : formatarTel(antes);
   if (novo === antes) return;
   el.value = novo;
   if (document.activeElement === el && !final) {

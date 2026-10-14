@@ -598,3 +598,12 @@ tr.tr-alt td{background:var(--amber-lt)}
 .pt-tile:hover{border-color:var(--primario)}
 .pt-tile b{font-size:14px;color:var(--ink)}.pt-tile span{font-size:12.5px;color:var(--text3)}
 @media (max-width:760px){.pt-tiles{grid-template-columns:minmax(0,1fr)}}
+.tab td > small{display:block}
+.pub-id{display:flex;flex-direction:column;gap:2px;background:var(--surface2);border:1px solid var(--line);border-left:3px solid var(--primario);border-radius:8px;padding:8px 12px;font-size:12.5px;color:var(--text2)}
+.pub-id b{color:var(--ink);font-weight:600}.pub-id .pub-adv{color:var(--text3)}
+.fa-datas{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap}
+.in-data{width:110px;font-variant-numeric:tabular-nums}
+.fm-mes{font-size:13px;color:var(--ink);min-width:110px;text-align:center;text-transform:capitalize}
+.fm-barra{display:flex;height:12px;border-radius:999px;overflow:hidden;background:var(--gray-lt);border:1px solid var(--line)}
+.fm-barra span{display:block;height:100%}.fm-rec{background:var(--green)}.fm-atr{background:var(--red)}.fm-arec{background:var(--blue)}
+.pt-vis-rot{margin-left:12px;font-size:12.5px;color:var(--text3)}

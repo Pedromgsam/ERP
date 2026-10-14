@@ -9,7 +9,7 @@
 
   function gerar(){
     semente = 7;
-    var D = { versao: 4 };
+    var D = { versao: 5 };
     D.equipe = [
       { id:'pedro', nome:'Pedro Castro', curto:'Pedro', cargo:'Administrador', email:'pedro@escritorio.teste' },
       { id:'emanuelle', nome:'Emanuelle Araújo', curto:'Emanuelle', cargo:'Sócia', email:'emanuelle@escritorio.teste' },
@@ -132,10 +132,10 @@
 
     // ── publicações (DJEN)
     D.publicacoes = [
-      { id:'pb1', data:dt(2026,10,9), tribunal:'TRT3', processo:'5009911-44.2025.5.03.0105', txt:'Intimação: manifestar sobre o laudo pericial no prazo de 5 dias.', adv:'pedro', lida:false },
-      { id:'pb2', data:dt(2026,10,8), tribunal:'TJMG', processo:'5000001-11.2024.8.13.0024', txt:'Despacho: vista ao executado sobre a avaliação do bem penhorado.', adv:'pedro', lida:false },
-      { id:'pb3', data:dt(2026,10,6), tribunal:'TRF1', processo:'1011223-55.2024.4.01.3800', txt:'Sentença: julgo procedente o pedido para anular o débito fiscal.', adv:'emanuelle', lida:true },
-      { id:'pb4', data:dt(2026,10,2), tribunal:'TJMG', processo:'5002266-55.2026.8.13.0702', txt:'Audiência de conciliação designada para 28/10/2026, 14h.', adv:'adriana', lida:false }
+      { id:'pb1', data:dt(2026,10,9), tribunal:'TRT3', processo:'5009911-44.2025.5.03.0105', txt:'Intimação: manifestar sobre o laudo pericial no prazo de 5 dias.', autor:'Marcos Vinícius Teixeira', advAutor:'Juliana Prado', reu:'Serra Azul Serviços Ltda', advReu:'Pedro Castro', adv:'pedro', lida:false },
+      { id:'pb2', data:dt(2026,10,8), tribunal:'TJMG', processo:'5000001-11.2024.8.13.0024', txt:'Despacho: vista ao executado sobre a avaliação do bem penhorado.', autor:'Vale Verde Indústria de Embalagens S.A.', advAutor:'Pedro Castro', reu:'Transportes Rápido Ltda', advReu:'Carlos Mendes', adv:'pedro', lida:false },
+      { id:'pb3', data:dt(2026,10,6), tribunal:'TRF1', processo:'1011223-55.2024.4.01.3800', txt:'Sentença: julgo procedente o pedido para anular o débito fiscal.', autor:'Rio Claro Engenharia e Obras Ltda', advAutor:'Emanuelle Araújo', reu:'União (Fazenda Nacional)', advReu:'Procuradoria da Fazenda Nacional', adv:'emanuelle', lida:true },
+      { id:'pb4', data:dt(2026,10,2), tribunal:'TJMG', processo:'5002266-55.2026.8.13.0702', txt:'Audiência de conciliação designada para 28/10/2026, 14h.', autor:'Ana Paula Ferreira', advAutor:'Roberto Lima', reu:'Comercial Horizonte de Alimentos Ltda', advReu:'Adriana Souza', adv:'adriana', lida:false }
     ];
 
     // ── financeiro: lançamentos do Jurídico e da Contabilidade
@@ -260,7 +260,7 @@
     try {
       var s = localStorage.getItem(CHAVE); if (!s) return null;
       var D = JSON.parse(s, function(k, v){ return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(v) ? new Date(v) : v; });
-      return D && D.versao === 4 ? D : null;
+      return D && D.versao === 5 ? D : null;
     } catch (e) { return null; }
   }
   window.DADOS = { gerar:gerar, salvar:salvar, carregar:carregar, DIA:DIA, HOJE:HOJE, noMes:noMes, sorte:sorte,

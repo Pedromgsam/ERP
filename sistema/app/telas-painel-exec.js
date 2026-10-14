@@ -128,12 +128,17 @@ TELAS.processosERP = async function () {
   const D = dbE(), c = $('conteudo');
   if (!Array.isArray(D.processos)) { c.innerHTML = vazioB({ icone: 'documento', titulo: 'Abra pelo ERP', frase: 'A lista de processos usa os dados que o ERP carrega.' }); return; }
   E.prRes = E.prRes || { aberto: false };
-  const L = D.processos, P = L.filter((p) => p.carteira !== 'Prospecção');
+  E.prF = E.prF || { grupo: '', comp: '' };
+  // Backup 79: filtro suspenso (Grupo / Competência) — recorta o Resumo da carteira e a lista
+  const F = E.prF, L0 = D.processos, L = L0.filter((p) => (!F.grupo || p.grupo === F.grupo) && (!F.comp || p.competencia === F.comp)), P = L.filter((p) => p.carteira !== 'Prospecção');
   const podeEd = pode('juridico', 'editar');
   c.innerHTML = cabecalhoTela({ icone: 'documento', titulo: 'Processos', frase: 'Carteira judicial dos clientes: andamento, valores e movimentações.', botao: podeEd ? { id: 'pr-novo', rotulo: 'Processo' } : null }) +
+    filtroSusB('pr-filtro', [{ k: 'grupo', rot: 'Grupo', todos: 'Todos os grupos', opcoes: unicosTxt(L0.map((p) => p.grupo)), v: F.grupo },
+      { k: 'comp', rot: 'Competência', todos: 'Todas as competências', opcoes: unicosTxt(L0.filter((p) => !F.grupo || p.grupo === F.grupo).map((p) => p.competencia)), v: F.comp }]) +
     '<section class="b-fin-cartao b-pr-res' + (E.prRes.aberto ? ' b-aberto' : '') + '" id="pr-res"><button type="button" class="b-pr-res-hd" id="pr-res-bt" aria-expanded="' + E.prRes.aberto + '"><span class="b-seta" aria-hidden="true">▸</span><h3>Resumo da carteira</h3><span class="b-sub">' +
-      'clique para ver os números da carteira</span></button><div id="pr-res-corpo"' + (E.prRes.aberto ? '' : ' hidden') + '>' + resumoCarteira(L) + '</div></section>' +
+      (F.grupo || F.comp ? esc([F.grupo, F.comp].filter(Boolean).join(' · ')) : 'toda a carteira') + '</span></button><div id="pr-res-corpo"' + (E.prRes.aberto ? '' : ' hidden') + '>' + resumoCarteira(L) + '</div></section>' +
     '<div id="pr-nova"></div>';
+  ligarFiltroSusB('pr-filtro', E.prF, () => TELAS.processosERP());
   $('pr-res-bt').onclick = () => { E.prRes.aberto = !E.prRes.aberto; $('pr-res').classList.toggle('b-aberto', E.prRes.aberto); $('pr-res-bt').setAttribute('aria-expanded', String(E.prRes.aberto)); $('pr-res-corpo').hidden = !E.prRes.aberto; };
   if ($('pr-novo')) $('pr-novo').onclick = () => window.ERP_EDITOR && window.ERP_EDITOR.abrirFormulario('processos', null, { carteira: 'Ativo', status: 'Em andamento' });
   const sit = (p) => (p.arquivamento === 'Arquivado' ? 'arq' : p.arquivamento ? 'ext' : 'at');

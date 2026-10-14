@@ -18,11 +18,11 @@
   registrar('contabilidade', 'contab', 'Contabilidade');
 
   function desenhar(el, arg, emp, id, tit){
-    if (arg && arg.aba) APP.pref('fin-vista-' + emp, 'lanc');
+    if (arg && arg.aba) APP.pref('fin-vista-' + emp, 'lanc');   // Backup 79: abre na Análise; os avisos do Início vão direto aos Lançamentos
     APP.preparar('fin-' + emp, arg);
-    var vista = APP.pref('fin-vista-' + emp) || 'lanc';
+    var vista = APP.pref('fin-vista-' + emp) || 'analise';
     el.innerHTML = APP.cabecalho({ ic:'dinheiro', tit:'Financeiro · ' + tit, frase:APP.T('fin.frase'),
-      acoes:'<div class="seg"><button class="seg-bt" type="button" data-fv="lanc" aria-selected="' + (vista === 'lanc') + '">Lançamentos</button><button class="seg-bt" type="button" data-fv="analise" aria-selected="' + (vista === 'analise') + '">Análise</button></div>'
+      acoes:'<div class="seg"><button class="seg-bt" type="button" data-fv="analise" aria-selected="' + (vista === 'analise') + '">Análise</button><button class="seg-bt" type="button" data-fv="lanc" aria-selected="' + (vista === 'lanc') + '">Lançamentos</button></div>'
         + '<button class="bt bt-o" type="button" id="fin-recibo">' + ic('doc') + 'Recibo</button><button class="bt bt-p" type="button" id="fin-novo">' + ic('mais') + 'Lançar</button>' }) + '<div id="fin-corpo"></div>';
     el.querySelector('.cab-acoes .seg').onclick = function(e){ var b = e.target.closest('[data-fv]'); if (b){ APP.pref('fin-vista-' + emp, b.dataset.fv); APP.redesenhar(); } };
     APP.$('fin-novo').onclick = function(){ formLanc(null, emp); };
@@ -96,20 +96,27 @@
   /* ── Análise (gráficos e comparativos) ── */
   function analise(el, emp){
     var quem = APP.pref('fa-quem') || '', per = APP.pref('fa-per') || 'ano';
-    var ini = per === 'mes' ? new Date(HOJE.getFullYear(), HOJE.getMonth(), 1) : per === 'passado' ? new Date(HOJE.getFullYear(), HOJE.getMonth() - 1, 1) : per === '12' ? new Date(HOJE.getFullYear(), HOJE.getMonth() - 11, 1) : per === 'tudo' ? new Date(2000, 0, 1) : new Date(HOJE.getFullYear(), 0, 1);
-    var fim = per === 'passado' ? new Date(HOJE.getFullYear(), HOJE.getMonth(), 0) : new Date(HOJE.getFullYear(), 11, 31);
+    var cDe = APP.pref('fa-de') || '', cAte = APP.pref('fa-ate') || '';
+    var ini = per === 'custom' && cDe ? APP.deIso(cDe) : per === 'mes' ? new Date(HOJE.getFullYear(), HOJE.getMonth(), 1) : per === 'passado' ? new Date(HOJE.getFullYear(), HOJE.getMonth() - 1, 1) : per === '12' ? new Date(HOJE.getFullYear(), HOJE.getMonth() - 11, 1) : per === 'tudo' ? new Date(2000, 0, 1) : new Date(HOJE.getFullYear(), 0, 1);
+    var fim = per === 'custom' && cAte ? APP.deIso(cAte) : per === 'passado' ? new Date(HOJE.getFullYear(), HOJE.getMonth(), 0) : new Date(HOJE.getFullYear(), 11, 31);
     var L = D().lanc.filter(function(l){ return l.empresa === emp && (!quem || l.quem === quem); });
     var rec = L.filter(function(l){ return l.tipo === 'receita' && !l.redutor && l.pago && l.pago >= ini && l.pago <= fim; });
     var aRec = L.filter(function(l){ return l.tipo === 'receita' && !l.redutor && !l.pago && !l.perda; }), atr = aRec.filter(function(l){ return l.venc <= HOJE; });
     var aPag = L.filter(function(l){ return l.tipo === 'despesa' && !l.pago; }), perda = L.filter(function(l){ return l.perda; }), sv = function(l){ return APP.soma(l, function(x){ return x.v; }); };
     el.innerHTML = '<div class="filtro-linha"><span class="rot">Quem</span><div class="chips" id="fa-q"><button class="chip" type="button" data-q="" aria-pressed="' + !quem + '">Todos</button>' + D().equipe.map(function(p){ return '<button class="chip" type="button" data-q="' + p.id + '" aria-pressed="' + (quem === p.id) + '">' + esc(p.curto) + '</button>'; }).join('') + '</div>'
-      + '<span class="rot">Período</span><div class="chips" id="fa-p">' + [['mes','Este mês'],['passado','Mês passado'],['ano','Este ano'],['12','12 meses'],['tudo','Tudo']].map(function(x){ return '<button class="chip" type="button" data-p="' + x[0] + '" aria-pressed="' + (per === x[0]) + '">' + x[1] + '</button>'; }).join('') + '</div></div>'
+      + '<span class="rot">Período</span><div class="chips" id="fa-p">' + [['mes','Este mês'],['passado','Mês passado'],['ano','Este ano'],['12','12 meses'],['tudo','Tudo']].map(function(x){ return '<button class="chip" type="button" data-p="' + x[0] + '" aria-pressed="' + (per === x[0]) + '">' + x[1] + '</button>'; }).join('') + '</div>'
+      + '<span class="fa-datas"><span class="rot">de</span>' + APP.campoData('id="fa-de"', per === 'custom' ? cDe : '', 'De') + '<span class="rot">até</span>' + APP.campoData('id="fa-ate"', per === 'custom' ? cAte : '', 'Até') + '<button class="bt bt-o bt-mini" type="button" id="fa-aplicar">Aplicar</button><small class="vermelho" id="fa-aviso"></small></span></div>'
+      + fluxoMes(L)
       + APP.nums([['Recebido', brl(sv(rec)), 'verde', APP.plural(rec.length, 'recebimento', 'recebimentos')], ['A receber', brl(sv(aRec)), '', APP.plural(aRec.length, 'em aberto', 'em aberto')], ['Em atraso', brl(sv(atr)), 'vermelho', 'todos os meses'], emp === 'contab' ? ['A pagar', brl(sv(aPag)), '', APP.plural(aPag.length, 'conta', 'contas')] : ['Prejuízo', brl(sv(perda)), '', APP.plural(perda.length, 'baixa', 'baixas')], ['Ticket médio', brl(rec.length ? sv(rec) / rec.length : 0), '', 'por recebimento']])
       + '<section class="quadro pad"><div class="sec-cab"><div><h2>Recebido mês a mês</h2><p>Empilhado por pessoa. Passe o mouse na coluna para ver o valor.</p></div></div><div id="fa-mes"></div></section>'
       + '<section class="quadro pad"><div class="sec-cab"><div><h2>Comparativo por pessoa</h2></div></div><div id="fa-pess"></div></section>'
       + '<div class="duas"><section class="quadro pad"><div class="sec-cab"><div><h2>Por tipo de serviço</h2></div></div><div id="fa-serv"></div></section><section class="quadro pad"><div class="sec-cab"><div><h2>Maiores grupos</h2></div></div><div id="fa-grp"></div></section></div>'
       + (emp === 'contab' ? '<div class="duas"><section class="quadro pad"><div class="sec-cab"><div><h2>Resultado do mês</h2><p>Entradas − saídas</p></div></div><div id="fa-res"></div></section><section class="quadro pad"><div class="sec-cab"><div><h2>Despesas por categoria</h2></div></div><div id="fa-desp"></div></section></div>' : '');
     el.querySelector('#fa-q').onclick = function(e){ var b = e.target.closest('[data-q]'); if (b){ APP.pref('fa-quem', b.dataset.q); APP.redesenhar(); } };
+    el.querySelector('#fa-aplicar').onclick = function(){ var a = APP.isoBR(el.querySelector('#fa-de').value), b = APP.isoBR(el.querySelector('#fa-ate').value);
+      if (!a || !b){ el.querySelector('#fa-aviso').textContent = 'Preencha as duas datas (dd/mm/aaaa).'; return; }
+      APP.pref('fa-de', a < b ? a : b); APP.pref('fa-ate', a < b ? b : a); APP.pref('fa-per', 'custom'); APP.redesenhar(); };
+    var fm = el.querySelector('#fa-fluxo'); if (fm) fm.onclick = function(e){ var b = e.target.closest('[data-fm]'); if (!b) return; APP.pref('fa-fm', (APP.pref('fa-fm') || 0) + Number(b.dataset.fm)); APP.redesenhar(); };
     el.querySelector('#fa-p').onclick = function(e){ var b = e.target.closest('[data-p]'); if (b){ APP.pref('fa-per', b.dataset.p); APP.redesenhar(); } };
     var meses = []; for (var m = 6; m >= 0; m--) meses.push(new Date(HOJE.getFullYear(), HOJE.getMonth() - m, 1));
     var noMes = function(l, d){ return l.pago && l.pago.getMonth() === d.getMonth() && l.pago.getFullYear() === d.getFullYear(); };
@@ -131,6 +138,20 @@
       var M = {}; desp.forEach(function(l){ M[l.servico] = (M[l.servico] || 0) + l.v; });
       APP.$('fa-desp').innerHTML = APP.barrasH(Object.keys(M).map(function(k){ return { rot:k, v:M[k], cor:'var(--red)' }; }).sort(function(a, b){ return b.v - a.v; }));
     }
+  }
+
+  // Backup 79: FLUXO DO MÊS — honorários que vencem no mês: previsto, recebido, em atraso (só deste mês) e a receber;
+  // o atraso de meses anteriores aparece à parte, para o atraso acumulado não esconder a receita prevista do mês
+  function fluxoMes(L){
+    var k = new Date(HOJE.getFullYear(), HOJE.getMonth() + (APP.pref('fa-fm') || 0), 1), mesmo = function(d){ return d && d.getMonth() === k.getMonth() && d.getFullYear() === k.getFullYear(); };
+    var R = L.filter(function(l){ return l.tipo === 'receita' && !l.redutor && !l.perda; }), M = R.filter(function(l){ return mesmo(l.venc); }), sv = function(x){ return APP.soma(x, function(l){ return l.v; }); };
+    var rec = sv(M.filter(function(l){ return l.pago; })), atr = sv(M.filter(function(l){ return !l.pago && l.venc < HOJE; })), arec = sv(M.filter(function(l){ return !l.pago && l.venc >= HOJE; })), prev = rec + atr + arec;
+    var antes = sv(R.filter(function(l){ return !l.pago && l.venc < k; })), outros = sv(R.filter(function(l){ return l.pago && mesmo(l.pago) && !mesmo(l.venc); }));
+    var pc = function(v){ return prev ? v / prev * 100 : 0; };
+    return '<section class="quadro pad" id="fa-fluxo"><div class="sec-cab"><div><h2>Fluxo do mês</h2><p>Honorários com vencimento no mês: quanto estava previsto e como está.</p></div><div class="chips"><button class="chip" type="button" data-fm="-1" aria-label="Mês anterior">‹</button><b class="fm-mes">' + APP.MESES[k.getMonth()] + '/' + k.getFullYear() + '</b><button class="chip" type="button" data-fm="1" aria-label="Próximo mês">›</button></div></div>'
+      + APP.nums([['Previsto no mês', brl(prev), '', 'tudo o que vence no mês'], ['Recebido', brl(rec), 'verde', prev ? Math.round(pc(rec)) + '% do previsto' : ''], ['Em atraso (deste mês)', brl(atr), atr ? 'vermelho' : '', 'venceu e não entrou'], ['A receber', brl(arec), '', 'ainda vai vencer']])
+      + '<div class="fm-barra"><span class="fm-rec" style="width:' + pc(rec) + '%"></span><span class="fm-atr" style="width:' + pc(atr) + '%"></span><span class="fm-arec" style="width:' + pc(arec) + '%"></span></div>'
+      + '<p class="mudo">Fora deste mês: <b>' + brl(antes) + '</b> em atraso de meses anteriores · <b>' + brl(outros) + '</b> recebidos neste mês de vencimentos de outros meses.</p></section>';
   }
 
   /* ═════════ CONTRATOS ═════════ */

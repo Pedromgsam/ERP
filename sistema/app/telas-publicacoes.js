@@ -83,10 +83,14 @@ function partesPub(p) {
   if (Array.isArray(p.polos) && p.polos.some((d) => d && d.polo)) p.polos.forEach((d) => { if (d && d.nome) G[{ A: 'Autor', P: 'Réu' }[String(d.polo || '').toUpperCase()] || 'Partes'].push(d.nome); });
   else String(p.destinatarios || '').split(/;\s*/).filter(Boolean).forEach((x) => { const m = /^(Autor|Réu):\s*(.*)$/.exec(x); if (m) G[m[1]].push(m[2]); else G.Partes.push(x); });
   const adv = p.advogado || String(p.advogados || '').split(';')[0].replace(/\s*OAB.*$/i, '').trim();
+  // Backup 79: sempre Processo, Autor e Réu (— quando o Diário não informa); o advogado do escritório vai na linha da parte que é o cliente
+  // (a parte monitorada), senão na do Autor
+  if (!G.Partes.length || G['Autor'].length || G['Réu'].length) { if (!G['Autor'].length) G['Autor'].push('—'); if (!G['Réu'].length) G['Réu'].push('—'); }
+  const mon = normalizar(p.parte_monitorada || ''), ladoAdv = mon && G['Réu'].some((n) => normalizar(n).includes(mon) || mon.includes(normalizar(n))) ? 'Réu' : (G['Autor'].length ? 'Autor' : 'Partes');
   const linhas = [['Processo', p.processo || '—']].concat(Object.keys(G).filter((k) => G[k].length).map((k) => [k, G[k].join(' · ')]));
-  const txt = linhas.map((l) => l[0] + ': ' + l[1]).join('\n') + (adv ? ' - Advogado: ' + adv : '');
-  return '<div class="pub-id"><div class="pub-id-txt">' + linhas.map((l, i) => '<div><b>' + l[0] + ':</b> ' + (l[0] === 'Processo' ? '<span class="mono">' + esc(l[1]) + '</span>' : esc(l[1])) +
-      (i === linhas.length - 1 && adv ? ' <span class="pub-adv">— Advogado: <b>' + esc(adv) + '</b></span>' : '') + '</div>').join('') + '</div>' +
+  const txt = linhas.map((l) => l[0] + ': ' + l[1] + (adv && l[0] === ladoAdv ? ' - Advogado: ' + adv : '')).join('\n');
+  return '<div class="pub-id"><div class="pub-id-txt">' + linhas.map((l) => '<div><b>' + l[0] + ':</b> ' + (l[0] === 'Processo' ? '<span class="mono">' + esc(l[1]) + '</span>' : esc(l[1])) +
+      (adv && l[0] === ladoAdv ? ' <span class="pub-adv">— Advogado: <b>' + esc(adv) + '</b></span>' : '') + '</div>').join('') + '</div>' +
     '<button type="button" class="btn btn-o btn-mini" data-copiar-id="' + esc(txt) + '" title="Copiar Processo, Autor, Réu e Advogado">📋 Copiar</button></div>';
 }
 async function carregarPublicacoes() {
