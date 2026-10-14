@@ -32,7 +32,7 @@
   /* superfícies e texto (cinzas neutros, sem puxar para o azul) */
   --bg:#F0F2F7;--surface:#FFFFFF;--surface2:#F6F7F9;--surface3:#F1F3F4;--white:#FFFFFF;--hover:#F3F5F8;
   --ink:#1D2329;                 /* Backup 38: títulos e números quase pretos (como nos prints) */
-  --text:#1F2429;--text2:#454C53;--text3:#646C74;--text4:#646C73;
+  --text:#1F2429;--text2:#454C53;--text3:#5E666D;   /* B83: o #646C74 do ambiente dá 4,27:1 no fundo da página (mínimo 4,5) — fica o tom do ERP */--text4:#646C73;
   --border:#E3E6E8;--border-strong:#D3D7DA;--line:#ECEEF0;
   --overlay:rgba(17,24,39,.38);
   --foco:0 0 0 3px rgba(46,94,170,.28);

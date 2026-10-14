@@ -27,8 +27,8 @@ const REGRAS = [
   // B82: como no ambiente, há duas peças de filtro — o segmentado (abas numa caixa) e o chip redondo
   ['filtro (segmentado)', ':is(.gx-seg-cli > button,.filtros .segmento > button,.rt-seg > button):not(.ativo):not(.on)', ['fontSize', 'borderRadius', 'backgroundColor', 'paddingTop']],
   ['filtro escolhido (segmentado)', ':is(.gx-seg-cli > button,.filtros .segmento > button,.rt-seg > button).ativo', ['backgroundColor', 'color', 'borderRadius']],
-  ['filtro (chip)', '.fila-chips .fila-chip:not(.ativo):not(.on)', ['fontSize', 'borderRadius', 'backgroundColor', 'paddingTop']],
-  ['filtro escolhido (chip)', '.fila-chips .fila-chip.ativo', ['backgroundColor', 'color', 'borderRadius']],
+  ['filtro (chip)', '.fila-chips .fila-chip:not(.ativo):not(.on)', ['fontSize', 'borderRadius', 'backgroundColor', 'paddingTop'], true],   // B83: o Início não tem mais a fila (chips só no calendário de Tarefas)
+  ['filtro escolhido (chip)', '.fila-chips .fila-chip.ativo', ['backgroundColor', 'color', 'borderRadius'], true],
   ['botão "↻ Atualizar"', '.bt-atualizar', ['fontSize', 'backgroundColor', 'borderRadius', 'paddingTop']],
   ['situação: em atraso', '[data-sit=atraso]', ['backgroundColor', 'color']],
   ['situação: vence hoje', '[data-sit=hoje]', ['backgroundColor', 'color'], true],

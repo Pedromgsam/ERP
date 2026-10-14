@@ -737,7 +737,7 @@ O que mudou (o que você pediu em 14/10):
   - Com o grupo fechado, o número vermelho aparece no próprio grupo.
 - **Letras e espaços iguais aos do ambiente:**
   - a altura da linha de botões, pílulas e abas era menor no ERP (por isso a faixa Financeiro/Escritório parecia mais "magra");
-  - os tons de cinza e as cores das pílulas agora são os mesmos do ambiente;
+  - os tons de cinza e as cores das pílulas agora são os mesmos do ambiente (só o cinza dos textos pequenos ficou um tom mais escuro que o do ambiente, para ler bem em cima do fundo — diferença imperceptível);
   - o título de cada tela tem 19 px.
 - **Painel Executivo:**
   - a "Evolução do passivo" é a linha do ambiente: só o maior e o menor valor à esquerda, sem grade, pontos brancos e os meses embaixo;
