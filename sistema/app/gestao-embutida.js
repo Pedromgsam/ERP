@@ -684,7 +684,7 @@ function tabelaB(el, cfg) {
     b.innerHTML = [['', 'Todas'], ['venc', 'Vencidas'], ['5', '5 dias'], ['10', '10 dias'], ['15', '15 dias'], ['30', '30 dias']].map((o) => '<button type="button" class="b-chip" data-b-prazo="' + o[0] + '" aria-pressed="' + (st.prazo === o[0]) + '">' + o[1] + '</button>').join('') +
       '<label class="b-prazo-ate' + (st.prazo === 'ate' ? ' b-on' : '') + '" title="Vencimento até esta data">até ' + campoDataB('data-bt="prazoate"', st.prazoAte, 'Vencimento até') + '</label>';
   }
-  function conta() { const c = Q('[data-bt=conta]'); if (!c || !cfg.conta) return; c.textContent = '· ' + cfg.conta(filtrar().length, st.aba); }
+  function conta() { const c = Q('[data-bt=conta]'); if (!c || !cfg.conta) return; c.textContent = cfg.conta(filtrar().length, st.aba); }
   const tudo = () => { abas(); prazos(); quadro(); contarFx(); conta(); };
   el._redesenharB = tudo;
   tudo();
@@ -775,9 +775,23 @@ function nomearBotoesIcone() {
     if (nome) b.setAttribute('aria-label', nome);
   });
 }
+// Backup 83: o desenho do ambiente em todas as telas, pela peça única — "+ Texto" num botão vira o ícone + do ambiente,
+// e o título de cartão perde a figurinha (emoji) do começo
+const EMOJI_INI_B = /^\s*(?:\p{Extended_Pictographic}|[⚖⚠✉☰⏱])\uFE0F?\s*/u;
+function enfeitarB() {
+  document.querySelectorAll('.gs button.btn:not([data-b-enf]), .gs a.btn:not([data-b-enf])').forEach((b) => {
+    b.setAttribute('data-b-enf', '1');
+    const n = b.firstChild; if (!n || n.nodeType !== 3 || !/^\s*\+\s+\S/.test(n.nodeValue)) return;
+    n.nodeValue = n.nodeValue.replace(/^\s*\+\s+/, ''); b.insertAdjacentHTML('afterbegin', iconeB('mais')); b.classList.add('b-bt-ic');
+  });
+  document.querySelectorAll('.gs .card-hd:not([data-b-enf])').forEach((h) => {
+    h.setAttribute('data-b-enf', '1');
+    const n = h.firstChild; if (n && n.nodeType === 3 && EMOJI_INI_B.test(n.nodeValue)) n.nodeValue = n.nodeValue.replace(EMOJI_INI_B, '');
+  });
+}
 (() => {
   let agendado = false;
-  const agendar = () => { if (agendado) return; agendado = true; requestAnimationFrame(() => { agendado = false; paginarTabelas(); nomearBotoesIcone(); mascararCampos(); }); };
+  const agendar = () => { if (agendado) return; agendado = true; requestAnimationFrame(() => { agendado = false; paginarTabelas(); nomearBotoesIcone(); mascararCampos(); enfeitarB(); }); };
   const ligar = () => new MutationObserver((ms) => { if (ms.some((m) => m.target.closest && m.target.closest('table, .tw, .tabela-wrap, main, .gs-area, #conteudo, #janelas, .janela, .gx-modal, form'))) agendar(); })
     .observe(document.body, { childList: true, subtree: true });
   if (document.body) ligar(); else document.addEventListener('DOMContentLoaded', ligar);
@@ -1144,6 +1158,18 @@ function graficoRosca(itens, opc) {
 // A dica de cada mês mostra todas as séries (e a linha) juntas; legenda embaixo.
 const MES_CURTO_B = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 function rotMesB(k) { const p = String(k).split('-'); return MES_CURTO_B[+p[1] - 1] + '/' + p[0].slice(2); }
+// Backup 83: linha simples do ambiente de teste — só o máximo e o mínimo à esquerda, sem grade, traço que estica e pontos brancos em HTML
+// (não deformam), meses embaixo em letra pequena. pontos = [{ rot, v, dica }]
+function graficoLinhaB(pontos) {
+  const ps = pontos.filter((p) => p.v != null && isFinite(p.v));
+  if (!ps.length) return '<p class="b-barras-vazio">Sem passivo lançado no período.</p>';
+  const vs = ps.map((p) => p.v), max = Math.max(...vs), min = Math.min(...vs), rng = (max - min) || 1;
+  const xy = ps.map((p, i) => [ps.length > 1 ? i / (ps.length - 1) * 100 : 50, 8 + (1 - (p.v - min) / rng) * 84]);
+  return '<div class="b-glin"><div class="b-glin-y"><span>' + esc(brlCurto(max)) + '</span><span>' + esc(brlCurto(min)) + '</span></div><div class="b-glin-area">' +
+    '<svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><polyline points="' + xy.map((q) => q.join(',')).join(' ') + '" fill="none" stroke="var(--primario)" stroke-width="2.5" vector-effect="non-scaling-stroke"/></svg>' +
+    xy.map((q, i) => '<span class="b-glin-p" style="left:' + q[0] + '%;top:' + q[1] + '%" title="' + esc(ps[i].dica || ps[i].rot + ': ' + brl(ps[i].v)) + '"></span>').join('') + '</div>' +
+    '<div class="b-glin-x">' + ps.map((p) => '<small>' + esc(p.rot) + '</small>').join('') + '</div></div>';
+}
 function graficoColunasB(meses, series, opc) {
   opc = opc || {};
   if (!meses.length) return '<div class="b-barras-vazio">Nada no período.</div>';
@@ -1183,39 +1209,6 @@ function graficoColunasB(meses, series, opc) {
   return s;
 }
 
-// Backup 76 — linhas por mês (Evolução do passivo no Painel novo): séries = [{nome, cor, valores: [n|null, …]}].
-// Bolinhas brancas em cada mês; dica com o mês e o valor de cada linha; escala a partir do zero.
-function graficoLinhasB(meses, series, opc) {
-  opc = opc || {};
-  if (!meses.length || !series.length) return '<div class="b-barras-vazio">Sem dados para o gráfico.</div>';
-  const todos = series.flatMap((s) => s.valores.filter((v) => v != null));
-  const passoBom = (v) => { const e = Math.pow(10, Math.floor(Math.log10(v || 1))), f = v / e; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * e; };
-  const passo = passoBom(Math.max(1, ...todos) / 4), max = Math.ceil(Math.max(1, ...todos) / passo) * passo;
-  const larg = 1100, h = 280, esq = 76, dir = 24, topo = 14, base = 240, util = base - topo;
-  const x = (i) => esq + (meses.length === 1 ? (larg - esq - dir) / 2 : i * (larg - esq - dir) / (meses.length - 1));
-  const y = (v) => base - v / max * util;
-  const fmt = opc.fmt || brlCurto;
-  // data-n / data-m / data-nomes / data-ini: quantas linhas e meses, os nomes e se o 1º mês tem valor (os testes leem daqui)
-  let s = '<svg class="grafico b-graf b-graf-linhas" data-n="' + series.length + '" data-m="' + meses.length + '" data-nomes="' + esc(series.map((x) => x.nome).join('|')) + '" data-ini="' + (series.some((x) => x.valores[0] != null) ? 1 : 0) + '" viewBox="0 0 ' + larg + ' ' + h + '" role="img" aria-label="' + esc(opc.titulo || 'Evolução') + '">';
-  for (let v = 0; v <= max + passo / 2; v += passo) s += '<line x1="' + esq + '" x2="' + (larg - dir) + '" y1="' + y(v) + '" y2="' + y(v) + '" class="' + (v ? 'g-grade' : 'g-base') + '"/><text x="' + (esq - 8) + '" y="' + (y(v) + 4) + '" text-anchor="end" class="g-eixo">' + esc(v ? fmt(v).replace('R$ ', '') : '0') + '</text>';
-  const pulo = Math.ceil(meses.length / 14);
-  meses.forEach((k, i) => { if (i % pulo === 0 || i === meses.length - 1) s += '<text x="' + x(i) + '" y="' + (base + 22) + '" text-anchor="middle" class="g-eixo">' + esc(rotMesB(k)) + '</text>'; });
-  series.forEach((sr) => {
-    const pts = sr.valores.map((v, i) => (v == null ? null : [x(i), y(v)])).filter(Boolean);
-    if (pts.length > 1) s += '<polyline points="' + pts.map((p) => p.join(',')).join(' ') + '" fill="none" style="stroke:' + sr.cor + '" stroke-width="' + (series.length === 1 ? 2.5 : 2) + '" pointer-events="none"/>';
-    s += pts.map((p) => '<circle cx="' + p[0] + '" cy="' + p[1] + '" r="4" style="fill:var(--surface);stroke:' + sr.cor + '" stroke-width="2" pointer-events="none"/>').join('');
-  });
-  // faixas invisíveis por mês com a dica
-  const col = meses.length === 1 ? larg - esq - dir : (larg - esq - dir) / (meses.length - 1);
-  meses.forEach((k, i) => { const dica = rotMesB(k) + ' — ' + series.filter((sr) => sr.valores[i] != null).sort((a, b) => b.valores[i] - a.valores[i]).map((sr) => (series.length > 1 ? sr.nome + ': ' : '') + fmt(sr.valores[i])).join(' · ');
-    // área de "passar o mouse" do mês, sem sair do desenho (com 1 ou 2 meses ela ficava mais larga que o gráfico)
-    const rx = Math.max(esq, x(i) - col / 2), rw = Math.min(larg - dir, x(i) + col / 2) - rx;
-    s += '<rect x="' + rx + '" y="' + topo + '" width="' + rw + '" height="' + (util + 30) + '" fill="transparent" data-dica="' + esc(dica) + '"/>'; });
-  s += '</svg>';
-  if (series.length > 1) s += '<div class="legenda">' + series.map((sr) => '<span><i style="background:' + sr.cor + '"></i>' + esc(sr.nome) + '</span>').join('') + '</div>';
-  return s;
-}
-
 'use strict';
 // ═══════════════════════════════════════════════════════════════════
 // Início (resumo das duas empresas) e Painel Executivo (passivo
@@ -1232,7 +1225,7 @@ function kpi(rotulo, valor, cor, sub) {
 // Em atraso: duas tabelas completas lado a lado (Jurídico | Contabilidade), com o que vence HOJE destacado.
 TELAS.inicio = async function () {
   // Backup 74: como no ambiente de teste, mas funcionando com os dados reais — cabeçalho com a data, os cartões Financeiro e Escritório
-  // (o usuário pediu para manter, E3 = não), "Meu dia" (hoje + atrasadas) ao lado de Lembretes e "Próximos 7 dias", e o calendário da fila embaixo.
+  // (o usuário pediu para manter, E3 = não), "Meu dia" (hoje + atrasadas) ao lado de Lembretes e "Próximos 7 dias" (o calendário da fila saiu no Backup 83: agenda só em Tarefas).
   const h = new Date(), hora = h.getHours(), saud = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';
   const dataLonga = h.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
   // Backup 82 (E3 aprovado): os cartões grandes viraram a faixa "Financeiro · Escritório" em pílulas, como no ambiente; avisos e conferências entram na linha do Escritório
@@ -1242,8 +1235,8 @@ TELAS.inicio = async function () {
     '<section class="b-faixa-av ini-faixa" id="ini-faixa"><div class="b-faixa-lin" id="ini-lin-fin"><span class="b-faixa-rot">Financeiro</span><div class="ini-conf-l" id="ini-resumo-fin"></div></div>' +
       '<div class="b-faixa-lin"><span class="b-faixa-rot">Escritório</span><div class="ini-conf-l"><span id="ini-resumo" class="ini-pills"></span><span id="ini-conf" class="ini-pills"></span></div></div></section>' +
     '<div class="ini-b74"><section class="ini-col"><div class="ini-sec-hd"><div><h2>Meu dia</h2><p>Hoje e o que atrasou</p></div><div class="b-chips ini-quem" id="ini-quem" role="group" aria-label="De quem"></div></div><div id="ini-dia"></div></section>' +
-    '<section class="ini-col"><div id="ini-lembretes"></div><div class="ini-sec-hd ini-sec-hd2"><div><h2>Próximos 7 dias</h2></div></div><div id="ini-prox"></div></section></div>' +
-    '<div id="ini-fila"></div>';
+    '<section class="ini-col"><div id="ini-lembretes"></div><div class="ini-sec-hd ini-sec-hd2"><div><h2>Próximos 7 dias</h2></div></div><div id="ini-prox"></div></section></div>';
+  // Backup 83: sem o calendário ("Minha fila de trabalho") no Início — a agenda fica só em Tarefas (Semana · Calendário)
   $('lemb-novo').onclick = () => formLembrete();
   verComoIni();
   cardLembretes().catch((e) => console.error(e));
@@ -1253,7 +1246,6 @@ TELAS.inicio = async function () {
   if (typeof buscaPubAutomatica === 'function') buscaPubAutomatica().catch(() => {});
   if (typeof vigiarAgenda === 'function') vigiarAgenda();   // Backup 40: aviso antes dos compromissos
   if (typeof cardValidacoes === 'function') cardValidacoes().then((c) => { const el = $('ini-valid'); if (el) { el.innerHTML = c.html; c.ligar(el); } }).catch((e) => console.error(e));
-  if (typeof cardMinhaFila === 'function') cardMinhaFila().then((c) => { const el = $('ini-fila'); if (el) { el.innerHTML = c.html; c.ligar(el); } }).catch((e) => console.error(e));
 };
 ICONES_B.inicio = ICONES_B.inicio || '<rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/>';
 // Backup 74: "Meu dia" (prazo até hoje, inclusive atrasadas) e "Próximos 7 dias" — tarefas reais, com Concluir (e Desfazer por 6 s)
@@ -1925,15 +1917,14 @@ function analiseFin(empresa, corpo) {
   const tipos = [...new Set(L.map((l) => l.categoria).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
   const grupos = [...new Set(L.map((l) => l.grupos && l.grupos.nome).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
   const jan = janelaFin(an);
-  const fil = '<section class="b-fin-filtros" id="fa-filtros">' +
-    (pessoas.length > 1 ? '<div class="b-fin-lin"><span class="b-fin-rot">Quem fez</span><button type="button" class="b-chip" data-fa-quem="" aria-pressed="' + !an.quem.length + '">Todos</button>' +
-      pessoas.map((p) => '<button type="button" class="b-chip" data-fa-quem="' + esc(p) + '" aria-pressed="' + an.quem.includes(p) + '">' + esc(p) + '</button>').join('') + '</div>' : '') +
-    '<div class="b-fin-lin"><span class="b-fin-rot">Período</span>' + PERIODOS_FIN.map((p) => '<button type="button" class="b-chip" data-fa-per="' + p[0] + '" aria-pressed="' + (!an.de && !an.ate && an.preset === p[0]) + '">' + p[1] + '</button>').join('') +
-      '<span class="b-fx"><span>de</span>' + campoDataB('id="fa-de"', an.de, 'De') + '<span>até</span>' + campoDataB('id="fa-ate"', an.ate, 'Até') + '<button type="button" class="b-bt-f" id="fa-aplicar">Aplicar</button><small class="b-fx-aviso" id="fa-aviso"></small></span></div>' +
-    '<div class="b-fin-lin"><span class="b-fin-rot">Recorte</span><select id="fa-tipo" aria-label="Tipo"><option value="">Todos os tipos</option>' + tipos.map((t) => '<option' + (an.tipo === t ? ' selected' : '') + '>' + esc(t) + '</option>').join('') + '</select>' +
-      (grupos.length > 1 ? '<select id="fa-grupo" aria-label="Grupo"><option value="">Todos os grupos</option>' + grupos.map((g) => '<option' + (an.grupo === g ? ' selected' : '') + '>' + esc(g) + '</option>').join('') + '</select>' : '') + '</div>' +
-    '<p class="b-fin-mostra">Mostrando <b>' + esc(an.quem.length ? an.quem.join(', ') : 'todos') + '</b> · <b>' + (jan ? dataBR(jan[0]) + ' a ' + dataBR(jan[1]) : 'todo o período') + '</b>' + (an.tipo ? ' · <b>' + esc(an.tipo) + '</b>' : '') + (an.grupo ? ' · <b>' + esc(an.grupo) + '</b>' : '') +
-      ' · data considerada: <b>pagamento</b>, ou vencimento quando não houver pagamento</p></section>';
+  // Backup 83: filtros numa linha só, como no ambiente (Quem · Período · de/até · Aplicar); tipo e grupo continuam, no fim da mesma linha
+  const fil = '<section class="b-fin-filtros b-filtro-linha" id="fa-filtros">' +
+    (pessoas.length > 1 ? '<span class="b-fin-rot">Quem</span><span class="b-chips-in"><button type="button" class="b-chip" data-fa-quem="" aria-pressed="' + !an.quem.length + '">Todos</button>' +
+      pessoas.map((p) => '<button type="button" class="b-chip" data-fa-quem="' + esc(p) + '" aria-pressed="' + an.quem.includes(p) + '">' + esc(p) + '</button>').join('') + '</span>' : '') +
+    '<span class="b-fin-rot">Período</span><span class="b-chips-in">' + PERIODOS_FIN.map((p) => '<button type="button" class="b-chip" data-fa-per="' + p[0] + '" aria-pressed="' + (!an.de && !an.ate && an.preset === p[0]) + '">' + p[1] + '</button>').join('') + '</span>' +
+    '<span class="b-fx"><span class="b-fin-rot">de</span>' + campoDataB('id="fa-de"', an.de, 'De') + '<span class="b-fin-rot">até</span>' + campoDataB('id="fa-ate"', an.ate, 'Até') + '<button type="button" class="btn btn-o btn-mini" id="fa-aplicar">Aplicar</button><small class="b-fx-aviso" id="fa-aviso"></small></span>' +
+    (tipos.length > 1 ? '<select id="fa-tipo" aria-label="Tipo"><option value="">Todos os tipos</option>' + tipos.map((t) => '<option' + (an.tipo === t ? ' selected' : '') + '>' + esc(t) + '</option>').join('') + '</select>' : '') +
+    (grupos.length > 1 ? '<select id="fa-grupo" aria-label="Grupo"><option value="">Todos os grupos</option>' + grupos.map((g) => '<option' + (an.grupo === g ? ' selected' : '') + '>' + esc(g) + '</option>').join('') + '</select>' : '') + '</section>';
   const receita = filtrarFin(empresa, ['recebido']), aRec = filtrarFin(empresa, ['areceber']), aPag = filtrarFin(empresa, ['apagar']), pagos = filtrarFin(empresa, ['pago']);
   const perdas = filtrarFin(empresa, ['perda'], true), vencidos = filtrarFin(empresa, ['areceber'], true).filter((l) => l.vencimento && l.vencimento < h);
   const aVencer = aRec.filter((l) => !(l.vencimento && l.vencimento < h));
@@ -9885,7 +9876,7 @@ function desenharGruposPc() {
       (chip === 'concluidos' ? '<span class="b-pill b-g">Concluídos</span>' : g.atr ? '<span class="b-pill b-r">' + plural(g.atr, 'parcela', 'parcelas') + ' em atraso</span>' : '<span class="b-pill b-g">Em dia</span>') + '</div>' +
       '<div class="b-cg-sub">' + plural(n, 'parcelamento', 'parcelamentos') + (g.risco && chip !== 'concluidos' ? ' · <span class="b-n-atr">risco de rescisão</span>' : '') + '</div>' +
       // Backup 72: o número de cada parcelamento no cartão do cliente (até 4; o resto em "+N")
-      (function () { const L = (chip === 'concluidos' ? g.conc : g.vivos).map(([pa]) => pa.numero).filter(Boolean); return L.length ? '<div class="b-cg-nums" title="' + esc(L.join(' · ')) + '">Nº ' + L.slice(0, 4).map(esc).join(' · ') + (L.length > 4 ? ' <b>+' + (L.length - 4) + '</b>' : '') + '</div>' : ''; })() +
+      // Backup 83: sem a linha "Nº …" no cartão (como no ambiente — menos amontoado); o nº continua na coluna Parcelamento da tabela
       (chip === 'concluidos' ? '' : '<div class="b-barra"><span style="width:' + pc + '%"></span></div><small class="b-cg-prog">' + g.pg + ' de ' + g.tot + ' pagas</small>' +
         '<div class="b-cg-lin"><span>Falta pagar</span><b>' + brl(g.falta) + '</b></div><div class="b-cg-lin"><span>A pagar este mês</span><b>' + (g.nMes ? brl(g.somaMes) + ' (' + g.nMes + ')' : '—') + '</b></div>') + '</button>';
     if (ab) html += '<div class="b-cg-det" id="pc-det-grupo"></div>';
@@ -10266,7 +10257,6 @@ document.addEventListener('click', (ev) => {
 
 const dbE = () => dbParc() || {};
 const unicosB = (l) => [...new Set(l.filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b), 'pt-BR'));
-const CORES_LINHA = ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-4)', 'var(--chart-5)', 'var(--chart-6)', 'var(--chart-8)', 'var(--chart-7)'];
 
 function estadoPE() { E.pe = E.pe || { grupo: '', empresa: '', evo: { visao: 'total', meses: 6, dados: null, lidoMeses: 0 } }; return E.pe; }
 
@@ -10313,40 +10303,32 @@ TELAS.painelExec = async function () {
       '<span class="b-pe-conta">' + plural(N.data.length, 'entidade', 'entidades') + ' · ' + plural(unicosB(N.data.map((r) => r.grupo)).length, 'grupo', 'grupos') + '</span></div>' +
     '<div id="pe-nums">' + numsFaixa([['Passivo total', t(N.total), 'RFB ' + brlCurto(N.rfb) + ' · PGFN ' + brlCurto(N.pgfn) + ' · AGE/MG ' + brlCurto(N.age)], ['Parcelamentos (saldo)', t(N.saldoParc), plural(N.nParc, 'ativo', 'ativos')],
       ['Acordos (em aberto)', t(N.acPagar), plural(N.nAc, 'parcela', 'parcelas')], ['Passivo em disputa', t(N.passivo), plural(N.nProc, 'processo', 'processos'), N.passivo ? 'b-verm' : ''], ['Ativo em disputa', t(N.ativo), '', N.ativo ? 'b-verde' : '']]) + '</div>' +
-    '<section class="b-fin-cartao" id="pe-evo"><div class="b-fin-hd b-pe-evo-hd"><div><h3>Evolução do passivo</h3><p id="pe-evo-sub"></p></div>' +
-      '<div class="b-pe-evo-ctl"><div class="b-chips" id="pe-evo-visao"><button type="button" class="b-chip" data-v="total">Tudo junto</button><button type="button" class="b-chip" data-v="linhas">' + (P.grupo ? 'Uma linha por empresa' : 'Uma linha por grupo') + '</button></div>' +
-      '<div class="b-chips" id="pe-evo-meses" role="group" aria-label="Período">' + [6, 12, 24].map((m) => '<button type="button" class="b-chip" data-m="' + m + '">' + m + ' meses</button>').join('') + '</div></div></div>' +
-      '<div class="b-pe-evo-res" id="pe-evo-res"></div><div class="b-fin-graf" id="pe-evo-graf"><div class="carregando">Carregando…</div></div>' +
-      '<p class="b-fin-mostra">Soma de RFB, PGFN, SEFAZ e AGE/MG (em aberto + negociado). O valor de cada mês é o que estava cadastrado no último dia do mês.</p></section>' +
+    // Backup 83: como no ambiente — só o título e "6 meses · 12 meses"; a linha é o total do que está escolhido no alto (todos, um grupo ou uma empresa)
+    '<section class="b-fin-cartao b-pe-evo" id="pe-evo"><div class="b-fin-hd b-pe-evo-hd"><div><h3>Evolução do passivo</h3></div>' +
+      '<div class="b-chips" id="pe-evo-meses" role="group" aria-label="Período">' + [6, 12].map((m) => '<button type="button" class="b-chip" data-m="' + m + '">' + m + ' meses</button>').join('') + '</div></div>' +
+      '<div id="pe-evo-graf"><div class="carregando">Carregando…</div></div></section>' +
     '<div class="b-sec"><div><h2>Empresas do grupo</h2></div></div><div id="pe-nova"></div>';
   $('pe-grupo').onchange = (ev) => { P.grupo = ev.target.value; P.empresa = ''; TELAS.painelExec(); };
   $('pe-emp').onchange = (ev) => { P.empresa = ev.target.value; TELAS.painelExec(); };
   $('pe-evo-meses').onclick = (ev) => { const b = ev.target.closest('[data-m]'); if (!b) return; P.evo.meses = Number(b.dataset.m); P.evo.dados = null; evolucaoPE(); };
-  $('pe-evo-visao').onclick = (ev) => { const b = ev.target.closest('[data-v]'); if (!b) return; P.evo.visao = b.dataset.v; evolucaoPE(); };
   evolucaoPE();
   empresasPE(N.data);
 };
 
 async function evolucaoPE() {
   const P = estadoPE(), ev = P.evo, gr = $('pe-evo-graf'); if (!gr) return;
-  document.querySelectorAll('#pe-evo-visao [data-v]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === ev.visao)));
+  if (![6, 12].includes(Number(ev.meses))) ev.meses = 6;
   document.querySelectorAll('#pe-evo-meses [data-m]').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.m) === Number(ev.meses))));
   if (!ev.dados || ev.lidoMeses !== ev.meses) {
     try { ev.dados = await q(sb.rpc('evolucao_passivo', { p_grupo: null, p_meses: ev.meses })) || []; ev.lidoMeses = ev.meses; }
     catch (e) { gr.innerHTML = '<p class="msg-erro">Não foi possível ler a evolução: ' + esc(erroAmigavel(e)) + '</p>'; return; }
   }
-  const linhas = ev.dados.filter((x) => (!P.grupo || x.grupo === P.grupo) && (!P.empresa || x.cliente === P.empresa));
-  const meses = unicosB(ev.dados.map((x) => x.mes)), comDado = new Set(linhas.filter((x) => x.total != null).map((x) => x.mes));
+  const linhas = ev.dados.filter((x) => (!P.grupo || x.grupo === P.grupo) && (!P.empresa || x.cliente === P.empresa) && x.total != null);
+  const meses = unicosB(ev.dados.map((x) => x.mes)), comDado = new Set(linhas.map((x) => x.mes));
   while (meses.length > 2 && !comDado.has(meses[0])) meses.shift();   // começa no 1º mês com passivo lançado
-  const chave = ev.visao === 'total' ? () => P.empresa || P.grupo || 'Todos os grupos' : P.grupo ? (x) => x.cliente : (x) => x.grupo;
-  const S = {}; linhas.forEach((x) => { if (x.total == null) return; const k = chave(x); (S[k] = S[k] || {})[x.mes] = (S[k][x.mes] || 0) + (Number(x.total) || 0); });
-  const ult = meses[meses.length - 1], nomes = Object.keys(S).sort((a, b) => (S[b][ult] || 0) - (S[a][ult] || 0));
-  const tot = (m) => linhas.filter((x) => x.mes === m && x.total != null).reduce((s, x) => s + (Number(x.total) || 0), 0);
-  const ini = tot(meses[0]), fim = tot(ult), dif = fim - ini;
-  $('pe-evo-sub').textContent = P.grupo ? 'Empresas do grupo ' + P.grupo + ', mês a mês' : 'Grupos, mês a mês';
-  $('pe-evo-res').innerHTML = meses.length ? '<span><b>' + esc(brl(fim)) + '</b> hoje</span><span class="' + (dif > 0 ? 'b-verm-v' : dif < 0 ? 'b-verde-v' : '') + '">' + (dif > 0 ? '▲ ' : dif < 0 ? '▼ ' : '') + esc(brl(Math.abs(dif))) +
-    (ini ? ' (' + (dif / ini * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + '%)' : '') + ' desde ' + esc(rotMesB(meses[0])) + '</span>' : '';
-  gr.innerHTML = graficoLinhasB(meses, nomes.map((n, i) => ({ nome: n, cor: nomes.length === 1 ? 'var(--primario)' : CORES_LINHA[i % CORES_LINHA.length], valores: meses.map((m) => (S[n][m] == null ? null : S[n][m])) })), { titulo: 'Evolução do passivo' });
+  const tot = (m) => linhas.filter((x) => x.mes === m).reduce((s, x) => s + (Number(x.total) || 0), 0);
+  const rot = (m) => rotMesB(m).toLowerCase();
+  gr.innerHTML = graficoLinhaB(meses.filter((m) => comDado.has(m)).map((m) => ({ rot: rot(m), v: tot(m), dica: rot(m) + ': ' + brl(tot(m)) })));
 }
 
 function empresasPE(base) {
@@ -10357,7 +10339,7 @@ function empresasPE(base) {
   const sit = (r) => String(r.sitCadastral || '').trim();
   const ops = (f) => unicosB(base.map(f)).map((x) => [x, x]);
   const op = (r) => (/^sim$/i.test(r.emOperacao || '') ? 'Sim' : /^n[aã]o$/i.test(r.emOperacao || '') ? 'Não' : '');
-  tabelaB(el, { id: 'empresas', tabCls: 'b-tab-pe', linhas: base, chave: (r) => String(r._id), unidade: ['empresa', 'empresas'],
+  tabelaB(el, { id: 'empresas', tabCls: 'b-tab-pe', semContagemAbas: true, linhas: base, chave: (r) => String(r._id), unidade: ['empresa', 'empresas'],
     abas: [{ id: 'at', rot: 'Ativos', f: (r) => r.tipoCliente !== 'Inativo' }, { id: 'cons', rot: 'Consultoria', f: (r) => r.tipoCliente === 'Consultoria' },
       { id: 'pont', rot: 'Serviço pontual', f: (r) => r.tipoCliente === 'Serviço pontual' }, { id: 'in', rot: 'Inativos', f: (r) => r.tipoCliente === 'Inativo' }, { id: 'todos', rot: 'Todos', f: () => true }],
     busca: (r) => [r.nome, r.grupo, r.socioAdmin, r.cpfCnpj, String(r.cpfCnpj || '').replace(/\D/g, '')].join(' '), dicaBusca: 'Nome, sócio ou CPF/CNPJ…',

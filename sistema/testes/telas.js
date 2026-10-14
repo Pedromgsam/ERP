@@ -50,7 +50,7 @@ const r = []; const ok = (n, c) => r.push([n, !!c]);
 
     // cliente manual com passivo
     await menu(p, 'clientes');
-    await p.waitForSelector('text=+ Novo cliente'); await p.click('text=+ Novo cliente');
+    await p.waitForSelector('text=Novo cliente'); await p.click('text=Novo cliente');
     await p.waitForSelector('#f-cli [name=nome]'); await p.waitForTimeout(300);
     ok('cadastro do cliente em abas (Empresa, Classificação, Contatos, Endereço, Situação, Observações)', (await p.locator('#cli-abas [data-cli-aba]').count()) === 6);
     await p.fill('#f-cli [name=nome]', 'Zeta Manual LTDA');

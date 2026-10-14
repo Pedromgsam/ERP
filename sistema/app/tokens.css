@@ -30,11 +30,11 @@
   --sem-preto:#111827;
 
   /* superfícies e texto (cinzas neutros, sem puxar para o azul) */
-  --bg:#F0F2F7;--surface:#FFFFFF;--surface2:#F9FAFA;--surface3:#F1F3F4;--white:#FFFFFF;--hover:#F6F7F8;
+  --bg:#F0F2F7;--surface:#FFFFFF;--surface2:#F6F7F9;--surface3:#F1F3F4;--white:#FFFFFF;--hover:#F3F5F8;
   --ink:#1D2329;                 /* Backup 38: títulos e números quase pretos (como nos prints) */
-  --text:#1F2429;--text2:#454C53;--text3:#5E666D;--text4:#646C73;
+  --text:#1F2429;--text2:#454C53;--text3:#646C74;--text4:#646C73;
   --border:#E3E6E8;--border-strong:#D3D7DA;--line:#ECEEF0;
-  --overlay:rgba(17,24,39,.4);
+  --overlay:rgba(17,24,39,.38);
   --foco:0 0 0 3px rgba(46,94,170,.28);
 
   /* sobre fundo escuro/colorido (barra, botões cheios) — igual nos dois modos */
@@ -49,8 +49,8 @@
   /* barra lateral: azul da marca (troque só --lado-bg para mudar o tom) */
   /* Backup 54: o marinho oficial do escritório (o da logo da tela de entrada) — lateral, filtros e cabeçalho das tabelas */
   /* Backup 56: azul-safira (mais limpo e vivo que o marinho acinzentado #1B2A4A, que continua na logo e nos documentos) */
-  --lado-bg:#173B66;--lado-fg:#FFFFFF;--lado-fg-2:rgba(255,255,255,.86);--lado-sec:rgba(255,255,255,.62);--lado-linha:rgba(255,255,255,.18);
-  --lado-ativo-bg:#FFFFFF;--lado-ativo-fg:#173B66;--lado-hover:rgba(255,255,255,.1);
+  --lado-bg:#173B66;--lado-fg:#FFFFFF;--lado-fg-2:rgba(255,255,255,.86);--lado-sec:rgba(255,255,255,.55);--lado-linha:rgba(255,255,255,.18);
+  --lado-ativo-bg:#FFFFFF;--lado-ativo-fg:#173B66;--lado-hover:rgba(255,255,255,.09);
   --topo-bg:#FFFFFF;--topo-borda:#E3E6E8;
   /* cabeçalho das tabelas (Backup 19: volta ao azul-marinho, texto branco) */
   /* Backup 63 (reforma, etapa 2): cabeçalho CLARO — fundo do cartão, letra pequena cinza em caixa alta (aprovado na tela-modelo) */
@@ -79,21 +79,23 @@
   --shadow-card:0 1px 3px rgba(17,24,39,.04);
   --shadow-hover:0 6px 20px -8px rgba(17,24,39,.14);
   --shadow-md:0 8px 24px -10px rgba(17,24,39,.16);
-  --shadow-lg:0 18px 48px -16px rgba(17,24,39,.24);
+  --shadow-lg:0 24px 64px -16px rgba(17,24,39,.35);
   --anel:0 0 0 3px rgba(46,94,170,.16);
   --grad-marca:linear-gradient(0deg,#173B66,#173B66);
   --grad-ouro:linear-gradient(0deg,#C9A84C,#C9A84C);
   color-scheme:light;
+  /* Backup 83: valores do ambiente de teste */
+  --primario-lt:#EDF2FA;--link:#1F4D80;--lado-fg2:rgba(255,255,255,.82);--shadow:0 1px 2px rgba(17,24,39,.04);
 }
 
 /* ── modo escuro (Backup 63: PRETO de verdade, aprovado na tela-modelo; a lateral num azul-marinho escuro com borda para não sumir) ── */
 html[data-tema="escuro"]{
-  --green:#3FB950;--green-d:#56D364;--green-lt:rgba(63,185,80,.13);--green-bd:rgba(63,185,80,.32);
-  --amber:#D29922;--amber-d:#E3B341;--amber-lt:rgba(210,153,34,.13);--amber-border:rgba(210,153,34,.34);
-  --red:#F85149;--red-d:#FF7B72;--red-lt:rgba(248,81,73,.12);--red-bd:rgba(248,81,73,.34);
+  --green:#3FB950;--green-d:#56D364;--green-lt:rgba(63,185,80,.14);--green-bd:rgba(63,185,80,.32);
+  --amber:#D8A02A;--amber-d:#E3B341;--amber-lt:rgba(216,160,42,.14);--amber-border:rgba(210,153,34,.34);
+  --red:#F2564D;--red-d:#FF7B72;--red-lt:rgba(242,86,77,.14);--red-bd:rgba(248,81,73,.34);
   --orange:#E8A57A;--orange-d:#E8A57A;--orange-lt:rgba(232,165,122,.12);--orange-bd:rgba(232,165,122,.3);
   --teal:#4DB6AC;--teal-lt:rgba(77,182,172,.12);--teal-bd:rgba(77,182,172,.3);
-  --blue:#58A6FF;--blue-d:#79C0FF;--blue-lt:rgba(56,139,253,.13);--blue-bd:rgba(56,139,253,.36);
+  --blue:#6AA6FF;--blue-d:#79C0FF;--blue-lt:rgba(106,166,255,.14);--blue-bd:rgba(56,139,253,.36);
   --violet:#A371F7;--violet-d:#BC8CFF;--violet-lt:rgba(163,113,247,.13);--violet-bd:rgba(163,113,247,.34);
   --gray:#8C8C93;--gray-lt:#1A1A1E;--gray-mid:#26262B;
   --sem-preto:#010409;
@@ -122,6 +124,8 @@ html[data-tema="escuro"]{
   --anel:0 0 0 3px rgba(56,139,253,.35);
   --grad-marca:linear-gradient(0deg,#3270CC,#3270CC);
   color-scheme:dark;
+  /* Backup 83: valores do ambiente de teste */
+  --primario-lt:rgba(61,127,224,.15);--link:#8DB8FF;--lado-fg2:#C3CCD9;--shadow:none;
 }
 html[data-tema="escuro"] body{background:var(--bg)!important;color:var(--text)}
 

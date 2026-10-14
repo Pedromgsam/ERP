@@ -679,7 +679,7 @@ function tabelaB(el, cfg) {
     b.innerHTML = [['', 'Todas'], ['venc', 'Vencidas'], ['5', '5 dias'], ['10', '10 dias'], ['15', '15 dias'], ['30', '30 dias']].map((o) => '<button type="button" class="b-chip" data-b-prazo="' + o[0] + '" aria-pressed="' + (st.prazo === o[0]) + '">' + o[1] + '</button>').join('') +
       '<label class="b-prazo-ate' + (st.prazo === 'ate' ? ' b-on' : '') + '" title="Vencimento até esta data">até ' + campoDataB('data-bt="prazoate"', st.prazoAte, 'Vencimento até') + '</label>';
   }
-  function conta() { const c = Q('[data-bt=conta]'); if (!c || !cfg.conta) return; c.textContent = '· ' + cfg.conta(filtrar().length, st.aba); }
+  function conta() { const c = Q('[data-bt=conta]'); if (!c || !cfg.conta) return; c.textContent = cfg.conta(filtrar().length, st.aba); }
   const tudo = () => { abas(); prazos(); quadro(); contarFx(); conta(); };
   el._redesenharB = tudo;
   tudo();
@@ -770,9 +770,23 @@ function nomearBotoesIcone() {
     if (nome) b.setAttribute('aria-label', nome);
   });
 }
+// Backup 83: o desenho do ambiente em todas as telas, pela peça única — "+ Texto" num botão vira o ícone + do ambiente,
+// e o título de cartão perde a figurinha (emoji) do começo
+const EMOJI_INI_B = /^\s*(?:\p{Extended_Pictographic}|[⚖⚠✉☰⏱])\uFE0F?\s*/u;
+function enfeitarB() {
+  document.querySelectorAll('.gs button.btn:not([data-b-enf]), .gs a.btn:not([data-b-enf])').forEach((b) => {
+    b.setAttribute('data-b-enf', '1');
+    const n = b.firstChild; if (!n || n.nodeType !== 3 || !/^\s*\+\s+\S/.test(n.nodeValue)) return;
+    n.nodeValue = n.nodeValue.replace(/^\s*\+\s+/, ''); b.insertAdjacentHTML('afterbegin', iconeB('mais')); b.classList.add('b-bt-ic');
+  });
+  document.querySelectorAll('.gs .card-hd:not([data-b-enf])').forEach((h) => {
+    h.setAttribute('data-b-enf', '1');
+    const n = h.firstChild; if (n && n.nodeType === 3 && EMOJI_INI_B.test(n.nodeValue)) n.nodeValue = n.nodeValue.replace(EMOJI_INI_B, '');
+  });
+}
 (() => {
   let agendado = false;
-  const agendar = () => { if (agendado) return; agendado = true; requestAnimationFrame(() => { agendado = false; paginarTabelas(); nomearBotoesIcone(); mascararCampos(); }); };
+  const agendar = () => { if (agendado) return; agendado = true; requestAnimationFrame(() => { agendado = false; paginarTabelas(); nomearBotoesIcone(); mascararCampos(); enfeitarB(); }); };
   const ligar = () => new MutationObserver((ms) => { if (ms.some((m) => m.target.closest && m.target.closest('table, .tw, .tabela-wrap, main, .gs-area, #conteudo, #janelas, .janela, .gx-modal, form'))) agendar(); })
     .observe(document.body, { childList: true, subtree: true });
   if (document.body) ligar(); else document.addEventListener('DOMContentLoaded', ligar);

@@ -796,9 +796,9 @@ html body.gx-barra-topo .gs .b-conta:not(#_){font-size:12.5px}
 /* lateral (B82) como no ambiente: grupos sempre abertos (rótulo + itens recuados), contador em cada item */
 html body.gx-barra-topo #gs-lado .tn-it:not(#_){font:500 13px var(--font-ui);padding:7px 10px;border-radius:7px}
 html body.gx-barra-topo #gs-lado .tn-it.ativo:not(#_){font-weight:700}
-body:not(.gx-lado-min) #gs-lado .tn-grupo > .tn-menu:not(#_){display:flex;flex-direction:column;gap:1px;margin:0;padding:0;border:0}
-body:not(.gx-lado-min) #gs-lado .tn-grupo > .tn-abre:not(#_){cursor:default;color:var(--lado-sec);font-weight:600;background:none}
-body:not(.gx-lado-min) #gs-lado .tn-grupo > .tn-abre .tn-seta,body:not(.gx-lado-min) #gs-lado .tn-n-grupo{display:none}
+/* Backup 83: os grupos (Jurídico, Financeiro) voltam a abrir e fechar com um clique (seta); o grupo da tela aberta abre sozinho */
+body:not(.gx-lado-min) #gs-lado .tn-grupo.on > .tn-menu:not(#_){display:flex;flex-direction:column;gap:1px;margin:0;padding:0;border:0}
+body:not(.gx-lado-min) #gs-lado .tn-grupo.on .tn-n-grupo{display:none}
 html body.gx-barra-topo #gs-lado .tn-menu button:not(#_){display:flex;align-items:center;padding:7px 10px 7px 36px;font:500 12.5px var(--font-ui);border-radius:7px}
 html body.gx-barra-topo #gs-lado .tn-menu button.ativo:not(#_){font-weight:700}
 html body.gx-barra-topo #gs-lado .tn-n:not(#_){margin-left:auto;font:700 10.5px var(--font-ui);background:var(--red);color:#fff;border-radius:999px;padding:1px 6px}
@@ -876,3 +876,61 @@ html body.gx-barra-topo .gs .titulo-pag.b-cab .acoes .btn .b-ic{width:15px;heigh
   .gs .b-cab-acoes{max-width:100%;min-width:0;justify-content:flex-start;margin-left:0}
   .gs .b-cab-acoes > .b-seg{max-width:100%;overflow-x:auto;flex-wrap:nowrap}
 }
+
+/* ═══════════ Backup 83 — "idêntico ao ambiente de teste" (14/10): altura de linha 1,45 em botões e pílulas (o "normal" deixava tudo mais fino),
+   barra do alto sem busca, título 19 px, faixa do Início, cartões e gráficos ═══════════ */
+#gs-hd .gs-hd-esp{flex:1 1 auto}
+html body.gx-barra-topo #gs-hd:not(#_){padding:0 20px!important}
+html body.gx-barra-topo :is(#gs-hd,#gs-lado,.gs,.janela) :is(button,input,select,textarea):not(#_){line-height:1.45}
+html body.gx-barra-topo #gs-lado :is(.tn-it,.tn-menu button):not(#_){line-height:1.45;gap:9px}
+html body.gx-barra-topo .gs .b-cab h1:not(#_){font-size:19px!important;line-height:1.2;letter-spacing:-.015em}
+html body.gx-barra-topo .gs .ini-sec-hd h2:not(#_){font:700 15px/1.45 var(--font-ui)!important;letter-spacing:normal}
+html body.gx-barra-topo .gs .ini-quem button:not(#_){gap:6px}
+html body.gx-barra-topo .gs :is(.ini-pil,.ini-conf-it):not(#_){font-weight:400;line-height:1.45;padding:4px 11px;font-size:12.5px;gap:7px}
+html body.gx-barra-topo .gs :is(.ini-pil,.ini-conf-it) b:not(#_){font-weight:700}
+html body.gx-barra-topo .gs .b-faixa-rot:not(#_){line-height:1.45;color:var(--text3)}
+html body.gx-barra-topo .gs .b-pill:not(#_){line-height:1.45}
+/* Evolução do passivo (B83) = APP.linha do ambiente: máximo e mínimo à esquerda, traço que estica, pontos brancos, meses embaixo */
+.gs .b-glin{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:180px auto;gap:6px 10px}
+.gs .b-glin-y{display:flex;flex-direction:column;justify-content:space-between;font-size:11px;color:var(--text3);text-align:right;white-space:nowrap}
+.gs .b-glin-area{position:relative;border-left:1px solid var(--line);border-bottom:1px solid var(--line)}
+.gs .b-glin-area svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.gs .b-glin-p{position:absolute;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:999px;background:var(--surface);border:2px solid var(--primario);cursor:default}
+.gs .b-glin-x{grid-column:2;display:flex;justify-content:space-between;font-size:11px;color:var(--text3)}
+html body.gx-barra-topo .gs .b-pe-evo:not(#_){padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+html body.gx-barra-topo .gs .b-pe-evo .b-pe-evo-hd:not(#_){display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin:0;padding:0;border:0}
+html body.gx-barra-topo .gs .b-pe-evo .b-pe-evo-hd h3:not(#_){font:700 15px/1.45 var(--font-ui);color:var(--ink);margin:0}
+html body.gx-barra-topo .gs .b-pe-evo .b-pe-evo-hd .b-chips:not(#_){margin-left:auto}
+/* Empresas do grupo (B83) = t-painel do ambiente: CPF/CNPJ inteiro (150 px), valores 9%, abas sem número */
+.b-tab-pe th:nth-child(1){width:14%}.b-tab-pe th:nth-child(3){width:150px}.b-tab-pe th:nth-child(7){width:9%}.b-tab-pe th:nth-child(8){width:90px}.b-tab-pe th:nth-child(9){width:90px}
+html body.gx-barra-topo table.b-tab.b-tab-pe td.b-num:not(#_){overflow:visible;text-overflow:clip;font-size:12px}
+/* cartões de grupo, pílulas e botões da linha (B83) = .cg / .pill / .bt-emitir / .bt-baixa do ambiente */
+html body.gx-barra-topo .gs .b-cg:not(#_){gap:6px;box-shadow:var(--shadow)}
+html body.gx-barra-topo .gs .b-cg:hover:not(#_){border-color:var(--primario)}
+html body.gx-barra-topo .gs .b-cg[aria-expanded="true"]:not(#_){border-color:var(--primario);box-shadow:0 0 0 3px rgba(31,77,128,.16)}
+html body.gx-barra-topo .gs .b-cg .b-barra:not(#_){margin:7px 0 3px}
+html body.gx-barra-topo .gs .b-cg-prog:not(#_){font-size:12px;margin:0;color:var(--text3)}
+html body.gx-barra-topo .gs .b-cg-lin:not(#_){color:var(--text2)}
+html body.gx-barra-topo .gs .b-cg-lin span:not(#_){white-space:nowrap}
+html body.gx-barra-topo .gs .b-cg-lin b:not(#_){font-weight:700;color:var(--ink);text-align:right}
+.gs .b-r{color:var(--red)}.gs .b-b{color:var(--blue)}.gs .b-a{color:var(--amber)}.gs .b-g{color:var(--green)}
+html body.gx-barra-topo .gs :is(.b-bt-emitir,.b-bt-baixa):not(#_){font-size:12.5px;padding:5px 11px;gap:5px;display:inline-flex;align-items:center;line-height:1.45}
+html body.gx-barra-topo .gs .b-bt-emitir:not(#_){border-color:var(--border)}
+html body.gx-barra-topo .gs .b-bt-baixa:not(#_){font-weight:700;background:var(--green);border-color:var(--green)}
+html body.gx-barra-topo table.b-tab thead th:not(#_){line-height:1.45!important}
+html body.gx-barra-topo .gs :is(.b-sec h2,.b-fin-hd h3,.b-sec-cab h2):not(#_){line-height:1.45;letter-spacing:normal}
+html body.gx-barra-topo .gs .b-faixa-lin:not(#_){gap:6px 8px}
+html body.gx-barra-topo .gs .b-chip:not(#_){gap:6px;line-height:1.45}
+/* filtros da Análise do Financeiro numa linha (B83) = .filtro-linha do ambiente */
+html body.gx-barra-topo .gs .b-filtro-linha:not(#_){display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:10px 14px;box-shadow:none}
+html body.gx-barra-topo .gs .b-filtro-linha .b-fin-rot:not(#_){font:700 11px/1.45 var(--font-ui);letter-spacing:.06em;text-transform:uppercase;color:var(--text3);min-width:0;padding:0}
+html body.gx-barra-topo .gs .b-filtro-linha .b-chips-in:not(#_){display:inline-flex;flex-wrap:wrap;gap:6px}
+html body.gx-barra-topo .gs .b-filtro-linha .b-fx:not(#_){display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0}
+html body.gx-barra-topo .gs .b-filtro-linha select:not(#_){height:32px}
+/* menu lateral (B83): no grupo aberto só o item da tela fica em destaque (o rótulo do grupo não) */
+html body.gx-barra-topo #gs-lado .tn-grupo.ativo > .tn-abre:not(#_){background:none;color:var(--lado-fg2);font-weight:500}
+html body.gx-barra-topo #gs-lado .tn-grupo.ativo > .tn-abre:hover:not(#_){background:var(--lado-hover)}
+/* botões com "+" (B83): o ícone + do ambiente no lugar do sinal digitado */
+html body.gx-barra-topo .gs .btn.b-bt-ic:not(#_){display:inline-flex;align-items:center;gap:7px}
+html body.gx-barra-topo .gs .btn.b-bt-ic .b-ic:not(#_){width:16px;height:16px;flex:none}
+html body.gx-barra-topo .gs .btn.btn-mini.b-bt-ic .b-ic:not(#_){width:14px;height:14px}
