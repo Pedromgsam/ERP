@@ -721,6 +721,40 @@ O que mudou:
 
 Ainda falta (próxima rodada): apagar o ERP antigo (ERP.html, remendos e blocos antigos do design.css).
 
+## Backup 83 — Igual ao ambiente de teste (versão 5): Início sem calendário, menu que abre e fecha, Painel e cartões mais leves
+1. Merge da pull request.
+2. **Sem SQL** nesta rodada.
+3. **Ctrl+Shift+R** no ERP.
+
+O que mudou (o que você pediu em 14/10):
+- **Barra de cima sem o campo "Buscar cliente, CNPJ, processo…".** A busca geral continua no atalho **Ctrl+K** (⌘K no Mac), para quem quiser usar.
+- **Início mais limpo:**
+  - sem o calendário ("Minha fila de trabalho");
+  - ficam a faixa de alertas (Financeiro · Escritório), Meu dia, Lembretes e Próximos 7 dias;
+  - **a agenda fica só em Tarefas.** O "+ Agendar" (reunião, audiência, compromisso) está em Tarefas → Calendário; a Semana com arrastar também está em Tarefas.
+- **Menu da esquerda como antes:** Jurídico e Financeiro abrem e fecham com um clique (setinha).
+  - O grupo da tela aberta abre sozinho.
+  - Com o grupo fechado, o número vermelho aparece no próprio grupo.
+- **Letras e espaços iguais aos do ambiente:**
+  - a altura da linha de botões, pílulas e abas era menor no ERP (por isso a faixa Financeiro/Escritório parecia mais "magra");
+  - os tons de cinza e as cores das pílulas agora são os mesmos do ambiente;
+  - o título de cada tela tem 19 px.
+- **Painel Executivo:**
+  - a "Evolução do passivo" é a linha do ambiente: só o maior e o menor valor à esquerda, sem grade, pontos brancos e os meses embaixo;
+  - ficam "6 meses · 12 meses";
+  - **saíram:** "Tudo junto / Uma linha por grupo", "24 meses", o resumo "R$ … hoje ▲" e a frase explicativa embaixo;
+  - a linha mostra o total do que está escolhido no alto (todos, um grupo ou uma empresa).
+- **Empresas do grupo:** abas sem número; CPF/CNPJ inteiro, sem "…"; larguras das colunas iguais às do ambiente.
+- **Cartões "Situação por cliente"** (Parcelamentos e Acordos): mais leves, como no ambiente.
+  - Saiu a linha "Nº …" do cartão (o nº continua na coluna Parcelamento da tabela).
+  - "A pagar este mês" não quebra mais em duas linhas.
+- **Financeiro → Análise:** os filtros ficam numa linha só (Quem · Período · de/até · Aplicar), como no ambiente; o tipo e o grupo continuam no fim da linha.
+- **Em todas as telas:**
+  - os botões "+ Algo" ganharam o ícone + do ambiente;
+  - os títulos dos quadros perderam as figurinhas (👥, 🏛, 📋…);
+  - o total das tabelas aparece sem o "·" na frente;
+  - os botões "Emitir" e "Baixa" estão no tamanho do ambiente.
+
 ## Backup 82 — O desenho do ambiente de teste em todas as telas do ERP
 1. Merge da pull request.
 2. **Sem SQL** nesta rodada.
