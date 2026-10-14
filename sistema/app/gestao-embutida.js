@@ -1137,7 +1137,9 @@ function graficoLinhasB(meses, series, opc) {
   // faixas invisíveis por mês com a dica
   const col = meses.length === 1 ? larg - esq - dir : (larg - esq - dir) / (meses.length - 1);
   meses.forEach((k, i) => { const dica = rotMesB(k) + ' — ' + series.filter((sr) => sr.valores[i] != null).sort((a, b) => b.valores[i] - a.valores[i]).map((sr) => (series.length > 1 ? sr.nome + ': ' : '') + fmt(sr.valores[i])).join(' · ');
-    s += '<rect x="' + (x(i) - col / 2) + '" y="' + topo + '" width="' + col + '" height="' + (util + 30) + '" fill="transparent" data-dica="' + esc(dica) + '"/>'; });
+    // área de "passar o mouse" do mês, sem sair do desenho (com 1 ou 2 meses ela ficava mais larga que o gráfico)
+    const rx = Math.max(esq, x(i) - col / 2), rw = Math.min(larg - dir, x(i) + col / 2) - rx;
+    s += '<rect x="' + rx + '" y="' + topo + '" width="' + rw + '" height="' + (util + 30) + '" fill="transparent" data-dica="' + esc(dica) + '"/>'; });
   s += '</svg>';
   if (series.length > 1) s += '<div class="legenda">' + series.map((sr) => '<span><i style="background:' + sr.cor + '"></i>' + esc(sr.nome) + '</span>').join('') + '</div>';
   return s;
