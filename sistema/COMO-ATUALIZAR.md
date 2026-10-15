@@ -721,6 +721,25 @@ O que mudou:
 
 Ainda falta (próxima rodada): apagar o ERP antigo (ERP.html, remendos e blocos antigos do design.css).
 
+## Backup 88 — ERP limpo para usar (Tarefas, Painel, Processos, Parcelamentos, Acordos, Publicações, Financeiro)
+1. Merge da pull request.
+2. **SQL no Supabase** (Raw → Ctrl+A/Ctrl+C → conferir a última linha "fim do Backup 88" → Run).
+3. **Publicar de novo a função `erp-publicacoes`** (Edge Functions → erp-publicacoes → colar o arquivo `supabase/functions/erp-publicacoes/index.ts` → Deploy; **Verify JWT desligado**).
+4. **Ctrl+Shift+R** no ERP.
+
+O que mudou (vale para o sistema todo):
+- **Tabelas:** sem a barra de busca (Ctrl+K continua achando tudo; ficou só em Documentos e no texto das Publicações), sem o botão "Tabela compacta", sem a linha "Total de N" com soma e média, sem o fundo rosado nas linhas em atraso (o prazo continua em vermelho) e mostrando **20 linhas** antes de rolar.
+- **Filtros no "padrão do escritório"** (a caixa do Mês · Semana · Dia): prazos (Todas · Vencidas · 5/10/15/30 dias, sem o "até dd/mm/aaaa"), Situação por cliente (Todos · Com atraso · Risco de rescisão · Em dia · Concluídos), Tarefas (Mostrar · De quem · Urgência, todas as opções à vista) e Financeiro (Quem · Período · Tipo · Grupo).
+- **Grupo / Empresa à direita e fixos no alto** ao rolar a tela (Painel, Processos, Parcelamentos, Acordos). No "Filtros" da tabela não aparece mais o Grupo (já está no alto).
+- **Tarefas:** saíram as vistas Semana (está dentro do Calendário) e Fluxos, o botão Fluxo e "Modelos de fluxo" (⚙ ficou com Feriados e Google Agenda). "+ Nova tarefa" escolhe **Tarefa** (feita uma vez), **Rotina** (repete; só ela mostra "Repetir"), **Reunião** ou **Audiência** (abrem a janela de agendar). Saíram "Prazo fatal" e as "próximas (repete)" do calendário; a legenda ficou Reunião · Audiência · Tarefa · Rotina · Atrasada · Concluída. Mostrar tem também "Atrasadas".
+- **Painel:** filtro de **Responsável** (Pedro, Emanuelle, Adriana…) junto de Grupo e Empresa.
+- **Processos:** filtro de **Advogado** no alto.
+- **Parcelamentos e Acordos:** "N parcelas em atraso" do cartão mais discreto (bolinha + texto); Acordos sem "Forma de pagamento" nos Filtros.
+- **Publicações:** o advogado aparece **do lado que ele representa** (antes ia sempre no Autor; ex.: Emanuelle aparecia como advogada do IEF, mas é do réu) — o ERP lê o texto da intimação ("Advogado do(a) RÉU…"), a parte monitorada e quem é cliente; sem certeza, o advogado vai numa linha própria. Saiu "Descartadas". O texto do alto ficou "Última busca: 15/10/2026 06:00. 3 novas intimações — Pedro (2), Emanuelle (1)".
+  **Busca automática todo dia às 6h** (inclusive fim de semana), pelo servidor, **na região de São Paulo** — era isso que fazia a busca do servidor falhar ("questão da API": o Diário do CNJ recusa servidores fora do Brasil). "Buscar agora" continua. Novo em Administração → E-mail → Automáticos: **"Publicações do dia ao advogado"** = um e-mail por advogado com as intimações novas do dia (no lugar de um e-mail por publicação).
+- **Financeiro:** o **Fluxo do mês** agora soma o que **entrou no mês** (pela data do pagamento) — o mesmo número do "Recebido" com "Mês passado". Antes ele contava como "recebido de setembro" o que venceu em setembro mesmo que pago em agosto ou outubro, por isso não batia. Saiu a linha "Fora deste mês…". **Comissões:** sem aba própria; a comissão aparece como redutor (− R$) junto dos recebidos e a receber, com filtro "Comissão" (Só comissões / Sem comissões); o "Recebido" da Análise diz quanto saiu de comissão. **Recibo:** E-mail (prévia com o timbrado, igual ao que o cliente recebe, PDF anexo) ou WhatsApp (texto pronto + número do cliente). Contabilidade: gráfico verde/vermelho e "Passe o mouse na coluna para ver o valor."
+- **Para decidir:** página "Plano visual do ERP" (link na resposta) com D1–D7 e as opções do Início (I1–I3).
+
 ## Backup 87 — Todas as janelas no desenho do ambiente de teste + funções de volta
 1. Merge da pull request.
 2. **Sem SQL desta vez** (o banco não mudou).

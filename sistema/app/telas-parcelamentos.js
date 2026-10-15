@@ -93,8 +93,8 @@ function colunasParcelas(o) {
 }
 function listasParcelas(T) {
   const uniq = (f) => [...new Set(T.map(f).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR')).map((v) => [v, v]);
-  return [{ k: 'g', rot: 'Grupo', todos: 'Todos os grupos', opcoes: uniq((x) => x.pa.grupo), get: (x) => x.pa.grupo },
-    { k: 'plat', rot: 'Plataforma', todos: 'Todas as plataformas', opcoes: uniq((x) => x.pa.local), get: (x) => x.pa.local },
+  // Backup 88: sem "Grupo" aqui — o filtro de grupo já fica à vista no alto da tela
+  return [{ k: 'plat', rot: 'Plataforma', todos: 'Todas as plataformas', opcoes: uniq((x) => x.pa.local), get: (x) => x.pa.local },
     { k: 'nat', rot: 'Natureza', todos: 'Todas as naturezas', opcoes: uniq((x) => x.pa.natureza), get: (x) => x.pa.natureza }];
 }
 const buscaParc = (x) => x.pa.empresa + ' ' + x.pa.cnpj + ' ' + soDigitos(x.pa.cnpj) + ' ' + x.pa.numero + ' ' + x.pa.grupo + ' ' + x.pa.natureza;
@@ -120,8 +120,7 @@ function pintarParcelamentos() {
     // Backup 79: filtro suspenso (Grupo / Empresa) — recorta a situação por cliente e a lista de parcelas
     filtroSusB('pc-filtro', [{ k: 'grupo', rot: 'Grupo', todos: 'Todos os grupos', opcoes: unicosTxt(PA0.map((pa) => pa.grupo)), v: F.grupo },
       { k: 'emp', rot: 'Empresa', todos: 'Todas as empresas', opcoes: unicosTxt(PA0.filter((pa) => !F.grupo || pa.grupo === F.grupo).map((pa) => pa.empresa)), v: F.emp }]) +
-    '<div class="b-sec"><div class="b-sec-tit"><h2>Situação por cliente</h2>' + botaoMinB('pc-situacao') + '</div><div class="b-chips" id="pc-chips">' +
-    [['todos', 'Todos'], ['atraso', 'Com atraso'], ['risco', 'Risco de rescisão'], ['dia', 'Em dia'], ['concluidos', 'Concluídos']].map((c) => '<button type="button" class="b-chip" data-pc-chip="' + c[0] + '" aria-pressed="' + (E.pc.chip === c[0]) + '">' + c[1] + '</button>').join('') + '</div></div>' +
+    '<div class="b-sec"><div class="b-sec-tit"><h2>Situação por cliente</h2>' + botaoMinB('pc-situacao') + '</div>' + segFiltroB('pc-chips', 'data-pc-chip', [['todos', 'Todos'], ['atraso', 'Com atraso'], ['risco', 'Risco de rescisão'], ['dia', 'Em dia'], ['concluidos', 'Concluídos']], E.pc.chip, 'Situação') + '</div>' +
     '<div class="b-cards" id="pc-grupos"></div>' +
     '<div class="b-sec"><div><h2>Parcelas</h2></div></div><div id="pc-tabela"></div>';
   $('pc-guias').onclick = () => { E.rt = Object.assign(E.rt || {}, { aba: 'guias' }); irParaTela('rotina'); };   // Backup 82: atalho do ambiente para as guias do mês (Rotina)
@@ -130,7 +129,7 @@ function pintarParcelamentos() {
   ligarFiltroSusB('pc-filtro', E.pc.f, () => { E.pc.grupo = ''; E.pc.fechado = false; pintarParcelamentos(); });
   desenharGruposPc();
   ligarMinB('pc-situacao', ['pc-chips', 'pc-grupos']);   // Backup 84: a situação por cliente se minimiza
-  $('pc-chips').onclick = (ev) => { const b = ev.target.closest('[data-pc-chip]'); if (!b) return; E.pc.chip = b.dataset.pcChip; $('pc-chips').querySelectorAll('.b-chip').forEach((x) => x.setAttribute('aria-pressed', x === b)); desenharGruposPc(); };
+  $('pc-chips').onclick = (ev) => { const b = ev.target.closest('[data-pc-chip]'); if (!b) return; E.pc.chip = b.dataset.pcChip; marcarSegB($('pc-chips'), b); desenharGruposPc(); };
   tabelaB($('pc-tabela'), { id: 'parcelas', tabCls: 'b-tab-parc', linhas: T, colunas: colunasParcelas(), unidade: ['parcela', 'parcelas'], dicaBusca: 'Empresa, CNPJ ou nº',
     abas: [{ id: 'apagar', rot: 'A pagar', f: (x) => !x.pago }, { id: 'pago', rot: 'Pago', f: (x) => x.pago }], semContagemAbas: true,
     prazos: true, prazosAbas: ['apagar'], conta: (n, aba) => plural(n, 'parcela', 'parcelas') + (aba === 'pago' ? ' paga' + (n === 1 ? '' : 's') : ' a pagar'),
@@ -157,7 +156,7 @@ function desenharGruposPc() {
   grupos.forEach((g) => {
     const ab = E.pc.grupo === g.id, n = chip === 'concluidos' ? g.conc.length : g.vivos.length, pc = g.tot ? Math.round(g.pg / g.tot * 100) : 100;
     html += '<button type="button" class="b-cg" data-pc-g="' + esc(g.id) + '" aria-expanded="' + ab + '"><div class="b-cg-hd"><b>' + esc(g.nome) + '</b>' +
-      (chip === 'concluidos' ? '<span class="b-pill b-g">Concluídos</span>' : g.atr ? '<span class="b-pill b-r">' + plural(g.atr, 'parcela', 'parcelas') + ' em atraso</span>' : '<span class="b-pill b-g">Em dia</span>') + '</div>' +
+      (chip === 'concluidos' ? '<span class="b-cg-st b-cg-ok">Concluídos</span>' : g.atr ? '<span class="b-cg-st b-cg-atr">' + plural(g.atr, 'parcela', 'parcelas') + ' em atraso</span>' : '<span class="b-cg-st b-cg-ok">Em dia</span>') + '</div>' +
       '<div class="b-cg-sub">' + plural(n, 'parcelamento', 'parcelamentos') + (g.risco && chip !== 'concluidos' ? ' · <span class="b-n-atr">risco de rescisão</span>' : '') + '</div>' +
       // Backup 72: o número de cada parcelamento no cartão do cliente (até 4; o resto em "+N")
       // Backup 83: sem a linha "Nº …" no cartão (como no ambiente — menos amontoado); o nº continua na coluna Parcelamento da tabela

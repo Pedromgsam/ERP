@@ -1,8 +1,8 @@
 'use strict';
 // ═══════════════════════════════════════════════════════════════════
 // Publicações — Diário de Justiça Eletrônico Nacional (API pública do CNJ).
-// A função "erp-publicacoes" busca pelas OABs cadastradas (7h e 13h, dias
-// úteis, ou pelo botão "Buscar agora" — desde o Backup 52 pelo navegador); aqui a equipe lê, cria a tarefa com
+// A função "erp-publicacoes" busca pelas OABs cadastradas (Backup 88: todo dia às 6h, na região de São Paulo,
+// ou pelo botão "Buscar agora" — desde o Backup 52 pelo navegador); aqui a equipe lê, cria a tarefa com
 // prazo sugerido em dias úteis e marca como tratada.
 // ═══════════════════════════════════════════════════════════════════
 const PALAVRAS_PUB = ['intimação', 'intimada', 'intimado', 'prazo', 'sentença', 'audiência', 'citação', 'citado', 'citada', 'decisão', 'penhora', 'bloqueio'];
@@ -36,7 +36,7 @@ TELAS.publicacoes = async function () {
     // Backup 77: a tela voltou a ser a de antes do Backup 72 (cartões com o texto, filtros em botões), a pedido; só o cabeçalho segue o padrão único (ícone + título)
     '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('publicacao') + '</div><div class="b-cab-tx"><h1>Publicações</h1><p id="pub-ult">Intimações do Diário de Justiça</p></div>' +
     '<div class="acoes"><button class="btn btn-o" id="pub-todas-lidas" title="Marca como lidas todas as publicações novas">✓ Marcar todas como lidas</button><button class="btn btn-o" id="pub-oabs">⚙ Monitoramento (OABs e clientes)</button><button class="btn btn-p" id="pub-buscar" title="Busca no Diário do CNJ pelo seu navegador (se ele falhar, tenta pelo servidor)">↻ Buscar agora</button></div></div>' +
-    '<div class="filtros"><div class="segmento" id="pub-st">' + [['nova', 'Novas'], ['lida', 'Lidas'], ['tratada', 'Tratadas'], ['descartada', 'Descartadas'], ['', 'Todas']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
+    '<div class="filtros"><div class="segmento" id="pub-st">' + [['nova', 'Novas'], ['lida', 'Lidas'], ['tratada', 'Tratadas'], ['', 'Todas']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<select class="busca sel" id="pub-dias"><option value="7">Últimos 7 dias</option><option value="15">Últimos 15 dias</option><option value="30">Últimos 30 dias</option><option value="90">Últimos 90 dias</option><option value="">Todo o período</option></select>' +
 
     '<input class="busca" id="pub-busca" placeholder="Buscar no texto, processo ou parte" autocomplete="off"></div>' +
@@ -58,9 +58,9 @@ TELAS.publicacoes = async function () {
     if (r.erros.length && !r.lidas) {
       const data = await chamarFuncao('erp-publicacoes', {}).catch((e) => ({ erros: [e.message] }));
       const erro = data.erros && data.erros.length ? data.erros[0] : '';
-      if (!erro) aviso('✓ Busca feita (pelo servidor, porque o navegador não alcançou o CNJ): ' + (data.lidas || 0) + ' publicação(ões) lida(s), ' + (data.novas || 0) + ' nova(s).');
+      if (!erro) aviso('✓ Busca feita (pelo servidor, porque o navegador não alcançou o CNJ): ' + (data.novas ? plural(data.novas, 'intimação nova', 'intimações novas') : 'nenhuma intimação nova') + '.');
       else aviso('⚠ A busca não foi feita. Pelo navegador: ' + r.erros[0] + '. Pelo servidor: ' + erro + '. Tente de novo em alguns minutos.', true);
-    } else aviso('✓ Busca feita: ' + r.lidas + ' publicação(ões) lida(s), ' + r.novas + ' nova(s).' + (r.erros.length ? ' Atenção: ' + r.erros[0] : ''), !!r.erros.length);
+    } else aviso('✓ Busca feita: ' + (r.novas ? plural(r.novas, 'intimação nova', 'intimações novas') : 'nenhuma intimação nova') + '.' + (r.erros.length ? ' Atenção: ' + r.erros[0] : ''), !!r.erros.length);
     await TELAS.publicacoes();
   });
   $('pub-st').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.status = b.dataset.v; pintarPublicacoes(); } };
@@ -70,11 +70,51 @@ TELAS.publicacoes = async function () {
   $('pub-dias').value = F.dias; $('pub-busca').value = F.busca;
   let t; $('pub-busca').oninput = (ev) => { clearTimeout(t); t = setTimeout(() => { F.busca = ev.target.value; pintarPublicacoes(); }, 250); };
   q(sb.from('configuracoes').select('valor').eq('chave', 'publicacoes_ultima').maybeSingle()).then((u) => {
-    if (u && u.valor && $('pub-ult')) $('pub-ult').textContent = 'Última busca: ' + quandoRodou(u.valor.quando) + ' · ' + u.valor.novas + ' nova(s) de ' + u.valor.lidas + ' lida(s)' +
-      (u.valor.erros && u.valor.erros.length ? ' · ⚠ ' + u.valor.erros[0] : '') + ' · automática 1× por dia ao abrir o ERP';
+    E._pubUlt = u && u.valor; textoUltimaBusca();
   }).catch(() => {});
   await carregarPublicacoes();
+  textoUltimaBusca();
 };
+// Backup 88: "Última busca: 18/10/2026 06:00. 3 novas intimações — Pedro (2), Emanuelle (1)" — só as NOVAS daquele dia (sem as lidas)
+function textoUltimaBusca() {
+  const u = E._pubUlt, el = $('pub-ult'); if (!el || !u || !u.quando) return;
+  const dia = iso(new Date(u.quando)), novas = (E._pubs || []).filter((p) => p.criado_em && iso(new Date(p.criado_em)) === dia);
+  const porAdv = {}; novas.forEach((p) => { const n = String(p.advogado || '').trim().split(/\s+/)[0] || 'Sem advogado'; porAdv[n] = (porAdv[n] || 0) + 1; });
+  const n = E._pubs ? novas.length : Number(u.novas) || 0;
+  el.textContent = 'Última busca: ' + quandoRodou(u.quando) + '. ' + (n ? plural(n, 'nova intimação', 'novas intimações') : 'Nenhuma intimação nova') +
+    (Object.keys(porAdv).length ? ' — ' + Object.keys(porAdv).sort((a, b) => porAdv[b] - porAdv[a] || a.localeCompare(b, 'pt-BR')).map((k) => k + ' (' + porAdv[k] + ')').join(', ') : '') +
+    (u.erros && u.erros.length ? ' · ⚠ ' + u.erros[0] : '');
+}
+// Backup 88: de que lado o advogado do escritório está — antes ia sempre no Autor quando o cliente não era a "parte monitorada"
+// (ex.: Emanuelle aparecia como advogada do IEF, mas ela é advogada do réu). Ordem: parte monitorada → texto da intimação
+// ("Advogado do(a) RÉU/REQUERIDO: …" perto do nome/OAB) → qual parte é cliente do escritório → um polo só entre os intimados. Sem certeza: linha própria.
+const PALAVRAS_PASSIVO = /\b(reu|re|requerid[oa]s?|reclamad[oa]s?|executad[oa]s?|impetrad[oa]s?|agravad[oa]s?|apelad[oa]s?|recorrid[oa]s?|embargad[oa]s?|denunciad[oa]s?|investigad[oa]s?|passivo|demandad[oa]s?)\b/g;
+const PALAVRAS_ATIVO = /\b(autor(a|es)?|requerentes?|reclamantes?|exequentes?|impetrantes?|agravantes?|apelantes?|recorrentes?|embargantes?|ativo|demandantes?)\b/g;
+function ladoDoAdvogado(p, G, adv) {
+  const nrm = (x) => normalizar(String(x || '')).replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+  const casa = (a, b) => { a = nrm(a); b = nrm(b); return a.length > 3 && b.length > 3 && (a.includes(b) || b.includes(a)); };
+  const tem = (lado, nomes) => G[lado].some((n) => n !== '—' && nomes.some((x) => casa(n, x)));
+  const unico = (fn) => { const a = fn('Autor'), r = fn('Réu'); return a && !r ? 'Autor' : r && !a ? 'Réu' : ''; };
+  if (p.parte_monitorada) { const l = unico((x) => tem(x, [p.parte_monitorada])); if (l) return l; }
+  const t = nrm(p.texto);
+  if (t) {
+    const marcas = [nrm(adv), p.oab_numero ? String(p.oab_numero).replace(/\D/g, '') : ''].filter((x) => x.length > 2);
+    for (const m of marcas) {
+      let i = t.indexOf(m);
+      while (i >= 0) {
+        const antes = t.slice(Math.max(0, i - 140), i), ult = (re) => { let k = -1, x; re.lastIndex = 0; while ((x = re.exec(antes))) k = x.index; return k; };
+        const kp = ult(PALAVRAS_PASSIVO), ka = ult(PALAVRAS_ATIVO);
+        if (kp > ka) return 'Réu'; if (ka > kp) return 'Autor';
+        i = t.indexOf(m, i + m.length);
+      }
+    }
+  }
+  const nossos = (E.clientes || []).map((c) => c.nome).concat((E.grupos || []).map((g) => g.nome)).filter(Boolean);
+  if (nossos.length) { const l = unico((x) => tem(x, nossos)); if (l) return l; }
+  const pol = Array.isArray(p.polos) ? [...new Set(p.polos.map((d) => String((d && d.polo) || '').toUpperCase()).filter((x) => x === 'A' || x === 'P'))] : [];
+  if (pol.length === 1) return pol[0] === 'P' ? 'Réu' : 'Autor';
+  return '';
+}
 // Partes em linhas: "Autor: …" e "Réu: …" (polo do Diário; as antigas sem polo continuam em "Partes:")
 // Backup 28: identificação no topo de toda publicação (para copiar e encaixar rápido):
 //   Processo: 5003925-39.2025.8.13.0604 / Autor: … / Réu: … — Advogado: Pedro
@@ -86,8 +126,9 @@ function partesPub(p) {
   // Backup 79: sempre Processo, Autor e Réu (— quando o Diário não informa); o advogado do escritório vai na linha da parte que é o cliente
   // (a parte monitorada), senão na do Autor
   if (!G.Partes.length || G['Autor'].length || G['Réu'].length) { if (!G['Autor'].length) G['Autor'].push('—'); if (!G['Réu'].length) G['Réu'].push('—'); }
-  const mon = normalizar(p.parte_monitorada || ''), ladoAdv = mon && G['Réu'].some((n) => normalizar(n).includes(mon) || mon.includes(normalizar(n))) ? 'Réu' : (G['Autor'].length ? 'Autor' : 'Partes');
+  const ladoAdv = adv ? ladoDoAdvogado(p, G, adv) : '';
   const linhas = [['Processo', p.processo || '—']].concat(Object.keys(G).filter((k) => G[k].length).map((k) => [k, G[k].join(' · ')]));
+  if (adv && !ladoAdv) linhas.push(['Advogado', adv]);   // sem certeza do lado: o advogado numa linha própria (nunca do lado errado)
   const txt = linhas.map((l) => l[0] + ': ' + l[1] + (adv && l[0] === ladoAdv ? ' - Advogado: ' + adv : '')).join('\n');
   return '<div class="pub-id"><div class="pub-id-txt">' + linhas.map((l) => '<div><b>' + l[0] + ':</b> ' + (l[0] === 'Processo' ? '<span class="mono">' + esc(l[1]) + '</span>' : esc(l[1])) +
       (adv && l[0] === ladoAdv ? ' <span class="pub-adv">— Advogado: <b>' + esc(adv) + '</b></span>' : '') + '</div>').join('') + '</div>' +
@@ -95,7 +136,7 @@ function partesPub(p) {
 }
 async function carregarPublicacoes() {
   const F = E.pub;
-  E._pubs = await buscarTodos(() => { let c = sb.from('publicacoes').select('id, data_disponibilizacao, tribunal, orgao, tipo, processo, processo_numero, classe, texto, link, destinatarios, polos:bruto->destinatarios, advogados, oab_numero, oab_uf, advogado, parte_monitorada, processo_id, status, tarefa_id')
+  E._pubs = await buscarTodos(() => { let c = sb.from('publicacoes').select('id, data_disponibilizacao, tribunal, orgao, tipo, processo, processo_numero, classe, texto, link, destinatarios, polos:bruto->destinatarios, advogados, oab_numero, oab_uf, advogado, parte_monitorada, processo_id, status, tarefa_id, criado_em')
     .order('data_disponibilizacao', { ascending: false, nullsFirst: false }); if (F.dias) c = c.gte('data_disponibilizacao', somarDias(hojeISO(), -Number(F.dias))); return c; });
   const opts = (id, vals, rot) => { const s = $(id); if (!s) return; const v = s.value; s.innerHTML = '<option value="">' + rot + '</option>' + [...new Set(vals.filter(Boolean))].sort().map((x) => '<option>' + esc(x) + '</option>').join(''); s.value = v; };
   void opts;
@@ -146,7 +187,7 @@ function pintarPublicacoes() {
       '<div class="acoes" style="margin-top:10px">' + (p.tarefa_id || p.status === 'tratada' ? '' : '<button class="btn btn-p btn-mini" data-tarefa="' + p.id + '">+ Criar tarefa (' + prazoSugerido(p) + ' dias úteis)</button>') +
       (p.status === 'nova' ? '<button class="btn btn-o btn-mini" data-st="lida">Marcar lida</button>' : '') +
       (p.status !== 'tratada' ? '<button class="btn btn-o btn-mini" data-st="tratada">Tratada</button>' : '') +
-      (p.status !== 'descartada' ? '<button class="btn btn-o btn-mini" data-st="descartada">Descartar</button>' : '<button class="btn btn-o btn-mini" data-st="nova">Voltar para novas</button>') +
+      (p.status === 'descartada' ? '<button class="btn btn-o btn-mini" data-st="nova">Voltar para novas</button>' : '') +   // Backup 88: sem "Descartar" (a opção Descartadas saiu)
       (p.link && /^https?:/.test(p.link) ? '<a class="btn btn-o btn-mini" href="' + esc(p.link) + '" target="_blank" rel="noopener">Abrir no Diário</a>' : '') + '</div></div></div>').join('')
       : '<div class="card">' + (todas.length ? vazio('Nenhuma publicação neste recorte — mude o filtro.') : vazio('Nenhuma publicação ainda. Cadastre as OABs do escritório e o sistema busca no Diário todo dia.', 'OABs monitoradas', '#pub-oabs')) + '</div>');
   $('pub-corpo').querySelectorAll('[data-copiar-id]').forEach((b2) => b2.onclick = async () => {
@@ -257,6 +298,9 @@ function normalizarPub(it, oab, parte) {
 // Ao abrir o Início, se a última busca deste navegador tem mais de 20 horas, busca em segundo plano (só avisa se achar novas).
 async function buscaPubAutomatica() {
   if (!pode('juridico')) return;
+  // Backup 88: a busca diária é a do servidor, às 6h. O navegador só busca se a de hoje não aconteceu ou deu erro (reserva).
+  try { const u = await q(sb.from('configuracoes').select('valor').eq('chave', 'publicacoes_ultima').maybeSingle());
+    const v = u && u.valor; if (v && v.quando && iso(new Date(v.quando)) === hojeISO() && !(v.erros && v.erros.length)) return; } catch (e) { /* busca mesmo assim */ }
   let ult = 0; try { ult = Number(localStorage.getItem('erp_pub_auto') || 0); } catch (e) { /* sem armazenamento: busca */ }
   if (Date.now() - ult < 20 * 3600000) return;
   try { localStorage.setItem('erp_pub_auto', String(Date.now())); } catch (e) { /* ok */ }
@@ -283,6 +327,7 @@ async function buscarPubNoNavegador(op) {
   }
   // Backup 37: a busca pela web fica registrada (Alertas → Rotinas → "Busca de publicações (web)")
   await q(sb.rpc('registrar_busca_publicacoes', { p_lidas: lidas, p_novas: novas, p_erros: erros })).catch(() => null);
+  if (novas) await q(sb.rpc('email_publicacoes_advogados')).catch(() => null);   // Backup 88: o e-mail do dia a cada advogado (se ligado)
   if (!op.silencioso) aviso('✓ Busca pelo navegador: ' + lidas + ' lida(s), ' + novas + ' nova(s).' + (erros.length ? ' Atenção: ' + erros[0] : ''), !!erros.length);
   return op.detalhe ? { lidas, novas, erros } : novas;
 }
