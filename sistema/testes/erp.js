@@ -1711,9 +1711,9 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       // R3: clicar na parcela da Planilha abre o mesmo cartão de envio; "Pago" no cartão depois do vencimento
       await p.evaluate(() => { GS.E.rt.aba = 'planilha'; nav(null, 'rotina'); }); await p.waitForSelector('#rt-corpo .pl-card:not(.rt-esq) .pl-bloco');
       await p.click('.pl-aba[data-pl-g="Grupo Alfa"]').catch(() => {}); await p.waitForTimeout(300);
-      await p.click('tr[data-pl-x="' + id2 + '"] td:nth-child(2)'); await p.waitForSelector('#rt-corpo .ep-card', { timeout: 8000 }).catch(() => {});
-      ok('B51 R3: clicar na parcela da Planilha abre o cartão de envio daquela guia', /Parcela: 2 de/.test(await p.textContent('#rt-corpo .ep-card-body').catch(() => '')) && await p.evaluate(() => GS.E.rt.aba === 'guias'));
-      ok('B53: o cartão da notificação não tem mais a linha "Pagamento"', !(await p.$('#rt-corpo .ep-pagos')) && !/Pagamento:/.test(await p.textContent('#rt-corpo .ep-card')));
+      await p.click('tr[data-pl-x="' + id2 + '"] td:nth-child(2)'); await p.waitForSelector('#gs-raiz .janela-emitir', { timeout: 8000 }).catch(() => {});
+      ok('B51 R3/B86: clicar na parcela da Planilha abre a janela "Emitir" daquela guia', !!(await p.$('#gs-raiz .janela-emitir tr[data-eg="' + id2 + '"]')) && await p.evaluate(() => GS.E.rt.aba === 'guias'));
+      await p.evaluate(() => { while (document.querySelector('#janelas .fundo')) window.GS.fecharJanela(); });
       sql("update parcelas set pago=false, data_pagamento=null where id='" + id2 + "'");
       // R4: conferir o grupo todo
       await p.click('#rt-abas [data-rt-aba=passivo]'); await p.waitForSelector('#rt-pas-corpo [data-conf-grp]', { timeout: 10000 });
