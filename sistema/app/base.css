@@ -934,3 +934,35 @@ html body.gx-barra-topo #gs-lado .tn-grupo.ativo > .tn-abre:hover:not(#_){backgr
 html body.gx-barra-topo .gs .btn.b-bt-ic:not(#_){display:inline-flex;align-items:center;gap:7px}
 html body.gx-barra-topo .gs .btn.b-bt-ic .b-ic:not(#_){width:16px;height:16px;flex:none}
 html body.gx-barra-topo .gs .btn.btn-mini.b-bt-ic .b-ic:not(#_){width:14px;height:14px}
+
+/* ═══════════ Backup 84 — respostas de 15/10 (Tarefas, Painel, Parcelamentos/Acordos, Financeiro) ═══════════ */
+/* número das abas como no ambiente: pílula cinza; na aba escolhida, branco translúcido; "Atrasadas" em vermelho */
+html body.gx-barra-topo .gs .b-seg-bt[aria-selected="true"] .b-seg-n:not(#_){background:rgba(255,255,255,.22);color:inherit}
+html body.gx-barra-topo .gs .b-seg-n.b-seg-n-r:not(#_){background:var(--red-lt);color:var(--red)}
+html body.gx-barra-topo .gs .b-seg-bt[aria-selected="true"] .b-seg-n.b-seg-n-r:not(#_){background:rgba(255,255,255,.22);color:inherit}
+/* linha vencida rosada como no ambiente (.tr-venc) em todas as tabelas */
+html body.gx-barra-topo .b-tab tr.b-tr-venc td:not(#_){background:color-mix(in srgb,var(--red-lt) 70%,var(--surface))}
+html body.gx-barra-topo .b-tab tr.b-tr-venc.b-cl:hover td:not(#_){background:var(--red-lt)}
+/* Tarefas: uma linha de filtros (Mostrar em chips + De quem e Urgência em listas) */
+.gs .b-tf-filtros{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;margin:0 0 12px}
+.gs .b-tf-filtros > .b-chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.gs .b-tf-filtros .b-fin-rot{font:700 11px/1.45 var(--font-ui);letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-right:4px}
+.gs .b-tf-filtros > .b-fsus{margin:0 0 0 auto}
+/* coluna "Grupo" mais estreita em TODAS as tabelas (pedido de 15/10: Painel, Processos, Parcelamentos, Acordos); o nome quebra linha */
+.b-tab-pe th:nth-child(1),.b-tab-parc th:nth-child(1),.b-tab-ac th:nth-child(1),.b-tab-proc th:nth-child(1),.b-tab-guias th:nth-child(1){width:8.5%}
+html body.gx-barra-topo table.b-tab tbody td:first-child:not(#_){overflow-wrap:anywhere}
+/* rodapé das tabelas (Total / média) como no ambiente: o total fica alinhado à direita, embaixo da coluna Valor, e nunca é cortado */
+html body.gx-barra-topo table.b-tab tfoot td.b-dir:not(#_){text-align:right!important;position:sticky;z-index:2}
+html body.gx-barra-topo table.b-tab tfoot td:first-child:not(#_){white-space:nowrap}
+/* Situação por cliente: cartões mais largos (pedido de 15/10) */
+html body.gx-barra-topo .gs .b-cards:not(#_){grid-template-columns:repeat(auto-fill,minmax(280px,1fr))}
+.gs .b-sec-tit{display:flex;align-items:baseline;gap:12px}
+html body.gx-barra-topo .gs .b-min-bt:not(#_){font:600 12.5px/1.45 var(--font-ui);color:var(--text3);background:none;border:0;padding:0;cursor:pointer;text-decoration:none}
+html body.gx-barra-topo .gs .b-min-bt:hover:not(#_){color:var(--primario);text-decoration:underline}
+.gs .b-chips[hidden],.gs .b-cards[hidden]{display:none!important}
+/* Financeiro → Análise (B84): filtros numa linha, alinhados à esquerda, como a .filtro-linha do ambiente (o B83 herdava "coluna" do .b-fin-filtros) */
+html body.gx-barra-topo .gs #fa-filtros.b-filtro-linha:not(#_){display:flex!important;flex-direction:row!important;flex-wrap:wrap;align-items:center;justify-content:flex-start!important;text-align:left;gap:8px 12px}
+html body.gx-barra-topo .gs #fa-filtros .b-chips-in:not(#_){display:inline-flex;flex-direction:row;flex-wrap:wrap;gap:6px}
+html body.gx-barra-topo .gs #fa-filtros .b-fx:not(#_){display:inline-flex;flex-direction:row;align-items:center;gap:8px}
+html body.gx-barra-topo .gs #fa-filtros .b-fx input:not(#_){width:118px;height:32px;border:1px solid var(--border);border-radius:8px;padding:0 9px;font:13px var(--font-ui);background:var(--surface);color:var(--text)}
+.gs .b-fa-sec{margin-top:18px}

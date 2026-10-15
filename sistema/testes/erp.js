@@ -281,8 +281,9 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('processo novo gerou a tarefa "Conferir processo" (regra automática)', sql("select count(*) from tarefas where titulo like 'Conferir processo 5000002%' and chave_regra is not null") === '1');
     ok('B72 Tarefas: sem a bolinha colorida (semáforo), sem os 4 cartões do topo e com Tarefa (tipo + grupo embaixo)·Pessoa·Prioridade·Prazo·Situação', (await p.$$('#panel-tarefas .semaforo')).length === 0 && !(await p.$('#panel-tarefas .kpis')) &&
       (await p.$$eval('#panel-tarefas table.b-tab-tf thead th', (l) => l.map((t) => t.textContent.replace(/[↑↓]/g, '').trim()).join('|'))) === 'Tarefa|Pessoa|Prioridade|Prazo|Situação|');
-    ok('B72 Tarefas: abas Em aberto/Atrasadas/Concluídas/Excluídas com números, atalhos de prazo, busca e "Filtros" (De quem dentro) (sem "Marcar várias")',
-      (await p.$$eval('#panel-tarefas [data-b-aba]', (l) => l.map((b) => b.dataset.bAba).join(','))) === 'abertas,atrasadas,concluidas,excluidas' && (await p.$$('#panel-tarefas [data-b-prazo]')).length === 6 &&
+    ok('B72/B84 Tarefas: abas Em aberto/Atrasadas/Concluídas/Excluídas com números, busca e "Filtros" — sem os atalhos de prazo; Mostrar (tipo) em chips e De quem/Urgência em listas',
+      (await p.$$eval('#panel-tarefas [data-b-aba]', (l) => l.map((b) => b.dataset.bAba).join(','))) === 'abertas,atrasadas,concluidas,excluidas' && (await p.$$('#panel-tarefas [data-b-prazo]')).length === 0 &&
+      (await p.$$('#tf-chips [data-tf-tipo]')).length === 6 && !!(await p.$('#tf-chips #tf-f-pri')) &&
       !!(await p.$('#panel-tarefas [data-bt=q]')) && !!(await p.$('#panel-tarefas [data-bt=painel]')) && !(await p.$('#panel-tarefas [data-bt=loteon]')) && !(await p.$('#panel-tarefas [data-bt=conta]:not(:empty)')));
     ok('B72 Tarefas: os selos de Pessoa têm o mesmo tamanho', await p.evaluate(() => new Set([...document.querySelectorAll('#panel-tarefas td.b-tf-pes .pill-pessoa')].map((x) => Math.round(x.getBoundingClientRect().width))).size === 1));
     await p.click('#panel-tarefas tr:has-text("Protocolar defesa") [data-concluir]'); await p.waitForTimeout(2000);
@@ -1078,18 +1079,20 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       /Audiência de teste B36/.test(await p.textContent('#tf-vista-corpo')));
     // Backup 48: Tarefas com os mesmos filtros (Mostrar / De quem) e o mesmo desenho da agenda do Início
     sql("insert into tarefas(titulo,responsavel,status,prazo,tipo_agenda) values ('Audiência filtro B48','Pedro Castro','pendente',current_date + 3,'audiencia')");
-    await nav(p, 'tarefas'); await p.click('#tf-vista [data-v=calendario]'); await p.waitForSelector('#tf-chips [data-tf-tipo]'); await p.waitForTimeout(800);   // B72: na Lista o tipo fica em "Filtros"
+    await nav(p, 'tarefas'); await p.click('#tf-vista [data-v=calendario]'); await p.waitForSelector('#tf-chips [data-tf-tipo]'); await p.waitForTimeout(800);
     { const ordem = await p.$$eval('#tf-chips [data-tf-tipo]', (bs) => bs.map((b) => b.dataset.tfTipo).join(','));
-      const pes = await p.$$eval('#tf-chips [data-tf-pes]', (bs) => bs.map((b) => b.textContent.replace('✓ ', '').trim()));
-      ok('Tarefas (B48): Mostrar e De quem (ordem, Todos + eu primeiro)', ordem === '*,reuniao,audiencia,compromisso,tarefa,rotina' && pes[0] === 'Todos' && /^Pedro/.test(pes[1]));
+      const pes = await p.$$eval('#tf-chips #tf-f-pes option', (os) => os.map((o) => o.textContent.trim()));
+      ok('Tarefas (B48/B84): Mostrar (ordem dos tipos) e De quem em lista (Todas as pessoas, eu primeiro)', ordem === '*,reuniao,audiencia,compromisso,tarefa,rotina' && pes[0] === 'Todas as pessoas' && /^Pedro/.test(pes[1]), ordem + ' / ' + pes.join(','));
       await p.evaluate(() => { window.GS.E.tf = null; if (window.GS.E.tabB) delete window.GS.E.tabB.tarefas; });   // filtros limpos (os testes anteriores deixam atalhos marcados)
       await nav(p, 'tarefas'); await p.waitForSelector('#tf-vista-corpo [data-bt=painel]'); await p.waitForTimeout(800);
       const antes = /Audiência filtro B48/.test(await p.textContent('#tf-corpo'));
-      await p.click('#tf-vista-corpo [data-bt=painel]'); await p.selectOption('#tf-vista-corpo [data-bt=l][data-k=tipo]', 'tarefa'); await p.waitForTimeout(500);
+      await p.click('#tf-chips [data-tf-tipo=audiencia]'); await p.waitForTimeout(500);   // B84: desmarca "Audiências" (chips de Mostrar, também na Lista)
       const depois = /Audiência filtro B48/.test(await p.textContent('#tf-corpo'));
-      await p.selectOption('#tf-vista-corpo [data-bt=l][data-k=tipo]', 'audiencia'); await p.waitForTimeout(500);
-      ok('Tarefas (B72): "Filtros → Tipo" separa a audiência; escolher "Audiências" mostra só ela', antes && !depois && /Audiência filtro B48/.test(await p.textContent('#tf-corpo')));
-      await p.selectOption('#tf-vista-corpo [data-bt=l][data-k=tipo]', ''); }
+      await p.click('#tf-chips [data-tf-tipo=audiencia]'); await p.waitForTimeout(500);
+      ok('Tarefas (B84): "Mostrar" vale na Lista — desmarcar Audiências tira a audiência; marcar de volta mostra', antes && !depois && /Audiência filtro B48/.test(await p.textContent('#tf-corpo')));
+      await p.selectOption('#tf-chips #tf-f-pri', 'alta'); await p.waitForTimeout(400);
+      ok('Tarefas (B84): Urgência "Alta" filtra a lista (a audiência de prioridade média sai)', !/Audiência filtro B48/.test(await p.textContent('#tf-corpo')));
+      await p.selectOption('#tf-chips #tf-f-pri', ''); await p.waitForTimeout(300); }
     sql("delete from tarefas where titulo='Audiência filtro B48'");
     // Backup 45: tarefa para outra pessoa + dois avisos (B83: pelo calendário de Tarefas)
     await nav(p, 'tarefas'); await p.click('#tf-vista [data-v=calendario]'); await p.waitForSelector('#tf-vista-corpo [data-agendar]', { timeout: 8000 }).catch(() => {});
@@ -1798,7 +1801,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       ok('B52 C4/B76: sem borda azul nos grupos (Clientes; Processos agora é a tabela nova, com o grupo em coluna)', !!grpCli && /\|none\|/.test(grpCli) && !(await p.evaluate(() => !!document.querySelector('.gc-ini,.gc-in,.gc-fim'))), grpCli);
       // P1: o filtro é a mesma pílula em todas as telas
       const pilula = async (tela, sel) => { await nav(p, tela); await p.waitForTimeout(1200); return p.evaluate((s2) => { const b = document.querySelector(s2); if (!b) return null; const c = getComputedStyle(b); return [c.backgroundColor, c.color, c.borderRadius, c.fontSize].join('|'); }, sel); };
-      const pIni = await pilula('tarefas', '#tf-vista-corpo .b-chip[aria-pressed=true]'), pPai = await pilula('clientes', '#panel-clientes .filtros .segmento > button.ativo'),   // B76: o Painel novo não tem pílulas de filtro (grupo no topo)
+      const pIni = await pilula('tarefas', '#tf-chips .b-chip[aria-pressed=true]'), pPai = await pilula('clientes', '#panel-clientes .filtros .segmento > button.ativo'),   // B76: o Painel novo não tem pílulas de filtro (grupo no topo)
         pCli = await pilula('clientes', '#panel-clientes .filtros .segmento > button.ativo');
       ok('B52/B82 P1: o filtro escolhido tem a mesma cor em Tarefas e em Clientes (chip redondo e segmentado, como no ambiente)', !!pIni && pPai === pCli && pIni.split('|').slice(0, 2).join() === pCli.split('|').slice(0, 2).join(), [pIni, pPai, pCli].join(' / '));
       // P4: situações com a mesma cor (Financeiro e Parcelamentos)
@@ -1971,10 +1974,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       await nav(p, 'hoje'); await p.waitForSelector('#ini-resumo-fin [data-ini-ir=fin-pagar]'); await p.waitForTimeout(500);
       const pagTxt = await p.$$eval('#ini-resumo-fin [data-ini-ir=fin-pagar]', (l) => l.map((b) => b.textContent + ' ' + b.querySelector('[data-tit]').dataset.tit).join(' | '));
       ok('B55 Início: cartão "A pagar · Contabilidade" só com as despesas da contabilidade', /A pagar · Contabilidade/.test(pagTxt) && /111/.test(pagTxt) && !/999|1\.110/.test(pagTxt), pagTxt);
-      await nav(p, 'tarefas'); await p.click('#tf-vista [data-v=calendario]'); await p.waitForSelector('#tf-chips.fila-2x2'); await p.waitForTimeout(300);
-      const pos = await p.evaluate(() => { const c = [...document.querySelectorAll('#tf-chips > .fila-chips')]; const r = c.map((x) => x.getBoundingClientRect()), w = document.querySelector('#tf-chips').getBoundingClientRect();
-        return { a: r[0] && r[0].right, b: r[1] && r[1].left, larg: w.width, ini: w.left }; });
-      ok('B55 Tarefas: Urgência e Prazo logo depois de Mostrar/De quem (não colados na direita)', pos.b > pos.a && pos.b - pos.a < 120 && pos.b - pos.ini < pos.larg * 0.8, JSON.stringify(pos));
+      // (B84: a linha de filtros de Tarefas é única — Mostrar à esquerda, De quem e Urgência à direita; o teste de posição do 2×2 saiu)
       await p.click('#tf-vista [data-v=lista]'); await p.waitForTimeout(300);
       await nav(p, 'resumo'); await p.waitForSelector('#pe-nova tbody tr[data-b-k]'); await p.evaluate(() => { FILTROS.grupo = ''; FILTROS.empresa = ''; renderExecRanking(); }); await p.waitForTimeout(800);
       // Backup 68: a tabela antiga (Status/Atraso/Baixa) virou a tela nova — Vencimento colorido, Baixa, sem caneta; clique → detalhe com Editar e Baixa

@@ -4934,6 +4934,9 @@ create trigger processo_mov_aplica before insert on public.processo_movimentacoe
 -- Backup 36 — Evolução do passivo: antes de a empresa ter o passivo lançado pela primeira vez, o mês fica SEM VALOR (null) e não "zero"
 -- (era isso que fazia a linha cair a 0 nos meses antigos: o cadastro existia, mas o passivo ainda não tinha sido digitado).
 -- ═══════════════════════════════════════════════════════════════════
+-- Backup 84: a evolução lia o histórico uma vez por cliente e por mês (74 s com 600 clientes e 100 mil linhas de histórico —
+-- passava do tempo limite do Supabase e o gráfico não aparecia). Agora lê uma vez só (0,15 s) e dá exatamente o mesmo resultado.
+create index if not exists historico_tabela_registro on public.historico (tabela, registro_id, quando);
 create or replace function public.evolucao_passivo(p_grupo uuid default null, p_meses int default 12)
 returns table (mes date, cliente_id uuid, cliente text, grupo_id uuid, grupo text, total numeric)
 language plpgsql stable security definer set search_path = public as $$
@@ -4945,24 +4948,32 @@ begin
     select (date_trunc('month', current_date) - make_interval(months => k))::date as m,
            least(now(), (date_trunc('month', current_date) - make_interval(months => k - 1))) as corte
       from generate_series(0, least(greatest(coalesce(p_meses, 12), 2), 60) - 1) k
+  ), cli as (
+    select c.* from public.clientes c where coalesce(c.tipo, '') <> 'Inativo' and (p_grupo is null or c.grupo_id = p_grupo)
+  ), hist as (
+    -- o histórico dos clientes é lido UMA vez (antes era uma consulta por cliente e por mês — passava do tempo limite)
+    select h.registro_id, h.quando, h.acao, public.passivo_json(h.antes) as va, public.passivo_json(h.depois) as vd
+      from public.historico h join cli on cli.id = h.registro_id
+     where h.tabela = 'clientes' and h.acao in ('INSERT', 'UPDATE')
   ), primeiro as (
-    -- quando o passivo apareceu pela primeira vez (inclusão já com valor ou a primeira alteração que deixou o total > 0)
-    select h.registro_id, min(h.quando) as quando from public.historico h
-     where h.tabela = 'clientes' and h.acao in ('INSERT', 'UPDATE') and public.passivo_json(h.depois) > 0
-       and (h.acao = 'INSERT' or public.passivo_json(h.antes) = 0)
-     group by h.registro_id
+    select registro_id, min(quando) as quando from hist
+     where vd > 0 and (acao = 'INSERT' or va = 0) group by registro_id
+  ), muda as (
+    select registro_id, quando, va from hist where acao = 'UPDATE' and va is distinct from vd
+  ), prox as (
+    -- para cada cliente e mês: o valor de ANTES da primeira mudança depois do fim do mês (= o que valia no fim do mês)
+    select distinct on (mu.registro_id, ms.m) mu.registro_id, ms.m, mu.va
+      from meses ms join muda mu on mu.quando > ms.corte
+     order by mu.registro_id, ms.m, mu.quando
   )
   select ms.m, c.id, c.nome, g.id, g.nome,
          case when pr.quando is not null and pr.quando > ms.corte then null
-              else coalesce((select public.passivo_json(h.antes) from public.historico h
-                              where h.tabela = 'clientes' and h.acao = 'UPDATE' and h.registro_id = c.id and h.quando > ms.corte
-                                and public.passivo_json(h.antes) is distinct from public.passivo_json(h.depois)
-                              order by h.quando limit 1), public.passivo_do_cliente(c)) end
-    from public.clientes c
+              else coalesce(px.va, public.passivo_do_cliente(c)) end
+    from cli c
     join public.grupos g on g.id = c.grupo_id
     cross join meses ms
     left join primeiro pr on pr.registro_id = c.id
-   where coalesce(c.tipo, '') <> 'Inativo' and (p_grupo is null or c.grupo_id = p_grupo)
+    left join prox px on px.registro_id = c.id and px.m = ms.m
    order by 1, 5, 3;
 end $$;
 revoke all on function public.evolucao_passivo(uuid, int) from public, anon;
@@ -6662,4 +6673,4 @@ do $$ begin
   execute 'create policy documentos_ver_cliente on storage.objects for select to authenticated using (bucket_id = ''documentos'' and public.portal_pode_arquivo(name))';
 exception when others then raise notice 'Sem permissão em storage.objects: o cliente ainda não baixa arquivos pelo portal.';
 end $$;
--- ═══ fim do Backup 81 ═══
+-- ═══ fim do Backup 84 ═══

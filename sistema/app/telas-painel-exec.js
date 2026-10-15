@@ -85,11 +85,13 @@ async function evolucaoPE() {
   gr.innerHTML = graficoLinhaB(ms.map((m) => ({ rot: rot(m), v: tot(m), dica: rot(m) + ': ' + brl(tot(m)) })));
 }
 
+// Backup 84: o negociado em uma palavra, como no ambiente — "R$ 42 mil neg.", "R$ 8 mil neg." (abaixo de R$ 1.000, o valor inteiro)
+const negCurto = (v) => (Math.abs(v) >= 1e6 ? brlCurto(v) : Math.abs(v) >= 1e3 ? 'R$ ' + Math.round(v / 1e3).toLocaleString('pt-BR') + ' mil' : brlCurto(v));
 function empresasPE(base) {
   const el = $('pe-nova'); if (!el) return;
   const cli = E.clientes || [], areaDe = (r) => (cli.find((x) => x.id === r._id) || {}).area || 'ambos';
   const tot = (r) => (r.rfb || 0) + (r.rfbNeg || 0) + (r.pgfn || 0) + (r.pgfnNeg || 0) + (r.ageMG || 0) + (r.ageMGNeg || 0);
-  const orgao = (v, n) => ((v || 0) + (n || 0) > 0 ? '<b class="b-pe-v" title="' + esc(brl(v || 0)) + '">' + esc(brlCurto(v || 0)) + '</b>' + (n > 0 ? '<small class="b-pe-neg" title="' + esc(brl(n)) + '">' + esc(brlCurto(n)) + ' neg.</small>' : '') : '<span class="sub">—</span>');
+  const orgao = (v, n) => ((v || 0) + (n || 0) > 0 ? '<b class="b-pe-v" title="' + esc(brl(v || 0)) + '">' + esc(brlCurto(v || 0)) + '</b>' + (n > 0 ? '<small class="b-pe-neg" title="' + esc(brl(n)) + '">' + esc(negCurto(n)) + ' neg.</small>' : '') : '<span class="sub">—</span>');
   const sit = (r) => String(r.sitCadastral || '').trim();
   const ops = (f) => unicosB(base.map(f)).map((x) => [x, x]);
   const op = (r) => (/^sim$/i.test(r.emOperacao || '') ? 'Sim' : /^n[aã]o$/i.test(r.emOperacao || '') ? 'Não' : '');

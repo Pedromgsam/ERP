@@ -27,7 +27,7 @@ function brl(n) { return fmtBRL.format(Number(n) || 0); }
 // Valor curto para gráfico, com o exato no title de quem chama.
 function brlCurto(n) {
   const v = Math.abs(Number(n) || 0), s = n < 0 ? '−' : '';
-  if (v >= 1e6) return s + 'R$ ' + (v / 1e6).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' mi';
+  if (v >= 1e6) return s + 'R$ ' + (v / 1e6).toLocaleString('pt-BR', { maximumFractionDigits: 2 }) + ' mi';   // Backup 84: como no ambiente (R$ 1,44 mi)
   if (v >= 1e4) return s + 'R$ ' + Math.round(v / 1e3).toLocaleString('pt-BR') + ' mil';
   return s + brl(v).replace(/\u00a0/g, ' ');   // Backup 76: espaço comum (o mesmo dos valores "mil"/"mi")
 }
@@ -577,6 +577,17 @@ function ligarFiltroSusB(id, estado, depois) {
   el.onclick = (ev) => { if (!ev.target.closest('[data-fsus-limpar]')) return; Object.keys(estado).forEach((k) => { estado[k] = ''; }); depois(); };
 }
 const unicosTxt = (L) => [...new Set(L.filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b), 'pt-BR'));
+// Backup 84: seção que se minimiza (ex.: "Situação por cliente") — o botão fica no cabeçalho da seção e a escolha é lembrada neste navegador
+function botaoMinB(chave) {
+  let min = false; try { min = localStorage.getItem('erp_min_' + chave) === '1'; } catch (e) { /* sem armazenamento */ }
+  return '<button type="button" class="b-link b-min-bt" data-b-min="' + esc(chave) + '" aria-expanded="' + !min + '">' + (min ? 'Mostrar' : 'Minimizar') + '</button>';
+}
+function ligarMinB(chave, ids) {
+  const bt = document.querySelector('[data-b-min="' + chave + '"]'); if (!bt) return;
+  const aplicar = () => { const aberto = bt.getAttribute('aria-expanded') === 'true'; ids.forEach((id) => { const el = $(id); if (el) el.hidden = !aberto; }); bt.textContent = aberto ? 'Minimizar' : 'Mostrar'; };
+  bt.onclick = () => { const abrir = bt.getAttribute('aria-expanded') !== 'true'; bt.setAttribute('aria-expanded', String(abrir)); try { localStorage.setItem('erp_min_' + chave, abrir ? '0' : '1'); } catch (e) { /* vale só agora */ } aplicar(); };
+  aplicar();
+}
 function numsFaixa(itens) {
   return '<div class="b-nums b-nums-faixa b-nums-' + itens.length + '">' + itens.map((i) => '<div><span>' + esc(i[0]) + '</span><b class="' + (i[3] || '') + '">' + i[1] + '</b>' + (i[2] ? '<small>' + esc(i[2]) + '</small>' : '') + '</div>').join('') + '</div>';
 }
@@ -636,7 +647,7 @@ function tabelaB(el, cfg) {
     const guarda = st.aba, cont = {};
     if (!cfg.semContagemAbas) { cfg.abas.forEach((a) => { st.aba = a.id; cont[a.id] = filtrar().length; }); st.aba = guarda; }
     Q('.b-seg').innerHTML = cfg.abas.map((a) => '<button type="button" role="tab" class="b-seg-bt" data-b-aba="' + esc(a.id) + '" aria-selected="' + (a.id === st.aba) + '">' + esc(a.rot) +
-      (cfg.semContagemAbas ? '' : ' <span class="b-seg-n">' + cont[a.id] + '</span>') + '</button>').join('');
+      (cfg.semContagemAbas ? '' : ' <span class="b-seg-n' + (a.cor === 'r' && cont[a.id] ? ' b-seg-n-r' : '') + '">' + cont[a.id] + '</span>') + '</button>').join('');
   }
   function quadro() {
     const cols = cfg.colunasAba ? cfg.colunasAba(st.aba) : cfg.colunas;   // Backup 76: colunas que mudam com a aba (ex.: Vencimento × Pago em)
