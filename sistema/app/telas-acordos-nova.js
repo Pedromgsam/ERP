@@ -99,7 +99,7 @@ function pintarAcordos() {
   tabelaB($('ac-tabela'), { id: 'acordos', tabCls: 'b-tab-ac', linhas: T, colunas: colunasAcordos(), unidade: ['parcela', 'parcelas'], dicaBusca: 'Devedor / processo…',
     abas: [{ id: 'apagar', rot: 'A pagar', f: (x) => !x.pago }, { id: 'pago', rot: 'Pago', f: (x) => x.pago }], semContagemAbas: true,
     prazos: true, prazosAbas: ['apagar'], conta: (n, aba) => plural(n, 'parcela', 'parcelas') + (aba === 'pago' ? ' paga' + (n === 1 ? '' : 's') : ' a pagar'),
-    ordAbas: { apagar: { k: 'venc', dir: 1 }, pago: { k: 'pz', dir: -1 } }, ord: { k: 'venc', dir: 1 }, linhaCls: vencidaA, busca: buscaAc, venc: (x) => x.venc, valor: (x) => x.valor, clique: janelaParcelaAc,
+    ordAbas: { apagar: { k: 'venc', dir: 1 }, pago: { k: 'pz', dir: -1 } }, ord: { k: 'venc', dir: 1 }, linhaCls: vencidaA, busca: buscaAc, venc: (x) => x.venc, valor: (x) => x.valor, clique: (x) => (x.ac ? janelaAcordo(x.ac) : janelaParcelaAc(x)),   // Backup 85 (AC3): como no ambiente, a linha abre o acordo inteiro
     listas: [{ k: 'g', rot: 'Grupo', todos: 'Todos os grupos', opcoes: uniq((x) => x.grupo), get: (x) => x.grupo }, { k: 'cred', rot: 'Credor', todos: 'Todos os credores', opcoes: uniq((x) => x.credor), get: (x) => x.credor },
       { k: 'forma', rot: 'Forma de pagamento', todos: 'Boleto e PIX', opcoes: [['boleto', 'Boleto'], ['pix', 'PIX']], get: (x) => x.forma }],
     vazio: { titulo: 'Nenhuma parcela aqui', frase: 'Troque a escolha acima (Todas, Vencidas, 5/10/15/30 dias) ou limpe os filtros.' } });
@@ -133,7 +133,7 @@ function desenharGruposAc() {
   el.onclick = (ev) => { const c = ev.target.closest('[data-ac-g]'); if (!c) return; E.ac.fechado = E.ac.grupo === c.dataset.acG; E.ac.grupo = E.ac.fechado ? '' : c.dataset.acG; desenharGruposAc(); };
   const det = $('ac-det-grupo'), g = grupos.find((x) => x.id === E.ac.grupo);
   if (!det || !g) return;
-  tabelaB(det, { id: 'ac-grupo', titulo: g.nome, linhas: chip === 'concluidos' ? g.conc : g.vivos, unidade: ['acordo', 'acordos'], chave: (a) => a.k, ord: { k: 'dev', dir: 1 },
+  tabelaB(det, { semBarra: true, id: 'ac-grupo', titulo: g.nome, linhas: chip === 'concluidos' ? g.conc : g.vivos, unidade: ['acordo', 'acordos'], chave: (a) => a.k, ord: { k: 'dev', dir: 1 },
     busca: (a) => a.devedor + ' ' + a.credor + ' ' + a.processo, valor: (a) => a.falta,
     colunas: [{ k: 'dev', rot: 'Devedor', html: (a) => esc(a.devedor || '—') + '<span class="b-doc">deve a ' + esc(a.credor || '—') + '</span>', ord: (a) => normalizar(a.devedor) },
       { k: 'proc', rot: 'Processo', cls: 'b-num', html: (a) => esc(a.processo || '—'), ord: (a) => a.processo },
@@ -150,20 +150,20 @@ function janelaAcordo(a) {
   const podeEd = pode('juridico', 'editar'), ids = a.parcelas.map((x) => x.id), aEmitir = a.mes.filter((x) => !x.emitida);
   const j = abrirJanela({ larga: true, kick: 'Acordo · processo ' + (a.processo || '—'), titulo: a.devedor, sub: 'deve a ' + esc(a.credor || '—') + ' · ' + esc(a.grupo || ''),
     dir: a.concluido ? '<span class="b-pill b-g">Concluído</span>' : a.atr ? '<span class="b-pill b-r">' + plural(a.atr, 'parcela', 'parcelas') + ' em atraso</span>' : '<span class="b-pill b-g">Em dia</span>',
-    corpo: '<div class="b-ficha"><div><span>Devedor (cliente)</span><b>' + esc(a.devedor || '—') + '</b></div><div><span>Credor</span><b>' + esc(a.credor || '—') + '</b></div><div><span>Processo</span><b class="b-m">' + esc(a.processo || '—') + '</b></div><div><span>Responsável</span><b>' + esc(a.responsavel || '—') + '</b></div>' +
-      '<div><span>Forma de pagamento</span><b>' + (a.forma === 'pix' ? 'PIX' : 'Boleto') + '</b></div><div><span>Chave PIX</span><b>' + esc(a.pix || '—') + '</b></div><div><span>Banco</span><b>' + esc(a.banco || '—') + '</b></div><div><span>Grupo</span><b>' + esc(a.grupo || '—') + '</b></div></div>' +
+    corpo: '<div class="b-ficha"><div><span>Devedor (cliente)</span><b>' + esc(a.devedor || '—') + '</b></div><div><span>Credor</span><b>' + esc(a.credor || '—') + '</b></div><div><span>Processo</span><b class="b-m">' + esc(a.processo || '—') + '</b></div><div><span>Forma de pagamento</span><b>' + (a.forma === 'pix' ? 'PIX' : 'Boleto') + '</b></div></div>' +
+      '<details class="b-mais-dados"><summary>Mais dados</summary><div class="b-ficha"><div><span>Responsável</span><b>' + esc(a.responsavel || '—') + '</b></div><div><span>Chave PIX</span><b>' + esc(a.pix || '—') + '</b></div><div><span>Banco</span><b>' + esc(a.banco || '—') + '</b></div><div><span>Grupo</span><b>' + esc(a.grupo || '—') + '</b></div></div></details>' +
       '<div class="b-nums">' + [['Parcelas pagas', a.pagas + ' de ' + a.tot + ' (' + a.pc + '%)', ''], ['Já pago', brl(a.pago), 'b-verde'], ['Falta pagar', brl(a.falta), ''],
         ['Parcela do mês', a.parcMes ? brl(a.parcMes.valor) + ' · ' + (a.parcMes.pago ? 'paga' : dataBR(a.parcMes.venc).slice(0, 5)) : (a.prox ? 'próxima ' + dataBR(a.prox.venc) : '—'), a.parcMes && !a.parcMes.pago && a.parcMes.venc <= hojeISO() ? 'b-verm' : ''],
         ['Em atraso', a.atr ? plural(a.atr, 'parcela', 'parcelas') : 'nenhuma', a.atr ? 'b-verm' : '']].map((k) => '<div><span>' + k[0] + '</span><b class="' + k[2] + '">' + k[1] + '</b></div>').join('') + '</div>' +
       '<div id="ac-j-parcelas"></div>',
-    rodape: (podeEd ? '<button type="button" class="btn btn-o" id="ac-j-todo" style="margin-right:auto">✎ Alterar o acordo inteiro</button>' : '') +
+    rodape: (podeEd ? '<button type="button" class="btn btn-o" id="ac-j-todo" style="margin-right:auto">' + iconeB('lapis') + ' Alterar o acordo inteiro</button>' : '') +
       (podeEd && aEmitir.length ? '<button type="button" class="btn btn-o" id="ac-j-emitir">' + iconeB('documento') + ' Emitir (' + aEmitir.length + ')</button>' : '') + '<button type="button" class="btn btn-o" data-fechar>Fechar</button>' });
   j.classList.add('ac-janela');
   const td = j.querySelector('#ac-j-todo'); if (td) td.onclick = () => { fecharJanela(j); if (typeof editarAcordo === 'function') editarAcordo(ids, () => { if (window.ERP_RECARREGAR) window.ERP_RECARREGAR(); }); };
   const em = j.querySelector('#ac-j-emitir'); if (em) em.onclick = () => { fecharJanela(j); emitirAcordos(aEmitir.map((x) => x.id)); };
   E.ac.janela = { a, el: j.querySelector('#ac-j-parcelas') };
-  tabelaB(E.ac.janela.el, { id: 'ac-j-' + a.k, titulo: 'Parcelas', linhas: a.parcelas, unidade: ['parcela', 'parcelas'], ord: { k: 'venc', dir: 1 }, valor: (x) => x.valor, venc: (x) => x.venc, altura: '360px', abaPadrao: 'abertas',
-    abas: [{ id: 'abertas', rot: 'A pagar', f: (x) => !x.pago }, { id: 'pagas', rot: 'Pago', f: (x) => x.pago }, { id: 'todas', rot: 'Todas', f: () => true }], linhaCls: vencidaA,
+  tabelaB(E.ac.janela.el, { id: 'ac-j-' + a.k, contagem: true, somaB: (x) => x.valor, linhas: a.parcelas, unidade: ['parcela', 'parcelas'], ord: { k: 'venc', dir: 1 }, valor: (x) => x.valor, venc: (x) => x.venc, altura: '360px', abaPadrao: 'abertas',
+    abas: [{ id: 'abertas', rot: 'A pagar', f: (x) => !x.pago }, { id: 'pagas', rot: 'Pagas', f: (x) => x.pago }, { id: 'todas', rot: 'Todas', f: () => true }], linhaCls: vencidaA,
     colunas: colunasAcordos({ semGrupo: true }).filter((c) => !['proc', 'dev', 'cred'].includes(c.k)), clique: janelaParcelaAc });
 }
 // ── clique na parcela: ficha + emitir + baixa (com comprovante) + editar só esta / o acordo inteiro + detalhe completo ──
@@ -179,10 +179,10 @@ function janelaParcelaAc(x) {
       (podeEd ? '<button type="button" class="btn btn-o" id="ac-p-editar">✎ Só esta parcela</button><button type="button" class="btn btn-o" id="ac-p-todo">✎ O acordo inteiro</button>' : '') + '<button type="button" class="btn btn-o" data-fechar>Fechar</button>' });
   j.querySelector('#ac-p-acordo').onclick = () => { fecharJanela(j); if (a) janelaAcordo(a); };
   j.querySelector('#ac-p-detalhe').onclick = () => { fecharJanela(j); if (typeof detalheAcordo === 'function') detalheAcordo(x.id); };
-  const ed = j.querySelector('#ac-p-editar'); if (ed) ed.onclick = () => { fecharJanela(j); if (window.ERP_EDITAR) window.ERP_EDITAR('acordos:' + x.id); };
-  const td = j.querySelector('#ac-p-todo'); if (td) td.onclick = () => { fecharJanela(j); if (typeof editarAcordo === 'function') editarAcordo(a ? a.parcelas.map((y) => y.id) : [x.id], () => { if (window.ERP_RECARREGAR) window.ERP_RECARREGAR(); }); };
+  const ed = j.querySelector('#ac-p-editar'); if (ed) ed.onclick = () => { [...document.querySelectorAll('#janelas > .fundo')].forEach((f) => fecharJanela(f)); if (window.ERP_EDITAR) window.ERP_EDITAR('acordos:' + x.id); };
+  const td = j.querySelector('#ac-p-todo'); if (td) td.onclick = () => { [...document.querySelectorAll('#janelas > .fundo')].forEach((f) => fecharJanela(f)); if (typeof editarAcordo === 'function') editarAcordo(a ? a.parcelas.map((y) => y.id) : [x.id], () => { if (window.ERP_RECARREGAR) window.ERP_RECARREGAR(); }); };
   const dm = j.querySelector('#ac-p-desmarcar'); if (dm) dm.onclick = async () => {
-    if (!confirm('Tirar a baixa desta parcela? Ela volta a ficar em aberto.')) return;
+    if (!await confirmarB('Tirar a baixa desta parcela? Ela volta a ficar em aberto.')) return;
     fecharJanela(j); const antes = { pago: x.pago, pagoEm: x.pagoEm };
     marcarParcelaAc(x, false, '');
     try { await q(sb.from('acordos').update({ pago: false, data_pagamento: null }).eq('id', x.id)); const ED = ED_P(); if (ED && ED.gravou) ED.gravou('Pagamento desmarcado'); else aviso('Pagamento desmarcado.'); if (ED && ED.marcarSujo) ED.marcarSujo('acordos'); }
@@ -199,7 +199,8 @@ function marcarParcelaAc(x, pago, pagoEm) {
 }
 // ── baixa: pergunta a data e o comprovante no processo; a tela muda na hora; "Desfazer" no rodapé ──
 async function baixaAcordo(x) {
-  const bx = await perguntarBaixa({ acordo: true, valor: x.valor, descricao: 'Parcela ' + (x.n || '') + (x.tot ? '/' + x.tot : '') + ' — ' + (x.credor || x.processo || '') });
+  const bx = await perguntarBaixa({ acordo: true, valor: x.valor, sub: (x.devedor || '') + (x.credor ? ' · deve a ' + x.credor : ''),
+    descricao: 'Parcela ' + (x.n || '') + (x.tot ? ' de ' + x.tot : '') + (x.processo ? ' · processo ' + x.processo : ''), linha: x.venc ? 'vencimento ' + dataBR(x.venc) : '' });
   if (!bx) return;
   const antes = { pago: x.pago, pagoEm: x.pagoEm };
   marcarParcelaAc(x, true, bx.data_pagamento);
@@ -226,5 +227,16 @@ document.addEventListener('click', (ev) => {
   const x = ((E.ac && E.ac.T) || []).find((y) => y.id === id);
   const janela = (b || em).closest('.fundo'); if (janela && !janela.classList.contains('ac-janela')) fecharJanela(janela);
   if (b) { if (x) baixaAcordo(x); return; }
-  emitirAcordos([id]);
+  // Backup 85 (AC4): a janela "Emitir" do ambiente (anexa o boleto em PDF, lê valor e vencimento, rascunho ou direto);
+  // a janela antiga de envio (WhatsApp, PIX) fica no link "Outras formas de envio" (lista para decidir)
+  if (!x || x.emitida) { emitirAcordos([id]); return; }
+  emitirAcordoNovo(x);
 }, true);
+async function emitirAcordoNovo(x) {
+  await carregarCadastros();
+  const c = clienteDaEmpresa(x.devedor, '');
+  const j = await janelaEmitirGuias('acordos', [{ id: x.id, valor: x.valor, venc: x.venc, pix: x.forma === 'pix' ? x.pix : '',
+    desc: 'Acordo' + (x.processo ? ' · processo ' + x.processo : '') + ' · parcela ' + (x.n || '?') + (x.tot ? '/' + x.tot : '') + (x.credor ? ' · deve a ' + x.credor : '') }],
+    { nome: x.devedor || 'Devedor', doc: '', cli: c && c.id, grupo: x.grupoId || (c && c.grupo_id), extra: '<p class="b-mudo"><button type="button" class="btn btn-g btn-mini" id="eg-antiga">Outras formas de envio (WhatsApp, PIX, copiar o texto)</button></p>' });
+  const ant = j && j.querySelector('#eg-antiga'); if (ant) ant.onclick = () => { fecharJanela(j); emitirAcordos([x.id]); };
+}

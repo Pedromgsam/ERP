@@ -23,7 +23,7 @@ const r = []; const ok = (n, c) => r.push([n, !!c]);
       const p = await ctx.newPage();
       p.on('pageerror', (e) => erros.push(e.message));
       p.on('console', (m) => { if (/Content Security Policy|Refused to/i.test(m.text())) bloqueios.push(m.text()); });
-      p.on('dialog', (d) => d.accept());
+      p.on('dialog', (d) => d.accept()); await require('./confirmar-auto.js')(p);
       return p;
     }
     async function entrar(p, email, senha) {
@@ -110,7 +110,7 @@ const r = []; const ok = (n, c) => r.push([n, !!c]);
 
     // Contabilidade: despesa recorrente
     await menu(p, 'contabilidade');
-    await p.click('#fin-lancar'); await p.click('[data-novo-l=despesa]');
+    await p.click('#fin-lancar'); await p.click('[data-fl-tipo=despesa]');   // Backup 85 (FI3): Receita/Despesa no próprio formulário
     await p.fill('#f-lanc [name=descricao]', 'Sistema contábil');
     await p.fill('#f-lanc [name=valor]', '616,00');
     await p.fill('#f-lanc [name=favorecido]', 'Arquivei');
@@ -222,7 +222,7 @@ const r = []; const ok = (n, c) => r.push([n, !!c]);
     await menu(p, 'clientes');
     ok('lista de clientes sem ▸ e com a coluna Área', (await p.locator('.cli-seta').count()) === 0 && /Área/.test(await p.textContent('.cli-tabela thead')));
     await p.click('[data-cli]'); await esperar(p, 1000);
-    ok('clicar no cliente abre a ficha 360°', (await p.locator('.janela.ficha #fc-abas button').count()) === 7);   // Backup 49: 7 abas   // Backup 41: Evolução e PGFN saíram
+    ok('clicar no cliente abre a ficha 360°', (await p.locator('.janela.ficha #fc-abas button').count()) === 10);   // Backup 85: 10 abas (as 8 do ambiente + Contatos e Sócios)   // Backup 49: 7 abas   // Backup 41: Evolução e PGFN saíram
     await p.click('#fc-editar'); await esperar(p, 800);
     ok('equipe não tem botão excluir cliente', (await p.locator('#btn-excluir-cli').count()) === 0);
     await p.context().close();

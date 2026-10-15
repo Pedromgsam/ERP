@@ -38,28 +38,44 @@ async function indiceBusca() {
 }
 const ehClienteGS = () => !!(window.AC_SESSION && window.AC_SESSION.nivel === 'cliente');
 
+// Backup 85 (BG1): caixa de comandos do ambiente — abre já com as telas e as ações; os resultados vêm agrupados
+// (Telas, Ações, Clientes, Grupos, Processos, Parcelamentos, Acordos, Tarefas). ↑ ↓ escolhe, Enter abre, Esc fecha.
+const GRUPOS_BUSCA = [['Tela', 'Telas', 'camadas'], ['Ação', 'Ações', 'mais'], ['Cliente', 'Clientes', 'clientes'], ['Grupo', 'Grupos', 'clientes'], ['Processo', 'Processos', 'documento'],
+  ['Parcelamento', 'Parcelamentos', 'camadas'], ['Acordo', 'Acordos', 'contrato'], ['Tarefa', 'Tarefas', 'tarefas']];
 async function abrirBuscaGeral() {
   if (document.getElementById('bg-in')) { document.getElementById('bg-in').focus(); return; }
-  const j = abrirJanela({ titulo: 'Buscar', kick: 'Busca geral', sub: 'Nome, CPF/CNPJ, nº do processo ou do parcelamento — ou uma ação ("nova tarefa", "guias") · Enter abre', larga: true,
-    corpo: '<label class="b-busca b-bg-campo">' + iconeB('busca') + '<input id="bg-in" placeholder="Digite para buscar…" autocomplete="off" aria-label="Buscar"></label><div id="bg-res" class="bg-res" role="listbox"></div>' });
-  const inp = j.querySelector('#bg-in'), res = j.querySelector('#bg-res');
-  res.innerHTML = '<p class="b-barras-vazio">Carregando…</p>';
+  const fundo = document.createElement('div');
+  fundo.className = 'fundo b-paleta';
+  fundo.innerHTML = '<div class="b-paleta-box" role="dialog" aria-modal="true" aria-label="Buscar"><div class="b-paleta-in">' + iconeB('busca') +
+    '<input id="bg-in" placeholder="Cliente, CNPJ, processo, parcelamento, tela ou ação…" autocomplete="off" aria-label="Buscar"></div>' +
+    '<div id="bg-res" class="b-paleta-res" role="listbox"><p class="b-barras-vazio">Carregando…</p></div><div class="b-paleta-pe"><span>↑ ↓ escolhe</span><span>Enter abre</span><span>Esc fecha</span></div></div>';
+  $('janelas').appendChild(fundo);
+  fundo.addEventListener('mousedown', (ev) => { if (ev.target === fundo) fecharJanela(fundo); });
+  const inp = fundo.querySelector('#bg-in'), res = fundo.querySelector('#bg-res');
+  inp.focus();
   const I = await indiceBusca();
+  const ordem = (x) => { const i = GRUPOS_BUSCA.findIndex((g) => g[0] === x.tipo); return i < 0 ? 99 : i; };
   let lista = [], sel = 0;
   const pintar = () => {
     const q0 = normalizar(inp.value.trim()), qd = inp.value.replace(/\D/g, '');
-    if (q0.length < 2 && qd.length < 3) { lista = []; res.innerHTML = '<p class="b-barras-vazio">Digite ao menos 2 letras (ou 3 números de um CPF/CNPJ/processo).</p>'; return; }
-    const termos = q0.split(/\s+/).filter(Boolean);
-    lista = I.filter((x) => termos.every((t) => x.n.includes(t)) || (qd.length >= 3 && x.n.includes(qd)))
-      .map((x) => ({ x, p: (x.nt.startsWith(q0) ? 0 : x.nt.includes(q0) ? 1 : 2) + (x.acao && !x.nt.includes(q0) ? 1 : 0) }))
-      .sort((a, b) => a.p - b.p || a.x.tit.localeCompare(b.x.tit, 'pt-BR')).slice(0, 40).map((y) => y.x);
+    if (!q0 && !qd) lista = I.filter((x) => x.tipo === 'Tela' || x.tipo === 'Ação').sort((a, b) => ordem(a) - ordem(b));
+    else {
+      const termos = q0.split(/\s+/).filter(Boolean);
+      lista = I.filter((x) => termos.every((t) => x.n.includes(t)) || (qd.length >= 3 && x.n.includes(qd)))
+        .map((x) => ({ x, p: x.nt.startsWith(q0) ? 0 : x.nt.includes(q0) ? 1 : 2 }))
+        .sort((a, b) => ordem(a.x) - ordem(b.x) || a.p - b.p || a.x.tit.localeCompare(b.x.tit, 'pt-BR')).slice(0, 60).map((y) => y.x);
+    }
     sel = Math.min(sel, Math.max(0, lista.length - 1));
-    res.innerHTML = lista.length ? lista.map((x, i) => '<button type="button" class="bg-it' + (i === sel ? ' bg-sel' : '') + '" data-bg="' + i + '" role="option" aria-selected="' + (i === sel) + '"><span class="bg-tipo">' + esc(x.tipo) + '</span>' +
-      '<span class="bg-tx"><b>' + esc(x.tit) + '</b>' + (x.sub ? '<small>' + esc(x.sub) + '</small>' : '') + '</span></button>').join('')
-      : '<p class="b-barras-vazio">Nada encontrado com "' + esc(inp.value.trim()) + '".</p>';
+    let grp = '';
+    res.innerHTML = lista.length ? lista.map((x, i) => { const g = GRUPOS_BUSCA.find((y) => y[0] === x.tipo) || [x.tipo, x.tipo, 'busca'];
+      const cab = g[1] !== grp ? '<div class="b-paleta-grp">' + esc(g[1]) + '</div>' : ''; grp = g[1];
+      return cab + '<button type="button" class="bg-it' + (i === sel ? ' bg-sel' : '') + '" data-bg="' + i + '" role="option" aria-selected="' + (i === sel) + '">' + iconeB(g[2]) +
+        '<span class="bg-tx">' + esc(x.tit) + '</span>' + (x.sub ? '<small>' + esc(x.sub) + '</small>' : '') + '</button>'; }).join('')
+      : '<div class="b-vazio"><b>Nada encontrado</b><p>Tente o nome, o CNPJ (só números servem) ou o número do processo.</p></div>';
+    const s = res.querySelector('.bg-sel'); if (s && s.scrollIntoView) s.scrollIntoView({ block: 'nearest' });
   };
-  const abrir = (i) => { const x = lista[i]; if (!x) return; fecharJanela(j); Promise.resolve(x.ir()).catch((e) => aviso(erroAmigavel(e), true)); };
-  let t; inp.oninput = () => { clearTimeout(t); sel = 0; t = setTimeout(pintar, 120); };
+  const abrir = (i) => { const x = lista[i]; if (!x) return; fecharJanela(fundo); Promise.resolve(x.ir()).catch((e) => aviso(erroAmigavel(e), true)); };
+  let t; inp.oninput = () => { clearTimeout(t); sel = 0; t = setTimeout(pintar, 90); };
   inp.onkeydown = (ev) => {
     if (ev.key === 'ArrowDown') { ev.preventDefault(); sel = Math.min(sel + 1, lista.length - 1); pintar(); }
     else if (ev.key === 'ArrowUp') { ev.preventDefault(); sel = Math.max(sel - 1, 0); pintar(); }
@@ -67,7 +83,7 @@ async function abrirBuscaGeral() {
   };
   res.onclick = (ev) => { const b = ev.target.closest('[data-bg]'); if (b) abrir(+b.dataset.bg); };
   pintar(); inp.focus();
-  return j;
+  return fundo;
 }
 document.addEventListener('keydown', (ev) => {
   if ((ev.ctrlKey || ev.metaKey) && !ev.shiftKey && !ev.altKey && (ev.key === 'k' || ev.key === 'K')) { ev.preventDefault(); abrirBuscaGeral(); }

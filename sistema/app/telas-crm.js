@@ -708,7 +708,7 @@ async function formReuniao(r, depois) {
   });
   const bc = j.querySelector('#reu-cancelar');
   if (bc) bc.onclick = () => comBotao(bc, async () => {
-    if (!confirm('Cancelar esta reunião? As tarefas dos participantes são canceladas.')) return;
+    if (!await confirmarB('Cancelar esta reunião? As tarefas dos participantes são canceladas.')) return;
     await q(sb.from('reunioes').update({ status: 'cancelada' }).eq('id', r.id)); aviso('Reunião cancelada.'); fecharJanela(j); if (depois) await depois();
   });
 }

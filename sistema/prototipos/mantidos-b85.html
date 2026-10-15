@@ -1,0 +1,81 @@
+<title>Mantidos do ERP</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Lista de conferência: uma linha por item, chave Manter/Tirar à direita, resumo fixo no pé com "Copiar respostas" */
+:root{
+  --bg:#F3F5F8; --surface:#FFFFFF; --ink:#16233A; --mute:#5B6676; --line:#DFE4EB;
+  --accent:#1F4D80; --accent-lt:#E7EEF7; --keep:#1F7A48; --keep-lt:#E8F4EC; --cut:#B42318; --cut-lt:#FBEAE8;
+  --f-ui:"Source Sans 3",system-ui,-apple-system,"Segoe UI",sans-serif; --f-code:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#0B0E13;--surface:#141922;--ink:#E7ECF3;--mute:#98A3B3;--line:#252D3A;--accent:#7FA9DD;--accent-lt:#1A2638;--keep:#4CC27F;--keep-lt:#13261B;--cut:#F2786C;--cut-lt:#2C1614;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0B0E13;--surface:#141922;--ink:#E7ECF3;--mute:#98A3B3;--line:#252D3A;--accent:#7FA9DD;--accent-lt:#1A2638;--keep:#4CC27F;--keep-lt:#13261B;--cut:#F2786C;--cut-lt:#2C1614;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--f-ui);margin:0}
+.pg{max-width:880px;margin:0 auto;padding-block:28px 120px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1{font-size:26px;margin:0 0 6px;text-wrap:balance}
+.lead{color:var(--mute);margin:0 0 20px;max-width:65ch}
+.acoes-topo{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 18px}
+button{font:inherit;cursor:pointer}
+.bt{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;padding:7px 12px;font-weight:600;font-size:14px}
+.bt:hover{border-color:var(--accent)}
+.bt:focus-visible,.seg button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.grupo{margin:0 0 18px}
+.grupo h2{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);margin:0 0 6px;font-weight:700}
+.lista{background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.it{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:11px 14px;border-top:1px solid var(--line)}
+.it:first-child{border-top:0}
+.it[data-v="tirar"]{background:var(--cut-lt)}
+.cod{font:500 12.5px var(--f-code);color:var(--accent);background:var(--accent-lt);border-radius:6px;padding:2px 7px}
+.tx{min-width:0}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
+.seg button{border:0;background:transparent;color:var(--mute);padding:6px 12px;font-weight:600;font-size:13.5px}
+.seg button[aria-pressed="true"][data-v="manter"]{background:var(--keep);color:#fff}
+.seg button[aria-pressed="true"][data-v="tirar"]{background:var(--cut);color:#fff}
+.obs{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;color:var(--mute);font-size:14px}
+.obs b{color:var(--ink)}
+.obs ul{margin:6px 0 0;padding-left:18px}
+.pe{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);padding-block:12px calc(12px + env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.pe-in{max-width:880px;margin:0 auto;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.pe-tx{flex:1;min-width:200px;font-size:14px}
+.pe-tx code{font-family:var(--f-code);font-size:12.5px;word-break:break-word}
+.bt-p{background:var(--accent);border-color:var(--accent);color:#fff}
+@media (max-width:560px){.it{grid-template-columns:auto 1fr}.it .seg{grid-column:1/-1;justify-self:start}}
+</style>
+<div class="pg">
+  <h1>Mantidos do ERP — Backup 85</h1>
+  <p class="lead">Ao levar o visual do ambiente para o ERP, nada que o ERP já fazia foi apagado. Estes são os itens que o ERP tem e o ambiente não. Marque <b>Tirar</b> no que não quiser mais e copie as respostas para me mandar. Tudo começa em <b>Manter</b>.</p>
+  <div class="acoes-topo"><button class="bt" type="button" id="todos-manter">Manter todos</button><button class="bt" type="button" id="todos-tirar">Tirar todos</button></div>
+  <div id="grupos"></div>
+  <div class="obs"><b>Não ficou igual ao ambiente (limite técnico)</b>
+    <ul><li><b>Desfazer</b>: entrou em lançamentos, tarefas, formulários do ERP, recebimento de execução e chaves de e-mail; a conferência "Sem novidade" de processo não tem.</li>
+    <li><b>Documentos do mês</b> (ficha): mostra o que chegou desde o dia 1º do mês passado; o ERP ainda não tem a lista do que cada cliente manda todo mês, por isso não aparece o "falta".</li>
+    <li><b>Baixar recibo</b> (portal): abre o recibo pronto para imprimir ou salvar em PDF; o modelo com número e valor por extenso continua indo por e-mail.</li></ul></div>
+</div>
+<div class="pe"><div class="pe-in"><div class="pe-tx" id="resumo"></div><button class="bt bt-p" type="button" id="copiar">Copiar respostas</button></div></div>
+<script>
+const ITENS = [{"c": "M01", "onde": "Parcelamentos, Acordos, Execuções", "tx": "Botão \"Atualizar\" (só o ícone) no cabeçalho (TB10)"}, {"c": "M02", "onde": "Busca (Ctrl+K)", "tx": "Também acha grupos, acordos e tarefas (BG3)"}, {"c": "M03", "onde": "Tarefas", "tx": "Aba \"Excluídas\", com \"Restaurar\" e \"Excluir de vez\" (TF3)"}, {"c": "M04", "onde": "Processos", "tx": "\"em dd/mm/aaaa\" embaixo do valor (PR3)"}, {"c": "M05", "onde": "Processos → janela", "tx": "Blocos Observação, Distribuição, Procuração, Prescrição; \"por <quem>\" em cada movimentação (PR7)"}, {"c": "M06", "onde": "Processos", "tx": "Filtros Competência e Advogado (além de Grupo, Tribunal, Natureza, Conferido)"}, {"c": "M07", "onde": "Parcelamentos", "tx": "Parcela vencida/emitida → janela antiga \"Reenviar guia vencida\" / desmarcar emissão (PA6)"}, {"c": "M08", "onde": "Parcelamentos → janela", "tx": "\"Mais dados\" (os outros campos do parcelamento) e o botão \"Editar dados\""}, {"c": "M09", "onde": "Acordos", "tx": "Filtro \"Credor\" (AC1)"}, {"c": "M10", "onde": "Acordos → janela", "tx": "\"Mais dados\" (Responsável, PIX, Banco, Grupo), botão \"Emitir (N)\" e a janelinha da parcela (\"Só esta parcela\", \"Detalhe completo\")"}, {"c": "M11", "onde": "Acordos → Emitir", "tx": "Link \"Outras formas de envio\" (a janela antiga: WhatsApp, PIX, copiar)"}, {"c": "M12", "onde": "Rotina → Guias do mês", "tx": "Botão \"Cartão\" (os cartões antigos da empresa)"}, {"c": "M13", "onde": "Rotina → Processos", "tx": "Colunas Procuração e Valor; filtros Procuração e \"Conferido há\"; botão \"+ Processo\""}, {"c": "M14", "onde": "Rotina → Processos", "tx": "\"Conferir o grupo todo\" virou: Filtros → Grupo + \"Marcar várias\" → \"Conferidos, sem novidade\""}, {"c": "M15", "onde": "Execuções", "tx": "Botão Atualizar; Filtros Grupo e Situação; situações \"Em acordo\" e \"Suspensa\" (EX1)"}, {"c": "M16", "onde": "Execuções → janela", "tx": "Quadro \"Contatos (não clientes)\" e \"Editar execução\" (EX3); número \"Falta receber\"; tabela de recebimentos com \"No Financeiro\", \"Repassado\" e apagar"}, {"c": "M17", "onde": "Execuções → + Recebimento", "tx": "\"Mais dados\": forma, repassado em, honorário manual, observação"}, {"c": "M18", "onde": "Financeiro", "tx": "Avisos acima do conteúdo (\"N honorários vencidos\", \"Prejuízo\") (FI2)"}, {"c": "M19", "onde": "Financeiro", "tx": "\"Cobrar as marcadas\" e a prévia do e-mail de cobrança (FI14)"}, {"c": "M20", "onde": "Financeiro", "tx": "Abas \"A pagar/Pagos\" no Jurídico quando há despesa; aba \"Prejuízo\" na Contabilidade; abas Caixa e Distribuição de lucros"}, {"c": "M21", "onde": "Financeiro → Filtros", "tx": "Listas Área, Referência e Favorecido (além de Quem, Grupo, Tipo)"}, {"c": "M22", "onde": "Financeiro → lançamento", "tx": "Botão \"Detalhe\" (contrato, ficha, recibo, cobrar)"}, {"c": "M23", "onde": "Financeiro → Recibo", "tx": "\"Abrir na Central de Documentos\" (ajustar texto, imprimir)"}, {"c": "M24", "onde": "Contratos", "tx": "Quadro \"Reajuste anual nos próximos 60 dias\" com % editável (CT1)"}, {"c": "M25", "onde": "Contratos", "tx": "Aba \"Cancelados\"; colunas \"Recebido\" e \"Financeiro\"; Filtros Tipo e Financeiro (CT2)"}, {"c": "M26", "onde": "Contratos → janela", "tx": "\"Mais dados do contrato\" (ficha completa), números Recebido/Falta/Em atraso, êxito, documentos, aditivos, \"Lançar valor avulso\", \"Ligar lançamentos\", Rescindir, Excluir, Editar"}, {"c": "M27", "onde": "Ficha do cliente", "tx": "Abas \"Contatos e endereços\" e \"Sócios\""}, {"c": "M28", "onde": "Ficha do cliente", "tx": "\"+ Lançar ▾\", WhatsApp, E-mail, etiquetas e selos no alto"}, {"c": "M29", "onde": "Documentos", "tx": "\"Ver em pastas\" (pastas por grupo, link do Drive, \"+ Enviar\" por pasta) e filtro Cliente"}, {"c": "M30", "onde": "Documentos", "tx": "Aba \"Versões anteriores\" (DO3); botões Abrir / Nova versão / Excluir na linha"}, {"c": "M31", "onde": "Início", "tx": "Pílula do CRM e as linhas Avisos/Conferências da faixa"}, {"c": "M32", "onde": "Início", "tx": "Honorários em atraso: separação Jurídico/Contabilidade no balão"}, {"c": "M33", "onde": "Tarefas", "tx": "\"Ficha da tarefa\" no formulário; arrastar tarefa na Semana"}, {"c": "M34", "onde": "Administração", "tx": "Abas Histórico e Acessos"}, {"c": "M35", "onde": "Administração → E-mails", "tx": "\"Outros automáticos do ERP\" (boas-vindas, lembrete/atraso de parcelamento e de acordo) e o aviso da equipe \"Fluxo / sequência\" (o ambiente tem 10)"}, {"c": "M36", "onde": "Portal", "tx": "Na lista de contratos: valor e empresa na linha de baixo"}];
+const K = 'mantidos-b85';
+let esc = {}; try { esc = JSON.parse(localStorage.getItem(K) || '{}'); } catch (e) { esc = {}; }
+const salvar = () => { try { localStorage.setItem(K, JSON.stringify(esc)); } catch (e) {} };
+const h = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function desenhar() {
+  const G = {}; ITENS.forEach((i) => { (G[i.onde.split(' → ')[0]] = G[i.onde.split(' → ')[0]] || []).push(i); });
+  document.getElementById('grupos').innerHTML = Object.keys(G).map((g) => '<section class="grupo"><h2>' + h(g) + '</h2><div class="lista">' + G[g].map((i) => {
+    const v = esc[i.c] || 'manter';
+    return '<div class="it" data-v="' + v + '"><span class="cod">' + i.c + '</span><div class="tx">' + h(i.tx) + (i.onde.includes(' → ') ? ' <small style="color:var(--mute)">(' + h(i.onde) + ')</small>' : '') + '</div>' +
+      '<div class="seg" role="group" aria-label="' + i.c + '"><button type="button" data-c="' + i.c + '" data-v="manter" aria-pressed="' + (v === 'manter') + '">Manter</button><button type="button" data-c="' + i.c + '" data-v="tirar" aria-pressed="' + (v === 'tirar') + '">Tirar</button></div></div>';
+  }).join('') + '</div></section>').join('');
+  resumo();
+}
+function texto() { const t = ITENS.filter((i) => esc[i.c] === 'tirar').map((i) => i.c); return t.length ? 'Backup 85 — Tirar: ' + t.join(', ') + '. O resto fica.' : 'Backup 85 — Manter todos.'; }
+function resumo() { const n = ITENS.filter((i) => esc[i.c] === 'tirar').length; document.getElementById('resumo').innerHTML = '<b>' + (ITENS.length - n) + '</b> manter · <b>' + n + '</b> tirar<br><code>' + h(texto()) + '</code>'; }
+document.addEventListener('click', (ev) => { const b = ev.target.closest('.seg button'); if (!b) return; esc[b.dataset.c] = b.dataset.v; salvar(); desenhar(); });
+document.getElementById('todos-manter').onclick = () => { esc = {}; salvar(); desenhar(); };
+document.getElementById('todos-tirar').onclick = () => { ITENS.forEach((i) => { esc[i.c] = 'tirar'; }); salvar(); desenhar(); };
+document.getElementById('copiar').onclick = async (ev) => { const b = ev.currentTarget, t = texto();
+  try { await navigator.clipboard.writeText(t); b.textContent = 'Copiado'; } catch (e) { const r = document.createRange(); r.selectNodeContents(document.querySelector('#resumo code')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); b.textContent = 'Selecionado: Ctrl+C'; }
+  setTimeout(() => { b.textContent = 'Copiar respostas'; }, 2000); };
+desenhar();
+</script>

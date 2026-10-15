@@ -115,7 +115,7 @@ function janelaEnviarDocumento(vinculo, depois, titulo) {
 // apaga o documento (o arquivo e o registro) — sempre com confirmação
 async function excluirDocumento(doc) {
   if (!doc) return false;
-  if (!confirm('Excluir "' + doc.nome + '"?\n\nO arquivo é apagado de vez e não pode ser recuperado.')) return false;
+  if (!await confirmarB('Excluir "' + doc.nome + '"?\n\nO arquivo é apagado de vez e não pode ser recuperado.')) return false;
   await q(sb.from('documentos').delete().eq('id', doc.id).select('id')).then((r) => { if (!r.length) throw new Error('Sem permissão para excluir este documento.'); });
   if (doc.caminho) await sb.storage.from(BUCKET).remove([doc.caminho]).catch(() => {});
   return true;
@@ -185,25 +185,76 @@ async function faixaVencendoDocs(lim) {
   const el = $('doc-venc'); if (!el) return;
   const certs = await q(sb.from('cliente_certificado').select('cliente_id, validade').lte('validade', lim)).catch(() => []);
   const nomeCli = (id) => { const c = E.clientes.find((x) => x.id === id); return c ? c.nome : ''; };
-  const itens = _docsTela.filter((d) => !d.arquivado && d.validade && d.validade <= lim).map((d) => ({ v: d.validade, t: (TIPOS_DOC.find((x) => x[0] === d.tipo) || [0, 'Documento'])[1], c: nomeCli(d.cliente_id) || d.nome }))
-    .concat(certs.filter((c) => c.validade).map((c) => ({ v: c.validade, t: 'Certificado digital', c: nomeCli(c.cliente_id) })))
+  const itens = _docsTela.filter((d) => !d.arquivado && d.validade && d.validade <= lim).map((d) => ({ v: d.validade, t: (TIPOS_DOC.find((x) => x[0] === d.tipo) || [0, 'Documento'])[1], c: nomeCli(d.cliente_id) || d.nome, id: d.cliente_id || '' }))
+    .concat(certs.filter((c) => c.validade).map((c) => ({ v: c.validade, t: 'Certificado digital', c: nomeCli(c.cliente_id), id: c.cliente_id || '' })))
     .sort((a, b) => a.v.localeCompare(b.v));
   if (!itens.length) { el.innerHTML = ''; return; }
   const h = hojeISO();
   el.innerHTML = '<div class="gs-faixa b-faixa-av" style="margin:0 0 12px"><div class="b-faixa-lin"><span class="b-faixa-rot">Vencendo em 30 dias</span><div class="ini-conf-l">' +
-    itens.slice(0, 12).map((x) => '<button type="button" class="ini-conf-it ' + (x.v < h ? 'b-av-critico' : 'b-av-atencao') + '" data-doc-venc><span class="b-av-pt" aria-hidden="true"></span><span>' + esc(x.t) + ' de <b>' + esc(x.c || '—') + '</b> ' + (x.v < h ? 'venceu ' : 'vence ') + esc(dataBR(x.v).slice(0, 5)) + '</span></button>').join('') +
+    itens.slice(0, 12).map((x) => '<button type="button" class="ini-conf-it ' + (x.v < h ? 'b-av-critico' : 'b-av-atencao') + '" data-doc-venc data-cli="' + esc(x.id) + '"><span class="b-av-pt" aria-hidden="true"></span><span>' + esc(x.t) + ' de <b>' + esc(x.c || '—') + '</b> ' + (x.v < h ? 'venceu ' : 'vence ') + esc(dataBR(x.v).slice(0, 5)) + '</span></button>').join('') +
     (itens.length > 12 ? '<span class="sub">+' + (itens.length - 12) + '</span>' : '') + '</div></div></div>';
-  el.onclick = (ev) => { if (!ev.target.closest('[data-doc-venc]')) return; E.docs.situacao = 'vencendo'; pintarDocumentos(false); };
+  el.onclick = (ev) => { const b = ev.target.closest('[data-doc-venc]'); if (!b) return;
+    if (E.docs.vista !== 'pastas' && b.dataset.cli) { abrirFicha(b.dataset.cli, 'documentos'); return; }   // Backup 85 (DO2): abre a ficha do cliente na aba Documentos
+    E.docs.situacao = 'vencendo'; if (E.docs.vista === 'pastas') pintarDocumentos(false); };
 }
 
 // ─────────────────────────── tela Documentos ───────────────────────────
+// Backup 85 (DO1/DO2): como no ambiente — faixa "Vencendo em 30 dias" e UMA tabela (Cliente, Arquivo, Tipo, Enviado em, Validade com prazo colorido),
+// Filtros Tipo/Grupo/Cliente; clicar no arquivo abre a ficha do cliente na aba Documentos. As pastas por grupo (com Drive e "+ Enviar" por pasta)
+// e "Versões anteriores" continuam: botão "Ver em pastas" e aba "Versões anteriores" (lista do Backup 85 para decidir).
 TELAS.documentos = async function () {
   E.docs = E.docs || { tipo: '', cliente: '', grupo: '', busca: '', situacao: 'ativos' };
+  if (E.docs.vista === 'pastas') return documentosEmPastas();
+  await carregarCadastros();
+  $('conteudo').innerHTML = cabecalhoTela({ icone: 'documento', titulo: 'Documentos', frase: 'Arquivos dos clientes',
+    extra: '<a class="btn btn-o b-bt" id="doc-ger" href="documentos/index.html" target="_blank" rel="noopener" title="Procuração, contrato, recibo… (Ctrl + clique abre numa aba nova)">' + iconeB('documento') + 'Gerar documentos</a>' +
+      '<button class="btn btn-p b-bt" id="doc-novo">' + iconeB('mais') + 'Enviar arquivo</button>' }) +
+    '<div id="doc-venc"></div><div id="doc-tab"><div class="carregando">Carregando…</div></div>';
+  $('doc-novo').onclick = () => janelaEnviarDocumento({}, () => TELAS.documentos());
+  $('doc-ger').onclick = (ev) => { if (ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.button === 1) return; ev.preventDefault(); irParaTela('gerador'); };
+  _docsTela = await buscarTodos(() => sb.from('documentos').select('*').order('criado_em', { ascending: false }));
+  const lim = somarDias(hojeISO(), 30);
+  faixaVencendoDocs(lim).catch(() => {});
+  const grupoDe = (d) => d.grupo_id || ((E.clientes.find((c) => c.id === d.cliente_id) || {}).grupo_id) || '';
+  const nomeCli = (id) => (E.clientes.find((c) => c.id === id) || {}).nome || '';
+  const nomeG = (id) => (E.grupos.find((g) => g.id === id) || {}).nome || '';
+  const opc = (f, rot) => [...new Set(_docsTela.map(f).filter(Boolean))].map((v) => [v, rot(v)]).sort((x, y) => x[1].localeCompare(y[1], 'pt-BR'));
+  const celVal = (d) => { if (!d.validade) return '<span class="b-em">—</span>'; const n = diasAteP(d.validade);
+    return '<span class="' + corPrazo(n) + '">' + (n < 0 ? 'vencido há ' + plural(-n, 'dia', 'dias') : n === 0 ? 'vence hoje' : plural(n, 'dia', 'dias')) + '</span><small class="b-pz-sub">' + dataBR(d.validade) + '</small>'; };
+  const el = $('doc-tab');
+  tabelaB(el, { id: 'documentos', linhas: _docsTela, unidade: ['arquivo', 'arquivos'], dicaBusca: 'Arquivo, cliente ou etiqueta…', ord: { k: 'em', dir: -1 },
+    abas: [{ id: 'ativos', rot: 'Ativos', f: (d) => !d.arquivado }, { id: 'arquivados', rot: 'Versões anteriores', f: (d) => !!d.arquivado }], abaPadrao: 'ativos',
+    busca: (d) => [d.nome, nomeCli(d.cliente_id), nomeG(grupoDe(d)), nomeTipoDoc(d.tipo), d.etiquetas, d.obs].join(' '), venc: (d) => d.validade || '',
+    barraExtra: '<button type="button" class="b-bt-f" id="doc-pastas" title="O jeito antigo: uma pasta por grupo e subpastas por empresa, com o link do Drive">Ver em pastas</button>',
+    listas: [{ k: 'tipo', rot: 'Tipo', todos: 'Todos os tipos', opcoes: opc((d) => d.tipo, nomeTipoDoc), get: (d) => d.tipo },
+      { k: 'g', rot: 'Grupo', todos: 'Todos os grupos', opcoes: opc(grupoDe, nomeG), get: grupoDe },
+      { k: 'cli', rot: 'Cliente', todos: 'Todos os clientes', opcoes: opc((d) => d.cliente_id, nomeCli), get: (d) => d.cliente_id || '' }],
+    colunas: [
+      { k: 'cli', rot: 'Cliente', html: (d) => esc(nomeG(grupoDe(d)) || '—') + (d.cliente_id ? '<span class="b-sub">' + esc(nomeCli(d.cliente_id)) + '</span>' : ''), ord: (d) => normalizar(nomeG(grupoDe(d)) + nomeCli(d.cliente_id)) },
+      { k: 'nome', rot: 'Arquivo', html: (d) => esc(d.nome) + (d.versao > 1 ? ' <span class="pill neutro">v' + d.versao + '</span>' : '') + '<span class="b-sub">' + [tamanhoLegivel(d.tamanho), d.etiquetas].filter(Boolean).map(esc).join(' · ') + '</span>', ord: (d) => normalizar(d.nome) },
+      { k: 'tipo', rot: 'Tipo', html: (d) => esc(nomeTipoDoc(d.tipo)), ord: (d) => nomeTipoDoc(d.tipo) },
+      { k: 'em', rot: 'Enviado em', cls: 'b-cen b-data', html: (d) => dataBR(d.criado_em), ord: (d) => d.criado_em },
+      { k: 'val', rot: 'Validade', cls: 'b-cen b-prazo', html: celVal, ord: (d) => d.validade || '9' },
+      { k: 'ac', rot: '', cls: 'b-dir b-c-acoes', ord: false, html: (d) => '<span class="b-acoes"><button type="button" class="b-bt-emitir" data-abrir-doc="' + d.id + '">Abrir</button>' +
+        '<button type="button" class="b-bt-emitir" data-versao-doc="' + d.id + '" title="Substituir por um arquivo novo — o anterior fica em Versões anteriores">Nova versão</button>' +
+        '<button type="button" class="b-bt-emitir" data-excluir-doc="' + d.id + '" title="Apagar o documento (pede confirmação)">Excluir</button></span>' }],
+    clique: (d) => (d.cliente_id ? abrirFicha(d.cliente_id, 'documentos') : abrirDocumento(d)),
+    vazio: { titulo: 'Nenhum arquivo aqui', frase: 'Troque a aba ou limpe os filtros.', botao: ['Enviar arquivo', '#doc-novo'] } });
+  $('doc-pastas').onclick = () => { E.docs.vista = 'pastas'; TELAS.documentos(); };
+  if (!el._docLigado) { el._docLigado = true;
+    el.addEventListener('click', (ev) => { const b = ev.target.closest('[data-abrir-doc], [data-versao-doc], [data-excluir-doc]'); if (!b) return; ev.stopPropagation();
+      const d = _docsTela.find((x) => x.id === (b.dataset.abrirDoc || b.dataset.versaoDoc || b.dataset.excluirDoc)); if (!d) return;
+      if (b.dataset.abrirDoc) comBotao(b, () => abrirDocumento(d));
+      else if (b.dataset.versaoDoc) janelaNovaVersao(d, () => TELAS.documentos());
+      else comBotao(b, async () => { if (!(await excluirDocumento(d))) return; aviso('✓ Documento excluído.'); await TELAS.documentos(); }); }, true); }
+};
+// as pastas por grupo (o jeito de antes do Backup 85), num botão
+async function documentosEmPastas() {
   const F = E.docs;
   await carregarCadastros();
   $('conteudo').innerHTML =
     '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('documento') + '</div><div class="b-cab-tx"><h1>Documentos</h1><p>Arquivos dos clientes</p></div>' +
-    '<div class="acoes"><a class="btn btn-o" id="doc-ger" href="documentos/index.html" target="_blank" rel="noopener" title="Procuração, contrato, recibo… (Ctrl + clique abre numa aba nova)">' + iconeB('documento') + 'Gerar documentos</a><button class="btn btn-p" id="doc-novo">+ Enviar arquivo</button></div></div>' +
+    '<div class="acoes"><button class="btn btn-o" id="doc-tabela" type="button">Ver em tabela</button><a class="btn btn-o" id="doc-ger" href="documentos/index.html" target="_blank" rel="noopener" title="Procuração, contrato, recibo… (Ctrl + clique abre numa aba nova)">' + iconeB('documento') + 'Gerar documentos</a><button class="btn btn-p" id="doc-novo">+ Enviar arquivo</button></div></div>' +
     '<div class="filtros">' +
     '<div class="segmento" id="doc-sit">' + [['ativos', 'Ativos'], ['vencendo', 'Vencendo em 30 dias'], ['arquivados', 'Versões anteriores']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<select class="busca sel" id="doc-tipo"><option value="">Todos os tipos</option>' + TIPOS_DOC.map(([v, r]) => '<option value="' + v + '">' + r + '</option>').join('') + '</select>' +
@@ -213,6 +264,7 @@ TELAS.documentos = async function () {
     '<div id="doc-venc"></div><div class="doc-chips" id="doc-chips"></div><div id="doc-corpo"><div class="carregando">Carregando…</div></div>';
   $('doc-tipo').value = F.tipo; $('doc-cli').value = F.cliente; $('doc-grupo').value = F.grupo || ''; $('doc-busca').value = F.busca;
   $('doc-novo').onclick = () => janelaEnviarDocumento({}, () => TELAS.documentos());
+  $('doc-tabela').onclick = () => { E.docs.vista = ''; TELAS.documentos(); };
   // Backup 80 (E11): "Gerar documentos" abre a Central dentro do ERP (Ctrl/⌘ + clique = aba nova)
   $('doc-ger').onclick = (ev) => { if (ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.button === 1) return; ev.preventDefault(); irParaTela('gerador'); };
   $('doc-sit').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.situacao = b.dataset.v; pintarDocumentos(); } };

@@ -26,7 +26,7 @@ TELAS.execucoes = async function () {
   const grupoDe = (e) => nomeGrupo(e.grupo_id || cliDe(e).grupo_id) || '';
   const sitTxt = (e) => (SITUACOES_EXEC.find((y) => y[0] === e.situacao) || SITUACOES_EXEC[0])[1];
   const pct = (a, b) => (b ? Math.round(a / b * 100) : 0) + '%';
-  tabelaB($('ex-corpo'), { id: 'execucoes', linhas: L, chave: (e) => String(e.id), unidade: ['execução', 'execuções'], dicaBusca: 'Buscar',
+  tabelaB($('ex-corpo'), { id: 'execucoes', contagem: true, linhas: L, chave: (e) => String(e.id), unidade: ['execução', 'execuções'], dicaBusca: 'Buscar',
     abas: [{ id: 'and', rot: 'Em andamento', f: (e) => e.situacao !== 'encerrada' }, { id: 'enc', rot: 'Encerradas', f: (e) => e.situacao === 'encerrada' }, { id: 'todas', rot: 'Todas', f: () => true }],
     busca: (e) => [cliDe(e).nome, cliDe(e).cpf_cnpj, e.numero, e.executado, grupoDe(e)].join(' '), valor: (e) => Number(e.valor_execucao) || 0, ord: { k: 'cli', dir: 1 },
     listas: [{ k: 'g', rot: 'Grupo', todos: 'Todos os grupos', opcoes: unicosTxt(L.map(grupoDe)).map((x) => [x, x]), get: grupoDe },
@@ -61,7 +61,7 @@ function formExecucao(e, depois) {
   j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
   const ap = j.querySelector('#ex-apagar');
   if (ap) ap.onclick = (ev) => comBotao(ev.currentTarget, async () => {
-    if (!confirm('Excluir esta execução e os recebimentos dela? Os honorários ainda não pagos também saem do Financeiro.')) return;
+    if (!await confirmarB('Excluir esta execução e os recebimentos dela? Os honorários ainda não pagos também saem do Financeiro.')) return;
     await q(sb.from('execucoes').delete().eq('id', e.id)); aviso('Execução excluída.'); fecharJanela(j); fecharJanela(); if (depois) await depois(); });
   j.querySelector('#ex-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
     if (!f.cliente_id.value) throw new Error('Escolha o cliente.');
@@ -82,13 +82,14 @@ function detalheExecucao(e, recs, depois) {
   const podeEd = pode('juridico', 'editar'), cli = E.clientes.find((c) => c.id === e.cliente_id) || {};
   const tot = recs.reduce((s, r) => s + (Number(r.valor) || 0), 0), hon = recs.reduce((s, r) => s + (Number(r.honorario) || 0), 0);
   const ord = recs.slice().sort((a, b) => String(b.data).localeCompare(String(a.data)));
-  const j = abrirJanela({ titulo: 'Execução ' + (e.numero || '') + ' — ' + (cli.nome || ''), larga: true,
-    corpo: '<div class="ficha-sub" style="margin-bottom:10px">' + [esc(cli.nome || '—'), e.executado ? 'contra <b>' + esc(e.executado) + '</b>' : '', e.ajuizada_em ? 'ajuizada em ' + dataBR(e.ajuizada_em) : '', pillSitExec(e.situacao)].filter(Boolean).join(' · ') + '</div>' +
-      // Backup 82: números numa faixa só (desenho do ambiente), sem cartões
+  // Backup 85 (EX2): cabeçalho como no ambiente — "Execução · processo", o executado em destaque e o cliente embaixo
+  const j = abrirJanela({ kick: 'Execução · ' + (e.numero || 'sem número'), titulo: e.executado || cli.nome || 'Execução', sub: 'Cliente: ' + esc(cli.nome || '—') + (e.ajuizada_em ? ' · ajuizada em ' + dataBR(e.ajuizada_em) : ''), larga: true,
+    dir: pillSitExec(e.situacao),
+    corpo:       // Backup 82: números numa faixa só (desenho do ambiente), sem cartões
       numsFaixa([['Valor da execução', esc(brl(e.valor_execucao))], ['Recebido pelo cliente', esc(brl(tot)), plural(recs.length, 'recebimento', 'recebimentos'), 'b-verde'],
         ['Falta receber', esc(brl(Math.max(0, (Number(e.valor_execucao) || 0) - tot)))], ['Honorários do escritório', esc(brl(hon)), String(Number(e.percentual) || 0).replace('.', ',') + '% do recebido']]) +
       (e.obs ? '<div class="dica" style="margin-bottom:10px">' + esc(e.obs) + '</div>' : '') +
-      '<div class="card" style="margin:0"><div class="card-hd">Recebimentos' + (podeEd ? '<span class="gd-hd-ac"><button class="btn btn-p btn-mini" type="button" id="ex-receb">+ Registrar recebimento</button></span>' : '') + '</div>' +
+      '<div class="card" style="margin:0"><div class="card-hd">Recebimentos</div>' +
       (ord.length ? '<div class="tabela-wrap"><table><thead><tr><th>Data</th><th>Recebido pelo cliente</th><th>Honorários do escritório</th><th>No Financeiro</th><th>Repassado ao cliente</th><th></th></tr></thead><tbody>' +
         ord.map((r) => '<tr><td>' + dataBR(r.data) + '</td><td class="col-valor">' + brl(r.valor) + '</td><td class="col-valor">' + brl(r.honorario) + '</td>' +
           '<td>' + (r.lancamento_id ? (r.lancamentos && r.lancamentos.pago ? '<span class="pill pago">recebido</span>' : '<span class="pill aberto">a receber</span>') : '<span class="sub">—</span>') + '</td>' +
@@ -96,41 +97,48 @@ function detalheExecucao(e, recs, depois) {
           '<td class="acoes-l">' + (podeEd ? '<button class="btn btn-x btn-mini" type="button" data-exr-apagar="' + r.id + '" title="Apagar o recebimento (e o honorário ainda não pago)">✕</button>' : '') + '</td></tr>').join('') + '</tbody></table></div>'
         : '<div class="card-bd">' + vazio('Nenhum recebimento ainda.') + '</div>') + '</div>' +
       // Backup 54: contatos de quem não é cliente (executado, advogado da outra parte, cartório…)
-      '<div class="card ex-contatos" style="margin:10px 0 0"><div class="card-hd">📇 Contatos (não clientes)' + (podeEd ? '<span class="gd-hd-ac"><button class="btn btn-o btn-mini" type="button" id="ex-contato-novo">+ Contato</button></span>' : '') +
+      '<div class="card ex-contatos" style="margin:10px 0 0"><div class="card-hd">Contatos (não clientes)' + (podeEd ? '<span class="gd-hd-ac"><button class="btn btn-o btn-mini" type="button" id="ex-contato-novo">+ Contato</button></span>' : '') +
         '</div><div id="ex-contatos-l"><div class="card-bd"><span class="sub">Carregando…</span></div></div></div>',
-    rodape: '<span class="sub">Cada recebimento lança o honorário em Financeiro → Jurídico</span><div class="acoes">' + (podeEd ? '<button class="btn btn-o" type="button" id="ex-editar">✎ Editar execução</button>' : '') + '</div>' });
+    rodape: (podeEd ? '<button class="btn btn-g" type="button" id="ex-editar" style="margin-right:auto">' + iconeB('lapis') + ' Editar execução</button>' : '<span></span>') +
+      '<div class="acoes"><button class="btn btn-o" type="button" data-fechar>Fechar</button>' + (podeEd ? '<button class="btn btn-p" type="button" id="ex-receb">' + iconeB('mais') + ' Recebimento</button>' : '') + '</div>' });
   const re = async () => { fecharJanela(j); if (depois) await depois(); };
   const ed = j.querySelector('#ex-editar'); if (ed) ed.onclick = () => formExecucao(e, depois);
   const rb = j.querySelector('#ex-receb'); if (rb) rb.onclick = () => formRecebimentoExec(e, re);
   pintarContatosExec(j, e, podeEd);
   const cn = j.querySelector('#ex-contato-novo'); if (cn) cn.onclick = () => formContatoExec(e, {}, () => pintarContatosExec(j, e, podeEd));
   j.querySelectorAll('[data-exr-apagar]').forEach((b) => b.onclick = () => comBotao(b, async () => {
-    if (!confirm('Apagar este recebimento? O honorário dele sai do Financeiro se ainda não foi pago.')) return;
+    if (!await confirmarB('Apagar este recebimento? O honorário dele sai do Financeiro se ainda não foi pago.')) return;
     await q(sb.from('execucao_recebimentos').delete().eq('id', b.dataset.exrApagar)); aviso('Recebimento apagado.'); await re(); }));
   return j;
 }
 
+// Backup 85 (EX4): como no ambiente — valor e data à vista, o resto em "Mais dados"; "Lançar" com Desfazer
 function formRecebimentoExec(e, depois) {
-  const pct = Number(e.percentual) || 0;
-  const j = abrirJanela({ titulo: '+ Recebimento — execução ' + (e.numero || ''),
-    corpo: '<form class="grade" id="f-exr">' + campo('Data', '<input name="data" type="date" value="' + hojeISO() + '">') +
-      campo('Valor recebido pelo cliente (R$) <span class="obrig">*</span>', '<input name="valor" data-mascara="brl" inputmode="decimal" placeholder="0,00">') +
+  const pct = Number(e.percentual) || 0, cli = (E.clientes || []).find((c) => c.id === e.cliente_id) || {};
+  const j = abrirJanela({ kick: 'Novo recebimento', titulo: e.executado || ('Execução ' + (e.numero || '')), sub: esc([cli.nome, e.numero].filter(Boolean).join(' · ')),
+    corpo: '<form class="grade" id="f-exr">' + campo('Valor recebido pelo cliente (R$) <span class="obrig">*</span>', '<input name="valor" data-mascara="brl" inputmode="decimal" placeholder="0,00">') +
+      campo('Data', '<input name="data" type="date" value="' + hojeISO() + '">') +
+      '<div class="dica inteiro" id="exr-previa">O honorário de ' + String(pct).replace('.', ',') + '% entra sozinho em Financeiro → Jurídico (A receber).</div>' +
+      '<details class="b-mais-dados inteiro"><summary>Mais dados</summary><div class="grade">' +
       campo('Como foi recebido', '<select name="forma">' + FORMAS_RECEB.map((x) => '<option>' + x + '</option>').join('') + '</select>') +
       campo('Repassado ao cliente em', '<input name="repassado_em" type="date">') +
       campo('Honorários do escritório (R$)', '<input name="honorario" data-mascara="brl" inputmode="decimal" placeholder="calculado: ' + String(pct).replace('.', ',') + '%">') +
-      campo('Observação', '<input name="obs" maxlength="300">') +
-      '<div class="dica inteiro" id="exr-previa">Informe o valor para ver o honorário.</div></form>',
-    rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="exr-ok">Registrar</button></div>' });
+      campo('Observação', '<input name="obs" maxlength="300">') + '</div></details></form>',
+    rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="exr-ok">' + iconeB('check') + ' Lançar</button></div>' });
   const f = j.querySelector('#f-exr');
   const previa = () => { const v = lerValor(f.valor.value), h = f.honorario.value.trim() ? lerValor(f.honorario.value) : Math.round((v || 0) * pct) / 100;
-    j.querySelector('#exr-previa').innerHTML = v > 0 ? 'Entra em Financeiro → Jurídico um honorário de <b class="mono">' + brl(h) + '</b>' + (f.honorario.value.trim() ? '' : ' (' + String(pct).replace('.', ',') + '% de ' + brl(v) + ')') + ', com vencimento em ' + dataBR(f.data.value || hojeISO()) + '.' : 'Informe o valor para ver o honorário.'; };
+    j.querySelector('#exr-previa').innerHTML = v > 0 ? 'Entra em Financeiro → Jurídico um honorário de <b class="mono">' + brl(h) + '</b>' + (f.honorario.value.trim() ? '' : ' (' + String(pct).replace('.', ',') + '% de ' + brl(v) + ')') + ', com vencimento em ' + dataBR(f.data.value || hojeISO()) + '.'
+      : 'O honorário de ' + String(pct).replace('.', ',') + '% entra sozinho em Financeiro → Jurídico (A receber).'; };
   ['input', 'change'].forEach((x) => f.addEventListener(x, previa));
   j.querySelector('[data-cancelar]').onclick = () => fecharJanela(j);
   j.querySelector('#exr-ok').onclick = (ev) => comBotao(ev.currentTarget, async () => {
     const v = lerValor(f.valor.value); if (!(v > 0)) throw new Error('Informe o valor recebido (ex.: 5.000,00).');
     const h = f.honorario.value.trim() ? lerValor(f.honorario.value) : null; if (h != null && (isNaN(h) || h < 0)) throw new Error('Honorário inválido.');
-    await q(sb.from('execucao_recebimentos').insert({ execucao_id: e.id, data: f.data.value || hojeISO(), valor: v, forma: f.forma.value, repassado_em: f.repassado_em.value || null, honorario: h, obs: f.obs.value.trim() }));
-    aviso('✓ Recebimento registrado e honorário lançado no Financeiro.'); fecharJanela(j); if (depois) await depois();
+    const novo = await q(sb.from('execucao_recebimentos').insert({ execucao_id: e.id, data: f.data.value || hojeISO(), valor: v, forma: f.forma.value, repassado_em: f.repassado_em.value || null, honorario: h, obs: f.obs.value.trim() }).select('id').single());
+    fecharJanela(j);
+    feitoDesfazer('Recebimento lançado; o honorário de ' + brl(h != null ? h : Math.round(v * pct) / 100) + ' foi para o Financeiro.',
+      novo && novo.id ? () => q(sb.from('execucao_recebimentos').delete().eq('id', novo.id)) : null, depois);
+    if (depois) await depois();
   });
   return j;
 }
@@ -163,7 +171,7 @@ async function pintarContatosExec(j, e, podeEd) {
   alvo.querySelectorAll('tr[data-exc-linha]').forEach((tr) => tr.onclick = (ev) => { if (ev.target.closest('button, a')) return;   // Backup 58: a linha edita (sem ✎)
     formContatoExec(e, lista.find((c) => c.id === tr.dataset.excLinha), () => pintarContatosExec(j, e, podeEd)); });
   alvo.querySelectorAll('[data-exc-apagar]').forEach((b) => b.onclick = () => comBotao(b, async () => {
-    if (!confirm('Apagar este contato?')) return;
+    if (!await confirmarB('Apagar este contato?')) return;
     await q(sb.from('execucao_contatos').delete().eq('id', b.dataset.excApagar)); aviso('Contato apagado.'); pintarContatosExec(j, e, podeEd); }));
 }
 function formContatoExec(e, c, depois) {

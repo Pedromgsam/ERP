@@ -13,7 +13,7 @@ const REGRAS = [
   ['selo da pessoa', ':is(.pill.pill-pessoa,.fa-pessoa)', ['fontSize', 'fontWeight', 'borderRadius']],
   ['vencimento', 'td.col-venc', ['fontSize', 'fontWeight'], true],   // Backup 72: Tarefas foi para a tabela nova (.b-tab); pode não sobrar tela antiga com vencimento
   ['valor', 'td.col-valor',   // Backup 46: o Painel (Empresas do grupo) fica centralizado, a pedido
-  ['fontSize', 'fontWeight', 'textAlign']],   // Backup 50: a cor do valor depende do tipo (receber verde, pagar vermelho)
+  ['fontSize', 'fontWeight', 'textAlign'], true],   // Backup 50: a cor do valor depende do tipo (receber verde, pagar vermelho)   // Backup 85: as telas medidas aqui já usam a tabela nova (.b-tab, medida no erp.js)
   ['dias / atraso', 'td.col-dias', ['fontSize'], true],
   ['nome de cliente/empresa', 'td.col-nome', ['fontSize', 'fontWeight', 'textTransform']],
   // a planilha estreita da Rotina (Passivo) usa 10,5 px no cabeçalho de propósito (Backup 63: "Procur.", "Certif." e "Conferência" sem "…")

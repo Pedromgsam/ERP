@@ -46,7 +46,7 @@ TELAS.publicacoes = async function () {
     '<div class="filtros pub-trib-linha"><div class="segmento" id="pub-trib" role="group" aria-label="Tribunal"></div></div><div id="pub-corpo"><div class="carregando">Carregando…</div></div>';
   $('pub-oabs').onclick = () => janelaOabs();
   $('pub-todas-lidas').onclick = (ev) => comBotao(ev.currentTarget, async () => {
-    if (!confirm('Marcar TODAS as publicações novas como lidas?')) return;
+    if (!await confirmarB('Marcar TODAS as publicações novas como lidas?')) return;
     const r = (await q(sb.from('publicacoes').update({ status: 'lida' }).eq('status', 'nova').select('id'))) || [];
     aviso('✓ ' + plural(r.length, 'publicação marcada como lida', 'publicações marcadas como lidas') + '.'); await carregarPublicacoes();
   });
@@ -206,13 +206,13 @@ async function janelaOabs() {
     const o = os.find((x) => x.id === b.dataset.oabAt); await q(sb.from('oabs_monitoradas').update({ ativo: !o.ativo }).eq('id', o.id)); reabrir();
   }));
   j.querySelectorAll('[data-oab-x]').forEach((b) => b.onclick = () => comBotao(b, async () => {
-    if (!confirm('Excluir esta OAB da busca?')) return; await excluir('oabs_monitoradas', b.dataset.oabX); reabrir();
+    if (!await confirmarB('Excluir esta OAB da busca?')) return; await excluir('oabs_monitoradas', b.dataset.oabX); reabrir();
   }));
   j.querySelectorAll('[data-pt-at]').forEach((b) => b.onclick = () => comBotao(b, async () => {
     const o = ps.find((x) => x.id === b.dataset.ptAt); await q(sb.from('partes_monitoradas').update({ ativo: !o.ativo }).eq('id', o.id)); reabrir();
   }));
   j.querySelectorAll('[data-pt-x]').forEach((b) => b.onclick = () => comBotao(b, async () => {
-    if (!confirm('Parar de monitorar este cliente?')) return; await q(sb.from('partes_monitoradas').delete().eq('id', b.dataset.ptX)); reabrir();
+    if (!await confirmarB('Parar de monitorar este cliente?')) return; await q(sb.from('partes_monitoradas').delete().eq('id', b.dataset.ptX)); reabrir();
   }));
   j.querySelector('#pub-diag').onclick = (ev) => comBotao(ev.currentTarget, async () => {
     const res = j.querySelector('#pub-diag-res');

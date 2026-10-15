@@ -9,6 +9,8 @@
 //    mantendo filtros, gráficos e cores do ERP.
 // ═══════════════════════════════════════════════════════════════════
 (function () {
+  // Backup 85 (JN3): confirmação dentro da página (a do Gestão); sem ela, a caixinha do navegador
+  const confirmarPag = (t) => (window.GS && window.GS.confirmarB ? window.GS.confirmarB(t) : Promise.resolve(window.confirm(t)));
   const ED = window.ERP_EDITOR;
   const { esc, erroAmigavel, aviso } = ED;
   const GS = () => window.GS;
@@ -355,9 +357,18 @@
           '';
   }
   window.ERP_ABRIR_PROCESSO = (p) => abrirProcesso(p);   // Backup 76: a tela nova de Processos (telas-painel-exec.js) abre a mesma janela
+  // Backup 85 (PR5/PR6/PR8): cabeçalho do ambiente ("Processo · tribunal", nº, cliente/grupo e a situação à direita) e os botões
+  // Ficha do cliente · Conferido, sem novidade · Registrar movimentação · Editar. Os blocos do ERP (observação, procuração…) continuam.
   function abrirProcesso(p) { if (!GS() || !GS().abrirJanela) return;
-        const j = GS().abrirJanela({ titulo: 'Processo ' + (p.numero || ''), larga: true, corpo: '<div class="gx-det-corpo gx-det-janela">' + detalheProcHTML(p) + '</div>',
-          rodape: '<span class="sub">' + escH(p.grupo || '') + '</span>' + (ehCliente() ? '' : '<div class="acoes"><button type="button" class="btn btn-o" data-pr-mov>+ Registrar movimentação</button><button type="button" class="btn btn-p" data-pr-editar>✎ Editar processo</button></div>') });
+        const trib = GS().tribunalProcesso ? GS().tribunalProcesso(p) : '', sit = p.arquivamento || 'Ativo';
+        const cliP = () => { const L = (GS().E && GS().E.clientes) || [], nomes = (String(p.autor || '') + ';' + String(p.reu || '')).toLowerCase();
+          const doGrupo = L.filter((c) => (c.grupos && c.grupos.nome) === p.grupo || (GS().E.grupos || []).some((g) => g.id === c.grupo_id && g.nome === p.grupo));
+          return doGrupo.find((c) => c.nome && nomes.includes(String(c.nome).toLowerCase())) || doGrupo[0] || null; };
+        const j = GS().abrirJanela({ kick: 'Processo' + (trib ? ' · ' + trib : ''), titulo: p.numero || 'Processo', larga: true, sub: escH(p.grupo || ''),
+          dir: '<span class="b-pill ' + (sit === 'Ativo' ? 'b-g' : sit === 'Arquivado' ? 'b-a' : 'b-r') + '">' + escH(sit) + '</span>',
+          corpo: '<div class="gx-det-corpo gx-det-janela">' + detalheProcHTML(p) + '</div>',
+          rodape: (ehCliente() ? '<span></span>' : '<button type="button" class="btn btn-o" data-pr-ficha>Ficha do cliente</button><div class="acoes"><button type="button" class="btn btn-o" data-pr-conf>Conferido, sem novidade</button>' +
+            '<button type="button" class="btn btn-o" data-pr-mov>Registrar movimentação</button><button type="button" class="btn btn-p" data-pr-editar>Editar</button></div>') });
         // Backup 35: as 3 últimas movimentações lançadas (Rotina → Processos ou "+ Registrar movimentação")
         const box = j.querySelector('[data-movs]');
         if (box && p._id && window.SB) window.SB.from('processo_movimentacoes').select('data, tipo, descricao, valor_novo, quem').eq('processo_id', p._id).order('data', { ascending: false }).order('criado_em', { ascending: false }).limit(3)
@@ -366,6 +377,11 @@
             box.innerHTML = data.map((m) => '<div class="gx-mov"><div class="gx-mov-cab"><span class="gx-mov-d">' + escH(String(m.data).split('-').reverse().join('/')) + '</span><span class="gx-mov-t">' + escH(TIPO[m.tipo] || m.tipo) + '</span></div>' +
               '<div class="gx-mov-x">' + escH(m.descricao || (m.tipo === 'sem_novidade' ? 'Conferido — sem novidade' : '')) + (m.valor_novo ? ' · novo valor ' + fBRL(m.valor_novo) : '') + '</div>' + (m.quem ? '<div class="gx-mov-q">por ' + escH(m.quem) + '</div>' : '') + '</div>').join(''); });
         if (ehCliente()) return;
+        j.querySelector('[data-pr-ficha]').onclick = async () => { if (GS().carregarCadastros) await GS().carregarCadastros(); const c = cliP(); if (!c) { GS().aviso ? GS().aviso('Não achei o cliente deste processo.', true) : alert('Não achei o cliente deste processo.'); return; } GS().fecharJanela(j); GS().abrirFicha(c.id); };
+        j.querySelector('[data-pr-conf]').onclick = async (ev) => { ev.currentTarget.disabled = true;
+          const r = await window.SB.rpc('conferir_processos_grupo', { p_ids: [p._id] });
+          if (r && r.error) { ev.currentTarget.disabled = false; alert('Não deu certo: ' + r.error.message); return; }
+          GS().fecharJanela(j); if (GS().feitoDesfazer) GS().feitoDesfazer('Processo conferido (sem novidade).'); if (window.ERP_RECARREGAR) window.ERP_RECARREGAR(); };
         j.querySelector('[data-pr-mov]').onclick = () => { GS().fecharJanela(j); if (GS().janelaMovimentacao) GS().janelaMovimentacao(p._id, () => { if (window.ERP_RECARREGAR) window.ERP_RECARREGAR(); }); };
         j.querySelector('[data-pr-editar]').onclick = () => { GS().fecharJanela(j); if (window.ERP_EDITAR) window.ERP_EDITAR('processos:' + p._id); }; }
   const fBRL = (v) => (Number(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -538,7 +554,7 @@
     if (!velha) document.body.appendChild(f);
     document.body.classList.add('gx-com-teste');
     f.querySelector('#gx-teste-off').onclick = async () => {
-      if (!confirm('Desligar o modo teste?\n\nA partir de agora os e-mails vão para os clientes de verdade (só para quem está marcado "✉ Recebe e-mails").')) return;
+      if (!await confirmarPag('Desligar o modo teste?\n\nA partir de agora os e-mails vão para os clientes de verdade (só para quem está marcado "✉ Recebe e-mails").')) return;
       const x = await window.SB.rpc('salvar_modo_teste_email', { p: '' });
       if (x && x.error) { alert('Não deu certo: ' + x.error.message); return; }
       faixaModoTeste();
