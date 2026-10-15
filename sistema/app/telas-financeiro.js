@@ -70,17 +70,12 @@ async function telaHonorarios(empresa, forcar) {
         extra: '<div class="b-seg" role="tablist" id="fin-abas">' + info.abas.map((a) => '<button type="button" role="tab" class="b-seg-bt" data-aba="' + a[0] + '">' + a[1] + '</button>').join('') + '</div>' +
           '<button type="button" class="btn btn-o b-bt" id="fin-recibo" title="Recibo de um honorário recebido">' + iconeB('recibo') + 'Recibo</button>' +
           (pode(empresa === 'contabilidade' ? 'financeiro_contab' : 'financeiro_juridico', 'editar') ? '<button type="button" class="btn btn-p b-bt" id="fin-lancar">' + iconeB('mais') + 'Lançar</button>' : '') }) +
-      '<div class="b-fin-avisos" id="fin-avisos"></div>' +
       '<div id="fin-corpo"><div class="carregando">Carregando…</div></div></div>';
     // Backup 85 (FI3): como no ambiente — "Lançar" é um botão só; Receita ou Despesa se escolhe no próprio formulário
     { const bl = c.querySelector('#fin-lancar');
       if (bl) bl.onclick = () => formLancamento({ tipo: 'receita', empresa, grupo_id: F.an.grupo || null }, () => telaHonorarios(empresa, true)); }
     c.querySelector('#fin-abas').onclick = (ev) => { const b = ev.target.closest('[data-aba]'); if (!b) return; F.aba = b.dataset.aba; pintarFin(empresa); };
     c.querySelector('#fin-recibo').onclick = () => janelaRecibo(empresa);
-    c.querySelector('#fin-avisos').onclick = (ev) => { const b = ev.target.closest('[data-fin-ir]'); if (!b) return;
-      F.aba = 'lanc'; E.tabB = E.tabB || {}; const st = E.tabB['fin-' + empresa] = E.tabB['fin-' + empresa] || {};
-      if (b.dataset.finIr === 'venc') { st.aba = 'areceber'; st.prazo = 'venc'; } else { st.aba = 'perda'; st.prazo = ''; }
-      pintarFin(empresa); };
   }
   try { await dadosFin(empresa, forcar); } catch (e) { raizFin(empresa).querySelector('#fin-corpo').innerHTML = '<div class="card"><div class="card-bd msg-erro">' + esc(erroAmigavel(e)) + '</div></div>'; return; }
   pintarFin(empresa);
@@ -94,10 +89,7 @@ function pintarFin(empresa) {
   const R = raizFin(empresa), F = estadoFin(empresa), L = F.dados || [], corpo = R.querySelector('#fin-corpo'); if (!corpo) return;
   if (!EMPRESAS[empresa].abas.some((a) => a[0] === F.aba)) F.aba = 'analise';
   R.querySelectorAll('#fin-abas [data-aba]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.aba === F.aba)));
-  // avisos (os do topo do antigo): honorários vencidos e prejuízo — clicar leva à lista
-  const h = hojeISO(), venc = L.filter((l) => l._c === 'areceber' && l.vencimento && l.vencimento < h), perdas = L.filter((l) => l._c === 'perda');
-  R.querySelector('#fin-avisos').innerHTML = (venc.length ? '<button type="button" class="b-aviso b-aviso-r" data-fin-ir="venc">' + plural(venc.length, 'honorário vencido', 'honorários vencidos') + ' · ' + brl(soma(venc, valorLanc)) + '</button>' : '') +
-    (perdas.length ? '<button type="button" class="b-aviso" data-fin-ir="perda">Prejuízo: ' + brl(soma(perdas, valorLanc)) + '</button>' : '');
+  // Backup 86 (M18): sem os avisos no alto ("N honorários vencidos", "Prejuízo"), como no ambiente
   try {
     if (F.aba === 'analise') analiseFin(empresa, corpo);
     else if (F.aba === 'lanc') listaFin(empresa, corpo);

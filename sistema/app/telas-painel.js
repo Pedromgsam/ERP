@@ -22,7 +22,7 @@ TELAS.inicio = async function () {
     cabecalhoTela({ icone: 'inicio', titulo: saud + ', ' + primeiroNomeUsuario(), frase: dataLonga, botao: { id: 'lemb-novo', rotulo: 'Lembrete' } }) +
     '<div id="ini-valid"></div>' +
     '<section class="b-faixa-av ini-faixa" id="ini-faixa"><div class="b-faixa-lin" id="ini-lin-fin"><span class="b-faixa-rot">Financeiro</span><div class="ini-conf-l" id="ini-resumo-fin"></div></div>' +
-      '<div class="b-faixa-lin"><span class="b-faixa-rot">Escritório</span><div class="ini-conf-l"><span id="ini-resumo" class="ini-pills"></span><span id="ini-conf" class="ini-pills"></span></div></div></section>' +
+      '<div class="b-faixa-lin"><span class="b-faixa-rot">Escritório</span><div class="ini-conf-l"><span id="ini-resumo" class="ini-pills"></span></div></div></section>' +
     '<div class="ini-b74"><section class="ini-col"><div class="ini-sec-hd"><div><h2>Meu dia</h2><p>Hoje e o que atrasou</p></div><div class="b-chips ini-quem" id="ini-quem" role="group" aria-label="De quem"></div></div><div id="ini-dia"></div></section>' +
     '<section class="ini-col"><div id="ini-lembretes"></div><div class="ini-sec-hd ini-sec-hd2"><div><h2>Próximos 7 dias</h2></div></div><div id="ini-prox"></div></section></div>';
   // Backup 83: sem o calendário ("Minha fila de trabalho") no Início — a agenda fica só em Tarefas (Semana · Calendário)
@@ -31,7 +31,7 @@ TELAS.inicio = async function () {
   cardLembretes().catch((e) => console.error(e));
   cardResumoEscritorio().catch((e) => console.error(e));
   meuDia().catch((e) => console.error(e));
-  conferenciasIni().catch((e) => console.error(e));   // Backup 76 (F3)
+  // Backup 86 (M31): sem as linhas Avisos/Conferências na faixa (conferenciasIni saiu)
   if (typeof buscaPubAutomatica === 'function') buscaPubAutomatica().catch(() => {});
   if (typeof vigiarAgenda === 'function') vigiarAgenda();   // Backup 40: aviso antes dos compromissos
   if (typeof cardValidacoes === 'function') cardValidacoes().then((c) => { const el = $('ini-valid'); if (el) { el.innerHTML = c.html; c.ligar(el); } }).catch((e) => console.error(e));
@@ -301,7 +301,7 @@ async function cardResumoEscritorio() {
   ].filter(Boolean);
   // Backup 85 (IN1/IN2/IN3/TB8): a faixa do ambiente — Financeiro: "honorários em atraso" e "a pagar em 5 dias";
   // Escritório: guias a emitir, parcelas em atraso, acordos em atraso, publicações, tarefas atrasadas, e-mail com erro, certificado vencendo.
-  // Cada pílula abre a tela já na aba e no prazo certos. Ficaram do ERP (lista para decidir): CRM em andamento e os avisos/conferências.
+  // Cada pílula abre a tela já na aba e no prazo certos (Backup 86: CRM e avisos/conferências saíram).
   const pil = (k, n, txt, nivel, tit) => '<button type="button" class="ini-conf-it ini-pil b-av-' + nivel + '" data-ini-ir="' + k + '"' + (tit ? ' title="' + esc(tit) + '"' : '') + '><span class="b-av-pt" aria-hidden="true"></span>' +
     (n !== '' && n != null ? '<b>' + n + '</b>' : '') + '<span class="ini-pil-tx">' + esc(txt) + '</span></button>';
   const finP = [], esc2 = [];
@@ -316,8 +316,7 @@ async function cardResumoEscritorio() {
     const recJ = pode('financeiro_juridico') ? atr(lancs.filter((l) => l.tipo === 'receita' && !l.redutor && l.empresa !== 'contabilidade')) : [];
     const recC = pode('financeiro_contab') ? atr(lancs.filter((l) => l.tipo === 'receita' && !l.redutor && l.empresa === 'contabilidade')) : [];
     const pag = pode('financeiro_contab') ? cinco(lancs.filter((l) => l.tipo === 'despesa' && !l.redutor && l.empresa === 'contabilidade')) : [];
-    if (recJ.length || recC.length) finP.push(pil(recJ.length ? 'fin-jur' : 'fin-contab', sm(recJ.concat(recC)), 'de honorários em atraso', 'critico',
-      [recJ.length ? 'Jurídico: ' + sm(recJ) : '', recC.length ? 'Contabilidade: ' + sm(recC) : ''].filter(Boolean).join(' · ')));
+    if (recJ.length || recC.length) finP.push(pil(recJ.length ? 'fin-jur' : 'fin-contab', sm(recJ.concat(recC)), 'de honorários em atraso', 'critico'));   // Backup 86 (M32): sem o balão Jurídico/Contabilidade
     if (pag.length) finP.push(pil('fin-pagar', sm(pag), 'a pagar em 5 dias', 'atencao', 'A pagar · Contabilidade'));
   }
   const parcAtr = (Number(parc[0]) || 0) + (Number(parc[1]) || 0), acAtr = (Number(aco[0]) || 0) + (Number(aco[1]) || 0);
@@ -329,7 +328,7 @@ async function cardResumoEscritorio() {
   if (emailsErro) esc2.push(pil('emails', emailsErro, pl(emailsErro, 'e-mail com erro', 'e-mails com erro'), 'critico'));
   if (certs) esc2.push(pil('certificados', certs, pl(certs, 'certificado vencendo', 'certificados vencendo'), 'atencao'));
   const tudoEmDia = !esc2.length;
-  if (crm && abertas.length) esc2.push(pil('crm', abertas.length, pl(abertas.length, 'oportunidade em andamento', 'oportunidades em andamento'), 'info'));   // do ERP (fica para decidir)
+  // Backup 86 (M31): sem a pílula do CRM
   const lf = $('ini-resumo-fin'); if (lf) { lf.innerHTML = finP.join(''); const lin = $('ini-lin-fin'); if (lin) lin.hidden = !finP.length; }
   el.innerHTML = (tudoEmDia ? '<span class="ini-tudo-ok">' + iconeB('ok') + 'Nada pendente aqui. Tudo em dia.</span>' : '') + esc2.join('');
   const raiz = $('ini-faixa') || el;
@@ -434,50 +433,3 @@ function formLembrete(l) {
 }
 
 
-// ═══ Backup 76 (F3): CONFERÊNCIAS AUTOMÁTICAS no Início — o que está faltando no cadastro e pode virar problema ═══
-// Cada linha mostra quantos são; clicar abre a lista com o atalho para corrigir. Some sozinha quando está tudo certo.
-// o que os cartões Financeiro/Escritório do Início já mostram não se repete na faixa
-const NO_CARTAO_INI = ['Publicações novas', 'Parcelamentos com parcela vencida', 'Acordos vencidos', 'Honorários em atraso', 'Tarefas atrasadas'];
-async function conferenciasIni() {
-  const el = $('ini-conf'); if (!el) return;
-  await carregarCadastros().catch(() => {});
-  const D = dbParc() || {}, hoje = hojeISO(), lim90 = somarDias(hoje, -90);
-  const isoBR = (d) => (/^\d{2}\/\d{2}\/\d{4}$/.test(d || '') ? d.split('/').reverse().join('-') : String(d || '').slice(0, 10));
-  const regras = [];
-  if (pode('juridico')) {
-    const pa = (D.parcelamentos || []).filter((p) => (p.parcelas || []).some((x) => x.pagamento !== 'SIM') && !(Number(p.valorUltimaParcela) > 0) && !(p.parcelas || []).some((x) => x.valorLancado));
-    regras.push({ id: 'pa', rot: 'parcelamento sem o valor da parcela', rots: 'parcelamentos sem o valor da parcela', itens: pa.map((p) => ({ t: (p.empresa || '—') + ' — ' + (p.natureza || ''), s: [p.local, p.numero ? 'nº ' + p.numero : ''].filter(Boolean).join(' · '),
-      ir: async () => { const PA = await dadosParcelamentos(); E.pc = E.pc || { grupo: '', chip: 'todos' }; E.pc.PA = PA; const x = PA.find((y) => y.id === p._id); if (x) janelaParcelamento(x); } })) });
-    const pr = (D.processos || []).filter((p) => !String(p.arquivamento || '').trim() && p.carteira !== 'Prospecção' && (isoBR(p.ultimaMovEm || p.atualizacao) || '0') < lim90);
-    regras.push({ id: 'pr', rot: 'processo sem movimentação há mais de 90 dias', rots: 'processos sem movimentação há mais de 90 dias', itens: pr.map((p) => ({ t: p.numero || '(sem número)', s: [p.grupo, p.ultimaMovEm ? 'última: ' + p.ultimaMovEm : 'nenhuma movimentação registrada'].filter(Boolean).join(' · '),
-      ir: () => (window.ERP_ABRIR_PROCESSO ? window.ERP_ABRIR_PROCESSO(p) : irParaTela('processos')) })) });
-  }
-  if (pode('clientes')) {
-    const cl = (E.clientes || []).filter((c) => c.recebe_email !== false && c.tipo !== 'Inativo' && !String(c.email || '').trim());
-    regras.push({ id: 'cl', rot: 'cliente que recebe e-mail mas não tem e-mail', rots: 'clientes que recebem e-mail mas não têm e-mail', itens: cl.map((c) => ({ t: c.nome, s: nomeGrupo(c.grupo_id), ir: () => formCliente(c, () => conferenciasIni(), 'contato') })) });
-  }
-  if (pode('contratos')) {
-    const cts = await q(sb.from('contratos').select('id, descricao, status, modalidade, forma_valor, valor_mensal, data_contrato, inicio_vigencia, rescindido_em, clientes(nome)').eq('status', 'Ativo').eq('modalidade', 'consultoria')).catch(() => []);
-    const sem = cts.filter((c) => !c.rescindido_em && c.forma_valor !== 'salario_minimo' && !c.inicio_vigencia && !c.data_contrato);
-    regras.push({ id: 'ct', rot: 'contrato de consultoria sem data para o reajuste', rots: 'contratos de consultoria sem data para o reajuste', itens: sem.map((c) => ({ t: c.descricao || 'Contrato', s: (c.clientes && c.clientes.nome) || '', ir: () => detalheContrato(c.id) })) });
-  }
-  const comItens = regras.filter((r) => r.itens.length);
-  // Backup 80 (E1/M1): faixa de AVISOS — o que era a tela Alertas (fora do menu). Só o que pede ação e que os cartões acima ainda não mostram.
-  let avisos = [], cnpjAv = [];
-  try { const r = await coletarAlertasTodos(300000); cnpjAv = r.cnpj;
-    avisos = r.A.map((x, i) => Object.assign({ i }, x)).filter((x) => (x.nivel === 'critico' || x.nivel === 'atencao') && !NO_CARTAO_INI.includes(x.rot) && (x.setor !== 'Rotinas' || x.nivel === 'critico'))
-      .sort((x, y) => (x.nivel === 'critico' ? 0 : 1) - (y.nivel === 'critico' ? 0 : 1));
-    avisos.forEach((x) => { x.lista = r.A; }); } catch (e) { console.warn('[Início] avisos:', e.message); }
-  if (!$('ini-conf')) return;
-  if (!comItens.length && !avisos.length) { el.innerHTML = ''; return; }
-  const pilula = (attr, v, n, txt, nivel) => '<button type="button" class="ini-conf-it b-av-' + nivel + '" ' + attr + '="' + v + '"><span class="b-av-pt" aria-hidden="true"></span>' + (n !== '' ? '<b>' + esc(n) + '</b>' : '') + '<span>' + esc(txt) + '</span></button>';
-  // Backup 82: avisos e conferências viram pílulas na linha "Escritório" da faixa (como no ambiente)
-  el.innerHTML = avisos.map((x) => pilula('data-av', x.i, /^\d+$/.test(x.valor) ? x.valor : '', /^\d+$/.test(x.valor) ? x.rot.charAt(0).toLowerCase() + x.rot.slice(1) : x.setor === 'Rotinas' ? x.rot + ' · ' + x.valor : x.det || x.rot, x.nivel)).join('') +
-    comItens.map((r) => pilula('data-conf', r.id, r.itens.length, r.itens.length === 1 ? r.rot : r.rots, 'atencao')).join('');
-  el.onclick = (ev) => { const av = ev.target.closest('[data-av]');
-    if (av) { const x = avisos.find((y) => String(y.i) === av.dataset.av); if (x) abrirAlerta(x, cnpjAv); return; }
-    const b = ev.target.closest('[data-conf]'); if (!b) return; const r = regras.find((x) => x.id === b.dataset.conf);
-    const j = abrirJanela({ titulo: r.itens.length + ' ' + (r.itens.length === 1 ? r.rot : r.rots), kick: 'Conferências', larga: true,
-      corpo: '<div class="bg-res">' + r.itens.map((x, i) => '<button type="button" class="bg-it" data-ci="' + i + '"><span class="bg-tx"><b>' + esc(x.t) + '</b>' + (x.s ? '<small>' + esc(x.s) + '</small>' : '') + '</span></button>').join('') + '</div>' });
-    j.onclick = (e2) => { const it = e2.target.closest('[data-ci]'); if (!it) return; fecharJanela(j); Promise.resolve(r.itens[+it.dataset.ci].ir()).catch((e) => aviso(erroAmigavel(e), true)); }; };
-}

@@ -721,6 +721,17 @@ O que mudou:
 
 Ainda falta (próxima rodada): apagar o ERP antigo (ERP.html, remendos e blocos antigos do design.css).
 
+## Backup 86 — Tirar os itens escolhidos, janela do processo igual ao ambiente e calendário de Tarefas maior
+1. Merge da pull request.
+2. **Sem SQL desta vez** (o banco não mudou).
+3. **Ctrl+Shift+R** no ERP.
+
+O que mudou:
+- **Saíram (você marcou "Tirar"):** M01 botão Atualizar em Parcelamentos/Acordos/Execuções · M02 grupos, acordos e tarefas na busca Ctrl+K · M03 aba "Excluídas" de Tarefas (excluir tem Desfazer) · M04 "em dd/mm" sob o valor do processo · M06 filtros Competência e Advogado na tabela de Processos · M07 a janela antiga de reenvio (Emitir abre sempre a janela nova) · M08 "Mais dados"/"Editar dados" na janela do parcelamento · M10 "Mais dados", "Emitir (N)" e a janelinha da parcela no acordo · M12 o cartão antigo das Guias do mês · M14 "Marcar várias → Conferidos" na Rotina → Processos · M15–M17 Execuções (Atualizar, filtros, situações Em acordo/Suspensa, contatos, Editar execução, "Falta receber", tabela de recebimentos, "Mais dados" do recebimento) · M18 avisos no alto do Financeiro · M24 quadro de reajustes em Contratos (o reajuste fica no botão da janela do contrato) · M30 aba "Versões anteriores" e botões da linha em Documentos (continuam na ficha e em "Ver em pastas") · M31 pílula do CRM e linhas Avisos/Conferências no Início · M32 separação Jurídico/Contabilidade no balão.
+- **Processos:** a janela do processo ficou igual à do ambiente — ficha com Natureza, Autor, Réu, Advogado, Valor da causa, Valor atualizado em, Cliente é, Conferido em; "Últimas movimentações" em linha do tempo; Ficha do cliente · Conferido · Registrar movimentação · Editar.
+- **Tarefas → Calendário:** maior e na largura toda; "N atrasadas" virou um botão no alto; até 4 compromissos por dia e "+N mais" abre o dia; clicar no compromisso abre um detalhe curto (quando, onde, quem, cliente) com Concluir, Editar e Ficha completa; a vista Dia virou uma linha do tempo por hora.
+- **Para decidir:** página "Detalhamentos ERP × ambiente" (link na resposta) com todos os cliques que abrem detalhe — marque "Como o ambiente" ou "Como o ERP" nos diferentes e copie as respostas.
+
 ## Backup 85 — "Levar ao ERP (igual ao ambiente)": os itens escolhidos do comparativo
 1. Merge da pull request.
 2. **SQL no Supabase** (desta vez tem): Raw → Ctrl+A/Ctrl+C → conferir a última linha `-- ═══ fim do Backup 85 ═══` → Run.

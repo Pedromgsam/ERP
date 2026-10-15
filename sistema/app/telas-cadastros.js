@@ -339,7 +339,7 @@ TELAS.contratos = async function () {
   E.ctr = E.ctr || {};
   $('conteudo').innerHTML = cabecalhoTela({ icone: 'contrato', titulo: 'Contratos', frase: 'Os valores entram sozinhos no Financeiro',
     extra: '<button class="btn btn-o b-bt" id="ctr-sm">Salário mínimo</button>', botao: { id: 'ctr-novo', rotulo: 'Contrato' } }) +
-    '<div id="ctr-reaj-box"></div><div id="ctr-corpo"><div class="carregando">Carregando…</div></div>';
+    '<div id="ctr-corpo"><div class="carregando">Carregando…</div></div>';
   $('ctr-novo').dataset.novo = 'contrato';
   ligarBotoesNovo($('conteudo'));
   $('ctr-sm').onclick = () => janelaSalarioMinimo();
@@ -354,9 +354,7 @@ async function pintarContratos(buscar) {
   if (buscar || !_contratos.length) _contratos = await q(sb.from('contratos').select('*, clientes(nome, cpf_cnpj, grupos(nome)), lancamentos(valor, pago, vencimento), documentos(id), exitos(id), contratos_aditivos(tipo, data)').order('data_contrato', { ascending: false }));
   if (!$('ctr-corpo')) return;
   const h = hojeISO(), hoje = new Date(h + 'T00:00:00');
-  const reaj = reajustesProximos(_contratos);
-  $('ctr-reaj-box').innerHTML = reaj.length ? await cardReajustes(reaj) : '';
-  ligarReajustes(reaj);
+  // Backup 86 (M24): sem o quadro "Reajuste anual nos próximos 60 dias" — o reajuste se aplica na janela do contrato ("Aplicar reajuste")
   const recebido = (c) => soma((c.lancamentos || []).filter((p) => p.pago), (p) => p.valor);
   const atraso = (c) => (c.lancamentos || []).some((p) => !p.pago && p.vencimento < h);
   const proxReaj = (c) => (c.status === 'Ativo' && c.modalidade === 'consultoria' && c.forma_valor !== 'salario_minimo' ? aniversarioContrato(c, hoje) : null);
@@ -406,36 +404,6 @@ async function indiceReajustePadrao() {
   E._idxReaj = sm.length === 2 && Number(sm[1].valor) > 0 ? Math.round((Number(sm[0].valor) / Number(sm[1].valor) - 1) * 10000) / 100 : 5;
   return E._idxReaj;
 }
-async function cardReajustes(reaj) {
-  const idx = await indiceReajustePadrao();
-  return '<div class="card ctr-reaj" id="ctr-reaj"><div class="card-hd">Reajuste anual nos próximos 60 dias <span class="pill hoje">' + reaj.length + '</span></div>' +
-    '<p class="sub">Consultorias com valor fixo fazendo aniversário. O % sugerido é a variação do salário mínimo do ano — troque pelo índice do contrato (IPCA, IGP-M) se for outro.</p>' +
-    '<div class="tabela-wrap"><table class="ctr-reaj-tab"><thead><tr><th>Cliente</th><th>Contrato</th><th>Aniversário</th><th class="num">Valor atual</th><th class="num">%</th><th class="num">Novo valor</th><th></th></tr></thead><tbody>' +
-    reaj.map(({ c, anv, dias }) => {
-      const novo = Math.round(Number(c.valor_mensal) * (1 + idx / 100) * 100) / 100;
-      return '<tr data-reaj="' + c.id + '"><td>' + esc(c.clientes ? c.clientes.nome : '—') + '</td><td>' + esc(c.descricao) + '</td>' +
-        '<td class="centro">' + dataBR(iso(anv)) + '<div class="sub">' + (dias < 0 ? 'há ' + plural(-dias, 'dia', 'dias') : dias === 0 ? 'hoje' : 'em ' + plural(dias, 'dia', 'dias')) + '</div></td>' +
-        '<td class="num mono">' + brl(c.valor_mensal) + '</td>' +
-        '<td class="num"><input class="ctr-reaj-pct" inputmode="decimal" data-mascara="nenhuma" value="' + String(idx).replace('.', ',') + '" aria-label="Percentual de reajuste"></td>' +
-        '<td class="num mono ctr-reaj-novo">' + brl(novo) + '</td>' +
-        '<td class="centro"><button class="btn btn-p btn-mini" data-reaj-aplicar="' + c.id + '">Aplicar</button></td></tr>';
-    }).join('') + '</tbody></table></div></div>';
-}
-function ligarReajustes(reaj) {
-  const box = $('ctr-reaj'); if (!box) return;
-  const novoValor = (tr) => { const c = reaj.find((r) => r.c.id === tr.dataset.reaj).c; return Math.round(Number(c.valor_mensal) * (1 + (lerValor(tr.querySelector('.ctr-reaj-pct').value) || 0) / 100) * 100) / 100; };
-  box.addEventListener('input', (ev) => { const tr = ev.target.closest('tr[data-reaj]'); if (tr) tr.querySelector('.ctr-reaj-novo').textContent = brl(novoValor(tr)); });
-  box.querySelectorAll('[data-reaj-aplicar]').forEach((b) => b.onclick = (ev) => comBotao(ev.currentTarget, async () => {
-    const tr = b.closest('tr'); const r = reaj.find((x) => x.c.id === tr.dataset.reaj);
-    const pct = lerValor(tr.querySelector('.ctr-reaj-pct').value) || 0, v = novoValor(tr);
-    if (!(v > 0) || pct <= 0) throw new Error('Informe o % do reajuste.');
-    if (!await confirmarB('Aplicar reajuste de ' + String(pct).replace('.', ',') + '% em "' + r.c.descricao + '"?\n\nNovo valor: ' + brl(v) + '/mês a partir de ' + dataBR(iso(r.anv)).slice(3) + '.')) return;
-    await q(sb.rpc('registrar_aditivo', { p_contrato: r.c.id, p: { tipo: 'valor', forma: 'fixo', valor_mensal: v, a_partir: iso(r.anv).slice(0, 7) + '-01',
-      descricao: 'Reajuste anual de ' + String(pct).replace('.', ',') + '% (de ' + brl(r.c.valor_mensal) + ' para ' + brl(v) + ')' } }));
-    aviso('✓ Reajuste aplicado — as mensalidades em aberto já estão com o valor novo.'); await pintarContratos(true);
-  }));
-}
-
 // Backup 28: situação do contrato (sem misturar com o financeiro, que tem coluna própria)
 const SITUACOES_CTR = ['Ativo', 'Aguardando assinatura', 'Encerrado', 'Cancelado'];
 function situacaoCtr(c) { return c.rescindido_em && c.status === 'Ativo' ? 'Rescindido' : c.status; }
@@ -742,7 +710,7 @@ async function _detalheContrato(id) {
     if (rj) rj.onclick = () => comBotao(rj, async () => {
       const pct = await indiceReajustePadrao(), v = Math.round(Number(ct.valor_mensal) * (1 + pct / 100) * 100) / 100;
       if (!await confirmarB({ titulo: 'Aplicar reajuste de ' + String(pct).replace('.', ',') + '%?', sub: esc(ct.descricao), ok: 'Aplicar',
-        resumo: '<span>De ' + brl(ct.valor_mensal) + ' para</span><span class="b-conf-val">' + brl(v) + '</span>', texto: 'Para usar outro índice (IPCA, IGP-M), aplique pela lista "Reajustes próximos" em Contratos.' })) return;
+        resumo: '<span>De ' + brl(ct.valor_mensal) + ' para</span><span class="b-conf-val">' + brl(v) + '</span>', texto: 'O % sugerido é a variação do salário mínimo do ano.' })) return;
       await q(sb.rpc('registrar_aditivo', { p_contrato: ct.id, p: { tipo: 'valor', forma: 'fixo', valor_mensal: v, a_partir: iso(reajAgora.anv).slice(0, 7) + '-01',
         descricao: 'Reajuste anual de ' + String(pct).replace('.', ',') + '% (de ' + brl(ct.valor_mensal) + ' para ' + brl(v) + ')' } }));
       aviso('✓ Reajuste aplicado — as mensalidades em aberto já estão com o valor novo.'); fecharJanela(j); await detalheContrato(id);

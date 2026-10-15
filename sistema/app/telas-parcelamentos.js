@@ -127,7 +127,7 @@ TELAS.parcelamentos.semCadastros = true;   // os dados vêm do ERP (DB.parcelame
 function pintarParcelamentos() {
   const el = $('conteudo'); if (!el) return;
   const PA0 = E.pc.PA || [], F = E.pc.f || {}, PA = paFiltrados(), T = [].concat(...PA.map((pa) => pa.parcelas)), h = hojeISO(), podeEd = pode('juridico', 'editar');
-  el.innerHTML = cabecalhoTela({ icone: 'camadas', titulo: 'Parcelamentos', frase: 'Parcelas dos clientes, por vencimento', atualizar: 'pc-atualizar', extra: '<button type="button" class="btn btn-o b-bt" id="pc-guias">' + iconeB('documento') + 'Guias do mês</button>', botao: podeEd ? { id: 'pc-novo', rotulo: 'Parcelamento' } : null }) +
+  el.innerHTML = cabecalhoTela({ icone: 'camadas', titulo: 'Parcelamentos', frase: 'Parcelas dos clientes, por vencimento', extra: '<button type="button" class="btn btn-o b-bt" id="pc-guias">' + iconeB('documento') + 'Guias do mês</button>', botao: podeEd ? { id: 'pc-novo', rotulo: 'Parcelamento' } : null }) +
     // Backup 79: filtro suspenso (Grupo / Empresa) — recorta a situação por cliente e a lista de parcelas
     filtroSusB('pc-filtro', [{ k: 'grupo', rot: 'Grupo', todos: 'Todos os grupos', opcoes: unicosTxt(PA0.map((pa) => pa.grupo)), v: F.grupo },
       { k: 'emp', rot: 'Empresa', todos: 'Todas as empresas', opcoes: unicosTxt(PA0.filter((pa) => !F.grupo || pa.grupo === F.grupo).map((pa) => pa.empresa)), v: F.emp }]) +
@@ -137,7 +137,6 @@ function pintarParcelamentos() {
     '<div class="b-sec"><div><h2>Parcelas</h2></div></div><div id="pc-tabela"></div>';
   $('pc-guias').onclick = () => { E.rt = Object.assign(E.rt || {}, { aba: 'guias' }); irParaTela('rotina'); };   // Backup 82: atalho do ambiente para as guias do mês (Rotina)
   const bt = $('pc-novo'); if (bt) bt.onclick = () => { const ED = ED_P(); if (ED && ED.abrirParcelamento) ED.abrirParcelamento(null); else aviso('Abra pelo ERP: + Lançar → Parcelamento.', true); };
-  $('pc-atualizar').onclick = () => { if (window.ERP_RECARREGAR_MODULOS) window.ERP_RECARREGAR_MODULOS('parcelamentos').then(() => TELAS.parcelamentos()); else TELAS.parcelamentos(); };
   // Backup 71: os 4 cartões do topo saíram a pedido (a tela começa na situação por cliente)
   ligarFiltroSusB('pc-filtro', E.pc.f, () => { E.pc.grupo = ''; E.pc.fechado = false; pintarParcelamentos(); });
   desenharGruposPc();
@@ -199,22 +198,17 @@ function desenharGruposPc() {
 async function janelaParcelamento(pa) {
   const r = resumoPa(pa);
   // Backup 85 (PA1/PA2/PA3): desenho do ambiente — plataforma · natureza em cima, a empresa no título, "Nº · grupo" embaixo; ficha com 4 campos
-  // (o resto dos dados do ERP fica em "Mais dados"); botões Ficha do cliente · Emitir (N) · Fechar; "Editar dados" ficou do ERP (lista para decidir)
+  // Backup 86 (M08): sem "Mais dados" e sem "Editar dados" — botões Ficha do cliente · Emitir (N) · Fechar, como no ambiente
   const emitirMes = pa.emitimos && pode('juridico', 'editar') ? r.mes.filter((x) => !x.emitida && !x.pago) : [];
   const j = abrirJanela({ larga: true, kick: [pa.local, pa.natureza].filter(Boolean).join(' · ') || 'Parcelamento', titulo: pa.empresa, sub: 'Nº ' + esc(pa.numero || '—') + (pa.grupo ? ' · ' + esc(pa.grupo) : ''),
     dir: r.concluido ? '<span class="b-pill b-g">Concluído</span>' : r.atr ? '<span class="b-pill b-r">' + plural(r.atr, 'parcela', 'parcelas') + ' em atraso</span>' : '<span class="b-pill b-g">Em dia</span>',
     corpo: '<div class="b-ficha"><div><span>Empresa</span><b>' + esc(pa.empresa || '—') + '</b></div><div><span>CNPJ/CPF</span><b class="b-m">' + esc(pa.cnpj || '—') + '</b></div><div><span>Plataforma</span><b>' + esc(pa.local || '—') + '</b></div><div><span>Quem emite a guia</span><b>' + (pa.emitimos ? 'O escritório' : 'O cliente') + '</b></div></div>' +
-      '<details class="b-mais-dados"><summary>Mais dados do parcelamento</summary><div class="b-ficha"><div><span>Natureza</span><b>' + esc(pa.natureza || '—') + '</b></div><div><span>Nº do parcelamento</span><b class="b-m">' + esc(pa.numero || '—') + '</b></div>' +
-      '<div><span>Total de parcelas</span><b>' + (pa.tot || '—') + '</b></div><div><span>Valor da parcela</span><b>' + brl((pa.parcelas.length ? pa.parcelas[pa.parcelas.length - 1].valor : 0) || pa.vparc) + '</b></div><div><span>Valor residual</span><b>' + brl(r.falta) + '</b></div>' +
-      (pa.obs ? '<div style="grid-column:1/-1"><span>Observação</span><b>' + esc(pa.obs) + '</b></div>' : '') + '</div></details>' +
       '<div class="b-nums">' + [['Parcelas pagas', pa.pagas + ' de ' + pa.tot, ''], ['Já pago', brl(r.quitado), 'b-verde'], ['Falta pagar', brl(r.falta), ''], ['Parcela do mês', r.parcMes ? brl(r.parcMes.valor) + ' · ' + (r.parcMes.pago ? 'paga' : dataBR(r.parcMes.venc).slice(0, 5)) : (r.prox ? 'próxima ' + dataBR(r.prox.venc) : '—'), r.parcMes && !r.parcMes.pago && r.parcMes.venc <= hojeISO() ? 'b-verm' : ''], ['Em atraso', r.atr ? plural(r.atr, 'parcela', 'parcelas') : 'nenhuma', r.atr ? 'b-verm' : '']]
         .map((k) => '<div><span>' + k[0] + '</span><b class="' + k[2] + '">' + k[1] + '</b></div>').join('') + '</div><div id="pc-j-parcelas"><p class="b-kpi-s">Carregando todas as parcelas…</p></div>',
-    rodape: '<span class="acoes" style="margin-right:auto"><button type="button" class="btn btn-o" id="pc-j-ficha">' + iconeB('clientes') + 'Ficha do cliente</button>' +
-      (pode('juridico', 'editar') ? '<button type="button" class="btn btn-g" id="pc-j-editar">Editar dados</button>' : '') + '</span>' +
+    rodape: '<span class="acoes" style="margin-right:auto"><button type="button" class="btn btn-o" id="pc-j-ficha">' + iconeB('clientes') + 'Ficha do cliente</button></span>' +
       (emitirMes.length ? '<button type="button" class="btn btn-o" id="pc-j-guias">' + iconeB('documento') + 'Emitir (' + emitirMes.length + ')</button>' : '') +
       '<button type="button" class="btn btn-o" data-fechar>Fechar</button>' });
   j.classList.add('pc-janela');
-  const ed = j.querySelector('#pc-j-editar'); if (ed) ed.onclick = () => { fecharJanela(j); const ED = ED_P(); if (ED && ED.abrirParcelamento) ED.abrirParcelamento(pa.id); };
   const gu = j.querySelector('#pc-j-guias'); if (gu) gu.onclick = () => { fecharJanela(j); emitirGuiasEmpresaPa(emitirMes[0], E.pc.PA || [pa]); };
   j.querySelector('#pc-j-ficha').onclick = async () => { await carregarCadastros(); const c = clienteDaEmpresa(pa.empresa, pa.cnpj); if (!c) return aviso('Não achei o cadastro desta empresa em Clientes.', true); fecharJanela(j); abrirFicha(c.id); };
   // todas as parcelas, direto do banco (a tela principal mostra 12 meses para trás e 18 para frente)
@@ -317,8 +311,7 @@ document.addEventListener('click', (ev) => {
   const janela = (b || em).closest('.fundo'); if (janela && !janela.classList.contains('pc-janela') && !janela.querySelector('#pc-j-parcelas')) fecharJanela(janela);
   if (b) return baixaParcela(x);
   // Backup 85 (PA5): a janela "Emitir" do ambiente — todas as guias a emitir da MESMA empresa, com o PDF lido por linha.
-  // Já emitida: a janela antiga (desmarcar a emissão / reenviar a guia vencida), que continua (lista para decidir)
-  if (x.emitida) { if (typeof emitirParcela === 'function') emitirParcela('parcelas', x.id); return; }
+  // Backup 86 (M07): já emitida também vai para esta janela (emitir de novo), como no ambiente
   emitirGuiasEmpresaPa(x, PA);
 }, true);
 async function emitirGuiasEmpresaPa(x, PA) {
