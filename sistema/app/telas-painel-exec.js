@@ -10,27 +10,33 @@
 const dbE = () => dbParc() || {};
 const unicosB = (l) => [...new Set(l.filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b), 'pt-BR'));
 
-function estadoPE() { E.pe = E.pe || { grupo: '', empresa: '', evo: { visao: 'total', meses: 6, dados: null, lidoMeses: 0 } }; return E.pe; }
+function estadoPE() { E.pe = E.pe || { grupo: '', empresa: '', resp: '', evo: { visao: 'total', meses: 6, dados: null, lidoMeses: 0 } };
+  // Backup 88: o filtro do alto (Grupo · Empresa · Responsável) fica à direita e fixo ao rolar — o estado dele em E.pe.f
+  E.pe.f = E.pe.f || { grupo: E.pe.grupo || '', emp: E.pe.empresa || '', resp: E.pe.resp || '' };
+  E.pe.grupo = E.pe.f.grupo; E.pe.empresa = E.pe.f.emp; E.pe.resp = E.pe.f.resp; return E.pe; }
+const nome1PE = (s) => String(s || '').trim().split(/\s+/)[0] || '';   // primeiro nome como foi escrito (Pedro, Emanuelle…)
+const respPE = (r) => nome1PE(r && r.responsavel || '');
 
 // ── números do Painel (as regras do renderResumo antigo) ──
 function numerosPainel(D, P) {
   const base = D.baseDados || [];
-  const data = base.filter((r) => (!P.grupo || r.grupo === P.grupo) && (!P.empresa || r.nome === P.empresa));
+  const data = base.filter((r) => (!P.grupo || r.grupo === P.grupo) && (!P.empresa || r.nome === P.empresa) && (!P.resp || respPE(r) === P.resp));
+  const noRecorte = new Set(data), gruposRec = new Set(data.map((r) => r.grupo));
   const somaF = (k) => data.filter((r) => P.empresa || r.isPJ !== false).reduce((s, r) => s + (Number(r[k]) || 0), 0);
   const rfb = somaF('rfb') + somaF('rfbNeg'), pgfn = somaF('pgfn') + somaF('pgfnNeg'), age = somaF('ageMG') + somaF('ageMGNeg');
   // parcelamentos: sem repetidos, do recorte, sem os concluídos
   const vistos = new Set(), bdDe = (p) => base.find((b) => b.nome === p.empresa || b.cpfCnpj === p.cnpj);
   const parcs = (D.parcelamentos || []).filter((p) => { const k = [p.empresa, p.natureza, p.local, p.numero || ''].join('|'); if (vistos.has(k)) return false; vistos.add(k); return true; })
-    .filter((p) => { if (!P.grupo && !P.empresa) return true; const bd = bdDe(p); return !!bd && (!P.grupo || bd.grupo === P.grupo) && (!P.empresa || bd.nome === P.empresa); })
+    .filter((p) => { if (!P.grupo && !P.empresa && !P.resp) return true; const bd = bdDe(p); return !!bd && noRecorte.has(bd); })
     .filter((p) => { const pend = (p.parcelas || []).some((x) => x.pagamento !== 'SIM'); if (pend) return true; const tot = Number(p.totalParcelas) || 0; return !(tot > 0 ? (Number(p.parcelasPagas) || 0) >= tot : (p.parcelas || []).length > 0); });
   const saldoParc = parcs.reduce((s, p) => s + (Number(p.residual) || 0), 0);
   const emp = (P.empresa || '').toLowerCase();
-  const acs = (D.acordos || []).filter((a) => (!P.grupo || a.grupo === P.grupo) && (!emp || String(a.devedor || '').toLowerCase().includes(emp) || String(a.credor || '').toLowerCase().includes(emp)));
+  const acs = (D.acordos || []).filter((a) => (!P.grupo || a.grupo === P.grupo) && (!P.resp || gruposRec.has(a.grupo)) && (!emp || String(a.devedor || '').toLowerCase().includes(emp) || String(a.credor || '').toLowerCase().includes(emp)));
   const acAbertos = acs.filter((a) => a.situacao !== 'Pago'), acPagar = acAbertos.reduce((s, a) => s + (Number(a.valor) || 0), 0);
   // processos: o grupo escolhido (ou o da empresa); um processo com vários réus/autores conta uma vez
   const gEf = P.grupo || (P.empresa ? (base.find((r) => r.nome === P.empresa) || {}).grupo || '' : '');
   const porNum = new Map();
-  (D.processos || []).filter((p) => !gEf || p.grupo === gEf).forEach((p) => { if (!p.numero) return; const x = porNum.get(p.numero);
+  (D.processos || []).filter((p) => (!gEf || p.grupo === gEf) && (!P.resp || gruposRec.has(p.grupo))).forEach((p) => { if (!p.numero) return; const x = porNum.get(p.numero);
     if (!x) porNum.set(p.numero, Object.assign({}, p, { _r: [p.reu].filter(Boolean), _a: [p.autor].filter(Boolean) })); else { if (p.reu && !x._r.includes(p.reu)) x._r.push(p.reu); if (p.autor && !x._a.includes(p.autor)) x._a.push(p.autor); } });
   const procs = [...porNum.values()], nomes = unicosB(data.map((r) => r.nome)).map((n) => n.toLowerCase());
   let passivo = 0, ativo = 0; const totProc = procs.reduce((s, p) => s + (Number(p.valor) || 0), 0);
@@ -46,13 +52,13 @@ TELAS.painelExec = async function () {
   const D = dbE(), P = estadoPE(), c = $('conteudo');
   if (!Array.isArray(D.baseDados)) { c.innerHTML = vazioB({ icone: 'pizza', titulo: 'Abra pelo ERP', frase: 'O Painel executivo usa os dados que o ERP carrega.' }); return; }
   const base = D.baseDados;
-  const grupos = unicosB(base.map((r) => r.grupo)), emps = unicosB(base.filter((r) => !P.grupo || r.grupo === P.grupo).map((r) => r.nome));
-  if (P.empresa && !emps.includes(P.empresa)) P.empresa = '';
+  const grupos = unicosB(base.filter((r) => !P.resp || respPE(r) === P.resp).map((r) => r.grupo)),
+    emps = unicosB(base.filter((r) => (!P.grupo || r.grupo === P.grupo) && (!P.resp || respPE(r) === P.resp)).map((r) => r.nome)), resps = unicosB(base.map(respPE));
+  if (P.empresa && !emps.includes(P.empresa)) P.empresa = P.f.emp = '';
   const N = numerosPainel(D, P), t = (v) => '<span title="' + esc(brl(v)) + '">' + esc(brlCurto(v)) + '</span>';
   c.innerHTML = cabecalhoTela({ icone: 'painel', titulo: 'Painel Executivo', frase: 'Passivo dos clientes e onde ele está' }) +
-    '<div class="b-fin-topo b-pe-topo"><select id="pe-grupo" aria-label="Grupo"><option value="">Todos os grupos</option>' + grupos.map((g) => '<option' + (P.grupo === g ? ' selected' : '') + '>' + esc(g) + '</option>').join('') + '</select>' +
-      '<select id="pe-emp" aria-label="Empresa"><option value="">Todas as empresas</option>' + emps.map((e) => '<option' + (P.empresa === e ? ' selected' : '') + '>' + esc(e) + '</option>').join('') + '</select>' +
-      '<span class="b-pe-conta">' + plural(N.data.length, 'entidade', 'entidades') + ' · ' + plural(unicosB(N.data.map((r) => r.grupo)).length, 'grupo', 'grupos') + '</span></div>' +
+    filtroSusB('pe-filtro', [{ k: 'grupo', rot: 'Grupo', todos: 'Todos os grupos', opcoes: grupos, v: P.grupo }, { k: 'emp', rot: 'Empresa', todos: 'Todas as empresas', opcoes: emps, v: P.empresa },
+      { k: 'resp', rot: 'Responsável', todos: 'Todos', opcoes: resps, v: P.resp }]) +
     '<div id="pe-nums">' + numsFaixa([['Passivo total', t(N.total), 'RFB ' + brlCurto(N.rfb) + ' · PGFN ' + brlCurto(N.pgfn) + ' · AGE/MG ' + brlCurto(N.age)], ['Parcelamentos (saldo)', t(N.saldoParc), plural(N.nParc, 'ativo', 'ativos')],
       ['Acordos (em aberto)', t(N.acPagar), plural(N.nAc, 'parcela', 'parcelas')], ['Passivo em disputa', t(N.passivo), plural(N.nProc, 'processo', 'processos'), 'b-verm'], ['Ativo em disputa', t(N.ativo), '', 'b-verde']]) + '</div>' +
     // Backup 83: como no ambiente — só o título e "6 meses · 12 meses"; a linha é o total do que está escolhido no alto (todos, um grupo ou uma empresa)
@@ -60,8 +66,7 @@ TELAS.painelExec = async function () {
       '<div class="b-chips" id="pe-evo-meses" role="group" aria-label="Período">' + [6, 12].map((m) => '<button type="button" class="b-chip" data-m="' + m + '">' + m + ' meses</button>').join('') + '</div></div>' +
       '<div id="pe-evo-graf"><div class="carregando">Carregando…</div></div></section>' +
     '<div class="b-sec"><div><h2>Empresas do grupo</h2></div></div><div id="pe-nova"></div>';
-  $('pe-grupo').onchange = (ev) => { P.grupo = ev.target.value; P.empresa = ''; TELAS.painelExec(); };
-  $('pe-emp').onchange = (ev) => { P.empresa = ev.target.value; TELAS.painelExec(); };
+  ligarFiltroSusB('pe-filtro', P.f, () => TELAS.painelExec());
   $('pe-evo-meses').onclick = (ev) => { const b = ev.target.closest('[data-m]'); if (!b) return; P.evo.meses = Number(b.dataset.m); P.evo.dados = null; evolucaoPE(); };
   evolucaoPE();
   empresasPE(N.data);
@@ -75,7 +80,8 @@ async function evolucaoPE() {
     try { ev.dados = await q(sb.rpc('evolucao_passivo', { p_grupo: null, p_meses: ev.meses })) || []; ev.lidoMeses = ev.meses; }
     catch (e) { gr.innerHTML = '<p class="msg-erro">Não foi possível ler a evolução: ' + esc(erroAmigavel(e)) + '</p>'; return; }
   }
-  const linhas = ev.dados.filter((x) => (!P.grupo || x.grupo === P.grupo) && (!P.empresa || x.cliente === P.empresa) && x.total != null);
+  const nomesResp = P.resp ? new Set((dbE().baseDados || []).filter((r) => respPE(r) === P.resp).map((r) => r.nome)) : null;
+  const linhas = ev.dados.filter((x) => (!P.grupo || x.grupo === P.grupo) && (!P.empresa || x.cliente === P.empresa) && (!nomesResp || nomesResp.has(x.cliente)) && x.total != null);
   const meses = unicosB(ev.dados.map((x) => x.mes)), comDado = new Set(linhas.map((x) => x.mes));
   while (meses.length > 2 && !comDado.has(meses[0])) meses.shift();   // começa no 1º mês com passivo lançado
   const tot = (m) => linhas.filter((x) => x.mes === m).reduce((s, x) => s + (Number(x.total) || 0), 0);
@@ -123,13 +129,15 @@ TELAS.processosERP = async function () {
   const D = dbE(), c = $('conteudo');
   if (!Array.isArray(D.processos)) { c.innerHTML = vazioB({ icone: 'documento', titulo: 'Abra pelo ERP', frase: 'A lista de processos usa os dados que o ERP carrega.' }); return; }
   E.prRes = E.prRes || { aberto: false };
-  E.prF = E.prF || { grupo: '', comp: '' };
+  E.prF = E.prF || { grupo: '', comp: '', adv: '' };
   // Backup 79: filtro suspenso (Grupo / Competência) — recorta o Resumo da carteira e a lista
-  const F = E.prF, L0 = D.processos, L = L0.filter((p) => (!F.grupo || p.grupo === F.grupo) && (!F.comp || p.competencia === F.comp)), P = L.filter((p) => p.carteira !== 'Prospecção');
+  const F = E.prF, L0 = D.processos, L = L0.filter((p) => (!F.grupo || p.grupo === F.grupo) && (!F.comp || p.competencia === F.comp) && (!F.adv || nome1PE(p.advogado || '') === F.adv)), P = L.filter((p) => p.carteira !== 'Prospecção');
   const podeEd = pode('juridico', 'editar');
   c.innerHTML = cabecalhoTela({ icone: 'documento', titulo: 'Processos', frase: 'Processos dos clientes', botao: podeEd ? { id: 'pr-novo', rotulo: 'Processo' } : null }) +
     filtroSusB('pr-filtro', [{ k: 'grupo', rot: 'Grupo', todos: 'Todos os grupos', opcoes: unicosTxt(L0.map((p) => p.grupo)), v: F.grupo },
-      { k: 'comp', rot: 'Competência', todos: 'Todas as competências', opcoes: unicosTxt(L0.filter((p) => !F.grupo || p.grupo === F.grupo).map((p) => p.competencia)), v: F.comp }]) +
+      { k: 'comp', rot: 'Competência', todos: 'Todas as competências', opcoes: unicosTxt(L0.filter((p) => !F.grupo || p.grupo === F.grupo).map((p) => p.competencia)), v: F.comp },
+      // Backup 88: o advogado que acompanha o processo
+      { k: 'adv', rot: 'Advogado', todos: 'Todos os advogados', opcoes: unicosTxt(L0.map((p) => nome1PE(p.advogado || ''))), v: F.adv }]) +
     '<section class="b-fin-cartao b-pr-res' + (E.prRes.aberto ? ' b-aberto' : '') + '" id="pr-res"><button type="button" class="b-pr-res-hd" id="pr-res-bt" aria-expanded="' + E.prRes.aberto + '"><span class="b-seta" aria-hidden="true">▸</span><h3>Resumo da carteira</h3><span class="b-sub">' +
       (F.grupo || F.comp ? esc([F.grupo, F.comp].filter(Boolean).join(' · ')) + ' · ' : '') + (() => { const at = L.filter((p) => !p.arquivamento); return plural(at.length, 'processo ativo', 'processos ativos') + ' · ' + esc(brlCurto(soma(at, (p) => Number(p.valor) || 0))) + ' em disputa'; })() + '</span></button><div id="pr-res-corpo"' + (E.prRes.aberto ? '' : ' hidden') + '>' + resumoCarteira(L) + '</div></section>' +
     '<div id="pr-nova"></div>';
@@ -146,8 +154,7 @@ TELAS.processosERP = async function () {
     busca: (p) => [p.numero, p.grupo, p.autor, p.reu, p.natureza, p.competencia, p.advogado, p.obs].join(' '), valor: (p) => Number(p.valor) || 0,
     conta: (n) => plural(n, 'processo', 'processos'), ord: { k: 'g', dir: 1 },
     // Backup 85 (PR4) / 86 (M06): Grupo, Tribunal, Natureza e Conferência, como no ambiente
-    listas: [{ k: 'g', rot: 'Grupo', todos: 'Todos os grupos', opcoes: ops((p) => p.grupo), get: (p) => p.grupo },
-      { k: 'trib', rot: 'Tribunal', todos: 'Todos os tribunais', opcoes: ops(trib), get: trib },
+    listas: [{ k: 'trib', rot: 'Tribunal', todos: 'Todos os tribunais', opcoes: ops(trib), get: trib },
       { k: 'nat', rot: 'Natureza', todos: 'Todas as naturezas', opcoes: ops((p) => p.natureza), get: (p) => p.natureza },
       { k: 'conf', rot: 'Conferência', todos: 'Conferidos e não conferidos', opcoes: [['nao', 'Sem conferir há 15 dias ou mais'], ['sim', 'Conferidos nos últimos 15 dias']], get: (p) => (diasConf(p) != null && diasConf(p) < 15 ? 'sim' : 'nao') }],
     colunas: [

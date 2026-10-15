@@ -160,8 +160,6 @@ html[data-tema="escuro"] :is(.b-bt-f.b-tem,.b-bt-f[aria-expanded="true"],.b-ic-b
 .b-fx > span:first-child{font-weight:600;color:var(--text2)}
 .b-fx input{height:34px;border:1px solid var(--border-strong);border-radius:var(--r-ctl);background:var(--surface);color:var(--text);font:13px var(--font-ui);padding:0 9px;width:150px}
 .b-fx input[inputmode]{width:110px}
-html.b-compacto body.gx-barra-topo table.b-tab tbody td:not(#_){padding:6px 10px!important}
-html.b-compacto body.gx-barra-topo table.b-tab thead th:not(#_){padding:7px 10px!important}
 /* ordenar pelo título */
 html body.gx-barra-topo table.b-tab thead th.b-ord:not(#_){cursor:pointer;user-select:none}
 .b-tab th.b-ord:hover{color:var(--ink)!important}
@@ -1176,3 +1174,28 @@ body.gx-barra-topo .gs .janela-bd label.check:not(#_),body.gx-barra-topo .gs .ja
 .gs .janela-hd button.b-pill.cli-email.b-r:not(#_){background:var(--red-lt);color:var(--red-d)}
 .gs .janela-rp .btn-g:not(#_){padding-left:7px!important;padding-right:7px!important}
 .gs .janela-rp .fc-pe-esq,.gs .janela-rp > .acoes:first-child{gap:4px}
+/* ═══ Backup 88: ERP limpo para usar ═══
+   - linhas em atraso SEM fundo rosado (o prazo/vencimento continua em vermelho)
+   - filtro de Grupo/Empresa à direita e fixo no alto ao rolar
+   - filtros de escolha única no "padrão do escritório" (caixa do Mês · Semana · Dia)
+   - "N parcelas em atraso" dos cartões mais discreto */
+html body.gx-barra-topo .b-tab tr.b-tr-venc td:not(#_){background:none}
+html body.gx-barra-topo .b-tab tr.b-tr-venc.b-cl:hover td:not(#_){background:var(--hover,var(--surface2))}
+.gs .b-fsus.b-fsus-fixo{position:sticky;top:var(--hh,56px);z-index:30;justify-content:flex-end;background:var(--bg);margin:-6px calc(-1 * var(--gut,20px)) 10px;padding:8px var(--gut,20px);border-bottom:1px solid transparent}
+.gs .b-fsus.b-fsus-fixo.b-fsus-preso{border-bottom-color:var(--line);box-shadow:0 6px 12px -10px rgba(0,0,0,.25)}
+html body.gx-barra-topo .gs .b-seg.b-prazos:not(#_){display:inline-flex;flex-wrap:nowrap;gap:2px;flex-basis:auto}
+.gs .b-seg.b-seg-f{flex-basis:auto;flex-wrap:wrap;max-width:100%}
+.gs .b-sec .b-seg.b-seg-f{margin-left:auto}
+.gs .b-cg-st{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:var(--text2);white-space:nowrap}
+.gs .b-cg-st::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--green)}
+.gs .b-cg-st.b-cg-atr::before{background:var(--red)}
+@media (max-width:600px){.gs .b-fsus.b-fsus-fixo{position:static;justify-content:flex-start}}
+/* Backup 88: Tarefas — Mostrar · De quem · Urgência no padrão do escritório, numa linha que quebra se faltar espaço */
+.gs .b-tf-filtros.b-tf-filtros-88{display:flex;flex-wrap:wrap;align-items:center;gap:10px 22px;margin:0 0 14px}
+.gs .b-tf-f{display:inline-flex;align-items:center;gap:8px;min-width:0;max-width:100%}
+.gs .b-tf-f-rot{font:600 12px var(--font-ui);color:var(--text3)}
+.gs .tf-tipo-dica{display:block;margin-top:6px}
+.gs #f-tf .b-seg.b-seg-f,.gs #f-ag .b-seg.b-seg-f{margin:0}
+@media (max-width:600px){.gs .b-tf-f{flex-wrap:wrap}}
+.gs .janela-bd .campo > .b-seg.b-seg-f{align-self:flex-start}
+.gs .janela-bd .campo > small.tf-tipo-dica{font-weight:400;font-size:12px;margin:0}

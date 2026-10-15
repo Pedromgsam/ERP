@@ -200,7 +200,8 @@ async function chamarFuncao(nome, corpo) {
   const sessao = (await sb.auth.getSession()).data.session;
   let r;
   try {
-    r = await fetch(String(CFG.url).replace(/\/$/, '') + '/functions/v1/' + nome, { method: 'POST',
+    // Backup 88: erp-publicacoes roda na região de São Paulo (o Diário do CNJ recusa servidores fora do Brasil)
+    r = await fetch(String(CFG.url).replace(/\/$/, '') + '/functions/v1/' + nome + (nome === 'erp-publicacoes' ? '?forceFunctionRegion=sa-east-1' : ''), { method: 'POST',
       headers: { 'Content-Type': 'application/json', apikey: CFG.chave, Authorization: 'Bearer ' + (sessao ? sessao.access_token : CFG.chave) },
       body: JSON.stringify(corpo || {}) });
   } catch (e) { throw new Error('Não consegui falar com a função "' + nome + '". No Supabase, o endereço da função (aparece embaixo do nome dela) tem que terminar em /functions/v1/' + nome +
@@ -645,8 +646,16 @@ Object.assign(ICONES_B, { financeiro: '<rect x="2.5" y="5.5" width="19" height="
 // Backup 74: faixa de números (a mesma do Painel, da Análise do Financeiro e da ficha do cliente): [[rótulo, valor, sub, classe b-verde|b-verm]]
 // Backup 79: FILTRO SUSPENSO no alto das telas refeitas (Grupo, Empresa…). campos: [{k, rot, todos, opcoes:[texto], v}].
 // A tela guarda o valor em E.<tela>.f e, ao trocar, redesenha tudo (resumo/cartões e a tabela) com o recorte.
+// Backup 88: "PADRÃO DO ESCRITÓRIO" para filtros de escolha única — o mesmo controle em caixa do "Mês · Semana · Dia" do calendário.
+// opcoes: [[valor, rótulo]]; attr: o data-* que a tela lê no clique (ex.: 'data-pc-chip'). marcarSegB(caixa, botão) acende o escolhido.
+function segFiltroB(id, attr, opcoes, valor, rotulo) {
+  return '<div class="b-seg b-seg-f"' + (id ? ' id="' + id + '"' : '') + ' role="group" aria-label="' + esc(rotulo || '') + '">' + opcoes.map((o) => { const on = String(valor) === String(o[0]);
+    return '<button type="button" class="b-seg-bt" ' + attr + '="' + esc(o[0]) + '" aria-pressed="' + on + '" aria-selected="' + on + '">' + esc(o[1]) + '</button>'; }).join('') + '</div>';
+}
+function marcarSegB(caixa, bt) { if (caixa) caixa.querySelectorAll('.b-seg-bt').forEach((x) => { const on = x === bt; x.setAttribute('aria-pressed', on); x.setAttribute('aria-selected', on); }); }
+// Backup 88: o filtro de Grupo/Empresa fica À DIREITA e FIXO no alto ao rolar a tela (b-fsus-fixo)
 function filtroSusB(id, campos) {
-  return '<div class="b-fsus" id="' + id + '">' + campos.map((c) => '<label class="b-fsus-c"><span>' + esc(c.rot) + '</span><select data-fsus="' + c.k + '" aria-label="' + esc(c.rot) + '"><option value="">' + esc(c.todos) + '</option>' +
+  return '<div class="b-fsus b-fsus-fixo" id="' + id + '">' + campos.map((c) => '<label class="b-fsus-c"><span>' + esc(c.rot) + '</span><select data-fsus="' + c.k + '" aria-label="' + esc(c.rot) + '"><option value="">' + esc(c.todos) + '</option>' +
     c.opcoes.map((o) => '<option' + (o === c.v ? ' selected' : '') + '>' + esc(o) + '</option>').join('') + '</select></label>').join('') +
     (campos.some((c) => c.v) ? '<button type="button" class="b-fsus-limpar" data-fsus-limpar>Limpar filtro</button>' : '') + '</div>';
 }
@@ -685,18 +694,18 @@ function tabelaB(el, cfg) {
   el._cfgB = cfg;
   const chave = cfg.chave || ((r) => String(r.id));
   const temFx = !!(cfg.venc || cfg.valor);
-  const compacto = () => document.documentElement.classList.contains('b-compacto');
   if (!cfg.semBarra) {
     // Backup 69: como a tabela de Acordos (o usuário preferiu) — botões "A pagar / Pago", atalhos de prazo, busca e contador numa linha;
     // grupo/plataforma/natureza, vencimento de/até e valor ficam no botão "Filtros"
     const temPainel = temFx || (cfg.listas || []).length;
     el.innerHTML = '<div class="b-barra-tab">' + (cfg.abas ? '<div class="b-seg" role="tablist"></div>' : '') +
       (cfg.prazos ? '<div class="b-prazos" data-bt="prazos"></div>' : '') +
-      (cfg.busca ? '<label class="b-busca">' + iconeB('busca') + '<input data-bt="q" placeholder="' + esc(cfg.dicaBusca || 'Buscar') + '" aria-label="Buscar" value="' + esc(st.q) + '"></label>' : '') +
+      // Backup 88: sem a barra de busca nas tabelas (pedido: "remova a barra de pesquisa"; Ctrl+K continua achando tudo) — só fica onde a tela pede (buscaFica)
+      (cfg.busca && cfg.buscaFica ? '<label class="b-busca">' + iconeB('busca') + '<input data-bt="q" placeholder="' + esc(cfg.dicaBusca || 'Buscar') + '" aria-label="Buscar" value="' + esc(st.q) + '"></label>' : '') +
       '<span class="b-conta" data-bt="conta"></span><span class="b-barra-dir">' + (cfg.barraExtra || '') +   // Backup 72: controle extra da tela (ex.: período das Publicações)
       (cfg.lote && cfg.loteBotao !== false ? '<button type="button" class="b-bt-f" data-bt="loteon" aria-pressed="' + !!st.loteOn + '" title="Marcar várias linhas para dar baixa de uma vez">' + iconeB('check') + (st.loteOn ? 'Fechar marcação' : 'Marcar várias') + '</button>' : '') +
       (temPainel ? '<button type="button" class="b-bt-f" data-bt="painel" aria-expanded="' + st.painel + '">' + iconeB('filtro') + 'Filtros <span class="b-nf" hidden></span></button>' : '') +
-      '<button type="button" class="b-ic-bt" data-bt="dens" aria-pressed="' + compacto() + '" title="Tabela compacta (mais linhas na tela)" aria-label="Tabela compacta">' + iconeB('compacto') + '</button></span></div>' +
+      '</span></div>' +   // Backup 88: saiu o botão "Tabela compacta" (do sistema todo)
       (temPainel ? '<div class="b-mais-filtros" data-bt="pn"' + (st.painel ? '' : ' hidden') + '>' +
         // Backup 85 (TB5): como no ambiente — cada filtro com o nome escrito em cima
         (cfg.listas || []).map((l) => '<div class="b-campo"><span class="b-rot">' + esc(l.rot) + '</span><select data-bt="l" data-k="' + esc(l.k) + '" aria-label="' + esc(l.rot) + '"><option value="">' + esc(l.todos) + '</option>' + l.opcoes.map((o) => '<option value="' + esc(o[0]) + '"' + (st.listas[l.k] === String(o[0]) ? ' selected' : '') + '>' + esc(o[1]) + '</option>').join('') + '</select></div>').join('') +
@@ -710,7 +719,7 @@ function tabelaB(el, cfg) {
     const q = normalizar(st.q.trim()), min = st.min ? lerValor(st.min) : null, max = st.max ? lerValor(st.max) : null;
     return cfg.linhas.filter((r) => {
       if (!semAba && cfg.abas && st.aba) { const a = cfg.abas.find((x) => x.id === st.aba); if (a && a.f && !a.f(r)) return false; }
-      if (q && cfg.busca && normalizar(cfg.busca(r)).indexOf(q) < 0) return false;
+      if (q && cfg.busca && cfg.buscaFica && normalizar(cfg.busca(r)).indexOf(q) < 0) return false;
       for (const l of (cfg.listas || [])) { const v = st.listas[l.k]; if (!v) continue; const g = l.get(r); if (Array.isArray(g) ? !g.map(String).includes(v) : String(g) !== v) return false; }   // Backup 82: get pode devolver lista (ex.: De quem)
       if (cfg.venc) { const d = cfg.venc(r) || ''; if (st.vde && d < st.vde) return false; if (st.vate && d > st.vate) return false;
         // atalhos de prazo (só nas abas em aberto): Vencidas = até hoje; N dias = vence até hoje + N (inclui as vencidas); até = data escolhida
@@ -766,15 +775,21 @@ function tabelaB(el, cfg) {
           (temLote ? '<td class="b-ck"><input type="checkbox" data-bt="um" aria-label="Marcar"' + (st.sel[k] ? ' checked' : '') + '></td>' : '') + cols.map((c) => cel(c, r)).join('') + '</tr>'; }).join('') +
       // Backup 69: com muitas linhas (ex.: 15 mil parcelas), desenha 150 por vez — a tela abre na hora
       (lin.length > st.limite ? '<tr class="b-tr-mais"><td colspan="' + (cols.length + (temLote ? 1 : 0)) + '"><button type="button" class="btn btn-g btn-mini" data-bt="mais">Mostrar mais ' + Math.min(150, lin.length - st.limite) + ' (' + lin.length + ' no total)</button></td></tr>' : '') +
-      '</tbody>' + (soma != null && lin.length > 1 ? '<tfoot><tr>' + (temLote ? '<td></td>' : '') + cols.map((c, i) => c.soma ? '<td class="b-dir b-val">' + brl(soma) + '<small>média ' + brl(soma / lin.length) + '</small></td>' : '<td>' + (i === 0 ? 'Total de ' + lin.length : '') + '</td>').join('') + '</tr></tfoot>' : '') +
+      '</tbody>' +   // Backup 88: sem a linha "Total de N" com soma e média no pé (pedido: "remova completamente a linha")
       '</table></div></div>';
+    // Backup 88: a caixa da tabela mostra 20 linhas antes de rolar (era ~10–12)
+    if (!cfg.altura) requestAnimationFrame(() => { const rola = Q('.b-rola'), trs = rola && rola.querySelectorAll('tbody > tr');
+      if (!rola || !trs || trs.length <= 20 || !trs[20].offsetTop) { if (rola) rola.style.maxHeight = 'none'; return; }
+      rola.style.maxHeight = (trs[20].offsetTop + 2) + 'px'; });
   }
   function contarFx() { const b = Q('[data-bt=painel]'); if (!b) return; const n = (st.vde || st.vate ? 1 : 0) + (st.min || st.max ? 1 : 0) + Object.keys(st.listas).filter((k) => st.listas[k]).length; b.classList.toggle('b-tem', n > 0); const s = b.querySelector('.b-nf'); s.hidden = !n; s.textContent = n; }
   function prazos() {
     const b = Q('[data-bt=prazos]'); if (!b) return;
     b.hidden = !prazoNaAba();
-    b.innerHTML = [['', 'Todas'], ['venc', 'Vencidas'], ['5', '5 dias'], ['10', '10 dias'], ['15', '15 dias'], ['30', '30 dias']].map((o) => '<button type="button" class="b-chip" data-b-prazo="' + o[0] + '" aria-pressed="' + (st.prazo === o[0]) + '">' + o[1] + '</button>').join('') +
-      '<label class="b-prazo-ate' + (st.prazo === 'ate' ? ' b-on' : '') + '" title="Vencimento até esta data">até ' + campoDataB('data-bt="prazoate"', st.prazoAte, 'Vencimento até') + '</label>';
+    // Backup 88: no "padrão do escritório" (o controle em caixa do Mês · Semana · Dia) e sem o "até dd/mm/aaaa"
+    if (st.prazo === 'ate') st.prazo = '';
+    b.className = 'b-seg b-prazos'; b.setAttribute('role', 'group'); b.setAttribute('aria-label', 'Prazo');
+    b.innerHTML = [['', 'Todas'], ['venc', 'Vencidas'], ['5', '5 dias'], ['10', '10 dias'], ['15', '15 dias'], ['30', '30 dias']].map((o) => '<button type="button" class="b-seg-bt" data-b-prazo="' + o[0] + '" aria-pressed="' + (st.prazo === o[0]) + '" aria-selected="' + (st.prazo === o[0]) + '">' + o[1] + '</button>').join('');
   }
   function conta() { const c = Q('[data-bt=conta]'); if (!c) return; const n = filtrar().length, un = cfg.unidade || ['linha', 'linhas']; c.textContent = cfg.conta ? cfg.conta(n, st.aba) : plural(n, un[0], un[1]); }   // Backup 85 (TB2): sempre à vista
   const tudo = () => { abas(); prazos(); quadro(); contarFx(); conta(); };
@@ -799,7 +814,6 @@ function tabelaB(el, cfg) {
       if (tt === 'painel') { s2.painel = !s2.painel; el.querySelector('[data-bt=pn]').hidden = !s2.painel; t.setAttribute('aria-expanded', s2.painel); return; }
       if (tt === 'limpar') { s2.q = ''; s2.listas = {}; s2.vde = s2.vate = s2.min = s2.max = ''; s2.prazo = s2.prazoAte = ''; tabelaB(el, c2); return; }
       const pz = ev.target.closest('[data-b-prazo]'); if (pz) { s2.prazo = pz.dataset.bPrazo; s2.prazoAte = ''; el._redesenharB(); return; }
-      if (tt === 'dens') { const on = !document.documentElement.classList.contains('b-compacto'); document.documentElement.classList.toggle('b-compacto', on); try { localStorage.setItem('erp_compacto', on ? '1' : ''); } catch (e) { /* sem armazenamento */ } t.setAttribute('aria-pressed', on); aviso(on ? 'Tabelas compactas: mais linhas na tela.' : 'Tabelas confortáveis.'); return; }
       if (tt === 'desmarcar') { s2.sel = {}; el._redesenharB(); return; }
       if (tt === 'loteon') { s2.loteOn = !s2.loteOn; s2.sel = {}; t.setAttribute('aria-pressed', s2.loteOn); t.lastChild.textContent = s2.loteOn ? 'Fechar marcação' : 'Marcar várias'; el._redesenharB(); return; }
       if (tt === 'mais') { s2.limite += 150; el._redesenharB(); return; }
@@ -816,7 +830,7 @@ function tabelaB(el, cfg) {
   }
   return { st, redesenhar: tudo };
 }
-try { if (localStorage.getItem('erp_compacto')) document.documentElement.classList.add('b-compacto'); } catch (e) { /* sem armazenamento */ }
+try { localStorage.removeItem('erp_compacto'); } catch (e) { /* Backup 88: a tabela compacta saiu */ }
 
 function vazio(frase, rotulo, seletor) {
   return '<div class="vazio"><div class="vazio-frase">' + esc(frase) + '</div>' +
@@ -1842,11 +1856,11 @@ function listaFin(empresa, corpo) {
   const F = estadoFin(empresa), L = F.dados || [], h = hojeISO();
   const temDesp = empresa === 'contabilidade' || L.some((l) => l._c === 'apagar' || l._c === 'pago');
   // Backup 85 (FI4/TX2): nomes do ambiente (Recebidos, Pagos, Prejuízo) e, no Jurídico, a aba "Comissões" (redutores de receita)
-  const jur = empresa !== 'contabilidade';
-  const abas = [{ id: 'areceber', rot: 'A receber', f: (l) => l._c === 'areceber' && !(jur && l.redutor) }, { id: 'recebido', rot: 'Recebidos', f: (l) => l._c === 'recebido' }]
+  // Backup 88: sem a aba "Comissões" — a comissão aparece junto, como redutor (− R$), e tem filtro próprio ("Comissão" em Filtros)
+  const abas = [{ id: 'areceber', rot: 'A receber', f: (l) => l._c === 'areceber' }, { id: 'recebido', rot: 'Recebidos', f: (l) => l._c === 'recebido' }]
     .concat(temDesp ? [{ id: 'apagar', rot: 'A pagar', f: (l) => l._c === 'apagar' }, { id: 'pago', rot: 'Pagos', f: (l) => l._c === 'pago' }] : [])
-    .concat([{ id: 'perda', rot: 'Prejuízo', f: (l) => l._c === 'perda' }])
-    .concat(jur ? [{ id: 'comissoes', rot: 'Comissões', f: (l) => !!l.redutor && !l.perda }] : []);
+    .concat([{ id: 'perda', rot: 'Prejuízo', f: (l) => l._c === 'perda' }]);
+  { const st = E.tabB && E.tabB['fin-' + empresa]; if (st && st.aba === 'comissoes') { st.aba = 'recebido'; st.listas = Object.assign({}, st.listas, { com: 'so' }); } }
   const porPag = (a) => a === 'recebido' || a === 'pago';
   const dataL = (l) => (l.pago ? l.data_pagamento : l.vencimento) || '';
   const opc = (f) => [...new Set(L.map(f).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR')).map((v) => [v, v]);
@@ -1858,7 +1872,7 @@ function listaFin(empresa, corpo) {
       { k: 'quem', rot: 'Grupo / Favorecido', html: (l) => esc(nomeLanc(l) || '—') + (l.clientes && l.grupos ? '<span class="b-sub">' + esc(l.clientes.nome) + '</span>' : ''), ord: (l) => normalizar(nomeLanc(l)) },
       { k: 'desc', rot: 'Descrição', html: (l) => { const lg = legendaLanc(l); return esc(l.descricao || '—') + (lg ? '<span class="b-sub">' + esc(lg) + '</span>' : ''); }, ord: (l) => normalizar(l.descricao || '') },
       { k: 'v', rot: 'Valor', cls: 'b-dir b-val', clsL: (l) => (vS(l) < 0 ? ' valor-desp' : ' valor-rec'), soma: true,
-        html: (l) => (vS(l) < 0 ? '− ' : '') + brl(l.valor) + (l.redutor ? '<small>redutor</small>' : ''), ord: valorLanc },
+        html: (l) => (vS(l) < 0 ? '− ' : '') + brl(l.valor) + (l.redutor ? '<small>comissão</small>' : ''), ord: valorLanc },
       // Backup 85 (FI6): como no ambiente — a coluna continua "Vencimento" também nos pagos; o "✓ Pago em" fica na coluna Prazo
       { k: 'venc', rot: 'Vencimento', cls: 'b-cen b-data', html: (l) => (l.vencimento ? dataBR(l.vencimento) : '—'), ord: (l) => l.vencimento || '9' }];
     C.push({ k: 'pz', rot: aba === 'perda' ? 'Situação' : 'Prazo', cls: 'b-cen b-prazo', html: celPrazoL, ord: (l) => (l.pago || l.perda ? '9' : l.vencimento || '9') });
@@ -1869,12 +1883,13 @@ function listaFin(empresa, corpo) {
   el._lancDepois = () => telaHonorarios(empresa, true);
   tabelaB(el, { id: 'fin-' + empresa, tabCls: 'b-tab-lanc', linhas: L, colunas: colunas('areceber'), colunasAba: colunas, abas, contagem: true,
     unidade: ['lançamento', 'lançamentos'], busca: (l) => [l.descricao, nomeLanc(l), l.clientes && l.clientes.nome, l.favorecido, l.categoria, l.obs, l.servico, l.referencia].join(' '),
-    dicaBusca: 'Cliente, grupo, descrição…', prazos: true, prazosAbas: ['areceber', 'apagar', 'comissoes'], venc: dataL, valor: vS,
+    dicaBusca: 'Cliente, grupo, descrição…', prazos: true, prazosAbas: ['areceber', 'apagar'], venc: dataL, valor: vS,
     ord: { k: 'venc', dir: 1 }, ordAbas: { recebido: { k: 'venc', dir: -1 }, pago: { k: 'venc', dir: -1 } },
     conta: (n) => plural(n, 'lançamento', 'lançamentos'), linhaCls: (l) => (!l.pago && !l.perda && l.vencimento && l.vencimento <= h ? ' b-tr-venc' : ''),
     listas: [].concat(lista('resp', 'Quem', 'Todas as pessoas', (l) => l.responsavel), lista('grupo', 'Grupo', 'Todos os grupos', (l) => l.grupos && l.grupos.nome),
       lista('tipo', 'Tipo', 'Todos os tipos', (l) => l.categoria), lista('area', 'Área', 'Todas as áreas', (l) => l.servico),
-      lista('ref', 'Referência', 'Todas as referências', (l) => l.referencia), lista('fav', 'Favorecido', 'Todos os favorecidos', (l) => l.favorecido)),
+      lista('ref', 'Referência', 'Todas as referências', (l) => l.referencia), lista('fav', 'Favorecido', 'Todos os favorecidos', (l) => l.favorecido),
+      L.some((l) => l.redutor) ? [{ k: 'com', rot: 'Comissão', todos: 'Com e sem comissão', opcoes: [['so', 'Só comissões'], ['sem', 'Sem comissões']], get: (l) => (l.redutor ? 'so' : 'sem') }] : []),
     lote: [{ rot: 'Dar baixa nas marcadas', icone: 'check', quando: (l) => !l.pago && !l.perda, fn: async (marc) => {
       const alvo = marc.filter((l) => !l.pago && !l.perda); if (!alvo.length) return false;
       const bx = await perguntarBaixa({ titulo: 'Lançar a baixa das marcadas?', descricao: plural(alvo.length, 'lançamento', 'lançamentos'), valor: soma(alvo, valorLanc) });
@@ -1977,18 +1992,27 @@ function analiseFin(empresa, corpo) {
   const grupos = [...new Set(L.map((l) => l.grupos && l.grupos.nome).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
   const jan = janelaFin(an);
   // Backup 83: filtros numa linha só, como no ambiente (Quem · Período · de/até · Aplicar); tipo e grupo continuam, no fim da mesma linha
-  const fil = '<section class="b-fin-filtros b-filtro-linha" id="fa-filtros">' +
-    (pessoas.length > 1 ? '<span class="b-fin-rot">Quem</span><span class="b-chips-in"><button type="button" class="b-chip" data-fa-quem="" aria-pressed="' + !an.quem.length + '">Todos</button>' +
-      pessoas.map((p) => '<button type="button" class="b-chip" data-fa-quem="' + esc(p) + '" aria-pressed="' + an.quem.includes(p) + '">' + esc(p) + '</button>').join('') + '</span>' : '') +
-    '<span class="b-fin-rot">Período</span><span class="b-chips-in">' + PERIODOS_FIN.map((p) => '<button type="button" class="b-chip" data-fa-per="' + p[0] + '" aria-pressed="' + (!an.de && !an.ate && an.preset === p[0]) + '">' + p[1] + '</button>').join('') + '</span>' +
-    '<span class="b-fx"><span class="b-fin-rot">de</span>' + campoDataB('id="fa-de"', an.de, 'De') + '<span class="b-fin-rot">até</span>' + campoDataB('id="fa-ate"', an.ate, 'Até') + '<button type="button" class="btn btn-o btn-mini" id="fa-aplicar">Aplicar</button><small class="b-fx-aviso" id="fa-aviso"></small></span>' +
-    (tipos.length > 1 ? '<select id="fa-tipo" aria-label="Tipo"><option value="">Todos os tipos</option>' + tipos.map((t) => '<option' + (an.tipo === t ? ' selected' : '') + '>' + esc(t) + '</option>').join('') + '</select>' : '') +
-    (grupos.length > 1 ? '<select id="fa-grupo" aria-label="Grupo"><option value="">Todos os grupos</option>' + grupos.map((g) => '<option' + (an.grupo === g ? ' selected' : '') + '>' + esc(g) + '</option>').join('') + '</select>' : '') + '</section>';
+  // Backup 88: Quem · Período · Tipo · Grupo no PADRÃO DO ESCRITÓRIO (a caixa do Mês · Semana · Dia); "Quem" escolhe uma pessoa (ou Todos).
+  // Grupos: os 8 que mais receberam no período ficam à vista; os outros em "Outro grupo…".
+  if (an.quem.length > 1) an.quem = an.quem.slice(0, 1);
+  const recGr = {}; filtrarFin(empresa, ['recebido']).forEach((l) => { const g = l.grupos && l.grupos.nome; if (g) recGr[g] = (recGr[g] || 0) + valorLanc(l); });
+  const topG = grupos.slice().sort((a, b) => (recGr[b] || 0) - (recGr[a] || 0) || a.localeCompare(b, 'pt-BR')).slice(0, 8);
+  if (an.grupo && !topG.includes(an.grupo)) topG.push(an.grupo);
+  const outrosG = grupos.filter((g) => !topG.includes(g));
+  const linhaF = (rot, html) => '<div class="b-fin-f"><span class="b-fin-rot">' + rot + '</span>' + html + '</div>';
+  const fil = '<section class="b-fin-filtros b-filtro-linha b-fin-filtros-88" id="fa-filtros">' +
+    (pessoas.length > 1 ? linhaF('Quem', segFiltroB('', 'data-fa-quem', [['', 'Todos']].concat(pessoas.map((p) => [p, p])), an.quem[0] || '', 'Quem')) : '') +
+    linhaF('Período', segFiltroB('', 'data-fa-per', PERIODOS_FIN, an.de || an.ate ? '' : an.preset, 'Período') +
+      '<span class="b-fx"><span class="b-fin-rot">de</span>' + campoDataB('id="fa-de"', an.de, 'De') + '<span class="b-fin-rot">até</span>' + campoDataB('id="fa-ate"', an.ate, 'Até') + '<button type="button" class="btn btn-o btn-mini" id="fa-aplicar">Aplicar</button><small class="b-fx-aviso" id="fa-aviso"></small></span>') +
+    (tipos.length > 1 ? linhaF('Tipo', segFiltroB('', 'data-fa-tipo', [['', 'Todos os tipos']].concat(tipos.map((t) => [t, t])), an.tipo || '', 'Tipo')) : '') +
+    (grupos.length > 1 ? linhaF('Grupo', segFiltroB('', 'data-fa-grupo', [['', 'Todos os grupos']].concat(topG.map((g) => [g, g])), an.grupo || '', 'Grupo') +
+      (outrosG.length ? '<select id="fa-grupo" class="b-fin-outro" aria-label="Outro grupo"><option value="">Outro grupo…</option>' + outrosG.map((g) => '<option>' + esc(g) + '</option>').join('') + '</select>' : '')) : '') + '</section>';
   const receita = filtrarFin(empresa, ['recebido']), aRec = filtrarFin(empresa, ['areceber']), aPag = filtrarFin(empresa, ['apagar']), pagos = filtrarFin(empresa, ['pago']);
   const perdas = filtrarFin(empresa, ['perda'], true), vencidos = filtrarFin(empresa, ['areceber'], true).filter((l) => l.vencimento && l.vencimento < h);
   const aVencer = aRec.filter((l) => !(l.vencimento && l.vencimento < h));
-  const vRec = somaV(receita);
-  const nums = [['Recebido', brl(vRec), plural(receita.length, 'recebimento', 'recebimentos'), 'b-verde'], ['A receber', brl(somaV(aVencer)), aVencer.length + ' em aberto']]
+  const vRec = somaV(receita), vCom = somaV(receita.filter((l) => l.redutor));
+  // Backup 88: comissão = redutor do que entrou (Recebido já vem líquido; o sub mostra quanto saiu de comissão)
+  const nums = [['Recebido', brl(vRec), vCom ? 'já descontada a comissão de ' + brl(-vCom) : plural(receita.filter((l) => !l.redutor).length, 'recebimento', 'recebimentos'), 'b-verde'], ['A receber', brl(somaV(aVencer)), aVencer.length + ' em aberto']]
     .concat(contab || aPag.length ? [['A pagar', brl(somaV(aPag)), plural(aPag.length, 'conta em aberto', 'contas em aberto')]] : [])
     .concat([['Em atraso', brl(somaV(vencidos)), 'todos os meses', vencidos.length ? 'b-verm' : ''], ['Prejuízo', brl(somaV(perdas)), plural(perdas.length, 'baixa', 'baixas') + ' · todos os meses']])
     .concat(contab ? [] : [['Ticket médio', brl(receita.length ? vRec / receita.length : 0), 'por recebimento']]);
@@ -1997,9 +2021,9 @@ function analiseFin(empresa, corpo) {
   const meses = chaves.length ? mesesEntre(chaves[0], chaves[chaves.length - 1]) : [hojeISO().slice(0, 7)];   // sem nada no período: o mês atual (o gráfico aparece vazio, com a legenda)
   let graf;
   if (contab) {
-    graf = cartaoFin('Recebido × pago mês a mês', 'Verde = recebido · vermelho = pago (despesas). Passe o mouse na coluna para ver o mês.',
-      '<div class="b-fin-graf">' + graficoColunasB(meses, [{ nome: 'Recebido', cor: 'var(--chart-2)', valores: meses.map((k) => somaV(receita.filter((l) => dataLanc(l).startsWith(k)))) },
-        { nome: 'Pago (despesas)', cor: 'var(--chart-5)', valores: meses.map((k) => somaV(pagos.filter((l) => dataLanc(l).startsWith(k)))) }], { titulo: 'Recebido e pago por mês' }) + '</div>');
+    graf = cartaoFin('Recebido × pago mês a mês', 'Passe o mouse na coluna para ver o valor.',   // Backup 88: texto pedido; verde/vermelho como no Jurídico
+      '<div class="b-fin-graf">' + graficoColunasB(meses, [{ nome: 'Recebido', cor: 'var(--green)', valores: meses.map((k) => somaV(receita.filter((l) => dataLanc(l).startsWith(k)))) },
+        { nome: 'Pago (despesas)', cor: 'var(--red)', valores: meses.map((k) => somaV(pagos.filter((l) => dataLanc(l).startsWith(k)))) }], { titulo: 'Recebido e pago por mês' }) + '</div>');
   } else {
     const quem = [...new Set(receita.map(quemLanc))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
     graf = cartaoFin('Recebido mês a mês', 'Empilhado por pessoa. Passe o mouse na coluna para ver o valor.',
@@ -2028,8 +2052,10 @@ function analiseFin(empresa, corpo) {
   // controles
   const fl = corpo.querySelector('#fa-filtros');
   fl.onclick = (ev) => {
-    const qb = ev.target.closest('[data-fa-quem]'), pb = ev.target.closest('[data-fa-per]');
-    if (qb) { const p = qb.dataset.faQuem; if (!p) an.quem = []; else an.quem = an.quem.includes(p) ? an.quem.filter((x) => x !== p) : an.quem.concat(p); return analiseFin(empresa, corpo); }
+    const qb = ev.target.closest('[data-fa-quem]'), pb = ev.target.closest('[data-fa-per]'), tb = ev.target.closest('[data-fa-tipo]'), gb = ev.target.closest('[data-fa-grupo]');
+    if (qb) { const p = qb.dataset.faQuem; an.quem = p ? [p] : []; return analiseFin(empresa, corpo); }
+    if (tb) { an.tipo = tb.dataset.faTipo; return analiseFin(empresa, corpo); }
+    if (gb) { an.grupo = gb.dataset.faGrupo; return analiseFin(empresa, corpo); }
     if (pb) { an.preset = pb.dataset.faPer; an.de = an.ate = ''; return analiseFin(empresa, corpo); }
     if (ev.target.id === 'fa-aplicar') {
       // Backup 79: datas digitadas dd/mm/aaaa — só aplica com as duas preenchidas; invertidas trocam sozinhas; 31/11 vira 30/11
@@ -2047,21 +2073,23 @@ function analiseFin(empresa, corpo) {
 // Base = honorários (receitas) com VENCIMENTO no mês; o atraso dos meses anteriores e o que entrou neste mês de outros meses aparecem à parte.
 const somarMesB = (k, n) => { const [a, m] = k.split('-').map(Number), d = new Date(a, m - 1 + n, 1); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
 function fluxoDoMes(empresa) {
-  const F = estadoFin(empresa), an = F.an, k = an.fluxoMes || hojeISO().slice(0, 7), h = hojeISO(), ini = k + '-01';
+  // Backup 88: "Recebido" = o que ENTROU no mês (pela data do pagamento) — o mesmo número da Análise com "Mês passado"/"Este mês".
+  // Antes o Recebido daqui era "o que venceu no mês e já foi pago" (mesmo pago em outro mês) e a soma não batia com a Análise.
+  const F = estadoFin(empresa), an = F.an, k = an.fluxoMes || hojeISO().slice(0, 7), h = hojeISO();
   const rec = filtrarFin(empresa, ['recebido', 'areceber'], true);
   const doMes = rec.filter((l) => String(l.vencimento || '').startsWith(k));
-  const recebido = somaV(doMes.filter((l) => l._c === 'recebido')), atraso = somaV(doMes.filter((l) => l._c === 'areceber' && l.vencimento < h)),
-    aReceber = somaV(doMes.filter((l) => l._c === 'areceber' && l.vencimento >= h)), previsto = recebido + atraso + aReceber;
-  const atrasoAntes = somaV(rec.filter((l) => l._c === 'areceber' && l.vencimento && l.vencimento < ini));
-  const deOutros = somaV(rec.filter((l) => l._c === 'recebido' && String(l.data_pagamento || '').startsWith(k) && !String(l.vencimento || '').startsWith(k)));
-  const pc = (v) => (previsto > 0 ? Math.max(0, v / previsto * 100) : 0);
-  return '<section class="b-fin-cartao b-fluxo" id="fa-fluxo"><div class="b-fin-hd b-fluxo-hd"><div><h3>Fluxo do mês</h3><p>Honorários com vencimento no mês: quanto estava previsto e como está.</p></div>' +
+  const entrou = rec.filter((l) => l._c === 'recebido' && dataLanc(l).startsWith(k));
+  const recebido = somaV(entrou), dosVenc = somaV(entrou.filter((l) => String(l.vencimento || '').startsWith(k))), deOutros = recebido - dosVenc;
+  const atraso = somaV(doMes.filter((l) => l._c === 'areceber' && l.vencimento < h)), aReceber = somaV(doMes.filter((l) => l._c === 'areceber' && l.vencimento >= h));
+  const previsto = somaV(doMes), pagoPrev = somaV(doMes.filter((l) => l._c === 'recebido'));
+  const pc = (v) => (previsto > 0 ? Math.max(0, Math.min(100, v / previsto * 100)) : 0);
+  return '<section class="b-fin-cartao b-fluxo" id="fa-fluxo"><div class="b-fin-hd b-fluxo-hd"><div><h3>Fluxo do mês</h3><p>O que entrou no mês e como estão os honorários que vencem nele.</p></div>' +
     '<div class="b-fluxo-nav"><button type="button" class="b-bt-f" data-fm="-1" aria-label="Mês anterior">‹</button><b>' + esc(rotMesB(k)) + '</b><button type="button" class="b-bt-f" data-fm="1" aria-label="Próximo mês">›</button></div></div>' +
-    numsFaixa([['Previsto no mês', brl(previsto), 'tudo o que vence no mês'], ['Recebido', brl(recebido), previsto ? Math.round(pc(recebido)) + '% do previsto' : '', 'b-verde'],
+    numsFaixa([['Recebido no mês', brl(recebido), deOutros ? brl(dosVenc) + ' deste mês + ' + brl(deOutros) + ' de outros meses' : 'pela data do pagamento', 'b-verde'],
+      ['Previsto (vence no mês)', brl(previsto), previsto ? Math.round(pc(pagoPrev)) + '% já pago' : ''],
       ['Em atraso (deste mês)', brl(atraso), 'venceu e não entrou', atraso ? 'b-verm' : ''], ['A receber', brl(aReceber), 'ainda vai vencer']]) +
-    '<div class="b-fluxo-barra" role="img" aria-label="Recebido ' + brl(recebido) + ', em atraso ' + brl(atraso) + ', a receber ' + brl(aReceber) + '">' +
-      '<span class="b-fx-rec" style="width:' + pc(recebido) + '%" title="Recebido ' + esc(brl(recebido)) + '"></span><span class="b-fx-atr" style="width:' + pc(atraso) + '%" title="Em atraso ' + esc(brl(atraso)) + '"></span><span class="b-fx-arec" style="width:' + pc(aReceber) + '%" title="A receber ' + esc(brl(aReceber)) + '"></span></div>' +
-    '<p class="b-fluxo-fora">Fora deste mês: <b>' + brl(atrasoAntes) + '</b> em atraso de meses anteriores · <b>' + brl(deOutros) + '</b> recebidos neste mês de vencimentos de outros meses.</p></section>';
+    '<div class="b-fluxo-barra" role="img" aria-label="Pago ' + brl(pagoPrev) + ', em atraso ' + brl(atraso) + ', a receber ' + brl(aReceber) + '">' +
+      '<span class="b-fx-rec" style="width:' + pc(pagoPrev) + '%" title="Já pago ' + esc(brl(pagoPrev)) + '"></span><span class="b-fx-atr" style="width:' + pc(atraso) + '%" title="Em atraso ' + esc(brl(atraso)) + '"></span><span class="b-fx-arec" style="width:' + pc(aReceber) + '%" title="A receber ' + esc(brl(aReceber)) + '"></span></div></section>';
 }
 // ── Backup 79: RESULTADO DO MÊS (como no ambiente de teste): entradas, saídas e resultado de cada mês do período ──
 function resultadoMeses(meses, receita, pagos, contab) {
@@ -2575,17 +2603,33 @@ function janelaRecibo(empresa) {
   j.querySelector('#rc-central').onclick = () => { fecharJanela(j); abrirGerador('modelo=recibo'); };
   j.addEventListener('click', (ev) => { const b = ev.target.closest('[data-rc]'); if (!b) return; const l = L.find((x) => String(x.id) === b.dataset.rc); fecharJanela(j); if (l) previaRecibo(l); });
 }
-function previaRecibo(l) {
-  const quem = (l.clientes && l.clientes.nome) || nomeLanc(l) || '—', doc = l.clientes && l.clientes.cpf_cnpj;
-  const j = abrirJanela({ kick: 'Recibo', titulo: 'Recibo de honorários', sub: esc(quem),
-    corpo: '<div class="b-previa-email"><div class="b-pe-hd">Araújo &amp; Castro — Recibo</div><div class="b-pe-bd">Recebemos de ' + esc(quem) + (doc ? ' (' + esc(doc) + ')' : '') + ' a quantia de <b>' + brl(l.valor) + '</b>, referente a ' +
-      esc(l.descricao || 'honorários') + ', paga em ' + dataBR(l.data_pagamento) + '.<br><br>Belo Horizonte, ' + dataBR(hojeISO()) + '.<br><br>Araújo &amp; Castro Advocacia</div></div>' +
-      '<p class="b-mudo" style="margin-top:8px">O e-mail leva o recibo em PDF, com número e valor por extenso.</p>',
+// Backup 88: recibo por E-MAIL (o e-mail do escritório, com o timbrado — a prévia mostra exatamente o que o cliente recebe, com o PDF anexo)
+// ou por WHATSAPP (o texto do recibo; no celular, o PDF baixado na Central pode ir junto) — como nas guias de parcelamento e acordo.
+async function previaRecibo(l) {
+  const quem = (l.clientes && l.clientes.nome) || nomeLanc(l) || '—';
+  const cli = (E.clientes || []).find((c) => c.id === l.cliente_id) || {};
+  let P = null; try { P = await q(sb.rpc('previa_recibo_email', { p_lanc: l.id })); } catch (e) { P = { erro: erroAmigavel(e) }; }
+  P = P || {};
+  const txtZap = 'Olá! Tudo bem?\n\nSegue o recibo do pagamento de *' + brl(l.valor) + '*' + (P.extenso ? ' (' + P.extenso + ')' : '') + ', referente a ' + (l.descricao || 'honorários') +
+    ', recebido em ' + dataBR(l.data_pagamento) + '.' + (P.numero ? '\nRecibo nº ' + P.numero + '.' : '') + '\n\nObrigado!\nAraújo & Castro';
+  const j = abrirJanela({ kick: 'Recibo', titulo: 'Recibo de honorários', sub: esc(quem) + ' · ' + brl(l.valor) + ' · pago em ' + dataBR(l.data_pagamento), larga: true,
+    corpo: '<div class="b-rc-env">' + segFiltroB('rc-canal', 'data-rc-canal', [['email', 'E-mail'], ['zap', 'WhatsApp']], 'email', 'Enviar por') + '</div>' +
+      '<div id="rc-email-box"><div class="b-rc-dest"><span>Para</span><b>' + esc(P.para || '—') + '</b>' + (P.erro ? '<small class="msg-erro">' + esc(P.erro) + '</small>' : '<small class="sub">o e-mail do cliente para recibos (Clientes → ficha → Contatos)</small>') + '</div>' +
+        (P.html ? '<iframe class="ge-previa b-rc-previa" title="Prévia do e-mail" sandbox></iframe><p class="b-mudo">O e-mail sai com o timbrado do escritório e leva o recibo em PDF (com número e valor por extenso).</p>' : '') + '</div>' +
+      '<div id="rc-zap-box" hidden><label class="campo"><span>WhatsApp do cliente</span><input id="rc-tel" data-mascara="tel" inputmode="tel" value="' + esc(cli.telefone || '') + '" placeholder="(37) 9 9999-9999"></label>' +
+        '<label class="campo"><span>Mensagem</span><textarea id="rc-zap-txt" rows="8">' + esc(txtZap) + '</textarea></label>' +
+        '<p class="b-mudo">No WhatsApp vai o texto do recibo. Para mandar o PDF junto, use "Abrir na Central de Documentos", salve o PDF e anexe na conversa.</p></div>',
     rodape: '<button type="button" class="btn btn-g" id="rc-ajustar" style="margin-right:auto">Abrir na Central de Documentos</button><button type="button" class="btn btn-o" data-fechar>Fechar</button>' +
-      (l.cliente_id || l.grupo_id ? '<button type="button" class="btn btn-p" id="rc-email">' + iconeB('enviar') + ' Mandar por e-mail</button>' : '') });
+      '<button type="button" class="btn btn-p" id="rc-email"' + (P.para ? '' : ' disabled') + '>' + iconeB('enviar') + ' Enviar e-mail</button>' +
+      '<button type="button" class="btn btn-v" id="rc-zap" hidden>WhatsApp</button>' });
+  if (P.html) j.querySelector('.b-rc-previa').srcdoc = P.html;
   j.querySelector('#rc-ajustar').onclick = () => { fecharJanela(j); abrirGerador('lancamento=' + l.id); };
+  j.querySelector('#rc-canal').onclick = (ev) => { const b = ev.target.closest('[data-rc-canal]'); if (!b) return; marcarSegB(j.querySelector('#rc-canal'), b);
+    const z = b.dataset.rcCanal === 'zap'; j.querySelector('#rc-email-box').hidden = z; j.querySelector('#rc-zap-box').hidden = !z; j.querySelector('#rc-email').hidden = z; j.querySelector('#rc-zap').hidden = !z; };
+  j.querySelector('#rc-zap').onclick = () => { const tel = soDigitos(j.querySelector('#rc-tel').value);
+    window.open('https://wa.me/' + (tel ? (tel.length <= 11 ? '55' : '') + tel : '') + '?text=' + encodeURIComponent(j.querySelector('#rc-zap-txt').value), '_blank', 'noopener'); };
   const em = j.querySelector('#rc-email');
-  if (em) em.onclick = () => comBotao(em, async () => {
+  em.onclick = () => comBotao(em, async () => {
     const r = await q(sb.rpc('enviar_recibo_email', { p_lanc: l.id }));
     fecharJanela(j);
     aviso('Recibo na fila para ' + (r && r.para || 'o cliente') + '.');
@@ -4140,7 +4184,7 @@ async function admSaude(corpo) {
 const EMAILS_EQUIPE = [['fluxo', 'Fluxo / sequência de tarefas', 'Quando alguém cria um fluxo ou um "Lead completo", e quando o próximo passo é liberado'],
   ['tarefa', 'Tarefa nova para alguém', 'Tarefa atribuída, encaminhada ou criada por automação'], ['revisao', 'Tarefa para revisar', 'Quando a tarefa vai para o revisor'],
   ['mencao', 'Menção (@Nome)', 'Quando alguém é mencionado num comentário'], ['atraso', 'Tarefa atrasada', 'Aviso ao administrador'],
-  ['agenda', 'Lembrete de compromisso', 'Antes de reunião, audiência ou compromisso'], ['publicacao', 'Publicação nova', 'Diário de Justiça'],
+  ['agenda', 'Lembrete de compromisso', 'Antes de reunião, audiência ou compromisso'], ['publicacao', 'Publicações do dia ao advogado', 'Um e-mail por advogado com as intimações novas da busca das 6h (e das buscas feitas depois, no mesmo dia)'],
   ['financeiro', 'Contrato assinado', 'Financeiro lançado'], ['cnpj', 'Cartão CNPJ', 'Mudança no cadastro da Receita'], ['acesso', 'Acesso de aparelho novo', 'Segurança'],
   ['resumo', 'Resumo do dia', 'Dias úteis, de manhã']];
 async function admEmailAuto(corpo) {
@@ -4666,9 +4710,12 @@ function salvarPrefFila() {
 // Backup 36: compromissos na agenda (tarefas com tipo_agenda + hora) — cor por tipo e legenda
 const TIPOS_AGENDA = [['reuniao', 'Reunião', '🤝'], ['audiencia', 'Audiência', '⚖'], ['compromisso', 'Compromisso', '📌']];   // Backup 40: sem Ligação
 // legenda curta: compromissos (reunião, audiência, compromisso), tarefa e atrasada; ⚑ = prazo fatal
-const legendaAgenda = () => '<div class="ag-leg">' + TIPOS_AGENDA.map(([k, r]) => '<span><i class="ag-cor ag-' + k + '"></i>' + r + '</span>').join('') +
-  '<span><i class="ag-cor ag-tarefa"></i>Tarefa</span><span><i class="ag-cor ag-rotina"></i>Rotina</span><span><i class="ag-cor ag-atrasada"></i>Atrasada</span><span><i class="ag-cor ag-feita"></i>Concluída</span><span><i class="ag-cor ag-prevista"></i>Próxima (repete)</span><span>⚑ Prazo fatal</span></div>';
+// Backup 88: só Reunião · Audiência · Tarefa · Rotina · Atrasada (e Concluída) — saíram "Próxima (repete)", "Prazo fatal" e "Compromisso"
+const legendaAgenda = () => '<div class="ag-leg">' + [['reuniao', 'Reunião'], ['audiencia', 'Audiência'], ['tarefa', 'Tarefa'], ['rotina', 'Rotina'], ['atrasada', 'Atrasada'], ['feita', 'Concluída']]
+  .map(([k, r]) => '<span><i class="ag-cor ag-' + k + '"></i>' + r + '</span>').join('') + '</div>';
 // Backup 45: filtros da agenda (marca/desmarca) — tipo do item e de quem é (respeitando o cargo: ninguém vê a agenda de quem está acima)
+// Backup 88: "tarefa é pontual; rotina é uma tarefa que repete" — os 4 tipos que se lançam em Tarefas
+const TIPOS_NOVO_TF = [['tarefa', 'Tarefa'], ['rotina', 'Rotina'], ['reuniao', 'Reunião'], ['audiencia', 'Audiência']];
 const ROT_TIPO_TF = { reuniao: 'Reunião', audiencia: 'Audiência', compromisso: 'Compromisso', tarefa: 'Tarefa', rotina: 'Rotina' };
 const FILTRO_TIPOS_AG = [['reuniao', 'Reuniões'], ['audiencia', 'Audiências'], ['compromisso', 'Compromissos'], ['tarefa', 'Tarefas'], ['rotina', 'Rotinas']];
 function tipoItemAgenda(t) {
@@ -4713,7 +4760,7 @@ async function conflitosAgenda(dia, ini, fim, pessoas, ignorar) {
     return x < b && a < y && deles.some((n) => nomes.includes(n));
   });
 }
-async function janelaAgendar(dataIni, depois) {
+async function janelaAgendar(dataIni, depois, tipoIni) {
   // Backup 40: só quem está CADASTRADO e ativo (Administração → Usuários); descadastrou, sai da lista
   const eq = await equipe().catch(() => []);
   const pessoas = [...new Set(eq.map((u) => String(u.nome || '').trim()).filter(Boolean))];
@@ -4723,7 +4770,8 @@ async function janelaAgendar(dataIni, depois) {
   const podeVer = pessoasVisiveis();
   const j = abrirJanela({ titulo: '📅 Agendar', larga: true,
     corpo: '<form id="f-ag" class="grade ag-form" data-tipo="reuniao">' +
-      '<div class="campo" style="grid-column:1/-1"><span>Tipo</span><div class="segmento ag-tipos" id="ag-tipo">' + TIPOS_AGENDA.concat([['tarefa', 'Tarefa', '✓']]).map(([k, r, ic], i) => '<button type="button" data-v="' + k + '"' + (i ? '' : ' class="ativo"') + '>' + ic + ' ' + r + '</button>').join('') + '</div></div>' +
+      // Backup 88: os 4 tipos do escritório; Tarefa e Rotina abrem o formulário da tarefa
+      '<div class="campo" style="grid-column:1/-1"><span>Tipo</span>' + segFiltroB('ag-tipo', 'data-v', TIPOS_NOVO_TF, tipoIni || 'reuniao', 'Tipo') + '</div>' +
       '<label class="campo"><span>Responsável</span><select name="resp">' + podeVer.map((n) => '<option value="' + esc(n) + '"' + (primeiroNome(n) === primeiroNome(meuNome()) ? ' selected' : '') + '>' + esc(n) + (primeiroNome(n) === primeiroNome(meuNome()) ? ' (eu)' : '') + '</option>').join('') + '</select></label>' +
       // Audiência: processo, tipo, vara e se é virtual
       '<label class="campo ag-so-aud ag-toda"><span>Número do processo *</span><input name="processo" list="ag-procs" autocomplete="off" placeholder="0000000-00.0000.0.00.0000"><datalist id="ag-procs">' +
@@ -4744,7 +4792,7 @@ async function janelaAgendar(dataIni, depois) {
       '<label class="campo ag-toda"><span>Observação</span><textarea name="descricao" rows="2"></textarea></label></form>',
     rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="ag-ok">Agendar</button></div>' });
   const f = j.querySelector('#f-ag');
-  let tipo = 'reuniao';
+  let tipo = tipoIni === 'audiencia' ? 'audiencia' : 'reuniao';
   const ROT = { reuniao: ['Assunto *', 'Local ou link', 'Com quem (cliente ou qualquer nome)', 'ex.: Reunião sobre o parcelamento', 'escritório, Google Meet…'],
     audiencia: ['Descrição (opcional)', 'Vara / juízo, ou link da sala virtual', 'Cliente (parte que representamos)', 'se vazio: "Audiência de conciliação — nº do processo"', 'ex.: 2ª Vara Cível de Belo Horizonte'],
     compromisso: ['O quê *', 'Local', 'Com quem (opcional)', 'ex.: Cartório, banco, perícia…', 'endereço'],
@@ -4755,7 +4803,10 @@ async function janelaAgendar(dataIni, depois) {
     f.querySelector('.ag-rot-titulo').textContent = r[0]; f.querySelector('.ag-rot-local').textContent = r[1]; f.querySelector('.ag-rot-com').textContent = r[2];
     f.titulo.placeholder = r[3]; f.local.placeholder = r[4];
   };
-  j.querySelector('#ag-tipo').onclick = (ev) => { const b = ev.target.closest('[data-v]'); if (!b) return; tipo = b.dataset.v; j.querySelectorAll('#ag-tipo button').forEach((x) => x.classList.toggle('ativo', x === b)); pintarTipo(); };
+  j.querySelector('#ag-tipo').onclick = (ev) => { const b = ev.target.closest('[data-v]'); if (!b) return;
+    if (b.dataset.v === 'tarefa' || b.dataset.v === 'rotina') { const d = f.prazo.value; fecharJanela(j); formTarefa({ prazo: d, _tipo: b.dataset.v }, depois); return; }
+    tipo = b.dataset.v; marcarSegB(j.querySelector('#ag-tipo'), b); pintarTipo(); };
+  pintarTipo();
   // fim acompanha o início (1 h depois) até a pessoa mexer no fim
   let fimMexido = false;
   f.hora_fim.oninput = () => { fimMexido = true; };
@@ -4829,7 +4880,7 @@ function vigiarAgenda() {
 function classeAgenda(t, d) {
   const h = hojeISO();
   if (t._cls) return t._cls;
-  if (t.prazo_fatal === d) return 'ag-fatal';
+  // Backup 88: sem a cor de "prazo fatal"
   if (tarefaFechada(t)) return 'ag-feita';   // Backup 40: concluída fica riscada
   if (t.tipo_agenda) return 'ag-' + (t.tipo_agenda === 'ligacao' ? 'compromisso' : t.tipo_agenda);
   if (/^reuniao:/.test(t.chave_regra || '')) return 'ag-reuniao';   // reuniões marcadas pelo CRM
@@ -4972,6 +5023,7 @@ function seloPrazo(t) {
   return '';
 }
 function seloFatal(t) {
+  return '';   // Backup 88: o prazo fatal saiu das telas (o pedido: "remova prazo fatal")
   if (!t.prazo_fatal) return '';
   const d = diasAte(t.prazo_fatal), u = tarefaFechada(t) ? null : uteisAte(t.prazo_fatal, E._feriados || new Set());
   const falta = u == null ? '' : u < 0 ? ' · vencido' : u === 0 ? ' · hoje!' : ' · faltam ' + u + ' dia(s) útil(eis)';
@@ -4994,42 +5046,40 @@ TELAS.tarefas = async function () {
   // Backup 49: Minha semana virou a vista Semana do Calendário; o Quadro saiu (repetia a Lista)
   if (F.vista === 'kanban') F.vista = 'lista';
   if (F.atalho === 'minhas') F.atalho = '';
+  // Backup 88: a vista Semana do alto e a de Fluxos saíram — a Semana fica dentro do Calendário (Mês · Semana · Dia)
+  if (F.vista === 'semana') { F.vista = 'calendario'; F.calVista = 'semana'; }
+  if (F.vista === 'fluxos') F.vista = 'lista';
   $('conteudo').innerHTML =
     // Backup 49: abas junto do título; só "+ Nova tarefa" e "Fluxo" à vista — o resto no ⚙ (Backup 55: a criação rápida ⚡ saiu)
     // Backup 72: as abas Em aberto/Atrasadas/Concluídas/Excluídas ficam na tabela (com os números), como no ambiente de teste
     '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('tarefas') + '</div><div class="b-cab-tx"><h1>Tarefas</h1><p>Suas tarefas e as da equipe</p></div>' +
     '<div class="acoes">' +
     // Backup 80: Lista · Semana · Calendário · Fluxos no alto, ao lado de "+ Nova tarefa" (como no ambiente de teste)
-    '<div class="b-seg tf-vista" id="tf-vista" role="tablist">' + [['lista', 'Lista'], ['semana', 'Semana'], ['calendario', 'Calendário'], ['fluxos', 'Fluxos']]
+    '<div class="b-seg tf-vista" id="tf-vista" role="tablist">' + [['lista', 'Lista'], ['calendario', 'Calendário']]
       .map(([v, r]) => '<button type="button" role="tab" class="b-seg-bt" data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
-    '<span class="tf-cfg-wrap"><button class="btn btn-o tf-bt-ic" id="tf-config" title="Configurar: modelos de fluxo, feriados, Google Agenda e novo fluxo" aria-expanded="false">⚙</button>' +
-      '<span class="tf-cfg-menu" id="tf-cfg-menu" hidden><button class="btn btn-o" id="tf-modelos">Modelos de fluxo</button>' +
+    '<span class="tf-cfg-wrap"><button class="btn btn-o tf-bt-ic" id="tf-config" title="Configurar: feriados e Google Agenda" aria-expanded="false">⚙</button>' +
+      '<span class="tf-cfg-menu" id="tf-cfg-menu" hidden>' +   // Backup 88: sem "Modelos de fluxo" 
       '<button class="btn btn-o" id="tf-feriados">Feriados</button><button class="btn btn-o" id="tf-agenda" title="Prazos fatais e audiências no seu Google Agenda">📅 Google Agenda</button></span></span>' +
     // Backup 54: "Delegar" saiu daqui — virou o botão "Fluxo" (as sequências com validação, como "Lead completo", estão na lista de modelos do fluxo)
-    '<button class="btn btn-o" id="tf-fluxo" title="Cria várias tarefas de uma vez a partir de um modelo (inclui as sequências com validação, ex.: Lead completo)">🔀 Fluxo</button><button class="btn btn-p" id="tf-nova">+ Nova tarefa</button></div></div>' +
+    // Backup 88: sem o botão "Fluxo"; "+ Nova tarefa" lança Tarefa, Rotina, Reunião ou Audiência
+    '<button class="btn btn-p" id="tf-nova">+ Nova tarefa</button></div></div>' +
     // Backup 72: sem os 4 cartões do topo; vistas Lista · Semana · Calendário · Fluxos
-    '<div class="filtros">' +
-    '<input class="busca" id="tf-busca" placeholder="Buscar tarefa, cliente, processo ou etiqueta" autocomplete="off">' +
-    // Backup 48/49: Mostrar (tipo, prioridade e prazo) e De quem — o mesmo desenho da agenda do Início
-    '</div><div class="fila-filtros tf-filtros" id="tf-chips"></div><div id="tf-corpo"><div class="carregando">Carregando…</div></div>';
+    // Backup 88: sem a barra de busca; Mostrar · De quem · Urgência no padrão do escritório, em todas as vistas
+    '<div class="fila-filtros tf-filtros" id="tf-chips"></div><div id="tf-corpo"><div class="carregando">Carregando…</div></div>';
   $('tf-nova').onclick = () => formTarefa({}, () => TELAS.tarefas());
   $('tf-config').onclick = (ev) => { ev.stopPropagation(); const m = $('tf-cfg-menu'); m.hidden = !m.hidden; $('tf-config').setAttribute('aria-expanded', String(!m.hidden)); };
   if (!window._tfCfgDoc) { window._tfCfgDoc = true; document.addEventListener('click', (ev) => { const m = $('tf-cfg-menu'); if (m && !m.hidden && !ev.target.closest('.tf-cfg-wrap')) m.hidden = true; }); }
   $('tf-cfg-menu').addEventListener('click', () => { setTimeout(() => { const m = $('tf-cfg-menu'); if (m) m.hidden = true; }, 0); });
-  $('tf-fluxo').onclick = () => formNovoFluxo(() => TELAS.tarefas());
-  $('tf-modelos').onclick = () => janelaModelos();
   $('tf-feriados').onclick = () => janelaFeriados();
   $('tf-agenda').onclick = () => janelaAgenda();
   $('tf-vista').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.vista = b.dataset.v; pintarTarefas(); } };
   $('tf-chips').onclick = (ev) => { const b = ev.target.closest('button'); if (!b) return;
-    if (b.dataset.tfTipo != null) F.tipos = alternarFiltro(F.tipos || FILTRO_TIPOS_AG.map((x) => x[0]), b.dataset.tfTipo, FILTRO_TIPOS_AG.map((x) => x[0]));
-    else if (b.dataset.tfPri != null) F.pri = F.pri === b.dataset.tfPri ? '' : b.dataset.tfPri;
-    else if (b.dataset.tfPrazo != null) F.atalho = F.atalho === b.dataset.tfPrazo ? '' : b.dataset.tfPrazo;
-    else if (b.dataset.tfPes != null) { const todos = pessoasFiltro().map(primeiroNome); F.pessoas = alternarFiltro(F.pessoas && F.pessoas.length ? F.pessoas : todos, b.dataset.tfPes, todos); if (!F.pessoas.length) F.pessoas = [primeiroNome(meuNome())]; }
+    if (b.dataset.tfMostra != null) F.mostra = b.dataset.tfMostra;
+    else if (b.dataset.tfPes != null) F.pessoas = b.dataset.tfPes ? [b.dataset.tfPes] : [];
+    else if (b.dataset.tfPri != null) F.pri = b.dataset.tfPri;
     else return;
     pintarTarefas(); };
-  $('tf-busca').value = F.busca;
-  let t; $('tf-busca').oninput = (ev) => { clearTimeout(t); t = setTimeout(() => { F.busca = ev.target.value; pintarTarefas(); }, 250); };
+  F.busca = '';
   const [ts, fl] = await Promise.all([
     buscarTodos(() => sb.from('tarefas').select('*').order('prazo', { nullsFirst: false })),
     q(sb.from('fluxos').select('*').order('prazo_fatal', { nullsFirst: false })).catch(() => [])
@@ -5052,10 +5102,12 @@ function filtrarTarefas(daLista) {
     if (a === '7' && (tarefaFechada(t) || !t.prazo || t.prazo > somarDias(h, 7))) return false;
     // "pedem atenção" (destaque do Início): minhas atrasadas ou com prazo fatal em até 7 dias
     if (a === 'atencao' && (tarefaFechada(t) || !ehMinha(t) || !((t.prazo && t.prazo < h) || (t.prazo_fatal && t.prazo_fatal <= somarDias(h, 7))))) return false;
-    // Backup 85 (TF2): na Lista, Pessoa/Tipo/Prioridade ficam dentro de "Filtros" da tabela (como no ambiente); a barra vale para as outras vistas
-    if (!daLista && F.tipos && !F.tipos.includes(tipoItemAgenda(t))) return false;
-    if (!daLista && F.pessoas && F.pessoas.length && ![t.responsavel, t.revisor].concat(String(t.participantes || '').split(',')).some((n) => n && F.pessoas.includes(primeiroNome(n)))) return false;
-    if (!daLista && F.pri && t.prioridade !== F.pri) return false;
+    // Backup 88: Mostrar · De quem · Urgência valem em TODAS as vistas (Lista e Calendário)
+    const mo = F.mostra || '', tp = tipoItemAgenda(t);
+    if (mo === 'atrasadas' && (tarefaFechada(t) || !t.prazo || t.prazo >= h)) return false;
+    if (mo && mo !== 'atrasadas' && (mo === 'reuniao' ? !['reuniao', 'compromisso'].includes(tp) : tp !== mo)) return false;   // compromissos antigos entram em Reuniões
+    if (F.pessoas && F.pessoas.length && ![t.responsavel, t.revisor].concat(String(t.participantes || '').split(',')).some((n) => n && F.pessoas.includes(primeiroNome(n)))) return false;
+    if (F.pri && t.prioridade !== F.pri) return false;
     if (b && !normalizar(t.titulo + ' ' + t.processos_vinculados + ' ' + nomeGrupo(t.grupo_id) + ' ' + nomeCliente(t.cliente_id) + ' ' + t.etiquetas + ' ' + t.descricao).includes(b)) return false;
     return true;
   });
@@ -5069,24 +5121,19 @@ function pintarTarefas() {
   // Backup 84: uma linha de filtros em TODAS as vistas — "Mostrar" (tipo) em chips sempre à vista; "De quem" e "Urgência" em listas
   // (como o "Todos os grupos" de Processos). Saíram os chips de pessoas, de prioridade e de prazo (o usuário pediu menos filtros).
   if (F.pessoas && F.pessoas.length > 1) F.pessoas = [];   // de quando eram vários chips: agora é uma pessoa ou todas
-  { const tipos = FILTRO_TIPOS_AG.map((x) => x[0]), tSel = new Set(F.tipos || tipos), eu = primeiroNome(meuNome());
+  // Backup 88: os 3 filtros no PADRÃO DO ESCRITÓRIO (a caixa do Mês · Semana · Dia), sempre com todas as opções à vista
+  { const eu = primeiroNome(meuNome());
     const pes = pessoasFiltro().slice().sort((a, b) => (primeiroNome(b) === eu) - (primeiroNome(a) === eu) || a.localeCompare(b, 'pt-BR'));
     const pesSel = F.pessoas && F.pessoas.length === 1 ? F.pessoas[0] : '';
-    const chipB = (k, r, on) => '<button type="button" class="b-chip" data-tf-tipo="' + esc(k) + '" aria-pressed="' + on + '">' + esc(r) + '</button>';
+    const grupo = (rot, html) => '<div class="b-tf-f"><span class="b-tf-f-rot">' + rot + '</span>' + html + '</div>';
     $('tf-chips').classList.remove('fila-2x2', 'tf-so-quem');
-    $('tf-chips').style.display = F.vista === 'lista' ? 'none' : '';   // Backup 85 (TF2)
-    $('tf-chips').innerHTML = '<div class="b-tf-filtros"><div class="b-chips" role="group" aria-label="Mostrar"><span class="b-fin-rot">Mostrar</span>' +
-        chipB('*', 'Tudo', tSel.size === tipos.length) + FILTRO_TIPOS_AG.map(([k, r]) => chipB(k, r, tSel.has(k))).join('') + '</div>' +
-      '<div class="b-fsus">' + (pes.length > 1 ? '<label class="b-fsus-c"><span>De quem</span><select id="tf-f-pes" aria-label="De quem"><option value="">Todas as pessoas</option>' +
-        pes.map((n) => '<option value="' + esc(primeiroNome(n)) + '"' + (pesSel === primeiroNome(n) ? ' selected' : '') + '>' + esc(nomeCurto(n)) + '</option>').join('') + '</select></label>' : '') +
-      '<label class="b-fsus-c"><span>Urgência</span><select id="tf-f-pri" aria-label="Urgência"><option value="">Todas</option>' +
-        [['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa']].map(([k, r]) => '<option value="' + k + '"' + (F.pri === k ? ' selected' : '') + '>' + r + '</option>').join('') + '</select></label>' +
-      (pesSel || F.pri ? '<button type="button" class="b-fsus-limpar" id="tf-f-limpar">Limpar filtro</button>' : '') + '</div></div>';
-    const sp = $('tf-f-pes'); if (sp) sp.onchange = () => { F.pessoas = sp.value ? [sp.value] : []; pintarTarefas(); };
-    $('tf-f-pri').onchange = (ev) => { F.pri = ev.target.value; pintarTarefas(); };
-    const lp = $('tf-f-limpar'); if (lp) lp.onclick = () => { F.pessoas = []; F.pri = ''; pintarTarefas(); };
+    $('tf-chips').style.display = '';
+    $('tf-chips').innerHTML = '<div class="b-tf-filtros b-tf-filtros-88">' +
+      grupo('Mostrar', segFiltroB('tf-f-mostra', 'data-tf-mostra', [['', 'Tudo'], ['reuniao', 'Reuniões'], ['audiencia', 'Audiências'], ['tarefa', 'Tarefas'], ['rotina', 'Rotinas'], ['atrasadas', 'Atrasadas']], F.mostra || '', 'Mostrar')) +
+      (pes.length > 1 ? grupo('De quem', segFiltroB('tf-f-pes', 'data-tf-pes', [['', 'Todos']].concat(pes.map((n) => [primeiroNome(n), nomeCurto(n).split(' ')[0]])), pesSel, 'De quem')) : '') +
+      grupo('Urgência', segFiltroB('tf-f-pri', 'data-tf-pri', [['', 'Todas'], ['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa']], F.pri || '', 'Urgência')) + '</div>';
   }
-  const V = { lista: vistaLista, semana: vistaSemana, calendario: vistaCalendario, fluxos: vistaFluxos };
+  const V = { lista: vistaLista, calendario: vistaCalendario };   // Backup 88: sem as vistas Semana (está no Calendário) e Fluxos
   $('tf-corpo').innerHTML = '<div id="tf-vista-corpo"></div>';
   if (!V[F.vista]) F.vista = 'lista';
   V[F.vista]($('tf-vista-corpo'));
@@ -5130,7 +5177,7 @@ function situacaoTarefa(t) {
   if (!t.prazo) return '<span class="sub">sem prazo</span>';
   const d = diasAte(t.prazo);
   return '<span class="' + (d <= 0 ? 'b-pz-r' : d < 3 ? 'b-pz-a' : d < 10 ? 'b-pz-b' : 'b-pz-g') + '">' + (d < 0 ? Math.abs(d) + ' d atraso' : d === 0 ? 'vence hoje' : d + (d === 1 ? ' dia' : ' dias')) + '</span>' +
-    (t.prazo_fatal ? '<small class="b-pz-sub">fatal ' + esc(dataBR(t.prazo_fatal).slice(0, 5)) + '</small>' : '');
+'';
 }
 function vistaLista(alvo) {
   const lista = filtrarTarefas(true), h = hojeISO(), F = E.tf;
@@ -5143,10 +5190,8 @@ function vistaLista(alvo) {
     abas: [{ id: 'abertas', rot: 'Em aberto', f: (t) => !tarefaFechada(t) }, { id: 'atrasadas', rot: 'Atrasadas', cor: 'r', f: (t) => !tarefaFechada(t) && t.prazo && t.prazo < h },
       { id: 'concluidas', rot: 'Concluídas', f: (t) => t.status === 'concluida' }],   // Backup 86 (M03): sem a aba Excluídas (excluir tem Desfazer)
     venc: (t) => t.prazo || '', ord: { k: 'prazo', dir: 1 }, ordAbas: { concluidas: { k: 'prazo', dir: -1 } },   // B84: sem os atalhos de prazo (a aba Atrasadas e "Filtros → vencimento" bastam)
-    listas: [{ k: 'pes', rot: 'Pessoa', todos: 'Todas as pessoas', opcoes: pessoasFiltro().map((n) => [primeiroNome(n), nomeCurto(n)]), get: (t) => [t.responsavel, t.revisor].concat(String(t.participantes || '').split(',')).filter(Boolean).map(primeiroNome) },
-      { k: 'tipo', rot: 'Tipo', todos: 'Todos os tipos', opcoes: FILTRO_TIPOS_AG, get: (t) => tipoItemAgenda(t) },
-      { k: 'pri', rot: 'Prioridade', todos: 'Todas', opcoes: [['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa']], get: (t) => t.prioridade },
-      { k: 'st', rot: 'Status', todos: 'Todos os status', opcoes: Object.entries(STATUS_TAREFA), get: (t) => t.status }],
+    // Backup 88: De quem, tipo e urgência estão na barra do alto (padrão do escritório); aqui só o Status
+    listas: [{ k: 'st', rot: 'Status', todos: 'Todos os status', opcoes: Object.entries(STATUS_TAREFA), get: (t) => t.status }],
     // Backup 85 (TF6): "Marcar várias" → "Concluir as marcadas" (com Desfazer)
     lote: [{ rot: 'Concluir as marcadas', icone: 'check', quando: (t) => !tarefaFechada(t), fn: (l) => concluirVarias(l) }],
     busca: (t) => [t.titulo, t.processos_vinculados, grupoDe(t), nomeCliente(t.cliente_id), t.etiquetas, t.descricao].join(' '), dicaBusca: 'Tarefa ou cliente…',
@@ -5190,7 +5235,7 @@ async function vistaCalendario(raiz) {
   const dia = F.calVista === 'dia';
   F.dia = F.dia || hojeISO();
   const filtradas = filtrarTarefas(), idsF = new Set(filtradas.map((t) => t.id));
-  const proj = F.aba === 'abertas' ? (await projecoesRecorrentes()).filter((x) => idsF.has(x.id)) : [];
+  const proj = [];   // Backup 88: sem as "próximas (repete)" projetadas no calendário (pedido: remover essa opção)
   const pre = dia ? F.dia : F.mes + '-', lista = filtradas.concat(F.aba === 'abertas' ? (E._tarefas || []).filter((t) => t.status === 'concluida' && String(t.prazo || '').startsWith(pre)) : [], proj);
   alvo.innerHTML = calendarioTarefas(lista, dia ? 'dia' : 'mes');
   if (!dia) requestAnimationFrame(() => { const c = alvo.querySelector('.b-cal'); if (c && c.offsetHeight > 300) F.altCal = c.offsetHeight; });
@@ -5216,18 +5261,18 @@ function itemCalB(t, d) {
   const cls = classeAgenda(t, d);
   return '<button type="button" class="b-cal-it ' + cls + (t._prev ? ' b-cal-prev' : '') + '" data-cal-it="' + esc(t.id) + '" data-cal-d="' + d + '" title="' + esc(horaAg(t) + t.titulo + (t.local ? ' · ' + t.local : '')) + '">' +
     '<i class="ag-cor ' + cls + '" aria-hidden="true"></i>' + (t.hora ? '<span class="b-cal-h">' + esc(String(t.hora).slice(0, 5)) + '</span>' : '') +
-    '<span class="b-cal-t">' + (t.prazo_fatal === d ? '⚑ ' : '') + esc(t.titulo) + '</span></button>';
+    '<span class="b-cal-t">' + esc(t.titulo) + '</span></button>';
 }
 function calendarioTarefas(lista, vista) {
   const F = E.tf, h = hojeISO();
-  const doDia = (d) => lista.filter((t) => t.prazo === d || t.prazo_fatal === d).sort((x, y) => String(x.hora || '99').localeCompare(String(y.hora || '99')));
+  const doDia = (d) => lista.filter((t) => t.prazo === d).sort((x, y) => String(x.hora || '99').localeCompare(String(y.hora || '99')));   // Backup 88: sem o dia do prazo fatal
   const atrL = lista.filter((t) => t.prazo && t.prazo < h && !tarefaFechada(t) && !t._prev), atr = atrL.length;
   let titulo, corpo;
   if (vista === 'dia') {
     titulo = new Date(F.dia + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' }).replace(/^./, (x) => x.toUpperCase());
     const l = doDia(F.dia);
     corpo = '<div class="b-cal-diaLista">' + (l.length ? '<div class="b-tempo">' + l.map((t) => '<button type="button" class="b-ev b-ev-bt" data-cal-it="' + esc(t.id) + '" data-cal-d="' + F.dia + '"><span class="b-ev-q">' +
-        (t.hora ? esc(horaFaixa(t)) : 'dia todo') + '</span><span class="b-ev-ic"><i class="ag-cor ' + classeAgenda(t, F.dia) + '"></i></span><div class="b-ev-tx"><b>' + (t.prazo_fatal === F.dia ? '⚑ ' : '') + esc(t.titulo) + '</b><span>' +
+        (t.hora ? esc(horaFaixa(t)) : 'dia todo') + '</span><span class="b-ev-ic"><i class="ag-cor ' + classeAgenda(t, F.dia) + '"></i></span><div class="b-ev-tx"><b>' + esc(t.titulo) + '</b><span>' +
         esc([ROT_TIPO_TF[tipoItemAgenda(t)], quemTarefa(t), t.local, t.cliente_id ? nomeCliente(t.cliente_id) : ''].filter(Boolean).join(' · ')) + '</span></div></button>').join('') + '</div>'
       : '<div class="b-cal-vazio">Nada marcado neste dia. <button type="button" class="b-link" data-agendar>Agendar</button></div>') + '</div>';
   } else {
@@ -5257,7 +5302,7 @@ function detalheAgenda(t, d) {
   const quando = (d || t.prazo ? new Date((d || t.prazo) + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' }) : 'sem data') + (t.hora ? ' · ' + horaFaixa(t) : '');
   const pessoas = [t.responsavel].concat(String(t.participantes || '').split(',').map((x) => x.trim())).filter(Boolean);
   const campos = [['Quando', quando], ['Onde', t.local], ['Quem', pessoas.map(nomeCurto).join(', ') + (t.com_quem ? ' · com ' + t.com_quem : '')], ['Cliente', t.cliente_id ? nomeCliente(t.cliente_id) : ''],
-    ['Prioridade', pri], ['Prazo fatal', t.prazo_fatal ? dataBR(t.prazo_fatal) : ''], ['Repete', t.recorrencia ? textoRepete(t) : ''], ['Processo', t.processos_vinculados]].filter((x) => x[1]);
+    ['Prioridade', pri], ['Repete', t.recorrencia ? textoRepete(t) : ''], ['Processo', t.processos_vinculados]].filter((x) => x[1]);
   const st = t._prev ? '<span class="b-pill b-a">prevista</span>' : tarefaFechada(t) ? '<span class="b-pill b-g">Concluída</span>' : t.prazo && t.prazo < hojeISO() ? '<span class="b-pill b-r">Atrasada</span>' : '<span class="b-pill b-b">Em aberto</span>';
   const j = abrirJanela({ kick: ROT_TIPO_TF[tp] || 'Tarefa', titulo: t.titulo, sub: esc(quando), dir: st,
     corpo: '<div class="b-ficha b-ficha-2">' + campos.map(([r, v]) => '<div><span>' + r + '</span><b>' + esc(v) + '</b></div>').join('') + '</div>' +
@@ -5584,9 +5629,15 @@ function formTarefa(t, depois) {
   const novo = !t.id;
   let checklist = Array.isArray(t.checklist) ? t.checklist.map((c) => ({ texto: c.texto, feito: !!c.feito })) : [];
   const outras = (E._tarefas || []).filter((x) => x.id !== t.id && !tarefaFechada(x));
+  // Backup 88: Tipo no alto — Tarefa (pontual) · Rotina (repete) · Reunião · Audiência (as duas últimas abrem a janela de agendar, com horário e participantes)
+  const ehAgenda = !novo && !!t.tipo_agenda;
+  let tipoTf = t._tipo || (t.recorrencia || t.recorrencia_regra ? 'rotina' : 'tarefa');
+  const tiposForm = novo && !t.tarefa_pai_id ? TIPOS_NOVO_TF : [['tarefa', 'Tarefa'], ['rotina', 'Rotina']];
   const j = abrirJanela({ kick: novo ? 'Nova' : 'Tarefa', titulo: novo ? (t.tarefa_pai_id ? 'Subtarefa' : 'Tarefa') : (t.titulo || 'Tarefa'), larga: true,
     sub: novo ? '' : esc([ROT_TIPO_TF[tipoItemAgenda(t)] || 'Tarefa', t.responsavel ? nomeCurto(t.responsavel) : ''].filter(Boolean).join(' · ')),
     corpo: '<form id="f-tf" class="grade">' +
+      (ehAgenda ? '' : '<div class="campo inteiro"><span>Tipo</span>' + segFiltroB('tf-tipo', 'data-tf-tp', tiposForm, tipoTf, 'Tipo') +
+        '<small class="sub tf-tipo-dica" id="tf-tipo-dica"></small></div>') +
       // Backup 54: à vista só o essencial (o que fazer, para quem, até quando, urgência, cliente, se repete); o resto em "Mais opções"
       campo('Tarefa <span class="obrig">*</span>', '<input name="titulo" maxlength="300" value="' + esc(t.titulo || '') + '" placeholder="O que precisa ser feito?">', 'inteiro') +
       campo('Para quem', selectPessoa('responsavel', t.responsavel || (novo && E.perfil ? E.perfil.nome : ''), '— escolha —')) +
@@ -5594,9 +5645,8 @@ function formTarefa(t, depois) {
       campo('Urgência', selectPares('prioridade', [['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa']], t.prioridade || 'media')) +
       campo('Cliente', '<select name="cliente_id">' + opcoesClientes(t.cliente_id || '') + '</select>') +
       campoRepetir(t) +
-      '<details class="inteiro tf-mais" id="tf-mais"' + (novo ? '' : ' open') + '><summary>+ Mais opções <span class="sub">prazo fatal, participantes, revisão, checklist, descrição…</span></summary><div class="grade">' +
+      '<details class="inteiro tf-mais" id="tf-mais"' + (novo ? '' : ' open') + '><summary>+ Mais opções <span class="sub">participantes, revisão, checklist, descrição…</span></summary><div class="grade">' +
       campo('Grupo', '<input name="grupo" list="tf-grupos" value="' + esc(nomeGrupo(t.grupo_id)) + '">' + datalistGrupos('tf-grupos')) +
-      campo('Prazo fatal (legal / judicial)', '<input name="prazo_fatal" type="date" value="' + esc(t.prazo_fatal || '') + '">') +
       '<div class="campo inteiro"><span>Participantes</span>' + campoParticipantes(t.participantes) + '</div>' +
       campo('Início', '<input name="inicio" type="date" value="' + esc(t.inicio || (novo ? hojeISO() : '')) + '">') +
       campo('Status', selectPares('status', Object.entries(STATUS_TAREFA), t.status || 'pendente')) +
@@ -5622,6 +5672,16 @@ function formTarefa(t, depois) {
       '<div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="btn-salvar-tf">' + iconeB('check') + 'Salvar</button></div>' });
   { const fi = j.querySelector('#tf-ficha'); if (fi) fi.onclick = () => { fecharJanela(j); abrirTarefa(t, depois || recarregarTarefas); }; }
   const f = j.querySelector('#f-tf');
+  // Backup 88: o bloco "Repetir" só aparece na Rotina (tarefa é pontual)
+  const pintarTipoTf = () => {
+    const rep = j.querySelector('#tf-rep'); if (rep) rep.style.display = tipoTf !== 'rotina' && !ehAgenda ? 'none' : '';
+    const sel = j.querySelector('#tf-rep-tipo');
+    if (sel && tipoTf === 'rotina' && !sel.value) { sel.value = 'semanal'; sel.dispatchEvent(new Event('change', { bubbles: true })); }
+    const d = j.querySelector('#tf-tipo-dica'); if (d) d.textContent = tipoTf === 'rotina' ? 'Rotina = tarefa que se repete. Escolha abaixo como ela se repete.' : 'Tarefa = feita uma vez, até o prazo.';
+  };
+  { const tb = j.querySelector('#tf-tipo'); if (tb) tb.onclick = (ev) => { const b = ev.target.closest('[data-tf-tp]'); if (!b) return;
+    if (b.dataset.tfTp === 'reuniao' || b.dataset.tfTp === 'audiencia') { const d = f.prazo.value || hojeISO(); fecharJanela(j); janelaAgendar(d, depois || recarregarTarefas, b.dataset.tfTp); return; }
+    tipoTf = b.dataset.tfTp; marcarSegB(tb, b); pintarTipoTf(); }; }
   const pintarCheck = () => {
     j.querySelector('#tf-check').innerHTML = checklist.length ? checklist.map((c, i) => '<div class="ck-item"><label class="check"><input type="checkbox" data-ck="' + i + '"' + (c.feito ? ' checked' : '') + '> <span' + (c.feito ? ' class="riscado"' : '') + '>' + esc(c.texto) + '</span></label>' +
       '<button type="button" class="btn-etq" data-ck-x="' + i + '" title="Remover">×</button></div>').join('') : '<div class="sub">Sem itens. A tarefa só pode ser concluída com todos os itens marcados.</div>';
@@ -5648,13 +5708,13 @@ function formTarefa(t, depois) {
   const aposSalvar = async () => { esquecerProjecoes(); await (depois || recarregar)(); };
   // tarefa nova com repetição: o prazo vira a primeira data da regra
   ligarRepetir(j, (r, prox) => { if (novo && j.querySelector('#tf-rep')._mexeu) { const p1 = proximasDatas(r, somarDias(r.inicio, -1), 1, E._feriados)[0]; if (p1) f.prazo.value = p1; } });
+  pintarTipoTf();
   j.querySelector('#btn-salvar-tf').onclick = (ev) => comBotao(ev.currentTarget, async () => {
     if (!f.titulo.value.trim()) throw new Error('Escreva a tarefa.');
     const est = f.estimativa_horas.value.trim() ? lerValor(f.estimativa_horas.value) : null;
     if (Number.isNaN(est)) throw new Error('Estimativa de horas inválida.');
-    if (f.prazo.value && f.prazo_fatal.value && f.prazo.value > f.prazo_fatal.value) throw new Error('O prazo interno está depois do prazo fatal.');
     const dados = { titulo: f.titulo.value.trim(), cliente_id: f.cliente_id.value || null, grupo_id: await grupoPorNome(f.grupo.value), responsavel: f.responsavel.value.trim(),
-      participantes: lerParticipantes(j), prazo: f.prazo.value || null, prazo_fatal: f.prazo_fatal.value || null, inicio: f.inicio.value || null,
+      participantes: lerParticipantes(j), prazo: f.prazo.value || null, inicio: f.inicio.value || null,
       prioridade: f.prioridade.value, status: f.status.value, estimativa_horas: est, etiquetas: f.etiquetas.value.trim(),
       depende_de: f.depende_de.value || null, exige_anexo: f.exige_anexo.checked, exige_revisao: f.exige_revisao.checked, revisor: f.revisor.value.trim(),
       processos_vinculados: f.processos_vinculados.value.trim(), descricao: f.descricao.value.trim(), obs: f.obs.value.trim(), checklist };
@@ -5663,8 +5723,10 @@ function formTarefa(t, depois) {
     if (dados.exige_revisao && !dados.revisor) throw new Error('Informe quem revisa (ou desmarque "Exige revisão").');
     if (dados.status !== (t.status || 'pendente')) await validarDependencia(dados, dados.status);
     // Backup 51: repetição — regra nova (série) ou a antiga, intocada
-    const box = j.querySelector('#tf-rep'), regra = lerRepetir(j), legado = !t.recorrencia_regra && ['semanal', 'mensal', 'anual'].includes(t.recorrencia || '');
+    const box = j.querySelector('#tf-rep'), regra = ehAgenda || tipoTf === 'rotina' ? lerRepetir(j) : null, legado = !t.recorrencia_regra && ['semanal', 'mensal', 'anual'].includes(t.recorrencia || '');
     if (regra && (regra.tipo === 'semanal' || regra.tipo === 'mensal_dias') && !(regra.dias || []).length) throw new Error('Repetir: escolha pelo menos um dia.');
+    if (tipoTf === 'rotina' && !ehAgenda && !regra && !(legado && !box._mexeu)) throw new Error('Rotina: escolha como ela se repete (ou troque o tipo para Tarefa).');
+    if (tipoTf === 'tarefa' && !ehAgenda && (t.recorrencia || t.recorrencia_regra)) box._mexeu = true;   // virou tarefa pontual: a repetição sai
     if (legado && !box._mexeu) dados.recorrencia = t.recorrencia;
     else if (regra || t.recorrencia_regra) { dados.recorrencia_regra = regra; dados.recorrencia = regra ? 'regra' : ''; }
     else dados.recorrencia = '';
@@ -6342,7 +6404,7 @@ TELAS.documentos = async function () {
     return '<span class="' + corPrazo(n) + '">' + (n < 0 ? 'vencido há ' + plural(-n, 'dia', 'dias') : n === 0 ? 'vence hoje' : plural(n, 'dia', 'dias')) + '</span><small class="b-pz-sub">' + dataBR(d.validade) + '</small>'; };
   const el = $('doc-tab');
   tabelaB(el, { id: 'documentos', linhas: _docsTela.filter((d) => !d.arquivado), unidade: ['arquivo', 'arquivos'], dicaBusca: 'Arquivo, cliente ou etiqueta…', ord: { k: 'em', dir: -1 },
-    busca: (d) => [d.nome, nomeCli(d.cliente_id), nomeG(grupoDe(d)), nomeTipoDoc(d.tipo), d.etiquetas, d.obs].join(' '), venc: (d) => d.validade || '',
+    buscaFica: true, busca: (d) => [d.nome, nomeCli(d.cliente_id), nomeG(grupoDe(d)), nomeTipoDoc(d.tipo), d.etiquetas, d.obs].join(' '), venc: (d) => d.validade || '',
     barraExtra: '<button type="button" class="b-bt-f" id="doc-pastas" title="O jeito antigo: uma pasta por grupo e subpastas por empresa, com o link do Drive">Ver em pastas</button>',
     listas: [{ k: 'tipo', rot: 'Tipo', todos: 'Todos os tipos', opcoes: opc((d) => d.tipo, nomeTipoDoc), get: (d) => d.tipo },
       { k: 'g', rot: 'Grupo', todos: 'Todos os grupos', opcoes: opc(grupoDe, nomeG), get: grupoDe },
@@ -7714,8 +7776,8 @@ function linkAgendaGoogle(ev) {
 'use strict';
 // ═══════════════════════════════════════════════════════════════════
 // Publicações — Diário de Justiça Eletrônico Nacional (API pública do CNJ).
-// A função "erp-publicacoes" busca pelas OABs cadastradas (7h e 13h, dias
-// úteis, ou pelo botão "Buscar agora" — desde o Backup 52 pelo navegador); aqui a equipe lê, cria a tarefa com
+// A função "erp-publicacoes" busca pelas OABs cadastradas (Backup 88: todo dia às 6h, na região de São Paulo,
+// ou pelo botão "Buscar agora" — desde o Backup 52 pelo navegador); aqui a equipe lê, cria a tarefa com
 // prazo sugerido em dias úteis e marca como tratada.
 // ═══════════════════════════════════════════════════════════════════
 const PALAVRAS_PUB = ['intimação', 'intimada', 'intimado', 'prazo', 'sentença', 'audiência', 'citação', 'citado', 'citada', 'decisão', 'penhora', 'bloqueio'];
@@ -7749,7 +7811,7 @@ TELAS.publicacoes = async function () {
     // Backup 77: a tela voltou a ser a de antes do Backup 72 (cartões com o texto, filtros em botões), a pedido; só o cabeçalho segue o padrão único (ícone + título)
     '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('publicacao') + '</div><div class="b-cab-tx"><h1>Publicações</h1><p id="pub-ult">Intimações do Diário de Justiça</p></div>' +
     '<div class="acoes"><button class="btn btn-o" id="pub-todas-lidas" title="Marca como lidas todas as publicações novas">✓ Marcar todas como lidas</button><button class="btn btn-o" id="pub-oabs">⚙ Monitoramento (OABs e clientes)</button><button class="btn btn-p" id="pub-buscar" title="Busca no Diário do CNJ pelo seu navegador (se ele falhar, tenta pelo servidor)">↻ Buscar agora</button></div></div>' +
-    '<div class="filtros"><div class="segmento" id="pub-st">' + [['nova', 'Novas'], ['lida', 'Lidas'], ['tratada', 'Tratadas'], ['descartada', 'Descartadas'], ['', 'Todas']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
+    '<div class="filtros"><div class="segmento" id="pub-st">' + [['nova', 'Novas'], ['lida', 'Lidas'], ['tratada', 'Tratadas'], ['', 'Todas']].map(([v, r]) => '<button data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
     '<select class="busca sel" id="pub-dias"><option value="7">Últimos 7 dias</option><option value="15">Últimos 15 dias</option><option value="30">Últimos 30 dias</option><option value="90">Últimos 90 dias</option><option value="">Todo o período</option></select>' +
 
     '<input class="busca" id="pub-busca" placeholder="Buscar no texto, processo ou parte" autocomplete="off"></div>' +
@@ -7771,9 +7833,9 @@ TELAS.publicacoes = async function () {
     if (r.erros.length && !r.lidas) {
       const data = await chamarFuncao('erp-publicacoes', {}).catch((e) => ({ erros: [e.message] }));
       const erro = data.erros && data.erros.length ? data.erros[0] : '';
-      if (!erro) aviso('✓ Busca feita (pelo servidor, porque o navegador não alcançou o CNJ): ' + (data.lidas || 0) + ' publicação(ões) lida(s), ' + (data.novas || 0) + ' nova(s).');
+      if (!erro) aviso('✓ Busca feita (pelo servidor, porque o navegador não alcançou o CNJ): ' + (data.novas ? plural(data.novas, 'intimação nova', 'intimações novas') : 'nenhuma intimação nova') + '.');
       else aviso('⚠ A busca não foi feita. Pelo navegador: ' + r.erros[0] + '. Pelo servidor: ' + erro + '. Tente de novo em alguns minutos.', true);
-    } else aviso('✓ Busca feita: ' + r.lidas + ' publicação(ões) lida(s), ' + r.novas + ' nova(s).' + (r.erros.length ? ' Atenção: ' + r.erros[0] : ''), !!r.erros.length);
+    } else aviso('✓ Busca feita: ' + (r.novas ? plural(r.novas, 'intimação nova', 'intimações novas') : 'nenhuma intimação nova') + '.' + (r.erros.length ? ' Atenção: ' + r.erros[0] : ''), !!r.erros.length);
     await TELAS.publicacoes();
   });
   $('pub-st').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.status = b.dataset.v; pintarPublicacoes(); } };
@@ -7783,11 +7845,51 @@ TELAS.publicacoes = async function () {
   $('pub-dias').value = F.dias; $('pub-busca').value = F.busca;
   let t; $('pub-busca').oninput = (ev) => { clearTimeout(t); t = setTimeout(() => { F.busca = ev.target.value; pintarPublicacoes(); }, 250); };
   q(sb.from('configuracoes').select('valor').eq('chave', 'publicacoes_ultima').maybeSingle()).then((u) => {
-    if (u && u.valor && $('pub-ult')) $('pub-ult').textContent = 'Última busca: ' + quandoRodou(u.valor.quando) + ' · ' + u.valor.novas + ' nova(s) de ' + u.valor.lidas + ' lida(s)' +
-      (u.valor.erros && u.valor.erros.length ? ' · ⚠ ' + u.valor.erros[0] : '') + ' · automática 1× por dia ao abrir o ERP';
+    E._pubUlt = u && u.valor; textoUltimaBusca();
   }).catch(() => {});
   await carregarPublicacoes();
+  textoUltimaBusca();
 };
+// Backup 88: "Última busca: 18/10/2026 06:00. 3 novas intimações — Pedro (2), Emanuelle (1)" — só as NOVAS daquele dia (sem as lidas)
+function textoUltimaBusca() {
+  const u = E._pubUlt, el = $('pub-ult'); if (!el || !u || !u.quando) return;
+  const dia = iso(new Date(u.quando)), novas = (E._pubs || []).filter((p) => p.criado_em && iso(new Date(p.criado_em)) === dia);
+  const porAdv = {}; novas.forEach((p) => { const n = String(p.advogado || '').trim().split(/\s+/)[0] || 'Sem advogado'; porAdv[n] = (porAdv[n] || 0) + 1; });
+  const n = E._pubs ? novas.length : Number(u.novas) || 0;
+  el.textContent = 'Última busca: ' + quandoRodou(u.quando) + '. ' + (n ? plural(n, 'nova intimação', 'novas intimações') : 'Nenhuma intimação nova') +
+    (Object.keys(porAdv).length ? ' — ' + Object.keys(porAdv).sort((a, b) => porAdv[b] - porAdv[a] || a.localeCompare(b, 'pt-BR')).map((k) => k + ' (' + porAdv[k] + ')').join(', ') : '') +
+    (u.erros && u.erros.length ? ' · ⚠ ' + u.erros[0] : '');
+}
+// Backup 88: de que lado o advogado do escritório está — antes ia sempre no Autor quando o cliente não era a "parte monitorada"
+// (ex.: Emanuelle aparecia como advogada do IEF, mas ela é advogada do réu). Ordem: parte monitorada → texto da intimação
+// ("Advogado do(a) RÉU/REQUERIDO: …" perto do nome/OAB) → qual parte é cliente do escritório → um polo só entre os intimados. Sem certeza: linha própria.
+const PALAVRAS_PASSIVO = /\b(reu|re|requerid[oa]s?|reclamad[oa]s?|executad[oa]s?|impetrad[oa]s?|agravad[oa]s?|apelad[oa]s?|recorrid[oa]s?|embargad[oa]s?|denunciad[oa]s?|investigad[oa]s?|passivo|demandad[oa]s?)\b/g;
+const PALAVRAS_ATIVO = /\b(autor(a|es)?|requerentes?|reclamantes?|exequentes?|impetrantes?|agravantes?|apelantes?|recorrentes?|embargantes?|ativo|demandantes?)\b/g;
+function ladoDoAdvogado(p, G, adv) {
+  const nrm = (x) => normalizar(String(x || '')).replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+  const casa = (a, b) => { a = nrm(a); b = nrm(b); return a.length > 3 && b.length > 3 && (a.includes(b) || b.includes(a)); };
+  const tem = (lado, nomes) => G[lado].some((n) => n !== '—' && nomes.some((x) => casa(n, x)));
+  const unico = (fn) => { const a = fn('Autor'), r = fn('Réu'); return a && !r ? 'Autor' : r && !a ? 'Réu' : ''; };
+  if (p.parte_monitorada) { const l = unico((x) => tem(x, [p.parte_monitorada])); if (l) return l; }
+  const t = nrm(p.texto);
+  if (t) {
+    const marcas = [nrm(adv), p.oab_numero ? String(p.oab_numero).replace(/\D/g, '') : ''].filter((x) => x.length > 2);
+    for (const m of marcas) {
+      let i = t.indexOf(m);
+      while (i >= 0) {
+        const antes = t.slice(Math.max(0, i - 140), i), ult = (re) => { let k = -1, x; re.lastIndex = 0; while ((x = re.exec(antes))) k = x.index; return k; };
+        const kp = ult(PALAVRAS_PASSIVO), ka = ult(PALAVRAS_ATIVO);
+        if (kp > ka) return 'Réu'; if (ka > kp) return 'Autor';
+        i = t.indexOf(m, i + m.length);
+      }
+    }
+  }
+  const nossos = (E.clientes || []).map((c) => c.nome).concat((E.grupos || []).map((g) => g.nome)).filter(Boolean);
+  if (nossos.length) { const l = unico((x) => tem(x, nossos)); if (l) return l; }
+  const pol = Array.isArray(p.polos) ? [...new Set(p.polos.map((d) => String((d && d.polo) || '').toUpperCase()).filter((x) => x === 'A' || x === 'P'))] : [];
+  if (pol.length === 1) return pol[0] === 'P' ? 'Réu' : 'Autor';
+  return '';
+}
 // Partes em linhas: "Autor: …" e "Réu: …" (polo do Diário; as antigas sem polo continuam em "Partes:")
 // Backup 28: identificação no topo de toda publicação (para copiar e encaixar rápido):
 //   Processo: 5003925-39.2025.8.13.0604 / Autor: … / Réu: … — Advogado: Pedro
@@ -7799,8 +7901,9 @@ function partesPub(p) {
   // Backup 79: sempre Processo, Autor e Réu (— quando o Diário não informa); o advogado do escritório vai na linha da parte que é o cliente
   // (a parte monitorada), senão na do Autor
   if (!G.Partes.length || G['Autor'].length || G['Réu'].length) { if (!G['Autor'].length) G['Autor'].push('—'); if (!G['Réu'].length) G['Réu'].push('—'); }
-  const mon = normalizar(p.parte_monitorada || ''), ladoAdv = mon && G['Réu'].some((n) => normalizar(n).includes(mon) || mon.includes(normalizar(n))) ? 'Réu' : (G['Autor'].length ? 'Autor' : 'Partes');
+  const ladoAdv = adv ? ladoDoAdvogado(p, G, adv) : '';
   const linhas = [['Processo', p.processo || '—']].concat(Object.keys(G).filter((k) => G[k].length).map((k) => [k, G[k].join(' · ')]));
+  if (adv && !ladoAdv) linhas.push(['Advogado', adv]);   // sem certeza do lado: o advogado numa linha própria (nunca do lado errado)
   const txt = linhas.map((l) => l[0] + ': ' + l[1] + (adv && l[0] === ladoAdv ? ' - Advogado: ' + adv : '')).join('\n');
   return '<div class="pub-id"><div class="pub-id-txt">' + linhas.map((l) => '<div><b>' + l[0] + ':</b> ' + (l[0] === 'Processo' ? '<span class="mono">' + esc(l[1]) + '</span>' : esc(l[1])) +
       (adv && l[0] === ladoAdv ? ' <span class="pub-adv">— Advogado: <b>' + esc(adv) + '</b></span>' : '') + '</div>').join('') + '</div>' +
@@ -7808,7 +7911,7 @@ function partesPub(p) {
 }
 async function carregarPublicacoes() {
   const F = E.pub;
-  E._pubs = await buscarTodos(() => { let c = sb.from('publicacoes').select('id, data_disponibilizacao, tribunal, orgao, tipo, processo, processo_numero, classe, texto, link, destinatarios, polos:bruto->destinatarios, advogados, oab_numero, oab_uf, advogado, parte_monitorada, processo_id, status, tarefa_id')
+  E._pubs = await buscarTodos(() => { let c = sb.from('publicacoes').select('id, data_disponibilizacao, tribunal, orgao, tipo, processo, processo_numero, classe, texto, link, destinatarios, polos:bruto->destinatarios, advogados, oab_numero, oab_uf, advogado, parte_monitorada, processo_id, status, tarefa_id, criado_em')
     .order('data_disponibilizacao', { ascending: false, nullsFirst: false }); if (F.dias) c = c.gte('data_disponibilizacao', somarDias(hojeISO(), -Number(F.dias))); return c; });
   const opts = (id, vals, rot) => { const s = $(id); if (!s) return; const v = s.value; s.innerHTML = '<option value="">' + rot + '</option>' + [...new Set(vals.filter(Boolean))].sort().map((x) => '<option>' + esc(x) + '</option>').join(''); s.value = v; };
   void opts;
@@ -7859,7 +7962,7 @@ function pintarPublicacoes() {
       '<div class="acoes" style="margin-top:10px">' + (p.tarefa_id || p.status === 'tratada' ? '' : '<button class="btn btn-p btn-mini" data-tarefa="' + p.id + '">+ Criar tarefa (' + prazoSugerido(p) + ' dias úteis)</button>') +
       (p.status === 'nova' ? '<button class="btn btn-o btn-mini" data-st="lida">Marcar lida</button>' : '') +
       (p.status !== 'tratada' ? '<button class="btn btn-o btn-mini" data-st="tratada">Tratada</button>' : '') +
-      (p.status !== 'descartada' ? '<button class="btn btn-o btn-mini" data-st="descartada">Descartar</button>' : '<button class="btn btn-o btn-mini" data-st="nova">Voltar para novas</button>') +
+      (p.status === 'descartada' ? '<button class="btn btn-o btn-mini" data-st="nova">Voltar para novas</button>' : '') +   // Backup 88: sem "Descartar" (a opção Descartadas saiu)
       (p.link && /^https?:/.test(p.link) ? '<a class="btn btn-o btn-mini" href="' + esc(p.link) + '" target="_blank" rel="noopener">Abrir no Diário</a>' : '') + '</div></div></div>').join('')
       : '<div class="card">' + (todas.length ? vazio('Nenhuma publicação neste recorte — mude o filtro.') : vazio('Nenhuma publicação ainda. Cadastre as OABs do escritório e o sistema busca no Diário todo dia.', 'OABs monitoradas', '#pub-oabs')) + '</div>');
   $('pub-corpo').querySelectorAll('[data-copiar-id]').forEach((b2) => b2.onclick = async () => {
@@ -7970,6 +8073,9 @@ function normalizarPub(it, oab, parte) {
 // Ao abrir o Início, se a última busca deste navegador tem mais de 20 horas, busca em segundo plano (só avisa se achar novas).
 async function buscaPubAutomatica() {
   if (!pode('juridico')) return;
+  // Backup 88: a busca diária é a do servidor, às 6h. O navegador só busca se a de hoje não aconteceu ou deu erro (reserva).
+  try { const u = await q(sb.from('configuracoes').select('valor').eq('chave', 'publicacoes_ultima').maybeSingle());
+    const v = u && u.valor; if (v && v.quando && iso(new Date(v.quando)) === hojeISO() && !(v.erros && v.erros.length)) return; } catch (e) { /* busca mesmo assim */ }
   let ult = 0; try { ult = Number(localStorage.getItem('erp_pub_auto') || 0); } catch (e) { /* sem armazenamento: busca */ }
   if (Date.now() - ult < 20 * 3600000) return;
   try { localStorage.setItem('erp_pub_auto', String(Date.now())); } catch (e) { /* ok */ }
@@ -7996,6 +8102,7 @@ async function buscarPubNoNavegador(op) {
   }
   // Backup 37: a busca pela web fica registrada (Alertas → Rotinas → "Busca de publicações (web)")
   await q(sb.rpc('registrar_busca_publicacoes', { p_lidas: lidas, p_novas: novas, p_erros: erros })).catch(() => null);
+  if (novas) await q(sb.rpc('email_publicacoes_advogados')).catch(() => null);   // Backup 88: o e-mail do dia a cada advogado (se ligado)
   if (!op.silencioso) aviso('✓ Busca pelo navegador: ' + lidas + ' lida(s), ' + novas + ' nova(s).' + (erros.length ? ' Atenção: ' + erros[0] : ''), !!erros.length);
   return op.detalhe ? { lidas, novas, erros } : novas;
 }
@@ -9979,8 +10086,8 @@ function colunasParcelas(o) {
 }
 function listasParcelas(T) {
   const uniq = (f) => [...new Set(T.map(f).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR')).map((v) => [v, v]);
-  return [{ k: 'g', rot: 'Grupo', todos: 'Todos os grupos', opcoes: uniq((x) => x.pa.grupo), get: (x) => x.pa.grupo },
-    { k: 'plat', rot: 'Plataforma', todos: 'Todas as plataformas', opcoes: uniq((x) => x.pa.local), get: (x) => x.pa.local },
+  // Backup 88: sem "Grupo" aqui — o filtro de grupo já fica à vista no alto da tela
+  return [{ k: 'plat', rot: 'Plataforma', todos: 'Todas as plataformas', opcoes: uniq((x) => x.pa.local), get: (x) => x.pa.local },
     { k: 'nat', rot: 'Natureza', todos: 'Todas as naturezas', opcoes: uniq((x) => x.pa.natureza), get: (x) => x.pa.natureza }];
 }
 const buscaParc = (x) => x.pa.empresa + ' ' + x.pa.cnpj + ' ' + soDigitos(x.pa.cnpj) + ' ' + x.pa.numero + ' ' + x.pa.grupo + ' ' + x.pa.natureza;
@@ -10006,8 +10113,7 @@ function pintarParcelamentos() {
     // Backup 79: filtro suspenso (Grupo / Empresa) — recorta a situação por cliente e a lista de parcelas
     filtroSusB('pc-filtro', [{ k: 'grupo', rot: 'Grupo', todos: 'Todos os grupos', opcoes: unicosTxt(PA0.map((pa) => pa.grupo)), v: F.grupo },
       { k: 'emp', rot: 'Empresa', todos: 'Todas as empresas', opcoes: unicosTxt(PA0.filter((pa) => !F.grupo || pa.grupo === F.grupo).map((pa) => pa.empresa)), v: F.emp }]) +
-    '<div class="b-sec"><div class="b-sec-tit"><h2>Situação por cliente</h2>' + botaoMinB('pc-situacao') + '</div><div class="b-chips" id="pc-chips">' +
-    [['todos', 'Todos'], ['atraso', 'Com atraso'], ['risco', 'Risco de rescisão'], ['dia', 'Em dia'], ['concluidos', 'Concluídos']].map((c) => '<button type="button" class="b-chip" data-pc-chip="' + c[0] + '" aria-pressed="' + (E.pc.chip === c[0]) + '">' + c[1] + '</button>').join('') + '</div></div>' +
+    '<div class="b-sec"><div class="b-sec-tit"><h2>Situação por cliente</h2>' + botaoMinB('pc-situacao') + '</div>' + segFiltroB('pc-chips', 'data-pc-chip', [['todos', 'Todos'], ['atraso', 'Com atraso'], ['risco', 'Risco de rescisão'], ['dia', 'Em dia'], ['concluidos', 'Concluídos']], E.pc.chip, 'Situação') + '</div>' +
     '<div class="b-cards" id="pc-grupos"></div>' +
     '<div class="b-sec"><div><h2>Parcelas</h2></div></div><div id="pc-tabela"></div>';
   $('pc-guias').onclick = () => { E.rt = Object.assign(E.rt || {}, { aba: 'guias' }); irParaTela('rotina'); };   // Backup 82: atalho do ambiente para as guias do mês (Rotina)
@@ -10016,7 +10122,7 @@ function pintarParcelamentos() {
   ligarFiltroSusB('pc-filtro', E.pc.f, () => { E.pc.grupo = ''; E.pc.fechado = false; pintarParcelamentos(); });
   desenharGruposPc();
   ligarMinB('pc-situacao', ['pc-chips', 'pc-grupos']);   // Backup 84: a situação por cliente se minimiza
-  $('pc-chips').onclick = (ev) => { const b = ev.target.closest('[data-pc-chip]'); if (!b) return; E.pc.chip = b.dataset.pcChip; $('pc-chips').querySelectorAll('.b-chip').forEach((x) => x.setAttribute('aria-pressed', x === b)); desenharGruposPc(); };
+  $('pc-chips').onclick = (ev) => { const b = ev.target.closest('[data-pc-chip]'); if (!b) return; E.pc.chip = b.dataset.pcChip; marcarSegB($('pc-chips'), b); desenharGruposPc(); };
   tabelaB($('pc-tabela'), { id: 'parcelas', tabCls: 'b-tab-parc', linhas: T, colunas: colunasParcelas(), unidade: ['parcela', 'parcelas'], dicaBusca: 'Empresa, CNPJ ou nº',
     abas: [{ id: 'apagar', rot: 'A pagar', f: (x) => !x.pago }, { id: 'pago', rot: 'Pago', f: (x) => x.pago }], semContagemAbas: true,
     prazos: true, prazosAbas: ['apagar'], conta: (n, aba) => plural(n, 'parcela', 'parcelas') + (aba === 'pago' ? ' paga' + (n === 1 ? '' : 's') : ' a pagar'),
@@ -10043,7 +10149,7 @@ function desenharGruposPc() {
   grupos.forEach((g) => {
     const ab = E.pc.grupo === g.id, n = chip === 'concluidos' ? g.conc.length : g.vivos.length, pc = g.tot ? Math.round(g.pg / g.tot * 100) : 100;
     html += '<button type="button" class="b-cg" data-pc-g="' + esc(g.id) + '" aria-expanded="' + ab + '"><div class="b-cg-hd"><b>' + esc(g.nome) + '</b>' +
-      (chip === 'concluidos' ? '<span class="b-pill b-g">Concluídos</span>' : g.atr ? '<span class="b-pill b-r">' + plural(g.atr, 'parcela', 'parcelas') + ' em atraso</span>' : '<span class="b-pill b-g">Em dia</span>') + '</div>' +
+      (chip === 'concluidos' ? '<span class="b-cg-st b-cg-ok">Concluídos</span>' : g.atr ? '<span class="b-cg-st b-cg-atr">' + plural(g.atr, 'parcela', 'parcelas') + ' em atraso</span>' : '<span class="b-cg-st b-cg-ok">Em dia</span>') + '</div>' +
       '<div class="b-cg-sub">' + plural(n, 'parcelamento', 'parcelamentos') + (g.risco && chip !== 'concluidos' ? ' · <span class="b-n-atr">risco de rescisão</span>' : '') + '</div>' +
       // Backup 72: o número de cada parcelamento no cartão do cliente (até 4; o resto em "+N")
       // Backup 83: sem a linha "Nº …" no cartão (como no ambiente — menos amontoado); o nº continua na coluna Parcelamento da tabela
@@ -10283,22 +10389,21 @@ function pintarAcordos() {
   el.innerHTML = cabecalhoTela({ icone: 'documento', titulo: 'Acordos', frase: 'Dívidas dos clientes com terceiros', botao: podeEd ? { id: 'ac-novo', rotulo: 'Acordo' } : null }) +
     filtroSusB('ac-filtro', [{ k: 'grupo', rot: 'Grupo', todos: 'Todos os grupos', opcoes: unicosTxt(T0.map((x) => x.grupo)), v: F.grupo },   // Backup 79
       { k: 'emp', rot: 'Devedor', todos: 'Todos os devedores', opcoes: unicosTxt(T0.filter((x) => !F.grupo || x.grupo === F.grupo).map((x) => x.devedor)), v: F.emp }]) +
-    '<div class="b-sec"><div class="b-sec-tit"><h2>Situação por cliente</h2>' + botaoMinB('ac-situacao') + '</div><div class="b-chips" id="ac-chips">' +
-    [['todos', 'Todos'], ['atraso', 'Com atraso'], ['risco', 'Risco de rescisão'], ['dia', 'Em dia'], ['concluidos', 'Concluídos']].map((c) => '<button type="button" class="b-chip" data-ac-chip="' + c[0] + '" aria-pressed="' + (E.ac.chip === c[0]) + '">' + c[1] + '</button>').join('') + '</div></div>' +
+    '<div class="b-sec"><div class="b-sec-tit"><h2>Situação por cliente</h2>' + botaoMinB('ac-situacao') + '</div>' + segFiltroB('ac-chips', 'data-ac-chip', [['todos', 'Todos'], ['atraso', 'Com atraso'], ['risco', 'Risco de rescisão'], ['dia', 'Em dia'], ['concluidos', 'Concluídos']], E.ac.chip, 'Situação') + '</div>' +
     '<div class="b-cards" id="ac-grupos"></div><div class="b-sec"><div><h2>Parcelas</h2></div></div><div id="ac-tabela"></div>';
   const bt = $('ac-novo'); if (bt) bt.onclick = () => { if (typeof formAcordoNovo === 'function') formAcordoNovo(() => { if (window.ERP_RECARREGAR) window.ERP_RECARREGAR(); else TELAS.acordos(); }); };
   // Backup 71: os 4 cartões do topo saíram a pedido (a tela começa na situação por cliente)
   ligarFiltroSusB('ac-filtro', E.ac.f, () => { E.ac.grupo = ''; E.ac.fechado = false; pintarAcordos(); });
   desenharGruposAc();
   ligarMinB('ac-situacao', ['ac-chips', 'ac-grupos']);   // Backup 84: a situação por cliente se minimiza
-  $('ac-chips').onclick = (ev) => { const b = ev.target.closest('[data-ac-chip]'); if (!b) return; E.ac.chip = b.dataset.acChip; $('ac-chips').querySelectorAll('.b-chip').forEach((x) => x.setAttribute('aria-pressed', x === b)); desenharGruposAc(); };
+  $('ac-chips').onclick = (ev) => { const b = ev.target.closest('[data-ac-chip]'); if (!b) return; E.ac.chip = b.dataset.acChip; marcarSegB($('ac-chips'), b); desenharGruposAc(); };
   const uniq = (f) => [...new Set(T.map(f).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR')).map((v) => [v, v]);
   tabelaB($('ac-tabela'), { id: 'acordos', tabCls: 'b-tab-ac', linhas: T, colunas: colunasAcordos(), unidade: ['parcela', 'parcelas'], dicaBusca: 'Devedor / processo…',
     abas: [{ id: 'apagar', rot: 'A pagar', f: (x) => !x.pago }, { id: 'pago', rot: 'Pago', f: (x) => x.pago }], semContagemAbas: true,
     prazos: true, prazosAbas: ['apagar'], conta: (n, aba) => plural(n, 'parcela', 'parcelas') + (aba === 'pago' ? ' paga' + (n === 1 ? '' : 's') : ' a pagar'),
     ordAbas: { apagar: { k: 'venc', dir: 1 }, pago: { k: 'pz', dir: -1 } }, ord: { k: 'venc', dir: 1 }, linhaCls: vencidaA, busca: buscaAc, venc: (x) => x.venc, valor: (x) => x.valor, clique: (x) => { if (x.ac) janelaAcordo(x.ac); },   // Backup 85 (AC3): como no ambiente, a linha abre o acordo inteiro
-    listas: [{ k: 'g', rot: 'Grupo', todos: 'Todos os grupos', opcoes: uniq((x) => x.grupo), get: (x) => x.grupo }, { k: 'cred', rot: 'Credor', todos: 'Todos os credores', opcoes: uniq((x) => x.credor), get: (x) => x.credor },
-      { k: 'forma', rot: 'Forma de pagamento', todos: 'Boleto e PIX', opcoes: [['boleto', 'Boleto'], ['pix', 'PIX']], get: (x) => x.forma }],
+    // Backup 88: no "Filtros" só o Credor (o grupo já está no alto; a forma de pagamento saiu a pedido)
+    listas: [{ k: 'cred', rot: 'Credor', todos: 'Todos os credores', opcoes: uniq((x) => x.credor), get: (x) => x.credor }],
     vazio: { titulo: 'Nenhuma parcela aqui', frase: 'Troque a escolha acima (Todas, Vencidas, 5/10/15/30 dias) ou limpe os filtros.' } });
 }
 
@@ -10319,7 +10424,7 @@ function desenharGruposAc() {
   grupos.forEach((g) => {
     const ab = E.ac.grupo === g.id, n = chip === 'concluidos' ? g.conc.length : g.vivos.length, pc = g.tot ? Math.round(g.pg / g.tot * 100) : 100;
     html += '<button type="button" class="b-cg" data-ac-g="' + esc(g.id) + '" aria-expanded="' + ab + '"><div class="b-cg-hd"><b>' + esc(g.nome) + '</b>' +
-      (chip === 'concluidos' ? '<span class="b-pill b-g">Concluídos</span>' : g.atr ? '<span class="b-pill b-r">' + plural(g.atr, 'parcela', 'parcelas') + ' em atraso</span>' : '<span class="b-pill b-g">Em dia</span>') + '</div>' +
+      (chip === 'concluidos' ? '<span class="b-cg-st b-cg-ok">Concluídos</span>' : g.atr ? '<span class="b-cg-st b-cg-atr">' + plural(g.atr, 'parcela', 'parcelas') + ' em atraso</span>' : '<span class="b-cg-st b-cg-ok">Em dia</span>') + '</div>' +
       '<div class="b-cg-sub">' + plural(n, 'acordo', 'acordos') + (g.risco && chip !== 'concluidos' ? ' · <span class="b-n-atr">risco de rescisão</span>' : '') + '</div>' +
       (chip === 'concluidos' ? '' : '<div class="b-barra"><span style="width:' + pc + '%"></span></div><small class="b-cg-prog">' + g.pg + ' de ' + g.tot + ' pagas</small>' +   // Backup 78 (enxuto)
         '<div class="b-cg-lin"><span>Falta pagar</span><b>' + brl(g.falta) + '</b></div>' +
@@ -10426,27 +10531,33 @@ async function emitirAcordoNovo(x) {
 const dbE = () => dbParc() || {};
 const unicosB = (l) => [...new Set(l.filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b), 'pt-BR'));
 
-function estadoPE() { E.pe = E.pe || { grupo: '', empresa: '', evo: { visao: 'total', meses: 6, dados: null, lidoMeses: 0 } }; return E.pe; }
+function estadoPE() { E.pe = E.pe || { grupo: '', empresa: '', resp: '', evo: { visao: 'total', meses: 6, dados: null, lidoMeses: 0 } };
+  // Backup 88: o filtro do alto (Grupo · Empresa · Responsável) fica à direita e fixo ao rolar — o estado dele em E.pe.f
+  E.pe.f = E.pe.f || { grupo: E.pe.grupo || '', emp: E.pe.empresa || '', resp: E.pe.resp || '' };
+  E.pe.grupo = E.pe.f.grupo; E.pe.empresa = E.pe.f.emp; E.pe.resp = E.pe.f.resp; return E.pe; }
+const nome1PE = (s) => String(s || '').trim().split(/\s+/)[0] || '';   // primeiro nome como foi escrito (Pedro, Emanuelle…)
+const respPE = (r) => nome1PE(r && r.responsavel || '');
 
 // ── números do Painel (as regras do renderResumo antigo) ──
 function numerosPainel(D, P) {
   const base = D.baseDados || [];
-  const data = base.filter((r) => (!P.grupo || r.grupo === P.grupo) && (!P.empresa || r.nome === P.empresa));
+  const data = base.filter((r) => (!P.grupo || r.grupo === P.grupo) && (!P.empresa || r.nome === P.empresa) && (!P.resp || respPE(r) === P.resp));
+  const noRecorte = new Set(data), gruposRec = new Set(data.map((r) => r.grupo));
   const somaF = (k) => data.filter((r) => P.empresa || r.isPJ !== false).reduce((s, r) => s + (Number(r[k]) || 0), 0);
   const rfb = somaF('rfb') + somaF('rfbNeg'), pgfn = somaF('pgfn') + somaF('pgfnNeg'), age = somaF('ageMG') + somaF('ageMGNeg');
   // parcelamentos: sem repetidos, do recorte, sem os concluídos
   const vistos = new Set(), bdDe = (p) => base.find((b) => b.nome === p.empresa || b.cpfCnpj === p.cnpj);
   const parcs = (D.parcelamentos || []).filter((p) => { const k = [p.empresa, p.natureza, p.local, p.numero || ''].join('|'); if (vistos.has(k)) return false; vistos.add(k); return true; })
-    .filter((p) => { if (!P.grupo && !P.empresa) return true; const bd = bdDe(p); return !!bd && (!P.grupo || bd.grupo === P.grupo) && (!P.empresa || bd.nome === P.empresa); })
+    .filter((p) => { if (!P.grupo && !P.empresa && !P.resp) return true; const bd = bdDe(p); return !!bd && noRecorte.has(bd); })
     .filter((p) => { const pend = (p.parcelas || []).some((x) => x.pagamento !== 'SIM'); if (pend) return true; const tot = Number(p.totalParcelas) || 0; return !(tot > 0 ? (Number(p.parcelasPagas) || 0) >= tot : (p.parcelas || []).length > 0); });
   const saldoParc = parcs.reduce((s, p) => s + (Number(p.residual) || 0), 0);
   const emp = (P.empresa || '').toLowerCase();
-  const acs = (D.acordos || []).filter((a) => (!P.grupo || a.grupo === P.grupo) && (!emp || String(a.devedor || '').toLowerCase().includes(emp) || String(a.credor || '').toLowerCase().includes(emp)));
+  const acs = (D.acordos || []).filter((a) => (!P.grupo || a.grupo === P.grupo) && (!P.resp || gruposRec.has(a.grupo)) && (!emp || String(a.devedor || '').toLowerCase().includes(emp) || String(a.credor || '').toLowerCase().includes(emp)));
   const acAbertos = acs.filter((a) => a.situacao !== 'Pago'), acPagar = acAbertos.reduce((s, a) => s + (Number(a.valor) || 0), 0);
   // processos: o grupo escolhido (ou o da empresa); um processo com vários réus/autores conta uma vez
   const gEf = P.grupo || (P.empresa ? (base.find((r) => r.nome === P.empresa) || {}).grupo || '' : '');
   const porNum = new Map();
-  (D.processos || []).filter((p) => !gEf || p.grupo === gEf).forEach((p) => { if (!p.numero) return; const x = porNum.get(p.numero);
+  (D.processos || []).filter((p) => (!gEf || p.grupo === gEf) && (!P.resp || gruposRec.has(p.grupo))).forEach((p) => { if (!p.numero) return; const x = porNum.get(p.numero);
     if (!x) porNum.set(p.numero, Object.assign({}, p, { _r: [p.reu].filter(Boolean), _a: [p.autor].filter(Boolean) })); else { if (p.reu && !x._r.includes(p.reu)) x._r.push(p.reu); if (p.autor && !x._a.includes(p.autor)) x._a.push(p.autor); } });
   const procs = [...porNum.values()], nomes = unicosB(data.map((r) => r.nome)).map((n) => n.toLowerCase());
   let passivo = 0, ativo = 0; const totProc = procs.reduce((s, p) => s + (Number(p.valor) || 0), 0);
@@ -10462,13 +10573,13 @@ TELAS.painelExec = async function () {
   const D = dbE(), P = estadoPE(), c = $('conteudo');
   if (!Array.isArray(D.baseDados)) { c.innerHTML = vazioB({ icone: 'pizza', titulo: 'Abra pelo ERP', frase: 'O Painel executivo usa os dados que o ERP carrega.' }); return; }
   const base = D.baseDados;
-  const grupos = unicosB(base.map((r) => r.grupo)), emps = unicosB(base.filter((r) => !P.grupo || r.grupo === P.grupo).map((r) => r.nome));
-  if (P.empresa && !emps.includes(P.empresa)) P.empresa = '';
+  const grupos = unicosB(base.filter((r) => !P.resp || respPE(r) === P.resp).map((r) => r.grupo)),
+    emps = unicosB(base.filter((r) => (!P.grupo || r.grupo === P.grupo) && (!P.resp || respPE(r) === P.resp)).map((r) => r.nome)), resps = unicosB(base.map(respPE));
+  if (P.empresa && !emps.includes(P.empresa)) P.empresa = P.f.emp = '';
   const N = numerosPainel(D, P), t = (v) => '<span title="' + esc(brl(v)) + '">' + esc(brlCurto(v)) + '</span>';
   c.innerHTML = cabecalhoTela({ icone: 'painel', titulo: 'Painel Executivo', frase: 'Passivo dos clientes e onde ele está' }) +
-    '<div class="b-fin-topo b-pe-topo"><select id="pe-grupo" aria-label="Grupo"><option value="">Todos os grupos</option>' + grupos.map((g) => '<option' + (P.grupo === g ? ' selected' : '') + '>' + esc(g) + '</option>').join('') + '</select>' +
-      '<select id="pe-emp" aria-label="Empresa"><option value="">Todas as empresas</option>' + emps.map((e) => '<option' + (P.empresa === e ? ' selected' : '') + '>' + esc(e) + '</option>').join('') + '</select>' +
-      '<span class="b-pe-conta">' + plural(N.data.length, 'entidade', 'entidades') + ' · ' + plural(unicosB(N.data.map((r) => r.grupo)).length, 'grupo', 'grupos') + '</span></div>' +
+    filtroSusB('pe-filtro', [{ k: 'grupo', rot: 'Grupo', todos: 'Todos os grupos', opcoes: grupos, v: P.grupo }, { k: 'emp', rot: 'Empresa', todos: 'Todas as empresas', opcoes: emps, v: P.empresa },
+      { k: 'resp', rot: 'Responsável', todos: 'Todos', opcoes: resps, v: P.resp }]) +
     '<div id="pe-nums">' + numsFaixa([['Passivo total', t(N.total), 'RFB ' + brlCurto(N.rfb) + ' · PGFN ' + brlCurto(N.pgfn) + ' · AGE/MG ' + brlCurto(N.age)], ['Parcelamentos (saldo)', t(N.saldoParc), plural(N.nParc, 'ativo', 'ativos')],
       ['Acordos (em aberto)', t(N.acPagar), plural(N.nAc, 'parcela', 'parcelas')], ['Passivo em disputa', t(N.passivo), plural(N.nProc, 'processo', 'processos'), 'b-verm'], ['Ativo em disputa', t(N.ativo), '', 'b-verde']]) + '</div>' +
     // Backup 83: como no ambiente — só o título e "6 meses · 12 meses"; a linha é o total do que está escolhido no alto (todos, um grupo ou uma empresa)
@@ -10476,8 +10587,7 @@ TELAS.painelExec = async function () {
       '<div class="b-chips" id="pe-evo-meses" role="group" aria-label="Período">' + [6, 12].map((m) => '<button type="button" class="b-chip" data-m="' + m + '">' + m + ' meses</button>').join('') + '</div></div>' +
       '<div id="pe-evo-graf"><div class="carregando">Carregando…</div></div></section>' +
     '<div class="b-sec"><div><h2>Empresas do grupo</h2></div></div><div id="pe-nova"></div>';
-  $('pe-grupo').onchange = (ev) => { P.grupo = ev.target.value; P.empresa = ''; TELAS.painelExec(); };
-  $('pe-emp').onchange = (ev) => { P.empresa = ev.target.value; TELAS.painelExec(); };
+  ligarFiltroSusB('pe-filtro', P.f, () => TELAS.painelExec());
   $('pe-evo-meses').onclick = (ev) => { const b = ev.target.closest('[data-m]'); if (!b) return; P.evo.meses = Number(b.dataset.m); P.evo.dados = null; evolucaoPE(); };
   evolucaoPE();
   empresasPE(N.data);
@@ -10491,7 +10601,8 @@ async function evolucaoPE() {
     try { ev.dados = await q(sb.rpc('evolucao_passivo', { p_grupo: null, p_meses: ev.meses })) || []; ev.lidoMeses = ev.meses; }
     catch (e) { gr.innerHTML = '<p class="msg-erro">Não foi possível ler a evolução: ' + esc(erroAmigavel(e)) + '</p>'; return; }
   }
-  const linhas = ev.dados.filter((x) => (!P.grupo || x.grupo === P.grupo) && (!P.empresa || x.cliente === P.empresa) && x.total != null);
+  const nomesResp = P.resp ? new Set((dbE().baseDados || []).filter((r) => respPE(r) === P.resp).map((r) => r.nome)) : null;
+  const linhas = ev.dados.filter((x) => (!P.grupo || x.grupo === P.grupo) && (!P.empresa || x.cliente === P.empresa) && (!nomesResp || nomesResp.has(x.cliente)) && x.total != null);
   const meses = unicosB(ev.dados.map((x) => x.mes)), comDado = new Set(linhas.map((x) => x.mes));
   while (meses.length > 2 && !comDado.has(meses[0])) meses.shift();   // começa no 1º mês com passivo lançado
   const tot = (m) => linhas.filter((x) => x.mes === m).reduce((s, x) => s + (Number(x.total) || 0), 0);
@@ -10539,13 +10650,15 @@ TELAS.processosERP = async function () {
   const D = dbE(), c = $('conteudo');
   if (!Array.isArray(D.processos)) { c.innerHTML = vazioB({ icone: 'documento', titulo: 'Abra pelo ERP', frase: 'A lista de processos usa os dados que o ERP carrega.' }); return; }
   E.prRes = E.prRes || { aberto: false };
-  E.prF = E.prF || { grupo: '', comp: '' };
+  E.prF = E.prF || { grupo: '', comp: '', adv: '' };
   // Backup 79: filtro suspenso (Grupo / Competência) — recorta o Resumo da carteira e a lista
-  const F = E.prF, L0 = D.processos, L = L0.filter((p) => (!F.grupo || p.grupo === F.grupo) && (!F.comp || p.competencia === F.comp)), P = L.filter((p) => p.carteira !== 'Prospecção');
+  const F = E.prF, L0 = D.processos, L = L0.filter((p) => (!F.grupo || p.grupo === F.grupo) && (!F.comp || p.competencia === F.comp) && (!F.adv || nome1PE(p.advogado || '') === F.adv)), P = L.filter((p) => p.carteira !== 'Prospecção');
   const podeEd = pode('juridico', 'editar');
   c.innerHTML = cabecalhoTela({ icone: 'documento', titulo: 'Processos', frase: 'Processos dos clientes', botao: podeEd ? { id: 'pr-novo', rotulo: 'Processo' } : null }) +
     filtroSusB('pr-filtro', [{ k: 'grupo', rot: 'Grupo', todos: 'Todos os grupos', opcoes: unicosTxt(L0.map((p) => p.grupo)), v: F.grupo },
-      { k: 'comp', rot: 'Competência', todos: 'Todas as competências', opcoes: unicosTxt(L0.filter((p) => !F.grupo || p.grupo === F.grupo).map((p) => p.competencia)), v: F.comp }]) +
+      { k: 'comp', rot: 'Competência', todos: 'Todas as competências', opcoes: unicosTxt(L0.filter((p) => !F.grupo || p.grupo === F.grupo).map((p) => p.competencia)), v: F.comp },
+      // Backup 88: o advogado que acompanha o processo
+      { k: 'adv', rot: 'Advogado', todos: 'Todos os advogados', opcoes: unicosTxt(L0.map((p) => nome1PE(p.advogado || ''))), v: F.adv }]) +
     '<section class="b-fin-cartao b-pr-res' + (E.prRes.aberto ? ' b-aberto' : '') + '" id="pr-res"><button type="button" class="b-pr-res-hd" id="pr-res-bt" aria-expanded="' + E.prRes.aberto + '"><span class="b-seta" aria-hidden="true">▸</span><h3>Resumo da carteira</h3><span class="b-sub">' +
       (F.grupo || F.comp ? esc([F.grupo, F.comp].filter(Boolean).join(' · ')) + ' · ' : '') + (() => { const at = L.filter((p) => !p.arquivamento); return plural(at.length, 'processo ativo', 'processos ativos') + ' · ' + esc(brlCurto(soma(at, (p) => Number(p.valor) || 0))) + ' em disputa'; })() + '</span></button><div id="pr-res-corpo"' + (E.prRes.aberto ? '' : ' hidden') + '>' + resumoCarteira(L) + '</div></section>' +
     '<div id="pr-nova"></div>';
@@ -10562,8 +10675,7 @@ TELAS.processosERP = async function () {
     busca: (p) => [p.numero, p.grupo, p.autor, p.reu, p.natureza, p.competencia, p.advogado, p.obs].join(' '), valor: (p) => Number(p.valor) || 0,
     conta: (n) => plural(n, 'processo', 'processos'), ord: { k: 'g', dir: 1 },
     // Backup 85 (PR4) / 86 (M06): Grupo, Tribunal, Natureza e Conferência, como no ambiente
-    listas: [{ k: 'g', rot: 'Grupo', todos: 'Todos os grupos', opcoes: ops((p) => p.grupo), get: (p) => p.grupo },
-      { k: 'trib', rot: 'Tribunal', todos: 'Todos os tribunais', opcoes: ops(trib), get: trib },
+    listas: [{ k: 'trib', rot: 'Tribunal', todos: 'Todos os tribunais', opcoes: ops(trib), get: trib },
       { k: 'nat', rot: 'Natureza', todos: 'Todas as naturezas', opcoes: ops((p) => p.natureza), get: (p) => p.natureza },
       { k: 'conf', rot: 'Conferência', todos: 'Conferidos e não conferidos', opcoes: [['nao', 'Sem conferir há 15 dias ou mais'], ['sim', 'Conferidos nos últimos 15 dias']], get: (p) => (diasConf(p) != null && diasConf(p) < 15 ? 'sim' : 'nao') }],
     colunas: [

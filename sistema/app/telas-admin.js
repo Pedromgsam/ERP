@@ -689,7 +689,7 @@ async function admSaude(corpo) {
 const EMAILS_EQUIPE = [['fluxo', 'Fluxo / sequência de tarefas', 'Quando alguém cria um fluxo ou um "Lead completo", e quando o próximo passo é liberado'],
   ['tarefa', 'Tarefa nova para alguém', 'Tarefa atribuída, encaminhada ou criada por automação'], ['revisao', 'Tarefa para revisar', 'Quando a tarefa vai para o revisor'],
   ['mencao', 'Menção (@Nome)', 'Quando alguém é mencionado num comentário'], ['atraso', 'Tarefa atrasada', 'Aviso ao administrador'],
-  ['agenda', 'Lembrete de compromisso', 'Antes de reunião, audiência ou compromisso'], ['publicacao', 'Publicação nova', 'Diário de Justiça'],
+  ['agenda', 'Lembrete de compromisso', 'Antes de reunião, audiência ou compromisso'], ['publicacao', 'Publicações do dia ao advogado', 'Um e-mail por advogado com as intimações novas da busca das 6h (e das buscas feitas depois, no mesmo dia)'],
   ['financeiro', 'Contrato assinado', 'Financeiro lançado'], ['cnpj', 'Cartão CNPJ', 'Mudança no cadastro da Receita'], ['acesso', 'Acesso de aparelho novo', 'Segurança'],
   ['resumo', 'Resumo do dia', 'Dias úteis, de manhã']];
 async function admEmailAuto(corpo) {

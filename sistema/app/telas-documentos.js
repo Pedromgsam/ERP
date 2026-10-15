@@ -223,7 +223,7 @@ TELAS.documentos = async function () {
     return '<span class="' + corPrazo(n) + '">' + (n < 0 ? 'vencido há ' + plural(-n, 'dia', 'dias') : n === 0 ? 'vence hoje' : plural(n, 'dia', 'dias')) + '</span><small class="b-pz-sub">' + dataBR(d.validade) + '</small>'; };
   const el = $('doc-tab');
   tabelaB(el, { id: 'documentos', linhas: _docsTela.filter((d) => !d.arquivado), unidade: ['arquivo', 'arquivos'], dicaBusca: 'Arquivo, cliente ou etiqueta…', ord: { k: 'em', dir: -1 },
-    busca: (d) => [d.nome, nomeCli(d.cliente_id), nomeG(grupoDe(d)), nomeTipoDoc(d.tipo), d.etiquetas, d.obs].join(' '), venc: (d) => d.validade || '',
+    buscaFica: true, busca: (d) => [d.nome, nomeCli(d.cliente_id), nomeG(grupoDe(d)), nomeTipoDoc(d.tipo), d.etiquetas, d.obs].join(' '), venc: (d) => d.validade || '',
     barraExtra: '<button type="button" class="b-bt-f" id="doc-pastas" title="O jeito antigo: uma pasta por grupo e subpastas por empresa, com o link do Drive">Ver em pastas</button>',
     listas: [{ k: 'tipo', rot: 'Tipo', todos: 'Todos os tipos', opcoes: opc((d) => d.tipo, nomeTipoDoc), get: (d) => d.tipo },
       { k: 'g', rot: 'Grupo', todos: 'Todos os grupos', opcoes: opc(grupoDe, nomeG), get: grupoDe },

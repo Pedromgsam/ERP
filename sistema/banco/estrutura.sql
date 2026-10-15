@@ -6764,3 +6764,90 @@ $$;
 revoke all on function public.portal_pode_arquivo(text) from public, anon;
 grant execute on function public.portal_pode_arquivo(text) to authenticated;
 -- ═══ fim do Backup 85 ═══
+
+-- ═══ Backup 88 ═══
+-- Financeiro → Recibo: a PRÉVIA do e-mail com o timbrado do escritório (o mesmo HTML que o cliente recebe; o PDF vai anexo no envio)
+create or replace function public.previa_recibo_email(p_lanc uuid) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare l record; r jsonb; m record; c record; v_conta text; h text;
+begin
+  select * into l from public.lancamentos where id = p_lanc;
+  if not found then raise exception 'Lançamento não encontrado.'; end if;
+  if not public.pode(case when l.empresa = 'contabilidade' then 'financeiro_contab' else 'financeiro_juridico' end) then
+    raise exception 'permission denied: sem acesso ao financeiro.'; end if;
+  select * into c from public.contato_do_cliente(l.cliente_id, l.grupo_id, 'recibo');
+  r := public.recibo_dados(l.id);
+  select * into m from public.modelo_email('recibo', jsonb_build_object('valor', r->>'valor_txt', 'extenso', r->>'extenso', 'data_pagamento', r->>'data'));
+  v_conta := public.conta_email(l.cliente_id, null);
+  perform set_config('erp.conta_email', v_conta, true);
+  h := public.email_cliente_html(m.assunto, coalesce(nullif(c.nome, ''), '-'), m.texto, '[]'::jsonb, false);
+  perform set_config('erp.conta_email', '', true);
+  return jsonb_build_object('html', h, 'para', coalesce(c.email, ''), 'assunto', m.assunto, 'numero', r->>'numero', 'extenso', r->>'extenso',
+    'erro', case when l.cliente_id is null and l.grupo_id is null then 'Este lançamento não tem cliente: não há para quem mandar.'
+                 when coalesce(c.email, '') = '' then 'Este cliente não tem e-mail para recibos: cadastre em Clientes → ficha → Contatos.' end);
+end $$;
+revoke all on function public.previa_recibo_email(uuid) from public, anon;
+grant execute on function public.previa_recibo_email(uuid) to authenticated;
+
+-- Publicações: em vez de um e-mail por publicação, UM e-mail por advogado com as intimações novas do dia
+-- (liga/desliga em Administração → E-mail → Automáticos → "Publicações do dia ao advogado"). O aviso no sino continua.
+create or replace function public.email_da_notificacao() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare pref text;
+begin
+  if new.tipo = 'publicacao' then return null; end if;   -- Backup 88: vai no e-mail do dia (email_publicacoes_advogados)
+  if not public.email_equipe_ligado(public.tipo_email_equipe(new.tipo, new.titulo)) then return null; end if;
+  pref := case new.tipo when 'mencao' then 'mencao' when 'publicacao' then 'publicacao' when 'atraso' then 'fatal' else 'tarefa' end;
+  perform public.enfileirar_email(new.usuario_id, pref, new.titulo,
+    '<p>' || public.esc_html(new.titulo) || '</p>' || case when new.detalhe <> '' then '<p style="color:#4B5563">' || public.esc_html(new.detalhe) || '</p>' else '' end
+    || coalesce('<p><a href="' || (select valor #>> '{}' from public.config_privada where chave = 'url_sistema') || '" style="background:#1B2A4A;color:#fff;padding:9px 16px;border-radius:8px;text-decoration:none;display:inline-block">Abrir no ERP</a></p>', ''),
+    new.tipo, 'notif:' || new.id);
+  return null;
+end $$;
+create or replace function public.email_publicacoes_advogados() returns int
+language plpgsql security definer set search_path = public as $$
+declare a record; n int := 0; v_url text;
+begin
+  if auth.uid() is not null and not public.pode('juridico') then raise exception 'permission denied: sem acesso ao jurídico.'; end if;
+  v_url := (select valor #>> '{}' from public.config_privada where chave = 'url_sistema');
+  for a in
+    select x.uid, count(*) qtd, string_agg(x.lin, '' order by x.dia desc, x.proc) linhas
+      from (select public.usuario_por_nome(p.advogado) uid, p.data_disponibilizacao dia, p.processo proc,
+                   '<tr><td style="padding:6px 10px;border-bottom:1px solid #E5E7EB;font-family:monospace">' || public.esc_html(coalesce(nullif(p.processo, ''), '—')) || '</td>' ||
+                   '<td style="padding:6px 10px;border-bottom:1px solid #E5E7EB">' || public.esc_html(coalesce(nullif(p.tipo, ''), 'Comunicação')) || ' · ' || public.esc_html(coalesce(p.tribunal, '')) || '</td>' ||
+                   '<td style="padding:6px 10px;border-bottom:1px solid #E5E7EB;white-space:nowrap">' || coalesce(to_char(p.data_disponibilizacao, 'DD/MM/YYYY'), '') || '</td></tr>' lin
+              from public.publicacoes p
+             where p.criado_em >= current_date::timestamptz and coalesce(p.advogado, '') <> '' and p.status = 'nova') x
+     where x.uid is not null
+     group by x.uid
+  loop
+    -- a referência leva a quantidade: se aparecer mais intimação no mesmo dia (outra busca), sai um e-mail novo com todas
+    if public.enfileirar_email(a.uid, 'publicacao',
+         case when a.qtd = 1 then '1 intimação nova hoje no Diário' else a.qtd || ' intimações novas hoje no Diário' end,
+         '<p>Intimações novas localizadas hoje (' || to_char(current_date, 'DD/MM/YYYY') || ') nas suas OABs:</p>' ||
+         '<table style="border-collapse:collapse;width:100%;font-size:13px"><tr style="background:#F3F4F6"><th style="text-align:left;padding:6px 10px">Processo</th><th style="text-align:left;padding:6px 10px">Tipo · Tribunal</th><th style="text-align:left;padding:6px 10px">Disponibilizada</th></tr>' ||
+         a.linhas || '</table>' ||
+         coalesce('<p style="margin-top:16px"><a href="' || v_url || '" style="background:#1B2A4A;color:#fff;padding:9px 16px;border-radius:8px;text-decoration:none;display:inline-block">Abrir Publicações no ERP</a></p>', ''),
+         'publicacao', 'pubdia:' || to_char(current_date, 'YYYY-MM-DD') || ':' || a.qtd) then n := n + 1; end if;
+  end loop;
+  return n;
+end $$;
+revoke all on function public.email_publicacoes_advogados() from public, anon;
+grant execute on function public.email_publicacoes_advogados() to authenticated, service_role;
+
+-- Busca automática de publicações: TODO DIA às 6h de Brasília (9h UTC), na região de São Paulo — o Diário do CNJ recusa
+-- servidores fora do Brasil (era por isso que a busca do servidor falhava). O botão "Buscar agora" continua.
+do $$
+begin
+  perform cron.unschedule(jobid) from cron.job where jobname = 'erp_publicacoes';
+  perform cron.schedule('erp_publicacoes', '0 9 * * *', $cron$
+    select net.http_post(
+      url := (select valor #>> '{}' from public.config_privada where chave = 'url_projeto') || '/functions/v1/erp-publicacoes?forceFunctionRegion=sa-east-1',
+      headers := jsonb_build_object('Content-Type', 'application/json', 'x-region', 'sa-east-1', 'x-erp-segredo', (select valor #>> '{}' from public.config_privada where chave = 'segredo_funcoes')),
+      body := '{}'::jsonb, timeout_milliseconds := 120000)
+    where exists (select 1 from public.oabs_monitoradas where ativo)
+  $cron$);
+exception when others then
+  raise notice 'Agendador indisponível: use o botão "Buscar agora" em Jurídico → Publicações.';
+end $$;
+-- ═══ fim do Backup 88 ═══

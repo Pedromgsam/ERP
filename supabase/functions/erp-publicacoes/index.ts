@@ -6,12 +6,15 @@
 // "erp-publicacoes", cole este arquivo e clique em Deploy; depois DESLIGUE "Verify JWT".
 // Quem pode chamar: a rotina do banco (cabeçalho x-erp-segredo) ou alguém com a função Jurídico.
 // Corpo opcional: {"de":"2026-09-01","ate":"2026-09-27"} (padrão: desde a última busca, no máximo 30 dias).
+// Backup 88: a rotina do banco chama esta função TODO DIA às 6h (Brasília) pedindo a região de São Paulo
+// (?forceFunctionRegion=sa-east-1): o Diário do CNJ recusa servidores fora do Brasil (era o erro 403 da busca automática).
+// Depois de gravar, manda a cada advogado o e-mail com as intimações novas do dia (se ligado em Administração → E-mail).
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const VERSAO = '2026-10-02';
+const VERSAO = '2026-10-15';
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-erp-segredo',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-erp-segredo, x-region',
   'Access-Control-Allow-Methods': 'POST, OPTIONS'
 };
 const resposta = (obj, status) => new Response(JSON.stringify(obj), { status: status || 200, headers: { ...CORS, 'Content-Type': 'application/json' } });
@@ -100,7 +103,7 @@ export async function tratar(req, db, buscar0) {
     const ate = corpo.ate ? new Date(corpo.ate + 'T12:00:00Z') : hoje;
     const { data: oabs, error } = await db.from('oabs_monitoradas').select('*').eq('ativo', true);
     if (error) throw error;
-    let lidas = 0, novas = 0; const erros = [];
+    let lidas = 0, novas = 0; const erros = []; const porAdv = {};
     for (const oab of oabs || []) {
       for (let pagina = 1; pagina <= 10; pagina++) {
         const url = API + '/comunicacao?numeroOab=' + encodeURIComponent(String(oab.numero).replace(/\D/g, '')) + '&ufOab=' + encodeURIComponent(oab.uf) +
@@ -118,6 +121,7 @@ export async function tratar(req, db, buscar0) {
           const { data: ins, error: e2 } = await db.from('publicacoes').upsert(linhas, { onConflict: 'id_origem', ignoreDuplicates: true }).select('id');
           if (e2) { erros.push(String(e2.message || e2)); break; }
           novas += (ins || []).length;
+          if ((ins || []).length) { const k = String(oab.advogado || '').trim().split(/\s+/)[0] || 'Sem advogado'; porAdv[k] = (porAdv[k] || 0) + (ins || []).length; }
         }
         if (itens.length < 100) break;
       }
@@ -148,8 +152,11 @@ export async function tratar(req, db, buscar0) {
         if (itens.length < 100) break;
       }
     }
-    const resumo = { quando: new Date().toISOString(), de: iso(de), ate: iso(ate), lidas, novas, erros: erros.slice(0, 5), oabs: (oabs || []).length, partes: (partes || []).length };
+    const resumo = { quando: new Date().toISOString(), de: iso(de), ate: iso(ate), lidas, novas, por_adv: porAdv, erros: erros.slice(0, 5), oabs: (oabs || []).length, partes: (partes || []).length,
+      regiao: Deno.env.get('SB_REGION') || '' };
     await db.from('configuracoes').upsert({ chave: 'publicacoes_ultima', valor: resumo }, { onConflict: 'chave' });
+    // Backup 88: e-mail do dia a cada advogado com intimação nova (a função do banco não repete o mesmo e-mail)
+    if (novas) { const { error: e3 } = await db.rpc('email_publicacoes_advogados'); if (e3) erros.push('E-mail aos advogados: ' + String(e3.message || e3)); }
     return resposta(resumo);
   } catch (e) {
     return resposta({ erro: String((e && e.message) || e) }, 500);

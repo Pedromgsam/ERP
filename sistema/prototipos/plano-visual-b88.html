@@ -1,0 +1,175 @@
+<title>Plano visual do ERP</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: uma coluna de leitura (máx. 980 px) com miniaturas "antes → depois" em grade de dois; as miniaturas usam as mesmas cores do ERP */
+:root{
+  --bg:#F3F5F8; --surface:#FFFFFF; --ink:#16202C; --text2:#4A5562; --text3:#6A737D; --line:#E2E6EB;
+  --primario:#1F4D80; --primario-lt:#E8EEF6; --on-primario:#FFFFFF;
+  --red:#B73A3A; --red-lt:#FBEEEE; --green:#1F7A48; --green-lt:#EBF6EF; --amber:#9A6A12;
+  --font-ui:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --r:10px; --r-ctl:8px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#000000; --surface:#0B0B0D; --ink:#ECEFF3; --text2:#B7BEC7; --text3:#8C949E; --line:#23262C;
+  --primario:#6E97DB; --primario-lt:rgba(110,151,219,.16); --on-primario:#0B0B0D;
+  --red:#F2564D; --red-lt:rgba(242,86,77,.14); --green:#3FB950; --green-lt:rgba(63,185,80,.14); --amber:#D6A25C; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#000000; --surface:#0B0B0D; --ink:#ECEFF3; --text2:#B7BEC7; --text3:#8C949E; --line:#23262C;
+  --primario:#6E97DB; --primario-lt:rgba(110,151,219,.16); --on-primario:#0B0B0D;
+  --red:#F2564D; --red-lt:rgba(242,86,77,.14); --green:#3FB950; --green-lt:rgba(63,185,80,.14); --amber:#D6A25C; color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.55 var(--font-ui);-webkit-font-smoothing:antialiased}
+.pag{max-width:980px;margin:0 auto;padding-block:36px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header.topo{display:flex;flex-direction:column;gap:6px;margin-bottom:28px}
+.kick{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--primario)}
+h1{font-size:26px;line-height:1.25;margin:0;text-wrap:balance}
+.lead{font-size:15px;color:var(--text2);max-width:66ch;margin:4px 0 0}
+h2{font-size:18px;margin:40px 0 6px;text-wrap:balance}
+h2 + p{margin-top:0;color:var(--text2);max-width:68ch}
+.ideia{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:18px}
+.ideia div{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px}
+.ideia b{display:block;font-size:14px;margin-bottom:2px}
+.ideia span{color:var(--text2);font-size:13px}
+.item{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px 20px;margin-top:14px;display:flex;flex-direction:column;gap:12px}
+.item-hd{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap}
+.cod{font:700 12px var(--font-ui);color:var(--primario);background:var(--primario-lt);border-radius:999px;padding:2px 9px;flex:0 0 auto}
+.item-hd h3{margin:0;font-size:15px;flex:1 1 300px;min-width:0}
+.esf{font-size:12px;color:var(--text3);white-space:nowrap}
+.item p{margin:0;color:var(--text2);max-width:72ch}
+.item ul{margin:0;padding-left:18px;color:var(--text2)}
+.item li{margin:2px 0}
+.ad{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+.ad > div{border:1px solid var(--line);border-radius:var(--r-ctl);padding:12px;background:var(--bg);min-width:0;overflow-x:auto}
+.ad small{display:block;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin-bottom:8px}
+/* miniaturas no desenho do ERP */
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:9px;padding:3px;gap:2px;background:var(--surface);flex-wrap:wrap}
+.seg span{font:600 12px var(--font-ui);padding:4px 10px;border-radius:6px;color:var(--text2);white-space:nowrap}
+.seg span.on{background:var(--primario);color:var(--on-primario)}
+.chip{display:inline-block;font:500 12px var(--font-ui);border:1px solid var(--line);border-radius:999px;padding:3px 10px;margin:2px;color:var(--text2);background:var(--surface)}
+.chip.on{border-color:var(--primario);color:var(--primario);background:var(--primario-lt)}
+.btn{display:inline-block;font:600 12px var(--font-ui);border-radius:var(--r-ctl);padding:5px 10px;border:1px solid var(--line);background:var(--surface);color:var(--ink);margin:2px}
+.btn.p{background:var(--primario);border-color:var(--primario);color:var(--on-primario)}
+.mt{width:100%;border-collapse:collapse;font-size:12px;background:var(--surface);border-radius:6px;overflow:hidden}
+.mt th{font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}
+.mt td{padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap;font-variant-numeric:tabular-nums}
+.mt tr.rosa td{background:var(--red-lt)}
+.mt tfoot td{font-weight:700;background:var(--bg)}
+.v{color:var(--red);font-weight:600}.g{color:var(--green);font-weight:600}
+.lin{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.cx{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:12px}
+.cx + .cx{margin-top:8px}
+.cx b{font-size:12.5px}
+.mudo{color:var(--text3);font-size:12px}
+.pil{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:12px;background:var(--surface);margin:2px}
+.pil i{width:6px;height:6px;border-radius:50%;background:var(--red);display:inline-block}
+.pil i.a{background:var(--amber)}
+.dois{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:8px}
+.op{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.op > div{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;display:flex;flex-direction:column;gap:8px}
+.op > div.rec{border-color:var(--primario);box-shadow:0 0 0 1px var(--primario) inset}
+.op h3{margin:0;font-size:15px}
+.op p{margin:0;color:var(--text2);font-size:13px}
+.tag{align-self:flex-start;font:700 11px var(--font-ui);color:var(--on-primario);background:var(--primario);border-radius:999px;padding:2px 9px}
+.resp{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;margin-top:14px}
+.resp code{font:600 13px ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:2px 6px}
+.ordem{margin:0;padding-left:20px;color:var(--text2)}
+.ordem li{margin:4px 0}
+:focus-visible{outline:2px solid var(--primario);outline-offset:2px}
+@media (max-width:720px){.ideia,.op{grid-template-columns:1fr}.ad,.dois{grid-template-columns:1fr}}
+</style>
+
+<div class="pag">
+<header class="topo">
+  <span class="kick">Araújo &amp; Castro · ERP · Backup 88</span>
+  <h1>Plano para o ERP ficar mais bonito, simples e moderno</h1>
+  <p class="lead">O Backup 88 já fez as simplificações que você pediu (filtros no padrão do escritório, sem busca, sem linha de total, sem fundo vermelho, 20 linhas por tabela). Esta página propõe os próximos passos do visual, para você aprovar pelo código (ex.: "D1, D2, I1").</p>
+</header>
+
+<h2>A ideia em três regras</h2>
+<p>Vale para todas as telas ao mesmo tempo, pela peça única (tokens.css, base.css e as peças do nucleo.js), como você pediu.</p>
+<div class="ideia">
+  <div><b>Menos coisas à vista</b><span>Cada tela mostra o que se usa todo dia. O resto fica em "Filtros" ou no ⋯.</span></div>
+  <div><b>Uma peça para cada função</b><span>O mesmo filtro, a mesma tabela e a mesma janela em todos os módulos.</span></div>
+  <div><b>Cor só quando informa</b><span>Azul do escritório para o que está escolhido; vermelho e verde só no texto de atraso e pago.</span></div>
+</div>
+
+<h2>Propostas de visual (D)</h2>
+<p>Nada aqui foi feito ainda. Cada item diz o que muda e mostra um antes → depois em miniatura.</p>
+
+<section class="item" aria-labelledby="d1">
+  <div class="item-hd"><span class="cod">D1</span><h3 id="d1">Botões sem emoji, com ícones de linha</h3><span class="esf">todas as telas</span></div>
+  <p>Ainda há botões com ⚙ 🔀 📋 👁 💬 📝 ✉ ↻ (Publicações, Guias, Rotina, Administração). Eles viram o mesmo ícone fino que o menu lateral já usa, e o texto fica igual.</p>
+  <div class="ad"><div><small>Hoje</small><span class="btn">📋 Copiar texto</span><span class="btn">💬 WhatsApp</span><span class="btn">⚙ Monitoramento</span><span class="btn p">↻ Buscar agora</span></div>
+    <div><small>Depois</small><span class="btn">Copiar texto</span><span class="btn">WhatsApp</span><span class="btn">Monitoramento</span><span class="btn p">Buscar agora</span></div></div>
+</section>
+
+<section class="item" aria-labelledby="d2">
+  <div class="item-hd"><span class="cod">D2</span><h3 id="d2">Cabeçalho de tela com no máximo dois botões</h3><span class="esf">todas as telas</span></div>
+  <p>Título e frase curta à esquerda; à direita só a ação principal (azul) e uma secundária. Ações raras vão para um botão ⋯ (ex.: "Marcar todas como lidas", "Guias do mês", "Feriados").</p>
+  <div class="ad"><div><small>Hoje (Publicações)</small><span class="btn">✓ Marcar todas como lidas</span><span class="btn">⚙ Monitoramento (OABs e clientes)</span><span class="btn p">↻ Buscar agora</span></div>
+    <div><small>Depois</small><span class="btn">⋯</span><span class="btn">Monitoramento</span><span class="btn p">Buscar agora</span></div></div>
+</section>
+
+<section class="item" aria-labelledby="d3">
+  <div class="item-hd"><span class="cod">D3</span><h3 id="d3">Publicações no desenho novo</h3><span class="esf">Publicações</span></div>
+  <p>É a única tela que ainda usa os cartões e botões antigos (você pediu para voltar ao desenho de antes no Backup 77). Proposta: manter os cartões com o texto da intimação, mas com os filtros no padrão do escritório (Situação · Advogado · Tribunal · Período) e os botões da linha iguais aos das outras telas.</p>
+  <div class="ad"><div><small>Hoje</small><span class="chip on">✓ Novas 12</span><span class="chip">Lidas 80</span><span class="chip">Tratadas 5</span><br><span class="chip">Todos os advogados</span><span class="chip">Pedro</span><span class="chip">Emanuelle</span></div>
+    <div><small>Depois</small><div class="lin"><span class="seg"><span class="on">Novas 12</span><span>Lidas</span><span>Tratadas</span><span>Todas</span></span><span class="seg"><span class="on">Todos</span><span>Pedro</span><span>Emanuelle</span></span></div></div></div>
+</section>
+
+<section class="item" aria-labelledby="d4">
+  <div class="item-hd"><span class="cod">D4</span><h3 id="d4">Tabelas mais leves</h3><span class="esf">todas as tabelas</span></div>
+  <p>O Backup 88 já tirou o fundo rosado e a linha de total. O próximo passo: linhas um pouco mais baixas (cabem 20 sem rolar mesmo com duas linhas de texto), cabeçalho parado no alto da página ao rolar, e a coluna Grupo só quando o filtro do alto está em "Todos os grupos".</p>
+  <div class="ad"><div><small>Antes do B88</small><table class="mt"><thead><tr><th>Grupo</th><th>Empresa</th><th>Valor</th><th>Prazo</th></tr></thead><tbody><tr class="rosa"><td>Grupo Alfa</td><td>Alfa Ltda</td><td>R$ 250,00</td><td class="v">10 d atraso</td></tr><tr><td>Grupo Alfa</td><td>Alfa Ltda</td><td>R$ 250,00</td><td class="g">20 dias</td></tr></tbody><tfoot><tr><td>Total de 2</td><td></td><td>R$ 500,00</td><td></td></tr></tfoot></table></div>
+    <div><small>Depois (grupo escolhido no alto)</small><table class="mt"><thead><tr><th>Empresa</th><th>Valor</th><th>Prazo</th></tr></thead><tbody><tr><td>Alfa Ltda</td><td>R$ 250,00</td><td class="v">10 d atraso</td></tr><tr><td>Alfa Ltda</td><td>R$ 250,00</td><td class="g">20 dias</td></tr></tbody></table></div></div>
+</section>
+
+<section class="item" aria-labelledby="d5">
+  <div class="item-hd"><span class="cod">D5</span><h3 id="d5">Janelas de detalhe no mesmo molde</h3><span class="esf">processo, lançamento, tarefa, cliente</span></div>
+  <p>Toda janela abre igual: tipo em cima (pequeno), nome grande, uma faixa de até 4 números, a ficha em duas colunas e os botões no rodapé (Fechar à direita, a ação principal azul). Hoje a do lançamento e a da tarefa ainda são o formulário inteiro.</p>
+  <ul><li>Clicar na linha abre o detalhe; "Editar" fica no rodapé.</li><li>Sem campos à vista que você não usa: o resto em "Mais dados".</li></ul>
+</section>
+
+<section class="item" aria-labelledby="d6">
+  <div class="item-hd"><span class="cod">D6</span><h3 id="d6">Modo escuro conferido tela a tela</h3><span class="esf">todas as telas</span></div>
+  <p>Prints antes/depois de cada tela no escuro, corrigindo o que ainda sai com cor fixa (gráficos da Contabilidade, prévias de e-mail, Central de Documentos).</p>
+</section>
+
+<section class="item" aria-labelledby="d7">
+  <div class="item-hd"><span class="cod">D7</span><h3 id="d7">Celular e tablet</h3><span class="esf">todas as telas</span></div>
+  <p>No tablet (768–1024 px) o menu lateral encolhe sozinho e os filtros quebram em duas linhas sem apertar a tabela. No celular, os filtros do alto viram uma linha que rola para o lado.</p>
+</section>
+
+<h2>Início: minha sugestão (I)</h2>
+<p>Como a agenda e as tarefas agora estão em Tarefas, o Início pode ser só "o que pede atenção hoje". Hoje ele tem quatro blocos: a faixa Financeiro/Escritório, Meu dia, Lembretes e Próximos 7 dias.</p>
+<div class="op">
+  <div class="rec"><span class="tag">Recomendo</span><h3>I1 · Início "Hoje"</h3>
+    <p>Saudação com a data, uma faixa de avisos (no máximo 5, só o que pede ação) e uma lista única "Para hoje" (atrasadas + vencendo hoje, com Concluir). Lembretes em pequeno ao lado.</p>
+    <p class="mudo">Sai "Próximos 7 dias" (está em Tarefas → Calendário). "Ver como" vai para o ⋯.</p></div>
+  <div><h3>I2 · Só números e avisos</h3>
+    <p>Três números do mês (Recebido, A receber, Em atraso) e a faixa de avisos. Nada de tarefas no Início: tudo em Tarefas.</p></div>
+  <div><h3>I3 · Como está</h3>
+    <p>Mantém os quatro blocos de hoje, só com os ajustes visuais D1–D7.</p></div>
+</div>
+<section class="item" aria-labelledby="i1m">
+  <div class="item-hd"><span class="cod">I1</span><h3 id="i1m">Como ficaria o I1</h3><span class="esf">miniatura</span></div>
+  <div class="cx"><b>Bom dia, Pedro</b> <span class="mudo">· quinta-feira, 15 de outubro</span></div>
+  <div class="cx"><span class="pil"><i></i>R$ 44.675,00 de honorários em atraso</span><span class="pil"><i class="a"></i>1 guia a emitir este mês</span><span class="pil"><i></i>5 parcelas de acordo em atraso</span></div>
+  <div class="dois">
+    <div class="cx"><b>Para hoje</b><div class="mudo" style="margin:6px 0 4px">2 atrasadas · 1 vence hoje</div>
+      <div class="lin" style="justify-content:space-between"><span>Protocolar defesa <span class="v">2 d atraso</span></span><span class="btn p">Concluir</span></div>
+      <div class="lin" style="justify-content:space-between"><span>Conferir processo 5000001… <span class="mudo">hoje</span></span><span class="btn p">Concluir</span></div></div>
+    <div class="cx"><b>Lembretes</b><div class="mudo" style="margin-top:6px">Ligar para o contador da Beta · amanhã</div><div class="mudo">Renovar certificado da Alfa · 20/10</div></div>
+  </div>
+</section>
+
+<h2>Ordem que eu sugiro</h2>
+<ol class="ordem">
+  <li><b>I1</b> e <b>D2</b> juntos (o Início e os cabeçalhos ficam limpos de uma vez).</li>
+  <li><b>D1</b> e <b>D3</b> (tira os emojis e leva Publicações ao desenho das outras telas).</li>
+  <li><b>D4</b> e <b>D5</b> (tabelas e janelas).</li>
+  <li><b>D6</b> e <b>D7</b> (escuro, tablet e celular) por último, porque conferem tudo o que mudou antes.</li>
+</ol>
+<div class="resp"><b>Como responder:</b> mande os códigos que aprova, por exemplo <code>I1, D1, D2, D3</code>. O que não for aprovado continua como está. Nenhum item tira função: só muda onde ela fica.</div>
+</div>

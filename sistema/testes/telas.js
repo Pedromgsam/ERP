@@ -94,13 +94,9 @@ const r = []; const ok = (n, c) => r.push([n, !!c]);
     await p.waitForSelector('.janela-baixa [data-bx-ok]'); await p.click('.janela-baixa [data-bx-ok]'); await esperar(p, 900);
     await p.click('#fin-tab [data-b-aba=recebido]'); await esperar(p);
     ok('baixa aparece em Recebido', /parcela 1\/3/.test(await texto(p, '#fin-corpo')) && /Pago em/.test(await texto(p, '#fin-corpo')));
-    // busca não perde o foco nem recria a barra
+    // Backup 88: sem barra de busca, sem "Tabela compacta" e sem a linha de total no pé
     await p.click('#fin-tab [data-b-aba=areceber]'); await esperar(p);
-    const barraAntes = await p.evaluate(() => { window.__barra = document.querySelector('#fin-tab .b-barra-tab'); return !!window.__barra; });
-    await p.fill('#fin-tab [data-bt=q]', 'parcela 3'); await esperar(p, 700);
-    ok('busca filtra sem recriar a barra e sem tirar o foco', barraAntes && await p.evaluate(() => window.__barra === document.querySelector('#fin-tab .b-barra-tab') && document.activeElement.dataset.bt === 'q')
-      && /parcela 3\/3/.test(await texto(p, '#fin-corpo')) && !/parcela 2\/3/.test(await texto(p, '#fin-corpo')));
-    await p.fill('#fin-tab [data-bt=q]', ''); await esperar(p, 500);
+    ok('B88: tabela sem busca, sem "Tabela compacta" e sem linha de total', !(await p.$('#fin-tab [data-bt=q]')) && !(await p.$('#fin-tab [data-bt=dens]')) && !(await p.$('#fin-tab tfoot')));
     // ordenar por valor clicando no cabeçalho
     await p.click('#fin-corpo th:has-text("Valor")'); await esperar(p, 200);
     const sort1 = await p.getAttribute('#fin-corpo th:has-text("Valor")', 'aria-sort');

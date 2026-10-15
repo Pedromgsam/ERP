@@ -103,11 +103,11 @@ function listaFin(empresa, corpo) {
   const F = estadoFin(empresa), L = F.dados || [], h = hojeISO();
   const temDesp = empresa === 'contabilidade' || L.some((l) => l._c === 'apagar' || l._c === 'pago');
   // Backup 85 (FI4/TX2): nomes do ambiente (Recebidos, Pagos, Prejuízo) e, no Jurídico, a aba "Comissões" (redutores de receita)
-  const jur = empresa !== 'contabilidade';
-  const abas = [{ id: 'areceber', rot: 'A receber', f: (l) => l._c === 'areceber' && !(jur && l.redutor) }, { id: 'recebido', rot: 'Recebidos', f: (l) => l._c === 'recebido' }]
+  // Backup 88: sem a aba "Comissões" — a comissão aparece junto, como redutor (− R$), e tem filtro próprio ("Comissão" em Filtros)
+  const abas = [{ id: 'areceber', rot: 'A receber', f: (l) => l._c === 'areceber' }, { id: 'recebido', rot: 'Recebidos', f: (l) => l._c === 'recebido' }]
     .concat(temDesp ? [{ id: 'apagar', rot: 'A pagar', f: (l) => l._c === 'apagar' }, { id: 'pago', rot: 'Pagos', f: (l) => l._c === 'pago' }] : [])
-    .concat([{ id: 'perda', rot: 'Prejuízo', f: (l) => l._c === 'perda' }])
-    .concat(jur ? [{ id: 'comissoes', rot: 'Comissões', f: (l) => !!l.redutor && !l.perda }] : []);
+    .concat([{ id: 'perda', rot: 'Prejuízo', f: (l) => l._c === 'perda' }]);
+  { const st = E.tabB && E.tabB['fin-' + empresa]; if (st && st.aba === 'comissoes') { st.aba = 'recebido'; st.listas = Object.assign({}, st.listas, { com: 'so' }); } }
   const porPag = (a) => a === 'recebido' || a === 'pago';
   const dataL = (l) => (l.pago ? l.data_pagamento : l.vencimento) || '';
   const opc = (f) => [...new Set(L.map(f).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR')).map((v) => [v, v]);
@@ -119,7 +119,7 @@ function listaFin(empresa, corpo) {
       { k: 'quem', rot: 'Grupo / Favorecido', html: (l) => esc(nomeLanc(l) || '—') + (l.clientes && l.grupos ? '<span class="b-sub">' + esc(l.clientes.nome) + '</span>' : ''), ord: (l) => normalizar(nomeLanc(l)) },
       { k: 'desc', rot: 'Descrição', html: (l) => { const lg = legendaLanc(l); return esc(l.descricao || '—') + (lg ? '<span class="b-sub">' + esc(lg) + '</span>' : ''); }, ord: (l) => normalizar(l.descricao || '') },
       { k: 'v', rot: 'Valor', cls: 'b-dir b-val', clsL: (l) => (vS(l) < 0 ? ' valor-desp' : ' valor-rec'), soma: true,
-        html: (l) => (vS(l) < 0 ? '− ' : '') + brl(l.valor) + (l.redutor ? '<small>redutor</small>' : ''), ord: valorLanc },
+        html: (l) => (vS(l) < 0 ? '− ' : '') + brl(l.valor) + (l.redutor ? '<small>comissão</small>' : ''), ord: valorLanc },
       // Backup 85 (FI6): como no ambiente — a coluna continua "Vencimento" também nos pagos; o "✓ Pago em" fica na coluna Prazo
       { k: 'venc', rot: 'Vencimento', cls: 'b-cen b-data', html: (l) => (l.vencimento ? dataBR(l.vencimento) : '—'), ord: (l) => l.vencimento || '9' }];
     C.push({ k: 'pz', rot: aba === 'perda' ? 'Situação' : 'Prazo', cls: 'b-cen b-prazo', html: celPrazoL, ord: (l) => (l.pago || l.perda ? '9' : l.vencimento || '9') });
@@ -130,12 +130,13 @@ function listaFin(empresa, corpo) {
   el._lancDepois = () => telaHonorarios(empresa, true);
   tabelaB(el, { id: 'fin-' + empresa, tabCls: 'b-tab-lanc', linhas: L, colunas: colunas('areceber'), colunasAba: colunas, abas, contagem: true,
     unidade: ['lançamento', 'lançamentos'], busca: (l) => [l.descricao, nomeLanc(l), l.clientes && l.clientes.nome, l.favorecido, l.categoria, l.obs, l.servico, l.referencia].join(' '),
-    dicaBusca: 'Cliente, grupo, descrição…', prazos: true, prazosAbas: ['areceber', 'apagar', 'comissoes'], venc: dataL, valor: vS,
+    dicaBusca: 'Cliente, grupo, descrição…', prazos: true, prazosAbas: ['areceber', 'apagar'], venc: dataL, valor: vS,
     ord: { k: 'venc', dir: 1 }, ordAbas: { recebido: { k: 'venc', dir: -1 }, pago: { k: 'venc', dir: -1 } },
     conta: (n) => plural(n, 'lançamento', 'lançamentos'), linhaCls: (l) => (!l.pago && !l.perda && l.vencimento && l.vencimento <= h ? ' b-tr-venc' : ''),
     listas: [].concat(lista('resp', 'Quem', 'Todas as pessoas', (l) => l.responsavel), lista('grupo', 'Grupo', 'Todos os grupos', (l) => l.grupos && l.grupos.nome),
       lista('tipo', 'Tipo', 'Todos os tipos', (l) => l.categoria), lista('area', 'Área', 'Todas as áreas', (l) => l.servico),
-      lista('ref', 'Referência', 'Todas as referências', (l) => l.referencia), lista('fav', 'Favorecido', 'Todos os favorecidos', (l) => l.favorecido)),
+      lista('ref', 'Referência', 'Todas as referências', (l) => l.referencia), lista('fav', 'Favorecido', 'Todos os favorecidos', (l) => l.favorecido),
+      L.some((l) => l.redutor) ? [{ k: 'com', rot: 'Comissão', todos: 'Com e sem comissão', opcoes: [['so', 'Só comissões'], ['sem', 'Sem comissões']], get: (l) => (l.redutor ? 'so' : 'sem') }] : []),
     lote: [{ rot: 'Dar baixa nas marcadas', icone: 'check', quando: (l) => !l.pago && !l.perda, fn: async (marc) => {
       const alvo = marc.filter((l) => !l.pago && !l.perda); if (!alvo.length) return false;
       const bx = await perguntarBaixa({ titulo: 'Lançar a baixa das marcadas?', descricao: plural(alvo.length, 'lançamento', 'lançamentos'), valor: soma(alvo, valorLanc) });
@@ -238,18 +239,27 @@ function analiseFin(empresa, corpo) {
   const grupos = [...new Set(L.map((l) => l.grupos && l.grupos.nome).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
   const jan = janelaFin(an);
   // Backup 83: filtros numa linha só, como no ambiente (Quem · Período · de/até · Aplicar); tipo e grupo continuam, no fim da mesma linha
-  const fil = '<section class="b-fin-filtros b-filtro-linha" id="fa-filtros">' +
-    (pessoas.length > 1 ? '<span class="b-fin-rot">Quem</span><span class="b-chips-in"><button type="button" class="b-chip" data-fa-quem="" aria-pressed="' + !an.quem.length + '">Todos</button>' +
-      pessoas.map((p) => '<button type="button" class="b-chip" data-fa-quem="' + esc(p) + '" aria-pressed="' + an.quem.includes(p) + '">' + esc(p) + '</button>').join('') + '</span>' : '') +
-    '<span class="b-fin-rot">Período</span><span class="b-chips-in">' + PERIODOS_FIN.map((p) => '<button type="button" class="b-chip" data-fa-per="' + p[0] + '" aria-pressed="' + (!an.de && !an.ate && an.preset === p[0]) + '">' + p[1] + '</button>').join('') + '</span>' +
-    '<span class="b-fx"><span class="b-fin-rot">de</span>' + campoDataB('id="fa-de"', an.de, 'De') + '<span class="b-fin-rot">até</span>' + campoDataB('id="fa-ate"', an.ate, 'Até') + '<button type="button" class="btn btn-o btn-mini" id="fa-aplicar">Aplicar</button><small class="b-fx-aviso" id="fa-aviso"></small></span>' +
-    (tipos.length > 1 ? '<select id="fa-tipo" aria-label="Tipo"><option value="">Todos os tipos</option>' + tipos.map((t) => '<option' + (an.tipo === t ? ' selected' : '') + '>' + esc(t) + '</option>').join('') + '</select>' : '') +
-    (grupos.length > 1 ? '<select id="fa-grupo" aria-label="Grupo"><option value="">Todos os grupos</option>' + grupos.map((g) => '<option' + (an.grupo === g ? ' selected' : '') + '>' + esc(g) + '</option>').join('') + '</select>' : '') + '</section>';
+  // Backup 88: Quem · Período · Tipo · Grupo no PADRÃO DO ESCRITÓRIO (a caixa do Mês · Semana · Dia); "Quem" escolhe uma pessoa (ou Todos).
+  // Grupos: os 8 que mais receberam no período ficam à vista; os outros em "Outro grupo…".
+  if (an.quem.length > 1) an.quem = an.quem.slice(0, 1);
+  const recGr = {}; filtrarFin(empresa, ['recebido']).forEach((l) => { const g = l.grupos && l.grupos.nome; if (g) recGr[g] = (recGr[g] || 0) + valorLanc(l); });
+  const topG = grupos.slice().sort((a, b) => (recGr[b] || 0) - (recGr[a] || 0) || a.localeCompare(b, 'pt-BR')).slice(0, 8);
+  if (an.grupo && !topG.includes(an.grupo)) topG.push(an.grupo);
+  const outrosG = grupos.filter((g) => !topG.includes(g));
+  const linhaF = (rot, html) => '<div class="b-fin-f"><span class="b-fin-rot">' + rot + '</span>' + html + '</div>';
+  const fil = '<section class="b-fin-filtros b-filtro-linha b-fin-filtros-88" id="fa-filtros">' +
+    (pessoas.length > 1 ? linhaF('Quem', segFiltroB('', 'data-fa-quem', [['', 'Todos']].concat(pessoas.map((p) => [p, p])), an.quem[0] || '', 'Quem')) : '') +
+    linhaF('Período', segFiltroB('', 'data-fa-per', PERIODOS_FIN, an.de || an.ate ? '' : an.preset, 'Período') +
+      '<span class="b-fx"><span class="b-fin-rot">de</span>' + campoDataB('id="fa-de"', an.de, 'De') + '<span class="b-fin-rot">até</span>' + campoDataB('id="fa-ate"', an.ate, 'Até') + '<button type="button" class="btn btn-o btn-mini" id="fa-aplicar">Aplicar</button><small class="b-fx-aviso" id="fa-aviso"></small></span>') +
+    (tipos.length > 1 ? linhaF('Tipo', segFiltroB('', 'data-fa-tipo', [['', 'Todos os tipos']].concat(tipos.map((t) => [t, t])), an.tipo || '', 'Tipo')) : '') +
+    (grupos.length > 1 ? linhaF('Grupo', segFiltroB('', 'data-fa-grupo', [['', 'Todos os grupos']].concat(topG.map((g) => [g, g])), an.grupo || '', 'Grupo') +
+      (outrosG.length ? '<select id="fa-grupo" class="b-fin-outro" aria-label="Outro grupo"><option value="">Outro grupo…</option>' + outrosG.map((g) => '<option>' + esc(g) + '</option>').join('') + '</select>' : '')) : '') + '</section>';
   const receita = filtrarFin(empresa, ['recebido']), aRec = filtrarFin(empresa, ['areceber']), aPag = filtrarFin(empresa, ['apagar']), pagos = filtrarFin(empresa, ['pago']);
   const perdas = filtrarFin(empresa, ['perda'], true), vencidos = filtrarFin(empresa, ['areceber'], true).filter((l) => l.vencimento && l.vencimento < h);
   const aVencer = aRec.filter((l) => !(l.vencimento && l.vencimento < h));
-  const vRec = somaV(receita);
-  const nums = [['Recebido', brl(vRec), plural(receita.length, 'recebimento', 'recebimentos'), 'b-verde'], ['A receber', brl(somaV(aVencer)), aVencer.length + ' em aberto']]
+  const vRec = somaV(receita), vCom = somaV(receita.filter((l) => l.redutor));
+  // Backup 88: comissão = redutor do que entrou (Recebido já vem líquido; o sub mostra quanto saiu de comissão)
+  const nums = [['Recebido', brl(vRec), vCom ? 'já descontada a comissão de ' + brl(-vCom) : plural(receita.filter((l) => !l.redutor).length, 'recebimento', 'recebimentos'), 'b-verde'], ['A receber', brl(somaV(aVencer)), aVencer.length + ' em aberto']]
     .concat(contab || aPag.length ? [['A pagar', brl(somaV(aPag)), plural(aPag.length, 'conta em aberto', 'contas em aberto')]] : [])
     .concat([['Em atraso', brl(somaV(vencidos)), 'todos os meses', vencidos.length ? 'b-verm' : ''], ['Prejuízo', brl(somaV(perdas)), plural(perdas.length, 'baixa', 'baixas') + ' · todos os meses']])
     .concat(contab ? [] : [['Ticket médio', brl(receita.length ? vRec / receita.length : 0), 'por recebimento']]);
@@ -258,9 +268,9 @@ function analiseFin(empresa, corpo) {
   const meses = chaves.length ? mesesEntre(chaves[0], chaves[chaves.length - 1]) : [hojeISO().slice(0, 7)];   // sem nada no período: o mês atual (o gráfico aparece vazio, com a legenda)
   let graf;
   if (contab) {
-    graf = cartaoFin('Recebido × pago mês a mês', 'Verde = recebido · vermelho = pago (despesas). Passe o mouse na coluna para ver o mês.',
-      '<div class="b-fin-graf">' + graficoColunasB(meses, [{ nome: 'Recebido', cor: 'var(--chart-2)', valores: meses.map((k) => somaV(receita.filter((l) => dataLanc(l).startsWith(k)))) },
-        { nome: 'Pago (despesas)', cor: 'var(--chart-5)', valores: meses.map((k) => somaV(pagos.filter((l) => dataLanc(l).startsWith(k)))) }], { titulo: 'Recebido e pago por mês' }) + '</div>');
+    graf = cartaoFin('Recebido × pago mês a mês', 'Passe o mouse na coluna para ver o valor.',   // Backup 88: texto pedido; verde/vermelho como no Jurídico
+      '<div class="b-fin-graf">' + graficoColunasB(meses, [{ nome: 'Recebido', cor: 'var(--green)', valores: meses.map((k) => somaV(receita.filter((l) => dataLanc(l).startsWith(k)))) },
+        { nome: 'Pago (despesas)', cor: 'var(--red)', valores: meses.map((k) => somaV(pagos.filter((l) => dataLanc(l).startsWith(k)))) }], { titulo: 'Recebido e pago por mês' }) + '</div>');
   } else {
     const quem = [...new Set(receita.map(quemLanc))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
     graf = cartaoFin('Recebido mês a mês', 'Empilhado por pessoa. Passe o mouse na coluna para ver o valor.',
@@ -289,8 +299,10 @@ function analiseFin(empresa, corpo) {
   // controles
   const fl = corpo.querySelector('#fa-filtros');
   fl.onclick = (ev) => {
-    const qb = ev.target.closest('[data-fa-quem]'), pb = ev.target.closest('[data-fa-per]');
-    if (qb) { const p = qb.dataset.faQuem; if (!p) an.quem = []; else an.quem = an.quem.includes(p) ? an.quem.filter((x) => x !== p) : an.quem.concat(p); return analiseFin(empresa, corpo); }
+    const qb = ev.target.closest('[data-fa-quem]'), pb = ev.target.closest('[data-fa-per]'), tb = ev.target.closest('[data-fa-tipo]'), gb = ev.target.closest('[data-fa-grupo]');
+    if (qb) { const p = qb.dataset.faQuem; an.quem = p ? [p] : []; return analiseFin(empresa, corpo); }
+    if (tb) { an.tipo = tb.dataset.faTipo; return analiseFin(empresa, corpo); }
+    if (gb) { an.grupo = gb.dataset.faGrupo; return analiseFin(empresa, corpo); }
     if (pb) { an.preset = pb.dataset.faPer; an.de = an.ate = ''; return analiseFin(empresa, corpo); }
     if (ev.target.id === 'fa-aplicar') {
       // Backup 79: datas digitadas dd/mm/aaaa — só aplica com as duas preenchidas; invertidas trocam sozinhas; 31/11 vira 30/11
@@ -308,21 +320,23 @@ function analiseFin(empresa, corpo) {
 // Base = honorários (receitas) com VENCIMENTO no mês; o atraso dos meses anteriores e o que entrou neste mês de outros meses aparecem à parte.
 const somarMesB = (k, n) => { const [a, m] = k.split('-').map(Number), d = new Date(a, m - 1 + n, 1); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
 function fluxoDoMes(empresa) {
-  const F = estadoFin(empresa), an = F.an, k = an.fluxoMes || hojeISO().slice(0, 7), h = hojeISO(), ini = k + '-01';
+  // Backup 88: "Recebido" = o que ENTROU no mês (pela data do pagamento) — o mesmo número da Análise com "Mês passado"/"Este mês".
+  // Antes o Recebido daqui era "o que venceu no mês e já foi pago" (mesmo pago em outro mês) e a soma não batia com a Análise.
+  const F = estadoFin(empresa), an = F.an, k = an.fluxoMes || hojeISO().slice(0, 7), h = hojeISO();
   const rec = filtrarFin(empresa, ['recebido', 'areceber'], true);
   const doMes = rec.filter((l) => String(l.vencimento || '').startsWith(k));
-  const recebido = somaV(doMes.filter((l) => l._c === 'recebido')), atraso = somaV(doMes.filter((l) => l._c === 'areceber' && l.vencimento < h)),
-    aReceber = somaV(doMes.filter((l) => l._c === 'areceber' && l.vencimento >= h)), previsto = recebido + atraso + aReceber;
-  const atrasoAntes = somaV(rec.filter((l) => l._c === 'areceber' && l.vencimento && l.vencimento < ini));
-  const deOutros = somaV(rec.filter((l) => l._c === 'recebido' && String(l.data_pagamento || '').startsWith(k) && !String(l.vencimento || '').startsWith(k)));
-  const pc = (v) => (previsto > 0 ? Math.max(0, v / previsto * 100) : 0);
-  return '<section class="b-fin-cartao b-fluxo" id="fa-fluxo"><div class="b-fin-hd b-fluxo-hd"><div><h3>Fluxo do mês</h3><p>Honorários com vencimento no mês: quanto estava previsto e como está.</p></div>' +
+  const entrou = rec.filter((l) => l._c === 'recebido' && dataLanc(l).startsWith(k));
+  const recebido = somaV(entrou), dosVenc = somaV(entrou.filter((l) => String(l.vencimento || '').startsWith(k))), deOutros = recebido - dosVenc;
+  const atraso = somaV(doMes.filter((l) => l._c === 'areceber' && l.vencimento < h)), aReceber = somaV(doMes.filter((l) => l._c === 'areceber' && l.vencimento >= h));
+  const previsto = somaV(doMes), pagoPrev = somaV(doMes.filter((l) => l._c === 'recebido'));
+  const pc = (v) => (previsto > 0 ? Math.max(0, Math.min(100, v / previsto * 100)) : 0);
+  return '<section class="b-fin-cartao b-fluxo" id="fa-fluxo"><div class="b-fin-hd b-fluxo-hd"><div><h3>Fluxo do mês</h3><p>O que entrou no mês e como estão os honorários que vencem nele.</p></div>' +
     '<div class="b-fluxo-nav"><button type="button" class="b-bt-f" data-fm="-1" aria-label="Mês anterior">‹</button><b>' + esc(rotMesB(k)) + '</b><button type="button" class="b-bt-f" data-fm="1" aria-label="Próximo mês">›</button></div></div>' +
-    numsFaixa([['Previsto no mês', brl(previsto), 'tudo o que vence no mês'], ['Recebido', brl(recebido), previsto ? Math.round(pc(recebido)) + '% do previsto' : '', 'b-verde'],
+    numsFaixa([['Recebido no mês', brl(recebido), deOutros ? brl(dosVenc) + ' deste mês + ' + brl(deOutros) + ' de outros meses' : 'pela data do pagamento', 'b-verde'],
+      ['Previsto (vence no mês)', brl(previsto), previsto ? Math.round(pc(pagoPrev)) + '% já pago' : ''],
       ['Em atraso (deste mês)', brl(atraso), 'venceu e não entrou', atraso ? 'b-verm' : ''], ['A receber', brl(aReceber), 'ainda vai vencer']]) +
-    '<div class="b-fluxo-barra" role="img" aria-label="Recebido ' + brl(recebido) + ', em atraso ' + brl(atraso) + ', a receber ' + brl(aReceber) + '">' +
-      '<span class="b-fx-rec" style="width:' + pc(recebido) + '%" title="Recebido ' + esc(brl(recebido)) + '"></span><span class="b-fx-atr" style="width:' + pc(atraso) + '%" title="Em atraso ' + esc(brl(atraso)) + '"></span><span class="b-fx-arec" style="width:' + pc(aReceber) + '%" title="A receber ' + esc(brl(aReceber)) + '"></span></div>' +
-    '<p class="b-fluxo-fora">Fora deste mês: <b>' + brl(atrasoAntes) + '</b> em atraso de meses anteriores · <b>' + brl(deOutros) + '</b> recebidos neste mês de vencimentos de outros meses.</p></section>';
+    '<div class="b-fluxo-barra" role="img" aria-label="Pago ' + brl(pagoPrev) + ', em atraso ' + brl(atraso) + ', a receber ' + brl(aReceber) + '">' +
+      '<span class="b-fx-rec" style="width:' + pc(pagoPrev) + '%" title="Já pago ' + esc(brl(pagoPrev)) + '"></span><span class="b-fx-atr" style="width:' + pc(atraso) + '%" title="Em atraso ' + esc(brl(atraso)) + '"></span><span class="b-fx-arec" style="width:' + pc(aReceber) + '%" title="A receber ' + esc(brl(aReceber)) + '"></span></div></section>';
 }
 // ── Backup 79: RESULTADO DO MÊS (como no ambiente de teste): entradas, saídas e resultado de cada mês do período ──
 function resultadoMeses(meses, receita, pagos, contab) {
@@ -836,17 +850,33 @@ function janelaRecibo(empresa) {
   j.querySelector('#rc-central').onclick = () => { fecharJanela(j); abrirGerador('modelo=recibo'); };
   j.addEventListener('click', (ev) => { const b = ev.target.closest('[data-rc]'); if (!b) return; const l = L.find((x) => String(x.id) === b.dataset.rc); fecharJanela(j); if (l) previaRecibo(l); });
 }
-function previaRecibo(l) {
-  const quem = (l.clientes && l.clientes.nome) || nomeLanc(l) || '—', doc = l.clientes && l.clientes.cpf_cnpj;
-  const j = abrirJanela({ kick: 'Recibo', titulo: 'Recibo de honorários', sub: esc(quem),
-    corpo: '<div class="b-previa-email"><div class="b-pe-hd">Araújo &amp; Castro — Recibo</div><div class="b-pe-bd">Recebemos de ' + esc(quem) + (doc ? ' (' + esc(doc) + ')' : '') + ' a quantia de <b>' + brl(l.valor) + '</b>, referente a ' +
-      esc(l.descricao || 'honorários') + ', paga em ' + dataBR(l.data_pagamento) + '.<br><br>Belo Horizonte, ' + dataBR(hojeISO()) + '.<br><br>Araújo &amp; Castro Advocacia</div></div>' +
-      '<p class="b-mudo" style="margin-top:8px">O e-mail leva o recibo em PDF, com número e valor por extenso.</p>',
+// Backup 88: recibo por E-MAIL (o e-mail do escritório, com o timbrado — a prévia mostra exatamente o que o cliente recebe, com o PDF anexo)
+// ou por WHATSAPP (o texto do recibo; no celular, o PDF baixado na Central pode ir junto) — como nas guias de parcelamento e acordo.
+async function previaRecibo(l) {
+  const quem = (l.clientes && l.clientes.nome) || nomeLanc(l) || '—';
+  const cli = (E.clientes || []).find((c) => c.id === l.cliente_id) || {};
+  let P = null; try { P = await q(sb.rpc('previa_recibo_email', { p_lanc: l.id })); } catch (e) { P = { erro: erroAmigavel(e) }; }
+  P = P || {};
+  const txtZap = 'Olá! Tudo bem?\n\nSegue o recibo do pagamento de *' + brl(l.valor) + '*' + (P.extenso ? ' (' + P.extenso + ')' : '') + ', referente a ' + (l.descricao || 'honorários') +
+    ', recebido em ' + dataBR(l.data_pagamento) + '.' + (P.numero ? '\nRecibo nº ' + P.numero + '.' : '') + '\n\nObrigado!\nAraújo & Castro';
+  const j = abrirJanela({ kick: 'Recibo', titulo: 'Recibo de honorários', sub: esc(quem) + ' · ' + brl(l.valor) + ' · pago em ' + dataBR(l.data_pagamento), larga: true,
+    corpo: '<div class="b-rc-env">' + segFiltroB('rc-canal', 'data-rc-canal', [['email', 'E-mail'], ['zap', 'WhatsApp']], 'email', 'Enviar por') + '</div>' +
+      '<div id="rc-email-box"><div class="b-rc-dest"><span>Para</span><b>' + esc(P.para || '—') + '</b>' + (P.erro ? '<small class="msg-erro">' + esc(P.erro) + '</small>' : '<small class="sub">o e-mail do cliente para recibos (Clientes → ficha → Contatos)</small>') + '</div>' +
+        (P.html ? '<iframe class="ge-previa b-rc-previa" title="Prévia do e-mail" sandbox></iframe><p class="b-mudo">O e-mail sai com o timbrado do escritório e leva o recibo em PDF (com número e valor por extenso).</p>' : '') + '</div>' +
+      '<div id="rc-zap-box" hidden><label class="campo"><span>WhatsApp do cliente</span><input id="rc-tel" data-mascara="tel" inputmode="tel" value="' + esc(cli.telefone || '') + '" placeholder="(37) 9 9999-9999"></label>' +
+        '<label class="campo"><span>Mensagem</span><textarea id="rc-zap-txt" rows="8">' + esc(txtZap) + '</textarea></label>' +
+        '<p class="b-mudo">No WhatsApp vai o texto do recibo. Para mandar o PDF junto, use "Abrir na Central de Documentos", salve o PDF e anexe na conversa.</p></div>',
     rodape: '<button type="button" class="btn btn-g" id="rc-ajustar" style="margin-right:auto">Abrir na Central de Documentos</button><button type="button" class="btn btn-o" data-fechar>Fechar</button>' +
-      (l.cliente_id || l.grupo_id ? '<button type="button" class="btn btn-p" id="rc-email">' + iconeB('enviar') + ' Mandar por e-mail</button>' : '') });
+      '<button type="button" class="btn btn-p" id="rc-email"' + (P.para ? '' : ' disabled') + '>' + iconeB('enviar') + ' Enviar e-mail</button>' +
+      '<button type="button" class="btn btn-v" id="rc-zap" hidden>WhatsApp</button>' });
+  if (P.html) j.querySelector('.b-rc-previa').srcdoc = P.html;
   j.querySelector('#rc-ajustar').onclick = () => { fecharJanela(j); abrirGerador('lancamento=' + l.id); };
+  j.querySelector('#rc-canal').onclick = (ev) => { const b = ev.target.closest('[data-rc-canal]'); if (!b) return; marcarSegB(j.querySelector('#rc-canal'), b);
+    const z = b.dataset.rcCanal === 'zap'; j.querySelector('#rc-email-box').hidden = z; j.querySelector('#rc-zap-box').hidden = !z; j.querySelector('#rc-email').hidden = z; j.querySelector('#rc-zap').hidden = !z; };
+  j.querySelector('#rc-zap').onclick = () => { const tel = soDigitos(j.querySelector('#rc-tel').value);
+    window.open('https://wa.me/' + (tel ? (tel.length <= 11 ? '55' : '') + tel : '') + '?text=' + encodeURIComponent(j.querySelector('#rc-zap-txt').value), '_blank', 'noopener'); };
   const em = j.querySelector('#rc-email');
-  if (em) em.onclick = () => comBotao(em, async () => {
+  em.onclick = () => comBotao(em, async () => {
     const r = await q(sb.rpc('enviar_recibo_email', { p_lanc: l.id }));
     fecharJanela(j);
     aviso('Recibo na fila para ' + (r && r.para || 'o cliente') + '.');

@@ -195,7 +195,8 @@ async function chamarFuncao(nome, corpo) {
   const sessao = (await sb.auth.getSession()).data.session;
   let r;
   try {
-    r = await fetch(String(CFG.url).replace(/\/$/, '') + '/functions/v1/' + nome, { method: 'POST',
+    // Backup 88: erp-publicacoes roda na região de São Paulo (o Diário do CNJ recusa servidores fora do Brasil)
+    r = await fetch(String(CFG.url).replace(/\/$/, '') + '/functions/v1/' + nome + (nome === 'erp-publicacoes' ? '?forceFunctionRegion=sa-east-1' : ''), { method: 'POST',
       headers: { 'Content-Type': 'application/json', apikey: CFG.chave, Authorization: 'Bearer ' + (sessao ? sessao.access_token : CFG.chave) },
       body: JSON.stringify(corpo || {}) });
   } catch (e) { throw new Error('Não consegui falar com a função "' + nome + '". No Supabase, o endereço da função (aparece embaixo do nome dela) tem que terminar em /functions/v1/' + nome +
@@ -640,8 +641,16 @@ Object.assign(ICONES_B, { financeiro: '<rect x="2.5" y="5.5" width="19" height="
 // Backup 74: faixa de números (a mesma do Painel, da Análise do Financeiro e da ficha do cliente): [[rótulo, valor, sub, classe b-verde|b-verm]]
 // Backup 79: FILTRO SUSPENSO no alto das telas refeitas (Grupo, Empresa…). campos: [{k, rot, todos, opcoes:[texto], v}].
 // A tela guarda o valor em E.<tela>.f e, ao trocar, redesenha tudo (resumo/cartões e a tabela) com o recorte.
+// Backup 88: "PADRÃO DO ESCRITÓRIO" para filtros de escolha única — o mesmo controle em caixa do "Mês · Semana · Dia" do calendário.
+// opcoes: [[valor, rótulo]]; attr: o data-* que a tela lê no clique (ex.: 'data-pc-chip'). marcarSegB(caixa, botão) acende o escolhido.
+function segFiltroB(id, attr, opcoes, valor, rotulo) {
+  return '<div class="b-seg b-seg-f"' + (id ? ' id="' + id + '"' : '') + ' role="group" aria-label="' + esc(rotulo || '') + '">' + opcoes.map((o) => { const on = String(valor) === String(o[0]);
+    return '<button type="button" class="b-seg-bt" ' + attr + '="' + esc(o[0]) + '" aria-pressed="' + on + '" aria-selected="' + on + '">' + esc(o[1]) + '</button>'; }).join('') + '</div>';
+}
+function marcarSegB(caixa, bt) { if (caixa) caixa.querySelectorAll('.b-seg-bt').forEach((x) => { const on = x === bt; x.setAttribute('aria-pressed', on); x.setAttribute('aria-selected', on); }); }
+// Backup 88: o filtro de Grupo/Empresa fica À DIREITA e FIXO no alto ao rolar a tela (b-fsus-fixo)
 function filtroSusB(id, campos) {
-  return '<div class="b-fsus" id="' + id + '">' + campos.map((c) => '<label class="b-fsus-c"><span>' + esc(c.rot) + '</span><select data-fsus="' + c.k + '" aria-label="' + esc(c.rot) + '"><option value="">' + esc(c.todos) + '</option>' +
+  return '<div class="b-fsus b-fsus-fixo" id="' + id + '">' + campos.map((c) => '<label class="b-fsus-c"><span>' + esc(c.rot) + '</span><select data-fsus="' + c.k + '" aria-label="' + esc(c.rot) + '"><option value="">' + esc(c.todos) + '</option>' +
     c.opcoes.map((o) => '<option' + (o === c.v ? ' selected' : '') + '>' + esc(o) + '</option>').join('') + '</select></label>').join('') +
     (campos.some((c) => c.v) ? '<button type="button" class="b-fsus-limpar" data-fsus-limpar>Limpar filtro</button>' : '') + '</div>';
 }
@@ -680,18 +689,18 @@ function tabelaB(el, cfg) {
   el._cfgB = cfg;
   const chave = cfg.chave || ((r) => String(r.id));
   const temFx = !!(cfg.venc || cfg.valor);
-  const compacto = () => document.documentElement.classList.contains('b-compacto');
   if (!cfg.semBarra) {
     // Backup 69: como a tabela de Acordos (o usuário preferiu) — botões "A pagar / Pago", atalhos de prazo, busca e contador numa linha;
     // grupo/plataforma/natureza, vencimento de/até e valor ficam no botão "Filtros"
     const temPainel = temFx || (cfg.listas || []).length;
     el.innerHTML = '<div class="b-barra-tab">' + (cfg.abas ? '<div class="b-seg" role="tablist"></div>' : '') +
       (cfg.prazos ? '<div class="b-prazos" data-bt="prazos"></div>' : '') +
-      (cfg.busca ? '<label class="b-busca">' + iconeB('busca') + '<input data-bt="q" placeholder="' + esc(cfg.dicaBusca || 'Buscar') + '" aria-label="Buscar" value="' + esc(st.q) + '"></label>' : '') +
+      // Backup 88: sem a barra de busca nas tabelas (pedido: "remova a barra de pesquisa"; Ctrl+K continua achando tudo) — só fica onde a tela pede (buscaFica)
+      (cfg.busca && cfg.buscaFica ? '<label class="b-busca">' + iconeB('busca') + '<input data-bt="q" placeholder="' + esc(cfg.dicaBusca || 'Buscar') + '" aria-label="Buscar" value="' + esc(st.q) + '"></label>' : '') +
       '<span class="b-conta" data-bt="conta"></span><span class="b-barra-dir">' + (cfg.barraExtra || '') +   // Backup 72: controle extra da tela (ex.: período das Publicações)
       (cfg.lote && cfg.loteBotao !== false ? '<button type="button" class="b-bt-f" data-bt="loteon" aria-pressed="' + !!st.loteOn + '" title="Marcar várias linhas para dar baixa de uma vez">' + iconeB('check') + (st.loteOn ? 'Fechar marcação' : 'Marcar várias') + '</button>' : '') +
       (temPainel ? '<button type="button" class="b-bt-f" data-bt="painel" aria-expanded="' + st.painel + '">' + iconeB('filtro') + 'Filtros <span class="b-nf" hidden></span></button>' : '') +
-      '<button type="button" class="b-ic-bt" data-bt="dens" aria-pressed="' + compacto() + '" title="Tabela compacta (mais linhas na tela)" aria-label="Tabela compacta">' + iconeB('compacto') + '</button></span></div>' +
+      '</span></div>' +   // Backup 88: saiu o botão "Tabela compacta" (do sistema todo)
       (temPainel ? '<div class="b-mais-filtros" data-bt="pn"' + (st.painel ? '' : ' hidden') + '>' +
         // Backup 85 (TB5): como no ambiente — cada filtro com o nome escrito em cima
         (cfg.listas || []).map((l) => '<div class="b-campo"><span class="b-rot">' + esc(l.rot) + '</span><select data-bt="l" data-k="' + esc(l.k) + '" aria-label="' + esc(l.rot) + '"><option value="">' + esc(l.todos) + '</option>' + l.opcoes.map((o) => '<option value="' + esc(o[0]) + '"' + (st.listas[l.k] === String(o[0]) ? ' selected' : '') + '>' + esc(o[1]) + '</option>').join('') + '</select></div>').join('') +
@@ -705,7 +714,7 @@ function tabelaB(el, cfg) {
     const q = normalizar(st.q.trim()), min = st.min ? lerValor(st.min) : null, max = st.max ? lerValor(st.max) : null;
     return cfg.linhas.filter((r) => {
       if (!semAba && cfg.abas && st.aba) { const a = cfg.abas.find((x) => x.id === st.aba); if (a && a.f && !a.f(r)) return false; }
-      if (q && cfg.busca && normalizar(cfg.busca(r)).indexOf(q) < 0) return false;
+      if (q && cfg.busca && cfg.buscaFica && normalizar(cfg.busca(r)).indexOf(q) < 0) return false;
       for (const l of (cfg.listas || [])) { const v = st.listas[l.k]; if (!v) continue; const g = l.get(r); if (Array.isArray(g) ? !g.map(String).includes(v) : String(g) !== v) return false; }   // Backup 82: get pode devolver lista (ex.: De quem)
       if (cfg.venc) { const d = cfg.venc(r) || ''; if (st.vde && d < st.vde) return false; if (st.vate && d > st.vate) return false;
         // atalhos de prazo (só nas abas em aberto): Vencidas = até hoje; N dias = vence até hoje + N (inclui as vencidas); até = data escolhida
@@ -761,15 +770,21 @@ function tabelaB(el, cfg) {
           (temLote ? '<td class="b-ck"><input type="checkbox" data-bt="um" aria-label="Marcar"' + (st.sel[k] ? ' checked' : '') + '></td>' : '') + cols.map((c) => cel(c, r)).join('') + '</tr>'; }).join('') +
       // Backup 69: com muitas linhas (ex.: 15 mil parcelas), desenha 150 por vez — a tela abre na hora
       (lin.length > st.limite ? '<tr class="b-tr-mais"><td colspan="' + (cols.length + (temLote ? 1 : 0)) + '"><button type="button" class="btn btn-g btn-mini" data-bt="mais">Mostrar mais ' + Math.min(150, lin.length - st.limite) + ' (' + lin.length + ' no total)</button></td></tr>' : '') +
-      '</tbody>' + (soma != null && lin.length > 1 ? '<tfoot><tr>' + (temLote ? '<td></td>' : '') + cols.map((c, i) => c.soma ? '<td class="b-dir b-val">' + brl(soma) + '<small>média ' + brl(soma / lin.length) + '</small></td>' : '<td>' + (i === 0 ? 'Total de ' + lin.length : '') + '</td>').join('') + '</tr></tfoot>' : '') +
+      '</tbody>' +   // Backup 88: sem a linha "Total de N" com soma e média no pé (pedido: "remova completamente a linha")
       '</table></div></div>';
+    // Backup 88: a caixa da tabela mostra 20 linhas antes de rolar (era ~10–12)
+    if (!cfg.altura) requestAnimationFrame(() => { const rola = Q('.b-rola'), trs = rola && rola.querySelectorAll('tbody > tr');
+      if (!rola || !trs || trs.length <= 20 || !trs[20].offsetTop) { if (rola) rola.style.maxHeight = 'none'; return; }
+      rola.style.maxHeight = (trs[20].offsetTop + 2) + 'px'; });
   }
   function contarFx() { const b = Q('[data-bt=painel]'); if (!b) return; const n = (st.vde || st.vate ? 1 : 0) + (st.min || st.max ? 1 : 0) + Object.keys(st.listas).filter((k) => st.listas[k]).length; b.classList.toggle('b-tem', n > 0); const s = b.querySelector('.b-nf'); s.hidden = !n; s.textContent = n; }
   function prazos() {
     const b = Q('[data-bt=prazos]'); if (!b) return;
     b.hidden = !prazoNaAba();
-    b.innerHTML = [['', 'Todas'], ['venc', 'Vencidas'], ['5', '5 dias'], ['10', '10 dias'], ['15', '15 dias'], ['30', '30 dias']].map((o) => '<button type="button" class="b-chip" data-b-prazo="' + o[0] + '" aria-pressed="' + (st.prazo === o[0]) + '">' + o[1] + '</button>').join('') +
-      '<label class="b-prazo-ate' + (st.prazo === 'ate' ? ' b-on' : '') + '" title="Vencimento até esta data">até ' + campoDataB('data-bt="prazoate"', st.prazoAte, 'Vencimento até') + '</label>';
+    // Backup 88: no "padrão do escritório" (o controle em caixa do Mês · Semana · Dia) e sem o "até dd/mm/aaaa"
+    if (st.prazo === 'ate') st.prazo = '';
+    b.className = 'b-seg b-prazos'; b.setAttribute('role', 'group'); b.setAttribute('aria-label', 'Prazo');
+    b.innerHTML = [['', 'Todas'], ['venc', 'Vencidas'], ['5', '5 dias'], ['10', '10 dias'], ['15', '15 dias'], ['30', '30 dias']].map((o) => '<button type="button" class="b-seg-bt" data-b-prazo="' + o[0] + '" aria-pressed="' + (st.prazo === o[0]) + '" aria-selected="' + (st.prazo === o[0]) + '">' + o[1] + '</button>').join('');
   }
   function conta() { const c = Q('[data-bt=conta]'); if (!c) return; const n = filtrar().length, un = cfg.unidade || ['linha', 'linhas']; c.textContent = cfg.conta ? cfg.conta(n, st.aba) : plural(n, un[0], un[1]); }   // Backup 85 (TB2): sempre à vista
   const tudo = () => { abas(); prazos(); quadro(); contarFx(); conta(); };
@@ -794,7 +809,6 @@ function tabelaB(el, cfg) {
       if (tt === 'painel') { s2.painel = !s2.painel; el.querySelector('[data-bt=pn]').hidden = !s2.painel; t.setAttribute('aria-expanded', s2.painel); return; }
       if (tt === 'limpar') { s2.q = ''; s2.listas = {}; s2.vde = s2.vate = s2.min = s2.max = ''; s2.prazo = s2.prazoAte = ''; tabelaB(el, c2); return; }
       const pz = ev.target.closest('[data-b-prazo]'); if (pz) { s2.prazo = pz.dataset.bPrazo; s2.prazoAte = ''; el._redesenharB(); return; }
-      if (tt === 'dens') { const on = !document.documentElement.classList.contains('b-compacto'); document.documentElement.classList.toggle('b-compacto', on); try { localStorage.setItem('erp_compacto', on ? '1' : ''); } catch (e) { /* sem armazenamento */ } t.setAttribute('aria-pressed', on); aviso(on ? 'Tabelas compactas: mais linhas na tela.' : 'Tabelas confortáveis.'); return; }
       if (tt === 'desmarcar') { s2.sel = {}; el._redesenharB(); return; }
       if (tt === 'loteon') { s2.loteOn = !s2.loteOn; s2.sel = {}; t.setAttribute('aria-pressed', s2.loteOn); t.lastChild.textContent = s2.loteOn ? 'Fechar marcação' : 'Marcar várias'; el._redesenharB(); return; }
       if (tt === 'mais') { s2.limite += 150; el._redesenharB(); return; }
@@ -811,7 +825,7 @@ function tabelaB(el, cfg) {
   }
   return { st, redesenhar: tudo };
 }
-try { if (localStorage.getItem('erp_compacto')) document.documentElement.classList.add('b-compacto'); } catch (e) { /* sem armazenamento */ }
+try { localStorage.removeItem('erp_compacto'); } catch (e) { /* Backup 88: a tabela compacta saiu */ }
 
 function vazio(frase, rotulo, seletor) {
   return '<div class="vazio"><div class="vazio-frase">' + esc(frase) + '</div>' +

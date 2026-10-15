@@ -136,9 +136,12 @@ function salvarPrefFila() {
 // Backup 36: compromissos na agenda (tarefas com tipo_agenda + hora) — cor por tipo e legenda
 const TIPOS_AGENDA = [['reuniao', 'Reunião', '🤝'], ['audiencia', 'Audiência', '⚖'], ['compromisso', 'Compromisso', '📌']];   // Backup 40: sem Ligação
 // legenda curta: compromissos (reunião, audiência, compromisso), tarefa e atrasada; ⚑ = prazo fatal
-const legendaAgenda = () => '<div class="ag-leg">' + TIPOS_AGENDA.map(([k, r]) => '<span><i class="ag-cor ag-' + k + '"></i>' + r + '</span>').join('') +
-  '<span><i class="ag-cor ag-tarefa"></i>Tarefa</span><span><i class="ag-cor ag-rotina"></i>Rotina</span><span><i class="ag-cor ag-atrasada"></i>Atrasada</span><span><i class="ag-cor ag-feita"></i>Concluída</span><span><i class="ag-cor ag-prevista"></i>Próxima (repete)</span><span>⚑ Prazo fatal</span></div>';
+// Backup 88: só Reunião · Audiência · Tarefa · Rotina · Atrasada (e Concluída) — saíram "Próxima (repete)", "Prazo fatal" e "Compromisso"
+const legendaAgenda = () => '<div class="ag-leg">' + [['reuniao', 'Reunião'], ['audiencia', 'Audiência'], ['tarefa', 'Tarefa'], ['rotina', 'Rotina'], ['atrasada', 'Atrasada'], ['feita', 'Concluída']]
+  .map(([k, r]) => '<span><i class="ag-cor ag-' + k + '"></i>' + r + '</span>').join('') + '</div>';
 // Backup 45: filtros da agenda (marca/desmarca) — tipo do item e de quem é (respeitando o cargo: ninguém vê a agenda de quem está acima)
+// Backup 88: "tarefa é pontual; rotina é uma tarefa que repete" — os 4 tipos que se lançam em Tarefas
+const TIPOS_NOVO_TF = [['tarefa', 'Tarefa'], ['rotina', 'Rotina'], ['reuniao', 'Reunião'], ['audiencia', 'Audiência']];
 const ROT_TIPO_TF = { reuniao: 'Reunião', audiencia: 'Audiência', compromisso: 'Compromisso', tarefa: 'Tarefa', rotina: 'Rotina' };
 const FILTRO_TIPOS_AG = [['reuniao', 'Reuniões'], ['audiencia', 'Audiências'], ['compromisso', 'Compromissos'], ['tarefa', 'Tarefas'], ['rotina', 'Rotinas']];
 function tipoItemAgenda(t) {
@@ -183,7 +186,7 @@ async function conflitosAgenda(dia, ini, fim, pessoas, ignorar) {
     return x < b && a < y && deles.some((n) => nomes.includes(n));
   });
 }
-async function janelaAgendar(dataIni, depois) {
+async function janelaAgendar(dataIni, depois, tipoIni) {
   // Backup 40: só quem está CADASTRADO e ativo (Administração → Usuários); descadastrou, sai da lista
   const eq = await equipe().catch(() => []);
   const pessoas = [...new Set(eq.map((u) => String(u.nome || '').trim()).filter(Boolean))];
@@ -193,7 +196,8 @@ async function janelaAgendar(dataIni, depois) {
   const podeVer = pessoasVisiveis();
   const j = abrirJanela({ titulo: '📅 Agendar', larga: true,
     corpo: '<form id="f-ag" class="grade ag-form" data-tipo="reuniao">' +
-      '<div class="campo" style="grid-column:1/-1"><span>Tipo</span><div class="segmento ag-tipos" id="ag-tipo">' + TIPOS_AGENDA.concat([['tarefa', 'Tarefa', '✓']]).map(([k, r, ic], i) => '<button type="button" data-v="' + k + '"' + (i ? '' : ' class="ativo"') + '>' + ic + ' ' + r + '</button>').join('') + '</div></div>' +
+      // Backup 88: os 4 tipos do escritório; Tarefa e Rotina abrem o formulário da tarefa
+      '<div class="campo" style="grid-column:1/-1"><span>Tipo</span>' + segFiltroB('ag-tipo', 'data-v', TIPOS_NOVO_TF, tipoIni || 'reuniao', 'Tipo') + '</div>' +
       '<label class="campo"><span>Responsável</span><select name="resp">' + podeVer.map((n) => '<option value="' + esc(n) + '"' + (primeiroNome(n) === primeiroNome(meuNome()) ? ' selected' : '') + '>' + esc(n) + (primeiroNome(n) === primeiroNome(meuNome()) ? ' (eu)' : '') + '</option>').join('') + '</select></label>' +
       // Audiência: processo, tipo, vara e se é virtual
       '<label class="campo ag-so-aud ag-toda"><span>Número do processo *</span><input name="processo" list="ag-procs" autocomplete="off" placeholder="0000000-00.0000.0.00.0000"><datalist id="ag-procs">' +
@@ -214,7 +218,7 @@ async function janelaAgendar(dataIni, depois) {
       '<label class="campo ag-toda"><span>Observação</span><textarea name="descricao" rows="2"></textarea></label></form>',
     rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="ag-ok">Agendar</button></div>' });
   const f = j.querySelector('#f-ag');
-  let tipo = 'reuniao';
+  let tipo = tipoIni === 'audiencia' ? 'audiencia' : 'reuniao';
   const ROT = { reuniao: ['Assunto *', 'Local ou link', 'Com quem (cliente ou qualquer nome)', 'ex.: Reunião sobre o parcelamento', 'escritório, Google Meet…'],
     audiencia: ['Descrição (opcional)', 'Vara / juízo, ou link da sala virtual', 'Cliente (parte que representamos)', 'se vazio: "Audiência de conciliação — nº do processo"', 'ex.: 2ª Vara Cível de Belo Horizonte'],
     compromisso: ['O quê *', 'Local', 'Com quem (opcional)', 'ex.: Cartório, banco, perícia…', 'endereço'],
@@ -225,7 +229,10 @@ async function janelaAgendar(dataIni, depois) {
     f.querySelector('.ag-rot-titulo').textContent = r[0]; f.querySelector('.ag-rot-local').textContent = r[1]; f.querySelector('.ag-rot-com').textContent = r[2];
     f.titulo.placeholder = r[3]; f.local.placeholder = r[4];
   };
-  j.querySelector('#ag-tipo').onclick = (ev) => { const b = ev.target.closest('[data-v]'); if (!b) return; tipo = b.dataset.v; j.querySelectorAll('#ag-tipo button').forEach((x) => x.classList.toggle('ativo', x === b)); pintarTipo(); };
+  j.querySelector('#ag-tipo').onclick = (ev) => { const b = ev.target.closest('[data-v]'); if (!b) return;
+    if (b.dataset.v === 'tarefa' || b.dataset.v === 'rotina') { const d = f.prazo.value; fecharJanela(j); formTarefa({ prazo: d, _tipo: b.dataset.v }, depois); return; }
+    tipo = b.dataset.v; marcarSegB(j.querySelector('#ag-tipo'), b); pintarTipo(); };
+  pintarTipo();
   // fim acompanha o início (1 h depois) até a pessoa mexer no fim
   let fimMexido = false;
   f.hora_fim.oninput = () => { fimMexido = true; };
@@ -299,7 +306,7 @@ function vigiarAgenda() {
 function classeAgenda(t, d) {
   const h = hojeISO();
   if (t._cls) return t._cls;
-  if (t.prazo_fatal === d) return 'ag-fatal';
+  // Backup 88: sem a cor de "prazo fatal"
   if (tarefaFechada(t)) return 'ag-feita';   // Backup 40: concluída fica riscada
   if (t.tipo_agenda) return 'ag-' + (t.tipo_agenda === 'ligacao' ? 'compromisso' : t.tipo_agenda);
   if (/^reuniao:/.test(t.chave_regra || '')) return 'ag-reuniao';   // reuniões marcadas pelo CRM
@@ -442,6 +449,7 @@ function seloPrazo(t) {
   return '';
 }
 function seloFatal(t) {
+  return '';   // Backup 88: o prazo fatal saiu das telas (o pedido: "remova prazo fatal")
   if (!t.prazo_fatal) return '';
   const d = diasAte(t.prazo_fatal), u = tarefaFechada(t) ? null : uteisAte(t.prazo_fatal, E._feriados || new Set());
   const falta = u == null ? '' : u < 0 ? ' · vencido' : u === 0 ? ' · hoje!' : ' · faltam ' + u + ' dia(s) útil(eis)';
@@ -464,42 +472,40 @@ TELAS.tarefas = async function () {
   // Backup 49: Minha semana virou a vista Semana do Calendário; o Quadro saiu (repetia a Lista)
   if (F.vista === 'kanban') F.vista = 'lista';
   if (F.atalho === 'minhas') F.atalho = '';
+  // Backup 88: a vista Semana do alto e a de Fluxos saíram — a Semana fica dentro do Calendário (Mês · Semana · Dia)
+  if (F.vista === 'semana') { F.vista = 'calendario'; F.calVista = 'semana'; }
+  if (F.vista === 'fluxos') F.vista = 'lista';
   $('conteudo').innerHTML =
     // Backup 49: abas junto do título; só "+ Nova tarefa" e "Fluxo" à vista — o resto no ⚙ (Backup 55: a criação rápida ⚡ saiu)
     // Backup 72: as abas Em aberto/Atrasadas/Concluídas/Excluídas ficam na tabela (com os números), como no ambiente de teste
     '<div class="titulo-pag b-cab"><div class="b-cab-ic">' + iconeB('tarefas') + '</div><div class="b-cab-tx"><h1>Tarefas</h1><p>Suas tarefas e as da equipe</p></div>' +
     '<div class="acoes">' +
     // Backup 80: Lista · Semana · Calendário · Fluxos no alto, ao lado de "+ Nova tarefa" (como no ambiente de teste)
-    '<div class="b-seg tf-vista" id="tf-vista" role="tablist">' + [['lista', 'Lista'], ['semana', 'Semana'], ['calendario', 'Calendário'], ['fluxos', 'Fluxos']]
+    '<div class="b-seg tf-vista" id="tf-vista" role="tablist">' + [['lista', 'Lista'], ['calendario', 'Calendário']]
       .map(([v, r]) => '<button type="button" role="tab" class="b-seg-bt" data-v="' + v + '">' + r + '</button>').join('') + '</div>' +
-    '<span class="tf-cfg-wrap"><button class="btn btn-o tf-bt-ic" id="tf-config" title="Configurar: modelos de fluxo, feriados, Google Agenda e novo fluxo" aria-expanded="false">⚙</button>' +
-      '<span class="tf-cfg-menu" id="tf-cfg-menu" hidden><button class="btn btn-o" id="tf-modelos">Modelos de fluxo</button>' +
+    '<span class="tf-cfg-wrap"><button class="btn btn-o tf-bt-ic" id="tf-config" title="Configurar: feriados e Google Agenda" aria-expanded="false">⚙</button>' +
+      '<span class="tf-cfg-menu" id="tf-cfg-menu" hidden>' +   // Backup 88: sem "Modelos de fluxo" 
       '<button class="btn btn-o" id="tf-feriados">Feriados</button><button class="btn btn-o" id="tf-agenda" title="Prazos fatais e audiências no seu Google Agenda">📅 Google Agenda</button></span></span>' +
     // Backup 54: "Delegar" saiu daqui — virou o botão "Fluxo" (as sequências com validação, como "Lead completo", estão na lista de modelos do fluxo)
-    '<button class="btn btn-o" id="tf-fluxo" title="Cria várias tarefas de uma vez a partir de um modelo (inclui as sequências com validação, ex.: Lead completo)">🔀 Fluxo</button><button class="btn btn-p" id="tf-nova">+ Nova tarefa</button></div></div>' +
+    // Backup 88: sem o botão "Fluxo"; "+ Nova tarefa" lança Tarefa, Rotina, Reunião ou Audiência
+    '<button class="btn btn-p" id="tf-nova">+ Nova tarefa</button></div></div>' +
     // Backup 72: sem os 4 cartões do topo; vistas Lista · Semana · Calendário · Fluxos
-    '<div class="filtros">' +
-    '<input class="busca" id="tf-busca" placeholder="Buscar tarefa, cliente, processo ou etiqueta" autocomplete="off">' +
-    // Backup 48/49: Mostrar (tipo, prioridade e prazo) e De quem — o mesmo desenho da agenda do Início
-    '</div><div class="fila-filtros tf-filtros" id="tf-chips"></div><div id="tf-corpo"><div class="carregando">Carregando…</div></div>';
+    // Backup 88: sem a barra de busca; Mostrar · De quem · Urgência no padrão do escritório, em todas as vistas
+    '<div class="fila-filtros tf-filtros" id="tf-chips"></div><div id="tf-corpo"><div class="carregando">Carregando…</div></div>';
   $('tf-nova').onclick = () => formTarefa({}, () => TELAS.tarefas());
   $('tf-config').onclick = (ev) => { ev.stopPropagation(); const m = $('tf-cfg-menu'); m.hidden = !m.hidden; $('tf-config').setAttribute('aria-expanded', String(!m.hidden)); };
   if (!window._tfCfgDoc) { window._tfCfgDoc = true; document.addEventListener('click', (ev) => { const m = $('tf-cfg-menu'); if (m && !m.hidden && !ev.target.closest('.tf-cfg-wrap')) m.hidden = true; }); }
   $('tf-cfg-menu').addEventListener('click', () => { setTimeout(() => { const m = $('tf-cfg-menu'); if (m) m.hidden = true; }, 0); });
-  $('tf-fluxo').onclick = () => formNovoFluxo(() => TELAS.tarefas());
-  $('tf-modelos').onclick = () => janelaModelos();
   $('tf-feriados').onclick = () => janelaFeriados();
   $('tf-agenda').onclick = () => janelaAgenda();
   $('tf-vista').onclick = (ev) => { const b = ev.target.closest('button'); if (b) { F.vista = b.dataset.v; pintarTarefas(); } };
   $('tf-chips').onclick = (ev) => { const b = ev.target.closest('button'); if (!b) return;
-    if (b.dataset.tfTipo != null) F.tipos = alternarFiltro(F.tipos || FILTRO_TIPOS_AG.map((x) => x[0]), b.dataset.tfTipo, FILTRO_TIPOS_AG.map((x) => x[0]));
-    else if (b.dataset.tfPri != null) F.pri = F.pri === b.dataset.tfPri ? '' : b.dataset.tfPri;
-    else if (b.dataset.tfPrazo != null) F.atalho = F.atalho === b.dataset.tfPrazo ? '' : b.dataset.tfPrazo;
-    else if (b.dataset.tfPes != null) { const todos = pessoasFiltro().map(primeiroNome); F.pessoas = alternarFiltro(F.pessoas && F.pessoas.length ? F.pessoas : todos, b.dataset.tfPes, todos); if (!F.pessoas.length) F.pessoas = [primeiroNome(meuNome())]; }
+    if (b.dataset.tfMostra != null) F.mostra = b.dataset.tfMostra;
+    else if (b.dataset.tfPes != null) F.pessoas = b.dataset.tfPes ? [b.dataset.tfPes] : [];
+    else if (b.dataset.tfPri != null) F.pri = b.dataset.tfPri;
     else return;
     pintarTarefas(); };
-  $('tf-busca').value = F.busca;
-  let t; $('tf-busca').oninput = (ev) => { clearTimeout(t); t = setTimeout(() => { F.busca = ev.target.value; pintarTarefas(); }, 250); };
+  F.busca = '';
   const [ts, fl] = await Promise.all([
     buscarTodos(() => sb.from('tarefas').select('*').order('prazo', { nullsFirst: false })),
     q(sb.from('fluxos').select('*').order('prazo_fatal', { nullsFirst: false })).catch(() => [])
@@ -522,10 +528,12 @@ function filtrarTarefas(daLista) {
     if (a === '7' && (tarefaFechada(t) || !t.prazo || t.prazo > somarDias(h, 7))) return false;
     // "pedem atenção" (destaque do Início): minhas atrasadas ou com prazo fatal em até 7 dias
     if (a === 'atencao' && (tarefaFechada(t) || !ehMinha(t) || !((t.prazo && t.prazo < h) || (t.prazo_fatal && t.prazo_fatal <= somarDias(h, 7))))) return false;
-    // Backup 85 (TF2): na Lista, Pessoa/Tipo/Prioridade ficam dentro de "Filtros" da tabela (como no ambiente); a barra vale para as outras vistas
-    if (!daLista && F.tipos && !F.tipos.includes(tipoItemAgenda(t))) return false;
-    if (!daLista && F.pessoas && F.pessoas.length && ![t.responsavel, t.revisor].concat(String(t.participantes || '').split(',')).some((n) => n && F.pessoas.includes(primeiroNome(n)))) return false;
-    if (!daLista && F.pri && t.prioridade !== F.pri) return false;
+    // Backup 88: Mostrar · De quem · Urgência valem em TODAS as vistas (Lista e Calendário)
+    const mo = F.mostra || '', tp = tipoItemAgenda(t);
+    if (mo === 'atrasadas' && (tarefaFechada(t) || !t.prazo || t.prazo >= h)) return false;
+    if (mo && mo !== 'atrasadas' && (mo === 'reuniao' ? !['reuniao', 'compromisso'].includes(tp) : tp !== mo)) return false;   // compromissos antigos entram em Reuniões
+    if (F.pessoas && F.pessoas.length && ![t.responsavel, t.revisor].concat(String(t.participantes || '').split(',')).some((n) => n && F.pessoas.includes(primeiroNome(n)))) return false;
+    if (F.pri && t.prioridade !== F.pri) return false;
     if (b && !normalizar(t.titulo + ' ' + t.processos_vinculados + ' ' + nomeGrupo(t.grupo_id) + ' ' + nomeCliente(t.cliente_id) + ' ' + t.etiquetas + ' ' + t.descricao).includes(b)) return false;
     return true;
   });
@@ -539,24 +547,19 @@ function pintarTarefas() {
   // Backup 84: uma linha de filtros em TODAS as vistas — "Mostrar" (tipo) em chips sempre à vista; "De quem" e "Urgência" em listas
   // (como o "Todos os grupos" de Processos). Saíram os chips de pessoas, de prioridade e de prazo (o usuário pediu menos filtros).
   if (F.pessoas && F.pessoas.length > 1) F.pessoas = [];   // de quando eram vários chips: agora é uma pessoa ou todas
-  { const tipos = FILTRO_TIPOS_AG.map((x) => x[0]), tSel = new Set(F.tipos || tipos), eu = primeiroNome(meuNome());
+  // Backup 88: os 3 filtros no PADRÃO DO ESCRITÓRIO (a caixa do Mês · Semana · Dia), sempre com todas as opções à vista
+  { const eu = primeiroNome(meuNome());
     const pes = pessoasFiltro().slice().sort((a, b) => (primeiroNome(b) === eu) - (primeiroNome(a) === eu) || a.localeCompare(b, 'pt-BR'));
     const pesSel = F.pessoas && F.pessoas.length === 1 ? F.pessoas[0] : '';
-    const chipB = (k, r, on) => '<button type="button" class="b-chip" data-tf-tipo="' + esc(k) + '" aria-pressed="' + on + '">' + esc(r) + '</button>';
+    const grupo = (rot, html) => '<div class="b-tf-f"><span class="b-tf-f-rot">' + rot + '</span>' + html + '</div>';
     $('tf-chips').classList.remove('fila-2x2', 'tf-so-quem');
-    $('tf-chips').style.display = F.vista === 'lista' ? 'none' : '';   // Backup 85 (TF2)
-    $('tf-chips').innerHTML = '<div class="b-tf-filtros"><div class="b-chips" role="group" aria-label="Mostrar"><span class="b-fin-rot">Mostrar</span>' +
-        chipB('*', 'Tudo', tSel.size === tipos.length) + FILTRO_TIPOS_AG.map(([k, r]) => chipB(k, r, tSel.has(k))).join('') + '</div>' +
-      '<div class="b-fsus">' + (pes.length > 1 ? '<label class="b-fsus-c"><span>De quem</span><select id="tf-f-pes" aria-label="De quem"><option value="">Todas as pessoas</option>' +
-        pes.map((n) => '<option value="' + esc(primeiroNome(n)) + '"' + (pesSel === primeiroNome(n) ? ' selected' : '') + '>' + esc(nomeCurto(n)) + '</option>').join('') + '</select></label>' : '') +
-      '<label class="b-fsus-c"><span>Urgência</span><select id="tf-f-pri" aria-label="Urgência"><option value="">Todas</option>' +
-        [['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa']].map(([k, r]) => '<option value="' + k + '"' + (F.pri === k ? ' selected' : '') + '>' + r + '</option>').join('') + '</select></label>' +
-      (pesSel || F.pri ? '<button type="button" class="b-fsus-limpar" id="tf-f-limpar">Limpar filtro</button>' : '') + '</div></div>';
-    const sp = $('tf-f-pes'); if (sp) sp.onchange = () => { F.pessoas = sp.value ? [sp.value] : []; pintarTarefas(); };
-    $('tf-f-pri').onchange = (ev) => { F.pri = ev.target.value; pintarTarefas(); };
-    const lp = $('tf-f-limpar'); if (lp) lp.onclick = () => { F.pessoas = []; F.pri = ''; pintarTarefas(); };
+    $('tf-chips').style.display = '';
+    $('tf-chips').innerHTML = '<div class="b-tf-filtros b-tf-filtros-88">' +
+      grupo('Mostrar', segFiltroB('tf-f-mostra', 'data-tf-mostra', [['', 'Tudo'], ['reuniao', 'Reuniões'], ['audiencia', 'Audiências'], ['tarefa', 'Tarefas'], ['rotina', 'Rotinas'], ['atrasadas', 'Atrasadas']], F.mostra || '', 'Mostrar')) +
+      (pes.length > 1 ? grupo('De quem', segFiltroB('tf-f-pes', 'data-tf-pes', [['', 'Todos']].concat(pes.map((n) => [primeiroNome(n), nomeCurto(n).split(' ')[0]])), pesSel, 'De quem')) : '') +
+      grupo('Urgência', segFiltroB('tf-f-pri', 'data-tf-pri', [['', 'Todas'], ['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa']], F.pri || '', 'Urgência')) + '</div>';
   }
-  const V = { lista: vistaLista, semana: vistaSemana, calendario: vistaCalendario, fluxos: vistaFluxos };
+  const V = { lista: vistaLista, calendario: vistaCalendario };   // Backup 88: sem as vistas Semana (está no Calendário) e Fluxos
   $('tf-corpo').innerHTML = '<div id="tf-vista-corpo"></div>';
   if (!V[F.vista]) F.vista = 'lista';
   V[F.vista]($('tf-vista-corpo'));
@@ -600,7 +603,7 @@ function situacaoTarefa(t) {
   if (!t.prazo) return '<span class="sub">sem prazo</span>';
   const d = diasAte(t.prazo);
   return '<span class="' + (d <= 0 ? 'b-pz-r' : d < 3 ? 'b-pz-a' : d < 10 ? 'b-pz-b' : 'b-pz-g') + '">' + (d < 0 ? Math.abs(d) + ' d atraso' : d === 0 ? 'vence hoje' : d + (d === 1 ? ' dia' : ' dias')) + '</span>' +
-    (t.prazo_fatal ? '<small class="b-pz-sub">fatal ' + esc(dataBR(t.prazo_fatal).slice(0, 5)) + '</small>' : '');
+'';
 }
 function vistaLista(alvo) {
   const lista = filtrarTarefas(true), h = hojeISO(), F = E.tf;
@@ -613,10 +616,8 @@ function vistaLista(alvo) {
     abas: [{ id: 'abertas', rot: 'Em aberto', f: (t) => !tarefaFechada(t) }, { id: 'atrasadas', rot: 'Atrasadas', cor: 'r', f: (t) => !tarefaFechada(t) && t.prazo && t.prazo < h },
       { id: 'concluidas', rot: 'Concluídas', f: (t) => t.status === 'concluida' }],   // Backup 86 (M03): sem a aba Excluídas (excluir tem Desfazer)
     venc: (t) => t.prazo || '', ord: { k: 'prazo', dir: 1 }, ordAbas: { concluidas: { k: 'prazo', dir: -1 } },   // B84: sem os atalhos de prazo (a aba Atrasadas e "Filtros → vencimento" bastam)
-    listas: [{ k: 'pes', rot: 'Pessoa', todos: 'Todas as pessoas', opcoes: pessoasFiltro().map((n) => [primeiroNome(n), nomeCurto(n)]), get: (t) => [t.responsavel, t.revisor].concat(String(t.participantes || '').split(',')).filter(Boolean).map(primeiroNome) },
-      { k: 'tipo', rot: 'Tipo', todos: 'Todos os tipos', opcoes: FILTRO_TIPOS_AG, get: (t) => tipoItemAgenda(t) },
-      { k: 'pri', rot: 'Prioridade', todos: 'Todas', opcoes: [['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa']], get: (t) => t.prioridade },
-      { k: 'st', rot: 'Status', todos: 'Todos os status', opcoes: Object.entries(STATUS_TAREFA), get: (t) => t.status }],
+    // Backup 88: De quem, tipo e urgência estão na barra do alto (padrão do escritório); aqui só o Status
+    listas: [{ k: 'st', rot: 'Status', todos: 'Todos os status', opcoes: Object.entries(STATUS_TAREFA), get: (t) => t.status }],
     // Backup 85 (TF6): "Marcar várias" → "Concluir as marcadas" (com Desfazer)
     lote: [{ rot: 'Concluir as marcadas', icone: 'check', quando: (t) => !tarefaFechada(t), fn: (l) => concluirVarias(l) }],
     busca: (t) => [t.titulo, t.processos_vinculados, grupoDe(t), nomeCliente(t.cliente_id), t.etiquetas, t.descricao].join(' '), dicaBusca: 'Tarefa ou cliente…',
@@ -660,7 +661,7 @@ async function vistaCalendario(raiz) {
   const dia = F.calVista === 'dia';
   F.dia = F.dia || hojeISO();
   const filtradas = filtrarTarefas(), idsF = new Set(filtradas.map((t) => t.id));
-  const proj = F.aba === 'abertas' ? (await projecoesRecorrentes()).filter((x) => idsF.has(x.id)) : [];
+  const proj = [];   // Backup 88: sem as "próximas (repete)" projetadas no calendário (pedido: remover essa opção)
   const pre = dia ? F.dia : F.mes + '-', lista = filtradas.concat(F.aba === 'abertas' ? (E._tarefas || []).filter((t) => t.status === 'concluida' && String(t.prazo || '').startsWith(pre)) : [], proj);
   alvo.innerHTML = calendarioTarefas(lista, dia ? 'dia' : 'mes');
   if (!dia) requestAnimationFrame(() => { const c = alvo.querySelector('.b-cal'); if (c && c.offsetHeight > 300) F.altCal = c.offsetHeight; });
@@ -686,18 +687,18 @@ function itemCalB(t, d) {
   const cls = classeAgenda(t, d);
   return '<button type="button" class="b-cal-it ' + cls + (t._prev ? ' b-cal-prev' : '') + '" data-cal-it="' + esc(t.id) + '" data-cal-d="' + d + '" title="' + esc(horaAg(t) + t.titulo + (t.local ? ' · ' + t.local : '')) + '">' +
     '<i class="ag-cor ' + cls + '" aria-hidden="true"></i>' + (t.hora ? '<span class="b-cal-h">' + esc(String(t.hora).slice(0, 5)) + '</span>' : '') +
-    '<span class="b-cal-t">' + (t.prazo_fatal === d ? '⚑ ' : '') + esc(t.titulo) + '</span></button>';
+    '<span class="b-cal-t">' + esc(t.titulo) + '</span></button>';
 }
 function calendarioTarefas(lista, vista) {
   const F = E.tf, h = hojeISO();
-  const doDia = (d) => lista.filter((t) => t.prazo === d || t.prazo_fatal === d).sort((x, y) => String(x.hora || '99').localeCompare(String(y.hora || '99')));
+  const doDia = (d) => lista.filter((t) => t.prazo === d).sort((x, y) => String(x.hora || '99').localeCompare(String(y.hora || '99')));   // Backup 88: sem o dia do prazo fatal
   const atrL = lista.filter((t) => t.prazo && t.prazo < h && !tarefaFechada(t) && !t._prev), atr = atrL.length;
   let titulo, corpo;
   if (vista === 'dia') {
     titulo = new Date(F.dia + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' }).replace(/^./, (x) => x.toUpperCase());
     const l = doDia(F.dia);
     corpo = '<div class="b-cal-diaLista">' + (l.length ? '<div class="b-tempo">' + l.map((t) => '<button type="button" class="b-ev b-ev-bt" data-cal-it="' + esc(t.id) + '" data-cal-d="' + F.dia + '"><span class="b-ev-q">' +
-        (t.hora ? esc(horaFaixa(t)) : 'dia todo') + '</span><span class="b-ev-ic"><i class="ag-cor ' + classeAgenda(t, F.dia) + '"></i></span><div class="b-ev-tx"><b>' + (t.prazo_fatal === F.dia ? '⚑ ' : '') + esc(t.titulo) + '</b><span>' +
+        (t.hora ? esc(horaFaixa(t)) : 'dia todo') + '</span><span class="b-ev-ic"><i class="ag-cor ' + classeAgenda(t, F.dia) + '"></i></span><div class="b-ev-tx"><b>' + esc(t.titulo) + '</b><span>' +
         esc([ROT_TIPO_TF[tipoItemAgenda(t)], quemTarefa(t), t.local, t.cliente_id ? nomeCliente(t.cliente_id) : ''].filter(Boolean).join(' · ')) + '</span></div></button>').join('') + '</div>'
       : '<div class="b-cal-vazio">Nada marcado neste dia. <button type="button" class="b-link" data-agendar>Agendar</button></div>') + '</div>';
   } else {
@@ -727,7 +728,7 @@ function detalheAgenda(t, d) {
   const quando = (d || t.prazo ? new Date((d || t.prazo) + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' }) : 'sem data') + (t.hora ? ' · ' + horaFaixa(t) : '');
   const pessoas = [t.responsavel].concat(String(t.participantes || '').split(',').map((x) => x.trim())).filter(Boolean);
   const campos = [['Quando', quando], ['Onde', t.local], ['Quem', pessoas.map(nomeCurto).join(', ') + (t.com_quem ? ' · com ' + t.com_quem : '')], ['Cliente', t.cliente_id ? nomeCliente(t.cliente_id) : ''],
-    ['Prioridade', pri], ['Prazo fatal', t.prazo_fatal ? dataBR(t.prazo_fatal) : ''], ['Repete', t.recorrencia ? textoRepete(t) : ''], ['Processo', t.processos_vinculados]].filter((x) => x[1]);
+    ['Prioridade', pri], ['Repete', t.recorrencia ? textoRepete(t) : ''], ['Processo', t.processos_vinculados]].filter((x) => x[1]);
   const st = t._prev ? '<span class="b-pill b-a">prevista</span>' : tarefaFechada(t) ? '<span class="b-pill b-g">Concluída</span>' : t.prazo && t.prazo < hojeISO() ? '<span class="b-pill b-r">Atrasada</span>' : '<span class="b-pill b-b">Em aberto</span>';
   const j = abrirJanela({ kick: ROT_TIPO_TF[tp] || 'Tarefa', titulo: t.titulo, sub: esc(quando), dir: st,
     corpo: '<div class="b-ficha b-ficha-2">' + campos.map(([r, v]) => '<div><span>' + r + '</span><b>' + esc(v) + '</b></div>').join('') + '</div>' +
@@ -1054,9 +1055,15 @@ function formTarefa(t, depois) {
   const novo = !t.id;
   let checklist = Array.isArray(t.checklist) ? t.checklist.map((c) => ({ texto: c.texto, feito: !!c.feito })) : [];
   const outras = (E._tarefas || []).filter((x) => x.id !== t.id && !tarefaFechada(x));
+  // Backup 88: Tipo no alto — Tarefa (pontual) · Rotina (repete) · Reunião · Audiência (as duas últimas abrem a janela de agendar, com horário e participantes)
+  const ehAgenda = !novo && !!t.tipo_agenda;
+  let tipoTf = t._tipo || (t.recorrencia || t.recorrencia_regra ? 'rotina' : 'tarefa');
+  const tiposForm = novo && !t.tarefa_pai_id ? TIPOS_NOVO_TF : [['tarefa', 'Tarefa'], ['rotina', 'Rotina']];
   const j = abrirJanela({ kick: novo ? 'Nova' : 'Tarefa', titulo: novo ? (t.tarefa_pai_id ? 'Subtarefa' : 'Tarefa') : (t.titulo || 'Tarefa'), larga: true,
     sub: novo ? '' : esc([ROT_TIPO_TF[tipoItemAgenda(t)] || 'Tarefa', t.responsavel ? nomeCurto(t.responsavel) : ''].filter(Boolean).join(' · ')),
     corpo: '<form id="f-tf" class="grade">' +
+      (ehAgenda ? '' : '<div class="campo inteiro"><span>Tipo</span>' + segFiltroB('tf-tipo', 'data-tf-tp', tiposForm, tipoTf, 'Tipo') +
+        '<small class="sub tf-tipo-dica" id="tf-tipo-dica"></small></div>') +
       // Backup 54: à vista só o essencial (o que fazer, para quem, até quando, urgência, cliente, se repete); o resto em "Mais opções"
       campo('Tarefa <span class="obrig">*</span>', '<input name="titulo" maxlength="300" value="' + esc(t.titulo || '') + '" placeholder="O que precisa ser feito?">', 'inteiro') +
       campo('Para quem', selectPessoa('responsavel', t.responsavel || (novo && E.perfil ? E.perfil.nome : ''), '— escolha —')) +
@@ -1064,9 +1071,8 @@ function formTarefa(t, depois) {
       campo('Urgência', selectPares('prioridade', [['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa']], t.prioridade || 'media')) +
       campo('Cliente', '<select name="cliente_id">' + opcoesClientes(t.cliente_id || '') + '</select>') +
       campoRepetir(t) +
-      '<details class="inteiro tf-mais" id="tf-mais"' + (novo ? '' : ' open') + '><summary>+ Mais opções <span class="sub">prazo fatal, participantes, revisão, checklist, descrição…</span></summary><div class="grade">' +
+      '<details class="inteiro tf-mais" id="tf-mais"' + (novo ? '' : ' open') + '><summary>+ Mais opções <span class="sub">participantes, revisão, checklist, descrição…</span></summary><div class="grade">' +
       campo('Grupo', '<input name="grupo" list="tf-grupos" value="' + esc(nomeGrupo(t.grupo_id)) + '">' + datalistGrupos('tf-grupos')) +
-      campo('Prazo fatal (legal / judicial)', '<input name="prazo_fatal" type="date" value="' + esc(t.prazo_fatal || '') + '">') +
       '<div class="campo inteiro"><span>Participantes</span>' + campoParticipantes(t.participantes) + '</div>' +
       campo('Início', '<input name="inicio" type="date" value="' + esc(t.inicio || (novo ? hojeISO() : '')) + '">') +
       campo('Status', selectPares('status', Object.entries(STATUS_TAREFA), t.status || 'pendente')) +
@@ -1092,6 +1098,16 @@ function formTarefa(t, depois) {
       '<div class="acoes"><button class="btn btn-o" type="button" data-cancelar>Cancelar</button><button class="btn btn-p" type="button" id="btn-salvar-tf">' + iconeB('check') + 'Salvar</button></div>' });
   { const fi = j.querySelector('#tf-ficha'); if (fi) fi.onclick = () => { fecharJanela(j); abrirTarefa(t, depois || recarregarTarefas); }; }
   const f = j.querySelector('#f-tf');
+  // Backup 88: o bloco "Repetir" só aparece na Rotina (tarefa é pontual)
+  const pintarTipoTf = () => {
+    const rep = j.querySelector('#tf-rep'); if (rep) rep.style.display = tipoTf !== 'rotina' && !ehAgenda ? 'none' : '';
+    const sel = j.querySelector('#tf-rep-tipo');
+    if (sel && tipoTf === 'rotina' && !sel.value) { sel.value = 'semanal'; sel.dispatchEvent(new Event('change', { bubbles: true })); }
+    const d = j.querySelector('#tf-tipo-dica'); if (d) d.textContent = tipoTf === 'rotina' ? 'Rotina = tarefa que se repete. Escolha abaixo como ela se repete.' : 'Tarefa = feita uma vez, até o prazo.';
+  };
+  { const tb = j.querySelector('#tf-tipo'); if (tb) tb.onclick = (ev) => { const b = ev.target.closest('[data-tf-tp]'); if (!b) return;
+    if (b.dataset.tfTp === 'reuniao' || b.dataset.tfTp === 'audiencia') { const d = f.prazo.value || hojeISO(); fecharJanela(j); janelaAgendar(d, depois || recarregarTarefas, b.dataset.tfTp); return; }
+    tipoTf = b.dataset.tfTp; marcarSegB(tb, b); pintarTipoTf(); }; }
   const pintarCheck = () => {
     j.querySelector('#tf-check').innerHTML = checklist.length ? checklist.map((c, i) => '<div class="ck-item"><label class="check"><input type="checkbox" data-ck="' + i + '"' + (c.feito ? ' checked' : '') + '> <span' + (c.feito ? ' class="riscado"' : '') + '>' + esc(c.texto) + '</span></label>' +
       '<button type="button" class="btn-etq" data-ck-x="' + i + '" title="Remover">×</button></div>').join('') : '<div class="sub">Sem itens. A tarefa só pode ser concluída com todos os itens marcados.</div>';
@@ -1118,13 +1134,13 @@ function formTarefa(t, depois) {
   const aposSalvar = async () => { esquecerProjecoes(); await (depois || recarregar)(); };
   // tarefa nova com repetição: o prazo vira a primeira data da regra
   ligarRepetir(j, (r, prox) => { if (novo && j.querySelector('#tf-rep')._mexeu) { const p1 = proximasDatas(r, somarDias(r.inicio, -1), 1, E._feriados)[0]; if (p1) f.prazo.value = p1; } });
+  pintarTipoTf();
   j.querySelector('#btn-salvar-tf').onclick = (ev) => comBotao(ev.currentTarget, async () => {
     if (!f.titulo.value.trim()) throw new Error('Escreva a tarefa.');
     const est = f.estimativa_horas.value.trim() ? lerValor(f.estimativa_horas.value) : null;
     if (Number.isNaN(est)) throw new Error('Estimativa de horas inválida.');
-    if (f.prazo.value && f.prazo_fatal.value && f.prazo.value > f.prazo_fatal.value) throw new Error('O prazo interno está depois do prazo fatal.');
     const dados = { titulo: f.titulo.value.trim(), cliente_id: f.cliente_id.value || null, grupo_id: await grupoPorNome(f.grupo.value), responsavel: f.responsavel.value.trim(),
-      participantes: lerParticipantes(j), prazo: f.prazo.value || null, prazo_fatal: f.prazo_fatal.value || null, inicio: f.inicio.value || null,
+      participantes: lerParticipantes(j), prazo: f.prazo.value || null, inicio: f.inicio.value || null,
       prioridade: f.prioridade.value, status: f.status.value, estimativa_horas: est, etiquetas: f.etiquetas.value.trim(),
       depende_de: f.depende_de.value || null, exige_anexo: f.exige_anexo.checked, exige_revisao: f.exige_revisao.checked, revisor: f.revisor.value.trim(),
       processos_vinculados: f.processos_vinculados.value.trim(), descricao: f.descricao.value.trim(), obs: f.obs.value.trim(), checklist };
@@ -1133,8 +1149,10 @@ function formTarefa(t, depois) {
     if (dados.exige_revisao && !dados.revisor) throw new Error('Informe quem revisa (ou desmarque "Exige revisão").');
     if (dados.status !== (t.status || 'pendente')) await validarDependencia(dados, dados.status);
     // Backup 51: repetição — regra nova (série) ou a antiga, intocada
-    const box = j.querySelector('#tf-rep'), regra = lerRepetir(j), legado = !t.recorrencia_regra && ['semanal', 'mensal', 'anual'].includes(t.recorrencia || '');
+    const box = j.querySelector('#tf-rep'), regra = ehAgenda || tipoTf === 'rotina' ? lerRepetir(j) : null, legado = !t.recorrencia_regra && ['semanal', 'mensal', 'anual'].includes(t.recorrencia || '');
     if (regra && (regra.tipo === 'semanal' || regra.tipo === 'mensal_dias') && !(regra.dias || []).length) throw new Error('Repetir: escolha pelo menos um dia.');
+    if (tipoTf === 'rotina' && !ehAgenda && !regra && !(legado && !box._mexeu)) throw new Error('Rotina: escolha como ela se repete (ou troque o tipo para Tarefa).');
+    if (tipoTf === 'tarefa' && !ehAgenda && (t.recorrencia || t.recorrencia_regra)) box._mexeu = true;   // virou tarefa pontual: a repetição sai
     if (legado && !box._mexeu) dados.recorrencia = t.recorrencia;
     else if (regra || t.recorrencia_regra) { dados.recorrencia_regra = regra; dados.recorrencia = regra ? 'regra' : ''; }
     else dados.recorrencia = '';
