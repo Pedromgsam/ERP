@@ -966,3 +966,5 @@ html body.gx-barra-topo .gs #fa-filtros .b-chips-in:not(#_){display:inline-flex;
 html body.gx-barra-topo .gs #fa-filtros .b-fx:not(#_){display:inline-flex;flex-direction:row;align-items:center;gap:8px}
 html body.gx-barra-topo .gs #fa-filtros .b-fx input:not(#_){width:118px;height:32px;border:1px solid var(--border);border-radius:8px;padding:0 9px;font:13px var(--font-ui);background:var(--surface);color:var(--text)}
 .gs .b-fa-sec{margin-top:18px}
+/* no escuro o branco translúcido clareia o azul e o número fica ilegível (3,3:1) — lá fica o fundo escurecido do Backup 82 */
+html[data-tema="escuro"] body.gx-barra-topo .gs .b-seg-bt[aria-selected="true"] .b-seg-n:not(#_){background:rgba(0,0,0,.28)}
