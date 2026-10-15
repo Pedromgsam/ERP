@@ -582,7 +582,7 @@ async function janelaEmitirGuias(tabela, itens, ctx) {
   const j = abrirJanela({ larga: true, kick: acordo ? 'Emitir boleto/PIX do acordo' : 'Emitir guias do parcelamento', titulo: ctx.nome || 'Cliente', sub: esc(ctx.doc || '') + (ctx.doc ? ' · ' : '') + '<span id="eg-sub-email">procurando o e-mail…</span>',
     corpo: '<div class="b-passos3"><span class="b-on">1. Anexar a guia (PDF)</span><span>2. Conferir</span><span>3. ' + (modo === 'rascunho' ? 'Salvar no rascunho do Gmail' : 'Enviar') + '</span></div>' +
       '<div class="b-rola b-eg-rola"><table class="b-tab b-tab-eg"><thead><tr><th>Parcela</th><th class="b-dir">Valor</th><th class="b-cen">Vencimento</th><th>Guia (PDF)</th><th>Conferência</th></tr></thead><tbody>' +
-      itens.map((x) => '<tr data-eg="' + esc(x.id) + '"><td>' + esc(x.desc) + (x.venc < hoje ? '<span class="b-sub b-pz-r">vencida · <button type="button" class="b-link" data-eg-reenv="' + esc(x.id) + '" title="A janela do ERP para reenviar a guia vencida com novo vencimento e valor atualizado">reenviar atualizada</button></span>' : '') + '</td><td class="b-dir b-val">' + brl(x.valor) + '</td><td class="b-cen b-data">' + dataBR(x.venc) + '</td>' +
+      itens.map((x) => '<tr data-eg="' + esc(x.id) + '"><td>' + esc(x.desc) + (x.venc < hoje ? '<span class="b-sub b-pz-r">vencida</span>' : '') + '</td><td class="b-dir b-val">' + brl(x.valor) + '</td><td class="b-cen b-data">' + dataBR(x.venc) + '</td>' +
         '<td><label class="btn btn-o btn-mini b-eg-anexar">' + iconeB('documento') + 'Anexar<input type="file" accept="application/pdf" hidden data-eg-pdf="' + esc(x.id) + '"></label></td>' +
         '<td class="b-eg-conf" data-eg-conf="' + esc(x.id) + '"><span class="traco">aguardando o PDF</span></td></tr>').join('') + '</tbody></table></div>' +
       '<div class="grade" style="margin-top:12px">' + campo('Para', '<input id="eg-para" type="email" placeholder="e-mail do cliente">', 'inteiro') +
@@ -601,7 +601,7 @@ async function janelaEmitirGuias(tabela, itens, ctx) {
       (dif ? '<small class="b-pz-sub">valor diferente da parcela (juros/atualização?) — o novo valor fica gravado</small>' : '') + (vdif ? '<small class="b-pz-sub">vencimento do PDF diferente da parcela</small>' : '') + '<small class="b-pz-sub">' + esc(nome) + '</small>';
     const pas = j.querySelectorAll('.b-passos3 span'); if (pas[1]) pas[1].classList.add('b-on');
   };
-  j.addEventListener('click', (ev) => { const r = ev.target.closest('[data-eg-reenv]'); if (!r) return; fecharJanela(j); emitirParcela(tabela, r.dataset.egReenv); });   // PA6 (do ERP)
+  // Backup 86 (M07): sem o link "reenviar atualizada" (a janela antiga do ERP) — o PDF novo já traz o valor e o vencimento atualizados
   j.addEventListener('change', async (ev) => {
     const inp = ev.target.closest('[data-eg-pdf]'); if (!inp || !inp.files[0]) return;
     const f = inp.files[0], x = itens.find((y) => String(y.id) === inp.dataset.egPdf); if (!x) return;

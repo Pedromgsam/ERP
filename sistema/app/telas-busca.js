@@ -2,7 +2,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // BUSCA GERAL — Backup 76 (F1): Ctrl+K (⌘K no Mac) ou o botão "Buscar" no topo.
 // Digite parte do nome, CPF/CNPJ, nº do processo ou do parcelamento: aparecem clientes, grupos, processos, parcelamentos,
-// acordos e tarefas; Enter (ou clique) abre direto a ficha, a janela do processo/parcelamento/acordo ou a tarefa.
+// (Backup 86: sem grupos, acordos e tarefas); Enter (ou clique) abre direto a ficha, a janela do processo/parcelamento/acordo ou a tarefa.
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function indiceBusca() {
@@ -11,20 +11,12 @@ async function indiceBusca() {
   const so = (s) => String(s || '').replace(/\D/g, '');
   (E.clientes || []).forEach((c) => I.push({ tipo: 'Cliente', tit: c.nome, sub: [nomeGrupo(c.grupo_id), c.cpf_cnpj ? mascaraDoc(c.cpf_cnpj) : ''].filter(Boolean).join(' · '),
     txt: [c.nome, c.cpf_cnpj, so(c.cpf_cnpj), nomeGrupo(c.grupo_id), c.socio_admin].join(' '), ir: () => abrirFicha(c.id) }));
-  if (!ehClienteGS()) (E.grupos || []).forEach((g) => I.push({ tipo: 'Grupo', tit: g.nome, sub: 'abre o Painel executivo deste grupo', txt: g.nome,
-    ir: () => { if (TELAS.painelExec) { const P = estadoPE(); P.grupo = g.nome; P.empresa = ''; } irParaTela('resumo'); } }));
   (D.processos || []).forEach((p) => I.push({ tipo: 'Processo', tit: p.numero || '(sem número)', sub: [p.grupo, p.natureza, [p.autor, p.reu].filter(Boolean).join(' × ')].filter(Boolean).join(' · '),
     txt: [p.numero, so(p.numero), p.autor, p.reu, p.grupo, p.natureza].join(' '), ir: () => (window.ERP_ABRIR_PROCESSO ? window.ERP_ABRIR_PROCESSO(p) : irParaTela('processos')) }));
   (D.parcelamentos || []).forEach((p) => I.push({ tipo: 'Parcelamento', tit: (p.empresa || '—') + ' — ' + (p.natureza || 'parcelamento'), sub: [p.local, p.numero ? 'nº ' + p.numero : '', p.grupoNome].filter(Boolean).join(' · '),
     txt: [p.empresa, p.natureza, p.local, p.numero, so(p.numero), p.grupoNome, p.cnpj, so(p.cnpj)].join(' '),
     ir: async () => { const PA = await dadosParcelamentos(); E.pc = E.pc || { grupo: '', chip: 'todos' }; E.pc.PA = PA; const pa = PA.find((x) => x.id === p._id); if (pa) janelaParcelamento(pa); else irParaTela('parcelamentos'); } }));
-  const vistos = {};
-  (D.acordos || []).forEach((a) => { const k = chaveAcordo({ processo: a.processo, devedor: a.devedor, credor: a.credor }); if (vistos[k]) return; vistos[k] = 1;
-    I.push({ tipo: 'Acordo', tit: (a.devedor || '—') + ' → ' + (a.credor || '—'), sub: [a.grupo, a.processo ? 'processo ' + a.processo : ''].filter(Boolean).join(' · '),
-      txt: [a.devedor, a.credor, a.processo, so(a.processo), a.grupo].join(' '),
-      ir: async () => { const T = await dadosAcordos(); E.ac = E.ac || { grupo: '', chip: 'todos' }; E.ac.T = T; E.ac.A = acordosDe(T); const ac = E.ac.A.find((x) => x.k === k); if (ac) janelaAcordo(ac); else irParaTela('acordos'); } }); });
-  if (!ehClienteGS()) (D.tarefas || []).filter((t) => !/conclu|cancel|exclu/i.test(t.status || '')).forEach((t) => I.push({ tipo: 'Tarefa', tit: t.titulo, sub: [t.responsavel, t.prazo ? 'prazo ' + dataBR(t.prazo) : '', t.grupo].filter(Boolean).join(' · '),
-    txt: [t.titulo, t.responsavel, t.grupo].join(' '), ir: () => abrirTarefa(t.id) }));
+  // Backup 86 (M02): como no ambiente — clientes, processos e parcelamentos (grupos, acordos e tarefas saíram)
   // Backup 80 (M15): ações — "Nova tarefa", "Emitir as guias do mês", "+ Lançar …" e "Ir para <tela>"
   if (!ehClienteGS()) {
     const ac = [{ rot: 'Emitir as guias do mês', fn: () => { E.rt = Object.assign(E.rt || {}, { aba: 'guias' }); irParaTela('rotina'); } },
@@ -40,8 +32,8 @@ const ehClienteGS = () => !!(window.AC_SESSION && window.AC_SESSION.nivel === 'c
 
 // Backup 85 (BG1): caixa de comandos do ambiente — abre já com as telas e as ações; os resultados vêm agrupados
 // (Telas, Ações, Clientes, Grupos, Processos, Parcelamentos, Acordos, Tarefas). ↑ ↓ escolhe, Enter abre, Esc fecha.
-const GRUPOS_BUSCA = [['Tela', 'Telas', 'camadas'], ['Ação', 'Ações', 'mais'], ['Cliente', 'Clientes', 'clientes'], ['Grupo', 'Grupos', 'clientes'], ['Processo', 'Processos', 'documento'],
-  ['Parcelamento', 'Parcelamentos', 'camadas'], ['Acordo', 'Acordos', 'contrato'], ['Tarefa', 'Tarefas', 'tarefas']];
+const GRUPOS_BUSCA = [['Tela', 'Telas', 'camadas'], ['Ação', 'Ações', 'mais'], ['Cliente', 'Clientes', 'clientes'], ['Processo', 'Processos', 'documento'],
+  ['Parcelamento', 'Parcelamentos', 'camadas']];
 async function abrirBuscaGeral() {
   if (document.getElementById('bg-in')) { document.getElementById('bg-in').focus(); return; }
   const fundo = document.createElement('div');

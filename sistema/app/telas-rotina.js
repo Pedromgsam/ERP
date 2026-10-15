@@ -303,7 +303,7 @@ function tribunalProcesso(p) {
 }
 // Backup 85 (RO2): como no ambiente — a tabela nova, com as abas Para conferir / Conferidos (15 dias) / Todos, Grupo na tabela e os botões
 // "Movimentação" e "Sem novidade" na linha. Do ERP continuam (lista do Backup 85): Procuração e Valor como colunas, os filtros de procuração
-// e de faixa de conferência (no botão Filtros), "+ Processo" e, no lugar de "Conferir o grupo todo", Filtros → Grupo + "Marcar várias".
+// e de faixa de conferência (no botão Filtros) e "+ Processo".
 async function rotinaProcessos(el) {
   const P = (await q(sb.rpc('rotina_processos_json'))) || [];
   const ULT = {}; P.forEach((p) => { if (p.ult) ULT[p.id] = p.ult; });
@@ -339,8 +339,7 @@ async function rotinaProcessos(el) {
           (m ? '<small class="b-pz-sub">' + esc([String(m.quem || '').split(' ')[0], m.tipo === 'sem_novidade' ? 'sem novidade' : 'com alteração'].filter(Boolean).join(' · ')) + '</small>' : ''); }, ord: (p) => (p._dias == null ? -1 : -p._dias) },
       { k: 'ac', rot: '', cls: 'b-dir b-c-acoes', ord: false, html: (p) => '<span class="b-acoes"><button type="button" class="b-bt-emitir" data-mov="' + p.id + '" title="Registrar o que mudou (decisão, valor, procuração…)">Movimentação</button>' +
         '<button type="button" class="b-bt-baixa" data-sem-nov-p="' + p.id + '" title="Conferi no tribunal e não mudou nada">Sem novidade</button></span>' }],
-    lote: [{ rot: 'Conferidos, sem novidade', icone: 'check', fn: async (marc) => { if (!marc.length) return false; await conferir(marc.map((p) => p.id), plural(marc.length, 'processo conferido', 'processos conferidos') + ' (sem novidade).'); } }],
-    loteBotao: true,
+    // Backup 86 (M14): sem "Marcar várias → Conferidos, sem novidade" — conferência um a um, como no ambiente
     clique: (p) => { if (window.ERP_ABRIR_PROCESSO) { try { window.ERP_ABRIR_PROCESSO(Object.assign({}, p, { grupo: p._grupo })); return; } catch (e) { console.warn(e); } } janelaMovimentacao(p.id, () => rotinaProcessos(el), { conferir: true }); },
     vazio: { titulo: 'Tudo conferido', frase: 'Nenhum processo esperando conferência.' } });
   if (!tab._ligado) { tab._ligado = true;
@@ -411,40 +410,8 @@ async function janelaMovimentacao(processoId, depois, opc) {
   return j;
 }
 
-// ── 3) Backup 45: ENVIAR GUIAS DO MÊS — o meio oficial de mandar as guias, IDÊNTICO às antigas "Notificações → Parcelamento" do ERP antigo:
-// seleção por empresa (marcar a empresa marca todas as guias), "📨 Gerar Notificação", um cartão por empresa com o texto (valor editável no
-// próprio texto), ✏️ Editar · 📋 Copiar · ✉ Enviar e-mail · 💬 Enviar WhatsApp · ✉ Marcar enviado. "Enviar e-mail" salva um RASCUNHO no Gmail
-// (como o Apps Script fazia), já com o e-mail do cliente — e os PDFs das guias são anexados aqui no cartão (vão junto no rascunho).
-const _epSel = new Set();
-function textoNotifParcelas(empresa, itens) {   // _epTexto('parc') do ERP antigo, palavra por palavra ([VALOR] vira o campo do valor)
-  // Backup 52 (C7): genérico — o nome da empresa fica só no assunto
-  let t = 'Prezados,\n\nSeguem as guias dos parcelamentos com vencimento neste mês. Antes de pagar, confirme se a guia já não foi paga, para evitar duplicidade.';
-  itens.forEach((g) => { t += '\n\n' + (g.vencida ? '⚠︎ GUIA VENCIDA\n' : '') + 'Parcelamento ' + (g.p.local || g.p.natureza || '') + ' — Natureza: ' + (g.p.natureza || '—') +
-    '\nNº do Parcelamento: ' + (g.p.numero || '—') + '\nParcela: ' + (g.numero || '?') + ' de ' + (g.p.total_parcelas || '?') + ' | Vencimento: ' + (g.vencimento ? dataBR(g.vencimento) : '—') +
-    '\nNº da Guia: ' + (g.numero || '—') + '\n' + (g._valor ? '[VALOR:' + valorParaCampo(g._valor) + ']' : '[VALOR]'); });
-  return t;
-}
-// o texto com os campos de valor dentro (como no ERP antigo: "Valor: R$ ____")
-function epHtml(txt) {
-  return txt.split('\n').map((linha) => {
-    const l = esc(linha), mv = l.match(/\[VALOR(?::([^\]]*))?\]/);
-    if (mv) return l.replace(mv[0], () => '<span class="ep-val-wrap"><strong>Valor:</strong> R$&nbsp;<input class="ep-val" data-mascara="nenhuma" inputmode="decimal" placeholder="0,00" title="Preencha antes de copiar" value="' + (mv[1] || '') + '"></span>');
-    return l.replace(/^(⚠.+)$/, '<strong class="ep-alerta">$1</strong>').replace(/^(Prezados,)$/, '<strong>$1</strong>').replace(/(Parcelamento [^—\n]+—)/g, '<strong>$1</strong>')
-      .replace(/(Parcela:|Vencimento:|Nº da Guia:|Nº do Parcelamento:)/g, '<strong>$1</strong>');
-  }).join('\n');
-}
-function epTextoAtual(card) {   // o texto como vai para o e-mail/WhatsApp (o valor digitado no lugar do campo)
-  const ed = card.querySelector('.ep-card-edit');
-  if (!ed.hidden) return ed.value.replace(/\[VALOR(?::([^\]]*))?\]/g, (_, v) => 'R$ ' + (v && v.trim() ? v.trim() : '_____'));
-  const c = card.querySelector('.ep-card-body').cloneNode(true);
-  c.querySelectorAll('.ep-val-wrap').forEach((w) => { const v = w.querySelector('input').value.trim(); w.replaceWith(document.createTextNode('Valor: R$ ' + (v || '_____'))); });
-  return c.textContent;
-}
-function epParaEdicao(card) {
-  const c = card.querySelector('.ep-card-body').cloneNode(true);
-  c.querySelectorAll('.ep-val-wrap').forEach((w) => { const v = w.querySelector('input').value.trim(); w.replaceWith(document.createTextNode(v ? '[VALOR:' + v + ']' : '[VALOR]')); });
-  return c.textContent;
-}
+// ── 3) GUIAS DO MÊS — uma linha por empresa; "Emitir e mandar" abre a janela do ambiente (janelaEmitirGuias).
+// Backup 86 (M12): o cartão antigo das Notificações (texto, WhatsApp, salvar vários rascunhos) saiu.
 async function rotinaEnviarGuias(el) {
   const h = hojeISO(), fimMes = fimDoMesGuia(h);
   // Backup 51 (V1/V2): uma consulta só, guardada enquanto a Rotina está aberta (antes: todas as parcelas de todos os anos, a cada clique)
@@ -469,7 +436,7 @@ async function rotinaEnviarGuias(el) {
   if (E.rt.aba !== 'guias' || !el.isConnected) return;
   el.innerHTML = '<div class="card ep-tela"><div class="card-hd">Guias do mês<span class="sub">Anexe a guia e mande ao cliente</span>' + botaoAtualizar('ep-atu') + '</div><div class="card-bd">' +
     '<div class="dica ep-modo">Hoje o e-mail vai para o <b>' + (modo.parcelamento === 'direto' ? 'cliente direto' : 'rascunho do Gmail') + '</b> (troque em Administração → E-mail → Como funciona).</div>' +
-    filtroRotina('') + '<div id="ep-sel"></div><div id="ep-out" hidden></div></div></div>';
+    filtroRotina('') + '<div id="ep-sel"></div></div></div>';
   const visiveis = () => { const b = normalizar(E.rt.busca), dig = soDigitos(E.rt.busca);
     return G.filter((g) => !g.pago && (!E.rt.grupo || g.p.grupo_id === E.rt.grupo) &&
       (!b || normalizar([g.p.empresa, g.p.natureza, g.p.local, g.p.numero].join(' ')).includes(b) || (dig.length >= 3 && soDigitos(g.p.cnpj).includes(dig)))); };
@@ -491,160 +458,30 @@ async function rotinaEnviarGuias(el) {
         { k: 'valor', rot: 'Valor', cls: 'b-dir b-val', html: (r) => r.valor ? brl(r.valor) : '—', ord: (r) => r.valor, soma: (r) => r.valor },
         { k: 'prazo', rot: 'Prazo', cls: 'b-cen b-prazo', html: (r) => celPrazoGuia(r.venc), ord: (r) => r.venc },
         { k: 'email', rot: 'E-mail', html: (r) => r.emitida ? '<span class="b-pz-b">● ' + (modo.parcelamento === 'direto' ? 'Enviado' : 'No rascunho') + ' ' + esc(dataBR(r.emitida).slice(0, 5)) + '</span>' : '—', ord: (r) => r.emitida },
-        // Backup 85 (RO3): "Emitir e mandar" abre a janela do ambiente (PDF por guia, lê valor e vencimento); o cartão antigo (texto + WhatsApp) ficou em "Cartão"
-        { k: 'acao', rot: '', cls: 'b-dir b-c-acoes', ord: false, html: (r) => '<span class="b-acoes"><button type="button" class="btn btn-p btn-mini ep-emitir" data-ep-emitir="' + esc(r.emp) + '">' + (r.enviada ? 'Mandar de novo' : 'Emitir e mandar') + '</button>' +
-          '<button type="button" class="btn btn-g btn-mini" data-ep-cartao="' + esc(r.emp) + '" title="O cartão de antes: texto pronto, WhatsApp e salvar vários rascunhos de uma vez">Cartão</button></span>' }],
+        // Backup 85 (RO3) / 86 (M12): "Emitir e mandar" abre a janela do ambiente (PDF por guia, lê valor e vencimento); o cartão antigo saiu
+        { k: 'acao', rot: '', cls: 'b-dir b-c-acoes', ord: false, html: (r) => '<span class="b-acoes"><button type="button" class="btn btn-p btn-mini ep-emitir" data-ep-emitir="' + esc(r.emp) + '">' + (r.enviada ? 'Mandar de novo' : 'Emitir e mandar') + '</button></span>' }],
       linhas, chave: (r) => r.emp, linhaCls: (r) => (!r.enviada && r.venc < h ? ' b-tr-venc' : ''),
       vazio: { titulo: 'Nenhuma guia aqui', frase: 'Nenhuma guia vencida ou do mês' + (E.rt.grupo || E.rt.busca ? ' com esses filtros' : '') + '.' } });
   };
   const celPrazoGuia = (v) => { const d = Math.round((new Date(v + 'T00:00:00') - new Date(h + 'T00:00:00')) / 864e5);
     return d < 0 ? '<span class="b-pz-r">' + (-d) + ' d atraso</span>' : d === 0 ? '<span class="b-pz-r">vence hoje</span>' : '<span class="' + (d <= 5 ? 'b-pz-a' : 'b-pz-b') + '">' + plural(d, 'dia', 'dias') + '</span>'; };
-  $('ep-sel').onclick = async (ev) => {
-    const ca = ev.target.closest('[data-ep-cartao]');
-    if (ca) { ev.stopPropagation(); _epSel.clear(); visiveis().filter((g) => empK(g) === ca.dataset.epCartao).forEach((g) => _epSel.add(g.id)); gerar(); return; }
-    const b = ev.target.closest('[data-ep-emitir]'); if (!b) return; ev.stopPropagation();
+  $('ep-sel').onclick = (ev) => { const b = ev.target.closest('[data-ep-emitir]'); if (!b) return; ev.stopPropagation(); emitirEmp(b.dataset.epEmitir); };
+  const emitirEmp = async (emp) => {
     if (cad) await cad;
-    const its = visiveis().filter((g) => empK(g) === b.dataset.epEmitir).sort((a, c) => a.vencimento.localeCompare(c.vencimento)); if (!its.length) return;
+    const its = visiveis().filter((g) => empK(g) === emp).sort((a, c) => a.vencimento.localeCompare(c.vencimento)); if (!its.length) return;
     const p0 = its[0].p, cid = clienteDoParcelamento(p0), cli = (E.clientes || []).find((y) => y.id === cid) || {};
     janelaEmitirGuias('parcelas', its.map((g) => ({ id: g.id, parcelamento_id: g.parcelamento_id, valor: g._valor || null, venc: g.vencimento,
       desc: [g.p.local, g.p.natureza].filter(Boolean).join(' · ') + (g.p.numero ? ' nº ' + g.p.numero : '') + ' · parcela ' + (g.numero || '?') + (g.p.total_parcelas ? '/' + g.p.total_parcelas : '') })),
-      { nome: b.dataset.epEmitir, doc: p0.cnpj ? mascaraDoc(p0.cnpj) : '', cli: cid, grupo: p0.grupo_id || cli.grupo_id, depois: async () => { await dadosRotina(true); atualizarPlacar(); if (el.isConnected) await rotinaEnviarGuias(el); } });
+      { nome: emp, doc: p0.cnpj ? mascaraDoc(p0.cnpj) : '', cli: cid, grupo: p0.grupo_id || cli.grupo_id, depois: async () => { await dadosRotina(true); atualizarPlacar(); if (el.isConnected) await rotinaEnviarGuias(el); } });
   };
   $('ep-atu').onclick = (ev) => comBotao(ev.currentTarget, async () => { await dadosRotina(true); atualizarPlacar(); await rotinaEnviarGuias(el); });
-  // ── mensagens geradas: um cartão por empresa ──
-  const gerar = async () => {
-    if (cad) await cad;
-    const porEmp = {}; G.filter((g) => _epSel.has(g.id)).forEach((g) => { (porEmp[empK(g)] = porEmp[empK(g)] || []).push(g); });
-    const lista = Object.keys(porEmp).sort((a, b) => a.localeCompare(b, 'pt-BR')).map((emp) => { const its = porEmp[emp], g0 = its[0], cid = clienteDoParcelamento(g0.p), c = E.clientes.find((y) => y.id === cid) || {};
-      return { emp, its, cli: cid, grupo: g0.p.grupo_id, tel: c.telefone || '', arquivos: [] }; });
-    const out = $('ep-out'); out.hidden = false; $('ep-sel').hidden = true;
-    el.querySelector('.rt-filtros').hidden = true; el.querySelector('.ep-modo').hidden = true;
-    out.innerHTML = '<div class="ep-out-hd"><div class="ep-out-tit">📨 Mensagens geradas</div><span class="ep-out-ac">' +
-        (lista.length > 1 ? '<button type="button" class="btn btn-p btn-mini" id="ep-todos-rasc" title="Salva o rascunho no Gmail de todas as mensagens abaixo, uma por uma">✉ Salvar todos os rascunhos (' + lista.length + ')</button>' : '') +
-        '<button type="button" class="btn btn-o btn-mini ep-voltar" id="ep-voltar">← Voltar à seleção</button></span></div>' +
-      // Backup 49: antes de salvar todos, o que ainda falta (sem e-mail, sem guia anexada, cliente que não recebe e-mails)
-      '<div class="ep-pend" id="ep-pend" hidden></div>' +
-      '<div class="ep-grid">' + lista.map((e, k) => { const tit = 'Guias de Parcelamento — ' + e.emp, wnum = soDigitos(e.tel), env = e.its.every((g) => g.enviada);
-        return '<div class="ep-card" data-k="' + k + '"><div class="ep-card-hd2">' +
-          '<div class="ep-card-hcol"><div class="ep-card-ch">📧 E-mail</div><div class="ep-card-emp">' + esc(e.emp) + '</div>' +
-            '<div class="ep-card-assunto">Assunto: <em>' + esc(tit) + '</em></div>' +
-            '<div class="ep-card-sub">Para: <input class="ep-para" placeholder="não cadastrado" aria-label="E-mail do cliente"></div></div>' +
-          '<div class="ep-card-hcol"><div class="ep-card-ch ep-ch-zap">💬 WhatsApp</div><div class="ep-card-emp">' + esc(e.emp) + '</div>' +
-            '<div class="ep-card-sub">' + (wnum ? '<a href="https://wa.me/55' + wnum + '" target="_blank" rel="noopener" class="ep-zap-l">' + esc(e.tel) + '</a>' : '<em class="ep-nada">número não cadastrado</em>') + '</div></div></div>' +
-          '<div class="ep-card-body">' + epHtml(textoNotifParcelas(e.emp, e.its)) + '</div><textarea class="ep-card-edit" hidden></textarea>' +
-          '<div class="ep-anexos"><label class="ep-anexar"><input type="file" class="ep-arqs" accept=".pdf,image/*" multiple hidden>📎 Anexar guias (PDF)</label><span class="ep-chips"></span>' +
-            '<span class="ep-anx-dica">' + (modo.parcelamento === 'direto' ? 'vão anexadas no e-mail' : 'vão anexadas no rascunho do Gmail') + ' · o sistema lê o valor e o vencimento do PDF</span></div><div class="ep-pdf-av" hidden></div>' +
-          // Backup 53: o "Pagamento" saiu do cartão da notificação (o pagamento se marca na Planilha)
-          '<div class="ep-card-acts2">' +
-            '<button type="button" class="ep-act ep-a-edit" data-ep-a="edit">✏️ Editar</button>' +
-            '<button type="button" class="ep-act ep-a-copy" data-ep-a="copy">📋 Copiar</button>' +
-            '<button type="button" class="ep-act ep-a-prev" data-ep-a="prev" title="Ver o e-mail como o cliente vai receber">👁 Prévia</button>' +
-            '<button type="button" class="ep-act ep-a-mail" data-ep-a="mail" title="' + (modo.parcelamento === 'direto' ? 'Envia agora ao cliente, com as guias anexadas' : 'Salva um rascunho no seu Gmail, já com o e-mail do cliente e as guias anexadas — confira no Gmail e clique em Enviar') + '">✉ Enviar e-mail</button>' +
-            '<button type="button" class="ep-act ep-a-wpp2" data-ep-a="zap"' + (wnum ? '' : ' disabled') + '>💬 Enviar WhatsApp</button>' +
-            '<button type="button" class="ep-act ep-a-sent" data-ep-a="sent"' + (env ? ' disabled' : '') + '>' + (env ? '✓ Enviado' : '✉ Marcar enviado') + '</button></div></div>'; }).join('') + '</div>';
-    const pendencias = () => { const box = $('ep-pend'); if (!box) return; const P = [];
-      out.querySelectorAll('.ep-card:not(.ep-feito)').forEach((card) => { const e = lista[+card.dataset.k], c = E.clientes.find((y) => y.id === e.cli) || {};
-        if (c.recebe_email === false) P.push('<li><b>' + esc(e.emp) + '</b> — marcado para <b>não receber e-mails</b> (Clientes → ✉)</li>');
-        else if (!card.querySelector('.ep-para').value.trim()) P.push('<li><b>' + esc(e.emp) + '</b> — sem e-mail de destino</li>');
-        if (!e.arquivos.length) P.push('<li><b>' + esc(e.emp) + '</b> — nenhuma guia anexada</li>'); });
-      box.hidden = !P.length; box.innerHTML = P.length ? '<b>⚠ Pendências do envio (' + P.length + ')</b><ul>' + P.join('') + '</ul>' : ''; };
-    Promise.all([...out.querySelectorAll('.ep-card')].map((card) => { const e = lista[+card.dataset.k]; return Promise.resolve(preencherDestino(card.querySelector('.ep-para'), e.cli, e.grupo, 'parcelas')).catch(() => null); }))
-      .then(pendencias);
-    out.addEventListener('input', (ev) => { if (ev.target.closest('.ep-para')) pendencias(); });
-    aviso('✓ ' + plural(lista.length, 'mensagem gerada', 'mensagens geradas') + '.');
-    const chips = (card, e) => { card.querySelector('.ep-chips').innerHTML = e.arquivos.map((f, i) => '<span class="ge-chip">📄 ' + esc(f.name) + ' <small>' + Math.max(1, Math.round(f.size / 1024)) + ' KB</small><button type="button" data-ep-tira="' + i + '" aria-label="Tirar">×</button></span>').join(''); };
-    // os valores digitados no texto voltam para cada guia (na ordem do texto)
-    // Backup 46: salva o rascunho e, assim que o Gmail confirma, a guia fica "emitida" com a data de hoje (e o valor digitado vira o valor lançado)
-    const salvarCard = async (card, e) => {
-      const b = card.querySelector('[data-ep-a=mail]'), para = card.querySelector('.ep-para').value.trim();
-      if (e.arquivos.reduce((s2, f) => s2 + f.size, 0) > LIMITE_ANEXOS) return { ok: false, msg: e.emp + ': os PDFs somam mais de 15 MB — divida em dois e-mails.' };
-      const arqs = []; for (const f of e.arquivos) arqs.push(await lerArquivoB64(f));
-      b.textContent = '⏳ Salvando rascunho…'; b.disabled = true;
-      try {
-        valores(card, e);
-        if (modo.parcelamento === 'direto') {   // Backup 80 (M5): envio direto ao cliente (escolhido em Administração → E-mail → Como funciona)
-          if (!para) return { ok: false, msg: e.emp + ': digite o e-mail do cliente no campo "Para".' };
-          const r = await q(sb.rpc('enviar_guias_email', { p_cliente: e.cli || null, p_grupo: e.grupo || null,
-            p_itens: e.its.map((g) => ({ tabela: 'parcelas', id: g.id, descricao: 'Parcela ' + (g.numero || '?') + ' — ' + (g.p.natureza || 'parcelamento') + (g.p.numero ? ' nº ' + g.p.numero : ''), vencimento: g.vencimento, valor: g._valor || null })),
-            p_assunto: 'Guias de Parcelamento — ' + e.emp, p_texto: epTextoAtual(card), p_docs: [], p_para: para, p_arquivos: arqs }));
-          if (r && r.status === 'erro') return { ok: false, msg: e.emp + ': ' + explicarErroEmail(r.erro || 'não saiu') };
-          if (r && r.ref) { const ee = await enviarEmailAgora(r.ref, para).catch(() => null); if (ee && !ee.ok) return { ok: false, msg: e.emp + ': ' + ee.msg }; }
-        } else {
-          const r = await q(sb.rpc('rascunho_email_texto', { p_cliente: e.cli || null, p_para: para, p_assunto: 'Guias de Parcelamento — ' + e.emp, p_texto: epTextoAtual(card), p_arquivos: arqs }));
-          const s2 = await salvarRascunhoAgora(r.ref);
-          if (!s2.ok) return { ok: false, msg: e.emp + ': ' + s2.msg };
-        }
-        for (const g of e.its) { await q(sb.rpc('registrar_emissao', { p_tabela: 'parcelas', p_id: g.id, p_emitida: true, p_doc: null, p_enviar: false }));
-          if (g._valor > 0) await q(sb.rpc('lancar_valor_parcela', { p_id: g.id, p_valor: g._valor })).catch(() => null);
-          g.enviada = true; g.emitida_em = g.emitida_em || hojeISO(); g.emissao = 'SIM'; _epSel.delete(g.id); }
-        if (window.ERP_EDITOR && window.ERP_EDITOR.marcarSujo) e.its.forEach((g) => window.ERP_EDITOR.marcarSujo('parcelas', g.parcelamento_id)); atualizarPlacar();
-        card.classList.add('ep-feito'); const sb2 = card.querySelector('[data-ep-a=sent]'); if (sb2) { sb2.disabled = true; sb2.textContent = '✓ Enviado'; }
-        if (modo.parcelamento === 'direto') return { ok: true, msg: '✓ E-mail enviado para ' + para + (arqs.length ? ' com ' + plural(arqs.length, 'anexo', 'anexos') : '') + ' — guia marcada como emitida.' };
-        return { ok: true, msg: '✓ Rascunho criado no Gmail' + (para ? ' para ' + para : ' (sem destinatário cadastrado)') + (arqs.length ? ' com ' + plural(arqs.length, 'anexo', 'anexos') : '') + ' — guia marcada como emitida. Abra o Gmail → Rascunhos, confira e envie.' };
-      } catch (err) { return { ok: false, msg: e.emp + ': ' + erroAmigavel(err) }; }
-      finally { b.textContent = card.classList.contains('ep-feito') ? '✓ Rascunho salvo' : '✉ Enviar e-mail'; b.disabled = card.classList.contains('ep-feito'); }
-    };
-    const valores = (card, e) => { const ins = [...card.querySelectorAll('.ep-card-body .ep-val')];
-      if (ins.length === e.its.length) ins.forEach((i, n) => { const v = lerValor(i.value); e.its[n]._valor = isNaN(v) ? 0 : v; }); };
-    out.onchange = (ev) => { const a = ev.target.closest('.ep-arqs'); if (!a) return; const card = a.closest('.ep-card'), e = lista[+card.dataset.k];
-      const novos = [...a.files]; e.arquivos = e.arquivos.concat(novos); a.value = ''; chips(card, e); pendencias(); lerPdfs(card, e, novos); };
-    // Backup 80 (M4): o valor novo da guia vem do PDF — acha a parcela pelo vencimento (ou a próxima sem PDF), troca o valor no texto e avisa
-    const lerPdfs = async (card, e, arquivos) => {
-      e.lidos = e.lidos || {};
-      const ins = [...card.querySelectorAll('.ep-card-body .ep-val')], av = [];
-      for (const f of arquivos) {
-        const pdf = await lerPdfGuia(f).catch(() => null); if (!pdf || (!pdf.valor && !pdf.venc)) { av.push('<li>' + esc(f.name) + ': não achei valor nem vencimento no PDF — confira à mão.</li>'); continue; }
-        let n = e.its.findIndex((g) => !e.lidos[g.id] && pdf.venc && g.vencimento === pdf.venc); if (n < 0) n = e.its.findIndex((g) => !e.lidos[g.id]); if (n < 0) continue;
-        const g = e.its[n]; e.lidos[g.id] = pdf;
-        if (pdf.valor && Math.abs(pdf.valor - (g._valor || 0)) >= 0.01) {
-          if (ins[n]) ins[n].value = valorParaCampo(pdf.valor);
-          av.push('<li>Parcela ' + esc(String(g.numero || '?')) + ' (' + esc(g.p.natureza || '') + '): o PDF traz <b>' + brl(pdf.valor) + '</b>' + (g._valor ? ' (era ' + brl(g._valor) + ')' : '') + ' — o valor novo vai para a parcela.</li>');
-        } else av.push('<li>Parcela ' + esc(String(g.numero || '?')) + ': PDF conferido' + (pdf.valor ? ' (' + brl(pdf.valor) + ')' : '') + '.</li>');
-        if (pdf.venc && pdf.venc !== g.vencimento) av.push('<li>Parcela ' + esc(String(g.numero || '?')) + ': o PDF vence em <b>' + dataBR(pdf.venc) + '</b> (a parcela diz ' + dataBR(g.vencimento) + ').</li>');
-      }
-      const box = card.querySelector('.ep-pdf-av'); if (box && av.length) { box.hidden = false; box.innerHTML = '<b>Lido dos PDFs</b><ul>' + av.join('') + '</ul>'; }
-    };
-    out.addEventListener('focusout', (ev) => { const i = ev.target.closest('.ep-val'); if (!i || !i.value.trim()) return; const v = lerValor(i.value); i.value = isNaN(v) ? '' : valorParaCampo(v); });
-    out.onclick = async (ev) => {
-      if (ev.target.closest('#ep-todos-rasc')) return comBotao(ev.target.closest('#ep-todos-rasc'), async () => {
-        let ok = 0; const falhas = [];
-        for (const card of out.querySelectorAll('.ep-card:not(.ep-feito)')) { const r = await salvarCard(card, lista[+card.dataset.k]); if (r.ok) ok++; else falhas.push(r.msg); }
-        pendencias();
-        if (falhas.length) aviso('⚠ ' + plural(ok, 'rascunho salvo', 'rascunhos salvos') + '; ' + plural(falhas.length, 'falhou', 'falharam') + ': ' + falhas.join(' · '), true);
-        else aviso('✓ ' + plural(ok, 'rascunho salvo', 'rascunhos salvos') + ' no Gmail e as guias marcadas como emitidas. Abra o Gmail → Rascunhos.'); });
-      if (ev.target.closest('#ep-voltar')) { out.hidden = true; $('ep-sel').hidden = false; el.querySelector('.ep-modo').hidden = false; el.querySelector('.rt-filtros').hidden = false; return pintar(); }
-      const card = ev.target.closest('.ep-card'); if (!card) return; const e = lista[+card.dataset.k];
-      const pg = ev.target.closest('[data-ep-pago]');
-      if (pg) { const g = e.its.find((y) => y.id === pg.dataset.epPago); if (!g || g.pago) return;
-        const pintaBt = () => { const b2 = card.querySelector('[data-ep-pago="' + g.id + '"]'); if (!b2) return; b2.classList.toggle('ep-pago-ok', !!g.pago); b2.disabled = !!g.pago;
-          b2.textContent = (g.pago ? '✓ Paga' : '○ Pago') + ' — parcela ' + (g.numero || '?') + ' · venc. ' + dataBR(g.vencimento).slice(0, 5); };
-        pagarParcelaRotina(g, pintaBt); return; }
-      const tira = ev.target.closest('[data-ep-tira]'); if (tira) { e.arquivos.splice(+tira.dataset.epTira, 1); chips(card, e); return pendencias(); }
-      const b = ev.target.closest('[data-ep-a]'); if (!b) return; const a = b.dataset.epA;
-      if (a === 'edit') { const v = card.querySelector('.ep-card-body'), t = card.querySelector('.ep-card-edit');
-        if (!t.hidden) { v.innerHTML = epHtml(t.value); v.hidden = false; t.hidden = true; b.textContent = '✏️ Editar'; }
-        else { t.value = epParaEdicao(card); v.hidden = true; t.hidden = false; t.focus(); b.textContent = '✔ Concluir'; } return; }
-      if (a === 'copy') return copiarTexto(epTextoAtual(card)).then(() => { const o = b.textContent; b.textContent = '✓ Copiado!'; setTimeout(() => { b.textContent = o; }, 2000); });
-      if (a === 'prev') return comBotao(b, async () => { const h = await q(sb.rpc('previa_rascunho_texto', { p_cliente: e.cli || null, p_assunto: 'Guias de Parcelamento — ' + e.emp, p_texto: epTextoAtual(card) }));
-        verEmailHtml('Guias de Parcelamento — ' + e.emp, h); });
-      if (a === 'zap') { window.open('https://wa.me/55' + soDigitos(e.tel) + '?text=' + encodeURIComponent(epTextoAtual(card)), '_blank', 'noopener'); return; }
-      if (a === 'sent') { if (!await confirmarB('Confirmar envio para "' + e.emp + '"?')) return;
-        return comBotao(b, async () => { valores(card, e);
-          for (const g of e.its) { await q(sb.rpc('registrar_emissao', { p_tabela: 'parcelas', p_id: g.id, p_emitida: true, p_doc: null, p_enviar: false }));
-            if (g._valor > 0) await q(sb.rpc('lancar_valor_parcela', { p_id: g.id, p_valor: g._valor })).catch(() => null);
-            g.enviada = true; g.emitida_em = g.emitida_em || hojeISO(); g.emissao = 'SIM'; _epSel.delete(g.id); }
-          if (window.ERP_EDITOR && window.ERP_EDITOR.marcarSujo) e.its.forEach((g) => window.ERP_EDITOR.marcarSujo('parcelas', g.parcelamento_id)); atualizarPlacar();
-          b.disabled = true; b.textContent = '✓ Enviado'; card.classList.add('ep-feito'); aviso('✓ Marcado como enviado para "' + e.emp + '".'); }); }
-      if (a === 'mail') return comBotao(b, async () => { const r = await salvarCard(card, e); if (!r.ok) throw new Error(r.msg); aviso(r.msg); });
-    };
-  };
   ligarFiltroRotina(el, pintar); pintar();
   // a lista de grupos do filtro completa quando os cadastros chegam
   if (cad) cad.then(() => { const sel = el.querySelector('#rt-grupo'); if (sel && sel.options.length <= 1) sel.innerHTML = '<option value="">Todos os grupos</option>' +
     E.grupos.map((g) => '<option value="' + g.id + '"' + (g.id === E.rt.grupo ? ' selected' : '') + '>' + esc(g.nome) + '</option>').join(''); });
-  // Backup 51 (R3): veio da Planilha (clique na parcela) → abre direto o cartão de envio daquela guia
+  // Backup 51 (R3): veio da Planilha (clique na parcela) → abre direto a janela "Emitir" daquela empresa (Backup 86: sem o cartão antigo)
   if (E.rt.epAbrir) { const id = E.rt.epAbrir; E.rt.epAbrir = null;
-    if (G.some((g) => g.id === id)) { _epSel.clear(); _epSel.add(id); gerar(); } }
+    const g = G.find((y) => y.id === id); if (g) emitirEmp(empK(g)); }
 }
 
 // ═══ Backup 80 (M16): ROTINA DO MÊS AUTOMÁTICA — três tarefas que se repetem sozinhas (dia útil 1, 5 e 10 de cada mês), uma vez só por título ═══

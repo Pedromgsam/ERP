@@ -344,7 +344,7 @@ const ABA_FICHA = {
     tabelaB(alvo, { id: 'fc-ac-' + cl.id, linhas: L, unidade: ['parcela', 'parcelas'], contagem: true, altura: '360px', ord: { k: 'venc', dir: 1 },
       abas: [{ id: 'apagar', rot: 'A pagar', f: (x) => !x.pago }, { id: 'pago', rot: 'Pagas', f: (x) => x.pago }],
       venc: (x) => x.venc, somaB: (x) => x.valor, linhaCls: vencidaA,
-      colunas: colunasAcordos({ semGrupo: true }).filter((c) => !['dev'].includes(c.k)), clique: (x) => (porId[x.id] ? janelaAcordo(porId[x.id]) : janelaParcelaAc(x)) });
+      colunas: colunasAcordos({ semGrupo: true }).filter((c) => !['dev'].includes(c.k)), clique: (x) => { if (porId[x.id]) janelaAcordo(porId[x.id]); } });
   },
   // e-mails que saíram (ou ficaram no rascunho / com erro) para este cliente
   async emails(alvo, cl) {

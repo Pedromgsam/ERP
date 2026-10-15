@@ -511,7 +511,6 @@ function filtrarTarefas(daLista) {
   return (E._tarefas || []).filter((t) => {
     if (daLista) { /* Backup 72: a Lista separa pelas abas da tabela e filtra tipo/prioridade no botão "Filtros" */ }
     else if (F.aba === 'concluidas') { if (t.status !== 'concluida') return false; }
-    else if (F.aba === 'excluidas') { if (t.status !== 'cancelada' || String(t.atualizado_em || '') < somarDias(hojeISO(), -90)) return false; }   // mais de 90 dias: só no histórico
     else if (tarefaFechada(t)) return false;
     const a = daLista || F.aba === 'abertas' ? F.atalho : '';
     if (a === 'minhas' && (tarefaFechada(t) || !ehMinha(t))) return false;
@@ -583,13 +582,6 @@ function ligarLinhasTarefa(raiz) {
   raiz.querySelectorAll('[data-concluir]').forEach((bt) => bt.onclick = (ev) => { ev.stopPropagation(); comBotao(bt, async () => {
     await concluirTarefa(bt.dataset.concluir); aviso('✓ Tarefa concluída.'); await recarregarTarefas();
   }); });
-  raiz.querySelectorAll('[data-restaurar-t]').forEach((bt) => bt.onclick = (ev) => { ev.stopPropagation(); comBotao(bt, async () => {
-    await q(sb.from('tarefas').update({ status: 'pendente' }).eq('id', bt.dataset.restaurarT)); aviso('✓ Tarefa restaurada (voltou para Em aberto).'); await recarregarTarefas();
-  }); });
-  raiz.querySelectorAll('[data-apagar-t]').forEach((bt) => bt.onclick = (ev) => { ev.stopPropagation(); comBotao(bt, async () => {
-    if (!await confirmarB('Excluir de vez? Esta ação não pode ser desfeita.')) return;
-    await excluir('tarefas', bt.dataset.apagarT); aviso('Tarefa excluída de vez.'); await recarregarTarefas();
-  }); });
   raiz.querySelectorAll('[data-editar-t]').forEach((bt) => bt.onclick = (ev) => { ev.stopPropagation();
     formTarefa(E._tarefas.find((t) => t.id === bt.dataset.editarT), recarregarTarefas); });
   raiz.querySelectorAll('[data-abrir-t]').forEach((tr) => tr.onclick = () => abrirTarefa(E._tarefas.find((t) => t.id === tr.dataset.abrirT), recarregarTarefas));
@@ -612,13 +604,11 @@ function vistaLista(alvo) {
   const porId = {}; (E._tarefas || []).forEach((t) => { porId[t.id] = t; });
   const filhasDe = (id) => (E._tarefas || []).filter((x) => x.tarefa_pai_id === id);
   const grupoDe = (t) => { const cli = t.cliente_id ? (E.clientes || []).find((c) => c.id === t.cliente_id) : null; return nomeGrupo(t.grupo_id || (cli && cli.grupo_id)) || ''; };
-  const admin = (E.perfil || {}).papel === 'admin';
   const abaIni = 'abertas';
   if (F.atalho === 'atrasadas') { F.atalho = ''; E.tabB = E.tabB || {}; (E.tabB.tarefas = E.tabB.tarefas || {}).aba = 'atrasadas'; }
   const r = tabelaB(alvo, { id: 'tarefas', contagem: true, linhas: lista, chave: (t) => String(t.id), abaPadrao: abaIni, unidade: ['tarefa', 'tarefas'], tabCls: 'b-tab-tf',
     abas: [{ id: 'abertas', rot: 'Em aberto', f: (t) => !tarefaFechada(t) }, { id: 'atrasadas', rot: 'Atrasadas', cor: 'r', f: (t) => !tarefaFechada(t) && t.prazo && t.prazo < h },
-      { id: 'concluidas', rot: 'Concluídas', f: (t) => t.status === 'concluida' },
-      { id: 'excluidas', rot: 'Excluídas', f: (t) => t.status === 'cancelada' && String(t.atualizado_em || '') >= somarDias(h, -90) }],   // mais de 90 dias: só no histórico
+      { id: 'concluidas', rot: 'Concluídas', f: (t) => t.status === 'concluida' }],   // Backup 86 (M03): sem a aba Excluídas (excluir tem Desfazer)
     venc: (t) => t.prazo || '', ord: { k: 'prazo', dir: 1 }, ordAbas: { concluidas: { k: 'prazo', dir: -1 } },   // B84: sem os atalhos de prazo (a aba Atrasadas e "Filtros → vencimento" bastam)
     listas: [{ k: 'pes', rot: 'Pessoa', todos: 'Todas as pessoas', opcoes: pessoasFiltro().map((n) => [primeiroNome(n), nomeCurto(n)]), get: (t) => [t.responsavel, t.revisor].concat(String(t.participantes || '').split(',')).filter(Boolean).map(primeiroNome) },
       { k: 'tipo', rot: 'Tipo', todos: 'Todos os tipos', opcoes: FILTRO_TIPOS_AG, get: (t) => tipoItemAgenda(t) },
@@ -640,20 +630,13 @@ function vistaLista(alvo) {
       { k: 'pri', rot: 'Prioridade', cls: 'b-cen', html: (t) => { const p = PRI_B[t.prioridade]; return p ? '<span class="b-pill ' + p[1] + '">' + p[0] + '</span>' : '<span class="sub">—</span>'; }, ord: (t) => ({ alta: 0, media: 1, baixa: 2 })[t.prioridade] ?? 3 },
       { k: 'prazo', rot: 'Prazo', cls: 'b-cen b-data', html: (t) => (t.prazo ? dataBR(t.prazo) + (t.hora ? '<small>' + esc(String(t.hora).slice(0, 5)) + '</small>' : '') : '<span class="sub">—</span>'), ord: (t) => t.prazo || '9999' },
       { k: 'sit', rot: 'Situação', cls: 'b-cen b-prazo', html: situacaoTarefa, ord: (t) => (t.status === 'concluida' ? String(t.concluida_em || '') : t.prazo || '9999') },
-      { k: 'ac', rot: '', cls: 'b-dir', ord: false, html: (t) => (t.status === 'cancelada'
-        ? '<span class="b-acoes"><button type="button" class="btn btn-o btn-mini" data-restaurar-t="' + t.id + '">↩ Restaurar</button>' + (admin ? '<button type="button" class="btn btn-x btn-mini" data-apagar-t="' + t.id + '">Excluir de vez</button>' : '') + '</span>'
-        : tarefaFechada(t) ? '' : '<button type="button" class="b-bt-baixa" data-concluir="' + t.id + '" title="Concluir a tarefa">Concluir</button>') }],
+      { k: 'ac', rot: '', cls: 'b-dir', ord: false, html: (t) => (tarefaFechada(t) ? '' : '<button type="button" class="b-bt-baixa" data-concluir="' + t.id + '" title="Concluir a tarefa">Concluir</button>') }],
     linhaCls: (t) => (!tarefaFechada(t) && t.prazo && t.prazo < h ? ' b-tr-venc' : '') + (tarefaFechada(t) ? ' tf-feita' : ''),
     clique: (t) => formTarefa(t, recarregarTarefas),   // Backup 85 (TF8): abre direto o formulário (a ficha completa fica no botão "Ficha da tarefa")
     vazio: { titulo: 'Nenhuma tarefa aqui', frase: 'Use "+ Nova tarefa" ou troque a aba.', botao: ['+ Nova tarefa', '#tf-nova'] } });
   if (!alvo._tfLigado) { alvo._tfLigado = true;
     alvo.addEventListener('click', (ev) => {
       const c = ev.target.closest('[data-concluir]'); if (c) { ev.stopPropagation(); comBotao(c, () => concluirComDesfazer(c.dataset.concluir)); return; }
-      const rs = ev.target.closest('[data-restaurar-t]'); if (rs) { ev.stopPropagation(); comBotao(rs, async () => {
-        await q(sb.from('tarefas').update({ status: 'pendente' }).eq('id', rs.dataset.restaurarT)); aviso('✓ Tarefa restaurada (voltou para Em aberto).'); await recarregarTarefas(); }); return; }
-      const ap = ev.target.closest('[data-apagar-t]'); if (ap) { ev.stopPropagation(); comBotao(ap, async () => {
-        if (!await confirmarB('Excluir de vez? Esta ação não pode ser desfeita.')) return;
-        await excluir('tarefas', ap.dataset.apagarT); aviso('Tarefa excluída de vez.'); await recarregarTarefas(); }); }
     }, true);
   }
 }
@@ -668,30 +651,102 @@ async function vistaCalendario(raiz) {
   raiz.querySelector('#tf-cal-vista').onclick = (ev) => { const b = ev.target.closest('[data-cal-v]'); if (b) { F.calVista = b.dataset.calV; pintarTarefas(); } };
   const alvo = raiz.querySelector('#tf-cal-corpo');
   if (F.calVista === 'semana') return vistaSemana(alvo);
-  // Backup 39: o MESMO calendário do Início (quadro Atrasadas, cores da legenda, sem cinza depois do último dia); clicar abre o detalhe
+  // Backup 86: calendário MAIOR e limpo (Tarefas é a agenda do escritório) — ocupa a largura toda, "N atrasadas" vira um botão no alto,
+  // até 4 itens por dia (+N abre o dia), clicar num item abre o detalhe curto (Concluir · Editar · Ficha completa)
   await feriados();
   const dia = F.calVista === 'dia';
   F.dia = F.dia || hojeISO();
-  const salvo = { vista: FILA.vista, ref: FILA.ref };
-  FILA.vista = dia ? 'dia' : 'mes'; FILA.ref = dia ? F.dia : F.mes + '-01';
-  // Backup 40: em "Em aberto" as concluídas do mês também aparecem, riscadas
   const filtradas = filtrarTarefas(), idsF = new Set(filtradas.map((t) => t.id));
-  // Backup 51 (T2): as próximas ocorrências (tracejadas) das tarefas que se repetem e estão na lista filtrada
   const proj = F.aba === 'abertas' ? (await projecoesRecorrentes()).filter((x) => idsF.has(x.id)) : [];
   const pre = dia ? F.dia : F.mes + '-', lista = filtradas.concat(F.aba === 'abertas' ? (E._tarefas || []).filter((t) => t.status === 'concluida' && String(t.prazo || '').startsWith(pre)) : [], proj);
-  alvo.innerHTML = '<div class="card ini-fila tf-cal"><div class="card-bd">' + calendarioFila(lista) + '</div></div>';
-  FILA.vista = salvo.vista; FILA.ref = salvo.ref;
-  // Backup 53: a Semana fica do mesmo tamanho do Mês (guarda a altura do calendário do mês)
-  if (!dia) requestAnimationFrame(() => { const c = alvo.querySelector('.tf-cal'); if (c && c.offsetHeight > 300) F.altCal = c.offsetHeight; });
+  alvo.innerHTML = calendarioTarefas(lista, dia ? 'dia' : 'mes');
+  if (!dia) requestAnimationFrame(() => { const c = alvo.querySelector('.b-cal'); if (c && c.offsetHeight > 300) F.altCal = c.offsetHeight; });
   const [a, m] = F.mes.split('-').map(Number);
-  alvo.querySelectorAll('[data-fila-nav]').forEach((b) => b.onclick = () => {
-    const n = +b.dataset.filaNav;
+  const achar = (id, d) => lista.find((t) => String(t.id) === String(id) && (!t._prev || !d || t.prazo === d)) || (E._tarefas || []).find((t) => String(t.id) === String(id));
+  alvo.querySelectorAll('[data-cal-nav]').forEach((b) => b.onclick = () => {
+    const n = +b.dataset.calNav;
     if (dia) { F.dia = n ? somarDias(F.dia, n) : hojeISO(); return pintarTarefas(); }
     const d = n ? new Date(a, m - 1 + n, 1) : new Date();
     F.mes = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); pintarTarefas(); });
-  alvo.querySelectorAll('[data-fila]').forEach((d) => d.onclick = () => abrirTarefa(E._tarefas.find((t) => t.id === d.dataset.fila), recarregarTarefas));
-  alvo.querySelectorAll('[data-agendar]').forEach((b) => b.onclick = () => janelaAgendar(hojeISO(), recarregarTarefas));
-  alvo.querySelectorAll('[data-ag-dia]').forEach((d) => d.addEventListener('click', (ev) => { if (ev.target.closest('[data-fila]')) return; janelaAgendar(d.dataset.agDia, recarregarTarefas); }));
+  alvo.addEventListener('click', (ev) => {
+    const it = ev.target.closest('[data-cal-it]'); if (it) { ev.stopPropagation(); return detalheAgenda(achar(it.dataset.calIt, it.dataset.calD), it.dataset.calD); }
+    const mais = ev.target.closest('[data-cal-mais]'); if (mais) { ev.stopPropagation(); return janelaDiaAgenda(mais.dataset.calMais, lista); }
+    if (ev.target.closest('[data-cal-atr]')) return janelaDiaAgenda('', lista.filter((t) => t.prazo && t.prazo < hojeISO() && !tarefaFechada(t) && !t._prev), 'Atrasadas');
+    if (ev.target.closest('[data-agendar]')) return janelaAgendar(dia ? F.dia : hojeISO(), recarregarTarefas);
+    const cel = ev.target.closest('[data-ag-dia]'); if (cel) janelaAgendar(cel.dataset.agDia, recarregarTarefas);
+  });
+}
+
+// ── Backup 86: o calendário de Tarefas (mês ou dia) ──
+const DIAS_SEM_B = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+function itemCalB(t, d) {
+  const cls = classeAgenda(t, d);
+  return '<button type="button" class="b-cal-it ' + cls + (t._prev ? ' b-cal-prev' : '') + '" data-cal-it="' + esc(t.id) + '" data-cal-d="' + d + '" title="' + esc(horaAg(t) + t.titulo + (t.local ? ' · ' + t.local : '')) + '">' +
+    '<i class="ag-cor ' + cls + '" aria-hidden="true"></i>' + (t.hora ? '<span class="b-cal-h">' + esc(String(t.hora).slice(0, 5)) + '</span>' : '') +
+    '<span class="b-cal-t">' + (t.prazo_fatal === d ? '⚑ ' : '') + esc(t.titulo) + '</span></button>';
+}
+function calendarioTarefas(lista, vista) {
+  const F = E.tf, h = hojeISO();
+  const doDia = (d) => lista.filter((t) => t.prazo === d || t.prazo_fatal === d).sort((x, y) => String(x.hora || '99').localeCompare(String(y.hora || '99')));
+  const atr = lista.filter((t) => t.prazo && t.prazo < h && !tarefaFechada(t) && !t._prev).length;
+  let titulo, corpo;
+  if (vista === 'dia') {
+    titulo = new Date(F.dia + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' }).replace(/^./, (x) => x.toUpperCase());
+    const l = doDia(F.dia);
+    corpo = '<div class="b-cal-diaLista">' + (l.length ? '<div class="b-tempo">' + l.map((t) => '<button type="button" class="b-ev b-ev-bt" data-cal-it="' + esc(t.id) + '" data-cal-d="' + F.dia + '"><span class="b-ev-q">' +
+        (t.hora ? esc(horaFaixa(t)) : 'dia todo') + '</span><span class="b-ev-ic"><i class="ag-cor ' + classeAgenda(t, F.dia) + '"></i></span><div class="b-ev-tx"><b>' + (t.prazo_fatal === F.dia ? '⚑ ' : '') + esc(t.titulo) + '</b><span>' +
+        esc([ROT_TIPO_TF[tipoItemAgenda(t)], quemTarefa(t), t.local, t.cliente_id ? nomeCliente(t.cliente_id) : ''].filter(Boolean).join(' · ')) + '</span></div></button>').join('') + '</div>'
+      : '<div class="b-cal-vazio">Nada marcado neste dia. <button type="button" class="b-link" data-agendar>Agendar</button></div>') + '</div>';
+  } else {
+    const d0 = new Date(F.mes + '-01T12:00:00'), ano = d0.getFullYear(), mes = d0.getMonth(), primeiro = new Date(ano, mes, 1), n = new Date(ano, mes + 1, 0).getDate();
+    titulo = primeiro.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).replace(/^./, (x) => x.toUpperCase());
+    const cel = [];
+    for (let k = primeiro.getDay(); k > 0; k--) cel.push('<div class="b-cal-dia b-cal-fora"><span class="b-cal-n">' + new Date(ano, mes, 1 - k).getDate() + '</span></div>');
+    for (let k = 1; k <= n; k++) {
+      const dt = new Date(ano, mes, k), d = iso(dt), l = doDia(d), fds = dt.getDay() === 0 || dt.getDay() === 6;
+      cel.push('<div class="b-cal-dia' + (d === h ? ' b-cal-hoje' : '') + (fds ? ' b-cal-fds' : '') + '" data-ag-dia="' + d + '" title="Clique no espaço vazio para agendar neste dia"><span class="b-cal-n">' + k + '</span>' +
+        l.slice(0, 4).map((t) => itemCalB(t, d)).join('') + (l.length > 4 ? '<button type="button" class="b-cal-mais" data-cal-mais="' + d + '">+' + (l.length - 4) + ' mais</button>' : '') + '</div>');
+    }
+    for (let k = 1; cel.length % 7; k++) cel.push('<div class="b-cal-dia b-cal-fora"><span class="b-cal-n">' + k + '</span></div>');
+    corpo = '<div class="b-cal-grade">' + DIAS_SEM_B.map((x) => '<div class="b-cal-sem">' + x + '</div>').join('') + cel.join('') + '</div>';
+  }
+  return '<section class="b-cal b-cal-' + vista + '"><div class="b-cal-topo"><div class="b-cal-nav"><button type="button" class="b-ic-bt" data-cal-nav="-1" aria-label="Anterior">‹</button>' +
+      '<h2>' + esc(titulo) + '</h2><button type="button" class="b-ic-bt" data-cal-nav="1" aria-label="Próximo">›</button><button type="button" class="btn btn-o btn-mini" data-cal-nav="0">Hoje</button></div>' +
+      '<div class="b-cal-acoes">' + (atr ? '<button type="button" class="b-cal-atr" data-cal-atr>' + plural(atr, 'atrasada', 'atrasadas') + '</button>' : '') +
+      '<button type="button" class="btn btn-p btn-mini" data-agendar>' + iconeB('mais') + 'Agendar</button></div></div>' + corpo + legendaAgenda() + '</section>';
+}
+// detalhe curto de um item da agenda: o que é, quando, onde, com quem — e Concluir / Editar / Ficha completa
+function detalheAgenda(t, d) {
+  if (!t) return;
+  const tp = tipoItemAgenda(t), aberta = !tarefaFechada(t) && !t._prev, pri = { alta: 'Alta', media: 'Média', baixa: 'Baixa' }[t.prioridade] || '';
+  const quando = (d || t.prazo ? new Date((d || t.prazo) + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' }) : 'sem data') + (t.hora ? ' · ' + horaFaixa(t) : '');
+  const pessoas = [t.responsavel].concat(String(t.participantes || '').split(',').map((x) => x.trim())).filter(Boolean);
+  const campos = [['Quando', quando], ['Onde', t.local], ['Quem', pessoas.map(nomeCurto).join(', ') + (t.com_quem ? ' · com ' + t.com_quem : '')], ['Cliente', t.cliente_id ? nomeCliente(t.cliente_id) : ''],
+    ['Prioridade', pri], ['Prazo fatal', t.prazo_fatal ? dataBR(t.prazo_fatal) : ''], ['Repete', t.recorrencia ? textoRepete(t) : ''], ['Processo', t.processos_vinculados]].filter((x) => x[1]);
+  const st = t._prev ? '<span class="b-pill b-a">prevista</span>' : tarefaFechada(t) ? '<span class="b-pill b-g">Concluída</span>' : t.prazo && t.prazo < hojeISO() ? '<span class="b-pill b-r">Atrasada</span>' : '<span class="b-pill b-b">Em aberto</span>';
+  const j = abrirJanela({ kick: ROT_TIPO_TF[tp] || 'Tarefa', titulo: t.titulo, sub: esc(quando), dir: st,
+    corpo: '<div class="b-ficha b-ficha-2">' + campos.map(([r, v]) => '<div><span>' + r + '</span><b>' + esc(v) + '</b></div>').join('') + '</div>' +
+      (t.descricao ? '<div class="b-bloco"><h3>Descrição</h3><p class="b-cal-desc">' + esc(t.descricao) + '</p></div>' : '') +
+      (t._prev ? '<p class="b-mudo">Próxima vez de uma tarefa que se repete — ela aparece de verdade alguns dias antes.</p>' : ''),
+    rodape: '<button type="button" class="btn btn-o" id="ag-ficha" style="margin-right:auto">Ficha completa</button><div class="acoes"><button type="button" class="btn btn-o" id="ag-editar">' + iconeB('lapis') + 'Editar</button>' +
+      (aberta ? '<button type="button" class="btn btn-p" id="ag-concluir">' + iconeB('check') + 'Concluir</button>' : '') + '</div>' });
+  j.classList.add('ag-janela');
+  const base = (E._tarefas || []).find((x) => String(x.id) === String(t.id)) || t;
+  j.querySelector('#ag-ficha').onclick = () => { fecharJanela(j); abrirTarefa(base, recarregarTarefas); };
+  j.querySelector('#ag-editar').onclick = () => { fecharJanela(j); formTarefa(base, recarregarTarefas); };
+  const c = j.querySelector('#ag-concluir'); if (c) c.onclick = () => comBotao(c, async () => { fecharJanela(j); await concluirComDesfazer(t.id); });
+  return j;
+}
+// a lista de um dia (ou das atrasadas): cada linha abre o detalhe
+function janelaDiaAgenda(d, lista, titulo) {
+  const L = d ? lista.filter((t) => t.prazo === d || t.prazo_fatal === d).sort((x, y) => String(x.hora || '99').localeCompare(String(y.hora || '99'))) : lista.slice().sort((x, y) => String(x.prazo).localeCompare(String(y.prazo)));
+  const j = abrirJanela({ kick: d ? 'Agenda do dia' : 'Agenda', titulo: titulo || new Date(d + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' }), sub: plural(L.length, 'item', 'itens'),
+    corpo: '<div class="b-lista">' + L.map((t) => '<button type="button" class="b-li b-li-bt" data-cal-it="' + esc(t.id) + '" data-cal-d="' + esc(d || t.prazo || '') + '"><i class="ag-cor ' + classeAgenda(t, d || t.prazo) + '" aria-hidden="true"></i><span class="b-li-tx"><b>' +
+      (t.hora ? esc(String(t.hora).slice(0, 5)) + ' · ' : '') + esc(t.titulo) + '</b><small>' + esc([ROT_TIPO_TF[tipoItemAgenda(t)], d ? '' : 'prazo ' + dataBR(t.prazo), quemTarefa(t)].filter(Boolean).join(' · ')) + '</small></span></button>').join('') + '</div>',
+    rodape: (d ? '<button type="button" class="btn btn-o" id="ag-dia-novo" style="margin-right:auto">' + iconeB('mais') + 'Agendar neste dia</button>' : '<span></span>') + '<button type="button" class="btn btn-o" data-fechar>Fechar</button>' });
+  j.addEventListener('click', (ev) => { const b = ev.target.closest('[data-cal-it]'); if (!b) return; const t = L.find((x) => String(x.id) === b.dataset.calIt && (!x._prev || x.prazo === b.dataset.calD)); fecharJanela(j); detalheAgenda(t, b.dataset.calD); });
+  const nv = j.querySelector('#ag-dia-novo'); if (nv) nv.onclick = () => { fecharJanela(j); janelaAgendar(d, recarregarTarefas); };
+  return j;
 }
 
 // ── Fluxos: andamento e linha do tempo (Gantt simples) ──
@@ -1106,11 +1161,11 @@ function formTarefa(t, depois) {
   });
   const bx = j.querySelector('#btn-excluir-tf');
   if (bx) bx.onclick = () => comBotao(bx, async () => {
-    if (!await confirmarB('Excluir esta tarefa' + ((E._tarefas || []).some((x) => x.tarefa_pai_id === t.id) ? ' e as subtarefas dela' : '') + '? Ela vai para a aba "Excluídas" (dá para restaurar).')) return;
-    // exclusão "suave": vira cancelada e vai para a aba Excluídas (subtarefas abertas junto)
+    if (!await confirmarB('Excluir esta tarefa' + ((E._tarefas || []).some((x) => x.tarefa_pai_id === t.id) ? ' e as subtarefas dela' : '') + '?')) return;
+    // exclusão "suave": vira cancelada (fica no histórico; subtarefas abertas junto) — Backup 86: sem a aba Excluídas, o Desfazer devolve
     await q(sb.from('tarefas').update({ status: 'cancelada' }).eq('id', t.id));
     await q(sb.from('tarefas').update({ status: 'cancelada' }).eq('tarefa_pai_id', t.id).not('status', 'in', '(concluida,cancelada)'));
-    feitoDesfazer('Tarefa movida para "Excluídas".', () => q(sb.from('tarefas').update({ status: t.status }).eq('id', t.id)), aposSalvar); fecharJanela(j); await aposSalvar();
+    feitoDesfazer('Tarefa excluída.', () => q(sb.from('tarefas').update({ status: t.status }).eq('id', t.id)), aposSalvar); fecharJanela(j); await aposSalvar();
   });
   if (!novo) {
     pintarSubtarefas(j, t, depois).catch((e) => console.error(e));

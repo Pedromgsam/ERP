@@ -1,0 +1,198 @@
+<title>Detalhamentos ERP × ambiente</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Lista de comparação: cada linha = um "clique que abre detalhe", com o desenho da janela no ERP e no ambiente lado a lado e a escolha à direita */
+:root{
+  --bg:#F3F5F8; --surface:#FFFFFF; --sunk:#EEF1F5; --ink:#16233A; --mute:#5B6676; --line:#DFE4EB;
+  --accent:#1F4D80; --accent-lt:#E7EEF7; --amb:#6A3FA0; --amb-lt:#F1EAF9; --ok:#1F7A48; --ok-lt:#E8F4EC; --dif:#A15C07; --dif-lt:#FDF1DF;
+  --f-ui:"Source Sans 3",system-ui,-apple-system,"Segoe UI",sans-serif; --f-code:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#0B0E13;--surface:#141922;--sunk:#1A202B;--ink:#E7ECF3;--mute:#98A3B3;--line:#252D3A;--accent:#7FA9DD;--accent-lt:#1A2638;--amb:#B79AE6;--amb-lt:#231B33;--ok:#4CC27F;--ok-lt:#13261B;--dif:#E9A94A;--dif-lt:#2A1E0D;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0B0E13;--surface:#141922;--sunk:#1A202B;--ink:#E7ECF3;--mute:#98A3B3;--line:#252D3A;--accent:#7FA9DD;--accent-lt:#1A2638;--amb:#B79AE6;--amb-lt:#231B33;--ok:#4CC27F;--ok-lt:#13261B;--dif:#E9A94A;--dif-lt:#2A1E0D;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--f-ui);margin:0}
+.pg{max-width:1080px;margin:0 auto;padding-block:28px 130px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1{font-size:26px;margin:0 0 6px;text-wrap:balance}
+.lead{color:var(--mute);margin:0 0 14px;max-width:70ch}
+.filtro{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 18px}
+button{font:inherit;cursor:pointer}
+.chip{border:1px solid var(--line);background:var(--surface);color:var(--mute);border-radius:999px;padding:5px 12px;font-weight:600;font-size:13.5px}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+.grupo{margin:0 0 22px}
+.grupo h2{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);margin:0 0 8px;font-weight:700}
+.it{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:12px;margin:0 0 10px}
+.it-cab{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.cod{font:500 12.5px var(--f-code);color:var(--accent);background:var(--accent-lt);border-radius:6px;padding:2px 7px}
+.onde{font-weight:700;font-size:15.5px}
+.tag{font-size:12px;font-weight:700;border-radius:999px;padding:2px 9px}
+.tag.ig{background:var(--ok-lt);color:var(--ok)}
+.tag.df{background:var(--dif-lt);color:var(--dif)}
+.lados{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.lado{min-width:0;display:flex;flex-direction:column;gap:6px}
+.lado h3{margin:0;font-size:12px;letter-spacing:.05em;text-transform:uppercase;font-weight:700}
+.lado.erp h3{color:var(--accent)} .lado.amb h3{color:var(--amb)}
+.lado p{margin:0;font-size:14px;color:var(--ink);max-width:60ch}
+/* desenho da janela */
+.jan{border:1px solid var(--line);border-radius:10px;background:var(--surface);padding:10px;display:flex;flex-direction:column;gap:6px;min-height:84px}
+.lado.erp .jan{border-top:3px solid var(--accent)} .lado.amb .jan{border-top:3px solid var(--amb)}
+.w-cab{display:flex;justify-content:space-between;align-items:center;gap:6px}
+.w-tit{display:flex;flex-direction:column;gap:3px;min-width:0}
+.w-k{height:6px;width:60px;border-radius:3px;background:var(--accent-lt)}
+.w-t{font-size:12.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.w-p{height:12px;width:44px;border-radius:999px;background:var(--ok-lt)}
+.w-row{display:grid;gap:4px}
+.w-c{background:var(--sunk);border-radius:4px;padding:4px 5px;font-size:10.5px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.w-lin{height:7px;border-radius:3px;background:var(--sunk)}
+.w-abas{display:flex;gap:3px;flex-wrap:wrap}
+.w-abas span{font-size:10px;background:var(--sunk);border-radius:4px;padding:1px 5px;color:var(--mute)}
+.w-rod{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;border-top:1px solid var(--line);padding-top:6px}
+.w-rod span{font-size:10.5px;border:1px solid var(--line);border-radius:5px;padding:1px 6px;color:var(--ink);background:var(--surface)}
+.w-rod span.p{background:var(--accent);border-color:var(--accent);color:#fff}
+.w-nada{display:grid;place-items:center;color:var(--mute);font-size:13px;flex:1;text-align:center}
+.esc{display:flex;gap:10px;align-items:center;flex-wrap:wrap;border-top:1px dashed var(--line);padding-top:10px}
+.esc-rot{font-size:13.5px;color:var(--mute)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
+.seg button{border:0;background:transparent;color:var(--mute);padding:6px 12px;font-weight:600;font-size:13.5px}
+.seg button[aria-pressed="true"][data-v="amb"]{background:var(--amb);color:#fff}
+.seg button[aria-pressed="true"][data-v="erp"]{background:var(--accent);color:#fff}
+.seg button:focus-visible,.chip:focus-visible,.bt:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.nota{flex:1;min-width:200px;border:1px solid var(--line);border-radius:8px;padding:6px 10px;background:var(--surface);color:var(--ink);font:inherit;font-size:14px}
+.pe{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);padding-block:12px calc(12px + env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.pe-in{max-width:1080px;margin:0 auto;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.pe-tx{flex:1;min-width:200px;font-size:14px}
+.pe-tx code{font-family:var(--f-code);font-size:12.5px;word-break:break-word}
+.bt{border:1px solid var(--accent);background:var(--accent);color:#fff;border-radius:8px;padding:8px 14px;font-weight:600;font-size:14px}
+@media (max-width:700px){.lados{grid-template-columns:1fr}}
+</style>
+<div class="pg">
+  <h1>O que abre quando você clica</h1>
+  <p class="lead">Cada linha é um lugar do sistema onde um clique abre um detalhe. À esquerda, como o <b>ERP</b> faz hoje (já com o Backup 86); à direita, como o <b>ambiente de teste</b> faz. Nos itens diferentes, escolha qual fica. Os iguais estão aqui só para você conferir. No fim, copie as respostas e cole na conversa.</p>
+  <div class="filtro" role="group" aria-label="Mostrar">
+    <button type="button" class="chip" data-f="dif" aria-pressed="true">Só os diferentes</button>
+    <button type="button" class="chip" data-f="tudo" aria-pressed="false">Todos</button>
+  </div>
+  <div id="lista"></div>
+</div>
+<div class="pe"><div class="pe-in"><div class="pe-tx" id="resumo"></div><button class="bt" type="button" id="copiar">Copiar respostas</button></div></div>
+<script>
+// desenho: [cabeçalho(título), ['ficha', n], ['nums', n], ['tab', linhas], ['tempo', n], ['lista', n], ['abas', [...]], ['form', n], ['rod', [botões; '*' = principal]]] ou 'nada'
+const D = [
+ { g: 'Jurídico', c: 'D01', onde: 'Processos → clicar no processo', ig: true,
+   erp: ['Janela do processo: ficha com 8 campos, últimas movimentações em linha do tempo e os botões do rodapé. Observação, distribuição, procuração e prescrição entram na ficha só quando preenchidas.', ['Processo · TJMG', ['ficha', 8], ['tempo', 3], ['rod', ['Ficha do cliente', 'Conferido', 'Movimentação', '*Editar']]]],
+   amb: ['A mesma janela: ficha de 8 campos, últimas movimentações e os mesmos 4 botões.', ['Processo · TJMG', ['ficha', 8], ['tempo', 3], ['rod', ['Ficha do cliente', 'Conferido', 'Movimentação', '*Editar']]]] },
+ { g: 'Jurídico', c: 'D02', onde: 'Rotina → Processos → clicar na linha', ig: true,
+   erp: ['Abre a mesma janela do processo (D01).', ['Processo · TJMG', ['ficha', 8], ['tempo', 3], ['rod', ['Ficha do cliente', 'Conferido', 'Movimentação', '*Editar']]]],
+   amb: ['Abre a mesma janela do processo.', ['Processo · TJMG', ['ficha', 8], ['tempo', 3], ['rod', ['Ficha do cliente', 'Conferido', 'Movimentação', '*Editar']]]] },
+ { g: 'Jurídico', c: 'D03', onde: 'Ficha do cliente → aba Processos → clicar no processo', ig: false,
+   erp: ['A aba mostra uma tabela simples (número, natureza, partes, valor). Clicar na linha não abre nada; para ver ou editar, vai em Jurídico → Processos.', 'nada'],
+   amb: ['A aba mostra uma lista; clicar no processo abre a janela do processo (D01) por cima da ficha.', ['Processo · TJMG', ['ficha', 8], ['tempo', 2], ['rod', ['Ficha do cliente', 'Conferido', 'Movimentação', '*Editar']]]] },
+ { g: 'Parcelamentos e Acordos', c: 'D04', onde: 'Parcelamentos → linha da parcela (tabela de baixo)', ig: true,
+   erp: ['Abre a janela do parcelamento: ficha de 4 campos, 5 números, todas as parcelas, Ficha do cliente e Emitir.', ['Regularize · Simples', ['ficha', 4], ['nums', 5], ['tab', 4], ['rod', ['Ficha do cliente', 'Emitir (2)', 'Fechar']]]],
+   amb: ['Abre a mesma janela do parcelamento.', ['Regularize · Simples', ['ficha', 4], ['nums', 5], ['tab', 4], ['rod', ['Ficha do cliente', 'Emitir (2)', 'Fechar']]]] },
+ { g: 'Parcelamentos e Acordos', c: 'D05', onde: 'Parcelamentos → janela do parcelamento → clicar numa parcela', ig: false,
+   erp: ['Abre uma janelinha da parcela: grupo, CNPJ, vencimento, valor, situação da guia e do pagamento (com "Desmarcar o pagamento"), "Ver o parcelamento inteiro" e "Editar".', ['Parcela 3 de 60', ['ficha', 4], ['lista', 2], ['rod', ['Ver o parcelamento', 'Editar', 'Fechar']]]],
+   amb: ['A parcela não abre nada: Emitir e Baixa ficam na própria linha.', 'nada'] },
+ { g: 'Parcelamentos e Acordos', c: 'D06', onde: 'Parcelamentos / Acordos → cartão do grupo (Situação por cliente)', ig: true,
+   erp: ['O cartão abre embaixo a lista dos parcelamentos (ou acordos) do grupo; clicar num deles abre a janela.', ['Grupo Alfa', ['tab', 3]]],
+   amb: ['Igual: abre a lista do grupo embaixo; cada linha abre a janela.', ['Grupo Alfa', ['tab', 3]]] },
+ { g: 'Parcelamentos e Acordos', c: 'D07', onde: 'Acordos → linha da parcela', ig: true,
+   erp: ['Abre a janela do acordo: ficha de 4 campos, 5 números, as parcelas e "Alterar o acordo inteiro". A parcela dentro da janela não abre nada.', ['Acordo · processo', ['ficha', 4], ['nums', 5], ['tab', 4], ['rod', ['Alterar o acordo inteiro', 'Fechar']]]],
+   amb: ['A mesma janela do acordo.', ['Acordo · processo', ['ficha', 4], ['nums', 5], ['tab', 4], ['rod', ['Alterar o acordo inteiro', 'Fechar']]]] },
+ { g: 'Parcelamentos e Acordos', c: 'D08', onde: 'Execuções → clicar na execução', ig: true,
+   erp: ['Janela com 3 números (valor executado, recebido, honorários), a lista de recebimentos e "+ Recebimento".', ['Execução · nº', ['nums', 3], ['lista', 2], ['rod', ['Fechar', '*Recebimento']]]],
+   amb: ['A mesma janela.', ['Execução · nº', ['nums', 3], ['lista', 2], ['rod', ['Fechar', '*Recebimento']]]] },
+ { g: 'Financeiro e Contratos', c: 'D09', onde: 'Financeiro → Lançamentos → clicar na linha', ig: false,
+   erp: ['Abre o formulário do lançamento. No rodapé há o botão "Detalhe" (contrato, ficha, recibo, cobrar), que ficou do ERP.', ['Lançamento', ['form', 6], ['rod', ['Detalhe', 'Prejuízo', 'Excluir', '*Salvar']]]],
+   amb: ['Abre o formulário do lançamento, sem o botão "Detalhe".', ['Lançamento', ['form', 6], ['rod', ['Prejuízo', 'Excluir', '*Salvar']]]] },
+ { g: 'Financeiro e Contratos', c: 'D10', onde: 'Financeiro → Distribuição de lucros / Caixa → clicar na linha', ig: false,
+   erp: ['Abre o detalhe do lançamento (dados, contrato, recibo, cobrar).', ['Lançamento', ['ficha', 6], ['rod', ['Recibo', 'Editar', 'Fechar']]]],
+   amb: ['O ambiente não tem essas abas (Caixa e Distribuição de lucros são só do ERP).', 'nada'] },
+ { g: 'Financeiro e Contratos', c: 'D11', onde: 'Contratos → clicar no contrato', ig: false,
+   erp: ['Janela do contrato com a ficha de 4 campos, "Mais dados do contrato", 3 números, lançamentos, êxito, documentos, aditivos, "Lançar valor avulso", "Ligar lançamentos", Rescindir, Excluir e Editar (você manteve, M26).', ['Consultoria · contábil', ['ficha', 4], ['nums', 3], ['tab', 3], ['lista', 2], ['rod', ['Excluir', 'Rescindir', 'Editar', 'Reajuste', 'Fechar']]]],
+   amb: ['Janela curta: ficha de 4 campos, lançamentos deste contrato e, no rodapé, "Marcar como assinado" e "Aplicar reajuste".', ['Consultoria · contábil', ['ficha', 4], ['tab', 3], ['rod', ['Reajuste', 'Fechar', '*Assinado']]]] },
+ { g: 'Clientes e Painel', c: 'D12', onde: 'Clientes / Painel Executivo / Documentos → clicar no cliente', ig: false,
+   erp: ['Abre a ficha do cliente com 10 abas (as do ambiente + Contatos e endereços e Sócios, que você manteve, M27), "+ Lançar", WhatsApp, e-mail e selos no alto.', ['Ficha · Alfa Comércio', ['abas', ['Resumo', 'Parcel.', 'Acordos', 'Processos', 'Financ.', 'Contratos', 'Docs', 'E-mails', 'Contatos', 'Sócios']], ['nums', 4], ['tab', 2]]],
+   amb: ['Abre a ficha do cliente com 8 abas e "Recebe e-mails" no alto.', ['Ficha · Alfa Comércio', ['abas', ['Resumo', 'Parcel.', 'Acordos', 'Processos', 'Financ.', 'Docs', 'E-mails', 'Tempo']], ['nums', 4], ['tab', 2]]] },
+ { g: 'Tarefas e Início', c: 'D13', onde: 'Tarefas → Lista → clicar na tarefa', ig: true,
+   erp: ['Abre o formulário da tarefa; "Ficha da tarefa" fica num botão (você manteve, M33).', ['Tarefa', ['form', 6], ['rod', ['Ficha da tarefa', 'Excluir', '*Salvar']]]],
+   amb: ['Abre o formulário da tarefa.', ['Tarefa', ['form', 6], ['rod', ['Excluir', '*Salvar']]]] },
+ { g: 'Tarefas e Início', c: 'D14', onde: 'Tarefas → Calendário (Mês/Dia) → clicar no compromisso', ig: false,
+   erp: ['Novo no Backup 86: abre um detalhe curto (tipo, quando, onde, quem, cliente, prioridade, descrição) com Concluir, Editar e Ficha completa. "+N mais" abre a lista do dia.', ['Reunião', ['ficha', 4], ['rod', ['Ficha completa', 'Editar', '*Concluir']]]],
+   amb: ['Abre direto o formulário da tarefa.', ['Tarefa', ['form', 6], ['rod', ['Excluir', '*Salvar']]]] },
+ { g: 'Tarefas e Início', c: 'D15', onde: 'Tarefas → Semana → clicar no cartão', ig: true,
+   erp: ['Abre o formulário da tarefa (dá para arrastar o cartão para outro dia).', ['Tarefa', ['form', 6], ['rod', ['Excluir', '*Salvar']]]],
+   amb: ['Abre o formulário da tarefa.', ['Tarefa', ['form', 6], ['rod', ['Excluir', '*Salvar']]]] },
+ { g: 'Tarefas e Início', c: 'D16', onde: 'Início → Meu dia → clicar na tarefa', ig: false,
+   erp: ['Abre a ficha completa da tarefa (subtarefas, comentários, histórico).', ['Ficha da tarefa', ['ficha', 6], ['lista', 3], ['rod', ['Editar', 'Fechar']]]],
+   amb: ['Abre o formulário da tarefa (igual à Lista).', ['Tarefa', ['form', 6], ['rod', ['Excluir', '*Salvar']]]] },
+ { g: 'Tarefas e Início', c: 'D17', onde: 'Rotina → Minhas tarefas → clicar na linha', ig: false,
+   erp: ['Abre a ficha completa da tarefa.', ['Ficha da tarefa', ['ficha', 6], ['lista', 3], ['rod', ['Editar', 'Fechar']]]],
+   amb: ['Abre o formulário da tarefa.', ['Tarefa', ['form', 6], ['rod', ['Excluir', '*Salvar']]]] },
+ { g: 'Tarefas e Início', c: 'D18', onde: 'Início → pílulas da faixa (Financeiro / Escritório)', ig: true,
+   erp: ['Vai para a tela certa já filtrada (aba e prazo).', 'tela'],
+   amb: ['Igual: abre a tela já filtrada.', 'tela'] },
+ { g: 'Outros', c: 'D19', onde: 'CRM → clicar no cartão da oportunidade', ig: false,
+   erp: ['Abre a ficha da oportunidade (etapas, atividades, proposta, reuniões, ganhar/perder).', ['Oportunidade', ['abas', ['Resumo', 'Atividades', 'Proposta', 'Reuniões']], ['ficha', 4], ['rod', ['Perdeu', 'Ganhou', 'Editar']]]],
+   amb: ['Abre o formulário curto da oportunidade (nome, etapa, valor) com "Ganhou" e "Perdeu".', ['Oportunidade', ['form', 4], ['rod', ['Perdeu', 'Ganhou', '*Salvar']]]] },
+ { g: 'Outros', c: 'D20', onde: 'Publicações → cartão da publicação', ig: true,
+   erp: ['Não abre janela: o texto fica à vista no cartão, com "Criar tarefa" e "Marcar lida".', 'nada'],
+   amb: ['Igual: tudo no cartão.', 'nada'] },
+ { g: 'Outros', c: 'D21', onde: 'Busca (Ctrl+K) → clicar no resultado', ig: true,
+   erp: ['Cliente abre a ficha; processo e parcelamento abrem a janela deles.', 'tela'],
+   amb: ['Igual.', 'tela'] },
+ { g: 'Outros', c: 'D22', onde: 'Portal do cliente → cartão', ig: true,
+   erp: ['O cartão abre a lista embaixo (parcelamentos, acordos, execuções), sem janela.', ['Parcelamentos', ['tab', 3]]],
+   amb: ['Igual.', ['Parcelamentos', ['tab', 3]]] }
+];
+const K = 'detalhes-b86';
+let st = { esc: {}, nota: {}, f: 'dif' };
+try { st = Object.assign(st, JSON.parse(localStorage.getItem(K) || '{}')); } catch (e) {}
+const salvar = () => { try { localStorage.setItem(K, JSON.stringify(st)); } catch (e) {} };
+const h = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function desenho(w) {
+  if (w === 'nada') return '<div class="jan"><div class="w-nada">Não abre janela</div></div>';
+  if (w === 'tela') return '<div class="jan"><div class="w-nada">Vai para a tela já filtrada</div></div>';
+  const [tit, ...partes] = w;
+  return '<div class="jan"><div class="w-cab"><div class="w-tit"><span class="w-k"></span><span class="w-t">' + h(tit) + '</span></div><span class="w-p"></span></div>' + partes.map(([t, v]) => {
+    if (t === 'ficha') return '<div class="w-row" style="grid-template-columns:repeat(' + Math.min(4, v) + ',1fr)">' + Array.from({ length: v }, () => '<span class="w-lin"></span>').join('') + '</div>';
+    if (t === 'nums') return '<div class="w-row" style="grid-template-columns:repeat(' + v + ',1fr)">' + Array.from({ length: v }, () => '<span class="w-c">R$ ·</span>').join('') + '</div>';
+    if (t === 'tab' || t === 'lista' || t === 'tempo') return '<div class="w-row">' + Array.from({ length: v }, (_, i) => '<span class="w-lin" style="width:' + (t === 'tempo' ? 90 - i * 12 : 100) + '%"></span>').join('') + '</div>';
+    if (t === 'form') return '<div class="w-row" style="grid-template-columns:1fr 1fr">' + Array.from({ length: v }, () => '<span class="w-c">campo</span>').join('') + '</div>';
+    if (t === 'abas') return '<div class="w-abas">' + v.map((a) => '<span>' + h(a) + '</span>').join('') + '</div>';
+    if (t === 'rod') return '<div class="w-rod">' + v.map((b) => '<span' + (b[0] === '*' ? ' class="p"' : '') + '>' + h(b.replace('*', '')) + '</span>').join('') + '</div>';
+    return '';
+  }).join('') + '</div>';
+}
+function pintar() {
+  document.querySelectorAll('[data-f]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.f === st.f)));
+  const L = D.filter((d) => st.f === 'tudo' || !d.ig), G = {};
+  L.forEach((d) => { (G[d.g] = G[d.g] || []).push(d); });
+  document.getElementById('lista').innerHTML = Object.keys(G).map((g) => '<section class="grupo"><h2>' + h(g) + '</h2>' + G[g].map((d) => {
+    const v = st.esc[d.c] || '';
+    return '<article class="it"><div class="it-cab"><span class="cod">' + d.c + '</span><span class="onde">' + h(d.onde) + '</span><span class="tag ' + (d.ig ? 'ig">Já iguais' : 'df">Diferentes') + '</span></div>' +
+      '<div class="lados"><div class="lado erp"><h3>ERP hoje</h3><p>' + h(d.erp[0]) + '</p>' + desenho(d.erp[1]) + '</div><div class="lado amb"><h3>Ambiente de teste</h3><p>' + h(d.amb[0]) + '</p>' + desenho(d.amb[1]) + '</div></div>' +
+      (d.ig ? '' : '<div class="esc"><span class="esc-rot">Fica:</span><div class="seg" role="group" aria-label="' + d.c + '"><button type="button" data-c="' + d.c + '" data-v="amb" aria-pressed="' + (v === 'amb') + '">Como o ambiente</button><button type="button" data-c="' + d.c + '" data-v="erp" aria-pressed="' + (v === 'erp') + '">Como o ERP</button></div>' +
+        '<input class="nota" id="nota-' + d.c + '" data-nota="' + d.c + '" placeholder="Observação (opcional)" value="' + h(st.nota[d.c] || '') + '"></div>') + '</article>';
+  }).join('') + '</section>').join('');
+  resumo();
+}
+function texto() {
+  const L = D.filter((d) => !d.ig && (st.esc[d.c] || st.nota[d.c]));
+  return L.length ? 'Detalhamentos B86 — ' + L.map((d) => d.c + ': ' + (st.esc[d.c] === 'amb' ? 'ambiente' : st.esc[d.c] === 'erp' ? 'ERP' : 'sem escolha') + (st.nota[d.c] ? ' (' + st.nota[d.c] + ')' : '')).join('; ') + '.' : 'Detalhamentos B86 — nenhuma escolha ainda.';
+}
+function resumo() {
+  const dif = D.filter((d) => !d.ig), n = dif.filter((d) => st.esc[d.c]).length;
+  document.getElementById('resumo').innerHTML = '<b>' + n + '</b> de <b>' + dif.length + '</b> escolhidos<br><code>' + h(texto()) + '</code>';
+}
+document.addEventListener('click', (ev) => {
+  const f = ev.target.closest('[data-f]'); if (f) { st.f = f.dataset.f; salvar(); return pintar(); }
+  const b = ev.target.closest('.seg button'); if (!b) return; st.esc[b.dataset.c] = b.dataset.v; salvar(); pintar();
+});
+document.addEventListener('input', (ev) => { const n = ev.target.closest('[data-nota]'); if (!n) return; st.nota[n.dataset.nota] = n.value; salvar(); resumo(); });
+document.getElementById('copiar').onclick = async (ev) => { const b = ev.currentTarget, t = texto();
+  try { await navigator.clipboard.writeText(t); b.textContent = 'Copiado'; } catch (e) { const r = document.createRange(); r.selectNodeContents(document.querySelector('#resumo code')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); b.textContent = 'Selecionado: Ctrl+C'; }
+  setTimeout(() => { b.textContent = 'Copiar respostas'; }, 2000); };
+pintar();
+</script>

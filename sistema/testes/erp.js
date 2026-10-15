@@ -287,8 +287,8 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('processo novo gerou a tarefa "Conferir processo" (regra automática)', sql("select count(*) from tarefas where titulo like 'Conferir processo 5000002%' and chave_regra is not null") === '1');
     ok('B72 Tarefas: sem a bolinha colorida (semáforo), sem os 4 cartões do topo e com Tarefa (tipo + grupo embaixo)·Pessoa·Prioridade·Prazo·Situação', (await p.$$('#panel-tarefas .semaforo')).length === 0 && !(await p.$('#panel-tarefas .kpis')) &&
       (await p.$$eval('#panel-tarefas table.b-tab-tf thead th', (l) => l.map((t) => t.textContent.replace(/[↑↓]/g, '').trim()).join('|'))) === 'Tarefa|Pessoa|Prioridade|Prazo|Situação|');
-    ok('B72/B85 Tarefas: abas Em aberto/Atrasadas/Concluídas/Excluídas, busca e "Filtros" (Tipo, Pessoa, Urgência) — sem atalhos de prazo — e "Marcar várias"',
-      (await p.$$eval('#panel-tarefas [data-b-aba]', (l) => l.map((b) => b.dataset.bAba).join(','))) === 'abertas,atrasadas,concluidas,excluidas' && (await p.$$('#panel-tarefas [data-b-prazo]')).length === 0 &&
+    ok('B72/B86 Tarefas: abas Em aberto/Atrasadas/Concluídas, busca e "Filtros" (Tipo, Pessoa, Urgência) — sem atalhos de prazo — e "Marcar várias"',
+      (await p.$$eval('#panel-tarefas [data-b-aba]', (l) => l.map((b) => b.dataset.bAba).join(','))) === 'abertas,atrasadas,concluidas' && (await p.$$('#panel-tarefas [data-b-prazo]')).length === 0 &&
       // Backup 85 (TF2/TF6): na Lista, Tipo/Pessoa/Urgência ficam em "Filtros" (os chips somem) e há "Marcar várias" → "Concluir as marcadas"
       !(await p.isVisible('#tf-chips')) && !!(await p.$('#panel-tarefas [data-bt=l][data-k=pri]')) && !!(await p.$('#panel-tarefas [data-bt=l][data-k=tipo]')) &&
       !!(await p.$('#panel-tarefas [data-bt=q]')) && !!(await p.$('#panel-tarefas [data-bt=painel]')) && !!(await p.$('#panel-tarefas [data-bt=loteon]')));
@@ -1208,10 +1208,10 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await p.click('#tf-vista [data-v=lista]'); await p.click('#tf-vista-corpo [data-b-aba=abertas]'); await p.fill('#panel-tarefas [data-bt=q]', 'Tarefa B15'); await p.waitForTimeout(800);
     await p.click('#panel-tarefas tr[data-b-k="' + sql("select id from tarefas where titulo='Tarefa B15 excluir'") + '"] td:nth-child(1)'); await p.waitForSelector('#btn-excluir-tf');   // Backup 85: a linha abre o formulário
     await p.click('#btn-excluir-tf'); await p.waitForTimeout(1500);
-    ok('Tarefas: excluir vai para a aba "Excluídas" (não apaga)', sql("select status from tarefas where titulo='Tarefa B15 excluir'") === 'cancelada' && !/Tarefa B15 excluir/.test(await p.textContent('#tf-corpo')));
-    await p.click('#tf-vista-corpo [data-b-aba=excluidas]'); await p.waitForTimeout(500);
-    await p.click('#tf-corpo [data-restaurar-t]'); await p.waitForTimeout(1500);
-    ok('Tarefas: "Restaurar" volta para Em aberto', sql("select status from tarefas where titulo='Tarefa B15 excluir'") === 'pendente');
+    ok('Tarefas: excluir tira da lista (fica no histórico como cancelada)', sql("select status from tarefas where titulo='Tarefa B15 excluir'") === 'cancelada' && !/Tarefa B15 excluir/.test(await p.textContent('#tf-corpo')));
+    ok('B86 Tarefas: sem a aba "Excluídas"', !(await p.$('#tf-vista-corpo [data-b-aba=excluidas]')));
+    await p.click('#gx-rodape .gx-rod-bt'); await p.waitForTimeout(1500);
+    ok('Tarefas: "Desfazer" volta a tarefa para Em aberto', sql("select status from tarefas where titulo='Tarefa B15 excluir'") === 'pendente');
     // Backup 16: criação rápida, minha semana (arrastar), pular recorrência, relatório por cliente, carga
     ok('Tarefas (B55): sem a criação rápida ⚡', !(await p.$('#tf-rapida-bt')) && !(await p.$('#tf-rapida')));
     sql("insert into tarefas(titulo,responsavel,status,prazo,recorrencia) values ('Semana B16','Pedro','pendente',date_trunc('week', current_date)::date,'mensal')");
@@ -1450,27 +1450,24 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
         ok('Enviar guias do mês (B46/B80): quem emite as próprias guias fica na aba "O cliente emite"', !antes && !!(await p.$('#rt-corpo [data-ep="' + id89 + '"]')) && /cliente emite/.test(await p.textContent('#rt-corpo [data-ep="' + id89 + '"]')));
         await p.click('#ep-sel [data-b-aba=emitir]'); await p.waitForTimeout(300);
         sql("delete from parcelas where id='" + id89 + "'"); sql("delete from parcelamentos where id='" + pac + "'"); }
-      await p.click('#rt-corpo tr:has([data-ep="' + id88 + '"]) [data-ep-cartao]'); await p.waitForSelector('#rt-corpo .ep-card');   // Backup 85 (RO3): Emitir = janela nova; o cartão antigo fica no botão "Cartão"
-      const txt = await p.textContent('#rt-corpo .ep-card-body');
-      ok('Enviar guias do mês: texto das antigas Notificações (Nº do Parcelamento, Parcela x de y | Vencimento, Nº da Guia, Valor)', /^Prezados,\s*Seguem as guias dos parcelamentos com vencimento neste mês\. Antes de pagar, confirme se a guia já não foi paga, para evitar duplicidade\./.test(txt) &&
-        /Nº do Parcelamento: /.test(txt) && /Parcela: 88 de .+ \| Vencimento: \d{2}\/\d{2}\/\d{4}/.test(txt) && /Nº da Guia: 88/.test(txt) && /Valor:/.test(txt) && !!(await p.$('#rt-corpo .ep-card-body .ep-val')), txt.slice(0, 300));
-      ok('Enviar guias do mês: cartão igual ao antigo (E-mail × WhatsApp; Editar, Copiar, Enviar e-mail, Enviar WhatsApp, Marcar enviado) + anexar guias', await p.isVisible('#rt-corpo .ep-card-hd2') &&
-        (await p.$$('#rt-corpo .ep-card [data-ep-a]')).length === 6 && !!(await p.$('#rt-corpo .ep-card .ep-arqs')));
+      // Backup 86 (M12): sem o cartão antigo — "Emitir e mandar" abre a janela do ambiente (PDF por guia, valor e vencimento lidos do PDF)
+      ok('B86 Guias do mês: sem o botão "Cartão"', !(await p.$('#rt-corpo [data-ep-cartao]')));
+      await p.click('#rt-corpo tr:has([data-ep="' + id88 + '"]) [data-ep-emitir]'); await p.waitForSelector('#gs-raiz .janela-emitir', { timeout: 8000 });
+      ok('Guias do mês: "Emitir e mandar" abre a janela de emitir com a guia 88', !!(await p.$('#gs-raiz .janela-emitir tr[data-eg="' + id88 + '"]')));
       // Backup 80 (M4): o valor novo vem do PDF da guia
       { const linhas = ['DOCUMENTO DE ARRECADACAO', 'Data de vencimento: 10/10/2026', 'Valor total: R$ 321,00'], cont = 'BT /F1 12 Tf 50 780 Td 16 TL ' + linhas.map((l) => '(' + l + ') Tj T*').join(' ') + ' ET';
         const objs = ['<< /Type /Catalog /Pages 2 0 R >>', '<< /Type /Pages /Kids [3 0 R] /Count 1 >>', '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>',
           '<< /Length ' + cont.length + ' >>\nstream\n' + cont + '\nendstream', '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>'];
         let pdf = '%PDF-1.4\n'; const offs = []; objs.forEach((o, i) => { offs.push(pdf.length); pdf += (i + 1) + ' 0 obj\n' + o + '\nendobj\n'; });
         const xref = pdf.length; pdf += 'xref\n0 ' + (objs.length + 1) + '\n0000000000 65535 f \n' + offs.map((o) => String(o).padStart(10, '0') + ' 00000 n \n').join('') + 'trailer\n<< /Size ' + (objs.length + 1) + ' /Root 1 0 R >>\nstartxref\n' + xref + '\n%%EOF';
-        await p.setInputFiles('#rt-corpo .ep-arqs', { name: 'guia88.pdf', mimeType: 'application/pdf', buffer: Buffer.from(pdf) });
-        await p.waitForSelector('#rt-corpo .ep-pdf-av:not([hidden])', { timeout: 10000 }).catch(() => {});
-        ok('B80 (M4): ao anexar o PDF da guia, o sistema lê o valor (R$ 321,00) e põe no texto do e-mail', (await p.inputValue('#rt-corpo .ep-val')) === '321,00' && /321,00/.test(await p.textContent('#rt-corpo .ep-pdf-av')), await p.textContent('#rt-corpo .ep-pdf-av').catch(() => '')); }
-      await p.fill('#rt-corpo .ep-para', 'planilha@teste.com'); await p.click('#rt-corpo [data-ep-a=mail]'); await p.waitForTimeout(3000);
-      { const st = sql("select status||'|'||para||'|'||assunto from email_fila where referencia like 'rasc:%' order by criado_em desc limit 1"), rs = await (await fetch(BASE + '/__teste/rascunhos')).json(), r0 = rs[rs.length - 1] || {};
-        ok('Enviar guias do mês: "✉ Enviar e-mail" salva o RASCUNHO no Gmail com o e-mail do cliente (sem o desvio do modo teste), o texto e a guia anexada', /^rascunho_salvo\|planilha@teste\.com\|Guias de Parcelamento — /.test(st) &&
-          /To: planilha@teste\.com/.test(r0.raw || '') && /R\$ 321,00/.test(r0.raw || '') && /guia88\.pdf/.test(r0.raw || ''), st + ' | ' + String(r0.raw || '').slice(0, 200)); }
-      ok('Enviar guias do mês (B46): assim que o rascunho é salvo, a guia fica emitida (data de hoje) e o valor digitado vira o valor lançado',
-        sql("select (emitida_em = current_date)::text||'|'||valor from parcelas where id='" + id88 + "'") === 'true|321.00' && await p.isDisabled('#rt-corpo [data-ep-a=sent]'));
+        await p.setInputFiles('#gs-raiz .janela-emitir [data-eg-pdf="' + id88 + '"]', { name: 'guia88.pdf', mimeType: 'application/pdf', buffer: Buffer.from(pdf) });
+        await p.waitForFunction((id) => /321,00/.test((document.querySelector('#gs-raiz [data-eg-conf="' + id + '"]') || {}).textContent || ''), id88, { timeout: 10000 }).catch(() => {});
+        ok('B80/B85 (M4): ao anexar o PDF da guia, a janela lê o valor (R$ 321,00)', /321,00/.test(await p.textContent('#gs-raiz [data-eg-conf="' + id88 + '"]'))); }
+      await p.fill('#gs-raiz #eg-para', 'planilha@teste.com'); await p.click('#gs-raiz #eg-ok'); await p.waitForTimeout(3500);
+      { const st = sql("select status||'|'||para from email_fila where para='planilha@teste.com' order by criado_em desc limit 1");
+        ok('Guias do mês: "Salvar no rascunho" cria o e-mail para o cliente', /^(rascunho|rascunho_salvo)\|planilha@teste\.com$/.test(st), st); }
+      ok('Guias do mês: a guia fica emitida (data de hoje) e o valor do PDF vira o valor lançado',
+        sql("select (emitida_em = current_date)::text||'|'||valor from parcelas where id='" + id88 + "'") === 'true|321.00');
       sql("delete from parcelas where id='" + id88 + "'"); }
     if (redirAntes === 'null' || redirAntes === '') sql("delete from configuracoes where chave='email_redirecionar'"); else sql("update configuracoes set valor='" + redirAntes.replace(/'/g, "''") + "'::jsonb where chave='email_redirecionar'");
     sql("delete from config_privada where chave='email'");
@@ -1482,9 +1479,10 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       ok('Processos: mudança de valor grava a data do valor da causa (separada da última movimentação)', sql("select (valor_em = current_date-20)::text || '|' || (ultima_movimentacao_em = current_date-1)::text from processos where id='" + pid + "'") === 'true|true');
       await p.evaluate(() => ERP_RECARREGAR()); await nav(p, 'processos'); await p.waitForTimeout(2000);
       const num = sql("select numero from processos where id='" + pid + "'");
-      await p.click('#pr-nova tr[data-b-k]:has-text("' + num + '") td:nth-child(2)').catch(() => {}); await p.waitForSelector('#janelas .gx-mov', { timeout: 8000 }).catch(() => {}); await p.waitForTimeout(800);
+      await p.click('#pr-nova tr[data-b-k]:has-text("' + num + '") td:nth-child(2)').catch(() => {}); await p.waitForFunction(() => document.querySelectorAll('#janelas .b-tempo .b-ev').length === 3, null, { timeout: 8000 }).catch(() => {}); await p.waitForTimeout(300);
       const t = await p.textContent('#janelas').catch(() => '');
-      ok('Processos: a janela mostra as 3 últimas movimentações e "valor atualizado em"', (await p.$$('#janelas .gx-mov')).length === 3 && /Mov C/.test(t) && !/Mov velha/.test(t) && /atualizado em/.test(t), t.slice(0, 300));
+      ok('Processos (B86: igual ao ambiente): a janela mostra as 3 últimas movimentações em linha do tempo e "Valor atualizado em"', (await p.$$('#janelas .b-tempo .b-ev')).length === 3 && /Mov C/.test(t) && !/Mov velha/.test(t) && /Valor atualizado em/.test(t) &&
+        /Conferido em/.test(t) && /Cliente é/.test(t), t.slice(0, 300));
       await p.evaluate(() => { while (document.querySelector('#janelas .fundo')) window.GS.fecharJanela(); }); }
 
     // Backup 35: Publicações — filtro por advogado em botões
@@ -1619,10 +1617,12 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       ok('B49/B74: Contabilidade com os mesmos 5 números do Jurídico (faixa)', (await p.$$('#panel-financeiroContab #fin-corpo .b-nums-faixa:not(#fa-fluxo .b-nums-faixa) > div')).length === 5);
       // Contratos: reajuste anual
       const ctrR = sql("insert into contratos (cliente_id, descricao, modalidade, forma_valor, valor_mensal, data_contrato, inicio_vigencia, status) values ('" + cliQ + "', 'Consultoria B49 reajuste', 'consultoria', 'fixo', 1000, current_date - 360, current_date - 360, 'Ativo') returning id").split('\n')[0];
-      await nav(p, 'contratos'); await p.waitForSelector('#ctr-reaj', { timeout: 8000 }).catch(() => {});
-      ok('B49: Contratos avisa o reajuste anual 30 dias antes', /Consultoria B49 reajuste/.test(await p.textContent('#ctr-reaj').catch(() => '')));
-      await p.fill('#ctr-reaj tr[data-reaj="' + ctrR + '"] .ctr-reaj-pct', '10'); await p.click('#ctr-reaj [data-reaj-aplicar="' + ctrR + '"]'); await p.waitForTimeout(2000);
-      ok('B49: "Aplicar" registra o aditivo com o valor novo', sql("select valor_mensal from contratos where id='" + ctrR + "'") === '1100.00' && sql("select count(*) from contratos_aditivos where contrato_id='" + ctrR + "' and tipo='valor'") === '1');
+      await nav(p, 'contratos'); await p.waitForTimeout(800);
+      ok('B86 (M24): Contratos sem o quadro "Reajuste anual nos próximos 60 dias"', !(await p.$('#panel-contratos .ctr-reaj')));
+      await p.evaluate((id) => GS.detalheContrato(id), ctrR); await p.waitForSelector('#gs-raiz .janela #ctr-reaj', { timeout: 8000 }).catch(() => {});
+      await p.click('#gs-raiz .janela #ctr-reaj'); await p.waitForTimeout(2500);
+      ok('B49/B86: "Aplicar reajuste" (janela do contrato) registra o aditivo com o valor novo', Number(sql("select valor_mensal from contratos where id='" + ctrR + "'")) > 1000 && sql("select count(*) from contratos_aditivos where contrato_id='" + ctrR + "' and tipo='valor'") === '1');
+      await p.evaluate(() => { while (document.querySelector('#janelas .fundo')) window.GS.fecharJanela(); });
       // Publicações: abre em Novas + marcar todas como lidas
       await nav(p, 'publicacoes'); await p.waitForSelector('#pub-todas-lidas'); await p.waitForTimeout(600);
       ok('B49: Publicações abre em "Novas"', await p.evaluate(() => GS.E.pub.status === 'nova'));
@@ -1755,7 +1755,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       const nProj = sql("select jsonb_array_length(d->'datas') from jsonb_array_elements(recorrencias_projecao(8)) d where d->>'titulo'='Conferir caixa B51'");
       ok('B51 T2: o banco projeta 8 próximas datas depois da última tarefa real (sem duplicar)', nProj === '8' &&
         sql("select count(*) from jsonb_array_elements(recorrencias_projecao(8)) d, jsonb_array_elements_text(d->'datas') x where d->>'titulo'='Conferir caixa B51' and x::date in (select prazo from tarefas where titulo='Conferir caixa B51')") === '0');
-      ok('B51 T2: o calendário mostra as próximas ocorrências (tracejadas)', (await p.$$('#panel-tarefas .cal-tf.ag-prevista')).length >= 1);
+      ok('B51 T2: o calendário mostra as próximas ocorrências (tracejadas)', (await p.$$('#panel-tarefas .b-cal-it.ag-prevista')).length >= 1);
       { const tok = sql("select token from agenda_links where usuario_id=(select id from perfis where email='pedro@teste') limit 1");
         const ics = tok ? await (await p.request.get(BASE + '/functions/v1/erp-agenda?t=' + tok)).text() : '';
         ok('B51 T2: o Google Agenda (erp-agenda) recebe as próximas ocorrências', (ics.match(/UID:serie-/g) || []).length >= 8 && /↻ .*Conferir caixa B51/.test(ics), ics.slice(0, 200)); }
@@ -1883,12 +1883,24 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       // Tarefas: cartões acima da barra de vistas; Semana do tamanho do Mês
       await nav(p, 'tarefas'); await p.waitForSelector('#tf-vista', { timeout: 10000 }).catch(() => {});
       ok('B72 Tarefas: sem os cartões do topo (os números estão nas abas)', !(await p.$('#tf-kpis')) && !(await p.$('#panel-tarefas .kpis')));
-      await p.click('#tf-vista [data-v=calendario]'); await p.waitForSelector('#tf-cal-corpo .tf-cal', { timeout: 8000 }).catch(() => {}); await p.waitForTimeout(500);
-      const hMes = await p.evaluate(() => (document.querySelector('#tf-cal-corpo .tf-cal') || {}).offsetHeight || 0);
+      await p.click('#tf-vista [data-v=calendario]'); await p.waitForSelector('#tf-cal-corpo .b-cal', { timeout: 8000 }).catch(() => {}); await p.waitForTimeout(500);
+      const hMes = await p.evaluate(() => (document.querySelector('#tf-cal-corpo .b-cal') || {}).offsetHeight || 0);
       await p.click('#tf-cal-vista [data-cal-v=semana]'); await p.waitForSelector('#tf-cal-corpo .tf-sem', { timeout: 8000 }).catch(() => {}); await p.waitForTimeout(400);
       const hSem = await p.evaluate(() => (document.querySelector('#tf-cal-corpo .tf-sem') || {}).offsetHeight || 0);
       ok('B53 Tarefas: a Semana fica do mesmo tamanho do Mês', hMes > 300 && hSem >= hMes - 4, hMes + ' / ' + hSem);
-      await p.click('#tf-cal-vista [data-cal-v=mes]'); await p.click('#tf-vista [data-v=lista]'); await p.waitForTimeout(300);
+      // Backup 86: calendário maior — largura toda, sem o quadro de atrasadas ao lado; o item abre o detalhe curto (Concluir · Editar · Ficha completa)
+      sql("insert into tarefas(titulo,responsavel,status,prazo,hora,local,tipo_agenda) values ('Reunião calendário B86','Pedro','pendente',current_date,'10:00','Sala 2','reuniao')");
+      await p.evaluate(() => { GS.E.tf.vista = 'calendario'; GS.E.tf.calVista = 'mes'; }); await nav(p, 'hoje'); await nav(p, 'tarefas'); await p.waitForSelector('#tf-cal-corpo .b-cal', { timeout: 8000 }).catch(() => {}); await p.waitForTimeout(600);
+      const calB86 = await p.evaluate(() => { const c = document.querySelector('#tf-cal-corpo .b-cal'), d = c && c.querySelector('.b-cal-dia:not(.b-cal-fora)'); return { larg: c ? c.offsetWidth : 0, area: (document.querySelector('#tf-cal-corpo') || {}).offsetWidth || 1, alt: d ? d.offsetHeight : 0, atr: !!document.querySelector('#tf-cal-corpo .fila-atrasadas') }; });
+      ok('B86 Tarefas: calendário do mês na largura toda, dias altos e sem o quadro de atrasadas ao lado', calB86.larg >= calB86.area - 4 && calB86.alt >= 100 && !calB86.atr, JSON.stringify(calB86));
+      await p.click('#tf-cal-corpo .b-cal-it:has-text("Reunião calendário B86")'); await p.waitForSelector('#gs-raiz .ag-janela', { timeout: 6000 }).catch(() => {});
+      { const t = await p.textContent('#gs-raiz .ag-janela').catch(() => '');
+        ok('B86 Tarefas: clicar no item do calendário abre o detalhe (tipo, quando, onde) com Concluir/Editar/Ficha completa', /Reunião/.test(t) && /10:00/.test(t) && /Sala 2/.test(t) &&
+          !!(await p.$('#gs-raiz .ag-janela #ag-concluir')) && !!(await p.$('#gs-raiz .ag-janela #ag-editar')) && !!(await p.$('#gs-raiz .ag-janela #ag-ficha')), t.slice(0, 200)); }
+      await p.click('#gs-raiz .ag-janela #ag-concluir'); await p.waitForTimeout(1500);
+      ok('B86 Tarefas: "Concluir" no detalhe do calendário conclui a tarefa', sql("select status from tarefas where titulo='Reunião calendário B86'") === 'concluida');
+      sql("delete from tarefas where titulo='Reunião calendário B86'");
+      await p.evaluate(() => { GS.E.tf.calVista = 'mes'; }); await p.click('#tf-vista [data-v=lista]'); await p.waitForTimeout(300);
       await p.click('#tf-nova'); await p.waitForSelector('#gs-raiz #tf-rep-tipo');
       ok('B53 Tarefas: repetir "Quinzenal" e "Todo dia útil"', await p.evaluate(() => { const o = [...document.querySelectorAll('#gs-raiz #tf-rep-tipo option')].map((x) => x.value); return o.includes('quinzenal') && o.includes('uteis'); }));
       await p.selectOption('#gs-raiz #tf-rep-tipo', 'quinzenal'); await p.waitForTimeout(200);
@@ -1976,12 +1988,9 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       ok('B54 + Lançar: "Recebimento" dá baixa no honorário escolhido', sql("select pago from lancamentos where descricao='Honorário B54 receber'") === 't');
       await fecharTudo();
       await nav(p, 'execucoes'); await p.waitForSelector('#panel-execucoes tr[data-b-k]');
-      await p.click('#panel-execucoes tr[data-b-k]'); await p.waitForSelector('#gs-raiz #ex-contato-novo');
-      await p.click('#gs-raiz #ex-contato-novo'); await p.waitForSelector('#gs-raiz #f-exc');
-      await p.fill('#gs-raiz #f-exc [name=nome]', 'Oficial B54'); await p.fill('#gs-raiz #f-exc [name=telefone]', '31999990000'); await p.fill('#gs-raiz #f-exc [name=endereco]', 'Rua Teste, 54');
-      await p.click('#gs-raiz #exc-ok'); await p.waitForFunction(() => /Oficial B54/.test((document.querySelector('#gs-raiz #ex-contatos-l') || {}).textContent || ''), null, { timeout: 6000 }).catch(() => {});
-      ok('B54 Execuções: guarda contato de quem não é cliente (telefone, endereço)', sql("select count(*) from execucao_contatos where nome='Oficial B54' and endereco='Rua Teste, 54'") === '1' &&
-        /Oficial B54/.test(await p.textContent('#gs-raiz #ex-contatos-l')));
+      await p.click('#panel-execucoes tr[data-b-k]'); await p.waitForSelector('#gs-raiz #ex-receb');
+      ok('B86 Execuções: janela igual ao ambiente (3 números, sem contatos nem "Editar execução")', (await p.$$('#gs-raiz .janela .b-nums > *')).length === 3 &&
+        !(await p.$('#gs-raiz #ex-contato-novo')) && !(await p.$('#gs-raiz #ex-editar')) && !(await p.$('#panel-execucoes #ex-atu')));
       await fecharTudo();
     }
     // ── Backup 55: A pagar · Contabilidade, filtros 2×2 lado a lado, tabelas numa linha, Acordos editar pela parcela, conferir com confirmação, Planilha ──
@@ -2021,9 +2030,8 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
         const b = [...document.querySelectorAll('#ac-tabela [data-ac-emitir]')]; return b.length > 0 && b.every((x) => x.textContent.trim() === 'Emitir'); }));
       const temAc = await p.$('#ac-tabela tr[data-b-k] td:nth-child(3)');
       if (temAc) { await temAc.click(); await p.waitForSelector('#gs-raiz #ac-j-parcelas tr[data-b-k]', { timeout: 8000 }).catch(() => {});   // Backup 85 (AC3): a linha abre o acordo inteiro
-        await p.click('#gs-raiz #ac-j-parcelas tr[data-b-k] td:nth-child(2)').catch(() => {}); await p.waitForSelector('#gs-raiz #ac-p-todo', { timeout: 5000 }).catch(() => {});
-        ok('B55/B70 Acordos: clicar na parcela abre "Só esta parcela" e "O acordo inteiro"', !!(await p.$('#gs-raiz #ac-p-editar')) && !!(await p.$('#gs-raiz #ac-p-todo')));
-        await p.click('#gs-raiz #janelas > .fundo:last-child #ac-p-todo'); await p.waitForSelector('#gs-raiz #f-acordo-todo', { timeout: 5000 }).catch(() => {});
+        ok('B86 Acordos: janela sem "Mais dados" e sem "Emitir (N)"', !(await p.$('#gs-raiz .ac-janela .b-mais-dados')) && !(await p.$('#gs-raiz #ac-j-emitir')));
+        await p.click('#gs-raiz #janelas > .fundo:last-child #ac-j-todo'); await p.waitForSelector('#gs-raiz #f-acordo-todo', { timeout: 5000 }).catch(() => {});
         ok('B55 Acordos: "O acordo inteiro" abre a edição de todas as parcelas', !!(await p.$('#gs-raiz #f-acordo-todo')));
         await fecharTudo(); }
       else ok('B55 Acordos: há parcela a pagar para testar a edição pela linha', false);
@@ -2055,13 +2063,9 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
         if (!(await aberto())) { await p.click(g + ' > .tn-abre'); await p.waitForTimeout(200); }
         const a1 = await aberto(); await p.click(g + ' > .tn-abre'); await p.waitForTimeout(200); const a2 = await aberto(); await p.click(g + ' > .tn-abre'); await p.waitForTimeout(200);
         ok('B83: menu Jurídico abre e fecha com um clique (como antes)', a1 && !a2 && await aberto()); }
-      // F3: conferências
-      sql("update clientes set email='' , recebe_email=true where nome='Beta Serviços Ltda'");
-      await p.evaluate(() => GS.carregarCadastros(true)); await nav(p, 'clientes'); await nav(p, 'hoje'); await p.waitForSelector('#ini-conf .ini-conf-it', { timeout: 8000 }).catch(() => {});
-      ok('B76 F3: Início mostra as conferências (ex.: cliente que recebe e-mail sem e-mail)', /sem e-mail|não têm e-mail|não tem e-mail/.test(await p.textContent('#ini-conf').catch(() => '')));
-      await p.click('#ini-conf [data-conf=cl]').catch(() => {}); await p.waitForTimeout(500);
-      ok('B76 F3: clicar abre a lista para corrigir', /Beta Serviços/.test(await p.textContent('#janelas').catch(() => '')));
-      await p.evaluate(() => { while (document.querySelector('#janelas .fundo')) window.GS.fecharJanela(); });
+      // F3: conferências — Backup 86 (M31): saíram da faixa do Início (com a pílula do CRM)
+      await nav(p, 'hoje'); await p.waitForSelector('#ini-faixa', { timeout: 8000 }).catch(() => {}); await p.waitForTimeout(1500);
+      ok('B86 (M31): Início sem as linhas Avisos/Conferências e sem a pílula do CRM', !(await p.$('#ini-conf')) && !(await p.$('#ini-faixa [data-ini-ir=crm]')));
       // L2: contagem no menu
       sql("insert into tarefas(titulo,responsavel,prazo) values ('Atrasada menu B76','Pedro',current_date-2)"); await p.evaluate(() => ERP_RECARREGAR()); await p.waitForTimeout(3000);
       await nav(p, 'clientes'); await p.waitForTimeout(500);

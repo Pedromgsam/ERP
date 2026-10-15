@@ -342,19 +342,20 @@
   const escH = (t) => String(t == null ? '' : t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   // o DB do ERP é um const do script principal: existe como nome global, mas NÃO como window.DB
   const dbERP = () => { try { return DB || {}; } catch (e) { return {}; } }; // eslint-disable-line no-undef
-  // Backup 72: o detalhe e a janela do processo servem à tabela antiga (portal do cliente) e à nova (equipe)
-  function detalheProcHTML(p) {
-        return '<div class="gx-det-grade"><div><div class="gx-det-tit">Processo</div><div class="gx-det-dados">' +
-          [['Nº', p.numero], ['Grupo', p.grupo], ['Competência', p.competencia], ['Natureza', p.natureza], ['Autor', String(p.autor || '').replace(/;\s*/g, ' · ')], ['Réu', String(p.reu || '').replace(/;\s*/g, ' · ')]]
-            .filter((x) => x[1]).map((x) => '<div><span>' + x[0] + '</span><b>' + escH(x[1]) + '</b></div>').join('') + '</div></div>' +
-          '<div><div class="gx-det-tit">Andamento</div><div class="gx-det-dados">' +
-          [['Valor da causa', p.valor ? fBRL(p.valor) + ' · ' + (p.valorEm ? 'atualizado em ' + p.valorEm : 'sem data de atualização') : ''], ['Situação', p.statusOriginal], ['Distribuição', p.dataDistrib], ['Última movimentação em', p.ultimaMovEm || p.atualizacao], ['Advogado', p.advogado], ['Procuração', p.procuracao], ['Prescrição', p.prescricao]]
-            .filter((x) => x[1]).map((x) => '<div><span>' + x[0] + '</span><b>' + escH(x[1]) + '</b></div>').join('') + '</div></div></div>' +
-          // Backup 28: sempre à vista — última movimentação e observação
-          '<div class="gx-det-blocos"><div class="gx-det-bloco"><div class="gx-det-tit">Últimas movimentações</div>' +
-            '<div class="gx-det-txt gx-movs" data-movs="' + escH(p._id || '') + '">' + (p.ultimaMov ? '<div class="gx-mov"><b>' + escH(p.ultimaMovEm || '') + '</b> ' + escH(p.ultimaMov) + '</div>' : '<span class="sub">Nenhuma registrada ainda.</span>') + '</div></div>' +
-          '<div class="gx-det-bloco"><div class="gx-det-tit">Observação</div><div class="gx-det-txt">' + (p.obs ? escH(p.obs) : '<span class="sub">—</span>') + '</div></div></div>' +
-          '';
+  // Backup 86: a janela do processo IGUAL à do ambiente — ficha com 8 campos (Natureza, Autor, Réu, Advogado, Valor da causa,
+  // Valor atualizado em, Cliente é, Conferido em) e "Últimas movimentações" em linha do tempo. O que só o ERP tem (M05: observação,
+  // distribuição, procuração, prescrição) entra na mesma ficha, só quando preenchido.
+  const icMov = () => (GS() && GS().iconeB ? GS().iconeB('publicacao') : '');
+  const dMov = (iso) => String(iso || '').slice(0, 10).split('-').reverse().join('/');
+  function detalheProcHTML(p, polo) {
+    const campo = (r, v, cls) => '<div><span>' + r + '</span><b' + (cls ? ' class="' + cls + '"' : '') + '>' + (v ? escH(v) : '—') + '</b></div>';
+    const extra = [['Observação', p.obs], ['Distribuição', p.dataDistrib], ['Procuração', p.procuracao], ['Prescrição', p.prescricao]].filter((x) => x[1]);
+    return '<div class="b-ficha b-ficha-4">' + campo('Natureza', p.natureza) + campo('Autor', String(p.autor || '').replace(/;\s*/g, ' · ')) + campo('Réu', String(p.reu || '').replace(/;\s*/g, ' · ')) +
+        campo('Advogado', p.advogado) + campo('Valor da causa', p.valor ? fBRL(p.valor) : '') + campo('Valor atualizado em', p.valorEm) + campo('Cliente é', polo) +
+        campo('Conferido em', p.ultimaMovEm || 'nunca') + extra.map((x) => campo(x[0], x[1])).join('') + '</div>' +
+      '<div class="b-bloco"><h3>Últimas movimentações</h3><div class="b-tempo" data-movs="' + escH(p._id || '') + '">' +
+        (p.ultimaMov ? '<div class="b-ev"><span class="b-ev-q">' + escH(p.ultimaMovEm || '') + '</span><span class="b-ev-ic">' + icMov() + '</span><div class="b-ev-tx"><b>' + escH(p.ultimaMov) + '</b></div></div>'
+          : '<p class="sub">Nenhuma movimentação registrada ainda.</p>') + '</div></div>';
   }
   window.ERP_ABRIR_PROCESSO = (p) => abrirProcesso(p);   // Backup 76: a tela nova de Processos (telas-painel-exec.js) abre a mesma janela
   // Backup 85 (PR5/PR6/PR8): cabeçalho do ambiente ("Processo · tribunal", nº, cliente/grupo e a situação à direita) e os botões
@@ -364,18 +365,21 @@
         const cliP = () => { const L = (GS().E && GS().E.clientes) || [], nomes = (String(p.autor || '') + ';' + String(p.reu || '')).toLowerCase();
           const doGrupo = L.filter((c) => (c.grupos && c.grupos.nome) === p.grupo || (GS().E.grupos || []).some((g) => g.id === c.grupo_id && g.nome === p.grupo));
           return doGrupo.find((c) => c.nome && nomes.includes(String(c.nome).toLowerCase())) || doGrupo[0] || null; };
-        const j = GS().abrirJanela({ kick: 'Processo' + (trib ? ' · ' + trib : ''), titulo: p.numero || 'Processo', larga: true, sub: escH(p.grupo || ''),
+        const cli0 = cliP(), nomeL = String((cli0 && cli0.nome) || '').toLowerCase();
+        const polo = !nomeL ? '' : String(p.reu || '').toLowerCase().includes(nomeL) ? 'Réu (passivo)' : String(p.autor || '').toLowerCase().includes(nomeL) ? 'Autor (ativo)' : '';
+        const j = GS().abrirJanela({ kick: 'Processo' + (trib ? ' · ' + trib : ''), titulo: p.numero || 'Processo', larga: true, sub: escH([cli0 && cli0.nome, p.grupo].filter(Boolean).join(' · ')),
           dir: '<span class="b-pill ' + (sit === 'Ativo' ? 'b-g' : sit === 'Arquivado' ? 'b-a' : 'b-r') + '">' + escH(sit) + '</span>',
-          corpo: '<div class="gx-det-corpo gx-det-janela">' + detalheProcHTML(p) + '</div>',
-          rodape: (ehCliente() ? '<span></span>' : '<button type="button" class="btn btn-o" data-pr-ficha>Ficha do cliente</button><div class="acoes"><button type="button" class="btn btn-o" data-pr-conf>Conferido, sem novidade</button>' +
-            '<button type="button" class="btn btn-o" data-pr-mov>Registrar movimentação</button><button type="button" class="btn btn-p" data-pr-editar>Editar</button></div>') });
-        // Backup 35: as 3 últimas movimentações lançadas (Rotina → Processos ou "+ Registrar movimentação")
+          corpo: detalheProcHTML(p, polo),
+          rodape: (ehCliente() ? '<span></span>' : '<button type="button" class="btn btn-o" data-pr-ficha>' + (GS().iconeB ? GS().iconeB('clientes') : '') + 'Ficha do cliente</button><div class="acoes"><button type="button" class="btn btn-o" data-pr-conf>' + (GS().iconeB ? GS().iconeB('check') : '') + 'Conferido, sem novidade</button>' +
+            '<button type="button" class="btn btn-o" data-pr-mov>' + (GS().iconeB ? GS().iconeB('mais') : '') + 'Registrar movimentação</button><button type="button" class="btn btn-p" data-pr-editar>' + (GS().iconeB ? GS().iconeB('lapis') : '') + 'Editar</button></div>') });
+        j.classList.add('proc-janela');
+        // as 3 últimas movimentações lançadas (Rotina → Processos ou "Registrar movimentação"), em linha do tempo como no ambiente
         const box = j.querySelector('[data-movs]');
         if (box && p._id && window.SB) window.SB.from('processo_movimentacoes').select('data, tipo, descricao, valor_novo, quem').eq('processo_id', p._id).order('data', { ascending: false }).order('criado_em', { ascending: false }).limit(3)
           .then(({ data }) => { if (!data || !data.length) return;
-            const TIPO = { movimentacao: 'Movimentação', decisao: 'Decisão', valor: 'Valor', procuracao: 'Procuração', sem_novidade: 'Sem novidade' };
-            box.innerHTML = data.map((m) => '<div class="gx-mov"><div class="gx-mov-cab"><span class="gx-mov-d">' + escH(String(m.data).split('-').reverse().join('/')) + '</span><span class="gx-mov-t">' + escH(TIPO[m.tipo] || m.tipo) + '</span></div>' +
-              '<div class="gx-mov-x">' + escH(m.descricao || (m.tipo === 'sem_novidade' ? 'Conferido — sem novidade' : '')) + (m.valor_novo ? ' · novo valor ' + fBRL(m.valor_novo) : '') + '</div>' + (m.quem ? '<div class="gx-mov-q">por ' + escH(m.quem) + '</div>' : '') + '</div>').join(''); });
+            const TIPO = { movimentacao: 'Movimentação', decisao: 'Decisão', valor: 'Mudança de valor', procuracao: 'Procuração', sem_novidade: 'Conferido — sem novidade' };
+            box.innerHTML = data.map((m) => '<div class="b-ev"><span class="b-ev-q">' + escH(dMov(m.data)) + '</span><span class="b-ev-ic">' + icMov() + '</span><div class="b-ev-tx"><b>' +
+              escH(m.descricao || TIPO[m.tipo] || m.tipo) + (m.valor_novo ? ' · novo valor ' + fBRL(m.valor_novo) : '') + '</b><span>' + escH([m.descricao ? TIPO[m.tipo] : '', m.quem ? 'por ' + m.quem : ''].filter(Boolean).join(' · ')) + '</span></div></div>').join(''); }, () => {});
         if (ehCliente()) return;
         j.querySelector('[data-pr-ficha]').onclick = async () => { if (GS().carregarCadastros) await GS().carregarCadastros(); const c = cliP(); if (!c) { GS().aviso ? GS().aviso('Não achei o cliente deste processo.', true) : alert('Não achei o cliente deste processo.'); return; } GS().fecharJanela(j); GS().abrirFicha(c.id); };
         j.querySelector('[data-pr-conf]').onclick = async (ev) => { ev.currentTarget.disabled = true;

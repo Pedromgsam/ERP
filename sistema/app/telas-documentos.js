@@ -201,7 +201,7 @@ async function faixaVencendoDocs(lim) {
 // ─────────────────────────── tela Documentos ───────────────────────────
 // Backup 85 (DO1/DO2): como no ambiente — faixa "Vencendo em 30 dias" e UMA tabela (Cliente, Arquivo, Tipo, Enviado em, Validade com prazo colorido),
 // Filtros Tipo/Grupo/Cliente; clicar no arquivo abre a ficha do cliente na aba Documentos. As pastas por grupo (com Drive e "+ Enviar" por pasta)
-// e "Versões anteriores" continuam: botão "Ver em pastas" e aba "Versões anteriores" (lista do Backup 85 para decidir).
+// continuam no botão "Ver em pastas". Backup 86 (M30): sem a aba "Versões anteriores" e sem Abrir/Nova versão/Excluir na linha (ficam na ficha e nas pastas).
 TELAS.documentos = async function () {
   E.docs = E.docs || { tipo: '', cliente: '', grupo: '', busca: '', situacao: 'ativos' };
   if (E.docs.vista === 'pastas') return documentosEmPastas();
@@ -222,8 +222,7 @@ TELAS.documentos = async function () {
   const celVal = (d) => { if (!d.validade) return '<span class="b-em">—</span>'; const n = diasAteP(d.validade);
     return '<span class="' + corPrazo(n) + '">' + (n < 0 ? 'vencido há ' + plural(-n, 'dia', 'dias') : n === 0 ? 'vence hoje' : plural(n, 'dia', 'dias')) + '</span><small class="b-pz-sub">' + dataBR(d.validade) + '</small>'; };
   const el = $('doc-tab');
-  tabelaB(el, { id: 'documentos', linhas: _docsTela, unidade: ['arquivo', 'arquivos'], dicaBusca: 'Arquivo, cliente ou etiqueta…', ord: { k: 'em', dir: -1 },
-    abas: [{ id: 'ativos', rot: 'Ativos', f: (d) => !d.arquivado }, { id: 'arquivados', rot: 'Versões anteriores', f: (d) => !!d.arquivado }], abaPadrao: 'ativos',
+  tabelaB(el, { id: 'documentos', linhas: _docsTela.filter((d) => !d.arquivado), unidade: ['arquivo', 'arquivos'], dicaBusca: 'Arquivo, cliente ou etiqueta…', ord: { k: 'em', dir: -1 },
     busca: (d) => [d.nome, nomeCli(d.cliente_id), nomeG(grupoDe(d)), nomeTipoDoc(d.tipo), d.etiquetas, d.obs].join(' '), venc: (d) => d.validade || '',
     barraExtra: '<button type="button" class="b-bt-f" id="doc-pastas" title="O jeito antigo: uma pasta por grupo e subpastas por empresa, com o link do Drive">Ver em pastas</button>',
     listas: [{ k: 'tipo', rot: 'Tipo', todos: 'Todos os tipos', opcoes: opc((d) => d.tipo, nomeTipoDoc), get: (d) => d.tipo },
@@ -234,19 +233,10 @@ TELAS.documentos = async function () {
       { k: 'nome', rot: 'Arquivo', html: (d) => esc(d.nome) + (d.versao > 1 ? ' <span class="pill neutro">v' + d.versao + '</span>' : '') + '<span class="b-sub">' + [tamanhoLegivel(d.tamanho), d.etiquetas].filter(Boolean).map(esc).join(' · ') + '</span>', ord: (d) => normalizar(d.nome) },
       { k: 'tipo', rot: 'Tipo', html: (d) => esc(nomeTipoDoc(d.tipo)), ord: (d) => nomeTipoDoc(d.tipo) },
       { k: 'em', rot: 'Enviado em', cls: 'b-cen b-data', html: (d) => dataBR(d.criado_em), ord: (d) => d.criado_em },
-      { k: 'val', rot: 'Validade', cls: 'b-cen b-prazo', html: celVal, ord: (d) => d.validade || '9' },
-      { k: 'ac', rot: '', cls: 'b-dir b-c-acoes', ord: false, html: (d) => '<span class="b-acoes"><button type="button" class="b-bt-emitir" data-abrir-doc="' + d.id + '">Abrir</button>' +
-        '<button type="button" class="b-bt-emitir" data-versao-doc="' + d.id + '" title="Substituir por um arquivo novo — o anterior fica em Versões anteriores">Nova versão</button>' +
-        '<button type="button" class="b-bt-emitir" data-excluir-doc="' + d.id + '" title="Apagar o documento (pede confirmação)">Excluir</button></span>' }],
+      { k: 'val', rot: 'Validade', cls: 'b-cen b-prazo', html: celVal, ord: (d) => d.validade || '9' }],
     clique: (d) => (d.cliente_id ? abrirFicha(d.cliente_id, 'documentos') : abrirDocumento(d)),
-    vazio: { titulo: 'Nenhum arquivo aqui', frase: 'Troque a aba ou limpe os filtros.', botao: ['Enviar arquivo', '#doc-novo'] } });
+    vazio: { titulo: 'Nenhum arquivo aqui', frase: 'Limpe os filtros ou envie o primeiro arquivo.', botao: ['Enviar arquivo', '#doc-novo'] } });
   $('doc-pastas').onclick = () => { E.docs.vista = 'pastas'; TELAS.documentos(); };
-  if (!el._docLigado) { el._docLigado = true;
-    el.addEventListener('click', (ev) => { const b = ev.target.closest('[data-abrir-doc], [data-versao-doc], [data-excluir-doc]'); if (!b) return; ev.stopPropagation();
-      const d = _docsTela.find((x) => x.id === (b.dataset.abrirDoc || b.dataset.versaoDoc || b.dataset.excluirDoc)); if (!d) return;
-      if (b.dataset.abrirDoc) comBotao(b, () => abrirDocumento(d));
-      else if (b.dataset.versaoDoc) janelaNovaVersao(d, () => TELAS.documentos());
-      else comBotao(b, async () => { if (!(await excluirDocumento(d))) return; aviso('✓ Documento excluído.'); await TELAS.documentos(); }); }, true); }
 };
 // as pastas por grupo (o jeito de antes do Backup 85), num botão
 async function documentosEmPastas() {

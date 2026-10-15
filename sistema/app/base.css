@@ -1059,3 +1059,56 @@ html body.gx-barra-topo .gs .btn.btn-perigo:not(#_){background:var(--red);border
 .gs .b-in-dias{width:64px;height:30px;text-align:center}
 .gs .b-duas{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}
 @media (max-width:900px){.gs .b-duas{grid-template-columns:1fr}}
+
+/* ═══ Backup 86: linha do tempo (janela do processo, igual ao ambiente) ═══ */
+.gs .b-tempo{display:flex;flex-direction:column}
+.gs .b-tempo .b-ev{display:grid;grid-template-columns:86px 28px minmax(0,1fr);gap:10px;align-items:start;padding:9px 4px;border-bottom:1px solid var(--line)}
+.gs .b-tempo .b-ev:last-child{border-bottom:0}
+.gs .b-tempo .b-ev-q{font:500 12px var(--font-ui);color:var(--text3);font-variant-numeric:tabular-nums;padding-top:4px}
+.gs .b-tempo .b-ev-ic{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;border:1px solid var(--border);color:var(--text2)}
+.gs .b-tempo .b-ev-ic svg{width:15px;height:15px}
+.gs .b-tempo .b-ev-tx{min-width:0}
+.gs .b-tempo .b-ev-tx b{display:block;font-weight:600;color:var(--ink);font-size:13px;overflow-wrap:anywhere}
+.gs .b-tempo .b-ev-tx span{color:var(--text3);font-size:12px}
+@media (max-width:600px){.gs .b-tempo .b-ev{grid-template-columns:70px 28px minmax(0,1fr)}}
+
+/* ═══ Backup 86: calendário de Tarefas — maior, largura toda, limpo ═══ */
+.gs .b-cal{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px 12px;box-shadow:var(--shadow,none)}
+.gs .b-cal-topo{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 0 12px}
+.gs .b-cal-nav{display:flex;align-items:center;gap:6px}
+.gs .b-cal-nav h2{font-size:17px;font-weight:600;color:var(--ink);margin:0 6px;min-width:170px;text-align:center}
+.gs .b-cal-nav .b-ic-bt{font-size:18px;line-height:1;width:30px;height:30px}
+.gs .b-cal-acoes{display:flex;align-items:center;gap:8px}
+.gs .b-cal-atr{border:1px solid var(--red);background:var(--red-lt);color:var(--red-d);border-radius:999px;padding:4px 12px;font:600 12.5px var(--font-ui);cursor:pointer}
+.gs .b-cal-atr:hover{filter:brightness(.97)}
+.gs .b-cal-grade{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border-top:1px solid var(--line);border-left:1px solid var(--line)}
+.gs .b-cal-sem{font:600 11px var(--font-ui);color:var(--text3);text-transform:uppercase;letter-spacing:.04em;padding:8px 8px 6px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--surface2)}
+.gs .b-cal-dia{min-height:124px;padding:6px 6px 8px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:3px;min-width:0;cursor:pointer}
+.gs .b-cal-dia:hover{background:var(--hover,var(--surface2))}
+.gs .b-cal-fds{background:color-mix(in srgb,var(--surface2) 55%,transparent)}
+.gs .b-cal-fora{cursor:default;background:transparent}
+.gs .b-cal-fora:hover{background:transparent}
+.gs .b-cal-fora .b-cal-n{color:var(--text3);opacity:.45}
+.gs .b-cal-n{font:600 12.5px var(--font-ui);color:var(--text2);width:24px;height:24px;display:grid;place-items:center;border-radius:50%;margin-bottom:2px}
+.gs .b-cal-hoje .b-cal-n{background:var(--primario);color:var(--on-cor,#fff)}
+.gs .b-cal-it{display:flex;align-items:center;gap:6px;width:100%;min-width:0;border:0;border-radius:6px;padding:3px 6px;background:var(--surface2);color:var(--text);font:500 12px var(--font-ui);text-align:left;cursor:pointer}
+.gs .b-cal-it:hover{background:var(--primario-lt,var(--surface2));outline:1px solid var(--border)}
+.gs .b-cal-it .ag-cor{flex:0 0 auto;width:8px;height:8px;border-radius:50%}
+.gs .b-cal-h{flex:0 0 auto;font-variant-numeric:tabular-nums;color:var(--text3);font-size:11.5px}
+.gs .b-cal-t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gs .b-cal-it.ag-feita .b-cal-t{text-decoration:line-through;color:var(--text3)}
+.gs .b-cal-it.ag-atrasada,.gs .b-cal-it.ag-fatal{background:var(--red-lt);color:var(--red-d)}
+.gs .b-cal-it.b-cal-prev{background:transparent;outline:1px dashed var(--border-strong);color:var(--text3)}
+.gs .b-cal-mais{border:0;background:none;color:var(--link,var(--primario));font:600 11.5px var(--font-ui);text-align:left;padding:2px 6px;cursor:pointer}
+.gs .b-cal-mais:hover{text-decoration:underline}
+.gs .b-cal .ag-leg{margin-top:10px}
+.gs .b-cal-diaLista{border-top:1px solid var(--line);padding-top:4px;min-height:320px}
+.gs .b-cal-diaLista .b-ev{grid-template-columns:110px 28px minmax(0,1fr)}
+.gs .b-ev-bt{width:100%;background:none;border:0;border-bottom:1px solid var(--line);text-align:left;cursor:pointer;font:inherit;color:inherit}
+.gs .b-ev-bt:hover{background:var(--hover,var(--surface2))}
+.gs .b-cal-vazio{padding:40px 8px;text-align:center;color:var(--text3)}
+.gs .b-ficha.b-ficha-2{grid-template-columns:1fr 1fr}
+.gs .b-cal-desc{white-space:pre-wrap;margin:0;color:var(--text2);font-size:13px}
+.gs .b-li .ag-cor{flex:0 0 auto;width:10px;height:10px;border-radius:50%}
+@media (max-width:900px){.gs .b-cal-dia{min-height:92px}.gs .b-cal-h{display:none}}
+@media (max-width:600px){.gs .b-cal{padding:10px}.gs .b-cal-dia{min-height:64px;padding:3px}.gs .b-cal-it{padding:2px 3px;font-size:11px}.gs .b-cal-it .b-cal-t{display:none}.gs .b-cal-nav h2{min-width:0;font-size:15px}}

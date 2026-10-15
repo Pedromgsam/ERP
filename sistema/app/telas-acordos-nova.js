@@ -82,14 +82,13 @@ function pintarAcordos() {
   const el = $('conteudo'); if (!el) return;
   const T0 = E.ac.T || [], F = E.ac.f || {}, T = T0.filter((x) => (!F.grupo || x.grupo === F.grupo) && (!F.emp || x.devedor === F.emp)), h = hojeISO(), podeEd = pode('juridico', 'editar');
   E.ac.Af = acordosDe(T);
-  el.innerHTML = cabecalhoTela({ icone: 'documento', titulo: 'Acordos', frase: 'Dívidas dos clientes com terceiros', atualizar: 'ac-atualizar', botao: podeEd ? { id: 'ac-novo', rotulo: 'Acordo' } : null }) +
+  el.innerHTML = cabecalhoTela({ icone: 'documento', titulo: 'Acordos', frase: 'Dívidas dos clientes com terceiros', botao: podeEd ? { id: 'ac-novo', rotulo: 'Acordo' } : null }) +
     filtroSusB('ac-filtro', [{ k: 'grupo', rot: 'Grupo', todos: 'Todos os grupos', opcoes: unicosTxt(T0.map((x) => x.grupo)), v: F.grupo },   // Backup 79
       { k: 'emp', rot: 'Devedor', todos: 'Todos os devedores', opcoes: unicosTxt(T0.filter((x) => !F.grupo || x.grupo === F.grupo).map((x) => x.devedor)), v: F.emp }]) +
     '<div class="b-sec"><div class="b-sec-tit"><h2>Situação por cliente</h2>' + botaoMinB('ac-situacao') + '</div><div class="b-chips" id="ac-chips">' +
     [['todos', 'Todos'], ['atraso', 'Com atraso'], ['risco', 'Risco de rescisão'], ['dia', 'Em dia'], ['concluidos', 'Concluídos']].map((c) => '<button type="button" class="b-chip" data-ac-chip="' + c[0] + '" aria-pressed="' + (E.ac.chip === c[0]) + '">' + c[1] + '</button>').join('') + '</div></div>' +
     '<div class="b-cards" id="ac-grupos"></div><div class="b-sec"><div><h2>Parcelas</h2></div></div><div id="ac-tabela"></div>';
   const bt = $('ac-novo'); if (bt) bt.onclick = () => { if (typeof formAcordoNovo === 'function') formAcordoNovo(() => { if (window.ERP_RECARREGAR) window.ERP_RECARREGAR(); else TELAS.acordos(); }); };
-  $('ac-atualizar').onclick = () => { if (window.ERP_RECARREGAR_MODULOS) window.ERP_RECARREGAR_MODULOS('acordos').then(() => TELAS.acordos()); else TELAS.acordos(); };
   // Backup 71: os 4 cartões do topo saíram a pedido (a tela começa na situação por cliente)
   ligarFiltroSusB('ac-filtro', E.ac.f, () => { E.ac.grupo = ''; E.ac.fechado = false; pintarAcordos(); });
   desenharGruposAc();
@@ -99,7 +98,7 @@ function pintarAcordos() {
   tabelaB($('ac-tabela'), { id: 'acordos', tabCls: 'b-tab-ac', linhas: T, colunas: colunasAcordos(), unidade: ['parcela', 'parcelas'], dicaBusca: 'Devedor / processo…',
     abas: [{ id: 'apagar', rot: 'A pagar', f: (x) => !x.pago }, { id: 'pago', rot: 'Pago', f: (x) => x.pago }], semContagemAbas: true,
     prazos: true, prazosAbas: ['apagar'], conta: (n, aba) => plural(n, 'parcela', 'parcelas') + (aba === 'pago' ? ' paga' + (n === 1 ? '' : 's') : ' a pagar'),
-    ordAbas: { apagar: { k: 'venc', dir: 1 }, pago: { k: 'pz', dir: -1 } }, ord: { k: 'venc', dir: 1 }, linhaCls: vencidaA, busca: buscaAc, venc: (x) => x.venc, valor: (x) => x.valor, clique: (x) => (x.ac ? janelaAcordo(x.ac) : janelaParcelaAc(x)),   // Backup 85 (AC3): como no ambiente, a linha abre o acordo inteiro
+    ordAbas: { apagar: { k: 'venc', dir: 1 }, pago: { k: 'pz', dir: -1 } }, ord: { k: 'venc', dir: 1 }, linhaCls: vencidaA, busca: buscaAc, venc: (x) => x.venc, valor: (x) => x.valor, clique: (x) => { if (x.ac) janelaAcordo(x.ac); },   // Backup 85 (AC3): como no ambiente, a linha abre o acordo inteiro
     listas: [{ k: 'g', rot: 'Grupo', todos: 'Todos os grupos', opcoes: uniq((x) => x.grupo), get: (x) => x.grupo }, { k: 'cred', rot: 'Credor', todos: 'Todos os credores', opcoes: uniq((x) => x.credor), get: (x) => x.credor },
       { k: 'forma', rot: 'Forma de pagamento', todos: 'Boleto e PIX', opcoes: [['boleto', 'Boleto'], ['pix', 'PIX']], get: (x) => x.forma }],
     vazio: { titulo: 'Nenhuma parcela aqui', frase: 'Troque a escolha acima (Todas, Vencidas, 5/10/15/30 dias) ou limpe os filtros.' } });
@@ -147,47 +146,23 @@ function desenharGruposAc() {
 
 // ── janela do acordo: ficha, 5 números, todas as parcelas; alterar o acordo inteiro; emitir as do mês ──
 function janelaAcordo(a) {
-  const podeEd = pode('juridico', 'editar'), ids = a.parcelas.map((x) => x.id), aEmitir = a.mes.filter((x) => !x.emitida);
+  const podeEd = pode('juridico', 'editar'), ids = a.parcelas.map((x) => x.id);
+  // Backup 86 (M10): como no ambiente — sem "Mais dados", sem "Emitir (N)" e a parcela não abre janelinha (Emitir/Baixa ficam na linha)
   const j = abrirJanela({ larga: true, kick: 'Acordo · processo ' + (a.processo || '—'), titulo: a.devedor, sub: 'deve a ' + esc(a.credor || '—') + ' · ' + esc(a.grupo || ''),
     dir: a.concluido ? '<span class="b-pill b-g">Concluído</span>' : a.atr ? '<span class="b-pill b-r">' + plural(a.atr, 'parcela', 'parcelas') + ' em atraso</span>' : '<span class="b-pill b-g">Em dia</span>',
     corpo: '<div class="b-ficha"><div><span>Devedor (cliente)</span><b>' + esc(a.devedor || '—') + '</b></div><div><span>Credor</span><b>' + esc(a.credor || '—') + '</b></div><div><span>Processo</span><b class="b-m">' + esc(a.processo || '—') + '</b></div><div><span>Forma de pagamento</span><b>' + (a.forma === 'pix' ? 'PIX' : 'Boleto') + '</b></div></div>' +
-      '<details class="b-mais-dados"><summary>Mais dados</summary><div class="b-ficha"><div><span>Responsável</span><b>' + esc(a.responsavel || '—') + '</b></div><div><span>Chave PIX</span><b>' + esc(a.pix || '—') + '</b></div><div><span>Banco</span><b>' + esc(a.banco || '—') + '</b></div><div><span>Grupo</span><b>' + esc(a.grupo || '—') + '</b></div></div></details>' +
       '<div class="b-nums">' + [['Parcelas pagas', a.pagas + ' de ' + a.tot + ' (' + a.pc + '%)', ''], ['Já pago', brl(a.pago), 'b-verde'], ['Falta pagar', brl(a.falta), ''],
         ['Parcela do mês', a.parcMes ? brl(a.parcMes.valor) + ' · ' + (a.parcMes.pago ? 'paga' : dataBR(a.parcMes.venc).slice(0, 5)) : (a.prox ? 'próxima ' + dataBR(a.prox.venc) : '—'), a.parcMes && !a.parcMes.pago && a.parcMes.venc <= hojeISO() ? 'b-verm' : ''],
         ['Em atraso', a.atr ? plural(a.atr, 'parcela', 'parcelas') : 'nenhuma', a.atr ? 'b-verm' : '']].map((k) => '<div><span>' + k[0] + '</span><b class="' + k[2] + '">' + k[1] + '</b></div>').join('') + '</div>' +
       '<div id="ac-j-parcelas"></div>',
     rodape: (podeEd ? '<button type="button" class="btn btn-o" id="ac-j-todo" style="margin-right:auto">' + iconeB('lapis') + ' Alterar o acordo inteiro</button>' : '') +
-      (podeEd && aEmitir.length ? '<button type="button" class="btn btn-o" id="ac-j-emitir">' + iconeB('documento') + ' Emitir (' + aEmitir.length + ')</button>' : '') + '<button type="button" class="btn btn-o" data-fechar>Fechar</button>' });
+ '<button type="button" class="btn btn-o" data-fechar>Fechar</button>' });
   j.classList.add('ac-janela');
   const td = j.querySelector('#ac-j-todo'); if (td) td.onclick = () => { fecharJanela(j); if (typeof editarAcordo === 'function') editarAcordo(ids, () => { if (window.ERP_RECARREGAR) window.ERP_RECARREGAR(); }); };
-  const em = j.querySelector('#ac-j-emitir'); if (em) em.onclick = () => { fecharJanela(j); emitirAcordos(aEmitir.map((x) => x.id)); };
   E.ac.janela = { a, el: j.querySelector('#ac-j-parcelas') };
   tabelaB(E.ac.janela.el, { id: 'ac-j-' + a.k, contagem: true, somaB: (x) => x.valor, linhas: a.parcelas, unidade: ['parcela', 'parcelas'], ord: { k: 'venc', dir: 1 }, valor: (x) => x.valor, venc: (x) => x.venc, altura: '360px', abaPadrao: 'abertas',
     abas: [{ id: 'abertas', rot: 'A pagar', f: (x) => !x.pago }, { id: 'pagas', rot: 'Pagas', f: (x) => x.pago }, { id: 'todas', rot: 'Todas', f: () => true }], linhaCls: vencidaA,
-    colunas: colunasAcordos({ semGrupo: true }).filter((c) => !['proc', 'dev', 'cred'].includes(c.k)), clique: janelaParcelaAc });
-}
-// ── clique na parcela: ficha + emitir + baixa (com comprovante) + editar só esta / o acordo inteiro + detalhe completo ──
-function janelaParcelaAc(x) {
-  const podeEd = pode('juridico', 'editar'), a = x.ac;
-  const j = abrirJanela({ kick: 'Parcela ' + (x.n || '—') + (x.tot ? ' de ' + x.tot : ''), titulo: x.devedor, sub: 'deve a ' + esc(x.credor || '—') + ' · processo ' + esc(x.processo || '—'),
-    corpo: '<div class="b-ficha" style="grid-template-columns:1fr 1fr"><div><span>Grupo</span><b>' + grupoTxtB(x.grupo) + '</b></div><div><span>Forma de pagamento</span><b>' + (x.forma === 'pix' ? 'PIX' : 'Boleto') + '</b></div>' +
-      '<div><span>Vencimento</span><b>' + (x.venc ? dataBR(x.venc) : '—') + '</b></div><div><span>Valor</span><b>' + brl(x.valor) + '</b></div>' + (x.obs ? '<div style="grid-column:1/-1"><span>Observação</span><b>' + esc(x.obs) + '</b></div>' : '') + '</div>' +
-      '<div class="b-conf"><b>Emissão</b><span>' + (x.emitida ? '<span class="b-ok-txt">✓ Emitido' + (x.emitida.length === 10 ? ' em ' + dataBR(x.emitida) : '') + '</span>' : 'Ainda não emitido') + (podeEd && !x.pago ? ' <button type="button" class="b-bt-emitir" data-ac-emitir="' + esc(x.id) + '">Emitir</button>' : '') + '</span></div>' +
-      '<div class="b-conf"><b>Pagamento</b><span>' + (x.pago ? '<span class="b-ok-txt">✓ Pago' + (x.pagoEm ? ' em ' + dataBR(x.pagoEm) : '') + '</span>' + (x.comprovante ? ' · comprovante no processo' + (x.comprovanteId ? ' (ID ' + esc(x.comprovanteId) + ')' : '') : '') +
-        (podeEd ? ' <button type="button" class="b-link" id="ac-p-desmarcar">Desmarcar o pagamento</button>' : '') : (podeEd ? '<button type="button" class="b-bt-baixa" data-ac-baixa="' + esc(x.id) + '">Baixa</button>' : 'Em aberto')) + '</span></div>',
-    rodape: '<button type="button" class="btn btn-o" id="ac-p-acordo" style="margin-right:auto">Ver o acordo inteiro</button><button type="button" class="btn btn-o" id="ac-p-detalhe">Detalhe completo</button>' +
-      (podeEd ? '<button type="button" class="btn btn-o" id="ac-p-editar">✎ Só esta parcela</button><button type="button" class="btn btn-o" id="ac-p-todo">✎ O acordo inteiro</button>' : '') + '<button type="button" class="btn btn-o" data-fechar>Fechar</button>' });
-  j.querySelector('#ac-p-acordo').onclick = () => { fecharJanela(j); if (a) janelaAcordo(a); };
-  j.querySelector('#ac-p-detalhe').onclick = () => { fecharJanela(j); if (typeof detalheAcordo === 'function') detalheAcordo(x.id); };
-  const ed = j.querySelector('#ac-p-editar'); if (ed) ed.onclick = () => { [...document.querySelectorAll('#janelas > .fundo')].forEach((f) => fecharJanela(f)); if (window.ERP_EDITAR) window.ERP_EDITAR('acordos:' + x.id); };
-  const td = j.querySelector('#ac-p-todo'); if (td) td.onclick = () => { [...document.querySelectorAll('#janelas > .fundo')].forEach((f) => fecharJanela(f)); if (typeof editarAcordo === 'function') editarAcordo(a ? a.parcelas.map((y) => y.id) : [x.id], () => { if (window.ERP_RECARREGAR) window.ERP_RECARREGAR(); }); };
-  const dm = j.querySelector('#ac-p-desmarcar'); if (dm) dm.onclick = async () => {
-    if (!await confirmarB('Tirar a baixa desta parcela? Ela volta a ficar em aberto.')) return;
-    fecharJanela(j); const antes = { pago: x.pago, pagoEm: x.pagoEm };
-    marcarParcelaAc(x, false, '');
-    try { await q(sb.from('acordos').update({ pago: false, data_pagamento: null }).eq('id', x.id)); const ED = ED_P(); if (ED && ED.gravou) ED.gravou('Pagamento desmarcado'); else aviso('Pagamento desmarcado.'); if (ED && ED.marcarSujo) ED.marcarSujo('acordos'); }
-    catch (e) { marcarParcelaAc(x, antes.pago, antes.pagoEm); aviso('⚠ ' + erroAmigavel(e), true); }
-  };
+    colunas: colunasAcordos({ semGrupo: true }).filter((c) => !['proc', 'dev', 'cred'].includes(c.k)) });
 }
 // muda a parcela na tela (e no ERP, para o Painel e os outros números) e redesenha
 function marcarParcelaAc(x, pago, pagoEm) {
