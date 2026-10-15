@@ -39,7 +39,7 @@ TELAS.execucoes = async function () {
 
 function formExecucao(e, depois) {
   e = e || {}; const novo = !e.id;
-  const j = abrirJanela({ titulo: novo ? '+ Nova execução' : '✎ Editar execução', larga: true,
+  const j = abrirJanela({ kick: novo ? 'Nova execução' : 'Editar execução', titulo: novo ? 'Execução' : (e.executado || 'Execução'), sub: novo ? '' : esc(e.numero || ''),   // Backup 87: no desenho do ambiente
     corpo: '<form class="grade" id="f-exec">' +
       campo('Cliente (quem cobra) <span class="obrig">*</span>', '<select name="cliente_id">' + opcoesClientes(e.cliente_id || '').replace('— sem cliente —', 'Escolha o cliente') + '</select>', 'inteiro') +
       campo('Nº do processo', '<input name="numero" maxlength="40" placeholder="0000000-00.0000.0.00.0000" value="' + esc(e.numero || '') + '">') +
@@ -58,7 +58,7 @@ function formExecucao(e, depois) {
   const ap = j.querySelector('#ex-apagar');
   if (ap) ap.onclick = (ev) => comBotao(ev.currentTarget, async () => {
     if (!await confirmarB('Excluir esta execução e os recebimentos dela? Os honorários ainda não pagos também saem do Financeiro.')) return;
-    await q(sb.from('execucoes').delete().eq('id', e.id)); aviso('Execução excluída.'); fecharJanela(j); fecharJanela(); if (depois) await depois(); });
+    await q(sb.from('execucoes').delete().eq('id', e.id)); aviso('Execução excluída.'); fecharJanela(j); if (depois) await depois(); });
   j.querySelector('#ex-salvar').onclick = (ev) => comBotao(ev.currentTarget, async () => {
     if (!f.cliente_id.value) throw new Error('Escolha o cliente.');
     const pct = f.percentual.value.trim() ? lerValor(f.percentual.value) : 0, v = f.valor_execucao.value.trim() ? lerValor(f.valor_execucao.value) : 0;
@@ -68,7 +68,7 @@ function formExecucao(e, depois) {
     const d = { cliente_id: f.cliente_id.value, grupo_id: cli.grupo_id || null, numero: f.numero.value.trim(), executado: f.executado.value.trim(), valor_execucao: v, percentual: pct,
       ajuizada_em: f.ajuizada_em.value || null, situacao: f.situacao.value, responsavel: f.responsavel.value || cli.responsavel || '', obs: f.obs.value.trim() };
     if (novo) await q(sb.from('execucoes').insert(d)); else await q(sb.from('execucoes').update(d).eq('id', e.id));
-    aviso(novo ? '✓ Execução cadastrada.' : '✓ Execução atualizada.'); fecharJanela(j); if (!novo) fecharJanela(); if (depois) await depois();
+    aviso(novo ? '✓ Execução cadastrada.' : '✓ Execução atualizada.'); fecharJanela(j); if (depois) await depois();
   });
   return j;
 }
@@ -79,13 +79,16 @@ function detalheExecucao(e, recs, depois) {
   const tot = recs.reduce((s, r) => s + (Number(r.valor) || 0), 0), hon = recs.reduce((s, r) => s + (Number(r.honorario) || 0), 0);
   const ord = recs.slice().sort((a, b) => String(b.data).localeCompare(String(a.data)));
   // Backup 86 (M16): igual ao ambiente — 3 números, a lista de recebimentos e "+ Recebimento" (saíram contatos, editar, "Falta receber" e a tabela)
-  const j = abrirJanela({ kick: 'Execução · ' + (e.numero || 'sem número'), titulo: e.executado || cli.nome || 'Execução', sub: 'Cliente: ' + esc(cli.nome || '—'), larga: true,
+  const j = abrirJanela({ kick: 'Execução · ' + (e.numero || 'sem número'), titulo: e.executado || cli.nome || 'Execução', sub: 'Cliente: ' + esc(cli.nome || '—'),   // Backup 87: estreita, como no ambiente
     corpo: numsFaixa([['Valor executado', esc(brl(e.valor_execucao))], ['Recebido', esc(brl(tot)), '', 'b-verde'], ['Honorários', esc(brl(hon))]]) +
       '<div class="b-bloco"><h3>Recebimentos</h3>' + (ord.length ? '<div class="b-lista">' + ord.map((r) => '<div class="b-li"><span class="b-li-tx"><b>' + esc(brl(r.valor)) + '</b><small>' +
         dataBR(r.data) + ' · honorário ' + esc(brl(r.honorario)) + '</small></span></div>').join('') + '</div>' : '<p class="sub">Nenhum recebimento ainda.</p>') + '</div>',
-    rodape: '<span></span><div class="acoes"><button class="btn btn-o" type="button" data-fechar>Fechar</button>' + (podeEd ? '<button class="btn btn-p" type="button" id="ex-receb">' + iconeB('mais') + ' Recebimento</button>' : '') + '</div>' });
+    // Backup 87: "Editar execução" voltou (o formulário tem Excluir para o administrador)
+    rodape: (podeEd ? '<button class="btn btn-o" type="button" id="ex-editar">' + iconeB('lapis') + ' Editar execução</button>' : '<span></span>') +
+      '<div class="acoes"><button class="btn btn-o" type="button" data-fechar>Fechar</button>' + (podeEd ? '<button class="btn btn-p" type="button" id="ex-receb">' + iconeB('mais') + ' Recebimento</button>' : '') + '</div>' });
   const re = async () => { fecharJanela(j); if (depois) await depois(); };
   const rb = j.querySelector('#ex-receb'); if (rb) rb.onclick = () => formRecebimentoExec(e, re);
+  const eb = j.querySelector('#ex-editar'); if (eb) eb.onclick = () => { fecharJanela(j); formExecucao(e, depois); };
   return j;
 }
 

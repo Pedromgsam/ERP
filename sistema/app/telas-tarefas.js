@@ -308,11 +308,14 @@ function classeAgenda(t, d) {
 }
 const horaAg = (t) => (t.hora ? horaFaixa(t) + ' ' : '');
 // Backup 39: o quadro "Atrasadas" é um só — Início (agenda) e Tarefas (Minha semana e Calendário)
-function quadroAtrasadas(atr) {
-  return '<aside class="fila-atrasadas"><div class="fila-atr-tit">⏰ Atrasadas <span class="pill ' + (atr.length ? 'vencido' : 'pago') + '">' + atr.length + '</span></div>' +
-    (atr.length ? atr.map((t) => '<button type="button" class="fila-atr-it" data-fila="' + t.id + '" title="' + esc(t.titulo) + '"><b>' + esc(t.titulo) + '</b><span class="sub">prazo ' + dataBR(t.prazo) + ' · ' + plural(-diasAte(t.prazo), 'dia', 'dias') + ' de atraso</span></button>').join('')
-      : '<div class="sub">Nenhuma atrasada. 🎉</div>') + '</aside>';
+// Backup 87: faixa discreta à esquerda com as atrasadas (Mês e Semana do calendário de Tarefas) — data curta + título; clique abre o detalhe
+function faixaAtrasadasB(atr, dados) {
+  const L = atr.slice().sort((x, y) => String(x.prazo).localeCompare(String(y.prazo)));
+  return '<aside class="b-cal-atrs fila-atrasadas" aria-label="Tarefas atrasadas"><div class="b-cal-atrs-tit">Atrasadas <span>' + L.length + '</span></div>' +
+    (L.length ? L.map((t) => '<button type="button" class="b-cal-atr-it" ' + dados(t) + ' title="' + esc(t.titulo + ' — prazo ' + dataBR(t.prazo)) + '"><small>' + dataBR(t.prazo).slice(0, 5) + '</small><span>' + esc(t.titulo) + '</span></button>').join('')
+      : '<p class="b-cal-atrs-vazio">Nenhuma.</p>') + '</aside>';
 }
+function quadroAtrasadas(atr) { return faixaAtrasadasB(atr, (t) => 'data-fila="' + t.id + '"'); }
 function calendarioFila(lista) {
   const h = hojeISO(), ref = FILA.ref || h, d0 = new Date(ref + 'T12:00:00');
   const doDia = (d) => lista.filter((t) => t.prazo === d || t.prazo_fatal === d).sort((a, b) => String(a.hora || '99').localeCompare(String(b.hora || '99')));
@@ -688,7 +691,7 @@ function itemCalB(t, d) {
 function calendarioTarefas(lista, vista) {
   const F = E.tf, h = hojeISO();
   const doDia = (d) => lista.filter((t) => t.prazo === d || t.prazo_fatal === d).sort((x, y) => String(x.hora || '99').localeCompare(String(y.hora || '99')));
-  const atr = lista.filter((t) => t.prazo && t.prazo < h && !tarefaFechada(t) && !t._prev).length;
+  const atrL = lista.filter((t) => t.prazo && t.prazo < h && !tarefaFechada(t) && !t._prev), atr = atrL.length;
   let titulo, corpo;
   if (vista === 'dia') {
     titulo = new Date(F.dia + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' }).replace(/^./, (x) => x.toUpperCase());
@@ -709,10 +712,12 @@ function calendarioTarefas(lista, vista) {
     }
     for (let k = 1; cel.length % 7; k++) cel.push('<div class="b-cal-dia b-cal-fora"><span class="b-cal-n">' + k + '</span></div>');
     corpo = '<div class="b-cal-grade">' + DIAS_SEM_B.map((x) => '<div class="b-cal-sem">' + x + '</div>').join('') + cel.join('') + '</div>';
+    // Backup 87: as atrasadas numa faixa discreta à esquerda do mês
+    if (atr) corpo = '<div class="b-cal-com-atr">' + faixaAtrasadasB(atrL, (t) => 'data-cal-it="' + esc(t.id) + '" data-cal-d="' + esc(t.prazo) + '"') + corpo + '</div>';
   }
   return '<section class="b-cal b-cal-' + vista + '"><div class="b-cal-topo"><div class="b-cal-nav"><button type="button" class="b-ic-bt" data-cal-nav="-1" aria-label="Anterior">‹</button>' +
       '<h2>' + esc(titulo) + '</h2><button type="button" class="b-ic-bt" data-cal-nav="1" aria-label="Próximo">›</button><button type="button" class="btn btn-o btn-mini" data-cal-nav="0">Hoje</button></div>' +
-      '<div class="b-cal-acoes">' + (atr ? '<button type="button" class="b-cal-atr" data-cal-atr>' + plural(atr, 'atrasada', 'atrasadas') + '</button>' : '') +
+      '<div class="b-cal-acoes">' + (atr && vista === 'dia' ? '<button type="button" class="b-cal-atr" data-cal-atr>' + plural(atr, 'atrasada', 'atrasadas') + '</button>' : '') +
       '<button type="button" class="btn btn-p btn-mini" data-agendar>' + iconeB('mais') + 'Agendar</button></div></div>' + corpo + legendaAgenda() + '</section>';
 }
 // detalhe curto de um item da agenda: o que é, quando, onde, com quem — e Concluir / Editar / Ficha completa
@@ -1513,10 +1518,9 @@ function vistaSemana(alvo) {
   const quem = F.pessoas && F.pessoas.length ? 'escolhida' : '';
   // Backup 39: respeita a aba (Em aberto / Concluídas / Excluídas) — antes "Concluídas" ainda mostrava as abertas
   const doDono = (t) => (quem ? true : ehMinha(t));   // com pessoa escolhida, o filtro de cima já separou (responsável ou participante)
-  // Backup 85 (TF9): como no ambiente — só os 7 dias (sem a coluna de atrasadas) e a nota embaixo; arrastar entre os dias continua (do ERP)
-  semanaArrastavel(alvo, { lista: filtrarTarefas().filter(doDono), estado: F, atrasadas: false, rotulo: quem || 'minhas tarefas', altura: F.altCal,
+  // Backup 87: a Semana mostra as atrasadas (faixa discreta à esquerda, a mesma do Mês); arrastar entre os dias continua
+  semanaArrastavel(alvo, { lista: filtrarTarefas().filter(doDono), estado: F, atrasadas: true, rotulo: quem || 'minhas tarefas', altura: F.altCal,
     abrir: (t) => formTarefa(t, recarregarTarefas), repintar: () => vistaSemana(alvo) });
-  if (!alvo.querySelector('.tf-sem-nota')) alvo.insertAdjacentHTML('beforeend', '<p class="tf-sem-nota b-mudo">Atrasadas não aparecem aqui: veja a aba "Atrasadas" na Lista.</p>');
 }
 
 // ═══ Backup 26: DELEGAR e VALIDAR ═══

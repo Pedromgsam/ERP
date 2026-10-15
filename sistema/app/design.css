@@ -832,8 +832,6 @@ body.gx-barra-topo #gs-hd .hd-usuario > button,body.gx-barra-topo #gs-hd #gs-tem
 body.gx-barra-topo #gs-hd .hd-usuario > button:hover,body.gx-barra-topo #gs-hd #gs-tema:hover,body.gx-barra-topo #gs-hd .gs-bt-mais:hover{background:var(--surface3)!important;color:var(--ink)!important}
 body.gx-barra-topo #gs-hd #gs-sair{width:auto;padding:0 12px!important;font:600 12.5px var(--font-ui)}
 body.gx-barra-topo #gs-hd #gs-nome{background:var(--surface)!important;border:1px solid var(--border);color:var(--ink)!important;font:600 13px var(--font-ui);padding:6px 12px;border-radius:10px}
-body.gx-barra-topo #gs-hd #gs-sessao{color:var(--text3)!important}
-body.gx-barra-topo #gs-hd #gs-sessao.gs-sessao-fim{color:var(--red-d)!important}
 /* filtro flutuante do ERP e linha do Painel acompanham a borda do conteúdo */
 body.gx-barra-topo #fb{right:var(--gut)!important}
 body.gx-barra-topo #gx-linha-painel{left:calc(var(--sw) + var(--gut))!important}

@@ -435,6 +435,8 @@ function baixarArquivo(nome, conteudo, tipo) {
 // Backup 63 (reforma): a janela no CENTRO é a única para criar, editar e ver detalhes — kick (linha azul acima do título),
 // sub (linha cinza abaixo) e dir (selo/pílula à direita, antes do ×) são opcionais
 function abrirJanela({ titulo, corpo, rodape, larga, kick, sub, dir, abas }) {   // Backup 85 (JN2): abas = html preso ao cabeçalho (fica parado ao rolar)
+  // Backup 87: título como no ambiente — sem o emoji/sinal do começo ("✎ Editar…", "📝 Novo aditivo", "+ Nova…")
+  titulo = String(titulo == null ? '' : titulo).replace(/^[^\p{L}\p{N}"'(]+(?=\p{L}|\p{N})/u, '');
   const fundo = document.createElement('div');
   fundo.className = 'fundo';
   fundo.innerHTML =

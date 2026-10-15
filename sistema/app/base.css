@@ -1112,3 +1112,67 @@ html body.gx-barra-topo .gs .btn.btn-perigo:not(#_){background:var(--red);border
 .gs .b-li .ag-cor{flex:0 0 auto;width:10px;height:10px;border-radius:50%}
 @media (max-width:900px){.gs .b-cal-dia{min-height:92px}.gs .b-cal-h{display:none}}
 @media (max-width:600px){.gs .b-cal{padding:10px}.gs .b-cal-dia{min-height:64px;padding:3px}.gs .b-cal-it{padding:2px 3px;font-size:11px}.gs .b-cal-it .b-cal-t{display:none}.gs .b-cal-nav h2{min-width:0;font-size:15px}}
+
+/* ═══ Backup 87: TODAS as janelas iguais às do ambiente — no centro da tela, 560 px (comum) ou 1040 px (larga/ficha),
+   cabeçalho 16/20/12 com título 16 px, corpo 14/20/18 em coluna com 14 px entre os blocos, rodapé 11/20 ═══ */
+body.gx-barra-topo .gs .fundo:not(.b-paleta){align-items:center;justify-content:center;padding:24px;overflow:hidden;backdrop-filter:none!important}
+body.gx-barra-topo .gs .janela:not(#_){width:min(560px,100%);max-width:none;max-height:calc(100vh - 48px);border-radius:14px!important;animation:b87surge .18s cubic-bezier(.2,.8,.2,1)}
+body.gx-barra-topo .gs .janela.larga:not(#_),body.gx-barra-topo .gs .janela.ficha:not(#_){width:min(1040px,100%)}
+body.gx-barra-topo .gs .janela:is(.janela-massa,.janela-rel,.janela-ofx):not(#_){width:min(1280px,100%)}
+@keyframes b87surge{from{transform:translateY(10px) scale(.985);opacity:0}to{transform:none;opacity:1}}
+body.gx-barra-topo .gs .janela-hd:not(#_){padding:16px 20px 12px!important;align-items:flex-start}
+body.gx-barra-topo .gs .janela-hd h2:not(#_){font-size:16px!important;font-weight:700!important;line-height:1.3}
+body.gx-barra-topo .gs .janela-bd:not(#_){padding:14px 20px 18px;display:flex;flex-direction:column;gap:14px}
+body.gx-barra-topo .gs .janela-bd > *:not(#_){margin-top:0;margin-bottom:0}
+body.gx-barra-topo .gs .janela-bd > :is(script,style,input[type=hidden]){display:none}
+body.gx-barra-topo .gs .janela-rp:not(#_){padding:11px 20px!important;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
+body.gx-barra-topo .gs .janela-rp > .acoes{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+@media (max-width:600px){body.gx-barra-topo .gs .fundo:not(.b-paleta){padding:0;align-items:stretch}
+  body.gx-barra-topo .gs .janela:not(#_),body.gx-barra-topo .gs .janela.larga:not(#_),body.gx-barra-topo .gs .janela.ficha:not(#_){width:100%;max-height:none;height:100%;border-radius:0!important}}
+
+/* Backup 87: ficha do cliente (D12) — ficha do ambiente no Resumo; Contatos/Endereços/Contas/Sócios em blocos; "+ Lançar" no rodapé (menu abre para cima) */
+.b-amb{color:var(--amber)!important}
+.gs .fc-ficha{margin:0}
+.gs .janela-bd .b-nums.b-nums-faixa{margin:0}
+.gs .fc-sub .b-li{padding:8px 12px}
+.gs .fc-sub-tx{display:block;font-size:13px}
+.gs .fc-sub-tx .sub{font-size:12px;color:var(--text3)}
+.gs .fc-sub-vazio{margin:0;font-size:12.5px;color:var(--text3)}
+.gs .fc-sub .b-link{padding:2px 4px}
+.gs details.fc-receita > summary{cursor:pointer;list-style:none;font-size:12px;font-weight:600;color:var(--text3);display:flex;align-items:center;gap:10px}
+.gs details.fc-receita > summary::before{content:"▸";font-size:10px}
+.gs details.fc-receita[open] > summary::before{content:"▾"}
+.gs details.fc-receita > summary::after{content:"";flex:1;height:1px;background:var(--line)}
+.gs .janela.ficha .ficha-parte + .ficha-parte:not(#_){border-top:0;padding-top:0;margin-top:0}
+.gs .fc-pe-esq{margin-right:auto;display:flex;gap:8px;align-items:center}
+.gs .janela-rp .fc-lancar-menu{top:auto;bottom:calc(100% + 6px)}
+.gs button.b-pill.cli-email{cursor:pointer;font-size:12.5px;padding:3px 10px}
+.gs .janela .ficha-corpo{min-height:0}
+.gs .ctr-det{display:flex;flex-direction:column;gap:14px;padding-top:4px}
+.gs .ctr-det[hidden]{display:none}
+.gs .ctr-det-bts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.gs .ctr-det .b-bloco{margin-top:0}
+/* Backup 87: formulários dentro das janelas no desenho do ambiente — rótulo 12 px, campo de 36 px, 13 px, cantos de 8 px */
+body.gx-barra-topo .gs .janela-bd .grade:not(#_){gap:12px}
+body.gx-barra-topo .gs .janela-bd .campo:not(#_){display:flex;flex-direction:column;gap:5px;min-width:0;margin:0}
+body.gx-barra-topo .gs .janela-bd .campo > span:first-child:not(#_){font-size:12px;font-weight:600;color:var(--text2);letter-spacing:0;text-transform:none}
+body.gx-barra-topo .gs .janela-bd :is(input:not([type=checkbox]):not([type=radio]):not([type=color]):not([type=file]),select):not(#_){height:36px;min-height:36px;font-size:13px;padding:0 11px;border-radius:var(--r-ctl);border:1px solid var(--border);background-color:var(--surface);color:var(--text)}
+body.gx-barra-topo .gs .janela-bd select:not(#_){padding-right:28px}
+body.gx-barra-topo .gs .janela-bd textarea:not(#_){min-height:90px;font-size:13px;padding:9px 11px;border-radius:var(--r-ctl);line-height:1.45}
+body.gx-barra-topo .gs .janela-bd :is(input,select,textarea):focus:not(#_){outline:0;border-color:var(--primario);box-shadow:var(--anel)}
+body.gx-barra-topo .gs .janela-bd label.check:not(#_),body.gx-barra-topo .gs .janela-bd .campo-check:not(#_){font-size:13px;font-weight:500}
+/* Backup 87: faixa discreta das atrasadas à esquerda do calendário (Mês e Semana) */
+.gs .b-cal-com-atr,.gs .fila-com-atr.sm-com-atr{display:grid;grid-template-columns:176px minmax(0,1fr);gap:12px;align-items:stretch}
+.gs .b-cal-atrs.fila-atrasadas{border:0;border-right:1px solid var(--line);border-radius:0;background:none;padding:2px 10px 2px 0;display:flex;flex-direction:column;gap:1px;height:0;min-height:100%;overflow:auto;box-sizing:border-box}
+.gs .b-cal-atrs-tit{display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;color:var(--text3);margin:0 0 4px 6px}
+.gs .b-cal-atrs-tit span{font-size:11px;font-weight:700;color:var(--red);background:var(--red-lt);border-radius:999px;padding:0 7px}
+.gs .b-cal-atr-it{display:flex;gap:6px;align-items:baseline;border:0;background:none;text-align:left;padding:4px 6px;border-radius:6px;font:400 12px var(--font-ui);color:var(--text2);cursor:pointer;min-width:0;width:100%}
+.gs .b-cal-atr-it:hover{background:var(--hover,var(--surface2));color:var(--text)}
+.gs .b-cal-atr-it small{color:var(--red);font-size:11px;font-variant-numeric:tabular-nums;flex:0 0 auto}
+.gs .b-cal-atr-it span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.gs .b-cal-atrs-vazio{margin:0 0 0 6px;font-size:12px;color:var(--text3)}
+@media (max-width:900px){.gs .b-cal-com-atr,.gs .fila-com-atr.sm-com-atr{grid-template-columns:1fr}.gs .b-cal-atrs.fila-atrasadas{height:auto;min-height:0;max-height:150px;border-right:0;border-bottom:1px solid var(--line);padding:0 0 8px}}
+.gs .janela-hd button.b-pill.cli-email:not(#_){width:auto;height:auto;border:0;border-radius:999px;padding:3px 10px;background:var(--green-lt);color:var(--green-d)}
+.gs .janela-hd button.b-pill.cli-email.b-r:not(#_){background:var(--red-lt);color:var(--red-d)}
+.gs .janela-rp .btn-g:not(#_){padding-left:7px!important;padding-right:7px!important}
+.gs .janela-rp .fc-pe-esq,.gs .janela-rp > .acoes:first-child{gap:4px}

@@ -134,7 +134,7 @@
       '<div class="hd-usuario"><button type="button" id="gs-ajuda" title="Ajuda desta tela" aria-label="Ajuda desta tela"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.6M12 17h.01"/></svg></button><button type="button" id="gs-tema" title="Modo escuro / claro" aria-label="Alternar modo escuro" aria-pressed="false"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg></button>' +
       '<div class="tn-grupo tn-mais-acoes"><button type="button" class="tn-abre gs-bt-mais" data-grupo="acoes" title="Atualizar dados e relatório em PDF" aria-label="Mais ações" aria-haspopup="true" aria-expanded="false">⋯</button>' +
       '<div class="tn-menu tn-menu-dir" role="menu"><button type="button" data-acao="atualizar">↻ Atualizar dados</button><button type="button" data-acao="meunome">👤 Meu nome</button></div></div>' +
-      '<span id="gs-sessao" title="Tempo até sair sozinho por falta de uso (cada clique ou tecla recomeça a contagem)" aria-live="off"></span><span class="gs-eu"><span class="gs-ava" id="gs-ava" aria-hidden="true"></span><span class="gs-eu-tx"><span id="gs-nome"></span><small id="gs-papel"></small></span></span><button type="button" id="gs-sair">Sair</button></div>';
+      '<span class="gs-eu"><span class="gs-ava" id="gs-ava" aria-hidden="true"></span><span class="gs-eu-tx"><span id="gs-nome"></span><small id="gs-papel"></small></span></span><button type="button" id="gs-sair">Sair</button></div>';
     // barra lateral: marca, seções, itens com ícone; submódulos abrem logo abaixo (linha fina à esquerda); "encolher" no pé
     const lado = document.createElement('aside');
     lado.id = 'gs-lado'; lado.className = 'gs';
@@ -149,11 +149,7 @@
     try { if (localStorage.getItem('erp_lado_min') === '1') document.body.classList.add('gx-lado-min'); } catch (e) { /* sem armazenamento: começa aberta */ }
     document.getElementById('gs-encolher').onclick = () => { const min = document.body.classList.toggle('gx-lado-min'); try { localStorage.setItem('erp_lado_min', min ? '1' : '0'); } catch (e) { /* vale só agora */ } };
     document.body.insertBefore(hd, document.body.firstChild);
-    // Backup 37: contador discreto da sessão (60 min sem uso → sai). Fica vermelho nos últimos 5 minutos.
-    const sessao = document.getElementById('gs-sessao');
-    const pintarSessao = () => { const s = window.AC_SESSION; if (!s || !s.expira) { sessao.textContent = ''; return; }
-      const min = Math.max(0, Math.ceil((s.expira - Date.now()) / 60000)); sessao.textContent = '⏱' + min + '′'; sessao.classList.toggle('gs-sessao-fim', min <= 5); };
-    pintarSessao(); setInterval(pintarSessao, 15000); document.addEventListener('click', () => setTimeout(pintarSessao, 50), { passive: true });
+    // Backup 87: o contador da sessão (⏱60′) saiu da barra, a pedido — a saída automática depois de 60 min sem uso continua
     const btTema = document.getElementById('gs-tema');
     const marcarTema = () => btTema.setAttribute('aria-pressed', temaEscuro() ? 'true' : 'false');
     marcarTema();

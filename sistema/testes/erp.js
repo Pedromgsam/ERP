@@ -244,11 +244,17 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await nav(p, 'parcelamentos'); await p.waitForSelector('#panel-parcelamentos #pc-tabela tr[data-b-k]');
     const idParc2 = sql("select id from parcelas where numero='2'");
     ok('parcelas com Baixa na linha e sem ✎ (editar pelo detalhe da parcela)', !!(await p.$('#pc-tabela tr[data-b-k="' + idParc2 + '"] [data-pc-baixa]')) && !(await p.$('#pc-tabela [data-la=editar]')));
-    // Backup 85 (PA4): a linha abre a janela do parcelamento; a parcela, dentro dela, abre a janelinha com "Editar"
+    // Backup 87 (D05): a linha abre a janela do parcelamento; a parcela lá dentro NÃO abre janelinha; "Editar dados" (rodapé) abre o formulário do ERP
     await p.click('#pc-tabela tr[data-b-k="' + idParc2 + '"] td:nth-child(3)'); await p.waitForSelector('#gs-raiz #pc-j-parcelas tr[data-b-k]');
     await p.click('#gs-raiz #pc-j-parcelas [data-b-aba=todas]').catch(() => {}); await p.waitForTimeout(200);
-    await p.click('#gs-raiz #pc-j-parcelas tr[data-b-k="' + idParc2 + '"] td:nth-child(2)'); await p.waitForSelector('#gs-raiz #pc-p-editar');
-    await p.click('#gs-raiz #pc-p-editar');
+    await p.click('#gs-raiz #pc-j-parcelas tr[data-b-k="' + idParc2 + '"] td:nth-child(2)'); await p.waitForTimeout(400);
+    ok('B87 D05: clicar na parcela dentro da janela não abre outra janela', (await p.$$('#janelas > .fundo')).length === 1);
+    ok('B87: janela do parcelamento com "Editar dados" e colunas Parcela · Valor · Vencimento · Prazo', !!(await p.$('#gs-raiz #pc-j-editar')) &&
+      (await p.$$eval('#gs-raiz #pc-j-parcelas thead th', (t) => t.map((x) => x.textContent.replace(/[↑↓]/g, '').trim()).filter(Boolean).join('|'))) === 'Parcela|Valor|Vencimento|Prazo');
+    await p.click('#gs-raiz #pc-j-editar'); await esperarJanela(p);
+    ok('B87: "Editar dados" abre o formulário do parcelamento', await p.evaluate(() => !!document.querySelector('.gx-fundo .gx-janela')));
+    await p.keyboard.press('Escape'); await p.waitForTimeout(400);
+    await p.evaluate((ids) => window.ERP_EDITOR.abrirParcelamento(ids[0], ids[1]), [sql("select parcelamento_id from parcelas where id='" + idParc2 + "'"), idParc2]);
     await esperarJanela(p);
     ok('abre o parcelamento com a parcela destacada', await p.isVisible('.gx-destaque'));
     await p.check('.gx-destaque [data-c=pago]');
@@ -328,7 +334,9 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     const idEx = sql("select id from contratos where descricao='Redução da dívida PGFN'");
     ok('êxito futuro: contrato salvo sem lançamento no financeiro', sql("select exito_base||'|'||exito_regra||'|'||(select count(*) from lancamentos where contrato_id=c.id) from contratos c where id='" + idEx + "'") === 'economia|20% do que a dívida reduzir|0');
     ok('lista mostra "aguardando o êxito"', /aguardando o êxito/.test(await p.textContent('#panel-contratos')));
-    await p.evaluate((id) => GS.detalheContrato(id), idEx); await p.waitForSelector('#ctr-exito-reg');
+    await p.evaluate((id) => GS.detalheContrato(id), idEx); await p.waitForSelector('#ctr-exito-reg', { state: 'attached' });
+    ok('B87 D11: contrato abre no desenho do ambiente (4 campos + lançamentos) com o resto em "Detalhamento completo"', !(await p.isVisible('#ctr-exito-reg')) && !!(await p.$('#gs-raiz #ctr-lanc-tab')) && (await p.$$('#gs-raiz .janela .b-ficha > div')).length === 4);
+    await p.click('#ctr-det-bt'); await p.waitForSelector('#ctr-exito-reg');
     await p.click('#ctr-exito-reg'); await p.waitForSelector('#f-exito');
     await p.fill('#f-exito [name=base]', '150.000,00'); await p.fill('#f-exito [name=descricao]', 'Transação reduziu 150 mil');
     { const tx = await p.textContent('#exito-previa'); ok('prévia mostra 20% × X', /30\.000,00/.test(tx), tx); }
@@ -337,7 +345,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('êxito registrado: 20% de 150 mil lançado em Honorários Jurídico', sql("select valor||'|'||categoria||'|'||empresa from lancamentos where contrato_id='" + idEx + "'") === '30000.00|Êxito|escritorio' &&
       sql("select count(*) from exitos where contrato_id='" + idEx + "'") === '1');
     // ficha do contrato + aditivo (Backup 17)
-    await p.waitForSelector('#ctr-aditivo'); await p.waitForTimeout(300);
+    await p.waitForSelector('#ctr-det-bt'); await p.click('#ctr-det-bt'); await p.waitForSelector('#ctr-aditivo'); await p.waitForTimeout(300);
     ok('ficha do contrato mostra vigência, reajuste e aditivos', await p.evaluate(() => { const t = document.querySelector('#gs-raiz .ctr-ficha').textContent; return /Vigência/.test(t) && /Reajuste/.test(t) && /Sem reajuste/.test(t); }) &&
       /Aditivos/.test(await p.textContent('#gs-raiz')));
     await p.click('#ctr-aditivo'); await p.waitForSelector('#f-ad'); await p.waitForTimeout(200);
@@ -358,23 +366,26 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     ok('Clientes: coluna Área (Jurídico / Contábil / Jurídico e contábil), sem ▸', /Área/.test(await p.textContent('#panel-clientes .cli-tabela thead')) && (await p.$$('#panel-clientes .cli-seta')).length === 0);
     await p.click('#panel-clientes tr[data-cli]:has-text("Alfa Comércio Ltda")'); await p.waitForSelector('.janela.ficha #fc-abas'); await p.waitForTimeout(1200);
     ok('clicar no cliente abre a ficha completa (sem expandir para baixo)', (await p.$$('#panel-clientes tr.cli-det')).length === 0);
-    ok('ficha do cliente abre com 10 abas e resumo (B85)', (await p.$$('.janela.ficha #fc-abas button')).length === 10 && /A receber/.test(await p.textContent('#fc-corpo')));
+    ok('ficha do cliente abre com 8 abas e o Resumo do ambiente (B87 D12)', (await p.$$('.janela.ficha #fc-abas button')).length === 8 && /Passivo conferido/.test(await p.textContent('#fc-corpo')) && /Honorários em aberto/.test(await p.textContent('#fc-corpo')));
     await foto(p, 'ficha');
-    await p.click('#fc-abas [data-aba=contatos]'); await p.waitForSelector('[data-novo-sub]'); await p.click('[data-novo-sub]');
+    await p.waitForSelector('.fc-sub [data-novo-sub]'); await p.click('.ficha-parte-contatos [data-novo-sub]');
     await p.waitForSelector('#f-sub'); await p.waitForTimeout(250);
     await p.fill('#f-sub [name=nome]', 'Fernanda Financeiro'); await p.selectOption('#f-sub [name=finalidade]', 'financeiro');
     await p.fill('#f-sub [name=email]', 'fin@teste.com'); await p.check('#f-sub [name=recebe][value=cobranca]');
     await p.click('#btn-salvar-sub'); await p.waitForTimeout(1500);
     ok('ficha: cadastra contato financeiro que recebe boletos', sql("select finalidade||'|'||recebe_boletos from contatos") === 'financeiro|true' && /Fernanda Financeiro/.test(await p.textContent('#fc-corpo')));
-    ok('ficha (B85): abas Resumo · Parcelamentos · Acordos · Processos · Financeiro · Documentos · E-mails · Linha do tempo (+ Contatos e Sócios)', (await p.$$eval('#fc-abas button', (b) => b.map((x) => x.textContent).join('|'))) === 'Resumo|Parcelamentos|Acordos|Processos|Financeiro|Documentos|E-mails|Linha do tempo|Contatos e endereços|Sócios');
-    ok('ficha: Contatos e endereços junta contatos, endereços e contas', (await p.$$('#fc-corpo .ficha-parte')).length === 3 && /Endereços/.test(await p.textContent('#fc-corpo')) && /Contas bancárias/.test(await p.textContent('#fc-corpo')));
-    for (const aba of ['socios', 'parcelamentos', 'acordos', 'processos', 'financeiro', 'emails', 'historico', 'resumo']) {
+    ok('ficha (B87): abas Resumo · Parcelamentos · Acordos · Processos · Financeiro · Documentos · E-mails · Linha do tempo', (await p.$$eval('#fc-abas button', (b) => b.map((x) => x.textContent).join('|'))) === 'Resumo|Parcelamentos|Acordos|Processos|Financeiro|Documentos|E-mails|Linha do tempo');
+    ok('ficha (B87): Resumo com Contatos, Endereços, Contas bancárias e Sócios', /Endereços/.test(await p.textContent('#fc-corpo')) && /Contas bancárias/.test(await p.textContent('#fc-corpo')) && /Sócios e vínculos/.test(await p.textContent('#fc-corpo')));
+    for (const aba of ['parcelamentos', 'acordos', 'processos', 'financeiro', 'emails', 'historico', 'resumo']) {
       await p.click('#fc-abas [data-aba=' + aba + ']'); await p.waitForTimeout(700);
     }
-    ok('ficha (B53): Cadastro, Situação (procuração e certificado), Tarefas e débitos — sem certidões', !/Certidões/.test(await p.textContent('#fc-corpo')) && /Receita Federal/.test(await p.textContent('#fc-corpo')) &&
-      await p.evaluate(() => { const hs = [...document.querySelectorAll('#fc-corpo .card-hd')].map((h) => h.textContent.trim()); const sit = [...document.querySelectorAll('#fc-corpo .card')].find((c) => /^Situação/.test(c.textContent.trim()));
-        return hs.indexOf('Cadastro') === 0 && hs.indexOf('Situação') === 1 && hs.indexOf('Próximas tarefas') === 2 && !!sit && /Procuração/.test(sit.textContent) && /Certificado/.test(sit.textContent); }));
-    ok('ficha (B53): um botão só "+ Lançar ▾" com os atalhos escondidos', await p.isVisible('#fc-lancar') && !(await p.isVisible('#fc-tarefa')));
+    ok('ficha (B87): Resumo = 8 campos do ambiente + 4 números, Cartão CNPJ recolhido no fim', (await p.$$('#fc-corpo .fc-ficha > div')).length === 8 && (await p.$$('#fc-corpo .b-nums-faixa > div')).length === 4);
+    await p.click('#fc-abas [data-aba=processos]'); await p.waitForSelector('#fc-corpo [data-fc-proc]', { timeout: 5000 }).catch(() => {});
+    await p.click('#fc-corpo [data-fc-proc]').catch(() => {}); await p.waitForSelector('.proc-janela', { timeout: 5000 }).catch(() => {});
+    ok('B87 D03: na ficha, Processos é a lista do ambiente e o clique abre a janela do processo', !!(await p.$('.proc-janela')));
+    await p.evaluate(() => { const f = [...document.querySelectorAll('#janelas > .fundo')].pop(); if (f && f.querySelector('.proc-janela, .janela.proc-janela')) window.GS.fecharJanela(f); else if (document.querySelector('.proc-janela')) window.GS.fecharJanela(document.querySelector('.proc-janela').closest('.fundo')); });
+    await p.click('#fc-abas [data-aba=resumo]'); await p.waitForTimeout(700);
+    ok('ficha (B87): "+ Lançar" no rodapé, com os atalhos escondidos', await p.isVisible('.janela-rp #fc-lancar') && !(await p.isVisible('#fc-tarefa')));
     await p.click('#fc-lancar'); await p.waitForTimeout(150);
     await p.click('#fc-int'); await p.waitForSelector('#f-int'); await p.waitForTimeout(250);
     await p.fill('#f-int [name=resumo]', 'Reunião sobre parcelamento'); await p.click('#btn-salvar-int'); await p.waitForTimeout(1500);
@@ -634,7 +645,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
     await foto(p, 'alertas-cnpj');
     await p.keyboard.press('Escape'); await p.waitForTimeout(250);
     { const idB = sql("select id from clientes where cpf_cnpj='22333444000172'");
-      await p.evaluate((id) => GS.abrirFicha(id, 'receita'), idB); await p.waitForSelector('#fc-cnpj-agora'); await p.waitForTimeout(600);
+      await p.evaluate((id) => GS.abrirFicha(id, 'receita'), idB); await p.waitForSelector('#fc-cnpj-agora', { state: 'attached' }); await p.evaluate(() => { document.querySelector('details.fc-receita').open = true; }); await p.waitForTimeout(600);   // Backup 87: Cartão CNPJ recolhido no fim do Resumo
       const t = await p.textContent('#fc-corpo');
       ok('ficha do cliente: aba Cartão CNPJ com dados da Receita e histórico', /BETA SERVICOS LTDA/.test(t) && /inapta/i.test(t) && /Situação cadastral/.test(t) && /Rua Velha/.test(t), t.slice(0, 300));
       const n0 = Number(sql('select count(*) from cnpj_execucoes'));
@@ -1515,7 +1526,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       ok('Painel: "Operação" presente (B41), sem CEAT e sem CAPAG; situação sem caixa alta', /Operação/.test(thsPe) && !/Em operação/.test(thsPe) && !/CAPAG|CEAT/.test(thsPe) &&
         await p.evaluate(() => [...document.querySelectorAll('#pe-nova tbody td:nth-child(9) .b-pill')].every((x) => x.textContent !== x.textContent.toUpperCase())));
       // contador da sessão na barra de cima (só cai por inatividade)
-      ok('Barra de cima: contador discreto da sessão', /⏱\d+′/.test(await p.textContent('#gs-sessao')));
+      ok('B87 Barra de cima: sem o contador da sessão (⏱)', !(await p.$('#gs-sessao')));
     }
     { // Planilha com MAIS de 1000 parcelas (o Supabase devolve 1000 por vez): a guia do mês tem que aparecer
       const pid = 'e0000000-0000-0000-0000-000000000037';
@@ -1804,7 +1815,7 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       sql("insert into tarefas(titulo,responsavel,prazo) values ('Arrastar B52','Pedro',current_date)");
       await nav(p, 'tarefas'); await p.waitForTimeout(1200);
       await p.click('#tf-vista [data-v=semana]'); await p.waitForSelector('#tf-vista-corpo .sm-grade', { timeout: 8000 }).catch(() => {});
-      ok('B52 C1/B85 TF9: Tarefas → Semana (colunas Seg a Sex, sem a coluna de atrasadas — como no ambiente)', (await p.$$('#tf-vista-corpo .sm-col[data-dia]')).length >= 5 && !(await p.$('#tf-vista-corpo .fila-atrasadas')));
+      ok('B52 C1/B87: Tarefas → Semana (colunas Seg a Sex + faixa discreta das atrasadas à esquerda)', (await p.$$('#tf-vista-corpo .sm-col[data-dia]')).length >= 5 && !!(await p.$('#tf-vista-corpo .b-cal-atrs')));
       { const card = await p.$('#tf-vista-corpo .sm-card:has-text("Arrastar B52")');
         const destino = await p.evaluate(() => { const cs = [...document.querySelectorAll('#tf-vista-corpo .sm-col[data-dia]')].filter((c) => c.dataset.dia !== 'sem' && !c.classList.contains('sm-hoje')); return cs.length ? cs[cs.length - 1].dataset.dia : ''; });
         if (card && destino) { await p.evaluate((d) => { const c = [...document.querySelectorAll('#tf-vista-corpo .sm-card')].find((x) => /Arrastar B52/.test(x.textContent)), col = document.querySelector('#tf-vista-corpo .sm-col[data-dia="' + d + '"]'), dt = new DataTransfer();
@@ -1891,8 +1902,8 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       // Backup 86: calendário maior — largura toda, sem o quadro de atrasadas ao lado; o item abre o detalhe curto (Concluir · Editar · Ficha completa)
       sql("insert into tarefas(titulo,responsavel,status,prazo,hora,local,tipo_agenda) values ('Reunião calendário B86','Pedro','pendente',current_date,'10:00','Sala 2','reuniao')");
       await p.evaluate(() => { GS.E.tf.vista = 'calendario'; GS.E.tf.calVista = 'mes'; }); await nav(p, 'hoje'); await nav(p, 'tarefas'); await p.waitForSelector('#tf-cal-corpo .b-cal', { timeout: 8000 }).catch(() => {}); await p.waitForTimeout(600);
-      const calB86 = await p.evaluate(() => { const c = document.querySelector('#tf-cal-corpo .b-cal'), d = c && c.querySelector('.b-cal-dia:not(.b-cal-fora)'); return { larg: c ? c.offsetWidth : 0, area: (document.querySelector('#tf-cal-corpo') || {}).offsetWidth || 1, alt: d ? d.offsetHeight : 0, atr: !!document.querySelector('#tf-cal-corpo .fila-atrasadas') }; });
-      ok('B86 Tarefas: calendário do mês na largura toda, dias altos e sem o quadro de atrasadas ao lado', calB86.larg >= calB86.area - 4 && calB86.alt >= 100 && !calB86.atr, JSON.stringify(calB86));
+      const calB86 = await p.evaluate(() => { const c = document.querySelector('#tf-cal-corpo .b-cal'), d = c && c.querySelector('.b-cal-dia:not(.b-cal-fora)'); return { larg: c ? c.offsetWidth : 0, area: (document.querySelector('#tf-cal-corpo') || {}).offsetWidth || 1, alt: d ? d.offsetHeight : 0, atr: ((document.querySelector('#tf-cal-corpo .b-cal-atrs') || {}).offsetWidth) || 0, nAtr: document.querySelectorAll('#tf-cal-corpo .b-cal-atr-it').length }; });
+      ok('B86/B87 Tarefas: calendário do mês na largura toda, dias altos; atrasadas numa faixa discreta à esquerda (≤ 200 px)', calB86.larg >= calB86.area - 4 && calB86.alt >= 100 && (!calB86.nAtr || (calB86.atr > 0 && calB86.atr <= 200)), JSON.stringify(calB86));
       await p.click('#tf-cal-corpo .b-cal-it:has-text("Reunião calendário B86")'); await p.waitForSelector('#gs-raiz .ag-janela', { timeout: 6000 }).catch(() => {});
       { const t = await p.textContent('#gs-raiz .ag-janela').catch(() => '');
         ok('B86 Tarefas: clicar no item do calendário abre o detalhe (tipo, quando, onde) com Concluir/Editar/Ficha completa', /Reunião/.test(t) && /10:00/.test(t) && /Sala 2/.test(t) &&
@@ -1989,8 +2000,10 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       await fecharTudo();
       await nav(p, 'execucoes'); await p.waitForSelector('#panel-execucoes tr[data-b-k]');
       await p.click('#panel-execucoes tr[data-b-k]'); await p.waitForSelector('#gs-raiz #ex-receb');
-      ok('B86 Execuções: janela igual ao ambiente (3 números, sem contatos nem "Editar execução")', (await p.$$('#gs-raiz .janela .b-nums > *')).length === 3 &&
-        !(await p.$('#gs-raiz #ex-contato-novo')) && !(await p.$('#gs-raiz #ex-editar')) && !(await p.$('#panel-execucoes #ex-atu')));
+      ok('B86 Execuções: janela igual ao ambiente (3 números, sem contatos)', (await p.$$('#gs-raiz .janela .b-nums > *')).length === 3 &&
+        !(await p.$('#gs-raiz #ex-contato-novo')) && !(await p.$('#panel-execucoes #ex-atu')));
+      await p.click('#gs-raiz #ex-editar'); await p.waitForSelector('#gs-raiz #f-exec');
+      ok('B87 Execuções: "Editar execução" voltou e abre o formulário (com Excluir para o admin)', !!(await p.$('#gs-raiz #ex-salvar')) && !!(await p.$('#gs-raiz #ex-apagar')));
       await fecharTudo();
     }
     // ── Backup 55: A pagar · Contabilidade, filtros 2×2 lado a lado, tabelas numa linha, Acordos editar pela parcela, conferir com confirmação, Planilha ──
@@ -2006,11 +2019,10 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       await nav(p, 'parcelamentos'); await p.waitForSelector('#pc-tabela [data-b-aba=apagar]'); await p.waitForSelector('#pc-tabela tbody tr[data-b-k]', { timeout: 10000 }).catch(() => {});
       ok('B57/B69 Parcelamentos: tabela com Vencimento, Prazo e o botão Baixa, sem a caneta', await p.evaluate(() => { const t = document.querySelector('#pc-tabela table'); const ths = [...t.tHead.rows[0].cells].map((x) => x.textContent.replace(/[↑↓]/g, '').trim());
         return ['Vencimento', 'Prazo'].every((n) => ths.includes(n)) && !t.querySelector('.gx-la-ed') && !!t.querySelector('tbody [data-pc-baixa]'); }));
-      // Backup 85 (PA4): a linha abre a janela do parcelamento; a parcela, lá dentro, abre o detalhe
+      // Backup 87: a linha abre a janela do parcelamento (Baixa na linha da parcela; "Editar dados" no rodapé)
       await p.click('#pc-tabela tbody tr[data-b-k] td:nth-child(3)'); await p.waitForSelector('#gs-raiz #pc-j-parcelas tr[data-b-k]', { timeout: 8000 }).catch(() => {});
-      await p.click('#gs-raiz #pc-j-parcelas tr[data-b-k] td:nth-child(2)').catch(() => {}); await p.waitForSelector('#gs-raiz #pc-p-editar', { timeout: 5000 }).catch(() => {});
-      ok('B57/B68 Parcelamentos: clicar na parcela abre o detalhe com "Editar" e "Baixa"', !!(await p.$('#gs-raiz #pc-p-editar')) && !!(await p.$('#gs-raiz .janela [data-pc-baixa]')));
-      await p.click('#gs-raiz #pc-p-editar').catch(() => {}); await p.waitForTimeout(1200);
+      ok('B57/B87 Parcelamentos: janela com "Editar dados" e "Baixa" na parcela', !!(await p.$('#gs-raiz #pc-j-editar')) && !!(await p.$('#gs-raiz .janela [data-pc-baixa]')));
+      await p.click('#gs-raiz #pc-j-editar').catch(() => {}); await p.waitForTimeout(1200);
       ok('B57/B68 Parcelamentos: "Editar" abre a edição do parcelamento', await p.evaluate(() => !!document.querySelector('.gx-fundo .gx-janela')));
       await p.keyboard.press('Escape'); await p.waitForTimeout(300); await nav(p, 'resumo'); await p.waitForTimeout(800);
       // Backup 73: o Painel usa a tabela nova; as medidas de antes (B55–B63) passam a valer para ela
