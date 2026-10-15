@@ -721,6 +721,34 @@ O que mudou:
 
 Ainda falta (próxima rodada): apagar o ERP antigo (ERP.html, remendos e blocos antigos do design.css).
 
+## Backup 84 — Respostas de 15/10: Tarefas, Painel, Parcelamentos/Acordos e Financeiro
+1. Merge da pull request.
+2. **SQL no Supabase** (desta vez tem): Raw → Ctrl+A/Ctrl+C → conferir a última linha `-- ═══ fim do Backup 84 ═══` → Run.
+3. **Ctrl+Shift+R** no ERP.
+
+O que mudou:
+- **Tarefas:**
+  - o número das abas ("Em aberto 32") ficou como no ambiente; em "Atrasadas", o número fica vermelho;
+  - as tarefas atrasadas ficam com o fundo levemente vermelho;
+  - **filtros enxutos, numa linha só:** "Mostrar" (Tudo · Reuniões · Audiências · Compromissos · Tarefas · Rotinas) sempre à vista, em todas as vistas (Lista, Semana, Calendário); "De quem" e "Urgência" viraram listas, como o "Todos os grupos" de Processos;
+  - saíram da Lista os atalhos de prazo (5/10/15/30 dias). Continuam a aba "Atrasadas" e o vencimento de/até no botão "Filtros".
+- **Painel Executivo — Evolução do passivo:** o gráfico não aparecia no ERP real porque a consulta ao banco levava mais de 1 minuto com os dados de verdade e o Supabase desistia (limite de 8 segundos).
+  - Reescrevi a consulta: agora leva 0,15 segundo e dá exatamente o mesmo resultado (conferido com 600 clientes e 100 mil linhas de histórico).
+  - **Por isso esta rodada tem SQL.**
+  - Importante: o gráfico mostra o passivo **desde quando ele foi lançado no sistema** (o histórico começa na importação). Os meses anteriores não aparecem porque o sistema não tinha esses números.
+- **Valor negociado** como no ambiente: "R$ 42 mil neg.", "R$ 8 mil neg." (abaixo de R$ 1.000, o valor inteiro). Os milhões com duas casas: "R$ 1,44 mi".
+- **Coluna "Grupo" mais estreita em todas as tabelas** (Painel, Processos, Parcelamentos, Acordos, Guias do mês); o nome quebra linha.
+- **Parcelamentos e Acordos:**
+  - cartões da "Situação por cliente" mais largos;
+  - botão **Minimizar / Mostrar** ao lado do título "Situação por cliente" (a escolha fica guardada);
+  - o rodapé da tabela ("Total de … / R$ … / média …") ficou alinhado embaixo da coluna Valor e não corta mais a média.
+- **Financeiro → Análise:**
+  - os filtros, que estavam empilhados e centralizados, ficaram numa linha: Quem · Período · de/até · Aplicar;
+  - o **Fluxo do mês vem primeiro, separado**, com o próprio mês (‹ ›). Embaixo vem a **"Análise do período"**, que é o que muda com os filtros (recebido, a receber, em atraso, prejuízo, gráficos);
+  - Contabilidade: "Por tipo de serviço" ao lado de "Maiores grupos" e, embaixo, "Resultado do mês" ao lado de **"Despesas por categoria"** (do mesmo tamanho), como no ambiente.
+- **Contabilidade "demorando para carregar":** era um defeito. Quem abria a Contabilidade logo depois do Jurídico (em menos de 1,5 segundo) fazia a tela se desenhar no painel escondido do Jurídico; ela ficava em "Carregando…" até sair e voltar. Corrigido: abre na hora.
+- **Comparativo ambiente × ERP:** a lista do que ainda é diferente, separada por tela (visual, funcionalidade e textos), está em `sistema/COMPARATIVO-B84.md` (e na página do link da resposta).
+
 ## Backup 83 — Igual ao ambiente de teste (versão 5): Início sem calendário, menu que abre e fecha, Painel e cartões mais leves
 1. Merge da pull request.
 2. **Sem SQL** nesta rodada.

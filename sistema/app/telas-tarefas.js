@@ -492,7 +492,8 @@ TELAS.tarefas = async function () {
     if (b.dataset.tfTipo != null) F.tipos = alternarFiltro(F.tipos || FILTRO_TIPOS_AG.map((x) => x[0]), b.dataset.tfTipo, FILTRO_TIPOS_AG.map((x) => x[0]));
     else if (b.dataset.tfPri != null) F.pri = F.pri === b.dataset.tfPri ? '' : b.dataset.tfPri;
     else if (b.dataset.tfPrazo != null) F.atalho = F.atalho === b.dataset.tfPrazo ? '' : b.dataset.tfPrazo;
-    else { const todos = pessoasFiltro().map(primeiroNome); F.pessoas = alternarFiltro(F.pessoas && F.pessoas.length ? F.pessoas : todos, b.dataset.tfPes, todos); if (!F.pessoas.length) F.pessoas = [primeiroNome(meuNome())]; }
+    else if (b.dataset.tfPes != null) { const todos = pessoasFiltro().map(primeiroNome); F.pessoas = alternarFiltro(F.pessoas && F.pessoas.length ? F.pessoas : todos, b.dataset.tfPes, todos); if (!F.pessoas.length) F.pessoas = [primeiroNome(meuNome())]; }
+    else return;
     pintarTarefas(); };
   $('tf-busca').value = F.busca;
   let t; $('tf-busca').oninput = (ev) => { clearTimeout(t); t = setTimeout(() => { F.busca = ev.target.value; pintarTarefas(); }, 250); };
@@ -519,9 +520,9 @@ function filtrarTarefas(daLista) {
     if (a === '7' && (tarefaFechada(t) || !t.prazo || t.prazo > somarDias(h, 7))) return false;
     // "pedem atenção" (destaque do Início): minhas atrasadas ou com prazo fatal em até 7 dias
     if (a === 'atencao' && (tarefaFechada(t) || !ehMinha(t) || !((t.prazo && t.prazo < h) || (t.prazo_fatal && t.prazo_fatal <= somarDias(h, 7))))) return false;
-    if (!daLista && F.tipos && !F.tipos.includes(tipoItemAgenda(t))) return false;
+    if (F.tipos && !F.tipos.includes(tipoItemAgenda(t))) return false;   // Backup 84: o tipo vale em todas as vistas
     if (F.pessoas && F.pessoas.length && ![t.responsavel, t.revisor].concat(String(t.participantes || '').split(',')).some((n) => n && F.pessoas.includes(primeiroNome(n)))) return false;
-    if (!daLista && F.pri && t.prioridade !== F.pri) return false;
+    if (F.pri && t.prioridade !== F.pri) return false;
     if (b && !normalizar(t.titulo + ' ' + t.processos_vinculados + ' ' + nomeGrupo(t.grupo_id) + ' ' + nomeCliente(t.cliente_id) + ' ' + t.etiquetas + ' ' + t.descricao).includes(b)) return false;
     return true;
   });
@@ -532,24 +533,25 @@ function pintarTarefas() {
   document.querySelectorAll('#tf-vista button').forEach((b) => b.classList.toggle('ativo', b.dataset.v === F.vista));
   { const fl = document.querySelector('#panel-tarefas .filtros, #gs-main-tarefas .filtros'); if (fl) fl.style.display = F.vista === 'lista' ? 'none' : ''; }
   if (F.vista !== 'lista') F.aba = 'abertas';   // Backup 72: as abas (Concluídas, Excluídas…) são da Lista; Semana/Calendário/Fluxos mostram as em aberto
-  // Backup 48: filtros em botões que se marcam/desmarcam (iguais aos da agenda do Início); pessoas: Todos, eu, depois os outros
+  // Backup 84: uma linha de filtros em TODAS as vistas — "Mostrar" (tipo) em chips sempre à vista; "De quem" e "Urgência" em listas
+  // (como o "Todos os grupos" de Processos). Saíram os chips de pessoas, de prioridade e de prazo (o usuário pediu menos filtros).
+  if (F.pessoas && F.pessoas.length > 1) F.pessoas = [];   // de quando eram vários chips: agora é uma pessoa ou todas
   { const tipos = FILTRO_TIPOS_AG.map((x) => x[0]), tSel = new Set(F.tipos || tipos), eu = primeiroNome(meuNome());
     const pes = pessoasFiltro().slice().sort((a, b) => (primeiroNome(b) === eu) - (primeiroNome(a) === eu) || a.localeCompare(b, 'pt-BR'));
-    const pSel = new Set(F.pessoas && F.pessoas.length ? F.pessoas : pes.map(primeiroNome)), todasP = pSel.size >= pes.length;
-    const prazos = [['hoje', 'Hoje'], ['atrasadas', 'Atrasadas'], ['7', '7 dias']].concat(F.atalho === 'atencao' ? [['atencao', 'Pedem atenção']] : []);
-    const [gUrg, gPrazo] = gruposPriPrazo('data-tf-pri', F.aba === 'abertas' && F.vista !== 'fluxos' ? 'data-tf-prazo' : '', F.pri, F.atalho, prazos.slice(3));
-    const deQuem = pes.length > 1 ? '<div class="fila-chips" role="group" aria-label="De quem"><span class="fila-chips-rot">De quem</span>' +
-        chipFiltro('data-tf-pes', '*', 'Todos', todasP) + pes.map((n) => chipFiltro('data-tf-pes', primeiroNome(n), nomeCurto(n), pSel.has(primeiroNome(n)))).join('') + '</div>' : '';
-    // Backup 72: na Lista, só "De quem" (pílulas do desenho novo); tipo e prioridade ficam no botão "Filtros" da tabela
-    $('tf-chips').classList.toggle('tf-so-quem', F.vista === 'lista');
-    // Backup 82: na Lista, como no ambiente — busca, "De quem", tipo e prioridade ficam na barra da tabela (Filtros)
-    if (F.vista === 'lista') { $('tf-chips').classList.remove('fila-2x2'); $('tf-chips').innerHTML = ''; }
-    else {
-    $('tf-chips').classList.add('fila-2x2');
-    $('tf-chips').innerHTML = filtros2x2('<div class="fila-chips" role="group" aria-label="Mostrar"><span class="fila-chips-rot">Mostrar</span>' +
-        chipFiltro('data-tf-tipo', '*', 'Tudo', tSel.size === tipos.length, true) + FILTRO_TIPOS_AG.map(([k, r]) => chipFiltro('data-tf-tipo', k, r, tSel.has(k), true)).join('') + '</div>',
-      (pes.length > 1 ? '<div class="fila-chips" role="group" aria-label="De quem"><span class="fila-chips-rot">De quem</span>' +
-        chipFiltro('data-tf-pes', '*', 'Todos', todasP) + pes.map((n) => chipFiltro('data-tf-pes', primeiroNome(n), nomeCurto(n), pSel.has(primeiroNome(n)))).join('') + '</div>' : ''), gUrg, gPrazo); } }
+    const pesSel = F.pessoas && F.pessoas.length === 1 ? F.pessoas[0] : '';
+    const chipB = (k, r, on) => '<button type="button" class="b-chip" data-tf-tipo="' + esc(k) + '" aria-pressed="' + on + '">' + esc(r) + '</button>';
+    $('tf-chips').classList.remove('fila-2x2', 'tf-so-quem');
+    $('tf-chips').innerHTML = '<div class="b-tf-filtros"><div class="b-chips" role="group" aria-label="Mostrar"><span class="b-fin-rot">Mostrar</span>' +
+        chipB('*', 'Tudo', tSel.size === tipos.length) + FILTRO_TIPOS_AG.map(([k, r]) => chipB(k, r, tSel.has(k))).join('') + '</div>' +
+      '<div class="b-fsus">' + (pes.length > 1 ? '<label class="b-fsus-c"><span>De quem</span><select id="tf-f-pes" aria-label="De quem"><option value="">Todas as pessoas</option>' +
+        pes.map((n) => '<option value="' + esc(primeiroNome(n)) + '"' + (pesSel === primeiroNome(n) ? ' selected' : '') + '>' + esc(nomeCurto(n)) + '</option>').join('') + '</select></label>' : '') +
+      '<label class="b-fsus-c"><span>Urgência</span><select id="tf-f-pri" aria-label="Urgência"><option value="">Todas</option>' +
+        [['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa']].map(([k, r]) => '<option value="' + k + '"' + (F.pri === k ? ' selected' : '') + '>' + r + '</option>').join('') + '</select></label>' +
+      (pesSel || F.pri ? '<button type="button" class="b-fsus-limpar" id="tf-f-limpar">Limpar filtro</button>' : '') + '</div></div>';
+    const sp = $('tf-f-pes'); if (sp) sp.onchange = () => { F.pessoas = sp.value ? [sp.value] : []; pintarTarefas(); };
+    $('tf-f-pri').onchange = (ev) => { F.pri = ev.target.value; pintarTarefas(); };
+    const lp = $('tf-f-limpar'); if (lp) lp.onclick = () => { F.pessoas = []; F.pri = ''; pintarTarefas(); };
+  }
   const V = { lista: vistaLista, semana: vistaSemana, calendario: vistaCalendario, fluxos: vistaFluxos };
   $('tf-corpo').innerHTML = '<div id="tf-vista-corpo"></div>';
   if (!V[F.vista]) F.vista = 'lista';
@@ -600,11 +602,8 @@ function vistaLista(alvo) {
     abas: [{ id: 'abertas', rot: 'Em aberto', f: (t) => !tarefaFechada(t) }, { id: 'atrasadas', rot: 'Atrasadas', cor: 'r', f: (t) => !tarefaFechada(t) && t.prazo && t.prazo < h },
       { id: 'concluidas', rot: 'Concluídas', f: (t) => t.status === 'concluida' },
       { id: 'excluidas', rot: 'Excluídas', f: (t) => t.status === 'cancelada' && String(t.atualizado_em || '') >= somarDias(h, -90) }],   // mais de 90 dias: só no histórico
-    prazos: true, prazosAbas: ['abertas'], venc: (t) => t.prazo || '', ord: { k: 'prazo', dir: 1 }, ordAbas: { concluidas: { k: 'prazo', dir: -1 } },
-    listas: [{ k: 'tipo', rot: 'Tipo', todos: 'Todos os tipos', opcoes: FILTRO_TIPOS_AG, get: (t) => tipoItemAgenda(t) },
-      { k: 'pri', rot: 'Prioridade', todos: 'Todas as prioridades', opcoes: [['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa']], get: (t) => t.prioridade },
-      { k: 'pes', rot: 'De quem', todos: 'Todas as pessoas', opcoes: pessoasFiltro().map((n) => [primeiroNome(n), nomeCurto(n)]), get: (t) => [t.responsavel, t.revisor].concat(String(t.participantes || '').split(',')).filter(Boolean).map(primeiroNome) },
-      { k: 'st', rot: 'Status', todos: 'Todos os status', opcoes: Object.entries(STATUS_TAREFA), get: (t) => t.status }],
+    venc: (t) => t.prazo || '', ord: { k: 'prazo', dir: 1 }, ordAbas: { concluidas: { k: 'prazo', dir: -1 } },   // B84: sem os atalhos de prazo (a aba Atrasadas e "Filtros → vencimento" bastam)
+    listas: [{ k: 'st', rot: 'Status', todos: 'Todos os status', opcoes: Object.entries(STATUS_TAREFA), get: (t) => t.status }],
     busca: (t) => [t.titulo, t.processos_vinculados, grupoDe(t), nomeCliente(t.cliente_id), t.etiquetas, t.descricao].join(' '), dicaBusca: 'Tarefa ou cliente…',
     colunas: [
       { k: 'tit', rot: 'Tarefa', cls: 'b-tf-tit', ord: (t) => normalizar(t.titulo), html: (t) => {

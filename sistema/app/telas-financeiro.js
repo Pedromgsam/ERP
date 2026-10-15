@@ -60,6 +60,7 @@ async function dadosFin(empresa, forcar) {
   return F.dados;
 }
 
+const raizFin = (empresa) => document.querySelector('#fin-raiz[data-emp="' + empresa + '"]') || document;
 async function telaHonorarios(empresa, forcar) {
   const F = estadoFin(empresa), info = EMPRESAS[empresa], c = $('conteudo');
   if (!c.querySelector('#fin-raiz[data-emp="' + empresa + '"]')) {
@@ -84,19 +85,21 @@ async function telaHonorarios(empresa, forcar) {
       if (b.dataset.finIr === 'venc') { st.aba = 'areceber'; st.prazo = 'venc'; } else { st.aba = 'perda'; st.prazo = ''; }
       pintarFin(empresa); };
   }
-  try { await dadosFin(empresa, forcar); } catch (e) { $('fin-corpo').innerHTML = '<div class="card"><div class="card-bd msg-erro">' + esc(erroAmigavel(e)) + '</div></div>'; return; }
+  try { await dadosFin(empresa, forcar); } catch (e) { raizFin(empresa).querySelector('#fin-corpo').innerHTML = '<div class="card"><div class="card-bd msg-erro">' + esc(erroAmigavel(e)) + '</div></div>'; return; }
   pintarFin(empresa);
 }
 // compatibilidade: quem chamava pintarFin/pintarLista depois de gravar
 function recarregarFin(empresa) { return telaHonorarios(empresa, true); }
 
 function pintarFin(empresa) {
-  const F = estadoFin(empresa), L = F.dados || [], corpo = $('fin-corpo'); if (!corpo) return;
+  // Backup 84: tudo procurado DENTRO da tela desta empresa — Jurídico e Contabilidade têm os mesmos ids (#fin-corpo…) e, ao trocar
+  // rápido de uma para a outra, a anterior ainda está na página: a Contabilidade se desenhava no painel escondido do Jurídico e ficava em "Carregando…"
+  const R = raizFin(empresa), F = estadoFin(empresa), L = F.dados || [], corpo = R.querySelector('#fin-corpo'); if (!corpo) return;
   if (!EMPRESAS[empresa].abas.some((a) => a[0] === F.aba)) F.aba = 'analise';
-  document.querySelectorAll('#fin-abas [data-aba]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.aba === F.aba)));
+  R.querySelectorAll('#fin-abas [data-aba]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.aba === F.aba)));
   // avisos (os do topo do antigo): honorários vencidos e prejuízo — clicar leva à lista
   const h = hojeISO(), venc = L.filter((l) => l._c === 'areceber' && l.vencimento && l.vencimento < h), perdas = L.filter((l) => l._c === 'perda');
-  $('fin-avisos').innerHTML = (venc.length ? '<button type="button" class="b-aviso b-aviso-r" data-fin-ir="venc">' + plural(venc.length, 'honorário vencido', 'honorários vencidos') + ' · ' + brl(soma(venc, valorLanc)) + '</button>' : '') +
+  R.querySelector('#fin-avisos').innerHTML = (venc.length ? '<button type="button" class="b-aviso b-aviso-r" data-fin-ir="venc">' + plural(venc.length, 'honorário vencido', 'honorários vencidos') + ' · ' + brl(soma(venc, valorLanc)) + '</button>' : '') +
     (perdas.length ? '<button type="button" class="b-aviso" data-fin-ir="perda">Prejuízo: ' + brl(soma(perdas, valorLanc)) + '</button>' : '');
   try {
     if (F.aba === 'analise') analiseFin(empresa, corpo);
@@ -282,10 +285,16 @@ function analiseFin(empresa, corpo) {
       linhas.map((l) => '<tr><td>' + pillPessoa(l.p) + '</td>' + td(brl(l.rec), 'b-verde-v') + td((tot ? Math.round(l.rec / tot * 100) : 0) + '%') + '<td class="b-cen">' + l.n + '</td>' + td(l.n ? brl(l.rec / l.n) : '—') + td(l.ar ? brl(l.ar) : '—') + td(l.pj ? brl(l.pj) : '—') + '</tr>').join('') +
       '</tbody><tfoot><tr><td>Total</td>' + td(brl(tot)) + td(tot ? '100%' : '—') + '<td class="b-cen">' + linhas.reduce((s, l) => s + l.n, 0) + '</td><td></td>' + td(brl(linhas.reduce((s, l) => s + l.ar, 0))) + td(brl(linhas.reduce((s, l) => s + l.pj, 0))) + '</tr></tfoot></table></div>' : '<div class="b-barras-vazio">Nada no período.</div>');
   }
-  corpo.innerHTML = fil + fluxoDoMes(empresa) + numsFaixa(nums) + graf + comp + resultadoMeses(meses, receita, pagos, contab) +
-    '<div class="b-fin-dois">' + cartaoFin(contab ? 'Recebido por tipo de serviço' : 'Por tipo de serviço', '', barrasFin(somaPor(receita, (l) => l.servico))) +
-      cartaoFin('Maiores grupos', '', barrasFin(somaPor(receita, (l) => l.grupos && l.grupos.nome))) + '</div>' +
-    (contab ? cartaoFin('Despesas por categoria', 'Pago no período, por categoria.', barrasFin(somaPor(pagos, (l) => l.categoria))) : '');
+  // Backup 84: o "Fluxo do mês" vem PRIMEIRO, sozinho (tem o próprio mês, ‹ ›) — não depende dos filtros; depois vem a "Análise do período",
+  // com os filtros de Quem/Período e tudo o que eles mudam. Contabilidade: duas linhas de dois quadros, como no ambiente.
+  const dois = (a, b) => '<div class="b-fin-dois">' + a + b + '</div>';
+  corpo.innerHTML = fluxoDoMes(empresa) +
+    '<div class="b-sec b-fa-sec"><div><h2>Análise do período</h2><p>Recebido, a receber, em atraso e prejuízo — mudam com os filtros abaixo (o Fluxo do mês, acima, não).</p></div></div>' +
+    fil + numsFaixa(nums) + graf + comp +
+    dois(cartaoFin(contab ? 'Recebido por tipo de serviço' : 'Por tipo de serviço', '', barrasFin(somaPor(receita, (l) => l.servico))),
+      cartaoFin('Maiores grupos', '', barrasFin(somaPor(receita, (l) => l.grupos && l.grupos.nome)))) +
+    (contab ? dois(resultadoMeses(meses, receita, pagos, contab), cartaoFin('Despesas por categoria', 'Pago no período, por categoria.', barrasFin(somaPor(pagos, (l) => l.categoria))))
+      : resultadoMeses(meses, receita, pagos, contab));
   // controles
   const fl = corpo.querySelector('#fa-filtros');
   fl.onclick = (ev) => {

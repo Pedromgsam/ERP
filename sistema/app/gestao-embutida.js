@@ -32,7 +32,7 @@ function brl(n) { return fmtBRL.format(Number(n) || 0); }
 // Valor curto para gráfico, com o exato no title de quem chama.
 function brlCurto(n) {
   const v = Math.abs(Number(n) || 0), s = n < 0 ? '−' : '';
-  if (v >= 1e6) return s + 'R$ ' + (v / 1e6).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' mi';
+  if (v >= 1e6) return s + 'R$ ' + (v / 1e6).toLocaleString('pt-BR', { maximumFractionDigits: 2 }) + ' mi';   // Backup 84: como no ambiente (R$ 1,44 mi)
   if (v >= 1e4) return s + 'R$ ' + Math.round(v / 1e3).toLocaleString('pt-BR') + ' mil';
   return s + brl(v).replace(/\u00a0/g, ' ');   // Backup 76: espaço comum (o mesmo dos valores "mil"/"mi")
 }
@@ -582,6 +582,17 @@ function ligarFiltroSusB(id, estado, depois) {
   el.onclick = (ev) => { if (!ev.target.closest('[data-fsus-limpar]')) return; Object.keys(estado).forEach((k) => { estado[k] = ''; }); depois(); };
 }
 const unicosTxt = (L) => [...new Set(L.filter(Boolean))].sort((a, b) => String(a).localeCompare(String(b), 'pt-BR'));
+// Backup 84: seção que se minimiza (ex.: "Situação por cliente") — o botão fica no cabeçalho da seção e a escolha é lembrada neste navegador
+function botaoMinB(chave) {
+  let min = false; try { min = localStorage.getItem('erp_min_' + chave) === '1'; } catch (e) { /* sem armazenamento */ }
+  return '<button type="button" class="b-link b-min-bt" data-b-min="' + esc(chave) + '" aria-expanded="' + !min + '">' + (min ? 'Mostrar' : 'Minimizar') + '</button>';
+}
+function ligarMinB(chave, ids) {
+  const bt = document.querySelector('[data-b-min="' + chave + '"]'); if (!bt) return;
+  const aplicar = () => { const aberto = bt.getAttribute('aria-expanded') === 'true'; ids.forEach((id) => { const el = $(id); if (el) el.hidden = !aberto; }); bt.textContent = aberto ? 'Minimizar' : 'Mostrar'; };
+  bt.onclick = () => { const abrir = bt.getAttribute('aria-expanded') !== 'true'; bt.setAttribute('aria-expanded', String(abrir)); try { localStorage.setItem('erp_min_' + chave, abrir ? '0' : '1'); } catch (e) { /* vale só agora */ } aplicar(); };
+  aplicar();
+}
 function numsFaixa(itens) {
   return '<div class="b-nums b-nums-faixa b-nums-' + itens.length + '">' + itens.map((i) => '<div><span>' + esc(i[0]) + '</span><b class="' + (i[3] || '') + '">' + i[1] + '</b>' + (i[2] ? '<small>' + esc(i[2]) + '</small>' : '') + '</div>').join('') + '</div>';
 }
@@ -641,7 +652,7 @@ function tabelaB(el, cfg) {
     const guarda = st.aba, cont = {};
     if (!cfg.semContagemAbas) { cfg.abas.forEach((a) => { st.aba = a.id; cont[a.id] = filtrar().length; }); st.aba = guarda; }
     Q('.b-seg').innerHTML = cfg.abas.map((a) => '<button type="button" role="tab" class="b-seg-bt" data-b-aba="' + esc(a.id) + '" aria-selected="' + (a.id === st.aba) + '">' + esc(a.rot) +
-      (cfg.semContagemAbas ? '' : ' <span class="b-seg-n">' + cont[a.id] + '</span>') + '</button>').join('');
+      (cfg.semContagemAbas ? '' : ' <span class="b-seg-n' + (a.cor === 'r' && cont[a.id] ? ' b-seg-n-r' : '') + '">' + cont[a.id] + '</span>') + '</button>').join('');
   }
   function quadro() {
     const cols = cfg.colunasAba ? cfg.colunasAba(st.aba) : cfg.colunas;   // Backup 76: colunas que mudam com a aba (ex.: Vencimento × Pago em)
@@ -1735,6 +1746,7 @@ async function dadosFin(empresa, forcar) {
   return F.dados;
 }
 
+const raizFin = (empresa) => document.querySelector('#fin-raiz[data-emp="' + empresa + '"]') || document;
 async function telaHonorarios(empresa, forcar) {
   const F = estadoFin(empresa), info = EMPRESAS[empresa], c = $('conteudo');
   if (!c.querySelector('#fin-raiz[data-emp="' + empresa + '"]')) {
@@ -1759,19 +1771,21 @@ async function telaHonorarios(empresa, forcar) {
       if (b.dataset.finIr === 'venc') { st.aba = 'areceber'; st.prazo = 'venc'; } else { st.aba = 'perda'; st.prazo = ''; }
       pintarFin(empresa); };
   }
-  try { await dadosFin(empresa, forcar); } catch (e) { $('fin-corpo').innerHTML = '<div class="card"><div class="card-bd msg-erro">' + esc(erroAmigavel(e)) + '</div></div>'; return; }
+  try { await dadosFin(empresa, forcar); } catch (e) { raizFin(empresa).querySelector('#fin-corpo').innerHTML = '<div class="card"><div class="card-bd msg-erro">' + esc(erroAmigavel(e)) + '</div></div>'; return; }
   pintarFin(empresa);
 }
 // compatibilidade: quem chamava pintarFin/pintarLista depois de gravar
 function recarregarFin(empresa) { return telaHonorarios(empresa, true); }
 
 function pintarFin(empresa) {
-  const F = estadoFin(empresa), L = F.dados || [], corpo = $('fin-corpo'); if (!corpo) return;
+  // Backup 84: tudo procurado DENTRO da tela desta empresa — Jurídico e Contabilidade têm os mesmos ids (#fin-corpo…) e, ao trocar
+  // rápido de uma para a outra, a anterior ainda está na página: a Contabilidade se desenhava no painel escondido do Jurídico e ficava em "Carregando…"
+  const R = raizFin(empresa), F = estadoFin(empresa), L = F.dados || [], corpo = R.querySelector('#fin-corpo'); if (!corpo) return;
   if (!EMPRESAS[empresa].abas.some((a) => a[0] === F.aba)) F.aba = 'analise';
-  document.querySelectorAll('#fin-abas [data-aba]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.aba === F.aba)));
+  R.querySelectorAll('#fin-abas [data-aba]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.aba === F.aba)));
   // avisos (os do topo do antigo): honorários vencidos e prejuízo — clicar leva à lista
   const h = hojeISO(), venc = L.filter((l) => l._c === 'areceber' && l.vencimento && l.vencimento < h), perdas = L.filter((l) => l._c === 'perda');
-  $('fin-avisos').innerHTML = (venc.length ? '<button type="button" class="b-aviso b-aviso-r" data-fin-ir="venc">' + plural(venc.length, 'honorário vencido', 'honorários vencidos') + ' · ' + brl(soma(venc, valorLanc)) + '</button>' : '') +
+  R.querySelector('#fin-avisos').innerHTML = (venc.length ? '<button type="button" class="b-aviso b-aviso-r" data-fin-ir="venc">' + plural(venc.length, 'honorário vencido', 'honorários vencidos') + ' · ' + brl(soma(venc, valorLanc)) + '</button>' : '') +
     (perdas.length ? '<button type="button" class="b-aviso" data-fin-ir="perda">Prejuízo: ' + brl(soma(perdas, valorLanc)) + '</button>' : '');
   try {
     if (F.aba === 'analise') analiseFin(empresa, corpo);
@@ -1957,10 +1971,16 @@ function analiseFin(empresa, corpo) {
       linhas.map((l) => '<tr><td>' + pillPessoa(l.p) + '</td>' + td(brl(l.rec), 'b-verde-v') + td((tot ? Math.round(l.rec / tot * 100) : 0) + '%') + '<td class="b-cen">' + l.n + '</td>' + td(l.n ? brl(l.rec / l.n) : '—') + td(l.ar ? brl(l.ar) : '—') + td(l.pj ? brl(l.pj) : '—') + '</tr>').join('') +
       '</tbody><tfoot><tr><td>Total</td>' + td(brl(tot)) + td(tot ? '100%' : '—') + '<td class="b-cen">' + linhas.reduce((s, l) => s + l.n, 0) + '</td><td></td>' + td(brl(linhas.reduce((s, l) => s + l.ar, 0))) + td(brl(linhas.reduce((s, l) => s + l.pj, 0))) + '</tr></tfoot></table></div>' : '<div class="b-barras-vazio">Nada no período.</div>');
   }
-  corpo.innerHTML = fil + fluxoDoMes(empresa) + numsFaixa(nums) + graf + comp + resultadoMeses(meses, receita, pagos, contab) +
-    '<div class="b-fin-dois">' + cartaoFin(contab ? 'Recebido por tipo de serviço' : 'Por tipo de serviço', '', barrasFin(somaPor(receita, (l) => l.servico))) +
-      cartaoFin('Maiores grupos', '', barrasFin(somaPor(receita, (l) => l.grupos && l.grupos.nome))) + '</div>' +
-    (contab ? cartaoFin('Despesas por categoria', 'Pago no período, por categoria.', barrasFin(somaPor(pagos, (l) => l.categoria))) : '');
+  // Backup 84: o "Fluxo do mês" vem PRIMEIRO, sozinho (tem o próprio mês, ‹ ›) — não depende dos filtros; depois vem a "Análise do período",
+  // com os filtros de Quem/Período e tudo o que eles mudam. Contabilidade: duas linhas de dois quadros, como no ambiente.
+  const dois = (a, b) => '<div class="b-fin-dois">' + a + b + '</div>';
+  corpo.innerHTML = fluxoDoMes(empresa) +
+    '<div class="b-sec b-fa-sec"><div><h2>Análise do período</h2><p>Recebido, a receber, em atraso e prejuízo — mudam com os filtros abaixo (o Fluxo do mês, acima, não).</p></div></div>' +
+    fil + numsFaixa(nums) + graf + comp +
+    dois(cartaoFin(contab ? 'Recebido por tipo de serviço' : 'Por tipo de serviço', '', barrasFin(somaPor(receita, (l) => l.servico))),
+      cartaoFin('Maiores grupos', '', barrasFin(somaPor(receita, (l) => l.grupos && l.grupos.nome)))) +
+    (contab ? dois(resultadoMeses(meses, receita, pagos, contab), cartaoFin('Despesas por categoria', 'Pago no período, por categoria.', barrasFin(somaPor(pagos, (l) => l.categoria))))
+      : resultadoMeses(meses, receita, pagos, contab));
   // controles
   const fl = corpo.querySelector('#fa-filtros');
   fl.onclick = (ev) => {
@@ -4870,7 +4890,8 @@ TELAS.tarefas = async function () {
     if (b.dataset.tfTipo != null) F.tipos = alternarFiltro(F.tipos || FILTRO_TIPOS_AG.map((x) => x[0]), b.dataset.tfTipo, FILTRO_TIPOS_AG.map((x) => x[0]));
     else if (b.dataset.tfPri != null) F.pri = F.pri === b.dataset.tfPri ? '' : b.dataset.tfPri;
     else if (b.dataset.tfPrazo != null) F.atalho = F.atalho === b.dataset.tfPrazo ? '' : b.dataset.tfPrazo;
-    else { const todos = pessoasFiltro().map(primeiroNome); F.pessoas = alternarFiltro(F.pessoas && F.pessoas.length ? F.pessoas : todos, b.dataset.tfPes, todos); if (!F.pessoas.length) F.pessoas = [primeiroNome(meuNome())]; }
+    else if (b.dataset.tfPes != null) { const todos = pessoasFiltro().map(primeiroNome); F.pessoas = alternarFiltro(F.pessoas && F.pessoas.length ? F.pessoas : todos, b.dataset.tfPes, todos); if (!F.pessoas.length) F.pessoas = [primeiroNome(meuNome())]; }
+    else return;
     pintarTarefas(); };
   $('tf-busca').value = F.busca;
   let t; $('tf-busca').oninput = (ev) => { clearTimeout(t); t = setTimeout(() => { F.busca = ev.target.value; pintarTarefas(); }, 250); };
@@ -4897,9 +4918,9 @@ function filtrarTarefas(daLista) {
     if (a === '7' && (tarefaFechada(t) || !t.prazo || t.prazo > somarDias(h, 7))) return false;
     // "pedem atenção" (destaque do Início): minhas atrasadas ou com prazo fatal em até 7 dias
     if (a === 'atencao' && (tarefaFechada(t) || !ehMinha(t) || !((t.prazo && t.prazo < h) || (t.prazo_fatal && t.prazo_fatal <= somarDias(h, 7))))) return false;
-    if (!daLista && F.tipos && !F.tipos.includes(tipoItemAgenda(t))) return false;
+    if (F.tipos && !F.tipos.includes(tipoItemAgenda(t))) return false;   // Backup 84: o tipo vale em todas as vistas
     if (F.pessoas && F.pessoas.length && ![t.responsavel, t.revisor].concat(String(t.participantes || '').split(',')).some((n) => n && F.pessoas.includes(primeiroNome(n)))) return false;
-    if (!daLista && F.pri && t.prioridade !== F.pri) return false;
+    if (F.pri && t.prioridade !== F.pri) return false;
     if (b && !normalizar(t.titulo + ' ' + t.processos_vinculados + ' ' + nomeGrupo(t.grupo_id) + ' ' + nomeCliente(t.cliente_id) + ' ' + t.etiquetas + ' ' + t.descricao).includes(b)) return false;
     return true;
   });
@@ -4910,24 +4931,25 @@ function pintarTarefas() {
   document.querySelectorAll('#tf-vista button').forEach((b) => b.classList.toggle('ativo', b.dataset.v === F.vista));
   { const fl = document.querySelector('#panel-tarefas .filtros, #gs-main-tarefas .filtros'); if (fl) fl.style.display = F.vista === 'lista' ? 'none' : ''; }
   if (F.vista !== 'lista') F.aba = 'abertas';   // Backup 72: as abas (Concluídas, Excluídas…) são da Lista; Semana/Calendário/Fluxos mostram as em aberto
-  // Backup 48: filtros em botões que se marcam/desmarcam (iguais aos da agenda do Início); pessoas: Todos, eu, depois os outros
+  // Backup 84: uma linha de filtros em TODAS as vistas — "Mostrar" (tipo) em chips sempre à vista; "De quem" e "Urgência" em listas
+  // (como o "Todos os grupos" de Processos). Saíram os chips de pessoas, de prioridade e de prazo (o usuário pediu menos filtros).
+  if (F.pessoas && F.pessoas.length > 1) F.pessoas = [];   // de quando eram vários chips: agora é uma pessoa ou todas
   { const tipos = FILTRO_TIPOS_AG.map((x) => x[0]), tSel = new Set(F.tipos || tipos), eu = primeiroNome(meuNome());
     const pes = pessoasFiltro().slice().sort((a, b) => (primeiroNome(b) === eu) - (primeiroNome(a) === eu) || a.localeCompare(b, 'pt-BR'));
-    const pSel = new Set(F.pessoas && F.pessoas.length ? F.pessoas : pes.map(primeiroNome)), todasP = pSel.size >= pes.length;
-    const prazos = [['hoje', 'Hoje'], ['atrasadas', 'Atrasadas'], ['7', '7 dias']].concat(F.atalho === 'atencao' ? [['atencao', 'Pedem atenção']] : []);
-    const [gUrg, gPrazo] = gruposPriPrazo('data-tf-pri', F.aba === 'abertas' && F.vista !== 'fluxos' ? 'data-tf-prazo' : '', F.pri, F.atalho, prazos.slice(3));
-    const deQuem = pes.length > 1 ? '<div class="fila-chips" role="group" aria-label="De quem"><span class="fila-chips-rot">De quem</span>' +
-        chipFiltro('data-tf-pes', '*', 'Todos', todasP) + pes.map((n) => chipFiltro('data-tf-pes', primeiroNome(n), nomeCurto(n), pSel.has(primeiroNome(n)))).join('') + '</div>' : '';
-    // Backup 72: na Lista, só "De quem" (pílulas do desenho novo); tipo e prioridade ficam no botão "Filtros" da tabela
-    $('tf-chips').classList.toggle('tf-so-quem', F.vista === 'lista');
-    // Backup 82: na Lista, como no ambiente — busca, "De quem", tipo e prioridade ficam na barra da tabela (Filtros)
-    if (F.vista === 'lista') { $('tf-chips').classList.remove('fila-2x2'); $('tf-chips').innerHTML = ''; }
-    else {
-    $('tf-chips').classList.add('fila-2x2');
-    $('tf-chips').innerHTML = filtros2x2('<div class="fila-chips" role="group" aria-label="Mostrar"><span class="fila-chips-rot">Mostrar</span>' +
-        chipFiltro('data-tf-tipo', '*', 'Tudo', tSel.size === tipos.length, true) + FILTRO_TIPOS_AG.map(([k, r]) => chipFiltro('data-tf-tipo', k, r, tSel.has(k), true)).join('') + '</div>',
-      (pes.length > 1 ? '<div class="fila-chips" role="group" aria-label="De quem"><span class="fila-chips-rot">De quem</span>' +
-        chipFiltro('data-tf-pes', '*', 'Todos', todasP) + pes.map((n) => chipFiltro('data-tf-pes', primeiroNome(n), nomeCurto(n), pSel.has(primeiroNome(n)))).join('') + '</div>' : ''), gUrg, gPrazo); } }
+    const pesSel = F.pessoas && F.pessoas.length === 1 ? F.pessoas[0] : '';
+    const chipB = (k, r, on) => '<button type="button" class="b-chip" data-tf-tipo="' + esc(k) + '" aria-pressed="' + on + '">' + esc(r) + '</button>';
+    $('tf-chips').classList.remove('fila-2x2', 'tf-so-quem');
+    $('tf-chips').innerHTML = '<div class="b-tf-filtros"><div class="b-chips" role="group" aria-label="Mostrar"><span class="b-fin-rot">Mostrar</span>' +
+        chipB('*', 'Tudo', tSel.size === tipos.length) + FILTRO_TIPOS_AG.map(([k, r]) => chipB(k, r, tSel.has(k))).join('') + '</div>' +
+      '<div class="b-fsus">' + (pes.length > 1 ? '<label class="b-fsus-c"><span>De quem</span><select id="tf-f-pes" aria-label="De quem"><option value="">Todas as pessoas</option>' +
+        pes.map((n) => '<option value="' + esc(primeiroNome(n)) + '"' + (pesSel === primeiroNome(n) ? ' selected' : '') + '>' + esc(nomeCurto(n)) + '</option>').join('') + '</select></label>' : '') +
+      '<label class="b-fsus-c"><span>Urgência</span><select id="tf-f-pri" aria-label="Urgência"><option value="">Todas</option>' +
+        [['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa']].map(([k, r]) => '<option value="' + k + '"' + (F.pri === k ? ' selected' : '') + '>' + r + '</option>').join('') + '</select></label>' +
+      (pesSel || F.pri ? '<button type="button" class="b-fsus-limpar" id="tf-f-limpar">Limpar filtro</button>' : '') + '</div></div>';
+    const sp = $('tf-f-pes'); if (sp) sp.onchange = () => { F.pessoas = sp.value ? [sp.value] : []; pintarTarefas(); };
+    $('tf-f-pri').onchange = (ev) => { F.pri = ev.target.value; pintarTarefas(); };
+    const lp = $('tf-f-limpar'); if (lp) lp.onclick = () => { F.pessoas = []; F.pri = ''; pintarTarefas(); };
+  }
   const V = { lista: vistaLista, semana: vistaSemana, calendario: vistaCalendario, fluxos: vistaFluxos };
   $('tf-corpo').innerHTML = '<div id="tf-vista-corpo"></div>';
   if (!V[F.vista]) F.vista = 'lista';
@@ -4978,11 +5000,8 @@ function vistaLista(alvo) {
     abas: [{ id: 'abertas', rot: 'Em aberto', f: (t) => !tarefaFechada(t) }, { id: 'atrasadas', rot: 'Atrasadas', cor: 'r', f: (t) => !tarefaFechada(t) && t.prazo && t.prazo < h },
       { id: 'concluidas', rot: 'Concluídas', f: (t) => t.status === 'concluida' },
       { id: 'excluidas', rot: 'Excluídas', f: (t) => t.status === 'cancelada' && String(t.atualizado_em || '') >= somarDias(h, -90) }],   // mais de 90 dias: só no histórico
-    prazos: true, prazosAbas: ['abertas'], venc: (t) => t.prazo || '', ord: { k: 'prazo', dir: 1 }, ordAbas: { concluidas: { k: 'prazo', dir: -1 } },
-    listas: [{ k: 'tipo', rot: 'Tipo', todos: 'Todos os tipos', opcoes: FILTRO_TIPOS_AG, get: (t) => tipoItemAgenda(t) },
-      { k: 'pri', rot: 'Prioridade', todos: 'Todas as prioridades', opcoes: [['alta', 'Alta'], ['media', 'Média'], ['baixa', 'Baixa']], get: (t) => t.prioridade },
-      { k: 'pes', rot: 'De quem', todos: 'Todas as pessoas', opcoes: pessoasFiltro().map((n) => [primeiroNome(n), nomeCurto(n)]), get: (t) => [t.responsavel, t.revisor].concat(String(t.participantes || '').split(',')).filter(Boolean).map(primeiroNome) },
-      { k: 'st', rot: 'Status', todos: 'Todos os status', opcoes: Object.entries(STATUS_TAREFA), get: (t) => t.status }],
+    venc: (t) => t.prazo || '', ord: { k: 'prazo', dir: 1 }, ordAbas: { concluidas: { k: 'prazo', dir: -1 } },   // B84: sem os atalhos de prazo (a aba Atrasadas e "Filtros → vencimento" bastam)
+    listas: [{ k: 'st', rot: 'Status', todos: 'Todos os status', opcoes: Object.entries(STATUS_TAREFA), get: (t) => t.status }],
     busca: (t) => [t.titulo, t.processos_vinculados, grupoDe(t), nomeCliente(t.cliente_id), t.etiquetas, t.descricao].join(' '), dicaBusca: 'Tarefa ou cliente…',
     colunas: [
       { k: 'tit', rot: 'Tarefa', cls: 'b-tf-tit', ord: (t) => normalizar(t.titulo), html: (t) => {
@@ -9836,7 +9855,7 @@ function pintarParcelamentos() {
     // Backup 79: filtro suspenso (Grupo / Empresa) — recorta a situação por cliente e a lista de parcelas
     filtroSusB('pc-filtro', [{ k: 'grupo', rot: 'Grupo', todos: 'Todos os grupos', opcoes: unicosTxt(PA0.map((pa) => pa.grupo)), v: F.grupo },
       { k: 'emp', rot: 'Empresa', todos: 'Todas as empresas', opcoes: unicosTxt(PA0.filter((pa) => !F.grupo || pa.grupo === F.grupo).map((pa) => pa.empresa)), v: F.emp }]) +
-    '<div class="b-sec"><div><h2>Situação por cliente</h2></div><div class="b-chips" id="pc-chips">' +
+    '<div class="b-sec"><div class="b-sec-tit"><h2>Situação por cliente</h2>' + botaoMinB('pc-situacao') + '</div><div class="b-chips" id="pc-chips">' +
     [['todos', 'Todos'], ['atraso', 'Com atraso'], ['risco', 'Risco de rescisão'], ['dia', 'Em dia'], ['concluidos', 'Concluídos']].map((c) => '<button type="button" class="b-chip" data-pc-chip="' + c[0] + '" aria-pressed="' + (E.pc.chip === c[0]) + '">' + c[1] + '</button>').join('') + '</div></div>' +
     '<div class="b-cards" id="pc-grupos"></div>' +
     '<div class="b-sec"><div><h2>Parcelas</h2></div></div><div id="pc-tabela"></div>';
@@ -9846,6 +9865,7 @@ function pintarParcelamentos() {
   // Backup 71: os 4 cartões do topo saíram a pedido (a tela começa na situação por cliente)
   ligarFiltroSusB('pc-filtro', E.pc.f, () => { E.pc.grupo = ''; E.pc.fechado = false; pintarParcelamentos(); });
   desenharGruposPc();
+  ligarMinB('pc-situacao', ['pc-chips', 'pc-grupos']);   // Backup 84: a situação por cliente se minimiza
   $('pc-chips').onclick = (ev) => { const b = ev.target.closest('[data-pc-chip]'); if (!b) return; E.pc.chip = b.dataset.pcChip; $('pc-chips').querySelectorAll('.b-chip').forEach((x) => x.setAttribute('aria-pressed', x === b)); desenharGruposPc(); };
   tabelaB($('pc-tabela'), { id: 'parcelas', tabCls: 'b-tab-parc', linhas: T, colunas: colunasParcelas(), unidade: ['parcela', 'parcelas'], dicaBusca: 'Empresa, CNPJ ou nº',
     abas: [{ id: 'apagar', rot: 'A pagar', f: (x) => !x.pago }, { id: 'pago', rot: 'Pago', f: (x) => x.pago }], semContagemAbas: true,
@@ -10103,7 +10123,7 @@ function pintarAcordos() {
   el.innerHTML = cabecalhoTela({ icone: 'documento', titulo: 'Acordos', frase: 'Dívidas dos clientes com terceiros', atualizar: 'ac-atualizar', botao: podeEd ? { id: 'ac-novo', rotulo: 'Acordo' } : null }) +
     filtroSusB('ac-filtro', [{ k: 'grupo', rot: 'Grupo', todos: 'Todos os grupos', opcoes: unicosTxt(T0.map((x) => x.grupo)), v: F.grupo },   // Backup 79
       { k: 'emp', rot: 'Devedor', todos: 'Todos os devedores', opcoes: unicosTxt(T0.filter((x) => !F.grupo || x.grupo === F.grupo).map((x) => x.devedor)), v: F.emp }]) +
-    '<div class="b-sec"><div><h2>Situação por cliente</h2></div><div class="b-chips" id="ac-chips">' +
+    '<div class="b-sec"><div class="b-sec-tit"><h2>Situação por cliente</h2>' + botaoMinB('ac-situacao') + '</div><div class="b-chips" id="ac-chips">' +
     [['todos', 'Todos'], ['atraso', 'Com atraso'], ['risco', 'Risco de rescisão'], ['dia', 'Em dia'], ['concluidos', 'Concluídos']].map((c) => '<button type="button" class="b-chip" data-ac-chip="' + c[0] + '" aria-pressed="' + (E.ac.chip === c[0]) + '">' + c[1] + '</button>').join('') + '</div></div>' +
     '<div class="b-cards" id="ac-grupos"></div><div class="b-sec"><div><h2>Parcelas</h2></div></div><div id="ac-tabela"></div>';
   const bt = $('ac-novo'); if (bt) bt.onclick = () => { if (typeof formAcordoNovo === 'function') formAcordoNovo(() => { if (window.ERP_RECARREGAR) window.ERP_RECARREGAR(); else TELAS.acordos(); }); };
@@ -10111,6 +10131,7 @@ function pintarAcordos() {
   // Backup 71: os 4 cartões do topo saíram a pedido (a tela começa na situação por cliente)
   ligarFiltroSusB('ac-filtro', E.ac.f, () => { E.ac.grupo = ''; E.ac.fechado = false; pintarAcordos(); });
   desenharGruposAc();
+  ligarMinB('ac-situacao', ['ac-chips', 'ac-grupos']);   // Backup 84: a situação por cliente se minimiza
   $('ac-chips').onclick = (ev) => { const b = ev.target.closest('[data-ac-chip]'); if (!b) return; E.ac.chip = b.dataset.acChip; $('ac-chips').querySelectorAll('.b-chip').forEach((x) => x.setAttribute('aria-pressed', x === b)); desenharGruposAc(); };
   const uniq = (f) => [...new Set(T.map(f).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR')).map((v) => [v, v]);
   tabelaB($('ac-tabela'), { id: 'acordos', tabCls: 'b-tab-ac', linhas: T, colunas: colunasAcordos(), unidade: ['parcela', 'parcelas'], dicaBusca: 'Devedor / processo…',
@@ -10333,11 +10354,13 @@ async function evolucaoPE() {
   gr.innerHTML = graficoLinhaB(ms.map((m) => ({ rot: rot(m), v: tot(m), dica: rot(m) + ': ' + brl(tot(m)) })));
 }
 
+// Backup 84: o negociado em uma palavra, como no ambiente — "R$ 42 mil neg.", "R$ 8 mil neg." (abaixo de R$ 1.000, o valor inteiro)
+const negCurto = (v) => (Math.abs(v) >= 1e6 ? brlCurto(v) : Math.abs(v) >= 1e3 ? 'R$ ' + Math.round(v / 1e3).toLocaleString('pt-BR') + ' mil' : brlCurto(v));
 function empresasPE(base) {
   const el = $('pe-nova'); if (!el) return;
   const cli = E.clientes || [], areaDe = (r) => (cli.find((x) => x.id === r._id) || {}).area || 'ambos';
   const tot = (r) => (r.rfb || 0) + (r.rfbNeg || 0) + (r.pgfn || 0) + (r.pgfnNeg || 0) + (r.ageMG || 0) + (r.ageMGNeg || 0);
-  const orgao = (v, n) => ((v || 0) + (n || 0) > 0 ? '<b class="b-pe-v" title="' + esc(brl(v || 0)) + '">' + esc(brlCurto(v || 0)) + '</b>' + (n > 0 ? '<small class="b-pe-neg" title="' + esc(brl(n)) + '">' + esc(brlCurto(n)) + ' neg.</small>' : '') : '<span class="sub">—</span>');
+  const orgao = (v, n) => ((v || 0) + (n || 0) > 0 ? '<b class="b-pe-v" title="' + esc(brl(v || 0)) + '">' + esc(brlCurto(v || 0)) + '</b>' + (n > 0 ? '<small class="b-pe-neg" title="' + esc(brl(n)) + '">' + esc(negCurto(n)) + ' neg.</small>' : '') : '<span class="sub">—</span>');
   const sit = (r) => String(r.sitCadastral || '').trim();
   const ops = (f) => unicosB(base.map(f)).map((x) => [x, x]);
   const op = (r) => (/^sim$/i.test(r.emOperacao || '') ? 'Sim' : /^n[aã]o$/i.test(r.emOperacao || '') ? 'Não' : '');
