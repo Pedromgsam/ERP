@@ -54,7 +54,8 @@ TELAS.clientes = async function () {
 // Backup 49: a chave única "Recebe e-mails do escritório" (Sim/Não) — um clique na linha ou vários de uma vez
 function pillRecebeEmail(c, longo) {   // Backup 85 (CL4): longo = "Recebe e-mails" / "Não recebe e-mails" (no alto da ficha, como no ambiente)
   const on = c.recebe_email !== false;
-  return '<button type="button" class="pill cli-email ' + (on ? 'pago' : 'neutro') + '" data-cli-email="' + c.id + '" title="' + (on ? 'Recebe os e-mails do escritório — clique para NÃO receber' : 'NÃO recebe e-mails — clique para voltar a receber') + '">' + (longo ? (on ? 'Recebe e-mails' : 'Não recebe e-mails') : (on ? '✉ Sim' : '✕ Não')) + '</button>';
+  // Backup 87: no alto da ficha, a pílula do ambiente (com o pontinho)
+  return '<button type="button" class="' + (longo ? 'b-pill cli-email ' + (on ? 'b-g' : 'b-r') : 'pill cli-email ' + (on ? 'pago' : 'neutro')) + '" data-cli-email="' + c.id + '" title="' + (on ? 'Recebe os e-mails do escritório — clique para NÃO receber' : 'NÃO recebe e-mails — clique para voltar a receber') + '">' + (longo ? (on ? 'Recebe e-mails' : 'Não recebe e-mails') : (on ? '✉ Sim' : '✕ Não')) + '</button>';
 }
 async function trocarRecebeEmail(ids, recebe) {
   await q(sb.rpc('clientes_recebe_email', { p_ids: ids, p_recebe: recebe }));
@@ -677,35 +678,52 @@ async function _detalheContrato(id) {
   // "Ligar lançamentos" continuam (o usuário decide depois o que tirar — lista do Backup 85).
   ct.contratos_aditivos = aditivos;
   const reajAgora = reajustesProximos([ct])[0];
-  const fichaVis = [['Valor', ct.modalidade === 'consultoria' ? valorContratoTexto(ct) + ' / mês' : brl(total)], ['Início', dataBR(ct.inicio_vigencia || ct.inicio_competencia || ct.data_contrato)],
+  // Backup 87 (D11): janela do ambiente — 4 campos, "Lançamentos deste contrato no Financeiro" (Descrição · Valor · Vencimento · Prazo, total e média) e,
+  // no rodapé, Editar · Aplicar reajuste · Fechar. O resto do ERP (mais dados, números, avulso, ligar, êxito, documentos, aditivos, rescindir, excluir)
+  // fica em "Detalhamento completo" (botão no rodapé abre/fecha).
+  const fichaVis = [['Valor', ct.modalidade === 'consultoria' ? valorContratoTexto(ct).replace('/mês', ' / mês') : brl(total)], ['Início', dataBR(ct.inicio_vigencia || ct.inicio_competencia || ct.data_contrato)],
     ['Reajuste', reajAgora ? dataBR(iso(reajAgora.anv)) : ct.modalidade === 'consultoria' && ct.forma_valor === 'salario_minimo' ? 'pelo salário mínimo' : '—'],
     ['Êxito', ct.percentual_exito ? String(ct.percentual_exito).replace('.', ',') + '%' : '—']];
+  const sit = ct.rescindido_em ? ['Rescindido', 'b-n'] : ct.status === 'Aguardando assinatura' ? ['Aguardando assinatura', 'b-a'] : ct.status === 'Ativo' ? ['Ativo', 'b-g'] : [ct.status || '—', 'b-n'];
   const j = abrirJanela({
     kick: (ct.modalidade === 'consultoria' ? 'Consultoria' : 'Serviço pontual') + (ct.servico ? ' · ' + ct.servico : ''), titulo: ct.descricao || 'Contrato',
-    sub: esc(ct.clientes ? ct.clientes.nome : '—'), dir: pillSituacaoCtr(ct), larga: true,
+    sub: esc(ct.clientes ? ct.clientes.nome : '—'), dir: '<span class="b-pill ' + sit[1] + '">' + esc(sit[0]) + '</span>', larga: true,
     corpo:
       (ct.status === 'Aguardando assinatura' ? '<div class="faixa-aprov tem" id="ctr-assinatura"><span class="faixa-ic" aria-hidden="true">⏳</span><div><b>Aguardando a assinatura do cliente</b>' +
-        '<div class="sub">O financeiro, o onboarding e o aviso à equipe acontecem quando você marcar como assinado (botão no rodapé). Anexe o PDF assinado em "Documentos do contrato", abaixo.</div></div></div>' : '') +
+        '<div class="sub">O financeiro, o onboarding e o aviso à equipe acontecem quando você marcar como assinado (botão no rodapé). Anexe o PDF assinado em "Documentos do contrato" (Detalhamento completo).</div></div></div>' : '') +
       '<div class="b-ficha">' + fichaVis.map(([r, v]) => '<div><span>' + r + '</span><b>' + esc(v) + '</b></div>').join('') + '</div>' +
-      '<details class="b-mais-dados"><summary>Mais dados do contrato</summary><div class="ctr-ficha">' + ficha.map(([r, v]) => '<div><span>' + r + '</span><b>' + (/^</.test(v) ? v : esc(v)) + '</b></div>').join('') + '</div>' +
-      (ct.obs ? '<div class="dica" style="margin-top:8px">' + esc(ct.obs) + '</div>' : '') + '</details>' +
+      '<div class="b-bloco ctr-lanc"><h3>Lançamentos deste contrato no Financeiro</h3><div id="ctr-lanc-tab"></div></div>' +
+      '<div id="ctr-det" class="ctr-det" hidden>' +
+      '<div class="b-bloco"><h3>Mais dados do contrato</h3><div class="ctr-ficha">' + ficha.map(([r, v]) => '<div><span>' + r + '</span><b>' + (/^</.test(v) ? v : esc(v)) + '</b></div>').join('') + '</div>' +
+      (ct.obs ? '<div class="dica" style="margin-top:8px">' + esc(ct.obs) + '</div>' : '') + '</div>' +
       numsFaixa([['Recebido', esc(brl(recebido)), parc.filter((p) => p.pago).length + ' de ' + parc.length + ' parcela(s)', 'b-verde'],
         ['Falta receber', esc(brl(total - recebido)), ct.percentual_exito ? '+ ' + String(ct.percentual_exito).replace('.', ',') + '% de êxito' : (ct.modalidade === 'consultoria' ? 'até a rescisão' : pctRec + '% do previsto já recebido')],
         ['Em atraso', atrasadas.length ? esc(brl(soma(atrasadas, (p) => p.valor))) : 'nada', atrasadas.length ? plural(atrasadas.length, 'parcela', 'parcelas') : '', atrasadas.length ? 'b-verm' : '']]) +
-      '<div class="b-bloco"><h3>Lançamentos deste contrato no Financeiro</h3><div class="card" style="margin:0">' + tabelaLancamentos(parc, { compacta: true }) + '</div>' +
-      '<div style="margin-top:10px"><button class="btn btn-g btn-mini" id="ctr-add-parc">' + iconeB('mais') + ' Lançar valor avulso neste contrato</button> ' +
-        '<button class="btn btn-g btn-mini" id="ctr-vincular" title="Implantação: liga a este contrato lançamentos que já estão no Financeiro (não cria nada novo)">Ligar lançamentos que já existem</button>' +
-        (ct.sem_financeiro ? ' <span class="pill neutro" title="Contrato de implantação: o sistema não gera parcelas nem mensalidades">implantação</span>' : '') + '</div></div>' +
+      '<div class="ctr-det-bts"><button class="btn btn-o btn-mini" id="ctr-add-parc">' + iconeB('mais') + ' Lançar valor avulso neste contrato</button>' +
+        '<button class="btn btn-o btn-mini" id="ctr-vincular" title="Implantação: liga a este contrato lançamentos que já estão no Financeiro (não cria nada novo)">Ligar lançamentos que já existem</button>' +
+        (ct.sem_financeiro ? ' <span class="pill neutro" title="Contrato de implantação: o sistema não gera parcelas nem mensalidades">implantação</span>' : '') + '</div>' +
       (ct.percentual_exito ? blocoExito(ct, exitos) : '') +
-      '<div class="card" style="margin:14px 0 0"><div class="card-bd" id="ctr-docs"></div></div>' + blocoAditivos(ct, aditivos),
+      '<div class="card" style="margin:14px 0 0"><div class="card-bd" id="ctr-docs"></div></div>' + blocoAditivos(ct, aditivos) +
+      '<div class="ctr-det-bts">' + (ct.modalidade === 'consultoria' && !ct.rescindido_em ? '<button class="btn btn-o btn-mini" id="btn-rescindir-ctr" type="button">Rescindir</button>' : '') +
+        (E.perfil.papel === 'admin' ? '<button class="btn btn-g btn-mini" id="btn-excluir-ctr" type="button">' + iconeB('lixo') + ' Excluir contrato</button>' : '') + '</div>' +
+      '</div>',
     rodape:
-      (E.perfil.papel === 'admin' ? '<button class="btn btn-g" id="btn-excluir-ctr" type="button" style="margin-right:auto">' + iconeB('lixo') + ' Excluir contrato</button>' : '<span></span>') +
-      '<div class="acoes">' + (ct.modalidade === 'consultoria' && !ct.rescindido_em ? '<button class="btn btn-o" id="btn-rescindir-ctr" type="button">Rescindir</button>' : '') +
-      '<button class="btn btn-o" id="btn-editar-ctr" type="button">' + iconeB('lapis') + ' Editar</button>' +
+      '<button class="btn btn-o" type="button" id="ctr-det-bt" aria-expanded="false" style="margin-right:auto">' + iconeB('olho') + ' Detalhamento completo</button>' +
+      '<div class="acoes">' + (pode('contratos', 'editar') ? '<button class="btn btn-o" id="btn-editar-ctr" type="button">' + iconeB('lapis') + ' Editar</button>' : '') +
       (reajAgora ? '<button class="btn btn-o" id="ctr-reaj" type="button">Aplicar reajuste</button>' : '') +
       '<button class="btn btn-o" type="button" data-fechar>Fechar</button>' +
       (ct.status === 'Aguardando assinatura' ? '<button class="btn btn-p" type="button" id="ctr-assinar">' + iconeB('check') + ' Marcar como assinado</button>' : '') + '</div>'
   });
+  { const bt = j.querySelector('#ctr-det-bt'), det = j.querySelector('#ctr-det');
+    bt.onclick = () => { det.hidden = !det.hidden; bt.setAttribute('aria-expanded', String(!det.hidden)); bt.lastChild.textContent = det.hidden ? ' Detalhamento completo' : ' Fechar o detalhamento'; if (!det.hidden) det.scrollIntoView({ block: 'start', behavior: 'smooth' }); }; }
+  tabelaB(j.querySelector('#ctr-lanc-tab'), { id: 'ctr-lanc-' + id, semBarra: true, linhas: parc, unidade: ['lançamento', 'lançamentos'], altura: '320px', ord: { k: 'venc', dir: -1 }, somaB: (l) => Number(l.valor) || 0,
+    linhaCls: (l) => (!l.pago && !l.perda && l.vencimento && l.vencimento <= hojeISO() ? ' b-tr-venc' : ''),
+    colunas: [{ k: 'd', rot: 'Descrição', html: (l) => esc(l.descricao || '—'), ord: (l) => (l.descricao || '').toLowerCase() },
+      { k: 'v', rot: 'Valor', cls: 'b-dir b-val', soma: true, html: (l) => brl(l.valor), ord: (l) => Number(l.valor) || 0 },
+      { k: 'venc', rot: 'Vencimento', cls: 'b-cen b-data', html: (l) => (l.vencimento ? dataBR(l.vencimento) : '—'), ord: (l) => l.vencimento || '' },
+      { k: 'pz', rot: 'Prazo', cls: 'b-cen b-prazo', html: celPrazoL, ord: (l) => (l.pago ? '0' : l.vencimento || '9') }],
+    clique: (l) => detalheLancamento(l.id),
+    vazio: { titulo: 'Nenhum lançamento', frase: ct.status === 'Aguardando assinatura' ? 'O financeiro é lançado quando o contrato for marcado como assinado.' : 'Este contrato ainda não tem lançamentos no Financeiro.' } });
   { const rj = j.querySelector('#ctr-reaj');
     if (rj) rj.onclick = () => comBotao(rj, async () => {
       const pct = await indiceReajustePadrao(), v = Math.round(Number(ct.valor_mensal) * (1 + pct / 100) * 100) / 100;
@@ -716,7 +734,6 @@ async function _detalheContrato(id) {
       aviso('✓ Reajuste aplicado — as mensalidades em aberto já estão com o valor novo.'); fecharJanela(j); await detalheContrato(id);
     }); }
   const reabrir = async () => { fecharJanela(j); await detalheContrato(id); };
-  ligarAcoesLancamentos(j, reabrir);
   const btAssinar = j.querySelector('#ctr-assinar');
   if (btAssinar) btAssinar.onclick = () => comBotao(btAssinar, async () => {
     if (!await confirmarB('Marcar o contrato como assinado? O sistema lança o financeiro, cria o onboarding e avisa a equipe.')) return;
@@ -725,7 +742,7 @@ async function _detalheContrato(id) {
   });
   blocoDocumentos(j.querySelector('#ctr-docs'), { contrato_id: id, cliente_id: ct.cliente_id, grupo_id: ct.clientes && ct.clientes.grupo_id, tipo: 'contrato' },
     { titulo: 'Documentos do contrato', vazio: 'Nenhum documento. Envie aqui o contrato assinado, a proposta e os aditivos.' }).catch((e) => console.error(e));
-  j.querySelector('#btn-editar-ctr').onclick = () => formContrato(ct);
+  { const be0 = j.querySelector('#btn-editar-ctr'); if (be0) be0.onclick = () => formContrato(ct); }
   const br = j.querySelector('#btn-rescindir-ctr'); if (br) br.onclick = () => formRescisao(ct, reabrir);
   const be = j.querySelector('#ctr-exito-reg'); if (be) be.onclick = () => formExito(ct, reabrir);
   const ba = j.querySelector('#ctr-aditivo'); if (ba) ba.onclick = () => formAditivo(ct, reabrir);

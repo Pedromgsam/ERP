@@ -12,7 +12,6 @@ const ED_P = () => window.ERP_EDITOR || null;
 const doMesP = (iso) => !!iso && iso.slice(0, 7) === hojeISO().slice(0, 7);
 // E3: cada grupo com uma cor fixa (a mesma em todas as telas)
 // Backup 72: grupo só em texto, sem a bolinha colorida (vale para o ERP todo)
-function grupoTxtB(nome) { return '<span class="b-gtx">' + esc(nome || 'Sem grupo') + '</span>'; }
 function empresaB(nome, docx) { return '<span class="b-emp">' + esc(nome || '—') + '</span>' + (docx ? '<span class="b-doc">' + esc(docx) + '</span>' : ''); }
 const brIso = (br) => { const m = String(br || '').match(/(\d{2})\/(\d{2})\/(\d{4})/); return m ? m[3] + '-' + m[2] + '-' + m[1] : (/^\d{4}-\d{2}-\d{2}/.test(String(br || '')) ? String(br).slice(0, 10) : ''); };
 const dbParc = () => { try { return (typeof DB !== 'undefined' && DB) || window.DB || null; } catch (e) { return window.DB || null; } }; // eslint-disable-line no-undef
@@ -59,16 +58,6 @@ const estadoParc = (x) => (x.pago ? 'pagas' : x.venc && x.venc <= hojeISO() ? 'a
 const paraEmitirP = (x) => x.pa.emitimos && !x.pago && !x.emitida && !!x.venc && (x.venc <= hojeISO() || doMesP(x.venc));
 
 // ── células e colunas (as mesmas em todas as listas de parcelas) ──
-function celEmissaoP(x, comBotao) {
-  if (!x.pa.emitimos) return '<span class="b-em">Cliente emite</span>';
-  if (x.emitida) return '<span class="b-em b-em-ok">✓ Emitida ' + dataBR(x.emitida).slice(0, 5) + '</span>';
-  if (x.pago) return '<span class="b-em">—</span>';
-  return comBotao && pode('juridico', 'editar') && x.venc && (x.venc <= hojeISO() || doMesP(x.venc)) ? '<button type="button" class="b-emitir" data-pc-emitir="' + esc(x.id) + '">' + iconeB('documento') + 'Emitir</button>' : '<span class="b-em">Não emitida</span>';
-}
-function celBaixaP(x) {
-  if (x.pago) return '<span class="b-ok-txt">✓ ' + (x.pagoEm ? 'Pago em ' + dataBR(x.pagoEm).slice(0, 5) : 'Pago') + '</span>';
-  return pode('juridico', 'editar') ? '<button type="button" class="b-baixa" data-pc-baixa="' + esc(x.id) + '">' + iconeB('check') + 'Baixa</button>' : '<span class="b-em">Em aberto</span>';
-}
 // Backup 69: colunas como a tabela de Acordos (o usuário preferiu): Vencimento só a data; "Prazo" colorido (atraso, vence hoje, N dias) com "✓ emitido";
 // no fim, os botões Emitir (verde claro depois de emitida) e Baixa (verde). Pagas: "Pago em" no lugar do prazo, sem botões.
 const diasAteP = (iso) => (iso ? Math.round((new Date(iso + 'T00:00:00') - new Date(hojeISO() + 'T00:00:00')) / 864e5) : null);
@@ -198,18 +187,20 @@ function desenharGruposPc() {
 async function janelaParcelamento(pa) {
   const r = resumoPa(pa);
   // Backup 85 (PA1/PA2/PA3): desenho do ambiente — plataforma · natureza em cima, a empresa no título, "Nº · grupo" embaixo; ficha com 4 campos
-  // Backup 86 (M08): sem "Mais dados" e sem "Editar dados" — botões Ficha do cliente · Emitir (N) · Fechar, como no ambiente
+  // Backup 86 (M08): sem "Mais dados" — botões Ficha do cliente · Emitir (N) · Fechar, como no ambiente; Backup 87: "Editar dados" voltou (a pedido)
   const emitirMes = pa.emitimos && pode('juridico', 'editar') ? r.mes.filter((x) => !x.emitida && !x.pago) : [];
   const j = abrirJanela({ larga: true, kick: [pa.local, pa.natureza].filter(Boolean).join(' · ') || 'Parcelamento', titulo: pa.empresa, sub: 'Nº ' + esc(pa.numero || '—') + (pa.grupo ? ' · ' + esc(pa.grupo) : ''),
     dir: r.concluido ? '<span class="b-pill b-g">Concluído</span>' : r.atr ? '<span class="b-pill b-r">' + plural(r.atr, 'parcela', 'parcelas') + ' em atraso</span>' : '<span class="b-pill b-g">Em dia</span>',
     corpo: '<div class="b-ficha"><div><span>Empresa</span><b>' + esc(pa.empresa || '—') + '</b></div><div><span>CNPJ/CPF</span><b class="b-m">' + esc(pa.cnpj || '—') + '</b></div><div><span>Plataforma</span><b>' + esc(pa.local || '—') + '</b></div><div><span>Quem emite a guia</span><b>' + (pa.emitimos ? 'O escritório' : 'O cliente') + '</b></div></div>' +
-      '<div class="b-nums">' + [['Parcelas pagas', pa.pagas + ' de ' + pa.tot, ''], ['Já pago', brl(r.quitado), 'b-verde'], ['Falta pagar', brl(r.falta), ''], ['Parcela do mês', r.parcMes ? brl(r.parcMes.valor) + ' · ' + (r.parcMes.pago ? 'paga' : dataBR(r.parcMes.venc).slice(0, 5)) : (r.prox ? 'próxima ' + dataBR(r.prox.venc) : '—'), r.parcMes && !r.parcMes.pago && r.parcMes.venc <= hojeISO() ? 'b-verm' : ''], ['Em atraso', r.atr ? plural(r.atr, 'parcela', 'parcelas') : 'nenhuma', r.atr ? 'b-verm' : '']]
+      '<div class="b-nums b-nums-faixa b-nums-5">' + [['Parcelas pagas', pa.pagas + ' de ' + pa.tot, ''], ['Já pago', brl(r.quitado), 'b-verde'], ['Falta pagar', brl(r.falta), ''], ['Parcela do mês', r.parcMes ? brl(r.parcMes.valor) + ' · ' + (r.parcMes.pago ? 'paga' : dataBR(r.parcMes.venc).slice(0, 5)) : (r.prox ? 'próxima ' + dataBR(r.prox.venc) : '—'), r.parcMes && !r.parcMes.pago && r.parcMes.venc <= hojeISO() ? 'b-verm' : ''], ['Em atraso', r.atr ? plural(r.atr, 'parcela', 'parcelas') : 'nenhuma', r.atr ? 'b-verm' : '']]
         .map((k) => '<div><span>' + k[0] + '</span><b class="' + k[2] + '">' + k[1] + '</b></div>').join('') + '</div><div id="pc-j-parcelas"><p class="b-kpi-s">Carregando todas as parcelas…</p></div>',
-    rodape: '<span class="acoes" style="margin-right:auto"><button type="button" class="btn btn-o" id="pc-j-ficha">' + iconeB('clientes') + 'Ficha do cliente</button></span>' +
+    rodape: '<span class="acoes" style="margin-right:auto"><button type="button" class="btn btn-o" id="pc-j-ficha">' + iconeB('clientes') + 'Ficha do cliente</button>' +
+      (pode('juridico', 'editar') ? '<button type="button" class="btn btn-o" id="pc-j-editar">' + iconeB('lapis') + 'Editar dados</button>' : '') + '</span>' +
       (emitirMes.length ? '<button type="button" class="btn btn-o" id="pc-j-guias">' + iconeB('documento') + 'Emitir (' + emitirMes.length + ')</button>' : '') +
       '<button type="button" class="btn btn-o" data-fechar>Fechar</button>' });
   j.classList.add('pc-janela');
   const gu = j.querySelector('#pc-j-guias'); if (gu) gu.onclick = () => { fecharJanela(j); emitirGuiasEmpresaPa(emitirMes[0], E.pc.PA || [pa]); };
+  const ed = j.querySelector('#pc-j-editar'); if (ed) ed.onclick = () => { fecharJanela(j); const ED = ED_P(); if (ED && ED.abrirParcelamento) ED.abrirParcelamento(pa.id); };
   j.querySelector('#pc-j-ficha').onclick = async () => { await carregarCadastros(); const c = clienteDaEmpresa(pa.empresa, pa.cnpj); if (!c) return aviso('Não achei o cadastro desta empresa em Clientes.', true); fecharJanela(j); abrirFicha(c.id); };
   // todas as parcelas, direto do banco (a tela principal mostra 12 meses para trás e 18 para frente)
   let todas = pa.parcelas;
@@ -226,32 +217,22 @@ async function janelaParcelamento(pa) {
   tabelaB(alvo, { id: 'pc-j-' + pa.id, contagem: true, linhas: todas, unidade: ['parcela', 'parcelas'], ord: { k: 'n', dir: 1 }, somaB: (x) => x.valor, altura: '340px', abaPadrao: 'abertas',
     abas: [{ id: 'abertas', rot: 'A pagar', f: (x) => !x.pago }, { id: 'pagas', rot: 'Pagas', f: (x) => x.pago }, { id: 'todas', rot: 'Todas', f: () => true }],
     linhaCls: (x) => (!x.pago && x.venc && x.venc <= hojeISO() ? ' b-tr-venc' : ''),
-    colunas: [{ k: 'n', rot: 'Parcela', cls: 'b-data', html: (x) => esc(x.n) + (pa.tot ? ' de ' + pa.tot : ''), ord: (x) => Number(x.n) || 0 },
-      { k: 'venc', rot: 'Vencimento', cls: 'b-cen b-data', html: (x) => (x.venc ? dataBR(x.venc) : '—'), ord: (x) => x.venc || '9' },
+    // Backup 87 (D05): como no ambiente — Parcela · Valor · Vencimento · Prazo, com "Filtros"; a parcela não abre janela (Emitir e Baixa ficam na linha)
+    venc: (x) => x.venc,
+    colunas: [{ k: 'n', rot: 'Parcela', cls: 'b-cen b-data', html: (x) => esc(x.n) + (pa.tot ? ' de ' + pa.tot : ''), ord: (x) => Number(x.n) || 0 },
       { k: 'v', rot: 'Valor', cls: 'b-dir b-val', soma: true, html: (x) => brl(x.valor) + (x.lancado ? '' : ' <small title="Valor ainda não lançado nesta parcela: vale o último lançado">*</small>'), ord: (x) => x.valor },
+      { k: 'venc', rot: 'Vencimento', cls: 'b-cen b-data', html: (x) => (x.venc ? dataBR(x.venc) : '—'), ord: (x) => x.venc || '9' },
       { k: 'pz', rot: 'Prazo', cls: 'b-cen b-prazo', html: celPrazoP, ord: (x) => (x.pago ? x.pagoEm || '1' : x.venc || '9') },
-      { k: 'ac', rot: '', cls: 'b-dir b-c-acoes', html: celAcoesP, ord: false }],
-    clique: janelaParcela });
+      { k: 'ac', rot: '', cls: 'b-dir b-c-acoes', html: (x) => (x.pago && pode('juridico', 'editar') ? '<button type="button" class="b-link" data-pc-desm="' + esc(x.id) + '" title="Desmarcar o pagamento">↺</button>' : celAcoesP(x)), ord: false }] });
 }
 
-// ── clique na parcela: ficha + guia + pagamento (com Desmarcar) + editar no formulário do ERP ──
-function janelaParcela(x) {
-  const pa = x.pa, podeEd = pode('juridico', 'editar');
-  const j = abrirJanela({ kick: 'Parcela ' + x.n + (pa.tot ? ' de ' + pa.tot : ''), titulo: pa.empresa, sub: esc(pa.local || '') + ' · ' + esc(pa.natureza || '') + ' · nº ' + esc(pa.numero || '—'),
-    corpo: '<div class="b-ficha" style="grid-template-columns:1fr 1fr"><div><span>Grupo</span><b>' + grupoTxtB(pa.grupo) + '</b></div><div><span>CPF / CNPJ</span><b class="b-m">' + esc(pa.cnpj || '—') + '</b></div>' +
-      '<div><span>Vencimento</span><b>' + (x.venc ? dataBR(x.venc) : '—') + '</b></div><div><span>Valor</span><b>' + brl(x.valor) + (x.lancado ? '' : ' <small>(último lançado)</small>') + '</b></div></div>' +
-      '<div class="b-conf"><b>Guia</b><span>' + celEmissaoP(x, true) + '</span></div>' +
-      '<div class="b-conf"><b>Pagamento</b><span>' + (x.pago ? '<span class="b-ok-txt">✓ Pago' + (x.pagoEm ? ' em ' + dataBR(x.pagoEm) : '') + '</span>' + (podeEd ? ' <button type="button" class="b-link" id="pc-p-desmarcar">Desmarcar o pagamento</button>' : '') : celBaixaP(x)) + '</span></div>',
-    rodape: '<button type="button" class="btn btn-o" id="pc-p-pa" style="margin-right:auto">Ver o parcelamento inteiro</button>' + (podeEd ? '<button type="button" class="btn btn-o" id="pc-p-editar">Editar</button>' : '') + '<button type="button" class="btn btn-o" data-fechar>Fechar</button>' });
-  j.querySelector('#pc-p-pa').onclick = () => { fecharJanela(j); janelaParcelamento(pa); };
-  const ed = j.querySelector('#pc-p-editar'); if (ed) ed.onclick = () => { [...document.querySelectorAll('#janelas > .fundo')].forEach((f) => fecharJanela(f)); const ED = ED_P(); if (ED && ED.abrirParcelamento) ED.abrirParcelamento(pa.id, x.id); };
-  const dm = j.querySelector('#pc-p-desmarcar'); if (dm) dm.onclick = async () => {
-    if (!await confirmarB('Tirar a baixa desta parcela? Ela volta a ficar em aberto.')) return;
-    fecharJanela(j); const antes = { pago: x.pago, pagoEm: x.pagoEm };
-    marcarParcela(x, false, '');
-    try { await q(sb.from('parcelas').update({ pago: false, data_pagamento: null }).eq('id', x.id)); const ED = ED_P(); if (ED && ED.gravou) ED.gravou('Pagamento desmarcado'); else aviso('Pagamento desmarcado.'); if (ED && ED.marcarSujo) ED.marcarSujo('parcelas', pa.id); }
-    catch (e) { marcarParcela(x, antes.pago, antes.pagoEm); aviso('⚠ ' + erroAmigavel(e), true); }
-  };
+// Backup 87 (D05): a parcela não abre mais janela (como no ambiente); "Desmarcar o pagamento" ficou como ↺ na linha paga da janela do parcelamento
+async function desmarcarParcela(x) {
+  if (!await confirmarB('Tirar a baixa desta parcela? Ela volta a ficar em aberto.')) return;
+  const antes = { pago: x.pago, pagoEm: x.pagoEm };
+  marcarParcela(x, false, '');
+  try { await q(sb.from('parcelas').update({ pago: false, data_pagamento: null }).eq('id', x.id)); const ED = ED_P(); if (ED && ED.gravou) ED.gravou('Pagamento desmarcado'); else aviso('Pagamento desmarcado.'); if (ED && ED.marcarSujo) ED.marcarSujo('parcelas', x.pa.id); }
+  catch (e) { marcarParcela(x, antes.pago, antes.pagoEm); aviso('⚠ ' + erroAmigavel(e), true); }
 }
 
 // muda a parcela na tela (e no ERP, para o Painel e os outros números) e redesenha
@@ -301,6 +282,8 @@ async function gravarBaixas(lista, bx) {
 }
 // botões dentro das linhas (Baixa e Emitir) — um ouvinte para a tela e as janelas
 document.addEventListener('click', (ev) => {
+  const dm = ev.target.closest('[data-pc-desm]');
+  if (dm) { ev.stopPropagation(); const jp = E.pc && E.pc.janelaPa, x = jp && jp.todas.find((y) => y.id === dm.dataset.pcDesm); if (x) desmarcarParcela(x); return; }
   const b = ev.target.closest('[data-pc-baixa]'), em = ev.target.closest('[data-pc-emitir]');
   if (!b && !em) return;
   ev.stopPropagation(); ev.preventDefault();

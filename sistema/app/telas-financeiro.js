@@ -583,7 +583,7 @@ function formLancamento(l, depois) {
   const nomeEmp = empresa === 'contabilidade' ? 'Contabilidade' : 'Jurídico';
   const j = abrirJanela({
     kick: novo ? 'Novo lançamento' : (l.redutor ? 'Comissão (redutor)' : tipo === 'receita' ? 'Receita' : 'Despesa') + ' · ' + nomeEmp,
-    titulo: novo ? nomeEmp : (l.descricao || 'Lançamento'), sub: novo ? '' : (l.pago ? 'Pago em ' + dataBR(l.data_pagamento) : l.vencimento ? 'Vence ' + dataBR(l.vencimento) : ''), larga: true,
+    titulo: novo ? nomeEmp : (l.descricao || 'Lançamento'), sub: novo ? '' : (l.pago ? 'Pago em ' + dataBR(l.data_pagamento) : l.vencimento ? 'Vence ' + dataBR(l.vencimento) : ''),   // Backup 87 (D09): estreita, como no ambiente
     corpo:
       (novo ? '<div class="b-campo b-fl-tipo"><span class="b-rot">Tipo</span><div class="b-seg" role="tablist">' + [['receita', 'Receita'], ['despesa', 'Despesa']].map((t) =>
         '<button type="button" class="b-seg-bt" role="tab" data-fl-tipo="' + t[0] + '" aria-selected="' + (tipo === t[0]) + '">' + t[1] + '</button>').join('') + '</div></div>' : '') +
@@ -624,9 +624,11 @@ function formLancamento(l, depois) {
       campo('Observação', '<textarea name="obs" maxlength="2000">' + esc(l.obs || '') + '</textarea>', 'inteiro') +
       '</form>',
     rodape:
-      (novo ? '<span></span>' : '<button class="btn btn-g" id="btn-excluir-lanc" type="button" style="margin-right:auto">' + iconeB('lixo') + ' Excluir</button>') +
-      '<div class="acoes">' + (!novo ? '<button class="btn btn-o" type="button" id="btn-detalhe-lanc" title="Contrato, ficha do cliente, recibo e cobrança">Detalhe</button>' : '') +
-      (!novo && !l.pago && !l.perda && tipo === 'receita' ? '<button class="btn btn-o" type="button" id="btn-perda-lanc">Virou prejuízo</button>' : '') +
+      // Backup 87 (D09): Excluir e Detalhe juntos à esquerda (discretos), para o rodapé caber numa linha na janela estreita
+      (novo ? '<span></span>' : '<span class="acoes" style="margin-right:auto"><button class="btn btn-g" id="btn-excluir-lanc" type="button">' + iconeB('lixo') + ' Excluir</button>' +
+        '<button class="btn btn-g" type="button" id="btn-detalhe-lanc" title="Contrato, ficha do cliente, recibo e cobrança">Detalhe</button>' +
+        (!l.pago && !l.perda && tipo === 'receita' ? '<button class="btn btn-g" type="button" id="btn-perda-lanc">Virou prejuízo</button>' : '') + '</span>') +
+      '<div class="acoes">' +
       '<button class="btn btn-o" type="button" data-cancelar>Cancelar</button>' +
       '<button class="btn btn-p" id="btn-salvar-lanc" type="button">' + iconeB('check') + ' Salvar</button></div>'
   });

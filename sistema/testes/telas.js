@@ -222,7 +222,7 @@ const r = []; const ok = (n, c) => r.push([n, !!c]);
     await menu(p, 'clientes');
     ok('lista de clientes sem ▸ e com a coluna Área', (await p.locator('.cli-seta').count()) === 0 && /Área/.test(await p.textContent('.cli-tabela thead')));
     await p.click('[data-cli]'); await esperar(p, 1000);
-    ok('clicar no cliente abre a ficha 360°', (await p.locator('.janela.ficha #fc-abas button').count()) === 10);   // Backup 85: 10 abas (as 8 do ambiente + Contatos e Sócios)   // Backup 49: 7 abas   // Backup 41: Evolução e PGFN saíram
+    ok('clicar no cliente abre a ficha 360°', (await p.locator('.janela.ficha #fc-abas button').count()) === 8);   // Backup 87: as 8 abas do ambiente (Contatos e Sócios foram para o Resumo)   // Backup 85: 10 abas   // Backup 49: 7 abas   // Backup 41: Evolução e PGFN saíram
     await p.click('#fc-editar'); await esperar(p, 800);
     ok('equipe não tem botão excluir cliente', (await p.locator('#btn-excluir-cli').count()) === 0);
     await p.context().close();

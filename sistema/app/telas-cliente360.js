@@ -7,13 +7,14 @@
 // Backup 85 (CL1/CL2): abas na ordem do ambiente — Resumo · Parcelamentos · Acordos · Processos · Financeiro · Documentos · E-mails · Linha do tempo;
 // "Contatos e endereços" e "Sócios" (só do ERP) continuam no fim (lista do Backup 85 para decidir)
 const ABAS_FICHA = [['resumo', 'Resumo'], ['parcelamentos', 'Parcelamentos'], ['acordos', 'Acordos'], ['processos', 'Processos'],
-  ['financeiro', 'Financeiro'], ['documentos', 'Documentos'], ['emails', 'E-mails'], ['historico', 'Linha do tempo'], ['contatos', 'Contatos e endereços'], ['socios', 'Sócios']];
+  ['financeiro', 'Financeiro'], ['documentos', 'Documentos'], ['emails', 'E-mails'], ['historico', 'Linha do tempo']];
+// Backup 87 (D12): 8 abas, como no ambiente; Contatos, Endereços, Contas e Sócios continuam (a pedido) no fim do Resumo
 // Backup 53: Resumo na ordem Cadastro · Situação · Tarefas · Dados da Receita · Histórico de alterações (débitos ao lado das tarefas; sem certidões)
-const PARTES_FICHA = { resumo: ['resumo', 'receita'], contatos: ['contatos', 'enderecos', 'contas'], socios: ['socios'], processos: ['processos'],
+const PARTES_FICHA = { resumo: ['resumo', 'contatos', 'enderecos', 'contas', 'socios', 'receita'], processos: ['processos'],
   financeiro: ['contratos', 'financeiro'], documentos: ['documentos', 'docsMes'], historico: ['linha', 'tarefas'],
   parcelamentos: ['parcelamentos'], acordos: ['acordos'], emails: ['emails'] };
 // nome antigo de aba (atalhos de outras telas) → aba nova
-const ABA_NOVA = { enderecos: 'contatos', contas: 'contatos', contratos: 'financeiro', tarefas: 'historico', linha: 'historico', fiscal: 'resumo', receita: 'resumo' };
+const ABA_NOVA = { enderecos: 'resumo', contas: 'resumo', contatos: 'resumo', socios: 'resumo', contratos: 'financeiro', tarefas: 'historico', linha: 'historico', fiscal: 'resumo', receita: 'resumo' };
 
 // Sub-cadastros editáveis da ficha (mesmo formulário para todos)
 const FINALIDADES = SETORES_CONTATO;
@@ -106,11 +107,12 @@ function formSubitem(cfg, item, clienteId, depois) {
 async function pintarSublista(alvo, chave, cl) {
   const cfg = SUBLISTAS[chave];
   const itens = await q(sb.from(cfg.tabela).select('*').eq('cliente_id', cl.id).order('criado_em'));
-  alvo.innerHTML = '<div class="titulo-pag" style="margin-bottom:8px"><div><b>' + cfg.titulo + '</b> <span class="sub">' + itens.length + '</span></div>' +
-    '<div class="acoes"><button class="btn btn-o btn-mini" data-novo-sub>+ Incluir ' + cfg.um + '</button></div></div>' +
-    (itens.length ? '<div class="lista-ficha">' + itens.map((x) => '<div class="item-ficha" data-sub="' + x.id + '"><div>' + cfg.linha(x) + '</div>' +
-      '<button class="btn btn-o btn-mini" data-editar-sub="' + x.id + '">Editar</button></div>').join('') + '</div>'
-      : '<div class="vazio">' + cfg.vazio + '</div>');
+  // Backup 87 (D12): bloco no desenho do ambiente — título com linha, itens em .b-li e "+ Incluir" discreto
+  alvo.innerHTML = '<div class="b-bloco fc-sub"><h3>' + cfg.titulo + (itens.length ? ' · ' + itens.length : '') + '</h3>' +
+    '<div class="b-lista">' + itens.map((x) => '<div class="b-li" data-sub="' + x.id + '"><span class="b-li-tx fc-sub-tx">' + cfg.linha(x) + '</span>' +
+      '<button class="b-link" type="button" data-editar-sub="' + x.id + '" title="Editar">' + iconeB('lapis') + '</button></div>').join('') +
+    (itens.length ? '' : '<p class="fc-sub-vazio">' + cfg.vazio + '</p>') + '</div>' +
+    '<div><button class="b-link" type="button" data-novo-sub>' + iconeB('mais') + ' Incluir ' + cfg.um + '</button></div></div>';
   const repinta = () => pintarSublista(alvo, chave, cl);
   alvo.querySelector('[data-novo-sub]').onclick = () => formSubitem(cfg, {}, cl.id, repinta);
   alvo.querySelectorAll('[data-editar-sub]').forEach((b) => b.onclick = () => formSubitem(cfg, itens.find((x) => x.id === b.dataset.editarSub), cl.id, repinta));
@@ -128,30 +130,23 @@ async function abrirFicha(id, aba) {
   // Backup 85 (CL4/JN2): como no ambiente — "Recebe e-mails" no alto à direita, as abas presas ao cabeçalho e os botões no rodapé
   // ("Ver como o cliente vê", "Editar cadastro", Fechar); os atalhos do ERP (+ Lançar, WhatsApp, E-mail, etiquetas) continuam
   const j = abrirJanela({ titulo: cl.nome, larga: true, kick: [cl.grupos && cl.grupos.nome, tipoCli].filter(Boolean).join(' · '),
-    sub: esc([mascaraDoc(cl.cpf_cnpj), cl.socio_admin ? 'sócio: ' + cl.socio_admin : '', cl.tipo_societario, cl.regime_tributario].filter(Boolean).join(' · ')),
+    sub: esc([mascaraDoc(cl.cpf_cnpj), cl.socio_admin ? 'sócio: ' + cl.socio_admin : ''].filter(Boolean).join(' · ')),
     dir: pillRecebeEmail(cl, true),
     abas: '<div class="b-seg ficha-abas" id="fc-abas" role="tablist">' + ABAS_FICHA.map(([k, r]) => '<button type="button" class="b-seg-bt" role="tab" data-aba="' + k + '">' + r + '</button>').join('') + '</div>',
-    rodape: (cl.grupo_id ? '<button class="btn btn-o" type="button" id="fc-portal" style="margin-right:auto" title="Abre o portal do cliente deste grupo, do jeito que ele vê">' + iconeB('olho') + ' Ver como o cliente vê</button>' : '<span></span>') +
-      '<div class="acoes"><button class="btn btn-o" type="button" id="fc-editar">' + iconeB('lapis') + ' Editar cadastro</button><button class="btn btn-o" type="button" data-fechar>Fechar</button></div>',
-    corpo:
-      '<div class="ficha-topo"><div class="ficha-id">' +
-      '<div class="ficha-sub">' + [cl.grupos && cl.grupos.nome ? esc(cl.grupos.nome) : '', esc(mascaraDoc(cl.cpf_cnpj) || ''), esc(cl.tipo_societario || ''), esc(cl.regime_tributario || '')].filter(Boolean).join(' · ') + '</div>' +
-      '<div class="ficha-selos"><span class="pill ' + (cl.tipo === 'Inativo' ? 'neutro' : cl.tipo === 'Demanda' ? 'hoje' : 'aberto') + '">' + esc(cl.tipo === 'Demanda' ? 'Serviço pontual' : cl.tipo) + '</span> ' +
-      pillPessoa(cl.responsavel) + ' ' + (cl.situacao_cadastral ? pillSitCad(cl.situacao_cadastral) + ' ' : '') + (cl.capag ? 'CAPAG ' + pillCapag(cl.capag) + ' ' : '') +
-      etq.map((e) => e.etiquetas ? '<span class="pill" style="background:' + esc(e.etiquetas.cor) + '22;color:' + esc(e.etiquetas.cor) + '">' + esc(e.etiquetas.nome) + '</span>' : '').join(' ') +
-      ' <button class="btn-etq" id="fc-etq" title="Etiquetas">+ etiqueta</button></div></div>' +
-      // Backup 53: um botão só, "+ Lançar ▾", que abre os atalhos (tarefa, lançamento, documento, interação, reunião, indicação, lead)
-      '<div class="ficha-atalhos"><span class="tf-cfg-wrap fc-lancar-wrap"><button class="btn btn-o btn-mini" id="fc-lancar" aria-expanded="false" aria-haspopup="true">+ Lançar ▾</button>' +
+    // Backup 87 (D12): corpo igual ao ambiente (sem a faixa de selos); "+ Lançar ▾" (com WhatsApp, E-mail e Etiquetas) foi para o rodapé
+    rodape: '<div class="acoes fc-pe-esq">' + (cl.grupo_id ? '<button class="btn btn-o" type="button" id="fc-portal" title="Abre o portal do cliente deste grupo, do jeito que ele vê">' + iconeB('olho') + ' Ver como o cliente vê</button>' : '') +
+      '<span class="tf-cfg-wrap fc-lancar-wrap"><button class="btn btn-o" type="button" id="fc-lancar" aria-expanded="false" aria-haspopup="true">' + iconeB('mais') + ' Lançar</button>' +
       '<span class="tf-cfg-menu fc-lancar-menu" id="fc-lancar-menu" hidden>' +
       '<button class="btn btn-o btn-mini" id="fc-tarefa">Tarefa</button><button class="btn btn-o btn-mini" id="fc-lanc">Lançamento financeiro</button>' +
       '<button class="btn btn-o btn-mini" id="fc-doc">Documento</button><button class="btn btn-o btn-mini" id="fc-int">Interação (ligação, WhatsApp…)</button>' +
       (pode('crm', 'editar') ? '<button class="btn btn-o btn-mini" id="fc-reuniao" title="Agenda reunião com o cliente: tarefa para os participantes e convite opcional">Reunião</button>' +
         '<button class="btn btn-o btn-mini" id="fc-indic" title="Oportunidade nova no CRM com origem = indicação deste cliente">Indicação</button>' +
-        '<button class="btn btn-o btn-mini" id="fc-lead" title="Nova oportunidade no CRM para este cliente (novo serviço)">Novo serviço (CRM)</button>' : '') + '</span></span>' +
+        '<button class="btn btn-o btn-mini" id="fc-lead" title="Nova oportunidade no CRM para este cliente (novo serviço)">Novo serviço (CRM)</button>' : '') +
+      '<button class="btn btn-o btn-mini" id="fc-etq" title="Etiquetas">Etiquetas' + (etq.length ? ' (' + etq.length + ')' : '') + '</button>' +
       (tel ? '<a class="btn btn-o btn-mini" target="_blank" rel="noopener" href="https://wa.me/' + (soDigitos(tel).length <= 11 ? '55' : '') + soDigitos(tel) + '">WhatsApp</a>' : '') +
-      (mail ? '<a class="btn btn-o btn-mini" href="mailto:' + esc(mail) + '">E-mail</a>' : '') +
-      // Backup 81 (M10): abre o portal do cliente como ele vê (prévia do grupo)
-      '</div></div>' +
+      (mail ? '<a class="btn btn-o btn-mini" href="mailto:' + esc(mail) + '">E-mail</a>' : '') + '</span></span></div>' +
+      '<div class="acoes"><button class="btn btn-o" type="button" id="fc-editar">' + iconeB('lapis') + ' Editar cadastro</button><button class="btn btn-o" type="button" data-fechar>Fechar</button></div>',
+    corpo:
       '<div id="fc-corpo" class="ficha-corpo"></div>' });
   j.querySelector('.janela').classList.add('ficha');
   const corpo = j.querySelector('#fc-corpo');
@@ -241,54 +236,54 @@ async function lancamentosDoCliente(cl) {
 function linhaDado(rot, v) { return v === '' || v == null ? '' : '<div class="dado"><span>' + rot + '</span><b>' + v + '</b></div>'; }
 
 const ABA_FICHA = {
+  // Backup 87 (D12): Resumo do ambiente — ficha de 8 campos + 4 números (Passivo · Parcelamentos · Parcelas em atraso · Honorários em aberto);
+  // abaixo, Contatos, Endereços, Contas, Sócios e o Cartão CNPJ (funções do ERP mantidas a pedido)
   async resumo(alvo, cl) {
     const h = hojeISO();
-    const [lanc, tarefas, ints, procs, cert] = await Promise.all([
+    E.pc = E.pc || { grupo: '', chip: 'todos' };
+    const [lanc, cert, conf, PA] = await Promise.all([
       lancamentosDoCliente(cl),
-      q(sb.from('tarefas').select('*').or('cliente_id.eq.' + cl.id + (cl.grupo_id ? ',grupo_id.eq.' + cl.grupo_id : '')).not('status', 'in', '(concluida,cancelada)').order('prazo', { nullsFirst: false }).limit(200)),
-      q(sb.from('interacoes').select('*').eq('cliente_id', cl.id).order('quando', { ascending: false }).limit(3)),
-      cl.grupo_id ? q(sb.from('processos').select('id').eq('grupo_id', cl.grupo_id)) : [],
-      q(sb.from('cliente_certificado').select('validade').eq('cliente_id', cl.id).maybeSingle()).catch(() => null)
+      q(sb.from('cliente_certificado').select('validade').eq('cliente_id', cl.id).maybeSingle()).catch(() => null),
+      q(sb.from('rotina_conferencias').select('quando').eq('area', 'passivo').eq('registro_id', cl.id).order('quando', { ascending: false }).limit(1)).catch(() => []),
+      (E.pc.PA ? Promise.resolve(E.pc.PA) : dadosParcelamentos().then((x) => (E.pc.PA = x))).catch(() => [])
     ]);
-    const rec = lanc.filter((l) => l.tipo === 'receita' && !l.perda);
-    const aberto = rec.filter((l) => !l.pago), atraso = aberto.filter((l) => l.vencimento < h);
-    const ano = rec.filter((l) => l.pago && (l.data_pagamento || l.vencimento) >= somarDias(h, -365));
-    const tAtr = tarefas.filter((t) => t.prazo && t.prazo < h);
-    const debitos = soma([cl.rfb, cl.pgfn, cl.sefaz_mg, cl.age_mg].map((x) => Number(x) || 0));
-    // Backup 74: os 4 números numa faixa só, como no ambiente de teste
-    alvo.innerHTML = numsFaixa([['A receber', brl(soma(aberto, vl)), atraso.length ? brl(soma(atraso, vl)) + ' em atraso' : aberto.length + ' lançamento(s) em aberto', atraso.length ? 'b-verm' : ''],
-      ['Recebido em 12 meses', brl(soma(ano, vl)), ano.length + ' pagamento(s)', 'b-verde'], ['Tarefas abertas', String(tarefas.length), tAtr.length ? tAtr.length + ' atrasada(s)' : 'nenhuma atrasada', tAtr.length ? 'b-verm' : ''],
-      ['Débitos fiscais', brl(debitos), procs.length + ' processo(s) do grupo']]) +
-      '<div class="duas-col"><div class="card"><div class="card-hd">Cadastro</div><div class="card-bd dados">' +
-      linhaDado('Nome', esc(cl.nome)) + linhaDado('CPF/CNPJ', esc(mascaraDoc(cl.cpf_cnpj))) + linhaDado('Sócio-administrador', esc(cl.socio_admin)) +
-      linhaDado('E-mail', cl.email ? '<a href="mailto:' + esc(cl.email) + '">' + esc(cl.email) + '</a>' : '') + linhaDado('Telefone', esc(cl.telefone)) +
-      linhaDado('Endereço', esc([cl.endereco, cl.cidade && cl.estado ? cl.cidade + '/' + cl.estado : cl.cidade].filter(Boolean).join(' · '))) +
-      linhaDado('Origem', esc(cl.origem)) + linhaDado('Observação', esc(cl.obs)) + '</div></div>' +
-      '<div class="card"><div class="card-hd">Situação</div><div class="card-bd dados">' +
-      linhaDado('Procuração', pillSimNao(cl.procuracao)) + linhaDado('Certificado digital', pillSimNao(cl.certificado) + (cert && cert.validade ? ' <span class="sub">válido até ' + dataBR(cert.validade) + '</span>' : '')) +
-      linhaDado('CAPAG', pillCapag(cl.capag)) + linhaDado('Situação cadastral', pillSitCad(cl.situacao_cadastral)) + linhaDado('Cadastro regular', pillSimNao(cl.cadastro_regular)) +
-      linhaDado('Em operação', pillSimNao(cl.em_operacao)) + linhaDado('Regime tributário', esc(cl.regime_tributario)) + linhaDado('Tipo societário', esc(cl.tipo_societario)) +
-      linhaDado('CEAT/TRT3', cl.ceat_trt3 != null ? String(cl.ceat_trt3) : '') + '</div></div></div>' +
-      '<div class="duas-col"><div class="card"><div class="card-hd">Próximas tarefas</div><div class="card-bd">' +
-      (tarefas.length ? tarefas.slice(0, 6).map((t) => '<div class="item-ficha"><div><b>' + esc(t.titulo) + '</b><div class="sub">' + (t.prazo ? 'até ' + dataBR(t.prazo) : 'sem prazo') + ' · ' + esc(t.responsavel || '—') + '</div></div>' +
-        (t.prazo && t.prazo < h ? '<span class="pill vencido">atrasada</span>' : '') + '</div>').join('') : '<div class="sub">Nenhuma tarefa aberta.</div>') +
-      '</div><div class="card-hd" style="border-top:1px solid var(--border)">Últimas interações</div><div class="card-bd">' +
-      (ints.length ? ints.map((i) => '<div class="item-ficha"><div><b>' + esc(rotuloInteracao(i.tipo)) + '</b> <span class="sub">' + quandoBR(i.quando) + '</span><div>' + esc(i.resumo) + '</div></div></div>').join('') : '<div class="sub">Nenhuma interação registrada.</div>') +
-      '</div></div>' + cardDebitos(cl) + '</div>';
+    const doc = soDigitos(cl.cpf_cnpj || ''), nome = normalizar(cl.nome || '');
+    const meus = PA.filter((pa) => (doc && soDigitos(pa.cnpj || '') === doc) || (nome && normalizar(pa.empresa || '') === nome));
+    const atr = [].concat(...meus.map((pa) => pa.parcelas || [])).filter((x) => !x.pago && x.venc && x.venc <= h);
+    const hon = lanc.filter((l) => l.tipo === 'receita' && !l.pago && !l.perda);
+    const honAtr = hon.some((l) => l.vencimento && l.vencimento <= h);
+    const passivo = soma([cl.rfb, cl.rfb_negociada, cl.pgfn, cl.pgfn_negociada, cl.sefaz_mg, cl.age_mg, cl.age_mg_negociada].map((x) => Number(x) || 0));
+    const val = cert && cert.validade, perto = val && val <= somarDias(h, 30);
+    const area = cl.area === 'juridico' ? 'Jurídico' : cl.area === 'contabil' ? 'Contábil' : 'Jurídico e contábil';
+    const campo = (r, v, cls) => '<div><span>' + r + '</span><b' + (cls ? ' class="' + cls + '"' : '') + '>' + v + '</b></div>';
+    alvo.innerHTML = '<div class="b-ficha b-ficha-4 fc-ficha">' +
+      campo('E-mail', cl.email ? esc(cl.email) : '—') + campo('Telefone', esc(cl.telefone || '—')) + campo('Responsável', esc(cl.responsavel || '—')) + campo('Área', area) +
+      campo('CAPAG', esc(cl.capag || '—')) + campo('Procuração', cl.procuracao ? 'Sim' : cl.procuracao === false ? 'Não' : '—') +
+      campo('Certificado digital', val ? 'vale até ' + dataBR(val) : cl.certificado ? 'Sim' : 'não tem', !val && !cl.certificado ? 'b-verm' : perto ? 'b-amb' : '') +
+      campo('Passivo conferido', conf && conf[0] ? dataBR(String(conf[0].quando).slice(0, 10)) : 'nunca') + '</div>' +
+      numsFaixa([['Passivo', brlCurto(passivo)], ['Parcelamentos', String(meus.length)], ['Parcelas em atraso', String(atr.length), '', atr.length ? 'b-verm' : ''],
+        ['Honorários em aberto', brl(soma(hon, vl)), '', honAtr ? 'b-verm' : '']]);
   },
   contatos: (alvo, cl) => pintarSublista(alvo, 'contatos', cl),
   enderecos: (alvo, cl) => pintarSublista(alvo, 'enderecos', cl),
   contas: (alvo, cl) => pintarSublista(alvo, 'contas', cl),
   socios: (alvo, cl) => pintarSublista(alvo, 'socios', cl),
+  // Backup 87 (D03): lista do ambiente — natureza · tribunal, nº, última movimentação e situação; o clique abre a janela do processo
   async processos(alvo, cl) {
-    if (!cl.grupo_id) { alvo.innerHTML = '<div class="vazio">Este cliente não tem grupo; os processos são ligados por grupo.</div>'; return; }
+    if (!cl.grupo_id) { alvo.innerHTML = '<p class="fc-sub-vazio">Este cliente não tem grupo; os processos são ligados por grupo.</p>'; return; }
     const ps = await q(sb.from('processos').select('*').eq('grupo_id', cl.grupo_id).order('data_distribuicao', { ascending: false, nullsFirst: false }));
-    alvo.innerHTML = '<div class="sub" style="margin-bottom:8px">Processos do grupo ' + esc(nomeGrupo(cl.grupo_id)) + ' · para editar, use o menu Jurídico → Processos.</div>' +
-      (ps.length ? '<div class="tabela-wrap"><table class="ordenavel"><thead><tr><th>Número</th><th>Natureza</th><th>Partes</th><th data-tipo="num">Valor</th><th>Status</th><th>Advogado</th></tr></thead><tbody>' +
-        ps.map((p) => '<tr><td class="mono">' + esc(p.numero) + '<div class="sub">' + esc(p.competencia) + '</div></td><td>' + esc(p.natureza || '—') + '</td>' +
-          '<td>' + esc(p.autor || '') + (p.reu ? ' × ' + esc(p.reu) : '') + '</td><td class="mono" data-ord="' + (Number(p.valor) || 0) + '">' + (p.valor != null ? brl(p.valor) : '—') + '</td>' +
-          '<td>' + esc(p.status || '—') + '</td><td>' + pillPessoa(p.advogado) + '</td></tr>').join('') + '</tbody></table></div>'
-        : '<div class="vazio">Nenhum processo deste grupo.</div>');
+    if (!ps.length) { alvo.innerHTML = '<p class="fc-sub-vazio">Nenhum processo.</p>'; return; }
+    const D = (typeof dbE === 'function' ? dbE() : null) || {}, doERP = {};
+    (Array.isArray(D.processos) ? D.processos : []).forEach((x) => { if (x._id) doERP[x._id] = x; });
+    const forma = (p) => doERP[p.id] || { _id: p.id, numero: p.numero, autor: p.autor, reu: p.reu, natureza: p.natureza, competencia: p.competencia, advogado: p.advogado, valor: p.valor,
+      grupo: nomeGrupo(cl.grupo_id), obs: p.obs, arquivamento: /arquiv/i.test(p.status || '') ? 'Arquivado' : /extint|baixad/i.test(p.status || '') ? p.status : '',
+      ultimaMov: p.ultima_movimentacao, ultimaMovEm: p.ultima_movimentacao_em ? dataBR(String(p.ultima_movimentacao_em).slice(0, 10)) : '' };
+    const L = ps.map(forma);
+    alvo.innerHTML = '<div class="b-lista">' + L.map((p, i) => { const sit = p.arquivamento || 'Ativo', trib = tribunalProcesso(p) || p.competencia || '';
+      return '<button type="button" class="b-li b-li-bt" data-fc-proc="' + i + '"><span class="b-li-tx"><b>' + esc([p.natureza || 'Processo', trib].filter(Boolean).join(' · ')) + '</b>' +
+        '<small class="b-num">' + esc(p.numero || '—') + '</small>' + (p.ultimaMovEm || p.ultimaMov ? '<small>Última movimentação: ' + esc([p.ultimaMovEm, p.ultimaMov].filter(Boolean).join(' — ')) + '</small>' : '') + '</span>' +
+        '<span class="b-pill ' + (sit === 'Ativo' ? 'b-g' : 'b-n') + '">' + esc(sit) + '</span></button>'; }).join('') + '</div>';
+    alvo.onclick = (ev) => { const b = ev.target.closest('[data-fc-proc]'); if (b && window.ERP_ABRIR_PROCESSO) window.ERP_ABRIR_PROCESSO(L[+b.dataset.fcProc]); };
   },
   async contratos(alvo, cl) {
     const cs = await q(sb.from('contratos').select('*').eq('cliente_id', cl.id).order('data_contrato', { ascending: false }));
@@ -456,6 +451,7 @@ const ABA_FICHA = {
         (h.aguardando ? '<div class="sub">⏳ ' + esc(h.aviso) + '</div>' : h.erro ? '<div class="sub" style="color:var(--red-d)">Erro na consulta: ' + esc(h.erro) + '</div>' :
           h.mudancas.map((m) => '<div class="sub">' + esc(m.campo) + ': <s>' + esc(m.antes || '—') + '</s> → <b>' + esc(m.depois) + '</b></div>').join('')) + '</div></div>').join('') + '</div>'
         : vazio('Nenhuma alteração desde a primeira consulta.')) + '</div></div></div>';
+    alvo.innerHTML = '<details class="b-bloco fc-receita"><summary>Cartão CNPJ (Receita Federal)</summary>' + alvo.innerHTML + '</details>';
     const bt = alvo.querySelector('#fc-cnpj-agora');
     if (bt) bt.onclick = () => comBotao(bt, async () => {
       const r = await chamarFuncao('erp-cnpj', { acao: 'rodar', cliente_id: cl.id });

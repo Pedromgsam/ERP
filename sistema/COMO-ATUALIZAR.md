@@ -721,6 +721,22 @@ O que mudou:
 
 Ainda falta (próxima rodada): apagar o ERP antigo (ERP.html, remendos e blocos antigos do design.css).
 
+## Backup 87 — Todas as janelas no desenho do ambiente de teste + funções de volta
+1. Merge da pull request.
+2. **Sem SQL desta vez** (o banco não mudou).
+3. **Ctrl+Shift+R** no ERP.
+
+O que mudou:
+- **Todas as janelas do ERP** (detalhes, formulários, confirmações) agora abrem **no meio da tela**, no tamanho do ambiente (larga = 1040 px, comum = 560 px), sem o desfoque do fundo, com cabeçalho/rodapé e campos do mesmo tamanho do ambiente; o título não tem mais emoji no começo.
+- **Voltaram:** "Editar execução" (com Excluir para o administrador) e "Editar dados" na janela do parcelamento.
+- **D03 / D12 — Ficha do cliente:** 8 abas como no ambiente; o Resumo mostra E-mail, Telefone, Responsável, Área, CAPAG, Procuração, Certificado digital, Passivo conferido e os 4 números (Passivo, Parcelamentos, Parcelas em atraso, Honorários em aberto). **Contatos, Endereços, Contas bancárias e Sócios continuam** (no fim do Resumo, com "Incluir" e o lápis para editar); o Cartão CNPJ fica recolhido no fim; "+ Lançar" (tarefa, lançamento, documento, interação, reunião, indicação, CRM, etiquetas, WhatsApp, e-mail) foi para o rodapé. A aba Processos virou a lista do ambiente e **clicar abre a janela do processo**.
+- **D05 — Parcelamento:** a parcela, dentro da janela, não abre mais janelinha (Emitir e Baixa ficam na linha; parcela paga tem ↺ para desmarcar); colunas Parcela · Valor · Vencimento · Prazo, com "Filtros"; números numa faixa só.
+- **D09 — Lançamento:** o formulário completo do ERP, na janela estreita do ambiente.
+- **D11 — Contrato:** janela do ambiente (Valor, Início, Reajuste, Êxito + "Lançamentos deste contrato no Financeiro" com total e média; clicar no lançamento abre o detalhe); **Editar** no rodapé; o resto (mais dados, números, avulso, ligar lançamentos, êxito, documentos, aditivos, Rescindir, Excluir) está no botão **"Detalhamento completo"**.
+- **Execução:** janela estreita como no ambiente.
+- **Tarefas → Calendário:** no **Mês**, faixa discreta à esquerda com as atrasadas (data + título; clique abre o detalhe); na **Semana**, a mesma faixa aparece.
+- **Barra de cima:** saiu o relógio "⏱60′" (a saída automática depois de 60 minutos sem uso continua).
+
 ## Backup 86 — Tirar os itens escolhidos, janela do processo igual ao ambiente e calendário de Tarefas maior
 1. Merge da pull request.
 2. **Sem SQL desta vez** (o banco não mudou).
