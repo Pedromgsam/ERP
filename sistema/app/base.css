@@ -1199,3 +1199,11 @@ html body.gx-barra-topo .gs .b-seg.b-prazos:not(#_){display:inline-flex;flex-wra
 @media (max-width:600px){.gs .b-tf-f{flex-wrap:wrap}}
 .gs .janela-bd .campo > .b-seg.b-seg-f{align-self:flex-start}
 .gs .janela-bd .campo > small.tf-tipo-dica{font-weight:400;font-size:12px;margin:0}
+/* Backup 88: no celular a linha de baixo da tarefa (progresso "0/3" · grupo · cliente…) quebra em vez de passar da tela */
+@media (max-width:600px){.gs .tf-linha2{white-space:normal;max-width:100%;overflow-wrap:anywhere}}
+/* Backup 88: Financeiro → filtros (Quem · Período · Tipo · Grupo) — rótulo + caixa, lado a lado, quebrando linha quando falta espaço */
+html body.gx-barra-topo .gs #fa-filtros.b-fin-filtros-88:not(#_){display:flex!important;flex-wrap:wrap;align-items:center;gap:10px 22px}
+.gs .b-fin-f{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0;max-width:100%}
+.gs .b-fin-f > .b-fin-rot{margin:0}
+.gs .b-fin-f .b-fx{display:inline-flex;align-items:center;gap:6px}
+.gs .b-fin-f select.b-fin-outro{height:32px;border:1px solid var(--border);border-radius:var(--r-ctl);background-color:var(--surface);color:var(--text);font:500 13px var(--font-ui);padding:0 28px 0 10px}
