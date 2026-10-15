@@ -1975,7 +1975,6 @@ insert into perfil_grupos(perfil_id,grupo_id) select p.id,g.id from perfis p, gr
       const pagTxt = await p.$$eval('#ini-resumo-fin [data-ini-ir=fin-pagar]', (l) => l.map((b) => b.textContent + ' ' + b.querySelector('[data-tit]').dataset.tit).join(' | '));
       ok('B55 Início: cartão "A pagar · Contabilidade" só com as despesas da contabilidade', /A pagar · Contabilidade/.test(pagTxt) && /111/.test(pagTxt) && !/999|1\.110/.test(pagTxt), pagTxt);
       // (B84: a linha de filtros de Tarefas é única — Mostrar à esquerda, De quem e Urgência à direita; o teste de posição do 2×2 saiu)
-      await p.click('#tf-vista [data-v=lista]'); await p.waitForTimeout(300);
       await nav(p, 'resumo'); await p.waitForSelector('#pe-nova tbody tr[data-b-k]'); await p.evaluate(() => { FILTROS.grupo = ''; FILTROS.empresa = ''; renderExecRanking(); }); await p.waitForTimeout(800);
       // Backup 68: a tabela antiga (Status/Atraso/Baixa) virou a tela nova — Vencimento colorido, Baixa, sem caneta; clique → detalhe com Editar e Baixa
       await nav(p, 'parcelamentos'); await p.waitForSelector('#pc-tabela [data-b-aba=apagar]'); await p.waitForSelector('#pc-tabela tbody tr[data-b-k]', { timeout: 10000 }).catch(() => {});
